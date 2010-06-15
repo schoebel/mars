@@ -12,12 +12,12 @@
 #include "mars.h"
 
 #include "mars_if_device.h"
-#include "mars_device_sync.h"
+#include "mars_device_sio.h"
 
-GENERIC_MAKE_CONNECT(if_device, device_sync);
+GENERIC_MAKE_CONNECT(if_device, device_sio);
 
 static struct if_device_brick *if_brick = NULL;
-static struct device_sync_brick *device_brick = NULL;
+static struct device_sio_brick *device_brick = NULL;
 
 void make_test_instance(void)
 {
@@ -32,7 +32,7 @@ void make_test_instance(void)
 
 	MARS_DBG("starting....\n");
 
-	status = device_sync_brick_init_full(mem, size, &device_sync_brick_type, NULL, NULL, names);
+	status = device_sio_brick_init_full(mem, size, &device_sio_brick_type, NULL, NULL, names);
 	MARS_DBG("done (status=%d)\n", status);
 	if (!status)
 		device_brick = mem;
@@ -48,7 +48,7 @@ void make_test_instance(void)
 	if (!status)
 		if_brick = mem;
 
-	status = if_device_device_sync_connect(if_brick->inputs[0], device_brick->outputs[0]);
+	status = if_device_device_sio_connect(if_brick->inputs[0], device_brick->outputs[0]);
 	MARS_DBG("connect (status=%d)\n", status);
 
 }
@@ -56,13 +56,13 @@ void make_test_instance(void)
 void destroy_test_instance(void)
 {
 	if (if_brick) {
-		if_device_device_sync_disconnect(if_brick->inputs[0]);
+		if_device_device_sio_disconnect(if_brick->inputs[0]);
 		if_device_brick_exit_full(if_brick);
 		kfree(if_brick);
 		if_brick = NULL;
 	}
 	if (device_brick) {
-		device_sync_brick_exit_full(device_brick);
+		device_sio_brick_exit_full(device_brick);
 		kfree(device_brick);
 		device_brick = NULL;
 	}

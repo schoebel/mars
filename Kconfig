@@ -21,7 +21,7 @@ config MARS_IF_DEVICE
 	---help---
 	Experimental storage System.
 
-config MARS_DEVICE_SYNC
+config MARS_DEVICE_SIO
 	tristate "interface to a linux file, synchronous"
 	depends on MARS
 	default m
