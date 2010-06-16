@@ -16,7 +16,8 @@
 #define MARS_ERROR "MARS_ERROR: "
 
 #define MARS_ERR(args...) printk(MARS_ERROR args)
-#define MARS_DBG(args...) printk("MARS_DEBUG: " args)
+//#define MARS_DBG(args...) printk("MARS_DEBUG: " args)
+#define MARS_DBG(args...) /**/
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -24,14 +25,14 @@
 
 #define MAX_DEFAULT_ASPECTS 8
 
-#define GENERIC_OBJECT_LAYOUT(PREFIX)				\
-	int max_size;						\
-	int rest_size;						\
-	int max_aspects;					\
-	int nr_aspects;						\
-	int *aspect_sizes;					\
-	int *aspect_offsets;					\
-	void *alloc_ptr;					\
+#define GENERIC_OBJECT_LAYOUT(PREFIX)					\
+	int max_size;							\
+	int rest_size;							\
+	int max_aspects;						\
+	int nr_aspects;							\
+	int *aspect_sizes;						\
+	int *aspect_offsets;						\
+	void *alloc_ptr;						\
 
 struct generic_object_layout {
 	GENERIC_OBJECT_LAYOUT(generic);

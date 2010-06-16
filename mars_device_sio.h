@@ -9,6 +9,7 @@ struct device_sio_input {
 
 struct device_sio_output {
 	MARS_OUTPUT(device_sio);
+	struct file *filp;
 };
 
 MARS_TYPES(device_sio);

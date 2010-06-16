@@ -47,14 +47,11 @@ static int if_device_make_request(struct request_queue *q, struct bio *bio)
 {
 	struct if_device_input *input = q->queuedata;
 	struct if_device_output *output;
-	struct mars_io *mio;
+	struct mars_io *mio = NULL;
 	int error = -ENOSYS;
 
 	MARS_DBG("make_request(%d)\n", bio->bi_size);
-#if 0
-	bio->bi_size = 0;
-	bio_endio(bio, 0);
-#else
+
 	if (!input || !input->connect)
 		goto err;
 
@@ -74,13 +71,16 @@ static int if_device_make_request(struct request_queue *q, struct bio *bio)
 	error = output->ops->mars_io(output, mio);
 	if (error)
 		goto err_free;
-#endif
+
 	return 0;
 
 err_free:
 	kfree(mio);
 err:
-	bio_endio(bio, error);
+	MARS_ERR("cannot submit request, status=%d\n", error);
+	if (!mio)
+		bio_endio(bio, error);
+	//else mars_endio() callback must have been called, which is responsible for cleanup
 	return 0;
 }
 
@@ -124,6 +124,7 @@ static int if_device_input_construct(struct if_device_input *input)
 	struct request_queue *q;
 	struct gendisk *disk;
 	int minor;
+	int capacity = 2 * 1024 * 1024 * 4; //TODO: make this dynamic
 
 	MARS_DBG("1\n");
 	q = blk_alloc_queue(GFP_KERNEL);
@@ -150,7 +151,7 @@ static int if_device_input_construct(struct if_device_input *input)
 	sprintf(disk->disk_name, "mars%d", minor);
 	MARS_DBG("created device name %s\n", disk->disk_name);
 	disk->private_data = input;
-	set_capacity(disk, 1024); //XXX
+	set_capacity(disk, capacity);
 
 	blk_queue_make_request(q, if_device_make_request);
 	blk_queue_max_segment_size(q, MARS_MAX_SEGMENT_SIZE);
