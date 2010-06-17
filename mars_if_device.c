@@ -33,7 +33,7 @@ static int if_device_endio(struct mars_io *mio)
 		if (!bio->bi_size) {
 			bio_endio(bio, 0);
 		} else {
-			MARS_ERR("NYI: RETRY LOGIC\n");
+			MARS_ERR("NYI: RETRY LOGIC %u\n", bio->bi_size);
 			bio_endio(bio, -EIO);
 		}
 	} // else lower layers have already signalled the orig_bio
@@ -166,7 +166,7 @@ static int if_device_input_construct(struct if_device_input *input)
 	blk_queue_max_segment_size(q, MARS_MAX_SEGMENT_SIZE);
 	blk_queue_bounce_limit(q, BLK_BOUNCE_ANY);
 	q->unplug_fn = if_device_unplug;
-	blk_queue_ordered(q, QUEUE_ORDERED_DRAIN, NULL);//???
+	//blk_queue_ordered(q, QUEUE_ORDERED_DRAIN, NULL);//???
 
 	MARS_DBG("4\n");
 	input->bdev = bdget(MKDEV(disk->major, minor));

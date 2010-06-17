@@ -130,6 +130,14 @@ static int device_sio_mars_io(struct device_sio_output *output, struct mars_io *
 		MARS_INF("got barrier request\n");
 	}
 
+#if 1
+	if (direction == READ) {
+		bio->bi_size = 0;
+		mio->mars_endio(mio);
+		return 0;
+	}
+#endif
+
 	if (!output->filp)
 		goto done;
 #if 1
@@ -182,11 +190,13 @@ static int device_sio_mars_io(struct device_sio_output *output, struct mars_io *
 
 #endif		
 		pos += len;
-		bio->bi_size -= len;
+
 		ret = 0;
 	}
 
 done:
+	if (!ret)
+		bio->bi_size = 0;
 	mio->mars_endio(mio);
 	return ret;
 }
