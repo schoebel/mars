@@ -29,7 +29,7 @@ config MARS_DEVICE_SIO
 	Experimental storage System.
 
 config MARS_TEST
-	tristate "provisionary"
+	tristate "provisionary TEST"
 	depends on MARS
 	default m
 	---help---

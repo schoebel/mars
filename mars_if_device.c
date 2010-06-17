@@ -38,6 +38,7 @@ static int if_device_endio(struct mars_io *mio)
 		}
 	} // else lower layers have already signalled the orig_bio
 
+	kfree(mio);
 	return 0;
 }
 
@@ -65,7 +66,6 @@ static int if_device_make_request(struct request_queue *q, struct bio *bio)
 		goto err;
 
 	mio->orig_bio = bio;
-	mio->mars_bio = NULL;
 	mio->mars_endio = if_device_endio;
 
 	error = output->ops->mars_io(output, mio);
@@ -107,6 +107,15 @@ static const struct block_device_operations if_device_blkdev_ops = {
 
 ////////////////// own brick / input / output operations //////////////////
 
+static void if_device_unplug(struct request_queue *q)
+{
+	//struct if_device_input *input = q->queuedata;
+	MARS_DBG("UNPLUG\n");
+	queue_flag_clear_unlocked(QUEUE_FLAG_PLUGGED, q);
+	//blk_run_address_space(lo->lo_backing_file->f_mapping);
+}
+
+
 //////////////////////// contructors / destructors ////////////////////////
 
 static int if_device_brick_construct(struct if_device_brick *brick)
@@ -132,7 +141,7 @@ static int if_device_input_construct(struct if_device_input *input)
 		MARS_ERR("cannot allocate device request queue\n");
 		return -ENOMEM;
 	}
-	q->queuedata   = input;
+	q->queuedata = input;
 	input->q = q;
 
 	MARS_DBG("2\n");
@@ -156,6 +165,8 @@ static int if_device_input_construct(struct if_device_input *input)
 	blk_queue_make_request(q, if_device_make_request);
 	blk_queue_max_segment_size(q, MARS_MAX_SEGMENT_SIZE);
 	blk_queue_bounce_limit(q, BLK_BOUNCE_ANY);
+	q->unplug_fn = if_device_unplug;
+	blk_queue_ordered(q, QUEUE_ORDERED_DRAIN, NULL);//???
 
 	MARS_DBG("4\n");
 	input->bdev = bdget(MKDEV(disk->major, minor));
@@ -171,7 +182,6 @@ static int if_device_input_construct(struct if_device_input *input)
 	blk_queue_merge_bvec(q, mars_merge_bvec);
 	q->queue_lock = &input->req_lock; /* needed since we use */
 		/* plugging on a queue, that actually has no requests! */
-	q->unplug_fn = mars_unplug_fn;
 #endif
 
 	MARS_DBG("99999\n");

@@ -12,10 +12,12 @@
 #define _NORMAL_CODE(X) X
 #endif
 
-#define MARS_INFO "MARS_INFO: "
 #define MARS_ERROR "MARS_ERROR: "
+#define MARS_INFO  "MARS_INFO: "
+#define MARS_DEBUG "MARS_DEBUG: "
 
 #define MARS_ERR(args...) printk(MARS_ERROR args)
+#define MARS_INF(args...) printk(MARS_INFO args)
 //#define MARS_DBG(args...) printk("MARS_DEBUG: " args)
 #define MARS_DBG(args...) /**/
 
@@ -454,11 +456,11 @@ extern inline int INPUT_PREFIX##_##OUTPUT_PREFIX####_disconnect(        \
 #define MARS_IO(PREFIX)					\
 	GENERIC_OBJECT(PREFIX);				\
 	struct bio *orig_bio;				\
-	struct bio *mars_bio;				\
 	int (*mars_endio)(struct mars_io *mio);		\
 
 struct mars_io {
 	MARS_IO(mars);
+	struct list_head io_head; //TODO: move to aspect
 };
 
 #define MARS_BRICK(PREFIX)				\
