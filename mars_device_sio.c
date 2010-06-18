@@ -10,6 +10,7 @@
 #include <linux/kthread.h>
 #include <linux/spinlock.h>
 #include <linux/wait.h>
+#include <linux/splice.h>
 
 #include "mars.h"
 
@@ -18,6 +19,8 @@
 #include "mars_device_sio.h"
 
 ////////////////// own brick / input / output operations //////////////////
+
+// some code borrowed from the loopback driver
 
 static int transfer_none(int cmd,
 			 struct page *raw_page, unsigned raw_off,
@@ -38,7 +41,7 @@ static int transfer_none(int cmd,
 	return 0;
 }
 
-static int device_sio_write_aops(struct device_sio_output *output, struct mars_io *mio)
+static int write_aops(struct device_sio_output *output, struct mars_io *mio)
 {
 	struct bio *bio = mio->orig_bio;
 	loff_t pos = ((loff_t)bio->bi_sector << 9);
@@ -110,42 +113,145 @@ static int device_sio_write_aops(struct device_sio_output *output, struct mars_i
 
 	mio->mars_endio(mio);
 
+#if 1
 	blk_run_address_space(mapping);
+#endif
 
 	return ret;
+}
+
+struct cookie_data {
+	struct device_sio_output *output;
+	struct mars_io *mio;
+	struct bio_vec *bvec;
+	unsigned int offset;
+};
+
+static int
+device_sio_splice_actor(struct pipe_inode_info *pipe,
+			struct pipe_buffer *buf,
+			struct splice_desc *sd)
+{
+	struct cookie_data *p = sd->u.data;
+	//struct device_sio_output *output = p->output;
+	//struct mars_io *mio = p->mio;
+	struct page *page = buf->page;
+	sector_t IV;
+	int size, ret;
+
+	MARS_DBG("now splice %p %p %p %p\n", output, mio, mio->orig_bio, p->bvec);
+
+	ret = buf->ops->confirm(pipe, buf);
+	if (unlikely(ret))
+		return ret;
+
+	IV = ((sector_t) page->index << (PAGE_CACHE_SHIFT - 9)) +
+		(buf->offset >> 9);
+	size = sd->len;
+	if (size > p->bvec->bv_len)
+		size = p->bvec->bv_len;
+
+	if (transfer_none(READ, page, buf->offset, p->bvec->bv_page, p->offset, size)) {
+		MARS_ERR("transfer error block %ld\n",  p->bvec->bv_page->index);
+		size = -EINVAL;
+	}
+
+	flush_dcache_page(p->bvec->bv_page);
+
+	if (size > 0)
+		p->offset += size;
+
+	return size;
+}
+
+static int
+device_sio_direct_splice_actor(struct pipe_inode_info *pipe, struct splice_desc *sd)
+{
+	return __splice_from_pipe(pipe, sd, device_sio_splice_actor);
+}
+
+static int read_aops(struct device_sio_output *output, struct mars_io *mio)
+{
+	struct bio *bio = mio->orig_bio;
+	loff_t pos = ((loff_t)bio->bi_sector << 9);
+	struct bio_vec *bvec;
+	int i;
+	int ret = -EIO;
+
+	bio_for_each_segment(bvec, bio, i) {
+		struct cookie_data cookie = {
+			.output = output,
+			.mio = mio,
+			.bvec = bvec,
+			.offset = bvec->bv_offset,
+		};
+		struct splice_desc sd = {
+			.len = 0,
+			.total_len = bvec->bv_len,
+			.flags = 0,
+			.pos = pos,
+			.u.data = &cookie,
+		};
+
+		MARS_DBG("start splice %p %p %p %p\n", output, mio, bio, bvec);
+		ret = 0;
+		ret = splice_direct_to_actor(output->filp, &sd, device_sio_direct_splice_actor);
+		if (ret < 0) {
+			MARS_ERR("splice %p %p %p %p status=%d\n", output, mio, bio, bvec, ret);
+			break;
+		}
+		pos += bvec->bv_len;
+		bio->bi_size -= bvec->bv_len;
+
+	}
+
+	mio->mars_endio(mio);
+	return ret;
+}
+
+static void sync_file(struct device_sio_output *output)
+{
+	struct file *file = output->filp;
+	int ret;
+#if 1
+	ret = vfs_fsync(file, file->f_path.dentry, 0);
+	if (unlikely(ret)) {
+		MARS_ERR("syncing pages failed: %d\n", ret);
+	}
+	return;
+#endif
 }
 
 static int device_sio_mars_io(struct device_sio_output *output, struct mars_io *mio)
 {
 	struct bio *bio = mio->orig_bio;
 	int direction = bio->bi_rw & 1;
-	unsigned long sector = bio->bi_sector;
-	unsigned long long pos = sector << 9; //TODO: allow different sector sizes
 	bool barrier = (direction != READ && bio_rw_flagged(bio, BIO_RW_BARRIER));
+#if 0
+	unsigned long sector = bio->bi_sector;
+	loff_t pos = sector << 9; //TODO: allow different sector sizes
 	struct bio_vec *bvec;
 	int i;
+#endif
 	int ret = -EIO;
 	
 	if (barrier) {
 		MARS_INF("got barrier request\n");
+		sync_file(output);
 	}
-
-#if 1
-	if (direction == READ) {
-		bio->bi_size = 0;
-		mio->mars_endio(mio);
-		return 0;
-	}
-#endif
 
 	if (!output->filp)
 		goto done;
 #if 1
-	if (direction == WRITE) {
-		return device_sio_write_aops(output, mio);
+	if (direction == READ) {
+		return read_aops(output, mio);
+	} else {
+		ret = write_aops(output, mio);
+		if (barrier)
+			sync_file(output);
+		return ret;
 	}
-#endif
-
+#else // toter code, war ein erster versuch
 	bio_for_each_segment(bvec, bio, i) {
 		mm_segment_t oldfs;
 		unsigned long long ppos = pos;
@@ -176,27 +282,19 @@ static int device_sio_mars_io(struct device_sio_output *output, struct mars_io *
 			goto done;
 		}
 
-#if 0
-		if (direction == WRITE) {
-			struct inode *inode = output->filp->f_dentry->d_inode;
-			struct address_space *mapping = inode->i_mapping;
-			int res;
-
-			res = sync_page_range(inode, mapping, pos, len);
-			if (res) {
-				MARS_ERR("syncing pages failed: %d\n", res);
-			}
-		}
-
-#endif		
 		pos += len;
 
 		ret = 0;
 	}
+#endif
 
 done:
-	if (!ret)
+	if (!ret) {
 		bio->bi_size = 0;
+		if (direction == WRITE && barrier) {
+			sync_file(output);
+		}
+	}
 	mio->mars_endio(mio);
 	return ret;
 }
@@ -204,37 +302,51 @@ done:
 #ifdef WITH_THREAD
 static int device_sio_mars_queue(struct device_sio_output *output, struct mars_io *mio)
 {
-	MARS_DBG("queue %p\n", mio);
-	spin_lock_irq(&output->lock);
-	list_add_tail(&mio->io_head, &output->mio_list);
-	spin_unlock_irq(&output->lock);
+	int index = 0;
+	struct sio_threadinfo *tinfo;
+	int direction = mio->orig_bio->bi_rw & 1;
+	if (direction == READ) {
+		spin_lock_irq(&output->g_lock);
+		index = output->index++;
+		spin_unlock_irq(&output->g_lock);
+		index = (index % WITH_THREAD) + 1;
+	}
+	tinfo = &output->tinfo[index];
+	MARS_DBG("queueing %p on %d\n", mio, index);
+	spin_lock_irq(&tinfo->lock);
+	list_add_tail(&mio->io_head, &tinfo->mio_list);
+	spin_unlock_irq(&tinfo->lock);
 
-	wake_up(&output->event);
+	wake_up(&tinfo->event);
 
 	return 0;
 }
 
 static int device_sio_thread(void *data)
 {
-	struct device_sio_output *output = data;
+	struct sio_threadinfo *tinfo = data;
+	struct device_sio_output *output = tinfo->output;
 	
 	MARS_INF("kthread has started.\n");
 	//set_user_nice(current, -20);
 
 	while (!kthread_should_stop()) {
+		struct list_head *tmp;
 		struct mars_io *mio;
 
-		wait_event_interruptible(output->event,
-					 !list_empty(&output->mio_list) ||
+		wait_event_interruptible(tinfo->event,
+					 !list_empty(&tinfo->mio_list) ||
 					 kthread_should_stop());
 
-		if (list_empty(&output->mio_list))
+		if (list_empty(&tinfo->mio_list))
 			continue;
 
-		spin_lock_irq(&output->lock);
-		mio = container_of(output->mio_list.next, struct mars_io, io_head);
-		spin_unlock_irq(&output->lock);
+		spin_lock_irq(&tinfo->lock);
+		tmp = tinfo->mio_list.next;
+		list_del_init(tmp);
+		spin_unlock_irq(&tinfo->lock);
 
+		mio = container_of(tmp, struct mars_io, io_head);
 		MARS_DBG("got %p\n", mio);
 		device_sio_mars_io(output, mio);
 	}
@@ -257,6 +369,7 @@ static int device_sio_output_construct(struct device_sio_output *output)
 	int flags = O_CREAT | O_RDWR | O_LARGEFILE;
 	int prot = 0600;
 	char *path = "/tmp/testfile.img";
+	int index;
 
 	oldfs = get_fs();
 	set_fs(get_ds());
@@ -279,17 +392,23 @@ static int device_sio_output_construct(struct device_sio_output *output)
 #endif
 
 #ifdef WITH_THREAD
-	spin_lock_init(&output->lock);
-	init_waitqueue_head(&output->event);
-	INIT_LIST_HEAD(&output->mio_list);
-	output->thread = kthread_create(device_sio_thread, output, "mars_sio%d", 0);
-	if (IS_ERR(output->thread)) {
-		int error = PTR_ERR(output->thread);
-		MARS_ERR("cannot create thread, status=%d\n", error);
-		filp_close(output->filp, NULL);
-		return error;
+	spin_lock_init(&output->g_lock);
+	output->index = 0;
+	for (index = 0; index <= WITH_THREAD; index++) {
+		struct sio_threadinfo *tinfo = &output->tinfo[index];
+		tinfo->output = output;
+		spin_lock_init(&tinfo->lock);
+		init_waitqueue_head(&tinfo->event);
+		INIT_LIST_HEAD(&tinfo->mio_list);
+		tinfo->thread = kthread_create(device_sio_thread, tinfo, "mars_sio%d", index);
+		if (IS_ERR(tinfo->thread)) {
+			int error = PTR_ERR(tinfo->thread);
+			MARS_ERR("cannot create thread, status=%d\n", error);
+			filp_close(output->filp, NULL);
+			return error;
+		}
+		wake_up_process(tinfo->thread);
 	}
-	wake_up_process(output->thread);
 #endif
 
 	return 0;
@@ -298,8 +417,11 @@ static int device_sio_output_construct(struct device_sio_output *output)
 static int device_sio_output_destruct(struct device_sio_output *output)
 {
 #ifdef WITH_THREAD
-	kthread_stop(output->thread);
-	output->thread = NULL;
+	int index;
+	for (index = 0; index <= WITH_THREAD; index++) {
+		kthread_stop(output->tinfo[index].thread);
+		output->tinfo[index].thread = NULL;
+	}
 #endif
 	if (output->filp) {
 		filp_close(output->filp, NULL);
@@ -349,13 +471,13 @@ EXPORT_SYMBOL_GPL(device_sio_brick_type);
 
 static int __init init_device_sio(void)
 {
-	printk(MARS_INFO "init_device_sio()\n");
+	MARS_INF("init_device_sio()\n");
 	return device_sio_register_brick_type();
 }
 
 static void __exit exit_device_sio(void)
 {
-	printk(MARS_INFO "exit_device_sio()\n");
+	MARS_INF("exit_device_sio()\n");
 	device_sio_unregister_brick_type();
 }
 

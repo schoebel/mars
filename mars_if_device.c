@@ -30,6 +30,7 @@ static int if_device_endio(struct mars_io *mio)
 {
 	struct bio *bio = mio->orig_bio;
 	if (bio) {
+		mio->orig_bio = NULL;
 		if (!bio->bi_size) {
 			bio_endio(bio, 0);
 		} else {
@@ -166,6 +167,8 @@ static int if_device_input_construct(struct if_device_input *input)
 	blk_queue_max_segment_size(q, MARS_MAX_SEGMENT_SIZE);
 	blk_queue_bounce_limit(q, BLK_BOUNCE_ANY);
 	q->unplug_fn = if_device_unplug;
+	spin_lock_init(&input->req_lock);
+	q->queue_lock = &input->req_lock; // needed!
 	//blk_queue_ordered(q, QUEUE_ORDERED_DRAIN, NULL);//???
 
 	MARS_DBG("4\n");
@@ -180,13 +183,13 @@ static int if_device_input_construct(struct if_device_input *input)
 
 #if 0 // ???
 	blk_queue_merge_bvec(q, mars_merge_bvec);
-	q->queue_lock = &input->req_lock; /* needed since we use */
-		/* plugging on a queue, that actually has no requests! */
 #endif
 
+	// point of no return
 	MARS_DBG("99999\n");
 	add_disk(disk);
 	input->disk = disk;
+	//set_device_ro(input->bdev, 0); // TODO: implement modes
 	input->mio_size = 1024; //TODO: make this dynamic
 	return 0;
 }

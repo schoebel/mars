@@ -22,7 +22,7 @@ static struct device_sio_brick *device_brick = NULL;
 void make_test_instance(void)
 {
 	static char *names[] = { "brick" };
-	int size = 1024;
+	int size = 4096;
 	int status;
 	void *mem = kzalloc(size, GFP_KERNEL);
 	if (!mem) {

@@ -8,6 +8,7 @@ struct if_device_input {
 	struct request_queue *q;
 	struct gendisk *disk;
 	struct block_device *bdev;
+	spinlock_t req_lock;
 	int mio_size;
 };
 
