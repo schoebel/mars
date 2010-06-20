@@ -26,7 +26,7 @@ static int device_minor = 0;
 
 /* callback
  */
-static int if_device_endio(struct mars_io *mio)
+static int if_device_endio(struct mars_io_object *mio)
 {
 	struct bio *bio = mio->orig_bio;
 	if (bio) {
@@ -43,13 +43,13 @@ static int if_device_endio(struct mars_io *mio)
 	return 0;
 }
 
-/* accept a linux bio, wrap it into struct mars_io and call mars_io() on it.
+/* accept a linux bio, wrap it into struct mars_io_object and call mars_io() on it.
  */
 static int if_device_make_request(struct request_queue *q, struct bio *bio)
 {
 	struct if_device_input *input = q->queuedata;
 	struct if_device_output *output;
-	struct mars_io *mio = NULL;
+	struct mars_io_object *mio = NULL;
 	int error = -ENOSYS;
 
 	MARS_DBG("make_request(%d)\n", bio->bi_size);

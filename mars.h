@@ -23,48 +23,65 @@
 
 /////////////////////////////////////////////////////////////////////////
 
-// definitions for generic objects
+// definitions for generic objects with aspects
 
 #define MAX_DEFAULT_ASPECTS 8
 
+struct generic_aspect;
+
+#define GENERIC_OBJECT_TYPE(PREFIX)					\
+	char *object_type_name;					\
+	int default_size;						\
+
+struct generic_object_type {
+	GENERIC_OBJECT_TYPE(generic);
+};
+
 #define GENERIC_OBJECT_LAYOUT(PREFIX)					\
+	const struct generic_object_type *type;				\
 	int max_size;							\
 	int rest_size;							\
 	int max_aspects;						\
 	int nr_aspects;							\
 	int *aspect_sizes;						\
 	int *aspect_offsets;						\
+	int (**init_fns)(struct PREFIX##_aspect *ini, void *data);	\
+	void **init_datas;						\
 	void *alloc_ptr;						\
 
 struct generic_object_layout {
 	GENERIC_OBJECT_LAYOUT(generic);
 };
 
-#ifdef _STRATEGY
 #define GENERIC_OBJECT_LAYOUT_FUNCTIONS(PREFIX)				\
-extern inline struct PREFIX##_object_layout *PREFIX##_init_object_layout(void *data, int size, int max_aspects) \
+extern inline struct PREFIX##_object_layout *PREFIX##_init_object_layout(void *data, int size, int max_aspects, const struct generic_object_type *type) \
 {									\
 	struct PREFIX##_object_layout *object_layout = data;		\
+	data += sizeof(struct PREFIX##_object_layout);			\
 	size -= sizeof(struct PREFIX##_object_layout);			\
 	if (size < 0)							\
 		return NULL;						\
+	object_layout->type = type;					\
+	object_layout->max_size = type->default_size;			\
 	object_layout->max_aspects = max_aspects;			\
 	object_layout->nr_aspects = 0;					\
-	object_layout->max_size = sizeof(struct PREFIX##_object_layout); \
-	data += sizeof(struct PREFIX##_object_layout);			\
-	size -= max_aspects * sizeof(void*) * 2;			\
+	size -= max_aspects * sizeof(void*) * 4;			\
 	if (size < 0)							\
 		return NULL;						\
-	object_layout->rest_size = size;				\
 	object_layout->aspect_sizes = data;				\
 	data += max_aspects * sizeof(void*);				\
 	object_layout->aspect_offsets = data;				\
 	data += max_aspects * sizeof(void*);				\
+	object_layout->init_fns = data;					\
+	data += max_aspects * sizeof(void*);				\
+	object_layout->init_datas = data;				\
+	data += max_aspects * sizeof(void*);				\
 	object_layout->alloc_ptr = data;				\
+	object_layout->rest_size = size;				\
 	return object_layout;						\
 }									\
 									\
-extern int PREFIX##_add_aspect(struct PREFIX##_object_layout *object_layout, int aspect_size) \
+extern int PREFIX##_add_aspect(struct PREFIX##_object_layout *object_layout, int aspect_size, int (*init_fn)(struct PREFIX##_aspect *ini, void *init_data), void *init_data) \
 {									\
 	int slot = object_layout->nr_aspects;				\
 	int max_aspects = object_layout->max_aspects;			\
@@ -72,30 +89,39 @@ extern int PREFIX##_add_aspect(struct PREFIX##_object_layout *object_layout, int
 		void *data = object_layout->alloc_ptr;			\
 		void *old;						\
 		int size = object_layout->rest_size;			\
+		int old_aspects = max_aspects;				\
 		max_aspects <<= 1;					\
-		size -= max_aspects * sizeof(void*) * 2;		\
+		size -= max_aspects * sizeof(void*) * 4;		\
 		if (size < 0)						\
 			return -ENOMEM;					\
 		object_layout->rest_size = size;			\
 		old = object_layout->aspect_sizes;			\
 		object_layout->aspect_sizes = data;			\
-		memcpy(data, old, max_aspects * sizeof(void*));		\
+		memcpy(data, old, old_aspects * sizeof(void*));		\
 		data += max_aspects * sizeof(void*);			\
 		old = object_layout->aspect_offsets;			\
 		object_layout->aspect_offsets = data;			\
-		memcpy(data, old, max_aspects * sizeof(void*));		\
+		memcpy(data, old, old_aspects * sizeof(void*));		\
+		data += max_aspects * sizeof(void*);			\
+		old = object_layout->init_fns;				\
+		object_layout->init_fns = data;				\
+		memcpy(data, old, old_aspects * sizeof(void*));		\
+		data += max_aspects * sizeof(void*);			\
+		old = object_layout->init_datas;			\
+		object_layout->init_datas = data;			\
+		memcpy(data, old, old_aspects * sizeof(void*));		\
 		data += max_aspects * sizeof(void*);			\
 		object_layout->alloc_ptr = data;			\
 		object_layout->max_aspects = max_aspects;		\
 	}								\
 	object_layout->aspect_sizes[slot] = aspect_size;		\
 	object_layout->aspect_offsets[slot] = object_layout->max_size;	\
+	object_layout->init_fns[slot] = init_fn;			\
+	object_layout->init_datas[slot] = init_data;			\
 	object_layout->max_size += aspect_size;				\
 	object_layout->nr_aspects++;					\
 	return slot;							\
 }									\
-
-#endif
 
 #define GENERIC_OBJECT(PREFIX)					\
 	struct PREFIX##_object_layout *object_layout;		\
@@ -121,6 +147,13 @@ extern inline struct PREFIX##_object *PREFIX##_construct(void *data, struct PREF
 	for (i = 0; i < object_layout->nr_aspects; i++) {		\
 		struct PREFIX##_aspect *aspect = data + object_layout->aspect_offsets[i]; \
 		aspect->object = obj;					\
+		if (object_layout->init_fns[i]) {			\
+			void *init_data = object_layout->init_datas[i];	\
+			int status = object_layout->init_fns[i](aspect, init_data); \
+			if (status) {					\
+				return NULL;				\
+			}						\
+		}							\
 	}								\
 	return obj;							\
 }									\
@@ -199,6 +232,7 @@ struct generic_brick_ops {
 #define GENERIC_OUTPUT_OPS(PREFIX)				\
 	int (*output_start)(struct PREFIX##_output *output);	\
 	int (*output_stop)(struct PREFIX##_output *output);	\
+	int (*get_size)(struct PREFIX##_output *output, const struct generic_object_type *object_type); \
 	
 struct generic_output_ops {
 	GENERIC_OUTPUT_OPS(generic)
@@ -426,7 +460,8 @@ extern inline int PREFIX##_brick_exit_full(			        \
  * For type safety, use this for all possible combinations.
  * Yes, this may become quadratic in large type systems, but
  * (a) thou shalt not define many types,
- * (b) these macros generate only definitions, no code by itself
+ * (b) these macros generate only definitions, but no additional 
+ * code at runtime.
  */
 #define GENERIC_MAKE_CONNECT(INPUT_PREFIX,OUTPUT_PREFIX)		\
 									\
@@ -450,18 +485,36 @@ extern inline int INPUT_PREFIX##_##OUTPUT_PREFIX####_disconnect(        \
 
 // MARS-specific definitions
 
+// object stuff
+
 #define HT_SHIFT 6 //????
 #define MARS_MAX_SEGMENT_SIZE (1U << (9+HT_SHIFT))
 
-#define MARS_IO(PREFIX)					\
+extern const struct generic_object_type mars_io_type;
+
+struct mars_io_aspect {
+	GENERIC_ASPECT(mars_io);
+};
+
+struct mars_io_object_layout {
+	GENERIC_OBJECT_LAYOUT(mars_io);
+};
+
+#define MARS_IO_OBJECT(PREFIX)				\
 	GENERIC_OBJECT(PREFIX);				\
 	struct bio *orig_bio;				\
-	int (*mars_endio)(struct mars_io *mio);		\
+	int (*mars_endio)(struct mars_io_object *mio);		\
 
-struct mars_io {
-	MARS_IO(mars);
-	struct list_head io_head; //TODO: move to aspect
+struct mars_io_object {
+	MARS_IO_OBJECT(mars_io);
+	struct list_head io_head; //TODO: move to aspect (device_sio)
 };
+
+GENERIC_OBJECT_LAYOUT_FUNCTIONS(mars_io);
+
+GENERIC_OBJECT_FUNCTIONS(mars_io);
+
+// brick stuff
 
 #define MARS_BRICK(PREFIX)				\
 	GENERIC_BRICK(PREFIX);				\
@@ -490,7 +543,7 @@ struct mars_output {
 
 #define MARS_OUTPUT_OPS(PREFIX)					\
 	GENERIC_OUTPUT_OPS(PREFIX);				\
-	int (*mars_io)(struct PREFIX##_output *output, struct mars_io *mio); \
+	int (*mars_io)(struct PREFIX##_output *output, struct mars_io_object *mio); \
 
 // all non-extendable types
 #define _MARS_TYPES(PREFIX)		\
@@ -521,7 +574,6 @@ GENERIC_MAKE_CONNECT(PREFIX,PREFIX);	\
 _MARS_TYPES(PREFIX)		        \
 GENERIC_MAKE_CONNECT(generic,PREFIX);	\
 GENERIC_MAKE_CONNECT(mars,PREFIX);	\
-
 
 /////////////////////////////////////////////////////////////////////////
 

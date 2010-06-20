@@ -20,6 +20,14 @@
 
 ////////////////// own brick / input / output operations //////////////////
 
+static int device_sio_get_size(struct device_sio_output *output, const struct generic_object_type *object_type)
+{
+	int res = sizeof(struct device_sio_mars_io_aspect);
+	if (object_type != &mars_io_type)
+		return 0;
+	return res;
+}
+
 // some code borrowed from the loopback driver
 
 static int transfer_none(int cmd,
@@ -41,7 +49,7 @@ static int transfer_none(int cmd,
 	return 0;
 }
 
-static int write_aops(struct device_sio_output *output, struct mars_io *mio)
+static int write_aops(struct device_sio_output *output, struct mars_io_object *mio)
 {
 	struct bio *bio = mio->orig_bio;
 	loff_t pos = ((loff_t)bio->bi_sector << 9);
@@ -122,7 +130,7 @@ static int write_aops(struct device_sio_output *output, struct mars_io *mio)
 
 struct cookie_data {
 	struct device_sio_output *output;
-	struct mars_io *mio;
+	struct mars_io_object *mio;
 	struct bio_vec *bvec;
 	unsigned int offset;
 };
@@ -134,7 +142,7 @@ device_sio_splice_actor(struct pipe_inode_info *pipe,
 {
 	struct cookie_data *p = sd->u.data;
 	//struct device_sio_output *output = p->output;
-	//struct mars_io *mio = p->mio;
+	//struct mars_io_object *mio = p->mio;
 	struct page *page = buf->page;
 	sector_t IV;
 	int size, ret;
@@ -170,7 +178,7 @@ device_sio_direct_splice_actor(struct pipe_inode_info *pipe, struct splice_desc 
 	return __splice_from_pipe(pipe, sd, device_sio_splice_actor);
 }
 
-static int read_aops(struct device_sio_output *output, struct mars_io *mio)
+static int read_aops(struct device_sio_output *output, struct mars_io_object *mio)
 {
 	struct bio *bio = mio->orig_bio;
 	loff_t pos = ((loff_t)bio->bi_sector << 9);
@@ -222,7 +230,7 @@ static void sync_file(struct device_sio_output *output)
 #endif
 }
 
-static int device_sio_mars_io(struct device_sio_output *output, struct mars_io *mio)
+static int device_sio_mars_io(struct device_sio_output *output, struct mars_io_object *mio)
 {
 	struct bio *bio = mio->orig_bio;
 	int direction = bio->bi_rw & 1;
@@ -300,7 +308,7 @@ done:
 }
 
 #ifdef WITH_THREAD
-static int device_sio_mars_queue(struct device_sio_output *output, struct mars_io *mio)
+static int device_sio_mars_queue(struct device_sio_output *output, struct mars_io_object *mio)
 {
 	int index = 0;
 	struct sio_threadinfo *tinfo;
@@ -332,7 +340,7 @@ static int device_sio_thread(void *data)
 
 	while (!kthread_should_stop()) {
 		struct list_head *tmp;
-		struct mars_io *mio;
+		struct mars_io_object *mio;
 
 		wait_event_interruptible(tinfo->event,
 					 !list_empty(&tinfo->mio_list) ||
@@ -346,7 +354,7 @@ static int device_sio_thread(void *data)
 		list_del_init(tmp);
 		spin_unlock_irq(&tinfo->lock);
 
-		mio = container_of(tmp, struct mars_io, io_head);
+		mio = container_of(tmp, struct mars_io_object, io_head);
 		MARS_DBG("got %p\n", mio);
 		device_sio_mars_io(output, mio);
 	}
@@ -437,6 +445,7 @@ static struct device_sio_brick_ops device_sio_brick_ops = {
 };
 
 static struct device_sio_output_ops device_sio_output_ops = {
+	.get_size = device_sio_get_size,
 #ifdef WITH_THREAD
 	.mars_io = device_sio_mars_queue,
 #else

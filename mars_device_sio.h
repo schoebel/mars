@@ -1,5 +1,13 @@
 // (c) 2010 Thomas Schoebel-Theuer / 1&1 Internet AG
+#ifndef MARS_DEVICE_SIO_H
+#define MARS_DEVICE_SIO_H
+
 #define WITH_THREAD 16
+
+struct device_sio_mars_io_aspect {
+	GENERIC_ASPECT(mars_io);
+	struct list_head io_head; //TODO: move to aspect (device_sio)
+};
 
 struct device_sio_brick {
 	MARS_BRICK(device_sio);
@@ -31,3 +39,5 @@ struct device_sio_output {
 };
 
 MARS_TYPES(device_sio);
+
+#endif

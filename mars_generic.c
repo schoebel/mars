@@ -9,29 +9,17 @@
 
 //////////////////////////////////////////////////////////////
 
-// testing.....
+// object stuff
 
-#if 1
-#include <linux/slab.h>
-
-GENERIC_OBJECT_LAYOUT_FUNCTIONS(generic);
-GENERIC_OBJECT_FUNCTIONS(generic);
-
-void test(void)
-{
-	char data[1024];
-	struct generic_object *obj;
-	struct generic_object_layout *t = generic_init_object_layout(data, sizeof(data), 4);
-	int slot = generic_add_aspect(t, 17);
-	char *my_aspect;
-	obj = kmalloc(t->max_size, GFP_KERNEL);
-	obj = generic_construct(obj, t);
-	my_aspect = (void*)obj + obj->object_layout->aspect_offsets[slot];
-	my_aspect = generic_get_aspect(obj, slot);
-}
-#endif
+const struct generic_object_type mars_io_type = {
+	.object_type_name = "mars_io",
+	.default_size = sizeof(struct mars_io_object),
+};
+EXPORT_SYMBOL_GPL(mars_io_type);
 
 //////////////////////////////////////////////////////////////
+
+// brick stuff
 
 #define MAX_BRICK_TYPES 64
 

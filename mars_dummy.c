@@ -10,25 +10,27 @@
 
 ///////////////////////// own type definitions ////////////////////////
 
-struct dummy_brick {
-	MARS_BRICK(dummy);
-	int my_own;
-};
-
-struct dummy_input {
-	MARS_INPUT(dummy);
-};
-
-struct dummy_output {
-	MARS_OUTPUT(dummy);
-	int my_own;
-};
-
-MARS_TYPES(dummy);
+#include "mars_dummy.h"
 
 ////////////////// own brick / input / output operations //////////////////
 
-///////////////////////// contructors / destructors ////////////////////////
+static int dummy_get_size(struct dummy_output *output, const struct generic_object_type *object_type)
+{
+	int res = sizeof(struct dummy_mars_io_aspect);
+	struct dummy_brick *brick = output->brick;
+	int i;
+	if (object_type != &mars_io_type)
+		return 0;
+	for (i = 0; i < brick->type->max_inputs; i++) {
+		struct dummy_input *input = brick->inputs[i];
+		if (input && input->connect) {
+			res += input->connect->ops->get_size(input->connect, &mars_io_type);
+		}
+	}
+	return res;
+}
+
+///////////////////////// constructors / destructors ////////////////////////
 
 static int dummy_brick_construct(struct dummy_brick *brick)
 {
@@ -48,6 +50,7 @@ static struct dummy_brick_ops dummy_brick_ops = {
 };
 
 static struct dummy_output_ops dummy_output_ops = {
+	.get_size = dummy_get_size,
 };
 
 static struct dummy_input_type dummy_input_type = {
