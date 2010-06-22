@@ -20,14 +20,6 @@
 
 ////////////////// own brick / input / output operations //////////////////
 
-static int device_sio_get_size(struct device_sio_output *output, const struct generic_object_type *object_type)
-{
-	int res = sizeof(struct device_sio_mars_io_aspect);
-	if (object_type != &mars_io_type)
-		return 0;
-	return res;
-}
-
 // some code borrowed from the loopback driver
 
 static int transfer_none(int cmd,
@@ -312,6 +304,7 @@ static int device_sio_mars_queue(struct device_sio_output *output, struct mars_i
 {
 	int index = 0;
 	struct sio_threadinfo *tinfo;
+	struct device_sio_mars_io_aspect *aspect;
 	int direction = mio->orig_bio->bi_rw & 1;
 	if (direction == READ) {
 		spin_lock_irq(&output->g_lock);
@@ -319,10 +312,11 @@ static int device_sio_mars_queue(struct device_sio_output *output, struct mars_i
 		spin_unlock_irq(&output->g_lock);
 		index = (index % WITH_THREAD) + 1;
 	}
+	aspect = mars_io_get_aspect(mio, output->aspect_slot);
 	tinfo = &output->tinfo[index];
 	MARS_DBG("queueing %p on %d\n", mio, index);
 	spin_lock_irq(&tinfo->lock);
-	list_add_tail(&mio->io_head, &tinfo->mio_list);
+	list_add_tail(&aspect->io_head, &tinfo->mio_list);
 	spin_unlock_irq(&tinfo->lock);
 
 	wake_up(&tinfo->event);
@@ -340,6 +334,7 @@ static int device_sio_thread(void *data)
 
 	while (!kthread_should_stop()) {
 		struct list_head *tmp;
+		struct device_sio_mars_io_aspect *aspect;
 		struct mars_io_object *mio;
 
 		wait_event_interruptible(tinfo->event,
@@ -354,8 +349,9 @@ static int device_sio_thread(void *data)
 		list_del_init(tmp);
 		spin_unlock_irq(&tinfo->lock);
 
-		mio = container_of(tmp, struct mars_io_object, io_head);
-		MARS_DBG("got %p\n", mio);
+		aspect = container_of(tmp, struct device_sio_mars_io_aspect, io_head);
+		mio = aspect->object;
+		MARS_DBG("got %p %p\n", aspect, mio);
 		device_sio_mars_io(output, mio);
 	}
 
@@ -364,7 +360,31 @@ static int device_sio_thread(void *data)
 }
 #endif
 
-//////////////////////// constructors / destructors //////////////////////
+//////////////// object / aspect constructors / destructors ///////////////
+
+static int device_sio_aspect_init_fn(struct mars_io_aspect *_ini, void *_init_data)
+{
+	struct device_sio_mars_io_aspect *ini = (void*)_ini;
+	INIT_LIST_HEAD(&ini->io_head);
+	return 0;
+}
+
+static int device_sio_make_object_layout(struct device_sio_output *output, struct generic_object_layout *object_layout)
+{
+	const struct generic_object_type *object_type = object_layout->type;
+	int slot;
+	if (object_type != &mars_io_type)
+		return 0;
+
+	slot = mars_io_add_aspect(object_layout, sizeof(struct device_sio_mars_io_aspect), device_sio_aspect_init_fn, output);
+	if (slot < 0)
+		return slot;
+
+	output->aspect_slot = slot;
+	return sizeof(struct device_sio_mars_io_aspect);
+}
+
+////////////////////// brick constructors / destructors ////////////////////
 
 static int device_sio_brick_construct(struct device_sio_brick *brick)
 {
@@ -445,7 +465,7 @@ static struct device_sio_brick_ops device_sio_brick_ops = {
 };
 
 static struct device_sio_output_ops device_sio_output_ops = {
-	.get_size = device_sio_get_size,
+	.make_object_layout = device_sio_make_object_layout,
 #ifdef WITH_THREAD
 	.mars_io = device_sio_mars_queue,
 #else

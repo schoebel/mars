@@ -12,7 +12,7 @@ struct if_device_input {
 	struct gendisk *disk;
 	struct block_device *bdev;
 	spinlock_t req_lock;
-	int mio_size;
+	struct mars_io_object_layout *mio_layout;
 };
 
 struct if_device_output {

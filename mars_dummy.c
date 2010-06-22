@@ -14,23 +14,43 @@
 
 ////////////////// own brick / input / output operations //////////////////
 
-static int dummy_get_size(struct dummy_output *output, const struct generic_object_type *object_type)
+//////////////// object / aspect constructors / destructors ///////////////
+
+static int dummy_aspect_init_fn(struct mars_io_aspect *_ini, void *_init_data)
 {
-	int res = sizeof(struct dummy_mars_io_aspect);
+	struct dummy_mars_io_aspect *ini = (void*)_ini;
+	ini->my_own = 0;
+	return 0;
+}
+
+static int dummy_make_object_layout(struct dummy_output *output, struct generic_object_layout *object_layout)
+{
+	const struct generic_object_type *object_type = object_layout->type;
+	int res;
 	struct dummy_brick *brick = output->brick;
 	int i;
+
 	if (object_type != &mars_io_type)
 		return 0;
+
+	res = mars_io_add_aspect(object_layout, sizeof(struct dummy_mars_io_aspect), dummy_aspect_init_fn, output);
+	if (res < 0)
+		return res;
+
 	for (i = 0; i < brick->type->max_inputs; i++) {
 		struct dummy_input *input = brick->inputs[i];
 		if (input && input->connect) {
-			res += input->connect->ops->get_size(input->connect, &mars_io_type);
+			int subres = input->connect->ops->make_object_layout(input->connect, object_layout);
+			if (subres < 0)
+				return subres;
+			res += subres;
 		}
 	}
-	return res;
+
+	return sizeof(struct dummy_mars_io_aspect);
 }
 
-///////////////////////// constructors / destructors ////////////////////////
+////////////////////// brick constructors / destructors ////////////////////
 
 static int dummy_brick_construct(struct dummy_brick *brick)
 {
@@ -50,7 +70,7 @@ static struct dummy_brick_ops dummy_brick_ops = {
 };
 
 static struct dummy_output_ops dummy_output_ops = {
-	.get_size = dummy_get_size,
+	.make_object_layout = dummy_make_object_layout,
 };
 
 static struct dummy_input_type dummy_input_type = {

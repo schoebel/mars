@@ -22,6 +22,38 @@
 
 static int device_minor = 0;
 
+//////////////// object / aspect constructors / destructors ///////////////
+
+static struct mars_io_object_layout *if_device_init_object_layout(struct if_device_output *output)
+{
+	const int layout_size = 1024;
+	const int max_aspects = 16;
+	struct mars_io_object_layout *res;
+	int status;
+	void *data = kzalloc(layout_size, GFP_KERNEL);
+	if (!data) {
+		MARS_ERR("emergency, cannot allocate object_layout!\n");
+		return NULL;
+	}
+	res = mars_io_init_object_layout(data, layout_size, max_aspects, &mars_io_type);
+	if (unlikely(!res)) {
+		MARS_ERR("emergency, cannot init object_layout!\n");
+		goto err_free;
+	}
+	
+	status = output->ops->make_object_layout(output, (struct generic_object_layout*)res);
+	if (unlikely(status < 0)) {
+		MARS_ERR("emergency, cannot add aspects to object_layout!\n");
+		goto err_free;
+	}
+	MARS_INF("OK, object_layout init succeeded.\n");
+	return res;
+
+err_free:
+	kfree(res);
+	return NULL;
+}
+
 ///////////////////////// linux operations ////////////////////////
 
 /* callback
@@ -50,6 +82,7 @@ static int if_device_make_request(struct request_queue *q, struct bio *bio)
 	struct if_device_input *input = q->queuedata;
 	struct if_device_output *output;
 	struct mars_io_object *mio = NULL;
+	void *data;
 	int error = -ENOSYS;
 
 	MARS_DBG("make_request(%d)\n", bio->bi_size);
@@ -62,9 +95,19 @@ static int if_device_make_request(struct request_queue *q, struct bio *bio)
 		goto err;
 
 	error = -ENOMEM;
-	mio = kzalloc(input->mio_size, GFP_KERNEL);
-	if (!mio)
+	if (unlikely(!input->mio_layout)) {
+		input->mio_layout = if_device_init_object_layout(output);
+		if (!input->mio_layout)
+			goto err;
+	}
+
+	data = kzalloc(input->mio_layout->object_size, GFP_KERNEL);
+	if (!data)
 		goto err;
+
+	mio = mars_io_construct(data, input->mio_layout);
+	if (!mio)
+		goto err_free;
 
 	mio->orig_bio = bio;
 	mio->mars_endio = if_device_endio;
@@ -76,7 +119,7 @@ static int if_device_make_request(struct request_queue *q, struct bio *bio)
 	return 0;
 
 err_free:
-	kfree(mio);
+	kfree(data);
 err:
 	MARS_ERR("cannot submit request, status=%d\n", error);
 	if (!mio)
@@ -190,7 +233,6 @@ static int if_device_input_construct(struct if_device_input *input)
 	add_disk(disk);
 	input->disk = disk;
 	//set_device_ro(input->bdev, 0); // TODO: implement modes
-	input->mio_size = 1024; //TODO: make this dynamic
 	return 0;
 }
 

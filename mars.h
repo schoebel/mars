@@ -29,6 +29,16 @@
 
 struct generic_aspect;
 
+#define GENERIC_ASPECT_LAYOUT(PREFIX)					\
+	int aspect_size;						\
+	int aspect_offset;						\
+	int (*init_fn)(struct PREFIX##_aspect *ini, void *data);	\
+	void *init_data;						\
+
+struct generic_aspect_layout {
+	GENERIC_ASPECT_LAYOUT(generic);
+};
+
 #define GENERIC_OBJECT_TYPE(PREFIX)					\
 	char *object_type_name;					\
 	int default_size;						\
@@ -39,21 +49,19 @@ struct generic_object_type {
 
 #define GENERIC_OBJECT_LAYOUT(PREFIX)					\
 	const struct generic_object_type *type;				\
-	int max_size;							\
+	int object_size;						\
 	int rest_size;							\
 	int max_aspects;						\
 	int nr_aspects;							\
-	int *aspect_sizes;						\
-	int *aspect_offsets;						\
-	int (**init_fns)(struct PREFIX##_aspect *ini, void *data);	\
-	void **init_datas;						\
 	void *alloc_ptr;						\
+	struct PREFIX##_aspect_layout *aspect_layouts;			\
 
 struct generic_object_layout {
 	GENERIC_OBJECT_LAYOUT(generic);
 };
 
 #define GENERIC_OBJECT_LAYOUT_FUNCTIONS(PREFIX)				\
+									\
 extern inline struct PREFIX##_object_layout *PREFIX##_init_object_layout(void *data, int size, int max_aspects, const struct generic_object_type *type) \
 {									\
 	struct PREFIX##_object_layout *object_layout = data;		\
@@ -62,63 +70,47 @@ extern inline struct PREFIX##_object_layout *PREFIX##_init_object_layout(void *d
 	if (size < 0)							\
 		return NULL;						\
 	object_layout->type = type;					\
-	object_layout->max_size = type->default_size;			\
+	object_layout->object_size = type->default_size;		\
 	object_layout->max_aspects = max_aspects;			\
 	object_layout->nr_aspects = 0;					\
-	size -= max_aspects * sizeof(void*) * 4;			\
+	size -= max_aspects * sizeof(struct PREFIX##_aspect_layout);	\
 	if (size < 0)							\
 		return NULL;						\
-	object_layout->aspect_sizes = data;				\
-	data += max_aspects * sizeof(void*);				\
-	object_layout->aspect_offsets = data;				\
-	data += max_aspects * sizeof(void*);				\
-	object_layout->init_fns = data;					\
-	data += max_aspects * sizeof(void*);				\
-	object_layout->init_datas = data;				\
-	data += max_aspects * sizeof(void*);				\
+	object_layout->aspect_layouts = data;				\
+	data += max_aspects * sizeof(struct PREFIX##_aspect_layout);	\
 	object_layout->alloc_ptr = data;				\
 	object_layout->rest_size = size;				\
 	return object_layout;						\
 }									\
 									\
-extern int PREFIX##_add_aspect(struct PREFIX##_object_layout *object_layout, int aspect_size, int (*init_fn)(struct PREFIX##_aspect *ini, void *init_data), void *init_data) \
+extern int PREFIX##_add_aspect(struct generic_object_layout *object_layout, int aspect_size, int (*init_fn)(struct PREFIX##_aspect *_ini, void *_init_data), void *init_data) \
 {									\
 	int slot = object_layout->nr_aspects;				\
 	int max_aspects = object_layout->max_aspects;			\
+	struct PREFIX##_aspect_layout *aspect_layout;			\
 	if (unlikely(slot >= max_aspects)) {				\
 		void *data = object_layout->alloc_ptr;			\
 		void *old;						\
 		int size = object_layout->rest_size;			\
 		int old_aspects = max_aspects;				\
 		max_aspects <<= 1;					\
-		size -= max_aspects * sizeof(void*) * 4;		\
+		size -= max_aspects * sizeof(struct PREFIX##_aspect_layout); \
 		if (size < 0)						\
 			return -ENOMEM;					\
 		object_layout->rest_size = size;			\
-		old = object_layout->aspect_sizes;			\
-		object_layout->aspect_sizes = data;			\
-		memcpy(data, old, old_aspects * sizeof(void*));		\
-		data += max_aspects * sizeof(void*);			\
-		old = object_layout->aspect_offsets;			\
-		object_layout->aspect_offsets = data;			\
-		memcpy(data, old, old_aspects * sizeof(void*));		\
-		data += max_aspects * sizeof(void*);			\
-		old = object_layout->init_fns;				\
-		object_layout->init_fns = data;				\
-		memcpy(data, old, old_aspects * sizeof(void*));		\
-		data += max_aspects * sizeof(void*);			\
-		old = object_layout->init_datas;			\
-		object_layout->init_datas = data;			\
-		memcpy(data, old, old_aspects * sizeof(void*));		\
-		data += max_aspects * sizeof(void*);			\
+		old = object_layout->aspect_layouts;			\
+		object_layout->aspect_layouts = data;			\
+		memcpy(data, old, old_aspects * sizeof(struct PREFIX##_aspect_layout));	\
+		data += max_aspects * sizeof(struct PREFIX##_aspect_layout); \
 		object_layout->alloc_ptr = data;			\
 		object_layout->max_aspects = max_aspects;		\
 	}								\
-	object_layout->aspect_sizes[slot] = aspect_size;		\
-	object_layout->aspect_offsets[slot] = object_layout->max_size;	\
-	object_layout->init_fns[slot] = init_fn;			\
-	object_layout->init_datas[slot] = init_data;			\
-	object_layout->max_size += aspect_size;				\
+	aspect_layout = (void*)&object_layout->aspect_layouts[slot];	\
+	aspect_layout->aspect_size = aspect_size;			\
+	aspect_layout->aspect_offset = object_layout->object_size;	\
+	aspect_layout->init_fn = init_fn;				\
+	aspect_layout->init_data = init_data;				\
+	object_layout->object_size += aspect_size;			\
 	object_layout->nr_aspects++;					\
 	return slot;							\
 }									\
@@ -139,17 +131,19 @@ struct generic_aspect {
 };
 
 #define GENERIC_OBJECT_FUNCTIONS(PREFIX)				\
+									\
 extern inline struct PREFIX##_object *PREFIX##_construct(void *data, struct PREFIX##_object_layout *object_layout) \
 {									\
 	int i;								\
 	struct PREFIX##_object *obj = data;				\
 	obj->object_layout = object_layout;				\
 	for (i = 0; i < object_layout->nr_aspects; i++) {		\
-		struct PREFIX##_aspect *aspect = data + object_layout->aspect_offsets[i]; \
+		struct PREFIX##_aspect_layout *aspect_layout = &object_layout->aspect_layouts[i]; \
+		struct PREFIX##_aspect *aspect = data + aspect_layout->aspect_offset; \
 		aspect->object = obj;					\
-		if (object_layout->init_fns[i]) {			\
-			void *init_data = object_layout->init_datas[i];	\
-			int status = object_layout->init_fns[i](aspect, init_data); \
+		if (aspect_layout->init_fn) {				\
+			void *init_data = aspect_layout->init_data;	\
+			int status = aspect_layout->init_fn(aspect, init_data); \
 			if (status) {					\
 				return NULL;				\
 			}						\
@@ -162,7 +156,7 @@ extern inline void *PREFIX##_get_aspect(struct PREFIX##_object *obj, int slot) \
 {									\
 	if (slot < 0 || slot >= obj->object_layout->nr_aspects)		\
 		return NULL;						\
-	return (void*)obj + obj->object_layout->aspect_offsets[slot];	\
+	return (void*)obj + obj->object_layout->aspect_layouts[slot].aspect_offset;	\
 }									\
 									\
 
@@ -232,7 +226,7 @@ struct generic_brick_ops {
 #define GENERIC_OUTPUT_OPS(PREFIX)				\
 	int (*output_start)(struct PREFIX##_output *output);	\
 	int (*output_stop)(struct PREFIX##_output *output);	\
-	int (*get_size)(struct PREFIX##_output *output, const struct generic_object_type *object_type); \
+	int (*make_object_layout)(struct PREFIX##_output *output, struct generic_object_layout *object_layout); \
 	
 struct generic_output_ops {
 	GENERIC_OUTPUT_OPS(generic)
@@ -496,6 +490,10 @@ struct mars_io_aspect {
 	GENERIC_ASPECT(mars_io);
 };
 
+struct mars_io_aspect_layout {
+	GENERIC_ASPECT_LAYOUT(mars_io);
+};
+
 struct mars_io_object_layout {
 	GENERIC_OBJECT_LAYOUT(mars_io);
 };
@@ -507,7 +505,6 @@ struct mars_io_object_layout {
 
 struct mars_io_object {
 	MARS_IO_OBJECT(mars_io);
-	struct list_head io_head; //TODO: move to aspect (device_sio)
 };
 
 GENERIC_OBJECT_LAYOUT_FUNCTIONS(mars_io);

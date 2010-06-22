@@ -31,6 +31,7 @@ struct sio_threadinfo {
 struct device_sio_output {
 	MARS_OUTPUT(device_sio);
 	struct file *filp;
+	int aspect_slot;
 #ifdef WITH_THREAD
 	struct sio_threadinfo tinfo[WITH_THREAD+1];
 	spinlock_t g_lock;
