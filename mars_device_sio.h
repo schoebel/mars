@@ -6,7 +6,7 @@
 
 struct device_sio_mars_io_aspect {
 	GENERIC_ASPECT(mars_io);
-	struct list_head io_head; //TODO: move to aspect (device_sio)
+	struct list_head io_head;
 };
 
 struct device_sio_brick {
@@ -25,7 +25,6 @@ struct sio_threadinfo {
 	wait_queue_head_t event;
 	spinlock_t lock;
 };
-
 #endif
 
 struct device_sio_output {

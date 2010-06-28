@@ -28,6 +28,13 @@ config MARS_DEVICE_SIO
 	---help---
 	Experimental storage System.
 
+config MARS_TRANS_LOGGER
+	tristate "transaction logger"
+	depends on MARS
+	default m
+	---help---
+	Experimental storage System.
+
 config MARS_TEST
 	tristate "provisionary TEST"
 	depends on MARS

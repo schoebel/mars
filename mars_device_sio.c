@@ -360,6 +360,13 @@ static int device_sio_thread(void *data)
 }
 #endif
 
+static loff_t device_sio_get_size(struct device_sio_output *output)
+{
+	struct file *file = output->filp;
+	loff_t size = i_size_read(file->f_mapping->host);
+	return size;
+}
+
 //////////////// object / aspect constructors / destructors ///////////////
 
 static int device_sio_aspect_init_fn(struct mars_io_aspect *_ini, void *_init_data)
@@ -471,6 +478,7 @@ static struct device_sio_output_ops device_sio_output_ops = {
 #else
 	.mars_io = device_sio_mars_io,
 #endif
+	.mars_get_size = device_sio_get_size,
 };
 
 static struct device_sio_output_type device_sio_output_type = {

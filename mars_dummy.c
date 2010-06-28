@@ -14,6 +14,30 @@
 
 ////////////////// own brick / input / output operations //////////////////
 
+static int dummy_io(struct dummy_output *output, struct mars_io_object *mio)
+{
+	struct dummy_input *input = output->brick->inputs[0];
+	struct dummy_output *other;
+	if (unlikely(!input))
+		return -ENOSYS;
+	other = input->connect;
+	if (unlikely(!other || !other->ops || !other->ops->mars_io))
+		return -ENOSYS;
+	return other->ops->mars_io(other, mio);
+}
+
+static loff_t dummy_get_size(struct dummy_output *output)
+{
+	struct dummy_input *input = output->brick->inputs[0];
+	struct dummy_output *other;
+	if (unlikely(!input))
+		return -ENOSYS;
+	other = input->connect;
+	if (unlikely(!other || !other->ops || !other->ops->mars_get_size))
+		return -ENOSYS;
+	return other->ops->mars_get_size(other);
+}
+
 //////////////// object / aspect constructors / destructors ///////////////
 
 static int dummy_aspect_init_fn(struct mars_io_aspect *_ini, void *_init_data)
@@ -37,6 +61,8 @@ static int dummy_make_object_layout(struct dummy_output *output, struct generic_
 	if (res < 0)
 		return res;
 
+	output->aspect_slot = res;
+
 	for (i = 0; i < brick->type->max_inputs; i++) {
 		struct dummy_input *input = brick->inputs[i];
 		if (input && input->connect) {
@@ -47,7 +73,7 @@ static int dummy_make_object_layout(struct dummy_output *output, struct generic_
 		}
 	}
 
-	return sizeof(struct dummy_mars_io_aspect);
+	return res + sizeof(struct dummy_mars_io_aspect);
 }
 
 ////////////////////// brick constructors / destructors ////////////////////
@@ -71,6 +97,8 @@ static struct dummy_brick_ops dummy_brick_ops = {
 
 static struct dummy_output_ops dummy_output_ops = {
 	.make_object_layout = dummy_make_object_layout,
+	.mars_io = dummy_io,
+	.mars_get_size = dummy_get_size,
 };
 
 static struct dummy_input_type dummy_input_type = {

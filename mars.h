@@ -115,16 +115,16 @@ extern int PREFIX##_add_aspect(struct generic_object_layout *object_layout, int 
 	return slot;							\
 }									\
 
-#define GENERIC_OBJECT(PREFIX)					\
-	struct PREFIX##_object_layout *object_layout;		\
-	int object_size;					\
+#define GENERIC_OBJECT(PREFIX)						\
+	struct PREFIX##_object_layout *object_layout;			\
+	int object_size;						\
 
 struct generic_object {
 	GENERIC_OBJECT(generic);
 };
 
-#define GENERIC_ASPECT(PREFIX)					\
-	struct PREFIX##_object *object;				\
+#define GENERIC_ASPECT(PREFIX)						\
+	struct PREFIX##_object *object;					\
 
 struct generic_aspect {
 	GENERIC_ASPECT(generic);
@@ -171,61 +171,61 @@ struct generic_brick_ops;
 struct generic_output_ops;
 struct generic_brick_type;
 
-#define GENERIC_BRICK(PREFIX)					\
-	char *brick_name;					\
-	struct PREFIX##_brick_type *type;			\
-	struct PREFIX##_brick_ops *ops;				\
-	int nr_inputs;						\
-	int nr_outputs;						\
-	struct PREFIX##_input **inputs;				\
-	struct PREFIX##_output **outputs;			\
-	struct list_head tmp_head;				\
+#define GENERIC_BRICK(PREFIX)						\
+	char *brick_name;						\
+	struct PREFIX##_brick_type *type;				\
+	struct PREFIX##_brick_ops *ops;					\
+	int nr_inputs;							\
+	int nr_outputs;							\
+	struct PREFIX##_input **inputs;					\
+	struct PREFIX##_output **outputs;				\
+	struct list_head tmp_head;					\
 
 struct generic_brick {
 	GENERIC_BRICK(generic);
 };
 
-#define GENERIC_INPUT(PREFIX)					\
-	char *input_name;					\
-	struct PREFIX##_brick *brick;				\
-	struct PREFIX##_input_type *type;			\
-	struct PREFIX##_output *connect;			\
+#define GENERIC_INPUT(PREFIX)						\
+	char *input_name;						\
+	struct PREFIX##_brick *brick;					\
+	struct PREFIX##_input_type *type;				\
+	struct PREFIX##_output *connect;				\
 	
 struct generic_input {
 	GENERIC_INPUT(generic);
 };
 
-#define GENERIC_OUTPUT(PREFIX)					\
-	char *output_name;					\
-	struct PREFIX##_brick *brick;				\
-	struct PREFIX##_output_type *type;			\
-	struct PREFIX##_output_ops *ops;			\
-	int nr_connected;					\
+#define GENERIC_OUTPUT(PREFIX)						\
+	char *output_name;						\
+	struct PREFIX##_brick *brick;					\
+	struct PREFIX##_output_type *type;				\
+	struct PREFIX##_output_ops *ops;				\
+	int nr_connected;						\
 	
 struct generic_output {
 	GENERIC_OUTPUT(generic);
 };
 
-#define _GENERIC_CALL(ERROR,PTR,OP,...)				\
-	((PTR)->ops->OP ? (PTR)->ops->OP(__VA_ARGS__) : ERROR)
+#define _GENERIC_CALL(ERROR,PTR,OP,...)					\
+	((PTR)->ops->OP ? (PTR)->ops->OP(__VA_ARGS__) : ERROR)		\
 
-#define GENERIC_CALL(PTR,OP,...)		\
-	_GENERIC_CALL(0, PTR, OP, __VA_ARGS__)
+#define GENERIC_CALL(PTR,OP,...)					\
+	_GENERIC_CALL(0, PTR, OP, __VA_ARGS__)				\
 
-#define GENERIC_CALL_FORCE(PTR,OP,...)		\
-	_GENERIC_CALL(-ENOSYS, PTR, OP, __VA_ARGS__)
+#define GENERIC_CALL_FORCE(PTR,OP,...)					\
+	_GENERIC_CALL(-ENOSYS, PTR, OP, __VA_ARGS__)			\
 
-#define GENERIC_BRICK_OPS(PREFIX)				 \
-	int (*brick_start)(struct PREFIX##_brick *brick);	 \
-	int (*brick_stop)(struct PREFIX##_brick *brick);	 \
+#define GENERIC_BRICK_OPS(PREFIX)					\
+	int (*brick_start)(struct PREFIX##_brick *brick);		\
+	int (*brick_stop)(struct PREFIX##_brick *brick);		\
 	
 struct generic_brick_ops {
 	GENERIC_BRICK_OPS(generic);
 };
 
-#define GENERIC_OUTPUT_OPS(PREFIX)				\
-	int (*output_start)(struct PREFIX##_output *output);	\
-	int (*output_stop)(struct PREFIX##_output *output);	\
+#define GENERIC_OUTPUT_OPS(PREFIX)					\
+	int (*output_start)(struct PREFIX##_output *output);		\
+	int (*output_stop)(struct PREFIX##_output *output);		\
 	int (*make_object_layout)(struct PREFIX##_output *output, struct generic_object_layout *object_layout); \
 	
 struct generic_output_ops {
@@ -498,10 +498,10 @@ struct mars_io_object_layout {
 	GENERIC_OBJECT_LAYOUT(mars_io);
 };
 
-#define MARS_IO_OBJECT(PREFIX)				\
-	GENERIC_OBJECT(PREFIX);				\
-	struct bio *orig_bio;				\
-	int (*mars_endio)(struct mars_io_object *mio);		\
+#define MARS_IO_OBJECT(PREFIX)						\
+	GENERIC_OBJECT(PREFIX);						\
+	struct bio *orig_bio;						\
+	int (*mars_endio)(struct mars_io_object *mio);			\
 
 struct mars_io_object {
 	MARS_IO_OBJECT(mars_io);
@@ -513,64 +513,65 @@ GENERIC_OBJECT_FUNCTIONS(mars_io);
 
 // brick stuff
 
-#define MARS_BRICK(PREFIX)				\
-	GENERIC_BRICK(PREFIX);				\
+#define MARS_BRICK(PREFIX)						\
+	GENERIC_BRICK(PREFIX);						\
 
 struct mars_brick {
 	MARS_BRICK(mars);
 };
 
-#define MARS_INPUT(PREFIX)				\
-	GENERIC_INPUT(PREFIX);				\
+#define MARS_INPUT(PREFIX)						\
+	GENERIC_INPUT(PREFIX);						\
 
 struct mars_input {
 	MARS_INPUT(mars);
 };
 
-#define MARS_OUTPUT(PREFIX)				\
-	GENERIC_OUTPUT(PREFIX);				\
+#define MARS_OUTPUT(PREFIX)						\
+	GENERIC_OUTPUT(PREFIX);						\
 
 struct mars_output {
 	MARS_OUTPUT(mars);
 };
 
-#define MARS_BRICK_OPS(PREFIX)					\
-	GENERIC_BRICK_OPS(PREFIX);				\
-	int (*mars_dummy_op)(int);				\
-
-#define MARS_OUTPUT_OPS(PREFIX)					\
-	GENERIC_OUTPUT_OPS(PREFIX);				\
+#define MARS_BRICK_OPS(PREFIX)						\
+	GENERIC_BRICK_OPS(PREFIX);					\
+	int (*mars_dummy_op)(int);					\
+	
+#define MARS_OUTPUT_OPS(PREFIX)						\
+	GENERIC_OUTPUT_OPS(PREFIX);					\
 	int (*mars_io)(struct PREFIX##_output *output, struct mars_io_object *mio); \
+	loff_t (*mars_get_size)(struct PREFIX##_output *output);	\
 
 // all non-extendable types
-#define _MARS_TYPES(PREFIX)		\
-struct PREFIX##_brick_ops {	        \
-	MARS_BRICK_OPS(PREFIX);		\
-};					\
-					\
-struct PREFIX##_output_ops {	        \
-	MARS_OUTPUT_OPS(PREFIX);	\
-};					\
-					\
-struct PREFIX##_brick_type {		\
-	GENERIC_BRICK_TYPE(PREFIX);	\
-};					\
-					\
-struct PREFIX##_input_type {		\
-	GENERIC_INPUT_TYPE(PREFIX);	\
-};					\
-					\
-struct PREFIX##_output_type {		\
-	GENERIC_OUTPUT_TYPE(PREFIX);	\
-};					\
-					\
-GENERIC_MAKE_FUNCTIONS(PREFIX);	        \
-GENERIC_MAKE_CONNECT(PREFIX,PREFIX);	\
+#define _MARS_TYPES(PREFIX)						\
+struct PREFIX##_brick_ops {					        \
+	MARS_BRICK_OPS(PREFIX);						\
+};									\
+									\
+struct PREFIX##_output_ops {					        \
+	MARS_OUTPUT_OPS(PREFIX);					\
+};									\
+									\
+struct PREFIX##_brick_type {					        \
+	GENERIC_BRICK_TYPE(PREFIX);					\
+};									\
+									\
+struct PREFIX##_input_type {					        \
+	GENERIC_INPUT_TYPE(PREFIX);					\
+};									\
+									\
+struct PREFIX##_output_type {					        \
+	GENERIC_OUTPUT_TYPE(PREFIX);					\
+};									\
+									\
+GENERIC_MAKE_FUNCTIONS(PREFIX);					        \
+GENERIC_MAKE_CONNECT(PREFIX,PREFIX);				        \
 
-#define MARS_TYPES(PREFIX)		\
-_MARS_TYPES(PREFIX)		        \
-GENERIC_MAKE_CONNECT(generic,PREFIX);	\
-GENERIC_MAKE_CONNECT(mars,PREFIX);	\
+#define MARS_TYPES(PREFIX)						\
+_MARS_TYPES(PREFIX)						        \
+GENERIC_MAKE_CONNECT(generic,PREFIX);				        \
+GENERIC_MAKE_CONNECT(mars,PREFIX);					\
 
 /////////////////////////////////////////////////////////////////////////
 
