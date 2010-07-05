@@ -7,6 +7,11 @@ struct dummy_mars_io_aspect {
 	int my_own;
 };
 
+struct dummy_mars_buf_aspect {
+	GENERIC_ASPECT(mars_buf);
+	int my_own;
+};
+
 struct dummy_brick {
 	MARS_BRICK(dummy);
 	int my_own;

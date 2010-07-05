@@ -206,26 +206,26 @@ struct generic_output {
 	GENERIC_OUTPUT(generic);
 };
 
-#define _GENERIC_CALL(ERROR,PTR,OP,...)					\
-	((PTR)->ops->OP ? (PTR)->ops->OP(__VA_ARGS__) : ERROR)		\
+#define GENERIC_OUTPUT_CALL(OUTPUT,OP,...)				\
+	((OUTPUT) && (OUTPUT)->ops->OP ?				\
+	 (OUTPUT)->ops->OP(OUTPUT, ##__VA_ARGS__) : -ENOSYS)		\
 
-#define GENERIC_CALL(PTR,OP,...)					\
-	_GENERIC_CALL(0, PTR, OP, __VA_ARGS__)				\
-
-#define GENERIC_CALL_FORCE(PTR,OP,...)					\
-	_GENERIC_CALL(-ENOSYS, PTR, OP, __VA_ARGS__)			\
+#define GENERIC_INPUT_CALL(INPUT,OP,...)				\
+	((INPUT) && (INPUT)->connect ?					\
+	 GENERIC_OUTPUT_CALL((INPUT)->connect, OP, ##__VA_ARGS__) :	\
+	 -ENOSYS)							\
 
 #define GENERIC_BRICK_OPS(PREFIX)					\
-	int (*brick_start)(struct PREFIX##_brick *brick);		\
-	int (*brick_stop)(struct PREFIX##_brick *brick);		\
+	/*int (*brick_start)(struct PREFIX##_brick *brick);*/		\
+	/*int (*brick_stop)(struct PREFIX##_brick *brick);*/		\
 	
 struct generic_brick_ops {
 	GENERIC_BRICK_OPS(generic);
 };
 
 #define GENERIC_OUTPUT_OPS(PREFIX)					\
-	int (*output_start)(struct PREFIX##_output *output);		\
-	int (*output_stop)(struct PREFIX##_output *output);		\
+	/*int (*output_start)(struct PREFIX##_output *output);*/	\
+	/*int (*output_stop)(struct PREFIX##_output *output);*/		\
 	int (*make_object_layout)(struct PREFIX##_output *output, struct generic_object_layout *object_layout); \
 	
 struct generic_output_ops {
@@ -476,14 +476,14 @@ extern inline int INPUT_PREFIX##_##OUTPUT_PREFIX####_disconnect(        \
 )
 
 /////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
 
 // MARS-specific definitions
 
 // object stuff
 
-#define HT_SHIFT 6 //????
-#define MARS_MAX_SEGMENT_SIZE (1U << (9+HT_SHIFT))
-
+/* mars_io */
 extern const struct generic_object_type mars_io_type;
 
 struct mars_io_aspect {
@@ -507,11 +507,44 @@ struct mars_io_object {
 	MARS_IO_OBJECT(mars_io);
 };
 
+/* mars_buf */
+#define MARS_BUF_UPTODATE     1
+#define MARS_BUF_DIRTY        2
+
+extern const struct generic_object_type mars_buffer_type;
+
+struct mars_buf_aspect {
+	GENERIC_ASPECT(mars_buf);
+};
+
+struct mars_buf_aspect_layout {
+	GENERIC_ASPECT_LAYOUT(mars_buf);
+};
+
+struct mars_buf_object_layout {
+	GENERIC_OBJECT_LAYOUT(mars_buf);
+};
+
+#define MARS_BUF_OBJECT(PREFIX)						\
+	MARS_IO_OBJECT(PREFIX);						\
+	spinlock_t buf_lock;						\
+	void *buf_data;							\
+	int buf_len;							\
+	int buf_flags;							\
+	loff_t buf_pos;							\
+
+struct mars_buf_object {
+	MARS_BUF_OBJECT(mars_buf);
+};
+
 GENERIC_OBJECT_LAYOUT_FUNCTIONS(mars_io);
+GENERIC_OBJECT_LAYOUT_FUNCTIONS(mars_buf);
 
 GENERIC_OBJECT_FUNCTIONS(mars_io);
+GENERIC_OBJECT_FUNCTIONS(mars_buf);
 
 // brick stuff
+extern const struct generic_object_type mars_buf_type;
 
 #define MARS_BRICK(PREFIX)						\
 	GENERIC_BRICK(PREFIX);						\
@@ -540,8 +573,13 @@ struct mars_output {
 	
 #define MARS_OUTPUT_OPS(PREFIX)						\
 	GENERIC_OUTPUT_OPS(PREFIX);					\
+	/* mars_io */							\
 	int (*mars_io)(struct PREFIX##_output *output, struct mars_io_object *mio); \
 	loff_t (*mars_get_size)(struct PREFIX##_output *output);	\
+	/* mars_buf */							\
+	int (*mars_buf_get)(struct PREFIX##_output *output, struct mars_buf_object **mbuf, struct mars_buf_object_layout *buf_layout, loff_t pos, int len); \
+	int (*mars_buf_put)(struct PREFIX##_output *output, struct mars_buf_object *mbuf); \
+	int (*mars_buf_io)(struct PREFIX##_output *output, struct mars_buf_object *mbuf, int rw, int(*buf_endio)(struct mars_buf_object *mbuf)); \
 
 // all non-extendable types
 #define _MARS_TYPES(PREFIX)						\

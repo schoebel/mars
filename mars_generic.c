@@ -17,6 +17,12 @@ const struct generic_object_type mars_io_type = {
 };
 EXPORT_SYMBOL_GPL(mars_io_type);
 
+const struct generic_object_type mars_buf_type = {
+	.object_type_name = "mars_buf",
+	.default_size = sizeof(struct mars_buf_object),
+};
+EXPORT_SYMBOL_GPL(mars_buf_type);
+
 //////////////////////////////////////////////////////////////
 
 // brick stuff

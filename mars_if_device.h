@@ -2,6 +2,9 @@
 #ifndef MARS_IF_DEVICE_H
 #define MARS_IF_DEVICE_H
 
+#define HT_SHIFT 6 //????
+#define MARS_MAX_SEGMENT_SIZE (1U << (9+HT_SHIFT))
+
 struct if_device_brick {
 	MARS_BRICK(if_device);
 };
