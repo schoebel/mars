@@ -360,11 +360,12 @@ static int device_sio_thread(void *data)
 }
 #endif
 
-static loff_t device_sio_get_size(struct device_sio_output *output)
+static int device_sio_get_info(struct device_sio_output *output, struct mars_info *info)
 {
 	struct file *file = output->filp;
-	loff_t size = i_size_read(file->f_mapping->host);
-	return size;
+	info->current_size = i_size_read(file->f_mapping->host);
+	info->backing_file = file;
+	return 0;
 }
 
 //////////////// object / aspect constructors / destructors ///////////////
@@ -478,7 +479,7 @@ static struct device_sio_output_ops device_sio_output_ops = {
 #else
 	.mars_io = device_sio_mars_io,
 #endif
-	.mars_get_size = device_sio_get_size,
+	.mars_get_info = device_sio_get_info,
 };
 
 static struct device_sio_output_type device_sio_output_type = {

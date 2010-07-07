@@ -508,8 +508,9 @@ struct mars_io_object {
 };
 
 /* mars_buf */
-#define MARS_BUF_UPTODATE     1
-#define MARS_BUF_DIRTY        2
+#define MARS_BUF_UPTODATE        1
+#define MARS_BUF_READING         2
+#define MARS_BUF_WRITING         4
 
 extern const struct generic_object_type mars_buffer_type;
 
@@ -543,6 +544,13 @@ GENERIC_OBJECT_LAYOUT_FUNCTIONS(mars_buf);
 GENERIC_OBJECT_FUNCTIONS(mars_io);
 GENERIC_OBJECT_FUNCTIONS(mars_buf);
 
+// internal helper structs
+
+struct mars_info {
+	loff_t current_size;
+	struct file *backing_file;
+};
+
 // brick stuff
 extern const struct generic_object_type mars_buf_type;
 
@@ -575,7 +583,7 @@ struct mars_output {
 	GENERIC_OUTPUT_OPS(PREFIX);					\
 	/* mars_io */							\
 	int (*mars_io)(struct PREFIX##_output *output, struct mars_io_object *mio); \
-	loff_t (*mars_get_size)(struct PREFIX##_output *output);	\
+	int (*mars_get_info)(struct PREFIX##_output *output, struct mars_info *info); \
 	/* mars_buf */							\
 	int (*mars_buf_get)(struct PREFIX##_output *output, struct mars_buf_object **mbuf, struct mars_buf_object_layout *buf_layout, loff_t pos, int len); \
 	int (*mars_buf_put)(struct PREFIX##_output *output, struct mars_buf_object *mbuf); \

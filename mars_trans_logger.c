@@ -97,16 +97,10 @@ static int trans_logger_io(struct trans_logger_output *output, struct mars_io_ob
 	return trans_logger_io_write(output, other, mio);
 }
 
-static loff_t trans_logger_get_size(struct trans_logger_output *output)
+static int trans_logger_get_info(struct trans_logger_output *output, struct mars_info *info)
 {
 	struct trans_logger_input *input = output->brick->inputs[0];
-	struct trans_logger_output *other;
-	if (unlikely(!input))
-		return -ENOSYS;
-	other = input->connect;
-	if (unlikely(!other || !other->ops || !other->ops->mars_get_size))
-		return -ENOSYS;
-	return other->ops->mars_get_size(other);
+	return GENERIC_INPUT_CALL(input, mars_get_info, info);
 }
 
 //////////////// object / aspect constructors / destructors ///////////////
@@ -177,7 +171,7 @@ static struct trans_logger_brick_ops trans_logger_brick_ops = {
 static struct trans_logger_output_ops trans_logger_output_ops = {
 	.make_object_layout = trans_logger_make_object_layout,
 	.mars_io = trans_logger_io,
-	.mars_get_size = trans_logger_get_size,
+	.mars_get_info = trans_logger_get_info,
 };
 
 static struct trans_logger_input_type trans_logger_input_type = {

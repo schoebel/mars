@@ -23,7 +23,8 @@ struct dummy_input {
 
 struct dummy_output {
 	MARS_OUTPUT(dummy);
-	int aspect_slot;
+	int io_aspect_slot;
+	int buf_aspect_slot;
 	int my_own;
 };
 

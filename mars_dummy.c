@@ -12,6 +12,8 @@
 
 #include "mars_dummy.h"
 
+///////////////////////// own helper functions ////////////////////////
+
 ////////////////// own brick / input / output operations //////////////////
 
 static int dummy_io(struct dummy_output *output, struct mars_io_object *mio)
@@ -20,10 +22,10 @@ static int dummy_io(struct dummy_output *output, struct mars_io_object *mio)
 	return GENERIC_INPUT_CALL(input, mars_io, mio);
 }
 
-static loff_t dummy_get_size(struct dummy_output *output)
+static int dummy_get_info(struct dummy_output *output, struct mars_info *info)
 {
 	struct dummy_input *input = output->brick->inputs[0];
-	return GENERIC_INPUT_CALL(input, mars_get_size);
+	return GENERIC_INPUT_CALL(input, mars_get_info, info);
 }
 
 static int dummy_buf_get(struct dummy_output *output, struct mars_buf_object **mbuf, struct mars_buf_object_layout *buf_layout, loff_t pos, int len)
@@ -63,37 +65,37 @@ static int dummy_mars_buf_aspect_init_fn(struct mars_buf_aspect *_ini, void *_in
 static int dummy_make_object_layout(struct dummy_output *output, struct generic_object_layout *object_layout)
 {
 	const struct generic_object_type *object_type = object_layout->type;
-	int res;
+	int status;
 	int aspect_size = 0;
 	struct dummy_brick *brick = output->brick;
 	int i;
 
 	if (object_type == &mars_io_type) {
 		aspect_size = sizeof(struct dummy_mars_io_aspect);
-		res = mars_io_add_aspect(object_layout, aspect_size, dummy_mars_io_aspect_init_fn, output);
+		status = mars_io_add_aspect(object_layout, aspect_size, dummy_mars_io_aspect_init_fn, output);
+		output->io_aspect_slot = status;
 	} else if (object_type == &mars_buf_type) {
 		aspect_size = sizeof(struct dummy_mars_buf_aspect);
-		res = mars_buf_add_aspect(object_layout, aspect_size, dummy_mars_buf_aspect_init_fn, output);
+		status = mars_buf_add_aspect(object_layout, aspect_size, dummy_mars_buf_aspect_init_fn, output);
+		output->buf_aspect_slot = status;
 	} else {
 		return 0;
 	}
 
-	if (res < 0)
-		return res;
-
-	output->aspect_slot = res;
+	if (status < 0)
+		return status;
 
 	for (i = 0; i < brick->type->max_inputs; i++) {
 		struct dummy_input *input = brick->inputs[i];
 		if (input && input->connect) {
-			int subres = input->connect->ops->make_object_layout(input->connect, object_layout);
-			if (subres < 0)
-				return subres;
-			res += subres;
+			int substatus = input->connect->ops->make_object_layout(input->connect, object_layout);
+			if (substatus < 0)
+				return substatus;
+			aspect_size += substatus;
 		}
 	}
 
-	return res + aspect_size;
+	return aspect_size;
 }
 
 ////////////////////// brick constructors / destructors ////////////////////
@@ -118,7 +120,7 @@ static struct dummy_brick_ops dummy_brick_ops = {
 static struct dummy_output_ops dummy_output_ops = {
 	.make_object_layout = dummy_make_object_layout,
 	.mars_io = dummy_io,
-	.mars_get_size = dummy_get_size,
+	.mars_get_info = dummy_get_info,
 	.mars_buf_get = dummy_buf_get,
 	.mars_buf_put = dummy_buf_put,
 	.mars_buf_io = dummy_buf_io,
