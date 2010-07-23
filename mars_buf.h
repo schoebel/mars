@@ -3,25 +3,35 @@
 #define MARS_BUF_H
 
 #include <linux/list.h>
+#include <asm/atomic.h>
 
 #define MARS_BUF_HASH_MAX 512
 
 struct buf_mars_io_aspect {
 	GENERIC_ASPECT(mars_io);
+	struct buf_head  *mia_bf;
+	bool mia_end_io_called;
 };
 
 struct buf_mars_buf_aspect {
 	GENERIC_ASPECT(mars_buf);
-	struct list_head bf_member_head;
-	struct list_head bf_pending_head;
-	struct buf_head *bf;
+	struct buf_head *bfa_bf;
+};
+
+struct buf_mars_buf_callback_aspect {
+	GENERIC_ASPECT(mars_buf_callback);
+	struct list_head bfc_pending_head;
+	struct buf_mars_buf_aspect *bfc_bfa;
 };
 
 struct buf_brick {
 	MARS_BRICK(buf);
+	/* brick parameters */
 	int backing_order;
 	int backing_size;
 	int max_count;
+	
+	/* internals */
 	int current_count;
 	int alloc_count;
 	struct mars_io_object_layout *mio_layout;
@@ -45,25 +55,24 @@ struct buf_input {
 
 struct buf_output {
 	MARS_OUTPUT(buf);
-	int io_aspect_slot;
-	int buf_aspect_slot;
 };
 
 MARS_TYPES(buf);
 
 struct buf_head {
 	struct buf_brick *bf_brick;
-	void  *bf_data;
-	loff_t bf_pos;
-	int    bf_flags;
-	int    bf_count;
+	void             *bf_data;
+	loff_t           bf_pos;
+	int              bf_flags;
+	atomic_t         bf_count;
+	int              bf_bio_status;
+	atomic_t         bf_bio_count;
 	// lists for caching
-	struct list_head bf_mbuf_anchor; // all current mbuf members
+	//struct list_head bf_mbuf_anchor; // all current mbuf members
 	struct list_head bf_lru_head;
 	struct list_head bf_hash_head;
 	// lists for IO
-	struct list_head bf_read_pending_anchor;
-	struct list_head bf_write_pending_anchor;
+	struct list_head bf_io_pending_anchor;
 	struct list_head bf_again_write_pending_anchor;
 };
 

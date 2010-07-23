@@ -40,31 +40,40 @@ static int dummy_buf_put(struct dummy_output *output, struct mars_buf_object *mb
 	return GENERIC_INPUT_CALL(input, mars_buf_put, mbuf);
 }
 
-static int dummy_buf_io(struct dummy_output *output, struct mars_buf_object *mbuf, int rw, int(*buf_endio)(struct mars_buf_object *mbuf))
+static int dummy_buf_io(struct dummy_output *output, struct mars_buf_callback_object *mbuf_cb)
 {
 	struct dummy_input *input = output->brick->inputs[0];
-	return GENERIC_INPUT_CALL(input, mars_buf_io, mbuf, rw, buf_endio);
+	return GENERIC_INPUT_CALL(input, mars_buf_io, mbuf_cb);
 }
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int dummy_mars_io_aspect_init_fn(struct mars_io_aspect *_ini, void *_init_data)
+static int dummy_mars_io_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
 	struct dummy_mars_io_aspect *ini = (void*)_ini;
 	ini->my_own = 0;
 	return 0;
 }
 
-static int dummy_mars_buf_aspect_init_fn(struct mars_buf_aspect *_ini, void *_init_data)
+static int dummy_mars_buf_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
 	struct dummy_mars_buf_aspect *ini = (void*)_ini;
 	ini->my_own = 0;
 	return 0;
 }
 
+static int dummy_mars_buf_callback_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+{
+	struct dummy_mars_buf_callback_aspect *ini = (void*)_ini;
+	ini->my_own = 0;
+	return 0;
+}
+
+MARS_MAKE_STATICS(dummy);
+
 static int dummy_make_object_layout(struct dummy_output *output, struct generic_object_layout *object_layout)
 {
-	const struct generic_object_type *object_type = object_layout->type;
+	const struct generic_object_type *object_type = object_layout->object_type;
 	int status;
 	int aspect_size = 0;
 	struct dummy_brick *brick = output->brick;
@@ -72,12 +81,13 @@ static int dummy_make_object_layout(struct dummy_output *output, struct generic_
 
 	if (object_type == &mars_io_type) {
 		aspect_size = sizeof(struct dummy_mars_io_aspect);
-		status = mars_io_add_aspect(object_layout, aspect_size, dummy_mars_io_aspect_init_fn, output);
-		output->io_aspect_slot = status;
+		status = dummy_mars_io_add_aspect(output, object_layout, &dummy_mars_io_aspect_type);
 	} else if (object_type == &mars_buf_type) {
 		aspect_size = sizeof(struct dummy_mars_buf_aspect);
-		status = mars_buf_add_aspect(object_layout, aspect_size, dummy_mars_buf_aspect_init_fn, output);
-		output->buf_aspect_slot = status;
+		status = dummy_mars_buf_add_aspect(output, object_layout, &dummy_mars_buf_aspect_type);
+	} else if (object_type == &mars_buf_callback_type) {
+		aspect_size = sizeof(struct dummy_mars_buf_callback_aspect);
+		status = dummy_mars_buf_callback_add_aspect(output, object_layout, &dummy_mars_buf_callback_aspect_type);
 	} else {
 		return 0;
 	}
@@ -126,27 +136,32 @@ static struct dummy_output_ops dummy_output_ops = {
 	.mars_buf_io = dummy_buf_io,
 };
 
-static struct dummy_input_type dummy_input_type = {
+static const struct dummy_input_type dummy_input_type = {
 	.type_name = "dummy_input",
 	.input_size = sizeof(struct dummy_input),
 };
 
-static struct dummy_input_type *dummy_input_types[] = {
+static const struct dummy_input_type *dummy_input_types[] = {
 	&dummy_input_type,
 };
 
-static struct dummy_output_type dummy_output_type = {
+static const int test[] = {0, -1};
+
+static const struct dummy_output_type dummy_output_type = {
 	.type_name = "dummy_output",
 	.output_size = sizeof(struct dummy_output),
 	.master_ops = &dummy_output_ops,
 	.output_construct = &dummy_output_construct,
+	.test = {
+		[BRICK_OBJ_MARS_IO] = test,
+	}
 };
 
-static struct dummy_output_type *dummy_output_types[] = {
+static const struct dummy_output_type *dummy_output_types[] = {
 	&dummy_output_type,
 };
 
-struct dummy_brick_type dummy_brick_type = {
+const struct dummy_brick_type dummy_brick_type = {
 	.type_name = "dummy_brick",
 	.brick_size = sizeof(struct dummy_brick),
 	.max_inputs = 1,

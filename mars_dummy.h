@@ -12,6 +12,11 @@ struct dummy_mars_buf_aspect {
 	int my_own;
 };
 
+struct dummy_mars_buf_callback_aspect {
+	GENERIC_ASPECT(mars_buf_callback);
+	int my_own;
+};
+
 struct dummy_brick {
 	MARS_BRICK(dummy);
 	int my_own;
@@ -23,8 +28,6 @@ struct dummy_input {
 
 struct dummy_output {
 	MARS_OUTPUT(dummy);
-	int io_aspect_slot;
-	int buf_aspect_slot;
 	int my_own;
 };
 

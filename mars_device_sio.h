@@ -9,6 +9,14 @@ struct device_sio_mars_io_aspect {
 	struct list_head io_head;
 };
 
+struct device_sio_mars_buf_aspect {
+	GENERIC_ASPECT(mars_buf);
+};
+
+struct device_sio_mars_buf_callback_aspect {
+	GENERIC_ASPECT(mars_buf_callback);
+};
+
 struct device_sio_brick {
 	MARS_BRICK(device_sio);
 };
@@ -30,7 +38,6 @@ struct sio_threadinfo {
 struct device_sio_output {
 	MARS_OUTPUT(device_sio);
 	struct file *filp;
-	int aspect_slot;
 #ifdef WITH_THREAD
 	struct sio_threadinfo tinfo[WITH_THREAD+1];
 	spinlock_t g_lock;

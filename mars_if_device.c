@@ -160,6 +160,25 @@ static void if_device_unplug(struct request_queue *q)
 }
 
 
+//////////////// object / aspect constructors / destructors ///////////////
+
+static int if_device_mars_io_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+{
+	return 0;
+}
+
+static int if_device_mars_buf_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+{
+	return 0;
+}
+
+static int if_device_mars_buf_callback_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+{
+	return 0;
+}
+
+MARS_MAKE_STATICS(if_device);
+
 //////////////////////// contructors / destructors ////////////////////////
 
 static int if_device_brick_construct(struct if_device_brick *brick)
@@ -254,18 +273,18 @@ static int if_device_input_destruct(struct if_device_input *input)
 static struct if_device_brick_ops if_device_brick_ops = {
 };
 
-static struct if_device_input_type if_device_input_type = {
+static const struct if_device_input_type if_device_input_type = {
 	.type_name = "if_device_input",
 	.input_size = sizeof(struct if_device_input),
 	.input_construct = &if_device_input_construct,
 	.input_destruct = &if_device_input_destruct,
 };
 
-static struct if_device_input_type *if_device_input_types[] = {
+static const struct if_device_input_type *if_device_input_types[] = {
 	&if_device_input_type,
 };
 
-struct if_device_brick_type if_device_brick_type = {
+const struct if_device_brick_type if_device_brick_type = {
 	.type_name = "if_device_brick",
 	.brick_size = sizeof(struct if_device_brick),
 	.max_inputs = 1,

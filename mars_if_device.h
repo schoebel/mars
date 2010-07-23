@@ -5,6 +5,19 @@
 #define HT_SHIFT 6 //????
 #define MARS_MAX_SEGMENT_SIZE (1U << (9+HT_SHIFT))
 
+struct if_device_mars_io_aspect {
+	GENERIC_ASPECT(mars_io);
+};
+
+struct if_device_mars_buf_aspect {
+	GENERIC_ASPECT(mars_buf);
+};
+
+struct if_device_mars_buf_callback_aspect {
+	GENERIC_ASPECT(mars_buf_callback);
+};
+
+
 struct if_device_brick {
 	MARS_BRICK(if_device);
 };

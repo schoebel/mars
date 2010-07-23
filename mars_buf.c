@@ -2,11 +2,14 @@
 
 // Buf brick (just for demonstration)
 
+//#define MARS_DEBUGGING
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/string.h>
 #include <linux/bio.h>
 #include <linux/blkdev.h>
+#include <linux/delay.h>
 
 #include "mars.h"
 
@@ -63,9 +66,9 @@ static inline void prune_cache(struct buf_brick *brick)
 		brick->current_count--;
 		brick->alloc_count--;
 		
-		spin_unlock(&brick->buf_lock);
+		spin_unlock_irq(&brick->buf_lock);
 		free_buf(brick, bf);
-		spin_lock(&brick->buf_lock);
+		spin_lock_irq(&brick->buf_lock);
 	}
 }
 
@@ -125,21 +128,23 @@ static int make_bio(struct buf_brick *brick, struct bio **_bio, void *data, int 
 	struct bio *bio = NULL;
 	struct block_device *bdev;
 
-	bdev = brick->base_info.backing_file->f_mapping->host->i_sb->s_bdev;
 	if (unlikely(!brick->got_info)) {
 		struct request_queue *q;
 		status = get_info(brick);
 		if (status < 0)
 			goto out;
+		bdev = brick->base_info.backing_file->f_mapping->host->i_sb->s_bdev;
 		q = bdev_get_queue(bdev);
 		brick->bvec_max = queue_max_hw_sectors(q) >> (PAGE_SHIFT - 9);
+	} else {
+		bdev = brick->base_info.backing_file->f_mapping->host->i_sb->s_bdev;
 	}
 
 	sector = pos << 9;                     // TODO: make dynamic
 	sector_offset = pos & ((1 << 9) - 1);  // TODO: make dynamic
 	// round down to start of first sector
 	data -= sector_offset;
-	len -= sector_offset;
+	len += sector_offset;
 	pos -= sector_offset;
 	page_offset = pos & (PAGE_SIZE - 1);
 	bvec_count = len / PAGE_SIZE + 1;
@@ -182,12 +187,11 @@ static int make_bio(struct buf_brick *brick, struct bio **_bio, void *data, int 
 	bio->bi_size = i * PAGE_SIZE;
 	bio->bi_sector = sector;
 	bio->bi_bdev = bdev;
-	bio->bi_private = brick; // ????
+	bio->bi_private = NULL; // must be filled in later
+	bio->bi_end_io = NULL; // must be filled in later
+	if (status >= sector_offset)
+		status -= sector_offset;
 
-#if 0
-	bio->bi_end_io = ...;
-#endif
-	status = len;
 out:
 	*_bio = bio;
 	return status;
@@ -225,7 +229,7 @@ static int buf_buf_get(struct buf_output *output, struct mars_buf_object **_mbuf
 	if (!mbuf)
 		goto err_free;
 
-	mbuf_a = mars_buf_get_aspect(mbuf, output->buf_aspect_slot);
+	mbuf_a = buf_mars_buf_get_aspect(output, mbuf);
 	if (!mbuf_a)
 		goto err_free;
 	
@@ -235,12 +239,15 @@ static int buf_buf_get(struct buf_output *output, struct mars_buf_object **_mbuf
 
 	base_pos = pos & ~((loff_t)brick->backing_size - 1);
 
-	spin_lock(&brick->buf_lock);
+	spin_lock_irq(&brick->buf_lock);
 	bf = hash_find(brick, base_pos);
 	if (!bf) {
+		MARS_DBG("buf_get() hash nothing found\n");
 		if (unlikely(list_empty(&brick->free_anchor))) {
 			struct buf_head *test_bf;
-			spin_unlock(&brick->buf_lock);
+			MARS_DBG("buf_get() alloc new buf_head\n");
+
+			spin_unlock_irq(&brick->buf_lock);
 
 			status = -ENOMEM;
 			bf = kzalloc(sizeof(struct buf_head), GFP_KERNEL);
@@ -252,14 +259,14 @@ static int buf_buf_get(struct buf_output *output, struct mars_buf_object **_mbuf
 				goto err_free2;
 
 			bf->bf_brick = brick;
-			INIT_LIST_HEAD(&bf->bf_mbuf_anchor);
+			atomic_set(&bf->bf_bio_count, 0);
+			//INIT_LIST_HEAD(&bf->bf_mbuf_anchor);
 			INIT_LIST_HEAD(&bf->bf_lru_head);
 			INIT_LIST_HEAD(&bf->bf_hash_head);
-			INIT_LIST_HEAD(&bf->bf_read_pending_anchor);
-			INIT_LIST_HEAD(&bf->bf_write_pending_anchor);
+			INIT_LIST_HEAD(&bf->bf_io_pending_anchor);
 			INIT_LIST_HEAD(&bf->bf_again_write_pending_anchor);
 
-			spin_lock(&brick->buf_lock);
+			spin_lock_irq(&brick->buf_lock);
 			brick->alloc_count++;
 			/* during the open lock, somebody might have raced
 			 * against us at the same base_pos...
@@ -272,22 +279,23 @@ static int buf_buf_get(struct buf_output *output, struct mars_buf_object **_mbuf
 		} else {
 			bf = container_of(brick->free_anchor.next, struct buf_head, bf_lru_head);
 		}
+		MARS_DBG("buf_get() bf=%p\n", bf);
 		bf->bf_pos = base_pos;
 		bf->bf_flags = 0;
-		bf->bf_count = 0;
+		atomic_set(&bf->bf_count, 0);
 
 		hash_insert(brick, bf);
 		brick->current_count++;
 	}
 
-	mbuf_a->bf = bf;
-	list_add(&mbuf_a->bf_member_head, &bf->bf_mbuf_anchor);
-	bf->bf_count++;
+	mbuf_a->bfa_bf = bf;
+	atomic_inc(&bf->bf_count);
+	MARS_DBG("buf_get() bf=%p initial bf_count=%d\n", bf, atomic_read(&bf->bf_count));
 
 	list_del_init(&bf->bf_lru_head);
 
 	mbuf->buf_flags = bf->bf_flags;
-	spin_unlock(&brick->buf_lock);
+	spin_unlock_irq(&brick->buf_lock);
 
 	mbuf->buf_data = bf->bf_data + (pos - base_pos);
 	mbuf->buf_len = brick->backing_size - (pos - base_pos);
@@ -304,23 +312,23 @@ err_free:
 	return status;
 }
 
-static int buf_buf_put(struct buf_output *output, struct mars_buf_object *mbuf)
+static int _buf_buf_put(struct buf_head *bf)
 {
-	struct buf_brick *brick = output->brick;
-	struct buf_mars_buf_aspect *mbuf_a;
-	struct buf_head *bf;
+	struct buf_brick *brick;
 
-	mbuf_a = mars_buf_get_aspect(mbuf, output->buf_aspect_slot);
-	if (!mbuf_a)
-		return -EILSEQ;
+	MARS_DBG("_buf_buf_put() bf=%p bf_count=%d\n", bf, atomic_read(&bf->bf_count));
 
-	bf = mbuf_a->bf;
+	if (!atomic_dec_and_test(&bf->bf_count))
+		return 0;
 
-	spin_lock(&brick->buf_lock);
-	list_del(&mbuf_a->bf_member_head);
-	if (--bf->bf_count <= 0) {
+	MARS_DBG("_buf_buf_put() ZERO_COUNT\n");
+
+	brick = bf->bf_brick;
+
+	spin_lock_irq(&brick->buf_lock);
+
+	if (atomic_read(&bf->bf_count) <= 0) {
 		struct list_head *where = &brick->lru_anchor;
-		BUG_ON(bf->bf_count < 0);
 		BUG_ON(bf->bf_flags & (MARS_BUF_READING | MARS_BUF_WRITING));
 		if (unlikely(!(bf->bf_flags & MARS_BUF_UPTODATE))) {
 			list_del_init(&bf->bf_hash_head);
@@ -330,6 +338,7 @@ static int buf_buf_put(struct buf_output *output, struct mars_buf_object *mbuf)
 		list_del(&bf->bf_lru_head);
 		list_add(&bf->bf_lru_head, where);
 	}
+
 	// lru freeing
 	while (brick->current_count > brick->max_count) {
 		if (list_empty(&brick->lru_anchor))
@@ -340,57 +349,62 @@ static int buf_buf_put(struct buf_output *output, struct mars_buf_object *mbuf)
 		brick->current_count--;
 		list_add(&bf->bf_lru_head, &brick->free_anchor);
 	}
+
 	prune_cache(brick);
-	spin_unlock(&brick->buf_lock);
+
+	spin_unlock_irq(&brick->buf_lock);
 
 	return 0;
 }
 
-static int buf_buf_io(struct buf_output *output, struct mars_buf_object *mbuf, int rw, int(*buf_endio)(struct mars_buf_object *mbuf))
+static int buf_buf_put(struct buf_output *output, struct mars_buf_object *mbuf)
 {
-	struct buf_brick *brick = output->brick;
 	struct buf_mars_buf_aspect *mbuf_a;
 	struct buf_head *bf;
-	bool tostart = false;
 
-	mbuf_a = mars_buf_get_aspect(mbuf, output->buf_aspect_slot);
+	mbuf_a = buf_mars_buf_get_aspect(output, mbuf);
 	if (!mbuf_a)
 		return -EILSEQ;
 
-	bf = mbuf_a->bf;
+	bf = mbuf_a->bfa_bf;
+	MARS_DBG("buf_buf_put() mbuf=%p mbuf_a=%p bf=%p\n", mbuf, mbuf_a, bf);
+	
+	return _buf_buf_put(bf);
+}
 
-	spin_lock(&brick->buf_lock);
-	if (rw) { // WRITE
-		BUG_ON(bf->bf_flags & MARS_BUF_READING);
-		if (!(bf->bf_flags & MARS_BUF_WRITING)) {
-			bf->bf_flags |= MARS_BUF_WRITING;
-			tostart = true;
-			list_add(&mbuf_a->bf_pending_head, &bf->bf_write_pending_anchor);
+static int _buf_endio(struct mars_io_object *mio)
+{
+	struct bio *bio = mio->orig_bio;
+	MARS_DBG("_buf_endio() mio=%p bio=%p\n", mio, bio);
+	if (bio) {
+		mio->orig_bio = NULL;
+		if (!bio->bi_size) {
+			bio_endio(bio, 0);
 		} else {
-			list_add(&mbuf_a->bf_pending_head, &bf->bf_again_write_pending_anchor);
+			MARS_ERR("NYI: RETRY LOGIC %u\n", bio->bi_size);
+			bio_endio(bio, -EIO);
 		}
-	} else { // READ
-		if (bf->bf_flags & (MARS_BUF_UPTODATE | MARS_BUF_WRITING)) {
-			spin_unlock(&brick->buf_lock);
-			return buf_endio(mbuf);
-		}
-		if (!(bf->bf_flags & MARS_BUF_READING)) {
-			bf->bf_flags |= MARS_BUF_READING;
-			tostart = true;
-		}
-		list_add(&mbuf_a->bf_pending_head, &bf->bf_read_pending_anchor);
-	}
-	spin_unlock(&brick->buf_lock);
+	} // else lower layers have already signalled the orig_bio
 
-	if (tostart) {
-		struct buf_input *input = output->brick->inputs[0];
+	kfree(mio);
+	return 0;
+}
+
+static void _buf_bio_callback(struct bio *bio, int code);
+
+static int _buf_make_bios(struct buf_brick *brick, struct buf_head *bf, void *start_data, loff_t start_pos, int start_len)
+{
+	while (start_len > 0) {
+		struct buf_input *input = brick->inputs[0];
 		struct mars_io_object *data;
 		struct mars_io_object *mio;
+		struct buf_mars_io_aspect *mio_a;
 		struct bio *bio = NULL;
+		int len;
 		int status;
 
 		if (unlikely(!brick->mio_layout)) {
-			brick->mio_layout = buf_init_object_layout(input->connect);
+			brick->mio_layout = buf_init_object_layout(brick->outputs[0]);
 			if (!brick->mio_layout)
 				return -ENOMEM;
 		}
@@ -403,12 +417,40 @@ static int buf_buf_io(struct buf_output *output, struct mars_buf_object *mbuf, i
 		if (!mio)
 			goto err_free;
 
-		status = make_bio(brick, &bio, mbuf->buf_data, mbuf->buf_len, mbuf->buf_pos);
-		if (status < 0 || !bio)
+		mio_a = buf_mars_io_get_aspect(brick->outputs[0], mio);
+		if (!mio_a)
 			goto err_free2;
 
-		//...
-		return GENERIC_INPUT_CALL(input, mars_io, mio);
+		len = make_bio(brick, &bio, start_data, start_len, start_pos);
+		if (len < 0 || !bio)
+			goto err_free2;
+
+		mio_a->mia_bf = bf;
+		atomic_inc(&bf->bf_bio_count);
+		bio->bi_private = mio_a;
+		bio->bi_end_io = _buf_bio_callback;
+		mio->orig_bio = bio;
+		mio->mars_endio = _buf_endio;
+
+		MARS_DBG("starting buf IO mio=%p bio=%p len=%d bf=%p bf_count=%d bf_bio_count=%d\n", mio, bio, len, bf, atomic_read(&bf->bf_count), atomic_read(&bf->bf_bio_count));
+#if 1
+		status = GENERIC_INPUT_CALL(input, mars_io, mio);
+		if (status < 0)
+			goto err_free3;
+#else
+		// fake IO for testing
+		bio->bi_size = 0;
+		mio->mars_endio(mio);
+#endif
+
+		start_data -= len;
+		start_pos -= len;
+		start_len -= len;
+		continue;
+
+	err_free3:
+		atomic_dec(&bf->bf_bio_count);
+		bio_put(bio);
 	err_free2:
 		kfree(mio);
 	err_free:
@@ -418,25 +460,214 @@ static int buf_buf_io(struct buf_output *output, struct mars_buf_object *mbuf, i
 	return 0;
 }
 
+static void _buf_bio_callback(struct bio *bio, int code)
+{
+	struct buf_mars_io_aspect *mio_a;
+	struct buf_head *bf;
+	struct buf_brick *brick;
+	void  *start_data = NULL;
+	loff_t start_pos = 0;
+	int    start_len = 0;
+	int old_flags;
+
+	mio_a = bio->bi_private;
+	bf = mio_a->mia_bf;
+
+	MARS_DBG("_buf_bio_callback() mio=%p bio=%p bf=%p bf_count=%d bf_bio_count=%d code=%d\n", mio_a->object, bio, bf, atomic_read(&bf->bf_count), atomic_read(&bf->bf_bio_count), code);
+
+	if (unlikely(mio_a->mia_end_io_called)) {
+		MARS_ERR("Oops, somebody called us twice on the same bio. I'm not amused.\n");
+		msleep(5000);
+		return;
+	} else {
+		mio_a->mia_end_io_called = true;
+		bio_put(bio);
+	}
+
+	if (code < 0) {
+		// this can race, but we don't worry about the exact error code
+		bf->bf_bio_status = code;
+	}
+
+	if (!atomic_dec_and_test(&bf->bf_bio_count))
+		return;
+
+	MARS_DBG("_buf_bio_callback() ZERO_COUNT mio=%p bio=%p bf=%p code=%d\n", mio_a->object, bio, bf, code);
+
+	brick = bf->bf_brick;
+
+	spin_lock_irq(&brick->buf_lock);
+
+	// signal success by calling all callbacks.
+	while (!list_empty(&bf->bf_io_pending_anchor)) {
+		struct buf_mars_buf_callback_aspect *mbuf_cb_a = container_of(bf->bf_io_pending_anchor.next, struct buf_mars_buf_callback_aspect, bfc_pending_head);
+		struct mars_buf_callback_object *mbuf_cb = mbuf_cb_a->object;
+
+		BUG_ON(mbuf_cb_a->bfc_bfa->bfa_bf != bf);
+		mbuf_cb->cb_error = bf->bf_bio_status;
+		list_del(&mbuf_cb_a->bfc_pending_head);
+		/* drop normal refcount.
+		 * full _buf_buf_put() not needed, see below. */
+		atomic_dec(&bf->bf_count);
+		MARS_DBG("_buf_bio_callback() bf=%p now bf_count=%d\n", bf, atomic_read(&bf->bf_count));
+
+		spin_unlock_irq(&brick->buf_lock);
+
+		mbuf_cb->cb_buf_endio(mbuf_cb);
+
+		spin_lock_irq(&brick->buf_lock);
+	}
+
+	old_flags = bf->bf_flags;
+	if (!bf->bf_bio_status && (old_flags & MARS_BUF_READING)) {
+		bf->bf_flags |= MARS_BUF_UPTODATE;
+	}
+
+	// clear the flags. may be re-enabled later.
+	bf->bf_flags &= ~(MARS_BUF_READING | MARS_BUF_WRITING);
+
+	/* move pending jobs to work.
+	 * this is in essence an automatic restart mechanism.
+	 */
+	while (!list_empty(&bf->bf_again_write_pending_anchor)) {
+		struct buf_mars_buf_callback_aspect *mbuf_cb_a = container_of(bf->bf_again_write_pending_anchor.next, struct buf_mars_buf_callback_aspect, bfc_pending_head);
+		struct mars_buf_object *mbuf = mbuf_cb_a->bfc_bfa->object;
+		BUG_ON(mbuf_cb_a->bfc_bfa->bfa_bf != bf);
+		list_del(&mbuf_cb_a->bfc_pending_head);
+		list_add_tail(&mbuf_cb_a->bfc_pending_head, &bf->bf_io_pending_anchor);
+		// re-enable flags
+		bf->bf_flags |= MARS_BUF_WRITING;
+		bf->bf_bio_status = 0;
+
+		if (!start_len) {
+			start_data = mbuf->buf_data;
+			start_pos = mbuf->buf_pos;
+			start_len = mbuf->buf_len;
+		} else if (start_data != mbuf->buf_data ||
+			  start_pos != mbuf->buf_pos ||
+			  start_len != mbuf->buf_len) {
+			start_data = bf->bf_data;
+			start_pos = bf->bf_pos;
+			start_len = brick->backing_size;
+		}
+	}
+
+	spin_unlock_irq(&brick->buf_lock);
+
+	if (start_len) {
+		// in this case, the extra refcount is kept => nothing to do
+		_buf_make_bios(brick, bf, start_data, start_pos, start_len);
+	} else if (old_flags & (MARS_BUF_READING | MARS_BUF_WRITING)) {
+		// drop extra refcount for pending IO
+		_buf_buf_put(bf);
+	}
+}
+
+static int buf_buf_io(struct buf_output *output, struct mars_buf_callback_object *mbuf_cb)
+{
+	struct buf_brick *brick = output->brick;
+	struct mars_buf_object *mbuf = mbuf_cb->cb_mbuf;
+	struct buf_mars_buf_aspect *mbuf_a;
+	struct buf_mars_buf_callback_aspect *mbuf_cb_a;
+	struct buf_head *bf;
+	void  *start_data = NULL;
+	loff_t start_pos = 0;
+	int    start_len = 0;
+
+	if (!mbuf) {
+		MARS_ERR("internal problem: forgotten to supply mbuf\n");
+		return -EILSEQ;
+	}
+	mbuf_cb_a = buf_mars_buf_callback_get_aspect(output, mbuf_cb);
+	if (!mbuf_cb_a) {
+		MARS_ERR("internal problem: mbuf_cb aspect does not work\n");
+		return -EILSEQ;
+	}
+
+	mbuf_a = buf_mars_buf_get_aspect(output, mbuf);
+	if (!mbuf_a) {
+		MARS_ERR("internal problem: mbuf aspect does not work\n");
+		return -EILSEQ;
+	}
+
+	mbuf_cb_a->bfc_bfa = mbuf_a;
+	bf = mbuf_a->bfa_bf;
+
+	spin_lock_irq(&brick->buf_lock);
+
+	if (mbuf_cb->cb_rw) { // WRITE
+		BUG_ON(bf->bf_flags & MARS_BUF_READING);
+		if (!(bf->bf_flags & MARS_BUF_WRITING)) {
+			bf->bf_flags |= MARS_BUF_WRITING;
+			bf->bf_bio_status = 0;
+			// grab an extra refcount for pending IO
+			atomic_inc(&bf->bf_count);
+			MARS_DBG("buf_buf_io() bf=%p extra bf_count=%d\n", bf, atomic_read(&bf->bf_count));
+			start_data = mbuf->buf_data;
+			start_pos = mbuf->buf_pos;
+			start_len = mbuf->buf_len;
+			list_add(&mbuf_cb_a->bfc_pending_head, &bf->bf_io_pending_anchor);
+		} else {
+			list_add(&mbuf_cb_a->bfc_pending_head, &bf->bf_again_write_pending_anchor);
+			MARS_INF("postponing %lld %d\n", mbuf->buf_pos, mbuf->buf_len);
+		}
+	} else { // READ
+		if (bf->bf_flags & (MARS_BUF_UPTODATE | MARS_BUF_WRITING)) {
+			spin_unlock_irq(&brick->buf_lock);
+			return mbuf_cb->cb_buf_endio(mbuf_cb);
+		}
+		if (!(bf->bf_flags & MARS_BUF_READING)) {
+			bf->bf_flags |= MARS_BUF_READING;
+			bf->bf_bio_status = 0;
+			// grab an extra refcount for pending IO
+			atomic_inc(&bf->bf_count);
+			MARS_DBG("buf_buf_io() bf=%p extra bf_count=%d\n", bf, atomic_read(&bf->bf_count));
+			start_data = (void*)((unsigned long)mbuf->buf_data & (brick->backing_size - 1));
+			start_pos = mbuf->buf_pos & (brick->backing_size - 1);
+			start_len = brick->backing_size;
+		}
+		list_add(&mbuf_cb_a->bfc_pending_head, &bf->bf_io_pending_anchor);
+	}
+
+	// grab normal refcount for each mbuf_cb
+	atomic_inc(&bf->bf_count);
+	MARS_DBG("buf_buf_io() bf=%p normal bf_count=%d\n", bf, atomic_read(&bf->bf_count));
+
+	spin_unlock_irq(&brick->buf_lock);
+
+	return _buf_make_bios(brick, bf, start_data, start_pos, start_len);
+}
+
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int buf_mars_io_aspect_init_fn(struct mars_io_aspect *_ini, void *_init_data)
+static int buf_mars_io_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
 	struct buf_mars_io_aspect *ini = (void*)_ini;
+	ini->mia_bf = NULL;
+	ini->mia_end_io_called = false;
 	return 0;
 }
 
-static int buf_mars_buf_aspect_init_fn(struct mars_buf_aspect *_ini, void *_init_data)
+static int buf_mars_buf_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
 	struct buf_mars_buf_aspect *ini = (void*)_ini;
-	INIT_LIST_HEAD(&ini->bf_member_head);
-	INIT_LIST_HEAD(&ini->bf_pending_head);
+	ini->bfa_bf = NULL;
 	return 0;
 }
+
+static int buf_mars_buf_callback_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+{
+	struct buf_mars_buf_callback_aspect *ini = (void*)_ini;
+	INIT_LIST_HEAD(&ini->bfc_pending_head);
+	ini->bfc_bfa = NULL;
+	return 0;
+}
+
+MARS_MAKE_STATICS(buf);
 
 static int buf_make_object_layout(struct buf_output *output, struct generic_object_layout *object_layout)
 {
-	const struct generic_object_type *object_type = object_layout->type;
+	const struct generic_object_type *object_type = object_layout->object_type;
 	int status;
 	int aspect_size = 0;
 	struct buf_brick *brick = output->brick;
@@ -444,14 +675,18 @@ static int buf_make_object_layout(struct buf_output *output, struct generic_obje
 
 	if (object_type == &mars_io_type) {
 		aspect_size = sizeof(struct buf_mars_io_aspect);
-		status = mars_io_add_aspect(object_layout, aspect_size, buf_mars_io_aspect_init_fn, output);
-		output->io_aspect_slot = status;
+		status = buf_mars_io_add_aspect(output, object_layout, &buf_mars_io_aspect_type);
 	} else if (object_type == &mars_buf_type) {
 		aspect_size = sizeof(struct buf_mars_buf_aspect);
-		status = mars_buf_add_aspect(object_layout, aspect_size, buf_mars_buf_aspect_init_fn, output);
+		status = buf_mars_buf_add_aspect(output, object_layout, &buf_mars_buf_aspect_type);
 		if (status < 0)
 			return status;
-		output->buf_aspect_slot = status;
+		return aspect_size;
+	} else if (object_type == &mars_buf_callback_type) {
+		aspect_size = sizeof(struct buf_mars_buf_callback_aspect);
+		status = buf_mars_buf_callback_add_aspect(output, object_layout, &buf_mars_buf_callback_aspect_type);
+		if (status < 0)
+			return status;
 		return aspect_size;
 	} else {
 		return 0;
@@ -511,27 +746,27 @@ static struct buf_output_ops buf_output_ops = {
 	.mars_buf_io = buf_buf_io,
 };
 
-static struct buf_input_type buf_input_type = {
+static const struct buf_input_type buf_input_type = {
 	.type_name = "buf_input",
 	.input_size = sizeof(struct buf_input),
 };
 
-static struct buf_input_type *buf_input_types[] = {
+static const struct buf_input_type *buf_input_types[] = {
 	&buf_input_type,
 };
 
-static struct buf_output_type buf_output_type = {
+static const struct buf_output_type buf_output_type = {
 	.type_name = "buf_output",
 	.output_size = sizeof(struct buf_output),
 	.master_ops = &buf_output_ops,
 	.output_construct = &buf_output_construct,
 };
 
-static struct buf_output_type *buf_output_types[] = {
+static const struct buf_output_type *buf_output_types[] = {
 	&buf_output_type,
 };
 
-struct buf_brick_type buf_brick_type = {
+const struct buf_brick_type buf_brick_type = {
 	.type_name = "buf_brick",
 	.brick_size = sizeof(struct buf_brick),
 	.max_inputs = 1,

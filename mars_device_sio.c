@@ -312,7 +312,7 @@ static int device_sio_mars_queue(struct device_sio_output *output, struct mars_i
 		spin_unlock_irq(&output->g_lock);
 		index = (index % WITH_THREAD) + 1;
 	}
-	aspect = mars_io_get_aspect(mio, output->aspect_slot);
+	aspect = device_sio_mars_io_get_aspect(output, mio);
 	tinfo = &output->tinfo[index];
 	MARS_DBG("queueing %p on %d\n", mio, index);
 	spin_lock_irq(&tinfo->lock);
@@ -370,25 +370,40 @@ static int device_sio_get_info(struct device_sio_output *output, struct mars_inf
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int device_sio_aspect_init_fn(struct mars_io_aspect *_ini, void *_init_data)
+static int device_sio_mars_io_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
 	struct device_sio_mars_io_aspect *ini = (void*)_ini;
 	INIT_LIST_HEAD(&ini->io_head);
 	return 0;
 }
 
+static int device_sio_mars_buf_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+{
+	struct device_sio_mars_buf_aspect *ini = (void*)_ini;
+	(void)ini;
+	return 0;
+}
+
+static int device_sio_mars_buf_callback_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+{
+	struct device_sio_mars_buf_callback_aspect *ini = (void*)_ini;
+	(void)ini;
+	return 0;
+}
+
+MARS_MAKE_STATICS(device_sio);
+
 static int device_sio_make_object_layout(struct device_sio_output *output, struct generic_object_layout *object_layout)
 {
-	const struct generic_object_type *object_type = object_layout->type;
+	const struct generic_object_type *object_type = object_layout->object_type;
 	int slot;
 	if (object_type != &mars_io_type)
 		return 0;
 
-	slot = mars_io_add_aspect(object_layout, sizeof(struct device_sio_mars_io_aspect), device_sio_aspect_init_fn, output);
+	slot = device_sio_mars_io_add_aspect(output, object_layout, &device_sio_mars_io_aspect_type);
 	if (slot < 0)
 		return slot;
 
-	output->aspect_slot = slot;
 	return sizeof(struct device_sio_mars_io_aspect);
 }
 
@@ -482,7 +497,7 @@ static struct device_sio_output_ops device_sio_output_ops = {
 	.mars_get_info = device_sio_get_info,
 };
 
-static struct device_sio_output_type device_sio_output_type = {
+static const struct device_sio_output_type device_sio_output_type = {
 	.type_name = "device_sio_output",
 	.output_size = sizeof(struct device_sio_output),
 	.master_ops = &device_sio_output_ops,
@@ -490,11 +505,11 @@ static struct device_sio_output_type device_sio_output_type = {
 	.output_destruct = &device_sio_output_destruct,
 };
 
-static struct device_sio_output_type *device_sio_output_types[] = {
+static const struct device_sio_output_type *device_sio_output_types[] = {
 	&device_sio_output_type,
 };
 
-struct device_sio_brick_type device_sio_brick_type = {
+const struct device_sio_brick_type device_sio_brick_type = {
 	.type_name = "device_sio_brick",
 	.brick_size = sizeof(struct device_sio_brick),
 	.max_inputs = 0,
