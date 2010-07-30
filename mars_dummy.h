@@ -2,6 +2,8 @@
 #ifndef MARS_DUMMY_H
 #define MARS_DUMMY_H
 
+MARS_HELPERS(dummy);
+
 struct dummy_mars_io_aspect {
 	GENERIC_ASPECT(mars_io);
 	int my_own;
@@ -9,11 +11,6 @@ struct dummy_mars_io_aspect {
 
 struct dummy_mars_buf_aspect {
 	GENERIC_ASPECT(mars_buf);
-	int my_own;
-};
-
-struct dummy_mars_buf_callback_aspect {
-	GENERIC_ASPECT(mars_buf_callback);
 	int my_own;
 };
 

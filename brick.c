@@ -239,29 +239,38 @@ int generic_brick_exit_full(struct generic_brick *brick)
 }
 EXPORT_SYMBOL_GPL(generic_brick_exit_full);
 
-int generic_brick_exit_recursively(struct generic_brick *brick)
+int generic_brick_exit_recursively(struct generic_brick *brick, bool destroy_inputs)
 {
 	int final_status = 0;
-	LIST_HEAD(head);
-	list_add(&brick->tmp_head, &head);
-	while (!list_empty(&head)) {
+	LIST_HEAD(tmp);
+
+	list_add(&brick->tmp_head, &tmp);
+	while (!list_empty(&tmp)) {
 		int i;
 		int status;
-		brick = container_of(head.next, struct generic_brick, tmp_head);
+		int postpone = 0;
+		brick = container_of(tmp.next, struct generic_brick, tmp_head);
+		list_del_init(&brick->tmp_head);
 		for (i = 0; i < brick->nr_outputs; i++) {
 			struct generic_output *output = brick->outputs[i];
-			if (output->nr_connected) {
-				list_del(&brick->tmp_head);
-				continue;
+			if (output && output->nr_connected) {
+				postpone += output->nr_connected;
 			}
 		}
-		list_del(&brick->tmp_head);
 		for (i = 0; i < brick->nr_inputs; i++) {
 			struct generic_input *input = brick->inputs[i];
-			if (input->connect) {
+			if (input && input->connect) {
 				struct generic_brick *other = input->connect->brick;
-				list_add(&other->tmp_head, &head);
+				if (destroy_inputs) {
+					list_add(&other->tmp_head, &tmp);
+					postpone++;
+				} else {
+				}
 			}
+		}
+		if (postpone) {
+			list_add_tail(&brick->tmp_head, &tmp);
+			continue;
 		}
 		status = generic_brick_exit_full(brick);
 		if (status)

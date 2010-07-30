@@ -31,10 +31,10 @@ static int dummy_get_info(struct dummy_output *output, struct mars_info *info)
 	return GENERIC_INPUT_CALL(input, mars_get_info, info);
 }
 
-static int dummy_buf_get(struct dummy_output *output, struct mars_buf_object **mbuf, struct mars_buf_object_layout *buf_layout, loff_t pos, int len)
+static int dummy_buf_get(struct dummy_output *output, struct mars_buf_object **mbuf, struct mars_alloc_helper *h, loff_t pos, int len)
 {
 	struct dummy_input *input = output->brick->inputs[0];
-	return GENERIC_INPUT_CALL(input, mars_buf_get, mbuf, buf_layout, pos, len);
+	return GENERIC_INPUT_CALL(input, mars_buf_get, mbuf, h, pos, len);
 }
 
 static int dummy_buf_put(struct dummy_output *output, struct mars_buf_object *mbuf)
@@ -43,10 +43,10 @@ static int dummy_buf_put(struct dummy_output *output, struct mars_buf_object *mb
 	return GENERIC_INPUT_CALL(input, mars_buf_put, mbuf);
 }
 
-static int dummy_buf_io(struct dummy_output *output, struct mars_buf_callback_object *mbuf_cb)
+static int dummy_buf_io(struct dummy_output *output, struct mars_buf_object *mbuf)
 {
 	struct dummy_input *input = output->brick->inputs[0];
-	return GENERIC_INPUT_CALL(input, mars_buf_io, mbuf_cb);
+	return GENERIC_INPUT_CALL(input, mars_buf_io, mbuf);
 }
 
 //////////////// object / aspect constructors / destructors ///////////////
@@ -61,13 +61,6 @@ static int dummy_mars_io_aspect_init_fn(struct generic_aspect *_ini, void *_init
 static int dummy_mars_buf_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
 	struct dummy_mars_buf_aspect *ini = (void*)_ini;
-	ini->my_own = 0;
-	return 0;
-}
-
-static int dummy_mars_buf_callback_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
-{
-	struct dummy_mars_buf_callback_aspect *ini = (void*)_ini;
 	ini->my_own = 0;
 	return 0;
 }
@@ -120,7 +113,6 @@ static const struct dummy_output_type dummy_output_type = {
 	.layout_code = {
 		[BRICK_OBJ_MARS_IO] = LAYOUT_ALL,
 		[BRICK_OBJ_MARS_BUF] = LAYOUT_ALL,
-		[BRICK_OBJ_MARS_BUF_CALLBACK] = LAYOUT_ALL,
 	}
 };
 

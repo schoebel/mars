@@ -363,13 +363,6 @@ static int device_sio_mars_buf_aspect_init_fn(struct generic_aspect *_ini, void 
 	return 0;
 }
 
-static int device_sio_mars_buf_callback_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
-{
-	struct device_sio_mars_buf_callback_aspect *ini = (void*)_ini;
-	(void)ini;
-	return 0;
-}
-
 MARS_MAKE_STATICS(device_sio);
 
 #if 0
@@ -488,7 +481,6 @@ static const struct device_sio_output_type device_sio_output_type = {
 	.layout_code = {
 		[BRICK_OBJ_MARS_IO] = LAYOUT_NONE,
 		[BRICK_OBJ_MARS_BUF] = LAYOUT_NONE,
-		[BRICK_OBJ_MARS_BUF_CALLBACK] = LAYOUT_NONE,
 	}
 };
 

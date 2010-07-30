@@ -2,6 +2,8 @@
 #ifndef MARS_USEBUF_H
 #define MARS_USEBUF_H
 
+MARS_HELPERS(usebuf);
+
 struct usebuf_mars_io_aspect {
 	GENERIC_ASPECT(mars_io);
 	atomic_t mio_count;
@@ -16,10 +18,6 @@ struct usebuf_mars_buf_aspect {
 	int bvec_len;
 };
 
-struct usebuf_mars_buf_callback_aspect {
-	GENERIC_ASPECT(mars_buf_callback);
-};
-
 struct usebuf_brick {
 	MARS_BRICK(usebuf);
 };
@@ -30,8 +28,7 @@ struct usebuf_input {
 
 struct usebuf_output {
 	MARS_OUTPUT(usebuf);
-	struct mars_buf_object_layout *buf_layout;
-	struct mars_buf_callback_object_layout *buf_callback_layout;
+	struct usebuf_alloc_helper buf_helper;
 };
 
 MARS_TYPES(usebuf);

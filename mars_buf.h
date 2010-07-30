@@ -7,6 +7,8 @@
 
 #define MARS_BUF_HASH_MAX 512
 
+MARS_HELPERS(buf);
+
 struct buf_mars_io_aspect {
 	GENERIC_ASPECT(mars_io);
 	struct buf_head  *mia_bf;
@@ -16,12 +18,8 @@ struct buf_mars_io_aspect {
 struct buf_mars_buf_aspect {
 	GENERIC_ASPECT(mars_buf);
 	struct buf_head *bfa_bf;
-};
-
-struct buf_mars_buf_callback_aspect {
-	GENERIC_ASPECT(mars_buf_callback);
 	struct list_head bfc_pending_head;
-	struct buf_mars_buf_aspect *bfc_bfa;
+	int nr_io_pending;
 };
 
 struct buf_brick {
@@ -34,7 +32,7 @@ struct buf_brick {
 	/* internals */
 	int current_count;
 	int alloc_count;
-	struct mars_io_object_layout *mio_layout;
+	struct buf_alloc_helper mio_helper;
 
 	spinlock_t buf_lock;
 

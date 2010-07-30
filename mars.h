@@ -3,6 +3,7 @@
 #define MARS_H
 
 #include <linux/list.h>
+#include <asm/spinlock.h>
 #include <asm/atomic.h>
 
 #define MARS_ERROR "MARS_ERROR  " __BASE_FILE__ ": "
@@ -19,14 +20,37 @@
 
 #define BRICK_OBJ_MARS_IO             0
 #define BRICK_OBJ_MARS_BUF            1
-#define BRICK_OBJ_MARS_BUF_CALLBACK   2
-#define BRICK_OBJ_NR                  3
+#define BRICK_OBJ_NR                  2
 
 #include "brick.h"
 
 /////////////////////////////////////////////////////////////////////////
 
 // MARS-specific definitions
+
+#define MARS_ALLOC_HELPER(BRICK)				\
+	struct BRICK##_object_layout *object_layout;		\
+	spinlock_t helper_lock;					\
+
+struct mars_alloc_helper {
+	MARS_ALLOC_HELPER(generic);
+};
+
+extern struct generic_object_layout *default_init_object_layout(struct generic_output *output, const struct generic_object_type *object_type);
+
+extern struct generic_object *alloc_generic(struct generic_output *output, struct mars_alloc_helper *h, const struct generic_object_type *object_type);
+
+#define MARS_HELPERS(BRICK)						\
+									\
+struct BRICK##_alloc_helper {					        \
+	MARS_ALLOC_HELPER(BRICK);					\
+};									\
+									\
+static inline void BRICK##_init_helper(struct BRICK##_alloc_helper *h)  \
+{									\
+	h->object_layout = NULL;					\
+	spin_lock_init(&h->helper_lock);				\
+}									\
 
 // object stuff
 
@@ -81,37 +105,14 @@ struct mars_buf_object_layout {
 	int buf_len;							\
 	int buf_flags;							\
 	loff_t buf_pos;							\
+        /* callback part */						\
+	void *cb_private;						\
+	int cb_rw;							\
+	int(*cb_buf_endio)(struct mars_buf_object *mbuf);		\
+	int cb_error;							\
 
 struct mars_buf_object {
 	MARS_BUF_OBJECT(mars_buf);
-};
-
-/* mars_buf_callback_object */
-
-extern const struct generic_object_type mars_buf_callback_type;
-
-struct mars_buf_callback_aspect {
-	GENERIC_ASPECT(mars_buf_callback);
-};
-
-struct mars_buf_callback_aspect_layout {
-	GENERIC_ASPECT_LAYOUT(mars_buf_callback);
-};
-
-struct mars_buf_callback_object_layout {
-	GENERIC_OBJECT_LAYOUT(mars_buf_callback);
-};
-
-#define MARS_BUF_CALLBACK_OBJECT(PREFIX)				\
-	GENERIC_OBJECT(PREFIX);						\
-	struct mars_buf_object *cb_mbuf;				\
-	void *cb_private;						\
-	int cb_rw;							\
-	int(*cb_buf_endio)(struct mars_buf_callback_object *mbuf_cb);	\
-	int cb_error;							\
-
-struct mars_buf_callback_object {
-	MARS_BUF_CALLBACK_OBJECT(mars_buf_callback);
 };
 
 // internal helper structs
@@ -154,64 +155,65 @@ struct mars_output {
 	int (*mars_io)(struct PREFIX##_output *output, struct mars_io_object *mio); \
 	int (*mars_get_info)(struct PREFIX##_output *output, struct mars_info *info); \
 	/* mars_buf */							\
-	int (*mars_buf_get)(struct PREFIX##_output *output, struct mars_buf_object **mbuf, struct mars_buf_object_layout *buf_layout, loff_t pos, int len); \
+	int (*mars_buf_get)(struct PREFIX##_output *output, struct mars_buf_object **mbuf, struct mars_alloc_helper *h, loff_t pos, int len); \
 	int (*mars_buf_put)(struct PREFIX##_output *output, struct mars_buf_object *mbuf); \
-	int (*mars_buf_io)(struct PREFIX##_output *output, struct mars_buf_callback_object *mbuf_cb); \
+	int (*mars_buf_io)(struct PREFIX##_output *output, struct mars_buf_object *mbuf); \
 
 // all non-extendable types
-#define _MARS_TYPES(PREFIX)						\
-struct PREFIX##_brick_ops {					        \
-	MARS_BRICK_OPS(PREFIX);						\
+
+#define _MARS_TYPES(BRICK)						\
+									\
+struct BRICK##_brick_ops {					        \
+	MARS_BRICK_OPS(BRICK);						\
 };									\
 									\
-struct PREFIX##_output_ops {					        \
-	MARS_OUTPUT_OPS(PREFIX);					\
+struct BRICK##_output_ops {					        \
+	MARS_OUTPUT_OPS(BRICK);					\
 };									\
 									\
-struct PREFIX##_brick_type {					        \
-	GENERIC_BRICK_TYPE(PREFIX);					\
+struct BRICK##_brick_type {					        \
+	GENERIC_BRICK_TYPE(BRICK);					\
 };									\
 									\
-struct PREFIX##_input_type {					        \
-	GENERIC_INPUT_TYPE(PREFIX);					\
+struct BRICK##_input_type {					        \
+	GENERIC_INPUT_TYPE(BRICK);					\
 };									\
 									\
-struct PREFIX##_output_type {					        \
-	GENERIC_OUTPUT_TYPE(PREFIX);					\
+struct BRICK##_output_type {					        \
+	GENERIC_OUTPUT_TYPE(BRICK);					\
 };									\
-GENERIC_MAKE_FUNCTIONS(PREFIX);					        \
-GENERIC_MAKE_CONNECT(PREFIX,PREFIX);				        \
+GENERIC_MAKE_FUNCTIONS(BRICK);					        \
+GENERIC_MAKE_CONNECT(BRICK,BRICK);				        \
 
 
-#define MARS_TYPES(PREFIX)						\
-_MARS_TYPES(PREFIX)						        \
-GENERIC_MAKE_CONNECT(generic,PREFIX);				        \
-GENERIC_MAKE_CONNECT(mars,PREFIX);					\
-GENERIC_ASPECT_LAYOUT_FUNCTIONS(PREFIX,mars_io);		        \
-GENERIC_ASPECT_LAYOUT_FUNCTIONS(PREFIX,mars_buf);		        \
-GENERIC_ASPECT_LAYOUT_FUNCTIONS(PREFIX,mars_buf_callback);	        \
-GENERIC_ASPECT_FUNCTIONS(PREFIX,mars_io);			        \
-GENERIC_ASPECT_FUNCTIONS(PREFIX,mars_buf);			        \
-GENERIC_ASPECT_FUNCTIONS(PREFIX,mars_buf_callback);		        \
+#define MARS_TYPES(BRICK)						\
+									\
+_MARS_TYPES(BRICK)						        \
+									\
+GENERIC_MAKE_CONNECT(generic,BRICK);				        \
+GENERIC_MAKE_CONNECT(mars,BRICK);					\
+GENERIC_ASPECT_LAYOUT_FUNCTIONS(BRICK,mars_io);		                \
+GENERIC_ASPECT_LAYOUT_FUNCTIONS(BRICK,mars_buf);		        \
+GENERIC_ASPECT_FUNCTIONS(BRICK,mars_io);			        \
+GENERIC_ASPECT_FUNCTIONS(BRICK,mars_buf);			        \
+MAKE_MARS_FUNCTIONS(BRICK,mars_io);				        \
+MAKE_MARS_FUNCTIONS(BRICK,mars_buf);				        \
 
 
 // instantiate all mars-specific functions
-
+GENERIC_OBJECT_LAYOUT_FUNCTIONS(generic);
 GENERIC_OBJECT_LAYOUT_FUNCTIONS(mars_io);
 GENERIC_OBJECT_LAYOUT_FUNCTIONS(mars_buf);
-GENERIC_OBJECT_LAYOUT_FUNCTIONS(mars_buf_callback);
 
 //GENERIC_ASPECT_LAYOUT_FUNCTIONS(mars,mars_io);
 //GENERIC_ASPECT_LAYOUT_FUNCTIONS(mars,mars_buf);
-//GENERIC_ASPECT_LAYOUT_FUNCTIONS(mars,mars_buf_callback);
 
+GENERIC_OBJECT_FUNCTIONS(generic);
 GENERIC_OBJECT_FUNCTIONS(mars_io);
 GENERIC_OBJECT_FUNCTIONS(mars_buf);
-GENERIC_OBJECT_FUNCTIONS(mars_buf_callback);
 
 GENERIC_ASPECT_FUNCTIONS(mars,mars_io);
 GENERIC_ASPECT_FUNCTIONS(mars,mars_buf);
-GENERIC_ASPECT_FUNCTIONS(mars,mars_buf_callback);
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -220,36 +222,43 @@ GENERIC_ASPECT_FUNCTIONS(mars,mars_buf_callback);
 _MARS_TYPES(mars);
 GENERIC_MAKE_CONNECT(generic,mars);
 
-#define MARS_MAKE_STATICS(PREFIX)					\
+#define MARS_MAKE_STATICS(BRICK)					\
 									\
-int PREFIX##_brick_nr = -EEXIST;				        \
-EXPORT_SYMBOL_GPL(PREFIX##_brick_nr);			                \
+int BRICK##_brick_nr = -EEXIST;				                \
+EXPORT_SYMBOL_GPL(BRICK##_brick_nr);			                \
 									\
-static const struct generic_aspect_type PREFIX##_mars_io_aspect_type = { \
-	.aspect_type_name = #PREFIX "_mars_io_aspect_type",		\
+static const struct generic_aspect_type BRICK##_mars_io_aspect_type = { \
+	.aspect_type_name = #BRICK "_mars_io_aspect_type",		\
 	.object_type = &mars_io_type,					\
-	.aspect_size = sizeof(struct PREFIX##_mars_io_aspect),		\
-	.init_fn = PREFIX##_mars_io_aspect_init_fn,			\
+	.aspect_size = sizeof(struct BRICK##_mars_io_aspect),		\
+	.init_fn = BRICK##_mars_io_aspect_init_fn,			\
 };									\
 									\
-static const struct generic_aspect_type PREFIX##_mars_buf_aspect_type = { \
-	.aspect_type_name = #PREFIX "_mars_buf_aspect_type",		\
+static const struct generic_aspect_type BRICK##_mars_buf_aspect_type = { \
+	.aspect_type_name = #BRICK "_mars_buf_aspect_type",		\
 	.object_type = &mars_buf_type,					\
-	.aspect_size = sizeof(struct PREFIX##_mars_buf_aspect),		\
-	.init_fn = PREFIX##_mars_buf_aspect_init_fn,			\
+	.aspect_size = sizeof(struct BRICK##_mars_buf_aspect),		\
+	.init_fn = BRICK##_mars_buf_aspect_init_fn,			\
 };									\
 									\
-static const struct generic_aspect_type PREFIX##_mars_buf_callback_aspect_type = { \
-	.aspect_type_name = #PREFIX "_mars_buf_callback_aspect_type",	\
-	.object_type = &mars_buf_callback_type,				\
-	.aspect_size = sizeof(struct PREFIX##_mars_buf_callback_aspect), \
-	.init_fn = PREFIX##_mars_buf_callback_aspect_init_fn,		\
+static const struct generic_aspect_type *BRICK##_aspect_types[BRICK_OBJ_NR] = {	\
+	[BRICK_OBJ_MARS_IO] = &BRICK##_mars_io_aspect_type,		\
+	[BRICK_OBJ_MARS_BUF] = &BRICK##_mars_buf_aspect_type,		\
 };									\
+
+#define MAKE_MARS_FUNCTIONS(BRICK,PREFIX)				\
 									\
-static const struct generic_aspect_type *PREFIX##_aspect_types[BRICK_OBJ_NR] = {	\
-	[BRICK_OBJ_MARS_IO] = &PREFIX##_mars_io_aspect_type,		\
-	[BRICK_OBJ_MARS_BUF] = &PREFIX##_mars_buf_aspect_type,		\
-	[BRICK_OBJ_MARS_BUF_CALLBACK] = &PREFIX##_mars_buf_callback_aspect_type, \
-};									\
+extern inline struct PREFIX##_object_layout *BRICK##_##PREFIX##_init_object_layout(struct BRICK##_output *output) \
+{									\
+	return (struct PREFIX##_object_layout*)default_init_object_layout((struct generic_output*)output, &PREFIX##_type); \
+}									\
+									\
+extern inline struct PREFIX##_object *BRICK##_alloc_##PREFIX(struct BRICK##_output *output, struct BRICK##_alloc_helper *h) \
+{									\
+	return (struct PREFIX##_object*)alloc_generic((struct generic_output*)output, (struct mars_alloc_helper*)h, &PREFIX##_type); \
+}									\
+
+//MAKE_MARS_FUNCTIONS(generic,mars_io);
+//MAKE_MARS_FUNCTIONS(generic,mars_buf);
 
 #endif

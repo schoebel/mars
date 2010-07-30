@@ -20,66 +20,6 @@
 
 ///////////////////////// own helper functions ////////////////////////
 
-static struct mars_buf_object_layout *_init_usebuf_object_layout(struct usebuf_output *output)
-{
-	const int layout_size = 1024;
-	const int max_aspects = 16;
-	struct mars_buf_object_layout *res;
-	int status;
-	void *data = kzalloc(layout_size, GFP_KERNEL);
-	if (!data) {
-		MARS_ERR("emergency, cannot allocate object_layout!\n");
-		return NULL;
-	}
-	res = mars_buf_init_object_layout(data, layout_size, max_aspects, &mars_buf_type);
-	if (unlikely(!res)) {
-		MARS_ERR("emergency, cannot init object_layout!\n");
-		goto err_free;
-	}
-	
-	status = output->ops->make_object_layout(output, (struct generic_object_layout*)res);
-	if (unlikely(status < 0)) {
-		MARS_ERR("emergency, cannot add aspects to object_layout!\n");
-		goto err_free;
-	}
-	MARS_INF("OK, usebuf_object_layout init succeeded.\n");
-	return res;
-
-err_free:
-	kfree(res);
-	return NULL;
-}
-
-static struct mars_buf_callback_object_layout *_init_usebuf_callback_object_layout(struct usebuf_output *output)
-{
-	const int layout_size = 1024;
-	const int max_aspects = 16;
-	struct mars_buf_callback_object_layout *res;
-	int status;
-	void *data = kzalloc(layout_size, GFP_KERNEL);
-	if (!data) {
-		MARS_ERR("emergency, cannot allocate object_layout!\n");
-		return NULL;
-	}
-	res = mars_buf_callback_init_object_layout(data, layout_size, max_aspects, &mars_buf_callback_type);
-	if (unlikely(!res)) {
-		MARS_ERR("emergency, cannot init object_layout!\n");
-		goto err_free;
-	}
-	
-	status = output->ops->make_object_layout(output, (struct generic_object_layout*)res);
-	if (unlikely(status < 0)) {
-		MARS_ERR("emergency, cannot add aspects to object_layout!\n");
-		goto err_free;
-	}
-	MARS_INF("OK, usebuf_callback_object_layout init succeeded.\n");
-	return res;
-
-err_free:
-	kfree(res);
-	return NULL;
-}
-
 /* currently we have copy semantics :(
  */
 static void _usebuf_copy(struct usebuf_mars_buf_aspect *mbuf_a, int rw)
@@ -136,37 +76,32 @@ out:
 	return status;
 }
 
-static int _usebuf_mbuf_endio(struct mars_buf_callback_object *mbuf_cb)
+static int _usebuf_mbuf_endio(struct mars_buf_object *mbuf)
 {
 	struct usebuf_output *output;
 	struct usebuf_mars_buf_aspect *mbuf_a;
 	struct mars_io_object *mio;
 	int status = -EFAULT;
 
-	if (unlikely(!mbuf_cb)) {
-		MARS_ERR("bad argument mbuf_cb\n");
-		goto out;
-	}
-
-	output = mbuf_cb->cb_private;
+	output = mbuf->cb_private;
 	if (unlikely(!output)) {
 		MARS_ERR("bad argument output\n");
-		goto out_free;
+		goto out;
 	}
 	
-	mbuf_a = usebuf_mars_buf_get_aspect(output, mbuf_cb->cb_mbuf);
+	mbuf_a = usebuf_mars_buf_get_aspect(output, mbuf);
 	if (unlikely(!mbuf_a)) {
 		MARS_ERR("cannot get aspect\n");
-		goto out_free;
+		goto out;
 	}
 	
 	mio = mbuf_a->mio;
 	if (unlikely(!mio)) {
 		MARS_ERR("cannot get mio\n");
-		goto out_free;
+		goto out;
 	}
 
-	if (likely(!mbuf_cb->cb_error)) {
+	if (likely(!mbuf->cb_error)) {
 		struct bio *bio = mio->orig_bio;
 		if (unlikely(!bio)) {
 			MARS_ERR("bad bio setup on mio %p", mio);
@@ -175,10 +110,8 @@ static int _usebuf_mbuf_endio(struct mars_buf_callback_object *mbuf_cb)
 		}
 	}
 
-	status = _usebuf_mio_endio(output, mio, mbuf_cb->cb_error);
+	status = _usebuf_mio_endio(output, mio, mbuf->cb_error);
 	
-out_free:
-	kfree(mbuf_cb);
 out:
 	return status;
 }
@@ -196,11 +129,6 @@ static int usebuf_io(struct usebuf_output *output, struct mars_io_object *mio)
 	int status;
 	int i;
 
-
-	if (unlikely(!output->buf_layout)) {
-		output->buf_layout = _init_usebuf_object_layout(output);
-		output->buf_callback_layout = _init_usebuf_callback_object_layout(output);
-	}
 
 	status = -EINVAL;
 	if (unlikely(!bio)) {
@@ -228,12 +156,10 @@ static int usebuf_io(struct usebuf_output *output, struct mars_io_object *mio)
 		while (this_len > 0) {
 			struct mars_buf_object *mbuf = NULL;
 			struct usebuf_mars_buf_aspect *mbuf_a;
-			struct mars_buf_callback_object *mbuf_cb = NULL;
-			void *data = NULL;
 			int my_len;
 			int ignore;
 			
-			status = GENERIC_INPUT_CALL(input, mars_buf_get, &mbuf, output->buf_layout, start_pos, this_len);
+			status = GENERIC_INPUT_CALL(input, mars_buf_get, &mbuf, (struct mars_alloc_helper*)&output->buf_helper, start_pos, this_len);
 			if (status < 0) {
 				MARS_ERR("cannot get buffer, status=%d\n", status);
 				goto done_drop;
@@ -247,7 +173,7 @@ static int usebuf_io(struct usebuf_output *output, struct mars_io_object *mio)
 			mbuf_a = usebuf_mars_buf_get_aspect(output, mbuf);
 			if (!mbuf_a) {
 				MARS_ERR("cannot get mbuf aspect\n");
-				goto err_free;
+				goto put;
 			}
 			
 			mbuf_a->mio = mio;
@@ -263,20 +189,9 @@ static int usebuf_io(struct usebuf_output *output, struct mars_io_object *mio)
 			}
 			
 			status = -ENOMEM;
-			data = kzalloc(output->buf_callback_layout->object_size, GFP_KERNEL);
-			if (!data) {
-				MARS_DBG("cannot alloc buf_callback\n");
-				goto put;
-			}
-			mbuf_cb = mars_buf_callback_construct(data, output->buf_callback_layout);
-			if (!mbuf_cb) {
-				MARS_DBG("cannot init buf_callback\n");
-				goto err_free;
-			}
-			mbuf_cb->cb_mbuf = mbuf;
-			mbuf_cb->cb_private = output;
-			mbuf_cb->cb_rw = bio->bi_rw;
-			mbuf_cb->cb_buf_endio = _usebuf_mbuf_endio;
+			mbuf->cb_private = output;
+			mbuf->cb_rw = bio->bi_rw;
+			mbuf->cb_buf_endio = _usebuf_mbuf_endio;
 
 			atomic_inc(&mio_a->mio_count);
 			
@@ -284,30 +199,23 @@ static int usebuf_io(struct usebuf_output *output, struct mars_io_object *mio)
 				_usebuf_copy(mbuf_a, WRITE);
 			}
 
-			status = GENERIC_OUTPUT_CALL(output, mars_buf_io, mbuf_cb);
+			status = GENERIC_OUTPUT_CALL(output, mars_buf_io, mbuf);
 			MARS_DBG("buf_io (status=%d)\n", status);
 			if (unlikely(status < 0)) {
 				atomic_dec(&mio_a->mio_count);
-				goto err_free;
 			}
 
 		put:
 			ignore = GENERIC_OUTPUT_CALL(output, mars_buf_put, mbuf);
 			MARS_DBG("buf_put (status=%d)\n", ignore);
 			
-			if (status < 0)
+			if (unlikely(status < 0))
 				break;
 
 			start_len -= my_len;
 			start_pos += my_len;
 			this_len -= my_len;
 			my_offset += my_len;
-			continue;
-			
-		err_free:
-			if (data)
-				kfree(data);
-			goto put;
 		}
 		if (unlikely(this_len != 0)) {
 			MARS_ERR("bad internal length %d\n", this_len);
@@ -336,10 +244,10 @@ static int usebuf_get_info(struct usebuf_output *output, struct mars_info *info)
 	return GENERIC_INPUT_CALL(input, mars_get_info, info);
 }
 
-static int usebuf_buf_get(struct usebuf_output *output, struct mars_buf_object **mbuf, struct mars_buf_object_layout *buf_layout, loff_t pos, int len)
+static int usebuf_buf_get(struct usebuf_output *output, struct mars_buf_object **mbuf, struct mars_alloc_helper *h, loff_t pos, int len)
 {
 	struct usebuf_input *input = output->brick->inputs[0];
-	return GENERIC_INPUT_CALL(input, mars_buf_get, mbuf, buf_layout, pos, len);
+	return GENERIC_INPUT_CALL(input, mars_buf_get, mbuf, h, pos, len);
 }
 
 static int usebuf_buf_put(struct usebuf_output *output, struct mars_buf_object *mbuf)
@@ -348,10 +256,10 @@ static int usebuf_buf_put(struct usebuf_output *output, struct mars_buf_object *
 	return GENERIC_INPUT_CALL(input, mars_buf_put, mbuf);
 }
 
-static int usebuf_buf_io(struct usebuf_output *output, struct mars_buf_callback_object *mbuf_cb)
+static int usebuf_buf_io(struct usebuf_output *output, struct mars_buf_object *mbuf)
 {
 	struct usebuf_input *input = output->brick->inputs[0];
-	return GENERIC_INPUT_CALL(input, mars_buf_io, mbuf_cb);
+	return GENERIC_INPUT_CALL(input, mars_buf_io, mbuf);
 }
 
 //////////////// object / aspect constructors / destructors ///////////////
@@ -371,13 +279,6 @@ static int usebuf_mars_buf_aspect_init_fn(struct generic_aspect *_ini, void *_in
 	return 0;
 }
 
-static int usebuf_mars_buf_callback_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
-{
-	struct usebuf_mars_buf_callback_aspect *ini = (void*)_ini;
-	(void)ini;
-	return 0;
-}
-
 MARS_MAKE_STATICS(usebuf);
 
 ////////////////////// brick constructors / destructors ////////////////////
@@ -389,8 +290,7 @@ static int usebuf_brick_construct(struct usebuf_brick *brick)
 
 static int usebuf_output_construct(struct usebuf_output *output)
 {
-	output->buf_layout = NULL;
-	output->buf_callback_layout = NULL;
+	usebuf_init_helper(&output->buf_helper);
 	return 0;
 }
 
@@ -426,7 +326,6 @@ static const struct usebuf_output_type usebuf_output_type = {
 	.layout_code = {
 		[BRICK_OBJ_MARS_IO] = LAYOUT_NONE,
 		[BRICK_OBJ_MARS_BUF] = LAYOUT_ALL,
-		[BRICK_OBJ_MARS_BUF_CALLBACK] = LAYOUT_ALL,
 	}
 };
 
