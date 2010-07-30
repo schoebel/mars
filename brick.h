@@ -2,6 +2,9 @@
 #ifndef BRICK_H
 #define BRICK_H
 
+#include <linux/spinlock.h>
+#include <linux/sched.h>
+
 #ifdef _STRATEGY
 #define _STRATEGY_CODE(X) X
 #define _NORMAL_CODE(X) /**/
@@ -10,14 +13,14 @@
 #define _NORMAL_CODE(X) X
 #endif
 
-#define BRICK_ERROR "BRICK_ERROR: "
-#define BRICK_INFO  "BRICK_INFO: "
-#define BRICK_DEBUG "BRICK_DEBUG: "
+#define BRICK_ERROR "BRICK_ERROR " __BASE_FILE__ ": "
+#define BRICK_INFO  "BRICK_INFO  " __BASE_FILE__ ": "
+#define BRICK_DEBUG "BRICK_DEBUG " __BASE_FILE__ ": "
 
-#define BRICK_ERR(args...) printk(BRICK_ERROR args)
-#define BRICK_INF(args...) printk(BRICK_INFO args)
+#define BRICK_ERR(fmt, args...) printk(BRICK_ERROR "%s(): " fmt, __FUNCTION__, ##args)
+#define BRICK_INF(fmt, args...) printk(BRICK_INFO  "%s(): " fmt, __FUNCTION__, ##args)
 #ifdef BRICK_DEBUGGING
-#define BRICK_DBG(args...) printk(BRICK_DEBUG args)
+#define BRICK_DBG(fmt, args...) printk(BRICK_DEBUG "%s(): " fmt, __FUNCTION__, ##args)
 #else
 #define BRICK_DBG(args...) /**/
 #endif
@@ -34,6 +37,7 @@ struct generic_aspect;
 
 #define GENERIC_ASPECT_TYPE(PREFIX)					\
 	char *aspect_type_name;						\
+	const struct generic_object_type *object_type;			\
 	int aspect_size;						\
 	int (*init_fn)(struct generic_aspect *ini, void *data);	\
 
@@ -42,11 +46,9 @@ struct generic_aspect_type {
 };
 
 #define GENERIC_ASPECT_LAYOUT(PREFIX)					\
-	struct generic_object_layout     *object_layout;		\
 	const struct generic_aspect_type *aspect_type;			\
-	int aspect_offset;						\
 	void *init_data;						\
-	struct PREFIX##_aspect_layout *next; /* TODO: replace with list_head */	\
+	int aspect_offset;						\
 
 struct generic_aspect_layout {
 	GENERIC_ASPECT_LAYOUT(generic);
@@ -63,49 +65,14 @@ struct generic_object_type {
 
 #define GENERIC_OBJECT_LAYOUT(PREFIX)					\
 	const struct generic_object_type *object_type;			\
-	struct generic_aspect_layout *aspect_list; /* TODO: replace with list_head */ \
 	int object_size;						\
 	int rest_size;							\
-	void *alloc_ptr;						\
+	int aspect_count;						\
+	struct generic_aspect_layout *aspect_layouts[];			\
 
 struct generic_object_layout {
 	GENERIC_OBJECT_LAYOUT(generic);
 };
-
-#define GENERIC_OBJECT_LAYOUT_FUNCTIONS(PREFIX)				\
-									\
-extern inline struct PREFIX##_object_layout *PREFIX##_init_object_layout(void *data, int size, int max_aspects, const struct generic_object_type *object_type) \
-{									\
-	struct PREFIX##_object_layout *object_layout = data;		\
-	data += sizeof(struct PREFIX##_object_layout);			\
-	size -= sizeof(struct PREFIX##_object_layout);			\
-	if (size < 0)							\
-		return NULL;						\
-	object_layout->object_type = object_type;			\
-	object_layout->object_size = object_type->default_size;		\
-	object_layout->alloc_ptr = data;				\
-	object_layout->rest_size = size;				\
-	return object_layout;						\
-}									\
-
-#define GENERIC_ASPECT_LAYOUT_FUNCTIONS(BRICK,PREFIX)			\
-									\
-extern int BRICK##_##PREFIX##_add_aspect(struct BRICK##_output *output, struct generic_object_layout *object_layout, const struct generic_aspect_type *aspect_type) \
-{									\
-	int nr = object_layout->object_type->brick_obj_nr;		\
-	struct generic_aspect_layout *aspect_layout;			\
-	aspect_layout = (void*)&output->aspect_layouts[nr];		\
-	if (aspect_layout->object_layout)				\
-		return -EEXIST;						\
-	aspect_layout->next = object_layout->aspect_list;		\
-	object_layout->aspect_list = aspect_layout;			\
-	aspect_layout->object_layout = object_layout;			\
-	aspect_layout->aspect_type = aspect_type;			\
-	aspect_layout->aspect_offset = object_layout->object_size;	\
-	aspect_layout->init_data = output;				\
-	object_layout->object_size += aspect_type->aspect_size;		\
-	return 0;							\
-}									\
 
 #define GENERIC_OBJECT(PREFIX)						\
 	struct PREFIX##_object_layout *object_layout;			\
@@ -121,50 +88,6 @@ struct generic_object {
 struct generic_aspect {
 	GENERIC_ASPECT(generic);
 };
-
-#define GENERIC_OBJECT_FUNCTIONS(PREFIX)				\
-									\
-extern inline struct PREFIX##_object *PREFIX##_construct(void *data, struct PREFIX##_object_layout *object_layout) \
-{									\
-	struct PREFIX##_object *obj = data;				\
-	struct generic_aspect_layout *aspect_layout;			\
-									\
-	obj->object_layout = object_layout;				\
-	for (aspect_layout = object_layout->aspect_list; aspect_layout; aspect_layout = aspect_layout->next) { \
-		struct generic_aspect *aspect;				\
-		if (!aspect_layout->aspect_type)				\
-			continue;					\
-		aspect = data + aspect_layout->aspect_offset;		\
-		aspect->object = (void*)obj;				\
-		if (aspect_layout->aspect_type->init_fn) {		\
-			int status = aspect_layout->aspect_type->init_fn((void*)aspect, aspect_layout->init_data); \
-			if (status) {					\
-				return NULL;				\
-			}						\
-		}							\
-	}								\
-	return obj;							\
-}									\
-
-#define GENERIC_ASPECT_FUNCTIONS(BRICK,PREFIX)				\
-									\
-extern inline struct BRICK##_##PREFIX##_aspect *BRICK##_##PREFIX##_get_aspect(struct BRICK##_output *output, struct PREFIX##_object *obj) \
-{									\
-	struct PREFIX##_object_layout *object_layout;			\
-	struct generic_aspect_layout *aspect_layout;			\
-	int nr;								\
-									\
-	object_layout = obj->object_layout;				\
-	nr = object_layout->object_type->brick_obj_nr;			\
-	aspect_layout = &output->aspect_layouts[nr];			\
-	if (unlikely(!aspect_layout->aspect_type)) {			\
-		BRICK_ERR("brick "#BRICK": bad aspect slot on "#PREFIX" pointer %p\n", obj); \
-		return NULL;						\
-	}								\
-	return (void*)obj + aspect_layout->aspect_offset;		\
-}									\
-									\
-
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -195,6 +118,7 @@ struct generic_brick {
 	struct PREFIX##_brick *brick;					\
 	const struct PREFIX##_input_type *type;				\
 	struct PREFIX##_output *connect;				\
+	struct list_head input_head;					\
 	
 struct generic_input {
 	GENERIC_INPUT(generic);
@@ -205,6 +129,7 @@ struct generic_input {
 	struct PREFIX##_brick *brick;					\
 	const struct PREFIX##_output_type *type;			\
 	struct PREFIX##_output_ops *ops;				\
+	struct list_head output_head;					\
 	int nr_connected;						\
 	/* _must_ be the last member */					\
 	struct generic_aspect_layout aspect_layouts[BRICK_OBJ_NR];	\
@@ -213,14 +138,21 @@ struct generic_output {
 	GENERIC_OUTPUT(generic);
 };
 
-#define GENERIC_OUTPUT_CALL(OUTPUT,OP,...)				\
-	((OUTPUT) && (OUTPUT)->ops->OP ?				\
-	 (OUTPUT)->ops->OP(OUTPUT, ##__VA_ARGS__) : -ENOSYS)		\
-
-#define GENERIC_INPUT_CALL(INPUT,OP,...)				\
-	((INPUT) && (INPUT)->connect ?					\
-	 GENERIC_OUTPUT_CALL((INPUT)->connect, OP, ##__VA_ARGS__) :	\
-	 -ENOSYS)							\
+#define GENERIC_OUTPUT_CALL(OUTPUT,OP,ARGS...)				\
+	(								\
+		LOCK_CHECK(OP),						\
+		(OUTPUT) && (OUTPUT)->ops->OP ?				\
+		(OUTPUT)->ops->OP(OUTPUT, ##ARGS) :			\
+		-ENOSYS							\
+	)
+		
+#define GENERIC_INPUT_CALL(INPUT,OP,ARGS...)				\
+	(							        \
+		LOCK_CHECK(OP),						\
+		(INPUT) && (INPUT)->connect ?				\
+		GENERIC_OUTPUT_CALL((INPUT)->connect, OP, ##ARGS) :	\
+		-ENOSYS							\
+	)
 
 #define GENERIC_BRICK_OPS(PREFIX)					\
 	/*int (*brick_start)(struct PREFIX##_brick *brick);*/		\
@@ -274,11 +206,18 @@ struct generic_input_type {
 	struct PREFIX##_output_ops *master_ops;				\
 	int (*output_construct)(struct PREFIX##_output *output);	\
 	int (*output_destruct)(struct PREFIX##_output *output);		\
-	const int *test[BRICK_OBJ_NR];					\
+	const struct generic_aspect_type **aspect_types;		\
+	const int layout_code[BRICK_OBJ_NR];				\
 
 struct generic_output_type {
 	GENERIC_OUTPUT_TYPE(generic);
 };
+
+#define LAYOUT_NONE         0
+#define LAYOUT_ALL          -1
+#define LAYOUT_1(X1)        ((X1) | 255 << 8)
+#define LAYOUT_2(X1,X2)     ((X1) | (X2) << 8 | 255 << 16)
+#define LAYOUT_3(X1,X2,X3)  ((X1) | (X2) << 8 | (X3) << 16 | 255 << 24)
 
 int generic_register_brick_type(const struct generic_brick_type *new_type);
 int generic_unregister_brick_type(const struct generic_brick_type *old_type);
@@ -405,6 +344,11 @@ extern inline int PREFIX##_unregister_brick_type(void)		        \
 	return generic_unregister_brick_type((const struct generic_brick_type*)&PREFIX##_brick_type); \
 }									\
 									\
+extern int PREFIX##_make_object_layout(struct PREFIX##_output *output, struct generic_object_layout *object_layout) \
+{									\
+	return default_make_object_layout((struct generic_output*)output, object_layout); \
+}									\
+									\
 _STRATEGY_CODE(							        \
 extern const struct PREFIX##_brick_type PREFIX##_brick_type;	        \
 extern const struct PREFIX##_input_type PREFIX##_input_type;		\
@@ -490,5 +434,151 @@ extern inline int INPUT_PREFIX##_##OUTPUT_PREFIX####_disconnect(        \
 }									\
 )
 
+///////////////////////////////////////////////////////////////////////
+
+// default operations on objects / aspects
+
+extern int default_make_object_layout(struct generic_output *output, struct generic_object_layout *object_layout);
+
+extern inline int generic_add_aspect(struct generic_output *output, struct generic_object_layout *object_layout, const struct generic_aspect_type *aspect_type)
+{
+	int nr = object_layout->object_type->brick_obj_nr;
+	struct generic_aspect_layout *aspect_layout;
+	aspect_layout = (void*)&output->aspect_layouts[nr];
+	if (object_layout->rest_size < sizeof(void*))
+		return -ENOMEM;
+	if (aspect_layout->aspect_type) {
+		/* aspect_layout is already initialized.
+		 * this is a kind of "dynamic programming".
+		 * ensure consistency to last call.
+		 */
+		int min_offset;
+		if (aspect_layout->aspect_type != aspect_type) {
+			BRICK_ERR("inconsistent use of aspect_type %s != %s\n", aspect_type->aspect_type_name, aspect_layout->aspect_type->aspect_type_name);
+			return -EBADF;
+		}
+		if (aspect_layout->init_data != output) {
+			BRICK_ERR("inconsistent output assigment (aspect_type=%s)\n", aspect_type->aspect_type_name);
+			return -EBADF;
+		}
+		min_offset = aspect_layout->aspect_offset + aspect_type->aspect_size;
+		if (object_layout->object_size > min_offset) {
+			BRICK_ERR("overlapping aspects %d > %d (aspect_type=%s)\n", object_layout->object_size, min_offset, aspect_type->aspect_type_name);
+			return -ENOMEM;
+		}
+		BRICK_DBG("adjusting object_size %d to %d (aspect_type=%s)\n", object_layout->object_size, min_offset, aspect_type->aspect_type_name);
+		object_layout->object_size = min_offset;
+	} else {
+		/* first call: initialize aspect_layout. */
+		aspect_layout->aspect_type = aspect_type;
+		aspect_layout->init_data = output;
+		aspect_layout->aspect_offset = object_layout->object_size;
+		object_layout->object_size += aspect_type->aspect_size;
+	}
+	nr = object_layout->aspect_count++;
+	object_layout->aspect_layouts[nr] = aspect_layout;
+	object_layout->rest_size -= sizeof(void*);
+	return 0;
+}
+
+#define GENERIC_OBJECT_LAYOUT_FUNCTIONS(PREFIX)				\
+									\
+extern inline struct PREFIX##_object_layout *PREFIX##_init_object_layout(void *data, int size, int max_aspects, const struct generic_object_type *object_type) \
+{									\
+	struct PREFIX##_object_layout *object_layout = data;		\
+	data += sizeof(struct PREFIX##_object_layout);			\
+	size -= sizeof(struct PREFIX##_object_layout);			\
+	if (size < 0)							\
+		return NULL;						\
+	object_layout->object_type = object_type;			\
+	object_layout->object_size = object_type->default_size;		\
+	object_layout->rest_size = size;				\
+	object_layout->aspect_count = 0;				\
+	return object_layout;						\
+}									\
+
+#define GENERIC_ASPECT_LAYOUT_FUNCTIONS(BRICK,PREFIX)			\
+									\
+extern inline int BRICK##_##PREFIX##_add_aspect(struct BRICK##_output *output, struct generic_object_layout *object_layout, const struct generic_aspect_type *aspect_type) \
+{									\
+	int res = generic_add_aspect((struct generic_output*)output, object_layout, aspect_type); \
+	BRICK_DBG(#BRICK " " #PREFIX "added aspect_type %p (%s) to object_layout %p (type %s) on output %p (type %s), status=%d\n", aspect_type, aspect_type->aspect_type_name, object_layout, object_layout->object_type->object_type_name, output, output->type->type_name, res); \
+	return res;							\
+}									\
+
+#define GENERIC_OBJECT_FUNCTIONS(PREFIX)				\
+									\
+extern inline struct PREFIX##_object *PREFIX##_construct(void *data, struct PREFIX##_object_layout *object_layout) \
+{									\
+	struct PREFIX##_object *obj = data;				\
+	int i;								\
+									\
+	obj->object_layout = object_layout;				\
+	for (i = 0; i < object_layout->aspect_count; i++) {		\
+		struct generic_aspect_layout *aspect_layout;		\
+		struct generic_aspect *aspect;				\
+		aspect_layout = object_layout->aspect_layouts[i];	\
+		if (!aspect_layout->aspect_type)				\
+			continue;					\
+		aspect = data + aspect_layout->aspect_offset;		\
+		aspect->object = (void*)obj;				\
+		if (aspect_layout->aspect_type->init_fn) {		\
+			int status = aspect_layout->aspect_type->init_fn((void*)aspect, aspect_layout->init_data); \
+			if (status) {					\
+				return NULL;				\
+			}						\
+		}							\
+	}								\
+	return obj;							\
+}									\
+
+#define GENERIC_ASPECT_FUNCTIONS(BRICK,PREFIX)				\
+									\
+extern inline struct BRICK##_##PREFIX##_aspect *BRICK##_##PREFIX##_get_aspect(struct BRICK##_output *output, struct PREFIX##_object *obj) \
+{									\
+	struct PREFIX##_object_layout *object_layout;			\
+	struct generic_aspect_layout *aspect_layout;			\
+	int nr;								\
+									\
+	object_layout = obj->object_layout;				\
+	nr = object_layout->object_type->brick_obj_nr;			\
+	aspect_layout = &output->aspect_layouts[nr];			\
+	if (unlikely(!aspect_layout->aspect_type)) {			\
+		BRICK_ERR("brick "#BRICK": bad aspect slot on "#PREFIX" pointer %p\n", obj); \
+		return NULL;						\
+	}								\
+	return (void*)obj + aspect_layout->aspect_offset;		\
+}									\
+									\
+
+///////////////////////////////////////////////////////////////////////
+
+// some helpers
+
+#ifdef CONFIG_DEBUG_SPINLOCK
+# define LOCK_CHECK(OP)					\
+	({						\
+		if (atomic_read(&current->lock_count)) {	\
+			BRICK_ERR("never call " #OP "() with a spinlock held.\n"); \
+		}					\
+	})
+# define traced_lock(spinlock,flags)			\
+	do {						\
+		if (atomic_read(&current->lock_count)) {	\
+			BRICK_ERR("please do not nest spinlocks at line %d, that's dangerous. reorganize your code!\n", __LINE__); \
+		}					\
+		atomic_inc(&current->lock_count);	\
+		spin_lock_irqsave(spinlock,flags);	\
+	} while (0)
+# define traced_unlock(spinlock,flags)			\
+	do {						\
+		spin_unlock_irqrestore(spinlock,flags);	\
+		atomic_dec(&current->lock_count);	\
+	} while (0)
+#else
+#define LOCK_CHECK(OP) 0
+# define traced_lock(spinlock,flags)   spin_lock_irqsave(spinlock,flags)
+# define traced_unlock(spinlock,flags) spin_unlock_irqrestore(spinlock,flags)
+#endif
 
 #endif

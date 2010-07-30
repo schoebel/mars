@@ -4,6 +4,9 @@
  * 1 Input, 0 Outputs.
  */
 
+//#define BRICK_DEBUGGING
+//#define MARS_DEBUGGING
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/string.h>
@@ -58,17 +61,17 @@ err_free:
 
 /* callback
  */
-static int if_device_endio(struct mars_io_object *mio)
+static int if_device_endio(struct mars_io_object *mio, int error)
 {
 	struct bio *bio = mio->orig_bio;
 	if (bio) {
 		mio->orig_bio = NULL;
-		if (!bio->bi_size) {
-			bio_endio(bio, 0);
-		} else {
-			MARS_ERR("NYI: RETRY LOGIC %u\n", bio->bi_size);
-			bio_endio(bio, -EIO);
+		if (bio->bi_size && !error)
+			error = -EIO;
+		if (error) {
+			MARS_ERR("NYI: error=%d RETRY LOGIC %u\n", error, bio->bi_size);
 		}
+		bio_endio(bio, error);
 	} // else lower layers have already signalled the orig_bio
 
 	kfree(mio);
@@ -198,7 +201,7 @@ static int if_device_input_construct(struct if_device_input *input)
 	int minor;
 	int capacity = 2 * 1024 * 1024 * 4; //TODO: make this dynamic
 
-	MARS_DBG("1\n");
+	//MARS_DBG("1\n");
 	q = blk_alloc_queue(GFP_KERNEL);
 	if (!q) {
 		MARS_ERR("cannot allocate device request queue\n");
@@ -207,14 +210,14 @@ static int if_device_input_construct(struct if_device_input *input)
 	q->queuedata = input;
 	input->q = q;
 
-	MARS_DBG("2\n");
+	//MARS_DBG("2\n");
 	disk = alloc_disk(1);
 	if (!disk) {
 		MARS_ERR("cannot allocate gendisk\n");
 		return -ENOMEM;
 	}
 
-	MARS_DBG("3\n");
+	//MARS_DBG("3\n");
 	minor = device_minor++; //TODO: protect against races (e.g. atomic_t)
 	disk->queue = q;
 	disk->major = MARS_MAJOR; //TODO: make this dynamic for >256 devices
@@ -233,7 +236,7 @@ static int if_device_input_construct(struct if_device_input *input)
 	q->queue_lock = &input->req_lock; // needed!
 	//blk_queue_ordered(q, QUEUE_ORDERED_DRAIN, NULL);//???
 
-	MARS_DBG("4\n");
+	//MARS_DBG("4\n");
 	input->bdev = bdget(MKDEV(disk->major, minor));
 	/* we have no partitions. we contain only ourselves. */
 	input->bdev->bd_contains = input->bdev;
@@ -248,7 +251,7 @@ static int if_device_input_construct(struct if_device_input *input)
 #endif
 
 	// point of no return
-	MARS_DBG("99999\n");
+	//MARS_DBG("99999\n");
 	add_disk(disk);
 	input->disk = disk;
 	//set_device_ro(input->bdev, 0); // TODO: implement modes

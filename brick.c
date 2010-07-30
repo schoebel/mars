@@ -4,8 +4,11 @@
 #include <linux/module.h>
 #include <linux/string.h>
 
+//#define BRICK_DEBUGGING
+
 #define _STRATEGY
 #define BRICK_OBJ_NR /*empty => leads to an open array */
+
 #include "brick.h"
 
 //////////////////////////////////////////////////////////////
@@ -23,21 +26,21 @@ int generic_register_brick_type(const struct generic_brick_type *new_type)
 {
 	int i;
 	int found = -1;
-	BRICK_DBG("generic_register_brick_type()\n");
+	BRICK_DBG("generic_register_brick_type() name=%s\n", new_type->type_name);
 	for (i = 0; i < nr_brick_types; i++) {
 		if (!brick_types[i]) {
 			found = i;
 			continue;
 		}
 		if (!strcmp(brick_types[i]->type_name, new_type->type_name)) {
-			printk("sorry, bricktype %s is already registered.\n", new_type->type_name);
+			BRICK_ERR("sorry, bricktype %s is already registered.\n", new_type->type_name);
 			return -EEXIST;
 		}
 	}
 	if (found < 0) {
 		if (nr_brick_types >= MAX_BRICK_TYPES) {
-			printk("sorry, cannot register bricktype %s.\n", new_type->type_name);
-			return -EEXIST;
+			BRICK_ERR("sorry, cannot register bricktype %s.\n", new_type->type_name);
+			return -ENOMEM;
 		}
 		found = nr_brick_types++;
 	}
@@ -74,8 +77,10 @@ int generic_brick_init_full(
 		return status;
 	data += brick_type->brick_size;
 	size -= brick_type->brick_size;
-	if (size < 0)
+	if (size < 0) {
+		BRICK_ERR("Not enough MEMORY\n");
 		return -ENOMEM;
+	}
 	if (!input_types) {
 		BRICK_DBG("generic_brick_init_full: switch to default input_types\n");
 		input_types = brick_type->default_input_types;
@@ -86,8 +91,9 @@ int generic_brick_init_full(
 		brick->inputs = data;
 		data += sizeof(void*) * brick_type->max_inputs;
 		size -= sizeof(void*) * brick_type->max_inputs;
-		if (size < 0)
-			return -1;
+		if (size < 0) {
+			return -ENOMEM;
+		}
 		for (i = 0; i < brick_type->max_inputs; i++) {
 			struct generic_input *input = data;
 			const struct generic_input_type *type = *input_types++;
@@ -269,41 +275,62 @@ EXPORT_SYMBOL_GPL(generic_brick_exit_recursively);
 
 // default implementations
 
-#if 0
 int default_make_object_layout(struct generic_output *output, struct generic_object_layout *object_layout)
 {
+	struct generic_brick *brick = output->brick;
+	const struct generic_output_type *output_type = output->type;
 	const struct generic_object_type *object_type = object_layout->object_type;
-	int status;
-	int aspect_size = 0;
-	struct default_brick *brick = output->brick;
-	int i;
+	const int nr = object_type->brick_obj_nr;
+	const struct generic_aspect_type *aspect_type = output_type->aspect_types[nr];
+	int layout_code = output_type->layout_code[nr];
 
-	for (i = 0; i < brick->type->max_inputs; i++) {
-		struct dummy_input *input = brick->inputs[i];
-		if (input && input->connect) {
-			int substatus = input->connect->ops->make_object_layout(input->connect, object_layout);
+	int status;
+	int aspect_size;
+
+	if (!aspect_type) {
+		BRICK_ERR("aspect type on %s does not exist\n", output_type->type_name);
+		return -ENOENT;
+	}
+
+	aspect_size = aspect_type->aspect_size;
+
+	if (layout_code == LAYOUT_ALL) {
+		int i;
+		for (i = 0; i < brick->type->max_inputs; i++) {
+			struct generic_input *input = brick->inputs[i];
+			if (input && input->connect) {
+				int substatus = input->connect->ops->make_object_layout(input->connect, object_layout);
+				if (substatus < 0)
+					return substatus;
+				aspect_size += substatus;
+			}
+		}
+	} else {
+		for (; layout_code != 0; layout_code >>= 8) {
+			unsigned int my_code = layout_code & 255;
+			struct generic_input *input;
+			int substatus;
+			if (my_code == 255)
+				break;
+			if (my_code >= brick->type->max_inputs)
+				continue;
+			input = brick->inputs[my_code];
+			if (!input || !input->connect)
+				continue;
+			substatus = input->connect->ops->make_object_layout(input->connect, object_layout);
 			if (substatus < 0)
 				return substatus;
 			aspect_size += substatus;
 		}
 	}
 
-	if (object_type == &mars_io_type) {
-		aspect_size = sizeof(struct dummy_mars_io_aspect);
-		status = generic_io_add_aspect(output, object_layout, &dummy_mars_io_aspect_type);
-	} else if (object_type == &mars_buf_type) {
-		aspect_size = sizeof(struct dummy_mars_buf_aspect);
-		status = generic_buf_add_aspect(output, object_layout, &dummy_mars_buf_aspect_type);
-	} else if (object_type == &mars_buf_callback_type) {
-		aspect_size = sizeof(struct dummy_mars_buf_callback_aspect);
-		status = generic_buf_callback_add_aspect(output, object_layout, &dummy_mars_buf_callback_aspect_type);
-	} else {
-		return 0;
-	}
+
+	status = generic_add_aspect(output, object_layout, aspect_type);
 
 	if (status < 0)
 		return status;
 
 	return aspect_size;
 }
-#endif
+EXPORT_SYMBOL_GPL(default_make_object_layout);
+

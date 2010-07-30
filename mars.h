@@ -5,14 +5,14 @@
 #include <linux/list.h>
 #include <asm/atomic.h>
 
-#define MARS_ERROR "MARS_ERROR: "
-#define MARS_INFO  "MARS_INFO: "
-#define MARS_DEBUG "MARS_DEBUG: "
+#define MARS_ERROR "MARS_ERROR  " __BASE_FILE__ ": "
+#define MARS_INFO  "MARS_INFO   " __BASE_FILE__ ": "
+#define MARS_DEBUG "MARS_DEBUG  " __BASE_FILE__ ": "
 
-#define MARS_ERR(args...) printk(MARS_ERROR args)
-#define MARS_INF(args...) printk(MARS_INFO args)
+#define MARS_ERR(fmt, args...) printk(MARS_ERROR "%s(): " fmt, __FUNCTION__, ##args)
+#define MARS_INF(fmt, args...) printk(MARS_INFO  "%s(): " fmt, __FUNCTION__, ##args)
 #ifdef MARS_DEBUGGING
-#define MARS_DBG(args...) printk(MARS_DEBUG args)
+#define MARS_DBG(fmt, args...) printk(MARS_DEBUG "%s(): " fmt, __FUNCTION__, ##args)
 #else
 #define MARS_DBG(args...) /**/
 #endif
@@ -49,7 +49,7 @@ struct mars_io_object_layout {
 #define MARS_IO_OBJECT(PREFIX)						\
 	GENERIC_OBJECT(PREFIX);						\
 	struct bio *orig_bio;						\
-	int (*mars_endio)(struct mars_io_object *mio);			\
+	int (*mars_endio)(struct mars_io_object *mio, int error);	\
 
 struct mars_io_object {
 	MARS_IO_OBJECT(mars_io);
@@ -77,7 +77,6 @@ struct mars_buf_object_layout {
 
 #define MARS_BUF_OBJECT(PREFIX)						\
 	GENERIC_OBJECT(PREFIX);						\
-	spinlock_t buf_lock;						\
 	void *buf_data;							\
 	int buf_len;							\
 	int buf_flags;							\
@@ -106,6 +105,7 @@ struct mars_buf_callback_object_layout {
 #define MARS_BUF_CALLBACK_OBJECT(PREFIX)				\
 	GENERIC_OBJECT(PREFIX);						\
 	struct mars_buf_object *cb_mbuf;				\
+	void *cb_private;						\
 	int cb_rw;							\
 	int(*cb_buf_endio)(struct mars_buf_callback_object *mbuf_cb);	\
 	int cb_error;							\
@@ -201,9 +201,9 @@ GENERIC_OBJECT_LAYOUT_FUNCTIONS(mars_io);
 GENERIC_OBJECT_LAYOUT_FUNCTIONS(mars_buf);
 GENERIC_OBJECT_LAYOUT_FUNCTIONS(mars_buf_callback);
 
-GENERIC_ASPECT_LAYOUT_FUNCTIONS(mars,mars_io);
-GENERIC_ASPECT_LAYOUT_FUNCTIONS(mars,mars_buf);
-GENERIC_ASPECT_LAYOUT_FUNCTIONS(mars,mars_buf_callback);
+//GENERIC_ASPECT_LAYOUT_FUNCTIONS(mars,mars_io);
+//GENERIC_ASPECT_LAYOUT_FUNCTIONS(mars,mars_buf);
+//GENERIC_ASPECT_LAYOUT_FUNCTIONS(mars,mars_buf_callback);
 
 GENERIC_OBJECT_FUNCTIONS(mars_io);
 GENERIC_OBJECT_FUNCTIONS(mars_buf);
@@ -227,21 +227,29 @@ EXPORT_SYMBOL_GPL(PREFIX##_brick_nr);			                \
 									\
 static const struct generic_aspect_type PREFIX##_mars_io_aspect_type = { \
 	.aspect_type_name = #PREFIX "_mars_io_aspect_type",		\
+	.object_type = &mars_io_type,					\
 	.aspect_size = sizeof(struct PREFIX##_mars_io_aspect),		\
 	.init_fn = PREFIX##_mars_io_aspect_init_fn,			\
 };									\
 									\
 static const struct generic_aspect_type PREFIX##_mars_buf_aspect_type = { \
 	.aspect_type_name = #PREFIX "_mars_buf_aspect_type",		\
+	.object_type = &mars_buf_type,					\
 	.aspect_size = sizeof(struct PREFIX##_mars_buf_aspect),		\
 	.init_fn = PREFIX##_mars_buf_aspect_init_fn,			\
 };									\
 									\
 static const struct generic_aspect_type PREFIX##_mars_buf_callback_aspect_type = { \
 	.aspect_type_name = #PREFIX "_mars_buf_callback_aspect_type",	\
+	.object_type = &mars_buf_callback_type,				\
 	.aspect_size = sizeof(struct PREFIX##_mars_buf_callback_aspect), \
 	.init_fn = PREFIX##_mars_buf_callback_aspect_init_fn,		\
 };									\
-	
+									\
+static const struct generic_aspect_type *PREFIX##_aspect_types[BRICK_OBJ_NR] = {	\
+	[BRICK_OBJ_MARS_IO] = &PREFIX##_mars_io_aspect_type,		\
+	[BRICK_OBJ_MARS_BUF] = &PREFIX##_mars_buf_aspect_type,		\
+	[BRICK_OBJ_MARS_BUF_CALLBACK] = &PREFIX##_mars_buf_callback_aspect_type, \
+};									\
 
 #endif

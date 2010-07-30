@@ -1,5 +1,7 @@
 // (c) 2010 Thomas Schoebel-Theuer / 1&1 Internet AG
 
+//#define MARS_DEBUGGING
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/string.h>
@@ -30,6 +32,11 @@ static int transfer_none(int cmd,
 	char *raw_buf = kmap_atomic(raw_page, KM_USER0) + raw_off;
 	char *loop_buf = kmap_atomic(loop_page, KM_USER1) + loop_off;
 
+	if (unlikely(!raw_buf || !loop_buf)) {
+		MARS_ERR("transfer NULL: %p %p\n", raw_buf, loop_buf);
+		return -EFAULT;
+	}
+
 	if (cmd == READ)
 		memcpy(loop_buf, raw_buf, size);
 	else
@@ -49,7 +56,9 @@ static int write_aops(struct device_sio_output *output, struct mars_io_object *m
 	struct address_space *mapping = file->f_mapping;
 	struct bio_vec *bvec;
 	int i;
-	int ret = -EIO;
+	int ret = 0;
+
+	MARS_DBG("write_aops pos=%llu len=%d\n", pos, bio->bi_size);
 
 	mutex_lock(&mapping->host->i_mutex);
 		
@@ -75,24 +84,31 @@ static int write_aops(struct device_sio_output *output, struct mars_io_object *m
 
 			ret = pagecache_write_begin(file, mapping, pos, size, 0,
 						    &page, &fsdata);
-			if (ret)
+			if (ret) {
+				MARS_ERR("cannot start pagecache_write_begin() error=%d\n", ret);
+				if (ret >= 0)
+					ret = -EIO;
 				goto fail;
+			}
 
 			//file_update_time(file);
 
 			transfer_result = transfer_none(WRITE, page, offset, bvec->bv_page, bv_offs, size);
 
 			copied = size;
-			if (transfer_result)
+			if (transfer_result) {
+				MARS_ERR("transfer error %d\n", transfer_result);
 				copied = 0;
+			}
 
 			ret = pagecache_write_end(file, mapping, pos, size, copied,
 						  page, fsdata);
-			if (ret < 0 || ret != copied)
+			if (ret < 0 || ret != copied || transfer_result) {
+				MARS_ERR("write error %d\n", ret);
+				if (ret >= 0)
+					ret = -EIO;
 				goto fail;
-			
-			if (unlikely(transfer_result))
-				goto fail;
+			}
 			
 			bv_offs += copied;
 			len -= copied;
@@ -101,17 +117,15 @@ static int write_aops(struct device_sio_output *output, struct mars_io_object *m
 			pos += copied;
 		}
 		ret = 0;
-		continue;
-	fail:
-		ret = -EIO;
 	}
 	
+fail:
 	mutex_unlock(&mapping->host->i_mutex);
 
 	if (!ret)
 		bio->bi_size = 0;
 
-	mio->mars_endio(mio);
+	mio->mars_endio(mio, ret);
 
 #if 1
 	blk_run_address_space(mapping);
@@ -139,7 +153,7 @@ device_sio_splice_actor(struct pipe_inode_info *pipe,
 	sector_t IV;
 	int size, ret;
 
-	MARS_DBG("now splice %p %p %p %p\n", output, mio, mio->orig_bio, p->bvec);
+	//MARS_DBG("now splice %p %p %p\n", mio, mio->orig_bio, p->bvec);
 
 	ret = buf->ops->confirm(pipe, buf);
 	if (unlikely(ret))
@@ -173,7 +187,7 @@ device_sio_direct_splice_actor(struct pipe_inode_info *pipe, struct splice_desc 
 static int read_aops(struct device_sio_output *output, struct mars_io_object *mio)
 {
 	struct bio *bio = mio->orig_bio;
-	loff_t pos = ((loff_t)bio->bi_sector << 9);
+	loff_t pos = ((loff_t)bio->bi_sector << 9); // TODO: make dynamic
 	struct bio_vec *bvec;
 	int i;
 	int ret = -EIO;
@@ -196,7 +210,7 @@ static int read_aops(struct device_sio_output *output, struct mars_io_object *mi
 		MARS_DBG("start splice %p %p %p %p\n", output, mio, bio, bvec);
 		ret = 0;
 		ret = splice_direct_to_actor(output->filp, &sd, device_sio_direct_splice_actor);
-		if (ret < 0) {
+		if (unlikely(ret < 0)) {
 			MARS_ERR("splice %p %p %p %p status=%d\n", output, mio, bio, bvec, ret);
 			break;
 		}
@@ -205,7 +219,11 @@ static int read_aops(struct device_sio_output *output, struct mars_io_object *mi
 
 	}
 
-	mio->mars_endio(mio);
+	if (unlikely(bio->bi_size)) {
+		MARS_ERR("unhandled rest size %d on bio %p\n", bio->bi_size, bio);
+	}
+
+	mio->mars_endio(mio, ret);
 	return ret;
 }
 
@@ -227,12 +245,6 @@ static int device_sio_mars_io(struct device_sio_output *output, struct mars_io_o
 	struct bio *bio = mio->orig_bio;
 	int direction = bio->bi_rw & 1;
 	bool barrier = (direction != READ && bio_rw_flagged(bio, BIO_RW_BARRIER));
-#if 0
-	unsigned long sector = bio->bi_sector;
-	loff_t pos = sector << 9; //TODO: allow different sector sizes
-	struct bio_vec *bvec;
-	int i;
-#endif
 	int ret = -EIO;
 	
 	if (barrier) {
@@ -242,7 +254,7 @@ static int device_sio_mars_io(struct device_sio_output *output, struct mars_io_o
 
 	if (!output->filp)
 		goto done;
-#if 1
+
 	if (direction == READ) {
 		return read_aops(output, mio);
 	} else {
@@ -251,42 +263,6 @@ static int device_sio_mars_io(struct device_sio_output *output, struct mars_io_o
 			sync_file(output);
 		return ret;
 	}
-#else // toter code, war ein erster versuch
-	bio_for_each_segment(bvec, bio, i) {
-		mm_segment_t oldfs;
-		unsigned long long ppos = pos;
-		void *addr = kmap(bvec->bv_page) + bvec->bv_offset;
-		unsigned int len = bvec->bv_len;
-
-		MARS_DBG("IO dir=%d sector=%lu size=%d | pos=%llu len=%u addr=%p\n", direction, sector, bio->bi_size, pos, len, addr);
-
-		oldfs = get_fs();
-		set_fs(get_ds());
-		
-		if (direction == READ) {
-			ret = do_sync_read(output->filp, addr, len, &ppos);
-		} else {
-			ret = do_sync_write(output->filp, addr, len, &ppos);
-		}
-		
-		set_fs(oldfs);
-		kunmap(bvec->bv_page);
-
-		if (!ret) { // EOF
-			MARS_DBG("EOF\n");
-			addr = kmap(bvec->bv_page) + bvec->bv_offset;
-			memset(addr, 0, len);
-			kunmap(bvec->bv_page);
-		} else if (ret != len) {
-			MARS_ERR("IO error pos=%llu, len=%u, status=%d\n", pos, len, ret);
-			goto done;
-		}
-
-		pos += len;
-
-		ret = 0;
-	}
-#endif
 
 done:
 	if (!ret) {
@@ -295,7 +271,7 @@ done:
 			sync_file(output);
 		}
 	}
-	mio->mars_endio(mio);
+	mio->mars_endio(mio, ret);
 	return ret;
 }
 
@@ -306,18 +282,20 @@ static int device_sio_mars_queue(struct device_sio_output *output, struct mars_i
 	struct sio_threadinfo *tinfo;
 	struct device_sio_mars_io_aspect *aspect;
 	int direction = mio->orig_bio->bi_rw & 1;
+	unsigned long flags;
+
 	if (direction == READ) {
-		spin_lock_irq(&output->g_lock);
+		traced_lock(&output->g_lock, flags);
 		index = output->index++;
-		spin_unlock_irq(&output->g_lock);
+		traced_unlock(&output->g_lock, flags);
 		index = (index % WITH_THREAD) + 1;
 	}
 	aspect = device_sio_mars_io_get_aspect(output, mio);
 	tinfo = &output->tinfo[index];
 	MARS_DBG("queueing %p on %d\n", mio, index);
-	spin_lock_irq(&tinfo->lock);
+	traced_lock(&tinfo->lock, flags);
 	list_add_tail(&aspect->io_head, &tinfo->mio_list);
-	spin_unlock_irq(&tinfo->lock);
+	traced_unlock(&tinfo->lock, flags);
 
 	wake_up(&tinfo->event);
 
@@ -336,6 +314,7 @@ static int device_sio_thread(void *data)
 		struct list_head *tmp;
 		struct device_sio_mars_io_aspect *aspect;
 		struct mars_io_object *mio;
+		unsigned long flags;
 
 		wait_event_interruptible(tinfo->event,
 					 !list_empty(&tinfo->mio_list) ||
@@ -344,10 +323,10 @@ static int device_sio_thread(void *data)
 		if (list_empty(&tinfo->mio_list))
 			continue;
 
-		spin_lock_irq(&tinfo->lock);
+		traced_lock(&tinfo->lock, flags);
 		tmp = tinfo->mio_list.next;
 		list_del_init(tmp);
-		spin_unlock_irq(&tinfo->lock);
+		traced_unlock(&tinfo->lock, flags);
 
 		aspect = container_of(tmp, struct device_sio_mars_io_aspect, io_head);
 		mio = aspect->object;
@@ -393,6 +372,7 @@ static int device_sio_mars_buf_callback_aspect_init_fn(struct generic_aspect *_i
 
 MARS_MAKE_STATICS(device_sio);
 
+#if 0
 static int device_sio_make_object_layout(struct device_sio_output *output, struct generic_object_layout *object_layout)
 {
 	const struct generic_object_type *object_type = object_layout->object_type;
@@ -406,6 +386,7 @@ static int device_sio_make_object_layout(struct device_sio_output *output, struc
 
 	return sizeof(struct device_sio_mars_io_aspect);
 }
+#endif
 
 ////////////////////// brick constructors / destructors ////////////////////
 
@@ -503,6 +484,12 @@ static const struct device_sio_output_type device_sio_output_type = {
 	.master_ops = &device_sio_output_ops,
 	.output_construct = &device_sio_output_construct,
 	.output_destruct = &device_sio_output_destruct,
+	.aspect_types = device_sio_aspect_types,
+	.layout_code = {
+		[BRICK_OBJ_MARS_IO] = LAYOUT_NONE,
+		[BRICK_OBJ_MARS_BUF] = LAYOUT_NONE,
+		[BRICK_OBJ_MARS_BUF_CALLBACK] = LAYOUT_NONE,
+	}
 };
 
 static const struct device_sio_output_type *device_sio_output_types[] = {
