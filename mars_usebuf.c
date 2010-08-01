@@ -142,6 +142,11 @@ static int usebuf_io(struct usebuf_output *output, struct mars_io_object *mio)
 	if (unlikely(atomic_read(&mio_a->mio_count) != 0)) {
 		MARS_ERR("bad preset of mio_count %d\n", atomic_read(&mio_a->mio_count));
 	}
+	status = usebuf_mars_buf_init_object_layout(output, &output->buf_object_layout);
+	if (status < 0) {
+		MARS_ERR("cannot init buf object layout\n");
+		goto done;
+	}
 	// initial refcount: prevent intermediate drops
 	atomic_set(&mio_a->mio_count, 1);
 	mio_a->mio_error = 0;
@@ -159,7 +164,7 @@ static int usebuf_io(struct usebuf_output *output, struct mars_io_object *mio)
 			int my_len;
 			int ignore;
 			
-			status = GENERIC_INPUT_CALL(input, mars_buf_get, &mbuf, (struct mars_alloc_helper*)&output->buf_helper, start_pos, this_len);
+			status = GENERIC_INPUT_CALL(input, mars_buf_get, &mbuf, &output->buf_object_layout, start_pos, this_len);
 			if (status < 0) {
 				MARS_ERR("cannot get buffer, status=%d\n", status);
 				goto done_drop;
@@ -244,10 +249,10 @@ static int usebuf_get_info(struct usebuf_output *output, struct mars_info *info)
 	return GENERIC_INPUT_CALL(input, mars_get_info, info);
 }
 
-static int usebuf_buf_get(struct usebuf_output *output, struct mars_buf_object **mbuf, struct mars_alloc_helper *h, loff_t pos, int len)
+static int usebuf_buf_get(struct usebuf_output *output, struct mars_buf_object **mbuf, struct generic_object_layout *object_layout, loff_t pos, int len)
 {
 	struct usebuf_input *input = output->brick->inputs[0];
-	return GENERIC_INPUT_CALL(input, mars_buf_get, mbuf, h, pos, len);
+	return GENERIC_INPUT_CALL(input, mars_buf_get, mbuf, object_layout, pos, len);
 }
 
 static int usebuf_buf_put(struct usebuf_output *output, struct mars_buf_object *mbuf)
@@ -290,7 +295,6 @@ static int usebuf_brick_construct(struct usebuf_brick *brick)
 
 static int usebuf_output_construct(struct usebuf_output *output)
 {
-	usebuf_init_helper(&output->buf_helper);
 	return 0;
 }
 

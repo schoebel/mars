@@ -35,7 +35,7 @@
 
 struct generic_aspect;
 
-#define GENERIC_ASPECT_TYPE(PREFIX)					\
+#define GENERIC_ASPECT_TYPE(BRICK)					\
 	char *aspect_type_name;						\
 	const struct generic_object_type *object_type;			\
 	int aspect_size;						\
@@ -45,7 +45,7 @@ struct generic_aspect_type {
 	GENERIC_ASPECT_TYPE(generic);
 };
 
-#define GENERIC_ASPECT_LAYOUT(PREFIX)					\
+#define GENERIC_ASPECT_LAYOUT(BRICK)					\
 	const struct generic_aspect_type *aspect_type;			\
 	void *init_data;						\
 	int aspect_offset;						\
@@ -54,7 +54,7 @@ struct generic_aspect_layout {
 	GENERIC_ASPECT_LAYOUT(generic);
 };
 
-#define GENERIC_OBJECT_TYPE(PREFIX)					\
+#define GENERIC_OBJECT_TYPE(BRICK)					\
 	char *object_type_name;						\
 	int default_size;						\
 	int brick_obj_nr;						\
@@ -63,27 +63,27 @@ struct generic_object_type {
 	GENERIC_OBJECT_TYPE(generic);
 };
 
-#define GENERIC_OBJECT_LAYOUT(PREFIX)					\
+#define GENERIC_OBJECT_LAYOUT(BRICK)					\
+	struct generic_aspect_layout **aspect_layouts;			\
 	const struct generic_object_type *object_type;			\
-	int object_size;						\
-	int rest_size;							\
 	int aspect_count;						\
-	struct generic_aspect_layout *aspect_layouts[];			\
+	int aspect_max;							\
+	int object_size;						\
 
 struct generic_object_layout {
 	GENERIC_OBJECT_LAYOUT(generic);
 };
 
-#define GENERIC_OBJECT(PREFIX)						\
-	struct PREFIX##_object_layout *object_layout;			\
+#define GENERIC_OBJECT(BRICK)						\
+	struct BRICK##_object_layout *object_layout;			\
 	int object_size;						\
 
 struct generic_object {
 	GENERIC_OBJECT(generic);
 };
 
-#define GENERIC_ASPECT(PREFIX)						\
-	struct PREFIX##_object *object;					\
+#define GENERIC_ASPECT(BRICK)						\
+	struct BRICK##_object *object;					\
 
 struct generic_aspect {
 	GENERIC_ASPECT(generic);
@@ -99,36 +99,36 @@ struct generic_brick_ops;
 struct generic_output_ops;
 struct generic_brick_type;
 
-#define GENERIC_BRICK(PREFIX)						\
+#define GENERIC_BRICK(BRICK)						\
 	char *brick_name;						\
-	const struct PREFIX##_brick_type *type;				\
-	struct PREFIX##_brick_ops *ops;					\
+	const struct BRICK##_brick_type *type;				\
+	struct BRICK##_brick_ops *ops;					\
 	int nr_inputs;							\
 	int nr_outputs;							\
-	struct PREFIX##_input **inputs;					\
-	struct PREFIX##_output **outputs;				\
+	struct BRICK##_input **inputs;					\
+	struct BRICK##_output **outputs;				\
 	struct list_head tmp_head;					\
 
 struct generic_brick {
 	GENERIC_BRICK(generic);
 };
 
-#define GENERIC_INPUT(PREFIX)						\
+#define GENERIC_INPUT(BRICK)						\
 	char *input_name;						\
-	struct PREFIX##_brick *brick;					\
-	const struct PREFIX##_input_type *type;				\
-	struct PREFIX##_output *connect;				\
+	struct BRICK##_brick *brick;					\
+	const struct BRICK##_input_type *type;				\
+	struct BRICK##_output *connect;				\
 	struct list_head input_head;					\
 	
 struct generic_input {
 	GENERIC_INPUT(generic);
 };
 
-#define GENERIC_OUTPUT(PREFIX)						\
+#define GENERIC_OUTPUT(BRICK)						\
 	char *output_name;						\
-	struct PREFIX##_brick *brick;					\
-	const struct PREFIX##_output_type *type;			\
-	struct PREFIX##_output_ops *ops;				\
+	struct BRICK##_brick *brick;					\
+	const struct BRICK##_output_type *type;			\
+	struct BRICK##_output_ops *ops;				\
 	struct list_head output_head;					\
 	int nr_connected;						\
 	/* _must_ be the last member */					\
@@ -140,7 +140,7 @@ struct generic_output {
 
 #define GENERIC_OUTPUT_CALL(OUTPUT,OP,ARGS...)				\
 	(								\
-		LOCK_CHECK(OP),						\
+		(void)LOCK_CHECK(OP),					\
 		(OUTPUT) && (OUTPUT)->ops->OP ?				\
 		(OUTPUT)->ops->OP(OUTPUT, ##ARGS) :			\
 		-ENOSYS							\
@@ -148,64 +148,64 @@ struct generic_output {
 		
 #define GENERIC_INPUT_CALL(INPUT,OP,ARGS...)				\
 	(							        \
-		LOCK_CHECK(OP),						\
+		(void)LOCK_CHECK(OP),					\
 		(INPUT) && (INPUT)->connect ?				\
 		GENERIC_OUTPUT_CALL((INPUT)->connect, OP, ##ARGS) :	\
 		-ENOSYS							\
 	)
 
-#define GENERIC_BRICK_OPS(PREFIX)					\
-	/*int (*brick_start)(struct PREFIX##_brick *brick);*/		\
-	/*int (*brick_stop)(struct PREFIX##_brick *brick);*/		\
+#define GENERIC_BRICK_OPS(BRICK)					\
+	/*int (*brick_start)(struct BRICK##_brick *brick);*/		\
+	/*int (*brick_stop)(struct BRICK##_brick *brick);*/		\
 	
 struct generic_brick_ops {
 	GENERIC_BRICK_OPS(generic);
 };
 
-#define GENERIC_OUTPUT_OPS(PREFIX)					\
-	/*int (*output_start)(struct PREFIX##_output *output);*/	\
-	/*int (*output_stop)(struct PREFIX##_output *output);*/		\
-	int (*make_object_layout)(struct PREFIX##_output *output, struct generic_object_layout *object_layout); \
+#define GENERIC_OUTPUT_OPS(BRICK)					\
+	/*int (*output_start)(struct BRICK##_output *output);*/	\
+	/*int (*output_stop)(struct BRICK##_output *output);*/		\
+	int (*make_object_layout)(struct BRICK##_output *output, struct generic_object_layout *object_layout); \
 	
 struct generic_output_ops {
 	GENERIC_OUTPUT_OPS(generic)
 };
 
 // although possible, *_type should never be extended
-#define GENERIC_BRICK_TYPE(PREFIX)					\
+#define GENERIC_BRICK_TYPE(BRICK)					\
 	char *type_name;						\
 	int brick_size;							\
 	int max_inputs;							\
 	int max_outputs;						\
-	const struct PREFIX##_input_type **default_input_types;		\
+	const struct BRICK##_input_type **default_input_types;		\
 	char **default_input_names;					\
-	const struct PREFIX##_output_type **default_output_types;	\
+	const struct BRICK##_output_type **default_output_types;	\
 	char **default_output_names;					\
-	struct PREFIX##_brick_ops *master_ops;				\
-	const struct PREFIX##input_types **default_type;		\
-	int (*brick_construct)(struct PREFIX##_brick *brick);		\
-	int (*brick_destruct)(struct PREFIX##_brick *brick);		\
+	struct BRICK##_brick_ops *master_ops;				\
+	const struct BRICK##input_types **default_type;		\
+	int (*brick_construct)(struct BRICK##_brick *brick);		\
+	int (*brick_destruct)(struct BRICK##_brick *brick);		\
 
 struct generic_brick_type {
 	GENERIC_BRICK_TYPE(generic);
 };
 
-#define GENERIC_INPUT_TYPE(PREFIX)					\
+#define GENERIC_INPUT_TYPE(BRICK)					\
 	char *type_name;						\
 	int input_size;							\
-	int (*input_construct)(struct PREFIX##_input *input);		\
-	int (*input_destruct)(struct PREFIX##_input *input);		\
+	int (*input_construct)(struct BRICK##_input *input);		\
+	int (*input_destruct)(struct BRICK##_input *input);		\
 
 struct generic_input_type {
 	GENERIC_INPUT_TYPE(generic);
 };
 
-#define GENERIC_OUTPUT_TYPE(PREFIX)					\
+#define GENERIC_OUTPUT_TYPE(BRICK)					\
 	char *type_name;						\
 	int output_size;						\
-	struct PREFIX##_output_ops *master_ops;				\
-	int (*output_construct)(struct PREFIX##_output *output);	\
-	int (*output_destruct)(struct PREFIX##_output *output);		\
+	struct BRICK##_output_ops *master_ops;				\
+	int (*output_construct)(struct BRICK##_output *output);	\
+	int (*output_destruct)(struct BRICK##_output *output);		\
 	const struct generic_aspect_type **aspect_types;		\
 	const int layout_code[BRICK_OBJ_NR];				\
 
@@ -325,71 +325,71 @@ extern inline int generic_disconnect(struct generic_input *input)
 #endif // _STRATEGY
 
 // simple wrappers for type safety
-#define GENERIC_MAKE_FUNCTIONS(PREFIX)					\
-extern inline int PREFIX##_register_brick_type(void)		        \
+#define GENERIC_MAKE_FUNCTIONS(BRICK)					\
+extern inline int BRICK##_register_brick_type(void)		        \
 {									\
-	extern const struct PREFIX##_brick_type PREFIX##_brick_type;	\
-	extern int PREFIX##_brick_nr;					\
-	if (PREFIX##_brick_nr >= 0) {					\
-		BRICK_ERR("brick type " #PREFIX " is already registered.\n"); \
+	extern const struct BRICK##_brick_type BRICK##_brick_type;	\
+	extern int BRICK##_brick_nr;					\
+	if (BRICK##_brick_nr >= 0) {					\
+		BRICK_ERR("brick type " #BRICK " is already registered.\n"); \
 		return -EEXIST;						\
 	}								\
-	PREFIX##_brick_nr = generic_register_brick_type((const struct generic_brick_type*)&PREFIX##_brick_type); \
-	return PREFIX##_brick_nr < 0 ? PREFIX##_brick_nr : 0;		\
+	BRICK##_brick_nr = generic_register_brick_type((const struct generic_brick_type*)&BRICK##_brick_type); \
+	return BRICK##_brick_nr < 0 ? BRICK##_brick_nr : 0;		\
 }									\
 									\
-extern inline int PREFIX##_unregister_brick_type(void)		        \
+extern inline int BRICK##_unregister_brick_type(void)		        \
 {									\
-	extern const struct PREFIX##_brick_type PREFIX##_brick_type;	\
-	return generic_unregister_brick_type((const struct generic_brick_type*)&PREFIX##_brick_type); \
+	extern const struct BRICK##_brick_type BRICK##_brick_type;	\
+	return generic_unregister_brick_type((const struct generic_brick_type*)&BRICK##_brick_type); \
 }									\
 									\
-extern int PREFIX##_make_object_layout(struct PREFIX##_output *output, struct generic_object_layout *object_layout) \
+extern int BRICK##_make_object_layout(struct BRICK##_output *output, struct generic_object_layout *object_layout) \
 {									\
 	return default_make_object_layout((struct generic_output*)output, object_layout); \
 }									\
 									\
 _STRATEGY_CODE(							        \
-extern const struct PREFIX##_brick_type PREFIX##_brick_type;	        \
-extern const struct PREFIX##_input_type PREFIX##_input_type;		\
-extern const struct PREFIX##_output_type PREFIX##_output_type;	        \
+extern const struct BRICK##_brick_type BRICK##_brick_type;	        \
+extern const struct BRICK##_input_type BRICK##_input_type;		\
+extern const struct BRICK##_output_type BRICK##_output_type;	        \
 									\
-static inline int PREFIX##_brick_init(struct PREFIX##_brick *brick, char *brick_name) \
+static inline int BRICK##_brick_init(struct BRICK##_brick *brick, char *brick_name) \
 {									\
-	return generic_brick_init((const struct generic_brick_type*)&PREFIX##_brick_type, (struct generic_brick*)brick, brick_name); \
+	return generic_brick_init((const struct generic_brick_type*)&BRICK##_brick_type, (struct generic_brick*)brick, brick_name); \
 }									\
 									\
-static inline int PREFIX##_input_init(struct PREFIX##_brick *brick, int index, struct PREFIX##_input *input, char *input_name) \
+static inline int BRICK##_input_init(struct BRICK##_brick *brick, int index, struct BRICK##_input *input, char *input_name) \
 {									\
 	return generic_input_init(					\
 		(struct generic_brick*)brick,				\
 		index,							\
-		(struct generic_input_type*)&PREFIX##_input_type,	\
+		(struct generic_input_type*)&BRICK##_input_type,	\
 		(struct generic_input*)input,				\
 		input_name);						\
 }									\
 									\
-static inline int PREFIX##_output_init(struct PREFIX##_brick *brick, int index, struct PREFIX##_input *output, char *output_name) \
+static inline int BRICK##_output_init(struct BRICK##_brick *brick, int index, struct BRICK##_input *output, char *output_name) \
 {									\
 	return generic_output_init(					\
 		(struct generic_brick*)brick,				\
 		index,							\
-		(const struct generic_output_type*)&PREFIX##_output_type, \
+		(const struct generic_output_type*)&BRICK##_output_type, \
 		(struct generic_output*)output,				\
 		output_name);						\
 }									\
 									\
-extern inline int PREFIX##_size(const struct PREFIX##_brick_type *brick_type) \
+extern inline int BRICK##_size(const struct BRICK##_brick_type *brick_type) \
 {									\
 	return generic_size((const struct generic_brick_type*)brick_type); \
 }									\
 									\
-extern inline int PREFIX##_brick_init_full(			        \
+extern inline int BRICK##_brick_init_full(			        \
 	void *data,							\
 	int size,							\
-	const struct PREFIX##_brick_type *brick_type,			\
-	const struct PREFIX##_input_type **input_types,			\
-	const struct PREFIX##_output_type **output_types,		\
+	const struct BRICK##_brick_type *brick_type,			\
+	const struct BRICK##_input_type **input_types,			\
+	const struct BRICK##_output_type **output_types,		\
 	char **names)							\
 {									\
 	return generic_brick_init_full(					\
@@ -401,8 +401,8 @@ extern inline int PREFIX##_brick_init_full(			        \
 		(char**)names);						\
 }									\
 									\
-extern inline int PREFIX##_brick_exit_full(			        \
-	struct PREFIX##_brick *brick)					\
+extern inline int BRICK##_brick_exit_full(			        \
+	struct BRICK##_brick *brick)					\
 {									\
 	return generic_brick_exit_full(					\
 		(struct generic_brick*)brick);				\
@@ -416,19 +416,19 @@ extern inline int PREFIX##_brick_exit_full(			        \
  * (b) these macros generate only definitions, but no additional 
  * code at runtime.
  */
-#define GENERIC_MAKE_CONNECT(INPUT_PREFIX,OUTPUT_PREFIX)		\
+#define GENERIC_MAKE_CONNECT(INPUT_BRICK,OUTPUT_BRICK)		\
 									\
 _STRATEGY_CODE(							        \
 									\
-extern inline int INPUT_PREFIX##_##OUTPUT_PREFIX##_connect(	        \
-	struct INPUT_PREFIX##_input *input,				\
-	struct OUTPUT_PREFIX##_output *output)				\
+extern inline int INPUT_BRICK##_##OUTPUT_BRICK##_connect(	        \
+	struct INPUT_BRICK##_input *input,				\
+	struct OUTPUT_BRICK##_output *output)				\
 {									\
 	return generic_connect((struct generic_input*)input, (struct generic_output*)output); \
 }									\
 									\
-extern inline int INPUT_PREFIX##_##OUTPUT_PREFIX####_disconnect(        \
-	struct INPUT_PREFIX##_input *input)				\
+extern inline int INPUT_BRICK##_##OUTPUT_BRICK####_disconnect(        \
+	struct INPUT_BRICK##_input *input)				\
 {									\
 	return generic_disconnect((struct generic_input*)input);	\
 }									\
@@ -442,11 +442,14 @@ extern int default_make_object_layout(struct generic_output *output, struct gene
 
 extern inline int generic_add_aspect(struct generic_output *output, struct generic_object_layout *object_layout, const struct generic_aspect_type *aspect_type)
 {
-	int nr = object_layout->object_type->brick_obj_nr;
 	struct generic_aspect_layout *aspect_layout;
+	int nr;
+
+	if (unlikely(!object_layout->object_type)) {
+		return -EINVAL;
+	}
+	nr = object_layout->object_type->brick_obj_nr;
 	aspect_layout = (void*)&output->aspect_layouts[nr];
-	if (object_layout->rest_size < sizeof(void*))
-		return -ENOMEM;
 	if (aspect_layout->aspect_type) {
 		/* aspect_layout is already initialized.
 		 * this is a kind of "dynamic programming".
@@ -477,40 +480,36 @@ extern inline int generic_add_aspect(struct generic_output *output, struct gener
 	}
 	nr = object_layout->aspect_count++;
 	object_layout->aspect_layouts[nr] = aspect_layout;
-	object_layout->rest_size -= sizeof(void*);
 	return 0;
 }
 
-#define GENERIC_OBJECT_LAYOUT_FUNCTIONS(PREFIX)				\
+extern int default_init_object_layout(struct generic_output *output, struct generic_object_layout *object_layout, int aspect_max, const struct generic_object_type *object_type);
+
+extern struct generic_object *alloc_generic(struct generic_output *output, struct generic_object_layout *object_layout);
+
+#define GENERIC_OBJECT_LAYOUT_FUNCTIONS(BRICK)				\
 									\
-extern inline struct PREFIX##_object_layout *PREFIX##_init_object_layout(void *data, int size, int max_aspects, const struct generic_object_type *object_type) \
+extern inline int BRICK##_init_object_layout(struct BRICK##_output *output, struct generic_object_layout *object_layout, int aspect_max, const struct generic_object_type *object_type) \
 {									\
-	struct PREFIX##_object_layout *object_layout = data;		\
-	data += sizeof(struct PREFIX##_object_layout);			\
-	size -= sizeof(struct PREFIX##_object_layout);			\
-	if (size < 0)							\
-		return NULL;						\
-	object_layout->object_type = object_type;			\
-	object_layout->object_size = object_type->default_size;		\
-	object_layout->rest_size = size;				\
-	object_layout->aspect_count = 0;				\
-	return object_layout;						\
+	if (likely(object_layout->object_type))				\
+		return 0;						\
+	return default_init_object_layout((struct generic_output*)output, object_layout, aspect_max, object_type); \
 }									\
 
 #define GENERIC_ASPECT_LAYOUT_FUNCTIONS(BRICK,PREFIX)			\
 									\
-extern inline int BRICK##_##PREFIX##_add_aspect(struct BRICK##_output *output, struct generic_object_layout *object_layout, const struct generic_aspect_type *aspect_type) \
+extern inline int BRICK##_##PREFIX##_add_aspect(struct BRICK##_output *output, struct PREFIX##_object_layout *object_layout, const struct generic_aspect_type *aspect_type) \
 {									\
-	int res = generic_add_aspect((struct generic_output*)output, object_layout, aspect_type); \
+	int res = generic_add_aspect((struct generic_output*)output, (struct generic_object_layout *)object_layout, aspect_type); \
 	BRICK_DBG(#BRICK " " #PREFIX "added aspect_type %p (%s) to object_layout %p (type %s) on output %p (type %s), status=%d\n", aspect_type, aspect_type->aspect_type_name, object_layout, object_layout->object_type->object_type_name, output, output->type->type_name, res); \
 	return res;							\
 }									\
 
-#define GENERIC_OBJECT_FUNCTIONS(PREFIX)				\
+#define GENERIC_OBJECT_FUNCTIONS(BRICK)				\
 									\
-extern inline struct PREFIX##_object *PREFIX##_construct(void *data, struct PREFIX##_object_layout *object_layout) \
+extern inline struct BRICK##_object *BRICK##_construct(void *data, struct BRICK##_object_layout *object_layout) \
 {									\
-	struct PREFIX##_object *obj = data;				\
+	struct BRICK##_object *obj = data;				\
 	int i;								\
 									\
 	obj->object_layout = object_layout;				\
@@ -544,12 +543,28 @@ extern inline struct BRICK##_##PREFIX##_aspect *BRICK##_##PREFIX##_get_aspect(st
 	nr = object_layout->object_type->brick_obj_nr;			\
 	aspect_layout = &output->aspect_layouts[nr];			\
 	if (unlikely(!aspect_layout->aspect_type)) {			\
-		BRICK_ERR("brick "#BRICK": bad aspect slot on "#PREFIX" pointer %p\n", obj); \
+		BRICK_ERR("brick "#BRICK": bad aspect slot on " #PREFIX " pointer %p\n", obj); \
 		return NULL;						\
 	}								\
 	return (void*)obj + aspect_layout->aspect_offset;		\
 }									\
 									\
+extern inline int BRICK##_##PREFIX##_init_object_layout(struct BRICK##_output *output, struct generic_object_layout *object_layout) \
+{									\
+	return BRICK##_init_object_layout(output, object_layout, 16, &PREFIX##_type); \
+}									\
+									\
+extern inline struct PREFIX##_object *BRICK##_alloc_##PREFIX(struct BRICK##_output *output, struct generic_object_layout *object_layout) \
+{									\
+	int status = BRICK##_##PREFIX##_init_object_layout(output, object_layout);	\
+	if (status < 0)							\
+		return NULL;						\
+	return (struct PREFIX##_object*)alloc_generic((struct generic_output*)output, object_layout); \
+}									\
+
+
+GENERIC_OBJECT_LAYOUT_FUNCTIONS(generic);
+GENERIC_OBJECT_FUNCTIONS(generic);
 
 ///////////////////////////////////////////////////////////////////////
 

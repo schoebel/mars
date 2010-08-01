@@ -4,8 +4,6 @@
 
 #define WITH_THREAD 16
 
-MARS_HELPERS(device_sio);
-
 struct device_sio_mars_io_aspect {
 	GENERIC_ASPECT(mars_io);
 	struct list_head io_head;

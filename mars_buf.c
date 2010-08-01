@@ -218,7 +218,7 @@ static int buf_get_info(struct buf_output *output, struct mars_info *info)
 	return GENERIC_INPUT_CALL(input, mars_get_info, info);
 }
 
-static int buf_buf_get(struct buf_output *output, struct mars_buf_object **_mbuf, struct mars_alloc_helper *h, loff_t pos, int len)
+static int buf_buf_get(struct buf_output *output, struct mars_buf_object **_mbuf, struct generic_object_layout *object_layout, loff_t pos, int len)
 {
 	struct buf_brick *brick = output->brick;
 	struct mars_buf_object *mbuf;
@@ -229,7 +229,7 @@ static int buf_buf_get(struct buf_output *output, struct mars_buf_object **_mbuf
 	unsigned long flags;
 	int status = -EILSEQ;
 
-	mbuf = buf_alloc_mars_buf(output, (struct buf_alloc_helper*)h);
+	mbuf = buf_alloc_mars_buf(output, object_layout);
 	if (!mbuf)
 		goto err_free;
 
@@ -430,7 +430,7 @@ static int _buf_make_bios(struct buf_brick *brick, struct buf_head *bf, void *st
 		int len;
 		int status;
 
-		mio = buf_alloc_mars_io(brick->outputs[0], &brick->mio_helper);
+		mio = buf_alloc_mars_io(brick->outputs[0], &brick->mio_object_layout);
 		if (!mio)
 			goto err_free;
 

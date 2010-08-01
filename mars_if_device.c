@@ -67,7 +67,7 @@ static int if_device_make_request(struct request_queue *q, struct bio *bio)
 		goto err;
 
 	error = -ENOMEM;
-	mio = if_device_alloc_mars_io(output, &input->mio_helper);
+	mio = if_device_alloc_mars_io(output, &input->mio_object_layout);
 	if (!mio)
 		goto err;
 
@@ -154,8 +154,6 @@ static int if_device_input_construct(struct if_device_input *input)
 	struct gendisk *disk;
 	int minor;
 	int capacity = 2 * 1024 * 1024 * 4; //TODO: make this dynamic
-
-	if_device_init_helper(&input->mio_helper);
 
 	//MARS_DBG("1\n");
 	q = blk_alloc_queue(GFP_KERNEL);

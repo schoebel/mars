@@ -5,8 +5,6 @@
 #define HT_SHIFT 6 //????
 #define MARS_MAX_SEGMENT_SIZE (1U << (9+HT_SHIFT))
 
-MARS_HELPERS(if_device);
-
 struct if_device_mars_io_aspect {
 	GENERIC_ASPECT(mars_io);
 };
@@ -25,7 +23,7 @@ struct if_device_input {
 	struct gendisk *disk;
 	struct block_device *bdev;
 	spinlock_t req_lock;
-	struct if_device_alloc_helper mio_helper;
+	struct generic_object_layout mio_object_layout;
 };
 
 struct if_device_output {

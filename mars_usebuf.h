@@ -2,8 +2,6 @@
 #ifndef MARS_USEBUF_H
 #define MARS_USEBUF_H
 
-MARS_HELPERS(usebuf);
-
 struct usebuf_mars_io_aspect {
 	GENERIC_ASPECT(mars_io);
 	atomic_t mio_count;
@@ -28,7 +26,7 @@ struct usebuf_input {
 
 struct usebuf_output {
 	MARS_OUTPUT(usebuf);
-	struct usebuf_alloc_helper buf_helper;
+	struct generic_object_layout buf_object_layout;
 };
 
 MARS_TYPES(usebuf);

@@ -7,8 +7,6 @@
 
 #define MARS_BUF_HASH_MAX 512
 
-MARS_HELPERS(buf);
-
 struct buf_mars_io_aspect {
 	GENERIC_ASPECT(mars_io);
 	struct buf_head  *mia_bf;
@@ -32,7 +30,7 @@ struct buf_brick {
 	/* internals */
 	int current_count;
 	int alloc_count;
-	struct buf_alloc_helper mio_helper;
+	struct generic_object_layout mio_object_layout;
 
 	spinlock_t buf_lock;
 

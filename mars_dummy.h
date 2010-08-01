@@ -2,8 +2,6 @@
 #ifndef MARS_DUMMY_H
 #define MARS_DUMMY_H
 
-MARS_HELPERS(dummy);
-
 struct dummy_mars_io_aspect {
 	GENERIC_ASPECT(mars_io);
 	int my_own;

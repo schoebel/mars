@@ -31,10 +31,10 @@ static int dummy_get_info(struct dummy_output *output, struct mars_info *info)
 	return GENERIC_INPUT_CALL(input, mars_get_info, info);
 }
 
-static int dummy_buf_get(struct dummy_output *output, struct mars_buf_object **mbuf, struct mars_alloc_helper *h, loff_t pos, int len)
+static int dummy_buf_get(struct dummy_output *output, struct mars_buf_object **mbuf, struct generic_object_layout *object_layout, loff_t pos, int len)
 {
 	struct dummy_input *input = output->brick->inputs[0];
-	return GENERIC_INPUT_CALL(input, mars_buf_get, mbuf, h, pos, len);
+	return GENERIC_INPUT_CALL(input, mars_buf_get, mbuf, object_layout, pos, len);
 }
 
 static int dummy_buf_put(struct dummy_output *output, struct mars_buf_object *mbuf)

@@ -144,11 +144,11 @@ void make_test_instance(void)
 	if (true) {
 		struct buf_output *output = buf_brick->outputs[0];
 		struct mars_buf_object *mbuf = NULL;
-		struct mars_alloc_helper h = {};
+		struct generic_object_layout ol = {};
 
 		//mars_init_helper(&h);
 
-		status = GENERIC_OUTPUT_CALL(output, mars_buf_get, &mbuf, &h, 0, PAGE_SIZE);
+		status = GENERIC_OUTPUT_CALL(output, mars_buf_get, &mbuf, &ol, 0, PAGE_SIZE);
 		MARS_DBG("buf_get (status=%d)\n", status);
 
 		if (mbuf) {

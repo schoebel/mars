@@ -284,6 +284,33 @@ EXPORT_SYMBOL_GPL(generic_brick_exit_recursively);
 
 // default implementations
 
+int default_init_object_layout(struct generic_output *output, struct generic_object_layout *object_layout, int aspect_max, const struct generic_object_type *object_type)
+{
+	void *data;
+	int status;
+
+	data = kzalloc(aspect_max * sizeof(void*), GFP_KERNEL);
+	if (!data)
+		return -ENOMEM;
+	object_layout->aspect_layouts = data;
+	object_layout->object_type = object_type;
+	object_layout->aspect_count = 0;
+	object_layout->aspect_max = aspect_max;
+	object_layout->object_size = object_type->default_size;
+
+	status = output->ops->make_object_layout(output, object_layout);
+	if (unlikely(status < 0)) {
+		kfree(data);
+		object_layout->object_type = NULL;
+		BRICK_ERR("emergency, cannot add aspects to object_layout %s!\n", object_type->object_type_name);
+		goto done;
+	}
+	BRICK_INF("OK, object_layout %s init succeeded.\n", object_type->object_type_name);
+done:
+	return status;
+}
+EXPORT_SYMBOL_GPL(default_init_object_layout);
+
 int default_make_object_layout(struct generic_output *output, struct generic_object_layout *object_layout)
 {
 	struct generic_brick *brick = output->brick;
@@ -343,3 +370,24 @@ int default_make_object_layout(struct generic_output *output, struct generic_obj
 }
 EXPORT_SYMBOL_GPL(default_make_object_layout);
 
+struct generic_object *alloc_generic(struct generic_output *output, struct generic_object_layout *object_layout)
+{
+	void *data;
+	struct generic_object *object;
+
+	data = kzalloc(object_layout->object_size, GFP_KERNEL);
+	if (unlikely(!data))
+		goto err;
+
+	object = generic_construct(data, object_layout);
+	if (unlikely(!object))
+		goto err_free;
+
+	return object;
+
+err_free:
+	kfree(data);
+err:
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(alloc_generic);
