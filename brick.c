@@ -391,3 +391,9 @@ err:
 	return NULL;
 }
 EXPORT_SYMBOL_GPL(alloc_generic);
+
+void free_generic(struct generic_object *object)
+{
+	kfree(object);
+}
+EXPORT_SYMBOL_GPL(free_generic);

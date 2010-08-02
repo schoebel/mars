@@ -146,17 +146,19 @@ void make_test_instance(void)
 		struct mars_buf_object *mbuf = NULL;
 		struct generic_object_layout ol = {};
 
-		//mars_init_helper(&h);
-
-		status = GENERIC_OUTPUT_CALL(output, mars_buf_get, &mbuf, &ol, 0, PAGE_SIZE);
-		MARS_DBG("buf_get (status=%d)\n", status);
+		mbuf = buf_alloc_mars_buf(output, &ol);
 
 		if (mbuf) {
+			mbuf->buf_pos = 0;
+			mbuf->buf_len = PAGE_SIZE;
+			mbuf->buf_may_write = READ;
+
+			status = GENERIC_OUTPUT_CALL(output, mars_buf_get, mbuf);
+			MARS_DBG("buf_get (status=%d)\n", status);
 			if (true) {
-				mbuf->cb_rw = READ;
 				mbuf->cb_buf_endio = test_endio;
 
-				status = GENERIC_OUTPUT_CALL(output, mars_buf_io, mbuf);
+				status = GENERIC_OUTPUT_CALL(output, mars_buf_io, mbuf, READ);
 				MARS_DBG("buf_io (status=%d)\n", status);
 			}
 			status = GENERIC_OUTPUT_CALL(output, mars_buf_put, mbuf);

@@ -77,15 +77,21 @@ struct mars_buf_object_layout {
 
 #define MARS_BUF_OBJECT(PREFIX)						\
 	GENERIC_OBJECT(PREFIX);						\
-	void *buf_data;							\
-	int buf_len;							\
-	int buf_flags;							\
+	/* supplied by caller */					\
 	loff_t buf_pos;							\
+	int    buf_len;							\
+	int    buf_may_write;						\
+	/* maintained by the buf implementation, readable for callers */ \
+	void  *buf_data;						\
+	int    buf_flags;						\
+	int    buf_rw;							\
+	/* maintained by the buf implementation, incrementable for	\
+	 * callers (but not decrementable! use buf_put()) */		\
+	atomic_t buf_count;						\
         /* callback part */						\
-	void *cb_private;						\
-	int cb_rw;							\
-	int(*cb_buf_endio)(struct mars_buf_object *mbuf);		\
-	int cb_error;							\
+	int    cb_error;						\
+	void  *cb_private;						\
+	int  (*cb_buf_endio)(struct mars_buf_object *mbuf);		\
 
 struct mars_buf_object {
 	MARS_BUF_OBJECT(mars_buf);
@@ -131,9 +137,9 @@ struct mars_output {
 	int (*mars_io)(struct PREFIX##_output *output, struct mars_io_object *mio); \
 	int (*mars_get_info)(struct PREFIX##_output *output, struct mars_info *info); \
 	/* mars_buf */							\
-	int (*mars_buf_get)(struct PREFIX##_output *output, struct mars_buf_object **mbuf, struct generic_object_layout *object_layout, loff_t pos, int len); \
+	int (*mars_buf_get)(struct PREFIX##_output *output, struct mars_buf_object *mbuf); \
+	int (*mars_buf_io)(struct PREFIX##_output *output, struct mars_buf_object *mbuf, int rw); \
 	int (*mars_buf_put)(struct PREFIX##_output *output, struct mars_buf_object *mbuf); \
-	int (*mars_buf_io)(struct PREFIX##_output *output, struct mars_buf_object *mbuf); \
 
 // all non-extendable types
 

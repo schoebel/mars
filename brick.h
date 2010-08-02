@@ -487,6 +487,8 @@ extern int default_init_object_layout(struct generic_output *output, struct gene
 
 extern struct generic_object *alloc_generic(struct generic_output *output, struct generic_object_layout *object_layout);
 
+extern void free_generic(struct generic_object *object);
+
 #define GENERIC_OBJECT_LAYOUT_FUNCTIONS(BRICK)				\
 									\
 extern inline int BRICK##_init_object_layout(struct BRICK##_output *output, struct generic_object_layout *object_layout, int aspect_max, const struct generic_object_type *object_type) \
@@ -561,6 +563,11 @@ extern inline struct PREFIX##_object *BRICK##_alloc_##PREFIX(struct BRICK##_outp
 		return NULL;						\
 	return (struct PREFIX##_object*)alloc_generic((struct generic_output*)output, object_layout); \
 }									\
+									\
+extern inline void BRICK##_free_##PREFIX(struct PREFIX##_object *object)     \
+{									\
+	free_generic((struct generic_object*)object);			\
+}									\
 
 
 GENERIC_OBJECT_LAYOUT_FUNCTIONS(generic);
@@ -582,16 +589,19 @@ GENERIC_OBJECT_FUNCTIONS(generic);
 # define traced_lock(spinlock,flags)			\
 	do {						\
 		if (atomic_read(&current->lock_count)) {	\
-			BRICK_ERR("please do not nest spinlocks at line %d, that's dangerous. reorganize your code!\n", __LINE__); \
+			BRICK_ERR("please do not nest spinlocks at line %d, reorganize your code.\n", __LINE__); \
 		}					\
 		atomic_inc(&current->lock_count);	\
-		spin_lock_irqsave(spinlock,flags);	\
+		/*spin_lock_irqsave(spinlock,flags);*/	\
+		(void)flags;				\
+		spin_lock(spinlock);			\
 	} while (0)
 
-# define traced_unlock(spinlock,flags)			\
-	do {						\
-		spin_unlock_irqrestore(spinlock,flags);	\
-		atomic_dec(&current->lock_count);	\
+# define traced_unlock(spinlock,flags)				\
+	do {							\
+		/*spin_unlock_irqrestore(spinlock,flags);*/	\
+		spin_unlock(spinlock);				\
+		atomic_dec(&current->lock_count);		\
 	} while (0)
 
 #else

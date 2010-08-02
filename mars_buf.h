@@ -10,6 +10,7 @@
 struct buf_mars_io_aspect {
 	GENERIC_ASPECT(mars_io);
 	struct buf_head  *mia_bf;
+	struct list_head  mia_tmp_head;
 	bool mia_end_io_called;
 };
 

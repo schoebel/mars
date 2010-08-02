@@ -44,7 +44,7 @@ static int if_device_endio(struct mars_io_object *mio, int error)
 		bio_endio(bio, error);
 	} // else lower layers have already signalled the orig_bio
 
-	kfree(mio);
+	if_device_free_mars_io(mio);
 	return 0;
 }
 
