@@ -52,6 +52,7 @@ struct mars_io_object_layout {
 	GENERIC_OBJECT(PREFIX);						\
 	struct bio *orig_bio;						\
 	int (*mars_endio)(struct mars_io_object *mio, int error);	\
+	void *cb_private;						\
 
 struct mars_io_object {
 	MARS_IO_OBJECT(mars_io);

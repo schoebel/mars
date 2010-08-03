@@ -2,7 +2,7 @@
 # Makefile for MARS
 #
 
-obj-$(CONFIG_MARS)		+= brick.o mars_generic.o
+obj-$(CONFIG_MARS)		+= brick.o mars_generic.o mars_check.o
 obj-$(CONFIG_MARS_DUMMY)	+= mars_dummy.o
 obj-$(CONFIG_MARS_IF_DEVICE)	+= mars_if_device.o
 obj-$(CONFIG_MARS_DEVICE_SIO)	+= mars_device_sio.o

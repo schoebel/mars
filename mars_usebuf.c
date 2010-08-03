@@ -29,14 +29,12 @@ static void _usebuf_copy(struct usebuf_mars_buf_aspect *mbuf_a, int rw)
 	void *bio_data = bio_base + mbuf_a->bvec_offset;
 	int len = mbuf_a->bvec_len;
 
-#if 1
 	if (rw == READ) {
 		memcpy(bio_data, buf_data, len);
-		//memset(bio_data, 0, len);
 	} else {
 		memcpy(buf_data, bio_data, len);
 	}
-#endif
+
 	kunmap_atomic(bio_base, KM_USER0);
 }
 
@@ -47,7 +45,7 @@ static int _usebuf_mio_endio(struct usebuf_output *output, struct mars_io_object
 
 	mio_a = usebuf_mars_io_get_aspect(output, mio);
 	if (unlikely(!mio_a)) {
-		MARS_ERR("cannot get mio_a\n");
+		MARS_FAT("cannot get mio_a from mio %p\n", mio);
 		goto out;
 	}
 
@@ -89,17 +87,17 @@ static void _usebuf_mbuf_endio(struct mars_buf_object *mbuf)
 	output = mbuf->cb_private;
 	if (unlikely(!output)) {
 		MARS_ERR("bad argument output\n");
-		goto out_err2;
+		goto out_err;
 	}
 	mbuf_a = usebuf_mars_buf_get_aspect(output, mbuf);
 	if (unlikely(!mbuf_a)) {
 		MARS_ERR("cannot get aspect\n");
-		goto out_err2;
+		goto out_err;
 	}
 	mio = mbuf_a->mio;
 	if (unlikely(!mio)) {
 		MARS_ERR("cannot get mio\n");
-		goto out_err1;
+		goto out_err;
 	}
 	MARS_DBG("mio=%p\n", mio);
 	mio_a = usebuf_mars_io_get_aspect(output, mio);
@@ -158,8 +156,7 @@ out_nocheck:
 	if (!status)
 		status = ignore;
 
-out_err1:	
-out_err2:
+out_err:	
 	mbuf->cb_error = status;
 }
 
@@ -294,9 +291,7 @@ static int usebuf_io(struct usebuf_output *output, struct mars_io_object *mio)
 
 done_drop:
 	// drop initial refcount
-	if (!status) {
-		(void)_usebuf_mio_endio(output, mio, 0);
-	}
+	(void)_usebuf_mio_endio(output, mio, status);
 
 done:
 	MARS_DBG("status=%d\n", status);

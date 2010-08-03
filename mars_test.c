@@ -15,22 +15,24 @@
 #include "mars.h"
 
 #include "mars_if_device.h"
-#include "mars_dummy.h"
+#include "mars_check.h"
 #include "mars_device_sio.h"
 #include "mars_buf.h"
 #include "mars_usebuf.h"
 
 GENERIC_MAKE_CONNECT(if_device, device_sio);
 GENERIC_MAKE_CONNECT(if_device, buf);
-GENERIC_MAKE_CONNECT(if_device, dummy);
+GENERIC_MAKE_CONNECT(if_device, check);
 GENERIC_MAKE_CONNECT(if_device, usebuf);
-GENERIC_MAKE_CONNECT(usebuf, dummy);
+GENERIC_MAKE_CONNECT(check, usebuf);
+GENERIC_MAKE_CONNECT(usebuf, check);
 GENERIC_MAKE_CONNECT(buf, device_sio);
-GENERIC_MAKE_CONNECT(dummy, buf);
+GENERIC_MAKE_CONNECT(check, buf);
 
 static struct if_device_brick *if_brick = NULL;
 static struct usebuf_brick *usebuf_brick = NULL;
-static struct dummy_brick *dummy_brick = NULL;
+static struct check_brick *check_brick = NULL;
+static struct check_brick *check_brick0 = NULL;
 static struct buf_brick *buf_brick = NULL;
 static struct device_sio_brick *device_brick = NULL;
 
@@ -47,14 +49,13 @@ void make_test_instance(void)
 	int status;
 	void *mem;
 
+	MARS_DBG("starting....\n");
+
 	mem = kzalloc(size, GFP_KERNEL);
 	if (!mem) {
 		MARS_ERR("cannot grab test memory\n");
 		return;
 	}
-
-	MARS_DBG("starting....\n");
-
 	status = device_sio_brick_init_full(mem, size, &device_sio_brick_type, NULL, NULL, names);
 	MARS_DBG("done (status=%d)\n", status);
 	if (status) {
@@ -68,7 +69,6 @@ void make_test_instance(void)
 		MARS_ERR("cannot grab test memory\n");
 		return;
 	}
-
 	status = if_device_brick_init_full(mem, size, &if_device_brick_type, NULL, NULL, names);
 	MARS_DBG("done (status=%d)\n", status);
 	if (status) {
@@ -82,14 +82,13 @@ void make_test_instance(void)
 		MARS_ERR("cannot grab test memory\n");
 		return;
 	}
-
-	status = dummy_brick_init_full(mem, size, &dummy_brick_type, NULL, NULL, names);
+	status = check_brick_init_full(mem, size, &check_brick_type, NULL, NULL, names);
 	MARS_DBG("done (status=%d)\n", status);
 	if (status) {
-		MARS_ERR("cannot init brick dummy\n");
+		MARS_ERR("cannot init brick check\n");
 		return;
 	}
-	dummy_brick = mem;
+	check_brick = mem;
 
 #if 1 // usebuf zwischenschalten
 	mem = kzalloc(size, GFP_KERNEL);
@@ -97,7 +96,6 @@ void make_test_instance(void)
 		MARS_ERR("cannot grab test memory\n");
 		return;
 	}
-
 	status = usebuf_brick_init_full(mem, size, &usebuf_brick_type, NULL, NULL, names);
 	MARS_DBG("done (status=%d)\n", status);
 	if (status) {
@@ -106,13 +104,29 @@ void make_test_instance(void)
 	}
 	usebuf_brick = mem;
 
-	status = if_device_usebuf_connect(if_brick->inputs[0], usebuf_brick->outputs[0]);
+	mem = kzalloc(size, GFP_KERNEL);
+	if (!mem) {
+		MARS_ERR("cannot grab test memory\n");
+		return;
+	}
+	status = check_brick_init_full(mem, size, &check_brick_type, NULL, NULL, names);
+	MARS_DBG("done (status=%d)\n", status);
+	if (status) {
+		MARS_ERR("cannot init brick check\n");
+		return;
+	}
+	check_brick0 = mem;
+
+	status = if_device_check_connect(if_brick->inputs[0], check_brick0->outputs[0]);
 	MARS_DBG("connect (status=%d)\n", status);
-	status = usebuf_dummy_connect(usebuf_brick->inputs[0], dummy_brick->outputs[0]);
+
+	status = check_usebuf_connect(check_brick0->inputs[0], usebuf_brick->outputs[0]);
+	MARS_DBG("connect (status=%d)\n", status);
+	status = usebuf_check_connect(usebuf_brick->inputs[0], check_brick->outputs[0]);
 	MARS_DBG("connect (status=%d)\n", status);
 #else
 	(void)usebuf_brick;
-	status = if_device_dummy_connect(if_brick->inputs[0], dummy_brick->outputs[0]);
+	status = if_device_check_connect(if_brick->inputs[0], check_brick->outputs[0]);
 	MARS_DBG("connect (status=%d)\n", status);
 #endif
 
@@ -130,14 +144,14 @@ void make_test_instance(void)
 		return;
 	}
 	buf_brick = mem;
-	buf_brick->backing_order = 0;
+	buf_brick->backing_order = 4;
 	buf_brick->backing_size = PAGE_SIZE << buf_brick->backing_order;
 	buf_brick->max_count = 512;
 
 	status = buf_device_sio_connect(buf_brick->inputs[0], device_brick->outputs[0]);
 	MARS_DBG("connect (status=%d)\n", status);
 
-	status = dummy_buf_connect(dummy_brick->inputs[0], buf_brick->outputs[0]);
+	status = check_buf_connect(check_brick->inputs[0], buf_brick->outputs[0]);
 	MARS_DBG("connect (status=%d)\n", status);
 
 	if (true) {
@@ -166,7 +180,7 @@ void make_test_instance(void)
 	}
 #else
 
-	status = dummy_device_sio_connect(dummy_brick->inputs[0], device_brick->outputs[0]);
+	status = check_device_sio_connect(check_brick->inputs[0], device_brick->outputs[0]);
 	MARS_DBG("connect (status=%d)\n", status);
 #endif
 

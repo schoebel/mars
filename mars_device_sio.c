@@ -265,17 +265,10 @@ static int device_sio_mars_io(struct device_sio_output *output, struct mars_io_o
 	}
 
 done:
-	if (!ret) {
-		bio->bi_size = 0;
-		if (direction == WRITE && barrier) {
-			sync_file(output);
-		}
-	}
 	mio->mars_endio(mio, ret);
 	return ret;
 }
 
-#ifdef WITH_THREAD
 static int device_sio_mars_queue(struct device_sio_output *output, struct mars_io_object *mio)
 {
 	int index = 0;
@@ -311,22 +304,29 @@ static int device_sio_thread(void *data)
 	//set_user_nice(current, -20);
 
 	while (!kthread_should_stop()) {
-		struct list_head *tmp;
+		struct list_head *tmp = NULL;
 		struct device_sio_mars_io_aspect *aspect;
 		struct mars_io_object *mio;
 		unsigned long flags;
 
-		wait_event_interruptible(tinfo->event,
-					 !list_empty(&tinfo->mio_list) ||
-					 kthread_should_stop());
+		wait_event_interruptible_timeout(
+			tinfo->event,
+			!list_empty(&tinfo->mio_list) || kthread_should_stop(),
+			HZ);
 
-		if (list_empty(&tinfo->mio_list))
-			continue;
+		tinfo->last_jiffies = jiffies;
 
 		traced_lock(&tinfo->lock, flags);
-		tmp = tinfo->mio_list.next;
-		list_del_init(tmp);
+
+		if (!list_empty(&tinfo->mio_list)) {
+			tmp = tinfo->mio_list.next;
+			list_del_init(tmp);
+		}
+
 		traced_unlock(&tinfo->lock, flags);
+
+		if (!tmp)
+			continue;
 
 		aspect = container_of(tmp, struct device_sio_mars_io_aspect, io_head);
 		mio = aspect->object;
@@ -337,7 +337,28 @@ static int device_sio_thread(void *data)
 	MARS_INF("kthread has stopped.\n");
 	return 0;
 }
-#endif
+
+static int device_sio_watchdog(void *data)
+{
+	struct device_sio_output *output = data;
+	MARS_INF("watchdog has started.\n");
+	while (!kthread_should_stop()) {
+		int i;
+
+		msleep_interruptible(5000);
+
+		for (i = 0; i <= WITH_THREAD; i++) {
+			struct sio_threadinfo *tinfo = &output->tinfo[i];
+			unsigned long now = jiffies;
+			unsigned long elapsed = now - tinfo->last_jiffies;
+			if (elapsed > 10 * HZ) {
+				tinfo->last_jiffies = now;
+				MARS_ERR("thread %d is dead for more than 10 seconds.\n", i);
+			}
+		}
+	}
+	return 0;
+}
 
 static int device_sio_get_info(struct device_sio_output *output, struct mars_info *info)
 {
@@ -365,22 +386,6 @@ static int device_sio_mars_buf_aspect_init_fn(struct generic_aspect *_ini, void 
 
 MARS_MAKE_STATICS(device_sio);
 
-#if 0
-static int device_sio_make_object_layout(struct device_sio_output *output, struct generic_object_layout *object_layout)
-{
-	const struct generic_object_type *object_type = object_layout->object_type;
-	int slot;
-	if (object_type != &mars_io_type)
-		return 0;
-
-	slot = device_sio_mars_io_add_aspect(output, object_layout, &device_sio_mars_io_aspect_type);
-	if (slot < 0)
-		return slot;
-
-	return sizeof(struct device_sio_mars_io_aspect);
-}
-#endif
-
 ////////////////////// brick constructors / destructors ////////////////////
 
 static int device_sio_brick_construct(struct device_sio_brick *brick)
@@ -394,6 +399,7 @@ static int device_sio_output_construct(struct device_sio_output *output)
 	int flags = O_CREAT | O_RDWR | O_LARGEFILE;
 	int prot = 0600;
 	char *path = "/tmp/testfile.img";
+	struct task_struct *watchdog;
 	int index;
 
 	oldfs = get_fs();
@@ -416,7 +422,6 @@ static int device_sio_output_construct(struct device_sio_output *output)
 	}
 #endif
 
-#ifdef WITH_THREAD
 	spin_lock_init(&output->g_lock);
 	output->index = 0;
 	for (index = 0; index <= WITH_THREAD; index++) {
@@ -425,6 +430,7 @@ static int device_sio_output_construct(struct device_sio_output *output)
 		spin_lock_init(&tinfo->lock);
 		init_waitqueue_head(&tinfo->event);
 		INIT_LIST_HEAD(&tinfo->mio_list);
+		tinfo->last_jiffies = jiffies;
 		tinfo->thread = kthread_create(device_sio_thread, tinfo, "mars_sio%d", index);
 		if (IS_ERR(tinfo->thread)) {
 			int error = PTR_ERR(tinfo->thread);
@@ -434,20 +440,22 @@ static int device_sio_output_construct(struct device_sio_output *output)
 		}
 		wake_up_process(tinfo->thread);
 	}
-#endif
 
+	watchdog = kthread_create(device_sio_watchdog, output, "mars_watchdog%d", 0);
+	if (!IS_ERR(watchdog)) {
+		wake_up_process(watchdog);
+	}
 	return 0;
 }
 
 static int device_sio_output_destruct(struct device_sio_output *output)
 {
-#ifdef WITH_THREAD
 	int index;
 	for (index = 0; index <= WITH_THREAD; index++) {
 		kthread_stop(output->tinfo[index].thread);
 		output->tinfo[index].thread = NULL;
 	}
-#endif
+
 	if (output->filp) {
 		filp_close(output->filp, NULL);
 		output->filp = NULL;
@@ -463,11 +471,7 @@ static struct device_sio_brick_ops device_sio_brick_ops = {
 
 static struct device_sio_output_ops device_sio_output_ops = {
 	.make_object_layout = device_sio_make_object_layout,
-#ifdef WITH_THREAD
 	.mars_io = device_sio_mars_queue,
-#else
-	.mars_io = device_sio_mars_io,
-#endif
 	.mars_get_info = device_sio_get_info,
 };
 

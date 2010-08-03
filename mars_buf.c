@@ -230,6 +230,7 @@ static int buf_buf_get(struct buf_output *output, struct mars_buf_object *mbuf)
 	unsigned long flags;
 	int status = -EILSEQ;
 
+	might_sleep();
 
 	buf_count = atomic_read(&mbuf->buf_count);
 	if (unlikely(buf_count != 0)) {
@@ -239,7 +240,7 @@ static int buf_buf_get(struct buf_output *output, struct mars_buf_object *mbuf)
 
 	mbuf_a = buf_mars_buf_get_aspect(output, mbuf);
 	if (unlikely(!mbuf_a))
-		goto err_free;
+		goto done;
 	
 	base_pos = mbuf->buf_pos & ~(loff_t)(brick->backing_size - 1);
 	base_offset = (mbuf->buf_pos - base_pos);
@@ -264,11 +265,11 @@ static int buf_buf_get(struct buf_output *output, struct mars_buf_object *mbuf)
 			status = -ENOMEM;
 			bf = kzalloc(sizeof(struct buf_head), GFP_KERNEL);
 			if (!bf)
-				goto err_free;
+				goto done;
 
 			bf->bf_data = (void*)__get_free_pages(GFP_KERNEL, brick->backing_order);
 			if (!bf->bf_data)
-				goto err_free2;
+				goto err_free;
 
 			bf->bf_brick = brick;
 			atomic_set(&bf->bf_bio_count, 0);
@@ -279,6 +280,7 @@ static int buf_buf_get(struct buf_output *output, struct mars_buf_object *mbuf)
 			INIT_LIST_HEAD(&bf->bf_again_write_pending_anchor);
 
 			traced_lock(&brick->buf_lock, flags);
+
 			brick->alloc_count++;
 			/* during the open lock, somebody might have raced
 			 * against us at the same base_pos...
@@ -313,9 +315,9 @@ static int buf_buf_get(struct buf_output *output, struct mars_buf_object *mbuf)
 
 	return mbuf->buf_len;
 
-err_free2:
-	kfree(bf);
 err_free:
+	kfree(bf);
+done:
 	return status;
 }
 
@@ -341,12 +343,20 @@ static void _buf_buf_put(struct buf_head *bf)
 	 * So this race is ok.
 	 */
 	bf_count = atomic_read(&bf->bf_count);
-	if (bf_count <= 0) {
+	if (likely(bf_count <= 0)) {
 		struct list_head *where = &brick->lru_anchor;
 		if (unlikely(bf_count < 0)) {
 			atomic_set(&bf->bf_count, 0);
 			MARS_ERR("bf_count UNDERRUN %d\n", bf_count);
 		}
+#if 1
+		if (unlikely(!list_empty(&bf->bf_io_pending_anchor))) {
+			MARS_ERR("bf_io_pending_anchor is not empty!\n");
+		}
+		if (unlikely(!list_empty(&bf->bf_again_write_pending_anchor))) {
+			MARS_ERR("bf_again_write_pending_anchor is not empty!\n");
+		}
+#endif
 		if (unlikely(!(bf->bf_flags & MARS_BUF_UPTODATE))) {
 			list_del_init(&bf->bf_hash_head);
 			brick->current_count--;
@@ -354,7 +364,7 @@ static void _buf_buf_put(struct buf_head *bf)
 		}
 		list_del(&bf->bf_lru_head);
 		list_add(&bf->bf_lru_head, where);
-	}
+	} // else no harm can happen
 
 	// lru freeing (this is completeley independent from bf)
 	__lru_free(brick);
@@ -503,6 +513,8 @@ static int _buf_make_bios(struct buf_brick *brick, struct buf_head *bf, void *st
 			continue;
 		}
 
+		/* Remember the number of bios we are submitting.
+		 */
 		atomic_inc(&bf->bf_bio_count);
 
 		MARS_DBG("starting buf IO mio=%p bio=%p bf=%p bf_count=%d bf_bio_count=%d\n", mio, mio->orig_bio, bf, atomic_read(&bf->bf_count), atomic_read(&bf->bf_bio_count));
@@ -541,6 +553,9 @@ static void _buf_bio_callback(struct bio *bio, int code)
 	int old_flags;
 	unsigned long flags;
 	LIST_HEAD(tmp);
+#if 1
+	int count = 0;
+#endif
 
 	mio_a = bio->bi_private;
 	bf = mio_a->mia_bf;
@@ -603,6 +618,11 @@ static void _buf_bio_callback(struct bio *bio, int code)
 		if (mbuf_a->bfa_bf != bf) {
 			MARS_ERR("bad pointers %p != %p\n", mbuf_a->bfa_bf, bf);
 		}
+#if 1
+		if (!(++count % 100)) {
+			MARS_ERR("endless loop 1\n");
+		}
+#endif
 		list_del_init(&mbuf_a->bfc_pending_head);
 		list_add_tail(&mbuf_a->bfc_pending_head, &bf->bf_io_pending_anchor);
 
@@ -638,6 +658,11 @@ static void _buf_bio_callback(struct bio *bio, int code)
 		if (mbuf_a->bfa_bf != bf) {
 			MARS_ERR("bad pointers %p != %p\n", mbuf_a->bfa_bf, bf);
 		}
+#if 1
+		if (!(++count % 100)) {
+			MARS_ERR("endless loop 2\n");
+		}
+#endif
 		buf_count = atomic_read(&mbuf->buf_count);
 		if (buf_count <= 0) {
 			MARS_ERR("bad buf_count %d\n", buf_count);
@@ -648,7 +673,6 @@ static void _buf_bio_callback(struct bio *bio, int code)
 		mbuf->buf_flags = bf->bf_flags;
 		mbuf->cb_error = bf->bf_bio_status;
 		mbuf_a->nr_io_pending--;
-		//traced_unlock(&brick->buf_lock, flags);
 
 		mbuf->cb_buf_endio(mbuf);
 
@@ -657,21 +681,12 @@ static void _buf_bio_callback(struct bio *bio, int code)
 			_buf_buf_put(bf);
 			buf_free_mars_buf(mbuf);
 		}
-
-		//traced_lock(&brick->buf_lock, flags);
 	}
 
 	if (start_len) {
 		MARS_DBG("ATTENTION %d\n", start_len);
 		_buf_make_bios(brick, bf, start_data, start_pos, start_len, WRITE);
 	}
-#if 0
-	// drop extra refcounts for pending IO
-	if (old_flags & MARS_BUF_READING)
-		_buf_buf_put(bf);
-	if (old_flags & MARS_BUF_WRITING)
-		_buf_buf_put(bf);
-#endif
 	// drop the extra reference from above
 	_buf_buf_put(bf);
 }
@@ -764,7 +779,7 @@ static void buf_buf_io(struct buf_output *output, struct mars_buf_object *mbuf, 
 			bf->bf_flags |= MARS_BUF_READING;
 			bf->bf_bio_status = 0;
 
-			// always read the whole buffer
+			// always read the whole buffer.
 			start_data = (void*)((unsigned long)mbuf->buf_data & ~(unsigned long)(brick->backing_size - 1));
 			start_pos = mbuf->buf_pos & ~(loff_t)(brick->backing_size - 1);
 			start_len = brick->backing_size;
@@ -775,20 +790,23 @@ static void buf_buf_io(struct buf_output *output, struct mars_buf_object *mbuf, 
 	mbuf->buf_flags = bf->bf_flags;
 	mbuf->cb_error = bf->bf_bio_status;
 
-	// grab an extra reference.
+	/* Grab an extra reference.
+	 * This will be released later in _buf_bio_callback() after
+	 * calling the callbacks.
+	 */
 	atomic_inc(&mbuf->buf_count);
 
 	traced_unlock(&brick->buf_lock, flags);
 
 	if (!start_len) {
-		// nothing to start
+		// nothing to start, IO is already started.
 		return;
 	}
 
 	status = _buf_make_bios(brick, bf, start_data, start_pos, start_len, rw);
 	if (likely(status >= 0)) {
-		/* no callback, this time.
-		 * they will be called from _buf_bio_callback().
+		/* No immediate callback, this time.
+		 * Callbacks will be called later from _buf_bio_callback().
 		 */
 		return;
 	}
