@@ -34,10 +34,9 @@ static struct dummy_brick *dummy_brick = NULL;
 static struct buf_brick *buf_brick = NULL;
 static struct device_sio_brick *device_brick = NULL;
 
-static int test_endio(struct mars_buf_object *mbuf)
+static void test_endio(struct mars_buf_object *mbuf)
 {
 	MARS_DBG("test_endio() called! error=%d\n", mbuf->cb_error);
-	return 0;
 }
 
 void make_test_instance(void)
@@ -158,11 +157,11 @@ void make_test_instance(void)
 			if (true) {
 				mbuf->cb_buf_endio = test_endio;
 
-				status = GENERIC_OUTPUT_CALL(output, mars_buf_io, mbuf, READ);
+				GENERIC_OUTPUT_CALL(output, mars_buf_io, mbuf, READ);
+				status = mbuf->cb_error;
 				MARS_DBG("buf_io (status=%d)\n", status);
 			}
-			status = GENERIC_OUTPUT_CALL(output, mars_buf_put, mbuf);
-			MARS_DBG("buf_put (status=%d)\n", status);
+			GENERIC_OUTPUT_CALL(output, mars_buf_put, mbuf);
 		}
 	}
 #else

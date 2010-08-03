@@ -37,16 +37,16 @@ static int dummy_buf_get(struct dummy_output *output, struct mars_buf_object *mb
 	return GENERIC_INPUT_CALL(input, mars_buf_get, mbuf);
 }
 
-static int dummy_buf_put(struct dummy_output *output, struct mars_buf_object *mbuf)
+static void dummy_buf_put(struct dummy_output *output, struct mars_buf_object *mbuf)
 {
 	struct dummy_input *input = output->brick->inputs[0];
-	return GENERIC_INPUT_CALL(input, mars_buf_put, mbuf);
+	GENERIC_INPUT_CALL(input, mars_buf_put, mbuf);
 }
 
-static int dummy_buf_io(struct dummy_output *output, struct mars_buf_object *mbuf, int rw)
+static void dummy_buf_io(struct dummy_output *output, struct mars_buf_object *mbuf, int rw)
 {
 	struct dummy_input *input = output->brick->inputs[0];
-	return GENERIC_INPUT_CALL(input, mars_buf_io, mbuf, rw);
+	GENERIC_INPUT_CALL(input, mars_buf_io, mbuf, rw);
 }
 
 //////////////// object / aspect constructors / destructors ///////////////

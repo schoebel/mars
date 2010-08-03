@@ -66,7 +66,7 @@ static inline void __prune_cache(struct buf_brick *brick, int max_count, unsigne
 		if (list_empty(&brick->free_anchor))
 			break;
 		bf = container_of(brick->free_anchor.next, struct buf_head, bf_lru_head);
-		list_del(&bf->bf_lru_head);
+		list_del_init(&bf->bf_lru_head);
 		brick->current_count--;
 		brick->alloc_count--;
 		
@@ -83,7 +83,7 @@ static inline void __lru_free(struct buf_brick *brick)
 		if (list_empty(&brick->lru_anchor))
 			break;
 		bf = container_of(brick->lru_anchor.prev, struct buf_head, bf_lru_head);
-		list_del(&bf->bf_lru_head);
+		list_del_init(&bf->bf_lru_head);
 		list_del_init(&bf->bf_hash_head);
 		brick->current_count--;
 		list_add(&bf->bf_lru_head, &brick->free_anchor);
@@ -302,7 +302,7 @@ static int buf_buf_get(struct buf_output *output, struct mars_buf_object *mbuf)
 
 	mbuf_a->bfa_bf = bf;
 	atomic_inc(&bf->bf_count);
-	MARS_DBG("buf_get() bf=%p initial bf_count=%d\n", bf, atomic_read(&bf->bf_count));
+	MARS_DBG("bf=%p initial bf_count=%d\n", bf, atomic_read(&bf->bf_count));
 
 	list_del_init(&bf->bf_lru_head);
 	mbuf->buf_flags = bf->bf_flags;
@@ -319,7 +319,7 @@ err_free:
 	return status;
 }
 
-static int _buf_buf_put(struct buf_head *bf)
+static void _buf_buf_put(struct buf_head *bf)
 {
 	struct buf_brick *brick;
 	unsigned long flags;
@@ -328,7 +328,7 @@ static int _buf_buf_put(struct buf_head *bf)
 	MARS_DBG("_buf_buf_put() bf=%p bf_count=%d\n", bf, atomic_read(&bf->bf_count));
 
 	if (!atomic_dec_and_test(&bf->bf_count))
-		return 0;
+		return;
 
 	MARS_DBG("_buf_buf_put() ZERO_COUNT\n");
 
@@ -361,37 +361,36 @@ static int _buf_buf_put(struct buf_head *bf)
 	__prune_cache(brick, brick->max_count, &flags);
 
 	traced_unlock(&brick->buf_lock, flags);
-
-	return 0;
 }
 
-static int buf_buf_put(struct buf_output *output, struct mars_buf_object *mbuf)
+static void buf_buf_put(struct buf_output *output, struct mars_buf_object *mbuf)
 {
 	struct buf_mars_buf_aspect *mbuf_a;
 	struct buf_head *bf;
-	int status;
-	int test;
 
+#if 1
+	int test;
 	test = atomic_read(&mbuf->buf_count);
 	if (test <= 0) {
 		atomic_set(&mbuf->buf_count, 1);
 		MARS_ERR("bad buf_count %d\n", test);
 	}
+#endif
 	if (!atomic_dec_and_test(&mbuf->buf_count))
-		return 0;
+		return;
 
 	mbuf_a = buf_mars_buf_get_aspect(output, mbuf);
-	if (!mbuf_a)
-		return -EILSEQ;
+	if (!mbuf_a) {
+		MARS_FAT("cannot get aspect\n");
+		return;
+	}
 
 	bf = mbuf_a->bfa_bf;
 	MARS_DBG("buf_buf_put() mbuf=%p mbuf_a=%p bf=%p\n", mbuf, mbuf_a, bf);
 	
-	status = _buf_buf_put(bf);
+	_buf_buf_put(bf);
 
 	buf_free_mars_buf(mbuf);
-
-	return status;
 }
 
 static int _buf_endio(struct mars_io_object *mio, int error)
@@ -494,7 +493,7 @@ static int _buf_make_bios(struct buf_brick *brick, struct buf_head *bf, void *st
 		struct buf_mars_io_aspect *mio_a;
 		mio_a = container_of(tmp.next, struct buf_mars_io_aspect, mia_tmp_head);
 		mio = mio_a->object;
-		list_del(&mio_a->mia_tmp_head);
+		list_del_init(&mio_a->mia_tmp_head);
 		iters++;
 
 		if (status) { // clean up
@@ -507,7 +506,7 @@ static int _buf_make_bios(struct buf_brick *brick, struct buf_head *bf, void *st
 		atomic_inc(&bf->bf_bio_count);
 
 		MARS_DBG("starting buf IO mio=%p bio=%p bf=%p bf_count=%d bf_bio_count=%d\n", mio, mio->orig_bio, bf, atomic_read(&bf->bf_count), atomic_read(&bf->bf_bio_count));
-#if 0
+#if 1
 		status = GENERIC_INPUT_CALL(input, mars_io, mio);
 		if (unlikely(status < 0)) {
 			MARS_ERR("cannot start buf IO\n");
@@ -542,7 +541,6 @@ static void _buf_bio_callback(struct bio *bio, int code)
 	int old_flags;
 	unsigned long flags;
 	LIST_HEAD(tmp);
-	struct list_head *xxx = &tmp;
 
 	mio_a = bio->bi_private;
 	bf = mio_a->mia_bf;
@@ -570,6 +568,9 @@ static void _buf_bio_callback(struct bio *bio, int code)
 
 	brick = bf->bf_brick;
 
+	// get an extra reference, to avoid freeing bf underneath during callbacks
+	atomic_inc(&bf->bf_count);
+
 	traced_lock(&brick->buf_lock, flags);
 
 	// update flags. this must be done before the callbacks.
@@ -580,47 +581,21 @@ static void _buf_bio_callback(struct bio *bio, int code)
 	// clear the flags, callbacks must not see them. may be re-enabled later.
 	bf->bf_flags &= ~(MARS_BUF_READING | MARS_BUF_WRITING);
 
-	/* remember current version of pending list.
-	 * this is necessary because later the callbacks might
+	/* Remember current version of pending list.
+	 * This is necessary because later the callbacks might
 	 * change it underneath.
 	 */
 	if (!list_empty(&bf->bf_io_pending_anchor)) {
-#if 0
-		__list_add(&tmp, bf->bf_io_pending_anchor.prev, bf->bf_io_pending_anchor.next);
-		INIT_LIST_HEAD(&bf->bf_io_pending_anchor);
-#else
-		xxx = &bf->bf_io_pending_anchor;
-#endif
-	}
-	// signal success by calling all callbacks.
-	while (!list_empty(xxx)) {
-		struct buf_mars_buf_aspect *mbuf_a = container_of(xxx->next, struct buf_mars_buf_aspect, bfc_pending_head);
-		struct mars_buf_object *mbuf = mbuf_a->object;
-
-		if (mbuf_a->bfa_bf != bf) {
-			MARS_ERR("bad pointers %p != %p\n", mbuf_a->bfa_bf, bf);
-		}
-		list_del(&mbuf_a->bfc_pending_head);
-		/* drop normal refcount.
-		 * full _buf_buf_put() not needed, see below. */
-		atomic_dec(&bf->bf_count);
-		MARS_DBG("_buf_bio_callback() bf=%p now bf_count=%d\n", bf, atomic_read(&bf->bf_count));
-		// update infos for callbacks, they may inspect it.
-		mbuf->buf_flags = bf->bf_flags;
-		mbuf->cb_error = bf->bf_bio_status;
-		mbuf_a->nr_io_pending--;
-		traced_unlock(&brick->buf_lock, flags);
-
-		mbuf->cb_buf_endio(mbuf);
-
-		traced_lock(&brick->buf_lock, flags);
+		struct list_head *next = bf->bf_io_pending_anchor.next;
+		list_del_init(&bf->bf_io_pending_anchor);
+		list_add_tail(&tmp, next);
 	}
 
-	/* move pending jobs to work.
-	 * this is in essence an automatic restart mechanism.
-	 * TODO ???: do this before the callbacks, because they may start
-	 * new IOs. this could violate IO ordering if not done in the
-	 * right order.
+	/* Move pending jobs to work.
+	 * This is in essence an automatic restart mechanism.
+	 * do this before the callbacks, because they may start
+	 * new IOs. If not done in the right order, this could violate
+	 * IO ordering semantics.
 	 */
 	while (!list_empty(&bf->bf_again_write_pending_anchor)) {
 		struct buf_mars_buf_aspect *mbuf_a = container_of(bf->bf_again_write_pending_anchor.next, struct buf_mars_buf_aspect, bfc_pending_head);
@@ -628,11 +603,10 @@ static void _buf_bio_callback(struct bio *bio, int code)
 		if (mbuf_a->bfa_bf != bf) {
 			MARS_ERR("bad pointers %p != %p\n", mbuf_a->bfa_bf, bf);
 		}
-		list_del(&mbuf_a->bfc_pending_head);
+		list_del_init(&mbuf_a->bfc_pending_head);
 		list_add_tail(&mbuf_a->bfc_pending_head, &bf->bf_io_pending_anchor);
+
 		// re-enable flags
-		if (!(bf->bf_flags & MARS_BUF_WRITING))
-			atomic_inc(&bf->bf_count);
 		bf->bf_flags |= MARS_BUF_WRITING;
 		bf->bf_bio_status = 0;
 
@@ -653,19 +627,56 @@ static void _buf_bio_callback(struct bio *bio, int code)
 
 	traced_unlock(&brick->buf_lock, flags);
 
+	/* Signal success by calling all callbacks.
+	 * Thanks to the tmp list, we can do this outside the spinlock.
+	 */
+	while (!list_empty(&tmp)) {
+		struct buf_mars_buf_aspect *mbuf_a = container_of(tmp.next, struct buf_mars_buf_aspect, bfc_pending_head);
+		struct mars_buf_object *mbuf = mbuf_a->object;
+		int buf_count;
+
+		if (mbuf_a->bfa_bf != bf) {
+			MARS_ERR("bad pointers %p != %p\n", mbuf_a->bfa_bf, bf);
+		}
+		buf_count = atomic_read(&mbuf->buf_count);
+		if (buf_count <= 0) {
+			MARS_ERR("bad buf_count %d\n", buf_count);
+		}
+		list_del_init(&mbuf_a->bfc_pending_head);
+
+		// update infos for callbacks, they may inspect it.
+		mbuf->buf_flags = bf->bf_flags;
+		mbuf->cb_error = bf->bf_bio_status;
+		mbuf_a->nr_io_pending--;
+		//traced_unlock(&brick->buf_lock, flags);
+
+		mbuf->cb_buf_endio(mbuf);
+
+		// analogy to buf_buf_put(..., mbuf)
+		if (atomic_dec_and_test(&mbuf->buf_count)) {
+			_buf_buf_put(bf);
+			buf_free_mars_buf(mbuf);
+		}
+
+		//traced_lock(&brick->buf_lock, flags);
+	}
+
 	if (start_len) {
 		MARS_DBG("ATTENTION %d\n", start_len);
 		_buf_make_bios(brick, bf, start_data, start_pos, start_len, WRITE);
 	}
-
+#if 0
 	// drop extra refcounts for pending IO
 	if (old_flags & MARS_BUF_READING)
 		_buf_buf_put(bf);
 	if (old_flags & MARS_BUF_WRITING)
 		_buf_buf_put(bf);
+#endif
+	// drop the extra reference from above
+	_buf_buf_put(bf);
 }
 
-static int buf_buf_io(struct buf_output *output, struct mars_buf_object *mbuf, int rw)
+static void buf_buf_io(struct buf_output *output, struct mars_buf_object *mbuf, int rw)
 {
 	struct buf_brick *brick = output->brick;
 	struct buf_mars_buf_aspect *mbuf_a;
@@ -675,26 +686,26 @@ static int buf_buf_io(struct buf_output *output, struct mars_buf_object *mbuf, i
 	int    start_len = 0;
 	int buf_count;
 	int bf_count;
-	int status;
+	int status = -EINVAL;
 	unsigned long flags;
 
 	if (unlikely(!mbuf)) {
 		MARS_ERR("internal problem: forgotten to supply mbuf\n");
-		return -EILSEQ;
+		goto callback;
 	}
 	mbuf_a = buf_mars_buf_get_aspect(output, mbuf);
 	if (unlikely(!mbuf_a)) {
 		MARS_ERR("internal problem: mbuf aspect does not work\n");
-		return -EILSEQ;
+		goto callback;
 	}
 	if (unlikely(mbuf_a->nr_io_pending++ > 0)) {
 		MARS_ERR("sorry, you cannot start multiple IOs in parallel on the same mars_buf instance. buf_get() a different instance instead!\n");
-		return -EILSEQ;
+		goto callback;
 	}
 	bf = mbuf_a->bfa_bf;
 	if (unlikely(!bf)) {
 		MARS_ERR("internal problem: forgotten bf\n");
-		return -EILSEQ;
+		goto callback;
 	}
 
 	buf_count = atomic_read(&mbuf->buf_count);
@@ -711,11 +722,11 @@ static int buf_buf_io(struct buf_output *output, struct mars_buf_object *mbuf, i
 	if (rw != READ) {
 		if (unlikely(mbuf->buf_may_write == READ)) {
 			MARS_ERR("sorry, forgotten to set buf_may_write\n");
-			return -EILSEQ;
+			goto callback;
 		}
 		if (unlikely(!(bf->bf_flags & MARS_BUF_UPTODATE))) {
 			MARS_ERR("sorry, writing is only allowed on UPTODATE buffers\n");
-			return -EILSEQ;
+			goto callback;
 		}
 	}
 
@@ -731,14 +742,11 @@ static int buf_buf_io(struct buf_output *output, struct mars_buf_object *mbuf, i
 			// by definition, a writeout buffer is uptodate
 			bf->bf_flags |= (MARS_BUF_WRITING | MARS_BUF_UPTODATE);
 			bf->bf_bio_status = 0;
-			// grab an extra refcount for pending IO
-			atomic_inc(&bf->bf_count);
-			MARS_DBG("buf_buf_io() bf=%p extra bf_count=%d\n", bf, atomic_read(&bf->bf_count));
-#if 0
+#if 1
 			start_data = mbuf->buf_data;
 			start_pos = mbuf->buf_pos;
 			start_len = mbuf->buf_len;
-#else
+#else // only for testing: write the full buffer
 			start_data = (void*)((unsigned long)mbuf->buf_data & ~(unsigned long)(brick->backing_size - 1));
 			start_pos = mbuf->buf_pos & ~(loff_t)(brick->backing_size - 1);
 			start_len = brick->backing_size;
@@ -755,9 +763,7 @@ static int buf_buf_io(struct buf_output *output, struct mars_buf_object *mbuf, i
 		if (!(bf->bf_flags & MARS_BUF_READING)) {
 			bf->bf_flags |= MARS_BUF_READING;
 			bf->bf_bio_status = 0;
-			// grab an extra refcount for pending IO
-			atomic_inc(&bf->bf_count);
-			MARS_DBG("buf_buf_io() bf=%p extra bf_count=%d\n", bf, atomic_read(&bf->bf_count));
+
 			// always read the whole buffer
 			start_data = (void*)((unsigned long)mbuf->buf_data & ~(unsigned long)(brick->backing_size - 1));
 			start_pos = mbuf->buf_pos & ~(loff_t)(brick->backing_size - 1);
@@ -766,35 +772,39 @@ static int buf_buf_io(struct buf_output *output, struct mars_buf_object *mbuf, i
 		list_add(&mbuf_a->bfc_pending_head, &bf->bf_io_pending_anchor);
 	}
 
-	// grab normal refcount for each mbuf
-	atomic_inc(&bf->bf_count);
-	MARS_DBG("buf_buf_io() bf=%p normal bf_count=%d\n", bf, atomic_read(&bf->bf_count));
 	mbuf->buf_flags = bf->bf_flags;
 	mbuf->cb_error = bf->bf_bio_status;
+
+	// grab an extra reference.
+	atomic_inc(&mbuf->buf_count);
 
 	traced_unlock(&brick->buf_lock, flags);
 
 	if (!start_len) {
 		// nothing to start
-		return 0;
+		return;
 	}
-
-	// grab an extra reference.
-	atomic_inc(&mbuf->buf_count);
 
 	status = _buf_make_bios(brick, bf, start_data, start_pos, start_len, rw);
-	if (status < 0) {
-		buf_buf_put(output, mbuf);
+	if (likely(status >= 0)) {
+		/* no callback, this time.
+		 * they will be called from _buf_bio_callback().
+		 */
+		return;
 	}
-	return status;
+
+	buf_buf_put(output, mbuf);
+	goto callback;
 
 already_done:
 	mbuf->buf_flags = bf->bf_flags;
-	mbuf->cb_error = bf->bf_bio_status;
+	status = bf->bf_bio_status;
+
 	traced_unlock(&brick->buf_lock, flags);
-	status = mbuf->cb_buf_endio(mbuf);
-	mbuf->buf_flags = bf->bf_flags;
-	return status;
+
+callback:
+	mbuf->cb_error = status;
+	mbuf->cb_buf_endio(mbuf);
 }
 
 //////////////// object / aspect constructors / destructors ///////////////

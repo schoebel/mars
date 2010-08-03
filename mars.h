@@ -6,10 +6,12 @@
 #include <asm/spinlock.h>
 #include <asm/atomic.h>
 
+#define MARS_FATAL "MARS_FATAL  " __BASE_FILE__ ": "
 #define MARS_ERROR "MARS_ERROR  " __BASE_FILE__ ": "
 #define MARS_INFO  "MARS_INFO   " __BASE_FILE__ ": "
 #define MARS_DEBUG "MARS_DEBUG  " __BASE_FILE__ ": "
 
+#define MARS_FAT(fmt, args...) printk(MARS_FATAL "%s(): " fmt, __FUNCTION__, ##args)
 #define MARS_ERR(fmt, args...) printk(MARS_ERROR "%s(): " fmt, __FUNCTION__, ##args)
 #define MARS_INF(fmt, args...) printk(MARS_INFO  "%s(): " fmt, __FUNCTION__, ##args)
 #ifdef MARS_DEBUGGING
@@ -91,7 +93,7 @@ struct mars_buf_object_layout {
         /* callback part */						\
 	int    cb_error;						\
 	void  *cb_private;						\
-	int  (*cb_buf_endio)(struct mars_buf_object *mbuf);		\
+	void (*cb_buf_endio)(struct mars_buf_object *mbuf);		\
 
 struct mars_buf_object {
 	MARS_BUF_OBJECT(mars_buf);
@@ -134,12 +136,12 @@ struct mars_output {
 #define MARS_OUTPUT_OPS(PREFIX)						\
 	GENERIC_OUTPUT_OPS(PREFIX);					\
 	/* mars_io */							\
-	int (*mars_io)(struct PREFIX##_output *output, struct mars_io_object *mio); \
-	int (*mars_get_info)(struct PREFIX##_output *output, struct mars_info *info); \
+	int  (*mars_io)(struct PREFIX##_output *output, struct mars_io_object *mio); \
+	int  (*mars_get_info)(struct PREFIX##_output *output, struct mars_info *info); \
 	/* mars_buf */							\
-	int (*mars_buf_get)(struct PREFIX##_output *output, struct mars_buf_object *mbuf); \
-	int (*mars_buf_io)(struct PREFIX##_output *output, struct mars_buf_object *mbuf, int rw); \
-	int (*mars_buf_put)(struct PREFIX##_output *output, struct mars_buf_object *mbuf); \
+	int  (*mars_buf_get)(struct PREFIX##_output *output, struct mars_buf_object *mbuf); \
+	void (*mars_buf_io)(struct PREFIX##_output *output, struct mars_buf_object *mbuf, int rw); \
+	void (*mars_buf_put)(struct PREFIX##_output *output, struct mars_buf_object *mbuf); \
 
 // all non-extendable types
 

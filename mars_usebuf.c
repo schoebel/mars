@@ -77,7 +77,7 @@ out:
 	return status;
 }
 
-static int _usebuf_mbuf_endio(struct mars_buf_object *mbuf)
+static void _usebuf_mbuf_endio(struct mars_buf_object *mbuf)
 {
 	struct usebuf_output *output;
 	struct usebuf_mars_buf_aspect *mbuf_a;
@@ -123,11 +123,9 @@ static int _usebuf_mbuf_endio(struct mars_buf_object *mbuf)
 		// grab extra reference
 		atomic_inc(&mio_a->mio_count);
 
-		status = GENERIC_OUTPUT_CALL(output, mars_buf_io, mbuf, WRITE);
+		GENERIC_OUTPUT_CALL(output, mars_buf_io, mbuf, WRITE);
+		status = mbuf->cb_error;
 		MARS_DBG("buf_io (status=%d)\n", status);
-		if (unlikely(status < 0)) {
-			mbuf->cb_error = status;
-		}
 	} else {
 		// finalize the read or final write
 		if (likely(!mbuf->cb_error)) {
@@ -162,7 +160,7 @@ out_nocheck:
 
 out_err1:	
 out_err2:
-	return status;
+	mbuf->cb_error = status;
 }
 
 ////////////////// own brick / input / output operations //////////////////
@@ -213,7 +211,6 @@ static int usebuf_io(struct usebuf_output *output, struct mars_io_object *mio)
 			struct mars_buf_object *mbuf;
 			struct usebuf_mars_buf_aspect *mbuf_a;
 			int my_len;
-			int ignore;
 
 			mbuf = usebuf_alloc_mars_buf(output, &output->buf_object_layout);
 			status = -ENOMEM;
@@ -271,12 +268,12 @@ static int usebuf_io(struct usebuf_output *output, struct mars_io_object *mio)
 				}
 			}
 
-			status = GENERIC_OUTPUT_CALL(output, mars_buf_io, mbuf, my_rw);
+			GENERIC_OUTPUT_CALL(output, mars_buf_io, mbuf, my_rw);
+			status = mbuf->cb_error;
 			MARS_DBG("buf_io (status=%d)\n", status);
 
 		put:
-			ignore = GENERIC_OUTPUT_CALL(output, mars_buf_put, mbuf);
-			MARS_DBG("buf_put (status=%d)\n", ignore);
+			GENERIC_OUTPUT_CALL(output, mars_buf_put, mbuf);
 			
 			if (unlikely(status < 0))
 				break;
@@ -319,16 +316,16 @@ static int usebuf_buf_get(struct usebuf_output *output, struct mars_buf_object *
 	return GENERIC_INPUT_CALL(input, mars_buf_get, mbuf);
 }
 
-static int usebuf_buf_put(struct usebuf_output *output, struct mars_buf_object *mbuf)
+static void usebuf_buf_put(struct usebuf_output *output, struct mars_buf_object *mbuf)
 {
 	struct usebuf_input *input = output->brick->inputs[0];
-	return GENERIC_INPUT_CALL(input, mars_buf_put, mbuf);
+	GENERIC_INPUT_CALL(input, mars_buf_put, mbuf);
 }
 
-static int usebuf_buf_io(struct usebuf_output *output, struct mars_buf_object *mbuf, int rw)
+static void usebuf_buf_io(struct usebuf_output *output, struct mars_buf_object *mbuf, int rw)
 {
 	struct usebuf_input *input = output->brick->inputs[0];
-	return GENERIC_INPUT_CALL(input, mars_buf_io, mbuf, rw);
+	GENERIC_INPUT_CALL(input, mars_buf_io, mbuf, rw);
 }
 
 //////////////// object / aspect constructors / destructors ///////////////
