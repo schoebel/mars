@@ -2,10 +2,6 @@
 #ifndef MARS_USEBUF_H
 #define MARS_USEBUF_H
 
-struct usebuf_mars_io_aspect {
-	GENERIC_ASPECT(mars_io);
-};
-
 struct usebuf_mars_buf_aspect {
 	GENERIC_ASPECT(mars_buf);
 	struct mars_buf_object *origmbuf;

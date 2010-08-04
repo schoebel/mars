@@ -111,41 +111,6 @@ static int check_watchdog(void *data)
 
 ////////////////// own brick / input / output operations //////////////////
 
-static int check_io(struct check_output *output, struct mars_io_object *mio)
-{
-	struct check_input *input = output->brick->inputs[0];
-	int status;
-#if 0
-	struct check_mars_io_aspect *mio_a = check_mars_io_get_aspect(output, mio);
-	unsigned long flags;
-
-	traced_lock(&output->lock, flags);
-	if (!list_empty(&mio_a->mio_head)) {
-		MARS_ERR("multiple mars_endio() in parallel on %p\n", mio);
-	}
-	list_add_tail(&mio_a->mio_head, &output->mio_anchor);
-	if (mio->mars_endio != check_mars_endio) {
-		mio_a->old_mars_endio = mio->mars_endio;
-		mio->mars_endio = check_mars_endio;
-	}
-	mio_a->old_private = mio->cb_private;
-	mio->cb_private = output;
-	mio_a->last_jiffies = jiffies;
-	traced_unlock(&output->lock, flags);
-
-#endif
-	status = GENERIC_INPUT_CALL(input, mars_io, mio);
-#if 0
-	if (status < 0) { // revert. TODO: change semantics to callback _always_
-		traced_lock(&output->lock, flags);
-		list_del_init(&mio_a->mio_head);
-		traced_unlock(&output->lock, flags);
-	}
-#endif
-	//mio->cb_private = mio_a->old_private;
-	return status;
-}
-
 static int check_get_info(struct check_output *output, struct mars_info *info)
 {
 	struct check_input *input = output->brick->inputs[0];
@@ -187,13 +152,6 @@ static void check_buf_io(struct check_output *output, struct mars_buf_object *mb
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int check_mars_io_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
-{
-	struct check_mars_io_aspect *ini = (void*)_ini;
-	INIT_LIST_HEAD(&ini->mio_head);
-	return 0;
-}
-
 static int check_mars_buf_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
 	struct check_mars_buf_aspect *ini = (void*)_ini;
@@ -233,7 +191,6 @@ static struct check_brick_ops check_brick_ops = {
 
 static struct check_output_ops check_output_ops = {
 	.make_object_layout = check_make_object_layout,
-	.mars_io = check_io,
 	.mars_get_info = check_get_info,
 	.mars_buf_get = check_buf_get,
 	.mars_buf_put = check_buf_put,
@@ -256,7 +213,6 @@ static const struct check_output_type check_output_type = {
 	.output_construct = &check_output_construct,
 	.aspect_types = check_aspect_types,
 	.layout_code = {
-		[BRICK_OBJ_MARS_IO] = LAYOUT_ALL,
 		[BRICK_OBJ_MARS_BUF] = LAYOUT_ALL,
 	}
 };

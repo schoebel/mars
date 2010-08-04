@@ -206,12 +206,6 @@ out:
 
 ////////////////// own brick / input / output operations //////////////////
 
-static int buf_io(struct buf_output *output, struct mars_io_object *mio)
-{
-	struct buf_input *input = output->brick->inputs[0];
-	return GENERIC_INPUT_CALL(input, mars_io, mio);
-}
-
 static int buf_get_info(struct buf_output *output, struct mars_info *info)
 {
 	struct buf_input *input = output->brick->inputs[0];
@@ -841,13 +835,6 @@ callback:
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int buf_mars_io_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
-{
-	struct buf_mars_io_aspect *ini = (void*)_ini;
-	(void)ini;
-	return 0;
-}
-
 static int buf_mars_buf_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
 	struct buf_mars_buf_aspect *ini = (void*)_ini;
@@ -906,7 +893,6 @@ static struct buf_brick_ops buf_brick_ops = {
 
 static struct buf_output_ops buf_output_ops = {
 	.make_object_layout = buf_make_object_layout,
-	.mars_io = buf_io,
 	.mars_get_info = buf_get_info,
 	.mars_buf_get = buf_buf_get,
 	.mars_buf_put = buf_buf_put,
@@ -929,7 +915,6 @@ static const struct buf_output_type buf_output_type = {
 	.output_construct = &buf_output_construct,
 	.aspect_types = buf_aspect_types,
 	.layout_code = {
-		[BRICK_OBJ_MARS_IO] = LAYOUT_ALL,
 		[BRICK_OBJ_MARS_BUF] = LAYOUT_ALL,
 	}
 };

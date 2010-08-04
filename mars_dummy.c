@@ -19,12 +19,6 @@
 
 ////////////////// own brick / input / output operations //////////////////
 
-static int dummy_io(struct dummy_output *output, struct mars_io_object *mio)
-{
-	struct dummy_input *input = output->brick->inputs[0];
-	return GENERIC_INPUT_CALL(input, mars_io, mio);
-}
-
 static int dummy_get_info(struct dummy_output *output, struct mars_info *info)
 {
 	struct dummy_input *input = output->brick->inputs[0];
@@ -50,13 +44,6 @@ static void dummy_buf_io(struct dummy_output *output, struct mars_buf_object *mb
 }
 
 //////////////// object / aspect constructors / destructors ///////////////
-
-static int dummy_mars_io_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
-{
-	struct dummy_mars_io_aspect *ini = (void*)_ini;
-	ini->my_own = 0;
-	return 0;
-}
 
 static int dummy_mars_buf_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
@@ -88,7 +75,6 @@ static struct dummy_brick_ops dummy_brick_ops = {
 
 static struct dummy_output_ops dummy_output_ops = {
 	.make_object_layout = dummy_make_object_layout,
-	.mars_io = dummy_io,
 	.mars_get_info = dummy_get_info,
 	.mars_buf_get = dummy_buf_get,
 	.mars_buf_put = dummy_buf_put,
@@ -111,7 +97,6 @@ static const struct dummy_output_type dummy_output_type = {
 	.output_construct = &dummy_output_construct,
 	.aspect_types = dummy_aspect_types,
 	.layout_code = {
-		[BRICK_OBJ_MARS_IO] = LAYOUT_ALL,
 		[BRICK_OBJ_MARS_BUF] = LAYOUT_ALL,
 	}
 };

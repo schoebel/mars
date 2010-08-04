@@ -182,7 +182,7 @@ struct generic_output_ops {
 	const struct BRICK##_output_type **default_output_types;	\
 	char **default_output_names;					\
 	struct BRICK##_brick_ops *master_ops;				\
-	const struct BRICK##input_types **default_type;		\
+	const struct BRICK##_input_types **default_type;		\
 	int (*brick_construct)(struct BRICK##_brick *brick);		\
 	int (*brick_destruct)(struct BRICK##_brick *brick);		\
 
@@ -204,7 +204,7 @@ struct generic_input_type {
 	char *type_name;						\
 	int output_size;						\
 	struct BRICK##_output_ops *master_ops;				\
-	int (*output_construct)(struct BRICK##_output *output);	\
+	int (*output_construct)(struct BRICK##_output *output);		\
 	int (*output_destruct)(struct BRICK##_output *output);		\
 	const struct generic_aspect_type **aspect_types;		\
 	const int layout_code[BRICK_OBJ_NR];				\
@@ -379,34 +379,6 @@ static inline int BRICK##_output_init(struct BRICK##_brick *brick, int index, st
 		output_name);						\
 }									\
 									\
-extern inline int BRICK##_size(const struct BRICK##_brick_type *brick_type) \
-{									\
-	return generic_size((const struct generic_brick_type*)brick_type); \
-}									\
-									\
-extern inline int BRICK##_brick_init_full(			        \
-	void *data,							\
-	int size,							\
-	const struct BRICK##_brick_type *brick_type,			\
-	const struct BRICK##_input_type **input_types,			\
-	const struct BRICK##_output_type **output_types,		\
-	char **names)							\
-{									\
-	return generic_brick_init_full(					\
-		data,							\
-		size,							\
-		(const struct generic_brick_type*)brick_type,		\
-		(const struct generic_input_type**)input_types,		\
-		(const struct generic_output_type**)output_types,	\
-		(char**)names);						\
-}									\
-									\
-extern inline int BRICK##_brick_exit_full(			        \
-	struct BRICK##_brick *brick)					\
-{									\
-	return generic_brick_exit_full(					\
-		(struct generic_brick*)brick);				\
-}									\
 )
 
 /* Define a pair of connectable subtypes.

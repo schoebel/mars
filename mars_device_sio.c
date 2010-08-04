@@ -379,13 +379,6 @@ static int device_sio_get_info(struct device_sio_output *output, struct mars_inf
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int device_sio_mars_io_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
-{
-	struct device_sio_mars_io_aspect *ini = (void*)_ini;
-	(void)ini;
-	return 0;
-}
-
 static int device_sio_mars_buf_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
 	struct device_sio_mars_buf_aspect *ini = (void*)_ini;
@@ -492,7 +485,6 @@ static const struct device_sio_output_type device_sio_output_type = {
 	.output_destruct = &device_sio_output_destruct,
 	.aspect_types = device_sio_aspect_types,
 	.layout_code = {
-		[BRICK_OBJ_MARS_IO] = LAYOUT_NONE,
 		[BRICK_OBJ_MARS_BUF] = LAYOUT_NONE,
 	}
 };

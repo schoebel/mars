@@ -2,14 +2,6 @@
 #ifndef MARS_CHECK_H
 #define MARS_CHECK_H
 
-struct check_mars_io_aspect {
-	GENERIC_ASPECT(mars_io);
-	struct list_head mio_head;
-	int (*old_mars_endio)(struct mars_io_object *mio, int error);
-	void *old_private;
-	unsigned long last_jiffies;
-};
-
 struct check_mars_buf_aspect {
 	GENERIC_ASPECT(mars_buf);
 	struct list_head mbuf_head;

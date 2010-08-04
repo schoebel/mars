@@ -7,10 +7,6 @@
 
 #define MARS_BUF_HASH_MAX 512
 
-struct buf_mars_io_aspect {
-	GENERIC_ASPECT(mars_io);
-};
-
 struct buf_mars_buf_aspect {
 	GENERIC_ASPECT(mars_buf);
 	struct buf_head *bfa_bf;

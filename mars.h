@@ -20,9 +20,8 @@
 #define MARS_DBG(args...) /**/
 #endif
 
-#define BRICK_OBJ_MARS_IO             0
-#define BRICK_OBJ_MARS_BUF            1
-#define BRICK_OBJ_NR                  2
+#define BRICK_OBJ_MARS_BUF            0
+#define BRICK_OBJ_NR                  1
 
 #define GFP_MARS GFP_ATOMIC
 
@@ -33,32 +32,6 @@
 // MARS-specific definitions
 
 // object stuff
-
-/* mars_io */
-
-extern const struct generic_object_type mars_io_type;
-
-struct mars_io_aspect {
-	GENERIC_ASPECT(mars_io);
-};
-
-struct mars_io_aspect_layout {
-	GENERIC_ASPECT_LAYOUT(mars_io);
-};
-
-struct mars_io_object_layout {
-	GENERIC_OBJECT_LAYOUT(mars_io);
-};
-
-#define MARS_IO_OBJECT(PREFIX)						\
-	GENERIC_OBJECT(PREFIX);						\
-	struct bio *orig_bio;						\
-	int (*mars_endio)(struct mars_io_object *mio, int error);	\
-	void *cb_private;						\
-
-struct mars_io_object {
-	MARS_IO_OBJECT(mars_io);
-};
 
 /* mars_buf */
 
@@ -139,8 +112,6 @@ struct mars_output {
 	
 #define MARS_OUTPUT_OPS(PREFIX)						\
 	GENERIC_OUTPUT_OPS(PREFIX);					\
-	/* mars_io */							\
-	int  (*mars_io)(struct PREFIX##_output *output, struct mars_io_object *mio); \
 	int  (*mars_get_info)(struct PREFIX##_output *output, struct mars_info *info); \
 	/* mars_buf */							\
 	int  (*mars_buf_get)(struct PREFIX##_output *output, struct mars_buf_object *mbuf); \
@@ -151,25 +122,26 @@ struct mars_output {
 
 #define _MARS_TYPES(BRICK)						\
 									\
-struct BRICK##_brick_ops {					        \
-	MARS_BRICK_OPS(BRICK);						\
-};									\
-									\
+struct BRICK##_brick_ops {                                              \
+        MARS_BRICK_OPS(BRICK);                                          \
+};                                                                      \
+                                                                        \
 struct BRICK##_output_ops {					        \
-	MARS_OUTPUT_OPS(BRICK);					\
-};									\
+	MARS_OUTPUT_OPS(BRICK);						\
+};                                                                      \
 									\
-struct BRICK##_brick_type {					        \
-	GENERIC_BRICK_TYPE(BRICK);					\
+struct BRICK##_brick_type {                                             \
+	GENERIC_BRICK_TYPE(BRICK);                                      \
 };									\
 									\
 struct BRICK##_input_type {					        \
-	GENERIC_INPUT_TYPE(BRICK);					\
+	GENERIC_INPUT_TYPE(BRICK);                                      \
 };									\
 									\
 struct BRICK##_output_type {					        \
-	GENERIC_OUTPUT_TYPE(BRICK);					\
+	GENERIC_OUTPUT_TYPE(BRICK);                                     \
 };									\
+									\
 GENERIC_MAKE_FUNCTIONS(BRICK);					        \
 GENERIC_MAKE_CONNECT(BRICK,BRICK);				        \
 
@@ -181,43 +153,23 @@ _MARS_TYPES(BRICK)						        \
 struct BRICK##_object_layout;						\
 									\
 GENERIC_MAKE_CONNECT(generic,BRICK);				        \
-GENERIC_MAKE_CONNECT(mars,BRICK);					\
 GENERIC_OBJECT_LAYOUT_FUNCTIONS(BRICK);				        \
-GENERIC_ASPECT_LAYOUT_FUNCTIONS(BRICK,mars_io);		                \
 GENERIC_ASPECT_LAYOUT_FUNCTIONS(BRICK,mars_buf);		        \
-GENERIC_ASPECT_FUNCTIONS(BRICK,mars_io);			        \
 GENERIC_ASPECT_FUNCTIONS(BRICK,mars_buf);			        \
 
 
 // instantiate all mars-specific functions
 
-//GENERIC_ASPECT_LAYOUT_FUNCTIONS(mars,mars_io);
-//GENERIC_ASPECT_LAYOUT_FUNCTIONS(mars,mars_buf);
-
-GENERIC_OBJECT_FUNCTIONS(mars_io);
 GENERIC_OBJECT_FUNCTIONS(mars_buf);
-
-//GENERIC_ASPECT_FUNCTIONS(mars,mars_io);
-//GENERIC_ASPECT_FUNCTIONS(mars,mars_buf);
 
 /////////////////////////////////////////////////////////////////////////
 
 // MARS-specific helper functions
 
-_MARS_TYPES(mars);
-GENERIC_MAKE_CONNECT(generic,mars);
-
 #define MARS_MAKE_STATICS(BRICK)					\
 									\
 int BRICK##_brick_nr = -EEXIST;				                \
 EXPORT_SYMBOL_GPL(BRICK##_brick_nr);			                \
-									\
-static const struct generic_aspect_type BRICK##_mars_io_aspect_type = { \
-	.aspect_type_name = #BRICK "_mars_io_aspect_type",		\
-	.object_type = &mars_io_type,					\
-	.aspect_size = sizeof(struct BRICK##_mars_io_aspect),		\
-	.init_fn = BRICK##_mars_io_aspect_init_fn,			\
-};									\
 									\
 static const struct generic_aspect_type BRICK##_mars_buf_aspect_type = { \
 	.aspect_type_name = #BRICK "_mars_buf_aspect_type",		\
@@ -227,7 +179,6 @@ static const struct generic_aspect_type BRICK##_mars_buf_aspect_type = { \
 };									\
 									\
 static const struct generic_aspect_type *BRICK##_aspect_types[BRICK_OBJ_NR] = {	\
-	[BRICK_OBJ_MARS_IO] = &BRICK##_mars_io_aspect_type,		\
 	[BRICK_OBJ_MARS_BUF] = &BRICK##_mars_buf_aspect_type,		\
 };									\
 

@@ -1,7 +1,7 @@
 // (c) 2010 Thomas Schoebel-Theuer / 1&1 Internet AG
 
 /* Usebuf brick.
- * translates from unbuffered IO (mars_io) to buffered IO (mars_{get,put}_buf)
+ * translates from unbuffered IO to buffered IO (mars_{get,put}_buf)
  */
 
 //#define BRICK_DEBUGGING
@@ -304,13 +304,6 @@ static void usebuf_buf_put(struct usebuf_output *output, struct mars_buf_object 
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int usebuf_mars_io_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
-{
-	struct usebuf_mars_io_aspect *ini = (void*)_ini;
-	(void)ini;
-	return 0;
-}
-
 static int usebuf_mars_buf_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
 	struct usebuf_mars_buf_aspect *ini = (void*)_ini;
@@ -363,7 +356,6 @@ static const struct usebuf_output_type usebuf_output_type = {
 	.output_construct = &usebuf_output_construct,
 	.aspect_types = usebuf_aspect_types,
 	.layout_code = {
-		[BRICK_OBJ_MARS_IO] = LAYOUT_NONE,
 		[BRICK_OBJ_MARS_BUF] = LAYOUT_ALL,
 	}
 };

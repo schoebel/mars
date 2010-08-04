@@ -4,10 +4,6 @@
 
 #define WITH_THREAD 16
 
-struct device_sio_mars_io_aspect {
-	GENERIC_ASPECT(mars_io);
-};
-
 struct device_sio_mars_buf_aspect {
 	GENERIC_ASPECT(mars_buf);
 	struct list_head io_head;

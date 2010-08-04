@@ -121,11 +121,6 @@ static void if_device_unplug(struct request_queue *q)
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int if_device_mars_io_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
-{
-	return 0;
-}
-
 static int if_device_mars_buf_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
 	return 0;
