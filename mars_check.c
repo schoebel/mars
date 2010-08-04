@@ -20,34 +20,6 @@
 
 ///////////////////////// own helper functions ////////////////////////
 
-static int check_mars_endio(struct mars_io_object *mio, int error)
-{
-	struct check_output *output = mio->cb_private;
-	struct check_mars_io_aspect *mio_a = NULL;
-	int status;
-	unsigned long flags;
-
-	if (!output) {
-		MARS_ERR("bad private on mio %p\n", mio);
-		goto regenerate;
-	}
-	mio_a = check_mars_io_get_aspect(output, mio);
-
-	traced_lock(&output->lock, flags);
-	if (list_empty(&mio_a->mio_head)) {
-		MARS_ERR("mio callback called twice on %p\n", mio);
-	}
-	list_del_init(&mio_a->mio_head);
-	//mio->cb_private = mio_a->old_private;
-	traced_unlock(&output->lock, flags);
-
-	mio_a->last_jiffies = jiffies;
-regenerate:
-	status = mio_a->old_mars_endio(mio, error);
-	mio->cb_private = output;
-	return status;
-}
-
 static void check_buf_endio(struct mars_buf_object *mbuf)
 {
 	struct check_output *output = mbuf->cb_private;
@@ -67,6 +39,26 @@ static void check_buf_endio(struct mars_buf_object *mbuf)
 	mbuf->cb_private = output;
 }
 
+static void dump_mem(void *data, int len)
+{
+	int i;
+	char *tmp;
+	char buf[256];
+	for (i = 0, tmp = buf; i < len; i++) {
+		unsigned char byte = ((unsigned char*)data)[i];
+		if (!(i % 8)) {
+			if (tmp != buf) {
+				MARS_INF("%4d: %s\n", i, buf);
+			}
+			tmp = buf;
+		}
+		tmp += sprintf(tmp, " %02x", byte);
+	}
+	if (tmp != buf) {
+		MARS_INF("%4d: %s\n", i, buf);
+	}
+}
+
 static int check_watchdog(void *data)
 {
 	struct check_output *output = data;
@@ -81,19 +73,6 @@ static int check_watchdog(void *data)
 		traced_lock(&output->lock, flags);
 
 		now = jiffies;
-		for (h = output->mio_anchor.next; h != &output->mio_anchor; h = h->next) {
-			struct check_mars_io_aspect *mio_a;
-			struct mars_io_object *mio;
-			unsigned long elapsed;
-
-			mio_a = container_of(h, struct check_mars_io_aspect, mio_head);
-			mio = mio_a->object;
-			elapsed = now - mio_a->last_jiffies;
-			if (elapsed > 10 * HZ) {
-				mio_a->last_jiffies = now;
-				MARS_ERR("instance %d: mio %p callback is missing for more than 10 seconds.\n", output->instance_nr, mio);
-			}
-		}
 		for (h = output->mbuf_anchor.next; h != &output->mbuf_anchor; h = h->next) {
 			struct check_mars_buf_aspect *mbuf_a;
 			struct mars_buf_object *mbuf;
@@ -103,8 +82,26 @@ static int check_watchdog(void *data)
 			mbuf = mbuf_a->object;
 			elapsed = now - mbuf_a->last_jiffies;
 			if (elapsed > 10 * HZ) {
-				mbuf_a->last_jiffies = now;
+				struct generic_object_layout *object_layout;
+				int i;
+				mbuf_a->last_jiffies = now + 600 * HZ;
+				MARS_ERR("================================\n");
 				MARS_ERR("instance %d: mbuf %p callback is missing for more than 10 seconds.\n", output->instance_nr, mbuf);
+				object_layout = (void*)mbuf->object_layout;
+				//dump_mem(mbuf, object_layout->object_size);
+				for (i = 0; i < object_layout->aspect_count; i++) {
+					struct generic_aspect_layout *aspect_layout;
+					int pos;
+					aspect_layout = object_layout->aspect_layouts[i];
+					pos = aspect_layout->aspect_offset;
+					if (i == 0) {
+						MARS_INF("object %s:\n", object_layout->object_type->object_type_name);
+						dump_mem(mbuf, pos);
+					}
+					MARS_INF("--- aspect %s ---:\n", aspect_layout->aspect_type->aspect_type_name);
+					dump_mem(((void*)mbuf + pos), aspect_layout->aspect_type->aspect_size);
+				}
+				MARS_ERR("================================\n");
 			}
 		}
 		traced_unlock(&output->lock, flags);

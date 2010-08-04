@@ -31,63 +31,60 @@ static int device_minor = 0;
 
 /* callback
  */
-static int if_device_endio(struct mars_io_object *mio, int error)
+static void _if_device_endio(struct mars_buf_object *mbuf)
 {
-	struct bio *bio = mio->orig_bio;
-	if (bio) {
-		mio->orig_bio = NULL;
-		if (bio->bi_size && !error)
-			error = -EIO;
-		if (error) {
-			MARS_ERR("NYI: error=%d RETRY LOGIC %u\n", error, bio->bi_size);
-		}
-		bio_endio(bio, error);
-	} // else lower layers have already signalled the orig_bio
-
-	if_device_free_mars_io(mio);
-	return 0;
+	struct bio *bio = mbuf->orig_bio;
+	int error;
+	if (unlikely(!bio)) {
+		MARS_FAT("callback with no bio called. something is very wrong here!\n");
+		return;
+	}
+	error = mbuf->cb_error;
+	if (unlikely(error < 0)) {
+		MARS_ERR("NYI: error=%d RETRY LOGIC %u\n", error, bio->bi_size);
+	}
+	if (likely(error > 0)) { // bio conventions are slightly different...
+		error = 0;
+		bio->bi_size = 0;
+	}
+	bio_endio(bio, error);
 }
 
-/* accept a linux bio, wrap it into struct mars_io_object and call mars_io() on it.
+/* accept a linux bio, wrap it into mbuf and call buf_io() on it.
  */
 static int if_device_make_request(struct request_queue *q, struct bio *bio)
 {
 	struct if_device_input *input = q->queuedata;
-	struct if_device_output *output;
-	struct mars_io_object *mio = NULL;
-	int error = -ENOSYS;
+        struct if_device_output *output;
+	struct mars_buf_object *mbuf = NULL;
+	int rw = bio->bi_rw & 1;
+        int error = -ENOSYS;
 
 	MARS_DBG("make_request(%d)\n", bio->bi_size);
 
-	if (!input || !input->connect)
-		goto err;
+        if (unlikely(!input))
+                goto err;
 
-	output = input->connect;
-	if (!output->ops || !output->ops->mars_io)
-		goto err;
+        output = input->connect;
+        if (unlikely(!output || !output->ops->mars_buf_io))
+                goto err;
 
 	error = -ENOMEM;
-	mio = if_device_alloc_mars_io(output, &input->mio_object_layout);
-	if (!mio)
+	mbuf = if_device_alloc_mars_buf(output, &input->mbuf_object_layout);
+	if (unlikely(!mbuf))
 		goto err;
 
-	mio->orig_bio = bio;
-	mio->mars_endio = if_device_endio;
+	mars_buf_attach_bio(mbuf, bio);
+	mbuf->cb_buf_endio = _if_device_endio;
 
-	error = output->ops->mars_io(output, mio);
-	if (error)
-		goto err_free;
-
+	GENERIC_OUTPUT_CALL(output, mars_buf_io, mbuf, rw);
 	return 0;
 
-err_free:
-	kfree(mio);
 err:
 	MARS_ERR("cannot submit request, status=%d\n", error);
-	if (!mio)
+	if (!mbuf)
 		bio_endio(bio, error);
-	//else mars_endio() callback must have been called, which is responsible for cleanup
-	return 0;
+	return error;
 }
 
 static int if_device_open(struct block_device *bdev, fmode_t mode)
@@ -156,7 +153,7 @@ static int if_device_input_construct(struct if_device_input *input)
 	int capacity = 2 * 1024 * 1024 * 4; //TODO: make this dynamic
 
 	//MARS_DBG("1\n");
-	q = blk_alloc_queue(GFP_KERNEL);
+	q = blk_alloc_queue(GFP_MARS);
 	if (!q) {
 		MARS_ERR("cannot allocate device request queue\n");
 		return -ENOMEM;
@@ -266,6 +263,9 @@ static void __exit exit_if_device(void)
 static int __init init_if_device(void)
 {
 	int status;
+
+	(void)if_device_aspect_types; // not used, shut up gcc
+
 	printk(MARS_INFO "init_if_device()\n");
 	status = register_blkdev(DRBD_MAJOR, "mars");
 	if (status)

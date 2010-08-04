@@ -6,11 +6,11 @@
 
 struct device_sio_mars_io_aspect {
 	GENERIC_ASPECT(mars_io);
-	struct list_head io_head;
 };
 
 struct device_sio_mars_buf_aspect {
 	GENERIC_ASPECT(mars_buf);
+	struct list_head io_head;
 };
 
 struct device_sio_brick {
@@ -23,7 +23,7 @@ struct device_sio_input {
 
 struct sio_threadinfo {
 	struct device_sio_output *output;
-	struct list_head mio_list;
+	struct list_head mbuf_list;
 	struct task_struct *thread;
 	wait_queue_head_t event;
 	spinlock_t lock;

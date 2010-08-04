@@ -8,6 +8,7 @@
 
 #define _STRATEGY
 #define BRICK_OBJ_NR /*empty => leads to an open array */
+#define GFP_MARS GFP_ATOMIC
 
 #include "brick.h"
 
@@ -280,6 +281,54 @@ int generic_brick_exit_recursively(struct generic_brick *brick, bool destroy_inp
 }
 EXPORT_SYMBOL_GPL(generic_brick_exit_recursively);
 
+int generic_add_aspect(struct generic_output *output, struct generic_object_layout *object_layout, const struct generic_aspect_type *aspect_type)
+{
+	struct generic_aspect_layout *aspect_layout;
+	int nr;
+
+	if (unlikely(!object_layout->object_type)) {
+		return -EINVAL;
+	}
+	nr = object_layout->object_type->brick_obj_nr;
+	aspect_layout = (void*)&output->aspect_layouts[nr];
+	if (aspect_layout->aspect_type) {
+		/* aspect_layout is already initialized.
+		 * this is a kind of "dynamic programming".
+		 * ensure consistency to last call.
+		 */
+		int min_offset;
+		BRICK_DBG("reusing aspect_type %s on object_layout %p\n", aspect_type->aspect_type_name, object_layout);
+		if (unlikely(aspect_layout->aspect_type != aspect_type)) {
+			BRICK_ERR("inconsistent use of aspect_type %s != %s\n", aspect_type->aspect_type_name, aspect_layout->aspect_type->aspect_type_name);
+			return -EBADF;
+		}
+		if (unlikely(aspect_layout->init_data != output)) {
+			BRICK_ERR("inconsistent output assigment (aspect_type=%s)\n", aspect_type->aspect_type_name);
+			return -EBADF;
+		}
+		min_offset = aspect_layout->aspect_offset + aspect_type->aspect_size;
+		   if (unlikely(object_layout->object_size > min_offset)) {
+			BRICK_ERR("overlapping aspects %d > %d (aspect_type=%s)\n", object_layout->object_size, min_offset, aspect_type->aspect_type_name);
+			return -ENOMEM;
+		}
+		BRICK_DBG("adjusting object_size %d to %d (aspect_type=%s)\n", object_layout->object_size, min_offset, aspect_type->aspect_type_name);
+		object_layout->object_size = min_offset;
+	} else {
+		/* first call: initialize aspect_layout. */
+		BRICK_DBG("initializing aspect_type %s on object_layout %p\n", aspect_type->aspect_type_name, object_layout);
+		aspect_layout->aspect_type = aspect_type;
+		aspect_layout->init_data = output;
+		aspect_layout->aspect_offset = object_layout->object_size;
+		object_layout->object_size += aspect_type->aspect_size;
+	}
+	nr = object_layout->aspect_count++;
+	object_layout->aspect_layouts[nr] = aspect_layout;
+	return 0;
+}
+
+
+EXPORT_SYMBOL_GPL(generic_add_aspect);
+
 ////////////////////////////////////////////////////////////////////////
 
 // default implementations
@@ -289,7 +338,7 @@ int default_init_object_layout(struct generic_output *output, struct generic_obj
 	void *data;
 	int status;
 
-	data = kzalloc(aspect_max * sizeof(void*), GFP_KERNEL);
+	data = kzalloc(aspect_max * sizeof(void*), GFP_MARS);
 	if (!data)
 		return -ENOMEM;
 	object_layout->aspect_layouts = data;
@@ -370,12 +419,13 @@ int default_make_object_layout(struct generic_output *output, struct generic_obj
 }
 EXPORT_SYMBOL_GPL(default_make_object_layout);
 
-struct generic_object *alloc_generic(struct generic_output *output, struct generic_object_layout *object_layout)
+
+struct generic_object *alloc_generic(struct generic_object_layout *object_layout)
 {
 	void *data;
 	struct generic_object *object;
 
-	data = kzalloc(object_layout->object_size, GFP_KERNEL);
+	data = kzalloc(object_layout->object_size, GFP_MARS);
 	if (unlikely(!data))
 		goto err;
 

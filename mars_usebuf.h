@@ -4,16 +4,15 @@
 
 struct usebuf_mars_io_aspect {
 	GENERIC_ASPECT(mars_io);
-	atomic_t mio_count;
-	int mio_error;
 };
 
 struct usebuf_mars_buf_aspect {
 	GENERIC_ASPECT(mars_buf);
-	struct mars_io_object *mio;
+	struct mars_buf_object *origmbuf;
 	struct bio_vec *bvec;
 	int bvec_offset;
 	int bvec_len;
+	atomic_t mbuf_count;
 };
 
 struct usebuf_brick {

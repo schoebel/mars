@@ -24,6 +24,8 @@
 #define BRICK_OBJ_MARS_BUF            1
 #define BRICK_OBJ_NR                  2
 
+#define GFP_MARS GFP_ATOMIC
+
 #include "brick.h"
 
 /////////////////////////////////////////////////////////////////////////
@@ -85,6 +87,7 @@ struct mars_buf_object_layout {
 	int    buf_len;							\
 	int    buf_may_write;						\
 	/* maintained by the buf implementation, readable for callers */ \
+	struct bio *orig_bio;						\
 	void  *buf_data;						\
 	int    buf_flags;						\
 	int    buf_rw;							\
@@ -227,5 +230,20 @@ static const struct generic_aspect_type *BRICK##_aspect_types[BRICK_OBJ_NR] = {	
 	[BRICK_OBJ_MARS_IO] = &BRICK##_mars_io_aspect_type,		\
 	[BRICK_OBJ_MARS_BUF] = &BRICK##_mars_buf_aspect_type,		\
 };									\
+
+static inline void mars_buf_attach_bio(struct mars_buf_object *mbuf, struct bio *bio)
+{
+	int test;
+	if (unlikely(mbuf->orig_bio)) {
+		MARS_ERR("attaching a bio twice!\n");
+	}
+	test = atomic_read(&mbuf->buf_count);
+	if (unlikely(test != 0)) {
+		MARS_ERR("bad buf_count %d\n", test);
+	}
+	mbuf->orig_bio = bio;
+	mbuf->buf_pos = -1;
+	atomic_set(&mbuf->buf_count, 1);
+}
 
 #endif

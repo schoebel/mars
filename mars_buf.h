@@ -9,15 +9,13 @@
 
 struct buf_mars_io_aspect {
 	GENERIC_ASPECT(mars_io);
-	struct buf_head  *mia_bf;
-	struct list_head  mia_tmp_head;
-	bool mia_end_io_called;
 };
 
 struct buf_mars_buf_aspect {
 	GENERIC_ASPECT(mars_buf);
 	struct buf_head *bfa_bf;
 	struct list_head bfc_pending_head;
+	struct list_head tmp_head;
 	int nr_io_pending;
 };
 
@@ -31,7 +29,7 @@ struct buf_brick {
 	/* internals */
 	int current_count;
 	int alloc_count;
-	struct generic_object_layout mio_object_layout;
+	struct generic_object_layout mbuf_object_layout;
 
 	spinlock_t buf_lock;
 

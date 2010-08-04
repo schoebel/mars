@@ -23,7 +23,7 @@ struct if_device_input {
 	struct gendisk *disk;
 	struct block_device *bdev;
 	spinlock_t req_lock;
-	struct generic_object_layout mio_object_layout;
+	struct generic_object_layout mbuf_object_layout;
 };
 
 struct if_device_output {

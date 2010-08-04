@@ -38,101 +38,86 @@ static void _usebuf_copy(struct usebuf_mars_buf_aspect *mbuf_a, int rw)
 	kunmap_atomic(bio_base, KM_USER0);
 }
 
-static int _usebuf_mio_endio(struct usebuf_output *output, struct mars_io_object *mio, int error)
+static void _usebuf_origmbuf_endio(struct usebuf_output *output, struct mars_buf_object *origmbuf)
 {
-	struct usebuf_mars_io_aspect *mio_a;
-	int status = -EFAULT;
+	struct usebuf_mars_buf_aspect *origmbuf_a;
 
-	mio_a = usebuf_mars_io_get_aspect(output, mio);
-	if (unlikely(!mio_a)) {
-		MARS_FAT("cannot get mio_a from mio %p\n", mio);
+	origmbuf_a = usebuf_mars_buf_get_aspect(output, origmbuf);
+	if (unlikely(!origmbuf_a)) {
+		MARS_FAT("cannot get origmbuf_a from origmbuf %p\n", origmbuf);
 		goto out;
 	}
 
-	MARS_DBG("mio=%p mio_count=%d error=%d\n", mio, atomic_read(&mio_a->mio_count), error);
-	// this may race, but we don't care about the exact error code
-	if (error)
-		mio_a->mio_error = error;
+	MARS_DBG("origmbuf=%p origmbuf_count=%d error=%d\n", origmbuf, atomic_read(&origmbuf_a->mbuf_count), origmbuf->cb_error);
 
-	status = 0;
-	if (!atomic_dec_and_test(&mio_a->mio_count)) {
+	if (!atomic_dec_and_test(&origmbuf_a->mbuf_count)) {
 		goto out;
 	}
 
-	if (likely(!mio_a->mio_error)) {
-		struct bio *bio = mio->orig_bio;
-		if (unlikely(!bio)) {
-			MARS_ERR("bad bio setup on mio %p", mio);
-		} else {
-			bio->bi_size = 0;
-		}
-	}
-
-	MARS_DBG("DONE error=%d\n", mio_a->mio_error);
-	status = mio->mars_endio(mio, mio_a->mio_error);
+	MARS_DBG("DONE error=%d\n", origmbuf->cb_error);
+	origmbuf->cb_buf_endio(origmbuf);
 
 out:
-	return status;
+	return;
 }
 
 static void _usebuf_mbuf_endio(struct mars_buf_object *mbuf)
 {
 	struct usebuf_output *output;
 	struct usebuf_mars_buf_aspect *mbuf_a;
-	struct mars_io_object *mio;
-	struct usebuf_mars_io_aspect *mio_a;
-	int status = -EFAULT;
-	int ignore;
+	struct mars_buf_object *origmbuf;
+	struct usebuf_mars_buf_aspect *origmbuf_a;
+	int status;
 
 	output = mbuf->cb_private;
 	if (unlikely(!output)) {
-		MARS_ERR("bad argument output\n");
-		goto out_err;
+		MARS_FAT("bad argument output\n");
+		goto out_fatal;
 	}
 	mbuf_a = usebuf_mars_buf_get_aspect(output, mbuf);
 	if (unlikely(!mbuf_a)) {
-		MARS_ERR("cannot get aspect\n");
-		goto out_err;
+		MARS_FAT("cannot get aspect\n");
+		goto out_fatal;
 	}
-	mio = mbuf_a->mio;
-	if (unlikely(!mio)) {
-		MARS_ERR("cannot get mio\n");
-		goto out_err;
+	origmbuf = mbuf_a->origmbuf;
+	if (unlikely(!origmbuf)) {
+		MARS_FAT("cannot get origmbuf\n");
+		goto out_fatal;
 	}
-	MARS_DBG("mio=%p\n", mio);
-	mio_a = usebuf_mars_io_get_aspect(output, mio);
-	if (unlikely(!mio_a)) {
-		MARS_ERR("cannot get mio_a\n");
-		goto out_nocheck;
+	MARS_DBG("origmbuf=%p\n", origmbuf);
+	status = -EINVAL;
+	origmbuf_a = usebuf_mars_buf_get_aspect(output, origmbuf);
+	if (unlikely(!origmbuf_a)) {
+		MARS_ERR("cannot get origmbuf_a\n");
+		goto out_err;
 	}
 
 	
 	// check if we have an initial read => now start the final write
-	if (mbuf->buf_may_write != READ && mbuf->buf_rw == READ) {
-		MARS_DBG("AHA2\n");
+	if (mbuf->buf_may_write != READ && mbuf->buf_rw == READ && mbuf->cb_error >= 0) {
+		struct usebuf_input *input = output->brick->inputs[0];
+
 		status = -EIO;
 		if (unlikely(!(mbuf->buf_flags & MARS_BUF_UPTODATE))) {
 			MARS_ERR("not UPTODATE after initial read\n");
-			goto out;
+			goto out_err;
 		}
 
 		_usebuf_copy(mbuf_a, WRITE);
 
 		// grab extra reference
-		atomic_inc(&mio_a->mio_count);
+		atomic_inc(&origmbuf_a->mbuf_count);
 
-		GENERIC_OUTPUT_CALL(output, mars_buf_io, mbuf, WRITE);
-		status = mbuf->cb_error;
-		MARS_DBG("buf_io (status=%d)\n", status);
+		GENERIC_INPUT_CALL(input, mars_buf_io, mbuf, WRITE);
 	} else {
 		// finalize the read or final write
 		if (likely(!mbuf->cb_error)) {
-			struct bio *bio = mio->orig_bio;
+			struct bio *bio = origmbuf->orig_bio;
 			int direction;
+			status = -EINVAL;
 			if (unlikely(!bio)) {
-				MARS_ERR("bad bio setup on mio %p", mio);
-				mbuf->cb_error = -EINVAL;
-				goto out;
+				MARS_ERR("bad bio setup on origmbuf %p", origmbuf);
+				goto out_err;
 			}
 			direction = bio->bi_rw & 1;
 			if (direction == READ) {
@@ -140,61 +125,60 @@ static void _usebuf_mbuf_endio(struct mars_buf_object *mbuf)
 			}
 		}
 	}
-	status = 0;
 
-out:
 #if 1
-	if (atomic_read(&mio_a->mio_count) <= 0)
-	MARS_ERR("bad refcount mio_count\n");
-out_nocheck:
+	if (atomic_read(&origmbuf_a->mbuf_count) <= 0)
+		MARS_ERR("bad refcount mbuf_count\n");
+
 	if (atomic_read(&mbuf->buf_count) <= 0)
 		MARS_ERR("bad refcount buf_count\n");
-#else
-out_nocheck:
 #endif
-	ignore = _usebuf_mio_endio(output, mio, mbuf->cb_error);
-	if (!status)
-		status = ignore;
+
+	status = mbuf->cb_error;
 
 out_err:	
-	mbuf->cb_error = status;
+	if (status < 0) {
+		origmbuf->cb_error = status;
+		MARS_ERR("error %d\n", status);
+	}
+	_usebuf_origmbuf_endio(output, origmbuf);
+
+out_fatal: // no chance to call callback; this will result in mem leak :(
+	;
 }
 
 ////////////////// own brick / input / output operations //////////////////
 
-static int usebuf_io(struct usebuf_output *output, struct mars_io_object *mio)
+static void usebuf_buf_io(struct usebuf_output *output, struct mars_buf_object *origmbuf, int rw)
 {
 	struct usebuf_input *input = output->brick->inputs[0];
-	struct bio *bio = mio->orig_bio;
+	struct bio *bio = origmbuf->orig_bio;
 	struct bio_vec *bvec;
-	struct usebuf_mars_io_aspect *mio_a = usebuf_mars_io_get_aspect(output, mio);
+	struct usebuf_mars_buf_aspect *origmbuf_a;
 	loff_t start_pos;
 	int start_len;
 	int status;
 	int i;
 
-	MARS_DBG("START mio=%p\n", mio);
+	MARS_DBG("START origmbuf=%p\n", origmbuf);
 
 	status = -EINVAL;
 	if (unlikely(!bio)) {
 		MARS_ERR("cannot get bio\n");
 		goto done;
 	}
-	if (unlikely(!mio_a)) {
-		MARS_ERR("cannot get mio_a\n");
+	origmbuf_a = usebuf_mars_buf_get_aspect(output, origmbuf);
+	if (unlikely(!origmbuf_a)) {
+		MARS_ERR("cannot get origmbuf_a\n");
 		goto done;
 	}
-	if (unlikely(atomic_read(&mio_a->mio_count) != 0)) {
-		MARS_ERR("bad preset of mio_count %d\n", atomic_read(&mio_a->mio_count));
+	if (unlikely(atomic_read(&origmbuf_a->mbuf_count) != 0)) {
+		MARS_ERR("bad preset of mbuf_count %d\n", atomic_read(&origmbuf_a->mbuf_count));
 	}
-	status = usebuf_mars_buf_init_object_layout(output, &output->buf_object_layout);
-	if (status < 0) {
-		MARS_ERR("cannot init buf object layout\n");
-		goto done;
-	}
+
 	// initial refcount: prevent intermediate drops
-	atomic_set(&mio_a->mio_count, 1);
-	mio_a->mio_error = 0;
+	atomic_set(&origmbuf_a->mbuf_count, 1);
+	origmbuf->cb_error = 0;
 
 	start_pos = ((loff_t)bio->bi_sector) << 9; // TODO: make dynamic
 	start_len = bio->bi_size;
@@ -202,12 +186,12 @@ static int usebuf_io(struct usebuf_output *output, struct mars_io_object *mio)
 	bio_for_each_segment(bvec, bio, i) {
 		int this_len = bvec->bv_len;
 		int my_offset = 0;
-		int my_rw;
 
 		while (this_len > 0) {
 			struct mars_buf_object *mbuf;
 			struct usebuf_mars_buf_aspect *mbuf_a;
 			int my_len;
+			int my_rw;
 
 			mbuf = usebuf_alloc_mars_buf(output, &output->buf_object_layout);
 			status = -ENOMEM;
@@ -218,7 +202,7 @@ static int usebuf_io(struct usebuf_output *output, struct mars_io_object *mio)
 
 			mbuf->buf_pos = start_pos;
 			mbuf->buf_len = this_len;
-			mbuf->buf_may_write = bio->bi_rw & 1;
+			mbuf->buf_may_write = rw;
 			mbuf->cb_private = output;
 			
 			status = GENERIC_INPUT_CALL(input, mars_buf_get, mbuf);
@@ -227,21 +211,21 @@ static int usebuf_io(struct usebuf_output *output, struct mars_io_object *mio)
 				goto done_drop;
 			}
 			my_len = status;
-			MARS_DBG("mio=%p got mbuf=%p pos=%lld len=%d mode=%d flags=%d status=%d\n", mio, mbuf, start_pos, this_len, mbuf->buf_may_write, mbuf->buf_flags, status);
+			MARS_DBG("origmbuf=%p got mbuf=%p pos=%lld len=%d mode=%d flags=%d status=%d\n", origmbuf, mbuf, start_pos, this_len, mbuf->buf_may_write, mbuf->buf_flags, status);
 
 			status = -ENOMEM;
 			mbuf_a = usebuf_mars_buf_get_aspect(output, mbuf);
 			if (unlikely(!mbuf_a)) {
-				MARS_ERR("cannot get mbuf aspect\n");
+				MARS_ERR("cannot get my own mbuf aspect\n");
 				goto put;
 			}
 			
-			mbuf_a->mio = mio;
+			mbuf_a->origmbuf = origmbuf;
 			mbuf_a->bvec = bvec;
 			mbuf_a->bvec_offset = bvec->bv_offset + my_offset;
 			mbuf_a->bvec_len = my_len;
 
-			if ((mbuf->buf_flags & MARS_BUF_UPTODATE) && (bio->bi_rw & 1) == READ) {
+			if ((mbuf->buf_flags & MARS_BUF_UPTODATE) && rw == READ) {
 				// cache hit: immediately signal success
 				_usebuf_copy(mbuf_a, READ);
 				status = 0;
@@ -251,9 +235,9 @@ static int usebuf_io(struct usebuf_output *output, struct mars_io_object *mio)
 			mbuf->cb_buf_endio = _usebuf_mbuf_endio;
 
 			// grab extra references
-			atomic_inc(&mio_a->mio_count);
+			atomic_inc(&origmbuf_a->mbuf_count);
 			
-			my_rw = bio->bi_rw & 1;
+			my_rw = rw;
 			if (!(my_rw == READ)) { 
 				if (mbuf->buf_flags & MARS_BUF_UPTODATE) {
 					// buffer uptodate: start writing.
@@ -265,12 +249,12 @@ static int usebuf_io(struct usebuf_output *output, struct mars_io_object *mio)
 				}
 			}
 
-			GENERIC_OUTPUT_CALL(output, mars_buf_io, mbuf, my_rw);
+			GENERIC_INPUT_CALL(input, mars_buf_io, mbuf, my_rw);
 			status = mbuf->cb_error;
 			MARS_DBG("buf_io (status=%d)\n", status);
 
 		put:
-			GENERIC_OUTPUT_CALL(output, mars_buf_put, mbuf);
+			GENERIC_INPUT_CALL(input, mars_buf_put, mbuf);
 			
 			if (unlikely(status < 0))
 				break;
@@ -291,12 +275,13 @@ static int usebuf_io(struct usebuf_output *output, struct mars_io_object *mio)
 
 done_drop:
 	// drop initial refcount
-	(void)_usebuf_mio_endio(output, mio, status);
+	if (status < 0)
+		origmbuf->cb_error = status;
+	_usebuf_origmbuf_endio(output, origmbuf);
 
 done:
 	MARS_DBG("status=%d\n", status);
-	return status;
-
+	return;
 }
 
 static int usebuf_get_info(struct usebuf_output *output, struct mars_info *info)
@@ -317,26 +302,21 @@ static void usebuf_buf_put(struct usebuf_output *output, struct mars_buf_object 
 	GENERIC_INPUT_CALL(input, mars_buf_put, mbuf);
 }
 
-static void usebuf_buf_io(struct usebuf_output *output, struct mars_buf_object *mbuf, int rw)
-{
-	struct usebuf_input *input = output->brick->inputs[0];
-	GENERIC_INPUT_CALL(input, mars_buf_io, mbuf, rw);
-}
-
 //////////////// object / aspect constructors / destructors ///////////////
 
 static int usebuf_mars_io_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
 	struct usebuf_mars_io_aspect *ini = (void*)_ini;
-	atomic_set(&ini->mio_count, 0);
+	(void)ini;
 	return 0;
 }
 
 static int usebuf_mars_buf_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
 	struct usebuf_mars_buf_aspect *ini = (void*)_ini;
-	ini->mio = NULL;
+	ini->origmbuf = NULL;
 	ini->bvec = NULL;
+	atomic_set(&ini->mbuf_count, 0);
 	return 0;
 }
 
@@ -361,7 +341,6 @@ static struct usebuf_brick_ops usebuf_brick_ops = {
 
 static struct usebuf_output_ops usebuf_output_ops = {
 	.make_object_layout = usebuf_make_object_layout,
-	.mars_io = usebuf_io,
 	.mars_get_info = usebuf_get_info,
 	.mars_buf_get = usebuf_buf_get,
 	.mars_buf_put = usebuf_buf_put,

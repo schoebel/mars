@@ -1,5 +1,6 @@
 // (c) 2010 Thomas Schoebel-Theuer / 1&1 Internet AG
 
+//#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
 
 #include <linux/kernel.h>
@@ -48,9 +49,9 @@ static int transfer_none(int cmd,
 	return 0;
 }
 
-static int write_aops(struct device_sio_output *output, struct mars_io_object *mio)
+static void write_aops(struct device_sio_output *output, struct mars_buf_object *mbuf)
 {
-	struct bio *bio = mio->orig_bio;
+	struct bio *bio = mbuf->orig_bio;
 	loff_t pos = ((loff_t)bio->bi_sector << 9);
 	struct file *file = output->filp;
 	struct address_space *mapping = file->f_mapping;
@@ -122,21 +123,16 @@ static int write_aops(struct device_sio_output *output, struct mars_io_object *m
 fail:
 	mutex_unlock(&mapping->host->i_mutex);
 
-	if (!ret)
-		bio->bi_size = 0;
-
-	mio->mars_endio(mio, ret);
+	mbuf->cb_error = ret;
 
 #if 1
 	blk_run_address_space(mapping);
 #endif
-
-	return ret;
 }
 
 struct cookie_data {
 	struct device_sio_output *output;
-	struct mars_io_object *mio;
+	struct mars_buf_object *mbuf;
 	struct bio_vec *bvec;
 	unsigned int offset;
 };
@@ -147,13 +143,9 @@ device_sio_splice_actor(struct pipe_inode_info *pipe,
 			struct splice_desc *sd)
 {
 	struct cookie_data *p = sd->u.data;
-	//struct device_sio_output *output = p->output;
-	//struct mars_io_object *mio = p->mio;
 	struct page *page = buf->page;
 	sector_t IV;
 	int size, ret;
-
-	//MARS_DBG("now splice %p %p %p\n", mio, mio->orig_bio, p->bvec);
 
 	ret = buf->ops->confirm(pipe, buf);
 	if (unlikely(ret))
@@ -184,9 +176,9 @@ device_sio_direct_splice_actor(struct pipe_inode_info *pipe, struct splice_desc 
 	return __splice_from_pipe(pipe, sd, device_sio_splice_actor);
 }
 
-static int read_aops(struct device_sio_output *output, struct mars_io_object *mio)
+static void read_aops(struct device_sio_output *output, struct mars_buf_object *mbuf)
 {
-	struct bio *bio = mio->orig_bio;
+	struct bio *bio = mbuf->orig_bio;
 	loff_t pos = ((loff_t)bio->bi_sector << 9); // TODO: make dynamic
 	struct bio_vec *bvec;
 	int i;
@@ -195,7 +187,7 @@ static int read_aops(struct device_sio_output *output, struct mars_io_object *mi
 	bio_for_each_segment(bvec, bio, i) {
 		struct cookie_data cookie = {
 			.output = output,
-			.mio = mio,
+			.mbuf = mbuf,
 			.bvec = bvec,
 			.offset = bvec->bv_offset,
 		};
@@ -207,11 +199,11 @@ static int read_aops(struct device_sio_output *output, struct mars_io_object *mi
 			.u.data = &cookie,
 		};
 
-		MARS_DBG("start splice %p %p %p %p\n", output, mio, bio, bvec);
+		MARS_DBG("start splice %p %p %p %p\n", output, mbuf, bio, bvec);
 		ret = 0;
 		ret = splice_direct_to_actor(output->filp, &sd, device_sio_direct_splice_actor);
 		if (unlikely(ret < 0)) {
-			MARS_ERR("splice %p %p %p %p status=%d\n", output, mio, bio, bvec, ret);
+			MARS_ERR("splice %p %p %p %p status=%d\n", output, mbuf, bio, bvec, ret);
 			break;
 		}
 		pos += bvec->bv_len;
@@ -222,9 +214,7 @@ static int read_aops(struct device_sio_output *output, struct mars_io_object *mi
 	if (unlikely(bio->bi_size)) {
 		MARS_ERR("unhandled rest size %d on bio %p\n", bio->bi_size, bio);
 	}
-
-	mio->mars_endio(mio, ret);
-	return ret;
+	mbuf->cb_error = ret;
 }
 
 static void sync_file(struct device_sio_output *output)
@@ -240,59 +230,78 @@ static void sync_file(struct device_sio_output *output)
 #endif
 }
 
-static int device_sio_mars_io(struct device_sio_output *output, struct mars_io_object *mio)
+static void device_sio_buf_io(struct device_sio_output *output, struct mars_buf_object *mbuf, int rw)
 {
-	struct bio *bio = mio->orig_bio;
-	int direction = bio->bi_rw & 1;
-	bool barrier = (direction != READ && bio_rw_flagged(bio, BIO_RW_BARRIER));
-	int ret = -EIO;
+	struct bio *bio = mbuf->orig_bio;
+	bool barrier = (rw != READ && bio_rw_flagged(bio, BIO_RW_BARRIER));
+	int test;
 	
 	if (barrier) {
 		MARS_INF("got barrier request\n");
 		sync_file(output);
 	}
 
-	if (!output->filp)
+	if (unlikely(!output->filp)) {
+		mbuf->cb_error = -EINVAL;
 		goto done;
+	}
 
-	if (direction == READ) {
-		return read_aops(output, mio);
+	if (rw == READ) {
+		read_aops(output, mbuf);
 	} else {
-		ret = write_aops(output, mio);
+		write_aops(output, mbuf);
 		if (barrier)
 			sync_file(output);
-		return ret;
 	}
 
 done:
-	mio->mars_endio(mio, ret);
-	return ret;
+#if 1
+	if (mbuf->cb_error < 0)
+		MARS_ERR("IO error %d\n", mbuf->cb_error);
+#endif
+
+	mbuf->cb_buf_endio(mbuf);
+
+	test = atomic_read(&mbuf->buf_count);
+	if (test <= 0) {
+		MARS_ERR("buf_count UNDERRUN %d\n", test);
+		atomic_set(&mbuf->buf_count, 1);
+	}
+	if (!atomic_dec_and_test(&mbuf->buf_count))
+		return;
+
+	device_sio_free_mars_buf(mbuf);
 }
 
-static int device_sio_mars_queue(struct device_sio_output *output, struct mars_io_object *mio)
+static void device_sio_mars_queue(struct device_sio_output *output, struct mars_buf_object *mbuf, int rw)
 {
 	int index = 0;
 	struct sio_threadinfo *tinfo;
-	struct device_sio_mars_io_aspect *aspect;
-	int direction = mio->orig_bio->bi_rw & 1;
+	struct device_sio_mars_buf_aspect *mbuf_a;
 	unsigned long flags;
 
-	if (direction == READ) {
+	if (rw == READ) {
 		traced_lock(&output->g_lock, flags);
 		index = output->index++;
 		traced_unlock(&output->g_lock, flags);
 		index = (index % WITH_THREAD) + 1;
 	}
-	aspect = device_sio_mars_io_get_aspect(output, mio);
+	mbuf_a = device_sio_mars_buf_get_aspect(output, mbuf);
+	if (unlikely(!mbuf_a)) {
+		MARS_FAT("cannot get aspect\n");
+		mbuf->cb_error = -EINVAL;
+		mbuf->cb_buf_endio(mbuf);
+		return;
+	}
 	tinfo = &output->tinfo[index];
-	MARS_DBG("queueing %p on %d\n", mio, index);
+	MARS_DBG("queueing %p on %d\n", mbuf, index);
+
 	traced_lock(&tinfo->lock, flags);
-	list_add_tail(&aspect->io_head, &tinfo->mio_list);
+	mbuf->buf_rw = rw;
+	list_add_tail(&mbuf_a->io_head, &tinfo->mbuf_list);
 	traced_unlock(&tinfo->lock, flags);
 
 	wake_up(&tinfo->event);
-
-	return 0;
 }
 
 static int device_sio_thread(void *data)
@@ -305,21 +314,21 @@ static int device_sio_thread(void *data)
 
 	while (!kthread_should_stop()) {
 		struct list_head *tmp = NULL;
-		struct device_sio_mars_io_aspect *aspect;
-		struct mars_io_object *mio;
+		struct mars_buf_object *mbuf;
+		struct device_sio_mars_buf_aspect *mbuf_a;
 		unsigned long flags;
 
 		wait_event_interruptible_timeout(
 			tinfo->event,
-			!list_empty(&tinfo->mio_list) || kthread_should_stop(),
+			!list_empty(&tinfo->mbuf_list) || kthread_should_stop(),
 			HZ);
 
 		tinfo->last_jiffies = jiffies;
 
 		traced_lock(&tinfo->lock, flags);
-
-		if (!list_empty(&tinfo->mio_list)) {
-			tmp = tinfo->mio_list.next;
+		
+		if (!list_empty(&tinfo->mbuf_list)) {
+			tmp = tinfo->mbuf_list.next;
 			list_del_init(tmp);
 		}
 
@@ -328,10 +337,10 @@ static int device_sio_thread(void *data)
 		if (!tmp)
 			continue;
 
-		aspect = container_of(tmp, struct device_sio_mars_io_aspect, io_head);
-		mio = aspect->object;
-		MARS_DBG("got %p %p\n", aspect, mio);
-		device_sio_mars_io(output, mio);
+		mbuf_a = container_of(tmp, struct device_sio_mars_buf_aspect, io_head);
+		mbuf = mbuf_a->object;
+		MARS_DBG("got %p %p\n", mbuf_a, mbuf);
+		device_sio_buf_io(output, mbuf, mbuf->buf_rw);
 	}
 
 	MARS_INF("kthread has stopped.\n");
@@ -373,14 +382,14 @@ static int device_sio_get_info(struct device_sio_output *output, struct mars_inf
 static int device_sio_mars_io_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
 	struct device_sio_mars_io_aspect *ini = (void*)_ini;
-	INIT_LIST_HEAD(&ini->io_head);
+	(void)ini;
 	return 0;
 }
 
 static int device_sio_mars_buf_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
 	struct device_sio_mars_buf_aspect *ini = (void*)_ini;
-	(void)ini;
+	INIT_LIST_HEAD(&ini->io_head);
 	return 0;
 }
 
@@ -429,7 +438,7 @@ static int device_sio_output_construct(struct device_sio_output *output)
 		tinfo->output = output;
 		spin_lock_init(&tinfo->lock);
 		init_waitqueue_head(&tinfo->event);
-		INIT_LIST_HEAD(&tinfo->mio_list);
+		INIT_LIST_HEAD(&tinfo->mbuf_list);
 		tinfo->last_jiffies = jiffies;
 		tinfo->thread = kthread_create(device_sio_thread, tinfo, "mars_sio%d", index);
 		if (IS_ERR(tinfo->thread)) {
@@ -471,7 +480,7 @@ static struct device_sio_brick_ops device_sio_brick_ops = {
 
 static struct device_sio_output_ops device_sio_output_ops = {
 	.make_object_layout = device_sio_make_object_layout,
-	.mars_io = device_sio_mars_queue,
+	.mars_buf_io = device_sio_mars_queue,
 	.mars_get_info = device_sio_get_info,
 };
 

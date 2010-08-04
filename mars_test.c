@@ -26,6 +26,7 @@ GENERIC_MAKE_CONNECT(if_device, check);
 GENERIC_MAKE_CONNECT(if_device, usebuf);
 GENERIC_MAKE_CONNECT(check, usebuf);
 GENERIC_MAKE_CONNECT(usebuf, check);
+GENERIC_MAKE_CONNECT(check, device_sio);
 GENERIC_MAKE_CONNECT(buf, device_sio);
 GENERIC_MAKE_CONNECT(check, buf);
 
@@ -51,7 +52,7 @@ void make_test_instance(void)
 
 	MARS_DBG("starting....\n");
 
-	mem = kzalloc(size, GFP_KERNEL);
+	mem = kzalloc(size, GFP_MARS);
 	if (!mem) {
 		MARS_ERR("cannot grab test memory\n");
 		return;
@@ -64,7 +65,7 @@ void make_test_instance(void)
 	}
 	device_brick = mem;
 
-	mem = kzalloc(size, GFP_KERNEL);
+	mem = kzalloc(size, GFP_MARS);
 	if (!mem) {
 		MARS_ERR("cannot grab test memory\n");
 		return;
@@ -77,7 +78,7 @@ void make_test_instance(void)
 	}
 	if_brick = mem;
 
-	mem = kzalloc(size, GFP_KERNEL);
+	mem = kzalloc(size, GFP_MARS);
 	if (!mem) {
 		MARS_ERR("cannot grab test memory\n");
 		return;
@@ -91,7 +92,7 @@ void make_test_instance(void)
 	check_brick = mem;
 
 #if 1 // usebuf zwischenschalten
-	mem = kzalloc(size, GFP_KERNEL);
+	mem = kzalloc(size, GFP_MARS);
 	if (!mem) {
 		MARS_ERR("cannot grab test memory\n");
 		return;
@@ -104,7 +105,7 @@ void make_test_instance(void)
 	}
 	usebuf_brick = mem;
 
-	mem = kzalloc(size, GFP_KERNEL);
+	mem = kzalloc(size, GFP_MARS);
 	if (!mem) {
 		MARS_ERR("cannot grab test memory\n");
 		return;
@@ -126,12 +127,14 @@ void make_test_instance(void)
 	MARS_DBG("connect (status=%d)\n", status);
 #else
 	(void)usebuf_brick;
+	(void)buf_size;
+	(void)check_brick0;
 	status = if_device_check_connect(if_brick->inputs[0], check_brick->outputs[0]);
 	MARS_DBG("connect (status=%d)\n", status);
 #endif
 
 #if 1 // buf zwischenschalten
-	mem = kzalloc(buf_size, GFP_KERNEL);
+	mem = kzalloc(buf_size, GFP_MARS);
 	if (!mem) {
 		MARS_ERR("cannot grab test memory\n");
 		return;
@@ -144,7 +147,8 @@ void make_test_instance(void)
 		return;
 	}
 	buf_brick = mem;
-	buf_brick->backing_order = 4;
+	//buf_brick->backing_order = 4;
+	buf_brick->backing_order = 0;
 	buf_brick->backing_size = PAGE_SIZE << buf_brick->backing_order;
 	buf_brick->max_count = 512;
 
@@ -179,7 +183,7 @@ void make_test_instance(void)
 		}
 	}
 #else
-
+	(void)test_endio;
 	status = check_device_sio_connect(check_brick->inputs[0], device_brick->outputs[0]);
 	MARS_DBG("connect (status=%d)\n", status);
 #endif
