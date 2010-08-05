@@ -20,10 +20,10 @@
 #define MARS_DBG(args...) /**/
 #endif
 
-#define BRICK_OBJ_MARS_BUF            0
+#define BRICK_OBJ_MARS_REF            0
 #define BRICK_OBJ_NR                  1
 
-#define GFP_MARS GFP_ATOMIC
+#define GFP_MARS GFP_NOIO
 
 #include "brick.h"
 
@@ -33,47 +33,47 @@
 
 // object stuff
 
-/* mars_buf */
+/* mars_ref */
 
-#define MARS_BUF_UPTODATE        1
-#define MARS_BUF_READING         2
-#define MARS_BUF_WRITING         4
+#define MARS_REF_UPTODATE        1
+#define MARS_REF_READING         2
+#define MARS_REF_WRITING         4
 
-extern const struct generic_object_type mars_buf_type;
+extern const struct generic_object_type mars_ref_type;
 
-struct mars_buf_aspect {
-	GENERIC_ASPECT(mars_buf);
+struct mars_ref_aspect {
+	GENERIC_ASPECT(mars_ref);
 };
 
-struct mars_buf_aspect_layout {
-	GENERIC_ASPECT_LAYOUT(mars_buf);
+struct mars_ref_aspect_layout {
+	GENERIC_ASPECT_LAYOUT(mars_ref);
 };
 
-struct mars_buf_object_layout {
-	GENERIC_OBJECT_LAYOUT(mars_buf);
+struct mars_ref_object_layout {
+	GENERIC_OBJECT_LAYOUT(mars_ref);
 };
 
-#define MARS_BUF_OBJECT(PREFIX)						\
+#define MARS_REF_OBJECT(PREFIX)						\
 	GENERIC_OBJECT(PREFIX);						\
 	/* supplied by caller */					\
-	loff_t buf_pos;							\
-	int    buf_len;							\
-	int    buf_may_write;						\
-	/* maintained by the buf implementation, readable for callers */ \
+	loff_t ref_pos;							\
+	int    ref_len;							\
+	int    ref_may_write;						\
+	/* maintained by the ref implementation, readable for callers */ \
 	struct bio *orig_bio;						\
-	void  *buf_data;						\
-	int    buf_flags;						\
-	int    buf_rw;							\
-	/* maintained by the buf implementation, incrementable for	\
-	 * callers (but not decrementable! use buf_put()) */		\
-	atomic_t buf_count;						\
+	void  *ref_data;						\
+	int    ref_flags;						\
+	int    ref_rw;							\
+	/* maintained by the ref implementation, incrementable for	\
+	 * callers (but not decrementable! use ref_put()) */		\
+	atomic_t ref_count;						\
         /* callback part */						\
 	int    cb_error;						\
 	void  *cb_private;						\
-	void (*cb_buf_endio)(struct mars_buf_object *mbuf);		\
+	void (*cb_ref_endio)(struct mars_ref_object *mref);		\
 
-struct mars_buf_object {
-	MARS_BUF_OBJECT(mars_buf);
+struct mars_ref_object {
+	MARS_REF_OBJECT(mars_ref);
 };
 
 // internal helper structs
@@ -113,10 +113,10 @@ struct mars_output {
 #define MARS_OUTPUT_OPS(PREFIX)						\
 	GENERIC_OUTPUT_OPS(PREFIX);					\
 	int  (*mars_get_info)(struct PREFIX##_output *output, struct mars_info *info); \
-	/* mars_buf */							\
-	int  (*mars_buf_get)(struct PREFIX##_output *output, struct mars_buf_object *mbuf); \
-	void (*mars_buf_io)(struct PREFIX##_output *output, struct mars_buf_object *mbuf, int rw); \
-	void (*mars_buf_put)(struct PREFIX##_output *output, struct mars_buf_object *mbuf); \
+	/* mars_ref */							\
+	int  (*mars_ref_get)(struct PREFIX##_output *output, struct mars_ref_object *mref); \
+	void (*mars_ref_io)(struct PREFIX##_output *output, struct mars_ref_object *mref, int rw); \
+	void (*mars_ref_put)(struct PREFIX##_output *output, struct mars_ref_object *mref); \
 
 // all non-extendable types
 
@@ -154,13 +154,13 @@ struct BRICK##_object_layout;						\
 									\
 GENERIC_MAKE_CONNECT(generic,BRICK);				        \
 GENERIC_OBJECT_LAYOUT_FUNCTIONS(BRICK);				        \
-GENERIC_ASPECT_LAYOUT_FUNCTIONS(BRICK,mars_buf);		        \
-GENERIC_ASPECT_FUNCTIONS(BRICK,mars_buf);			        \
+GENERIC_ASPECT_LAYOUT_FUNCTIONS(BRICK,mars_ref);		        \
+GENERIC_ASPECT_FUNCTIONS(BRICK,mars_ref);			        \
 
 
 // instantiate all mars-specific functions
 
-GENERIC_OBJECT_FUNCTIONS(mars_buf);
+GENERIC_OBJECT_FUNCTIONS(mars_ref);
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -171,30 +171,42 @@ GENERIC_OBJECT_FUNCTIONS(mars_buf);
 int BRICK##_brick_nr = -EEXIST;				                \
 EXPORT_SYMBOL_GPL(BRICK##_brick_nr);			                \
 									\
-static const struct generic_aspect_type BRICK##_mars_buf_aspect_type = { \
-	.aspect_type_name = #BRICK "_mars_buf_aspect_type",		\
-	.object_type = &mars_buf_type,					\
-	.aspect_size = sizeof(struct BRICK##_mars_buf_aspect),		\
-	.init_fn = BRICK##_mars_buf_aspect_init_fn,			\
+static const struct generic_aspect_type BRICK##_mars_ref_aspect_type = { \
+	.aspect_type_name = #BRICK "_mars_ref_aspect_type",		\
+	.object_type = &mars_ref_type,					\
+	.aspect_size = sizeof(struct BRICK##_mars_ref_aspect),		\
+	.init_fn = BRICK##_mars_ref_aspect_init_fn,			\
 };									\
 									\
 static const struct generic_aspect_type *BRICK##_aspect_types[BRICK_OBJ_NR] = {	\
-	[BRICK_OBJ_MARS_BUF] = &BRICK##_mars_buf_aspect_type,		\
+	[BRICK_OBJ_MARS_REF] = &BRICK##_mars_ref_aspect_type,		\
 };									\
 
-static inline void mars_buf_attach_bio(struct mars_buf_object *mbuf, struct bio *bio)
+#define _CHECK_SPIN(spinlock,OP,minval)					\
+	do {								\
+		int test = atomic_read(spinlock);			\
+		if (test OP (minval)) {					\
+			atomic_set(spinlock, minval);			\
+			MARS_ERR("line %d spinlock " #spinlock " " #OP " " #minval "\n", __LINE__); \
+		}							\
+	} while (0)
+
+#define CHECK_SPIN(spinlock,minval)					\
+		  _CHECK_SPIN(spinlock, <, minval)
+
+static inline void mars_ref_attach_bio(struct mars_ref_object *mref, struct bio *bio)
 {
 	int test;
-	if (unlikely(mbuf->orig_bio)) {
+	if (unlikely(mref->orig_bio)) {
 		MARS_ERR("attaching a bio twice!\n");
 	}
-	test = atomic_read(&mbuf->buf_count);
+	test = atomic_read(&mref->ref_count);
 	if (unlikely(test != 0)) {
-		MARS_ERR("bad buf_count %d\n", test);
+		MARS_ERR("bad ref_count %d\n", test);
 	}
-	mbuf->orig_bio = bio;
-	mbuf->buf_pos = -1;
-	atomic_set(&mbuf->buf_count, 1);
+	mref->orig_bio = bio;
+	mref->ref_pos = -1;
+	atomic_set(&mref->ref_count, 1);
 }
 
 #endif

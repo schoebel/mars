@@ -69,6 +69,9 @@ struct generic_object_type {
 	int aspect_count;						\
 	int aspect_max;							\
 	int object_size;						\
+	int last_count;							\
+	atomic_t alloc_count;						\
+	char *module_name;						\
 
 struct generic_object_layout {
 	GENERIC_OBJECT_LAYOUT(generic);
@@ -151,7 +154,7 @@ struct generic_output {
 		(void)LOCK_CHECK(OP),					\
 		(INPUT) && (INPUT)->connect ?				\
 		GENERIC_OUTPUT_CALL((INPUT)->connect, OP, ##ARGS) :	\
-		-ENOSYS							\
+		-ECONNREFUSED						\
 	)
 
 #define GENERIC_BRICK_OPS(BRICK)					\
@@ -414,7 +417,7 @@ extern int default_make_object_layout(struct generic_output *output, struct gene
 
 extern int generic_add_aspect(struct generic_output *output, struct generic_object_layout *object_layout, const struct generic_aspect_type *aspect_type);
 
-extern int default_init_object_layout(struct generic_output *output, struct generic_object_layout *object_layout, int aspect_max, const struct generic_object_type *object_type);
+extern int default_init_object_layout(struct generic_output *output, struct generic_object_layout *object_layout, int aspect_max, const struct generic_object_type *object_type, char *module_name);
 
 extern struct generic_object *alloc_generic(struct generic_object_layout *object_layout);
 
@@ -422,11 +425,11 @@ extern void free_generic(struct generic_object *object);
 
 #define GENERIC_OBJECT_LAYOUT_FUNCTIONS(BRICK)				\
 									\
-	extern inline int BRICK##_init_object_layout(struct BRICK##_output *output, struct generic_object_layout *object_layout, int aspect_max, const struct generic_object_type *object_type) \
+extern inline int BRICK##_init_object_layout(struct BRICK##_output *output, struct generic_object_layout *object_layout, int aspect_max, const struct generic_object_type *object_type) \
 {									\
 	if (likely(object_layout->object_type))				\
 		return 0;						\
-	return default_init_object_layout((struct generic_output*)output, object_layout, aspect_max, object_type); \
+	return default_init_object_layout((struct generic_output*)output, object_layout, aspect_max, object_type, #BRICK); \
 }									\
 
 #define GENERIC_ASPECT_LAYOUT_FUNCTIONS(BRICK,PREFIX)			\

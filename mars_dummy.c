@@ -25,29 +25,29 @@ static int dummy_get_info(struct dummy_output *output, struct mars_info *info)
 	return GENERIC_INPUT_CALL(input, mars_get_info, info);
 }
 
-static int dummy_buf_get(struct dummy_output *output, struct mars_buf_object *mbuf)
+static int dummy_ref_get(struct dummy_output *output, struct mars_ref_object *mref)
 {
 	struct dummy_input *input = output->brick->inputs[0];
-	return GENERIC_INPUT_CALL(input, mars_buf_get, mbuf);
+	return GENERIC_INPUT_CALL(input, mars_ref_get, mref);
 }
 
-static void dummy_buf_put(struct dummy_output *output, struct mars_buf_object *mbuf)
+static void dummy_ref_put(struct dummy_output *output, struct mars_ref_object *mref)
 {
 	struct dummy_input *input = output->brick->inputs[0];
-	GENERIC_INPUT_CALL(input, mars_buf_put, mbuf);
+	GENERIC_INPUT_CALL(input, mars_ref_put, mref);
 }
 
-static void dummy_buf_io(struct dummy_output *output, struct mars_buf_object *mbuf, int rw)
+static void dummy_ref_io(struct dummy_output *output, struct mars_ref_object *mref, int rw)
 {
 	struct dummy_input *input = output->brick->inputs[0];
-	GENERIC_INPUT_CALL(input, mars_buf_io, mbuf, rw);
+	GENERIC_INPUT_CALL(input, mars_ref_io, mref, rw);
 }
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int dummy_mars_buf_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+static int dummy_mars_ref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
-	struct dummy_mars_buf_aspect *ini = (void*)_ini;
+	struct dummy_mars_ref_aspect *ini = (void*)_ini;
 	ini->my_own = 0;
 	return 0;
 }
@@ -76,9 +76,9 @@ static struct dummy_brick_ops dummy_brick_ops = {
 static struct dummy_output_ops dummy_output_ops = {
 	.make_object_layout = dummy_make_object_layout,
 	.mars_get_info = dummy_get_info,
-	.mars_buf_get = dummy_buf_get,
-	.mars_buf_put = dummy_buf_put,
-	.mars_buf_io = dummy_buf_io,
+	.mars_ref_get = dummy_ref_get,
+	.mars_ref_put = dummy_ref_put,
+	.mars_ref_io = dummy_ref_io,
 };
 
 static const struct dummy_input_type dummy_input_type = {
@@ -97,7 +97,7 @@ static const struct dummy_output_type dummy_output_type = {
 	.output_construct = &dummy_output_construct,
 	.aspect_types = dummy_aspect_types,
 	.layout_code = {
-		[BRICK_OBJ_MARS_BUF] = LAYOUT_ALL,
+		[BRICK_OBJ_MARS_REF] = LAYOUT_ALL,
 	}
 };
 

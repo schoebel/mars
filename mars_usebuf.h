@@ -2,13 +2,12 @@
 #ifndef MARS_USEBUF_H
 #define MARS_USEBUF_H
 
-struct usebuf_mars_buf_aspect {
-	GENERIC_ASPECT(mars_buf);
-	struct mars_buf_object *origmbuf;
+struct usebuf_mars_ref_aspect {
+	GENERIC_ASPECT(mars_ref);
+	struct mars_ref_object *origmref;
 	struct bio_vec *bvec;
 	int bvec_offset;
 	int bvec_len;
-	atomic_t mbuf_count;
 };
 
 struct usebuf_brick {
@@ -21,7 +20,7 @@ struct usebuf_input {
 
 struct usebuf_output {
 	MARS_OUTPUT(usebuf);
-	struct generic_object_layout buf_object_layout;
+	struct generic_object_layout ref_object_layout;
 };
 
 MARS_TYPES(usebuf);

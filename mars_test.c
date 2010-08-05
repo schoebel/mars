@@ -20,7 +20,7 @@
 #include "mars_buf.h"
 #include "mars_usebuf.h"
 
-GENERIC_ASPECT_FUNCTIONS(generic,mars_buf);
+GENERIC_ASPECT_FUNCTIONS(generic,mars_ref);
 
 static struct generic_brick *if_brick = NULL;
 static struct generic_brick *usebuf_brick = NULL;
@@ -28,9 +28,9 @@ static struct generic_brick *buf_brick = NULL;
 static struct buf_brick *_buf_brick = NULL;
 static struct generic_brick *device_brick = NULL;
 
-static void test_endio(struct mars_buf_object *mbuf)
+static void test_endio(struct mars_ref_object *mref)
 {
-	MARS_DBG("test_endio() called! error=%d\n", mbuf->cb_error);
+	MARS_DBG("test_endio() called! error=%d\n", mref->cb_error);
 }
 
 void make_test_instance(void)
@@ -127,29 +127,29 @@ void make_test_instance(void)
 
 	connect(buf_brick->inputs[0], device_brick->outputs[0]);
 
-	if (true) {
+	if (false) { // ref-counting no longer valid
 		struct buf_output *output = _buf_brick->outputs[0];
-		struct mars_buf_object *mbuf = NULL;
+		struct mars_ref_object *mref = NULL;
 		struct generic_object_layout ol = {};
 
-		mbuf = generic_alloc_mars_buf((struct generic_output*)output, &ol);
+		mref = generic_alloc_mars_ref((struct generic_output*)output, &ol);
 
-		if (mbuf) {
+		if (mref) {
 			int status;
-			mbuf->buf_pos = 0;
-			mbuf->buf_len = PAGE_SIZE;
-			mbuf->buf_may_write = READ;
+			mref->ref_pos = 0;
+			mref->ref_len = PAGE_SIZE;
+			mref->ref_may_write = READ;
 
-			status = GENERIC_OUTPUT_CALL(output, mars_buf_get, mbuf);
+			status = GENERIC_OUTPUT_CALL(output, mars_ref_get, mref);
 			MARS_DBG("buf_get (status=%d)\n", status);
 			if (true) {
-				mbuf->cb_buf_endio = test_endio;
+				mref->cb_ref_endio = test_endio;
 
-				GENERIC_OUTPUT_CALL(output, mars_buf_io, mbuf, READ);
-				status = mbuf->cb_error;
+				GENERIC_OUTPUT_CALL(output, mars_ref_io, mref, READ);
+				status = mref->cb_error;
 				MARS_DBG("buf_io (status=%d)\n", status);
 			}
-			GENERIC_OUTPUT_CALL(output, mars_buf_put, mbuf);
+			GENERIC_OUTPUT_CALL(output, mars_ref_put, mref);
 		}
 	}
 #else

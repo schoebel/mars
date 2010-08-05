@@ -49,9 +49,9 @@ static int transfer_none(int cmd,
 	return 0;
 }
 
-static void write_aops(struct device_sio_output *output, struct mars_buf_object *mbuf)
+static void write_aops(struct device_sio_output *output, struct mars_ref_object *mref)
 {
-	struct bio *bio = mbuf->orig_bio;
+	struct bio *bio = mref->orig_bio;
 	loff_t pos = ((loff_t)bio->bi_sector << 9);
 	struct file *file = output->filp;
 	struct address_space *mapping = file->f_mapping;
@@ -123,7 +123,7 @@ static void write_aops(struct device_sio_output *output, struct mars_buf_object 
 fail:
 	mutex_unlock(&mapping->host->i_mutex);
 
-	mbuf->cb_error = ret;
+	mref->cb_error = ret;
 
 #if 1
 	blk_run_address_space(mapping);
@@ -132,7 +132,7 @@ fail:
 
 struct cookie_data {
 	struct device_sio_output *output;
-	struct mars_buf_object *mbuf;
+	struct mars_ref_object *mref;
 	struct bio_vec *bvec;
 	unsigned int offset;
 };
@@ -176,9 +176,9 @@ device_sio_direct_splice_actor(struct pipe_inode_info *pipe, struct splice_desc 
 	return __splice_from_pipe(pipe, sd, device_sio_splice_actor);
 }
 
-static void read_aops(struct device_sio_output *output, struct mars_buf_object *mbuf)
+static void read_aops(struct device_sio_output *output, struct mars_ref_object *mref)
 {
-	struct bio *bio = mbuf->orig_bio;
+	struct bio *bio = mref->orig_bio;
 	loff_t pos = ((loff_t)bio->bi_sector << 9); // TODO: make dynamic
 	struct bio_vec *bvec;
 	int i;
@@ -187,7 +187,7 @@ static void read_aops(struct device_sio_output *output, struct mars_buf_object *
 	bio_for_each_segment(bvec, bio, i) {
 		struct cookie_data cookie = {
 			.output = output,
-			.mbuf = mbuf,
+			.mref = mref,
 			.bvec = bvec,
 			.offset = bvec->bv_offset,
 		};
@@ -199,11 +199,11 @@ static void read_aops(struct device_sio_output *output, struct mars_buf_object *
 			.u.data = &cookie,
 		};
 
-		MARS_DBG("start splice %p %p %p %p\n", output, mbuf, bio, bvec);
+		MARS_DBG("start splice %p %p %p %p\n", output, mref, bio, bvec);
 		ret = 0;
 		ret = splice_direct_to_actor(output->filp, &sd, device_sio_direct_splice_actor);
 		if (unlikely(ret < 0)) {
-			MARS_ERR("splice %p %p %p %p status=%d\n", output, mbuf, bio, bvec, ret);
+			MARS_ERR("splice %p %p %p %p status=%d\n", output, mref, bio, bvec, ret);
 			break;
 		}
 		pos += bvec->bv_len;
@@ -214,7 +214,7 @@ static void read_aops(struct device_sio_output *output, struct mars_buf_object *
 	if (unlikely(bio->bi_size)) {
 		MARS_ERR("unhandled rest size %d on bio %p\n", bio->bi_size, bio);
 	}
-	mbuf->cb_error = ret;
+	mref->cb_error = ret;
 }
 
 static void sync_file(struct device_sio_output *output)
@@ -230,9 +230,9 @@ static void sync_file(struct device_sio_output *output)
 #endif
 }
 
-static void device_sio_buf_io(struct device_sio_output *output, struct mars_buf_object *mbuf, int rw)
+static void device_sio_ref_io(struct device_sio_output *output, struct mars_ref_object *mref, int rw)
 {
-	struct bio *bio = mbuf->orig_bio;
+	struct bio *bio = mref->orig_bio;
 	bool barrier = (rw != READ && bio_rw_flagged(bio, BIO_RW_BARRIER));
 	int test;
 	
@@ -242,42 +242,42 @@ static void device_sio_buf_io(struct device_sio_output *output, struct mars_buf_
 	}
 
 	if (unlikely(!output->filp)) {
-		mbuf->cb_error = -EINVAL;
+		mref->cb_error = -EINVAL;
 		goto done;
 	}
 
 	if (rw == READ) {
-		read_aops(output, mbuf);
+		read_aops(output, mref);
 	} else {
-		write_aops(output, mbuf);
+		write_aops(output, mref);
 		if (barrier)
 			sync_file(output);
 	}
 
 done:
 #if 1
-	if (mbuf->cb_error < 0)
-		MARS_ERR("IO error %d\n", mbuf->cb_error);
+	if (mref->cb_error < 0)
+		MARS_ERR("IO error %d\n", mref->cb_error);
 #endif
 
-	mbuf->cb_buf_endio(mbuf);
+	mref->cb_ref_endio(mref);
 
-	test = atomic_read(&mbuf->buf_count);
+	test = atomic_read(&mref->ref_count);
 	if (test <= 0) {
-		MARS_ERR("buf_count UNDERRUN %d\n", test);
-		atomic_set(&mbuf->buf_count, 1);
+		MARS_ERR("ref_count UNDERRUN %d\n", test);
+		atomic_set(&mref->ref_count, 1);
 	}
-	if (!atomic_dec_and_test(&mbuf->buf_count))
+	if (!atomic_dec_and_test(&mref->ref_count))
 		return;
 
-	device_sio_free_mars_buf(mbuf);
+	device_sio_free_mars_ref(mref);
 }
 
-static void device_sio_mars_queue(struct device_sio_output *output, struct mars_buf_object *mbuf, int rw)
+static void device_sio_mars_queue(struct device_sio_output *output, struct mars_ref_object *mref, int rw)
 {
 	int index = 0;
 	struct sio_threadinfo *tinfo;
-	struct device_sio_mars_buf_aspect *mbuf_a;
+	struct device_sio_mars_ref_aspect *mref_a;
 	unsigned long flags;
 
 	if (rw == READ) {
@@ -286,19 +286,19 @@ static void device_sio_mars_queue(struct device_sio_output *output, struct mars_
 		traced_unlock(&output->g_lock, flags);
 		index = (index % WITH_THREAD) + 1;
 	}
-	mbuf_a = device_sio_mars_buf_get_aspect(output, mbuf);
-	if (unlikely(!mbuf_a)) {
+	mref_a = device_sio_mars_ref_get_aspect(output, mref);
+	if (unlikely(!mref_a)) {
 		MARS_FAT("cannot get aspect\n");
-		mbuf->cb_error = -EINVAL;
-		mbuf->cb_buf_endio(mbuf);
+		mref->cb_error = -EINVAL;
+		mref->cb_ref_endio(mref);
 		return;
 	}
 	tinfo = &output->tinfo[index];
-	MARS_DBG("queueing %p on %d\n", mbuf, index);
+	MARS_DBG("queueing %p on %d\n", mref, index);
 
 	traced_lock(&tinfo->lock, flags);
-	mbuf->buf_rw = rw;
-	list_add_tail(&mbuf_a->io_head, &tinfo->mbuf_list);
+	mref->ref_rw = rw;
+	list_add_tail(&mref_a->io_head, &tinfo->mref_list);
 	traced_unlock(&tinfo->lock, flags);
 
 	wake_up(&tinfo->event);
@@ -314,21 +314,21 @@ static int device_sio_thread(void *data)
 
 	while (!kthread_should_stop()) {
 		struct list_head *tmp = NULL;
-		struct mars_buf_object *mbuf;
-		struct device_sio_mars_buf_aspect *mbuf_a;
+		struct mars_ref_object *mref;
+		struct device_sio_mars_ref_aspect *mref_a;
 		unsigned long flags;
 
 		wait_event_interruptible_timeout(
 			tinfo->event,
-			!list_empty(&tinfo->mbuf_list) || kthread_should_stop(),
+			!list_empty(&tinfo->mref_list) || kthread_should_stop(),
 			HZ);
 
 		tinfo->last_jiffies = jiffies;
 
 		traced_lock(&tinfo->lock, flags);
 		
-		if (!list_empty(&tinfo->mbuf_list)) {
-			tmp = tinfo->mbuf_list.next;
+		if (!list_empty(&tinfo->mref_list)) {
+			tmp = tinfo->mref_list.next;
 			list_del_init(tmp);
 		}
 
@@ -337,10 +337,10 @@ static int device_sio_thread(void *data)
 		if (!tmp)
 			continue;
 
-		mbuf_a = container_of(tmp, struct device_sio_mars_buf_aspect, io_head);
-		mbuf = mbuf_a->object;
-		MARS_DBG("got %p %p\n", mbuf_a, mbuf);
-		device_sio_buf_io(output, mbuf, mbuf->buf_rw);
+		mref_a = container_of(tmp, struct device_sio_mars_ref_aspect, io_head);
+		mref = mref_a->object;
+		MARS_DBG("got %p %p\n", mref_a, mref);
+		device_sio_ref_io(output, mref, mref->ref_rw);
 	}
 
 	MARS_INF("kthread has stopped.\n");
@@ -379,9 +379,9 @@ static int device_sio_get_info(struct device_sio_output *output, struct mars_inf
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int device_sio_mars_buf_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+static int device_sio_mars_ref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
-	struct device_sio_mars_buf_aspect *ini = (void*)_ini;
+	struct device_sio_mars_ref_aspect *ini = (void*)_ini;
 	INIT_LIST_HEAD(&ini->io_head);
 	return 0;
 }
@@ -431,7 +431,7 @@ static int device_sio_output_construct(struct device_sio_output *output)
 		tinfo->output = output;
 		spin_lock_init(&tinfo->lock);
 		init_waitqueue_head(&tinfo->event);
-		INIT_LIST_HEAD(&tinfo->mbuf_list);
+		INIT_LIST_HEAD(&tinfo->mref_list);
 		tinfo->last_jiffies = jiffies;
 		tinfo->thread = kthread_create(device_sio_thread, tinfo, "mars_sio%d", index);
 		if (IS_ERR(tinfo->thread)) {
@@ -473,7 +473,7 @@ static struct device_sio_brick_ops device_sio_brick_ops = {
 
 static struct device_sio_output_ops device_sio_output_ops = {
 	.make_object_layout = device_sio_make_object_layout,
-	.mars_buf_io = device_sio_mars_queue,
+	.mars_ref_io = device_sio_mars_queue,
 	.mars_get_info = device_sio_get_info,
 };
 
@@ -485,7 +485,7 @@ static const struct device_sio_output_type device_sio_output_type = {
 	.output_destruct = &device_sio_output_destruct,
 	.aspect_types = device_sio_aspect_types,
 	.layout_code = {
-		[BRICK_OBJ_MARS_BUF] = LAYOUT_NONE,
+		[BRICK_OBJ_MARS_REF] = LAYOUT_NONE,
 	}
 };
 

@@ -4,8 +4,8 @@
 
 #define WITH_THREAD 16
 
-struct device_sio_mars_buf_aspect {
-	GENERIC_ASPECT(mars_buf);
+struct device_sio_mars_ref_aspect {
+	GENERIC_ASPECT(mars_ref);
 	struct list_head io_head;
 };
 
@@ -19,7 +19,7 @@ struct device_sio_input {
 
 struct sio_threadinfo {
 	struct device_sio_output *output;
-	struct list_head mbuf_list;
+	struct list_head mref_list;
 	struct task_struct *thread;
 	wait_queue_head_t event;
 	spinlock_t lock;

@@ -11,12 +11,12 @@
 
 // object stuff
 
-const struct generic_object_type mars_buf_type = {
-	.object_type_name = "mars_buf",
-	.default_size = sizeof(struct mars_buf_object),
-	.brick_obj_nr = BRICK_OBJ_MARS_BUF,
+const struct generic_object_type mars_ref_type = {
+	.object_type_name = "mars_ref",
+	.default_size = sizeof(struct mars_ref_object),
+	.brick_obj_nr = BRICK_OBJ_MARS_REF,
 };
-EXPORT_SYMBOL_GPL(mars_buf_type);
+EXPORT_SYMBOL_GPL(mars_ref_type);
 
 //////////////////////////////////////////////////////////////
 

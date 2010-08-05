@@ -333,13 +333,17 @@ EXPORT_SYMBOL_GPL(generic_add_aspect);
 
 // default implementations
 
-int default_init_object_layout(struct generic_output *output, struct generic_object_layout *object_layout, int aspect_max, const struct generic_object_type *object_type)
+int default_init_object_layout(struct generic_output *output, struct generic_object_layout *object_layout, int aspect_max, const struct generic_object_type *object_type, char *module_name)
 {
 	// TODO: make locking granularity finer (if it were worth).
 	static DEFINE_SPINLOCK(global_lock);
 	void *data;
 	int status= -ENOMEM;
 	unsigned long flags;
+
+	if (unlikely(!module_name)) {
+		module_name = "(unknown)";
+	}
 
 	data = kzalloc(aspect_max * sizeof(void*), GFP_MARS);
 	if (unlikely(!data))
@@ -349,7 +353,7 @@ int default_init_object_layout(struct generic_output *output, struct generic_obj
 
 	if (unlikely(object_layout->object_type)) {
 		traced_unlock(&global_lock, flags);
-		BRICK_INF("lost the race on object_layout %p (no harm)\n", object_layout);
+		BRICK_INF("lost the race on object_layout %p/%s (no harm)\n", object_layout, module_name);
 		status = 0;
 		goto done;
 	}
@@ -359,6 +363,8 @@ int default_init_object_layout(struct generic_output *output, struct generic_obj
 	object_layout->aspect_count = 0;
 	object_layout->aspect_max = aspect_max;
 	object_layout->object_size = object_type->default_size;
+	atomic_set(&object_layout->alloc_count, 0);
+	object_layout->module_name = module_name;
 
 	status = output->ops->make_object_layout(output, object_layout);
 
@@ -367,7 +373,7 @@ int default_init_object_layout(struct generic_output *output, struct generic_obj
 	if (unlikely(status < 0)) {
                 object_layout->object_type = NULL;
 		kfree(data);
-		BRICK_ERR("emergency, cannot add aspects to object_layout %s!\n", object_type->object_type_name);
+		BRICK_ERR("emergency, cannot add aspects to object_layout %s (module %s)\n", object_type->object_type_name, module_name);
 		goto done;
 	}
 
@@ -450,6 +456,17 @@ struct generic_object *alloc_generic(struct generic_object_layout *object_layout
 	if (unlikely(!object))
 		goto err_free;
 
+	atomic_inc(&object_layout->alloc_count);
+#if 1
+	{
+		int count = atomic_read(&object_layout->alloc_count);
+		if (count >= object_layout->last_count + 1000) {
+			object_layout->last_count = count;
+			BRICK_INF("pool %s/%p/%s reaching %d\n", object_layout->object_type->object_type_name, object_layout, object_layout->module_name, count);
+		}
+	}
+#endif
+
 	return object;
 
 err_free:
@@ -461,6 +478,13 @@ EXPORT_SYMBOL_GPL(alloc_generic);
 
 void free_generic(struct generic_object *object)
 {
+	if (unlikely(!object)) {
+		BRICK_ERR("free_generic on NULL object\n");
+		return;
+	}
+	if (likely(object->object_layout))
+		atomic_dec(&object->object_layout->alloc_count);
+
 	kfree(object);
 }
 EXPORT_SYMBOL_GPL(free_generic);

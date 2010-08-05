@@ -31,15 +31,15 @@ static int device_minor = 0;
 
 /* callback
  */
-static void _if_device_endio(struct mars_buf_object *mbuf)
+static void _if_device_endio(struct mars_ref_object *mref)
 {
-	struct bio *bio = mbuf->orig_bio;
+	struct bio *bio = mref->orig_bio;
 	int error;
 	if (unlikely(!bio)) {
 		MARS_FAT("callback with no bio called. something is very wrong here!\n");
 		return;
 	}
-	error = mbuf->cb_error;
+	error = mref->cb_error;
 	if (unlikely(error < 0)) {
 		MARS_ERR("NYI: error=%d RETRY LOGIC %u\n", error, bio->bi_size);
 	}
@@ -50,13 +50,13 @@ static void _if_device_endio(struct mars_buf_object *mbuf)
 	bio_endio(bio, error);
 }
 
-/* accept a linux bio, wrap it into mbuf and call buf_io() on it.
+/* accept a linux bio, wrap it into mref and call buf_io() on it.
  */
 static int if_device_make_request(struct request_queue *q, struct bio *bio)
 {
 	struct if_device_input *input = q->queuedata;
         struct if_device_output *output;
-	struct mars_buf_object *mbuf = NULL;
+	struct mars_ref_object *mref = NULL;
 	int rw = bio->bi_rw & 1;
         int error = -ENOSYS;
 
@@ -65,24 +65,34 @@ static int if_device_make_request(struct request_queue *q, struct bio *bio)
         if (unlikely(!input))
                 goto err;
 
+#if 1 // RPOVIDIONALY TODO: remove
+	{
+		static int first = 0;
+		if (!first++)
+			msleep(1000);
+	}
+#endif
         output = input->connect;
-        if (unlikely(!output || !output->ops->mars_buf_io))
+        if (unlikely(!output || !output->ops->mars_ref_io))
                 goto err;
 
 	error = -ENOMEM;
-	mbuf = if_device_alloc_mars_buf(output, &input->mbuf_object_layout);
-	if (unlikely(!mbuf))
+	mref = if_device_alloc_mars_ref(output, &input->mref_object_layout);
+	if (unlikely(!mref))
 		goto err;
 
-	mars_buf_attach_bio(mbuf, bio);
-	mbuf->cb_buf_endio = _if_device_endio;
+	mars_ref_attach_bio(mref, bio);
+	mref->cb_ref_endio = _if_device_endio;
 
-	GENERIC_OUTPUT_CALL(output, mars_buf_io, mbuf, rw);
+	GENERIC_OUTPUT_CALL(output, mars_ref_io, mref, rw);
+
+	GENERIC_OUTPUT_CALL(output, mars_ref_put, mref);
+
 	return 0;
 
 err:
 	MARS_ERR("cannot submit request, status=%d\n", error);
-	if (!mbuf)
+	if (!mref)
 		bio_endio(bio, error);
 	return error;
 }
@@ -121,7 +131,7 @@ static void if_device_unplug(struct request_queue *q)
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int if_device_mars_buf_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+static int if_device_mars_ref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
 	return 0;
 }

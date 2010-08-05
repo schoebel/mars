@@ -7,12 +7,11 @@
 
 #define MARS_BUF_HASH_MAX 512
 
-struct buf_mars_buf_aspect {
-	GENERIC_ASPECT(mars_buf);
+struct buf_mars_ref_aspect {
+	GENERIC_ASPECT(mars_ref);
 	struct buf_head *bfa_bf;
 	struct list_head bfc_pending_head;
 	struct list_head tmp_head;
-	int nr_io_pending;
 };
 
 struct buf_brick {
@@ -25,7 +24,8 @@ struct buf_brick {
 	/* internals */
 	int current_count;
 	int alloc_count;
-	struct generic_object_layout mbuf_object_layout;
+	atomic_t nr_io_pending;
+	struct generic_object_layout mref_object_layout;
 
 	spinlock_t buf_lock;
 
@@ -38,6 +38,12 @@ struct buf_brick {
 	struct mars_info base_info;
 	int got_info;
 	int bvec_max;
+
+	// statistics
+	unsigned long last_jiffies;
+	atomic_t hit_count;
+	atomic_t miss_count;
+	atomic_t io_count;
 };
 
 struct buf_input {
@@ -59,7 +65,7 @@ struct buf_head {
 	int              bf_bio_status;
 	atomic_t         bf_bio_count;
 	// lists for caching
-	//struct list_head bf_mbuf_anchor; // all current mbuf members
+	//struct list_head bf_mref_anchor; // all current mref members
 	struct list_head bf_lru_head;
 	struct list_head bf_hash_head;
 	// lists for IO
