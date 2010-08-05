@@ -23,14 +23,27 @@
 static void check_buf_endio(struct mars_buf_object *mbuf)
 {
 	struct check_output *output = mbuf->cb_private;
+	struct check_input *input = output->brick->inputs[0];
 	struct check_mars_buf_aspect *mbuf_a = check_mars_buf_get_aspect(output, mbuf);
 	unsigned long flags;
 
+	if (!mbuf_a) {
+		MARS_FAT("cannot get aspect -- hanging up\n");
+		msleep(60000);
+		return;
+	}
+
 	traced_lock(&output->lock, flags);
+
+	if (mbuf_a->call_count-- < 0) {
+		mbuf_a->call_count = 0;
+		MARS_ERR("instance %d/%s: too many callbacks on %p\n", output->instance_nr, input->connect->type->type_name, mbuf);
+	}
 	if (list_empty(&mbuf_a->mbuf_head)) {
-		MARS_ERR("mbuf callback called twice on %p\n", mbuf);
+		MARS_ERR("instance %d/%s: list entry missing on %p\n", output->instance_nr, input->connect->type->type_name, mbuf);
 	}
 	list_del_init(&mbuf_a->mbuf_head);
+
 	traced_unlock(&output->lock, flags);
 
 	mbuf->cb_private = mbuf_a->old_private;
@@ -134,9 +147,21 @@ static void check_buf_io(struct check_output *output, struct mars_buf_object *mb
 	struct check_input *input = output->brick->inputs[0];
 	struct check_mars_buf_aspect *mbuf_a = check_mars_buf_get_aspect(output, mbuf);
 	unsigned long flags;
+
+	if (!mbuf_a) {
+		MARS_FAT("cannot get aspect -- hanging up\n");
+		msleep(60000);
+		return;
+	}
+
 	traced_lock(&output->lock, flags);
+	if (mbuf_a->call_count++ > 1) {
+		mbuf_a->call_count = 1;
+		MARS_ERR("instance %d/%s: multiple parallel calls on %p\n", output->instance_nr, input->connect->type->type_name, mbuf);
+	}
 	if (!list_empty(&mbuf_a->mbuf_head)) {
-		MARS_ERR("instance %d: multiple buf_endio() in parallel on %p\n", output->instance_nr, mbuf);
+		list_del(&mbuf_a->mbuf_head);
+		MARS_ERR("instance %d/%s: list head not empty on %p\n", output->instance_nr, input->connect->type->type_name, mbuf);
 	}
 	list_add_tail(&mbuf_a->mbuf_head, &output->mbuf_anchor);
 	if (mbuf->cb_buf_endio != check_buf_endio) {
@@ -147,6 +172,7 @@ static void check_buf_io(struct check_output *output, struct mars_buf_object *mb
 	}
 	mbuf_a->last_jiffies = jiffies;
 	traced_unlock(&output->lock, flags);
+
 	GENERIC_INPUT_CALL(input, mars_buf_io, mbuf, rw);
 }
 
@@ -156,6 +182,7 @@ static int check_mars_buf_aspect_init_fn(struct generic_aspect *_ini, void *_ini
 {
 	struct check_mars_buf_aspect *ini = (void*)_ini;
 	INIT_LIST_HEAD(&ini->mbuf_head);
+	ini->call_count = 0;
 	return 0;
 }
 
@@ -172,10 +199,11 @@ static int check_output_construct(struct check_output *output)
 {
 	static int count = 0;
 	struct task_struct *watchdog;
+
 	spin_lock_init(&output->lock);
+	output->instance_nr = ++count;
 	INIT_LIST_HEAD(&output->mio_anchor);
 	INIT_LIST_HEAD(&output->mbuf_anchor);
-	output->instance_nr = ++count;
 	watchdog = kthread_create(check_watchdog, output, "check_watchdog%d", output->instance_nr);
 	if (!IS_ERR(watchdog)) {
 		output->watchdog = watchdog;

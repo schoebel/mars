@@ -484,7 +484,7 @@ extern inline struct BRICK##_##PREFIX##_aspect *BRICK##_##PREFIX##_get_aspect(st
 									\
 extern inline int BRICK##_##PREFIX##_init_object_layout(struct BRICK##_output *output, struct generic_object_layout *object_layout) \
 {									\
-	return BRICK##_init_object_layout(output, object_layout, 16, &PREFIX##_type); \
+	return BRICK##_init_object_layout(output, object_layout, 32, &PREFIX##_type); \
 }									\
 									\
 extern inline struct PREFIX##_object *BRICK##_alloc_##PREFIX(struct BRICK##_output *output, struct generic_object_layout *object_layout) \

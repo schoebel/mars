@@ -119,7 +119,7 @@ int generic_brick_init_full(
 		data += sizeof(void*) * brick_type->max_outputs;
 		size -= sizeof(void*) * brick_type->max_outputs;
 		if (size < 0)
-			return -1;
+			return -ENOMEM;
 		for (i = 0; i < brick_type->max_outputs; i++) {
 			struct generic_output *output = data;
 			const struct generic_output_type *type = *output_types++;
@@ -335,12 +335,25 @@ EXPORT_SYMBOL_GPL(generic_add_aspect);
 
 int default_init_object_layout(struct generic_output *output, struct generic_object_layout *object_layout, int aspect_max, const struct generic_object_type *object_type)
 {
+	// TODO: make locking granularity finer (if it were worth).
+	static DEFINE_SPINLOCK(global_lock);
 	void *data;
-	int status;
+	int status= -ENOMEM;
+	unsigned long flags;
 
 	data = kzalloc(aspect_max * sizeof(void*), GFP_MARS);
-	if (!data)
-		return -ENOMEM;
+	if (unlikely(!data))
+		goto done;
+
+	traced_lock(&global_lock, flags);
+
+	if (unlikely(object_layout->object_type)) {
+		traced_unlock(&global_lock, flags);
+		BRICK_INF("lost the race on object_layout %p (no harm)\n", object_layout);
+		status = 0;
+		goto done;
+	}
+
 	object_layout->aspect_layouts = data;
 	object_layout->object_type = object_type;
 	object_layout->aspect_count = 0;
@@ -348,12 +361,16 @@ int default_init_object_layout(struct generic_output *output, struct generic_obj
 	object_layout->object_size = object_type->default_size;
 
 	status = output->ops->make_object_layout(output, object_layout);
+
+	traced_unlock(&global_lock, flags);
+	
 	if (unlikely(status < 0)) {
+                object_layout->object_type = NULL;
 		kfree(data);
-		object_layout->object_type = NULL;
 		BRICK_ERR("emergency, cannot add aspects to object_layout %s!\n", object_type->object_type_name);
 		goto done;
 	}
+
 	BRICK_INF("OK, object_layout %s init succeeded.\n", object_type->object_type_name);
 done:
 	return status;

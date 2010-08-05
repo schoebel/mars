@@ -41,16 +41,37 @@ void make_test_instance(void)
 	void *brick(const void *_brick_type)
 	{
 		const struct generic_brick_type *brick_type = _brick_type;
-		void *mem = kzalloc(brick_type->brick_size, GFP_MARS);
+		const struct generic_input_type **input_types;
+		const struct generic_output_type **output_types;
+		void *mem;
+		int size;
+		int i;
 		int status;
+
+		size = brick_type->brick_size +
+			(brick_type->max_inputs + brick_type->max_outputs) * sizeof(void*);
+		input_types = brick_type->default_input_types;
+		for (i = 0; i < brick_type->max_inputs; i++) {
+			const struct generic_input_type *type = *input_types++;
+			size += type->input_size;
+		}
+		output_types = brick_type->default_output_types;
+		for (i = 0; i < brick_type->max_outputs; i++) {
+			const struct generic_output_type *type = *output_types++;
+			size += type->output_size;
+		}
+
+		mem = kzalloc(size, GFP_MARS);
 		if (!mem) {
-			MARS_ERR("cannot grab test memory\n");
+			MARS_ERR("cannot grab test memory for %s\n", brick_type->type_name);
+			msleep(60000);
 			return NULL;
 		}
-		status = generic_brick_init_full(mem, brick_type->brick_size, brick_type, NULL, NULL, names);
+		status = generic_brick_init_full(mem, size, brick_type, NULL, NULL, names);
 		MARS_DBG("done (status=%d)\n", status);
 		if (status) {
-			MARS_ERR("cannot init brick device_sio\n");
+			MARS_ERR("cannot init brick %s\n", brick_type->type_name);
+			msleep(60000);
 			return NULL;
 		}
 		return mem;
@@ -58,8 +79,22 @@ void make_test_instance(void)
 
 	void connect(struct generic_input *a, struct generic_output *b)
 	{
-		int status = generic_connect(a, b);
+		int status;
+#if 1
+		struct generic_brick *tmp = brick(&check_brick_type);
+		
+		status = generic_connect(a, tmp->outputs[0]);
 		MARS_DBG("connect (status=%d)\n", status);
+		if (status < 0)
+			msleep(60000);
+
+		status = generic_connect(tmp->inputs[0], b);
+#else
+		status = generic_connect(a, b);
+#endif
+		MARS_DBG("connect (status=%d)\n", status);
+		if (status < 0)
+			msleep(60000);
 	}
 
 
@@ -121,6 +156,8 @@ void make_test_instance(void)
 	(void)test_endio;
 	connect(last, device_brick->outputs[0]);
 #endif
+	msleep(1000);
+	MARS_INF("------------- DONE --------------\n");
 }
 
 void destroy_test_instance(void)

@@ -8,6 +8,7 @@ struct check_mars_buf_aspect {
 	void (*old_buf_endio)(struct mars_buf_object *mbuf);
 	void *old_private;
 	unsigned long last_jiffies;
+	int call_count;
 };
 
 struct check_brick {
