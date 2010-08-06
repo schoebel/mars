@@ -60,6 +60,7 @@ struct buf_head {
 	struct buf_brick *bf_brick;
 	void             *bf_data;
 	loff_t           bf_pos;
+	unsigned int     bf_base_index;
 	int              bf_flags;
 	atomic_t         bf_count;
 	int              bf_bio_status;

@@ -20,14 +20,15 @@
 
 ///////////////////////// own helper functions ////////////////////////
 
-static inline int buf_hash(struct buf_brick *brick, loff_t pos)
+static inline int buf_hash(struct buf_brick *brick, unsigned int base_index)
 {
-	return (pos >> brick->backing_order) % MARS_BUF_HASH_MAX;
+	return base_index % MARS_BUF_HASH_MAX;
 }
 
-static struct buf_head *hash_find(struct buf_brick *brick, loff_t pos)
+static struct buf_head *hash_find(struct buf_brick *brick, unsigned int base_index)
 {
-	int hash = buf_hash(brick, pos);
+	
+	int hash = buf_hash(brick, base_index);
 	struct list_head *start = &brick->cache_anchors[hash];
 	struct list_head *tmp;
 	struct buf_head *res;
@@ -35,7 +36,7 @@ static struct buf_head *hash_find(struct buf_brick *brick, loff_t pos)
 		if (tmp == start)
 			return NULL;
 		res = container_of(tmp, struct buf_head, bf_hash_head);
-		if (res->bf_pos == pos)
+		if (res->bf_base_index == base_index)
 			break;
 	}
 	return res;
@@ -43,7 +44,7 @@ static struct buf_head *hash_find(struct buf_brick *brick, loff_t pos)
 
 static inline void hash_insert(struct buf_brick *brick, struct buf_head *elem)
 {
-	int hash = buf_hash(brick, elem->bf_pos);
+	int hash = buf_hash(brick, elem->bf_base_index);
 	struct list_head *start = &brick->cache_anchors[hash];
 	list_add(&elem->bf_hash_head, start);
 }
@@ -296,7 +297,7 @@ static int buf_ref_get(struct buf_output *output, struct mars_ref_object *mref)
 	traced_lock(&brick->buf_lock, flags);
 
 again:
-	bf = hash_find(brick, base_pos);
+	bf = hash_find(brick, ((unsigned int)base_pos) >> brick->backing_order);
 	if (bf) {
 		atomic_inc(&brick->hit_count);
 	} else {
@@ -348,6 +349,7 @@ again:
 		INIT_LIST_HEAD(&bf->bf_again_write_pending_anchor);
 
 		bf->bf_pos = base_pos;
+		bf->bf_base_index = ((unsigned int)base_pos) >> brick->backing_order;
 		bf->bf_flags = 0;
 		atomic_set(&bf->bf_count, 0);
 
@@ -808,8 +810,8 @@ static void buf_ref_io(struct buf_output *output, struct mars_ref_object *mref, 
 	if (jiffies - brick->last_jiffies >= 30 * HZ) {
 		int hit = atomic_read(&brick->hit_count);
 		int miss = atomic_read(&brick->miss_count);
-		long long perc = hit * 100ll * 100ll / (hit + miss);
-		MARS_INF("STATISTICS: current=%d alloc=%d io_pending=%d hit=%d (%lld.%02lld%%) miss=%d io=%d\n", brick->current_count, brick->alloc_count, atomic_read(&brick->nr_io_pending), hit, perc / 100, perc % 100, miss, atomic_read(&brick->io_count));
+		int perc = hit * 100 * 100 / (hit + miss);
+		MARS_INF("STATISTICS: current=%d alloc=%d io_pending=%d hit=%d (%d.%02d%%) miss=%d io=%d\n", brick->current_count, brick->alloc_count, atomic_read(&brick->nr_io_pending), hit, perc / 100, perc % 100, miss, atomic_read(&brick->io_count));
 		brick->last_jiffies = jiffies;
 	}
 #endif
