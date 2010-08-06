@@ -75,17 +75,25 @@ static inline void __prune_cache(struct buf_brick *brick, int max_count, unsigne
 	}
 }
 
+static inline void __lru_free_one(struct buf_brick *brick)
+{
+	struct buf_head *bf;
+	if (list_empty(&brick->lru_anchor))
+		return;
+	bf = container_of(brick->lru_anchor.prev, struct buf_head, bf_lru_head);
+	list_del_init(&bf->bf_lru_head);
+	list_del_init(&bf->bf_hash_head);
+	brick->current_count--;
+	list_add(&bf->bf_lru_head, &brick->free_anchor);
+}
+
+
 static inline void __lru_free(struct buf_brick *brick)
 {
 	while (brick->current_count >= brick->max_count) {
-		struct buf_head *bf;
 		if (list_empty(&brick->lru_anchor))
 			break;
-		bf = container_of(brick->lru_anchor.prev, struct buf_head, bf_lru_head);
-		list_del_init(&bf->bf_lru_head);
-		list_del_init(&bf->bf_hash_head);
-		brick->current_count--;
-		list_add(&bf->bf_lru_head, &brick->free_anchor);
+		__lru_free_one(brick);
 	}
 }
 
@@ -203,6 +211,40 @@ out:
 	return status;
 }
 
+static inline struct buf_head *_alloc_bf(struct buf_brick *brick)
+{
+	struct buf_head *bf = kzalloc(sizeof(struct buf_head), GFP_MARS);
+	if (!bf)
+		goto done;
+
+	bf->bf_data = (void*)__get_free_pages(GFP_MARS, brick->backing_order);
+	if (unlikely(!bf->bf_data)) {
+		kfree(bf);
+		bf = NULL;
+	}
+
+done:
+	return bf;
+}
+
+static void __pre_alloc_bf(struct buf_brick *brick, int max)
+{
+	while (max-- > 0) {
+		struct buf_head *bf = _alloc_bf(brick);
+		unsigned long flags;
+
+		if (unlikely(!bf))
+			break;
+
+		traced_lock(&brick->buf_lock, flags);
+
+		list_add(&bf->bf_lru_head, &brick->free_anchor);
+		brick->alloc_count++;
+
+		traced_unlock(&brick->buf_lock, flags);
+	}
+}
+
 ////////////////// own brick / input / output operations //////////////////
 
 static int buf_get_info(struct buf_output *output, struct mars_info *info)
@@ -228,6 +270,10 @@ static int buf_ref_get(struct buf_output *output, struct mars_ref_object *mref)
 		MARS_ERR("illegal: mref has a bio assigend\n");
 	}
 
+	if (unlikely(brick->alloc_count < brick->max_count)) {
+		// grab all memory in one go => avoid memory fragmentation
+		__pre_alloc_bf(brick, brick->max_count - brick->alloc_count);
+	}
 	/* Grab reference.
 	 */
 	_CHECK_SPIN(&mref->ref_count, !=, 0);
@@ -248,51 +294,49 @@ static int buf_ref_get(struct buf_output *output, struct mars_ref_object *mref)
 		mref->ref_len = max_len;
 
 	traced_lock(&brick->buf_lock, flags);
+
+again:
 	bf = hash_find(brick, base_pos);
 	if (bf) {
 		atomic_inc(&brick->hit_count);
 	} else {
 		atomic_inc(&brick->miss_count);
 		MARS_DBG("buf_get() hash nothing found\n");
+		if (list_empty(&brick->free_anchor)) {
+			__lru_free_one(brick);
+		}
 		if (unlikely(list_empty(&brick->free_anchor))) {
-			struct buf_head *test_bf;
-			MARS_DBG("buf_get() alloc new buf_head\n");
+			MARS_INF("alloc new buf_head %d\n", brick->alloc_count);
 
 			traced_unlock(&brick->buf_lock, flags);
 
 			status = -ENOMEM;
-			bf = kzalloc(sizeof(struct buf_head), GFP_MARS);
+			bf = _alloc_bf(brick);
 			if (!bf)
 				goto done;
 
-			bf->bf_data = (void*)__get_free_pages(GFP_MARS, brick->backing_order);
-			if (unlikely(!bf->bf_data))
-				goto err_free;
-
 			traced_lock(&brick->buf_lock, flags);
-
+			
+			list_add(&bf->bf_lru_head, &brick->free_anchor);
 			brick->alloc_count++;
-
+			
 			/* during the open lock, somebody might have raced
 			 * against us at the same base_pos...
 			 */
-			test_bf = hash_find(brick, base_pos);
-			if (unlikely(test_bf)) {
-				brick->alloc_count--;
-				free_buf(brick, bf);
-				bf = test_bf;
-			}
-		} else {
-			bf = container_of(brick->free_anchor.next, struct buf_head, bf_lru_head);
-			list_del(&bf->bf_lru_head);
-			if (unlikely(
-				   !list_empty(&bf->bf_hash_head) ||
-				   !list_empty(&bf->bf_io_pending_anchor) ||
-				   !list_empty(&bf->bf_again_write_pending_anchor)
-				   )) {
-				MARS_ERR("free bf ist member in lists!\n");
-			}
+			goto again;
 		}
+			
+		bf = container_of(brick->free_anchor.next, struct buf_head, bf_lru_head);
+		list_del(&bf->bf_lru_head);
+#if 0
+		if (unlikely(
+			   !list_empty(&bf->bf_hash_head) ||
+			   !list_empty(&bf->bf_io_pending_anchor) ||
+			   !list_empty(&bf->bf_again_write_pending_anchor)
+			   )) {
+			MARS_ERR("free bf ist member in lists!\n");
+		}
+#endif
 		MARS_DBG("buf_get() bf=%p\n", bf);
 
 		bf->bf_brick = brick;
@@ -327,12 +371,11 @@ static int buf_ref_get(struct buf_output *output, struct mars_ref_object *mref)
 
 	return mref->ref_len;
 
-err_free:
-	kfree(bf);
 done:
 	return status;
 }
 
+//#define FAST
 static void __bf_put(struct buf_head *bf)
 {
 	struct buf_brick *brick;
@@ -342,20 +385,30 @@ static void __bf_put(struct buf_head *bf)
 	MARS_DBG("bf=%p bf_count=%d\n", bf, bf_count);
 	CHECK_SPIN(&bf->bf_count, 1);
 
+#ifdef FAST
 	if (!atomic_dec_and_test(&bf->bf_count))
 		return;
-
 	MARS_DBG("ZERO_COUNT\n");
+#endif
 
 	brick = bf->bf_brick;
 
 	traced_lock(&brick->buf_lock, flags);
 
+#ifdef FAST
         /* NOTE: this may race against the above atomic_dec_and_test().
 	 * But in worst case, nothing happens.
 	 * So this race is ok.
 	 */
 	bf_count = atomic_read(&bf->bf_count);
+#else
+	if (!atomic_dec_and_test(&bf->bf_count)) {
+		traced_unlock(&brick->buf_lock, flags);
+		return;
+	}
+	MARS_DBG("ZERO_COUNT\n");
+	bf_count = 0;
+#endif
 	if (likely(bf_count <= 0)) {
 		struct list_head *where = &brick->lru_anchor;
 		if (unlikely(bf_count < 0)) {
@@ -633,7 +686,7 @@ static void _buf_bio_callback(struct bio *bio, int code)
 			MARS_ERR("bad pointers %p != %p\n", mref_a->bfa_bf, bf);
 		}
 #if 1
-		if (!(++count % 100)) {
+		if (!(++count % 1000)) {
 			MARS_ERR("endless loop 1\n");
 		}
 #endif
@@ -664,6 +717,7 @@ static void _buf_bio_callback(struct bio *bio, int code)
 	/* Signal success by calling all callbacks.
 	 * Thanks to the tmp list, we can do this outside the spinlock.
 	 */
+	count = 0;
 	while (!list_empty(&tmp)) {
 		struct buf_mars_ref_aspect *mref_a = container_of(tmp.next, struct buf_mars_ref_aspect, bfc_pending_head);
 		struct mars_ref_object *mref = mref_a->object;
@@ -672,7 +726,7 @@ static void _buf_bio_callback(struct bio *bio, int code)
 			MARS_ERR("bad pointers %p != %p\n", mref_a->bfa_bf, bf);
 		}
 #if 1
-		if (!(++count % 100)) {
+		if (!(++count % 1000)) {
 			MARS_ERR("endless loop 2\n");
 		}
 #endif
@@ -752,7 +806,10 @@ static void buf_ref_io(struct buf_output *output, struct mars_ref_object *mref, 
 
 #if 1
 	if (jiffies - brick->last_jiffies >= 30 * HZ) {
-		MARS_INF("STATISTICS: current=%d alloc=%d io_pending=%d hit=%d (%5.2f%%) miss=%d io=%d\n", brick->current_count, brick->alloc_count, atomic_read(&brick->nr_io_pending), atomic_read(&brick->hit_count), (double)atomic_read(&brick->hit_count) * 100.0 / (double)atomic_read(&brick->miss_count), atomic_read(&brick->miss_count), atomic_read(&brick->io_count));
+		int hit = atomic_read(&brick->hit_count);
+		int miss = atomic_read(&brick->miss_count);
+		long long perc = hit * 100ll * 100ll / (hit + miss);
+		MARS_INF("STATISTICS: current=%d alloc=%d io_pending=%d hit=%d (%lld.%02lld%%) miss=%d io=%d\n", brick->current_count, brick->alloc_count, atomic_read(&brick->nr_io_pending), hit, perc / 100, perc % 100, miss, atomic_read(&brick->io_count));
 		brick->last_jiffies = jiffies;
 	}
 #endif

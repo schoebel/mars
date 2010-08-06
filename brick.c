@@ -488,3 +488,5 @@ void free_generic(struct generic_object *object)
 	kfree(object);
 }
 EXPORT_SYMBOL_GPL(free_generic);
+
+MODULE_LICENSE("GPL");
