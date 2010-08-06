@@ -8,6 +8,7 @@ struct usebuf_mars_ref_aspect {
 	struct bio_vec *bvec;
 	int bvec_offset;
 	int bvec_len;
+	atomic_t subref_count;
 };
 
 struct usebuf_brick {

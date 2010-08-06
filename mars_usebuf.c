@@ -38,6 +38,8 @@ static void _usebuf_copy(struct usebuf_mars_ref_aspect *mref_a, int rw)
 	kunmap_atomic(bio_base, KM_USER0);
 }
 
+static void usebuf_ref_put(struct usebuf_output *output, struct mars_ref_object *origmref);
+
 static void _usebuf_origmref_endio(struct usebuf_output *output, struct mars_ref_object *origmref)
 {
 	struct usebuf_mars_ref_aspect *origmref_a;
@@ -48,15 +50,16 @@ static void _usebuf_origmref_endio(struct usebuf_output *output, struct mars_ref
 		goto out;
 	}
 
-	MARS_DBG("origmref=%p origmref_count=%d error=%d\n", origmref, atomic_read(&origmref->ref_count), origmref->cb_error);
+	MARS_DBG("origmref=%p subref_count=%d error=%d\n", origmref, atomic_read(&origmref_a->subref_count), origmref->cb_error);
 
-	CHECK_SPIN(&origmref->ref_count, 1);
-	if (!atomic_dec_and_test(&origmref->ref_count)) {
+	CHECK_SPIN(&origmref_a->subref_count, 1);
+	if (!atomic_dec_and_test(&origmref_a->subref_count)) {
 		goto out;
 	}
 
 	MARS_DBG("DONE error=%d\n", origmref->cb_error);
 	origmref->cb_ref_endio(origmref);
+	usebuf_ref_put(output, origmref);
 
 out:
 	return;
@@ -107,8 +110,8 @@ static void _usebuf_mref_endio(struct mars_ref_object *mref)
 		_usebuf_copy(mref_a, WRITE);
 
 		// grab extra reference
-		CHECK_SPIN(&origmref->ref_count, 1);
-		atomic_inc(&origmref->ref_count);
+		CHECK_SPIN(&origmref_a->subref_count, 1);
+		atomic_inc(&origmref_a->subref_count);
 
 		GENERIC_INPUT_CALL(input, mars_ref_io, mref, WRITE);
 	} else {
@@ -128,7 +131,7 @@ static void _usebuf_mref_endio(struct mars_ref_object *mref)
 		}
 	}
 
-	CHECK_SPIN(&origmref->ref_count, 1);
+	CHECK_SPIN(&origmref_a->subref_count, 1);
 	CHECK_SPIN(&mref->ref_count, 1);
 
 	status = mref->cb_error;
@@ -145,6 +148,35 @@ out_fatal: // no chance to call callback; this will result in mem leak :(
 }
 
 ////////////////// own brick / input / output operations //////////////////
+
+static int usebuf_get_info(struct usebuf_output *output, struct mars_info *info)
+{
+	struct usebuf_input *input = output->brick->inputs[0];
+	return GENERIC_INPUT_CALL(input, mars_get_info, info);
+}
+
+static int usebuf_ref_get(struct usebuf_output *output, struct mars_ref_object *origmref)
+{
+	MARS_FAT("not callable!\n");
+	return -ENOSYS;
+#if 0
+	struct usebuf_input *input = output->brick->inputs[0];
+	return GENERIC_INPUT_CALL(input, mars_ref_get, mref);
+#endif
+}
+
+static void usebuf_ref_put(struct usebuf_output *output, struct mars_ref_object *origmref)
+{
+	CHECK_SPIN(&origmref->ref_count, 1);
+	if (!atomic_dec_and_test(&origmref->ref_count)) {
+		return;
+	}
+	usebuf_free_mars_ref(origmref);
+#if 0 // NYI
+	struct usebuf_input *input = output->brick->inputs[0];
+	GENERIC_INPUT_CALL(input, mars_ref_put, mref);
+#endif
+}
 
 static void usebuf_ref_io(struct usebuf_output *output, struct mars_ref_object *origmref, int rw)
 {
@@ -170,9 +202,14 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mars_ref_object *
 		goto done;
 	}
 
+	origmref->cb_error = 0;
+
 	// initial refcount: prevent intermediate drops
 	_CHECK_SPIN(&origmref->ref_count, !=, 1);
-	origmref->cb_error = 0;
+	atomic_inc(&origmref->ref_count);
+
+	_CHECK_SPIN(&origmref_a->subref_count, !=, 0);
+	atomic_set(&origmref_a->subref_count, 1);
 
 	start_pos = ((loff_t)bio->bi_sector) << 9; // TODO: make dynamic
 	start_len = bio->bi_size;
@@ -228,10 +265,6 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mars_ref_object *
 			
 			mref->cb_ref_endio = _usebuf_mref_endio;
 
-			// grab extra references
-			CHECK_SPIN(&origmref->ref_count, 1);
-			atomic_inc(&origmref->ref_count);
-			
 			my_rw = rw;
 			if (!(my_rw == READ)) { 
 				if (mref->ref_flags & MARS_REF_UPTODATE) {
@@ -244,6 +277,10 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mars_ref_object *
 				}
 			}
 
+			// grab reference for each sub-IO
+			CHECK_SPIN(&origmref_a->subref_count, 1);
+			atomic_inc(&origmref_a->subref_count);
+			
 			GENERIC_INPUT_CALL(input, mars_ref_io, mref, my_rw);
 			status = mref->cb_error;
 			MARS_DBG("buf_io (status=%d)\n", status);
@@ -269,45 +306,13 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mars_ref_object *
 	}
 
 done_drop:
-	// drop initial refcount
+	// drop initial refcount 
 	if (status < 0)
 		origmref->cb_error = status;
 	_usebuf_origmref_endio(output, origmref);
 
 done:
 	MARS_DBG("status=%d\n", status);
-	return;
-}
-
-static int usebuf_get_info(struct usebuf_output *output, struct mars_info *info)
-{
-	struct usebuf_input *input = output->brick->inputs[0];
-	return GENERIC_INPUT_CALL(input, mars_get_info, info);
-}
-
-static int usebuf_ref_get(struct usebuf_output *output, struct mars_ref_object *origmref)
-{
-	MARS_FAT("not callable!\n");
-	return -ENOSYS;
-#if 0
-	
-	struct usebuf_input *input = output->brick->inputs[0];
-	return GENERIC_INPUT_CALL(input, mars_ref_get, mref);
-#endif
-}
-
-static void usebuf_ref_put(struct usebuf_output *output, struct mars_ref_object *origmref)
-{
-	CHECK_SPIN(&origmref->ref_count, 1);
-	if (!atomic_dec_and_test(&origmref->ref_count)) {
-		return;
-	}
-	//usebuf_free_mars_ref(origmref);
-	MARS_INF("aha\n");
-#if 0 // das ist falsch
-	struct usebuf_input *input = output->brick->inputs[0];
-	GENERIC_INPUT_CALL(input, mars_ref_put, mref);
-#endif
 }
 
 //////////////// object / aspect constructors / destructors ///////////////

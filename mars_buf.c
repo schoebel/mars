@@ -752,7 +752,7 @@ static void buf_ref_io(struct buf_output *output, struct mars_ref_object *mref, 
 
 #if 1
 	if (jiffies - brick->last_jiffies >= 30 * HZ) {
-		MARS_INF("STATISTICS: current_count=%d alloc_count=%d nr_io_pending=%d hit_count=%d miss_count=%d io_count=%d\n", brick->current_count, brick->alloc_count, atomic_read(&brick->nr_io_pending), atomic_read(&brick->hit_count), atomic_read(&brick->miss_count), atomic_read(&brick->io_count));
+		MARS_INF("STATISTICS: current=%d alloc=%d io_pending=%d hit=%d (%5.2f%%) miss=%d io=%d\n", brick->current_count, brick->alloc_count, atomic_read(&brick->nr_io_pending), atomic_read(&brick->hit_count), (double)atomic_read(&brick->hit_count) * 100.0 / (double)atomic_read(&brick->miss_count), atomic_read(&brick->miss_count), atomic_read(&brick->io_count));
 		brick->last_jiffies = jiffies;
 	}
 #endif
