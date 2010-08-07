@@ -120,9 +120,9 @@ void make_test_instance(void)
 
 	buf_brick = brick(&buf_brick_type);
 	_buf_brick = (void*)buf_brick;
-	//_buf_brick->backing_order = 0;
+	_buf_brick->backing_order = 0;
 	//_buf_brick->backing_order = 4;
-	_buf_brick->backing_order = 7;
+	//_buf_brick->backing_order = 7;
 	_buf_brick->backing_size = PAGE_SIZE << _buf_brick->backing_order;
 	_buf_brick->max_count = MEM >> _buf_brick->backing_order;
 
@@ -159,7 +159,7 @@ void make_test_instance(void)
 	(void)test_endio;
 	connect(last, device_brick->outputs[0]);
 #endif
-	msleep(1000);
+	msleep(2000);
 	MARS_INF("------------- DONE --------------\n");
 }
 

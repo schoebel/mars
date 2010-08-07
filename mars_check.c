@@ -33,7 +33,7 @@ static void check_buf_endio(struct mars_ref_object *mref)
 		return;
 	}
 
-	traced_lock(&output->lock, flags);
+	traced_lock(&output->check_lock, flags);
 
 	if (mref_a->call_count-- < 0) {
 		mref_a->call_count = 0;
@@ -44,7 +44,7 @@ static void check_buf_endio(struct mars_ref_object *mref)
 	}
 	list_del_init(&mref_a->mref_head);
 
-	traced_unlock(&output->lock, flags);
+	traced_unlock(&output->check_lock, flags);
 
 	mref->cb_private = mref_a->old_private;
 	mref_a->last_jiffies = jiffies;
@@ -61,14 +61,14 @@ static void dump_mem(void *data, int len)
 		unsigned char byte = ((unsigned char*)data)[i];
 		if (!(i % 8)) {
 			if (tmp != buf) {
-				MARS_INF("%4d: %s\n", i, buf);
+				printk("%4d: %s\n", i, buf);
 			}
 			tmp = buf;
 		}
 		tmp += sprintf(tmp, " %02x", byte);
 	}
 	if (tmp != buf) {
-		MARS_INF("%4d: %s\n", i, buf);
+		printk("%4d: %s\n", i, buf);
 	}
 }
 
@@ -83,10 +83,12 @@ static int check_watchdog(void *data)
 
 		msleep_interruptible(5000);
 
-		traced_lock(&output->lock, flags);
+		traced_lock(&output->check_lock, flags);
 
 		now = jiffies;
 		for (h = output->mref_anchor.next; h != &output->mref_anchor; h = h->next) {
+			static int limit = 1;
+			const int timeout = 30;
 			struct check_mars_ref_aspect *mref_a;
 			struct mars_ref_object *mref;
 			unsigned long elapsed;
@@ -94,12 +96,12 @@ static int check_watchdog(void *data)
 			mref_a = container_of(h, struct check_mars_ref_aspect, mref_head);
 			mref = mref_a->object;
 			elapsed = now - mref_a->last_jiffies;
-			if (elapsed > 10 * HZ) {
+			if (elapsed > timeout * HZ && limit-- > 0) {
 				struct generic_object_layout *object_layout;
 				int i;
 				mref_a->last_jiffies = now + 600 * HZ;
 				MARS_ERR("================================\n");
-				MARS_ERR("instance %d: mref %p callback is missing for more than 10 seconds.\n", output->instance_nr, mref);
+				MARS_ERR("instance %d: mref %p callback is missing for more than %d seconds.\n", output->instance_nr, mref, timeout);
 				object_layout = (void*)mref->object_layout;
 				//dump_mem(mref, object_layout->object_size);
 				for (i = 0; i < object_layout->aspect_count; i++) {
@@ -117,7 +119,7 @@ static int check_watchdog(void *data)
 				MARS_ERR("================================\n");
 			}
 		}
-		traced_unlock(&output->lock, flags);
+		traced_unlock(&output->check_lock, flags);
 	}
 	return 0;
 }
@@ -154,7 +156,7 @@ static void check_ref_io(struct check_output *output, struct mars_ref_object *mr
 		return;
 	}
 
-	traced_lock(&output->lock, flags);
+	traced_lock(&output->check_lock, flags);
 	if (mref_a->call_count++ > 1) {
 		mref_a->call_count = 1;
 		MARS_ERR("instance %d/%s: multiple parallel calls on %p\n", output->instance_nr, input->connect->type->type_name, mref);
@@ -171,7 +173,7 @@ static void check_ref_io(struct check_output *output, struct mars_ref_object *mr
 		mref->cb_private = output;
 	}
 	mref_a->last_jiffies = jiffies;
-	traced_unlock(&output->lock, flags);
+	traced_unlock(&output->check_lock, flags);
 
 	GENERIC_INPUT_CALL(input, mars_ref_io, mref, rw);
 }
@@ -200,7 +202,7 @@ static int check_output_construct(struct check_output *output)
 	static int count = 0;
 	struct task_struct *watchdog;
 
-	spin_lock_init(&output->lock);
+	spin_lock_init(&output->check_lock);
 	output->instance_nr = ++count;
 	INIT_LIST_HEAD(&output->mio_anchor);
 	INIT_LIST_HEAD(&output->mref_anchor);

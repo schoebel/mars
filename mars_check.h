@@ -21,7 +21,7 @@ struct check_input {
 
 struct check_output {
 	MARS_OUTPUT(check);
-	spinlock_t lock;
+	spinlock_t check_lock;
 	int instance_nr;
 	struct task_struct *watchdog;
 	struct list_head mio_anchor;

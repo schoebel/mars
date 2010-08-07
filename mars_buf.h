@@ -22,16 +22,16 @@ struct buf_brick {
 	int max_count;
 	
 	/* internals */
-	int current_count;
 	int alloc_count;
+	int hashed_count;
 	atomic_t nr_io_pending;
 	struct generic_object_layout mref_object_layout;
 
-	spinlock_t buf_lock;
+	spinlock_t brick_lock;
 
 	// lists for caching
 	struct list_head free_anchor;  // members are not hashed
-	struct list_head lru_anchor;   // members are hashed
+	struct list_head lru_anchor;   // members are hashed and not in use
 	struct list_head cache_anchors[MARS_BUF_HASH_MAX]; // hash table
 
 	// for creation of bios
@@ -57,8 +57,8 @@ struct buf_output {
 MARS_TYPES(buf);
 
 struct buf_head {
-	struct buf_brick *bf_brick;
 	void             *bf_data;
+	struct buf_brick *bf_brick;
 	loff_t           bf_pos;
 	unsigned int     bf_base_index;
 	int              bf_flags;
