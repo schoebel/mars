@@ -518,29 +518,61 @@ GENERIC_OBJECT_FUNCTIONS(generic);
 
 #ifdef CONFIG_DEBUG_SPINLOCK
 
-# define LOCK_CHECK(OP)					\
-	({						\
-		if (atomic_read(&current->lock_count)) {	\
+# define LOCK_CHECK(OP)							\
+	({								\
+		if (atomic_read(&current->lock_count)) {			\
 			BRICK_ERR("never call " #OP "() with a spinlock held.\n"); \
-		}					\
+		}							\
 	})
 
-# define traced_lock(spinlock,flags)			\
-	do {						\
-		if (atomic_read(&current->lock_count)) {	\
+# define traced_lock(spinlock,flags)					\
+	do {								\
+		if (atomic_read(&current->lock_count)) {			\
 			BRICK_ERR("please do not nest spinlocks at line %d, reorganize your code.\n", __LINE__); \
-		}					\
-		atomic_inc(&current->lock_count);	\
-		/*spin_lock_irqsave(spinlock,flags);*/	\
-		(void)flags;				\
-		spin_lock(spinlock);			\
+		}							\
+		atomic_inc(&current->lock_count);			\
+		(void)flags;						\
+		spin_lock(spinlock);					\
 	} while (0)
 
-# define traced_unlock(spinlock,flags)				\
-	do {							\
-		/*spin_unlock_irqrestore(spinlock,flags);*/	\
-		spin_unlock(spinlock);				\
-		atomic_dec(&current->lock_count);		\
+# define traced_unlock(spinlock,flags)					\
+	do {								\
+		spin_unlock(spinlock);					\
+		atomic_dec(&current->lock_count);			\
+	} while (0)
+
+# define traced_readlock(spinlock,flags)				\
+	do {								\
+		if (atomic_read(&current->lock_count)) {			\
+			BRICK_ERR("please do not nest spinlocks at line %d, reorganize your code.\n", __LINE__); \
+		}							\
+		atomic_inc(&current->lock_count);			\
+		(void)flags;						\
+		read_lock(spinlock);					\
+	} while (0)
+
+# define traced_readunlock(spinlock,flags)				\
+	do {								\
+		/*spin_unlock_irqrestore(spinlock,flags);*/		\
+		read_unlock(spinlock);					\
+		atomic_dec(&current->lock_count);			\
+	} while (0)
+
+# define traced_writelock(spinlock,flags)				\
+	do {								\
+		if (atomic_read(&current->lock_count)) {			\
+			BRICK_ERR("please do not nest spinlocks at line %d, reorganize your code.\n", __LINE__); \
+		}							\
+		atomic_inc(&current->lock_count);			\
+		(void)flags;						\
+		read_lock(spinlock);					\
+	} while (0)
+
+# define traced_writeunlock(spinlock,flags)				\
+	do {								\
+		/*spin_unlock_irqrestore(spinlock,flags);*/		\
+		read_unlock(spinlock);					\
+		atomic_dec(&current->lock_count);			\
 	} while (0)
 
 #else
@@ -548,6 +580,10 @@ GENERIC_OBJECT_FUNCTIONS(generic);
 # define LOCK_CHECK(OP) 0
 # define traced_lock(spinlock,flags)   spin_lock_irqsave(spinlock,flags)
 # define traced_unlock(spinlock,flags) spin_unlock_irqrestore(spinlock,flags)
+# define traced_readlock(spinlock,flags)   read_lock_irqsave(spinlock,flags)
+# define traced_readunlock(spinlock,flags) read_unlock_irqrestore(spinlock,flags)
+# define traced_writelock(spinlock,flags)   write_lock_irqsave(spinlock,flags)
+# define traced_writeunlock(spinlock,flags) write_unlock_irqrestore(spinlock,flags)
 
 #endif
 #endif

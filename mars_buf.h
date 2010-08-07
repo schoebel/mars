@@ -9,8 +9,8 @@
 
 struct buf_mars_ref_aspect {
 	GENERIC_ASPECT(mars_ref);
-	struct buf_head *bfa_bf;
-	struct list_head bfc_pending_head;
+	struct buf_head *rfa_bf;
+	struct list_head rfa_pending_head;
 	struct list_head tmp_head;
 };
 
@@ -22,12 +22,11 @@ struct buf_brick {
 	int max_count;
 	
 	/* internals */
+	spinlock_t brick_lock;
 	int alloc_count;
 	int hashed_count;
 	atomic_t nr_io_pending;
 	struct generic_object_layout mref_object_layout;
-
-	spinlock_t brick_lock;
 
 	// lists for caching
 	struct list_head free_anchor;  // members are not hashed
@@ -58,20 +57,21 @@ MARS_TYPES(buf);
 
 struct buf_head {
 	void             *bf_data;
+	spinlock_t        bf_lock;
 	struct buf_brick *bf_brick;
-	loff_t           bf_pos;
-	unsigned int     bf_base_index;
-	int              bf_flags;
-	atomic_t         bf_count;
-	int              bf_bio_status;
-	atomic_t         bf_bio_count;
+	loff_t            bf_pos;
+	unsigned int      bf_base_index;
+	int               bf_flags;
+	atomic_t          bf_count;
+	int               bf_bio_status;
+	atomic_t          bf_bio_count;
 	// lists for caching
 	//struct list_head bf_mref_anchor; // all current mref members
-	struct list_head bf_lru_head;
-	struct list_head bf_hash_head;
+	struct list_head  bf_lru_head;
+	struct list_head  bf_hash_head;
 	// lists for IO
-	struct list_head bf_io_pending_anchor;
-	struct list_head bf_again_write_pending_anchor;
+	struct list_head  bf_io_pending_anchor;
+	struct list_head  bf_postpone_anchor;
 };
 
 #endif
