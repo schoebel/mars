@@ -22,7 +22,7 @@
 
 ///////////////////////// own helper functions ////////////////////////
 
-static inline int buf_hash_fn(struct buf_brick *brick, unsigned int base_index)
+static inline int buf_hash_fn(unsigned int base_index)
 {
 	// simple and stupid
 	unsigned int tmp;
@@ -35,7 +35,7 @@ static inline int buf_hash_fn(struct buf_brick *brick, unsigned int base_index)
 static struct buf_head *hash_find(struct buf_brick *brick, unsigned int base_index)
 {
 	
-	int hash = buf_hash_fn(brick, base_index);
+	int hash = buf_hash_fn(base_index);
 	struct list_head *start = &brick->cache_anchors[hash];
 	struct list_head *tmp;
 	struct buf_head *res;
@@ -64,7 +64,7 @@ static struct buf_head *hash_find(struct buf_brick *brick, unsigned int base_ind
 
 static inline void hash_insert(struct buf_brick *brick, struct buf_head *elem)
 {
-	int hash = buf_hash_fn(brick, elem->bf_base_index);
+	int hash = buf_hash_fn(elem->bf_base_index);
 	struct list_head *start = &brick->cache_anchors[hash];
 	list_add(&elem->bf_hash_head, start);
 }
