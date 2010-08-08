@@ -99,6 +99,16 @@ struct generic_aspect {
 	GENERIC_ASPECT(generic);
 };
 
+#define GENERIC_CALLBACK(BRICK)						\
+	void (*cb_fn)(struct BRICK##_callback *cb);			\
+	void  *cb_private;						\
+	int    cb_error;						\
+	struct generic_callback *cb_prev;				\
+
+struct generic_callback {
+	GENERIC_CALLBACK(generic);
+};
+
 /////////////////////////////////////////////////////////////////////////
 
 // definitions for generic bricks

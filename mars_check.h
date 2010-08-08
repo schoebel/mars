@@ -9,8 +9,8 @@ struct check_mars_ref_aspect {
 #ifdef CHECK_LOCK
 	struct list_head mref_head;
 #endif
-	void (*old_buf_endio)(struct mars_ref_object *mref);
-	void *old_private;
+	struct generic_callback cb;
+	struct check_output *output;
 	unsigned long last_jiffies;
 	int call_count;
 };

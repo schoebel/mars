@@ -12,6 +12,7 @@ struct buf_mars_ref_aspect {
 	struct buf_head *rfa_bf;
 	struct list_head rfa_pending_head;
 	struct list_head tmp_head;
+	struct generic_callback cb;
 };
 
 struct buf_brick {

@@ -31,15 +31,16 @@ static int device_minor = 0;
 
 /* callback
  */
-static void _if_device_endio(struct mars_ref_object *mref)
+static void _if_device_endio(struct generic_callback *cb)
 {
+	struct mars_ref_object *mref = cb->cb_private;
 	struct bio *bio = mref->orig_bio;
 	int error;
 	if (unlikely(!bio)) {
 		MARS_FAT("callback with no bio called. something is very wrong here!\n");
 		return;
 	}
-	error = mref->cb_error;
+	error = cb->cb_error;
 	if (unlikely(error < 0)) {
 		MARS_ERR("NYI: error=%d RETRY LOGIC %u\n", error, bio->bi_size);
 	}
@@ -57,6 +58,8 @@ static int if_device_make_request(struct request_queue *q, struct bio *bio)
 	struct if_device_input *input = q->queuedata;
         struct if_device_output *output;
 	struct mars_ref_object *mref = NULL;
+	struct if_device_mars_ref_aspect *mref_a;
+	struct generic_callback *cb;
 	int rw = bio->bi_rw & 1;
         int error = -ENOSYS;
 
@@ -81,8 +84,17 @@ static int if_device_make_request(struct request_queue *q, struct bio *bio)
 	if (unlikely(!mref))
 		goto err;
 
+	mref_a = if_device_mars_ref_get_aspect(output, mref);
+	if (unlikely(!mref_a))
+		goto err;
+	cb = &mref_a->cb;
+	cb->cb_fn = _if_device_endio;
+	cb->cb_private = mref;
+	cb->cb_error = 0;
+	cb->cb_prev = NULL;
+	mref->ref_cb = cb;
+
 	mars_ref_attach_bio(mref, bio);
-	mref->cb_ref_endio = _if_device_endio;
 
 	GENERIC_OUTPUT_CALL(output, mars_ref_io, mref, rw);
 

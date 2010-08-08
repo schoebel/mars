@@ -20,11 +20,12 @@
 
 ///////////////////////// own helper functions ////////////////////////
 
-static void check_buf_endio(struct mars_ref_object *mref)
+static void check_buf_endio(struct generic_callback *cb)
 {
-	struct check_output *output = mref->cb_private;
+	struct check_mars_ref_aspect *mref_a = cb->cb_private;
+	struct mars_ref_object *mref = mref_a->object;
+	struct check_output *output = mref_a->output;
 	struct check_input *input = output->brick->inputs[0];
-	struct check_mars_ref_aspect *mref_a = check_mars_ref_get_aspect(output, mref);
 	unsigned long flags;
 
 	if (!mref_a) {
@@ -49,10 +50,14 @@ static void check_buf_endio(struct mars_ref_object *mref)
 	traced_unlock(&output->check_lock, flags);
 #endif
 
-	mref->cb_private = mref_a->old_private;
 	mref_a->last_jiffies = jiffies;
-	mref_a->old_buf_endio(mref);
-	mref->cb_private = output;
+
+	cb = cb->cb_prev;
+	if (!cb) {
+		MARS_FAT("cannot get chain callback\n");
+		return;
+	}
+	cb->cb_fn(cb);
 }
 
 static void dump_mem(void *data, int len)
@@ -154,6 +159,7 @@ static void check_ref_io(struct check_output *output, struct mars_ref_object *mr
 {
 	struct check_input *input = output->brick->inputs[0];
 	struct check_mars_ref_aspect *mref_a = check_mars_ref_get_aspect(output, mref);
+	struct generic_callback *cb = &mref_a->cb;
 	unsigned long flags;
 
 	if (!mref_a) {
@@ -177,11 +183,13 @@ static void check_ref_io(struct check_output *output, struct mars_ref_object *mr
 	traced_unlock(&output->check_lock, flags);
 #endif
 
-	if (mref->cb_ref_endio != check_buf_endio) {
-		mref_a->old_buf_endio = mref->cb_ref_endio;
-		mref->cb_ref_endio = check_buf_endio;
-		mref_a->old_private = mref->cb_private;
-		mref->cb_private = output;
+	if (mref->ref_cb != cb) {
+		cb->cb_fn = check_buf_endio;
+		cb->cb_private = mref_a;
+		cb->cb_error = 0;
+		cb->cb_prev = mref->ref_cb;
+		mref_a->output = output;
+		mref->ref_cb = cb;
 	}
 	mref_a->last_jiffies = jiffies;
 
@@ -196,8 +204,6 @@ static int check_mars_ref_aspect_init_fn(struct generic_aspect *_ini, void *_ini
 #ifdef CHECK_LOCK
 	INIT_LIST_HEAD(&ini->mref_head);
 #endif
-	ini->old_buf_endio = NULL;
-	ini->old_private = NULL;
 	ini->last_jiffies = jiffies;
 	ini->call_count = 0;
 	return 0;

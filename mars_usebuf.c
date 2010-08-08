@@ -43,6 +43,7 @@ static void usebuf_ref_put(struct usebuf_output *output, struct mars_ref_object 
 static void _usebuf_origmref_endio(struct usebuf_output *output, struct mars_ref_object *origmref)
 {
 	struct usebuf_mars_ref_aspect *origmref_a;
+	struct generic_callback *cb;
 
 	origmref_a = usebuf_mars_ref_get_aspect(output, origmref);
 	if (unlikely(!origmref_a)) {
@@ -57,30 +58,37 @@ static void _usebuf_origmref_endio(struct usebuf_output *output, struct mars_ref
 		goto out;
 	}
 
-	MARS_DBG("DONE error=%d\n", origmref->cb_error);
-	origmref->cb_ref_endio(origmref);
+	cb = origmref->ref_cb;
+	MARS_DBG("DONE error=%d\n", cb->cb_error);
+	cb->cb_fn(cb);
 	usebuf_ref_put(output, origmref);
 
 out:
 	return;
 }
 
-static void _usebuf_mref_endio(struct mars_ref_object *mref)
+static void _usebuf_mref_endio(struct generic_callback *cb)
 {
-	struct usebuf_output *output;
 	struct usebuf_mars_ref_aspect *mref_a;
+	struct mars_ref_object *mref;
+	struct usebuf_output *output;
 	struct mars_ref_object *origmref;
 	struct usebuf_mars_ref_aspect *origmref_a;
 	int status;
 
-	output = mref->cb_private;
-	if (unlikely(!output)) {
-		MARS_FAT("bad argument output\n");
-		goto out_fatal;
-	}
-	mref_a = usebuf_mars_ref_get_aspect(output, mref);
+	mref_a = cb->cb_private;
 	if (unlikely(!mref_a)) {
 		MARS_FAT("cannot get aspect\n");
+		goto out_fatal;
+	}
+	mref = mref_a->object;
+	if (unlikely(!mref)) {
+		MARS_FAT("cannot get mref\n");
+		goto out_fatal;
+	}
+	output = mref_a->output;
+	if (unlikely(!output)) {
+		MARS_FAT("bad argument output\n");
 		goto out_fatal;
 	}
 	origmref = mref_a->origmref;
@@ -96,9 +104,8 @@ static void _usebuf_mref_endio(struct mars_ref_object *mref)
 		goto out_err;
 	}
 
-	
 	// check if we have an initial read => now start the final write
-	if (mref->ref_may_write != READ && mref->ref_rw == READ && mref->cb_error >= 0) {
+	if (mref->ref_may_write != READ && mref->ref_rw == READ && cb->cb_error >= 0) {
 		struct usebuf_input *input = output->brick->inputs[0];
 
 		status = -EIO;
@@ -116,7 +123,7 @@ static void _usebuf_mref_endio(struct mars_ref_object *mref)
 		GENERIC_INPUT_CALL(input, mars_ref_io, mref, WRITE);
 	} else {
 		// finalize the read or final write
-		if (likely(!mref->cb_error)) {
+		if (likely(!cb->cb_error)) {
 			struct bio *bio = origmref->orig_bio;
 			int direction;
 			status = -EINVAL;
@@ -134,11 +141,11 @@ static void _usebuf_mref_endio(struct mars_ref_object *mref)
 	CHECK_ATOMIC(&origmref_a->subref_count, 1);
 	CHECK_ATOMIC(&mref->ref_count, 1);
 
-	status = mref->cb_error;
+	status = cb->cb_error;
 
 out_err:	
 	if (status < 0) {
-		origmref->cb_error = status;
+		origmref->ref_cb->cb_error = status;
 		MARS_ERR("error %d\n", status);
 	}
 	_usebuf_origmref_endio(output, origmref);
@@ -202,7 +209,7 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mars_ref_object *
 		goto done;
 	}
 
-	origmref->cb_error = 0;
+	origmref->ref_cb->cb_error = 0;
 
 	// initial refcount: prevent intermediate drops
 	_CHECK_ATOMIC(&origmref->ref_count, !=, 1);
@@ -221,6 +228,7 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mars_ref_object *
 		while (this_len > 0) {
 			struct mars_ref_object *mref;
 			struct usebuf_mars_ref_aspect *mref_a;
+			struct generic_callback *cb;
 			int my_len;
 			int my_rw;
 
@@ -234,7 +242,6 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mars_ref_object *
 			mref->ref_pos = start_pos;
 			mref->ref_len = this_len;
 			mref->ref_may_write = rw;
-			mref->cb_private = output;
 			
 			status = GENERIC_INPUT_CALL(input, mars_ref_get, mref);
 			if (unlikely(status < 0)) {
@@ -256,14 +263,20 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mars_ref_object *
 			mref_a->bvec_offset = bvec->bv_offset + my_offset;
 			mref_a->bvec_len = my_len;
 
+			status = 0;
 			if ((mref->ref_flags & MARS_REF_UPTODATE) && rw == READ) {
 				// cache hit: immediately signal success
 				_usebuf_copy(mref_a, READ);
-				status = 0;
 				goto put;
 			}
 			
-			mref->cb_ref_endio = _usebuf_mref_endio;
+			cb = &mref_a->cb;
+			cb->cb_fn = _usebuf_mref_endio;
+			cb->cb_private = mref_a;
+			cb->cb_error = 0;
+			cb->cb_prev = NULL;
+			mref_a->output = output;
+			mref->ref_cb = cb;
 
 			my_rw = rw;
 			if (!(my_rw == READ)) { 
@@ -282,8 +295,6 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mars_ref_object *
 			atomic_inc(&origmref_a->subref_count);
 			
 			GENERIC_INPUT_CALL(input, mars_ref_io, mref, my_rw);
-			status = mref->cb_error;
-			MARS_DBG("buf_io (status=%d)\n", status);
 
 		put:
 			GENERIC_INPUT_CALL(input, mars_ref_put, mref);
@@ -297,18 +308,18 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mars_ref_object *
 			my_offset += my_len;
 		}
 		if (unlikely(this_len != 0)) {
-			MARS_ERR("bad internal length %d\n", this_len);
+			MARS_ERR("bad internal length %d (status=%d)\n", this_len, status);
 		}
 	}
 
 	if (unlikely(start_len != 0 && !status)) {
-		MARS_ERR("length mismatch %d\n", start_len);
+		MARS_ERR("length mismatch %d (status=%d)\n", start_len, status);
 	}
 
 done_drop:
 	// drop initial refcount 
 	if (status < 0)
-		origmref->cb_error = status;
+		origmref->ref_cb->cb_error = status;
 	_usebuf_origmref_endio(output, origmref);
 
 done:

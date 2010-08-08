@@ -498,10 +498,13 @@ static void buf_ref_put(struct buf_output *output, struct mars_ref_object *mref)
 	_buf_ref_put(mref_a);
 }
 
-static void _buf_endio(struct mars_ref_object *mref)
+static void _buf_endio(struct generic_callback *cb)
 {
-	int error = mref->cb_error;
+	struct buf_mars_ref_aspect *mref_a = cb->cb_private;
+	struct mars_ref_object *mref = mref_a->object;
+	int error = cb->cb_error;
 	struct bio *bio = mref->orig_bio;
+
 	MARS_DBG("_buf_endio() mref=%p bio=%p\n", mref, bio);
 	if (bio) {
 		if (error < 0) {
@@ -565,6 +568,10 @@ static int _buf_make_bios(struct buf_brick *brick, struct buf_head *bf, void *st
 
 		list_add(&mref_a->tmp_head, &tmp);
 		mref_a->rfa_bf = bf;
+		mref_a->cb.cb_fn = _buf_endio;
+		mref_a->cb.cb_private = mref_a;
+		mref_a->cb.cb_error = 0;
+		mref_a->cb.cb_prev = NULL;
 
 		len = make_bio(brick, &bio, start_data, start_pos, start_len);
 		if (unlikely(len <= 0 || !bio)) {
@@ -575,7 +582,7 @@ static int _buf_make_bios(struct buf_brick *brick, struct buf_head *bf, void *st
 		bio->bi_private = mref_a;
 		bio->bi_end_io = _buf_bio_callback;
 		bio->bi_rw = rw;
-		mref->cb_ref_endio = _buf_endio;
+		mref->ref_cb = &mref_a->cb;
 
 		mars_ref_attach_bio(mref, bio);
 
@@ -597,14 +604,17 @@ static int _buf_make_bios(struct buf_brick *brick, struct buf_head *bf, void *st
 	while (!list_empty(&tmp)) {
 		struct mars_ref_object *mref;
 		struct buf_mars_ref_aspect *mref_a;
+		struct generic_callback *cb;
+
 		mref_a = container_of(tmp.next, struct buf_mars_ref_aspect, tmp_head);
 		mref = mref_a->object;
 		list_del_init(&mref_a->tmp_head);
 		iters++;
 
+		cb = mref->ref_cb;
 		if (status < 0) { // clean up
-			mref->cb_error = status;
-			mref->cb_ref_endio(mref);
+			cb->cb_error = status;
+			cb->cb_fn(cb);
 #if 0
 			if (mref->orig_bio)
 				bio_put(mref->orig_bio);
@@ -623,13 +633,13 @@ static int _buf_make_bios(struct buf_brick *brick, struct buf_head *bf, void *st
 		GENERIC_INPUT_CALL(input, mars_ref_io, mref, rw);
 #else
 		// fake IO for testing
-		mref->cb_error = status;
-		mref->cb_ref_endio(mref);
+		cb->cb_error = status;
+		cb->cb_fn(cb);
 #if 0
 		if (mref->orig_bio)
 			bio_put(mref->orig_bio);
 #endif
-		buf_free_mars_buf(mref);
+		buf_free_mars_ref(mref);
 #endif
 	}
 #if 1
@@ -750,6 +760,7 @@ static void _buf_bio_callback(struct bio *bio, int code)
 	while (!list_empty(&tmp)) {
 		struct buf_mars_ref_aspect *mref_a = container_of(tmp.next, struct buf_mars_ref_aspect, rfa_pending_head);
 		struct mars_ref_object *mref = mref_a->object;
+		struct generic_callback *cb = mref->ref_cb;
 
 		if (mref_a->rfa_bf != bf) {
 			MARS_ERR("bad pointers %p != %p\n", mref_a->rfa_bf, bf);
@@ -767,11 +778,11 @@ static void _buf_bio_callback(struct bio *bio, int code)
 
 		// update infos for callbacks, they may inspect it.
 		mref->ref_flags = bf->bf_flags;
-		mref->cb_error = bf->bf_bio_status;
+		cb->cb_error = bf->bf_bio_status;
 
 		atomic_dec(&brick->nr_io_pending);
 
-		mref->cb_ref_endio(mref);
+		cb->cb_fn(cb);
 
 		_buf_ref_put(mref_a);
 	}
@@ -788,6 +799,7 @@ static void buf_ref_io(struct buf_output *output, struct mars_ref_object *mref, 
 {
 	struct buf_brick *brick = output->brick;
 	struct buf_mars_ref_aspect *mref_a;
+	struct generic_callback *cb;
 	struct buf_head *bf;
 	void  *start_data = NULL;
 	loff_t start_pos = 0;
@@ -893,7 +905,7 @@ static void buf_ref_io(struct buf_output *output, struct mars_ref_object *mref, 
 	}
 
 	mref->ref_flags = bf->bf_flags;
-	mref->cb_error = bf->bf_bio_status;
+	mref->ref_cb->cb_error = bf->bf_bio_status;
 
 	if (likely(delay)) {
 		atomic_inc(&brick->nr_io_pending);
@@ -926,9 +938,10 @@ already_done:
 	traced_unlock(&bf->bf_lock, flags);
 
 callback:
-	mref->cb_error = status;
+	cb = mref->ref_cb;
+	cb->cb_error = status;
 
-	mref->cb_ref_endio(mref);
+	cb->cb_fn(cb);
 
 no_callback:
 	if (!delay) {

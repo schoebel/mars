@@ -123,7 +123,7 @@ static void write_aops(struct device_sio_output *output, struct mars_ref_object 
 fail:
 	mutex_unlock(&mapping->host->i_mutex);
 
-	mref->cb_error = ret;
+	mref->ref_cb->cb_error = ret;
 
 #if 1
 	blk_run_address_space(mapping);
@@ -214,7 +214,7 @@ static void read_aops(struct device_sio_output *output, struct mars_ref_object *
 	if (unlikely(bio->bi_size)) {
 		MARS_ERR("unhandled rest size %d on bio %p\n", bio->bi_size, bio);
 	}
-	mref->cb_error = ret;
+	mref->ref_cb->cb_error = ret;
 }
 
 static void sync_file(struct device_sio_output *output)
@@ -233,6 +233,7 @@ static void sync_file(struct device_sio_output *output)
 static void device_sio_ref_io(struct device_sio_output *output, struct mars_ref_object *mref, int rw)
 {
 	struct bio *bio = mref->orig_bio;
+	struct generic_callback *cb = mref->ref_cb;
 	bool barrier = (rw != READ && bio_rw_flagged(bio, BIO_RW_BARRIER));
 	int test;
 	
@@ -242,7 +243,7 @@ static void device_sio_ref_io(struct device_sio_output *output, struct mars_ref_
 	}
 
 	if (unlikely(!output->filp)) {
-		mref->cb_error = -EINVAL;
+		cb->cb_error = -EINVAL;
 		goto done;
 	}
 
@@ -256,11 +257,11 @@ static void device_sio_ref_io(struct device_sio_output *output, struct mars_ref_
 
 done:
 #if 1
-	if (mref->cb_error < 0)
-		MARS_ERR("IO error %d\n", mref->cb_error);
+	if (cb->cb_error < 0)
+		MARS_ERR("IO error %d\n", cb->cb_error);
 #endif
 
-	mref->cb_ref_endio(mref);
+	cb->cb_fn(cb);
 
 	test = atomic_read(&mref->ref_count);
 	if (test <= 0) {
@@ -278,6 +279,7 @@ static void device_sio_mars_queue(struct device_sio_output *output, struct mars_
 	int index = 0;
 	struct sio_threadinfo *tinfo;
 	struct device_sio_mars_ref_aspect *mref_a;
+	struct generic_callback *cb = mref->ref_cb;
 	unsigned long flags;
 
 	if (rw == READ) {
@@ -289,8 +291,8 @@ static void device_sio_mars_queue(struct device_sio_output *output, struct mars_
 	mref_a = device_sio_mars_ref_get_aspect(output, mref);
 	if (unlikely(!mref_a)) {
 		MARS_FAT("cannot get aspect\n");
-		mref->cb_error = -EINVAL;
-		mref->cb_ref_endio(mref);
+		cb->cb_error = -EINVAL;
+		cb->cb_fn(cb);
 		return;
 	}
 	tinfo = &output->tinfo[index];

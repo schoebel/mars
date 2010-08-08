@@ -68,9 +68,7 @@ struct mars_ref_object_layout {
 	 * callers (but not decrementable! use ref_put()) */		\
 	atomic_t ref_count;						\
         /* callback part */						\
-	int    cb_error;						\
-	void  *cb_private;						\
-	void (*cb_ref_endio)(struct mars_ref_object *mref);		\
+	struct generic_callback *ref_cb;				\
 
 struct mars_ref_object {
 	MARS_REF_OBJECT(mars_ref);
@@ -140,6 +138,10 @@ struct BRICK##_input_type {					        \
 									\
 struct BRICK##_output_type {					        \
 	GENERIC_OUTPUT_TYPE(BRICK);                                     \
+};									\
+									\
+struct BRICK##_callback {					        \
+	GENERIC_CALLBACK(BRICK);					\
 };									\
 									\
 GENERIC_MAKE_FUNCTIONS(BRICK);					        \

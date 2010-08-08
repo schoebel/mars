@@ -28,9 +28,9 @@ static struct generic_brick *buf_brick = NULL;
 static struct buf_brick *_buf_brick = NULL;
 static struct generic_brick *device_brick = NULL;
 
-static void test_endio(struct mars_ref_object *mref)
+static void test_endio(struct generic_callback *cb)
 {
-	MARS_DBG("test_endio() called! error=%d\n", mref->cb_error);
+	MARS_DBG("test_endio() called! error=%d\n", cb->cb_error);
 }
 
 void make_test_instance(void)
@@ -146,10 +146,13 @@ void make_test_instance(void)
 			status = GENERIC_OUTPUT_CALL(output, mars_ref_get, mref);
 			MARS_DBG("buf_get (status=%d)\n", status);
 			if (true) {
-				mref->cb_ref_endio = test_endio;
+				struct generic_callback cb = {
+					.cb_fn = test_endio,
+				};
+				mref->ref_cb = &cb;
 
 				GENERIC_OUTPUT_CALL(output, mars_ref_io, mref, READ);
-				status = mref->cb_error;
+				status = cb.cb_error;
 				MARS_DBG("buf_io (status=%d)\n", status);
 			}
 			GENERIC_OUTPUT_CALL(output, mars_ref_put, mref);

@@ -7,6 +7,7 @@
 
 struct if_device_mars_ref_aspect {
 	GENERIC_ASPECT(mars_ref);
+	struct generic_callback cb;
 };
 
 struct if_device_brick {

@@ -5,6 +5,8 @@
 struct usebuf_mars_ref_aspect {
 	GENERIC_ASPECT(mars_ref);
 	struct mars_ref_object *origmref;
+	struct generic_callback cb;
+	struct usebuf_output *output;
 	struct bio_vec *bvec;
 	int bvec_offset;
 	int bvec_len;
