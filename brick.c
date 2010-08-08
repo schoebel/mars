@@ -5,6 +5,7 @@
 #include <linux/string.h>
 
 //#define BRICK_DEBUGGING
+#define USE_FREELIST
 
 #define _STRATEGY
 #define BRICK_OBJ_NR /*empty => leads to an open array */
@@ -360,10 +361,14 @@ int default_init_object_layout(struct generic_output *output, struct generic_obj
 
 	object_layout->aspect_layouts = data;
 	object_layout->object_type = object_type;
+	object_layout->init_data = output;
 	object_layout->aspect_count = 0;
 	object_layout->aspect_max = aspect_max;
 	object_layout->object_size = object_type->default_size;
 	atomic_set(&object_layout->alloc_count, 0);
+	atomic_set(&object_layout->free_count, 0);
+	spin_lock_init(&object_layout->free_lock);
+	object_layout->free_list = NULL;
 	object_layout->module_name = module_name;
 
 	status = output->ops->make_object_layout(output, object_layout);
@@ -446,23 +451,40 @@ EXPORT_SYMBOL_GPL(default_make_object_layout);
 struct generic_object *alloc_generic(struct generic_object_layout *object_layout)
 {
 	void *data;
-	struct generic_object *object;
+	struct generic_object *object = object_layout->free_list;
+
+	if (object) {
+		unsigned long flags;
+		traced_lock(&object_layout->free_lock, flags);
+		object = object_layout->free_list;
+		if (object) {
+			object_layout->free_list = *(struct generic_object**)object;
+			*(struct generic_object**)object = NULL;
+			traced_unlock(&object_layout->free_lock, flags);
+			atomic_dec(&object_layout->free_count);
+			data = object;
+			goto ok;
+		}
+		traced_unlock(&object_layout->free_lock, flags);
+	}
 
 	data = kzalloc(object_layout->object_size, GFP_MARS);
 	if (unlikely(!data))
 		goto err;
 
+	atomic_inc(&object_layout->alloc_count);
+
+ok:
 	object = generic_construct(data, object_layout);
 	if (unlikely(!object))
 		goto err_free;
 
-	atomic_inc(&object_layout->alloc_count);
 #if 1
 	{
 		int count = atomic_read(&object_layout->alloc_count);
 		if (count >= object_layout->last_count + 1000) {
 			object_layout->last_count = count;
-			BRICK_INF("pool %s/%p/%s reaching %d\n", object_layout->object_type->object_type_name, object_layout, object_layout->module_name, count);
+			BRICK_INF("pool %s/%p/%s alloc=%d free=%d\n", object_layout->object_type->object_type_name, object_layout, object_layout->module_name, count, atomic_read(&object_layout->free_count));
 		}
 	}
 #endif
@@ -478,12 +500,31 @@ EXPORT_SYMBOL_GPL(alloc_generic);
 
 void free_generic(struct generic_object *object)
 {
+	struct generic_object_layout *object_layout;
 	if (unlikely(!object)) {
 		BRICK_ERR("free_generic on NULL object\n");
 		return;
 	}
-	if (likely(object->object_layout))
-		atomic_dec(&object->object_layout->alloc_count);
+	object_layout = object->object_layout;
+	if (likely(object_layout)) {
+		unsigned long flags;
+
+		generic_destruct(object);
+
+#ifdef USE_FREELIST
+		memset(object, 0, object_layout->object_size);
+		atomic_inc(&object_layout->free_count);
+
+		traced_lock(&object_layout->free_lock, flags);
+
+		*(struct generic_object**)object = object_layout->free_list;
+		object_layout->free_list = object;
+
+		traced_unlock(&object_layout->free_lock, flags);
+		return;
+#endif
+		atomic_dec(&object_layout->alloc_count);
+	}
 
 	kfree(object);
 }

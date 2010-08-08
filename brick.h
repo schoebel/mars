@@ -38,8 +38,9 @@ struct generic_aspect;
 #define GENERIC_ASPECT_TYPE(BRICK)					\
 	char *aspect_type_name;						\
 	const struct generic_object_type *object_type;			\
-	int aspect_size;						\
-	int (*init_fn)(struct generic_aspect *ini, void *data);	\
+	int  aspect_size;						\
+	int  (*init_fn)(struct generic_aspect *ini, void *data);	\
+	void (*exit_fn)(struct generic_aspect *ini, void *data);	\
 
 struct generic_aspect_type {
 	GENERIC_ASPECT_TYPE(generic);
@@ -58,6 +59,8 @@ struct generic_aspect_layout {
 	char *object_type_name;						\
 	int default_size;						\
 	int brick_obj_nr;						\
+	int  (*init_fn)(struct generic_aspect *ini, void *data);	\
+	void (*exit_fn)(struct generic_aspect *ini, void *data);	\
 
 struct generic_object_type {
 	GENERIC_OBJECT_TYPE(generic);
@@ -66,11 +69,15 @@ struct generic_object_type {
 #define GENERIC_OBJECT_LAYOUT(BRICK)					\
 	struct generic_aspect_layout **aspect_layouts;			\
 	const struct generic_object_type *object_type;			\
+	void *init_data;						\
 	int aspect_count;						\
 	int aspect_max;							\
 	int object_size;						\
 	int last_count;							\
 	atomic_t alloc_count;						\
+	atomic_t free_count;						\
+	spinlock_t free_lock;						\
+	struct generic_object *free_list;				\
 	char *module_name;						\
 
 struct generic_object_layout {
@@ -449,6 +456,12 @@ extern inline struct BRICK##_object *BRICK##_construct(void *data, struct BRICK#
 	int i;								\
 									\
 	obj->object_layout = object_layout;				\
+	if (object_layout->object_type->init_fn) {			\
+		int status = object_layout->object_type->init_fn((void*)obj, object_layout->init_data); \
+		if (status < 0) {					\
+			return NULL;					\
+		}							\
+	}								\
 	for (i = 0; i < object_layout->aspect_count; i++) {		\
 		struct generic_aspect_layout *aspect_layout;		\
 		struct generic_aspect *aspect;				\
@@ -459,12 +472,33 @@ extern inline struct BRICK##_object *BRICK##_construct(void *data, struct BRICK#
 		aspect->object = (void*)obj;				\
 		if (aspect_layout->aspect_type->init_fn) {		\
 			int status = aspect_layout->aspect_type->init_fn((void*)aspect, aspect_layout->init_data); \
-			if (status) {					\
+			if (status < 0) {				\
 				return NULL;				\
 			}						\
 		}							\
 	}								\
 	return obj;							\
+}									\
+									\
+extern inline void BRICK##_destruct(struct BRICK##_object *obj)        \
+{									\
+	struct BRICK##_object_layout *object_layout = obj->object_layout; \
+	int i;								\
+									\
+	if (object_layout->object_type->exit_fn) {			\
+		object_layout->object_type->exit_fn((void*)obj, object_layout->init_data); \
+	}								\
+	for (i = 0; i < object_layout->aspect_count; i++) {		\
+		struct generic_aspect_layout *aspect_layout;		\
+		struct generic_aspect *aspect;				\
+		aspect_layout = object_layout->aspect_layouts[i];	\
+		if (!aspect_layout->aspect_type)				\
+			continue;					\
+		aspect = ((void*)obj) + aspect_layout->aspect_offset;	\
+		if (aspect_layout->aspect_type->exit_fn) {		\
+			aspect_layout->aspect_type->exit_fn((void*)aspect, aspect_layout->init_data); \
+		}							\
+	}								\
 }									\
 
 #define GENERIC_ASPECT_FUNCTIONS(BRICK,PREFIX)				\
@@ -532,12 +566,14 @@ GENERIC_OBJECT_FUNCTIONS(generic);
 		}							\
 		atomic_inc(&current->lock_count);			\
 		(void)flags;						\
-		spin_lock(spinlock);					\
+		/*spin_lock(spinlock);*/				\
+		spin_lock_irqsave(spinlock, flags);			\
 	} while (0)
 
 # define traced_unlock(spinlock,flags)					\
 	do {								\
-		spin_unlock(spinlock);					\
+		/*spin_unlock(spinlock);*/				\
+		spin_unlock_irqrestore(spinlock, flags);		\
 		atomic_dec(&current->lock_count);			\
 	} while (0)
 

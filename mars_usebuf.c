@@ -52,7 +52,7 @@ static void _usebuf_origmref_endio(struct usebuf_output *output, struct mars_ref
 
 	MARS_DBG("origmref=%p subref_count=%d error=%d\n", origmref, atomic_read(&origmref_a->subref_count), origmref->cb_error);
 
-	CHECK_SPIN(&origmref_a->subref_count, 1);
+	CHECK_ATOMIC(&origmref_a->subref_count, 1);
 	if (!atomic_dec_and_test(&origmref_a->subref_count)) {
 		goto out;
 	}
@@ -110,7 +110,7 @@ static void _usebuf_mref_endio(struct mars_ref_object *mref)
 		_usebuf_copy(mref_a, WRITE);
 
 		// grab extra reference
-		CHECK_SPIN(&origmref_a->subref_count, 1);
+		CHECK_ATOMIC(&origmref_a->subref_count, 1);
 		atomic_inc(&origmref_a->subref_count);
 
 		GENERIC_INPUT_CALL(input, mars_ref_io, mref, WRITE);
@@ -131,8 +131,8 @@ static void _usebuf_mref_endio(struct mars_ref_object *mref)
 		}
 	}
 
-	CHECK_SPIN(&origmref_a->subref_count, 1);
-	CHECK_SPIN(&mref->ref_count, 1);
+	CHECK_ATOMIC(&origmref_a->subref_count, 1);
+	CHECK_ATOMIC(&mref->ref_count, 1);
 
 	status = mref->cb_error;
 
@@ -167,7 +167,7 @@ static int usebuf_ref_get(struct usebuf_output *output, struct mars_ref_object *
 
 static void usebuf_ref_put(struct usebuf_output *output, struct mars_ref_object *origmref)
 {
-	CHECK_SPIN(&origmref->ref_count, 1);
+	CHECK_ATOMIC(&origmref->ref_count, 1);
 	if (!atomic_dec_and_test(&origmref->ref_count)) {
 		return;
 	}
@@ -205,10 +205,10 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mars_ref_object *
 	origmref->cb_error = 0;
 
 	// initial refcount: prevent intermediate drops
-	_CHECK_SPIN(&origmref->ref_count, !=, 1);
+	_CHECK_ATOMIC(&origmref->ref_count, !=, 1);
 	atomic_inc(&origmref->ref_count);
 
-	_CHECK_SPIN(&origmref_a->subref_count, !=, 0);
+	_CHECK_ATOMIC(&origmref_a->subref_count, !=, 0);
 	atomic_set(&origmref_a->subref_count, 1);
 
 	start_pos = ((loff_t)bio->bi_sector) << 9; // TODO: make dynamic
@@ -278,7 +278,7 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mars_ref_object *
 			}
 
 			// grab reference for each sub-IO
-			CHECK_SPIN(&origmref_a->subref_count, 1);
+			CHECK_ATOMIC(&origmref_a->subref_count, 1);
 			atomic_inc(&origmref_a->subref_count);
 			
 			GENERIC_INPUT_CALL(input, mars_ref_io, mref, my_rw);
@@ -323,6 +323,12 @@ static int usebuf_mars_ref_aspect_init_fn(struct generic_aspect *_ini, void *_in
 	ini->origmref = NULL;
 	ini->bvec = NULL;
 	return 0;
+}
+
+static void usebuf_mars_ref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+{
+	struct usebuf_mars_ref_aspect *ini = (void*)_ini;
+	(void)ini;
 }
 
 MARS_MAKE_STATICS(usebuf);

@@ -136,6 +136,10 @@ static int if_device_mars_ref_aspect_init_fn(struct generic_aspect *_ini, void *
 	return 0;
 }
 
+static void if_device_mars_ref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+{
+}
+
 MARS_MAKE_STATICS(if_device);
 
 //////////////////////// contructors / destructors ////////////////////////

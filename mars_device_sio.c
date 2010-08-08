@@ -386,6 +386,15 @@ static int device_sio_mars_ref_aspect_init_fn(struct generic_aspect *_ini, void 
 	return 0;
 }
 
+static void device_sio_mars_ref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+{
+	struct device_sio_mars_ref_aspect *ini = (void*)_ini;
+	(void)ini;
+#if 1
+	CHECK_HEAD_EMPTY(&ini->io_head);
+#endif
+}
+
 MARS_MAKE_STATICS(device_sio);
 
 ////////////////////// brick constructors / destructors ////////////////////

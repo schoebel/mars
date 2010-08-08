@@ -48,8 +48,15 @@ static void dummy_ref_io(struct dummy_output *output, struct mars_ref_object *mr
 static int dummy_mars_ref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
 	struct dummy_mars_ref_aspect *ini = (void*)_ini;
+	(void)ini;
 	ini->my_own = 0;
 	return 0;
+}
+
+static void dummy_mars_ref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+{
+	struct dummy_mars_ref_aspect *ini = (void*)_ini;
+	(void)ini;
 }
 
 MARS_MAKE_STATICS(dummy);

@@ -80,7 +80,7 @@ void make_test_instance(void)
 	void connect(struct generic_input *a, struct generic_output *b)
 	{
 		int status;
-#if 1
+#if 0
 		struct generic_brick *tmp = brick(&check_brick_type);
 		
 		status = generic_connect(a, tmp->outputs[0]);

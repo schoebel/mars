@@ -312,7 +312,7 @@ static int buf_ref_get(struct buf_output *output, struct mars_ref_object *mref)
 #endif
 	/* Grab reference.
 	 */
-	_CHECK_SPIN(&mref->ref_count, !=, 0);
+	_CHECK_ATOMIC(&mref->ref_count, !=, 0);
 	atomic_inc(&mref->ref_count);
 
 	mref_a = buf_mars_ref_get_aspect(output, mref);
@@ -335,7 +335,7 @@ again:
 	bf = hash_find(brick, ((unsigned int)base_pos) >> brick->backing_order);
 	if (bf) {
 		list_del_init(&bf->bf_lru_head);
-		CHECK_SPIN(&bf->bf_count, 0);
+		CHECK_ATOMIC(&bf->bf_count, 0);
 		atomic_inc(&bf->bf_count);
 
 		traced_unlock(&brick->brick_lock, flags);
@@ -398,7 +398,7 @@ again:
 
 	mref->ref_data = bf->bf_data + base_offset;
 
-	CHECK_SPIN(&mref->ref_count, 1);
+	CHECK_ATOMIC(&mref->ref_count, 1);
 
 	return mref->ref_len;
 
@@ -414,7 +414,7 @@ static void __bf_put(struct buf_head *bf)
 	unsigned long flags;
 
 	MARS_DBG("bf=%p bf_count=%d\n", bf, bf_count);
-	CHECK_SPIN(&bf->bf_count, 1);
+	CHECK_ATOMIC(&bf->bf_count, 1);
 
 #ifdef FAST
 	if (!atomic_dec_and_test(&bf->bf_count))
@@ -473,7 +473,7 @@ static void _buf_ref_put(struct buf_mars_ref_aspect *mref_a)
 	struct mars_ref_object *mref = mref_a->object;
 	struct buf_head *bf;
 
-	CHECK_SPIN(&mref->ref_count, 1);
+	CHECK_ATOMIC(&mref->ref_count, 1);
 
 	if (!atomic_dec_and_test(&mref->ref_count))
 		return;
@@ -615,7 +615,7 @@ static int _buf_make_bios(struct buf_brick *brick, struct buf_head *bf, void *st
 
 		/* Remember the number of bios we are submitting.
 		 */
-		CHECK_SPIN(&bf->bf_bio_count, 0);
+		CHECK_ATOMIC(&bf->bf_bio_count, 0);
 		atomic_inc(&bf->bf_bio_count);
 
 		MARS_DBG("starting buf IO mref=%p bio=%p bf=%p bf_count=%d bf_bio_count=%d\n", mref, mref->orig_bio, bf, atomic_read(&bf->bf_count), atomic_read(&bf->bf_bio_count));
@@ -670,7 +670,7 @@ static void _buf_bio_callback(struct bio *bio, int code)
 		bf->bf_bio_status = code;
 	}
 
-	CHECK_SPIN(&bf->bf_bio_count, 1);
+	CHECK_ATOMIC(&bf->bf_bio_count, 1);
 	if (!atomic_dec_and_test(&bf->bf_bio_count))
 		return;
 
@@ -679,7 +679,7 @@ static void _buf_bio_callback(struct bio *bio, int code)
 	brick = bf->bf_brick;
 
 	// get an extra reference, to avoid freeing bf underneath during callbacks
-	CHECK_SPIN(&bf->bf_count, 1);
+	CHECK_ATOMIC(&bf->bf_count, 1);
 	atomic_inc(&bf->bf_count);
 
 	traced_lock(&bf->bf_lock, flags);
@@ -759,7 +759,7 @@ static void _buf_bio_callback(struct bio *bio, int code)
 			MARS_ERR("endless loop 2\n");
 		}
 #endif
-		CHECK_SPIN(&mref->ref_count, 1);
+		CHECK_ATOMIC(&mref->ref_count, 1);
 		/* It should be safe to do this without locking, because
 		 * tmp is on the stack, so there is no concurrency.
 		 */
@@ -810,7 +810,7 @@ static void buf_ref_io(struct buf_output *output, struct mars_ref_object *mref, 
 	 * This will be released later in _buf_bio_callback() after
 	 * calling the callbacks.
 	 */
-	CHECK_SPIN(&mref->ref_count, 1);
+	CHECK_ATOMIC(&mref->ref_count, 1);
 	atomic_inc(&mref->ref_count);
 
 	bf = mref_a->rfa_bf;
@@ -819,7 +819,7 @@ static void buf_ref_io(struct buf_output *output, struct mars_ref_object *mref, 
 		goto callback;
 	}
 
-	CHECK_SPIN(&bf->bf_count, 1);
+	CHECK_ATOMIC(&bf->bf_count, 1);
 
 	if (rw != READ) {
 		if (unlikely(mref->ref_may_write == READ)) {
@@ -948,6 +948,16 @@ static int buf_mars_ref_aspect_init_fn(struct generic_aspect *_ini, void *_init_
 	INIT_LIST_HEAD(&ini->rfa_pending_head);
 	INIT_LIST_HEAD(&ini->tmp_head);
 	return 0;
+}
+
+static void buf_mars_ref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+{
+	struct buf_mars_ref_aspect *ini = (void*)_ini;
+	(void)ini;
+#if 1
+	CHECK_HEAD_EMPTY(&ini->rfa_pending_head);
+	CHECK_HEAD_EMPTY(&ini->tmp_head);
+#endif
 }
 
 MARS_MAKE_STATICS(buf);

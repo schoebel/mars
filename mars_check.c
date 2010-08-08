@@ -33,18 +33,21 @@ static void check_buf_endio(struct mars_ref_object *mref)
 		return;
 	}
 
-	traced_lock(&output->check_lock, flags);
-
 	if (mref_a->call_count-- < 0) {
 		mref_a->call_count = 0;
 		MARS_ERR("instance %d/%s: too many callbacks on %p\n", output->instance_nr, input->connect->type->type_name, mref);
 	}
+
+#ifdef CHECK_LOCK
+	traced_lock(&output->check_lock, flags);
+
 	if (list_empty(&mref_a->mref_head)) {
 		MARS_ERR("instance %d/%s: list entry missing on %p\n", output->instance_nr, input->connect->type->type_name, mref);
 	}
 	list_del_init(&mref_a->mref_head);
 
 	traced_unlock(&output->check_lock, flags);
+#endif
 
 	mref->cb_private = mref_a->old_private;
 	mref_a->last_jiffies = jiffies;
@@ -83,6 +86,7 @@ static int check_watchdog(void *data)
 
 		msleep_interruptible(5000);
 
+#ifdef CHECK_LOCK
 		traced_lock(&output->check_lock, flags);
 
 		now = jiffies;
@@ -119,7 +123,9 @@ static int check_watchdog(void *data)
 				MARS_ERR("================================\n");
 			}
 		}
+
 		traced_unlock(&output->check_lock, flags);
+#endif
 	}
 	return 0;
 }
@@ -156,16 +162,21 @@ static void check_ref_io(struct check_output *output, struct mars_ref_object *mr
 		return;
 	}
 
-	traced_lock(&output->check_lock, flags);
 	if (mref_a->call_count++ > 1) {
 		mref_a->call_count = 1;
 		MARS_ERR("instance %d/%s: multiple parallel calls on %p\n", output->instance_nr, input->connect->type->type_name, mref);
 	}
+
+#ifdef CHECK_LOCK
+	traced_lock(&output->check_lock, flags);
 	if (!list_empty(&mref_a->mref_head)) {
 		list_del(&mref_a->mref_head);
 		MARS_ERR("instance %d/%s: list head not empty on %p\n", output->instance_nr, input->connect->type->type_name, mref);
 	}
 	list_add_tail(&mref_a->mref_head, &output->mref_anchor);
+	traced_unlock(&output->check_lock, flags);
+#endif
+
 	if (mref->cb_ref_endio != check_buf_endio) {
 		mref_a->old_buf_endio = mref->cb_ref_endio;
 		mref->cb_ref_endio = check_buf_endio;
@@ -173,7 +184,6 @@ static void check_ref_io(struct check_output *output, struct mars_ref_object *mr
 		mref->cb_private = output;
 	}
 	mref_a->last_jiffies = jiffies;
-	traced_unlock(&output->check_lock, flags);
 
 	GENERIC_INPUT_CALL(input, mars_ref_io, mref, rw);
 }
@@ -183,9 +193,23 @@ static void check_ref_io(struct check_output *output, struct mars_ref_object *mr
 static int check_mars_ref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
 	struct check_mars_ref_aspect *ini = (void*)_ini;
+#ifdef CHECK_LOCK
 	INIT_LIST_HEAD(&ini->mref_head);
+#endif
+	ini->old_buf_endio = NULL;
+	ini->old_private = NULL;
+	ini->last_jiffies = jiffies;
 	ini->call_count = 0;
 	return 0;
+}
+
+static void check_mars_ref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+{
+	struct check_mars_ref_aspect *ini = (void*)_ini;
+	(void)ini;
+#ifdef CHECK_LOCK
+	CHECK_HEAD_EMPTY(&ini->mref_head);
+#endif
 }
 
 MARS_MAKE_STATICS(check);
@@ -202,10 +226,12 @@ static int check_output_construct(struct check_output *output)
 	static int count = 0;
 	struct task_struct *watchdog;
 
-	spin_lock_init(&output->check_lock);
 	output->instance_nr = ++count;
+#ifdef CHECK_LOCK
+	spin_lock_init(&output->check_lock);
 	INIT_LIST_HEAD(&output->mio_anchor);
 	INIT_LIST_HEAD(&output->mref_anchor);
+#endif
 	watchdog = kthread_create(check_watchdog, output, "check_watchdog%d", output->instance_nr);
 	if (!IS_ERR(watchdog)) {
 		output->watchdog = watchdog;

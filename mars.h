@@ -176,23 +176,24 @@ static const struct generic_aspect_type BRICK##_mars_ref_aspect_type = { \
 	.object_type = &mars_ref_type,					\
 	.aspect_size = sizeof(struct BRICK##_mars_ref_aspect),		\
 	.init_fn = BRICK##_mars_ref_aspect_init_fn,			\
+	.exit_fn = BRICK##_mars_ref_aspect_exit_fn,			\
 };									\
 									\
 static const struct generic_aspect_type *BRICK##_aspect_types[BRICK_OBJ_NR] = {	\
 	[BRICK_OBJ_MARS_REF] = &BRICK##_mars_ref_aspect_type,		\
 };									\
 
-#define _CHECK_SPIN(spinlock,OP,minval)					\
+#define _CHECK_ATOMIC(atom,OP,minval)					\
 	do {								\
-		int test = atomic_read(spinlock);			\
+		int test = atomic_read(atom);				\
 		if (test OP (minval)) {					\
-			atomic_set(spinlock, minval);			\
-			MARS_ERR("line %d spinlock " #spinlock " " #OP " " #minval "\n", __LINE__); \
+			atomic_set(atom, minval);			\
+			MARS_ERR("line %d atom " #atom " " #OP " " #minval "\n", __LINE__); \
 		}							\
 	} while (0)
 
-#define CHECK_SPIN(spinlock,minval)					\
-		  _CHECK_SPIN(spinlock, <, minval)
+#define CHECK_ATOMIC(atom,minval)			\
+	_CHECK_ATOMIC(atom, <, minval)
 
 static inline void mars_ref_attach_bio(struct mars_ref_object *mref, struct bio *bio)
 {
@@ -208,5 +209,11 @@ static inline void mars_ref_attach_bio(struct mars_ref_object *mref, struct bio 
 	mref->ref_pos = -1;
 	atomic_set(&mref->ref_count, 1);
 }
+
+#define CHECK_HEAD_EMPTY(head)						\
+	if (!list_empty(head)) {						\
+		INIT_LIST_HEAD(head);					\
+		MARS_ERR("list_head " #head " (%p) not empty\n", head);	\
+	}								\
 
 #endif
