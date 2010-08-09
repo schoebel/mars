@@ -15,6 +15,11 @@ struct buf_mars_ref_aspect {
 	struct generic_callback cb;
 };
 
+struct cache_anchor {
+	spinlock_t       hash_lock;
+	struct list_head hash_anchor;
+};
+
 struct buf_brick {
 	MARS_BRICK(buf);
 	/* brick parameters */
@@ -24,15 +29,16 @@ struct buf_brick {
 	
 	/* internals */
 	spinlock_t brick_lock;
-	int alloc_count;
-	int hashed_count;
+	atomic_t alloc_count;
+	atomic_t hashed_count;
 	atomic_t nr_io_pending;
+	atomic_t nr_collisions;
 	struct generic_object_layout mref_object_layout;
 
 	// lists for caching
 	struct list_head free_anchor;  // members are not hashed
 	struct list_head lru_anchor;   // members are hashed and not in use
-	struct list_head cache_anchors[MARS_BUF_HASH_MAX]; // hash table
+	struct cache_anchor cache_anchors[MARS_BUF_HASH_MAX]; // hash table
 
 	// for creation of bios
 	struct mars_info base_info;

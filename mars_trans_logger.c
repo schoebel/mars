@@ -46,7 +46,8 @@ static struct trans_logger_mars_ref_aspect *hash_find(struct hash_anchor *table,
 
 	/* Caution: there may be duplicates in the list, some of them
 	 * overlapping in many different ways.
-	 * Always find the both _newest_ and _lowest_ overlapping element!
+	 * Always find the both _newest_ and _lowest_ overlapping element.
+	 * The lists are alwaysw sorted according to age.
 	 */
 	for (tmp = start->hash_anchor.next; tmp != &start->hash_anchor; tmp = tmp->next) {
 #if 1
@@ -60,19 +61,17 @@ static struct trans_logger_mars_ref_aspect *hash_find(struct hash_anchor *table,
 #endif
 		test_a = container_of(tmp, struct trans_logger_mars_ref_aspect, hash_head);
 		test = test_a->object;
+		// are the regions overlapping?
 		if (pos < test->ref_pos + test->ref_len && pos + len > test->ref_pos) {
-			if (test->ref_pos >= pos) {
-				// always prefer the lowest distance, even if elder
-				if (test->ref_pos < min_pos || min_pos < 0) {
-					min_pos = test->ref_pos;
-					res = test_a;
-				}
-			} else {
-				// always take the newest one, distance does not matter
-				if (min_pos < 0) {
-					min_pos = test->ref_pos;
-					res = test_a;
-				}
+			
+			if (
+				// always take the newest one
+				min_pos < 0 ||
+				// prefer the lowest positive distance
+				(test->ref_pos < min_pos && test->ref_pos >= pos)
+				) {
+				min_pos = test->ref_pos;
+				res = test_a;
 			}
 		}
 	}
@@ -228,6 +227,8 @@ static const struct trans_logger_input_type trans_logger_input_type = {
 
 static const struct trans_logger_input_type *trans_logger_input_types[] = {
 	&trans_logger_input_type,
+	&trans_logger_input_type,
+	&trans_logger_input_type,
 };
 
 static const struct trans_logger_output_type trans_logger_output_type = {
@@ -248,7 +249,7 @@ static const struct trans_logger_output_type *trans_logger_output_types[] = {
 const struct trans_logger_brick_type trans_logger_brick_type = {
 	.type_name = "trans_logger_brick",
 	.brick_size = sizeof(struct trans_logger_brick),
-	.max_inputs = 1,
+	.max_inputs = 3,
 	.max_outputs = 1,
 	.master_ops = &trans_logger_brick_ops,
 	.default_input_types = trans_logger_input_types,

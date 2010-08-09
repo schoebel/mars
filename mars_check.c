@@ -26,6 +26,7 @@ static void check_buf_endio(struct generic_callback *cb)
 	struct mars_ref_object *mref = mref_a->object;
 	struct check_output *output = mref_a->output;
 	struct check_input *input = output->brick->inputs[0];
+	struct generic_callback *prev_cb;
 	unsigned long flags;
 
 	if (!mref_a) {
@@ -34,8 +35,8 @@ static void check_buf_endio(struct generic_callback *cb)
 		return;
 	}
 
-	if (mref_a->call_count-- < 0) {
-		mref_a->call_count = 0;
+	if (atomic_dec_and_test(&mref_a->callback_count)) {
+		atomic_set(&mref_a->callback_count, 1);
 		MARS_ERR("instance %d/%s: too many callbacks on %p\n", output->instance_nr, input->connect->type->type_name, mref);
 	}
 
@@ -48,18 +49,21 @@ static void check_buf_endio(struct generic_callback *cb)
 	list_del_init(&mref_a->mref_head);
 
 	traced_unlock(&output->check_lock, flags);
+#else
+	(void)flags;
 #endif
 
 	mref_a->last_jiffies = jiffies;
 
-	cb = cb->cb_prev;
-	if (!cb) {
+	prev_cb = cb->cb_prev;
+	if (!prev_cb) {
 		MARS_FAT("cannot get chain callback\n");
 		return;
 	}
-	cb->cb_fn(cb);
+	prev_cb->cb_fn(prev_cb);
 }
 
+#ifdef CHECK_LOCK
 static void dump_mem(void *data, int len)
 {
 	int i;
@@ -91,7 +95,6 @@ static int check_watchdog(void *data)
 
 		msleep_interruptible(5000);
 
-#ifdef CHECK_LOCK
 		traced_lock(&output->check_lock, flags);
 
 		now = jiffies;
@@ -130,10 +133,10 @@ static int check_watchdog(void *data)
 		}
 
 		traced_unlock(&output->check_lock, flags);
-#endif
 	}
 	return 0;
 }
+#endif
 
 ////////////////// own brick / input / output operations //////////////////
 
@@ -168,10 +171,11 @@ static void check_ref_io(struct check_output *output, struct mars_ref_object *mr
 		return;
 	}
 
-	if (mref_a->call_count++ > 1) {
-		mref_a->call_count = 1;
+	if (atomic_dec_and_test(&mref_a->call_count)) {
+		atomic_set(&mref_a->call_count, 1);
 		MARS_ERR("instance %d/%s: multiple parallel calls on %p\n", output->instance_nr, input->connect->type->type_name, mref);
 	}
+	atomic_set(&mref_a->callback_count, 2);
 
 #ifdef CHECK_LOCK
 	traced_lock(&output->check_lock, flags);
@@ -181,6 +185,8 @@ static void check_ref_io(struct check_output *output, struct mars_ref_object *mr
 	}
 	list_add_tail(&mref_a->mref_head, &output->mref_anchor);
 	traced_unlock(&output->check_lock, flags);
+#else
+	(void)flags;
 #endif
 
 	if (mref->ref_cb != cb) {
@@ -194,6 +200,8 @@ static void check_ref_io(struct check_output *output, struct mars_ref_object *mr
 	mref_a->last_jiffies = jiffies;
 
 	GENERIC_INPUT_CALL(input, mars_ref_io, mref, rw);
+
+	atomic_inc(&mref_a->call_count);
 }
 
 //////////////// object / aspect constructors / destructors ///////////////
@@ -205,7 +213,8 @@ static int check_mars_ref_aspect_init_fn(struct generic_aspect *_ini, void *_ini
 	INIT_LIST_HEAD(&ini->mref_head);
 #endif
 	ini->last_jiffies = jiffies;
-	ini->call_count = 0;
+	atomic_set(&ini->call_count, 2);
+	atomic_set(&ini->callback_count, 1);
 	return 0;
 }
 
@@ -230,19 +239,18 @@ static int check_brick_construct(struct check_brick *brick)
 static int check_output_construct(struct check_output *output)
 {
 	static int count = 0;
+#ifdef CHECK_LOCK
 	struct task_struct *watchdog;
 
-	output->instance_nr = ++count;
-#ifdef CHECK_LOCK
 	spin_lock_init(&output->check_lock);
-	INIT_LIST_HEAD(&output->mio_anchor);
 	INIT_LIST_HEAD(&output->mref_anchor);
-#endif
 	watchdog = kthread_create(check_watchdog, output, "check_watchdog%d", output->instance_nr);
 	if (!IS_ERR(watchdog)) {
 		output->watchdog = watchdog;
 		wake_up_process(watchdog);
 	}
+#endif
+	output->instance_nr = ++count;
 	return 0;
 }
 

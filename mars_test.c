@@ -120,11 +120,16 @@ void make_test_instance(void)
 
 	buf_brick = brick(&buf_brick_type);
 	_buf_brick = (void*)buf_brick;
-	_buf_brick->backing_order = 0;
-	_buf_brick->backing_order = 4;
-	_buf_brick->backing_order = 7;
+	//_buf_brick->backing_order = 0;
+	_buf_brick->backing_order = 2;
+	//_buf_brick->backing_order = 4;
+	//_buf_brick->backing_order = 7;
 	_buf_brick->backing_size = PAGE_SIZE << _buf_brick->backing_order;
+#if 0
 	_buf_brick->max_count = MEM >> _buf_brick->backing_order;
+#else
+	_buf_brick->max_count = 32768 / 2;
+#endif
 
 	connect(last, buf_brick->outputs[0]);
 

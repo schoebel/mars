@@ -2,7 +2,7 @@
 #ifndef MARS_CHECK_H
 #define MARS_CHECK_H
 
-//#define CHECK_LOCK
+#define CHECK_LOCK
 
 struct check_mars_ref_aspect {
 	GENERIC_ASPECT(mars_ref);
@@ -12,7 +12,8 @@ struct check_mars_ref_aspect {
 	struct generic_callback cb;
 	struct check_output *output;
 	unsigned long last_jiffies;
-	int call_count;
+	atomic_t call_count;
+	atomic_t callback_count;
 };
 
 struct check_brick {
@@ -26,10 +27,9 @@ struct check_input {
 struct check_output {
 	MARS_OUTPUT(check);
 	int instance_nr;
-	struct task_struct *watchdog;
 #ifdef CHECK_LOCK
+	struct task_struct *watchdog;
 	spinlock_t check_lock;
-	struct list_head mio_anchor;
 	struct list_head mref_anchor;
 #endif
 };
