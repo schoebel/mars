@@ -488,7 +488,7 @@ static struct device_sio_output_ops device_sio_output_ops = {
 	.mars_get_info = device_sio_get_info,
 };
 
-static const struct device_sio_output_type device_sio_output_type = {
+const struct device_sio_output_type device_sio_output_type = {
 	.type_name = "device_sio_output",
 	.output_size = sizeof(struct device_sio_output),
 	.master_ops = &device_sio_output_ops,

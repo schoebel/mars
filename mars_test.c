@@ -23,6 +23,7 @@
 GENERIC_ASPECT_FUNCTIONS(generic,mars_ref);
 
 static struct generic_brick *if_brick = NULL;
+static struct if_device_brick *_if_brick = NULL;
 static struct generic_brick *usebuf_brick = NULL;
 static struct generic_brick *buf_brick = NULL;
 static struct buf_brick *_buf_brick = NULL;
@@ -80,7 +81,7 @@ void make_test_instance(void)
 	void connect(struct generic_input *a, struct generic_output *b)
 	{
 		int status;
-#if 0
+#if 1
 		struct generic_brick *tmp = brick(&check_brick_type);
 		
 		status = generic_connect(a, tmp->outputs[0]);
@@ -120,8 +121,8 @@ void make_test_instance(void)
 
 	buf_brick = brick(&buf_brick_type);
 	_buf_brick = (void*)buf_brick;
-	//_buf_brick->backing_order = 0;
-	_buf_brick->backing_order = 2;
+	_buf_brick->backing_order = 0;
+	//_buf_brick->backing_order = 2;
 	//_buf_brick->backing_order = 4;
 	//_buf_brick->backing_order = 7;
 	_buf_brick->backing_size = PAGE_SIZE << _buf_brick->backing_order;
@@ -167,6 +168,14 @@ void make_test_instance(void)
 	(void)test_endio;
 	connect(last, device_brick->outputs[0]);
 #endif
+
+	msleep(200);
+
+	MARS_INF("------------- END INIT --------------\n");
+
+	_if_brick = (void*)if_brick;
+	_if_brick->is_active = true;
+
 	msleep(2000);
 	MARS_INF("------------- DONE --------------\n");
 }

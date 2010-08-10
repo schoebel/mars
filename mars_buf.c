@@ -374,12 +374,14 @@ static int buf_ref_get(struct buf_output *output, struct mars_ref_object *mref)
 again:
 	bf = hash_find_insert(brick, ((unsigned int)base_pos) >> brick->backing_order, new);
 	if (bf) {
+		atomic_inc(&brick->hit_count);
 		if (!list_empty(&bf->bf_lru_head)) {
 			traced_lock(&brick->brick_lock, flags);
 			list_del_init(&bf->bf_lru_head);
 			traced_unlock(&brick->brick_lock, flags);
 		}
-		if (new) {
+		if (unlikely(new)) {
+			atomic_inc(&brick->nr_collisions);
 			MARS_DBG("race detected: alias elem appeared in the meantime\n");
 			traced_lock(&brick->brick_lock, flags);
 
@@ -387,14 +389,12 @@ again:
 
 			traced_unlock(&brick->brick_lock, flags);
 			new = NULL;
-			atomic_inc(&brick->nr_collisions);
 		}
-		atomic_inc(&brick->hit_count);
 	} else if (new) {
+		atomic_inc(&brick->miss_count);
 		MARS_DBG("new elem added\n");
 		bf = new;
 		new = NULL;
-		atomic_inc(&brick->miss_count);
 	} else {
 		MARS_DBG("buf_get() hash nothing found\n");
 
@@ -1087,7 +1087,7 @@ static struct buf_output_ops buf_output_ops = {
 	.mars_ref_io = buf_ref_io,
 };
 
-static const struct buf_input_type buf_input_type = {
+const struct buf_input_type buf_input_type = {
 	.type_name = "buf_input",
 	.input_size = sizeof(struct buf_input),
 };
@@ -1096,7 +1096,7 @@ static const struct buf_input_type *buf_input_types[] = {
 	&buf_input_type,
 };
 
-static const struct buf_output_type buf_output_type = {
+const struct buf_output_type buf_output_type = {
 	.type_name = "buf_output",
 	.output_size = sizeof(struct buf_output),
 	.master_ops = &buf_output_ops,

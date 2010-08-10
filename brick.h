@@ -35,7 +35,7 @@
 
 struct generic_aspect;
 
-#define GENERIC_ASPECT_TYPE(BRICK)					\
+#define GENERIC_ASPECT_TYPE(TYPE)					\
 	char *aspect_type_name;						\
 	const struct generic_object_type *object_type;			\
 	int  aspect_size;						\
@@ -46,7 +46,7 @@ struct generic_aspect_type {
 	GENERIC_ASPECT_TYPE(generic);
 };
 
-#define GENERIC_ASPECT_LAYOUT(BRICK)					\
+#define GENERIC_ASPECT_LAYOUT(TYPE)					\
 	const struct generic_aspect_type *aspect_type;			\
 	void *init_data;						\
 	int aspect_offset;						\
@@ -55,7 +55,7 @@ struct generic_aspect_layout {
 	GENERIC_ASPECT_LAYOUT(generic);
 };
 
-#define GENERIC_OBJECT_TYPE(BRICK)					\
+#define GENERIC_OBJECT_TYPE(TYPE)					\
 	char *object_type_name;						\
 	int default_size;						\
 	int brick_obj_nr;						\
@@ -66,7 +66,7 @@ struct generic_object_type {
 	GENERIC_OBJECT_TYPE(generic);
 };
 
-#define GENERIC_OBJECT_LAYOUT(BRICK)					\
+#define GENERIC_OBJECT_LAYOUT(TYPE)					\
 	struct generic_aspect_layout **aspect_layouts;			\
 	const struct generic_object_type *object_type;			\
 	void *init_data;						\
@@ -84,23 +84,23 @@ struct generic_object_layout {
 	GENERIC_OBJECT_LAYOUT(generic);
 };
 
-#define GENERIC_OBJECT(BRICK)						\
-	struct BRICK##_object_layout *object_layout;			\
+#define GENERIC_OBJECT(TYPE)						\
+	struct TYPE##_object_layout *object_layout;			\
 	int object_size;						\
 
 struct generic_object {
 	GENERIC_OBJECT(generic);
 };
 
-#define GENERIC_ASPECT(BRICK)						\
-	struct BRICK##_object *object;					\
+#define GENERIC_ASPECT(TYPE)						\
+	struct TYPE##_object *object;					\
 
 struct generic_aspect {
 	GENERIC_ASPECT(generic);
 };
 
-#define GENERIC_CALLBACK(BRICK)						\
-	void (*cb_fn)(struct BRICK##_callback *cb);			\
+#define GENERIC_CALLBACK(TYPE)						\
+	void (*cb_fn)(struct TYPE##_callback *cb);			\
 	void  *cb_private;						\
 	int    cb_error;						\
 	struct generic_callback *cb_prev;				\
@@ -242,6 +242,15 @@ struct generic_output_type {
 int generic_register_brick_type(const struct generic_brick_type *new_type);
 int generic_unregister_brick_type(const struct generic_brick_type *old_type);
 
+extern inline void _generic_output_init(struct generic_brick *brick, const struct generic_output_type *type, struct generic_output *output, char *output_name)
+{
+	output->output_name = output_name;
+	output->brick = brick;
+	output->type = type;
+	output->ops = type->master_ops;
+	output->nr_connected = 0;
+}
+
 #ifdef _STRATEGY // call this only in strategy bricks, never in ordinary bricks
 
 // you need this only if you circumvent generic_brick_init_full()
@@ -277,11 +286,7 @@ extern inline int generic_output_init(struct generic_brick *brick, int index, co
 		return -ENOMEM;
 	if (brick->outputs[index])
 		return -EEXIST;
-	output->output_name = output_name;
-	output->brick = brick;
-	output->type = type;
-	output->ops = type->master_ops;
-	output->nr_connected = 0;
+	_generic_output_init(brick, type, output, output_name);
 	brick->outputs[index] = output;
 	brick->nr_outputs++;
 	return 0;
@@ -369,11 +374,20 @@ extern int BRICK##_make_object_layout(struct BRICK##_output *output, struct gene
 	return default_make_object_layout((struct generic_output*)output, object_layout); \
 }									\
 									\
-_STRATEGY_CODE(							        \
 extern const struct BRICK##_brick_type BRICK##_brick_type;	        \
-extern const struct BRICK##_input_type BRICK##_input_type;		\
+extern const struct BRICK##_input_type BRICK##_input_type;	        \
 extern const struct BRICK##_output_type BRICK##_output_type;	        \
 									\
+static inline void _##BRICK##_output_init(struct BRICK##_brick *brick, struct BRICK##_output *output, char *output_name) \
+{									\
+	_generic_output_init(						\
+		(struct generic_brick*)brick,				\
+		(const struct generic_output_type*)&BRICK##_output_type, \
+		(struct generic_output*)output,				\
+		output_name);						\
+}									\
+									\
+_STRATEGY_CODE(							        \
 static inline int BRICK##_brick_init(struct BRICK##_brick *brick, char *brick_name) \
 {									\
 	return generic_brick_init((const struct generic_brick_type*)&BRICK##_brick_type, (struct generic_brick*)brick, brick_name); \
@@ -389,7 +403,7 @@ static inline int BRICK##_input_init(struct BRICK##_brick *brick, int index, str
 		input_name);						\
 }									\
 									\
-static inline int BRICK##_output_init(struct BRICK##_brick *brick, int index, struct BRICK##_input *output, char *output_name) \
+static inline int BRICK##_output_init(struct BRICK##_brick *brick, int index, struct BRICK##_output *output, char *output_name) \
 {									\
 	return generic_output_init(					\
 		(struct generic_brick*)brick,				\
@@ -408,7 +422,7 @@ static inline int BRICK##_output_init(struct BRICK##_brick *brick, int index, st
  * (b) these macros generate only definitions, but no additional 
  * code at runtime.
  */
-#define GENERIC_MAKE_CONNECT(INPUT_BRICK,OUTPUT_BRICK)		\
+#define GENERIC_MAKE_CONNECT(INPUT_BRICK,OUTPUT_BRICK)			\
 									\
 _STRATEGY_CODE(							        \
 									\
@@ -449,20 +463,20 @@ extern inline int BRICK##_init_object_layout(struct BRICK##_output *output, stru
 	return default_init_object_layout((struct generic_output*)output, object_layout, aspect_max, object_type, #BRICK); \
 }									\
 
-#define GENERIC_ASPECT_LAYOUT_FUNCTIONS(BRICK,PREFIX)			\
+#define GENERIC_ASPECT_LAYOUT_FUNCTIONS(BRICK,TYPE)			\
 									\
-extern inline int BRICK##_##PREFIX##_add_aspect(struct BRICK##_output *output, struct PREFIX##_object_layout *object_layout, const struct generic_aspect_type *aspect_type) \
+extern inline int BRICK##_##TYPE##_add_aspect(struct BRICK##_output *output, struct TYPE##_object_layout *object_layout, const struct generic_aspect_type *aspect_type) \
 {									\
 	int res = generic_add_aspect((struct generic_output*)output, (struct generic_object_layout *)object_layout, aspect_type); \
-	BRICK_DBG(#BRICK " " #PREFIX "added aspect_type %p (%s) to object_layout %p (type %s) on output %p (type %s), status=%d\n", aspect_type, aspect_type->aspect_type_name, object_layout, object_layout->object_type->object_type_name, output, output->type->type_name, res); \
+	BRICK_DBG(#BRICK " " #TYPE "added aspect_type %p (%s) to object_layout %p (type %s) on output %p (type %s), status=%d\n", aspect_type, aspect_type->aspect_type_name, object_layout, object_layout->object_type->object_type_name, output, output->type->type_name, res); \
 	return res;							\
 }									\
 
-#define GENERIC_OBJECT_FUNCTIONS(BRICK)				\
+#define GENERIC_OBJECT_FUNCTIONS(TYPE)					\
 									\
-extern inline struct BRICK##_object *BRICK##_construct(void *data, struct BRICK##_object_layout *object_layout) \
+extern inline struct TYPE##_object *TYPE##_construct(void *data, struct TYPE##_object_layout *object_layout) \
 {									\
-	struct BRICK##_object *obj = data;				\
+	struct TYPE##_object *obj = data;				\
 	int i;								\
 									\
 	obj->object_layout = object_layout;				\
@@ -490,9 +504,9 @@ extern inline struct BRICK##_object *BRICK##_construct(void *data, struct BRICK#
 	return obj;							\
 }									\
 									\
-extern inline void BRICK##_destruct(struct BRICK##_object *obj)        \
+extern inline void TYPE##_destruct(struct TYPE##_object *obj)        \
 {									\
-	struct BRICK##_object_layout *object_layout = obj->object_layout; \
+	struct TYPE##_object_layout *object_layout = obj->object_layout; \
 	int i;								\
 									\
 	if (object_layout->object_type->exit_fn) {			\
@@ -511,9 +525,9 @@ extern inline void BRICK##_destruct(struct BRICK##_object *obj)        \
 	}								\
 }									\
 
-#define GENERIC_ASPECT_FUNCTIONS(BRICK,PREFIX)				\
+#define GENERIC_ASPECT_FUNCTIONS(BRICK,TYPE)				\
 									\
-extern inline struct BRICK##_##PREFIX##_aspect *BRICK##_##PREFIX##_get_aspect(struct BRICK##_output *output, struct PREFIX##_object *obj) \
+extern inline struct BRICK##_##TYPE##_aspect *BRICK##_##TYPE##_get_aspect(struct BRICK##_output *output, struct TYPE##_object *obj) \
 {									\
 	struct generic_object_layout *object_layout;			\
 	struct generic_aspect_layout *aspect_layout;			\
@@ -523,31 +537,31 @@ extern inline struct BRICK##_##PREFIX##_aspect *BRICK##_##PREFIX##_get_aspect(st
 	nr = object_layout->object_type->brick_obj_nr;			\
 	aspect_layout = &output->aspect_layouts[nr];			\
 	if (unlikely(!aspect_layout->aspect_type)) {			\
-		BRICK_ERR("brick "#BRICK": bad aspect slot on " #PREFIX " pointer %p\n", obj); \
+		BRICK_ERR("brick "#BRICK": bad aspect slot on " #TYPE " pointer %p\n", obj); \
 		return NULL;						\
 	}								\
 	return (void*)obj + aspect_layout->aspect_offset;		\
 }									\
 									\
-extern inline int BRICK##_##PREFIX##_init_object_layout(struct BRICK##_output *output, struct generic_object_layout *object_layout) \
+extern inline int BRICK##_##TYPE##_init_object_layout(struct BRICK##_output *output, struct generic_object_layout *object_layout) \
 {									\
-	return BRICK##_init_object_layout(output, object_layout, 32, &PREFIX##_type); \
+	return BRICK##_init_object_layout(output, object_layout, 32, &TYPE##_type); \
 }									\
 									\
-extern inline struct PREFIX##_object *BRICK##_alloc_##PREFIX(struct BRICK##_output *output, struct generic_object_layout *object_layout) \
+extern inline struct TYPE##_object *BRICK##_alloc_##TYPE(struct BRICK##_output *output, struct generic_object_layout *object_layout) \
 {									\
-	int status = BRICK##_##PREFIX##_init_object_layout(output, object_layout);	\
+	int status = BRICK##_##TYPE##_init_object_layout(output, object_layout);	\
 	if (status < 0)							\
 		return NULL;						\
-	return (struct PREFIX##_object*)alloc_generic(object_layout);	\
+	return (struct TYPE##_object*)alloc_generic(object_layout);	\
 }									\
 									\
-extern inline struct PREFIX##_object *BRICK##_alloc_##PREFIX##_pure(struct generic_object_layout *object_layout) \
+extern inline struct TYPE##_object *BRICK##_alloc_##TYPE##_pure(struct generic_object_layout *object_layout) \
 {									\
-	return (struct PREFIX##_object*)alloc_generic(object_layout);	\
+	return (struct TYPE##_object*)alloc_generic(object_layout);	\
 }									\
 									\
-extern inline void BRICK##_free_##PREFIX(struct PREFIX##_object *object)     \
+extern inline void BRICK##_free_##TYPE(struct TYPE##_object *object)     \
 {									\
 	free_generic((struct generic_object*)object);			\
 }									\

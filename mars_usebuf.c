@@ -285,7 +285,6 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mars_ref_object *
 					_usebuf_copy(mref_a, WRITE);
 				} else {
 					// first start initial read, to get the whole buffer UPTODATE
-					MARS_DBG("AHA\n");
 					my_rw = READ;
 				}
 			}
@@ -293,7 +292,7 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mars_ref_object *
 			// grab reference for each sub-IO
 			CHECK_ATOMIC(&origmref_a->subref_count, 1);
 			atomic_inc(&origmref_a->subref_count);
-			
+
 			GENERIC_INPUT_CALL(input, mars_ref_io, mref, my_rw);
 
 		put:
@@ -369,7 +368,7 @@ static struct usebuf_output_ops usebuf_output_ops = {
 	.mars_ref_io = usebuf_ref_io,
 };
 
-static const struct usebuf_input_type usebuf_input_type = {
+const struct usebuf_input_type usebuf_input_type = {
 	.type_name = "usebuf_input",
 	.input_size = sizeof(struct usebuf_input),
 };
@@ -378,7 +377,7 @@ static const struct usebuf_input_type *usebuf_input_types[] = {
 	&usebuf_input_type,
 };
 
-static const struct usebuf_output_type usebuf_output_type = {
+const struct usebuf_output_type usebuf_output_type = {
 	.type_name = "usebuf_output",
 	.output_size = sizeof(struct usebuf_output),
 	.master_ops = &usebuf_output_ops,

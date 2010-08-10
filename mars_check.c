@@ -22,17 +22,39 @@
 
 static void check_buf_endio(struct generic_callback *cb)
 {
-	struct check_mars_ref_aspect *mref_a = cb->cb_private;
-	struct mars_ref_object *mref = mref_a->object;
-	struct check_output *output = mref_a->output;
-	struct check_input *input = output->brick->inputs[0];
+	struct check_mars_ref_aspect *mref_a;
+	struct mars_ref_object *mref;
+	struct check_output *output;
+	struct check_input *input;
 	struct generic_callback *prev_cb;
 	unsigned long flags;
 
-	if (!mref_a) {
+	mref_a = cb->cb_private;
+	if (unlikely(!mref_a)) {
 		MARS_FAT("cannot get aspect -- hanging up\n");
-		msleep(60000);
-		return;
+		goto fatal;
+	}
+	if (unlikely(&mref_a->cb != cb)) {
+		MARS_FAT("bad callback -- hanging up\n");
+		goto fatal;
+	}
+
+	mref = mref_a->object;
+	if (unlikely(!mref)) {
+		MARS_FAT("bad mref -- hanging up\n");
+		goto fatal;
+	}
+
+	output = mref_a->output;
+	if (unlikely(!output)) {
+		MARS_FAT("bad output -- hanging up\n");
+		goto fatal;
+	}
+
+	input = output->brick->inputs[0];
+	if (unlikely(!input)) {
+		MARS_FAT("bad input -- hanging up\n");
+		goto fatal;
 	}
 
 	if (atomic_dec_and_test(&mref_a->callback_count)) {
@@ -61,6 +83,10 @@ static void check_buf_endio(struct generic_callback *cb)
 		return;
 	}
 	prev_cb->cb_fn(prev_cb);
+	return;
+fatal:
+	msleep(60000);
+	return;
 }
 
 #ifdef CHECK_LOCK
@@ -162,7 +188,6 @@ static void check_ref_io(struct check_output *output, struct mars_ref_object *mr
 {
 	struct check_input *input = output->brick->inputs[0];
 	struct check_mars_ref_aspect *mref_a = check_mars_ref_get_aspect(output, mref);
-	struct generic_callback *cb = &mref_a->cb;
 	unsigned long flags;
 
 	if (!mref_a) {
@@ -179,22 +204,26 @@ static void check_ref_io(struct check_output *output, struct mars_ref_object *mr
 
 #ifdef CHECK_LOCK
 	traced_lock(&output->check_lock, flags);
+
 	if (!list_empty(&mref_a->mref_head)) {
-		list_del(&mref_a->mref_head);
 		MARS_ERR("instance %d/%s: list head not empty on %p\n", output->instance_nr, input->connect->type->type_name, mref);
+		list_del(&mref_a->mref_head);
 	}
 	list_add_tail(&mref_a->mref_head, &output->mref_anchor);
+
 	traced_unlock(&output->check_lock, flags);
 #else
 	(void)flags;
 #endif
 
-	if (mref->ref_cb != cb) {
+	if (!mref_a->installed) {
+		struct generic_callback *cb = &mref_a->cb;
+		mref_a->installed = true;
+		mref_a->output = output;
 		cb->cb_fn = check_buf_endio;
 		cb->cb_private = mref_a;
 		cb->cb_error = 0;
 		cb->cb_prev = mref->ref_cb;
-		mref_a->output = output;
 		mref->ref_cb = cb;
 	}
 	mref_a->last_jiffies = jiffies;
@@ -215,6 +244,7 @@ static int check_mars_ref_aspect_init_fn(struct generic_aspect *_ini, void *_ini
 	ini->last_jiffies = jiffies;
 	atomic_set(&ini->call_count, 2);
 	atomic_set(&ini->callback_count, 1);
+	ini->installed = false;
 	return 0;
 }
 
@@ -267,7 +297,7 @@ static struct check_output_ops check_output_ops = {
 	.mars_ref_io = check_ref_io,
 };
 
-static const struct check_input_type check_input_type = {
+const struct check_input_type check_input_type = {
 	.type_name = "check_input",
 	.input_size = sizeof(struct check_input),
 };
@@ -276,7 +306,7 @@ static const struct check_input_type *check_input_types[] = {
 	&check_input_type,
 };
 
-static const struct check_output_type check_output_type = {
+const struct check_output_type check_output_type = {
 	.type_name = "check_output",
 	.output_size = sizeof(struct check_output),
 	.master_ops = &check_output_ops,

@@ -14,6 +14,7 @@ struct check_mars_ref_aspect {
 	unsigned long last_jiffies;
 	atomic_t call_count;
 	atomic_t callback_count;
+	bool installed;
 };
 
 struct check_brick {

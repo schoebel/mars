@@ -55,8 +55,8 @@ static void _if_device_endio(struct generic_callback *cb)
  */
 static int if_device_make_request(struct request_queue *q, struct bio *bio)
 {
-	struct if_device_input *input = q->queuedata;
-        struct if_device_output *output;
+	struct if_device_input *input;
+	struct if_device_brick *brick;
 	struct mars_ref_object *mref = NULL;
 	struct if_device_mars_ref_aspect *mref_a;
 	struct generic_callback *cb;
@@ -65,26 +65,26 @@ static int if_device_make_request(struct request_queue *q, struct bio *bio)
 
 	MARS_DBG("make_request(%d)\n", bio->bi_size);
 
+	input = q->queuedata;
         if (unlikely(!input))
                 goto err;
 
-#if 1 // RPOVIDIONALY TODO: remove
-	{
-		static int first = 0;
-		if (!first++)
-			msleep(1000);
-	}
-#endif
-        output = input->connect;
-        if (unlikely(!output || !output->ops->mars_ref_io))
+	brick = input->brick;
+        if (unlikely(!brick))
                 goto err;
 
+	/* THIS IS PROVISIONARY
+	 */
+	while (unlikely(!brick->is_active)) {
+		msleep(100);
+	}
+
 	error = -ENOMEM;
-	mref = if_device_alloc_mars_ref(output, &input->mref_object_layout);
+	mref = if_device_alloc_mars_ref(&brick->hidden_output, &input->mref_object_layout);
 	if (unlikely(!mref))
 		goto err;
 
-	mref_a = if_device_mars_ref_get_aspect(output, mref);
+	mref_a = if_device_mars_ref_get_aspect(&brick->hidden_output, mref);
 	if (unlikely(!mref_a))
 		goto err;
 	cb = &mref_a->cb;
@@ -96,9 +96,9 @@ static int if_device_make_request(struct request_queue *q, struct bio *bio)
 
 	mars_ref_attach_bio(mref, bio);
 
-	GENERIC_OUTPUT_CALL(output, mars_ref_io, mref, rw);
+	GENERIC_INPUT_CALL(input, mars_ref_io, mref, rw);
 
-	GENERIC_OUTPUT_CALL(output, mars_ref_put, mref);
+	GENERIC_INPUT_CALL(input, mars_ref_put, mref);
 
 	return 0;
 
@@ -158,6 +158,8 @@ MARS_MAKE_STATICS(if_device);
 
 static int if_device_brick_construct(struct if_device_brick *brick)
 {
+	struct if_device_output *hidden = &brick->hidden_output;
+	_if_device_output_init(brick, hidden, "internal");
 	return 0;
 }
 
@@ -243,12 +245,21 @@ static int if_device_input_destruct(struct if_device_input *input)
 	return 0;
 }
 
+static int if_device_output_construct(struct if_device_output *output)
+{
+	return 0;
+}
+
 ///////////////////////// static structs ////////////////////////
 
 static struct if_device_brick_ops if_device_brick_ops = {
 };
 
-static const struct if_device_input_type if_device_input_type = {
+static struct if_device_output_ops if_device_output_ops = {
+	.make_object_layout = if_device_make_object_layout,
+};
+
+const struct if_device_input_type if_device_input_type = {
 	.type_name = "if_device_input",
 	.input_size = sizeof(struct if_device_input),
 	.input_construct = &if_device_input_construct,
@@ -259,6 +270,16 @@ static const struct if_device_input_type *if_device_input_types[] = {
 	&if_device_input_type,
 };
 
+const struct if_device_output_type if_device_output_type = {
+	.type_name = "if_device_output",
+	.output_size = sizeof(struct if_device_output),
+	.master_ops = &if_device_output_ops,
+	.output_construct = &if_device_output_construct,
+	.aspect_types = if_device_aspect_types,
+	.layout_code = {
+		[BRICK_OBJ_MARS_REF] = LAYOUT_ALL,
+	}
+};
 const struct if_device_brick_type if_device_brick_type = {
 	.type_name = "if_device_brick",
 	.brick_size = sizeof(struct if_device_brick),

@@ -88,7 +88,7 @@ static struct dummy_output_ops dummy_output_ops = {
 	.mars_ref_io = dummy_ref_io,
 };
 
-static const struct dummy_input_type dummy_input_type = {
+const struct dummy_input_type dummy_input_type = {
 	.type_name = "dummy_input",
 	.input_size = sizeof(struct dummy_input),
 };
@@ -97,7 +97,7 @@ static const struct dummy_input_type *dummy_input_types[] = {
 	&dummy_input_type,
 };
 
-static const struct dummy_output_type dummy_output_type = {
+const struct dummy_output_type dummy_output_type = {
 	.type_name = "dummy_output",
 	.output_size = sizeof(struct dummy_output),
 	.master_ops = &dummy_output_ops,

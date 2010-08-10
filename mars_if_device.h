@@ -10,10 +10,6 @@ struct if_device_mars_ref_aspect {
 	struct generic_callback cb;
 };
 
-struct if_device_brick {
-	MARS_BRICK(if_device);
-};
-
 struct if_device_input {
 	MARS_INPUT(if_device);
 	struct request_queue *q;
@@ -25,6 +21,12 @@ struct if_device_input {
 
 struct if_device_output {
 	MARS_OUTPUT(if_device);
+};
+
+struct if_device_brick {
+	MARS_BRICK(if_device);
+	bool is_active;
+	struct if_device_output hidden_output;
 };
 
 MARS_TYPES(if_device);

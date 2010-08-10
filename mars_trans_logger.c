@@ -44,10 +44,10 @@ static struct trans_logger_mars_ref_aspect *hash_find(struct hash_anchor *table,
 
 	traced_readlock(&start->hash_lock, flags);
 
-	/* Caution: there may be duplicates in the list, some of them
-	 * overlapping in many different ways.
+	/* The lists are always sorted according to age.
+	 * Caution: there may be duplicates in the list, some of them
+	 * overlapping with the search area in many different ways.
 	 * Always find the both _newest_ and _lowest_ overlapping element.
-	 * The lists are alwaysw sorted according to age.
 	 */
 	for (tmp = start->hash_anchor.next; tmp != &start->hash_anchor; tmp = tmp->next) {
 #if 1
@@ -220,7 +220,7 @@ static struct trans_logger_output_ops trans_logger_output_ops = {
 	.mars_ref_io = trans_logger_ref_io,
 };
 
-static const struct trans_logger_input_type trans_logger_input_type = {
+const struct trans_logger_input_type trans_logger_input_type = {
 	.type_name = "trans_logger_input",
 	.input_size = sizeof(struct trans_logger_input),
 };
@@ -231,7 +231,7 @@ static const struct trans_logger_input_type *trans_logger_input_types[] = {
 	&trans_logger_input_type,
 };
 
-static const struct trans_logger_output_type trans_logger_output_type = {
+const struct trans_logger_output_type trans_logger_output_type = {
 	.type_name = "trans_logger_output",
 	.output_size = sizeof(struct trans_logger_output),
 	.master_ops = &trans_logger_output_ops,
