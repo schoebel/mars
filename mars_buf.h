@@ -5,7 +5,8 @@
 #include <linux/list.h>
 #include <asm/atomic.h>
 
-#define MARS_BUF_HASH_MAX 512
+//#define MARS_BUF_HASH_MAX 512
+#define MARS_BUF_HASH_MAX 2048
 
 struct buf_mars_ref_aspect {
 	GENERIC_ASPECT(mars_ref);
