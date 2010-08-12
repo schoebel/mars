@@ -21,8 +21,8 @@
 #define CODE_UNKNOWN     0
 #define CODE_WRITE_NEW   1
 
-#define START_MAGIC  0xa8f7e908d9177957
-#define END_MAGIC    0x74941fb74ab5726d
+#define START_MAGIC  0xa8f7e908d9177957ll
+#define END_MAGIC    0x74941fb74ab5726dll
 
 #define OVERHEAD						\
 	(							\
@@ -357,8 +357,9 @@ static int _read_ref_get(struct trans_logger_output *output, struct trans_logger
 		if (mref->ref_len > restlen)
 			mref->ref_len = restlen;
 		mref->ref_data = shadow->ref_data - diff;
+		mref_a->orig_data = shadow->ref_data;
 		mref->ref_flags = shadow->ref_flags;
-		mref_a->sub_a = shadow_a;
+		mref_a->is_shadow = true;
 		return mref->ref_len;
 	}
 
@@ -369,35 +370,18 @@ call_through:
 static int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mars_ref_aspect *mref_a)
 {
 	struct mars_ref_object *mref = mref_a->object;
-	struct trans_logger_input *input = output->brick->inputs[0];
-	struct mars_ref_object *shadow;
-	struct trans_logger_mars_ref_aspect *shadow_a;
 
 	// unconditionally create a new shadow buffer
-	shadow = trans_logger_alloc_mars_ref(&input->hidden_output, &input->ref_object_layout);
-	shadow_a = trans_logger_mars_ref_get_aspect(output, shadow);
-	if (unlikely(!shadow_a)) {
-		MARS_FAT("cannot get my own aspect\n");
-		trans_logger_free_mars_ref(shadow);
-		return -ENOSYS;
-	}
-
-	shadow->ref_data = kmalloc(mref->ref_len, GFP_MARS);
-	if (unlikely(!shadow->ref_data)) {
-		trans_logger_free_mars_ref(shadow);
+	mref->ref_data = kmalloc(mref->ref_len, GFP_MARS);
+	if (unlikely(!mref->ref_data)) {
 		return -ENOMEM;
 	}
 
-	shadow->ref_pos = mref->ref_pos;
-	shadow->ref_len = mref->ref_len;
-	shadow->ref_may_write = WRITE;
-	shadow->ref_flags = 0;
-
-	hash_insert(output->hash_table, shadow_a);
-
-	mref->ref_data = shadow->ref_data;
+	mref_a->orig_data = mref->ref_data;
+	mref_a->output = output;
+	mref_a->stamp = CURRENT_TIME;
 	mref->ref_flags = 0;
-	mref_a->sub_a = shadow_a;
+	mref_a->is_shadow = true;
 	return mref->ref_len;
 }
 
@@ -425,7 +409,6 @@ static void trans_logger_ref_put(struct trans_logger_output *output, struct mars
 {
 	struct trans_logger_mars_ref_aspect *mref_a;
 	struct trans_logger_input *input = output->brick->inputs[0];
-	struct trans_logger_mars_ref_aspect *shadow_a;
 
 	mref_a = trans_logger_mars_ref_get_aspect(output, mref);
 	if (unlikely(!mref_a)) {
@@ -433,9 +416,8 @@ static void trans_logger_ref_put(struct trans_logger_output *output, struct mars
 		return;
 	}
 
-	shadow_a = mref_a->sub_a;
-	if (shadow_a) {
-		hash_put(output->hash_table, shadow_a);
+	if (mref_a->is_shadow) {
+		hash_put(output->hash_table, mref_a);
 
 		CHECK_ATOMIC(&mref->ref_count, 1);
 		if (!atomic_dec_and_test(&mref->ref_count))
@@ -460,10 +442,16 @@ static void trans_logger_ref_io(struct trans_logger_output *output, struct mars_
 	}
 
 	// is this a shadow buffer?
-	if (mref_a->sub_a) {
-		mref_a->output = output;
-		mref_a->stamp = CURRENT_TIME;
-		q_insert(&output->q_phase1, mref_a);
+	if (mref_a->is_shadow) {
+		if (rw == READ) {
+			struct generic_callback *cb = mref->ref_cb;
+			cb->cb_error = 0;
+			cb->cb_fn(cb);
+			trans_logger_ref_put(output, mref);
+		} else {
+			hash_insert(output->hash_table, mref_a);
+			q_insert(&output->q_phase1, mref_a);
+		}
 		return;
 	}
 

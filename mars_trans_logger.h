@@ -34,7 +34,8 @@ struct trans_logger_mars_ref_aspect {
 	struct list_head hash_head;
 	struct list_head q_head;
 	atomic_t hash_count;
-	struct trans_logger_mars_ref_aspect *sub_a;
+	bool is_shadow;
+	void *orig_data;
 	struct trans_logger_output *output;
 	struct timespec stamp;
 	struct generic_callback cb;
