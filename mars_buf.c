@@ -685,7 +685,7 @@ static int _buf_make_bios(struct buf_brick *brick, struct buf_head *bf, void *st
 		atomic_inc(&bf->bf_bio_count);
 
 		MARS_DBG("starting buf IO mref=%p bio=%p bf=%p bf_count=%d bf_bio_count=%d\n", mref, mref->orig_bio, bf, atomic_read(&bf->bf_count), atomic_read(&bf->bf_bio_count));
-#if 1
+#if 0
 		GENERIC_INPUT_CALL(input, mars_ref_io, mref, rw);
 #else
 		// fake IO for testing

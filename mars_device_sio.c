@@ -37,12 +37,12 @@ static int transfer_none(int cmd,
 		MARS_ERR("transfer NULL: %p %p\n", raw_buf, loop_buf);
 		return -EFAULT;
 	}
-
+#if 1
 	if (cmd == READ)
 		memcpy(loop_buf, raw_buf, size);
 	else
 		memcpy(raw_buf, loop_buf, size);
-
+#endif
 	kunmap_atomic(raw_buf, KM_USER0);
 	kunmap_atomic(loop_buf, KM_USER1);
 	cond_resched();

@@ -28,13 +28,13 @@ static void _usebuf_copy(struct usebuf_mars_ref_aspect *mref_a, int rw)
 	void *bio_base = kmap_atomic(mref_a->bvec->bv_page, KM_USER0);
 	void *bio_data = bio_base + mref_a->bvec_offset;
 	int len = mref_a->bvec_len;
-
+#if 1
 	if (rw == READ) {
 		memcpy(bio_data, ref_data, len);
 	} else {
 		memcpy(ref_data, bio_data, len);
 	}
-
+#endif
 	kunmap_atomic(bio_base, KM_USER0);
 }
 

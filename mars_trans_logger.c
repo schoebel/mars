@@ -423,6 +423,7 @@ static void trans_logger_ref_put(struct trans_logger_output *output, struct mars
 		if (!atomic_dec_and_test(&mref->ref_count))
 			return;
 
+		kfree(mref_a->orig_data);
 		trans_logger_free_mars_ref(mref);
 		return;
 	}
