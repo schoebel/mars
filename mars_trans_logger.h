@@ -33,12 +33,12 @@ struct trans_logger_mars_ref_aspect {
 	GENERIC_ASPECT(mars_ref);
 	struct list_head hash_head;
 	struct list_head q_head;
-	atomic_t hash_count;
-	bool is_shadow;
+	struct trans_logger_mars_ref_aspect *shadow_ref;
 	void *orig_data;
 	struct trans_logger_output *output;
 	struct timespec stamp;
 	struct generic_callback cb;
+	struct trans_logger_mars_ref_aspect *orig_mref_a;
 };
 
 struct trans_logger_brick {
@@ -48,10 +48,13 @@ struct trans_logger_brick {
 struct trans_logger_output {
 	MARS_OUTPUT(trans_logger);
 	struct hash_anchor hash_table[TRANS_HASH_MAX];
+	struct task_struct *thread;
+	wait_queue_head_t event;
 	// queues
 	struct logger_queue q_phase1;
 	struct logger_queue q_phase2;
 	struct logger_queue q_phase3;
+	struct logger_queue q_phase4;
 };
 
 struct trans_logger_input {

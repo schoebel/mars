@@ -54,10 +54,16 @@ static void write_aops(struct device_sio_output *output, struct mars_ref_object 
 	struct bio *bio = mref->orig_bio;
 	loff_t pos = ((loff_t)bio->bi_sector << 9);
 	struct file *file = output->filp;
-	struct address_space *mapping = file->f_mapping;
+	struct address_space *mapping;
 	struct bio_vec *bvec;
 	int i;
 	int ret = 0;
+
+	if (unlikely(!file)) {
+		MARS_FAT("No FILE\n");
+		return;
+	}
+	mapping = file->f_mapping;
 
 	MARS_DBG("write_aops pos=%llu len=%d\n", pos, bio->bi_size);
 
@@ -236,7 +242,10 @@ static void device_sio_ref_io(struct device_sio_output *output, struct mars_ref_
 	struct generic_callback *cb = mref->ref_cb;
 	bool barrier = (rw != READ && bio_rw_flagged(bio, BIO_RW_BARRIER));
 	int test;
-	
+
+	if (unlikely(!output->filp)) {
+	}
+
 	if (barrier) {
 		MARS_INF("got barrier request\n");
 		sync_file(output);
@@ -406,34 +415,44 @@ static int device_sio_brick_construct(struct device_sio_brick *brick)
 	return 0;
 }
 
-static int device_sio_output_construct(struct device_sio_output *output)
+static int device_sio_switch(struct device_sio_brick *brick, bool state)
 {
-	mm_segment_t oldfs;
+	struct device_sio_output *output = brick->outputs[0];
+	char *path = output->output_name;
 	int flags = O_CREAT | O_RDWR | O_LARGEFILE;
 	int prot = 0600;
-	char *path = "/tmp/testfile.img";
+	mm_segment_t oldfs;
+
+	if (state) {
+		oldfs = get_fs();
+		set_fs(get_ds());
+		output->filp = filp_open(path, flags, prot);
+		set_fs(oldfs);
+		
+		if (IS_ERR(output->filp)) {
+			int err = PTR_ERR(output->filp);
+			MARS_ERR("can't open file '%s' status=%d\n", path, err);
+			output->filp = NULL;
+			return err;
+		}
+#if 0
+		{
+			struct address_space *mapping = output->filp->f_mapping;
+			int old_gfp_mask = mapping_gfp_mask(mapping);
+			mapping_set_gfp_mask(mapping, old_gfp_mask & ~(__GFP_IO|__GFP_FS));
+		}
+#endif
+		MARS_INF("opened file '%s'\n", path);
+	} else {
+		// TODO: close etc...
+	}
+	return 0;
+}
+
+static int device_sio_output_construct(struct device_sio_output *output)
+{
 	struct task_struct *watchdog;
 	int index;
-
-	oldfs = get_fs();
-	set_fs(get_ds());
-	output->filp = filp_open(path, flags, prot);
-	set_fs(oldfs);
-
-	if (IS_ERR(output->filp)) {
-		int err = PTR_ERR(output->filp);
-		MARS_ERR("can't open file '%s' status=%d\n", path, err);
-		output->filp = NULL;
-		return err;
-	}
-
-#if 0
-	{
-		struct address_space *mapping = output->filp->f_mapping;
-		int old_gfp_mask = mapping_gfp_mask(mapping);
-		mapping_set_gfp_mask(mapping, old_gfp_mask & ~(__GFP_IO|__GFP_FS));
-	}
-#endif
 
 	spin_lock_init(&output->g_lock);
 	output->index = 0;
@@ -480,6 +499,7 @@ static int device_sio_output_destruct(struct device_sio_output *output)
 ///////////////////////// static structs ////////////////////////
 
 static struct device_sio_brick_ops device_sio_brick_ops = {
+	.brick_switch = device_sio_switch,
 };
 
 static struct device_sio_output_ops device_sio_output_ops = {

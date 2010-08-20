@@ -6,16 +6,18 @@
 #include <asm/spinlock.h>
 #include <asm/atomic.h>
 
+#define MARS_DELAY msleep(30000)
+
 #define MARS_FATAL "MARS_FATAL  " __BASE_FILE__ ": "
 #define MARS_ERROR "MARS_ERROR  " __BASE_FILE__ ": "
 #define MARS_INFO  "MARS_INFO   " __BASE_FILE__ ": "
 #define MARS_DEBUG "MARS_DEBUG  " __BASE_FILE__ ": "
 
-#define MARS_FAT(fmt, args...) printk(MARS_FATAL "%s(): " fmt, __FUNCTION__, ##args)
-#define MARS_ERR(fmt, args...) printk(MARS_ERROR "%s(): " fmt, __FUNCTION__, ##args)
-#define MARS_INF(fmt, args...) printk(MARS_INFO  "%s(): " fmt, __FUNCTION__, ##args)
+#define MARS_FAT(fmt, args...) do { printk(MARS_FATAL "%s(): " fmt, __FUNCTION__, ##args); MARS_DELAY; } while (0)
+#define MARS_ERR(fmt, args...) do { printk(MARS_ERROR "%s(): " fmt, __FUNCTION__, ##args); MARS_DELAY; } while (0)
+#define MARS_INF(fmt, args...) do { printk(MARS_INFO  "%s(): " fmt, __FUNCTION__, ##args); } while (0)
 #ifdef MARS_DEBUGGING
-#define MARS_DBG(fmt, args...) printk(MARS_DEBUG "%s(): " fmt, __FUNCTION__, ##args)
+#define MARS_DBG(fmt, args...) do { printk(MARS_DEBUG "%s(): " fmt, __FUNCTION__, ##args); } while (0)
 #else
 #define MARS_DBG(args...) /**/
 #endif
@@ -190,7 +192,7 @@ static const struct generic_aspect_type *BRICK##_aspect_types[BRICK_OBJ_NR] = {	
 		int test = atomic_read(atom);				\
 		if (test OP (minval)) {					\
 			atomic_set(atom, minval);			\
-			MARS_ERR("line %d atom " #atom " " #OP " " #minval "\n", __LINE__); \
+			MARS_ERR("line %d atomic " #atom " " #OP " " #minval "\n", __LINE__); \
 		}							\
 	} while (0)
 
@@ -213,7 +215,7 @@ static inline void mars_ref_attach_bio(struct mars_ref_object *mref, struct bio 
 }
 
 #define CHECK_HEAD_EMPTY(head)						\
-	if (!list_empty(head)) {						\
+	if (unlikely(!list_empty(head))) {				\
 		INIT_LIST_HEAD(head);					\
 		MARS_ERR("list_head " #head " (%p) not empty\n", head);	\
 	}								\

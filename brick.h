@@ -175,8 +175,7 @@ struct generic_output {
 	)
 
 #define GENERIC_BRICK_OPS(BRICK)					\
-	/*int (*brick_start)(struct BRICK##_brick *brick);*/		\
-	/*int (*brick_stop)(struct BRICK##_brick *brick);*/		\
+	int (*brick_switch)(struct BRICK##_brick *brick, bool state);	\
 	
 struct generic_brick_ops {
 	GENERIC_BRICK_OPS(generic);

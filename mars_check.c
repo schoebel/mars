@@ -20,6 +20,23 @@
 
 ///////////////////////// own helper functions ////////////////////////
 
+#define CHECK_ERR(output,fmt,args...)					\
+	do {								\
+		struct check_input *input = (output)->brick->inputs[0];	\
+		struct generic_output *other = (void*)input->connect;	\
+		if (other) {						\
+			MARS_ERR("instance %d/%s/%s: " fmt,		\
+				 (output)->instance_nr,			\
+				 other->type->type_name,		\
+				 other->output_name,			\
+				 ##args);				\
+		} else {						\
+			MARS_ERR("instance %d: " fmt,			\
+				 (output)->instance_nr,			\
+				 ##args);				\
+		}							\
+	} while (0)
+
 static void check_buf_endio(struct generic_callback *cb)
 {
 	struct check_mars_ref_aspect *mref_a;
@@ -59,14 +76,14 @@ static void check_buf_endio(struct generic_callback *cb)
 
 	if (atomic_dec_and_test(&mref_a->callback_count)) {
 		atomic_set(&mref_a->callback_count, 1);
-		MARS_ERR("instance %d/%s: too many callbacks on %p\n", output->instance_nr, input->connect->type->type_name, mref);
+		CHECK_ERR(output, "too many callbacks on %p\n", mref);
 	}
 
 #ifdef CHECK_LOCK
 	traced_lock(&output->check_lock, flags);
 
 	if (list_empty(&mref_a->mref_head)) {
-		MARS_ERR("instance %d/%s: list entry missing on %p\n", output->instance_nr, input->connect->type->type_name, mref);
+		CHECK_ERR(output, "list entry missing on %p\n", mref);
 	}
 	list_del_init(&mref_a->mref_head);
 
@@ -82,6 +99,10 @@ static void check_buf_endio(struct generic_callback *cb)
 		MARS_FAT("cannot get chain callback\n");
 		return;
 	}
+#if 1
+	mref->ref_cb = prev_cb;
+	mref_a->installed = false;
+#endif
 	prev_cb->cb_fn(prev_cb);
 	return;
 fatal:
@@ -138,8 +159,8 @@ static int check_watchdog(void *data)
 				struct generic_object_layout *object_layout;
 				int i;
 				mref_a->last_jiffies = now + 600 * HZ;
-				MARS_ERR("================================\n");
-				MARS_ERR("instance %d: mref %p callback is missing for more than %d seconds.\n", output->instance_nr, mref, timeout);
+				MARS_INF("================================\n");
+				CHECK_ERR(output, "mref %p callback is missing for more than %d seconds.\n", mref, timeout);
 				object_layout = (void*)mref->object_layout;
 				//dump_mem(mref, object_layout->object_size);
 				for (i = 0; i < object_layout->aspect_count; i++) {
@@ -154,7 +175,7 @@ static int check_watchdog(void *data)
 					MARS_INF("--- aspect %s ---:\n", aspect_layout->aspect_type->aspect_type_name);
 					dump_mem(((void*)mref + pos), aspect_layout->aspect_type->aspect_size);
 				}
-				MARS_ERR("================================\n");
+				MARS_INF("================================\n");
 			}
 		}
 
@@ -198,7 +219,7 @@ static void check_ref_io(struct check_output *output, struct mars_ref_object *mr
 
 	if (atomic_dec_and_test(&mref_a->call_count)) {
 		atomic_set(&mref_a->call_count, 1);
-		MARS_ERR("instance %d/%s: multiple parallel calls on %p\n", output->instance_nr, input->connect->type->type_name, mref);
+		CHECK_ERR(output, "multiple parallel calls on %p\n", mref);
 	}
 	atomic_set(&mref_a->callback_count, 2);
 
@@ -206,7 +227,7 @@ static void check_ref_io(struct check_output *output, struct mars_ref_object *mr
 	traced_lock(&output->check_lock, flags);
 
 	if (!list_empty(&mref_a->mref_head)) {
-		MARS_ERR("instance %d/%s: list head not empty on %p\n", output->instance_nr, input->connect->type->type_name, mref);
+		CHECK_ERR(output, "list head not empty on %p\n", mref);
 		list_del(&mref_a->mref_head);
 	}
 	list_add_tail(&mref_a->mref_head, &output->mref_anchor);
@@ -253,7 +274,15 @@ static void check_mars_ref_aspect_exit_fn(struct generic_aspect *_ini, void *_in
 	struct check_mars_ref_aspect *ini = (void*)_ini;
 	(void)ini;
 #ifdef CHECK_LOCK
-	CHECK_HEAD_EMPTY(&ini->mref_head);
+	if (!list_empty(&ini->mref_head)) {
+		struct check_output *output = ini->output;
+		if (output) {
+			CHECK_ERR(output, "list head not empty on %p\n", ini->object);
+			INIT_LIST_HEAD(&ini->mref_head);
+		} else {
+			CHECK_HEAD_EMPTY(&ini->mref_head);
+		}
+	}
 #endif
 }
 

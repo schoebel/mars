@@ -15,6 +15,7 @@
 #include "mars.h"
 
 //#define USE_VMALLOC
+//#define FAKE_IO
 
 ///////////////////////// own type definitions ////////////////////////
 
@@ -184,9 +185,11 @@ static int make_bio(struct buf_brick *brick, struct bio **_bio, void *data, loff
 {
 	unsigned long long sector;
 	int sector_offset;
+	int data_offset;
 	int page_offset;
 	int page_len;
 	int bvec_count;
+	int ilen = len;
 	int status;
 	int i;
 	struct page *page;
@@ -205,26 +208,31 @@ static int make_bio(struct buf_brick *brick, struct bio **_bio, void *data, loff
 		bdev = brick->base_info.backing_file->f_mapping->host->i_sb->s_bdev;
 	}
 
-	if (unlikely(len <= 0)) {
-		MARS_ERR("bad bio len %d\n", len);
+	if (unlikely(ilen <= 0)) {
+		MARS_ERR("bad bio len %d\n", ilen);
 		status = -EINVAL;
 		goto out;
 	}
 
 	sector = pos >> 9;                     // TODO: make dynamic
 	sector_offset = pos & ((1 << 9) - 1);  // TODO: make dynamic
+	data_offset = ((unsigned long)data) & ((1 << 9) - 1);  // TODO: make dynamic
+
+	if (unlikely(sector_offset != data_offset)) {
+		MARS_ERR("bad alignment: offset %d != %d\n", sector_offset, data_offset);
+	}
 
 	// round down to start of first sector
 	data -= sector_offset;
-	len += sector_offset;
+	ilen += sector_offset;
 	pos -= sector_offset;
 
 	// round up to full sector
-	len = (((len - 1) >> 9) + 1) << 9; // TODO: make dynamic
+	ilen = (((ilen - 1) >> 9) + 1) << 9; // TODO: make dynamic
 
 	// map onto pages. TODO: allow higher-order pages (performance!)
 	page_offset = pos & (PAGE_SIZE - 1);
-	page_len = len + page_offset;
+	page_len = ilen + page_offset;
 	bvec_count = (page_len - 1) / PAGE_SIZE + 1;
 	if (bvec_count > brick->bvec_max)
 		bvec_count = brick->bvec_max;
@@ -235,9 +243,9 @@ static int make_bio(struct buf_brick *brick, struct bio **_bio, void *data, loff
 		goto out;
 
 	status = 0;
-	for (i = 0; i < bvec_count && len > 0; i++) {
+	for (i = 0; i < bvec_count && ilen > 0; i++) {
 		int myrest = PAGE_SIZE - page_offset;
-		int mylen = len;
+		int mylen = ilen;
 
 		if (mylen > myrest)
 			mylen = myrest;
@@ -249,15 +257,16 @@ static int make_bio(struct buf_brick *brick, struct bio **_bio, void *data, loff
 		bio->bi_io_vec[i].bv_offset = page_offset;
 
 		data += mylen;
-		len -= mylen;
+		ilen -= mylen;
 		status += mylen;
 		page_offset = 0;
+		//MARS_INF("page_offset=%d mylen=%d (new len=%d, new status=%d)\n", page_offset, mylen, ilen, status);
 	}
 
-	if (unlikely(len)) {
+	if (unlikely(ilen != 0)) {
 		bio_put(bio);
 		bio = NULL;
-		MARS_ERR("computation of bvec_count %d was wrong, diff=%d\n", bvec_count, len);
+		MARS_ERR("computation of bvec_count %d was wrong, diff=%d\n", bvec_count, ilen);
 		status = -EIO;
 		goto out;
 	}
@@ -270,12 +279,14 @@ static int make_bio(struct buf_brick *brick, struct bio **_bio, void *data, loff
 	bio->bi_private = NULL; // must be filled in later
 	bio->bi_end_io = NULL; // must be filled in later
 	bio->bi_rw = 0; // must be filled in later
-	// ignore rounding-down on return
-	if (status >= sector_offset)
-		status -= sector_offset;
+	// ignore rounding on return
+	if (status > len)
+		status = len;
 
 out:
 	*_bio = bio;
+	if (status < 0)
+		MARS_ERR("error %d\n", status);
 	return status;
 }
 
@@ -432,6 +443,14 @@ again:
 		new->bf_pos = base_pos;
 		new->bf_base_index = ((unsigned int)base_pos) >> brick->backing_order;
 		new->bf_flags = 0;
+		/* Important optimization: treat whole buffers as uptodate
+		 * upon first write.
+		 */
+		if (mref->ref_may_write != READ &&
+		   ((!base_offset && mref->ref_len == brick->backing_size) ||
+		    (mref->ref_pos >= brick->base_info.current_size))) {
+			new->bf_flags |= MARS_REF_UPTODATE;
+		}
 		atomic_set(&new->bf_count, 1);
 		new->bf_bio_status = 0;
 		atomic_set(&new->bf_bio_count, 0);
@@ -630,8 +649,13 @@ static int _buf_make_bios(struct buf_brick *brick, struct buf_head *bf, void *st
 		mref_a->cb.cb_prev = NULL;
 
 		len = make_bio(brick, &bio, start_data, start_pos, start_len);
-		if (unlikely(len <= 0 || !bio)) {
-			buf_free_mars_ref(mref);
+		if (unlikely(len < 0)) {
+			status = len;
+			break;
+		}
+		if (unlikely(len == 0 || !bio)) {
+			status = -EIO;
+			//buf_free_mars_ref(mref);
 			break;
 		}
 
@@ -647,9 +671,12 @@ static int _buf_make_bios(struct buf_brick *brick, struct buf_head *bf, void *st
 		start_len -= len;
 		iters++;
 	}
-	if (!start_len)
+	if (likely(!start_len))
 		status = 0;
 #if 1
+	else {
+		MARS_ERR("start_len %d != 0 (error %d)\n", start_len, status);
+	}
 	if (iters != 1) {
 		MARS_INF("start_pos=%lld start_len=%d iters=%d, status=%d\n", start_pos, start_len, iters, status);
 	}
@@ -669,6 +696,7 @@ static int _buf_make_bios(struct buf_brick *brick, struct buf_head *bf, void *st
 
 		cb = mref->ref_cb;
 		if (status < 0) { // clean up
+			MARS_ERR("reporting error %d\n", status);
 			cb->cb_error = status;
 			cb->cb_fn(cb);
 #if 0
@@ -685,7 +713,7 @@ static int _buf_make_bios(struct buf_brick *brick, struct buf_head *bf, void *st
 		atomic_inc(&bf->bf_bio_count);
 
 		MARS_DBG("starting buf IO mref=%p bio=%p bf=%p bf_count=%d bf_bio_count=%d\n", mref, mref->orig_bio, bf, atomic_read(&bf->bf_count), atomic_read(&bf->bf_bio_count));
-#if 0
+#ifndef FAKE_IO
 		GENERIC_INPUT_CALL(input, mars_ref_io, mref, rw);
 #else
 		// fake IO for testing
@@ -890,6 +918,7 @@ static void buf_ref_io(struct buf_output *output, struct mars_ref_object *mref, 
 	CHECK_ATOMIC(&bf->bf_count, 1);
 
 	if (rw != READ) {
+		loff_t end;
 		if (unlikely(mref->ref_may_write == READ)) {
 			MARS_ERR("sorry, forgotten to set ref_may_write\n");
 			goto callback;
@@ -897,6 +926,11 @@ static void buf_ref_io(struct buf_output *output, struct mars_ref_object *mref, 
 		if (unlikely(!(bf->bf_flags & MARS_REF_UPTODATE))) {
 			MARS_ERR("sorry, writing is only allowed on UPTODATE buffers\n");
 			goto callback;
+		}
+		end = mref->ref_pos + mref->ref_len;
+		//FIXME: race condition :(
+		if (end > brick->base_info.current_size) {
+			brick->base_info.current_size = end;
 		}
 	}
 
