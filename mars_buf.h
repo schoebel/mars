@@ -32,6 +32,7 @@ struct buf_brick {
 	spinlock_t brick_lock;
 	atomic_t alloc_count;
 	atomic_t hashed_count;
+	atomic_t lru_count;
 	atomic_t nr_io_pending;
 	atomic_t nr_collisions;
 	struct generic_object_layout mref_object_layout;

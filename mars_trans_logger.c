@@ -930,8 +930,8 @@ static int trans_logger_thread(void *data)
 	struct trans_logger_output *output = data;
 	struct trans_logger_brick *brick;
 	struct trans_logger_input *input;
-	long wait_jiffies = HZ;
-	unsigned long last_jiffies = 0;
+	int wait_jiffies = HZ;
+	int last_jiffies = jiffies;
 	bool check_q = true;
 
 	brick = output->brick;
@@ -952,7 +952,7 @@ static int trans_logger_thread(void *data)
 			  !list_empty(&output->q_phase4.q_anchor))),
 			wait_jiffies);
 #if 1
-		if (jiffies - last_jiffies >= HZ * 10) {
+		if (((int)jiffies) - last_jiffies >= HZ * 10 && atomic_read(&output->hash_count) > 0) {
 			last_jiffies = jiffies;
 			MARS_INF("LOGGER: hash_count=%d phase1=%d/%d phase2=%d/%d phase3=%d/%d phase4=%d/%d\n", atomic_read(&output->hash_count), atomic_read(&output->q_phase1.q_queued), atomic_read(&output->q_phase1.q_flying), atomic_read(&output->q_phase2.q_queued), atomic_read(&output->q_phase2.q_flying), atomic_read(&output->q_phase3.q_queued), atomic_read(&output->q_phase3.q_flying), atomic_read(&output->q_phase4.q_queued), atomic_read(&output->q_phase4.q_flying));
 		}
@@ -966,11 +966,12 @@ static int trans_logger_thread(void *data)
 			continue;
 		}
 
-		/* Run higher phases only when IO contention is "low".
+		/* Strategy / performace:
+		 * run higher phases only when IO contention is "low".
 		 */
 		if (brick->max_queue <= 0 ||
 		   atomic_read(&output->q_phase2.q_queued) + atomic_read(&output->q_phase4.q_queued) < brick->max_queue) {
-			long rest = brick->allow_reads_after - (jiffies - output->q_phase1.q_last_action);
+			int rest = brick->allow_reads_after - (jiffies - output->q_phase1.q_last_action);
 			if (brick->allow_reads_after > 0 && rest > 0) {
 				wait_jiffies = rest;
 				check_q = false;

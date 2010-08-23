@@ -61,12 +61,21 @@ static struct buf_head *hash_find_insert(struct buf_brick *brick, unsigned int b
 		}
 #endif
 		res = container_of(tmp, struct buf_head, bf_hash_head);
-		if (res->bf_base_index == base_index) {
+		if (res->bf_base_index == base_index) { // found
+			int old_bf_count = atomic_read(&res->bf_count);
 			CHECK_ATOMIC(&res->bf_count, 0);
 			atomic_inc(&res->bf_count);
 
 			traced_unlock(lock, flags);
 
+			if (true || old_bf_count <= 0) {
+				traced_lock(&brick->brick_lock, flags);
+				if (!list_empty(&res->bf_lru_head)) {
+					list_del_init(&res->bf_lru_head);
+					atomic_dec(&brick->lru_count);
+				}
+				traced_unlock(&brick->brick_lock, flags);
+			}
 			return res;
 		}
 	}
@@ -120,56 +129,61 @@ static inline void __prune_cache(struct buf_brick *brick, int max_count, unsigne
 	}
 }
 
-static inline void __remove_from_hash(struct buf_brick *brick, struct buf_head *bf, bool force)
+static inline bool __remove_from_hash(struct buf_brick *brick, struct buf_head *bf, bool force)
 {
 	int hash;
 	spinlock_t *lock;
 	unsigned long flags;
+	bool ok = false;
 
 	hash = buf_hash_fn(bf->bf_base_index);
 	lock = &brick->cache_anchors[hash].hash_lock;
 
 	traced_lock(lock, flags);
 
-	if (force || !atomic_read(&bf->bf_count)) {
+	/* Attention! In seldom cases, the hash lock can race against the
+	 * brick lock upon hash_find_insert().
+	 * Be careful!
+	 */
+	if (likely(force || !atomic_read(&bf->bf_count))) {
 		list_del_init(&bf->bf_hash_head);
 		atomic_dec(&brick->hashed_count);
+		ok = true;
 	}
 
 	traced_unlock(lock, flags);
-
+	return ok;
 }
 
 static inline void __lru_free_one(struct buf_brick *brick, unsigned long *flags)
 {
 	struct buf_head *bf;
+	bool ok;
 
 	if (list_empty(&brick->lru_anchor))
 		return;
 
 	bf = container_of(brick->lru_anchor.prev, struct buf_head, bf_lru_head);
+
 	list_del_init(&bf->bf_lru_head);
+	atomic_dec(&brick->lru_count);
 
-	traced_unlock(&brick->brick_lock, *flags);
-
-	/* Don't force removal from hash.
-	 * Attention! members in free_list may thus be hashed.
+	/* Attention! In seldom cases, the hash lock can race against the
+	 * brick lock upon hash_find_insert().
 	 * Be careful!
 	 */
-	__remove_from_hash(brick, bf, false);
+	if (unlikely(atomic_read(&bf->bf_count) > 0))
+		return;
 
-#if 1
-	if (unlikely(
-		   !list_empty(&bf->bf_io_pending_anchor) ||
-		   !list_empty(&bf->bf_postpone_anchor)
-		   )) {
-		MARS_ERR("freed bf is member in lists!\n");
+        traced_unlock(&brick->brick_lock, *flags);
+
+	ok = __remove_from_hash(brick, bf, false);
+
+        traced_lock(&brick->brick_lock, *flags);
+
+	if (likely(ok)) {
+		list_add(&bf->bf_lru_head, &brick->free_anchor);
 	}
-#endif
-
-	traced_lock(&brick->brick_lock, *flags);
-
-	list_add(&bf->bf_lru_head, &brick->free_anchor);
 }
 
 
@@ -402,16 +416,12 @@ again:
 	bf = hash_find_insert(brick, ((unsigned int)base_pos) >> brick->backing_order, new);
 	if (bf) {
 		atomic_inc(&brick->hit_count);
-		if (!list_empty(&bf->bf_lru_head)) {
-			traced_lock(&brick->brick_lock, flags);
-			list_del_init(&bf->bf_lru_head);
-			traced_unlock(&brick->brick_lock, flags);
-		}
 		if (unlikely(new)) {
 			atomic_inc(&brick->nr_collisions);
 			MARS_DBG("race detected: alias elem appeared in the meantime\n");
 			traced_lock(&brick->brick_lock, flags);
 
+			list_del(&new->bf_lru_head);
 			list_add(&new->bf_lru_head, &brick->free_anchor);
 
 			traced_unlock(&brick->brick_lock, flags);
@@ -497,62 +507,37 @@ done:
 	return status;
 }
 
-//#define FAST
 static void __bf_put(struct buf_head *bf)
 {
 	struct buf_brick *brick;
-	int bf_count;
 	unsigned long flags;
-
-	MARS_DBG("bf=%p bf_count=%d\n", bf, bf_count);
-	CHECK_ATOMIC(&bf->bf_count, 1);
-
-#ifdef FAST
-	if (!atomic_dec_and_test(&bf->bf_count))
-		return;
-	MARS_DBG("ZERO_COUNT\n");
-#endif
 
 	brick = bf->bf_brick;
 
 	traced_lock(&brick->brick_lock, flags);
 
-#ifdef FAST
-        /* NOTE: this may race against the above atomic_dec_and_test().
-	 * But in worst case, nothing happens.
-	 * So this race is ok.
-	 */
-	bf_count = atomic_read(&bf->bf_count);
-#else
+	CHECK_ATOMIC(&bf->bf_count, 1);
 	if (!atomic_dec_and_test(&bf->bf_count)) {
 		traced_unlock(&brick->brick_lock, flags);
 		return;
 	}
-	MARS_DBG("ZERO_COUNT\n");
-	bf_count = 0;
-#endif
-	if (likely(bf_count <= 0)) {
-		if (unlikely(bf_count < 0)) {
-			atomic_set(&bf->bf_count, 0);
-			MARS_ERR("bf_count UNDERRUN %d\n", bf_count);
-		}
-#if 1
-		if (unlikely(!list_empty(&bf->bf_io_pending_anchor))) {
-			MARS_ERR("bf_io_pending_anchor is not empty!\n");
-		}
-		if (unlikely(!list_empty(&bf->bf_postpone_anchor))) {
-			MARS_ERR("bf_postpone_anchor is not empty!\n");
-		}
-#endif
-		list_del(&bf->bf_lru_head);
-		if (likely(bf->bf_flags & MARS_REF_UPTODATE)) {
-			list_add(&bf->bf_lru_head, &brick->lru_anchor);
-		} else {
-			list_add_tail(&bf->bf_lru_head, &brick->lru_anchor);
-		}
-	} // else no harm can happen
 
-	// lru freeing (this is completeley independent from bf)
+	MARS_DBG("ZERO_COUNT\n");
+	if (unlikely(!list_empty(&bf->bf_io_pending_anchor))) {
+		MARS_ERR("bf_io_pending_anchor is not empty!\n");
+	}
+	if (unlikely(!list_empty(&bf->bf_postpone_anchor))) {
+		MARS_ERR("bf_postpone_anchor is not empty!\n");
+	}
+	CHECK_HEAD_EMPTY(&bf->bf_lru_head);
+	atomic_inc(&brick->lru_count);
+	if (likely(bf->bf_flags & MARS_REF_UPTODATE)) {
+		list_add(&bf->bf_lru_head, &brick->lru_anchor);
+	} else {
+		list_add_tail(&bf->bf_lru_head, &brick->lru_anchor);
+	}
+
+	// lru freeing (this is completely independent from bf)
 	__lru_free(brick, &flags);
 	__prune_cache(brick, brick->max_count * 2, &flags);
 
@@ -958,7 +943,7 @@ static void buf_ref_io(struct buf_output *output, struct mars_ref_object *mref, 
 		unsigned long miss = atomic_read(&brick->miss_count);
 		unsigned long perc = hit * 100 * 100 / (hit + miss);
 		brick->last_jiffies = jiffies;
-		MARS_INF("STATISTICS: hashed=%d alloc=%d io_pending=%d hit=%lu (%lu.%02lu%%) miss=%lu collisions=%d io=%d\n", atomic_read(&brick->hashed_count), atomic_read(&brick->alloc_count), atomic_read(&brick->nr_io_pending), hit, perc / 100, perc % 100, miss, atomic_read(&brick->nr_collisions), atomic_read(&brick->io_count));
+		MARS_INF("STATISTICS: hashed=%d lru=%d alloc=%d io_pending=%d hit=%lu (%lu.%02lu%%) miss=%lu collisions=%d io=%d\n", atomic_read(&brick->hashed_count), atomic_read(&brick->lru_count), atomic_read(&brick->alloc_count), atomic_read(&brick->nr_io_pending), hit, perc / 100, perc % 100, miss, atomic_read(&brick->nr_collisions), atomic_read(&brick->io_count));
 	}
 #endif
 
@@ -1091,6 +1076,7 @@ static int buf_brick_construct(struct buf_brick *brick)
 	brick->max_count = 32; // TODO: make this configurable
 	atomic_set(&brick->alloc_count, 0);
 	atomic_set(&brick->hashed_count, 0);
+	atomic_set(&brick->lru_count, 0);
 	atomic_set(&brick->nr_io_pending, 0);
 	atomic_set(&brick->nr_collisions, 0);
 	spin_lock_init(&brick->brick_lock);

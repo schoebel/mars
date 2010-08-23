@@ -11,10 +11,10 @@
 #define TRANS_BUFFERS (32)
 #define TRANS_MEM     (1024 / 4)
 
-#define CONF_TEST
-#define CONF_BUF
-#define CONF_USEBUF
-#define CONF_TRANS
+//#define CONF_TEST
+//#define CONF_BUF
+//#define CONF_USEBUF
+//#define CONF_TRANS
 
 
 #include <linux/kernel.h>
@@ -176,8 +176,9 @@ void make_test_instance(void)
 
 	trans_brick = brick(&trans_logger_brick_type);
 	_trans_brick = (void*)trans_brick;
-	_trans_brick->log_reads = true;
-	_trans_brick->allow_reads_after = HZ * 1;
+	//_trans_brick->log_reads = true;
+	_trans_brick->log_reads = false;
+	_trans_brick->allow_reads_after = HZ;
 	_trans_brick->max_queue = 1000;
 	_trans_brick->outputs[0]->q_phase2.q_max_flying = 1;
 	_trans_brick->outputs[0]->q_phase4.q_max_flying = 1;
