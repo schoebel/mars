@@ -18,8 +18,12 @@ struct log_header {
 ////////////////////////////////////////////////////////////////////
 
 struct logger_queue {
-	spinlock_t q_lock;
 	struct list_head q_anchor;
+	spinlock_t q_lock;
+	atomic_t q_queued;
+	atomic_t q_flying;
+	int q_max_flying;
+	int q_last_action; // jiffies
 };
 
 ////////////////////////////////////////////////////////////////////
@@ -43,11 +47,17 @@ struct trans_logger_mars_ref_aspect {
 
 struct trans_logger_brick {
 	MARS_BRICK(trans_logger);
+	// parameters
+	bool log_reads;
+	int allow_reads_after; // phase2 and later is only started after this time (in jiffies)
+	int limit_congest;     // limit phase1 congestion.
+	int max_queue;    // delay phase2 & later only if this number of waiting requests is not exceeded
 };
 
 struct trans_logger_output {
 	MARS_OUTPUT(trans_logger);
 	struct hash_anchor hash_table[TRANS_HASH_MAX];
+	atomic_t hash_count;
 	struct task_struct *thread;
 	wait_queue_head_t event;
 	// queues
@@ -59,6 +69,7 @@ struct trans_logger_output {
 
 struct trans_logger_input {
 	MARS_INPUT(trans_logger);
+	struct mars_info info;
 	loff_t log_pos;
 	struct mars_ref_object *log_mref;
 	int validflag_offset;

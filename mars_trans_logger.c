@@ -17,6 +17,11 @@
 
 #include "mars_trans_logger.h"
 
+//#define inline /**/
+#define inline __attribute__((__noinline__))
+#define _noinline /**/
+//#define _noinline __attribute__((__noinline__))
+
 ////////////////////////////////////////////////////////////////////
 
 #define CODE_UNKNOWN     0
@@ -54,7 +59,20 @@
 		offset += sizeof(val);				\
 	} while (0)
 
-void *log_reserve(struct trans_logger_input *input, struct log_header *l)
+static inline void log_skip(struct trans_logger_input *input) _noinline
+{
+	int bits;
+	if (!input->info.transfer_size) {
+		int status = GENERIC_INPUT_CALL(input, mars_get_info, &input->info);
+		if (status < 0) {
+			MARS_FAT("cannot get transfer log info (code=%d)\n", status);
+		}
+	}
+	bits = input->info.transfer_order + PAGE_SHIFT;
+	input->log_pos = ((input->log_pos >> bits) + 1) << bits;
+}
+
+static void *log_reserve(struct trans_logger_input *input, struct log_header *l)
 {
 	struct mars_ref_object *mref;
 	void *data;
@@ -109,6 +127,7 @@ void *log_reserve(struct trans_logger_input *input, struct log_header *l)
 
 put:
 	GENERIC_INPUT_CALL(input, mars_ref_put, mref);
+	return NULL;
 
 err_free:
 	trans_logger_free_mars_ref(mref);
@@ -126,20 +145,15 @@ bool log_finalize(struct trans_logger_input *input, int len, void (*endio)(struc
 	int offset;
 	bool ok = false;
 
-	if (unlikely(!mref)) {
-		MARS_ERR("mref is missing\n");
-		goto err;
-	}
+	CHECK_PTR(mref, err);
+
 	input->log_mref = NULL;
 	if (unlikely(len > input->payload_len)) {
 		MARS_ERR("trying to write more than reserved\n");
 		goto put;
 	}
 	mref_a = trans_logger_mars_ref_get_aspect(&input->hidden_output, mref);
-	if (unlikely(!mref_a)) {
-		MARS_ERR("mref_a is missing\n");
-		goto put;
-	}
+	CHECK_PTR(mref_a, put);
 
 	data = mref->ref_data;
 
@@ -189,35 +203,41 @@ err:
 
 ////////////////////////////////////////////////////////////////////
 
-static inline void q_init(struct logger_queue *q)
+static inline void q_init(struct logger_queue *q) _noinline
 {
 	spin_lock_init(&q->q_lock);
+	atomic_set(&q->q_queued, 0);
+	atomic_set(&q->q_flying, 0);
 	INIT_LIST_HEAD(&q->q_anchor);
 }
 
-static inline void q_insert(struct logger_queue *q, struct trans_logger_mars_ref_aspect *mref_a)
+static inline void q_insert(struct logger_queue *q, struct trans_logger_mars_ref_aspect *mref_a) _noinline
 {
 	unsigned long flags;
 
 	traced_lock(&q->q_lock, flags);
 
 	list_add_tail(&mref_a->q_head, &q->q_anchor);
+	atomic_inc(&q->q_queued);
+	q->q_last_action = jiffies;
 
 	traced_unlock(&q->q_lock, flags);
 }
 
-static inline void q_pushback(struct logger_queue *q, struct trans_logger_mars_ref_aspect *mref_a)
+static inline void q_pushback(struct logger_queue *q, struct trans_logger_mars_ref_aspect *mref_a) _noinline
 {
 	unsigned long flags;
 
 	traced_lock(&q->q_lock, flags);
 
 	list_add(&mref_a->q_head, &q->q_anchor);
+	atomic_inc(&q->q_queued);
+	q->q_last_action = jiffies;
 
 	traced_unlock(&q->q_lock, flags);
 }
 
-static inline struct trans_logger_mars_ref_aspect *q_fetch(struct logger_queue *q)
+static inline struct trans_logger_mars_ref_aspect *q_fetch(struct logger_queue *q) _noinline
 {
 	struct trans_logger_mars_ref_aspect *mref_a = NULL;
 	unsigned long flags;
@@ -227,6 +247,8 @@ static inline struct trans_logger_mars_ref_aspect *q_fetch(struct logger_queue *
 	if (likely(!list_empty(&q->q_anchor))) {
 		struct list_head *next = q->q_anchor.next;
 		list_del_init(next);
+		atomic_dec(&q->q_queued);
+		q->q_last_action = jiffies;
 		mref_a = container_of(next, struct trans_logger_mars_ref_aspect, q_head);
 	}
 
@@ -238,7 +260,7 @@ static inline struct trans_logger_mars_ref_aspect *q_fetch(struct logger_queue *
 ///////////////////////// own helper functions ////////////////////////
 
 
-static inline int hash_fn(unsigned int base_index)
+static inline int hash_fn(unsigned int base_index) _noinline
 {
 	// simple and stupid
 	unsigned int tmp;
@@ -304,7 +326,7 @@ static struct trans_logger_mars_ref_aspect *hash_find(struct hash_anchor *table,
 	return res;
 }
 
-static inline void hash_insert(struct hash_anchor *table, struct trans_logger_mars_ref_aspect *elem_a)
+static inline void hash_insert(struct hash_anchor *table, struct trans_logger_mars_ref_aspect *elem_a, atomic_t *cnt) _noinline
 {
         unsigned int base_index = ((unsigned int)elem_a->object->ref_pos) >> REGION_SIZE_BITS;
         int hash = hash_fn(base_index);
@@ -318,11 +340,13 @@ static inline void hash_insert(struct hash_anchor *table, struct trans_logger_ma
 #endif
 
         list_add(&elem_a->hash_head, &start->hash_anchor);
+	atomic_inc(&elem_a->object->ref_count); // paired with hash_put()
+	atomic_inc(cnt); // only for statistics
 
         traced_writeunlock(&start->hash_lock, flags);
 }
 
-static inline bool hash_put(struct hash_anchor *table, struct trans_logger_mars_ref_aspect *elem_a)
+static inline bool hash_put(struct hash_anchor *table, struct trans_logger_mars_ref_aspect *elem_a, atomic_t *cnt) _noinline
 {
 	struct mars_ref_object *elem = elem_a->object;
 	unsigned int base_index = ((unsigned int)elem->ref_pos) >> REGION_SIZE_BITS;
@@ -338,6 +362,7 @@ static inline bool hash_put(struct hash_anchor *table, struct trans_logger_mars_
 
 	if (res) {
 		list_del_init(&elem_a->hash_head);
+		atomic_dec(cnt);
 	}
 
 	traced_writeunlock(&start->hash_lock, flags);
@@ -417,10 +442,11 @@ static int trans_logger_ref_get(struct trans_logger_output *output, struct mars_
 	struct trans_logger_mars_ref_aspect *mref_a;
 	unsigned int base_offset;
 
+	CHECK_PTR(output, err);
+
 	mref_a = trans_logger_mars_ref_get_aspect(output, mref);
-	if (unlikely(!mref_a)) {
-		return -EINVAL;
-	}
+	CHECK_PTR(mref_a, err);
+	CHECK_PTR(mref_a->object, err);
 
 	base_offset = ((unsigned int)mref->ref_pos) & (REGION_SIZE - 1);
 	if (base_offset + mref->ref_len > REGION_SIZE)
@@ -430,6 +456,9 @@ static int trans_logger_ref_get(struct trans_logger_output *output, struct mars_
 		return _read_ref_get(output, mref_a);
 	}
 	return _write_ref_get(output, mref_a);
+
+err:
+	return -EINVAL;
 }
 
 static void trans_logger_ref_put(struct trans_logger_output *output, struct mars_ref_object *mref)
@@ -438,27 +467,27 @@ static void trans_logger_ref_put(struct trans_logger_output *output, struct mars
 	struct trans_logger_mars_ref_aspect *shadow_a;
 	struct trans_logger_input *input;
 
+	CHECK_PTR(output, err);
+
 	mref_a = trans_logger_mars_ref_get_aspect(output, mref);
-	if (unlikely(!mref_a)) {
-		MARS_FAT("cannot get mref_a on %p\n", mref);
-		return;
-	}
+	CHECK_PTR(mref_a, err);
+	CHECK_PTR(mref_a->object, err);
 
 	// are we a shadow?
 	shadow_a = mref_a->shadow_ref;
 	if (shadow_a) {
 		if (shadow_a != mref_a) { // we are a slave shadow
-			MARS_INF("slave\n");
+			//MARS_INF("slave\n");
 			CHECK_HEAD_EMPTY(&mref_a->hash_head);
 			if (atomic_dec_and_test(&mref->ref_count)) {
 				trans_logger_free_mars_ref(mref);
 			}
 		}
 		// now put the master shadow
-		if (hash_put(output->hash_table, shadow_a)) {
+		if (hash_put(output->hash_table, shadow_a, &output->hash_count)) {
 			struct mars_ref_object *shadow = shadow_a->object;
 			kfree(shadow->ref_data);
-			MARS_INF("hm?\n");
+			//MARS_INF("hm?\n");
 			trans_logger_free_mars_ref(shadow);
 		}
 		return;
@@ -466,6 +495,7 @@ static void trans_logger_ref_put(struct trans_logger_output *output, struct mars
 
 	input = output->brick->inputs[0];
 	GENERIC_INPUT_CALL(input, mars_ref_put, mref);
+err: ;
 }
 
 static void trans_logger_ref_io(struct trans_logger_output *output, struct mars_ref_object *mref, int rw)
@@ -476,10 +506,7 @@ static void trans_logger_ref_io(struct trans_logger_output *output, struct mars_
 	CHECK_ATOMIC(&mref->ref_count, 1);
 
 	mref_a = trans_logger_mars_ref_get_aspect(output, mref);
-	if (unlikely(!mref_a)) {
-		MARS_FAT("cannot get mref_a on %p\n", mref);
-		return;
-	}
+	CHECK_PTR(mref_a, err);
 
 	// is this a shadow buffer?
 	if (mref_a->shadow_ref) {
@@ -488,6 +515,7 @@ static void trans_logger_ref_io(struct trans_logger_output *output, struct mars_
 			// nothing to do: directly signal success.
 			struct generic_callback *cb = mref->ref_cb;
 			cb->cb_error = 0;
+			mref->ref_flags |= MARS_REF_UPTODATE;
 			cb->cb_fn(cb);
 			// no touch of ref_count necessary
 		} else {
@@ -502,9 +530,8 @@ static void trans_logger_ref_io(struct trans_logger_output *output, struct mars_
 			}
 #endif
 			mref->ref_flags |= MARS_REF_WRITING;
-			atomic_inc(&mref->ref_count); // paired with trans_logger_ref_put() in phase4_endio()
 			//MARS_INF("hashing %d at %lld\n", mref->ref_len, mref->ref_pos);
-			hash_insert(output->hash_table, mref_a);
+			hash_insert(output->hash_table, mref_a, &output->hash_count);
 			q_insert(&output->q_phase1, mref_a);
 			wake_up(&output->event);
 		}
@@ -517,6 +544,7 @@ static void trans_logger_ref_io(struct trans_logger_output *output, struct mars_
 	}
 
 	GENERIC_INPUT_CALL(input, mars_ref_io, mref, rw);
+err: ;
 }
 
 ////////////////////////////// worker thread //////////////////////////////
@@ -532,28 +560,20 @@ static void phase1_endio(struct generic_callback *cb)
 	struct trans_logger_output *output;
 	struct generic_callback *orig_cb;
 
+	CHECK_PTR(cb, err);
 
-	if (unlikely(!cb)) {
-		MARS_FAT("invalid cb\n");
-		return;
-	}
 	orig_mref_a = cb->cb_private;
-	if (unlikely(!orig_mref_a)) {
-		MARS_FAT("invalid orig_mref_a\n");
-		return;
-	}
+	CHECK_PTR(orig_mref_a, err);
+
 	output = orig_mref_a->output;
-	if (unlikely(!output)) {
-		MARS_FAT("invalid output\n");
-		return;
-	}
+	CHECK_PTR(output, err);
+	atomic_dec(&output->q_phase1.q_flying);
 
 	orig_mref = orig_mref_a->object;
+	CHECK_PTR(orig_mref, err);
+
 	orig_cb = orig_mref->ref_cb;
-	if (unlikely(!orig_cb)) {
-		MARS_FAT("invalid orig_cb\n");
-		return;
-	}
+	CHECK_PTR(orig_cb, err);
 
 	// signal completion to the upper layer, as early as possible
 	orig_cb->cb_error = cb->cb_error;
@@ -561,43 +581,57 @@ static void phase1_endio(struct generic_callback *cb)
 		orig_mref->ref_flags &= ~MARS_REF_WRITING;
 		orig_mref->ref_flags |= MARS_REF_UPTODATE;
 	}
+
+	CHECK_PTR(orig_cb->cb_fn, err);
 	orig_cb->cb_fn(orig_cb);
 
 	// queue up for the next phase
 	q_insert(&output->q_phase2, orig_mref_a);
 	wake_up(&output->event);
+err: ;
 }
 
 static bool phase1_startio(struct trans_logger_mars_ref_aspect *orig_mref_a)
 {
-	struct mars_ref_object *orig_mref = orig_mref_a->object;
-	struct trans_logger_output *output = orig_mref_a->output;
-	struct trans_logger_input *input = output->brick->inputs[1];
-	struct log_header l = {
-		.l_stamp = orig_mref_a->stamp,
-		.l_pos = orig_mref->ref_pos,
-		.l_len = orig_mref->ref_len,
-		.l_code = CODE_WRITE_NEW,
-	};
+	struct mars_ref_object *orig_mref;
+	struct trans_logger_output *output;
+	struct trans_logger_input *input;
 	void *data;
 	bool ok;
 
-#if 1
-	if (!orig_mref->ref_cb)
-		MARS_ERR("missing ref_cb\n");
-#endif
-	data = log_reserve(input, &l);
+	CHECK_PTR(orig_mref_a, err);
+	orig_mref = orig_mref_a->object;
+	CHECK_PTR(orig_mref, err);
+	CHECK_PTR(orig_mref->ref_cb, err);
+	output = orig_mref_a->output;
+	CHECK_PTR(output, err);
+	input = output->brick->inputs[1];
+	CHECK_PTR(input, err);
+
+	{
+		struct log_header l = {
+			.l_stamp = orig_mref_a->stamp,
+			.l_pos = orig_mref->ref_pos,
+			.l_len = orig_mref->ref_len,
+			.l_code = CODE_WRITE_NEW,
+		};
+		data = log_reserve(input, &l);
+	}
 	if (unlikely(!data)) {
-		return false;
+		goto err;
 	}
 
 	memcpy(data, orig_mref->ref_data, orig_mref->ref_len);
 
 	ok = log_finalize(input, orig_mref->ref_len, phase1_endio, orig_mref_a);
 	if (unlikely(!ok)) {
-		return false;
+		goto err;
 	}
+	atomic_inc(&output->q_phase1.q_flying);
 	return true;
+
+err:
+	return false;
 }
 
 /********************************************************************* 
@@ -611,72 +645,108 @@ static bool phase1_startio(struct trans_logger_mars_ref_aspect *orig_mref_a)
 
 static void phase2_endio(struct generic_callback *cb)
 {
-	struct trans_logger_mars_ref_aspect *sub_mref_a = cb->cb_private;
-	struct trans_logger_output *output = sub_mref_a->output;
+	struct trans_logger_mars_ref_aspect *sub_mref_a;
+	struct trans_logger_output *output;
+
+	CHECK_PTR(cb, err);
+	sub_mref_a = cb->cb_private;
+	CHECK_PTR(sub_mref_a, err);
+	output = sub_mref_a->output;
+	CHECK_PTR(output, err);
+	atomic_dec(&output->q_phase2.q_flying);
 
 	if (unlikely(cb->cb_error < 0)) {
 		MARS_FAT("IO error %d\n", cb->cb_error);
-		return;
+		goto err;
 	}
 
 	// queue up for the next phase
-#if 0
-	q_insert(&output->q_phase3, sub_mref_a);
-#else
-	q_insert(&output->q_phase4, sub_mref_a);
-#endif
+	if (output->brick->log_reads) {
+		q_insert(&output->q_phase3, sub_mref_a);
+	} else {
+		q_insert(&output->q_phase4, sub_mref_a);
+	}
 	wake_up(&output->event);
+err: ;
 }
 
 static bool phase2_startio(struct trans_logger_mars_ref_aspect *orig_mref_a)
 {
-	struct mars_ref_object *orig_mref = orig_mref_a->object;
-	struct trans_logger_output *output = orig_mref_a->output;
-	struct trans_logger_input *input = output->brick->inputs[0];
+	struct mars_ref_object *orig_mref;
+	struct trans_logger_output *output;
+	struct trans_logger_input *input;
 	struct mars_ref_object *sub_mref;
 	struct trans_logger_mars_ref_aspect *sub_mref_a;
 	struct generic_callback *cb;
+	loff_t pos;
+	int len;
 	int status;
+
+	CHECK_PTR(orig_mref_a, err);
+	orig_mref = orig_mref_a->object;
+	CHECK_PTR(orig_mref, err);
+	output = orig_mref_a->output;
+	CHECK_PTR(output, err);
+	input = output->brick->inputs[0];
+	CHECK_PTR(input, err);
+
+	pos = orig_mref->ref_pos;
+	len = orig_mref->ref_len;
 
 	/* allocate internal sub_mref for further work
 	 */
-	sub_mref = trans_logger_alloc_mars_ref(&input->hidden_output, &input->ref_object_layout);
-	if (unlikely(!sub_mref)) {
-		MARS_FAT("cannot alloc sub_mref\n");
-		return false;
+	while (len > 0) {
+		sub_mref = trans_logger_alloc_mars_ref(&input->hidden_output, &input->ref_object_layout);
+		if (unlikely(!sub_mref)) {
+			MARS_FAT("cannot alloc sub_mref\n");
+			goto err;
+		}
+
+		sub_mref->ref_pos = pos;
+		sub_mref->ref_len = len;
+		sub_mref->ref_may_write = WRITE;
+
+		sub_mref_a = trans_logger_mars_ref_get_aspect(&input->hidden_output, sub_mref);
+		CHECK_PTR(sub_mref_a, err);
+		sub_mref_a->stamp = orig_mref_a->stamp;
+		sub_mref_a->orig_mref_a = orig_mref_a;
+		sub_mref_a->output = output;
+
+		status = GENERIC_INPUT_CALL(input, mars_ref_get, sub_mref);
+		if (unlikely(status <= 0)) {
+			MARS_FAT("cannot get sub_ref\n");
+			goto err;
+		}
+		pos += status;
+		len -= status;
+
+		/* Get a reference count for each sub_mref.
+		 * Paired with trans_logger_ref_put() in phase4_endio().
+		 */
+		CHECK_ATOMIC(&orig_mref->ref_count, 1);
+		atomic_inc(&orig_mref->ref_count);
+
+		cb = &sub_mref_a->cb;
+		cb->cb_fn = phase2_endio;
+		cb->cb_private = sub_mref_a;
+		cb->cb_error = 0;
+		cb->cb_prev = NULL;
+		sub_mref->ref_cb = cb;
+
+
+		atomic_inc(&output->q_phase2.q_flying);
+		GENERIC_INPUT_CALL(input, mars_ref_io, sub_mref, READ);
 	}
 
-	sub_mref->ref_pos = orig_mref->ref_pos;
-	sub_mref->ref_len = orig_mref->ref_len;
-	sub_mref->ref_may_write = WRITE;
-
-	sub_mref_a = trans_logger_mars_ref_get_aspect(&input->hidden_output, sub_mref);
-	if (unlikely(!sub_mref_a)) {
-		MARS_FAT("cannot get my own mref_a\n");
-		return false;
-	}
-	sub_mref_a->orig_mref_a = orig_mref_a;
-	sub_mref_a->output = output;
-	CHECK_ATOMIC(&orig_mref->ref_count, 1);
-
-	status = GENERIC_INPUT_CALL(input, mars_ref_get, sub_mref);
-	if (unlikely(status < 0)) {
-		MARS_FAT("cannot get my own mref_a\n");
-		return false;
-	}
-	if (unlikely(sub_mref->ref_len < orig_mref->ref_len)) {
-		MARS_ERR("NYI: multiple sub-IOs\n");
-	}
-
-	cb = &sub_mref_a->cb;
-	cb->cb_fn = phase2_endio;
-	cb->cb_private = sub_mref_a;
-	cb->cb_error = 0;
-	cb->cb_prev = NULL;
-	sub_mref->ref_cb = cb;
-
-	GENERIC_INPUT_CALL(input, mars_ref_io, sub_mref, READ);
+	/* Finally, put the original reference (i.e. in essence
+	 * _replace_ the original reference by the sub_mref counts
+	 * from above).
+	 */
+	trans_logger_ref_put(output, orig_mref);
 	return true;
+
+err:
+	return false;
 }
 
 /********************************************************************* 
@@ -685,45 +755,68 @@ static bool phase2_startio(struct trans_logger_mars_ref_aspect *orig_mref_a)
 
 static void phase3_endio(struct generic_callback *cb)
 {
-	struct trans_logger_mars_ref_aspect *sub_mref_a = cb->cb_private;
-	struct trans_logger_output *output = sub_mref_a->output;
+	struct trans_logger_mars_ref_aspect *sub_mref_a;
+	struct trans_logger_output *output;
+
+	CHECK_PTR(cb, err);
+	sub_mref_a = cb->cb_private;
+	CHECK_PTR(sub_mref_a, err);
+	output = sub_mref_a->output;
+	CHECK_PTR(output, err);
+	atomic_dec(&output->q_phase3.q_flying);
 
 	if (unlikely(cb->cb_error < 0)) {
 		MARS_FAT("IO error %d\n", cb->cb_error);
-		return;
+		goto err;
 	}
 
 	// queue up for the next phase
 	q_insert(&output->q_phase4, sub_mref_a);
 	wake_up(&output->event);
+err: ;
 }
 
 static bool phase3_startio(struct trans_logger_mars_ref_aspect *sub_mref_a)
 {
-	struct mars_ref_object *sub_mref = sub_mref_a->object;
-	struct trans_logger_output *output = sub_mref_a->output;
-	struct trans_logger_input *input = output->brick->inputs[1];
-	struct log_header l = {
-		.l_stamp = sub_mref_a->stamp,
-		.l_pos = sub_mref->ref_pos,
-		.l_len = sub_mref->ref_len,
-		.l_code = CODE_WRITE_OLD,
-	};
+	struct mars_ref_object *sub_mref;
+	struct trans_logger_output *output;
+	struct trans_logger_input *input;
 	void *data;
 	bool ok;
 
-	data = log_reserve(input, &l);
+	CHECK_PTR(sub_mref_a, err);
+	sub_mref = sub_mref_a->object;
+	CHECK_PTR(sub_mref, err);
+	output = sub_mref_a->output;
+	CHECK_PTR(output, err);
+	input = output->brick->inputs[1];
+	CHECK_PTR(input, err);
+
+	{
+		struct log_header l = {
+			.l_stamp = sub_mref_a->stamp,
+			.l_pos = sub_mref->ref_pos,
+			.l_len = sub_mref->ref_len,
+			.l_code = CODE_WRITE_OLD,
+		};
+		data = log_reserve(input, &l);
+	}
+
 	if (unlikely(!data)) {
-		return false;
+		goto err;
 	}
 
 	memcpy(data, sub_mref->ref_data, sub_mref->ref_len);
 
 	ok = log_finalize(input, sub_mref->ref_len, phase3_endio, sub_mref_a);
 	if (unlikely(!ok)) {
-		return false;
+		goto err;
 	}
+	atomic_inc(&output->q_phase3.q_flying);
 	return true;
+
+err:
+	return false;
 }
 
 /********************************************************************* 
@@ -732,66 +825,75 @@ static bool phase3_startio(struct trans_logger_mars_ref_aspect *sub_mref_a)
 
 static void phase4_endio(struct generic_callback *cb)
 {
-	struct trans_logger_mars_ref_aspect *sub_mref_a = cb->cb_private;
+	struct trans_logger_mars_ref_aspect *sub_mref_a;
 	struct trans_logger_mars_ref_aspect *orig_mref_a;
 	struct mars_ref_object *orig_mref;
+	struct trans_logger_output *output;
+
+	CHECK_PTR(cb, err);
+	sub_mref_a = cb->cb_private;
+	CHECK_PTR(sub_mref_a, err);
+	output = sub_mref_a->output;
+	CHECK_PTR(output, err);
+	atomic_dec(&output->q_phase4.q_flying);
+	orig_mref_a = sub_mref_a->orig_mref_a;
+	CHECK_PTR(orig_mref_a, err);
+	orig_mref = orig_mref_a->object;
+	CHECK_PTR(orig_mref, err);
 
 	if (unlikely(cb->cb_error < 0)) {
-		MARS_FAT("IO error %d\n", cb->cb_error);
-		return;
+		MARS_ERR("IO error %d\n", cb->cb_error);
+		goto put;
 	}
-	//MARS_INF("DONE.\n");
 
-	orig_mref_a = sub_mref_a->orig_mref_a;
-	if (unlikely(!orig_mref_a)) {
-		MARS_FAT("bad orig_mref_a\n");
-		return;
-	}
-	orig_mref = orig_mref_a->object;
-	if (unlikely(!orig_mref->ref_pos)) {
-		MARS_FAT("bad ref_pos\n");
-		return;
-	}
-#if 1
-	_CHECK_ATOMIC(&orig_mref->ref_count, >, 1);
-#endif
+	// TODO: signal final completion.
 
+put:
 	//MARS_INF("put ORIGREF.\n");
+	CHECK_ATOMIC(&orig_mref->ref_count, 1);
 	trans_logger_ref_put(orig_mref_a->output, orig_mref);
+err: ;
 }
 
 static bool phase4_startio(struct trans_logger_mars_ref_aspect *sub_mref_a)
 {
-	struct mars_ref_object *sub_mref = sub_mref_a->object;
-	struct generic_callback *cb = &sub_mref_a->cb;
-	struct trans_logger_output *output = sub_mref_a->output;
-	struct trans_logger_input *input = output->brick->inputs[0];
-	struct trans_logger_mars_ref_aspect *orig_mref_a = sub_mref_a->orig_mref_a;
+	struct mars_ref_object *sub_mref;
+	struct generic_callback *cb;
+	struct trans_logger_output *output;
+	struct trans_logger_input *input;
+	struct trans_logger_mars_ref_aspect *orig_mref_a;
 	struct mars_ref_object *orig_mref;
 
-	if (unlikely(!orig_mref_a)) {
-		MARS_FAT("bad orig_mref_a\n");
-		return false;
-	}
+	CHECK_PTR(sub_mref_a, err);
+	sub_mref = sub_mref_a->object;
+	CHECK_PTR(sub_mref, err);
+	output = sub_mref_a->output;
+	CHECK_PTR(output, err);
+	input = output->brick->inputs[0];
+	CHECK_PTR(input, err);
+	orig_mref_a = sub_mref_a->orig_mref_a;
+	CHECK_PTR(orig_mref_a, err);
 	orig_mref = orig_mref_a->object;
-	if (unlikely(!orig_mref->ref_pos)) {
-		MARS_FAT("bad ref_pos\n");
-		return false;
-	}
+	CHECK_PTR(orig_mref, err);
 
 	memcpy(sub_mref->ref_data, orig_mref->ref_data, sub_mref->ref_len);
 
+	cb = &sub_mref_a->cb;
 	cb->cb_fn = phase4_endio;
 	cb->cb_private = sub_mref_a;
 	cb->cb_error = 0;
 	cb->cb_prev = NULL;
 	sub_mref->ref_cb = cb;
 
+	atomic_inc(&output->q_phase4.q_flying);
 	GENERIC_INPUT_CALL(input, mars_ref_io, sub_mref, WRITE);
 
 	//MARS_INF("put SUBREF.\n");
 	GENERIC_INPUT_CALL(input, mars_ref_put, sub_mref);
 	return true;
+
+err:
+	return false;
 }
 
 /********************************************************************* 
@@ -801,59 +903,96 @@ static bool phase4_startio(struct trans_logger_mars_ref_aspect *sub_mref_a)
  * architectures).
  */
 
+static int run_queue(struct logger_queue *q, bool (*startio)(struct trans_logger_mars_ref_aspect *sub_mref_a), int max)
+{
+	struct trans_logger_mars_ref_aspect *mref_a;
+	bool ok;
+
+	while (max-- > 0) {
+		if (q->q_max_flying > 0 && atomic_read(&q->q_flying) >= q->q_max_flying)
+			break;
+
+		mref_a = q_fetch(q);
+		if (!mref_a)
+			return -1;
+	
+		ok = startio(mref_a);
+		if (unlikely(!ok)) {
+			q_pushback(q, mref_a);
+			return 1;
+		}
+	}
+	return 0;
+}
+
 static int trans_logger_thread(void *data)
 {
 	struct trans_logger_output *output = data;
+	struct trans_logger_brick *brick;
+	struct trans_logger_input *input;
+	long wait_jiffies = HZ;
+	unsigned long last_jiffies = 0;
+	bool check_q = true;
+
+	brick = output->brick;
+	input = brick->inputs[1];
 	MARS_INF("logger has started.\n");
+
 	while (!kthread_should_stop()) {
-		struct trans_logger_mars_ref_aspect *mref_a;
+		int status;
+		if (wait_jiffies < 5)
+			wait_jiffies = 5; // prohibit high CPU load
 
 		wait_event_interruptible_timeout(
 			output->event,
 			!list_empty(&output->q_phase1.q_anchor) ||
-			!list_empty(&output->q_phase2.q_anchor) ||
-			!list_empty(&output->q_phase3.q_anchor),
-			HZ);
+			(check_q &&
+			 (!list_empty(&output->q_phase2.q_anchor) ||
+			  !list_empty(&output->q_phase3.q_anchor) ||
+			  !list_empty(&output->q_phase4.q_anchor))),
+			wait_jiffies);
+#if 1
+		if (jiffies - last_jiffies >= HZ * 10) {
+			last_jiffies = jiffies;
+			MARS_INF("LOGGER: hash_count=%d phase1=%d/%d phase2=%d/%d phase3=%d/%d phase4=%d/%d\n", atomic_read(&output->hash_count), atomic_read(&output->q_phase1.q_queued), atomic_read(&output->q_phase1.q_flying), atomic_read(&output->q_phase2.q_queued), atomic_read(&output->q_phase2.q_flying), atomic_read(&output->q_phase3.q_queued), atomic_read(&output->q_phase3.q_flying), atomic_read(&output->q_phase4.q_queued), atomic_read(&output->q_phase4.q_flying));
+		}
+#endif
 
-		mref_a = q_fetch(&output->q_phase1);
-		if (mref_a) {
-			bool ok;
-			//MARS_INF("got phase1 %p\n", mref_a);
-			ok = phase1_startio(mref_a);
-			if (!ok) {
-				q_pushback(&output->q_phase1, mref_a);
-			}
+		status = run_queue(&output->q_phase1, phase1_startio, 1000);
+		if (unlikely(status > 0)) {
+			(void)run_queue(&output->q_phase3, phase3_startio, 1);
+			log_skip(input);
+			check_q = true;
+			continue;
 		}
 
-		mref_a = q_fetch(&output->q_phase2);
-		if (mref_a) {
-			bool ok;
-			//MARS_INF("got phase2 %p\n", mref_a);
-			ok = phase2_startio(mref_a);
-			if (!ok) {
-				q_pushback(&output->q_phase2, mref_a);
+		/* Run higher phases only when IO contention is "low".
+		 */
+		if (brick->max_queue <= 0 ||
+		   atomic_read(&output->q_phase2.q_queued) + atomic_read(&output->q_phase4.q_queued) < brick->max_queue) {
+			long rest = brick->allow_reads_after - (jiffies - output->q_phase1.q_last_action);
+			if (brick->allow_reads_after > 0 && rest > 0) {
+				wait_jiffies = rest;
+				check_q = false;
+				continue;
 			}
+			if (brick->limit_congest > 0 && atomic_read(&output->q_phase1.q_flying) >= brick->limit_congest) {
+				wait_jiffies = HZ / 100;
+				check_q = false;
+				continue;
+			}
+			   
 		}
+		wait_jiffies = HZ;
+		check_q = true;
 
-		mref_a = q_fetch(&output->q_phase3);
-		if (mref_a) {
-			bool ok;
-			//MARS_INF("got phase3 %p\n", mref_a);
-			ok = phase3_startio(mref_a);
-			if (!ok) {
-				q_pushback(&output->q_phase3, mref_a);
-			}
+		status = run_queue(&output->q_phase2, phase2_startio, 8);
+		status = run_queue(&output->q_phase3, phase3_startio, 16);
+		if (unlikely(status > 0)) {
+			log_skip(input);
+			continue;
 		}
-
-		mref_a = q_fetch(&output->q_phase4);
-		if (mref_a) {
-			bool ok;
-			//MARS_INF("got phase4 %p\n", mref_a);
-			ok = phase4_startio(mref_a);
-			if (!ok) {
-				q_pushback(&output->q_phase4, mref_a);
-			}
-		}
+		status = run_queue(&output->q_phase4, phase4_startio, 8);
 	}
 	return 0;
 }
@@ -893,6 +1032,7 @@ static int trans_logger_output_construct(struct trans_logger_output *output)
 		rwlock_init(&start->hash_lock);
 		INIT_LIST_HEAD(&start->hash_anchor);
 	}
+	atomic_set(&output->hash_count, 0);
 	init_waitqueue_head(&output->event);
 	q_init(&output->q_phase1);
 	q_init(&output->q_phase2);

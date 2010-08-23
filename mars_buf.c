@@ -86,6 +86,10 @@ static inline void free_bf(struct buf_brick *brick, struct buf_head *bf)
 {
 	atomic_dec(&brick->alloc_count);
 	MARS_INF("really freeing bf=%p\n", bf);
+	CHECK_HEAD_EMPTY(&bf->bf_lru_head);
+	CHECK_HEAD_EMPTY(&bf->bf_hash_head);
+	CHECK_HEAD_EMPTY(&bf->bf_io_pending_anchor);
+	CHECK_HEAD_EMPTY(&bf->bf_postpone_anchor);
 #ifdef USE_VMALLOC
 	vfree(bf->bf_data);
 #else
@@ -116,11 +120,29 @@ static inline void __prune_cache(struct buf_brick *brick, int max_count, unsigne
 	}
 }
 
+static inline void __remove_from_hash(struct buf_brick *brick, struct buf_head *bf, bool force)
+{
+	int hash;
+	spinlock_t *lock;
+	unsigned long flags;
+
+	hash = buf_hash_fn(bf->bf_base_index);
+	lock = &brick->cache_anchors[hash].hash_lock;
+
+	traced_lock(lock, flags);
+
+	if (force || !atomic_read(&bf->bf_count)) {
+		list_del_init(&bf->bf_hash_head);
+		atomic_dec(&brick->hashed_count);
+	}
+
+	traced_unlock(lock, flags);
+
+}
+
 static inline void __lru_free_one(struct buf_brick *brick, unsigned long *flags)
 {
 	struct buf_head *bf;
-	int hash;
-	spinlock_t *lock;
 
 	if (list_empty(&brick->lru_anchor))
 		return;
@@ -130,17 +152,11 @@ static inline void __lru_free_one(struct buf_brick *brick, unsigned long *flags)
 
 	traced_unlock(&brick->brick_lock, *flags);
 
-	hash = buf_hash_fn(bf->bf_base_index);
-	lock = &brick->cache_anchors[hash].hash_lock;
-
-	traced_lock(lock, *flags);
-
-	if (!atomic_read(&bf->bf_count)) {
-		list_del_init(&bf->bf_hash_head);
-		atomic_dec(&brick->hashed_count);
-	}
-
-	traced_unlock(lock, *flags);
+	/* Don't force removal from hash.
+	 * Attention! members in free_list may thus be hashed.
+	 * Be careful!
+	 */
+	__remove_from_hash(brick, bf, false);
 
 #if 1
 	if (unlikely(
@@ -1095,6 +1111,7 @@ static int buf_output_construct(struct buf_output *output)
 
 static int buf_brick_destruct(struct buf_brick *brick)
 {
+	int i;
 	unsigned long flags;
 
 	traced_lock(&brick->brick_lock, flags);
@@ -1104,6 +1121,13 @@ static int buf_brick_destruct(struct buf_brick *brick)
 	__prune_cache(brick, 0, &flags);
 
 	traced_unlock(&brick->brick_lock, flags);
+
+	CHECK_HEAD_EMPTY(&brick->free_anchor);
+	CHECK_HEAD_EMPTY(&brick->lru_anchor);
+
+	for (i = 0; i < MARS_BUF_HASH_MAX; i++) {
+		CHECK_HEAD_EMPTY(&brick->cache_anchors[i].hash_anchor);
+	}
 
 	return 0;
 }

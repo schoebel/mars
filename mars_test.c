@@ -8,7 +8,7 @@
 #define DEFAULT_MEM     (1024 / 4 * 256)
 
 #define TRANS_ORDER    4
-#define TRANS_BUFFERS (8)
+#define TRANS_BUFFERS (32)
 #define TRANS_MEM     (1024 / 4)
 
 #define CONF_TEST
@@ -42,6 +42,7 @@ static struct if_device_brick *_if_brick = NULL;
 static struct generic_brick *usebuf_brick = NULL;
 
 static struct generic_brick *trans_brick = NULL;
+static struct trans_logger_brick *_trans_brick = NULL;
 static struct generic_brick *tbuf_brick = NULL;
 static struct buf_brick *_tbuf_brick = NULL;
 static struct generic_brick *tdevice_brick = NULL;
@@ -174,6 +175,12 @@ void make_test_instance(void)
 	connect(tbuf_brick->inputs[0], tdevice_brick->outputs[0]);
 
 	trans_brick = brick(&trans_logger_brick_type);
+	_trans_brick = (void*)trans_brick;
+	_trans_brick->log_reads = true;
+	_trans_brick->allow_reads_after = HZ * 1;
+	_trans_brick->max_queue = 1000;
+	_trans_brick->outputs[0]->q_phase2.q_max_flying = 1;
+	_trans_brick->outputs[0]->q_phase4.q_max_flying = 1;
 
 	connect(trans_brick->inputs[0], buf_brick->outputs[0]);
 	connect(trans_brick->inputs[1], tbuf_brick->outputs[0]);

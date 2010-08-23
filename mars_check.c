@@ -47,32 +47,17 @@ static void check_buf_endio(struct generic_callback *cb)
 	unsigned long flags;
 
 	mref_a = cb->cb_private;
-	if (unlikely(!mref_a)) {
-		MARS_FAT("cannot get aspect -- hanging up\n");
-		goto fatal;
-	}
-	if (unlikely(&mref_a->cb != cb)) {
-		MARS_FAT("bad callback -- hanging up\n");
-		goto fatal;
-	}
+	CHECK_PTR(mref_a, fatal);
+	_CHECK(&mref_a->cb == cb, fatal);
 
 	mref = mref_a->object;
-	if (unlikely(!mref)) {
-		MARS_FAT("bad mref -- hanging up\n");
-		goto fatal;
-	}
+	CHECK_PTR(mref, fatal);
 
 	output = mref_a->output;
-	if (unlikely(!output)) {
-		MARS_FAT("bad output -- hanging up\n");
-		goto fatal;
-	}
+	CHECK_PTR(output, fatal);
 
 	input = output->brick->inputs[0];
-	if (unlikely(!input)) {
-		MARS_FAT("bad input -- hanging up\n");
-		goto fatal;
-	}
+	CHECK_PTR(input, fatal);
 
 	if (atomic_dec_and_test(&mref_a->callback_count)) {
 		atomic_set(&mref_a->callback_count, 1);
@@ -211,11 +196,7 @@ static void check_ref_io(struct check_output *output, struct mars_ref_object *mr
 	struct check_mars_ref_aspect *mref_a = check_mars_ref_get_aspect(output, mref);
 	unsigned long flags;
 
-	if (!mref_a) {
-		MARS_FAT("cannot get aspect -- hanging up\n");
-		msleep(60000);
-		return;
-	}
+	CHECK_PTR(mref_a, fatal);
 
 	if (atomic_dec_and_test(&mref_a->call_count)) {
 		atomic_set(&mref_a->call_count, 1);
@@ -252,6 +233,7 @@ static void check_ref_io(struct check_output *output, struct mars_ref_object *mr
 	GENERIC_INPUT_CALL(input, mars_ref_io, mref, rw);
 
 	atomic_inc(&mref_a->call_count);
+fatal: ;
 }
 
 //////////////// object / aspect constructors / destructors ///////////////

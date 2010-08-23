@@ -503,11 +503,16 @@ extern inline struct TYPE##_object *TYPE##_construct(void *data, struct TYPE##_o
 	return obj;							\
 }									\
 									\
-extern inline void TYPE##_destruct(struct TYPE##_object *obj)        \
+extern inline void TYPE##_destruct(struct TYPE##_object *obj)	        \
 {									\
 	struct TYPE##_object_layout *object_layout = obj->object_layout; \
 	int i;								\
 									\
+	if (unlikely(!object_layout || !object_layout->object_type)) {	\
+		BRICK_ERR("object %p/%p is corrupted\n", obj, object_layout); \
+		dump_stack();						\
+		return;							\
+	}								\
 	if (object_layout->object_type->exit_fn) {			\
 		object_layout->object_type->exit_fn((void*)obj, object_layout->init_data); \
 	}								\

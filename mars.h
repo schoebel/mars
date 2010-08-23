@@ -80,6 +80,8 @@ struct mars_ref_object {
 
 struct mars_info {
 	loff_t current_size;
+	int transfer_order;
+	int transfer_size;
 	struct file *backing_file;
 };
 
@@ -221,3 +223,15 @@ static inline void mars_ref_attach_bio(struct mars_ref_object *mref, struct bio 
 	}								\
 
 #endif
+
+#define CHECK_PTR(ptr,label)						\
+	if (unlikely(!(ptr))) {						\
+		MARS_FAT("ptr " #ptr " is NULL\n");			\
+		goto label;						\
+	}
+
+#define _CHECK(ptr,label)						\
+	if (unlikely(!(ptr))) {						\
+		MARS_FAT("condition " #ptr " is VIOLATED\n");		\
+		goto label;						\
+	}
