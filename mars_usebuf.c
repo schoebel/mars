@@ -195,6 +195,13 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mars_ref_object *
 	int start_len;
 	int status;
 	int i;
+#if 1
+	static int last_jiffies = 0;
+	if (!last_jiffies || ((int)jiffies) - last_jiffies >= HZ * 30) {
+		last_jiffies = jiffies;
+		MARS_INF("USEBUF: reads=%d writes=%d prereads=%d\n", atomic_read(&output->io_count) - atomic_read(&output->write_count), atomic_read(&output->write_count), atomic_read(&output->preread_count));
+	}
+#endif
 
 	MARS_DBG("START origmref=%p\n", origmref);
 
@@ -279,13 +286,16 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mars_ref_object *
 			mref->ref_cb = cb;
 
 			my_rw = rw;
-			if (!(my_rw == READ)) { 
+			atomic_inc(&output->io_count);
+			if (!(my_rw == READ)) {
+				atomic_inc(&output->write_count);
 				if (mref->ref_flags & MARS_REF_UPTODATE) {
 					// buffer uptodate: start writing.
 					_usebuf_copy(mref_a, WRITE);
 				} else {
 					// first start initial read, to get the whole buffer UPTODATE
 					my_rw = READ;
+					atomic_inc(&output->preread_count);
 				}
 			}
 

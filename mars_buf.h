@@ -69,7 +69,7 @@ struct buf_head {
 	spinlock_t        bf_lock;
 	struct buf_brick *bf_brick;
 	loff_t            bf_pos;
-	unsigned int      bf_base_index;
+	loff_t            bf_base_index;
 	int               bf_flags;
 	atomic_t          bf_count;
 	int               bf_bio_status;

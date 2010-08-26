@@ -24,6 +24,9 @@ struct usebuf_input {
 struct usebuf_output {
 	MARS_OUTPUT(usebuf);
 	struct generic_object_layout ref_object_layout;
+	atomic_t io_count;
+	atomic_t write_count;
+	atomic_t preread_count;
 };
 
 MARS_TYPES(usebuf);

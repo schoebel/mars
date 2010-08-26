@@ -58,6 +58,7 @@ struct trans_logger_output {
 	MARS_OUTPUT(trans_logger);
 	struct hash_anchor hash_table[TRANS_HASH_MAX];
 	atomic_t hash_count;
+	atomic_t fly_count;
 	struct task_struct *thread;
 	wait_queue_head_t event;
 	// queues

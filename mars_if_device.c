@@ -168,14 +168,25 @@ static int if_device_brick_destruct(struct if_device_brick *brick)
 	return 0;
 }
 
-static int if_device_input_construct(struct if_device_input *input)
+static int if_device_switch(struct if_device_brick *brick, bool state)
 {
+	struct if_device_input *input = brick->inputs[0];
 	struct request_queue *q;
 	struct gendisk *disk;
 	int minor;
-	int capacity = 2 * 1024 * 1024 * 4; //TODO: make this dynamic
+	struct mars_info info = {};
+	unsigned long capacity;
+	int status;
 
 	//MARS_DBG("1\n");
+	
+	status = GENERIC_INPUT_CALL(input, mars_get_info, &info);
+	if (status < 0) {
+		MARS_ERR("cannot get device info, status=%d\n", status);
+		return status;
+	}
+	capacity = info.current_size >> 9; // TODO: make this dynamic
+
 	q = blk_alloc_queue(GFP_MARS);
 	if (!q) {
 		MARS_ERR("cannot allocate device request queue\n");
@@ -229,6 +240,12 @@ static int if_device_input_construct(struct if_device_input *input)
 	add_disk(disk);
 	input->disk = disk;
 	//set_device_ro(input->bdev, 0); // TODO: implement modes
+	brick->is_active = true;
+	return 0;
+}
+
+static int if_device_input_construct(struct if_device_input *input)
+{
 	return 0;
 }
 
@@ -253,6 +270,7 @@ static int if_device_output_construct(struct if_device_output *output)
 ///////////////////////// static structs ////////////////////////
 
 static struct if_device_brick_ops if_device_brick_ops = {
+	.brick_switch = if_device_switch,
 };
 
 static struct if_device_output_ops if_device_output_ops = {

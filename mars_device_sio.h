@@ -2,7 +2,7 @@
 #ifndef MARS_DEVICE_SIO_H
 #define MARS_DEVICE_SIO_H
 
-#define WITH_THREAD 16
+#define WITH_THREAD 64
 
 struct device_sio_mars_ref_aspect {
 	GENERIC_ASPECT(mars_ref);

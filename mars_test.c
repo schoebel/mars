@@ -12,8 +12,8 @@
 #define TRANS_MEM     (1024 / 4)
 
 //#define CONF_TEST
-//#define CONF_BUF
-//#define CONF_USEBUF
+#define CONF_BUF
+#define CONF_USEBUF
 //#define CONF_TRANS
 
 
@@ -233,7 +233,8 @@ void make_test_instance(void)
 	MARS_INF("------------- END INIT --------------\n");
 
 	_if_brick = (void*)if_brick;
-	_if_brick->is_active = true;
+	_if_brick->ops->brick_switch(if_brick, true);
+	//_if_brick->is_active = true;
 
 	msleep(2000);
 	MARS_INF("------------- DONE --------------\n");

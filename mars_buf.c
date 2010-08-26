@@ -25,17 +25,17 @@
 
 ///////////////////////// own helper functions ////////////////////////
 
-static inline int buf_hash_fn(unsigned int base_index)
+static inline int buf_hash_fn(loff_t base_index)
 {
 	// simple and stupid
-	unsigned int tmp;
+	loff_t tmp;
 	tmp = base_index ^ (base_index / MARS_BUF_HASH_MAX);
 	tmp += tmp / 13;
 	tmp ^= tmp / (MARS_BUF_HASH_MAX * MARS_BUF_HASH_MAX);
 	return tmp % MARS_BUF_HASH_MAX;
 }
 
-static struct buf_head *hash_find_insert(struct buf_brick *brick, unsigned int base_index, struct buf_head *new)
+static struct buf_head *hash_find_insert(struct buf_brick *brick, loff_t base_index, struct buf_head *new)
 {
 	
 	int hash = buf_hash_fn(base_index);
@@ -55,7 +55,7 @@ static struct buf_head *hash_find_insert(struct buf_brick *brick, unsigned int b
 			if (++count > max) {
 				max = count;
 				if (!(max % 10)) {
-					MARS_INF("hash maxlen=%d hash=%d base_index=%u\n", max, hash, base_index);
+					MARS_INF("hash maxlen=%d hash=%d base_index=%llu\n", max, hash, base_index);
 				}
 			}
 		}
@@ -413,8 +413,14 @@ static int buf_ref_get(struct buf_output *output, struct mars_ref_object *mref)
 		mref->ref_len = max_len;
 
 again:
-	bf = hash_find_insert(brick, ((unsigned int)base_pos) >> brick->backing_order, new);
+	bf = hash_find_insert(brick, base_pos >> brick->backing_order, new);
 	if (bf) {
+#if 1
+		loff_t end_pos = bf->bf_pos + brick->backing_size;
+		if (mref->ref_pos < bf->bf_pos || mref->ref_pos >= end_pos) {
+			MARS_ERR("hash value corruption. %lld not in (%lld ... %lld)\n", mref->ref_pos, bf->bf_pos, end_pos);
+		}
+#endif
 		atomic_inc(&brick->hit_count);
 		if (unlikely(new)) {
 			atomic_inc(&brick->nr_collisions);
@@ -467,7 +473,7 @@ again:
 		traced_unlock(&brick->brick_lock, flags);
 
 		new->bf_pos = base_pos;
-		new->bf_base_index = ((unsigned int)base_pos) >> brick->backing_order;
+		new->bf_base_index = base_pos >> brick->backing_order;
 		new->bf_flags = 0;
 		/* Important optimization: treat whole buffers as uptodate
 		 * upon first write.

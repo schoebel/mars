@@ -498,10 +498,39 @@ static void trans_logger_ref_put(struct trans_logger_output *output, struct mars
 err: ;
 }
 
+static void _trans_logger_endio(struct generic_callback *cb)
+{
+	struct trans_logger_mars_ref_aspect *mref_a;
+	struct trans_logger_output *output;
+	struct mars_ref_object *mref;
+	struct generic_callback *prev_cb;
+	mref_a = cb->cb_private;
+	CHECK_PTR(mref_a, err);
+	if (unlikely(&mref_a->cb != cb)) {
+		MARS_FAT("bad callback -- hanging up\n");
+		goto err;
+	}
+
+	output = mref_a->output;
+	CHECK_PTR(output, err);
+
+	atomic_dec(&output->fly_count);
+
+	prev_cb = cb->cb_prev;
+	CHECK_PTR(prev_cb, err);
+	mref = mref_a->object;
+	CHECK_PTR(mref, err);
+
+	mref->ref_cb = prev_cb;
+	prev_cb->cb_fn(prev_cb);
+err: ;
+}
+
 static void trans_logger_ref_io(struct trans_logger_output *output, struct mars_ref_object *mref, int rw)
 {
 	struct trans_logger_mars_ref_aspect *mref_a;
 	struct trans_logger_input *input = output->brick->inputs[0];
+	struct generic_callback *cb;
 
 	CHECK_ATOMIC(&mref->ref_count, 1);
 
@@ -542,6 +571,15 @@ static void trans_logger_ref_io(struct trans_logger_output *output, struct mars_
 	if (unlikely(rw != READ)) {
 		MARS_FAT("bad operation %d without shadow\n", rw);
 	}
+
+	atomic_inc(&output->fly_count);
+	mref_a->output = output;
+	cb = &mref_a->cb;
+	cb->cb_fn = _trans_logger_endio;
+	cb->cb_private = mref_a;
+	cb->cb_error = 0;
+	cb->cb_prev = mref->ref_cb;
+	mref->ref_cb = cb;
 
 	GENERIC_INPUT_CALL(input, mars_ref_io, mref, rw);
 err: ;
@@ -954,7 +992,7 @@ static int trans_logger_thread(void *data)
 #if 1
 		if (((int)jiffies) - last_jiffies >= HZ * 10 && atomic_read(&output->hash_count) > 0) {
 			last_jiffies = jiffies;
-			MARS_INF("LOGGER: hash_count=%d phase1=%d/%d phase2=%d/%d phase3=%d/%d phase4=%d/%d\n", atomic_read(&output->hash_count), atomic_read(&output->q_phase1.q_queued), atomic_read(&output->q_phase1.q_flying), atomic_read(&output->q_phase2.q_queued), atomic_read(&output->q_phase2.q_flying), atomic_read(&output->q_phase3.q_queued), atomic_read(&output->q_phase3.q_flying), atomic_read(&output->q_phase4.q_queued), atomic_read(&output->q_phase4.q_flying));
+			MARS_INF("LOGGER: hash_count=%d fly=%d phase1=%d/%d phase2=%d/%d phase3=%d/%d phase4=%d/%d\n", atomic_read(&output->hash_count), atomic_read(&output->fly_count), atomic_read(&output->q_phase1.q_queued), atomic_read(&output->q_phase1.q_flying), atomic_read(&output->q_phase2.q_queued), atomic_read(&output->q_phase2.q_flying), atomic_read(&output->q_phase3.q_queued), atomic_read(&output->q_phase3.q_flying), atomic_read(&output->q_phase4.q_queued), atomic_read(&output->q_phase4.q_flying));
 		}
 #endif
 
@@ -966,7 +1004,7 @@ static int trans_logger_thread(void *data)
 			continue;
 		}
 
-		/* Strategy / performace:
+		/* Strategy / performance:
 		 * run higher phases only when IO contention is "low".
 		 */
 		if (brick->max_queue <= 0 ||
@@ -977,7 +1015,8 @@ static int trans_logger_thread(void *data)
 				check_q = false;
 				continue;
 			}
-			if (brick->limit_congest > 0 && atomic_read(&output->q_phase1.q_flying) >= brick->limit_congest) {
+			if (brick->limit_congest > 0 &&
+			   atomic_read(&output->q_phase1.q_flying) + atomic_read(&output->fly_count) >= brick->limit_congest) {
 				wait_jiffies = HZ / 100;
 				check_q = false;
 				continue;
