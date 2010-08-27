@@ -260,10 +260,10 @@ static inline struct trans_logger_mars_ref_aspect *q_fetch(struct logger_queue *
 ///////////////////////// own helper functions ////////////////////////
 
 
-static inline int hash_fn(unsigned int base_index) _noinline
+static inline int hash_fn(loff_t base_index) _noinline
 {
 	// simple and stupid
-	unsigned int tmp;
+	loff_t tmp;
 	tmp = base_index ^ (base_index / TRANS_HASH_MAX);
 	tmp += tmp / 13;
 	tmp ^= tmp / (TRANS_HASH_MAX * TRANS_HASH_MAX);
@@ -272,7 +272,7 @@ static inline int hash_fn(unsigned int base_index) _noinline
 
 static struct trans_logger_mars_ref_aspect *hash_find(struct hash_anchor *table, loff_t pos, int len)
 {
-	unsigned int base_index = ((unsigned int)pos) >> REGION_SIZE_BITS;
+	loff_t base_index = pos >> REGION_SIZE_BITS;
 	int hash = hash_fn(base_index);
 	struct hash_anchor *start = &table[hash];
 	struct list_head *tmp;
@@ -296,7 +296,7 @@ static struct trans_logger_mars_ref_aspect *hash_find(struct hash_anchor *table,
 		if (++count > max) {
 			max = count;
 			if (!(max % 10)) {
-				MARS_INF("hash maxlen=%d hash=%d base_index=%u\n", max, hash, base_index);
+				MARS_INF("hash maxlen=%d hash=%d base_index=%lld\n", max, hash, base_index);
 			}
 		}
 #endif
@@ -328,7 +328,7 @@ static struct trans_logger_mars_ref_aspect *hash_find(struct hash_anchor *table,
 
 static inline void hash_insert(struct hash_anchor *table, struct trans_logger_mars_ref_aspect *elem_a, atomic_t *cnt) _noinline
 {
-        unsigned int base_index = ((unsigned int)elem_a->object->ref_pos) >> REGION_SIZE_BITS;
+        loff_t base_index = elem_a->object->ref_pos >> REGION_SIZE_BITS;
         int hash = hash_fn(base_index);
         struct hash_anchor *start = &table[hash];
         unsigned int flags;
@@ -349,7 +349,7 @@ static inline void hash_insert(struct hash_anchor *table, struct trans_logger_ma
 static inline bool hash_put(struct hash_anchor *table, struct trans_logger_mars_ref_aspect *elem_a, atomic_t *cnt) _noinline
 {
 	struct mars_ref_object *elem = elem_a->object;
-	unsigned int base_index = ((unsigned int)elem->ref_pos) >> REGION_SIZE_BITS;
+	loff_t base_index = elem->ref_pos >> REGION_SIZE_BITS;
 	int hash = hash_fn(base_index);
 	struct hash_anchor *start = &table[hash];
 	unsigned int flags;
@@ -440,7 +440,7 @@ static int _write_ref_get(struct trans_logger_output *output, struct trans_logge
 static int trans_logger_ref_get(struct trans_logger_output *output, struct mars_ref_object *mref)
 {
 	struct trans_logger_mars_ref_aspect *mref_a;
-	unsigned int base_offset;
+	loff_t base_offset;
 
 	CHECK_PTR(output, err);
 
@@ -448,7 +448,7 @@ static int trans_logger_ref_get(struct trans_logger_output *output, struct mars_
 	CHECK_PTR(mref_a, err);
 	CHECK_PTR(mref_a->object, err);
 
-	base_offset = ((unsigned int)mref->ref_pos) & (REGION_SIZE - 1);
+	base_offset = mref->ref_pos & (loff_t)(REGION_SIZE - 1);
 	if (base_offset + mref->ref_len > REGION_SIZE)
 		mref->ref_len = REGION_SIZE - base_offset;
 

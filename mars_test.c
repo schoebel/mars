@@ -7,14 +7,14 @@
 //#define DEFAULT_BUFFERS (32768 / 2)
 #define DEFAULT_MEM     (1024 / 4 * 1024)
 
-#define TRANS_ORDER    6
+#define TRANS_ORDER    4
 #define TRANS_BUFFERS (32)
 #define TRANS_MEM     (1024 / 4)
 
 //#define CONF_TEST
 #define CONF_BUF
 #define CONF_USEBUF
-//#define CONF_TRANS
+#define CONF_TRANS
 
 
 #include <linux/kernel.h>
