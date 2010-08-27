@@ -4,10 +4,10 @@
 //#define MARS_DEBUGGING
 
 #define DEFAULT_ORDER    0
-#define DEFAULT_BUFFERS (32768 / 2)
-#define DEFAULT_MEM     (1024 / 4 * 256)
+//#define DEFAULT_BUFFERS (32768 / 2)
+#define DEFAULT_MEM     (1024 / 4 * 1024)
 
-#define TRANS_ORDER    4
+#define TRANS_ORDER    6
 #define TRANS_BUFFERS (32)
 #define TRANS_MEM     (1024 / 4)
 

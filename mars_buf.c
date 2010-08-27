@@ -201,9 +201,6 @@ static inline int get_info(struct buf_brick *brick)
 {
 	struct buf_input *input = brick->inputs[0];
 	int status = GENERIC_INPUT_CALL(input, mars_get_info, &brick->base_info);
-	if (status >= 0) {
-		brick->got_info = 1;
-	}
 	return status;
 }
 
@@ -228,7 +225,8 @@ static int make_bio(struct buf_brick *brick, struct bio **_bio, void *data, loff
 
 	status = -EINVAL;
 	CHECK_PTR(brick, out);
-	if (unlikely(!brick->got_info)) {
+	bdev = brick->bdev;
+	if (unlikely(!bdev)) {
 		struct request_queue *q;
 		status = get_info(brick);
 		if (status < 0)
@@ -247,9 +245,6 @@ static int make_bio(struct buf_brick *brick, struct bio **_bio, void *data, loff
 		q = bdev_get_queue(bdev);
 		CHECK_PTR(q, out);
 		brick->bvec_max = queue_max_hw_sectors(q) >> (PAGE_SHIFT - 9);
-	} else {
-		bdev = brick->bdev;
-		CHECK_PTR(bdev, out);
 	}
 
 	if (unlikely(ilen <= 0)) {
@@ -851,10 +846,18 @@ static void _buf_bio_callback(struct bio *bio, int code)
 		} else if (start_data != mref->ref_data ||
 			  start_pos != mref->ref_pos ||
 			  start_len != mref->ref_len) {
-			// another time: flush the whole buffer
-			start_data = bf->bf_data;
-			start_pos = bf->bf_pos;
-			start_len = brick->backing_size;
+			// another time: flush larger parts
+			loff_t start_diff = mref->ref_pos - start_pos;
+			loff_t end_diff;
+			if (start_diff < 0) {
+				start_data += start_diff;
+				start_pos += start_diff;
+				start_len -= start_diff;
+			}
+			end_diff = (mref->ref_pos + mref->ref_len) - (start_pos + start_len);
+			if (end_diff > 0) {
+				start_len += end_diff;
+			}
 		}
 	}
 

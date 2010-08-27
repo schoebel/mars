@@ -44,9 +44,8 @@ struct buf_brick {
 
 	// for creation of bios
 	struct mars_info base_info;
-	int got_info;
-	int bvec_max;
 	struct block_device *bdev;
+	int bvec_max;
 
 	// statistics
 	unsigned long last_jiffies;
