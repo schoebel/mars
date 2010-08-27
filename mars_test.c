@@ -189,6 +189,7 @@ void make_test_instance(void)
 	connect(last, trans_brick->outputs[0]);
 #else
 	(void)trans_brick;
+	(void)_trans_brick;
 	(void)tbuf_brick;
 	(void)_tbuf_brick;
 	(void)tdevice_brick;
@@ -233,7 +234,15 @@ void make_test_instance(void)
 	MARS_INF("------------- END INIT --------------\n");
 
 	_if_brick = (void*)if_brick;
-	_if_brick->ops->brick_switch(if_brick, true);
+	{
+		struct mars_info info = {};
+		int status = GENERIC_INPUT_CALL(_if_brick->inputs[0], mars_get_info, &info);
+		MARS_INF("INFO status=%d size=%lld transfer_order=%d transfer_size=%d %p\n", status, info.current_size, info.transfer_order, info.transfer_size, info.backing_file);
+	}
+
+	MARS_INF("------------- START GATE --------------\n");
+
+	_if_brick->ops->brick_switch(_if_brick, true);
 	//_if_brick->is_active = true;
 
 	msleep(2000);

@@ -226,16 +226,30 @@ static int make_bio(struct buf_brick *brick, struct bio **_bio, void *data, loff
 	struct bio *bio = NULL;
 	struct block_device *bdev;
 
+	status = -EINVAL;
+	CHECK_PTR(brick, out);
 	if (unlikely(!brick->got_info)) {
 		struct request_queue *q;
 		status = get_info(brick);
 		if (status < 0)
 			goto out;
+		status = -EINVAL;
+		CHECK_PTR(brick->base_info.backing_file, out);
+		CHECK_PTR(brick->base_info.backing_file->f_mapping, out);
+		CHECK_PTR(brick->base_info.backing_file->f_mapping->host, out);
+		CHECK_PTR(brick->base_info.backing_file->f_mapping->host->i_sb, out);
 		bdev = brick->base_info.backing_file->f_mapping->host->i_sb->s_bdev;
+		if (!bdev && S_ISBLK(brick->base_info.backing_file->f_mapping->host->i_mode)) {
+			bdev = brick->base_info.backing_file->f_mapping->host->i_bdev;
+		}
+		CHECK_PTR(bdev, out);
+		brick->bdev = bdev;
 		q = bdev_get_queue(bdev);
+		CHECK_PTR(q, out);
 		brick->bvec_max = queue_max_hw_sectors(q) >> (PAGE_SHIFT - 9);
 	} else {
-		bdev = brick->base_info.backing_file->f_mapping->host->i_sb->s_bdev;
+		bdev = brick->bdev;
+		CHECK_PTR(bdev, out);
 	}
 
 	if (unlikely(ilen <= 0)) {
@@ -281,6 +295,8 @@ static int make_bio(struct buf_brick *brick, struct bio **_bio, void *data, loff
 			mylen = myrest;
 
 		page = virt_to_page(data);
+		if (!page)
+			goto out;
 
 		bio->bi_io_vec[i].bv_page = page;
 		bio->bi_io_vec[i].bv_len = mylen;

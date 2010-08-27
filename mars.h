@@ -194,7 +194,7 @@ static const struct generic_aspect_type *BRICK##_aspect_types[BRICK_OBJ_NR] = {	
 		int test = atomic_read(atom);				\
 		if (test OP (minval)) {					\
 			atomic_set(atom, minval);			\
-			MARS_ERR("line %d atomic " #atom " " #OP " " #minval "\n", __LINE__); \
+			MARS_ERR("%d: atomic " #atom " " #OP " " #minval "\n", __LINE__); \
 		}							\
 	} while (0)
 
@@ -219,19 +219,19 @@ static inline void mars_ref_attach_bio(struct mars_ref_object *mref, struct bio 
 #define CHECK_HEAD_EMPTY(head)						\
 	if (unlikely(!list_empty(head))) {				\
 		INIT_LIST_HEAD(head);					\
-		MARS_ERR("list_head " #head " (%p) not empty\n", head);	\
+		MARS_ERR("%d: list_head " #head " (%p) not empty\n", __LINE__, head); \
 	}								\
 
 #endif
 
 #define CHECK_PTR(ptr,label)						\
 	if (unlikely(!(ptr))) {						\
-		MARS_FAT("ptr " #ptr " is NULL\n");			\
+		MARS_FAT("%d: ptr " #ptr " is NULL\n", __LINE__);	\
 		goto label;						\
 	}
 
 #define _CHECK(ptr,label)						\
 	if (unlikely(!(ptr))) {						\
-		MARS_FAT("condition " #ptr " is VIOLATED\n");		\
+		MARS_FAT("%d: condition " #ptr " is VIOLATED\n", __LINE__); \
 		goto label;						\
 	}
