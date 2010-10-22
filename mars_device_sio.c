@@ -244,16 +244,27 @@ static void device_sio_ref_io(struct device_sio_output *output, struct mars_ref_
 	int test;
 
 	if (unlikely(!output->filp)) {
+		cb->cb_error = -EINVAL;
+		goto done;
+	}
+
+	/* Shortcut when possible
+	 */
+	if (S_ISBLK(output->filp->f_mapping->host->i_mode) && output->allow_bio) {
+		struct block_device *bdev = output->filp->f_mapping->host->i_bdev;
+#if 0
+		static int count = 10;
+		if (count-- > 0)
+			MARS_INF("AHA: %p\n", bdev);
+#endif
+		bio->bi_bdev = bdev;
+		submit_bio(bio->bi_rw, bio);
+		return;
 	}
 
 	if (barrier) {
 		MARS_INF("got barrier request\n");
 		sync_file(output);
-	}
-
-	if (unlikely(!output->filp)) {
-		cb->cb_error = -EINVAL;
-		goto done;
 	}
 
 	if (rw == READ) {
@@ -423,6 +434,10 @@ static int device_sio_switch(struct device_sio_brick *brick, bool state)
 	int prot = 0600;
 	mm_segment_t oldfs;
 
+	if (output->o_direct) {
+		flags |= O_DIRECT;
+		MARS_INF("using O_DIRECT on %s\n", path);
+	}
 	if (state) {
 		oldfs = get_fs();
 		set_fs(get_ds());

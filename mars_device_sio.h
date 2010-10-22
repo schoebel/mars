@@ -28,6 +28,10 @@ struct sio_threadinfo {
 
 struct device_sio_output {
 	MARS_OUTPUT(device_sio);
+	// parameters
+	bool o_direct;
+	bool allow_bio;
+        // private
 	struct file *filp;
 	struct sio_threadinfo tinfo[WITH_THREAD+1];
 	spinlock_t g_lock;

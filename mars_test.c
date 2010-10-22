@@ -11,11 +11,12 @@
 #define TRANS_BUFFERS (32)
 #define TRANS_MEM     (1024 / 4)
 
-//#define CONF_TEST
-#define CONF_BUF
-#define CONF_USEBUF
-#define CONF_TRANS
-
+//#define CONF_TEST // use intermediate mars_check bricks
+//#define CONF_BUF
+//#define CONF_USEBUF
+//#define CONF_TRANS
+#define CONF_DIRECT // use O_DIRECT
+//#define CONF_BIO // submit bios directly to device when possible
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -46,10 +47,12 @@ static struct trans_logger_brick *_trans_brick = NULL;
 static struct generic_brick *tbuf_brick = NULL;
 static struct buf_brick *_tbuf_brick = NULL;
 static struct generic_brick *tdevice_brick = NULL;
+static struct device_sio_brick *_tdevice_brick = NULL;
 
 static struct generic_brick *buf_brick = NULL;
 static struct buf_brick *_buf_brick = NULL;
 static struct generic_brick *device_brick = NULL;
+static struct device_sio_brick *_device_brick = NULL;
 
 static void test_endio(struct generic_callback *cb)
 {
@@ -124,7 +127,14 @@ void make_test_instance(void)
 	MARS_DBG("starting....\n");
 
 	device_brick = brick(&device_sio_brick_type);
+	_device_brick = (void*)device_brick;
 	device_brick->outputs[0]->output_name = "/tmp/testfile.img";
+#ifdef CONF_DIRECT
+	_device_brick->outputs[0]->o_direct = true;
+#endif
+#ifdef CONF_BIO
+	_device_brick->outputs[0]->allow_bio = true;
+#endif
 	device_brick->ops->brick_switch(device_brick, true);
 
 	if_brick = brick(&if_device_brick_type);
@@ -158,7 +168,14 @@ void make_test_instance(void)
 #ifdef CONF_TRANS // trans_logger plus Infrastruktur zwischenschalten
 
 	tdevice_brick = brick(&device_sio_brick_type);
+	_tdevice_brick = (void*)tdevice_brick;
 	tdevice_brick->outputs[0]->output_name = "/tmp/testfile.log";
+#ifdef CONF_DIRECT
+	_tdevice_brick->outputs[0]->o_direct = true;
+#endif
+#ifdef CONF_BIO
+	_tdevice_brick->outputs[0]->allow_bio = true;
+#endif
 	tdevice_brick->ops->brick_switch(tdevice_brick, true);
 
 	tbuf_brick = brick(&buf_brick_type);
