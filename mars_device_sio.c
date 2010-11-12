@@ -271,7 +271,7 @@ static void device_sio_ref_io(struct device_sio_output *output, struct mars_ref_
 		read_aops(output, mref);
 	} else {
 		write_aops(output, mref);
-		if (barrier)
+		if (barrier || output->o_sync)
 			sync_file(output);
 	}
 

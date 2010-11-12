@@ -30,6 +30,7 @@ struct device_sio_output {
 	MARS_OUTPUT(device_sio);
 	// parameters
 	bool o_direct;
+	bool o_sync;
 	bool allow_bio;
         // private
 	struct file *filp;

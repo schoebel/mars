@@ -203,12 +203,25 @@ err:
 
 ////////////////////////////////////////////////////////////////////
 
+static inline bool q_cmp(struct pairing_heap_mref *_a, struct pairing_heap_mref *_b)
+{
+	struct trans_logger_mars_ref_aspect *mref_a = container_of(_a, struct trans_logger_mars_ref_aspect, ph);
+	struct trans_logger_mars_ref_aspect *mref_b = container_of(_b, struct trans_logger_mars_ref_aspect, ph);
+	struct mars_ref_object *a = mref_a->object;
+	struct mars_ref_object *b = mref_b->object;
+	return a->ref_pos < b->ref_pos;
+}
+
+_PAIRING_HEAP_FUNCTIONS(static,mref,q_cmp);
+
 static inline void q_init(struct logger_queue *q) _noinline
 {
+	INIT_LIST_HEAD(&q->q_anchor);
+	q->heap_low = NULL;
+	q->heap_high = NULL;
 	spin_lock_init(&q->q_lock);
 	atomic_set(&q->q_queued, 0);
 	atomic_set(&q->q_flying, 0);
-	INIT_LIST_HEAD(&q->q_anchor);
 }
 
 static inline void q_insert(struct logger_queue *q, struct trans_logger_mars_ref_aspect *mref_a) _noinline
@@ -217,7 +230,14 @@ static inline void q_insert(struct logger_queue *q, struct trans_logger_mars_ref
 
 	traced_lock(&q->q_lock, flags);
 
-	list_add_tail(&mref_a->q_head, &q->q_anchor);
+	if (q->q_ordering) {
+		struct pairing_heap_mref **use = &q->heap_high;
+		if (mref_a->object->ref_pos <= q->heap_border)
+			use = &q->heap_low;
+		ph_insert_mref(use, &mref_a->ph);
+	} else {
+		list_add_tail(&mref_a->q_head, &q->q_anchor);
+	}
 	atomic_inc(&q->q_queued);
 	q->q_last_action = jiffies;
 
@@ -227,6 +247,11 @@ static inline void q_insert(struct logger_queue *q, struct trans_logger_mars_ref
 static inline void q_pushback(struct logger_queue *q, struct trans_logger_mars_ref_aspect *mref_a) _noinline
 {
 	unsigned long flags;
+
+	if (q->q_ordering) {
+		q_insert(q, mref_a);
+		return;
+	}
 
 	traced_lock(&q->q_lock, flags);
 
@@ -244,7 +269,35 @@ static inline struct trans_logger_mars_ref_aspect *q_fetch(struct logger_queue *
 
 	traced_lock(&q->q_lock, flags);
 
-	if (likely(!list_empty(&q->q_anchor))) {
+	if (q->q_ordering) {
+#if 0
+		struct pairing_heap_mref **minpos = &q->heap_high;
+		if (!*minpos) {
+			*minpos = q->heap_low;
+			q->heap_low = NULL;
+			q->heap_border = 0;
+		}
+		if (*minpos) {
+			mref_a = container_of(*minpos, struct trans_logger_mars_ref_aspect, ph);
+			q->heap_border = mref_a->object->ref_pos;
+			ph_delete_min_mref(minpos);
+			atomic_dec(&q->q_queued);
+			q->q_last_action = jiffies;
+		}
+#else
+		if (!q->heap_high) {
+			q->heap_high = q->heap_low;
+			q->heap_low = NULL;
+		}
+		if (q->heap_high) {
+			mref_a = container_of(q->heap_high, struct trans_logger_mars_ref_aspect, ph);
+			q->heap_border = mref_a->object->ref_pos;
+			ph_delete_min_mref(&q->heap_high);
+			atomic_dec(&q->q_queued);
+			q->q_last_action = jiffies;
+		}
+#endif
+	} else if (!list_empty(&q->q_anchor)) {
 		struct list_head *next = q->q_anchor.next;
 		list_del_init(next);
 		atomic_dec(&q->q_queued);

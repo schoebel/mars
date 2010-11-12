@@ -12,10 +12,13 @@
 #define TRANS_MEM     (1024 / 4)
 
 //#define CONF_TEST // use intermediate mars_check bricks
-//#define CONF_BUF
-//#define CONF_USEBUF
-//#define CONF_TRANS
+#define CONF_BUF
+#define CONF_USEBUF
+#define CONF_TRANS
+//#define CONF_TRANS_FLYING 1
+#define CONF_TRANS_SORT
 #define CONF_DIRECT // use O_DIRECT
+#define CONF_SNYC // use O_SYNC
 //#define CONF_BIO // submit bios directly to device when possible
 
 #include <linux/kernel.h>
@@ -132,6 +135,9 @@ void make_test_instance(void)
 #ifdef CONF_DIRECT
 	_device_brick->outputs[0]->o_direct = true;
 #endif
+#ifdef CONF_SYNC
+	_device_brick->outputs[0]->o_sync = true;
+#endif
 #ifdef CONF_BIO
 	_device_brick->outputs[0]->allow_bio = true;
 #endif
@@ -173,6 +179,9 @@ void make_test_instance(void)
 #ifdef CONF_DIRECT
 	_tdevice_brick->outputs[0]->o_direct = true;
 #endif
+#ifdef CONF_SYNC
+	_tdevice_brick->outputs[0]->o_sync = true;
+#endif
 #ifdef CONF_BIO
 	_tdevice_brick->outputs[0]->allow_bio = true;
 #endif
@@ -197,8 +206,14 @@ void make_test_instance(void)
 	_trans_brick->log_reads = false;
 	_trans_brick->allow_reads_after = HZ;
 	_trans_brick->max_queue = 1000;
-	_trans_brick->outputs[0]->q_phase2.q_max_flying = 1;
-	_trans_brick->outputs[0]->q_phase4.q_max_flying = 1;
+#ifdef CONF_TRANS_FLYING
+	_trans_brick->outputs[0]->q_phase2.q_max_flying = CONF_TRANS_FLYING;
+	_trans_brick->outputs[0]->q_phase4.q_max_flying = CONF_TRANS_FLYING;
+#endif
+#ifdef CONF_TRANS_SORT
+	_trans_brick->outputs[0]->q_phase2.q_ordering = true;
+	_trans_brick->outputs[0]->q_phase4.q_ordering = true;
+#endif
 
 	connect(trans_brick->inputs[0], buf_brick->outputs[0]);
 	connect(trans_brick->inputs[1], tbuf_brick->outputs[0]);

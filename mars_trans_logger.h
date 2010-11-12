@@ -7,6 +7,7 @@
 #define TRANS_HASH_MAX 32
 
 #include <linux/time.h>
+#include "pairing_heap.h"
 
 struct log_header {
 	struct timespec l_stamp;
@@ -17,13 +18,20 @@ struct log_header {
 
 ////////////////////////////////////////////////////////////////////
 
+_PAIRING_HEAP_TYPEDEF(mref,)
+
 struct logger_queue {
 	struct list_head q_anchor;
+	struct pairing_heap_mref *heap_high;
+	struct pairing_heap_mref *heap_low;
+	loff_t heap_border;
 	spinlock_t q_lock;
 	atomic_t q_queued;
 	atomic_t q_flying;
-	int q_max_flying;
 	int q_last_action; // jiffies
+	// tunables
+	int q_max_flying;
+	bool q_ordering;
 };
 
 ////////////////////////////////////////////////////////////////////
@@ -37,6 +45,7 @@ struct trans_logger_mars_ref_aspect {
 	GENERIC_ASPECT(mars_ref);
 	struct list_head hash_head;
 	struct list_head q_head;
+	struct pairing_heap_mref ph;
 	struct trans_logger_mars_ref_aspect *shadow_ref;
 	void *orig_data;
 	struct trans_logger_output *output;
