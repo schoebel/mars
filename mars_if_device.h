@@ -7,7 +7,12 @@
 
 struct if_device_mars_ref_aspect {
 	GENERIC_ASPECT(mars_ref);
+	struct list_head tmp_head;
+	struct if_device_mars_ref_aspect *master;
+	atomic_t split_count;
 	struct generic_callback cb;
+	struct bio *orig_bio;
+	struct if_device_input *input;
 };
 
 struct if_device_input {

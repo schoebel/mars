@@ -74,6 +74,7 @@ struct generic_object_type {
 	int aspect_max;							\
 	int object_size;						\
 	int last_count;							\
+	int last_jiffies;						\
 	atomic_t alloc_count;						\
 	atomic_t free_count;						\
 	spinlock_t free_lock;						\

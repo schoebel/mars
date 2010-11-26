@@ -4,8 +4,13 @@
 
 struct usebuf_mars_ref_aspect {
 	GENERIC_ASPECT(mars_ref);
-	struct mars_ref_object *sub_mref;
+	struct mars_ref_object *origmref;
 	struct generic_callback cb;
+	struct usebuf_output *output;
+	struct bio_vec *bvec;
+	int bvec_offset;
+	int bvec_len;
+	atomic_t subref_count;
 };
 
 struct usebuf_brick {
@@ -18,7 +23,10 @@ struct usebuf_input {
 
 struct usebuf_output {
 	MARS_OUTPUT(usebuf);
-	struct generic_object_layout mref_object_layout;
+	struct generic_object_layout ref_object_layout;
+	atomic_t io_count;
+	atomic_t write_count;
+	atomic_t preread_count;
 };
 
 MARS_TYPES(usebuf);

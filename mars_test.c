@@ -5,21 +5,25 @@
 
 #define DEFAULT_ORDER    0
 //#define DEFAULT_BUFFERS (32768 / 2)
-#define DEFAULT_MEM     (1024 / 4 * 1024)
+//#define DEFAULT_MEM     (1024 / 4 * 1024)
+#define DEFAULT_MEM     (1024 / 4 * 1024 / 4)
 
 #define TRANS_ORDER    4
 #define TRANS_BUFFERS (32)
 #define TRANS_MEM     (1024 / 4)
 
 //#define CONF_TEST // use intermediate mars_check bricks
-#define CONF_BUF
-#define CONF_USEBUF
-#define CONF_TRANS
+
+#define CONF_AIO // use device_aio instead of device_sio
+//#define CONF_BUF
+//#define CONF_USEBUF
+//#define CONF_TRANS
 //#define CONF_TRANS_FLYING 1
 #define CONF_TRANS_SORT
-#define CONF_DIRECT // use O_DIRECT
-#define CONF_SNYC // use O_SYNC
-//#define CONF_BIO // submit bios directly to device when possible
+//#define CONF_DIRECT // use O_DIRECT
+#define CONF_FDSYNC // use additional aio_fdsync
+
+#define DIRECT
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -35,11 +39,17 @@
 #include "mars_if_device.h"
 #include "mars_check.h"
 #include "mars_device_sio.h"
+#include "mars_device_aio.h"
 #include "mars_buf.h"
 #include "mars_usebuf.h"
 #include "mars_trans_logger.h"
 
 GENERIC_ASPECT_FUNCTIONS(generic,mars_ref);
+
+#ifdef CONF_AIO
+#define device_sio_brick device_aio_brick
+#define device_sio_brick_type device_aio_brick_type
+#endif
 
 static struct generic_brick *if_brick = NULL;
 static struct if_device_brick *_if_brick = NULL;
@@ -135,11 +145,8 @@ void make_test_instance(void)
 #ifdef CONF_DIRECT
 	_device_brick->outputs[0]->o_direct = true;
 #endif
-#ifdef CONF_SYNC
-	_device_brick->outputs[0]->o_sync = true;
-#endif
-#ifdef CONF_BIO
-	_device_brick->outputs[0]->allow_bio = true;
+#ifdef CONF_FDSYNC
+	_device_brick->outputs[0]->o_fdsync = true;
 #endif
 	device_brick->ops->brick_switch(device_brick, true);
 
@@ -149,10 +156,11 @@ void make_test_instance(void)
 	usebuf_brick = brick(&usebuf_brick_type);
 
 	connect(if_brick->inputs[0], usebuf_brick->outputs[0]);
-
 	last = usebuf_brick->inputs[0];
 #else
 	(void)usebuf_brick;
+	(void)tdevice_brick;
+	(void)_tdevice_brick;
 	last = if_brick->inputs[0];
 #endif
 
@@ -179,11 +187,8 @@ void make_test_instance(void)
 #ifdef CONF_DIRECT
 	_tdevice_brick->outputs[0]->o_direct = true;
 #endif
-#ifdef CONF_SYNC
-	_tdevice_brick->outputs[0]->o_sync = true;
-#endif
-#ifdef CONF_BIO
-	_tdevice_brick->outputs[0]->allow_bio = true;
+#ifdef CONF_FDSYNC
+	_tdevice_brick->outputs[0]->o_fdsync = true;
 #endif
 	tdevice_brick->ops->brick_switch(tdevice_brick, true);
 
@@ -219,14 +224,14 @@ void make_test_instance(void)
 	connect(trans_brick->inputs[1], tbuf_brick->outputs[0]);
 
 	connect(last, trans_brick->outputs[0]);
-#else
+#else // CONF_TRANS
 	(void)trans_brick;
 	(void)_trans_brick;
 	(void)tbuf_brick;
 	(void)_tbuf_brick;
 	(void)tdevice_brick;
 	connect(last, buf_brick->outputs[0]);
-#endif
+#endif // CONF_TRANS
 
 	if (false) { // ref-counting no longer valid
 		struct buf_output *output = _buf_brick->outputs[0];
@@ -256,10 +261,21 @@ void make_test_instance(void)
 			GENERIC_OUTPUT_CALL(output, mars_ref_put, mref);
 		}
 	}
-#else
+
+#else // CONF_BUF
+
+	(void)trans_brick;
+	(void)_trans_brick;
+	(void)buf_brick;
+	(void)_buf_brick;
+	(void)tbuf_brick;
+	(void)_tbuf_brick;
+	(void)tdevice_brick;
+	(void)_tdevice_brick;
 	(void)test_endio;
 	connect(last, device_brick->outputs[0]);
-#endif
+
+#endif // CONF_BUF
 
 	msleep(200);
 
@@ -279,6 +295,9 @@ void make_test_instance(void)
 
 	msleep(2000);
 	MARS_INF("------------- DONE --------------\n");
+//msleep(1000 * 92);
+	// FIXME: this is never released!
+	atomic_inc(&current->mm->mm_users);
 }
 
 void destroy_test_instance(void)

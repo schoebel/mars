@@ -6,7 +6,8 @@
 #include <asm/spinlock.h>
 #include <asm/atomic.h>
 
-#define MARS_DELAY msleep(30000)
+//#define MARS_DELAY /**/
+#define MARS_DELAY msleep(20000)
 
 #define MARS_FATAL "MARS_FATAL  " __BASE_FILE__ ": "
 #define MARS_ERROR "MARS_ERROR  " __BASE_FILE__ ": "
@@ -61,9 +62,8 @@ struct mars_ref_object_layout {
 	loff_t ref_pos;							\
 	int    ref_len;							\
 	int    ref_may_write;						\
+	void  *ref_data;         /* preset to NULL for buffered IO */	\
 	/* maintained by the ref implementation, readable for callers */ \
-	struct bio *orig_bio;						\
-	void  *ref_data;						\
 	int    ref_flags;						\
 	int    ref_rw;							\
 	/* maintained by the ref implementation, incrementable for	\
@@ -200,21 +200,6 @@ static const struct generic_aspect_type *BRICK##_aspect_types[BRICK_OBJ_NR] = {	
 
 #define CHECK_ATOMIC(atom,minval)			\
 	_CHECK_ATOMIC(atom, <, minval)
-
-static inline void mars_ref_attach_bio(struct mars_ref_object *mref, struct bio *bio)
-{
-	int test;
-	if (unlikely(mref->orig_bio)) {
-		MARS_ERR("attaching a bio twice!\n");
-	}
-	test = atomic_read(&mref->ref_count);
-	if (unlikely(test != 0)) {
-		MARS_ERR("bad ref_count %d\n", test);
-	}
-	mref->orig_bio = bio;
-	mref->ref_pos = -1;
-	atomic_set(&mref->ref_count, 1);
-}
 
 #define CHECK_HEAD_EMPTY(head)						\
 	if (unlikely(!list_empty(head))) {				\

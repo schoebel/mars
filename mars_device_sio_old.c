@@ -23,64 +23,40 @@
 
 ////////////////// own brick / input / output operations //////////////////
 
-static int device_sio_ref_get(struct device_sio_output *output, struct mars_ref_object *mref)
-{
-	_CHECK_ATOMIC(&mref->ref_count, !=,  0);
-	/* Buffered IO is not implemented.
-	 * Use an intermediate buf instance if you need it.
-	 */
-	if (!mref->ref_data)
-		return -ENOSYS;
-
-	atomic_inc(&mref->ref_count);
-	return 0;
-}
-
-static void device_sio_ref_put(struct device_sio_output *output, struct mars_ref_object *mref)
-{
-	CHECK_ATOMIC(&mref->ref_count, 1);
-	if (!atomic_dec_and_test(&mref->ref_count))
-		return;
-	device_sio_free_mars_ref(mref);
-}
-
 // some code borrowed from the loopback driver
 
 static int transfer_none(int cmd,
 			 struct page *raw_page, unsigned raw_off,
-			 //struct page *loop_page, unsigned loop_off,
-			 void *loop_buf,
+			 struct page *loop_page, unsigned loop_off,
 			 int size)
 {
-#if 1
-	void *raw_buf = kmap_atomic(raw_page, KM_USER0) + raw_off;
-	//void *loop_buf = kmap_atomic(loop_page, KM_USER1) + loop_off;
+	char *raw_buf = kmap_atomic(raw_page, KM_USER0) + raw_off;
+	char *loop_buf = kmap_atomic(loop_page, KM_USER1) + loop_off;
 
 	if (unlikely(!raw_buf || !loop_buf)) {
 		MARS_ERR("transfer NULL: %p %p\n", raw_buf, loop_buf);
 		return -EFAULT;
 	}
-
+#if 1
 	if (cmd == READ)
 		memcpy(loop_buf, raw_buf, size);
 	else
 		memcpy(raw_buf, loop_buf, size);
-
-	kunmap_atomic(raw_buf, KM_USER0);
-	//kunmap_atomic(loop_buf, KM_USER1);
-	cond_resched();
 #endif
+	kunmap_atomic(raw_buf, KM_USER0);
+	kunmap_atomic(loop_buf, KM_USER1);
+	cond_resched();
 	return 0;
 }
 
 static void write_aops(struct device_sio_output *output, struct mars_ref_object *mref)
 {
+	struct bio *bio = mref->orig_bio;
+	loff_t pos = ((loff_t)bio->bi_sector << 9);
 	struct file *file = output->filp;
-	loff_t pos = mref->ref_pos;
-	void *data = mref->ref_data;
-	unsigned offset;
-	int len;
 	struct address_space *mapping;
+	struct bio_vec *bvec;
+	int i;
 	int ret = 0;
 
 	if (unlikely(!file)) {
@@ -89,55 +65,66 @@ static void write_aops(struct device_sio_output *output, struct mars_ref_object 
 	}
 	mapping = file->f_mapping;
 
+	MARS_DBG("write_aops pos=%llu len=%d\n", pos, bio->bi_size);
+
 	mutex_lock(&mapping->host->i_mutex);
 		
-	offset = pos & ((pgoff_t)PAGE_CACHE_SIZE - 1);
-	len = mref->ref_len;
-	
-	while (len > 0) {
-		int transfer_result;
-		unsigned size, copied;
-		struct page *page = NULL;
-		void *fsdata;
+	bio_for_each_segment(bvec, bio, i) {
+		//pgoff_t index;
+		unsigned offset, bv_offs;
+		int len;
 
-		size = PAGE_CACHE_SIZE - offset;
-		if (size > len)
-			size = len;
+		//index = pos >> PAGE_CACHE_SHIFT;
+		offset = pos & ((pgoff_t)PAGE_CACHE_SIZE - 1);
+		bv_offs = bvec->bv_offset;
+		len = bvec->bv_len;
 
-		ret = pagecache_write_begin(file, mapping, pos, size, 0,
-					    &page, &fsdata);
-		if (ret) {
-			MARS_ERR("cannot start pagecache_write_begin() error=%d\n", ret);
-			if (ret >= 0)
-				ret = -EIO;
-			goto fail;
+		while (len > 0) {
+			int transfer_result;
+			unsigned size, copied;
+			struct page *page;
+			void *fsdata;
+
+			size = PAGE_CACHE_SIZE - offset;
+			if (size > len)
+				size = len;
+
+			ret = pagecache_write_begin(file, mapping, pos, size, 0,
+						    &page, &fsdata);
+			if (ret) {
+				MARS_ERR("cannot start pagecache_write_begin() error=%d\n", ret);
+				if (ret >= 0)
+					ret = -EIO;
+				goto fail;
+			}
+
+			//file_update_time(file);
+
+			transfer_result = transfer_none(WRITE, page, offset, bvec->bv_page, bv_offs, size);
+
+			copied = size;
+			if (transfer_result) {
+				MARS_ERR("transfer error %d\n", transfer_result);
+				copied = 0;
+			}
+
+			ret = pagecache_write_end(file, mapping, pos, size, copied,
+						  page, fsdata);
+			if (ret < 0 || ret != copied || transfer_result) {
+				MARS_ERR("write error %d\n", ret);
+				if (ret >= 0)
+					ret = -EIO;
+				goto fail;
+			}
+			
+			bv_offs += copied;
+			len -= copied;
+			offset = 0;
+			//index++;
+			pos += copied;
 		}
-
-		//file_update_time(file);
-
-		transfer_result = transfer_none(WRITE, page, offset, data, size);
-
-		copied = size;
-		if (transfer_result) {
-			MARS_ERR("transfer error %d\n", transfer_result);
-			copied = 0;
-		}
-
-		ret = pagecache_write_end(file, mapping, pos, size, copied,
-					  page, fsdata);
-		if (ret < 0 || ret != copied || transfer_result) {
-			MARS_ERR("write error %d\n", ret);
-			if (ret >= 0)
-				ret = -EIO;
-			goto fail;
-		}
-		
-		len -= copied;
-		offset = 0;
-		pos += copied;
-		data += copied;
+		ret = 0;
 	}
-	ret = 0;
 	
 fail:
 	mutex_unlock(&mapping->host->i_mutex);
@@ -152,8 +139,8 @@ fail:
 struct cookie_data {
 	struct device_sio_output *output;
 	struct mars_ref_object *mref;
-	void *data;
-	int len;
+	struct bio_vec *bvec;
+	unsigned int offset;
 };
 
 static int
@@ -173,15 +160,18 @@ device_sio_splice_actor(struct pipe_inode_info *pipe,
 	IV = ((sector_t) page->index << (PAGE_CACHE_SHIFT - 9)) +
 		(buf->offset >> 9);
 	size = sd->len;
-	if (size > p->len)
-		size = p->len;
+	if (size > p->bvec->bv_len)
+		size = p->bvec->bv_len;
 
-	if (transfer_none(READ, page, buf->offset, p->data, size)) {
-		MARS_ERR("transfer error\n");
+	if (transfer_none(READ, page, buf->offset, p->bvec->bv_page, p->offset, size)) {
+		MARS_ERR("transfer error block %ld\n",  p->bvec->bv_page->index);
 		size = -EINVAL;
 	}
 
-	//flush_dcache_page(p->bvec->bv_page);
+	flush_dcache_page(p->bvec->bv_page);
+
+	if (size > 0)
+		p->offset += size;
 
 	return size;
 }
@@ -194,26 +184,41 @@ device_sio_direct_splice_actor(struct pipe_inode_info *pipe, struct splice_desc 
 
 static void read_aops(struct device_sio_output *output, struct mars_ref_object *mref)
 {
-	loff_t pos = mref->ref_pos;
+	struct bio *bio = mref->orig_bio;
+	loff_t pos = ((loff_t)bio->bi_sector << 9); // TODO: make dynamic
+	struct bio_vec *bvec;
+	int i;
 	int ret = -EIO;
 
-	struct cookie_data cookie = {
-		.output = output,
-		.mref = mref,
-		.data = mref->ref_data,
-		.len = mref->ref_len,
-	};
-	struct splice_desc sd = {
-		.len = 0,
-		.total_len = mref->ref_len,
-		.flags = 0,
-		.pos = pos,
-		.u.data = &cookie,
-	};
+	bio_for_each_segment(bvec, bio, i) {
+		struct cookie_data cookie = {
+			.output = output,
+			.mref = mref,
+			.bvec = bvec,
+			.offset = bvec->bv_offset,
+		};
+		struct splice_desc sd = {
+			.len = 0,
+			.total_len = bvec->bv_len,
+			.flags = 0,
+			.pos = pos,
+			.u.data = &cookie,
+		};
 
-	ret = splice_direct_to_actor(output->filp, &sd, device_sio_direct_splice_actor);
-	if (unlikely(ret < 0)) {
-		MARS_ERR("splice %p %p status=%d\n", output, mref, ret);
+		MARS_DBG("start splice %p %p %p %p\n", output, mref, bio, bvec);
+		ret = 0;
+		ret = splice_direct_to_actor(output->filp, &sd, device_sio_direct_splice_actor);
+		if (unlikely(ret < 0)) {
+			MARS_ERR("splice %p %p %p %p status=%d\n", output, mref, bio, bvec, ret);
+			break;
+		}
+		pos += bvec->bv_len;
+		bio->bi_size -= bvec->bv_len;
+
+	}
+
+	if (unlikely(bio->bi_size)) {
+		MARS_ERR("unhandled rest size %d on bio %p\n", bio->bi_size, bio);
 	}
 	mref->ref_cb->cb_error = ret;
 }
@@ -233,13 +238,32 @@ static void sync_file(struct device_sio_output *output)
 
 static void device_sio_ref_io(struct device_sio_output *output, struct mars_ref_object *mref, int rw)
 {
+	struct bio *bio = mref->orig_bio;
 	struct generic_callback *cb = mref->ref_cb;
-	bool barrier = false;
+	bool barrier = (rw != READ && bio_rw_flagged(bio, BIO_RW_BARRIER));
 	int test;
 
 	if (unlikely(!output->filp)) {
 		cb->cb_error = -EINVAL;
 		goto done;
+	}
+
+#if 1
+	MARS_INF("got BIO %2lu %12ld %4d\n", bio->bi_rw, bio->bi_sector, bio->bi_size);
+#endif
+
+	/* Shortcut when possible
+	 */
+	if (output->allow_bio && S_ISBLK(output->filp->f_mapping->host->i_mode)) {
+		struct block_device *bdev = output->filp->f_mapping->host->i_bdev;
+#if 0
+		static int count = 10;
+		if (count-- > 0)
+			MARS_INF("AHA: %p\n", bdev);
+#endif
+		bio->bi_bdev = bdev;
+		submit_bio(bio->bi_rw, bio);
+		return;
 	}
 
 	if (barrier) {
@@ -281,8 +305,6 @@ static void device_sio_mars_queue(struct device_sio_output *output, struct mars_
 	struct device_sio_mars_ref_aspect *mref_a;
 	struct generic_callback *cb = mref->ref_cb;
 	unsigned long flags;
-
-	atomic_inc(&mref->ref_count);
 
 	if (rw == READ) {
 		traced_lock(&output->g_lock, flags);
@@ -501,8 +523,6 @@ static struct device_sio_brick_ops device_sio_brick_ops = {
 
 static struct device_sio_output_ops device_sio_output_ops = {
 	.make_object_layout = device_sio_make_object_layout,
-	.mars_ref_get = device_sio_ref_get,
-	.mars_ref_put = device_sio_ref_put,
 	.mars_ref_io = device_sio_mars_queue,
 	.mars_get_info = device_sio_get_info,
 };

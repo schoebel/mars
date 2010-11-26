@@ -36,12 +36,16 @@ struct buf_brick {
 	atomic_t nr_io_pending;
 	atomic_t nr_collisions;
 	struct generic_object_layout mref_object_layout;
-	struct mars_info base_info;
 
 	// lists for caching
 	struct list_head free_anchor;  // members are not hashed
 	struct list_head lru_anchor;   // members are hashed and not in use
 	struct cache_anchor cache_anchors[MARS_BUF_HASH_MAX]; // hash table
+
+	// for creation of bios
+	struct mars_info base_info;
+	struct block_device *bdev;
+	int bvec_max;
 
 	// statistics
 	unsigned long last_jiffies;
@@ -67,9 +71,9 @@ struct buf_head {
 	loff_t            bf_pos;
 	loff_t            bf_base_index;
 	int               bf_flags;
-	int               bf_error;
 	atomic_t          bf_count;
-	atomic_t          bf_io_count;
+	int               bf_bio_status;
+	atomic_t          bf_bio_count;
 	// lists for caching
 	//struct list_head bf_mref_anchor; // all current mref members
 	struct list_head  bf_lru_head;

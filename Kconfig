@@ -14,9 +14,23 @@ config MARS_DUMMY
 	---help---
 	Experimental storage System.
 
+config MARS_CHECK
+	tristate "MARS check brick"
+	depends on MARS
+	default m
+	---help---
+	Experimental storage System.
+
 config MARS_IF_DEVICE
 	tristate "interface to a linux device"
 	depends on MARS
+	default m
+	---help---
+	Experimental storage System.
+
+config MARS_DEVICE_AIO
+	tristate "interface to a linux file"
+	depends on MARS && AIO
 	default m
 	---help---
 	Experimental storage System.
@@ -30,6 +44,13 @@ config MARS_DEVICE_SIO
 
 config MARS_BUF
 	tristate "buffer brick"
+	depends on MARS
+	default m
+	---help---
+	Experimental storage System.
+
+config MARS_USEBUF
+	tristate "usebuf brick"
 	depends on MARS
 	default m
 	---help---

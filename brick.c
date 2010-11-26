@@ -308,7 +308,7 @@ int generic_add_aspect(struct generic_output *output, struct generic_object_layo
 			return -EBADF;
 		}
 		min_offset = aspect_layout->aspect_offset + aspect_type->aspect_size;
-		   if (unlikely(object_layout->object_size > min_offset)) {
+		if (unlikely(object_layout->object_size > min_offset)) {
 			BRICK_ERR("overlapping aspects %d > %d (aspect_type=%s)\n", object_layout->object_size, min_offset, aspect_type->aspect_type_name);
 			return -ENOMEM;
 		}
@@ -316,11 +316,11 @@ int generic_add_aspect(struct generic_output *output, struct generic_object_layo
 		object_layout->object_size = min_offset;
 	} else {
 		/* first call: initialize aspect_layout. */
-		BRICK_DBG("initializing aspect_type %s on object_layout %p\n", aspect_type->aspect_type_name, object_layout);
 		aspect_layout->aspect_type = aspect_type;
 		aspect_layout->init_data = output;
 		aspect_layout->aspect_offset = object_layout->object_size;
 		object_layout->object_size += aspect_type->aspect_size;
+		BRICK_DBG("initializing aspect_type %s on object_layout %p, object_size=%d\n", aspect_type->aspect_type_name, object_layout, object_layout->object_size);
 	}
 	nr = object_layout->aspect_count++;
 	object_layout->aspect_layouts[nr] = aspect_layout;
@@ -382,7 +382,8 @@ int default_init_object_layout(struct generic_output *output, struct generic_obj
 		goto done;
 	}
 
-	BRICK_INF("OK, object_layout %s init succeeded.\n", object_type->object_type_name);
+	BRICK_INF("OK, object_layout %s init succeeded (size = %d).\n", object_type->object_type_name, object_layout->object_size);
+
 done:
 	return status;
 }
@@ -482,8 +483,9 @@ ok:
 #if 1
 	{
 		int count = atomic_read(&object_layout->alloc_count);
-		if (count >= object_layout->last_count + 1000) {
+		if (count >= object_layout->last_count + 1000 || ((int)jiffies - object_layout->last_jiffies) >= 30 * HZ) {
 			object_layout->last_count = count;
+			object_layout->last_jiffies = jiffies;
 			BRICK_INF("pool %s/%p/%s alloc=%d free=%d\n", object_layout->object_type->object_type_name, object_layout, object_layout->module_name, count, atomic_read(&object_layout->free_count));
 		}
 	}

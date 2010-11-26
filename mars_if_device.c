@@ -33,34 +33,71 @@ static int device_minor = 0;
  */
 static void _if_device_endio(struct generic_callback *cb)
 {
-	struct mars_ref_object *mref = cb->cb_private;
-	struct bio *bio = mref->orig_bio;
+	struct if_device_mars_ref_aspect *mref_a = cb->cb_private;
+	struct if_device_mars_ref_aspect *master_mref_a;
+	struct bio *bio;
+	struct bio_vec *bvec;
+	int i;
 	int error;
+
+	if (unlikely(!mref_a)) {
+		MARS_FAT("callback with no mref_a called. something is very wrong here!\n");
+		return;
+	}
+
+	master_mref_a = mref_a->master;
+	if (unlikely(!master_mref_a)) {
+		MARS_FAT("master is missing. something is very wrong here!\n");
+		return;
+	}
+	if (cb->cb_error < 0)
+		master_mref_a->cb.cb_error = cb->cb_error;
+
+	if (!atomic_dec_and_test(&master_mref_a->split_count))
+		goto done;
+
+	bio = master_mref_a->orig_bio;
 	if (unlikely(!bio)) {
 		MARS_FAT("callback with no bio called. something is very wrong here!\n");
 		return;
 	}
-	error = cb->cb_error;
+
+	bio_for_each_segment(bvec, bio, i) {
+		kunmap(bvec->bv_page);
+	}
+
+	error = master_mref_a->cb.cb_error;
 	if (unlikely(error < 0)) {
 		MARS_ERR("NYI: error=%d RETRY LOGIC %u\n", error, bio->bi_size);
-	}
-	if (likely(error > 0)) { // bio conventions are slightly different...
+	} else { // bio conventions are slightly different...
 		error = 0;
 		bio->bi_size = 0;
 	}
 	bio_endio(bio, error);
+
+done:
+	// paired with X1
+	GENERIC_INPUT_CALL(master_mref_a->input, mars_ref_put, master_mref_a->object);
+
 }
 
-/* accept a linux bio, wrap it into mref and call buf_io() on it.
+/* accept a linux bio, convert to mref and call buf_io() on it.
  */
 static int if_device_make_request(struct request_queue *q, struct bio *bio)
 {
+	LIST_HEAD(tmp_list);
 	struct if_device_input *input;
 	struct if_device_brick *brick;
 	struct mars_ref_object *mref = NULL;
 	struct if_device_mars_ref_aspect *mref_a;
+	struct if_device_mars_ref_aspect *master;
 	struct generic_callback *cb;
+	struct bio_vec *bvec;
+	int i;
+	//bool barrier = ((bio->bi_rw & 1) != READ && bio_rw_flagged(bio, BIO_RW_BARRIER));
+	loff_t pos = ((loff_t)bio->bi_sector) << 9; // TODO: make dynamic
 	int rw = bio->bi_rw & 1;
+	int maxlen = 0;
         int error = -ENOSYS;
 
 	MARS_DBG("make_request(%d)\n", bio->bi_size);
@@ -79,33 +116,100 @@ static int if_device_make_request(struct request_queue *q, struct bio *bio)
 		msleep(100);
 	}
 
-	error = -ENOMEM;
-	mref = if_device_alloc_mars_ref(&brick->hidden_output, &input->mref_object_layout);
-	if (unlikely(!mref))
-		goto err;
+	MARS_INF("BIO rw=%d len = %d\n", rw, bio->bi_size);
+	bio_for_each_segment(bvec, bio, i) {
+		int bv_len = bvec->bv_len;
+		void *data = kmap(bvec->bv_page);
+		data += bvec->bv_offset;
 
-	mref_a = if_device_mars_ref_get_aspect(&brick->hidden_output, mref);
-	if (unlikely(!mref_a))
-		goto err;
-	cb = &mref_a->cb;
-	cb->cb_fn = _if_device_endio;
-	cb->cb_private = mref;
-	cb->cb_error = 0;
-	cb->cb_prev = NULL;
-	mref->ref_cb = cb;
+		while (bv_len > 0) {
+			int len = bv_len;
+			MARS_INF("rw = %d i = %d pos = %lld bv_len = %d maxlen = %d mref=%p\n", rw, i, pos, bv_len, maxlen, mref);
+#if 1 // optimizing
+			if (mref) { // try to merge with previous bvec
+				if (len > maxlen) {
+					len = maxlen;
+				}
+				if (mref->ref_data + mref->ref_len == data && len > 0) {
+					mref->ref_len += len;
+					MARS_INF("merge %d new ref_len = %d\n", len, mref->ref_len);
+				} else {
+					mref = NULL;
+				}
+			}
+#else
+			mref = NULL;
+#endif
+			if (!mref) {
+				error = -ENOMEM;
+				mref = if_device_alloc_mars_ref(&brick->hidden_output, &input->mref_object_layout);
+				if (unlikely(!mref))
+					goto err;
+				mref_a = if_device_mars_ref_get_aspect(&brick->hidden_output, mref);
+				if (unlikely(!mref_a))
+					goto err;
+				cb = &mref_a->cb;
+				cb->cb_fn = _if_device_endio;
+				cb->cb_private = mref_a;
+				cb->cb_error = 0;
+				cb->cb_prev = NULL;
+				mref->ref_cb = cb;
+				mref_a->input = input;
+				mref_a->orig_bio = bio;
+				mref->ref_rw = mref->ref_may_write = rw;
+				mref->ref_pos = pos;
+				mref->ref_len = bv_len;
+				mref->ref_data = data;
+				
+				error = GENERIC_INPUT_CALL(input, mars_ref_get, mref);
+				if (unlikely(error < 0))
+					goto err;
+				
+				maxlen = mref->ref_len;
+				if (len > maxlen)
+					len = maxlen;
+				mref->ref_len = len;
+				
+				list_add_tail(&mref_a->tmp_head, &tmp_list);
+				// The first mref is called "master". It carries the split_count
+				mref_a->master = container_of(tmp_list.next, struct if_device_mars_ref_aspect, tmp_head);
+				atomic_inc(&mref_a->master->split_count);
+			}
 
-	mars_ref_attach_bio(mref, bio);
+			pos += len;
+			data += len;
+			bv_len -= len;
+			maxlen -= len;
+		} // while bv_len > 0
+	} // foreach bvec
 
-	GENERIC_INPUT_CALL(input, mars_ref_io, mref, rw);
-
-	GENERIC_INPUT_CALL(input, mars_ref_put, mref);
-
-	return 0;
+	error = 0;
 
 err:
-	MARS_ERR("cannot submit request, status=%d\n", error);
-	if (!mref)
+	master = NULL;
+	if (error < 0) {
+		MARS_ERR("cannot submit request, status=%d\n", error);
 		bio_endio(bio, error);
+	} else {
+		master = container_of(tmp_list.next, struct if_device_mars_ref_aspect, tmp_head);
+		// grab one extra reference X2
+		atomic_inc(&master->object->ref_count);
+	}
+	while (!list_empty(&tmp_list)) {
+		mref_a = container_of(tmp_list.next, struct if_device_mars_ref_aspect, tmp_head);
+		list_del_init(&mref_a->tmp_head);
+                mref = mref_a->object;
+
+		if (error >= 0) {
+			// paired with X1
+			atomic_inc(&mref_a->master->object->ref_count);
+			GENERIC_INPUT_CALL(input, mars_ref_io, mref, rw);
+		}
+		GENERIC_INPUT_CALL(input, mars_ref_put, mref);
+	}
+	// drop extra reference X2
+	if (master)
+		GENERIC_INPUT_CALL(input, mars_ref_put, master->object);
 	return error;
 }
 
@@ -136,6 +240,7 @@ static void if_device_unplug(struct request_queue *q)
 {
 	//struct if_device_input *input = q->queuedata;
 	MARS_DBG("UNPLUG\n");
+	MARS_INF("UNPLUG\n");
 	queue_flag_clear_unlocked(QUEUE_FLAG_PLUGGED, q);
 	//blk_run_address_space(lo->lo_backing_file->f_mapping);
 }
@@ -145,11 +250,16 @@ static void if_device_unplug(struct request_queue *q)
 
 static int if_device_mars_ref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
+	struct if_device_mars_ref_aspect *ini = (void*)_ini;
+	INIT_LIST_HEAD(&ini->tmp_head);
+	atomic_set(&ini->split_count, 0);
 	return 0;
 }
 
 static void if_device_mars_ref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
 {
+	struct if_device_mars_ref_aspect *ini = (void*)_ini;
+	CHECK_HEAD_EMPTY(&ini->tmp_head);
 }
 
 MARS_MAKE_STATICS(if_device);
