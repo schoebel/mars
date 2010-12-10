@@ -4,8 +4,12 @@
 
 struct usebuf_mars_ref_aspect {
 	GENERIC_ASPECT(mars_ref);
-	struct mars_ref_object *sub_mref;
+	struct usebuf_mars_ref_aspect *sub_mref_a;
+	struct usebuf_input *input;
 	struct generic_callback cb;
+#if 1
+	int yyy;
+#endif
 };
 
 struct usebuf_brick {

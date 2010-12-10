@@ -190,7 +190,7 @@ static void check_ref_put(struct check_output *output, struct mars_ref_object *m
 	GENERIC_INPUT_CALL(input, mars_ref_put, mref);
 }
 
-static void check_ref_io(struct check_output *output, struct mars_ref_object *mref, int rw)
+static void check_ref_io(struct check_output *output, struct mars_ref_object *mref)
 {
 	struct check_input *input = output->brick->inputs[0];
 	struct check_mars_ref_aspect *mref_a = check_mars_ref_get_aspect(output, mref);
@@ -230,7 +230,7 @@ static void check_ref_io(struct check_output *output, struct mars_ref_object *mr
 	}
 	mref_a->last_jiffies = jiffies;
 
-	GENERIC_INPUT_CALL(input, mars_ref_io, mref, rw);
+	GENERIC_INPUT_CALL(input, mars_ref_io, mref);
 
 	atomic_inc(&mref_a->call_count);
 fatal: ;

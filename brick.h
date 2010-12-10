@@ -595,14 +595,14 @@ GENERIC_OBJECT_FUNCTIONS(generic);
 		}							\
 		atomic_inc(&current->lock_count);			\
 		(void)flags;						\
-		spin_lock(spinlock);					\
-		/*spin_lock_irqsave(spinlock, flags);*/			\
+		/*spin_lock(spinlock);*/				\
+		spin_lock_irqsave(spinlock, flags);			\
 	} while (0)
 
 # define traced_unlock(spinlock,flags)					\
 	do {								\
-		spin_unlock(spinlock);					\
-		/*spin_unlock_irqrestore(spinlock, flags);*/		\
+		/*spin_unlock(spinlock);*/				\
+		spin_unlock_irqrestore(spinlock, flags);		\
 		atomic_dec(&current->lock_count);			\
 	} while (0)
 

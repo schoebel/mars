@@ -14,13 +14,7 @@
 #include "mars.h"
 
 //#define USE_VMALLOC
-#define CHECK_CB
-
-//#define FAKE_IO // only for testing
-//#define FAKE_READS // only for testing
-//#define FAKE_WRITES // only for testing
-
-//#define OPTIMIZE_FULL_WRITES // does not work currently!
+//#define FAKE_IO
 
 ///////////////////////// own type definitions ////////////////////////
 
@@ -30,40 +24,30 @@
 
 ///////////////////////// own helper functions ////////////////////////
 
-static inline
-int buf_hash_fn(loff_t base_index)
+static inline int buf_hash_fn(loff_t base_index)
 {
 	// simple and stupid
 	loff_t tmp;
 	tmp = base_index ^ (base_index / MARS_BUF_HASH_MAX);
-	//tmp ^= tmp / (MARS_BUF_HASH_MAX * MARS_BUF_HASH_MAX);
-	return ((unsigned)tmp) % MARS_BUF_HASH_MAX;
+	tmp += tmp / 13;
+	tmp ^= tmp / (MARS_BUF_HASH_MAX * MARS_BUF_HASH_MAX);
+	return tmp % MARS_BUF_HASH_MAX;
 }
 
-
-static
-struct buf_head *_hash_find_insert(struct buf_brick *brick, loff_t base_index, struct buf_head *new)
+static struct buf_head *hash_find_insert(struct buf_brick *brick, loff_t base_index, struct buf_head *new)
 {
 	
 	int hash = buf_hash_fn(base_index);
 	spinlock_t *lock = &brick->cache_anchors[hash].hash_lock;
 	struct list_head *start	= &brick->cache_anchors[hash].hash_anchor;
 	struct list_head *tmp;
+	struct buf_head *res;
 	int count = 0;
 	unsigned long flags;
 
 	traced_lock(lock, flags);
 
 	for (tmp = start->next; tmp != start; tmp = tmp->next) {
-		struct buf_head *res;
-#if 1
-		if (!tmp) {
-			MARS_ERR("tmp is NULL! brick = %p base_index = %lld hash = %d new = %p\n", brick, base_index, hash, new);
-			//dump_stack();
-			traced_unlock(lock, flags);
-			return NULL;
-		}
-#endif
 #if 1
 		{
 			static int max = 0;
@@ -77,17 +61,25 @@ struct buf_head *_hash_find_insert(struct buf_brick *brick, loff_t base_index, s
 #endif
 		res = container_of(tmp, struct buf_head, bf_hash_head);
 		if (res->bf_base_index == base_index) { // found
-			/* This must be paired with _bf_put()
-			 */
-			atomic_inc(&res->bf_hash_count);
+			int old_bf_count = atomic_read(&res->bf_count);
+			CHECK_ATOMIC(&res->bf_count, 0);
+			atomic_inc(&res->bf_count);
+
 			traced_unlock(lock, flags);
+
+			if (true || old_bf_count <= 0) {
+				traced_lock(&brick->brick_lock, flags);
+				if (!list_empty(&res->bf_lru_head)) {
+					list_del_init(&res->bf_lru_head);
+					atomic_dec(&brick->lru_count);
+				}
+				traced_unlock(&brick->brick_lock, flags);
+			}
 			return res;
 		}
 	}
 
 	if (new) {
-		_CHECK_ATOMIC(&new->bf_hash_count, !=, 0);
-		atomic_inc(&new->bf_hash_count);
 		atomic_inc(&brick->hashed_count);
 		CHECK_HEAD_EMPTY(&new->bf_hash_head);
 		list_add(&new->bf_hash_head, start);
@@ -98,118 +90,126 @@ struct buf_head *_hash_find_insert(struct buf_brick *brick, loff_t base_index, s
 	return NULL;
 }
 
-/* Try to remove bf from the hash.
- * When bf is in use, do nothing.
+static inline void free_bf(struct buf_brick *brick, struct buf_head *bf)
+{
+	atomic_dec(&brick->alloc_count);
+	MARS_INF("really freeing bf=%p\n", bf);
+	CHECK_HEAD_EMPTY(&bf->bf_lru_head);
+	CHECK_HEAD_EMPTY(&bf->bf_hash_head);
+	CHECK_HEAD_EMPTY(&bf->bf_io_pending_anchor);
+	CHECK_HEAD_EMPTY(&bf->bf_postpone_anchor);
+#ifdef USE_VMALLOC
+	vfree(bf->bf_data);
+#else
+	free_pages((unsigned long)bf->bf_data, brick->backing_order);
+#endif
+	kfree(bf);
+}
+
+/* brick->brick_lock must be held
  */
-static inline
-bool _remove_hash(struct buf_brick *brick, struct buf_head *bf)
+static inline void __prune_cache(struct buf_brick *brick, int max_count, unsigned long *flags)
+{
+#if 0
+	return;
+#endif
+	while (atomic_read(&brick->alloc_count) >= max_count) {
+		struct buf_head *bf;
+		if (list_empty(&brick->free_anchor))
+			break;
+		bf = container_of(brick->free_anchor.next, struct buf_head, bf_lru_head);
+		list_del_init(&bf->bf_lru_head);
+		
+		traced_unlock(&brick->brick_lock, *flags);
+
+		free_bf(brick, bf);
+
+		traced_lock(&brick->brick_lock, *flags);
+	}
+}
+
+static inline bool __remove_from_hash(struct buf_brick *brick, struct buf_head *bf, bool force)
 {
 	int hash;
 	spinlock_t *lock;
 	unsigned long flags;
-	bool success = false;
+	bool ok = false;
 
 	hash = buf_hash_fn(bf->bf_base_index);
 	lock = &brick->cache_anchors[hash].hash_lock;
 
 	traced_lock(lock, flags);
 
-	if (likely(!atomic_read(&bf->bf_hash_count) && !atomic_read(&bf->bf_mref_count) && !atomic_read(&bf->bf_io_count))) {
-		success = true;
-		if (likely(!list_empty(&bf->bf_hash_head))) {
-			list_del_init(&bf->bf_hash_head);
-			atomic_dec(&brick->hashed_count);
-		}
+	/* Attention! In seldom cases, the hash lock can race against the
+	 * brick lock upon hash_find_insert().
+	 * Be careful!
+	 */
+	if (likely(force || !atomic_read(&bf->bf_count))) {
+		list_del_init(&bf->bf_hash_head);
+		atomic_dec(&brick->hashed_count);
+		ok = true;
 	}
 
 	traced_unlock(lock, flags);
-
-	return success;
+	return ok;
 }
 
-
-static inline
-void _add_bf_list(struct buf_brick *brick, struct buf_head *bf, int nr, bool at_end)
+static inline void __lru_free_one(struct buf_brick *brick, unsigned long *flags)
 {
-	unsigned long flags;
+	struct buf_head *bf;
+	bool ok;
 
-#if 1
-	if (nr < 0 || nr >= LIST_MAX)
-		MARS_FAT("bad nr %d\n", nr);
-#endif
+	if (list_empty(&brick->lru_anchor))
+		return;
 
-	traced_lock(&brick->brick_lock, flags);
+	bf = container_of(brick->lru_anchor.prev, struct buf_head, bf_lru_head);
 
-	atomic_inc(&brick->list_count[nr]);
-	if (!list_empty(&bf->bf_list_head)) {
-		atomic_dec(&brick->list_count[bf->bf_member]);
-		list_del(&bf->bf_list_head);
-	}
-	if (at_end) {
-		list_add_tail(&bf->bf_list_head, &brick->list_anchor[nr]);
+	list_del_init(&bf->bf_lru_head);
+	atomic_dec(&brick->lru_count);
+
+	/* Attention! In seldom cases, the hash lock can race against the
+	 * brick lock upon hash_find_insert().
+	 * Be careful!
+	 */
+	if (unlikely(atomic_read(&bf->bf_count) > 0))
+		return;
+
+        //traced_unlock(&brick->brick_lock, *flags);
+
+	ok = __remove_from_hash(brick, bf, false);
+
+        //traced_lock(&brick->brick_lock, *flags);
+
+	if (likely(ok)) {
+		list_add(&bf->bf_lru_head, &brick->free_anchor);
 	} else {
-		list_add(&bf->bf_list_head, &brick->list_anchor[nr]);
+		list_add(&bf->bf_lru_head, &brick->lru_anchor);
+		MARS_INF("oops, cannot free %p (bf_count=%d)\n", bf, atomic_read(&bf->bf_count));
 	}
-	bf->bf_member = nr;
-	bf->bf_jiffies = jiffies;
-
-	traced_unlock(&brick->brick_lock, flags);
 }
 
-static inline
-struct buf_head *_fetch_bf_list(struct buf_brick *brick, int nr, unsigned long age)
+
+static inline void __lru_free(struct buf_brick *brick, unsigned long *flags)
 {
-	struct buf_head *bf = NULL;
-	unsigned long flags;
-
-#if 1
-	if (nr < 0 || nr >= LIST_MAX)
-		MARS_FAT("bad nr %d\n", nr);
-#endif
-
-	traced_lock(&brick->brick_lock, flags);
-
-	if (!list_empty(&brick->list_anchor[nr])) {
-		bf = container_of(brick->list_anchor[nr].prev, struct buf_head, bf_list_head);
-#if 1
-		if (age != 0 && jiffies - bf->bf_jiffies < age) {
-			traced_unlock(&brick->brick_lock, flags);
-			return NULL;
-		}
-#endif
-		atomic_dec(&brick->list_count[nr]);
-		list_del_init(&bf->bf_list_head);
+	while (atomic_read(&brick->hashed_count) >= brick->max_count) {
+		if (list_empty(&brick->lru_anchor))
+			break;
+		__lru_free_one(brick, flags);
 	}
-
-	traced_unlock(&brick->brick_lock, flags);
-
-	return bf;
 }
 
-static inline
-void _remove_bf_list(struct buf_brick *brick, struct buf_head *bf)
+
+static inline int get_info(struct buf_brick *brick)
 {
-	unsigned long flags;
-
-#if 1
-	if (bf->bf_member < 0 || bf->bf_member >= LIST_MAX)
-		MARS_FAT("bad nr %d\n", bf->bf_member);
-#endif
-	traced_lock(&brick->brick_lock, flags);
-
-	if (!list_empty(&bf->bf_list_head)) {
-		list_del_init(&bf->bf_list_head);
-		atomic_dec(&brick->list_count[bf->bf_member]);
-	}
-
-	traced_unlock(&brick->brick_lock, flags);
+	struct buf_input *input = brick->inputs[0];
+	int status = GENERIC_INPUT_CALL(input, mars_get_info, &brick->base_info);
+	return status;
 }
 
-static inline
-struct buf_head *_alloc_bf(struct buf_brick *brick)
+static inline struct buf_head *_alloc_bf(struct buf_brick *brick)
 {
 	struct buf_head *bf = kzalloc(sizeof(struct buf_head), GFP_MARS);
-	if (unlikely(!bf))
+	if (!bf)
 		goto done;
 
 #ifdef USE_VMALLOC
@@ -220,170 +220,31 @@ struct buf_head *_alloc_bf(struct buf_brick *brick)
 	if (unlikely(!bf->bf_data)) {
 		kfree(bf);
 		bf = NULL;
-		goto done;
 	}
 
+	spin_lock_init(&bf->bf_lock);
+	bf->bf_brick = brick;
 	atomic_inc(&brick->alloc_count);
 
 done:
 	return bf;
 }
 
-static inline
-void _dealloc_bf(struct buf_brick *brick, struct buf_head *bf)
-{
-	MARS_INF("really freeing bf=%p\n", bf);
-	_CHECK_ATOMIC(&bf->bf_hash_count, !=, 0);
-	_CHECK_ATOMIC(&bf->bf_mref_count, !=, 0);
-	_CHECK_ATOMIC(&bf->bf_io_count, !=, 0);
-	CHECK_HEAD_EMPTY(&bf->bf_list_head);
-	CHECK_HEAD_EMPTY(&bf->bf_hash_head);
-	CHECK_HEAD_EMPTY(&bf->bf_io_pending_anchor);
-	CHECK_HEAD_EMPTY(&bf->bf_postpone_anchor);
-#ifdef USE_VMALLOC
-	vfree(bf->bf_data);
-#else
-	free_pages((unsigned long)bf->bf_data, brick->backing_order);
-#endif
-	kfree(bf);
-	atomic_dec(&brick->alloc_count);
-}
-
-static inline
-void _prune_cache(struct buf_brick *brick, int max_count)
-{
-	struct buf_head *bf;
-	int i;
-	for (i = 0; i < LIST_MAX; i++) {
-		while (atomic_read(&brick->alloc_count) > max_count) {
-			bf = _fetch_bf_list(brick, i, 0);
-			if (bf) {
-				if (i > 0) {
-					bool status;
-					status = _remove_hash(brick, bf);
-					if (unlikely(!status)) {
-						MARS_INF("bf %p is in use\n", bf);
-						continue;
-					}
-				}
-				_dealloc_bf(brick, bf);
-			}
-		}
-	}
-}
-
-static inline
-struct buf_head *_fetch_bf(struct buf_brick *brick)
-{
-	struct buf_head *bf = NULL;
-	while (!bf) {
-		static const int ages[LIST_MAX] = {
-			[LIST_FORGET] = HZ,
-		};
-		int i;
-		for (i = 0; i < LIST_MAX; i++) {
-			bf = _fetch_bf_list(brick, i, ages[i]);
-			if (bf)
-				goto found;
-		}
-		bf = _alloc_bf(brick);
-		continue;
-	found:
-		if (i > 0) {
-			bool status = _remove_hash(brick, bf);
-			if (unlikely(!status)) {
-				MARS_INF("bf %p is in use\n", bf);
-				bf = NULL; // forget it => _bf_put() must fix it
-				continue;
-			}
-		}
-	}
-	return bf;
-}
-
-static
-void __pre_alloc_bf(struct buf_brick *brick, int max)
+static void __pre_alloc_bf(struct buf_brick *brick, int max)
 {
 	while (max-- > 0) {
 		struct buf_head *bf = _alloc_bf(brick);
+		unsigned long flags;
+
 		if (unlikely(!bf))
 			break;
-		INIT_LIST_HEAD(&bf->bf_list_head);
-		_add_bf_list(brick, bf, LIST_FREE, true);
+
+		traced_lock(&brick->brick_lock, flags);
+
+		list_add(&bf->bf_lru_head, &brick->free_anchor);
+
+		traced_unlock(&brick->brick_lock, flags);
 	}
-}
-
-static inline
-void _bf_put(struct buf_head *bf)
-{
-	int list;
-	bool at_end;
-
-	if (!atomic_dec_and_test(&bf->bf_hash_count))
-		return;
-
-#if 1
-	MARS_DBG("ZERO_COUNT %p %d\n", bf, at_end);
-	if (unlikely(!list_empty(&bf->bf_io_pending_anchor))) {
-		MARS_ERR("bf_io_pending_anchor is not empty!\n");
-	}
-	if (unlikely(!list_empty(&bf->bf_postpone_anchor))) {
-		MARS_ERR("bf_postpone_anchor is not empty!\n");
-	}
-#endif
-
-	list = LIST_LRU;
-	at_end = !(bf->bf_flags & MARS_REF_UPTODATE);
-	if (bf->bf_chain_detected) {
-		list = LIST_FORGET;
-		at_end = false;
-	}
-	_add_bf_list(bf->bf_brick, bf, list, at_end);
-}
-
-/////////////////////////////////////////////////////////////////////////
-
-/* Routines for the relation bf <-> mref
- */
-static inline
-void _mref_assign(struct buf_head *bf, struct buf_mars_ref_aspect *mref_a)
-{
-	if (mref_a->rfa_bf) {
-		return;
-	}
-	mref_a->rfa_bf = bf;
-	atomic_inc(&bf->bf_mref_count);
-}
-
-static inline
-bool _mref_remove(struct buf_head *bf, struct buf_mars_ref_aspect *mref_a)
-{
-	//struct mars_ref_object *mref;
-	bool status;
-
-	if (!mref_a->rfa_bf) {
-		return false;
-	}
-	mref_a->rfa_bf = NULL;
-	CHECK_ATOMIC(&bf->bf_mref_count, 1);
-	status = atomic_dec_and_test(&bf->bf_mref_count);
-	return status;
-}
-
-
-
-
-
-/////////////////////////////////////////////////////////////7
-
-
-static inline int _get_info(struct buf_brick *brick)
-{
-	struct buf_input *input = brick->inputs[0];
-	int status = GENERIC_INPUT_CALL(input, mars_get_info, &brick->base_info);
-	if (status >= 0)
-		brick->got_info = true;
-	return status;
 }
 
 ////////////////// own brick / input / output operations //////////////////
@@ -392,6 +253,46 @@ static int buf_get_info(struct buf_output *output, struct mars_info *info)
 {
 	struct buf_input *input = output->brick->inputs[0];
 	return GENERIC_INPUT_CALL(input, mars_get_info, info);
+}
+
+static void __bf_put(struct buf_head *bf)
+{
+	struct buf_brick *brick;
+	unsigned long flags;
+
+	brick = bf->bf_brick;
+
+	traced_lock(&brick->brick_lock, flags);
+
+	CHECK_ATOMIC(&bf->bf_count, 1);
+	if (!atomic_dec_and_test(&bf->bf_count)) {
+		traced_unlock(&brick->brick_lock, flags);
+		return;
+	}
+
+	MARS_DBG("ZERO_COUNT\n");
+	if (unlikely(!list_empty(&bf->bf_io_pending_anchor))) {
+		MARS_ERR("bf_io_pending_anchor is not empty!\n");
+	}
+	if (unlikely(!list_empty(&bf->bf_postpone_anchor))) {
+		MARS_ERR("bf_postpone_anchor is not empty!\n");
+	}
+	CHECK_HEAD_EMPTY(&bf->bf_lru_head);
+
+	atomic_inc(&brick->lru_count);
+	atomic_inc(&bf->bf_mfu_stat);
+
+	if (likely(bf->bf_flags & MARS_REF_UPTODATE) && !bf->bf_chain_detected) {
+		list_add(&bf->bf_lru_head, &brick->lru_anchor);
+	} else {
+		list_add_tail(&bf->bf_lru_head, &brick->lru_anchor);
+	}
+
+	// lru freeing (this is completely independent from bf)
+	__lru_free(brick, &flags);
+	__prune_cache(brick, brick->max_count * 2, &flags);
+
+	traced_unlock(&brick->brick_lock, flags);
 }
 
 static int buf_ref_get(struct buf_output *output, struct mars_ref_object *mref)
@@ -403,13 +304,10 @@ static int buf_ref_get(struct buf_output *output, struct mars_ref_object *mref)
 	loff_t base_pos;
 	int base_offset;
 	int max_len;
+	unsigned long flags;
 	int status = -EILSEQ;
 
 	might_sleep();
-#if 0
-	if (!brick->got_info)
-		_get_info(brick);
-#endif
 
 #ifdef PRE_ALLOC
 	if (unlikely(atomic_read(&brick->alloc_count) < brick->max_count)) {
@@ -445,7 +343,7 @@ static int buf_ref_get(struct buf_output *output, struct mars_ref_object *mref)
 		mref->ref_len = max_len;
 
 again:
-	bf = _hash_find_insert(brick, base_pos >> (brick->backing_order + PAGE_SHIFT), new);
+	bf = hash_find_insert(brick, base_pos >> (brick->backing_order + PAGE_SHIFT), new);
 	if (bf) {
 #if 1
 		loff_t end_pos = bf->bf_pos + brick->backing_size;
@@ -453,12 +351,16 @@ again:
 			MARS_ERR("hash corruption. %lld not in (%lld ... %lld)\n", mref->ref_pos, bf->bf_pos, end_pos);
 		}
 #endif
-		_remove_bf_list(brick, bf);
 		atomic_inc(&brick->hit_count);
 		if (unlikely(new)) {
 			atomic_inc(&brick->nr_collisions);
-			MARS_DBG("race detected: alias appeared in the meantime\n");
-			_add_bf_list(brick, new, LIST_FREE, true);
+			MARS_DBG("race detected: alias elem appeared in the meantime\n");
+			traced_lock(&brick->brick_lock, flags);
+
+			list_del(&new->bf_lru_head);
+			list_add(&new->bf_lru_head, &brick->free_anchor);
+
+			traced_unlock(&brick->brick_lock, flags);
 			new = NULL;
 		}
 	} else if (new) {
@@ -466,41 +368,59 @@ again:
 		MARS_DBG("new elem added\n");
 		bf = new;
 		new = NULL;
-		bf->bf_chain_detected = false;
 	} else {
 		MARS_DBG("buf_get() hash nothing found\n");
 
-		new = _fetch_bf(brick);
-		if (!new)
-			goto done;
-#if 1
-		// dont initialize new->bf_data
-		memset(((void*)new) + sizeof(void*), 0, sizeof(struct buf_head) - sizeof(void*));
-#else
-		new->bf_flags = 0;
-		new->bf_error = 0;
-		atomic_set(&new->bf_hash_count, 0);
-		atomic_set(&new->bf_mfu_stat, 0);
-		atomic_set(&new->bf_chain_len, 0);
-		new->bf_chain_detected = false;
-#endif
-		spin_lock_init(&new->bf_lock);
-		new->bf_brick = brick;
+		traced_lock(&brick->brick_lock, flags);
+
+		if (list_empty(&brick->free_anchor)) {
+			__lru_free_one(brick, &flags);
+			if (unlikely(list_empty(&brick->free_anchor))) {
+				MARS_INF("alloc new buf_head %d\n", atomic_read(&brick->alloc_count));
+
+				traced_unlock(&brick->brick_lock, flags);
+
+				status = -ENOMEM;
+				bf = _alloc_bf(brick);
+				if (!bf)
+					goto done;
+				
+				traced_lock(&brick->brick_lock, flags);
+			
+				list_add(&bf->bf_lru_head, &brick->free_anchor);
+				traced_unlock(&brick->brick_lock, flags);
+
+				/* during the open lock, somebody might have
+				 * raced against us at the same base_pos...
+				 */
+				goto again;
+			}
+		}
+			
+		new = container_of(brick->free_anchor.next, struct buf_head, bf_lru_head);
+		list_del_init(&new->bf_lru_head);
+
+		traced_unlock(&brick->brick_lock, flags);
+
 		new->bf_pos = base_pos;
 		new->bf_base_index = base_pos >> (brick->backing_order + PAGE_SHIFT);
-#ifdef OPTIMIZE_FULL_WRITES
+		new->bf_flags = 0;
 		/* Important optimization: treat whole buffer as uptodate
 		 * upon full write.
 		 */
 		if (mref->ref_may_write != READ &&
 		   ((!base_offset && mref->ref_len >= brick->backing_size) ||
-		    (mref->ref_pos >= brick->base_info.current_size && brick->base_info.current_size > 0))) {
+		    (mref->ref_pos >= brick->base_info.current_size))) {
 			new->bf_flags |= MARS_REF_UPTODATE;
 			atomic_inc(&brick->opt_count);
 		}
-#endif
+		new->bf_error = 0;
+		atomic_set(&new->bf_count, 1);
+		atomic_set(&new->bf_mfu_stat, 0);
+		atomic_set(&new->bf_chain_len, 0);
+		new->bf_chain_detected = false;
 		//INIT_LIST_HEAD(&new->bf_mref_anchor);
-		INIT_LIST_HEAD(&new->bf_list_head);
+		//INIT_LIST_HEAD(&new->bf_lru_head);
 		INIT_LIST_HEAD(&new->bf_hash_head);
 		INIT_LIST_HEAD(&new->bf_io_pending_anchor);
 		INIT_LIST_HEAD(&new->bf_postpone_anchor);
@@ -509,13 +429,13 @@ again:
 		 */
 		if (brick->optimize_chains) {
 			struct buf_head *prev_bf;
-			prev_bf = _hash_find_insert(brick, new->bf_base_index - 1, NULL);
+			prev_bf = hash_find_insert(brick, new->bf_base_index - 1, NULL);
 			if (prev_bf) {
 				int chainlen = atomic_read(&prev_bf->bf_chain_len);
 				atomic_set(&new->bf_chain_len, chainlen + 1);
 				atomic_inc(&brick->chain_count);
 				prev_bf->bf_chain_detected = true;
-				_bf_put(prev_bf);
+				__bf_put(prev_bf);
 			}
 		}
 		/* Check for races against us...
@@ -523,17 +443,17 @@ again:
 		goto again;
 	}
 
-	_mref_assign(bf, mref_a);
+	mref_a->rfa_bf = bf;
 
-	MARS_DBG("bf=%p index = %lld flags = %d\n", bf, bf->bf_base_index, bf->bf_flags);
+	MARS_DBG("bf=%p initial bf_count=%d\n", bf, atomic_read(&bf->bf_count));
 
 	mref->ref_flags = bf->bf_flags;
+
 	mref->ref_data = bf->bf_data + base_offset;
 
 	CHECK_ATOMIC(&mref->ref_count, 1);
-	CHECK_ATOMIC(&bf->bf_hash_count, 1);
-	CHECK_ATOMIC(&bf->bf_mref_count, 1);
 
+	//return mref->ref_len;
 	status = 0;
 
 done:
@@ -559,11 +479,10 @@ static void _buf_ref_put(struct buf_output *output, struct buf_mars_ref_aspect *
 	if (!atomic_dec_and_test(&mref->ref_count))
 		return;
 
-	MARS_DBG("buf_ref_put() mref=%p mref_a=%p bf=%p flags=%d\n", mref, mref_a, bf, bf->bf_flags);
-	_mref_remove(bf, mref_a);
-	buf_free_mars_ref(mref);
+	MARS_DBG("buf_ref_put() mref=%p mref_a=%p bf=%p\n", mref, mref_a, bf);
+	__bf_put(bf);
 
-	_bf_put(bf); // paired with _hash_find_insert()
+	buf_free_mars_ref(mref);
 }
 
 static void buf_ref_put(struct buf_output *output, struct mars_ref_object *mref)
@@ -605,8 +524,6 @@ static int _buf_make_io(struct buf_brick *brick, struct buf_head *bf, void *star
 	}
 #endif
 
-	MARS_DBG("bf = %p rw = %d start = %lld len = %d flags = %d\n", bf, rw, start_pos, start_len, bf->bf_flags);
-
 	atomic_set(&bf->bf_io_count, 0);
 	status = -ENOMEM;
 	input = brick->inputs[0];
@@ -636,7 +553,6 @@ static int _buf_make_io(struct buf_brick *brick, struct buf_head *bf, void *star
 		mref->ref_pos = start_pos;
 		mref->ref_len = start_len;
 		mref->ref_may_write = rw;
-		mref->ref_rw = rw;
 		mref->ref_data = start_data;
 
 		status = GENERIC_INPUT_CALL(input, mars_ref_get, mref);
@@ -652,7 +568,7 @@ static int _buf_make_io(struct buf_brick *brick, struct buf_head *bf, void *star
 		len = mref->ref_len;
 		
 #ifndef FAKE_IO
-		GENERIC_INPUT_CALL(input, mars_ref_io, mref);
+		GENERIC_INPUT_CALL(input, mars_ref_io, mref, rw);
 #else
 		// fake IO for testing
 		mref_a->cb.cb_error = status;
@@ -692,13 +608,12 @@ static void _buf_endio(struct generic_callback *cb)
 
 	CHECK_PTR(bf_mref_a, err);
 	bf_mref = bf_mref_a->object;
+	MARS_DBG("_buf_endio() bf_mref_a=%p bf_mref=%p\n", bf_mref_a, bf_mref);
 	CHECK_PTR(bf_mref, err);
 	bf = bf_mref_a->rfa_bf;
 	CHECK_PTR(bf, err);
 	brick = bf->bf_brick;
 	CHECK_PTR(brick, err);
-
-	MARS_DBG("_buf_endio() bf_mref_a=%p bf_mref=%p bf=%p flags=%d\n", bf_mref_a, bf_mref, bf, bf->bf_flags);
 
 	if (error < 0)
 		bf->bf_error = error;
@@ -707,11 +622,9 @@ static void _buf_endio(struct generic_callback *cb)
 	if (!atomic_dec_and_test(&bf->bf_io_count))
 		return;
 
-	MARS_DBG("_buf_endio() ZERO bf=%p\n", bf);
-
 	// get an extra reference, to avoid freeing bf underneath during callbacks
-	CHECK_ATOMIC(&bf->bf_hash_count, 1);
-	atomic_inc(&bf->bf_hash_count);
+	CHECK_ATOMIC(&bf->bf_count, 1);
+	atomic_inc(&bf->bf_count);
 
 	traced_lock(&bf->bf_lock, flags);
 
@@ -720,9 +633,9 @@ static void _buf_endio(struct generic_callback *cb)
 	if (bf->bf_error >= 0 && (old_flags & MARS_REF_READING)) {
 		bf->bf_flags |= MARS_REF_UPTODATE;
 	}
-
 	// clear the flags, callbacks must not see them. may be re-enabled later.
 	bf->bf_flags &= ~(MARS_REF_READING | MARS_REF_WRITING);
+
 	/* Remember current version of pending list.
 	 * This is necessary because later the callbacks might
 	 * change it underneath.
@@ -753,8 +666,6 @@ static void _buf_endio(struct generic_callback *cb)
 #endif
 		list_del_init(&mref_a->rfa_pending_head);
 		list_add_tail(&mref_a->rfa_pending_head, &bf->bf_io_pending_anchor);
-
-		MARS_DBG("postponed mref=%p\n", mref);
 
 		// re-enable flags
 		bf->bf_flags |= MARS_REF_WRITING;
@@ -792,7 +703,7 @@ static void _buf_endio(struct generic_callback *cb)
 	while (!list_empty(&tmp)) {
 		struct buf_mars_ref_aspect *mref_a = container_of(tmp.next, struct buf_mars_ref_aspect, rfa_pending_head);
 		struct mars_ref_object *mref = mref_a->object;
-		struct generic_callback *cb;
+		struct generic_callback *cb = mref->ref_cb;
 
 		if (mref_a->rfa_bf != bf) {
 			MARS_ERR("bad pointers %p != %p\n", mref_a->rfa_bf, bf);
@@ -810,22 +721,11 @@ static void _buf_endio(struct generic_callback *cb)
 
 		// update infos for callbacks, they may inspect it.
 		mref->ref_flags = bf->bf_flags;
-		cb = mref->ref_cb;
 		cb->cb_error = bf->bf_error;
 
 		atomic_dec(&brick->nr_io_pending);
 
-#ifdef CHECK_CB
-		if (cb) {
-			mref->ref_cb = NULL;
-#endif
-			MARS_DBG("callback %p\n", mref);
-			cb->cb_fn(cb);
-#ifdef CHECK_CB
-		} else {
-			MARS_ERR("double callback\n");
-		}
-#endif
+		cb->cb_fn(cb);
 
 		_buf_ref_put(brick->outputs[0], mref_a);
 	}
@@ -835,12 +735,12 @@ static void _buf_endio(struct generic_callback *cb)
 		_buf_make_io(brick, bf, start_data, start_pos, start_len, WRITE);
 	}
 	// drop the extra reference from above
-	_bf_put(bf);
+	__bf_put(bf);
 
 err:;
 }
 
-static void buf_ref_io(struct buf_output *output, struct mars_ref_object *mref)
+static void buf_ref_io(struct buf_output *output, struct mars_ref_object *mref, int rw)
 {
 	struct buf_brick *brick = output->brick;
 	struct buf_mars_ref_aspect *mref_a;
@@ -866,7 +766,7 @@ static void buf_ref_io(struct buf_output *output, struct mars_ref_object *mref)
 	 */
 	bf = mref_a->rfa_bf;
 	if (!bf) {
-		GENERIC_INPUT_CALL(brick->inputs[0], mars_ref_io, mref);
+		GENERIC_INPUT_CALL(brick->inputs[0], mars_ref_io, mref, rw);
 		return;
 	}
 
@@ -876,24 +776,26 @@ static void buf_ref_io(struct buf_output *output, struct mars_ref_object *mref)
 	 */
 	CHECK_ATOMIC(&mref->ref_count, 1);
 	atomic_inc(&mref->ref_count);
-	CHECK_ATOMIC(&bf->bf_hash_count, 1);
+	CHECK_ATOMIC(&bf->bf_count, 1);
 
-	MARS_DBG("IO mref=%p rw=%d bf=%p flags=%d\n", mref, mref->ref_rw, bf, bf->bf_flags);
-
-	if (mref->ref_rw != READ) {
+	if (rw != READ) {
 		loff_t end;
 		if (unlikely(mref->ref_may_write == READ)) {
 			MARS_ERR("sorry, you have forgotten to set ref_may_write\n");
 			goto callback;
 		}
+		if (unlikely(!(bf->bf_flags & MARS_REF_UPTODATE))) {
+			MARS_ERR("sorry, writing is only allowed on UPTODATE buffers\n");
+			goto callback;
+		}
 		end = mref->ref_pos + mref->ref_len;
 		//FIXME: race condition :(
-		if (!brick->got_info)
-			_get_info(brick);
 		if (end > brick->base_info.current_size) {
 			brick->base_info.current_size = end;
 		}
 	}
+
+	mref->ref_rw = rw;
 
 #if 1
 	if (jiffies - brick->last_jiffies >= 30 * HZ) {
@@ -901,7 +803,7 @@ static void buf_ref_io(struct buf_output *output, struct mars_ref_object *mref)
 		unsigned long miss = atomic_read(&brick->miss_count);
 		unsigned long perc = hit * 100 * 100 / (hit + miss);
 		brick->last_jiffies = jiffies;
-		MARS_INF("BUF %p STATISTICS: alloc=%d hashed=%d free=%d forget=%d lru=%d io_pending=%d hit=%lu (%lu.%02lu%%) miss=%lu collisions=%d opt=%d chain=%d post=%d write=%d io=%d\n", brick, atomic_read(&brick->alloc_count), atomic_read(&brick->hashed_count), atomic_read(&brick->list_count[LIST_FREE]), atomic_read(&brick->list_count[LIST_FORGET]), atomic_read(&brick->list_count[LIST_LRU]), atomic_read(&brick->nr_io_pending), hit, perc / 100, perc % 100, miss, atomic_read(&brick->nr_collisions), atomic_read(&brick->opt_count), atomic_read(&brick->chain_count), atomic_read(&brick->post_count), atomic_read(&brick->write_count), atomic_read(&brick->io_count));
+		MARS_INF("BUF %p STATISTICS: hashed=%d lru=%d alloc=%d io_pending=%d hit=%lu (%lu.%02lu%%) miss=%lu collisions=%d opt=%d chain=%d post=%d write=%d io=%d\n", brick, atomic_read(&brick->hashed_count), atomic_read(&brick->lru_count), atomic_read(&brick->alloc_count), atomic_read(&brick->nr_io_pending), hit, perc / 100, perc % 100, miss, atomic_read(&brick->nr_collisions), atomic_read(&brick->opt_count), atomic_read(&brick->chain_count), atomic_read(&brick->post_count), atomic_read(&brick->write_count), atomic_read(&brick->io_count));
 	}
 #endif
 
@@ -912,21 +814,13 @@ static void buf_ref_io(struct buf_output *output, struct mars_ref_object *mref)
 		goto already_done;
 	}
 
-	if (mref->ref_rw != 0) { // WRITE
-#ifdef FAKE_WRITES
-		bf->bf_flags |= MARS_REF_UPTODATE;
-		goto already_done;
-#endif
+	if (rw) { // WRITE
 		if (bf->bf_flags & MARS_REF_READING) {
 			MARS_ERR("bad bf_flags %d\n", bf->bf_flags);
 		}
 		if (!(bf->bf_flags & MARS_REF_WRITING)) {
-#if 0
 			// by definition, a writeout buffer is always uptodate
 			bf->bf_flags |= (MARS_REF_WRITING | MARS_REF_UPTODATE);
-#else // wirklich???
-			bf->bf_flags |= MARS_REF_WRITING;
-#endif
 			bf->bf_error = 0;
 #if 1
 			start_data = mref->ref_data;
@@ -946,16 +840,9 @@ static void buf_ref_io(struct buf_output *output, struct mars_ref_object *mref)
 			MARS_DBG("postponing %lld %d\n", mref->ref_pos, mref->ref_len);
 		}
 	} else { // READ
-#ifdef FAKE_READS
-		bf->bf_flags |= MARS_REF_UPTODATE;
-		goto already_done;
-#endif
-#if 0
-		if (bf->bf_flags & (MARS_REF_UPTODATE | MARS_REF_WRITING))
-#else
-		if (bf->bf_flags & MARS_REF_UPTODATE)
-#endif
+		if (bf->bf_flags & (MARS_REF_UPTODATE | MARS_REF_WRITING)) {
 			goto already_done;
+		}
 		if (!(bf->bf_flags & MARS_REF_READING)) {
 			bf->bf_flags |= MARS_REF_READING;
 			bf->bf_error = 0;
@@ -975,7 +862,7 @@ static void buf_ref_io(struct buf_output *output, struct mars_ref_object *mref)
 	if (likely(delay)) {
 		atomic_inc(&brick->nr_io_pending);
 		atomic_inc(&brick->io_count);
-		if (mref->ref_rw != 0)
+		if (rw)
 			atomic_inc(&brick->write_count);
 	}
 
@@ -986,7 +873,7 @@ static void buf_ref_io(struct buf_output *output, struct mars_ref_object *mref)
 		goto no_callback;
 	}
 
-	status = _buf_make_io(brick, bf, start_data, start_pos, start_len, mref->ref_rw);
+	status = _buf_make_io(brick, bf, start_data, start_pos, start_len, rw);
 	if (likely(status >= 0)) {
 		/* No immediate callback, this time.
 		 * Callbacks will be called later from _bf_endio().
@@ -999,33 +886,24 @@ static void buf_ref_io(struct buf_output *output, struct mars_ref_object *mref)
 	goto callback;
 
 already_done:
+	mref->ref_flags = bf->bf_flags;
 	status = bf->bf_error;
 
 	traced_unlock(&bf->bf_lock, flags);
 
 callback:
-	mref->ref_flags = bf->bf_flags;
 	cb = mref->ref_cb;
-#ifdef CHECK_CB
-	if (cb) {
-		mref->ref_cb = NULL;
-#endif
-		cb->cb_error = status;
-		cb->cb_fn(cb);
-#ifdef CHECK_CB
-	} else {
-		MARS_ERR("double callback\n");
-	}
-#endif
+	cb->cb_error = status;
+
+	cb->cb_fn(cb);
 
 no_callback:
 	if (!delay) {
 		buf_ref_put(output, mref);
-	} // else the ref_put() will be carried out upon IO completion.
+	} // else the ref_put() will be later carried out upon IO completion.
 
-	return;
 fatal: // no chance to call callback: may produce hanging tasks :(
-	MARS_FAT("no chance to call callback, tasks may hang.\n");
+	;
 }
 
 //////////////// object / aspect constructors / destructors ///////////////
@@ -1035,7 +913,7 @@ static int buf_mars_ref_aspect_init_fn(struct generic_aspect *_ini, void *_init_
 	struct buf_mars_ref_aspect *ini = (void*)_ini;
 	ini->rfa_bf = NULL;
 	INIT_LIST_HEAD(&ini->rfa_pending_head);
-	//INIT_LIST_HEAD(&ini->tmp_head);
+	INIT_LIST_HEAD(&ini->tmp_head);
 	return 0;
 }
 
@@ -1045,7 +923,7 @@ static void buf_mars_ref_aspect_exit_fn(struct generic_aspect *_ini, void *_init
 	(void)ini;
 #if 1
 	CHECK_HEAD_EMPTY(&ini->rfa_pending_head);
-	//CHECK_HEAD_EMPTY(&ini->tmp_head);
+	CHECK_HEAD_EMPTY(&ini->tmp_head);
 #endif
 }
 
@@ -1057,12 +935,17 @@ static int buf_brick_construct(struct buf_brick *brick)
 {
 	int i;
 	brick->backing_order = 0;
-	brick->backing_size = PAGE_SIZE;
+	brick->backing_size = PAGE_SIZE << brick->backing_order;
 	brick->max_count = 32;
+	atomic_set(&brick->alloc_count, 0);
+	atomic_set(&brick->hashed_count, 0);
+	atomic_set(&brick->lru_count, 0);
+	atomic_set(&brick->nr_io_pending, 0);
+	atomic_set(&brick->nr_collisions, 0);
 	spin_lock_init(&brick->brick_lock);
-	for (i = 0; i < LIST_MAX; i++) {
-		INIT_LIST_HEAD(&brick->list_anchor[i]);
-	}
+	//rwlock_init(&brick->brick_lock);
+	INIT_LIST_HEAD(&brick->free_anchor);
+	INIT_LIST_HEAD(&brick->lru_anchor);
 	for (i = 0; i < MARS_BUF_HASH_MAX; i++) {
 		spin_lock_init(&brick->cache_anchors[i].hash_lock);
 		INIT_LIST_HEAD(&brick->cache_anchors[i].hash_anchor);
@@ -1078,13 +961,19 @@ static int buf_output_construct(struct buf_output *output)
 static int buf_brick_destruct(struct buf_brick *brick)
 {
 	int i;
+	unsigned long flags;
+
+	traced_lock(&brick->brick_lock, flags);
 
 	brick->max_count = 0;
-	_prune_cache(brick, 0);
+	__lru_free(brick, &flags);
+	__prune_cache(brick, 0, &flags);
 
-	for (i = 0; i < LIST_MAX; i++) {
-		CHECK_HEAD_EMPTY(&brick->list_anchor[i]);
-	}
+	traced_unlock(&brick->brick_lock, flags);
+
+	CHECK_HEAD_EMPTY(&brick->free_anchor);
+	CHECK_HEAD_EMPTY(&brick->lru_anchor);
+
 	for (i = 0; i < MARS_BUF_HASH_MAX; i++) {
 		CHECK_HEAD_EMPTY(&brick->cache_anchors[i].hash_anchor);
 	}

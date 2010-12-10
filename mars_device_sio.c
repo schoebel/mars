@@ -231,7 +231,7 @@ static void sync_file(struct device_sio_output *output)
 #endif
 }
 
-static void device_sio_ref_io(struct device_sio_output *output, struct mars_ref_object *mref, int rw)
+static void device_sio_ref_io(struct device_sio_output *output, struct mars_ref_object *mref)
 {
 	struct generic_callback *cb = mref->ref_cb;
 	bool barrier = false;
@@ -247,7 +247,7 @@ static void device_sio_ref_io(struct device_sio_output *output, struct mars_ref_
 		sync_file(output);
 	}
 
-	if (rw == READ) {
+	if (mref->ref_rw == READ) {
 		read_aops(output, mref);
 	} else {
 		write_aops(output, mref);
@@ -274,7 +274,7 @@ done:
 	device_sio_free_mars_ref(mref);
 }
 
-static void device_sio_mars_queue(struct device_sio_output *output, struct mars_ref_object *mref, int rw)
+static void device_sio_mars_queue(struct device_sio_output *output, struct mars_ref_object *mref)
 {
 	int index = 0;
 	struct sio_threadinfo *tinfo;
@@ -284,7 +284,7 @@ static void device_sio_mars_queue(struct device_sio_output *output, struct mars_
 
 	atomic_inc(&mref->ref_count);
 
-	if (rw == READ) {
+	if (mref->ref_rw == READ) {
 		traced_lock(&output->g_lock, flags);
 		index = output->index++;
 		traced_unlock(&output->g_lock, flags);
@@ -301,7 +301,6 @@ static void device_sio_mars_queue(struct device_sio_output *output, struct mars_
 	MARS_DBG("queueing %p on %d\n", mref, index);
 
 	traced_lock(&tinfo->lock, flags);
-	mref->ref_rw = rw;
 	list_add_tail(&mref_a->io_head, &tinfo->mref_list);
 	traced_unlock(&tinfo->lock, flags);
 
@@ -344,7 +343,7 @@ static int device_sio_thread(void *data)
 		mref_a = container_of(tmp, struct device_sio_mars_ref_aspect, io_head);
 		mref = mref_a->object;
 		MARS_DBG("got %p %p\n", mref_a, mref);
-		device_sio_ref_io(output, mref, mref->ref_rw);
+		device_sio_ref_io(output, mref);
 	}
 
 	MARS_INF("kthread has stopped.\n");

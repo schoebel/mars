@@ -15,8 +15,9 @@
 //#define CONF_TEST // use intermediate mars_check bricks
 
 #define CONF_AIO // use device_aio instead of device_sio
-//#define CONF_BUF
-//#define CONF_USEBUF
+#define CONF_BUF
+#define CONF_BUF_AHEAD // readahead optimization
+#define CONF_USEBUF
 //#define CONF_TRANS
 //#define CONF_TRANS_FLYING 1
 #define CONF_TRANS_SORT
@@ -28,6 +29,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/string.h>
+#include <linux/debug_locks.h>
 
 #include <linux/major.h>
 #include <linux/genhd.h>
@@ -152,7 +154,7 @@ void make_test_instance(void)
 
 	if_brick = brick(&if_device_brick_type);
 
-#if defined(CONF_USEBUF) && defined(CONF_BUF) // usebuf zwischenschalten
+#ifdef CONF_USEBUF // usebuf zwischenschalten
 	usebuf_brick = brick(&usebuf_brick_type);
 
 	connect(if_brick->inputs[0], usebuf_brick->outputs[0]);
@@ -175,6 +177,9 @@ void make_test_instance(void)
 	_buf_brick->max_count = DEFAULT_BUFFERS;
 #else
 	_buf_brick->max_count = DEFAULT_MEM >> _buf_brick->backing_order;
+#endif
+#ifdef CONF_BUF_AHEAD
+	_buf_brick->optimize_chains = true;
 #endif
 
 	connect(buf_brick->inputs[0], device_brick->outputs[0]);
@@ -254,7 +259,7 @@ void make_test_instance(void)
 				};
 				mref->ref_cb = &cb;
 
-				GENERIC_OUTPUT_CALL(output, mars_ref_io, mref, READ);
+				GENERIC_OUTPUT_CALL(output, mars_ref_io, mref);
 				status = cb.cb_error;
 				MARS_DBG("buf_io (status=%d)\n", status);
 			}
@@ -313,6 +318,9 @@ static void __exit exit_test(void)
 static int __init init_test(void)
 {
 	MARS_DBG("make_test_instance()\n");
+#if 0
+	debug_locks_off();
+#endif
 	make_test_instance();
 	return 0;
 }

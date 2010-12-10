@@ -9,6 +9,7 @@ struct device_aio_mars_ref_aspect {
 	GENERIC_ASPECT(mars_ref);
 	struct list_head io_head;
 	int resubmit;
+	bool do_dealloc;
 };
 
 struct device_aio_brick {

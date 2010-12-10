@@ -6,8 +6,8 @@
 #include <asm/spinlock.h>
 #include <asm/atomic.h>
 
-//#define MARS_DELAY /**/
-#define MARS_DELAY msleep(20000)
+#define MARS_DELAY /**/
+//#define MARS_DELAY msleep(20000)
 
 #define MARS_FATAL "MARS_FATAL  " __BASE_FILE__ ": "
 #define MARS_ERROR "MARS_ERROR  " __BASE_FILE__ ": "
@@ -117,7 +117,7 @@ struct mars_output {
 	int  (*mars_get_info)(struct PREFIX##_output *output, struct mars_info *info); \
 	/* mars_ref */							\
 	int  (*mars_ref_get)(struct PREFIX##_output *output, struct mars_ref_object *mref); \
-	void (*mars_ref_io)(struct PREFIX##_output *output, struct mars_ref_object *mref, int rw); \
+	void (*mars_ref_io)(struct PREFIX##_output *output, struct mars_ref_object *mref); \
 	void (*mars_ref_put)(struct PREFIX##_output *output, struct mars_ref_object *mref); \
 
 // all non-extendable types
@@ -194,7 +194,7 @@ static const struct generic_aspect_type *BRICK##_aspect_types[BRICK_OBJ_NR] = {	
 		int test = atomic_read(atom);				\
 		if (test OP (minval)) {					\
 			atomic_set(atom, minval);			\
-			MARS_ERR("%d: atomic " #atom " " #OP " " #minval "\n", __LINE__); \
+			MARS_ERR("%d: atomic " #atom " " #OP " " #minval " (instead %d)\n", __LINE__, test); \
 		}							\
 	} while (0)
 

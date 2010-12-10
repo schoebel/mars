@@ -2,6 +2,7 @@
 
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
+//#define LOG
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -29,11 +30,28 @@
 static int device_aio_ref_get(struct device_aio_output *output, struct mars_ref_object *mref)
 {
 	_CHECK_ATOMIC(&mref->ref_count, !=,  0);
-	/* Buffered IO is not implemented.
-	 * Use an intermediate buf instance if you need it.
+	/* Buffered IO is implemented, but should not be used
+	 * except for testing.
+	 * Always precede this with a buf brick -- otherwise you
+	 * can get bad performance!
 	 */
-	if (!mref->ref_data)
-		return -ENOSYS;
+	if (!mref->ref_data) {
+		struct device_aio_mars_ref_aspect *mref_a = device_aio_mars_ref_get_aspect(output, mref);
+		if (!mref_a)
+			return -EILSEQ;
+		mref->ref_data = kmalloc(mref->ref_len, GFP_MARS);
+		if (!mref->ref_data)
+			return -ENOMEM;
+		mref->ref_flags = 0;
+		mref_a->do_dealloc = true;
+#if 1 // litter flags for testing
+		if (mref->ref_rw) {
+			static int random = 0;
+			if (!(random++ % 2))
+				mref->ref_flags |= MARS_REF_UPTODATE;
+		}
+#endif
+	}
 
 	atomic_inc(&mref->ref_count);
 	return 0;
@@ -41,9 +59,14 @@ static int device_aio_ref_get(struct device_aio_output *output, struct mars_ref_
 
 static void device_aio_ref_put(struct device_aio_output *output, struct mars_ref_object *mref)
 {
+	struct device_aio_mars_ref_aspect *mref_a;
 	CHECK_ATOMIC(&mref->ref_count, 1);
 	if (!atomic_dec_and_test(&mref->ref_count))
 		return;
+	mref_a = device_aio_mars_ref_get_aspect(output, mref);
+	if (mref_a && mref_a->do_dealloc) {
+		kfree(mref->ref_data);
+	}
 	device_aio_free_mars_ref(mref);
 }
 
@@ -61,7 +84,9 @@ static void device_aio_ref_io(struct device_aio_output *output, struct mars_ref_
 		goto done;
 	}
 
-	MARS_INF("IO rw=%d pos=%lld len=%d data=%p\n", mref->ref_rw, mref->ref_pos, mref->ref_len, mref->ref_data);
+#ifdef LOG
+	MARS_INF("AIO rw=%d pos=%lld len=%d data=%p\n", mref->ref_rw, mref->ref_pos, mref->ref_len, mref->ref_data);
+#endif
 
 	mref_a = device_aio_mars_ref_get_aspect(output, mref);
 	traced_lock(&tinfo->lock, flags);
@@ -86,7 +111,7 @@ static int device_aio_submit(struct device_aio_output *output, struct device_aio
 	int res;
 	struct iocb iocb = {
 		.aio_data = (__u64)mref_a,
-		.aio_lio_opcode = use_fdsync ? IOCB_CMD_FDSYNC : (mref->ref_rw == WRITE ? IOCB_CMD_PWRITE : IOCB_CMD_PREAD),
+		.aio_lio_opcode = use_fdsync ? IOCB_CMD_FDSYNC : (mref->ref_rw != 0 ? IOCB_CMD_PWRITE : IOCB_CMD_PREAD),
 		.aio_fildes = output->fd,
 		.aio_buf = (unsigned long)mref->ref_data,
 		.aio_nbytes = mref->ref_len,
@@ -217,13 +242,17 @@ static int device_aio_event_thread(void *data)
 		bounced = 0;
 		for (i = 0; i < count; i++) {
 			struct device_aio_mars_ref_aspect *mref_a = (void*)events[i].data;
-			struct generic_callback *cb = mref_a->object->ref_cb;
+			struct mars_ref_object *mref = mref_a->object;
+			struct generic_callback *cb = mref->ref_cb;
 			int err = events[i].res;
 
+#ifdef LOG
+			MARS_INF("AIO done %p pos = %lld len = %d rw = %d\n", mref, mref->ref_pos, mref->ref_len, mref->ref_rw);
+#endif
 
 			if (output->o_fdsync
 			   && err >= 0 
-			   && mref_a->object->ref_rw == WRITE
+			   && mref->ref_rw != 0
 			   && !mref_a->resubmit++) {
 				if (!output->filp->f_op->aio_fsync) {
 					unsigned long flags;
@@ -239,10 +268,13 @@ static int device_aio_event_thread(void *data)
 			}
 
 			cb->cb_error = err;
-			if (err < 0)
+			if (err < 0) {
 				MARS_ERR("IO error %d\n", err);
+			} else {
+				mref->ref_flags |= MARS_REF_UPTODATE;
+			}
 			cb->cb_fn(cb);
-			device_aio_ref_put(output, mref_a->object);
+			device_aio_ref_put(output, mref);
 		}
 		if (bounced)
 			wake_up(&other->event);
@@ -298,6 +330,9 @@ static int device_aio_sync_thread(void *data)
 			struct generic_callback *cb = mref_a->object->ref_cb;
 			list_del_init(tmp);
 			cb->cb_error = err;
+			if (err >= 0) {
+				mref_a->object->ref_flags |= MARS_REF_UPTODATE;
+			}
 			cb->cb_fn(cb);
 			device_aio_ref_put(output, mref_a->object);
 		}

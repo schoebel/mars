@@ -37,10 +37,10 @@ static void dummy_ref_put(struct dummy_output *output, struct mars_ref_object *m
 	GENERIC_INPUT_CALL(input, mars_ref_put, mref);
 }
 
-static void dummy_ref_io(struct dummy_output *output, struct mars_ref_object *mref, int rw)
+static void dummy_ref_io(struct dummy_output *output, struct mars_ref_object *mref)
 {
 	struct dummy_input *input = output->brick->inputs[0];
-	GENERIC_INPUT_CALL(input, mars_ref_io, mref, rw);
+	GENERIC_INPUT_CALL(input, mars_ref_io, mref);
 }
 
 //////////////// object / aspect constructors / destructors ///////////////
