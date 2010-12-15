@@ -4,8 +4,8 @@
 
 #define WITH_THREAD 64
 
-struct device_sio_mars_ref_aspect {
-	GENERIC_ASPECT(mars_ref);
+struct device_sio_mref_aspect {
+	GENERIC_ASPECT(mref);
 	struct list_head io_head;
 };
 

@@ -9,8 +9,8 @@
 
 #define MAX_BIO 8
 
-struct if_device_mars_ref_aspect {
-	GENERIC_ASPECT(mars_ref);
+struct if_device_mref_aspect {
+	GENERIC_ASPECT(mref);
 	//struct list_head tmp_head;
 	struct list_head plug_head;
 	int maxlen;

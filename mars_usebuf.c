@@ -32,7 +32,7 @@ static int usebuf_get_info(struct usebuf_output *output, struct mars_info *info)
 }
 
 static inline
-void _usebuf_copy(struct mars_ref_object *mref, struct mars_ref_object *sub_mref, int rw)
+void _usebuf_copy(struct mref_object *mref, struct mref_object *sub_mref, int rw)
 {
 #ifdef LOG
 	MARS_INF("memcpy rw = %d %p %p %d\n", rw, mref->ref_data, sub_mref->ref_data, mref->ref_len);
@@ -48,10 +48,10 @@ void _usebuf_copy(struct mars_ref_object *mref, struct mars_ref_object *sub_mref
 
 static void _usebuf_endio(struct generic_callback *cb)
 {
-	struct usebuf_mars_ref_aspect *mref_a = cb->cb_private;
-	struct mars_ref_object *mref;
-	struct usebuf_mars_ref_aspect *sub_mref_a;
-	struct mars_ref_object *sub_mref;
+	struct usebuf_mref_aspect *mref_a = cb->cb_private;
+	struct mref_object *mref;
+	struct usebuf_mref_aspect *sub_mref_a;
+	struct mref_object *sub_mref;
 
 	CHECK_PTR(mref_a, done);
 	mref = mref_a->object;
@@ -66,9 +66,9 @@ static void _usebuf_endio(struct generic_callback *cb)
 
 	if (mref->ref_data != sub_mref->ref_data && cb->cb_error >= 0) {
 		if (sub_mref->ref_may_write == 0) {
-			if (sub_mref->ref_flags & MARS_REF_UPTODATE) {
+			if (sub_mref->ref_flags & MREF_UPTODATE) {
 				_usebuf_copy(mref, sub_mref, 0);
-				mref->ref_flags |= MARS_REF_UPTODATE;
+				mref->ref_flags |= MREF_UPTODATE;
 			}
 #ifndef FAKE_ALL
 		} else if (sub_mref->ref_rw == 0) {
@@ -78,8 +78,8 @@ static void _usebuf_endio(struct generic_callback *cb)
 			sub_mref->ref_rw = 1;
 			sub_mref->ref_cb = &sub_mref_a->cb;
 			_usebuf_copy(mref, sub_mref, 1);
-			mref->ref_flags |= MARS_REF_UPTODATE;
-			GENERIC_INPUT_CALL(mref_a->input, mars_ref_io, sub_mref);
+			mref->ref_flags |= MREF_UPTODATE;
+			GENERIC_INPUT_CALL(mref_a->input, mref_io, sub_mref);
 			return;
 #endif
 		}
@@ -109,21 +109,21 @@ static void _usebuf_endio(struct generic_callback *cb)
 	}
 #endif
 
-	usebuf_free_mars_ref(mref);
+	usebuf_free_mref(mref);
 done:;
 }
 
-static int usebuf_ref_get(struct usebuf_output *output, struct mars_ref_object *mref)
+static int usebuf_ref_get(struct usebuf_output *output, struct mref_object *mref)
 {
 	struct usebuf_input *input = output->brick->inputs[0];
-	struct usebuf_mars_ref_aspect *mref_a;
-	struct usebuf_mars_ref_aspect *sub_mref_a;
-	struct mars_ref_object *sub_mref;
+	struct usebuf_mref_aspect *mref_a;
+	struct usebuf_mref_aspect *sub_mref_a;
+	struct mref_object *sub_mref;
 	int status = 0;
 
 	might_sleep();
 
-	mref_a = usebuf_mars_ref_get_aspect(output, mref);
+	mref_a = usebuf_mref_get_aspect(output, mref);
 	if (unlikely(!mref_a)) {
 		MARS_FAT("cannot get aspect\n");
 		return -EILSEQ;
@@ -131,13 +131,13 @@ static int usebuf_ref_get(struct usebuf_output *output, struct mars_ref_object *
 
 	sub_mref_a = mref_a->sub_mref_a;
 	if (!sub_mref_a) {
-		sub_mref = usebuf_alloc_mars_ref(output, &output->mref_object_layout);
+		sub_mref = usebuf_alloc_mref(output, &output->mref_object_layout);
 		if (unlikely(!sub_mref)) {
 			MARS_FAT("cannot get sub_mref\n");
 			return -ENOMEM;
 		}
 
-		sub_mref_a = usebuf_mars_ref_get_aspect(output, sub_mref);
+		sub_mref_a = usebuf_mref_get_aspect(output, sub_mref);
 		if (unlikely(!sub_mref_a)) {
 			MARS_FAT("cannot get aspect\n");
 			return -EILSEQ;
@@ -166,7 +166,7 @@ static int usebuf_ref_get(struct usebuf_output *output, struct mars_ref_object *
 #endif		
 	}
 
-	status = GENERIC_INPUT_CALL(input, mars_ref_get, sub_mref);
+	status = GENERIC_INPUT_CALL(input, mref_get, sub_mref);
 	if (status < 0) {
 		return status;
 	}
@@ -182,14 +182,14 @@ static int usebuf_ref_get(struct usebuf_output *output, struct mars_ref_object *
 	return status;
 }
 
-static void usebuf_ref_put(struct usebuf_output *output, struct mars_ref_object *mref)
+static void usebuf_ref_put(struct usebuf_output *output, struct mref_object *mref)
 {
 	struct usebuf_input *input = output->brick->inputs[0];
-	struct usebuf_mars_ref_aspect *mref_a;
-	struct usebuf_mars_ref_aspect *sub_mref_a;
-	struct mars_ref_object *sub_mref;
+	struct usebuf_mref_aspect *mref_a;
+	struct usebuf_mref_aspect *sub_mref_a;
+	struct mref_object *sub_mref;
 
-	mref_a = usebuf_mars_ref_get_aspect(output, mref);
+	mref_a = usebuf_mref_get_aspect(output, mref);
 	if (unlikely(!mref_a)) {
 		MARS_FAT("cannot get aspect\n");
 		return;
@@ -211,22 +211,22 @@ static void usebuf_ref_put(struct usebuf_output *output, struct mars_ref_object 
 	if (!atomic_dec_and_test(&mref->ref_count))
 		return;
 
-	GENERIC_INPUT_CALL(input, mars_ref_put, sub_mref);
-	usebuf_free_mars_ref(mref);
+	GENERIC_INPUT_CALL(input, mref_put, sub_mref);
+	usebuf_free_mref(mref);
 }
 
-static void usebuf_ref_io(struct usebuf_output *output, struct mars_ref_object *mref)
+static void usebuf_ref_io(struct usebuf_output *output, struct mref_object *mref)
 {
 	struct usebuf_input *input = output->brick->inputs[0];
-	struct usebuf_mars_ref_aspect *mref_a;
-	struct usebuf_mars_ref_aspect *sub_mref_a;
-	struct mars_ref_object *sub_mref;
+	struct usebuf_mref_aspect *mref_a;
+	struct usebuf_mref_aspect *sub_mref_a;
+	struct mref_object *sub_mref;
 	struct generic_callback *cb;
 	int error = -EILSEQ;
 
 	might_sleep();
 
-	mref_a = usebuf_mars_ref_get_aspect(output, mref);
+	mref_a = usebuf_mref_get_aspect(output, mref);
 	if (unlikely(!mref_a)) {
 		MARS_FAT("cannot get aspect\n");
 		goto err;
@@ -262,11 +262,11 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mars_ref_object *
 		sub_mref->ref_rw = 1;
 #else // normal case
 		sub_mref->ref_rw = 0;
-		if (sub_mref->ref_flags & MARS_REF_UPTODATE) {
+		if (sub_mref->ref_flags & MREF_UPTODATE) {
 			sub_mref->ref_rw = 1;
 		}
 #endif
-	} else if (sub_mref->ref_flags & MARS_REF_UPTODATE) {
+	} else if (sub_mref->ref_flags & MREF_UPTODATE) {
 #ifdef LOG
 		MARS_INF("direct _usebuf_endio\n");
 #endif
@@ -276,7 +276,7 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mars_ref_object *
 	if (mref->ref_data != sub_mref->ref_data) {
 		if (sub_mref->ref_rw != 0) {
 			_usebuf_copy(mref, sub_mref, 1);
-			mref->ref_flags |= MARS_REF_UPTODATE;
+			mref->ref_flags |= MREF_UPTODATE;
 		}
 	}
 
@@ -284,7 +284,7 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mars_ref_object *
 	_usebuf_endio(sub_mref->ref_cb);
 	return;
 #endif
-	GENERIC_INPUT_CALL(input, mars_ref_io, sub_mref);
+	GENERIC_INPUT_CALL(input, mref_io, sub_mref);
 
 	return;
 
@@ -297,16 +297,16 @@ err:
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int usebuf_mars_ref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+static int usebuf_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
-	struct usebuf_mars_ref_aspect *ini = (void*)_ini;
+	struct usebuf_mref_aspect *ini = (void*)_ini;
 	(void)ini;
 	return 0;
 }
 
-static void usebuf_mars_ref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+static void usebuf_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
 {
-	struct usebuf_mars_ref_aspect *ini = (void*)_ini;
+	struct usebuf_mref_aspect *ini = (void*)_ini;
 	(void)ini;
 }
 
@@ -332,9 +332,9 @@ static struct usebuf_brick_ops usebuf_brick_ops = {
 static struct usebuf_output_ops usebuf_output_ops = {
 	.make_object_layout = usebuf_make_object_layout,
 	.mars_get_info = usebuf_get_info,
-	.mars_ref_get = usebuf_ref_get,
-	.mars_ref_put = usebuf_ref_put,
-	.mars_ref_io = usebuf_ref_io,
+	.mref_get = usebuf_ref_get,
+	.mref_put = usebuf_ref_put,
+	.mref_io = usebuf_ref_io,
 };
 
 const struct usebuf_input_type usebuf_input_type = {
@@ -353,7 +353,7 @@ const struct usebuf_output_type usebuf_output_type = {
 	.output_construct = &usebuf_output_construct,
 	.aspect_types = usebuf_aspect_types,
 	.layout_code = {
-		[BRICK_OBJ_MARS_REF] = LAYOUT_ALL,
+		[BRICK_OBJ_MREF] = LAYOUT_ALL,
 	}
 };
 

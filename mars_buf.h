@@ -13,8 +13,8 @@
 #define LIST_LRU     2
 #define LIST_MAX     3
 
-struct buf_mars_ref_aspect {
-	GENERIC_ASPECT(mars_ref);
+struct buf_mref_aspect {
+	GENERIC_ASPECT(mref);
 	struct buf_head *rfa_bf;
 	//struct list_head rfa_bf_head;
 	struct list_head rfa_pending_head;

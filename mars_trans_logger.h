@@ -37,17 +37,17 @@ struct hash_anchor {
 	struct list_head hash_anchor;
 };
 
-struct trans_logger_mars_ref_aspect {
-	GENERIC_ASPECT(mars_ref);
+struct trans_logger_mref_aspect {
+	GENERIC_ASPECT(mref);
 	struct trans_logger_output *output;
 	struct list_head hash_head;
 	struct list_head q_head;
 	struct pairing_heap_mref ph;
-	struct trans_logger_mars_ref_aspect *shadow_ref;
+	struct trans_logger_mref_aspect *shadow_ref;
 	void   *orig_data;
 	struct timespec stamp;
 	struct generic_callback cb;
-	struct trans_logger_mars_ref_aspect *orig_mref_a;
+	struct trans_logger_mref_aspect *orig_mref_a;
 };
 
 struct trans_logger_brick {

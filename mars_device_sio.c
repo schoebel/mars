@@ -23,7 +23,7 @@
 
 ////////////////// own brick / input / output operations //////////////////
 
-static int device_sio_ref_get(struct device_sio_output *output, struct mars_ref_object *mref)
+static int device_sio_ref_get(struct device_sio_output *output, struct mref_object *mref)
 {
 	_CHECK_ATOMIC(&mref->ref_count, !=,  0);
 	/* Buffered IO is not implemented.
@@ -36,12 +36,12 @@ static int device_sio_ref_get(struct device_sio_output *output, struct mars_ref_
 	return 0;
 }
 
-static void device_sio_ref_put(struct device_sio_output *output, struct mars_ref_object *mref)
+static void device_sio_ref_put(struct device_sio_output *output, struct mref_object *mref)
 {
 	CHECK_ATOMIC(&mref->ref_count, 1);
 	if (!atomic_dec_and_test(&mref->ref_count))
 		return;
-	device_sio_free_mars_ref(mref);
+	device_sio_free_mref(mref);
 }
 
 // some code borrowed from the loopback driver
@@ -73,7 +73,7 @@ static int transfer_none(int cmd,
 	return 0;
 }
 
-static void write_aops(struct device_sio_output *output, struct mars_ref_object *mref)
+static void write_aops(struct device_sio_output *output, struct mref_object *mref)
 {
 	struct file *file = output->filp;
 	loff_t pos = mref->ref_pos;
@@ -151,7 +151,7 @@ fail:
 
 struct cookie_data {
 	struct device_sio_output *output;
-	struct mars_ref_object *mref;
+	struct mref_object *mref;
 	void *data;
 	int len;
 };
@@ -192,7 +192,7 @@ device_sio_direct_splice_actor(struct pipe_inode_info *pipe, struct splice_desc 
 	return __splice_from_pipe(pipe, sd, device_sio_splice_actor);
 }
 
-static void read_aops(struct device_sio_output *output, struct mars_ref_object *mref)
+static void read_aops(struct device_sio_output *output, struct mref_object *mref)
 {
 	loff_t pos = mref->ref_pos;
 	int ret = -EIO;
@@ -231,7 +231,7 @@ static void sync_file(struct device_sio_output *output)
 #endif
 }
 
-static void device_sio_ref_io(struct device_sio_output *output, struct mars_ref_object *mref)
+static void device_sio_ref_io(struct device_sio_output *output, struct mref_object *mref)
 {
 	struct generic_callback *cb = mref->ref_cb;
 	bool barrier = false;
@@ -271,14 +271,14 @@ done:
 	if (!atomic_dec_and_test(&mref->ref_count))
 		return;
 
-	device_sio_free_mars_ref(mref);
+	device_sio_free_mref(mref);
 }
 
-static void device_sio_mars_queue(struct device_sio_output *output, struct mars_ref_object *mref)
+static void device_sio_mars_queue(struct device_sio_output *output, struct mref_object *mref)
 {
 	int index = 0;
 	struct sio_threadinfo *tinfo;
-	struct device_sio_mars_ref_aspect *mref_a;
+	struct device_sio_mref_aspect *mref_a;
 	struct generic_callback *cb = mref->ref_cb;
 	unsigned long flags;
 
@@ -290,7 +290,7 @@ static void device_sio_mars_queue(struct device_sio_output *output, struct mars_
 		traced_unlock(&output->g_lock, flags);
 		index = (index % WITH_THREAD) + 1;
 	}
-	mref_a = device_sio_mars_ref_get_aspect(output, mref);
+	mref_a = device_sio_mref_get_aspect(output, mref);
 	if (unlikely(!mref_a)) {
 		MARS_FAT("cannot get aspect\n");
 		cb->cb_error = -EINVAL;
@@ -317,8 +317,8 @@ static int device_sio_thread(void *data)
 
 	while (!kthread_should_stop()) {
 		struct list_head *tmp = NULL;
-		struct mars_ref_object *mref;
-		struct device_sio_mars_ref_aspect *mref_a;
+		struct mref_object *mref;
+		struct device_sio_mref_aspect *mref_a;
 		unsigned long flags;
 
 		wait_event_interruptible_timeout(
@@ -340,7 +340,7 @@ static int device_sio_thread(void *data)
 		if (!tmp)
 			continue;
 
-		mref_a = container_of(tmp, struct device_sio_mars_ref_aspect, io_head);
+		mref_a = container_of(tmp, struct device_sio_mref_aspect, io_head);
 		mref = mref_a->object;
 		MARS_DBG("got %p %p\n", mref_a, mref);
 		device_sio_ref_io(output, mref);
@@ -382,16 +382,16 @@ static int device_sio_get_info(struct device_sio_output *output, struct mars_inf
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int device_sio_mars_ref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+static int device_sio_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
-	struct device_sio_mars_ref_aspect *ini = (void*)_ini;
+	struct device_sio_mref_aspect *ini = (void*)_ini;
 	INIT_LIST_HEAD(&ini->io_head);
 	return 0;
 }
 
-static void device_sio_mars_ref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+static void device_sio_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
 {
-	struct device_sio_mars_ref_aspect *ini = (void*)_ini;
+	struct device_sio_mref_aspect *ini = (void*)_ini;
 	(void)ini;
 #if 1
 	CHECK_HEAD_EMPTY(&ini->io_head);
@@ -500,9 +500,9 @@ static struct device_sio_brick_ops device_sio_brick_ops = {
 
 static struct device_sio_output_ops device_sio_output_ops = {
 	.make_object_layout = device_sio_make_object_layout,
-	.mars_ref_get = device_sio_ref_get,
-	.mars_ref_put = device_sio_ref_put,
-	.mars_ref_io = device_sio_mars_queue,
+	.mref_get = device_sio_ref_get,
+	.mref_put = device_sio_ref_put,
+	.mref_io = device_sio_mars_queue,
 	.mars_get_info = device_sio_get_info,
 };
 
@@ -514,7 +514,7 @@ const struct device_sio_output_type device_sio_output_type = {
 	.output_destruct = &device_sio_output_destruct,
 	.aspect_types = device_sio_aspect_types,
 	.layout_code = {
-		[BRICK_OBJ_MARS_REF] = LAYOUT_NONE,
+		[BRICK_OBJ_MREF] = LAYOUT_NONE,
 	}
 };
 

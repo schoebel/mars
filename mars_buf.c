@@ -333,7 +333,7 @@ void _bf_put(struct buf_head *bf)
 #endif
 
 	list = LIST_LRU;
-	at_end = !(bf->bf_flags & MARS_REF_UPTODATE);
+	at_end = !(bf->bf_flags & MREF_UPTODATE);
 	if (bf->bf_chain_detected) {
 		list = LIST_FORGET;
 		at_end = false;
@@ -346,7 +346,7 @@ void _bf_put(struct buf_head *bf)
 /* Routines for the relation bf <-> mref
  */
 static inline
-void _mref_assign(struct buf_head *bf, struct buf_mars_ref_aspect *mref_a)
+void _mref_assign(struct buf_head *bf, struct buf_mref_aspect *mref_a)
 {
 	if (mref_a->rfa_bf) {
 		return;
@@ -356,9 +356,9 @@ void _mref_assign(struct buf_head *bf, struct buf_mars_ref_aspect *mref_a)
 }
 
 static inline
-bool _mref_remove(struct buf_head *bf, struct buf_mars_ref_aspect *mref_a)
+bool _mref_remove(struct buf_head *bf, struct buf_mref_aspect *mref_a)
 {
-	//struct mars_ref_object *mref;
+	//struct mref_object *mref;
 	bool status;
 
 	if (!mref_a->rfa_bf) {
@@ -394,10 +394,10 @@ static int buf_get_info(struct buf_output *output, struct mars_info *info)
 	return GENERIC_INPUT_CALL(input, mars_get_info, info);
 }
 
-static int buf_ref_get(struct buf_output *output, struct mars_ref_object *mref)
+static int buf_ref_get(struct buf_output *output, struct mref_object *mref)
 {
 	struct buf_brick *brick = output->brick;
-	struct buf_mars_ref_aspect *mref_a;
+	struct buf_mref_aspect *mref_a;
 	struct buf_head *bf;
 	struct buf_head *new = NULL;
 	loff_t base_pos;
@@ -430,7 +430,7 @@ static int buf_ref_get(struct buf_output *output, struct mars_ref_object *mref)
 		return 0;
 	}
 
-	mref_a = buf_mars_ref_get_aspect(output, mref);
+	mref_a = buf_mref_get_aspect(output, mref);
 	if (unlikely(!mref_a))
 		goto done;
 	
@@ -495,7 +495,7 @@ again:
 		if (mref->ref_may_write != READ &&
 		   ((!base_offset && mref->ref_len >= brick->backing_size) ||
 		    (mref->ref_pos >= brick->base_info.current_size && brick->base_info.current_size > 0))) {
-			new->bf_flags |= MARS_REF_UPTODATE;
+			new->bf_flags |= MREF_UPTODATE;
 			atomic_inc(&brick->opt_count);
 		}
 #endif
@@ -540,9 +540,9 @@ done:
 	return status;
 }
 
-static void _buf_ref_put(struct buf_output *output, struct buf_mars_ref_aspect *mref_a)
+static void _buf_ref_put(struct buf_output *output, struct buf_mref_aspect *mref_a)
 {
-	struct mars_ref_object *mref = mref_a->object;
+	struct mref_object *mref = mref_a->object;
 	struct buf_head *bf;
 
 	/* shortcut in case of unbuffered IO
@@ -550,7 +550,7 @@ static void _buf_ref_put(struct buf_output *output, struct buf_mars_ref_aspect *
 	bf = mref_a->rfa_bf;
 	if (!bf) {
 		struct buf_brick *brick = output->brick;
-		GENERIC_INPUT_CALL(brick->inputs[0], mars_ref_put, mref);
+		GENERIC_INPUT_CALL(brick->inputs[0], mref_put, mref);
 		return;
 	}
 
@@ -561,15 +561,15 @@ static void _buf_ref_put(struct buf_output *output, struct buf_mars_ref_aspect *
 
 	MARS_DBG("buf_ref_put() mref=%p mref_a=%p bf=%p flags=%d\n", mref, mref_a, bf, bf->bf_flags);
 	_mref_remove(bf, mref_a);
-	buf_free_mars_ref(mref);
+	buf_free_mref(mref);
 
 	_bf_put(bf); // paired with _hash_find_insert()
 }
 
-static void buf_ref_put(struct buf_output *output, struct mars_ref_object *mref)
+static void buf_ref_put(struct buf_output *output, struct mref_object *mref)
 {
-	struct buf_mars_ref_aspect *mref_a;
-	mref_a = buf_mars_ref_get_aspect(output, mref);
+	struct buf_mref_aspect *mref_a;
+	mref_a = buf_mref_get_aspect(output, mref);
 	if (unlikely(!mref_a)) {
 		MARS_FAT("cannot get aspect\n");
 		return;
@@ -612,17 +612,17 @@ static int _buf_make_io(struct buf_brick *brick, struct buf_head *bf, void *star
 	input = brick->inputs[0];
 
 	while (start_len > 0) {
-		struct mars_ref_object *mref;
-		struct buf_mars_ref_aspect *mref_a;
+		struct mref_object *mref;
+		struct buf_mref_aspect *mref_a;
 		int len;
 
-		mref = buf_alloc_mars_ref(brick->outputs[0], &brick->mref_object_layout);
+		mref = buf_alloc_mref(brick->outputs[0], &brick->mref_object_layout);
 		if (unlikely(!mref))
 			break;
 
-		mref_a = buf_mars_ref_get_aspect(brick->outputs[0], mref);
+		mref_a = buf_mref_get_aspect(brick->outputs[0], mref);
 		if (unlikely(!mref_a)) {
-			buf_free_mars_ref(mref);
+			buf_free_mref(mref);
 			break;
 		}
 
@@ -639,7 +639,7 @@ static int _buf_make_io(struct buf_brick *brick, struct buf_head *bf, void *star
 		mref->ref_rw = rw;
 		mref->ref_data = start_data;
 
-		status = GENERIC_INPUT_CALL(input, mars_ref_get, mref);
+		status = GENERIC_INPUT_CALL(input, mref_get, mref);
 		if (status < 0) {
 			MARS_ERR();
 			goto done;
@@ -652,14 +652,14 @@ static int _buf_make_io(struct buf_brick *brick, struct buf_head *bf, void *star
 		len = mref->ref_len;
 		
 #ifndef FAKE_IO
-		GENERIC_INPUT_CALL(input, mars_ref_io, mref);
+		GENERIC_INPUT_CALL(input, mref_io, mref);
 #else
 		// fake IO for testing
 		mref_a->cb.cb_error = status;
 		mref_a->cb.cb_fn(&mref_a->cb);
 #endif
 
-		GENERIC_INPUT_CALL(input, mars_ref_put, mref);
+		GENERIC_INPUT_CALL(input, mref_put, mref);
 
 		start_data += len;
 		start_pos += len;
@@ -675,8 +675,8 @@ done:
 
 static void _buf_endio(struct generic_callback *cb)
 {
-	struct buf_mars_ref_aspect *bf_mref_a = cb->cb_private;
-	struct mars_ref_object *bf_mref;
+	struct buf_mref_aspect *bf_mref_a = cb->cb_private;
+	struct mref_object *bf_mref;
 	struct buf_head *bf;
 	struct buf_brick *brick;
 	LIST_HEAD(tmp);
@@ -717,12 +717,12 @@ static void _buf_endio(struct generic_callback *cb)
 
 	// update flags. this must be done before the callbacks.
 	old_flags = bf->bf_flags;
-	if (bf->bf_error >= 0 && (old_flags & MARS_REF_READING)) {
-		bf->bf_flags |= MARS_REF_UPTODATE;
+	if (bf->bf_error >= 0 && (old_flags & MREF_READING)) {
+		bf->bf_flags |= MREF_UPTODATE;
 	}
 
 	// clear the flags, callbacks must not see them. may be re-enabled later.
-	bf->bf_flags &= ~(MARS_REF_READING | MARS_REF_WRITING);
+	bf->bf_flags &= ~(MREF_READING | MREF_WRITING);
 	/* Remember current version of pending list.
 	 * This is necessary because later the callbacks might
 	 * change it underneath.
@@ -740,8 +740,8 @@ static void _buf_endio(struct generic_callback *cb)
 	 * IO ordering semantics.
 	 */
 	while (!list_empty(&bf->bf_postpone_anchor)) {
-		struct buf_mars_ref_aspect *mref_a = container_of(bf->bf_postpone_anchor.next, struct buf_mars_ref_aspect, rfa_pending_head);
-		struct mars_ref_object *mref = mref_a->object;
+		struct buf_mref_aspect *mref_a = container_of(bf->bf_postpone_anchor.next, struct buf_mref_aspect, rfa_pending_head);
+		struct mref_object *mref = mref_a->object;
 
 		if (mref_a->rfa_bf != bf) {
 			MARS_ERR("bad pointers %p != %p\n", mref_a->rfa_bf, bf);
@@ -757,7 +757,7 @@ static void _buf_endio(struct generic_callback *cb)
 		MARS_DBG("postponed mref=%p\n", mref);
 
 		// re-enable flags
-		bf->bf_flags |= MARS_REF_WRITING;
+		bf->bf_flags |= MREF_WRITING;
 		bf->bf_error = 0;
 
 		if (!start_len) {
@@ -790,8 +790,8 @@ static void _buf_endio(struct generic_callback *cb)
 	 */
 	count = 0;
 	while (!list_empty(&tmp)) {
-		struct buf_mars_ref_aspect *mref_a = container_of(tmp.next, struct buf_mars_ref_aspect, rfa_pending_head);
-		struct mars_ref_object *mref = mref_a->object;
+		struct buf_mref_aspect *mref_a = container_of(tmp.next, struct buf_mref_aspect, rfa_pending_head);
+		struct mref_object *mref = mref_a->object;
 		struct generic_callback *cb;
 
 		if (mref_a->rfa_bf != bf) {
@@ -840,10 +840,10 @@ static void _buf_endio(struct generic_callback *cb)
 err:;
 }
 
-static void buf_ref_io(struct buf_output *output, struct mars_ref_object *mref)
+static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 {
 	struct buf_brick *brick = output->brick;
-	struct buf_mars_ref_aspect *mref_a;
+	struct buf_mref_aspect *mref_a;
 	struct generic_callback *cb;
 	struct buf_head *bf;
 	void  *start_data = NULL;
@@ -857,7 +857,7 @@ static void buf_ref_io(struct buf_output *output, struct mars_ref_object *mref)
 		MARS_FAT("internal problem: forgotten to supply mref\n");
 		goto fatal;
 	}
-	mref_a = buf_mars_ref_get_aspect(output, mref);
+	mref_a = buf_mref_get_aspect(output, mref);
 	if (unlikely(!mref_a)) {
 		MARS_ERR("internal problem: mref aspect does not work\n");
 		goto fatal;
@@ -866,7 +866,7 @@ static void buf_ref_io(struct buf_output *output, struct mars_ref_object *mref)
 	 */
 	bf = mref_a->rfa_bf;
 	if (!bf) {
-		GENERIC_INPUT_CALL(brick->inputs[0], mars_ref_io, mref);
+		GENERIC_INPUT_CALL(brick->inputs[0], mref_io, mref);
 		return;
 	}
 
@@ -914,18 +914,18 @@ static void buf_ref_io(struct buf_output *output, struct mars_ref_object *mref)
 
 	if (mref->ref_rw != 0) { // WRITE
 #ifdef FAKE_WRITES
-		bf->bf_flags |= MARS_REF_UPTODATE;
+		bf->bf_flags |= MREF_UPTODATE;
 		goto already_done;
 #endif
-		if (bf->bf_flags & MARS_REF_READING) {
+		if (bf->bf_flags & MREF_READING) {
 			MARS_ERR("bad bf_flags %d\n", bf->bf_flags);
 		}
-		if (!(bf->bf_flags & MARS_REF_WRITING)) {
+		if (!(bf->bf_flags & MREF_WRITING)) {
 #if 0
 			// by definition, a writeout buffer is always uptodate
-			bf->bf_flags |= (MARS_REF_WRITING | MARS_REF_UPTODATE);
+			bf->bf_flags |= (MREF_WRITING | MREF_UPTODATE);
 #else // wirklich???
-			bf->bf_flags |= MARS_REF_WRITING;
+			bf->bf_flags |= MREF_WRITING;
 #endif
 			bf->bf_error = 0;
 #if 1
@@ -947,17 +947,17 @@ static void buf_ref_io(struct buf_output *output, struct mars_ref_object *mref)
 		}
 	} else { // READ
 #ifdef FAKE_READS
-		bf->bf_flags |= MARS_REF_UPTODATE;
+		bf->bf_flags |= MREF_UPTODATE;
 		goto already_done;
 #endif
 #if 0
-		if (bf->bf_flags & (MARS_REF_UPTODATE | MARS_REF_WRITING))
+		if (bf->bf_flags & (MREF_UPTODATE | MREF_WRITING))
 #else
-		if (bf->bf_flags & MARS_REF_UPTODATE)
+		if (bf->bf_flags & MREF_UPTODATE)
 #endif
 			goto already_done;
-		if (!(bf->bf_flags & MARS_REF_READING)) {
-			bf->bf_flags |= MARS_REF_READING;
+		if (!(bf->bf_flags & MREF_READING)) {
+			bf->bf_flags |= MREF_READING;
 			bf->bf_error = 0;
 
 			// always read the whole buffer.
@@ -1030,18 +1030,18 @@ fatal: // no chance to call callback: may produce hanging tasks :(
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int buf_mars_ref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+static int buf_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
-	struct buf_mars_ref_aspect *ini = (void*)_ini;
+	struct buf_mref_aspect *ini = (void*)_ini;
 	ini->rfa_bf = NULL;
 	INIT_LIST_HEAD(&ini->rfa_pending_head);
 	//INIT_LIST_HEAD(&ini->tmp_head);
 	return 0;
 }
 
-static void buf_mars_ref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+static void buf_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
 {
-	struct buf_mars_ref_aspect *ini = (void*)_ini;
+	struct buf_mref_aspect *ini = (void*)_ini;
 	(void)ini;
 #if 1
 	CHECK_HEAD_EMPTY(&ini->rfa_pending_head);
@@ -1100,9 +1100,9 @@ static struct buf_brick_ops buf_brick_ops = {
 static struct buf_output_ops buf_output_ops = {
 	.make_object_layout = buf_make_object_layout,
 	.mars_get_info = buf_get_info,
-	.mars_ref_get = buf_ref_get,
-	.mars_ref_put = buf_ref_put,
-	.mars_ref_io = buf_ref_io,
+	.mref_get = buf_ref_get,
+	.mref_put = buf_ref_put,
+	.mref_io = buf_ref_io,
 };
 
 const struct buf_input_type buf_input_type = {
@@ -1121,7 +1121,7 @@ const struct buf_output_type buf_output_type = {
 	.output_construct = &buf_output_construct,
 	.aspect_types = buf_aspect_types,
 	.layout_code = {
-		[BRICK_OBJ_MARS_REF] = LAYOUT_ALL,
+		[BRICK_OBJ_MREF] = LAYOUT_ALL,
 	}
 };
 

@@ -31,7 +31,7 @@ struct log_status {
 	int reallen_offset;
 	int payload_offset;
 	int payload_len;
-	struct mars_ref_object *log_mref;
+	struct mref_object *log_mref;
 };
 
 #define FORMAT_VERSION   1 // version of disk format, currently there is no other one
@@ -88,7 +88,7 @@ void log_skip(struct log_status *logst)
 static inline
 void *log_reserve(struct log_status *logst, struct log_header *l)
 {
-	struct mars_ref_object *mref;
+	struct mref_object *mref;
 	void *data;
 	int total_len;
 	int status;
@@ -101,7 +101,7 @@ void *log_reserve(struct log_status *logst, struct log_header *l)
 		goto err;
 	}
 
-	mref = mars_alloc_mars_ref(&logst->hidden_output, &logst->ref_object_layout);
+	mref = mars_alloc_mref(&logst->hidden_output, &logst->ref_object_layout);
 	if (unlikely(!mref))
 		goto err;
 
@@ -110,7 +110,7 @@ void *log_reserve(struct log_status *logst, struct log_header *l)
 	mref->ref_len = total_len;
 	mref->ref_may_write = WRITE;
 
-	status = GENERIC_INPUT_CALL(logst->input, mars_ref_get, mref);
+	status = GENERIC_INPUT_CALL(logst->input, mref_get, mref);
 	if (unlikely(status < 0)) {
 		goto err_free;
 	}
@@ -140,11 +140,11 @@ void *log_reserve(struct log_status *logst, struct log_header *l)
 	return data + offset;
 
 put:
-	GENERIC_INPUT_CALL(logst->input, mars_ref_put, mref);
+	GENERIC_INPUT_CALL(logst->input, mref_put, mref);
 	return NULL;
 
 err_free:
-	mars_free_mars_ref(mref);
+	mars_free_mref(mref);
 err:
 	return NULL;
 }
@@ -152,7 +152,7 @@ err:
 static inline
 bool log_finalize(struct log_status *logst, int len, void (*endio)(struct generic_callback *cb), void *private)
 {
-	struct mars_ref_object *mref = logst->log_mref;
+	struct mref_object *mref = logst->log_mref;
 	struct generic_callback *cb;
 	struct timespec now;
 	void *data;
@@ -204,11 +204,11 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(struct generi
 	mref->ref_cb = cb;
 	mref->ref_rw = 1;
 
-	GENERIC_INPUT_CALL(logst->input, mars_ref_io, mref);
+	GENERIC_INPUT_CALL(logst->input, mref_io, mref);
 
 	ok = true;
 put:
-	GENERIC_INPUT_CALL(logst->input, mars_ref_put, mref);
+	GENERIC_INPUT_CALL(logst->input, mref_put, mref);
 
 err:
 	return ok;

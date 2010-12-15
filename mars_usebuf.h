@@ -2,9 +2,9 @@
 #ifndef MARS_USEBUF_H
 #define MARS_USEBUF_H
 
-struct usebuf_mars_ref_aspect {
-	GENERIC_ASPECT(mars_ref);
-	struct usebuf_mars_ref_aspect *sub_mref_a;
+struct usebuf_mref_aspect {
+	GENERIC_ASPECT(mref);
+	struct usebuf_mref_aspect *sub_mref_a;
 	struct usebuf_input *input;
 	struct generic_callback cb;
 #if 1

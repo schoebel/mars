@@ -39,8 +39,8 @@
 
 static void check_buf_endio(struct generic_callback *cb)
 {
-	struct check_mars_ref_aspect *mref_a;
-	struct mars_ref_object *mref;
+	struct check_mref_aspect *mref_a;
+	struct mref_object *mref;
 	struct check_output *output;
 	struct check_input *input;
 	struct generic_callback *prev_cb;
@@ -133,11 +133,11 @@ static int check_watchdog(void *data)
 		for (h = output->mref_anchor.next; h != &output->mref_anchor; h = h->next) {
 			static int limit = 1;
 			const int timeout = 30;
-			struct check_mars_ref_aspect *mref_a;
-			struct mars_ref_object *mref;
+			struct check_mref_aspect *mref_a;
+			struct mref_object *mref;
 			unsigned long elapsed;
 
-			mref_a = container_of(h, struct check_mars_ref_aspect, mref_head);
+			mref_a = container_of(h, struct check_mref_aspect, mref_head);
 			mref = mref_a->object;
 			elapsed = now - mref_a->last_jiffies;
 			if (elapsed > timeout * HZ && limit-- > 0) {
@@ -178,22 +178,22 @@ static int check_get_info(struct check_output *output, struct mars_info *info)
 	return GENERIC_INPUT_CALL(input, mars_get_info, info);
 }
 
-static int check_ref_get(struct check_output *output, struct mars_ref_object *mref)
+static int check_ref_get(struct check_output *output, struct mref_object *mref)
 {
 	struct check_input *input = output->brick->inputs[0];
-	return GENERIC_INPUT_CALL(input, mars_ref_get, mref);
+	return GENERIC_INPUT_CALL(input, mref_get, mref);
 }
 
-static void check_ref_put(struct check_output *output, struct mars_ref_object *mref)
+static void check_ref_put(struct check_output *output, struct mref_object *mref)
 {
 	struct check_input *input = output->brick->inputs[0];
-	GENERIC_INPUT_CALL(input, mars_ref_put, mref);
+	GENERIC_INPUT_CALL(input, mref_put, mref);
 }
 
-static void check_ref_io(struct check_output *output, struct mars_ref_object *mref)
+static void check_ref_io(struct check_output *output, struct mref_object *mref)
 {
 	struct check_input *input = output->brick->inputs[0];
-	struct check_mars_ref_aspect *mref_a = check_mars_ref_get_aspect(output, mref);
+	struct check_mref_aspect *mref_a = check_mref_get_aspect(output, mref);
 	unsigned long flags;
 
 	CHECK_PTR(mref_a, fatal);
@@ -230,7 +230,7 @@ static void check_ref_io(struct check_output *output, struct mars_ref_object *mr
 	}
 	mref_a->last_jiffies = jiffies;
 
-	GENERIC_INPUT_CALL(input, mars_ref_io, mref);
+	GENERIC_INPUT_CALL(input, mref_io, mref);
 
 	atomic_inc(&mref_a->call_count);
 fatal: ;
@@ -238,9 +238,9 @@ fatal: ;
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int check_mars_ref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+static int check_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
-	struct check_mars_ref_aspect *ini = (void*)_ini;
+	struct check_mref_aspect *ini = (void*)_ini;
 #ifdef CHECK_LOCK
 	INIT_LIST_HEAD(&ini->mref_head);
 #endif
@@ -251,9 +251,9 @@ static int check_mars_ref_aspect_init_fn(struct generic_aspect *_ini, void *_ini
 	return 0;
 }
 
-static void check_mars_ref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+static void check_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
 {
-	struct check_mars_ref_aspect *ini = (void*)_ini;
+	struct check_mref_aspect *ini = (void*)_ini;
 	(void)ini;
 #ifdef CHECK_LOCK
 	if (!list_empty(&ini->mref_head)) {
@@ -303,9 +303,9 @@ static struct check_brick_ops check_brick_ops = {
 static struct check_output_ops check_output_ops = {
 	.make_object_layout = check_make_object_layout,
 	.mars_get_info = check_get_info,
-	.mars_ref_get = check_ref_get,
-	.mars_ref_put = check_ref_put,
-	.mars_ref_io = check_ref_io,
+	.mref_get = check_ref_get,
+	.mref_put = check_ref_put,
+	.mref_io = check_ref_io,
 };
 
 const struct check_input_type check_input_type = {
@@ -324,7 +324,7 @@ const struct check_output_type check_output_type = {
 	.output_construct = &check_output_construct,
 	.aspect_types = check_aspect_types,
 	.layout_code = {
-		[BRICK_OBJ_MARS_REF] = LAYOUT_ALL,
+		[BRICK_OBJ_MREF] = LAYOUT_ALL,
 	}
 };
 

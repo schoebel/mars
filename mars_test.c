@@ -52,7 +52,7 @@
 #include "mars_usebuf.h"
 #include "mars_trans_logger.h"
 
-GENERIC_ASPECT_FUNCTIONS(generic,mars_ref);
+GENERIC_ASPECT_FUNCTIONS(generic,mref);
 
 #ifdef CONF_AIO
 #define device_sio_brick device_aio_brick

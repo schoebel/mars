@@ -23,7 +23,7 @@
 #define MARS_DBG(args...) /**/
 #endif
 
-#define BRICK_OBJ_MARS_REF            0
+#define BRICK_OBJ_MREF            0
 #define BRICK_OBJ_NR                  1
 
 #define GFP_MARS GFP_NOIO
@@ -36,27 +36,27 @@
 
 // object stuff
 
-/* mars_ref */
+/* mref */
 
-#define MARS_REF_UPTODATE        1
-#define MARS_REF_READING         2
-#define MARS_REF_WRITING         4
+#define MREF_UPTODATE        1
+#define MREF_READING         2
+#define MREF_WRITING         4
 
-extern const struct generic_object_type mars_ref_type;
+extern const struct generic_object_type mref_type;
 
-struct mars_ref_aspect {
-	GENERIC_ASPECT(mars_ref);
+struct mref_aspect {
+	GENERIC_ASPECT(mref);
 };
 
-struct mars_ref_aspect_layout {
-	GENERIC_ASPECT_LAYOUT(mars_ref);
+struct mref_aspect_layout {
+	GENERIC_ASPECT_LAYOUT(mref);
 };
 
-struct mars_ref_object_layout {
-	GENERIC_OBJECT_LAYOUT(mars_ref);
+struct mref_object_layout {
+	GENERIC_OBJECT_LAYOUT(mref);
 };
 
-#define MARS_REF_OBJECT(PREFIX)						\
+#define MREF_OBJECT(PREFIX)						\
 	GENERIC_OBJECT(PREFIX);						\
 	/* supplied by caller */					\
 	loff_t ref_pos;							\
@@ -73,8 +73,8 @@ struct mars_ref_object_layout {
 	struct generic_callback *ref_cb;				\
 	struct generic_callback _ref_cb;				\
 
-struct mars_ref_object {
-	MARS_REF_OBJECT(mars_ref);
+struct mref_object {
+	MREF_OBJECT(mref);
 };
 
 // internal helper structs
@@ -116,10 +116,10 @@ struct mars_output {
 #define MARS_OUTPUT_OPS(PREFIX)						\
 	GENERIC_OUTPUT_OPS(PREFIX);					\
 	int  (*mars_get_info)(struct PREFIX##_output *output, struct mars_info *info); \
-	/* mars_ref */							\
-	int  (*mars_ref_get)(struct PREFIX##_output *output, struct mars_ref_object *mref); \
-	void (*mars_ref_io)(struct PREFIX##_output *output, struct mars_ref_object *mref); \
-	void (*mars_ref_put)(struct PREFIX##_output *output, struct mars_ref_object *mref); \
+	/* mref */							\
+	int  (*mref_get)(struct PREFIX##_output *output, struct mref_object *mref); \
+	void (*mref_io)(struct PREFIX##_output *output, struct mref_object *mref); \
+	void (*mref_put)(struct PREFIX##_output *output, struct mref_object *mref); \
 
 // all non-extendable types
 
@@ -161,19 +161,19 @@ struct BRICK##_object_layout;						\
 									\
 GENERIC_MAKE_CONNECT(generic,BRICK);				        \
 GENERIC_OBJECT_LAYOUT_FUNCTIONS(BRICK);				        \
-GENERIC_ASPECT_LAYOUT_FUNCTIONS(BRICK,mars_ref);		        \
-GENERIC_ASPECT_FUNCTIONS(BRICK,mars_ref);			        \
+GENERIC_ASPECT_LAYOUT_FUNCTIONS(BRICK,mref);				\
+GENERIC_ASPECT_FUNCTIONS(BRICK,mref);					\
 
 
 // instantiate all mars-specific functions
 
-GENERIC_OBJECT_FUNCTIONS(mars_ref);
+GENERIC_OBJECT_FUNCTIONS(mref);
 
 // instantiate a pseudo base-class "mars"
 
 _MARS_TYPES(mars);
 GENERIC_OBJECT_LAYOUT_FUNCTIONS(mars);
-GENERIC_ASPECT_FUNCTIONS(mars,mars_ref);
+GENERIC_ASPECT_FUNCTIONS(mars,mref);
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -184,16 +184,16 @@ GENERIC_ASPECT_FUNCTIONS(mars,mars_ref);
 int BRICK##_brick_nr = -EEXIST;				                \
 EXPORT_SYMBOL_GPL(BRICK##_brick_nr);			                \
 									\
-static const struct generic_aspect_type BRICK##_mars_ref_aspect_type = { \
-	.aspect_type_name = #BRICK "_mars_ref_aspect_type",		\
-	.object_type = &mars_ref_type,					\
-	.aspect_size = sizeof(struct BRICK##_mars_ref_aspect),		\
-	.init_fn = BRICK##_mars_ref_aspect_init_fn,			\
-	.exit_fn = BRICK##_mars_ref_aspect_exit_fn,			\
+static const struct generic_aspect_type BRICK##_mref_aspect_type = {    \
+	.aspect_type_name = #BRICK "_mref_aspect_type",			\
+	.object_type = &mref_type,					\
+	.aspect_size = sizeof(struct BRICK##_mref_aspect),		\
+	.init_fn = BRICK##_mref_aspect_init_fn,				\
+	.exit_fn = BRICK##_mref_aspect_exit_fn,				\
 };									\
 									\
 static const struct generic_aspect_type *BRICK##_aspect_types[BRICK_OBJ_NR] = {	\
-	[BRICK_OBJ_MARS_REF] = &BRICK##_mars_ref_aspect_type,		\
+	[BRICK_OBJ_MREF] = &BRICK##_mref_aspect_type,			\
 };									\
 
 #define _CHECK_ATOMIC(atom,OP,minval)					\

@@ -4,8 +4,8 @@
 
 #define CHECK_LOCK
 
-struct check_mars_ref_aspect {
-	GENERIC_ASPECT(mars_ref);
+struct check_mref_aspect {
+	GENERIC_ASPECT(mref);
 #ifdef CHECK_LOCK
 	struct list_head mref_head;
 #endif

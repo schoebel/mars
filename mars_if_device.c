@@ -35,7 +35,7 @@ static int device_minor = 0;
  */
 static void _if_device_endio(struct generic_callback *cb)
 {
-	struct if_device_mars_ref_aspect *mref_a = cb->cb_private;
+	struct if_device_mref_aspect *mref_a = cb->cb_private;
 	struct bio *bio;
 	struct bio_vec *bvec;
 	int i, k;
@@ -100,9 +100,9 @@ static void _if_device_unplug(struct if_device_input *input)
 	up(&input->kick_sem);
 
 	while (!list_empty(&tmp_list)) {
-		struct if_device_mars_ref_aspect *mref_a;
-		struct mars_ref_object *mref;
-		mref_a = container_of(tmp_list.next, struct if_device_mars_ref_aspect, plug_head);
+		struct if_device_mref_aspect *mref_a;
+		struct mref_object *mref;
+		mref_a = container_of(tmp_list.next, struct if_device_mref_aspect, plug_head);
 		list_del_init(&mref_a->plug_head);
                 mref = mref_a->object;
 
@@ -110,8 +110,8 @@ static void _if_device_unplug(struct if_device_input *input)
 		if (mref_a->xxx++ > 0)
 			MARS_ERR("xxx = %d\n", mref_a->xxx - 1);
 #endif
-		GENERIC_INPUT_CALL(input, mars_ref_io, mref);
-		GENERIC_INPUT_CALL(input, mars_ref_put, mref);
+		GENERIC_INPUT_CALL(input, mref_io, mref);
+		GENERIC_INPUT_CALL(input, mref_put, mref);
 	}
 }
 
@@ -121,8 +121,8 @@ static int if_device_make_request(struct request_queue *q, struct bio *bio)
 {
 	struct if_device_input *input;
 	struct if_device_brick *brick;
-	struct mars_ref_object *mref = NULL;
-	struct if_device_mars_ref_aspect *mref_a;
+	struct mref_object *mref = NULL;
+	struct if_device_mref_aspect *mref_a;
 	struct generic_callback *cb;
 	struct bio_vec *bvec;
 	int i;
@@ -192,8 +192,8 @@ static int if_device_make_request(struct request_queue *q, struct bio *bio)
 #ifdef REQUEST_MERGING
 			traced_lock(&input->req_lock, flags);
 			for (tmp = input->plug_anchor.next; tmp != &input->plug_anchor; tmp = tmp->next) {
-				struct if_device_mars_ref_aspect *tmp_a;
-				tmp_a = container_of(tmp, struct if_device_mars_ref_aspect, plug_head);
+				struct if_device_mref_aspect *tmp_a;
+				tmp_a = container_of(tmp, struct if_device_mref_aspect, plug_head);
 				len = bv_len;
 #ifdef LOG
 				MARS_INF("bio = %p mref = %p len = %d maxlen = %d\n", bio, mref, len, tmp_a->maxlen);
@@ -225,12 +225,12 @@ static int if_device_make_request(struct request_queue *q, struct bio *bio)
 #endif
 			if (!mref) {
 				error = -ENOMEM;
-				mref = if_device_alloc_mars_ref(&brick->hidden_output, &input->mref_object_layout);
+				mref = if_device_alloc_mref(&brick->hidden_output, &input->mref_object_layout);
 				if (unlikely(!mref)) {
 					up(&input->kick_sem);
 					goto err;
 				}
-				mref_a = if_device_mars_ref_get_aspect(&brick->hidden_output, mref);
+				mref_a = if_device_mref_get_aspect(&brick->hidden_output, mref);
 				if (unlikely(!mref_a)) {
 					up(&input->kick_sem);
 					goto err;
@@ -248,7 +248,7 @@ static int if_device_make_request(struct request_queue *q, struct bio *bio)
 				//mref->ref_len = 512;
 				mref->ref_data = data; // direct IO
 
-				error = GENERIC_INPUT_CALL(input, mars_ref_get, mref);
+				error = GENERIC_INPUT_CALL(input, mref_get, mref);
 				if (unlikely(error < 0)) {
 					up(&input->kick_sem);
 					goto err;
@@ -338,17 +338,17 @@ static void if_device_unplug(struct request_queue *q)
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int if_device_mars_ref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+static int if_device_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
-	struct if_device_mars_ref_aspect *ini = (void*)_ini;
+	struct if_device_mref_aspect *ini = (void*)_ini;
 	//INIT_LIST_HEAD(&ini->tmp_head);
 	INIT_LIST_HEAD(&ini->plug_head);
 	return 0;
 }
 
-static void if_device_mars_ref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+static void if_device_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
 {
-	struct if_device_mars_ref_aspect *ini = (void*)_ini;
+	struct if_device_mref_aspect *ini = (void*)_ini;
 	//CHECK_HEAD_EMPTY(&ini->tmp_head);
 	CHECK_HEAD_EMPTY(&ini->plug_head);
 }
@@ -498,7 +498,7 @@ const struct if_device_output_type if_device_output_type = {
 	.output_construct = &if_device_output_construct,
 	.aspect_types = if_device_aspect_types,
 	.layout_code = {
-		[BRICK_OBJ_MARS_REF] = LAYOUT_ALL,
+		[BRICK_OBJ_MREF] = LAYOUT_ALL,
 	}
 };
 const struct if_device_brick_type if_device_brick_type = {

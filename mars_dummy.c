@@ -25,37 +25,37 @@ static int dummy_get_info(struct dummy_output *output, struct mars_info *info)
 	return GENERIC_INPUT_CALL(input, mars_get_info, info);
 }
 
-static int dummy_ref_get(struct dummy_output *output, struct mars_ref_object *mref)
+static int dummy_ref_get(struct dummy_output *output, struct mref_object *mref)
 {
 	struct dummy_input *input = output->brick->inputs[0];
-	return GENERIC_INPUT_CALL(input, mars_ref_get, mref);
+	return GENERIC_INPUT_CALL(input, mref_get, mref);
 }
 
-static void dummy_ref_put(struct dummy_output *output, struct mars_ref_object *mref)
+static void dummy_ref_put(struct dummy_output *output, struct mref_object *mref)
 {
 	struct dummy_input *input = output->brick->inputs[0];
-	GENERIC_INPUT_CALL(input, mars_ref_put, mref);
+	GENERIC_INPUT_CALL(input, mref_put, mref);
 }
 
-static void dummy_ref_io(struct dummy_output *output, struct mars_ref_object *mref)
+static void dummy_ref_io(struct dummy_output *output, struct mref_object *mref)
 {
 	struct dummy_input *input = output->brick->inputs[0];
-	GENERIC_INPUT_CALL(input, mars_ref_io, mref);
+	GENERIC_INPUT_CALL(input, mref_io, mref);
 }
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int dummy_mars_ref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+static int dummy_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
-	struct dummy_mars_ref_aspect *ini = (void*)_ini;
+	struct dummy_mref_aspect *ini = (void*)_ini;
 	(void)ini;
 	ini->my_own = 0;
 	return 0;
 }
 
-static void dummy_mars_ref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+static void dummy_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
 {
-	struct dummy_mars_ref_aspect *ini = (void*)_ini;
+	struct dummy_mref_aspect *ini = (void*)_ini;
 	(void)ini;
 }
 
@@ -83,9 +83,9 @@ static struct dummy_brick_ops dummy_brick_ops = {
 static struct dummy_output_ops dummy_output_ops = {
 	.make_object_layout = dummy_make_object_layout,
 	.mars_get_info = dummy_get_info,
-	.mars_ref_get = dummy_ref_get,
-	.mars_ref_put = dummy_ref_put,
-	.mars_ref_io = dummy_ref_io,
+	.mref_get = dummy_ref_get,
+	.mref_put = dummy_ref_put,
+	.mref_io = dummy_ref_io,
 };
 
 const struct dummy_input_type dummy_input_type = {
@@ -104,7 +104,7 @@ const struct dummy_output_type dummy_output_type = {
 	.output_construct = &dummy_output_construct,
 	.aspect_types = dummy_aspect_types,
 	.layout_code = {
-		[BRICK_OBJ_MARS_REF] = LAYOUT_ALL,
+		[BRICK_OBJ_MREF] = LAYOUT_ALL,
 	}
 };
 
