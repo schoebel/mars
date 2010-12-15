@@ -71,6 +71,7 @@ struct mars_ref_object_layout {
 	atomic_t ref_count;						\
         /* callback part */						\
 	struct generic_callback *ref_cb;				\
+	struct generic_callback _ref_cb;				\
 
 struct mars_ref_object {
 	MARS_REF_OBJECT(mars_ref);
@@ -168,9 +169,15 @@ GENERIC_ASPECT_FUNCTIONS(BRICK,mars_ref);			        \
 
 GENERIC_OBJECT_FUNCTIONS(mars_ref);
 
+// instantiate a pseudo base-class "mars"
+
+_MARS_TYPES(mars);
+GENERIC_OBJECT_LAYOUT_FUNCTIONS(mars);
+GENERIC_ASPECT_FUNCTIONS(mars,mars_ref);
+
 /////////////////////////////////////////////////////////////////////////
 
-// MARS-specific helper functions
+// MARS-specific helpers
 
 #define MARS_MAKE_STATICS(BRICK)					\
 									\
@@ -194,7 +201,7 @@ static const struct generic_aspect_type *BRICK##_aspect_types[BRICK_OBJ_NR] = {	
 		int test = atomic_read(atom);				\
 		if (test OP (minval)) {					\
 			atomic_set(atom, minval);			\
-			MARS_ERR("%d: atomic " #atom " " #OP " " #minval " (instead %d)\n", __LINE__, test); \
+			MARS_ERR("%d: atomic " #atom " " #OP " " #minval " (%d)\n", __LINE__, test); \
 		}							\
 	} while (0)
 

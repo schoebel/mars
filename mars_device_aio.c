@@ -70,7 +70,7 @@ static void device_aio_ref_put(struct device_aio_output *output, struct mars_ref
 	device_aio_free_mars_ref(mref);
 }
 
-static void device_aio_ref_io(struct device_aio_output *output, struct mars_ref_object *mref, int rw)
+static void device_aio_ref_io(struct device_aio_output *output, struct mars_ref_object *mref)
 {
 	struct aio_threadinfo *tinfo = &output->tinfo[0];
 	struct generic_callback *cb = mref->ref_cb;

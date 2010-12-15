@@ -15,12 +15,18 @@
 //#define CONF_TEST // use intermediate mars_check bricks
 
 #define CONF_AIO // use device_aio instead of device_sio
-#define CONF_BUF
+//#define CONF_BUF
 #define CONF_BUF_AHEAD // readahead optimization
-#define CONF_USEBUF
+//#define CONF_USEBUF
 //#define CONF_TRANS
-//#define CONF_TRANS_FLYING 1
+#define CONF_TRANS_LOG_READS false
+//#define CONF_TRANS_LOG_READS true
+#define CONF_TRANS_FLYING 32
+#define CONF_TRANS_MAX_QUEUE 1000
+#define CONF_TRANS_MAX_JIFFIES (5 * HZ)
 #define CONF_TRANS_SORT
+//#define CONF_TBUF
+
 //#define CONF_DIRECT // use O_DIRECT
 #define CONF_FDSYNC // use additional aio_fdsync
 
@@ -69,14 +75,11 @@ static struct buf_brick *_buf_brick = NULL;
 static struct generic_brick *device_brick = NULL;
 static struct device_sio_brick *_device_brick = NULL;
 
-static void test_endio(struct generic_callback *cb)
-{
-	MARS_DBG("test_endio() called! error=%d\n", cb->cb_error);
-}
-
 void make_test_instance(void)
 {
 	static char *names[] = { "brick" };
+	struct generic_output *first = NULL;
+	struct generic_output *inter = NULL;
 	struct generic_input *last = NULL;
 
 	void *brick(const void *_brick_type)
@@ -141,6 +144,7 @@ void make_test_instance(void)
 
 	MARS_DBG("starting....\n");
 
+	// first
 	device_brick = brick(&device_sio_brick_type);
 	_device_brick = (void*)device_brick;
 	device_brick->outputs[0]->output_name = "/tmp/testfile.img";
@@ -151,23 +155,21 @@ void make_test_instance(void)
 	_device_brick->outputs[0]->o_fdsync = true;
 #endif
 	device_brick->ops->brick_switch(device_brick, true);
+	first = device_brick->outputs[0];
 
+	// last
 	if_brick = brick(&if_device_brick_type);
+	last = if_brick->inputs[0];
 
 #ifdef CONF_USEBUF // usebuf zwischenschalten
 	usebuf_brick = brick(&usebuf_brick_type);
-
-	connect(if_brick->inputs[0], usebuf_brick->outputs[0]);
+	connect(last, usebuf_brick->outputs[0]);
 	last = usebuf_brick->inputs[0];
 #else
 	(void)usebuf_brick;
-	(void)tdevice_brick;
-	(void)_tdevice_brick;
-	last = if_brick->inputs[0];
 #endif
 
 #ifdef CONF_BUF // Standard-buf zwischenschalten
-
 	buf_brick = brick(&buf_brick_type);
 	_buf_brick = (void*)buf_brick;
 	_buf_brick->outputs[0]->output_name = "/tmp/testfile.img";
@@ -182,7 +184,14 @@ void make_test_instance(void)
 	_buf_brick->optimize_chains = true;
 #endif
 
-	connect(buf_brick->inputs[0], device_brick->outputs[0]);
+	connect(buf_brick->inputs[0], first);
+	first = buf_brick->outputs[0];
+
+#else // CONF_BUF
+	(void)buf_brick;
+	(void)_buf_brick;
+#endif // CONF_BUF
+
 
 #ifdef CONF_TRANS // trans_logger plus Infrastruktur zwischenschalten
 
@@ -196,7 +205,9 @@ void make_test_instance(void)
 	_tdevice_brick->outputs[0]->o_fdsync = true;
 #endif
 	tdevice_brick->ops->brick_switch(tdevice_brick, true);
+	inter = tdevice_brick->outputs[0];
 
+#ifdef CONF_TBUF
 	tbuf_brick = brick(&buf_brick_type);
 	_tbuf_brick = (void*)tbuf_brick;
 	_tbuf_brick->outputs[0]->output_name = "/tmp/testfile.log";
@@ -208,79 +219,42 @@ void make_test_instance(void)
 	_tbuf_brick->max_count = TRANS_MEM >> _tbuf_brick->backing_order;
 #endif
 
-	connect(tbuf_brick->inputs[0], tdevice_brick->outputs[0]);
+	connect(tbuf_brick->inputs[0], inter);
+	inter = tbuf_brick->outputs[0];
+#else
+	(void)tbuf_brick;
+	(void)_tbuf_brick;
+#endif // CONF_TBUF
 
 	trans_brick = brick(&trans_logger_brick_type);
 	_trans_brick = (void*)trans_brick;
-	//_trans_brick->log_reads = true;
-	_trans_brick->log_reads = false;
-	_trans_brick->allow_reads_after = HZ;
-	_trans_brick->max_queue = 1000;
-#ifdef CONF_TRANS_FLYING
+	_trans_brick->log_reads = CONF_TRANS_LOG_READS;
+	_trans_brick->outputs[0]->q_phase2.q_max_queued = CONF_TRANS_MAX_QUEUE;
+	_trans_brick->outputs[0]->q_phase4.q_max_queued = CONF_TRANS_MAX_QUEUE;
+	_trans_brick->outputs[0]->q_phase2.q_max_jiffies = CONF_TRANS_MAX_JIFFIES;
+	_trans_brick->outputs[0]->q_phase4.q_max_jiffies = CONF_TRANS_MAX_JIFFIES;
 	_trans_brick->outputs[0]->q_phase2.q_max_flying = CONF_TRANS_FLYING;
 	_trans_brick->outputs[0]->q_phase4.q_max_flying = CONF_TRANS_FLYING;
-#endif
 #ifdef CONF_TRANS_SORT
 	_trans_brick->outputs[0]->q_phase2.q_ordering = true;
 	_trans_brick->outputs[0]->q_phase4.q_ordering = true;
 #endif
 
-	connect(trans_brick->inputs[0], buf_brick->outputs[0]);
-	connect(trans_brick->inputs[1], tbuf_brick->outputs[0]);
+	connect(trans_brick->inputs[0], first);
+	connect(trans_brick->inputs[1], inter);
+	first = trans_brick->outputs[0];
 
-	connect(last, trans_brick->outputs[0]);
 #else // CONF_TRANS
 	(void)trans_brick;
 	(void)_trans_brick;
-	(void)tbuf_brick;
-	(void)_tbuf_brick;
-	(void)tdevice_brick;
-	connect(last, buf_brick->outputs[0]);
-#endif // CONF_TRANS
-
-	if (false) { // ref-counting no longer valid
-		struct buf_output *output = _buf_brick->outputs[0];
-		struct mars_ref_object *mref = NULL;
-		struct generic_object_layout ol = {};
-
-		mref = generic_alloc_mars_ref((struct generic_output*)output, &ol);
-
-		if (mref) {
-			int status;
-			mref->ref_pos = 0;
-			mref->ref_len = PAGE_SIZE;
-			mref->ref_may_write = READ;
-
-			status = GENERIC_OUTPUT_CALL(output, mars_ref_get, mref);
-			MARS_DBG("buf_get (status=%d)\n", status);
-			if (true) {
-				struct generic_callback cb = {
-					.cb_fn = test_endio,
-				};
-				mref->ref_cb = &cb;
-
-				GENERIC_OUTPUT_CALL(output, mars_ref_io, mref);
-				status = cb.cb_error;
-				MARS_DBG("buf_io (status=%d)\n", status);
-			}
-			GENERIC_OUTPUT_CALL(output, mars_ref_put, mref);
-		}
-	}
-
-#else // CONF_BUF
-
-	(void)trans_brick;
-	(void)_trans_brick;
-	(void)buf_brick;
-	(void)_buf_brick;
-	(void)tbuf_brick;
-	(void)_tbuf_brick;
 	(void)tdevice_brick;
 	(void)_tdevice_brick;
-	(void)test_endio;
-	connect(last, device_brick->outputs[0]);
+	(void)inter;
+	(void)tbuf_brick;
+	(void)_tbuf_brick;
+#endif // CONF_TRANS
 
-#endif // CONF_BUF
+	connect(last, first);
 
 	msleep(200);
 

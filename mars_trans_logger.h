@@ -4,17 +4,11 @@
 
 #define REGION_SIZE_BITS 22
 #define REGION_SIZE (1 << REGION_SIZE_BITS)
-#define TRANS_HASH_MAX 32
+#define TRANS_HASH_MAX 128
 
 #include <linux/time.h>
+#include "log_format.h"
 #include "pairing_heap.h"
-
-struct log_header {
-	struct timespec l_stamp;
-	loff_t l_pos;
-	int    l_len;
-	int    l_code;
-};
 
 ////////////////////////////////////////////////////////////////////
 
@@ -28,9 +22,11 @@ struct logger_queue {
 	spinlock_t q_lock;
 	atomic_t q_queued;
 	atomic_t q_flying;
-	int q_last_action; // jiffies
+	long long q_last_action; // jiffies
 	// tunables
+	int q_max_queued;
 	int q_max_flying;
+	int q_max_jiffies;
 	bool q_ordering;
 };
 
@@ -43,12 +39,12 @@ struct hash_anchor {
 
 struct trans_logger_mars_ref_aspect {
 	GENERIC_ASPECT(mars_ref);
+	struct trans_logger_output *output;
 	struct list_head hash_head;
 	struct list_head q_head;
 	struct pairing_heap_mref ph;
 	struct trans_logger_mars_ref_aspect *shadow_ref;
-	void *orig_data;
-	struct trans_logger_output *output;
+	void   *orig_data;
 	struct timespec stamp;
 	struct generic_callback cb;
 	struct trans_logger_mars_ref_aspect *orig_mref_a;
@@ -56,11 +52,10 @@ struct trans_logger_mars_ref_aspect {
 
 struct trans_logger_brick {
 	MARS_BRICK(trans_logger);
+	struct log_status logst;
 	// parameters
 	bool log_reads;
-	int allow_reads_after; // phase2 and later is only started after this time (in jiffies)
 	int limit_congest;     // limit phase1 congestion.
-	int max_queue;    // delay phase2 & later only if this number of waiting requests is not exceeded
 };
 
 struct trans_logger_output {
@@ -79,15 +74,6 @@ struct trans_logger_output {
 
 struct trans_logger_input {
 	MARS_INPUT(trans_logger);
-	struct mars_info info;
-	loff_t log_pos;
-	struct mars_ref_object *log_mref;
-	int validflag_offset;
-	int reallen_offset;
-	int payload_offset;
-	int payload_len;
-	struct trans_logger_output hidden_output;
-	struct generic_object_layout ref_object_layout;
 };
 
 MARS_TYPES(trans_logger);
