@@ -54,8 +54,14 @@ struct trans_logger_brick {
 	MARS_BRICK(trans_logger);
 	struct log_status logst;
 	// parameters
-	bool log_reads;
-	int limit_congest;     // limit phase1 congestion.
+	int sequence;     // logfile sequence number
+	int limit_congest;// limit phase1 congestion.
+	bool do_replay;   // mode of operation
+	bool log_reads;   // additionally log pre-images
+	loff_t start_pos; // where to start replay
+	loff_t end_pos;   // end of replay
+	// readonly from outside
+	loff_t current_pos; // current replay position
 };
 
 struct trans_logger_output {

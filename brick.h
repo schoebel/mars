@@ -2,8 +2,10 @@
 #ifndef BRICK_H
 #define BRICK_H
 
+#include <linux/list.h>
 #include <linux/spinlock.h>
 #include <linux/sched.h>
+#include <linux/wait.h>
 
 #ifdef _STRATEGY
 #define _STRATEGY_CODE(X) X
@@ -13,14 +15,16 @@
 #define _NORMAL_CODE(X) X
 #endif
 
-#define BRICK_ERROR "BRICK_ERROR " __BASE_FILE__ ": "
-#define BRICK_INFO  "BRICK_INFO  " __BASE_FILE__ ": "
-#define BRICK_DEBUG "BRICK_DEBUG " __BASE_FILE__ ": "
+#define BRICK_ERROR "BRICK_ERROR "
+#define BRICK_INFO  "BRICK_INFO  "
+#define BRICK_DEBUG "BRICK_DEBUG "
+//#define _BRICK_FMT(fmt) "[%s] " __BASE_FILE__ " %d %s(): " fmt, current->comm, __LINE__, __FUNCTION__
+#define _BRICK_FMT(fmt) __BASE_FILE__ " %d %s(): " fmt, __LINE__, __FUNCTION__
 
-#define BRICK_ERR(fmt, args...) printk(BRICK_ERROR "%s(): " fmt, __FUNCTION__, ##args)
-#define BRICK_INF(fmt, args...) printk(BRICK_INFO  "%s(): " fmt, __FUNCTION__, ##args)
+#define BRICK_ERR(fmt, args...) printk(BRICK_ERROR _BRICK_FMT(fmt), ##args)
+#define BRICK_INF(fmt, args...) printk(BRICK_INFO  _BRICK_FMT(fmt), ##args)
 #ifdef BRICK_DEBUGGING
-#define BRICK_DBG(fmt, args...) printk(BRICK_DEBUG "%s(): " fmt, __FUNCTION__, ##args)
+#define BRICK_DBG(fmt, args...) printk(BRICK_DEBUG _BRICK_FMT(fmt), ##args)
 #else
 #define BRICK_DBG(args...) /**/
 #endif
@@ -120,14 +124,23 @@ struct generic_brick_ops;
 struct generic_output_ops;
 struct generic_brick_type;
 
+struct generic_switch {
+	bool button;
+	bool led_on;
+	bool led_off;
+	bool trigger;
+	wait_queue_head_t event;
+};
+
 #define GENERIC_BRICK(BRICK)						\
-	char *brick_name;						\
+	const char *brick_name;						\
 	const struct BRICK##_brick_type *type;				\
 	struct BRICK##_brick_ops *ops;					\
 	int nr_inputs;							\
 	int nr_outputs;							\
 	struct BRICK##_input **inputs;					\
 	struct BRICK##_output **outputs;				\
+	struct generic_switch power;					\
 	struct list_head tmp_head;					\
 
 struct generic_brick {
@@ -135,7 +148,7 @@ struct generic_brick {
 };
 
 #define GENERIC_INPUT(BRICK)						\
-	char *input_name;						\
+	const char *input_name;						\
 	struct BRICK##_brick *brick;					\
 	const struct BRICK##_input_type *type;				\
 	struct BRICK##_output *connect;					\
@@ -146,7 +159,7 @@ struct generic_input {
 };
 
 #define GENERIC_OUTPUT(BRICK)						\
-	char *output_name;						\
+	const char *output_name;					\
 	struct BRICK##_brick *brick;					\
 	const struct BRICK##_output_type *type;				\
 	struct BRICK##_output_ops *ops;					\
@@ -176,7 +189,7 @@ struct generic_output {
 	)
 
 #define GENERIC_BRICK_OPS(BRICK)					\
-	int (*brick_switch)(struct BRICK##_brick *brick, bool state);	\
+	int (*brick_switch)(struct BRICK##_brick *brick);		\
 	
 struct generic_brick_ops {
 	GENERIC_BRICK_OPS(generic);
@@ -193,14 +206,14 @@ struct generic_output_ops {
 
 // although possible, *_type should never be extended
 #define GENERIC_BRICK_TYPE(BRICK)					\
-	char *type_name;						\
+	const char *type_name;						\
 	int brick_size;							\
 	int max_inputs;							\
 	int max_outputs;						\
 	const struct BRICK##_input_type **default_input_types;		\
-	char **default_input_names;					\
+	const char **default_input_names;				\
 	const struct BRICK##_output_type **default_output_types;	\
-	char **default_output_names;					\
+	const char **default_output_names;				\
 	struct BRICK##_brick_ops *master_ops;				\
 	const struct BRICK##_input_types **default_type;		\
 	int (*brick_construct)(struct BRICK##_brick *brick);		\
@@ -242,7 +255,7 @@ struct generic_output_type {
 int generic_register_brick_type(const struct generic_brick_type *new_type);
 int generic_unregister_brick_type(const struct generic_brick_type *old_type);
 
-extern inline void _generic_output_init(struct generic_brick *brick, const struct generic_output_type *type, struct generic_output *output, char *output_name)
+inline void _generic_output_init(struct generic_brick *brick, const struct generic_output_type *type, struct generic_output *output, const char *output_name)
 {
 	output->output_name = output_name;
 	output->brick = brick;
@@ -254,18 +267,22 @@ extern inline void _generic_output_init(struct generic_brick *brick, const struc
 #ifdef _STRATEGY // call this only in strategy bricks, never in ordinary bricks
 
 // you need this only if you circumvent generic_brick_init_full()
-extern inline int generic_brick_init(const struct generic_brick_type *type, struct generic_brick *brick, char *brick_name)
+inline int generic_brick_init(const struct generic_brick_type *type, struct generic_brick *brick, const char *brick_name)
 {
 	brick->brick_name = brick_name;
 	brick->type = type;
 	brick->ops = type->master_ops;
 	brick->nr_inputs = 0;
 	brick->nr_outputs = 0;
+	brick->power.led_off = true;
+	//brick->power.event = __WAIT_QUEUE_HEAD_INITIALIZER(brick->power.event);
+	init_waitqueue_head(&brick->power.event);
+	//INIT_LIST_HEAD(&brick->tmp_head);
 	brick->tmp_head.next = brick->tmp_head.prev = &brick->tmp_head;
 	return 0;
 }
 
-extern inline int generic_input_init(struct generic_brick *brick, int index, const struct generic_input_type *type, struct generic_input *input, char *input_name)
+inline int generic_input_init(struct generic_brick *brick, int index, const struct generic_input_type *type, struct generic_input *input, const char *input_name)
 {
 	if (index < 0 || index >= brick->type->max_inputs)
 		return -ENOMEM;
@@ -280,7 +297,7 @@ extern inline int generic_input_init(struct generic_brick *brick, int index, con
 	return 0;
 }
 
-extern inline int generic_output_init(struct generic_brick *brick, int index, const struct generic_output_type *type, struct generic_output *output, char *output_name)
+inline int generic_output_init(struct generic_brick *brick, int index, const struct generic_output_type *type, struct generic_output *output, const char *output_name)
 {
 	if (index < 0 || index >= brick->type->max_outputs)
 		return -ENOMEM;
@@ -292,7 +309,7 @@ extern inline int generic_output_init(struct generic_brick *brick, int index, co
 	return 0;
 }
 
-extern inline int generic_size(const struct generic_brick_type *brick_type)
+inline int generic_size(const struct generic_brick_type *brick_type)
 {
 	int size = brick_type->brick_size;
 	int i;
@@ -316,12 +333,12 @@ int generic_brick_init_full(
 	const struct generic_brick_type *brick_type,
 	const struct generic_input_type **input_types,
 	const struct generic_output_type **output_types,
-	char **names);
+	const char **names);
 
 int generic_brick_exit_full(
 	struct generic_brick *brick);
 
-extern inline int generic_connect(struct generic_input *input, struct generic_output *output)
+inline int generic_connect(struct generic_input *input, struct generic_output *output)
 {
 	BRICK_DBG("generic_connect(input=%p, output=%p)\n", input, output);
 	if (!input || !output)
@@ -334,7 +351,7 @@ extern inline int generic_connect(struct generic_input *input, struct generic_ou
 	return 0;
 }
 
-extern inline int generic_disconnect(struct generic_input *input)
+inline int generic_disconnect(struct generic_input *input)
 {
 	BRICK_DBG("generic_disconnect(input=%p)\n", input);
 	if (!input)
@@ -426,14 +443,14 @@ static inline int BRICK##_output_init(struct BRICK##_brick *brick, int index, st
 									\
 _STRATEGY_CODE(							        \
 									\
-extern inline int INPUT_BRICK##_##OUTPUT_BRICK##_connect(	        \
+inline int INPUT_BRICK##_##OUTPUT_BRICK##_connect(	        \
 	struct INPUT_BRICK##_input *input,				\
 	struct OUTPUT_BRICK##_output *output)				\
 {									\
 	return generic_connect((struct generic_input*)input, (struct generic_output*)output); \
 }									\
 									\
-extern inline int INPUT_BRICK##_##OUTPUT_BRICK####_disconnect(        \
+inline int INPUT_BRICK##_##OUTPUT_BRICK####_disconnect(        \
 	struct INPUT_BRICK##_input *input)				\
 {									\
 	return generic_disconnect((struct generic_input*)input);	\
@@ -456,7 +473,7 @@ extern void free_generic(struct generic_object *object);
 
 #define GENERIC_OBJECT_LAYOUT_FUNCTIONS(BRICK)				\
 									\
-extern inline int BRICK##_init_object_layout(struct BRICK##_output *output, struct generic_object_layout *object_layout, int aspect_max, const struct generic_object_type *object_type) \
+inline int BRICK##_init_object_layout(struct BRICK##_output *output, struct generic_object_layout *object_layout, int aspect_max, const struct generic_object_type *object_type) \
 {									\
 	if (likely(object_layout->object_type))				\
 		return 0;						\
@@ -465,7 +482,7 @@ extern inline int BRICK##_init_object_layout(struct BRICK##_output *output, stru
 
 #define GENERIC_ASPECT_LAYOUT_FUNCTIONS(BRICK,TYPE)			\
 									\
-extern inline int BRICK##_##TYPE##_add_aspect(struct BRICK##_output *output, struct TYPE##_object_layout *object_layout, const struct generic_aspect_type *aspect_type) \
+inline int BRICK##_##TYPE##_add_aspect(struct BRICK##_output *output, struct TYPE##_object_layout *object_layout, const struct generic_aspect_type *aspect_type) \
 {									\
 	int res = generic_add_aspect((struct generic_output*)output, (struct generic_object_layout *)object_layout, aspect_type); \
 	BRICK_DBG(#BRICK " " #TYPE "added aspect_type %p (%s) to object_layout %p (type %s) on output %p (type %s), status=%d\n", aspect_type, aspect_type->aspect_type_name, object_layout, object_layout->object_type->object_type_name, output, output->type->type_name, res); \
@@ -474,7 +491,7 @@ extern inline int BRICK##_##TYPE##_add_aspect(struct BRICK##_output *output, str
 
 #define GENERIC_OBJECT_FUNCTIONS(TYPE)					\
 									\
-extern inline struct TYPE##_object *TYPE##_construct(void *data, struct TYPE##_object_layout *object_layout) \
+inline struct TYPE##_object *TYPE##_construct(void *data, struct TYPE##_object_layout *object_layout) \
 {									\
 	struct TYPE##_object *obj = data;				\
 	int i;								\
@@ -504,7 +521,7 @@ extern inline struct TYPE##_object *TYPE##_construct(void *data, struct TYPE##_o
 	return obj;							\
 }									\
 									\
-extern inline void TYPE##_destruct(struct TYPE##_object *obj)	        \
+inline void TYPE##_destruct(struct TYPE##_object *obj)	        \
 {									\
 	struct TYPE##_object_layout *object_layout = obj->object_layout; \
 	int i;								\
@@ -532,7 +549,7 @@ extern inline void TYPE##_destruct(struct TYPE##_object *obj)	        \
 
 #define GENERIC_ASPECT_FUNCTIONS(BRICK,TYPE)				\
 									\
-extern inline struct BRICK##_##TYPE##_aspect *BRICK##_##TYPE##_get_aspect(struct BRICK##_output *output, struct TYPE##_object *obj) \
+inline struct BRICK##_##TYPE##_aspect *BRICK##_##TYPE##_get_aspect(struct BRICK##_output *output, struct TYPE##_object *obj) \
 {									\
 	struct generic_object_layout *object_layout;			\
 	struct generic_aspect_layout *aspect_layout;			\
@@ -548,12 +565,12 @@ extern inline struct BRICK##_##TYPE##_aspect *BRICK##_##TYPE##_get_aspect(struct
 	return (void*)obj + aspect_layout->aspect_offset;		\
 }									\
 									\
-extern inline int BRICK##_##TYPE##_init_object_layout(struct BRICK##_output *output, struct generic_object_layout *object_layout) \
+inline int BRICK##_##TYPE##_init_object_layout(struct BRICK##_output *output, struct generic_object_layout *object_layout) \
 {									\
 	return BRICK##_init_object_layout(output, object_layout, 32, &TYPE##_type); \
 }									\
 									\
-extern inline struct TYPE##_object *BRICK##_alloc_##TYPE(struct BRICK##_output *output, struct generic_object_layout *object_layout) \
+inline struct TYPE##_object *BRICK##_alloc_##TYPE(struct BRICK##_output *output, struct generic_object_layout *object_layout) \
 {									\
 	int status = BRICK##_##TYPE##_init_object_layout(output, object_layout);	\
 	if (status < 0)							\
@@ -561,12 +578,12 @@ extern inline struct TYPE##_object *BRICK##_alloc_##TYPE(struct BRICK##_output *
 	return (struct TYPE##_object*)alloc_generic(object_layout);	\
 }									\
 									\
-extern inline struct TYPE##_object *BRICK##_alloc_##TYPE##_pure(struct generic_object_layout *object_layout) \
+inline struct TYPE##_object *BRICK##_alloc_##TYPE##_pure(struct generic_object_layout *object_layout) \
 {									\
 	return (struct TYPE##_object*)alloc_generic(object_layout);	\
 }									\
 									\
-extern inline void BRICK##_free_##TYPE(struct TYPE##_object *object)     \
+inline void BRICK##_free_##TYPE(struct TYPE##_object *object)     \
 {									\
 	free_generic((struct generic_object*)object);			\
 }									\
@@ -577,12 +594,19 @@ GENERIC_OBJECT_FUNCTIONS(generic);
 
 ///////////////////////////////////////////////////////////////////////
 
-// some helpers
+// some general helpers
 
+extern void get_lamport(struct timespec *now);
+extern void set_lamport(struct timespec *old);
+
+
+
+#if 0
 #undef spin_lock_irqsave
 #define spin_lock_irqsave(l,f)       spin_lock(l)
 #undef spin_unlock_irqrestore
 #define spin_unlock_irqrestore(l,f)  spin_unlock(l)
+#endif
 
 #ifdef CONFIG_DEBUG_SPINLOCK
 
@@ -654,4 +678,89 @@ GENERIC_OBJECT_FUNCTIONS(generic);
 # define traced_writeunlock(spinlock,flags) write_unlock_irqrestore(spinlock,flags)
 
 #endif
+
+extern void set_button(struct generic_switch *sw, bool val);
+extern void set_led_on(struct generic_switch *sw, bool val);
+extern void set_led_off(struct generic_switch *sw, bool val);
+
+/////////////////////////////////////////////////////////////////////////
+
+// metadata descriptions
+
+/* The idea is to describe your C structures in such a way that
+ * transfers to disk or over a network become self-describing.
+ *
+ * In essence, this is a kind of version-independent marshalling.
+ *
+ * Advantage:
+ * When you extend your original C struct (and of course update the
+ * corresponding meta structure), old data on disk (or network peers
+ * running an old version of your program) will remain valid.
+ * Upon read, newly added fields missing in the old version will be simply
+ * not filled in and therefore remain zeroed (if you don't forget to
+ * initially clear your structures via memset() / initializers / etc).
+ * Note that this works only if you never rename or remove existing
+ * fields; you should only add new ones.
+ * [TODO: add macros for description of ignored / renamed fields to
+ *  overcome this limitation]
+ * You may increase the size of integers, for example from 32bit to 64bit
+ * or even higher; sign extension will be automatically carried out
+ * when necessary.
+ * [TODO; NYI]
+ * Also, you may change the order of fields, because the metadata interpreter
+ * will check each field individually; field offsets are automatically
+ * maintained.
+ *
+ * Disadvantage: this adds some (small) overhead.
+ */
+
+#define MAX_FIELD_LEN 24
+
+enum field_type {
+	FIELD_DONE,
+	FIELD_REF,
+	FIELD_SUB,
+	FIELD_STRING,
+	FIELD_RAW,
+	FIELD_INT,
+	FIELD_UINT,
+};
+
+struct meta {
+	char  field_name[MAX_FIELD_LEN];
+	int   field_type;
+	int   field_size;
+	int   field_offset;
+	const struct meta *field_ref;
+};
+
+#define _META_INI(NAME,STRUCT,TYPE)					\
+	.field_name = #NAME,						\
+	.field_type = TYPE,					        \
+	.field_size = sizeof(((STRUCT*)NULL)->NAME),		        \
+	.field_offset = offsetof(STRUCT, NAME)			        \
+
+#define META_INI(NAME,STRUCT,TYPE) { _META_INI(NAME,STRUCT,TYPE) }
+
+#define _META_INI_REF(NAME,STRUCT,REF)					\
+	.field_name = #NAME,						\
+	.field_type = FIELD_REF,				        \
+	.field_size = sizeof(*(((STRUCT*)NULL)->NAME)),		        \
+	.field_offset = offsetof(STRUCT, NAME),			        \
+	.field_ref = REF
+
+#define META_INI_REF(NAME,STRUCT,REF) { _META_INI_REF(NAME,STRUCT,REF) }
+
+#define _META_INI_SUB(NAME,STRUCT,SUB)					\
+	.field_name = #NAME,						\
+	.field_type = FIELD_SUB,				        \
+	.field_size = sizeof(((STRUCT*)NULL)->NAME),		        \
+	.field_offset = offsetof(STRUCT, NAME),			        \
+	.field_ref = SUB
+
+#define META_INI_SUB(NAME,STRUCT,SUB) { _META_INI_SUB(NAME,STRUCT,SUB) }
+
+extern const struct meta *find_meta(const struct meta *meta, const char *field_name);
+extern void free_meta(void *data, const struct meta *meta);
+
 #endif

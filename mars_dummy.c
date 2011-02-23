@@ -43,13 +43,28 @@ static void dummy_ref_io(struct dummy_output *output, struct mref_object *mref)
 	GENERIC_INPUT_CALL(input, mref_io, mref);
 }
 
+static int dummy_switch(struct dummy_brick *brick)
+{
+	if (brick->power.button) {
+		mars_power_led_off((void*)brick, false);
+		//...
+		mars_power_led_on((void*)brick, true);
+	} else {
+		mars_power_led_on((void*)brick, false);
+		//...
+		mars_power_led_off((void*)brick, true);
+	}
+	return 0;
+}
+
+
 //////////////// object / aspect constructors / destructors ///////////////
 
 static int dummy_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
 	struct dummy_mref_aspect *ini = (void*)_ini;
 	(void)ini;
-	ini->my_own = 0;
+	//ini->my_own = 0;
 	return 0;
 }
 
@@ -65,19 +80,30 @@ MARS_MAKE_STATICS(dummy);
 
 static int dummy_brick_construct(struct dummy_brick *brick)
 {
-	brick->my_own = 0;
+	//brick->my_own = 0;
+	return 0;
+}
+
+static int dummy_brick_destruct(struct dummy_brick *brick)
+{
 	return 0;
 }
 
 static int dummy_output_construct(struct dummy_output *output)
 {
-	output->my_own = 0;
+	//output->my_own = 0;
+	return 0;
+}
+
+static int dummy_output_destruct(struct dummy_output *output)
+{
 	return 0;
 }
 
 ///////////////////////// static structs ////////////////////////
 
 static struct dummy_brick_ops dummy_brick_ops = {
+	.brick_switch = dummy_switch,
 };
 
 static struct dummy_output_ops dummy_output_ops = {
@@ -102,6 +128,7 @@ const struct dummy_output_type dummy_output_type = {
 	.output_size = sizeof(struct dummy_output),
 	.master_ops = &dummy_output_ops,
 	.output_construct = &dummy_output_construct,
+	.output_destruct = &dummy_output_destruct,
 	.aspect_types = dummy_aspect_types,
 	.layout_code = {
 		[BRICK_OBJ_MREF] = LAYOUT_ALL,
@@ -121,6 +148,7 @@ const struct dummy_brick_type dummy_brick_type = {
 	.default_input_types = dummy_input_types,
 	.default_output_types = dummy_output_types,
 	.brick_construct = &dummy_brick_construct,
+	.brick_destruct = &dummy_brick_destruct,
 };
 EXPORT_SYMBOL_GPL(dummy_brick_type);
 
@@ -128,13 +156,13 @@ EXPORT_SYMBOL_GPL(dummy_brick_type);
 
 static int __init init_dummy(void)
 {
-	printk(MARS_INFO "init_dummy()\n");
+	MARS_INF("init_dummy()\n");
 	return dummy_register_brick_type();
 }
 
 static void __exit exit_dummy(void)
 {
-	printk(MARS_INFO "exit_dummy()\n");
+	MARS_INF("exit_dummy()\n");
 	dummy_unregister_brick_type();
 }
 

@@ -1,0 +1,279 @@
+#!/usr/bin/perl -w
+# (c) 2010 Thomas Schoebel-Theuer / 1&1 Internet AG
+
+use strict;
+use English;
+use warnings;
+
+my $mars = "/mars";
+my $host = `uname -n` or die "cannot determine my network node name\n";
+chomp $host;
+my $ip = `ip a` or die "cannot determine my IP address\n";
+$ip =~ s/\A.*inet +(?!127\.0\.)([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+).*\Z/$1/ms or die "cannot parse my IP address\n";
+
+##################################################################
+
+# syntactic checks
+
+sub check_id {
+  my $str = shift;
+  die "identifier '$str' has disallowed characters" unless $str =~ m/^[A-Za-z_][A-Za-z0-9_]*$/;
+  die "identifier '$str' is too long (only 16 chars allowed)" if length($str) > 16;
+}
+
+##################################################################
+
+# semantic checks
+
+sub check_res {
+  my $res = shift;
+  die "resource '$res' does not exist\n" unless -d "$mars/$res";
+}
+
+sub check_size {
+  my $arg = shift;
+  return -1 unless $arg =~ m/^[0-9.]+[kmgtp]?$/i;
+  my $mod = $arg;
+  $arg =~ s/[^0-9]+$//;
+  $mod =~ s/^[0-9]+//;
+  $_ = $mod;
+ SWITCH: {
+    /k/i and $arg *= 1024, last SWITCH;
+    /m/i and $arg *= 1024 * 1024, last SWITCH;
+    /g/i and $arg *= 1024 * 1024 * 1024, last SWITCH;
+    /t/i and $arg *= 1024 * 1024 * 1024 * 1024, last SWITCH;
+    /p/i and $arg *= 1024 * 1024 * 1024 * 1024 * 1024, last SWITCH;
+  }
+  return $arg;
+}
+
+##################################################################
+
+# commands
+
+sub ignore_cmd {
+  my ($cmd, $res) = @_;
+  print "ignoring command '$cmd' on resource '$res'\n";
+  exit(0);
+}
+
+sub senseless_cmd {
+  my ($cmd, $res) = @_;
+  print "command '$cmd' makes no sense with MARS (ignoring)\n";
+  exit(0);
+}
+
+sub forbidden_cmd {
+  my ($cmd, $res) = @_;
+  die "command '$cmd' cannot be used with MARS (it is impossible to carry out uniquely and could therefore lead to a disaster)\n";
+}
+
+sub nyi_cmd {
+  my ($cmd, $res) = @_;
+  die "command '$cmd' is not yet implemented\n";
+}
+
+sub join_system {
+  my ($cmd, $peer, $force) = @_;
+  if(-e glob("$mars/resource-*")) {
+    die "Sorry, some resources already exist!\nThis is dangerous!\nIf you are sure that no resource clash is possible, re-invoke this command with '--force' option\n" unless ($force and $force =~ m/--force/);
+  }
+  print "joining system via rsync (peer='$peer')\n";
+  system("mkdir $mars") unless -d $mars;
+  system("mkdir $mars/ips") unless -d "$mars/ips";
+  system("rsync --recursive --links -v $peer:$mars/ips/ $mars/ips/") == 0 or die "oops\n";
+  symlink($ip, "$mars/ips/ip-$host");
+}
+
+sub create_res {
+  my ($cmd, $res, $dev, $appear) = @_;
+  my $create = ($cmd eq "create-resource");
+
+  die "undefined device or size argument\n" unless $dev;
+  die "resource '$res' already exists\n" if -d "$mars/resource-$res";
+  check_id($appear) if $appear;
+
+  if($create) {
+    print "creating new resource '$res'\n";
+  } else {
+    print "joining to existing resource '$res'\n";
+  }
+
+  my $size = check_size($dev);
+  if($size > 0) {
+    $dev = "";
+  } else {
+    die "block device '$dev' does not exist\n" unless -b $dev;
+    die "block device '$dev' must be an absolute path starting with '/'\n" unless $dev =~ m/^\//;
+  }
+
+  my $tmp = "$mars/.tmp.$res";
+  my $primary;
+  if($create) {
+    system("mkdir $mars") unless -d $mars;
+    system("mkdir $mars/ips") unless -d "$mars/ips";
+    symlink($ip, "$mars/ips/ip-$host");
+    system("rm -rf $tmp");
+    system("mkdir $tmp") == 0 or die "could not create resource '$res'\n";
+  } else {
+    $primary = readlink("$tmp/primary") or die "cannot determine primary\n";
+    $tmp = "$mars/resource-$res";
+    die "resource '$res' does not exist\n" unless -d $tmp;
+    die "resource '$res' is already joined\n" if -e "$tmp/data-$host";
+    die "my ip '$ip' is not registered -- please run 'join-system' first\n" unless -l "$mars/ips/ip-$host";
+  }
+
+  my $file = "$tmp/data-$host";
+  if($size > 0) {
+    print "creating sparse file '$file' with size $size\n";
+    open(OUT, ">$file") or die "could not open '$file'\n";
+    use Fcntl 'SEEK_SET';
+    sysseek(OUT, $size-1, SEEK_SET) == $size-1 or die "could not seek\n";
+    syswrite(OUT, '\0', 1) == 1 or die "cannot init sparse file\n";
+    close OUT;
+  } else {
+    print "using existing device '$dev'\n";
+    symlink($dev, $file) or die "cannot create device symlink\n";
+  }
+  if($appear) {
+    # TODO: check for uniqeness of $appear
+    print "resource '$res' will appear as local device '/dev/mars/$appear'\n";
+    system("rm -f $tmp/device-$host");
+    symlink($appear, "$tmp/device-$host") or die "cannot create symlink for local device appearance\n";
+  }
+  
+  if($create) {
+    symlink($host, "$tmp/primary") or die "cannot create primary symlink\n";
+    symlink("log-000000001-$host,0", "$tmp/replay-$host") or die "cannot create replay status\n";
+    rename($tmp, "$mars/resource-$res") or die "cannot finalize resource '$res'\n";
+    print "successfully created resource '$res'\n";
+  } else {
+    system("rm -f $tmp/syncstatus-$host");
+    symlink("0", "$tmp/syncstatus-$host") or die "cannot start initial sync\n";
+    system("rm -f $tmp/connect-$host");
+    symlink($primary, "$tmp/connect-$host") or die "cannot create peer symlink\n";
+    symlink($host, "$tmp/connect-$primary") unless ( -l "$tmp/connect-$primary" or -l "$tmp/off.connect-$primary" );
+    print "successfully joined resource '$res'\n";
+  }
+}
+
+sub attach_res {
+  my ($cmd, $res) = @_;
+  my $detach = ($cmd eq "detach");
+  if($detach) {
+    die "resource '$res' is not attached\n" unless -l "$mars/$res/data-$host";
+    rename("$mars/$res/data-$host", "$mars/$res/off.data-$host") or die "operation failed\n";
+  } else {
+    die "resource '$res' is not detached\n" unless -l "$mars/$res/off.data-$host";
+    rename("$mars/$res/off.data-$host", "$mars/$res/data-$host") or die "operation failed\n";
+  }
+}
+
+sub connect_res {
+  my ($cmd, $res) = @_;
+  my $disconnect = ($cmd eq "disconnect");
+  my $src = "off.";
+  my $dst = "";
+  if($disconnect) {
+    $dst = $src;
+    $src = "";
+  }
+  rename("$mars/$res/${src}connect-$host", "$mars/$res/${dst}connect-$host");
+}
+
+sub up_res {
+  my ($cmd, $res) = @_;
+  my $down = ($cmd eq "down");
+  if($down) {
+    connect_res("disconnect", $res);
+    attach_res("detach", $res);
+  } else {
+    attach_res("attach", $res);
+    connect_res("connect", $res);
+  }
+}
+
+sub primary_res {
+  my ($cmd, $res) = @_;
+  my $sec = ($cmd eq "secondary");
+  my $pri = "$mars/$res/primary";
+  my $old = readlink($pri) or die "cannot determine current primary\n";
+  if($sec) {
+    die "for safety reasons, switching to secondary is only allowed when I am primary\n" if($old ne $host);
+    $host = "(none)";
+  } elsif($old eq $host) {
+    print "I am already primary.\n";
+    exit(0);
+  }
+
+  # TODO: check whether we can switch without interrupting service....
+
+  my $tmp = "$mars/$res/.tmp.primary";
+  system("rm -f $tmp");
+  symlink($host, $tmp) or die "cannot create new primary symlink\n";
+  rename($tmp, $pri) or die "cannot install new primary symlink\n";
+  print "primary changed from '$old' to '$host'\n";
+}
+
+sub role_cmd {
+  my ($cmd, $res) = @_;
+  my $pri = "$mars/$res/primary";
+  my $old = readlink($pri) or die "cannot determine current primary\n";
+  if($old eq $host) {
+    print "primary\n";
+  } else {
+    print "secondary\n";
+  }
+}
+
+##################################################################
+
+my %cmd_table =
+  (
+   # new keywords
+   "join-system" => \&join_system,
+   "create-resource" => \&create_res,
+   "join-resource" => \&create_res,
+
+   # compatible keywords
+   "attach" => \&attach_res,
+   "detach" => \&attach_res,
+   "connect" => \&connect_res,
+   "disconnect" => \&connect_res,
+   "syncer" => \&ignore_cmd,
+   "up" => \&up_res,
+   "down" => \&up_res,
+   "primary" => \&primary_res,
+   "secondary" => \&primary_res,
+   "invalidate" => \&nyi_cmd,
+   "invalidate-remote" => \&forbidden_cmd,
+   "resize" => \&nyi_cmd,
+   "create-md" => \&senseless_cmd,
+   "get-gi" => \&ignore_cmd,
+   "show-gi" => \&ignore_cmd,
+   "dump-md" => \&senseless_cmd,
+   "outdate" => \&ignore_cmd,
+   "adjust" => \&senseless_cmd,
+   "wait-connect" => \&nyi_cmd,
+   "role" => \&role_cmd,
+   "state" => \&role_cmd,
+   "cstate" => \&nyi_cmd,
+   "status" => \&nyi_cmd,
+   "dump" => \&senseless_cmd,
+   "verify" => \&nyi_cmd,
+   "pause-sync" => \&nyi_cmd,
+   "resume-sync" => \&nyi_cmd,
+   "new-current-uuid" => \&senseless_cmd,
+   "dstate" => \&nyi_cmd,
+   "hidden-commands" => \&ignore_cmd,
+  );
+
+my $cmd = shift || die "command argument is missing\n";
+my $res = shift || die "resource argument is missing\n";
+
+die "unknown command '$cmd'\n" if !exists $cmd_table{$cmd};
+check_id($res);
+check_res($res) unless $cmd =~ m/^(join-system|create-resource)$/;
+
+my $func = $cmd_table{$cmd};
+&{$func}($cmd, $res, @ARGV);

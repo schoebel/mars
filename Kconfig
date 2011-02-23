@@ -63,8 +63,36 @@ config MARS_TRANS_LOGGER
 	---help---
 	Experimental storage System.
 
+config MARS_SERVER
+	tristate "server brick"
+	depends on MARS
+	default m
+	---help---
+	Experimental storage System.
+
+config MARS_CLIENT
+	tristate "client brick"
+	depends on MARS
+	default m
+	---help---
+	Experimental storage System.
+
+config MARS_COPY
+	tristate "copy brick"
+	depends on MARS
+	default m
+	---help---
+	Experimental storage System.
+
 config MARS_TEST
 	tristate "provisionary TEST"
+	depends on MARS
+	default m
+	---help---
+	Experimental storage System.
+
+config MARS_LIGHT
+	tristate "MARS Light"
 	depends on MARS
 	default m
 	---help---

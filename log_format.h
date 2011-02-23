@@ -1,4 +1,12 @@
 // (c) 2010 Thomas Schoebel-Theuer / 1&1 Internet AG
+
+/* Definitions for logfile format.
+ *
+ * This is meant for sharing between different transaction logger variants,
+ * and/or for sharing with userspace tools (e.g. logfile analyzers).
+ * TODO: factor out kernelspace issues.
+ */
+
 #ifndef LOG_FORMAT_H
 #define LOG_FORMAT_H
 
@@ -182,7 +190,7 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(struct generi
 	DATA_PUT(data, offset, (char)0);  // spare
 	DATA_PUT(data, offset, (short)0); // spare
 	DATA_PUT(data, offset, (int)0);   // spare
-	now = CURRENT_TIME;    // when the log entry was ready.
+	get_lamport(&now);    // when the log entry was ready.
 	DATA_PUT(data, offset, now.tv_sec);  
 	DATA_PUT(data, offset, now.tv_nsec);
 

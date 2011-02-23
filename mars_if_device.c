@@ -153,10 +153,10 @@ static int if_device_make_request(struct request_queue *q, struct bio *bio)
 	bio->bi_check2 = 0;
 	bio->bi_check3 = 0;
 
-	/* THIS IS PROVISIONARY
+	/* FIXME: THIS IS PROVISIONARY (use event instead)
 	 */
-	while (unlikely(!brick->is_active)) {
-		msleep(100);
+	while (unlikely(!brick->power.led_on)) {
+		msleep(2 * HZ);
 	}
 
 	_CHECK_ATOMIC(&bio->bi_comp_cnt, !=, 0);
@@ -369,7 +369,7 @@ static int if_device_brick_destruct(struct if_device_brick *brick)
 	return 0;
 }
 
-static int if_device_switch(struct if_device_brick *brick, bool state)
+static int if_device_switch(struct if_device_brick *brick)
 {
 	struct if_device_input *input = brick->inputs[0];
 	struct request_queue *q;
@@ -379,71 +379,91 @@ static int if_device_switch(struct if_device_brick *brick, bool state)
 	unsigned long capacity;
 	int status;
 
-	//MARS_DBG("1\n");
-	
-	status = GENERIC_INPUT_CALL(input, mars_get_info, &info);
-	if (status < 0) {
-		MARS_ERR("cannot get device info, status=%d\n", status);
-		return status;
-	}
-	capacity = info.current_size >> 9; // TODO: make this dynamic
+	if (brick->power.button) {
+		mars_power_led_off((void*)brick,  false);
+		status = GENERIC_INPUT_CALL(input, mars_get_info, &info);
+		if (status < 0) {
+			MARS_ERR("cannot get device info, status=%d\n", status);
+			return status;
+		}
+		capacity = info.current_size >> 9; // TODO: make this dynamic
+		
+		q = blk_alloc_queue(GFP_MARS);
+		if (!q) {
+			MARS_ERR("cannot allocate device request queue\n");
+			return -ENOMEM;
+		}
+		q->queuedata = input;
+		input->q = q;
+		
+		//MARS_DBG("2\n");
+		disk = alloc_disk(1);
+		if (!disk) {
+			MARS_ERR("cannot allocate gendisk\n");
+			return -ENOMEM;
+		}
 
-	q = blk_alloc_queue(GFP_MARS);
-	if (!q) {
-		MARS_ERR("cannot allocate device request queue\n");
-		return -ENOMEM;
-	}
-	q->queuedata = input;
-	input->q = q;
-
-	//MARS_DBG("2\n");
-	disk = alloc_disk(1);
-	if (!disk) {
-		MARS_ERR("cannot allocate gendisk\n");
-		return -ENOMEM;
-	}
-
-	//MARS_DBG("3\n");
-	minor = device_minor++; //TODO: protect against races (e.g. atomic_t)
-	disk->queue = q;
-	disk->major = MARS_MAJOR; //TODO: make this dynamic for >256 devices
-	disk->first_minor = minor;
-	disk->fops = &if_device_blkdev_ops;
-	sprintf(disk->disk_name, "mars%d", minor);
-	MARS_DBG("created device name %s\n", disk->disk_name);
-	disk->private_data = input;
-	set_capacity(disk, capacity);
-
-	blk_queue_make_request(q, if_device_make_request);
-	blk_queue_max_segment_size(q, MARS_MAX_SEGMENT_SIZE);
-	blk_queue_bounce_limit(q, BLK_BOUNCE_ANY);
-	q->unplug_fn = if_device_unplug;
-	sema_init(&input->kick_sem, 1);
-	spin_lock_init(&input->req_lock);
-	q->queue_lock = &input->req_lock; // needed!
-	//blk_queue_ordered(q, QUEUE_ORDERED_DRAIN, NULL);//???
-
-	//MARS_DBG("4\n");
-	input->bdev = bdget(MKDEV(disk->major, minor));
-	/* we have no partitions. we contain only ourselves. */
-	input->bdev->bd_contains = input->bdev;
+		//MARS_DBG("3\n");
+		minor = device_minor++; //TODO: protect against races (e.g. atomic_t)
+		disk->queue = q;
+		disk->major = MARS_MAJOR; //TODO: make this dynamic for >256 devices
+		disk->first_minor = minor;
+		disk->fops = &if_device_blkdev_ops;
+		//snprintf(disk->disk_name, sizeof(disk->disk_name),  "mars%d", minor);
+		snprintf(disk->disk_name, sizeof(disk->disk_name),  "mars/%s", brick->brick_name);
+		MARS_DBG("created device name %s\n", disk->disk_name);
+		disk->private_data = input;
+		set_capacity(disk, capacity);
+		
+		blk_queue_make_request(q, if_device_make_request);
+		blk_queue_max_segment_size(q, MARS_MAX_SEGMENT_SIZE);
+		blk_queue_bounce_limit(q, BLK_BOUNCE_ANY);
+		q->unplug_fn = if_device_unplug;
+		sema_init(&input->kick_sem, 1);
+		spin_lock_init(&input->req_lock);
+		q->queue_lock = &input->req_lock; // needed!
+		//blk_queue_ordered(q, QUEUE_ORDERED_DRAIN, NULL);//???
+		
+		//MARS_DBG("4\n");
+		input->bdev = bdget(MKDEV(disk->major, minor));
+		/* we have no partitions. we contain only ourselves. */
+		input->bdev->bd_contains = input->bdev;
 
 #if 0 // ???
-	q->backing_dev_info.congested_fn = mars_congested;
-	q->backing_dev_info.congested_data = input;
+		q->backing_dev_info.congested_fn = mars_congested;
+		q->backing_dev_info.congested_data = input;
 #endif
 
 #if 0 // ???
-	blk_queue_merge_bvec(q, mars_merge_bvec);
+		blk_queue_merge_bvec(q, mars_merge_bvec);
 #endif
-	INIT_LIST_HEAD(&input->plug_anchor);
+		INIT_LIST_HEAD(&input->plug_anchor);
 
-	// point of no return
-	//MARS_DBG("99999\n");
-	add_disk(disk);
-	input->disk = disk;
-	//set_device_ro(input->bdev, 0); // TODO: implement modes
-	brick->is_active = true;
+		// point of no return
+		//MARS_DBG("99999\n");
+		add_disk(disk);
+		input->disk = disk;
+		//set_device_ro(input->bdev, 0); // TODO: implement modes
+		mars_power_led_on((void*)brick, true);
+	} else {
+		mars_power_led_on((void*)brick, false);
+		if (input->bdev) {
+			bdput(input->bdev);
+			input->bdev = NULL;
+		}
+		disk = input->disk;
+		if (disk) {
+			q = disk->queue;
+			del_gendisk(input->disk);
+			put_disk(input->disk);
+			input->disk = NULL;
+			if (q) {
+				blk_cleanup_queue(q);
+			}
+		}
+		//........
+		mars_power_led_off((void*)brick, true);
+	}
 	return 0;
 }
 
@@ -518,7 +538,7 @@ EXPORT_SYMBOL_GPL(if_device_brick_type);
 static void __exit exit_if_device(void)
 {
 	int status;
-	printk(MARS_INFO "exit_if_device()\n");
+	MARS_INF("exit_if_device()\n");
 	status = if_device_unregister_brick_type();
 	unregister_blkdev(DRBD_MAJOR, "mars");
 }
@@ -529,7 +549,7 @@ static int __init init_if_device(void)
 
 	(void)if_device_aspect_types; // not used, shut up gcc
 
-	printk(MARS_INFO "init_if_device()\n");
+	MARS_INF("init_if_device()\n");
 	status = register_blkdev(DRBD_MAJOR, "mars");
 	if (status)
 		return status;

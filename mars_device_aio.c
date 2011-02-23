@@ -2,7 +2,7 @@
 
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
-//#define LOG
+//#define IO_DEBUGGING
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -44,7 +44,7 @@ static int device_aio_ref_get(struct device_aio_output *output, struct mref_obje
 			return -ENOMEM;
 		mref->ref_flags = 0;
 		mref_a->do_dealloc = true;
-#if 1 // litter flags for testing
+#if 0 // litter flags for testing
 		if (mref->ref_rw) {
 			static int random = 0;
 			if (!(random++ % 2))
@@ -84,16 +84,14 @@ static void device_aio_ref_io(struct device_aio_output *output, struct mref_obje
 		goto done;
 	}
 
-#ifdef LOG
-	MARS_INF("AIO rw=%d pos=%lld len=%d data=%p\n", mref->ref_rw, mref->ref_pos, mref->ref_len, mref->ref_data);
-#endif
+	MARS_IO("AIO rw=%d pos=%lld len=%d data=%p\n", mref->ref_rw, mref->ref_pos, mref->ref_len, mref->ref_data);
 
 	mref_a = device_aio_mref_get_aspect(output, mref);
 	traced_lock(&tinfo->lock, flags);
 	list_add_tail(&mref_a->io_head, &tinfo->mref_list);
 	traced_unlock(&tinfo->lock, flags);
 
-	wake_up(&tinfo->event);
+	wake_up_interruptible(&tinfo->event);
 	return;
 
 done:
@@ -129,6 +127,22 @@ static int device_aio_submit(struct device_aio_output *output, struct device_aio
 	return res;
 }
 
+static int device_aio_submit_dummy(struct device_aio_output *output)
+{
+	mm_segment_t oldfs;
+	int res;
+	struct iocb iocb = {
+	};
+	struct iocb *iocbp = &iocb;
+
+	oldfs = get_fs();
+	set_fs(get_ds());
+	res = sys_io_submit(output->ctxp, 1, &iocbp);
+	set_fs(oldfs);
+
+	return res;
+}
+
 static int device_aio_submit_thread(void *data)
 {
 	struct aio_threadinfo *tinfo = data;
@@ -137,7 +151,7 @@ static int device_aio_submit_thread(void *data)
 	
 	/* TODO: this is provisionary. We only need it for sys_io_submit().
 	 * The latter should be accompanied by a future vfs_submit() or
-	 * do_sumbmit() which currently does not exist :(
+	 * do_submit() which currently does not exist :(
 	 * FIXME: corresponding cleanup NYI
 	 */
 	err = get_unused_fd();
@@ -150,11 +164,15 @@ static int device_aio_submit_thread(void *data)
 	MARS_INF("kthread has started.\n");
 	//set_user_nice(current, -20);
 
+#if 0
+	fake_mm();
+#else
 	MARS_INF("old mm = %p\n", current->mm);
 	use_mm(tinfo->mm);
 	MARS_INF("new mm = %p\n", current->mm);
 	if (!current->mm)
 		return 0;
+#endif
 
 	while (!kthread_should_stop()) {
 		struct list_head *tmp = NULL;
@@ -205,6 +223,7 @@ static int device_aio_submit_thread(void *data)
 	unuse_mm(tinfo->mm);
 
 	MARS_INF("kthread has stopped.\n");
+	tinfo->terminated = true;
 	return 0;
 }
 
@@ -229,12 +248,15 @@ static int device_aio_event_thread(void *data)
 		int bounced;
 		int i;
 		struct timespec timeout = {
-			.tv_sec = 30,
+			.tv_sec = 10,
 		};
 		struct io_event events[MARS_MAX_AIO_READ];
 
 		oldfs = get_fs();
 		set_fs(get_ds());
+		/* TODO: don't timeout upon termination.
+		 * Probably we should submit a dummy request.
+		 */
 		count = sys_io_getevents(output->ctxp, 1, MARS_MAX_AIO_READ, events, &timeout);
 		set_fs(oldfs);
 
@@ -242,13 +264,17 @@ static int device_aio_event_thread(void *data)
 		bounced = 0;
 		for (i = 0; i < count; i++) {
 			struct device_aio_mref_aspect *mref_a = (void*)events[i].data;
-			struct mref_object *mref = mref_a->object;
-			struct generic_callback *cb = mref->ref_cb;
+			struct mref_object *mref;
+			struct generic_callback *cb;
 			int err = events[i].res;
 
-#ifdef LOG
-			MARS_INF("AIO done %p pos = %lld len = %d rw = %d\n", mref, mref->ref_pos, mref->ref_len, mref->ref_rw);
-#endif
+			if (!mref_a) {
+				continue; // this was a dummy request
+			}
+			mref = mref_a->object;
+			cb = mref->ref_cb;
+
+			MARS_IO("AIO done %p pos = %lld len = %d rw = %d\n", mref, mref->ref_pos, mref->ref_len, mref->ref_rw);
 
 			if (output->o_fdsync
 			   && err >= 0 
@@ -277,12 +303,13 @@ static int device_aio_event_thread(void *data)
 			device_aio_ref_put(output, mref);
 		}
 		if (bounced)
-			wake_up(&other->event);
+			wake_up_interruptible(&other->event);
 	}
 
 	unuse_mm(tinfo->mm);
 
 	MARS_INF("kthread has stopped.\n");
+	tinfo->terminated = true;
 	return 0;
 }
 
@@ -294,7 +321,7 @@ static int device_aio_sync_thread(void *data)
 	struct device_aio_output *output = tinfo->output;
 	struct file *file = output->filp;
 	
-	MARS_INF("kthread has started.\n");
+	MARS_INF("kthread has started on '%s'.\n", output->brick->brick_name);
 	//set_user_nice(current, -20);
 
 	while (!kthread_should_stop()) {
@@ -339,13 +366,18 @@ static int device_aio_sync_thread(void *data)
 	}
 
 	MARS_INF("kthread has stopped.\n");
+	tinfo->terminated = true;
 	return 0;
 }
 
 static int device_aio_get_info(struct device_aio_output *output, struct mars_info *info)
 {
 	struct file *file = output->filp;
+	if (unlikely(!file || !file->f_mapping || !file->f_mapping->host))
+		return -EINVAL;
+
 	info->current_size = i_size_read(file->f_mapping->host);
+	MARS_DBG("determined file size = %lld\n", info->current_size);
 	info->backing_file = file;
 	return 0;
 }
@@ -374,23 +406,27 @@ static int device_aio_brick_construct(struct device_aio_brick *brick)
 	return 0;
 }
 
-static int device_aio_switch(struct device_aio_brick *brick, bool state)
+static int device_aio_switch(struct device_aio_brick *brick)
 {
 	static int index = 0;
 	struct device_aio_output *output = brick->outputs[0];
-	char *path = output->output_name;
+	const char *path = output->output_name;
 	int flags = O_CREAT | O_RDWR | O_LARGEFILE;
 	int prot = 0600;
 	mm_segment_t oldfs;
 	int i;
 	int err = 0;
 
+	MARS_DBG("power.button = %d\n", brick->power.button);
+	if (!brick->power.button)
+		goto cleanup;
+
+	mars_power_led_off((void*)brick, false);
+
 	if (output->o_direct) {
 		flags |= O_DIRECT;
 		MARS_INF("using O_DIRECT on %s\n", path);
 	}
-	if (!state)
-		goto cleanup;
 
 	oldfs = get_fs();
 	set_fs(get_ds());
@@ -403,9 +439,14 @@ static int device_aio_switch(struct device_aio_brick *brick, bool state)
 		output->filp = NULL;
 		return err;
 	}
+	MARS_DBG("opened file '%s'\n", path);
 
 	if (!output->ctxp) {
-		MARS_INF("mm = %p\n", current->mm);
+		if (!current->mm) {
+			MARS_ERR("mm = %p\n", current->mm);
+			err = -EINVAL;
+			goto err;
+		}
 		oldfs = get_fs();
 		set_fs(get_ds());
 		err = sys_io_setup(MARS_MAX_AIO, &output->ctxp);
@@ -426,6 +467,7 @@ static int device_aio_switch(struct device_aio_brick *brick, bool state)
 		tinfo->mm = current->mm;
 		spin_lock_init(&tinfo->lock);
 		init_waitqueue_head(&tinfo->event);
+		tinfo->terminated = false;
 		tinfo->thread = kthread_create(fn[i], tinfo, "mars_aio%d", index++);
 		if (IS_ERR(tinfo->thread)) {
 			err = PTR_ERR(tinfo->thread);
@@ -437,26 +479,50 @@ static int device_aio_switch(struct device_aio_brick *brick, bool state)
 	}
 
 	MARS_INF("opened file '%s'\n", path);
+	mars_power_led_on((void*)brick, true);
+	MARS_DBG("successfully switched on.\n");
 	return 0;
 
 err:
 	MARS_ERR("status = %d\n", err);
 cleanup:
-	for (i = 0; i < 2; i++) {
+	mars_power_led_on((void*)brick, false);
+	for (i = 0; i < 3; i++) {
 		struct aio_threadinfo *tinfo = &output->tinfo[i];
 		if (tinfo->thread) {
 			kthread_stop(tinfo->thread);
-			// FIXME: wait for termination
 			tinfo->thread = NULL;
 		}
 	}
-	if (output->ctxp) {
-		//...
+	device_aio_submit_dummy(output);
+	for (i = 0; i < 3; i++) {
+		struct aio_threadinfo *tinfo = &output->tinfo[i];
+		if (tinfo->thread) {
+			// wait for termination
+			wait_event_interruptible_timeout(
+				tinfo->event,
+				tinfo->terminated, 30 * HZ);
+			if (tinfo->terminated)
+				tinfo->thread = NULL;
+		}
 	}
-	if (output->filp) {
-		filp_close(output->filp, NULL);
-		output->filp = NULL;
+	mars_power_led_off((void*)brick,
+			  (output->tinfo[0].thread == NULL &&
+			   output->tinfo[1].thread == NULL &&
+			   output->tinfo[2].thread == NULL));
+	if (brick->power.led_off) {
+		if (output->filp) {
+			filp_close(output->filp, NULL);
+			output->filp = NULL;
+		}
+		if (output->ctxp) {
+#if 0 // FIXME this crashes
+			sys_io_destroy(output->ctxp);
+#endif
+			output->ctxp = 0;
+		}
 	}
+	MARS_DBG("switch off status = %d\n", err);
 	return err;
 }
 
@@ -467,7 +533,8 @@ static int device_aio_output_construct(struct device_aio_output *output)
 
 static int device_aio_output_destruct(struct device_aio_output *output)
 {
-	return device_aio_switch(output->brick, false);
+	mars_power_button((void*)output->brick, false);
+	return device_aio_switch(output->brick);
 }
 
 ///////////////////////// static structs ////////////////////////

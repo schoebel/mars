@@ -1,6 +1,6 @@
 // (c) 2010 Thomas Schoebel-Theuer / 1&1 Internet AG
 
-// Trans_Logger brick (just for demonstration)
+// Trans_Logger brick
 
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
@@ -17,10 +17,9 @@
 
 #include "mars_trans_logger.h"
 
-//#define inline /**/
+#if 0
 #define inline __attribute__((__noinline__))
-#define _noinline /**/
-//#define _noinline __attribute__((__noinline__))
+#endif
 
 ////////////////////////////////////////////////////////////////////
 
@@ -35,7 +34,7 @@ static inline bool q_cmp(struct pairing_heap_mref *_a, struct pairing_heap_mref 
 
 _PAIRING_HEAP_FUNCTIONS(static,mref,q_cmp);
 
-static inline void q_init(struct logger_queue *q) _noinline
+static inline void q_init(struct logger_queue *q)
 {
 	INIT_LIST_HEAD(&q->q_anchor);
 	q->heap_low = NULL;
@@ -69,7 +68,7 @@ always_done:
 	return res;
 }
 
-static inline void q_insert(struct logger_queue *q, struct trans_logger_mref_aspect *mref_a) _noinline
+static inline void q_insert(struct logger_queue *q, struct trans_logger_mref_aspect *mref_a)
 {
 	unsigned long flags;
 
@@ -89,7 +88,7 @@ static inline void q_insert(struct logger_queue *q, struct trans_logger_mref_asp
 	traced_unlock(&q->q_lock, flags);
 }
 
-static inline void q_pushback(struct logger_queue *q, struct trans_logger_mref_aspect *mref_a) _noinline
+static inline void q_pushback(struct logger_queue *q, struct trans_logger_mref_aspect *mref_a)
 {
 	unsigned long flags;
 
@@ -107,7 +106,7 @@ static inline void q_pushback(struct logger_queue *q, struct trans_logger_mref_a
 	traced_unlock(&q->q_lock, flags);
 }
 
-static inline struct trans_logger_mref_aspect *q_fetch(struct logger_queue *q) _noinline
+static inline struct trans_logger_mref_aspect *q_fetch(struct logger_queue *q)
 {
 	struct trans_logger_mref_aspect *mref_a = NULL;
 	unsigned long flags;
@@ -158,7 +157,7 @@ static inline struct trans_logger_mref_aspect *q_fetch(struct logger_queue *q) _
 ///////////////////////// own helper functions ////////////////////////
 
 
-static inline int hash_fn(loff_t base_index) _noinline
+static inline int hash_fn(loff_t base_index)
 {
 	// simple and stupid
 	loff_t tmp;
@@ -222,7 +221,7 @@ static struct trans_logger_mref_aspect *hash_find(struct hash_anchor *table, lof
 	return res;
 }
 
-static inline void hash_insert(struct hash_anchor *table, struct trans_logger_mref_aspect *elem_a, atomic_t *cnt) _noinline
+static inline void hash_insert(struct hash_anchor *table, struct trans_logger_mref_aspect *elem_a, atomic_t *cnt)
 {
         loff_t base_index = elem_a->object->ref_pos >> REGION_SIZE_BITS;
         int hash = hash_fn(base_index);
@@ -242,7 +241,7 @@ static inline void hash_insert(struct hash_anchor *table, struct trans_logger_mr
         traced_writeunlock(&start->hash_lock, flags);
 }
 
-static inline bool hash_put(struct hash_anchor *table, struct trans_logger_mref_aspect *elem_a, atomic_t *cnt) _noinline
+static inline bool hash_put(struct hash_anchor *table, struct trans_logger_mref_aspect *elem_a, atomic_t *cnt)
 {
 	struct mref_object *elem = elem_a->object;
 	loff_t base_index = elem->ref_pos >> REGION_SIZE_BITS;
@@ -327,7 +326,7 @@ static int _write_ref_get(struct trans_logger_output *output, struct trans_logge
 	}
 
 	mref_a->output = output;
-	mref_a->stamp = CURRENT_TIME;
+	get_lamport(&mref_a->stamp);
 	mref->ref_flags = MREF_UPTODATE;
 	mref_a->shadow_ref = mref_a; // cyclic self-reference
 	atomic_set(&mref->ref_count, 1);
@@ -354,6 +353,13 @@ static int trans_logger_ref_get(struct trans_logger_output *output, struct mref_
 	if (mref->ref_may_write == READ) {
 		return _read_ref_get(output, mref_a);
 	}
+
+	/* FIXME: THIS IS PROVISIONARY (use event instead)
+	 */
+	while (unlikely(!output->brick->power.led_on)) {
+		msleep(2 * HZ);
+	}
+
 	return _write_ref_get(output, mref_a);
 
 err:
@@ -463,7 +469,7 @@ static void trans_logger_ref_io(struct trans_logger_output *output, struct mref_
 			MARS_DBG("hashing %d at %lld\n", mref->ref_len, mref->ref_pos);
 			hash_insert(output->hash_table, mref_a, &output->hash_count);
 			q_insert(&output->q_phase1, mref_a);
-			wake_up(&output->event);
+			wake_up_interruptible(&output->event);
 		}
 		return;
 	}
@@ -526,7 +532,7 @@ static void phase1_endio(struct generic_callback *cb)
 
 	// queue up for the next phase
 	q_insert(&output->q_phase2, orig_mref_a);
-	wake_up(&output->event);
+	wake_up_interruptible(&output->event);
 err: ;
 }
 
@@ -567,6 +573,13 @@ static bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 		goto err;
 	}
 	atomic_inc(&output->q_phase1.q_flying);
+
+	/* NYI Provisionary! this is wrong!
+	 * All requests must be sorted according to pos,
+	 * only the smallest _uncommitted_ write-back
+	 * should be counting!
+	 */
+	brick->current_pos = brick->logst.log_pos;
 	return true;
 
 err:
@@ -605,7 +618,7 @@ static void phase2_endio(struct generic_callback *cb)
 	} else {
 		q_insert(&output->q_phase4, sub_mref_a);
 	}
-	wake_up(&output->event);
+	wake_up_interruptible(&output->event);
 err: ;
 }
 
@@ -715,7 +728,7 @@ static void phase3_endio(struct generic_callback *cb)
 
 	// queue up for the next phase
 	q_insert(&output->q_phase4, sub_mref_a);
-	wake_up(&output->event);
+	wake_up_interruptible(&output->event);
 err: ;
 }
 
@@ -795,7 +808,7 @@ put:
 	//MARS_INF("put ORIGREF.\n");
 	CHECK_ATOMIC(&orig_mref->ref_count, 1);
 	trans_logger_ref_put(orig_mref_a->output, orig_mref);
-	wake_up(&output->event);
+	wake_up_interruptible(&output->event);
 err: ;
 }
 
@@ -845,8 +858,6 @@ err:
 /********************************************************************* 
  * The logger thread.
  * There is only a single instance, dealing with all requests in parallel.
- * So there is less need for locking (concept stolen from microkernel
- * architectures).
  */
 
 static int run_queue(struct logger_queue *q, bool (*startio)(struct trans_logger_mref_aspect *sub_mref_a), int max)
@@ -868,17 +879,26 @@ static int run_queue(struct logger_queue *q, bool (*startio)(struct trans_logger
 	return 0;
 }
 
-static int trans_logger_thread(void *data)
+static inline int _congested(struct trans_logger_output *output)
 {
-	struct trans_logger_output *output = data;
-	struct trans_logger_brick *brick;
+	return atomic_read(&output->q_phase1.q_queued)
+		|| atomic_read(&output->q_phase1.q_flying)
+		|| atomic_read(&output->q_phase2.q_queued)
+		|| atomic_read(&output->q_phase2.q_flying)
+		|| atomic_read(&output->q_phase3.q_queued)
+		|| atomic_read(&output->q_phase3.q_flying)
+		|| atomic_read(&output->q_phase4.q_queued)
+		|| atomic_read(&output->q_phase4.q_flying);
+}
+
+static
+void trans_logger_log(struct trans_logger_output *output)
+{
+	struct trans_logger_brick *brick = output->brick;
 	int wait_jiffies = HZ;
 	int last_jiffies = jiffies;
 
-	brick = output->brick;
-	MARS_INF("logger has started.\n");
-
-	while (!kthread_should_stop()) {
+	while (!kthread_should_stop() || _congested(output)) {
 		int status;
 
 		wait_event_interruptible_timeout(
@@ -886,7 +906,8 @@ static int trans_logger_thread(void *data)
 			q_is_ready(&output->q_phase1) ||
 			q_is_ready(&output->q_phase2) ||
 			q_is_ready(&output->q_phase3) ||
-			q_is_ready(&output->q_phase4),
+			q_is_ready(&output->q_phase4) ||
+			(kthread_should_stop() && !_congested(output)),
 			wait_jiffies);
 #if 1
 		if (((int)jiffies) - last_jiffies >= HZ * 10 && atomic_read(&output->hash_count) > 0) {
@@ -923,6 +944,73 @@ static int trans_logger_thread(void *data)
 			(void)run_queue(&output->q_phase4, phase4_startio, 64);
 		}
 	}
+}
+
+static
+void trans_logger_replay(struct trans_logger_output *output)
+{
+	struct trans_logger_brick *brick = output->brick;
+
+	MARS_INF("NYI simulating replay at %lld....\n", brick->current_pos);
+	msleep(15 * 1000);
+	MARS_INF("NYI simulated replay finished at %lld....\n", brick->end_pos);
+	brick->current_pos = brick->end_pos;
+	mars_trigger();
+
+	while (!kthread_should_stop()) {
+		msleep(1000);
+	}
+}
+
+static
+int trans_logger_thread(void *data)
+{
+	struct trans_logger_output *output = data;
+	struct trans_logger_brick *brick = output->brick;
+
+	MARS_INF("........... logger has started.\n");
+
+	brick->current_pos = brick->start_pos;
+	mars_power_led_on((void*)brick, true);
+
+	if (brick->do_replay) {
+		trans_logger_replay(output);
+	} else {
+		trans_logger_log(output);
+	}
+
+	MARS_INF("........... logger has stopped.\n");
+	mars_power_led_off((void*)brick, true);
+	return 0;
+}
+
+static
+int trans_logger_switch(struct trans_logger_brick *brick)
+{
+	static int index = 0;
+	struct trans_logger_output *output = brick->outputs[0];
+
+	if (brick->power.button) {
+		mars_power_led_off((void*)brick, false);
+		if (!output->thread) {
+			output->thread = kthread_create(trans_logger_thread, output, "mars_logger%d", index++);
+			if (IS_ERR(output->thread)) {
+				int error = PTR_ERR(output->thread);
+				MARS_ERR("cannot create thread, status=%d\n", error);
+				output->thread = NULL;
+				return error;
+			}
+			get_task_struct(output->thread);
+			wake_up_process(output->thread);
+		}
+	} else {
+		mars_power_led_on((void*)brick, false);
+		if (output->thread) {
+			kthread_stop(output->thread);
+			put_task_struct(output->thread);
+			output->thread = NULL;
+		}
+	}
 	return 0;
 }
 
@@ -956,7 +1044,6 @@ static int trans_logger_brick_construct(struct trans_logger_brick *brick)
 
 static int trans_logger_output_construct(struct trans_logger_output *output)
 {
-	static int index = 0;
 	int i;
 	for (i = 0; i < TRANS_HASH_MAX; i++) {
 		struct hash_anchor *start = &output->hash_table[i];
@@ -969,13 +1056,6 @@ static int trans_logger_output_construct(struct trans_logger_output *output)
 	q_init(&output->q_phase2);
 	q_init(&output->q_phase3);
 	q_init(&output->q_phase4);
-	output->thread = kthread_create(trans_logger_thread, output, "mars_logger%d", index++);
-	if (IS_ERR(output->thread)) {
-		int error = PTR_ERR(output->thread);
-		MARS_ERR("cannot create thread, status=%d\n", error);
-		return error;
-	}
-	wake_up_process(output->thread);
 	return 0;
 }
 
@@ -987,6 +1067,7 @@ static int trans_logger_input_construct(struct trans_logger_input *input)
 ///////////////////////// static structs ////////////////////////
 
 static struct trans_logger_brick_ops trans_logger_brick_ops = {
+	.brick_switch = trans_logger_switch,
 };
 
 static struct trans_logger_output_ops trans_logger_output_ops = {
@@ -1040,13 +1121,13 @@ EXPORT_SYMBOL_GPL(trans_logger_brick_type);
 
 static int __init init_trans_logger(void)
 {
-	printk(MARS_INFO "init_trans_logger()\n");
+	MARS_INF("init_trans_logger()\n");
 	return trans_logger_register_brick_type();
 }
 
 static void __exit exit_trans_logger(void)
 {
-	printk(MARS_INFO "exit_trans_logger()\n");
+	MARS_INF("exit_trans_logger()\n");
 	trans_logger_unregister_brick_type();
 }
 

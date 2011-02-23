@@ -282,8 +282,6 @@ static void device_sio_mars_queue(struct device_sio_output *output, struct mref_
 	struct generic_callback *cb = mref->ref_cb;
 	unsigned long flags;
 
-	atomic_inc(&mref->ref_count);
-
 	if (mref->ref_rw == READ) {
 		traced_lock(&output->g_lock, flags);
 		index = output->index++;
@@ -297,6 +295,9 @@ static void device_sio_mars_queue(struct device_sio_output *output, struct mref_
 		cb->cb_fn(cb);
 		return;
 	}
+
+	atomic_inc(&mref->ref_count);
+
 	tinfo = &output->tinfo[index];
 	MARS_DBG("queueing %p on %d\n", mref, index);
 
@@ -304,7 +305,7 @@ static void device_sio_mars_queue(struct device_sio_output *output, struct mref_
 	list_add_tail(&mref_a->io_head, &tinfo->mref_list);
 	traced_unlock(&tinfo->lock, flags);
 
-	wake_up(&tinfo->event);
+	wake_up_interruptible(&tinfo->event);
 }
 
 static int device_sio_thread(void *data)
@@ -407,10 +408,10 @@ static int device_sio_brick_construct(struct device_sio_brick *brick)
 	return 0;
 }
 
-static int device_sio_switch(struct device_sio_brick *brick, bool state)
+static int device_sio_switch(struct device_sio_brick *brick)
 {
 	struct device_sio_output *output = brick->outputs[0];
-	char *path = output->output_name;
+	const char *path = output->output_name;
 	int flags = O_CREAT | O_RDWR | O_LARGEFILE;
 	int prot = 0600;
 	mm_segment_t oldfs;
@@ -419,7 +420,8 @@ static int device_sio_switch(struct device_sio_brick *brick, bool state)
 		flags |= O_DIRECT;
 		MARS_INF("using O_DIRECT on %s\n", path);
 	}
-	if (state) {
+	if (brick->power.button) {
+		mars_power_led_off((void*)brick, false);
 		oldfs = get_fs();
 		set_fs(get_ds());
 		output->filp = filp_open(path, flags, prot);
@@ -439,8 +441,11 @@ static int device_sio_switch(struct device_sio_brick *brick, bool state)
 		}
 #endif
 		MARS_INF("opened file '%s'\n", path);
+		mars_power_led_on((void*)brick, true);
 	} else {
+		mars_power_led_on((void*)brick, false);
 		// TODO: close etc...
+		mars_power_led_off((void*)brick, true);
 	}
 	return 0;
 }

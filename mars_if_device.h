@@ -42,7 +42,6 @@ struct if_device_output {
 
 struct if_device_brick {
 	MARS_BRICK(if_device);
-	bool is_active;
 	struct if_device_output hidden_output;
 };
 

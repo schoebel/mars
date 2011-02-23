@@ -3,8 +3,10 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/string.h>
+#include <linux/semaphore.h>
 
 //#define BRICK_DEBUGGING
+
 #define USE_FREELIST
 
 #define _STRATEGY
@@ -35,8 +37,8 @@ int generic_register_brick_type(const struct generic_brick_type *new_type)
 			continue;
 		}
 		if (!strcmp(brick_types[i]->type_name, new_type->type_name)) {
-			BRICK_ERR("sorry, bricktype %s is already registered.\n", new_type->type_name);
-			return -EEXIST;
+			BRICK_DBG("bricktype %s is already registered.\n", new_type->type_name);
+			return 0;
 		}
 	}
 	if (found < 0) {
@@ -65,16 +67,21 @@ int generic_brick_init_full(
 	const struct generic_brick_type *brick_type,
 	const struct generic_input_type **input_types,
 	const struct generic_output_type **output_types,
-	char **names)
+	const char **names)
 {
 	struct generic_brick *brick = data;
 	int status;
 	int i;
 
-	BRICK_DBG("generic_brick_init_full()\n");
-	// first, call the generic constructors
+	BRICK_DBG("brick_type = %s\n", brick_type->type_name);
+	if (unlikely(!data)) {
+		BRICK_ERR("invalid memory\n");
+		return -EINVAL;
+	}
 
-	status = generic_brick_init(brick_type, brick, *names++);
+	// call the generic constructors
+
+	status = generic_brick_init(brick_type, brick, names ? *names++ : NULL);
 	if (status)
 		return status;
 	data += brick_type->brick_size;
@@ -100,7 +107,7 @@ int generic_brick_init_full(
 			struct generic_input *input = data;
 			const struct generic_input_type *type = *input_types++;
 			BRICK_DBG("generic_brick_init_full: calling generic_input_init()\n");
-			status = generic_input_init(brick, i, type, input, names ? *names++ : type->type_name);
+			status = generic_input_init(brick, i, type, input, (names && *names) ? *names++ : type->type_name);
 			if (status)
 				return status;
 			data += type->input_size;
@@ -125,7 +132,7 @@ int generic_brick_init_full(
 			struct generic_output *output = data;
 			const struct generic_output_type *type = *output_types++;
 			BRICK_DBG("generic_brick_init_full: calling generic_output_init()\n");
-			generic_output_init(brick, i, type, output, names ? *names++ : type->type_name);
+			generic_output_init(brick, i, type, output, (names && *names) ? *names++ : type->type_name);
 			if (status)
 				return status;
 			data += type->output_size;
@@ -531,5 +538,121 @@ void free_generic(struct generic_object *object)
 	kfree(object);
 }
 EXPORT_SYMBOL_GPL(free_generic);
+
+/////////////////////////////////////////////////////////////////
+
+// helper stuff
+
+struct semaphore lamport_sem = __SEMAPHORE_INITIALIZER(lamport_sem, 1); // TODO: replace with spinlock if possible (first check)
+struct timespec lamport_now = {};
+
+void get_lamport(struct timespec *now)
+{
+	int diff;
+
+	down(&lamport_sem);
+
+	*now = CURRENT_TIME;
+	diff = timespec_compare(now, &lamport_now);
+	if (diff > 0) {
+		memcpy(&lamport_now, now, sizeof(lamport_now));
+	} else {
+		timespec_add_ns(&lamport_now, 1);
+		memcpy(now, &lamport_now, sizeof(*now));
+	}
+
+	up(&lamport_sem);
+}
+
+EXPORT_SYMBOL_GPL(get_lamport);
+
+void set_lamport(struct timespec *old)
+{
+	int diff;
+
+	down(&lamport_sem);
+
+	diff = timespec_compare(old, &lamport_now);
+	if (diff > 0) {
+		memcpy(&lamport_now, old, sizeof(lamport_now));
+	}
+
+	up(&lamport_sem);
+}
+EXPORT_SYMBOL_GPL(set_lamport);
+
+void set_button(struct generic_switch *sw, bool val)
+{
+	bool oldval = sw->button;
+	if (val != oldval) {
+		sw->button = val;
+		sw->trigger = true;
+		wake_up_interruptible(&sw->event);
+	}
+}
+EXPORT_SYMBOL_GPL(set_button);
+
+void set_led_on(struct generic_switch *sw, bool val)
+{
+	bool oldval = sw->led_on;
+	if (val != oldval) {
+		sw->led_on = val;
+		sw->trigger = true;
+		wake_up_interruptible(&sw->event);
+	}
+}
+EXPORT_SYMBOL_GPL(set_led_on);
+
+void set_led_off(struct generic_switch *sw, bool val)
+{
+	bool oldval = sw->led_off;
+	if (val != oldval) {
+		sw->led_off = val;
+		sw->trigger = true;
+		wake_up_interruptible(&sw->event);
+	}
+}
+EXPORT_SYMBOL_GPL(set_led_off);
+
+
+/////////////////////////////////////////////////////////////////
+
+// meta stuff
+
+const struct meta *find_meta(const struct meta *meta, const char *field_name)
+{
+	const struct meta *tmp;
+	for (tmp = meta; tmp->field_name[0]; tmp++) {
+		if (!strncmp(field_name, tmp->field_name, MAX_FIELD_LEN)) {
+			return tmp;
+		}
+	}
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(find_meta);
+
+void free_meta(void *data, const struct meta *meta)
+{
+	for (; meta->field_name[0]; meta++) {
+		void *item;
+		switch (meta->field_type) {
+		case FIELD_SUB:
+			if (meta->field_ref) {
+				item = data + meta->field_offset;
+				free_meta(item, meta->field_ref);
+			}
+			break;
+		case FIELD_REF:
+		case FIELD_STRING:
+			item = data + meta->field_offset;
+			item = *(void**)item;
+			if (meta->field_ref)
+				free_meta(item, meta->field_ref);
+			kfree(item);
+		}
+	}
+}
+EXPORT_SYMBOL_GPL(free_meta);
+
 
 MODULE_LICENSE("GPL");

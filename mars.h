@@ -3,24 +3,33 @@
 #define MARS_H
 
 #include <linux/list.h>
+#include <linux/semaphore.h>
+
 #include <asm/spinlock.h>
 #include <asm/atomic.h>
 
 #define MARS_DELAY /**/
 //#define MARS_DELAY msleep(20000)
 
-#define MARS_FATAL "MARS_FATAL  " __BASE_FILE__ ": "
-#define MARS_ERROR "MARS_ERROR  " __BASE_FILE__ ": "
-#define MARS_INFO  "MARS_INFO   " __BASE_FILE__ ": "
-#define MARS_DEBUG "MARS_DEBUG  " __BASE_FILE__ ": "
+#define MARS_FATAL "MARS_FATAL  "
+#define MARS_ERROR "MARS_ERROR  "
+#define MARS_INFO  "MARS_INFO   "
+#define MARS_DEBUG "MARS_DEBUG  "
+#define _MARS_FMT(fmt) "[%s] " __BASE_FILE__ " %d %s(): " fmt, current->comm, __LINE__, __FUNCTION__
+//#define _MARS_FMT(fmt) _BRICK_FMT(fmt)
 
-#define MARS_FAT(fmt, args...) do { printk(MARS_FATAL "%s(): " fmt, __FUNCTION__, ##args); MARS_DELAY; } while (0)
-#define MARS_ERR(fmt, args...) do { printk(MARS_ERROR "%s(): " fmt, __FUNCTION__, ##args); MARS_DELAY; } while (0)
-#define MARS_INF(fmt, args...) do { printk(MARS_INFO  "%s(): " fmt, __FUNCTION__, ##args); } while (0)
+#define MARS_FAT(fmt, args...) do { printk(MARS_FATAL _MARS_FMT(fmt), ##args); MARS_DELAY; } while (0)
+#define MARS_ERR(fmt, args...) do { printk(MARS_ERROR _MARS_FMT(fmt), ##args); MARS_DELAY; } while (0)
+#define MARS_INF(fmt, args...) do { printk(MARS_INFO  _MARS_FMT(fmt), ##args); } while (0)
 #ifdef MARS_DEBUGGING
-#define MARS_DBG(fmt, args...) do { printk(MARS_DEBUG "%s(): " fmt, __FUNCTION__, ##args); } while (0)
+#define MARS_DBG(fmt, args...) do { printk(MARS_DEBUG _MARS_FMT(fmt), ##args); } while (0)
 #else
 #define MARS_DBG(args...) /**/
+#endif
+#ifdef IO_DEBUGGING
+#define MARS_IO MARS_DBG
+#else
+#define MARS_IO(args...) /*empty*/
 #endif
 
 #define BRICK_OBJ_MREF            0
@@ -66,6 +75,7 @@ struct mref_object_layout {
 	/* maintained by the ref implementation, readable for callers */ \
 	int    ref_flags;						\
 	int    ref_rw;							\
+	int    ref_id; /* not mandatory; may be used for identification */ \
 	/* maintained by the ref implementation, incrementable for	\
 	 * callers (but not decrementable! use ref_put()) */		\
 	atomic_t ref_count;						\
@@ -90,6 +100,9 @@ struct mars_info {
 
 #define MARS_BRICK(PREFIX)						\
 	GENERIC_BRICK(PREFIX);						\
+	struct list_head brick_link;					\
+	const char *brick_path;						\
+	struct mars_global *global;					\
 
 struct mars_brick {
 	MARS_BRICK(mars);
@@ -214,8 +227,6 @@ static const struct generic_aspect_type *BRICK##_aspect_types[BRICK_OBJ_NR] = {	
 		MARS_ERR("%d: list_head " #head " (%p) not empty\n", __LINE__, head); \
 	}								\
 
-#endif
-
 #define CHECK_PTR(ptr,label)						\
 	if (unlikely(!(ptr))) {						\
 		MARS_FAT("%d: ptr " #ptr " is NULL\n", __LINE__);	\
@@ -227,3 +238,109 @@ static const struct generic_aspect_type *BRICK##_aspect_types[BRICK_OBJ_NR] = {	
 		MARS_FAT("%d: condition " #ptr " is VIOLATED\n", __LINE__); \
 		goto label;						\
 	}
+
+extern const struct meta mars_info_meta[];
+extern const struct meta mars_mref_meta[];
+
+/////////////////////////////////////////////////////////////////////////
+
+extern struct mars_global *mars_global;
+
+extern void mars_trigger(void);
+extern void mars_power_button(struct mars_brick *brick, bool val);
+extern void mars_power_led_on(struct mars_brick *brick, bool val);
+extern void mars_power_led_off(struct mars_brick *brick, bool val);
+
+/////////////////////////////////////////////////////////////////////////
+
+#ifdef _STRATEGY // call this only in strategy bricks, never in ordinary bricks
+
+#define MARS_ARGV_MAX 4
+
+extern char *my_id(void);
+
+#define MARS_DENT(TYPE)							\
+	struct list_head sub_link;					\
+	struct TYPE *d_parent;						\
+	char *d_argv[MARS_ARGV_MAX];  /* for internal use, will be automatically deallocated*/ \
+	char *d_args; /* ditto uninterpreted */				\
+	char *d_name; /* current path component */			\
+	char *d_rest; /* some "meaningful" rest of d_name*/		\
+	char *d_path; /* full absolute path */				\
+	int   d_namelen;						\
+	int   d_pathlen;						\
+	int   d_depth;							\
+	unsigned int d_type; /* from readdir() => often DT_UNKNOWN => don't rely on it, use new_stat.mode instead */ \
+	int   d_class;    /* for pre-grouping order */			\
+	int   d_serial;   /* for pre-grouping order */			\
+	int   d_version;  /* dynamic programming per call of mars_ent_work() */ \
+	char d_error;							\
+	struct kstat new_stat;						\
+	struct kstat old_stat;						\
+	char *new_link;							\
+	char *old_link;							\
+	void *d_private;
+
+struct mars_dent {
+	MARS_DENT(mars_dent);
+};
+
+extern const struct meta mars_timespec_meta[];
+extern const struct meta mars_kstat_meta[];
+extern const struct meta mars_dent_meta[];
+
+struct mars_global {
+	struct list_head dent_anchor;
+	struct list_head brick_anchor;
+	struct generic_switch global_power;
+	struct semaphore mutex;
+	volatile bool main_trigger;
+	wait_queue_head_t main_event;
+	//void *private;
+};
+
+typedef int (*mars_dent_checker)(const char *path, const char *name, int namlen, unsigned int d_type, int *prefix, int *serial);
+typedef int (*mars_dent_worker)(struct mars_global *global, struct mars_dent *dent, bool direction);
+
+extern int mars_dent_work(struct mars_global *global, char *dirname, int allocsize, mars_dent_checker checker, mars_dent_worker worker, void *buf, int maxdepth);
+extern struct mars_dent *_mars_find_dent(struct mars_global *global, const char *path);
+extern struct mars_dent *mars_find_dent(struct mars_global *global, const char *path);
+extern void mars_dent_free(struct mars_dent *dent);
+extern void mars_dent_free_all(struct list_head *anchor);
+
+extern struct mars_brick *mars_find_brick(struct mars_global *global, const void *brick_type, const char *path);
+extern struct mars_brick *mars_make_brick(struct mars_global *global, const void *_brick_type, const char *path, const char *name);
+
+#define MARS_ERR_ONCE(dent, args...) if (!dent->d_error++) MARS_ERR(args)
+
+/* Kludge: our kernel threads will have no mm context, but need one
+ * for stuff like ioctx_alloc() / aio_setup_ring() etc
+ * which expect userspace resources.
+ * We fake one.
+ * TODO: factor out the userspace stuff from AIO such that
+ * this fake is no longer necessary.
+ * Even better: replace do_mmap() in AIO stuff by something
+ * more friendly to kernelspace apps.
+ */
+inline void fake_mm(void)
+{
+	if (!current->mm) {
+		current->mm = &init_mm;
+	}
+}
+/* Cleanup faked mm, otherwise do_exit() will try to destroy
+ * the wrong thing....
+ */
+inline void cleanup_mm(void)
+{
+	if (current->mm == &init_mm) {
+		current->mm = NULL;
+	}
+}
+
+extern int mars_mkdir(const char *path);
+extern int mars_symlink(const char *oldpath, const char *newpath, const struct timespec *stamp);
+extern int mars_rename(const char *oldpath, const char *newpath);
+
+#endif
+#endif

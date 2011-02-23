@@ -77,7 +77,7 @@ static struct device_sio_brick *_device_brick = NULL;
 
 void make_test_instance(void)
 {
-	static char *names[] = { "brick" };
+	static const char *names[] = { "brick" };
 	struct generic_output *first = NULL;
 	struct generic_output *inter = NULL;
 	struct generic_input *last = NULL;
@@ -154,7 +154,8 @@ void make_test_instance(void)
 #ifdef CONF_FDSYNC
 	_device_brick->outputs[0]->o_fdsync = true;
 #endif
-	device_brick->ops->brick_switch(device_brick, true);
+	mars_power_button((void*)device_brick, true);
+	device_brick->ops->brick_switch(device_brick);
 	first = device_brick->outputs[0];
 
 	// last
@@ -269,7 +270,8 @@ void make_test_instance(void)
 
 	MARS_INF("------------- START GATE --------------\n");
 
-	_if_brick->ops->brick_switch(_if_brick, true);
+	mars_power_button((void*)if_brick, true);
+	_if_brick->ops->brick_switch(_if_brick);
 	//_if_brick->is_active = true;
 
 	msleep(2000);
