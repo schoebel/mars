@@ -203,10 +203,10 @@ int get_inode(char *newpath, struct mars_dent *dent)
 				link[len] = '\0';
 				if (status < 0 ||
 				   (dent->new_link && !strncmp(dent->new_link, link, len))) {
-					MARS_DBG("symlink free '%s' (%s) status = %d\n", link, dent->new_link ? dent->new_link : "", status);
+					//MARS_DBG("symlink no change '%s' -> '%s' (%s) status = %d\n", newpath, link, dent->new_link ? dent->new_link : "", status);
 					kfree(link);
 				} else {
-					MARS_DBG("symlink new '%s' (%s) status = %d\n", link, dent->new_link ? dent->new_link : "", status);
+					MARS_DBG("symlink '%s' -> '%s' (%s) status = %d\n", newpath, link, dent->new_link ? dent->new_link : "", status);
 					if (dent->old_link)
 						kfree(dent->old_link);
 					dent->old_link = dent->new_link;

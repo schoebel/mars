@@ -352,6 +352,7 @@ done:
 // remote workers
 
 struct mars_peerinfo {
+	struct mars_global *global;
 	char *peer;
 	char *path;
 	struct socket *socket;
@@ -361,24 +362,99 @@ struct mars_peerinfo {
 	int maxdepth;
 };
 
-static int run_bones(void *buf, struct light_dent *dent)
+static
+int __make_copy(struct mars_global *global, struct light_dent *parent, const char *path, const char *argv[]);
+
+static
+int _update_file(struct mars_global *global, struct light_dent *parent, const char *peer, const char *path)
+{
+	char tmp[128] = {};
+	const char *argv[2] = { tmp, path};
+	int status = 0;
+
+	snprintf(tmp, sizeof(tmp), "%s+%s", peer, path);
+
+	status = __make_copy(global, parent, path, argv);
+
+	return status;
+}
+
+static
+int _is_peer_logfile(const char *name, const char *id)
+{
+	int len = strlen(name);
+	int idlen = id ? strlen(id) : 4 + 9 + 1;
+
+	if (len <= idlen ||
+	   strncmp(name, "log-", 4) != 0 ||
+	   (id &&
+	    name[len - idlen - 1] == '-' &&
+	    !strncmp(name + len - idlen, id, idlen))) {
+		return false;
+	}
+	return true;
+}
+
+static
+int run_bones(void *buf, struct light_dent *dent)
 {
 	int status = 0;
-	//struct mars_peerinfo *peer = buf;
+	struct mars_peerinfo *peer = buf;
+	struct mars_dent *local_copy;
+
+	if (!strncmp(dent->d_name, ".tmp", 4)) {
+		goto done;
+	}
+	if (!strncmp(dent->d_name, "ignore", 6)) {
+		goto done;
+	}
+
+	local_copy = mars_find_dent((void*)peer->global, dent->d_name);
 
 	if (S_ISDIR(dent->new_stat.mode)) {
 		if (strncmp(dent->d_name, "resource-", 9)) {
 			MARS_DBG("ignoring directory '%s'\n", dent->d_path);
-			return 0;
+			goto done;
 		}
-		status = mars_mkdir(dent->d_path);
-		MARS_DBG("create directory '%s' status = %d\n", dent->d_path, status);
+		if (!local_copy) {
+			status = mars_mkdir(dent->d_path);
+			MARS_DBG("create directory '%s' status = %d\n", dent->d_path, status);
+		}
 	} else if (S_ISLNK(dent->new_stat.mode) && dent->new_link) {
-		status = mars_symlink(dent->new_link, dent->d_path, &dent->new_stat.mtime);
-		MARS_DBG("create symlink '%s' -> '%s' status = %d\n", dent->d_path, dent->new_link, status);
+		if (!local_copy || timespec_compare(&local_copy->new_stat.mtime, &dent->new_stat.mtime) < 0) {
+			status = mars_symlink(dent->new_link, dent->d_path, &dent->new_stat.mtime);
+			MARS_DBG("create symlink '%s' -> '%s' status = %d\n", dent->d_path, dent->new_link, status);
+		}
+	} else if (S_ISREG(dent->new_stat.mode) && _is_peer_logfile(dent->d_name, my_id())) {
+		loff_t src_size = dent->new_stat.size;
+
+		if (!local_copy || local_copy->new_stat.size < src_size) {
+			status = _update_file(peer->global, dent->d_parent, peer->peer, dent->d_path);
+			MARS_DBG("update '%s' status = %d\n", dent->d_path, status);
+			if (status >= 0) {
+				struct mars_dent *local_alias;
+				int len = dent->d_pathlen;
+				char tmp[128];
+				char *test;
+
+				for (test = dent->d_path + len - 1; *test != '-' && len > 0; test--, len--) /*skip*/;
+
+				memcpy(tmp, dent->d_path, len);
+				strncpy(tmp + len, my_id(), sizeof(tmp) - len);
+
+				MARS_DBG("local alias for '%s' is '%s'\n", dent->d_path, tmp);
+				local_alias = mars_find_dent((void*)peer->global, tmp);
+				if (!local_alias) {
+					status = mars_symlink(dent->d_name, tmp, &dent->new_stat.mtime);
+					MARS_DBG("create alias '%s' -> '%s' status = %d\n", tmp, dent->d_name, status);
+				}
+			}
+		}
 	} else {
 		MARS_DBG("ignoring '%s'\n", dent->d_path);
 	}
+
+ done:
 	return status;
 }
 
@@ -386,7 +462,24 @@ static int run_bones(void *buf, struct light_dent *dent)
 
 // remote working infrastructure
 
-static void _peer_cleanup(struct mars_peerinfo *peer)
+static
+char *_translate_hostname(struct mars_global *global, const char *name)
+{
+	char tmp[128];
+	struct mars_dent *test;
+	const char *res = name;
+
+	snprintf(tmp, sizeof(tmp), "/mars/ips/ip-%s", name);
+	test = mars_find_dent(global, tmp);
+	if (test && test->new_link) {
+		res = test->new_link;
+	}
+
+	return kstrdup(res, GFP_MARS);
+}
+
+static
+void _peer_cleanup(struct mars_peerinfo *peer)
 {
 	if (peer->socket) {
 		kernel_sock_shutdown(peer->socket, SHUT_WR);
@@ -395,22 +488,25 @@ static void _peer_cleanup(struct mars_peerinfo *peer)
 	//...
 }
 
-static int remote_thread(void *data)
+static
+int remote_thread(void *data)
 {
 	struct mars_peerinfo *peer = data;
+	char *real_peer;
 	struct sockaddr_storage sockaddr = {};
 	int status;
 
 	if (!peer)
 		return -1;
 
-	MARS_INF("-------- remote thread starting on peer '%s'\n", peer->peer);
+	real_peer = _translate_hostname(peer->global, peer->peer);
+	MARS_INF("-------- remote thread starting on peer '%s' (%s)\n", peer->peer, real_peer);
 
 	//fake_mm();
 
-	status = mars_create_sockaddr(&sockaddr, peer->peer);
+	status = mars_create_sockaddr(&sockaddr, real_peer);
 	if (unlikely(status < 0)) {
-		MARS_ERR("unusable remote address '%s'\n", peer->peer);
+		MARS_ERR("unusable remote address '%s' (%s)\n", real_peer, peer->peer);
 		goto done;
 	}
 
@@ -426,11 +522,11 @@ static int remote_thread(void *data)
 			status = mars_create_socket(&peer->socket, &sockaddr, false);
 			if (unlikely(status < 0)) {
 				peer->socket = NULL;
-				MARS_INF("no connection to '%s'\n", peer->peer);
+				MARS_INF("no connection to '%s'\n", real_peer);
 				msleep(5000);
 				continue;
 			}
-			MARS_DBG("successfully opened socket to '%s'\n", peer->peer);
+			MARS_DBG("successfully opened socket to '%s'\n", real_peer);
 			continue;
 		}
 
@@ -450,7 +546,7 @@ static int remote_thread(void *data)
 			continue;
 		}
 
-		MARS_DBG("AHA!!!!!!!!!!!!!!!!!!!!\n");
+		//MARS_DBG("AHA!!!!!!!!!!!!!!!!!!!!\n");
 
 		{
 			struct list_head *tmp;
@@ -460,14 +556,13 @@ static int remote_thread(void *data)
 					MARS_DBG("NULL\n");
 					continue;
 				}
-				MARS_DBG("path = '%s'\n", dent->d_path);
+				//MARS_DBG("path = '%s'\n", dent->d_path);
 				if (!peer->worker)
 					continue;
 				status = peer->worker(peer, dent);
+				//MARS_DBG("path = '%s' worker status = %d\n", dent->d_path, status);
 			}
 		}
-
-		//...
 
 		mars_dent_free_all(&tmp_list);
 
@@ -481,6 +576,9 @@ static int remote_thread(void *data)
 
 done:
 	//cleanup_mm();
+	peer->thread = NULL;
+	if (real_peer)
+		kfree(real_peer);
 	return 0;
 }
 
@@ -537,6 +635,7 @@ static int _make_peer(void *buf, struct light_dent *dent, char *mypeer, char *pa
 		}
 
 		peer = dent->d_private;
+		peer->global = global;
 		peer->peer = mypeer;
 		peer->path = path;
 		peer->worker = worker;
@@ -551,6 +650,7 @@ static int _make_peer(void *buf, struct light_dent *dent, char *mypeer, char *pa
 			peer->thread = NULL;
 			return -1;
 		}
+		MARS_DBG("starting peer thread\n");
 		wake_up_process(peer->thread);
 	}
 
@@ -575,7 +675,11 @@ static int kill_scan(void *buf, struct light_dent *dent)
 
 static int make_scan(void *buf, struct light_dent *dent)
 {
-	return _make_peer(buf, dent, "/mars/ips", "/mars", run_bones);
+	MARS_DBG("path = '%s' peer = '%s'\n", dent->d_path, dent->d_rest);
+	if (!strcmp(dent->d_rest, my_id())) {
+		return 0;
+	}
+	return _make_peer(buf, dent, dent->d_rest, "/mars", run_bones);
 }
 
 
@@ -1291,10 +1395,10 @@ done:
 }
 
 static
-int __make_copy(struct mars_global *global, struct light_dent *parent, char *path, char *argv[])
+int __make_copy(struct mars_global *global, struct light_dent *parent, const char *path, const char *argv[])
 {
 	char tmp[128];
-	char *new_argv[4];
+	const char *new_argv[4];
 	struct mars_brick *copy;
 	struct copy_brick *_copy;
 	struct mars_output *output[2] = {};
@@ -1303,7 +1407,7 @@ int __make_copy(struct mars_global *global, struct light_dent *parent, char *pat
 	int status = -1;
 
 	for (i = 0; i < 2; i++) {
-		char *target = argv[i];
+		const char *target = argv[i];
 		struct mars_brick *new = NULL;
 
 		new_argv[i * 2] = target;
@@ -1374,21 +1478,23 @@ int __make_copy(struct mars_global *global, struct light_dent *parent, char *pat
 
 	/* Determine the copy area
 	 */
-	for (i = 0; i < 2; i++) {
-		status = output[i]->ops->mars_get_info(output[i], &info[i]);
-		if (status < 0) {
-			MARS_ERR("cannot determine current size of\n");
-			goto done;
+	if (!copy->power.button && copy->power.led_off) {
+		for (i = 0; i < 2; i++) {
+			status = output[i]->ops->mars_get_info(output[i], &info[i]);
+			if (status < 0) {
+				MARS_ERR("cannot determine current size of '%s'\n", argv[i]);
+				goto done;
+			}
 		}
+		_copy = (void*)copy;
+		_copy->copy_start = info[1].current_size;
+		MARS_DBG("copy_start = %lld\n", _copy->copy_start);
+		_copy->copy_end = info[0].current_size;
+		MARS_DBG("copy_end = %lld\n", _copy->copy_end);
+		mars_power_button((void*)copy, true);
+		status = copy->ops->brick_switch(copy);
+		MARS_DBG("copy switch status = %d\n", status);
 	}
-	_copy = (void*)copy;
-	_copy->copy_start = info[1].current_size;
-	MARS_DBG("copy_start = %lld\n", _copy->copy_start);
-	_copy->copy_end = info[0].current_size;
-	MARS_DBG("copy_end = %lld\n", _copy->copy_end);
-	mars_power_button((void*)copy, true);
-	status = copy->ops->brick_switch(copy);
-	MARS_DBG("copy switch status = %d\n", status);
 	status = 0;
 
 done:
@@ -1409,7 +1515,7 @@ static int _make_copy(void *buf, struct light_dent *dent)
 		goto done;
 	}
 
-	status = __make_copy(global, dent->d_parent, dent->d_path, dent->d_argv);
+	status = __make_copy(global, dent->d_parent, dent->d_path, (const char**)dent->d_argv);
 
 done:
 	MARS_DBG("status = %d\n", status);
@@ -1452,7 +1558,7 @@ static const struct light_class light_classes[] = {
 		.cl_len = 3,
 		.cl_type = 'd',
 		.cl_father = CL_ROOT,
-#if 1
+#if 0
 		.cl_forward = make_scan,
 		.cl_backward = kill_scan,
 #endif
@@ -1466,8 +1572,10 @@ static const struct light_class light_classes[] = {
 		.cl_len = 3,
 		.cl_type = 'l',
 		.cl_father = CL_IPS,
-		.cl_forward = NULL,
-		.cl_backward = NULL,
+#if 1
+		.cl_forward = make_scan,
+		.cl_backward = kill_scan,
+#endif
 	},
 
 	/* Directory containing all items of a resource
