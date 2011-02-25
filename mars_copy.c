@@ -431,6 +431,7 @@ static int copy_switch(struct copy_brick *brick)
 	if (brick->power.button) {
 		mars_power_led_off((void*)brick, false);
 		if (!brick->thread) {
+			brick->copy_last = brick->copy_start;
 			brick->thread = kthread_create(_copy_thread, brick, "mars_copy%d", version++);
 			if (brick->thread) {
 				get_task_struct(brick->thread);

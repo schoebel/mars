@@ -349,6 +349,134 @@ done:
 
 ///////////////////////////////////////////////////////////////////////
 
+static
+int __make_copy(struct mars_global *global, struct light_dent *parent, const char *path, const char *argv[], loff_t start_pos, struct copy_brick **__copy)
+{
+	char tmp[128];
+	const char *new_argv[4];
+	struct mars_brick *copy;
+	struct copy_brick *_copy;
+	struct mars_output *output[2] = {};
+	struct mars_info info[2] = {};
+	int i;
+	int status = -1;
+
+	for (i = 0; i < 2; i++) {
+		const char *target = argv[i];
+		struct mars_brick *new = NULL;
+
+		new_argv[i * 2] = target;
+		new_argv[i * 2 + 1] = target;
+		if (*target == '/') { // local
+			new = mars_find_brick(global, &device_aio_brick_type, target);
+			MARS_DBG("search for local '%s' -> found %p\n", target, new);
+		} else { // remote
+			new = mars_find_brick(global, &client_brick_type, target);
+			MARS_DBG("search for remote '%s' -> found %p\n", target, new);
+			if (!new) {
+				snprintf(tmp, sizeof(tmp), "%s_copy", target);
+				new_argv[i * 2 + 1] = tmp;
+				/* 1st client instance is for data IO
+				 */
+				new = make_all(global,
+					       &client_brick_type,
+					       target,
+					       target,
+					       parent,
+					       (const void *[]){},
+					       (const char *[]){},
+					       (const char *[]){},
+					       0,
+					       true);
+				if (!new) {
+					MARS_DBG("cannot instantiate\n");
+					goto done;
+				}
+				/* 2nd client instance is for background copy IO
+				 */
+				new = make_all(global,
+					       &client_brick_type,
+					       tmp,
+					       target,
+					       parent,
+					       (const void *[]){},
+					       (const char *[]){},
+					       (const char *[]){},
+					       0,
+					       true);
+			}
+		}
+		if (!new) {
+			MARS_DBG("cannot instantiate\n");
+			goto done;
+		}
+		output[i] = new->outputs[0];
+	}
+
+	copy = mars_find_brick(global, &copy_brick_type, path);
+	MARS_DBG("search for copy brick '%s' -> found %p\n", path, copy);
+	if (!copy) {
+		copy = make_all(global,
+				&copy_brick_type,
+				path,
+				path,
+				parent,
+				(const void *[]){NULL,NULL,NULL,NULL},
+				(const char *[]){new_argv[0],new_argv[1],new_argv[2],new_argv[3]},
+				(const char *[]){"","","",""},
+				4, false);
+		MARS_DBG("copy brick = %p\n", copy);
+		if (!copy)
+			goto done;
+
+	}
+
+	_copy = (void*)copy;
+	if (__copy)
+		*__copy = _copy;
+
+	/* Determine the copy area, switch on when necessary
+	 */
+	if (!copy->power.button && copy->power.led_off) {
+		for (i = 0; i < 2; i++) {
+			status = output[i]->ops->mars_get_info(output[i], &info[i]);
+			if (status < 0) {
+				MARS_ERR("cannot determine current size of '%s'\n", argv[i]);
+				goto done;
+			}
+		}
+		_copy->copy_start = info[1].current_size;
+		if (start_pos != -1) {
+			_copy->copy_start = start_pos;
+			if (unlikely(info[0].current_size != info[1].current_size)) {
+				MARS_ERR("oops, devices have different size %lld != %lld at '%s'\n", info[0].current_size, info[1].current_size, parent->d_path);
+				status = -EINVAL;
+				goto done;
+			}
+			if (unlikely(start_pos > info[0].current_size)) {
+				MARS_ERR("bad start position %lld is larger than actual size %lld on '%s'\n", start_pos, info[0].current_size, parent->d_path);
+				status = -EINVAL;
+				goto done;
+			}
+		}
+		MARS_DBG("copy_start = %lld\n", _copy->copy_start);
+		_copy->copy_end = info[0].current_size;
+		MARS_DBG("copy_end = %lld\n", _copy->copy_end);
+		if (_copy->copy_start < _copy->copy_end) {
+			mars_power_button((void*)copy, true);
+			status = copy->ops->brick_switch(copy);
+			MARS_DBG("copy switch status = %d\n", status);
+		}
+	}
+	status = 0;
+
+done:
+	MARS_DBG("status = %d\n", status);
+	return status;
+}
+
+///////////////////////////////////////////////////////////////////////
+
 // remote workers
 
 struct mars_peerinfo {
@@ -363,9 +491,6 @@ struct mars_peerinfo {
 };
 
 static
-int __make_copy(struct mars_global *global, struct light_dent *parent, const char *path, const char *argv[]);
-
-static
 int _update_file(struct mars_global *global, struct light_dent *parent, const char *peer, const char *path)
 {
 	char tmp[128] = {};
@@ -374,7 +499,7 @@ int _update_file(struct mars_global *global, struct light_dent *parent, const ch
 
 	snprintf(tmp, sizeof(tmp), "%s+%s", peer, path);
 
-	status = __make_copy(global, parent, path, argv);
+	status = __make_copy(global, parent, path, argv, -1, NULL);
 
 	return status;
 }
@@ -472,6 +597,7 @@ char *_translate_hostname(struct mars_global *global, const char *name)
 	snprintf(tmp, sizeof(tmp), "/mars/ips/ip-%s", name);
 	test = mars_find_dent(global, tmp);
 	if (test && test->new_link) {
+		MARS_DBG("'%s' => '%s'\n", tmp, test->new_link);
 		res = test->new_link;
 	}
 
@@ -1394,114 +1520,6 @@ done:
 	return status;
 }
 
-static
-int __make_copy(struct mars_global *global, struct light_dent *parent, const char *path, const char *argv[])
-{
-	char tmp[128];
-	const char *new_argv[4];
-	struct mars_brick *copy;
-	struct copy_brick *_copy;
-	struct mars_output *output[2] = {};
-	struct mars_info info[2] = {};
-	int i;
-	int status = -1;
-
-	for (i = 0; i < 2; i++) {
-		const char *target = argv[i];
-		struct mars_brick *new = NULL;
-
-		new_argv[i * 2] = target;
-		new_argv[i * 2 + 1] = target;
-		if (*target == '/') { // local
-			new = mars_find_brick(global, &device_aio_brick_type, target);
-			MARS_DBG("search for local '%s' -> found %p\n", target, new);
-		} else { // remote
-			new = mars_find_brick(global, &client_brick_type, target);
-			MARS_DBG("search for remote '%s' -> found %p\n", target, new);
-			if (!new) {
-				snprintf(tmp, sizeof(tmp), "%s_copy", target);
-				new_argv[i * 2 + 1] = tmp;
-				/* 1st client instance is for data IO
-				 */
-				new = make_all(global,
-					       &client_brick_type,
-					       target,
-					       target,
-					       parent,
-					       (const void *[]){},
-					       (const char *[]){},
-					       (const char *[]){},
-					       0,
-					       true);
-				if (!new) {
-					MARS_DBG("cannot instantiate\n");
-					goto done;
-				}
-				/* 2nd client instance is for background copy IO
-				 */
-				new = make_all(global,
-					       &client_brick_type,
-					       tmp,
-					       target,
-					       parent,
-					       (const void *[]){},
-					       (const char *[]){},
-					       (const char *[]){},
-					       0,
-					       true);
-			}
-		}
-		if (!new) {
-			MARS_DBG("cannot instantiate\n");
-			goto done;
-		}
-		output[i] = new->outputs[0];
-	}
-
-	copy = mars_find_brick(global, &copy_brick_type, path);
-	MARS_DBG("search for copy brick '%s' -> found %p\n", path, copy);
-	if (!copy) {
-		copy = make_all(global,
-				&copy_brick_type,
-				path,
-				path,
-				parent,
-				(const void *[]){NULL,NULL,NULL,NULL},
-				(const char *[]){new_argv[0],new_argv[1],new_argv[2],new_argv[3]},
-				(const char *[]){"","","",""},
-				4, false);
-		MARS_DBG("copy brick = %p\n", copy);
-		if (!copy)
-			goto done;
-
-	}
-
-	/* Determine the copy area
-	 */
-	if (!copy->power.button && copy->power.led_off) {
-		for (i = 0; i < 2; i++) {
-			status = output[i]->ops->mars_get_info(output[i], &info[i]);
-			if (status < 0) {
-				MARS_ERR("cannot determine current size of '%s'\n", argv[i]);
-				goto done;
-			}
-		}
-		_copy = (void*)copy;
-		_copy->copy_start = info[1].current_size;
-		MARS_DBG("copy_start = %lld\n", _copy->copy_start);
-		_copy->copy_end = info[0].current_size;
-		MARS_DBG("copy_end = %lld\n", _copy->copy_end);
-		mars_power_button((void*)copy, true);
-		status = copy->ops->brick_switch(copy);
-		MARS_DBG("copy switch status = %d\n", status);
-	}
-	status = 0;
-
-done:
-	MARS_DBG("status = %d\n", status);
-	return status;
-}
-
 static int _make_copy(void *buf, struct light_dent *dent)
 {
 	struct mars_global *global = buf;
@@ -1515,7 +1533,69 @@ static int _make_copy(void *buf, struct light_dent *dent)
 		goto done;
 	}
 
-	status = __make_copy(global, dent->d_parent, dent->d_path, (const char**)dent->d_argv);
+	status = __make_copy(global, dent->d_parent, dent->d_path, (const char**)dent->d_argv, -1, NULL);
+
+done:
+	MARS_DBG("status = %d\n", status);
+	return status;
+}
+
+static int make_sync(void *buf, struct light_dent *dent)
+{
+	struct mars_global *global = buf;
+	loff_t start_pos = 0;
+	struct light_dent *connect_dent;
+	char *peer;
+	struct copy_brick *copy = NULL;
+	char src[128];
+	char dst[128];
+	const char *argv[2] = { src, dst };
+	int status;
+
+	if (!global->global_power.button || !dent->d_parent || !dent->new_link) {
+		return 0;
+	}
+
+	/* Analyze replay position
+	 */
+	status = sscanf(dent->new_link, "%lld", &start_pos);
+	if (status != 1) {
+		MARS_ERR("bad syncstatus symlink syntax '%s' (%s)\n", dent->new_link, dent->d_path);
+		status = -EINVAL;
+		goto done;
+	}
+
+	/* Determine peer
+	 */
+	snprintf(src, sizeof(src), "%s/connect-%s", dent->d_parent->d_path, my_id());
+	connect_dent = (void*)mars_find_dent(global, src);
+	if (!connect_dent || !connect_dent->new_link) {
+		MARS_ERR("cannot determine peer, symlink '%s' is missing\n", src);
+		status = -ENOENT;
+		goto done;
+	}
+	peer = connect_dent->new_link;
+
+	/* Start copy
+	 */
+	snprintf(src, sizeof(src), "%s+%s/data-%s", peer, dent->d_parent->d_path, peer);
+	snprintf(dst, sizeof(dst), "%s/data-%s", dent->d_parent->d_path, my_id());
+	MARS_DBG("starting initial sync '%s' => '%s'\n", src, dst);
+
+	status = __make_copy(global, dent->d_parent, dent->d_path, argv, start_pos, &copy);
+
+	/* Update syncstatus symlink
+	 */
+	if (status >= 0 && copy && copy->power.button && copy->power.led_on) {
+		snprintf(src, sizeof(src), "%lld", copy->copy_last);
+		snprintf(dst, sizeof(dst), "%s/syncstatus-%s", dent->d_parent->d_path, my_id());
+		status = mars_symlink(src, dst, NULL);
+		if (status >= 0 && copy->copy_last == copy->copy_end) {
+			mars_power_button((void*)copy, false);
+			status = copy->ops->brick_switch(copy);
+			MARS_DBG("copy switch status = %d\n", status);
+		}
+	}
 
 done:
 	MARS_DBG("status = %d\n", status);
@@ -1526,10 +1606,14 @@ done:
 
 // the order is important!
 enum {
-	CL_ROOT, // root element: this must have index 0
+	// root element: this must have index 0
+	CL_ROOT,
+	// replacement for DNS in kernelspace
 	CL_IPS,
 	CL_PEERS,
+	// resource definitions
 	CL_RESOURCE,
+	CL_CONNECT,
 	CL_DATA,
 	CL_PRIMARY,
 	CL__FILE,
@@ -1540,7 +1624,6 @@ enum {
 	CL_REPLAYSTATUS,
 	CL_LOG,
 	CL_DEVICE,
-	CL_CONNECT,
 };
 
 /* Please keep the order the same as in the enum.
@@ -1588,6 +1671,17 @@ static const struct light_class light_classes[] = {
 		.cl_forward = make_log_init,
 		.cl_backward = NULL,
 	},
+	/* Symlink indicating the current peer
+	 */
+	[CL_CONNECT] = {
+		.cl_name = "connect-",
+		.cl_len = 8,
+		.cl_type = 'l',
+		.cl_hostcontext = true,
+		.cl_father = CL_RESOURCE,
+		.cl_forward = NULL,
+		.cl_backward = NULL,
+	},
 	/* File or symlink to the real device / real (sparse) file
 	 * when hostcontext is missing, the corresponding peer will
 	 * not participate in that resource.
@@ -1633,9 +1727,9 @@ static const struct light_class light_classes[] = {
 		.cl_type = 'l',
 		.cl_hostcontext = true,
 		.cl_father = CL_RESOURCE,
-#if 0
+#if 1
 		.cl_forward = make_sync,
-		.cl_backward = kill_sync,
+		.cl_backward = kill_default,
 #endif
 	},
 	/* Only for testing: make a copy instance
@@ -1712,19 +1806,6 @@ static const struct light_class light_classes[] = {
 		.cl_father = CL_RESOURCE,
 		.cl_forward = make_dev,
 		.cl_backward = kill_default,
-	},
-	/* Symlink indicating the current peer
-	 */
-	[CL_CONNECT] = {
-		.cl_name = "connect-",
-		.cl_len = 8,
-		.cl_type = 'l',
-		.cl_hostcontext = true,
-		.cl_father = CL_RESOURCE,
-#if 0
-		.cl_forward = make_connect,
-		.cl_backward = kill_connect,
-#endif
 	},
 	{}
 };

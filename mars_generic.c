@@ -45,13 +45,18 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct timespec
 	set_fs(get_ds());
 	(void)sys_unlink(tmp);
 	status = sys_symlink(oldpath, tmp);
-	set_fs(oldfs);
 
-	// TODO NYI: set timestamp
+	if (stamp) {
+		struct timespec times[2];
+		memcpy(&times[0], stamp, sizeof(struct timespec));
+		memcpy(&times[1], stamp, sizeof(struct timespec));
+		status = do_utimes(AT_FDCWD, tmp, times, AT_SYMLINK_NOFOLLOW);
+	}
 
 	if (status >= 0) {
 		status = mars_rename(tmp, newpath);
 	}
+	set_fs(oldfs);
 
 	return status;
 }
@@ -197,9 +202,10 @@ int get_inode(char *newpath, struct mars_dent *dent)
 			int len = dent->new_stat.size;
 			char *link;
 			status = -ENOMEM;
-			link = kmalloc(len + 1, GFP_MARS);
+			link = kmalloc(len + 2, GFP_MARS);
 			if (link) {
-				status = inode->i_op->readlink(path.dentry, link, len);
+				MARS_DBG("len = %d\n", len);
+				status = inode->i_op->readlink(path.dentry, link, len + 1);
 				link[len] = '\0';
 				if (status < 0 ||
 				   (dent->new_link && !strncmp(dent->new_link, link, len))) {

@@ -27,7 +27,7 @@ sub check_id {
 
 sub check_res {
   my $res = shift;
-  die "resource '$res' does not exist\n" unless -d "$mars/$res";
+  die "resource '$res' does not exist\n" unless -d "$mars/resource-$res";
 }
 
 sub check_size {
@@ -75,7 +75,7 @@ sub nyi_cmd {
 
 sub join_system {
   my ($cmd, $peer, $force) = @_;
-  if(-e glob("$mars/resource-*")) {
+  if(glob("$mars/resource-*")) {
     die "Sorry, some resources already exist!\nThis is dangerous!\nIf you are sure that no resource clash is possible, re-invoke this command with '--force' option\n" unless ($force and $force =~ m/--force/);
   }
   print "joining system via rsync (peer='$peer')\n";
@@ -83,6 +83,7 @@ sub join_system {
   system("mkdir $mars/ips") unless -d "$mars/ips";
   system("rsync --recursive --links -v $peer:$mars/ips/ $mars/ips/") == 0 or die "oops\n";
   symlink($ip, "$mars/ips/ip-$host");
+  system("rsync --recursive --links -v $mars/ips/ $peer:$mars/ips/") == 0 or die "oops\n";
 }
 
 sub create_res {
@@ -90,10 +91,10 @@ sub create_res {
   my $create = ($cmd eq "create-resource");
 
   die "undefined device or size argument\n" unless $dev;
-  die "resource '$res' already exists\n" if -d "$mars/resource-$res";
   check_id($appear) if $appear;
 
   if($create) {
+    die "resource '$res' already exists\n" if -d "$mars/resource-$res";
     print "creating new resource '$res'\n";
   } else {
     print "joining to existing resource '$res'\n";
@@ -116,8 +117,8 @@ sub create_res {
     system("rm -rf $tmp");
     system("mkdir $tmp") == 0 or die "could not create resource '$res'\n";
   } else {
-    $primary = readlink("$tmp/primary") or die "cannot determine primary\n";
     $tmp = "$mars/resource-$res";
+    $primary = readlink("$tmp/primary") or die "cannot determine primary\n";
     die "resource '$res' does not exist\n" unless -d $tmp;
     die "resource '$res' is already joined\n" if -e "$tmp/data-$host";
     die "my ip '$ip' is not registered -- please run 'join-system' first\n" unless -l "$mars/ips/ip-$host";
@@ -148,6 +149,10 @@ sub create_res {
     rename($tmp, "$mars/resource-$res") or die "cannot finalize resource '$res'\n";
     print "successfully created resource '$res'\n";
   } else {
+    my $replay = readlink("$tmp/replay-$primary") or die "cannot read replay status of primary '$primary'\n";
+    $replay =~ s/-$primary,/-$host,/ or die "something is wrong here\n";
+    system("rm -f $tmp/replay-$host");
+    symlink($replay, "$tmp/replay-$host") or die "cannot create replay status\n";
     system("rm -f $tmp/syncstatus-$host");
     symlink("0", "$tmp/syncstatus-$host") or die "cannot start initial sync\n";
     system("rm -f $tmp/connect-$host");
