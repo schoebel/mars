@@ -11,6 +11,9 @@ chomp $host;
 my $ip = `ip a` or die "cannot determine my IP address\n";
 $ip =~ s/\A.*inet +(?!127\.0\.)([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+).*\Z/$1/ms or die "cannot parse my IP address\n";
 
+umask 0177;
+die "only root may use this tool\n" unless `whoami` eq "root\n"; # getpid() seems to be missing in perlfunc
+
 ##################################################################
 
 # syntactic checks
@@ -30,7 +33,12 @@ sub check_res {
   die "resource '$res' does not exist\n" unless -d "$mars/resource-$res";
 }
 
-sub check_size {
+sub check_res_member {
+  my $res = shift;
+  die "sorry, I have not yet joined to resource '$res'\n" unless -e "$mars/resource-$res/data-$host";
+}
+
+sub get_size {
   my $arg = shift;
   return -1 unless $arg =~ m/^[0-9.]+[kmgtp]?$/i;
   my $mod = $arg;
@@ -45,6 +53,39 @@ sub check_size {
     /p/i and $arg *= 1024 * 1024 * 1024 * 1024 * 1024, last SWITCH;
   }
   return $arg;
+}
+
+##################################################################
+
+# helpers
+
+sub _switch {
+  my ($path, $on) = @_;
+
+  # Sadly, there is no system call lchmod().
+  # It would be better to use the x flag even of symlinks if it were possible.
+  # As a workaround, we use the owner uid - fortunately this is
+  # changeable, even by perl (although direct calls to lchown()
+  # seems to be missing)
+
+  if($on) {
+    system("chown --no-dereference 0 $path");
+  } else {
+    system("chown --no-dereference nobody $path");
+  }
+
+  my $oldmode = (lstat $path)[2] & 0700;
+  my $newmode = $on ? $oldmode | 0100 : $oldmode & ~0100;
+  print "chmod '$path' $oldmode $newmode";
+  chmod($newmode, $path) == 1 or die "cannot chmod '$path'\n";
+}
+
+sub _writable {
+  my ($path, $on) = @_;
+  my $oldmode = (lstat $path)[2] & 0700;
+  my $newmode = $on ? $oldmode | 0200 : $oldmode & ~0200;
+  print "chmod '$path' $oldmode $newmode";
+  chmod($newmode, $path) == 1 or die "cannot chmod '$path'\n";
 }
 
 ##################################################################
@@ -100,12 +141,18 @@ sub create_res {
     print "joining to existing resource '$res'\n";
   }
 
-  my $size = check_size($dev);
+  my $size = get_size($dev);
   if($size > 0) {
     $dev = "";
   } else {
     die "block device '$dev' does not exist\n" unless -b $dev;
     die "block device '$dev' must be an absolute path starting with '/'\n" unless $dev =~ m/^\//;
+    use Fcntl 'SEEK_END';
+    open(TEST, "<$dev") or die "cannot open device for reading\n";
+    $size = sysseek(TEST, 0, SEEK_END);
+    close(TEST);
+    print "device size = $size bytes\n";
+    die "implausible size" unless $size > 0;
   }
 
   my $tmp = "$mars/.tmp.$res";
@@ -116,16 +163,23 @@ sub create_res {
     symlink($ip, "$mars/ips/ip-$host");
     system("rm -rf $tmp");
     system("mkdir $tmp") == 0 or die "could not create resource '$res'\n";
+    symlink($size, "$tmp/size") or die "cannot create size indicator symlink\n";
   } else {
     $tmp = "$mars/resource-$res";
-    $primary = readlink("$tmp/primary") or die "cannot determine primary\n";
     die "resource '$res' does not exist\n" unless -d $tmp;
+    $primary = readlink("$tmp/primary") or die "cannot determine primary\n";
     die "resource '$res' is already joined\n" if -e "$tmp/data-$host";
     die "my ip '$ip' is not registered -- please run 'join-system' first\n" unless -l "$mars/ips/ip-$host";
+    my $oldsize = readlink("$tmp/size") or die "cannot determine old size\n";
+    if($size < $oldsize) {
+      print "adjusting size to $oldsize\n";
+      $size = $oldsize;
+    }
+    die "sizes differ: real size = $oldsize, but requested size = $size\n" unless $oldsize == $size;
   }
 
   my $file = "$tmp/data-$host";
-  if($size > 0) {
+  if(!$dev) {
     print "creating sparse file '$file' with size $size\n";
     open(OUT, ">$file") or die "could not open '$file'\n";
     use Fcntl 'SEEK_SET';
@@ -165,43 +219,42 @@ sub create_res {
 sub attach_res {
   my ($cmd, $res) = @_;
   my $detach = ($cmd eq "detach");
-  if($detach) {
-    die "resource '$res' is not attached\n" unless -l "$mars/$res/data-$host";
-    rename("$mars/$res/data-$host", "$mars/$res/off.data-$host") or die "operation failed\n";
-  } else {
-    die "resource '$res' is not detached\n" unless -l "$mars/$res/off.data-$host";
-    rename("$mars/$res/off.data-$host", "$mars/$res/data-$host") or die "operation failed\n";
-  }
+  my $path = "$mars/$res/data-$host";
+  _switch($path, !$detach);
 }
 
 sub connect_res {
   my ($cmd, $res) = @_;
   my $disconnect = ($cmd eq "disconnect");
-  my $src = "off.";
-  my $dst = "";
-  if($disconnect) {
-    $dst = $src;
-    $src = "";
-  }
-  rename("$mars/$res/${src}connect-$host", "$mars/$res/${dst}connect-$host");
+  my $path = "$mars/$res/connect-$host";
+  _switch($path, !$disconnect);
+}
+
+sub pause_res {
+  my ($cmd, $res) = @_;
+  my $pause = ($cmd eq "pause-sync");
+  my $path = "$mars/$res/syncstatus-$host";
+  _switch($path, !$pause);
 }
 
 sub up_res {
   my ($cmd, $res) = @_;
   my $down = ($cmd eq "down");
   if($down) {
+    pause_res("pause-sync", $res);
     connect_res("disconnect", $res);
     attach_res("detach", $res);
   } else {
     attach_res("attach", $res);
     connect_res("connect", $res);
+    pause_res("resume-sync", $res);
   }
 }
 
 sub primary_res {
   my ($cmd, $res) = @_;
   my $sec = ($cmd eq "secondary");
-  my $pri = "$mars/$res/primary";
+  my $pri = "$mars/resource-$res/primary";
   my $old = readlink($pri) or die "cannot determine current primary\n";
   if($sec) {
     die "for safety reasons, switching to secondary is only allowed when I am primary\n" if($old ne $host);
@@ -220,9 +273,24 @@ sub primary_res {
   print "primary changed from '$old' to '$host'\n";
 }
 
+sub invalidate_res {
+  my ($cmd, $res) = @_;
+  my $pri = "$mars/resource-$res/primary";
+  my $old = readlink($pri) or die "cannot determine current primary\n";
+  my $dst = "$mars/resource-$res/syncstatus-$host";
+
+  die "primary side cannot be invalidated\n" if $old eq $host;
+
+  system("rm -f $dst");
+  symlink("0", $dst) or die "cannot create invalidation symlink '$dst'\n";
+}
+
+
+
+
 sub role_cmd {
   my ($cmd, $res) = @_;
-  my $pri = "$mars/$res/primary";
+  my $pri = "$mars/resource-$res/primary";
   my $old = readlink($pri) or die "cannot determine current primary\n";
   if($old eq $host) {
     print "primary\n";
@@ -236,41 +304,41 @@ sub role_cmd {
 my %cmd_table =
   (
    # new keywords
-   "join-system" => \&join_system,
-   "create-resource" => \&create_res,
-   "join-resource" => \&create_res,
+   "join-system"       => \&join_system,
+   "create-resource"   => \&create_res,
+   "join-resource"     => \&create_res,
 
    # compatible keywords
-   "attach" => \&attach_res,
-   "detach" => \&attach_res,
-   "connect" => \&connect_res,
-   "disconnect" => \&connect_res,
-   "syncer" => \&ignore_cmd,
-   "up" => \&up_res,
-   "down" => \&up_res,
-   "primary" => \&primary_res,
-   "secondary" => \&primary_res,
-   "invalidate" => \&nyi_cmd,
+   "attach"            => \&attach_res,
+   "detach"            => \&attach_res,
+   "connect"           => \&connect_res,
+   "disconnect"        => \&connect_res,
+   "syncer"            => \&ignore_cmd,
+   "up"                => \&up_res,
+   "down"              => \&up_res,
+   "primary"           => \&primary_res,
+   "secondary"         => \&primary_res,
+   "invalidate"        => \&invalidate_res,
    "invalidate-remote" => \&forbidden_cmd,
-   "resize" => \&nyi_cmd,
-   "create-md" => \&senseless_cmd,
-   "get-gi" => \&ignore_cmd,
-   "show-gi" => \&ignore_cmd,
-   "dump-md" => \&senseless_cmd,
-   "outdate" => \&ignore_cmd,
-   "adjust" => \&senseless_cmd,
-   "wait-connect" => \&nyi_cmd,
-   "role" => \&role_cmd,
-   "state" => \&role_cmd,
-   "cstate" => \&nyi_cmd,
-   "status" => \&nyi_cmd,
-   "dump" => \&senseless_cmd,
-   "verify" => \&nyi_cmd,
-   "pause-sync" => \&nyi_cmd,
-   "resume-sync" => \&nyi_cmd,
-   "new-current-uuid" => \&senseless_cmd,
-   "dstate" => \&nyi_cmd,
-   "hidden-commands" => \&ignore_cmd,
+   "resize"            => \&nyi_cmd,
+   "create-md"         => \&senseless_cmd,
+   "get-gi"            => \&ignore_cmd,
+   "show-gi"           => \&ignore_cmd,
+   "dump-md"           => \&senseless_cmd,
+   "outdate"           => \&ignore_cmd,
+   "adjust"            => \&ignore_cmd,
+   "wait-connect"      => \&nyi_cmd,
+   "role"              => \&role_cmd,
+   "state"             => \&role_cmd,
+   "cstate"            => \&nyi_cmd,
+   "status"            => \&nyi_cmd,
+   "dump"              => \&senseless_cmd,
+   "verify"            => \&nyi_cmd,
+   "pause-sync"        => \&pause_sync,
+   "resume-sync"       => \&pause_sync,
+   "new-current-uuid"  => \&senseless_cmd,
+   "dstate"            => \&nyi_cmd,
+   "hidden-commands"   => \&ignore_cmd,
   );
 
 my $cmd = shift || die "command argument is missing\n";
@@ -279,6 +347,7 @@ my $res = shift || die "resource argument is missing\n";
 die "unknown command '$cmd'\n" if !exists $cmd_table{$cmd};
 check_id($res);
 check_res($res) unless $cmd =~ m/^(join-system|create-resource)$/;
+check_res_member($res) unless $cmd =~ m/^(join|create)-(system|resource)$/;
 
 my $func = $cmd_table{$cmd};
 &{$func}($cmd, $res, @ARGV);

@@ -533,8 +533,7 @@ static int device_aio_output_construct(struct device_aio_output *output)
 
 static int device_aio_output_destruct(struct device_aio_output *output)
 {
-	mars_power_button((void*)output->brick, false);
-	return device_aio_switch(output->brick);
+	return mars_power_button((void*)output->brick, false, true);
 }
 
 ///////////////////////// static structs ////////////////////////

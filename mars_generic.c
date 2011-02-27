@@ -19,6 +19,21 @@
 #include <linux/kthread.h>
 
 // some helpers
+
+int mars_lstat(const char *path, struct kstat *stat)
+{
+	mm_segment_t oldfs;
+	int status;
+	
+	oldfs = get_fs();
+	set_fs(get_ds());
+	status = vfs_lstat((char*)path, stat);
+	set_fs(oldfs);
+
+	return status;
+}
+EXPORT_SYMBOL_GPL(mars_lstat);
+
 int mars_mkdir(const char *path)
 {
 	mm_segment_t oldfs;
@@ -33,7 +48,7 @@ int mars_mkdir(const char *path)
 }
 EXPORT_SYMBOL_GPL(mars_mkdir);
 
-int mars_symlink(const char *oldpath, const char *newpath, const struct timespec *stamp)
+int mars_symlink(const char *oldpath, const char *newpath, const struct timespec *stamp, uid_t uid)
 {
 	int newlen = strlen(newpath);
 	char tmp[newlen + 16];
@@ -48,6 +63,7 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct timespec
 
 	if (stamp) {
 		struct timespec times[2];
+		sys_lchown(tmp, uid, 0);
 		memcpy(&times[0], stamp, sizeof(struct timespec));
 		memcpy(&times[1], stamp, sizeof(struct timespec));
 		status = do_utimes(AT_FDCWD, tmp, times, AT_SYMLINK_NOFOLLOW);
@@ -76,6 +92,33 @@ int mars_rename(const char *oldpath, const char *newpath)
 }
 EXPORT_SYMBOL_GPL(mars_rename);
 
+int mars_chmod(const char *path, mode_t mode)
+{
+	mm_segment_t oldfs;
+	int status;
+	
+	oldfs = get_fs();
+	set_fs(get_ds());
+	status = sys_chmod(path, mode);
+	set_fs(oldfs);
+
+	return status;
+}
+EXPORT_SYMBOL_GPL(mars_chmod);
+
+int mars_lchown(const char *path, uid_t uid)
+{
+	mm_segment_t oldfs;
+	int status;
+	
+	oldfs = get_fs();
+	set_fs(get_ds());
+	status = sys_lchown(path, uid, 0);
+	set_fs(oldfs);
+
+	return status;
+}
+EXPORT_SYMBOL_GPL(mars_lchown);
 
 //////////////////////////////////////////////////////////////
 
@@ -135,16 +178,49 @@ void mars_trigger(void)
 }
 EXPORT_SYMBOL_GPL(mars_trigger);
 
-void mars_power_button(struct mars_brick *brick, bool val)
+int mars_power_button(struct mars_brick *brick, bool val, bool force)
 {
+	int status = 0;
 	bool oldval = brick->power.button;
-	if (val != oldval) {
+
+	if (brick->power.force_off)
+		val = false;
+
+	if (val != oldval || force) {
 		MARS_DBG("brick '%s' type '%s' power button %d -> %d\n", brick->brick_path, brick->type->type_name, oldval, val);
-		set_button(&brick->power, val);
+
+		set_button(&brick->power, val, force);
+
+		if (brick->ops)
+			status = brick->ops->brick_switch(brick);
+
 		mars_trigger();
 	}
+	return status;
 }
 EXPORT_SYMBOL_GPL(mars_power_button);
+
+int mars_power_button_recursive(struct mars_brick *brick, bool val, bool force, int timeout)
+{
+	int status = 0;
+	bool oldval = brick->power.button;
+
+	if (brick->power.force_off)
+		val = false;
+
+	if (val != oldval || force) {
+		MARS_DBG("brick '%s' type '%s' power button %d -> %d\n", brick->brick_path, brick->type->type_name, oldval, val);
+
+		status = set_recursive_button((void*)brick, val, force, timeout);
+		
+		if (status >= 0)
+			status = brick->ops->brick_switch(brick);
+
+		mars_trigger();
+	}
+	return status;
+}
+EXPORT_SYMBOL_GPL(mars_power_button_recursive);
 
 void mars_power_led_on(struct mars_brick *brick, bool val)
 {
@@ -188,45 +264,72 @@ int get_inode(char *newpath, struct mars_dent *dent)
 {
 	mm_segment_t oldfs;
 	int status;
-	struct path path;
+	struct kstat tmp = {};
 
 	oldfs = get_fs();
 	set_fs(get_ds());
-	
-	status = user_path_at(AT_FDCWD, newpath, 0, &path);
-	if (!status) {
-		struct inode *inode = path.dentry->d_inode;
-		memcpy(&dent->old_stat, &dent->new_stat, sizeof(dent->old_stat)); 
-		generic_fillattr(inode, &dent->new_stat);
-		if (S_ISLNK(dent->new_stat.mode)) {
-			int len = dent->new_stat.size;
-			char *link;
-			status = -ENOMEM;
-			link = kmalloc(len + 2, GFP_MARS);
-			if (link) {
-				MARS_DBG("len = %d\n", len);
-				status = inode->i_op->readlink(path.dentry, link, len + 1);
-				link[len] = '\0';
-				if (status < 0 ||
-				   (dent->new_link && !strncmp(dent->new_link, link, len))) {
-					//MARS_DBG("symlink no change '%s' -> '%s' (%s) status = %d\n", newpath, link, dent->new_link ? dent->new_link : "", status);
-					kfree(link);
-				} else {
-					MARS_DBG("symlink '%s' -> '%s' (%s) status = %d\n", newpath, link, dent->new_link ? dent->new_link : "", status);
-					if (dent->old_link)
-						kfree(dent->old_link);
-					dent->old_link = dent->new_link;
-					dent->new_link = link;
-				}
+
+	status = vfs_lstat(newpath, &tmp);
+	if (status < 0) {
+		MARS_ERR("cannot stat '%s', status = %d\n", newpath, status);
+		goto done;
+	}
+
+	memcpy(&dent->old_stat, &dent->new_stat, sizeof(dent->old_stat)); 
+	memcpy(&dent->new_stat, &tmp, sizeof(dent->new_stat));
+
+#if 0 // does not work because userspace cannot call lchmod()
+	dent->d_activate = (dent->new_stat.mode & S_IXUSR) != 0;
+#else
+	dent->d_activate = dent->new_stat.uid == 0;
+#endif
+
+	if (S_ISLNK(dent->new_stat.mode)) {
+		struct path path = {};
+		int len = dent->new_stat.size;
+                struct inode *inode;
+		char *link;
+		
+		if (unlikely(len <= 0)) {
+			MARS_ERR("symlink '%s' bad len = %d\n", newpath, len);
+			status = -EINVAL;
+			goto done;
+		}
+
+		status = user_path_at(AT_FDCWD, newpath, 0, &path);
+		if (unlikely(status < 0)) {
+			MARS_ERR("cannot read link '%s'\n", newpath);
+			goto done;
+		}
+
+                inode = path.dentry->d_inode;
+
+		status = -ENOMEM;
+		link = kmalloc(len + 2, GFP_MARS);
+		if (likely(link)) {
+			MARS_DBG("len = %d\n", len);
+			status = inode->i_op->readlink(path.dentry, link, len + 1);
+			link[len] = '\0';
+			if (status < 0 ||
+			   (dent->new_link && !strncmp(dent->new_link, link, len))) {
+				//MARS_DBG("symlink no change '%s' -> '%s' (%s) status = %d\n", newpath, link, dent->new_link ? dent->new_link : "", status);
+				kfree(link);
+			} else {
+				MARS_DBG("symlink '%s' -> '%s' (%s) status = %d\n", newpath, link, dent->new_link ? dent->new_link : "", status);
+				if (dent->old_link)
+					kfree(dent->old_link);
+				dent->old_link = dent->new_link;
+				dent->new_link = link;
 			}
 		}
 		path_put(&path);
 	}
 
-	set_fs(oldfs);
-	
 	if (dent->new_link)
 		MARS_IO("symlink '%s'\n", dent->new_link);
+
+ done:
+	set_fs(oldfs);
 	return status;
 }
 

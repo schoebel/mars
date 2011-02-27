@@ -38,6 +38,29 @@ struct mars_tcp_params default_tcp_params = {
 };
 EXPORT_SYMBOL(default_tcp_params);
 
+char *mars_translate_hostname(struct mars_global *global, const char *name)
+{
+	const char *res = name;
+
+	if (global) {
+		char tmp[MARS_PATH_MAX];
+		struct mars_dent *test;
+
+		snprintf(tmp, sizeof(tmp), "/mars/ips/ip-%s", name);
+
+		test = mars_find_dent(global, tmp);
+
+		if (test && test->new_link) {
+			MARS_DBG("'%s' => '%s'\n", tmp, test->new_link);
+			res = test->new_link;
+		}
+	}
+
+	return kstrdup(res, GFP_MARS);
+}
+EXPORT_SYMBOL_GPL(mars_translate_hostname);
+
+
 static void _check(int status)
 {
 	if (status < 0) {
@@ -48,32 +71,49 @@ static void _check(int status)
 int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec)
 {
 	struct sockaddr_in *sockaddr = (void*)addr;
-	int status;
+	char *new_spec;
+	char *tmp_spec;
+	int status = 0;
+
 	memset(addr, sizeof(*addr), 0);
 	sockaddr->sin_family = AF_INET;
 	sockaddr->sin_port = htons(MARS_DEFAULT_PORT);
+
+	/* Try to translate hostnames to IPs if possible.
+	 */
+	new_spec = mars_translate_hostname(mars_global, spec);
+	tmp_spec = new_spec;
+
 	/* This is PROVISIONARY!
 	 * TODO: add IPV6 syntax and many more features :)
 	 */
-	if (!*spec)
-		return 0;
-	if (*spec != ':') {
+	if (!*tmp_spec)
+		goto done;
+	if (*tmp_spec != ':') {
 		unsigned char u0 = 0, u1 = 0, u2 = 0, u3 = 0;
-		status = sscanf(spec, "%hhu.%hhu.%hhu.%hhu", &u0, &u1, &u2, &u3);
-		if (status != 4)
-			return -EINVAL;
+		status = sscanf(tmp_spec, "%hhu.%hhu.%hhu.%hhu", &u0, &u1, &u2, &u3);
+		if (status != 4) {
+			status = -EINVAL;
+			goto done;
+		}
 		sockaddr->sin_addr.s_addr = (__be32)u0 | (__be32)u1 << 8 | (__be32)u2 << 16 | (__be32)u3 << 24;
 	}
-	while (*spec && *spec++ != ':')
+	while (*tmp_spec && *tmp_spec++ != ':')
 		/*empty*/;
-	if (*spec) {
+	if (*tmp_spec) {
 		int port = 0;
-		status = sscanf(spec, "%d", &port);
-		if (status != 1)
-			return -EINVAL;
+		status = sscanf(tmp_spec, "%d", &port);
+		if (status != 1) {
+			status = -EINVAL;
+			goto done;
+		}
 		sockaddr->sin_port = htons(port);
 	}
-	return 0;
+	status = 0;
+ done:
+	if (new_spec)
+		kfree(new_spec);
+	return status;
 }
 EXPORT_SYMBOL_GPL(mars_create_sockaddr);
 

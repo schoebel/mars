@@ -103,6 +103,7 @@ struct mars_info {
 	struct list_head brick_link;					\
 	const char *brick_path;						\
 	struct mars_global *global;					\
+	int log_level;							\
 
 struct mars_brick {
 	MARS_BRICK(mars);
@@ -247,15 +248,18 @@ extern const struct meta mars_mref_meta[];
 extern struct mars_global *mars_global;
 
 extern void mars_trigger(void);
-extern void mars_power_button(struct mars_brick *brick, bool val);
+extern int  mars_power_button(struct mars_brick *brick, bool val, bool force);
 extern void mars_power_led_on(struct mars_brick *brick, bool val);
 extern void mars_power_led_off(struct mars_brick *brick, bool val);
+
+extern int  mars_power_button_recursive(struct mars_brick *brick, bool val, bool force, int timeout);
 
 /////////////////////////////////////////////////////////////////////////
 
 #ifdef _STRATEGY // call this only in strategy bricks, never in ordinary bricks
 
 #define MARS_ARGV_MAX 4
+#define MARS_PATH_MAX 64
 
 extern char *my_id(void);
 
@@ -274,7 +278,9 @@ extern char *my_id(void);
 	int   d_class;    /* for pre-grouping order */			\
 	int   d_serial;   /* for pre-grouping order */			\
 	int   d_version;  /* dynamic programming per call of mars_ent_work() */ \
-	char d_error;							\
+	bool d_activate;  /* tells whether activation should start */	\
+	bool d_kill_inactive; /* whether !d_activate should kill operation  */	\
+	char d_once_error;						\
 	struct kstat new_stat;						\
 	struct kstat old_stat;						\
 	char *new_link;							\
@@ -311,7 +317,7 @@ extern void mars_dent_free_all(struct list_head *anchor);
 extern struct mars_brick *mars_find_brick(struct mars_global *global, const void *brick_type, const char *path);
 extern struct mars_brick *mars_make_brick(struct mars_global *global, const void *_brick_type, const char *path, const char *name);
 
-#define MARS_ERR_ONCE(dent, args...) if (!dent->d_error++) MARS_ERR(args)
+#define MARS_ERR_ONCE(dent, args...) if (!dent->d_once_error++) MARS_ERR(args)
 
 /* Kludge: our kernel threads will have no mm context, but need one
  * for stuff like ioctx_alloc() / aio_setup_ring() etc
@@ -338,9 +344,14 @@ inline void cleanup_mm(void)
 	}
 }
 
+/* General fs wrappers (for abstraction)
+ */
+extern int mars_lstat(const char *path, struct kstat *stat);
 extern int mars_mkdir(const char *path);
-extern int mars_symlink(const char *oldpath, const char *newpath, const struct timespec *stamp);
+extern int mars_symlink(const char *oldpath, const char *newpath, const struct timespec *stamp, uid_t uid);
 extern int mars_rename(const char *oldpath, const char *newpath);
+extern int mars_chmod(const char *path, mode_t mode);
+extern int mars_lchown(const char *path, uid_t uid);
 
 #endif
 #endif

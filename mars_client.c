@@ -45,9 +45,10 @@ static int _connect(struct client_output *output, const char *str)
 
 	if (!output->host) {
 		output->host = kstrdup(str, GFP_MARS);
-		status = -EINVAL;
+		status = -ENOMEM;
 		if (!output->host)
 			goto done;
+		status = -EINVAL;
 		output->path = strchr(output->host, '+');
 		if (!output->path) {
 			kfree(output->host);
@@ -211,7 +212,7 @@ static int receiver_thread(void *data)
 		case CMD_CONNECT:
 			if (cmd.cmd_int1 < 0) {
 				status = cmd.cmd_int1;
-				MARS_ERR("remote connect failed, status = %d\n", status);
+				MARS_ERR("at remote side: brick connect failed, remote status = %d\n", status);
 				goto done;
 			}
 			break;
@@ -227,14 +228,14 @@ static int receiver_thread(void *data)
 			traced_unlock(&output->lock, flags);
 
 			if (!mref) {
-				MARS_ERR("unknown id = %d\n", cmd.cmd_int1);
+				MARS_ERR("got unknown id = %d for callback\n", cmd.cmd_int1);
 				status = -EBADR;
 				goto done;
 			}
 
 			status = mars_recv_cb(&output->socket, mref);
 			if (status < 0) {
-				MARS_ERR("interrupted data transfer, status = %d\n", status);
+				MARS_ERR("interrupted data transfer during callback, status = %d\n", status);
 				goto done;
 			}
 
@@ -249,14 +250,14 @@ static int receiver_thread(void *data)
 		case CMD_GETINFO:
 			status = mars_recv_struct(&output->socket, &output->info, mars_info_meta);
 			if (status < 0) {
-				MARS_ERR("got bad info, status = %d\n", status);
+				MARS_ERR("got bad info from remote side, status = %d\n", status);
 				goto done;
 			}
 			output->got_info = true;
 			wake_up_interruptible(&output->info_event);
 			break;
 		default:
-			MARS_ERR("got bad command %d, terminating.\n", cmd.cmd_code);
+			MARS_ERR("got bad command %d from remote side, terminating.\n", cmd.cmd_code);
 			status = -EBADR;
 			goto done;
 		}

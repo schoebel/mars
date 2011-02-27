@@ -221,13 +221,9 @@ static int handler_thread(void *data)
 
 done:
 	MARS_DBG("handler_thread terminating, status = %d\n", status);
-	mars_power_button((void*)brick, false);
+	mars_power_button((void*)brick, false, true);
 	do {
 		int status;
-		if (!brick->ops || !brick->ops->brick_switch) {
-			MARS_FAT("cannot switch off - this will do no real harm, but leave a memory leak\n");
-			break;
-		}
 		status = brick->ops->brick_switch(brick);
 		if (status < 0) {
 			MARS_ERR("server shutdown failed, status = %d\n", status);

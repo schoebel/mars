@@ -44,6 +44,8 @@ struct mars_cmd {
 
 extern const struct meta mars_cmd_meta[];
 
+extern char *mars_translate_hostname(struct mars_global *global, const char *name);
+
 /* Low-level network traffic
  */
 extern int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec);

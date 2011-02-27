@@ -288,6 +288,7 @@ int _next_state(struct copy_brick *brick, loff_t pos)
 			MARS_IO("new copy_start = %lld\n", brick->copy_start);
 			if (brick->copy_start > brick->copy_last + 1024 * 1024 * 1024 || brick->copy_start == brick->copy_end) {
 				brick->copy_last = brick->copy_start;
+				brick->power.percent_done = brick->copy_end > 0 ? brick->copy_start * 100 / brick->copy_end : 0;
 				MARS_INF("'%s' copied %lld / %lld bytes (%lld%%)\n", brick->brick_name, brick->copy_last, brick->copy_end, brick->copy_end? brick->copy_last * 100 / brick->copy_end : 100);
 			}
 		}

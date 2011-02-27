@@ -128,7 +128,8 @@ struct generic_switch {
 	bool button;
 	bool led_on;
 	bool led_off;
-	bool trigger;
+	bool force_off;
+	int  percent_done;
 	wait_queue_head_t event;
 };
 
@@ -262,6 +263,7 @@ inline void _generic_output_init(struct generic_brick *brick, const struct gener
 	output->type = type;
 	output->ops = type->master_ops;
 	output->nr_connected = 0;
+	INIT_LIST_HEAD(&output->output_head);
 }
 
 #ifdef _STRATEGY // call this only in strategy bricks, never in ordinary bricks
@@ -292,6 +294,7 @@ inline int generic_input_init(struct generic_brick *brick, int index, const stru
 	input->brick = brick;
 	input->type = type;
 	input->connect = NULL;
+	INIT_LIST_HEAD(&input->input_head);
 	brick->inputs[index] = input;
 	brick->nr_inputs++;
 	return 0;
@@ -347,6 +350,7 @@ inline int generic_connect(struct generic_input *input, struct generic_output *o
 		return -EEXIST;
 	input->connect = output;
 	output->nr_connected++; //TODO: protect against races, e.g. atomic_t
+	list_add(&input->input_head, &output->output_head);
 	BRICK_DBG("now nr_connected=%d\n", output->nr_connected);
 	return 0;
 }
@@ -360,6 +364,7 @@ inline int generic_disconnect(struct generic_input *input)
 		input->connect->nr_connected--; //TODO: protect against races, e.g. atomic_t
 		BRICK_DBG("now nr_connected=%d\n", input->connect->nr_connected);
 		input->connect = NULL;
+		list_del_init(&input->input_head);
 	}
 	return 0;
 }
@@ -679,9 +684,24 @@ extern void set_lamport(struct timespec *old);
 
 #endif
 
-extern void set_button(struct generic_switch *sw, bool val);
+/* Generic interface to simple brick status changes
+ */
+extern void set_button(struct generic_switch *sw, bool val, bool force);
+extern void set_button_wait(struct generic_switch *sw, bool val, bool force, int timeout);
 extern void set_led_on(struct generic_switch *sw, bool val);
 extern void set_led_off(struct generic_switch *sw, bool val);
+
+/* Operations on networks of bricks (wiring graphs).
+ *
+ * Switch on => first switch on all predecessors in the wiring graph
+ * Switch off => first switch off all successors in the wiring graph
+ *
+ * Operations on brick networks by multiple threads in parallel are dangerous,
+ * because the buttons may start flipping.
+ * There is one exception: when @force is set, only the direction to
+ * "off" remains possible. This is useful for emergency shutdowns.
+ */
+extern int set_recursive_button(struct generic_brick *brick, bool val, bool force, int timeout);
 
 /////////////////////////////////////////////////////////////////////////
 
