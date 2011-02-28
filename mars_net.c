@@ -42,7 +42,7 @@ char *mars_translate_hostname(struct mars_global *global, const char *name)
 {
 	const char *res = name;
 
-	if (global) {
+	if (likely(global)) {
 		char tmp[MARS_PATH_MAX];
 		struct mars_dent *test;
 

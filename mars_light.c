@@ -31,11 +31,7 @@
 
 static struct task_struct *main_thread = NULL;
 
-struct light_dent {
-	MARS_DENT(light_dent);
-};
-
-typedef int (*light_worker_fn)(void *buf, struct light_dent *dent);
+typedef int (*light_worker_fn)(void *buf, struct mars_dent *dent);
 
 struct light_class {
 	char *cl_name;
@@ -48,104 +44,12 @@ struct light_class {
 	light_worker_fn cl_backward;
 };
 
-static
-struct mars_brick *make_brick(struct mars_global *global, const void *_brick_type, const char *path, const char *name)
-{
-	struct mars_brick *res;
-	MARS_DBG("type = '%s' path = '%s' name = '%s'\n", ((struct generic_brick_type*)_brick_type)->type_name, path, name);
-	res = mars_make_brick(global, _brick_type, path, name);
-	MARS_DBG("brick = %p\n", res);
-	if (res) {
-		mars_trigger();
-	}
-	return res;
-}
-
-static
-int kill_brick(struct mars_brick *brick, int max_level)
-{
-	int i;
-	int status;
-
-	if (!brick) {
-		MARS_ERR("bad brick parameter\n");
-		return -EINVAL;
-	}
-
-	// first check whether the brick is in use somewhere
-	for (i = 0; i < brick->nr_outputs; i++) {
-		if (brick->outputs[i]->nr_connected > 0) {
-			MARS_DBG("brick '%s' not killable, output %i is used\n", brick->brick_name, i);
-			return -EEXIST;
-		}
-	}
-
-	MARS_DBG("===> killing brick name = '%s'\n", brick->brick_name);
-
-	// start shutdown
-#if 1
-	status = mars_power_button_recursive((void*)brick, false, true, 5 * HZ);
-#else
-	status = mars_power_button((void*)brick, false, true);
-
-	MARS_DBG("kill '%s' status = %d led_off = %d\n", brick->brick_name, status, brick->power.led_off);
-
-	// wait until clean shutdown
-	if (status >= 0 && brick->power.led_off) {
-		int count = 0;
-		struct mars_brick *prev[brick->nr_inputs];
-
-		// remove from the global list => no longer visible
-		down(&brick->global->mutex);
-		list_del_init(&brick->brick_link);
-		up(&brick->global->mutex);
-
-		/* Disconnect all inputs.
-		 * This must not start earlier, because during shutdown
-		 * the inputs could be needed for cleanup operations etc.
-		 */
-		for (i = 0; i < brick->nr_inputs; i++) {
-			if (brick->inputs[i]->connect) {
-				prev[count++] = brick->inputs[i]->connect->brick;
-				(void)generic_disconnect((void*)brick->inputs[i]);
-			}
-		}
-
-		/* recursively kill predecessors
-		 */
-		if (max_level > 0) {
-			struct mars_brick *old = NULL;
-			for (i = 0; i < count; i++) {
-				if (!prev[i] || prev[i] == old || list_empty(&prev[i]->brick_link))
-					continue;
-				old = prev[i];
-				status |= kill_brick(prev[i], max_level - 1);
-#if 1
-				msleep(500);
-#endif
-			}
-		}
-
-		/* This runs unchecked and may therefore leave memory remains,
-		 * but we currently have no separate list for "zombies".
-		 * TODO: do better.
-		 */
-#if 0 // TODO: debug locking crash
-		(void)generic_brick_exit_full((void*)brick);
-#endif
-		mars_trigger();
-	}
-#endif
-	return status;
-}
-
-
 ///////////////////////////////////////////////////////////////////////
 
 // internal helpers
 
 static
-void _normalized_path(char *res, int maxlen, struct light_dent *father, const char *prefix, const char *suffix)
+void _normalized_path(char *res, int maxlen, struct mars_dent *father, const char *prefix, const char *suffix)
 {
 	char *test;
 	int prelen;
@@ -189,8 +93,7 @@ done:
 	*res = '\0';
 }
 
-static
-struct mars_brick *find_other(struct mars_global *global, const void *brick_type, struct light_dent *father, const char *prefix, const char *suffix)
+struct mars_brick *find_other(struct mars_global *global, const void *brick_type, struct mars_dent *father, const char *prefix, const char *suffix)
 {
 	int len = (father ? father->d_pathlen : 0)
 		+ strlen(prefix)
@@ -206,12 +109,11 @@ struct mars_brick *find_other(struct mars_global *global, const void *brick_type
 /* Create a new brick and connect its inputs to a set of predecessors.
  * Before starting that, check whether all predecessors exist and are healthy.
  */
-static
 struct mars_brick *make_all(struct mars_global *global,
 			    const void *new_brick_type,
 			    const char *new_path,
 			    const char *new_name,
-			    struct light_dent *father,
+			    struct mars_dent *father,
 			    const void *brick_type[],
 			    const char *prefix[],
 			    const char *suffix[],
@@ -242,28 +144,11 @@ struct mars_brick *make_all(struct mars_global *global,
 		}
 	}
 
-	// special case for client brick: treat network indirection
-	if (new_brick_type == &client_brick_type) {
-		struct mars_dent *test;
-		char path[256];
-		snprintf(path, sizeof(path), "/mars/ips/ip-%s", new_name);
-		test = mars_find_dent(global, path);
-		if (test && test->new_link) {
-			MARS_DBG("translation '%s' => '%s'\n", new_name, test->new_link);
-			new_name = test->new_link;
-		}
-	}
-
 	// create it...
-	brick = make_brick(global, new_brick_type, fullpath, new_name);
+	brick = mars_make_brick(global, new_brick_type, fullpath, new_name);
 	if (unlikely(!brick)) {
 		MARS_DBG("creation failed '%s' '%s'\n", fullpath, new_name);
 		return NULL;
-	}
-
-	// special case for aio: file name is treated different IMPROVEME!
-	if (new_brick_type == &device_aio_brick_type) {
-		brick->outputs[0]->output_name = brick->brick_name;
 	}
 
 	// connect the wires
@@ -281,13 +166,13 @@ struct mars_brick *make_all(struct mars_global *global,
 
 	// switch on (may fail silently, but responsibility is at the workers)
 	if (switch_on) {
-		status = mars_power_button((void*)brick, true, false);
+		status = mars_power_button((void*)brick, true);
 		MARS_DBG("switch on status = %d\n", status);
 	}
 	return brick;
 
 err:
-	status = kill_brick(brick, 0);
+	status = mars_kill_brick(brick);
 	if (status >= 0) {
 		brick = NULL;
 	}
@@ -296,7 +181,7 @@ err:
 
 #define MARS_DELIM ','
 
-static int _parse_args(struct light_dent *dent, char *str, int count)
+static int _parse_args(struct mars_dent *dent, char *str, int count)
 {
 	int i;
 	int status = -EINVAL;
@@ -350,7 +235,7 @@ done:
 ///////////////////////////////////////////////////////////////////////
 
 static
-int __make_copy(struct mars_global *global, struct light_dent *parent, const char *path, const char *argv[], loff_t start_pos, struct copy_brick **__copy)
+int __make_copy(struct mars_global *global, struct mars_dent *parent, const char *path, const char *argv[], loff_t start_pos, struct copy_brick **__copy)
 {
 	const char *new_argv[4];
 	struct mars_brick *copy;
@@ -464,7 +349,7 @@ int __make_copy(struct mars_global *global, struct light_dent *parent, const cha
 		_copy->copy_end = info[0].current_size;
 		MARS_DBG("copy_end = %lld\n", _copy->copy_end);
 		if (_copy->copy_start < _copy->copy_end) {
-			status = mars_power_button((void*)copy, true, false);
+			status = mars_power_button((void*)copy, true);
 			MARS_DBG("copy switch status = %d\n", status);
 		}
 	}
@@ -491,7 +376,7 @@ struct mars_peerinfo {
 };
 
 static
-int _update_file(struct mars_global *global, struct light_dent *parent, const char *peer, const char *path)
+int _update_file(struct mars_global *global, struct mars_dent *parent, const char *peer, const char *path)
 {
 	char tmp[MARS_PATH_MAX] = {};
 	const char *argv[2] = { tmp, path};
@@ -526,7 +411,7 @@ int _is_peer_logfile(const char *name, const char *id)
 }
 
 static
-int run_bones(void *buf, struct light_dent *dent)
+int run_bones(void *buf, struct mars_dent *dent)
 {
 	int status = 0;
 	struct mars_peerinfo *peer = buf;
@@ -697,7 +582,7 @@ int remote_thread(void *data)
 		{
 			struct list_head *tmp;
 			for (tmp = tmp_list.next; tmp != &tmp_list; tmp = tmp->next) {
-				struct light_dent *dent = container_of(tmp, struct light_dent, sub_link);
+				struct mars_dent *dent = container_of(tmp, struct mars_dent, sub_link);
 				if (!dent->d_path) {
 					MARS_DBG("NULL\n");
 					continue;
@@ -732,7 +617,7 @@ done:
 
 // helpers for worker functions
 
-static int _kill_peer(void *buf, struct light_dent *dent)
+static int _kill_peer(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
 	struct mars_peerinfo *peer = dent->d_private;
@@ -755,7 +640,7 @@ static int _kill_peer(void *buf, struct light_dent *dent)
 	return 0;
 }
 
-static int _make_peer(void *buf, struct light_dent *dent, char *mypeer, char *path, light_worker_fn worker)
+static int _make_peer(void *buf, struct mars_dent *dent, char *mypeer, char *path, light_worker_fn worker)
 {
 	static int serial = 0;
 	struct mars_global *global = buf;
@@ -804,22 +689,22 @@ done:
 	return status;
 }
 
-static int _kill_remote(void *buf, struct light_dent *dent)
+static int _kill_remote(void *buf, struct mars_dent *dent)
 {
 	return _kill_peer(buf, dent);
 }
 
-static int _make_remote(void *buf, struct light_dent *dent)
+static int _make_remote(void *buf, struct mars_dent *dent)
 {
 	return _make_peer(buf, dent, NULL, "/mars", NULL);
 }
 
-static int kill_scan(void *buf, struct light_dent *dent)
+static int kill_scan(void *buf, struct mars_dent *dent)
 {
 	return _kill_peer(buf, dent);
 }
 
-static int make_scan(void *buf, struct light_dent *dent)
+static int make_scan(void *buf, struct mars_dent *dent)
 {
 	MARS_DBG("path = '%s' peer = '%s'\n", dent->d_path, dent->d_rest);
 	if (!strcmp(dent->d_rest, my_id())) {
@@ -830,7 +715,7 @@ static int make_scan(void *buf, struct light_dent *dent)
 
 
 static
-int _kill_default(void *buf, struct light_dent *dent, int maxlevel)
+int kill_all(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
 	struct mars_brick *brick;
@@ -843,37 +728,23 @@ int _kill_default(void *buf, struct light_dent *dent, int maxlevel)
 	if (!brick) {
 		return 0;
 	}
-	return kill_brick(brick, maxlevel);
+	return mars_kill_brick(brick);
 }
-
-
-static
-int kill_default(void *buf, struct light_dent *dent)
-{
-	return _kill_default(buf, dent, 0);
-}
-
-static
-int kill_all(void *buf, struct light_dent *dent)
-{
-	return _kill_default(buf, dent, 999);
-}
-
 
 ///////////////////////////////////////////////////////////////////////
 
 // handlers / helpers for logfile rotation
 
 struct mars_rotate {
-	struct light_dent *replay_link;
-	struct light_dent *aio_dent;
+	struct mars_dent *replay_link;
+	struct mars_dent *aio_dent;
 	struct device_aio_brick *aio_brick;
 	struct mars_info aio_info;
 	struct trans_logger_brick *trans_brick;
-	struct light_dent *relevant_log;
-	struct light_dent *current_log;
-	struct light_dent *prev_log;
-	struct light_dent *next_log;
+	struct mars_dent *relevant_log;
+	struct mars_dent *current_log;
+	struct mars_dent *prev_log;
+	struct mars_dent *next_log;
 	long long last_jiffies;
 	loff_t start_pos;
 	loff_t end_pos;
@@ -904,7 +775,7 @@ void _create_new_logfile(char *path)
 }
 
 static
-int _update_link(struct mars_rotate *rot, struct light_dent *parent, int sequence, loff_t pos)
+int _update_link(struct mars_rotate *rot, struct mars_dent *parent, int sequence, loff_t pos)
 {
 	struct timespec now = {};
 	char old[MARS_PATH_MAX] = {};
@@ -931,14 +802,14 @@ int _update_link(struct mars_rotate *rot, struct light_dent *parent, int sequenc
 /* This must be called once at every round of logfile checking.
  */
 static
-int make_log_init(void *buf, struct light_dent *parent)
+int make_log_init(void *buf, struct mars_dent *parent)
 {
 	struct mars_global *global = buf;
 	struct mars_brick *aio_brick;
 	struct mars_brick *trans_brick;
 	struct mars_rotate *rot = parent->d_private;
-	struct light_dent *replay_link;
-	struct light_dent *aio_dent;
+	struct mars_dent *replay_link;
+	struct mars_dent *aio_dent;
 	struct mars_output *output;
 	char tmp[MARS_PATH_MAX] = {};
 	int status;
@@ -1074,9 +945,9 @@ done:
  * ret == 3 : relevant for appending
  */
 static
-int _check_logging_status(struct mars_global *global, struct light_dent *dent, long long *oldpos, long long *newpos)
+int _check_logging_status(struct mars_global *global, struct mars_dent *dent, long long *oldpos, long long *newpos)
 {
-	struct light_dent *parent = dent->d_parent;
+	struct mars_dent *parent = dent->d_parent;
 	struct mars_rotate *rot = parent->d_private;
 	int status = -EINVAL;
 
@@ -1130,13 +1001,13 @@ done:
  * This is important!
  */
 static
-int make_log(void *buf, struct light_dent *dent)
+int make_log(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
-	struct light_dent *parent = dent->d_parent;
+	struct mars_dent *parent = dent->d_parent;
 	struct mars_rotate *rot = parent->d_private;
 	struct trans_logger_brick *trans_brick;
-	struct light_dent *prev_log;
+	struct mars_dent *prev_log;
 	loff_t start_pos = 0;
 	loff_t end_pos = 0;
 	int status = -EINVAL;
@@ -1272,7 +1143,7 @@ int _start_trans(struct mars_rotate *rot)
 
 	/* Switch on....
 	 */
-	status = mars_power_button((void*)trans_brick, true, false);
+	status = mars_power_button((void*)trans_brick, true);
 	MARS_DBG("status = %d\n", status);
 
 done:
@@ -1291,7 +1162,7 @@ int _stop_trans(struct mars_rotate *rot)
 
 	/* Switch off....
 	 */
-	status = mars_power_button((void*)trans_brick, false, false);
+	status = mars_power_button((void*)trans_brick, false);
 	MARS_DBG("status = %d\n", status);
 	if (status < 0) {
 		goto done;
@@ -1308,7 +1179,7 @@ done:
 }
 
 static
-int make_log_finalize(struct mars_global *global, struct light_dent *parent)
+int make_log_finalize(struct mars_global *global, struct mars_dent *parent)
 {
 	struct mars_rotate *rot = parent->d_private;
 	struct trans_logger_brick *trans_brick;
@@ -1382,9 +1253,9 @@ done:
 // specific handlers
 
 static
-int make_primary(void *buf, struct light_dent *dent)
+int make_primary(void *buf, struct mars_dent *dent)
 {
-	struct light_dent *parent;
+	struct mars_dent *parent;
 	struct mars_rotate *rot;
 	int status = -EINVAL;
 
@@ -1401,7 +1272,7 @@ done:
 }
 
 static
-int make_aio(void *buf, struct light_dent *dent)
+int make_aio(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
 	struct mars_brick *brick;
@@ -1415,7 +1286,7 @@ int make_aio(void *buf, struct light_dent *dent)
 		goto done;
 	}
 	dent->d_kill_inactive = true;
-	brick = make_brick(global, &device_aio_brick_type, dent->d_path, dent->d_path);
+	brick = mars_make_brick(global, &device_aio_brick_type, dent->d_path, dent->d_path);
 	if (unlikely(!brick)) {
 		status = -ENXIO;
 		goto done;
@@ -1423,18 +1294,18 @@ int make_aio(void *buf, struct light_dent *dent)
 	brick->outputs[0]->output_name = dent->d_path;
 	_brick = (void*)brick;
 	_brick->outputs[0]->o_fdsync = true;
-	status = mars_power_button((void*)brick, true, false);
+	status = mars_power_button((void*)brick, true);
 	if (status < 0) {
-		kill_default(buf, dent);
+		kill_all(buf, dent);
 	}
  done:
 	return status;
 }
 
-static int make_dev(void *buf, struct light_dent *dent)
+static int make_dev(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
-	struct light_dent *parent = dent->d_parent;
+	struct mars_dent *parent = dent->d_parent;
 	struct mars_rotate *rot = parent->d_private;
 	struct mars_brick *dev_brick;
 	int status = 0;
@@ -1493,7 +1364,7 @@ done:
 	return status;
 }
 
-static int _make_direct(void *buf, struct light_dent *dent)
+static int _make_direct(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
 	struct mars_brick *brick;
@@ -1546,7 +1417,7 @@ done:
 	return status;
 }
 
-static int _make_copy(void *buf, struct light_dent *dent)
+static int _make_copy(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
 	int status;
@@ -1566,11 +1437,11 @@ done:
 	return status;
 }
 
-static int make_sync(void *buf, struct light_dent *dent)
+static int make_sync(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
 	loff_t start_pos = 0;
-	struct light_dent *connect_dent;
+	struct mars_dent *connect_dent;
 	char *peer;
 	struct copy_brick *copy = NULL;
 	char src[MARS_PATH_MAX];
@@ -1624,7 +1495,7 @@ static int make_sync(void *buf, struct light_dent *dent)
 		snprintf(dst, sizeof(dst), "%s/syncstatus-%s", dent->d_parent->d_path, my_id());
 		status = mars_symlink(src, dst, NULL, 0);
 		if (status >= 0 && copy->copy_last == copy->copy_end) {
-			status = mars_power_button((void*)copy, false, false);
+			status = mars_power_button((void*)copy, false);
 			MARS_DBG("copy switch status = %d\n", status);
 		}
 	}
@@ -1725,7 +1596,7 @@ static const struct light_class light_classes[] = {
 		.cl_hostcontext = true,
 		.cl_father = CL_RESOURCE,
 		.cl_forward = make_aio,
-		.cl_backward = kill_default,
+		.cl_backward = kill_all,
 	},
 	/* Symlink pointing to the name of the primary node
 	 */
@@ -1748,7 +1619,7 @@ static const struct light_class light_classes[] = {
 		.cl_hostcontext = true,
 		.cl_father = CL_RESOURCE,
 		.cl_forward = make_aio,
-		.cl_backward = kill_default,
+		.cl_backward = kill_all,
 	},
 	/* symlink indicating the current status / end
 	 * of initial data sync.
@@ -1761,7 +1632,7 @@ static const struct light_class light_classes[] = {
 		.cl_father = CL_RESOURCE,
 #if 1
 		.cl_forward = make_sync,
-		.cl_backward = kill_default,
+		.cl_backward = kill_all,
 #endif
 	},
 	/* Only for testing: make a copy instance
@@ -1839,7 +1710,7 @@ static const struct light_class light_classes[] = {
 		.cl_hostcontext = true,
 		.cl_father = CL_RESOURCE,
 		.cl_forward = make_dev,
-		.cl_backward = kill_default,
+		.cl_backward = kill_all,
 	},
 	{}
 };
@@ -1989,7 +1860,7 @@ static int light_thread(void *data)
 		int status;
 		global.global_power.button = !kthread_should_stop();
 
-		status = mars_dent_work(&global, "/mars", sizeof(struct light_dent), light_checker, light_worker, &global, 3);
+		status = mars_dent_work(&global, "/mars", sizeof(struct mars_dent), light_checker, light_worker, &global, 3);
 		MARS_DBG("worker status = %d\n", status);
 
 		{

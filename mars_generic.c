@@ -18,6 +18,73 @@
 #include <linux/namei.h>
 #include <linux/kthread.h>
 
+/////////////////////////////////////////////////////////////////////
+
+// meta descriptions
+
+const struct meta mars_info_meta[] = {
+	META_INI(current_size,    struct mars_info, FIELD_INT),
+	META_INI(transfer_order,  struct mars_info, FIELD_INT),
+	META_INI(transfer_size,   struct mars_info, FIELD_INT),
+	{}
+};
+EXPORT_SYMBOL_GPL(mars_info_meta);
+
+const struct meta mars_mref_meta[] = {
+	META_INI(ref_pos,          struct mref_object, FIELD_INT),
+	META_INI(ref_len,          struct mref_object, FIELD_INT),
+	META_INI(ref_may_write,    struct mref_object, FIELD_INT),
+	META_INI(ref_flags,        struct mref_object, FIELD_INT),
+	META_INI(ref_rw,           struct mref_object, FIELD_INT),
+	META_INI(ref_id,           struct mref_object, FIELD_INT),
+	META_INI(_ref_cb.cb_error, struct mref_object, FIELD_INT),
+	{}
+};
+EXPORT_SYMBOL_GPL(mars_mref_meta);
+
+const struct meta mars_timespec_meta[] = {
+	META_INI(tv_sec, struct timespec, FIELD_INT),
+	META_INI(tv_nsec, struct timespec, FIELD_INT),
+	{}
+};
+EXPORT_SYMBOL_GPL(mars_timespec_meta);
+
+const struct meta mars_kstat_meta[] = {
+	META_INI(ino, struct kstat, FIELD_INT),
+	META_INI(mode, struct kstat, FIELD_INT),
+	META_INI(size, struct kstat, FIELD_INT),
+	META_INI_SUB(atime, struct kstat, mars_timespec_meta),
+	META_INI_SUB(mtime, struct kstat, mars_timespec_meta),
+	META_INI_SUB(ctime, struct kstat, mars_timespec_meta),
+	META_INI(blksize, struct kstat, FIELD_INT),
+	{}
+};
+EXPORT_SYMBOL_GPL(mars_kstat_meta);
+
+const struct meta mars_dent_meta[] = {
+	META_INI(d_name,    struct mars_dent, FIELD_STRING),
+	META_INI(d_rest,    struct mars_dent, FIELD_STRING),
+	META_INI(d_path,    struct mars_dent, FIELD_STRING),
+	META_INI(d_namelen, struct mars_dent, FIELD_INT),
+	META_INI(d_pathlen, struct mars_dent, FIELD_INT),
+	META_INI(d_type,    struct mars_dent, FIELD_INT),
+	META_INI(d_class,   struct mars_dent, FIELD_INT),
+	META_INI(d_version, struct mars_dent, FIELD_INT),
+	META_INI_SUB(new_stat,struct mars_dent, mars_kstat_meta),
+	META_INI_SUB(old_stat,struct mars_dent, mars_kstat_meta),
+	META_INI(new_link,    struct mars_dent, FIELD_STRING),
+	META_INI(old_link,    struct mars_dent, FIELD_STRING),
+	META_INI(d_args,    struct mars_dent, FIELD_STRING),
+	META_INI(d_argv[0], struct mars_dent, FIELD_STRING),
+	META_INI(d_argv[1], struct mars_dent, FIELD_STRING),
+	META_INI(d_argv[2], struct mars_dent, FIELD_STRING),
+	META_INI(d_argv[3], struct mars_dent, FIELD_STRING),
+	{}
+};
+EXPORT_SYMBOL_GPL(mars_dent_meta);
+
+/////////////////////////////////////////////////////////////////////
+
 // some helpers
 
 int mars_lstat(const char *path, struct kstat *stat)
@@ -178,7 +245,7 @@ void mars_trigger(void)
 }
 EXPORT_SYMBOL_GPL(mars_trigger);
 
-int mars_power_button(struct mars_brick *brick, bool val, bool force)
+int mars_power_button(struct mars_brick *brick, bool val)
 {
 	int status = 0;
 	bool oldval = brick->power.button;
@@ -186,10 +253,10 @@ int mars_power_button(struct mars_brick *brick, bool val, bool force)
 	if (brick->power.force_off)
 		val = false;
 
-	if (val != oldval || force) {
+	if (val != oldval) {
 		MARS_DBG("brick '%s' type '%s' power button %d -> %d\n", brick->brick_path, brick->type->type_name, oldval, val);
 
-		set_button(&brick->power, val, force);
+		set_button(&brick->power, val, false);
 
 		if (brick->ops)
 			status = brick->ops->brick_switch(brick);
@@ -200,7 +267,7 @@ int mars_power_button(struct mars_brick *brick, bool val, bool force)
 }
 EXPORT_SYMBOL_GPL(mars_power_button);
 
-int mars_power_button_recursive(struct mars_brick *brick, bool val, bool force, int timeout)
+int mars_power_button_recursive(struct mars_brick *brick, bool val, int timeout)
 {
 	int status = 0;
 	bool oldval = brick->power.button;
@@ -208,15 +275,13 @@ int mars_power_button_recursive(struct mars_brick *brick, bool val, bool force, 
 	if (brick->power.force_off)
 		val = false;
 
-	if (val != oldval || force) {
-		MARS_DBG("brick '%s' type '%s' power button %d -> %d\n", brick->brick_path, brick->type->type_name, oldval, val);
+	if (val != oldval) {
+		brick_switch_t mode;
+		mode = (val ? BR_ON_ALL : BR_OFF_ALL);
 
-		status = set_recursive_button((void*)brick, val, force, timeout);
-		
-		if (status >= 0)
-			status = brick->ops->brick_switch(brick);
+		MARS_DBG("brick '%s' type '%s' power button %d -> %d (mode = %d)\n", brick->brick_path, brick->type->type_name, oldval, val, mode);
 
-		mars_trigger();
+		status = set_recursive_button((void*)brick, mode, timeout);
 	}
 	return status;
 }
@@ -619,6 +684,10 @@ void mars_dent_free_all(struct list_head *anchor)
 EXPORT_SYMBOL_GPL(mars_dent_free_all);
 
 
+/////////////////////////////////////////////////////////////////////
+
+// low-level brick instantiation
+
 struct mars_brick *mars_find_brick(struct mars_global *global, const void *brick_type, const char *path)
 {
 	struct list_head *tmp;
@@ -645,6 +714,53 @@ struct mars_brick *mars_find_brick(struct mars_global *global, const void *brick
 	return NULL;
 }
 EXPORT_SYMBOL_GPL(mars_find_brick);
+
+int mars_free_brick(struct mars_brick *brick)
+{
+	int i;
+	int status;
+
+	if (!brick) {
+		MARS_ERR("bad brick parameter\n");
+		status = -EINVAL;
+		goto done;
+	}
+
+	if (!brick->power.force_off || !brick->power.led_off) {
+		MARS_DBG("brick '%s' is not freeable\n", brick->brick_name);
+		status = -ETXTBSY;
+		goto done;
+	}
+
+	// first check whether the brick is in use somewhere
+	for (i = 0; i < brick->nr_outputs; i++) {
+		if (brick->outputs[i]->nr_connected > 0) {
+			MARS_DBG("brick '%s' not freeable, output %i is used\n", brick->brick_name, i);
+			status = -EEXIST;
+			goto done;
+		}
+	}
+
+	MARS_DBG("===> freeing brick name = '%s'\n", brick->brick_name);
+
+#if 1 // TODO: debug locking crash
+	(void)generic_brick_exit_full((void*)brick);
+#endif
+
+	if (brick->brick_name)
+		kfree(brick->brick_name);
+	if (brick->brick_path)
+		kfree(brick->brick_path);
+	kfree(brick);
+
+	mars_trigger();
+
+	status = 0;
+
+done:
+	return status;
+}
+EXPORT_SYMBOL_GPL(mars_free_brick);
 
 struct mars_brick *mars_make_brick(struct mars_global *global, const void *_brick_type, const char *path, const char *_name)
 {
@@ -702,6 +818,7 @@ struct mars_brick *mars_make_brick(struct mars_global *global, const void *_bric
 		MARS_ERR("cannot init brick %s\n", brick_type->type_name);
 		goto err_path;
 	}
+	res->free = mars_free_brick;
 
 	/* Immediately make it visible, regardless of internal state.
 	 * Switching on / etc must be done separately.
@@ -709,6 +826,8 @@ struct mars_brick *mars_make_brick(struct mars_global *global, const void *_bric
 	down(&global->mutex);
 	list_add(&res->brick_link, &global->brick_anchor);
 	up(&global->mutex);
+
+	mars_trigger();
 
 	return res;
 
@@ -722,71 +841,192 @@ err_name:
 }
 EXPORT_SYMBOL_GPL(mars_make_brick);
 
+int mars_kill_brick(struct mars_brick *brick)
+{
+	struct mars_global *global;
+	int status = -EINVAL;
+
+	CHECK_PTR(brick, done);
+	global = brick->global;
+	CHECK_PTR(global, done);
+
+	MARS_DBG("===> killing brick path = '%s' name = '%s'\n", brick->brick_path, brick->brick_name);
+
+	down(&global->mutex);
+	list_del_init(&brick->brick_link);
+	up(&global->mutex);
+
+	// start shutdown
+	status = set_recursive_button((void*)brick, BR_FREE_ALL, 10 * HZ);
+
+done:
+	return status;
+}
+EXPORT_SYMBOL_GPL(mars_kill_brick);
+
 
 /////////////////////////////////////////////////////////////////////
 
-// meta descriptions
+// mid-level brick instantiation (identity is based on path strings)
 
-const struct meta mars_info_meta[] = {
-	META_INI(current_size,    struct mars_info, FIELD_INT),
-	META_INI(transfer_order,  struct mars_info, FIELD_INT),
-	META_INI(transfer_size,   struct mars_info, FIELD_INT),
-	{}
-};
-EXPORT_SYMBOL_GPL(mars_info_meta);
+char *vpath_make(struct mars_dent *father, const char *fmt, va_list *args)
+{
+	int len = father->d_pathlen;
+	char *res = kmalloc(len + MARS_PATH_MAX, GFP_MARS);
 
-const struct meta mars_mref_meta[] = {
-	META_INI(ref_pos,          struct mref_object, FIELD_INT),
-	META_INI(ref_len,          struct mref_object, FIELD_INT),
-	META_INI(ref_may_write,    struct mref_object, FIELD_INT),
-	META_INI(ref_flags,        struct mref_object, FIELD_INT),
-	META_INI(ref_rw,           struct mref_object, FIELD_INT),
-	META_INI(ref_id,           struct mref_object, FIELD_INT),
-	META_INI(_ref_cb.cb_error, struct mref_object, FIELD_INT),
-	{}
-};
-EXPORT_SYMBOL_GPL(mars_mref_meta);
+	if (likely(res)) {
+		memcpy(res, father->d_path, len);
+		vsnprintf(res + len, MARS_PATH_MAX, fmt, *args);
+	}
+	return res;
+}
+EXPORT_SYMBOL_GPL(vpath_make);
 
-const struct meta mars_timespec_meta[] = {
-	META_INI(tv_sec, struct timespec, FIELD_INT),
-	META_INI(tv_nsec, struct timespec, FIELD_INT),
-	{}
-};
-EXPORT_SYMBOL_GPL(mars_timespec_meta);
+char *path_make(struct mars_dent *father, const char *fmt, ...)
+{
+	va_list args;
+	char *res;
+	va_start(args, fmt);
+	res = vpath_make(father, fmt, &args);
+	va_end(args);
+	return res;
+}
+EXPORT_SYMBOL_GPL(path_make);
 
-const struct meta mars_kstat_meta[] = {
-	META_INI(ino, struct kstat, FIELD_INT),
-	META_INI(mode, struct kstat, FIELD_INT),
-	META_INI(size, struct kstat, FIELD_INT),
-	META_INI_SUB(atime, struct kstat, mars_timespec_meta),
-	META_INI_SUB(mtime, struct kstat, mars_timespec_meta),
-	META_INI_SUB(ctime, struct kstat, mars_timespec_meta),
-	META_INI(blksize, struct kstat, FIELD_INT),
-	{}
-};
-EXPORT_SYMBOL_GPL(mars_kstat_meta);
+struct mars_brick *path_find_brick(struct mars_global *global, const void *brick_type, struct mars_dent *father, const char *fmt, ...)
+{
+	va_list args;
+	char *fullpath;
+	struct mars_brick *res;
 
-const struct meta mars_dent_meta[] = {
-	META_INI(d_name,    struct mars_dent, FIELD_STRING),
-	META_INI(d_rest,    struct mars_dent, FIELD_STRING),
-	META_INI(d_path,    struct mars_dent, FIELD_STRING),
-	META_INI(d_namelen, struct mars_dent, FIELD_INT),
-	META_INI(d_pathlen, struct mars_dent, FIELD_INT),
-	META_INI(d_type,    struct mars_dent, FIELD_INT),
-	META_INI(d_class,   struct mars_dent, FIELD_INT),
-	META_INI(d_version, struct mars_dent, FIELD_INT),
-	META_INI_SUB(new_stat,struct mars_dent, mars_kstat_meta),
-	META_INI_SUB(old_stat,struct mars_dent, mars_kstat_meta),
-	META_INI(new_link,    struct mars_dent, FIELD_STRING),
-	META_INI(old_link,    struct mars_dent, FIELD_STRING),
-	META_INI(d_args,    struct mars_dent, FIELD_STRING),
-	META_INI(d_argv[0], struct mars_dent, FIELD_STRING),
-	META_INI(d_argv[1], struct mars_dent, FIELD_STRING),
-	META_INI(d_argv[2], struct mars_dent, FIELD_STRING),
-	META_INI(d_argv[3], struct mars_dent, FIELD_STRING),
-	{}
-};
-EXPORT_SYMBOL_GPL(mars_dent_meta);
+	va_start(args, fmt);
+	fullpath = vpath_make(father, fmt, &args);
+	va_end(args);
+
+	if (!fullpath) {
+		return NULL;
+	}
+	res = mars_find_brick(global, brick_type, fullpath);
+	kfree(fullpath);
+	MARS_DBG("search for '%s' found = %p\n", fullpath, res);
+	return res;
+}
+EXPORT_SYMBOL_GPL(path_find_brick);
+
+struct generic_brick_type *_client_brick_type = NULL;
+EXPORT_SYMBOL_GPL(_client_brick_type);
+
+struct mars_brick *make_brick_all(
+	struct mars_global *global,
+	struct mars_dent *father,
+	struct generic_brick_type *new_brick_type,
+	const char *new_name,
+	int timeout,
+	const char *new_fmt,
+	const char *prev_fmt[],
+	int prev_count,
+	...
+	)
+{
+	va_list args;
+	char *new_path;
+	struct mars_brick *brick = NULL;
+	char *paths[prev_count];
+	struct mars_brick *prev[prev_count];
+	int i;
+
+	// treat variable arguments
+	va_start(args, prev_count);
+	new_path = vpath_make(father, new_fmt, &args);
+	for (i = 0; i < prev_count; i++) {
+		paths[i] = vpath_make(father, prev_fmt[i], &args);
+	}
+	va_end(args);
+
+	if (!new_path) {
+		MARS_ERR("could not create new path\n");
+		goto err;
+	}
+
+	// don't do anything if brick already exists
+	brick = mars_find_brick(global, new_brick_type, new_path);
+	if (brick) {
+		MARS_DBG("found brick '%s'\n", new_path);
+		goto done;
+	}
+
+	MARS_DBG("----> new brick '%s'\n", new_path);
+	// get all predecessor bricks
+	for (i = 0; i < prev_count; i++) {
+		char *path = paths[i];
+
+		if (!path) {
+			MARS_ERR("could not create path %d\n", i);
+			goto err;
+		}
+
+		prev[i] = mars_find_brick(global, NULL, path);
+		if (!prev[i] && _client_brick_type) {
+			char *remote = strchr(path, '@');
+			if (remote) {
+				remote++;
+				prev[i] = mars_make_brick(global, _client_brick_type, path, remote);
+			}
+		}
+
+		if (!prev[i]) {
+			MARS_ERR("prev brick '%s' does not exist\n", path);
+			goto err;
+		}
+		MARS_DBG("------> predecessor %d '%s'\n", i, path);
+	}
+
+	// create it...
+	brick = mars_make_brick(global, new_brick_type, new_path, new_name);
+	if (unlikely(!brick)) {
+		MARS_DBG("creation failed '%s' '%s'\n", new_path, new_name);
+		goto err;
+	}
+	if (unlikely(brick->nr_inputs < prev_count)) {
+		MARS_ERR("wrong number of arguments: %d < %d\n", brick->nr_inputs, prev_count);
+		goto err;
+	}
+
+	// connect the wires
+	for (i = 0; i < prev_count; i++) {
+		int status;
+		status = generic_connect((void*)brick->inputs[i], (void*)prev[i]->outputs[0]);
+		if (unlikely(status < 0)) {
+			MARS_ERR("'%s' '%s' cannot connect input %d\n", new_path, new_name, i);
+			goto err;
+		}
+	}
+
+	// switch on (may fail silently, but responsibility is at the workers)
+	if (timeout > 0) {
+		int status;
+		status = mars_power_button_recursive((void*)brick, true, timeout);
+		MARS_DBG("switch on status = %d\n", status);
+	}
+
+	return brick;
+
+err:
+	if (brick)
+		mars_kill_brick(brick);
+	brick = NULL;
+done:
+	for (i = 0; i < prev_count; i++) {
+		if (paths[i]) {
+			kfree(paths[i]);
+		}
+	}
+	if (new_path)
+		kfree(new_path);
+
+	return brick;
+}
+EXPORT_SYMBOL_GPL(make_brick_all);
 
 /////////////////////////////////////////////////////////////////////
 

@@ -142,6 +142,7 @@ struct generic_switch {
 	struct BRICK##_input **inputs;					\
 	struct BRICK##_output **outputs;				\
 	struct generic_switch power;					\
+	int (*free)(struct BRICK##_brick *del);				\
 	struct list_head tmp_head;					\
 
 struct generic_brick {
@@ -684,7 +685,9 @@ extern void set_lamport(struct timespec *old);
 
 #endif
 
-/* Generic interface to simple brick status changes
+/* Generic interface to simple brick status changes.
+ *
+ * "Forced switch off" means that it cannot be switched on again.
  */
 extern void set_button(struct generic_switch *sw, bool val, bool force);
 extern void set_button_wait(struct generic_switch *sw, bool val, bool force, int timeout);
@@ -701,7 +704,20 @@ extern void set_led_off(struct generic_switch *sw, bool val);
  * There is one exception: when @force is set, only the direction to
  * "off" remains possible. This is useful for emergency shutdowns.
  */
-extern int set_recursive_button(struct generic_brick *brick, bool val, bool force, int timeout);
+typedef enum {
+	// only one brick instance
+	BR_ON_ONE,   // switch on one brick instance
+	BR_OFF_ONE,  // just switch off (may be switched on again)
+	BR_KILL_ONE, // forced switch off => may be never switched on again
+	BR_FREE_ONE, // forced switch off + deallocation (when possible)
+	// dito, but operating on the whole graph
+	BR_ON_ALL,
+	BR_OFF_ALL, 
+	BR_KILL_ALL,
+	BR_FREE_ALL,
+} brick_switch_t;
+
+extern int set_recursive_button(struct generic_brick *brick, brick_switch_t mode, int timeout);
 
 /////////////////////////////////////////////////////////////////////////
 

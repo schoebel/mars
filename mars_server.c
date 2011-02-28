@@ -75,7 +75,6 @@ static int handler_thread(void *data)
 	struct server_brick *brick = data;
 	struct socket **sock = &brick->handler_socket;
 	int max_round = 300;
-	int timeout;
 	int status = 0;
 
 	brick->handler_thread = NULL;
@@ -221,31 +220,17 @@ static int handler_thread(void *data)
 
 done:
 	MARS_DBG("handler_thread terminating, status = %d\n", status);
-	mars_power_button((void*)brick, false, true);
 	do {
-		int status;
-		status = brick->ops->brick_switch(brick);
-		if (status < 0) {
-			MARS_ERR("server shutdown failed, status = %d\n", status);
-		} else if (max_round-- < 0)
+		int status = mars_kill_brick((void*)brick);
+		if (status >= 0)
 			break;
+		if (status >= 0 || max_round-- < 0) {
+			MARS_INF("not dead, giving up....\n");
+			break;
+		}
 		msleep(1000);
 	} while (!brick->power.led_off);
 
-	if (brick->inputs[0] && brick->inputs[0]->connect) {
-		MARS_DBG("disconnecting input %p\n", brick->inputs[0]->connect);
-		(void)generic_disconnect((void*)brick->inputs[0]);
-	}
-
-	timeout = 60 * 1000;
-	while (atomic_read(&brick->in_flight) || !brick->power.led_off) {
-		MARS_ERR("server brick has resources allocated - cannot terminate thread\n");
-		msleep(timeout);
-		if (timeout < 3600 * 1000)
-			timeout += 30 * 1000;
-	}
-
-	(void)generic_brick_exit_full((void*)brick);
 	MARS_DBG("done\n");
 	return 0;
 }

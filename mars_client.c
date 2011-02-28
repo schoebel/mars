@@ -11,6 +11,7 @@
 #include <linux/string.h>
 #include <linux/kthread.h>
 
+#define _STRATEGY // only for _client_brick_type
 #include "mars.h"
 
 ///////////////////////// own type definitions ////////////////////////
@@ -493,6 +494,7 @@ EXPORT_SYMBOL_GPL(client_brick_type);
 static int __init init_client(void)
 {
 	MARS_INF("init_client()\n");
+	_client_brick_type = (void*)&client_brick_type;
 	return client_register_brick_type();
 }
 

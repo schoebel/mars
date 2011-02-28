@@ -248,11 +248,11 @@ extern const struct meta mars_mref_meta[];
 extern struct mars_global *mars_global;
 
 extern void mars_trigger(void);
-extern int  mars_power_button(struct mars_brick *brick, bool val, bool force);
+extern int  mars_power_button(struct mars_brick *brick, bool val);
 extern void mars_power_led_on(struct mars_brick *brick, bool val);
 extern void mars_power_led_off(struct mars_brick *brick, bool val);
 
-extern int  mars_power_button_recursive(struct mars_brick *brick, bool val, bool force, int timeout);
+extern int  mars_power_button_recursive(struct mars_brick *brick, bool val, int timeout);
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -295,11 +295,13 @@ extern const struct meta mars_timespec_meta[];
 extern const struct meta mars_kstat_meta[];
 extern const struct meta mars_dent_meta[];
 
+extern struct generic_brick_type *_client_brick_type; // for avoidance of cyclic references
+
 struct mars_global {
+	struct semaphore mutex;
+	struct generic_switch global_power;
 	struct list_head dent_anchor;
 	struct list_head brick_anchor;
-	struct generic_switch global_power;
-	struct semaphore mutex;
 	volatile bool main_trigger;
 	wait_queue_head_t main_event;
 	//void *private;
@@ -314,8 +316,33 @@ extern struct mars_dent *mars_find_dent(struct mars_global *global, const char *
 extern void mars_dent_free(struct mars_dent *dent);
 extern void mars_dent_free_all(struct list_head *anchor);
 
+// lowe-level brick instantiation
+
 extern struct mars_brick *mars_find_brick(struct mars_global *global, const void *brick_type, const char *path);
 extern struct mars_brick *mars_make_brick(struct mars_global *global, const void *_brick_type, const char *path, const char *name);
+extern int mars_free_brick(struct mars_brick *brick);
+extern int mars_kill_brick(struct mars_brick *brick);
+
+// mid-level brick instantiation (identity is based on path strings)
+
+extern char *vpath_make(struct mars_dent *father, const char *fmt, va_list *args);
+extern char *path_make(struct mars_dent *father, const char *fmt, ...);
+
+extern struct mars_brick *path_find_brick(struct mars_global *global, const void *brick_type, struct mars_dent *father, const char *fmt, ...);
+
+extern struct mars_brick *make_brick_all(
+	struct mars_global *global,
+	struct mars_dent *father,
+	struct generic_brick_type *new_brick_type,
+	const char *new_name,
+	int timeout,
+	const char *new_fmt,
+	const char *prev_fmt[],
+	int prev_count,
+	...
+	);
+
+// general MARS infrastructure
 
 #define MARS_ERR_ONCE(dent, args...) if (!dent->d_once_error++) MARS_ERR(args)
 

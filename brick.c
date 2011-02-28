@@ -629,11 +629,13 @@ void set_button_wait(struct generic_switch *sw, bool val, bool force, int timeou
 }
 EXPORT_SYMBOL_GPL(set_button_wait);
 
-int set_recursive_button(struct generic_brick *orig_brick, bool val, bool force, int timeout)
+int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, int timeout)
 {
 	struct generic_brick **table = NULL;
 	int max = PAGE_SIZE / sizeof(void*) / 2;
 	int stack;
+	bool val = (mode == BR_ON_ONE || mode == BR_ON_ALL);
+	bool force = (mode != BR_OFF_ONE && mode != BR_OFF_ALL);
 	int status;
 
  restart:
@@ -662,26 +664,26 @@ int set_recursive_button(struct generic_brick *orig_brick, bool val, bool force,
 				status = -EDEADLK;
 				goto done;
 			}
-			for (i = 0; i < brick->nr_inputs; i++) {
-				struct generic_input *input = brick->inputs[i];
-				struct generic_output *output;
-				struct generic_brick *next;
-				if (!input)
-					continue;
-				output = input->connect;
-				if (!output)
-					continue;
-				next = output->brick;
-				if (!next)
-					continue;
-				if (next->power.led_on)
-					continue;
-				table[stack++] = next;
-				if (unlikely(stack > max)) {
-					goto restart;
+			if (mode >= BR_ON_ALL) {
+				for (i = 0; i < brick->nr_inputs; i++) {
+					struct generic_input *input = brick->inputs[i];
+					struct generic_output *output;
+					struct generic_brick *next;
+					if (!input)
+						continue;
+					output = input->connect;
+					if (!output)
+						continue;
+					next = output->brick;
+					if (!next)
+						continue;
+					table[stack++] = next;
+					if (unlikely(stack > max)) {
+						goto restart;
+					}
 				}
 			}
-		} else {
+		} else if (mode >= BR_ON_ALL) {
 			int i;
 			for (i = 0; i < brick->nr_outputs; i++) {
 				struct generic_output *output = brick->outputs[i];
@@ -693,8 +695,6 @@ int set_recursive_button(struct generic_brick *orig_brick, bool val, bool force,
 				for (tmp = output->output_head.next; tmp && tmp != &output->output_head; tmp = tmp->next) {
 					input = container_of(tmp, struct generic_input, input_head);
 					next = input->brick;
-					if (next->power.led_off)
-						continue;
 					table[stack++] = next;
 					if (unlikely(stack > max)) {
 						goto restart;
@@ -711,6 +711,14 @@ int set_recursive_button(struct generic_brick *orig_brick, bool val, bool force,
 		if (val ? !brick->power.led_on : !brick->power.led_off) {
 			BRICK_DBG("switching to %d: brick '%s' not ready (%s)\n", val, brick->brick_name, orig_brick->brick_name);
 			goto done;
+		}
+
+		if (force && !val && (mode == BR_FREE_ONE || mode == BR_FREE_ALL) && brick->free) {
+			status = brick->free(brick);
+			if (status < 0) {
+				BRICK_DBG("freeing brick '%s' (%s) failed, status = %d\n", brick->brick_name, orig_brick->brick_name, status);
+				goto done;
+			}
 		}
 
 	}

@@ -154,7 +154,7 @@ void make_test_instance(void)
 #ifdef CONF_FDSYNC
 	_device_brick->outputs[0]->o_fdsync = true;
 #endif
-	mars_power_button((void*)device_brick, true, false);
+	mars_power_button((void*)device_brick, true);
 	first = device_brick->outputs[0];
 
 	// last
@@ -269,7 +269,7 @@ void make_test_instance(void)
 
 	MARS_INF("------------- START GATE --------------\n");
 
-	mars_power_button((void*)if_brick, true, false);
+	mars_power_button((void*)if_brick, true);
 	//_if_brick->is_active = true;
 
 	msleep(2000);

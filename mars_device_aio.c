@@ -410,7 +410,7 @@ static int device_aio_switch(struct device_aio_brick *brick)
 {
 	static int index = 0;
 	struct device_aio_output *output = brick->outputs[0];
-	const char *path = output->output_name;
+	const char *path = output->brick->brick_name;
 	int flags = O_CREAT | O_RDWR | O_LARGEFILE;
 	int prot = 0600;
 	mm_segment_t oldfs;
@@ -533,7 +533,7 @@ static int device_aio_output_construct(struct device_aio_output *output)
 
 static int device_aio_output_destruct(struct device_aio_output *output)
 {
-	return mars_power_button((void*)output->brick, false, true);
+	return mars_power_button((void*)output->brick, false);
 }
 
 ///////////////////////// static structs ////////////////////////
