@@ -499,7 +499,7 @@ int _update_file(struct mars_global *global, struct light_dent *parent, const ch
 
 	snprintf(tmp, sizeof(tmp), "%s+%s", peer, path);
 
-	status = __make_copy(global, parent, path, argv, -1, NULL);
+	status = __make_copy(global, parent, tmp, argv, -1, NULL);
 
 	return status;
 }
@@ -511,12 +511,17 @@ int _is_peer_logfile(const char *name, const char *id)
 	int idlen = id ? strlen(id) : 4 + 9 + 1;
 
 	if (len <= idlen ||
-	   strncmp(name, "log-", 4) != 0 ||
-	   (id &&
-	    name[len - idlen - 1] == '-' &&
-	    !strncmp(name + len - idlen, id, idlen))) {
+	   strncmp(name, "log-", 4) != 0) {
+		MARS_DBG("not a logfile at all: '%s'\n", name);
 		return false;
 	}
+	if (id &&
+	   name[len - idlen - 1] == '-' &&
+	   strncmp(name + len - idlen, id, idlen) == 0) {
+		MARS_DBG("not a peer logfile: '%s'\n", name);
+		return false;
+	}
+	MARS_DBG("found peer logfile: '%s'\n", name);
 	return true;
 }
 
@@ -586,7 +591,7 @@ int run_bones(void *buf, struct light_dent *dent)
 
 		if (!stat_ok || local_stat.size < src_size) {
 			status = _update_file(peer->global, dent->d_parent, peer->peer, dent->d_path);
-			MARS_DBG("update '%s' status = %d\n", dent->d_path, status);
+			MARS_DBG("update '%s' from peer '%s' status = %d\n", dent->d_path, peer->peer, status);
 			if (status >= 0) {
 				struct mars_dent *local_alias;
 				int len = dent->d_pathlen;
