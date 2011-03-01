@@ -219,21 +219,21 @@ sub create_res {
 sub attach_res {
   my ($cmd, $res) = @_;
   my $detach = ($cmd eq "detach");
-  my $path = "$mars/$res/data-$host";
+  my $path = "$mars/resource-$res/data-$host";
   _switch($path, !$detach);
 }
 
 sub connect_res {
   my ($cmd, $res) = @_;
   my $disconnect = ($cmd eq "disconnect");
-  my $path = "$mars/$res/connect-$host";
+  my $path = "$mars/resource-$res/connect-$host";
   _switch($path, !$disconnect);
 }
 
 sub pause_res {
   my ($cmd, $res) = @_;
   my $pause = ($cmd eq "pause-sync");
-  my $path = "$mars/$res/syncstatus-$host";
+  my $path = "$mars/resource-$res/syncstatus-$host";
   _switch($path, !$pause);
 }
 
@@ -266,7 +266,7 @@ sub primary_res {
 
   # TODO: check whether we can switch without interrupting service....
 
-  my $tmp = "$mars/$res/.tmp.primary";
+  my $tmp = "$mars/resource-$res/.tmp.primary";
   system("rm -f $tmp");
   symlink($host, $tmp) or die "cannot create new primary symlink\n";
   rename($tmp, $pri) or die "cannot install new primary symlink\n";

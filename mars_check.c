@@ -100,7 +100,11 @@ static void dump_mem(void *data, int len)
 {
 	int i;
 	char *tmp;
-	char buf[256];
+	char *buf = kmalloc(256, GFP_MARS);
+
+	if (!buf)
+		return;
+
 	for (i = 0, tmp = buf; i < len; i++) {
 		unsigned char byte = ((unsigned char*)data)[i];
 		if (!(i % 8)) {
@@ -114,6 +118,7 @@ static void dump_mem(void *data, int len)
 	if (tmp != buf) {
 		printk("%4d: %s\n", i, buf);
 	}
+	kfree(buf);
 }
 
 static int check_watchdog(void *data)

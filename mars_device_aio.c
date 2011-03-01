@@ -167,9 +167,9 @@ static int device_aio_submit_thread(void *data)
 #if 0
 	fake_mm();
 #else
-	MARS_INF("old mm = %p\n", current->mm);
+	MARS_DBG("old mm = %p\n", current->mm);
 	use_mm(tinfo->mm);
-	MARS_INF("new mm = %p\n", current->mm);
+	MARS_DBG("new mm = %p\n", current->mm);
 	if (!current->mm)
 		return 0;
 #endif
@@ -236,9 +236,9 @@ static int device_aio_event_thread(void *data)
 	MARS_INF("kthread has started.\n");
 	//set_user_nice(current, -20);
 
-	MARS_INF("old mm = %p\n", current->mm);
+	MARS_DBG("old mm = %p\n", current->mm);
 	use_mm(tinfo->mm);
-	MARS_INF("new mm = %p\n", current->mm);
+	MARS_DBG("new mm = %p\n", current->mm);
 	if (!current->mm)
 		return 0;
 
@@ -421,6 +421,9 @@ static int device_aio_switch(struct device_aio_brick *brick)
 	if (!brick->power.button)
 		goto cleanup;
 
+	if (brick->power.led_on)
+		goto done;
+
 	mars_power_led_off((void*)brick, false);
 
 	if (output->o_direct) {
@@ -481,11 +484,16 @@ static int device_aio_switch(struct device_aio_brick *brick)
 	MARS_INF("opened file '%s'\n", path);
 	mars_power_led_on((void*)brick, true);
 	MARS_DBG("successfully switched on.\n");
+done:
 	return 0;
 
 err:
 	MARS_ERR("status = %d\n", err);
 cleanup:
+	if (brick->power.led_off) {
+		goto done;
+	}
+
 	mars_power_led_on((void*)brick, false);
 	for (i = 0; i < 3; i++) {
 		struct aio_threadinfo *tinfo = &output->tinfo[i];
@@ -582,6 +590,7 @@ EXPORT_SYMBOL_GPL(device_aio_brick_type);
 static int __init init_device_aio(void)
 {
 	MARS_INF("init_device_aio()\n");
+	_aio_brick_type = (void*)&device_aio_brick_type;
 	return device_aio_register_brick_type();
 }
 

@@ -151,15 +151,32 @@ static int handler_thread(void *data)
 		case CMD_CONNECT:
 		{
 			struct mars_brick *prev;
+			const char *path = cmd.cmd_str1;
 
-			//TODO: fix possible races
-			prev = mars_find_brick(mars_global, NULL, cmd.cmd_str1);			if (likely(prev)) {
+			status = -EINVAL;
+			CHECK_PTR(path, err);
+			CHECK_PTR(mars_global, err);
+			CHECK_PTR(_aio_brick_type, err);
+
+			//prev = mars_find_brick(mars_global, NULL, cmd.cmd_str1);
+			prev =
+				make_brick_all(mars_global,
+					       NULL,
+					       NULL,
+					       10 * HZ,
+					       path,
+					       (const struct generic_brick_type*)_aio_brick_type,
+					       (const struct generic_brick_type*[]){},
+					       path,
+					       (const char *[]){},
+					       0);
+			if (likely(prev)) {
 				status = generic_connect((void*)brick->inputs[0], (void*)prev->outputs[0]);
 			} else {
-				MARS_ERR("cannot find brick '%s'\n", cmd.cmd_str1 ? cmd.cmd_str1 : "NULL");
-				status = -EINVAL;
+				MARS_ERR("cannot find brick '%s'\n", path);
 			}
-
+			
+		err:
 			cmd.cmd_int1 = status;
 			status = mars_send_struct(sock, &cmd, mars_cmd_meta);
 			break;

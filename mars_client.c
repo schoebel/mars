@@ -11,7 +11,6 @@
 #include <linux/string.h>
 #include <linux/kthread.h>
 
-#define _STRATEGY // only for _client_brick_type
 #include "mars.h"
 
 ///////////////////////// own type definitions ////////////////////////

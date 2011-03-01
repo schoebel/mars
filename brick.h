@@ -288,7 +288,7 @@ inline int generic_brick_init(const struct generic_brick_type *type, struct gene
 inline int generic_input_init(struct generic_brick *brick, int index, const struct generic_input_type *type, struct generic_input *input, const char *input_name)
 {
 	if (index < 0 || index >= brick->type->max_inputs)
-		return -ENOMEM;
+		return -EINVAL;
 	if (brick->inputs[index])
 		return -EEXIST;
 	input->input_name = input_name;
@@ -345,10 +345,13 @@ int generic_brick_exit_full(
 inline int generic_connect(struct generic_input *input, struct generic_output *output)
 {
 	BRICK_DBG("generic_connect(input=%p, output=%p)\n", input, output);
-	if (!input || !output)
+	if (unlikely(!input || !output))
 		return -EINVAL;
-	if (input->connect)
+	if (unlikely(input->connect))
 		return -EEXIST;
+	// helps only against the most common errors
+	if (unlikely(input->brick == output->brick))
+		return -EDEADLK;
 	input->connect = output;
 	output->nr_connected++; //TODO: protect against races, e.g. atomic_t
 	list_add(&input->input_head, &output->output_head);

@@ -104,7 +104,7 @@ struct mars_info {
 	struct list_head dent_brick_link;				\
 	const char *brick_path;						\
 	struct mars_global *global;					\
-	int log_level;							\
+	int status_level;						\
 
 struct mars_brick {
 	MARS_BRICK(mars);
@@ -298,8 +298,6 @@ extern const struct meta mars_timespec_meta[];
 extern const struct meta mars_kstat_meta[];
 extern const struct meta mars_dent_meta[];
 
-extern struct generic_brick_type *_client_brick_type; // for avoidance of cyclic references
-
 struct mars_global {
 	struct semaphore mutex;
 	struct generic_switch global_power;
@@ -320,7 +318,7 @@ extern void mars_kill_dent(struct mars_dent *dent);
 extern void mars_free_dent(struct mars_dent *dent);
 extern void mars_free_dent_all(struct list_head *anchor);
 
-// lowe-level brick instantiation
+// low-level brick instantiation
 
 extern struct mars_brick *mars_find_brick(struct mars_global *global, const void *brick_type, const char *path);
 extern struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent *belongs, const void *_brick_type, const char *path, const char *name);
@@ -389,5 +387,15 @@ extern int mars_rename(const char *oldpath, const char *newpath);
 extern int mars_chmod(const char *path, mode_t mode);
 extern int mars_lchown(const char *path, uid_t uid);
 
-#endif
+#endif // _STRATEGY
+
+/* Some special brick types for avoidance of cyclic references.
+ *
+ * The client/server network bricks use this for independent instantiation
+ * from the main instantiation logic (separate modprobe for mars_server
+ * is possible).
+ */
+extern struct generic_brick_type *_client_brick_type;
+extern struct generic_brick_type *_aio_brick_type;
+
 #endif

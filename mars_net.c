@@ -41,21 +41,25 @@ EXPORT_SYMBOL(default_tcp_params);
 char *mars_translate_hostname(struct mars_global *global, const char *name)
 {
 	const char *res = name;
+	struct mars_dent *test;
+	char *tmp;
 
-	if (likely(global)) {
-		char tmp[MARS_PATH_MAX];
-		struct mars_dent *test;
-
-		snprintf(tmp, sizeof(tmp), "/mars/ips/ip-%s", name);
-
-		test = mars_find_dent(global, tmp);
-
-		if (test && test->new_link) {
-			MARS_DBG("'%s' => '%s'\n", tmp, test->new_link);
-			res = test->new_link;
-		}
+	if (unlikely(!global)) {
+		goto done;
+	}
+	tmp = path_make(NULL, "/mars/ips/ip-%s", name);
+	if (unlikely(!tmp)) {
+		goto done;
 	}
 
+	test = mars_find_dent(global, tmp);
+	if (test && test->new_link) {
+		MARS_DBG("'%s' => '%s'\n", tmp, test->new_link);
+		res = test->new_link;
+	}
+	kfree(tmp);
+
+done:
 	return kstrdup(res, GFP_MARS);
 }
 EXPORT_SYMBOL_GPL(mars_translate_hostname);

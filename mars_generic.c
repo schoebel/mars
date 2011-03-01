@@ -117,12 +117,13 @@ EXPORT_SYMBOL_GPL(mars_mkdir);
 
 int mars_symlink(const char *oldpath, const char *newpath, const struct timespec *stamp, uid_t uid)
 {
-	int newlen = strlen(newpath);
-	char tmp[newlen + 16];
+	char *tmp = path_make(NULL, "%s.tmp", newpath); 
 	mm_segment_t oldfs;
-	int status;
+	int status = -ENOMEM;
 	
-	snprintf(tmp, sizeof(tmp), "%s.tmp", newpath);
+	if (unlikely(!tmp))
+		goto done;
+
 	oldfs = get_fs();
 	set_fs(get_ds());
 	(void)sys_unlink(tmp);
@@ -140,7 +141,9 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct timespec
 		status = mars_rename(tmp, newpath);
 	}
 	set_fs(oldfs);
+	kfree(tmp);
 
+done:
 	return status;
 }
 EXPORT_SYMBOL_GPL(mars_symlink);
@@ -958,6 +961,8 @@ EXPORT_SYMBOL_GPL(path_find_brick);
 
 struct generic_brick_type *_client_brick_type = NULL;
 EXPORT_SYMBOL_GPL(_client_brick_type);
+struct generic_brick_type *_aio_brick_type = NULL;
+EXPORT_SYMBOL_GPL(_aio_brick_type);
 
 struct mars_brick *make_brick_all(
 	struct mars_global *global,
@@ -1000,18 +1005,19 @@ struct mars_brick *make_brick_all(
 		goto done;
 	}
 
-	MARS_DBG("----> new brick '%s'\n", new_path);
+	MARS_DBG("----> new brick type = '%s' path = '%s' name = '%s'\n", new_brick_type->type_name, new_path, new_name);
+
 	// get all predecessor bricks
 	for (i = 0; i < prev_count; i++) {
 		char *path = paths[i];
 
 		if (!path) {
-			MARS_ERR("could not create path %d\n", i);
+			MARS_ERR("could not build path %d\n", i);
 			goto err;
 		}
 
 		prev[i] = mars_find_brick(global, prev_brick_type[i], path);
-		if (!prev[i] && _client_brick_type) {
+		if (!prev[i] && new_brick_type == _aio_brick_type && _client_brick_type != NULL) {
 			char *remote = strchr(path, '@');
 			if (remote) {
 				remote++;
@@ -1023,7 +1029,7 @@ struct mars_brick *make_brick_all(
 			MARS_ERR("prev brick '%s' does not exist\n", path);
 			goto err;
 		}
-		MARS_DBG("------> predecessor %d '%s'\n", i, path);
+		MARS_DBG("------> predecessor %d path = '%s'\n", i, path);
 	}
 
 	// create it...
