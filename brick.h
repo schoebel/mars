@@ -686,13 +686,14 @@ extern void set_lamport(struct timespec *old);
 #endif
 
 /* Generic interface to simple brick status changes.
- *
- * "Forced switch off" means that it cannot be switched on again.
  */
 extern void set_button(struct generic_switch *sw, bool val, bool force);
-extern void set_button_wait(struct generic_switch *sw, bool val, bool force, int timeout);
 extern void set_led_on(struct generic_switch *sw, bool val);
 extern void set_led_off(struct generic_switch *sw, bool val);
+/*
+ * "Forced switch off" means that it cannot be switched on again.
+ */
+extern void set_button_wait(struct generic_brick *brick, bool val, bool force, int timeout);
 
 /* Operations on networks of bricks (wiring graphs).
  *

@@ -438,7 +438,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 
 	for (tmp = anchor->next; tmp != anchor; tmp = tmp->next) {
 		int cmp;
-		dent = container_of(tmp, struct mars_dent, sub_link);
+		dent = container_of(tmp, struct mars_dent, dent_link);
 		cmp = strcmp(dent->d_path, newpath);
 		if (!cmp) {
 			kfree(newpath);
@@ -473,20 +473,20 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	dent->d_serial = serial;
 	dent->d_parent = cookie->parent;
 	dent->d_depth = cookie->depth;
-
+	dent->d_path = newpath;
+	dent->d_pathlen = pathlen;
+	dent->d_global = global;
+	INIT_LIST_HEAD(&dent->brick_list);
 	memcpy(dent->d_name, name, namlen);
 	dent->d_name[namlen] = '\0';
 	dent->d_namelen = namlen;
 	dent->d_rest = dent->d_name + prefix;
 
-	dent->d_path = newpath;
-	dent->d_pathlen = pathlen;
-
 	down(&global->mutex);
 	if (best) {
-		list_add(&dent->sub_link, &best->sub_link);
+		list_add(&dent->dent_link, &best->dent_link);
 	} else {
-		list_add_tail(&dent->sub_link, anchor);
+		list_add_tail(&dent->dent_link, anchor);
 	}
 	up(&global->mutex);
 	return 0;
@@ -558,7 +558,7 @@ restart:
 	 * some inodes were not available or were outdated.
 	 */
 	for (tmp = global->dent_anchor.next; tmp != &global->dent_anchor; tmp = tmp->next) {
-		struct mars_dent *dent = container_of(tmp, struct mars_dent, sub_link);
+		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
 		// treat any member only once during this invocation
 		if (dent->d_version == version)
 			continue;
@@ -594,7 +594,7 @@ restart:
 	/* Forward pass.
 	*/
 	for (tmp = global->dent_anchor.next; tmp != &global->dent_anchor; tmp = tmp->next) {
-		struct mars_dent *dent = container_of(tmp, struct mars_dent, sub_link);
+		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
 		MARS_IO("forward treat '%s'\n", dent->d_path);
 		status = worker(buf, dent, false);
 		total_status |= status;
@@ -608,7 +608,7 @@ restart:
 	/* Backward pass.
 	*/
 	for (tmp = global->dent_anchor.prev; tmp != &global->dent_anchor; tmp = tmp->prev) {
-		struct mars_dent *dent = container_of(tmp, struct mars_dent, sub_link);
+		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
 		MARS_IO("backward treat '%s'\n", dent->d_path);
 		status = worker(buf, dent, true);
 		total_status |= status;
@@ -628,7 +628,7 @@ struct mars_dent *_mars_find_dent(struct mars_global *global, const char *path)
 	struct list_head *tmp;
 	
 	for (tmp = global->dent_anchor.next; tmp != &global->dent_anchor; tmp = tmp->next) {
-		struct mars_dent *tmp_dent = container_of(tmp, struct mars_dent, sub_link);
+		struct mars_dent *tmp_dent = container_of(tmp, struct mars_dent, dent_link);
 		if (!strcmp(tmp_dent->d_path, path)) {
 			res = tmp_dent;
 			break;
@@ -649,11 +649,50 @@ struct mars_dent *mars_find_dent(struct mars_global *global, const char *path)
 }
 EXPORT_SYMBOL_GPL(mars_find_dent);
 
-void mars_dent_free(struct mars_dent *dent)
+void mars_kill_dent(struct mars_dent *dent)
 {
-	int i;
+	struct mars_global *global = dent->d_global;
+	struct list_head *oldtmp = NULL;
 
-	list_del(&dent->sub_link);
+	CHECK_PTR(global, done);
+
+	down(&global->mutex);
+	while (!list_empty(&dent->brick_list)) {
+		struct list_head *tmp = dent->brick_list.next;
+		struct mars_brick *brick = container_of(tmp, struct mars_brick, dent_brick_link);
+
+		// just satisfy "defensive" programming style...
+		if (unlikely(tmp == oldtmp)) {
+			MARS_ERR("oops, something is nasty here\n");
+			list_del_init(tmp);
+			continue;
+		}
+		oldtmp = tmp;
+
+		// killing a brick may take a long time...
+		up(&global->mutex);
+		mars_kill_brick(brick);
+		down(&global->mutex);
+	}
+	up(&global->mutex);
+ done: ;
+}
+EXPORT_SYMBOL_GPL(mars_kill_dent);
+
+void mars_free_dent(struct mars_dent *dent)
+{
+	struct mars_global *global = dent->d_global;
+	int i;
+	
+	if (global) {
+		mars_kill_dent(dent);
+		down(&global->mutex);
+	}
+	list_del(&dent->dent_link);
+	list_del(&dent->brick_list);
+	if (global) {
+		up(&global->mutex);
+	}
 
 	for (i = 0; i < MARS_ARGV_MAX; i++) {
 		if (dent->d_argv[i])
@@ -671,17 +710,17 @@ void mars_dent_free(struct mars_dent *dent)
 	kfree(dent->d_path);
 	kfree(dent);
 }
-EXPORT_SYMBOL_GPL(mars_dent_free);
+EXPORT_SYMBOL_GPL(mars_free_dent);
 
-void mars_dent_free_all(struct list_head *anchor)
+void mars_free_dent_all(struct list_head *anchor)
 {
 	while (!list_empty(anchor)) {
 		struct mars_dent *dent;
-		dent = container_of(anchor->prev, struct mars_dent, sub_link);
-		mars_dent_free(dent);
+		dent = container_of(anchor->prev, struct mars_dent, dent_link);
+		mars_free_dent(dent);
 	}
 }
-EXPORT_SYMBOL_GPL(mars_dent_free_all);
+EXPORT_SYMBOL_GPL(mars_free_dent_all);
 
 
 /////////////////////////////////////////////////////////////////////
@@ -698,7 +737,7 @@ struct mars_brick *mars_find_brick(struct mars_global *global, const void *brick
 	down(&global->mutex);
 
 	for (tmp = global->brick_anchor.next; tmp != &global->brick_anchor; tmp = tmp->next) {
-		struct mars_brick *test = container_of(tmp, struct mars_brick, brick_link);
+		struct mars_brick *test = container_of(tmp, struct mars_brick, global_brick_link);
 		if (!strcmp(test->brick_path, path)) {
 			up(&global->mutex);
 			if (brick_type && test->type != brick_type) {
@@ -762,7 +801,7 @@ done:
 }
 EXPORT_SYMBOL_GPL(mars_free_brick);
 
-struct mars_brick *mars_make_brick(struct mars_global *global, const void *_brick_type, const char *path, const char *_name)
+struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent *belongs, const void *_brick_type, const char *path, const char *_name)
 {
 	const char *name = kstrdup(_name, GFP_MARS);
 	const char *names[] = { name };
@@ -805,8 +844,9 @@ struct mars_brick *mars_make_brick(struct mars_global *global, const void *_bric
 		MARS_ERR("cannot grab %d bytes for brick type '%s'\n", size, brick_type->type_name);
 		goto err_name;
 	}
-	res->brick_path = kstrdup(path, GFP_MARS);
 	res->global = global;
+	INIT_LIST_HEAD(&res->dent_brick_link);
+	res->brick_path = kstrdup(path, GFP_MARS);
 	if (!res->brick_path) {
 		MARS_ERR("cannot grab memory for path '%s'\n", path);
 		goto err_res;
@@ -824,10 +864,11 @@ struct mars_brick *mars_make_brick(struct mars_global *global, const void *_bric
 	 * Switching on / etc must be done separately.
 	 */
 	down(&global->mutex);
-	list_add(&res->brick_link, &global->brick_anchor);
+	list_add(&res->global_brick_link, &global->brick_anchor);
+	if (belongs) {
+		list_add(&res->dent_brick_link, &belongs->brick_list);
+	}
 	up(&global->mutex);
-
-	mars_trigger();
 
 	return res;
 
@@ -853,7 +894,8 @@ int mars_kill_brick(struct mars_brick *brick)
 	MARS_DBG("===> killing brick path = '%s' name = '%s'\n", brick->brick_path, brick->brick_name);
 
 	down(&global->mutex);
-	list_del_init(&brick->brick_link);
+	list_del_init(&brick->global_brick_link);
+	list_del_init(&brick->dent_brick_link);
 	up(&global->mutex);
 
 	// start shutdown
@@ -869,38 +911,39 @@ EXPORT_SYMBOL_GPL(mars_kill_brick);
 
 // mid-level brick instantiation (identity is based on path strings)
 
-char *vpath_make(struct mars_dent *father, const char *fmt, va_list *args)
+char *vpath_make(struct mars_dent *parent, const char *fmt, va_list *args)
 {
-	int len = father->d_pathlen;
+	int len = parent ? parent->d_pathlen : 0;
 	char *res = kmalloc(len + MARS_PATH_MAX, GFP_MARS);
 
 	if (likely(res)) {
-		memcpy(res, father->d_path, len);
+		if (parent)
+			memcpy(res, parent->d_path, len);
 		vsnprintf(res + len, MARS_PATH_MAX, fmt, *args);
 	}
 	return res;
 }
 EXPORT_SYMBOL_GPL(vpath_make);
 
-char *path_make(struct mars_dent *father, const char *fmt, ...)
+char *path_make(struct mars_dent *parent, const char *fmt, ...)
 {
 	va_list args;
 	char *res;
 	va_start(args, fmt);
-	res = vpath_make(father, fmt, &args);
+	res = vpath_make(parent, fmt, &args);
 	va_end(args);
 	return res;
 }
 EXPORT_SYMBOL_GPL(path_make);
 
-struct mars_brick *path_find_brick(struct mars_global *global, const void *brick_type, struct mars_dent *father, const char *fmt, ...)
+struct mars_brick *path_find_brick(struct mars_global *global, const void *brick_type, struct mars_dent *parent, const char *fmt, ...)
 {
 	va_list args;
 	char *fullpath;
 	struct mars_brick *res;
 
 	va_start(args, fmt);
-	fullpath = vpath_make(father, fmt, &args);
+	fullpath = vpath_make(parent, fmt, &args);
 	va_end(args);
 
 	if (!fullpath) {
@@ -918,10 +961,12 @@ EXPORT_SYMBOL_GPL(_client_brick_type);
 
 struct mars_brick *make_brick_all(
 	struct mars_global *global,
-	struct mars_dent *father,
-	struct generic_brick_type *new_brick_type,
-	const char *new_name,
+	struct mars_dent *parent,
+	struct mars_dent *belongs,
 	int timeout,
+	const char *new_name,
+	const struct generic_brick_type *new_brick_type,
+	const struct generic_brick_type *prev_brick_type[],
 	const char *new_fmt,
 	const char *prev_fmt[],
 	int prev_count,
@@ -937,9 +982,9 @@ struct mars_brick *make_brick_all(
 
 	// treat variable arguments
 	va_start(args, prev_count);
-	new_path = vpath_make(father, new_fmt, &args);
+	new_path = vpath_make(parent, new_fmt, &args);
 	for (i = 0; i < prev_count; i++) {
-		paths[i] = vpath_make(father, prev_fmt[i], &args);
+		paths[i] = vpath_make(parent, prev_fmt[i], &args);
 	}
 	va_end(args);
 
@@ -965,12 +1010,12 @@ struct mars_brick *make_brick_all(
 			goto err;
 		}
 
-		prev[i] = mars_find_brick(global, NULL, path);
+		prev[i] = mars_find_brick(global, prev_brick_type[i], path);
 		if (!prev[i] && _client_brick_type) {
 			char *remote = strchr(path, '@');
 			if (remote) {
 				remote++;
-				prev[i] = mars_make_brick(global, _client_brick_type, path, remote);
+				prev[i] = mars_make_brick(global, NULL, _client_brick_type, path, remote);
 			}
 		}
 
@@ -982,7 +1027,7 @@ struct mars_brick *make_brick_all(
 	}
 
 	// create it...
-	brick = mars_make_brick(global, new_brick_type, new_path, new_name);
+	brick = mars_make_brick(global, NULL, new_brick_type, new_path, new_name);
 	if (unlikely(!brick)) {
 		MARS_DBG("creation failed '%s' '%s'\n", new_path, new_name);
 		goto err;

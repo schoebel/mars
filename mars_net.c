@@ -580,7 +580,7 @@ int mars_send_dent_list(struct socket **sock, struct list_head *anchor)
 	struct mars_dent *dent;
 	int status = 0;
 	for (tmp = anchor->next; tmp != anchor; tmp = tmp->next) {
-		dent = container_of(tmp, struct mars_dent, sub_link);
+		dent = container_of(tmp, struct mars_dent, dent_link);
 		status = mars_send_struct(sock, dent, mars_dent_meta);
 		if (status < 0)
 			break;
@@ -607,7 +607,8 @@ int mars_recv_dent_list(struct socket **sock, struct list_head *anchor)
 			kfree(dent);
 			goto done;
 		}
-		list_add_tail(&dent->sub_link, anchor);
+		list_add_tail(&dent->dent_link, anchor);
+		INIT_LIST_HEAD(&dent->brick_list);
 	}
 done:
 	return status;

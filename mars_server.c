@@ -145,7 +145,7 @@ static int handler_thread(void *data)
 				MARS_ERR("could not send dentry information, status = %d\n", status);
 			}
 
-			mars_dent_free_all(&glob_tmp.dent_anchor);
+			mars_free_dent_all(&glob_tmp.dent_anchor);
 			break;
 		}
 		case CMD_CONNECT:

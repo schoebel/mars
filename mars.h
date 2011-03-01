@@ -100,7 +100,8 @@ struct mars_info {
 
 #define MARS_BRICK(PREFIX)						\
 	GENERIC_BRICK(PREFIX);						\
-	struct list_head brick_link;					\
+	struct list_head global_brick_link;				\
+	struct list_head dent_brick_link;				\
 	const char *brick_path;						\
 	struct mars_global *global;					\
 	int log_level;							\
@@ -264,7 +265,8 @@ extern int  mars_power_button_recursive(struct mars_brick *brick, bool val, int 
 extern char *my_id(void);
 
 #define MARS_DENT(TYPE)							\
-	struct list_head sub_link;					\
+	struct list_head dent_link;					\
+	struct list_head brick_list;					\
 	struct TYPE *d_parent;						\
 	char *d_argv[MARS_ARGV_MAX];  /* for internal use, will be automatically deallocated*/ \
 	char *d_args; /* ditto uninterpreted */				\
@@ -285,6 +287,7 @@ extern char *my_id(void);
 	struct kstat old_stat;						\
 	char *new_link;							\
 	char *old_link;							\
+	struct mars_global *d_global;					\
 	void *d_private;
 
 struct mars_dent {
@@ -313,29 +316,35 @@ typedef int (*mars_dent_worker)(struct mars_global *global, struct mars_dent *de
 extern int mars_dent_work(struct mars_global *global, char *dirname, int allocsize, mars_dent_checker checker, mars_dent_worker worker, void *buf, int maxdepth);
 extern struct mars_dent *_mars_find_dent(struct mars_global *global, const char *path);
 extern struct mars_dent *mars_find_dent(struct mars_global *global, const char *path);
-extern void mars_dent_free(struct mars_dent *dent);
-extern void mars_dent_free_all(struct list_head *anchor);
+extern void mars_kill_dent(struct mars_dent *dent);
+extern void mars_free_dent(struct mars_dent *dent);
+extern void mars_free_dent_all(struct list_head *anchor);
 
 // lowe-level brick instantiation
 
 extern struct mars_brick *mars_find_brick(struct mars_global *global, const void *brick_type, const char *path);
-extern struct mars_brick *mars_make_brick(struct mars_global *global, const void *_brick_type, const char *path, const char *name);
+extern struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent *belongs, const void *_brick_type, const char *path, const char *name);
 extern int mars_free_brick(struct mars_brick *brick);
 extern int mars_kill_brick(struct mars_brick *brick);
 
 // mid-level brick instantiation (identity is based on path strings)
 
-extern char *vpath_make(struct mars_dent *father, const char *fmt, va_list *args);
-extern char *path_make(struct mars_dent *father, const char *fmt, ...);
+extern char *vpath_make(struct mars_dent *parent, const char *fmt, va_list *args);
+extern char *path_make(struct mars_dent *parent, const char *fmt, ...);
 
-extern struct mars_brick *path_find_brick(struct mars_global *global, const void *brick_type, struct mars_dent *father, const char *fmt, ...);
+extern struct mars_brick *path_find_brick(struct mars_global *global, const void *brick_type, struct mars_dent *parent, const char *fmt, ...);
 
+/* Create a new brick and connect its inputs to a set of predecessors.
+ * When @timeout > 0, switch on the brick as well as its predecessors.
+ */
 extern struct mars_brick *make_brick_all(
 	struct mars_global *global,
-	struct mars_dent *father,
-	struct generic_brick_type *new_brick_type,
-	const char *new_name,
+	struct mars_dent *parent,
+	struct mars_dent *belongs,
 	int timeout,
+	const char *new_name,
+	const struct generic_brick_type *new_brick_type,
+	const struct generic_brick_type *prev_brick_type[],
 	const char *new_fmt,
 	const char *prev_fmt[],
 	int prev_count,

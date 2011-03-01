@@ -618,13 +618,15 @@ void set_led_off(struct generic_switch *sw, bool val)
 }
 EXPORT_SYMBOL_GPL(set_led_off);
 
-void set_button_wait(struct generic_switch *sw, bool val, bool force, int timeout)
+void set_button_wait(struct generic_brick *brick, bool val, bool force, int timeout)
 {
-	set_button(sw, val, force);
+	set_button(&brick->power, val, force);
+	if (brick->ops)
+		(void)brick->ops->brick_switch(brick);
 	if (val) {
-		wait_event_interruptible_timeout(sw->event, sw->led_on, timeout);
+		wait_event_interruptible_timeout(brick->power.event, brick->power.led_on, timeout);
 	} else {
-		wait_event_interruptible_timeout(sw->event, sw->led_off, timeout);
+		wait_event_interruptible_timeout(brick->power.event, brick->power.led_off, timeout);
 	}
 }
 EXPORT_SYMBOL_GPL(set_button_wait);
@@ -639,6 +641,7 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 	int status;
 
  restart:
+	BRICK_DBG("-> orig_brick = '%s'\n", orig_brick->brick_name);
 	if (table)
 		kfree(table);
 	max <<= 1;
@@ -656,6 +659,7 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 		struct generic_brick *brick;
 
 		brick = table[stack - 1];
+		BRICK_DBG("--> brick = '%s' stack = %d\n", brick->brick_name, stack);
 
 		if (val) {
 			int i;
@@ -707,7 +711,8 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 			continue;
 
 		brick = table[--stack];
-		set_button_wait(&brick->power, val, force, timeout);
+		BRICK_DBG("--> switch '%s' stack = %d\n", brick->brick_name, stack);
+		set_button_wait(brick, val, force, timeout);
 		if (val ? !brick->power.led_on : !brick->power.led_off) {
 			BRICK_DBG("switching to %d: brick '%s' not ready (%s)\n", val, brick->brick_name, orig_brick->brick_name);
 			goto done;
@@ -727,6 +732,7 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
  done:
 	if (table)
 		kfree(table);
+	BRICK_DBG("-> done '%s' status = %d\n", orig_brick->brick_name, status);
 	return status;
 }
 EXPORT_SYMBOL_GPL(set_recursive_button);
