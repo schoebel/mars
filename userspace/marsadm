@@ -346,8 +346,26 @@ my $res = shift || die "resource argument is missing\n";
 
 die "unknown command '$cmd'\n" if !exists $cmd_table{$cmd};
 check_id($res);
-check_res($res) unless $cmd =~ m/^(join-system|create-resource)$/;
-check_res_member($res) unless $cmd =~ m/^(join|create)-(system|resource)$/;
 
-my $func = $cmd_table{$cmd};
-&{$func}($cmd, $res, @ARGV);
+sub do_res {
+  my $cmd = shift;
+  my $res = shift;
+
+  check_res($res) unless $cmd =~ m/^(join-system|create-resource)$/;
+  check_res_member($res) unless $cmd =~ m/^(join|create)-(system|resource)$/;
+
+  my $func = $cmd_table{$cmd};
+  &{$func}($cmd, $res, @_);
+}
+
+if($res eq "all") {
+  foreach $res (glob("$mars/resource-*")) {
+    next unless -e "$res/data-$host";
+    $res =~ s/^.*\/resource-(.*)$/$1/;
+    print "--------- resource $res\n";
+    do_res($cmd, $res, @ARGV);
+  }
+} else {
+  do_res($cmd, $res, @ARGV);
+}
+
