@@ -13,13 +13,14 @@
 #include <linux/kthread.h>
 #include <linux/spinlock.h>
 #include <linux/wait.h>
-#include <linux/mmu_context.h>
 #include <linux/file.h>
 
 #include "mars.h"
 
 #define MARS_MAX_AIO      1024
 #define MARS_MAX_AIO_READ 32
+
+#define STRONG_MM
 
 ///////////////////////// own type definitions ////////////////////////
 
@@ -147,6 +148,7 @@ static int device_aio_submit_thread(void *data)
 {
 	struct aio_threadinfo *tinfo = data;
 	struct device_aio_output *output = tinfo->output;
+	struct mm_struct *old_mm;
 	int err;
 	
 	/* TODO: this is provisionary. We only need it for sys_io_submit().
@@ -164,15 +166,10 @@ static int device_aio_submit_thread(void *data)
 	MARS_INF("kthread has started.\n");
 	//set_user_nice(current, -20);
 
-#if 0
-	fake_mm();
-#else
-	MARS_DBG("old mm = %p\n", current->mm);
-	use_mm(tinfo->mm);
-	MARS_DBG("new mm = %p\n", current->mm);
+	old_mm = fake_mm();
+
 	if (!current->mm)
-		return 0;
-#endif
+		return -ENOMEM;
 
 	while (!kthread_should_stop()) {
 		struct list_head *tmp = NULL;
@@ -220,10 +217,11 @@ static int device_aio_submit_thread(void *data)
 #endif
 	}
 
-	unuse_mm(tinfo->mm);
-
 	MARS_INF("kthread has stopped.\n");
 	tinfo->terminated = true;
+
+	cleanup_mm(old_mm);
+
 	return 0;
 }
 
@@ -232,15 +230,32 @@ static int device_aio_event_thread(void *data)
 	struct aio_threadinfo *tinfo = data;
 	struct device_aio_output *output = tinfo->output;
 	struct aio_threadinfo *other = &output->tinfo[2];
+	struct mm_struct *old_mm;
+	int err = -ENOMEM;
 	
 	MARS_INF("kthread has started.\n");
 	//set_user_nice(current, -20);
 
-	MARS_DBG("old mm = %p\n", current->mm);
-	use_mm(tinfo->mm);
-	MARS_DBG("new mm = %p\n", current->mm);
+	old_mm = fake_mm();
 	if (!current->mm)
-		return 0;
+		goto err;
+
+#if 1
+	if (!output->ctxp) {
+	mm_segment_t oldfs;
+		if (!current->mm) {
+			MARS_ERR("mm = %p\n", current->mm);
+			err = -EINVAL;
+			goto err;
+		}
+		oldfs = get_fs();
+		set_fs(get_ds());
+		err = sys_io_setup(MARS_MAX_AIO, &output->ctxp);
+		set_fs(oldfs);
+		if (unlikely(err))
+			goto err;
+	}
+#endif
 
 	while (!kthread_should_stop()) {
 		mm_segment_t oldfs;
@@ -305,12 +320,15 @@ static int device_aio_event_thread(void *data)
 		if (bounced)
 			wake_up_interruptible(&other->event);
 	}
+	err = 0;
 
-	unuse_mm(tinfo->mm);
-
-	MARS_INF("kthread has stopped.\n");
+ err:
+	MARS_INF("kthread has stopped, err = %d\n", err);
 	tinfo->terminated = true;
-	return 0;
+
+	cleanup_mm(old_mm);
+
+	return err;
 }
 
 /* Workaround for non-implemented aio_fsync()
@@ -444,6 +462,7 @@ static int device_aio_switch(struct device_aio_brick *brick)
 	}
 	MARS_DBG("opened file '%s'\n", path);
 
+#if 0 // not here
 	if (!output->ctxp) {
 		if (!current->mm) {
 			MARS_ERR("mm = %p\n", current->mm);
@@ -457,6 +476,7 @@ static int device_aio_switch(struct device_aio_brick *brick)
 		if (unlikely(err))
 			goto err;
 	}
+#endif
 
 	for (i = 0; i < 3; i++) {
 		static int (*fn[])(void*) = {
@@ -467,7 +487,6 @@ static int device_aio_switch(struct device_aio_brick *brick)
 		struct aio_threadinfo *tinfo = &output->tinfo[i];
 		INIT_LIST_HEAD(&tinfo->mref_list);
 		tinfo->output = output;
-		tinfo->mm = current->mm;
 		spin_lock_init(&tinfo->lock);
 		init_waitqueue_head(&tinfo->event);
 		tinfo->terminated = false;

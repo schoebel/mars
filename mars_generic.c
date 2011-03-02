@@ -1017,13 +1017,6 @@ struct mars_brick *make_brick_all(
 		}
 
 		prev[i] = mars_find_brick(global, prev_brick_type[i], path);
-		if (!prev[i] && new_brick_type == _aio_brick_type && _client_brick_type != NULL) {
-			char *remote = strchr(path, '@');
-			if (remote) {
-				remote++;
-				prev[i] = mars_make_brick(global, NULL, _client_brick_type, path, remote);
-			}
-		}
 
 		if (!prev[i]) {
 			MARS_ERR("prev brick '%s' does not exist\n", path);
@@ -1033,7 +1026,17 @@ struct mars_brick *make_brick_all(
 	}
 
 	// create it...
-	brick = mars_make_brick(global, NULL, new_brick_type, new_path, new_name);
+	brick = NULL;
+	if (new_brick_type == _aio_brick_type && _client_brick_type != NULL) {
+		char *remote = strchr(new_path, '@');
+		if (remote) {
+			new_path[remote-new_path] = '\0';
+			remote++;
+			brick = mars_make_brick(global, NULL, _client_brick_type, new_path, remote);
+		}
+	}
+	if (!brick)
+		brick = mars_make_brick(global, NULL, new_brick_type, new_path, new_name);
 	if (unlikely(!brick)) {
 		MARS_DBG("creation failed '%s' '%s'\n", new_path, new_name);
 		goto err;
@@ -1083,9 +1086,13 @@ EXPORT_SYMBOL_GPL(make_brick_all);
 
 // init stuff
 
+struct mm_struct *mm_fake = NULL;
+EXPORT_SYMBOL_GPL(mm_fake);
+
 static int __init init_mars(void)
 {
 	MARS_INF("init_mars()\n");
+	set_fake();
 	return 0;
 }
 
@@ -1096,6 +1103,7 @@ static void __exit exit_mars(void)
 		kfree(id);
 		id = NULL;
 	}
+	put_fake();
 }
 
 MODULE_DESCRIPTION("MARS block storage");

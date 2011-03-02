@@ -31,6 +31,11 @@
 #else
 #define MARS_IO(args...) /*empty*/
 #endif
+#ifdef STAT_DEBUGGING
+#define MARS_STAT MARS_INF
+#else
+#define MARS_IO(args...) /*empty*/
+#endif
 
 #define BRICK_OBJ_MREF            0
 #define BRICK_OBJ_NR                  1
@@ -353,31 +358,6 @@ extern struct mars_brick *make_brick_all(
 
 #define MARS_ERR_ONCE(dent, args...) if (!dent->d_once_error++) MARS_ERR(args)
 
-/* Kludge: our kernel threads will have no mm context, but need one
- * for stuff like ioctx_alloc() / aio_setup_ring() etc
- * which expect userspace resources.
- * We fake one.
- * TODO: factor out the userspace stuff from AIO such that
- * this fake is no longer necessary.
- * Even better: replace do_mmap() in AIO stuff by something
- * more friendly to kernelspace apps.
- */
-inline void fake_mm(void)
-{
-	if (!current->mm) {
-		current->mm = &init_mm;
-	}
-}
-/* Cleanup faked mm, otherwise do_exit() will try to destroy
- * the wrong thing....
- */
-inline void cleanup_mm(void)
-{
-	if (current->mm == &init_mm) {
-		current->mm = NULL;
-	}
-}
-
 /* General fs wrappers (for abstraction)
  */
 extern int mars_lstat(const char *path, struct kstat *stat);
@@ -397,5 +377,66 @@ extern int mars_lchown(const char *path, uid_t uid);
  */
 extern struct generic_brick_type *_client_brick_type;
 extern struct generic_brick_type *_aio_brick_type;
+
+/* Kludge: our kernel threads will have no mm context, but need one
+ * for stuff like ioctx_alloc() / aio_setup_ring() etc
+ * which expect userspace resources.
+ * We fake one.
+ * TODO: factor out the userspace stuff from AIO such that
+ * this fake is no longer necessary.
+ * Even better: replace do_mmap() in AIO stuff by something
+ * more friendly to kernelspace apps.
+ */
+#include <linux/mmu_context.h>
+
+extern struct mm_struct *mm_fake;
+
+inline void set_fake(void)
+{
+	mm_fake = current->mm;
+	if (mm_fake) {
+		atomic_inc(&mm_fake->mm_count);
+		atomic_inc(&mm_fake->mm_users);
+	}
+}
+
+inline void put_fake(void)
+{
+	if (mm_fake) {
+		atomic_dec(&mm_fake->mm_users);
+		mmput(mm_fake);
+		mm_fake = NULL;
+	}
+}
+
+inline struct mm_struct *fake_mm(void)
+{
+#if 0
+	if (!current->mm) {
+		// will be never released.... ;)
+		atomic_inc(&(current->mm = &init_mm)->mm_count);
+	}
+	return NULL;
+#else
+	struct mm_struct *old = current->mm;
+	use_mm(mm_fake);
+	return old;
+#endif
+}
+/* Cleanup faked mm, otherwise do_exit() will crash
+ */
+inline void cleanup_mm(struct mm_struct *old)
+{
+#if 0
+	if (current->mm == &init_mm) {
+		current->mm = NULL;
+	}
+#else
+	unuse_mm(old);
+#endif
+#if 1
+	for (;;) msleep(1000);
+#endif
+}
 
 #endif

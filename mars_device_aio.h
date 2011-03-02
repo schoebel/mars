@@ -24,7 +24,6 @@ struct aio_threadinfo {
 	struct list_head mref_list;
 	struct device_aio_output *output;
 	struct task_struct *thread;
-	struct mm_struct *mm;
 	wait_queue_head_t event;
 	spinlock_t lock;
 	bool terminated;
