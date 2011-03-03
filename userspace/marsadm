@@ -59,6 +59,10 @@ sub get_size {
 
 # helpers
 
+sub _trigger {
+  system("echo 1 > /proc/sys/mars 2>/dev/null");
+}
+
 sub _switch {
   my ($path, $on) = @_;
 
@@ -369,3 +373,4 @@ if($res eq "all") {
   do_res($cmd, $res, @ARGV);
 }
 
+_trigger();

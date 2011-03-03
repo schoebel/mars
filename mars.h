@@ -332,17 +332,16 @@ extern int mars_kill_brick(struct mars_brick *brick);
 
 // mid-level brick instantiation (identity is based on path strings)
 
-extern char *vpath_make(struct mars_dent *parent, const char *fmt, va_list *args);
-extern char *path_make(struct mars_dent *parent, const char *fmt, ...);
+extern char *vpath_make(const char *fmt, va_list *args);
+extern char *path_make(const char *fmt, ...);
 
-extern struct mars_brick *path_find_brick(struct mars_global *global, const void *brick_type, struct mars_dent *parent, const char *fmt, ...);
+extern struct mars_brick *path_find_brick(struct mars_global *global, const void *brick_type, const char *fmt, ...);
 
 /* Create a new brick and connect its inputs to a set of predecessors.
  * When @timeout > 0, switch on the brick as well as its predecessors.
  */
 extern struct mars_brick *make_brick_all(
 	struct mars_global *global,
-	struct mars_dent *parent,
 	struct mars_dent *belongs,
 	int timeout,
 	const char *new_name,
@@ -375,8 +374,8 @@ extern int mars_lchown(const char *path, uid_t uid);
  * from the main instantiation logic (separate modprobe for mars_server
  * is possible).
  */
-extern struct generic_brick_type *_client_brick_type;
-extern struct generic_brick_type *_aio_brick_type;
+extern const struct generic_brick_type *_client_brick_type;
+extern const struct generic_brick_type *_aio_brick_type;
 
 /* Kludge: our kernel threads will have no mm context, but need one
  * for stuff like ioctx_alloc() / aio_setup_ring() etc

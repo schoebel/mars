@@ -29,6 +29,7 @@ static struct task_struct *server_thread = NULL;
 
 ///////////////////////// own helper functions ////////////////////////
 
+
 static int server_checker(const char *path, const char *name, int namlen, unsigned int d_type, int *prefix, int *serial)
 {
 	return 0;
@@ -55,6 +56,7 @@ static void server_endio(struct generic_callback *cb)
 	CHECK_PTR(brick, err);
 	sock = mref_a->sock;
 	CHECK_PTR(sock, err);
+	CHECK_PTR(*sock, err);
 
 	down(&brick->socket_sem);
 	status = mars_send_cb(sock, mref);
@@ -90,7 +92,7 @@ static int handler_thread(void *data)
 
 		status = mars_recv_struct(sock, &cmd, mars_cmd_meta);
 		if (status < 0) {
-			MARS_ERR("command status = %d\n", status);
+			MARS_ERR("bad command status = %d\n", status);
 			break;
 		}
 
@@ -162,7 +164,6 @@ static int handler_thread(void *data)
 			prev =
 				make_brick_all(mars_global,
 					       NULL,
-					       NULL,
 					       10 * HZ,
 					       path,
 					       (const struct generic_brick_type*)_aio_brick_type,
@@ -231,16 +232,19 @@ static int handler_thread(void *data)
 			break;
 	}
 
-	//kernel_sock_shutdown(*sock, SHUT_WR);
-	sock_release(*sock);
+	kernel_sock_shutdown(*sock, SHUT_WR);
+	//sock_release(*sock);
 	//cleanup_mm();
 
 done:
 	MARS_DBG("handler_thread terminating, status = %d\n", status);
 	do {
 		int status = mars_kill_brick((void*)brick);
-		if (status >= 0)
+		if (status >= 0) {
+			//if(*sock)
+			//sock_release(*sock);
 			break;
+		}
 		if (status >= 0 || max_round-- < 0) {
 			MARS_INF("not dead, giving up....\n");
 			break;
@@ -444,8 +448,9 @@ static int _server_thread(void *data)
 	err:
 		if (new_socket) {
 			kernel_sock_shutdown(new_socket, SHUT_WR);
-			sock_release(new_socket);
+			//sock_release(new_socket);
 		}
+		msleep(3000);
 	}
 
 	MARS_INF("-------- cleaning up ----------\n");
@@ -500,7 +505,7 @@ static void __exit exit_server(void)
 		}
 		kthread_stop(server_thread);
 		if (server_socket && !server_thread) {
-			sock_release(server_socket);
+			//sock_release(server_socket);
 			server_socket = NULL;
 		}
 	}

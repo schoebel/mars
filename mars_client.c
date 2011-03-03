@@ -43,19 +43,20 @@ static int _connect(struct client_output *output, const char *str)
 	struct sockaddr_storage sockaddr = {};
 	int status;
 
-	if (!output->host) {
-		output->host = kstrdup(str, GFP_MARS);
+	if (!output->path) {
+		output->path = kstrdup(str, GFP_MARS);
 		status = -ENOMEM;
-		if (!output->host)
+		if (!output->path)
 			goto done;
 		status = -EINVAL;
-		output->path = strchr(output->host, '+');
-		if (!output->path) {
-			kfree(output->host);
-			output->host = NULL;
+		output->host = strchr(output->path, '@');
+		if (!output->host) {
+			kfree(output->path);
+			output->path = NULL;
+			MARS_ERR("parameter string '%s' contains no remote specifier with '@'-syntax\n", str);
 			goto done;
 		}
-		*output->path++ = '\0';
+		*output->host++ = '\0';
 	}
 
 	status = mars_create_sockaddr(&sockaddr, output->host);
@@ -270,7 +271,7 @@ done:
 	if (output->socket) {
 		MARS_INF("shutting down socket\n");
 		kernel_sock_shutdown(output->socket, SHUT_WR);
-		//msleep(1000);
+		msleep(1000);
 		output->socket = NULL;
 	}
 	return status;
@@ -432,8 +433,10 @@ static int client_output_construct(struct client_output *output)
 
 static int client_output_destruct(struct client_output *output)
 {
-	if (output->host)
-		kfree(output->host);
+	if (output->path) {
+		kfree(output->path);
+		output->path = NULL;
+	}
 	return 0;
 }
 

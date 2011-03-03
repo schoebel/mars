@@ -14,6 +14,8 @@
 #define _STRATEGY
 #include "mars.h"
 
+#include "mars_client.h"
+
 #include <linux/syscalls.h>
 #include <linux/namei.h>
 #include <linux/kthread.h>
@@ -117,7 +119,7 @@ EXPORT_SYMBOL_GPL(mars_mkdir);
 
 int mars_symlink(const char *oldpath, const char *newpath, const struct timespec *stamp, uid_t uid)
 {
-	char *tmp = path_make(NULL, "%s.tmp", newpath); 
+	char *tmp = path_make("%s.tmp", newpath); 
 	mm_segment_t oldfs;
 	int status = -ENOMEM;
 	
@@ -914,39 +916,37 @@ EXPORT_SYMBOL_GPL(mars_kill_brick);
 
 // mid-level brick instantiation (identity is based on path strings)
 
-char *vpath_make(struct mars_dent *parent, const char *fmt, va_list *args)
+char *vpath_make(const char *fmt, va_list *args)
 {
-	int len = parent ? parent->d_pathlen : 0;
+	int len = strlen(fmt);
 	char *res = kmalloc(len + MARS_PATH_MAX, GFP_MARS);
 
 	if (likely(res)) {
-		if (parent)
-			memcpy(res, parent->d_path, len);
-		vsnprintf(res + len, MARS_PATH_MAX, fmt, *args);
+		vsnprintf(res, MARS_PATH_MAX, fmt, *args);
 	}
 	return res;
 }
 EXPORT_SYMBOL_GPL(vpath_make);
 
-char *path_make(struct mars_dent *parent, const char *fmt, ...)
+char *path_make(const char *fmt, ...)
 {
 	va_list args;
 	char *res;
 	va_start(args, fmt);
-	res = vpath_make(parent, fmt, &args);
+	res = vpath_make(fmt, &args);
 	va_end(args);
 	return res;
 }
 EXPORT_SYMBOL_GPL(path_make);
 
-struct mars_brick *path_find_brick(struct mars_global *global, const void *brick_type, struct mars_dent *parent, const char *fmt, ...)
+struct mars_brick *path_find_brick(struct mars_global *global, const void *brick_type, const char *fmt, ...)
 {
 	va_list args;
 	char *fullpath;
 	struct mars_brick *res;
 
 	va_start(args, fmt);
-	fullpath = vpath_make(parent, fmt, &args);
+	fullpath = vpath_make(fmt, &args);
 	va_end(args);
 
 	if (!fullpath) {
@@ -959,14 +959,13 @@ struct mars_brick *path_find_brick(struct mars_global *global, const void *brick
 }
 EXPORT_SYMBOL_GPL(path_find_brick);
 
-struct generic_brick_type *_client_brick_type = NULL;
+const struct generic_brick_type *_client_brick_type = NULL;
 EXPORT_SYMBOL_GPL(_client_brick_type);
-struct generic_brick_type *_aio_brick_type = NULL;
+const struct generic_brick_type *_aio_brick_type = NULL;
 EXPORT_SYMBOL_GPL(_aio_brick_type);
 
 struct mars_brick *make_brick_all(
 	struct mars_global *global,
-	struct mars_dent *parent,
 	struct mars_dent *belongs,
 	int timeout,
 	const char *new_name,
@@ -979,7 +978,8 @@ struct mars_brick *make_brick_all(
 	)
 {
 	va_list args;
-	char *new_path;
+	const char *new_path;
+	const char *_new_path = NULL;
 	struct mars_brick *brick = NULL;
 	char *paths[prev_count];
 	struct mars_brick *prev[prev_count];
@@ -987,9 +987,13 @@ struct mars_brick *make_brick_all(
 
 	// treat variable arguments
 	va_start(args, prev_count);
-	new_path = vpath_make(parent, new_fmt, &args);
+	if (new_fmt) {
+		new_path = _new_path = vpath_make(new_fmt, &args);
+	} else {
+		new_path = new_name;
+	}
 	for (i = 0; i < prev_count; i++) {
-		paths[i] = vpath_make(parent, prev_fmt[i], &args);
+		paths[i] = vpath_make(prev_fmt[i], &args);
 	}
 	va_end(args);
 
@@ -999,11 +1003,13 @@ struct mars_brick *make_brick_all(
 	}
 
 	// don't do anything if brick already exists
-	brick = mars_find_brick(global, new_brick_type, new_path);
+	brick = mars_find_brick(global, new_brick_type != _aio_brick_type ? new_brick_type : NULL, new_path);
 	if (brick) {
 		MARS_DBG("found brick '%s'\n", new_path);
 		goto done;
 	}
+	if (!new_name)
+		new_name = new_path;
 
 	MARS_DBG("----> new brick type = '%s' path = '%s' name = '%s'\n", new_brick_type->type_name, new_path, new_name);
 
@@ -1028,15 +1034,16 @@ struct mars_brick *make_brick_all(
 	// create it...
 	brick = NULL;
 	if (new_brick_type == _aio_brick_type && _client_brick_type != NULL) {
-		char *remote = strchr(new_path, '@');
+		char *remote = strchr(new_name, '@');
 		if (remote) {
-			new_path[remote-new_path] = '\0';
 			remote++;
-			brick = mars_make_brick(global, NULL, _client_brick_type, new_path, remote);
+			MARS_DBG("substitute by remote brick '%s' on peer '%s'\n", new_name, remote);
+			
+			brick = mars_make_brick(global, belongs, _client_brick_type, new_path, new_name);
 		}
 	}
 	if (!brick)
-		brick = mars_make_brick(global, NULL, new_brick_type, new_path, new_name);
+		brick = mars_make_brick(global, belongs, new_brick_type, new_path, new_name);
 	if (unlikely(!brick)) {
 		MARS_DBG("creation failed '%s' '%s'\n", new_path, new_name);
 		goto err;
@@ -1075,8 +1082,8 @@ done:
 			kfree(paths[i]);
 		}
 	}
-	if (new_path)
-		kfree(new_path);
+	if (_new_path)
+		kfree(_new_path);
 
 	return brick;
 }

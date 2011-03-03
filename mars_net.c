@@ -47,7 +47,7 @@ char *mars_translate_hostname(struct mars_global *global, const char *name)
 	if (unlikely(!global)) {
 		goto done;
 	}
-	tmp = path_make(NULL, "/mars/ips/ip-%s", name);
+	tmp = path_make("/mars/ips/ip-%s", name);
 	if (unlikely(!tmp)) {
 		goto done;
 	}
@@ -192,18 +192,13 @@ int mars_send(struct socket **sock, void *buf, int len)
 
 	//MARS_IO("buf = %p, len = %d\n", buf, len);
 	while (sent < len) {
-		mm_segment_t oldfs;
-
 		if (unlikely(!*sock)) {
 			MARS_ERR("socket has disappeared\n");
 			status = -EIDRM;
 			goto done;
 		}
 
-		oldfs = get_fs();
-		set_fs(get_ds());
 		status = kernel_sendmsg(*sock, &msg, &iov, 1, len);
-		set_fs(oldfs);
 
 		if (status == -EAGAIN) {
 			msleep(50);
@@ -248,7 +243,6 @@ int mars_recv(struct socket **sock, void *buf, int minlen, int maxlen)
 	}
 
 	while (done < minlen) {
-		mm_segment_t oldfs;
 		struct kvec iov = {
 			.iov_base = buf + done,
 			.iov_len = maxlen - done,
@@ -267,10 +261,7 @@ int mars_recv(struct socket **sock, void *buf, int minlen, int maxlen)
 
 		MARS_IO("done %d, fetching %d bytes\n", done, maxlen-done);
 
-		oldfs = get_fs();
-		set_fs(get_ds());
 		status = kernel_recvmsg(*sock, &msg, &iov, 1, maxlen-done, msg.msg_flags);
-		set_fs(oldfs);
 
 		if (status == -EAGAIN) {
 #if 0
