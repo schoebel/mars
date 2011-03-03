@@ -265,15 +265,19 @@ static int receiver_thread(void *data)
 	}
 
 done:
-	if (status < 0)
+	if (status < 0) {
 		MARS_ERR("receiver thread terminated with status = %d\n", status);
-	output->receiver.thread = NULL;
+	}
+#if 0
 	if (output->socket) {
 		MARS_INF("shutting down socket\n");
 		kernel_sock_shutdown(output->socket, SHUT_WR);
 		msleep(1000);
 		output->socket = NULL;
 	}
+#endif
+	output->receiver.terminated = true;
+	wake_up_interruptible(&output->receiver.run_event);
 	return status;
 }
 
@@ -298,17 +302,6 @@ static int sender_thread(void *data)
 			do_resubmit = true;
 		}
 
-		if (unlikely(!output->receiver.thread)) {
-			output->receiver.thread = kthread_create(receiver_thread, output, "mars_receiver%d", thread_count++);
-			if (unlikely(IS_ERR(output->receiver.thread))) {
-				MARS_ERR("cannot start receiver thread, status = %d\n", (int)PTR_ERR(output->receiver.thread));
-				output->receiver.thread = NULL;
-				msleep(5000);
-				continue;
-			}
-			wake_up_process(output->receiver.thread);
-		}
-
 		if (do_resubmit) {
 			/* Re-Submit any waiting requests
 			 */
@@ -327,6 +320,19 @@ static int sender_thread(void *data)
 
 		wait_event_interruptible_timeout(output->event, !list_empty(&output->mref_list), 1 * HZ);
 		
+		if (unlikely(output->receiver.terminated)) {
+			output->receiver.terminated = false;
+			output->receiver.thread = kthread_create(receiver_thread, output, "mars_receiver%d", thread_count++);
+			if (unlikely(IS_ERR(output->receiver.thread))) {
+				MARS_ERR("cannot start receiver thread, status = %d\n", (int)PTR_ERR(output->receiver.thread));
+				output->receiver.thread = NULL;
+				output->receiver.terminated = true;
+				msleep(5000);
+				continue;
+			}
+			wake_up_process(output->receiver.thread);
+		}
+
 		if (list_empty(&output->mref_list))
 			continue;
 
@@ -351,10 +357,8 @@ static int sender_thread(void *data)
 			_kill_socket(output);
 			_kill_thread(&output->receiver);
 
-			/* Forcibly mark as dead, in any case.
-			 * In consequence, a new connection will be tried thereafter.
-			 */
-			output->receiver.thread = NULL;
+			wait_event_interruptible_timeout(output->receiver.run_event, output->receiver.terminated, 10 * HZ);
+
 			continue;
 		}
 	}
@@ -365,7 +369,8 @@ static int sender_thread(void *data)
 	_kill_socket(output);
 	_kill_thread(&output->receiver);
 
-	output->sender.thread = NULL;
+	output->sender.terminated = true;
+	wake_up_interruptible(&output->sender.run_event);
 	return status;
 }
 
@@ -376,19 +381,28 @@ static int client_switch(struct client_brick *brick)
 
 	if (brick->power.button) {
 		mars_power_led_off((void*)brick, false);
-		output->sender.thread = kthread_create(sender_thread, output, "mars_sender%d", thread_count++);
-		if (unlikely(IS_ERR(output->sender.thread))) {
-			status = PTR_ERR(output->sender.thread);
-			MARS_ERR("cannot start sender thread, status = %d\n", status);
-			output->sender.thread = NULL;
-			goto done;
+		if (output->sender.terminated) {
+			output->sender.terminated = false;
+			output->sender.thread = kthread_create(sender_thread, output, "mars_sender%d", thread_count++);
+			if (unlikely(IS_ERR(output->sender.thread))) {
+				status = PTR_ERR(output->sender.thread);
+				MARS_ERR("cannot start sender thread, status = %d\n", status);
+				output->sender.thread = NULL;
+				output->sender.terminated = true;
+				goto done;
+			}
 		}
 		wake_up_process(output->sender.thread);
-		mars_power_led_on((void*)brick, true);
+		if (!output->sender.terminated) {
+			mars_power_led_on((void*)brick, true);
+		}
 	} else {
 		mars_power_led_on((void*)brick, false);
 		_kill_thread(&output->sender);
-		mars_power_led_off((void*)brick, !output->sender.thread);
+		wait_event_interruptible_timeout(output->sender.run_event, output->sender.terminated, 10 * HZ);
+		if (output->sender.terminated) {
+			mars_power_led_off((void*)brick, !output->sender.thread);
+		}
 	}
 done:
 	return status;
@@ -425,9 +439,11 @@ static int client_output_construct(struct client_output *output)
 	INIT_LIST_HEAD(&output->mref_list);
 	INIT_LIST_HEAD(&output->wait_list);
 	init_waitqueue_head(&output->event);
-	init_waitqueue_head(&output->sender.event);
-	init_waitqueue_head(&output->receiver.event);
+	init_waitqueue_head(&output->sender.run_event);
+	init_waitqueue_head(&output->receiver.run_event);
 	init_waitqueue_head(&output->info_event);
+	output->sender.terminated = true;
+	output->receiver.terminated = true;
 	return 0;
 }
 

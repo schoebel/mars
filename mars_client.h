@@ -20,7 +20,8 @@ struct client_input {
 
 struct client_threadinfo {
 	struct task_struct *thread;
-	wait_queue_head_t event;
+	wait_queue_head_t run_event;
+	bool terminated;
 };
 
 struct client_output {

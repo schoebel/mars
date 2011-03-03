@@ -540,7 +540,7 @@ static void __exit exit_if_device(void)
 	int status;
 	MARS_INF("exit_if_device()\n");
 	status = if_device_unregister_brick_type();
-	unregister_blkdev(DRBD_MAJOR, "mars");
+	unregister_blkdev(MARS_MAJOR, "mars");
 }
 
 static int __init init_if_device(void)
@@ -550,7 +550,7 @@ static int __init init_if_device(void)
 	(void)if_device_aspect_types; // not used, shut up gcc
 
 	MARS_INF("init_if_device()\n");
-	status = register_blkdev(DRBD_MAJOR, "mars");
+	status = register_blkdev(MARS_MAJOR, "mars");
 	if (status)
 		return status;
 	status = if_device_register_brick_type();

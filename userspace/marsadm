@@ -60,7 +60,7 @@ sub get_size {
 # helpers
 
 sub _trigger {
-  system("echo 1 > /proc/sys/mars 2>/dev/null");
+  system("modprobe mars_proc; (echo 1 > /proc/sys/mars) >/dev/null 2>&1");
 }
 
 sub _switch {
