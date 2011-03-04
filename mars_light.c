@@ -135,7 +135,7 @@ int __make_copy(
 		const char *path,
 		const char *parent,
 		const char *argv[],
-		loff_t start_pos,
+		loff_t start_pos, // -1 means at EOF
 		struct copy_brick **__copy)
 {
 	struct mars_brick *copy;
@@ -209,6 +209,7 @@ int __make_copy(
 				MARS_ERR("cannot determine current size of '%s'\n", argv[i]);
 				goto done;
 			}
+			MARS_DBG("%d '%s' current_size = %lld\n", i, fullpath[i], info[i].current_size);
 		}
 		_copy->copy_start = info[1].current_size;
 		if (start_pos != -1) {
@@ -259,17 +260,24 @@ struct mars_peerinfo {
 };
 
 static
-int _update_file(struct mars_global *global, const char *path, const char *peer)
+int _update_file(struct mars_global *global, const char *path, const char *peer, loff_t end_pos)
 {
 	const char *tmp = path_make("%s@%s", path, peer);
 	const char *argv[2] = { tmp, path };
+	struct copy_brick *copy = NULL;
 	int status = -ENOMEM;
 
 	if (unlikely(!tmp))
 		goto done;
 
 	MARS_DBG("tmp = '%s' path = '%s'\n", tmp, path);
-	status = __make_copy(global, NULL, path, NULL, argv, -1, NULL);
+	status = __make_copy(global, NULL, path, NULL, argv, -1, &copy);
+	if (status > 0 && copy && !copy->permanent_update) {
+		if (end_pos > copy->copy_end) {
+			MARS_DBG("appending to '%s' %lld => %lld\n", path, copy->copy_end, end_pos);
+			copy->copy_end = end_pos;
+		}
+	}
 
 done:
 	if (tmp)
@@ -372,7 +380,7 @@ int run_bones(void *buf, struct mars_dent *dent)
 				kfree(connect_path);
 				if (status >= 0 && !connect_stat.uid) {
 					// parent is not available here
-					status = _update_file(peer->global, dent->d_path, peer->peer);
+					status = _update_file(peer->global, dent->d_path, peer->peer, src_size);
 					MARS_DBG("update '%s' from peer '%s' status = %d\n", dent->d_path, peer->peer, status);
 					if (status >= 0) {
 						char *tmp = _backskip_replace(dent->d_path, '-', false, "-%s", my_id());

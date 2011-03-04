@@ -34,6 +34,7 @@ struct copy_brick {
 	loff_t copy_last;
 	bool verify_mode;
 	bool optimize_mode;
+	bool permanent_update; // NYI
 	bool low_dirty;
 	// internal
 	volatile bool trigger;
