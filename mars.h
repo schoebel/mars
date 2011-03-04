@@ -265,7 +265,7 @@ extern int  mars_power_button_recursive(struct mars_brick *brick, bool val, int 
 #ifdef _STRATEGY // call this only in strategy bricks, never in ordinary bricks
 
 #define MARS_ARGV_MAX 4
-#define MARS_PATH_MAX 64
+#define MARS_PATH_MAX 128
 
 extern char *my_id(void);
 

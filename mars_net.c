@@ -123,56 +123,59 @@ EXPORT_SYMBOL_GPL(mars_create_sockaddr);
 
 int mars_create_socket(struct socket **sock, struct sockaddr_storage *addr, bool is_server)
 {
-	struct sockaddr null_bind = {};
 	struct sockaddr *sockaddr = (void*)addr;
 	int x_true = 1;
-	int status;
+	int status = 0;
 
-	if (!is_server) {
-		sockaddr = &null_bind;
+	if (!*sock) {
+		status = sock_create_kern(AF_INET, SOCK_STREAM, IPPROTO_TCP, sock);
+		if (unlikely(status < 0)) {
+			*sock = NULL;
+			MARS_ERR("cannot create socket, status = %d\n", status);
+			goto done;
+		}
+
+		/* TODO: improve this by a table-driven approach
+		 */
+		(*sock)->sk->sk_rcvtimeo = (*sock)->sk->sk_sndtimeo = default_tcp_params.tcp_timeout * HZ;
+		status = kernel_setsockopt(*sock, SOL_SOCKET, SO_SNDBUF, (char*)&default_tcp_params.window_size, sizeof(default_tcp_params.window_size));
+		_check(status);
+		status = kernel_setsockopt(*sock, SOL_SOCKET, SO_RCVBUF, (char*)&default_tcp_params.window_size, sizeof(default_tcp_params.window_size));
+		_check(status);
+		status = kernel_setsockopt(*sock, SOL_IP, SO_PRIORITY, (char*)&default_tcp_params.tos, sizeof(default_tcp_params.tos));
+		_check(status);
+		status = kernel_setsockopt(*sock, IPPROTO_TCP, TCP_NODELAY, (char*)&x_true, sizeof(x_true));
+		_check(status);
+		status = kernel_setsockopt(*sock, SOL_SOCKET, SO_KEEPALIVE, (char*)&x_true, sizeof(x_true));
+		_check(status);
+		status = kernel_setsockopt(*sock, IPPROTO_TCP, TCP_KEEPCNT, (char*)&default_tcp_params.tcp_keepcnt, sizeof(default_tcp_params.tcp_keepcnt));
+		_check(status);
+		status = kernel_setsockopt(*sock, IPPROTO_TCP, TCP_KEEPINTVL, (char*)&default_tcp_params.tcp_keepintvl, sizeof(default_tcp_params.tcp_keepintvl));
+		_check(status);
+		status = kernel_setsockopt(*sock, IPPROTO_TCP, TCP_KEEPIDLE, (char*)&default_tcp_params.tcp_keepidle, sizeof(default_tcp_params.tcp_keepidle));
+		_check(status);
 	}
 
-	status = sock_create_kern(AF_INET, SOCK_STREAM, IPPROTO_TCP, sock);
-	if (status < 0) {
-		*sock = NULL;
-		MARS_ERR("cannot create socket, status = %d\n", status);
-		return status;
-	}
-
-	/* TODO: improve this by a table-driven approach
-	 */
-	(*sock)->sk->sk_rcvtimeo = (*sock)->sk->sk_sndtimeo = default_tcp_params.tcp_timeout * HZ;
-	status = kernel_setsockopt(*sock, SOL_SOCKET, SO_SNDBUF, (char*)&default_tcp_params.window_size, sizeof(default_tcp_params.window_size));
-	_check(status);
-	status = kernel_setsockopt(*sock, SOL_SOCKET, SO_RCVBUF, (char*)&default_tcp_params.window_size, sizeof(default_tcp_params.window_size));
-	_check(status);
-	status = kernel_setsockopt(*sock, SOL_IP, SO_PRIORITY, (char*)&default_tcp_params.tos, sizeof(default_tcp_params.tos));
-	_check(status);
-	status = kernel_setsockopt(*sock, IPPROTO_TCP, TCP_NODELAY, (char*)&x_true, sizeof(x_true));
-	_check(status);
-	status = kernel_setsockopt(*sock, SOL_SOCKET, SO_KEEPALIVE, (char*)&x_true, sizeof(x_true));
-	_check(status);
-	status = kernel_setsockopt(*sock, IPPROTO_TCP, TCP_KEEPCNT, (char*)&default_tcp_params.tcp_keepcnt, sizeof(default_tcp_params.tcp_keepcnt));
-	_check(status);
-	status = kernel_setsockopt(*sock, IPPROTO_TCP, TCP_KEEPINTVL, (char*)&default_tcp_params.tcp_keepintvl, sizeof(default_tcp_params.tcp_keepintvl));
-	_check(status);
-	status = kernel_setsockopt(*sock, IPPROTO_TCP, TCP_KEEPIDLE, (char*)&default_tcp_params.tcp_keepidle, sizeof(default_tcp_params.tcp_keepidle));
-	_check(status);
-	
-	status = kernel_bind(*sock, sockaddr, sizeof(*sockaddr));
-	if (status < 0) {
-		MARS_ERR("bind failed, status = %d\n", status);
-		return status;
-	}
-
-	if (!is_server) {
-		sockaddr = (void*)addr;
+	if (is_server) {
+		status = kernel_bind(*sock, sockaddr, sizeof(*sockaddr));
+		if (unlikely(status < 0)) {
+			MARS_ERR("bind failed, status = %d\n", status);
+			sock_release(*sock);
+			*sock = NULL;
+			goto done;
+		}
+		status = kernel_listen(*sock, 16);
+		if (status < 0) {
+			MARS_ERR("listen failed, status = %d\n", status);
+		}
+	} else {
 		status = kernel_connect(*sock, sockaddr, sizeof(*sockaddr), 0);
 		if (status < 0) {
 			MARS_ERR("connect failed, status = %d\n", status);
 		}
 	}
 
+done:
 	return status;
 }
 EXPORT_SYMBOL_GPL(mars_create_socket);

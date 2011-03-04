@@ -46,8 +46,10 @@ static int _connect(struct client_output *output, const char *str)
 	if (!output->path) {
 		output->path = kstrdup(str, GFP_MARS);
 		status = -ENOMEM;
-		if (!output->path)
+		if (!output->path) {
+			MARS_DBG("no mem\n");
 			goto done;
+		}
 		status = -EINVAL;
 		output->host = strchr(output->path, '@');
 		if (!output->host) {
@@ -60,12 +62,18 @@ static int _connect(struct client_output *output, const char *str)
 	}
 
 	status = mars_create_sockaddr(&sockaddr, output->host);
-	if (unlikely(status < 0))
+	if (unlikely(status < 0)) {
+		MARS_DBG("no sockaddr, status = %d\n", status);
 		goto done;
+	}
 	
 	status = mars_create_socket(&output->socket, &sockaddr, false);
 	if (unlikely(status < 0)) {
-		output->socket = NULL;
+		if (status == -EINPROGRESS) {
+			MARS_DBG("operation is in progress....\n");
+			goto really_done; // give it a chance next time
+		}
+		MARS_DBG("no socket, status = %d\n", status);
 		goto done;
 	}
 
@@ -76,8 +84,10 @@ static int _connect(struct client_output *output, const char *str)
 		};
 
 		status = mars_send_struct(&output->socket, &cmd, mars_cmd_meta);
-		if (unlikely(status < 0))
+		if (unlikely(status < 0)) {
+			MARS_DBG("send of connect failed, status = %d\n", status);
 			goto done;
+		}
 	}
 	if (status >= 0) {
 		struct mars_cmd cmd = {
@@ -85,6 +95,10 @@ static int _connect(struct client_output *output, const char *str)
 		};
 
 		status = mars_send_struct(&output->socket, &cmd, mars_cmd_meta);
+		if (unlikely(status < 0)) {
+			MARS_DBG("send of getinfo failed, status = %d\n", status);
+			goto done;
+		}
 	}
 
 done:
@@ -92,6 +106,7 @@ done:
 		MARS_INF("cannot connect to remote host '%s' (status = %d) -- retrying\n", output->host ? output->host : "NULL", status);
 		_kill_socket(output);
 	}
+really_done:
 	return status;
 }
 

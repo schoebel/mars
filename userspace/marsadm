@@ -9,7 +9,8 @@ my $mars = "/mars";
 my $host = `uname -n` or die "cannot determine my network node name\n";
 chomp $host;
 my $ip = `ip a` or die "cannot determine my IP address\n";
-$ip =~ s/\A.*inet +(?!127\.0\.)([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+).*\Z/$1/ms or die "cannot parse my IP address\n";
+$ip =~ s/\A.*inet +(?!127\.0\.)([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+).*?\Z/$1/ms or die "cannot parse my IP address\n";
+print "my IP is $ip\n";
 
 umask 0177;
 die "only root may use this tool\n" unless `whoami` eq "root\n"; # getpid() seems to be missing in perlfunc
@@ -20,7 +21,7 @@ die "only root may use this tool\n" unless `whoami` eq "root\n"; # getpid() seem
 
 sub check_id {
   my $str = shift;
-  die "identifier '$str' has disallowed characters" unless $str =~ m/^[A-Za-z_][A-Za-z0-9_]*$/;
+  die "identifier '$str' has disallowed characters" unless $str =~ m/^[A-Za-z_][-A-Za-z0-9_]*$/;
   die "identifier '$str' is too long (only 16 chars allowed)" if length($str) > 16;
 }
 
@@ -214,8 +215,8 @@ sub create_res {
     system("rm -f $tmp/syncstatus-$host");
     symlink("0", "$tmp/syncstatus-$host") or die "cannot start initial sync\n";
     system("rm -f $tmp/connect-$host");
-    symlink($primary, "$tmp/connect-$host") or die "cannot create peer symlink\n";
-    symlink($host, "$tmp/connect-$primary") unless ( -l "$tmp/connect-$primary" or -l "$tmp/off.connect-$primary" );
+    symlink($primary, "$tmp/connect-$host") or die "cannot create peer connect symlink\n";
+    symlink($host, "$tmp/connect-$primary") unless -l "$tmp/connect-$primary";
     print "successfully joined resource '$res'\n";
   }
 }
