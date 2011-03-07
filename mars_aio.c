@@ -24,20 +24,82 @@
 
 ///////////////////////// own type definitions ////////////////////////
 
-#include "mars_device_aio.h"
+#include "mars_aio.h"
+
+////////////////// some helpers //////////////////
+
+static
+void _queue(struct aio_threadinfo *tinfo, struct aio_mref_aspect *mref_a)
+{
+	unsigned long flags;
+
+	traced_lock(&tinfo->lock, flags);
+
+	list_add_tail(&mref_a->io_head, &tinfo->mref_list);
+
+	traced_unlock(&tinfo->lock, flags);
+}
+
+static
+void _delay(struct aio_threadinfo *tinfo, struct aio_mref_aspect *mref_a, int delta_jiffies)
+{
+	long long timeout = (long long)jiffies + delta_jiffies;
+	unsigned long flags;
+
+	mref_a->timeout = timeout;
+
+	traced_lock(&tinfo->lock, flags);
+
+	list_add_tail(&mref_a->io_head, &tinfo->delay_list);
+
+	traced_unlock(&tinfo->lock, flags);
+}
+
+static
+struct aio_mref_aspect *_get_delayed(struct aio_threadinfo *tinfo, bool remove)
+{
+	struct list_head *tmp;
+	struct aio_mref_aspect *mref_a;
+	unsigned long flags;
+
+	if (list_empty(&tinfo->delay_list))
+		return NULL;
+
+	traced_lock(&tinfo->lock, flags);
+
+	tmp = tinfo->delay_list.next;
+	mref_a = container_of(tmp, struct aio_mref_aspect, io_head);
+	if (mref_a->timeout < (long long)jiffies) {
+		mref_a = NULL;
+	} else if (remove) {
+		list_del_init(tmp);
+	}
+
+	traced_unlock(&tinfo->lock, flags);
+
+	return mref_a;
+}
+
 
 ////////////////// own brick / input / output operations //////////////////
 
-static int device_aio_ref_get(struct device_aio_output *output, struct mref_object *mref)
+static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
 {
+	struct file *file = output->filp;
+
 	_CHECK_ATOMIC(&mref->ref_count, !=,  0);
+	
+	if (file) {
+		mref->ref_total_size = i_size_read(file->f_mapping->host);
+	}
+
 	/* Buffered IO is implemented, but should not be used
 	 * except for testing.
 	 * Always precede this with a buf brick -- otherwise you
 	 * can get bad performance!
 	 */
 	if (!mref->ref_data) {
-		struct device_aio_mref_aspect *mref_a = device_aio_mref_get_aspect(output, mref);
+		struct aio_mref_aspect *mref_a = aio_mref_get_aspect(output, mref);
 		if (!mref_a)
 			return -EILSEQ;
 		mref->ref_data = kmalloc(mref->ref_len, GFP_MARS);
@@ -58,52 +120,70 @@ static int device_aio_ref_get(struct device_aio_output *output, struct mref_obje
 	return 0;
 }
 
-static void device_aio_ref_put(struct device_aio_output *output, struct mref_object *mref)
+static void aio_ref_put(struct aio_output *output, struct mref_object *mref)
 {
-	struct device_aio_mref_aspect *mref_a;
+	struct file *file = output->filp;
+	struct aio_mref_aspect *mref_a;
+
 	CHECK_ATOMIC(&mref->ref_count, 1);
-	if (!atomic_dec_and_test(&mref->ref_count))
-		return;
-	mref_a = device_aio_mref_get_aspect(output, mref);
+	if (file) {
+		mref->ref_total_size = i_size_read(file->f_mapping->host);
+	}
+	if (!atomic_dec_and_test(&mref->ref_count)) {
+		goto done;
+	}
+	mref_a = aio_mref_get_aspect(output, mref);
 	if (mref_a && mref_a->do_dealloc) {
 		kfree(mref->ref_data);
 	}
-	device_aio_free_mref(mref);
+	aio_free_mref(mref);
+ done:;
 }
 
-static void device_aio_ref_io(struct device_aio_output *output, struct mref_object *mref)
+static
+void _complete(struct aio_output *output, struct mref_object *mref, int err)
+{
+	struct generic_callback *cb;
+	cb = mref->ref_cb;
+	cb->cb_error = err;
+	if (err < 0) {
+		MARS_ERR("IO error %d\n", err);
+	} else {
+		mref->ref_flags |= MREF_UPTODATE;
+	}
+	cb->cb_fn(cb);
+	aio_ref_put(output, mref);
+}
+
+static void aio_ref_io(struct aio_output *output, struct mref_object *mref)
 {
 	struct aio_threadinfo *tinfo = &output->tinfo[0];
-	struct generic_callback *cb = mref->ref_cb;
-	struct device_aio_mref_aspect *mref_a;
-	unsigned long flags;
+	struct aio_mref_aspect *mref_a;
+	int err = -EINVAL;
 
 	atomic_inc(&mref->ref_count);
 
 	if (unlikely(!output->filp)) {
-		cb->cb_error = -EINVAL;
 		goto done;
 	}
 
 	MARS_IO("AIO rw=%d pos=%lld len=%d data=%p\n", mref->ref_rw, mref->ref_pos, mref->ref_len, mref->ref_data);
 
-	mref_a = device_aio_mref_get_aspect(output, mref);
-	traced_lock(&tinfo->lock, flags);
-	list_add_tail(&mref_a->io_head, &tinfo->mref_list);
-	traced_unlock(&tinfo->lock, flags);
+	mref_a = aio_mref_get_aspect(output, mref);
+	if (unlikely(!mref_a)) {
+		goto done;
+	}
+
+	_queue(tinfo, mref_a);
 
 	wake_up_interruptible(&tinfo->event);
 	return;
 
 done:
-	if (cb->cb_error < 0)
-		MARS_ERR("IO error %d\n", cb->cb_error);
-
-	cb->cb_fn(cb);
-	device_aio_ref_put(output, mref);
+	_complete(output, mref, err);
 }
 
-static int device_aio_submit(struct device_aio_output *output, struct device_aio_mref_aspect *mref_a, bool use_fdsync)
+static int aio_submit(struct aio_output *output, struct aio_mref_aspect *mref_a, bool use_fdsync)
 {
 	struct mref_object *mref = mref_a->object;
 	mm_segment_t oldfs;
@@ -128,7 +208,7 @@ static int device_aio_submit(struct device_aio_output *output, struct device_aio
 	return res;
 }
 
-static int device_aio_submit_dummy(struct device_aio_output *output)
+static int aio_submit_dummy(struct aio_output *output)
 {
 	mm_segment_t oldfs;
 	int res;
@@ -144,10 +224,11 @@ static int device_aio_submit_dummy(struct device_aio_output *output)
 	return res;
 }
 
-static int device_aio_submit_thread(void *data)
+static int aio_submit_thread(void *data)
 {
 	struct aio_threadinfo *tinfo = data;
-	struct device_aio_output *output = tinfo->output;
+	struct aio_output *output = tinfo->output;
+	struct file *file = output->filp;
 	struct mm_struct *old_mm;
 	int err;
 	
@@ -173,13 +254,16 @@ static int device_aio_submit_thread(void *data)
 
 	while (!kthread_should_stop()) {
 		struct list_head *tmp = NULL;
-		struct device_aio_mref_aspect *mref_a;
+		struct aio_mref_aspect *mref_a;
+		struct mref_object *mref;
 		unsigned long flags;
 		int err;
 
 		wait_event_interruptible_timeout(
 			tinfo->event,
-			!list_empty(&tinfo->mref_list) || kthread_should_stop(),
+			!list_empty(&tinfo->mref_list) ||
+			_get_delayed(tinfo, false) ||
+			kthread_should_stop(),
 			HZ);
 
 		traced_lock(&tinfo->lock, flags);
@@ -187,34 +271,36 @@ static int device_aio_submit_thread(void *data)
 		if (!list_empty(&tinfo->mref_list)) {
 			tmp = tinfo->mref_list.next;
 			list_del_init(tmp);
+			mref_a = container_of(tmp, struct aio_mref_aspect, io_head);
+		} else {
+			mref_a = _get_delayed(tinfo, true);
 		}
 
 		traced_unlock(&tinfo->lock, flags);
 
-		if (!tmp)
+		if (!mref_a)
 			continue;
 
-		mref_a = container_of(tmp, struct device_aio_mref_aspect, io_head);
+		// check for reads behind EOF
+		mref = mref_a->object;
+		if (!mref->ref_rw && mref->ref_pos + mref->ref_len > i_size_read(file->f_mapping->host)) {
+			if (!mref->ref_timeout || mref->ref_timeout < (long long)jiffies) {
+				_complete(output, mref, -ENODATA);
+				continue;
+			}
+			_delay(tinfo, mref_a, HZ/2);
+			continue;
+		}
 
-		err = device_aio_submit(output, mref_a, false);
+		err = aio_submit(output, mref_a, false);
 
 		if (err == -EAGAIN) {
-			traced_lock(&tinfo->lock, flags);
-			list_add(&mref_a->io_head, &tinfo->mref_list);
-			traced_unlock(&tinfo->lock, flags);
-			msleep(10); // PROVISIONARY
+			_delay(tinfo, mref_a, (HZ/100)+1);
 			continue;
 		}
-#if 0
-		if (false) {
-			struct generic_callback *cb = mref_a->object->ref_cb;
-			cb->cb_error = err;
-			if (err < 0)
-				MARS_ERR("IO error %d\n", err);
-			cb->cb_fn(cb);
-			device_aio_ref_put(output, mref_a->object);
+		if (unlikely(err < 0)) {
+			_complete(output, mref, err);
 		}
-#endif
 	}
 
 	MARS_INF("kthread has stopped.\n");
@@ -225,10 +311,10 @@ static int device_aio_submit_thread(void *data)
 	return 0;
 }
 
-static int device_aio_event_thread(void *data)
+static int aio_event_thread(void *data)
 {
 	struct aio_threadinfo *tinfo = data;
-	struct device_aio_output *output = tinfo->output;
+	struct aio_output *output = tinfo->output;
 	struct aio_threadinfo *other = &output->tinfo[2];
 	struct mm_struct *old_mm;
 	int err = -ENOMEM;
@@ -278,16 +364,14 @@ static int device_aio_event_thread(void *data)
 		//MARS_INF("count = %d\n", count);
 		bounced = 0;
 		for (i = 0; i < count; i++) {
-			struct device_aio_mref_aspect *mref_a = (void*)events[i].data;
+			struct aio_mref_aspect *mref_a = (void*)events[i].data;
 			struct mref_object *mref;
-			struct generic_callback *cb;
 			int err = events[i].res;
 
 			if (!mref_a) {
 				continue; // this was a dummy request
 			}
 			mref = mref_a->object;
-			cb = mref->ref_cb;
 
 			MARS_IO("AIO done %p pos = %lld len = %d rw = %d\n", mref, mref->ref_pos, mref->ref_len, mref->ref_rw);
 
@@ -296,26 +380,17 @@ static int device_aio_event_thread(void *data)
 			   && mref->ref_rw != 0
 			   && !mref_a->resubmit++) {
 				if (!output->filp->f_op->aio_fsync) {
-					unsigned long flags;
-					traced_lock(&other->lock, flags);
-					list_add(&mref_a->io_head, &other->mref_list);
-					traced_unlock(&other->lock, flags);
+					_queue(other, mref_a);
 					bounced++;
 					continue;
 				}
-				err = device_aio_submit(output, mref_a, true);
+				err = aio_submit(output, mref_a, true);
 				if (likely(err >= 0))
 					continue;
 			}
 
-			cb->cb_error = err;
-			if (err < 0) {
-				MARS_ERR("IO error %d\n", err);
-			} else {
-				mref->ref_flags |= MREF_UPTODATE;
-			}
-			cb->cb_fn(cb);
-			device_aio_ref_put(output, mref);
+			_complete(output, mref, err);
+
 		}
 		if (bounced)
 			wake_up_interruptible(&other->event);
@@ -333,10 +408,10 @@ static int device_aio_event_thread(void *data)
 
 /* Workaround for non-implemented aio_fsync()
  */
-static int device_aio_sync_thread(void *data)
+static int aio_sync_thread(void *data)
 {
 	struct aio_threadinfo *tinfo = data;
-	struct device_aio_output *output = tinfo->output;
+	struct aio_output *output = tinfo->output;
 	struct file *file = output->filp;
 	
 	MARS_INF("kthread has started on '%s'.\n", output->brick->brick_name);
@@ -371,15 +446,9 @@ static int device_aio_sync_thread(void *data)
 		 */
 		while (!list_empty(&tmp_list)) {
 			struct list_head *tmp = tmp_list.next;
-			struct device_aio_mref_aspect *mref_a = container_of(tmp, struct device_aio_mref_aspect, io_head);
-			struct generic_callback *cb = mref_a->object->ref_cb;
+			struct aio_mref_aspect *mref_a = container_of(tmp, struct aio_mref_aspect, io_head);
 			list_del_init(tmp);
-			cb->cb_error = err;
-			if (err >= 0) {
-				mref_a->object->ref_flags |= MREF_UPTODATE;
-			}
-			cb->cb_fn(cb);
-			device_aio_ref_put(output, mref_a->object);
+			_complete(output, mref_a->object, err);
 		}
 	}
 
@@ -388,7 +457,7 @@ static int device_aio_sync_thread(void *data)
 	return 0;
 }
 
-static int device_aio_get_info(struct device_aio_output *output, struct mars_info *info)
+static int aio_get_info(struct aio_output *output, struct mars_info *info)
 {
 	struct file *file = output->filp;
 	if (unlikely(!file || !file->f_mapping || !file->f_mapping->host))
@@ -402,32 +471,32 @@ static int device_aio_get_info(struct device_aio_output *output, struct mars_inf
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int device_aio_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+static int aio_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
-	struct device_aio_mref_aspect *ini = (void*)_ini;
+	struct aio_mref_aspect *ini = (void*)_ini;
 	INIT_LIST_HEAD(&ini->io_head);
 	return 0;
 }
 
-static void device_aio_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+static void aio_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
 {
-	struct device_aio_mref_aspect *ini = (void*)_ini;
+	struct aio_mref_aspect *ini = (void*)_ini;
 	(void)ini;
 }
 
-MARS_MAKE_STATICS(device_aio);
+MARS_MAKE_STATICS(aio);
 
 ////////////////////// brick constructors / destructors ////////////////////
 
-static int device_aio_brick_construct(struct device_aio_brick *brick)
+static int aio_brick_construct(struct aio_brick *brick)
 {
 	return 0;
 }
 
-static int device_aio_switch(struct device_aio_brick *brick)
+static int aio_switch(struct aio_brick *brick)
 {
 	static int index = 0;
-	struct device_aio_output *output = brick->outputs[0];
+	struct aio_output *output = brick->outputs[0];
 	const char *path = output->brick->brick_name;
 	int flags = O_CREAT | O_RDWR | O_LARGEFILE;
 	int prot = 0600;
@@ -480,12 +549,13 @@ static int device_aio_switch(struct device_aio_brick *brick)
 
 	for (i = 0; i < 3; i++) {
 		static int (*fn[])(void*) = {
-			device_aio_submit_thread,
-			device_aio_event_thread,
-			device_aio_sync_thread,
+			aio_submit_thread,
+			aio_event_thread,
+			aio_sync_thread,
 		};
 		struct aio_threadinfo *tinfo = &output->tinfo[i];
 		INIT_LIST_HEAD(&tinfo->mref_list);
+		INIT_LIST_HEAD(&tinfo->delay_list);
 		tinfo->output = output;
 		spin_lock_init(&tinfo->lock);
 		init_waitqueue_head(&tinfo->event);
@@ -521,7 +591,7 @@ cleanup:
 			tinfo->thread = NULL;
 		}
 	}
-	device_aio_submit_dummy(output);
+	aio_submit_dummy(output);
 	for (i = 0; i < 3; i++) {
 		struct aio_threadinfo *tinfo = &output->tinfo[i];
 		if (tinfo->thread) {
@@ -553,75 +623,75 @@ cleanup:
 	return err;
 }
 
-static int device_aio_output_construct(struct device_aio_output *output)
+static int aio_output_construct(struct aio_output *output)
 {
 	return 0;
 }
 
-static int device_aio_output_destruct(struct device_aio_output *output)
+static int aio_output_destruct(struct aio_output *output)
 {
 	return mars_power_button((void*)output->brick, false);
 }
 
 ///////////////////////// static structs ////////////////////////
 
-static struct device_aio_brick_ops device_aio_brick_ops = {
-	.brick_switch = device_aio_switch,
+static struct aio_brick_ops aio_brick_ops = {
+	.brick_switch = aio_switch,
 };
 
-static struct device_aio_output_ops device_aio_output_ops = {
-	.make_object_layout = device_aio_make_object_layout,
-	.mref_get = device_aio_ref_get,
-	.mref_put = device_aio_ref_put,
-	.mref_io = device_aio_ref_io,
-	.mars_get_info = device_aio_get_info,
+static struct aio_output_ops aio_output_ops = {
+	.make_object_layout = aio_make_object_layout,
+	.mref_get = aio_ref_get,
+	.mref_put = aio_ref_put,
+	.mref_io = aio_ref_io,
+	.mars_get_info = aio_get_info,
 };
 
-const struct device_aio_output_type device_aio_output_type = {
-	.type_name = "device_aio_output",
-	.output_size = sizeof(struct device_aio_output),
-	.master_ops = &device_aio_output_ops,
-	.output_construct = &device_aio_output_construct,
-	.output_destruct = &device_aio_output_destruct,
-	.aspect_types = device_aio_aspect_types,
+const struct aio_output_type aio_output_type = {
+	.type_name = "aio_output",
+	.output_size = sizeof(struct aio_output),
+	.master_ops = &aio_output_ops,
+	.output_construct = &aio_output_construct,
+	.output_destruct = &aio_output_destruct,
+	.aspect_types = aio_aspect_types,
 	.layout_code = {
 		[BRICK_OBJ_MREF] = LAYOUT_NONE,
 	}
 };
 
-static const struct device_aio_output_type *device_aio_output_types[] = {
-	&device_aio_output_type,
+static const struct aio_output_type *aio_output_types[] = {
+	&aio_output_type,
 };
 
-const struct device_aio_brick_type device_aio_brick_type = {
-	.type_name = "device_aio_brick",
-	.brick_size = sizeof(struct device_aio_brick),
+const struct aio_brick_type aio_brick_type = {
+	.type_name = "aio_brick",
+	.brick_size = sizeof(struct aio_brick),
 	.max_inputs = 0,
 	.max_outputs = 1,
-	.master_ops = &device_aio_brick_ops,
-	.default_output_types = device_aio_output_types,
-	.brick_construct = &device_aio_brick_construct,
+	.master_ops = &aio_brick_ops,
+	.default_output_types = aio_output_types,
+	.brick_construct = &aio_brick_construct,
 };
-EXPORT_SYMBOL_GPL(device_aio_brick_type);
+EXPORT_SYMBOL_GPL(aio_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 
-static int __init init_device_aio(void)
+static int __init _init_aio(void)
 {
-	MARS_INF("init_device_aio()\n");
-	_aio_brick_type = (void*)&device_aio_brick_type;
-	return device_aio_register_brick_type();
+	MARS_INF("init_aio()\n");
+	_aio_brick_type = (void*)&aio_brick_type;
+	return aio_register_brick_type();
 }
 
-static void __exit exit_device_aio(void)
+static void __exit _exit_aio(void)
 {
-	MARS_INF("exit_device_aio()\n");
-	device_aio_unregister_brick_type();
+	MARS_INF("exit_aio()\n");
+	aio_unregister_brick_type();
 }
 
-MODULE_DESCRIPTION("MARS device_aio brick");
+MODULE_DESCRIPTION("MARS aio brick");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@1und1.de>");
 MODULE_LICENSE("GPL");
 
-module_init(init_device_aio);
-module_exit(exit_device_aio);
+module_init(_init_aio);
+module_exit(_exit_aio);

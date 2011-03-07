@@ -24,9 +24,9 @@
 #include "mars_server.h"
 #include "mars_client.h"
 #include "mars_copy.h"
-#include "mars_device_aio.h"
+#include "mars_aio.h"
 #include "mars_trans_logger.h"
-#include "mars_if_device.h"
+#include "mars_if.h"
 
 static struct task_struct *main_thread = NULL;
 
@@ -164,7 +164,7 @@ int __make_copy(
 				       NULL,
 				       10 * HZ,
 				       NULL,
-				       (const struct generic_brick_type*)&device_aio_brick_type,
+				       (const struct generic_brick_type*)&aio_brick_type,
 				       (const struct generic_brick_type*[]){},
 				       fullpath[i],
 				       (const char *[]){},
@@ -640,7 +640,7 @@ struct mars_rotate {
 	struct mars_global *global;
 	struct mars_dent *replay_link;
 	struct mars_dent *aio_dent;
-	struct device_aio_brick *aio_brick;
+	struct aio_brick *aio_brick;
 	struct mars_info aio_info;
 	struct trans_logger_brick *trans_brick;
 	struct mars_dent *relevant_log;
@@ -816,7 +816,7 @@ int make_log_init(void *buf, struct mars_dent *parent)
 			       aio_dent,
 			       10 * HZ,
 			       aio_path,
-			       (const struct generic_brick_type*)&device_aio_brick_type,
+			       (const struct generic_brick_type*)&aio_brick_type,
 			       (const struct generic_brick_type*[]){},
 			       "%s/%s",
 			       (const char *[]){},
@@ -851,7 +851,7 @@ int make_log_init(void *buf, struct mars_dent *parent)
 			       0,
 			       aio_path,
 			       (const struct generic_brick_type*)&trans_logger_brick_type,
-			       (const struct generic_brick_type*[]){(const struct generic_brick_type*)&device_aio_brick_type},
+			       (const struct generic_brick_type*[]){(const struct generic_brick_type*)&aio_brick_type},
 			       "%s/logger", 
 			       (const char *[]){"%s/data-%s"},
 			       1,
@@ -1083,7 +1083,7 @@ int _start_trans(struct mars_rotate *rot)
 			       rot->relevant_log,
 			       10 * HZ,
 			       rot->relevant_log->d_path,
-			       (const struct generic_brick_type*)&device_aio_brick_type,
+			       (const struct generic_brick_type*)&aio_brick_type,
 			       (const struct generic_brick_type*[]){},
 			       rot->relevant_log->d_path,
 			       (const char *[]){},
@@ -1245,13 +1245,13 @@ int make_aio(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
 	struct mars_brick *brick;
-	struct device_aio_brick *_brick;
+	struct aio_brick *_brick;
 	int status = 0;
 
 	if (!global->global_power.button || !dent->d_activate) {
 		goto done;
 	}
-	if (mars_find_brick(global, &device_aio_brick_type, dent->d_path)) {
+	if (mars_find_brick(global, &aio_brick_type, dent->d_path)) {
 		goto done;
 	}
 	dent->d_kill_inactive = true;
@@ -1260,7 +1260,7 @@ int make_aio(void *buf, struct mars_dent *dent)
 			       dent,
 			       10 * HZ,
 			       dent->d_path,
-			       (const struct generic_brick_type*)&device_aio_brick_type,
+			       (const struct generic_brick_type*)&aio_brick_type,
 			       (const struct generic_brick_type*[]){},
 			       dent->d_path,
 			       (const char *[]){},
@@ -1318,7 +1318,7 @@ static int make_dev(void *buf, struct mars_dent *dent)
 			       dent,
 			       10 * HZ,
 			       dent->d_argv[0],
-			       (const struct generic_brick_type*)&if_device_brick_type,
+			       (const struct generic_brick_type*)&if_brick_type,
 			       (const struct generic_brick_type*[]){(const struct generic_brick_type*)&trans_logger_brick_type},
 			       "%s/linuxdev-%s", 
 			       (const char *[]){"%s/logger"},
@@ -1354,7 +1354,7 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 			       dent,
 			       10 * HZ,
 			       dent->d_argv[0],
-			       (const struct generic_brick_type*)&device_aio_brick_type,
+			       (const struct generic_brick_type*)&aio_brick_type,
 			       (const struct generic_brick_type*[]){},
 			       "%s/%s",
 			       (const char *[]){},
@@ -1372,7 +1372,7 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 			       dent,
 			       10 * HZ,
 			       dent->d_argv[1],
-			       (const struct generic_brick_type*)&if_device_brick_type,
+			       (const struct generic_brick_type*)&if_brick_type,
 			       (const struct generic_brick_type*[]){NULL},
 			       "%s/linuxdev-%s",
 			       (const char *[]){ "%s/%s" },

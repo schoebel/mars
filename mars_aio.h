@@ -1,36 +1,38 @@
 // (c) 2010 Thomas Schoebel-Theuer / 1&1 Internet AG
-#ifndef MARS_DEVICE_AIO_H
-#define MARS_DEVICE_AIO_H
+#ifndef MARS_AIO_H
+#define MARS_AIO_H
 
 #include <linux/aio.h>
 #include <linux/syscalls.h>
 
-struct device_aio_mref_aspect {
+struct aio_mref_aspect {
 	GENERIC_ASPECT(mref);
 	struct list_head io_head;
+	long long timeout;
 	int resubmit;
 	bool do_dealloc;
 };
 
-struct device_aio_brick {
-	MARS_BRICK(device_aio);
+struct aio_brick {
+	MARS_BRICK(aio);
 };
 
-struct device_aio_input {
-	MARS_INPUT(device_aio);
+struct aio_input {
+	MARS_INPUT(aio);
 };
 
 struct aio_threadinfo {
 	struct list_head mref_list;
-	struct device_aio_output *output;
+	struct list_head delay_list;
+	struct aio_output *output;
 	struct task_struct *thread;
 	wait_queue_head_t event;
 	spinlock_t lock;
 	bool terminated;
 };
 
-struct device_aio_output {
-	MARS_OUTPUT(device_aio);
+struct aio_output {
+	MARS_OUTPUT(aio);
 	// parameters
 	bool o_direct;
 	bool o_fdsync;
@@ -41,6 +43,6 @@ struct device_aio_output {
 	aio_context_t ctxp;
 };
 
-MARS_TYPES(device_aio);
+MARS_TYPES(aio);
 
 #endif

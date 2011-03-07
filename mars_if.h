@@ -1,6 +1,6 @@
 // (c) 2010 Thomas Schoebel-Theuer / 1&1 Internet AG
-#ifndef MARS_IF_DEVICE_H
-#define MARS_IF_DEVICE_H
+#ifndef MARS_IF_H
+#define MARS_IF_H
 
 #include <linux/semaphore.h>
 
@@ -9,7 +9,7 @@
 
 #define MAX_BIO 8
 
-struct if_device_mref_aspect {
+struct if_mref_aspect {
 	GENERIC_ASPECT(mref);
 	//struct list_head tmp_head;
 	struct list_head plug_head;
@@ -22,11 +22,11 @@ struct if_device_mref_aspect {
 	struct page *orig_page;
 	struct bio *orig_bio[MAX_BIO];
 	struct generic_callback cb;
-	struct if_device_input *input;
+	struct if_input *input;
 };
 
-struct if_device_input {
-	MARS_INPUT(if_device);
+struct if_input {
+	MARS_INPUT(if);
 	struct list_head plug_anchor;
 	struct request_queue *q;
 	struct gendisk *disk;
@@ -36,15 +36,15 @@ struct if_device_input {
 	struct generic_object_layout mref_object_layout;
 };
 
-struct if_device_output {
-	MARS_OUTPUT(if_device);
+struct if_output {
+	MARS_OUTPUT(if);
 };
 
-struct if_device_brick {
-	MARS_BRICK(if_device);
-	struct if_device_output hidden_output;
+struct if_brick {
+	MARS_BRICK(if);
+	struct if_output hidden_output;
 };
 
-MARS_TYPES(if_device);
+MARS_TYPES(if);
 
 #endif

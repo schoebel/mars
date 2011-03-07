@@ -19,11 +19,11 @@
 
 ///////////////////////// own type definitions ////////////////////////
 
-#include "mars_device_sio.h"
+#include "mars_sio.h"
 
 ////////////////// own brick / input / output operations //////////////////
 
-static int device_sio_ref_get(struct device_sio_output *output, struct mref_object *mref)
+static int sio_ref_get(struct sio_output *output, struct mref_object *mref)
 {
 	_CHECK_ATOMIC(&mref->ref_count, !=,  0);
 	/* Buffered IO is not implemented.
@@ -36,12 +36,12 @@ static int device_sio_ref_get(struct device_sio_output *output, struct mref_obje
 	return 0;
 }
 
-static void device_sio_ref_put(struct device_sio_output *output, struct mref_object *mref)
+static void sio_ref_put(struct sio_output *output, struct mref_object *mref)
 {
 	CHECK_ATOMIC(&mref->ref_count, 1);
 	if (!atomic_dec_and_test(&mref->ref_count))
 		return;
-	device_sio_free_mref(mref);
+	sio_free_mref(mref);
 }
 
 // some code borrowed from the loopback driver
@@ -73,7 +73,7 @@ static int transfer_none(int cmd,
 	return 0;
 }
 
-static void write_aops(struct device_sio_output *output, struct mref_object *mref)
+static void write_aops(struct sio_output *output, struct mref_object *mref)
 {
 	struct file *file = output->filp;
 	loff_t pos = mref->ref_pos;
@@ -150,14 +150,14 @@ fail:
 }
 
 struct cookie_data {
-	struct device_sio_output *output;
+	struct sio_output *output;
 	struct mref_object *mref;
 	void *data;
 	int len;
 };
 
 static int
-device_sio_splice_actor(struct pipe_inode_info *pipe,
+sio_splice_actor(struct pipe_inode_info *pipe,
 			struct pipe_buffer *buf,
 			struct splice_desc *sd)
 {
@@ -187,12 +187,12 @@ device_sio_splice_actor(struct pipe_inode_info *pipe,
 }
 
 static int
-device_sio_direct_splice_actor(struct pipe_inode_info *pipe, struct splice_desc *sd)
+sio_direct_splice_actor(struct pipe_inode_info *pipe, struct splice_desc *sd)
 {
-	return __splice_from_pipe(pipe, sd, device_sio_splice_actor);
+	return __splice_from_pipe(pipe, sd, sio_splice_actor);
 }
 
-static void read_aops(struct device_sio_output *output, struct mref_object *mref)
+static void read_aops(struct sio_output *output, struct mref_object *mref)
 {
 	loff_t pos = mref->ref_pos;
 	int ret = -EIO;
@@ -211,14 +211,14 @@ static void read_aops(struct device_sio_output *output, struct mref_object *mref
 		.u.data = &cookie,
 	};
 
-	ret = splice_direct_to_actor(output->filp, &sd, device_sio_direct_splice_actor);
+	ret = splice_direct_to_actor(output->filp, &sd, sio_direct_splice_actor);
 	if (unlikely(ret < 0)) {
 		MARS_ERR("splice %p %p status=%d\n", output, mref, ret);
 	}
 	mref->ref_cb->cb_error = ret;
 }
 
-static void sync_file(struct device_sio_output *output)
+static void sync_file(struct sio_output *output)
 {
 	struct file *file = output->filp;
 	int ret;
@@ -231,7 +231,7 @@ static void sync_file(struct device_sio_output *output)
 #endif
 }
 
-static void device_sio_ref_io(struct device_sio_output *output, struct mref_object *mref)
+static void sio_ref_io(struct sio_output *output, struct mref_object *mref)
 {
 	struct generic_callback *cb = mref->ref_cb;
 	bool barrier = false;
@@ -271,14 +271,14 @@ done:
 	if (!atomic_dec_and_test(&mref->ref_count))
 		return;
 
-	device_sio_free_mref(mref);
+	sio_free_mref(mref);
 }
 
-static void device_sio_mars_queue(struct device_sio_output *output, struct mref_object *mref)
+static void sio_mars_queue(struct sio_output *output, struct mref_object *mref)
 {
 	int index = 0;
 	struct sio_threadinfo *tinfo;
-	struct device_sio_mref_aspect *mref_a;
+	struct sio_mref_aspect *mref_a;
 	struct generic_callback *cb = mref->ref_cb;
 	unsigned long flags;
 
@@ -288,7 +288,7 @@ static void device_sio_mars_queue(struct device_sio_output *output, struct mref_
 		traced_unlock(&output->g_lock, flags);
 		index = (index % WITH_THREAD) + 1;
 	}
-	mref_a = device_sio_mref_get_aspect(output, mref);
+	mref_a = sio_mref_get_aspect(output, mref);
 	if (unlikely(!mref_a)) {
 		MARS_FAT("cannot get aspect\n");
 		cb->cb_error = -EINVAL;
@@ -308,10 +308,10 @@ static void device_sio_mars_queue(struct device_sio_output *output, struct mref_
 	wake_up_interruptible(&tinfo->event);
 }
 
-static int device_sio_thread(void *data)
+static int sio_thread(void *data)
 {
 	struct sio_threadinfo *tinfo = data;
-	struct device_sio_output *output = tinfo->output;
+	struct sio_output *output = tinfo->output;
 	
 	MARS_INF("kthread has started.\n");
 	//set_user_nice(current, -20);
@@ -319,7 +319,7 @@ static int device_sio_thread(void *data)
 	while (!kthread_should_stop()) {
 		struct list_head *tmp = NULL;
 		struct mref_object *mref;
-		struct device_sio_mref_aspect *mref_a;
+		struct sio_mref_aspect *mref_a;
 		unsigned long flags;
 
 		wait_event_interruptible_timeout(
@@ -341,19 +341,19 @@ static int device_sio_thread(void *data)
 		if (!tmp)
 			continue;
 
-		mref_a = container_of(tmp, struct device_sio_mref_aspect, io_head);
+		mref_a = container_of(tmp, struct sio_mref_aspect, io_head);
 		mref = mref_a->object;
 		MARS_DBG("got %p %p\n", mref_a, mref);
-		device_sio_ref_io(output, mref);
+		sio_ref_io(output, mref);
 	}
 
 	MARS_INF("kthread has stopped.\n");
 	return 0;
 }
 
-static int device_sio_watchdog(void *data)
+static int sio_watchdog(void *data)
 {
-	struct device_sio_output *output = data;
+	struct sio_output *output = data;
 	MARS_INF("watchdog has started.\n");
 	while (!kthread_should_stop()) {
 		int i;
@@ -373,7 +373,7 @@ static int device_sio_watchdog(void *data)
 	return 0;
 }
 
-static int device_sio_get_info(struct device_sio_output *output, struct mars_info *info)
+static int sio_get_info(struct sio_output *output, struct mars_info *info)
 {
 	struct file *file = output->filp;
 	info->current_size = i_size_read(file->f_mapping->host);
@@ -383,34 +383,34 @@ static int device_sio_get_info(struct device_sio_output *output, struct mars_inf
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int device_sio_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+static int sio_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
-	struct device_sio_mref_aspect *ini = (void*)_ini;
+	struct sio_mref_aspect *ini = (void*)_ini;
 	INIT_LIST_HEAD(&ini->io_head);
 	return 0;
 }
 
-static void device_sio_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+static void sio_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
 {
-	struct device_sio_mref_aspect *ini = (void*)_ini;
+	struct sio_mref_aspect *ini = (void*)_ini;
 	(void)ini;
 #if 1
 	CHECK_HEAD_EMPTY(&ini->io_head);
 #endif
 }
 
-MARS_MAKE_STATICS(device_sio);
+MARS_MAKE_STATICS(sio);
 
 ////////////////////// brick constructors / destructors ////////////////////
 
-static int device_sio_brick_construct(struct device_sio_brick *brick)
+static int sio_brick_construct(struct sio_brick *brick)
 {
 	return 0;
 }
 
-static int device_sio_switch(struct device_sio_brick *brick)
+static int sio_switch(struct sio_brick *brick)
 {
-	struct device_sio_output *output = brick->outputs[0];
+	struct sio_output *output = brick->outputs[0];
 	const char *path = output->output_name;
 	int flags = O_CREAT | O_RDWR | O_LARGEFILE;
 	int prot = 0600;
@@ -450,7 +450,7 @@ static int device_sio_switch(struct device_sio_brick *brick)
 	return 0;
 }
 
-static int device_sio_output_construct(struct device_sio_output *output)
+static int sio_output_construct(struct sio_output *output)
 {
 	struct task_struct *watchdog;
 	int index;
@@ -464,7 +464,7 @@ static int device_sio_output_construct(struct device_sio_output *output)
 		init_waitqueue_head(&tinfo->event);
 		INIT_LIST_HEAD(&tinfo->mref_list);
 		tinfo->last_jiffies = jiffies;
-		tinfo->thread = kthread_create(device_sio_thread, tinfo, "mars_sio%d", index);
+		tinfo->thread = kthread_create(sio_thread, tinfo, "mars_sio%d", index);
 		if (IS_ERR(tinfo->thread)) {
 			int error = PTR_ERR(tinfo->thread);
 			MARS_ERR("cannot create thread, status=%d\n", error);
@@ -474,14 +474,14 @@ static int device_sio_output_construct(struct device_sio_output *output)
 		wake_up_process(tinfo->thread);
 	}
 
-	watchdog = kthread_create(device_sio_watchdog, output, "mars_watchdog%d", 0);
+	watchdog = kthread_create(sio_watchdog, output, "mars_watchdog%d", 0);
 	if (!IS_ERR(watchdog)) {
 		wake_up_process(watchdog);
 	}
 	return 0;
 }
 
-static int device_sio_output_destruct(struct device_sio_output *output)
+static int sio_output_destruct(struct sio_output *output)
 {
 	int index;
 	for (index = 0; index <= WITH_THREAD; index++) {
@@ -499,62 +499,62 @@ static int device_sio_output_destruct(struct device_sio_output *output)
 
 ///////////////////////// static structs ////////////////////////
 
-static struct device_sio_brick_ops device_sio_brick_ops = {
-	.brick_switch = device_sio_switch,
+static struct sio_brick_ops sio_brick_ops = {
+	.brick_switch = sio_switch,
 };
 
-static struct device_sio_output_ops device_sio_output_ops = {
-	.make_object_layout = device_sio_make_object_layout,
-	.mref_get = device_sio_ref_get,
-	.mref_put = device_sio_ref_put,
-	.mref_io = device_sio_mars_queue,
-	.mars_get_info = device_sio_get_info,
+static struct sio_output_ops sio_output_ops = {
+	.make_object_layout = sio_make_object_layout,
+	.mref_get = sio_ref_get,
+	.mref_put = sio_ref_put,
+	.mref_io = sio_mars_queue,
+	.mars_get_info = sio_get_info,
 };
 
-const struct device_sio_output_type device_sio_output_type = {
-	.type_name = "device_sio_output",
-	.output_size = sizeof(struct device_sio_output),
-	.master_ops = &device_sio_output_ops,
-	.output_construct = &device_sio_output_construct,
-	.output_destruct = &device_sio_output_destruct,
-	.aspect_types = device_sio_aspect_types,
+const struct sio_output_type sio_output_type = {
+	.type_name = "sio_output",
+	.output_size = sizeof(struct sio_output),
+	.master_ops = &sio_output_ops,
+	.output_construct = &sio_output_construct,
+	.output_destruct = &sio_output_destruct,
+	.aspect_types = sio_aspect_types,
 	.layout_code = {
 		[BRICK_OBJ_MREF] = LAYOUT_NONE,
 	}
 };
 
-static const struct device_sio_output_type *device_sio_output_types[] = {
-	&device_sio_output_type,
+static const struct sio_output_type *sio_output_types[] = {
+	&sio_output_type,
 };
 
-const struct device_sio_brick_type device_sio_brick_type = {
-	.type_name = "device_sio_brick",
-	.brick_size = sizeof(struct device_sio_brick),
+const struct sio_brick_type sio_brick_type = {
+	.type_name = "sio_brick",
+	.brick_size = sizeof(struct sio_brick),
 	.max_inputs = 0,
 	.max_outputs = 1,
-	.master_ops = &device_sio_brick_ops,
-	.default_output_types = device_sio_output_types,
-	.brick_construct = &device_sio_brick_construct,
+	.master_ops = &sio_brick_ops,
+	.default_output_types = sio_output_types,
+	.brick_construct = &sio_brick_construct,
 };
-EXPORT_SYMBOL_GPL(device_sio_brick_type);
+EXPORT_SYMBOL_GPL(sio_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 
-static int __init init_device_sio(void)
+static int __init init_sio(void)
 {
-	MARS_INF("init_device_sio()\n");
-	return device_sio_register_brick_type();
+	MARS_INF("init_sio()\n");
+	return sio_register_brick_type();
 }
 
-static void __exit exit_device_sio(void)
+static void __exit exit_sio(void)
 {
-	MARS_INF("exit_device_sio()\n");
-	device_sio_unregister_brick_type();
+	MARS_INF("exit_sio()\n");
+	sio_unregister_brick_type();
 }
 
-MODULE_DESCRIPTION("MARS device_sio brick");
+MODULE_DESCRIPTION("MARS sio brick");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@1und1.de>");
 MODULE_LICENSE("GPL");
 
-module_init(init_device_sio);
-module_exit(exit_device_sio);
+module_init(init_sio);
+module_exit(exit_sio);

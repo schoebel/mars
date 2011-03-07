@@ -21,7 +21,7 @@
 
 ///////////////////////// own type definitions ////////////////////////
 
-#include "mars_if_device.h"
+#include "mars_if.h"
 
 ///////////////////////// own static definitions ////////////////////////
 
@@ -33,9 +33,9 @@ static int device_minor = 0;
 
 /* callback
  */
-static void _if_device_endio(struct generic_callback *cb)
+static void _if_endio(struct generic_callback *cb)
 {
-	struct if_device_mref_aspect *mref_a = cb->cb_private;
+	struct if_mref_aspect *mref_a = cb->cb_private;
 	struct bio *bio;
 	struct bio_vec *bvec;
 	int i, k;
@@ -83,7 +83,7 @@ static void _if_device_endio(struct generic_callback *cb)
 
 /* Kick off plugged mrefs
  */
-static void _if_device_unplug(struct if_device_input *input)
+static void _if_unplug(struct if_input *input)
 {
 	LIST_HEAD(tmp_list);
 	unsigned long flags;
@@ -100,9 +100,9 @@ static void _if_device_unplug(struct if_device_input *input)
 	up(&input->kick_sem);
 
 	while (!list_empty(&tmp_list)) {
-		struct if_device_mref_aspect *mref_a;
+		struct if_mref_aspect *mref_a;
 		struct mref_object *mref;
-		mref_a = container_of(tmp_list.next, struct if_device_mref_aspect, plug_head);
+		mref_a = container_of(tmp_list.next, struct if_mref_aspect, plug_head);
 		list_del_init(&mref_a->plug_head);
                 mref = mref_a->object;
 
@@ -117,12 +117,12 @@ static void _if_device_unplug(struct if_device_input *input)
 
 /* accept a linux bio, convert to mref and call buf_io() on it.
  */
-static int if_device_make_request(struct request_queue *q, struct bio *bio)
+static int if_make_request(struct request_queue *q, struct bio *bio)
 {
-	struct if_device_input *input;
-	struct if_device_brick *brick;
+	struct if_input *input;
+	struct if_brick *brick;
 	struct mref_object *mref = NULL;
-	struct if_device_mref_aspect *mref_a;
+	struct if_mref_aspect *mref_a;
 	struct generic_callback *cb;
 	struct bio_vec *bvec;
 	int i;
@@ -192,8 +192,8 @@ static int if_device_make_request(struct request_queue *q, struct bio *bio)
 #ifdef REQUEST_MERGING
 			traced_lock(&input->req_lock, flags);
 			for (tmp = input->plug_anchor.next; tmp != &input->plug_anchor; tmp = tmp->next) {
-				struct if_device_mref_aspect *tmp_a;
-				tmp_a = container_of(tmp, struct if_device_mref_aspect, plug_head);
+				struct if_mref_aspect *tmp_a;
+				tmp_a = container_of(tmp, struct if_mref_aspect, plug_head);
 				len = bv_len;
 #ifdef LOG
 				MARS_INF("bio = %p mref = %p len = %d maxlen = %d\n", bio, mref, len, tmp_a->maxlen);
@@ -225,18 +225,18 @@ static int if_device_make_request(struct request_queue *q, struct bio *bio)
 #endif
 			if (!mref) {
 				error = -ENOMEM;
-				mref = if_device_alloc_mref(&brick->hidden_output, &input->mref_object_layout);
+				mref = if_alloc_mref(&brick->hidden_output, &input->mref_object_layout);
 				if (unlikely(!mref)) {
 					up(&input->kick_sem);
 					goto err;
 				}
-				mref_a = if_device_mref_get_aspect(&brick->hidden_output, mref);
+				mref_a = if_mref_get_aspect(&brick->hidden_output, mref);
 				if (unlikely(!mref_a)) {
 					up(&input->kick_sem);
 					goto err;
 				}
 				cb = &mref_a->cb;
-				cb->cb_fn = _if_device_endio;
+				cb->cb_fn = _if_endio;
 				cb->cb_private = mref_a;
 				cb->cb_error = 0;
 				cb->cb_prev = NULL;
@@ -295,83 +295,83 @@ err:
 	}
 
 	if (unplug) {
-		_if_device_unplug(input);
+		_if_unplug(input);
 	}
 
 	return error;
 }
 
-static int if_device_open(struct block_device *bdev, fmode_t mode)
+static int if_open(struct block_device *bdev, fmode_t mode)
 {
-	struct if_device_input *input = bdev->bd_disk->private_data;
+	struct if_input *input = bdev->bd_disk->private_data;
 	(void)input;
-	MARS_DBG("if_device_open()\n");
+	MARS_DBG("if_open()\n");
 	return 0;
 }
 
-static int if_device_release(struct gendisk *gd, fmode_t mode)
+static int if_release(struct gendisk *gd, fmode_t mode)
 {
-	MARS_DBG("if_device_close()\n");
+	MARS_DBG("if_close()\n");
 	return 0;
 }
 
-static const struct block_device_operations if_device_blkdev_ops = {
+static const struct block_device_operations if_blkdev_ops = {
 	.owner =   THIS_MODULE,
-	.open =    if_device_open,
-	.release = if_device_release,
+	.open =    if_open,
+	.release = if_release,
 
 };
 
 ////////////////// own brick / input / output operations //////////////////
 
-static void if_device_unplug(struct request_queue *q)
+static void if_unplug(struct request_queue *q)
 {
-	struct if_device_input *input = q->queuedata;
+	struct if_input *input = q->queuedata;
 	MARS_DBG("UNPLUG\n");
 #ifdef LOG
 	MARS_INF("UNPLUG\n");
 #endif
 	queue_flag_clear_unlocked(QUEUE_FLAG_PLUGGED, q);
-	_if_device_unplug(input);
+	_if_unplug(input);
 }
 
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int if_device_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+static int if_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
-	struct if_device_mref_aspect *ini = (void*)_ini;
+	struct if_mref_aspect *ini = (void*)_ini;
 	//INIT_LIST_HEAD(&ini->tmp_head);
 	INIT_LIST_HEAD(&ini->plug_head);
 	return 0;
 }
 
-static void if_device_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+static void if_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
 {
-	struct if_device_mref_aspect *ini = (void*)_ini;
+	struct if_mref_aspect *ini = (void*)_ini;
 	//CHECK_HEAD_EMPTY(&ini->tmp_head);
 	CHECK_HEAD_EMPTY(&ini->plug_head);
 }
 
-MARS_MAKE_STATICS(if_device);
+MARS_MAKE_STATICS(if);
 
 //////////////////////// contructors / destructors ////////////////////////
 
-static int if_device_brick_construct(struct if_device_brick *brick)
+static int if_brick_construct(struct if_brick *brick)
 {
-	struct if_device_output *hidden = &brick->hidden_output;
-	_if_device_output_init(brick, hidden, "internal");
+	struct if_output *hidden = &brick->hidden_output;
+	_if_output_init(brick, hidden, "internal");
 	return 0;
 }
 
-static int if_device_brick_destruct(struct if_device_brick *brick)
+static int if_brick_destruct(struct if_brick *brick)
 {
 	return 0;
 }
 
-static int if_device_switch(struct if_device_brick *brick)
+static int if_switch(struct if_brick *brick)
 {
-	struct if_device_input *input = brick->inputs[0];
+	struct if_input *input = brick->inputs[0];
 	struct request_queue *q;
 	struct gendisk *disk;
 	int minor;
@@ -408,17 +408,17 @@ static int if_device_switch(struct if_device_brick *brick)
 		disk->queue = q;
 		disk->major = MARS_MAJOR; //TODO: make this dynamic for >256 devices
 		disk->first_minor = minor;
-		disk->fops = &if_device_blkdev_ops;
+		disk->fops = &if_blkdev_ops;
 		//snprintf(disk->disk_name, sizeof(disk->disk_name),  "mars%d", minor);
 		snprintf(disk->disk_name, sizeof(disk->disk_name),  "mars/%s", brick->brick_name);
 		MARS_DBG("created device name %s\n", disk->disk_name);
 		disk->private_data = input;
 		set_capacity(disk, capacity);
 		
-		blk_queue_make_request(q, if_device_make_request);
+		blk_queue_make_request(q, if_make_request);
 		blk_queue_max_segment_size(q, MARS_MAX_SEGMENT_SIZE);
 		blk_queue_bounce_limit(q, BLK_BOUNCE_ANY);
-		q->unplug_fn = if_device_unplug;
+		q->unplug_fn = if_unplug;
 		sema_init(&input->kick_sem, 1);
 		spin_lock_init(&input->req_lock);
 		q->queue_lock = &input->req_lock; // needed!
@@ -467,12 +467,12 @@ static int if_device_switch(struct if_device_brick *brick)
 	return 0;
 }
 
-static int if_device_input_construct(struct if_device_input *input)
+static int if_input_construct(struct if_input *input)
 {
 	return 0;
 }
 
-static int if_device_input_destruct(struct if_device_input *input)
+static int if_input_destruct(struct if_input *input)
 {
 	if (input->bdev)
 		bdput(input->bdev);
@@ -485,87 +485,87 @@ static int if_device_input_destruct(struct if_device_input *input)
 	return 0;
 }
 
-static int if_device_output_construct(struct if_device_output *output)
+static int if_output_construct(struct if_output *output)
 {
 	return 0;
 }
 
 ///////////////////////// static structs ////////////////////////
 
-static struct if_device_brick_ops if_device_brick_ops = {
-	.brick_switch = if_device_switch,
+static struct if_brick_ops if_brick_ops = {
+	.brick_switch = if_switch,
 };
 
-static struct if_device_output_ops if_device_output_ops = {
-	.make_object_layout = if_device_make_object_layout,
+static struct if_output_ops if_output_ops = {
+	.make_object_layout = if_make_object_layout,
 };
 
-const struct if_device_input_type if_device_input_type = {
-	.type_name = "if_device_input",
-	.input_size = sizeof(struct if_device_input),
-	.input_construct = &if_device_input_construct,
-	.input_destruct = &if_device_input_destruct,
+const struct if_input_type if_input_type = {
+	.type_name = "if_input",
+	.input_size = sizeof(struct if_input),
+	.input_construct = &if_input_construct,
+	.input_destruct = &if_input_destruct,
 };
 
-static const struct if_device_input_type *if_device_input_types[] = {
-	&if_device_input_type,
+static const struct if_input_type *if_input_types[] = {
+	&if_input_type,
 };
 
-const struct if_device_output_type if_device_output_type = {
-	.type_name = "if_device_output",
-	.output_size = sizeof(struct if_device_output),
-	.master_ops = &if_device_output_ops,
-	.output_construct = &if_device_output_construct,
-	.aspect_types = if_device_aspect_types,
+const struct if_output_type if_output_type = {
+	.type_name = "if_output",
+	.output_size = sizeof(struct if_output),
+	.master_ops = &if_output_ops,
+	.output_construct = &if_output_construct,
+	.aspect_types = if_aspect_types,
 	.layout_code = {
 		[BRICK_OBJ_MREF] = LAYOUT_ALL,
 	}
 };
-const struct if_device_brick_type if_device_brick_type = {
-	.type_name = "if_device_brick",
-	.brick_size = sizeof(struct if_device_brick),
+const struct if_brick_type if_brick_type = {
+	.type_name = "if_brick",
+	.brick_size = sizeof(struct if_brick),
 	.max_inputs = 1,
 	.max_outputs = 0,
-	.master_ops = &if_device_brick_ops,
-	.default_input_types = if_device_input_types,
-	.brick_construct = &if_device_brick_construct,
-	.brick_destruct = &if_device_brick_destruct,
+	.master_ops = &if_brick_ops,
+	.default_input_types = if_input_types,
+	.brick_construct = &if_brick_construct,
+	.brick_destruct = &if_brick_destruct,
 };
-EXPORT_SYMBOL_GPL(if_device_brick_type);
+EXPORT_SYMBOL_GPL(if_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 
-static void __exit exit_if_device(void)
+static void __exit exit_if(void)
 {
 	int status;
-	MARS_INF("exit_if_device()\n");
-	status = if_device_unregister_brick_type();
+	MARS_INF("exit_if()\n");
+	status = if_unregister_brick_type();
 	unregister_blkdev(MARS_MAJOR, "mars");
 }
 
-static int __init init_if_device(void)
+static int __init init_if(void)
 {
 	int status;
 
-	(void)if_device_aspect_types; // not used, shut up gcc
+	(void)if_aspect_types; // not used, shut up gcc
 
-	MARS_INF("init_if_device()\n");
+	MARS_INF("init_if()\n");
 	status = register_blkdev(MARS_MAJOR, "mars");
 	if (status)
 		return status;
-	status = if_device_register_brick_type();
+	status = if_register_brick_type();
 	if (status)
 		goto err_device;
 	return status;
 err_device:
-	MARS_ERR("init_if_device() status=%d\n", status);
-	exit_if_device();
+	MARS_ERR("init_if() status=%d\n", status);
+	exit_if();
 	return status;
 }
 
-MODULE_DESCRIPTION("MARS if_device");
+MODULE_DESCRIPTION("MARS if");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@1und1.de>");
 MODULE_LICENSE("GPL");
 
-module_init(init_if_device);
-module_exit(exit_if_device);
+module_init(init_if);
+module_exit(exit_if);

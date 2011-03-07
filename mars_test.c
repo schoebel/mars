@@ -14,7 +14,7 @@
 
 //#define CONF_TEST // use intermediate mars_check bricks
 
-#define CONF_AIO // use device_aio instead of device_sio
+#define CONF_AIO // use aio instead of sio
 //#define CONF_BUF
 #define CONF_BUF_AHEAD // readahead optimization
 //#define CONF_USEBUF
@@ -44,10 +44,10 @@
 #define _STRATEGY
 #include "mars.h"
 
-#include "mars_if_device.h"
+#include "mars_if.h"
 #include "mars_check.h"
-#include "mars_device_sio.h"
-#include "mars_device_aio.h"
+#include "mars_sio.h"
+#include "mars_aio.h"
 #include "mars_buf.h"
 #include "mars_usebuf.h"
 #include "mars_trans_logger.h"
@@ -55,12 +55,12 @@
 GENERIC_ASPECT_FUNCTIONS(generic,mref);
 
 #ifdef CONF_AIO
-#define device_sio_brick device_aio_brick
-#define device_sio_brick_type device_aio_brick_type
+#define sio_brick aio_brick
+#define sio_brick_type aio_brick_type
 #endif
 
 static struct generic_brick *if_brick = NULL;
-static struct if_device_brick *_if_brick = NULL;
+static struct if_brick *_if_brick = NULL;
 static struct generic_brick *usebuf_brick = NULL;
 
 static struct generic_brick *trans_brick = NULL;
@@ -68,12 +68,12 @@ static struct trans_logger_brick *_trans_brick = NULL;
 static struct generic_brick *tbuf_brick = NULL;
 static struct buf_brick *_tbuf_brick = NULL;
 static struct generic_brick *tdevice_brick = NULL;
-static struct device_sio_brick *_tdevice_brick = NULL;
+static struct sio_brick *_tdevice_brick = NULL;
 
 static struct generic_brick *buf_brick = NULL;
 static struct buf_brick *_buf_brick = NULL;
 static struct generic_brick *device_brick = NULL;
-static struct device_sio_brick *_device_brick = NULL;
+static struct sio_brick *_device_brick = NULL;
 
 void make_test_instance(void)
 {
@@ -145,7 +145,7 @@ void make_test_instance(void)
 	MARS_DBG("starting....\n");
 
 	// first
-	device_brick = brick(&device_sio_brick_type);
+	device_brick = brick(&sio_brick_type);
 	_device_brick = (void*)device_brick;
 	device_brick->outputs[0]->output_name = "/tmp/testfile.img";
 #ifdef CONF_DIRECT
@@ -158,7 +158,7 @@ void make_test_instance(void)
 	first = device_brick->outputs[0];
 
 	// last
-	if_brick = brick(&if_device_brick_type);
+	if_brick = brick(&if_brick_type);
 	last = if_brick->inputs[0];
 
 #ifdef CONF_USEBUF // usebuf zwischenschalten
@@ -195,7 +195,7 @@ void make_test_instance(void)
 
 #ifdef CONF_TRANS // trans_logger plus Infrastruktur zwischenschalten
 
-	tdevice_brick = brick(&device_sio_brick_type);
+	tdevice_brick = brick(&sio_brick_type);
 	_tdevice_brick = (void*)tdevice_brick;
 	tdevice_brick->outputs[0]->output_name = "/tmp/testfile.log";
 #ifdef CONF_DIRECT

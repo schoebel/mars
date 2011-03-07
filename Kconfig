@@ -21,21 +21,21 @@ config MARS_CHECK
 	---help---
 	Experimental storage System.
 
-config MARS_IF_DEVICE
+config MARS_IF
 	tristate "interface to a linux device"
 	depends on MARS
 	default m
 	---help---
 	Experimental storage System.
 
-config MARS_DEVICE_AIO
+config MARS_AIO
 	tristate "interface to a linux file"
 	depends on MARS && AIO
 	default m
 	---help---
 	Experimental storage System.
 
-config MARS_DEVICE_SIO
+config MARS_SIO
 	tristate "interface to a linux file, synchronous"
 	depends on MARS
 	default m

@@ -77,10 +77,12 @@ struct mref_object_layout {
 	int    ref_len;							\
 	int    ref_may_write;						\
 	void  *ref_data;         /* preset to NULL for buffered IO */	\
+	int    ref_timeout;						\
 	/* maintained by the ref implementation, readable for callers */ \
 	int    ref_flags;						\
 	int    ref_rw;							\
 	int    ref_id; /* not mandatory; may be used for identification */ \
+	loff_t ref_total_size; /* just for info, need not be implemented */ \
 	/* maintained by the ref implementation, incrementable for	\
 	 * callers (but not decrementable! use ref_put()) */		\
 	atomic_t ref_count;						\

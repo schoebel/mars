@@ -1,24 +1,24 @@
 // (c) 2010 Thomas Schoebel-Theuer / 1&1 Internet AG
-#ifndef MARS_DEVICE_SIO_H
-#define MARS_DEVICE_SIO_H
+#ifndef MARS_SIO_H
+#define MARS_SIO_H
 
 #define WITH_THREAD 64
 
-struct device_sio_mref_aspect {
+struct sio_mref_aspect {
 	GENERIC_ASPECT(mref);
 	struct list_head io_head;
 };
 
-struct device_sio_brick {
-	MARS_BRICK(device_sio);
+struct sio_brick {
+	MARS_BRICK(sio);
 };
 
-struct device_sio_input {
-	MARS_INPUT(device_sio);
+struct sio_input {
+	MARS_INPUT(sio);
 };
 
 struct sio_threadinfo {
-	struct device_sio_output *output;
+	struct sio_output *output;
 	struct list_head mref_list;
 	struct task_struct *thread;
 	wait_queue_head_t event;
@@ -26,8 +26,8 @@ struct sio_threadinfo {
 	unsigned long last_jiffies;
 };
 
-struct device_sio_output {
-	MARS_OUTPUT(device_sio);
+struct sio_output {
+	MARS_OUTPUT(sio);
 	// parameters
 	bool o_direct;
 	bool o_fdsync;
@@ -38,6 +38,6 @@ struct device_sio_output {
 	int index;
 };
 
-MARS_TYPES(device_sio);
+MARS_TYPES(sio);
 
 #endif
