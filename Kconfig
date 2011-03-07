@@ -7,6 +7,13 @@ config MARS
 	---help---
 	Experimental storage System.
 
+config MARS_HUNG
+	tristate "hangup on kernel stacktrace (only for debugging)"
+	depends on MARS
+	default n
+	---help---
+	Experimental storage System.
+
 config MARS_DUMMY
 	tristate "MARS dummy brick"
 	depends on MARS

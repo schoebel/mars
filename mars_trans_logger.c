@@ -17,7 +17,7 @@
 
 #include "mars_trans_logger.h"
 
-#if 0
+#if 1
 #define inline __attribute__((__noinline__))
 #endif
 

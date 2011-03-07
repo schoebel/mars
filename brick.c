@@ -516,20 +516,22 @@ void free_generic(struct generic_object *object)
 	}
 	object_layout = object->object_layout;
 	if (likely(object_layout)) {
-		unsigned long flags;
-
 		generic_destruct(object);
 
 #ifdef USE_FREELIST
 		memset(object, 0, object_layout->object_size);
 		atomic_inc(&object_layout->free_count);
 
-		traced_lock(&object_layout->free_lock, flags);
+		{
+			unsigned long flags;
 
-		*(struct generic_object**)object = object_layout->free_list;
-		object_layout->free_list = object;
+			traced_lock(&object_layout->free_lock, flags);
 
-		traced_unlock(&object_layout->free_lock, flags);
+			*(struct generic_object**)object = object_layout->free_list;
+			object_layout->free_list = object;
+			
+			traced_unlock(&object_layout->free_lock, flags);
+		}
 		return;
 #endif
 		atomic_dec(&object_layout->alloc_count);

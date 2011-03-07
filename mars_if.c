@@ -75,7 +75,6 @@ static void _if_endio(struct generic_callback *cb)
 			error = 0;
 			bio->bi_size = 0;
 		}
-		bio->bi_check3++;
 		bio_endio(bio, error);
 		bio_put(bio);
 	}
@@ -149,9 +148,6 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 	 * Will be released after bio_endio().
 	 */
 	atomic_inc(&bio->bi_cnt);
-	bio->bi_check = false;
-	bio->bi_check2 = 0;
-	bio->bi_check3 = 0;
 
 	/* FIXME: THIS IS PROVISIONARY (use event instead)
 	 */
@@ -289,7 +285,6 @@ err:
 		if (assigned) {
 			//...
 		} else {
-			bio->bi_check3++;
 			bio_endio(bio, error);
 		}
 	}

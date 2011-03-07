@@ -666,13 +666,13 @@ extern void set_lamport(struct timespec *old);
 		}							\
 		atomic_inc(&current->lock_count);			\
 		(void)flags;						\
-		read_lock(spinlock);					\
+		write_lock(spinlock);					\
 	} while (0)
 
 # define traced_writeunlock(spinlock,flags)				\
 	do {								\
 		/*spin_unlock_irqrestore(spinlock,flags);*/		\
-		read_unlock(spinlock);					\
+		write_unlock(spinlock);					\
 		atomic_dec(&current->lock_count);			\
 	} while (0)
 
