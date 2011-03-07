@@ -212,6 +212,19 @@ void _clear_mref(struct copy_brick *brick, int index, int queue)
 }
 
 static
+void _update_percent(struct copy_brick *brick)
+{
+	if (brick->copy_start > brick->copy_last + 1024 * 1024 * 1024
+	   || (long long)jiffies > brick->last_jiffies + 5 * HZ
+	   || brick->copy_start == brick->copy_end) {
+		brick->copy_last = brick->copy_start;
+		brick->last_jiffies = jiffies;
+		brick->power.percent_done = brick->copy_end > 0 ? brick->copy_start * 100 / brick->copy_end : 0;
+		MARS_INF("'%s' copied %lld / %lld bytes (%lld%%)\n", brick->brick_name, brick->copy_last, brick->copy_end, brick->copy_end? brick->copy_last * 100 / brick->copy_end : 100);
+	}
+}
+
+static
 int _next_state(struct copy_brick *brick, loff_t pos)
 {
 	struct mref_object *mref1;
@@ -286,11 +299,7 @@ int _next_state(struct copy_brick *brick, loff_t pos)
 		if (!brick->clash) {
 			brick->copy_start += mref2->ref_len;
 			MARS_IO("new copy_start = %lld\n", brick->copy_start);
-			if (brick->copy_start > brick->copy_last + 1024 * 1024 * 1024 || brick->copy_start == brick->copy_end) {
-				brick->copy_last = brick->copy_start;
-				brick->power.percent_done = brick->copy_end > 0 ? brick->copy_start * 100 / brick->copy_end : 0;
-				MARS_INF("'%s' copied %lld / %lld bytes (%lld%%)\n", brick->brick_name, brick->copy_last, brick->copy_end, brick->copy_end? brick->copy_last * 100 / brick->copy_end : 100);
-			}
+			_update_percent(brick);
 		}
 		next_state = COPY_STATE_CLEANUP;
 		/* fallthrough */
@@ -452,6 +461,7 @@ static int copy_switch(struct copy_brick *brick)
 			wake_up_interruptible(&brick->event);
 		}
 	}
+	_update_percent(brick);
 	return 0;
 }
 

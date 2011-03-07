@@ -38,6 +38,21 @@ static void _kill_thread(struct client_threadinfo *ti)
 	}
 }
 
+static int _request_info(struct client_output *output)
+{
+	struct mars_cmd cmd = {
+		.cmd_code = CMD_GETINFO,
+	};
+	int status;
+	
+	MARS_DBG("\n");
+	status = mars_send_struct(&output->socket, &cmd, mars_cmd_meta);
+	if (unlikely(status < 0)) {
+		MARS_DBG("send of getinfo failed, status = %d\n", status);
+	}
+	return status;
+}
+
 static int _connect(struct client_output *output, const char *str)
 {
 	struct sockaddr_storage sockaddr = {};
@@ -90,15 +105,7 @@ static int _connect(struct client_output *output, const char *str)
 		}
 	}
 	if (status >= 0) {
-		struct mars_cmd cmd = {
-			.cmd_code = CMD_GETINFO,
-		};
-
-		status = mars_send_struct(&output->socket, &cmd, mars_cmd_meta);
-		if (unlikely(status < 0)) {
-			MARS_DBG("send of getinfo failed, status = %d\n", status);
-			goto done;
-		}
+		status = _request_info(output);
 	}
 
 done:
@@ -116,12 +123,10 @@ static int client_get_info(struct client_output *output, struct mars_info *info)
 {
 	int status;
 
-#if 0
-	status = _connect(output, output->brick->brick_name);
-	if (status < 0)
-		goto done;
-#endif
-
+	output->got_info = false;
+	output->get_info = true;
+	wake_up_interruptible(&output->event);
+	
 	wait_event_interruptible_timeout(output->info_event, output->got_info, 60 * HZ);
 	status = -EIO;
 	if (output->got_info && info) {
@@ -333,7 +338,7 @@ static int sender_thread(void *data)
 			traced_unlock(&output->lock, flags);
 		}
 
-		wait_event_interruptible_timeout(output->event, !list_empty(&output->mref_list), 1 * HZ);
+		wait_event_interruptible_timeout(output->event, !list_empty(&output->mref_list) || output->get_info, 1 * HZ);
 		
 		if (unlikely(output->receiver.terminated)) {
 			output->receiver.terminated = false;
@@ -346,6 +351,13 @@ static int sender_thread(void *data)
 				continue;
 			}
 			wake_up_process(output->receiver.thread);
+		}
+
+		if (output->get_info) {
+			status = _request_info(output);
+			if (status >= 0) {
+				output->get_info = false;
+			}
 		}
 
 		if (list_empty(&output->mref_list))

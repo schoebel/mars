@@ -7,7 +7,7 @@
 
 //#define BRICK_DEBUGGING
 
-#define USE_FREELIST
+//#define USE_FREELIST // use this, but improve freeing
 
 #define _STRATEGY
 #define BRICK_OBJ_NR /*empty => leads to an open array */

@@ -38,6 +38,7 @@ struct client_output {
 	struct client_threadinfo receiver;
 	struct mars_info info;
 	wait_queue_head_t info_event;
+	bool get_info;
 	bool got_info;
 };
 

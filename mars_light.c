@@ -272,7 +272,7 @@ int _update_file(struct mars_global *global, const char *path, const char *peer,
 
 	MARS_DBG("tmp = '%s' path = '%s'\n", tmp, path);
 	status = __make_copy(global, NULL, path, NULL, argv, -1, &copy);
-	if (status > 0 && copy && !copy->permanent_update) {
+	if (status >= 0 && copy && !copy->permanent_update) {
 		if (end_pos > copy->copy_end) {
 			MARS_DBG("appending to '%s' %lld => %lld\n", path, copy->copy_end, end_pos);
 			copy->copy_end = end_pos;
@@ -680,19 +680,36 @@ void _create_new_logfile(char *path)
 }
 
 static
-int _update_link(struct mars_rotate *rot, struct mars_dent *parent, int sequence, loff_t pos)
+int _update_replaylink(struct mars_rotate *rot, struct mars_dent *parent, int sequence, loff_t pos, bool check_exist)
 {
 	struct timespec now = {};
 	char *old;
 	char *new;
 	int status = -ENOMEM;
 
+	if (check_exist) {
+		struct kstat kstat;
+		char *test = path_make("%s/log-%09d-%s", parent->d_path, sequence, my_id());
+		if (!test) {
+			goto out_old;
+		}
+		status = mars_lstat(test, &kstat);
+		kfree(test);
+		if (status < 0) {
+			MARS_DBG("could not update replay link to nonexisting logfile %09d\n", sequence);
+			goto out_old;
+		}
+		status = -ENOMEM;
+	}
+
 	old = path_make("log-%09d-%s,%lld", sequence, my_id(), pos);
-	if (!old)
+	if (!old) {
 		goto out_old;
+	}
 	new = path_make("%s/replay-%s", parent->d_path, my_id());
-	if (!new)
+	if (!new) {
 		goto out_new;
+	}
 
 	get_lamport(&now);
 	status = mars_symlink(old, new, &now, 0);
@@ -987,9 +1004,11 @@ int make_log(void *buf, struct mars_dent *dent)
 	switch (status) {
 	case 0: // not relevant
 		goto ok;
-	case 1: // relevant, but transaction replay already finished
+	case 1: /* Relevant, but transaction replay already finished.
+		 * When primary, switch over to a new logfile.
+		 */
 		if (!trans_brick->power.button && !trans_brick->power.led_on && trans_brick->power.led_off) {
-			_update_link(rot, dent->d_parent, dent->d_serial + 1, 0);
+			_update_replaylink(rot, dent->d_parent, dent->d_serial + 1, 0, !rot->is_primary);
 			mars_trigger();
 		}
 		status = -EAGAIN;
@@ -1152,7 +1171,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *parent)
 		MARS_DBG("do_stop = %d\n", (int)do_stop);
 
 		if (do_stop || (long long)jiffies > rot->last_jiffies + 5 * HZ) {
-			status = _update_link(rot, parent, trans_brick->sequence, trans_brick->current_pos);
+			status = _update_replaylink(rot, parent, trans_brick->sequence, trans_brick->current_pos, true);
 		}
 		if (do_stop) {
 			status = _stop_trans(rot);
@@ -1987,6 +2006,13 @@ static int __init init_light(void)
 	get_task_struct(thread);
 	main_thread = thread;
 	wake_up_process(thread);
+#if 1 // quirk: bump the memory reserve limits. TODO: determine right values.
+	{
+		extern int min_free_kbytes;
+		min_free_kbytes *= 4;
+		setup_per_zone_wmarks();
+	}
+#endif
 	return 0;
 }
 

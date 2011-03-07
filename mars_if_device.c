@@ -77,7 +77,7 @@ static void _if_device_endio(struct generic_callback *cb)
 		}
 		bio->bi_check3++;
 		bio_endio(bio, error);
-		//bio_put(bio);
+		bio_put(bio);
 	}
 }
 
