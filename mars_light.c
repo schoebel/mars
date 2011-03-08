@@ -655,7 +655,6 @@ struct mars_rotate {
 	bool has_error;
 	bool do_replay;
 	bool is_primary;
-	bool create_once;
 };
 
 static
@@ -1054,7 +1053,7 @@ int _start_trans(struct mars_rotate *rot)
 	struct trans_logger_brick *trans_brick = rot->trans_brick;
 	int status = 0;
 
-	if (trans_brick->power.button) {
+	if (trans_brick->power.button || !trans_brick->power.led_off) {
 		goto done;
 	}
 
@@ -1178,16 +1177,15 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *parent)
 		}
 		goto done;
 	}
-	/* Special case: after a fresh start, when no logfile exists,
-	 * create one. This is a thin exception from the rule that
+	/* Special case: when no logfile exists,
+	 * create one. This is an exception from the rule that
 	 * normally userspace should control what happens in MARS.
 	 */
-	if (!rot->relevant_log && rot->is_primary && !rot->has_error && rot->max_sequence > 0 && !rot->create_once) { // try to create an empty logfile
+	if (!rot->relevant_log && rot->is_primary && !rot->has_error && rot->max_sequence > 0) { // try to create an empty logfile
 		char *tmp = path_make("%s/log-%09d-%s", parent->d_path, rot->max_sequence + 1, my_id());
 		if (likely(tmp)) {
 			_create_new_logfile(tmp);
 			kfree(tmp);
-			rot->create_once = true;
 			msleep(1000);
 			goto done;
 		}
@@ -1286,6 +1284,7 @@ static int make_dev(void *buf, struct mars_dent *dent)
 	struct mars_dent *parent = dent->d_parent;
 	struct mars_rotate *rot = parent->d_private;
 	struct mars_brick *dev_brick;
+	struct if_brick *_dev_brick;
 	int status = 0;
 
 	if (!global->global_power.button || !dent->d_parent || !dent->new_link) {
@@ -1331,6 +1330,15 @@ static int make_dev(void *buf, struct mars_dent *dent)
 		return -1;
 	}
 	dev_brick->status_level = 1;
+	_dev_brick = (void*)dev_brick;
+#if 0
+	if (_dev_brick->has_closed) {
+		_dev_brick->has_closed = false;
+		MARS_INF("rotating logfile for '%s'\n", parent->d_name);
+		status = mars_power_button((void*)rot->trans_brick, false);
+		rot->relevant_log = NULL;
+	}
+#endif
 
 done:
 	return status;

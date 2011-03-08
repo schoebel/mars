@@ -5,6 +5,8 @@
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
 
+//#define USE_MEMCPY
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/string.h>
@@ -221,7 +223,8 @@ static struct trans_logger_mref_aspect *hash_find(struct hash_anchor *table, lof
 	return res;
 }
 
-static inline void hash_insert(struct hash_anchor *table, struct trans_logger_mref_aspect *elem_a, atomic_t *cnt)
+static inline
+void hash_insert(struct hash_anchor *table, struct trans_logger_mref_aspect *elem_a, atomic_t *cnt)
 {
         loff_t base_index = elem_a->object->ref_pos >> REGION_SIZE_BITS;
         int hash = hash_fn(base_index);
@@ -289,6 +292,11 @@ static int _read_ref_get(struct trans_logger_output *output, struct trans_logger
 		struct mref_object *shadow = shadow_a->object;
 		int diff = shadow->ref_pos - mref->ref_pos;
 		int restlen;
+#if 1 // xxx
+		if (shadow_a == mref_a) {
+			MARS_ERR("oops %p == %p\n", shadow_a, mref_a);
+		}
+#endif
 		if (diff > 0) {
 			/* Although the shadow is overlapping, the
 			 * region before its start is _not_ shadowed.
@@ -307,7 +315,13 @@ static int _read_ref_get(struct trans_logger_output *output, struct trans_logger
 		mref->ref_data = shadow->ref_data - diff;
 		mref->ref_flags = shadow->ref_flags;
 		mref_a->shadow_ref = shadow_a;
-		atomic_inc(&mref->ref_count);
+		atomic_set(&mref->ref_count, 1);
+		atomic_inc(&output->sshadow_count);
+#ifdef USE_MEMCPY
+		if (mref_a->orig_data) {
+			memcpy(mref_a->orig_data, mref->ref_data, mref->ref_len);
+		}
+#endif
 		return mref->ref_len;
 	}
 
@@ -324,12 +338,17 @@ static int _write_ref_get(struct trans_logger_output *output, struct trans_logge
 	if (unlikely(!mref->ref_data)) {
 		return -ENOMEM;
 	}
-
+	atomic_inc(&output->mshadow_count);
+#ifdef USE_MEMCPY
+	if (mref_a->orig_data) {
+		memcpy(mref->ref_data, mref_a->orig_data, mref->ref_len);
+	}
+#endif
 	mref_a->output = output;
-	get_lamport(&mref_a->stamp);
 	mref->ref_flags = MREF_UPTODATE;
-	mref_a->shadow_ref = mref_a; // cyclic self-reference
+	mref_a->shadow_ref = mref_a; // cyclic self-reference => indicates master shadow
 	atomic_set(&mref->ref_count, 1);
+	get_lamport(&mref_a->stamp);
 	return mref->ref_len;
 }
 
@@ -339,6 +358,14 @@ static int trans_logger_ref_get(struct trans_logger_output *output, struct mref_
 	loff_t base_offset;
 
 	CHECK_PTR(output, err);
+
+#if 1 // xxx
+	if (atomic_read(&mref->ref_count) > 0) { // setup already performed
+		MARS_INF("aha %d\n", atomic_read(&mref->ref_count));
+		atomic_inc(&mref->ref_count);
+		return mref->ref_len;
+	}
+#endif
 
 	mref_a = trans_logger_mref_get_aspect(output, mref);
 	CHECK_PTR(mref_a, err);
@@ -357,7 +384,7 @@ static int trans_logger_ref_get(struct trans_logger_output *output, struct mref_
 	/* FIXME: THIS IS PROVISIONARY (use event instead)
 	 */
 	while (unlikely(!output->brick->power.led_on)) {
-		msleep(2 * HZ);
+		msleep(HZ);
 	}
 
 	return _write_ref_get(output, mref_a);
@@ -372,6 +399,7 @@ static void trans_logger_ref_put(struct trans_logger_output *output, struct mref
 	struct trans_logger_mref_aspect *shadow_a;
 	struct trans_logger_input *input;
 
+restart:
 	CHECK_ATOMIC(&mref->ref_count, 1);
 
 	CHECK_PTR(output, err);
@@ -383,26 +411,38 @@ static void trans_logger_ref_put(struct trans_logger_output *output, struct mref
 	// are we a shadow?
 	shadow_a = mref_a->shadow_ref;
 	if (shadow_a) {
+		bool finished;
+		if (mref_a->is_hashed) {
+			finished = hash_put(output->hash_table, mref_a, &output->hash_count);
+		} else {
+			finished = atomic_dec_and_test(&mref->ref_count);
+		}
+		if (!finished) {
+			return;
+		}
 		if (shadow_a != mref_a) { // we are a slave shadow
 			//MARS_INF("slave\n");
+			atomic_dec(&output->sshadow_count);
 			CHECK_HEAD_EMPTY(&mref_a->hash_head);
-			if (atomic_dec_and_test(&mref->ref_count)) {
-				trans_logger_free_mref(mref);
-			}
+			trans_logger_free_mref(mref);
+			// now put the master shadow
+			mref = shadow_a->object;
+			goto restart;
 		}
-		// now put the master shadow
-		if (hash_put(output->hash_table, shadow_a, &output->hash_count)) {
-			struct mref_object *shadow = shadow_a->object;
-			kfree(shadow->ref_data);
-			//MARS_INF("hm?\n");
-			trans_logger_free_mref(shadow);
-		}
+		// we are a master shadow
+		CHECK_PTR(mref->ref_data, err);
+		kfree(mref->ref_data);
+		mref->ref_data = NULL;
+		atomic_dec(&output->mshadow_count);
+		trans_logger_free_mref(mref);
 		return;
 	}
 
 	input = output->brick->inputs[0];
 	GENERIC_INPUT_CALL(input, mref_put, mref);
-err: ;
+	return;
+err:
+	MARS_FAT("oops\n");
 }
 
 static void _trans_logger_endio(struct generic_callback *cb)
@@ -450,11 +490,16 @@ static void trans_logger_ref_io(struct trans_logger_output *output, struct mref_
 		if (mref->ref_rw == READ) {
 			// nothing to do: directly signal success.
 			struct generic_callback *cb = mref->ref_cb;
+#ifdef USE_MEMCPY
+			if (mref_a->orig_data) {
+				memcpy(mref_a->orig_data, mref->ref_data, mref->ref_len);
+			}
+#endif
 			cb->cb_error = 0;
 			mref->ref_flags |= MREF_UPTODATE;
 			cb->cb_fn(cb);
 			// no touch of ref_count necessary
-		} else {
+		} else { // WRITE
 #if 1
 			if (unlikely(mref_a->shadow_ref != mref_a)) {
 				MARS_ERR("something is wrong: %p != %p\n", mref_a->shadow_ref, mref_a);
@@ -466,8 +511,11 @@ static void trans_logger_ref_io(struct trans_logger_output *output, struct mref_
 			}
 #endif
 			mref->ref_flags |= MREF_WRITING;
-			MARS_DBG("hashing %d at %lld\n", mref->ref_len, mref->ref_pos);
-			hash_insert(output->hash_table, mref_a, &output->hash_count);
+			if (!mref_a->is_hashed) {
+				mref_a->is_hashed = true;
+				MARS_DBG("hashing %d at %lld\n", mref->ref_len, mref->ref_pos);
+				hash_insert(output->hash_table, mref_a, &output->hash_count);
+			}
 			q_insert(&output->q_phase1, mref_a);
 			wake_up_interruptible(&output->event);
 		}
@@ -910,9 +958,9 @@ void trans_logger_log(struct trans_logger_output *output)
 			(kthread_should_stop() && !_congested(output)),
 			wait_jiffies);
 #if 1
-		if (((int)jiffies) - last_jiffies >= HZ * 10 && atomic_read(&output->hash_count) > 0) {
+		if (((int)jiffies) - last_jiffies >= HZ * 10 && brick->power.button) {
 			last_jiffies = jiffies;
-			MARS_INF("LOGGER: hash_count=%d fly=%d phase1=%d/%d phase2=%d/%d phase3=%d/%d phase4=%d/%d\n", atomic_read(&output->hash_count), atomic_read(&output->fly_count), atomic_read(&output->q_phase1.q_queued), atomic_read(&output->q_phase1.q_flying), atomic_read(&output->q_phase2.q_queued), atomic_read(&output->q_phase2.q_flying), atomic_read(&output->q_phase3.q_queued), atomic_read(&output->q_phase3.q_flying), atomic_read(&output->q_phase4.q_queued), atomic_read(&output->q_phase4.q_flying));
+			MARS_INF("LOGGER: mshadow=%d sshadow=%d hash_count=%d fly=%d phase1=%d/%d phase2=%d/%d phase3=%d/%d phase4=%d/%d\n", atomic_read(&output->mshadow_count), atomic_read(&output->sshadow_count), atomic_read(&output->hash_count), atomic_read(&output->fly_count), atomic_read(&output->q_phase1.q_queued), atomic_read(&output->q_phase1.q_flying), atomic_read(&output->q_phase2.q_queued), atomic_read(&output->q_phase2.q_flying), atomic_read(&output->q_phase3.q_queued), atomic_read(&output->q_phase3.q_flying), atomic_read(&output->q_phase4.q_queued), atomic_read(&output->q_phase4.q_flying));
 		}
 #endif
 		wait_jiffies = HZ;

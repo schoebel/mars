@@ -31,6 +31,7 @@ struct if_input {
 	struct request_queue *q;
 	struct gendisk *disk;
 	struct block_device *bdev;
+	atomic_t open_count;
 	spinlock_t req_lock;
 	struct semaphore kick_sem;
 	struct generic_object_layout mref_object_layout;
@@ -42,6 +43,7 @@ struct if_output {
 
 struct if_brick {
 	MARS_BRICK(if);
+	bool has_closed;
 	struct if_output hidden_output;
 };
 

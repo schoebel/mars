@@ -45,6 +45,7 @@ struct trans_logger_mref_aspect {
 	struct pairing_heap_mref ph;
 	struct trans_logger_mref_aspect *shadow_ref;
 	void   *orig_data;
+	bool   is_hashed;
 	struct timespec stamp;
 	struct generic_callback cb;
 	struct trans_logger_mref_aspect *orig_mref_a;
@@ -69,6 +70,8 @@ struct trans_logger_output {
 	struct hash_anchor hash_table[TRANS_HASH_MAX];
 	atomic_t hash_count;
 	atomic_t fly_count;
+	atomic_t mshadow_count;
+	atomic_t sshadow_count;
 	struct task_struct *thread;
 	wait_queue_head_t event;
 	// queues

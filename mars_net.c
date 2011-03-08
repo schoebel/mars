@@ -144,7 +144,9 @@ int mars_create_socket(struct socket **sock, struct sockaddr_storage *addr, bool
 		_check(status);
 		status = kernel_setsockopt(*sock, SOL_IP, SO_PRIORITY, (char*)&default_tcp_params.tos, sizeof(default_tcp_params.tos));
 		_check(status);
+#if 0
 		status = kernel_setsockopt(*sock, IPPROTO_TCP, TCP_NODELAY, (char*)&x_true, sizeof(x_true));
+#endif
 		_check(status);
 		status = kernel_setsockopt(*sock, SOL_SOCKET, SO_KEEPALIVE, (char*)&x_true, sizeof(x_true));
 		_check(status);

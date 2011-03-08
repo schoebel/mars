@@ -56,16 +56,13 @@ void _delay(struct aio_threadinfo *tinfo, struct aio_mref_aspect *mref_a, int de
 }
 
 static
-struct aio_mref_aspect *_get_delayed(struct aio_threadinfo *tinfo, bool remove)
+struct aio_mref_aspect *__get_delayed(struct aio_threadinfo *tinfo, bool remove)
 {
 	struct list_head *tmp;
 	struct aio_mref_aspect *mref_a;
-	unsigned long flags;
 
 	if (list_empty(&tinfo->delay_list))
 		return NULL;
-
-	traced_lock(&tinfo->lock, flags);
 
 	tmp = tinfo->delay_list.next;
 	mref_a = container_of(tmp, struct aio_mref_aspect, io_head);
@@ -74,6 +71,19 @@ struct aio_mref_aspect *_get_delayed(struct aio_threadinfo *tinfo, bool remove)
 	} else if (remove) {
 		list_del_init(tmp);
 	}
+
+	return mref_a;
+}
+
+static
+struct aio_mref_aspect *_get_delayed(struct aio_threadinfo *tinfo, bool remove)
+{
+	struct aio_mref_aspect *mref_a;
+	unsigned long flags;
+
+	traced_lock(&tinfo->lock, flags);
+
+	mref_a = __get_delayed(tinfo, remove);
 
 	traced_unlock(&tinfo->lock, flags);
 
@@ -273,7 +283,7 @@ static int aio_submit_thread(void *data)
 			list_del_init(tmp);
 			mref_a = container_of(tmp, struct aio_mref_aspect, io_head);
 		} else {
-			mref_a = _get_delayed(tinfo, true);
+			mref_a = __get_delayed(tinfo, true);
 		}
 
 		traced_unlock(&tinfo->lock, flags);

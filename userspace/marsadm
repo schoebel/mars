@@ -10,6 +10,7 @@ my $host = `uname -n` or die "cannot determine my network node name\n";
 chomp $host;
 my $ip = `ip a` or die "cannot determine my IP address\n";
 $ip =~ s/\A.*inet +(?!127\.0\.)([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+).*?\Z/$1/ms or die "cannot parse my IP address\n";
+chomp $ip;
 print "my IP is $ip\n";
 
 umask 0177;

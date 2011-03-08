@@ -299,25 +299,22 @@ err:
 static int if_open(struct block_device *bdev, fmode_t mode)
 {
 	struct if_input *input = bdev->bd_disk->private_data;
-	(void)input;
-	MARS_DBG("if_open()\n");
+	atomic_inc(&input->open_count);
+	MARS_INF("----------------------- OPEN %d ------------------------------\n", atomic_read(&input->open_count));
 	return 0;
 }
 
 static int if_release(struct gendisk *gd, fmode_t mode)
 {
-	MARS_DBG("if_close()\n");
+	struct if_input *input = gd->private_data;
+	MARS_INF("----------------------- CLOSE %d ------------------------------\n", atomic_read(&input->open_count));
+	if (atomic_dec_and_test(&input->open_count)) {
+		struct if_brick *brick = input->brick;
+		brick->has_closed = true;
+		mars_trigger();
+	}
 	return 0;
 }
-
-static const struct block_device_operations if_blkdev_ops = {
-	.owner =   THIS_MODULE,
-	.open =    if_open,
-	.release = if_release,
-
-};
-
-////////////////// own brick / input / output operations //////////////////
 
 static void if_unplug(struct request_queue *q)
 {
@@ -330,39 +327,12 @@ static void if_unplug(struct request_queue *q)
 	_if_unplug(input);
 }
 
+static const struct block_device_operations if_blkdev_ops = {
+	.owner =   THIS_MODULE,
+	.open =    if_open,
+	.release = if_release,
 
-//////////////// object / aspect constructors / destructors ///////////////
-
-static int if_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
-{
-	struct if_mref_aspect *ini = (void*)_ini;
-	//INIT_LIST_HEAD(&ini->tmp_head);
-	INIT_LIST_HEAD(&ini->plug_head);
-	return 0;
-}
-
-static void if_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
-{
-	struct if_mref_aspect *ini = (void*)_ini;
-	//CHECK_HEAD_EMPTY(&ini->tmp_head);
-	CHECK_HEAD_EMPTY(&ini->plug_head);
-}
-
-MARS_MAKE_STATICS(if);
-
-//////////////////////// contructors / destructors ////////////////////////
-
-static int if_brick_construct(struct if_brick *brick)
-{
-	struct if_output *hidden = &brick->hidden_output;
-	_if_output_init(brick, hidden, "internal");
-	return 0;
-}
-
-static int if_brick_destruct(struct if_brick *brick)
-{
-	return 0;
-}
+};
 
 static int if_switch(struct if_brick *brick)
 {
@@ -414,8 +384,6 @@ static int if_switch(struct if_brick *brick)
 		blk_queue_max_segment_size(q, MARS_MAX_SEGMENT_SIZE);
 		blk_queue_bounce_limit(q, BLK_BOUNCE_ANY);
 		q->unplug_fn = if_unplug;
-		sema_init(&input->kick_sem, 1);
-		spin_lock_init(&input->req_lock);
 		q->queue_lock = &input->req_lock; // needed!
 		//blk_queue_ordered(q, QUEUE_ORDERED_DRAIN, NULL);//???
 		
@@ -432,7 +400,6 @@ static int if_switch(struct if_brick *brick)
 #if 0 // ???
 		blk_queue_merge_bvec(q, mars_merge_bvec);
 #endif
-		INIT_LIST_HEAD(&input->plug_anchor);
 
 		// point of no return
 		//MARS_DBG("99999\n");
@@ -442,11 +409,17 @@ static int if_switch(struct if_brick *brick)
 		mars_power_led_on((void*)brick, true);
 	} else {
 		mars_power_led_on((void*)brick, false);
+		disk = input->disk;
+		if (!disk)
+			goto down;
+		if (atomic_read(&input->open_count) > 0) {
+			MARS_INF("device '%s' is open %d times, cannot shutdown\n", disk->disk_name, atomic_read(&input->open_count));
+			return -EBUSY;
+		}
 		if (input->bdev) {
 			bdput(input->bdev);
 			input->bdev = NULL;
 		}
-		disk = input->disk;
 		if (disk) {
 			q = disk->queue;
 			del_gendisk(input->disk);
@@ -457,13 +430,55 @@ static int if_switch(struct if_brick *brick)
 			}
 		}
 		//........
+	down:
 		mars_power_led_off((void*)brick, true);
 	}
 	return 0;
 }
 
+////////////////// own brick / input / output operations //////////////////
+
+// none
+
+//////////////// object / aspect constructors / destructors ///////////////
+
+static int if_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+{
+	struct if_mref_aspect *ini = (void*)_ini;
+	//INIT_LIST_HEAD(&ini->tmp_head);
+	INIT_LIST_HEAD(&ini->plug_head);
+	return 0;
+}
+
+static void if_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+{
+	struct if_mref_aspect *ini = (void*)_ini;
+	//CHECK_HEAD_EMPTY(&ini->tmp_head);
+	CHECK_HEAD_EMPTY(&ini->plug_head);
+}
+
+MARS_MAKE_STATICS(if);
+
+//////////////////////// contructors / destructors ////////////////////////
+
+static int if_brick_construct(struct if_brick *brick)
+{
+	struct if_output *hidden = &brick->hidden_output;
+	_if_output_init(brick, hidden, "internal");
+	return 0;
+}
+
+static int if_brick_destruct(struct if_brick *brick)
+{
+	return 0;
+}
+
 static int if_input_construct(struct if_input *input)
 {
+	INIT_LIST_HEAD(&input->plug_anchor);
+	sema_init(&input->kick_sem, 1);
+	spin_lock_init(&input->req_lock);
+	atomic_set(&input->open_count, 0);
 	return 0;
 }
 
