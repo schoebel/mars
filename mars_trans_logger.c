@@ -47,25 +47,33 @@ static inline void q_init(struct logger_queue *q)
 }
 
 static
-bool q_is_ready(struct logger_queue *q)
+bool q_is_ready(struct logger_queue *q, bool do_drain)
 {
 	int queued = atomic_read(&q->q_queued);
 	int flying;
 	bool res = false;
+
 	if (queued <= 0)
 		goto always_done;
+
 	res = true;
-	if (queued >= q->q_max_queued)
+	if (do_drain || queued >= q->q_max_queued)
 		goto done;
+
 	if (q->q_max_jiffies > 0 &&
 	   (long long)jiffies - q->q_last_action >= q->q_max_jiffies)
 		goto done;
+
 	res = false;
 	goto always_done;
+
 done:
+	/* Limit the number of flying requests (parallelism)
+	 */
 	flying = atomic_read(&q->q_flying);
 	if (q->q_max_flying > 0 && flying >= q->q_max_flying)
 		res = false;
+
 always_done:
 	return res;
 }
@@ -167,11 +175,11 @@ static inline int hash_fn(loff_t base_index)
 	return ((unsigned)tmp) % TRANS_HASH_MAX;
 }
 
-static struct trans_logger_mref_aspect *hash_find(struct hash_anchor *table, loff_t pos, int len)
+static struct trans_logger_mref_aspect *hash_find(struct trans_logger_output *output, loff_t pos, int len)
 {
 	loff_t base_index = pos >> REGION_SIZE_BITS;
 	int hash = hash_fn(base_index);
-	struct hash_anchor *start = &table[hash];
+	struct hash_anchor *start = &output->hash_table[hash];
 	struct list_head *tmp;
 	struct trans_logger_mref_aspect *res = NULL;
 	struct trans_logger_mref_aspect *test_a;
@@ -216,6 +224,7 @@ static struct trans_logger_mref_aspect *hash_find(struct hash_anchor *table, lof
 
 	if (res) {
 		atomic_inc(&res->object->ref_count);
+		atomic_inc(&output->inner_balance_count);
 	}
 
 	traced_readunlock(&start->hash_lock, flags);
@@ -223,33 +232,36 @@ static struct trans_logger_mref_aspect *hash_find(struct hash_anchor *table, lof
 	return res;
 }
 
-static inline
-void hash_insert(struct hash_anchor *table, struct trans_logger_mref_aspect *elem_a, atomic_t *cnt)
+static
+void hash_insert(struct trans_logger_output *output, struct trans_logger_mref_aspect *elem_a)
 {
         loff_t base_index = elem_a->object->ref_pos >> REGION_SIZE_BITS;
         int hash = hash_fn(base_index);
-        struct hash_anchor *start = &table[hash];
+        struct hash_anchor *start = &output->hash_table[hash];
         unsigned int flags;
-
-        traced_writelock(&start->hash_lock, flags);
 
 #if 1
 	CHECK_HEAD_EMPTY(&elem_a->hash_head);
 #endif
 
+	atomic_inc(&elem_a->object->ref_count); // must be paired with hash_put()
+	// only for statistics:
+	atomic_inc(&output->inner_balance_count);
+	atomic_inc(&output->hash_count);
+
+        traced_writelock(&start->hash_lock, flags);
+
         list_add(&elem_a->hash_head, &start->hash_anchor);
-	atomic_inc(&elem_a->object->ref_count); // paired with hash_put()
-	atomic_inc(cnt); // only for statistics
 
         traced_writeunlock(&start->hash_lock, flags);
 }
 
-static inline bool hash_put(struct hash_anchor *table, struct trans_logger_mref_aspect *elem_a, atomic_t *cnt)
+static inline bool hash_put(struct trans_logger_output *output, struct trans_logger_mref_aspect *elem_a)
 {
 	struct mref_object *elem = elem_a->object;
 	loff_t base_index = elem->ref_pos >> REGION_SIZE_BITS;
 	int hash = hash_fn(base_index);
-	struct hash_anchor *start = &table[hash];
+	struct hash_anchor *start = &output->hash_table[hash];
 	unsigned int flags;
 	bool res;
 
@@ -257,10 +269,11 @@ static inline bool hash_put(struct hash_anchor *table, struct trans_logger_mref_
 
 	CHECK_ATOMIC(&elem->ref_count, 1);
 	res = atomic_dec_and_test(&elem->ref_count);
+	atomic_dec(&output->inner_balance_count);
 
 	if (res) {
 		list_del_init(&elem_a->hash_head);
-		atomic_dec(cnt);
+		atomic_dec(&output->hash_count);
 	}
 
 	traced_writeunlock(&start->hash_lock, flags);
@@ -275,7 +288,7 @@ static int trans_logger_get_info(struct trans_logger_output *output, struct mars
 	return GENERIC_INPUT_CALL(input, mars_get_info, info);
 }
 
-static void trans_logger_ref_put(struct trans_logger_output *output, struct mref_object *mref);
+static void _trans_logger_ref_put(struct trans_logger_output *output, struct mref_object *mref);
 
 static int _read_ref_get(struct trans_logger_output *output, struct trans_logger_mref_aspect *mref_a)
 {
@@ -287,7 +300,7 @@ static int _read_ref_get(struct trans_logger_output *output, struct trans_logger
 	 * the old one.
 	 * When a shadow is found, use it as buffer for the mref.
 	 */
-	shadow_a = hash_find(output->hash_table, mref->ref_pos, mref->ref_len);
+	shadow_a = hash_find(output, mref->ref_pos, mref->ref_len);
 	if (shadow_a) {
 		struct mref_object *shadow = shadow_a->object;
 		int diff = shadow->ref_pos - mref->ref_pos;
@@ -304,7 +317,7 @@ static int _read_ref_get(struct trans_logger_output *output, struct trans_logger
 			 * region.
 			 */
 			mref->ref_len = diff;
-			trans_logger_ref_put(output, shadow);
+			_trans_logger_ref_put(output, shadow);
 			goto call_through;
 		}
 		/* Attach mref to the existing shadow ("slave shadow").
@@ -315,7 +328,8 @@ static int _read_ref_get(struct trans_logger_output *output, struct trans_logger
 		mref->ref_data = shadow->ref_data - diff;
 		mref->ref_flags = shadow->ref_flags;
 		mref_a->shadow_ref = shadow_a;
-		atomic_set(&mref->ref_count, 1);
+		atomic_inc(&mref->ref_count);
+		atomic_inc(&output->inner_balance_count);
 		atomic_inc(&output->sshadow_count);
 #ifdef USE_MEMCPY
 		if (mref_a->orig_data) {
@@ -333,7 +347,7 @@ static int _write_ref_get(struct trans_logger_output *output, struct trans_logge
 {
 	struct mref_object *mref = mref_a->object;
 
-	// unconditionally create a new shadow buffer
+	// unconditionally create a new master shadow buffer
 	mref->ref_data = kmalloc(mref->ref_len, GFP_MARS);
 	if (unlikely(!mref->ref_data)) {
 		return -ENOMEM;
@@ -347,7 +361,8 @@ static int _write_ref_get(struct trans_logger_output *output, struct trans_logge
 	mref_a->output = output;
 	mref->ref_flags = MREF_UPTODATE;
 	mref_a->shadow_ref = mref_a; // cyclic self-reference => indicates master shadow
-	atomic_set(&mref->ref_count, 1);
+	atomic_inc(&mref->ref_count);
+	atomic_inc(&output->inner_balance_count);
 	get_lamport(&mref_a->stamp);
 	return mref->ref_len;
 }
@@ -359,13 +374,13 @@ static int trans_logger_ref_get(struct trans_logger_output *output, struct mref_
 
 	CHECK_PTR(output, err);
 
-#if 1 // xxx
+	atomic_inc(&output->outer_balance_count);
+
 	if (atomic_read(&mref->ref_count) > 0) { // setup already performed
-		MARS_INF("aha %d\n", atomic_read(&mref->ref_count));
+		MARS_DBG("aha %d\n", atomic_read(&mref->ref_count));
 		atomic_inc(&mref->ref_count);
 		return mref->ref_len;
 	}
-#endif
 
 	mref_a = trans_logger_mref_get_aspect(output, mref);
 	CHECK_PTR(mref_a, err);
@@ -393,7 +408,8 @@ err:
 	return -EINVAL;
 }
 
-static void trans_logger_ref_put(struct trans_logger_output *output, struct mref_object *mref)
+static
+void __trans_logger_ref_put(struct trans_logger_output *output, struct mref_object *mref)
 {
 	struct trans_logger_mref_aspect *mref_a;
 	struct trans_logger_mref_aspect *shadow_a;
@@ -413,9 +429,10 @@ restart:
 	if (shadow_a) {
 		bool finished;
 		if (mref_a->is_hashed) {
-			finished = hash_put(output->hash_table, mref_a, &output->hash_count);
+			finished = hash_put(output, mref_a);
 		} else {
 			finished = atomic_dec_and_test(&mref->ref_count);
+			atomic_dec(&output->inner_balance_count);
 		}
 		if (!finished) {
 			return;
@@ -445,6 +462,18 @@ err:
 	MARS_FAT("oops\n");
 }
 
+static void trans_logger_ref_put(struct trans_logger_output *output, struct mref_object *mref)
+{
+	atomic_dec(&output->outer_balance_count);
+	_trans_logger_ref_put(output, mref);
+}
+
+static void _trans_logger_ref_put(struct trans_logger_output *output, struct mref_object *mref)
+{
+	//atomic_dec(&output->inner_balance_count);
+	__trans_logger_ref_put(output, mref);
+}
+
 static void _trans_logger_endio(struct generic_callback *cb)
 {
 	struct trans_logger_mref_aspect *mref_a;
@@ -462,8 +491,6 @@ static void _trans_logger_endio(struct generic_callback *cb)
 	output = mref_a->output;
 	CHECK_PTR(output, err);
 
-	atomic_dec(&output->fly_count);
-
 	prev_cb = cb->cb_prev;
 	CHECK_PTR(prev_cb, err);
 	mref = mref_a->object;
@@ -471,6 +498,9 @@ static void _trans_logger_endio(struct generic_callback *cb)
 
 	mref->ref_cb = prev_cb;
 	prev_cb->cb_fn(prev_cb);
+
+	atomic_dec(&output->fly_count);
+
 err: ;
 }
 
@@ -514,7 +544,7 @@ static void trans_logger_ref_io(struct trans_logger_output *output, struct mref_
 			if (!mref_a->is_hashed) {
 				mref_a->is_hashed = true;
 				MARS_DBG("hashing %d at %lld\n", mref->ref_len, mref->ref_pos);
-				hash_insert(output->hash_table, mref_a, &output->hash_count);
+				hash_insert(output, mref_a);
 			}
 			q_insert(&output->q_phase1, mref_a);
 			wake_up_interruptible(&output->event);
@@ -528,6 +558,7 @@ static void trans_logger_ref_io(struct trans_logger_output *output, struct mref_
 	}
 
 	atomic_inc(&output->fly_count);
+
 	mref_a->output = output;
 	cb = &mref_a->cb;
 	cb->cb_fn = _trans_logger_endio;
@@ -579,7 +610,11 @@ static void phase1_endio(struct generic_callback *cb)
 	orig_cb->cb_fn(orig_cb);
 
 	// queue up for the next phase
-	q_insert(&output->q_phase2, orig_mref_a);
+	if (output->brick->log_reads) {
+		q_insert(&output->q_phase2, orig_mref_a);
+	} else {
+		q_insert(&output->q_phase2, orig_mref_a);
+	}
 	wake_up_interruptible(&output->event);
 err: ;
 }
@@ -696,7 +731,7 @@ static bool phase2_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	/* allocate internal sub_mref for further work
 	 */
 	while (len > 0) {
-		sub_mref = mars_alloc_mref(&brick->logst.hidden_output, &brick->logst.ref_object_layout);
+		sub_mref = trans_logger_alloc_mref((void*)brick->logst.output, &brick->logst.ref_object_layout);
 		if (unlikely(!sub_mref)) {
 			MARS_FAT("cannot alloc sub_mref\n");
 			goto err;
@@ -706,7 +741,7 @@ static bool phase2_startio(struct trans_logger_mref_aspect *orig_mref_a)
 		sub_mref->ref_len = len;
 		sub_mref->ref_may_write = WRITE;
 
-		sub_mref_a = trans_logger_mref_get_aspect((struct trans_logger_output*)&brick->logst.hidden_output, sub_mref);
+		sub_mref_a = trans_logger_mref_get_aspect((struct trans_logger_output*)brick->logst.output, sub_mref);
 		CHECK_PTR(sub_mref_a, err);
 		sub_mref_a->stamp = orig_mref_a->stamp;
 		sub_mref_a->orig_mref_a = orig_mref_a;
@@ -717,6 +752,7 @@ static bool phase2_startio(struct trans_logger_mref_aspect *orig_mref_a)
 			MARS_FAT("cannot get sub_ref, status = %d\n", status);
 			goto err;
 		}
+		atomic_inc(&output->sub_balance_count);
 		pos += sub_mref->ref_len;
 		len -= sub_mref->ref_len;
 
@@ -725,6 +761,7 @@ static bool phase2_startio(struct trans_logger_mref_aspect *orig_mref_a)
 		 */
 		CHECK_ATOMIC(&orig_mref->ref_count, 1);
 		atomic_inc(&orig_mref->ref_count);
+		atomic_inc(&output->inner_balance_count);
 
 		cb = &sub_mref_a->cb;
 		cb->cb_fn = phase2_endio;
@@ -733,6 +770,9 @@ static bool phase2_startio(struct trans_logger_mref_aspect *orig_mref_a)
 		cb->cb_prev = NULL;
 		sub_mref->ref_cb = cb;
 		sub_mref->ref_rw = 0;
+#if 1
+		sub_mref->ref_prio = MARS_PRIO_LOW;
+#endif
 
 		atomic_inc(&output->q_phase2.q_flying);
 		if (output->brick->log_reads) {
@@ -746,7 +786,7 @@ static bool phase2_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	 * _replace_ the original reference by the sub_mref counts
 	 * from above).
 	 */
-	trans_logger_ref_put(output, orig_mref);
+	_trans_logger_ref_put(output, orig_mref);
 	return true;
 
 err:
@@ -855,7 +895,7 @@ static void phase4_endio(struct generic_callback *cb)
 put:
 	//MARS_INF("put ORIGREF.\n");
 	CHECK_ATOMIC(&orig_mref->ref_count, 1);
-	trans_logger_ref_put(orig_mref_a->output, orig_mref);
+	_trans_logger_ref_put(orig_mref_a->output, orig_mref);
 	wake_up_interruptible(&output->event);
 err: ;
 }
@@ -896,6 +936,7 @@ static bool phase4_startio(struct trans_logger_mref_aspect *sub_mref_a)
 
 	//MARS_INF("put SUBREF.\n");
 	GENERIC_INPUT_CALL(input, mref_put, sub_mref);
+	atomic_dec(&output->sub_balance_count);
 	return true;
 
 err:
@@ -939,6 +980,9 @@ static inline int _congested(struct trans_logger_output *output)
 		|| atomic_read(&output->q_phase4.q_flying);
 }
 
+#define DO_DRAIN(output)						\
+	((output)->old_fly_count + atomic_read(&(output)->fly_count) <= 0)
+
 static
 void trans_logger_log(struct trans_logger_output *output)
 {
@@ -949,23 +993,25 @@ void trans_logger_log(struct trans_logger_output *output)
 	while (!kthread_should_stop() || _congested(output)) {
 		int status;
 
+		output->old_fly_count = atomic_read(&output->fly_count);
+
 		wait_event_interruptible_timeout(
 			output->event,
-			q_is_ready(&output->q_phase1) ||
-			q_is_ready(&output->q_phase2) ||
-			q_is_ready(&output->q_phase3) ||
-			q_is_ready(&output->q_phase4) ||
+			q_is_ready(&output->q_phase1, DO_DRAIN(output)) ||
+			q_is_ready(&output->q_phase2, DO_DRAIN(output)) ||
+			q_is_ready(&output->q_phase3, DO_DRAIN(output)) ||
+			q_is_ready(&output->q_phase4, DO_DRAIN(output)) ||
 			(kthread_should_stop() && !_congested(output)),
 			wait_jiffies);
 #if 1
 		if (((int)jiffies) - last_jiffies >= HZ * 10 && brick->power.button) {
 			last_jiffies = jiffies;
-			MARS_INF("LOGGER: mshadow=%d sshadow=%d hash_count=%d fly=%d phase1=%d/%d phase2=%d/%d phase3=%d/%d phase4=%d/%d\n", atomic_read(&output->mshadow_count), atomic_read(&output->sshadow_count), atomic_read(&output->hash_count), atomic_read(&output->fly_count), atomic_read(&output->q_phase1.q_queued), atomic_read(&output->q_phase1.q_flying), atomic_read(&output->q_phase2.q_queued), atomic_read(&output->q_phase2.q_flying), atomic_read(&output->q_phase3.q_queued), atomic_read(&output->q_phase3.q_flying), atomic_read(&output->q_phase4.q_queued), atomic_read(&output->q_phase4.q_flying));
+			MARS_INF("LOGGER: mshadow=%d sshadow=%d hash_count=%d balance=%d/%d/%d fly=%d phase1=%d+%d phase2=%d+%d phase3=%d+%d phase4=%d+%d\n", atomic_read(&output->mshadow_count), atomic_read(&output->sshadow_count), atomic_read(&output->hash_count), atomic_read(&output->sub_balance_count), atomic_read(&output->inner_balance_count), atomic_read(&output->outer_balance_count), atomic_read(&output->fly_count), atomic_read(&output->q_phase1.q_queued), atomic_read(&output->q_phase1.q_flying), atomic_read(&output->q_phase2.q_queued), atomic_read(&output->q_phase2.q_flying), atomic_read(&output->q_phase3.q_queued), atomic_read(&output->q_phase3.q_flying), atomic_read(&output->q_phase4.q_queued), atomic_read(&output->q_phase4.q_flying));
 		}
 #endif
 		wait_jiffies = HZ;
 
-		status = run_queue(&output->q_phase1, phase1_startio, 1000);
+		status = run_queue(&output->q_phase1, phase1_startio, output->q_phase1.q_batchlen);
 		if (unlikely(status > 0)) {
 			(void)run_queue(&output->q_phase3, phase3_startio, 1);
 			log_skip(&brick->logst);
@@ -976,20 +1022,20 @@ void trans_logger_log(struct trans_logger_output *output)
 		/* Strategy / performance:
 		 * run higher phases only when IO contention is "low".
 		 */
-		if (q_is_ready(&output->q_phase2)) {
-			(void)run_queue(&output->q_phase2, phase2_startio, 64);
+		if (q_is_ready(&output->q_phase2, DO_DRAIN(output))) {
+			(void)run_queue(&output->q_phase2, phase2_startio, output->q_phase2.q_batchlen);
 		}
 
-		if (q_is_ready(&output->q_phase3)) {
-			status = run_queue(&output->q_phase3, phase3_startio, 64);
+		if (q_is_ready(&output->q_phase3, DO_DRAIN(output))) {
+			status = run_queue(&output->q_phase3, phase3_startio, output->q_phase3.q_batchlen);
 			if (unlikely(status > 0)) {
 				log_skip(&brick->logst);
 				wait_jiffies = 5;
 				continue;
 			}
 		}
-		if (q_is_ready(&output->q_phase4)) {
-			(void)run_queue(&output->q_phase4, phase4_startio, 64);
+		if (q_is_ready(&output->q_phase4, DO_DRAIN(output))) {
+			(void)run_queue(&output->q_phase4, phase4_startio, output->q_phase4.q_batchlen);
 		}
 	}
 }
@@ -1085,8 +1131,7 @@ MARS_MAKE_STATICS(trans_logger);
 
 static int trans_logger_brick_construct(struct trans_logger_brick *brick)
 {
-	_generic_output_init((struct generic_brick*)brick, (struct generic_output_type*)&trans_logger_output_type, (struct generic_output*)&brick->logst.hidden_output, "internal");
-	brick->logst.input = (void*)brick->inputs[1];
+	init_logst(&brick->logst, (void*)brick->inputs[1], (void*)brick->outputs[0]);
 	return 0;
 }
 

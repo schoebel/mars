@@ -2,7 +2,7 @@
 # Makefile for MARS
 #
 
-obj-$(CONFIG_MARS)		+= brick.o mars_generic.o mars_net.o mars_proc.o
+obj-$(CONFIG_MARS)		+= brick.o log_format.o mars_generic.o mars_net.o mars_proc.o
 obj-$(CONFIG_MARS_DUMMY)	+= mars_dummy.o
 obj-$(CONFIG_MARS_CHECK)	+= mars_check.o
 obj-$(CONFIG_MARS_IF)		+= mars_if.o

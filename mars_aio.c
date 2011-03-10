@@ -28,68 +28,52 @@
 
 ////////////////// some helpers //////////////////
 
-static
-void _queue(struct aio_threadinfo *tinfo, struct aio_mref_aspect *mref_a)
+static inline
+void _enqueue(struct aio_threadinfo *tinfo, struct aio_mref_aspect *mref_a, int prio, bool at_end)
 {
 	unsigned long flags;
+	if (prio > MARS_PRIO_LOW)
+		prio = MARS_PRIO_LOW;
+	if (prio < MARS_PRIO_HIGH)
+		prio = MARS_PRIO_HIGH;
 
 	traced_lock(&tinfo->lock, flags);
 
-	list_add_tail(&mref_a->io_head, &tinfo->mref_list);
-
-	traced_unlock(&tinfo->lock, flags);
-}
-
-static
-void _delay(struct aio_threadinfo *tinfo, struct aio_mref_aspect *mref_a, int delta_jiffies)
-{
-	long long timeout = (long long)jiffies + delta_jiffies;
-	unsigned long flags;
-
-	mref_a->timeout = timeout;
-
-	traced_lock(&tinfo->lock, flags);
-
-	list_add_tail(&mref_a->io_head, &tinfo->delay_list);
-
-	traced_unlock(&tinfo->lock, flags);
-}
-
-static
-struct aio_mref_aspect *__get_delayed(struct aio_threadinfo *tinfo, bool remove)
-{
-	struct list_head *tmp;
-	struct aio_mref_aspect *mref_a;
-
-	if (list_empty(&tinfo->delay_list))
-		return NULL;
-
-	tmp = tinfo->delay_list.next;
-	mref_a = container_of(tmp, struct aio_mref_aspect, io_head);
-	if (mref_a->timeout < (long long)jiffies) {
-		mref_a = NULL;
-	} else if (remove) {
-		list_del_init(tmp);
+	if (at_end) {
+		list_add_tail(&mref_a->io_head, &tinfo->mref_list[prio]);
+	} else {
+		list_add(&mref_a->io_head, &tinfo->mref_list[prio]);
 	}
 
-	return mref_a;
-}
-
-static
-struct aio_mref_aspect *_get_delayed(struct aio_threadinfo *tinfo, bool remove)
-{
-	struct aio_mref_aspect *mref_a;
-	unsigned long flags;
-
-	traced_lock(&tinfo->lock, flags);
-
-	mref_a = __get_delayed(tinfo, remove);
-
 	traced_unlock(&tinfo->lock, flags);
-
-	return mref_a;
 }
 
+static inline
+struct aio_mref_aspect *_dequeue(struct aio_threadinfo *tinfo, bool do_remove)
+{
+	struct aio_mref_aspect *mref_a = NULL;
+	int prio;
+	unsigned long flags = 0;
+
+	if (do_remove)
+		traced_lock(&tinfo->lock, flags);
+
+	for (prio = MARS_PRIO_HIGH; prio <= MARS_PRIO_LOW; prio++) {
+		struct list_head *tmp = tinfo->mref_list[prio].next;
+		if (tmp != &tinfo->mref_list[prio]) {
+			if (do_remove) {
+				list_del_init(tmp);
+			}
+			mref_a = container_of(tmp, struct aio_mref_aspect, io_head);
+			goto done;
+		}
+	}
+
+done:
+	if (do_remove)
+		traced_unlock(&tinfo->lock, flags);
+	return mref_a;
+}
 
 ////////////////// own brick / input / output operations //////////////////
 
@@ -184,7 +168,7 @@ static void aio_ref_io(struct aio_output *output, struct mref_object *mref)
 		goto done;
 	}
 
-	_queue(tinfo, mref_a);
+	_enqueue(tinfo, mref_a, mref->ref_prio, true);
 
 	wake_up_interruptible(&tinfo->event);
 	return;
@@ -263,49 +247,40 @@ static int aio_submit_thread(void *data)
 		return -ENOMEM;
 
 	while (!kthread_should_stop()) {
-		struct list_head *tmp = NULL;
 		struct aio_mref_aspect *mref_a;
 		struct mref_object *mref;
-		unsigned long flags;
 		int err;
 
 		wait_event_interruptible_timeout(
 			tinfo->event,
-			!list_empty(&tinfo->mref_list) ||
-			_get_delayed(tinfo, false) ||
-			kthread_should_stop(),
+			kthread_should_stop() ||
+			_dequeue(tinfo, false),
 			HZ);
 
-		traced_lock(&tinfo->lock, flags);
-		
-		if (!list_empty(&tinfo->mref_list)) {
-			tmp = tinfo->mref_list.next;
-			list_del_init(tmp);
-			mref_a = container_of(tmp, struct aio_mref_aspect, io_head);
-		} else {
-			mref_a = __get_delayed(tinfo, true);
-		}
-
-		traced_unlock(&tinfo->lock, flags);
-
-		if (!mref_a)
+		mref_a = _dequeue(tinfo, true);
+		if (!mref_a) {
 			continue;
+		}
 
 		// check for reads behind EOF
 		mref = mref_a->object;
 		if (!mref->ref_rw && mref->ref_pos + mref->ref_len > i_size_read(file->f_mapping->host)) {
-			if (!mref->ref_timeout || mref->ref_timeout < (long long)jiffies) {
-				_complete(output, mref, -ENODATA);
+			if (mref->ref_timeout > 0 &&
+			   ((!mref_a->start_jiffies && (mref_a->start_jiffies = jiffies, true)) ||
+			    mref_a->start_jiffies + mref->ref_timeout >= (long long)jiffies)) {
+				msleep(50);
+				_enqueue(tinfo, mref_a, mref->ref_prio, true);
 				continue;
 			}
-			_delay(tinfo, mref_a, HZ/2);
+			_complete(output, mref, -ENODATA);
 			continue;
 		}
 
 		err = aio_submit(output, mref_a, false);
 
 		if (err == -EAGAIN) {
-			_delay(tinfo, mref_a, (HZ/100)+1);
+			_enqueue(tinfo, mref_a, mref->ref_prio, false);
+			msleep(20);
 			continue;
 		}
 		if (unlikely(err < 0)) {
@@ -387,10 +362,11 @@ static int aio_event_thread(void *data)
 
 			if (output->o_fdsync
 			   && err >= 0 
-			   && mref->ref_rw != 0
+			   && mref->ref_rw != READ
 			   && !mref_a->resubmit++) {
+				// workaround for non-implemented AIO FSYNC operation
 				if (!output->filp->f_op->aio_fsync) {
-					_queue(other, mref_a);
+					_enqueue(other, mref_a, mref->ref_prio, true);
 					bounced++;
 					continue;
 				}
@@ -430,17 +406,22 @@ static int aio_sync_thread(void *data)
 	while (!kthread_should_stop()) {
 		LIST_HEAD(tmp_list);
 		unsigned long flags;
+		int i;
 		int err;
 
 		wait_event_interruptible_timeout(
 			tinfo->event,
-			!list_empty(&tinfo->mref_list) || kthread_should_stop(),
+			kthread_should_stop() ||
+			_dequeue(tinfo, false),
 			HZ);
 
 		traced_lock(&tinfo->lock, flags);
-		if (!list_empty(&tinfo->mref_list)) {
-			// move over the whole list
-			list_replace_init(&tinfo->mref_list, &tmp_list);
+		for (i = MARS_PRIO_HIGH; i <= MARS_PRIO_LOW; i++) {
+			if (!list_empty(&tinfo->mref_list[i])) {
+				// move over the whole list
+				list_replace_init(&tinfo->mref_list[i], &tmp_list);
+				break;
+			}
 		}
 		traced_unlock(&tinfo->lock, flags);
 
@@ -564,8 +545,10 @@ static int aio_switch(struct aio_brick *brick)
 			aio_sync_thread,
 		};
 		struct aio_threadinfo *tinfo = &output->tinfo[i];
-		INIT_LIST_HEAD(&tinfo->mref_list);
-		INIT_LIST_HEAD(&tinfo->delay_list);
+		int j;
+		for (j = MARS_PRIO_HIGH; j <= MARS_PRIO_LOW; j++) {
+			INIT_LIST_HEAD(&tinfo->mref_list[j]);
+		}
 		tinfo->output = output;
 		spin_lock_init(&tinfo->lock);
 		init_waitqueue_head(&tinfo->event);

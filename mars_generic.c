@@ -36,6 +36,7 @@ const struct meta mars_mref_meta[] = {
 	META_INI(ref_pos,          struct mref_object, FIELD_INT),
 	META_INI(ref_len,          struct mref_object, FIELD_INT),
 	META_INI(ref_may_write,    struct mref_object, FIELD_INT),
+	META_INI(ref_prio,         struct mref_object, FIELD_INT),
 	META_INI(ref_timeout,      struct mref_object, FIELD_INT),
 	META_INI(ref_flags,        struct mref_object, FIELD_INT),
 	META_INI(ref_rw,           struct mref_object, FIELD_INT),

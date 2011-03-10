@@ -48,6 +48,9 @@
 
 // MARS-specific definitions
 
+#define MARS_PRIO_HIGH 0
+#define MARS_PRIO_LOW  1
+
 // object stuff
 
 /* mref */
@@ -73,10 +76,11 @@ struct mref_object_layout {
 #define MREF_OBJECT(PREFIX)						\
 	GENERIC_OBJECT(PREFIX);						\
 	/* supplied by caller */					\
+	void  *ref_data;         /* preset to NULL for buffered IO */	\
 	loff_t ref_pos;							\
 	int    ref_len;							\
 	int    ref_may_write;						\
-	void  *ref_data;         /* preset to NULL for buffered IO */	\
+	int    ref_prio;						\
 	int    ref_timeout;						\
 	/* maintained by the ref implementation, readable for callers */ \
 	int    ref_flags;						\

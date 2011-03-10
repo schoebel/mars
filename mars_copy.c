@@ -178,6 +178,7 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 		len = tmp_pos - pos;
 	}
 	mref->ref_len = len;
+	mref->ref_prio = MARS_PRIO_LOW;
 	mref->_ref_cb.cb_private = mref_a;
 	mref->_ref_cb.cb_fn = copy_endio;
 	mref->ref_cb = &mref->_ref_cb;

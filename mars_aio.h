@@ -8,7 +8,7 @@
 struct aio_mref_aspect {
 	GENERIC_ASPECT(mref);
 	struct list_head io_head;
-	long long timeout;
+	long long start_jiffies;
 	int resubmit;
 	bool do_dealloc;
 };
@@ -22,8 +22,7 @@ struct aio_input {
 };
 
 struct aio_threadinfo {
-	struct list_head mref_list;
-	struct list_head delay_list;
+	struct list_head mref_list[MARS_PRIO_LOW+1];
 	struct aio_output *output;
 	struct task_struct *thread;
 	wait_queue_head_t event;

@@ -24,6 +24,7 @@ struct logger_queue {
 	atomic_t q_flying;
 	long long q_last_action; // jiffies
 	// tunables
+	int q_batchlen;
 	int q_max_queued;
 	int q_max_flying;
 	int q_max_jiffies;
@@ -67,11 +68,14 @@ struct trans_logger_brick {
 
 struct trans_logger_output {
 	MARS_OUTPUT(trans_logger);
-	struct hash_anchor hash_table[TRANS_HASH_MAX];
-	atomic_t hash_count;
 	atomic_t fly_count;
+	atomic_t hash_count;
 	atomic_t mshadow_count;
 	atomic_t sshadow_count;
+	atomic_t outer_balance_count;
+	atomic_t inner_balance_count;
+	atomic_t sub_balance_count;
+	int old_fly_count;
 	struct task_struct *thread;
 	wait_queue_head_t event;
 	// queues
@@ -79,6 +83,7 @@ struct trans_logger_output {
 	struct logger_queue q_phase2;
 	struct logger_queue q_phase3;
 	struct logger_queue q_phase4;
+	struct hash_anchor hash_table[TRANS_HASH_MAX];
 };
 
 struct trans_logger_input {

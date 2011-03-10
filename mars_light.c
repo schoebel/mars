@@ -28,6 +28,7 @@
 #include "mars_trans_logger.h"
 #include "mars_if.h"
 
+
 static struct task_struct *main_thread = NULL;
 
 typedef int (*light_worker_fn)(void *buf, struct mars_dent *dent);
@@ -42,6 +43,47 @@ struct light_class {
 	light_worker_fn cl_forward;
 	light_worker_fn cl_backward;
 };
+
+///////////////////////////////////////////////////////////////////////
+
+// TUNING
+
+//#define CONF_TRANS_LOGLEN 1000
+#define CONF_TRANS_LOGLEN 8
+#define CONF_TRANS_BATCHLEN 4
+#define CONF_TRANS_FLYING 4
+//#define CONF_TRANS_MAX_QUEUE 1000
+#define CONF_TRANS_MAX_QUEUE 5000
+#define CONF_TRANS_MAX_JIFFIES (30 * HZ)
+
+static
+void _set_trans_params(struct trans_logger_brick *trans_brick)
+{
+	if (!trans_brick->outputs[0]->q_phase2.q_ordering) {
+		trans_brick->outputs[0]->q_phase1.q_batchlen = CONF_TRANS_LOGLEN;
+		trans_brick->outputs[0]->q_phase2.q_batchlen = CONF_TRANS_BATCHLEN;
+		trans_brick->outputs[0]->q_phase3.q_batchlen = CONF_TRANS_BATCHLEN;
+		trans_brick->outputs[0]->q_phase4.q_batchlen = CONF_TRANS_BATCHLEN;
+
+		trans_brick->outputs[0]->q_phase2.q_max_queued = CONF_TRANS_MAX_QUEUE;
+		trans_brick->outputs[0]->q_phase4.q_max_queued = CONF_TRANS_MAX_QUEUE;
+
+		trans_brick->outputs[0]->q_phase2.q_max_jiffies = CONF_TRANS_MAX_JIFFIES;
+		trans_brick->outputs[0]->q_phase4.q_max_jiffies = CONF_TRANS_MAX_JIFFIES;
+
+		trans_brick->outputs[0]->q_phase2.q_max_flying = CONF_TRANS_FLYING;
+		trans_brick->outputs[0]->q_phase4.q_max_flying = CONF_TRANS_FLYING;
+
+		trans_brick->outputs[0]->q_phase2.q_ordering = true;
+		trans_brick->outputs[0]->q_phase4.q_ordering = true;
+		trans_brick->log_reads = false;
+		if (!trans_brick->log_reads) {
+			trans_brick->outputs[0]->q_phase2.q_max_queued = 0;
+			trans_brick->outputs[0]->q_phase4.q_max_queued *= 2;
+		}
+	}
+}
+
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -866,6 +908,8 @@ int make_log_init(void *buf, struct mars_dent *parent)
 	 * something goes wrong later.
 	 */
 	rot->do_replay = true;
+
+	_set_trans_params((void*)trans_brick);
 
 	status = 0;
 
