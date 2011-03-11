@@ -32,6 +32,7 @@ struct if_input {
 	struct gendisk *disk;
 	struct block_device *bdev;
 	atomic_t open_count;
+	atomic_t io_count;
 	spinlock_t req_lock;
 	struct semaphore kick_sem;
 	struct generic_object_layout mref_object_layout;
@@ -43,7 +44,11 @@ struct if_output {
 
 struct if_brick {
 	MARS_BRICK(if);
+	// parameters
+	int readahead;
+	// inspectable
 	bool has_closed;
+	// private
 	struct if_output hidden_output;
 };
 

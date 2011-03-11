@@ -360,7 +360,7 @@ static int aio_event_thread(void *data)
 
 			MARS_IO("AIO done %p pos = %lld len = %d rw = %d\n", mref, mref->ref_pos, mref->ref_len, mref->ref_rw);
 
-			if (output->o_fdsync
+			if (output->brick->o_fdsync
 			   && err >= 0 
 			   && mref->ref_rw != READ
 			   && !mref_a->resubmit++) {
@@ -504,7 +504,7 @@ static int aio_switch(struct aio_brick *brick)
 
 	mars_power_led_off((void*)brick, false);
 
-	if (output->o_direct) {
+	if (brick->o_direct) {
 		flags |= O_DIRECT;
 		MARS_INF("using O_DIRECT on %s\n", path);
 	}
@@ -521,7 +521,15 @@ static int aio_switch(struct aio_brick *brick)
 		return err;
 	}
 	MARS_DBG("opened file '%s'\n", path);
-
+#if 1
+	{
+		struct inode *inode = output->filp->f_mapping->host;
+		if (S_ISBLK(inode->i_mode)) {
+			MARS_INF("changing readahead from %lu to %d\n", inode->i_bdev->bd_disk->queue->backing_dev_info.ra_pages, brick->readahead);
+			inode->i_bdev->bd_disk->queue->backing_dev_info.ra_pages = brick->readahead;
+		}
+	}
+#endif
 #if 0 // not here
 	if (!output->ctxp) {
 		if (!current->mm) {

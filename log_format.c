@@ -14,58 +14,133 @@ void init_logst(struct log_status *logst, struct mars_input *input, struct mars_
 }
 EXPORT_SYMBOL_GPL(init_logst);
 
-void log_skip(struct log_status *logst)
+#define MARS_LOG_CB_MAX 16
+
+struct log_cb_info {
+	int nr_endio;
+	void (*endios[MARS_LOG_CB_MAX])(void *private, int error);
+	void *privates[MARS_LOG_CB_MAX];
+};
+
+static
+void log_endio(struct generic_callback *cb)
 {
-	int bits;
-	if (!logst->info.transfer_size) {
-		int status = GENERIC_INPUT_CALL(logst->input, mars_get_info, &logst->info);
-		if (status < 0) {
-			MARS_FAT("cannot get transfer log info (code=%d)\n", status);
-		}
+	struct log_cb_info *cb_info = cb->cb_private;
+	int i;
+	for (i = 0; i < cb_info->nr_endio; i++) {
+		cb_info->endios[i](cb_info->privates[i], cb->cb_error);
 	}
-	bits = logst->info.transfer_order + PAGE_SHIFT;
-	logst->log_pos = ((logst->log_pos >> bits) + 1) << bits;
+	kfree(cb_info);
 }
-EXPORT_SYMBOL_GPL(log_skip);
+
+void log_flush(struct log_status *logst, int min_rest)
+{
+	struct mref_object *mref = logst->log_mref;
+	struct generic_callback *cb;
+	int page_offset;
+	int gap;
+
+	if (!mref)
+		return;
+
+	if (logst->restlen > 0) { // don't leak information from kernelspace
+		memset(mref->ref_data + logst->offset, 0, logst->restlen);
+	}
+	
+#if 1
+	gap = 0;
+	page_offset = logst->offset & ~(logst->align_size-1);
+	if (page_offset) {
+		gap = logst->align_size - page_offset;
+	}
+	if (logst->restlen < min_rest + gap + OVERHEAD) {
+		logst->offset += logst->restlen;
+	} else { // round up to next PAGE_SIZE border
+		logst->offset += gap;
+	}
+	logst->log_pos += logst->offset;
+#else
+	logst->log_pos += lost->chunk_size;
+#endif
+
+	cb = &mref->_ref_cb;
+	cb->cb_fn = log_endio;
+	cb->cb_private = logst->private;
+	logst->private = NULL;
+	cb->cb_error = 0;
+	cb->cb_prev = NULL;
+	mref->ref_cb = cb;
+	mref->ref_rw = 1;
+
+	GENERIC_INPUT_CALL(logst->input, mref_io, mref);
+	GENERIC_INPUT_CALL(logst->input, mref_put, mref);
+
+	logst->offset = 0;
+	logst->log_mref = NULL;
+}
+EXPORT_SYMBOL_GPL(log_flush);
 
 void *log_reserve(struct log_status *logst, struct log_header *lh)
 {
+	struct log_cb_info *cb_info = logst->private;
 	struct mref_object *mref;
 	void *data;
-	int total_len;
-	int status;
+	int total_len = lh->l_len + OVERHEAD;
 	int offset;
+	int status;
 
 	MARS_DBG("reserving %d bytes at %lld\n", lh->l_len, logst->log_pos);
 
-	if (unlikely(logst->log_mref)) {
-		MARS_ERR("mref already existing\n");
-		goto err;
+	if (total_len > logst->restlen || !cb_info || cb_info->nr_endio >= MARS_LOG_CB_MAX) {
+		log_flush(logst, lh->l_len);
 	}
 
-	mref = mars_alloc_mref(logst->output, &logst->ref_object_layout);
-	if (unlikely(!mref))
-		goto err;
+	mref = logst->log_mref;
+	if (!mref) {
+		if (unlikely(logst->private)) {
+			MARS_ERR("oops\n");
+			kfree(logst->private);
+		}
+		logst->private = kzalloc(sizeof(struct log_cb_info), GFP_MARS);
+		if (unlikely(!logst->private)) {
+			MARS_ERR("no memory\n");
+			goto err;
+		}
 
-	mref->ref_pos = logst->log_pos;
-	total_len = lh->l_len + OVERHEAD;
-	mref->ref_len = total_len;
-	mref->ref_may_write = WRITE;
+		mref = mars_alloc_mref(logst->output, &logst->ref_object_layout);
+		if (unlikely(!mref)) {
+			MARS_ERR("no mref\n");
+			goto err;
+		}
+		
+		mref->ref_pos = logst->log_pos;
+		mref->ref_len = logst->chunk_size - (logst->log_pos & (loff_t)(logst->chunk_size - 1));
+		if (mref->ref_len < total_len) {
+			MARS_INF("not good: ref_len = %d total_len = %d\n", mref->ref_len, total_len);
+			mref->ref_len = total_len;
+		}
+		mref->ref_may_write = WRITE;
 #if 1
-	mref->ref_prio = MARS_PRIO_LOW;
+		mref->ref_prio = MARS_PRIO_LOW;
 #endif
 
-	status = GENERIC_INPUT_CALL(logst->input, mref_get, mref);
-	if (unlikely(status < 0)) {
-		goto err_free;
-	}
-	if (unlikely(mref->ref_len < total_len)) {
-		goto put;
+		status = GENERIC_INPUT_CALL(logst->input, mref_get, mref);
+		if (unlikely(status < 0)) {
+			MARS_ERR("mref_get() failed, status = %d\n", status);
+			goto err_free;
+		}
+		if (unlikely(mref->ref_len < total_len)) {
+			MARS_ERR("ref_len = %d total_len = %d\n", mref->ref_len, total_len);
+			goto put;
+		}
+
+		logst->restlen = mref->ref_len;
+		logst->offset = 0;
+		logst->log_mref = mref;
 	}
 
-	logst->log_mref = mref;
+	offset = logst->offset;
 	data = mref->ref_data;
-	offset = 0;
 	DATA_PUT(data, offset, START_MAGIC);
 	DATA_PUT(data, offset, (char)FORMAT_VERSION);
 	logst->validflag_offset = offset;
@@ -81,6 +156,7 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 
 	logst->payload_offset = offset;
 	logst->payload_len = lh->l_len;
+	logst->offset = offset;
 
 	return data + offset;
 
@@ -95,21 +171,25 @@ err:
 }
 EXPORT_SYMBOL_GPL(log_reserve);
 
-bool log_finalize(struct log_status *logst, int len, void (*endio)(struct generic_callback *cb), void *private)
+bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private, int error), void *private)
 {
 	struct mref_object *mref = logst->log_mref;
-	struct generic_callback *cb;
+	struct log_cb_info *cb_info = logst->private;
 	struct timespec now;
 	void *data;
 	int offset;
+	int nr_endio;
 	bool ok = false;
 
 	CHECK_PTR(mref, err);
 
-	logst->log_mref = NULL;
-	if (unlikely(len > logst->payload_len)) {
-		MARS_ERR("trying to write more than reserved (%d > %d)\n", len, logst->payload_len);
-		goto put;
+	if (unlikely(len > logst->restlen)) {
+		MARS_ERR("trying to write more than reserved (%d > %d)\n", len, logst->restlen);
+		goto err;
+	}
+	if (unlikely(!cb_info || cb_info->nr_endio >= MARS_LOG_CB_MAX)) {
+		MARS_ERR("too many endio() calls\n");
+		goto err;
 	}
 
 	data = mref->ref_data;
@@ -131,7 +211,8 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(struct generi
 	DATA_PUT(data, offset, now.tv_sec);  
 	DATA_PUT(data, offset, now.tv_nsec);
 
-	logst->log_pos += offset;
+	logst->offset = offset;
+	logst->restlen = mref->ref_len - offset;
 
 	/* This must come last. In case of incomplete
 	 * or even operlapping disk transfers, this indicates
@@ -141,24 +222,23 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(struct generi
 	offset = logst->validflag_offset;
 	DATA_PUT(data, offset, (char)1);
 
-	cb = &mref->_ref_cb;
-	cb->cb_fn = endio;
-	cb->cb_error = 0;
-	cb->cb_prev = NULL;
-	cb->cb_private = private;
-	mref->ref_cb = cb;
-	mref->ref_rw = 1;
-
-	GENERIC_INPUT_CALL(logst->input, mref_io, mref);
+	nr_endio = cb_info->nr_endio++;
+	cb_info->endios[nr_endio] = endio;
+	cb_info->privates[nr_endio] = private;
 
 	ok = true;
-put:
-	GENERIC_INPUT_CALL(logst->input, mref_put, mref);
+
+#if 1
+	if (logst->restlen < PAGE_SIZE + OVERHEAD) {
+		log_flush(logst, PAGE_SIZE);
+	}
+#endif
 
 err:
 	return ok;
 }
 EXPORT_SYMBOL_GPL(log_finalize);
+
 
 ////////////////// module init stuff /////////////////////////
 

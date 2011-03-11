@@ -164,6 +164,8 @@ static int handler_thread(void *data)
 			prev =
 				make_brick_all(mars_global,
 					       NULL,
+					       NULL,
+					       NULL,
 					       10 * HZ,
 					       path,
 					       (const struct generic_brick_type*)_aio_brick_type,

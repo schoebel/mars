@@ -349,6 +349,8 @@ extern struct mars_brick *path_find_brick(struct mars_global *global, const void
 extern struct mars_brick *make_brick_all(
 	struct mars_global *global,
 	struct mars_dent *belongs,
+	void (*setup_fn)(struct mars_brick *brick, void *private),
+	void *private,
 	int timeout,
 	const char *new_name,
 	const struct generic_brick_type *new_brick_type,

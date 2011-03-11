@@ -58,6 +58,9 @@ struct trans_logger_brick {
 	// parameters
 	int sequence;     // logfile sequence number
 	int limit_congest;// limit phase1 congestion.
+	int align_size;   // alignment between requests
+	int chunk_size;   // must be at least 8K (better 64k)
+	int flush_delay;  // delayed firing of incomplete chunks
 	bool do_replay;   // mode of operation
 	bool log_reads;   // additionally log pre-images
 	loff_t start_pos; // where to start replay

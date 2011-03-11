@@ -149,10 +149,10 @@ void make_test_instance(void)
 	_device_brick = (void*)device_brick;
 	device_brick->outputs[0]->output_name = "/tmp/testfile.img";
 #ifdef CONF_DIRECT
-	_device_brick->outputs[0]->o_direct = true;
+	_device_brick->o_direct = true;
 #endif
 #ifdef CONF_FDSYNC
-	_device_brick->outputs[0]->o_fdsync = true;
+	_device_brick->o_fdsync = true;
 #endif
 	mars_power_button((void*)device_brick, true);
 	first = device_brick->outputs[0];
@@ -199,10 +199,10 @@ void make_test_instance(void)
 	_tdevice_brick = (void*)tdevice_brick;
 	tdevice_brick->outputs[0]->output_name = "/tmp/testfile.log";
 #ifdef CONF_DIRECT
-	_tdevice_brick->outputs[0]->o_direct = true;
+	_tdevice_brick->o_direct = true;
 #endif
 #ifdef CONF_FDSYNC
-	_tdevice_brick->outputs[0]->o_fdsync = true;
+	_tdevice_brick->o_fdsync = true;
 #endif
 	tdevice_brick->ops->brick_switch(tdevice_brick, true);
 	inter = tdevice_brick->outputs[0];

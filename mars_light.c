@@ -56,9 +56,17 @@ struct light_class {
 #define CONF_TRANS_MAX_QUEUE 5000
 #define CONF_TRANS_MAX_JIFFIES (30 * HZ)
 
+#define MARS_LOG_SIZE (64 * 1024)
+#define FLUSH_DELAY (HZ / 100 + 1)
+
+#define IF_READAHEAD 1
+#define AIO_READAHEAD 1
+
+
 static
-void _set_trans_params(struct trans_logger_brick *trans_brick)
+void _set_trans_params(struct mars_brick *_brick, void *private)
 {
+	struct trans_logger_brick *trans_brick = (void*)_brick;
 	if (!trans_brick->outputs[0]->q_phase2.q_ordering) {
 		trans_brick->outputs[0]->q_phase1.q_batchlen = CONF_TRANS_LOGLEN;
 		trans_brick->outputs[0]->q_phase2.q_batchlen = CONF_TRANS_BATCHLEN;
@@ -71,12 +79,19 @@ void _set_trans_params(struct trans_logger_brick *trans_brick)
 		trans_brick->outputs[0]->q_phase2.q_max_jiffies = CONF_TRANS_MAX_JIFFIES;
 		trans_brick->outputs[0]->q_phase4.q_max_jiffies = CONF_TRANS_MAX_JIFFIES;
 
+		trans_brick->outputs[0]->q_phase1.q_max_flying = CONF_TRANS_FLYING;
 		trans_brick->outputs[0]->q_phase2.q_max_flying = CONF_TRANS_FLYING;
+		trans_brick->outputs[0]->q_phase3.q_max_flying = CONF_TRANS_FLYING;
 		trans_brick->outputs[0]->q_phase4.q_max_flying = CONF_TRANS_FLYING;
 
 		trans_brick->outputs[0]->q_phase2.q_ordering = true;
 		trans_brick->outputs[0]->q_phase4.q_ordering = true;
 		trans_brick->log_reads = false;
+#if 1
+		trans_brick->align_size = PAGE_SIZE;
+		trans_brick->chunk_size = MARS_LOG_SIZE;
+		trans_brick->flush_delay = FLUSH_DELAY;
+#endif
 		if (!trans_brick->log_reads) {
 			trans_brick->outputs[0]->q_phase2.q_max_queued = 0;
 			trans_brick->outputs[0]->q_phase4.q_max_queued *= 2;
@@ -84,6 +99,21 @@ void _set_trans_params(struct trans_logger_brick *trans_brick)
 	}
 }
 
+static
+void _set_aio_params(struct mars_brick *_brick, void *private)
+{
+	struct aio_brick *aio_brick = (void*)_brick;
+	aio_brick->readahead = AIO_READAHEAD;
+	aio_brick->o_direct = false; // important!
+	aio_brick->o_fdsync = true;
+}
+
+static
+void _set_if_params(struct mars_brick *_brick, void *private)
+{
+	struct if_brick *if_brick = (void*)_brick;
+	if_brick->readahead = IF_READAHEAD;
+}
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -204,6 +234,8 @@ int __make_copy(
 		aio =
 			make_brick_all(global,
 				       NULL,
+				       NULL,
+				       NULL,
 				       10 * HZ,
 				       NULL,
 				       (const struct generic_brick_type*)&aio_brick_type,
@@ -221,6 +253,8 @@ int __make_copy(
 	copy =
 		make_brick_all(global,
 			       belongs,
+			       NULL,
+			       NULL,
 			       0,
 			       path,
 			       (const struct generic_brick_type*)&copy_brick_type,
@@ -855,6 +889,8 @@ int make_log_init(void *buf, struct mars_dent *parent)
 	aio_brick =
 		make_brick_all(global,
 			       aio_dent,
+			       NULL,
+			       NULL,
 			       10 * HZ,
 			       aio_path,
 			       (const struct generic_brick_type*)&aio_brick_type,
@@ -889,6 +925,8 @@ int make_log_init(void *buf, struct mars_dent *parent)
 	trans_brick =
 		make_brick_all(global,
 			       parent,
+			       _set_trans_params,
+			       NULL,
 			       0,
 			       aio_path,
 			       (const struct generic_brick_type*)&trans_logger_brick_type,
@@ -908,8 +946,6 @@ int make_log_init(void *buf, struct mars_dent *parent)
 	 * something goes wrong later.
 	 */
 	rot->do_replay = true;
-
-	_set_trans_params((void*)trans_brick);
 
 	status = 0;
 
@@ -1124,6 +1160,8 @@ int _start_trans(struct mars_rotate *rot)
 	rot->relevant_brick =
 		make_brick_all(rot->global,
 			       rot->relevant_log,
+			       NULL,
+			       NULL,
 			       10 * HZ,
 			       rot->relevant_log->d_path,
 			       (const struct generic_brick_type*)&aio_brick_type,
@@ -1287,7 +1325,6 @@ int make_aio(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
 	struct mars_brick *brick;
-	struct aio_brick *_brick;
 	int status = 0;
 
 	if (!global->global_power.button || !dent->d_activate) {
@@ -1300,6 +1337,8 @@ int make_aio(void *buf, struct mars_dent *dent)
 	brick =
 		make_brick_all(global,
 			       dent,
+			       _set_aio_params,
+			       NULL,
 			       10 * HZ,
 			       dent->d_path,
 			       (const struct generic_brick_type*)&aio_brick_type,
@@ -1312,8 +1351,6 @@ int make_aio(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 	brick->outputs[0]->output_name = dent->d_path;
-	_brick = (void*)brick;
-	_brick->outputs[0]->o_fdsync = true;
 	status = mars_power_button((void*)brick, true);
 	if (status < 0) {
 		kill_all(buf, dent);
@@ -1359,6 +1396,8 @@ static int make_dev(void *buf, struct mars_dent *dent)
 	dev_brick =
 		make_brick_all(global,
 			       dent,
+			       _set_if_params,
+			       NULL,
 			       10 * HZ,
 			       dent->d_argv[0],
 			       (const struct generic_brick_type*)&if_brick_type,
@@ -1399,11 +1438,14 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 	}
 	status = _parse_args(dent, dent->new_link, 2);
 	if (status < 0) {
+		MARS_DBG("parse status = %d\n", status);
 		goto done;
 	}
 	brick = 
 		make_brick_all(global,
 			       dent,
+			       _set_aio_params,
+			       NULL,
 			       10 * HZ,
 			       dent->d_argv[0],
 			       (const struct generic_brick_type*)&aio_brick_type,
@@ -1422,6 +1464,8 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 	brick = 
 		make_brick_all(global,
 			       dent,
+			       _set_if_params,
+			       NULL,
 			       10 * HZ,
 			       dent->d_argv[1],
 			       (const struct generic_brick_type*)&if_brick_type,

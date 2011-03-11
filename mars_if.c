@@ -33,9 +33,11 @@ static int device_minor = 0;
 
 /* callback
  */
-static void _if_endio(struct generic_callback *cb)
+static
+void if_endio(struct generic_callback *cb)
 {
 	struct if_mref_aspect *mref_a = cb->cb_private;
+	struct if_input *input;
 	struct bio *bio;
 	struct bio_vec *bvec;
 	int i, k;
@@ -77,6 +79,10 @@ static void _if_endio(struct generic_callback *cb)
 		}
 		bio_endio(bio, error);
 		bio_put(bio);
+	}
+	input = mref_a->input;
+	if (input) {
+		atomic_dec(&input->io_count);
 	}
 }
 
@@ -232,7 +238,7 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 					goto err;
 				}
 				cb = &mref_a->cb;
-				cb->cb_fn = _if_endio;
+				cb->cb_fn = if_endio;
 				cb->cb_private = mref_a;
 				cb->cb_error = 0;
 				cb->cb_prev = NULL;
@@ -263,6 +269,8 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 				mref_a->maxlen = mref->ref_len - len;
 				mref->ref_len = len;
 				
+				atomic_inc(&input->io_count);
+
 				traced_lock(&input->req_lock, flags);
 				list_add_tail(&mref_a->plug_head, &input->plug_anchor);
 				traced_unlock(&input->req_lock, flags);
@@ -307,7 +315,18 @@ static int if_open(struct block_device *bdev, fmode_t mode)
 static int if_release(struct gendisk *gd, fmode_t mode)
 {
 	struct if_input *input = gd->private_data;
+	int max = 0;
+	int nr;
+
 	MARS_INF("----------------------- CLOSE %d ------------------------------\n", atomic_read(&input->open_count));
+
+	while ((nr = atomic_read(&input->io_count)) > 0) {
+		MARS_INF("%d IO requests not yet completed\n", nr);
+		if (max++ > 10)
+			break;
+		msleep(2000);
+	}
+
 	if (atomic_dec_and_test(&input->open_count)) {
 		struct if_brick *brick = input->brick;
 		brick->has_closed = true;
@@ -392,6 +411,10 @@ static int if_switch(struct if_brick *brick)
 		/* we have no partitions. we contain only ourselves. */
 		input->bdev->bd_contains = input->bdev;
 
+#if 1
+		MARS_INF("ra_pages OLD = %lu NEW = %d\n", q->backing_dev_info.ra_pages, brick->readahead);
+		q->backing_dev_info.ra_pages = brick->readahead;
+#endif
 #if 0 // ???
 		q->backing_dev_info.congested_fn = mars_congested;
 		q->backing_dev_info.congested_data = input;

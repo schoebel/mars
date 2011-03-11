@@ -72,26 +72,32 @@ struct log_header_v1 {
 /* Bookkeeping status between calls
  */
 struct log_status {
+	// tunables
+	int align_size;   // alignment between requests
+	int chunk_size;   // must be at least 8K (better 64k)
+	// internal
 	struct mars_input *input;
 	struct mars_output *output;
 	struct generic_object_layout ref_object_layout;
-
 	struct mars_info info;
 	loff_t log_pos;
+	int restlen;
+	int offset;
 	int validflag_offset;
 	int reallen_offset;
 	int payload_offset;
 	int payload_len;
 	struct mref_object *log_mref;
+	void *private;
 };
 
 void init_logst(struct log_status *logst, struct mars_input *input, struct mars_output *output);
 
-void log_skip(struct log_status *logst);
+void log_flush(struct log_status *logst, int min_rest);
 
 void *log_reserve(struct log_status *logst, struct log_header *lh);
 
-bool log_finalize(struct log_status *logst, int len, void (*endio)(struct generic_callback *cb), void *private);
+bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private, int error), void *private);
 
 #endif
 #endif

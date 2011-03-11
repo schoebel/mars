@@ -57,7 +57,7 @@ bool q_is_ready(struct logger_queue *q, bool do_drain)
 		goto always_done;
 
 	res = true;
-	if (do_drain || queued >= q->q_max_queued)
+	if (do_drain || queued > q->q_max_queued)
 		goto done;
 
 	if (q->q_max_jiffies > 0 &&
@@ -499,7 +499,9 @@ static void _trans_logger_endio(struct generic_callback *cb)
 	mref->ref_cb = prev_cb;
 	prev_cb->cb_fn(prev_cb);
 
-	atomic_dec(&output->fly_count);
+	if (atomic_dec_and_test(&output->fly_count)) {
+		wake_up_interruptible(&output->event);
+	}
 
 err: ;
 }
@@ -548,6 +550,7 @@ static void trans_logger_ref_io(struct trans_logger_output *output, struct mref_
 			}
 			q_insert(&output->q_phase1, mref_a);
 			wake_up_interruptible(&output->event);
+			//MARS_INF("PING %d\n", atomic_read(&output->q_phase1.q_queued));
 		}
 		return;
 	}
@@ -577,16 +580,14 @@ err: ;
  * Phase 1: write transaction log entry for the original write request.
  */
 
-static void phase1_endio(struct generic_callback *cb)
+static void phase1_endio(void *private, int error)
 {
 	struct trans_logger_mref_aspect *orig_mref_a;
 	struct mref_object *orig_mref;
 	struct trans_logger_output *output;
 	struct generic_callback *orig_cb;
 
-	CHECK_PTR(cb, err);
-
-	orig_mref_a = cb->cb_private;
+	orig_mref_a = private;
 	CHECK_PTR(orig_mref_a, err);
 
 	output = orig_mref_a->output;
@@ -600,8 +601,9 @@ static void phase1_endio(struct generic_callback *cb)
 	CHECK_PTR(orig_cb, err);
 
 	// signal completion to the upper layer, as early as possible
-	orig_cb->cb_error = cb->cb_error;
-	if (likely(cb->cb_error >= 0)) {
+	if (error < 0)
+		orig_cb->cb_error = error;
+	if (likely(orig_cb->cb_error >= 0)) {
 		orig_mref->ref_flags &= ~MREF_WRITING;
 		orig_mref->ref_flags |= MREF_UPTODATE;
 	}
@@ -610,11 +612,7 @@ static void phase1_endio(struct generic_callback *cb)
 	orig_cb->cb_fn(orig_cb);
 
 	// queue up for the next phase
-	if (output->brick->log_reads) {
-		q_insert(&output->q_phase2, orig_mref_a);
-	} else {
-		q_insert(&output->q_phase2, orig_mref_a);
-	}
+	q_insert(&output->q_phase2, orig_mref_a);
 	wake_up_interruptible(&output->event);
 err: ;
 }
@@ -663,6 +661,7 @@ static bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	 * should be counting!
 	 */
 	brick->current_pos = brick->logst.log_pos;
+	wake_up_interruptible(&output->event);
 	return true;
 
 err:
@@ -692,7 +691,7 @@ static void phase2_endio(struct generic_callback *cb)
 
 	if (unlikely(cb->cb_error < 0)) {
 		MARS_FAT("IO error %d\n", cb->cb_error);
-		goto err;
+		goto done;
 	}
 
 	// queue up for the next phase
@@ -701,6 +700,7 @@ static void phase2_endio(struct generic_callback *cb)
 	} else {
 		q_insert(&output->q_phase4, sub_mref_a);
 	}
+done:
 	wake_up_interruptible(&output->event);
 err: ;
 }
@@ -787,6 +787,7 @@ static bool phase2_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	 * from above).
 	 */
 	_trans_logger_ref_put(output, orig_mref);
+	wake_up_interruptible(&output->event);
 	return true;
 
 err:
@@ -797,21 +798,20 @@ err:
  * Phase 3: log the old disk version.
  */
 
-static void phase3_endio(struct generic_callback *cb)
+static void phase3_endio(void *private, int error)
 {
 	struct trans_logger_mref_aspect *sub_mref_a;
 	struct trans_logger_output *output;
 
-	CHECK_PTR(cb, err);
-	sub_mref_a = cb->cb_private;
+	sub_mref_a = private;
 	CHECK_PTR(sub_mref_a, err);
 	output = sub_mref_a->output;
 	CHECK_PTR(output, err);
 	atomic_dec(&output->q_phase3.q_flying);
 
-	if (unlikely(cb->cb_error < 0)) {
-		MARS_FAT("IO error %d\n", cb->cb_error);
-		goto err;
+	if (unlikely(error < 0)) {
+		MARS_FAT("IO error %d\n", error);
+		goto err; // FIXME: this leads to hanging requests. do better.
 	}
 
 	// queue up for the next phase
@@ -857,6 +857,7 @@ static bool phase3_startio(struct trans_logger_mref_aspect *sub_mref_a)
 		goto err;
 	}
 	atomic_inc(&output->q_phase3.q_flying);
+	wake_up_interruptible(&output->event);
 	return true;
 
 err:
@@ -937,6 +938,7 @@ static bool phase4_startio(struct trans_logger_mref_aspect *sub_mref_a)
 	//MARS_INF("put SUBREF.\n");
 	GENERIC_INPUT_CALL(input, mref_put, sub_mref);
 	atomic_dec(&output->sub_balance_count);
+	wake_up_interruptible(&output->event);
 	return true;
 
 err:
@@ -949,23 +951,35 @@ err:
  * There is only a single instance, dealing with all requests in parallel.
  */
 
-static int run_queue(struct logger_queue *q, bool (*startio)(struct trans_logger_mref_aspect *sub_mref_a), int max)
+static int run_queue(struct trans_logger_output *output, struct logger_queue *q, bool (*startio)(struct trans_logger_mref_aspect *sub_mref_a), int max)
 {
 	struct trans_logger_mref_aspect *mref_a;
+	bool found = false;
 	bool ok;
+	int res;
 
 	while (max-- > 0) {
 		mref_a = q_fetch(q);
+		res = -1;
 		if (!mref_a)
-			return -1;
-	
+			goto done;
+
+		found = true;
+		
 		ok = startio(mref_a);
 		if (unlikely(!ok)) {
 			q_pushback(q, mref_a);
-			return 1;
+			res = 1;
+			goto done;
 		}
 	}
-	return 0;
+	res = 0;
+
+done:
+	if (found) {
+		wake_up_interruptible(&output->event);
+	}
+	return res;
 }
 
 static inline int _congested(struct trans_logger_output *output)
@@ -981,20 +995,24 @@ static inline int _congested(struct trans_logger_output *output)
 }
 
 #define DO_DRAIN(output)						\
-	((output)->old_fly_count + atomic_read(&(output)->fly_count) <= 0)
+	(/*(output)->old_fly_count + */ atomic_read(&(output)->fly_count) <= 0)
 
 static
 void trans_logger_log(struct trans_logger_output *output)
 {
 	struct trans_logger_brick *brick = output->brick;
-	int wait_jiffies = HZ;
-	int last_jiffies = jiffies;
+	int wait_timeout = HZ;
+	long long last_jiffies = jiffies;
+	long long log_jiffies = jiffies;
 
 	while (!kthread_should_stop() || _congested(output)) {
 		int status;
+		bool prev_queued = atomic_read(&output->q_phase1.q_queued) > 0;
 
 		output->old_fly_count = atomic_read(&output->fly_count);
-
+#if 1
+		wait_timeout = 4;
+#endif
 		wait_event_interruptible_timeout(
 			output->event,
 			q_is_ready(&output->q_phase1, DO_DRAIN(output)) ||
@@ -1002,40 +1020,60 @@ void trans_logger_log(struct trans_logger_output *output)
 			q_is_ready(&output->q_phase3, DO_DRAIN(output)) ||
 			q_is_ready(&output->q_phase4, DO_DRAIN(output)) ||
 			(kthread_should_stop() && !_congested(output)),
-			wait_jiffies);
+			wait_timeout);
+
+		//MARS_INF("AHA %d\n", atomic_read(&output->q_phase1.q_queued));
 #if 1
-		if (((int)jiffies) - last_jiffies >= HZ * 10 && brick->power.button) {
+		if (((long long)jiffies) - last_jiffies >= HZ * 10 && brick->power.button) {
 			last_jiffies = jiffies;
 			MARS_INF("LOGGER: mshadow=%d sshadow=%d hash_count=%d balance=%d/%d/%d fly=%d phase1=%d+%d phase2=%d+%d phase3=%d+%d phase4=%d+%d\n", atomic_read(&output->mshadow_count), atomic_read(&output->sshadow_count), atomic_read(&output->hash_count), atomic_read(&output->sub_balance_count), atomic_read(&output->inner_balance_count), atomic_read(&output->outer_balance_count), atomic_read(&output->fly_count), atomic_read(&output->q_phase1.q_queued), atomic_read(&output->q_phase1.q_flying), atomic_read(&output->q_phase2.q_queued), atomic_read(&output->q_phase2.q_flying), atomic_read(&output->q_phase3.q_queued), atomic_read(&output->q_phase3.q_flying), atomic_read(&output->q_phase4.q_queued), atomic_read(&output->q_phase4.q_flying));
 		}
 #endif
-		wait_jiffies = HZ;
 
-		status = run_queue(&output->q_phase1, phase1_startio, output->q_phase1.q_batchlen);
+		wait_timeout = 8 * HZ;
+		if (atomic_read(&output->q_phase1.q_queued) > 0) {
+			wait_timeout = brick->flush_delay + 1;
+			if (!prev_queued) {
+				log_jiffies = jiffies;
+			}
+		}
+
+		status = run_queue(output, &output->q_phase1, phase1_startio, output->q_phase1.q_batchlen);
+#if 0
 		if (unlikely(status > 0)) {
-			(void)run_queue(&output->q_phase3, phase3_startio, 1);
-			log_skip(&brick->logst);
-			wait_jiffies = 5;
+			MARS_ERR("oops\n");
+			//log_flush(&brick->logst);
+			msleep(10);
 			continue;
 		}
+#endif
 
 		/* Strategy / performance:
 		 * run higher phases only when IO contention is "low".
 		 */
 		if (q_is_ready(&output->q_phase2, DO_DRAIN(output))) {
-			(void)run_queue(&output->q_phase2, phase2_startio, output->q_phase2.q_batchlen);
+			(void)run_queue(output, &output->q_phase2, phase2_startio, output->q_phase2.q_batchlen);
 		}
 
 		if (q_is_ready(&output->q_phase3, DO_DRAIN(output))) {
-			status = run_queue(&output->q_phase3, phase3_startio, output->q_phase3.q_batchlen);
+			status = run_queue(output, &output->q_phase3, phase3_startio, output->q_phase3.q_batchlen);
+#if 0
 			if (unlikely(status > 0)) {
-				log_skip(&brick->logst);
-				wait_jiffies = 5;
+				MARS_ERR("oops\n");
+				//log_flush(&brick->logst);
+				msleep(10);
 				continue;
 			}
+#endif
 		}
+		
+		if (atomic_read(&output->q_phase1.q_queued) <= 0 &&
+		   (!brick->flush_delay || ((long long)jiffies) - log_jiffies >= brick->flush_delay)) {
+			log_flush(&brick->logst, PAGE_SIZE);
+		}
+
 		if (q_is_ready(&output->q_phase4, DO_DRAIN(output))) {
-			(void)run_queue(&output->q_phase4, phase4_startio, output->q_phase4.q_batchlen);
+			(void)run_queue(output, &output->q_phase4, phase4_startio, output->q_phase4.q_batchlen);
 		}
 	}
 }
@@ -1066,6 +1104,9 @@ int trans_logger_thread(void *data)
 
 	brick->current_pos = brick->start_pos;
 	mars_power_led_on((void*)brick, true);
+
+	brick->logst.align_size = brick->align_size;
+	brick->logst.chunk_size = brick->chunk_size;
 
 	if (brick->do_replay) {
 		trans_logger_replay(output);

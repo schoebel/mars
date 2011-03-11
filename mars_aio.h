@@ -15,6 +15,10 @@ struct aio_mref_aspect {
 
 struct aio_brick {
 	MARS_BRICK(aio);
+	// parameters
+	int readahead;
+	bool o_direct;
+	bool o_fdsync;
 };
 
 struct aio_input {
@@ -32,9 +36,6 @@ struct aio_threadinfo {
 
 struct aio_output {
 	MARS_OUTPUT(aio);
-	// parameters
-	bool o_direct;
-	bool o_fdsync;
         // private
 	struct file *filp;
 	int fd; // FIXME: remove this!

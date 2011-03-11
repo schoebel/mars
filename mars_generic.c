@@ -970,6 +970,8 @@ EXPORT_SYMBOL_GPL(_aio_brick_type);
 struct mars_brick *make_brick_all(
 	struct mars_global *global,
 	struct mars_dent *belongs,
+	void (*setup_fn)(struct mars_brick *brick, void *private),
+	void *private,
 	int timeout,
 	const char *new_name,
 	const struct generic_brick_type *new_brick_type,
@@ -1064,6 +1066,11 @@ struct mars_brick *make_brick_all(
 			MARS_ERR("'%s' '%s' cannot connect input %d\n", new_path, new_name, i);
 			goto err;
 		}
+	}
+
+	// call setup function
+	if (setup_fn) {
+		setup_fn(brick, private);
 	}
 
 	// switch on (may fail silently, but responsibility is at the workers)
