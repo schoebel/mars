@@ -15,10 +15,6 @@ struct if_mref_aspect {
 	struct list_head plug_head;
 	int maxlen;
 	int bio_count;
-#if 1
-	int xxx;
-	int yyy;
-#endif
 	struct page *orig_page;
 	struct bio *orig_bio[MAX_BIO];
 	struct generic_callback cb;

@@ -15,19 +15,22 @@
 _PAIRING_HEAP_TYPEDEF(mref,)
 
 struct logger_queue {
+	struct logger_queue *q_dep;
+	struct trans_logger_output *q_output;
 	struct list_head q_anchor;
 	struct pairing_heap_mref *heap_high;
 	struct pairing_heap_mref *heap_low;
 	loff_t heap_border;
+	long long q_last_action; // jiffies
 	spinlock_t q_lock;
 	atomic_t q_queued;
 	atomic_t q_flying;
-	long long q_last_action; // jiffies
 	// tunables
 	int q_batchlen;
 	int q_max_queued;
 	int q_max_flying;
 	int q_max_jiffies;
+	int q_dep_flying;
 	bool q_ordering;
 };
 
@@ -47,6 +50,7 @@ struct trans_logger_mref_aspect {
 	struct trans_logger_mref_aspect *shadow_ref;
 	void   *orig_data;
 	bool   is_hashed;
+	bool   is_outdated;
 	struct timespec stamp;
 	struct generic_callback cb;
 	struct trans_logger_mref_aspect *orig_mref_a;
@@ -63,6 +67,7 @@ struct trans_logger_brick {
 	int flush_delay;  // delayed firing of incomplete chunks
 	bool do_replay;   // mode of operation
 	bool log_reads;   // additionally log pre-images
+	bool debug_shortcut; // only for testing! never use in production!
 	loff_t start_pos; // where to start replay
 	loff_t end_pos;   // end of replay
 	// readonly from outside
@@ -78,7 +83,10 @@ struct trans_logger_output {
 	atomic_t outer_balance_count;
 	atomic_t inner_balance_count;
 	atomic_t sub_balance_count;
-	int old_fly_count;
+	atomic_t total_read_count;
+	atomic_t total_write_count;
+	atomic_t total_writeback_count;
+	atomic_t total_shortcut_count;
 	struct task_struct *thread;
 	wait_queue_head_t event;
 	// queues
@@ -86,6 +94,7 @@ struct trans_logger_output {
 	struct logger_queue q_phase2;
 	struct logger_queue q_phase3;
 	struct logger_queue q_phase4;
+	bool   did_pushback;
 	struct hash_anchor hash_table[TRANS_HASH_MAX];
 };
 

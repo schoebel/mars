@@ -92,19 +92,23 @@ EXPORT_SYMBOL_GPL(mars_dent_meta);
 
 // some helpers
 
-int mars_lstat(const char *path, struct kstat *stat)
+int mars_stat(const char *path, struct kstat *stat, bool use_lstat)
 {
 	mm_segment_t oldfs;
 	int status;
 	
 	oldfs = get_fs();
 	set_fs(get_ds());
-	status = vfs_lstat((char*)path, stat);
+	if (use_lstat) {
+		status = vfs_lstat((char*)path, stat);
+	} else {
+		status = vfs_stat((char*)path, stat);
+	}
 	set_fs(oldfs);
 
 	return status;
 }
-EXPORT_SYMBOL_GPL(mars_lstat);
+EXPORT_SYMBOL_GPL(mars_stat);
 
 int mars_mkdir(const char *path)
 {
@@ -964,6 +968,8 @@ EXPORT_SYMBOL_GPL(path_find_brick);
 
 const struct generic_brick_type *_client_brick_type = NULL;
 EXPORT_SYMBOL_GPL(_client_brick_type);
+const struct generic_brick_type *_bio_brick_type = NULL;
+EXPORT_SYMBOL_GPL(_bio_brick_type);
 const struct generic_brick_type *_aio_brick_type = NULL;
 EXPORT_SYMBOL_GPL(_aio_brick_type);
 
@@ -1036,9 +1042,10 @@ struct mars_brick *make_brick_all(
 		MARS_DBG("------> predecessor %d path = '%s'\n", i, path);
 	}
 
-	// create it...
+	// some generic brick replacements (better performance / network functionality)
 	brick = NULL;
-	if (new_brick_type == _aio_brick_type && _client_brick_type != NULL) {
+	if ((new_brick_type == _bio_brick_type || new_brick_type == _aio_brick_type)
+	   && _client_brick_type != NULL) {
 		char *remote = strchr(new_name, '@');
 		if (remote) {
 			remote++;
@@ -1047,6 +1054,15 @@ struct mars_brick *make_brick_all(
 			brick = mars_make_brick(global, belongs, _client_brick_type, new_path, new_name);
 		}
 	}
+	if (!brick && new_brick_type == _bio_brick_type && _aio_brick_type) {
+		struct kstat test = {};
+		int status = mars_stat(new_path, &test, false);
+		if (status < 0 || !S_ISBLK(test.mode)) {
+			new_brick_type = _aio_brick_type;
+		}
+	}
+
+	// create it...
 	if (!brick)
 		brick = mars_make_brick(global, belongs, new_brick_type, new_path, new_name);
 	if (unlikely(!brick)) {

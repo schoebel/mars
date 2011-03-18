@@ -6,11 +6,12 @@
 
 #include "log_format.h"
 
-void init_logst(struct log_status *logst, struct mars_input *input, struct mars_output *output)
+void init_logst(struct log_status *logst, struct mars_input *input, struct mars_output *output, loff_t start_pos)
 {
 	memset(logst, sizeof(*logst), 0);
 	logst->input = input;
 	logst->output = output;
+	logst->log_pos = start_pos;
 }
 EXPORT_SYMBOL_GPL(init_logst);
 
@@ -27,17 +28,23 @@ void log_endio(struct generic_callback *cb)
 {
 	struct log_cb_info *cb_info = cb->cb_private;
 	int i;
+
+	CHECK_PTR(cb_info, err);
+
 	for (i = 0; i < cb_info->nr_endio; i++) {
 		cb_info->endios[i](cb_info->privates[i], cb->cb_error);
 	}
 	kfree(cb_info);
+	return;
+
+err:
+	MARS_FAT("internal pointer corruption\n");
 }
 
 void log_flush(struct log_status *logst, int min_rest)
 {
 	struct mref_object *mref = logst->log_mref;
 	struct generic_callback *cb;
-	int page_offset;
 	int gap;
 
 	if (!mref)
@@ -47,21 +54,21 @@ void log_flush(struct log_status *logst, int min_rest)
 		memset(mref->ref_data + logst->offset, 0, logst->restlen);
 	}
 	
-#if 1
 	gap = 0;
-	page_offset = logst->offset & ~(logst->align_size-1);
-	if (page_offset) {
-		gap = logst->align_size - page_offset;
+	if (logst->align_size > 0) {
+		int align_offset = logst->offset & (logst->align_size-1);
+		if (align_offset > 0) {
+			gap = logst->align_size - align_offset;
+		}
 	}
 	if (logst->restlen < min_rest + gap + OVERHEAD) {
+		// finish this chunk completely
 		logst->offset += logst->restlen;
-	} else { // round up to next PAGE_SIZE border
+	} else {
+		// round up to next alignment border
 		logst->offset += gap;
 	}
 	logst->log_pos += logst->offset;
-#else
-	logst->log_pos += lost->chunk_size;
-#endif
 
 	cb = &mref->_ref_cb;
 	cb->cb_fn = log_endio;
@@ -238,6 +245,18 @@ err:
 	return ok;
 }
 EXPORT_SYMBOL_GPL(log_finalize);
+
+
+int log_read_prepare(struct log_status *logst, struct log_header *lh)
+{
+	return 0;
+}
+EXPORT_SYMBOL_GPL(log_read_prepare);
+
+void log_read(struct log_status *logst, void *buffer)
+{
+}
+EXPORT_SYMBOL_GPL(log_read);
 
 
 ////////////////// module init stuff /////////////////////////

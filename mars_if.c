@@ -6,8 +6,20 @@
 
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
-//#define LOG
+//#define IO_DEBUGGING
+
 #define REQUEST_MERGING
+
+// low-level device parameters
+//#define USE_MAX_SECTORS         (MARS_MAX_SEGMENT_SIZE >> 9)
+//#define USE_MAX_PHYS_SEGMENTS   (MARS_MAX_SEGMENT_SIZE >> 9)
+//#define USE_MAX_SEGMENT_SIZE    MARS_MAX_SEGMENT_SIZE
+//#define USE_LOGICAL_BLOCK_SIZE  512
+//#define USE_SEGMENT_BOUNDARY    (PAGE_SIZE-1)
+//#define USE_QUEUE_ORDERED       QUEUE_ORDERED_DRAIN
+
+//#define USE_CONGESTED_FN
+#define USE_MERGE_BVEC
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -48,11 +60,6 @@ void if_endio(struct generic_callback *cb)
 		return;
 	}
 
-#if 1
-	if (mref_a->yyy++ > 0)
-		MARS_ERR("yyy = %d\n", mref_a->yyy - 1);
-#endif
-
 	for (k = 0; k < mref_a->bio_count; k++) {
 		bio = mref_a->orig_bio[k];
 		mref_a->orig_bio[k] = NULL;
@@ -66,8 +73,11 @@ void if_endio(struct generic_callback *cb)
 			continue;
 		}
 
-		bio_for_each_segment(bvec, bio, i) {
-			kunmap(bvec->bv_page);
+		if (mref_a->object->ref_is_kmapped) {
+			bio_for_each_segment(bvec, bio, i) {
+				MARS_IO("kunmap %p\n", bvec->bv_page);
+				kunmap(bvec->bv_page);
+			}
 		}
 
 		error = mref_a->cb.cb_error;
@@ -111,10 +121,6 @@ static void _if_unplug(struct if_input *input)
 		list_del_init(&mref_a->plug_head);
                 mref = mref_a->object;
 
-#if 1
-		if (mref_a->xxx++ > 0)
-			MARS_ERR("xxx = %d\n", mref_a->xxx - 1);
-#endif
 		GENERIC_INPUT_CALL(input, mref_io, mref);
 		GENERIC_INPUT_CALL(input, mref_put, mref);
 	}
@@ -138,7 +144,7 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 	int rw = bio_data_dir(bio);
         int error = -ENOSYS;
 
-	MARS_DBG("make_request(%d)\n", bio->bi_size);
+	MARS_IO("bio %p size = %d\n", bio, bio->bi_size);
 
 	might_sleep();
 
@@ -164,12 +170,12 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 	_CHECK_ATOMIC(&bio->bi_comp_cnt, !=, 0);
 	atomic_set(&bio->bi_comp_cnt, 0);
 
-#ifdef LOG
+#ifdef IO_DEBUGGING
 	{
 		const unsigned short prio = bio_prio(bio);
 		const bool sync = bio_rw_flagged(bio, BIO_RW_SYNCIO);
 		const unsigned int ff = bio->bi_rw & REQ_FAILFAST_MASK;
-		MARS_INF("BIO rw = %lx len = %d prio = %d sync = %d unplug = %d ff = %d\n", bio->bi_rw, bio->bi_size, prio, sync, unplug, ff);
+		MARS_IO("BIO rw = %lx len = %d prio = %d sync = %d unplug = %d ff = %d\n", bio->bi_rw, bio->bi_size, prio, sync, unplug, ff);
 	}
 #endif
 
@@ -177,8 +183,17 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 
 	bio_for_each_segment(bvec, bio, i) {
 		int bv_len = bvec->bv_len;
-		void *data = kmap(bvec->bv_page);
-		data += bvec->bv_offset;
+		struct page *page = bvec->bv_page;
+		void *data;
+		int offset = bvec->bv_offset;
+#if 1
+		if (offset >= PAGE_SIZE) { // higher-order pages NYI
+			MARS_ERR("AHA offset = %d\n", offset);
+		}
+#endif
+		data = kmap(page);
+		MARS_IO("page = %p data = %p\n", page, data);
+		data += offset;
 
 		while (bv_len > 0) {
 			struct list_head *tmp;
@@ -187,9 +202,8 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 
 			mref = NULL;
 			mref_a = NULL;
-#ifdef LOG
-			MARS_INF("rw = %d i = %d pos = %lld  bv_page = %p bv_offset = %d data = %p bv_len = %d\n", rw, i, pos, bvec->bv_page, bvec->bv_offset, data, bv_len);
-#endif
+
+			MARS_IO("rw = %d i = %d pos = %lld  bv_page = %p bv_offset = %d data = %p bv_len = %d\n", rw, i, pos, bvec->bv_page, bvec->bv_offset, data, bv_len);
 
 #ifdef REQUEST_MERGING
 			traced_lock(&input->req_lock, flags);
@@ -197,9 +211,9 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 				struct if_mref_aspect *tmp_a;
 				tmp_a = container_of(tmp, struct if_mref_aspect, plug_head);
 				len = bv_len;
-#ifdef LOG
-				MARS_INF("bio = %p mref = %p len = %d maxlen = %d\n", bio, mref, len, tmp_a->maxlen);
-#endif
+
+				MARS_IO("bio = %p mref = %p len = %d maxlen = %d\n", bio, mref, len, tmp_a->maxlen);
+
 				if (len > tmp_a->maxlen) {
 					len = tmp_a->maxlen;
 				}
@@ -217,9 +231,7 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 					mref_a->orig_bio[mref_a->bio_count++] = bio;
 					assigned = true;
 
-#ifdef LOG
-					MARS_INF("merge bio = %p mref = %p bio_count = %d len = %d ref_len = %d\n", bio, mref, mref_a->bio_count, len, mref->ref_len);
-#endif
+					MARS_IO("merge bio = %p mref = %p bio_count = %d len = %d ref_len = %d\n", bio, mref, mref_a->bio_count, len, mref->ref_len);
 					break;
 				}
 			}
@@ -249,6 +261,10 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 				mref->ref_len = PAGE_SIZE;
 				//mref->ref_len = 512;
 				mref->ref_data = data; // direct IO
+#if 1
+				mref->ref_page = page;
+				mref->ref_is_kmapped = true;
+#endif
 
 				error = GENERIC_INPUT_CALL(input, mref_get, mref);
 				if (unlikely(error < 0)) {
@@ -335,15 +351,36 @@ static int if_release(struct gendisk *gd, fmode_t mode)
 	return 0;
 }
 
-static void if_unplug(struct request_queue *q)
+//static
+void if_unplug(struct request_queue *q)
 {
 	struct if_input *input = q->queuedata;
-	MARS_DBG("UNPLUG\n");
-#ifdef LOG
-	MARS_INF("UNPLUG\n");
-#endif
+	MARS_IO("UNPLUG\n");
 	queue_flag_clear_unlocked(QUEUE_FLAG_PLUGGED, q);
 	_if_unplug(input);
+}
+
+//static
+int mars_congested(void *data, int bdi_bits)
+{
+	struct if_input *input = data;
+	int ret = 0;
+	if (bdi_bits & (1 << BDI_sync_congested) &&
+	   atomic_read(&input->io_count) > 0) {
+		ret |= (1 << BDI_sync_congested);
+		
+	}
+	return ret;
+}
+
+static
+int mars_merge_bvec(struct request_queue *q, struct bvec_merge_data *bvm, struct bio_vec *bvec)
+{
+	unsigned int bio_size = bvm->bi_size;
+	if (!bio_size) {
+		return bvec->bv_len;
+	}
+	return 128;
 }
 
 static const struct block_device_operations if_blkdev_ops = {
@@ -400,27 +437,43 @@ static int if_switch(struct if_brick *brick)
 		set_capacity(disk, capacity);
 		
 		blk_queue_make_request(q, if_make_request);
-		blk_queue_max_segment_size(q, MARS_MAX_SEGMENT_SIZE);
+#ifdef USE_MAX_SECTORS
+		blk_queue_max_sectors(q, USE_MAX_SECTORS);
+#endif
+#ifdef USE_MAX_PHYS_SEGMENTS
+		blk_queue_max_phys_segments(q, USE_MAX_PHYS_SEGMENTS);
+#endif
+#ifdef USE_MAX_HW_SEGMENTS
+		blk_queue_max_hw_segments(q, USE_MAX_HW_SEGMENTS);
+#endif
+#ifdef USE_MAX_SEGMENT_SIZE
+		blk_queue_max_segment_size(q, USE_MAX_SEGMENT_SIZE);
+#endif
+#ifdef USE_LOGICAL_BLOCK_SIZE
+		blk_queue_logical_block_size(q, USE_LOGICAL_BLOCK_SIZE);
+#endif
+#ifdef USE_SEGMENT_BOUNDARY
+		blk_queue_segment_boundary(q, USE_SEGMENT_BOUNDARY);
+#endif
+#ifdef USE_QUEUE_ORDERED
+		blk_queue_ordered(q, USE_QUEUE_ORDERED, NULL);
+#endif
 		blk_queue_bounce_limit(q, BLK_BOUNCE_ANY);
 		q->unplug_fn = if_unplug;
 		q->queue_lock = &input->req_lock; // needed!
-		//blk_queue_ordered(q, QUEUE_ORDERED_DRAIN, NULL);//???
 		
 		//MARS_DBG("4\n");
 		input->bdev = bdget(MKDEV(disk->major, minor));
 		/* we have no partitions. we contain only ourselves. */
 		input->bdev->bd_contains = input->bdev;
 
-#if 1
 		MARS_INF("ra_pages OLD = %lu NEW = %d\n", q->backing_dev_info.ra_pages, brick->readahead);
 		q->backing_dev_info.ra_pages = brick->readahead;
-#endif
-#if 0 // ???
+#ifdef USE_CONGESTED_FN
 		q->backing_dev_info.congested_fn = mars_congested;
 		q->backing_dev_info.congested_data = input;
 #endif
-
-#if 0 // ???
+#ifdef USE_MERGE_BVEC
 		blk_queue_merge_bvec(q, mars_merge_bvec);
 #endif
 

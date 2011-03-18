@@ -35,9 +35,16 @@ config MARS_IF
 	---help---
 	Experimental storage System.
 
+config MARS_BIO
+	tristate "interface to blkdev via kernel BIO"
+	depends on MARS
+	default m
+	---help---
+	Experimental storage System.
+
 config MARS_AIO
 	tristate "interface to a linux file"
-	depends on MARS && AIO
+	depends on MARS
 	default m
 	---help---
 	Experimental storage System.
@@ -99,7 +106,7 @@ config MARS_TEST
 	Experimental storage System.
 
 config MARS_LIGHT
-	tristate "MARS Light"
+	tristate "MARS Light main"
 	depends on MARS
 	default m
 	---help---

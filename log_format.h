@@ -75,12 +75,13 @@ struct log_status {
 	// tunables
 	int align_size;   // alignment between requests
 	int chunk_size;   // must be at least 8K (better 64k)
+	// informational
+	loff_t log_pos;
 	// internal
 	struct mars_input *input;
 	struct mars_output *output;
 	struct generic_object_layout ref_object_layout;
 	struct mars_info info;
-	loff_t log_pos;
 	int restlen;
 	int offset;
 	int validflag_offset;
@@ -91,13 +92,16 @@ struct log_status {
 	void *private;
 };
 
-void init_logst(struct log_status *logst, struct mars_input *input, struct mars_output *output);
+void init_logst(struct log_status *logst, struct mars_input *input, struct mars_output *output, loff_t start_pos);
 
 void log_flush(struct log_status *logst, int min_rest);
 
 void *log_reserve(struct log_status *logst, struct log_header *lh);
 
 bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private, int error), void *private);
+
+int log_read_prepare(struct log_status *logst, struct log_header *lh);
+void log_read(struct log_status *logst, void *buffer);
 
 #endif
 #endif

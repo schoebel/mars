@@ -99,15 +99,10 @@ static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
 		mref->ref_data = kmalloc(mref->ref_len, GFP_MARS);
 		if (!mref->ref_data)
 			return -ENOMEM;
+#if 0 // ???
 		mref->ref_flags = 0;
-		mref_a->do_dealloc = true;
-#if 0 // litter flags for testing
-		if (mref->ref_rw) {
-			static int random = 0;
-			if (!(random++ % 2))
-				mref->ref_flags |= MREF_UPTODATE;
-		}
 #endif
+		mref_a->do_dealloc = true;
 	}
 
 	atomic_inc(&mref->ref_count);
@@ -120,12 +115,14 @@ static void aio_ref_put(struct aio_output *output, struct mref_object *mref)
 	struct aio_mref_aspect *mref_a;
 
 	CHECK_ATOMIC(&mref->ref_count, 1);
-	if (file) {
-		mref->ref_total_size = i_size_read(file->f_mapping->host);
-	}
 	if (!atomic_dec_and_test(&mref->ref_count)) {
 		goto done;
 	}
+
+	if (file) {
+		mref->ref_total_size = i_size_read(file->f_mapping->host);
+	}
+
 	mref_a = aio_mref_get_aspect(output, mref);
 	if (mref_a && mref_a->do_dealloc) {
 		kfree(mref->ref_data);
@@ -313,7 +310,7 @@ static int aio_event_thread(void *data)
 
 #if 1
 	if (!output->ctxp) {
-	mm_segment_t oldfs;
+		mm_segment_t oldfs;
 		if (!current->mm) {
 			MARS_ERR("mm = %p\n", current->mm);
 			err = -EINVAL;

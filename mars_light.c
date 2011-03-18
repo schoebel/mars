@@ -24,6 +24,7 @@
 #include "mars_server.h"
 #include "mars_client.h"
 #include "mars_copy.h"
+#include "mars_bio.h"
 #include "mars_aio.h"
 #include "mars_trans_logger.h"
 #include "mars_if.h"
@@ -48,50 +49,64 @@ struct light_class {
 
 // TUNING
 
-//#define CONF_TRANS_LOGLEN 1000
-#define CONF_TRANS_LOGLEN 8
-#define CONF_TRANS_BATCHLEN 4
-#define CONF_TRANS_FLYING 4
-//#define CONF_TRANS_MAX_QUEUE 1000
-#define CONF_TRANS_MAX_QUEUE 5000
-#define CONF_TRANS_MAX_JIFFIES (30 * HZ)
+#define CONF_TRANS_CHUNKSIZE  (128 * 1024)
+//#define CONF_TRANS_ALIGN      512
+#define CONF_TRANS_ALIGN      0
+//#define FLUSH_DELAY (HZ / 100 + 1)
+#define FLUSH_DELAY 0
 
-#define MARS_LOG_SIZE (64 * 1024)
-#define FLUSH_DELAY (HZ / 100 + 1)
+#define TRANS_FAKE
+
+#define CONF_TRANS_BATCHLEN 32
+#define CONF_TRANS_FLYING 4
+
+#define CONF_ALL_BATCHLEN 2
+#define CONF_ALL_FLYING 0
+
+#define CONF_ALL_MAX_QUEUE 10000
+#define CONF_ALL_MAX_JIFFIES (180 * HZ)
 
 #define IF_READAHEAD 1
+//#define IF_READAHEAD 0
+#define BIO_READAHEAD 1
 #define AIO_READAHEAD 1
-
 
 static
 void _set_trans_params(struct mars_brick *_brick, void *private)
 {
 	struct trans_logger_brick *trans_brick = (void*)_brick;
+	if (_brick->type != (void*)&trans_logger_brick_type) {
+		MARS_ERR("bad brick type\n");
+		return;
+	}
 	if (!trans_brick->outputs[0]->q_phase2.q_ordering) {
-		trans_brick->outputs[0]->q_phase1.q_batchlen = CONF_TRANS_LOGLEN;
-		trans_brick->outputs[0]->q_phase2.q_batchlen = CONF_TRANS_BATCHLEN;
-		trans_brick->outputs[0]->q_phase3.q_batchlen = CONF_TRANS_BATCHLEN;
-		trans_brick->outputs[0]->q_phase4.q_batchlen = CONF_TRANS_BATCHLEN;
-
-		trans_brick->outputs[0]->q_phase2.q_max_queued = CONF_TRANS_MAX_QUEUE;
-		trans_brick->outputs[0]->q_phase4.q_max_queued = CONF_TRANS_MAX_QUEUE;
-
-		trans_brick->outputs[0]->q_phase2.q_max_jiffies = CONF_TRANS_MAX_JIFFIES;
-		trans_brick->outputs[0]->q_phase4.q_max_jiffies = CONF_TRANS_MAX_JIFFIES;
+		trans_brick->outputs[0]->q_phase1.q_batchlen = CONF_TRANS_BATCHLEN;
+		trans_brick->outputs[0]->q_phase2.q_batchlen = CONF_ALL_BATCHLEN;
+		trans_brick->outputs[0]->q_phase3.q_batchlen = CONF_ALL_BATCHLEN;
+		trans_brick->outputs[0]->q_phase4.q_batchlen = CONF_ALL_BATCHLEN;
 
 		trans_brick->outputs[0]->q_phase1.q_max_flying = CONF_TRANS_FLYING;
-		trans_brick->outputs[0]->q_phase2.q_max_flying = CONF_TRANS_FLYING;
-		trans_brick->outputs[0]->q_phase3.q_max_flying = CONF_TRANS_FLYING;
-		trans_brick->outputs[0]->q_phase4.q_max_flying = CONF_TRANS_FLYING;
+		trans_brick->outputs[0]->q_phase2.q_max_flying = CONF_ALL_FLYING;
+		trans_brick->outputs[0]->q_phase3.q_max_flying = CONF_ALL_FLYING;
+		trans_brick->outputs[0]->q_phase4.q_max_flying = CONF_ALL_FLYING;
+
+		trans_brick->outputs[0]->q_phase2.q_max_queued = CONF_ALL_MAX_QUEUE;
+		trans_brick->outputs[0]->q_phase4.q_max_queued = CONF_ALL_MAX_QUEUE;
+
+		trans_brick->outputs[0]->q_phase2.q_max_jiffies = CONF_ALL_MAX_JIFFIES;
+		trans_brick->outputs[0]->q_phase4.q_max_jiffies = CONF_ALL_MAX_JIFFIES;
 
 		trans_brick->outputs[0]->q_phase2.q_ordering = true;
 		trans_brick->outputs[0]->q_phase4.q_ordering = true;
 		trans_brick->log_reads = false;
-#if 1
-		trans_brick->align_size = PAGE_SIZE;
-		trans_brick->chunk_size = MARS_LOG_SIZE;
-		trans_brick->flush_delay = FLUSH_DELAY;
+#ifdef TRANS_FAKE
+		trans_brick->debug_shortcut = true;
 #endif
+
+		trans_brick->align_size = CONF_TRANS_ALIGN;
+		trans_brick->chunk_size = CONF_TRANS_CHUNKSIZE;
+		trans_brick->flush_delay = FLUSH_DELAY;
+
 		if (!trans_brick->log_reads) {
 			trans_brick->outputs[0]->q_phase2.q_max_queued = 0;
 			trans_brick->outputs[0]->q_phase4.q_max_queued *= 2;
@@ -103,15 +118,40 @@ static
 void _set_aio_params(struct mars_brick *_brick, void *private)
 {
 	struct aio_brick *aio_brick = (void*)_brick;
+	if (_brick->type != (void*)&aio_brick_type) {
+		MARS_ERR("bad brick type\n");
+		return;
+	}
 	aio_brick->readahead = AIO_READAHEAD;
 	aio_brick->o_direct = false; // important!
 	aio_brick->o_fdsync = true;
 }
 
 static
+void _set_bio_params(struct mars_brick *_brick, void *private)
+{
+	struct bio_brick *bio_brick;
+	if (_brick->type == (void*)&aio_brick_type) {
+		_set_aio_params(_brick, private);
+		return;
+	}
+	if (_brick->type != (void*)&bio_brick_type) {
+		MARS_ERR("bad brick type\n");
+		return;
+	}
+	bio_brick = (void*)_brick;
+	bio_brick->ra_pages = BIO_READAHEAD;
+}
+
+
+static
 void _set_if_params(struct mars_brick *_brick, void *private)
 {
 	struct if_brick *if_brick = (void*)_brick;
+	if (_brick->type != (void*)&if_brick_type) {
+		MARS_ERR("bad brick type\n");
+		return;
+	}
 	if_brick->readahead = IF_READAHEAD;
 }
 
@@ -234,7 +274,7 @@ int __make_copy(
 		aio =
 			make_brick_all(global,
 				       NULL,
-				       NULL,
+				       _set_aio_params,
 				       NULL,
 				       10 * HZ,
 				       NULL,
@@ -399,7 +439,7 @@ int run_bones(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 
-	status = mars_lstat(dent->d_path, &local_stat);
+	status = mars_stat(dent->d_path, &local_stat, true);
 	stat_ok = (status >= 0);
 
 	if (stat_ok) {
@@ -451,7 +491,7 @@ int run_bones(void *buf, struct mars_dent *dent)
 			char *connect_path = _backskip_replace(dent->d_path, '/', false, "/connect-%s", my_id());
 			if (likely(connect_path)) {
 				struct kstat connect_stat = {};
-				status = mars_lstat(connect_path, &connect_stat);
+				status = mars_stat(connect_path, &connect_stat, true);
 				MARS_DBG("connect_path = '%s' stat status = %d uid = %d\n", connect_path, status, connect_stat.uid);
 				kfree(connect_path);
 				if (status >= 0 && !connect_stat.uid) {
@@ -768,7 +808,7 @@ int _update_replaylink(struct mars_rotate *rot, struct mars_dent *parent, int se
 		if (!test) {
 			goto out_old;
 		}
-		status = mars_lstat(test, &kstat);
+		status = mars_stat(test, &kstat, true);
 		kfree(test);
 		if (status < 0) {
 			MARS_DBG("could not update replay link to nonexisting logfile %09d\n", sequence);
@@ -930,7 +970,7 @@ int make_log_init(void *buf, struct mars_dent *parent)
 			       0,
 			       aio_path,
 			       (const struct generic_brick_type*)&trans_logger_brick_type,
-			       (const struct generic_brick_type*[]){(const struct generic_brick_type*)&aio_brick_type},
+			       (const struct generic_brick_type*[]){NULL},
 			       "%s/logger", 
 			       (const char *[]){"%s/data-%s"},
 			       1,
@@ -1321,7 +1361,7 @@ done:
 }
 
 static
-int make_aio(void *buf, struct mars_dent *dent)
+int make_bio(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
 	struct mars_brick *brick;
@@ -1330,18 +1370,18 @@ int make_aio(void *buf, struct mars_dent *dent)
 	if (!global->global_power.button || !dent->d_activate) {
 		goto done;
 	}
-	if (mars_find_brick(global, &aio_brick_type, dent->d_path)) {
+	if (mars_find_brick(global, NULL, dent->d_path)) {
 		goto done;
 	}
 	dent->d_kill_inactive = true;
 	brick =
 		make_brick_all(global,
 			       dent,
-			       _set_aio_params,
+			       _set_bio_params,
 			       NULL,
 			       10 * HZ,
 			       dent->d_path,
-			       (const struct generic_brick_type*)&aio_brick_type,
+			       (const struct generic_brick_type*)&bio_brick_type,
 			       (const struct generic_brick_type*[]){},
 			       dent->d_path,
 			       (const char *[]){},
@@ -1444,11 +1484,11 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 	brick = 
 		make_brick_all(global,
 			       dent,
-			       _set_aio_params,
+			       _set_bio_params,
 			       NULL,
 			       10 * HZ,
 			       dent->d_argv[0],
-			       (const struct generic_brick_type*)&aio_brick_type,
+			       (const struct generic_brick_type*)&bio_brick_type,
 			       (const struct generic_brick_type*[]){},
 			       "%s/%s",
 			       (const char *[]){},
@@ -1688,7 +1728,7 @@ static const struct light_class light_classes[] = {
 		.cl_type = 'F',
 		.cl_hostcontext = true,
 		.cl_father = CL_RESOURCE,
-		.cl_forward = make_aio,
+		.cl_forward = make_bio,
 		.cl_backward = kill_all,
 	},
 	/* Symlink pointing to the name of the primary node
@@ -1711,7 +1751,7 @@ static const struct light_class light_classes[] = {
 		.cl_serial = true,
 		.cl_hostcontext = true,
 		.cl_father = CL_RESOURCE,
-		.cl_forward = make_aio,
+		.cl_forward = make_bio,
 		.cl_backward = kill_all,
 	},
 	/* symlink indicating the current status / end

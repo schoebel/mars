@@ -18,23 +18,27 @@
 #define _MARS_FMT(fmt) "[%s] " __BASE_FILE__ " %d %s(): " fmt, current->comm, __LINE__, __FUNCTION__
 //#define _MARS_FMT(fmt) _BRICK_FMT(fmt)
 
-#define MARS_FAT(fmt, args...) do { printk(MARS_FATAL _MARS_FMT(fmt), ##args); MARS_DELAY; } while (0)
-#define MARS_ERR(fmt, args...) do { printk(MARS_ERROR _MARS_FMT(fmt), ##args); MARS_DELAY; } while (0)
-#define MARS_INF(fmt, args...) do { printk(MARS_INFO  _MARS_FMT(fmt), ##args); } while (0)
+#define _MARS_MSG(PREFIX, fmt, args...) do { printk(PREFIX _MARS_FMT(fmt), ##args); MARS_DELAY; } while (0)
+#define MARS_FAT(fmt, args...) _MARS_MSG(MARS_FATAL, fmt, ##args)
+#define MARS_ERR(fmt, args...) _MARS_MSG(MARS_ERROR, fmt, ##args)
+#define MARS_INF(fmt, args...) _MARS_MSG(MARS_INFO, fmt, ##args)
+
 #ifdef MARS_DEBUGGING
-#define MARS_DBG(fmt, args...) do { printk(MARS_DEBUG _MARS_FMT(fmt), ##args); } while (0)
+#define MARS_DBG(fmt, args...) _MARS_MSG(MARS_DEBUG, fmt, ##args)
 #else
 #define MARS_DBG(args...) /**/
 #endif
+
 #ifdef IO_DEBUGGING
-#define MARS_IO MARS_DBG
+#define MARS_IO(fmt, args...)  _MARS_MSG(MARS_DEBUG, fmt, ##args)
 #else
 #define MARS_IO(args...) /*empty*/
 #endif
+
 #ifdef STAT_DEBUGGING
 #define MARS_STAT MARS_INF
 #else
-#define MARS_IO(args...) /*empty*/
+#define MARS_STAT(args...) /*empty*/
 #endif
 
 #define BRICK_OBJ_MREF            0
@@ -83,10 +87,12 @@ struct mref_object_layout {
 	int    ref_prio;						\
 	int    ref_timeout;						\
 	/* maintained by the ref implementation, readable for callers */ \
+	loff_t ref_total_size; /* just for info, need not be implemented */ \
 	int    ref_flags;						\
 	int    ref_rw;							\
 	int    ref_id; /* not mandatory; may be used for identification */ \
-	loff_t ref_total_size; /* just for info, need not be implemented */ \
+	struct page *ref_page;						\
+	bool   ref_is_kmapped; /* tribute for higher-level IO abstraction */ \
 	/* maintained by the ref implementation, incrementable for	\
 	 * callers (but not decrementable! use ref_put()) */		\
 	atomic_t ref_count;						\
@@ -367,7 +373,7 @@ extern struct mars_brick *make_brick_all(
 
 /* General fs wrappers (for abstraction)
  */
-extern int mars_lstat(const char *path, struct kstat *stat);
+extern int mars_stat(const char *path, struct kstat *stat, bool use_lstat);
 extern int mars_mkdir(const char *path);
 extern int mars_symlink(const char *oldpath, const char *newpath, const struct timespec *stamp, uid_t uid);
 extern int mars_rename(const char *oldpath, const char *newpath);
@@ -383,6 +389,7 @@ extern int mars_lchown(const char *path, uid_t uid);
  * is possible).
  */
 extern const struct generic_brick_type *_client_brick_type;
+extern const struct generic_brick_type *_bio_brick_type;
 extern const struct generic_brick_type *_aio_brick_type;
 
 /* Kludge: our kernel threads will have no mm context, but need one
