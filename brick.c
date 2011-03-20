@@ -341,11 +341,17 @@ EXPORT_SYMBOL_GPL(generic_add_aspect);
 
 // default implementations
 
+int brick_layout_generation = 1;
+EXPORT_SYMBOL_GPL(brick_layout_generation);
+
+/* (Re-)Make an object layout
+ */
 int default_init_object_layout(struct generic_output *output, struct generic_object_layout *object_layout, int aspect_max, const struct generic_object_type *object_type, char *module_name)
 {
 	// TODO: make locking granularity finer (if it were worth).
 	static DEFINE_SPINLOCK(global_lock);
 	void *data;
+	void *olddata;
 	int status= -ENOMEM;
 	unsigned long flags;
 
@@ -359,14 +365,20 @@ int default_init_object_layout(struct generic_output *output, struct generic_obj
 
 	traced_lock(&global_lock, flags);
 
-	if (unlikely(object_layout->object_type)) {
+	if (unlikely(object_layout->object_type && object_layout->layout_generation == brick_layout_generation)) {
 		traced_unlock(&global_lock, flags);
-		BRICK_INF("lost the race on object_layout %p/%s (no harm)\n", object_layout, module_name);
+		BRICK_DBG("lost the race on object_layout %p/%s (no harm)\n", object_layout, module_name);
 		status = 0;
 		goto done;
 	}
 
+	olddata = object_layout->aspect_layouts;
+	if (olddata) {
+		kfree(olddata);
+	}
+
 	object_layout->aspect_layouts = data;
+	object_layout->layout_generation = brick_layout_generation;
 	object_layout->object_type = object_type;
 	object_layout->init_data = output;
 	object_layout->aspect_count = 0;
@@ -396,6 +408,9 @@ done:
 }
 EXPORT_SYMBOL_GPL(default_init_object_layout);
 
+/* Callback, usually called for each brick instance.
+ * Initialize the information for single aspect associated to a single brick.
+ */
 int default_make_object_layout(struct generic_output *output, struct generic_object_layout *object_layout)
 {
 	struct generic_brick *brick = output->brick;

@@ -749,6 +749,7 @@ static bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	struct trans_logger_output *output;
 	struct trans_logger_brick *brick;
 	void *data;
+	unsigned long flags;
 	bool ok;
 
 	CHECK_PTR(orig_mref_a, err);
@@ -780,13 +781,12 @@ static bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 		goto err;
 	}
 	atomic_inc(&output->q_phase1.q_flying);
+	orig_mref_a->log_pos = brick->logst.offset;
 
-	/* NYI Provisionary! this is wrong!
-	 * All requests must be sorted according to pos,
-	 * only the smallest _uncommitted_ write-back
-	 * should be counting!
-	 */
-	brick->current_pos = brick->logst.log_pos;
+	traced_lock(&brick->pos_lock, flags);
+	list_add_tail(&orig_mref_a->pos_head, &brick->pos_list);
+	traced_unlock(&brick->pos_lock, flags);
+
 	wake_up_interruptible(&output->event);
 	return true;
 
@@ -1003,24 +1003,41 @@ static void phase4_endio(struct generic_callback *cb)
 	struct trans_logger_mref_aspect *orig_mref_a;
 	struct mref_object *orig_mref;
 	struct trans_logger_output *output;
+	struct trans_logger_brick *brick;
+	struct list_head *tmp;
+	unsigned long flags;
 
 	CHECK_PTR(cb, err);
 	sub_mref_a = cb->cb_private;
 	CHECK_PTR(sub_mref_a, err);
 	output = sub_mref_a->output;
 	CHECK_PTR(output, err);
-	atomic_dec(&output->q_phase4.q_flying);
+	brick = output->brick;
+	CHECK_PTR(brick, err);
 	orig_mref_a = sub_mref_a->orig_mref_a;
 	CHECK_PTR(orig_mref_a, err);
 	orig_mref = orig_mref_a->object;
 	CHECK_PTR(orig_mref, err);
+
+	atomic_dec(&output->q_phase4.q_flying);
 
 	if (unlikely(cb->cb_error < 0)) {
 		MARS_ERR("IO error %d\n", cb->cb_error);
 		goto put;
 	}
 
-	// TODO: save final completion status into the status input
+	// save final completion status
+	traced_lock(&brick->pos_lock, flags);
+	tmp = &orig_mref_a->pos_head;
+	if (tmp == brick->pos_list.next) {
+		if (orig_mref_a->log_pos <= brick->replay_pos) {
+			MARS_ERR("backskip in log replay: %lld -> %lld\n", brick->replay_pos, orig_mref_a->log_pos);
+		}
+		brick->replay_pos = orig_mref_a->log_pos;
+	}
+	list_del_init(tmp);
+	traced_unlock(&brick->pos_lock, flags);
+
 
 put:
 	//MARS_INF("put ORIGREF.\n");
@@ -1224,6 +1241,7 @@ void trans_logger_replay(struct trans_logger_output *output)
 	MARS_INF("starting replay from %lld to %lld\n", brick->current_pos, brick->end_pos);
 	
 	init_logst(&brick->logst, (void*)brick->inputs[1], (void*)brick->outputs[0], brick->current_pos);
+	brick->replay_pos = brick->current_pos;
 
 #if 0
 	while (brick->current_pos < brick->end_pos) {
@@ -1241,13 +1259,14 @@ void trans_logger_replay(struct trans_logger_output *output)
 	}
 #else
 	brick->current_pos = brick->end_pos;
+	brick->replay_pos = brick->end_pos;
 	mars_power_led_on((void*)brick, true);
 	while (!kthread_should_stop()) {
 		msleep(1000);
 	}
 #endif
 
-	MARS_INF("replay finished at %lld\n", brick->current_pos);
+	MARS_INF("replay finished at %lld %lld\n", brick->current_pos, brick->replay_pos);
 	mars_trigger();
 }
 
@@ -1315,6 +1334,7 @@ static int trans_logger_mref_aspect_init_fn(struct generic_aspect *_ini, void *_
 	struct trans_logger_mref_aspect *ini = (void*)_ini;
 	INIT_LIST_HEAD(&ini->hash_head);
 	INIT_LIST_HEAD(&ini->q_head);
+	INIT_LIST_HEAD(&ini->pos_head);
 	return 0;
 }
 
@@ -1331,6 +1351,8 @@ MARS_MAKE_STATICS(trans_logger);
 
 static int trans_logger_brick_construct(struct trans_logger_brick *brick)
 {
+	spin_lock_init(&brick->pos_lock);
+	INIT_LIST_HEAD(&brick->pos_list);
 	return 0;
 }
 

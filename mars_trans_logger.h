@@ -46,19 +46,20 @@ struct trans_logger_mref_aspect {
 	struct trans_logger_output *output;
 	struct list_head hash_head;
 	struct list_head q_head;
+	struct list_head pos_head;
 	struct pairing_heap_mref ph;
 	struct trans_logger_mref_aspect *shadow_ref;
 	void   *orig_data;
 	bool   is_hashed;
 	bool   is_outdated;
 	struct timespec stamp;
+	loff_t log_pos;
 	struct generic_callback cb;
 	struct trans_logger_mref_aspect *orig_mref_a;
 };
 
 struct trans_logger_brick {
 	MARS_BRICK(trans_logger);
-	struct log_status logst;
 	// parameters
 	int sequence;     // logfile sequence number
 	int limit_congest;// limit phase1 congestion.
@@ -71,7 +72,12 @@ struct trans_logger_brick {
 	loff_t start_pos; // where to start replay
 	loff_t end_pos;   // end of replay
 	// readonly from outside
-	loff_t current_pos; // current replay position
+	loff_t current_pos; // current logging position
+	loff_t replay_pos;  // current replay position
+	// private
+	struct log_status logst;
+	struct list_head pos_list;
+	spinlock_t pos_lock;
 };
 
 struct trans_logger_output {

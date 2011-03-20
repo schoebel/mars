@@ -1287,12 +1287,12 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *parent)
 	if (trans_brick->power.button && trans_brick->power.led_on && !trans_brick->power.led_off) {
 		bool do_stop =
 			(rot->do_replay || trans_brick->do_replay)
-			? (trans_brick->current_pos == trans_brick->end_pos)
+			? (trans_brick->replay_pos == trans_brick->end_pos)
 			: (rot->relevant_log && rot->relevant_log != rot->current_log);
 		MARS_DBG("do_stop = %d\n", (int)do_stop);
 
 		if (do_stop || (long long)jiffies > rot->last_jiffies + 5 * HZ) {
-			status = _update_replaylink(rot, parent, trans_brick->sequence, trans_brick->current_pos, true);
+			status = _update_replaylink(rot, parent, trans_brick->sequence, trans_brick->replay_pos, true);
 		}
 		if (do_stop) {
 			status = _stop_trans(rot);
