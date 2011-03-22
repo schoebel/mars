@@ -8,6 +8,22 @@
 #include <asm/spinlock.h>
 #include <asm/atomic.h>
 
+/////////////////////////////////////////////////////////////////////////
+
+// include the brick infrastucture
+
+#define BRICK_OBJ_MREF            0
+#define BRICK_OBJ_MAX             1
+#define BRICK_DEPTH_MAX           128
+
+#define GFP_MARS GFP_NOIO
+
+#include "brick.h"
+
+/////////////////////////////////////////////////////////////////////////
+
+// MARS-specific debugging helper
+
 #define MARS_DELAY /**/
 //#define MARS_DELAY msleep(20000)
 
@@ -15,6 +31,7 @@
 #define MARS_ERROR "MARS_ERROR  "
 #define MARS_INFO  "MARS_INFO   "
 #define MARS_DEBUG "MARS_DEBUG  "
+
 #define _MARS_FMT(fmt) "[%s] " __BASE_FILE__ " %d %s(): " fmt, current->comm, __LINE__, __FUNCTION__
 //#define _MARS_FMT(fmt) _BRICK_FMT(fmt)
 
@@ -40,13 +57,6 @@
 #else
 #define MARS_STAT(args...) /*empty*/
 #endif
-
-#define BRICK_OBJ_MREF            0
-#define BRICK_OBJ_NR                  1
-
-#define GFP_MARS GFP_NOIO
-
-#include "brick.h"
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -224,7 +234,7 @@ static const struct generic_aspect_type BRICK##_mref_aspect_type = {    \
 	.exit_fn = BRICK##_mref_aspect_exit_fn,				\
 };									\
 									\
-static const struct generic_aspect_type *BRICK##_aspect_types[BRICK_OBJ_NR] = {	\
+static const struct generic_aspect_type *BRICK##_aspect_types[BRICK_OBJ_MAX] = {	\
 	[BRICK_OBJ_MREF] = &BRICK##_mref_aspect_type,			\
 };									\
 
@@ -265,7 +275,8 @@ extern const struct meta mars_mref_meta[];
 
 extern struct mars_global *mars_global;
 
-extern void mars_trigger(void);
+extern void _mars_trigger(void);
+#define mars_trigger() do { MARS_INF("trigger...\n"); _mars_trigger(); } while (0)
 extern int  mars_power_button(struct mars_brick *brick, bool val);
 extern void mars_power_led_on(struct mars_brick *brick, bool val);
 extern void mars_power_led_off(struct mars_brick *brick, bool val);
@@ -305,6 +316,7 @@ extern char *my_id(void);
 	char *new_link;							\
 	char *old_link;							\
 	struct mars_global *d_global;					\
+	int  d_logfile_serial;						\
 	void *d_private;
 
 struct mars_dent {
@@ -346,6 +358,7 @@ extern int mars_kill_brick(struct mars_brick *brick);
 
 extern char *vpath_make(const char *fmt, va_list *args);
 extern char *path_make(const char *fmt, ...);
+extern char *backskip_replace(const char *path, char delim, bool insert, const char *fmt, ...);
 
 extern struct mars_brick *path_find_brick(struct mars_global *global, const void *brick_type, const char *fmt, ...);
 

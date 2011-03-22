@@ -126,7 +126,7 @@ EXPORT_SYMBOL_GPL(mars_mkdir);
 
 int mars_symlink(const char *oldpath, const char *newpath, const struct timespec *stamp, uid_t uid)
 {
-	char *tmp = path_make("%s.tmp", newpath); 
+	char *tmp = backskip_replace(newpath, '/', true, "/.tmp-"); 
 	mm_segment_t oldfs;
 	int status = -ENOMEM;
 	
@@ -247,15 +247,14 @@ EXPORT_SYMBOL_GPL(my_id);
 struct mars_global *mars_global = NULL;
 EXPORT_SYMBOL_GPL(mars_global);
 
-void mars_trigger(void)
+void _mars_trigger(void)
 {
 	if (mars_global) {
-		MARS_DBG("trigger...\n");
 		mars_global->main_trigger = true;
 		wake_up_interruptible(&mars_global->main_event);
 	}
 }
-EXPORT_SYMBOL_GPL(mars_trigger);
+EXPORT_SYMBOL_GPL(_mars_trigger);
 
 int mars_power_button(struct mars_brick *brick, bool val)
 {
@@ -384,15 +383,15 @@ int get_inode(char *newpath, struct mars_dent *dent)
 		status = -ENOMEM;
 		link = kmalloc(len + 2, GFP_MARS);
 		if (likely(link)) {
-			MARS_DBG("len = %d\n", len);
+			MARS_IO("len = %d\n", len);
 			status = inode->i_op->readlink(path.dentry, link, len + 1);
 			link[len] = '\0';
 			if (status < 0 ||
 			   (dent->new_link && !strncmp(dent->new_link, link, len))) {
-				//MARS_DBG("symlink no change '%s' -> '%s' (%s) status = %d\n", newpath, link, dent->new_link ? dent->new_link : "", status);
+				//MARS_IO("symlink no change '%s' -> '%s' (%s) status = %d\n", newpath, link, dent->new_link ? dent->new_link : "", status);
 				kfree(link);
 			} else {
-				MARS_DBG("symlink '%s' -> '%s' (%s) status = %d\n", newpath, link, dent->new_link ? dent->new_link : "", status);
+				MARS_IO("symlink '%s' -> '%s' (%s) status = %d\n", newpath, link, dent->new_link ? dent->new_link : "", status);
 				if (dent->old_link)
 					kfree(dent->old_link);
 				dent->old_link = dent->new_link;
@@ -946,6 +945,38 @@ char *path_make(const char *fmt, ...)
 }
 EXPORT_SYMBOL_GPL(path_make);
 
+char *backskip_replace(const char *path, char delim, bool insert, const char *fmt, ...)
+{
+	int path_len = strlen(path);
+	int total_len = strlen(fmt) + path_len + MARS_PATH_MAX;
+	char *res = kmalloc(total_len, GFP_MARS);
+	if (likely(res)) {
+		va_list args;
+		int pos = path_len;
+		int plus;
+
+		while (pos > 0 && path[pos] != '/') {
+			pos--;
+		}
+		if (delim != '/') {
+			while (pos < path_len && path[pos] != delim) {
+				pos++;
+			}
+		}
+		memcpy(res, path, pos);
+
+		va_start(args, fmt);
+		plus = vsnprintf(res + pos, total_len - pos, fmt, args);
+		va_end(args);
+
+		if (insert) {
+			strncpy(res + pos + plus, path + pos + 1, total_len - pos - plus);
+		}
+	}
+	return res;
+}
+EXPORT_SYMBOL_GPL(backskip_replace);
+
 struct mars_brick *path_find_brick(struct mars_global *global, const void *brick_type, const char *fmt, ...)
 {
 	va_list args;
@@ -961,7 +992,7 @@ struct mars_brick *path_find_brick(struct mars_global *global, const void *brick
 	}
 	res = mars_find_brick(global, brick_type, fullpath);
 	kfree(fullpath);
-	MARS_DBG("search for '%s' found = %p\n", fullpath, res);
+	MARS_IO("search for '%s' found = %p\n", fullpath, res);
 	return res;
 }
 EXPORT_SYMBOL_GPL(path_find_brick);
@@ -1014,9 +1045,9 @@ struct mars_brick *make_brick_all(
 	}
 
 	// don't do anything if brick already exists
-	brick = mars_find_brick(global, new_brick_type != _aio_brick_type ? new_brick_type : NULL, new_path);
+	brick = mars_find_brick(global, new_brick_type != _aio_brick_type  && new_brick_type != _bio_brick_type ? new_brick_type : NULL, new_path);
 	if (brick) {
-		MARS_DBG("found brick '%s'\n", new_path);
+		MARS_IO("found brick '%s'\n", new_path);
 		goto done;
 	}
 	if (!new_name)
@@ -1059,6 +1090,7 @@ struct mars_brick *make_brick_all(
 		int status = mars_stat(new_path, &test, false);
 		if (status < 0 || !S_ISBLK(test.mode)) {
 			new_brick_type = _aio_brick_type;
+			MARS_DBG("substitute bio by aio\n");
 		}
 	}
 

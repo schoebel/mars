@@ -72,6 +72,54 @@ err:
 	MARS_FAT("cannot handle callback - giving up\n");
 }
 
+
+int server_io(struct server_brick *brick, struct socket **sock)
+{
+	struct mref_object *mref;
+	struct server_mref_aspect *mref_a;
+	int status;
+	
+	mref = server_alloc_mref(&brick->hidden_output, &brick->mref_object_layout);
+	status = -ENOMEM;
+	if (!mref)
+		goto done;
+
+	mref_a = server_mref_get_aspect(&brick->hidden_output, mref);
+	if (unlikely(!mref_a)) {
+		mars_free_mref(mref);
+		goto done;
+	}
+
+	status = mars_recv_mref(sock, mref);
+	if (status < 0) {
+		mars_free_mref(mref);
+		goto done;
+	}
+	
+	mref_a->brick = brick;
+	mref_a->sock = sock;
+	mref->_ref_cb.cb_private = mref_a;
+	mref->_ref_cb.cb_fn = server_endio;
+	mref->ref_cb = &mref->_ref_cb;
+	atomic_inc(&brick->in_flight);
+	
+	status = GENERIC_INPUT_CALL(brick->inputs[0], mref_get, mref);
+	if (status < 0) {
+		MARS_INF("execution error = %d\n", status);
+		mref->_ref_cb.cb_error = status;
+		server_endio(&mref->_ref_cb);
+		mars_free_mref(mref);
+		status = 0; // continue serving requests
+		goto done;
+	}
+	
+	GENERIC_INPUT_CALL(brick->inputs[0], mref_io, mref);
+	GENERIC_INPUT_CALL(brick->inputs[0], mref_put, mref);
+
+done:
+	return status;
+}
+
 static int handler_thread(void *data)
 {
 	struct server_brick *brick = data;
@@ -158,7 +206,7 @@ static int handler_thread(void *data)
 			status = -EINVAL;
 			CHECK_PTR(path, err);
 			CHECK_PTR(mars_global, err);
-			CHECK_PTR(_aio_brick_type, err);
+			CHECK_PTR(_bio_brick_type, err);
 
 			//prev = mars_find_brick(mars_global, NULL, cmd.cmd_str1);
 			prev =
@@ -168,7 +216,7 @@ static int handler_thread(void *data)
 					       NULL,
 					       10 * HZ,
 					       path,
-					       (const struct generic_brick_type*)_aio_brick_type,
+					       (const struct generic_brick_type*)_bio_brick_type,
 					       (const struct generic_brick_type*[]){},
 					       path,
 					       (const char *[]){},
@@ -185,45 +233,8 @@ static int handler_thread(void *data)
 			break;
 		}
 		case CMD_MREF:
-		{
-			struct mref_object *mref;
-			struct server_mref_aspect *mref_a;
-
-			mref = server_alloc_mref(&brick->hidden_output, &brick->mref_object_layout);
-			status = -ENOMEM;
-			if (!mref)
-				break;
-			mref_a = server_mref_get_aspect(&brick->hidden_output, mref);
-			if (unlikely(!mref_a)) {
-				kfree(mref);
-				break;
-			}
-
-			status = mars_recv_mref(sock, mref);
-			if (status < 0)
-				break;
-
-			mref_a->brick = brick;
-			mref_a->sock = sock;
-			mref->_ref_cb.cb_private = mref_a;
-			mref->_ref_cb.cb_fn = server_endio;
-			mref->ref_cb = &mref->_ref_cb;
-			atomic_inc(&brick->in_flight);
-
-			status = GENERIC_INPUT_CALL(brick->inputs[0], mref_get, mref);
-			if (status < 0) {
-				MARS_INF("execution error = %d\n", status);
-				mref->_ref_cb.cb_error = status;
-				server_endio(&mref->_ref_cb);
-				mars_free_mref(mref);
-				status = 0; // continue serving requests
-				break;
-			}
-
-			GENERIC_INPUT_CALL(brick->inputs[0], mref_io, mref);
-			GENERIC_INPUT_CALL(brick->inputs[0], mref_put, mref);
+			status = server_io(brick, sock);
 			break;
-		}
 		case CMD_CB:
 			MARS_ERR("oops, as a server I should never get CMD_CB; something is wrong here - attack attempt??\n");
 			break;

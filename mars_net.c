@@ -173,7 +173,7 @@ int mars_create_socket(struct socket **sock, struct sockaddr_storage *addr, bool
 	} else {
 		status = kernel_connect(*sock, sockaddr, sizeof(*sockaddr), 0);
 		if (status < 0) {
-			MARS_ERR("connect failed, status = %d\n", status);
+			MARS_DBG("connect failed, status = %d\n", status);
 		}
 	}
 

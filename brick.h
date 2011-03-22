@@ -15,19 +15,31 @@
 #define _NORMAL_CODE(X) X
 #endif
 
+#define BRICK_FATAL "BRICK_FATAL "
 #define BRICK_ERROR "BRICK_ERROR "
 #define BRICK_INFO  "BRICK_INFO  "
 #define BRICK_DEBUG "BRICK_DEBUG "
-//#define _BRICK_FMT(fmt) "[%s] " __BASE_FILE__ " %d %s(): " fmt, current->comm, __LINE__, __FUNCTION__
+
 #define _BRICK_FMT(fmt) __BASE_FILE__ " %d %s(): " fmt, __LINE__, __FUNCTION__
 
-#define BRICK_ERR(fmt, args...) printk(BRICK_ERROR _BRICK_FMT(fmt), ##args)
-#define BRICK_INF(fmt, args...) printk(BRICK_INFO  _BRICK_FMT(fmt), ##args)
+#define _BRICK_MSG(PREFIX, fmt, args...) do { printk(PREFIX _BRICK_FMT(fmt), ##args); } while (0)
+
+#define BRICK_FAT(fmt, args...) _BRICK_MSG(BRICK_FATAL, fmt, ##args)
+#define BRICK_ERR(fmt, args...) _BRICK_MSG(BRICK_ERROR, fmt, ##args)
+#define BRICK_INF(fmt, args...) _BRICK_MSG(BRICK_INFO, fmt, ##args)
+
 #ifdef BRICK_DEBUGGING
-#define BRICK_DBG(fmt, args...) printk(BRICK_DEBUG _BRICK_FMT(fmt), ##args)
+#define BRICK_DBG(fmt, args...) _BRICK_MSG(BRICK_DEBUG, fmt, ##args)
 #else
 #define BRICK_DBG(args...) /**/
 #endif
+
+#ifdef IO_DEBUGGING
+#define BRICK_IO(fmt, args...)  _BRICK_MSG(BRICK_DEBUG, fmt, ##args)
+#else
+#define BRICK_IO(args...) /*empty*/
+#endif
+
 
 #define MAX_BRICK_TYPES 64
 
@@ -56,6 +68,7 @@ struct generic_aspect_type {
 	const struct generic_aspect_type *aspect_type;			\
 	void *init_data;						\
 	int aspect_offset;						\
+	int aspect_layout_generation;					\
 
 struct generic_aspect_layout {
 	GENERIC_ASPECT_LAYOUT(generic);
@@ -73,13 +86,13 @@ struct generic_object_type {
 };
 
 #define GENERIC_OBJECT_LAYOUT(TYPE)					\
-	struct generic_aspect_layout **aspect_layouts;			\
+	struct generic_aspect_layout **aspect_layouts_table;		\
 	const struct generic_object_type *object_type;			\
 	void *init_data;						\
 	int aspect_count;						\
 	int aspect_max;							\
 	int object_size;						\
-	int layout_generation;						\
+	int object_layout_generation;					\
 	int last_count;							\
 	int last_jiffies;						\
 	atomic_t alloc_count;						\
@@ -171,7 +184,7 @@ struct generic_input {
 	struct list_head output_head;					\
 	int nr_connected;						\
 	/* _must_ be the last member */					\
-	struct generic_aspect_layout aspect_layouts[BRICK_OBJ_NR];	\
+	struct generic_aspect_layout output_aspect_layouts[BRICK_OBJ_MAX]; \
 	
 struct generic_output {
 	GENERIC_OUTPUT(generic);
@@ -245,7 +258,7 @@ struct generic_input_type {
 	int (*output_construct)(struct BRICK##_output *output);		\
 	int (*output_destruct)(struct BRICK##_output *output);		\
 	const struct generic_aspect_type **aspect_types;		\
-	const int layout_code[BRICK_OBJ_NR];				\
+	const int layout_code[BRICK_OBJ_MAX];				\
 
 struct generic_output_type {
 	GENERIC_OUTPUT_TYPE(generic);
@@ -372,9 +385,9 @@ inline int generic_disconnect(struct generic_input *input)
 		return -EINVAL;
 	if (input->connect) {
 		BRICK_DBG("now nr_connected=%d\n", input->connect->nr_connected);
+		input->connect->nr_connected--;
 		input->connect = NULL;
 		list_del_init(&input->input_head);
-		input->connect->nr_connected--;
 		//brick_layout_generation++;
 	}
 	return 0;
@@ -491,7 +504,7 @@ extern void free_generic(struct generic_object *object);
 									\
 inline int BRICK##_init_object_layout(struct BRICK##_output *output, struct generic_object_layout *object_layout, int aspect_max, const struct generic_object_type *object_type) \
 {									\
-	if (likely(object_layout->aspect_layouts && object_layout->layout_generation == brick_layout_generation)) \
+	if (likely(object_layout->aspect_layouts_table && object_layout->object_layout_generation == brick_layout_generation)) \
 		return 0;						\
 	return default_init_object_layout((struct generic_output*)output, object_layout, aspect_max, object_type, #BRICK); \
 }									\
@@ -522,7 +535,7 @@ inline struct TYPE##_object *TYPE##_construct(void *data, struct TYPE##_object_l
 	for (i = 0; i < object_layout->aspect_count; i++) {		\
 		struct generic_aspect_layout *aspect_layout;		\
 		struct generic_aspect *aspect;				\
-		aspect_layout = object_layout->aspect_layouts[i];	\
+		aspect_layout = object_layout->aspect_layouts_table[i];	\
 		if (!aspect_layout->aspect_type)				\
 			continue;					\
 		aspect = data + aspect_layout->aspect_offset;		\
@@ -553,7 +566,7 @@ inline void TYPE##_destruct(struct TYPE##_object *obj)	        \
 	for (i = 0; i < object_layout->aspect_count; i++) {		\
 		struct generic_aspect_layout *aspect_layout;		\
 		struct generic_aspect *aspect;				\
-		aspect_layout = object_layout->aspect_layouts[i];	\
+		aspect_layout = object_layout->aspect_layouts_table[i];	\
 		if (!aspect_layout->aspect_type)				\
 			continue;					\
 		aspect = ((void*)obj) + aspect_layout->aspect_offset;	\
@@ -573,7 +586,7 @@ inline struct BRICK##_##TYPE##_aspect *BRICK##_##TYPE##_get_aspect(struct BRICK#
 									\
 	object_layout = (struct generic_object_layout*)obj->object_layout; \
 	nr = object_layout->object_type->brick_obj_nr;			\
-	aspect_layout = &output->aspect_layouts[nr];			\
+	aspect_layout = &output->output_aspect_layouts[nr];		\
 	if (unlikely(!aspect_layout->aspect_type)) {			\
 		BRICK_ERR("brick "#BRICK": bad aspect slot on " #TYPE " pointer %p\n", obj); \
 		return NULL;						\
@@ -583,8 +596,8 @@ inline struct BRICK##_##TYPE##_aspect *BRICK##_##TYPE##_get_aspect(struct BRICK#
 									\
 inline struct TYPE##_object *BRICK##_alloc_##TYPE(struct BRICK##_output *output, struct generic_object_layout *object_layout) \
 {									\
-	if (unlikely(!object_layout->aspect_layouts || object_layout->layout_generation != brick_layout_generation)) {			\
-		int status = default_init_object_layout((struct generic_output*)output, object_layout, 32, &TYPE##_type, #BRICK); \
+	if (unlikely(!object_layout->aspect_layouts_table || object_layout->object_layout_generation != brick_layout_generation)) {			\
+		int status = default_init_object_layout((struct generic_output*)output, object_layout, BRICK_DEPTH_MAX, &TYPE##_type, #BRICK); \
 		if (status < 0)						\
 			return NULL;					\
 	}								\

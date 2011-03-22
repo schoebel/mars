@@ -89,19 +89,22 @@ struct log_status {
 	int payload_offset;
 	int payload_len;
 	struct mref_object *log_mref;
+	struct mref_object *read_mref;
+	wait_queue_head_t event;
+	int error_code;
+	bool got;
 	void *private;
 };
 
 void init_logst(struct log_status *logst, struct mars_input *input, struct mars_output *output, loff_t start_pos);
 
-void log_flush(struct log_status *logst, int min_rest);
+void log_flush(struct log_status *logst);
 
 void *log_reserve(struct log_status *logst, struct log_header *lh);
 
 bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private, int error), void *private);
 
-int log_read_prepare(struct log_status *logst, struct log_header *lh);
-void log_read(struct log_status *logst, void *buffer);
+int log_read(struct log_status *logst, struct log_header *lh, void **payload);
 
 #endif
 #endif

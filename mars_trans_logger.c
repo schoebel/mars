@@ -73,16 +73,20 @@ bool q_is_ready(struct logger_queue *q)
 	}
 	max_contention = q->q_dep_flying;
 	over = queued - q->q_max_queued;
+#if 0
 	if (over > 0) {
 		max_contention += over / 128;
 	}
+#endif
 
+#if 1
 	/* 2) when other queues are too much contended,
-	 * refrain from contenting the IO system even more.
+	 * refrain from contending the IO system even more.
 	 */
 	if (contention > max_contention) {
 		goto always_done;
 	}
+#endif
 
 	/* 3) when the maximum queue length is reached, start IO.
 	 */
@@ -99,10 +103,8 @@ bool q_is_ready(struct logger_queue *q)
 
 	/* 5) when no contention, start draining the queue.
 	 */
-#if 0
 	if (contention <= 0)
 		goto limit;
-#endif
 
 	res = false;
 	goto always_done;
@@ -117,54 +119,6 @@ limit:
 always_done:
 	return res;
 }
-
-#if 0
-static
-bool old_q_is_ready(struct logger_queue *q, bool do_drain)
-{
-	struct logger_queue *dep;
-	int queued = atomic_read(&q->q_queued);
-	int flying;
-	int over;
-	bool res = false;
-
-	if (queued <= 0)
-		goto always_done;
-
-	over = queued - q->q_max_queued;
-	dep = q->q_dep;
-	if (dep) {
-		int bonus = 0;
-		if (over > 0) {
-			bonus = over / 128;
-		}
-		if (atomic_read(&dep->q_queued) + atomic_read(&dep->q_flying) > q->q_dep_flying + bonus) {
-			goto always_done;
-		}
-	}
-
-	res = true;
-	if (do_drain || over > 0)
-		goto done;
-
-	if (q->q_max_jiffies > 0 &&
-	   (long long)jiffies - q->q_last_action >= q->q_max_jiffies)
-		goto done;
-
-	res = false;
-	goto always_done;
-
-done:
-	/* Limit the number of flying requests (parallelism)
-	 */
-	flying = atomic_read(&q->q_flying);
-	if (q->q_max_flying > 0 && flying >= q->q_max_flying)
-		res = false;
-
-always_done:
-	return res;
-}
-#endif
 
 static inline void q_insert(struct logger_queue *q, struct trans_logger_mref_aspect *mref_a)
 {
@@ -212,21 +166,6 @@ static inline struct trans_logger_mref_aspect *q_fetch(struct logger_queue *q)
 	traced_lock(&q->q_lock, flags);
 
 	if (q->q_ordering) {
-#if 0
-		struct pairing_heap_mref **minpos = &q->heap_high;
-		if (!*minpos) {
-			*minpos = q->heap_low;
-			q->heap_low = NULL;
-			q->heap_border = 0;
-		}
-		if (*minpos) {
-			mref_a = container_of(*minpos, struct trans_logger_mref_aspect, ph);
-			q->heap_border = mref_a->object->ref_pos;
-			ph_delete_min_mref(minpos);
-			atomic_dec(&q->q_queued);
-			//q->q_last_action = jiffies;
-		}
-#else
 		if (!q->heap_high) {
 			q->heap_high = q->heap_low;
 			q->heap_low = NULL;
@@ -238,7 +177,6 @@ static inline struct trans_logger_mref_aspect *q_fetch(struct logger_queue *q)
 			atomic_dec(&q->q_queued);
 			//q->q_last_action = jiffies;
 		}
-#endif
 	} else if (!list_empty(&q->q_anchor)) {
 		struct list_head *next = q->q_anchor.next;
 		list_del_init(next);
@@ -781,7 +719,7 @@ static bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 		goto err;
 	}
 	atomic_inc(&output->q_phase1.q_flying);
-	orig_mref_a->log_pos = brick->logst.offset;
+	orig_mref_a->log_pos = brick->logst.log_pos + brick->logst.offset;
 
 	traced_lock(&brick->pos_lock, flags);
 	list_add_tail(&orig_mref_a->pos_head, &brick->pos_list);
@@ -1181,17 +1119,6 @@ void trans_logger_log(struct trans_logger_output *output)
 		}
 #endif
 		output->did_pushback = false;
-#if 0
-		now_queued = q_became_ready(&output->q_phase1);
-		if (now_queued) {
-			log_jiffies = jiffies + brick->flush_delay;
-		}
-		if (log_jiffies) {
-			wait_timeout = jiffies - log_jiffies + 1;
-			if (wait_timeout <= 0)
-				wait_timeout = 1;
-		}
-#endif
 
 		/* This is highest priority, do it always.
 		 */
@@ -1208,7 +1135,7 @@ void trans_logger_log(struct trans_logger_output *output)
 		 */
 		if (!brick->flush_delay || !log_jiffies ||
 		   (long long)jiffies - log_jiffies >= 0) {
-			log_flush(&brick->logst, PAGE_SIZE);
+			log_flush(&brick->logst);
 			log_jiffies = 0;
 		}
 
@@ -1224,12 +1151,12 @@ void trans_logger_log(struct trans_logger_output *output)
 			status = run_queue(output, &output->q_phase3, phase3_startio, output->q_phase3.q_batchlen);
 		}
 		
-#if 1
 		if (output->did_pushback) {
-			log_flush(&brick->logst, PAGE_SIZE);
+#if 0
+			log_flush(&brick->logst);
+#endif
 			wait_timeout = 2;
 		}
-#endif
 	}
 }
 

@@ -182,6 +182,8 @@ sub create_res {
       $size = $oldsize;
     }
     die "sizes differ: real size = $oldsize, but requested size = $size\n" unless $oldsize == $size;
+    my $replay = readlink("$tmp/replay-$primary") or die "cannot read replay status of primary '$primary'\n";
+    $replay =~ s/-$primary,/-$host,/ or die "something is wrong here\n";
   }
 
   my $file = "$tmp/data-$host";
@@ -209,8 +211,6 @@ sub create_res {
     rename($tmp, "$mars/resource-$res") or die "cannot finalize resource '$res'\n";
     print "successfully created resource '$res'\n";
   } else {
-    my $replay = readlink("$tmp/replay-$primary") or die "cannot read replay status of primary '$primary'\n";
-    $replay =~ s/-$primary,/-$host,/ or die "something is wrong here\n";
     system("rm -f $tmp/replay-$host");
     symlink($replay, "$tmp/replay-$host") or die "cannot create replay status\n";
     system("rm -f $tmp/syncstatus-$host");

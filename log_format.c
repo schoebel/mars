@@ -12,6 +12,7 @@ void init_logst(struct log_status *logst, struct mars_input *input, struct mars_
 	logst->input = input;
 	logst->output = output;
 	logst->log_pos = start_pos;
+	init_waitqueue_head(&logst->event);
 }
 EXPORT_SYMBOL_GPL(init_logst);
 
@@ -41,7 +42,7 @@ err:
 	MARS_FAT("internal pointer corruption\n");
 }
 
-void log_flush(struct log_status *logst, int min_rest)
+void log_flush(struct log_status *logst)
 {
 	struct mref_object *mref = logst->log_mref;
 	struct generic_callback *cb;
@@ -50,24 +51,23 @@ void log_flush(struct log_status *logst, int min_rest)
 	if (!mref)
 		return;
 
-	if (logst->restlen > 0) { // don't leak information from kernelspace
-		memset(mref->ref_data + logst->offset, 0, logst->restlen);
-	}
-	
 	gap = 0;
 	if (logst->align_size > 0) {
+		// round up to next alignment border
 		int align_offset = logst->offset & (logst->align_size-1);
 		if (align_offset > 0) {
 			gap = logst->align_size - align_offset;
+			if (gap > logst->restlen) {
+				gap = logst->restlen;
+			}
 		}
 	}
-	if (logst->restlen < min_rest + gap + OVERHEAD) {
-		// finish this chunk completely
-		logst->offset += logst->restlen;
-	} else {
-		// round up to next alignment border
+	if (gap > 0) {
+		// don't leak information from kernelspace
+		memset(mref->ref_data + logst->offset, 0, gap);
 		logst->offset += gap;
 	}
+	mref->ref_len = logst->offset;
 	logst->log_pos += logst->offset;
 
 	cb = &mref->_ref_cb;
@@ -99,11 +99,13 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 	MARS_DBG("reserving %d bytes at %lld\n", lh->l_len, logst->log_pos);
 
 	if (total_len > logst->restlen || !cb_info || cb_info->nr_endio >= MARS_LOG_CB_MAX) {
-		log_flush(logst, lh->l_len);
+		log_flush(logst);
 	}
 
 	mref = logst->log_mref;
 	if (!mref) {
+		int chunk_offset;
+		int chunk_rest;
 		if (unlikely(logst->private)) {
 			MARS_ERR("oops\n");
 			kfree(logst->private);
@@ -121,13 +123,19 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 		}
 		
 		mref->ref_pos = logst->log_pos;
-		mref->ref_len = logst->chunk_size - (logst->log_pos & (loff_t)(logst->chunk_size - 1));
+		chunk_offset = logst->log_pos & (loff_t)(logst->chunk_size - 1);
+		chunk_rest = logst->chunk_size - chunk_offset;
+		if (chunk_rest < total_len) {
+			mref->ref_pos += chunk_rest;
+			chunk_rest = logst->chunk_size;
+		}
+		mref->ref_len = chunk_rest;
 		if (mref->ref_len < total_len) {
 			MARS_INF("not good: ref_len = %d total_len = %d\n", mref->ref_len, total_len);
 			mref->ref_len = total_len;
 		}
 		mref->ref_may_write = WRITE;
-#if 1
+#if 0
 		mref->ref_prio = MARS_PRIO_LOW;
 #endif
 
@@ -235,9 +243,9 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 
 	ok = true;
 
-#if 1
+#if 0
 	if (logst->restlen < PAGE_SIZE + OVERHEAD) {
-		log_flush(logst, PAGE_SIZE);
+		log_flush(logst);
 	}
 #endif
 
@@ -247,14 +255,95 @@ err:
 EXPORT_SYMBOL_GPL(log_finalize);
 
 
-int log_read_prepare(struct log_status *logst, struct log_header *lh)
+static
+void read_endio(struct generic_callback *cb)
 {
-	return 0;
-}
-EXPORT_SYMBOL_GPL(log_read_prepare);
+	struct log_status *logst = cb->cb_private;
 
-void log_read(struct log_status *logst, void *buffer)
+	CHECK_PTR(logst, err);
+	logst->error_code = cb->cb_error;
+	logst->got = true;
+	wake_up_interruptible(&logst->event);
+	return;
+
+err:
+	MARS_FAT("internal pointer corruption\n");
+}
+
+
+int log_read(struct log_status *logst, struct log_header *lh, void **payload)
 {
+	struct mref_object *mref = logst->read_mref;
+	int i;
+	int status = 0;
+	if (!mref) {
+		struct generic_callback *cb;
+		int chunk_offset;
+		int chunk_rest;
+		mref = mars_alloc_mref(logst->output, &logst->ref_object_layout);
+		if (unlikely(!mref)) {
+			MARS_ERR("no mref\n");
+			goto err;
+		}
+		mref->ref_pos = logst->log_pos;
+		chunk_offset = logst->log_pos & (loff_t)(logst->chunk_size - 1);
+		chunk_rest = logst->chunk_size - chunk_offset;
+		mref->ref_len = chunk_rest;
+#if 0
+		mref->ref_prio = MARS_PRIO_LOW;
+#endif
+		status = GENERIC_INPUT_CALL(logst->input, mref_get, mref);
+		if (unlikely(status < 0)) {
+			MARS_ERR("mref_get() failed, status = %d\n", status);
+			goto err_free;
+		}
+
+
+		cb = &mref->_ref_cb;
+		cb->cb_fn = read_endio;
+		cb->cb_private = logst;
+		cb->cb_error = 0;
+		cb->cb_prev = NULL;
+		mref->ref_cb = cb;
+		mref->ref_rw = 0;
+		logst->offset = 0;
+		logst->got = false;
+
+		GENERIC_INPUT_CALL(logst->input, mref_io, mref);
+
+		wait_event_interruptible_timeout(logst->event, logst->got, 60 * HZ);
+		status = -EIO;
+		if (!logst->got)
+			goto err_free;
+		status = logst->error_code;
+		if (status < 0)
+			goto err_free;
+		logst->read_mref = mref;
+	}
+
+	for (i = logst->offset; i < mref->ref_len; ) {
+		long long magic = 0;
+		int startpos = i;
+		DATA_GET(mref->ref_data, i, magic);
+		if (magic == START_MAGIC) {
+			int restlen = mref->ref_len - startpos;
+			if (restlen < sizeof(struct log_header)) {
+				MARS_ERR("magic found at pos %d, restlen = %d\n", startpos, restlen);
+			}
+			memcpy(lh, mref->ref_data + startpos, sizeof(struct log_header));
+			//...
+			break;
+		}
+	}
+
+	return status;
+
+err_free:
+	if (mref) {
+		GENERIC_INPUT_CALL(logst->input, mref_put, mref);
+	}
+err:
+	return status;
 }
 EXPORT_SYMBOL_GPL(log_read);
 

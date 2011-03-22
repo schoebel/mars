@@ -10,7 +10,7 @@
 //#define USE_FREELIST // use this, but improve freeing
 
 #define _STRATEGY
-#define BRICK_OBJ_NR /*empty => leads to an open array */
+#define BRICK_OBJ_MAX /*empty => leads to an open array */
 #define GFP_MARS GFP_ATOMIC
 
 #include "brick.h"
@@ -293,13 +293,17 @@ int generic_add_aspect(struct generic_output *output, struct generic_object_layo
 {
 	struct generic_aspect_layout *aspect_layout;
 	int nr;
+	int i;
+
+	(void)i;
 
 	if (unlikely(!object_layout->object_type)) {
 		return -EINVAL;
 	}
+
 	nr = object_layout->object_type->brick_obj_nr;
-	aspect_layout = (void*)&output->aspect_layouts[nr];
-	if (aspect_layout->aspect_type) {
+	aspect_layout = (void*)&output->output_aspect_layouts[nr];
+	if (aspect_layout->aspect_type && aspect_layout->aspect_layout_generation == object_layout->object_layout_generation) {
 		/* aspect_layout is already initialized.
 		 * this is a kind of "dynamic programming".
 		 * ensure consistency to last call.
@@ -327,10 +331,27 @@ int generic_add_aspect(struct generic_output *output, struct generic_object_layo
 		aspect_layout->init_data = output;
 		aspect_layout->aspect_offset = object_layout->object_size;
 		object_layout->object_size += aspect_type->aspect_size;
+		aspect_layout->aspect_layout_generation = object_layout->object_layout_generation;
 		BRICK_DBG("initializing aspect_type %s on object_layout %p, object_size=%d\n", aspect_type->aspect_type_name, object_layout, object_layout->object_size);
 	}
-	nr = object_layout->aspect_count++;
-	object_layout->aspect_layouts[nr] = aspect_layout;
+	// find an empty slot
+	nr = -1;
+#if 0
+	for (i = 0; i < object_layout->aspect_count; i++) {
+		if (!object_layout->aspect_layouts_table[nr]) {
+			nr = i;
+			break;
+		}
+	}
+#endif
+	if (nr < 0) {
+		nr = object_layout->aspect_count++;
+		if (nr >= object_layout->aspect_max) {
+			BRICK_ERR("aspect overflow\n");
+			return -ENOMEM;
+		}
+	}
+	object_layout->aspect_layouts_table[nr] = aspect_layout;
 	return 0;
 }
 
@@ -360,25 +381,24 @@ int default_init_object_layout(struct generic_output *output, struct generic_obj
 	}
 
 	data = kzalloc(aspect_max * sizeof(void*), GFP_MARS);
-	if (unlikely(!data))
+	if (unlikely(!data)) {
+		BRICK_ERR("kzalloc failed, size = %lu\n", aspect_max * sizeof(void*));
 		goto done;
+	}
 
 	traced_lock(&global_lock, flags);
 
-	if (unlikely(object_layout->object_type && object_layout->layout_generation == brick_layout_generation)) {
+	if (unlikely(object_layout->object_type && object_layout->object_layout_generation == brick_layout_generation)) {
 		traced_unlock(&global_lock, flags);
 		BRICK_DBG("lost the race on object_layout %p/%s (no harm)\n", object_layout, module_name);
 		status = 0;
 		goto done;
 	}
 
-	olddata = object_layout->aspect_layouts;
-	if (olddata) {
-		kfree(olddata);
-	}
+	olddata = object_layout->aspect_layouts_table;
 
-	object_layout->aspect_layouts = data;
-	object_layout->layout_generation = brick_layout_generation;
+	object_layout->aspect_layouts_table = data;
+	object_layout->object_layout_generation = brick_layout_generation;
 	object_layout->object_type = object_type;
 	object_layout->init_data = output;
 	object_layout->aspect_count = 0;
@@ -404,6 +424,11 @@ int default_init_object_layout(struct generic_output *output, struct generic_obj
 	BRICK_INF("OK, object_layout %s init succeeded (size = %d).\n", object_type->object_type_name, object_layout->object_size);
 
 done:
+	if (olddata) {
+#if 0 // FIXME: use RCU here
+		kfree(olddata);
+#endif
+	}
 	return status;
 }
 EXPORT_SYMBOL_GPL(default_init_object_layout);

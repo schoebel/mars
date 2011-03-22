@@ -20,3 +20,7 @@ obj-$(CONFIG_MARS_TEST)		+= mars_test.o
 obj-$(CONFIG_MARS_LIGHT)	+= mars_light.o
 
 #mars-objs	:= mars_generic.o
+
+ifdef CONFIG_DEBUG_KERNEL
+KBUILD_CFLAGS += -fno-inline-functions -fno-inline-small-functions -fno-inline-functions-called-once
+endif

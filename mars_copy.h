@@ -10,7 +10,9 @@
 #define INPUT_B_IO   2
 #define INPUT_B_COPY 3
 
-#define MAX_COPY_PARA 512
+//#define COPY_CHUNK      (64 * 1024)
+#define COPY_CHUNK      PAGE_SIZE
+#define MAX_COPY_PARA   (10 * 1024 * 1024 / COPY_CHUNK)
 
 enum {
 	COPY_STATE_START = 0,

@@ -93,7 +93,7 @@ int _determine_input(struct copy_brick *brick, struct mref_object *mref)
 	return INPUT_A_IO;
 }
 
-#define MAKE_INDEX(pos) (((pos) / PAGE_SIZE) % MAX_COPY_PARA)
+#define MAKE_INDEX(pos) (((pos) / COPY_CHUNK) % MAX_COPY_PARA)
 
 static
 void copy_endio(struct generic_callback *cb)
@@ -173,7 +173,7 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 	mref->ref_rw = rw;
 	mref->ref_data = data;
 	mref->ref_pos = pos;
-	len = PAGE_SIZE - (pos & (PAGE_SIZE-1));
+	len = COPY_CHUNK - (pos & (COPY_CHUNK-1));
 	if (pos + len > tmp_pos) {
 		len = tmp_pos - pos;
 	}
@@ -189,6 +189,11 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 		MARS_ERR("status = %d\n", status);
 		mars_free_mref(mref);
 		goto done;
+	}
+	if (unlikely(mref->ref_len < len)) {
+		MARS_ERR("shorten len %d < %d\n", mref->ref_len, len);
+		//FIXME: handle this case
+		status = -EAGAIN;
 	}
 
 	MARS_IO("queue = %d index = %d pos = %lld len = %d rw = %d\n", queue, index, mref->ref_pos, mref->ref_len, rw);
@@ -354,7 +359,7 @@ void _run_copy(struct copy_brick *brick)
 	max = MAX_COPY_PARA - atomic_read(&brick->io_flight) * 2;
 	MARS_IO("max = %d\n", max);
 
-	for (pos = brick->copy_start; pos < brick->copy_end; pos = ((pos / PAGE_SIZE) + 1) * PAGE_SIZE) {
+	for (pos = brick->copy_start; pos < brick->copy_end; pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
 		//MARS_IO("pos = %lld\n", pos);
 		if (brick->clash || max-- <= 0)
 			break;

@@ -156,7 +156,7 @@ static int check_watchdog(void *data)
 				for (i = 0; i < object_layout->aspect_count; i++) {
 					struct generic_aspect_layout *aspect_layout;
 					int pos;
-					aspect_layout = object_layout->aspect_layouts[i];
+					aspect_layout = object_layout->aspect_layouts_table[i];
 					pos = aspect_layout->aspect_offset;
 					if (i == 0) {
 						MARS_INF("object %s:\n", object_layout->object_type->object_type_name);
