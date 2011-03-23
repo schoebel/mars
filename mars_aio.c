@@ -628,7 +628,7 @@ static int aio_output_construct(struct aio_output *output)
 
 static int aio_output_destruct(struct aio_output *output)
 {
-	return mars_power_button((void*)output->brick, false);
+	return 0;
 }
 
 ///////////////////////// static structs ////////////////////////
@@ -643,6 +643,15 @@ static struct aio_output_ops aio_output_ops = {
 	.mref_put = aio_ref_put,
 	.mref_io = aio_ref_io,
 	.mars_get_info = aio_get_info,
+};
+
+const struct aio_input_type aio_input_type = {
+	.type_name = "aio_input",
+	.input_size = sizeof(struct aio_input),
+};
+
+static const struct aio_input_type *aio_input_types[] = {
+	&aio_input_type,
 };
 
 const struct aio_output_type aio_output_type = {
@@ -667,6 +676,7 @@ const struct aio_brick_type aio_brick_type = {
 	.max_inputs = 0,
 	.max_outputs = 1,
 	.master_ops = &aio_brick_ops,
+	.default_input_types = aio_input_types,
 	.default_output_types = aio_output_types,
 	.brick_construct = &aio_brick_construct,
 };

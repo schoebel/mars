@@ -183,7 +183,7 @@ struct generic_input {
 	struct BRICK##_output_ops *ops;					\
 	struct list_head output_head;					\
 	int nr_connected;						\
-	/* _must_ be the last member */					\
+	/* _must_ be the last member (may expand to open array) */	\
 	struct generic_aspect_layout output_aspect_layouts[BRICK_OBJ_MAX]; \
 	
 struct generic_output {
@@ -365,16 +365,19 @@ inline int generic_connect(struct generic_input *input, struct generic_output *o
 		return -EINVAL;
 	if (unlikely(input->connect))
 		return -EEXIST;
+	if (unlikely(!list_empty(&input->input_head)))
+		return -EINVAL;
 	// helps only against the most common errors
 	if (unlikely(input->brick == output->brick))
 		return -EDEADLK;
+
 	input->connect = output;
 	output->nr_connected++;
+	list_add(&input->input_head, &output->output_head);
+	BRICK_DBG("now nr_connected=%d\n", output->nr_connected);
 	/* no atomic_t necessary (_any_ change is sufficient)
 	 */
 	brick_layout_generation++;
-	list_add(&input->input_head, &output->output_head);
-	BRICK_DBG("now nr_connected=%d\n", output->nr_connected);
 	return 0;
 }
 
@@ -384,8 +387,8 @@ inline int generic_disconnect(struct generic_input *input)
 	if (!input)
 		return -EINVAL;
 	if (input->connect) {
-		BRICK_DBG("now nr_connected=%d\n", input->connect->nr_connected);
 		input->connect->nr_connected--;
+		BRICK_DBG("now nr_connected=%d\n", input->connect->nr_connected);
 		input->connect = NULL;
 		list_del_init(&input->input_head);
 		//brick_layout_generation++;

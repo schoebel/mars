@@ -94,52 +94,62 @@ int generic_brick_init_full(
 		BRICK_DBG("generic_brick_init_full: switch to default input_types\n");
 		input_types = brick_type->default_input_types;
 		names = brick_type->default_input_names;
+		if (unlikely(!input_types)) {
+			BRICK_ERR("no input types specified\n");
+			return -EINVAL;
+		}
 	}
-	if (input_types) {
-		BRICK_DBG("generic_brick_init_full: input_types\n");
-		brick->inputs = data;
-		data += sizeof(void*) * brick_type->max_inputs;
-		size -= sizeof(void*) * brick_type->max_inputs;
-		if (size < 0) {
+	BRICK_DBG("generic_brick_init_full: input_types\n");
+	brick->inputs = data;
+	data += sizeof(void*) * brick_type->max_inputs;
+	size -= sizeof(void*) * brick_type->max_inputs;
+	if (size < 0) {
+		return -ENOMEM;
+	}
+	for (i = 0; i < brick_type->max_inputs; i++) {
+		struct generic_input *input = data;
+		const struct generic_input_type *type = *input_types++;
+		if (!type || type->input_size <= 0) {
+			return -EINVAL;
+		}
+		BRICK_DBG("generic_brick_init_full: calling generic_input_init()\n");
+		status = generic_input_init(brick, i, type, input, (names && *names) ? *names++ : type->type_name);
+		if (status < 0)
+			return status;
+		data += type->input_size;
+		size -= type->input_size;
+		if (size < 0)
 			return -ENOMEM;
-		}
-		for (i = 0; i < brick_type->max_inputs; i++) {
-			struct generic_input *input = data;
-			const struct generic_input_type *type = *input_types++;
-			BRICK_DBG("generic_brick_init_full: calling generic_input_init()\n");
-			status = generic_input_init(brick, i, type, input, (names && *names) ? *names++ : type->type_name);
-			if (status)
-				return status;
-			data += type->input_size;
-			size -= type->input_size;
-			if (size < 0)
-				return -ENOMEM;
-		}
 	}
 	if (!output_types) {
 		BRICK_DBG("generic_brick_init_full: switch to default output_types\n");
 		output_types = brick_type->default_output_types;
 		names = brick_type->default_output_names;
+		if (unlikely(!output_types)) {
+			BRICK_ERR("no output types specified\n");
+			return -EINVAL;
+		}
 	}
-	if (output_types) {
-		BRICK_DBG("generic_brick_init_full: output_types\n");
-		brick->outputs = data;
-		data += sizeof(void*) * brick_type->max_outputs;
-		size -= sizeof(void*) * brick_type->max_outputs;
+	BRICK_DBG("generic_brick_init_full: output_types\n");
+	brick->outputs = data;
+	data += sizeof(void*) * brick_type->max_outputs;
+	size -= sizeof(void*) * brick_type->max_outputs;
+	if (size < 0)
+		return -ENOMEM;
+	for (i = 0; i < brick_type->max_outputs; i++) {
+		struct generic_output *output = data;
+		const struct generic_output_type *type = *output_types++;
+		if (!type || type->output_size <= 0) {
+			return -EINVAL;
+		}
+		BRICK_DBG("generic_brick_init_full: calling generic_output_init()\n");
+		generic_output_init(brick, i, type, output, (names && *names) ? *names++ : type->type_name);
+		if (status < 0)
+			return status;
+		data += type->output_size;
+		size -= type->output_size;
 		if (size < 0)
 			return -ENOMEM;
-		for (i = 0; i < brick_type->max_outputs; i++) {
-			struct generic_output *output = data;
-			const struct generic_output_type *type = *output_types++;
-			BRICK_DBG("generic_brick_init_full: calling generic_output_init()\n");
-			generic_output_init(brick, i, type, output, (names && *names) ? *names++ : type->type_name);
-			if (status)
-				return status;
-			data += type->output_size;
-			size -= type->output_size;
-			if (size < 0)
-				return -ENOMEM;
-		}
 	}
 
 	// call the specific constructors
@@ -147,7 +157,7 @@ int generic_brick_init_full(
 	if (brick_type->brick_construct) {
 		BRICK_DBG("generic_brick_init_full: calling brick_construct()\n");
 		status = brick_type->brick_construct(brick);
-		if (status)
+		if (status < 0)
 			return status;
 	}
 	for (i = 0; i < brick_type->max_inputs; i++) {
@@ -161,7 +171,7 @@ int generic_brick_init_full(
 		if (input->type->input_construct) {
 			BRICK_DBG("generic_brick_init_full: calling input_construct()\n");
 			status = input->type->input_construct(input);
-			if (status)
+			if (status < 0)
 				return status;
 		}
 	}
@@ -176,7 +186,7 @@ int generic_brick_init_full(
 		if (output->type->output_construct) {
 			BRICK_DBG("generic_brick_init_full: calling output_construct()\n");
 			status = output->type->output_construct(output);
-			if (status)
+			if (status < 0)
 				return status;
 		}
 	}
@@ -189,7 +199,7 @@ int generic_brick_exit_full(struct generic_brick *brick)
 	int i;
 	int status;
 	// first, check all outputs
-	for (i = 0; i < brick->nr_outputs; i++) {
+	for (i = 0; i < brick->type->max_outputs; i++) {
 		struct generic_output *output = brick->outputs[i];
 		if (!output)
 			continue;
@@ -260,13 +270,13 @@ int generic_brick_exit_recursively(struct generic_brick *brick, bool destroy_inp
 		int postpone = 0;
 		brick = container_of(tmp.next, struct generic_brick, tmp_head);
 		list_del_init(&brick->tmp_head);
-		for (i = 0; i < brick->nr_outputs; i++) {
+		for (i = 0; i < brick->type->max_outputs; i++) {
 			struct generic_output *output = brick->outputs[i];
 			if (output && output->nr_connected) {
 				postpone += output->nr_connected;
 			}
 		}
-		for (i = 0; i < brick->nr_inputs; i++) {
+		for (i = 0; i < brick->type->max_inputs; i++) {
 			struct generic_input *input = brick->inputs[i];
 			if (input && input->connect) {
 				struct generic_brick *other = input->connect->brick;
@@ -301,7 +311,14 @@ int generic_add_aspect(struct generic_output *output, struct generic_object_layo
 		return -EINVAL;
 	}
 
+#if 0
 	nr = object_layout->object_type->brick_obj_nr;
+	if (nr < 0 || nr >= BRICK_OBJ_NR) {
+		return -EINVAL;
+	}
+#else
+	nr = 0;
+#endif
 	aspect_layout = (void*)&output->output_aspect_layouts[nr];
 	if (aspect_layout->aspect_type && aspect_layout->aspect_layout_generation == object_layout->object_layout_generation) {
 		/* aspect_layout is already initialized.
@@ -682,24 +699,26 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 	int stack;
 	bool val = (mode == BR_ON_ONE || mode == BR_ON_ALL);
 	bool force = (mode != BR_OFF_ONE && mode != BR_OFF_ALL);
-	int oldstack = 0;
+	int pos;
 	int status;
 
 #define PUSH_STACK(next)						\
 	{								\
 		int j;							\
 		bool found = false;					\
+		/* eliminate duplicates	*/				\
 		for (j = 0; j < stack; j++) {				\
-			if (table[j] == next) {				\
-				BRICK_DBG("  double entry %d '%s' stack = %d\n", i, next->brick_name, stack); \
+			if (table[j] == (next)) {			\
+				BRICK_DBG("  double entry %d '%s' stack = %d\n", i, (next)->brick_name, stack); \
 				found = true;				\
 				break;					\
 			}						\
 		}							\
 		if (!found) {						\
-			BRICK_DBG("  push %d '%s' stack = %d\n", i, next->brick_name, stack); \
-			table[stack++] = next;				\
+			BRICK_DBG("  push '%s' stack = %d\n", (next)->brick_name, stack); \
+			table[stack++] = (next);			\
 			if (unlikely(stack > max)) {			\
+				BRICK_ERR("---- max = %d overflow, restarting...\n", max); \
 				goto restart;				\
 			}						\
 		}							\
@@ -719,15 +738,10 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 	table[stack++] = orig_brick;
 
 	status = -EAGAIN;
-	while (stack > oldstack) {
-		int i;
-		struct generic_brick *brick;
+	for (pos = 0; pos < stack; pos++) {
+		struct generic_brick *brick = table[pos];
 
-		oldstack = stack;
-
-		brick = table[stack - 1];
-		BRICK_DBG("--> brick = '%s' inputs = %d stack = %d\n", brick->brick_name, brick->nr_inputs, stack);
-		msleep(1000);
+		BRICK_DBG("--> pos = %d stack = %d brick = '%s' inputs = %d/%d outputs = %d/%d\n", pos, stack, brick->brick_name, brick->nr_inputs, brick->type->max_inputs, brick->nr_outputs, brick->type->max_outputs);
 
 		if (val) {
 			force = false;
@@ -736,10 +750,13 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 				goto done;
 			}
 			if (mode >= BR_ON_ALL) {
-				for (i = 0; i < brick->nr_inputs; i++) {
+				int i;
+				for (i = 0; i < brick->type->max_inputs; i++) {
 					struct generic_input *input = brick->inputs[i];
 					struct generic_output *output;
 					struct generic_brick *next;
+					BRICK_DBG("---> i = %d\n", i);
+					msleep(1000);
 					if (!input)
 						continue;
 					output = input->connect;
@@ -753,21 +770,31 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 				}
 			}
 		} else if (mode >= BR_ON_ALL) {
-			for (i = 0; i < brick->nr_outputs; i++) {
+			int i;
+			for (i = 0; i < brick->type->max_outputs; i++) {
 				struct generic_output *output = brick->outputs[i];
 				struct list_head *tmp;
-				struct generic_input *input;
-				struct generic_brick *next;
+				BRICK_DBG("---> i = %d output = %p\n", i, output);
+				msleep(1000);
 				if (!output)
 					continue;
 				for (tmp = output->output_head.next; tmp && tmp != &output->output_head; tmp = tmp->next) {
-					input = container_of(tmp, struct generic_input, input_head);
-					next = input->brick;
+					struct generic_input *input = container_of(tmp, struct generic_input, input_head);
+					struct generic_brick *next = input->brick;
+					BRICK_DBG("----> tmp = %p input = %p next = %p\n", tmp, input, next);
+					msleep(1000);
+					if (unlikely(!next)) {
+						BRICK_ERR("oops, bad brick pointer\n");
+						status = -EINVAL;
+						goto done;
+					}
 					PUSH_STACK(next);
 				}
 			}
 		}
 	}
+
+	BRICK_DBG("-> stack = %d\n", stack);
 
 	while (stack > 0) {
 		struct generic_brick *brick = table[--stack];
@@ -779,7 +806,9 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 		}
 
 		if (force && !val && (mode == BR_FREE_ONE || mode == BR_FREE_ALL) && brick->free) {
+			BRICK_DBG("---> freeing '%s'\n", brick->brick_name);
 			status = brick->free(brick);
+			BRICK_DBG("---> freeing '%s' status = %d\n", brick->brick_name, status);
 			if (status < 0) {
 				BRICK_DBG("freeing brick '%s' (%s) failed, status = %d\n", brick->brick_name, orig_brick->brick_name, status);
 				goto done;
@@ -789,10 +818,10 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 	}
 	status = 0;
 
- done:
+done:
+	BRICK_DBG("-> done '%s' status = %d\n", orig_brick->brick_name, status);
 	if (table)
 		kfree(table);
-	BRICK_DBG("-> done '%s' status = %d\n", orig_brick->brick_name, status);
 	return status;
 }
 EXPORT_SYMBOL_GPL(set_recursive_button);

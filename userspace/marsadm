@@ -13,7 +13,7 @@ $ip =~ s/\A.*inet +(?!127\.0\.)([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+).*?\Z/$1/ms or di
 chomp $ip;
 print "my IP is $ip\n";
 
-umask 0177;
+umask 0077;
 die "only root may use this tool\n" unless `whoami` eq "root\n"; # getpid() seems to be missing in perlfunc
 
 ##################################################################
@@ -67,23 +67,11 @@ sub _trigger {
 
 sub _switch {
   my ($path, $on) = @_;
-
-  # Sadly, there is no system call lchmod().
-  # It would be better to use the x flag even of symlinks if it were possible.
-  # As a workaround, we use the owner uid - fortunately this is
-  # changeable, even by perl (although direct calls to lchown()
-  # seems to be missing)
-
-  if($on) {
-    system("chown --no-dereference 0 $path");
-  } else {
-    system("chown --no-dereference nobody $path");
-  }
-
-  my $oldmode = (lstat $path)[2] & 0700;
-  my $newmode = $on ? $oldmode | 0100 : $oldmode & ~0100;
-  print "chmod '$path' $oldmode $newmode";
-  chmod($newmode, $path) == 1 or die "cannot chmod '$path'\n";
+  my $tmp = $path;
+  $tmp =~ s/\/([^\/]+)$/.tmp.$1/;
+  my $src = $on ? "1" : "0";
+  symlink($src, $tmp) or die "cannot create switch symlink\n";
+  rename($tmp, $path) or die "cannot rename switch symlink\n";
 }
 
 sub _writable {
@@ -222,6 +210,7 @@ sub create_res {
   mkdir("$tmp/defaults-$host");
   mkdir("$tmp/actual-$host");
   mkdir("$tmp/switch-$host");
+  symlink("1", "$tmp/switch-$host/attach");
   symlink("0", "$tmp/switch-$host/connect");
   symlink("0", "$tmp/switch-$host/sync");
 
@@ -245,8 +234,9 @@ sub create_res {
 sub attach_res {
   my ($cmd, $res) = @_;
   my $detach = ($cmd eq "detach");
-  my $path = "$mars/resource-$res/data-$host";
+  my $path = "$mars/resource-$res/switch-$host/attach";
   _switch($path, !$detach);
+  print "successfully started ${cmd} of resource $res\n"
 }
 
 sub connect_res {
@@ -254,6 +244,7 @@ sub connect_res {
   my $disconnect = ($cmd eq "disconnect");
   my $path = "$mars/resource-$res/switch-$host/connect";
   _switch($path, !$disconnect);
+  print "successfully started ${cmd} on resource $res\n"
 }
 
 sub pause_res {
@@ -261,6 +252,7 @@ sub pause_res {
   my $pause = ($cmd eq "pause-sync");
   my $path = "$mars/resource-$res/switch-$host/sync";
   _switch($path, !$pause);
+  print "successfully started ${cmd} on resource $res\n"
 }
 
 sub up_res {

@@ -256,10 +256,13 @@ void _mars_trigger(void)
 }
 EXPORT_SYMBOL_GPL(_mars_trigger);
 
-int mars_power_button(struct mars_brick *brick, bool val)
+int mars_power_button(struct mars_brick *brick, bool val, bool force_off)
 {
 	int status = 0;
 	bool oldval = brick->power.button;
+
+	if (force_off && !val)
+		brick->power.force_off = true;
 
 	if (brick->power.force_off)
 		val = false;
@@ -278,17 +281,20 @@ int mars_power_button(struct mars_brick *brick, bool val)
 }
 EXPORT_SYMBOL_GPL(mars_power_button);
 
-int mars_power_button_recursive(struct mars_brick *brick, bool val, int timeout)
+int mars_power_button_recursive(struct mars_brick *brick, bool val, bool force_off, int timeout)
 {
 	int status = 0;
 	bool oldval = brick->power.button;
+
+	if (force_off && !val)
+		brick->power.force_off = true;
 
 	if (brick->power.force_off)
 		val = false;
 
 	if (val != oldval) {
 		brick_switch_t mode;
-		mode = (val ? BR_ON_ALL : BR_OFF_ALL);
+		mode = (val ? BR_ON_ALL : (force_off ? BR_FREE_ALL : BR_OFF_ALL));
 
 		MARS_DBG("brick '%s' type '%s' power button %d -> %d (mode = %d)\n", brick->brick_path, brick->type->type_name, oldval, val, mode);
 
@@ -329,7 +335,7 @@ struct mars_cookie {
 	struct mars_global *global;
 	mars_dent_checker checker;
 	char *path;
-	void *parent;
+	struct mars_dent *parent;
 	int pathlen;
 	int allocsize;
 	int depth;
@@ -425,7 +431,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 		return 0;
 	}
 
-	class = cookie->checker(cookie->path, name, namlen, d_type, &prefix, &serial);
+	class = cookie->checker(cookie->parent, name, namlen, d_type, &prefix, &serial);
 	if (class < 0)
 		return 0;
 
@@ -761,6 +767,7 @@ EXPORT_SYMBOL_GPL(mars_find_brick);
 
 int mars_free_brick(struct mars_brick *brick)
 {
+	struct mars_global *global;
 	int i;
 	int status;
 
@@ -787,19 +794,28 @@ int mars_free_brick(struct mars_brick *brick)
 
 	MARS_DBG("===> freeing brick name = '%s'\n", brick->brick_name);
 
-#if 1 // TODO: debug locking crash
-	(void)generic_brick_exit_full((void*)brick);
+	global = brick->global;
+	if (global) {
+		down(&global->mutex);
+		list_del_init(&brick->global_brick_link);
+		list_del_init(&brick->dent_brick_link);
+		up(&global->mutex);
+	}
+
+	status = generic_brick_exit_full((void*)brick);
+
+	if (status >= 0) {
+#if 0 // TODO: check whether crash remains possible
+		if (brick->brick_name)
+			kfree(brick->brick_name);
+		if (brick->brick_path)
+			kfree(brick->brick_path);
+		kfree(brick);
 #endif
-
-	if (brick->brick_name)
-		kfree(brick->brick_name);
-	if (brick->brick_path)
-		kfree(brick->brick_path);
-	kfree(brick);
-
-	mars_trigger();
-
-	status = 0;
+		mars_trigger();
+	} else {
+		MARS_ERR("error freeing brick, status = %d\n", status);
+	}
 
 done:
 	return status;
@@ -832,6 +848,10 @@ struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent 
 			MARS_ERR("input_type %d is missing\n", i);
 			goto err_name;
 		}
+		if (unlikely(type->input_size <= 0)) {
+			MARS_ERR("bad input_size at %d\n", i);
+			goto err_name;
+		}
 		size += type->input_size;
 	}
 	output_types = brick_type->default_output_types;
@@ -839,6 +859,10 @@ struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent 
 		const struct generic_output_type *type = *output_types++;
 		if (unlikely(!type)) {
 			MARS_ERR("output_type %d is missing\n", i);
+			goto err_name;
+		}
+		if (unlikely(type->output_size <= 0)) {
+			MARS_ERR("bad output_size at %d\n", i);
 			goto err_name;
 		}
 		size += type->output_size;
@@ -897,11 +921,6 @@ int mars_kill_brick(struct mars_brick *brick)
 	CHECK_PTR(global, done);
 
 	MARS_DBG("===> killing brick path = '%s' name = '%s'\n", brick->brick_path, brick->brick_name);
-
-	down(&global->mutex);
-	list_del_init(&brick->global_brick_link);
-	list_del_init(&brick->dent_brick_link);
-	up(&global->mutex);
 
 	// start shutdown
 	status = set_recursive_button((void*)brick, BR_FREE_ALL, 10 * HZ);
@@ -1021,12 +1040,14 @@ struct mars_brick *make_brick_all(
 	struct mars_brick *brick = NULL;
 	char *paths[prev_count];
 	struct mars_brick *prev[prev_count];
+	int switch_state = true;
 	int i;
 
 	// treat variable arguments
 	va_start(args, prev_count);
 	if (switch_fmt) {
 		switch_path = vpath_make(switch_fmt, &args);
+		switch_state = false;
 	}
 	if (new_fmt) {
 		new_path = _new_path = vpath_make(new_fmt, &args);
@@ -1042,11 +1063,21 @@ struct mars_brick *make_brick_all(
 		MARS_ERR("could not create new path\n");
 		goto err;
 	}
+	if (switch_path) {
+		struct mars_dent *test = mars_find_dent(global, switch_path);
+		if (test && test->new_link) {
+			sscanf(test->new_link, "%d", &switch_state);
+		}
+	}
 
-	// don't do anything if brick already exists
+	// brick already existing?
 	brick = mars_find_brick(global, new_brick_type != _aio_brick_type  && new_brick_type != _bio_brick_type ? new_brick_type : NULL, new_path);
 	if (brick) {
+		// just switch the power state
 		MARS_IO("found brick '%s'\n", new_path);
+		goto do_switch;
+	}
+	if (!switch_state) { // don't start => also don't create
 		goto done;
 	}
 	if (!new_name)
@@ -1120,11 +1151,17 @@ struct mars_brick *make_brick_all(
 		setup_fn(brick, private);
 	}
 
-	// switch on (may fail silently, but responsibility is at the workers)
-	if (timeout > 0) {
+do_switch:
+	// switch on/off (may fail silently, but responsibility is at the workers)
+	if (timeout > 0 || !switch_state) {
 		int status;
-		status = mars_power_button_recursive((void*)brick, true, timeout);
+		status = mars_power_button_recursive((void*)brick, switch_state, !switch_state, timeout);
 		MARS_DBG("switch on status = %d\n", status);
+#if 1 // TODO: need cleanup_fn() here
+		if (!switch_state && status >= 0 && !brick->power.button && brick->power.led_off) {
+			mars_kill_brick(brick);
+		}
+#endif
 	}
 
 	return brick;

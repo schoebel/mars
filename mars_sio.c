@@ -511,6 +511,15 @@ static struct sio_output_ops sio_output_ops = {
 	.mars_get_info = sio_get_info,
 };
 
+const struct sio_input_type sio_input_type = {
+	.type_name = "sio_input",
+	.input_size = sizeof(struct sio_input),
+};
+
+static const struct sio_input_type *sio_input_types[] = {
+	&sio_input_type,
+};
+
 const struct sio_output_type sio_output_type = {
 	.type_name = "sio_output",
 	.output_size = sizeof(struct sio_output),
@@ -533,6 +542,7 @@ const struct sio_brick_type sio_brick_type = {
 	.max_inputs = 0,
 	.max_outputs = 1,
 	.master_ops = &sio_brick_ops,
+	.default_input_types = sio_input_types,
 	.default_output_types = sio_output_types,
 	.brick_construct = &sio_brick_construct,
 };

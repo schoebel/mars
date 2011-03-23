@@ -30,7 +30,7 @@ static struct task_struct *server_thread = NULL;
 ///////////////////////// own helper functions ////////////////////////
 
 
-static int server_checker(const char *path, const char *name, int namlen, unsigned int d_type, int *prefix, int *serial)
+static int server_checker(struct mars_dent *parent, const char *name, int namlen, unsigned int d_type, int *prefix, int *serial)
 {
 	return 0;
 }

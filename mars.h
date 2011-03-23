@@ -10,7 +10,11 @@
 
 /////////////////////////////////////////////////////////////////////////
 
-// include the brick infrastucture
+// include the generic brick infrastucture
+
+#ifdef BRICK_H
+#error "brick.h must not be already included - please reorganize your includes"
+#endif
 
 #define BRICK_OBJ_MREF            0
 #define BRICK_OBJ_MAX             1
@@ -22,7 +26,7 @@
 
 /////////////////////////////////////////////////////////////////////////
 
-// MARS-specific debugging helper
+// MARS-specific debugging helpers
 
 #define MARS_DELAY /**/
 //#define MARS_DELAY msleep(20000)
@@ -277,11 +281,11 @@ extern struct mars_global *mars_global;
 
 extern void _mars_trigger(void);
 #define mars_trigger() do { MARS_INF("trigger...\n"); _mars_trigger(); } while (0)
-extern int  mars_power_button(struct mars_brick *brick, bool val);
+extern int  mars_power_button(struct mars_brick *brick, bool val, bool force_off);
 extern void mars_power_led_on(struct mars_brick *brick, bool val);
 extern void mars_power_led_off(struct mars_brick *brick, bool val);
 
-extern int  mars_power_button_recursive(struct mars_brick *brick, bool val, int timeout);
+extern int  mars_power_button_recursive(struct mars_brick *brick, bool val, bool force_off, int timeout);
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -335,7 +339,7 @@ struct mars_global {
 	//void *private;
 };
 
-typedef int (*mars_dent_checker)(const char *path, const char *name, int namlen, unsigned int d_type, int *prefix, int *serial);
+typedef int (*mars_dent_checker)(struct mars_dent *parent, const char *name, int namlen, unsigned int d_type, int *prefix, int *serial);
 typedef int (*mars_dent_worker)(struct mars_global *global, struct mars_dent *dent, bool direction);
 
 extern int mars_dent_work(struct mars_global *global, char *dirname, int allocsize, mars_dent_checker checker, mars_dent_worker worker, void *buf, int maxdepth);

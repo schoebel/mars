@@ -487,7 +487,15 @@ static int if_switch(struct if_brick *brick)
 		mars_power_led_on((void*)brick, false);
 		disk = input->disk;
 		if (!disk)
-			goto down;
+			goto is_down;
+
+#if 0
+		q = disk->queue;
+		if (q) {
+			blk_cleanup_queue(q);
+			input->q = NULL;
+		}
+#endif
 		if (atomic_read(&input->open_count) > 0) {
 			MARS_INF("device '%s' is open %d times, cannot shutdown\n", disk->disk_name, atomic_read(&input->open_count));
 			return -EBUSY;
@@ -496,17 +504,10 @@ static int if_switch(struct if_brick *brick)
 			bdput(input->bdev);
 			input->bdev = NULL;
 		}
-		if (disk) {
-			q = disk->queue;
-			del_gendisk(input->disk);
-			put_disk(input->disk);
-			input->disk = NULL;
-			if (q) {
-				blk_cleanup_queue(q);
-			}
-		}
-		//........
-	down:
+		del_gendisk(input->disk);
+		put_disk(input->disk);
+		input->disk = NULL;
+	is_down:
 		mars_power_led_off((void*)brick, true);
 	}
 	return 0;
@@ -560,14 +561,6 @@ static int if_input_construct(struct if_input *input)
 
 static int if_input_destruct(struct if_input *input)
 {
-	if (input->bdev)
-		bdput(input->bdev);
-	if (input->disk) {
-		del_gendisk(input->disk);
-		//put_disk(input->disk);
-	}
-	if (input->q)
-		blk_cleanup_queue(input->q);
 	return 0;
 }
 
@@ -607,6 +600,12 @@ const struct if_output_type if_output_type = {
 		[BRICK_OBJ_MREF] = LAYOUT_ALL,
 	}
 };
+
+static const struct if_output_type *if_output_types[] = {
+	&if_output_type,
+};
+
+
 const struct if_brick_type if_brick_type = {
 	.type_name = "if_brick",
 	.brick_size = sizeof(struct if_brick),
@@ -614,6 +613,7 @@ const struct if_brick_type if_brick_type = {
 	.max_outputs = 0,
 	.master_ops = &if_brick_ops,
 	.default_input_types = if_input_types,
+	.default_output_types = if_output_types,
 	.brick_construct = &if_brick_construct,
 	.brick_destruct = &if_brick_destruct,
 };

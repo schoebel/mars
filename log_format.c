@@ -243,12 +243,6 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 
 	ok = true;
 
-#if 0
-	if (logst->restlen < PAGE_SIZE + OVERHEAD) {
-		log_flush(logst);
-	}
-#endif
-
 err:
 	return ok;
 }

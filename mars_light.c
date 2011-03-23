@@ -228,35 +228,6 @@ done:
 	return status;
 }
 
-#if 0
-static
-char *_backskip_replace(const char *path, char delim, bool insert, const char *fmt, ...)
-{
-	int path_len = strlen(path);
-	int total_len = strlen(fmt) + path_len + MARS_PATH_MAX;
-	char *res = kmalloc(total_len, GFP_MARS);
-	if (likely(res)) {
-		va_list args;
-		int pos = path_len;
-		int plus;
-
-		while (pos > 0 && path[pos] != delim) {
-			pos--;
-		}
-		memcpy(res, path, pos);
-
-		va_start(args, fmt);
-		plus = vsnprintf(res + pos, total_len - pos, fmt, args);
-		va_end(args);
-
-		if (insert) {
-			strncpy(res + pos + plus, path + pos + 1, total_len - pos - plus);
-		}
-	}
-	return res;
-}
-#endif
-
 ///////////////////////////////////////////////////////////////////////
 
 static
@@ -276,7 +247,11 @@ int __make_copy(
 	struct mars_output *output[2] = {};
 	struct mars_info info[2] = {};
 	int i;
-	int status = -1;
+	int status = -EINVAL;
+
+	if (!switch_path) {
+		goto done;
+	}
 
 	for (i = 0; i < 2; i++) {
 		struct mars_brick *aio;
@@ -368,7 +343,7 @@ int __make_copy(
 		_copy->copy_end = info[0].current_size;
 		MARS_DBG("copy_end = %lld\n", _copy->copy_end);
 		if (_copy->copy_start < _copy->copy_end) {
-			status = mars_power_button_recursive((void*)copy, true, 10 * HZ);
+			status = mars_power_button_recursive((void*)copy, true, false, 10 * HZ);
 			MARS_DBG("copy switch status = %d\n", status);
 		}
 	}
@@ -465,9 +440,7 @@ int check_logfile(struct mars_peerinfo *peer, struct mars_dent *dent, struct mar
 	loff_t src_size = dent->new_stat.size;
 	const char *switch_path = NULL;
 	const char *copy_path = NULL;
-	const char *connect_path = NULL;
 	const char *alias_path = NULL;
-	struct kstat connect_stat = {};
 	struct mars_dent *local_alias;
 	struct copy_brick *copy_brick;
 	int status = 0;
@@ -508,23 +481,9 @@ int check_logfile(struct mars_peerinfo *peer, struct mars_dent *dent, struct mar
 	}
 
 	// check whether connection is allowed
-	connect_path = backskip_replace(dent->d_path, '/', false, "/connect-%s", my_id());
-	if (unlikely(!connect_path)) {
-		status = -ENOMEM;
-		goto done;
-	}
-	status = mars_stat(connect_path, &connect_stat, true);
-	MARS_DBG("connect_path = '%s' stat status = %d uid = %d\n", connect_path, status, connect_stat.uid);
-	if (status < 0 || connect_stat.uid > 0) {
-		// stop running copy, if any
-		if (copy_brick) {
-			MARS_DBG("stopping copy '%s'\n", copy_brick->brick_name);
-			mars_kill_brick((void*)copy_brick);
-		}
-		goto done;
-	}
+	switch_path = path_make("%s/switch-%s/connect", parent->d_path, my_id());
 	
-	// start copy
+	// start / treat copy brick instance
 	status = _update_file(peer->global, switch_path, copy_path, dent->d_path, peer->peer, src_size);
 	MARS_DBG("update '%s' from peer '%s' status = %d\n", dent->d_path, peer->peer, status);
 	if (status < 0) {
@@ -550,10 +509,10 @@ int check_logfile(struct mars_peerinfo *peer, struct mars_dent *dent, struct mar
 done:
 	if (copy_path)
 		kfree(copy_path);
-	if (connect_path)
-		kfree(connect_path);
 	if (alias_path)
 		kfree(alias_path);
+	if (switch_path)
+		kfree(switch_path);
 	return status;
 }
 
@@ -917,7 +876,7 @@ struct mars_rotate {
 };
 
 static
-void _create_new_logfile(char *path)
+void _create_new_logfile(const char *path)
 {
 	struct file *f;
 	const int flags = O_RDWR | O_CREAT | O_EXCL;
@@ -999,8 +958,9 @@ int make_log_init(void *buf, struct mars_dent *parent)
 	struct mars_dent *replay_link;
 	struct mars_dent *aio_dent;
 	struct mars_output *output;
-	char *replay_path = NULL;
-	char *aio_path = NULL;
+	const char *replay_path = NULL;
+	const char *aio_path = NULL;
+	const char *switch_path = NULL;
 	int status;
 
 	if (!rot) {
@@ -1101,6 +1061,9 @@ int make_log_init(void *buf, struct mars_dent *parent)
 	}
 	MARS_DBG("logfile '%s' size = %lld\n", aio_path, rot->aio_info.current_size);
 
+	// check whether attach is allowed
+	switch_path = path_make("%s/switch-%s/attach", parent->d_path, my_id());
+
 	/* Fetch / make the transaction logger.
 	 * We deliberately "forget" to connect the log input here.
 	 * Will be carried out later in make_log().
@@ -1115,7 +1078,7 @@ int make_log_init(void *buf, struct mars_dent *parent)
 			       aio_path,
 			       (const struct generic_brick_type*)&trans_logger_brick_type,
 			       (const struct generic_brick_type*[]){NULL},
-			       NULL,
+			       switch_path,
 			       "%s/logger", 
 			       (const char *[]){"%s/data-%s"},
 			       1,
@@ -1139,6 +1102,8 @@ done:
 		kfree(aio_path);
 	if (replay_path)
 		kfree(replay_path);
+	if (switch_path)
+		kfree(switch_path);
 	return status;
 }
 
@@ -1377,7 +1342,7 @@ int _start_trans(struct mars_rotate *rot)
 
 	/* Switch on....
 	 */
-	status = mars_power_button((void*)trans_brick, true);
+	status = mars_power_button((void*)trans_brick, true, false);
 	MARS_DBG("status = %d\n", status);
 
 done:
@@ -1394,9 +1359,9 @@ int _stop_trans(struct mars_rotate *rot)
 		goto done;
 	}
 
-	/* Switch off....
+	/* Switch off temporarily....
 	 */
-	status = mars_power_button((void*)trans_brick, false);
+	status = mars_power_button((void*)trans_brick, false, false);
 	MARS_DBG("status = %d\n", status);
 	if (status < 0 || !trans_brick->power.led_off) {
 		goto done;
@@ -1536,7 +1501,7 @@ int make_bio(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 	brick->outputs[0]->output_name = dent->d_path;
-	status = mars_power_button((void*)brick, true);
+	status = mars_power_button((void*)brick, true, false);
 	if (status < 0) {
 		kill_all(buf, dent);
 	}
@@ -1697,6 +1662,8 @@ static int _make_copy(void *buf, struct mars_dent *dent)
 		status = -ENOMEM;
 		goto done;
 	}
+	// check whether connection is allowed
+	switch_path = path_make("%s/switch-%s/connect", dent->d_parent->d_path, my_id());
 
 	status = __make_copy(global, dent, switch_path, copy_path, dent->d_parent->d_path, (const char**)dent->d_argv, -1, NULL);
 
@@ -1704,6 +1671,8 @@ done:
 	MARS_DBG("status = %d\n", status);
 	if (copy_path)
 		kfree(copy_path);
+	if (switch_path)
+		kfree(switch_path);
 	return status;
 }
 
@@ -1757,6 +1726,9 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	if (unlikely(!src || !dst || !copy_path))
 		goto done;
 
+	// check whether connection is allowed
+	switch_path = path_make("%s/switch-%s/sync", dent->d_parent->d_path, my_id());
+
 	MARS_DBG("starting initial sync '%s' => '%s'\n", src, dst);
 
 	{
@@ -1787,6 +1759,8 @@ done:
 		kfree(dst);
 	if (copy_path)
 		kfree(copy_path);
+	if (switch_path)
+		kfree(switch_path);
 	return status;
 }
 
@@ -1801,6 +1775,8 @@ enum {
 	CL_PEERS,
 	// resource definitions
 	CL_RESOURCE,
+	CL_SWITCH,
+	CL_SWITCH_ITEMS,
 	CL_CONNECT,
 	CL_DATA,
 	CL_PRIMARY,
@@ -1852,6 +1828,27 @@ static const struct light_class light_classes[] = {
 		.cl_type = 'd',
 		.cl_father = CL_ROOT,
 		.cl_forward = make_log_init,
+		.cl_backward = NULL,
+	},
+	/* Subdirectory for controlling items...
+	 */
+	[CL_SWITCH] = {
+		.cl_name = "switch-",
+		.cl_len = 7,
+		.cl_type = 'd',
+		.cl_hostcontext = true,
+		.cl_father = CL_RESOURCE,
+		.cl_forward = NULL,
+		.cl_backward = NULL,
+	},
+	/* ... and its contents
+	 */
+	[CL_SWITCH_ITEMS] = {
+		.cl_name = "",
+		.cl_len = 0, // catch any
+		.cl_type = 'l',
+		.cl_father = CL_SWITCH,
+		.cl_forward = NULL,
 		.cl_backward = NULL,
 	},
 	/* Symlink indicating the current peer
@@ -1983,7 +1980,7 @@ static const struct light_class light_classes[] = {
 
 /* Helper routine to pre-determine the relevance of a name from the filesystem.
  */
-static int light_checker(const char *path, const char *_name, int namlen, unsigned int d_type, int *prefix, int *serial)
+static int light_checker(struct mars_dent *parent, const char *_name, int namlen, unsigned int d_type, int *prefix, int *serial)
 {
 	int class;
 	int status = -2;
@@ -1999,44 +1996,62 @@ static int light_checker(const char *path, const char *_name, int namlen, unsign
 	for (class = CL_ROOT + 1; ; class++) {
 		const struct light_class *test = &light_classes[class];
 		int len = test->cl_len;
-		if (!len || !test->cl_name)
+		if (!test->cl_name) { // end of table
 			break;
+		}
+
 		//MARS_DBG("   testing class '%s'\n", test->cl_name);
-#if 0
+
+#ifdef MARS_DEBUGGING
 		if (len != strlen(test->cl_name)) {
-			MARS_ERR("internal table '%s': %d != %d\n", test->cl_name, len, (int)strlen(test->cl_name));
+			MARS_ERR("internal table '%s' mismatch: %d != %d\n", test->cl_name, len, (int)strlen(test->cl_name));
 			len = strlen(test->cl_name);
 		}
 #endif
-		if (namlen >= len && !memcmp(name, test->cl_name, len)) {
-			//MARS_DBG("path '%s/%s' matches class %d '%s'\n", path, name, class, test->cl_name);
-			// special contexts
-			if (test->cl_serial) {
-				int plus = 0;
-				int count;
-				count = sscanf(name+len, "%d%n", serial, &plus);
-				if (count < 1) {
-					//MARS_DBG("'%s' serial number mismatch at '%s'\n", name, name+len);
-					status = -1;
-					goto done;
-				}
-				len += plus;
-				if (name[len] == '-')
-					len++;
-			}
-			*prefix = len;
-			if (test->cl_hostcontext) {
-				if (memcmp(name+len, my_id(), namlen-len)) {
-					//MARS_DBG("context mismatch '%s' at '%s'\n", name, name+len);
-					status = -1;
-					goto done;
-				}
-			}
-			status = class;
-			goto done;
+
+		if (test->cl_father &&
+		   (!parent || parent->d_class != test->cl_father)) {
+			continue;
 		}
+
+		if (len > 0 &&
+		   (namlen < len || memcmp(name, test->cl_name, len))) {
+			continue;
+		}
+
+		//MARS_DBG("path '%s/%s' matches class %d '%s'\n", path, name, class, test->cl_name);
+
+		// check special contexts
+		if (test->cl_serial) {
+			int plus = 0;
+			int count;
+			count = sscanf(name+len, "%d%n", serial, &plus);
+			if (count < 1) {
+				//MARS_DBG("'%s' serial number mismatch at '%s'\n", name, name+len);
+				status = -1;
+				goto done;
+			}
+			len += plus;
+			if (name[len] == '-')
+				len++;
+		}
+		if (prefix)
+			*prefix = len;
+		if (test->cl_hostcontext) {
+			if (memcmp(name+len, my_id(), namlen-len)) {
+				//MARS_DBG("context mismatch '%s' at '%s'\n", name, name+len);
+				status = -1;
+				goto done;
+			}
+		}
+
+		// all ok
+		status = class;
+		goto done;
 	}
+
 	//MARS_DBG("no match for '%s' '%s'\n", path, name);
+
 done:
 #ifdef MARS_DEBUGGING
 	if (name)
@@ -2167,32 +2182,35 @@ void _show_statist(struct mars_global *global)
 	int brick_count = 0;
 	
 	down(&global->mutex);
-	MARS_STAT("----------- lists:\n");
+	MARS_STAT("================================== dents:\n");
 	for (tmp = global->dent_anchor.next; tmp != &global->dent_anchor; tmp = tmp->next) {
 		struct mars_dent *dent;
 		dent = container_of(tmp, struct mars_dent, dent_link);
 		MARS_STAT("dent '%s'\n", dent->d_path);
 		dent_count++;
 	}
+	MARS_STAT("================================== bricks:\n");
 	for (tmp = global->brick_anchor.next; tmp != &global->brick_anchor; tmp = tmp->next) {
 		struct mars_brick *test;
 		int i;
 		test = container_of(tmp, struct mars_brick, global_brick_link);
+		if (brick_count)
+			MARS_STAT("---------\n");
 		MARS_STAT("brick type = %s path = '%s' name = '%s' level = %d button = %d off = %d on = %d\n", test->type->type_name, test->brick_path, test->brick_name, test->status_level, test->power.button, test->power.led_off, test->power.led_on);
 		brick_count++;
 		for (i = 0; i < test->nr_inputs; i++) {
 			struct mars_input *input = test->inputs[i];
 			struct mars_output *output = input ? input->connect : NULL;
 			if (output) {
-				MARS_STAT("  input %d connected with %s path = '%s' name = '%s'\n", i, output->brick->type->type_name, output->brick->brick_path, output->brick->brick_name);
+				MARS_STAT("   input %d connected with %s path = '%s' name = '%s'\n", i, output->brick->type->type_name, output->brick->brick_path, output->brick->brick_name);
 			} else {
-				MARS_STAT("  input %d not connected\n", i);
+				MARS_STAT("   input %d not connected\n", i);
 			}
 		}
 	}
 	up(&global->mutex);
 	
-	MARS_INF("----------- STATISTICS: %d dents, %d bricks\n", dent_count, brick_count);
+	MARS_INF("==================== STATISTICS: %d dents, %d bricks\n", dent_count, brick_count);
 }
 #endif
 
