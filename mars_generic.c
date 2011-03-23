@@ -354,12 +354,6 @@ int get_inode(char *newpath, struct mars_dent *dent)
 	memcpy(&dent->old_stat, &dent->new_stat, sizeof(dent->old_stat)); 
 	memcpy(&dent->new_stat, &tmp, sizeof(dent->new_stat));
 
-#if 0 // does not work because userspace cannot call lchmod()
-	dent->d_activate = (dent->new_stat.mode & S_IXUSR) != 0;
-#else
-	dent->d_activate = dent->new_stat.uid == 0;
-#endif
-
 	if (S_ISLNK(dent->new_stat.mode)) {
 		struct path path = {};
 		int len = dent->new_stat.size;
@@ -1013,6 +1007,7 @@ struct mars_brick *make_brick_all(
 	const char *new_name,
 	const struct generic_brick_type *new_brick_type,
 	const struct generic_brick_type *prev_brick_type[],
+	const char *switch_fmt,
 	const char *new_fmt,
 	const char *prev_fmt[],
 	int prev_count,
@@ -1020,6 +1015,7 @@ struct mars_brick *make_brick_all(
 	)
 {
 	va_list args;
+	const char *switch_path = NULL;
 	const char *new_path;
 	const char *_new_path = NULL;
 	struct mars_brick *brick = NULL;
@@ -1029,6 +1025,9 @@ struct mars_brick *make_brick_all(
 
 	// treat variable arguments
 	va_start(args, prev_count);
+	if (switch_fmt) {
+		switch_path = vpath_make(switch_fmt, &args);
+	}
 	if (new_fmt) {
 		new_path = _new_path = vpath_make(new_fmt, &args);
 	} else {
@@ -1142,6 +1141,8 @@ done:
 	}
 	if (_new_path)
 		kfree(_new_path);
+	if (switch_path)
+		kfree(switch_path);
 
 	return brick;
 }

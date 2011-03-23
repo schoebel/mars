@@ -308,8 +308,6 @@ extern char *my_id(void);
 	int   d_class;    /* for pre-grouping order */			\
 	int   d_serial;   /* for pre-grouping order */			\
 	int   d_version;  /* dynamic programming per call of mars_ent_work() */ \
-	bool d_activate;  /* tells whether activation should start */	\
-	bool d_kill_inactive; /* whether !d_activate should kill operation  */	\
 	char d_once_error;						\
 	struct kstat new_stat;						\
 	struct kstat old_stat;						\
@@ -374,6 +372,7 @@ extern struct mars_brick *make_brick_all(
 	const char *new_name,
 	const struct generic_brick_type *new_brick_type,
 	const struct generic_brick_type *prev_brick_type[],
+	const char *switch_fmt,
 	const char *new_fmt,
 	const char *prev_fmt[],
 	int prev_count,

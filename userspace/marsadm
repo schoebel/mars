@@ -120,14 +120,28 @@ sub nyi_cmd {
   die "command '$cmd' is not yet implemented\n";
 }
 
+sub _create_system {
+  my ($cmd, $peer, $force) = @_;
+  system("mkdir $mars") unless -d $mars;
+  system("mkdir $mars/ips") unless -d "$mars/ips";
+  system("mkdir $mars/defaults") unless -d "$mars/defaults";
+  system("mkdir $mars/defaults-$host") unless -d "$mars/defaults-$host";
+  symlink($ip, "$mars/ips/ip-$host");
+}
+
+sub create_system {
+  my ($cmd, $peer, $force) = @_;
+  die "system is already created\n" if !$force && -d "$mars/ips";
+  _create_system(@_);
+}
+
 sub join_system {
   my ($cmd, $peer, $force) = @_;
   if(glob("$mars/resource-*")) {
     die "Sorry, some resources already exist!\nThis is dangerous!\nIf you are sure that no resource clash is possible, re-invoke this command with '--force' option\n" unless ($force and $force =~ m/--force/);
   }
   print "joining system via rsync (peer='$peer')\n";
-  system("mkdir $mars") unless -d $mars;
-  system("mkdir $mars/ips") unless -d "$mars/ips";
+  _create_system(@_);
   system("rsync --recursive --links -v $peer:$mars/ips/ $mars/ips/") == 0 or die "oops\n";
   symlink($ip, "$mars/ips/ip-$host");
   system("rsync --recursive --links -v $mars/ips/ $peer:$mars/ips/") == 0 or die "oops\n";
@@ -163,10 +177,9 @@ sub create_res {
 
   my $tmp = "$mars/.tmp.$res";
   my $primary;
+  my $replay;
   if($create) {
-    system("mkdir $mars") unless -d $mars;
-    system("mkdir $mars/ips") unless -d "$mars/ips";
-    symlink($ip, "$mars/ips/ip-$host");
+    _create_system(@_);
     system("rm -rf $tmp");
     system("mkdir $tmp") == 0 or die "could not create resource '$res'\n";
     symlink($size, "$tmp/size") or die "cannot create size indicator symlink\n";
@@ -182,7 +195,7 @@ sub create_res {
       $size = $oldsize;
     }
     die "sizes differ: real size = $oldsize, but requested size = $size\n" unless $oldsize == $size;
-    my $replay = readlink("$tmp/replay-$primary") or die "cannot read replay status of primary '$primary'\n";
+    $replay = readlink("$tmp/replay-$primary") or die "cannot read replay status of primary '$primary'\n";
     $replay =~ s/-$primary,/-$host,/ or die "something is wrong here\n";
   }
 
@@ -204,7 +217,14 @@ sub create_res {
     system("rm -f $tmp/device-$host");
     symlink($appear, "$tmp/device-$host") or die "cannot create symlink for local device appearance\n";
   }
-  
+
+  mkdir("$tmp/defaults") unless -d "$tmp/defaults";
+  mkdir("$tmp/defaults-$host");
+  mkdir("$tmp/actual-$host");
+  mkdir("$tmp/switch-$host");
+  symlink("0", "$tmp/switch-$host/connect");
+  symlink("0", "$tmp/switch-$host/sync");
+
   if($create) {
     symlink($host, "$tmp/primary") or die "cannot create primary symlink\n";
     symlink("log-000000001-$host,0", "$tmp/replay-$host") or die "cannot create replay status\n";
@@ -232,14 +252,14 @@ sub attach_res {
 sub connect_res {
   my ($cmd, $res) = @_;
   my $disconnect = ($cmd eq "disconnect");
-  my $path = "$mars/resource-$res/connect-$host";
+  my $path = "$mars/resource-$res/switch-$host/connect";
   _switch($path, !$disconnect);
 }
 
 sub pause_res {
   my ($cmd, $res) = @_;
   my $pause = ($cmd eq "pause-sync");
-  my $path = "$mars/resource-$res/syncstatus-$host";
+  my $path = "$mars/resource-$res/switch-$host/sync";
   _switch($path, !$pause);
 }
 
@@ -310,6 +330,7 @@ sub role_cmd {
 my %cmd_table =
   (
    # new keywords
+   "create-system"     => \&create_system,
    "join-system"       => \&join_system,
    "create-resource"   => \&create_res,
    "join-resource"     => \&create_res,
@@ -340,8 +361,8 @@ my %cmd_table =
    "status"            => \&nyi_cmd,
    "dump"              => \&senseless_cmd,
    "verify"            => \&nyi_cmd,
-   "pause-sync"        => \&pause_sync,
-   "resume-sync"       => \&pause_sync,
+   "pause-sync"        => \&pause_res,
+   "resume-sync"       => \&pause_res,
    "new-current-uuid"  => \&senseless_cmd,
    "dstate"            => \&nyi_cmd,
    "hidden-commands"   => \&ignore_cmd,

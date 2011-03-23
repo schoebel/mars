@@ -263,6 +263,7 @@ static
 int __make_copy(
 		struct mars_global *global,
 		struct mars_dent *belongs,
+		const char *switch_path,
 		const char *copy_path,
 		const char *parent,
 		const char *argv[],
@@ -299,6 +300,7 @@ int __make_copy(
 				       NULL,
 				       (const struct generic_brick_type*)&bio_brick_type,
 				       (const struct generic_brick_type*[]){},
+				       NULL,
 				       fullpath[i],
 				       (const char *[]){},
 				       0);
@@ -319,8 +321,10 @@ int __make_copy(
 			       (const struct generic_brick_type*)&copy_brick_type,
 			       (const struct generic_brick_type*[]){NULL,NULL,NULL,NULL},
 			       "%s",
+			       "%s",
 			       (const char *[]){"%s", "%s", "%s", "%s"},
 			       4,
+			       switch_path,
 			       copy_path,
 			       fullpath[0],
 			       fullpath[0],
@@ -396,7 +400,20 @@ struct mars_peerinfo {
 };
 
 static
-int _is_peer_logfile(const char *name, const char *id)
+bool _is_usable_dir(const char *name)
+{
+	if (!strncmp(name, "resource-", 9)
+	   || !strncmp(name, "switch", 6)
+	   || !strncmp(name, "actual", 6)
+	   || !strncmp(name, "defaults", 8)
+	   ) {
+		return true;
+	}
+	return false;
+}
+
+static
+bool _is_peer_logfile(const char *name, const char *id)
 {
 	int len = strlen(name);
 	int idlen = id ? strlen(id) : 4 + 9 + 1;
@@ -417,7 +434,7 @@ int _is_peer_logfile(const char *name, const char *id)
 }
 
 static
-int _update_file(struct mars_global *global, const char *copy_path, const char *file, const char *peer, loff_t end_pos)
+int _update_file(struct mars_global *global, const char *switch_path, const char *copy_path, const char *file, const char *peer, loff_t end_pos)
 {
 	const char *tmp = path_make("%s@%s", file, peer);
 	const char *argv[2] = { tmp, file };
@@ -428,7 +445,7 @@ int _update_file(struct mars_global *global, const char *copy_path, const char *
 		goto done;
 
 	MARS_DBG("src = '%s' dst = '%s'\n", tmp, file);
-	status = __make_copy(global, NULL, copy_path, NULL, argv, -1, &copy);
+	status = __make_copy(global, NULL, switch_path, copy_path, NULL, argv, -1, &copy);
 	if (status >= 0 && copy && !copy->permanent_update) {
 		if (end_pos > copy->copy_end) {
 			MARS_DBG("appending to '%s' %lld => %lld\n", copy_path, copy->copy_end, end_pos);
@@ -446,6 +463,7 @@ static
 int check_logfile(struct mars_peerinfo *peer, struct mars_dent *dent, struct mars_dent *parent, loff_t dst_size)
 {
 	loff_t src_size = dent->new_stat.size;
+	const char *switch_path = NULL;
 	const char *copy_path = NULL;
 	const char *connect_path = NULL;
 	const char *alias_path = NULL;
@@ -507,7 +525,7 @@ int check_logfile(struct mars_peerinfo *peer, struct mars_dent *dent, struct mar
 	}
 	
 	// start copy
-	status = _update_file(peer->global, copy_path, dent->d_path, peer->peer, src_size);
+	status = _update_file(peer->global, switch_path, copy_path, dent->d_path, peer->peer, src_size);
 	MARS_DBG("update '%s' from peer '%s' status = %d\n", dent->d_path, peer->peer, status);
 	if (status < 0) {
 		goto done;
@@ -584,7 +602,7 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *dent)
 	}
 
 	if (S_ISDIR(dent->new_stat.mode)) {
-		if (strncmp(dent->d_name, "resource-", 9)) {
+		if (!_is_usable_dir(dent->d_name)) {
 			MARS_DBG("ignoring directory '%s'\n", dent->d_path);
 			goto done;
 		}
@@ -865,12 +883,11 @@ int kill_all(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
 
-	if (global->global_power.button &&
-	   (!dent->d_kill_inactive || dent->d_activate)) {
+	if (global->global_power.button) {
 		return 0;
 	}
 	MARS_DBG("killing dent = '%s'\n", dent->d_path);
-	//mars_kill_dent(dent);
+	mars_kill_dent(dent);
 	return 0;
 }
 
@@ -1061,6 +1078,7 @@ int make_log_init(void *buf, struct mars_dent *parent)
 			       aio_path,
 			       (const struct generic_brick_type*)&aio_brick_type,
 			       (const struct generic_brick_type*[]){},
+			       NULL,
 			       "%s/%s",
 			       (const char *[]){},
 			       0,
@@ -1097,6 +1115,7 @@ int make_log_init(void *buf, struct mars_dent *parent)
 			       aio_path,
 			       (const struct generic_brick_type*)&trans_logger_brick_type,
 			       (const struct generic_brick_type*[]){NULL},
+			       NULL,
 			       "%s/logger", 
 			       (const char *[]){"%s/data-%s"},
 			       1,
@@ -1332,6 +1351,7 @@ int _start_trans(struct mars_rotate *rot)
 			       rot->relevant_log->d_path,
 			       (const struct generic_brick_type*)&aio_brick_type,
 			       (const struct generic_brick_type*[]){},
+			       NULL,
 			       rot->relevant_log->d_path,
 			       (const char *[]){},
 			       0);
@@ -1492,13 +1512,12 @@ int make_bio(void *buf, struct mars_dent *dent)
 	struct mars_brick *brick;
 	int status = 0;
 
-	if (!global->global_power.button || !dent->d_activate) {
+	if (!global->global_power.button) {
 		goto done;
 	}
 	if (mars_find_brick(global, NULL, dent->d_path)) {
 		goto done;
 	}
-	dent->d_kill_inactive = true;
 	brick =
 		make_brick_all(global,
 			       dent,
@@ -1508,6 +1527,7 @@ int make_bio(void *buf, struct mars_dent *dent)
 			       dent->d_path,
 			       (const struct generic_brick_type*)&bio_brick_type,
 			       (const struct generic_brick_type*[]){},
+			       NULL,
 			       dent->d_path,
 			       (const char *[]){},
 			       0);
@@ -1568,6 +1588,7 @@ static int make_dev(void *buf, struct mars_dent *dent)
 			       dent->d_argv[0],
 			       (const struct generic_brick_type*)&if_brick_type,
 			       (const struct generic_brick_type*[]){(const struct generic_brick_type*)&trans_logger_brick_type},
+			       NULL, // maybe we could allow switching here
 			       "%s/linuxdev-%s", 
 			       (const char *[]){"%s/logger"},
 			       1,
@@ -1616,6 +1637,7 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 			       dent->d_argv[0],
 			       (const struct generic_brick_type*)&bio_brick_type,
 			       (const struct generic_brick_type*[]){},
+			       NULL,
 			       "%s/%s",
 			       (const char *[]){},
 			       0,
@@ -1636,6 +1658,7 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 			       dent->d_argv[1],
 			       (const struct generic_brick_type*)&if_brick_type,
 			       (const struct generic_brick_type*[]){NULL},
+			       NULL,
 			       "%s/linuxdev-%s",
 			       (const char *[]){ "%s/%s" },
 			       1,
@@ -1658,6 +1681,7 @@ done:
 static int _make_copy(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
+	const char *switch_path = NULL;
 	const char *copy_path = NULL;
 	int status;
 
@@ -1674,7 +1698,7 @@ static int _make_copy(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 
-	status = __make_copy(global, dent, copy_path, dent->d_parent->d_path, (const char**)dent->d_argv, -1, NULL);
+	status = __make_copy(global, dent, switch_path, copy_path, dent->d_parent->d_path, (const char**)dent->d_argv, -1, NULL);
 
 done:
 	MARS_DBG("status = %d\n", status);
@@ -1691,12 +1715,13 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	char *peer;
 	struct copy_brick *copy = NULL;
 	char *tmp = NULL;
+	const char *switch_path = NULL;
 	const char *copy_path = NULL;
 	const char *src = NULL;
 	const char *dst = NULL;
 	int status;
 
-	if (!global->global_power.button || !dent->d_activate || !dent->d_parent || !dent->new_link) {
+	if (!global->global_power.button || !dent->d_parent || !dent->new_link) {
 		return 0;
 	}
 
@@ -1708,7 +1733,6 @@ static int make_sync(void *buf, struct mars_dent *dent)
 		status = -EINVAL;
 		goto done;
 	}
-	dent->d_kill_inactive = true;
 
 	/* Determine peer
 	 */
@@ -1720,12 +1744,6 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	if (!connect_dent || !connect_dent->new_link) {
 		MARS_ERR("cannot determine peer, symlink '%s' is missing\n", tmp);
 		status = -ENOENT;
-		goto done;
-	}
-	connect_dent->d_kill_inactive = true;
-	if (!connect_dent->d_activate) {
-		MARS_DBG("sync paused: symlink '%s' is deactivated\n", tmp);
-		status = 0;
 		goto done;
 	}
 	peer = connect_dent->new_link;
@@ -1743,7 +1761,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 
 	{
 		const char *argv[2] = { src, dst };
-		status = __make_copy(global, dent, copy_path, dent->d_parent->d_path, argv, start_pos, &copy);
+		status = __make_copy(global, dent, switch_path, copy_path, dent->d_parent->d_path, argv, start_pos, &copy);
 	}
 
 	/* Update syncstatus symlink
@@ -2119,7 +2137,7 @@ void _show_status(struct mars_global *global)
 		}
 
 		src = test->power.led_on ? "1" : "0";
-		dst = backskip_replace(path, '/', true, "/actual-%s.", my_id());
+		dst = backskip_replace(path, '/', true, "/actual-%s/", my_id());
 		if (!dst)
 			continue;
 
