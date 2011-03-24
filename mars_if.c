@@ -100,6 +100,7 @@ void if_endio(struct generic_callback *cb)
  */
 static void _if_unplug(struct if_input *input)
 {
+	struct if_brick *brick = input->brick;
 	LIST_HEAD(tmp_list);
 	unsigned long flags;
 
@@ -121,6 +122,9 @@ static void _if_unplug(struct if_input *input)
 		list_del_init(&mref_a->plug_head);
                 mref = mref_a->object;
 
+		if (brick->skip_sync) {
+		}
+
 		GENERIC_INPUT_CALL(input, mref_io, mref);
 		GENERIC_INPUT_CALL(input, mref_put, mref);
 	}
@@ -139,7 +143,7 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 	int i;
 	bool assigned = false;
 	const bool unplug = bio_rw_flagged(bio, BIO_RW_UNPLUG);
-	//const bool barrier = ((bio->bi_rw & 1) != READ && bio_rw_flagged(bio, BIO_RW_BARRIER));
+	const bool barrier = ((bio->bi_rw & 1) != READ && bio_rw_flagged(bio, BIO_RW_BARRIER));
 	loff_t pos = ((loff_t)bio->bi_sector) << 9; // TODO: make dynamic
 	int rw = bio_data_dir(bio);
         int error = -ENOSYS;
@@ -230,6 +234,9 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 					atomic_inc(&bio->bi_comp_cnt);
 					mref_a->orig_bio[mref_a->bio_count++] = bio;
 					assigned = true;
+					if (barrier) {
+						mref->ref_skip_sync = false;
+					}
 
 					MARS_IO("merge bio = %p mref = %p bio_count = %d len = %d ref_len = %d\n", bio, mref, mref_a->bio_count, len, mref->ref_len);
 					break;
@@ -258,6 +265,7 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 				mref_a->input = input;
 				mref->ref_rw = mref->ref_may_write = rw;
 				mref->ref_pos = pos;
+				// FIXME: do better here!
 				mref->ref_len = PAGE_SIZE;
 				//mref->ref_len = 512;
 				mref->ref_data = data; // direct IO
@@ -286,6 +294,11 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 				mref->ref_len = len;
 				
 				atomic_inc(&input->io_count);
+
+				if (brick->skip_sync && !barrier) {
+					mref->ref_skip_sync = true;
+				}
+
 
 				traced_lock(&input->req_lock, flags);
 				list_add_tail(&mref_a->plug_head, &input->plug_anchor);
@@ -417,14 +430,12 @@ static int if_switch(struct if_brick *brick)
 		q->queuedata = input;
 		input->q = q;
 		
-		//MARS_DBG("2\n");
 		disk = alloc_disk(1);
 		if (!disk) {
 			MARS_ERR("cannot allocate gendisk\n");
 			return -ENOMEM;
 		}
 
-		//MARS_DBG("3\n");
 		minor = device_minor++; //TODO: protect against races (e.g. atomic_t)
 		disk->queue = q;
 		disk->major = MARS_MAJOR; //TODO: make this dynamic for >256 devices
@@ -462,7 +473,6 @@ static int if_switch(struct if_brick *brick)
 		q->unplug_fn = if_unplug;
 		q->queue_lock = &input->req_lock; // needed!
 		
-		//MARS_DBG("4\n");
 		input->bdev = bdget(MKDEV(disk->major, minor));
 		/* we have no partitions. we contain only ourselves. */
 		input->bdev->bd_contains = input->bdev;
@@ -478,7 +488,6 @@ static int if_switch(struct if_brick *brick)
 #endif
 
 		// point of no return
-		//MARS_DBG("99999\n");
 		add_disk(disk);
 		input->disk = disk;
 		//set_device_ro(input->bdev, 0); // TODO: implement modes

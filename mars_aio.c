@@ -84,21 +84,39 @@ static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
 	_CHECK_ATOMIC(&mref->ref_count, !=,  0);
 	
 	if (file) {
-		mref->ref_total_size = i_size_read(file->f_mapping->host);
+		loff_t total_size = i_size_read(file->f_mapping->host);
+		mref->ref_total_size = total_size;
+		/* Only check reads.
+		 * Writes behind EOF are always allowed (sparse files)
+		 */
+		if (!mref->ref_may_write) {
+			loff_t len = total_size - mref->ref_pos;
+			if (unlikely(len <= 0)) {
+				/* Allow reads starting _exactly_ at EOF when a timeout is specified (special case).
+				 */
+				if (len < 0 || mref->ref_timeout <= 0) {
+					MARS_DBG("ENODATA %lld\n", len);
+					return -ENODATA;
+				}
+			}
+			// Shorten below EOF, but allow special case
+			if (mref->ref_len > len && len > 0) {
+				mref->ref_len = len;
+			}
+		}
 	}
 
-	/* Buffered IO is implemented, but should not be used
-	 * except for testing.
-	 * Always precede this with a buf brick -- otherwise you
-	 * can get bad performance!
+	/* Buffered IO.
 	 */
 	if (!mref->ref_data) {
 		struct aio_mref_aspect *mref_a = aio_mref_get_aspect(output, mref);
 		if (!mref_a)
 			return -EILSEQ;
 		mref->ref_data = kmalloc(mref->ref_len, GFP_MARS);
-		if (!mref->ref_data)
+		if (!mref->ref_data) {
+			MARS_DBG("ENOMEM %d\n", mref->ref_len);
 			return -ENOMEM;
+		}
 #if 0 // ???
 		mref->ref_flags = 0;
 #endif
@@ -186,6 +204,7 @@ static int aio_submit(struct aio_output *output, struct aio_mref_aspect *mref_a,
 		.aio_buf = (unsigned long)mref->ref_data,
 		.aio_nbytes = mref->ref_len,
 		.aio_offset = mref->ref_pos,
+		// .aio_reqprio = something(mref->ref_prio) field exists, but not yet implemented in kernelspace :(
 	};
 	struct iocb *iocbp = &iocb;
 
@@ -259,26 +278,39 @@ static int aio_submit_thread(void *data)
 			continue;
 		}
 
-		// check for reads behind EOF
+		// check for reads exactly at EOF (special case)
 		mref = mref_a->object;
-		if (!mref->ref_rw && mref->ref_pos + mref->ref_len > i_size_read(file->f_mapping->host)) {
-			if (mref->ref_timeout > 0 &&
-			   ((!mref_a->start_jiffies && (mref_a->start_jiffies = jiffies, true)) ||
-			    mref_a->start_jiffies + mref->ref_timeout >= (long long)jiffies)) {
-				msleep(50);
-				_enqueue(tinfo, mref_a, mref->ref_prio, true);
+		if (mref->ref_pos == mref->ref_total_size &&
+		   !mref->ref_rw &&
+		   mref->ref_timeout > 0) {
+			loff_t total_size = i_size_read(file->f_mapping->host);
+			loff_t len = total_size - mref->ref_pos;
+			if (len > 0) {
+				mref->ref_total_size = total_size;
+				mref->ref_len = len;
+			} else {
+				if (!mref_a->start_jiffies) {
+					mref_a->start_jiffies = jiffies;
+				}
+				if ((long long)jiffies - mref_a->start_jiffies <= mref->ref_timeout) {
+					if (!_dequeue(tinfo, false)) {
+						msleep(1000 * 4 / HZ);
+					}
+					_enqueue(tinfo, mref_a, MARS_PRIO_LOW, true);
+					continue;
+				}
+				MARS_DBG("ENODATA %lld\n", len);
+				_complete(output, mref, -ENODATA);
 				continue;
 			}
-			_complete(output, mref, -ENODATA);
-			continue;
 		}
 
-		err = aio_submit(output, mref_a, false);
-
-		if (err == -EAGAIN) {
-			_enqueue(tinfo, mref_a, mref->ref_prio, false);
-			msleep(20);
-			continue;
+		for (;;) {
+			err = aio_submit(output, mref_a, false);
+			if (likely(err != -EAGAIN)) {
+				break;
+			}
+			msleep(1000 / HZ);
 		}
 		if (unlikely(err < 0)) {
 			_complete(output, mref, err);
@@ -360,6 +392,7 @@ static int aio_event_thread(void *data)
 			if (output->brick->o_fdsync
 			   && err >= 0 
 			   && mref->ref_rw != READ
+			   && !mref->ref_skip_sync
 			   && !mref_a->resubmit++) {
 				// workaround for non-implemented AIO FSYNC operation
 				if (!output->filp->f_op->aio_fsync) {
@@ -527,21 +560,6 @@ static int aio_switch(struct aio_brick *brick)
 		}
 	}
 #endif
-#if 0 // not here
-	if (!output->ctxp) {
-		if (!current->mm) {
-			MARS_ERR("mm = %p\n", current->mm);
-			err = -EINVAL;
-			goto err;
-		}
-		oldfs = get_fs();
-		set_fs(get_ds());
-		err = sys_io_setup(MARS_MAX_AIO, &output->ctxp);
-		set_fs(oldfs);
-		if (unlikely(err))
-			goto err;
-	}
-#endif
 
 	for (i = 0; i < 3; i++) {
 		static int (*fn[])(void*) = {
@@ -611,7 +629,7 @@ cleanup:
 			output->filp = NULL;
 		}
 		if (output->ctxp) {
-#if 0 // FIXME this crashes
+#ifndef MEMLEAK // FIXME this crashes
 			sys_io_destroy(output->ctxp);
 #endif
 			output->ctxp = 0;

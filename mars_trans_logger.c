@@ -1133,8 +1133,9 @@ void trans_logger_log(struct trans_logger_output *output)
 
 		/* A kind of delayed plugging mechanism
 		 */
-		if (!brick->flush_delay || !log_jiffies ||
-		   (long long)jiffies - log_jiffies >= 0) {
+		if (atomic_read(&output->q_phase1.q_queued) <= 0 &&
+		   (!brick->flush_delay || !log_jiffies ||
+		    (long long)jiffies - log_jiffies >= 0)) {
 			log_flush(&brick->logst);
 			log_jiffies = 0;
 		}

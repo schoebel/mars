@@ -8,6 +8,8 @@
 #include <asm/spinlock.h>
 #include <asm/atomic.h>
 
+#define MEMLEAK // FIXME: remove this
+
 /////////////////////////////////////////////////////////////////////////
 
 // include the generic brick infrastucture
@@ -20,9 +22,9 @@
 #define BRICK_OBJ_MAX             1
 #define BRICK_DEPTH_MAX           128
 
-#define GFP_MARS GFP_NOIO
-
 #include "brick.h"
+
+#define GFP_MARS GFP_NOIO
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -31,27 +33,29 @@
 #define MARS_DELAY /**/
 //#define MARS_DELAY msleep(20000)
 
-#define MARS_FATAL "MARS_FATAL  "
-#define MARS_ERROR "MARS_ERROR  "
-#define MARS_INFO  "MARS_INFO   "
-#define MARS_DEBUG "MARS_DEBUG  "
+#define MARS_FATAL   "MARS_FATAL  "
+#define MARS_ERROR   "MARS_ERROR  "
+#define MARS_WARNING "MARS_WARN   "
+#define MARS_INFO    "MARS_INFO   "
+#define MARS_DEBUG   "MARS_DEBUG  "
 
 #define _MARS_FMT(fmt) "[%s] " __BASE_FILE__ " %d %s(): " fmt, current->comm, __LINE__, __FUNCTION__
 //#define _MARS_FMT(fmt) _BRICK_FMT(fmt)
 
 #define _MARS_MSG(PREFIX, fmt, args...) do { printk(PREFIX _MARS_FMT(fmt), ##args); MARS_DELAY; } while (0)
-#define MARS_FAT(fmt, args...) _MARS_MSG(MARS_FATAL, fmt, ##args)
-#define MARS_ERR(fmt, args...) _MARS_MSG(MARS_ERROR, fmt, ##args)
-#define MARS_INF(fmt, args...) _MARS_MSG(MARS_INFO, fmt, ##args)
+#define MARS_FAT(fmt, args...) _MARS_MSG(MARS_FATAL,   fmt, ##args)
+#define MARS_ERR(fmt, args...) _MARS_MSG(MARS_ERROR,   fmt, ##args)
+#define MARS_WRN(fmt, args...) _MARS_MSG(MARS_WARNING, fmt, ##args)
+#define MARS_INF(fmt, args...) _MARS_MSG(MARS_INFO,    fmt, ##args)
 
 #ifdef MARS_DEBUGGING
-#define MARS_DBG(fmt, args...) _MARS_MSG(MARS_DEBUG, fmt, ##args)
+#define MARS_DBG(fmt, args...) _MARS_MSG(MARS_DEBUG,   fmt, ##args)
 #else
 #define MARS_DBG(args...) /**/
 #endif
 
 #ifdef IO_DEBUGGING
-#define MARS_IO(fmt, args...)  _MARS_MSG(MARS_DEBUG, fmt, ##args)
+#define MARS_IO(fmt, args...)  _MARS_MSG(MARS_DEBUG,   fmt, ##args)
 #else
 #define MARS_IO(args...) /*empty*/
 #endif
@@ -106,6 +110,7 @@ struct mref_object_layout {
 	int    ref_rw;							\
 	int    ref_id; /* not mandatory; may be used for identification */ \
 	struct page *ref_page;						\
+	bool   ref_skip_sync; /* skip sync for this particular mref */	\
 	bool   ref_is_kmapped; /* tribute for higher-level IO abstraction */ \
 	/* maintained by the ref implementation, incrementable for	\
 	 * callers (but not decrementable! use ref_put()) */		\

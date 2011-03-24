@@ -23,6 +23,7 @@ struct if_mref_aspect {
 
 struct if_input {
 	MARS_INPUT(if);
+	// TODO: move this to if_brick (better systematics)
 	struct list_head plug_anchor;
 	struct request_queue *q;
 	struct gendisk *disk;
@@ -42,6 +43,7 @@ struct if_brick {
 	MARS_BRICK(if);
 	// parameters
 	int readahead;
+	bool skip_sync;
 	// inspectable
 	bool has_closed;
 	// private

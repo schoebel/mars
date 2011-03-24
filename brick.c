@@ -11,9 +11,55 @@
 
 #define _STRATEGY
 #define BRICK_OBJ_MAX /*empty => leads to an open array */
-#define GFP_MARS GFP_ATOMIC
 
 #include "brick.h"
+
+#define GFP_BRICK GFP_NOIO
+
+//////////////////////////////////////////////////////////////
+
+// number management
+
+static char *nr_table = NULL;
+static int nr_max = 256;
+
+int get_nr(void)
+{
+	char *new;
+	int nr;
+
+	if (unlikely(!nr_table)) {
+		nr_table = kzalloc(nr_max, GFP_BRICK);
+		if (!nr_table) {
+			return 0;
+		}
+	}
+
+	for (;;) {
+		for (nr = 1; nr < nr_max; nr++) {
+			if (!nr_table[nr]) {
+				nr_table[nr] = 1;
+				return nr;
+			}
+		}
+		new = kzalloc(nr_max << 1, GFP_BRICK);
+		if (!new)
+			return 0;
+		memcpy(new, nr_table, nr_max);
+		kfree(nr_table);
+		nr_table = new;
+		nr_max <<= 1;
+	}
+}
+EXPORT_SYMBOL_GPL(get_nr);
+
+void put_nr(int nr)
+{
+	if (likely(nr_table && nr > 0 && nr < nr_max)) {
+		nr_table[nr] = 0;
+	}
+}
+EXPORT_SYMBOL_GPL(put_nr);
 
 //////////////////////////////////////////////////////////////
 
@@ -22,6 +68,9 @@
 //////////////////////////////////////////////////////////////
 
 // brick stuff
+
+int brick_obj_max = 0;
+EXPORT_SYMBOL_GPL(brick_obj_max);
 
 static int nr_brick_types = 0;
 static const struct generic_brick_type *brick_types[MAX_BRICK_TYPES] = {};
@@ -226,6 +275,7 @@ int generic_brick_exit_full(struct generic_brick *brick)
 			status = output->type->output_destruct(output);
 			if (status)
 				return status;
+			_generic_output_exit(output);
 			brick->outputs[i] = NULL; // others may remain leftover
 		}
 	}
@@ -246,6 +296,7 @@ int generic_brick_exit_full(struct generic_brick *brick)
 			status = generic_disconnect(input);
 			if (status)
 				return status;
+			generic_input_exit(input);
 		}
 	}
 	if (brick->type->brick_destruct) {
@@ -254,6 +305,7 @@ int generic_brick_exit_full(struct generic_brick *brick)
 		if (status)
 			return status;
 	}
+	generic_brick_exit(brick);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(generic_brick_exit_full);
@@ -304,22 +356,28 @@ int generic_add_aspect(struct generic_output *output, struct generic_object_layo
 	struct generic_aspect_layout *aspect_layout;
 	int nr;
 	int i;
+	int status;
 
 	(void)i;
 
-	if (unlikely(!object_layout->object_type)) {
-		return -EINVAL;
+	status = -EINVAL;
+	if (unlikely(!object_layout || !object_layout->object_type)) {
+		goto err;
 	}
-
-#if 0
-	nr = object_layout->object_type->brick_obj_nr;
-	if (nr < 0 || nr >= BRICK_OBJ_NR) {
-		return -EINVAL;
+	if (NEW_ASPECTS) {
+		nr = output->output_index;
+		if (nr <= 0 || nr > nr_max) {
+			BRICK_ERR("oops, bad nr = %d\n", nr);
+			goto err;
+		}
+		aspect_layout = &object_layout->aspect_layouts[nr];
+	} else {
+		nr = object_layout->object_type->brick_obj_nr;
+		if (nr < 0 || nr >= brick_obj_max) {
+			goto done;
+		}
+		aspect_layout = (void*)&output->output_aspect_layouts[nr];
 	}
-#else
-	nr = 0;
-#endif
-	aspect_layout = (void*)&output->output_aspect_layouts[nr];
 	if (aspect_layout->aspect_type && aspect_layout->aspect_layout_generation == object_layout->object_layout_generation) {
 		/* aspect_layout is already initialized.
 		 * this is a kind of "dynamic programming".
@@ -327,18 +385,20 @@ int generic_add_aspect(struct generic_output *output, struct generic_object_layo
 		 */
 		int min_offset;
 		BRICK_DBG("reusing aspect_type %s on object_layout %p\n", aspect_type->aspect_type_name, object_layout);
+		status = -EBADF;
 		if (unlikely(aspect_layout->aspect_type != aspect_type)) {
 			BRICK_ERR("inconsistent use of aspect_type %s != %s\n", aspect_type->aspect_type_name, aspect_layout->aspect_type->aspect_type_name);
-			return -EBADF;
+			goto done;
 		}
 		if (unlikely(aspect_layout->init_data != output)) {
 			BRICK_ERR("inconsistent output assigment (aspect_type=%s)\n", aspect_type->aspect_type_name);
-			return -EBADF;
+			goto done;
 		}
 		min_offset = aspect_layout->aspect_offset + aspect_type->aspect_size;
+		status = -ENOMEM;
 		if (unlikely(object_layout->object_size > min_offset)) {
 			BRICK_ERR("overlapping aspects %d > %d (aspect_type=%s)\n", object_layout->object_size, min_offset, aspect_type->aspect_type_name);
-			return -ENOMEM;
+			goto done;
 		}
 		BRICK_DBG("adjusting object_size %d to %d (aspect_type=%s)\n", object_layout->object_size, min_offset, aspect_type->aspect_type_name);
 		object_layout->object_size = min_offset;
@@ -351,25 +411,31 @@ int generic_add_aspect(struct generic_output *output, struct generic_object_layo
 		aspect_layout->aspect_layout_generation = object_layout->object_layout_generation;
 		BRICK_DBG("initializing aspect_type %s on object_layout %p, object_size=%d\n", aspect_type->aspect_type_name, object_layout, object_layout->object_size);
 	}
-	// find an empty slot
-	nr = -1;
-#if 0
-	for (i = 0; i < object_layout->aspect_count; i++) {
-		if (!object_layout->aspect_layouts_table[nr]) {
-			nr = i;
-			break;
+	if (NEW_ASPECTS) {
+		if (object_layout->aspect_count <= nr) {
+			object_layout->aspect_count = nr + 1;
 		}
-	}
-#endif
-	if (nr < 0) {
-		nr = object_layout->aspect_count++;
-		if (nr >= object_layout->aspect_max) {
-			BRICK_ERR("aspect overflow\n");
-			return -ENOMEM;
+	} else {
+		// find an empty slot
+		nr = -1;
+		if (nr < 0) {
+			nr = object_layout->aspect_count++;
+			status = -ENOMEM;
+			if (unlikely(nr >= object_layout->aspect_max)) {
+				BRICK_ERR("aspect overflow\n");
+				goto done;
+			}
 		}
+		object_layout->aspect_layouts_table[nr] = aspect_layout;
 	}
-	object_layout->aspect_layouts_table[nr] = aspect_layout;
-	return 0;
+	status = 0;
+
+done:
+	if (status < 0) { // invalidate the layout
+		object_layout->object_type = NULL;
+	}
+err:
+	return status;
 }
 
 
@@ -389,7 +455,9 @@ int default_init_object_layout(struct generic_output *output, struct generic_obj
 	// TODO: make locking granularity finer (if it were worth).
 	static DEFINE_SPINLOCK(global_lock);
 	void *data;
+	void *data2;
 	void *olddata;
+	void *olddata2;
 	int status= -ENOMEM;
 	unsigned long flags;
 
@@ -397,8 +465,13 @@ int default_init_object_layout(struct generic_output *output, struct generic_obj
 		module_name = "(unknown)";
 	}
 
-	data = kzalloc(aspect_max * sizeof(void*), GFP_MARS);
-	if (unlikely(!data)) {
+	if (NEW_ASPECTS) {
+		aspect_max = nr_max;
+	}
+
+	data = kzalloc(aspect_max * sizeof(struct generic_aspect_layout), GFP_BRICK);
+	data2 = kzalloc(aspect_max * sizeof(void*), GFP_BRICK);
+	if (unlikely(!data || !data2)) {
 		BRICK_ERR("kzalloc failed, size = %lu\n", aspect_max * sizeof(void*));
 		goto done;
 	}
@@ -412,9 +485,11 @@ int default_init_object_layout(struct generic_output *output, struct generic_obj
 		goto done;
 	}
 
-	olddata = object_layout->aspect_layouts_table;
+	olddata = object_layout->aspect_layouts;
+	olddata2 = object_layout->aspect_layouts_table;
 
-	object_layout->aspect_layouts_table = data;
+	object_layout->aspect_layouts_table = data2;
+	object_layout->aspect_layouts = data;
 	object_layout->object_layout_generation = brick_layout_generation;
 	object_layout->object_type = object_type;
 	object_layout->init_data = output;
@@ -429,14 +504,18 @@ int default_init_object_layout(struct generic_output *output, struct generic_obj
 
 	status = output->ops->make_object_layout(output, object_layout);
 
-	traced_unlock(&global_lock, flags);
-	
 	if (unlikely(status < 0)) {
                 object_layout->object_type = NULL;
+	}
+	
+	traced_unlock(&global_lock, flags);
+
+	if (unlikely(status < 0)) {
 		kfree(data);
 		BRICK_ERR("emergency, cannot add aspects to object_layout %s (module %s)\n", object_type->object_type_name, module_name);
 		goto done;
 	}
+	
 
 	BRICK_INF("OK, object_layout %s init succeeded (size = %d).\n", object_type->object_type_name, object_layout->object_size);
 
@@ -444,6 +523,11 @@ done:
 	if (olddata) {
 #if 0 // FIXME: use RCU here
 		kfree(olddata);
+#endif
+	}
+	if (olddata2) {
+#if 0 // FIXME: use RCU here
+		kfree(olddata2);
 #endif
 	}
 	return status;
@@ -455,19 +539,49 @@ EXPORT_SYMBOL_GPL(default_init_object_layout);
  */
 int default_make_object_layout(struct generic_output *output, struct generic_object_layout *object_layout)
 {
-	struct generic_brick *brick = output->brick;
-	const struct generic_output_type *output_type = output->type;
-	const struct generic_object_type *object_type = object_layout->object_type;
-	const int nr = object_type->brick_obj_nr;
-	const struct generic_aspect_type *aspect_type = output_type->aspect_types[nr];
-	int layout_code = output_type->layout_code[nr];
+	struct generic_brick *brick;
+	const struct generic_output_type *output_type;
+	const struct generic_object_type *object_type;
+	const struct generic_aspect_type *aspect_type;
+	int nr;
+	int layout_code;
+	int aspect_size = 0;
+	int status = -EINVAL;
 
-	int status;
-	int aspect_size;
-
-	if (!aspect_type) {
+	if (unlikely(!output)) {
+		BRICK_ERR("output is missing\n");
+		goto done;
+	}
+	if (unlikely(!object_layout || !object_layout->object_type)) {
+		BRICK_ERR("object_layout not inizialized\n");
+		goto done;
+	}
+	brick = output->brick;
+	if (unlikely(!brick)) {
+		BRICK_ERR("brick is missing\n");
+		goto done;
+	}
+	output_type = output->type;
+	if (unlikely(!output_type)) {
+		BRICK_ERR("output_type is missing\n");
+		goto done;
+	}
+	object_type = object_layout->object_type;
+	if (unlikely(!object_type)) {
+		BRICK_ERR("object_type is missing\n");
+		goto done;
+	}
+	nr = object_type->brick_obj_nr;
+	if (unlikely(nr < 0 || nr >= brick_obj_max)) {
+		BRICK_ERR("bad brick_obj_nr = %d\n", nr);
+		goto done;
+	}
+	layout_code = output_type->layout_code[nr];
+	aspect_type = output_type->aspect_types[nr];
+	status = -ENOENT;
+	if (unlikely(!aspect_type)) {
 		BRICK_ERR("aspect type on %s does not exist\n", output_type->type_name);
-		return -ENOENT;
+		goto done;
 	}
 
 	aspect_size = aspect_type->aspect_size;
@@ -505,6 +619,7 @@ int default_make_object_layout(struct generic_output *output, struct generic_obj
 
 	status = generic_add_aspect(output, object_layout, aspect_type);
 
+done:
 	if (status < 0)
 		return status;
 
@@ -515,9 +630,15 @@ EXPORT_SYMBOL_GPL(default_make_object_layout);
 
 struct generic_object *alloc_generic(struct generic_object_layout *object_layout)
 {
+	struct generic_object *object;
 	void *data;
-	struct generic_object *object = object_layout->free_list;
 
+	if (unlikely(!object_layout || !object_layout->object_type)) {
+		BRICK_ERR("bad object_layout\n");
+		goto err;
+	}
+
+	object = object_layout->free_list;
 	if (object) {
 		unsigned long flags;
 		traced_lock(&object_layout->free_lock, flags);
@@ -533,7 +654,7 @@ struct generic_object *alloc_generic(struct generic_object_layout *object_layout
 		traced_unlock(&object_layout->free_lock, flags);
 	}
 
-	data = kzalloc(object_layout->object_size, GFP_MARS);
+	data = kzalloc(object_layout->object_size, GFP_BRICK);
 	if (unlikely(!data))
 		goto err;
 
@@ -729,7 +850,7 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 	if (table)
 		kfree(table);
 	max <<= 1;
-	table = kmalloc(max * sizeof(void*), GFP_MARS);
+	table = kmalloc(max * sizeof(void*), GFP_BRICK);
 	status = -ENOMEM;
 	if (unlikely(!table))
 		goto done;
@@ -756,7 +877,7 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 					struct generic_output *output;
 					struct generic_brick *next;
 					BRICK_DBG("---> i = %d\n", i);
-					msleep(1000);
+					//msleep(1000);
 					if (!input)
 						continue;
 					output = input->connect;
@@ -775,14 +896,14 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 				struct generic_output *output = brick->outputs[i];
 				struct list_head *tmp;
 				BRICK_DBG("---> i = %d output = %p\n", i, output);
-				msleep(1000);
+				//msleep(1000);
 				if (!output)
 					continue;
 				for (tmp = output->output_head.next; tmp && tmp != &output->output_head; tmp = tmp->next) {
 					struct generic_input *input = container_of(tmp, struct generic_input, input_head);
 					struct generic_brick *next = input->brick;
 					BRICK_DBG("----> tmp = %p input = %p next = %p\n", tmp, input, next);
-					msleep(1000);
+					//msleep(1000);
 					if (unlikely(!next)) {
 						BRICK_ERR("oops, bad brick pointer\n");
 						status = -EINVAL;
@@ -867,4 +988,30 @@ void free_meta(void *data, const struct meta *meta)
 EXPORT_SYMBOL_GPL(free_meta);
 
 
+/////////////////////////////////////////////////////////////////////////
+
+// module init stuff
+
+static int __init init_brick(void)
+{
+	nr_table = kzalloc(nr_max, GFP_BRICK);
+	if (!nr_table) {
+		return -ENOMEM;
+	}
+	return 0;
+}
+
+static void __exit exit_brick(void)
+{
+	if (nr_table) {
+		kfree(nr_table);
+	}
+}
+
+
+MODULE_DESCRIPTION("generic brick infrastructure");
+MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@1und1.de>");
 MODULE_LICENSE("GPL");
+
+module_init(init_brick);
+module_exit(exit_brick);

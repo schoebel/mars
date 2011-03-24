@@ -69,6 +69,8 @@ struct light_class {
 #define CONF_ALL_MAX_QUEUE 10000
 #define CONF_ALL_MAX_JIFFIES (180 * HZ)
 
+#define IF_SKIP_SYNC true
+
 #define IF_READAHEAD 1
 //#define IF_READAHEAD 0
 #define BIO_READAHEAD 1
@@ -169,6 +171,7 @@ void _set_if_params(struct mars_brick *_brick, void *private)
 		MARS_ERR("bad brick type\n");
 		return;
 	}
+	if_brick->skip_sync = IF_SKIP_SYNC;
 	if_brick->readahead = IF_READAHEAD;
 }
 

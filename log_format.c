@@ -181,6 +181,10 @@ put:
 
 err_free:
 	mars_free_mref(mref);
+	if (logst->private) {
+		kfree(logst->private);
+		logst->private = NULL;
+	}
 err:
 	return NULL;
 }

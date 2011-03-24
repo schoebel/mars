@@ -38,10 +38,11 @@ const struct meta mars_mref_meta[] = {
 	META_INI(ref_may_write,    struct mref_object, FIELD_INT),
 	META_INI(ref_prio,         struct mref_object, FIELD_INT),
 	META_INI(ref_timeout,      struct mref_object, FIELD_INT),
+	META_INI(ref_total_size,   struct mref_object, FIELD_INT),
 	META_INI(ref_flags,        struct mref_object, FIELD_INT),
 	META_INI(ref_rw,           struct mref_object, FIELD_INT),
 	META_INI(ref_id,           struct mref_object, FIELD_INT),
-	META_INI(ref_total_size,   struct mref_object, FIELD_INT),
+	META_INI(ref_skip_sync,    struct mref_object, FIELD_INT),
 	META_INI(_ref_cb.cb_error, struct mref_object, FIELD_INT),
 	{}
 };
@@ -805,7 +806,7 @@ int mars_free_brick(struct mars_brick *brick)
 	status = generic_brick_exit_full((void*)brick);
 
 	if (status >= 0) {
-#if 0 // TODO: check whether crash remains possible
+#ifndef MEMLEAK // TODO: check whether crash remains possible
 		if (brick->brick_name)
 			kfree(brick->brick_name);
 		if (brick->brick_path)
@@ -1195,6 +1196,7 @@ EXPORT_SYMBOL_GPL(mm_fake);
 static int __init init_mars(void)
 {
 	MARS_INF("init_mars()\n");
+	brick_obj_max = BRICK_OBJ_MAX;
 	set_fake();
 	return 0;
 }
