@@ -319,7 +319,8 @@ int __make_copy(
 
 	/* Determine the copy area, switch on when necessary
 	 */
-	if (!copy->power.button && copy->power.led_off) {
+	if (!_copy->power.button && _copy->power.led_off) {
+		_copy->copy_last = 0;
 		for (i = 0; i < 2; i++) {
 			status = output[i]->ops->mars_get_info(output[i], &info[i]);
 			if (status < 0) {
@@ -448,13 +449,10 @@ int check_logfile(struct mars_peerinfo *peer, struct mars_dent *dent, struct mar
 	struct copy_brick *copy_brick;
 	int status = 0;
 
-	// check whether we have to do a copy at all
-	if (dst_size >= src_size) {
-		if (unlikely(dst_size > src_size)) {
-			MARS_INF("my local copy is larger than the remote one, ignoring\n");
-			status = -EINVAL;
-		}
-		// nothing to do with this logfile
+	// plausibility checks
+	if (unlikely(dst_size > src_size)) {
+		MARS_WRN("my local copy is larger than the remote one, ignoring\n");
+		status = -EINVAL;
 		goto done;
 	}
 
@@ -465,12 +463,12 @@ int check_logfile(struct mars_peerinfo *peer, struct mars_dent *dent, struct mar
 		goto done;
 	}
 	copy_brick = (struct copy_brick*)mars_find_brick(peer->global, &copy_brick_type, copy_path);
-	MARS_DBG("copy_path = '%s' copy_brick = %p\n", copy_path, copy_brick);
+	MARS_DBG("copy_path = '%s' copy_brick = %p dent = '%s'\n", copy_path, copy_brick, dent->d_path);
 	if (copy_brick) {
 		bool copy_is_done = (copy_brick->copy_last == copy_brick->copy_end);
 		bool is_my_copy = !strcmp(copy_brick->brick_name, dent->d_path);
 		bool is_next_copy = (dent->d_serial == parent->d_logfile_serial + 1);
-		MARS_DBG("copy brick '%s' copy_last = %lld copy_end = %lld dent '%s' is_done = %d is_my_copy = %d is_next_copy = %d\n", copy_brick->brick_name, copy_brick->copy_last, copy_brick->copy_end, dent->d_path, copy_is_done, is_my_copy, is_next_copy);
+		MARS_DBG("copy brick '%s' copy_last = %lld copy_end = %lld dent '%s' serial = %d/%d is_done = %d is_my_copy = %d is_next_copy = %d\n", copy_brick->brick_name, copy_brick->copy_last, copy_brick->copy_end, dent->d_path, dent->d_serial, parent->d_logfile_serial, copy_is_done, is_my_copy, is_next_copy);
 		// ensure consecutiveness of logfiles
 		if (copy_is_done && !is_my_copy && is_next_copy) {
 			MARS_DBG("killing old copy brick '%s', now going to '%s'\n", copy_brick->brick_name, dent->d_path);
@@ -481,6 +479,11 @@ int check_logfile(struct mars_peerinfo *peer, struct mars_dent *dent, struct mar
 		if (!is_my_copy) {
 			goto done;
 		}
+	}
+
+	status = 0;
+	if (dst_size >= src_size) { // nothing to do
+		goto done;
 	}
 
 	// check whether connection is allowed
@@ -891,7 +894,12 @@ void _create_new_logfile(const char *path)
 	f = filp_open(path, flags, prot);
 	set_fs(oldfs);
 	if (IS_ERR(f)) {
-		MARS_ERR("could not create logfile '%s' status = %d\n", path, (int)PTR_ERR(f));
+		int err = PTR_ERR(f);
+		if (err == -EEXIST) {
+			MARS_INF("logfile '%s' already exists\n", path);
+		} else {
+			MARS_ERR("could not create logfile '%s' status = %d\n", path, err);
+		}
 	} else {
 		MARS_DBG("created empty logfile '%s'\n", path);
 		filp_close(f, NULL);

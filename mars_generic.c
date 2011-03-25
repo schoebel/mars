@@ -1157,15 +1157,15 @@ do_switch:
 	if (timeout > 0 || !switch_state) {
 		int status;
 		status = mars_power_button_recursive((void*)brick, switch_state, !switch_state, timeout);
-		MARS_DBG("switch on status = %d\n", status);
+		MARS_DBG("switch %d status = %d\n", switch_state, status);
 #if 1 // TODO: need cleanup_fn() here
 		if (!switch_state && status >= 0 && !brick->power.button && brick->power.led_off) {
 			mars_kill_brick(brick);
+			brick = NULL;
 		}
 #endif
 	}
-
-	return brick;
+	goto done;
 
 err:
 	if (brick)
