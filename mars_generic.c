@@ -91,6 +91,102 @@ EXPORT_SYMBOL_GPL(mars_dent_meta);
 
 /////////////////////////////////////////////////////////////////////
 
+// tracing
+
+#ifdef MARS_TRACING
+
+struct file *mars_log_file = NULL;
+loff_t mars_log_pos = 0;
+
+void _mars_log(char *buf, int len)
+{
+	static DECLARE_MUTEX(trace_lock);
+	mm_segment_t oldfs;
+	
+
+	oldfs = get_fs();
+	set_fs(get_ds());
+	down(&trace_lock);
+
+	vfs_write(mars_log_file, buf, len, &mars_log_pos);
+
+	up(&trace_lock);
+	set_fs(oldfs);
+}
+EXPORT_SYMBOL_GPL(_mars_log);
+
+void mars_log(const char *fmt, ...)
+{
+	char *buf = kmalloc(PAGE_SIZE, GFP_MARS);
+	va_list args;
+	int len;
+	if (!buf)
+		return;
+
+	va_start(args, fmt);
+	len = vsnprintf(buf, PAGE_SIZE, fmt, args);
+	va_end(args);
+
+	_mars_log(buf, len);
+
+	kfree(buf);
+}
+EXPORT_SYMBOL_GPL(mars_log);
+
+void mars_trace(struct mref_object *mref, const char *info)
+{
+	int index = mref->ref_traces;
+	if (index < MAX_TRACES) {
+		mref->ref_trace_stamp[index] = CURRENT_TIME;
+		mref->ref_trace_info[index] = info;
+		mref->ref_traces++;
+	}
+}
+EXPORT_SYMBOL_GPL(mars_trace);
+
+void mars_log_trace(struct mref_object *mref)
+{
+	static struct timespec first = {};
+	char *buf = kmalloc(PAGE_SIZE, GFP_MARS);
+	struct timespec old = {};
+	struct timespec diff;
+	int i;
+	int len;
+
+	if (!buf) {
+		return;
+	}
+	if (!mars_log_file || !mref->ref_traces) {
+		goto done;
+	}
+	if (!first.tv_sec) {
+		first = mref->ref_trace_stamp[0];
+	}
+	old = first;
+
+	diff = timespec_sub(mref->ref_trace_stamp[mref->ref_traces-1], old);
+
+	len = sprintf(buf, "%c ;%11lld ;%4d;%2ld.%09ld", mref->ref_rw ? 'W' : 'R', mref->ref_pos, mref->ref_len, diff.tv_sec, diff.tv_nsec);
+
+	for (i = 0; i < mref->ref_traces; i++) {
+		diff = timespec_sub(mref->ref_trace_stamp[i], old);
+		
+		len += sprintf(buf + len, " ; %s ;%4ld.%09ld", mref->ref_trace_info[i], diff.tv_sec, diff.tv_nsec);
+		old = mref->ref_trace_stamp[i];
+	}
+	len +=sprintf(buf + len, "\n");
+
+	_mars_log(buf, len);
+
+ done:
+	kfree(buf);
+}
+EXPORT_SYMBOL_GPL(mars_log_trace);
+
+#endif // MARS_TRACING
+
+/////////////////////////////////////////////////////////////////////
+
 // some helpers
 
 int mars_stat(const char *path, struct kstat *stat, bool use_lstat)
@@ -1198,6 +1294,21 @@ static int __init init_mars(void)
 	MARS_INF("init_mars()\n");
 	brick_obj_max = BRICK_OBJ_MAX;
 	set_fake();
+#ifdef MARS_TRACING
+	{
+		int flags = O_CREAT | O_TRUNC | O_RDWR | O_LARGEFILE;
+		int prot = 0600;
+		mm_segment_t oldfs;
+		oldfs = get_fs();
+		set_fs(get_ds());
+		mars_log_file = filp_open("/mars/trace.csv", flags, prot);
+		set_fs(oldfs);
+		if (IS_ERR(mars_log_file)) {
+			MARS_ERR("cannot create trace logfile, status = %ld\n", PTR_ERR(mars_log_file));
+			mars_log_file = NULL;
+		}
+	}
+#endif
 	return 0;
 }
 
@@ -1209,6 +1320,12 @@ static void __exit exit_mars(void)
 		id = NULL;
 	}
 	put_fake();
+#ifdef MARS_TRACING
+	if (mars_log_file) {
+		filp_close(mars_log_file, NULL);
+		mars_log_file = NULL;
+	}
+#endif
 }
 
 MODULE_DESCRIPTION("MARS block storage");

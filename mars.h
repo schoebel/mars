@@ -4,15 +4,15 @@
 
 #include <linux/list.h>
 #include <linux/semaphore.h>
-
 #include <asm/spinlock.h>
 #include <asm/atomic.h>
 
 #define MEMLEAK // FIXME: remove this
+#define MARS_TRACING // write runtime trace data to /mars/trace.csv
 
 /////////////////////////////////////////////////////////////////////////
 
-// include the generic brick infrastucture
+// include the generic brick infrastructure
 
 #ifdef BRICK_H
 #error "brick.h must not be already included - please reorganize your includes"
@@ -95,6 +95,28 @@ struct mref_object_layout {
 	GENERIC_OBJECT_LAYOUT(mref);
 };
 
+#ifdef MARS_TRACING
+
+#define MAX_TRACES 16
+
+#define TRACING_INFO							\
+	int ref_traces;							\
+	struct timespec ref_trace_stamp[MAX_TRACES];			\
+	const char *ref_trace_info[MAX_TRACES];
+
+extern void _mars_log(char *buf, int len);
+extern void mars_log(const char *fmt, ...);
+extern void mars_trace(struct mref_object *mref, const char *info);
+extern void mars_log_trace(struct mref_object *mref);
+
+#else
+#define TRACING_INFO /*empty*/
+#define _mars_log(buf,len) /*empty*/
+#define mars_log(fmt...) /*empty*/
+#define mars_trace(mref,info) /*empty*/
+#define mars_log_trace(mref) /*empty*/
+#endif
+
 #define MREF_OBJECT(PREFIX)						\
 	GENERIC_OBJECT(PREFIX);						\
 	/* supplied by caller */					\
@@ -118,6 +140,7 @@ struct mref_object_layout {
         /* callback part */						\
 	struct generic_callback *ref_cb;				\
 	struct generic_callback _ref_cb;				\
+	TRACING_INFO;
 
 struct mref_object {
 	MREF_OBJECT(mref);

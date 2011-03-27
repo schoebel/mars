@@ -25,6 +25,9 @@ struct logger_queue {
 	spinlock_t q_lock;
 	atomic_t q_queued;
 	atomic_t q_flying;
+	const char *q_insert_info;
+	const char *q_pushback_info;
+	const char *q_fetch_info;
 	// tunables
 	int q_batchlen;
 	int q_max_queued;
@@ -82,6 +85,7 @@ struct trans_logger_brick {
 
 struct trans_logger_output {
 	MARS_OUTPUT(trans_logger);
+	atomic_t replay_count;
 	atomic_t fly_count;
 	atomic_t hash_count;
 	atomic_t mshadow_count;
@@ -95,6 +99,7 @@ struct trans_logger_output {
 	atomic_t total_shortcut_count;
 	struct task_struct *thread;
 	wait_queue_head_t event;
+	struct generic_object_layout replay_layout;
 	// queues
 	struct logger_queue q_phase1;
 	struct logger_queue q_phase2;

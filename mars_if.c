@@ -60,6 +60,9 @@ void if_endio(struct generic_callback *cb)
 		return;
 	}
 
+	mars_trace(mref_a->object, "if_endio");
+	mars_log_trace(mref_a->object);
+
 	for (k = 0; k < mref_a->bio_count; k++) {
 		bio = mref_a->orig_bio[k];
 		mref_a->orig_bio[k] = NULL;
@@ -100,7 +103,7 @@ void if_endio(struct generic_callback *cb)
  */
 static void _if_unplug(struct if_input *input)
 {
-	struct if_brick *brick = input->brick;
+	//struct if_brick *brick = input->brick;
 	LIST_HEAD(tmp_list);
 	unsigned long flags;
 
@@ -122,8 +125,7 @@ static void _if_unplug(struct if_input *input)
 		list_del_init(&mref_a->plug_head);
                 mref = mref_a->object;
 
-		if (brick->skip_sync) {
-		}
+		mars_trace(mref, "if_unplug");
 
 		GENERIC_INPUT_CALL(input, mref_io, mref);
 		GENERIC_INPUT_CALL(input, mref_put, mref);
@@ -280,6 +282,8 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 					goto err;
 				}
 				
+				mars_trace(mref, "if_start");
+
 				CHECK_ATOMIC(&bio->bi_comp_cnt, 0);
 				atomic_inc(&bio->bi_comp_cnt);
 				mref_a->orig_page = bvec->bv_page;

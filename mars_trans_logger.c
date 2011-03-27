@@ -124,6 +124,8 @@ static inline void q_insert(struct logger_queue *q, struct trans_logger_mref_asp
 {
 	unsigned long flags;
 
+	mars_trace(mref_a->object, q->q_insert_info);
+
 	traced_lock(&q->q_lock, flags);
 
 	if (q->q_ordering) {
@@ -143,6 +145,8 @@ static inline void q_insert(struct logger_queue *q, struct trans_logger_mref_asp
 static inline void q_pushback(struct logger_queue *q, struct trans_logger_mref_aspect *mref_a)
 {
 	unsigned long flags;
+
+	mars_trace(mref_a->object, q->q_pushback_info);
 
 	if (q->q_ordering) {
 		q_insert(q, mref_a);
@@ -186,6 +190,10 @@ static inline struct trans_logger_mref_aspect *q_fetch(struct logger_queue *q)
 	}
 
 	traced_unlock(&q->q_lock, flags);
+
+	if (mref_a) {
+		mars_trace(mref_a->object, q->q_fetch_info);
+	}
 
 	return mref_a;
 }
@@ -819,6 +827,9 @@ static bool phase2_startio(struct trans_logger_mref_aspect *orig_mref_a)
 			MARS_FAT("cannot get sub_ref, status = %d\n", status);
 			goto err;
 		}
+
+		mars_trace(sub_mref, "sub_start");
+
 		atomic_inc(&output->sub_balance_count);
 		pos += sub_mref->ref_len;
 		len -= sub_mref->ref_len;
@@ -956,6 +967,8 @@ static void phase4_endio(struct generic_callback *cb)
 	CHECK_PTR(orig_mref_a, err);
 	orig_mref = orig_mref_a->object;
 	CHECK_PTR(orig_mref, err);
+
+	mars_trace(sub_mref_a->object, "sub_endio");
 
 	atomic_dec(&output->q_phase4.q_flying);
 
@@ -1161,6 +1174,92 @@ void trans_logger_log(struct trans_logger_output *output)
 	}
 }
 
+////////////////////////////// replay //////////////////////////////
+
+static
+void replay_endio(struct generic_callback *cb)
+{
+	struct trans_logger_mref_aspect *mref_a = cb->cb_private;
+	struct trans_logger_output *output;
+
+	CHECK_PTR(mref_a, err);
+	output = mref_a->output;
+	CHECK_PTR(output, err);
+
+	if (atomic_dec_and_test(&output->replay_count)) {
+		wake_up_interruptible(&output->event);
+	}
+	return;
+ err:
+	MARS_FAT("cannot handle replay IO\n");
+}
+
+static
+int apply_data(struct trans_logger_output *output, struct log_header *lh, void *buf, int len)
+{
+	struct trans_logger_input *input = output->brick->inputs[0];
+	int status;
+
+	MARS_INF("got data, pos = %lld, len = %d\n", lh->l_pos, len);
+
+	/* TODO for better efficiency:
+	 * Instead of starting IO here, just put the data into the hashes
+	 * and queues such that ordinary IO will be corrected.
+	 * Writeback will be lazy then.
+	 * The switch infrastructure must be changed before this
+	 * can become useful.
+	 */
+#if 1
+	while (len > 0) {
+		struct mref_object *mref;
+		struct trans_logger_mref_aspect *mref_a;
+		struct generic_callback *cb;
+		
+		status = -ENOMEM;
+		mref = trans_logger_alloc_mref(output, &output->replay_layout);
+		if (unlikely(!mref)) {
+			MARS_ERR("no memory\n");
+			goto done;
+		}
+		mref_a = trans_logger_mref_get_aspect(output, mref);
+		CHECK_PTR(mref_a, done);
+		
+		mref->ref_pos = lh->l_pos;
+		mref->ref_data = buf;
+		mref->ref_len = len;
+		mref->ref_may_write = WRITE;
+		mref->ref_rw = WRITE;
+		
+		status = GENERIC_INPUT_CALL(input, mref_get, mref);
+		if (unlikely(status < 0)) {
+			MARS_ERR("cannot get mref, status = %d\n", status);
+			goto done;
+		}
+		
+		atomic_inc(&output->replay_count);
+		mars_trace(mref, "replay_start");
+		
+		cb = &mref_a->cb;
+		cb->cb_fn = replay_endio;
+		cb->cb_private = mref_a;
+		cb->cb_error = 0;
+		cb->cb_prev = NULL;
+		mref->ref_cb = cb;
+		mref_a->output = output;
+		
+		GENERIC_INPUT_CALL(input, mref_io, mref);
+
+		buf += mref->ref_len;
+		len -= mref->ref_len;
+
+		GENERIC_INPUT_CALL(input, mref_put, mref);
+	}
+#endif
+	status = 0;
+ done:
+	return status;
+}
+
 static
 void trans_logger_replay(struct trans_logger_output *output)
 {
@@ -1169,34 +1268,53 @@ void trans_logger_replay(struct trans_logger_output *output)
 	MARS_INF("starting replay from %lld to %lld\n", brick->current_pos, brick->end_pos);
 	
 	init_logst(&brick->logst, (void*)brick->inputs[1], (void*)brick->outputs[0], brick->current_pos);
-	brick->replay_pos = brick->current_pos;
 
-#if 0
-	while (brick->current_pos < brick->end_pos) {
+#if 1
+	while ((brick->replay_pos = brick->current_pos = brick->logst.log_pos) < brick->end_pos) {
 		struct log_header lh = {};
+		void *buf = NULL;
+		int len = 0;
 		int status;
+
 		if (kthread_should_stop()) {
 			break;
 		}
 
-		status = log_read_prepare(&brick->logst, &lh);
+		status = log_read(&brick->logst, &lh, &buf, &len);
 		if (status < 0) {
-			MARS_ERR("cannot read logfile, status = %d\n", status);
+			MARS_ERR("cannot read logfile data, status = %d\n", status);
+			break;
+		}
+
+		status = apply_data(output, &lh, buf, len);
+		if (status < 0) {
+			MARS_ERR("cannot apply data, len = %d, status = %d\n", len, status);
 			break;
 		}
 	}
-#else
+
+	wait_event_interruptible_timeout(output->event, atomic_read(&output->replay_count) <= 0, 60 * HZ);
+
+#else // fake
 	brick->current_pos = brick->end_pos;
 	brick->replay_pos = brick->end_pos;
-	mars_power_led_on((void*)brick, true);
-	while (!kthread_should_stop()) {
-		msleep(1000);
-	}
 #endif
 
-	MARS_INF("replay finished at %lld %lld\n", brick->current_pos, brick->replay_pos);
-	mars_trigger();
+	if (brick->replay_pos == brick->end_pos) {
+		MARS_INF("replay finished at %lld\n", brick->replay_pos);
+		mars_power_led_on((void*)brick, true);
+	} else {
+		MARS_INF("replay stopped prematurely at %lld (of %lld)\n", brick->replay_pos, brick->end_pos);
+		mars_power_led_off((void*)brick, true);
+	}
+#if 1
+	while (!kthread_should_stop()) {
+		msleep(500);
+	}
+#endif
 }
+
+///////////////////////// logger thread / switching /////////////////////////
 
 static
 int trans_logger_thread(void *data)
@@ -1207,6 +1325,7 @@ int trans_logger_thread(void *data)
 	MARS_INF("........... logger has started.\n");
 
 	brick->current_pos = brick->start_pos;
+	brick->logst.log_pos = brick->current_pos;
 	mars_power_led_on((void*)brick, true);
 
 	brick->logst.align_size = brick->align_size;
@@ -1303,6 +1422,18 @@ static int trans_logger_output_construct(struct trans_logger_output *output)
 	output->q_phase3.q_dep = &output->q_phase1;
 	output->q_phase4.q_dep = &output->q_phase1;
 #endif
+	output->q_phase1.q_insert_info   = "q1_ins";
+	output->q_phase1.q_pushback_info = "q1_push";
+	output->q_phase1.q_fetch_info    = "q1_fetch";
+	output->q_phase2.q_insert_info   = "q2_ins";
+	output->q_phase2.q_pushback_info = "q2_push";
+	output->q_phase2.q_fetch_info    = "q2_fetch";
+	output->q_phase3.q_insert_info   = "q3_ins";
+	output->q_phase3.q_pushback_info = "q3_push";
+	output->q_phase3.q_fetch_info    = "q3_fetch";
+	output->q_phase4.q_insert_info   = "q4_ins";
+	output->q_phase4.q_pushback_info = "q4_push";
+	output->q_phase4.q_fetch_info    = "q4_fetch";
 	return 0;
 }
 

@@ -105,7 +105,7 @@ int server_io(struct server_brick *brick, struct socket **sock)
 	
 	status = GENERIC_INPUT_CALL(brick->inputs[0], mref_get, mref);
 	if (status < 0) {
-		MARS_INF("execution error = %d\n", status);
+		MARS_INF("mref_get execution error = %d\n", status);
 		mref->_ref_cb.cb_error = status;
 		server_endio(&mref->_ref_cb);
 		mars_free_mref(mref);

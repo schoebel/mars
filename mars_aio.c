@@ -153,6 +153,9 @@ static
 void _complete(struct aio_output *output, struct mref_object *mref, int err)
 {
 	struct generic_callback *cb;
+
+	mars_trace(mref, "aio_endio");
+
 	cb = mref->ref_cb;
 	cb->cb_error = err;
 	if (err < 0) {
@@ -207,6 +210,8 @@ static int aio_submit(struct aio_output *output, struct aio_mref_aspect *mref_a,
 		// .aio_reqprio = something(mref->ref_prio) field exists, but not yet implemented in kernelspace :(
 	};
 	struct iocb *iocbp = &iocb;
+
+	mars_trace(mref, "aio_submit");
 
 	oldfs = get_fs();
 	set_fs(get_ds());
@@ -396,6 +401,7 @@ static int aio_event_thread(void *data)
 			   && !mref_a->resubmit++) {
 				// workaround for non-implemented AIO FSYNC operation
 				if (!output->filp->f_op->aio_fsync) {
+					mars_trace(mref, "aio_fsync");
 					_enqueue(other, mref_a, mref->ref_prio, true);
 					bounced++;
 					continue;

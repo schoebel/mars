@@ -327,6 +327,7 @@ static void bio_ref_io(struct bio_output *output, struct mref_object *mref)
 
 	rw = mref->ref_rw & 1;
 	MARS_IO("starting IO rw = %d fly = %d\n", rw, atomic_read(&output->brick->fly_count));
+	mars_trace(mref, "bio_submit");
 
 #ifdef FAKE_IO
 	bio->bi_end_io(bio, 0);
@@ -394,6 +395,9 @@ static int bio_thread(void *data)
 			MARS_IO("completed , status = %d\n", code);
 		
 			mref = mref_a->object;
+
+			mars_trace(mref, "bio_endio");
+
 			cb = mref->ref_cb;
 			cb->cb_error = code;
 			if (code < 0) {
