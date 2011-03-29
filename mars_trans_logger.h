@@ -33,7 +33,9 @@ struct logger_queue {
 	int q_max_queued;
 	int q_max_flying;
 	int q_max_jiffies;
-	int q_dep_flying;
+	int q_max_contention;
+	int q_over_pressure;
+	int q_io_prio;
 	bool q_ordering;
 };
 

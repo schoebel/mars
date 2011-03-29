@@ -194,6 +194,11 @@ static void client_ref_io(struct client_output *output, struct mref_object *mref
 		goto error;
 	}
 
+	while (output->brick->max_flying > 0 && atomic_read(&output->fly_count) > output->brick->max_flying) {
+		msleep(1000 * 2 / HZ);
+	}
+
+	atomic_inc(&output->fly_count);
 	atomic_inc(&mref->ref_count);
 
 	traced_lock(&output->lock, flags);
@@ -264,6 +269,8 @@ static int receiver_thread(void *data)
 			traced_lock(&output->lock, flags);
 			list_del_init(&mref_a->io_head);
 			traced_unlock(&output->lock, flags);
+
+			atomic_dec(&output->fly_count);
 
 			cb = mref->ref_cb;
 			cb->cb_fn(cb);

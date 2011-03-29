@@ -62,9 +62,10 @@ void log_flush(struct log_status *logst)
 		// round up to next alignment border
 		int align_offset = logst->offset & (logst->align_size-1);
 		if (align_offset > 0) {
+			int restlen = mref->ref_len - logst->offset;
 			gap = logst->align_size - align_offset;
-			if (gap > logst->restlen) {
-				gap = logst->restlen;
+			if (gap > restlen) {
+				gap = restlen;
 			}
 		}
 	}
@@ -106,14 +107,14 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 
 	MARS_DBG("reserving %d bytes at %lld\n", lh->l_len, logst->log_pos);
 
-	if (total_len > logst->restlen || !cb_info || cb_info->nr_endio >= MARS_LOG_CB_MAX) {
+	mref = logst->log_mref;
+	if ((mref && total_len > mref->ref_len - logst->offset)
+	   || !cb_info || cb_info->nr_endio >= MARS_LOG_CB_MAX) {
 		log_flush(logst);
 	}
 
 	mref = logst->log_mref;
 	if (!mref) {
-		int chunk_offset;
-		int chunk_rest;
 		if (unlikely(logst->private)) {
 			MARS_ERR("oops\n");
 			kfree(logst->private);
@@ -133,21 +134,19 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 		cb_info->mref = mref;
 
 		mref->ref_pos = logst->log_pos;
-		chunk_offset = logst->log_pos & (loff_t)(logst->chunk_size - 1);
-		chunk_rest = logst->chunk_size - chunk_offset;
-		if (chunk_rest < total_len) {
-			mref->ref_pos += chunk_rest;
-			chunk_rest = logst->chunk_size;
-		}
-		mref->ref_len = chunk_rest;
-		if (mref->ref_len < total_len) {
-			MARS_INF("not good: ref_len = %d total_len = %d\n", mref->ref_len, total_len);
-			mref->ref_len = total_len;
-		}
+		mref->ref_len = total_len;
 		mref->ref_may_write = WRITE;
-#if 0
-		mref->ref_prio = MARS_PRIO_LOW;
-#endif
+		mref->ref_prio = logst->io_prio;
+		if (logst->chunk_size > 0) {
+			int chunk_offset;
+			int chunk_rest;
+			chunk_offset = logst->log_pos & (loff_t)(logst->chunk_size - 1);
+			chunk_rest = logst->chunk_size - chunk_offset;
+			while (chunk_rest < total_len) {
+				chunk_rest += logst->chunk_size;
+			}
+			mref->ref_len = chunk_rest;
+		}
 
 		status = GENERIC_INPUT_CALL(logst->input, mref_get, mref);
 		if (unlikely(status < 0)) {
@@ -162,7 +161,6 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 			goto put;
 		}
 
-		logst->restlen = mref->ref_len;
 		logst->offset = 0;
 		logst->log_mref = mref;
 	}
@@ -185,12 +183,12 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 
 	logst->payload_offset = offset;
 	logst->payload_len = lh->l_len;
-	logst->offset = offset;
 
 	return data + offset;
 
 put:
 	GENERIC_INPUT_CALL(logst->input, mref_put, mref);
+	logst->log_mref = NULL;
 	return NULL;
 
 err_free:
@@ -211,13 +209,19 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	struct timespec now;
 	void *data;
 	int offset;
+	int restlen;
 	int nr_endio;
 	bool ok = false;
 
 	CHECK_PTR(mref, err);
 
-	if (unlikely(len > logst->restlen)) {
-		MARS_ERR("trying to write more than reserved (%d > %d)\n", len, logst->restlen);
+	if (unlikely(len > logst->payload_len)) {
+		MARS_ERR("trying to write more than reserved (%d > %d)\n", len, logst->payload_len);
+		goto err;
+	}
+	restlen = mref->ref_len - logst->offset;
+	if (unlikely(len + END_OVERHEAD > restlen)) {
+		MARS_ERR("trying to write more than available (%d > %d)\n", len, (int)(restlen - END_OVERHEAD));
 		goto err;
 	}
 	if (unlikely(!cb_info || cb_info->nr_endio >= MARS_LOG_CB_MAX)) {
@@ -245,8 +249,11 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	DATA_PUT(data, offset, now.tv_sec);  
 	DATA_PUT(data, offset, now.tv_nsec);
 
+	if (unlikely(offset > mref->ref_len)) {
+		MARS_ERR("length calculation was wrong: %d > %d\n", offset, mref->ref_len);
+		goto err;
+	}
 	logst->offset = offset;
-	logst->restlen = mref->ref_len - offset;
 
 	/* This must come last. In case of incomplete
 	 * or even overlapping disk transfers, this indicates
@@ -271,6 +278,8 @@ EXPORT_SYMBOL_GPL(log_finalize);
 static
 int log_scan(void *buf, int len, struct log_header *lh, void **payload, int *payload_len)
 {
+	bool dirty = false;
+	int offset;
 	int i;
 
 	*payload_len = 0;
@@ -284,10 +293,12 @@ int log_scan(void *buf, int len, struct log_header *lh, void **payload, int *pay
 		char valid_copy;
 
 		int restlen;
-		int offset = i;
 
+		offset = i;
 		DATA_GET(buf, offset, start_magic);
 		if (start_magic != START_MAGIC) {
+			if (start_magic != 0)
+				dirty = true;
 			continue;
 		}
 
@@ -309,8 +320,7 @@ int log_scan(void *buf, int len, struct log_header *lh, void **payload, int *pay
 		}
 		DATA_GET(buf, offset, total_len);
 		if (total_len > restlen) {
-			MARS_WRN("data at offset %d is too long (len = %d larger than boundary %d)\n", i, total_len, restlen);
-			continue;
+			return -EAGAIN;
 		}
 
 		memset(lh, 0, sizeof(struct log_header));
@@ -338,12 +348,12 @@ int log_scan(void *buf, int len, struct log_header *lh, void **payload, int *pay
 			MARS_WRN("bad end_magic 0x%llx\n", end_magic);
 			continue;
 		}
+		DATA_GET(buf, offset, lh->l_crc);
 		DATA_GET(buf, offset, valid_copy);
 		if (valid_copy != 1) {
 			MARS_WRN("found uncompleted / invalid data at %d len = %d (valid_flag = %d)\n", i, lh->l_len, (int)valid_copy);
 			continue;
 		}
-		DATA_GET(buf, offset, lh->l_crc);
 		// skip spares
 		offset += 3 + 4;
 		DATA_GET(buf, offset, lh->l_written.tv_sec);
@@ -354,13 +364,16 @@ int log_scan(void *buf, int len, struct log_header *lh, void **payload, int *pay
 			MARS_WRN("size mismatch at offset %d: %d != %d\n", i, total_len, offset - i);
 			// just warn, but no consequences: better use the data, it has been checked by lots of magics
 		}
-
-		if (i > 0) {
-			MARS_WRN("skipped %d bytes to find valid data\n", i);
-		}
-		return offset - i;
+		goto done;
 	}
-	return -EAGAIN;
+	offset = i;
+
+done:
+	// don't cry when nullbytes have been skipped
+	if (i > 0 && dirty) {
+		MARS_WRN("skipped %d dirty bytes at offset %d to find valid data\n", i, offset);
+	}
+	return offset;
 }
 
 static
@@ -387,6 +400,7 @@ int log_read(struct log_status *logst, struct log_header *lh, void **payload, in
 		struct generic_callback *cb;
 		int chunk_offset;
 		int chunk_rest;
+
 		mref = mars_alloc_mref(logst->output, &logst->ref_object_layout);
 		if (unlikely(!mref)) {
 			MARS_ERR("no mref\n");
@@ -395,7 +409,7 @@ int log_read(struct log_status *logst, struct log_header *lh, void **payload, in
 		mref->ref_pos = logst->log_pos;
 		chunk_offset = logst->log_pos & (loff_t)(logst->chunk_size - 1);
 		chunk_rest = logst->chunk_size - chunk_offset;
-		mref->ref_len = chunk_rest;
+		mref->ref_len = chunk_rest + logst->chunk_size;
 #if 0
 		mref->ref_prio = MARS_PRIO_LOW;
 #endif
@@ -429,12 +443,16 @@ int log_read(struct log_status *logst, struct log_header *lh, void **payload, in
 	}
 
 	status = log_scan(mref->ref_data + logst->offset, mref->ref_len - logst->offset, lh, payload, payload_len);
-	if (status < 0) {
+	if (unlikely(status == 0)) {
+		MARS_ERR("bad logfile scan\n");
+		status = -EINVAL;
+	}
+	if (unlikely(status < 0)) {
 		goto done_free;
 	}
 
 	logst->offset += status;
-	if (logst->offset < mref->ref_len) {
+	if (logst->offset < mref->ref_len - logst->chunk_size) {
 		goto done;
 	}
 

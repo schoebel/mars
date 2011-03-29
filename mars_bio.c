@@ -329,6 +329,15 @@ static void bio_ref_io(struct bio_output *output, struct mref_object *mref)
 	MARS_IO("starting IO rw = %d fly = %d\n", rw, atomic_read(&output->brick->fly_count));
 	mars_trace(mref, "bio_submit");
 
+#ifdef WAIT_CLASH
+	mref_a->hash_pos = (mref->ref_pos / PAGE_SIZE) % WAIT_CLASH;
+	if (mref->ref_rw) {
+		down_write(&output->brick->hashtable[mref_a->hash_pos]);
+	} else {
+		down_read(&output->brick->hashtable[mref_a->hash_pos]);
+	}
+#endif
+
 #ifdef FAKE_IO
 	bio->bi_end_io(bio, 0);
 #else
@@ -396,6 +405,13 @@ static int bio_thread(void *data)
 		
 			mref = mref_a->object;
 
+#ifdef WAIT_CLASH
+			if (mref_a->object->ref_rw) {
+				up_write(&brick->hashtable[mref_a->hash_pos]);
+			} else {
+				up_read(&brick->hashtable[mref_a->hash_pos]);
+			}
+#endif
 			mars_trace(mref, "bio_endio");
 
 			cb = mref->ref_cb;
@@ -524,6 +540,12 @@ MARS_MAKE_STATICS(bio);
 
 static int bio_brick_construct(struct bio_brick *brick)
 {
+#ifdef WAIT_CLASH
+	int i;
+	for (i = 0; i < WAIT_CLASH; i++) {
+		init_rwsem(&brick->hashtable[i]);
+	}
+#endif
 	spin_lock_init(&brick->lock);
 	INIT_LIST_HEAD(&brick->completed_list);
 	init_waitqueue_head(&brick->event);

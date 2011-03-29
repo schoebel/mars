@@ -95,6 +95,9 @@ EXPORT_SYMBOL_GPL(mars_dent_meta);
 
 #ifdef MARS_TRACING
 
+unsigned long long start_trace_clock = 0;
+EXPORT_SYMBOL_GPL(start_trace_clock);
+
 struct file *mars_log_file = NULL;
 loff_t mars_log_pos = 0;
 
@@ -136,8 +139,8 @@ EXPORT_SYMBOL_GPL(mars_log);
 void mars_trace(struct mref_object *mref, const char *info)
 {
 	int index = mref->ref_traces;
-	if (index < MAX_TRACES) {
-		mref->ref_trace_stamp[index] = CURRENT_TIME;
+	if (likely(index < MAX_TRACES)) {
+		mref->ref_trace_stamp[index] = cpu_clock(raw_smp_processor_id());
 		mref->ref_trace_info[index] = info;
 		mref->ref_traces++;
 	}
@@ -146,10 +149,9 @@ EXPORT_SYMBOL_GPL(mars_trace);
 
 void mars_log_trace(struct mref_object *mref)
 {
-	static struct timespec first = {};
 	char *buf = kmalloc(PAGE_SIZE, GFP_MARS);
-	struct timespec old = {};
-	struct timespec diff;
+	unsigned long long old;
+	unsigned long long diff;
 	int i;
 	int len;
 
@@ -159,19 +161,19 @@ void mars_log_trace(struct mref_object *mref)
 	if (!mars_log_file || !mref->ref_traces) {
 		goto done;
 	}
-	if (!first.tv_sec) {
-		first = mref->ref_trace_stamp[0];
+	if (!start_trace_clock) {
+		start_trace_clock = mref->ref_trace_stamp[0];
 	}
-	old = first;
 
-	diff = timespec_sub(mref->ref_trace_stamp[mref->ref_traces-1], old);
+	diff = mref->ref_trace_stamp[mref->ref_traces-1] - mref->ref_trace_stamp[0];
 
-	len = sprintf(buf, "%c ;%11lld ;%4d;%2ld.%09ld", mref->ref_rw ? 'W' : 'R', mref->ref_pos, mref->ref_len, diff.tv_sec, diff.tv_nsec);
+	len = sprintf(buf, "%c ;%12lld ;%6d;%10llu", mref->ref_rw ? 'W' : 'R', mref->ref_pos, mref->ref_len, diff / 1000);
 
+	old = start_trace_clock;
 	for (i = 0; i < mref->ref_traces; i++) {
-		diff = timespec_sub(mref->ref_trace_stamp[i], old);
+		diff = mref->ref_trace_stamp[i] - old;
 		
-		len += sprintf(buf + len, " ; %s ;%4ld.%09ld", mref->ref_trace_info[i], diff.tv_sec, diff.tv_nsec);
+		len += sprintf(buf + len, " ; %s ;%10llu", mref->ref_trace_info[i], diff / 1000);
 		old = mref->ref_trace_stamp[i];
 	}
 	len +=sprintf(buf + len, "\n");
@@ -180,6 +182,7 @@ void mars_log_trace(struct mref_object *mref)
 
  done:
 	kfree(buf);
+	mref->ref_traces = 0;
 }
 EXPORT_SYMBOL_GPL(mars_log_trace);
 
@@ -1210,6 +1213,10 @@ struct mars_brick *make_brick_all(
 			MARS_DBG("substitute by remote brick '%s' on peer '%s'\n", new_name, remote);
 			
 			brick = mars_make_brick(global, belongs, _client_brick_type, new_path, new_name);
+			if (brick) {
+				struct client_brick *_brick = (void*)brick;
+				_brick->max_flying = 1000;
+			}
 		}
 	}
 	if (!brick && new_brick_type == _bio_brick_type && _aio_brick_type) {

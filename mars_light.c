@@ -58,13 +58,17 @@ struct light_class {
 //#define FLUSH_DELAY (HZ / 100 + 1)
 #define FLUSH_DELAY 0
 
-#define TRANS_FAKE
+//#define TRANS_FAKE
 
 #define CONF_TRANS_BATCHLEN 32
 #define CONF_TRANS_FLYING 4
+#define CONF_TRANS_PRIO   MARS_PRIO_HIGH
 
 #define CONF_ALL_BATCHLEN 2
-#define CONF_ALL_FLYING 0
+#define CONF_ALL_FLYING 4
+#define CONF_ALL_CONTENTION 0
+#define CONF_ALL_PRESSURE 0
+#define CONF_ALL_PRIO   MARS_PRIO_LOW
 
 #define CONF_ALL_MAX_QUEUE 10000
 #define CONF_ALL_MAX_JIFFIES (180 * HZ)
@@ -94,6 +98,21 @@ void _set_trans_params(struct mars_brick *_brick, void *private)
 		trans_brick->outputs[0]->q_phase2.q_max_flying = CONF_ALL_FLYING;
 		trans_brick->outputs[0]->q_phase3.q_max_flying = CONF_ALL_FLYING;
 		trans_brick->outputs[0]->q_phase4.q_max_flying = CONF_ALL_FLYING;
+
+		trans_brick->outputs[0]->q_phase1.q_max_contention = CONF_ALL_CONTENTION;
+		trans_brick->outputs[0]->q_phase2.q_max_contention = CONF_ALL_CONTENTION;
+		trans_brick->outputs[0]->q_phase3.q_max_contention = CONF_ALL_CONTENTION;
+		trans_brick->outputs[0]->q_phase4.q_max_contention = CONF_ALL_CONTENTION;
+
+		trans_brick->outputs[0]->q_phase1.q_over_pressure = CONF_ALL_PRESSURE;
+		trans_brick->outputs[0]->q_phase2.q_over_pressure = CONF_ALL_PRESSURE;
+		trans_brick->outputs[0]->q_phase3.q_over_pressure = CONF_ALL_PRESSURE;
+		trans_brick->outputs[0]->q_phase4.q_over_pressure = CONF_ALL_PRESSURE;
+
+		trans_brick->outputs[0]->q_phase1.q_io_prio = CONF_TRANS_PRIO;
+		trans_brick->outputs[0]->q_phase2.q_io_prio = CONF_ALL_PRIO;
+		trans_brick->outputs[0]->q_phase3.q_io_prio = CONF_ALL_PRIO;
+		trans_brick->outputs[0]->q_phase4.q_io_prio = CONF_ALL_PRIO;
 
 		trans_brick->outputs[0]->q_phase2.q_max_queued = CONF_ALL_MAX_QUEUE;
 		trans_brick->outputs[0]->q_phase4.q_max_queued = CONF_ALL_MAX_QUEUE;

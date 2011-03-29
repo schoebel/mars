@@ -97,12 +97,14 @@ struct mref_object_layout {
 
 #ifdef MARS_TRACING
 
+extern unsigned long long start_trace_clock;
+
 #define MAX_TRACES 16
 
 #define TRACING_INFO							\
 	int ref_traces;							\
-	struct timespec ref_trace_stamp[MAX_TRACES];			\
-	const char *ref_trace_info[MAX_TRACES];
+	unsigned long long   ref_trace_stamp[MAX_TRACES];		\
+	const char          *ref_trace_info[MAX_TRACES];
 
 extern void _mars_log(char *buf, int len);
 extern void mars_log(const char *fmt, ...);

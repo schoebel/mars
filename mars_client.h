@@ -12,6 +12,8 @@ struct client_mref_aspect {
 
 struct client_brick {
 	MARS_BRICK(client);
+	// tunables
+	int max_flying; // limit on parallelism
 };
 
 struct client_input {
@@ -26,6 +28,7 @@ struct client_threadinfo {
 
 struct client_output {
 	MARS_OUTPUT(client);
+	atomic_t fly_count;
 	spinlock_t lock;
 	struct list_head mref_list;
 	struct list_head wait_list;

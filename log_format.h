@@ -91,6 +91,7 @@ struct log_status {
 	// tunables
 	int align_size;   // alignment between requests
 	int chunk_size;   // must be at least 8K (better 64k)
+	int io_prio;
 	// informational
 	loff_t log_pos;
 	// internal
@@ -98,7 +99,6 @@ struct log_status {
 	struct mars_output *output;
 	struct generic_object_layout ref_object_layout;
 	struct mars_info info;
-	int restlen;
 	int offset;
 	int validflag_offset;
 	int reallen_offset;

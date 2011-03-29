@@ -732,6 +732,7 @@ void get_lamport(struct timespec *now)
 
 	down(&lamport_sem);
 
+	//*now = current_kernel_time();
 	*now = CURRENT_TIME;
 	diff = timespec_compare(now, &lamport_now);
 	if (diff > 0) {

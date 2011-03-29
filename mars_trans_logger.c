@@ -71,13 +71,11 @@ bool q_is_ready(struct logger_queue *q)
 	if (dep) {
 		contention += atomic_read(&dep->q_queued) + atomic_read(&dep->q_flying);
 	}
-	max_contention = q->q_dep_flying;
+	max_contention = q->q_max_contention;
 	over = queued - q->q_max_queued;
-#if 0
-	if (over > 0) {
-		max_contention += over / 128;
+	if (over > 0 && q->q_over_pressure > 0) {
+		max_contention += over / q->q_over_pressure;
 	}
-#endif
 
 #if 1
 	/* 2) when other queues are too much contended,
@@ -333,6 +331,8 @@ static inline bool hash_put(struct trans_logger_output *output, struct trans_log
 
 ////////////////// own brick / input / output operations //////////////////
 
+static atomic_t global_mshadow_count = ATOMIC_INIT(0);
+
 static int trans_logger_get_info(struct trans_logger_output *output, struct mars_info *info)
 {
 	struct trans_logger_input *input = output->brick->inputs[0];
@@ -414,6 +414,7 @@ static int _write_ref_get(struct trans_logger_output *output, struct trans_logge
 	}
 	mref->ref_data = data;
 	atomic_inc(&output->mshadow_count);
+	atomic_inc(&global_mshadow_count);
 #ifdef USE_MEMCPY
 	if (mref_a->orig_data) {
 		memcpy(mref->ref_data, mref_a->orig_data, mref->ref_len);
@@ -516,6 +517,7 @@ restart:
 #endif
 		mref->ref_data = NULL;
 		atomic_dec(&output->mshadow_count);
+		atomic_dec(&global_mshadow_count);
 		trans_logger_free_mref(mref);
 		return;
 	}
@@ -828,7 +830,7 @@ static bool phase2_startio(struct trans_logger_mref_aspect *orig_mref_a)
 			goto err;
 		}
 
-		mars_trace(sub_mref, "sub_start");
+		mars_trace(sub_mref, "sub_create");
 
 		atomic_inc(&output->sub_balance_count);
 		pos += sub_mref->ref_len;
@@ -848,9 +850,7 @@ static bool phase2_startio(struct trans_logger_mref_aspect *orig_mref_a)
 		cb->cb_prev = NULL;
 		sub_mref->ref_cb = cb;
 		sub_mref->ref_rw = 0;
-#if 1
-		sub_mref->ref_prio = MARS_PRIO_LOW;
-#endif
+		sub_mref->ref_prio = output->q_phase2.q_io_prio;
 
 		atomic_inc(&output->q_phase2.q_flying);
 		if (output->brick->log_reads) {
@@ -969,6 +969,7 @@ static void phase4_endio(struct generic_callback *cb)
 	CHECK_PTR(orig_mref, err);
 
 	mars_trace(sub_mref_a->object, "sub_endio");
+	mars_log_trace(sub_mref_a->object);
 
 	atomic_dec(&output->q_phase4.q_flying);
 
@@ -989,6 +990,7 @@ static void phase4_endio(struct generic_callback *cb)
 	list_del_init(tmp);
 	traced_unlock(&brick->pos_lock, flags);
 
+	mars_log_trace(sub_mref_a->object);
 
 put:
 	//MARS_INF("put ORIGREF.\n");
@@ -1029,9 +1031,14 @@ static bool phase4_startio(struct trans_logger_mref_aspect *sub_mref_a)
 	cb->cb_prev = NULL;
 	sub_mref->ref_cb = cb;
 	sub_mref->ref_rw = 1;
+	sub_mref->ref_prio = output->q_phase4.q_io_prio;
 
 	atomic_inc(&output->q_phase4.q_flying);
 	atomic_inc(&output->total_writeback_count);
+
+	mars_log_trace(sub_mref);
+	mars_trace(sub_mref, "sub_start");
+
 	if (orig_mref_a->is_outdated || output->brick->debug_shortcut) {
 		MARS_IO("SHORTCUT %d\n", sub_mref->ref_len);
 		atomic_inc(&output->total_shortcut_count);
@@ -1108,6 +1115,8 @@ void trans_logger_log(struct trans_logger_output *output)
 	long long last_jiffies = jiffies;
 	long long log_jiffies = jiffies;
 
+	mars_power_led_on((void*)brick, true);
+
 	while (!kthread_should_stop() || _congested(output)) {
 		int status;
 
@@ -1126,7 +1135,22 @@ void trans_logger_log(struct trans_logger_output *output)
 
 		//MARS_INF("AHA %d\n", atomic_read(&output->q_phase1.q_queued));
 #if 1
-		if (((long long)jiffies) - last_jiffies >= HZ * 10 && brick->power.button) {
+		{
+			static int old_mshadow_count = 0;
+			int cnt;
+
+			cnt = atomic_read(&global_mshadow_count);
+			if (cnt + old_mshadow_count > 0 && cnt != old_mshadow_count) {
+				unsigned long long now = cpu_clock(raw_smp_processor_id());
+				if (!start_trace_clock)
+					start_trace_clock = now;
+				now -= start_trace_clock;
+				mars_log("shadow_count ;%12lld ; %4d\n", now / 1000, cnt);
+			}
+			old_mshadow_count = cnt;
+		}
+
+		if (((long long)jiffies) - last_jiffies >= HZ * 5 && brick->power.button) {
 			last_jiffies = jiffies;
 			MARS_INF("LOGGER: reads=%d writes=%d writeback=%d shortcut=%d (%d%%) | mshadow=%d sshadow=%d hash_count=%d balance=%d/%d/%d fly=%d phase1=%d+%d phase2=%d+%d phase3=%d+%d phase4=%d+%d\n", atomic_read(&output->total_read_count), atomic_read(&output->total_write_count), atomic_read(&output->total_writeback_count), atomic_read(&output->total_shortcut_count), atomic_read(&output->total_writeback_count) ? atomic_read(&output->total_shortcut_count) * 100 / atomic_read(&output->total_writeback_count) : 0, atomic_read(&output->mshadow_count), atomic_read(&output->sshadow_count), atomic_read(&output->hash_count), atomic_read(&output->sub_balance_count), atomic_read(&output->inner_balance_count), atomic_read(&output->outer_balance_count), atomic_read(&output->fly_count), atomic_read(&output->q_phase1.q_queued), atomic_read(&output->q_phase1.q_flying), atomic_read(&output->q_phase2.q_queued), atomic_read(&output->q_phase2.q_flying), atomic_read(&output->q_phase3.q_queued), atomic_read(&output->q_phase3.q_flying), atomic_read(&output->q_phase4.q_queued), atomic_read(&output->q_phase4.q_flying));
 		}
@@ -1209,7 +1233,7 @@ int apply_data(struct trans_logger_output *output, struct log_header *lh, void *
 	 * The switch infrastructure must be changed before this
 	 * can become useful.
 	 */
-#if 1
+#if 0
 	while (len > 0) {
 		struct mref_object *mref;
 		struct trans_logger_mref_aspect *mref_a;
@@ -1285,6 +1309,9 @@ void trans_logger_replay(struct trans_logger_output *output)
 			MARS_ERR("cannot read logfile data, status = %d\n", status);
 			break;
 		}
+		if (!buf || !len) {
+			continue;
+		}
 
 		status = apply_data(output, &lh, buf, len);
 		if (status < 0) {
@@ -1302,16 +1329,15 @@ void trans_logger_replay(struct trans_logger_output *output)
 
 	if (brick->replay_pos == brick->end_pos) {
 		MARS_INF("replay finished at %lld\n", brick->replay_pos);
-		mars_power_led_on((void*)brick, true);
+#if 1
+		while (!kthread_should_stop()) {
+			mars_power_led_on((void*)brick, true);
+			msleep(500);
+		}
+#endif
 	} else {
 		MARS_INF("replay stopped prematurely at %lld (of %lld)\n", brick->replay_pos, brick->end_pos);
-		mars_power_led_off((void*)brick, true);
 	}
-#if 1
-	while (!kthread_should_stop()) {
-		msleep(500);
-	}
-#endif
 }
 
 ///////////////////////// logger thread / switching /////////////////////////
@@ -1326,7 +1352,6 @@ int trans_logger_thread(void *data)
 
 	brick->current_pos = brick->start_pos;
 	brick->logst.log_pos = brick->current_pos;
-	mars_power_led_on((void*)brick, true);
 
 	brick->logst.align_size = brick->align_size;
 	brick->logst.chunk_size = brick->chunk_size;
@@ -1338,6 +1363,7 @@ int trans_logger_thread(void *data)
 	}
 
 	MARS_INF("........... logger has stopped.\n");
+	mars_power_led_on((void*)brick, false);
 	mars_power_led_off((void*)brick, true);
 	return 0;
 }
