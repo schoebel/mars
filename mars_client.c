@@ -186,6 +186,7 @@ static void client_ref_io(struct client_output *output, struct mref_object *mref
 {
 	struct generic_callback *cb;
 	struct client_mref_aspect *mref_a;
+	int hash_index;
 	unsigned long flags;
 	int error = -EINVAL;
 
@@ -195,16 +196,28 @@ static void client_ref_io(struct client_output *output, struct mref_object *mref
 	}
 
 	while (output->brick->max_flying > 0 && atomic_read(&output->fly_count) > output->brick->max_flying) {
+		MARS_IO("sleeping request pos = %lld len = %d rw = %d (flying = %d)\n", mref->ref_pos, mref->ref_len, mref->ref_rw, atomic_read(&output->fly_count));
+#ifdef IO_DEBUGGING
+		msleep(3000);
+#else
 		msleep(1000 * 2 / HZ);
+#endif
 	}
 
 	atomic_inc(&output->fly_count);
 	atomic_inc(&mref->ref_count);
 
 	traced_lock(&output->lock, flags);
-	mref_a->object->ref_id = ++output->last_id;
+	mref->ref_id = ++output->last_id;
 	list_add_tail(&mref_a->io_head, &output->mref_list);
 	traced_unlock(&output->lock, flags);
+
+	hash_index = mref->ref_id % CLIENT_HASH_MAX;
+	traced_lock(&output->hash_lock[hash_index], flags);
+	list_add_tail(&mref_a->hash_head, &output->hash_table[hash_index]);
+	traced_unlock(&output->hash_lock[hash_index], flags);
+
+	MARS_IO("added request id = %d pos = %lld len = %d rw = %d (flying = %d)\n", mref->ref_id, mref->ref_pos, mref->ref_len, mref->ref_rw, atomic_read(&output->fly_count));
 
 	wake_up_interruptible(&output->event);
 
@@ -232,6 +245,7 @@ static int receiver_thread(void *data)
 		unsigned long flags;
 
 		status = mars_recv_struct(&output->socket, &cmd, mars_cmd_meta);
+		MARS_IO("got cmd = %d status = %d\n", cmd.cmd_code, status);
 		if (status < 0)
 			goto done;
 
@@ -244,15 +258,18 @@ static int receiver_thread(void *data)
 			}
 			break;
 		case CMD_CB:
-			traced_lock(&output->lock, flags);
-			for (tmp = output->wait_list.next; tmp != &output->wait_list; tmp = tmp->next) {
-				mref_a = container_of(tmp, struct client_mref_aspect, io_head);
+		{
+			int hash_index = mref->ref_id % CLIENT_HASH_MAX;
+			traced_lock(&output->hash_lock[hash_index], flags);
+			for (tmp = output->hash_table[hash_index].next; tmp != &output->hash_table[hash_index]; tmp = tmp->next) {
+				mref_a = container_of(tmp, struct client_mref_aspect, hash_head);
 				if (mref_a->object->ref_id == cmd.cmd_int1) {
+					list_del_init(&mref_a->hash_head);
 					mref = mref_a->object;
 					break;
 				}
 			}
-			traced_unlock(&output->lock, flags);
+			traced_unlock(&output->hash_lock[hash_index], flags);
 
 			if (!mref) {
 				MARS_ERR("got unknown id = %d for callback\n", cmd.cmd_int1);
@@ -260,9 +277,15 @@ static int receiver_thread(void *data)
 				goto done;
 			}
 
+			MARS_IO("got callback id = %d, old pos = %lld len = %d rw = %d\n", mref->ref_id, mref->ref_pos, mref->ref_len, mref->ref_rw);
+
 			status = mars_recv_cb(&output->socket, mref);
+			MARS_IO("new status = %d, pos = %lld len = %d rw = %d\n", status, mref->ref_pos, mref->ref_len, mref->ref_rw);
 			if (status < 0) {
 				MARS_ERR("interrupted data transfer during callback, status = %d\n", status);
+				traced_lock(&output->hash_lock[hash_index], flags);
+				list_add_tail(&mref_a->hash_head, &output->hash_table[hash_index]);
+				traced_unlock(&output->hash_lock[hash_index], flags);
 				goto done;
 			}
 
@@ -276,6 +299,7 @@ static int receiver_thread(void *data)
 			cb->cb_fn(cb);
 			client_ref_put(output, mref);
 			break;
+		}
 		case CMD_GETINFO:
 			status = mars_recv_struct(&output->socket, &output->info, mars_info_meta);
 			if (status < 0) {
@@ -318,11 +342,13 @@ static int sender_thread(void *data)
         while (!kthread_should_stop()) {
 		struct list_head *tmp;
 		struct client_mref_aspect *mref_a;
+		struct mref_object *mref;
 		unsigned long flags;
 		bool do_resubmit = false;
 
 		if (unlikely(!output->socket)) {
 			status = _connect(output, brick->brick_name);
+			MARS_IO("connect status = %d\n", status);
 			if (unlikely(status < 0)) {
 				msleep(5000);
 				continue;
@@ -333,6 +359,7 @@ static int sender_thread(void *data)
 		if (do_resubmit) {
 			/* Re-Submit any waiting requests
 			 */
+			MARS_IO("re-submit\n");
 			traced_lock(&output->lock, flags);
 			if (!list_empty(&output->wait_list)) {
 				struct list_head *first = output->wait_list.next;
@@ -342,6 +369,7 @@ static int sender_thread(void *data)
 				list_connect(&output->mref_list, first);
 				list_connect(last, old_start);
 				INIT_LIST_HEAD(&output->wait_list);
+				MARS_IO("done re-submit %p %p\n", first, last);
 			}
 			traced_unlock(&output->lock, flags);
 		}
@@ -378,8 +406,12 @@ static int sender_thread(void *data)
 		traced_unlock(&output->lock, flags);
 		
 		mref_a = container_of(tmp, struct client_mref_aspect, io_head);
+		mref = mref_a->object;
 
-		status = mars_send_mref(&output->socket, mref_a->object);
+		MARS_IO("sending mref, id = %d pos = %lld len = %d rw = %d\n", mref->ref_id, mref->ref_pos, mref->ref_len, mref->ref_rw);
+
+		status = mars_send_mref(&output->socket, mref);
+		MARS_IO("status = %d\n", status);
 		if (unlikely(status < 0)) {
 			// retry submission on next occasion..
 			traced_lock(&output->lock, flags);
@@ -450,13 +482,15 @@ static int client_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_d
 {
 	struct client_mref_aspect *ini = (void*)_ini;
 	INIT_LIST_HEAD(&ini->io_head);
+	INIT_LIST_HEAD(&ini->hash_head);
 	return 0;
 }
 
 static void client_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
 {
 	struct client_mref_aspect *ini = (void*)_ini;
-	(void)ini;
+	CHECK_HEAD_EMPTY(&ini->io_head);
+	CHECK_HEAD_EMPTY(&ini->hash_head);
 }
 
 MARS_MAKE_STATICS(client);
@@ -470,6 +504,11 @@ static int client_brick_construct(struct client_brick *brick)
 
 static int client_output_construct(struct client_output *output)
 {
+	int i;
+	for (i = 0; i < CLIENT_HASH_MAX; i++) {
+		spin_lock_init(&output->hash_lock[i]);
+		INIT_LIST_HEAD(&output->hash_table[i]);
+	}
 	spin_lock_init(&output->lock);
 	INIT_LIST_HEAD(&output->mref_list);
 	INIT_LIST_HEAD(&output->wait_list);

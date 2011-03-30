@@ -9,10 +9,14 @@
 
 #define MAX_BIO 8
 
+#define IF_HASH_MAX   256
+#define IF_HASH_CHUNK (1024 * 128)
+
 struct if_mref_aspect {
 	GENERIC_ASPECT(mref);
-	//struct list_head tmp_head;
 	struct list_head plug_head;
+	struct list_head hash_head;
+	int hash_index;
 	int maxlen;
 	int bio_count;
 	struct page *orig_page;
@@ -30,9 +34,12 @@ struct if_input {
 	struct block_device *bdev;
 	atomic_t open_count;
 	atomic_t io_count;
+	atomic_t plugged_count;
 	spinlock_t req_lock;
 	struct semaphore kick_sem;
 	struct generic_object_layout mref_object_layout;
+	spinlock_t hash_lock[IF_HASH_MAX];
+	struct list_head hash_table[IF_HASH_MAX];
 };
 
 struct if_output {
@@ -42,6 +49,7 @@ struct if_output {
 struct if_brick {
 	MARS_BRICK(if);
 	// parameters
+	int max_plugged;
 	int readahead;
 	bool skip_sync;
 	// inspectable

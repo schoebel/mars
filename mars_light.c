@@ -75,6 +75,7 @@ struct light_class {
 
 #define IF_SKIP_SYNC true
 
+#define IF_MAX_PLUGGED 10000
 #define IF_READAHEAD 1
 //#define IF_READAHEAD 0
 #define BIO_READAHEAD 1
@@ -190,8 +191,9 @@ void _set_if_params(struct mars_brick *_brick, void *private)
 		MARS_ERR("bad brick type\n");
 		return;
 	}
-	if_brick->skip_sync = IF_SKIP_SYNC;
+	if_brick->max_plugged = IF_MAX_PLUGGED;
 	if_brick->readahead = IF_READAHEAD;
+	if_brick->skip_sync = IF_SKIP_SYNC;
 }
 
 ///////////////////////////////////////////////////////////////////////

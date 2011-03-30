@@ -1112,8 +1112,10 @@ void trans_logger_log(struct trans_logger_output *output)
 {
 	struct trans_logger_brick *brick = output->brick;
 	int wait_timeout = HZ;
-	long long last_jiffies = jiffies;
 	long long log_jiffies = jiffies;
+#ifdef MARS_TRACING
+	long long last_jiffies = jiffies;
+#endif
 
 	mars_power_led_on((void*)brick, true);
 
@@ -1134,7 +1136,7 @@ void trans_logger_log(struct trans_logger_output *output)
 			wait_timeout);
 
 		//MARS_INF("AHA %d\n", atomic_read(&output->q_phase1.q_queued));
-#if 1
+#ifdef MARS_TRACING
 		{
 			static int old_mshadow_count = 0;
 			int cnt;

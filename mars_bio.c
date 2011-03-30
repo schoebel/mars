@@ -86,36 +86,35 @@ int make_bio(struct bio_brick *brick, struct page *page, void *data, int len, lo
 	sector_offset = pos & ((1 << 9) - 1);  // TODO: make dynamic
 	data_offset = ((unsigned long)data) & ((1 << 9) - 1);  // TODO: make dynamic
 
-	if (unlikely(sector_offset != data_offset)) {
-		MARS_ERR("bad alignment: sector_offset %d != data_offet %d\n", sector_offset, data_offset);
-		goto out;
-	}
-
-#if 1
 	if (unlikely(sector_offset > 0)) {
 		MARS_ERR("odd sector offset %d\n", sector_offset);
+		goto out;
+	}
+	if (unlikely(sector_offset != data_offset)) {
+		MARS_ERR("bad alignment: sector_offset %d != data_offet %d\n", sector_offset, data_offset);
 		goto out;
 	}
 	if (unlikely(ilen & ((1 << 9) - 1))) {
 		MARS_ERR("odd length %d\n", ilen);
 		goto out;
 	}
-#else
-	// round down to start of first sector
-	data -= sector_offset;
-	ilen += sector_offset;
-	pos -= sector_offset;
 
-	// round up to full sector
-	ilen = (((ilen - 1) >> 9) + 1) << 9; // TODO: make dynamic
+	// map onto pages.
+#if 1
+	if (page) {
+		struct page *test_page = virt_to_page(data);
+		if (test_page != page) {
+			MARS_ERR("PAGEMOVE %p != %p (addr = %p)\n", test_page, page, data);
+		}
+	}
+
 #endif
-
-	// map onto pages. TODO: allow higher-order pages (possibly better performance!)
 	page_offset = pos & (PAGE_SIZE - 1);
 	page_len = ilen + page_offset;
 	bvec_count = (page_len - 1) / PAGE_SIZE + 1;
-	if (bvec_count > brick->bvec_max)
+	if (bvec_count > brick->bvec_max) {
 		bvec_count = brick->bvec_max;
+	}
 
 	MARS_IO("sector_offset = %d data = %p pos = %lld ilen = %d page_offset = %d page_len = %d bvec_count = %d\n", sector_offset, data, pos, ilen, page_offset, page_len, bvec_count);
 

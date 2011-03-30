@@ -114,6 +114,7 @@ static void _if_unplug(struct if_input *input)
 	if (!list_empty(&input->plug_anchor)) {
 		// move over the whole list
 		list_replace_init(&input->plug_anchor, &tmp_list);
+		atomic_set(&input->plugged_count, 0);
 	}
   	traced_unlock(&input->req_lock, flags);
 	up(&input->kick_sem);
@@ -121,8 +122,16 @@ static void _if_unplug(struct if_input *input)
 	while (!list_empty(&tmp_list)) {
 		struct if_mref_aspect *mref_a;
 		struct mref_object *mref;
+		int hash_index;
+		unsigned long flags;
+
 		mref_a = container_of(tmp_list.next, struct if_mref_aspect, plug_head);
 		list_del_init(&mref_a->plug_head);
+		hash_index = mref_a->hash_index;
+		traced_lock(&input->hash_lock[hash_index], flags);
+		list_del_init(&mref_a->hash_head);
+		traced_unlock(&input->hash_lock[hash_index], flags);
+
                 mref = mref_a->object;
 
 		mars_trace(mref, "if_unplug");
@@ -137,7 +146,7 @@ static void _if_unplug(struct if_input *input)
 static int if_make_request(struct request_queue *q, struct bio *bio)
 {
 	struct if_input *input;
-	struct if_brick *brick;
+	struct if_brick *brick = NULL;
 	struct mref_object *mref = NULL;
 	struct if_mref_aspect *mref_a;
 	struct generic_callback *cb;
@@ -203,6 +212,7 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 
 		while (bv_len > 0) {
 			struct list_head *tmp;
+			int hash_index;
 			unsigned long flags;
 			int len = 0;
 
@@ -212,10 +222,13 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 			MARS_IO("rw = %d i = %d pos = %lld  bv_page = %p bv_offset = %d data = %p bv_len = %d\n", rw, i, pos, bvec->bv_page, bvec->bv_offset, data, bv_len);
 
 #ifdef REQUEST_MERGING
-			traced_lock(&input->req_lock, flags);
-			for (tmp = input->plug_anchor.next; tmp != &input->plug_anchor; tmp = tmp->next) {
+			//traced_lock(&input->req_lock, flags);
+			//for(tmp = input->plug_anchor.next; tmp != &input->plug_anchor; tmp = tmp->next) {
+			hash_index = (pos / IF_HASH_CHUNK) % IF_HASH_MAX;
+			traced_lock(&input->hash_lock[hash_index], flags);
+			for (tmp = input->hash_table[hash_index].next; tmp != &input->hash_table[hash_index]; tmp = tmp->next) {
 				struct if_mref_aspect *tmp_a;
-				tmp_a = container_of(tmp, struct if_mref_aspect, plug_head);
+				tmp_a = container_of(tmp, struct if_mref_aspect, hash_head);
 				len = bv_len;
 
 				MARS_IO("bio = %p mref = %p len = %d maxlen = %d\n", bio, mref, len, tmp_a->maxlen);
@@ -244,9 +257,11 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 					break;
 				}
 			}
-			traced_unlock(&input->req_lock, flags);
+			//traced_unlock(&input->req_lock, flags);
+			traced_unlock(&input->hash_lock[hash_index], flags);
 #endif
 			if (!mref) {
+				int hash_index;
 				error = -ENOMEM;
 				mref = if_alloc_mref(&brick->hidden_output, &input->mref_object_layout);
 				if (unlikely(!mref)) {
@@ -297,12 +312,17 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 				mref_a->maxlen = mref->ref_len - len;
 				mref->ref_len = len;
 				
-				atomic_inc(&input->io_count);
-
 				if (brick->skip_sync && !barrier) {
 					mref->ref_skip_sync = true;
 				}
 
+				atomic_inc(&input->plugged_count);
+
+				hash_index = (mref->ref_pos / IF_HASH_CHUNK) % IF_HASH_MAX;
+				mref_a->hash_index = hash_index;
+				traced_lock(&input->hash_lock[hash_index], flags);
+				list_add_tail(&mref_a->hash_head, &input->hash_table[hash_index]);
+				traced_unlock(&input->hash_lock[hash_index], flags);
 
 				traced_lock(&input->req_lock, flags);
 				list_add_tail(&mref_a->plug_head, &input->plug_anchor);
@@ -317,6 +337,7 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 
 	up(&input->kick_sem);
 
+	atomic_inc(&input->io_count);
 	error = 0;
 
 err:
@@ -330,7 +351,8 @@ err:
 		}
 	}
 
-	if (unplug) {
+	if (unplug ||
+	   (brick && brick->max_plugged > 0 && atomic_read(&input->plugged_count) > brick->max_plugged)) {
 		_if_unplug(input);
 	}
 
@@ -535,16 +557,16 @@ static int if_switch(struct if_brick *brick)
 static int if_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
 	struct if_mref_aspect *ini = (void*)_ini;
-	//INIT_LIST_HEAD(&ini->tmp_head);
 	INIT_LIST_HEAD(&ini->plug_head);
+	INIT_LIST_HEAD(&ini->hash_head);
 	return 0;
 }
 
 static void if_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
 {
 	struct if_mref_aspect *ini = (void*)_ini;
-	//CHECK_HEAD_EMPTY(&ini->tmp_head);
 	CHECK_HEAD_EMPTY(&ini->plug_head);
+	CHECK_HEAD_EMPTY(&ini->hash_head);
 }
 
 MARS_MAKE_STATICS(if);
@@ -565,10 +587,17 @@ static int if_brick_destruct(struct if_brick *brick)
 
 static int if_input_construct(struct if_input *input)
 {
+	int i;
+	for (i = 0; i < IF_HASH_MAX; i++) {
+		spin_lock_init(&input->hash_lock[i]);
+		INIT_LIST_HEAD(&input->hash_table[i]);
+	}
 	INIT_LIST_HEAD(&input->plug_anchor);
 	sema_init(&input->kick_sem, 1);
 	spin_lock_init(&input->req_lock);
 	atomic_set(&input->open_count, 0);
+	atomic_set(&input->io_count, 0);
+	atomic_set(&input->plugged_count, 0);
 	return 0;
 }
 

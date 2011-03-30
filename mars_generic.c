@@ -1215,7 +1215,7 @@ struct mars_brick *make_brick_all(
 			brick = mars_make_brick(global, belongs, _client_brick_type, new_path, new_name);
 			if (brick) {
 				struct client_brick *_brick = (void*)brick;
-				_brick->max_flying = 1000;
+				_brick->max_flying = 10000;
 			}
 		}
 	}
