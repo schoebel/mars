@@ -197,15 +197,11 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 	down(&input->kick_sem);
 
 	bio_for_each_segment(bvec, bio, i) {
-		int bv_len = bvec->bv_len;
 		struct page *page = bvec->bv_page;
-		void *data;
+		int bv_len = bvec->bv_len;
 		int offset = bvec->bv_offset;
-#if 1
-		if (offset >= PAGE_SIZE) { // higher-order pages NYI
-			MARS_ERR("AHA offset = %d\n", offset);
-		}
-#endif
+		void *data;
+
 		data = kmap(page);
 		MARS_IO("page = %p data = %p\n", page, data);
 		data += offset;
@@ -213,55 +209,66 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 		while (bv_len > 0) {
 			struct list_head *tmp;
 			int hash_index;
+			int this_len = 0;
 			unsigned long flags;
-			int len = 0;
 
 			mref = NULL;
 			mref_a = NULL;
 
 			MARS_IO("rw = %d i = %d pos = %lld  bv_page = %p bv_offset = %d data = %p bv_len = %d\n", rw, i, pos, bvec->bv_page, bvec->bv_offset, data, bv_len);
 
-#ifdef REQUEST_MERGING
-			//traced_lock(&input->req_lock, flags);
-			//for(tmp = input->plug_anchor.next; tmp != &input->plug_anchor; tmp = tmp->next) {
 			hash_index = (pos / IF_HASH_CHUNK) % IF_HASH_MAX;
+
+#ifdef REQUEST_MERGING
 			traced_lock(&input->hash_lock[hash_index], flags);
 			for (tmp = input->hash_table[hash_index].next; tmp != &input->hash_table[hash_index]; tmp = tmp->next) {
 				struct if_mref_aspect *tmp_a;
+				struct mref_object *tmp_mref;
+				int i;
+
 				tmp_a = container_of(tmp, struct if_mref_aspect, hash_head);
-				len = bv_len;
-
-				MARS_IO("bio = %p mref = %p len = %d maxlen = %d\n", bio, mref, len, tmp_a->maxlen);
-
-				if (len > tmp_a->maxlen) {
-					len = tmp_a->maxlen;
-				}
-				if (len <= 0 || tmp_a->bio_count >= MAX_BIO)
+				tmp_mref = tmp_a->object;
+				if (tmp_mref->ref_page != page || tmp_mref->ref_rw != rw || tmp_a->bio_count >= MAX_BIO) {
 					continue;
-
-				if (tmp_a->object->ref_data + tmp_a->object->ref_len == data && tmp_a->object->ref_rw == rw
-				   && tmp_a->orig_page == bvec->bv_page) {
-					mref_a = tmp_a;
-					mref = tmp_a->object;
-					mref->ref_len += len;
-					mref_a->maxlen -= len;
-					CHECK_ATOMIC(&bio->bi_comp_cnt, 0);
-					atomic_inc(&bio->bi_comp_cnt);
-					mref_a->orig_bio[mref_a->bio_count++] = bio;
-					assigned = true;
-					if (barrier) {
-						mref->ref_skip_sync = false;
-					}
-
-					MARS_IO("merge bio = %p mref = %p bio_count = %d len = %d ref_len = %d\n", bio, mref, mref_a->bio_count, len, mref->ref_len);
-					break;
 				}
-			}
-			//traced_unlock(&input->req_lock, flags);
+
+				if (tmp_mref->ref_data + tmp_mref->ref_len == data) {
+					goto merge_end;
+#if 1
+				} else if (data + bv_len == tmp_mref->ref_data) {
+					goto merge_front;
+#endif
+				}
+				continue;
+
+			merge_front:
+				tmp_mref->ref_data = data;
+			merge_end:
+				tmp_mref->ref_len += bv_len;
+				mref = tmp_mref;
+				mref_a = tmp_a;
+				this_len = bv_len;
+
+				for (i = 0; i < mref_a->bio_count; i++) {
+					if (mref_a->orig_bio[i] == bio) {
+						goto unlock;
+					}
+				}
+
+				CHECK_ATOMIC(&bio->bi_comp_cnt, 1);
+				atomic_inc(&bio->bi_comp_cnt);
+				mref_a->orig_bio[mref_a->bio_count++] = bio;
+				assigned = true;
+				if (barrier) {
+					mref->ref_skip_sync = false;
+				}
+				goto unlock;
+			} // foreach hash collision list member
+
+		unlock:
 			traced_unlock(&input->hash_lock[hash_index], flags);
 #endif
 			if (!mref) {
-				int hash_index;
 				error = -ENOMEM;
 				mref = if_alloc_mref(&brick->hidden_output, &input->mref_object_layout);
 				if (unlikely(!mref)) {
@@ -282,14 +289,10 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 				mref_a->input = input;
 				mref->ref_rw = mref->ref_may_write = rw;
 				mref->ref_pos = pos;
-				// FIXME: do better here!
-				mref->ref_len = PAGE_SIZE;
-				//mref->ref_len = 512;
+				mref->ref_len = bv_len;
 				mref->ref_data = data; // direct IO
-#if 1
 				mref->ref_page = page;
 				mref->ref_is_kmapped = true;
-#endif
 
 				error = GENERIC_INPUT_CALL(input, mref_get, mref);
 				if (unlikely(error < 0)) {
@@ -301,16 +304,9 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 
 				CHECK_ATOMIC(&bio->bi_comp_cnt, 0);
 				atomic_inc(&bio->bi_comp_cnt);
-				mref_a->orig_page = bvec->bv_page;
 				mref_a->orig_bio[0] = bio;
 				mref_a->bio_count = 1;
 				assigned = true;
-
-				len = bv_len;
-				if (len > mref->ref_len)
-					len = mref->ref_len;
-				mref_a->maxlen = mref->ref_len - len;
-				mref->ref_len = len;
 				
 				if (brick->skip_sync && !barrier) {
 					mref->ref_skip_sync = true;
@@ -318,7 +314,6 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 
 				atomic_inc(&input->plugged_count);
 
-				hash_index = (mref->ref_pos / IF_HASH_CHUNK) % IF_HASH_MAX;
 				mref_a->hash_index = hash_index;
 				traced_lock(&input->hash_lock[hash_index], flags);
 				list_add_tail(&mref_a->hash_head, &input->hash_table[hash_index]);
@@ -327,11 +322,13 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 				traced_lock(&input->req_lock, flags);
 				list_add_tail(&mref_a->plug_head, &input->plug_anchor);
 				traced_unlock(&input->req_lock, flags);
-			}
 
-			pos += len;
-			data += len;
-			bv_len -= len;
+				this_len = mref->ref_len; // now may be shorter than originally requested.
+			} // !mref
+
+			pos += this_len;
+			data += this_len;
+			bv_len -= this_len;
 		} // while bv_len > 0
 	} // foreach bvec
 
@@ -343,9 +340,9 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 err:
 
 	if (error < 0) {
-		MARS_ERR("cannot submit request, status=%d\n", error);
+		MARS_ERR("cannot submit request from bio, status=%d\n", error);
 		if (assigned) {
-			//...
+			//... cleanup the mess NYI
 		} else {
 			bio_endio(bio, error);
 		}

@@ -7,19 +7,17 @@
 #define HT_SHIFT 6 //????
 #define MARS_MAX_SEGMENT_SIZE (1U << (9+HT_SHIFT))
 
-#define MAX_BIO 8
+#define MAX_BIO 32
 
 #define IF_HASH_MAX   256
-#define IF_HASH_CHUNK (1024 * 128)
+#define IF_HASH_CHUNK (1024 * 1024)
 
 struct if_mref_aspect {
 	GENERIC_ASPECT(mref);
 	struct list_head plug_head;
 	struct list_head hash_head;
 	int hash_index;
-	int maxlen;
 	int bio_count;
-	struct page *orig_page;
 	struct bio *orig_bio[MAX_BIO];
 	struct generic_callback cb;
 	struct if_input *input;
