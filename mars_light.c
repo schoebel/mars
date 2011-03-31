@@ -1615,7 +1615,9 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
 	struct mars_brick *brick;
+	char *src_path = NULL;
 	int status;
+	bool do_dealloc = false;
 
 	if (!global->global_power.button || !dent->d_parent || !dent->new_link) {
 		return 0;
@@ -1625,21 +1627,25 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 		MARS_DBG("parse status = %d\n", status);
 		goto done;
 	}
+	src_path = dent->d_argv[0];
+	if (src_path[0] != '/') {
+		src_path = path_make("%s/%s", dent->d_parent->d_path, dent->d_argv[0]);
+		do_dealloc = true;
+	}
 	brick = 
 		make_brick_all(global,
 			       dent,
 			       _set_bio_params,
 			       NULL,
 			       10 * HZ,
-			       dent->d_argv[0],
+			       src_path,
 			       (const struct generic_brick_type*)&bio_brick_type,
 			       (const struct generic_brick_type*[]){},
 			       NULL,
-			       "%s/%s",
+			       "%s",
 			       (const char *[]){},
 			       0,
-			       dent->d_parent->d_path,
-			       dent->d_argv[0]);
+			       src_path);
 	status = -1;
 	if (!brick) {
 		MARS_DBG("fail\n");
@@ -1657,12 +1663,11 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 			       (const struct generic_brick_type*[]){NULL},
 			       NULL,
 			       "%s/linuxdev-%s",
-			       (const char *[]){ "%s/%s" },
+			       (const char *[]){ "%s" },
 			       1,
 			       dent->d_parent->d_path,
 			       dent->d_argv[1],
-			       dent->d_parent->d_path,
-			       dent->d_argv[0]),
+			       src_path);
 	status = -1;
 	if (!brick) {
 		MARS_DBG("fail\n");
@@ -1672,6 +1677,8 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 	status = 0;
 done:
 	MARS_DBG("status = %d\n", status);
+	if (do_dealloc)
+		kfree(src_path);
 	return status;
 }
 
@@ -2226,10 +2233,18 @@ void _show_statist(struct mars_global *global)
 		struct mars_brick *test;
 		int i;
 		test = container_of(tmp, struct mars_brick, global_brick_link);
-		if (brick_count)
+		if (brick_count) {
 			MARS_STAT("---------\n");
+		}
 		MARS_STAT("brick type = %s path = '%s' name = '%s' level = %d button = %d off = %d on = %d\n", test->type->type_name, test->brick_path, test->brick_name, test->status_level, test->power.button, test->power.led_off, test->power.led_on);
 		brick_count++;
+		if (test->ops && test->ops->brick_statistics) {
+			char *info = test->ops->brick_statistics(test, 0);
+			if (info) {
+				MARS_STAT("  %s", info);
+				kfree(info);
+			}
+		}
 		for (i = 0; i < test->nr_inputs; i++) {
 			struct mars_input *input = test->inputs[i];
 			struct mars_output *output = input ? input->connect : NULL;

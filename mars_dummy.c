@@ -19,31 +19,36 @@
 
 ////////////////// own brick / input / output operations //////////////////
 
-static int dummy_get_info(struct dummy_output *output, struct mars_info *info)
+static
+int dummy_get_info(struct dummy_output *output, struct mars_info *info)
 {
 	struct dummy_input *input = output->brick->inputs[0];
 	return GENERIC_INPUT_CALL(input, mars_get_info, info);
 }
 
-static int dummy_ref_get(struct dummy_output *output, struct mref_object *mref)
+static
+int dummy_ref_get(struct dummy_output *output, struct mref_object *mref)
 {
 	struct dummy_input *input = output->brick->inputs[0];
 	return GENERIC_INPUT_CALL(input, mref_get, mref);
 }
 
-static void dummy_ref_put(struct dummy_output *output, struct mref_object *mref)
+static
+void dummy_ref_put(struct dummy_output *output, struct mref_object *mref)
 {
 	struct dummy_input *input = output->brick->inputs[0];
 	GENERIC_INPUT_CALL(input, mref_put, mref);
 }
 
-static void dummy_ref_io(struct dummy_output *output, struct mref_object *mref)
+static
+void dummy_ref_io(struct dummy_output *output, struct mref_object *mref)
 {
 	struct dummy_input *input = output->brick->inputs[0];
 	GENERIC_INPUT_CALL(input, mref_io, mref);
 }
 
-static int dummy_switch(struct dummy_brick *brick)
+static
+int dummy_switch(struct dummy_brick *brick)
 {
 	if (brick->power.button) {
 		mars_power_led_off((void*)brick, false);
@@ -58,9 +63,23 @@ static int dummy_switch(struct dummy_brick *brick)
 }
 
 
+//////////////// informational / statistics ///////////////
+
+static
+char *dummy_statistics(struct dummy_brick *brick, int verbose)
+{
+	return NULL;
+}
+
+static
+void dummy_reset_statistics(struct dummy_brick *brick)
+{
+}
+
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int dummy_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+static
+int dummy_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
 	struct dummy_mref_aspect *ini = (void*)_ini;
 	(void)ini;
@@ -68,7 +87,8 @@ static int dummy_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_da
 	return 0;
 }
 
-static void dummy_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+static
+void dummy_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
 {
 	struct dummy_mref_aspect *ini = (void*)_ini;
 	(void)ini;
@@ -78,35 +98,43 @@ MARS_MAKE_STATICS(dummy);
 
 ////////////////////// brick constructors / destructors ////////////////////
 
-static int dummy_brick_construct(struct dummy_brick *brick)
+static
+int dummy_brick_construct(struct dummy_brick *brick)
 {
 	//brick->my_own = 0;
 	return 0;
 }
 
-static int dummy_brick_destruct(struct dummy_brick *brick)
+static
+int dummy_brick_destruct(struct dummy_brick *brick)
 {
 	return 0;
 }
 
-static int dummy_output_construct(struct dummy_output *output)
+static
+int dummy_output_construct(struct dummy_output *output)
 {
 	//output->my_own = 0;
 	return 0;
 }
 
-static int dummy_output_destruct(struct dummy_output *output)
+static
+int dummy_output_destruct(struct dummy_output *output)
 {
 	return 0;
 }
 
 ///////////////////////// static structs ////////////////////////
 
-static struct dummy_brick_ops dummy_brick_ops = {
+static
+struct dummy_brick_ops dummy_brick_ops = {
 	.brick_switch = dummy_switch,
+	.brick_statistics = dummy_statistics,
+	.reset_statistics = dummy_reset_statistics,
 };
 
-static struct dummy_output_ops dummy_output_ops = {
+static
+struct dummy_output_ops dummy_output_ops = {
 	.make_object_layout = dummy_make_object_layout,
 	.mars_get_info = dummy_get_info,
 	.mref_get = dummy_ref_get,
@@ -119,7 +147,8 @@ const struct dummy_input_type dummy_input_type = {
 	.input_size = sizeof(struct dummy_input),
 };
 
-static const struct dummy_input_type *dummy_input_types[] = {
+static
+const struct dummy_input_type *dummy_input_types[] = {
 	&dummy_input_type,
 };
 
@@ -135,7 +164,8 @@ const struct dummy_output_type dummy_output_type = {
 	}
 };
 
-static const struct dummy_output_type *dummy_output_types[] = {
+static
+const struct dummy_output_type *dummy_output_types[] = {
 	&dummy_output_type,
 };
 
@@ -154,13 +184,15 @@ EXPORT_SYMBOL_GPL(dummy_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 
-static int __init init_dummy(void)
+static
+int __init init_dummy(void)
 {
 	MARS_INF("init_dummy()\n");
 	return dummy_register_brick_type();
 }
 
-static void __exit exit_dummy(void)
+static
+void __exit exit_dummy(void)
 {
 	MARS_INF("exit_dummy()\n");
 	dummy_unregister_brick_type();

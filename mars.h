@@ -187,7 +187,8 @@ struct mars_output {
 
 #define MARS_BRICK_OPS(PREFIX)						\
 	GENERIC_BRICK_OPS(PREFIX);					\
-	int (*mars_dummy_op)(int);					\
+	char *(*brick_statistics)(struct PREFIX##_brick *brick, int verbose); \
+	void (*reset_statistics)(struct PREFIX##_brick *brick);		\
 	
 #define MARS_OUTPUT_OPS(PREFIX)						\
 	GENERIC_OUTPUT_OPS(PREFIX);					\

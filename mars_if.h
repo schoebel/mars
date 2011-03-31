@@ -33,6 +33,11 @@ struct if_input {
 	atomic_t open_count;
 	atomic_t io_count;
 	atomic_t plugged_count;
+	// only for statistics
+	atomic_t read_count;
+	atomic_t write_count;
+	atomic_t mref_read_count;
+	atomic_t mref_write_count;
 	spinlock_t req_lock;
 	struct semaphore kick_sem;
 	struct generic_object_layout mref_object_layout;

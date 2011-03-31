@@ -5,7 +5,7 @@
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
 
-//#define USE_MEMCPY
+#define USE_MEMCPY
 #define USE_KMALLOC
 
 #include <linux/kernel.h>
@@ -207,7 +207,7 @@ static inline int hash_fn(loff_t base_index)
 	return ((unsigned)tmp) % TRANS_HASH_MAX;
 }
 
-static struct trans_logger_mref_aspect *hash_find(struct trans_logger_output *output, loff_t pos, int len)
+static struct trans_logger_mref_aspect *hash_find(struct trans_logger_output *output, loff_t pos, int *max_len)
 {
 	loff_t base_index = pos >> REGION_SIZE_BITS;
 	int hash = hash_fn(base_index);
@@ -216,16 +216,15 @@ static struct trans_logger_mref_aspect *hash_find(struct trans_logger_output *ou
 	struct trans_logger_mref_aspect *res = NULL;
 	struct trans_logger_mref_aspect *test_a;
 	struct mref_object *test;
-	loff_t min_pos = -1;
 	int count = 0;
+	int len = *max_len;
 	unsigned int flags;
 
 	traced_readlock(&start->hash_lock, flags);
 
-	/* The lists are always sorted according to age.
+	/* The lists are always sorted according to age (newest first).
 	 * Caution: there may be duplicates in the list, some of them
 	 * overlapping with the search area in many different ways.
-	 * Always find both the _newest_ and _lowest_ overlapping element.
 	 */
 	for (tmp = start->hash_anchor.next; tmp != &start->hash_anchor; tmp = tmp->next) {
 #if 1
@@ -233,7 +232,7 @@ static struct trans_logger_mref_aspect *hash_find(struct trans_logger_output *ou
 		if (++count > max) {
 			max = count;
 			if (!(max % 10)) {
-				MARS_INF("hash maxlen=%d hash=%d base_index=%lld\n", max, hash, base_index);
+				MARS_INF("hash max=%d hash=%d base_index=%lld\n", max, hash, base_index);
 			}
 		}
 #endif
@@ -241,15 +240,17 @@ static struct trans_logger_mref_aspect *hash_find(struct trans_logger_output *ou
 		test = test_a->object;
 		// are the regions overlapping?
 		if (pos < test->ref_pos + test->ref_len && pos + len > test->ref_pos) {
-			
-			if (
-				// always take the newest one
-				min_pos < 0 ||
-				// prefer the lowest positive distance
-				(test->ref_pos < min_pos && test->ref_pos >= pos)
-				) {
-				min_pos = test->ref_pos;
+			int restlen = test->ref_pos - pos;
+			if (restlen <= 0) {
 				res = test_a;
+				restlen += test->ref_len;
+				if (restlen < len) {
+					len = restlen;
+				}
+				break;
+			}
+			if (restlen < len) {
+				len = restlen;
 			}
 		}
 	}
@@ -261,6 +262,7 @@ static struct trans_logger_mref_aspect *hash_find(struct trans_logger_output *ou
 
 	traced_readunlock(&start->hash_lock, flags);
 
+	*max_len = len;
 	return res;
 }
 
@@ -351,46 +353,34 @@ static int _read_ref_get(struct trans_logger_output *output, struct trans_logger
 	 * the old one.
 	 * When a shadow is found, use it as buffer for the mref.
 	 */
-	shadow_a = hash_find(output, mref->ref_pos, mref->ref_len);
+	shadow_a = hash_find(output, mref->ref_pos, &mref->ref_len);
 	if (shadow_a) {
 		struct mref_object *shadow = shadow_a->object;
-		int diff = shadow->ref_pos - mref->ref_pos;
-		int restlen;
-#if 1 // xxx
-		if (shadow_a == mref_a) {
+		int diff = mref->ref_pos - shadow->ref_pos;
+#if 1
+		if (unlikely(shadow_a == mref_a)) {
 			MARS_ERR("oops %p == %p\n", shadow_a, mref_a);
 		}
 #endif
-		if (diff > 0) {
-			/* Although the shadow is overlapping, the
-			 * region before its start is _not_ shadowed.
-			 * Thus we must return that (smaller) unshadowed
-			 * region.
-			 */
-			mref->ref_len = diff;
-			_trans_logger_ref_put(output, shadow);
-			goto call_through;
+		if (diff < 0) {
+			MARS_ERR("oops diff = %d\n", diff);
+			return -EINVAL;
 		}
 		/* Attach mref to the existing shadow ("slave shadow").
 		 */
-		restlen = shadow->ref_len + diff;
-		if (mref->ref_len > restlen)
-			mref->ref_len = restlen;
-		mref->ref_data = shadow->ref_data - diff;
+		if (unlikely(!shadow_a->is_valid)) {
+			MARS_ERR("oops, invalid master shadow at pos = %lld len = %d (diff = %d)\n", mref->ref_pos, mref->ref_len, diff);
+		}
+		mref->ref_data = shadow->ref_data + diff;
 		mref->ref_flags = shadow->ref_flags;
 		mref_a->shadow_ref = shadow_a;
+		mref_a->is_valid = shadow_a->is_valid;
 		atomic_inc(&mref->ref_count);
 		atomic_inc(&output->inner_balance_count);
 		atomic_inc(&output->sshadow_count);
-#ifdef USE_MEMCPY
-		if (mref_a->orig_data) {
-			memcpy(mref_a->orig_data, mref->ref_data, mref->ref_len);
-		}
-#endif
 		return mref->ref_len;
 	}
 
-call_through:
 	return GENERIC_INPUT_CALL(input, mref_get, mref);
 }
 
@@ -403,6 +393,7 @@ static int _write_ref_get(struct trans_logger_output *output, struct trans_logge
 #ifdef USE_KMALLOC
 	data = kmalloc(mref->ref_len, GFP_MARS);
 #else
+	//TODO: allow higher-order pages
 	if (mref->ref_len > PAGE_SIZE)
 		mref->ref_len = PAGE_SIZE;
 	data = (void*)__get_free_page(GFP_MARS);
@@ -415,13 +406,8 @@ static int _write_ref_get(struct trans_logger_output *output, struct trans_logge
 	mref->ref_data = data;
 	atomic_inc(&output->mshadow_count);
 	atomic_inc(&global_mshadow_count);
-#ifdef USE_MEMCPY
-	if (mref_a->orig_data) {
-		memcpy(mref->ref_data, mref_a->orig_data, mref->ref_len);
-	}
-#endif
 	mref_a->output = output;
-	mref->ref_flags = MREF_UPTODATE;
+	mref->ref_flags = 0;
 	mref_a->shadow_ref = mref_a; // cyclic self-reference => indicates master shadow
 	atomic_inc(&mref->ref_count);
 	atomic_inc(&output->inner_balance_count);
@@ -598,6 +584,9 @@ static void trans_logger_ref_io(struct trans_logger_output *output, struct mref_
 			struct generic_callback *cb = mref->ref_cb;
 #ifdef USE_MEMCPY
 			if (mref_a->orig_data) {
+				if (!mref_a->is_valid) {
+					MARS_ERR("invalid data at pos = %lld len = %d\n", mref->ref_pos, mref->ref_len);
+				}
 				memcpy(mref_a->orig_data, mref->ref_data, mref->ref_len);
 			}
 #endif
@@ -614,6 +603,12 @@ static void trans_logger_ref_io(struct trans_logger_output *output, struct mref_
 			CHECK_HEAD_EMPTY(&mref_a->q_head);
 			if (unlikely(mref->ref_flags & (MREF_READING | MREF_WRITING))) {
 				MARS_ERR("bad flags %d\n", mref->ref_flags);
+			}
+#endif
+#ifdef USE_MEMCPY
+			if (mref_a->orig_data) {
+				memcpy(mref->ref_data, mref_a->orig_data, mref->ref_len);
+				mref_a->is_valid = true;
 			}
 #endif
 			mref->ref_flags |= MREF_WRITING;

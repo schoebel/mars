@@ -37,6 +37,7 @@
 
 ///////////////////////// own static definitions ////////////////////////
 
+// TODO: check bounds, ensure that free minor numbers are recycled
 static int device_minor = 0;
 
 //////////////// object / aspect constructors / destructors ///////////////
@@ -51,8 +52,7 @@ void if_endio(struct generic_callback *cb)
 	struct if_mref_aspect *mref_a = cb->cb_private;
 	struct if_input *input;
 	struct bio *bio;
-	struct bio_vec *bvec;
-	int i, k;
+	int k;
 	int error;
 
 	if (unlikely(!mref_a)) {
@@ -75,13 +75,16 @@ void if_endio(struct generic_callback *cb)
 		if (!atomic_dec_and_test(&bio->bi_comp_cnt)) {
 			continue;
 		}
-
+#if 0
 		if (mref_a->object->ref_is_kmapped) {
+			struct bio_vec *bvec;
+			int i;
 			bio_for_each_segment(bvec, bio, i) {
 				MARS_IO("kunmap %p\n", bvec->bv_page);
 				kunmap(bvec->bv_page);
 			}
 		}
+#endif
 
 		error = mref_a->cb.cb_error;
 		if (unlikely(error < 0)) {
@@ -136,6 +139,7 @@ static void _if_unplug(struct if_input *input)
 
 		mars_trace(mref, "if_unplug");
 
+		atomic_inc(&input->io_count);
 		GENERIC_INPUT_CALL(input, mref_io, mref);
 		GENERIC_INPUT_CALL(input, mref_put, mref);
 	}
@@ -166,6 +170,12 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 	input = q->queuedata;
         if (unlikely(!input))
                 goto err;
+
+	if (rw) {
+		atomic_inc(&input->write_count);
+	} else {
+		atomic_inc(&input->read_count);
+	}
 
 	brick = input->brick;
         if (unlikely(!brick))
@@ -255,7 +265,7 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 					}
 				}
 
-				CHECK_ATOMIC(&bio->bi_comp_cnt, 1);
+				CHECK_ATOMIC(&bio->bi_comp_cnt, 0);
 				atomic_inc(&bio->bi_comp_cnt);
 				mref_a->orig_bio[mref_a->bio_count++] = bio;
 				assigned = true;
@@ -301,6 +311,11 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 				}
 				
 				mars_trace(mref, "if_start");
+				if (rw) {
+					atomic_inc(&input->mref_write_count);
+				} else {
+					atomic_inc(&input->mref_read_count);
+				}
 
 				CHECK_ATOMIC(&bio->bi_comp_cnt, 0);
 				atomic_inc(&bio->bi_comp_cnt);
@@ -334,7 +349,6 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 
 	up(&input->kick_sem);
 
-	atomic_inc(&input->io_count);
 	error = 0;
 
 err:
@@ -545,6 +559,29 @@ static int if_switch(struct if_brick *brick)
 	return 0;
 }
 
+//////////////// informational / statistics ///////////////
+
+static
+char *if_statistics(struct if_brick *brick, int verbose)
+{
+	struct if_input *input = brick->inputs[0];
+	char *res = kmalloc(128, GFP_MARS);
+	int tmp1 = atomic_read(&input->read_count); 
+	int tmp2 = atomic_read(&input->mref_read_count);
+	int tmp3 = atomic_read(&input->write_count); 
+	int tmp4 = atomic_read(&input->mref_write_count);
+	if (!res)
+		return NULL;
+	sprintf(res, "reads = %d mref_reads = %d (%d%%) writes = %d mref_writes = %d (%d%%)\n",
+		tmp1,
+		tmp2,
+		tmp1 ? tmp2 * 100 / tmp1 : 0,
+		tmp3,
+		tmp4,
+		tmp3 ? tmp4 * 100 / tmp3 : 0);
+	return res;
+}
+
 ////////////////// own brick / input / output operations //////////////////
 
 // none
@@ -612,6 +649,7 @@ static int if_output_construct(struct if_output *output)
 
 static struct if_brick_ops if_brick_ops = {
 	.brick_switch = if_switch,
+	.brick_statistics = if_statistics,
 };
 
 static struct if_output_ops if_output_ops = {

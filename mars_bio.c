@@ -53,9 +53,9 @@ err:
 	MARS_FAT("cannot handle bio callback\n");
 }
 
-/* Map from kernel address/length to struct page,
- * create bio from it, round up/down to full sectors.
- * return the length (may be smaller or even larger than requested)
+/* Map from kernel address/length to struct page (if not already known),
+ * check alignment constraints, create bio from it.
+ * Return the length (may be smaller than requested).
  */
 static
 int make_bio(struct bio_brick *brick, struct page *page, void *data, int len, loff_t pos, struct bio_mref_aspect *private, struct bio **_bio)
@@ -66,7 +66,8 @@ int make_bio(struct bio_brick *brick, struct page *page, void *data, int len, lo
 	int page_offset;
 	int page_len;
 	int bvec_count;
-	int ilen = len;
+	int rest_len = len;
+	int result_len = 0;
 	int status;
 	int i;
 	struct bio *bio = NULL;
@@ -77,8 +78,8 @@ int make_bio(struct bio_brick *brick, struct page *page, void *data, int len, lo
 	bdev = brick->bdev;
 	CHECK_PTR(bdev, out);
 
-	if (unlikely(ilen <= 0)) {
-		MARS_ERR("bad bio len %d\n", ilen);
+	if (unlikely(rest_len <= 0)) {
+		MARS_ERR("bad bio len %d\n", rest_len);
 		goto out;
 	}
 
@@ -94,86 +95,109 @@ int make_bio(struct bio_brick *brick, struct page *page, void *data, int len, lo
 		MARS_ERR("bad alignment: sector_offset %d != data_offet %d\n", sector_offset, data_offset);
 		goto out;
 	}
-	if (unlikely(ilen & ((1 << 9) - 1))) {
-		MARS_ERR("odd length %d\n", ilen);
+	if (unlikely(rest_len & ((1 << 9) - 1))) {
+		MARS_ERR("odd length %d\n", rest_len);
 		goto out;
 	}
 
-	// map onto pages.
-#if 1
+	// page already known? => just take it
 	if (page) {
-		struct page *test_page = virt_to_page(data);
-		if (test_page != page) {
-			MARS_ERR("PAGEMOVE %p != %p (addr = %p)\n", test_page, page, data);
+		/* We assume that the original request on the original page
+		 * was valid, so allow offsets into higher-order pages
+		 * as long as sector boundaries aren't violated.
+		 */
+		void *start = page_address(page);
+		page_offset = data - start;
+		if (unlikely(page_offset < 0 || page_offset & ((1 << 9) - 1))) {
+			MARS_ERR("odd page_offset %d\n", page_offset);
+			goto out;
+		}
+	} else {
+		/* For safety, constrain to pageorder 0 when we don't know
+		 * anything about the real order of the underlying page.
+		 *
+		 * If you need performance from higher-order pages, you
+		 * must supply the ->ref_page argument.
+		 *
+		 * Probably this could be improved by blindly believing
+		 * the original request, but for now it appears
+		 * too risky to me.
+		 * There is at least the risk of ending up with "odd"
+		 * artificial "pseudo-pages" not matching the binary layout
+		 * of the buddy system. If some instance at lower layers
+		 * relies on page order properties (which is quite possible,
+		 * even in future), a lot of things might go _very_ wrong.
+		 */
+		page_offset = pos & (PAGE_SIZE - 1);
+		if (rest_len + page_offset > PAGE_SIZE) {
+			rest_len = PAGE_SIZE - page_offset;
+		}
+		// this looses the original pageorder information :(
+		page = virt_to_page(data); 
+		if (unlikely(!page)) {
+			MARS_ERR("cannot access page %p\n", data);
+			status = -EINVAL;
+			goto out;
 		}
 	}
-
-#endif
-	page_offset = pos & (PAGE_SIZE - 1);
-	page_len = ilen + page_offset;
+	
+	page_len = rest_len + page_offset;
 	bvec_count = (page_len - 1) / PAGE_SIZE + 1;
 	if (bvec_count > brick->bvec_max) {
 		bvec_count = brick->bvec_max;
 	}
 
-	MARS_IO("sector_offset = %d data = %p pos = %lld ilen = %d page_offset = %d page_len = %d bvec_count = %d\n", sector_offset, data, pos, ilen, page_offset, page_len, bvec_count);
+	MARS_IO("sector_offset = %d data = %p pos = %lld rest_len = %d page_offset = %d page_len = %d bvec_count = %d\n", sector_offset, data, pos, rest_len, page_offset, page_len, bvec_count);
 
 	bio = bio_alloc(GFP_MARS, bvec_count);
 	status = -ENOMEM;
-	if (!bio)
-		goto out;
-
-	if (!page)
-		page = virt_to_page(data);
-	if (unlikely(!page)) {
-		MARS_ERR("cannot access page %p\n", data);
-		status = -EINVAL;
+	if (unlikely(!bio)) {
 		goto out;
 	}
 
-	status = 0;
-	for (i = 0; i < bvec_count && ilen > 0; i++) {
-		int myrest = PAGE_SIZE - page_offset;
-		int mylen = ilen;
+	for (i = 0; i < bvec_count && rest_len > 0; i++) {
+		int this_rest = PAGE_SIZE - page_offset;
+		int this_len = rest_len;
 
-		if (mylen > myrest)
-			mylen = myrest;
+		if (this_len > this_rest) {
+			this_len = this_rest;
+		}
+#ifdef MARS_DEBUGGING
 		if (unlikely(!virt_addr_valid(data))) {
 			MARS_ERR("invalid virtual kernel address %p\n", data);
 			status = -EINVAL;
 			goto out;
 		}
+#endif
 
-		MARS_IO("  i = %d page = %p bv_len = %d bv_offset = %d\n", i, page, mylen, page_offset);
+		MARS_IO("  i = %d page = %p bv_len = %d bv_offset = %d\n", i, page, this_len, page_offset);
 
 		bio->bi_io_vec[i].bv_page = page;
-		bio->bi_io_vec[i].bv_len = mylen;
+		bio->bi_io_vec[i].bv_len = this_len;
 		bio->bi_io_vec[i].bv_offset = page_offset;
 
-		data += mylen;
-		ilen -= mylen;
-		status += mylen;
+		data += this_len;
+		rest_len -= this_len;
+		result_len += this_len;
 		page_offset = 0;
-		//MARS_IO("page_offset=%d mylen=%d (new len=%d, new status=%d)\n", page_offset, mylen, ilen, status);
+		//MARS_IO("page_offset=%d this_len=%d (new len=%d, new status=%d)\n", page_offset, this_len, rest_len, status);
 	}
 
-	if (unlikely(ilen != 0)) {
-		MARS_ERR("computation of bvec_count %d was wrong, diff=%d\n", bvec_count, ilen);
+	if (unlikely(rest_len != 0)) {
+		MARS_ERR("computation of bvec_count %d was wrong, diff=%d\n", bvec_count, rest_len);
 		status = -EIO;
 		goto out;
 	}
 
 	bio->bi_vcnt = i;
 	bio->bi_idx = 0;
-	bio->bi_size = status;
+	bio->bi_size = result_len;
 	bio->bi_sector = sector;
 	bio->bi_bdev = bdev;
 	bio->bi_private = private;
 	bio->bi_end_io = bio_callback;
 	bio->bi_rw = 0; // must be filled in later
-	// ignore rounding on return
-	if (status > len)
-		status = len;
+	status = result_len;
 
 out:
 	if (unlikely(status < 0)) {
@@ -217,26 +241,38 @@ static int bio_ref_get(struct bio_output *output, struct mref_object *mref)
 	mref_a->output = output;
 	mref_a->bio = NULL;
 
-	if (!mref->ref_data) {
-		MARS_IO("alloc page\n");
-#if 0
-		mref->ref_data = kmalloc(mref->ref_len, GFP_MARS);
+	if (!mref->ref_data) { // buffered IO.
+		struct page *page;
+		int order = 6;
+		while (order > 0 && mref->ref_len <= PAGE_SIZE << (order-1)) {
+			order--;
+		}
+
+		MARS_IO("alloc page length = %d order = %d\n", mref->ref_len, order);
+
 		status = -ENOMEM;
-		if (unlikely(!mref->ref_data))
+		page = alloc_pages(GFP_MARS, order);
+		if (unlikely(!page)) {
+			// try again with smaller order...
+			if (order > 0) {
+				order = 0;
+				page = alloc_pages(GFP_MARS, order);
+			}
+			if (!page) {
+				goto done;
+			}
+		}
+		mref->ref_data = page_address(page);
+		if (unlikely(!mref->ref_data)) {
 			goto done;
-#else
-		if (mref->ref_len > PAGE_SIZE)
-			mref->ref_len = PAGE_SIZE;
-		//mref->ref_data = (void*)__get_free_page(GFP_MARS);
-		mref_a->page = alloc_page(GFP_MARS);
-		if (unlikely(!mref_a->page))
-			goto done;
-		//mref->ref_data = kmap(mref_a->page);
-		mref->ref_data = page_address(mref_a->page);
-		if (unlikely(!mref->ref_data))
-			goto done;
-#endif
-		//mref_a->do_dealloc = true;
+		}
+
+		if (mref->ref_len > (PAGE_SIZE << order)) {
+			mref->ref_len = PAGE_SIZE << order;
+		}
+		mref_a->page = page;
+		mref_a->order = order;
+		mref_a->do_dealloc = true;
 	}
 
 	status = make_bio(output->brick, mref->ref_page, mref->ref_data, mref->ref_len, mref->ref_pos, mref_a, &mref_a->bio);
@@ -277,21 +313,12 @@ void bio_ref_put(struct bio_output *output, struct mref_object *mref)
 		bio_put(mref_a->bio);
 		mref_a->bio = NULL;
 	}
-#if 0
 	if (mref_a->do_dealloc) {
-		kfree(mref->ref_data);
-		mref->ref_data = NULL;
-	}
-#else
-	if (mref_a->page) {
 		MARS_IO("free page\n");
-		//__free_page((unsigned long)mref->ref_data);
-		//kunmap(mref_a->page);
-		mref->ref_data = NULL;
-		__free_page(mref_a->page);
+		__free_pages(mref_a->page, mref_a->order);
 		mref_a->page = NULL;
+		mref->ref_data = NULL;
 	}
-#endif
 	bio_free_mref(mref);
 
 done:

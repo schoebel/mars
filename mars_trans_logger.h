@@ -56,6 +56,7 @@ struct trans_logger_mref_aspect {
 	struct trans_logger_mref_aspect *shadow_ref;
 	void   *orig_data;
 	bool   is_hashed;
+	bool   is_valid;
 	bool   is_outdated;
 	struct timespec stamp;
 	loff_t log_pos;
