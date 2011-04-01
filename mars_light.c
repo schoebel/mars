@@ -2241,7 +2241,7 @@ void _show_statist(struct mars_global *global)
 		if (test->ops && test->ops->brick_statistics) {
 			char *info = test->ops->brick_statistics(test, 0);
 			if (info) {
-				MARS_STAT("  %s", info);
+				MARS_STAT("%s", info);
 				kfree(info);
 			}
 		}

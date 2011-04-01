@@ -4,9 +4,12 @@
 
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
+//#define IO_DEBUGGING
+//#define STAT_DEBUGGING // here means: display full statistics
 
-#define USE_MEMCPY
+//#define USE_MEMCPY
 #define USE_KMALLOC
+#define EARLY_INSERT
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -214,11 +217,11 @@ static struct trans_logger_mref_aspect *hash_find(struct trans_logger_output *ou
 	struct hash_anchor *start = &output->hash_table[hash];
 	struct list_head *tmp;
 	struct trans_logger_mref_aspect *res = NULL;
-	struct trans_logger_mref_aspect *test_a;
-	struct mref_object *test;
-	int count = 0;
 	int len = *max_len;
 	unsigned int flags;
+#ifdef STAT_DEBUGGING
+	int count = 0;
+#endif
 
 	traced_readlock(&start->hash_lock, flags);
 
@@ -227,7 +230,10 @@ static struct trans_logger_mref_aspect *hash_find(struct trans_logger_output *ou
 	 * overlapping with the search area in many different ways.
 	 */
 	for (tmp = start->hash_anchor.next; tmp != &start->hash_anchor; tmp = tmp->next) {
-#if 1
+		struct trans_logger_mref_aspect *test_a;
+		struct mref_object *test;
+		int diff;
+#ifdef STAT_DEBUGGING
 		static int max = 0;
 		if (++count > max) {
 			max = count;
@@ -238,20 +244,23 @@ static struct trans_logger_mref_aspect *hash_find(struct trans_logger_output *ou
 #endif
 		test_a = container_of(tmp, struct trans_logger_mref_aspect, hash_head);
 		test = test_a->object;
+
 		// are the regions overlapping?
-		if (pos < test->ref_pos + test->ref_len && pos + len > test->ref_pos) {
-			int restlen = test->ref_pos - pos;
-			if (restlen <= 0) {
-				res = test_a;
-				restlen += test->ref_len;
-				if (restlen < len) {
-					len = restlen;
-				}
-				break;
-			}
+		if (pos >= test->ref_pos + test->ref_len || pos + len <= test->ref_pos) {
+			continue; // not relevant
+		}
+
+		diff = test->ref_pos - pos;
+		if (diff <= 0) {
+			int restlen = test->ref_len + diff;
+			res = test_a;
 			if (restlen < len) {
 				len = restlen;
 			}
+			break;
+		}
+		if (diff < len) {
+			len = diff;
 		}
 	}
 
@@ -285,7 +294,7 @@ void hash_insert(struct trans_logger_output *output, struct trans_logger_mref_as
 
         traced_writelock(&start->hash_lock, flags);
 
-#if 1
+#if 0
 	{
 		struct mref_object *elem = elem_a->object;
 		loff_t begin = elem->ref_pos;
@@ -347,19 +356,19 @@ static int _read_ref_get(struct trans_logger_output *output, struct trans_logger
 {
 	struct mref_object *mref = mref_a->object;
 	struct trans_logger_input *input = output->brick->inputs[0];
-	struct trans_logger_mref_aspect *shadow_a;
+	struct trans_logger_mref_aspect *mshadow_a;
 
 	/* Look if there is a newer version on the fly, shadowing
 	 * the old one.
 	 * When a shadow is found, use it as buffer for the mref.
 	 */
-	shadow_a = hash_find(output, mref->ref_pos, &mref->ref_len);
-	if (shadow_a) {
-		struct mref_object *shadow = shadow_a->object;
-		int diff = mref->ref_pos - shadow->ref_pos;
+	mshadow_a = hash_find(output, mref->ref_pos, &mref->ref_len);
+	if (mshadow_a) {
+		struct mref_object *mshadow = mshadow_a->object;
+		int diff = mref->ref_pos - mshadow->ref_pos;
 #if 1
-		if (unlikely(shadow_a == mref_a)) {
-			MARS_ERR("oops %p == %p\n", shadow_a, mref_a);
+		if (unlikely(mshadow_a == mref_a)) {
+			MARS_ERR("oops %p == %p\n", mshadow_a, mref_a);
 		}
 #endif
 		if (diff < 0) {
@@ -368,16 +377,22 @@ static int _read_ref_get(struct trans_logger_output *output, struct trans_logger
 		}
 		/* Attach mref to the existing shadow ("slave shadow").
 		 */
-		if (unlikely(!shadow_a->is_valid)) {
+		if (unlikely(!mshadow_a->is_valid)) {
 			MARS_ERR("oops, invalid master shadow at pos = %lld len = %d (diff = %d)\n", mref->ref_pos, mref->ref_len, diff);
 		}
-		mref->ref_data = shadow->ref_data + diff;
-		mref->ref_flags = shadow->ref_flags;
-		mref_a->shadow_ref = shadow_a;
-		mref_a->is_valid = shadow_a->is_valid;
+		mref->ref_data = mshadow->ref_data + diff;
+#if 1
+		if (mref->ref_data + mref->ref_len > mshadow->ref_data + mshadow->ref_len) {
+			MARS_ERR("internal inconsistency: %p > %p\n", mref->ref_data + mref->ref_len, mshadow->ref_data + mshadow->ref_len);
+		}
+#endif
+		mref->ref_flags = mshadow->ref_flags;
+		mref_a->shadow_ref = mshadow_a;
+		mref_a->is_valid = mshadow_a->is_valid;
 		atomic_inc(&mref->ref_count);
 		atomic_inc(&output->inner_balance_count);
 		atomic_inc(&output->sshadow_count);
+		atomic_inc(&output->total_sshadow_count);
 		return mref->ref_len;
 	}
 
@@ -389,22 +404,26 @@ static int _write_ref_get(struct trans_logger_output *output, struct trans_logge
 	void *data;
 	struct mref_object *mref = mref_a->object;
 
-	// unconditionally create a new master shadow buffer
+	// unconditionally create a new master shadow
+	if (!mref->ref_data) {
 #ifdef USE_KMALLOC
-	data = kmalloc(mref->ref_len, GFP_MARS);
+		data = kmalloc(mref->ref_len, GFP_MARS);
 #else
-	//TODO: allow higher-order pages
-	if (mref->ref_len > PAGE_SIZE)
-		mref->ref_len = PAGE_SIZE;
-	data = (void*)__get_free_page(GFP_MARS);
-	if ((unsigned long)data & (PAGE_SIZE-1))
-		MARS_ERR("bad alignment\n");
+		//TODO: allow higher-order pages
+		if (mref->ref_len > PAGE_SIZE)
+			mref->ref_len = PAGE_SIZE;
+		data = (void*)__get_free_page(GFP_MARS);
+		if ((unsigned long)data & (PAGE_SIZE-1))
+			MARS_ERR("bad alignment\n");
 #endif
-	if (unlikely(!data)) {
-		return -ENOMEM;
+		if (unlikely(!data)) {
+			return -ENOMEM;
+		}
+		mref->ref_data = data;
+		mref_a->do_dealloc = true;
 	}
-	mref->ref_data = data;
 	atomic_inc(&output->mshadow_count);
+	atomic_inc(&output->total_mshadow_count);
 	atomic_inc(&global_mshadow_count);
 	mref_a->output = output;
 	mref->ref_flags = 0;
@@ -433,8 +452,6 @@ static int trans_logger_ref_get(struct trans_logger_output *output, struct mref_
 	mref_a = trans_logger_mref_get_aspect(output, mref);
 	CHECK_PTR(mref_a, err);
 	CHECK_PTR(mref_a->object, err);
-
-	mref_a->orig_data = mref->ref_data;
 
 	base_offset = mref->ref_pos & (loff_t)(REGION_SIZE - 1);
 	if (base_offset + mref->ref_len > REGION_SIZE)
@@ -479,8 +496,12 @@ restart:
 		if (mref_a->is_hashed) {
 			finished = hash_put(output, mref_a);
 		} else {
+#if 1 // TODO check this in presence of EARLY_INSERT
 			finished = atomic_dec_and_test(&mref->ref_count);
 			atomic_dec(&output->inner_balance_count);
+#else
+			finished = false;
+#endif
 		}
 		if (!finished) {
 			return;
@@ -496,12 +517,14 @@ restart:
 		}
 		// we are a master shadow
 		CHECK_PTR(mref->ref_data, err);
+		if (mref_a->do_dealloc) {
 #ifdef USE_KMALLOC
-		kfree(mref->ref_data);
+			kfree(mref->ref_data);
 #else
-		free_page((unsigned long)mref->ref_data);
+			free_page((unsigned long)mref->ref_data);
 #endif
-		mref->ref_data = NULL;
+			mref->ref_data = NULL;
+		}
 		atomic_dec(&output->mshadow_count);
 		atomic_dec(&global_mshadow_count);
 		trans_logger_free_mref(mref);
@@ -562,6 +585,7 @@ err: ;
 static void trans_logger_ref_io(struct trans_logger_output *output, struct mref_object *mref)
 {
 	struct trans_logger_mref_aspect *mref_a;
+	struct trans_logger_mref_aspect *shadow_a;
 	struct trans_logger_input *input = output->brick->inputs[0];
 	struct generic_callback *cb;
 
@@ -578,16 +602,25 @@ static void trans_logger_ref_io(struct trans_logger_output *output, struct mref_
 	}
 
 	// is this a shadow buffer?
-	if (mref_a->shadow_ref) {
+	shadow_a = mref_a->shadow_ref;
+	if (shadow_a) {
 		if (mref->ref_rw == READ) {
 			// nothing to do: directly signal success.
 			struct generic_callback *cb = mref->ref_cb;
+			struct mref_object *shadow = shadow_a->object;
+			if (!mref_a->is_valid) {
+				MARS_ERR("invalid data at pos = %lld len = %d\n", mref->ref_pos, mref->ref_len);
+			}
 #ifdef USE_MEMCPY
 			if (mref_a->orig_data) {
-				if (!mref_a->is_valid) {
-					MARS_ERR("invalid data at pos = %lld len = %d\n", mref->ref_pos, mref->ref_len);
-				}
 				memcpy(mref_a->orig_data, mref->ref_data, mref->ref_len);
+			}
+#else
+			if (shadow == mref) {
+				MARS_ERR("oops, we should be a slave shadow, but are a master one\n");
+			}
+			if (mref->ref_data != shadow->ref_data) {
+				memcpy(mref->ref_data, shadow->ref_data, mref->ref_len);
 			}
 #endif
 			cb->cb_error = 0;
@@ -608,15 +641,17 @@ static void trans_logger_ref_io(struct trans_logger_output *output, struct mref_
 #ifdef USE_MEMCPY
 			if (mref_a->orig_data) {
 				memcpy(mref->ref_data, mref_a->orig_data, mref->ref_len);
-				mref_a->is_valid = true;
 			}
 #endif
+			mref_a->is_valid = true;
 			mref->ref_flags |= MREF_WRITING;
+#ifdef EARLY_INSERT
 			if (!mref_a->is_hashed) {
 				mref_a->is_hashed = true;
 				MARS_DBG("hashing %d at %lld\n", mref->ref_len, mref->ref_pos);
 				hash_insert(output, mref_a);
 			}
+#endif
 			q_insert(&output->q_phase1, mref_a);
 			wake_up_interruptible(&output->event);
 			//MARS_INF("PING %d\n", atomic_read(&output->q_phase1.q_queued));
@@ -669,9 +704,18 @@ static void phase1_endio(void *private, int error)
 	orig_cb = orig_mref->ref_cb;
 	CHECK_PTR(orig_cb, err);
 
-	// signal completion to the upper layer, as early as possible
+	// error handling
 	if (error < 0)
 		orig_cb->cb_error = error;
+
+#ifndef EARLY_INSERT
+	if (!orig_mref_a->is_hashed) {
+		orig_mref_a->is_hashed = true;
+		MARS_DBG("hashing %d at %lld\n", orig_mref->ref_len, orig_mref->ref_pos);
+		hash_insert(output, orig_mref_a);
+	}
+#endif
+	// signal completion to the upper layer, as early as possible
 	if (likely(orig_cb->cb_error >= 0)) {
 		orig_mref->ref_flags &= ~MREF_WRITING;
 		orig_mref->ref_flags |= MREF_UPTODATE;
@@ -1108,7 +1152,7 @@ void trans_logger_log(struct trans_logger_output *output)
 	struct trans_logger_brick *brick = output->brick;
 	int wait_timeout = HZ;
 	long long log_jiffies = jiffies;
-#ifdef MARS_TRACING
+#ifdef  STAT_DEBUGGING
 	long long last_jiffies = jiffies;
 #endif
 
@@ -1124,9 +1168,11 @@ void trans_logger_log(struct trans_logger_output *output)
 		wait_event_interruptible_timeout(
 			output->event,
 			atomic_read(&output->q_phase1.q_queued) > 0 ||
+#if 0
 			q_is_ready(&output->q_phase2) ||
 			q_is_ready(&output->q_phase3) ||
 			q_is_ready(&output->q_phase4) ||
+#endif
 			(kthread_should_stop() && !_congested(output)),
 			wait_timeout);
 
@@ -1146,10 +1192,16 @@ void trans_logger_log(struct trans_logger_output *output)
 			}
 			old_mshadow_count = cnt;
 		}
-
+#endif
+#ifdef STAT_DEBUGGING
 		if (((long long)jiffies) - last_jiffies >= HZ * 5 && brick->power.button) {
+			char *txt;
 			last_jiffies = jiffies;
-			MARS_INF("LOGGER: reads=%d writes=%d writeback=%d shortcut=%d (%d%%) | mshadow=%d sshadow=%d hash_count=%d balance=%d/%d/%d fly=%d phase1=%d+%d phase2=%d+%d phase3=%d+%d phase4=%d+%d\n", atomic_read(&output->total_read_count), atomic_read(&output->total_write_count), atomic_read(&output->total_writeback_count), atomic_read(&output->total_shortcut_count), atomic_read(&output->total_writeback_count) ? atomic_read(&output->total_shortcut_count) * 100 / atomic_read(&output->total_writeback_count) : 0, atomic_read(&output->mshadow_count), atomic_read(&output->sshadow_count), atomic_read(&output->hash_count), atomic_read(&output->sub_balance_count), atomic_read(&output->inner_balance_count), atomic_read(&output->outer_balance_count), atomic_read(&output->fly_count), atomic_read(&output->q_phase1.q_queued), atomic_read(&output->q_phase1.q_flying), atomic_read(&output->q_phase2.q_queued), atomic_read(&output->q_phase2.q_flying), atomic_read(&output->q_phase3.q_queued), atomic_read(&output->q_phase3.q_flying), atomic_read(&output->q_phase4.q_queued), atomic_read(&output->q_phase4.q_flying));
+			txt = brick->ops->brick_statistics(brick, 0);
+			if (txt) {
+				MARS_INF("%s", txt);
+				kfree(txt);
+			}
 		}
 #endif
 		output->did_pushback = false;
@@ -1158,7 +1210,7 @@ void trans_logger_log(struct trans_logger_output *output)
 		 */
 		status = run_queue(output, &output->q_phase1, phase1_startio, output->q_phase1.q_batchlen);
 		if (status < 0) {
-#ifdef MARS_DEBUGGING
+#ifdef STAT_DEBUGGING
 			wait_timeout = 10 * HZ;
 #else
 			wait_timeout = HZ / 50 + 1;
@@ -1173,7 +1225,7 @@ void trans_logger_log(struct trans_logger_output *output)
 			log_flush(&brick->logst);
 			log_jiffies = 0;
 		}
-
+#if 0
 		if (q_is_ready(&output->q_phase4)) {
 			(void)run_queue(output, &output->q_phase4, phase4_startio, output->q_phase4.q_batchlen);
 		}
@@ -1185,7 +1237,7 @@ void trans_logger_log(struct trans_logger_output *output)
 		if (q_is_ready(&output->q_phase3)) {
 			status = run_queue(output, &output->q_phase3, phase3_startio, output->q_phase3.q_batchlen);
 		}
-		
+#endif
 		if (output->did_pushback) {
 #if 0
 			log_flush(&brick->logst);
@@ -1396,6 +1448,32 @@ int trans_logger_switch(struct trans_logger_brick *brick)
 	}
 	return 0;
 }
+//////////////// informational / statistics ///////////////
+
+static
+char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
+{
+	struct trans_logger_output *output = brick->outputs[0];
+	char *res = kmalloc(256, GFP_MARS);
+	if (!res)
+		return NULL;
+
+	sprintf(res, "reads=%d writes=%d writeback=%d shortcut=%d (%d%%) mshadow=%d sshadow=%d | mshadow=%d sshadow=%d hash_count=%d balance=%d/%d/%d fly=%d phase1=%d+%d phase2=%d+%d phase3=%d+%d phase4=%d+%d\n", atomic_read(&output->total_read_count), atomic_read(&output->total_write_count), atomic_read(&output->total_writeback_count), atomic_read(&output->total_shortcut_count), atomic_read(&output->total_writeback_count) ? atomic_read(&output->total_shortcut_count) * 100 / atomic_read(&output->total_writeback_count) : 0, atomic_read(&output->total_mshadow_count), atomic_read(&output->total_sshadow_count), atomic_read(&output->mshadow_count), atomic_read(&output->sshadow_count), atomic_read(&output->hash_count), atomic_read(&output->sub_balance_count), atomic_read(&output->inner_balance_count), atomic_read(&output->outer_balance_count), atomic_read(&output->fly_count), atomic_read(&output->q_phase1.q_queued), atomic_read(&output->q_phase1.q_flying), atomic_read(&output->q_phase2.q_queued), atomic_read(&output->q_phase2.q_flying), atomic_read(&output->q_phase3.q_queued), atomic_read(&output->q_phase3.q_flying), atomic_read(&output->q_phase4.q_queued), atomic_read(&output->q_phase4.q_flying));
+	return res;
+}
+
+static
+void trans_logger_reset_statistics(struct trans_logger_brick *brick)
+{
+	struct trans_logger_output *output = brick->outputs[0];
+	atomic_set(&output->total_read_count, 0);
+	atomic_set(&output->total_write_count, 0);
+	atomic_set(&output->total_writeback_count, 0);
+	atomic_set(&output->total_shortcut_count, 0);
+	atomic_set(&output->total_mshadow_count, 0);
+	atomic_set(&output->total_sshadow_count, 0);
+}
+
 
 //////////////// object / aspect constructors / destructors ///////////////
 
@@ -1469,6 +1547,8 @@ static int trans_logger_input_construct(struct trans_logger_input *input)
 
 static struct trans_logger_brick_ops trans_logger_brick_ops = {
 	.brick_switch = trans_logger_switch,
+	.brick_statistics = trans_logger_statistics,
+	.reset_statistics = trans_logger_reset_statistics,
 };
 
 static struct trans_logger_output_ops trans_logger_output_ops = {

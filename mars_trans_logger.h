@@ -4,7 +4,7 @@
 
 #define REGION_SIZE_BITS 22
 #define REGION_SIZE (1 << REGION_SIZE_BITS)
-#define TRANS_HASH_MAX 128
+#define TRANS_HASH_MAX 512
 
 #include <linux/time.h>
 #include "log_format.h"
@@ -54,7 +54,7 @@ struct trans_logger_mref_aspect {
 	struct list_head pos_head;
 	struct pairing_heap_mref ph;
 	struct trans_logger_mref_aspect *shadow_ref;
-	void   *orig_data;
+	bool   do_dealloc;
 	bool   is_hashed;
 	bool   is_valid;
 	bool   is_outdated;
@@ -100,6 +100,8 @@ struct trans_logger_output {
 	atomic_t total_write_count;
 	atomic_t total_writeback_count;
 	atomic_t total_shortcut_count;
+	atomic_t total_mshadow_count;
+	atomic_t total_sshadow_count;
 	struct task_struct *thread;
 	wait_queue_head_t event;
 	struct generic_object_layout replay_layout;
