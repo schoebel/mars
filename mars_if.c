@@ -8,7 +8,8 @@
 //#define MARS_DEBUGGING
 //#define IO_DEBUGGING
 
-#define REQUEST_MERGING
+//#define REQUEST_MERGING
+//#define PREFETCH_LEN PAGE_SIZE // TODO: make this work
 
 // low-level device parameters
 //#define USE_MAX_SECTORS         (MARS_MAX_SEGMENT_SIZE >> 9)
@@ -75,7 +76,7 @@ void if_endio(struct generic_callback *cb)
 		if (!atomic_dec_and_test(&bio->bi_comp_cnt)) {
 			continue;
 		}
-#if 0
+#if 1
 		if (mref_a->object->ref_is_kmapped) {
 			struct bio_vec *bvec;
 			int i;
@@ -161,6 +162,7 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 	const bool barrier = ((bio->bi_rw & 1) != READ && bio_rw_flagged(bio, BIO_RW_BARRIER));
 	loff_t pos = ((loff_t)bio->bi_sector) << 9; // TODO: make dynamic
 	int rw = bio_data_dir(bio);
+	int total_len = bio->bi_size;
         int error = -ENOSYS;
 
 	MARS_IO("bio %p size = %d\n", bio, bio->bi_size);
@@ -214,6 +216,10 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 
 		data = kmap(page);
 		MARS_IO("page = %p data = %p\n", page, data);
+		error = -EINVAL;
+		if (unlikely(!data))
+			break;
+
 		data += offset;
 
 		while (bv_len > 0) {
@@ -238,13 +244,13 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 
 				tmp_a = container_of(tmp, struct if_mref_aspect, hash_head);
 				tmp_mref = tmp_a->object;
-				if (tmp_mref->ref_page != page || tmp_mref->ref_rw != rw || tmp_a->bio_count >= MAX_BIO) {
+				if (tmp_mref->ref_page != page || tmp_mref->ref_rw != rw || tmp_a->bio_count >= MAX_BIO || tmp_mref->ref_len + bv_len > tmp_a->max_len) {
 					continue;
 				}
 
 				if (tmp_mref->ref_data + tmp_mref->ref_len == data) {
 					goto merge_end;
-#if 1
+#if 0
 				} else if (data + bv_len == tmp_mref->ref_data) {
 					goto merge_front;
 #endif
@@ -258,6 +264,9 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 				mref = tmp_mref;
 				mref_a = tmp_a;
 				this_len = bv_len;
+				if (barrier) {
+					mref->ref_skip_sync = false;
+				}
 
 				for (i = 0; i < mref_a->bio_count; i++) {
 					if (mref_a->orig_bio[i] == bio) {
@@ -269,9 +278,6 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 				atomic_inc(&bio->bi_comp_cnt);
 				mref_a->orig_bio[mref_a->bio_count++] = bio;
 				assigned = true;
-				if (barrier) {
-					mref->ref_skip_sync = false;
-				}
 				goto unlock;
 			} // foreach hash collision list member
 
@@ -279,6 +285,7 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 			traced_unlock(&input->hash_lock[hash_index], flags);
 #endif
 			if (!mref) {
+				int prefetch_len;
 				error = -ENOMEM;
 				mref = if_alloc_mref(&brick->hidden_output, &input->mref_object_layout);
 				if (unlikely(!mref)) {
@@ -290,6 +297,15 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 					up(&input->kick_sem);
 					goto err;
 				}
+
+#ifdef PREFETCH_LEN
+				prefetch_len = PREFETCH_LEN - offset;
+				if (prefetch_len < bv_len)
+					prefetch_len = bv_len;
+#else
+				prefetch_len = bv_len;
+#endif
+
 				cb = &mref_a->cb;
 				cb->cb_fn = if_endio;
 				cb->cb_private = mref_a;
@@ -299,7 +315,7 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 				mref_a->input = input;
 				mref->ref_rw = mref->ref_may_write = rw;
 				mref->ref_pos = pos;
-				mref->ref_len = bv_len;
+				mref->ref_len = prefetch_len;
 				mref->ref_data = data; // direct IO
 				mref->ref_page = page;
 				mref->ref_is_kmapped = true;
@@ -311,6 +327,11 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 				}
 				
 				mars_trace(mref, "if_start");
+
+				mref_a->max_len = this_len = mref->ref_len; // now may be shorter than originally requested.
+				if (this_len > bv_len) {
+					mref->ref_len = this_len = bv_len;
+				}
 				if (rw) {
 					atomic_inc(&input->mref_write_count);
 				} else {
@@ -337,19 +358,22 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 				traced_lock(&input->req_lock, flags);
 				list_add_tail(&mref_a->plug_head, &input->plug_anchor);
 				traced_unlock(&input->req_lock, flags);
-
-				this_len = mref->ref_len; // now may be shorter than originally requested.
 			} // !mref
 
 			pos += this_len;
 			data += this_len;
 			bv_len -= this_len;
+			total_len -= this_len;
 		} // while bv_len > 0
 	} // foreach bvec
 
 	up(&input->kick_sem);
 
-	error = 0;
+	if (likely(!total_len)) {
+		error = 0;
+	} else {
+		MARS_ERR("bad rest len = %d\n", total_len);
+	}
 
 err:
 

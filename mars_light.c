@@ -64,8 +64,10 @@ struct light_class {
 #define CONF_TRANS_FLYING 4
 #define CONF_TRANS_PRIO   MARS_PRIO_HIGH
 
-#define CONF_ALL_BATCHLEN 2
-#define CONF_ALL_FLYING 4
+//#define CONF_ALL_BATCHLEN 2
+#define CONF_ALL_BATCHLEN 1
+//#define CONF_ALL_FLYING 4
+#define CONF_ALL_FLYING 1
 #define CONF_ALL_CONTENTION 0
 #define CONF_ALL_PRESSURE 0
 #define CONF_ALL_PRIO   MARS_PRIO_LOW
@@ -929,7 +931,7 @@ void _create_new_logfile(const char *path)
 }
 
 static
-int _update_replaylink(struct mars_rotate *rot, struct mars_dent *parent, int sequence, loff_t pos, bool check_exist)
+int _update_replaylink(struct mars_dent *parent, int sequence, loff_t pos, bool check_exist)
 {
 	struct timespec now = {};
 	char *old;
@@ -965,10 +967,7 @@ int _update_replaylink(struct mars_rotate *rot, struct mars_dent *parent, int se
 	if (status < 0) {
 		MARS_ERR("cannot create symlink '%s' -> '%s' status = %d\n", old, new, status);
 	} else {
-		MARS_DBG("make symlink '%s' -> '%s' status = %d\n", old, new, status);
-	}
-	if (status >= 0) {
-		rot->last_jiffies = jiffies;
+		MARS_DBG("make replay symlink '%s' -> '%s' status = %d\n", old, new, status);
 	}
 
 	kfree(new);
@@ -1265,11 +1264,13 @@ int make_log(void *buf, struct mars_dent *dent)
 	switch (status) {
 	case 0: // not relevant
 		goto ok;
-	case 1: /* Relevant, but transaction replay already finished.
+	case 1: /* Relevant, and transaction replay already finished.
 		 * When primary, switch over to a new logfile.
 		 */
 		if (!trans_brick->power.button && !trans_brick->power.led_on && trans_brick->power.led_off) {
-			_update_replaylink(rot, dent->d_parent, dent->d_serial + 1, 0, !rot->is_primary);
+			_update_replaylink(dent->d_parent, dent->d_serial + 1, 0, !rot->is_primary);
+			trans_brick->current_pos = 0;
+			rot->last_jiffies = jiffies;
 			mars_trigger();
 		}
 		status = -EAGAIN;
@@ -1367,10 +1368,12 @@ int _start_trans(struct mars_rotate *rot)
 	/* Supply all relevant parameters
 	 */
 	trans_brick->sequence = rot->relevant_log->d_serial;
-	trans_brick->do_replay = rot->do_replay;
-	trans_brick->current_pos = rot->start_pos;
-	trans_brick->start_pos = rot->start_pos;
-	trans_brick->end_pos = rot->end_pos;
+	if ((trans_brick->do_replay = rot->do_replay)) {
+		trans_brick->replay_start_pos = rot->start_pos;
+		trans_brick->replay_end_pos = rot->end_pos;
+	} else {
+		trans_brick->log_start_pos = rot->start_pos;
+	}
 
 	/* Switch on....
 	 */
@@ -1429,12 +1432,13 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *parent)
 	if (trans_brick->power.button && trans_brick->power.led_on && !trans_brick->power.led_off) {
 		bool do_stop =
 			trans_brick->do_replay ?
-			(trans_brick->replay_pos == trans_brick->end_pos) :
+			(trans_brick->replay_pos == trans_brick->replay_end_pos || trans_brick->replay_code != -EAGAIN) :
 			(rot->relevant_log && rot->relevant_log != rot->current_log);
 		MARS_DBG("do_stop = %d\n", (int)do_stop);
 
 		if (do_stop || (long long)jiffies > rot->last_jiffies + 5 * HZ) {
-			status = _update_replaylink(rot, parent, trans_brick->sequence, trans_brick->replay_pos, true);
+			status = _update_replaylink(parent, trans_brick->sequence, trans_brick->replay_pos, true);
+			rot->last_jiffies = jiffies;
 		}
 		if (do_stop) {
 			status = _stop_trans(rot);

@@ -16,7 +16,7 @@ void init_logst(struct log_status *logst, struct mars_input *input, struct mars_
 }
 EXPORT_SYMBOL_GPL(init_logst);
 
-#define MARS_LOG_CB_MAX 16
+#define MARS_LOG_CB_MAX 32
 
 struct log_cb_info {
 	struct mref_object *mref;
@@ -26,7 +26,7 @@ struct log_cb_info {
 };
 
 static
-void log_endio(struct generic_callback *cb)
+void log_write_endio(struct generic_callback *cb)
 {
 	struct log_cb_info *cb_info = cb->cb_private;
 	int i;
@@ -37,6 +37,8 @@ void log_endio(struct generic_callback *cb)
 		mars_trace(cb_info->mref, "log_endio");
 		mars_log_trace(cb_info->mref);
 	}
+
+	MARS_IO("nr_endio = %d\n", cb_info->nr_endio);
 
 	for (i = 0; i < cb_info->nr_endio; i++) {
 		cb_info->endios[i](cb_info->privates[i], cb->cb_error);
@@ -78,7 +80,7 @@ void log_flush(struct log_status *logst)
 	logst->log_pos += logst->offset;
 
 	cb = &mref->_ref_cb;
-	cb->cb_fn = log_endio;
+	cb->cb_fn = log_write_endio;
 	cb->cb_private = logst->private;
 	logst->private = NULL;
 	cb->cb_error = 0;
@@ -194,6 +196,7 @@ put:
 err_free:
 	mars_free_mref(mref);
 	if (logst->private) {
+		// TODO: if callbacks are already registered, call them here with some error code
 		kfree(logst->private);
 		logst->private = NULL;
 	}
@@ -282,6 +285,7 @@ int log_scan(void *buf, int len, struct log_header *lh, void **payload, int *pay
 	int offset;
 	int i;
 
+	*payload = NULL;
 	*payload_len = 0;
 
 	for (i = 0; i < len; i += sizeof(long)) {
@@ -293,6 +297,7 @@ int log_scan(void *buf, int len, struct log_header *lh, void **payload, int *pay
 		char valid_copy;
 
 		int restlen;
+		int found_offset;
 
 		offset = i;
 		DATA_GET(buf, offset, start_magic);
@@ -333,8 +338,7 @@ int log_scan(void *buf, int len, struct log_header *lh, void **payload, int *pay
 		DATA_GET(buf, offset, lh->l_code);
 		DATA_GET(buf, offset, lh->l_extra);
 
-		*payload = buf + offset;
-		*payload_len = lh->l_len;
+		found_offset = offset;
 		offset += lh->l_len;
 
 		restlen = len - offset;
@@ -364,6 +368,10 @@ int log_scan(void *buf, int len, struct log_header *lh, void **payload, int *pay
 			MARS_WRN("size mismatch at offset %d: %d != %d\n", i, total_len, offset - i);
 			// just warn, but no consequences: better use the data, it has been checked by lots of magics
 		}
+
+		// Success...
+		*payload = buf + found_offset;
+		*payload_len = lh->l_len;
 		goto done;
 	}
 	offset = i;
@@ -377,7 +385,7 @@ done:
 }
 
 static
-void read_endio(struct generic_callback *cb)
+void log_read_endio(struct generic_callback *cb)
 {
 	struct log_status *logst = cb->cb_private;
 
@@ -394,12 +402,23 @@ err:
 
 int log_read(struct log_status *logst, struct log_header *lh, void **payload, int *payload_len)
 {
-	struct mref_object *mref = logst->read_mref;
-	int status = 0;
-	if (!mref) {
+	struct mref_object *mref;
+	int status;
+
+restart:
+	status = 0;
+	mref = logst->read_mref;
+	if (!mref || logst->do_free) {
 		struct generic_callback *cb;
 		int chunk_offset;
 		int chunk_rest;
+
+		if (mref) {
+			logst->log_pos += logst->offset;
+			GENERIC_INPUT_CALL(logst->input, mref_put, mref);
+			logst->read_mref = NULL;
+			logst->offset = 0;
+		}
 
 		mref = mars_alloc_mref(logst->output, &logst->ref_object_layout);
 		if (unlikely(!mref)) {
@@ -409,36 +428,39 @@ int log_read(struct log_status *logst, struct log_header *lh, void **payload, in
 		mref->ref_pos = logst->log_pos;
 		chunk_offset = logst->log_pos & (loff_t)(logst->chunk_size - 1);
 		chunk_rest = logst->chunk_size - chunk_offset;
-		mref->ref_len = chunk_rest + logst->chunk_size;
+		mref->ref_len = chunk_rest + logst->chunk_size * 8;
 #if 0
 		mref->ref_prio = MARS_PRIO_LOW;
 #endif
 		status = GENERIC_INPUT_CALL(logst->input, mref_get, mref);
 		if (unlikely(status < 0)) {
-			MARS_ERR("mref_get() failed, status = %d\n", status);
+			if (status != -ENODATA) {
+				MARS_ERR("mref_get() failed, status = %d\n", status);
+			}
 			goto done_free;
 		}
 
 
 		cb = &mref->_ref_cb;
-		cb->cb_fn = read_endio;
+		cb->cb_fn = log_read_endio;
 		cb->cb_private = logst;
 		cb->cb_error = 0;
 		cb->cb_prev = NULL;
 		mref->ref_cb = cb;
-		mref->ref_rw = 0;
+		mref->ref_rw = READ;
 		logst->offset = 0;
 		logst->got = false;
+		logst->do_free = false;
 
 		GENERIC_INPUT_CALL(logst->input, mref_io, mref);
 
 		wait_event_interruptible_timeout(logst->event, logst->got, 60 * HZ);
 		status = -EIO;
 		if (!logst->got)
-			goto done_free;
+			goto done_put;
 		status = logst->error_code;
 		if (status < 0)
-			goto done_free;
+			goto done_put;
 		logst->read_mref = mref;
 	}
 
@@ -448,24 +470,40 @@ int log_read(struct log_status *logst, struct log_header *lh, void **payload, in
 		status = -EINVAL;
 	}
 	if (unlikely(status < 0)) {
-		goto done_free;
+		goto done_put;
 	}
 
+	// memorize success
 	logst->offset += status;
-	if (logst->offset < mref->ref_len - logst->chunk_size) {
-		goto done;
+	if (logst->offset > mref->ref_len - logst->chunk_size) {
+		logst->do_free = true;
 	}
+
+done:
+	if (status == -ENODATA) {
+		status = 0; // indicates EOF
+	}
+	return status;
+
+done_put:
+	if (mref) {
+		logst->log_pos += logst->offset;
+		GENERIC_INPUT_CALL(logst->input, mref_put, mref);
+		logst->read_mref = NULL;
+		logst->offset = 0;
+	}
+	if (status == -EAGAIN && logst->offset > 0) {
+		goto restart;
+	}
+	goto done;
 
 done_free:
 	if (mref) {
-		if (status >= 0) {
-			logst->log_pos += logst->offset;
-		}
-		GENERIC_INPUT_CALL(logst->input, mref_put, mref);
-		logst->read_mref = NULL;
+		mars_free_mref(mref);
 	}
-done:
-	return status;
+	logst->read_mref = NULL;
+	goto done;
+
 }
 EXPORT_SYMBOL_GPL(log_read);
 

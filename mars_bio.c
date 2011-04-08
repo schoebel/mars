@@ -403,7 +403,7 @@ static int bio_thread(void *data)
 		LIST_HEAD(tmp_list);
 		unsigned long flags;
 
-		wait_event_interruptible_timeout(brick->event, !list_empty(&brick->completed_list), HZ);
+		wait_event_interruptible_timeout(brick->event, !list_empty(&brick->completed_list), 10 * HZ);
 
 		spin_lock_irqsave(&brick->lock, flags);
 		list_replace_init(&brick->completed_list, &tmp_list);

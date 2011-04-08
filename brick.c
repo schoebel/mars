@@ -988,7 +988,6 @@ void free_meta(void *data, const struct meta *meta)
 }
 EXPORT_SYMBOL_GPL(free_meta);
 
-
 /////////////////////////////////////////////////////////////////////////
 
 // module init stuff

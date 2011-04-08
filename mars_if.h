@@ -18,6 +18,7 @@ struct if_mref_aspect {
 	struct list_head hash_head;
 	int hash_index;
 	int bio_count;
+	int max_len;
 	struct bio *orig_bio[MAX_BIO];
 	struct generic_callback cb;
 	struct if_input *input;

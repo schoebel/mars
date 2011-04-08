@@ -7,6 +7,13 @@
 #include <linux/sched.h>
 #include <linux/wait.h>
 
+#ifdef CONFIG_DEBUG_KERNEL
+#define INLINE inline
+//#define INLINE __attribute__((__noinline__))
+#else
+#define INLINE inline
+#endif
+
 #ifdef _STRATEGY
 #define _STRATEGY_CODE(X) X
 #define _NORMAL_CODE(X) /**/
@@ -284,7 +291,7 @@ struct generic_output_type {
 int generic_register_brick_type(const struct generic_brick_type *new_type);
 int generic_unregister_brick_type(const struct generic_brick_type *old_type);
 
-inline void _generic_output_init(struct generic_brick *brick, const struct generic_output_type *type, struct generic_output *output, const char *output_name)
+INLINE void _generic_output_init(struct generic_brick *brick, const struct generic_output_type *type, struct generic_output *output, const char *output_name)
 {
 	output->output_name = output_name;
 	output->brick = brick;
@@ -295,7 +302,7 @@ inline void _generic_output_init(struct generic_brick *brick, const struct gener
 	INIT_LIST_HEAD(&output->output_head);
 }
 
-inline void _generic_output_exit(struct generic_output *output)
+INLINE void _generic_output_exit(struct generic_output *output)
 {
 	list_del_init(&output->output_head);
 	output->output_name = NULL;
@@ -309,7 +316,7 @@ inline void _generic_output_exit(struct generic_output *output)
 #ifdef _STRATEGY // call this only in strategy bricks, never in ordinary bricks
 
 // you need this only if you circumvent generic_brick_init_full()
-inline int generic_brick_init(const struct generic_brick_type *type, struct generic_brick *brick, const char *brick_name)
+INLINE int generic_brick_init(const struct generic_brick_type *type, struct generic_brick *brick, const char *brick_name)
 {
 	brick->brick_name = brick_name;
 	brick->type = type;
@@ -322,7 +329,7 @@ inline int generic_brick_init(const struct generic_brick_type *type, struct gene
 	return 0;
 }
 
-inline void generic_brick_exit(struct generic_brick *brick)
+INLINE void generic_brick_exit(struct generic_brick *brick)
 {
 	list_del_init(&brick->tmp_head);
 	brick->brick_name = NULL;
@@ -332,7 +339,7 @@ inline void generic_brick_exit(struct generic_brick *brick)
 	brick->nr_outputs = 0;
 }
 
-inline int generic_input_init(struct generic_brick *brick, int index, const struct generic_input_type *type, struct generic_input *input, const char *input_name)
+INLINE int generic_input_init(struct generic_brick *brick, int index, const struct generic_input_type *type, struct generic_input *input, const char *input_name)
 {
 	if (index < 0 || index >= brick->type->max_inputs)
 		return -EINVAL;
@@ -348,7 +355,7 @@ inline int generic_input_init(struct generic_brick *brick, int index, const stru
 	return 0;
 }
 
-inline void generic_input_exit(struct generic_input *input)
+INLINE void generic_input_exit(struct generic_input *input)
 {
 	list_del_init(&input->input_head);
 	input->input_name = NULL;
@@ -357,7 +364,7 @@ inline void generic_input_exit(struct generic_input *input)
 	input->connect = NULL;
 }
 
-inline int generic_output_init(struct generic_brick *brick, int index, const struct generic_output_type *type, struct generic_output *output, const char *output_name)
+INLINE int generic_output_init(struct generic_brick *brick, int index, const struct generic_output_type *type, struct generic_output *output, const char *output_name)
 {
 	if (index < 0 || index >= brick->type->max_outputs)
 		return -ENOMEM;
@@ -369,7 +376,7 @@ inline int generic_output_init(struct generic_brick *brick, int index, const str
 	return 0;
 }
 
-inline int generic_size(const struct generic_brick_type *brick_type)
+INLINE int generic_size(const struct generic_brick_type *brick_type)
 {
 	int size = brick_type->brick_size;
 	int i;
@@ -398,7 +405,7 @@ int generic_brick_init_full(
 int generic_brick_exit_full(
 	struct generic_brick *brick);
 
-inline int generic_connect(struct generic_input *input, struct generic_output *output)
+INLINE int generic_connect(struct generic_input *input, struct generic_output *output)
 {
 	BRICK_DBG("generic_connect(input=%p, output=%p)\n", input, output);
 	if (unlikely(!input || !output))
@@ -421,7 +428,7 @@ inline int generic_connect(struct generic_input *input, struct generic_output *o
 	return 0;
 }
 
-inline int generic_disconnect(struct generic_input *input)
+INLINE int generic_disconnect(struct generic_input *input)
 {
 	BRICK_DBG("generic_disconnect(input=%p)\n", input);
 	if (!input)
@@ -467,7 +474,7 @@ extern const struct BRICK##_brick_type BRICK##_brick_type;	        \
 extern const struct BRICK##_input_type BRICK##_input_type;	        \
 extern const struct BRICK##_output_type BRICK##_output_type;	        \
 									\
-static inline void _##BRICK##_output_init(struct BRICK##_brick *brick, struct BRICK##_output *output, char *output_name) \
+static INLINE void _##BRICK##_output_init(struct BRICK##_brick *brick, struct BRICK##_output *output, char *output_name) \
 {									\
 	_generic_output_init(						\
 		(struct generic_brick*)brick,				\
@@ -477,12 +484,12 @@ static inline void _##BRICK##_output_init(struct BRICK##_brick *brick, struct BR
 }									\
 									\
 _STRATEGY_CODE(							        \
-static inline int BRICK##_brick_init(struct BRICK##_brick *brick, char *brick_name) \
+static INLINE int BRICK##_brick_init(struct BRICK##_brick *brick, char *brick_name) \
 {									\
 	return generic_brick_init((const struct generic_brick_type*)&BRICK##_brick_type, (struct generic_brick*)brick, brick_name); \
 }									\
 									\
-static inline int BRICK##_input_init(struct BRICK##_brick *brick, int index, struct BRICK##_input *input, char *input_name) \
+static INLINE int BRICK##_input_init(struct BRICK##_brick *brick, int index, struct BRICK##_input *input, char *input_name) \
 {									\
 	return generic_input_init(					\
 		(struct generic_brick*)brick,				\
@@ -492,7 +499,7 @@ static inline int BRICK##_input_init(struct BRICK##_brick *brick, int index, str
 		input_name);						\
 }									\
 									\
-static inline int BRICK##_output_init(struct BRICK##_brick *brick, int index, struct BRICK##_output *output, char *output_name) \
+static INLINE int BRICK##_output_init(struct BRICK##_brick *brick, int index, struct BRICK##_output *output, char *output_name) \
 {									\
 	return generic_output_init(					\
 		(struct generic_brick*)brick,				\
@@ -515,14 +522,14 @@ static inline int BRICK##_output_init(struct BRICK##_brick *brick, int index, st
 									\
 _STRATEGY_CODE(							        \
 									\
-inline int INPUT_BRICK##_##OUTPUT_BRICK##_connect(	        \
+INLINE int INPUT_BRICK##_##OUTPUT_BRICK##_connect(	        \
 	struct INPUT_BRICK##_input *input,				\
 	struct OUTPUT_BRICK##_output *output)				\
 {									\
 	return generic_connect((struct generic_input*)input, (struct generic_output*)output); \
 }									\
 									\
-inline int INPUT_BRICK##_##OUTPUT_BRICK####_disconnect(        \
+INLINE int INPUT_BRICK##_##OUTPUT_BRICK####_disconnect(        \
 	struct INPUT_BRICK##_input *input)				\
 {									\
 	return generic_disconnect((struct generic_input*)input);	\
@@ -545,7 +552,7 @@ extern void free_generic(struct generic_object *object);
 
 #define GENERIC_OBJECT_LAYOUT_FUNCTIONS(BRICK)				\
 									\
-inline int BRICK##_init_object_layout(struct BRICK##_output *output, struct generic_object_layout *object_layout, int aspect_max, const struct generic_object_type *object_type) \
+INLINE int BRICK##_init_object_layout(struct BRICK##_output *output, struct generic_object_layout *object_layout, int aspect_max, const struct generic_object_type *object_type) \
 {									\
 	if (likely(object_layout->aspect_layouts_table && object_layout->aspect_layouts && object_layout->object_layout_generation == brick_layout_generation)) \
 		return 0;						\
@@ -554,7 +561,7 @@ inline int BRICK##_init_object_layout(struct BRICK##_output *output, struct gene
 
 #define GENERIC_ASPECT_LAYOUT_FUNCTIONS(BRICK,TYPE)			\
 									\
-inline int BRICK##_##TYPE##_add_aspect(struct BRICK##_output *output, struct TYPE##_object_layout *object_layout, const struct generic_aspect_type *aspect_type) \
+INLINE int BRICK##_##TYPE##_add_aspect(struct BRICK##_output *output, struct TYPE##_object_layout *object_layout, const struct generic_aspect_type *aspect_type) \
 {									\
 	int res = generic_add_aspect((struct generic_output*)output, (struct generic_object_layout *)object_layout, aspect_type); \
 	BRICK_DBG(#BRICK " " #TYPE "added aspect_type %p (%s) to object_layout %p (type %s) on output %p (type %s), status=%d\n", aspect_type, aspect_type->aspect_type_name, object_layout, object_layout->object_type->object_type_name, output, output->type->type_name, res); \
@@ -563,7 +570,7 @@ inline int BRICK##_##TYPE##_add_aspect(struct BRICK##_output *output, struct TYP
 
 #define GENERIC_OBJECT_FUNCTIONS(TYPE)					\
 									\
-inline struct TYPE##_object *TYPE##_construct(void *data, struct TYPE##_object_layout *object_layout) \
+INLINE struct TYPE##_object *TYPE##_construct(void *data, struct TYPE##_object_layout *object_layout) \
 {									\
 	struct TYPE##_object *obj = data;				\
 	int i;								\
@@ -596,7 +603,7 @@ inline struct TYPE##_object *TYPE##_construct(void *data, struct TYPE##_object_l
 	return obj;							\
 }									\
 									\
-inline void TYPE##_destruct(struct TYPE##_object *obj)	        \
+INLINE void TYPE##_destruct(struct TYPE##_object *obj)	        \
 {									\
 	struct TYPE##_object_layout *object_layout = obj->object_layout; \
 	int i;								\
@@ -627,7 +634,7 @@ inline void TYPE##_destruct(struct TYPE##_object *obj)	        \
 
 #define GENERIC_ASPECT_FUNCTIONS(BRICK,TYPE)				\
 									\
-inline struct BRICK##_##TYPE##_aspect *BRICK##_##TYPE##_get_aspect(struct BRICK##_output *output, struct TYPE##_object *obj) \
+INLINE struct BRICK##_##TYPE##_aspect *BRICK##_##TYPE##_get_aspect(struct BRICK##_output *output, struct TYPE##_object *obj) \
 {									\
 	struct generic_object_layout *object_layout;			\
 	struct generic_aspect_layout *aspect_layout;			\
@@ -648,7 +655,7 @@ inline struct BRICK##_##TYPE##_aspect *BRICK##_##TYPE##_get_aspect(struct BRICK#
 	return (void*)obj + aspect_layout->aspect_offset;		\
 }									\
 									\
-inline struct TYPE##_object *BRICK##_alloc_##TYPE(struct BRICK##_output *output, struct generic_object_layout *object_layout) \
+INLINE struct TYPE##_object *BRICK##_alloc_##TYPE(struct BRICK##_output *output, struct generic_object_layout *object_layout) \
 {									\
 	if (unlikely(!object_layout->aspect_layouts_table || !object_layout->aspect_layouts || object_layout->object_layout_generation != brick_layout_generation)) {			\
 		int status = default_init_object_layout((struct generic_output*)output, object_layout, BRICK_DEPTH_MAX, &TYPE##_type, #BRICK); \
@@ -658,12 +665,12 @@ inline struct TYPE##_object *BRICK##_alloc_##TYPE(struct BRICK##_output *output,
 	return (struct TYPE##_object*)alloc_generic(object_layout);	\
 }									\
 									\
-inline struct TYPE##_object *BRICK##_alloc_##TYPE##_pure(struct generic_object_layout *object_layout) \
+INLINE struct TYPE##_object *BRICK##_alloc_##TYPE##_pure(struct generic_object_layout *object_layout) \
 {									\
 	return (struct TYPE##_object*)alloc_generic(object_layout);	\
 }									\
 									\
-inline void BRICK##_free_##TYPE(struct TYPE##_object *object)     \
+INLINE void BRICK##_free_##TYPE(struct TYPE##_object *object)     \
 {									\
 	free_generic((struct generic_object*)object);			\
 }									\

@@ -109,6 +109,7 @@ struct log_status {
 	wait_queue_head_t event;
 	int error_code;
 	bool got;
+	bool do_free;
 	void *private;
 };
 

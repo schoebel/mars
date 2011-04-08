@@ -6,6 +6,11 @@
 #define REGION_SIZE (1 << REGION_SIZE_BITS)
 #define TRANS_HASH_MAX 512
 
+//#define BITMAP_CHECKS
+#ifdef BITMAP_CHECKS
+#include <linux/bitmap.h>
+#endif
+
 #include <linux/time.h>
 #include "log_format.h"
 #include "pairing_heap.h"
@@ -20,11 +25,13 @@ struct logger_queue {
 	struct list_head q_anchor;
 	struct pairing_heap_mref *heap_high;
 	struct pairing_heap_mref *heap_low;
-	loff_t heap_border;
-	long long q_last_action; // jiffies
+	loff_t heap_margin;
+	loff_t last_pos;
+	long long q_last_insert; // jiffies
 	spinlock_t q_lock;
 	atomic_t q_queued;
 	atomic_t q_flying;
+	atomic_t q_total;
 	const char *q_insert_info;
 	const char *q_pushback_info;
 	const char *q_fetch_info;
@@ -46,22 +53,54 @@ struct hash_anchor {
 	struct list_head hash_anchor;
 };
 
+struct writeback_info {
+	loff_t w_pos;
+	int    w_len;
+	struct list_head w_collect_list;   // list of collected orig requests
+	struct list_head w_sub_read_list;  // for saving the old data before overwrite
+	struct list_head w_sub_write_list; // for overwriting
+};
+
 struct trans_logger_mref_aspect {
 	GENERIC_ASPECT(mref);
 	struct trans_logger_output *output;
 	struct list_head hash_head;
 	struct list_head q_head;
 	struct list_head pos_head;
+	struct list_head replay_head;
+	struct list_head collect_head;
 	struct pairing_heap_mref ph;
 	struct trans_logger_mref_aspect *shadow_ref;
+	void  *shadow_data;
 	bool   do_dealloc;
+	bool   do_buffered;
 	bool   is_hashed;
-	bool   is_valid;
-	bool   is_outdated;
+	bool   is_dirty;
+	bool   ignore_this;
 	struct timespec stamp;
 	loff_t log_pos;
+	loff_t fetch_margin;
 	struct generic_callback cb;
 	struct trans_logger_mref_aspect *orig_mref_a;
+	struct list_head sub_list;
+	struct list_head sub_head;
+	int    total_sub_count;
+	atomic_t current_sub_count;
+	int    collect_generation;
+#ifdef BITMAP_CHECKS
+	int  shadow_offset;
+	int  bitmap_write;
+	int  bitmap_write_slave;
+	int  bitmap_read;
+	int  start_phase1;
+	int  end_phase1;
+	int  start_phase2;
+	int  sub_count;
+	unsigned long dirty_bitmap[4];
+	unsigned long touch_bitmap[4];
+	unsigned long slave_bitmap[4];
+	unsigned long work_bitmap[4];
+#endif
 };
 
 struct trans_logger_brick {
@@ -73,17 +112,23 @@ struct trans_logger_brick {
 	int chunk_size;   // must be at least 8K (better 64k)
 	int flush_delay;  // delayed firing of incomplete chunks
 	bool do_replay;   // mode of operation
+	bool do_continuous_replay;   // mode of operation
 	bool log_reads;   // additionally log pre-images
 	bool debug_shortcut; // only for testing! never use in production!
-	loff_t start_pos; // where to start replay
-	loff_t end_pos;   // end of replay
+	loff_t replay_start_pos; // where to start replay
+	loff_t replay_end_pos;   // end of replay
+	loff_t log_start_pos; // where to start logging
 	// readonly from outside
-	loff_t current_pos; // current logging position
-	loff_t replay_pos;  // current replay position
+	loff_t replay_pos;  // current replay position (both in replay mode and in logging mode)
+	loff_t current_pos; // current logging position (usually ahead of replay_pos)
+	int replay_code;    // replay errors (if any)
 	// private
+	loff_t old_margin;
 	struct log_status logst;
-	struct list_head pos_list;
 	spinlock_t pos_lock;
+	spinlock_t replay_lock;
+	struct list_head pos_list;
+	struct list_head replay_list;
 };
 
 struct trans_logger_output {
