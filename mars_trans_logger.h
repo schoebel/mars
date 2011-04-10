@@ -54,11 +54,16 @@ struct hash_anchor {
 };
 
 struct writeback_info {
+	struct trans_logger_output *w_output;
 	loff_t w_pos;
 	int    w_len;
 	struct list_head w_collect_list;   // list of collected orig requests
 	struct list_head w_sub_read_list;  // for saving the old data before overwrite
 	struct list_head w_sub_write_list; // for overwriting
+	atomic_t w_sub_read_count;
+	atomic_t w_sub_write_count;
+	void (*read_endio)(struct generic_callback *cb);
+	void (*write_endio)(struct generic_callback *cb);
 };
 
 struct trans_logger_mref_aspect {
@@ -76,12 +81,15 @@ struct trans_logger_mref_aspect {
 	bool   do_buffered;
 	bool   is_hashed;
 	bool   is_dirty;
+	bool   is_collected;
 	bool   ignore_this;
 	struct timespec stamp;
 	loff_t log_pos;
 	loff_t fetch_margin;
 	struct generic_callback cb;
 	struct trans_logger_mref_aspect *orig_mref_a;
+	struct writeback_info *wb;
+	struct trans_logger_mref_aspect *base_mref_a;
 	struct list_head sub_list;
 	struct list_head sub_head;
 	int    total_sub_count;
@@ -141,6 +149,7 @@ struct trans_logger_output {
 	atomic_t outer_balance_count;
 	atomic_t inner_balance_count;
 	atomic_t sub_balance_count;
+	atomic_t wb_balance_count;
 	atomic_t total_read_count;
 	atomic_t total_write_count;
 	atomic_t total_writeback_count;
