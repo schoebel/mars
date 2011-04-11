@@ -1222,7 +1222,7 @@ struct mars_brick *make_brick_all(
 	if (!brick && new_brick_type == _bio_brick_type && _aio_brick_type) {
 		struct kstat test = {};
 		int status = mars_stat(new_path, &test, false);
-		if (status < 0 || !S_ISBLK(test.mode)) {
+		if (true || status < 0 || !S_ISBLK(test.mode)) {
 			new_brick_type = _aio_brick_type;
 			MARS_DBG("substitute bio by aio\n");
 		}

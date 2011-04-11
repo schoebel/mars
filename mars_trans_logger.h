@@ -94,7 +94,6 @@ struct trans_logger_mref_aspect {
 	struct list_head sub_head;
 	int    total_sub_count;
 	atomic_t current_sub_count;
-	int    collect_generation;
 #ifdef BITMAP_CHECKS
 	int  shadow_offset;
 	int  bitmap_write;
@@ -158,6 +157,7 @@ struct trans_logger_output {
 	atomic_t total_sshadow_count;
 	struct task_struct *thread;
 	wait_queue_head_t event;
+	struct generic_object_layout writeback_layout;
 	struct generic_object_layout replay_layout;
 	// queues
 	struct logger_queue q_phase1;
