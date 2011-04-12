@@ -6,11 +6,6 @@
 #define REGION_SIZE (1 << REGION_SIZE_BITS)
 #define TRANS_HASH_MAX 512
 
-//#define BITMAP_CHECKS
-#ifdef BITMAP_CHECKS
-#include <linux/bitmap.h>
-#endif
-
 #include <linux/time.h>
 #include "log_format.h"
 #include "pairing_heap.h"
@@ -21,6 +16,7 @@ _PAIRING_HEAP_TYPEDEF(mref,)
 
 struct logger_queue {
 	struct logger_queue *q_dep;
+	atomic_t *q_dep_plus;
 	struct trans_logger_output *q_output;
 	struct list_head q_anchor;
 	struct pairing_heap_mref *heap_high;
@@ -82,32 +78,17 @@ struct trans_logger_mref_aspect {
 	bool   is_hashed;
 	bool   is_dirty;
 	bool   is_collected;
-	bool   ignore_this;
 	struct timespec stamp;
 	loff_t log_pos;
 	loff_t fetch_margin;
 	struct generic_callback cb;
 	struct trans_logger_mref_aspect *orig_mref_a;
 	struct writeback_info *wb;
-	struct trans_logger_mref_aspect *base_mref_a;
+	//struct trans_logger_mref_aspect *base_mref_a;
 	struct list_head sub_list;
 	struct list_head sub_head;
 	int    total_sub_count;
 	atomic_t current_sub_count;
-#ifdef BITMAP_CHECKS
-	int  shadow_offset;
-	int  bitmap_write;
-	int  bitmap_write_slave;
-	int  bitmap_read;
-	int  start_phase1;
-	int  end_phase1;
-	int  start_phase2;
-	int  sub_count;
-	unsigned long dirty_bitmap[4];
-	unsigned long touch_bitmap[4];
-	unsigned long slave_bitmap[4];
-	unsigned long work_bitmap[4];
-#endif
 };
 
 struct trans_logger_brick {

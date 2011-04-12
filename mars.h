@@ -275,10 +275,10 @@ static const struct generic_aspect_type *BRICK##_aspect_types[BRICK_OBJ_MAX] = {
 
 #define _CHECK_ATOMIC(atom,OP,minval)					\
 	do {								\
-		int test = atomic_read(atom);				\
-		if (test OP (minval)) {					\
+		int __test = atomic_read(atom);				\
+		if (__test OP (minval)) {				\
 			atomic_set(atom, minval);			\
-			MARS_ERR("%d: atomic " #atom " " #OP " " #minval " (%d)\n", __LINE__, test); \
+			MARS_ERR("%d: atomic " #atom " " #OP " " #minval " (%d)\n", __LINE__, __test); \
 		}							\
 	} while (0)
 
@@ -287,7 +287,7 @@ static const struct generic_aspect_type *BRICK##_aspect_types[BRICK_OBJ_MAX] = {
 
 #define CHECK_HEAD_EMPTY(head)						\
 	if (unlikely(!list_empty(head))) {				\
-		INIT_LIST_HEAD(head);					\
+		list_del_init(head);					\
 		MARS_ERR("%d: list_head " #head " (%p) not empty\n", __LINE__, head); \
 	}								\
 

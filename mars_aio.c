@@ -121,6 +121,8 @@ static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
 		mref->ref_flags = 0;
 #endif
 		mref_a->do_dealloc = true;
+		atomic_inc(&output->total_alloc_count);
+		atomic_inc(&output->alloc_count);
 	}
 
 	atomic_inc(&mref->ref_count);
@@ -144,6 +146,7 @@ static void aio_ref_put(struct aio_output *output, struct mref_object *mref)
 	mref_a = aio_mref_get_aspect(output, mref);
 	if (mref_a && mref_a->do_dealloc) {
 		kfree(mref->ref_data);
+		atomic_dec(&output->alloc_count);
 	}
 	aio_free_mref(mref);
  done:;
@@ -163,7 +166,15 @@ void _complete(struct aio_output *output, struct mref_object *mref, int err)
 	} else {
 		mref->ref_flags |= MREF_UPTODATE;
 	}
+
 	cb->cb_fn(cb);
+
+	if (mref->ref_rw) {
+		atomic_dec(&output->write_count);
+	} else {
+		atomic_dec(&output->read_count);
+	}
+
 	aio_ref_put(output, mref);
 }
 
@@ -174,6 +185,15 @@ static void aio_ref_io(struct aio_output *output, struct mref_object *mref)
 	int err = -EINVAL;
 
 	atomic_inc(&mref->ref_count);
+
+	// statistics
+	if (mref->ref_rw) {
+		atomic_inc(&output->total_write_count);
+		atomic_inc(&output->write_count);
+	} else {
+		atomic_inc(&output->total_read_count);
+		atomic_inc(&output->read_count);
+	}
 
 	if (unlikely(!output->filp)) {
 		goto done;
@@ -496,6 +516,35 @@ static int aio_get_info(struct aio_output *output, struct mars_info *info)
 	return 0;
 }
 
+//////////////// informational / statistics ///////////////
+
+static noinline
+char *aio_statistics(struct aio_brick *brick, int verbose)
+{
+	struct aio_output *output = brick->outputs[0];
+	char *res = kmalloc(256, GFP_MARS);
+	if (!res)
+		return NULL;
+
+	// FIXME: check for allocation overflows
+
+	sprintf(res, "total reads=%d writes=%d allocs=%d | flying reads=%d writes=%d allocs=%d \n",
+		atomic_read(&output->total_read_count), atomic_read(&output->total_write_count), atomic_read(&output->total_alloc_count), 
+		atomic_read(&output->read_count), atomic_read(&output->write_count), atomic_read(&output->alloc_count));
+
+	return res;
+}
+
+static noinline
+void aio_reset_statistics(struct aio_brick *brick)
+{
+	struct aio_output *output = brick->outputs[0];
+	atomic_set(&output->total_read_count, 0);
+	atomic_set(&output->total_write_count, 0);
+	atomic_set(&output->total_alloc_count, 0);
+}
+
+
 //////////////// object / aspect constructors / destructors ///////////////
 
 static int aio_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
@@ -659,6 +708,8 @@ static int aio_output_destruct(struct aio_output *output)
 
 static struct aio_brick_ops aio_brick_ops = {
 	.brick_switch = aio_switch,
+	.brick_statistics = aio_statistics,
+	.reset_statistics = aio_reset_statistics,
 };
 
 static struct aio_output_ops aio_output_ops = {

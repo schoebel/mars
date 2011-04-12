@@ -41,6 +41,13 @@ struct aio_output {
 	int fd; // FIXME: remove this!
 	struct aio_threadinfo tinfo[3];
 	aio_context_t ctxp;
+	// statistics
+	atomic_t total_read_count;
+	atomic_t total_write_count;
+	atomic_t total_alloc_count;
+	atomic_t read_count;
+	atomic_t write_count;
+	atomic_t alloc_count;
 };
 
 MARS_TYPES(aio);
