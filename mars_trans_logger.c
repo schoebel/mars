@@ -22,6 +22,8 @@
 #define CLEAN_ALL
 #define WB_MEMLEAK
 
+//#define WEG
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/string.h>
@@ -317,10 +319,12 @@ struct trans_logger_mref_aspect *hash_find(struct trans_logger_output *output, l
 
 	res = _hash_find(&start->hash_anchor, pos, max_len, false);
 
+#ifdef WEG
 	if (res) {
 		atomic_inc(&res->object->ref_count); // must be paired with __trans_logger_ref_put()
 		atomic_inc(&output->inner_balance_count);
 	}
+#endif
 
 	traced_readunlock(&start->hash_lock, flags);
 
@@ -418,8 +422,10 @@ void hash_extend(struct trans_logger_output *output, loff_t *_pos, int *_len, st
 		// collect
 		CHECK_HEAD_EMPTY(&test_a->collect_head);
 		test_a->is_collected = true;
+#ifdef WEG
 		atomic_inc(&test->ref_count); // must be paired with __trans_logger_ref_put()
 		atomic_inc(&output->inner_balance_count);
+#endif
 		list_add_tail(&test_a->collect_head, collect_list);
 	}
 
@@ -515,8 +521,16 @@ int _make_sshadow(struct trans_logger_output *output, struct trans_logger_mref_a
 	mref->ref_flags = mshadow->ref_flags;
 	mref_a->shadow_ref = mshadow_a;
 	mref_a->output = output;
-	atomic_inc(&mref->ref_count);
+
+	if (atomic_read(&mref->ref_count) == 0) {
+		// get an extra internal reference from slave to master
+		atomic_inc(&mshadow->ref_count);  // is compensated by master transition in __trans_logger_ref_put()
+		atomic_inc(&output->inner_balance_count);
+	}
+
+	atomic_inc(&mref->ref_count); // must be paired with __trans_logger_ref_put()
 	atomic_inc(&output->inner_balance_count);
+
 	atomic_inc(&output->sshadow_count);
 	atomic_inc(&output->total_sshadow_count);
 #if 1
@@ -543,6 +557,7 @@ int _read_ref_get(struct trans_logger_output *output, struct trans_logger_mref_a
 	if (!mshadow_a) {
 		return GENERIC_INPUT_CALL(input, mref_get, mref);
 	}
+
 	return _make_sshadow(output, mref_a, mshadow_a);
 }	
 
@@ -591,8 +606,12 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 	mref_a->output = output;
 	mref->ref_flags = 0;
 	mref_a->shadow_ref = mref_a; // cyclic self-reference => indicates master shadow
-	atomic_inc(&mref->ref_count);
+#ifdef WEG
+	// get an extra internal reference to itself
+	atomic_inc(&mref->ref_count);  // is compensated by master transition in __trans_logger_ref_put()
 	atomic_inc(&output->inner_balance_count);
+#endif
+
 	get_lamport(&mref_a->stamp);
 #if 1
 	if (unlikely(mref->ref_len <= 0)) {
@@ -600,6 +619,9 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 		return -EINVAL;
 	}
 #endif
+
+	atomic_inc(&mref->ref_count); // must be paired with __trans_logger_ref_put()
+	atomic_inc(&output->inner_balance_count);
 
 	atomic_inc(&output->mshadow_count);
 	atomic_inc(&output->total_mshadow_count);
@@ -667,7 +689,7 @@ restart:
 
 	CHECK_PTR(output, err);
 
-	// are we a shadow?
+	// are we a shadow (whether master or slave)?
 	shadow_a = mref_a->shadow_ref;
 	if (shadow_a) {
 		unsigned long flags;
@@ -690,10 +712,12 @@ restart:
 		CHECK_HEAD_EMPTY(&mref_a->collect_head);
 		CHECK_HEAD_EMPTY(&mref_a->sub_list);
 		CHECK_HEAD_EMPTY(&mref_a->sub_head);
-#if 1 // FIXME: do bookkeping here
+#ifdef WEG // FIXME: do bookkeping here
 		traced_lock(&output->brick->pos_lock, flags);
 		list_del_init(&mref_a->pos_head);
 		traced_unlock(&output->brick->pos_lock, flags);
+#else
+		CHECK_HEAD_EMPTY(&mref_a->pos_head);
 #endif
 		if (shadow_a != mref_a) { // we are a slave shadow
 			//MARS_DBG("slave\n");
@@ -816,7 +840,7 @@ void trans_logger_ref_io(struct trans_logger_output *output, struct mref_object 
 		CHECK_HEAD_EMPTY(&mref_a->q_head);
 		CHECK_HEAD_EMPTY(&mref_a->pos_head);
 #endif
-		atomic_inc(&mref->ref_count);
+		atomic_inc(&mref->ref_count); // must be paired with __trans_logger_ref_put()
 		atomic_inc(&output->inner_balance_count);
 
 		q_insert(&output->q_phase1, mref_a);
@@ -1089,8 +1113,10 @@ void phase1_endio(void *private, int error)
 	orig_cb->cb_fn(orig_cb);
 
 	// queue up for the next phase
+#ifdef WEG
 	atomic_inc(&orig_mref->ref_count); // must be paired with __trans_logger_ref_put()
 	atomic_inc(&output->inner_balance_count);
+#endif
 	q_insert(&output->q_phase2, orig_mref_a);
 	wake_up_interruptible(&output->event);
 	return;
@@ -1318,8 +1344,10 @@ bool phase2_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	fire_writeback(wb, &wb->w_sub_write_list);
 
  done:
+#ifdef WEG
 #ifdef CLEAN_ALL
 	__trans_logger_ref_put(orig_mref_a->output, orig_mref_a);
+#endif
 #endif
 	return true;
 	

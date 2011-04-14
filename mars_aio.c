@@ -81,7 +81,10 @@ static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
 {
 	struct file *file = output->filp;
 
-	_CHECK_ATOMIC(&mref->ref_count, !=,  0);
+	if (atomic_read(&mref->ref_count) > 0) {
+		atomic_inc(&mref->ref_count);
+		return mref->ref_len;
+	}
 	
 	if (file) {
 		loff_t total_size = i_size_read(file->f_mapping->host);
@@ -126,7 +129,7 @@ static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
 	}
 
 	atomic_inc(&mref->ref_count);
-	return 0;
+	return mref->ref_len;
 }
 
 static void aio_ref_put(struct aio_output *output, struct mref_object *mref)

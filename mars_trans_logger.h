@@ -84,7 +84,6 @@ struct trans_logger_mref_aspect {
 	struct generic_callback cb;
 	struct trans_logger_mref_aspect *orig_mref_a;
 	struct writeback_info *wb;
-	//struct trans_logger_mref_aspect *base_mref_a;
 	struct list_head sub_list;
 	struct list_head sub_head;
 	int    total_sub_count;
