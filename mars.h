@@ -2,10 +2,7 @@
 #ifndef MARS_H
 #define MARS_H
 
-#include <linux/list.h>
 #include <linux/semaphore.h>
-#include <asm/spinlock.h>
-#include <asm/atomic.h>
 
 #define MEMLEAK // FIXME: remove this
 //#define MARS_TRACING // write runtime trace data to /mars/trace.csv
@@ -42,7 +39,7 @@
 #define _MARS_FMT(fmt) "[%s] " __BASE_FILE__ " %d %s(): " fmt, current->comm, __LINE__, __FUNCTION__
 //#define _MARS_FMT(fmt) _BRICK_FMT(fmt)
 
-#define _MARS_MSG(PREFIX, fmt, args...) do { printk(PREFIX _MARS_FMT(fmt), ##args); MARS_DELAY; } while (0)
+#define _MARS_MSG(PREFIX, fmt, args...) do { say(PREFIX _MARS_FMT(fmt), ##args); MARS_DELAY; } while (0)
 #define MARS_FAT(fmt, args...) _MARS_MSG(MARS_FATAL,   fmt, ##args)
 #define MARS_ERR(fmt, args...) _MARS_MSG(MARS_ERROR,   fmt, ##args)
 #define MARS_WRN(fmt, args...) _MARS_MSG(MARS_WARNING, fmt, ##args)

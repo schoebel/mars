@@ -145,6 +145,8 @@ void q_insert(struct logger_queue *q, struct trans_logger_mref_aspect *mref_a)
 {
 	unsigned long flags;
 
+	CHECK_ATOMIC(&mref_a->object->ref_count, 1);
+
 	mars_trace(mref_a->object, q->q_insert_info);
 
 	traced_lock(&q->q_lock, flags);
@@ -169,6 +171,8 @@ static inline
 void q_pushback(struct logger_queue *q, struct trans_logger_mref_aspect *mref_a)
 {
 	unsigned long flags;
+
+	CHECK_ATOMIC(&mref_a->object->ref_count, 1);
 
 	mars_trace(mref_a->object, q->q_pushback_info);
 
@@ -231,6 +235,7 @@ struct trans_logger_mref_aspect *q_fetch(struct logger_queue *q)
 	traced_unlock(&q->q_lock, flags);
 
 	if (mref_a) {
+		CHECK_ATOMIC(&mref_a->object->ref_count, 1);
 		mars_trace(mref_a->object, q->q_fetch_info);
 	}
 
@@ -340,6 +345,7 @@ void hash_insert(struct trans_logger_output *output, struct trans_logger_mref_as
 
 #if 1
 	CHECK_HEAD_EMPTY(&elem_a->hash_head);
+	CHECK_ATOMIC(&elem_a->object->ref_count, 1);
 #endif
 
 	// only for statistics:
@@ -384,6 +390,8 @@ void hash_extend(struct trans_logger_output *output, loff_t *_pos, int *_len, st
 			test_a = container_of(tmp, struct trans_logger_mref_aspect, hash_head);
 			test = test_a->object;
 			
+			CHECK_ATOMIC(&test->ref_count, 1);
+
 			// are the regions overlapping?
 			if (test_a->is_collected || pos >= test->ref_pos + test->ref_len || pos + len <= test->ref_pos) {
 				continue; // not relevant
@@ -450,6 +458,9 @@ void hash_put_all(struct trans_logger_output *output, struct list_head *list)
 
 		elem_a = container_of(tmp, struct trans_logger_mref_aspect, collect_head);
 		elem = elem_a->object;
+
+		CHECK_ATOMIC(&elem->ref_count, 1);
+
 		hash = hash_fn(elem->ref_pos);
 		if (!start) {
 			first_hash = hash;
@@ -692,7 +703,6 @@ restart:
 	// are we a shadow (whether master or slave)?
 	shadow_a = mref_a->shadow_ref;
 	if (shadow_a) {
-		unsigned long flags;
 		bool finished;
 
 		CHECK_ATOMIC(&mref->ref_count, 1);
@@ -706,19 +716,15 @@ restart:
 		if (!finished) {
 			return;
 		}
+
 		CHECK_HEAD_EMPTY(&mref_a->hash_head);
 		CHECK_HEAD_EMPTY(&mref_a->q_head);
 		CHECK_HEAD_EMPTY(&mref_a->replay_head);
 		CHECK_HEAD_EMPTY(&mref_a->collect_head);
 		CHECK_HEAD_EMPTY(&mref_a->sub_list);
 		CHECK_HEAD_EMPTY(&mref_a->sub_head);
-#ifdef WEG // FIXME: do bookkeping here
-		traced_lock(&output->brick->pos_lock, flags);
-		list_del_init(&mref_a->pos_head);
-		traced_unlock(&output->brick->pos_lock, flags);
-#else
 		CHECK_HEAD_EMPTY(&mref_a->pos_head);
-#endif
+
 		if (shadow_a != mref_a) { // we are a slave shadow
 			//MARS_DBG("slave\n");
 			atomic_dec(&output->sshadow_count);
@@ -872,6 +878,28 @@ err:
 ////////////////////////////// writeback info //////////////////////////////
 
 static noinline
+void pos_complete(struct trans_logger_mref_aspect *orig_mref_a)
+{
+	struct trans_logger_output *output = orig_mref_a->output;
+	struct trans_logger_brick *brick = output->brick;
+	struct list_head *tmp;
+	unsigned long flags;
+
+	// save final completion status
+	traced_lock(&brick->pos_lock, flags);
+	tmp = &orig_mref_a->pos_head;
+	if (tmp == brick->pos_list.next) {
+		loff_t finished = orig_mref_a->log_pos;
+		if (finished <= brick->replay_pos) {
+			MARS_ERR("backskip in log replay: %lld -> %lld\n", brick->replay_pos, orig_mref_a->log_pos);
+		}
+		brick->replay_pos = finished;
+	}
+	list_del_init(tmp);
+	traced_unlock(&brick->pos_lock, flags);
+}
+
+static noinline
 void free_writeback(struct writeback_info *wb)
 {
 	struct list_head *tmp;
@@ -886,6 +914,9 @@ void free_writeback(struct writeback_info *wb)
 		orig_mref = orig_mref_a->object;
 		
 		CHECK_ATOMIC(&orig_mref->ref_count, 1);
+
+		pos_complete(orig_mref_a);
+
 #ifdef CLEAN_ALL
 		__trans_logger_ref_put(orig_mref_a->output, orig_mref_a);
 #endif

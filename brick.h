@@ -7,12 +7,21 @@
 #include <linux/sched.h>
 #include <linux/wait.h>
 
+#include <asm/atomic.h>
+
 #ifdef CONFIG_DEBUG_KERNEL
 #define INLINE inline
 //#define INLINE __attribute__((__noinline__))
-#else
+extern void say(const char *fmt, ...);
+extern void say_mark(void);
+
+#else // CONFIG_DEBUG_KERNEL
+
 #define INLINE inline
-#endif
+#define say printk
+#define say_mark() /*empty*/
+
+#endif // CONFIG_DEBUG_KERNEL
 
 #ifdef _STRATEGY
 #define _STRATEGY_CODE(X) X
@@ -30,7 +39,7 @@
 
 #define _BRICK_FMT(fmt) __BASE_FILE__ " %d %s(): " fmt, __LINE__, __FUNCTION__
 
-#define _BRICK_MSG(PREFIX, fmt, args...) do { printk(PREFIX _BRICK_FMT(fmt), ##args); } while (0)
+#define _BRICK_MSG(PREFIX, fmt, args...) do { say(PREFIX _BRICK_FMT(fmt), ##args); } while (0)
 
 #define BRICK_FAT(fmt, args...) _BRICK_MSG(BRICK_FATAL,   fmt, ##args)
 #define BRICK_ERR(fmt, args...) _BRICK_MSG(BRICK_ERROR,   fmt, ##args)
@@ -709,6 +718,7 @@ extern void set_lamport(struct timespec *old);
 	do {								\
 		spin_unlock_irqrestore(spinlock, flags);		\
 		atomic_dec(&current->lock_count);			\
+		say_mark();						\
 	} while (0)
 
 # define traced_readlock(spinlock,flags)				\
@@ -726,6 +736,7 @@ extern void set_lamport(struct timespec *old);
 		/*spin_unlock_irqrestore(spinlock,flags);*/		\
 		read_unlock(spinlock);					\
 		atomic_dec(&current->lock_count);			\
+		say_mark();						\
 	} while (0)
 
 # define traced_writelock(spinlock,flags)				\
@@ -743,6 +754,7 @@ extern void set_lamport(struct timespec *old);
 		/*spin_unlock_irqrestore(spinlock,flags);*/		\
 		write_unlock(spinlock);					\
 		atomic_dec(&current->lock_count);			\
+		say_mark();						\
 	} while (0)
 
 #else
