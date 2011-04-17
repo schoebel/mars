@@ -21,6 +21,7 @@
 #define MARS_MAX_AIO_READ 32
 
 #define STRONG_MM
+#define MEMLEAK // FIXME: remove this
 
 ///////////////////////// own type definitions ////////////////////////
 

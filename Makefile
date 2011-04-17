@@ -15,6 +15,7 @@ obj-$(CONFIG_MARS_TRANS_LOGGER)	+= mars_trans_logger.o
 obj-$(CONFIG_MARS_SERVER)	+= mars_server.o
 obj-$(CONFIG_MARS_CLIENT)	+= mars_client.o
 obj-$(CONFIG_MARS_COPY)		+= mars_copy.o
+obj-$(CONFIG_MARS_DCRAID)	+= mars_dcraid.o
 
 obj-$(CONFIG_MARS_TEST)		+= mars_test.o
 obj-$(CONFIG_MARS_LIGHT)	+= mars_light.o

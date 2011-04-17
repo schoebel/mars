@@ -4,7 +4,6 @@
 
 #include <linux/semaphore.h>
 
-#define MEMLEAK // FIXME: remove this
 //#define MARS_TRACING // write runtime trace data to /mars/trace.csv
 
 /////////////////////////////////////////////////////////////////////////
