@@ -7,22 +7,17 @@
 //#define IO_DEBUGGING
 //#define STAT_DEBUGGING // here means: display full statistics
 
+// variants
+#define KEEP_UNIQUE
+//#define USE_KMALLOC
+//#define WB_COPY
+
 // changing this is dangerous for data integrity! use only for testing!
 #define USE_MEMCPY
-//#define USE_KMALLOC
 #define USE_HIGHER_PHASES
 #define APPLY_DATA
-//#define DO_SKIP
-#define DO_EXTEND
 
 #define NEW_CODE
-#define KEEP_UNIQUE
-#define WB_COPY
-#define NOTRASH_DATA
-#define CLEAN_ALL
-#define WB_MEMLEAK
-
-//#define WEG
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -40,10 +35,8 @@
 #define inline noinline
 #endif
 
-////////////////////////////////////////////////////////////////////
-
 static inline
-bool q_cmp(struct pairing_heap_mref *_a, struct pairing_heap_mref *_b)
+bool qq_cmp(struct pairing_heap_mref *_a, struct pairing_heap_mref *_b)
 {
 	struct trans_logger_mref_aspect *mref_a = container_of(_a, struct trans_logger_mref_aspect, ph);
 	struct trans_logger_mref_aspect *mref_b = container_of(_b, struct trans_logger_mref_aspect, ph);
@@ -52,7 +45,10 @@ bool q_cmp(struct pairing_heap_mref *_a, struct pairing_heap_mref *_b)
 	return a->ref_pos < b->ref_pos;
 }
 
-_PAIRING_HEAP_FUNCTIONS(static,mref,q_cmp);
+_PAIRING_HEAP_FUNCTIONS(static,mref,qq_cmp);
+
+
+//////////////////////// generic queue handling (TBD!!!) /////////////////////
 
 static inline
 void q_init(struct logger_queue *q, struct trans_logger_output *output)
@@ -66,88 +62,10 @@ void q_init(struct logger_queue *q, struct trans_logger_output *output)
 	atomic_set(&q->q_flying, 0);
 }
 
-static noinline
-bool q_is_ready(struct logger_queue *q)
-{
-	struct logger_queue *dep;
-	int queued = atomic_read(&q->q_queued);
-	int contention;
-	int max_contention;
-	int over;
-	int flying;
-	bool res = false;
-
-	/* 1) when empty, there is nothing to do.
-	 */
-	if (queued <= 0)
-		goto always_done;
-
-	/* compute some characteristic measures
-	 */
-	contention = atomic_read(&q->q_output->fly_count);
-	if (q->q_dep_plus) {
-		contention += atomic_read(q->q_dep_plus);
-	}
-	dep = q->q_dep;
-	while (dep) {
-		contention += atomic_read(&dep->q_queued) + atomic_read(&dep->q_flying);
-		dep = dep->q_dep;
-	}
-	max_contention = q->q_max_contention;
-	over = queued - q->q_max_queued;
-	if (over > 0 && q->q_over_pressure > 0) {
-		max_contention += over / q->q_over_pressure;
-	}
-
-#if 1
-	/* 2) when other queues are too much contended,
-	 * refrain from contending the IO system even more.
-	 */
-	if (contention > max_contention) {
-		goto always_done;
-	}
-#endif
-
-	/* 3) when the maximum queue length is reached, start IO.
-	 */
-	res = true;
-	if (over > 0)
-		goto limit;
-
-	/* 4) also start IO when queued requests are too old
-	 * (measured in realtime)
-	 */
-	if (q->q_max_jiffies > 0 &&
-	   (long long)jiffies - q->q_last_insert >= q->q_max_jiffies)
-		goto limit;
-
-	/* 5) when no contention, start draining the queue.
-	 */
-	if (contention <= 0)
-		goto limit;
-
-	res = false;
-	goto always_done;
-
-limit:
-	/* Limit the number of flying requests (parallelism)
-	 */
-	flying = atomic_read(&q->q_flying);
-	if (q->q_max_flying > 0 && flying >= q->q_max_flying)
-		res = false;
-
-always_done:
-	return res;
-}
-
 static inline
 void q_insert(struct logger_queue *q, struct trans_logger_mref_aspect *mref_a)
 {
 	unsigned long flags;
-
-	CHECK_ATOMIC(&mref_a->object->ref_count, 1);
-
-	mars_trace(mref_a->object, q->q_insert_info);
 
 	traced_lock(&q->q_lock, flags);
 
@@ -242,6 +160,96 @@ struct trans_logger_mref_aspect *q_fetch(struct logger_queue *q)
 	return mref_a;
 }
 
+////////////////////////// logger queue handling ////////////////////////
+
+static noinline
+bool qq_is_ready(struct logger_queue *q)
+{
+	struct logger_queue *dep;
+	int queued = atomic_read(&q->q_queued);
+	int contention;
+	int max_contention;
+	int over;
+	int flying;
+	bool res = false;
+
+	/* 1) when empty, there is nothing to do.
+	 */
+	if (queued <= 0)
+		goto always_done;
+
+	/* compute some characteristic measures
+	 */
+	contention = atomic_read(&q->q_output->fly_count);
+	if (q->q_dep_plus) {
+		contention += atomic_read(q->q_dep_plus);
+	}
+	dep = q->q_dep;
+	while (dep) {
+		contention += atomic_read(&dep->q_queued) + atomic_read(&dep->q_flying);
+		dep = dep->q_dep;
+	}
+	max_contention = q->q_max_contention;
+	over = queued - q->q_max_queued;
+	if (over > 0 && q->q_over_pressure > 0) {
+		max_contention += over / q->q_over_pressure;
+	}
+
+#if 1
+	/* 2) when other queues are too much contended,
+	 * refrain from contending the IO system even more.
+	 */
+	if (contention > max_contention) {
+		goto always_done;
+	}
+#endif
+
+	/* 3) when the maximum queue length is reached, start IO.
+	 */
+	res = true;
+	if (over > 0)
+		goto limit;
+
+	/* 4) also start IO when queued requests are too old
+	 * (measured in realtime)
+	 */
+	if (q->q_max_jiffies > 0 &&
+	   (long long)jiffies - q->q_last_insert >= q->q_max_jiffies)
+		goto limit;
+
+	/* 5) when no contention, start draining the queue.
+	 */
+	if (contention <= 0)
+		goto limit;
+
+	res = false;
+	goto always_done;
+
+limit:
+	/* Limit the number of flying requests (parallelism)
+	 */
+	flying = atomic_read(&q->q_flying);
+	if (q->q_max_flying > 0 && flying >= q->q_max_flying)
+		res = false;
+
+always_done:
+	return res;
+}
+
+static inline
+void qq_insert(struct logger_queue *q, struct trans_logger_mref_aspect *mref_a)
+{
+	struct mref_object *mref = mref_a->object;
+	CHECK_ATOMIC(&mref->ref_count, 1);
+	atomic_inc(&mref->ref_count); // must be paired with __trans_logger_ref_put()
+	atomic_inc(&q->q_output->inner_balance_count);
+
+	mars_trace(mref, q->q_insert_info);
+
+	q_insert(q, mref_a);
+}
+
+
 ///////////////////////// own helper functions ////////////////////////
 
 
@@ -323,13 +331,6 @@ struct trans_logger_mref_aspect *hash_find(struct trans_logger_output *output, l
 	traced_readlock(&start->hash_lock, flags);
 
 	res = _hash_find(&start->hash_anchor, pos, max_len, false);
-
-#ifdef WEG
-	if (res) {
-		atomic_inc(&res->object->ref_count); // must be paired with __trans_logger_ref_put()
-		atomic_inc(&output->inner_balance_count);
-	}
-#endif
 
 	traced_readunlock(&start->hash_lock, flags);
 
@@ -430,10 +431,7 @@ void hash_extend(struct trans_logger_output *output, loff_t *_pos, int *_len, st
 		// collect
 		CHECK_HEAD_EMPTY(&test_a->collect_head);
 		test_a->is_collected = true;
-#ifdef WEG
-		atomic_inc(&test->ref_count); // must be paired with __trans_logger_ref_put()
-		atomic_inc(&output->inner_balance_count);
-#endif
+		CHECK_ATOMIC(&test->ref_count, 1);
 		list_add_tail(&test_a->collect_head, collect_list);
 	}
 
@@ -533,13 +531,15 @@ int _make_sshadow(struct trans_logger_output *output, struct trans_logger_mref_a
 	mref_a->shadow_ref = mshadow_a;
 	mref_a->output = output;
 
-	if (atomic_read(&mref->ref_count) == 0) {
-		// get an extra internal reference from slave to master
-		atomic_inc(&mshadow->ref_count);  // is compensated by master transition in __trans_logger_ref_put()
-		atomic_inc(&output->inner_balance_count);
-	}
-
+	/* Get an ordinary internal reference
+	 */
 	atomic_inc(&mref->ref_count); // must be paired with __trans_logger_ref_put()
+	atomic_inc(&output->inner_balance_count);
+
+	/* Get an additional internal reference from slave to master,
+	 * such that the master cannot go away before the slave.
+	 */
+	atomic_inc(&mshadow->ref_count);  // is compensated by master transition in __trans_logger_ref_put()
 	atomic_inc(&output->inner_balance_count);
 
 	atomic_inc(&output->sshadow_count);
@@ -617,11 +617,6 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 	mref_a->output = output;
 	mref->ref_flags = 0;
 	mref_a->shadow_ref = mref_a; // cyclic self-reference => indicates master shadow
-#ifdef WEG
-	// get an extra internal reference to itself
-	atomic_inc(&mref->ref_count);  // is compensated by master transition in __trans_logger_ref_put()
-	atomic_inc(&output->inner_balance_count);
-#endif
 
 	get_lamport(&mref_a->stamp);
 #if 1
@@ -849,7 +844,7 @@ void trans_logger_ref_io(struct trans_logger_output *output, struct mref_object 
 		atomic_inc(&mref->ref_count); // must be paired with __trans_logger_ref_put()
 		atomic_inc(&output->inner_balance_count);
 
-		q_insert(&output->q_phase1, mref_a);
+		qq_insert(&output->q_phase1, mref_a);
 		wake_up_interruptible(&output->event);
 		return;
 	}
@@ -917,15 +912,10 @@ void free_writeback(struct writeback_info *wb)
 
 		pos_complete(orig_mref_a);
 
-#ifdef CLEAN_ALL
 		__trans_logger_ref_put(orig_mref_a->output, orig_mref_a);
-#endif
 	}
 	//...
-#ifndef WB_MEMLEAK
-//FIXME: introduce refcount
 	kfree(wb);
-#endif
 }
 
 static noinline
@@ -1047,11 +1037,7 @@ struct writeback_info *make_writeback(struct trans_logger_output *output, loff_t
 			goto err;
 		}
 #ifdef WB_COPY
-#ifdef NOTRASH_DATA
 		memcpy(sub_mref->ref_data, data, sub_mref->ref_len);
-#else
-		memset(sub_mref->ref_data, 0xff, sub_mref->ref_len);
-#endif
 #endif
 		
 		list_add_tail(&sub_mref_a->sub_head, &wb->w_sub_write_list);
@@ -1144,11 +1130,7 @@ void phase1_endio(void *private, int error)
 	orig_cb->cb_fn(orig_cb);
 
 	// queue up for the next phase
-#ifdef WEG
-	atomic_inc(&orig_mref->ref_count); // must be paired with __trans_logger_ref_put()
-	atomic_inc(&output->inner_balance_count);
-#endif
-	q_insert(&output->q_phase2, orig_mref_a);
+	qq_insert(&output->q_phase2, orig_mref_a);
 	wake_up_interruptible(&output->event);
 	return;
 err: 
@@ -1375,11 +1357,6 @@ bool phase2_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	fire_writeback(wb, &wb->w_sub_write_list);
 
  done:
-#ifdef WEG
-#ifdef CLEAN_ALL
-	__trans_logger_ref_put(orig_mref_a->output, orig_mref_a);
-#endif
-#endif
 	return true;
 	
  err:
@@ -1402,7 +1379,7 @@ void _phase3_endio(struct trans_logger_mref_aspect *orig_mref_a)
 	CHECK_PTR(output, err);
 	
 	// queue up for the next phase
-	q_insert(&output->q_phase4, orig_mref_a);
+	qq_insert(&output->q_phase4, orig_mref_a);
 	wake_up_interruptible(&output->event);
 	return;
 
@@ -1557,9 +1534,7 @@ void _phase4_endio(struct trans_logger_mref_aspect *orig_mref_a)
 		MARS_ERR("dirty pos = %lld len = %d\n", orig_mref->ref_pos, orig_mref->ref_len);
 		//...
 	} else {
-#ifdef CLEAN_ALL
 		__trans_logger_ref_put(orig_mref_a->output, orig_mref_a);
-#endif
 	}
 	wake_up_interruptible(&output->event);
 	return;
@@ -1593,18 +1568,6 @@ void phase4_endio(struct generic_callback *cb)
 		goto err;
 	}
 
-#ifndef NOTRASH_DATA
-	{
-		int i;
-		for (i = 0; i < sub_mref->ref_len; i++) {
-			char x = ((char*)sub_mref_a->shadow_data)[i];
-			if (x != (char)0xff) {
-				MARS_ERR("bad byte %d at %d\n", (int)x, i);
-				break;
-			}
-		}
-	}
-#endif
 
 	if (atomic_dec_and_test(&orig_mref_a->current_sub_count)) {
 		_phase4_endio(orig_mref_a);
@@ -1652,11 +1615,7 @@ bool get_newest_data(struct trans_logger_output *output, void *buf, loff_t pos, 
 			MARS_ERR("bad diff %d (found len = %d, this_len = %d)\n", diff, src->ref_len, this_len);
 			return false;
 		}
-#ifdef NOTRASH_DATA
 		memcpy(buf, src_a->shadow_data + diff, this_len);
-#else
-		memset(buf, 0xff, this_len);
-#endif
 
 		len -= this_len;
 		pos += this_len;
@@ -1698,18 +1657,6 @@ bool _phase4_startio(struct trans_logger_mref_aspect *sub_mref_a)
 		MARS_ERR("cannot get data at pos = %lld len = %d\n", sub_mref->ref_pos, sub_mref->ref_len);
 		status = -EIO;
 	}
-#ifndef NOTRASH_DATA
-	{
-		int i;
-		for (i = 0; i < sub_mref->ref_len; i++) {
-			char x = ((char*)sub_mref->ref_data)[i];
-			if (x != (char)0xff) {
-				MARS_ERR("bad byte %d at %d\n", (int)x, i);
-				break;
-			}
-		}
-	}
-#endif
 
 	cb = &sub_mref_a->cb;
 	cb->cb_fn = phase4_endio;
@@ -1806,6 +1753,7 @@ int run_queue(struct trans_logger_output *output, struct logger_queue *q, bool (
 			res = 1;
 			goto done;
 		}
+		__trans_logger_ref_put(output, mref_a);
 	}
 	res = 0;
 
@@ -1858,10 +1806,10 @@ void trans_logger_log(struct trans_logger_output *output)
 			output->event,
 			atomic_read(&output->q_phase1.q_queued) > 0 ||
 #ifdef USE_HIGHER_PHASES
-			q_is_ready(&output->q_phase2) ||
+			qq_is_ready(&output->q_phase2) ||
 #ifndef NEW_CODE
-			q_is_ready(&output->q_phase3) ||
-			q_is_ready(&output->q_phase4) ||
+			qq_is_ready(&output->q_phase3) ||
+			qq_is_ready(&output->q_phase4) ||
 #endif
 #endif
 			(kthread_should_stop() && !_congested(output)),
@@ -1918,17 +1866,17 @@ void trans_logger_log(struct trans_logger_output *output)
 		}
 #ifdef USE_HIGHER_PHASES
 #ifndef NEW_CODE
-		if (q_is_ready(&output->q_phase4)) {
+		if (qq_is_ready(&output->q_phase4)) {
 			(void)run_queue(output, &output->q_phase4, phase4_startio, output->q_phase4.q_batchlen);
 		}
 #endif
 
-		if (q_is_ready(&output->q_phase2)) {
+		if (qq_is_ready(&output->q_phase2)) {
 			(void)run_queue(output, &output->q_phase2, phase2_startio, output->q_phase2.q_batchlen);
 		}
 
 #ifndef NEW_CODE
-		if (q_is_ready(&output->q_phase3)) {
+		if (qq_is_ready(&output->q_phase3)) {
 			status = run_queue(output, &output->q_phase3, phase3_startio, output->q_phase3.q_batchlen);
 		}
 #endif

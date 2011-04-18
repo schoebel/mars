@@ -4,11 +4,11 @@
  *
  * This is meant for sharing between different transaction logger variants,
  * and/or for sharing with userspace tools (e.g. logfile analyzers).
- * TODO: factor out kernelspace issues.
+ * TODO: factor out some remaining kernelspace issues.
  */
 
-#ifndef LOG_FORMAT_H
-#define LOG_FORMAT_H
+#ifndef LIB_LOG_H
+#define LIB_LOG_H
 
 #include "mars.h"
 

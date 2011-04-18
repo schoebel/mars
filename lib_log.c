@@ -4,7 +4,7 @@
 #include <linux/module.h>
 #include <linux/bio.h>
 
-#include "log_format.h"
+#include "lib_log.h"
 
 void init_logst(struct log_status *logst, struct mars_input *input, struct mars_output *output, loff_t start_pos)
 {

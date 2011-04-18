@@ -98,13 +98,6 @@ config MARS_COPY
 	---help---
 	Experimental storage System.
 
-config MARS_DCRAID
-	tristate "dcraid brick"
-	depends on MARS
-	default m
-	---help---
-	Experimental storage System.
-
 config MARS_TEST
 	tristate "provisionary TEST"
 	depends on MARS

@@ -7,8 +7,9 @@
 #define TRANS_HASH_MAX 512
 
 #include <linux/time.h>
-#include "log_format.h"
-#include "pairing_heap.h"
+
+#include "lib_log.h"
+#include "lib_pairing_heap.h"
 
 ////////////////////////////////////////////////////////////////////
 
