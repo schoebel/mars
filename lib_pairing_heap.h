@@ -36,7 +36,7 @@ struct pairing_heap_##KEYTYPE *_ph_merge_##KEYTYPE(struct pairing_heap_##KEYTYPE
 		return heap2;						\
 	if (!heap2)							\
 		return heap1;						\
-	if (CMP(heap1, heap2)) {						\
+	if (CMP(heap1, heap2) < 0) {					\
 		heap2->next = heap1->subheaps;				\
 		heap1->subheaps = heap2;				\
 		return heap1;						\
@@ -83,7 +83,7 @@ void ph_delete_min_##KEYTYPE(struct pairing_heap_##KEYTYPE **heap)	\
 }
 
 /* some default CMP() function */
-#define PAIRING_HEAP_COMPARE(a,b) ((a)->key < (b)->key)
+#define PAIRING_HEAP_COMPARE(a,b) ((a)->key < (b)->key ? -1 : ((a)->key > (b)->key ? 1 : 0))
 
 /* less generic version: use the default CMP() function */
 #define PAIRING_HEAP_FUNCTIONS(_STATIC,KEYTYPE)				\

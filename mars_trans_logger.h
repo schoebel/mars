@@ -10,37 +10,25 @@
 
 #include "lib_log.h"
 #include "lib_pairing_heap.h"
+#include "lib_queue.h"
 
 ////////////////////////////////////////////////////////////////////
 
-_PAIRING_HEAP_TYPEDEF(mref,)
+_PAIRING_HEAP_TYPEDEF(logger,)
 
 struct logger_queue {
-	struct logger_queue *q_dep;
-	atomic_t *q_dep_plus;
+	QUEUE_ANCHOR(logger,loff_t,logger);
 	struct trans_logger_output *q_output;
-	struct list_head q_anchor;
-	struct pairing_heap_mref *heap_high;
-	struct pairing_heap_mref *heap_low;
-	loff_t heap_margin;
-	loff_t last_pos;
-	long long q_last_insert; // jiffies
-	spinlock_t q_lock;
-	atomic_t q_queued;
-	atomic_t q_flying;
-	atomic_t q_total;
 	const char *q_insert_info;
 	const char *q_pushback_info;
 	const char *q_fetch_info;
-	// tunables
-	int q_batchlen;
-	int q_max_queued;
-	int q_max_flying;
-	int q_max_jiffies;
-	int q_max_contention;
-	int q_over_pressure;
-	int q_io_prio;
-	bool q_ordering;
+
+};
+
+struct logger_head {
+	struct list_head lh_head;
+	loff_t *lh_pos;
+	struct pairing_heap_logger ph;
 };
 
 ////////////////////////////////////////////////////////////////////
@@ -52,8 +40,10 @@ struct hash_anchor {
 
 struct writeback_info {
 	struct trans_logger_output *w_output;
+	struct logger_head w_lh;
 	loff_t w_pos;
 	int    w_len;
+	int    w_error;
 	struct list_head w_collect_list;   // list of collected orig requests
 	struct list_head w_sub_read_list;  // for saving the old data before overwrite
 	struct list_head w_sub_write_list; // for overwriting
@@ -66,12 +56,13 @@ struct writeback_info {
 struct trans_logger_mref_aspect {
 	GENERIC_ASPECT(mref);
 	struct trans_logger_output *output;
+	struct logger_head lh;
 	struct list_head hash_head;
-	struct list_head q_head;
+	//struct list_head q_head;
 	struct list_head pos_head;
 	struct list_head replay_head;
 	struct list_head collect_head;
-	struct pairing_heap_mref ph;
+	struct pairing_heap_logger ph;
 	struct trans_logger_mref_aspect *shadow_ref;
 	void  *shadow_data;
 	bool   do_dealloc;
@@ -81,7 +72,6 @@ struct trans_logger_mref_aspect {
 	bool   is_collected;
 	struct timespec stamp;
 	loff_t log_pos;
-	loff_t fetch_margin;
 	struct generic_callback cb;
 	struct trans_logger_mref_aspect *orig_mref_a;
 	struct writeback_info *wb;
