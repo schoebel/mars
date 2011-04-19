@@ -20,6 +20,8 @@
 #include <linux/namei.h>
 #include <linux/kthread.h>
 
+#define SKIP_BIO false
+
 /////////////////////////////////////////////////////////////////////
 
 // meta descriptions
@@ -1222,7 +1224,7 @@ struct mars_brick *make_brick_all(
 	if (!brick && new_brick_type == _bio_brick_type && _aio_brick_type) {
 		struct kstat test = {};
 		int status = mars_stat(new_path, &test, false);
-		if (true || status < 0 || !S_ISBLK(test.mode)) {
+		if (SKIP_BIO || status < 0 || !S_ISBLK(test.mode)) {
 			new_brick_type = _aio_brick_type;
 			MARS_DBG("substitute bio by aio\n");
 		}

@@ -49,6 +49,7 @@ struct writeback_info {
 	struct list_head w_sub_write_list; // for overwriting
 	atomic_t w_sub_read_count;
 	atomic_t w_sub_write_count;
+	atomic_t w_sub_log_count;
 	void (*read_endio)(struct generic_callback *cb);
 	void (*write_endio)(struct generic_callback *cb);
 };
@@ -73,7 +74,6 @@ struct trans_logger_mref_aspect {
 	struct timespec stamp;
 	loff_t log_pos;
 	struct generic_callback cb;
-	struct trans_logger_mref_aspect *orig_mref_a;
 	struct writeback_info *wb;
 	struct list_head sub_list;
 	struct list_head sub_head;

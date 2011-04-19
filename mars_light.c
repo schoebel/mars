@@ -63,6 +63,8 @@ struct light_class {
 #define CONF_TRANS_BATCHLEN 32
 #define CONF_TRANS_FLYING 4
 #define CONF_TRANS_PRIO   MARS_PRIO_HIGH
+#define CONF_TRANS_LOG_READS false
+//#define CONF_TRANS_LOG_READS true
 
 //#define CONF_ALL_BATCHLEN 2
 #define CONF_ALL_BATCHLEN 1
@@ -125,7 +127,7 @@ void _set_trans_params(struct mars_brick *_brick, void *private)
 
 		trans_brick->outputs[0]->q_phase2.q_ordering = true;
 		trans_brick->outputs[0]->q_phase4.q_ordering = true;
-		trans_brick->log_reads = false;
+		trans_brick->log_reads = CONF_TRANS_LOG_READS;
 #ifdef TRANS_FAKE
 		trans_brick->debug_shortcut = true;
 #endif
