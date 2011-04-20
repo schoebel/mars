@@ -63,8 +63,8 @@ struct light_class {
 #define CONF_TRANS_BATCHLEN 32
 #define CONF_TRANS_FLYING 4
 #define CONF_TRANS_PRIO   MARS_PRIO_HIGH
-#define CONF_TRANS_LOG_READS false
-//#define CONF_TRANS_LOG_READS true
+//#define CONF_TRANS_LOG_READS false
+#define CONF_TRANS_LOG_READS true
 
 //#define CONF_ALL_BATCHLEN 2
 #define CONF_ALL_BATCHLEN 1

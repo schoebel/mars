@@ -4,15 +4,17 @@
 #define LIB_QUEUE_H
 
 #define QUEUE_ANCHOR(PREFIX,KEYTYPE,HEAPTYPE)		\
-	struct PREFIX##_queue *q_dep;			\
-	atomic_t *q_dep_plus;				\
+	spinlock_t q_lock;				\
 	struct list_head q_anchor;			\
 	struct pairing_heap_##HEAPTYPE *heap_high;	\
 	struct pairing_heap_##HEAPTYPE *heap_low;	\
 	long long q_last_insert; /* jiffies */		\
 	KEYTYPE heap_margin;				\
 	KEYTYPE last_pos;				\
-	spinlock_t q_lock;				\
+	/* parameters */				\
+	atomic_t *q_contention;				\
+	struct PREFIX##_queue *q_dep;			\
+	bool q_barrier;					\
 	/* readonly from outside */			\
 	atomic_t q_queued;				\
 	atomic_t q_flying;				\
@@ -122,6 +124,83 @@ ELEM_TYPE *q_##PREFIX##_fetch(struct PREFIX##_queue *q)			\
 	traced_unlock(&q->q_lock, flags);				\
 									\
 	return elem;							\
-}
+}									\
+									\
+static inline							        \
+bool q_##PREFIX##_is_ready(struct logger_queue *q)		        \
+{									\
+	struct PREFIX##_queue *dep;					\
+	int queued = atomic_read(&q->q_queued);				\
+	int contention;							\
+	int max_contention;						\
+	int over;							\
+	int flying;							\
+	bool res = false;						\
+									\
+	/* 1) when empty, there is nothing to do.			\
+	 */								\
+	if (queued <= 0)							\
+		goto always_done;					\
+									\
+	/* compute some characteristic measures				\
+	 */								\
+	contention = 0;							\
+	if (q->q_contention) {						\
+		contention = atomic_read(q->q_contention);		\
+	}								\
+	dep = q->q_dep;							\
+	while (dep) {							\
+		contention += atomic_read(&dep->q_queued) + atomic_read(&dep->q_flying); \
+		dep = dep->q_dep;					\
+	}								\
+	max_contention = q->q_max_contention;				\
+	over = queued - q->q_max_queued;				\
+	if (over > 0 && q->q_over_pressure > 0) {			\
+		max_contention += over / q->q_over_pressure;		\
+	}								\
+									\
+	/* 2) check whether queue is halted				\
+	 */								\
+	if (q->q_barrier && contention > 0)				\
+		goto always_done;					\
+									\
+	/* 3) when other queues are too much contended,			\
+	 * refrain from contending the IO system even more.		\
+	 */								\
+	if (contention > max_contention) {				\
+		goto always_done;					\
+	}								\
+									\
+	/* 4) when the maximum queue length is reached, start IO.	\
+	 */								\
+	res = true;							\
+	if (over > 0)							\
+		goto limit;						\
+									\
+	/* 5) also start IO when queued requests are too old		\
+	 * (measured in realtime)					\
+	 */								\
+	if (q->q_max_jiffies > 0 &&					\
+	   (long long)jiffies - q->q_last_insert >= q->q_max_jiffies)	\
+		goto limit;						\
+									\
+	/* 6) when no contention, start draining the queue.		\
+	 */								\
+	if (contention <= 0)						\
+		goto limit;						\
+									\
+	res = false;							\
+	goto always_done;						\
+									\
+limit:									\
+	/* Limit the number of flying requests (parallelism)		\
+	 */								\
+	flying = atomic_read(&q->q_flying);				\
+	if (q->q_max_flying > 0 && flying >= q->q_max_flying)		\
+		res = false;						\
+									\
+always_done:								\
+	return res;							\
+}									\
 
 #endif
