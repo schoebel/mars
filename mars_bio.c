@@ -58,7 +58,7 @@ err:
  * Return the length (may be smaller than requested).
  */
 static
-int make_bio(struct bio_brick *brick, struct page *page, void *data, int len, loff_t pos, struct bio_mref_aspect *private, struct bio **_bio)
+int make_bio(struct bio_brick *brick, void *data, int len, loff_t pos, struct bio_mref_aspect *private, struct bio **_bio)
 {
 	unsigned long long sector;
 	int sector_offset;
@@ -100,47 +100,7 @@ int make_bio(struct bio_brick *brick, struct page *page, void *data, int len, lo
 		goto out;
 	}
 
-	// page already known? => just take it
-	if (page) {
-		/* We assume that the original request on the original page
-		 * was valid, so allow offsets into higher-order pages
-		 * as long as sector boundaries aren't violated.
-		 */
-		void *start = page_address(page);
-		page_offset = data - start;
-		if (unlikely(page_offset < 0 || page_offset & ((1 << 9) - 1))) {
-			MARS_ERR("odd page_offset %d\n", page_offset);
-			goto out;
-		}
-	} else {
-		/* For safety, constrain to pageorder 0 when we don't know
-		 * anything about the real order of the underlying page.
-		 *
-		 * If you need performance from higher-order pages, you
-		 * must supply the ->ref_page argument.
-		 *
-		 * Probably this could be improved by blindly believing
-		 * the original request, but for now it appears
-		 * too risky to me.
-		 * There is at least the risk of ending up with "odd"
-		 * artificial "pseudo-pages" not matching the binary layout
-		 * of the buddy system. If some instance at lower layers
-		 * relies on page order properties (which is quite possible,
-		 * even in future), a lot of things might go _very_ wrong.
-		 */
-		page_offset = pos & (PAGE_SIZE - 1);
-		if (rest_len + page_offset > PAGE_SIZE) {
-			rest_len = PAGE_SIZE - page_offset;
-		}
-		// this looses the original pageorder information :(
-		page = virt_to_page(data); 
-		if (unlikely(!page)) {
-			MARS_ERR("cannot access page %p\n", data);
-			status = -EINVAL;
-			goto out;
-		}
-	}
-	
+	page_offset = ((unsigned long)data) & (PAGE_SIZE-1);
 	page_len = rest_len + page_offset;
 	bvec_count = (page_len - 1) / PAGE_SIZE + 1;
 	if (bvec_count > brick->bvec_max) {
@@ -156,6 +116,7 @@ int make_bio(struct bio_brick *brick, struct page *page, void *data, int len, lo
 	}
 
 	for (i = 0; i < bvec_count && rest_len > 0; i++) {
+		struct page *page;
 		int this_rest = PAGE_SIZE - page_offset;
 		int this_len = rest_len;
 
@@ -169,6 +130,13 @@ int make_bio(struct bio_brick *brick, struct page *page, void *data, int len, lo
 			goto out;
 		}
 #endif
+
+		page = mars_iomap(data, &page_offset, &this_len);
+		if (unlikely(!page)) {
+			MARS_ERR("cannot iomap() kernel address %p\n", data);
+			status = -EINVAL;
+			goto out;
+		}
 
 		MARS_IO("  i = %d page = %p bv_len = %d bv_offset = %d\n", i, page, this_len, page_offset);
 
@@ -242,40 +210,15 @@ static int bio_ref_get(struct bio_output *output, struct mref_object *mref)
 	mref_a->bio = NULL;
 
 	if (!mref->ref_data) { // buffered IO.
-		struct page *page;
-		int order = 6;
-		while (order > 0 && mref->ref_len <= PAGE_SIZE << (order-1)) {
-			order--;
-		}
-
-		MARS_IO("alloc page length = %d order = %d\n", mref->ref_len, order);
-
 		status = -ENOMEM;
-		page = alloc_pages(GFP_MARS, order);
-		if (unlikely(!page)) {
-			// try again with smaller order...
-			if (order > 0) {
-				order = 0;
-				page = alloc_pages(GFP_MARS, order);
-			}
-			if (!page) {
-				goto done;
-			}
-		}
-		mref->ref_data = page_address(page);
+		mref->ref_data = mars_vmalloc(mref->ref_pos, mref->ref_len);
 		if (unlikely(!mref->ref_data)) {
 			goto done;
 		}
-
-		if (mref->ref_len > (PAGE_SIZE << order)) {
-			mref->ref_len = PAGE_SIZE << order;
-		}
-		mref_a->page = page;
-		mref_a->order = order;
 		mref_a->do_dealloc = true;
 	}
 
-	status = make_bio(output->brick, mref->ref_page, mref->ref_data, mref->ref_len, mref->ref_pos, mref_a, &mref_a->bio);
+	status = make_bio(output->brick, mref->ref_data, mref->ref_len, mref->ref_pos, mref_a, &mref_a->bio);
 	if (unlikely(status < 0 || !mref_a->bio)) {
 		MARS_ERR("could not create bio, status = %d\n", status);
 		goto done;
@@ -315,8 +258,7 @@ void bio_ref_put(struct bio_output *output, struct mref_object *mref)
 	}
 	if (mref_a->do_dealloc) {
 		MARS_IO("free page\n");
-		__free_pages(mref_a->page, mref_a->order);
-		mref_a->page = NULL;
+		mars_vfree(mref->ref_data);
 		mref->ref_data = NULL;
 	}
 	bio_free_mref(mref);
@@ -343,11 +285,6 @@ static void bio_ref_io(struct bio_output *output, struct mref_object *mref)
 	CHECK_ATOMIC(&mref->ref_count, 1);
 	atomic_inc(&mref->ref_count);
 	atomic_inc(&output->brick->fly_count);
-
-	if (mref->ref_is_kmapped) {
-		mref->ref_is_kmapped = false;
-		kunmap(mref->ref_data);
-	}
 
 	bio_get(bio);
 

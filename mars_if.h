@@ -18,7 +18,10 @@ struct if_mref_aspect {
 	struct list_head hash_head;
 	int hash_index;
 	int bio_count;
+	int current_len;
 	int max_len;
+	bool is_kmapped;
+	struct page *orig_page;
 	struct bio *orig_bio[MAX_BIO];
 	struct generic_callback cb;
 	struct if_input *input;
@@ -42,6 +45,7 @@ struct if_input {
 	spinlock_t req_lock;
 	struct semaphore kick_sem;
 	struct generic_object_layout mref_object_layout;
+	struct mars_info info;
 	spinlock_t hash_lock[IF_HASH_MAX];
 	struct list_head hash_table[IF_HASH_MAX];
 };

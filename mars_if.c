@@ -8,8 +8,9 @@
 //#define MARS_DEBUGGING
 //#define IO_DEBUGGING
 
-//#define REQUEST_MERGING
-//#define PREFETCH_LEN PAGE_SIZE // TODO: make this work
+#define REQUEST_MERGING
+#define PREFETCH_LEN PAGE_SIZE
+//#define FRONT_MERGE // FIXME: this does not work.
 
 // low-level device parameters
 //#define USE_MAX_SECTORS         (MARS_MAX_SEGMENT_SIZE >> 9)
@@ -77,7 +78,7 @@ void if_endio(struct generic_callback *cb)
 			continue;
 		}
 #if 1
-		if (mref_a->object->ref_is_kmapped) {
+		if (mref_a->is_kmapped) {
 			struct bio_vec *bvec;
 			int i;
 			bio_for_each_segment(bvec, bio, i) {
@@ -131,12 +132,18 @@ static void _if_unplug(struct if_input *input)
 
 		mref_a = container_of(tmp_list.next, struct if_mref_aspect, plug_head);
 		list_del_init(&mref_a->plug_head);
+
 		hash_index = mref_a->hash_index;
 		traced_lock(&input->hash_lock[hash_index], flags);
 		list_del_init(&mref_a->hash_head);
 		traced_unlock(&input->hash_lock[hash_index], flags);
 
                 mref = mref_a->object;
+
+		if (unlikely(mref_a->current_len > mref_a->max_len)) {
+			MARS_ERR("request len %d > %d\n", mref_a->current_len, mref_a->max_len);
+		}
+		mref->ref_len = mref_a->current_len;
 
 		mars_trace(mref, "if_unplug");
 
@@ -244,23 +251,25 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 
 				tmp_a = container_of(tmp, struct if_mref_aspect, hash_head);
 				tmp_mref = tmp_a->object;
-				if (tmp_mref->ref_page != page || tmp_mref->ref_rw != rw || tmp_a->bio_count >= MAX_BIO || tmp_mref->ref_len + bv_len > tmp_a->max_len) {
+				if (tmp_a->orig_page != page || tmp_mref->ref_rw != rw || tmp_a->bio_count >= MAX_BIO || tmp_a->current_len + bv_len > tmp_a->max_len) {
 					continue;
 				}
 
-				if (tmp_mref->ref_data + tmp_mref->ref_len == data) {
+				if (tmp_mref->ref_data + tmp_a->current_len == data) {
 					goto merge_end;
-#if 0
+#ifdef FRONT_MERGE // FIXME: this cannot work. ref_data must never be changed. pre-allocate from offset 0 instead.
 				} else if (data + bv_len == tmp_mref->ref_data) {
 					goto merge_front;
 #endif
 				}
 				continue;
 
+#ifdef FRONT_MERGE // FIXME: this cannot work. ref_data must never be changed. pre-allocate from offset 0 instead.
 			merge_front:
 				tmp_mref->ref_data = data;
+#endif
 			merge_end:
-				tmp_mref->ref_len += bv_len;
+				tmp_a->current_len += bv_len;
 				mref = tmp_mref;
 				mref_a = tmp_a;
 				this_len = bv_len;
@@ -300,8 +309,18 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 
 #ifdef PREFETCH_LEN
 				prefetch_len = PREFETCH_LEN - offset;
-				if (prefetch_len < bv_len)
+#if 1
+				// TODO: this restriction is too strong to be useful for performance boosts. Do better.
+				if (prefetch_len > total_len) {
+					prefetch_len = total_len;
+				}
+#endif
+				if (pos + prefetch_len > input->info.current_size) {
+					prefetch_len = input->info.current_size - pos;
+				}
+				if (prefetch_len < bv_len) {
 					prefetch_len = bv_len;
+				}
 #else
 				prefetch_len = bv_len;
 #endif
@@ -317,8 +336,8 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 				mref->ref_pos = pos;
 				mref->ref_len = prefetch_len;
 				mref->ref_data = data; // direct IO
-				mref->ref_page = page;
-				mref->ref_is_kmapped = true;
+				mref_a->orig_page = page;
+				mref_a->is_kmapped = true;
 
 				error = GENERIC_INPUT_CALL(input, mref_get, mref);
 				if (unlikely(error < 0)) {
@@ -328,10 +347,12 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 				
 				mars_trace(mref, "if_start");
 
-				mref_a->max_len = this_len = mref->ref_len; // now may be shorter than originally requested.
+				this_len = mref->ref_len; // now may be shorter than originally requested.
+				mref_a->max_len = this_len;
 				if (this_len > bv_len) {
-					mref->ref_len = this_len = bv_len;
+					this_len = bv_len;
 				}
+				mref_a->current_len = this_len;
 				if (rw) {
 					atomic_inc(&input->mref_write_count);
 				} else {
@@ -470,18 +491,17 @@ static int if_switch(struct if_brick *brick)
 	struct request_queue *q;
 	struct gendisk *disk;
 	int minor;
-	struct mars_info info = {};
 	unsigned long capacity;
 	int status;
 
 	if (brick->power.button) {
 		mars_power_led_off((void*)brick,  false);
-		status = GENERIC_INPUT_CALL(input, mars_get_info, &info);
+		status = GENERIC_INPUT_CALL(input, mars_get_info, &input->info);
 		if (status < 0) {
 			MARS_ERR("cannot get device info, status=%d\n", status);
 			return status;
 		}
-		capacity = info.current_size >> 9; // TODO: make this dynamic
+		capacity = input->info.current_size >> 9; // TODO: make this dynamic
 		
 		q = blk_alloc_queue(GFP_MARS);
 		if (!q) {

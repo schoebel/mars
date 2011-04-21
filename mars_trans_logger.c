@@ -9,8 +9,6 @@
 
 // variants
 #define KEEP_UNIQUE
-//#define USE_KMALLOC
-#define HIGHER_ORDER
 //#define WB_COPY
 #define LATER
 
@@ -60,7 +58,6 @@ loff_t *lh_get(struct logger_head *th)
 	return th->lh_pos;
 }
 
-//QUEUE_FUNCTIONS(logger,struct trans_logger_mref_aspect,th.th_head,MREF_KEY_FN,th_cmp,mref);
 QUEUE_FUNCTIONS(logger,struct logger_head,lh_head,lh_get,lh_cmp,logger);
 
 ////////////////////////// logger queue handling ////////////////////////
@@ -470,12 +467,7 @@ static noinline
 int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_aspect *mref_a)
 {
 	struct mref_object *mref = mref_a->object;
-	struct page *page;
 	void *data;
-#ifndef USE_KMALLOC
-	int offset;
-	int order = 0;
-#endif
 
 #ifdef KEEP_UNIQUE
 	struct trans_logger_mref_aspect *mshadow_a;
@@ -486,27 +478,7 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 #endif
 
 	// create a new master shadow
-#ifdef USE_KMALLOC
-	data = kmalloc(mref->ref_len, GFP_MARS);
-	mref->ref_page = NULL;
-#else
-	offset = mref->ref_pos & (PAGE_SIZE-1);
-#ifdef HIGHER_ORDER
-	order = 4;
-	while (order > 0 && mref->ref_len + offset < (PAGE_SIZE << (order-1))) {
-		order--;
-	}
-#endif	
-	if (mref->ref_len > (PAGE_SIZE << order) - offset) {
-		mref->ref_len = (PAGE_SIZE << order) - offset;
-	}
-	page = alloc_pages(GFP_MARS, order);
-	if (unlikely(!page)) {
-		return -ENOMEM;
-	}
-	mref->ref_page = page;
-	data = page_address(page) + offset;
-#endif
+	data = mars_vmalloc(mref->ref_pos, mref->ref_len);
 	if (unlikely(!data)) {
 		return -ENOMEM;
 	}
@@ -637,11 +609,7 @@ restart:
 		// we are a master shadow
 		CHECK_PTR(mref_a->shadow_data, err);
 		if (mref_a->do_dealloc) {
-#ifdef USE_KMALLOC
-			kfree(mref_a->shadow_data);
-#else
-			free_page((unsigned long)mref_a->shadow_data);
-#endif
+			mars_vfree(mref_a->shadow_data);
 			mref_a->shadow_data = NULL;
 			mref_a->do_dealloc = false;
 		}

@@ -129,9 +129,7 @@ extern void mars_log_trace(struct mref_object *mref);
 	int    ref_flags;						\
 	int    ref_rw;							\
 	int    ref_id; /* not mandatory; may be used for identification */ \
-	struct page *ref_page;						\
 	bool   ref_skip_sync; /* skip sync for this particular mref */	\
-	bool   ref_is_kmapped; /* tribute for higher-level IO abstraction */ \
 	/* maintained by the ref implementation, incrementable for	\
 	 * callers (but not decrementable! use ref_put()) */		\
 	atomic_t ref_count;						\
@@ -247,6 +245,14 @@ GENERIC_OBJECT_FUNCTIONS(mref);
 _MARS_TYPES(mars);
 GENERIC_OBJECT_LAYOUT_FUNCTIONS(mars);
 GENERIC_ASPECT_FUNCTIONS(mars,mref);
+
+/////////////////////////////////////////////////////////////////////////
+
+// MARS-specific memory allocation
+
+extern void *mars_vmalloc(loff_t pos, int len);
+extern void mars_vfree(void *data);
+extern struct page *mars_iomap(void *data, int *offset, int *len);
 
 /////////////////////////////////////////////////////////////////////////
 

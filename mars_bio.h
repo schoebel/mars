@@ -14,8 +14,6 @@ struct bio_mref_aspect {
 	struct bio_output *output;
 	int status_code;
 	int hash_pos;
-	int order;
-	struct page *page;
 	bool do_dealloc;
 };
 

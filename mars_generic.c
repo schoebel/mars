@@ -22,6 +22,50 @@
 
 #define SKIP_BIO false
 
+/////////////////////////////////////////////////////////////////////////
+
+// MARS-specific memory allocation
+
+void *mars_vmalloc(loff_t pos, int len)
+{
+	int offset;
+	void *data;
+
+	offset = pos & (PAGE_SIZE-1);
+	data = __vmalloc(len + offset, GFP_MARS, PAGE_KERNEL_IO);
+	if (likely(data)) {
+		data += offset;
+	}
+	return data;
+}
+EXPORT_SYMBOL_GPL(mars_vmalloc);
+
+void mars_vfree(void *data)
+{
+	int offset = ((unsigned long)data) & (PAGE_SIZE-1);
+	data -= offset;
+	vfree(data);
+}
+EXPORT_SYMBOL_GPL(mars_vfree);
+
+struct page *mars_iomap(void *data, int *offset, int *len)
+{
+	int _offset = ((unsigned long)data) & (PAGE_SIZE-1);
+	struct page *page;
+	*offset = _offset;
+	if (*len > PAGE_SIZE - _offset) {
+		*len = PAGE_SIZE - _offset;
+	}
+	if (is_vmalloc_addr(data)) {
+		page = vmalloc_to_page(data);
+	} else {
+		page = virt_to_page(data);
+	}
+	return page;
+}
+EXPORT_SYMBOL_GPL(mars_iomap);
+
+
 /////////////////////////////////////////////////////////////////////
 
 // meta descriptions
