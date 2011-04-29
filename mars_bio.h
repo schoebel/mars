@@ -24,6 +24,8 @@ struct bio_brick {
 	// readonly
 	loff_t total_size;
 	atomic_t fly_count;
+	atomic_t completed_count;
+	atomic_t total_completed_count;
 	// private
 	spinlock_t lock;
 	struct list_head completed_list;

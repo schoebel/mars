@@ -294,6 +294,7 @@ static int aio_submit_thread(void *data)
 	while (!kthread_should_stop()) {
 		struct aio_mref_aspect *mref_a;
 		struct mref_object *mref;
+		int sleeptime;
 		int err;
 
 		wait_event_interruptible_timeout(
@@ -334,12 +335,29 @@ static int aio_submit_thread(void *data)
 			}
 		}
 
+		sleeptime = 1000 / HZ;
 		for (;;) {
+			if (mref->ref_rw != READ && output->brick->wait_during_fdsync) {
+				if (output->fdsync_active) {
+					atomic_inc(&output->total_fdsync_wait_count);
+				}
+				wait_event_interruptible_timeout(
+					output->fdsync_event,
+					!output->fdsync_active || kthread_should_stop(),
+					60 * HZ);
+
+			}
+
 			err = aio_submit(output, mref_a, false);
+
 			if (likely(err != -EAGAIN)) {
 				break;
 			}
-			msleep(1000 / HZ);
+			atomic_inc(&output->total_delay_count);
+			msleep(sleeptime);
+			if (sleeptime < 100) {
+				sleeptime += 1000 / HZ;
+			}
 		}
 		if (unlikely(err < 0)) {
 			_complete(output, mref, err);
@@ -469,17 +487,20 @@ static int aio_sync_thread(void *data)
 		int i;
 		int err;
 
+		output->fdsync_active = false;
+
 		wait_event_interruptible_timeout(
 			tinfo->event,
 			kthread_should_stop() ||
 			_dequeue(tinfo, false),
-			HZ);
+			60 * HZ);
 
 		traced_lock(&tinfo->lock, flags);
 		for (i = MARS_PRIO_HIGH; i <= MARS_PRIO_LOW; i++) {
 			if (!list_empty(&tinfo->mref_list[i])) {
 				// move over the whole list
 				list_replace_init(&tinfo->mref_list[i], &tmp_list);
+				output->fdsync_active = true;
 				break;
 			}
 		}
@@ -489,8 +510,11 @@ static int aio_sync_thread(void *data)
 			continue;
 
 		err = vfs_fsync(file, file->f_path.dentry, 1);
-		if (err < 0)
+		output->fdsync_active = false;
+		wake_up_interruptible(&output->fdsync_event);
+		if (err < 0) {
 			MARS_ERR("FDSYNC error %d\n", err);
+		}
 
 		/* Signal completion for the whole list.
 		 * No locking needed, it's on the stack.
@@ -532,8 +556,8 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 
 	// FIXME: check for allocation overflows
 
-	sprintf(res, "total reads=%d writes=%d allocs=%d | flying reads=%d writes=%d allocs=%d \n",
-		atomic_read(&output->total_read_count), atomic_read(&output->total_write_count), atomic_read(&output->total_alloc_count), 
+	sprintf(res, "total reads = %d writes = %d allocs = %d delays = %d fdsync_waits = %d | flying reads = %d writes = %d allocs = %d \n",
+		atomic_read(&output->total_read_count), atomic_read(&output->total_write_count), atomic_read(&output->total_alloc_count), atomic_read(&output->total_delay_count), atomic_read(&output->total_fdsync_wait_count), 
 		atomic_read(&output->read_count), atomic_read(&output->write_count), atomic_read(&output->alloc_count));
 
 	return res;
@@ -546,6 +570,8 @@ void aio_reset_statistics(struct aio_brick *brick)
 	atomic_set(&output->total_read_count, 0);
 	atomic_set(&output->total_write_count, 0);
 	atomic_set(&output->total_alloc_count, 0);
+	atomic_set(&output->total_delay_count, 0);
+	atomic_set(&output->total_fdsync_wait_count, 0);
 }
 
 
@@ -700,6 +726,7 @@ cleanup:
 
 static int aio_output_construct(struct aio_output *output)
 {
+	init_waitqueue_head(&output->fdsync_event);
 	return 0;
 }
 

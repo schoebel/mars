@@ -43,6 +43,7 @@ void bio_callback(struct bio *bio, int code)
 	spin_lock_irqsave(&brick->lock, flags);
 	if (list_empty(&mref_a->io_head)) {
 		list_add_tail(&mref_a->io_head, &brick->completed_list);
+		atomic_inc(&brick->completed_count);
 	}
 	spin_unlock_irqrestore(&brick->lock, flags);
 
@@ -272,6 +273,7 @@ err:
 
 static void bio_ref_io(struct bio_output *output, struct mref_object *mref)
 {
+	struct bio_brick *brick = output->brick;
 	struct bio_mref_aspect *mref_a = bio_mref_get_aspect(output, mref);
 	struct bio *bio;
 	struct generic_callback *cb;
@@ -284,20 +286,20 @@ static void bio_ref_io(struct bio_output *output, struct mref_object *mref)
 
 	CHECK_ATOMIC(&mref->ref_count, 1);
 	atomic_inc(&mref->ref_count);
-	atomic_inc(&output->brick->fly_count);
+	atomic_inc(&brick->fly_count);
 
 	bio_get(bio);
 
 	rw = mref->ref_rw & 1;
-	MARS_IO("starting IO rw = %d fly = %d\n", rw, atomic_read(&output->brick->fly_count));
+	MARS_IO("starting IO rw = %d fly = %d\n", rw, atomic_read(&brick->fly_count));
 	mars_trace(mref, "bio_submit");
 
 #ifdef WAIT_CLASH
 	mref_a->hash_pos = (mref->ref_pos / PAGE_SIZE) % WAIT_CLASH;
 	if (mref->ref_rw) {
-		down_write(&output->brick->hashtable[mref_a->hash_pos]);
+		down_write(&brick->hashtable[mref_a->hash_pos]);
 	} else {
-		down_read(&output->brick->hashtable[mref_a->hash_pos]);
+		down_read(&brick->hashtable[mref_a->hash_pos]);
 	}
 #endif
 
@@ -318,7 +320,7 @@ static void bio_ref_io(struct bio_output *output, struct mref_object *mref)
 
 #if 1
 	bio_put(bio);
-	atomic_dec(&output->brick->fly_count);
+	atomic_dec(&brick->fly_count);
 #endif
 err:
 	MARS_ERR("IO error %d\n", status);
@@ -327,7 +329,7 @@ err:
 		cb->cb_error = status;
 		cb->cb_fn(cb);
 	}
-done:;
+done: ;
 }
 
 static int bio_thread(void *data)
@@ -340,7 +342,7 @@ static int bio_thread(void *data)
 		LIST_HEAD(tmp_list);
 		unsigned long flags;
 
-		wait_event_interruptible_timeout(brick->event, !list_empty(&brick->completed_list), 10 * HZ);
+		wait_event_interruptible_timeout(brick->event, atomic_read(&brick->completed_count) > 0, 12 * HZ);
 
 		spin_lock_irqsave(&brick->lock, flags);
 		list_replace_init(&brick->completed_list, &tmp_list);
@@ -361,6 +363,7 @@ static int bio_thread(void *data)
 			
 			tmp = tmp_list.next;
 			list_del_init(tmp);
+			atomic_dec(&brick->completed_count);
 			mref_a = container_of(tmp, struct bio_mref_aspect, io_head);
 			
 			code = mref_a->status_code;
@@ -388,6 +391,7 @@ static int bio_thread(void *data)
 			cb->cb_fn(cb);
 			
 			atomic_dec(&brick->fly_count);
+			atomic_inc(&brick->total_completed_count);
 			MARS_IO("fly = %d\n", atomic_read(&brick->fly_count));
 			bio_ref_put(mref_a->output, mref);
 		}
@@ -482,6 +486,29 @@ done:
 }
 
 
+//////////////// informational / statistics ///////////////
+
+static noinline
+char *bio_statistics(struct bio_brick *brick, int verbose)
+{
+	char *res = kmalloc(128, GFP_MARS);
+	if (!res)
+		return NULL;
+
+	// FIXME: check for allocation overflows
+
+	sprintf(res, "total completed = %d | flying = %d completing = %d\n", atomic_read(&brick->total_completed_count), atomic_read(&brick->fly_count), atomic_read(&brick->completed_count));
+
+	return res;
+}
+
+static noinline
+void bio_reset_statistics(struct bio_brick *brick)
+{
+	atomic_set(&brick->total_completed_count, 0);
+}
+
+
 //////////////// object / aspect constructors / destructors ///////////////
 
 static int bio_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
@@ -534,6 +561,8 @@ static int bio_output_destruct(struct bio_output *output)
 
 static struct bio_brick_ops bio_brick_ops = {
 	.brick_switch = bio_switch,
+	.brick_statistics = bio_statistics,
+	.reset_statistics = bio_reset_statistics,
 };
 
 static struct bio_output_ops bio_output_ops = {

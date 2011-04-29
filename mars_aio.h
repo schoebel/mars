@@ -19,6 +19,7 @@ struct aio_brick {
 	int readahead;
 	bool o_direct;
 	bool o_fdsync;
+	bool wait_during_fdsync;
 };
 
 struct aio_input {
@@ -41,10 +42,14 @@ struct aio_output {
 	int fd; // FIXME: remove this!
 	struct aio_threadinfo tinfo[3];
 	aio_context_t ctxp;
+	wait_queue_head_t fdsync_event;
+	volatile bool fdsync_active;
 	// statistics
 	atomic_t total_read_count;
 	atomic_t total_write_count;
 	atomic_t total_alloc_count;
+	atomic_t total_delay_count;
+	atomic_t total_fdsync_wait_count;
 	atomic_t read_count;
 	atomic_t write_count;
 	atomic_t alloc_count;

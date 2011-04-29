@@ -4,14 +4,8 @@
 #define LIB_QUEUE_H
 
 #define QUEUE_ANCHOR(PREFIX,KEYTYPE,HEAPTYPE)		\
-	spinlock_t q_lock;				\
-	struct list_head q_anchor;			\
-	struct pairing_heap_##HEAPTYPE *heap_high;	\
-	struct pairing_heap_##HEAPTYPE *heap_low;	\
-	long long q_last_insert; /* jiffies */		\
-	KEYTYPE heap_margin;				\
-	KEYTYPE last_pos;				\
 	/* parameters */				\
+	wait_queue_head_t *q_event;			\
 	atomic_t *q_contention;				\
 	struct PREFIX##_queue *q_dep;			\
 	bool q_barrier;					\
@@ -28,9 +22,25 @@
 	int q_over_pressure;				\
 	int q_io_prio;					\
 	bool q_ordering;				\
+	/* private */					\
+	spinlock_t q_lock;				\
+	struct list_head q_anchor;			\
+	struct pairing_heap_##HEAPTYPE *heap_high;	\
+	struct pairing_heap_##HEAPTYPE *heap_low;	\
+	long long q_last_insert; /* jiffies */		\
+	KEYTYPE heap_margin;				\
+	KEYTYPE last_pos;				\
 
 
 #define QUEUE_FUNCTIONS(PREFIX,ELEM_TYPE,HEAD,KEYFN,KEYCMP,HEAPTYPE)	\
+									\
+static inline							        \
+void q_##PREFIX##_trigger(struct PREFIX##_queue *q)			\
+{									\
+	if (q->q_event) {						\
+		wake_up_interruptible(q->q_event);			\
+	}								\
+}									\
 									\
 static inline							        \
 void q_##PREFIX##_init(struct PREFIX##_queue *q)			\
@@ -64,6 +74,8 @@ void q_##PREFIX##_insert(struct PREFIX##_queue *q, ELEM_TYPE *elem)	\
 	q->q_last_insert = jiffies;					\
 									\
 	traced_unlock(&q->q_lock, flags);				\
+									\
+	q_##PREFIX##_trigger(q);					\
 }									\
 									\
 static inline							        \
@@ -123,6 +135,8 @@ ELEM_TYPE *q_##PREFIX##_fetch(struct PREFIX##_queue *q)			\
 									\
 	traced_unlock(&q->q_lock, flags);				\
 									\
+	q_##PREFIX##_trigger(q);					\
+									\
 	return elem;							\
 }									\
 									\
@@ -181,8 +195,9 @@ bool q_##PREFIX##_is_ready(struct logger_queue *q)		        \
 	 * (measured in realtime)					\
 	 */								\
 	if (q->q_max_jiffies > 0 &&					\
-	   (long long)jiffies - q->q_last_insert >= q->q_max_jiffies)	\
+	   (long long)jiffies - q->q_last_insert >= q->q_max_jiffies) {	\
 		goto limit;						\
+	}								\
 									\
 	/* 6) when no contention, start draining the queue.		\
 	 */								\
@@ -196,11 +211,28 @@ limit:									\
 	/* Limit the number of flying requests (parallelism)		\
 	 */								\
 	flying = atomic_read(&q->q_flying);				\
-	if (q->q_max_flying > 0 && flying >= q->q_max_flying)		\
+	if (q->q_max_flying > 0 && flying >= q->q_max_flying) {		\
 		res = false;						\
+	}								\
 									\
 always_done:								\
 	return res;							\
 }									\
+									\
+static inline							        \
+void q_##PREFIX##_inc_flying(struct PREFIX##_queue *q)			\
+{									\
+	atomic_inc(&q->q_flying);					\
+	q_##PREFIX##_trigger(q);					\
+}									\
+									\
+static inline							        \
+void q_##PREFIX##_dec_flying(struct PREFIX##_queue *q)			\
+{									\
+	atomic_dec(&q->q_flying);					\
+	q_##PREFIX##_trigger(q);					\
+}									\
+									\
+
 
 #endif

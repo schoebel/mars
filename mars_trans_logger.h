@@ -18,7 +18,7 @@ _PAIRING_HEAP_TYPEDEF(logger,)
 
 struct logger_queue {
 	QUEUE_ANCHOR(logger,loff_t,logger);
-	struct trans_logger_output *q_output;
+	struct trans_logger_brick *q_brick;
 	const char *q_insert_info;
 	const char *q_pushback_info;
 	const char *q_fetch_info;
@@ -32,6 +32,27 @@ struct logger_head {
 };
 
 ////////////////////////////////////////////////////////////////////
+
+#if 0
+#define TL_INPUT_READ         0
+#define TL_INPUT_WRITEBACK    1
+#define TL_INPUT_FW_LOG1      2
+#define TL_INPUT_FW_LOG2      3
+#define TL_INPUT_BW_LOG1      4
+#define TL_INPUT_BW_LOG2      5
+#define TL_INPUT_COUNT        6
+
+#else
+
+#define TL_INPUT_READ         0
+#define TL_INPUT_WRITEBACK    0
+#define TL_INPUT_FW_LOG1      1
+#define TL_INPUT_FW_LOG2      1
+#define TL_INPUT_BW_LOG1      1
+#define TL_INPUT_BW_LOG2      1
+#define TL_INPUT_COUNT        2
+
+#endif
 
 struct hash_anchor {
 	rwlock_t hash_lock;
@@ -56,7 +77,8 @@ struct writeback_info {
 
 struct trans_logger_mref_aspect {
 	GENERIC_ASPECT(mref);
-	struct trans_logger_output *output;
+	struct trans_logger_output *my_output;
+	struct trans_logger_input *my_input;
 	struct logger_head lh;
 	struct list_head hash_head;
 	//struct list_head q_head;
@@ -92,6 +114,7 @@ struct trans_logger_brick {
 	bool do_replay;   // mode of operation
 	bool do_continuous_replay;   // mode of operation
 	bool log_reads;   // additionally log pre-images
+	bool minimize_latency; // ... at the cost of throughput
 	bool debug_shortcut; // only for testing! never use in production!
 	loff_t replay_start_pos; // where to start replay
 	loff_t replay_end_pos;   // end of replay
@@ -102,15 +125,13 @@ struct trans_logger_brick {
 	int replay_code;    // replay errors (if any)
 	// private
 	loff_t old_margin;
-	struct log_status logst;
 	spinlock_t pos_lock;
 	spinlock_t replay_lock;
 	struct list_head pos_list;
 	struct list_head replay_list;
-};
-
-struct trans_logger_output {
-	MARS_OUTPUT(trans_logger);
+	struct task_struct *thread;
+	wait_queue_head_t event;
+	// statistics
 	atomic_t replay_count;
 	atomic_t fly_count;
 	atomic_t hash_count;
@@ -120,27 +141,32 @@ struct trans_logger_output {
 	atomic_t inner_balance_count;
 	atomic_t sub_balance_count;
 	atomic_t wb_balance_count;
+	atomic_t total_cb_count;
 	atomic_t total_read_count;
 	atomic_t total_write_count;
 	atomic_t total_writeback_count;
 	atomic_t total_shortcut_count;
 	atomic_t total_mshadow_count;
 	atomic_t total_sshadow_count;
-	struct task_struct *thread;
-	wait_queue_head_t event;
-	struct generic_object_layout writeback_layout;
-	struct generic_object_layout replay_layout;
 	// queues
 	struct logger_queue q_phase1;
 	struct logger_queue q_phase2;
 	struct logger_queue q_phase3;
 	struct logger_queue q_phase4;
 	bool   did_pushback;
+	bool   did_work;
 	struct hash_anchor hash_table[TRANS_HASH_MAX];
+};
+
+struct trans_logger_output {
+	MARS_OUTPUT(trans_logger);
 };
 
 struct trans_logger_input {
 	MARS_INPUT(trans_logger);
+	struct generic_object_layout sub_layout;
+	struct trans_logger_output hidden_output;
+	struct log_status logst;
 };
 
 MARS_TYPES(trans_logger);

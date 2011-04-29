@@ -61,10 +61,12 @@ struct light_class {
 //#define TRANS_FAKE
 
 #define CONF_TRANS_BATCHLEN 32
-#define CONF_TRANS_FLYING 4
+//#define CONF_TRANS_FLYING 4
+#define CONF_TRANS_FLYING 128
 #define CONF_TRANS_PRIO   MARS_PRIO_HIGH
 //#define CONF_TRANS_LOG_READS false
 #define CONF_TRANS_LOG_READS true
+#define CONF_TRANS_MINIMIZE_LATENCY true
 
 //#define CONF_ALL_BATCHLEN 2
 #define CONF_ALL_BATCHLEN 1
@@ -84,6 +86,7 @@ struct light_class {
 //#define IF_READAHEAD 0
 #define BIO_READAHEAD 1
 #define AIO_READAHEAD 1
+#define AIO_WAIT_DURING_FDSYNC true
 
 static
 void _set_trans_params(struct mars_brick *_brick, void *private)
@@ -93,41 +96,42 @@ void _set_trans_params(struct mars_brick *_brick, void *private)
 		MARS_ERR("bad brick type\n");
 		return;
 	}
-	if (!trans_brick->outputs[0]->q_phase2.q_ordering) {
-		trans_brick->outputs[0]->q_phase1.q_batchlen = CONF_TRANS_BATCHLEN;
-		trans_brick->outputs[0]->q_phase2.q_batchlen = CONF_ALL_BATCHLEN;
-		trans_brick->outputs[0]->q_phase3.q_batchlen = CONF_ALL_BATCHLEN;
-		trans_brick->outputs[0]->q_phase4.q_batchlen = CONF_ALL_BATCHLEN;
+	if (!trans_brick->q_phase2.q_ordering) {
+		trans_brick->q_phase1.q_batchlen = CONF_TRANS_BATCHLEN;
+		trans_brick->q_phase2.q_batchlen = CONF_ALL_BATCHLEN;
+		trans_brick->q_phase3.q_batchlen = CONF_ALL_BATCHLEN;
+		trans_brick->q_phase4.q_batchlen = CONF_ALL_BATCHLEN;
 
-		trans_brick->outputs[0]->q_phase1.q_max_flying = CONF_TRANS_FLYING;
-		trans_brick->outputs[0]->q_phase2.q_max_flying = CONF_ALL_FLYING;
-		trans_brick->outputs[0]->q_phase3.q_max_flying = CONF_ALL_FLYING;
-		trans_brick->outputs[0]->q_phase4.q_max_flying = CONF_ALL_FLYING;
+		trans_brick->q_phase1.q_max_flying = CONF_TRANS_FLYING;
+		trans_brick->q_phase2.q_max_flying = CONF_ALL_FLYING;
+		trans_brick->q_phase3.q_max_flying = CONF_ALL_FLYING;
+		trans_brick->q_phase4.q_max_flying = CONF_ALL_FLYING;
 
-		trans_brick->outputs[0]->q_phase1.q_max_contention = CONF_ALL_CONTENTION;
-		trans_brick->outputs[0]->q_phase2.q_max_contention = CONF_ALL_CONTENTION;
-		trans_brick->outputs[0]->q_phase3.q_max_contention = CONF_ALL_CONTENTION;
-		trans_brick->outputs[0]->q_phase4.q_max_contention = CONF_ALL_CONTENTION;
+		trans_brick->q_phase1.q_max_contention = CONF_ALL_CONTENTION;
+		trans_brick->q_phase2.q_max_contention = CONF_ALL_CONTENTION;
+		trans_brick->q_phase3.q_max_contention = CONF_ALL_CONTENTION;
+		trans_brick->q_phase4.q_max_contention = CONF_ALL_CONTENTION;
 
-		trans_brick->outputs[0]->q_phase1.q_over_pressure = CONF_ALL_PRESSURE;
-		trans_brick->outputs[0]->q_phase2.q_over_pressure = CONF_ALL_PRESSURE;
-		trans_brick->outputs[0]->q_phase3.q_over_pressure = CONF_ALL_PRESSURE;
-		trans_brick->outputs[0]->q_phase4.q_over_pressure = CONF_ALL_PRESSURE;
+		trans_brick->q_phase1.q_over_pressure = CONF_ALL_PRESSURE;
+		trans_brick->q_phase2.q_over_pressure = CONF_ALL_PRESSURE;
+		trans_brick->q_phase3.q_over_pressure = CONF_ALL_PRESSURE;
+		trans_brick->q_phase4.q_over_pressure = CONF_ALL_PRESSURE;
 
-		trans_brick->outputs[0]->q_phase1.q_io_prio = CONF_TRANS_PRIO;
-		trans_brick->outputs[0]->q_phase2.q_io_prio = CONF_ALL_PRIO;
-		trans_brick->outputs[0]->q_phase3.q_io_prio = CONF_ALL_PRIO;
-		trans_brick->outputs[0]->q_phase4.q_io_prio = CONF_ALL_PRIO;
+		trans_brick->q_phase1.q_io_prio = CONF_TRANS_PRIO;
+		trans_brick->q_phase2.q_io_prio = CONF_ALL_PRIO;
+		trans_brick->q_phase3.q_io_prio = CONF_ALL_PRIO;
+		trans_brick->q_phase4.q_io_prio = CONF_ALL_PRIO;
 
-		trans_brick->outputs[0]->q_phase2.q_max_queued = CONF_ALL_MAX_QUEUE;
-		trans_brick->outputs[0]->q_phase4.q_max_queued = CONF_ALL_MAX_QUEUE;
+		trans_brick->q_phase2.q_max_queued = CONF_ALL_MAX_QUEUE;
+		trans_brick->q_phase4.q_max_queued = CONF_ALL_MAX_QUEUE;
 
-		trans_brick->outputs[0]->q_phase2.q_max_jiffies = CONF_ALL_MAX_JIFFIES;
-		trans_brick->outputs[0]->q_phase4.q_max_jiffies = CONF_ALL_MAX_JIFFIES;
+		trans_brick->q_phase2.q_max_jiffies = CONF_ALL_MAX_JIFFIES;
+		trans_brick->q_phase4.q_max_jiffies = CONF_ALL_MAX_JIFFIES;
 
-		trans_brick->outputs[0]->q_phase2.q_ordering = true;
-		trans_brick->outputs[0]->q_phase4.q_ordering = true;
+		trans_brick->q_phase2.q_ordering = true;
+		trans_brick->q_phase4.q_ordering = true;
 		trans_brick->log_reads = CONF_TRANS_LOG_READS;
+		trans_brick->minimize_latency = CONF_TRANS_MINIMIZE_LATENCY;
 #ifdef TRANS_FAKE
 		trans_brick->debug_shortcut = true;
 #endif
@@ -137,8 +141,8 @@ void _set_trans_params(struct mars_brick *_brick, void *private)
 		trans_brick->flush_delay = FLUSH_DELAY;
 
 		if (!trans_brick->log_reads) {
-			trans_brick->outputs[0]->q_phase2.q_max_queued = 0;
-			trans_brick->outputs[0]->q_phase4.q_max_queued *= 2;
+			trans_brick->q_phase2.q_max_queued = 0;
+			trans_brick->q_phase4.q_max_queued *= 2;
 		}
 	}
 }
@@ -164,6 +168,7 @@ void _set_aio_params(struct mars_brick *_brick, void *private)
 	aio_brick->readahead = AIO_READAHEAD;
 	aio_brick->o_direct = false; // important!
 	aio_brick->o_fdsync = true;
+	aio_brick->wait_during_fdsync = AIO_WAIT_DURING_FDSYNC;
 }
 
 static
