@@ -291,6 +291,18 @@ static void bio_ref_io(struct bio_output *output, struct mref_object *mref)
 	bio_get(bio);
 
 	rw = mref->ref_rw & 1;
+	if (brick->do_noidle) {
+		rw |= (1 << BIO_RW_NOIDLE);
+	}
+	if (!mref->ref_skip_sync) {
+		if (brick->do_sync) {
+			rw |= (1 << BIO_RW_SYNCIO);
+		}
+		if (brick->do_unplug) {
+			rw |= (1 << BIO_RW_UNPLUG);
+		}
+	}
+
 	MARS_IO("starting IO rw = %d fly = %d\n", rw, atomic_read(&brick->fly_count));
 	mars_trace(mref, "bio_submit");
 
@@ -306,6 +318,7 @@ static void bio_ref_io(struct bio_output *output, struct mref_object *mref)
 #ifdef FAKE_IO
 	bio->bi_end_io(bio, 0);
 #else
+	bio->bi_rw = rw;
 	submit_bio(rw, bio);
 #endif
 

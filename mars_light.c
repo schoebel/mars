@@ -84,9 +84,14 @@ struct light_class {
 #define IF_MAX_PLUGGED 10000
 #define IF_READAHEAD 1
 //#define IF_READAHEAD 0
+
 #define BIO_READAHEAD 1
+#define BIO_NOIDLE true
+#define BIO_SYNC true
+#define BIO_UNPLUG true
+
 #define AIO_READAHEAD 1
-#define AIO_WAIT_DURING_FDSYNC true
+#define AIO_WAIT_DURING_FDSYNC false
 
 static
 void _set_trans_params(struct mars_brick *_brick, void *private)
@@ -145,12 +150,14 @@ void _set_trans_params(struct mars_brick *_brick, void *private)
 			trans_brick->q_phase4.q_max_queued *= 2;
 		}
 	}
+	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 }
 
 static
 void _set_client_params(struct mars_brick *_brick, void *private)
 {
 	// currently no params
+	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 }
 
 static
@@ -169,6 +176,7 @@ void _set_aio_params(struct mars_brick *_brick, void *private)
 	aio_brick->o_direct = false; // important!
 	aio_brick->o_fdsync = true;
 	aio_brick->wait_during_fdsync = AIO_WAIT_DURING_FDSYNC;
+	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 }
 
 static
@@ -189,6 +197,10 @@ void _set_bio_params(struct mars_brick *_brick, void *private)
 	}
 	bio_brick = (void*)_brick;
 	bio_brick->ra_pages = BIO_READAHEAD;
+	bio_brick->do_noidle = BIO_NOIDLE;
+	bio_brick->do_sync = BIO_SYNC;
+	bio_brick->do_unplug = BIO_UNPLUG;
+	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 }
 
 
@@ -203,6 +215,7 @@ void _set_if_params(struct mars_brick *_brick, void *private)
 	if_brick->max_plugged = IF_MAX_PLUGGED;
 	if_brick->readahead = IF_READAHEAD;
 	if_brick->skip_sync = IF_SKIP_SYNC;
+	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -1070,7 +1083,7 @@ int make_log_init(void *buf, struct mars_dent *parent)
 	aio_brick =
 		make_brick_all(global,
 			       aio_dent,
-			       NULL,
+			       _set_aio_params,
 			       NULL,
 			       10 * HZ,
 			       aio_path,

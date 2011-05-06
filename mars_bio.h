@@ -21,6 +21,9 @@ struct bio_brick {
 	MARS_BRICK(bio);
 	// tunables
 	int ra_pages;
+	bool do_noidle;
+	bool do_sync;
+	bool do_unplug;
 	// readonly
 	loff_t total_size;
 	atomic_t fly_count;

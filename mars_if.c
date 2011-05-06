@@ -449,10 +449,19 @@ static int if_release(struct gendisk *gd, fmode_t mode)
 //static
 void if_unplug(struct request_queue *q)
 {
-	struct if_input *input = q->queuedata;
-	MARS_IO("UNPLUG\n");
+	int was_plugged = 1;
+#if 1
+	spin_lock_irq(q->queue_lock);
+	was_plugged = blk_remove_plug(q);
+	spin_unlock_irq(q->queue_lock);
+#else
 	queue_flag_clear_unlocked(QUEUE_FLAG_PLUGGED, q);
-	_if_unplug(input);
+#endif
+	MARS_IO("UNPLUG %d\n", was_plugged);
+	if (true || was_plugged) {
+		struct if_input *input = q->queuedata;
+		_if_unplug(input);
+	}
 }
 
 //static

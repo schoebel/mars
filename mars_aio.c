@@ -22,6 +22,7 @@
 
 #define STRONG_MM
 #define MEMLEAK // FIXME: remove this
+//#define MEASURE_SYNC
 
 ///////////////////////// own type definitions ////////////////////////
 
@@ -47,6 +48,8 @@ void _enqueue(struct aio_threadinfo *tinfo, struct aio_mref_aspect *mref_a, int 
 	}
 
 	traced_unlock(&tinfo->lock, flags);
+
+	atomic_inc(&tinfo->total_enqueue_count);
 }
 
 static inline
@@ -64,6 +67,7 @@ struct aio_mref_aspect *_dequeue(struct aio_threadinfo *tinfo, bool do_remove)
 		if (tmp != &tinfo->mref_list[prio]) {
 			if (do_remove) {
 				list_del_init(tmp);
+				atomic_inc(&tinfo->total_dequeue_count);
 			}
 			mref_a = container_of(tmp, struct aio_mref_aspect, io_head);
 			goto done;
@@ -324,6 +328,7 @@ static int aio_submit_thread(void *data)
 				}
 				if ((long long)jiffies - mref_a->start_jiffies <= mref->ref_timeout) {
 					if (!_dequeue(tinfo, false)) {
+						atomic_inc(&output->total_msleep_count);
 						msleep(1000 * 4 / HZ);
 					}
 					_enqueue(tinfo, mref_a, MARS_PRIO_LOW, true);
@@ -339,12 +344,13 @@ static int aio_submit_thread(void *data)
 		for (;;) {
 			if (mref->ref_rw != READ && output->brick->wait_during_fdsync) {
 				if (output->fdsync_active) {
+					long long delay = 60 * HZ;
 					atomic_inc(&output->total_fdsync_wait_count);
+					__wait_event_interruptible_timeout(
+						output->fdsync_event,
+						!output->fdsync_active || kthread_should_stop(),
+						delay);
 				}
-				wait_event_interruptible_timeout(
-					output->fdsync_event,
-					!output->fdsync_active || kthread_should_stop(),
-					60 * HZ);
 
 			}
 
@@ -486,6 +492,9 @@ static int aio_sync_thread(void *data)
 		unsigned long flags;
 		int i;
 		int err;
+#ifdef MEASURE_SYNC
+		long long old_jiffies;
+#endif
 
 		output->fdsync_active = false;
 
@@ -509,7 +518,19 @@ static int aio_sync_thread(void *data)
 		if (list_empty(&tmp_list))
 			continue;
 
+		if (output->fdsync_active) {
+			wake_up_interruptible(&output->fdsync_event);
+		}
+
+		atomic_inc(&output->total_fdsync_count);
+#ifdef MEASURE_SYNC
+		old_jiffies = jiffies;
+#endif
 		err = vfs_fsync(file, file->f_path.dentry, 1);
+
+#ifdef MEASURE_SYNC
+		MARS_DBG("fdsync jiffies = %lld\n", jiffies - old_jiffies);
+#endif
 		output->fdsync_active = false;
 		wake_up_interruptible(&output->fdsync_event);
 		if (err < 0) {
@@ -556,9 +577,12 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 
 	// FIXME: check for allocation overflows
 
-	sprintf(res, "total reads = %d writes = %d allocs = %d delays = %d fdsync_waits = %d | flying reads = %d writes = %d allocs = %d \n",
-		atomic_read(&output->total_read_count), atomic_read(&output->total_write_count), atomic_read(&output->total_alloc_count), atomic_read(&output->total_delay_count), atomic_read(&output->total_fdsync_wait_count), 
-		atomic_read(&output->read_count), atomic_read(&output->write_count), atomic_read(&output->alloc_count));
+	sprintf(res, "total reads = %d writes = %d allocs = %d delays = %d msleeps = %d fdsyncs = %d fdsync_waits = %d | flying reads = %d writes = %d allocs = %d q0 = %d/%d q1 = %d/%d q2 = %d/%d\n",
+		atomic_read(&output->total_read_count), atomic_read(&output->total_write_count), atomic_read(&output->total_alloc_count), atomic_read(&output->total_delay_count), atomic_read(&output->total_msleep_count), atomic_read(&output->total_fdsync_count), atomic_read(&output->total_fdsync_wait_count),
+		atomic_read(&output->read_count), atomic_read(&output->write_count), atomic_read(&output->alloc_count),
+		atomic_read(&output->tinfo[0].total_enqueue_count), atomic_read(&output->tinfo[0].total_dequeue_count),
+		atomic_read(&output->tinfo[1].total_enqueue_count), atomic_read(&output->tinfo[2].total_dequeue_count),
+		atomic_read(&output->tinfo[2].total_enqueue_count), atomic_read(&output->tinfo[2].total_dequeue_count));
 
 	return res;
 }
@@ -567,11 +591,19 @@ static noinline
 void aio_reset_statistics(struct aio_brick *brick)
 {
 	struct aio_output *output = brick->outputs[0];
+	int i;
 	atomic_set(&output->total_read_count, 0);
 	atomic_set(&output->total_write_count, 0);
 	atomic_set(&output->total_alloc_count, 0);
 	atomic_set(&output->total_delay_count, 0);
+	atomic_set(&output->total_msleep_count, 0);
+	atomic_set(&output->total_fdsync_count, 0);
 	atomic_set(&output->total_fdsync_wait_count, 0);
+	for (i = 0; i < 3; i++) {
+		struct aio_threadinfo *tinfo = &output->tinfo[i];
+		atomic_set(&tinfo->total_enqueue_count, 0);
+		atomic_set(&tinfo->total_dequeue_count, 0);
+	}
 }
 
 

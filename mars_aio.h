@@ -33,6 +33,8 @@ struct aio_threadinfo {
 	wait_queue_head_t event;
 	spinlock_t lock;
 	bool terminated;
+	atomic_t total_enqueue_count;
+	atomic_t total_dequeue_count;
 };
 
 struct aio_output {
@@ -49,6 +51,8 @@ struct aio_output {
 	atomic_t total_write_count;
 	atomic_t total_alloc_count;
 	atomic_t total_delay_count;
+	atomic_t total_msleep_count;
+	atomic_t total_fdsync_count;
 	atomic_t total_fdsync_wait_count;
 	atomic_t read_count;
 	atomic_t write_count;

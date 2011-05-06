@@ -1860,6 +1860,7 @@ void trans_logger_log(struct trans_logger_output *output)
 #ifdef CONFIG_DEBUG_KERNEL // debug override for catching long blocks
 		wait_timeout = 16 * HZ;
 #endif
+		wait_timeout = 1;
 		if (brick->did_work) {
 			wait_timeout = 0; // start over immediately
 		} else if (brick->minimize_latency || (long long)jiffies - old_jiffies >= wait_timeout) {
