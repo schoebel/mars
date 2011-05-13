@@ -93,6 +93,7 @@ struct log_status {
 	int chunk_size;   // must be at least 8K (better 64k)
 	int io_prio;
 	// informational
+	int count;
 	loff_t log_pos;
 	// internal
 	struct mars_input *input;

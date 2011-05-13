@@ -55,8 +55,8 @@ struct light_class {
 #define CONF_TRANS_CHUNKSIZE  (128 * 1024)
 //#define CONF_TRANS_ALIGN      512
 #define CONF_TRANS_ALIGN      0
-//#define FLUSH_DELAY (HZ / 100 + 1)
-#define FLUSH_DELAY 0
+#define FLUSH_DELAY (HZ / 100 + 1)
+//#define FLUSH_DELAY 0
 
 //#define TRANS_FAKE
 
@@ -64,9 +64,10 @@ struct light_class {
 //#define CONF_TRANS_FLYING 4
 #define CONF_TRANS_FLYING 128
 #define CONF_TRANS_PRIO   MARS_PRIO_HIGH
-//#define CONF_TRANS_LOG_READS false
-#define CONF_TRANS_LOG_READS true
-#define CONF_TRANS_MINIMIZE_LATENCY true
+#define CONF_TRANS_LOG_READS false
+//#define CONF_TRANS_LOG_READS true
+#define CONF_TRANS_MINIMIZE_LATENCY false
+//#define CONF_TRANS_MINIMIZE_LATENCY true
 
 //#define CONF_ALL_BATCHLEN 2
 #define CONF_ALL_BATCHLEN 1
@@ -951,7 +952,7 @@ void _create_new_logfile(const char *path)
 }
 
 static
-int _update_replaylink(struct mars_dent *parent, int sequence, loff_t pos, bool check_exist)
+int _update_replaylink(struct mars_dent *parent, int sequence, loff_t start_pos, loff_t end_pos, bool check_exist)
 {
 	struct timespec now = {};
 	char *old;
@@ -973,7 +974,7 @@ int _update_replaylink(struct mars_dent *parent, int sequence, loff_t pos, bool 
 		status = -ENOMEM;
 	}
 
-	old = path_make("log-%09d-%s,%lld", sequence, my_id(), pos);
+	old = path_make("log-%09d-%s,%lld,%lld", sequence, my_id(), start_pos, end_pos - start_pos);
 	if (!old) {
 		goto out_old;
 	}
@@ -994,6 +995,62 @@ int _update_replaylink(struct mars_dent *parent, int sequence, loff_t pos, bool 
 out_new:
 	kfree(old);
 out_old:
+	return status;
+}
+
+static
+int _update_versionlink(struct mars_global *global, struct mars_dent *parent, int sequence, loff_t start_pos, loff_t end_pos)
+{
+	char *prev;
+	struct mars_dent *prev_link;
+	char *prev_digest = NULL;
+	struct timespec now = {};
+	char *new = NULL;
+	int i;
+	int status = -EINVAL;
+	int len = 0;
+	char data[mars_digest_size + 96];
+	char digest[mars_digest_size];
+	char old[mars_digest_size * 2 + 2];
+
+	prev = path_make("%s/version-%09d-%s", parent->d_path, sequence-1, my_id());
+	if (unlikely(!prev)) {
+		goto out;
+	}
+	prev_link = mars_find_dent(global, parent->d_path);
+	if (likely(prev_link)) {
+		prev_digest = prev_link->new_link;
+	}
+
+	len = snprintf(data, sizeof(data), "%d,%lld,%lld,%s", sequence, start_pos, end_pos, prev_digest ? prev_digest : "");
+
+	MARS_DBG("data = '%s' len = %d\n", data, len);
+
+	mars_digest(digest, data, len);
+
+	for (i = 0; i < mars_digest_size; i++) {
+		sprintf(old + i * 2, "%02x", digest[i]);
+	}
+	new = path_make("%s/version-%09d-%s", parent->d_path, sequence, my_id());
+	if (!new) {
+		goto out;
+	}
+
+	get_lamport(&now);
+	status = mars_symlink(old, new, &now, 0);
+	if (status < 0) {
+		MARS_ERR("cannot create symlink '%s' -> '%s' status = %d\n", old, new, status);
+	} else {
+		MARS_DBG("make version symlink '%s' -> '%s' status = %d\n", old, new, status);
+	}
+
+out:
+	if (new) {
+		kfree(new);
+	}
+	if (prev) {
+		kfree(prev);
+	}
 	return status;
 }
 
@@ -1052,7 +1109,7 @@ int make_log_init(void *buf, struct mars_dent *parent)
 		goto done;
 	}
 
-	status = _parse_args(replay_link, replay_link->new_link, 2);
+	status = _parse_args(replay_link, replay_link->new_link, 3);
 	if (unlikely(status < 0)) {
 		goto done;
 	}
@@ -1167,7 +1224,7 @@ done:
  * ret == 3 : relevant for appending
  */
 static
-int _check_logging_status(struct mars_global *global, struct mars_dent *dent, long long *oldpos, long long *newpos)
+int _check_logging_status(struct mars_global *global, struct mars_dent *dent, long long *oldpos_start, long long *oldpos_end, long long *newpos)
 {
 	struct mars_dent *parent = dent->d_parent;
 	struct mars_rotate *rot = parent->d_private;
@@ -1186,24 +1243,33 @@ int _check_logging_status(struct mars_global *global, struct mars_dent *dent, lo
 		goto done;
 	}
 
-	if (sscanf(rot->replay_link->d_argv[1], "%lld", oldpos) != 1) {
-		MARS_ERR("bad position argument '%s'\n", rot->replay_link->d_argv[1]);
+	if (sscanf(rot->replay_link->d_argv[1], "%lld", oldpos_start) != 1) {
+		MARS_ERR("bad start position argument '%s'\n", rot->replay_link->d_argv[1]);
+		status = -EINVAL;
+		goto done;
+	}
+	if (sscanf(rot->replay_link->d_argv[2], "%lld", oldpos_end) != 1) {
+		MARS_ERR("bad end position argument '%s'\n", rot->replay_link->d_argv[2]);
+		status = -EINVAL;
+		goto done;
+	}
+	*oldpos_end += *oldpos_start;
+	if (unlikely(*oldpos_end < *oldpos_start)) {
+		MARS_ERR("end_pos %lld < start_pos %lld\n", *oldpos_end, *oldpos_start);
+	}
+
+	if (unlikely(rot->aio_info.current_size < *oldpos_start)) {
+		MARS_ERR("oops, bad replay position attempted at logfile '%s' (file length %lld should never be smaller than requested position %lld, is your filesystem corrupted?) => please repair this by hand\n", rot->aio_dent->d_path, rot->aio_info.current_size, *oldpos_start);
 		status = -EINVAL;
 		goto done;
 	}
 
-	if (unlikely(rot->aio_info.current_size < *oldpos)) {
-		MARS_ERR("oops, bad replay position attempted in logfile '%s' (file length %lld should never be smaller than requested position %lld, is your filesystem corrupted?) => please repair this by hand\n", rot->aio_dent->d_path, rot->aio_info.current_size, *oldpos);
-		status = -EINVAL;
-		goto done;
-	}
-
-	if (rot->aio_info.current_size > *oldpos) {
-		MARS_DBG("transaction log replay is necessary on '%s' from %lld to %lld\n", rot->aio_dent->d_path, *oldpos, rot->aio_info.current_size);
+	if (rot->aio_info.current_size > *oldpos_start) {
+		MARS_DBG("transaction log replay is necessary on '%s' from %lld to %lld (dirty region ends at %lld)\n", rot->aio_dent->d_path, *oldpos_start, rot->aio_info.current_size, *oldpos_end);
 		*newpos = rot->aio_info.current_size;
 		status = 2;
 	} else if (rot->aio_info.current_size > 0) {
-		MARS_DBG("transaction log '%s' is already applied (would be usable for appending at position %lld, but a fresh log is needed for safety reasons)\n", rot->aio_dent->d_path, *oldpos);
+		MARS_DBG("transaction log '%s' is already applied (would be usable for appending at position %lld, but a fresh log is needed for safety reasons)\n", rot->aio_dent->d_path, *oldpos_start);
 		*newpos = rot->aio_info.current_size;
 		status = 1;
 	} else if (!rot->is_primary) {
@@ -1231,6 +1297,7 @@ int make_log(void *buf, struct mars_dent *dent)
 	struct trans_logger_brick *trans_brick;
 	struct mars_dent *prev_log;
 	loff_t start_pos = 0;
+	loff_t dirty_pos = 0;
 	loff_t end_pos = 0;
 	int status = -EINVAL;
 
@@ -1275,7 +1342,7 @@ int make_log(void *buf, struct mars_dent *dent)
 
 	/* Find current logging status.
 	 */
-	status = _check_logging_status(global, dent, &start_pos, &end_pos);
+	status = _check_logging_status(global, dent, &start_pos, &dirty_pos, &end_pos);
 	if (status < 0) {
 		goto done;
 	}
@@ -1288,7 +1355,7 @@ int make_log(void *buf, struct mars_dent *dent)
 		 * When primary, switch over to a new logfile.
 		 */
 		if (!trans_brick->power.button && !trans_brick->power.led_on && trans_brick->power.led_off) {
-			_update_replaylink(dent->d_parent, dent->d_serial + 1, 0, !rot->is_primary);
+			_update_replaylink(dent->d_parent, dent->d_serial + 1, 0, 0, !rot->is_primary);
 			trans_brick->current_pos = 0;
 			rot->last_jiffies = jiffies;
 			mars_trigger();
@@ -1334,6 +1401,7 @@ static
 int _start_trans(struct mars_rotate *rot)
 {
 	struct trans_logger_brick *trans_brick = rot->trans_brick;
+	struct trans_logger_input *trans_input;
 	int status = 0;
 
 	if (trans_brick->power.button || !trans_brick->power.led_off) {
@@ -1351,11 +1419,16 @@ int _start_trans(struct mars_rotate *rot)
 		MARS_ERR("log aio brick already present, this should not happen\n");
 		goto done;
 	}
+	trans_input = trans_brick->inputs[TL_INPUT_FW_LOG1];
+	if (unlikely(!trans_input)) {
+		MARS_ERR("log input does not exist\n");
+		goto done;
+	}
 
 	/* For safety, disconnect old connection first
 	 */
-	if (trans_brick->inputs[1]->connect) {
-		(void)generic_disconnect((void*)trans_brick->inputs[1]);
+	if (trans_input->connect) {
+		(void)generic_disconnect((void*)trans_input);
 	}
 
 	/* Open new transaction log
@@ -1380,14 +1453,14 @@ int _start_trans(struct mars_rotate *rot)
 
 	/* Connect to new transaction log
 	 */
-	status = generic_connect((void*)trans_brick->inputs[1], (void*)rot->relevant_brick->outputs[0]);
+	status = generic_connect((void*)trans_input, (void*)rot->relevant_brick->outputs[0]);
 	if (status < 0) {
 		goto done;
 	}
 
 	/* Supply all relevant parameters
 	 */
-	trans_brick->sequence = rot->relevant_log->d_serial;
+	trans_input->sequence = rot->relevant_log->d_serial;
 	if ((trans_brick->do_replay = rot->do_replay)) {
 		trans_brick->replay_start_pos = rot->start_pos;
 		trans_brick->replay_end_pos = rot->end_pos;
@@ -1450,14 +1523,44 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *parent)
 	/* Stopping is also possible in case of errors
 	 */
 	if (trans_brick->power.button && trans_brick->power.led_on && !trans_brick->power.led_off) {
+		bool do_stop = true;
+		if (trans_brick->do_replay) {
+			int i;
+			for (i = TL_INPUT_FW_LOG1; i <= TL_INPUT_FW_LOG2; i++) {
+				struct trans_logger_input *trans_input;
+				trans_input = trans_brick->inputs[i];
+				if (!trans_input) {
+					continue;
+				}
+				if (trans_input->replay_min_pos != trans_brick->replay_end_pos || trans_brick->replay_code == -EAGAIN) {
+					do_stop = false;
+					break;
+				}
+			}
+		} else {
+			do_stop = (rot->relevant_log && rot->relevant_log != rot->current_log);
+		}
+#if 0 // old code
 		bool do_stop =
 			trans_brick->do_replay ?
 			(trans_brick->replay_pos == trans_brick->replay_end_pos || trans_brick->replay_code != -EAGAIN) :
 			(rot->relevant_log && rot->relevant_log != rot->current_log);
+#endif
 		MARS_DBG("do_stop = %d\n", (int)do_stop);
 
 		if (do_stop || (long long)jiffies > rot->last_jiffies + 5 * HZ) {
-			status = _update_replaylink(parent, trans_brick->sequence, trans_brick->replay_pos, true);
+			struct trans_logger_input *old_input = NULL;
+			int i;
+			for (i = TL_INPUT_FW_LOG1; i <= TL_INPUT_FW_LOG2; i++) {
+				struct trans_logger_input *trans_input;
+				trans_input = trans_brick->inputs[i];
+				if (!trans_input || trans_input == old_input) {
+					continue;
+				}
+				status = _update_replaylink(parent, trans_input->sequence, trans_input->replay_min_pos, trans_input->replay_max_pos, true);
+				status = _update_versionlink(global, parent, trans_input->sequence, trans_input->replay_min_pos, trans_input->replay_max_pos);
+				old_input = trans_input;
+			}
 			rot->last_jiffies = jiffies;
 		}
 		if (do_stop) {
@@ -1478,7 +1581,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *parent)
 			goto done;
 		}
 	}
-	/* Starting is only possible when no error ocurred.
+	/* Starting is only possible when no error occurred.
 	 */
 	if (!rot->relevant_log || rot->has_error) {
 		MARS_DBG("nothing to do\n");
@@ -1847,6 +1950,7 @@ enum {
 	CL_SYNC,
 	CL__COPY,
 	CL__DIRECT,
+	CL_VERSION,
 	CL_REPLAYSTATUS,
 	CL_LOG,
 	CL_DEVICE,
@@ -1998,6 +2102,18 @@ static const struct light_class light_classes[] = {
 		.cl_backward = kill_all,
 	},
 
+	/* Passive symlink indicating the split-brain crypto hash
+	 */
+	[CL_VERSION] = {
+		.cl_name = "version-",
+		.cl_len = 8,
+		.cl_type = 'l',
+		.cl_serial = true,
+		.cl_hostcontext = true,
+		.cl_father = CL_RESOURCE,
+		.cl_forward = NULL,
+		.cl_backward = NULL,
+	},
 	/* Passive symlink indicating the last state of
 	 * transaction log replay.
 	 */
@@ -2007,10 +2123,8 @@ static const struct light_class light_classes[] = {
 		.cl_type = 'l',
 		.cl_hostcontext = true,
 		.cl_father = CL_RESOURCE,
-#if 0
-		.cl_forward = make_replay,
-		.cl_backward = kill_all,
-#endif
+		.cl_forward = NULL,
+		.cl_backward = NULL,
 	},
 	/* Logfiles for transaction logger
 	 */

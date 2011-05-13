@@ -34,13 +34,14 @@ struct logger_head {
 ////////////////////////////////////////////////////////////////////
 
 #if 0
+
 #define TL_INPUT_READ         0
 #define TL_INPUT_WRITEBACK    1
 #define TL_INPUT_FW_LOG1      2
 #define TL_INPUT_FW_LOG2      3
 #define TL_INPUT_BW_LOG1      4
 #define TL_INPUT_BW_LOG2      5
-#define TL_INPUT_COUNT        6
+#define TL_INPUT_NR           6
 
 #else
 
@@ -50,7 +51,7 @@ struct logger_head {
 #define TL_INPUT_FW_LOG2      1
 #define TL_INPUT_BW_LOG1      1
 #define TL_INPUT_BW_LOG2      1
-#define TL_INPUT_COUNT        2
+#define TL_INPUT_NR           2
 
 #endif
 
@@ -79,6 +80,7 @@ struct trans_logger_mref_aspect {
 	GENERIC_ASPECT(mref);
 	struct trans_logger_output *my_output;
 	struct trans_logger_input *my_input;
+	struct trans_logger_input *log_input;
 	struct logger_head lh;
 	struct list_head hash_head;
 	//struct list_head q_head;
@@ -87,6 +89,7 @@ struct trans_logger_mref_aspect {
 	struct list_head collect_head;
 	struct pairing_heap_logger ph;
 	struct trans_logger_mref_aspect *shadow_ref;
+	struct trans_logger_mref_aspect *orig_mref_a;
 	void  *shadow_data;
 	bool   do_dealloc;
 	bool   do_buffered;
@@ -106,7 +109,6 @@ struct trans_logger_mref_aspect {
 struct trans_logger_brick {
 	MARS_BRICK(trans_logger);
 	// parameters
-	int sequence;     // logfile sequence number
 	int limit_congest;// limit phase1 congestion.
 	int align_size;   // alignment between requests
 	int chunk_size;   // must be at least 8K (better 64k)
@@ -120,7 +122,6 @@ struct trans_logger_brick {
 	loff_t replay_end_pos;   // end of replay
 	loff_t log_start_pos; // where to start logging
 	// readonly from outside
-	loff_t replay_pos;  // current replay position (both in replay mode and in logging mode)
 	loff_t current_pos; // current logging position (usually ahead of replay_pos)
 	int replay_code;    // replay errors (if any)
 	// private
@@ -135,6 +136,7 @@ struct trans_logger_brick {
 	atomic_t replay_count;
 	atomic_t fly_count;
 	atomic_t hash_count;
+	atomic_t pos_count;
 	atomic_t mshadow_count;
 	atomic_t sshadow_count;
 	atomic_t outer_balance_count;
@@ -144,10 +146,14 @@ struct trans_logger_brick {
 	atomic_t total_cb_count;
 	atomic_t total_read_count;
 	atomic_t total_write_count;
+	atomic_t total_flush_count;
 	atomic_t total_writeback_count;
+	atomic_t total_writeback_cluster_count;
 	atomic_t total_shortcut_count;
 	atomic_t total_mshadow_count;
 	atomic_t total_sshadow_count;
+	atomic_t total_round_count;
+	atomic_t total_restart_count;
 	// queues
 	struct logger_queue q_phase1;
 	struct logger_queue q_phase2;
@@ -164,6 +170,13 @@ struct trans_logger_output {
 
 struct trans_logger_input {
 	MARS_INPUT(trans_logger);
+	// parameters
+	int sequence;     // logfile sequence number
+	// readonly from outside
+	loff_t replay_min_pos;  // current replay position (both in replay mode and in logging mode)
+	loff_t replay_max_pos;  // dito, indicating the "dirty" area which could be potentially "inconsistent"
+
+	// private
 	struct generic_object_layout sub_layout;
 	struct trans_logger_output hidden_output;
 	struct log_status logst;

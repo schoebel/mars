@@ -250,8 +250,8 @@ GENERIC_ASPECT_FUNCTIONS(mars,mref);
 
 // MARS-specific memory allocation
 
-extern void *mars_vmalloc(loff_t pos, int len);
-extern void mars_vfree(void *data);
+extern void *mars_alloc(loff_t pos, int len);
+extern void mars_free(void *data, int len);
 extern struct page *mars_iomap(void *data, int *offset, int *len);
 
 /////////////////////////////////////////////////////////////////////////
@@ -307,6 +307,9 @@ static const struct generic_aspect_type *BRICK##_aspect_types[BRICK_OBJ_MAX] = {
 
 extern const struct meta mars_info_meta[];
 extern const struct meta mars_mref_meta[];
+
+extern int mars_digest_size;
+extern void mars_digest(void *digest, void *data, int len);
 
 /////////////////////////////////////////////////////////////////////////
 

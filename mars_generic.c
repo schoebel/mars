@@ -26,27 +26,60 @@
 
 // MARS-specific memory allocation
 
-void *mars_vmalloc(loff_t pos, int len)
-{
-	int offset;
-	void *data;
+#define PERFORMANCE_WORKAROUND
+#define MARS_MAX_ORDER 6
+//#define USE_OFFSET
 
+void *mars_alloc(loff_t pos, int len)
+{
+	int offset = 0;
+	void *data;
+#ifdef PERFORMANCE_WORKAROUND
+	int order = MARS_MAX_ORDER;
+#endif
+#ifdef USE_OFFSET
 	offset = pos & (PAGE_SIZE-1);
+#endif
+#ifdef PERFORMANCE_WORKAROUND
+	len += offset;
+	while (order > 0 && (PAGE_SIZE << (order-1)) >= len) {
+		order--;
+	}
+	data = (void*)__get_free_pages(GFP_MARS, order);
+#else
 	data = __vmalloc(len + offset, GFP_MARS, PAGE_KERNEL_IO);
+#endif
 	if (likely(data)) {
 		data += offset;
 	}
 	return data;
 }
-EXPORT_SYMBOL_GPL(mars_vmalloc);
+EXPORT_SYMBOL_GPL(mars_alloc);
 
-void mars_vfree(void *data)
+void mars_free(void *data, int len)
 {
-	int offset = ((unsigned long)data) & (PAGE_SIZE-1);
+	int offset = 0;
+#ifdef PERFORMANCE_WORKAROUND
+	int order = MARS_MAX_ORDER;
+#endif
+	if (!data) {
+		return;
+	}
+#ifdef USE_OFFSET
+	offset = ((unsigned long)data) & (PAGE_SIZE-1);
+#endif
 	data -= offset;
+#ifdef PERFORMANCE_WORKAROUND
+	len += offset;
+	while (order > 0 && (PAGE_SIZE << (order-1)) >= len) {
+		order--;
+	}
+	__free_pages(virt_to_page((unsigned long)data), order);
+#else
 	vfree(data);
+#endif
 }
-EXPORT_SYMBOL_GPL(mars_vfree);
+EXPORT_SYMBOL_GPL(mars_free);
 
 struct page *mars_iomap(void *data, int *offset, int *len)
 {
@@ -344,6 +377,30 @@ int mars_lchown(const char *path, uid_t uid)
 	return status;
 }
 EXPORT_SYMBOL_GPL(mars_lchown);
+
+#include <linux/crypto.h>
+
+struct crypto_hash *mars_tfm = NULL;
+int mars_digest_size = 0;
+EXPORT_SYMBOL_GPL(mars_digest_size);
+
+void mars_digest(void *digest, void *data, int len)
+{
+	struct hash_desc desc = {
+		.tfm = mars_tfm,
+		.flags = 0,
+	};
+	struct scatterlist sg;
+
+	memset(digest, 0, mars_digest_size);
+
+	crypto_hash_init(&desc);
+	sg_init_table(&sg, 1);
+	sg_set_buf(&sg, data, len);
+	crypto_hash_update(&desc, &sg, sg.length);
+	crypto_hash_final(&desc, digest);
+}
+EXPORT_SYMBOL_GPL(mars_digest);
 
 //////////////////////////////////////////////////////////////
 
@@ -1345,8 +1402,29 @@ EXPORT_SYMBOL_GPL(mm_fake);
 static int __init init_mars(void)
 {
 	MARS_INF("init_mars()\n");
+
 	brick_obj_max = BRICK_OBJ_MAX;
+
+	mars_tfm = crypto_alloc_hash("md5", 0, CRYPTO_ALG_ASYNC);
+	if (!mars_tfm) {
+		MARS_ERR("cannot alloc crypto hash\n");
+		return -ENOMEM;
+	}
+	if (IS_ERR(mars_tfm)) {
+		MARS_ERR("alloc crypto hash failed, status = %d\n", PTR_ERR(mars_tfm));
+		return PTR_ERR(mars_tfm);
+	}
+#if 0
+	if (crypto_tfm_alg_type(crypto_hash_tfm(mars_tfm)) != CRYPTO_ALG_TYPE_DIGEST) {
+		MARS_ERR("bad crypto hash type\n");
+		return -EINVAL;
+	}
+#endif
+	mars_digest_size = crypto_hash_digestsize(mars_tfm);
+	MARS_INF("digest_size = %d\n", mars_digest_size);
+
 	set_fake();
+
 #ifdef MARS_TRACING
 	{
 		int flags = O_CREAT | O_TRUNC | O_RDWR | O_LARGEFILE;
@@ -1371,6 +1449,9 @@ static void __exit exit_mars(void)
 	if (id) {
 		kfree(id);
 		id = NULL;
+	}
+	if (mars_tfm) {
+		crypto_free_hash(mars_tfm);
 	}
 	put_fake();
 #ifdef MARS_TRACING

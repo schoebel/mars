@@ -216,7 +216,7 @@ sub create_res {
 
   if($create) {
     symlink($host, "$tmp/primary") or die "cannot create primary symlink\n";
-    symlink("log-000000001-$host,0", "$tmp/replay-$host") or die "cannot create replay status\n";
+    symlink("log-000000001-$host,0,0", "$tmp/replay-$host") or die "cannot create replay status\n";
     rename($tmp, "$mars/resource-$res") or die "cannot finalize resource '$res'\n";
     print "successfully created resource '$res'\n";
   } else {

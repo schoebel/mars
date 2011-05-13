@@ -22,11 +22,41 @@
 
 #define STRONG_MM
 #define MEMLEAK // FIXME: remove this
-//#define MEASURE_SYNC
+#define MEASURE_SYNC 8
+//#define USE_FSYNC
 
 ///////////////////////// own type definitions ////////////////////////
 
 #include "mars_aio.h"
+
+#ifdef MEASURE_SYNC
+static int sync_ticks[MEASURE_SYNC] = {};
+
+static void measure_sync(int ticks)
+{
+	int order = ticks;
+	if (ticks > 1) {
+		order = MEASURE_SYNC - 1;
+		while (order > 0 && (1 << (order-1)) >= ticks) {
+			order--;
+		}
+		order++;
+	}
+	sync_ticks[order]++;
+}
+
+static char *show_sync(void)
+{
+	char *res = kmalloc(256, GFP_MARS);
+	int i;
+	int pos = 0;
+	for (i = 0; i < MEASURE_SYNC; i++) {
+		pos += snprintf(res + pos, 256, "%d: %d ", i, sync_ticks[i]);
+	}
+	return res;
+}
+
+#endif
 
 ////////////////// some helpers //////////////////
 
@@ -526,10 +556,14 @@ static int aio_sync_thread(void *data)
 #ifdef MEASURE_SYNC
 		old_jiffies = jiffies;
 #endif
+#ifdef USE_FSYNC
 		err = vfs_fsync(file, file->f_path.dentry, 1);
+#else
+		err = do_sync_mapping_range(file->f_mapping, 0, LLONG_MAX, SYNC_FILE_RANGE_WAIT_BEFORE | SYNC_FILE_RANGE_WRITE | SYNC_FILE_RANGE_WAIT_AFTER);
+#endif
 
 #ifdef MEASURE_SYNC
-		MARS_DBG("fdsync jiffies = %lld\n", jiffies - old_jiffies);
+		measure_sync(jiffies - old_jiffies);
 #endif
 		output->fdsync_active = false;
 		wake_up_interruptible(&output->fdsync_event);
@@ -572,17 +606,26 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 {
 	struct aio_output *output = brick->outputs[0];
 	char *res = kmalloc(256, GFP_MARS);
+	char *sync = NULL;
 	if (!res)
 		return NULL;
 
+#ifdef MEASURE_SYNC
+	sync = show_sync();
+#endif
+
 	// FIXME: check for allocation overflows
 
-	sprintf(res, "total reads = %d writes = %d allocs = %d delays = %d msleeps = %d fdsyncs = %d fdsync_waits = %d | flying reads = %d writes = %d allocs = %d q0 = %d/%d q1 = %d/%d q2 = %d/%d\n",
+	sprintf(res, "total reads = %d writes = %d allocs = %d delays = %d msleeps = %d fdsyncs = %d fdsync_waits = %d | flying reads = %d writes = %d allocs = %d q0 = %d/%d q1 = %d/%d q2 = %d/%d | %s\n",
 		atomic_read(&output->total_read_count), atomic_read(&output->total_write_count), atomic_read(&output->total_alloc_count), atomic_read(&output->total_delay_count), atomic_read(&output->total_msleep_count), atomic_read(&output->total_fdsync_count), atomic_read(&output->total_fdsync_wait_count),
 		atomic_read(&output->read_count), atomic_read(&output->write_count), atomic_read(&output->alloc_count),
 		atomic_read(&output->tinfo[0].total_enqueue_count), atomic_read(&output->tinfo[0].total_dequeue_count),
 		atomic_read(&output->tinfo[1].total_enqueue_count), atomic_read(&output->tinfo[2].total_dequeue_count),
-		atomic_read(&output->tinfo[2].total_enqueue_count), atomic_read(&output->tinfo[2].total_dequeue_count));
+		atomic_read(&output->tinfo[2].total_enqueue_count), atomic_read(&output->tinfo[2].total_dequeue_count),
+		sync ? sync : "");
+	
+	if (sync)
+		kfree(sync);
 
 	return res;
 }

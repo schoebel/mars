@@ -495,7 +495,7 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 #endif
 
 	// create a new master shadow
-	data = mars_vmalloc(mref->ref_pos, mref->ref_len);
+	data = mars_alloc(mref->ref_pos, mref->ref_len);
 	if (unlikely(!data)) {
 		return -ENOMEM;
 	}
@@ -628,7 +628,7 @@ restart:
 		// we are a master shadow
 		CHECK_PTR(mref_a->shadow_data, err);
 		if (mref_a->do_dealloc) {
-			mars_vfree(mref_a->shadow_data);
+			mars_free(mref_a->shadow_data, mref->ref_len);
 			mref_a->shadow_data = NULL;
 			mref_a->do_dealloc = false;
 		}
@@ -779,25 +779,37 @@ err:
 
 ////////////////////////////// writeback info //////////////////////////////
 
+/* save final completion status when necessary
+ */
 static noinline
 void pos_complete(struct trans_logger_mref_aspect *orig_mref_a)
 {
 	struct trans_logger_output *output = orig_mref_a->my_output;
 	struct trans_logger_brick *brick = output->brick;
+	struct trans_logger_input *input = orig_mref_a->log_input;
 	struct list_head *tmp;
 	unsigned long flags;
 
-	// save final completion status
-	traced_lock(&brick->pos_lock, flags);
+	atomic_inc(&brick->total_writeback_count);
+
+	if (unlikely(!input)) {
+		MARS_ERR("cannot tell what input I am operating on\n");
+	}
+
 	tmp = &orig_mref_a->pos_head;
-	if (tmp == brick->pos_list.next) {
+
+	traced_lock(&brick->pos_lock, flags);
+	// am I the first member? (means "youngest" list entry)
+	if (tmp == brick->pos_list.next && input) {
 		loff_t finished = orig_mref_a->log_pos;
-		if (finished <= brick->replay_pos) {
-			MARS_ERR("backskip in log replay: %lld -> %lld\n", brick->replay_pos, orig_mref_a->log_pos);
+		MARS_INF("finished = %lld\n", finished);
+		if (finished <= input->replay_min_pos) {
+			MARS_ERR("backskip in log replay: %lld -> %lld\n", input->replay_min_pos, orig_mref_a->log_pos);
 		}
-		brick->replay_pos = finished;
+		input->replay_min_pos = finished;
 	}
 	list_del_init(tmp);
+	atomic_dec(&brick->pos_count);
 	traced_unlock(&brick->pos_lock, flags);
 }
 
@@ -915,11 +927,16 @@ static noinline
 struct writeback_info *make_writeback(struct trans_logger_output *output, loff_t pos, int len)
 {
 	struct trans_logger_brick *brick = output->brick;
-	struct writeback_info *wb = kzalloc(sizeof(struct writeback_info), GFP_MARS);
+	struct writeback_info *wb;
+	struct trans_logger_input *log_input;
 	struct trans_logger_input *read_input;
 	struct trans_logger_input *write_input;
+	struct list_head *tmp;
 	int write_input_nr;
 
+	/* Allocate structure representing a bunch of adjacent writebacks
+	 */
+	wb = kzalloc(sizeof(struct writeback_info), GFP_MARS);
 	if (!wb) {
 		goto err;
 	}
@@ -948,6 +965,9 @@ struct writeback_info *make_writeback(struct trans_logger_output *output, loff_t
 		MARS_ERR("len = %d\n", len);
 	}
 
+	/* Determine the "channels" we want to operate on
+	 */
+	log_input = brick->inputs[TL_INPUT_FW_LOG1];
 	read_input = brick->inputs[TL_INPUT_READ];
 	write_input_nr = TL_INPUT_WRITEBACK;
 	write_input = brick->inputs[write_input_nr];
@@ -955,6 +975,15 @@ struct writeback_info *make_writeback(struct trans_logger_output *output, loff_t
 		write_input_nr = TL_INPUT_READ;
 		write_input = read_input;
 	}
+
+	/* Assign input.
+	 */
+	for (tmp = wb->w_collect_list.next; tmp != &wb->w_collect_list; tmp = tmp->next) {
+		struct trans_logger_mref_aspect *orig_mref_a;
+		orig_mref_a = container_of(tmp, struct trans_logger_mref_aspect, collect_head);
+		orig_mref_a->log_input = log_input;
+	}
+
 
 	/* Create sub_mrefs for read of old disk version (phase2)
 	 */
@@ -1004,30 +1033,31 @@ struct writeback_info *make_writeback(struct trans_logger_output *output, loff_t
 		len = wb->w_len;
 	}
 
-	/* Create sub_mrefs for writeback (phase4)
+	/* Always create sub_mrefs for writeback (phase4)
 	 */
 	while (len > 0) {
 		struct trans_logger_mref_aspect *sub_mref_a;
 		struct mref_object *sub_mref;
-		struct trans_logger_mref_aspect *base_mref_a;
-		struct mref_object *base_mref;
+		struct trans_logger_mref_aspect *orig_mref_a;
+		struct mref_object *orig_mref;
 		void *data;
 		int this_len = len;
 		int diff;
 		int status;
 
-		base_mref_a = _hash_find(&wb->w_collect_list, pos, &this_len, true);
-		if (unlikely(!base_mref_a)) {
+		orig_mref_a = _hash_find(&wb->w_collect_list, pos, &this_len, true);
+		if (unlikely(!orig_mref_a)) {
 			MARS_FAT("could not find data\n");
 			goto err;
 		}
-		base_mref = base_mref_a->object;
-		diff = pos - base_mref->ref_pos;
+
+		orig_mref = orig_mref_a->object;
+		diff = pos - orig_mref->ref_pos;
 		if (unlikely(diff < 0)) {
 			MARS_FAT("bad diff %d\n", diff);
 			goto err;
 		}
-		data = base_mref_a->shadow_data + diff;
+		data = orig_mref_a->shadow_data + diff;
 
 		sub_mref = trans_logger_alloc_mref(&write_input->hidden_output, &write_input->sub_layout);
 		if (unlikely(!sub_mref)) {
@@ -1048,7 +1078,9 @@ struct writeback_info *make_writeback(struct trans_logger_output *output, loff_t
 		sub_mref_a = trans_logger_mref_get_aspect(&write_input->hidden_output, sub_mref);
 		CHECK_PTR(sub_mref_a, err);
 
+		sub_mref_a->orig_mref_a = orig_mref_a;
 		sub_mref_a->my_input = write_input;
+		sub_mref_a->log_input = log_input;
 		sub_mref_a->my_output = &write_input->hidden_output;
 		sub_mref_a->wb = wb;
 
@@ -1081,11 +1113,12 @@ struct writeback_info *make_writeback(struct trans_logger_output *output, loff_t
 }
 
 static inline
-void _fire_one(struct list_head *tmp, bool do_put)
+void _fire_one(struct list_head *tmp, bool do_update, bool do_put)
 {
 	struct trans_logger_mref_aspect *sub_mref_a;
 	struct mref_object *sub_mref;
 	struct trans_logger_input *sub_input;
+	struct trans_logger_input *log_input;
 	struct generic_callback *cb;
 	
 	sub_mref_a = container_of(tmp, struct trans_logger_mref_aspect, sub_head);
@@ -1099,6 +1132,19 @@ void _fire_one(struct list_head *tmp, bool do_put)
 	sub_mref->ref_cb = cb;
 
 	sub_input = sub_mref_a->my_input;
+	log_input = sub_mref_a->log_input;
+
+	if (do_update) {
+		struct trans_logger_mref_aspect *orig_mref_a = sub_mref_a->orig_mref_a;
+		if (unlikely(!orig_mref_a)) {
+			MARS_ERR("internal problem\n");
+		} else {
+			loff_t max_pos = orig_mref_a->log_pos;
+			if (log_input->replay_max_pos < max_pos) {
+				log_input->replay_max_pos = max_pos;
+			}
+		}
+	}
 
 	GENERIC_INPUT_CALL(sub_input, mref_io, sub_mref);
 	if (do_put) {
@@ -1107,19 +1153,38 @@ void _fire_one(struct list_head *tmp, bool do_put)
 }
 
 static inline
-void fire_writeback(struct writeback_info *wb, struct list_head *start, bool do_remove)
+void fire_writeback(struct writeback_info *wb, struct list_head *start, bool do_update, bool do_remove)
 {
 	struct list_head *tmp;
 
 	if (do_remove) {
 		while ((tmp = start->next) != start) {
 			list_del_init(tmp);
-			_fire_one(tmp, true);
+			_fire_one(tmp, do_update, true);
 		}
 	} else {
 		for (tmp = start->next; tmp != start; tmp = tmp->next) {
-			_fire_one(tmp, false);
+			_fire_one(tmp, do_update, false);
 		}
+	}
+}
+
+static inline
+void put_list(struct writeback_info *wb, struct list_head *start)
+{
+	struct list_head *tmp;
+
+	while ((tmp = start->next) != start) {
+		struct trans_logger_mref_aspect *sub_mref_a;
+		struct mref_object *sub_mref;
+		struct trans_logger_input *sub_input;
+
+		list_del_init(tmp);
+		
+		sub_mref_a = container_of(tmp, struct trans_logger_mref_aspect, sub_head);
+		sub_mref = sub_mref_a->object;
+		sub_input = sub_mref_a->my_input;
+		GENERIC_INPUT_CALL(sub_input, mref_put, sub_mref);
 	}
 }
 
@@ -1216,7 +1281,17 @@ bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	orig_mref_a->log_pos = logst->log_pos + logst->offset;
 
 	traced_lock(&brick->pos_lock, flags);
+#if 1
+	if (!list_empty(&brick->pos_list)) {
+		struct trans_logger_mref_aspect *last_mref_a;
+		last_mref_a = container_of(brick->pos_list.prev, struct trans_logger_mref_aspect, pos_head);
+		if (last_mref_a->log_pos >= orig_mref_a->log_pos) {
+			MARS_ERR("backskip in pos_list, %lld >= %lld\n", last_mref_a->log_pos, orig_mref_a->log_pos);
+		}
+	}
+#endif
 	list_add_tail(&orig_mref_a->pos_head, &brick->pos_list);
+	atomic_inc(&brick->pos_count);
 	traced_unlock(&brick->pos_lock, flags);
 
 	qq_inc_flying(&brick->q_phase1);
@@ -1404,7 +1479,7 @@ bool phase2_startio(struct trans_logger_mref_aspect *orig_mref_a)
 
 	if (output->brick->log_reads) {
 		qq_inc_flying(&brick->q_phase2);
-		fire_writeback(wb, &wb->w_sub_read_list, false);
+		fire_writeback(wb, &wb->w_sub_read_list, false, false);
 	} else { // shortcut
 #ifdef LATER
 		qq_wb_insert(&brick->q_phase4, wb);
@@ -1599,10 +1674,11 @@ void phase4_endio(struct generic_callback *cb)
 	hash_put_all(brick, &wb->w_collect_list);
 
 	qq_dec_flying(&brick->q_phase4);
+	atomic_inc(&brick->total_writeback_cluster_count);
 
 	free_writeback(wb);
 
-	//wake_up_interruptible(&brick->event);
+	wake_up_interruptible(&brick->event);
 
 	return;
 
@@ -1636,7 +1712,7 @@ bool phase4_startio(struct writeback_info *wb)
 	/* Start writeback IO
 	 */
 	qq_inc_flying(&wb->w_output->brick->q_phase4);
-	fire_writeback(wb, &wb->w_sub_write_list, true);
+	fire_writeback(wb, &wb->w_sub_write_list, true, true);
 	return true;
 }
 
@@ -1760,6 +1836,7 @@ void trans_logger_log(struct trans_logger_output *output)
 	struct trans_logger_input *bw_input;
 	struct log_status *fw_logst;
 	struct log_status *bw_logst;
+	loff_t start_pos;
 	long wait_timeout = HZ;
 #ifdef  STAT_DEBUGGING
 	long long last_jiffies = jiffies;
@@ -1786,13 +1863,17 @@ void trans_logger_log(struct trans_logger_output *output)
 		init_logst(bw_logst, (void*)bw_input, (void*)&bw_input->hidden_output, 0);
 	}
 
-	brick->replay_pos = brick->current_pos = brick->log_start_pos;
-	fw_logst->log_pos = brick->current_pos;
+	start_pos = brick->log_start_pos;
+	brick->current_pos = start_pos;
+	fw_input->replay_min_pos = start_pos;
+	fw_input->replay_max_pos = start_pos; // FIXME: Theoretically, this could be wrong when starting on an interrupted replay / inconsistent system. However, we normally never start ordinary logging in such a case (possibly except some desperate emergency cases when there really is no other chance, such as physical loss of transaction logs). Nevertheless, better use old consistenty information from the FS here.
+	fw_logst->log_pos = start_pos;
 
 	mars_power_led_on((void*)brick, true);
 
 	while (!kthread_should_stop() || _congested(brick)) {
 		long long old_jiffies = jiffies;
+		long old_wait_timeout;
 		struct condition_status st = {};
 #if 1
 		long long j0;
@@ -1809,6 +1890,8 @@ void trans_logger_log(struct trans_logger_output *output)
 			brick->event,
 			_condition(&st, brick),
 			wait_timeout);
+
+		atomic_inc(&brick->total_round_count);
 
 #if 1
 		j0 = jiffies;
@@ -1856,28 +1939,29 @@ void trans_logger_log(struct trans_logger_output *output)
 
 		/* A kind of delayed plugging mechanism
 		 */
+		old_wait_timeout = wait_timeout;
 		wait_timeout = HZ / 10; // 100ms before flushing
 #ifdef CONFIG_DEBUG_KERNEL // debug override for catching long blocks
 		wait_timeout = 16 * HZ;
 #endif
-		wait_timeout = 1;
 		if (brick->did_work) {
-			wait_timeout = 0; // start over immediately
-		} else if (brick->minimize_latency || (long long)jiffies - old_jiffies >= wait_timeout) {
+			atomic_inc(&brick->total_restart_count);
+			wait_timeout = brick->flush_delay; // start over soon
+		} else if ((bw_logst->count > 0 || bw_logst->count > 0) &&
+			  atomic_read(&brick->q_phase1.q_queued) <= 0 &&
+			  (brick->minimize_latency || (long long)jiffies - old_jiffies >= old_wait_timeout)) {
 			/* Calling log_flush() too often may result in
 			 * increased overhead (and thus in lower throughput).
 			 * OTOH, calling it too seldom may hold back
 			 * IO completion for the end user for some time.
 			 * Play around with wait_timeout to optimize this.
 			 */
+			atomic_inc(&brick->total_flush_count);
 			log_flush(fw_logst);
 			if (bw_logst != fw_logst) {
 				log_flush(bw_logst);
 			}
 		}
-#if 1
-		log_flush(fw_logst);
-#endif
 #if 1
 		{
 			int delta = (long long)jiffies - j0;
@@ -2072,6 +2156,8 @@ void trans_logger_replay(struct trans_logger_output *output)
 {
 	struct trans_logger_brick *brick = output->brick;
 	struct trans_logger_input *input = brick->inputs[TL_INPUT_FW_LOG1];
+	loff_t start_pos;
+	loff_t finished_pos;
 	bool has_triggered = false;
 
 	brick->replay_code = -EAGAIN; // indicates "running"
@@ -2082,7 +2168,11 @@ void trans_logger_replay(struct trans_logger_output *output)
 	input->logst.chunk_size = brick->chunk_size;
 	init_logst(&input->logst, (void*)input, (void*)&input->hidden_output, brick->replay_start_pos);
 
-	brick->replay_pos = brick->current_pos = input->logst.log_pos;
+	start_pos = input->logst.log_pos;
+	brick->current_pos = start_pos;
+	input->replay_min_pos = start_pos;
+	input->replay_max_pos = start_pos; // FIXME: this is wrong.
+
 	mars_power_led_on((void*)brick, true);
 
 	for (;;) {
@@ -2125,19 +2215,25 @@ void trans_logger_replay(struct trans_logger_output *output)
 
 		// do this _after_ any opportunities for errors...
 		if (atomic_read(&brick->replay_count) <= 0) {
-			brick->replay_pos = brick->current_pos = input->logst.log_pos + input->logst.offset;
+			finished_pos = input->logst.log_pos + input->logst.offset;
+			brick->current_pos = finished_pos;
+			input->replay_min_pos = finished_pos;
+			input->replay_max_pos = finished_pos; // FIXME
 		}
 	}
 
 	wait_event_interruptible_timeout(brick->event, atomic_read(&brick->replay_count) <= 0, 60 * HZ);
 
-	brick->replay_pos = brick->current_pos = input->logst.log_pos + input->logst.offset;
+	finished_pos = input->logst.log_pos + input->logst.offset;
+	brick->current_pos = finished_pos;
+	input->replay_min_pos = finished_pos;
+	input->replay_max_pos = finished_pos; // FIXME
 
-	if (brick->replay_pos == brick->replay_end_pos) {
-		MARS_INF("replay finished at %lld\n", brick->replay_pos);
+	if (finished_pos == brick->replay_end_pos) {
+		MARS_INF("replay finished at %lld\n", finished_pos);
 		brick->replay_code = 0;
 	} else {
-		MARS_INF("replay stopped prematurely at %lld (of %lld)\n", brick->replay_pos, brick->replay_end_pos);
+		MARS_INF("replay stopped prematurely at %lld (of %lld)\n", finished_pos, brick->replay_end_pos);
 		if (brick->replay_code == -EAGAIN)
 			brick->replay_code = -EIO;
 	}
@@ -2215,9 +2311,9 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 
 	// FIXME: check for allocation overflows
 
-	sprintf(res, "total callbacks = %d reads=%d writes=%d writeback=%d shortcut=%d (%d%%) mshadow=%d sshadow=%d phase1=%d phase2=%d phase3=%d phase4=%d | mshadow=%d sshadow=%d hash_count=%d balance=%d/%d/%d/%d fly=%d phase1=%d+%d phase2=%d+%d phase3=%d+%d phase4=%d+%d\n",
-		atomic_read(&brick->total_cb_count), atomic_read(&brick->total_read_count), atomic_read(&brick->total_write_count), atomic_read(&brick->total_writeback_count), atomic_read(&brick->total_shortcut_count), atomic_read(&brick->total_writeback_count) ? atomic_read(&brick->total_shortcut_count) * 100 / atomic_read(&brick->total_writeback_count) : 0, atomic_read(&brick->total_mshadow_count), atomic_read(&brick->total_sshadow_count), atomic_read(&brick->q_phase1.q_total), atomic_read(&brick->q_phase2.q_total), atomic_read(&brick->q_phase3.q_total), atomic_read(&brick->q_phase4.q_total),
-		atomic_read(&brick->mshadow_count), atomic_read(&brick->sshadow_count), atomic_read(&brick->hash_count), atomic_read(&brick->sub_balance_count), atomic_read(&brick->inner_balance_count), atomic_read(&brick->outer_balance_count), atomic_read(&brick->wb_balance_count), atomic_read(&brick->fly_count), atomic_read(&brick->q_phase1.q_queued), atomic_read(&brick->q_phase1.q_flying), atomic_read(&brick->q_phase2.q_queued), atomic_read(&brick->q_phase2.q_flying), atomic_read(&brick->q_phase3.q_queued), atomic_read(&brick->q_phase3.q_flying), atomic_read(&brick->q_phase4.q_queued), atomic_read(&brick->q_phase4.q_flying));
+	sprintf(res, "total callbacks = %d reads=%d writes=%d flushes=%d (%d%%) wb_clusters=%d writebacks=%d (%d%%) shortcut=%d (%d%%) mshadow=%d sshadow=%d rounds=%d restarts=%d phase1=%d phase2=%d phase3=%d phase4=%d | mshadow=%d sshadow=%d hash_count=%d pos_count=%d balance=%d/%d/%d/%d fly=%d phase1=%d+%d phase2=%d+%d phase3=%d+%d phase4=%d+%d\n",
+		atomic_read(&brick->total_cb_count), atomic_read(&brick->total_read_count), atomic_read(&brick->total_write_count), atomic_read(&brick->total_flush_count), atomic_read(&brick->total_write_count) ? atomic_read(&brick->total_flush_count) * 100 / atomic_read(&brick->total_write_count) : 0, atomic_read(&brick->total_writeback_cluster_count), atomic_read(&brick->total_writeback_count), atomic_read(&brick->total_writeback_cluster_count) ? atomic_read(&brick->total_writeback_count) * 100 / atomic_read(&brick->total_writeback_cluster_count) : 0, atomic_read(&brick->total_shortcut_count), atomic_read(&brick->total_writeback_count) ? atomic_read(&brick->total_shortcut_count) * 100 / atomic_read(&brick->total_writeback_count) : 0, atomic_read(&brick->total_mshadow_count), atomic_read(&brick->total_sshadow_count), atomic_read(&brick->total_round_count), atomic_read(&brick->total_restart_count), atomic_read(&brick->q_phase1.q_total), atomic_read(&brick->q_phase2.q_total), atomic_read(&brick->q_phase3.q_total), atomic_read(&brick->q_phase4.q_total),
+		atomic_read(&brick->mshadow_count), atomic_read(&brick->sshadow_count), atomic_read(&brick->hash_count), atomic_read(&brick->pos_count), atomic_read(&brick->sub_balance_count), atomic_read(&brick->inner_balance_count), atomic_read(&brick->outer_balance_count), atomic_read(&brick->wb_balance_count), atomic_read(&brick->fly_count), atomic_read(&brick->q_phase1.q_queued), atomic_read(&brick->q_phase1.q_flying), atomic_read(&brick->q_phase2.q_queued), atomic_read(&brick->q_phase2.q_flying), atomic_read(&brick->q_phase3.q_queued), atomic_read(&brick->q_phase3.q_flying), atomic_read(&brick->q_phase4.q_queued), atomic_read(&brick->q_phase4.q_flying));
 	return res;
 }
 
@@ -2227,10 +2323,14 @@ void trans_logger_reset_statistics(struct trans_logger_brick *brick)
 	atomic_set(&brick->total_cb_count, 0);
 	atomic_set(&brick->total_read_count, 0);
 	atomic_set(&brick->total_write_count, 0);
+	atomic_set(&brick->total_flush_count, 0);
 	atomic_set(&brick->total_writeback_count, 0);
+	atomic_set(&brick->total_writeback_cluster_count, 0);
 	atomic_set(&brick->total_shortcut_count, 0);
 	atomic_set(&brick->total_mshadow_count, 0);
 	atomic_set(&brick->total_sshadow_count, 0);
+	atomic_set(&brick->total_round_count, 0);
+	atomic_set(&brick->total_restart_count, 0);
 }
 
 
@@ -2347,6 +2447,9 @@ static const struct trans_logger_input_type *trans_logger_input_types[] = {
 	&trans_logger_input_type,
 	&trans_logger_input_type,
 	&trans_logger_input_type,
+	&trans_logger_input_type,
+	&trans_logger_input_type,
+	&trans_logger_input_type,
 };
 
 const struct trans_logger_output_type trans_logger_output_type = {
@@ -2367,7 +2470,7 @@ static const struct trans_logger_output_type *trans_logger_output_types[] = {
 const struct trans_logger_brick_type trans_logger_brick_type = {
 	.type_name = "trans_logger_brick",
 	.brick_size = sizeof(struct trans_logger_brick),
-	.max_inputs = 3,
+	.max_inputs = TL_INPUT_NR,
 	.max_outputs = 1,
 	.master_ops = &trans_logger_brick_ops,
 	.default_input_types = trans_logger_input_types,

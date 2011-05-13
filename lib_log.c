@@ -56,7 +56,7 @@ void log_flush(struct log_status *logst)
 	struct generic_callback *cb;
 	int gap;
 
-	if (!mref)
+	if (!mref || !logst->count)
 		return;
 
 	gap = 0;
@@ -94,6 +94,7 @@ void log_flush(struct log_status *logst)
 	GENERIC_INPUT_CALL(logst->input, mref_put, mref);
 
 	logst->offset = 0;
+	logst->count = 0;
 	logst->log_mref = NULL;
 }
 EXPORT_SYMBOL_GPL(log_flush);
@@ -270,6 +271,7 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	cb_info->endios[nr_endio] = endio;
 	cb_info->privates[nr_endio] = private;
 
+	logst->count++;
 	ok = true;
 
 err:
