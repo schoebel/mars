@@ -259,7 +259,8 @@ static int receiver_thread(void *data)
 			break;
 		case CMD_CB:
 		{
-			int hash_index = mref->ref_id % CLIENT_HASH_MAX;
+			int hash_index = cmd.cmd_int1 % CLIENT_HASH_MAX;
+
 			traced_lock(&output->hash_lock[hash_index], flags);
 			for (tmp = output->hash_table[hash_index].next; tmp != &output->hash_table[hash_index]; tmp = tmp->next) {
 				mref_a = container_of(tmp, struct client_mref_aspect, hash_head);

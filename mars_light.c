@@ -55,8 +55,8 @@ struct light_class {
 #define CONF_TRANS_CHUNKSIZE  (128 * 1024)
 //#define CONF_TRANS_ALIGN      512
 #define CONF_TRANS_ALIGN      0
-#define FLUSH_DELAY (HZ / 100 + 1)
-//#define FLUSH_DELAY 0
+//#define FLUSH_DELAY (HZ / 100 + 1)
+#define FLUSH_DELAY 0
 
 //#define TRANS_FAKE
 
@@ -75,7 +75,7 @@ struct light_class {
 #define CONF_ALL_FLYING 1
 #define CONF_ALL_CONTENTION 0
 #define CONF_ALL_PRESSURE 0
-#define CONF_ALL_PRIO   MARS_PRIO_LOW
+#define CONF_ALL_PRIO   MARS_PRIO_NORMAL
 
 #define CONF_ALL_MAX_QUEUE 10000
 #define CONF_ALL_MAX_JIFFIES (180 * HZ)

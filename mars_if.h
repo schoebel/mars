@@ -35,13 +35,15 @@ struct if_input {
 	struct gendisk *disk;
 	struct block_device *bdev;
 	atomic_t open_count;
-	atomic_t io_count;
 	atomic_t plugged_count;
+	atomic_t flying_count;
 	// only for statistics
-	atomic_t read_count;
-	atomic_t write_count;
-	atomic_t mref_read_count;
-	atomic_t mref_write_count;
+	atomic_t read_flying_count;
+	atomic_t write_flying_count;
+	atomic_t total_read_count;
+	atomic_t total_write_count;
+	atomic_t total_mref_read_count;
+	atomic_t total_mref_write_count;
 	spinlock_t req_lock;
 	struct semaphore kick_sem;
 	struct generic_object_layout mref_object_layout;

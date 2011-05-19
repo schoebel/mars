@@ -66,8 +66,10 @@
 
 // MARS-specific definitions
 
-#define MARS_PRIO_HIGH 0
-#define MARS_PRIO_LOW  1
+#define MARS_PRIO_HIGH   -1
+#define MARS_PRIO_NORMAL  0 // this is automatically used by memset()
+#define MARS_PRIO_LOW     1
+#define MARS_PRIO_NR      3
 
 // object stuff
 

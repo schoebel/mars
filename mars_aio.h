@@ -27,7 +27,7 @@ struct aio_input {
 };
 
 struct aio_threadinfo {
-	struct list_head mref_list[MARS_PRIO_LOW+1];
+	struct list_head mref_list[MARS_PRIO_NR];
 	struct aio_output *output;
 	struct task_struct *thread;
 	wait_queue_head_t event;

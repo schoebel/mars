@@ -55,6 +55,7 @@ void if_endio(struct generic_callback *cb)
 	struct if_input *input;
 	struct bio *bio;
 	int k;
+	int rw = 0;
 	int error;
 
 	if (unlikely(!mref_a)) {
@@ -72,6 +73,8 @@ void if_endio(struct generic_callback *cb)
 			MARS_FAT("callback with no bio called (k = %d). something is very wrong here!\n", k);
 			continue;
 		}
+
+		rw = bio->bi_rw & 1;
 
 		CHECK_ATOMIC(&bio->bi_comp_cnt, 1);
 		if (!atomic_dec_and_test(&bio->bi_comp_cnt)) {
@@ -100,7 +103,12 @@ void if_endio(struct generic_callback *cb)
 	}
 	input = mref_a->input;
 	if (input) {
-		atomic_dec(&input->io_count);
+		atomic_dec(&input->flying_count);
+		if (rw) {
+			atomic_dec(&input->write_flying_count);
+		} else {
+			atomic_dec(&input->read_flying_count);
+		}
 	}
 }
 
@@ -147,7 +155,13 @@ static void _if_unplug(struct if_input *input)
 
 		mars_trace(mref, "if_unplug");
 
-		atomic_inc(&input->io_count);
+		atomic_inc(&input->flying_count);
+		if (mref->ref_rw) {
+			atomic_inc(&input->write_flying_count);
+		} else {
+			atomic_inc(&input->read_flying_count);
+		}
+
 		GENERIC_INPUT_CALL(input, mref_io, mref);
 		GENERIC_INPUT_CALL(input, mref_put, mref);
 	}
@@ -181,9 +195,9 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
                 goto err;
 
 	if (rw) {
-		atomic_inc(&input->write_count);
+		atomic_inc(&input->total_write_count);
 	} else {
-		atomic_inc(&input->read_count);
+		atomic_inc(&input->total_read_count);
 	}
 
 	brick = input->brick;
@@ -354,9 +368,9 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 				}
 				mref_a->current_len = this_len;
 				if (rw) {
-					atomic_inc(&input->mref_write_count);
+					atomic_inc(&input->total_mref_write_count);
 				} else {
-					atomic_inc(&input->mref_read_count);
+					atomic_inc(&input->total_mref_read_count);
 				}
 
 				CHECK_ATOMIC(&bio->bi_comp_cnt, 0);
@@ -431,7 +445,7 @@ static int if_release(struct gendisk *gd, fmode_t mode)
 
 	MARS_INF("----------------------- CLOSE %d ------------------------------\n", atomic_read(&input->open_count));
 
-	while ((nr = atomic_read(&input->io_count)) > 0) {
+	while ((nr = atomic_read(&input->flying_count)) > 0) {
 		MARS_INF("%d IO requests not yet completed\n", nr);
 		if (max++ > 10)
 			break;
@@ -470,7 +484,7 @@ int mars_congested(void *data, int bdi_bits)
 	struct if_input *input = data;
 	int ret = 0;
 	if (bdi_bits & (1 << BDI_sync_congested) &&
-	   atomic_read(&input->io_count) > 0) {
+	   atomic_read(&input->flying_count) > 0) {
 		ret |= (1 << BDI_sync_congested);
 		
 	}
@@ -618,21 +632,35 @@ static
 char *if_statistics(struct if_brick *brick, int verbose)
 {
 	struct if_input *input = brick->inputs[0];
-	char *res = kmalloc(128, GFP_MARS);
-	int tmp1 = atomic_read(&input->read_count); 
-	int tmp2 = atomic_read(&input->mref_read_count);
-	int tmp3 = atomic_read(&input->write_count); 
-	int tmp4 = atomic_read(&input->mref_write_count);
+	char *res = kmalloc(256, GFP_MARS);
+	int tmp1 = atomic_read(&input->total_read_count); 
+	int tmp2 = atomic_read(&input->total_mref_read_count);
+	int tmp3 = atomic_read(&input->total_write_count); 
+	int tmp4 = atomic_read(&input->total_mref_write_count);
 	if (!res)
 		return NULL;
-	sprintf(res, "reads = %d mref_reads = %d (%d%%) writes = %d mref_writes = %d (%d%%)\n",
+	sprintf(res, "reads = %d mref_reads = %d (%d%%) writes = %d mref_writes = %d (%d%%) | plugged = %d flying = %d (reads = %d writes = %d)\n",
 		tmp1,
 		tmp2,
 		tmp1 ? tmp2 * 100 / tmp1 : 0,
 		tmp3,
 		tmp4,
-		tmp3 ? tmp4 * 100 / tmp3 : 0);
+		tmp3 ? tmp4 * 100 / tmp3 : 0,
+		atomic_read(&input->plugged_count),
+		atomic_read(&input->flying_count),
+		atomic_read(&input->read_flying_count),
+		atomic_read(&input->write_flying_count));
 	return res;
+}
+
+static
+void if_reset_statistics(struct if_brick *brick)
+{
+	struct if_input *input = brick->inputs[0];
+	atomic_set(&input->total_read_count, 0);
+	atomic_set(&input->total_write_count, 0);
+	atomic_set(&input->total_mref_read_count, 0);
+	atomic_set(&input->total_mref_write_count, 0);
 }
 
 ////////////////// own brick / input / output operations //////////////////
@@ -683,7 +711,7 @@ static int if_input_construct(struct if_input *input)
 	sema_init(&input->kick_sem, 1);
 	spin_lock_init(&input->req_lock);
 	atomic_set(&input->open_count, 0);
-	atomic_set(&input->io_count, 0);
+	atomic_set(&input->flying_count, 0);
 	atomic_set(&input->plugged_count, 0);
 	return 0;
 }
@@ -703,6 +731,7 @@ static int if_output_construct(struct if_output *output)
 static struct if_brick_ops if_brick_ops = {
 	.brick_switch = if_switch,
 	.brick_statistics = if_statistics,
+	.reset_statistics = if_reset_statistics,
 };
 
 static struct if_output_ops if_output_ops = {

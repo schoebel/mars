@@ -431,9 +431,8 @@ restart:
 		chunk_offset = logst->log_pos & (loff_t)(logst->chunk_size - 1);
 		chunk_rest = logst->chunk_size - chunk_offset;
 		mref->ref_len = chunk_rest + logst->chunk_size * 8;
-#if 0
-		mref->ref_prio = MARS_PRIO_LOW;
-#endif
+		mref->ref_prio = logst->io_prio;
+
 		status = GENERIC_INPUT_CALL(logst->input, mref_get, mref);
 		if (unlikely(status < 0)) {
 			if (status != -ENODATA) {

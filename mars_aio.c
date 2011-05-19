@@ -64,10 +64,16 @@ static inline
 void _enqueue(struct aio_threadinfo *tinfo, struct aio_mref_aspect *mref_a, int prio, bool at_end)
 {
 	unsigned long flags;
-	if (prio > MARS_PRIO_LOW)
-		prio = MARS_PRIO_LOW;
-	if (prio < MARS_PRIO_HIGH)
-		prio = MARS_PRIO_HIGH;
+#if 1
+	prio++;
+	if (prio < 0) {
+		prio = 0;
+	} else if (prio > MARS_PRIO_NR) {
+		prio = MARS_PRIO_NR;
+	}
+#else
+	prio = 0;
+#endif
 
 	traced_lock(&tinfo->lock, flags);
 
@@ -92,9 +98,10 @@ struct aio_mref_aspect *_dequeue(struct aio_threadinfo *tinfo, bool do_remove)
 	if (do_remove)
 		traced_lock(&tinfo->lock, flags);
 
-	for (prio = MARS_PRIO_HIGH; prio <= MARS_PRIO_LOW; prio++) {
-		struct list_head *tmp = tinfo->mref_list[prio].next;
-		if (tmp != &tinfo->mref_list[prio]) {
+	for (prio = 0; prio < MARS_PRIO_NR; prio++) {
+		struct list_head *start = &tinfo->mref_list[prio];
+		struct list_head *tmp = start->next;
+		if (tmp != start) {
 			if (do_remove) {
 				list_del_init(tmp);
 				atomic_inc(&tinfo->total_dequeue_count);
@@ -198,6 +205,8 @@ void _complete(struct aio_output *output, struct mref_object *mref, int err)
 	mars_trace(mref, "aio_endio");
 
 	cb = mref->ref_cb;
+	CHECK_PTR(cb, err_found);
+
 	cb->cb_error = err;
 	if (err < 0) {
 		MARS_ERR("IO error %d\n", err);
@@ -207,6 +216,7 @@ void _complete(struct aio_output *output, struct mref_object *mref, int err)
 
 	cb->cb_fn(cb);
 
+done:
 	if (mref->ref_rw) {
 		atomic_dec(&output->write_count);
 	} else {
@@ -214,6 +224,11 @@ void _complete(struct aio_output *output, struct mref_object *mref, int err)
 	}
 
 	aio_ref_put(output, mref);
+	return;
+
+err_found:
+	MARS_FAT("giving up...\n");
+	goto done;
 }
 
 static void aio_ref_io(struct aio_output *output, struct mref_object *mref)
@@ -535,10 +550,11 @@ static int aio_sync_thread(void *data)
 			60 * HZ);
 
 		traced_lock(&tinfo->lock, flags);
-		for (i = MARS_PRIO_HIGH; i <= MARS_PRIO_LOW; i++) {
-			if (!list_empty(&tinfo->mref_list[i])) {
+		for (i = 0; i < MARS_PRIO_NR; i++) {
+			struct list_head *start = &tinfo->mref_list[i];
+			if (!list_empty(start)) {
 				// move over the whole list
-				list_replace_init(&tinfo->mref_list[i], &tmp_list);
+				list_replace_init(start, &tmp_list);
 				output->fdsync_active = true;
 				break;
 			}
@@ -605,7 +621,7 @@ static noinline
 char *aio_statistics(struct aio_brick *brick, int verbose)
 {
 	struct aio_output *output = brick->outputs[0];
-	char *res = kmalloc(256, GFP_MARS);
+	char *res = kmalloc(512, GFP_MARS);
 	char *sync = NULL;
 	if (!res)
 		return NULL;
@@ -729,7 +745,7 @@ static int aio_switch(struct aio_brick *brick)
 		};
 		struct aio_threadinfo *tinfo = &output->tinfo[i];
 		int j;
-		for (j = MARS_PRIO_HIGH; j <= MARS_PRIO_LOW; j++) {
+		for (j = 0; j < MARS_PRIO_NR; j++) {
 			INIT_LIST_HEAD(&tinfo->mref_list[j]);
 		}
 		tinfo->output = output;

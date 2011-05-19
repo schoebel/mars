@@ -116,7 +116,7 @@ struct trans_logger_brick {
 	bool do_replay;   // mode of operation
 	bool do_continuous_replay;   // mode of operation
 	bool log_reads;   // additionally log pre-images
-	bool minimize_latency; // ... at the cost of throughput
+	bool minimize_latency; // ... at the cost of throughput. ==0 means immediate flushing
 	bool debug_shortcut; // only for testing! never use in production!
 	loff_t replay_start_pos; // where to start replay
 	loff_t replay_end_pos;   // end of replay

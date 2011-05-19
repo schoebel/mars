@@ -792,21 +792,32 @@ void pos_complete(struct trans_logger_mref_aspect *orig_mref_a)
 
 	atomic_inc(&brick->total_writeback_count);
 
-	if (unlikely(!input)) {
-		MARS_ERR("cannot tell what input I am operating on\n");
-	}
-
 	tmp = &orig_mref_a->pos_head;
 
 	traced_lock(&brick->pos_lock, flags);
 	// am I the first member? (means "youngest" list entry)
-	if (tmp == brick->pos_list.next && input) {
-		loff_t finished = orig_mref_a->log_pos;
-		MARS_INF("finished = %lld\n", finished);
-		if (finished <= input->replay_min_pos) {
-			MARS_ERR("backskip in log replay: %lld -> %lld\n", input->replay_min_pos, orig_mref_a->log_pos);
+	if (tmp == brick->pos_list.next) {
+		if (unlikely(!input)) {
+			MARS_ERR("cannot tell what input I am operating on\n");
+		} else {
+			loff_t finished = orig_mref_a->log_pos;
+			MARS_DBG("finished = %lld\n", finished);
+			if (finished <= input->replay_min_pos) {
+				MARS_ERR("backskip in log replay: %lld -> %lld\n", input->replay_min_pos, orig_mref_a->log_pos);
+			}
+			input->replay_min_pos = finished;
 		}
-		input->replay_min_pos = finished;
+	} else {
+		struct trans_logger_mref_aspect *prev_mref_a;
+		prev_mref_a = container_of(tmp->prev, struct trans_logger_mref_aspect, pos_head);
+		if (orig_mref_a->log_pos <= prev_mref_a->log_pos) {
+			MARS_ERR("backskip: %lld -> %lld\n", orig_mref_a->log_pos, prev_mref_a->log_pos);
+		} else {
+			/* Transitively transfer log_pos to he predecessor
+			 * to correctly reflect the committed region.
+			 */
+			prev_mref_a->log_pos = orig_mref_a->log_pos;
+		}
 	}
 	list_del_init(tmp);
 	atomic_dec(&brick->pos_count);
@@ -881,6 +892,7 @@ void wb_endio(struct generic_callback *cb)
 	struct writeback_info *wb;
 	int rw;
 	atomic_t *dec;
+	void (**_endio)(struct generic_callback *cb);
 	void (*endio)(struct generic_callback *cb);
 
 	sub_mref_a = cb->cb_private;
@@ -907,9 +919,13 @@ void wb_endio(struct generic_callback *cb)
 		return;
 	}
 
-	endio = rw ? wb->write_endio : wb->read_endio;
+	_endio = rw ? &wb->write_endio : &wb->read_endio;
+	endio = *_endio;
+	*_endio = NULL;
 	if (likely(endio)) {
 		endio(cb);
+	} else {
+		MARS_ERR("internal: no endio defined\n");
 	}
 	return;
 
@@ -1153,15 +1169,32 @@ void _fire_one(struct list_head *tmp, bool do_update, bool do_put)
 }
 
 static inline
-void fire_writeback(struct writeback_info *wb, struct list_head *start, bool do_update, bool do_remove)
+void fire_writeback(struct list_head *start, bool do_update, bool do_remove)
 {
 	struct list_head *tmp;
 
 	if (do_remove) {
+#if 1
+		/* Caution! The wb structure may get deallocated
+		 * during _fire_one() in some cases (e.g. when the
+		 * callback is directly called by the mref_io operation).
+		 * Ensure that no ptr dereferencing can take
+		 * place after working on the last list member.
+		 */
+		tmp = start->next;
+		while (tmp != start) {
+			struct list_head *next;
+			list_del_init(tmp);
+			next = start->next;
+			_fire_one(tmp, do_update, true);
+			tmp = next;
+		}
+#else // old buggy code
 		while ((tmp = start->next) != start) {
 			list_del_init(tmp);
 			_fire_one(tmp, do_update, true);
 		}
+#endif
 	} else {
 		for (tmp = start->next; tmp != start; tmp = tmp->next) {
 			_fire_one(tmp, do_update, false);
@@ -1169,6 +1202,7 @@ void fire_writeback(struct writeback_info *wb, struct list_head *start, bool do_
 	}
 }
 
+#if 0 // currently not used
 static inline
 void put_list(struct writeback_info *wb, struct list_head *start)
 {
@@ -1187,7 +1221,7 @@ void put_list(struct writeback_info *wb, struct list_head *start)
 		GENERIC_INPUT_CALL(sub_input, mref_put, sub_mref);
 	}
 }
-
+#endif
 
 ////////////////////////////// worker thread //////////////////////////////
 
@@ -1479,7 +1513,7 @@ bool phase2_startio(struct trans_logger_mref_aspect *orig_mref_a)
 
 	if (output->brick->log_reads) {
 		qq_inc_flying(&brick->q_phase2);
-		fire_writeback(wb, &wb->w_sub_read_list, false, false);
+		fire_writeback(&wb->w_sub_read_list, false, false);
 	} else { // shortcut
 #ifdef LATER
 		qq_wb_insert(&brick->q_phase4, wb);
@@ -1712,7 +1746,7 @@ bool phase4_startio(struct writeback_info *wb)
 	/* Start writeback IO
 	 */
 	qq_inc_flying(&wb->w_output->brick->q_phase4);
-	fire_writeback(wb, &wb->w_sub_write_list, true, true);
+	fire_writeback(&wb->w_sub_write_list, true, true);
 	return true;
 }
 
@@ -1874,6 +1908,7 @@ void trans_logger_log(struct trans_logger_output *output)
 	while (!kthread_should_stop() || _congested(brick)) {
 		long long old_jiffies = jiffies;
 		long old_wait_timeout;
+		bool do_flush;
 		struct condition_status st = {};
 #if 1
 		long long j0;
@@ -1944,18 +1979,24 @@ void trans_logger_log(struct trans_logger_output *output)
 #ifdef CONFIG_DEBUG_KERNEL // debug override for catching long blocks
 		wait_timeout = 16 * HZ;
 #endif
+		/* Calling log_flush() too often may result in
+		 * increased overhead (and thus in lower throughput).
+		 * OTOH, calling it too seldom may hold back
+		 * IO completion for the end user for some time.
+		 * Play around with wait_timeout to optimize this.
+		 */
+		do_flush = false;
 		if (brick->did_work) {
 			atomic_inc(&brick->total_restart_count);
-			wait_timeout = brick->flush_delay; // start over soon
-		} else if ((bw_logst->count > 0 || bw_logst->count > 0) &&
-			  atomic_read(&brick->q_phase1.q_queued) <= 0 &&
+			do_flush = !brick->flush_delay;
+			if (!do_flush) { // start over soon
+				wait_timeout = brick->flush_delay;
+			}
+		} else if (atomic_read(&brick->q_phase1.q_queued) <= 0 &&
 			  (brick->minimize_latency || (long long)jiffies - old_jiffies >= old_wait_timeout)) {
-			/* Calling log_flush() too often may result in
-			 * increased overhead (and thus in lower throughput).
-			 * OTOH, calling it too seldom may hold back
-			 * IO completion for the end user for some time.
-			 * Play around with wait_timeout to optimize this.
-			 */
+			do_flush = true;
+		}
+		if (do_flush && (bw_logst->count > 0 || bw_logst->count > 0)) {
 			atomic_inc(&brick->total_flush_count);
 			log_flush(fw_logst);
 			if (bw_logst != fw_logst) {
