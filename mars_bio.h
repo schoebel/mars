@@ -5,8 +5,6 @@
 #include <linux/blkdev.h>
 #include <linux/rwsem.h>
 
-//#define WAIT_CLASH 1024
-
 struct bio_mref_aspect {
 	GENERIC_ASPECT(mref);
 	struct list_head io_head;
@@ -27,18 +25,18 @@ struct bio_brick {
 	// readonly
 	loff_t total_size;
 	atomic_t fly_count;
+	atomic_t background_count;
 	atomic_t completed_count;
 	atomic_t total_completed_count;
+	atomic_t total_background_count;
 	// private
 	spinlock_t lock;
+	struct list_head background_list;
 	struct list_head completed_list;
 	wait_queue_head_t event;
 	struct file *filp;
 	struct block_device *bdev;
 	struct task_struct *thread;
-#ifdef WAIT_CLASH
-	struct rw_semaphore hashtable[WAIT_CLASH];
-#endif
 	int bvec_max;
 };
 

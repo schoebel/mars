@@ -750,7 +750,7 @@ void trans_logger_ref_io(struct trans_logger_output *output, struct mref_object 
 		atomic_inc(&brick->inner_balance_count);
 
 		qq_mref_insert(&brick->q_phase1, mref_a);
-		//wake_up_interruptible(&brick->event);
+		wake_up_interruptible(&brick->event);
 		return;
 	}
 
@@ -1228,14 +1228,51 @@ void put_list(struct writeback_info *wb, struct list_head *start)
 /********************************************************************* 
  * Phase 1: write transaction log entry for the original write request.
  */
+
 static noinline
-void phase1_endio(void *private, int error)
+void _complete(struct trans_logger_brick *brick, struct trans_logger_mref_aspect *orig_mref_a, int error, bool pre_io)
+{
+	struct mref_object *orig_mref;
+	struct generic_callback *orig_cb;
+
+	orig_mref = orig_mref_a->object;
+	CHECK_PTR(orig_mref, err);
+
+	if (orig_mref_a->is_completed || 
+	   (pre_io &&
+	    (brick->completion_semantics >= 2 ||
+	     (brick->completion_semantics >= 1 && !orig_mref->ref_skip_sync)))) {
+		goto done;
+	}
+
+	orig_cb = orig_mref->ref_cb;
+	CHECK_PTR(orig_cb, err);
+	CHECK_PTR(orig_cb->cb_fn, err);
+	
+	if (unlikely(error < 0)) {
+		orig_cb->cb_error = error;
+	}
+	if (likely(orig_cb->cb_error >= 0)) {
+		orig_mref->ref_flags &= ~MREF_WRITING;
+		orig_mref->ref_flags |= MREF_UPTODATE;
+	}
+
+	orig_mref_a->is_completed = true;
+	orig_cb->cb_fn(orig_cb);
+
+done:
+	return;
+
+err: 
+	MARS_ERR("giving up...\n");
+}
+
+static noinline
+void phase1_preio(void *private)
 {
 	struct trans_logger_mref_aspect *orig_mref_a;
-	struct mref_object *orig_mref;
 	struct trans_logger_output *output;
 	struct trans_logger_brick *brick;
-	struct generic_callback *orig_cb;
 
 	orig_mref_a = private;
 	CHECK_PTR(orig_mref_a, err);
@@ -1243,30 +1280,37 @@ void phase1_endio(void *private, int error)
 	CHECK_PTR(output, err);
 	brick = output->brick;
 	CHECK_PTR(brick, err);
-	orig_mref = orig_mref_a->object;
-	CHECK_PTR(orig_mref, err);
-	orig_cb = orig_mref->ref_cb;
-	CHECK_PTR(orig_cb, err);
+
+	// signal completion to the upper layer
+	// FIXME: immediate error signalling is impossible here, but some delayed signalling should be possible as a workaround. Think!
+	_complete(brick, orig_mref_a, 0, true);
+	return;
+err: 
+	MARS_ERR("giving up...\n");
+}
+
+static noinline
+void phase1_endio(void *private, int error)
+{
+	struct trans_logger_mref_aspect *orig_mref_a;
+	struct trans_logger_output *output;
+	struct trans_logger_brick *brick;
+
+	orig_mref_a = private;
+	CHECK_PTR(orig_mref_a, err);
+	output = orig_mref_a->my_output;
+	CHECK_PTR(output, err);
+	brick = output->brick;
+	CHECK_PTR(brick, err);
 
 	qq_dec_flying(&brick->q_phase1);
 
-	// error handling
-	if (error < 0) {
-		orig_cb->cb_error = error;
-	}
-
-	// signal completion to the upper layer, as early as possible
-	if (likely(orig_cb->cb_error >= 0)) {
-		orig_mref->ref_flags &= ~MREF_WRITING;
-		orig_mref->ref_flags |= MREF_UPTODATE;
-	}
-
-	CHECK_PTR(orig_cb->cb_fn, err);
-	orig_cb->cb_fn(orig_cb);
+	// signal completion to the upper layer
+	_complete(brick, orig_mref_a, error, false);
 
 	// queue up for the next phase
 	qq_mref_insert(&brick->q_phase2, orig_mref_a);
-	//wake_up_interruptible(&brick->event);
+	wake_up_interruptible(&brick->event);
 	return;
 err: 
 	MARS_ERR("giving up...\n");
@@ -1308,7 +1352,7 @@ bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 
 	memcpy(data, orig_mref_a->shadow_data, orig_mref->ref_len);
 
-	ok = log_finalize(logst, orig_mref->ref_len, phase1_endio, orig_mref_a);
+	ok = log_finalize(logst, orig_mref->ref_len, phase1_preio, phase1_endio, orig_mref_a);
 	if (unlikely(!ok)) {
 		goto err;
 	}
@@ -1455,7 +1499,7 @@ void phase2_endio(struct generic_callback *cb)
 
 	// queue up for the next phase
 	qq_wb_insert(&brick->q_phase3, wb);
-	//wake_up_interruptible(&brick->event);
+	wake_up_interruptible(&brick->event);
 	return;
 
 err: 
@@ -1517,7 +1561,7 @@ bool phase2_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	} else { // shortcut
 #ifdef LATER
 		qq_wb_insert(&brick->q_phase4, wb);
-		//wake_up_interruptible(&brick->event);
+		wake_up_interruptible(&brick->event);
 #else
 		return phase4_startio(wb);
 #endif
@@ -1543,7 +1587,7 @@ void _phase3_endio(struct writeback_info *wb)
 	
 	// queue up for the next phase
 	qq_wb_insert(&brick->q_phase4, wb);
-	//wake_up_interruptible(&brick->event);
+	wake_up_interruptible(&brick->event);
 	return;
 }
 
@@ -1624,7 +1668,7 @@ bool _phase3_startio(struct trans_logger_mref_aspect *sub_mref_a)
 
 	memcpy(data, sub_mref->ref_data, sub_mref->ref_len);
 
-	ok = log_finalize(logst, sub_mref->ref_len, phase3_endio, sub_mref_a);
+	ok = log_finalize(logst, sub_mref->ref_len, NULL, phase3_endio, sub_mref_a);
 	if (unlikely(!ok)) {
 		goto err;
 	}
@@ -1996,6 +2040,9 @@ void trans_logger_log(struct trans_logger_output *output)
 			  (brick->minimize_latency || (long long)jiffies - old_jiffies >= old_wait_timeout)) {
 			do_flush = true;
 		}
+#if 1
+		do_flush = true;
+#endif
 		if (do_flush && (bw_logst->count > 0 || bw_logst->count > 0)) {
 			atomic_inc(&brick->total_flush_count);
 			log_flush(fw_logst);

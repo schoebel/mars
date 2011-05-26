@@ -33,8 +33,9 @@ static void _kill_socket(struct client_output *output)
 
 static void _kill_thread(struct client_threadinfo *ti)
 {
-	if (ti->thread) {
+	if (ti->thread && !ti->terminated) {
 		kthread_stop(ti->thread);
+		ti->thread = NULL;
 	}
 }
 
@@ -231,7 +232,8 @@ error:
 	client_ref_put(output, mref);
 }
 
-static int receiver_thread(void *data)
+static
+int receiver_thread(void *data)
 {
 	struct client_output *output = data;
 	int status = 0;
@@ -340,6 +342,8 @@ static int sender_thread(void *data)
 	struct client_brick *brick = output->brick;
 	int status = 0;
 
+	output->receiver.restart_count = 0;
+
         while (!kthread_should_stop()) {
 		struct list_head *tmp;
 		struct client_mref_aspect *mref_a;
@@ -375,9 +379,16 @@ static int sender_thread(void *data)
 			traced_unlock(&output->lock, flags);
 		}
 
-		wait_event_interruptible_timeout(output->event, !list_empty(&output->mref_list) || output->get_info, 1 * HZ);
+		wait_event_interruptible_timeout(output->event, !list_empty(&output->mref_list) || output->get_info, 10 * HZ);
 		
 		if (unlikely(output->receiver.terminated)) {
+#if 1
+			if (unlikely(output->receiver.restart_count++ > 3)) { // don't restart too often
+				MARS_ERR("receiver failed too often, giving up\n");
+				status = -ECOMM;
+				break;
+			}
+#endif
 			output->receiver.terminated = false;
 			output->receiver.thread = kthread_create(receiver_thread, output, "mars_receiver%d", thread_count++);
 			if (unlikely(IS_ERR(output->receiver.thread))) {

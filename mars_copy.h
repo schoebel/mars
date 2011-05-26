@@ -33,10 +33,12 @@ struct copy_brick {
 	// parameters
 	volatile loff_t copy_start;
 	volatile loff_t copy_end; // stop working if == 0
-	loff_t copy_last;
+	int io_prio;
+	int append_mode; // 1 = passively, 2 = actively
 	bool verify_mode;
-	bool optimize_mode;
-	bool permanent_update; // NYI
+	bool utilize_mode; // utilize already copied data
+	// readonly from outside
+	loff_t copy_last;
 	bool low_dirty;
 	// internal
 	volatile bool trigger;

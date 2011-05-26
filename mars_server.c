@@ -40,45 +40,120 @@ static int server_worker(struct mars_global *global, struct mars_dent *dent, boo
 	return 0;
 }
 
-static void server_endio(struct generic_callback *cb)
+static
+int cb_thread(void *data)
+{
+	struct server_brick *brick = data;
+	int status = -EINVAL;
+
+	brick->cb_running = true;
+	wake_up_interruptible(&brick->startup_event);
+
+	MARS_DBG("--------------- cb_thread starting on socket %p\n", brick->handler_socket);
+
+        while (!kthread_should_stop()) {
+		struct server_mref_aspect *mref_a;
+		struct mref_object *mref;
+		struct list_head *tmp;
+		struct socket **sock;
+		unsigned long flags;
+
+		status = -EINVAL;
+		if (!brick->handler_socket)
+			break;
+
+		wait_event_interruptible_timeout(
+			brick->cb_event,
+			!list_empty(&brick->cb_read_list) ||
+			!list_empty(&brick->cb_write_list) ||
+			kthread_should_stop(),
+			3 * HZ);
+
+		if (!brick->handler_socket)
+			break;
+
+		traced_lock(&brick->cb_lock, flags);
+		tmp = brick->cb_write_list.next;
+		if (tmp == &brick->cb_write_list) {
+			tmp = brick->cb_read_list.next;
+			if (tmp == &brick->cb_read_list) {
+				traced_unlock(&brick->cb_lock, flags);
+				continue;
+			}
+		}
+		list_del_init(tmp);
+		traced_unlock(&brick->cb_lock, flags);
+
+		mref_a = container_of(tmp, struct server_mref_aspect, cb_head);
+		mref = mref_a->object;
+		CHECK_PTR(mref, err);
+		status = -ENOTSOCK;
+		sock = mref_a->sock;
+		CHECK_PTR(sock, err);
+		CHECK_PTR(*sock, err);
+
+		down(&brick->socket_sem);
+		status = mars_send_cb(sock, mref);
+		up(&brick->socket_sem);
+
+		atomic_dec(&brick->in_flight);
+		GENERIC_INPUT_CALL(brick->inputs[0], mref_put, mref);
+
+		if (unlikely(status < 0)) {
+			MARS_ERR("cannot send response, status = %d\n", status);
+			kernel_sock_shutdown(*sock, SHUT_WR);
+			break;
+		}
+	}
+
+err:
+	brick->cb_running = false;
+	MARS_DBG("---------- cb_thread terminating, status = %d\n", status);
+	wake_up_interruptible(&brick->startup_event);
+	return status;
+}
+
+static
+void server_endio(struct generic_callback *cb)
 {
 	struct server_mref_aspect *mref_a;
 	struct mref_object *mref;
 	struct server_brick *brick;
-	struct socket **sock;
-	int status;
+	int rw;
+	unsigned long flags;
 
 	mref_a = cb->cb_private;
 	CHECK_PTR(mref_a, err);
-	mref = mref_a->object;
-	CHECK_PTR(mref, err);
 	brick = mref_a->brick;
 	CHECK_PTR(brick, err);
-	sock = mref_a->sock;
-	CHECK_PTR(sock, err);
-	CHECK_PTR(*sock, err);
+	mref = mref_a->object;
+	CHECK_PTR(mref, err);
 
-	down(&brick->socket_sem);
-	status = mars_send_cb(sock, mref);
-	up(&brick->socket_sem);
+	rw = mref->ref_rw;
 
-	if (status < 0) {
-		MARS_ERR("cannot send response, status = %d\n", status);
-		kernel_sock_shutdown(*sock, SHUT_WR);
+	traced_lock(&brick->cb_lock, flags);
+	if (rw) {
+		list_add_tail(&mref_a->cb_head, &brick->cb_write_list);
+	} else {
+		list_add_tail(&mref_a->cb_head, &brick->cb_read_list);
 	}
-	atomic_dec(&brick->in_flight);
+	traced_unlock(&brick->cb_lock, flags);
+
+	wake_up_interruptible(&brick->cb_event);
 	return;
 err:
 	MARS_FAT("cannot handle callback - giving up\n");
 }
 
-
 int server_io(struct server_brick *brick, struct socket **sock)
 {
 	struct mref_object *mref;
 	struct server_mref_aspect *mref_a;
-	int status;
-	
+	int status = -ENOTRECOVERABLE;
+
+	if (!brick->cb_running)
+		goto done;
+
 	mref = server_alloc_mref(&brick->hidden_output, &brick->mref_object_layout);
 	status = -ENOMEM;
 	if (!mref)
@@ -108,25 +183,47 @@ int server_io(struct server_brick *brick, struct socket **sock)
 		MARS_INF("mref_get execution error = %d\n", status);
 		mref->_ref_cb.cb_error = status;
 		server_endio(&mref->_ref_cb);
-		mars_free_mref(mref);
 		status = 0; // continue serving requests
 		goto done;
 	}
 	
 	GENERIC_INPUT_CALL(brick->inputs[0], mref_io, mref);
-	GENERIC_INPUT_CALL(brick->inputs[0], mref_put, mref);
 
 done:
 	return status;
 }
 
-static int handler_thread(void *data)
+static
+void _clean_list(struct server_brick *brick, struct list_head *start)
+{
+	for (;;) {
+		struct server_mref_aspect *mref_a;
+		struct mref_object *mref;
+		struct list_head *tmp = start->next;
+		if (tmp == start)
+			break;
+
+		list_del_init(tmp);
+
+		mref_a = container_of(tmp, struct server_mref_aspect, cb_head);
+		mref = mref_a->object;
+		if (!mref)
+			continue;
+
+		GENERIC_INPUT_CALL(brick->inputs[0], mref_put, mref);
+	}
+}
+
+static
+int handler_thread(void *data)
 {
 	struct server_brick *brick = data;
 	struct socket **sock = &brick->handler_socket;
+	struct task_struct *cb_thread = brick->cb_thread;
 	int max_round = 300;
 	int status = 0;
 
+	brick->cb_thread = NULL;
 	brick->handler_thread = NULL;
 	wake_up_interruptible(&brick->startup_event);
 	MARS_DBG("--------------- handler_thread starting on socket %p\n", *sock);
@@ -135,7 +232,7 @@ static int handler_thread(void *data)
 
 	//fake_mm();
 
-        while (!kthread_should_stop()) {
+        while (brick->cb_running && !kthread_should_stop()) {
 		struct mars_cmd cmd = {};
 
 		status = mars_recv_struct(sock, &cmd, mars_cmd_meta);
@@ -209,19 +306,19 @@ static int handler_thread(void *data)
 			CHECK_PTR(_bio_brick_type, err);
 
 			//prev = mars_find_brick(mars_global, NULL, cmd.cmd_str1);
-			prev =
-				make_brick_all(mars_global,
-					       NULL,
-					       NULL,
-					       NULL,
-					       10 * HZ,
-					       path,
-					       (const struct generic_brick_type*)_bio_brick_type,
-					       (const struct generic_brick_type*[]){},
-					       NULL,
-					       path,
-					       (const char *[]){},
-					       0);
+			prev = make_brick_all(
+				mars_global,
+				NULL,
+				NULL,
+				NULL,
+				10 * HZ,
+				path,
+				(const struct generic_brick_type*)_bio_brick_type,
+				(const struct generic_brick_type*[]){},
+				NULL,
+				path,
+				(const char *[]){},
+				0);
 			if (likely(prev)) {
 				status = generic_connect((void*)brick->inputs[0], (void*)prev->outputs[0]);
 			} else {
@@ -252,6 +349,15 @@ static int handler_thread(void *data)
 
 done:
 	MARS_DBG("handler_thread terminating, status = %d\n", status);
+	kthread_stop(cb_thread);
+	wait_event_interruptible_timeout(
+		brick->startup_event,
+		!brick->cb_running,
+		10 * HZ);
+
+	_clean_list(brick, &brick->cb_read_list);
+	_clean_list(brick, &brick->cb_write_list);
+
 	do {
 		int status = mars_kill_brick((void*)brick);
 		if (status >= 0) {
@@ -264,7 +370,7 @@ done:
 			break;
 		}
 		msleep(1000);
-	} while (!brick->power.led_off);
+	} while (brick->cb_running && !brick->power.led_off);
 
 	MARS_DBG("done\n");
 	return 0;
@@ -316,14 +422,14 @@ static int server_switch(struct server_brick *brick)
 static int server_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 {
 	struct server_mref_aspect *ini = (void*)_ini;
-	(void)ini;
+	INIT_LIST_HEAD(&ini->cb_head);
 	return 0;
 }
 
 static void server_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
 {
 	struct server_mref_aspect *ini = (void*)_ini;
-	(void)ini;
+	CHECK_HEAD_EMPTY(&ini->cb_head);
 }
 
 MARS_MAKE_STATICS(server);
@@ -335,7 +441,11 @@ static int server_brick_construct(struct server_brick *brick)
 	struct server_output *hidden = &brick->hidden_output;
 	_server_output_init(brick, hidden, "internal");
 	init_waitqueue_head(&brick->startup_event);
+	init_waitqueue_head(&brick->cb_event);
 	sema_init(&brick->socket_sem, 1);
+	spin_lock_init(&brick->cb_lock);
+	INIT_LIST_HEAD(&brick->cb_read_list);
+	INIT_LIST_HEAD(&brick->cb_write_list);
 	return 0;
 }
 
@@ -448,15 +558,25 @@ static int _server_thread(void *data)
 			goto err;
 		}
 
+		brick->handler_socket = new_socket;
+
+		thread = kthread_create(cb_thread, brick, "mars_cb%d", version);
+		if (IS_ERR(thread)) {
+			MARS_ERR("cannot create cb thread, status = %ld\n", PTR_ERR(thread));
+			goto err;
+		}
+		brick->cb_thread = thread;
+		wake_up_process(thread);
+
 		thread = kthread_create(handler_thread, brick, "mars_handler%d", version++);
 		if (IS_ERR(thread)) {
-			MARS_ERR("cannot create thread, status = %ld\n", PTR_ERR(thread));
+			MARS_ERR("cannot create handler thread, status = %ld\n", PTR_ERR(thread));
 			goto err;
 		}
 		brick->handler_thread = thread;
-		brick->handler_socket = new_socket;
 		wake_up_process(thread);
-		wait_event_interruptible(brick->startup_event, brick->handler_thread == NULL);
+
+		wait_event_interruptible(brick->startup_event, brick->handler_thread == NULL && brick->cb_thread == NULL);
 		continue;
 
 	err:

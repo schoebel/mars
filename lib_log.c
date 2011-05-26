@@ -20,10 +20,21 @@ EXPORT_SYMBOL_GPL(init_logst);
 
 struct log_cb_info {
 	struct mref_object *mref;
-	int nr_endio;
+	struct semaphore mutex;
+	atomic_t refcount;
+	int nr_cb;
+	void (*preios[MARS_LOG_CB_MAX])(void *private);
 	void (*endios[MARS_LOG_CB_MAX])(void *private, int error);
 	void *privates[MARS_LOG_CB_MAX];
 };
+
+static
+void put_log_cb_info(struct log_cb_info *cb_info)
+{
+	if (atomic_dec_and_test(&cb_info->refcount)) {
+		kfree(cb_info);
+	}
+}
 
 static
 void log_write_endio(struct generic_callback *cb)
@@ -38,12 +49,18 @@ void log_write_endio(struct generic_callback *cb)
 		mars_log_trace(cb_info->mref);
 	}
 
-	MARS_IO("nr_endio = %d\n", cb_info->nr_endio);
+	MARS_IO("nr_cb = %d\n", cb_info->nr_cb);
 
-	for (i = 0; i < cb_info->nr_endio; i++) {
-		cb_info->endios[i](cb_info->privates[i], cb->cb_error);
+	down(&cb_info->mutex);
+	for (i = 0; i < cb_info->nr_cb; i++) {
+		void (*cbf)(void *private, int error) = cb_info->endios[i];
+		if (cbf) {
+			cbf(cb_info->privates[i], cb->cb_error);
+		}
 	}
-	kfree(cb_info);
+	cb_info->nr_cb = 0; // prevent late preio() callbacks
+	up(&cb_info->mutex);
+	put_log_cb_info(cb_info);
 	return;
 
 err:
@@ -54,7 +71,9 @@ void log_flush(struct log_status *logst)
 {
 	struct mref_object *mref = logst->log_mref;
 	struct generic_callback *cb;
+	struct log_cb_info *cb_info;
 	int gap;
+	int i;
 
 	if (!mref || !logst->count)
 		return;
@@ -81,7 +100,8 @@ void log_flush(struct log_status *logst)
 
 	cb = &mref->_ref_cb;
 	cb->cb_fn = log_write_endio;
-	cb->cb_private = logst->private;
+	cb_info = logst->private;
+	cb->cb_private = cb_info;
 	logst->private = NULL;
 	cb->cb_error = 0;
 	cb->cb_prev = NULL;
@@ -96,6 +116,18 @@ void log_flush(struct log_status *logst)
 	logst->offset = 0;
 	logst->count = 0;
 	logst->log_mref = NULL;
+
+	if (cb_info->nr_cb > 0) {
+		down(&cb_info->mutex);
+		for (i = 0; i < cb_info->nr_cb; i++) {
+			void (*cbf)(void *private) = cb_info->preios[i];
+			if (cbf) {
+				cbf(cb_info->privates[i]);
+			}
+		}
+		up(&cb_info->mutex);
+	}
+	put_log_cb_info(cb_info);
 }
 EXPORT_SYMBOL_GPL(log_flush);
 
@@ -112,7 +144,7 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 
 	mref = logst->log_mref;
 	if ((mref && total_len > mref->ref_len - logst->offset)
-	   || !cb_info || cb_info->nr_endio >= MARS_LOG_CB_MAX) {
+	   || !cb_info || cb_info->nr_cb >= MARS_LOG_CB_MAX) {
 		log_flush(logst);
 	}
 
@@ -128,6 +160,8 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 			goto err;
 		}
 		cb_info = logst->private;
+		sema_init(&cb_info->mutex, 1);
+		atomic_set(&cb_info->refcount, 2);
 
 		mref = mars_alloc_mref(logst->output, &logst->ref_object_layout);
 		if (unlikely(!mref)) {
@@ -206,7 +240,7 @@ err:
 }
 EXPORT_SYMBOL_GPL(log_reserve);
 
-bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private, int error), void *private)
+bool log_finalize(struct log_status *logst, int len, void (*preio)(void *private), void (*endio)(void *private, int error), void *private)
 {
 	struct mref_object *mref = logst->log_mref;
 	struct log_cb_info *cb_info = logst->private;
@@ -214,7 +248,7 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	void *data;
 	int offset;
 	int restlen;
-	int nr_endio;
+	int nr_cb;
 	bool ok = false;
 
 	CHECK_PTR(mref, err);
@@ -228,7 +262,7 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 		MARS_ERR("trying to write more than available (%d > %d)\n", len, (int)(restlen - END_OVERHEAD));
 		goto err;
 	}
-	if (unlikely(!cb_info || cb_info->nr_endio >= MARS_LOG_CB_MAX)) {
+	if (unlikely(!cb_info || cb_info->nr_cb >= MARS_LOG_CB_MAX)) {
 		MARS_ERR("too many endio() calls\n");
 		goto err;
 	}
@@ -267,9 +301,10 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	offset = logst->validflag_offset;
 	DATA_PUT(data, offset, (char)1);
 
-	nr_endio = cb_info->nr_endio++;
-	cb_info->endios[nr_endio] = endio;
-	cb_info->privates[nr_endio] = private;
+	nr_cb = cb_info->nr_cb++;
+	cb_info->preios[nr_cb] = preio;
+	cb_info->endios[nr_cb] = endio;
+	cb_info->privates[nr_cb] = private;
 
 	logst->count++;
 	ok = true;

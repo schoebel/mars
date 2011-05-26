@@ -60,7 +60,7 @@ struct light_class {
 
 //#define TRANS_FAKE
 
-#define CONF_TRANS_BATCHLEN 32
+#define CONF_TRANS_BATCHLEN 1024
 //#define CONF_TRANS_FLYING 4
 #define CONF_TRANS_FLYING 128
 #define CONF_TRANS_PRIO   MARS_PRIO_HIGH
@@ -68,6 +68,8 @@ struct light_class {
 //#define CONF_TRANS_LOG_READS true
 #define CONF_TRANS_MINIMIZE_LATENCY false
 //#define CONF_TRANS_MINIMIZE_LATENCY true
+//#define CONF_TRANS_COMPLETION_SEMANTICS 2
+#define CONF_TRANS_COMPLETION_SEMANTICS 0
 
 //#define CONF_ALL_BATCHLEN 2
 #define CONF_ALL_BATCHLEN 1
@@ -93,6 +95,9 @@ struct light_class {
 
 #define AIO_READAHEAD 1
 #define AIO_WAIT_DURING_FDSYNC false
+
+#define COPY_APPEND_MODE 1
+#define COPY_PRIO MARS_PRIO_LOW
 
 static
 void _set_trans_params(struct mars_brick *_brick, void *private)
@@ -136,7 +141,9 @@ void _set_trans_params(struct mars_brick *_brick, void *private)
 
 		trans_brick->q_phase2.q_ordering = true;
 		trans_brick->q_phase4.q_ordering = true;
+
 		trans_brick->log_reads = CONF_TRANS_LOG_READS;
+		trans_brick->completion_semantics = CONF_TRANS_COMPLETION_SEMANTICS;
 		trans_brick->minimize_latency = CONF_TRANS_MINIMIZE_LATENCY;
 #ifdef TRANS_FAKE
 		trans_brick->debug_shortcut = true;
@@ -216,6 +223,19 @@ void _set_if_params(struct mars_brick *_brick, void *private)
 	if_brick->max_plugged = IF_MAX_PLUGGED;
 	if_brick->readahead = IF_READAHEAD;
 	if_brick->skip_sync = IF_SKIP_SYNC;
+	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
+}
+
+static
+void _set_copy_params(struct mars_brick *_brick, void *private)
+{
+	struct copy_brick *copy_brick = (void*)_brick;
+	if (_brick->type != (void*)&copy_brick_type) {
+		MARS_ERR("bad brick type\n");
+		return;
+	}
+	copy_brick->append_mode = COPY_APPEND_MODE;
+	copy_brick->io_prio = COPY_PRIO;
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 }
 
@@ -336,7 +356,7 @@ int __make_copy(
 	copy =
 		make_brick_all(global,
 			       belongs,
-			       NULL,
+			       _set_copy_params,
 			       NULL,
 			       0,
 			       fullpath[1],
@@ -469,7 +489,7 @@ int _update_file(struct mars_global *global, const char *switch_path, const char
 
 	MARS_DBG("src = '%s' dst = '%s'\n", tmp, file);
 	status = __make_copy(global, NULL, switch_path, copy_path, NULL, argv, -1, &copy);
-	if (status >= 0 && copy && !copy->permanent_update) {
+	if (status >= 0 && copy && !copy->append_mode) {
 		if (end_pos > copy->copy_end) {
 			MARS_DBG("appending to '%s' %lld => %lld\n", copy_path, copy->copy_end, end_pos);
 			copy->copy_end = end_pos;

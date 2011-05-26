@@ -26,6 +26,7 @@ struct client_input {
 struct client_threadinfo {
 	struct task_struct *thread;
 	wait_queue_head_t run_event;
+	int restart_count;
 	bool terminated;
 };
 

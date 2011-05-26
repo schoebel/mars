@@ -53,7 +53,7 @@ int _clear_clash(struct copy_brick *brick)
  * [If you had no writes on A at all during the copy, of course
  * this is not necessary]
  *
- * When optimize_mode is on, reads can utilize the already copied
+ * When utilize_mode is on, reads can utilize the already copied
  * region from B, but only as long as this region has not been
  * invalidated by writes (indicated by low_dirty).
  *
@@ -69,7 +69,7 @@ int _determine_input(struct copy_brick *brick, struct mref_object *mref)
 	int behind;
 	loff_t ref_end;
 
-	if (!brick->optimize_mode || brick->low_dirty)
+	if (!brick->utilize_mode || brick->low_dirty)
 		return INPUT_A_IO;
 
 	ref_end = mref->ref_pos + mref->ref_len;
@@ -178,7 +178,7 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 		len = tmp_pos - pos;
 	}
 	mref->ref_len = len;
-	mref->ref_prio = MARS_PRIO_LOW;
+	mref->ref_prio = brick->io_prio;
 	mref->_ref_cb.cb_private = mref_a;
 	mref->_ref_cb.cb_fn = copy_endio;
 	mref->ref_cb = &mref->_ref_cb;
@@ -279,7 +279,10 @@ int _next_state(struct copy_brick *brick, loff_t pos)
 		if (!mref1) {
 			goto done;
 		}
-		if (mref2) {
+		if (brick->append_mode > 0 && mref1->ref_total_size && mref1->ref_total_size > brick->copy_end) {
+			brick->copy_end = mref1->ref_total_size;
+		}
+		if (mref2) { // do the verify
 			int len = mref1->ref_len;
 			if (len == mref2->ref_len &&
 			   !memcmp(mref1->ref_data, mref2->ref_data, len)) {
@@ -359,10 +362,11 @@ void _run_copy(struct copy_brick *brick)
 	max = MAX_COPY_PARA - atomic_read(&brick->io_flight) * 2;
 	MARS_IO("max = %d\n", max);
 
-	for (pos = brick->copy_start; pos < brick->copy_end; pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
+	for (pos = brick->copy_start; pos < brick->copy_end || brick->append_mode > 1; pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
 		//MARS_IO("pos = %lld\n", pos);
-		if (brick->clash || max-- <= 0)
+		if (brick->clash || max-- <= 0 || kthread_should_stop()) {
 			break;
+		}
 		status = _next_state(brick, pos);
 	}
 }

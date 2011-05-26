@@ -96,6 +96,7 @@ struct trans_logger_mref_aspect {
 	bool   is_hashed;
 	bool   is_dirty;
 	bool   is_collected;
+	bool   is_completed;
 	struct timespec stamp;
 	loff_t log_pos;
 	struct generic_callback cb;
@@ -113,6 +114,7 @@ struct trans_logger_brick {
 	int align_size;   // alignment between requests
 	int chunk_size;   // must be at least 8K (better 64k)
 	int flush_delay;  // delayed firing of incomplete chunks
+	int completion_semantics; // 0 = early completion of all writes, 1 = early completion of non-sync, 2 = late completion
 	bool do_replay;   // mode of operation
 	bool do_continuous_replay;   // mode of operation
 	bool log_reads;   // additionally log pre-images
