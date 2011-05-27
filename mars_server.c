@@ -12,6 +12,8 @@
 #define MARS_IO(args...) /*empty*/
 #endif
 
+//#define LOCAL // not longer use this!
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/string.h>
@@ -30,6 +32,7 @@ static struct task_struct *server_thread = NULL;
 ///////////////////////// own helper functions ////////////////////////
 
 
+#ifdef LOCAL
 static int server_checker(struct mars_dent *parent, const char *name, int namlen, unsigned int d_type, int *prefix, int *serial)
 {
 	return 0;
@@ -39,6 +42,7 @@ static int server_worker(struct mars_global *global, struct mars_dent *dent, boo
 {
 	return 0;
 }
+#endif
 
 static
 int cb_thread(void *data)
@@ -260,15 +264,18 @@ int handler_thread(void *data)
 			if (status < 0) {
 				break;
 			}
+			down(&brick->socket_sem);
 			status = mars_send_struct(sock, &cmd, mars_cmd_meta);
 			if (status < 0) {
 				break;
 			}
 			status = mars_send_struct(sock, &info, mars_info_meta);
+			up(&brick->socket_sem);
 			break;
 		}
 		case CMD_GETENTS:
 		{
+#ifdef LOCAL
 			struct mars_global glob_tmp = {
 				.dent_anchor = LIST_HEAD_INIT(glob_tmp.dent_anchor),
 				.brick_anchor = LIST_HEAD_INIT(glob_tmp.brick_anchor),
@@ -288,11 +295,21 @@ int handler_thread(void *data)
 			status = mars_send_dent_list(sock, &glob_tmp.dent_anchor);
 			up(&brick->socket_sem);
 
+			mars_free_dent_all(&glob_tmp.dent_anchor);
+#else
+			status = -EINVAL;
+			if (unlikely(!cmd.cmd_str1 || !mars_global))
+				break;
+
+			down(&brick->socket_sem);
+			down(&mars_global->mutex);
+			status = mars_send_dent_list(sock, &mars_global->dent_anchor);
+			up(&mars_global->mutex);
+			up(&brick->socket_sem);
+#endif
 			if (status < 0) {
 				MARS_ERR("could not send dentry information, status = %d\n", status);
 			}
-
-			mars_free_dent_all(&glob_tmp.dent_anchor);
 			break;
 		}
 		case CMD_CONNECT:
@@ -327,7 +344,9 @@ int handler_thread(void *data)
 			
 		err:
 			cmd.cmd_int1 = status;
+			down(&brick->socket_sem);
 			status = mars_send_struct(sock, &cmd, mars_cmd_meta);
+			up(&brick->socket_sem);
 			break;
 		}
 		case CMD_MREF:
