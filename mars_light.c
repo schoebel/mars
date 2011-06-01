@@ -545,6 +545,29 @@ int check_logfile(struct mars_peerinfo *peer, struct mars_dent *dent, struct mar
 		}
 	}
 
+	// create local alias symlink
+	if (unlikely(dent->d_serial <= 0)) {
+		MARS_ERR("path '%s' has invalid serial %d\n", dent->d_path, dent->d_serial);
+		status = -EINVAL;
+		goto done;
+	}
+	if (likely(src_size > 0)) {
+		alias_path = path_make("%s/log-%09d-%s", parent->d_path, dent->d_serial, my_id());
+		if (unlikely(!alias_path)) {
+			status = -ENOMEM;
+			goto done;
+		}
+		status = 0;
+		MARS_DBG("local alias for '%s' is '%s'\n", dent->d_path, alias_path);
+		local_alias = mars_find_dent((void*)peer->global, alias_path);
+		if (!local_alias) {
+			status = mars_symlink(dent->d_name, alias_path, &dent->new_stat.mtime, 0);
+			MARS_DBG("create alias '%s' -> '%s' status = %d\n", alias_path, dent->d_name, status);
+			//run_trigger = true;
+		}
+	}
+
+	// copy necessary?
 	status = 0;
 	if (dst_size >= src_size) { // nothing to do
 		goto done;
@@ -560,21 +583,6 @@ int check_logfile(struct mars_peerinfo *peer, struct mars_dent *dent, struct mar
 		goto done;
 	}
 	parent->d_logfile_serial = dent->d_serial;
-
-	// create local alias symlink
-	alias_path = path_make("%s/log-%09d-%s", parent->d_path, dent->d_serial, my_id());
-	if (unlikely(!alias_path)) {
-		status = -ENOMEM;
-		goto done;
-	}
-	status = 0;
-	MARS_DBG("local alias for '%s' is '%s'\n", dent->d_path, alias_path);
-	local_alias = mars_find_dent((void*)peer->global, alias_path);
-	if (!local_alias) {
-		status = mars_symlink(dent->d_name, alias_path, &dent->new_stat.mtime, 0);
-		MARS_DBG("create alias '%s' -> '%s' status = %d\n", alias_path, dent->d_name, status);
-		//run_trigger = true;
-	}
 
 done:
 	if (copy_path)
@@ -797,7 +805,7 @@ int remote_thread(void *data)
 		mars_free_dent_all(&old_list);
 
 		if (!kthread_should_stop())
-			msleep(10 * 1000);
+			msleep(5 * 1000);
 	}
 
 	MARS_INF("-------- remote thread terminating\n");
@@ -1418,30 +1426,55 @@ err:
 }
 
 static
+void _change_trans(struct mars_rotate *rot)
+{
+	struct trans_logger_brick *trans_brick = rot->trans_brick;
+
+	if ((trans_brick->do_replay)) {
+		trans_brick->replay_start_pos = rot->start_pos;
+		trans_brick->replay_end_pos = rot->end_pos;
+	} else {
+		trans_brick->log_start_pos = rot->start_pos;
+	}
+}
+
+static
 int _start_trans(struct mars_rotate *rot)
 {
 	struct trans_logger_brick *trans_brick = rot->trans_brick;
 	struct trans_logger_input *trans_input;
-	int status = 0;
-
-	if (trans_brick->power.button || !trans_brick->power.led_off) {
-		goto done;
-	}
+	int status;
 
 	/* Internal safety checks
 	 */
 	status = -EINVAL;
-	if (unlikely(!rot->aio_brick || !rot->relevant_log)) {
-		MARS_ERR("something is missing, this should not happen\n");
-		goto done;
-	}
-	if (unlikely(rot->relevant_brick)) {
-		MARS_ERR("log aio brick already present, this should not happen\n");
+	if (unlikely(!trans_brick)) {
+		MARS_ERR("logger instance does not exist\n");
 		goto done;
 	}
 	trans_input = trans_brick->inputs[TL_INPUT_FW_LOG1];
 	if (unlikely(!trans_input)) {
 		MARS_ERR("log input does not exist\n");
+		goto done;
+	}
+	if (unlikely(!rot->aio_brick || !rot->relevant_log)) {
+		MARS_ERR("something is missing, this should not happen\n");
+		goto done;
+	}
+
+	/* Update status when already working
+	 */
+	if (trans_brick->power.button || !trans_brick->power.led_off) {
+		_change_trans(rot);
+		status = 0;
+		goto done;
+	}
+
+	/* Really start transaction logging now.
+	 * Check some preconditions.
+	 */
+	if (unlikely(rot->relevant_brick)) {
+		MARS_ERR("log aio brick already present, this should not happen\n");
 		goto done;
 	}
 
@@ -1481,12 +1514,8 @@ int _start_trans(struct mars_rotate *rot)
 	/* Supply all relevant parameters
 	 */
 	trans_input->sequence = rot->relevant_log->d_serial;
-	if ((trans_brick->do_replay = rot->do_replay)) {
-		trans_brick->replay_start_pos = rot->start_pos;
-		trans_brick->replay_end_pos = rot->end_pos;
-	} else {
-		trans_brick->log_start_pos = rot->start_pos;
-	}
+	trans_brick->do_replay = rot->do_replay;
+	_change_trans(rot);
 
 	/* Switch on....
 	 */
@@ -1503,7 +1532,7 @@ int _stop_trans(struct mars_rotate *rot)
 	struct trans_logger_brick *trans_brick = rot->trans_brick;
 	int status = 0;
 
-	if (!trans_brick || !trans_brick->power.button) {
+	if (!trans_brick) {
 		goto done;
 	}
 
@@ -1511,14 +1540,21 @@ int _stop_trans(struct mars_rotate *rot)
 	 */
 	status = mars_power_button((void*)trans_brick, false, false);
 	MARS_DBG("status = %d\n", status);
-	if (status < 0 || !trans_brick->power.led_off) {
+	if (status < 0) {
 		goto done;
 	}
 
-	/* Disconnect old connection
+	/* Disconnect old connection(s)
 	 */
-	if (trans_brick->inputs[1] && trans_brick->inputs[1]->connect) {
-		(void)generic_disconnect((void*)trans_brick->inputs[1]);
+	if (trans_brick->power.led_off) {
+		int i;
+		for (i = TL_INPUT_FW_LOG1; i <= TL_INPUT_BW_LOG2; i++) {
+			struct trans_logger_input *trans_input;
+			trans_input = trans_brick->inputs[i];
+			if (trans_input && trans_input->connect) {
+				(void)generic_disconnect((void*)trans_input);
+			}
+		}
 	}
 
 done:
@@ -1688,6 +1724,27 @@ int make_bio(void *buf, struct mars_dent *dent)
 	return status;
 }
 
+static int make_replay(void *buf, struct mars_dent *dent)
+{
+	struct mars_global *global = buf;
+	struct mars_dent *parent = dent->d_parent;
+	int status = 0;
+
+	if (!global->global_power.button || !parent || !dent->new_link) {
+		MARS_DBG("nothing to do\n");
+		goto done;
+	}
+
+	status = make_log_finalize(global, parent);
+	if (status < 0) {
+		MARS_DBG("logger not initialized\n");
+		goto done;
+	}
+
+done:
+	return status;
+}
+
 static int make_dev(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
@@ -1702,11 +1759,6 @@ static int make_dev(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 
-	status = make_log_finalize(global, parent);
-	if (status < 0) {
-		MARS_DBG("logger not initialized\n");
-		goto done;
-	}
 	rot = parent->d_private;
 	if (!rot || !rot->is_primary) {
 		MARS_DBG("I am not primary, don't show the device\n");
@@ -1971,8 +2023,8 @@ enum {
 	CL__COPY,
 	CL__DIRECT,
 	CL_VERSION,
-	CL_REPLAYSTATUS,
 	CL_LOG,
+	CL_REPLAYSTATUS,
 	CL_DEVICE,
 };
 
@@ -2134,18 +2186,6 @@ static const struct light_class light_classes[] = {
 		.cl_forward = NULL,
 		.cl_backward = NULL,
 	},
-	/* Passive symlink indicating the last state of
-	 * transaction log replay.
-	 */
-	[CL_REPLAYSTATUS] = {
-		.cl_name = "replay-",
-		.cl_len = 7,
-		.cl_type = 'l',
-		.cl_hostcontext = true,
-		.cl_father = CL_RESOURCE,
-		.cl_forward = NULL,
-		.cl_backward = NULL,
-	},
 	/* Logfiles for transaction logger
 	 */
 	[CL_LOG] = {
@@ -2159,6 +2199,18 @@ static const struct light_class light_classes[] = {
 		.cl_forward = make_log,
 		.cl_backward = kill_all,
 #endif
+	},
+	/* Symlink indicating the last state of
+	 * transaction log replay.
+	 */
+	[CL_REPLAYSTATUS] = {
+		.cl_name = "replay-",
+		.cl_len = 7,
+		.cl_type = 'l',
+		.cl_hostcontext = true,
+		.cl_father = CL_RESOURCE,
+		.cl_forward = make_replay,
+		.cl_backward = NULL,
 	},
 
 	/* Name of the device appearing at the primary
@@ -2228,6 +2280,7 @@ static int light_checker(struct mars_dent *parent, const char *_name, int namlen
 				status = -1;
 				goto done;
 			}
+			//MARS_DBG("'%s' serial number = %d\n", name, *serial);
 			len += plus;
 			if (name[len] == '-')
 				len++;
@@ -2383,7 +2436,7 @@ void _show_statist(struct mars_global *global)
 	for (tmp = global->dent_anchor.next; tmp != &global->dent_anchor; tmp = tmp->next) {
 		struct mars_dent *dent;
 		dent = container_of(tmp, struct mars_dent, dent_link);
-		MARS_STAT("dent '%s'\n", dent->d_path);
+		MARS_STAT("dent %d '%s' '%s'\n", dent->d_class, dent->d_path, dent->new_link ? dent->new_link : "");
 		dent_count++;
 	}
 	MARS_STAT("================================== bricks:\n");
@@ -2456,9 +2509,9 @@ static int light_thread(void *data)
 		_show_statist(&global);
 #endif
 
-		msleep(1000);
+		msleep(50);
 
-		wait_event_interruptible_timeout(global.main_event, global.main_trigger, 30 * HZ);
+		wait_event_interruptible_timeout(global.main_event, global.main_trigger, 10 * HZ);
 		global.main_trigger = false;
 	}
 

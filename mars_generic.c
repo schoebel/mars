@@ -154,7 +154,7 @@ const struct meta mars_dent_meta[] = {
 	META_INI(d_pathlen, struct mars_dent, FIELD_INT),
 	META_INI(d_type,    struct mars_dent, FIELD_INT),
 	META_INI(d_class,   struct mars_dent, FIELD_INT),
-	META_INI(d_version, struct mars_dent, FIELD_INT),
+	META_INI(d_serial,  struct mars_dent, FIELD_INT),
 	META_INI_SUB(new_stat,struct mars_dent, mars_kstat_meta),
 	META_INI_SUB(old_stat,struct mars_dent, mars_kstat_meta),
 	META_INI(new_link,    struct mars_dent, FIELD_STRING),
@@ -713,7 +713,7 @@ err_mem0:
 	return -ENOMEM;
 }
 
-static int _mars_dent_work(struct mars_cookie *cookie)
+static int _mars_readdir(struct mars_cookie *cookie)
 {
 	struct file *f;
         mm_segment_t oldfs;
@@ -755,8 +755,10 @@ int mars_dent_work(struct mars_global *global, char *dirname, int allocsize, mar
 	int total_status = 0;
 	bool found_dir;
 
+	/* Initialize the flat dent list
+	 */
 	version++;
-	total_status = _mars_dent_work(&cookie);
+	total_status = _mars_readdir(&cookie);
 
 	if (total_status || !worker) {
 		goto done;
@@ -794,7 +796,7 @@ restart:
 				.depth = dent->d_depth + 1,
 			};
 			found_dir = true;
-			status = _mars_dent_work(&sub_cookie);
+			status = _mars_readdir(&sub_cookie);
 			total_status |= status;
 			if (status < 0) {
 				MARS_ERR("forward: status %d on '%s'\n", status, dent->d_path);
