@@ -11,15 +11,26 @@
 #define INPUT_B_COPY 3
 
 //#define COPY_CHUNK      (64 * 1024)
-#define COPY_CHUNK      PAGE_SIZE
-#define MAX_COPY_PARA   (10 * 1024 * 1024 / COPY_CHUNK)
+#define COPY_CHUNK      (PAGE_SIZE)
+#define MAX_COPY_PARA   (4 * 1024 * 1024 / COPY_CHUNK)
 
 enum {
-	COPY_STATE_START = 0,
-	COPY_STATE_READ1 = 1,
-	COPY_STATE_READ2 = 2,
-	COPY_STATE_WRITE,
-	COPY_STATE_CLEANUP,
+	COPY_STATE_START   = 0,
+	COPY_STATE_READ1   = 1,
+	COPY_STATE_READ2   = 2,
+	COPY_STATE_WAIT_A  = 3,
+	COPY_STATE_WRITE   = 4,
+	COPY_STATE_WAIT_B  = 5,
+	COPY_STATE_CLEANUP = 6,
+};
+
+struct copy_state {
+	struct mref_object *table[2];
+	char state;
+	char active;
+	short prev;
+	short len;
+	short error;
 };
 
 struct copy_mref_aspect {
@@ -49,9 +60,8 @@ struct copy_brick {
 	wait_queue_head_t event;
 	struct semaphore mutex;
 	struct task_struct *thread;
-	char state[MAX_COPY_PARA];
-	struct mref_object *table[MAX_COPY_PARA][2];
 	struct generic_object_layout mref_object_layout;
+	struct copy_state st[MAX_COPY_PARA];
 };
 
 struct copy_input {

@@ -32,7 +32,35 @@ sub check_id {
 
 sub check_res {
   my $res = shift;
-  die "resource '$res' does not exist\n" unless -d "$mars/resource-$res";
+  if(not -d "$mars/resource-$res") {
+    # DO WHAT I MEAN: try to substitute a device name for a badly given resource name if it is unique
+    my $count = 0;
+    my $found;
+    my @tests = glob("$mars/resource-*/device-$host");
+    foreach my $test (@tests) {
+      my $target = readlink($test);
+      if($target eq $res) {
+	$found = $test;
+	$count++;
+      }
+    }
+    if(!$count) {
+      @tests = glob("$mars/resource-*/_direct-*-$host");
+      foreach my $test (@tests) {
+	my $target = readlink($test);
+	$target =~ s/^.*,//;
+	if($target eq $res) {
+	  $found = $test;
+	  $count++;
+	}
+    }
+    }
+    die "resource '$res' does not exist ($count replacements found)\n" unless $count == 1 and $found;
+    $found =~ s:^.*/resource-(.*)/.*$:$1:;
+    warn "substituting bad resource name '$res' by uniquely matching resource name '$found'\n";
+    $res = $found;
+  }
+  return $res;
 }
 
 sub check_res_member {
@@ -66,12 +94,20 @@ sub _trigger {
 }
 
 sub _switch {
-  my ($path, $on) = @_;
+  my ($cmd, $res, $path, $on) = @_;
+  my $src = $on ? "1" : "0";
+
+  my $old = readlink($path);
+  if($old && $old eq $src) {
+    print "${cmd} on resource $res is already activated\n" if $cmd;
+    return;
+  }
+
   my $tmp = $path;
   $tmp =~ s/\/([^\/]+)$/.tmp.$1/;
-  my $src = $on ? "1" : "0";
   symlink($src, $tmp) or die "cannot create switch symlink\n";
   rename($tmp, $path) or die "cannot rename switch symlink\n";
+  print "successfully started ${cmd} on resource $res\n" if $cmd;
 }
 
 sub _writable {
@@ -235,24 +271,21 @@ sub attach_res {
   my ($cmd, $res) = @_;
   my $detach = ($cmd eq "detach");
   my $path = "$mars/resource-$res/switch-$host/attach";
-  _switch($path, !$detach);
-  print "successfully started ${cmd} of resource $res\n"
+  _switch($cmd, $res, $path, !$detach);
 }
 
 sub connect_res {
   my ($cmd, $res) = @_;
   my $disconnect = ($cmd eq "disconnect");
   my $path = "$mars/resource-$res/switch-$host/connect";
-  _switch($path, !$disconnect);
-  print "successfully started ${cmd} on resource $res\n"
+  _switch($cmd, $res, $path, !$disconnect);
 }
 
 sub pause_res {
   my ($cmd, $res) = @_;
   my $pause = ($cmd eq "pause-sync");
   my $path = "$mars/resource-$res/switch-$host/sync";
-  _switch($path, !$pause);
-  print "successfully started ${cmd} on resource $res\n"
+  _switch($cmd, $res, $path, !$pause);
 }
 
 sub up_res {
@@ -377,7 +410,7 @@ sub do_res {
   my $cmd = shift;
   my $res = shift;
 
-  check_res($res) unless $cmd =~ m/^(join-system|create-resource)$/;
+  $res = check_res($res) unless $cmd =~ m/^(join-system|create-resource)$/;
   check_res_member($res) unless $cmd =~ m/^(join|create)-(system|resource)$/;
 
   my $func = $cmd_table{$cmd};

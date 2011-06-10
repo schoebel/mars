@@ -145,6 +145,7 @@ struct trans_logger_brick {
 	atomic_t inner_balance_count;
 	atomic_t sub_balance_count;
 	atomic_t wb_balance_count;
+	atomic_t total_replay_count;
 	atomic_t total_cb_count;
 	atomic_t total_read_count;
 	atomic_t total_write_count;

@@ -137,7 +137,7 @@ static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
 		if (!mref->ref_may_write) {
 			loff_t len = total_size - mref->ref_pos;
 			if (unlikely(len <= 0)) {
-				/* Allow reads starting _exactly_ at EOF when a timeout is specified (special case).
+				/* Special case: allow reads starting _exactly_ at EOF when a timeout is specified.
 				 */
 				if (len < 0 || mref->ref_timeout <= 0) {
 					MARS_DBG("ENODATA %lld\n", len);

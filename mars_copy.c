@@ -93,7 +93,8 @@ int _determine_input(struct copy_brick *brick, struct mref_object *mref)
 	return INPUT_A_IO;
 }
 
-#define MAKE_INDEX(pos) (((pos) / COPY_CHUNK) % MAX_COPY_PARA)
+#define GET_INDEX(pos)    (((pos) / COPY_CHUNK) % MAX_COPY_PARA)
+#define GET_OFFSET(pos)   ((pos) % COPY_CHUNK)
 
 static
 void copy_endio(struct generic_callback *cb)
@@ -101,8 +102,10 @@ void copy_endio(struct generic_callback *cb)
 	struct copy_mref_aspect *mref_a;
 	struct mref_object *mref;
 	struct copy_brick *brick;
+	struct copy_state *st;
 	int index;
 	int queue;
+	int error = 0;
 
 	mref_a = cb->cb_private;
 	CHECK_PTR(mref_a, err);
@@ -112,28 +115,34 @@ void copy_endio(struct generic_callback *cb)
 	CHECK_PTR(brick, err);
 
 	queue = mref_a->queue;
-	index = MAKE_INDEX(mref->ref_pos);
+	index = GET_INDEX(mref->ref_pos);
+	st = &brick->st[index];
+
 	MARS_IO("queue = %d index = %d pos = %lld status = %d\n", queue, index, mref->ref_pos, cb->cb_error);
 	if (unlikely(queue < 0 || queue >= 2)) {
 		MARS_ERR("bad queue %d\n", queue);
-		_clash(brick);
+		error = -EINVAL;
 		goto exit;
 	}
-	if (unlikely(brick->table[index][queue])) {
-		MARS_ERR("table corruption at %d %d (%p => %p)\n", index, queue, brick->table[index], mref);
-		_clash(brick);
-		brick->state[index] = -EINVAL;
+	if (unlikely(st->table[queue])) {
+		MARS_ERR("table corruption at %d %d (%p => %p)\n", index, queue, st->table[queue], mref);
+		error = -EEXIST;
 		goto exit;
 	}
 	if (unlikely(cb->cb_error < 0)) {
-		MARS_ERR("IO error %d on index %d, old state =%d\n", cb->cb_error, index, brick->state[index]);
-		brick->state[index] = cb->cb_error;
-	} else if (likely(brick->state[index] > 0)) {
-		brick->table[index][queue] = mref;
+		MARS_ERR("IO error %d on index %d, old state = %d\n", cb->cb_error, index, st->state);
+		error = cb->cb_error;
+	} else if (likely(!st->error)) {
+		st->table[queue] = mref;
 	}
 
 exit:
+	if (unlikely(error)) {
+		st->error = error;
+		_clash(brick);
+	}
 	atomic_dec(&brick->copy_flight);
+	st->active = false;
 	brick->trigger = true;
 	wake_up_interruptible(&brick->event);
 	return;
@@ -149,6 +158,7 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 	struct copy_mref_aspect *mref_a;
 	struct copy_input *input;
 	loff_t tmp_pos;
+	int offset;
 	int len;
 	int status = -1;
 
@@ -173,7 +183,8 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 	mref->ref_rw = rw;
 	mref->ref_data = data;
 	mref->ref_pos = pos;
-	len = COPY_CHUNK - (pos & (COPY_CHUNK-1));
+	offset = GET_OFFSET(pos);
+	len = COPY_CHUNK - offset;
 	if (pos + len > tmp_pos) {
 		len = tmp_pos - pos;
 	}
@@ -191,14 +202,14 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 		goto done;
 	}
 	if (unlikely(mref->ref_len < len)) {
-		MARS_ERR("shorten len %d < %d\n", mref->ref_len, len);
-		//FIXME: handle this case
-		status = -EAGAIN;
+		MARS_DBG("shorten len %d < %d\n", mref->ref_len, len);
 	}
 
 	MARS_IO("queue = %d index = %d pos = %lld len = %d rw = %d\n", queue, index, mref->ref_pos, mref->ref_len, rw);
 
 	atomic_inc(&brick->copy_flight);
+	brick->st[index].len = mref->ref_len;
+	brick->st[index].active = true;
 	GENERIC_INPUT_CALL(input, mref_io, mref);
 
 done:
@@ -208,12 +219,12 @@ done:
 static
 void _clear_mref(struct copy_brick *brick, int index, int queue)
 {
-	struct mref_object *mref = brick->table[index][queue];
+	struct mref_object *mref = brick->st[index].table[queue];
 	if (mref) {
 		struct copy_input *input;
 		input = queue ? brick->inputs[INPUT_B_COPY] : brick->inputs[INPUT_A_COPY];
 		GENERIC_INPUT_CALL(input, mref_put, mref);
-		brick->table[index][queue] = NULL;
+		brick->st[index].table[queue] = NULL;
 	}
 }
 
@@ -231,17 +242,18 @@ void _update_percent(struct copy_brick *brick)
 }
 
 static
-int _next_state(struct copy_brick *brick, loff_t pos)
+int _next_state(struct copy_brick *brick, int index, loff_t pos)
 {
 	struct mref_object *mref1;
 	struct mref_object *mref2;
-	int index = MAKE_INDEX(pos);
+	struct copy_state *st;
 	char state;
 	char next_state;
 	int i;
 	int status;
 
-	state = brick->state[index];
+	st = &brick->st[index];
+	state = st->state;
 	next_state = -1;
 	mref2 = NULL;
 	status = 0;
@@ -250,7 +262,7 @@ int _next_state(struct copy_brick *brick, loff_t pos)
 
 	switch (state) {
 	case COPY_STATE_START:
-		if (brick->table[index][0] || brick->table[index][1]) {
+		if (st->table[0] || st->table[1]) {
 			MARS_ERR("index %d not startable\n", index);
 			status = -EPROTO;
 			goto done;
@@ -269,13 +281,13 @@ int _next_state(struct copy_brick *brick, loff_t pos)
 		}
 		break;
 	case COPY_STATE_READ2:
-		mref2 = brick->table[index][1];
+		mref2 = st->table[1];
 		if (!mref2) {
 			goto done;
 		}
 		/* fallthrough */
 	case COPY_STATE_READ1:
-		mref1 = brick->table[index][0];
+		mref1 = st->table[0];
 		if (!mref1) {
 			goto done;
 		}
@@ -288,7 +300,7 @@ int _next_state(struct copy_brick *brick, loff_t pos)
 			   !memcmp(mref1->ref_data, mref2->ref_data, len)) {
 				/* skip start of writing, goto final treatment of writeout */
 				next_state = COPY_STATE_WRITE;
-				brick->state[index] = next_state;
+				st->state = next_state;
 				goto COPY_STATE_WRITE;
 			}
 			_clear_mref(brick, index, 1);
@@ -300,15 +312,13 @@ int _next_state(struct copy_brick *brick, loff_t pos)
 		break;
 	case COPY_STATE_WRITE:
 	COPY_STATE_WRITE:
-		mref2 = brick->table[index][1];
+		mref2 = st->table[1];
 		if (!mref2 || brick->copy_start != pos) {
 			MARS_IO("irrelevant\n");
 			goto done;
 		}
-		if (!brick->clash) {
-			brick->copy_start += mref2->ref_len;
-			MARS_IO("new copy_start = %lld\n", brick->copy_start);
-			_update_percent(brick);
+		if (!brick->clash && mref2->ref_len == COPY_CHUNK) {
+			st->finished = true;
 		}
 		next_state = COPY_STATE_CLEANUP;
 		/* fallthrough */
@@ -323,9 +333,9 @@ int _next_state(struct copy_brick *brick, loff_t pos)
 		status = -EILSEQ;
 	}
 
-	brick->state[index] = next_state;
+	st->state = next_state;
 	if (status < 0) {
-		brick->state[index] = -1;
+		st->error = status;
 		MARS_ERR("status = %d\n", status);
 		_clash(brick);
 	}
@@ -339,7 +349,7 @@ void _run_copy(struct copy_brick *brick)
 {
 	int max;
 	loff_t pos;
-	int i;
+	loff_t last = 0;
 	int status;
 
 	if (_clear_clash(brick)) {
@@ -352,22 +362,41 @@ void _run_copy(struct copy_brick *brick)
 			msleep(50);
 			return;
 		}
-		for (i = 0; i < MAX_COPY_PARA; i++) {
-			brick->table[i][0] = NULL;
-			brick->table[i][1] = NULL;
-			brick->state[i] = COPY_STATE_START;
-		}
+		memset(brick->st, 0, sizeof(brick->st));
 	}
 
+	/* Do at most max iterations in the below loop
+	 */
 	max = MAX_COPY_PARA - atomic_read(&brick->io_flight) * 2;
 	MARS_IO("max = %d\n", max);
 
 	for (pos = brick->copy_start; pos < brick->copy_end || brick->append_mode > 1; pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
+		int index = GET_INDEX(pos);
+		struct copy_state *st = &brick->st[index];
 		//MARS_IO("pos = %lld\n", pos);
 		if (brick->clash || max-- <= 0 || kthread_should_stop()) {
 			break;
 		}
-		status = _next_state(brick, pos);
+		if (!st->skip) {
+			status = _next_state(brick, index, pos);
+			last = pos;
+		}
+	}
+	if (!brick->clash) {
+		int count = 0;
+		for (pos = brick->copy_start; pos < last; pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
+			int index = GET_INDEX(pos);
+			struct copy_state *st = &brick->st[index];
+			if (!st->finished)
+				break;
+			count += COPY_CHUNK;
+			st->finished = false;
+		}
+		if (count > 0) {
+			brick->copy_start += count;
+			MARS_IO("new copy_start = %lld\n", brick->copy_start);
+			_update_percent(brick);
+		}
 	}
 }
 
@@ -382,13 +411,15 @@ static int _copy_thread(void *data)
         while (!kthread_should_stop()) {
 		loff_t old_start = brick->copy_start;
 		loff_t old_end = brick->copy_end;
-		if (old_end > 0)
+		if (old_end > 0) {
 			_run_copy(brick);
+			msleep(10); // yield FIXME: remove this, use event handling for over/underflow
+		}
 
 		wait_event_interruptible_timeout(brick->event,
 						 brick->trigger || brick->copy_start != old_start || brick->copy_end != old_end || kthread_should_stop(),
 
-						 20 * HZ);
+						 5 * HZ);
 		brick->trigger = false;
 	}
 

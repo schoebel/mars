@@ -3,6 +3,7 @@
 #define MARS_H
 
 #include <linux/semaphore.h>
+#include <linux/rwsem.h>
 
 //#define MARS_TRACING // write runtime trace data to /mars/trace.csv
 
@@ -351,6 +352,7 @@ extern char *my_id(void);
 	int   d_serial;   /* for pre-grouping order */			\
 	int   d_version;  /* dynamic programming per call of mars_ent_work() */ \
 	char d_once_error;						\
+	bool d_killme;							\
 	struct kstat new_stat;						\
 	struct kstat old_stat;						\
 	char *new_link;							\
@@ -368,7 +370,8 @@ extern const struct meta mars_kstat_meta[];
 extern const struct meta mars_dent_meta[];
 
 struct mars_global {
-	struct semaphore mutex;
+	struct rw_semaphore dent_mutex;
+	struct rw_semaphore brick_mutex;
 	struct generic_switch global_power;
 	struct list_head dent_anchor;
 	struct list_head brick_anchor;
@@ -381,7 +384,6 @@ typedef int (*mars_dent_checker)(struct mars_dent *parent, const char *name, int
 typedef int (*mars_dent_worker)(struct mars_global *global, struct mars_dent *dent, bool direction);
 
 extern int mars_dent_work(struct mars_global *global, char *dirname, int allocsize, mars_dent_checker checker, mars_dent_worker worker, void *buf, int maxdepth);
-extern struct mars_dent *_mars_find_dent(struct mars_global *global, const char *path);
 extern struct mars_dent *mars_find_dent(struct mars_global *global, const char *path);
 extern void mars_kill_dent(struct mars_dent *dent);
 extern void mars_free_dent(struct mars_dent *dent);

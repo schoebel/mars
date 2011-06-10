@@ -12,8 +12,6 @@
 #define MARS_IO(args...) /*empty*/
 #endif
 
-//#define LOCAL // not longer use this!
-
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/string.h>
@@ -31,18 +29,6 @@ static struct task_struct *server_thread = NULL;
 
 ///////////////////////// own helper functions ////////////////////////
 
-
-#ifdef LOCAL
-static int server_checker(struct mars_dent *parent, const char *name, int namlen, unsigned int d_type, int *prefix, int *serial)
-{
-	return 0;
-}
-
-static int server_worker(struct mars_global *global, struct mars_dent *dent, bool direction)
-{
-	return 0;
-}
-#endif
 
 static
 int cb_thread(void *data)
@@ -275,38 +261,16 @@ int handler_thread(void *data)
 		}
 		case CMD_GETENTS:
 		{
-#ifdef LOCAL
-			struct mars_global glob_tmp = {
-				.dent_anchor = LIST_HEAD_INIT(glob_tmp.dent_anchor),
-				.brick_anchor = LIST_HEAD_INIT(glob_tmp.brick_anchor),
-				.mutex = __SEMAPHORE_INITIALIZER(glob_tmp.mutex, 1),
-			};
-
-			status = -EINVAL;
-			if (!cmd.cmd_str1)
-				break;
-
-			status = mars_dent_work(&glob_tmp, cmd.cmd_str1, sizeof(struct mars_dent), server_checker, server_worker, NULL, cmd.cmd_int1);
-			MARS_DBG("dents status = %d\n", status);
-			if (status < 0)
-				break;
-
-			down(&brick->socket_sem);
-			status = mars_send_dent_list(sock, &glob_tmp.dent_anchor);
-			up(&brick->socket_sem);
-
-			mars_free_dent_all(&glob_tmp.dent_anchor);
-#else
 			status = -EINVAL;
 			if (unlikely(!cmd.cmd_str1 || !mars_global))
 				break;
 
 			down(&brick->socket_sem);
-			down(&mars_global->mutex);
+			down_read(&mars_global->dent_mutex);
 			status = mars_send_dent_list(sock, &mars_global->dent_anchor);
-			up(&mars_global->mutex);
+			up_read(&mars_global->dent_mutex);
 			up(&brick->socket_sem);
-#endif
+
 			if (status < 0) {
 				MARS_ERR("could not send dentry information, status = %d\n", status);
 			}

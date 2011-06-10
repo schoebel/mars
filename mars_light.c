@@ -85,10 +85,11 @@ struct light_class {
 #define IF_SKIP_SYNC true
 
 #define IF_MAX_PLUGGED 10000
-#define IF_READAHEAD 1
-//#define IF_READAHEAD 0
+#define IF_READAHEAD 0
+//#define IF_READAHEAD 1
 
-#define BIO_READAHEAD 1
+#define BIO_READAHEAD 0
+//#define BIO_READAHEAD 1
 #define BIO_NOIDLE true
 #define BIO_SYNC true
 #define BIO_UNPLUG true
@@ -618,7 +619,7 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *dent)
 		update_mtime = timespec_compare(&dent->new_stat.mtime, &local_stat.mtime) > 0;
 		update_ctime = timespec_compare(&dent->new_stat.ctime, &local_stat.ctime) > 0;
 
-		//MARS_DBG("timestamps '%s' remote = %ld.%09ld local = %ld.%09ld\n", dent->d_path, dent->new_stat.mtime.tv_sec, dent->new_stat.mtime.tv_nsec, local_stat.mtime.tv_sec, local_stat.mtime.tv_nsec);
+		MARS_DBG("timestamps '%s' remote = %ld.%09ld local = %ld.%09ld\n", dent->d_path, dent->new_stat.mtime.tv_sec, dent->new_stat.mtime.tv_nsec, local_stat.mtime.tv_sec, local_stat.mtime.tv_nsec);
 
 		if ((dent->new_stat.mode & S_IRWXU) !=
 		   (local_stat.mode & S_IRWXU) &&
@@ -700,7 +701,7 @@ int run_bones(struct mars_peerinfo *peer)
 			MARS_DBG("NULL\n");
 			continue;
 		}
-		//MARS_DBG("path = '%s'\n", dent->d_path);
+		MARS_DBG("path = '%s'\n", dent->d_path);
 		status = run_bone(peer, dent);
 		if (status > 0)
 			run_trigger = true;
@@ -1386,7 +1387,7 @@ int make_log(void *buf, struct mars_dent *dent)
 			_update_replaylink(dent->d_parent, dent->d_serial + 1, 0, 0, !rot->is_primary);
 			trans_brick->current_pos = 0;
 			rot->last_jiffies = jiffies;
-			mars_trigger();
+			//mars_trigger();
 		}
 		status = -EAGAIN;
 		goto done;
@@ -2013,9 +2014,16 @@ enum {
 	CL_PEERS,
 	// resource definitions
 	CL_RESOURCE,
+	CL_DEFAULTS0,
+	CL_DEFAULTS,
+	CL_DEFAULTS_ITEMS0,
+	CL_DEFAULTS_ITEMS,
 	CL_SWITCH,
 	CL_SWITCH_ITEMS,
+	CL_ACTUAL,
+	CL_ACTUAL_ITEMS,
 	CL_CONNECT,
+	CL_SIZE,
 	CL_DATA,
 	CL_PRIMARY,
 	CL__FILE,
@@ -2069,6 +2077,46 @@ static const struct light_class light_classes[] = {
 		.cl_forward = make_log_init,
 		.cl_backward = NULL,
 	},
+
+	/* Subdirectory for defaults...
+	 */
+	[CL_DEFAULTS0] = {
+		.cl_name = "defaults",
+		.cl_len = 8,
+		.cl_type = 'd',
+		.cl_hostcontext = false,
+		.cl_father = CL_RESOURCE,
+		.cl_forward = NULL,
+		.cl_backward = NULL,
+	},
+	[CL_DEFAULTS] = {
+		.cl_name = "defaults-",
+		.cl_len = 9,
+		.cl_type = 'd',
+		.cl_hostcontext = true,
+		.cl_father = CL_RESOURCE,
+		.cl_forward = NULL,
+		.cl_backward = NULL,
+	},
+	/* ... and its contents
+	 */
+	[CL_DEFAULTS_ITEMS0] = {
+		.cl_name = "",
+		.cl_len = 0, // catch any
+		.cl_type = 'l',
+		.cl_father = CL_DEFAULTS0,
+		.cl_forward = NULL,
+		.cl_backward = NULL,
+	},
+	[CL_DEFAULTS_ITEMS] = {
+		.cl_name = "",
+		.cl_len = 0, // catch any
+		.cl_type = 'l',
+		.cl_father = CL_DEFAULTS,
+		.cl_forward = NULL,
+		.cl_backward = NULL,
+	},
+
 	/* Subdirectory for controlling items...
 	 */
 	[CL_SWITCH] = {
@@ -2090,6 +2138,30 @@ static const struct light_class light_classes[] = {
 		.cl_forward = NULL,
 		.cl_backward = NULL,
 	},
+
+	/* Subdirectory for actual state
+	 */
+	[CL_ACTUAL] = {
+		.cl_name = "actual-",
+		.cl_len = 7,
+		.cl_type = 'd',
+		.cl_hostcontext = true,
+		.cl_father = CL_RESOURCE,
+		.cl_forward = NULL,
+		.cl_backward = NULL,
+	},
+	/* ... and its contents
+	 */
+	[CL_ACTUAL_ITEMS] = {
+		.cl_name = "",
+		.cl_len = 0, // catch any
+		.cl_type = 'l',
+		.cl_father = CL_ACTUAL,
+		.cl_forward = NULL,
+		.cl_backward = NULL,
+	},
+
+
 	/* Symlink indicating the current peer
 	 */
 	[CL_CONNECT] = {
@@ -2097,6 +2169,17 @@ static const struct light_class light_classes[] = {
 		.cl_len = 8,
 		.cl_type = 'l',
 		.cl_hostcontext = true,
+		.cl_father = CL_RESOURCE,
+		.cl_forward = NULL,
+		.cl_backward = NULL,
+	},
+	/* Symlink indiating the (common) size of the resource
+	 */
+	[CL_SIZE] = {
+		.cl_name = "size",
+		.cl_len = 4,
+		.cl_type = 'l',
+		.cl_hostcontext = false,
 		.cl_father = CL_RESOURCE,
 		.cl_forward = NULL,
 		.cl_backward = NULL,
@@ -2379,7 +2462,7 @@ void _show_status(struct mars_global *global)
 {
 	struct list_head *tmp;
 	
-	down(&global->mutex);
+	down_read(&global->brick_mutex);
 	for (tmp = global->brick_anchor.next; tmp != &global->brick_anchor; tmp = tmp->next) {
 		struct mars_brick *test;
 		const char *path;
@@ -2420,7 +2503,7 @@ void _show_status(struct mars_global *global)
 		}
 		kfree(dst);
 	}
-	up(&global->mutex);
+	up_read(&global->brick_mutex);
 }
 
 #ifdef STAT_DEBUGGING
@@ -2431,15 +2514,17 @@ void _show_statist(struct mars_global *global)
 	int dent_count = 0;
 	int brick_count = 0;
 	
-	down(&global->mutex);
 	MARS_STAT("================================== dents:\n");
+	down_read(&global->dent_mutex);
 	for (tmp = global->dent_anchor.next; tmp != &global->dent_anchor; tmp = tmp->next) {
 		struct mars_dent *dent;
 		dent = container_of(tmp, struct mars_dent, dent_link);
-		MARS_STAT("dent %d '%s' '%s'\n", dent->d_class, dent->d_path, dent->new_link ? dent->new_link : "");
+		MARS_STAT("dent %d '%s' '%s' stamp=%ld.%09ld\n", dent->d_class, dent->d_path, dent->new_link ? dent->new_link : "", dent->new_stat.mtime.tv_sec, dent->new_stat.mtime.tv_nsec);
 		dent_count++;
 	}
+	up_read(&global->dent_mutex);
 	MARS_STAT("================================== bricks:\n");
+	down_read(&global->brick_mutex);
 	for (tmp = global->brick_anchor.next; tmp != &global->brick_anchor; tmp = tmp->next) {
 		struct mars_brick *test;
 		int i;
@@ -2466,7 +2551,7 @@ void _show_statist(struct mars_global *global)
 			}
 		}
 	}
-	up(&global->mutex);
+	up_read(&global->brick_mutex);
 	
 	MARS_INF("==================== STATISTICS: %d dents, %d bricks\n", dent_count, brick_count);
 }
@@ -2482,7 +2567,8 @@ static int light_thread(void *data)
 		.global_power = {
 			.button = true,
 		},
-		.mutex = __SEMAPHORE_INITIALIZER(global.mutex, 1),
+		.dent_mutex = __RWSEM_INITIALIZER(global.dent_mutex),
+		.brick_mutex = __RWSEM_INITIALIZER(global.brick_mutex),
 		.main_event = __WAIT_QUEUE_HEAD_INITIALIZER(global.main_event),
 	};
 	mars_global = &global; // TODO: cleanup, avoid stack
@@ -2509,7 +2595,7 @@ static int light_thread(void *data)
 		_show_statist(&global);
 #endif
 
-		msleep(50);
+		msleep(500);
 
 		wait_event_interruptible_timeout(global.main_event, global.main_trigger, 10 * HZ);
 		global.main_trigger = false;
