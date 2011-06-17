@@ -15,19 +15,19 @@
 #define MAX_COPY_PARA   (4 * 1024 * 1024 / COPY_CHUNK)
 
 enum {
-	COPY_STATE_START   = 0,
-	COPY_STATE_READ1   = 1,
-	COPY_STATE_READ2   = 2,
-	COPY_STATE_WAIT_A  = 3,
-	COPY_STATE_WRITE   = 4,
-	COPY_STATE_WAIT_B  = 5,
-	COPY_STATE_CLEANUP = 6,
+	COPY_STATE_START    = 0,
+	COPY_STATE_READ1    = 1,
+	COPY_STATE_READ2    = 2,
+	COPY_STATE_WRITE    = 3,
+	COPY_STATE_WRITTEN  = 4,
+	COPY_STATE_CLEANUP  = 5,
+	COPY_STATE_FINISHED = 6,
 };
 
 struct copy_state {
 	struct mref_object *table[2];
+	bool active[2];
 	char state;
-	char active;
 	short prev;
 	short len;
 	short error;
@@ -49,7 +49,7 @@ struct copy_brick {
 	bool verify_mode;
 	bool utilize_mode; // utilize already copied data
 	// readonly from outside
-	loff_t copy_last;
+	loff_t copy_last; // current working position
 	bool low_dirty;
 	// internal
 	volatile bool trigger;

@@ -2251,7 +2251,7 @@ void trans_logger_replay(struct trans_logger_output *output)
 	int status = 0;
 	bool has_triggered = false;
 
-	brick->replay_code = -EAGAIN; // indicates "running"
+	brick->replay_code = 0; // indicates "running"
 
 	MARS_INF("starting replay from %lld to %lld\n", brick->replay_start_pos, brick->replay_end_pos);
 	
@@ -2337,8 +2337,6 @@ void trans_logger_replay(struct trans_logger_output *output)
 		brick->replay_code = 0;
 	} else {
 		MARS_INF("replay stopped prematurely at %lld (of %lld)\n", finished_pos, brick->replay_end_pos);
-		if (brick->replay_code == -EAGAIN)
-			brick->replay_code = -EIO;
 	}
 
 	while (!kthread_should_stop()) {
@@ -2414,9 +2412,9 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 
 	// FIXME: check for allocation overflows
 
-	sprintf(res, "current_pos = %lld | mode replay=%d continuous=%d replay_code=%d log_reads=%d | total replay=%d callbacks=%d reads=%d writes=%d flushes=%d (%d%%) wb_clusters=%d writebacks=%d (%d%%) shortcut=%d (%d%%) mshadow=%d sshadow=%d rounds=%d restarts=%d phase1=%d phase2=%d phase3=%d phase4=%d | replay=%d mshadow=%d sshadow=%d hash_count=%d pos_count=%d balance=%d/%d/%d/%d fly=%d phase1=%d+%d phase2=%d+%d phase3=%d+%d phase4=%d+%d\n",
-		brick->current_pos,
+	sprintf(res, "mode replay=%d continuous=%d replay_code=%d log_reads=%d | log_start_pos = %lld replay_start_pos = %lld replay_end_pos = %lld current_pos = %lld | total replay=%d callbacks=%d reads=%d writes=%d flushes=%d (%d%%) wb_clusters=%d writebacks=%d (%d%%) shortcut=%d (%d%%) mshadow=%d sshadow=%d rounds=%d restarts=%d phase1=%d phase2=%d phase3=%d phase4=%d | replay=%d mshadow=%d sshadow=%d hash_count=%d pos_count=%d balance=%d/%d/%d/%d fly=%d phase1=%d+%d phase2=%d+%d phase3=%d+%d phase4=%d+%d\n",
 		brick->do_replay, brick->do_continuous_replay, brick->replay_code, brick->log_reads,
+		brick->log_start_pos, brick->replay_start_pos, brick->replay_end_pos, brick->current_pos,
 		atomic_read(&brick->total_replay_count), atomic_read(&brick->total_cb_count), atomic_read(&brick->total_read_count), atomic_read(&brick->total_write_count), atomic_read(&brick->total_flush_count), atomic_read(&brick->total_write_count) ? atomic_read(&brick->total_flush_count) * 100 / atomic_read(&brick->total_write_count) : 0, atomic_read(&brick->total_writeback_cluster_count), atomic_read(&brick->total_writeback_count), atomic_read(&brick->total_writeback_cluster_count) ? atomic_read(&brick->total_writeback_count) * 100 / atomic_read(&brick->total_writeback_cluster_count) : 0, atomic_read(&brick->total_shortcut_count), atomic_read(&brick->total_writeback_count) ? atomic_read(&brick->total_shortcut_count) * 100 / atomic_read(&brick->total_writeback_count) : 0, atomic_read(&brick->total_mshadow_count), atomic_read(&brick->total_sshadow_count), atomic_read(&brick->total_round_count), atomic_read(&brick->total_restart_count), atomic_read(&brick->q_phase1.q_total), atomic_read(&brick->q_phase2.q_total), atomic_read(&brick->q_phase3.q_total), atomic_read(&brick->q_phase4.q_total),
 		atomic_read(&brick->replay_count), atomic_read(&brick->mshadow_count), atomic_read(&brick->sshadow_count), atomic_read(&brick->hash_count), atomic_read(&brick->pos_count), atomic_read(&brick->sub_balance_count), atomic_read(&brick->inner_balance_count), atomic_read(&brick->outer_balance_count), atomic_read(&brick->wb_balance_count), atomic_read(&brick->fly_count), atomic_read(&brick->q_phase1.q_queued), atomic_read(&brick->q_phase1.q_flying), atomic_read(&brick->q_phase2.q_queued), atomic_read(&brick->q_phase2.q_flying), atomic_read(&brick->q_phase3.q_queued), atomic_read(&brick->q_phase3.q_flying), atomic_read(&brick->q_phase4.q_queued), atomic_read(&brick->q_phase4.q_flying));
 	return res;

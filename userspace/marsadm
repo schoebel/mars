@@ -68,6 +68,55 @@ sub check_res_member {
   die "sorry, I have not yet joined to resource '$res'\n" unless -e "$mars/resource-$res/data-$host";
 }
 
+sub check_sync_finished {
+  my ($res, $host) = @_;
+  my $lnk = "$mars/resource-$res/syncstatus-$host";
+  if(lstat($lnk)) {
+    my $syncstatus = readlink($lnk);
+    my $size = readlink("$mars/resource-$res/size") or die "cannot read size\n";
+    die "sync has not yet finished, only $syncstatus / $size bytes transferred\n" unless $syncstatus >= $size;
+  }
+  print "OK, it seems that sync has finished on $host.\n";
+}
+
+sub check_primary_gone {
+  my ($res) = @_;
+  for(;;) {
+    my @links = glob("$mars/resource-$res/actual-*/is-primary");
+    my $found = 0;
+    foreach my $link (@links) {
+      my $val = readlink($link);
+      $found++ if $val;
+    }
+    last if !$found;
+    print "waiting for $found other primary host(s) to disappear....\n";
+    sleep(5);
+  }
+}
+
+sub check_splitbrain {
+  my ($res, $host) = @_;
+  my @links = glob("$mars/resource-$res/version-[0-9]*-$host");
+  die "no version information available for host $host\n" unless @links;
+  my $link = pop @links;
+  die "cannot pop last link element\n" unless $link;
+  my $version = readlink($link);
+  die "cannot get version information for $link\n" unless $version;
+  my $serial = $link;
+  $serial =~ s:$mars/resource-$res/version-([0-9]+).*$:$1:;
+  print "my    version: $link -> $version\n";
+  foreach my $other (glob("$mars/resource-$res/version-[0-9]*-*")) {
+    $other =~ m:$mars/resource-$res/version-([0-9]+)-(.*)$:;
+    my $other_serial = $1;
+    my $other_host = $2;
+    next if $serial ne $other_serial;
+    next if $host eq $other_host;
+    my $other_version = readlink($other);
+    print "other version: $other -> $other_version\n";
+    die "split brain detected: $other_version != $version\n" unless $version eq $other_version;
+  }
+}
+
 sub get_size {
   my $arg = shift;
   return -1 unless $arg =~ m/^[0-9.]+[kmgtp]?$/i;
@@ -247,18 +296,19 @@ sub create_res {
   mkdir("$tmp/actual-$host");
   mkdir("$tmp/switch-$host");
   symlink("1", "$tmp/switch-$host/attach");
-  symlink("0", "$tmp/switch-$host/connect");
-  symlink("0", "$tmp/switch-$host/sync");
+  symlink("1", "$tmp/switch-$host/connect");
+  symlink("1", "$tmp/switch-$host/sync");
+  system("rm -f $tmp/syncstatus-$host");
 
   if($create) {
     symlink($host, "$tmp/primary") or die "cannot create primary symlink\n";
+    symlink($size, "$tmp/syncstatus-$host") or die "cannot create primary syncstatus\n";
     symlink("log-000000001-$host,0,0", "$tmp/replay-$host") or die "cannot create replay status\n";
     rename($tmp, "$mars/resource-$res") or die "cannot finalize resource '$res'\n";
     print "successfully created resource '$res'\n";
   } else {
     system("rm -f $tmp/replay-$host");
     symlink($replay, "$tmp/replay-$host") or die "cannot create replay status\n";
-    system("rm -f $tmp/syncstatus-$host");
     symlink("0", "$tmp/syncstatus-$host") or die "cannot start initial sync\n";
     system("rm -f $tmp/connect-$host");
     symlink($primary, "$tmp/connect-$host") or die "cannot create peer connect symlink\n";
@@ -302,33 +352,34 @@ sub up_res {
   }
 }
 
+sub _primary_res {
+  my ($res, $host, $pri, $old) = @_;
+  my $tmp = "$mars/resource-$res/.tmp.primary";
+  system("rm -f $tmp");
+  symlink($host, $tmp) or die "cannot create new primary symlink\n";
+  rename($tmp, $pri) or die "cannot install new primary symlink\n";
+  print "primary changed from '$old' to '$host'\n";
+}
+
 sub primary_res {
   my ($cmd, $res) = @_;
   my $sec = ($cmd eq "secondary");
   my $pri = "$mars/resource-$res/primary";
   my $old = readlink($pri) or die "cannot determine current primary\n";
   if($sec) {
-    die "for safety reasons, switching to secondary is only allowed when I am primary\n" if($old ne $host);
+    die "for safety reasons, switching to secondary is only allowed when I ($host) am primary\n" if($old ne $host);
     $host = "(none)";
   } elsif($old eq $host) {
     print "I am already primary.\n";
     exit(0);
-  } else {
-    my $lnk = "$mars/resource-$res/syncstatus-$host";
-    if(lstat($lnk)) {
-      my $syncstatus = readlink($lnk);
-      my $size = readlink("$mars/resource-$res/size") or die "cannot read size\n";
-      die "sync has not yet finished, only $syncstatus / $size bytes transferred\n" unless $syncstatus >= $size;
-    }
+  } else { # try to switch myself to primary
+    print "trying to switch $host to primary...\n";
+    check_sync_finished($res, $host);
+    _primary_res($res, "(none)", $pri, $old) unless $old eq "(none)";
+    check_primary_gone($res);
+    check_splitbrain($res, $host);
   }
-
-  # TODO: check whether we can switch without interrupting service....
-
-  my $tmp = "$mars/resource-$res/.tmp.primary";
-  system("rm -f $tmp");
-  symlink($host, $tmp) or die "cannot create new primary symlink\n";
-  rename($tmp, $pri) or die "cannot install new primary symlink\n";
-  print "primary changed from '$old' to '$host'\n";
+  _primary_res($res, $host, $pri, $old);
 }
 
 sub invalidate_res {
@@ -342,9 +393,6 @@ sub invalidate_res {
   system("rm -f $dst");
   symlink("0", $dst) or die "cannot create invalidation symlink '$dst'\n";
 }
-
-
-
 
 sub role_cmd {
   my ($cmd, $res) = @_;

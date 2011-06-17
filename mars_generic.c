@@ -1296,8 +1296,10 @@ struct mars_brick *make_brick_all(
 	// treat variable arguments
 	va_start(args, prev_count);
 	if (switch_fmt) {
-		switch_path = vpath_make(switch_fmt, &args);
 		switch_state = false;
+		if (switch_fmt[0]) {
+			switch_path = vpath_make(switch_fmt, &args);
+		}
 	}
 	if (new_fmt) {
 		new_path = _new_path = vpath_make(new_fmt, &args);
@@ -1324,12 +1326,14 @@ struct mars_brick *make_brick_all(
 	brick = mars_find_brick(global, new_brick_type != _aio_brick_type  && new_brick_type != _bio_brick_type ? new_brick_type : NULL, new_path);
 	if (brick) {
 		// just switch the power state
-		MARS_IO("found brick '%s'\n", new_path);
+		MARS_DBG("found existing brick '%s'\n", new_path);
 		goto do_switch;
 	}
 	if (!switch_state) { // don't start => also don't create
+		MARS_DBG("no need for brick '%s'\n", new_path);
 		goto done;
 	}
+	MARS_DBG("make new brick '%s'\n", new_path);
 	if (!new_name)
 		new_name = new_path;
 
@@ -1382,7 +1386,7 @@ struct mars_brick *make_brick_all(
 	if (!brick)
 		brick = mars_make_brick(global, belongs, new_brick_type, new_path, new_name);
 	if (unlikely(!brick)) {
-		MARS_DBG("creation failed '%s' '%s'\n", new_path, new_name);
+		MARS_ERR("creation failed '%s' '%s'\n", new_path, new_name);
 		goto err;
 	}
 	if (unlikely(brick->nr_inputs < prev_count)) {
@@ -1409,9 +1413,9 @@ do_switch:
 	// switch on/off (may fail silently, but responsibility is at the workers)
 	if (timeout > 0 || !switch_state) {
 		int status;
-		status = mars_power_button_recursive((void*)brick, switch_state, !switch_state, timeout);
+		status = mars_power_button_recursive((void*)brick, switch_state, false, timeout);
 		MARS_DBG("switch %d status = %d\n", switch_state, status);
-#if 1 // TODO: need cleanup_fn() here
+#if 0 // TODO: need cleanup_fn() here FIXME: interferes with logic needing the switched-off brick!
 		if (!switch_state && status >= 0 && !brick->power.button && brick->power.led_off) {
 			mars_kill_brick(brick);
 			brick = NULL;
@@ -1421,8 +1425,9 @@ do_switch:
 	goto done;
 
 err:
-	if (brick)
+	if (brick) {
 		mars_kill_brick(brick);
+	}
 	brick = NULL;
 done:
 	for (i = 0; i < prev_count; i++) {

@@ -97,7 +97,8 @@ struct light_class {
 #define AIO_READAHEAD 1
 #define AIO_WAIT_DURING_FDSYNC false
 
-#define COPY_APPEND_MODE 1
+#define COPY_APPEND_MODE 0
+//#define COPY_APPEND_MODE 1 // FIXME: does not work yet
 #define COPY_PRIO MARS_PRIO_LOW
 
 static
@@ -374,7 +375,7 @@ int __make_copy(
 			       fullpath[1],
 			       fullpath[1]);
 	if (!copy) {
-		MARS_DBG("fail '%s'\n", copy_path);
+		MARS_DBG("creation of copy brick '%s' failed\n", copy_path);
 		goto done;
 	}
 	copy->status_level = 2;
@@ -382,7 +383,7 @@ int __make_copy(
 	if (__copy)
 		*__copy = _copy;
 
-	/* Determine the copy area, switch on when necessary
+	/* Determine the copy area, switch on/off when necessary
 	 */
 	if (!_copy->power.button && _copy->power.led_off) {
 		_copy->copy_last = 0;
@@ -413,8 +414,11 @@ int __make_copy(
 		MARS_DBG("copy_end = %lld\n", _copy->copy_end);
 		if (_copy->copy_start < _copy->copy_end) {
 			status = mars_power_button_recursive((void*)copy, true, false, 10 * HZ);
-			MARS_DBG("copy switch status = %d\n", status);
+			MARS_DBG("copy switch on status = %d\n", status);
 		}
+	} else if (_copy->power.button && _copy->power.led_on && _copy->copy_last == _copy->copy_end && _copy->copy_end > 0) {
+		status = mars_power_button((void*)copy, false, false);
+		MARS_DBG("copy switch off status = %d\n", status);
 	}
 	status = 0;
 
@@ -490,7 +494,7 @@ int _update_file(struct mars_global *global, const char *switch_path, const char
 
 	MARS_DBG("src = '%s' dst = '%s'\n", tmp, file);
 	status = __make_copy(global, NULL, switch_path, copy_path, NULL, argv, -1, &copy);
-	if (status >= 0 && copy && !copy->append_mode) {
+	if (status >= 0 && copy && (!copy->append_mode || copy->power.led_off)) {
 		if (end_pos > copy->copy_end) {
 			MARS_DBG("appending to '%s' %lld => %lld\n", copy_path, copy->copy_end, end_pos);
 			copy->copy_end = end_pos;
@@ -552,20 +556,18 @@ int check_logfile(struct mars_peerinfo *peer, struct mars_dent *dent, struct mar
 		status = -EINVAL;
 		goto done;
 	}
-	if (likely(src_size > 0)) {
-		alias_path = path_make("%s/log-%09d-%s", parent->d_path, dent->d_serial, my_id());
-		if (unlikely(!alias_path)) {
-			status = -ENOMEM;
-			goto done;
-		}
-		status = 0;
-		MARS_DBG("local alias for '%s' is '%s'\n", dent->d_path, alias_path);
-		local_alias = mars_find_dent((void*)peer->global, alias_path);
-		if (!local_alias) {
-			status = mars_symlink(dent->d_name, alias_path, &dent->new_stat.mtime, 0);
-			MARS_DBG("create alias '%s' -> '%s' status = %d\n", alias_path, dent->d_name, status);
-			//run_trigger = true;
-		}
+	alias_path = path_make("%s/log-%09d-%s", parent->d_path, dent->d_serial, my_id());
+	if (unlikely(!alias_path)) {
+		status = -ENOMEM;
+		goto done;
+	}
+	status = 0;
+	MARS_DBG("local alias for '%s' is '%s'\n", dent->d_path, alias_path);
+	local_alias = mars_find_dent((void*)peer->global, alias_path);
+	if (!local_alias) {
+		status = mars_symlink(dent->d_name, alias_path, &dent->new_stat.mtime, 0);
+		MARS_DBG("create alias '%s' -> '%s' status = %d\n", alias_path, dent->d_name, status);
+		//run_trigger = true;
 	}
 
 	// copy necessary?
@@ -942,9 +944,11 @@ struct mars_rotate {
 	struct trans_logger_brick *trans_brick;
 	struct mars_dent *relevant_log;
 	struct mars_brick *relevant_brick;
+	struct mars_dent *next_relevant_log;
 	struct mars_dent *current_log;
 	struct mars_dent *prev_log;
 	struct mars_dent *next_log;
+	struct if_brick *if_brick;
 	long long last_jiffies;
 	loff_t start_pos;
 	loff_t end_pos;
@@ -1030,8 +1034,8 @@ out_old:
 static
 int _update_versionlink(struct mars_global *global, struct mars_dent *parent, int sequence, loff_t start_pos, loff_t end_pos)
 {
-	char *prev;
-	struct mars_dent *prev_link;
+	char *prev = NULL;
+	struct mars_dent *prev_link = NULL;
 	char *prev_digest = NULL;
 	struct timespec now = {};
 	char *new = NULL;
@@ -1042,12 +1046,16 @@ int _update_versionlink(struct mars_global *global, struct mars_dent *parent, in
 	char digest[mars_digest_size];
 	char old[mars_digest_size * 2 + 2];
 
-	prev = path_make("%s/version-%09d-%s", parent->d_path, sequence-1, my_id());
-	if (unlikely(!prev)) {
-		goto out;
-	}
-	prev_link = mars_find_dent(global, parent->d_path);
-	if (likely(prev_link)) {
+	if (sequence > 1) {
+		prev = path_make("%s/version-%09d-%s", parent->d_path, sequence-1, my_id());
+		if (unlikely(!prev)) {
+			goto out;
+		}
+		prev_link = mars_find_dent(global, prev);
+		if (unlikely(!prev_link)) {
+			MARS_ERR("cannot find previous version symlink '%s'\n", prev);
+			goto out;
+		}
 		prev_digest = prev_link->new_link;
 	}
 
@@ -1116,6 +1124,7 @@ int make_log_init(void *buf, struct mars_dent *parent)
 	rot->aio_brick = NULL;
 	rot->relevant_log = NULL;
 	rot->relevant_brick = NULL;
+	rot->next_relevant_log = NULL;
 	rot->prev_log = NULL;
 	rot->next_log = NULL;
 	rot->max_sequence = 0;
@@ -1244,76 +1253,6 @@ done:
 	return status;
 }
 
-
-/* Internal helper. Return codes:
- * ret < 0 : error
- * ret == 0 : not relevant
- * ret == 1 : relevant, no transaction replay
- * ret == 2 : relevant for transaction replay
- * ret == 3 : relevant for appending
- */
-static
-int _check_logging_status(struct mars_global *global, struct mars_dent *dent, long long *oldpos_start, long long *oldpos_end, long long *newpos)
-{
-	struct mars_dent *parent = dent->d_parent;
-	struct mars_rotate *rot = parent->d_private;
-	int status = -EINVAL;
-
-	CHECK_PTR(rot, done);
-
-	status = 0;
-	if (!rot->replay_link || !rot->aio_dent || !rot->aio_brick) {
-		//MARS_DBG("nothing to do on '%s'\n", dent->d_path);
-		goto done;
-	}
-
-	if (rot->aio_dent->d_serial != dent->d_serial) {
-		//MARS_DBG("serial number %d not relevant\n", dent->d_serial);
-		goto done;
-	}
-
-	if (sscanf(rot->replay_link->d_argv[1], "%lld", oldpos_start) != 1) {
-		MARS_ERR("bad start position argument '%s'\n", rot->replay_link->d_argv[1]);
-		status = -EINVAL;
-		goto done;
-	}
-	if (sscanf(rot->replay_link->d_argv[2], "%lld", oldpos_end) != 1) {
-		MARS_ERR("bad end position argument '%s'\n", rot->replay_link->d_argv[2]);
-		status = -EINVAL;
-		goto done;
-	}
-	*oldpos_end += *oldpos_start;
-	if (unlikely(*oldpos_end < *oldpos_start)) {
-		MARS_ERR("end_pos %lld < start_pos %lld\n", *oldpos_end, *oldpos_start);
-	}
-
-	if (unlikely(rot->aio_info.current_size < *oldpos_start)) {
-		MARS_ERR("oops, bad replay position attempted at logfile '%s' (file length %lld should never be smaller than requested position %lld, is your filesystem corrupted?) => please repair this by hand\n", rot->aio_dent->d_path, rot->aio_info.current_size, *oldpos_start);
-		status = -EINVAL;
-		goto done;
-	}
-
-	if (rot->aio_info.current_size > *oldpos_start) {
-		MARS_DBG("transaction log replay is necessary on '%s' from %lld to %lld (dirty region ends at %lld)\n", rot->aio_dent->d_path, *oldpos_start, rot->aio_info.current_size, *oldpos_end);
-		*newpos = rot->aio_info.current_size;
-		status = 2;
-	} else if (rot->aio_info.current_size > 0) {
-		MARS_DBG("transaction log '%s' is already applied (would be usable for appending at position %lld, but a fresh log is needed for safety reasons)\n", rot->aio_dent->d_path, *oldpos_start);
-		*newpos = rot->aio_info.current_size;
-		status = 1;
-	} else if (!rot->is_primary) {
-		MARS_DBG("empty transaction log '%s' would be usable, but I am not primary\n", rot->aio_dent->d_path);
-		status = 0;
-	} else {
-		MARS_DBG("empty transaction log '%s' is usable for me as a primary node\n", rot->aio_dent->d_path);
-		status = 3;
-	}
-
-done:
-	return status;
-}
-
-
 /* Note: this is strictly called in d_serial order.
  * This is important!
  */
@@ -1325,9 +1264,6 @@ int make_log(void *buf, struct mars_dent *dent)
 	struct mars_rotate *rot = parent->d_private;
 	struct trans_logger_brick *trans_brick;
 	struct mars_dent *prev_log;
-	loff_t start_pos = 0;
-	loff_t dirty_pos = 0;
-	loff_t end_pos = 0;
 	int status = -EINVAL;
 
 	CHECK_PTR(rot, err);
@@ -1339,10 +1275,6 @@ int make_log(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 
-	if (dent->d_serial > rot->max_sequence) {
-		rot->max_sequence = dent->d_serial;
-	}
-
 	/* Check for consecutiveness of logfiles
 	 */
 	prev_log = rot->next_log;
@@ -1352,26 +1284,159 @@ int make_log(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 
+	if (dent->d_serial > rot->max_sequence) {
+		rot->max_sequence = dent->d_serial;
+	}
+
 	/* Skip any logfiles after the relevant one.
 	 * This should happen only when replaying multiple logfiles
 	 * in sequence, or when starting a new logfile for writing.
 	 */
+	status = 0;
 	if (rot->relevant_log) {
-		if (rot->do_replay) {
-			status = 0;
-			goto ok;
+		if (!rot->next_relevant_log) {
+			rot->next_relevant_log = dent;
 		}
-		if (rot->aio_dent->new_stat.size > 0) {
-			MARS_ERR("oops, the new logfile '%s' is not empty -- for safety, I will not use it -- log rotation is disabled now\n", dent->d_path);
-			status = -EINVAL;
-			goto done;
+		goto ok;
+	}
+
+	/* Preconditions
+	 */
+	if (!rot->replay_link || !rot->aio_dent || !rot->aio_brick) {
+		//MARS_DBG("nothing to do on '%s'\n", dent->d_path);
+		goto ok;
+	}
+
+	/* Remember the relevant logs.
+	 */
+	if (rot->aio_dent->d_serial == dent->d_serial) {
+		rot->relevant_log = dent;
+	}
+
+ok:
+	/* All ok: switch over the indicators.
+	 */
+	rot->prev_log = rot->next_log;
+	rot->next_log = dent;
+
+done:
+	if (status < 0) {
+		MARS_DBG("rot_error status = %d\n", status);
+		rot->has_error = true;
+	}
+err:
+	return status;
+}
+
+
+/* Internal helper. Return codes:
+ * ret < 0 : error
+ * ret == 0 : not relevant
+ * ret == 1 : relevant, no transaction replay, switch to the next
+ * ret == 2 : relevant for transaction replay
+ * ret == 3 : relevant for appending
+ */
+static
+int _check_logging_status(struct mars_rotate *rot, long long *oldpos_start, long long *oldpos_end, long long *newpos)
+{
+	struct mars_dent *dent = rot->relevant_log;
+	struct mars_dent *parent;
+	struct mars_global *global;
+	int status = 0;
+
+	if (!dent)
+		goto done;
+	
+	status = -EINVAL;
+	parent = dent->d_parent;
+	CHECK_PTR(parent, done);
+	global = rot->global;
+	CHECK_PTR(global, done);
+	CHECK_PTR(rot->replay_link, done);
+	CHECK_PTR(rot->aio_brick, done);
+
+	if (sscanf(rot->replay_link->d_argv[1], "%lld", oldpos_start) != 1) {
+		MARS_ERR("bad start position argument '%s'\n", rot->replay_link->d_argv[1]);
+		goto done;
+	}
+	if (sscanf(rot->replay_link->d_argv[2], "%lld", oldpos_end) != 1) {
+		MARS_ERR("bad end position argument '%s'\n", rot->replay_link->d_argv[2]);
+		goto done;
+	}
+	*oldpos_end += *oldpos_start;
+	if (unlikely(*oldpos_end < *oldpos_start)) {
+		MARS_ERR("end_pos %lld < start_pos %lld\n", *oldpos_end, *oldpos_start);
+	}
+
+	if (unlikely(rot->aio_info.current_size < *oldpos_start)) {
+		MARS_ERR("oops, bad replay position attempted at logfile '%s' (file length %lld should never be smaller than requested position %lld, is your filesystem corrupted?) => please repair this by hand\n", rot->aio_dent->d_path, rot->aio_info.current_size, *oldpos_start);
+		status = -EBADF;
+		goto done;
+	}
+
+	status = 0;
+	if (rot->aio_info.current_size > *oldpos_start || rot->aio_info.current_size < *oldpos_end) {
+		MARS_DBG("transaction log replay is necessary on '%s' from %lld to %lld (dirty region ends at %lld)\n", rot->aio_dent->d_path, *oldpos_start, rot->aio_info.current_size, *oldpos_end);
+		*newpos = rot->aio_info.current_size;
+		status = 2;
+	} else if (rot->next_relevant_log) {
+		MARS_DBG("transaction log '%s' is already applied, and the next one is available for switching\n", rot->aio_dent->d_path);
+		*newpos = rot->aio_info.current_size;
+		status = 1;
+	} else if (rot->is_primary) {
+		if (!S_ISREG(dent->new_stat.mode)) {
+			MARS_DBG("transaction log '%s' is a symlink, therefore a fresh local logfile must be created\n", dent->d_path);
+			*newpos = rot->aio_info.current_size;
+			status = 1;
+		} else if (rot->aio_info.current_size > 0) {
+			MARS_DBG("transaction log '%s' is already applied (would be usable for appending at position %lld, but a fresh logfile will be used for safety reasons)\n", rot->aio_dent->d_path, *oldpos_end);
+			*newpos = rot->aio_info.current_size;
+			status = 1;
+		} else {
+			MARS_DBG("empty transaction log '%s' is usable for me as a primary node\n", rot->aio_dent->d_path);
+			status = 3;
 		}
-		MARS_DBG("considering next logfile '%s' for rotation\n", dent->d_path);
+	} else {
+		MARS_DBG("transaction log '%s' is the last one, currently fully applied\n", rot->aio_dent->d_path);
+		status = 0;
+	}
+
+done:
+	return status;
+}
+
+
+static
+int _make_logging_status(struct mars_rotate *rot)
+{
+	struct mars_dent *dent = rot->relevant_log;
+	struct mars_dent *parent;
+	struct mars_global *global;
+	struct trans_logger_brick *trans_brick;
+	loff_t start_pos = 0;
+	loff_t dirty_pos = 0;
+	loff_t end_pos = 0;
+	int status = 0;
+
+	if (!dent)
+		goto done;
+
+	status = -EINVAL;
+	parent = dent->d_parent;
+	CHECK_PTR(parent, done);
+	global = rot->global;
+	CHECK_PTR(global, done);
+
+	status = 0;
+	trans_brick = rot->trans_brick;
+	if (!global->global_power.button || !trans_brick || rot->has_error) {
+		MARS_DBG("nothing to do rot_error = %d\n", rot->has_error);
+		goto done;
 	}
 
 	/* Find current logging status.
 	 */
-	status = _check_logging_status(global, dent, &start_pos, &dirty_pos, &end_pos);
+	status = _check_logging_status(rot, &start_pos, &dirty_pos, &end_pos);
 	if (status < 0) {
 		goto done;
 	}
@@ -1381,10 +1446,11 @@ int make_log(void *buf, struct mars_dent *dent)
 	case 0: // not relevant
 		goto ok;
 	case 1: /* Relevant, and transaction replay already finished.
-		 * When primary, switch over to a new logfile.
+		 * Allow switching over to a new logfile.
 		 */
 		if (!trans_brick->power.button && !trans_brick->power.led_on && trans_brick->power.led_off) {
 			_update_replaylink(dent->d_parent, dent->d_serial + 1, 0, 0, !rot->is_primary);
+			_update_versionlink(global, dent->d_parent, dent->d_serial + 1, 0, 0);
 			trans_brick->current_pos = 0;
 			rot->last_jiffies = jiffies;
 			//mars_trigger();
@@ -1422,7 +1488,6 @@ done:
 		MARS_DBG("rot_error status = %d\n", status);
 		rot->has_error = true;
 	}
-err:
 	return status;
 }
 
@@ -1582,31 +1647,30 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *parent)
 	if (trans_brick->power.button && trans_brick->power.led_on && !trans_brick->power.led_off) {
 		bool do_stop = true;
 		if (trans_brick->do_replay) {
-			int i;
-			for (i = TL_INPUT_FW_LOG1; i <= TL_INPUT_FW_LOG2; i++) {
-				struct trans_logger_input *trans_input;
-				trans_input = trans_brick->inputs[i];
-				if (!trans_input) {
-					continue;
-				}
-				if (trans_input->replay_min_pos != trans_brick->replay_end_pos || trans_brick->replay_code == -EAGAIN) {
-					do_stop = false;
-					break;
+			if (trans_brick->replay_code >= 0) {
+				int i;
+				for (i = TL_INPUT_FW_LOG1; i <= TL_INPUT_FW_LOG2; i++) {
+					struct trans_logger_input *trans_input;
+					trans_input = trans_brick->inputs[i];
+					if (!trans_input) {
+						continue;
+					}
+					if (trans_input->replay_min_pos != trans_brick->replay_end_pos) {
+						do_stop = false;
+						break;
+					}
 				}
 			}
 		} else {
-			do_stop = (rot->relevant_log && rot->relevant_log != rot->current_log);
+			do_stop =
+				(rot->relevant_log && rot->relevant_log != rot->current_log) ||
+				(rot->current_log && !S_ISREG(rot->current_log->new_stat.mode));
 		}
-#if 0 // old code
-		bool do_stop =
-			trans_brick->do_replay ?
-			(trans_brick->replay_pos == trans_brick->replay_end_pos || trans_brick->replay_code != -EAGAIN) :
-			(rot->relevant_log && rot->relevant_log != rot->current_log);
-#endif
+
 		MARS_DBG("do_stop = %d\n", (int)do_stop);
 
 		if (do_stop || (long long)jiffies > rot->last_jiffies + 5 * HZ) {
-			struct trans_logger_input *old_input = NULL;
+			struct trans_logger_input *old_input = NULL; // FIXME: kludge, do it right(tm)
 			int i;
 			for (i = TL_INPUT_FW_LOG1; i <= TL_INPUT_FW_LOG2; i++) {
 				struct trans_logger_input *trans_input;
@@ -1625,19 +1689,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *parent)
 		}
 		goto done;
 	}
-	/* Special case: when no logfile exists,
-	 * create one. This is an exception from the rule that
-	 * normally userspace should control what happens in MARS.
-	 */
-	if (!rot->relevant_log && rot->is_primary && !rot->has_error && rot->max_sequence > 0) { // try to create an empty logfile
-		char *tmp = path_make("%s/log-%09d-%s", parent->d_path, rot->max_sequence + 1, my_id());
-		if (likely(tmp)) {
-			_create_new_logfile(tmp);
-			kfree(tmp);
-			msleep(1000);
-			goto done;
-		}
-	}
+
 	/* Starting is only possible when no error occurred.
 	 */
 	if (!rot->relevant_log || rot->has_error) {
@@ -1648,7 +1700,14 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *parent)
 	/* Start when necessary
 	 */
 	if (!trans_brick->power.button && !trans_brick->power.led_on && trans_brick->power.led_off) {
-		bool do_start = (!rot->do_replay || rot->start_pos != rot->end_pos);
+		bool do_start;
+
+		status = _make_logging_status(rot);
+		if (status <= 0) {
+			goto done;
+		}
+
+		do_start = (!rot->do_replay || rot->start_pos != rot->end_pos);
 		MARS_DBG("do_start = %d\n", (int)do_start);
 
 		if (do_start) {
@@ -1746,23 +1805,55 @@ done:
 	return status;
 }
 
-static int make_dev(void *buf, struct mars_dent *dent)
+static
+void _show_primary(struct mars_rotate *rot, struct mars_dent *parent)
+{
+	char *src;
+	char *dst;
+	bool ok;
+	int status;
+
+	if (!rot || !parent) {
+		return;
+	}
+
+	ok = rot->is_primary;
+	if (rot->if_brick && !rot->if_brick->power.led_off) {
+		ok = true;
+	}
+
+	src = ok ? "1" : "0";
+	dst = path_make("%s/actual-%s/is-primary", parent->d_path, my_id());
+	if (!dst)
+		return;
+	MARS_DBG("symlink '%s' -> '%s'\n", dst, src);
+	status = mars_symlink(src, dst, NULL, 0);
+	if (dst)
+		kfree(dst);
+}
+
+
+static
+int make_dev(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
 	struct mars_dent *parent = dent->d_parent;
-	struct mars_rotate *rot;
+	struct mars_rotate *rot = NULL;
 	struct mars_brick *dev_brick;
 	struct if_brick *_dev_brick;
 	int status = 0;
 
-	if (!global->global_power.button || !parent || !dent->new_link) {
+	if (!parent || !dent->new_link) {
+		MARS_ERR("nothing to do\n");
+		return -EINVAL;
+	}
+	if (!global->global_power.button) {
 		MARS_DBG("nothing to do\n");
 		goto done;
 	}
-
 	rot = parent->d_private;
-	if (!rot || !rot->is_primary) {
-		MARS_DBG("I am not primary, don't show the device\n");
+	if (!rot) {
+		MARS_DBG("nothing to do\n");
 		goto done;
 	}
 	if (!rot->trans_brick || rot->trans_brick->do_replay || !rot->trans_brick->power.led_on || rot->trans_brick->power.led_off) {
@@ -1785,16 +1876,17 @@ static int make_dev(void *buf, struct mars_dent *dent)
 			       dent->d_argv[0],
 			       (const struct generic_brick_type*)&if_brick_type,
 			       (const struct generic_brick_type*[]){(const struct generic_brick_type*)&trans_logger_brick_type},
-			       NULL, // maybe we could allow switching here
+			       rot->is_primary ? NULL : "", // KLUDGE
 			       "%s/linuxdev-%s", 
 			       (const char *[]){"%s/logger"},
 			       1,
 			       parent->d_path,
 			       dent->d_argv[0],
 			       parent->d_path);
+	rot->if_brick = (void*)dev_brick;
 	if (!dev_brick) {
-		MARS_DBG("fail\n");
-		return -1;
+		MARS_DBG("device not shown\n");
+		goto done;
 	}
 	dev_brick->status_level = 1;
 	_dev_brick = (void*)dev_brick;
@@ -1808,6 +1900,7 @@ static int make_dev(void *buf, struct mars_dent *dent)
 #endif
 
 done:
+	_show_primary(rot, parent);
 	return status;
 }
 
@@ -1961,12 +2054,13 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	src = path_make("data-%s@%s", peer, peer);
 	dst = path_make("data-%s", my_id());
 	copy_path = backskip_replace(dent->d_path, '/', true, "/copy-");
-	status = -ENOMEM;
-	if (unlikely(!src || !dst || !copy_path))
-		goto done;
 
 	// check whether connection is allowed
 	switch_path = path_make("%s/switch-%s/sync", dent->d_parent->d_path, my_id());
+
+	status = -ENOMEM;
+	if (unlikely(!src || !dst || !copy_path || !switch_path))
+		goto done;
 
 	MARS_DBG("starting initial sync '%s' => '%s'\n", src, dst);
 
@@ -1977,7 +2071,9 @@ static int make_sync(void *buf, struct mars_dent *dent)
 
 	/* Update syncstatus symlink
 	 */
-	if (status >= 0 && copy && copy->power.button && copy->power.led_on) {
+	if (status >= 0 && copy &&
+	   ((copy->power.button && copy->power.led_on) ||
+	    (copy->copy_last == copy->copy_end && copy->copy_end > 0))) {
 		kfree(src);
 		kfree(dst);
 		src = path_make("%lld", copy->copy_last);
@@ -2168,7 +2264,7 @@ static const struct light_class light_classes[] = {
 		.cl_name = "connect-",
 		.cl_len = 8,
 		.cl_type = 'l',
-		.cl_hostcontext = true,
+		.cl_hostcontext = false, // not used here
 		.cl_father = CL_RESOURCE,
 		.cl_forward = NULL,
 		.cl_backward = NULL,
@@ -2458,6 +2554,7 @@ static int light_worker(struct mars_global *global, struct mars_dent *dent, bool
 	return 0;
 }
 
+static
 void _show_status(struct mars_global *global)
 {
 	struct list_head *tmp;

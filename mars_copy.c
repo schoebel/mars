@@ -141,8 +141,8 @@ exit:
 		st->error = error;
 		_clash(brick);
 	}
+	st->active[queue] = false;
 	atomic_dec(&brick->copy_flight);
-	st->active = false;
 	brick->trigger = true;
 	wake_up_interruptible(&brick->event);
 	return;
@@ -209,7 +209,7 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 
 	atomic_inc(&brick->copy_flight);
 	brick->st[index].len = mref->ref_len;
-	brick->st[index].active = true;
+	brick->st[index].active[queue] = true;
 	GENERIC_INPUT_CALL(input, mref_io, mref);
 
 done:
@@ -231,21 +231,21 @@ void _clear_mref(struct copy_brick *brick, int index, int queue)
 static
 void _update_percent(struct copy_brick *brick)
 {
-	if (brick->copy_start > brick->copy_last + 1024 * 1024 * 1024
+	if (brick->copy_last > brick->copy_start + 8 * 1024 * 1024
 	   || (long long)jiffies > brick->last_jiffies + 5 * HZ
-	   || brick->copy_start == brick->copy_end) {
-		brick->copy_last = brick->copy_start;
+	   || (brick->copy_last == brick->copy_end && brick->copy_end > 0)) {
+		brick->copy_start = brick->copy_last;
 		brick->last_jiffies = jiffies;
 		brick->power.percent_done = brick->copy_end > 0 ? brick->copy_start * 100 / brick->copy_end : 0;
-		MARS_INF("'%s' copied %lld / %lld bytes (%lld%%)\n", brick->brick_name, brick->copy_last, brick->copy_end, brick->copy_end? brick->copy_last * 100 / brick->copy_end : 100);
+		MARS_INF("'%s' copied %lld / %lld bytes (%d%%)\n", brick->brick_name, brick->copy_last, brick->copy_end, brick->power.percent_done);
 	}
 }
 
 static
 int _next_state(struct copy_brick *brick, int index, loff_t pos)
 {
+	struct mref_object *mref0;
 	struct mref_object *mref1;
-	struct mref_object *mref2;
 	struct copy_state *st;
 	char state;
 	char next_state;
@@ -255,7 +255,7 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 	st = &brick->st[index];
 	state = st->state;
 	next_state = -1;
-	mref2 = NULL;
+	mref1 = NULL;
 	status = 0;
 
 	MARS_IO("index = %d state = %d pos = %lld\n", index, state, pos);
@@ -267,6 +267,9 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 			status = -EPROTO;
 			goto done;
 		}
+		st->active[0] = false;
+		st->active[1] = false;
+		st->error = 0;
 		i = 0;
 		next_state = COPY_STATE_READ1;
 		if (brick->verify_mode) {
@@ -281,52 +284,77 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 		}
 		break;
 	case COPY_STATE_READ2:
-		mref2 = st->table[1];
-		if (!mref2) {
+		mref1 = st->table[1];
+		if (!mref1) {
 			goto done;
 		}
 		/* fallthrough */
 	case COPY_STATE_READ1:
-		mref1 = st->table[0];
-		if (!mref1) {
+		mref0 = st->table[0];
+		if (!mref0) {
 			goto done;
 		}
-		if (brick->append_mode > 0 && mref1->ref_total_size && mref1->ref_total_size > brick->copy_end) {
-			brick->copy_end = mref1->ref_total_size;
+		// on append mode: increase the end pointer dynamically
+		if (brick->append_mode > 0 && mref0->ref_total_size && mref0->ref_total_size > brick->copy_end) {
+			brick->copy_end = mref0->ref_total_size;
 		}
-		if (mref2) { // do the verify
-			int len = mref1->ref_len;
-			if (len == mref2->ref_len &&
-			   !memcmp(mref1->ref_data, mref2->ref_data, len)) {
-				/* skip start of writing, goto final treatment of writeout */
-				next_state = COPY_STATE_WRITE;
-				st->state = next_state;
-				goto COPY_STATE_WRITE;
-			}
+		// do verify (when applicable)
+		if (mref1) { 
+			int len = mref0->ref_len;
+			bool ok =
+				(len == mref1->ref_len &&
+				 !memcmp(mref0->ref_data, mref1->ref_data, len));
 			_clear_mref(brick, index, 1);
+			if (ok) {
+				/* skip start of writing, goto final treatment of writeout */
+				next_state = COPY_STATE_WRITTEN;
+				st->state = next_state;
+				goto COPY_STATE_WRITTEN;
+			}
+		}
+		next_state = COPY_STATE_WRITE;
+		st->state = next_state;
+		/* fallthrough */
+	case COPY_STATE_WRITE:
+		/* Obey ordering to get a strict "append" behaviour.
+		 * We assume that we don't need to wait for completion
+		 * of the previous write to avoid a sparse result file
+		 * under all circumstances, i.e. we only assure that
+		 * _starting_ the writes is in order.
+		 * This is only correct when all lower bricks obey the
+		 * order of ref_io() operations.
+		 * Currenty, bio and aio are obeying this. Be careful when
+		 * implementing new IO bricks!
+		 */
+		if (st->prev >= 0 && brick->st[st->prev].state <= COPY_STATE_WRITE) {
+			goto done;
+		}
+		mref0 = st->table[0];
+		if (unlikely(!mref0)) {
+			MARS_ERR("src buffer for write does not exist");
+			status = -EILSEQ;
+			goto done;
 		}
 		/* start writeout */
-		next_state = COPY_STATE_WRITE;
-		status = _make_mref(brick, index, 1, mref1->ref_data, pos, 1);
-		
+		status = _make_mref(brick, index, 1, mref0->ref_data, pos, 1);
+		next_state = COPY_STATE_WRITTEN;
 		break;
-	case COPY_STATE_WRITE:
-	COPY_STATE_WRITE:
-		mref2 = st->table[1];
-		if (!mref2 || brick->copy_start != pos) {
+	case COPY_STATE_WRITTEN:
+	COPY_STATE_WRITTEN:
+		mref1 = st->table[1];
+		if (!mref1) {
 			MARS_IO("irrelevant\n");
 			goto done;
-		}
-		if (!brick->clash && mref2->ref_len == COPY_CHUNK) {
-			st->finished = true;
 		}
 		next_state = COPY_STATE_CLEANUP;
 		/* fallthrough */
 	case COPY_STATE_CLEANUP:
-		_clear_mref(brick, index, 0);
 		_clear_mref(brick, index, 1);
-		next_state = COPY_STATE_START;
+		_clear_mref(brick, index, 0);
+		next_state = COPY_STATE_FINISHED;
 		break;
+	case COPY_STATE_FINISHED:
+		goto done;
 	default:
 		MARS_ERR("illegal state %d at index %d\n", state, index);
 		_clash(brick);
@@ -349,18 +377,24 @@ void _run_copy(struct copy_brick *brick)
 {
 	int max;
 	loff_t pos;
-	loff_t last = 0;
+	loff_t limit = 0;
+	short prev;
 	int status;
 
-	if (_clear_clash(brick)) {
+	if (unlikely(_clear_clash(brick))) {
+		int i;
 		MARS_DBG("clash\n");
 		if (atomic_read(&brick->copy_flight)) {
 			/* wait until all pending copy IO has finished
 			 */
 			_clash(brick);
 			MARS_DBG("re-clash\n");
-			msleep(50);
+			msleep(100);
 			return;
+		}
+		for (i = 0; i < MAX_COPY_PARA; i++) {
+			_clear_mref(brick, i, 0);
+			_clear_mref(brick, i, 1);
 		}
 		memset(brick->st, 0, sizeof(brick->st));
 	}
@@ -370,31 +404,46 @@ void _run_copy(struct copy_brick *brick)
 	max = MAX_COPY_PARA - atomic_read(&brick->io_flight) * 2;
 	MARS_IO("max = %d\n", max);
 
-	for (pos = brick->copy_start; pos < brick->copy_end || brick->append_mode > 1; pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
+	prev = -1;
+	for (pos = brick->copy_last; pos < brick->copy_end || brick->append_mode > 1; pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
 		int index = GET_INDEX(pos);
 		struct copy_state *st = &brick->st[index];
+
 		//MARS_IO("pos = %lld\n", pos);
 		if (brick->clash || max-- <= 0 || kthread_should_stop()) {
 			break;
 		}
-		if (!st->skip) {
+		st->prev = prev;
+		prev = index;
+		// call the finite state automaton
+		if (!st->active[0] && !st->active[1]) {
 			status = _next_state(brick, index, pos);
-			last = pos;
+			limit = pos;
 		}
 	}
-	if (!brick->clash) {
+
+	// check the resulting state: can we advance the copy_last pointer?
+	if (likely(!brick->clash)) {
 		int count = 0;
-		for (pos = brick->copy_start; pos < last; pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
+		for (pos = brick->copy_last; pos <= limit; pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
 			int index = GET_INDEX(pos);
 			struct copy_state *st = &brick->st[index];
-			if (!st->finished)
+			if (st->state != COPY_STATE_FINISHED) {
 				break;
-			count += COPY_CHUNK;
-			st->finished = false;
+			}
+			st->state = COPY_STATE_START;
+			if (unlikely(st->error < 0)) {
+				break;
+			}
+			count += st->len;
+			// check contiguity
+			if (unlikely(GET_OFFSET(pos) + st->len != COPY_CHUNK && pos + st->len != brick->copy_end)) {
+				break;
+			}
 		}
 		if (count > 0) {
-			brick->copy_start += count;
-			MARS_IO("new copy_start = %lld\n", brick->copy_start);
+			brick->copy_last += count;
+			MARS_IO("new copy_last += %d => %lld\n", count, brick->copy_last);
 			_update_percent(brick);
 		}
 	}
@@ -507,6 +556,27 @@ static int copy_switch(struct copy_brick *brick)
 }
 
 
+//////////////// informational / statistics ///////////////
+
+static
+char *copy_statistics(struct copy_brick *brick, int verbose)
+{
+	char *res = kmalloc(512, GFP_MARS);
+        if (!res)
+                return NULL;
+
+	sprintf(res, "copy_start = %lld copy_last = %lld copy_end = %lld clash = %lu | io_flight = %d copy_flight = %d\n",
+		brick->copy_start, brick->copy_last, brick->copy_end, brick->clash,
+		atomic_read(&brick->io_flight), atomic_read(&brick->copy_flight));
+
+        return res;
+}
+
+static
+void copy_reset_statistics(struct copy_brick *brick)
+{
+}
+
 //////////////// object / aspect constructors / destructors ///////////////
 
 static int copy_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
@@ -552,6 +622,8 @@ static int copy_output_destruct(struct copy_output *output)
 
 static struct copy_brick_ops copy_brick_ops = {
 	.brick_switch = copy_switch,
+        .brick_statistics = copy_statistics,
+        .reset_statistics = copy_reset_statistics,
 };
 
 static struct copy_output_ops copy_output_ops = {
