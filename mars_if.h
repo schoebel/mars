@@ -9,8 +9,8 @@
 
 #define MAX_BIO 32
 
-#define IF_HASH_MAX   256
-#define IF_HASH_CHUNK (1024 * 1024)
+#define IF_HASH_MAX   2048
+#define IF_HASH_CHUNK (PAGE_SIZE * 32)
 
 struct if_mref_aspect {
 	GENERIC_ASPECT(mref);

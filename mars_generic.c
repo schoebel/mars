@@ -27,8 +27,14 @@
 // MARS-specific memory allocation
 
 #define PERFORMANCE_WORKAROUND
-#define MARS_MAX_ORDER 6
+#define MARS_MAX_ORDER 8
 //#define USE_OFFSET
+//#define USE_INTERNAL_FREELIST
+
+#ifdef USE_INTERNAL_FREELIST
+void *mars_freelist[MARS_MAX_ORDER+1] = {};
+atomic_t freelist_count[MARS_MAX_ORDER+1] = {};
+#endif
 
 void *mars_alloc(loff_t pos, int len)
 {
@@ -45,6 +51,13 @@ void *mars_alloc(loff_t pos, int len)
 	while (order > 0 && (PAGE_SIZE << (order-1)) >= len) {
 		order--;
 	}
+#ifdef USE_INTERNAL_FREELIST
+	data = mars_freelist[order];
+	if (data) {
+		mars_freelist[order] = *(void**)data;
+		atomic_dec(&freelist_count[order]);
+	} else
+#endif
 	data = (void*)__get_free_pages(GFP_MARS, order);
 #else
 	data = __vmalloc(len + offset, GFP_MARS, PAGE_KERNEL_IO);
@@ -74,6 +87,24 @@ void mars_free(void *data, int len)
 	while (order > 0 && (PAGE_SIZE << (order-1)) >= len) {
 		order--;
 	}
+#ifdef USE_INTERNAL_FREELIST
+	if (order > 0 && atomic_read(&freelist_count[order]) < 500) {
+		static int max[MARS_MAX_ORDER+1] = {};
+		int now;
+		*(void**)data = mars_freelist[order];
+		mars_freelist[order] = data;
+		atomic_inc(&freelist_count[order]);
+		now = atomic_read(&freelist_count[order]);
+		if (now > max[order] + 50) {
+			int i;
+			max[order] = now;
+			MARS_INF("now %d freelist members at order %d (len = %d)\n", now, order, len);
+			for (i = 0; i <= MARS_MAX_ORDER; i++) {
+				MARS_INF("  %d : %4d\n", i, atomic_read(&freelist_count[i]));
+			}
+		}
+	} else
+#endif
 	__free_pages(virt_to_page((unsigned long)data), order);
 #else
 	vfree(data);
@@ -1448,12 +1479,26 @@ EXPORT_SYMBOL_GPL(make_brick_all);
 
 // init stuff
 
+#define LIMIT_MEM
+#ifdef LIMIT_MEM
+#include <linux/swap.h>
+#include <linux/mm.h>
+#endif
+long long mars_global_memlimit = 0;
+EXPORT_SYMBOL_GPL(mars_global_memlimit);
+
+
 struct mm_struct *mm_fake = NULL;
 EXPORT_SYMBOL_GPL(mm_fake);
 
 static int __init init_mars(void)
 {
 	MARS_INF("init_mars()\n");
+
+#ifdef LIMIT_MEM // provisionary
+	mars_global_memlimit = total_swapcache_pages * (PAGE_SIZE / 4);
+	MARS_INF("mars_global_memlimit = %lld\n", mars_global_memlimit);
+#endif
 
 	brick_obj_max = BRICK_OBJ_MAX;
 

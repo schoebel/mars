@@ -2,9 +2,10 @@
 #ifndef MARS_TRANS_LOGGER_H
 #define MARS_TRANS_LOGGER_H
 
-#define REGION_SIZE_BITS 22
-#define REGION_SIZE (1 << REGION_SIZE_BITS)
-#define TRANS_HASH_MAX 512
+#define REGION_SIZE_BITS      (PAGE_SHIFT + 4)
+#define REGION_SIZE           (1 << REGION_SIZE_BITS)
+//#define TRANS_HASH_MAX        8192
+#define TRANS_HASH_MAX        16384
 
 #include <linux/time.h>
 
@@ -56,7 +57,8 @@ struct logger_head {
 #endif
 
 struct hash_anchor {
-	rwlock_t hash_lock;
+	//rwlock_t hash_lock;
+	struct rw_semaphore hash_mutex;
 	struct list_head hash_anchor;
 };
 
@@ -104,12 +106,14 @@ struct trans_logger_mref_aspect {
 	struct list_head sub_list;
 	struct list_head sub_head;
 	int    total_sub_count;
+	int    alloc_len;
 	atomic_t current_sub_count;
 };
 
 struct trans_logger_brick {
 	MARS_BRICK(trans_logger);
 	// parameters
+	int shadow_mem_limit; // max # master shadows
 	int limit_congest;// limit phase1 congestion.
 	int align_size;   // alignment between requests
 	int chunk_size;   // must be at least 8K (better 64k)
@@ -120,9 +124,9 @@ struct trans_logger_brick {
 	bool log_reads;   // additionally log pre-images
 	bool minimize_latency; // ... at the cost of throughput. ==0 means immediate flushing
 	bool debug_shortcut; // only for testing! never use in production!
+	loff_t log_start_pos; // where to start logging
 	loff_t replay_start_pos; // where to start replay
 	loff_t replay_end_pos;   // end of replay
-	loff_t log_start_pos; // where to start logging
 	// readonly from outside
 	loff_t current_pos; // current logging position (usually ahead of replay_pos)
 	int replay_code;    // replay errors (if any)
@@ -133,8 +137,10 @@ struct trans_logger_brick {
 	struct list_head pos_list;
 	struct list_head replay_list;
 	struct task_struct *thread;
-	wait_queue_head_t event;
+	wait_queue_head_t worker_event;
+	wait_queue_head_t caller_event;
 	// statistics
+	atomic64_t shadow_mem_used;
 	atomic_t replay_count;
 	atomic_t fly_count;
 	atomic_t hash_count;
@@ -164,6 +170,7 @@ struct trans_logger_brick {
 	struct logger_queue q_phase4;
 	bool   did_pushback;
 	bool   did_work;
+	bool   delay_callers;
 	struct hash_anchor hash_table[TRANS_HASH_MAX];
 };
 

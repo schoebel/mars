@@ -10,6 +10,7 @@ struct aio_mref_aspect {
 	struct list_head io_head;
 	long long start_jiffies;
 	int resubmit;
+	int alloc_len;
 	bool do_dealloc;
 };
 

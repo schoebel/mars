@@ -8,7 +8,6 @@
 	wait_queue_head_t *q_event;			\
 	atomic_t *q_contention;				\
 	struct PREFIX##_queue *q_dep;			\
-	bool q_barrier;					\
 	/* readonly from outside */			\
 	atomic_t q_queued;				\
 	atomic_t q_flying;				\
@@ -22,6 +21,8 @@
 	int q_over_pressure;				\
 	int q_io_prio;					\
 	bool q_ordering;				\
+	bool q_halted;					\
+	bool q_unlimited;				\
 	/* private */					\
 	spinlock_t q_lock;				\
 	struct list_head q_anchor;			\
@@ -147,6 +148,7 @@ bool q_##PREFIX##_is_ready(struct logger_queue *q)		        \
 	int queued = atomic_read(&q->q_queued);				\
 	int contention;							\
 	int max_contention;						\
+	int max_flying;							\
 	int over;							\
 	int flying;							\
 	bool res = false;						\
@@ -155,6 +157,17 @@ bool q_##PREFIX##_is_ready(struct logger_queue *q)		        \
 	 */								\
 	if (queued <= 0)							\
 		goto always_done;					\
+									\
+	/* 2) check whether queue is halted or unlimited		\
+	 */								\
+	if (q->q_halted)							\
+		goto always_done;					\
+	max_flying = q->q_max_flying;					\
+	if (q->q_unlimited) {						\
+		res = true;						\
+		max_flying += 512;					\
+		goto limit;						\
+	}								\
 									\
 	/* compute some characteristic measures				\
 	 */								\
@@ -172,11 +185,6 @@ bool q_##PREFIX##_is_ready(struct logger_queue *q)		        \
 	if (over > 0 && q->q_over_pressure > 0) {			\
 		max_contention += over / q->q_over_pressure;		\
 	}								\
-									\
-	/* 2) check whether queue is halted				\
-	 */								\
-	if (q->q_barrier && contention > 0)				\
-		goto always_done;					\
 									\
 	/* 3) when other queues are too much contended,			\
 	 * refrain from contending the IO system even more.		\
@@ -211,7 +219,7 @@ limit:									\
 	/* Limit the number of flying requests (parallelism)		\
 	 */								\
 	flying = atomic_read(&q->q_flying);				\
-	if (q->q_max_flying > 0 && flying >= q->q_max_flying) {		\
+	if (max_flying > 0 && flying >= max_flying) {			\
 		res = false;						\
 	}								\
 									\

@@ -6,14 +6,16 @@
 //#define MARS_DEBUGGING
 //#define IO_DEBUGGING
 //#define STAT_DEBUGGING // here means: display full statistics
+//#define HASH_DEBUGGING
 
 // variants
 #define KEEP_UNIQUE
 //#define WB_COPY
 #define LATER
 
-// changing this is dangerous for data integrity! use only for testing!
+// commenting this out is dangerous for data integrity! use only for testing!
 #define USE_MEMCPY
+#define DO_WRITEBACK // otherweise FAKE IO
 #define APPLY_DATA
 
 #include <linux/kernel.h>
@@ -66,7 +68,7 @@ static inline
 void qq_init(struct logger_queue *q, struct trans_logger_brick *brick)
 {
 	q_logger_init(q);
-	q->q_event = &brick->event;
+	q->q_event = &brick->worker_event;
 	q->q_contention = &brick->fly_count;
 	q->q_brick = brick;
 }
@@ -161,7 +163,8 @@ static inline
 int hash_fn(loff_t pos)
 {
 	// simple and stupid
-	loff_t base_index = pos >> REGION_SIZE_BITS;
+	long base_index = (long)pos >> REGION_SIZE_BITS;
+	base_index += base_index / TRANS_HASH_MAX / 7;
 	return base_index % TRANS_HASH_MAX;
 }
 
@@ -171,7 +174,7 @@ struct trans_logger_mref_aspect *_hash_find(struct list_head *start, loff_t pos,
 	struct list_head *tmp;
 	struct trans_logger_mref_aspect *res = NULL;
 	int len = *max_len;
-#ifdef STAT_DEBUGGING
+#ifdef HASH_DEBUGGING
 	int count = 0;
 #endif
 	
@@ -183,12 +186,12 @@ struct trans_logger_mref_aspect *_hash_find(struct list_head *start, loff_t pos,
 		struct trans_logger_mref_aspect *test_a;
 		struct mref_object *test;
 		int diff;
-#ifdef STAT_DEBUGGING
+#ifdef HASH_DEBUGGING
 		static int max = 0;
 		if (++count > max) {
 			max = count;
-			if (!(max % 10)) {
-				MARS_DBG("hash max=%d hash=%d\n", max, hash);
+			if (!(max % 100)) {
+				MARS_INF("hash max=%d hash=%d (pos=%lld)\n", max, hash_fn(pos), pos);
 			}
 		}
 #endif
@@ -231,13 +234,15 @@ struct trans_logger_mref_aspect *hash_find(struct trans_logger_brick *brick, lof
 	int hash = hash_fn(pos);
 	struct hash_anchor *start = &brick->hash_table[hash];
 	struct trans_logger_mref_aspect *res;
-	unsigned int flags;
+	//unsigned int flags;
 
-	traced_readlock(&start->hash_lock, flags);
+	//traced_readlock(&start->hash_lock, flags);
+	down_read(&start->hash_mutex);
 
 	res = _hash_find(&start->hash_anchor, pos, max_len, false);
 
-	traced_readunlock(&start->hash_lock, flags);
+	//traced_readunlock(&start->hash_lock, flags);
+	up_read(&start->hash_mutex);
 
 	return res;
 }
@@ -247,7 +252,7 @@ void hash_insert(struct trans_logger_brick *brick, struct trans_logger_mref_aspe
 {
         int hash = hash_fn(elem_a->object->ref_pos);
         struct hash_anchor *start = &brick->hash_table[hash];
-        unsigned int flags;
+        //unsigned int flags;
 
 #if 1
 	CHECK_HEAD_EMPTY(&elem_a->hash_head);
@@ -257,12 +262,14 @@ void hash_insert(struct trans_logger_brick *brick, struct trans_logger_mref_aspe
 	// only for statistics:
 	atomic_inc(&brick->hash_count);
 
-        traced_writelock(&start->hash_lock, flags);
+        //traced_writelock(&start->hash_lock, flags);
+	down_write(&start->hash_mutex);
 
         list_add(&elem_a->hash_head, &start->hash_anchor);
 	elem_a->is_hashed = true;
 
-        traced_writeunlock(&start->hash_lock, flags);
+        //traced_writeunlock(&start->hash_lock, flags);
+	up_write(&start->hash_mutex);
 }
 
 /* Find the transitive closure of overlapping requests
@@ -277,13 +284,17 @@ void hash_extend(struct trans_logger_brick *brick, loff_t *_pos, int *_len, stru
         struct hash_anchor *start = &brick->hash_table[hash];
 	struct list_head *tmp;
 	bool extended;
-        unsigned int flags;
-
+        //unsigned int flags;
+#ifdef HASH_DEBUGGING
+	int count = 0;
+	static int max = 0;
+#endif
 	if (collect_list) {
 		CHECK_HEAD_EMPTY(collect_list);
 	}
 
-        traced_readlock(&start->hash_lock, flags);
+        //traced_readlock(&start->hash_lock, flags);
+	down_read(&start->hash_mutex);
 
 	do {
 		extended = false;
@@ -292,6 +303,9 @@ void hash_extend(struct trans_logger_brick *brick, loff_t *_pos, int *_len, stru
 			struct trans_logger_mref_aspect *test_a;
 			struct mref_object *test;
 			loff_t diff;
+#ifdef HASH_DEBUGGING
+			count++;
+#endif
 			
 			test_a = container_of(tmp, struct trans_logger_mref_aspect, hash_head);
 			test = test_a->object;
@@ -321,6 +335,22 @@ void hash_extend(struct trans_logger_brick *brick, loff_t *_pos, int *_len, stru
 	*_pos = pos;
 	*_len = len;
 
+#ifdef HASH_DEBUGGING
+	if (count > max + 100) {
+		int i = 0;
+		max = count;
+		MARS_INF("iterations max=%d hash=%d (pos=%lld len=%d)\n", max, hash, pos, len);
+		for (tmp = start->hash_anchor.next; tmp != &start->hash_anchor; tmp = tmp->next) {
+			struct trans_logger_mref_aspect *test_a;
+			struct mref_object *test;
+			test_a = container_of(tmp, struct trans_logger_mref_aspect, hash_head);
+			test = test_a->object;
+			MARS_INF("%03d   pos = %lld len = %d collected = %d\n", i++, test->ref_pos, test->ref_len, test_a->is_collected);
+		}
+		MARS_INF("----------------\n");
+	}
+#endif
+
 	for (tmp = start->hash_anchor.next; tmp != &start->hash_anchor; tmp = tmp->next) {
 		struct trans_logger_mref_aspect *test_a;
 		struct mref_object *test;
@@ -340,7 +370,8 @@ void hash_extend(struct trans_logger_brick *brick, loff_t *_pos, int *_len, stru
 		list_add_tail(&test_a->collect_head, collect_list);
 	}
 
-        traced_readunlock(&start->hash_lock, flags);
+        //traced_readunlock(&start->hash_lock, flags);
+	up_read(&start->hash_mutex);
 }
 
 /* Atomically put all elements from the list.
@@ -352,7 +383,7 @@ void hash_put_all(struct trans_logger_brick *brick, struct list_head *list)
 	struct list_head *tmp;
 	struct hash_anchor *start = NULL;
 	int first_hash = -1;
-	unsigned int flags;
+	//unsigned int flags;
 
 	for (tmp = list->next; tmp != list; tmp = tmp->next) {
 		struct trans_logger_mref_aspect *elem_a;
@@ -368,7 +399,8 @@ void hash_put_all(struct trans_logger_brick *brick, struct list_head *list)
 		if (!start) {
 			first_hash = hash;
 			start = &brick->hash_table[hash];
-			traced_writelock(&start->hash_lock, flags);
+			//traced_writelock(&start->hash_lock, flags);
+			down_write(&start->hash_mutex);
 		} else if (unlikely(hash != first_hash)) {
 			MARS_ERR("oops, different hashes: %d != %d\n", hash, first_hash);
 		}
@@ -383,7 +415,8 @@ void hash_put_all(struct trans_logger_brick *brick, struct list_head *list)
 	}
 	
 	if (start) {
-		traced_writeunlock(&start->hash_lock, flags);
+		//traced_writeunlock(&start->hash_lock, flags);
+		up_write(&start->hash_mutex);
 	}
 }
 
@@ -494,11 +527,15 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 	}
 #endif
 
+	// delay in case of too many master shadows / memory shortage
+	wait_event_interruptible_timeout(brick->caller_event, !brick->delay_callers, 1 * HZ);
+
 	// create a new master shadow
-	data = mars_alloc(mref->ref_pos, mref->ref_len);
+	data = mars_alloc(mref->ref_pos, (mref_a->alloc_len = mref->ref_len));
 	if (unlikely(!data)) {
 		return -ENOMEM;
 	}
+	atomic64_add(mref->ref_len, &brick->shadow_mem_used);
 #ifdef CONFIG_DEBUG_KERNEL
 	memset(data, 0x11, mref->ref_len);
 #endif
@@ -628,7 +665,8 @@ restart:
 		// we are a master shadow
 		CHECK_PTR(mref_a->shadow_data, err);
 		if (mref_a->do_dealloc) {
-			mars_free(mref_a->shadow_data, mref->ref_len);
+			mars_free(mref_a->shadow_data, mref_a->alloc_len);
+			atomic64_sub(mref->ref_len, &brick->shadow_mem_used);
 			mref_a->shadow_data = NULL;
 			mref_a->do_dealloc = false;
 		}
@@ -708,7 +746,7 @@ void _trans_logger_endio(struct generic_callback *cb)
 
 	atomic_dec(&brick->fly_count);
 	atomic_inc(&brick->total_cb_count);
-	wake_up_interruptible(&brick->event);
+	wake_up_interruptible_all(&brick->worker_event);
 	return;
 
 err: 
@@ -750,7 +788,7 @@ void trans_logger_ref_io(struct trans_logger_output *output, struct mref_object 
 		atomic_inc(&brick->inner_balance_count);
 
 		qq_mref_insert(&brick->q_phase1, mref_a);
-		wake_up_interruptible(&brick->event);
+		wake_up_interruptible_all(&brick->worker_event);
 		return;
 	}
 
@@ -927,6 +965,7 @@ void wb_endio(struct generic_callback *cb)
 	} else {
 		MARS_ERR("internal: no endio defined\n");
 	}
+	wake_up_interruptible_all(&brick->worker_event);
 	return;
 
 err: 
@@ -1162,7 +1201,11 @@ void _fire_one(struct list_head *tmp, bool do_update, bool do_put)
 		}
 	}
 
+#ifdef DO_WRITEBACK
 	GENERIC_INPUT_CALL(sub_input, mref_io, sub_mref);
+#else
+	wb_endio(cb);
+#endif
 	if (do_put) {
 		GENERIC_INPUT_CALL(sub_input, mref_put, sub_mref);
 	}
@@ -1174,7 +1217,6 @@ void fire_writeback(struct list_head *start, bool do_update, bool do_remove)
 	struct list_head *tmp;
 
 	if (do_remove) {
-#if 1
 		/* Caution! The wb structure may get deallocated
 		 * during _fire_one() in some cases (e.g. when the
 		 * callback is directly called by the mref_io operation).
@@ -1189,12 +1231,6 @@ void fire_writeback(struct list_head *start, bool do_update, bool do_remove)
 			_fire_one(tmp, do_update, true);
 			tmp = next;
 		}
-#else // old buggy code
-		while ((tmp = start->next) != start) {
-			list_del_init(tmp);
-			_fire_one(tmp, do_update, true);
-		}
-#endif
 	} else {
 		for (tmp = start->next; tmp != start; tmp = tmp->next) {
 			_fire_one(tmp, do_update, false);
@@ -1310,7 +1346,7 @@ void phase1_endio(void *private, int error)
 
 	// queue up for the next phase
 	qq_mref_insert(&brick->q_phase2, orig_mref_a);
-	wake_up_interruptible(&brick->event);
+	wake_up_interruptible_all(&brick->worker_event);
 	return;
 err: 
 	MARS_ERR("giving up...\n");
@@ -1499,7 +1535,7 @@ void phase2_endio(struct generic_callback *cb)
 
 	// queue up for the next phase
 	qq_wb_insert(&brick->q_phase3, wb);
-	wake_up_interruptible(&brick->event);
+	wake_up_interruptible_all(&brick->worker_event);
 	return;
 
 err: 
@@ -1561,7 +1597,7 @@ bool phase2_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	} else { // shortcut
 #ifdef LATER
 		qq_wb_insert(&brick->q_phase4, wb);
-		wake_up_interruptible(&brick->event);
+		wake_up_interruptible_all(&brick->worker_event);
 #else
 		return phase4_startio(wb);
 #endif
@@ -1587,7 +1623,7 @@ void _phase3_endio(struct writeback_info *wb)
 	
 	// queue up for the next phase
 	qq_wb_insert(&brick->q_phase4, wb);
-	wake_up_interruptible(&brick->event);
+	wake_up_interruptible_all(&brick->worker_event);
 	return;
 }
 
@@ -1713,7 +1749,7 @@ bool phase3_startio(struct writeback_info *wb)
 				ok = false;
 			}
 		}
-		wake_up_interruptible(&brick->event);
+		wake_up_interruptible_all(&brick->worker_event);
 	} else {
 		_phase3_endio(wb);
 	}
@@ -1756,7 +1792,7 @@ void phase4_endio(struct generic_callback *cb)
 
 	free_writeback(wb);
 
-	wake_up_interruptible(&brick->event);
+	wake_up_interruptible_all(&brick->worker_event);
 
 	return;
 
@@ -1829,7 +1865,7 @@ int run_mref_queue(struct logger_queue *q, bool (*startio)(struct trans_logger_m
 
 done:
 	if (found) {
-		wake_up_interruptible(&brick->event);
+		wake_up_interruptible_all(&brick->worker_event);
 	}
 	return res;
 }
@@ -1863,7 +1899,7 @@ int run_wb_queue(struct logger_queue *q, bool (*startio)(struct writeback_info *
 
 done:
 	if (found) {
-		wake_up_interruptible(&brick->event);
+		wake_up_interruptible_all(&brick->worker_event);
 	}
 	return res;
 }
@@ -1915,6 +1951,8 @@ void trans_logger_log(struct trans_logger_output *output)
 	struct log_status *fw_logst;
 	struct log_status *bw_logst;
 	loff_t start_pos;
+	bool unlimited = false;
+	bool delay_callers;
 	long wait_timeout = HZ;
 #ifdef  STAT_DEBUGGING
 	long long last_jiffies = jiffies;
@@ -1966,7 +2004,7 @@ void trans_logger_log(struct trans_logger_output *output)
 		MARS_IO("waiting for request\n");
 
 		__wait_event_interruptible_timeout(
-			brick->event,
+			brick->worker_event,
 			_condition(&st, brick),
 			wait_timeout);
 
@@ -2021,7 +2059,7 @@ void trans_logger_log(struct trans_logger_output *output)
 		old_wait_timeout = wait_timeout;
 		wait_timeout = HZ / 10; // 100ms before flushing
 #ifdef CONFIG_DEBUG_KERNEL // debug override for catching long blocks
-		wait_timeout = 16 * HZ;
+		//wait_timeout = 16 * HZ;
 #endif
 		/* Calling log_flush() too often may result in
 		 * increased overhead (and thus in lower throughput).
@@ -2072,6 +2110,39 @@ void trans_logger_log(struct trans_logger_output *output)
 			}
 		}
 #endif
+#if 1 // provisionary flood handling FIXME: do better
+		delay_callers =
+			(atomic_read(&brick->mshadow_count) > brick->shadow_mem_limit && brick->shadow_mem_limit > 1) ||
+			(atomic64_read(&brick->shadow_mem_used) > mars_global_memlimit && mars_global_memlimit > 1);
+		if (delay_callers != brick->delay_callers) {
+			//MARS_INF("stalling %d -> %d\n", brick->delay_callers, delay_callers);
+			brick->delay_callers = delay_callers;
+			wake_up_interruptible_all(&brick->caller_event);
+		}
+		if (unlimited) {
+			unlimited =
+				(atomic_read(&brick->mshadow_count) > brick->shadow_mem_limit * 3 / 8 && brick->shadow_mem_limit > 1) ||
+				(atomic64_read(&brick->shadow_mem_used) > mars_global_memlimit * 3 / 8 && mars_global_memlimit > 1);
+			if (!unlimited) {
+				brick->q_phase2.q_unlimited = false;
+				brick->q_phase3.q_unlimited = false;
+				brick->q_phase4.q_unlimited = false;
+				wake_up_interruptible_all(&brick->worker_event);
+				wake_up_interruptible_all(&brick->caller_event);
+				MARS_INF("end of unlimited IO\n");
+			}
+		} else {
+			unlimited =
+				(atomic_read(&brick->mshadow_count) > brick->shadow_mem_limit / 2 && brick->shadow_mem_limit > 1) ||
+				(atomic64_read(&brick->shadow_mem_used) > mars_global_memlimit / 2 && mars_global_memlimit > 1);
+			if (unlimited) {
+				brick->q_phase2.q_unlimited = unlimited;
+				brick->q_phase3.q_unlimited = unlimited;
+				brick->q_phase4.q_unlimited = unlimited;
+				MARS_INF("unlimited IO...\n");
+			}
+		}
+#endif
 	}
 }
 
@@ -2096,7 +2167,7 @@ void replay_endio(struct generic_callback *cb)
 	traced_unlock(&brick->replay_lock, flags);
 
 	atomic_dec(&brick->replay_count);
-	wake_up_interruptible(&brick->event);
+	wake_up_interruptible_all(&brick->worker_event);
 	return;
  err:
 	MARS_FAT("cannot handle replay IO\n");
@@ -2136,7 +2207,7 @@ void wait_replay(struct trans_logger_brick *brick, struct trans_logger_mref_aspe
 	int max = 1024 * 2; // limit parallelism somewhat
 	unsigned long flags;
 
-	wait_event_interruptible_timeout(brick->event,
+	wait_event_interruptible_timeout(brick->worker_event,
 					 atomic_read(&brick->replay_count) <= max
 					 && !_has_conflict(brick, mref_a),
 					 60 * HZ);
@@ -2248,6 +2319,7 @@ void trans_logger_replay(struct trans_logger_output *output)
 	struct trans_logger_input *input = brick->inputs[TL_INPUT_FW_LOG1];
 	loff_t start_pos;
 	loff_t finished_pos;
+	long long old_jiffies = jiffies;
 	int status = 0;
 	bool has_triggered = false;
 
@@ -2316,14 +2388,17 @@ void trans_logger_replay(struct trans_logger_output *output)
 		}
 
 		// do this _after_ any opportunities for errors...
-		if (atomic_read(&brick->replay_count) <= 0) {
+		if (atomic_read(&brick->replay_count) <= 0 || ((long long)jiffies) - old_jiffies >= HZ * 5) {
 			brick->current_pos = finished_pos;
 			input->replay_min_pos = finished_pos;
 			input->replay_max_pos = finished_pos; // FIXME
+			old_jiffies = jiffies;
 		}
 	}
 
-	wait_event_interruptible_timeout(brick->event, atomic_read(&brick->replay_count) <= 0, 60 * HZ);
+	MARS_INF("waiting for finish...\n");
+
+	wait_event_interruptible_timeout(brick->worker_event, atomic_read(&brick->replay_count) <= 0, 60 * HZ);
 
 	finished_pos = input->logst.log_pos + input->logst.offset;
 	if (status >= 0) {
@@ -2406,17 +2481,17 @@ int trans_logger_switch(struct trans_logger_brick *brick)
 static noinline
 char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 {
-	char *res = kmalloc(512, GFP_MARS);
+	char *res = kmalloc(1024, GFP_MARS);
 	if (!res)
 		return NULL;
 
 	// FIXME: check for allocation overflows
 
-	sprintf(res, "mode replay=%d continuous=%d replay_code=%d log_reads=%d | log_start_pos = %lld replay_start_pos = %lld replay_end_pos = %lld current_pos = %lld | total replay=%d callbacks=%d reads=%d writes=%d flushes=%d (%d%%) wb_clusters=%d writebacks=%d (%d%%) shortcut=%d (%d%%) mshadow=%d sshadow=%d rounds=%d restarts=%d phase1=%d phase2=%d phase3=%d phase4=%d | replay=%d mshadow=%d sshadow=%d hash_count=%d pos_count=%d balance=%d/%d/%d/%d fly=%d phase1=%d+%d phase2=%d+%d phase3=%d+%d phase4=%d+%d\n",
+	sprintf(res, "mode replay=%d continuous=%d replay_code=%d log_reads=%d | log_start_pos = %lld replay_start_pos = %lld replay_end_pos = %lld current_pos = %lld | total replay=%d callbacks=%d reads=%d writes=%d flushes=%d (%d%%) wb_clusters=%d writebacks=%d (%d%%) shortcut=%d (%d%%) mshadow=%d sshadow=%d rounds=%d restarts=%d phase1=%d phase2=%d phase3=%d phase4=%d | current shadow_mem_used=%ld/%lld replay=%d mshadow=%d/%d sshadow=%d hash_count=%d pos_count=%d balance=%d/%d/%d/%d fly=%d phase1=%d+%d phase2=%d+%d phase3=%d+%d phase4=%d+%d\n",
 		brick->do_replay, brick->do_continuous_replay, brick->replay_code, brick->log_reads,
 		brick->log_start_pos, brick->replay_start_pos, brick->replay_end_pos, brick->current_pos,
 		atomic_read(&brick->total_replay_count), atomic_read(&brick->total_cb_count), atomic_read(&brick->total_read_count), atomic_read(&brick->total_write_count), atomic_read(&brick->total_flush_count), atomic_read(&brick->total_write_count) ? atomic_read(&brick->total_flush_count) * 100 / atomic_read(&brick->total_write_count) : 0, atomic_read(&brick->total_writeback_cluster_count), atomic_read(&brick->total_writeback_count), atomic_read(&brick->total_writeback_cluster_count) ? atomic_read(&brick->total_writeback_count) * 100 / atomic_read(&brick->total_writeback_cluster_count) : 0, atomic_read(&brick->total_shortcut_count), atomic_read(&brick->total_writeback_count) ? atomic_read(&brick->total_shortcut_count) * 100 / atomic_read(&brick->total_writeback_count) : 0, atomic_read(&brick->total_mshadow_count), atomic_read(&brick->total_sshadow_count), atomic_read(&brick->total_round_count), atomic_read(&brick->total_restart_count), atomic_read(&brick->q_phase1.q_total), atomic_read(&brick->q_phase2.q_total), atomic_read(&brick->q_phase3.q_total), atomic_read(&brick->q_phase4.q_total),
-		atomic_read(&brick->replay_count), atomic_read(&brick->mshadow_count), atomic_read(&brick->sshadow_count), atomic_read(&brick->hash_count), atomic_read(&brick->pos_count), atomic_read(&brick->sub_balance_count), atomic_read(&brick->inner_balance_count), atomic_read(&brick->outer_balance_count), atomic_read(&brick->wb_balance_count), atomic_read(&brick->fly_count), atomic_read(&brick->q_phase1.q_queued), atomic_read(&brick->q_phase1.q_flying), atomic_read(&brick->q_phase2.q_queued), atomic_read(&brick->q_phase2.q_flying), atomic_read(&brick->q_phase3.q_queued), atomic_read(&brick->q_phase3.q_flying), atomic_read(&brick->q_phase4.q_queued), atomic_read(&brick->q_phase4.q_flying));
+		atomic64_read(&brick->shadow_mem_used), mars_global_memlimit, atomic_read(&brick->replay_count), atomic_read(&brick->mshadow_count), brick->shadow_mem_limit, atomic_read(&brick->sshadow_count), atomic_read(&brick->hash_count), atomic_read(&brick->pos_count), atomic_read(&brick->sub_balance_count), atomic_read(&brick->inner_balance_count), atomic_read(&brick->outer_balance_count), atomic_read(&brick->wb_balance_count), atomic_read(&brick->fly_count), atomic_read(&brick->q_phase1.q_queued), atomic_read(&brick->q_phase1.q_flying), atomic_read(&brick->q_phase2.q_queued), atomic_read(&brick->q_phase2.q_flying), atomic_read(&brick->q_phase3.q_queued), atomic_read(&brick->q_phase3.q_flying), atomic_read(&brick->q_phase4.q_queued), atomic_read(&brick->q_phase4.q_flying));
 	return res;
 }
 
@@ -2478,7 +2553,8 @@ int trans_logger_brick_construct(struct trans_logger_brick *brick)
 	int i;
 	for (i = 0; i < TRANS_HASH_MAX; i++) {
 		struct hash_anchor *start = &brick->hash_table[i];
-		rwlock_init(&start->hash_lock);
+		//rwlock_init(&start->hash_lock);
+		init_rwsem(&start->hash_mutex);
 		INIT_LIST_HEAD(&start->hash_anchor);
 	}
 	atomic_set(&brick->hash_count, 0);
@@ -2486,7 +2562,8 @@ int trans_logger_brick_construct(struct trans_logger_brick *brick)
 	INIT_LIST_HEAD(&brick->pos_list);
 	spin_lock_init(&brick->replay_lock);
 	INIT_LIST_HEAD(&brick->replay_list);
-	init_waitqueue_head(&brick->event);
+	init_waitqueue_head(&brick->worker_event);
+	init_waitqueue_head(&brick->caller_event);
 	qq_init(&brick->q_phase1, brick);
 	qq_init(&brick->q_phase2, brick);
 	qq_init(&brick->q_phase3, brick);

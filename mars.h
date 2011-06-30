@@ -22,6 +22,7 @@
 #include "brick.h"
 
 #define GFP_MARS GFP_NOIO
+//#define GFP_MARS GFP_KERNEL // can lead to deadlocks!
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -315,6 +316,8 @@ extern int mars_digest_size;
 extern void mars_digest(void *digest, void *data, int len);
 
 /////////////////////////////////////////////////////////////////////////
+
+extern long long mars_global_memlimit;
 
 extern struct mars_global *mars_global;
 

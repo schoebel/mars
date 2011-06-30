@@ -52,6 +52,7 @@ struct light_class {
 
 // TUNING
 
+#define CONF_TRANS_SHADOW_LIMIT (65536 * 1) // don't fill the hashtable too much
 #define CONF_TRANS_CHUNKSIZE  (128 * 1024)
 //#define CONF_TRANS_ALIGN      512
 #define CONF_TRANS_ALIGN      0
@@ -73,8 +74,8 @@ struct light_class {
 
 //#define CONF_ALL_BATCHLEN 2
 #define CONF_ALL_BATCHLEN 1
-//#define CONF_ALL_FLYING 4
-#define CONF_ALL_FLYING 1
+#define CONF_ALL_FLYING 4
+//#define CONF_ALL_FLYING 1
 #define CONF_ALL_CONTENTION 0
 #define CONF_ALL_PRESSURE 0
 #define CONF_ALL_PRIO   MARS_PRIO_NORMAL
@@ -144,6 +145,7 @@ void _set_trans_params(struct mars_brick *_brick, void *private)
 		trans_brick->q_phase2.q_ordering = true;
 		trans_brick->q_phase4.q_ordering = true;
 
+		trans_brick->shadow_mem_limit = CONF_TRANS_SHADOW_LIMIT;
 		trans_brick->log_reads = CONF_TRANS_LOG_READS;
 		trans_brick->completion_semantics = CONF_TRANS_COMPLETION_SEMANTICS;
 		trans_brick->minimize_latency = CONF_TRANS_MINIMIZE_LATENCY;

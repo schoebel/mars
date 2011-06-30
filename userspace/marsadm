@@ -225,6 +225,7 @@ sub create_res {
   my $create = ($cmd eq "create-resource");
 
   die "undefined device or size argument\n" unless $dev;
+  $appear = $res if !$appear;
   check_id($appear) if $appear;
 
   if($create) {

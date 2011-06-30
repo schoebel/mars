@@ -3,7 +3,6 @@
 #define MARS_BIO_H
 
 #include <linux/blkdev.h>
-#include <linux/rwsem.h>
 
 struct bio_mref_aspect {
 	GENERIC_ASPECT(mref);
@@ -12,6 +11,7 @@ struct bio_mref_aspect {
 	struct bio_output *output;
 	int status_code;
 	int hash_pos;
+	int alloc_len;
 	bool do_dealloc;
 };
 

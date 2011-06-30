@@ -185,10 +185,16 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 			mref->ref_len = chunk_rest;
 		}
 
-		status = GENERIC_INPUT_CALL(logst->input, mref_get, mref);
-		if (unlikely(status < 0)) {
-			MARS_ERR("mref_get() failed, status = %d\n", status);
-			goto err_free;
+		for (;;) {
+			status = GENERIC_INPUT_CALL(logst->input, mref_get, mref);
+			if (likely(status >= 0)) {
+				break;
+			}
+			if (status != -ENOMEM && status != -EAGAIN) {
+				MARS_ERR("mref_get() failed, status = %d\n", status);
+				goto err_free;
+			}
+			msleep(100);
 		}
 
 		mars_trace(mref, "log_start");

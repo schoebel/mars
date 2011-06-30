@@ -47,7 +47,7 @@ static void measure_sync(int ticks)
 
 static char *show_sync(void)
 {
-	char *res = kmalloc(256, GFP_MARS);
+	char *res = kmalloc(512, GFP_MARS);
 	int i;
 	int pos = 0;
 	for (i = 0; i < MEASURE_SYNC; i++) {
@@ -157,7 +157,7 @@ static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
 		struct aio_mref_aspect *mref_a = aio_mref_get_aspect(output, mref);
 		if (!mref_a)
 			return -EILSEQ;
-		mref->ref_data = kmalloc(mref->ref_len, GFP_MARS);
+		mref->ref_data = mars_alloc(mref->ref_pos, (mref_a->alloc_len = mref->ref_len));
 		if (!mref->ref_data) {
 			MARS_DBG("ENOMEM %d\n", mref->ref_len);
 			return -ENOMEM;
@@ -190,7 +190,7 @@ static void aio_ref_put(struct aio_output *output, struct mref_object *mref)
 
 	mref_a = aio_mref_get_aspect(output, mref);
 	if (mref_a && mref_a->do_dealloc) {
-		kfree(mref->ref_data);
+		mars_free(mref->ref_data, mref_a->alloc_len);
 		atomic_dec(&output->alloc_count);
 	}
 	aio_free_mref(mref);
@@ -261,7 +261,7 @@ static void aio_ref_io(struct aio_output *output, struct mref_object *mref)
 
 	_enqueue(tinfo, mref_a, mref->ref_prio, true);
 
-	wake_up_interruptible(&tinfo->event);
+	wake_up_interruptible_all(&tinfo->event);
 	return;
 
 done:
@@ -508,7 +508,7 @@ static int aio_event_thread(void *data)
 
 		}
 		if (bounced)
-			wake_up_interruptible(&other->event);
+			wake_up_interruptible_all(&other->event);
 	}
 	err = 0;
 
@@ -565,7 +565,7 @@ static int aio_sync_thread(void *data)
 			continue;
 
 		if (output->fdsync_active) {
-			wake_up_interruptible(&output->fdsync_event);
+			wake_up_interruptible_all(&output->fdsync_event);
 		}
 
 		atomic_inc(&output->total_fdsync_count);
@@ -582,7 +582,7 @@ static int aio_sync_thread(void *data)
 		measure_sync(jiffies - old_jiffies);
 #endif
 		output->fdsync_active = false;
-		wake_up_interruptible(&output->fdsync_event);
+		wake_up_interruptible_all(&output->fdsync_event);
 		if (err < 0) {
 			MARS_ERR("FDSYNC error %d\n", err);
 		}

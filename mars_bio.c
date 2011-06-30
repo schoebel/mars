@@ -212,7 +212,7 @@ static int bio_ref_get(struct bio_output *output, struct mref_object *mref)
 
 	if (!mref->ref_data) { // buffered IO.
 		status = -ENOMEM;
-		mref->ref_data = mars_alloc(mref->ref_pos, mref->ref_len);
+		mref->ref_data = mars_alloc(mref->ref_pos, (mref_a->alloc_len = mref->ref_len));
 		if (unlikely(!mref->ref_data)) {
 			goto done;
 		}
@@ -265,7 +265,7 @@ void bio_ref_put(struct bio_output *output, struct mref_object *mref)
 	}
 	if (mref_a->do_dealloc) {
 		MARS_IO("free page\n");
-		mars_free(mref->ref_data, mref->ref_len);
+		mars_free(mref->ref_data, mref_a->alloc_len);
 		mref->ref_data = NULL;
 	}
 	bio_free_mref(mref);
@@ -542,7 +542,7 @@ done:
 static noinline
 char *bio_statistics(struct bio_brick *brick, int verbose)
 {
-	char *res = kmalloc(256, GFP_MARS);
+	char *res = kmalloc(512, GFP_MARS);
 	if (!res)
 		return NULL;
 
