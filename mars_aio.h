@@ -5,8 +5,23 @@
 #include <linux/aio.h>
 #include <linux/syscalls.h>
 
+#ifdef USE_CLEVER_SYNC
+
+#include "lib_pairing_heap.h"
+
+_PAIRING_HEAP_TYPEDEF(sync,);
+
+struct q_sync {
+	struct pairing_heap_sync *heap[MARS_PRIO_NR];
+};
+
+#endif
+
 struct aio_mref_aspect {
 	GENERIC_ASPECT(mref);
+#ifdef USE_CLEVER_SYNC
+	struct pairing_heap_sync heap_head;
+#endif
 	struct list_head io_head;
 	long long start_jiffies;
 	int resubmit;

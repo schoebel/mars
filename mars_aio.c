@@ -23,7 +23,7 @@
 #define STRONG_MM
 #define MEMLEAK // FIXME: remove this
 #define MEASURE_SYNC 8
-//#define USE_FSYNC
+#define USE_CLEVER_SYNC
 
 ///////////////////////// own type definitions ////////////////////////
 
@@ -231,6 +231,17 @@ err_found:
 	goto done;
 }
 
+static
+void _complete_all(struct list_head *tmp_list, struct aio_output *output, int err)
+{
+	while (!list_empty(tmp_list)) {
+		struct list_head *tmp = tmp_list->next;
+		struct aio_mref_aspect *mref_a = container_of(tmp, struct aio_mref_aspect, io_head);
+		list_del_init(tmp);
+		_complete(output, mref_a->object, err);
+	}
+}
+
 static void aio_ref_io(struct aio_output *output, struct mref_object *mref)
 {
 	struct aio_threadinfo *tinfo = &output->tinfo[0];
@@ -387,7 +398,9 @@ static int aio_submit_thread(void *data)
 
 		sleeptime = 1000 / HZ;
 		for (;;) {
-			if (mref->ref_rw != READ && output->brick->wait_during_fdsync) {
+			/* This is just a test. Don't use it for performance reasons.
+			 */
+			if (output->brick->wait_during_fdsync && mref->ref_rw != READ) {
 				if (output->fdsync_active) {
 					long long delay = 60 * HZ;
 					atomic_inc(&output->total_fdsync_wait_count);
@@ -399,6 +412,8 @@ static int aio_submit_thread(void *data)
 
 			}
 
+			/* Now really do the work
+			 */
 			err = aio_submit(output, mref_a, false);
 
 			if (likely(err != -EAGAIN)) {
@@ -521,13 +536,92 @@ static int aio_event_thread(void *data)
 	return err;
 }
 
+static
+int aio_sync(struct file *file)
+{
+	int err;
+#ifdef MEASURE_SYNC
+	long long old_jiffies = jiffies;
+#endif
+
+	err = do_sync_mapping_range(file->f_mapping, 0, LLONG_MAX, SYNC_FILE_RANGE_WAIT_BEFORE | SYNC_FILE_RANGE_WRITE | SYNC_FILE_RANGE_WAIT_AFTER);
+
+
+#ifdef MEASURE_SYNC
+	measure_sync(jiffies - old_jiffies);
+#endif
+	return err;
+}
+
+static
+void aio_sync_all(struct aio_output *output, struct list_head *tmp_list)
+{
+	int err;
+
+	output->fdsync_active = true;
+	atomic_inc(&output->total_fdsync_count);
+	
+	err = aio_sync(output->filp);
+	
+	output->fdsync_active = false;
+	wake_up_interruptible_all(&output->fdsync_event);
+	if (err < 0) {
+		MARS_ERR("FDSYNC error %d\n", err);
+	}
+	
+	/* Signal completion for the whole list.
+	 * No locking needed, it's on the stack.
+	 */
+	_complete_all(tmp_list, output, err);
+}
+
+#ifdef USE_CLEVER_SYNC
+static
+int sync_cmp(struct pairing_heap_sync *_a, struct pairing_heap_sync *_b)
+{
+	struct aio_mref_aspect *a = container_of(_a, struct aio_mref_aspect, heap_head);
+	struct aio_mref_aspect *b = container_of(_b, struct aio_mref_aspect, heap_head);
+	struct mref_object *ao = a->object;
+	struct mref_object *bo = b->object;
+	if (unlikely(!ao || !bo)) {
+		MARS_ERR("bad object pointers\n");
+		return 0;
+	}
+	if (ao->ref_pos < bo->ref_pos)
+		return -1;
+	if (ao->ref_pos > bo->ref_pos)
+		return 1;
+	return 0;
+}
+
+_PAIRING_HEAP_FUNCTIONS(static,sync,sync_cmp);
+
+static
+void aio_clever_move(struct list_head *tmp_list, int prio, struct q_sync *q_sync)
+{
+	while (!list_empty(tmp_list)) {
+		struct list_head *tmp = tmp_list->next;
+		struct aio_mref_aspect *mref_a = container_of(tmp, struct aio_mref_aspect, io_head);
+		list_del_init(tmp);
+		ph_insert_sync(&q_sync->heap[prio], &mref_a->heap_head);
+	}
+}
+static
+void aio_clever_sync(struct aio_output *output, struct q_sync *q_sync)
+{
+}
+#endif
+
 /* Workaround for non-implemented aio_fsync()
  */
-static int aio_sync_thread(void *data)
+static
+int aio_sync_thread(void *data)
 {
 	struct aio_threadinfo *tinfo = data;
 	struct aio_output *output = tinfo->output;
-	struct file *file = output->filp;
+#ifdef USE_CLEVER_SYNC
+	struct q_sync q_sync = {};
+#endif
 	
 	MARS_INF("kthread has started on '%s'.\n", output->brick->brick_name);
 	//set_user_nice(current, -20);
@@ -536,12 +630,9 @@ static int aio_sync_thread(void *data)
 		LIST_HEAD(tmp_list);
 		unsigned long flags;
 		int i;
-		int err;
-#ifdef MEASURE_SYNC
-		long long old_jiffies;
-#endif
 
 		output->fdsync_active = false;
+		wake_up_interruptible_all(&output->fdsync_event);
 
 		wait_event_interruptible_timeout(
 			tinfo->event,
@@ -555,47 +646,21 @@ static int aio_sync_thread(void *data)
 			if (!list_empty(start)) {
 				// move over the whole list
 				list_replace_init(start, &tmp_list);
-				output->fdsync_active = true;
 				break;
 			}
 		}
 		traced_unlock(&tinfo->lock, flags);
 
-		if (list_empty(&tmp_list))
-			continue;
-
-		if (output->fdsync_active) {
-			wake_up_interruptible_all(&output->fdsync_event);
-		}
-
-		atomic_inc(&output->total_fdsync_count);
-#ifdef MEASURE_SYNC
-		old_jiffies = jiffies;
-#endif
-#ifdef USE_FSYNC
-		err = vfs_fsync(file, file->f_path.dentry, 1);
+		if (!list_empty(&tmp_list)) {
+#ifdef USE_CLEVER_SYNC
+			aio_clever_move(&tmp_list, i, &q_sync);
 #else
-		err = do_sync_mapping_range(file->f_mapping, 0, LLONG_MAX, SYNC_FILE_RANGE_WAIT_BEFORE | SYNC_FILE_RANGE_WRITE | SYNC_FILE_RANGE_WAIT_AFTER);
+			aio_sync_all(output, &tmp_list);
 #endif
-
-#ifdef MEASURE_SYNC
-		measure_sync(jiffies - old_jiffies);
+		}
+#ifdef USE_CLEVER_SYNC
+		aio_clever_sync(output, &q_sync);
 #endif
-		output->fdsync_active = false;
-		wake_up_interruptible_all(&output->fdsync_event);
-		if (err < 0) {
-			MARS_ERR("FDSYNC error %d\n", err);
-		}
-
-		/* Signal completion for the whole list.
-		 * No locking needed, it's on the stack.
-		 */
-		while (!list_empty(&tmp_list)) {
-			struct list_head *tmp = tmp_list.next;
-			struct aio_mref_aspect *mref_a = container_of(tmp, struct aio_mref_aspect, io_head);
-			list_del_init(tmp);
-			_complete(output, mref_a->object, err);
-		}
 	}
 
 	MARS_INF("kthread has stopped.\n");

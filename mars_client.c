@@ -265,10 +265,17 @@ int receiver_thread(void *data)
 
 			traced_lock(&output->hash_lock[hash_index], flags);
 			for (tmp = output->hash_table[hash_index].next; tmp != &output->hash_table[hash_index]; tmp = tmp->next) {
+				struct mref_object *tmp_mref;
 				mref_a = container_of(tmp, struct client_mref_aspect, hash_head);
-				if (mref_a->object->ref_id == cmd.cmd_int1) {
+				tmp_mref = mref_a->object;
+				if (unlikely(!tmp_mref)) {
+					MARS_ERR("bad internal mref pointer\n");
+					status = -EBADR;
+					goto done;
+				}
+				if (tmp_mref->ref_id == cmd.cmd_int1) {
+					mref = tmp_mref;
 					list_del_init(&mref_a->hash_head);
-					mref = mref_a->object;
 					break;
 				}
 			}
