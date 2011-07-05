@@ -5,6 +5,7 @@
 #include <linux/aio.h>
 #include <linux/syscalls.h>
 
+//#define USE_CLEVER_SYNC // TODO: NYI (should result in better write performance)
 #ifdef USE_CLEVER_SYNC
 
 #include "lib_pairing_heap.h"

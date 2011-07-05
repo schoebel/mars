@@ -193,8 +193,8 @@ sub nyi_cmd {
   die "command '$cmd' is not yet implemented\n";
 }
 
-sub _create_system {
-  my ($cmd, $peer, $force) = @_;
+sub _create_cluster {
+  my ($cmd) = @_;
   system("mkdir $mars") unless -d $mars;
   system("mkdir $mars/ips") unless -d "$mars/ips";
   system("mkdir $mars/defaults") unless -d "$mars/defaults";
@@ -202,19 +202,19 @@ sub _create_system {
   symlink($ip, "$mars/ips/ip-$host");
 }
 
-sub create_system {
+sub create_cluster {
   my ($cmd, $peer, $force) = @_;
-  die "system is already created\n" if !$force && -d "$mars/ips";
-  _create_system(@_);
+  die "cluster is already created\n" if !$force && -d "$mars/ips";
+  _create_cluster(@_);
 }
 
-sub join_system {
+sub join_cluster {
   my ($cmd, $peer, $force) = @_;
   if(glob("$mars/resource-*")) {
     die "Sorry, some resources already exist!\nThis is dangerous!\nIf you are sure that no resource clash is possible, re-invoke this command with '--force' option\n" unless ($force and $force =~ m/--force/);
   }
-  print "joining system via rsync (peer='$peer')\n";
-  _create_system(@_);
+  print "joining cluster via rsync (peer='$peer')\n";
+  _create_cluster(@_);
   system("rsync --recursive --links -v $peer:$mars/ips/ $mars/ips/") == 0 or die "oops\n";
   symlink($ip, "$mars/ips/ip-$host");
   system("rsync --recursive --links -v $mars/ips/ $peer:$mars/ips/") == 0 or die "oops\n";
@@ -253,7 +253,7 @@ sub create_res {
   my $primary;
   my $replay;
   if($create) {
-    _create_system(@_);
+    _create_cluster(@_);
     system("rm -rf $tmp");
     system("mkdir $tmp") == 0 or die "could not create resource '$res'\n";
     symlink($size, "$tmp/size") or die "cannot create size indicator symlink\n";
@@ -262,7 +262,7 @@ sub create_res {
     die "resource '$res' does not exist\n" unless -d $tmp;
     $primary = readlink("$tmp/primary") or die "cannot determine primary\n";
     die "resource '$res' is already joined\n" if -e "$tmp/data-$host";
-    die "my ip '$ip' is not registered -- please run 'join-system' first\n" unless -l "$mars/ips/ip-$host";
+    die "my ip '$ip' is not registered -- please run 'join-cluster' first\n" unless -l "$mars/ips/ip-$host";
     my $oldsize = readlink("$tmp/size") or die "cannot determine old size\n";
     if($size < $oldsize) {
       print "adjusting size to $oldsize\n";
@@ -297,7 +297,7 @@ sub create_res {
   mkdir("$tmp/actual-$host");
   mkdir("$tmp/switch-$host");
   symlink("1", "$tmp/switch-$host/attach");
-  symlink("1", "$tmp/switch-$host/connect");
+  symlink("0", "$tmp/switch-$host/connect");
   symlink("1", "$tmp/switch-$host/sync");
   system("rm -f $tmp/syncstatus-$host");
 
@@ -305,6 +305,7 @@ sub create_res {
     symlink($host, "$tmp/primary") or die "cannot create primary symlink\n";
     symlink($size, "$tmp/syncstatus-$host") or die "cannot create primary syncstatus\n";
     symlink("log-000000001-$host,0,0", "$tmp/replay-$host") or die "cannot create replay status\n";
+    system("touch $tmp/log-000000001-$host");
     rename($tmp, "$mars/resource-$res") or die "cannot finalize resource '$res'\n";
     print "successfully created resource '$res'\n";
   } else {
@@ -328,6 +329,15 @@ sub attach_res {
 sub connect_res {
   my ($cmd, $res) = @_;
   my $disconnect = ($cmd eq "disconnect");
+  my @paths = glob("$mars/resource-$res/switch-*/connect");
+  for my $path (@paths) {
+    _switch($cmd, $res, $path, !$disconnect);
+  }
+}
+
+sub connect_local_res {
+  my ($cmd, $res) = @_;
+  my $disconnect = ($cmd eq "disconnect-local");
   my $path = "$mars/resource-$res/switch-$host/connect";
   _switch($cmd, $res, $path, !$disconnect);
 }
@@ -335,6 +345,15 @@ sub connect_res {
 sub pause_res {
   my ($cmd, $res) = @_;
   my $pause = ($cmd eq "pause-sync");
+  my @paths = glob("$mars/resource-$res/switch-*/sync");
+  for my $path (@paths) {
+    _switch($cmd, $res, $path, !$pause);
+  }
+}
+
+sub pause_local_res {
+  my ($cmd, $res) = @_;
+  my $pause = ($cmd eq "pause-sync-local");
   my $path = "$mars/resource-$res/switch-$host/sync";
   _switch($cmd, $res, $path, !$pause);
 }
@@ -373,6 +392,8 @@ sub primary_res {
   } elsif($old eq $host) {
     print "I am already primary.\n";
     exit(0);
+  } elsif($cmd eq "force-primary") {
+    print "forcing myself ($host) to primary...\n";
   } else { # try to switch myself to primary
     print "trying to switch $host to primary...\n";
     check_sync_finished($res, $host);
@@ -411,8 +432,8 @@ sub role_cmd {
 my %cmd_table =
   (
    # new keywords
-   "create-system"     => \&create_system,
-   "join-system"       => \&join_system,
+   "create-cluster"     => \&create_cluster,
+   "join-cluster"       => \&join_cluster,
    "create-resource"   => \&create_res,
    "join-resource"     => \&create_res,
 
@@ -421,11 +442,14 @@ my %cmd_table =
    "detach"            => \&attach_res,
    "connect"           => \&connect_res,
    "disconnect"        => \&connect_res,
+   "connect-local"     => \&connect_local_res,
+   "disconnect-local"  => \&connect_local_res,
    "syncer"            => \&ignore_cmd,
    "up"                => \&up_res,
    "down"              => \&up_res,
    "primary"           => \&primary_res,
    "secondary"         => \&primary_res,
+   "force-primary"     => \&primary_res,
    "invalidate"        => \&invalidate_res,
    "invalidate-remote" => \&forbidden_cmd,
    "resize"            => \&nyi_cmd,
@@ -444,6 +468,8 @@ my %cmd_table =
    "verify"            => \&nyi_cmd,
    "pause-sync"        => \&pause_res,
    "resume-sync"       => \&pause_res,
+   "pause-sync-local"  => \&pause_local_res,
+   "resume-sync-local" => \&pause_local_res,
    "new-current-uuid"  => \&senseless_cmd,
    "dstate"            => \&nyi_cmd,
    "hidden-commands"   => \&ignore_cmd,
@@ -459,8 +485,8 @@ sub do_res {
   my $cmd = shift;
   my $res = shift;
 
-  $res = check_res($res) unless $cmd =~ m/^(join-system|create-resource)$/;
-  check_res_member($res) unless $cmd =~ m/^(join|create)-(system|resource)$/;
+  $res = check_res($res) unless $cmd =~ m/^(join-cluster|create-resource)$/;
+  check_res_member($res) unless $cmd =~ m/^(join|create)-(cluster|resource)$/;
 
   my $func = $cmd_table{$cmd};
   &{$func}($cmd, $res, @_);

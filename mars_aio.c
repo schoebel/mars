@@ -23,7 +23,6 @@
 #define STRONG_MM
 #define MEMLEAK // FIXME: remove this
 #define MEASURE_SYNC 8
-#define USE_CLEVER_SYNC
 
 ///////////////////////// own type definitions ////////////////////////
 
@@ -606,9 +605,18 @@ void aio_clever_move(struct list_head *tmp_list, int prio, struct q_sync *q_sync
 		ph_insert_sync(&q_sync->heap[prio], &mref_a->heap_head);
 	}
 }
+
 static
 void aio_clever_sync(struct aio_output *output, struct q_sync *q_sync)
 {
+	int i;
+	int max = 64;
+	for (i = 0; i < MARS_PRIO_NR; i++) {
+		struct pairing_heap_sync **heap = &q_sync->heap[i];
+		if (*heap) {
+			return;
+		}
+	}
 }
 #endif
 
