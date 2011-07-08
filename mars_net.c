@@ -190,7 +190,7 @@ int mars_send(struct socket **sock, void *buf, int len)
 	};
 	struct msghdr msg = {
 		.msg_iov = (struct iovec*)&iov,
-		.msg_flags = 0 /* | MSG_NOSIGNAL*/,
+		.msg_flags = 0 | MSG_NOSIGNAL,
 	};
 	int status = -EIDRM;
 	int sent = 0;
@@ -255,7 +255,7 @@ int mars_recv(struct socket **sock, void *buf, int minlen, int maxlen)
 		struct msghdr msg = {
 			.msg_iovlen = 1,
 			.msg_iov = (struct iovec*)&iov,
-			.msg_flags = 0 | MSG_WAITALL /*| MSG_NOSIGNAL*/,
+			.msg_flags = 0 | MSG_WAITALL | MSG_NOSIGNAL,
 		};
 
 		if (unlikely(!*sock)) {
@@ -273,7 +273,7 @@ int mars_recv(struct socket **sock, void *buf, int minlen, int maxlen)
 			if (!done)
 				goto err;
 #endif
-			msleep(50);
+			//msleep(50);
 			continue;
 		}
 		if (!status) { // EOF

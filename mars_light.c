@@ -435,6 +435,34 @@ done:
 
 ///////////////////////////////////////////////////////////////////////
 
+// needed for logfile rotation
+
+struct mars_rotate {
+	struct mars_global *global;
+	struct mars_dent *replay_link;
+	struct mars_dent *aio_dent;
+	struct aio_brick *aio_brick;
+	struct mars_info aio_info;
+	struct trans_logger_brick *trans_brick;
+	struct mars_dent *relevant_log;
+	struct mars_brick *relevant_brick;
+	struct mars_dent *next_relevant_log;
+	struct mars_dent *current_log;
+	struct mars_dent *prev_log;
+	struct mars_dent *next_log;
+	struct if_brick *if_brick;
+	long long last_jiffies;
+	loff_t start_pos;
+	loff_t end_pos;
+	int max_sequence;
+	bool has_error;
+	bool try_sync;
+	bool do_replay;
+	bool is_primary;
+};
+
+///////////////////////////////////////////////////////////////////////
+
 // remote workers
 
 struct mars_peerinfo {
@@ -513,6 +541,7 @@ static
 int check_logfile(struct mars_peerinfo *peer, struct mars_dent *dent, struct mars_dent *parent, loff_t dst_size)
 {
 	loff_t src_size = dent->new_stat.size;
+	struct mars_rotate *rot;
 	const char *switch_path = NULL;
 	const char *copy_path = NULL;
 	const char *alias_path = NULL;
@@ -524,6 +553,19 @@ int check_logfile(struct mars_peerinfo *peer, struct mars_dent *dent, struct mar
 	if (unlikely(dst_size > src_size)) {
 		MARS_WRN("my local copy is larger than the remote one, ignoring\n");
 		status = -EINVAL;
+		goto done;
+	}
+
+	// check whether we are pariticipating in that resource
+	rot = parent->d_private;
+	if (!rot) {
+		MARS_WRN("parent has no rot info\n");
+		status = -EINVAL;
+		goto done;
+	}
+	if (!rot->try_sync) {
+		MARS_DBG("logfiles are not for me.");
+		status = 0;
 		goto done;
 	}
 
@@ -782,7 +824,7 @@ int remote_thread(void *data)
 		if (unlikely(status < 0)) {
 			MARS_ERR("communication error on send, status = %d\n", status);
 			_peer_cleanup(peer);
-			msleep(5000);
+			msleep(2000);
 			continue;
 		}
 
@@ -937,29 +979,6 @@ int kill_all(void *buf, struct mars_dent *dent)
 
 // handlers / helpers for logfile rotation
 
-struct mars_rotate {
-	struct mars_global *global;
-	struct mars_dent *replay_link;
-	struct mars_dent *aio_dent;
-	struct aio_brick *aio_brick;
-	struct mars_info aio_info;
-	struct trans_logger_brick *trans_brick;
-	struct mars_dent *relevant_log;
-	struct mars_brick *relevant_brick;
-	struct mars_dent *next_relevant_log;
-	struct mars_dent *current_log;
-	struct mars_dent *prev_log;
-	struct mars_dent *next_log;
-	struct if_brick *if_brick;
-	long long last_jiffies;
-	loff_t start_pos;
-	loff_t end_pos;
-	int max_sequence;
-	bool has_error;
-	bool do_replay;
-	bool is_primary;
-};
-
 static
 void _create_new_logfile(const char *path)
 {
@@ -1096,9 +1115,10 @@ out:
 /* This must be called once at every round of logfile checking.
  */
 static
-int make_log_init(void *buf, struct mars_dent *parent)
+int make_log_init(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
+	struct mars_dent *parent = dent->d_parent;
 	struct mars_brick *aio_brick;
 	struct mars_brick *trans_brick;
 	struct mars_rotate *rot = parent->d_private;
@@ -1145,6 +1165,7 @@ int make_log_init(void *buf, struct mars_dent *parent)
 	replay_link = (void*)mars_find_dent(global, replay_path);
 	if (unlikely(!replay_link || !replay_link->new_link)) {
 		MARS_DBG("replay status symlink '%s' does not exist (%p)\n", replay_path, replay_link);
+		rot->try_sync = false;
 		status = -ENOENT;
 		goto done;
 	}
@@ -2013,7 +2034,10 @@ done:
 static int make_sync(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
+	struct mars_rotate *rot;
 	loff_t start_pos = 0;
+	loff_t end_pos = 0;
+	struct mars_dent *size_dent;
 	struct mars_dent *connect_dent;
 	char *peer;
 	struct copy_brick *copy = NULL;
@@ -2036,6 +2060,36 @@ static int make_sync(void *buf, struct mars_dent *dent)
 		status = -EINVAL;
 		goto done;
 	}
+
+	rot = dent->d_parent->d_private;
+	if (rot) {
+		rot->try_sync = true;
+	}
+
+	/* Sync necessary?
+	 */
+	tmp = path_make("%s/size", dent->d_parent->d_path);
+	status = -ENOMEM;
+	if (unlikely(!tmp))
+		goto done;
+	size_dent = (void*)mars_find_dent(global, tmp);
+	if (!size_dent || !size_dent->new_link) {
+		MARS_ERR("cannot determine size\n", tmp);
+		status = -ENOENT;
+		goto done;
+	}
+	status = sscanf(size_dent->new_link, "%lld", &end_pos);
+	if (status != 1) {
+		MARS_ERR("bad size symlink syntax '%s' (%s)\n", size_dent->new_link, tmp);
+		status = -EINVAL;
+		goto done;
+	}
+	if (start_pos == end_pos) {
+		MARS_DBG("no data sync necessary, size = %lld\n", start_pos);
+		status = 0;
+		goto done;
+	}
+	kfree(tmp);
 
 	/* Determine peer
 	 */
@@ -2121,8 +2175,8 @@ enum {
 	CL_ACTUAL,
 	CL_ACTUAL_ITEMS,
 	CL_CONNECT,
-	CL_SIZE,
 	CL_DATA,
+	CL_SIZE,
 	CL_PRIMARY,
 	CL__FILE,
 	CL_SYNC,
@@ -2172,7 +2226,7 @@ static const struct light_class light_classes[] = {
 		.cl_len = 9,
 		.cl_type = 'd',
 		.cl_father = CL_ROOT,
-		.cl_forward = make_log_init,
+		.cl_forward = NULL,
 		.cl_backward = NULL,
 	},
 
@@ -2271,17 +2325,6 @@ static const struct light_class light_classes[] = {
 		.cl_forward = NULL,
 		.cl_backward = NULL,
 	},
-	/* Symlink indiating the (common) size of the resource
-	 */
-	[CL_SIZE] = {
-		.cl_name = "size",
-		.cl_len = 4,
-		.cl_type = 'l',
-		.cl_hostcontext = false,
-		.cl_father = CL_RESOURCE,
-		.cl_forward = NULL,
-		.cl_backward = NULL,
-	},
 	/* File or symlink to the real device / real (sparse) file
 	 * when hostcontext is missing, the corresponding peer will
 	 * not participate in that resource.
@@ -2294,6 +2337,17 @@ static const struct light_class light_classes[] = {
 		.cl_father = CL_RESOURCE,
 		.cl_forward = make_bio,
 		.cl_backward = kill_all,
+	},
+	/* Symlink indicating the (common) size of the resource
+	 */
+	[CL_SIZE] = {
+		.cl_name = "size",
+		.cl_len = 4,
+		.cl_type = 'l',
+		.cl_hostcontext = false,
+		.cl_father = CL_RESOURCE,
+		.cl_forward = make_log_init,
+		.cl_backward = NULL,
 	},
 	/* Symlink pointing to the name of the primary node
 	 */

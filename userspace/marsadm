@@ -319,6 +319,22 @@ sub create_res {
   }
 }
 
+sub logrotate_res {
+  my ($cmd, $res) = @_;
+  my @paths = glob("$mars/resource-$res/log-*-$host") or die "cannot find any logfiles\n";
+  @paths = sort(@paths);
+  my $last = pop(@paths);
+  if(-z $last) {
+    print "an empty logfile '$last' already exists, nothing to do.\n";
+    return;
+  }
+  my $nr = $last;
+  $nr =~ s/^.*log-([0-9]+)-.+$/$1/;
+  my $next = sprintf("$mars/resource-$res/log-%09d-$host", $nr + 1);
+  die "logfile '$next' already exists\n" if -e $next;
+  system("touch $next");
+}
+
 sub attach_res {
   my ($cmd, $res) = @_;
   my $detach = ($cmd eq "detach");
@@ -436,6 +452,7 @@ my %cmd_table =
    "join-cluster"       => \&join_cluster,
    "create-resource"   => \&create_res,
    "join-resource"     => \&create_res,
+   "logrotate"         => \&logrotate_res,
 
    # compatible keywords
    "attach"            => \&attach_res,
@@ -476,16 +493,19 @@ my %cmd_table =
   );
 
 my $cmd = shift || die "command argument is missing\n";
-my $res = shift || die "resource argument is missing\n";
-
 die "unknown command '$cmd'\n" if !exists $cmd_table{$cmd};
-check_id($res);
+
+my $res = "";
+unless($cmd =~ m/^create-cluster$/) {
+  $res = shift || die "resource argument is missing\n";
+  check_id($res);
+}
 
 sub do_res {
   my $cmd = shift;
   my $res = shift;
 
-  $res = check_res($res) unless $cmd =~ m/^(join-cluster|create-resource)$/;
+  $res = check_res($res) unless $cmd =~ m/^(join|create)-cluster|create-resource$/;
   check_res_member($res) unless $cmd =~ m/^(join|create)-(cluster|resource)$/;
 
   my $func = $cmd_table{$cmd};
