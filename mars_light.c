@@ -1519,7 +1519,9 @@ void _change_trans(struct mars_rotate *rot)
 {
 	struct trans_logger_brick *trans_brick = rot->trans_brick;
 
-	if ((trans_brick->do_replay)) {
+	MARS_DBG("do_replay = %d start_pos = %lld end_pos = %lld\n", trans_brick->do_replay, rot->start_pos, rot->end_pos);
+
+	if (trans_brick->do_replay) {
 		trans_brick->replay_start_pos = rot->start_pos;
 		trans_brick->replay_end_pos = rot->end_pos;
 	} else {
@@ -1678,7 +1680,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *parent)
 					if (!trans_input) {
 						continue;
 					}
-					if (trans_input->replay_min_pos != trans_brick->replay_end_pos) {
+					if (trans_input->replay_min_pos < trans_brick->replay_end_pos) {
 						do_stop = false;
 						break;
 					}

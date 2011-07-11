@@ -270,7 +270,7 @@ sub create_res {
     }
     die "sizes differ: real size = $oldsize, but requested size = $size\n" unless $oldsize == $size;
     $replay = readlink("$tmp/replay-$primary") or die "cannot read replay status of primary '$primary'\n";
-    $replay =~ s/-$primary,/-$host,/ or die "something is wrong here\n";
+    $replay =~ s/-$primary,[0-9]+,[0-9]+/-$host,0,0/ or die "something is wrong here\n";
   }
 
   my $file = "$tmp/data-$host";
