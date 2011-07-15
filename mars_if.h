@@ -12,6 +12,8 @@
 #define IF_HASH_MAX   2048
 #define IF_HASH_CHUNK (PAGE_SIZE * 32)
 
+//#define USE_TIMER
+
 struct if_mref_aspect {
 	GENERIC_ASPECT(mref);
 	struct list_head plug_head;
@@ -34,6 +36,9 @@ struct if_input {
 	struct request_queue *q;
 	struct gendisk *disk;
 	struct block_device *bdev;
+#ifdef USE_TIMER
+	struct timer_list timer;
+#endif
 	atomic_t open_count;
 	atomic_t plugged_count;
 	atomic_t flying_count;
@@ -42,6 +47,7 @@ struct if_input {
 	atomic_t write_flying_count;
 	atomic_t total_read_count;
 	atomic_t total_write_count;
+	atomic_t total_empty_count;
 	atomic_t total_mref_read_count;
 	atomic_t total_mref_write_count;
 	spinlock_t req_lock;

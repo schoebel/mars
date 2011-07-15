@@ -471,7 +471,7 @@ restart:
 		mref->ref_pos = logst->log_pos;
 		chunk_offset = logst->log_pos & (loff_t)(logst->chunk_size - 1);
 		chunk_rest = logst->chunk_size - chunk_offset;
-		mref->ref_len = chunk_rest + logst->chunk_size * 8;
+		mref->ref_len = chunk_rest + logst->chunk_size * 4;
 		mref->ref_prio = logst->io_prio;
 
 		status = GENERIC_INPUT_CALL(logst->input, mref_get, mref);

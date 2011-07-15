@@ -9,6 +9,8 @@
 //#define IO_DEBUGGING
 
 #define REQUEST_MERGING
+//#define ALWAYS_UNPLUG false
+#define ALWAYS_UNPLUG true
 #define PREFETCH_LEN PAGE_SIZE
 //#define FRONT_MERGE // FIXME: this does not work.
 
@@ -114,7 +116,8 @@ void if_endio(struct generic_callback *cb)
 
 /* Kick off plugged mrefs
  */
-static void _if_unplug(struct if_input *input)
+static
+void _if_unplug(struct if_input *input)
 {
 	//struct if_brick *brick = input->brick;
 	LIST_HEAD(tmp_list);
@@ -124,6 +127,9 @@ static void _if_unplug(struct if_input *input)
 
 	down(&input->kick_sem);
 	traced_lock(&input->req_lock, flags);
+#ifdef USE_TIMER
+	del_timer(&input->timer);
+#endif
 	if (!list_empty(&input->plug_anchor)) {
 		// move over the whole list
 		list_replace_init(&input->plug_anchor, &tmp_list);
@@ -167,6 +173,14 @@ static void _if_unplug(struct if_input *input)
 	}
 }
 
+#ifdef USE_TIMER
+static
+void if_timer(unsigned long data)
+{
+	_if_unplug((void*)data);
+}
+#endif
+
 /* accept a linux bio, convert to mref and call buf_io() on it.
  */
 static int if_make_request(struct request_queue *q, struct bio *bio)
@@ -193,6 +207,20 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 	input = q->queuedata;
         if (unlikely(!input))
                 goto err;
+	
+	if (unlikely(!bio_sectors(bio))) {
+		atomic_inc(&input->total_empty_count);
+		_if_unplug(input);
+		/* THINK: usually this happens only at write barriers.
+		 * We have no "barrier" operation in MARS, since
+		 * callback semantics should always denote
+		 * "writethrough accomplished".
+		 * In case of exceptional semantics, we need to do
+		 * something here. For now, we do just nothing.
+		 */
+		bio_endio(bio, 0);
+		return 0;
+	}
 
 	if (rw) {
 		atomic_inc(&input->total_write_count);
@@ -421,10 +449,24 @@ err:
 		}
 	}
 
-	if (unplug ||
+	if (ALWAYS_UNPLUG || unplug ||
 	   (brick && brick->max_plugged > 0 && atomic_read(&input->plugged_count) > brick->max_plugged)) {
 		_if_unplug(input);
 	}
+#ifdef USE_TIMER
+	else {
+		unsigned long flags;
+		traced_lock(&input->req_lock, flags);
+		if (timer_pending(&input->timer)) {
+			del_timer(&input->timer);
+		}
+		input->timer.function = if_timer;
+		input->timer.data = (unsigned long)input;
+		input->timer.expires = jiffies + HZ/10;
+		add_timer(&input->timer);
+		traced_unlock(&input->req_lock, flags);
+	}
+#endif
 
 	return error;
 }
@@ -639,13 +681,14 @@ char *if_statistics(struct if_brick *brick, int verbose)
 	int tmp4 = atomic_read(&input->total_mref_write_count);
 	if (!res)
 		return NULL;
-	sprintf(res, "reads = %d mref_reads = %d (%d%%) writes = %d mref_writes = %d (%d%%) | plugged = %d flying = %d (reads = %d writes = %d)\n",
+	sprintf(res, "total reads = %d mref_reads = %d (%d%%) writes = %d mref_writes = %d (%d%%) empty = %d | plugged = %d flying = %d (reads = %d writes = %d)\n",
 		tmp1,
 		tmp2,
 		tmp1 ? tmp2 * 100 / tmp1 : 0,
 		tmp3,
 		tmp4,
 		tmp3 ? tmp4 * 100 / tmp3 : 0,
+		atomic_read(&input->total_empty_count),
 		atomic_read(&input->plugged_count),
 		atomic_read(&input->flying_count),
 		atomic_read(&input->read_flying_count),
@@ -659,6 +702,7 @@ void if_reset_statistics(struct if_brick *brick)
 	struct if_input *input = brick->inputs[0];
 	atomic_set(&input->total_read_count, 0);
 	atomic_set(&input->total_write_count, 0);
+	atomic_set(&input->total_empty_count, 0);
 	atomic_set(&input->total_mref_read_count, 0);
 	atomic_set(&input->total_mref_write_count, 0);
 }
@@ -686,7 +730,7 @@ static void if_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data
 
 MARS_MAKE_STATICS(if);
 
-//////////////////////// contructors / destructors ////////////////////////
+//////////////////////// constructors / destructors ////////////////////////
 
 static int if_brick_construct(struct if_brick *brick)
 {
@@ -713,6 +757,9 @@ static int if_input_construct(struct if_input *input)
 	atomic_set(&input->open_count, 0);
 	atomic_set(&input->flying_count, 0);
 	atomic_set(&input->plugged_count, 0);
+#ifdef USE_TIMER
+	init_timer(&input->timer);
+#endif
 	return 0;
 }
 

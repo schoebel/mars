@@ -1053,7 +1053,7 @@ out_old:
 }
 
 static
-int _update_versionlink(struct mars_global *global, struct mars_dent *parent, int sequence, loff_t start_pos, loff_t end_pos)
+int _update_versionlink(struct mars_global *global, struct mars_dent *parent, int sequence, loff_t start_pos, loff_t end_pos, bool is_primary)
 {
 	char *prev = NULL;
 	struct mars_dent *prev_link = NULL;
@@ -1101,6 +1101,14 @@ int _update_versionlink(struct mars_global *global, struct mars_dent *parent, in
 	} else {
 		MARS_DBG("make version symlink '%s' -> '%s' status = %d\n", old, new, status);
 	}
+	if (is_primary) {
+		kfree(new);
+		new = path_make("%s/version-%09d-primary", parent->d_path, sequence);
+		if (!new) {
+			goto out;
+		}
+		mars_symlink(old, new, &now, 0);
+	}
 
 out:
 	if (new) {
@@ -1108,6 +1116,55 @@ out:
 	}
 	if (prev) {
 		kfree(prev);
+	}
+	return status;
+}
+
+static
+int _check_versionlink(struct mars_global *global, struct mars_dent *parent, int sequence)
+{
+	char *my = NULL;
+	char *other = NULL;
+	struct mars_dent *my_dent;
+	struct mars_dent *other_dent;
+	int status = -ENOMEM;
+
+	my = path_make("%s/version-%09d-%s", parent->d_path, sequence, my_id());
+	if (!my) {
+		goto out;
+	}
+
+	other = path_make("%s/version-%09d-primary", parent->d_path, sequence);
+	if (!other) {
+		goto out;
+	}
+
+	status = -ENOENT;
+	my_dent = mars_find_dent(global, my);
+	if (!my_dent || !my_dent->new_link) {
+		MARS_WRN("cannot find symlink '%s'\n", my);
+		goto out;
+	}
+	other_dent = mars_find_dent(global, other);
+	if (!other_dent || !other_dent->new_link) {
+		MARS_WRN("cannot find symlink '%s'\n", other);
+		goto out;
+	}
+	
+	status = 0;
+	if (!strcmp(my_dent->new_link, other_dent->new_link)) {
+		status++;
+		MARS_DBG("versions OK\n");
+	} else {
+		MARS_DBG("versions MISMATCH\n");
+	}
+
+out:
+	if (my) {
+		kfree(my);
+	}
+	if (other) {
+		kfree(other);
 	}
 	return status;
 }
@@ -1471,9 +1528,10 @@ int _make_logging_status(struct mars_rotate *rot)
 	case 1: /* Relevant, and transaction replay already finished.
 		 * Allow switching over to a new logfile.
 		 */
-		if (!trans_brick->power.button && !trans_brick->power.led_on && trans_brick->power.led_off) {
+		if (!trans_brick->power.button && !trans_brick->power.led_on && trans_brick->power.led_off &&
+		   (rot->is_primary || _check_versionlink(global, dent->d_parent, dent->d_serial) > 0)) {
 			_update_replaylink(dent->d_parent, dent->d_serial + 1, 0, 0, !rot->is_primary);
-			_update_versionlink(global, dent->d_parent, dent->d_serial + 1, 0, 0);
+			_update_versionlink(global, dent->d_parent, dent->d_serial + 1, 0, 0, rot->is_primary);
 			trans_brick->current_pos = 0;
 			rot->last_jiffies = jiffies;
 			//mars_trigger();
@@ -1689,7 +1747,8 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *parent)
 		} else {
 			do_stop =
 				(rot->relevant_log && rot->relevant_log != rot->current_log) ||
-				(rot->current_log && !S_ISREG(rot->current_log->new_stat.mode));
+				(rot->current_log && !S_ISREG(rot->current_log->new_stat.mode)) ||
+				(!rot->is_primary && (!rot->if_brick || rot->if_brick->power.led_off));
 		}
 
 		MARS_DBG("do_stop = %d\n", (int)do_stop);
@@ -1704,7 +1763,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *parent)
 					continue;
 				}
 				status = _update_replaylink(parent, trans_input->sequence, trans_input->replay_min_pos, trans_input->replay_max_pos, true);
-				status = _update_versionlink(global, parent, trans_input->sequence, trans_input->replay_min_pos, trans_input->replay_max_pos);
+				status = _update_versionlink(global, parent, trans_input->sequence, trans_input->replay_min_pos, trans_input->replay_max_pos, rot->is_primary);
 				old_input = trans_input;
 			}
 			rot->last_jiffies = jiffies;
@@ -1866,6 +1925,7 @@ int make_dev(void *buf, struct mars_dent *dent)
 	struct mars_rotate *rot = NULL;
 	struct mars_brick *dev_brick;
 	struct if_brick *_dev_brick;
+	bool switch_on;
 	int status = 0;
 
 	if (!parent || !dent->new_link) {
@@ -1881,8 +1941,8 @@ int make_dev(void *buf, struct mars_dent *dent)
 		MARS_DBG("nothing to do\n");
 		goto done;
 	}
-	if (!rot->trans_brick || rot->trans_brick->do_replay || !rot->trans_brick->power.led_on || rot->trans_brick->power.led_off) {
-		MARS_DBG("transaction logger not ready for writing\n");
+	if (!rot->trans_brick) {
+		MARS_DBG("transaction logger does not exist\n");
 		goto done;
 	}
 
@@ -1891,6 +1951,11 @@ int make_dev(void *buf, struct mars_dent *dent)
 		MARS_DBG("fail\n");
 		goto done;
 	}
+
+	switch_on =
+		rot->is_primary &&
+		!rot->trans_brick->do_replay &&
+		rot->trans_brick->power.led_on;
 
 	dev_brick =
 		make_brick_all(global,
@@ -1901,7 +1966,7 @@ int make_dev(void *buf, struct mars_dent *dent)
 			       dent->d_argv[0],
 			       (const struct generic_brick_type*)&if_brick_type,
 			       (const struct generic_brick_type*[]){(const struct generic_brick_type*)&trans_logger_brick_type},
-			       rot->is_primary ? NULL : "", // KLUDGE
+			       switch_on ? NULL : "", // KLUDGE
 			       "%s/linuxdev-%s", 
 			       (const char *[]){"%s/logger"},
 			       1,
@@ -2247,7 +2312,7 @@ static const struct light_class light_classes[] = {
 		.cl_name = "defaults-",
 		.cl_len = 9,
 		.cl_type = 'd',
-		.cl_hostcontext = true,
+		.cl_hostcontext = false,
 		.cl_father = CL_RESOURCE,
 		.cl_forward = NULL,
 		.cl_backward = NULL,
@@ -2277,7 +2342,7 @@ static const struct light_class light_classes[] = {
 		.cl_name = "switch-",
 		.cl_len = 7,
 		.cl_type = 'd',
-		.cl_hostcontext = true,
+		.cl_hostcontext = false,
 		.cl_father = CL_RESOURCE,
 		.cl_forward = NULL,
 		.cl_backward = NULL,
@@ -2299,7 +2364,7 @@ static const struct light_class light_classes[] = {
 		.cl_name = "actual-",
 		.cl_len = 7,
 		.cl_type = 'd',
-		.cl_hostcontext = true,
+		.cl_hostcontext = false,
 		.cl_father = CL_RESOURCE,
 		.cl_forward = NULL,
 		.cl_backward = NULL,
@@ -2418,7 +2483,7 @@ static const struct light_class light_classes[] = {
 		.cl_len = 8,
 		.cl_type = 'l',
 		.cl_serial = true,
-		.cl_hostcontext = true,
+		.cl_hostcontext = false,
 		.cl_father = CL_RESOURCE,
 		.cl_forward = NULL,
 		.cl_backward = NULL,

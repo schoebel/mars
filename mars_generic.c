@@ -26,7 +26,7 @@
 
 // MARS-specific memory allocation
 
-#define PERFORMANCE_WORKAROUND
+#define USE_KERNEL_PAGES
 #define MARS_MAX_ORDER 8
 //#define USE_OFFSET
 //#define USE_INTERNAL_FREELIST
@@ -40,13 +40,17 @@ void *mars_alloc(loff_t pos, int len)
 {
 	int offset = 0;
 	void *data;
-#ifdef PERFORMANCE_WORKAROUND
+#ifdef USE_KERNEL_PAGES
 	int order = MARS_MAX_ORDER;
+	if (unlikely(len > (PAGE_SIZE << order) || len <=0)) {
+		MARS_ERR("trying to allocate %d bytes (max = %d)\n", len, (PAGE_SIZE << order));
+		return NULL;
+	}
 #endif
 #ifdef USE_OFFSET
 	offset = pos & (PAGE_SIZE-1);
 #endif
-#ifdef PERFORMANCE_WORKAROUND
+#ifdef USE_KERNEL_PAGES
 	len += offset;
 	while (order > 0 && (PAGE_SIZE << (order-1)) >= len) {
 		order--;
@@ -72,7 +76,7 @@ EXPORT_SYMBOL_GPL(mars_alloc);
 void mars_free(void *data, int len)
 {
 	int offset = 0;
-#ifdef PERFORMANCE_WORKAROUND
+#ifdef USE_KERNEL_PAGES
 	int order = MARS_MAX_ORDER;
 #endif
 	if (!data) {
@@ -82,7 +86,7 @@ void mars_free(void *data, int len)
 	offset = ((unsigned long)data) & (PAGE_SIZE-1);
 #endif
 	data -= offset;
-#ifdef PERFORMANCE_WORKAROUND
+#ifdef USE_KERNEL_PAGES
 	len += offset;
 	while (order > 0 && (PAGE_SIZE << (order-1)) >= len) {
 		order--;

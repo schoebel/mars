@@ -15,7 +15,7 @@
 
 // commenting this out is dangerous for data integrity! use only for testing!
 #define USE_MEMCPY
-#define DO_WRITEBACK // otherweise FAKE IO
+#define DO_WRITEBACK // otherwise FAKE IO
 #define APPLY_DATA
 
 #include <linux/kernel.h>
@@ -620,10 +620,10 @@ void __trans_logger_ref_put(struct trans_logger_output *output, struct trans_log
 	struct trans_logger_mref_aspect *shadow_a;
 	struct trans_logger_input *input;
 
-	MARS_IO("pos = %lld len = %d\n", mref->ref_pos, mref->ref_len);
-
 restart:
 	mref = mref_a->object;
+	MARS_IO("pos = %lld len = %d\n", mref->ref_pos, mref->ref_len);
+
 	CHECK_ATOMIC(&mref->ref_count, 1);
 
 	CHECK_PTR(output, err);
@@ -2331,7 +2331,8 @@ void trans_logger_replay(struct trans_logger_output *output)
 	input->logst.chunk_size = brick->chunk_size;
 	init_logst(&input->logst, (void*)input, (void*)&input->hidden_output, brick->replay_start_pos);
 
-	start_pos = input->logst.log_pos;
+	start_pos = brick->replay_start_pos;
+	input->logst.log_pos = start_pos;
 	brick->current_pos = start_pos;
 	input->replay_min_pos = start_pos;
 	input->replay_max_pos = start_pos; // FIXME: this is wrong.
@@ -2339,11 +2340,15 @@ void trans_logger_replay(struct trans_logger_output *output)
 	mars_power_led_on((void*)brick, true);
 
 	for (;;) {
+		loff_t new_finished_pos;
 		struct log_header lh = {};
 		void *buf = NULL;
 		int len = 0;
 
-		if (kthread_should_stop()) {
+		finished_pos = input->logst.log_pos + input->logst.offset;
+		if (kthread_should_stop() ||
+		   (!brick->do_continuous_replay && finished_pos >= brick->replay_end_pos)) {
+			status = 0; // treat as EOF
 			break;
 		}
 
@@ -2358,32 +2363,29 @@ void trans_logger_replay(struct trans_logger_output *output)
 			MARS_ERR("cannot read logfile data, status = %d\n", status);
 			break;
 		}
-		finished_pos = input->logst.log_pos + input->logst.offset;
-		if (!brick->do_continuous_replay && finished_pos >= brick->replay_end_pos) {
-			status = 0; // treat as EOF
-		}
-		if (!status) { // EOF -> wait until kthread_should_stop()
-			MARS_DBG("EOF at %lld\n", finished_pos);
+		new_finished_pos = input->logst.log_pos + input->logst.offset;
+		if ((!status && len <= 0) ||
+		   new_finished_pos > brick->replay_end_pos) { // EOF -> wait until kthread_should_stop()
+			MARS_DBG("EOF at %lld (old = %lld, end_pos = %lld)\n", new_finished_pos, finished_pos, brick->replay_end_pos);
 			if (!brick->do_continuous_replay) {
+				// notice: finished_pos remains at old value here!
+				brick->replay_end_pos = finished_pos;
 				break;
 			}
-			if (finished_pos > brick->replay_end_pos) {
-				brick->replay_end_pos = finished_pos;
-			}
 			msleep(1000);
+			continue;
 		}
 
 		if (lh.l_code != CODE_WRITE_NEW) {
 			MARS_IO("ignoring pos = %lld len = %d code = %d\n", lh.l_pos, lh.l_len, lh.l_code);
-			continue;
-		}
-
-		if (likely(buf && len)) {
+		} else if (likely(buf && len)) {
 			status = apply_data(brick, lh.l_pos, buf, len);
 			if (unlikely(status < 0)) {
 				brick->replay_code = status;
 				MARS_ERR("cannot apply data at pos = %lld len = %d, status = %d\n", lh.l_pos, len, status);
 				break;
+			} else {
+				finished_pos = new_finished_pos;
 			}
 		}
 
@@ -2400,7 +2402,10 @@ void trans_logger_replay(struct trans_logger_output *output)
 
 	wait_event_interruptible_timeout(brick->worker_event, atomic_read(&brick->replay_count) <= 0, 60 * HZ);
 
-	finished_pos = input->logst.log_pos + input->logst.offset;
+	if (unlikely(finished_pos > brick->replay_end_pos)) {
+		MARS_ERR("finished_pos too large: %lld + %d = %lld > %lld\n", input->logst.log_pos, input->logst.offset, finished_pos, brick->replay_end_pos);
+		finished_pos = brick->replay_end_pos;
+	}
 	if (status >= 0) {
 		brick->current_pos = finished_pos;
 		input->replay_min_pos = finished_pos;
