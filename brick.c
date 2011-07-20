@@ -27,6 +27,7 @@
 
 static char say_buf[1024] = {};
 static int say_index = 0;
+static int dump_max = 5;
 
 void say_mark(void)
 {
@@ -59,6 +60,15 @@ void say(const char *fmt, ...)
 }
 EXPORT_SYMBOL(say);
 
+void brick_dump_stack(void)
+{
+	if (dump_max > 0) {
+		dump_max--; // racy, but does no harm
+		dump_stack();
+	}
+}
+EXPORT_SYMBOL(brick_dump_stack);
+
 #endif
 
 //////////////////////////////////////////////////////////////
@@ -66,7 +76,8 @@ EXPORT_SYMBOL(say);
 // number management
 
 static char *nr_table = NULL;
-static int nr_max = 256;
+int nr_max = 256;
+EXPORT_SYMBOL_GPL(nr_max);
 
 int get_nr(void)
 {
@@ -409,20 +420,12 @@ int generic_add_aspect(struct generic_output *output, struct generic_object_layo
 	if (unlikely(!object_layout || !object_layout->object_type)) {
 		goto err;
 	}
-	if (NEW_ASPECTS) {
-		nr = output->output_index;
-		if (nr <= 0 || nr > nr_max) {
-			BRICK_ERR("oops, bad nr = %d\n", nr);
-			goto err;
-		}
-		aspect_layout = &object_layout->aspect_layouts[nr];
-	} else {
-		nr = object_layout->object_type->brick_obj_nr;
-		if (nr < 0 || nr >= brick_obj_max) {
-			goto done;
-		}
-		aspect_layout = (void*)&output->output_aspect_layouts[nr];
+	nr = output->output_index;
+	if (unlikely(nr <= 0 || nr > nr_max)) {
+		BRICK_ERR("oops, bad nr = %d\n", nr);
+		goto err;
 	}
+	aspect_layout = &object_layout->aspect_layouts[nr];
 	if (aspect_layout->aspect_type && aspect_layout->aspect_layout_generation == object_layout->object_layout_generation) {
 		/* aspect_layout is already initialized.
 		 * this is a kind of "dynamic programming".
@@ -456,22 +459,8 @@ int generic_add_aspect(struct generic_output *output, struct generic_object_layo
 		aspect_layout->aspect_layout_generation = object_layout->object_layout_generation;
 		BRICK_DBG("initializing aspect_type %s on object_layout %p, object_size=%d\n", aspect_type->aspect_type_name, object_layout, object_layout->object_size);
 	}
-	if (NEW_ASPECTS) {
-		if (object_layout->aspect_count <= nr) {
-			object_layout->aspect_count = nr + 1;
-		}
-	} else {
-		// find an empty slot
-		nr = -1;
-		if (nr < 0) {
-			nr = object_layout->aspect_count++;
-			status = -ENOMEM;
-			if (unlikely(nr >= object_layout->aspect_max)) {
-				BRICK_ERR("aspect overflow\n");
-				goto done;
-			}
-		}
-		object_layout->aspect_layouts_table[nr] = aspect_layout;
+	if (object_layout->aspect_count <= nr) {
+		object_layout->aspect_count = nr + 1;
 	}
 	status = 0;
 
@@ -510,9 +499,7 @@ int default_init_object_layout(struct generic_output *output, struct generic_obj
 		module_name = "(unknown)";
 	}
 
-	if (NEW_ASPECTS) {
-		aspect_max = nr_max;
-	}
+	aspect_max = nr_max;
 
 	data = kzalloc(aspect_max * sizeof(struct generic_aspect_layout), GFP_BRICK);
 	data2 = kzalloc(aspect_max * sizeof(void*), GFP_BRICK);
@@ -1001,8 +988,8 @@ EXPORT_SYMBOL_GPL(set_recursive_button);
 const struct meta *find_meta(const struct meta *meta, const char *field_name)
 {
 	const struct meta *tmp;
-	for (tmp = meta; tmp->field_name[0]; tmp++) {
-		if (!strncmp(field_name, tmp->field_name, MAX_FIELD_LEN)) {
+	for (tmp = meta; tmp->field_name; tmp++) {
+		if (!strcmp(field_name, tmp->field_name)) {
 			return tmp;
 		}
 	}
@@ -1010,6 +997,7 @@ const struct meta *find_meta(const struct meta *meta, const char *field_name)
 }
 EXPORT_SYMBOL_GPL(find_meta);
 
+#if 0 // currently not needed, but this may change
 void free_meta(void *data, const struct meta *meta)
 {
 	for (; meta->field_name[0]; meta++) {
@@ -1032,6 +1020,7 @@ void free_meta(void *data, const struct meta *meta)
 	}
 }
 EXPORT_SYMBOL_GPL(free_meta);
+#endif
 
 /////////////////////////////////////////////////////////////////////////
 

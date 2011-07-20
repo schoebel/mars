@@ -100,7 +100,7 @@ static void dump_mem(void *data, int len)
 {
 	int i;
 	char *tmp;
-	char *buf = kmalloc(256, GFP_MARS);
+	char *buf = kmalloc(1024, GFP_MARS);
 
 	if (!buf)
 		return;
@@ -113,7 +113,7 @@ static void dump_mem(void *data, int len)
 			}
 			tmp = buf;
 		}
-		tmp += sprintf(tmp, " %02x", byte);
+		tmp += snprintf(tmp, 1024 - i * 3, " %02x", byte);
 	}
 	if (tmp != buf) {
 		printk("%4d: %s\n", i, buf);

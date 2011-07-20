@@ -565,7 +565,7 @@ char *copy_statistics(struct copy_brick *brick, int verbose)
         if (!res)
                 return NULL;
 
-	sprintf(res, "copy_start = %lld copy_last = %lld copy_end = %lld clash = %lu | io_flight = %d copy_flight = %d\n",
+	snprintf(res, 512, "copy_start = %lld copy_last = %lld copy_end = %lld clash = %lu | io_flight = %d copy_flight = %d\n",
 		brick->copy_start, brick->copy_last, brick->copy_end, brick->clash,
 		atomic_read(&brick->io_flight), atomic_read(&brick->copy_flight));
 

@@ -6,12 +6,6 @@
 //#define MARS_DEBUGGING
 //#define IO_DEBUGGING
 
-#ifdef IO_DEBUGGING
-#define MARS_IO MARS_DBG
-#else
-#define MARS_IO(args...) /*empty*/
-#endif
-
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/string.h>

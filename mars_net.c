@@ -4,12 +4,6 @@
 //#define MARS_DEBUGGING
 //#define IO_DEBUGGING
 
-#ifdef IO_DEBUGGING
-#define MARS_IO MARS_DBG
-#else
-#define MARS_IO(args...) /*empty*/
-#endif
-
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/string.h>
@@ -68,7 +62,7 @@ EXPORT_SYMBOL_GPL(mars_translate_hostname);
 static void _check(int status)
 {
 	if (status < 0) {
-		MARS_ERR("cannot set socket option, status = %d\n", status);
+		MARS_WRN("cannot set socket option, status = %d\n", status);
 	}
 }
 
@@ -131,7 +125,7 @@ int mars_create_socket(struct socket **sock, struct sockaddr_storage *addr, bool
 		status = sock_create_kern(AF_INET, SOCK_STREAM, IPPROTO_TCP, sock);
 		if (unlikely(status < 0)) {
 			*sock = NULL;
-			MARS_ERR("cannot create socket, status = %d\n", status);
+			MARS_WRN("cannot create socket, status = %d\n", status);
 			goto done;
 		}
 
@@ -161,14 +155,14 @@ int mars_create_socket(struct socket **sock, struct sockaddr_storage *addr, bool
 	if (is_server) {
 		status = kernel_bind(*sock, sockaddr, sizeof(*sockaddr));
 		if (unlikely(status < 0)) {
-			MARS_ERR("bind failed, status = %d\n", status);
+			MARS_WRN("bind failed, status = %d\n", status);
 			sock_release(*sock);
 			*sock = NULL;
 			goto done;
 		}
 		status = kernel_listen(*sock, 16);
 		if (status < 0) {
-			MARS_ERR("listen failed, status = %d\n", status);
+			MARS_WRN("listen failed, status = %d\n", status);
 		}
 	} else {
 		status = kernel_connect(*sock, sockaddr, sizeof(*sockaddr), 0);
@@ -198,7 +192,7 @@ int mars_send(struct socket **sock, void *buf, int len)
 	//MARS_IO("buf = %p, len = %d\n", buf, len);
 	while (sent < len) {
 		if (unlikely(!*sock)) {
-			MARS_ERR("socket has disappeared\n");
+			MARS_WRN("socket has disappeared\n");
 			status = -EIDRM;
 			goto done;
 		}
@@ -217,12 +211,12 @@ int mars_send(struct socket **sock, void *buf, int len)
 		}
 
 		if (status < 0) {
-			MARS_ERR("bad socket sendmsg, len=%d, iov_len=%d, sent=%d, status = %d\n", len, (int)iov.iov_len, sent, status);
+			MARS_WRN("bad socket sendmsg, len=%d, iov_len=%d, sent=%d, status = %d\n", len, (int)iov.iov_len, sent, status);
 			goto done;
 		}
 
 		if (!status) {
-			MARS_ERR("EOF from socket upon sendmsg\n");
+			MARS_WRN("EOF from socket upon sendmsg\n");
 			status = -ECOMM;
 			goto done;
 		}
@@ -243,7 +237,7 @@ int mars_recv(struct socket **sock, void *buf, int minlen, int maxlen)
 	int done = 0;
 
 	if (!buf) {
-		MARS_ERR("bad receive buffer\n");
+		MARS_WRN("bad receive buffer\n");
 		return -EINVAL;
 	}
 
@@ -259,7 +253,7 @@ int mars_recv(struct socket **sock, void *buf, int minlen, int maxlen)
 		};
 
 		if (unlikely(!*sock)) {
-			MARS_ERR("socket has disappeared\n");
+			MARS_WRN("socket has disappeared\n");
 			status = -EIDRM;
 			goto err;
 		}
@@ -277,12 +271,12 @@ int mars_recv(struct socket **sock, void *buf, int minlen, int maxlen)
 			continue;
 		}
 		if (!status) { // EOF
-			MARS_ERR("got EOF (done=%d, req_size=%d)\n", done, maxlen-done);
+			MARS_WRN("got EOF (done=%d, req_size=%d)\n", done, maxlen-done);
 			status = -EPIPE;
 			goto err;
 		}
 		if (status < 0) {
-			MARS_ERR("bad recvmsg, status = %d\n", status);
+			MARS_WRN("bad recvmsg, status = %d\n", status);
 			goto err;
 		}
 		done += status;
@@ -302,6 +296,8 @@ EXPORT_SYMBOL_GPL(mars_recv);
 /* TODO: make this bytesex-aware
  */
 #define MARS_NET_MAGIC 0x63f092ec6048f48cll
+#define MAX_FIELD_LEN 32
+
 
 struct mars_net_header {
 	u64 h_magic;
@@ -330,7 +326,7 @@ int _mars_send_struct(struct socket **sock, void *data, const struct meta *meta,
 		int len = meta->field_size;
 #if 1
 		if (len > 16 * PAGE_SIZE) {
-			MARS_ERR("implausible len=%d, \n", len);
+			MARS_WRN("implausible len=%d, \n", len);
 			msleep(30000);
 			status = -EINVAL;
 			break;
@@ -356,7 +352,7 @@ int _mars_send_struct(struct socket **sock, void *data, const struct meta *meta,
 			break;
 		case FIELD_REF:
 			if (!meta->field_ref) {
-				MARS_ERR("improper FIELD_REF definition\n");
+				MARS_WRN("improper FIELD_REF definition\n");
 				status = -EINVAL;
 				break;
 			}
@@ -374,7 +370,7 @@ int _mars_send_struct(struct socket **sock, void *data, const struct meta *meta,
 			// all ok
 			break;
 		default:
-			MARS_ERR("invalid field type %d\n", meta->field_type);
+			MARS_WRN("invalid field type %d\n", meta->field_type);
 			status = -EINVAL;
 			break;
 		}
@@ -382,11 +378,14 @@ int _mars_send_struct(struct socket **sock, void *data, const struct meta *meta,
 			break;
 
 		header.h_len = len;
-		strncpy(header.h_name, meta->field_name, MAX_FIELD_LEN);
+		if (meta->field_name) {
+			strncpy(header.h_name, meta->field_name, MAX_FIELD_LEN);
+			header.h_name[MAX_FIELD_LEN-1] = '\0';
+		}
 
-		MARS_IO("sending header %d '%s' len = %d\n", header.h_seq, meta->field_name, len);
+		MARS_IO("sending header %d '%s' len = %d\n", header.h_seq, header.h_name, len);
 		status = mars_send(sock, &header, sizeof(header));
-		if (status < 0 || !meta->field_name[0]) { // EOR
+		if (status < 0 || !meta->field_name) { // EOR
 			break;
 		}
 
@@ -442,12 +441,12 @@ int _mars_recv_struct(struct socket **sock, void *data, const struct meta *meta,
 			continue;
 		}
 		if (status < 0) {
-			MARS_ERR("status = %d\n", status);
+			MARS_WRN("status = %d\n", status);
 			break;
 		}
 		MARS_IO("got header %d '%s' len = %d\n", header.h_seq, header.h_name, header.h_len);
 		if (header.h_magic != MARS_NET_MAGIC) {
-			MARS_ERR("bad packet header magic = %llx\n", header.h_magic);
+			MARS_WRN("bad packet header magic = %llx\n", header.h_magic);
 			status = -ENOMSG;
 			break;
 		}
@@ -456,7 +455,7 @@ int _mars_recv_struct(struct socket **sock, void *data, const struct meta *meta,
 			break;
 		};
 		if (header.h_seq <= *seq) {
-			MARS_ERR("unexpected packet data, seq=%d (expected=%d)\n", header.h_seq, (*seq) + 1);
+			MARS_WRN("unexpected packet data, seq=%d (expected=%d)\n", header.h_seq, (*seq) + 1);
 			status = -ENOMSG;
 			break;
 		}
@@ -469,7 +468,7 @@ int _mars_recv_struct(struct socket **sock, void *data, const struct meta *meta,
 
 		tmp = find_meta(meta, header.h_name);
 		if (!tmp) {
-			MARS_ERR("unknown field '%s'\n", header.h_name);
+			MARS_WRN("unknown field '%s'\n", header.h_name);
 			if (header.h_len > 0) { // try to continue by skipping the rest of data
 				void *dummy = kmalloc(header.h_len, GFP_MARS);
 				status = -ENOMEM;
@@ -506,7 +505,7 @@ int _mars_recv_struct(struct socket **sock, void *data, const struct meta *meta,
 		case FIELD_REF:
 		case FIELD_SUB:
 			if (!item) {
-				MARS_ERR("bad item\n");
+				MARS_WRN("bad item\n");
 				status = -EINVAL;
 				break;
 			}
@@ -521,7 +520,7 @@ int _mars_recv_struct(struct socket **sock, void *data, const struct meta *meta,
 		default:
 			if (header.h_len > 0) {
 				if (!item) {
-					MARS_ERR("bad item\n");
+					MARS_WRN("bad item\n");
 					status = -EINVAL;
 					break;
 				}
@@ -535,7 +534,7 @@ int _mars_recv_struct(struct socket **sock, void *data, const struct meta *meta,
 					//MARS_IO("got data len = %d status = %d\n", header.h_len, status);
 					count++;
 				} else {
-					MARS_ERR("len = %d, status = %d\n", header.h_len, status);
+					MARS_WRN("len = %d, status = %d\n", header.h_len, status);
 				}
 			}
 		}
@@ -548,7 +547,7 @@ done:
 		if (meta == mars_timespec_meta)
 			set_lamport(data);
 	} else {
-		MARS_ERR("status = %d\n", status);
+		MARS_WRN("status = %d\n", status);
 	}
 	return status;
 }
@@ -655,7 +654,7 @@ int mars_recv_mref(struct socket **sock, struct mref_object *mref)
 		}
 		status = mars_recv(sock, mref->ref_data, mref->ref_len, mref->ref_len);
 		if (status < 0)
-			MARS_ERR("mref_len = %d, status = %d\n", mref->ref_len, status);
+			MARS_WRN("mref_len = %d, status = %d\n", mref->ref_len, status);
 	}
 done:
 	return status;
@@ -692,7 +691,7 @@ int mars_recv_cb(struct socket **sock, struct mref_object *mref)
 		goto done;
 	if (!mref->ref_rw) {
 		if (!mref->ref_data) {
-			MARS_ERR("no internal buffer available\n");
+			MARS_WRN("no internal buffer available\n");
 			status = -EINVAL;
 			goto done;
 		}

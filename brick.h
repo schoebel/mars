@@ -9,17 +9,21 @@
 
 #include <asm/atomic.h>
 
+#include "meta.h"
+
 #ifdef CONFIG_DEBUG_KERNEL
 #define INLINE inline
 //#define INLINE __attribute__((__noinline__))
 extern void say(const char *fmt, ...);
 extern void say_mark(void);
+extern void brick_dump_stack(void);
 
 #else // CONFIG_DEBUG_KERNEL
 
 #define INLINE inline
 #define say printk
 #define say_mark() /*empty*/
+#define brick_dump_stack() /*empty*/
 
 #endif // CONFIG_DEBUG_KERNEL
 
@@ -37,30 +41,28 @@ extern void say_mark(void);
 #define BRICK_INFO    "BRICK_INFO  "
 #define BRICK_DEBUG   "BRICK_DEBUG "
 
-#define _BRICK_FMT(fmt) __BASE_FILE__ " %d %s(): " fmt, __LINE__, __FUNCTION__
+#define _BRICK_FMT(_fmt) __BASE_FILE__ " %d %s(): " _fmt, __LINE__, __FUNCTION__
 
-#define _BRICK_MSG(PREFIX, fmt, args...) do { say(PREFIX _BRICK_FMT(fmt), ##args); } while (0)
+#define _BRICK_MSG(_dump, PREFIX, _fmt, _args...) do { say(PREFIX _BRICK_FMT(_fmt), ##_args); if (_dump) brick_dump_stack(); } while (0)
 
-#define BRICK_FAT(fmt, args...) _BRICK_MSG(BRICK_FATAL,   fmt, ##args)
-#define BRICK_ERR(fmt, args...) _BRICK_MSG(BRICK_ERROR,   fmt, ##args)
-#define BRICK_WRN(fmt, args...) _BRICK_MSG(BRICK_WARNING, fmt, ##args)
-#define BRICK_INF(fmt, args...) _BRICK_MSG(BRICK_INFO,    fmt, ##args)
+#define BRICK_FAT(_fmt, _args...) _BRICK_MSG(true,  BRICK_FATAL,   _fmt, ##_args)
+#define BRICK_ERR(_fmt, _args...) _BRICK_MSG(true,  BRICK_ERROR,   _fmt, ##_args)
+#define BRICK_WRN(_fmt, _args...) _BRICK_MSG(false, BRICK_WARNING, _fmt, ##_args)
+#define BRICK_INF(_fmt, _args...) _BRICK_MSG(false, BRICK_INFO,    _fmt, ##_args)
 
 #ifdef BRICK_DEBUGGING
-#define BRICK_DBG(fmt, args...) _BRICK_MSG(BRICK_DEBUG,   fmt, ##args)
+#define BRICK_DBG(_fmt, _args...) _BRICK_MSG(false, BRICK_DEBUG,   _fmt, ##_args)
 #else
-#define BRICK_DBG(args...) /**/
+#define BRICK_DBG(_args...) /**/
 #endif
 
 #ifdef IO_DEBUGGING
-#define BRICK_IO(fmt, args...)  _BRICK_MSG(BRICK_DEBUG,   fmt, ##args)
+#define BRICK_IO(_fmt, _args...)  _BRICK_MSG(false, BRICK_DEBUG,   _fmt, ##_args)
 #else
-#define BRICK_IO(args...) /*empty*/
+#define BRICK_IO(_args...) /*empty*/
 #endif
 
 #define MAX_BRICK_TYPES 64
-
-#define NEW_ASPECTS 1
 
 extern int brick_layout_generation;
 extern int brick_obj_max;
@@ -594,10 +596,7 @@ INLINE struct TYPE##_object *TYPE##_construct(void *data, struct TYPE##_object_l
 	for (i = 0; i < object_layout->aspect_count; i++) {		\
 		struct generic_aspect_layout *aspect_layout;		\
 		struct generic_aspect *aspect;				\
-		if (NEW_ASPECTS)						\
-			aspect_layout = &object_layout->aspect_layouts[i]; \
-		else							\
-			aspect_layout = object_layout->aspect_layouts_table[i];	\
+		aspect_layout = &object_layout->aspect_layouts[i];	\
 		if (!aspect_layout->aspect_type)				\
 			continue;					\
 		aspect = data + aspect_layout->aspect_offset;		\
@@ -628,10 +627,7 @@ INLINE void TYPE##_destruct(struct TYPE##_object *obj)	        \
 	for (i = 0; i < object_layout->aspect_count; i++) {		\
 		struct generic_aspect_layout *aspect_layout;		\
 		struct generic_aspect *aspect;				\
-		if (NEW_ASPECTS)						\
-			aspect_layout = &object_layout->aspect_layouts[i]; \
-		else							\
-			aspect_layout = object_layout->aspect_layouts_table[i];	\
+		aspect_layout = &object_layout->aspect_layouts[i];	\
 		if (!aspect_layout->aspect_type)				\
 			continue;					\
 		aspect = ((void*)obj) + aspect_layout->aspect_offset;	\
@@ -648,17 +644,17 @@ INLINE struct BRICK##_##TYPE##_aspect *BRICK##_##TYPE##_get_aspect(struct BRICK#
 	struct generic_object_layout *object_layout;			\
 	struct generic_aspect_layout *aspect_layout;			\
 	int nr;								\
+	extern int nr_max;						\
 									\
 	object_layout = (struct generic_object_layout*)obj->object_layout; \
-	if (NEW_ASPECTS) {						\
-		nr = output->output_index;				\
-		aspect_layout = &object_layout->aspect_layouts[nr];	\
-	} else {							\
-		nr = object_layout->object_type->brick_obj_nr;		\
-		aspect_layout = &output->output_aspect_layouts[nr];	\
+	nr = output->output_index;					\
+	if (unlikely(nr <= 0 || nr > nr_max)) {				\
+		BRICK_ERR("brick "#BRICK": bad " #TYPE " nr = %d\n", nr); \
+		return NULL;						\
 	}								\
+	aspect_layout = &object_layout->aspect_layouts[nr];		\
 	if (unlikely(!aspect_layout->aspect_type)) {			\
-		BRICK_ERR("brick "#BRICK": bad aspect slot on " #TYPE " pointer %p\n", obj); \
+		BRICK_ERR("brick "#BRICK": bad " #TYPE " aspect slot %d, output = %p obj = %p object_layout = %p aspect_layout 0 %p\n", nr, output, obj, object_layout, aspect_layout); \
 		return NULL;						\
 	}								\
 	return (void*)obj + aspect_layout->aspect_offset;		\
@@ -810,85 +806,5 @@ typedef enum {
 } brick_switch_t;
 
 extern int set_recursive_button(struct generic_brick *brick, brick_switch_t mode, int timeout);
-
-/////////////////////////////////////////////////////////////////////////
-
-// metadata descriptions
-
-/* The idea is to describe your C structures in such a way that
- * transfers to disk or over a network become self-describing.
- *
- * In essence, this is a kind of version-independent marshalling.
- *
- * Advantage:
- * When you extend your original C struct (and of course update the
- * corresponding meta structure), old data on disk (or network peers
- * running an old version of your program) will remain valid.
- * Upon read, newly added fields missing in the old version will be simply
- * not filled in and therefore remain zeroed (if you don't forget to
- * initially clear your structures via memset() / initializers / etc).
- * Note that this works only if you never rename or remove existing
- * fields; you should only add new ones.
- * [TODO: add macros for description of ignored / renamed fields to
- *  overcome this limitation]
- * You may increase the size of integers, for example from 32bit to 64bit
- * or even higher; sign extension will be automatically carried out
- * when necessary.
- * [TODO; NYI]
- * Also, you may change the order of fields, because the metadata interpreter
- * will check each field individually; field offsets are automatically
- * maintained.
- *
- * Disadvantage: this adds some (small) overhead.
- */
-
-#define MAX_FIELD_LEN 24
-
-enum field_type {
-	FIELD_DONE,
-	FIELD_REF,
-	FIELD_SUB,
-	FIELD_STRING,
-	FIELD_RAW,
-	FIELD_INT,
-	FIELD_UINT,
-};
-
-struct meta {
-	char  field_name[MAX_FIELD_LEN];
-	int   field_type;
-	int   field_size;
-	int   field_offset;
-	const struct meta *field_ref;
-};
-
-#define _META_INI(NAME,STRUCT,TYPE)					\
-	.field_name = #NAME,						\
-	.field_type = TYPE,					        \
-	.field_size = sizeof(((STRUCT*)NULL)->NAME),		        \
-	.field_offset = offsetof(STRUCT, NAME)			        \
-
-#define META_INI(NAME,STRUCT,TYPE) { _META_INI(NAME,STRUCT,TYPE) }
-
-#define _META_INI_REF(NAME,STRUCT,REF)					\
-	.field_name = #NAME,						\
-	.field_type = FIELD_REF,				        \
-	.field_size = sizeof(*(((STRUCT*)NULL)->NAME)),		        \
-	.field_offset = offsetof(STRUCT, NAME),			        \
-	.field_ref = REF
-
-#define META_INI_REF(NAME,STRUCT,REF) { _META_INI_REF(NAME,STRUCT,REF) }
-
-#define _META_INI_SUB(NAME,STRUCT,SUB)					\
-	.field_name = #NAME,						\
-	.field_type = FIELD_SUB,				        \
-	.field_size = sizeof(((STRUCT*)NULL)->NAME),		        \
-	.field_offset = offsetof(STRUCT, NAME),			        \
-	.field_ref = SUB
-
-#define META_INI_SUB(NAME,STRUCT,SUB) { _META_INI_SUB(NAME,STRUCT,SUB) }
-
-extern const struct meta *find_meta(const struct meta *meta, const char *field_name);
-extern void free_meta(void *data, const struct meta *meta);
 
 #endif

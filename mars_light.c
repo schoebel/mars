@@ -459,6 +459,7 @@ struct mars_rotate {
 	bool try_sync;
 	bool do_replay;
 	bool is_primary;
+	bool should_primary;
 };
 
 ///////////////////////////////////////////////////////////////////////
@@ -1052,6 +1053,8 @@ out_old:
 	return status;
 }
 
+#define MY_SIZE 512
+
 static
 int _update_versionlink(struct mars_global *global, struct mars_dent *parent, int sequence, loff_t start_pos, loff_t end_pos, bool is_primary)
 {
@@ -1061,12 +1064,18 @@ int _update_versionlink(struct mars_global *global, struct mars_dent *parent, in
 	struct timespec now = {};
 	char *new = NULL;
 	int i;
-	int status = -EINVAL;
+	int status = -ENOMEM;
 	int len = 0;
-	char data[mars_digest_size + 96];
-	char digest[mars_digest_size];
-	char old[mars_digest_size * 2 + 2];
 
+	char *data = kzalloc(MY_SIZE, GFP_MARS);
+	char *digest = kzalloc(MY_SIZE, GFP_MARS);
+	char *old = kzalloc(MY_SIZE, GFP_MARS);
+
+	if (unlikely(!data || !digest || !old)) {
+		MARS_ERR("no MEM\n");
+		goto out;
+	}
+	status = -EINVAL;
 	if (sequence > 1) {
 		prev = path_make("%s/version-%09d-%s", parent->d_path, sequence-1, my_id());
 		if (unlikely(!prev)) {
@@ -1080,14 +1089,14 @@ int _update_versionlink(struct mars_global *global, struct mars_dent *parent, in
 		prev_digest = prev_link->new_link;
 	}
 
-	len = snprintf(data, sizeof(data), "%d,%lld,%lld,%s", sequence, start_pos, end_pos, prev_digest ? prev_digest : "");
+	len = snprintf(data, MY_SIZE, "%d,%lld,%lld,%s", sequence, start_pos, end_pos, prev_digest ? prev_digest : "");
 
 	MARS_DBG("data = '%s' len = %d\n", data, len);
 
 	mars_digest(digest, data, len);
 
 	for (i = 0; i < mars_digest_size; i++) {
-		sprintf(old + i * 2, "%02x", digest[i]);
+		snprintf(old + i * 2, MY_SIZE - i * 2, "%02x", digest[i]);
 	}
 	new = path_make("%s/version-%09d-%s", parent->d_path, sequence, my_id());
 	if (!new) {
@@ -1117,29 +1126,62 @@ out:
 	if (prev) {
 		kfree(prev);
 	}
+	if (data) {
+		kfree(data);
+	}
+	if (digest) {
+		kfree(digest);
+	}
+	if (old) {
+		kfree(old);
+	}
 	return status;
 }
 
 static
-int _check_versionlink(struct mars_global *global, struct mars_dent *parent, int sequence)
+int _check_versionlink(struct mars_global *global, struct mars_dent *parent, int sequence, loff_t end_pos)
 {
+	char *finished = NULL;
 	char *my = NULL;
 	char *other = NULL;
+	struct mars_dent *finished_dent;
 	struct mars_dent *my_dent;
 	struct mars_dent *other_dent;
+	loff_t finished_pos = 0;
 	int status = -ENOMEM;
 
+	finished = path_make("%s/finished-%09d", parent->d_path, sequence);
+	if (!finished) {
+		goto out;
+	}
 	my = path_make("%s/version-%09d-%s", parent->d_path, sequence, my_id());
 	if (!my) {
 		goto out;
 	}
-
 	other = path_make("%s/version-%09d-primary", parent->d_path, sequence);
 	if (!other) {
 		goto out;
 	}
 
 	status = -ENOENT;
+	finished_dent = mars_find_dent(global, finished);
+	if (!finished_dent || !finished_dent->new_link) {
+		MARS_WRN("cannot find symlink '%s'\n", finished);
+		goto out;
+	}
+	if (sscanf(finished_dent->new_link, "%lld", &finished_pos) != 1) {
+		MARS_ERR("bad syntax in finished link '%s'\n", finished_dent->new_link);
+		status = -EINVAL;
+		goto out;
+	}
+	if (finished_pos == end_pos) {
+		MARS_DBG("finished_pos %lld OK\n", finished_pos);
+	} else {
+		MARS_DBG("finished_pos %lld != end_pos %lld\n", finished_pos, end_pos);
+		status = 0;
+		goto out;
+	}
+
 	my_dent = mars_find_dent(global, my);
 	if (!my_dent || !my_dent->new_link) {
 		MARS_WRN("cannot find symlink '%s'\n", my);
@@ -1160,12 +1202,47 @@ int _check_versionlink(struct mars_global *global, struct mars_dent *parent, int
 	}
 
 out:
+	if (finished) {
+		kfree(finished);
+	}
 	if (my) {
 		kfree(my);
 	}
 	if (other) {
 		kfree(other);
 	}
+	return status;
+}
+
+static
+int _make_finished(struct mars_dent *parent, int sequence, loff_t end_pos)
+{
+	struct timespec now = {};
+	char *old;
+	char *new;
+	int status = -ENOMEM;
+
+	old = path_make("%lld", end_pos);
+	if (!old) {
+		goto out_old;
+	}
+	new = path_make("%s/finished-%09d", parent->d_path, sequence);
+	if (!new) {
+		goto out_new;
+	}
+
+	get_lamport(&now);
+	status = mars_symlink(old, new, &now, 0);
+	if (status < 0) {
+		MARS_ERR("cannot create symlink '%s' -> '%s' status = %d\n", old, new, status);
+	} else {
+		MARS_DBG("make finished symlink '%s' -> '%s' status = %d\n", old, new, status);
+	}
+
+	kfree(new);
+out_new:
+	kfree(old);
+out_old:
 	return status;
 }
 
@@ -1529,7 +1606,12 @@ int _make_logging_status(struct mars_rotate *rot)
 		 * Allow switching over to a new logfile.
 		 */
 		if (!trans_brick->power.button && !trans_brick->power.led_on && trans_brick->power.led_off &&
-		   (rot->is_primary || _check_versionlink(global, dent->d_parent, dent->d_serial) > 0)) {
+		   (rot->is_primary || _check_versionlink(global, dent->d_parent, dent->d_serial, end_pos) > 0)) {
+			if (rot->is_primary) {
+				status = _make_finished(dent->d_parent, dent->d_serial, end_pos);
+				if (status < 0)
+					goto done;
+			}
 			_update_replaylink(dent->d_parent, dent->d_serial + 1, 0, 0, !rot->is_primary);
 			_update_versionlink(global, dent->d_parent, dent->d_serial + 1, 0, 0, rot->is_primary);
 			trans_brick->current_pos = 0;
@@ -1582,6 +1664,7 @@ void _change_trans(struct mars_rotate *rot)
 	if (trans_brick->do_replay) {
 		trans_brick->replay_start_pos = rot->start_pos;
 		trans_brick->replay_end_pos = rot->end_pos;
+		trans_brick->replay_code = 0;
 	} else {
 		trans_brick->log_start_pos = rot->start_pos;
 	}
@@ -1730,20 +1813,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *parent)
 	if (trans_brick->power.button && trans_brick->power.led_on && !trans_brick->power.led_off) {
 		bool do_stop = true;
 		if (trans_brick->do_replay) {
-			if (trans_brick->replay_code >= 0) {
-				int i;
-				for (i = TL_INPUT_FW_LOG1; i <= TL_INPUT_FW_LOG2; i++) {
-					struct trans_logger_input *trans_input;
-					trans_input = trans_brick->inputs[i];
-					if (!trans_input) {
-						continue;
-					}
-					if (trans_input->replay_min_pos < trans_brick->replay_end_pos) {
-						do_stop = false;
-						break;
-					}
-				}
-			}
+			do_stop = trans_brick->replay_code != 0;
 		} else {
 			do_stop =
 				(rot->relevant_log && rot->relevant_log != rot->current_log) ||
@@ -1822,7 +1892,11 @@ int make_primary(void *buf, struct mars_dent *dent)
 	rot = parent->d_private;
 	CHECK_PTR(rot, done);
 
-	rot->is_primary = (dent->new_link && !strcmp(dent->new_link, my_id()));
+	rot->should_primary =
+		dent->new_link && !strcmp(dent->new_link, my_id());
+	rot->is_primary =
+		rot->should_primary ||
+		(rot->if_brick && !rot->if_brick->power.led_off);
 	status = 0;
 
 done:
@@ -1953,9 +2027,10 @@ int make_dev(void *buf, struct mars_dent *dent)
 	}
 
 	switch_on =
-		rot->is_primary &&
-		!rot->trans_brick->do_replay &&
-		rot->trans_brick->power.led_on;
+		(rot->if_brick && atomic_read(&rot->if_brick->inputs[0]->open_count) > 0) ||
+		(rot->should_primary &&
+		 !rot->trans_brick->do_replay &&
+		 rot->trans_brick->power.led_on);
 
 	dev_brick =
 		make_brick_all(global,
@@ -2242,6 +2317,7 @@ enum {
 	CL_ACTUAL,
 	CL_ACTUAL_ITEMS,
 	CL_CONNECT,
+	CL_FINISHED,
 	CL_DATA,
 	CL_SIZE,
 	CL_PRIMARY,
@@ -2386,6 +2462,17 @@ static const struct light_class light_classes[] = {
 	[CL_CONNECT] = {
 		.cl_name = "connect-",
 		.cl_len = 8,
+		.cl_type = 'l',
+		.cl_hostcontext = false, // not used here
+		.cl_father = CL_RESOURCE,
+		.cl_forward = NULL,
+		.cl_backward = NULL,
+	},
+	/* Symlink indicating the necessary length of logfile replay
+	 */
+	[CL_FINISHED] = {
+		.cl_name = "finished-",
+		.cl_len = 9,
 		.cl_type = 'l',
 		.cl_hostcontext = false, // not used here
 		.cl_father = CL_RESOURCE,

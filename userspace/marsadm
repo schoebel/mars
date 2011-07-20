@@ -261,6 +261,13 @@ sub create_res {
     $tmp = "$mars/resource-$res";
     die "resource '$res' does not exist\n" unless -d $tmp;
     $primary = readlink("$tmp/primary") or die "cannot determine primary\n";
+    if($primary eq "(none)") {
+      my @list = glob("$tmp/replay-*") or die "cannot find any candidate for primary\n";
+      my $first = pop @list or die "bad glob list\n";
+      $primary = readlink($first) or die "cannot determine peer\n";
+      $primary =~ s/^log-[0-9]+-(.*),.*,.*$/$1/;
+      print "using '$primary' as primary\n";
+    }
     die "resource '$res' is already joined\n" if -e "$tmp/data-$host";
     die "my ip '$ip' is not registered -- please run 'join-cluster' first\n" unless -l "$mars/ips/ip-$host";
     my $oldsize = readlink("$tmp/size") or die "cannot determine old size\n";
@@ -271,6 +278,14 @@ sub create_res {
     die "sizes differ: real size = $oldsize, but requested size = $size\n" unless $oldsize == $size;
     $replay = readlink("$tmp/replay-$primary") or die "cannot read replay status of primary '$primary'\n";
     $replay =~ s/-$primary,[0-9]+,[0-9]+/-$host,0,0/ or die "something is wrong here\n";
+    my $nr = $replay;
+    $nr =~ s/^.*log-([0-9]+)-.+$/$1/;
+    if($nr > 1) { # fake version symlink for predecessor logfile
+      my $prev = sprintf("$tmp/version-%09d-$primary", $nr - 1);
+      my $version = readlink($prev) or die "cannot read symlink '$prev'\n";
+      my $old = sprintf("$tmp/version-%09d-$host", $nr - 1);
+      symlink($version, $old) or die "cann create symlink '$old'\n";
+    }
   }
 
   my $file = "$tmp/data-$host";

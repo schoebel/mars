@@ -681,7 +681,7 @@ char *if_statistics(struct if_brick *brick, int verbose)
 	int tmp4 = atomic_read(&input->total_mref_write_count);
 	if (!res)
 		return NULL;
-	sprintf(res, "total reads = %d mref_reads = %d (%d%%) writes = %d mref_writes = %d (%d%%) empty = %d | plugged = %d flying = %d (reads = %d writes = %d)\n",
+	snprintf(res, 512, "total reads = %d mref_reads = %d (%d%%) writes = %d mref_writes = %d (%d%%) empty = %d | plugged = %d flying = %d (reads = %d writes = %d)\n",
 		tmp1,
 		tmp2,
 		tmp1 ? tmp2 * 100 / tmp1 : 0,

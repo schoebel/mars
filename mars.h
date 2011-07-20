@@ -39,31 +39,31 @@
 #define MARS_INFO    "MARS_INFO   "
 #define MARS_DEBUG   "MARS_DEBUG  "
 
-#define _MARS_FMT(fmt) "[%s] " __BASE_FILE__ " %d %s(): " fmt, current->comm, __LINE__, __FUNCTION__
-//#define _MARS_FMT(fmt) _BRICK_FMT(fmt)
+#define _MARS_FMT(_fmt) "[%s] " __BASE_FILE__ " %d %s(): " _fmt, current->comm, __LINE__, __FUNCTION__
 
-#define _MARS_MSG(PREFIX, fmt, args...) do { say(PREFIX _MARS_FMT(fmt), ##args); MARS_DELAY; } while (0)
-#define MARS_FAT(fmt, args...) _MARS_MSG(MARS_FATAL,   fmt, ##args)
-#define MARS_ERR(fmt, args...) _MARS_MSG(MARS_ERROR,   fmt, ##args)
-#define MARS_WRN(fmt, args...) _MARS_MSG(MARS_WARNING, fmt, ##args)
-#define MARS_INF(fmt, args...) _MARS_MSG(MARS_INFO,    fmt, ##args)
+#define _MARS_MSG(_dump, PREFIX, _fmt, _args...) do { say(PREFIX _MARS_FMT(_fmt), ##_args); MARS_DELAY; if (_dump) brick_dump_stack(); } while (0)
+
+#define MARS_FAT(_fmt, _args...) _MARS_MSG(true,  MARS_FATAL,   _fmt, ##_args)
+#define MARS_ERR(_fmt, _args...) _MARS_MSG(true,  MARS_ERROR,   _fmt, ##_args)
+#define MARS_WRN(_fmt, _args...) _MARS_MSG(false, MARS_WARNING, _fmt, ##_args)
+#define MARS_INF(_fmt, _args...) _MARS_MSG(false, MARS_INFO,    _fmt, ##_args)
 
 #ifdef MARS_DEBUGGING
-#define MARS_DBG(fmt, args...) _MARS_MSG(MARS_DEBUG,   fmt, ##args)
+#define MARS_DBG(_fmt, _args...) _MARS_MSG(false, MARS_DEBUG,   _fmt, ##_args)
 #else
-#define MARS_DBG(args...) /**/
+#define MARS_DBG(_args...) /**/
 #endif
 
 #ifdef IO_DEBUGGING
-#define MARS_IO(fmt, args...)  _MARS_MSG(MARS_DEBUG,   fmt, ##args)
+#define MARS_IO(_fmt, _args...)  _MARS_MSG(MARS_DEBUG,   _fmt, ##_args)
 #else
-#define MARS_IO(args...) /*empty*/
+#define MARS_IO(_args...) /*empty*/
 #endif
 
 #ifdef STAT_DEBUGGING
 #define MARS_STAT MARS_INF
 #else
-#define MARS_STAT(args...) /*empty*/
+#define MARS_STAT(_args...) /*empty*/
 #endif
 
 /////////////////////////////////////////////////////////////////////////
@@ -336,7 +336,7 @@ extern int  mars_power_button_recursive(struct mars_brick *brick, bool val, bool
 #ifdef _STRATEGY // call this only in strategy bricks, never in ordinary bricks
 
 #define MARS_ARGV_MAX 4
-#define MARS_PATH_MAX 128
+#define MARS_PATH_MAX 256
 
 extern char *my_id(void);
 

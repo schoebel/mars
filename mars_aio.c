@@ -694,7 +694,7 @@ static noinline
 char *aio_statistics(struct aio_brick *brick, int verbose)
 {
 	struct aio_output *output = brick->outputs[0];
-	char *res = kmalloc(512, GFP_MARS);
+	char *res = kmalloc(1024, GFP_MARS);
 	char *sync = NULL;
 	if (!res)
 		return NULL;
@@ -705,7 +705,7 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 
 	// FIXME: check for allocation overflows
 
-	sprintf(res, "total reads = %d writes = %d allocs = %d delays = %d msleeps = %d fdsyncs = %d fdsync_waits = %d | flying reads = %d writes = %d allocs = %d q0 = %d/%d q1 = %d/%d q2 = %d/%d | %s\n",
+	snprintf(res, 1024, "total reads = %d writes = %d allocs = %d delays = %d msleeps = %d fdsyncs = %d fdsync_waits = %d | flying reads = %d writes = %d allocs = %d q0 = %d/%d q1 = %d/%d q2 = %d/%d | %s\n",
 		atomic_read(&output->total_read_count), atomic_read(&output->total_write_count), atomic_read(&output->total_alloc_count), atomic_read(&output->total_delay_count), atomic_read(&output->total_msleep_count), atomic_read(&output->total_fdsync_count), atomic_read(&output->total_fdsync_wait_count),
 		atomic_read(&output->read_count), atomic_read(&output->write_count), atomic_read(&output->alloc_count),
 		atomic_read(&output->tinfo[0].total_enqueue_count), atomic_read(&output->tinfo[0].total_dequeue_count),
