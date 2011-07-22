@@ -2,8 +2,6 @@
 #ifndef MARS_PROC_H
 #define MARS_PROC_H
 
-#include "brick.h"
-
 typedef char * (*mars_info_fn)(void);
 
 extern mars_info_fn mars_info;

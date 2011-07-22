@@ -11,8 +11,7 @@
 #include <linux/sysctl.h>
 #include <linux/uaccess.h>
 
-#define _STRATEGY
-#include "mars.h"
+#include "strategy.h"
 #include "mars_proc.h"
 
 mars_info_fn mars_info = NULL;

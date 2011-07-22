@@ -14,20 +14,19 @@
 #include <linux/genhd.h>
 #include <linux/blkdev.h>
 
-#define _STRATEGY
-#include "mars.h"
+#include "strategy.h"
 
 #include <linux/kthread.h>
 #include <linux/wait.h>
 
 // used brick types
-#include "mars_server.h"
-#include "mars_client.h"
-#include "mars_copy.h"
-#include "mars_bio.h"
-#include "mars_aio.h"
-#include "mars_trans_logger.h"
-#include "mars_if.h"
+#include "../mars_server.h"
+#include "../mars_client.h"
+#include "../mars_copy.h"
+#include "../mars_bio.h"
+#include "../mars_aio.h"
+#include "../mars_trans_logger.h"
+#include "../mars_if.h"
 
 #if 0
 #define inline __attribute__((__noinline__))
@@ -788,7 +787,7 @@ int remote_thread(void *data)
 	if (!peer)
 		return -1;
 
-	real_peer = mars_translate_hostname(peer->global, peer->peer);
+	real_peer = mars_translate_hostname(peer->peer);
 	MARS_INF("-------- remote thread starting on peer '%s' (%s)\n", peer->peer, real_peer);
 
 	//fake_mm();

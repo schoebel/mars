@@ -5,7 +5,7 @@ config MARS
 	tristate "storage system MARS"
 	default n
 	---help---
-	Experimental storage System.
+	Experimental storage System. Only compile as modules!
 
 config MARS_HUNG
 	tristate "hangup on kernel stacktrace (only for debugging)"
@@ -93,13 +93,6 @@ config MARS_CLIENT
 
 config MARS_COPY
 	tristate "copy brick"
-	depends on MARS
-	default m
-	---help---
-	Experimental storage System.
-
-config MARS_TEST
-	tristate "provisionary TESTBED"
 	depends on MARS
 	default m
 	---help---

@@ -8,9 +8,11 @@
 #include <linux/module.h>
 #include <linux/string.h>
 
-#define _STRATEGY
 #include "mars.h"
 #include "mars_net.h"
+
+static
+void mars_check_meta(const struct meta *meta, void *data);
 
 /* Low-level network traffic
  */
@@ -32,33 +34,6 @@ struct mars_tcp_params default_tcp_params = {
 };
 EXPORT_SYMBOL(default_tcp_params);
 
-char *mars_translate_hostname(struct mars_global *global, const char *name)
-{
-	const char *res = name;
-	struct mars_dent *test;
-	char *tmp;
-
-	if (unlikely(!global)) {
-		goto done;
-	}
-	tmp = path_make("/mars/ips/ip-%s", name);
-	if (unlikely(!tmp)) {
-		goto done;
-	}
-
-	test = mars_find_dent(global, tmp);
-	if (test && test->new_link) {
-		MARS_DBG("'%s' => '%s'\n", tmp, test->new_link);
-		res = test->new_link;
-	}
-	kfree(tmp);
-
-done:
-	return kstrdup(res, GFP_MARS);
-}
-EXPORT_SYMBOL_GPL(mars_translate_hostname);
-
-
 static void _check(int status)
 {
 	if (status < 0) {
@@ -79,7 +54,11 @@ int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec)
 
 	/* Try to translate hostnames to IPs if possible.
 	 */
-	new_spec = mars_translate_hostname(mars_global, spec);
+	if (mars_translate_hostname) {
+		new_spec = mars_translate_hostname(spec);
+	} else {
+		new_spec = kstrdup(spec, GFP_MARS);
+	}
 	tmp_spec = new_spec;
 
 	/* This is PROVISIONARY!
@@ -335,12 +314,7 @@ int _mars_send_struct(struct socket **sock, void *data, const struct meta *meta,
 
 		/* Automatically keep the lamport clock correct.
 		 */
-		if (meta == mars_cmd_meta) {
-			struct timespec *stamp = &((struct mars_cmd*)data)->cmd_stamp;
-			get_lamport(stamp);
-		} else if (meta == mars_timespec_meta) {
-			set_lamport(data);
-		}
+		mars_check_meta(meta, data);
 
 		status = 0;
 		switch (meta->field_type) {
@@ -544,8 +518,7 @@ int _mars_recv_struct(struct socket **sock, void *data, const struct meta *meta,
 done:
 	if (status >= 0) {
 		status = count;
-		if (meta == mars_timespec_meta)
-			set_lamport(data);
+		mars_check_meta(meta, data);
 	} else {
 		MARS_WRN("status = %d\n", status);
 	}
@@ -573,46 +546,19 @@ const struct meta mars_cmd_meta[] = {
 };
 EXPORT_SYMBOL_GPL(mars_cmd_meta);
 
-int mars_send_dent_list(struct socket **sock, struct list_head *anchor)
+static
+void mars_check_meta(const struct meta *meta, void *data)
 {
-	struct list_head *tmp;
-	struct mars_dent *dent;
-	int status = 0;
-	for (tmp = anchor->next; tmp != anchor; tmp = tmp->next) {
-		dent = container_of(tmp, struct mars_dent, dent_link);
-		status = mars_send_struct(sock, dent, mars_dent_meta);
-		if (status < 0)
-			break;
+	/* Automatically keep the lamport clock correct.
+	 */
+	if (meta == mars_cmd_meta) {
+		struct timespec *stamp = &((struct mars_cmd*)data)->cmd_stamp;
+		get_lamport(stamp);
+	} else if (meta == mars_timespec_meta) {
+		set_lamport(data);
 	}
-	if (status >= 0) { // send EOF
-		status = mars_send_struct(sock, NULL, mars_dent_meta);
-	}
-	return status;
+
 }
-EXPORT_SYMBOL_GPL(mars_send_dent_list);
-
-int mars_recv_dent_list(struct socket **sock, struct list_head *anchor)
-{
-	int status;
-	for (;;) {
-		struct mars_dent *dent = kzalloc(sizeof(struct mars_dent), GFP_MARS);
-		if (!dent)
-			return -ENOMEM;
-
-		//MARS_IO("\n");
-
-		status = mars_recv_struct(sock, dent, mars_dent_meta);
-		if (status <= 0) {
-			kfree(dent);
-			goto done;
-		}
-		list_add_tail(&dent->dent_link, anchor);
-		INIT_LIST_HEAD(&dent->brick_list);
-	}
-done:
-	return status;
-}
-EXPORT_SYMBOL_GPL(mars_recv_dent_list);
 
 
 int mars_send_mref(struct socket **sock, struct mref_object *mref)
@@ -704,6 +650,9 @@ done:
 EXPORT_SYMBOL_GPL(mars_recv_cb);
 
 ////////////////// module init stuff /////////////////////////
+
+char *(*mars_translate_hostname)(const char *name) = NULL;
+EXPORT_SYMBOL_GPL(mars_translate_hostname);
 
 static int __init _init_net(void)
 {
