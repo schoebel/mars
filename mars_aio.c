@@ -156,6 +156,10 @@ static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
 		struct aio_mref_aspect *mref_a = aio_mref_get_aspect(output, mref);
 		if (!mref_a)
 			return -EILSEQ;
+		if (mref->ref_len <= 0) {
+			MARS_ERR("bad ref_len = %d\n", mref->ref_len);
+			return -ENOMEM;
+		}
 		mref->ref_data = mars_alloc(mref->ref_pos, (mref_a->alloc_len = mref->ref_len));
 		if (!mref->ref_data) {
 			MARS_ERR("ENOMEM %d bytes\n", mref->ref_len);

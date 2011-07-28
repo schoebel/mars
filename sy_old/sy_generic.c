@@ -1194,7 +1194,7 @@ static int __init init_sy(void)
 		return -ENOMEM;
 	}
 	if (IS_ERR(mars_tfm)) {
-		MARS_ERR("alloc crypto hash failed, status = %d\n", PTR_ERR(mars_tfm));
+		MARS_ERR("alloc crypto hash failed, status = %d\n", (int)PTR_ERR(mars_tfm));
 		return PTR_ERR(mars_tfm);
 	}
 #if 0

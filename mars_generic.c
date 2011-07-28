@@ -65,7 +65,7 @@ void *mars_alloc(loff_t pos, int len)
 #ifdef USE_KERNEL_PAGES
 	int order = MARS_MAX_ORDER;
 	if (unlikely(len > (PAGE_SIZE << order) || len <=0)) {
-		MARS_ERR("trying to allocate %d bytes (max = %d)\n", len, (PAGE_SIZE << order));
+		MARS_ERR("trying to allocate %d bytes (max = %d)\n", len, (int)(PAGE_SIZE << order));
 		return NULL;
 	}
 #endif

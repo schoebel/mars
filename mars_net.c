@@ -48,7 +48,7 @@ int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec)
 	char *tmp_spec;
 	int status = 0;
 
-	memset(addr, sizeof(*addr), 0);
+	memset(addr, 0, sizeof(*addr));
 	sockaddr->sin_family = AF_INET;
 	sockaddr->sin_port = htons(MARS_DEFAULT_PORT);
 

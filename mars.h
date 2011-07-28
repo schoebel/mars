@@ -43,7 +43,7 @@ extern long long mars_global_memlimit;
 
 #define _MARS_FMT(_fmt) "[%s] " __BASE_FILE__ " %d %s(): " _fmt, current->comm, __LINE__, __FUNCTION__
 
-#define _MARS_MSG(_dump, PREFIX, _fmt, _args...) do { say(PREFIX _MARS_FMT(_fmt), ##_args); MARS_DELAY; if (_dump) brick_dump_stack(); } while (0)
+#define _MARS_MSG(_stacktrace, PREFIX, _fmt, _args...) do { say(PREFIX _MARS_FMT(_fmt), ##_args); MARS_DELAY; if (_stacktrace) dump_stack(); } while (0)
 
 #define MARS_FAT(_fmt, _args...) _MARS_MSG(true,  MARS_FATAL,   _fmt, ##_args)
 #define MARS_ERR(_fmt, _args...) _MARS_MSG(true,  MARS_ERROR,   _fmt, ##_args)
@@ -57,7 +57,7 @@ extern long long mars_global_memlimit;
 #endif
 
 #ifdef IO_DEBUGGING
-#define MARS_IO(_fmt, _args...)  _MARS_MSG(MARS_DEBUG,   _fmt, ##_args)
+#define MARS_IO(_fmt, _args...)  _MARS_MSG(false, MARS_DEBUG,   _fmt, ##_args)
 #else
 #define MARS_IO(_args...) /*empty*/
 #endif

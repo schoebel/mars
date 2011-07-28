@@ -7,12 +7,12 @@ config MARS
 	---help---
 	Experimental storage System. Only compile as modules!
 
-config MARS_HUNG
-	tristate "hangup on kernel stacktrace (only for debugging)"
-	depends on MARS
-	default n
-	---help---
-	Experimental storage System.
+#config MARS_HUNG
+#	tristate "hangup on kernel stacktrace (only for debugging)"
+#	depends on MARS
+#	default n
+#	---help---
+#	Experimental storage System.
 
 config MARS_DUMMY
 	tristate "MARS dummy brick"
@@ -43,28 +43,28 @@ config MARS_BIO
 	Experimental storage System.
 
 config MARS_AIO
-	tristate "interface to a linux file"
+	tristate "interface to a linux file (Asynchronous IO)"
 	depends on MARS
 	default m
 	---help---
 	Experimental storage System.
 
 config MARS_SIO
-	tristate "interface to a linux file, synchronous"
+	tristate "interface to a linux file, synchronous (currently unused)"
 	depends on MARS
 	default m
 	---help---
 	Experimental storage System.
 
 config MARS_BUF
-	tristate "buffer brick"
+	tristate "buffer brick (currently unused)"
 	depends on MARS
 	default m
 	---help---
 	Experimental storage System.
 
 config MARS_USEBUF
-	tristate "usebuf brick"
+	tristate "usebuf brick (currently unused)"
 	depends on MARS
 	default m
 	---help---
@@ -99,7 +99,7 @@ config MARS_COPY
 	Experimental storage System.
 
 config MARS_LIGHT
-	tristate "MARS Light main"
+	tristate "MARS Light main (protoype, will be replaced)"
 	depends on MARS
 	default m
 	---help---

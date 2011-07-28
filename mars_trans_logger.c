@@ -5,6 +5,7 @@
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
 //#define IO_DEBUGGING
+//#define REPLAY_DEBUGGING
 //#define STAT_DEBUGGING // here means: display full statistics
 //#define HASH_DEBUGGING
 
@@ -25,6 +26,13 @@
 #include <linux/kthread.h>
 
 #include "mars.h"
+
+#ifdef REPLAY_DEBUGGING
+#define MARS_RPL(_fmt, _args...)  _MARS_MSG(false, "REPLAY ", _fmt, ##_args)
+#else
+#define MARS_RPL(_args...) /*empty*/
+#endif
+
 
 ///////////////////////// own type definitions ////////////////////////
 
@@ -1967,9 +1975,9 @@ void trans_logger_log(struct trans_logger_output *output)
 
 	fw_input = brick->inputs[TL_INPUT_FW_LOG1];
 	fw_logst = &fw_input->logst;
+	init_logst(fw_logst, (void*)fw_input, (void*)&fw_input->hidden_output, 0);
 	fw_logst->align_size = brick->align_size;
 	fw_logst->chunk_size = brick->chunk_size;
-	init_logst(fw_logst, (void*)fw_input, (void*)&fw_input->hidden_output, 0);
 
 
 	bw_input = brick->inputs[TL_INPUT_BW_LOG1];
@@ -1978,9 +1986,9 @@ void trans_logger_log(struct trans_logger_output *output)
 		bw_input = fw_input;
 		bw_logst = fw_logst;
 	} else if (bw_input != fw_input) {
+		init_logst(bw_logst, (void*)bw_input, (void*)&bw_input->hidden_output, 0);
 		bw_logst->align_size = brick->align_size;
 		bw_logst->chunk_size = brick->chunk_size;
-		init_logst(bw_logst, (void*)bw_input, (void*)&bw_input->hidden_output, 0);
 	}
 
 	start_pos = brick->log_start_pos;
@@ -2328,14 +2336,13 @@ void trans_logger_replay(struct trans_logger_output *output)
 
 	brick->replay_code = 0; // indicates "running"
 
-	MARS_INF("starting replay from %lld to %lld\n", brick->replay_start_pos, brick->replay_end_pos);
-	
+	start_pos = brick->replay_start_pos;
+	init_logst(&input->logst, (void*)input, (void*)&input->hidden_output, start_pos);
 	input->logst.align_size = brick->align_size;
 	input->logst.chunk_size = brick->chunk_size;
-	init_logst(&input->logst, (void*)input, (void*)&input->hidden_output, brick->replay_start_pos);
 
-	start_pos = brick->replay_start_pos;
-	input->logst.log_pos = start_pos;
+	MARS_INF("starting replay from %lld to %lld\n", start_pos, brick->replay_end_pos);
+	
 	brick->current_pos = start_pos;
 	input->replay_min_pos = start_pos;
 	input->replay_max_pos = start_pos; // FIXME: this is wrong.
@@ -2366,7 +2373,10 @@ void trans_logger_replay(struct trans_logger_output *output)
 			MARS_ERR("cannot read logfile data, status = %d\n", status);
 			break;
 		}
+
 		new_finished_pos = input->logst.log_pos + input->logst.offset;
+		MARS_RPL("read  %lld %lld\n", finished_pos, new_finished_pos);
+		
 		if ((!status && len <= 0) ||
 		   new_finished_pos > brick->replay_end_pos) { // EOF -> wait until kthread_should_stop()
 			MARS_DBG("EOF at %lld (old = %lld, end_pos = %lld)\n", new_finished_pos, finished_pos, brick->replay_end_pos);
@@ -2383,6 +2393,7 @@ void trans_logger_replay(struct trans_logger_output *output)
 			MARS_IO("ignoring pos = %lld len = %d code = %d\n", lh.l_pos, lh.l_len, lh.l_code);
 		} else if (likely(buf && len)) {
 			status = apply_data(brick, lh.l_pos, buf, len);
+			MARS_RPL("apply %lld %lld (pos=%lld status=%d)\n", finished_pos, new_finished_pos, lh.l_pos, status);
 			if (unlikely(status < 0)) {
 				brick->replay_code = status;
 				MARS_ERR("cannot apply data at pos = %lld len = %d, status = %d\n", lh.l_pos, len, status);

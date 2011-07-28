@@ -2215,7 +2215,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 		goto done;
 	size_dent = (void*)mars_find_dent(global, tmp);
 	if (!size_dent || !size_dent->new_link) {
-		MARS_ERR("cannot determine size\n", tmp);
+		MARS_ERR("cannot determine size '%s'\n", tmp);
 		status = -ENOENT;
 		goto done;
 	}

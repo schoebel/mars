@@ -8,11 +8,13 @@
 
 void init_logst(struct log_status *logst, struct mars_input *input, struct mars_output *output, loff_t start_pos)
 {
-	memset(logst, sizeof(*logst), 0);
+	struct mars_brick *brick;
+	memset(logst, 0, sizeof(struct log_status));
 	logst->input = input;
 	logst->output = output;
 	logst->log_pos = start_pos;
 	init_waitqueue_head(&logst->event);
+	brick = input->brick;
 }
 EXPORT_SYMBOL_GPL(init_logst);
 
