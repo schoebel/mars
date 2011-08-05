@@ -209,7 +209,6 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
                 goto err;
 	
 	if (unlikely(!bio_sectors(bio))) {
-		atomic_inc(&input->total_empty_count);
 		_if_unplug(input);
 		/* THINK: usually this happens only at write barriers.
 		 * We have no "barrier" operation in MARS, since
@@ -222,6 +221,13 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 		return 0;
 	}
 
+#if 1 // provisinary -- we should introduce an equivalent of READA also to the MARS infrastructure
+	if (bio_rw(bio) == READA) {
+		atomic_inc(&input->total_reada_count);
+		bio_endio(bio, -EWOULDBLOCK);
+		return 0;
+	}
+#endif
 	if (rw) {
 		atomic_inc(&input->total_write_count);
 	} else {
@@ -623,8 +629,10 @@ static int if_switch(struct if_brick *brick)
 		/* we have no partitions. we contain only ourselves. */
 		input->bdev->bd_contains = input->bdev;
 
+#if 1
 		MARS_INF("ra_pages OLD = %lu NEW = %d\n", q->backing_dev_info.ra_pages, brick->readahead);
 		q->backing_dev_info.ra_pages = brick->readahead;
+#endif
 #ifdef USE_CONGESTED_FN
 		q->backing_dev_info.congested_fn = mars_congested;
 		q->backing_dev_info.congested_data = input;
@@ -675,13 +683,15 @@ char *if_statistics(struct if_brick *brick, int verbose)
 {
 	struct if_input *input = brick->inputs[0];
 	char *res = kmalloc(512, GFP_MARS);
+	int tmp0 = atomic_read(&input->total_reada_count); 
 	int tmp1 = atomic_read(&input->total_read_count); 
 	int tmp2 = atomic_read(&input->total_mref_read_count);
 	int tmp3 = atomic_read(&input->total_write_count); 
 	int tmp4 = atomic_read(&input->total_mref_write_count);
 	if (!res)
 		return NULL;
-	snprintf(res, 512, "total reads = %d mref_reads = %d (%d%%) writes = %d mref_writes = %d (%d%%) empty = %d | plugged = %d flying = %d (reads = %d writes = %d)\n",
+	snprintf(res, 512, "total reada = %d reads = %d mref_reads = %d (%d%%) writes = %d mref_writes = %d (%d%%) empty = %d | plugged = %d flying = %d (reads = %d writes = %d)\n",
+		tmp0,
 		tmp1,
 		tmp2,
 		tmp1 ? tmp2 * 100 / tmp1 : 0,

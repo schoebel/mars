@@ -94,6 +94,17 @@ sub check_primary_gone {
   }
 }
 
+sub check_status {
+  my ($res, $key, $val) = @_;
+  for(;;) {
+    my $path = "$mars/resource-$res/actual-$host/$key";
+    my $link = readlink($path) or die "cannot read symlink '$path'\n";
+    last if $link == $val;
+    print "waiting until $key reaches the value $val....\n";
+    sleep(5);
+  }
+}
+
 sub check_splitbrain {
   my ($res, $host) = @_;
   my @links = glob("$mars/resource-$res/version-[0-9]*-$host");
@@ -403,6 +414,17 @@ sub up_res {
   }
 }
 
+sub fake_local_res {
+  my ($cmd, $res) = @_;
+  my $path = "$mars/resource-$res/switch-$host/sync";
+  _switch($cmd, $res, $path, 0);
+  #check_status($res, "copy-syncstatus-$host", 0);
+  my $size = readlink("$mars/resource-$res/size") or die "cannot read size\n";
+  my $target = "$mars/resource-$res/syncstatus-$host";
+  symlink($size, "$target.tmp") or die "cannot create faked syncstatus\n";
+  rename("$target.tmp", $target) or die "cannot reaname symlink\n";
+}
+
 sub _primary_res {
   my ($res, $host, $pri, $old) = @_;
   my $tmp = "$mars/resource-$res/.tmp.primary";
@@ -468,6 +490,7 @@ my %cmd_table =
    "create-resource"   => \&create_res,
    "join-resource"     => \&create_res,
    "logrotate"         => \&logrotate_res,
+   "fake-sync"         => \&fake_local_res,
 
    # compatible keywords
    "attach"            => \&attach_res,

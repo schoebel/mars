@@ -45,6 +45,7 @@ struct if_input {
 	// only for statistics
 	atomic_t read_flying_count;
 	atomic_t write_flying_count;
+	atomic_t total_reada_count;
 	atomic_t total_read_count;
 	atomic_t total_write_count;
 	atomic_t total_empty_count;

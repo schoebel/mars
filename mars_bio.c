@@ -490,8 +490,10 @@ static int bio_switch(struct bio_brick *brick)
 			q = bdev_get_queue(inode->i_bdev);
 			CHECK_PTR(q, done);
 
+#if 1
 			MARS_INF("ra_pages OLD=%lu NEW=%d\n", q->backing_dev_info.ra_pages, brick->ra_pages);
 			q->backing_dev_info.ra_pages = brick->ra_pages;
+#endif
 			brick->bvec_max = queue_max_hw_sectors(q) >> (PAGE_SHIFT - 9);
 			brick->total_size = inode->i_size;
 			brick->thread = kthread_create(bio_thread, brick, "mars_bio%d", index++);
