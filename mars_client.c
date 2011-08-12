@@ -238,7 +238,7 @@ int receiver_thread(void *data)
 	struct client_output *output = data;
 	int status = 0;
 
-        while (!kthread_should_stop() && output->socket) {
+        while (status >= 0 && output->socket && !kthread_should_stop()) {
 		struct mars_cmd cmd = {};
 		struct list_head *tmp;
 		struct client_mref_aspect *mref_a = NULL;
@@ -269,6 +269,7 @@ int receiver_thread(void *data)
 				mref_a = container_of(tmp, struct client_mref_aspect, hash_head);
 				tmp_mref = mref_a->object;
 				if (unlikely(!tmp_mref)) {
+					traced_unlock(&output->hash_lock[hash_index], flags);
 					MARS_ERR("bad internal mref pointer\n");
 					status = -EBADR;
 					goto done;
@@ -324,9 +325,10 @@ int receiver_thread(void *data)
 			status = -EBADR;
 			goto done;
 		}
+	done:
+		brick_string_free(cmd.cmd_str1);
 	}
 
-done:
 	if (status < 0) {
 		MARS_ERR("receiver thread terminated with status = %d\n", status);
 	}

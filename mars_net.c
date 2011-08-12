@@ -321,7 +321,7 @@ int _mars_send_struct(struct socket **sock, void *data, const struct meta *meta,
 			item = *(void**)item;
 			len = 0;
 			if (item)
-				len = strlen(item);
+				len = strlen(item) + 1;
 			break;
 		case FIELD_REF:
 			if (!meta->field_ref) {
