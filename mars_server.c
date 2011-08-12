@@ -523,7 +523,7 @@ static int _server_thread(void *data)
 			(server_brick_type.max_inputs + server_brick_type.max_outputs) * sizeof(void*) +
 			sizeof(struct server_input),
 
-		brick = kzalloc(size, GFP_MARS);
+		brick = brick_zmem_alloc(size);
 		if (!brick) {
 			MARS_ERR("cannot allocate server instance\n");
 			goto err;

@@ -100,7 +100,7 @@ static void dump_mem(void *data, int len)
 {
 	int i;
 	char *tmp;
-	char *buf = kmalloc(1024, GFP_MARS);
+	char *buf = brick_string_alloc();
 
 	if (!buf)
 		return;
@@ -118,7 +118,7 @@ static void dump_mem(void *data, int len)
 	if (tmp != buf) {
 		printk("%4d: %s\n", i, buf);
 	}
-	kfree(buf);
+	brick_string_free(buf);
 }
 
 static int check_watchdog(void *data)

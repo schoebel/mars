@@ -105,7 +105,7 @@ void make_test_instance(void)
 			size += type->output_size;
 		}
 
-		mem = kzalloc(size, GFP_MARS);
+		mem = brick_zmem_alloc(size);
 		if (!mem) {
 			MARS_ERR("cannot grab test memory for %s\n", brick_type->type_name);
 			msleep(60000);

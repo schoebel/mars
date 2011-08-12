@@ -32,10 +32,10 @@ char *_mars_translate_hostname(const char *name)
 		MARS_DBG("'%s' => '%s'\n", tmp, test->new_link);
 		res = test->new_link;
 	}
-	kfree(tmp);
+	brick_string_free(tmp);
 
 done:
-	return kstrdup(res, GFP_MARS);
+	return brick_strdup(res);
 }
 
 int mars_send_dent_list(struct socket **sock, struct list_head *anchor)
@@ -60,7 +60,7 @@ int mars_recv_dent_list(struct socket **sock, struct list_head *anchor)
 {
 	int status;
 	for (;;) {
-		struct mars_dent *dent = kzalloc(sizeof(struct mars_dent), GFP_MARS);
+		struct mars_dent *dent = brick_zmem_alloc(sizeof(struct mars_dent));
 		if (!dent)
 			return -ENOMEM;
 
@@ -68,7 +68,7 @@ int mars_recv_dent_list(struct socket **sock, struct list_head *anchor)
 
 		status = mars_recv_struct(sock, dent, mars_dent_meta);
 		if (status <= 0) {
-			kfree(dent);
+			brick_mem_free(dent);
 			goto done;
 		}
 		list_add_tail(&dent->dent_link, anchor);

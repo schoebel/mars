@@ -255,7 +255,7 @@ static int _parse_args(struct mars_dent *dent, char *str, int count)
 	if (!str)
 		goto done;
 	if (!dent->d_args) {
-		dent->d_args = kstrdup(str, GFP_MARS);
+		dent->d_args = brick_strdup(str);
 		if (!dent->d_args) {
 			status = -ENOMEM;
 			goto done;
@@ -274,14 +274,12 @@ static int _parse_args(struct mars_dent *dent, char *str, int count)
 				goto done;
 			len = (tmp - str);
 		}
-		tmp = kzalloc(len+1, GFP_MARS);
+		tmp = brick_string_alloc();
 		if (!tmp) {
 			status = -ENOMEM;
 			goto done;
 		}
-		if (dent->d_argv[i]) {
-			kfree(dent->d_argv[i]);
-		}
+		brick_string_free(dent->d_argv[i]);
 		dent->d_argv[i] = tmp;
 		strncpy(dent->d_argv[i], str, len);
 		dent->d_argv[i][len] = '\0';
@@ -427,7 +425,7 @@ done:
 	MARS_DBG("status = %d\n", status);
 	for (i = 0; i < 2; i++) {
 		if (fullpath[i] && fullpath[i] != argv[i])
-			kfree(fullpath[i]);
+			brick_string_free(fullpath[i]);
 	}
 	return status;
 }
@@ -533,7 +531,7 @@ int _update_file(struct mars_global *global, const char *switch_path, const char
 
 done:
 	if (tmp)
-		kfree(tmp);
+		brick_string_free(tmp);
 	return status;
 }
 
@@ -633,11 +631,11 @@ int check_logfile(struct mars_peerinfo *peer, struct mars_dent *dent, struct mar
 
 done:
 	if (copy_path)
-		kfree(copy_path);
+		brick_string_free(copy_path);
 	if (alias_path)
-		kfree(alias_path);
+		brick_string_free(alias_path);
 	if (switch_path)
-		kfree(switch_path);
+		brick_string_free(switch_path);
 	return status;
 }
 
@@ -713,7 +711,7 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *dent)
 			} else {
 				status = check_logfile(peer, dent, parent, local_stat.size);
 			}
-			kfree(parent_path);
+			brick_string_free(parent_path);
 		}
 	} else {
 		MARS_DBG("ignoring '%s'\n", dent->d_path);
@@ -862,8 +860,7 @@ int remote_thread(void *data)
 done:
 	//cleanup_mm();
 	peer->thread = NULL;
-	if (real_peer)
-		kfree(real_peer);
+	brick_mem_free(real_peer);
 	return 0;
 }
 
@@ -912,7 +909,7 @@ static int _make_peer(struct mars_global *global, struct mars_dent *dent, char *
 
 	MARS_DBG("peer '%s'\n", mypeer);
 	if (!dent->d_private) {
-		dent->d_private = kzalloc(sizeof(struct mars_peerinfo), GFP_MARS);
+		dent->d_private = brick_zmem_alloc(sizeof(struct mars_peerinfo));
 		if (!dent->d_private) {
 			MARS_ERR("no memory for peer structure\n");
 			return -1;
@@ -1020,7 +1017,7 @@ int _update_replaylink(struct mars_dent *parent, int sequence, loff_t start_pos,
 			goto out_old;
 		}
 		status = mars_stat(test, &kstat, true);
-		kfree(test);
+		brick_string_free(test);
 		if (status < 0) {
 			MARS_DBG("could not update replay link to nonexisting logfile %09d\n", sequence);
 			goto out_old;
@@ -1045,14 +1042,12 @@ int _update_replaylink(struct mars_dent *parent, int sequence, loff_t start_pos,
 		MARS_DBG("make replay symlink '%s' -> '%s' status = %d\n", old, new, status);
 	}
 
-	kfree(new);
+	brick_string_free(new);
 out_new:
-	kfree(old);
+	brick_string_free(old);
 out_old:
 	return status;
 }
-
-#define MY_SIZE 512
 
 static
 int _update_versionlink(struct mars_global *global, struct mars_dent *parent, int sequence, loff_t start_pos, loff_t end_pos, bool is_primary)
@@ -1061,14 +1056,14 @@ int _update_versionlink(struct mars_global *global, struct mars_dent *parent, in
 	struct mars_dent *prev_link = NULL;
 	char *prev_digest = NULL;
 	struct timespec now = {};
-	char *new = NULL;
 	int i;
 	int status = -ENOMEM;
 	int len = 0;
 
-	char *data = kzalloc(MY_SIZE, GFP_MARS);
-	char *digest = kzalloc(MY_SIZE, GFP_MARS);
-	char *old = kzalloc(MY_SIZE, GFP_MARS);
+	char *new = NULL;
+	char *data = brick_string_alloc();
+	char *digest = brick_string_alloc();
+	char *old = brick_string_alloc();
 
 	if (unlikely(!data || !digest || !old)) {
 		MARS_ERR("no MEM\n");
@@ -1088,14 +1083,14 @@ int _update_versionlink(struct mars_global *global, struct mars_dent *parent, in
 		prev_digest = prev_link->new_link;
 	}
 
-	len = snprintf(data, MY_SIZE, "%d,%lld,%lld,%s", sequence, start_pos, end_pos, prev_digest ? prev_digest : "");
+	len = sprintf(data, "%d,%lld,%lld,%s", sequence, start_pos, end_pos, prev_digest ? prev_digest : "");
 
 	MARS_DBG("data = '%s' len = %d\n", data, len);
 
 	mars_digest(digest, data, len);
 
 	for (i = 0; i < mars_digest_size; i++) {
-		snprintf(old + i * 2, MY_SIZE - i * 2, "%02x", digest[i]);
+		sprintf(old + i * 2, "%02x", digest[i]);
 	}
 	new = path_make("%s/version-%09d-%s", parent->d_path, sequence, my_id());
 	if (!new) {
@@ -1110,7 +1105,7 @@ int _update_versionlink(struct mars_global *global, struct mars_dent *parent, in
 		MARS_DBG("make version symlink '%s' -> '%s' status = %d\n", old, new, status);
 	}
 	if (is_primary) {
-		kfree(new);
+		brick_string_free(new);
 		new = path_make("%s/version-%09d-primary", parent->d_path, sequence);
 		if (!new) {
 			goto out;
@@ -1120,19 +1115,19 @@ int _update_versionlink(struct mars_global *global, struct mars_dent *parent, in
 
 out:
 	if (new) {
-		kfree(new);
+		brick_string_free(new);
 	}
 	if (prev) {
-		kfree(prev);
+		brick_string_free(prev);
 	}
 	if (data) {
-		kfree(data);
+		brick_string_free(data);
 	}
 	if (digest) {
-		kfree(digest);
+		brick_string_free(digest);
 	}
 	if (old) {
-		kfree(old);
+		brick_string_free(old);
 	}
 	return status;
 }
@@ -1202,13 +1197,13 @@ int _check_versionlink(struct mars_global *global, struct mars_dent *parent, int
 
 out:
 	if (finished) {
-		kfree(finished);
+		brick_string_free(finished);
 	}
 	if (my) {
-		kfree(my);
+		brick_string_free(my);
 	}
 	if (other) {
-		kfree(other);
+		brick_string_free(other);
 	}
 	return status;
 }
@@ -1238,9 +1233,9 @@ int _make_finished(struct mars_dent *parent, int sequence, loff_t end_pos)
 		MARS_DBG("make finished symlink '%s' -> '%s' status = %d\n", old, new, status);
 	}
 
-	kfree(new);
+	brick_string_free(new);
 out_new:
-	kfree(old);
+	brick_string_free(old);
 out_old:
 	return status;
 }
@@ -1264,7 +1259,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	int status;
 
 	if (!rot) {
-		rot = kzalloc(sizeof(struct mars_rotate), GFP_MARS);
+		rot = brick_zmem_alloc(sizeof(struct mars_rotate));
 		parent->d_private = rot;
 		if (!rot) {
 			MARS_ERR("cannot allocate rot structure\n");
@@ -1401,11 +1396,11 @@ int make_log_init(void *buf, struct mars_dent *dent)
 
 done:
 	if (aio_path)
-		kfree(aio_path);
+		brick_string_free(aio_path);
 	if (replay_path)
-		kfree(replay_path);
+		brick_string_free(replay_path);
 	if (switch_path)
-		kfree(switch_path);
+		brick_string_free(switch_path);
 	return status;
 }
 
@@ -1986,7 +1981,7 @@ void _show_primary(struct mars_rotate *rot, struct mars_dent *parent)
 	MARS_DBG("symlink '%s' -> '%s'\n", dst, src);
 	status = mars_symlink(src, dst, NULL, 0);
 	if (dst)
-		kfree(dst);
+		brick_string_free(dst);
 }
 
 
@@ -2087,6 +2082,11 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 	src_path = dent->d_argv[0];
 	if (src_path[0] != '/') {
 		src_path = path_make("%s/%s", dent->d_parent->d_path, dent->d_argv[0]);
+		if (!src_path) {
+			MARS_DBG("fail\n");
+			status = -ENOMEM;
+			goto done;
+		}
 		do_dealloc = true;
 	}
 	brick = 
@@ -2134,8 +2134,8 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 	status = 0;
 done:
 	MARS_DBG("status = %d\n", status);
-	if (do_dealloc)
-		kfree(src_path);
+	if (do_dealloc && src_path)
+		brick_string_free(src_path);
 	return status;
 }
 
@@ -2166,9 +2166,9 @@ static int _make_copy(void *buf, struct mars_dent *dent)
 done:
 	MARS_DBG("status = %d\n", status);
 	if (copy_path)
-		kfree(copy_path);
+		brick_string_free(copy_path);
 	if (switch_path)
-		kfree(switch_path);
+		brick_string_free(switch_path);
 	return status;
 }
 
@@ -2230,7 +2230,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 		status = 0;
 		goto done;
 	}
-	kfree(tmp);
+	brick_string_free(tmp);
 
 	/* Determine peer
 	 */
@@ -2271,8 +2271,8 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	if (status >= 0 && copy &&
 	   ((copy->power.button && copy->power.led_on) ||
 	    (copy->copy_last == copy->copy_end && copy->copy_end > 0))) {
-		kfree(src);
-		kfree(dst);
+		brick_string_free(src);
+		brick_string_free(dst);
 		src = path_make("%lld", copy->copy_last);
 		dst = path_make("%s/syncstatus-%s", dent->d_parent->d_path, my_id());
 		status = -ENOMEM;
@@ -2284,15 +2284,15 @@ static int make_sync(void *buf, struct mars_dent *dent)
 done:
 	MARS_DBG("status = %d\n", status);
 	if (tmp)
-		kfree(tmp);
+		brick_string_free(tmp);
 	if (src)
-		kfree(src);
+		brick_string_free(src);
 	if (dst)
-		kfree(dst);
+		brick_string_free(dst);
 	if (copy_path)
-		kfree(copy_path);
+		brick_string_free(copy_path);
 	if (switch_path)
-		kfree(switch_path);
+		brick_string_free(switch_path);
 	return status;
 }
 
@@ -2622,7 +2622,7 @@ static int light_checker(struct mars_dent *parent, const char *_name, int namlen
 	int class;
 	int status = -2;
 #ifdef MARS_DEBUGGING
-	const char *name = kstrdup(_name, GFP_MARS);
+	const char *name = brick_strdup(_name);
 	if (!name)
 		return -ENOMEM;
 #else
@@ -2692,8 +2692,7 @@ static int light_checker(struct mars_dent *parent, const char *_name, int namlen
 
 done:
 #ifdef MARS_DEBUGGING
-	if (name)
-		kfree(name);
+	brick_string_free(name);
 #endif
 	return status;
 }
@@ -2804,10 +2803,10 @@ void _show_status(struct mars_global *global)
 				snprintf(perc, sizeof(perc), "%d", test->power.percent_done);
 				status = mars_symlink(perc, dst2, NULL, 0);
 				MARS_DBG("percent symlink '%s' -> '%s' status = %d\n", dst2, src, status);
-				kfree(dst2);
+				brick_string_free(dst2);
 			}
 		}
-		kfree(dst);
+		brick_string_free(dst);
 	}
 	up_read(&global->brick_mutex);
 }
@@ -2819,7 +2818,9 @@ void _show_statist(struct mars_global *global)
 	struct list_head *tmp;
 	int dent_count = 0;
 	int brick_count = 0;
-	
+
+	brick_mem_statistics();
+
 	MARS_STAT("================================== dents:\n");
 	down_read(&global->dent_mutex);
 	for (tmp = global->dent_anchor.next; tmp != &global->dent_anchor; tmp = tmp->next) {
@@ -2844,7 +2845,7 @@ void _show_statist(struct mars_global *global)
 			char *info = test->ops->brick_statistics(test, 0);
 			if (info) {
 				MARS_STAT("%s", info);
-				kfree(info);
+				brick_string_free(info);
 			}
 		}
 		for (i = 0; i < test->nr_inputs; i++) {

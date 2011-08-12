@@ -173,7 +173,7 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 
 	mref_a = copy_mref_get_aspect(brick->outputs[0], mref);
 	if (unlikely(!mref_a)) {
-		kfree(mref);
+		MARS_FAT("cannot get own apsect\n");
 		goto done;
 	}
 
@@ -561,7 +561,7 @@ static int copy_switch(struct copy_brick *brick)
 static
 char *copy_statistics(struct copy_brick *brick, int verbose)
 {
-	char *res = kmalloc(512, GFP_MARS);
+	char *res = brick_string_alloc();
         if (!res)
                 return NULL;
 

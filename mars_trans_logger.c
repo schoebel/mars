@@ -539,7 +539,7 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 	wait_event_interruptible_timeout(brick->caller_event, !brick->delay_callers, 1 * HZ);
 
 	// create a new master shadow
-	data = mars_alloc(mref->ref_pos, (mref_a->alloc_len = mref->ref_len));
+	data = brick_block_alloc(mref->ref_pos, (mref_a->alloc_len = mref->ref_len));
 	if (unlikely(!data)) {
 		return -ENOMEM;
 	}
@@ -673,7 +673,7 @@ restart:
 		// we are a master shadow
 		CHECK_PTR(mref_a->shadow_data, err);
 		if (mref_a->do_dealloc) {
-			mars_free(mref_a->shadow_data, mref_a->alloc_len);
+			brick_block_free(mref_a->shadow_data, mref_a->alloc_len);
 			atomic64_sub(mref->ref_len, &brick->shadow_mem_used);
 			mref_a->shadow_data = NULL;
 			mref_a->do_dealloc = false;
@@ -915,7 +915,11 @@ void free_writeback(struct writeback_info *wb)
 		orig_mref = orig_mref_a->object;
 		
 		CHECK_ATOMIC(&orig_mref->ref_count, 1);
-
+#if 1
+		if (!orig_mref_a->is_completed) {
+			MARS_ERR("request %lld (len = %d) was not completed\n", orig_mref->ref_pos, orig_mref->ref_len);
+		}
+#endif
 		if (likely(wb->w_error >= 0)) {
 			pos_complete(orig_mref_a);
 		}
@@ -923,7 +927,7 @@ void free_writeback(struct writeback_info *wb)
 		__trans_logger_ref_put(orig_mref_a->my_output, orig_mref_a);
 	}
 
-	kfree(wb);
+	brick_mem_free(wb);
 }
 
 /* Generic endio() for writeback_info
@@ -999,7 +1003,7 @@ struct writeback_info *make_writeback(struct trans_logger_output *output, loff_t
 
 	/* Allocate structure representing a bunch of adjacent writebacks
 	 */
-	wb = kzalloc(sizeof(struct writeback_info), GFP_MARS);
+	wb = brick_zmem_alloc(sizeof(struct writeback_info));
 	if (!wb) {
 		goto err;
 	}
@@ -1327,7 +1331,11 @@ void phase1_preio(void *private)
 
 	// signal completion to the upper layer
 	// FIXME: immediate error signalling is impossible here, but some delayed signalling should be possible as a workaround. Think!
+	CHECK_ATOMIC(&orig_mref_a->object->ref_count, 1);
+#if 0
 	_complete(brick, orig_mref_a, 0, true);
+	CHECK_ATOMIC(&orig_mref_a->object->ref_count, 1);
+#endif
 	return;
 err: 
 	MARS_ERR("giving up...\n");
@@ -2036,7 +2044,7 @@ void trans_logger_log(struct trans_logger_output *output)
 			txt = brick->ops->brick_statistics(brick, 0);
 			if (txt) {
 				MARS_INF("%s", txt);
-				kfree(txt);
+				brick_string_free(txt);
 			}
 		}
 #endif
@@ -2118,7 +2126,7 @@ void trans_logger_log(struct trans_logger_output *output)
 			txt = brick->ops->brick_statistics(brick, 0);
 			MARS_WRN("inconsistent work, pushback = %d q1 = %d q2 = %d q3 = %d q4 = %d extra = %d ====> %s\n", brick->did_pushback, st.q1_ready, st.q2_ready, st.q3_ready, st.q4_ready, st.extra_ready, txt ? txt : "(ERROR)");
 			if (txt) {
-				kfree(txt);
+				brick_string_free(txt);
 			}
 		}
 #endif
@@ -2499,7 +2507,7 @@ int trans_logger_switch(struct trans_logger_brick *brick)
 static noinline
 char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 {
-	char *res = kmalloc(1024, GFP_MARS);
+	char *res = brick_string_alloc();
 	if (!res)
 		return NULL;
 

@@ -34,7 +34,7 @@ static
 void put_log_cb_info(struct log_cb_info *cb_info)
 {
 	if (atomic_dec_and_test(&cb_info->refcount)) {
-		kfree(cb_info);
+		brick_mem_free(cb_info);
 	}
 }
 
@@ -154,9 +154,9 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 	if (!mref) {
 		if (unlikely(logst->private)) {
 			MARS_ERR("oops\n");
-			kfree(logst->private);
+			brick_mem_free(logst->private);
 		}
-		logst->private = kzalloc(sizeof(struct log_cb_info), GFP_MARS);
+		logst->private = brick_zmem_alloc(sizeof(struct log_cb_info));
 		if (unlikely(!logst->private)) {
 			MARS_ERR("no memory\n");
 			goto err;
@@ -240,7 +240,7 @@ err_free:
 	mars_free_mref(mref);
 	if (logst->private) {
 		// TODO: if callbacks are already registered, call them here with some error code
-		kfree(logst->private);
+		brick_mem_free(logst->private);
 		logst->private = NULL;
 	}
 err:

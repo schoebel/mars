@@ -60,7 +60,7 @@ static int _connect(struct client_output *output, const char *str)
 	int status;
 
 	if (!output->path) {
-		output->path = kstrdup(str, GFP_MARS);
+		output->path = brick_strdup(str);
 		status = -ENOMEM;
 		if (!output->path) {
 			MARS_DBG("no mem\n");
@@ -69,7 +69,7 @@ static int _connect(struct client_output *output, const char *str)
 		status = -EINVAL;
 		output->host = strchr(output->path, '@');
 		if (!output->host) {
-			kfree(output->path);
+			brick_string_free(output->path);
 			output->path = NULL;
 			MARS_ERR("parameter string '%s' contains no remote specifier with '@'-syntax\n", str);
 			goto done;
@@ -158,7 +158,7 @@ static int client_ref_get(struct client_output *output, struct mref_object *mref
 		if (!mref_a)
 			return -EILSEQ;
 
-		mref->ref_data = kmalloc(mref->ref_len, GFP_MARS);
+		mref->ref_data = brick_block_alloc(mref->ref_pos, mref->ref_len);
 		if (!mref->ref_data)
 			return -ENOMEM;
 
@@ -178,7 +178,7 @@ static void client_ref_put(struct client_output *output, struct mref_object *mre
 		return;
 	mref_a = client_mref_get_aspect(output, mref);
 	if (mref_a && mref_a->do_dealloc) {
-		kfree(mref->ref_data);
+		brick_block_free(mref->ref_data, mref->ref_len);
 	}
 	client_free_mref(mref);
 }
@@ -543,7 +543,7 @@ static int client_output_construct(struct client_output *output)
 static int client_output_destruct(struct client_output *output)
 {
 	if (output->path) {
-		kfree(output->path);
+		brick_string_free(output->path);
 		output->path = NULL;
 	}
 	return 0;

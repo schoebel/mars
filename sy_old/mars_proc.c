@@ -66,8 +66,7 @@ int mars_sysctl_handler(ctl_table *table,
 			MARS_ERR("write %ld bytes at %p failed\n", len, buffer);
 			res = -EFAULT;
 		}
-		if (tmp)
-			kfree(tmp);
+		brick_string_free(tmp);
 	}
 
 done:

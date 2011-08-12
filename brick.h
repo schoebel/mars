@@ -63,6 +63,9 @@ extern void brick_dump_stack(void);
 #endif
 
 #define MAX_BRICK_TYPES 64
+#ifndef BRICK_OBJ_MAX
+#define BRICK_OBJ_MAX /*empty => leads to an open array */
+#endif
 
 extern int brick_layout_generation;
 extern int brick_obj_max;

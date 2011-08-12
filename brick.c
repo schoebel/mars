@@ -10,11 +10,9 @@
 //#define USE_FREELIST // use this, but improve freeing
 
 #define _STRATEGY
-#define BRICK_OBJ_MAX /*empty => leads to an open array */
 
 #include "brick.h"
-
-#define GFP_BRICK GFP_NOIO
+#include "brick_mem.h"
 
 /////////////////////////////////////////////////////////////////////
 
@@ -85,7 +83,7 @@ int get_nr(void)
 	int nr;
 
 	if (unlikely(!nr_table)) {
-		nr_table = kzalloc(nr_max, GFP_BRICK);
+		nr_table = brick_zmem_alloc(nr_max);
 		if (!nr_table) {
 			return 0;
 		}
@@ -98,11 +96,11 @@ int get_nr(void)
 				return nr;
 			}
 		}
-		new = kzalloc(nr_max << 1, GFP_BRICK);
+		new = brick_zmem_alloc(nr_max << 1);
 		if (!new)
 			return 0;
 		memcpy(new, nr_table, nr_max);
-		kfree(nr_table);
+		brick_mem_free(nr_table);
 		nr_table = new;
 		nr_max <<= 1;
 	}
@@ -501,10 +499,12 @@ int default_init_object_layout(struct generic_output *output, struct generic_obj
 
 	aspect_max = nr_max;
 
-	data = kzalloc(aspect_max * sizeof(struct generic_aspect_layout), GFP_BRICK);
-	data2 = kzalloc(aspect_max * sizeof(void*), GFP_BRICK);
+	data = brick_zmem_alloc(aspect_max * sizeof(struct generic_aspect_layout));
+	data2 = brick_zmem_alloc(aspect_max * sizeof(void*));
 	if (unlikely(!data || !data2)) {
-		BRICK_ERR("kzalloc failed, size = %lu\n", aspect_max * sizeof(void*));
+		BRICK_ERR("alloc failed, size = %lu\n", aspect_max * sizeof(void*));
+		brick_mem_free(data);
+		brick_mem_free(data2);
 		goto done;
 	}
 
@@ -543,7 +543,7 @@ int default_init_object_layout(struct generic_output *output, struct generic_obj
 	traced_unlock(&global_lock, flags);
 
 	if (unlikely(status < 0)) {
-		kfree(data);
+		brick_mem_free(data);
 		BRICK_ERR("emergency, cannot add aspects to object_layout %s (module %s)\n", object_type->object_type_name, module_name);
 		goto done;
 	}
@@ -552,16 +552,10 @@ int default_init_object_layout(struct generic_output *output, struct generic_obj
 	BRICK_INF("OK, object_layout %s init succeeded (size = %d).\n", object_type->object_type_name, object_layout->object_size);
 
 done:
-	if (olddata) {
 #if 0 // FIXME: use RCU here
-		kfree(olddata);
+	brick_mem_free(olddata);
+	brick_mem_free(olddata2);
 #endif
-	}
-	if (olddata2) {
-#if 0 // FIXME: use RCU here
-		kfree(olddata2);
-#endif
-	}
 	return status;
 }
 EXPORT_SYMBOL_GPL(default_init_object_layout);
@@ -686,7 +680,7 @@ struct generic_object *alloc_generic(struct generic_object_layout *object_layout
 		traced_unlock(&object_layout->free_lock, flags);
 	}
 
-	data = kzalloc(object_layout->object_size, GFP_BRICK);
+	data = brick_zmem_alloc(object_layout->object_size);
 	if (unlikely(!data))
 		goto err;
 
@@ -711,7 +705,7 @@ ok:
 	return object;
 
 err_free:
-	kfree(data);
+	brick_mem_free(data);
 err:
 	return NULL;
 }
@@ -747,7 +741,7 @@ void free_generic(struct generic_object *object)
 		atomic_dec(&object_layout->alloc_count);
 	}
 
-	kfree(object);
+	brick_mem_free(object);
 }
 EXPORT_SYMBOL_GPL(free_generic);
 
@@ -880,10 +874,9 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 
  restart:
 	BRICK_DBG("-> orig_brick = '%s'\n", orig_brick->brick_name);
-	if (table)
-		kfree(table);
+	brick_mem_free(table);
 	max <<= 1;
-	table = kmalloc(max * sizeof(void*), GFP_BRICK);
+	table = brick_mem_alloc(max * sizeof(void*));
 	status = -ENOMEM;
 	if (unlikely(!table))
 		goto done;
@@ -974,8 +967,7 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 
 done:
 	BRICK_DBG("-> done '%s' status = %d\n", orig_brick->brick_name, status);
-	if (table)
-		kfree(table);
+	brick_mem_free(table);
 	return status;
 }
 EXPORT_SYMBOL_GPL(set_recursive_button);
@@ -1015,7 +1007,7 @@ void free_meta(void *data, const struct meta *meta)
 			item = *(void**)item;
 			if (meta->field_ref)
 				free_meta(item, meta->field_ref);
-			kfree(item);
+			brick_mem_free(item);
 		}
 	}
 }
@@ -1028,7 +1020,7 @@ EXPORT_SYMBOL_GPL(free_meta);
 
 static int __init init_brick(void)
 {
-	nr_table = kzalloc(nr_max, GFP_BRICK);
+	nr_table = brick_zmem_alloc(nr_max);
 	if (!nr_table) {
 		return -ENOMEM;
 	}
@@ -1038,7 +1030,8 @@ static int __init init_brick(void)
 static void __exit exit_brick(void)
 {
 	if (nr_table) {
-		kfree(nr_table);
+		brick_mem_free(nr_table);
+		nr_table = NULL;
 	}
 }
 

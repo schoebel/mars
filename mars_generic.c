@@ -30,131 +30,17 @@ static char *id = NULL;
 char *my_id(void)
 {
 	struct new_utsname *u;
-	if (id)
-		return id;
-
-	//down_read(&uts_sem); // FIXME: this is currenty not EXPORTed from the kernel!
-	u = utsname();
-	if (u) {
-		id = kstrdup(u->nodename, GFP_MARS);
+	if (!id) {
+		//down_read(&uts_sem); // FIXME: this is currenty not EXPORTed from the kernel!
+		u = utsname();
+		if (u) {
+			id = brick_strdup(u->nodename);
+		}
+		//up_read(&uts_sem);
 	}
-	//up_read(&uts_sem);
-	
 	return id;
 }
 EXPORT_SYMBOL_GPL(my_id);
-
-/////////////////////////////////////////////////////////////////////////
-
-// MARS-specific memory allocation
-
-#define USE_KERNEL_PAGES
-#define MARS_MAX_ORDER 8
-//#define USE_OFFSET
-//#define USE_INTERNAL_FREELIST
-
-#ifdef USE_INTERNAL_FREELIST
-void *mars_freelist[MARS_MAX_ORDER+1] = {};
-atomic_t freelist_count[MARS_MAX_ORDER+1] = {};
-#endif
-
-void *mars_alloc(loff_t pos, int len)
-{
-	int offset = 0;
-	void *data;
-#ifdef USE_KERNEL_PAGES
-	int order = MARS_MAX_ORDER;
-	if (unlikely(len > (PAGE_SIZE << order) || len <=0)) {
-		MARS_ERR("trying to allocate %d bytes (max = %d)\n", len, (int)(PAGE_SIZE << order));
-		return NULL;
-	}
-#endif
-#ifdef USE_OFFSET
-	offset = pos & (PAGE_SIZE-1);
-#endif
-#ifdef USE_KERNEL_PAGES
-	len += offset;
-	while (order > 0 && (PAGE_SIZE << (order-1)) >= len) {
-		order--;
-	}
-#ifdef USE_INTERNAL_FREELIST
-	data = mars_freelist[order];
-	if (data) {
-		mars_freelist[order] = *(void**)data;
-		atomic_dec(&freelist_count[order]);
-	} else
-#endif
-	data = (void*)__get_free_pages(GFP_MARS, order);
-#else
-	data = __vmalloc(len + offset, GFP_MARS, PAGE_KERNEL_IO);
-#endif
-	if (likely(data)) {
-		data += offset;
-	}
-	return data;
-}
-EXPORT_SYMBOL_GPL(mars_alloc);
-
-void mars_free(void *data, int len)
-{
-	int offset = 0;
-#ifdef USE_KERNEL_PAGES
-	int order = MARS_MAX_ORDER;
-#endif
-	if (!data) {
-		return;
-	}
-#ifdef USE_OFFSET
-	offset = ((unsigned long)data) & (PAGE_SIZE-1);
-#endif
-	data -= offset;
-#ifdef USE_KERNEL_PAGES
-	len += offset;
-	while (order > 0 && (PAGE_SIZE << (order-1)) >= len) {
-		order--;
-	}
-#ifdef USE_INTERNAL_FREELIST
-	if (order > 0 && atomic_read(&freelist_count[order]) < 500) {
-		static int max[MARS_MAX_ORDER+1] = {};
-		int now;
-		*(void**)data = mars_freelist[order];
-		mars_freelist[order] = data;
-		atomic_inc(&freelist_count[order]);
-		now = atomic_read(&freelist_count[order]);
-		if (now > max[order] + 50) {
-			int i;
-			max[order] = now;
-			MARS_INF("now %d freelist members at order %d (len = %d)\n", now, order, len);
-			for (i = 0; i <= MARS_MAX_ORDER; i++) {
-				MARS_INF("  %d : %4d\n", i, atomic_read(&freelist_count[i]));
-			}
-		}
-	} else
-#endif
-	__free_pages(virt_to_page((unsigned long)data), order);
-#else
-	vfree(data);
-#endif
-}
-EXPORT_SYMBOL_GPL(mars_free);
-
-struct page *mars_iomap(void *data, int *offset, int *len)
-{
-	int _offset = ((unsigned long)data) & (PAGE_SIZE-1);
-	struct page *page;
-	*offset = _offset;
-	if (*len > PAGE_SIZE - _offset) {
-		*len = PAGE_SIZE - _offset;
-	}
-	if (is_vmalloc_addr(data)) {
-		page = vmalloc_to_page(data);
-	} else {
-		page = virt_to_page(data);
-	}
-	return page;
-}
-EXPORT_SYMBOL_GPL(mars_iomap);
-
 
 //////////////////////////////////////////////////////////////
 
@@ -238,7 +124,7 @@ EXPORT_SYMBOL_GPL(_mars_log);
 
 void mars_log(const char *fmt, ...)
 {
-	char *buf = kmalloc(PAGE_SIZE, GFP_MARS);
+	char *buf = brick_string_alloc();
 	va_list args;
 	int len;
 	if (!buf)
@@ -250,7 +136,7 @@ void mars_log(const char *fmt, ...)
 
 	_mars_log(buf, len);
 
-	kfree(buf);
+	brick_string_free(buf);
 }
 EXPORT_SYMBOL_GPL(mars_log);
 
@@ -267,7 +153,7 @@ EXPORT_SYMBOL_GPL(mars_trace);
 
 void mars_log_trace(struct mref_object *mref)
 {
-	char *buf = kmalloc(PAGE_SIZE, GFP_MARS);
+	char *buf = brick_string_alloc();
 	unsigned long long old;
 	unsigned long long diff;
 	int i;
@@ -299,7 +185,7 @@ void mars_log_trace(struct mref_object *mref)
 	_mars_log(buf, len);
 
  done:
-	kfree(buf);
+	brick_string_free(buf);
 	mref->ref_traces = 0;
 }
 EXPORT_SYMBOL_GPL(mars_log_trace);
@@ -392,7 +278,7 @@ static void __exit exit_mars(void)
 	}
 #endif
 	if (id) {
-		kfree(id);
+		brick_string_free(id);
 		id = NULL;
 	}
 }

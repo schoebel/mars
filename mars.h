@@ -24,9 +24,9 @@ extern long long mars_global_memlimit;
 #define BRICK_DEPTH_MAX           128
 
 #include "brick.h"
+#include "brick_mem.h"
 
-#define GFP_MARS GFP_NOIO
-//#define GFP_MARS GFP_KERNEL // can lead to deadlocks!
+#define GFP_MARS GFP_BRICK
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -253,14 +253,6 @@ GENERIC_OBJECT_FUNCTIONS(mref);
 _MARS_TYPES(mars);
 GENERIC_OBJECT_LAYOUT_FUNCTIONS(mars);
 GENERIC_ASPECT_FUNCTIONS(mars,mref);
-
-/////////////////////////////////////////////////////////////////////////
-
-// MARS-specific memory allocation
-
-extern void *mars_alloc(loff_t pos, int len);
-extern void mars_free(void *data, int len);
-extern struct page *mars_iomap(void *data, int *offset, int *len);
 
 /////////////////////////////////////////////////////////////////////////
 

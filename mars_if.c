@@ -682,7 +682,7 @@ static
 char *if_statistics(struct if_brick *brick, int verbose)
 {
 	struct if_input *input = brick->inputs[0];
-	char *res = kmalloc(512, GFP_MARS);
+	char *res = brick_string_alloc();
 	int tmp0 = atomic_read(&input->total_reada_count); 
 	int tmp1 = atomic_read(&input->total_read_count); 
 	int tmp2 = atomic_read(&input->total_mref_read_count);

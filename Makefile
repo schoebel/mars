@@ -2,7 +2,7 @@
 # Makefile for MARS
 #
 
-obj-$(CONFIG_MARS)		+= brick.o \
+obj-$(CONFIG_MARS)		+= brick.o brick_mem.o \
 				   mars_generic.o sy_old/sy_generic.o \
 				   mars_net.o sy_old/sy_net.o \
 				   sy_old/mars_proc.o

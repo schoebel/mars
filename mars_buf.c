@@ -208,7 +208,7 @@ void _remove_bf_list(struct buf_brick *brick, struct buf_head *bf)
 static inline
 struct buf_head *_alloc_bf(struct buf_brick *brick)
 {
-	struct buf_head *bf = kzalloc(sizeof(struct buf_head), GFP_MARS);
+	struct buf_head *bf = brick_zmem_alloc(sizeof(struct buf_head));
 	if (unlikely(!bf))
 		goto done;
 
@@ -218,7 +218,7 @@ struct buf_head *_alloc_bf(struct buf_brick *brick)
 	bf->bf_data = (void*)__get_free_pages(GFP_MARS, brick->backing_order);
 #endif
 	if (unlikely(!bf->bf_data)) {
-		kfree(bf);
+		brick_mem_free(bf);
 		bf = NULL;
 		goto done;
 	}
@@ -245,7 +245,7 @@ void _dealloc_bf(struct buf_brick *brick, struct buf_head *bf)
 #else
 	free_pages((unsigned long)bf->bf_data, brick->backing_order);
 #endif
-	kfree(bf);
+	brick_mem_free(bf);
 	atomic_dec(&brick->alloc_count);
 }
 

@@ -46,9 +46,11 @@ static void measure_sync(int ticks)
 
 static char *show_sync(void)
 {
-	char *res = kmalloc(512, GFP_MARS);
+	char *res = brick_string_alloc();
 	int i;
 	int pos = 0;
+	if (!res)
+		return NULL;
 	for (i = 0; i < MEASURE_SYNC; i++) {
 		pos += snprintf(res + pos, 256, "%d: %d ", i, sync_ticks[i]);
 	}
@@ -160,7 +162,7 @@ static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
 			MARS_ERR("bad ref_len = %d\n", mref->ref_len);
 			return -ENOMEM;
 		}
-		mref->ref_data = mars_alloc(mref->ref_pos, (mref_a->alloc_len = mref->ref_len));
+		mref->ref_data = brick_block_alloc(mref->ref_pos, (mref_a->alloc_len = mref->ref_len));
 		if (!mref->ref_data) {
 			MARS_ERR("ENOMEM %d bytes\n", mref->ref_len);
 			return -ENOMEM;
@@ -193,7 +195,7 @@ static void aio_ref_put(struct aio_output *output, struct mref_object *mref)
 
 	mref_a = aio_mref_get_aspect(output, mref);
 	if (mref_a && mref_a->do_dealloc) {
-		mars_free(mref->ref_data, mref_a->alloc_len);
+		brick_block_free(mref->ref_data, mref_a->alloc_len);
 		atomic_dec(&output->alloc_count);
 	}
 	aio_free_mref(mref);
@@ -698,7 +700,7 @@ static noinline
 char *aio_statistics(struct aio_brick *brick, int verbose)
 {
 	struct aio_output *output = brick->outputs[0];
-	char *res = kmalloc(1024, GFP_MARS);
+	char *res = brick_string_alloc();
 	char *sync = NULL;
 	if (!res)
 		return NULL;
@@ -718,7 +720,7 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 		sync ? sync : "");
 	
 	if (sync)
-		kfree(sync);
+		brick_string_free(sync);
 
 	return res;
 }

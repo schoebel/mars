@@ -121,7 +121,7 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct timespec
 		status = mars_rename(tmp, newpath);
 	}
 	set_fs(oldfs);
-	kfree(tmp);
+	brick_string_free(tmp);
 
 done:
 	return status;
@@ -317,7 +317,7 @@ int get_inode(char *newpath, struct mars_dent *dent)
                 inode = path.dentry->d_inode;
 
 		status = -ENOMEM;
-		link = kmalloc(len + 2, GFP_MARS);
+		link = brick_string_alloc();
 		if (likely(link)) {
 			MARS_IO("len = %d\n", len);
 			status = inode->i_op->readlink(path.dentry, link, len + 1);
@@ -325,11 +325,10 @@ int get_inode(char *newpath, struct mars_dent *dent)
 			if (status < 0 ||
 			   (dent->new_link && !strncmp(dent->new_link, link, len))) {
 				//MARS_IO("symlink no change '%s' -> '%s' (%s) status = %d\n", newpath, link, dent->new_link ? dent->new_link : "", status);
-				kfree(link);
+				brick_string_free(link);
 			} else {
 				MARS_IO("symlink '%s' -> '%s' (%s) status = %d\n", newpath, link, dent->new_link ? dent->new_link : "", status);
-				if (dent->old_link)
-					kfree(dent->old_link);
+				brick_string_free(dent->old_link);
 				dent->old_link = dent->new_link;
 				dent->new_link = link;
 			}
@@ -372,7 +371,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 		return 0;
 
 	pathlen = cookie->pathlen;
-	newpath = kmalloc(pathlen + namlen + 2, GFP_MARS);
+	newpath = brick_string_alloc();
 	if (unlikely(!newpath))
 		goto err_mem0;
 	memcpy(newpath, cookie->path, pathlen);
@@ -407,11 +406,11 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 		}
 	}
 
-	dent = kzalloc(cookie->allocsize, GFP_MARS);
+	dent = brick_zmem_alloc(cookie->allocsize);
 	if (unlikely(!dent))
 		goto err_mem1;
 
-	dent->d_name = kmalloc(namlen + 1, GFP_MARS);
+	dent->d_name = brick_string_alloc();
 	if (unlikely(!dent->d_name))
 		goto err_mem2;
 	memcpy(dent->d_name, name, namlen);
@@ -439,14 +438,13 @@ found:
 	dent->d_depth = cookie->depth;
 	dent->d_global = global;
 	dent->d_killme = false;
-	if (newpath)
-		kfree(newpath);
+	brick_string_free(newpath);
 	return 0;
 
 err_mem2:
-	kfree(dent);
+	brick_mem_free(dent);
 err_mem1:
-	kfree(newpath);
+	brick_string_free(newpath);
 err_mem0:
 	return -ENOMEM;
 }
@@ -685,20 +683,15 @@ void mars_free_dent(struct mars_dent *dent)
 	CHECK_HEAD_EMPTY(&dent->brick_list);
 
 	for (i = 0; i < MARS_ARGV_MAX; i++) {
-		if (dent->d_argv[i])
-			kfree(dent->d_argv[i]);
+		brick_string_free(dent->d_argv[i]);
 	}
-	if (dent->d_args)
-		kfree(dent->d_args);
-	if (dent->d_private)
-		kfree(dent->d_private);
-	if (dent->old_link)
-		kfree(dent->old_link);
-	if (dent->new_link)
-		kfree(dent->new_link);
-	kfree(dent->d_name);
-	kfree(dent->d_path);
-	kfree(dent);
+	brick_string_free(dent->d_args);
+	brick_mem_free(dent->d_private);
+	brick_string_free(dent->old_link);
+	brick_string_free(dent->new_link);
+	brick_string_free(dent->d_name);
+	brick_string_free(dent->d_path);
+	brick_mem_free(dent);
 }
 EXPORT_SYMBOL_GPL(mars_free_dent);
 
@@ -789,11 +782,9 @@ int mars_free_brick(struct mars_brick *brick)
 
 	if (status >= 0) {
 #ifndef MEMLEAK // TODO: check whether crash remains possible
-		if (brick->brick_name)
-			kfree(brick->brick_name);
-		if (brick->brick_path)
-			kfree(brick->brick_path);
-		kfree(brick);
+		brick_string_free(brick->brick_name);
+		brick_string_free(brick->brick_path);
+		brick_mem_free(brick);
 #endif
 		mars_trigger();
 	} else {
@@ -807,7 +798,7 @@ EXPORT_SYMBOL_GPL(mars_free_brick);
 
 struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent *belongs, const void *_brick_type, const char *path, const char *_name)
 {
-	const char *name = kstrdup(_name, GFP_MARS);
+	const char *name = brick_strdup(_name);
 	const char *names[] = { name };
 	const struct generic_brick_type *brick_type = _brick_type;
 	const struct generic_input_type **input_types;
@@ -851,14 +842,14 @@ struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent 
 		size += type->output_size;
 	}
 	
-	res = kzalloc(size, GFP_MARS);
+	res = brick_zmem_alloc(size);
 	if (!res) {
 		MARS_ERR("cannot grab %d bytes for brick type '%s'\n", size, brick_type->type_name);
 		goto err_name;
 	}
 	res->global = global;
 	INIT_LIST_HEAD(&res->dent_brick_link);
-	res->brick_path = kstrdup(path, GFP_MARS);
+	res->brick_path = brick_strdup(path);
 	if (!res->brick_path) {
 		MARS_ERR("cannot grab memory for path '%s'\n", path);
 		goto err_res;
@@ -885,11 +876,11 @@ struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent 
 	return res;
 
 err_path:
-	kfree(res->brick_path);
+	brick_string_free(res->brick_path);
 err_res:
-	kfree(res);
+	brick_mem_free(res);
 err_name:
-	kfree(name);
+	brick_string_free(name);
 	return NULL;
 }
 EXPORT_SYMBOL_GPL(mars_make_brick);
@@ -920,8 +911,7 @@ EXPORT_SYMBOL_GPL(mars_kill_brick);
 
 char *vpath_make(const char *fmt, va_list *args)
 {
-	int len = strlen(fmt);
-	char *res = kmalloc(len + MARS_PATH_MAX, GFP_MARS);
+	char *res = brick_string_alloc();
 
 	if (likely(res)) {
 		vsnprintf(res, MARS_PATH_MAX, fmt, *args);
@@ -945,7 +935,7 @@ char *backskip_replace(const char *path, char delim, bool insert, const char *fm
 {
 	int path_len = strlen(path);
 	int total_len = strlen(fmt) + path_len + MARS_PATH_MAX;
-	char *res = kmalloc(total_len, GFP_MARS);
+	char *res = brick_string_alloc();
 	if (likely(res)) {
 		va_list args;
 		int pos = path_len;
@@ -987,7 +977,7 @@ struct mars_brick *path_find_brick(struct mars_global *global, const void *brick
 		return NULL;
 	}
 	res = mars_find_brick(global, brick_type, fullpath);
-	kfree(fullpath);
+	brick_string_free(fullpath);
 	MARS_IO("search for '%s' found = %p\n", fullpath, res);
 	return res;
 }
@@ -1017,9 +1007,9 @@ struct mars_brick *make_brick_all(
 	)
 {
 	va_list args;
-	const char *switch_path = NULL;
+	char *switch_path = NULL;
 	const char *new_path;
-	const char *_new_path = NULL;
+	char *_new_path = NULL;
 	struct mars_brick *brick = NULL;
 	char *paths[prev_count];
 	struct mars_brick *prev[prev_count];
@@ -1165,13 +1155,13 @@ err:
 done:
 	for (i = 0; i < prev_count; i++) {
 		if (paths[i]) {
-			kfree(paths[i]);
+			brick_string_free(paths[i]);
 		}
 	}
 	if (_new_path)
-		kfree(_new_path);
+		brick_string_free(_new_path);
 	if (switch_path)
-		kfree(switch_path);
+		brick_string_free(switch_path);
 
 	return brick;
 }

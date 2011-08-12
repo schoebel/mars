@@ -57,7 +57,7 @@ int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec)
 	if (mars_translate_hostname) {
 		new_spec = mars_translate_hostname(spec);
 	} else {
-		new_spec = kstrdup(spec, GFP_MARS);
+		new_spec = brick_strdup(spec);
 	}
 	tmp_spec = new_spec;
 
@@ -88,8 +88,7 @@ int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec)
 	}
 	status = 0;
  done:
-	if (new_spec)
-		kfree(new_spec);
+	brick_string_free(new_spec);
 	return status;
 }
 EXPORT_SYMBOL_GPL(mars_create_sockaddr);
@@ -444,12 +443,12 @@ int _mars_recv_struct(struct socket **sock, void *data, const struct meta *meta,
 		if (!tmp) {
 			MARS_WRN("unknown field '%s'\n", header.h_name);
 			if (header.h_len > 0) { // try to continue by skipping the rest of data
-				void *dummy = kmalloc(header.h_len, GFP_MARS);
+				void *dummy = brick_mem_alloc(header.h_len);
 				status = -ENOMEM;
 				if (!dummy)
 					break;
 				status = mars_recv(sock, dummy, header.h_len, header.h_len);
-				kfree(dummy);
+				brick_mem_free(dummy);
 				if (status < 0)
 					break;
 			}
@@ -464,7 +463,11 @@ int _mars_recv_struct(struct socket **sock, void *data, const struct meta *meta,
 			if (header.h_len <= 0) {
 				mem = NULL;
 			} else {
-				mem = kzalloc(header.h_len + 1, GFP_MARS);
+				if (tmp->field_type == FIELD_STRING) {
+					mem = brick_string_alloc();
+				} else {
+					mem = brick_zmem_alloc(header.h_len + 1);
+				}
 				if (!mem) {
 					status = -ENOMEM;
 					goto done;
@@ -593,7 +596,7 @@ int mars_recv_mref(struct socket **sock, struct mref_object *mref)
 		goto done;
 	if (mref->ref_rw) {
 		if (!mref->ref_data)
-			mref->ref_data = kzalloc(mref->ref_len, GFP_MARS);
+			mref->ref_data = brick_zmem_alloc(mref->ref_len);
 		if (!mref->ref_data) {
 			status = -ENOMEM;
 			goto done;
