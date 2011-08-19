@@ -686,26 +686,23 @@ void mars_free_dent(struct mars_dent *dent)
 		brick_string_free(dent->d_argv[i]);
 	}
 	brick_string_free(dent->d_args);
+	brick_string_free(dent->d_name);
+	brick_string_free(dent->d_path);
 	brick_mem_free(dent->d_private);
 	brick_string_free(dent->old_link);
 	brick_string_free(dent->new_link);
-	brick_string_free(dent->d_name);
-	brick_string_free(dent->d_path);
 	brick_mem_free(dent);
 }
 EXPORT_SYMBOL_GPL(mars_free_dent);
 
 void mars_free_dent_all(struct list_head *anchor)
 {
-#if 0 // FIXME: locking
 	while (!list_empty(anchor)) {
 		struct mars_dent *dent;
 		dent = container_of(anchor->prev, struct mars_dent, dent_link);
+		list_del_init(&dent->dent_link);
 		mars_free_dent(dent);
 	}
-#else // provisionary memleak
-	list_del_init(anchor);
-#endif
 }
 EXPORT_SYMBOL_GPL(mars_free_dent_all);
 
@@ -1113,7 +1110,7 @@ struct mars_brick *make_brick_all(
 		goto err;
 	}
 	if (unlikely(brick->nr_inputs < prev_count)) {
-		MARS_ERR("wrong number of arguments: %d < %d\n", brick->nr_inputs, prev_count);
+		MARS_ERR("'%s' wrong number of arguments: %d < %d\n", new_path, brick->nr_inputs, prev_count);
 		goto err;
 	}
 
@@ -1136,8 +1133,12 @@ do_switch:
 	// switch on/off (may fail silently, but responsibility is at the workers)
 	if (timeout > 0 || !switch_state) {
 		int status;
-		status = mars_power_button_recursive((void*)brick, switch_state, false, timeout);
-		MARS_DBG("switch %d status = %d\n", switch_state, status);
+		if (switch_state) {
+			status = mars_power_button_recursive((void*)brick, switch_state, false, timeout);
+		} else {
+			status = mars_power_button((void*)brick, switch_state, false);
+		}
+		MARS_DBG("switch '%s' timeout=%d to %d status = %d\n", new_path, timeout, switch_state, status);
 #if 0 // TODO: need cleanup_fn() here FIXME: interferes with logic needing the switched-off brick!
 		if (!switch_state && status >= 0 && !brick->power.button && brick->power.led_off) {
 			mars_kill_brick(brick);
