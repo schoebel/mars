@@ -124,5 +124,12 @@ bool log_finalize(struct log_status *logst, int len, void (*preio)(void *private
 
 int log_read(struct log_status *logst, struct log_header *lh, void **payload, int *payload_len);
 
+/////////////////////////////////////////////////////////////////////////
+
+// init
+
+extern int init_log_format(void);
+extern void exit_log_format(void);
+
 #endif
 #endif

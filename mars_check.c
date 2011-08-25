@@ -100,7 +100,7 @@ static void dump_mem(void *data, int len)
 {
 	int i;
 	char *tmp;
-	char *buf = brick_string_alloc();
+	char *buf = brick_string_alloc(0);
 
 	if (!buf)
 		return;

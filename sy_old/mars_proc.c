@@ -94,7 +94,7 @@ ctl_table mars_table[] = {
 
 static struct ctl_table_header *header = NULL;
 
-static int __init _init_proc(void)
+int __init init_mars_proc(void)
 {
 
 	MARS_INF("init_proc()\n");
@@ -104,7 +104,7 @@ static int __init _init_proc(void)
 	return 0;
 }
 
-static void __exit _exit_proc(void)
+void __exit exit_mars_proc(void)
 {
 	MARS_INF("exit_proc()\n");
 	if (header) {
@@ -113,9 +113,11 @@ static void __exit _exit_proc(void)
 	}
 }
 
+#ifndef CONFIG_MARS_HAVE_BIGMODULE
 MODULE_DESCRIPTION("MARS /proc/ infrastructure");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@1und1.de>");
 MODULE_LICENSE("GPL");
 
-module_init(_init_proc);
-module_exit(_exit_proc);
+module_init(init_mars_proc);
+module_exit(exit_mars_proc);
+#endif

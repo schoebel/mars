@@ -545,6 +545,7 @@ static int copy_switch(struct copy_brick *brick)
 	} else {
 		mars_power_led_on((void*)brick, false);
 		if (brick->thread) {
+			MARS_INF("stopping thread...\n");
 			kthread_stop_nowait(brick->thread);
 			put_task_struct(brick->thread);
 			brick->thread = NULL;
@@ -561,7 +562,7 @@ static int copy_switch(struct copy_brick *brick)
 static
 char *copy_statistics(struct copy_brick *brick, int verbose)
 {
-	char *res = brick_string_alloc();
+	char *res = brick_string_alloc(0);
         if (!res)
                 return NULL;
 
@@ -677,21 +678,23 @@ EXPORT_SYMBOL_GPL(copy_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 
-static int __init init_copy(void)
+int __init init_mars_copy(void)
 {
 	MARS_INF("init_copy()\n");
 	return copy_register_brick_type();
 }
 
-static void __exit exit_copy(void)
+void __exit exit_mars_copy(void)
 {
 	MARS_INF("exit_copy()\n");
 	copy_unregister_brick_type();
 }
 
+#ifndef CONFIG_MARS_HAVE_BIGMODULE
 MODULE_DESCRIPTION("MARS copy brick");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@1und1.de>");
 MODULE_LICENSE("GPL");
 
-module_init(init_copy);
-module_exit(exit_copy);
+module_init(init_mars_copy);
+module_exit(exit_mars_copy);
+#endif

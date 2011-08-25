@@ -56,7 +56,12 @@ extern int mars_recv(struct socket **sock, void *buf, int minlen, int maxlen);
 /* Mid-level generic field data exchange
  */
 extern int mars_send_struct(struct socket **sock, void *data, const struct meta *meta);
-extern int mars_recv_struct(struct socket **sock, void *data, const struct meta *meta);
+#define mars_recv_struct(_sock_,_data_,_meta_)				\
+	({								\
+		int seq = 0;						\
+		_mars_recv_struct(_sock_, _data_, _meta_, &seq, __LINE__); \
+	})
+extern int _mars_recv_struct(struct socket **sock, void *data, const struct meta *meta, int *seq, int line);
 
 /* High-level transport of mars structures
  */
@@ -67,6 +72,13 @@ extern int mars_send_mref(struct socket **sock, struct mref_object *mref);
 extern int mars_recv_mref(struct socket **sock, struct mref_object *mref);
 extern int mars_send_cb(struct socket **sock, struct mref_object *mref);
 extern int mars_recv_cb(struct socket **sock, struct mref_object *mref);
+
+/////////////////////////////////////////////////////////////////////////
+
+// init
+
+extern int init_mars_net(void);
+extern void exit_mars_net(void);
 
 
 #endif

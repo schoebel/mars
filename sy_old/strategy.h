@@ -86,7 +86,7 @@ extern struct mars_brick *path_find_brick(struct mars_global *global, const void
 extern struct mars_brick *make_brick_all(
 	struct mars_global *global,
 	struct mars_dent *belongs,
-	void (*setup_fn)(struct mars_brick *brick, void *private),
+	int (*setup_fn)(struct mars_brick *brick, void *private),
 	void *private,
 	int timeout,
 	const char *new_name,
@@ -123,5 +123,16 @@ extern int  mars_power_button_recursive(struct mars_brick *brick, bool val, bool
  */
 extern int mars_digest_size;
 extern void mars_digest(void *digest, void *data, int len);
-#endif
 
+/////////////////////////////////////////////////////////////////////////
+
+// init
+
+extern int init_sy(void);
+extern void exit_sy(void);
+
+extern int init_sy_net(void);
+extern void exit_sy_net(void);
+
+
+#endif

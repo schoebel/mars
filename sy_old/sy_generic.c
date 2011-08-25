@@ -317,7 +317,7 @@ int get_inode(char *newpath, struct mars_dent *dent)
                 inode = path.dentry->d_inode;
 
 		status = -ENOMEM;
-		link = brick_string_alloc();
+		link = brick_string_alloc(0);
 		if (likely(link)) {
 			MARS_IO("len = %d\n", len);
 			status = inode->i_op->readlink(path.dentry, link, len + 1);
@@ -371,7 +371,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 		return 0;
 
 	pathlen = cookie->pathlen;
-	newpath = brick_string_alloc();
+	newpath = brick_string_alloc(pathlen + 1);
 	if (unlikely(!newpath))
 		goto err_mem0;
 	memcpy(newpath, cookie->path, pathlen);
@@ -410,13 +410,15 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	if (unlikely(!dent))
 		goto err_mem1;
 
-	dent->d_name = brick_string_alloc();
+	dent->d_name = brick_string_alloc(namlen + 1);
 	if (unlikely(!dent->d_name))
 		goto err_mem2;
 	memcpy(dent->d_name, name, namlen);
 	dent->d_name[namlen] = '\0';
 	dent->d_namelen = namlen;
-	dent->d_rest = dent->d_name + prefix;
+	dent->d_rest = brick_strdup(dent->d_name + prefix);
+	if (unlikely(!dent->d_rest))
+		goto err_mem3;
 
 	dent->d_path = newpath;
 	newpath = NULL;
@@ -441,6 +443,8 @@ found:
 	brick_string_free(newpath);
 	return 0;
 
+err_mem3:
+	brick_mem_free(dent->d_name);
 err_mem2:
 	brick_mem_free(dent);
 err_mem1:
@@ -629,36 +633,6 @@ struct mars_dent *mars_find_dent(struct mars_global *global, const char *path)
 }
 EXPORT_SYMBOL_GPL(mars_find_dent);
 
-#if 0 // old code! does not work! incorrect locking / races!
-void mars_kill_dent(struct mars_dent *dent)
-{
-	struct mars_global *global = dent->d_global;
-	struct list_head *oldtmp = NULL;
-
-	CHECK_PTR(global, done);
-
-	down(&global->mutex);
-	while (!list_empty(&dent->brick_list)) {
-		struct list_head *tmp = dent->brick_list.next;
-		struct mars_brick *brick = container_of(tmp, struct mars_brick, dent_brick_link);
-
-		// just satisfy "defensive" programming style...
-		if (unlikely(tmp == oldtmp)) {
-			MARS_ERR("oops, something is nasty here\n");
-			list_del_init(tmp);
-			continue;
-		}
-		oldtmp = tmp;
-
-		// killing a brick may take a long time...
-		up(&global->mutex);
-		mars_kill_brick(brick);
-		down(&global->mutex);
-	}
-	up(&global->mutex);
- done: ;
-}
-#else
 void mars_kill_dent(struct mars_dent *dent)
 {
 	dent->d_killme = true;
@@ -670,7 +644,6 @@ void mars_kill_dent(struct mars_dent *dent)
 		mars_kill_brick(brick);
 	}
 }
-#endif
 EXPORT_SYMBOL_GPL(mars_kill_dent);
 
 void mars_free_dent(struct mars_dent *dent)
@@ -687,10 +660,11 @@ void mars_free_dent(struct mars_dent *dent)
 	}
 	brick_string_free(dent->d_args);
 	brick_string_free(dent->d_name);
+	brick_string_free(dent->d_rest);
 	brick_string_free(dent->d_path);
-	brick_mem_free(dent->d_private);
 	brick_string_free(dent->old_link);
 	brick_string_free(dent->new_link);
+	//brick_mem_free(dent->d_private);
 	brick_mem_free(dent);
 }
 EXPORT_SYMBOL_GPL(mars_free_dent);
@@ -765,7 +739,7 @@ int mars_free_brick(struct mars_brick *brick)
 		}
 	}
 
-	MARS_DBG("===> freeing brick name = '%s'\n", brick->brick_name);
+	MARS_DBG("===> freeing brick name = '%s' path = '%s'\n", brick->brick_name, brick->brick_path);
 
 	global = brick->global;
 	if (global) {
@@ -773,6 +747,14 @@ int mars_free_brick(struct mars_brick *brick)
 		list_del_init(&brick->global_brick_link);
 		list_del_init(&brick->dent_brick_link);
 		up_write(&global->brick_mutex);
+	}
+
+	for (i = 0; i < brick->nr_inputs; i++) {
+		struct mars_input *input = brick->inputs[i];
+		if (input) {
+			MARS_DBG("disconnecting input %i\n", i);
+			generic_disconnect((void*)input);
+		}
 	}
 
 	status = generic_brick_exit_full((void*)brick);
@@ -893,8 +875,19 @@ int mars_kill_brick(struct mars_brick *brick)
 
 	MARS_DBG("===> killing brick path = '%s' name = '%s'\n", brick->brick_path, brick->brick_name);
 
+	down_write(&global->brick_mutex);
+	list_del_init(&brick->global_brick_link);
+	list_del_init(&brick->dent_brick_link);
+	up_write(&global->brick_mutex);
+
+	if (unlikely(brick->nr_outputs > 0 && brick->outputs[0] && brick->outputs[0]->nr_connected)) {
+		MARS_ERR("sorry, output is in use '%s'\n", brick->brick_path);
+		goto done;
+	}
+
 	// start shutdown
-	status = set_recursive_button((void*)brick, BR_FREE_ALL, 10 * HZ);
+	//status = set_recursive_button((void*)brick, BR_FREE_ALL, 10 * HZ);
+	status = set_recursive_button((void*)brick, BR_FREE_ONE, 10 * HZ);
 
 done:
 	return status;
@@ -908,7 +901,7 @@ EXPORT_SYMBOL_GPL(mars_kill_brick);
 
 char *vpath_make(const char *fmt, va_list *args)
 {
-	char *res = brick_string_alloc();
+	char *res = brick_string_alloc(MARS_PATH_MAX);
 
 	if (likely(res)) {
 		vsnprintf(res, MARS_PATH_MAX, fmt, *args);
@@ -932,7 +925,7 @@ char *backskip_replace(const char *path, char delim, bool insert, const char *fm
 {
 	int path_len = strlen(path);
 	int total_len = strlen(fmt) + path_len + MARS_PATH_MAX;
-	char *res = brick_string_alloc();
+	char *res = brick_string_alloc(total_len + 1);
 	if (likely(res)) {
 		va_list args;
 		int pos = path_len;
@@ -990,7 +983,7 @@ EXPORT_SYMBOL_GPL(_aio_brick_type);
 struct mars_brick *make_brick_all(
 	struct mars_global *global,
 	struct mars_dent *belongs,
-	void (*setup_fn)(struct mars_brick *brick, void *private),
+	int (*setup_fn)(struct mars_brick *brick, void *private),
 	void *private,
 	int timeout,
 	const char *new_name,
@@ -1124,12 +1117,15 @@ struct mars_brick *make_brick_all(
 		}
 	}
 
+do_switch:
 	// call setup function
 	if (setup_fn) {
-		setup_fn(brick, private);
+		int setup_status = setup_fn(brick, private);
+		if (setup_status <= 0) {
+			switch_state = 0;
+		}
 	}
 
-do_switch:
 	// switch on/off (may fail silently, but responsibility is at the workers)
 	if (timeout > 0 || !switch_state) {
 		int status;
@@ -1172,7 +1168,7 @@ EXPORT_SYMBOL_GPL(make_brick_all);
 
 // init stuff
 
-static int __init init_sy(void)
+int __init init_sy(void)
 {
 	MARS_INF("init_sy()\n");
 
@@ -1200,7 +1196,7 @@ static int __init init_sy(void)
 	return 0;
 }
 
-static void __exit exit_sy(void)
+void __exit exit_sy(void)
 {
 	MARS_INF("exit_sy()\n");
 	if (mars_tfm) {
@@ -1208,9 +1204,11 @@ static void __exit exit_sy(void)
 	}
 }
 
+#ifndef CONFIG_MARS_HAVE_BIGMODULE
 MODULE_DESCRIPTION("MARS block storage");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@1und1.de>");
 MODULE_LICENSE("GPL");
 
 module_init(init_sy);
 module_exit(exit_sy);
+#endif

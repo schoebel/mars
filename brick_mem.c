@@ -9,7 +9,6 @@
 #include "brick_mem.h"
 
 #define BRICK_DEBUG_MEM 10000
-#define STRING_SIZE 1024
 
 #define MAGIC_MEM (int)0x8B395D7D
 #define MAGIC_END (int)0x8B395D7E
@@ -18,7 +17,7 @@
 #define INT_ACCESS(ptr,offset) (*(int*)(((char*)(ptr)) + (offset)))
 
 #define _BRICK_FMT(_fmt) __BASE_FILE__ " %d %s(): " _fmt, __LINE__, __FUNCTION__
-#define _BRICK_MSG(_dump, PREFIX, _fmt, _args...) do { printk(PREFIX _BRICK_FMT(_fmt), ##_args); } while (0)
+#define _BRICK_MSG(_dump, PREFIX, _fmt, _args...) do { printk(PREFIX _BRICK_FMT(_fmt), ##_args); if (_dump) dump_stack(); } while (0)
 #define BRICK_ERROR   "MEM_ERROR "
 #define BRICK_WARNING "MEM_WARN  "
 #define BRICK_INFO    "MEM_INFO  "
@@ -94,17 +93,24 @@ static atomic_t string_count[BRICK_DEBUG_MEM] = {};
 static atomic_t string_free[BRICK_DEBUG_MEM] = {};
 #endif
 
-char *_brick_string_alloc(int line)
+char *_brick_string_alloc(int len, int line)
 {
-	char *res = kmalloc(STRING_SIZE, GFP_BRICK);
+	char *res;
+#ifdef FIXME
+	if (len <= 0)
+		len = BRICK_STRING_LEN;
+#else // provisionary
+	len = BRICK_STRING_LEN;
+#endif
+	res = kmalloc(len, GFP_BRICK);
 #ifdef BRICK_DEBUG_MEM
 	if (likely(res)) {
 		if (unlikely(line < 0))
 			line = 0;
 		else if (unlikely(line >= BRICK_DEBUG_MEM))
 			line = BRICK_DEBUG_MEM - 1;
-		INT_ACCESS(res, STRING_SIZE - PLUS_SIZE) = MAGIC_STR;
-		INT_ACCESS(res, STRING_SIZE - PLUS_SIZE + sizeof(int)) = line;
+		INT_ACCESS(res, len - PLUS_SIZE) = MAGIC_STR;
+		INT_ACCESS(res, len - PLUS_SIZE + sizeof(int)) = line;
 		atomic_inc(&string_count[line]);
 	}
 #endif
@@ -116,8 +122,9 @@ void _brick_string_free(const char *data, int cline)
 {
 	if (data) {
 #ifdef BRICK_DEBUG_MEM
-		int magic = INT_ACCESS(data, STRING_SIZE - PLUS_SIZE);
-		int line = INT_ACCESS(data, STRING_SIZE - PLUS_SIZE + sizeof(int));
+		int len = BRICK_STRING_LEN;
+		int magic = INT_ACCESS(data, len - PLUS_SIZE);
+		int line = INT_ACCESS(data, len - PLUS_SIZE + sizeof(int));
 		if (unlikely(magic != MAGIC_STR)) {
 			BRICK_ERR("line %d stringmem corruption: magix %08x != %08x\n", cline, magic, MAGIC_STR);
 			return;
@@ -126,7 +133,7 @@ void _brick_string_free(const char *data, int cline)
 			BRICK_ERR("line %d stringmem corruption: line = %d\n", cline, line);
 			return;
 		}
-		INT_ACCESS(data, STRING_SIZE - PLUS_SIZE) = 0xffffffff;
+		INT_ACCESS(data, len - PLUS_SIZE) = 0xffffffff;
 		atomic_dec(&string_count[line]);
 		atomic_inc(&string_free[line]);
 #endif
@@ -262,7 +269,7 @@ void brick_mem_statistics(void)
 		if (val) {
 			count += val;
 			places++;
-			BRICK_INF("line %d: %d allocated (last size = %d, freed = %d)\n", i, val, mem_len[i], atomic_read(&mem_free[i]));
+			BRICK_INF("line %4d: %6d allocated (last size = %4d, freed = %6d)\n", i, val, mem_len[i], atomic_read(&mem_free[i]));
 		}
 	}
 	BRICK_INF("======== %d memory allocations in %d places\n", count, places);
@@ -272,7 +279,7 @@ void brick_mem_statistics(void)
 		if (val) {
 			count += val;
 			places++;
-			BRICK_INF("line %d: %d allocated (freed = %d)\n", i, val, atomic_read(&string_free[i]));
+			BRICK_INF("line %4d: %6d allocated (freed = %6d)\n", i, val, atomic_read(&string_free[i]));
 		}
 	}
 	BRICK_INF("======== %d string allocations in %d places\n", count, places);
@@ -282,19 +289,21 @@ EXPORT_SYMBOL_GPL(brick_mem_statistics);
 
 // module init stuff
 
-static int __init init_brick_mem(void)
+int __init init_brick_mem(void)
 {
 	return 0;
 }
 
-static void __exit exit_brick_mem(void)
+void __exit exit_brick_mem(void)
 {
+	brick_mem_statistics();
 }
 
-
+#ifndef CONFIG_MARS_HAVE_BIGMODULE
 MODULE_DESCRIPTION("generic brick infrastructure");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@1und1.de>");
 MODULE_LICENSE("GPL");
 
 module_init(init_brick_mem);
 module_exit(exit_brick_mem);
+#endif

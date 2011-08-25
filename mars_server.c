@@ -316,6 +316,7 @@ int handler_thread(void *data)
 		default:
 			MARS_ERR("unknown command %d\n", cmd.cmd_code);
 		}
+		brick_string_free(cmd.cmd_str1);
 		if (status < 0)
 			break;
 	}
@@ -326,6 +327,7 @@ int handler_thread(void *data)
 
 done:
 	MARS_DBG("handler_thread terminating, status = %d\n", status);
+	MARS_INF("stopping thread...\n");
 	kthread_stop(cb_thread);
 	wait_event_interruptible_timeout(
 		brick->startup_event,
@@ -575,7 +577,7 @@ static int _server_thread(void *data)
 
 ////////////////// module init stuff /////////////////////////
 
-static int __init init_server(void)
+int __init init_mars_server(void)
 {
 	struct sockaddr_storage sockaddr = {};
 	struct task_struct *thread;
@@ -606,7 +608,7 @@ static int __init init_server(void)
 	return server_register_brick_type();
 }
 
-static void __exit exit_server(void)
+void __exit exit_mars_server(void)
 {
 	MARS_INF("exit_server()\n");
 	server_unregister_brick_type();
@@ -614,6 +616,7 @@ static void __exit exit_server(void)
 		if (server_socket) {
 			kernel_sock_shutdown(server_socket, SHUT_WR);
 		}
+		MARS_INF("stopping thread...\n");
 		kthread_stop(server_thread);
 		if (server_socket && !server_thread) {
 			//sock_release(server_socket);
@@ -622,9 +625,11 @@ static void __exit exit_server(void)
 	}
 }
 
+#ifndef CONFIG_MARS_HAVE_BIGMODULE
 MODULE_DESCRIPTION("MARS server brick");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@1und1.de>");
 MODULE_LICENSE("GPL");
 
-module_init(init_server);
-module_exit(exit_server);
+module_init(init_mars_server);
+module_exit(exit_mars_server);
+#endif

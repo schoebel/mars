@@ -394,7 +394,7 @@ int mars_send_struct(struct socket **sock, void *data, const struct meta *meta)
 }
 EXPORT_SYMBOL_GPL(mars_send_struct);
 
-int _mars_recv_struct(struct socket **sock, void *data, const struct meta *meta, int *seq)
+int _mars_recv_struct(struct socket **sock, void *data, const struct meta *meta, int *seq, int line)
 {
 	int count = 0;
 	int status = -EINVAL;
@@ -464,7 +464,7 @@ int _mars_recv_struct(struct socket **sock, void *data, const struct meta *meta,
 				mem = NULL;
 			} else {
 				if (tmp->field_type == FIELD_STRING) {
-					mem = brick_string_alloc();
+					mem = _brick_string_alloc(header.h_len + 1, line);
 				} else {
 					mem = brick_zmem_alloc(header.h_len + 1);
 				}
@@ -488,7 +488,7 @@ int _mars_recv_struct(struct socket **sock, void *data, const struct meta *meta,
 			}
 
 			MARS_IO("starting recursive structure\n");
-			status = _mars_recv_struct(sock, item, tmp->field_ref, seq);
+			status = _mars_recv_struct(sock, item, tmp->field_ref, seq, line);
 			MARS_IO("ending recursive structure, status = %d\n", status);
 
 			if (status > 0)
@@ -527,13 +527,7 @@ done:
 	}
 	return status;
 }
-
-int mars_recv_struct(struct socket **sock, void *data, const struct meta *meta)
-{
-	int seq = 0;
-	return _mars_recv_struct(sock, data, meta, &seq);
-}
-EXPORT_SYMBOL_GPL(mars_recv_struct);
+EXPORT_SYMBOL_GPL(_mars_recv_struct);
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -657,20 +651,22 @@ EXPORT_SYMBOL_GPL(mars_recv_cb);
 char *(*mars_translate_hostname)(const char *name) = NULL;
 EXPORT_SYMBOL_GPL(mars_translate_hostname);
 
-static int __init _init_net(void)
+int __init init_mars_net(void)
 {
 	MARS_INF("init_net()\n");
 	return 0;
 }
 
-static void __exit _exit_net(void)
+void __exit exit_mars_net(void)
 {
 	MARS_INF("exit_net()\n");
 }
 
+#ifndef CONFIG_MARS_HAVE_BIGMODULE
 MODULE_DESCRIPTION("MARS network infrastructure");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@1und1.de>");
 MODULE_LICENSE("GPL");
 
-module_init(_init_net);
-module_exit(_exit_net);
+module_init(init_mars_net);
+module_exit(exit_mars_net);
+#endif

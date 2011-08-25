@@ -8,6 +8,7 @@
 //#define REPLAY_DEBUGGING
 //#define STAT_DEBUGGING // here means: display full statistics
 //#define HASH_DEBUGGING
+//#define REFCOUNT_BUG // FIXME!!!
 
 // variants
 #define KEEP_UNIQUE
@@ -1332,7 +1333,7 @@ void phase1_preio(void *private)
 	// signal completion to the upper layer
 	// FIXME: immediate error signalling is impossible here, but some delayed signalling should be possible as a workaround. Think!
 	CHECK_ATOMIC(&orig_mref_a->object->ref_count, 1);
-#if 0
+#ifdef REFCOUNT_BUG // FIXME!!!
 	_complete(brick, orig_mref_a, 0, true);
 	CHECK_ATOMIC(&orig_mref_a->object->ref_count, 1);
 #endif
@@ -2494,6 +2495,7 @@ int trans_logger_switch(struct trans_logger_brick *brick)
 	} else {
 		mars_power_led_on((void*)brick, false);
 		if (brick->thread) {
+			MARS_INF("stopping thread...\n");
 			kthread_stop(brick->thread);
 			put_task_struct(brick->thread);
 			brick->thread = NULL;
@@ -2507,7 +2509,7 @@ int trans_logger_switch(struct trans_logger_brick *brick)
 static noinline
 char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 {
-	char *res = brick_string_alloc();
+	char *res = brick_string_alloc(0);
 	if (!res)
 		return NULL;
 
@@ -2688,21 +2690,23 @@ EXPORT_SYMBOL_GPL(trans_logger_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 
-static int __init init_trans_logger(void)
+int __init init_mars_trans_logger(void)
 {
 	MARS_INF("init_trans_logger()\n");
 	return trans_logger_register_brick_type();
 }
 
-static void __exit exit_trans_logger(void)
+void __exit exit_mars_trans_logger(void)
 {
 	MARS_INF("exit_trans_logger()\n");
 	trans_logger_unregister_brick_type();
 }
 
+#ifndef CONFIG_MARS_HAVE_BIGMODULE
 MODULE_DESCRIPTION("MARS trans_logger brick");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@1und1.de>");
 MODULE_LICENSE("GPL");
 
-module_init(init_trans_logger);
-module_exit(exit_trans_logger);
+module_init(init_mars_trans_logger);
+module_exit(exit_mars_trans_logger);
+#endif

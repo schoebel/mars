@@ -682,7 +682,7 @@ static
 char *if_statistics(struct if_brick *brick, int verbose)
 {
 	struct if_input *input = brick->inputs[0];
-	char *res = brick_string_alloc();
+	char *res = brick_string_alloc(0);
 	int tmp0 = atomic_read(&input->total_reada_count); 
 	int tmp1 = atomic_read(&input->total_read_count); 
 	int tmp2 = atomic_read(&input->total_mref_read_count);
@@ -837,7 +837,7 @@ EXPORT_SYMBOL_GPL(if_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 
-static void __exit exit_if(void)
+void __exit exit_mars_if(void)
 {
 	int status;
 	MARS_INF("exit_if()\n");
@@ -845,7 +845,7 @@ static void __exit exit_if(void)
 	unregister_blkdev(MARS_MAJOR, "mars");
 }
 
-static int __init init_if(void)
+int __init init_mars_if(void)
 {
 	int status;
 
@@ -861,13 +861,15 @@ static int __init init_if(void)
 	return status;
 err_device:
 	MARS_ERR("init_if() status=%d\n", status);
-	exit_if();
+	exit_mars_if();
 	return status;
 }
 
+#ifndef CONFIG_MARS_HAVE_BIGMODULE
 MODULE_DESCRIPTION("MARS if");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@1und1.de>");
 MODULE_LICENSE("GPL");
 
-module_init(init_if);
-module_exit(exit_if);
+module_init(init_mars_if);
+module_exit(exit_mars_if);
+#endif

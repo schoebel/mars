@@ -242,6 +242,8 @@ GENERIC_MAKE_CONNECT(generic,BRICK);				        \
 GENERIC_OBJECT_LAYOUT_FUNCTIONS(BRICK);				        \
 GENERIC_ASPECT_LAYOUT_FUNCTIONS(BRICK,mref);				\
 GENERIC_ASPECT_FUNCTIONS(BRICK,mref);					\
+extern int init_mars_##BRICK(void);					\
+extern void exit_mars_##BRICK(void);
 
 
 // instantiate all mars-specific functions
@@ -275,8 +277,22 @@ static const struct generic_aspect_type *BRICK##_aspect_types[BRICK_OBJ_MAX] = {
 	[BRICK_OBJ_MREF] = &BRICK##_mref_aspect_type,			\
 };									\
 
+extern const struct meta mars_info_meta[];
+extern const struct meta mars_mref_meta[];
+extern const struct meta mars_timespec_meta[];
+
+/////////////////////////////////////////////////////////////////////////
+
+// checking
+
+#ifdef CONFIG_DEBUG_KERNEL
+#define CHECKING true
+#else
+#define CHECKING false
+#endif
+
 #define _CHECK_ATOMIC(atom,OP,minval)					\
-	do {								\
+	if (CHECKING) do {						\
 		int __test = atomic_read(atom);				\
 		if (__test OP (minval)) {				\
 			atomic_set(atom, minval);			\
@@ -284,30 +300,30 @@ static const struct generic_aspect_type *BRICK##_aspect_types[BRICK_OBJ_MAX] = {
 		}							\
 	} while (0)
 
-#define CHECK_ATOMIC(atom,minval)			\
+#define CHECK_ATOMIC(atom,minval)		\
 	_CHECK_ATOMIC(atom, <, minval)
 
 #define CHECK_HEAD_EMPTY(head)						\
-	if (unlikely(!list_empty(head))) {				\
+	if (CHECKING && unlikely(!list_empty(head))) {			\
 		list_del_init(head);					\
 		MARS_ERR("%d: list_head " #head " (%p) not empty\n", __LINE__, head); \
 	}								\
 
 #define CHECK_PTR(ptr,label)						\
-	if (unlikely(!(ptr))) {						\
-		MARS_FAT("%d: ptr " #ptr " is NULL\n", __LINE__);	\
+	if (CHECKING && unlikely(!(ptr))) {				\
+		MARS_FAT("%d: ptr '" #ptr "' is NULL\n", __LINE__);	\
+		goto label;						\
+	}								\
+	if (CHECKING && unlikely(!virt_addr_valid(ptr))) {		\
+		MARS_FAT("%d: ptr '" #ptr "' is no valid virtual KERNEL address\n", __LINE__); \
 		goto label;						\
 	}
 
 #define _CHECK(ptr,label)						\
-	if (unlikely(!(ptr))) {						\
-		MARS_FAT("%d: condition " #ptr " is VIOLATED\n", __LINE__); \
+	if (CHECKING && unlikely(!(ptr))) {				\
+		MARS_FAT("%d: condition '" #ptr "' is VIOLATED\n", __LINE__); \
 		goto label;						\
 	}
-
-extern const struct meta mars_info_meta[];
-extern const struct meta mars_mref_meta[];
-extern const struct meta mars_timespec_meta[];
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -347,52 +363,53 @@ extern const struct generic_brick_type *_aio_brick_type;
 
 extern struct mm_struct *mm_fake;
 
-inline void set_fake(void)
+static inline void set_fake(void)
 {
-	mm_fake = current->mm;
-	if (mm_fake) {
-		atomic_inc(&mm_fake->mm_count);
-		atomic_inc(&mm_fake->mm_users);
-	}
+        mm_fake = current->mm;
+        if (mm_fake) {
+		MARS_INF("\n");
+                atomic_inc(&current->usage);
+                atomic_inc(&mm_fake->mm_count);
+                atomic_inc(&mm_fake->mm_users);
+        }
 }
 
-inline void put_fake(void)
-{
-	if (mm_fake) {
-		atomic_dec(&mm_fake->mm_users);
-		mmput(mm_fake);
-		mm_fake = NULL;
-	}
-}
-
-inline struct mm_struct *fake_mm(void)
+static inline void put_fake(void)
 {
 #if 0
-	if (!current->mm) {
-		// will be never released.... ;)
-		atomic_inc(&(current->mm = &init_mm)->mm_count);
-	}
-	return NULL;
-#else
-	struct mm_struct *old = current->mm;
-	use_mm(mm_fake);
-	return old;
+        if (mm_fake) {
+		MARS_INF("\n");
+                atomic_dec(&mm_fake->mm_users);
+                mmput(mm_fake);
+                mm_fake = NULL;
+        }
 #endif
 }
+
+static inline void use_fake_mm(void)
+{
+	if (!current->mm && mm_fake) {
+		MARS_INF("\n");
+		use_mm(mm_fake);
+	}
+}
+
 /* Cleanup faked mm, otherwise do_exit() will crash
  */
-inline void cleanup_mm(struct mm_struct *old)
+static inline void unuse_fake_mm(void)
 {
-#if 0
-	if (current->mm == &init_mm) {
-		current->mm = NULL;
+	if (current->mm == mm_fake && mm_fake) {
+		MARS_INF("\n");
+		unuse_mm(mm_fake);
+		//current->mm = NULL;
 	}
-#else
-	unuse_mm(old);
-#endif
-#if 1
-	for (;;) msleep(1000);
-#endif
 }
+
+/////////////////////////////////////////////////////////////////////////
+
+// init
+
+extern int init_mars(void);
+extern void exit_mars(void);
 
 #endif

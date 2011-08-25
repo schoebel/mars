@@ -6,4 +6,11 @@ typedef char * (*mars_info_fn)(void);
 
 extern mars_info_fn mars_info;
 
+/////////////////////////////////////////////////////////////////////////
+
+// init
+
+extern int init_mars_proc(void);
+extern void exit_mars_proc(void);
+
 #endif

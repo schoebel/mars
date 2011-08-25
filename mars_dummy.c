@@ -198,9 +198,11 @@ void __exit exit_dummy(void)
 	dummy_unregister_brick_type();
 }
 
+#ifndef CONFIG_MARS_HAVE_BIGMODULE
 MODULE_DESCRIPTION("MARS dummy brick");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@1und1.de>");
 MODULE_LICENSE("GPL");
 
 module_init(init_dummy);
 module_exit(exit_dummy);
+#endif

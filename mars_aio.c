@@ -46,7 +46,7 @@ static void measure_sync(int ticks)
 
 static char *show_sync(void)
 {
-	char *res = brick_string_alloc();
+	char *res = brick_string_alloc(0);
 	int i;
 	int pos = 0;
 	if (!res)
@@ -316,7 +316,9 @@ static int aio_submit_dummy(struct aio_output *output)
 {
 	mm_segment_t oldfs;
 	int res;
+	int dummy;
 	struct iocb iocb = {
+		.aio_buf = (__u64)&dummy,
 	};
 	struct iocb *iocbp = &iocb;
 
@@ -333,7 +335,6 @@ static int aio_submit_thread(void *data)
 	struct aio_threadinfo *tinfo = data;
 	struct aio_output *output = tinfo->output;
 	struct file *file = output->filp;
-	struct mm_struct *old_mm;
 	int err;
 	
 	/* TODO: this is provisionary. We only need it for sys_io_submit().
@@ -351,7 +352,7 @@ static int aio_submit_thread(void *data)
 	MARS_INF("kthread has started.\n");
 	//set_user_nice(current, -20);
 
-	old_mm = fake_mm();
+	use_fake_mm();
 
 	if (!current->mm)
 		return -ENOMEM;
@@ -435,10 +436,14 @@ static int aio_submit_thread(void *data)
 		}
 	}
 
-	MARS_INF("kthread has stopped.\n");
-	tinfo->terminated = true;
+#if 1 // workaround for waking up the receiver thread. TODO: check whether signal handlong could do better.
+	aio_submit_dummy(output);
+#endif
 
-	cleanup_mm(old_mm);
+	tinfo->terminated = true;
+	MARS_INF("kthread has stopped.\n");
+
+	unuse_fake_mm();
 
 	return 0;
 }
@@ -448,13 +453,12 @@ static int aio_event_thread(void *data)
 	struct aio_threadinfo *tinfo = data;
 	struct aio_output *output = tinfo->output;
 	struct aio_threadinfo *other = &output->tinfo[2];
-	struct mm_struct *old_mm;
 	int err = -ENOMEM;
 	
 	MARS_INF("kthread has started.\n");
 	//set_user_nice(current, -20);
 
-	old_mm = fake_mm();
+	use_fake_mm();
 	if (!current->mm)
 		goto err;
 
@@ -533,10 +537,10 @@ static int aio_event_thread(void *data)
 	err = 0;
 
  err:
-	MARS_INF("kthread has stopped, err = %d\n", err);
 	tinfo->terminated = true;
+	MARS_INF("kthread has stopped, err = %d\n", err);
 
-	cleanup_mm(old_mm);
+	unuse_fake_mm();
 
 	return err;
 }
@@ -700,7 +704,7 @@ static noinline
 char *aio_statistics(struct aio_brick *brick, int verbose)
 {
 	struct aio_output *output = brick->outputs[0];
-	char *res = brick_string_alloc();
+	char *res = brick_string_alloc(0);
 	char *sync = NULL;
 	if (!res)
 		return NULL;
@@ -855,29 +859,37 @@ cleanup:
 	}
 
 	mars_power_led_on((void*)brick, false);
-	for (i = 0; i < 3; i++) {
+	for (i = 2; i >= 0; i--) {
 		struct aio_threadinfo *tinfo = &output->tinfo[i];
 		if (tinfo->thread) {
-			kthread_stop(tinfo->thread);
-			tinfo->thread = NULL;
+			MARS_INF("stopping thread %d ...\n", i);
+			kthread_stop_nowait(tinfo->thread);
 		}
 	}
-	aio_submit_dummy(output);
 	for (i = 0; i < 3; i++) {
 		struct aio_threadinfo *tinfo = &output->tinfo[i];
 		if (tinfo->thread) {
 			// wait for termination
+			MARS_INF("waiting for thread %d ...\n", i);
 			wait_event_interruptible_timeout(
 				tinfo->event,
-				tinfo->terminated, 30 * HZ);
-			if (tinfo->terminated)
+				tinfo->terminated, 60 * HZ);
+			if (likely(tinfo->terminated)) {
+				MARS_INF("finalizing thread %d ...\n", i);
+				kthread_stop(tinfo->thread);
+				put_task_struct(tinfo->thread);
 				tinfo->thread = NULL;
+			} else {
+				MARS_ERR("thread %d did not terminate - leaving a zombie\n", i);
+			}
 		}
 	}
+
 	mars_power_led_off((void*)brick,
 			  (output->tinfo[0].thread == NULL &&
 			   output->tinfo[1].thread == NULL &&
 			   output->tinfo[2].thread == NULL));
+
 	if (brick->power.led_off) {
 		if (output->filp) {
 			filp_close(output->filp, NULL);
@@ -960,22 +972,24 @@ EXPORT_SYMBOL_GPL(aio_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 
-static int __init _init_aio(void)
+int __init init_mars_aio(void)
 {
 	MARS_INF("init_aio()\n");
 	_aio_brick_type = (void*)&aio_brick_type;
 	return aio_register_brick_type();
 }
 
-static void __exit _exit_aio(void)
+void __exit exit_mars_aio(void)
 {
 	MARS_INF("exit_aio()\n");
 	aio_unregister_brick_type();
 }
 
+#ifndef CONFIG_MARS_HAVE_BIGMODULE
 MODULE_DESCRIPTION("MARS aio brick");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@1und1.de>");
 MODULE_LICENSE("GPL");
 
-module_init(_init_aio);
-module_exit(_exit_aio);
+module_init(init_mars_aio);
+module_exit(exit_mars_aio);
+#endif

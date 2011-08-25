@@ -311,7 +311,7 @@ int generic_brick_exit_full(struct generic_brick *brick)
 			continue;
 		}
 		if (output->nr_connected) {
-			BRICK_DBG("output is connected!\n");
+			BRICK_ERR("output is connected!\n");
 			return -EPERM;
 		}
 	}
@@ -327,7 +327,7 @@ int generic_brick_exit_full(struct generic_brick *brick)
 		if (output->type->output_destruct) {
 			BRICK_DBG("generic_brick_exit_full: calling output_destruct()\n");
 			status = output->type->output_destruct(output);
-			if (status)
+			if (status < 0)
 				return status;
 			_generic_output_exit(output);
 			brick->outputs[i] = NULL; // others may remain leftover
@@ -342,21 +342,21 @@ int generic_brick_exit_full(struct generic_brick *brick)
 			continue;
 		}
 		if (input->type->input_destruct) {
+			status = generic_disconnect(input);
+			if (status < 0)
+				return status;
 			BRICK_DBG("generic_brick_exit_full: calling input_destruct()\n");
 			status = input->type->input_destruct(input);
-			if (status)
+			if (status < 0)
 				return status;
 			brick->inputs[i] = NULL; // others may remain leftover
-			status = generic_disconnect(input);
-			if (status)
-				return status;
 			generic_input_exit(input);
 		}
 	}
 	if (brick->type->brick_destruct) {
 		BRICK_DBG("generic_brick_exit_full: calling brick_destruct()\n");
 		status = brick->type->brick_destruct(brick);
-		if (status)
+		if (status < 0)
 			return status;
 	}
 	generic_brick_exit(brick);
@@ -1018,7 +1018,7 @@ EXPORT_SYMBOL_GPL(free_meta);
 
 // module init stuff
 
-static int __init init_brick(void)
+int __init init_brick(void)
 {
 	nr_table = brick_zmem_alloc(nr_max);
 	if (!nr_table) {
@@ -1027,7 +1027,7 @@ static int __init init_brick(void)
 	return 0;
 }
 
-static void __exit exit_brick(void)
+void __exit exit_brick(void)
 {
 	if (nr_table) {
 		brick_mem_free(nr_table);
@@ -1035,10 +1035,11 @@ static void __exit exit_brick(void)
 	}
 }
 
-
+#ifndef CONFIG_MARS_HAVE_BIGMODULE
 MODULE_DESCRIPTION("generic brick infrastructure");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@1und1.de>");
 MODULE_LICENSE("GPL");
 
 module_init(init_brick);
 module_exit(exit_brick);
+#endif

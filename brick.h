@@ -12,7 +12,7 @@
 #include "meta.h"
 
 #ifdef CONFIG_DEBUG_KERNEL
-#define INLINE inline
+#define INLINE static inline
 //#define INLINE __attribute__((__noinline__))
 extern void say(const char *fmt, ...);
 extern void say_mark(void);
@@ -20,7 +20,7 @@ extern void brick_dump_stack(void);
 
 #else // CONFIG_DEBUG_KERNEL
 
-#define INLINE inline
+#define INLINE static inline
 #define say printk
 #define say_mark() /*empty*/
 #define brick_dump_stack() /*empty*/
@@ -444,12 +444,14 @@ INLINE int generic_connect(struct generic_input *input, struct generic_output *o
 
 INLINE int generic_disconnect(struct generic_input *input)
 {
+	struct generic_output *connect;
 	BRICK_DBG("generic_disconnect(input=%p)\n", input);
 	if (!input)
 		return -EINVAL;
-	if (input->connect) {
-		input->connect->nr_connected--;
-		BRICK_DBG("now nr_connected=%d\n", input->connect->nr_connected);
+	connect = input->connect;
+	if (connect) {
+		connect->nr_connected--;
+		BRICK_DBG("now nr_connected=%d\n", connect->nr_connected);
 		input->connect = NULL;
 		list_del_init(&input->input_head);
 		//brick_layout_generation++;
@@ -461,7 +463,7 @@ INLINE int generic_disconnect(struct generic_input *input)
 
 // simple wrappers for type safety
 #define GENERIC_MAKE_FUNCTIONS(BRICK)					\
-extern inline int BRICK##_register_brick_type(void)		        \
+static inline int BRICK##_register_brick_type(void)		        \
 {									\
 	extern const struct BRICK##_brick_type BRICK##_brick_type;	\
 	extern int BRICK##_brick_nr;					\
@@ -473,13 +475,13 @@ extern inline int BRICK##_register_brick_type(void)		        \
 	return BRICK##_brick_nr < 0 ? BRICK##_brick_nr : 0;		\
 }									\
 									\
-extern inline int BRICK##_unregister_brick_type(void)		        \
+static inline int BRICK##_unregister_brick_type(void)		        \
 {									\
 	extern const struct BRICK##_brick_type BRICK##_brick_type;	\
 	return generic_unregister_brick_type((const struct generic_brick_type*)&BRICK##_brick_type); \
 }									\
 									\
-extern int BRICK##_make_object_layout(struct BRICK##_output *output, struct generic_object_layout *object_layout) \
+static inline int BRICK##_make_object_layout(struct BRICK##_output *output, struct generic_object_layout *object_layout) \
 {									\
 	return default_make_object_layout((struct generic_output*)output, object_layout); \
 }									\
@@ -488,7 +490,7 @@ extern const struct BRICK##_brick_type BRICK##_brick_type;	        \
 extern const struct BRICK##_input_type BRICK##_input_type;	        \
 extern const struct BRICK##_output_type BRICK##_output_type;	        \
 									\
-static INLINE void _##BRICK##_output_init(struct BRICK##_brick *brick, struct BRICK##_output *output, char *output_name) \
+INLINE void _##BRICK##_output_init(struct BRICK##_brick *brick, struct BRICK##_output *output, char *output_name) \
 {									\
 	_generic_output_init(						\
 		(struct generic_brick*)brick,				\
@@ -498,12 +500,12 @@ static INLINE void _##BRICK##_output_init(struct BRICK##_brick *brick, struct BR
 }									\
 									\
 _STRATEGY_CODE(							        \
-static INLINE int BRICK##_brick_init(struct BRICK##_brick *brick, char *brick_name) \
+INLINE int BRICK##_brick_init(struct BRICK##_brick *brick, char *brick_name) \
 {									\
 	return generic_brick_init((const struct generic_brick_type*)&BRICK##_brick_type, (struct generic_brick*)brick, brick_name); \
 }									\
 									\
-static INLINE int BRICK##_input_init(struct BRICK##_brick *brick, int index, struct BRICK##_input *input, char *input_name) \
+INLINE int BRICK##_input_init(struct BRICK##_brick *brick, int index, struct BRICK##_input *input, char *input_name) \
 {									\
 	return generic_input_init(					\
 		(struct generic_brick*)brick,				\
@@ -513,7 +515,7 @@ static INLINE int BRICK##_input_init(struct BRICK##_brick *brick, int index, str
 		input_name);						\
 }									\
 									\
-static INLINE int BRICK##_output_init(struct BRICK##_brick *brick, int index, struct BRICK##_output *output, char *output_name) \
+INLINE int BRICK##_output_init(struct BRICK##_brick *brick, int index, struct BRICK##_output *output, char *output_name) \
 {									\
 	return generic_output_init(					\
 		(struct generic_brick*)brick,				\
@@ -809,5 +811,12 @@ typedef enum {
 } brick_switch_t;
 
 extern int set_recursive_button(struct generic_brick *brick, brick_switch_t mode, int timeout);
+
+/////////////////////////////////////////////////////////////////////////
+
+// init
+
+extern int init_brick(void);
+extern void exit_brick(void);
 
 #endif

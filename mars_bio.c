@@ -521,6 +521,7 @@ static int bio_switch(struct bio_brick *brick)
 			brick->filp = NULL;
 		}
 		if (brick->thread) {
+			MARS_INF("stopping thread...\n");
 			kthread_stop(brick->thread);
 			brick->thread = NULL;
 		}
@@ -544,7 +545,7 @@ done:
 static noinline
 char *bio_statistics(struct bio_brick *brick, int verbose)
 {
-	char *res = brick_string_alloc();
+	char *res = brick_string_alloc(0);
 	if (!res)
 		return NULL;
 
@@ -662,22 +663,24 @@ EXPORT_SYMBOL_GPL(bio_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 
-static int __init init_bio(void)
+int __init init_mars_bio(void)
 {
 	MARS_INF("init_bio()\n");
 	_bio_brick_type = (void*)&bio_brick_type;
 	return bio_register_brick_type();
 }
 
-static void __exit exit_bio(void)
+void __exit exit_mars_bio(void)
 {
 	MARS_INF("exit_bio()\n");
 	bio_unregister_brick_type();
 }
 
+#ifndef CONFIG_MARS_HAVE_BIGMODULE
 MODULE_DESCRIPTION("MARS bio brick");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@1und1.de>");
 MODULE_LICENSE("GPL");
 
-module_init(init_bio);
-module_exit(exit_bio);
+module_init(init_mars_bio);
+module_exit(exit_mars_bio);
+#endif

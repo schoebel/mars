@@ -34,6 +34,7 @@ static void _kill_socket(struct client_output *output)
 static void _kill_thread(struct client_threadinfo *ti)
 {
 	if (ti->thread && !ti->terminated) {
+		MARS_INF("stopping thread...\n");
 		kthread_stop(ti->thread);
 		ti->thread = NULL;
 	}
@@ -604,22 +605,24 @@ EXPORT_SYMBOL_GPL(client_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 
-static int __init init_client(void)
+int __init init_mars_client(void)
 {
 	MARS_INF("init_client()\n");
 	_client_brick_type = (void*)&client_brick_type;
 	return client_register_brick_type();
 }
 
-static void __exit exit_client(void)
+void __exit exit_mars_client(void)
 {
 	MARS_INF("exit_client()\n");
 	client_unregister_brick_type();
 }
 
+#ifndef CONFIG_MARS_HAVE_BIGMODULE
 MODULE_DESCRIPTION("MARS client brick");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@1und1.de>");
 MODULE_LICENSE("GPL");
 
-module_init(init_client);
-module_exit(exit_client);
+module_init(init_mars_client);
+module_exit(exit_mars_client);
+#endif

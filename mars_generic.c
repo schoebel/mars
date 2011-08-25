@@ -124,7 +124,7 @@ EXPORT_SYMBOL_GPL(_mars_log);
 
 void mars_log(const char *fmt, ...)
 {
-	char *buf = brick_string_alloc();
+	char *buf = brick_string_alloc(0);
 	va_list args;
 	int len;
 	if (!buf)
@@ -153,7 +153,7 @@ EXPORT_SYMBOL_GPL(mars_trace);
 
 void mars_log_trace(struct mref_object *mref)
 {
-	char *buf = brick_string_alloc();
+	char *buf = brick_string_alloc(0);
 	unsigned long long old;
 	unsigned long long diff;
 	int i;
@@ -238,7 +238,7 @@ EXPORT_SYMBOL_GPL(mars_global_memlimit);
 struct mm_struct *mm_fake = NULL;
 EXPORT_SYMBOL_GPL(mm_fake);
 
-static int __init init_mars(void)
+int __init init_mars(void)
 {
 	MARS_INF("init_mars()\n");
 
@@ -267,7 +267,7 @@ static int __init init_mars(void)
 	return 0;
 }
 
-static void __exit exit_mars(void)
+void __exit exit_mars(void)
 {
 	MARS_INF("exit_mars()\n");
 	put_fake();
@@ -283,9 +283,11 @@ static void __exit exit_mars(void)
 	}
 }
 
+#ifndef CONFIG_MARS_HAVE_BIGMODULE
 MODULE_DESCRIPTION("MARS block storage");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@1und1.de>");
 MODULE_LICENSE("GPL");
 
 module_init(init_mars);
 module_exit(exit_mars);
+#endif
