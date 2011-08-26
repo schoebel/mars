@@ -584,7 +584,8 @@ int __init init_mars_server(void)
 	int status;
 
 	MARS_INF("init_server()\n");
-	
+
+#if 0	
 	status = mars_create_sockaddr(&sockaddr, "");
 	if (status < 0)
 		return status;
@@ -602,8 +603,10 @@ int __init init_mars_server(void)
 		return PTR_ERR(thread);
 	}
 
+	get_task_struct(thread);
 	server_thread = thread;
 	wake_up_process(thread);
+#endif
 
 	return server_register_brick_type();
 }
@@ -618,10 +621,12 @@ void __exit exit_mars_server(void)
 		}
 		MARS_INF("stopping thread...\n");
 		kthread_stop(server_thread);
-		if (server_socket && !server_thread) {
+		if (server_socket) {
 			//sock_release(server_socket);
 			server_socket = NULL;
 		}
+		put_task_struct(server_thread);
+		server_thread = NULL;
 	}
 }
 

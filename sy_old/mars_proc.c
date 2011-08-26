@@ -98,8 +98,10 @@ int __init init_mars_proc(void)
 {
 
 	MARS_INF("init_proc()\n");
-	
+
+#if 0
 	header = register_sysctl_table(mars_table);
+#endif
 
 	return 0;
 }
