@@ -38,7 +38,7 @@ done:
 	return brick_strdup(res);
 }
 
-int mars_send_dent_list(struct socket **sock, struct list_head *anchor)
+int mars_send_dent_list(struct mars_socket *sock, struct list_head *anchor)
 {
 	struct list_head *tmp;
 	struct mars_dent *dent;
@@ -49,14 +49,14 @@ int mars_send_dent_list(struct socket **sock, struct list_head *anchor)
 		if (status < 0)
 			break;
 	}
-	if (status >= 0) { // send EOF
+	if (status >= 0) { // send EOR
 		status = mars_send_struct(sock, NULL, mars_dent_meta);
 	}
 	return status;
 }
 EXPORT_SYMBOL_GPL(mars_send_dent_list);
 
-int mars_recv_dent_list(struct socket **sock, struct list_head *anchor)
+int mars_recv_dent_list(struct mars_socket *sock, struct list_head *anchor)
 {
 	int status;
 	for (;;) {

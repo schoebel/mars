@@ -857,13 +857,13 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 		/* eliminate duplicates	*/				\
 		for (j = 0; j < stack; j++) {				\
 			if (table[j] == (next)) {			\
-				BRICK_DBG("  double entry %d '%s' stack = %d\n", i, (next)->brick_name, stack); \
+				BRICK_DBG("  double entry %d '%s' stack = %d\n", i, SAFE_STR((next)->brick_name), stack); \
 				found = true;				\
 				break;					\
 			}						\
 		}							\
 		if (!found) {						\
-			BRICK_DBG("  push '%s' stack = %d\n", (next)->brick_name, stack); \
+			BRICK_DBG("  push '%s' stack = %d\n", SAFE_STR((next)->brick_name), stack); \
 			table[stack++] = (next);			\
 			if (unlikely(stack > max)) {			\
 				BRICK_ERR("---- max = %d overflow, restarting...\n", max); \
@@ -873,7 +873,7 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 	}
 
  restart:
-	BRICK_DBG("-> orig_brick = '%s'\n", orig_brick->brick_name);
+	BRICK_DBG("-> orig_brick = '%s'\n", SAFE_STR(orig_brick->brick_name));
 	brick_mem_free(table);
 	max <<= 1;
 	table = brick_mem_alloc(max * sizeof(void*));
@@ -888,7 +888,7 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 	for (pos = 0; pos < stack; pos++) {
 		struct generic_brick *brick = table[pos];
 
-		BRICK_DBG("--> pos = %d stack = %d brick = '%s' inputs = %d/%d outputs = %d/%d\n", pos, stack, brick->brick_name, brick->nr_inputs, brick->type->max_inputs, brick->nr_outputs, brick->type->max_outputs);
+		BRICK_DBG("--> pos = %d stack = %d brick = '%s' inputs = %d/%d outputs = %d/%d\n", pos, stack, SAFE_STR(brick->brick_name), brick->nr_inputs, brick->type->max_inputs, brick->nr_outputs, brick->type->max_outputs);
 
 		if (val) {
 			force = false;
@@ -945,19 +945,19 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 
 	while (stack > 0) {
 		struct generic_brick *brick = table[--stack];
-		BRICK_DBG("--> switch '%s' stack = %d\n", brick->brick_name, stack);
+		BRICK_DBG("--> switch '%s' stack = %d\n", SAFE_STR(brick->brick_name), stack);
 		set_button_wait(brick, val, force, timeout);
 		if (val ? !brick->power.led_on : !brick->power.led_off) {
-			BRICK_DBG("switching to %d: brick '%s' not ready (%s)\n", val, brick->brick_name, orig_brick->brick_name);
+			BRICK_DBG("switching to %d: brick '%s' not ready (%s)\n", val, SAFE_STR(brick->brick_name), SAFE_STR(orig_brick->brick_name));
 			goto done;
 		}
 
 		if (force && !val && (mode == BR_FREE_ONE || mode == BR_FREE_ALL) && brick->free) {
-			BRICK_DBG("---> freeing '%s'\n", brick->brick_name);
+			BRICK_DBG("---> freeing '%s'\n", SAFE_STR(brick->brick_name));
 			status = brick->free(brick);
-			BRICK_DBG("---> freeing '%s' status = %d\n", brick->brick_name, status);
+			BRICK_DBG("---> freeing '%s' status = %d\n", SAFE_STR(brick->brick_name), status);
 			if (status < 0) {
-				BRICK_DBG("freeing brick '%s' (%s) failed, status = %d\n", brick->brick_name, orig_brick->brick_name, status);
+				BRICK_DBG("freeing brick '%s' (%s) failed, status = %d\n", SAFE_STR(brick->brick_name), SAFE_STR(orig_brick->brick_name), status);
 				goto done;
 			}
 		}
@@ -966,7 +966,7 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 	status = 0;
 
 done:
-	BRICK_DBG("-> done '%s' status = %d\n", orig_brick->brick_name, status);
+	BRICK_DBG("-> done '%s' status = %d\n", SAFE_STR(orig_brick->brick_name), status);
 	brick_mem_free(table);
 	return status;
 }

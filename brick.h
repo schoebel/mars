@@ -11,6 +11,26 @@
 
 #include "meta.h"
 
+#define MAX_BRICK_TYPES 64
+#ifndef BRICK_OBJ_MAX
+#define BRICK_OBJ_MAX /*empty => leads to an open array */
+#endif
+
+extern int brick_layout_generation;
+extern int brick_obj_max;
+
+#ifdef _STRATEGY
+#define _STRATEGY_CODE(X) X
+#define _NORMAL_CODE(X) /**/
+#else
+#define _STRATEGY_CODE(X) /**/
+#define _NORMAL_CODE(X) X
+#endif
+
+/////////////////////////////////////////////////////////////////////////
+
+// printk() replacements
+
 #ifdef CONFIG_DEBUG_KERNEL
 #define INLINE static inline
 //#define INLINE __attribute__((__noinline__))
@@ -27,13 +47,7 @@ extern void brick_dump_stack(void);
 
 #endif // CONFIG_DEBUG_KERNEL
 
-#ifdef _STRATEGY
-#define _STRATEGY_CODE(X) X
-#define _NORMAL_CODE(X) /**/
-#else
-#define _STRATEGY_CODE(X) /**/
-#define _NORMAL_CODE(X) X
-#endif
+#define SAFE_STR(str) ((str) ? (str) : "NULL")
 
 #define BRICK_FATAL   "BRICK_FATAL "
 #define BRICK_ERROR   "BRICK_ERROR "
@@ -61,14 +75,6 @@ extern void brick_dump_stack(void);
 #else
 #define BRICK_IO(_args...) /*empty*/
 #endif
-
-#define MAX_BRICK_TYPES 64
-#ifndef BRICK_OBJ_MAX
-#define BRICK_OBJ_MAX /*empty => leads to an open array */
-#endif
-
-extern int brick_layout_generation;
-extern int brick_obj_max;
 
 /////////////////////////////////////////////////////////////////////////
 

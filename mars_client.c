@@ -21,22 +21,26 @@
 
 static int thread_count = 0;
 
+static void _kill_thread(struct client_threadinfo *ti)
+{
+	if (ti->thread) {
+		MARS_INF("stopping thread...\n");
+		kthread_stop(ti->thread);
+		ti->thread = NULL;
+	}
+}
+
 static void _kill_socket(struct client_output *output)
 {
 	if (output->socket) {
 		MARS_DBG("shutdown socket\n");
-		kernel_sock_shutdown(output->socket, SHUT_WR);
-		//sock_release(output->socket);
-		output->socket = NULL;
+		mars_shutdown_socket(output->socket);
 	}
-}
-
-static void _kill_thread(struct client_threadinfo *ti)
-{
-	if (ti->thread && !ti->terminated) {
-		MARS_INF("stopping thread...\n");
-		kthread_stop(ti->thread);
-		ti->thread = NULL;
+	_kill_thread(&output->receiver);
+	if (output->socket) {
+		MARS_DBG("close socket\n");
+		mars_put_socket(output->socket);
+		output->socket = NULL;
 	}
 }
 
@@ -48,19 +52,21 @@ static int _request_info(struct client_output *output)
 	int status;
 	
 	MARS_DBG("\n");
-	status = mars_send_struct(&output->socket, &cmd, mars_cmd_meta);
+	status = mars_send_struct(output->socket, &cmd, mars_cmd_meta);
 	if (unlikely(status < 0)) {
 		MARS_DBG("send of getinfo failed, status = %d\n", status);
 	}
 	return status;
 }
 
+static int receiver_thread(void *data);
+
 static int _connect(struct client_output *output, const char *str)
 {
 	struct sockaddr_storage sockaddr = {};
 	int status;
 
-	if (!output->path) {
+	if (unlikely(!output->path)) {
 		output->path = brick_strdup(str);
 		status = -ENOMEM;
 		if (!output->path) {
@@ -78,14 +84,18 @@ static int _connect(struct client_output *output, const char *str)
 		*output->host++ = '\0';
 	}
 
+	_kill_socket(output);
+			
 	status = mars_create_sockaddr(&sockaddr, output->host);
 	if (unlikely(status < 0)) {
 		MARS_DBG("no sockaddr, status = %d\n", status);
 		goto done;
 	}
 	
-	status = mars_create_socket(&output->socket, &sockaddr, false);
-	if (unlikely(status < 0)) {
+	output->socket = mars_create_socket(&sockaddr, false);
+	if (unlikely(IS_ERR(output->socket))) {
+		status = PTR_ERR(output->socket);
+		output->socket = NULL;
 		if (status == -EINPROGRESS) {
 			MARS_DBG("operation is in progress....\n");
 			goto really_done; // give it a chance next time
@@ -94,13 +104,24 @@ static int _connect(struct client_output *output, const char *str)
 		goto done;
 	}
 
+	output->receiver.thread = kthread_create(receiver_thread, output, "mars_receiver%d", thread_count++);
+	if (unlikely(IS_ERR(output->receiver.thread))) {
+		status = PTR_ERR(output->receiver.thread);
+		MARS_ERR("cannot start receiver thread, status = %d\n", status);
+		output->receiver.thread = NULL;
+		output->receiver.terminated = true;
+		goto done;
+	}
+	wake_up_process(output->receiver.thread);
+
+
 	{
 		struct mars_cmd cmd = {
 			.cmd_code = CMD_CONNECT,
 			.cmd_str1 = output->path,
 		};
 
-		status = mars_send_struct(&output->socket, &cmd, mars_cmd_meta);
+		status = mars_send_struct(output->socket, &cmd, mars_cmd_meta);
 		if (unlikely(status < 0)) {
 			MARS_DBG("send of connect failed, status = %d\n", status);
 			goto done;
@@ -239,7 +260,7 @@ int receiver_thread(void *data)
 	struct client_output *output = data;
 	int status = 0;
 
-        while (status >= 0 && output->socket && !kthread_should_stop()) {
+        while (status >= 0 && mars_socket_is_alive(output->socket) && !kthread_should_stop()) {
 		struct mars_cmd cmd = {};
 		struct list_head *tmp;
 		struct client_mref_aspect *mref_a = NULL;
@@ -247,7 +268,7 @@ int receiver_thread(void *data)
 		struct generic_callback *cb;
 		unsigned long flags;
 
-		status = mars_recv_struct(&output->socket, &cmd, mars_cmd_meta);
+		status = mars_recv_struct(output->socket, &cmd, mars_cmd_meta);
 		MARS_IO("got cmd = %d status = %d\n", cmd.cmd_code, status);
 		if (status < 0)
 			goto done;
@@ -291,7 +312,7 @@ int receiver_thread(void *data)
 
 			MARS_IO("got callback id = %d, old pos = %lld len = %d rw = %d\n", mref->ref_id, mref->ref_pos, mref->ref_len, mref->ref_rw);
 
-			status = mars_recv_cb(&output->socket, mref);
+			status = mars_recv_cb(output->socket, mref);
 			MARS_IO("new status = %d, pos = %lld len = %d rw = %d\n", status, mref->ref_pos, mref->ref_len, mref->ref_rw);
 			if (status < 0) {
 				MARS_ERR("interrupted data transfer during callback, status = %d\n", status);
@@ -313,7 +334,7 @@ int receiver_thread(void *data)
 			break;
 		}
 		case CMD_GETINFO:
-			status = mars_recv_struct(&output->socket, &output->info, mars_info_meta);
+			status = mars_recv_struct(output->socket, &output->info, mars_info_meta);
 			if (status < 0) {
 				MARS_ERR("got bad info from remote side, status = %d\n", status);
 				goto done;
@@ -333,14 +354,8 @@ int receiver_thread(void *data)
 	if (status < 0) {
 		MARS_ERR("receiver thread terminated with status = %d\n", status);
 	}
-#if 0
-	if (output->socket) {
-		MARS_INF("shutting down socket\n");
-		kernel_sock_shutdown(output->socket, SHUT_WR);
-		msleep(1000);
-		output->socket = NULL;
-	}
-#endif
+
+	mars_shutdown_socket(output->socket);
 	output->receiver.terminated = true;
 	wake_up_interruptible(&output->receiver.run_event);
 	return status;
@@ -391,26 +406,6 @@ static int sender_thread(void *data)
 
 		wait_event_interruptible_timeout(output->event, !list_empty(&output->mref_list) || output->get_info, 10 * HZ);
 		
-		if (unlikely(output->receiver.terminated)) {
-#if 1
-			if (unlikely(output->receiver.restart_count++ > 3)) { // don't restart too often
-				MARS_ERR("receiver failed too often, giving up\n");
-				status = -ECOMM;
-				break;
-			}
-#endif
-			output->receiver.terminated = false;
-			output->receiver.thread = kthread_create(receiver_thread, output, "mars_receiver%d", thread_count++);
-			if (unlikely(IS_ERR(output->receiver.thread))) {
-				MARS_ERR("cannot start receiver thread, status = %d\n", (int)PTR_ERR(output->receiver.thread));
-				output->receiver.thread = NULL;
-				output->receiver.terminated = true;
-				msleep(5000);
-				continue;
-			}
-			wake_up_process(output->receiver.thread);
-		}
-
 		if (output->get_info) {
 			status = _request_info(output);
 			if (status >= 0) {
@@ -432,7 +427,7 @@ static int sender_thread(void *data)
 
 		MARS_IO("sending mref, id = %d pos = %lld len = %d rw = %d\n", mref->ref_id, mref->ref_pos, mref->ref_len, mref->ref_rw);
 
-		status = mars_send_mref(&output->socket, mref);
+		status = mars_send_mref(output->socket, mref);
 		MARS_IO("status = %d\n", status);
 		if (unlikely(status < 0)) {
 			// retry submission on next occasion..
@@ -444,19 +439,16 @@ static int sender_thread(void *data)
 			MARS_ERR("sending failed, status = %d\n", status);
 
 			_kill_socket(output);
-			_kill_thread(&output->receiver);
-
-			wait_event_interruptible_timeout(output->receiver.run_event, output->receiver.terminated, 10 * HZ);
 
 			continue;
 		}
 	}
 //done:
-	if (status < 0)
+	if (status < 0) {
 		MARS_ERR("sender thread terminated with status = %d\n", status);
+	}
 
 	_kill_socket(output);
-	_kill_thread(&output->receiver);
 
 	output->sender.terminated = true;
 	wake_up_interruptible(&output->sender.run_event);

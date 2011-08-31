@@ -226,26 +226,12 @@ EXPORT_SYMBOL_GPL(mars_power_led_off);
 void (*_mars_trigger)(void) = NULL;
 EXPORT_SYMBOL_GPL(_mars_trigger);
 
-#define LIMIT_MEM
-#ifdef LIMIT_MEM
-#include <linux/swap.h>
-#include <linux/mm.h>
-#endif
-long long mars_global_memlimit = 0;
-EXPORT_SYMBOL_GPL(mars_global_memlimit);
-
-
 struct mm_struct *mm_fake = NULL;
 EXPORT_SYMBOL_GPL(mm_fake);
 
 int __init init_mars(void)
 {
 	MARS_INF("init_mars()\n");
-
-#ifdef LIMIT_MEM // provisionary
-	mars_global_memlimit = total_swapcache_pages * (PAGE_SIZE / 4);
-	MARS_INF("mars_global_memlimit = %lld\n", mars_global_memlimit);
-#endif
 
 	set_fake();
 

@@ -2134,7 +2134,7 @@ void trans_logger_log(struct trans_logger_output *output)
 #if 1 // provisionary flood handling FIXME: do better
 		delay_callers =
 			(atomic_read(&brick->mshadow_count) > brick->shadow_mem_limit && brick->shadow_mem_limit > 1) ||
-			(atomic64_read(&brick->shadow_mem_used) > mars_global_memlimit && mars_global_memlimit > 1);
+			(atomic64_read(&brick->shadow_mem_used) > brick_global_memlimit && brick_global_memlimit > 1);
 		if (delay_callers != brick->delay_callers) {
 			//MARS_INF("stalling %d -> %d\n", brick->delay_callers, delay_callers);
 			brick->delay_callers = delay_callers;
@@ -2143,7 +2143,7 @@ void trans_logger_log(struct trans_logger_output *output)
 		if (unlimited) {
 			unlimited =
 				(atomic_read(&brick->mshadow_count) > brick->shadow_mem_limit * 3 / 8 && brick->shadow_mem_limit > 1) ||
-				(atomic64_read(&brick->shadow_mem_used) > mars_global_memlimit * 3 / 8 && mars_global_memlimit > 1);
+				(atomic64_read(&brick->shadow_mem_used) > brick_global_memlimit * 3 / 8 && brick_global_memlimit > 1);
 			if (!unlimited) {
 				brick->q_phase2.q_unlimited = false;
 				brick->q_phase3.q_unlimited = false;
@@ -2155,7 +2155,7 @@ void trans_logger_log(struct trans_logger_output *output)
 		} else {
 			unlimited =
 				(atomic_read(&brick->mshadow_count) > brick->shadow_mem_limit / 2 && brick->shadow_mem_limit > 1) ||
-				(atomic64_read(&brick->shadow_mem_used) > mars_global_memlimit / 2 && mars_global_memlimit > 1);
+				(atomic64_read(&brick->shadow_mem_used) > brick_global_memlimit / 2 && brick_global_memlimit > 1);
 			if (unlimited) {
 				brick->q_phase2.q_unlimited = unlimited;
 				brick->q_phase3.q_unlimited = unlimited;
@@ -2519,7 +2519,7 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		brick->do_replay, brick->do_continuous_replay, brick->replay_code, brick->log_reads,
 		brick->log_start_pos, brick->replay_start_pos, brick->replay_end_pos, brick->current_pos,
 		atomic_read(&brick->total_replay_count), atomic_read(&brick->total_cb_count), atomic_read(&brick->total_read_count), atomic_read(&brick->total_write_count), atomic_read(&brick->total_flush_count), atomic_read(&brick->total_write_count) ? atomic_read(&brick->total_flush_count) * 100 / atomic_read(&brick->total_write_count) : 0, atomic_read(&brick->total_writeback_cluster_count), atomic_read(&brick->total_writeback_count), atomic_read(&brick->total_writeback_cluster_count) ? atomic_read(&brick->total_writeback_count) * 100 / atomic_read(&brick->total_writeback_cluster_count) : 0, atomic_read(&brick->total_shortcut_count), atomic_read(&brick->total_writeback_count) ? atomic_read(&brick->total_shortcut_count) * 100 / atomic_read(&brick->total_writeback_count) : 0, atomic_read(&brick->total_mshadow_count), atomic_read(&brick->total_sshadow_count), atomic_read(&brick->total_round_count), atomic_read(&brick->total_restart_count), atomic_read(&brick->q_phase1.q_total), atomic_read(&brick->q_phase2.q_total), atomic_read(&brick->q_phase3.q_total), atomic_read(&brick->q_phase4.q_total),
-		atomic64_read(&brick->shadow_mem_used), mars_global_memlimit, atomic_read(&brick->replay_count), atomic_read(&brick->mshadow_count), brick->shadow_mem_limit, atomic_read(&brick->sshadow_count), atomic_read(&brick->hash_count), atomic_read(&brick->pos_count), atomic_read(&brick->sub_balance_count), atomic_read(&brick->inner_balance_count), atomic_read(&brick->outer_balance_count), atomic_read(&brick->wb_balance_count), atomic_read(&brick->fly_count), atomic_read(&brick->q_phase1.q_queued), atomic_read(&brick->q_phase1.q_flying), atomic_read(&brick->q_phase2.q_queued), atomic_read(&brick->q_phase2.q_flying), atomic_read(&brick->q_phase3.q_queued), atomic_read(&brick->q_phase3.q_flying), atomic_read(&brick->q_phase4.q_queued), atomic_read(&brick->q_phase4.q_flying));
+		atomic64_read(&brick->shadow_mem_used), brick_global_memlimit, atomic_read(&brick->replay_count), atomic_read(&brick->mshadow_count), brick->shadow_mem_limit, atomic_read(&brick->sshadow_count), atomic_read(&brick->hash_count), atomic_read(&brick->pos_count), atomic_read(&brick->sub_balance_count), atomic_read(&brick->inner_balance_count), atomic_read(&brick->outer_balance_count), atomic_read(&brick->wb_balance_count), atomic_read(&brick->fly_count), atomic_read(&brick->q_phase1.q_queued), atomic_read(&brick->q_phase1.q_flying), atomic_read(&brick->q_phase2.q_queued), atomic_read(&brick->q_phase2.q_flying), atomic_read(&brick->q_phase3.q_queued), atomic_read(&brick->q_phase3.q_flying), atomic_read(&brick->q_phase4.q_queued), atomic_read(&brick->q_phase4.q_flying));
 	return res;
 }
 

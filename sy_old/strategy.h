@@ -51,6 +51,7 @@ struct mars_global {
 	struct generic_switch global_power;
 	struct list_head dent_anchor;
 	struct list_head brick_anchor;
+	struct list_head server_anchor;
 	volatile bool main_trigger;
 	wait_queue_head_t main_event;
 	//void *private;
@@ -71,6 +72,7 @@ extern struct mars_brick *mars_find_brick(struct mars_global *global, const void
 extern struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent *belongs, const void *_brick_type, const char *path, const char *name);
 extern int mars_free_brick(struct mars_brick *brick);
 extern int mars_kill_brick(struct mars_brick *brick);
+extern int mars_kill_brick_all(struct mars_global *global, struct list_head *anchor, bool use_dent_link);
 
 // mid-level brick instantiation (identity is based on path strings)
 

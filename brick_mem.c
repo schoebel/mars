@@ -3,6 +3,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/mm.h>
+#include <linux/fs.h>
 
 #include <asm/atomic.h>
 
@@ -27,6 +28,18 @@
 
 /////////////////////////////////////////////////////////////////////////
 
+// limit handling
+
+#define LIMIT_MEM
+#ifdef LIMIT_MEM
+#include <linux/swap.h>
+#include <linux/mm.h>
+#endif
+long long brick_global_memlimit = 0;
+EXPORT_SYMBOL_GPL(brick_global_memlimit);
+
+/////////////////////////////////////////////////////////////////////////
+
 // small memory allocation (use this only for len < PAGE_SIZE)
 
 #ifdef BRICK_DEBUG_MEM
@@ -40,7 +53,11 @@ static int  mem_len[BRICK_DEBUG_MEM] = {};
 
 void *_brick_mem_alloc(int len, int line)
 {
-	void *res = kmalloc(len + PLUS_SIZE + sizeof(int), GFP_BRICK);
+	void *res;
+#ifdef CONFIG_DEBUG_KERNEL
+	might_sleep();
+#endif
+	res = kmalloc(len + PLUS_SIZE + sizeof(int), GFP_BRICK);
 #ifdef BRICK_DEBUG_MEM
 	if (likely(res)) {
 		if (unlikely(line < 0))
@@ -96,6 +113,9 @@ static atomic_t string_free[BRICK_DEBUG_MEM] = {};
 char *_brick_string_alloc(int len, int line)
 {
 	char *res;
+#ifdef CONFIG_DEBUG_KERNEL
+	might_sleep();
+#endif
 #ifdef FIXME
 	if (len <= 0)
 		len = BRICK_STRING_LEN;
@@ -166,6 +186,9 @@ void *_brick_block_alloc(loff_t pos, int len, int line)
 		BRICK_ERR("trying to allocate %d bytes (max = %d)\n", len, (int)(PAGE_SIZE << order));
 		return NULL;
 	}
+#endif
+#ifdef CONFIG_DEBUG_KERNEL
+	might_sleep();
 #endif
 #ifdef USE_OFFSET
 	offset = pos & (PAGE_SIZE-1);
@@ -291,6 +314,11 @@ EXPORT_SYMBOL_GPL(brick_mem_statistics);
 
 int __init init_brick_mem(void)
 {
+#ifdef LIMIT_MEM // provisionary
+	brick_global_memlimit = total_swapcache_pages * (PAGE_SIZE / 4);
+	BRICK_INF("brick_global_memlimit = %lld\n", brick_global_memlimit);
+#endif
+
 	return 0;
 }
 

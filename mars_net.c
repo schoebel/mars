@@ -93,68 +93,164 @@ int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec)
 }
 EXPORT_SYMBOL_GPL(mars_create_sockaddr);
 
-int mars_create_socket(struct socket **sock, struct sockaddr_storage *addr, bool is_server)
+/* The original struct socket has no refcount. This leads to problems
+ * during long-lasting system calls when racing with socket shutdown.
+ * This is just a small wrapper adding a refcount.
+ */
+struct mars_socket {
+	atomic_t s_count;
+	struct socket *s_socket;
+	bool s_dead;
+};
+
+struct mars_socket *mars_create_socket(struct sockaddr_storage *addr, bool is_server)
 {
+	struct mars_socket *msock;
+	struct socket *sock;
 	struct sockaddr *sockaddr = (void*)addr;
 	int x_true = 1;
-	int status = 0;
+	int status = -ENOMEM;
 
-	if (!*sock) {
-		status = sock_create_kern(AF_INET, SOCK_STREAM, IPPROTO_TCP, sock);
-		if (unlikely(status < 0)) {
-			*sock = NULL;
-			MARS_WRN("cannot create socket, status = %d\n", status);
-			goto done;
-		}
+	msock = brick_zmem_alloc(sizeof(struct mars_socket));
+	if (!msock)
+		goto done;
 
-		/* TODO: improve this by a table-driven approach
-		 */
-		(*sock)->sk->sk_rcvtimeo = (*sock)->sk->sk_sndtimeo = default_tcp_params.tcp_timeout * HZ;
-		status = kernel_setsockopt(*sock, SOL_SOCKET, SO_SNDBUF, (char*)&default_tcp_params.window_size, sizeof(default_tcp_params.window_size));
-		_check(status);
-		status = kernel_setsockopt(*sock, SOL_SOCKET, SO_RCVBUF, (char*)&default_tcp_params.window_size, sizeof(default_tcp_params.window_size));
-		_check(status);
-		status = kernel_setsockopt(*sock, SOL_IP, SO_PRIORITY, (char*)&default_tcp_params.tos, sizeof(default_tcp_params.tos));
-		_check(status);
-#if 0
-		status = kernel_setsockopt(*sock, IPPROTO_TCP, TCP_NODELAY, (char*)&x_true, sizeof(x_true));
-#endif
-		_check(status);
-		status = kernel_setsockopt(*sock, SOL_SOCKET, SO_KEEPALIVE, (char*)&x_true, sizeof(x_true));
-		_check(status);
-		status = kernel_setsockopt(*sock, IPPROTO_TCP, TCP_KEEPCNT, (char*)&default_tcp_params.tcp_keepcnt, sizeof(default_tcp_params.tcp_keepcnt));
-		_check(status);
-		status = kernel_setsockopt(*sock, IPPROTO_TCP, TCP_KEEPINTVL, (char*)&default_tcp_params.tcp_keepintvl, sizeof(default_tcp_params.tcp_keepintvl));
-		_check(status);
-		status = kernel_setsockopt(*sock, IPPROTO_TCP, TCP_KEEPIDLE, (char*)&default_tcp_params.tcp_keepidle, sizeof(default_tcp_params.tcp_keepidle));
-		_check(status);
+	status = sock_create_kern(AF_INET, SOCK_STREAM, IPPROTO_TCP, &msock->s_socket);
+	if (unlikely(status < 0)) {
+		MARS_WRN("cannot create socket, status = %d\n", status);
+		goto done;
 	}
+	atomic_set(&msock->s_count, 1);
+	sock = msock->s_socket;
+	status = -EINVAL;
+	CHECK_PTR(sock, done);
+
+	/* TODO: improve this by a table-driven approach
+	 */
+	sock->sk->sk_rcvtimeo = sock->sk->sk_sndtimeo = default_tcp_params.tcp_timeout * HZ;
+	status = kernel_setsockopt(sock, SOL_SOCKET, SO_SNDBUF, (char*)&default_tcp_params.window_size, sizeof(default_tcp_params.window_size));
+	_check(status);
+	status = kernel_setsockopt(sock, SOL_SOCKET, SO_RCVBUF, (char*)&default_tcp_params.window_size, sizeof(default_tcp_params.window_size));
+	_check(status);
+	status = kernel_setsockopt(sock, SOL_IP, SO_PRIORITY, (char*)&default_tcp_params.tos, sizeof(default_tcp_params.tos));
+	_check(status);
+#if 0
+	status = kernel_setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (char*)&x_true, sizeof(x_true));
+#endif
+	_check(status);
+	status = kernel_setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, (char*)&x_true, sizeof(x_true));
+	_check(status);
+	status = kernel_setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, (char*)&default_tcp_params.tcp_keepcnt, sizeof(default_tcp_params.tcp_keepcnt));
+	_check(status);
+	status = kernel_setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, (char*)&default_tcp_params.tcp_keepintvl, sizeof(default_tcp_params.tcp_keepintvl));
+	_check(status);
+	status = kernel_setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, (char*)&default_tcp_params.tcp_keepidle, sizeof(default_tcp_params.tcp_keepidle));
+	_check(status);
 
 	if (is_server) {
-		status = kernel_bind(*sock, sockaddr, sizeof(*sockaddr));
+		status = kernel_bind(sock, sockaddr, sizeof(*sockaddr));
 		if (unlikely(status < 0)) {
 			MARS_WRN("bind failed, status = %d\n", status);
-			sock_release(*sock);
-			*sock = NULL;
 			goto done;
 		}
-		status = kernel_listen(*sock, 16);
+		status = kernel_listen(sock, 16);
 		if (status < 0) {
 			MARS_WRN("listen failed, status = %d\n", status);
 		}
 	} else {
-		status = kernel_connect(*sock, sockaddr, sizeof(*sockaddr), 0);
+		status = kernel_connect(sock, sockaddr, sizeof(*sockaddr), 0);
 		if (status < 0) {
 			MARS_DBG("connect failed, status = %d\n", status);
 		}
 	}
 
 done:
-	return status;
+	if (status < 0) {
+		mars_put_socket(msock);
+		msock = ERR_PTR(status);
+	}
+	return msock;
 }
 EXPORT_SYMBOL_GPL(mars_create_socket);
 
-int mars_send(struct socket **sock, void *buf, int len)
+struct mars_socket *mars_accept_socket(struct mars_socket *msock, bool do_block)
+{
+	int status = -ENOENT;
+	if (likely(msock)) {
+		struct mars_socket *new_msock;
+		struct socket *new_socket = NULL;
+
+		mars_get_socket(msock);
+		status = kernel_accept(msock->s_socket, &new_socket, do_block ? 0 : O_NONBLOCK);
+		mars_put_socket(msock);
+		if (unlikely(status < 0)) {
+			goto err;
+		}
+		
+		status = -ENOMEM;
+		new_msock = brick_zmem_alloc(sizeof(struct mars_socket));
+		if (!new_msock) {
+			kernel_sock_shutdown(new_socket, SHUT_WR);
+			sock_release(new_socket);
+			goto err;
+		}
+		atomic_set(&new_msock->s_count, 1);
+		new_msock->s_socket = new_socket;
+		return new_msock;
+	}
+err:
+	return ERR_PTR(status);
+}
+EXPORT_SYMBOL_GPL(mars_accept_socket);
+
+struct mars_socket *mars_get_socket(struct mars_socket *msock)
+{
+	if (likely(msock)) {
+		atomic_inc(&msock->s_count);
+	}
+	return msock;
+}
+EXPORT_SYMBOL_GPL(mars_get_socket);
+
+void mars_put_socket(struct mars_socket *msock)
+{
+	if (likely(msock)) {
+		if (atomic_dec_and_test(&msock->s_count)) {
+			struct socket *sock = msock->s_socket;
+			if (sock) {
+				if (!msock->s_dead) {
+					msock->s_dead = true;
+					kernel_sock_shutdown(sock, SHUT_WR);
+				}
+				sock_release(sock);
+			}
+			brick_mem_free(msock);
+		}
+	}
+}
+EXPORT_SYMBOL_GPL(mars_put_socket);
+
+void mars_shutdown_socket(struct mars_socket *msock)
+{
+	if (likely(msock)) {
+		struct socket *sock = msock->s_socket;
+		if (sock && !msock->s_dead) {
+			msock->s_dead = true;
+			kernel_sock_shutdown(sock, SHUT_WR);
+		}
+	}
+}
+EXPORT_SYMBOL_GPL(mars_shutdown_socket);
+
+bool mars_socket_is_alive(struct mars_socket *msock)
+{
+	if (!msock || msock->s_dead)
+		return false;
+	return true;
+}
+EXPORT_SYMBOL_GPL(mars_socket_is_alive);
+
+int mars_send(struct mars_socket *msock, void *buf, int len)
 {
 	struct kvec iov = {
 		.iov_base = buf,
@@ -167,15 +263,18 @@ int mars_send(struct socket **sock, void *buf, int len)
 	int status = -EIDRM;
 	int sent = 0;
 
+	if (!mars_get_socket(msock))
+		goto done;
+
 	//MARS_IO("buf = %p, len = %d\n", buf, len);
 	while (sent < len) {
-		if (unlikely(!*sock)) {
+		if (unlikely(msock->s_dead)) {
 			MARS_WRN("socket has disappeared\n");
 			status = -EIDRM;
 			goto done;
 		}
 
-		status = kernel_sendmsg(*sock, &msg, &iov, 1, len);
+		status = kernel_sendmsg(msock->s_socket, &msg, &iov, 1, len);
 
 		if (status == -EAGAIN) {
 			msleep(50);
@@ -204,12 +303,14 @@ int mars_send(struct socket **sock, void *buf, int len)
 		sent += status;
 	}
 	status = sent;
+
 done:
+	mars_put_socket(msock);
 	return status;
 }
 EXPORT_SYMBOL_GPL(mars_send);
 
-int mars_recv(struct socket **sock, void *buf, int minlen, int maxlen)
+int mars_recv(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 {
 	int status = -EIDRM;
 	int done = 0;
@@ -218,6 +319,9 @@ int mars_recv(struct socket **sock, void *buf, int minlen, int maxlen)
 		MARS_WRN("bad receive buffer\n");
 		return -EINVAL;
 	}
+
+	if (!mars_get_socket(msock))
+		goto err;
 
 	while (done < minlen) {
 		struct kvec iov = {
@@ -230,7 +334,7 @@ int mars_recv(struct socket **sock, void *buf, int minlen, int maxlen)
 			.msg_flags = 0 | MSG_WAITALL | MSG_NOSIGNAL,
 		};
 
-		if (unlikely(!*sock)) {
+		if (unlikely(msock->s_dead)) {
 			MARS_WRN("socket has disappeared\n");
 			status = -EIDRM;
 			goto err;
@@ -238,7 +342,7 @@ int mars_recv(struct socket **sock, void *buf, int minlen, int maxlen)
 
 		MARS_IO("done %d, fetching %d bytes\n", done, maxlen-done);
 
-		status = kernel_recvmsg(*sock, &msg, &iov, 1, maxlen-done, msg.msg_flags);
+		status = kernel_recvmsg(msock->s_socket, &msg, &iov, 1, maxlen-done, msg.msg_flags);
 
 		if (status == -EAGAIN) {
 #if 0
@@ -249,7 +353,7 @@ int mars_recv(struct socket **sock, void *buf, int minlen, int maxlen)
 			continue;
 		}
 		if (!status) { // EOF
-			MARS_WRN("got EOF (done=%d, req_size=%d)\n", done, maxlen-done);
+			MARS_WRN("got EOF from socket (done=%d, req_size=%d)\n", done, maxlen - done);
 			status = -EPIPE;
 			goto err;
 		}
@@ -262,6 +366,7 @@ int mars_recv(struct socket **sock, void *buf, int minlen, int maxlen)
 	status = done;
 
 err:
+	mars_put_socket(msock);
 	return status;
 }
 EXPORT_SYMBOL_GPL(mars_recv);
@@ -284,16 +389,16 @@ struct mars_net_header {
 	u16 h_len;
 };
 
-int _mars_send_struct(struct socket **sock, void *data, const struct meta *meta, int *seq)
+int _mars_send_struct(struct mars_socket *msock, void *data, const struct meta *meta, int *seq)
 {
 	int count = 0;
 	int status = 0;
-	if (!data) { // send EOF
+	if (!data) { // send EOR
 		struct mars_net_header header = {
 			.h_magic = MARS_NET_MAGIC,
 			.h_seq = -1,
 		};
-		return mars_send(sock, &header, sizeof(header));
+		return mars_send(msock, &header, sizeof(header));
 	}
 	for (; ; meta++) {
 		struct mars_net_header header = {
@@ -357,7 +462,7 @@ int _mars_send_struct(struct socket **sock, void *data, const struct meta *meta,
 		}
 
 		MARS_IO("sending header %d '%s' len = %d\n", header.h_seq, header.h_name, len);
-		status = mars_send(sock, &header, sizeof(header));
+		status = mars_send(msock, &header, sizeof(header));
 		if (status < 0 || !meta->field_name) { // EOR
 			break;
 		}
@@ -365,14 +470,14 @@ int _mars_send_struct(struct socket **sock, void *data, const struct meta *meta,
 		switch (meta->field_type) {
 		case FIELD_REF:
 		case FIELD_SUB:
-			status = _mars_send_struct(sock, item, meta->field_ref, seq);
+			status = _mars_send_struct(msock, item, meta->field_ref, seq);
 			if (status > 0)
 				count += status;
 			break;
 		default:
 			if (len > 0) {
 				MARS_IO("sending extra %d\n", len);
-				status = mars_send(sock, item, len);
+				status = mars_send(msock, item, len);
 				if (status > 0)
 					count++;
 			}
@@ -387,14 +492,14 @@ int _mars_send_struct(struct socket **sock, void *data, const struct meta *meta,
 	return status;
 }
 
-int mars_send_struct(struct socket **sock, void *data, const struct meta *meta)
+int mars_send_struct(struct mars_socket *msock, void *data, const struct meta *meta)
 {
 	int seq = 0;
-	return _mars_send_struct(sock, data, meta, &seq);
+	return _mars_send_struct(msock, data, meta, &seq);
 }
 EXPORT_SYMBOL_GPL(mars_send_struct);
 
-int _mars_recv_struct(struct socket **sock, void *data, const struct meta *meta, int *seq, int line)
+int _mars_recv_struct(struct mars_socket *msock, void *data, const struct meta *meta, int *seq, int line)
 {
 	int count = 0;
 	int status = -EINVAL;
@@ -408,7 +513,7 @@ int _mars_recv_struct(struct socket **sock, void *data, const struct meta *meta,
 		const struct meta *tmp;
 		void *item;
 		void *mem;
-		status = mars_recv(sock, &header, sizeof(header), sizeof(header));
+		status = mars_recv(msock, &header, sizeof(header), sizeof(header));
 		if (status == -EAGAIN) {
 			msleep(50);
 			continue;
@@ -423,7 +528,7 @@ int _mars_recv_struct(struct socket **sock, void *data, const struct meta *meta,
 			status = -ENOMSG;
 			break;
 		}
-		if (header.h_seq == -1) { // got EOF
+		if (header.h_seq == -1) { // got EOR
 			status = 0;
 			break;
 		};
@@ -447,7 +552,7 @@ int _mars_recv_struct(struct socket **sock, void *data, const struct meta *meta,
 				status = -ENOMEM;
 				if (!dummy)
 					break;
-				status = mars_recv(sock, dummy, header.h_len, header.h_len);
+				status = mars_recv(msock, dummy, header.h_len, header.h_len);
 				brick_mem_free(dummy);
 				if (status < 0)
 					break;
@@ -488,7 +593,7 @@ int _mars_recv_struct(struct socket **sock, void *data, const struct meta *meta,
 			}
 
 			MARS_IO("starting recursive structure\n");
-			status = _mars_recv_struct(sock, item, tmp->field_ref, seq, line);
+			status = _mars_recv_struct(msock, item, tmp->field_ref, seq, line);
 			MARS_IO("ending recursive structure, status = %d\n", status);
 
 			if (status > 0)
@@ -502,10 +607,10 @@ int _mars_recv_struct(struct socket **sock, void *data, const struct meta *meta,
 					break;
 				}
 				MARS_IO("reading extra %d\n", header.h_len);
-				status = mars_recv(sock, item, header.h_len, header.h_len);
+				status = mars_recv(msock, item, header.h_len, header.h_len);
 				while (status == -EAGAIN) {
 					msleep(50);
-					status = mars_recv(sock, item, header.h_len, header.h_len);
+					status = mars_recv(msock, item, header.h_len, header.h_len);
 				}
 				if (status >= 0) {
 					//MARS_IO("got data len = %d status = %d\n", header.h_len, status);
@@ -558,7 +663,7 @@ void mars_check_meta(const struct meta *meta, void *data)
 }
 
 
-int mars_send_mref(struct socket **sock, struct mref_object *mref)
+int mars_send_mref(struct mars_socket *msock, struct mref_object *mref)
 {
 	struct mars_cmd cmd = {
 		.cmd_code = CMD_MREF,
@@ -566,26 +671,26 @@ int mars_send_mref(struct socket **sock, struct mref_object *mref)
 	};
 	int status;
 
-	status = mars_send_struct(sock, &cmd, mars_cmd_meta);
+	status = mars_send_struct(msock, &cmd, mars_cmd_meta);
 	if (status < 0)
 		goto done;
 
-	status = mars_send_struct(sock, mref, mars_mref_meta);
+	status = mars_send_struct(msock, mref, mars_mref_meta);
 	if (status < 0)
 		goto done;
 
 	if (mref->ref_rw) {
-		status = mars_send(sock, mref->ref_data, mref->ref_len);
+		status = mars_send(msock, mref->ref_data, mref->ref_len);
 	}
 done:
 	return status;
 }
 EXPORT_SYMBOL_GPL(mars_send_mref);
 
-int mars_recv_mref(struct socket **sock, struct mref_object *mref)
+int mars_recv_mref(struct mars_socket *msock, struct mref_object *mref)
 {
 	int status;
-	status = mars_recv_struct(sock, mref, mars_mref_meta);
+	status = mars_recv_struct(msock, mref, mars_mref_meta);
 	if (status < 0)
 		goto done;
 	if (mref->ref_rw) {
@@ -595,7 +700,7 @@ int mars_recv_mref(struct socket **sock, struct mref_object *mref)
 			status = -ENOMEM;
 			goto done;
 		}
-		status = mars_recv(sock, mref->ref_data, mref->ref_len, mref->ref_len);
+		status = mars_recv(msock, mref->ref_data, mref->ref_len, mref->ref_len);
 		if (status < 0)
 			MARS_WRN("mref_len = %d, status = %d\n", mref->ref_len, status);
 	}
@@ -604,32 +709,32 @@ done:
 }
 EXPORT_SYMBOL_GPL(mars_recv_mref);
 
-int mars_send_cb(struct socket **sock, struct mref_object *mref)
+int mars_send_cb(struct mars_socket *msock, struct mref_object *mref)
 {
 	struct mars_cmd cmd = {
 		.cmd_code = CMD_CB,
 		.cmd_int1 = mref->ref_id,
 	};
 	int status;
-	status = mars_send_struct(sock, &cmd, mars_cmd_meta);
+	status = mars_send_struct(msock, &cmd, mars_cmd_meta);
 	if (status < 0)
 		goto done;
-	status = mars_send_struct(sock, mref, mars_mref_meta);
+	status = mars_send_struct(msock, mref, mars_mref_meta);
 	if (status < 0)
 		goto done;
 	if (!mref->ref_rw) {
 		MARS_IO("sending blocklen = %d\n", mref->ref_len);
-		status = mars_send(sock, mref->ref_data, mref->ref_len);
+		status = mars_send(msock, mref->ref_data, mref->ref_len);
 	}
 done:
 	return status;
 }
 EXPORT_SYMBOL_GPL(mars_send_cb);
 
-int mars_recv_cb(struct socket **sock, struct mref_object *mref)
+int mars_recv_cb(struct mars_socket *msock, struct mref_object *mref)
 {
 	int status;
-	status = mars_recv_struct(sock, mref, mars_mref_meta);
+	status = mars_recv_struct(msock, mref, mars_mref_meta);
 	if (status < 0)
 		goto done;
 	if (!mref->ref_rw) {
@@ -639,7 +744,7 @@ int mars_recv_cb(struct socket **sock, struct mref_object *mref)
 			goto done;
 		}
 		MARS_IO("receiving blocklen = %d\n", mref->ref_len);
-		status = mars_recv(sock, mref->ref_data, mref->ref_len, mref->ref_len);
+		status = mars_recv(msock, mref->ref_data, mref->ref_len, mref->ref_len);
 	}
 done:
 	return status;

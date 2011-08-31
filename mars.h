@@ -9,8 +9,6 @@
 
 #define msleep msleep_interruptible
 
-extern long long mars_global_memlimit;
-
 /////////////////////////////////////////////////////////////////////////
 
 // include the generic brick infrastructure
@@ -309,11 +307,14 @@ extern const struct meta mars_timespec_meta[];
 		MARS_ERR("%d: list_head " #head " (%p) not empty\n", __LINE__, head); \
 	}								\
 
-#define CHECK_PTR(ptr,label)						\
+#define CHECK_PTR_NULL(ptr,label)					\
 	if (CHECKING && unlikely(!(ptr))) {				\
 		MARS_FAT("%d: ptr '" #ptr "' is NULL\n", __LINE__);	\
 		goto label;						\
-	}								\
+	}
+
+#define CHECK_PTR(ptr,label)						\
+	CHECK_PTR_NULL(ptr, label);					\
 	if (CHECKING && unlikely(!virt_addr_valid(ptr))) {		\
 		MARS_FAT("%d: ptr '" #ptr "' is no valid virtual KERNEL address\n", __LINE__); \
 		goto label;						\

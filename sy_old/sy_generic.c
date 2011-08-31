@@ -636,13 +636,7 @@ EXPORT_SYMBOL_GPL(mars_find_dent);
 void mars_kill_dent(struct mars_dent *dent)
 {
 	dent->d_killme = true;
-	while (!list_empty(&dent->brick_list)) {
-		struct list_head *tmp = dent->brick_list.next;
-		struct mars_brick *brick = container_of(tmp, struct mars_brick, dent_brick_link);
-		list_del_init(tmp);
-		// note: locking is now done there....
-		mars_kill_brick(brick);
-	}
+	mars_kill_brick_all(NULL, &dent->brick_list, true);
 }
 EXPORT_SYMBOL_GPL(mars_kill_dent);
 
@@ -664,7 +658,7 @@ void mars_free_dent(struct mars_dent *dent)
 	brick_string_free(dent->d_path);
 	brick_string_free(dent->old_link);
 	brick_string_free(dent->new_link);
-	//brick_mem_free(dent->d_private);
+	brick_mem_free(dent->d_private);
 	brick_mem_free(dent);
 }
 EXPORT_SYMBOL_GPL(mars_free_dent);
@@ -757,12 +751,16 @@ int mars_free_brick(struct mars_brick *brick)
 		}
 	}
 
+#ifndef MEMLEAK // TODO: check whether crash remains possible
+	MARS_DBG("deallocate name = '%s' path = '%s'\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
+	brick_string_free(brick->brick_name);
+	brick_string_free(brick->brick_path);
+#endif
+
 	status = generic_brick_exit_full((void*)brick);
 
 	if (status >= 0) {
 #ifndef MEMLEAK // TODO: check whether crash remains possible
-		brick_string_free(brick->brick_name);
-		brick_string_free(brick->brick_path);
 		brick_mem_free(brick);
 #endif
 		mars_trigger();
@@ -778,7 +776,7 @@ EXPORT_SYMBOL_GPL(mars_free_brick);
 struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent *belongs, const void *_brick_type, const char *path, const char *_name)
 {
 	const char *name = brick_strdup(_name);
-	const char *names[] = { name };
+	const char *names[] = { name, NULL };
 	const struct generic_brick_type *brick_type = _brick_type;
 	const struct generic_input_type **input_types;
 	const struct generic_output_type **output_types;
@@ -846,9 +844,11 @@ struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent 
 	 * Switching on / etc must be done separately.
 	 */
 	down_write(&global->brick_mutex);
-	list_add(&res->global_brick_link, &global->brick_anchor);
 	if (belongs) {
+		list_add(&res->global_brick_link, &global->brick_anchor);
 		list_add(&res->dent_brick_link, &belongs->brick_list);
+	} else {
+		list_add(&res->global_brick_link, &global->server_anchor);
 	}
 	up_write(&global->brick_mutex);
 
@@ -871,17 +871,18 @@ int mars_kill_brick(struct mars_brick *brick)
 
 	CHECK_PTR(brick, done);
 	global = brick->global;
-	CHECK_PTR(global, done);
 
-	MARS_DBG("===> killing brick path = '%s' name = '%s'\n", brick->brick_path, brick->brick_name);
+	MARS_DBG("===> killing brick path = '%s' name = '%s'\n", SAFE_STR(brick->brick_path), SAFE_STR(brick->brick_name));
 
-	down_write(&global->brick_mutex);
-	list_del_init(&brick->global_brick_link);
-	list_del_init(&brick->dent_brick_link);
-	up_write(&global->brick_mutex);
+	if (global) {
+		down_write(&global->brick_mutex);
+		list_del_init(&brick->global_brick_link);
+		list_del_init(&brick->dent_brick_link);
+		up_write(&global->brick_mutex);
+	}
 
 	if (unlikely(brick->nr_outputs > 0 && brick->outputs[0] && brick->outputs[0]->nr_connected)) {
-		MARS_ERR("sorry, output is in use '%s'\n", brick->brick_path);
+		MARS_ERR("sorry, output is in use '%s'\n", SAFE_STR(brick->brick_path));
 		goto done;
 	}
 
@@ -893,6 +894,36 @@ done:
 	return status;
 }
 EXPORT_SYMBOL_GPL(mars_kill_brick);
+
+int mars_kill_brick_all(struct mars_global *global, struct list_head *anchor, bool use_dent_link)
+{
+	int status = 0;
+	if (global) {
+		down_write(&global->brick_mutex);
+	}
+	while (!list_empty(anchor)) {
+		struct list_head *tmp = anchor->next;
+		struct mars_brick *brick;
+		if (use_dent_link) {
+			brick = container_of(tmp, struct mars_brick, dent_brick_link);
+		} else {
+			brick = container_of(tmp, struct mars_brick, global_brick_link);
+		}
+		list_del_init(tmp);
+		if (global) {
+			up_write(&global->brick_mutex);
+		}
+		status |= mars_kill_brick(brick);
+		if (global) {
+			down_write(&global->brick_mutex);
+		}
+	}
+	if (global) {
+		up_write(&global->brick_mutex);
+	}
+	return status;
+}
+EXPORT_SYMBOL_GPL(mars_kill_brick_all);
 
 
 /////////////////////////////////////////////////////////////////////
@@ -1064,7 +1095,7 @@ struct mars_brick *make_brick_all(
 		prev[i] = mars_find_brick(global, prev_brick_type[i], path);
 
 		if (!prev[i]) {
-			MARS_ERR("prev brick '%s' does not exist\n", path);
+			MARS_WRN("prev brick '%s' does not exist\n", path);
 			goto err;
 		}
 		MARS_DBG("------> predecessor %d path = '%s'\n", i, path);

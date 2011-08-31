@@ -616,6 +616,22 @@ static int aio_event_thread(void *data)
 	return err;
 }
 
+#if 1
+/* This should go to fs/open.c (as long as vfs_submit() is not implemented)
+ */
+#include <linux/fdtable.h>
+void fd_uninstall(unsigned int fd)
+{
+	struct files_struct *files = current->files;
+	struct fdtable *fdt;
+	spin_lock(&files->file_lock);
+	fdt = files_fdtable(files);
+	rcu_assign_pointer(fdt->fd[fd], NULL);
+	spin_unlock(&files->file_lock);
+}
+EXPORT_SYMBOL(fd_uninstall);
+#endif
+
 static int aio_submit_thread(void *data)
 {
 	struct aio_threadinfo *tinfo = data;
@@ -623,8 +639,9 @@ static int aio_submit_thread(void *data)
 	struct file *file = output->filp;
 	int err;
 	
-	/* TODO: this is provisionary. We only need it for sys_io_submit().
-	 * The latter should be accompanied by a future vfs_submit() or
+	/* TODO: this is provisionary. We only need it for sys_io_submit()
+	 * which uses userspace concepts like file handles.
+	 * This should be accompanied by a future kernelsapce vfs_submit() or
 	 * do_submit() which currently does not exist :(
 	 * FIXME: corresponding cleanup NYI
 	 */
@@ -759,7 +776,8 @@ static int aio_submit_thread(void *data)
 		output->ctxp = 0;
 	}
 #endif
-	MARS_INF("destroying fd.....\n");
+	MARS_INF("destroying fd %d\n", output->fd);
+	fd_uninstall(output->fd);
 	put_unused_fd(output->fd);
 	unuse_fake_mm();
 	err = 0;

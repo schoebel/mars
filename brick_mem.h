@@ -7,6 +7,8 @@
 #define GFP_BRICK GFP_NOIO
 //#define GFP_BRICK GFP_KERNEL // can lead to deadlocks!
 
+extern long long brick_global_memlimit;
+
 /////////////////////////////////////////////////////////////////////////
 
 // small memory allocation (use this only for len < PAGE_SIZE)

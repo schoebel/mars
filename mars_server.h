@@ -6,14 +6,9 @@
 
 #include "mars_net.h"
 
-//extern struct socket *server_socket;
-//extern struct task_struct *server_thread;
-//extern wait_queue_head_t server_event;
-
 struct server_mref_aspect {
 	GENERIC_ASPECT(mref);
 	struct server_brick *brick;
-	struct socket **sock;
 	struct list_head cb_head;
 };
 
@@ -23,9 +18,10 @@ struct server_output {
 
 struct server_brick {
 	MARS_BRICK(server);
+	struct list_head server_link;
 	atomic_t in_flight;
-	struct socket *handler_socket;
 	struct semaphore socket_sem;
+	struct mars_socket *handler_socket;
 	struct task_struct *handler_thread;
 	struct task_struct *cb_thread;
 	wait_queue_head_t startup_event;

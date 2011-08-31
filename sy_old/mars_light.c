@@ -5,6 +5,16 @@
 //#define IO_DEBUGGING
 //#define STAT_DEBUGGING // here means: display full statistics
 
+// disable this only for debugging!
+#define RUN_PEERS
+#define RUN_DATA
+#define RUN_LOGINIT
+#define RUN_PRIMARY
+#define RUN_SYNCSTATUS
+#define RUN_LOGFILES
+#define RUN_REPLAY
+#define RUN_DEVICE
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/string.h>
@@ -491,7 +501,7 @@ struct mars_peerinfo {
 	struct mars_global *global;
 	char *peer;
 	char *path;
-	struct socket *socket;
+	struct mars_socket *socket;
 	struct task_struct *peer_thread;
 	spinlock_t lock;
 	struct list_head remote_dent_list;
@@ -789,13 +799,30 @@ int run_bones(struct mars_peerinfo *peer)
 // remote working infrastructure
 
 static
-void _peer_cleanup(struct mars_peerinfo *peer)
+void _peer_cleanup(struct mars_peerinfo *peer, bool do_stop)
 {
+	unsigned long flags;
+	MARS_DBG("\n");
 	if (peer->socket) {
-		kernel_sock_shutdown(peer->socket, SHUT_WR);
+		mars_shutdown_socket(peer->socket);
+	}
+	if (do_stop && peer->peer_thread) {
+		kthread_stop(peer->peer_thread);
+		put_task_struct(peer->peer_thread);
+		peer->peer_thread = NULL;
+	}
+	if (peer->socket) {
+		mars_put_socket(peer->socket);
 		peer->socket = NULL;
 	}
-	//...
+
+	if (do_stop) {
+		traced_lock(&peer->lock, flags);
+		mars_free_dent_all(&peer->remote_dent_list);
+		traced_unlock(&peer->lock, flags);
+		brick_string_free(peer->peer);
+		brick_string_free(peer->path);
+	}
 }
 
 static
@@ -831,8 +858,9 @@ int remote_thread(void *data)
 		};
 
 		if (!peer->socket) {
-			status = mars_create_socket(&peer->socket, &sockaddr, false);
-			if (unlikely(status < 0)) {
+			peer->socket = mars_create_socket(&sockaddr, false);
+			if (unlikely(IS_ERR(peer->socket))) {
+				status = PTR_ERR(peer->socket);
 				peer->socket = NULL;
 				MARS_INF("no connection to '%s'\n", real_peer);
 				msleep(5000);
@@ -842,18 +870,18 @@ int remote_thread(void *data)
 			continue;
 		}
 
-		status = mars_send_struct(&peer->socket, &cmd, mars_cmd_meta);
+		status = mars_send_struct(peer->socket, &cmd, mars_cmd_meta);
 		if (unlikely(status < 0)) {
-			MARS_ERR("communication error on send, status = %d\n", status);
-			_peer_cleanup(peer);
+			MARS_WRN("communication error on send, status = %d\n", status);
+			_peer_cleanup(peer, false);
 			msleep(2000);
 			continue;
 		}
 
-		status = mars_recv_dent_list(&peer->socket, &tmp_list);
+		status = mars_recv_dent_list(peer->socket, &tmp_list);
 		if (unlikely(status < 0)) {
-			MARS_ERR("communication error on receive, status = %d\n", status);
-			_peer_cleanup(peer);
+			MARS_WRN("communication error on receive, status = %d\n", status);
+			_peer_cleanup(peer, false);
 			msleep(5000);
 			continue;
 		}
@@ -879,11 +907,10 @@ int remote_thread(void *data)
 
 	MARS_INF("-------- remote thread terminating\n");
 
-	_peer_cleanup(peer);
+	_peer_cleanup(peer, false);
 
 done:
 	//cleanup_mm();
-	peer->peer_thread = NULL;
 	brick_string_free(real_peer);
 	return 0;
 }
@@ -903,17 +930,11 @@ static int _kill_peer(void *buf, struct mars_dent *dent)
 	if (!peer) {
 		return 0;
 	}
-	MARS_DBG("killing peer thread....\n");
-	if (!peer->peer_thread) {
-		MARS_ERR("oops, remote thread is not running - doing cleanup myself\n");
-		_peer_cleanup(peer);
-		dent->d_private = NULL;
-		return -1;
 
-	}
-	MARS_INF("stopping thread...\n");
-	kthread_stop(peer->peer_thread);
+	MARS_INF("stopping peer thread...\n");
+	_peer_cleanup(peer, true);
 	dent->d_private = NULL;
+	brick_mem_free(peer);
 	return 0;
 }
 
@@ -943,8 +964,8 @@ static int _make_peer(struct mars_global *global, struct mars_dent *dent, char *
 
 		peer = dent->d_private;
 		peer->global = global;
-		peer->peer = mypeer;
-		peer->path = path;
+		peer->peer = brick_strdup(mypeer);
+		peer->path = brick_strdup(path);
 		peer->maxdepth = 2;
 		spin_lock_init(&peer->lock);
 		INIT_LIST_HEAD(&peer->remote_dent_list);
@@ -960,6 +981,7 @@ static int _make_peer(struct mars_global *global, struct mars_dent *dent, char *
 			return -1;
 		}
 		MARS_DBG("starting peer thread\n");
+		get_task_struct(peer->peer_thread);
 		wake_up_process(peer->peer_thread);
 	}
 
@@ -1542,7 +1564,7 @@ int _check_logging_status(struct mars_rotate *rot, long long *oldpos_start, long
 	parent = dent->d_parent;
 	CHECK_PTR(parent, done);
 	global = rot->global;
-	CHECK_PTR(global, done);
+	CHECK_PTR_NULL(global, done);
 	CHECK_PTR(rot->replay_link, done);
 	CHECK_PTR(rot->aio_brick, done);
 
@@ -1616,7 +1638,7 @@ int _make_logging_status(struct mars_rotate *rot)
 	parent = dent->d_parent;
 	CHECK_PTR(parent, done);
 	global = rot->global;
-	CHECK_PTR(global, done);
+	CHECK_PTR_NULL(global, done);
 
 	status = 0;
 	trans_brick = rot->trans_brick;
@@ -2402,10 +2424,10 @@ static const struct light_class light_classes[] = {
 		.cl_len = 3,
 		.cl_type = 'l',
 		.cl_father = CL_IPS,
-#if 1
+#ifdef RUN_PEERS
 		.cl_forward = make_scan,
-		.cl_backward = kill_scan,
 #endif
+		.cl_backward = kill_scan,
 	},
 
 	/* Directory containing all items of a resource
@@ -2415,8 +2437,6 @@ static const struct light_class light_classes[] = {
 		.cl_len = 9,
 		.cl_type = 'd',
 		.cl_father = CL_ROOT,
-		.cl_forward = NULL,
-		.cl_backward = NULL,
 	},
 
 	/* Subdirectory for defaults...
@@ -2427,8 +2447,6 @@ static const struct light_class light_classes[] = {
 		.cl_type = 'd',
 		.cl_hostcontext = false,
 		.cl_father = CL_RESOURCE,
-		.cl_forward = NULL,
-		.cl_backward = NULL,
 	},
 	[CL_DEFAULTS] = {
 		.cl_name = "defaults-",
@@ -2436,8 +2454,6 @@ static const struct light_class light_classes[] = {
 		.cl_type = 'd',
 		.cl_hostcontext = false,
 		.cl_father = CL_RESOURCE,
-		.cl_forward = NULL,
-		.cl_backward = NULL,
 	},
 	/* ... and its contents
 	 */
@@ -2446,16 +2462,12 @@ static const struct light_class light_classes[] = {
 		.cl_len = 0, // catch any
 		.cl_type = 'l',
 		.cl_father = CL_DEFAULTS0,
-		.cl_forward = NULL,
-		.cl_backward = NULL,
 	},
 	[CL_DEFAULTS_ITEMS] = {
 		.cl_name = "",
 		.cl_len = 0, // catch any
 		.cl_type = 'l',
 		.cl_father = CL_DEFAULTS,
-		.cl_forward = NULL,
-		.cl_backward = NULL,
 	},
 
 	/* Subdirectory for controlling items...
@@ -2466,8 +2478,6 @@ static const struct light_class light_classes[] = {
 		.cl_type = 'd',
 		.cl_hostcontext = false,
 		.cl_father = CL_RESOURCE,
-		.cl_forward = NULL,
-		.cl_backward = NULL,
 	},
 	/* ... and its contents
 	 */
@@ -2476,8 +2486,6 @@ static const struct light_class light_classes[] = {
 		.cl_len = 0, // catch any
 		.cl_type = 'l',
 		.cl_father = CL_SWITCH,
-		.cl_forward = NULL,
-		.cl_backward = NULL,
 	},
 
 	/* Subdirectory for actual state
@@ -2488,8 +2496,6 @@ static const struct light_class light_classes[] = {
 		.cl_type = 'd',
 		.cl_hostcontext = false,
 		.cl_father = CL_RESOURCE,
-		.cl_forward = NULL,
-		.cl_backward = NULL,
 	},
 	/* ... and its contents
 	 */
@@ -2498,8 +2504,6 @@ static const struct light_class light_classes[] = {
 		.cl_len = 0, // catch any
 		.cl_type = 'l',
 		.cl_father = CL_ACTUAL,
-		.cl_forward = NULL,
-		.cl_backward = NULL,
 	},
 
 
@@ -2511,8 +2515,6 @@ static const struct light_class light_classes[] = {
 		.cl_type = 'l',
 		.cl_hostcontext = false, // not used here
 		.cl_father = CL_RESOURCE,
-		.cl_forward = NULL,
-		.cl_backward = NULL,
 	},
 	/* Symlink indicating the necessary length of logfile replay
 	 */
@@ -2522,8 +2524,6 @@ static const struct light_class light_classes[] = {
 		.cl_type = 'l',
 		.cl_hostcontext = false, // not used here
 		.cl_father = CL_RESOURCE,
-		.cl_forward = NULL,
-		.cl_backward = NULL,
 	},
 	/* File or symlink to the real device / real (sparse) file
 	 * when hostcontext is missing, the corresponding peer will
@@ -2535,7 +2535,9 @@ static const struct light_class light_classes[] = {
 		.cl_type = 'F',
 		.cl_hostcontext = true,
 		.cl_father = CL_RESOURCE,
+#ifdef RUN_DATA
 		.cl_forward = make_bio,
+#endif
 		.cl_backward = kill_any,
 	},
 	/* Symlink indicating the (common) size of the resource
@@ -2546,7 +2548,9 @@ static const struct light_class light_classes[] = {
 		.cl_type = 'l',
 		.cl_hostcontext = false,
 		.cl_father = CL_RESOURCE,
+#ifdef RUN_LOGINIT
 		.cl_forward = make_log_init,
+#endif
 		.cl_backward = kill_any,
 	},
 	/* Symlink pointing to the name of the primary node
@@ -2557,7 +2561,9 @@ static const struct light_class light_classes[] = {
 		.cl_type = 'l',
 		.cl_hostcontext = false,
 		.cl_father = CL_RESOURCE,
+#ifdef RUN_PRIMARY
 		.cl_forward = make_primary,
+#endif
 		.cl_backward = NULL,
 	},
 	/* Only for testing: open local file
@@ -2581,7 +2587,9 @@ static const struct light_class light_classes[] = {
 		.cl_type = 'l',
 		.cl_hostcontext = true,
 		.cl_father = CL_RESOURCE,
+#ifdef RUN_SYNCSTATUS
 		.cl_forward = make_sync,
+#endif
 		.cl_backward = kill_any,
 	},
 	/* Only for testing: make a copy instance
@@ -2618,8 +2626,6 @@ static const struct light_class light_classes[] = {
 		.cl_serial = true,
 		.cl_hostcontext = false,
 		.cl_father = CL_RESOURCE,
-		.cl_forward = NULL,
-		.cl_backward = NULL,
 	},
 	/* Logfiles for transaction logger
 	 */
@@ -2630,10 +2636,10 @@ static const struct light_class light_classes[] = {
 		.cl_serial = true,
 		.cl_hostcontext = true,
 		.cl_father = CL_RESOURCE,
-#if 1
+#ifdef RUN_LOGFILES
 		.cl_forward = make_log_step,
-		.cl_backward = kill_any,
 #endif
+		.cl_backward = kill_any,
 	},
 	/* Symlink indicating the last state of
 	 * transaction log replay.
@@ -2644,7 +2650,9 @@ static const struct light_class light_classes[] = {
 		.cl_type = 'l',
 		.cl_hostcontext = true,
 		.cl_father = CL_RESOURCE,
+#ifdef RUN_REPLAY
 		.cl_forward = make_replay,
+#endif
 		.cl_backward = kill_any,
 	},
 
@@ -2656,7 +2664,9 @@ static const struct light_class light_classes[] = {
 		.cl_type = 'l',
 		.cl_hostcontext = true,
 		.cl_father = CL_RESOURCE,
+#ifdef RUN_DEVICE
 		.cl_forward = make_dev,
+#endif
 		.cl_backward = kill_any,
 	},
 	{}
@@ -2860,6 +2870,37 @@ void _show_status(struct mars_global *global)
 
 #ifdef STAT_DEBUGGING
 static
+void _show_one(struct mars_brick *test, int *brick_count)
+{
+	int i;
+	if (*brick_count) {
+		MARS_STAT("---------\n");
+	}
+	MARS_STAT("BRICK type = %s path = '%s' name = '%s' level = %d button = %d off = %d on = %d\n", SAFE_STR(test->type->type_name), SAFE_STR(test->brick_path), SAFE_STR(test->brick_name), test->status_level, test->power.button, test->power.led_off, test->power.led_on);
+	(*brick_count)++;
+	if (test->ops && test->ops->brick_statistics) {
+		char *info = test->ops->brick_statistics(test, 0);
+		if (info) {
+			MARS_STAT("  %s", info);
+			brick_string_free(info);
+		}
+	}
+	for (i = 0; i < test->nr_inputs; i++) {
+		struct mars_input *input = test->inputs[i];
+		struct mars_output *output = input ? input->connect : NULL;
+		if (output) {
+			MARS_STAT("    input %d connected with %s path = '%s' name = '%s'\n", i, SAFE_STR(output->brick->type->type_name), SAFE_STR(output->brick->brick_path), SAFE_STR(output->brick->brick_name));
+		} else {
+			MARS_STAT("    input %d not connected\n", i);
+		}
+	}
+	for (i = 0; i < test->nr_outputs; i++) {
+		struct mars_output *output = test->outputs[i];
+		MARS_STAT("    output %d nr_connected = %d\n", i, output->nr_connected);
+	}
+}
+
+static
 void _show_statist(struct mars_global *global)
 {
 	struct list_head *tmp;
@@ -2868,37 +2909,18 @@ void _show_statist(struct mars_global *global)
 
 	brick_mem_statistics();
 
-	MARS_STAT("================================== bricks:\n");
 	down_read(&global->brick_mutex);
+	MARS_STAT("================================== ordinary bricks:\n");
 	for (tmp = global->brick_anchor.next; tmp != &global->brick_anchor; tmp = tmp->next) {
 		struct mars_brick *test;
-		int i;
 		test = container_of(tmp, struct mars_brick, global_brick_link);
-		if (brick_count) {
-			MARS_STAT("---------\n");
-		}
-		MARS_STAT("BRICK type = %s path = '%s' name = '%s' level = %d button = %d off = %d on = %d\n", test->type->type_name, test->brick_path, test->brick_name, test->status_level, test->power.button, test->power.led_off, test->power.led_on);
-		brick_count++;
-		if (test->ops && test->ops->brick_statistics) {
-			char *info = test->ops->brick_statistics(test, 0);
-			if (info) {
-				MARS_STAT("  %s", info);
-				brick_string_free(info);
-			}
-		}
-		for (i = 0; i < test->nr_inputs; i++) {
-			struct mars_input *input = test->inputs[i];
-			struct mars_output *output = input ? input->connect : NULL;
-			if (output) {
-				MARS_STAT("    input %d connected with %s path = '%s' name = '%s'\n", i, output->brick->type->type_name, output->brick->brick_path, output->brick->brick_name);
-			} else {
-				MARS_STAT("    input %d not connected\n", i);
-			}
-		}
-		for (i = 0; i < test->nr_outputs; i++) {
-			struct mars_output *output = test->outputs[i];
-			MARS_STAT("    output %d nr_connected = %d\n", i, output->nr_connected);
-		}
+		_show_one(test, &brick_count);
+	}
+	MARS_STAT("================================== server bricks:\n");
+	for (tmp = global->server_anchor.next; tmp != &global->server_anchor; tmp = tmp->next) {
+		struct mars_brick *test;
+		test = container_of(tmp, struct mars_brick, global_brick_link);
+		_show_one(test, &brick_count);
 	}
 	up_read(&global->brick_mutex);
 	
@@ -2908,12 +2930,12 @@ void _show_statist(struct mars_global *global)
 		struct mars_dent *dent;
 		struct list_head *sub;
 		dent = container_of(tmp, struct mars_dent, dent_link);
-		MARS_STAT("dent %d '%s' '%s' stamp=%ld.%09ld\n", dent->d_class, dent->d_path, dent->new_link ? dent->new_link : "", dent->new_stat.mtime.tv_sec, dent->new_stat.mtime.tv_nsec);
+		MARS_STAT("dent %d '%s' '%s' stamp=%ld.%09ld\n", dent->d_class, SAFE_STR(dent->d_path), SAFE_STR(dent->new_link), dent->new_stat.mtime.tv_sec, dent->new_stat.mtime.tv_nsec);
 		dent_count++;
 		for (sub = dent->brick_list.next; sub != &dent->brick_list; sub = sub->next) {
 			struct mars_brick *test;
 			test = container_of(sub, struct mars_brick, dent_brick_link);
-			MARS_STAT("  owner of brick '%s'\n", test->brick_path);
+			MARS_STAT("  owner of brick '%s'\n", SAFE_STR(test->brick_path));
 		}
 	}
 	up_read(&global->dent_mutex);
@@ -2922,21 +2944,23 @@ void _show_statist(struct mars_global *global)
 }
 #endif
 
+static struct mars_global _global = {
+	.dent_anchor = LIST_HEAD_INIT(_global.dent_anchor),
+	.brick_anchor = LIST_HEAD_INIT(_global.brick_anchor),
+	.server_anchor = LIST_HEAD_INIT(_global.server_anchor),
+	.global_power = {
+		.button = true,
+	},
+	.dent_mutex = __RWSEM_INITIALIZER(_global.dent_mutex),
+	.brick_mutex = __RWSEM_INITIALIZER(_global.brick_mutex),
+	.main_event = __WAIT_QUEUE_HEAD_INITIALIZER(_global.main_event),
+};
+
 static int light_thread(void *data)
 {
 	char *id = my_id();
 	int status = 0;
-	struct mars_global global = {
-		.dent_anchor = LIST_HEAD_INIT(global.dent_anchor),
-		.brick_anchor = LIST_HEAD_INIT(global.brick_anchor),
-		.global_power = {
-			.button = true,
-		},
-		.dent_mutex = __RWSEM_INITIALIZER(global.dent_mutex),
-		.brick_mutex = __RWSEM_INITIALIZER(global.brick_mutex),
-		.main_event = __WAIT_QUEUE_HEAD_INITIALIZER(global.main_event),
-	};
-	mars_global = &global; // TODO: cleanup, avoid stack
+	mars_global = &_global;
 
 	if (!id || strlen(id) < 2) {
 		MARS_ERR("invalid hostname\n");
@@ -2948,32 +2972,38 @@ static int light_thread(void *data)
 
 	MARS_INF("-------- starting as host '%s' ----------\n", id);
 
-        while (global.global_power.button || !list_empty(&global.brick_anchor)) {
+        while (_global.global_power.button || !list_empty(&_global.brick_anchor)) {
 		int status;
-		global.global_power.button = !kthread_should_stop();
+		_global.global_power.button = !kthread_should_stop();
 
-		status = mars_dent_work(&global, "/mars", sizeof(struct mars_dent), light_checker, light_worker, &global, 3);
+		if (!_global.global_power.button) {
+			mars_kill_brick_all(&_global, &_global.server_anchor, false);
+		}
+
+		status = mars_dent_work(&_global, "/mars", sizeof(struct mars_dent), light_checker, light_worker, &_global, 3);
 		MARS_DBG("worker status = %d\n", status);
 
-		_show_status(&global);
+		_show_status(&_global);
 #ifdef STAT_DEBUGGING
-		_show_statist(&global);
+		_show_statist(&_global);
 #endif
 
 		msleep(500);
 
-		wait_event_interruptible_timeout(global.main_event, global.main_trigger, 10 * HZ);
-		global.main_trigger = false;
+		wait_event_interruptible_timeout(_global.main_event, _global.main_trigger, 10 * HZ);
+		_global.main_trigger = false;
 	}
 
 done:
 	MARS_INF("-------- cleaning up ----------\n");
 
-	mars_free_dent_all(&global.dent_anchor);
+	mars_kill_brick_all(&_global, &_global.server_anchor, false);
+	mars_free_dent_all(&_global.dent_anchor);
+	mars_kill_brick_all(&_global, &_global.brick_anchor, false);
 
-	_show_status(&global);
+	_show_status(&_global);
 #ifdef STAT_DEBUGGING
-	_show_statist(&global);
+	_show_statist(&_global);
 #endif
 
 	mars_global = NULL;

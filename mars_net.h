@@ -10,6 +10,8 @@
 
 #define MARS_DEFAULT_PORT 7777
 
+struct mars_socket; // opaque
+
 struct mars_tcp_params {
 	int tcp_timeout;
 	int window_size;
@@ -49,29 +51,36 @@ extern char *(*mars_translate_hostname)(const char *name);
 /* Low-level network traffic
  */
 extern int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec);
-extern int mars_create_socket(struct socket **sock, struct sockaddr_storage *addr, bool is_server);
-extern int mars_send(struct socket **sock, void *buf, int len);
-extern int mars_recv(struct socket **sock, void *buf, int minlen, int maxlen);
+
+extern struct mars_socket *mars_create_socket(struct sockaddr_storage *addr, bool is_server);
+extern struct mars_socket *mars_accept_socket(struct mars_socket *msock, bool do_block);
+extern struct mars_socket *mars_get_socket(struct mars_socket *msock);
+extern void mars_put_socket(struct mars_socket *msock);
+extern void mars_shutdown_socket(struct mars_socket *msock);
+extern bool mars_socket_is_alive(struct mars_socket *msock);
+
+extern int mars_send(struct mars_socket *msock, void *buf, int len);
+extern int mars_recv(struct mars_socket *msock, void *buf, int minlen, int maxlen);
 
 /* Mid-level generic field data exchange
  */
-extern int mars_send_struct(struct socket **sock, void *data, const struct meta *meta);
+extern int mars_send_struct(struct mars_socket *msock, void *data, const struct meta *meta);
 #define mars_recv_struct(_sock_,_data_,_meta_)				\
 	({								\
 		int seq = 0;						\
 		_mars_recv_struct(_sock_, _data_, _meta_, &seq, __LINE__); \
 	})
-extern int _mars_recv_struct(struct socket **sock, void *data, const struct meta *meta, int *seq, int line);
+extern int _mars_recv_struct(struct mars_socket *msock, void *data, const struct meta *meta, int *seq, int line);
 
 /* High-level transport of mars structures
  */
-extern int mars_send_dent_list(struct socket **sock, struct list_head *anchor);
-extern int mars_recv_dent_list(struct socket **sock, struct list_head *anchor);
+extern int mars_send_dent_list(struct mars_socket *msock, struct list_head *anchor);
+extern int mars_recv_dent_list(struct mars_socket *msock, struct list_head *anchor);
 
-extern int mars_send_mref(struct socket **sock, struct mref_object *mref);
-extern int mars_recv_mref(struct socket **sock, struct mref_object *mref);
-extern int mars_send_cb(struct socket **sock, struct mref_object *mref);
-extern int mars_recv_cb(struct socket **sock, struct mref_object *mref);
+extern int mars_send_mref(struct mars_socket *msock, struct mref_object *mref);
+extern int mars_recv_mref(struct mars_socket *msock, struct mref_object *mref);
+extern int mars_send_cb(struct mars_socket *msock, struct mref_object *mref);
+extern int mars_recv_cb(struct mars_socket *msock, struct mref_object *mref);
 
 /////////////////////////////////////////////////////////////////////////
 
