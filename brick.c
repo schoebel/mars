@@ -7,7 +7,7 @@
 
 //#define BRICK_DEBUGGING
 
-//#define USE_FREELIST // use this, but improve freeing
+//#define USE_FREELIST // TODO: cleanup
 
 #define _STRATEGY
 
@@ -436,7 +436,7 @@ int generic_add_aspect(struct generic_output *output, struct generic_object_layo
 			BRICK_ERR("inconsistent use of aspect_type %s != %s\n", aspect_type->aspect_type_name, aspect_layout->aspect_type->aspect_type_name);
 			goto done;
 		}
-		if (unlikely(aspect_layout->init_data != output)) {
+		if (unlikely(aspect_layout->tied_to != output)) {
 			BRICK_ERR("inconsistent output assigment (aspect_type=%s)\n", aspect_type->aspect_type_name);
 			goto done;
 		}
@@ -451,7 +451,7 @@ int generic_add_aspect(struct generic_output *output, struct generic_object_layo
 	} else {
 		/* first call: initialize aspect_layout. */
 		aspect_layout->aspect_type = aspect_type;
-		aspect_layout->init_data = output;
+		aspect_layout->tied_to = output;
 		aspect_layout->aspect_offset = object_layout->object_size;
 		object_layout->object_size += aspect_type->aspect_size;
 		aspect_layout->aspect_layout_generation = object_layout->object_layout_generation;
@@ -480,18 +480,48 @@ EXPORT_SYMBOL_GPL(generic_add_aspect);
 int brick_layout_generation = 1;
 EXPORT_SYMBOL_GPL(brick_layout_generation);
 
+static inline
+void _put_data_ref(atomic_t *data_ref)
+{
+	if (data_ref && atomic_dec_and_test(data_ref)) {
+		brick_mem_free(data_ref);
+	}
+}
+
+static DEFINE_SPINLOCK(global_lock);
+
+void default_exit_object_layout(struct generic_object_layout *object_layout)
+{
+	atomic_t *old_data_ref;
+	unsigned long flags;
+
+	BRICK_DBG("\n");
+
+	traced_lock(&global_lock, flags);
+	object_layout->object_type = NULL;
+	list_del_init(&object_layout->layout_head);
+	old_data_ref = object_layout->data_ref;
+	traced_unlock(&global_lock, flags);
+
+	_put_data_ref(old_data_ref);
+}
+EXPORT_SYMBOL_GPL(default_exit_object_layout);
+
 /* (Re-)Make an object layout
  */
 int default_init_object_layout(struct generic_output *output, struct generic_object_layout *object_layout, int aspect_max, const struct generic_object_type *object_type, char *module_name)
 {
 	// TODO: make locking granularity finer (if it were worth).
-	static DEFINE_SPINLOCK(global_lock);
-	void *data;
-	void *data2;
-	void *olddata;
-	void *olddata2;
+	atomic_t *data_ref;
+	atomic_t *old_data_ref = NULL;
+	const int size0 = sizeof(atomic_t);
+	int size1;
+	int size2;
+	int size;
 	int status= -ENOMEM;
 	unsigned long flags;
+
+	BRICK_DBG("\n");
 
 	if (unlikely(!module_name)) {
 		module_name = "(unknown)";
@@ -499,12 +529,12 @@ int default_init_object_layout(struct generic_output *output, struct generic_obj
 
 	aspect_max = nr_max;
 
-	data = brick_zmem_alloc(aspect_max * sizeof(struct generic_aspect_layout));
-	data2 = brick_zmem_alloc(aspect_max * sizeof(void*));
-	if (unlikely(!data || !data2)) {
-		BRICK_ERR("alloc failed, size = %lu\n", aspect_max * sizeof(void*));
-		brick_mem_free(data);
-		brick_mem_free(data2);
+	size1 = aspect_max * sizeof(struct generic_aspect_layout);
+	size2 = aspect_max * sizeof(void*);
+	size = size0 + size1 + size2;
+	data_ref = brick_zmem_alloc(size);
+	if (unlikely(!data_ref)) {
+		BRICK_ERR("alloc failed, size = %ld\n", size);
 		goto done;
 	}
 
@@ -513,18 +543,23 @@ int default_init_object_layout(struct generic_output *output, struct generic_obj
 	if (unlikely(object_layout->object_type && object_layout->object_layout_generation == brick_layout_generation)) {
 		traced_unlock(&global_lock, flags);
 		BRICK_DBG("lost the race on object_layout %p/%s (no harm)\n", object_layout, module_name);
+		old_data_ref = data_ref;
 		status = 0;
 		goto done;
 	}
 
-	olddata = object_layout->aspect_layouts;
-	olddata2 = object_layout->aspect_layouts_table;
-
-	object_layout->aspect_layouts_table = data2;
-	object_layout->aspect_layouts = data;
+	atomic_set(data_ref, 1);
+	object_layout->aspect_layouts_table = ((void*)data_ref) + size0;
+	object_layout->aspect_layouts =  ((void*)data_ref) + size0 + size1;
+	old_data_ref = object_layout->data_ref;
+	object_layout->data_ref = data_ref;
+	object_layout->tied_to = output;
+	if (object_layout->layout_head.next) {
+		list_del_init(&object_layout->layout_head);
+	}
+	list_add(&object_layout->layout_head, &output->layout_list);
 	object_layout->object_layout_generation = brick_layout_generation;
 	object_layout->object_type = object_type;
-	object_layout->init_data = output;
 	object_layout->aspect_count = 0;
 	object_layout->aspect_max = aspect_max;
 	object_layout->object_size = object_type->default_size;
@@ -543,7 +578,6 @@ int default_init_object_layout(struct generic_output *output, struct generic_obj
 	traced_unlock(&global_lock, flags);
 
 	if (unlikely(status < 0)) {
-		brick_mem_free(data);
 		BRICK_ERR("emergency, cannot add aspects to object_layout %s (module %s)\n", object_type->object_type_name, module_name);
 		goto done;
 	}
@@ -552,10 +586,7 @@ int default_init_object_layout(struct generic_output *output, struct generic_obj
 	BRICK_INF("OK, object_layout %s init succeeded (size = %d).\n", object_type->object_type_name, object_layout->object_size);
 
 done:
-#if 0 // FIXME: use RCU here
-	brick_mem_free(olddata);
-	brick_mem_free(olddata2);
-#endif
+	_put_data_ref(old_data_ref);
 	return status;
 }
 EXPORT_SYMBOL_GPL(default_init_object_layout);
@@ -664,6 +695,7 @@ struct generic_object *alloc_generic(struct generic_object_layout *object_layout
 		goto err;
 	}
 
+#ifdef USE_FREELIST
 	object = object_layout->free_list;
 	if (object) {
 		unsigned long flags;
@@ -679,6 +711,9 @@ struct generic_object *alloc_generic(struct generic_object_layout *object_layout
 		}
 		traced_unlock(&object_layout->free_lock, flags);
 	}
+#else
+	if (false) goto ok; // shut up gcc
+#endif
 
 	data = brick_zmem_alloc(object_layout->object_size);
 	if (unlikely(!data))
@@ -690,6 +725,9 @@ ok:
 	object = generic_construct(data, object_layout);
 	if (unlikely(!object))
 		goto err_free;
+
+	object->data_ref = object_layout->data_ref;
+	atomic_inc(object->data_ref);
 
 #if 1
 	{
@@ -739,6 +777,7 @@ void free_generic(struct generic_object *object)
 		return;
 #endif
 		atomic_dec(&object_layout->alloc_count);
+		_put_data_ref(object->data_ref);
 	}
 
 	brick_mem_free(object);

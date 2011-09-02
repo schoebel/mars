@@ -26,6 +26,7 @@ static void _kill_thread(struct client_threadinfo *ti)
 	if (ti->thread) {
 		MARS_INF("stopping thread...\n");
 		kthread_stop(ti->thread);
+		put_task_struct(ti->thread);
 		ti->thread = NULL;
 	}
 }
@@ -112,6 +113,7 @@ static int _connect(struct client_output *output, const char *str)
 		output->receiver.terminated = true;
 		goto done;
 	}
+	get_task_struct(output->receiver.thread);
 	wake_up_process(output->receiver.thread);
 
 
@@ -352,7 +354,7 @@ int receiver_thread(void *data)
 	}
 
 	if (status < 0) {
-		MARS_ERR("receiver thread terminated with status = %d\n", status);
+		MARS_WRN("receiver thread terminated with status = %d\n", status);
 	}
 
 	mars_shutdown_socket(output->socket);
@@ -436,7 +438,7 @@ static int sender_thread(void *data)
 			list_add(&mref_a->io_head, &output->mref_list);
 			traced_unlock(&output->lock, flags);
 
-			MARS_ERR("sending failed, status = %d\n", status);
+			MARS_WRN("sending failed, status = %d\n", status);
 
 			_kill_socket(output);
 
@@ -445,7 +447,7 @@ static int sender_thread(void *data)
 	}
 //done:
 	if (status < 0) {
-		MARS_ERR("sender thread terminated with status = %d\n", status);
+		MARS_WRN("sender thread terminated with status = %d\n", status);
 	}
 
 	_kill_socket(output);
@@ -473,6 +475,7 @@ static int client_switch(struct client_brick *brick)
 				goto done;
 			}
 		}
+		get_task_struct(output->sender.thread);
 		wake_up_process(output->sender.thread);
 		if (!output->sender.terminated) {
 			mars_power_led_on((void*)brick, true);

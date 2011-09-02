@@ -102,7 +102,7 @@ struct generic_aspect_type {
 
 #define GENERIC_ASPECT_LAYOUT(TYPE)					\
 	const struct generic_aspect_type *aspect_type;			\
-	void *init_data;						\
+	struct generic_output *tied_to;					\
 	int aspect_offset;						\
 	int aspect_layout_generation;					\
 
@@ -125,7 +125,9 @@ struct generic_object_type {
 	struct generic_aspect_layout **aspect_layouts_table;		\
 	struct generic_aspect_layout *aspect_layouts;			\
 	const struct generic_object_type *object_type;			\
-	void *init_data;						\
+	struct generic_output *tied_to;					\
+	atomic_t *data_ref;						\
+	struct list_head layout_head;					\
 	int aspect_count;						\
 	int aspect_max;							\
 	int object_size;						\
@@ -144,6 +146,7 @@ struct generic_object_layout {
 
 #define GENERIC_OBJECT(TYPE)						\
 	struct TYPE##_object_layout *object_layout;			\
+	atomic_t *data_ref;						\
 	int object_size;						\
 
 struct generic_object {
@@ -219,6 +222,7 @@ struct generic_input {
 	const struct BRICK##_output_type *type;				\
 	struct BRICK##_output_ops *ops;					\
 	struct list_head output_head;					\
+	struct list_head layout_list;					\
 	int nr_connected;						\
 	int output_index; /* globally unique */				\
 	/* _must_ be the last member (may expand to open array) */	\
@@ -320,11 +324,18 @@ INLINE void _generic_output_init(struct generic_brick *brick, const struct gener
 	output->nr_connected = 0;
 	output->output_index = get_nr();
 	INIT_LIST_HEAD(&output->output_head);
+	INIT_LIST_HEAD(&output->layout_list);
 }
+
+extern void default_exit_object_layout(struct generic_object_layout *object_layout);
 
 INLINE void _generic_output_exit(struct generic_output *output)
 {
 	list_del_init(&output->output_head);
+	while (!list_empty(&output->layout_list)) {
+		struct generic_object_layout *object_layout = container_of(output->layout_list.next, struct generic_object_layout, layout_head);
+		default_exit_object_layout(object_layout);
+	}
 	output->output_name = NULL;
 	output->brick = NULL;
 	output->type = NULL;
@@ -567,6 +578,7 @@ extern int default_make_object_layout(struct generic_output *output, struct gene
 extern int generic_add_aspect(struct generic_output *output, struct generic_object_layout *object_layout, const struct generic_aspect_type *aspect_type);
 
 extern int default_init_object_layout(struct generic_output *output, struct generic_object_layout *object_layout, int aspect_max, const struct generic_object_type *object_type, char *module_name);
+extern void default_exit_object_layout(struct generic_object_layout *object_layout);
 
 extern struct generic_object *alloc_generic(struct generic_object_layout *object_layout);
 
@@ -599,7 +611,7 @@ INLINE struct TYPE##_object *TYPE##_construct(void *data, struct TYPE##_object_l
 									\
 	obj->object_layout = object_layout;				\
 	if (object_layout->object_type->init_fn) {			\
-		int status = object_layout->object_type->init_fn((void*)obj, object_layout->init_data); \
+		int status = object_layout->object_type->init_fn((void*)obj, object_layout->tied_to); \
 		if (status < 0) {					\
 			return NULL;					\
 		}							\
@@ -613,7 +625,7 @@ INLINE struct TYPE##_object *TYPE##_construct(void *data, struct TYPE##_object_l
 		aspect = data + aspect_layout->aspect_offset;		\
 		aspect->object = (void*)obj;				\
 		if (aspect_layout->aspect_type->init_fn) {		\
-			int status = aspect_layout->aspect_type->init_fn((void*)aspect, aspect_layout->init_data); \
+			int status = aspect_layout->aspect_type->init_fn((void*)aspect, aspect_layout->tied_to); \
 			if (status < 0) {				\
 				return NULL;				\
 			}						\
@@ -633,7 +645,7 @@ INLINE void TYPE##_destruct(struct TYPE##_object *obj)	        \
 		return;							\
 	}								\
 	if (object_layout->object_type->exit_fn) {			\
-		object_layout->object_type->exit_fn((void*)obj, object_layout->init_data); \
+		object_layout->object_type->exit_fn((void*)obj, object_layout->tied_to); \
 	}								\
 	for (i = 0; i < object_layout->aspect_count; i++) {		\
 		struct generic_aspect_layout *aspect_layout;		\
@@ -643,7 +655,7 @@ INLINE void TYPE##_destruct(struct TYPE##_object *obj)	        \
 			continue;					\
 		aspect = ((void*)obj) + aspect_layout->aspect_offset;	\
 		if (aspect_layout->aspect_type->exit_fn) {		\
-			aspect_layout->aspect_type->exit_fn((void*)aspect, aspect_layout->init_data); \
+			aspect_layout->aspect_type->exit_fn((void*)aspect, aspect_layout->tied_to); \
 		}							\
 	}								\
 }									\

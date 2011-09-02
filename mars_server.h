@@ -32,6 +32,7 @@ struct server_brick {
 	struct list_head cb_read_list;
 	struct list_head cb_write_list;
 	bool cb_running;
+	bool self_shutdown;
 };
 
 struct server_input {

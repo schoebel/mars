@@ -405,6 +405,7 @@ int __make_copy(
 		aio =
 			make_brick_all(global,
 				       NULL,
+				       false,
 				       _set_bio_params,
 				       NULL,
 				       10 * HZ,
@@ -428,6 +429,7 @@ int __make_copy(
 	copy =
 		make_brick_all(global,
 			       belongs,
+			       false,
 			       _set_copy_params,
 			       &cc,
 			       10 * HZ,
@@ -1391,6 +1393,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	aio_brick =
 		make_brick_all(global,
 			       aio_dent,
+			       false,
 			       _set_aio_params,
 			       NULL,
 			       10 * HZ,
@@ -1431,6 +1434,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	trans_brick =
 		make_brick_all(global,
 			       dent,
+			       false,
 			       _set_trans_params,
 			       NULL,
 			       0,
@@ -1777,6 +1781,7 @@ int _start_trans(struct mars_rotate *rot)
 	rot->relevant_brick =
 		make_brick_all(rot->global,
 			       rot->relevant_log,
+			       false,
 			       NULL,
 			       NULL,
 			       10 * HZ,
@@ -1982,6 +1987,7 @@ int make_bio(void *buf, struct mars_dent *dent)
 	brick =
 		make_brick_all(global,
 			       dent,
+			       false,
 			       _set_bio_params,
 			       NULL,
 			       10 * HZ,
@@ -2098,6 +2104,7 @@ int make_dev(void *buf, struct mars_dent *dent)
 	dev_brick =
 		make_brick_all(global,
 			       dent,
+			       false,
 			       _set_if_params,
 			       NULL,
 			       10 * HZ,
@@ -2161,6 +2168,7 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 	brick = 
 		make_brick_all(global,
 			       dent,
+			       false,
 			       _set_bio_params,
 			       NULL,
 			       10 * HZ,
@@ -2181,6 +2189,7 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 	brick = 
 		make_brick_all(global,
 			       dent,
+			       false,
 			       _set_if_params,
 			       NULL,
 			       10 * HZ,
@@ -2976,9 +2985,11 @@ static int light_thread(void *data)
 		int status;
 		_global.global_power.button = !kthread_should_stop();
 
+#if 1
 		if (!_global.global_power.button) {
 			mars_kill_brick_all(&_global, &_global.server_anchor, false);
 		}
+#endif
 
 		status = mars_dent_work(&_global, "/mars", sizeof(struct mars_dent), light_checker, light_worker, &_global, 3);
 		MARS_DBG("worker status = %d\n", status);

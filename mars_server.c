@@ -222,10 +222,10 @@ int handler_thread(void *data)
 	struct server_brick *brick = data;
 	struct mars_socket *sock = brick->handler_socket;
 	struct task_struct *cb_thread = brick->cb_thread;
-	struct task_struct *h_thread;
 	int status = 0;
 
 	brick->cb_thread = NULL;
+	brick->self_shutdown = true;
 	wake_up_interruptible(&brick->startup_event);
 
 	MARS_DBG("--------------- handler_thread starting on socket %p\n", sock);
@@ -293,7 +293,7 @@ int handler_thread(void *data)
 			status = -EINVAL;
 			CHECK_PTR(path, err);
 			CHECK_PTR_NULL(mars_global, err);
-			CHECK_PTR(_bio_brick_type, err);
+			CHECK_PTR_NULL(_bio_brick_type, err);
 
 			if (!mars_global->global_power.button) {
 				MARS_WRN("system is not alive\n");
@@ -303,6 +303,7 @@ int handler_thread(void *data)
 			prev = make_brick_all(
 				mars_global,
 				NULL,
+				true,
 				NULL,
 				NULL,
 				10 * HZ,
@@ -356,12 +357,6 @@ int handler_thread(void *data)
 	_clean_list(brick, &brick->cb_read_list);
 	_clean_list(brick, &brick->cb_write_list);
 
-	MARS_DBG("cleaning up...\n");
-
-	h_thread = _grab_handler(brick);
-
-	mars_put_socket(sock);
-
 	/* Normally, the brick should be shut down from outside.
 	 * In case the handler thread stops abnormally (e.g.
 	 * shutdown of socket etc), it has to cleanup itself.
@@ -370,14 +365,21 @@ int handler_thread(void *data)
 	 * logic.
 	 * So be careful, avoid races by use of _grab_handler().
 	 */
-	if (h_thread) {
-		int status;
-		MARS_DBG("self cleanup...\n");
-		status = mars_kill_brick((void*)brick);
-		if (status < 0) {
-			BRICK_ERR("kill status = %d, giving up\n", status);
+	if (brick->self_shutdown) {
+		struct task_struct *h_thread;
+		MARS_DBG("self-shutdown\n");
+		h_thread = _grab_handler(brick);
+		mars_put_socket(sock);
+		brick->handler_socket = NULL;
+		if (h_thread) {
+			int status;
+			MARS_DBG("self cleanup...\n");
+			status = mars_kill_brick((void*)brick);
+			if (status < 0) {
+				MARS_ERR("kill status = %d, giving up\n", status);
+			}
+			put_task_struct(h_thread);
 		}
-		put_task_struct(h_thread);
 	}
 	
 	MARS_DBG("done.\n");
@@ -459,12 +461,15 @@ static int server_switch(struct server_brick *brick)
 		if (thread) {
 			brick->handler_thread = NULL;
 			MARS_INF("stopping handler thread....\n");
+			mars_shutdown_socket(brick->handler_socket);
 			kthread_stop(thread);
+			mars_put_socket(brick->handler_socket);
+			brick->handler_socket = NULL;
 			put_task_struct(thread);
 		} else {
 			MARS_WRN("handler thread does not exist\n");
-			mars_power_led_off((void*)brick, true);
 		}
+		mars_power_led_off((void*)brick, true);
 	}
 	return status;
 }
@@ -595,30 +600,13 @@ static int _server_thread(void *data)
 			MARS_WRN("system is not alive\n");
 			goto err;
 		}
-#if 1
-		brick = (void*)mars_make_brick(mars_global, NULL, &server_brick_type, "test", "test");
+
+		brick = (void*)mars_make_brick(mars_global, NULL, true, &server_brick_type, "server", "server");
 		if (!brick) {
 			MARS_ERR("cannot create server instance\n");
 			goto err;
 		}
-#else // old code, remove ASAP
-		{
-			int size = server_brick_type.brick_size +
-				(server_brick_type.max_inputs + server_brick_type.max_outputs) * sizeof(void*) +
-				sizeof(struct server_input),
-				brick = brick_zmem_alloc(size);
-		}
-		if (!brick) {
-			MARS_ERR("cannot allocate server instance\n");
-			goto err;
-		}
-		
-		status = generic_brick_init_full(brick, size, (void*)&server_brick_type, NULL, NULL, NULL);
-		if (status < 0) {
-			MARS_ERR("cannot init server brick, status = %d\n", status);
-			goto err;
-		}
-#endif
+
 		brick->handler_socket = new_socket;
 
 		brick->power.button = true;
@@ -644,10 +632,15 @@ static int _server_thread(void *data)
 		struct list_head *tmp = server_list.next;
 		struct server_brick *brick = container_of(tmp, struct server_brick, server_link);
 		list_del_init(tmp);
+		brick->self_shutdown = false;
 		spin_unlock(&server_lock);
 
-		brick->power.button = false;
-		status = server_switch(brick);
+		MARS_INF("cleanup ....\n");
+
+		status = mars_kill_brick((void*)brick);
+		if (status < 0) {
+			BRICK_ERR("kill status = %d, giving up\n", status);
+		}
 
 		spin_lock(&server_lock);
 	}

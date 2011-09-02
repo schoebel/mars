@@ -746,7 +746,7 @@ void _trans_logger_endio(struct generic_callback *cb)
 	CHECK_PTR(brick, err);
 
 	prev_cb = cb->cb_prev;
-	CHECK_PTR(prev_cb, err);
+	CHECK_PTR_NULL(prev_cb, err);
 	mref = mref_a->object;
 	CHECK_PTR(mref, err);
 
@@ -1296,7 +1296,7 @@ void _complete(struct trans_logger_brick *brick, struct trans_logger_mref_aspect
 
 	orig_cb = orig_mref->ref_cb;
 	CHECK_PTR(orig_cb, err);
-	CHECK_PTR(orig_cb->cb_fn, err);
+	CHECK_PTR_NULL(orig_cb->cb_fn, err);
 	
 	if (unlikely(error < 0)) {
 		orig_cb->cb_error = error;
@@ -1387,7 +1387,7 @@ bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	CHECK_PTR(orig_mref_a, err);
 	orig_mref = orig_mref_a->object;
 	CHECK_PTR(orig_mref, err);
-	CHECK_PTR(orig_mref->ref_cb, err);
+	CHECK_PTR_NULL(orig_mref->ref_cb, err);
 	output = orig_mref_a->my_output;
 	CHECK_PTR(output, err);
 	brick = output->brick;

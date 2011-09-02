@@ -773,7 +773,7 @@ done:
 }
 EXPORT_SYMBOL_GPL(mars_free_brick);
 
-struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent *belongs, const void *_brick_type, const char *path, const char *_name)
+struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent *belongs, bool is_server, const void *_brick_type, const char *path, const char *_name)
 {
 	const char *name = brick_strdup(_name);
 	const char *names[] = { name, NULL };
@@ -844,11 +844,13 @@ struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent 
 	 * Switching on / etc must be done separately.
 	 */
 	down_write(&global->brick_mutex);
-	if (belongs) {
+	if (!is_server) {
 		list_add(&res->global_brick_link, &global->brick_anchor);
-		list_add(&res->dent_brick_link, &belongs->brick_list);
+		if (belongs) {
+			list_add_tail(&res->dent_brick_link, &belongs->brick_list);
+		}
 	} else {
-		list_add(&res->global_brick_link, &global->server_anchor);
+		list_add_tail(&res->global_brick_link, &global->server_anchor);
 	}
 	up_write(&global->brick_mutex);
 
@@ -1014,6 +1016,7 @@ EXPORT_SYMBOL_GPL(_aio_brick_type);
 struct mars_brick *make_brick_all(
 	struct mars_global *global,
 	struct mars_dent *belongs,
+	bool is_server,
 	int (*setup_fn)(struct mars_brick *brick, void *private),
 	void *private,
 	int timeout,
@@ -1065,9 +1068,12 @@ struct mars_brick *make_brick_all(
 			sscanf(test->new_link, "%d", &switch_state);
 		}
 	}
+	if (global && !global->global_power.button) {
+		switch_state = false;
+	}
 
 	// brick already existing?
-	brick = mars_find_brick(global, new_brick_type != _aio_brick_type  && new_brick_type != _bio_brick_type ? new_brick_type : NULL, new_path);
+	brick = mars_find_brick(global, NULL, new_path);
 	if (brick) {
 		// just switch the power state
 		MARS_DBG("found existing brick '%s'\n", new_path);
@@ -1092,7 +1098,7 @@ struct mars_brick *make_brick_all(
 			goto err;
 		}
 
-		prev[i] = mars_find_brick(global, prev_brick_type[i], path);
+		prev[i] = mars_find_brick(global, NULL, path);
 
 		if (!prev[i]) {
 			MARS_WRN("prev brick '%s' does not exist\n", path);
@@ -1110,7 +1116,7 @@ struct mars_brick *make_brick_all(
 			remote++;
 			MARS_DBG("substitute by remote brick '%s' on peer '%s'\n", new_name, remote);
 			
-			brick = mars_make_brick(global, belongs, _client_brick_type, new_path, new_name);
+			brick = mars_make_brick(global, belongs, is_server, _client_brick_type, new_path, new_name);
 			if (brick) {
 				struct client_brick *_brick = (void*)brick;
 				_brick->max_flying = 10000;
@@ -1128,7 +1134,7 @@ struct mars_brick *make_brick_all(
 
 	// create it...
 	if (!brick)
-		brick = mars_make_brick(global, belongs, new_brick_type, new_path, new_name);
+		brick = mars_make_brick(global, belongs, is_server, new_brick_type, new_path, new_name);
 	if (unlikely(!brick)) {
 		MARS_ERR("creation failed '%s' '%s'\n", new_path, new_name);
 		goto err;
