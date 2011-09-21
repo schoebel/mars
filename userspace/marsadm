@@ -321,10 +321,11 @@ sub create_res {
   mkdir("$tmp/defaults") unless -d "$tmp/defaults";
   mkdir("$tmp/defaults-$host");
   mkdir("$tmp/actual-$host");
-  mkdir("$tmp/switch-$host");
-  symlink("1", "$tmp/switch-$host/attach");
-  symlink("0", "$tmp/switch-$host/connect");
-  symlink("1", "$tmp/switch-$host/sync");
+  my $todo = "$tmp/todo-$host";
+  mkdir($todo);
+  symlink("1", "$todo/attach");
+  symlink("0", "$todo/connect");
+  symlink("1", "$todo/sync");
   system("rm -f $tmp/syncstatus-$host");
 
   if($create) {
@@ -364,14 +365,14 @@ sub logrotate_res {
 sub attach_res {
   my ($cmd, $res) = @_;
   my $detach = ($cmd eq "detach");
-  my $path = "$mars/resource-$res/switch-$host/attach";
+  my $path = "$mars/resource-$res/todo-$host/attach";
   _switch($cmd, $res, $path, !$detach);
 }
 
 sub connect_res {
   my ($cmd, $res) = @_;
   my $disconnect = ($cmd eq "disconnect");
-  my @paths = glob("$mars/resource-$res/switch-*/connect");
+  my @paths = glob("$mars/resource-$res/todo-*/connect");
   for my $path (@paths) {
     _switch($cmd, $res, $path, !$disconnect);
   }
@@ -380,14 +381,14 @@ sub connect_res {
 sub connect_local_res {
   my ($cmd, $res) = @_;
   my $disconnect = ($cmd eq "disconnect-local");
-  my $path = "$mars/resource-$res/switch-$host/connect";
+  my $path = "$mars/resource-$res/todo-$host/connect";
   _switch($cmd, $res, $path, !$disconnect);
 }
 
 sub pause_res {
   my ($cmd, $res) = @_;
   my $pause = ($cmd eq "pause-sync");
-  my @paths = glob("$mars/resource-$res/switch-*/sync");
+  my @paths = glob("$mars/resource-$res/todo-*/sync");
   for my $path (@paths) {
     _switch($cmd, $res, $path, !$pause);
   }
@@ -396,7 +397,7 @@ sub pause_res {
 sub pause_local_res {
   my ($cmd, $res) = @_;
   my $pause = ($cmd eq "pause-sync-local");
-  my $path = "$mars/resource-$res/switch-$host/sync";
+  my $path = "$mars/resource-$res/todo-$host/sync";
   _switch($cmd, $res, $path, !$pause);
 }
 
@@ -416,7 +417,7 @@ sub up_res {
 
 sub fake_local_res {
   my ($cmd, $res) = @_;
-  my $path = "$mars/resource-$res/switch-$host/sync";
+  my $path = "$mars/resource-$res/todo-$host/sync";
   _switch($cmd, $res, $path, 0);
   #check_status($res, "copy-syncstatus-$host", 0);
   my $size = readlink("$mars/resource-$res/size") or die "cannot read size\n";

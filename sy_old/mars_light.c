@@ -655,7 +655,7 @@ int check_logfile(struct mars_peerinfo *peer, struct mars_dent *dent, struct mar
 	}
 
 	// check whether connection is allowed
-	switch_path = path_make("%s/switch-%s/connect", parent->d_path, my_id());
+	switch_path = path_make("%s/todo-%s/connect", parent->d_path, my_id());
 	
 	// start / treat copy brick instance
 	status = _update_file(peer->global, switch_path, copy_path, dent->d_path, peer->peer, src_size);
@@ -1424,7 +1424,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	MARS_DBG("logfile '%s' size = %lld\n", aio_path, rot->aio_info.current_size);
 
 	// check whether attach is allowed
-	switch_path = path_make("%s/switch-%s/attach", parent->d_path, my_id());
+	switch_path = path_make("%s/todo-%s/attach", parent->d_path, my_id());
 
 	/* Fetch / make the transaction logger.
 	 * We deliberately "forget" to connect the log input here.
@@ -2237,7 +2237,7 @@ static int _make_copy(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 	// check whether connection is allowed
-	switch_path = path_make("%s/switch-%s/connect", dent->d_parent->d_path, my_id());
+	switch_path = path_make("%s/todo-%s/connect", dent->d_parent->d_path, my_id());
 
 	status = __make_copy(global, dent, switch_path, copy_path, dent->d_parent->d_path, (const char**)dent->d_argv, -1, NULL);
 
@@ -2331,7 +2331,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	copy_path = backskip_replace(dent->d_path, '/', true, "/copy-");
 
 	// check whether connection is allowed
-	switch_path = path_make("%s/switch-%s/sync", dent->d_parent->d_path, my_id());
+	switch_path = path_make("%s/todo-%s/sync", dent->d_parent->d_path, my_id());
 
 	status = -ENOMEM;
 	if (unlikely(!src || !dst || !copy_path || !switch_path))
@@ -2389,8 +2389,8 @@ enum {
 	CL_DEFAULTS,
 	CL_DEFAULTS_ITEMS0,
 	CL_DEFAULTS_ITEMS,
-	CL_SWITCH,
-	CL_SWITCH_ITEMS,
+	CL_TODO,
+	CL_TODO_ITEMS,
 	CL_ACTUAL,
 	CL_ACTUAL_ITEMS,
 	CL_CONNECT,
@@ -2481,8 +2481,8 @@ static const struct light_class light_classes[] = {
 
 	/* Subdirectory for controlling items...
 	 */
-	[CL_SWITCH] = {
-		.cl_name = "switch-",
+	[CL_TODO] = {
+		.cl_name = "todo-",
 		.cl_len = 7,
 		.cl_type = 'd',
 		.cl_hostcontext = false,
@@ -2490,11 +2490,11 @@ static const struct light_class light_classes[] = {
 	},
 	/* ... and its contents
 	 */
-	[CL_SWITCH_ITEMS] = {
+	[CL_TODO_ITEMS] = {
 		.cl_name = "",
 		.cl_len = 0, // catch any
 		.cl_type = 'l',
-		.cl_father = CL_SWITCH,
+		.cl_father = CL_TODO,
 	},
 
 	/* Subdirectory for actual state
