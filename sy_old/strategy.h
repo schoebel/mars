@@ -62,6 +62,7 @@ typedef int (*mars_dent_worker)(struct mars_global *global, struct mars_dent *de
 
 extern int mars_dent_work(struct mars_global *global, char *dirname, int allocsize, mars_dent_checker checker, mars_dent_worker worker, void *buf, int maxdepth);
 extern struct mars_dent *mars_find_dent(struct mars_global *global, const char *path);
+extern int mars_find_dent_all(struct mars_global *global, char *prefix, struct mars_dent **table);
 extern void mars_kill_dent(struct mars_dent *dent);
 extern void mars_free_dent(struct mars_dent *dent);
 extern void mars_free_dent_all(struct list_head *anchor);

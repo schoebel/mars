@@ -626,9 +626,11 @@ struct mars_dent *_mars_find_dent(struct mars_global *global, const char *path)
 struct mars_dent *mars_find_dent(struct mars_global *global, const char *path)
 {
 	struct mars_dent *res;
-	//down_read(&global->dent_mutex);
+	if (!global)
+		return NULL;
+	down_read(&global->dent_mutex);
 	res = _mars_find_dent(global, path);
-	//up_read(&global->dent_mutex);
+	up_read(&global->dent_mutex);
 	return res;
 }
 EXPORT_SYMBOL_GPL(mars_find_dent);
@@ -662,6 +664,35 @@ void mars_free_dent(struct mars_dent *dent)
 	brick_mem_free(dent);
 }
 EXPORT_SYMBOL_GPL(mars_free_dent);
+
+int mars_find_dent_all(struct mars_global *global, char *prefix, struct mars_dent **table)
+{
+	int max = 1024; // provisionary
+	int count = 0;
+	struct list_head *tmp;
+	struct mars_dent *res = brick_zmem_alloc(max * sizeof(void*));
+	int prefix_len = strlen(prefix);
+
+	*table = res;
+	if (unlikely(!res || !global))
+		goto done;
+
+	down_read(&global->dent_mutex);
+	for (tmp = global->dent_anchor.next; tmp != &global->dent_anchor; tmp = tmp->next) {
+		struct mars_dent *tmp_dent = container_of(tmp, struct mars_dent, dent_link);
+		int this_len = strlen(tmp_dent->d_path);
+		if (this_len < prefix_len || strncmp(tmp_dent->d_path, prefix, prefix_len)) {
+			continue;
+		}
+		table[count++] = tmp_dent;
+		if (count >= max)
+			break;
+	}
+	up_read(&global->dent_mutex);
+
+done:
+	return count;
+}
 
 void mars_free_dent_all(struct list_head *anchor)
 {
