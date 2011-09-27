@@ -933,6 +933,10 @@ int mars_kill_brick(struct mars_brick *brick)
 		up_write(&global->brick_mutex);
 	}
 
+	if (brick->show_status) {
+		brick->show_status(brick, true);
+	}
+
 	if (unlikely(brick->nr_outputs > 0 && brick->outputs[0] && brick->outputs[0]->nr_connected)) {
 		MARS_ERR("sorry, output is in use '%s'\n", SAFE_STR(brick->brick_path));
 		goto done;

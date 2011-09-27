@@ -367,6 +367,125 @@ done:
 
 ///////////////////////////////////////////////////////////////////////
 
+// needed for logfile rotation
+
+struct mars_rotate {
+	struct mars_global *global;
+	struct mars_dent *replay_link;
+	struct mars_dent *aio_dent;
+	struct aio_brick *aio_brick;
+	struct mars_info aio_info;
+	struct trans_logger_brick *trans_brick;
+	struct mars_dent *relevant_log;
+	struct mars_brick *relevant_brick;
+	struct mars_dent *next_relevant_log;
+	struct mars_dent *current_log;
+	struct mars_dent *prev_log;
+	struct mars_dent *next_log;
+	struct if_brick *if_brick;
+	long long last_jiffies;
+	loff_t start_pos;
+	loff_t end_pos;
+	int max_sequence;
+	bool has_error;
+	bool try_sync;
+	bool do_replay;
+	bool todo_primary;
+	bool is_primary;
+};
+
+///////////////////////////////////////////////////////////////////////
+
+// status display
+
+static
+int _show_actual(const char *path, const char *name, bool val)
+{
+	char *src;
+	char *dst = NULL;
+	int status = -EINVAL;
+
+	src = val ? "1" : "0";
+	dst = path_make("%s/actual-%s/%s", path, my_id(), name);
+	status = -ENOMEM;
+	if (!dst)
+		goto done;
+	MARS_DBG("symlink '%s' -> '%s'\n", dst, src);
+	status = mars_symlink(src, dst, NULL, 0);
+
+done:
+	brick_string_free(dst);
+	return status;
+}
+
+static
+void _show_primary(struct mars_rotate *rot, struct mars_dent *parent)
+{
+	int status;
+	if (!rot || !parent) {
+		return;
+	}
+	status = _show_actual(parent->d_path, "is-primary", rot->is_primary);
+}
+
+static
+void _show_brick_status(struct mars_brick *test, bool shutdown)
+{
+	const char *path;
+	char *src;
+	char *dst;
+	int status;
+	path = test->brick_path;
+	if (!path) {
+		MARS_WRN("bad path\n");
+		return;
+	}
+	if (*path != '/') {
+		MARS_WRN("bogus path '%s'\n", path);
+		return;
+	}
+
+	src = (test->power.led_on && !shutdown) ? "1" : "0";
+	dst = backskip_replace(path, '/', true, "/actual-%s/", my_id());
+	if (!dst) {
+		return;
+	}
+
+	status = mars_symlink(src, dst, NULL, 0);
+	MARS_DBG("status symlink '%s' -> '%s' status = %d\n", dst, src, status);
+	if (test->status_level > 1) {
+		char perc[8];
+		char *dst2 = path_make("%s.percent", dst);
+		if (likely(dst2)) {
+			snprintf(perc, sizeof(perc), "%d", test->power.percent_done);
+			status = mars_symlink(perc, dst2, NULL, 0);
+			MARS_DBG("percent symlink '%s' -> '%s' status = %d\n", dst2, src, status);
+			brick_string_free(dst2);
+		}
+	}
+	brick_string_free(dst);
+}
+
+static
+void _show_status_all(struct mars_global *global)
+{
+	struct list_head *tmp;
+	
+	down_read(&global->brick_mutex);
+	for (tmp = global->brick_anchor.next; tmp != &global->brick_anchor; tmp = tmp->next) {
+		struct mars_brick *test;
+		
+		test = container_of(tmp, struct mars_brick, global_brick_link);
+		if (test->status_level <= 0)
+			continue;
+		_show_brick_status(test, false);
+	}
+	up_read(&global->brick_mutex);
+}
+
+
+///////////////////////////////////////////////////////////////////////
+
 static
 int __make_copy(
 		struct mars_global *global,
@@ -450,6 +569,7 @@ int __make_copy(
 		MARS_DBG("creation of copy brick '%s' failed\n", copy_path);
 		goto done;
 	}
+	copy->show_status = _show_brick_status;
 	copy->status_level = 2;
 	_copy = (void*)copy;
 	if (__copy)
@@ -465,35 +585,6 @@ done:
 	}
 	return status;
 }
-
-///////////////////////////////////////////////////////////////////////
-
-// needed for logfile rotation
-
-struct mars_rotate {
-	struct mars_global *global;
-	struct mars_dent *replay_link;
-	struct mars_dent *aio_dent;
-	struct aio_brick *aio_brick;
-	struct mars_info aio_info;
-	struct trans_logger_brick *trans_brick;
-	struct mars_dent *relevant_log;
-	struct mars_brick *relevant_brick;
-	struct mars_dent *next_relevant_log;
-	struct mars_dent *current_log;
-	struct mars_dent *prev_log;
-	struct mars_dent *next_log;
-	struct if_brick *if_brick;
-	long long last_jiffies;
-	loff_t start_pos;
-	loff_t end_pos;
-	int max_sequence;
-	bool has_error;
-	bool try_sync;
-	bool do_replay;
-	bool todo_primary;
-	bool is_primary;
-};
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -1035,7 +1126,7 @@ int kill_any(void *buf, struct mars_dent *dent)
 
 	MARS_DBG("killing dent = '%s'\n", dent->d_path);
 	mars_kill_dent(dent);
-	return 0;
+	return 1;
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -2000,31 +2091,6 @@ done:
 }
 
 static
-void _show_primary(struct mars_rotate *rot, struct mars_dent *parent)
-{
-	char *src;
-	char *dst;
-	bool ok;
-	int status;
-
-	if (!rot || !parent) {
-		return;
-	}
-
-	ok = rot->is_primary;
-
-	src = ok ? "1" : "0";
-	dst = path_make("%s/actual-%s/is-primary", parent->d_path, my_id());
-	if (!dst)
-		return;
-	MARS_DBG("symlink '%s' -> '%s'\n", dst, src);
-	status = mars_symlink(src, dst, NULL, 0);
-	if (dst)
-		brick_string_free(dst);
-}
-
-
-static
 int make_dev(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
@@ -2039,10 +2105,6 @@ int make_dev(void *buf, struct mars_dent *dent)
 		MARS_ERR("nothing to do\n");
 		return -EINVAL;
 	}
-	if (!global->global_power.button) {
-		MARS_DBG("nothing to do\n");
-		goto done;
-	}
 	rot = parent->d_private;
 	if (!rot) {
 		MARS_DBG("nothing to do\n");
@@ -2050,6 +2112,11 @@ int make_dev(void *buf, struct mars_dent *dent)
 	}
 	if (!rot->trans_brick) {
 		MARS_DBG("transaction logger does not exist\n");
+		goto done;
+	}
+	if (!global->global_power.button &&
+	   (!rot->if_brick || rot->if_brick->power.led_off)) {
+		MARS_DBG("nothing to do\n");
 		goto done;
 	}
 
@@ -2064,6 +2131,9 @@ int make_dev(void *buf, struct mars_dent *dent)
 		(rot->todo_primary &&
 		 !rot->trans_brick->do_replay &&
 		 rot->trans_brick->power.led_on);
+	if (!global->global_power.button) {
+		switch_on = false;
+	}
 
 	dev_brick =
 		make_brick_all(global,
@@ -2076,7 +2146,7 @@ int make_dev(void *buf, struct mars_dent *dent)
 			       (const struct generic_brick_type*)&if_brick_type,
 			       (const struct generic_brick_type*[]){(const struct generic_brick_type*)&trans_logger_brick_type},
 			       switch_on ? NULL : "", // KLUDGE
-			       "%s/linuxdev-%s", 
+			       "%s/device-%s", 
 			       (const char *[]){"%s/logger"},
 			       1,
 			       parent->d_path,
@@ -2087,6 +2157,7 @@ int make_dev(void *buf, struct mars_dent *dent)
 		MARS_DBG("device not shown\n");
 		goto done;
 	}
+	dev_brick->show_status = _show_brick_status;
 	dev_brick->status_level = 1;
 	_dev_brick = (void*)dev_brick;
 #if 0
@@ -2100,6 +2171,20 @@ int make_dev(void *buf, struct mars_dent *dent)
 
 done:
 	_show_primary(rot, parent);
+	return status;
+}
+
+static
+int kill_dev(void *buf, struct mars_dent *dent)
+{
+	struct mars_dent *parent = dent->d_parent;
+	int status = kill_any(buf, dent);
+	if (status > 0 && parent) {
+		struct mars_rotate *rot = parent->d_private;
+		if (rot) {
+			rot->if_brick = NULL;
+		}
+	}
 	return status;
 }
 
@@ -2161,7 +2246,7 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 			       (const struct generic_brick_type*)&if_brick_type,
 			       (const struct generic_brick_type*[]){NULL},
 			       NULL,
-			       "%s/linuxdev-%s",
+			       "%s/directdevice-%s",
 			       (const char *[]){ "%s" },
 			       1,
 			       dent->d_parent->d_path,
@@ -2630,7 +2715,7 @@ static const struct light_class light_classes[] = {
 #ifdef RUN_DEVICE
 		.cl_forward = make_dev,
 #endif
-		.cl_backward = kill_any,
+		.cl_backward = kill_dev,
 	},
 	{}
 };
@@ -2782,55 +2867,6 @@ static int light_worker(struct mars_global *global, struct mars_dent *dent, bool
 	return 0;
 }
 
-static
-void _show_status(struct mars_global *global)
-{
-	struct list_head *tmp;
-	
-	down_read(&global->brick_mutex);
-	for (tmp = global->brick_anchor.next; tmp != &global->brick_anchor; tmp = tmp->next) {
-		struct mars_brick *test;
-		const char *path;
-		char *src;
-		char *dst;
-		int status;
-		
-		test = container_of(tmp, struct mars_brick, global_brick_link);
-		if (test->status_level <= 0)
-			continue;
-		
-		path = test->brick_path;
-		if (!path) {
-			MARS_DBG("bad path\n");
-			continue;
-		}
-		if (*path != '/') {
-			MARS_DBG("bogus path '%s'\n", path);
-			continue;
-		}
-
-		src = test->power.led_on ? "1" : "0";
-		dst = backskip_replace(path, '/', true, "/actual-%s/", my_id());
-		if (!dst)
-			continue;
-
-		status = mars_symlink(src, dst, NULL, 0);
-		MARS_DBG("status symlink '%s' -> '%s' status = %d\n", dst, src, status);
-		if (test->status_level > 1) {
-			char perc[8];
-			char *dst2 = path_make("%s.percent", dst);
-			if (likely(dst2)) {
-				snprintf(perc, sizeof(perc), "%d", test->power.percent_done);
-				status = mars_symlink(perc, dst2, NULL, 0);
-				MARS_DBG("percent symlink '%s' -> '%s' status = %d\n", dst2, src, status);
-				brick_string_free(dst2);
-			}
-		}
-		brick_string_free(dst);
-	}
-	up_read(&global->brick_mutex);
-}
-
 #ifdef STAT_DEBUGGING
 static
 void _show_one(struct mars_brick *test, int *brick_count)
@@ -2948,7 +2984,7 @@ static int light_thread(void *data)
 		status = mars_dent_work(&_global, "/mars", sizeof(struct mars_dent), light_checker, light_worker, &_global, 3);
 		MARS_DBG("worker status = %d\n", status);
 
-		_show_status(&_global);
+		_show_status_all(&_global);
 #ifdef STAT_DEBUGGING
 		_show_statist(&_global);
 #endif
@@ -2966,7 +3002,7 @@ done:
 	mars_free_dent_all(&_global, &_global.dent_anchor);
 	mars_kill_brick_all(&_global, &_global.brick_anchor, false);
 
-	_show_status(&_global);
+	_show_status_all(&_global);
 #ifdef STAT_DEBUGGING
 	_show_statist(&_global);
 #endif
