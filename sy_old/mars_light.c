@@ -491,8 +491,8 @@ struct mars_rotate {
 	bool has_error;
 	bool try_sync;
 	bool do_replay;
+	bool todo_primary;
 	bool is_primary;
-	bool should_primary;
 };
 
 ///////////////////////////////////////////////////////////////////////
@@ -787,7 +787,7 @@ int run_bones(struct mars_peerinfo *peer)
 			run_trigger = true;
 		//MARS_DBG("path = '%s' worker status = %d\n", dent->d_path, status);
 	}
-	mars_free_dent_all(&tmp_list);
+	mars_free_dent_all(NULL, &tmp_list);
 #if 0
 	if (run_trigger) {
 		mars_trigger();
@@ -819,9 +819,11 @@ void _peer_cleanup(struct mars_peerinfo *peer, bool do_stop)
 	}
 
 	if (do_stop) {
+		LIST_HEAD(tmp_list);
 		traced_lock(&peer->lock, flags);
-		mars_free_dent_all(&peer->remote_dent_list);
+		list_replace_init(&peer->remote_dent_list, &tmp_list);
 		traced_unlock(&peer->lock, flags);
+		mars_free_dent_all(NULL, &tmp_list);
 		brick_string_free(peer->peer);
 		brick_string_free(peer->path);
 	}
@@ -901,7 +903,7 @@ int remote_thread(void *data)
 
 		traced_unlock(&peer->lock, flags);
 
-		mars_free_dent_all(&old_list);
+		mars_free_dent_all(NULL, &old_list);
 
 		if (!kthread_should_stop())
 			msleep(5 * 1000);
@@ -987,6 +989,10 @@ static int _make_peer(struct mars_global *global, struct mars_dent *dent, char *
 		wake_up_process(peer->peer_thread);
 	}
 
+	/* This must be called by the main thread in order to
+	 * avoid nasty races.
+	 * The peer thread does nothing but fetching the dent list.
+	 */
 	status = run_bones(peer);
 
 done:
@@ -1110,7 +1116,7 @@ out_old:
 }
 
 static
-int _update_versionlink(struct mars_global *global, struct mars_dent *parent, int sequence, loff_t start_pos, loff_t end_pos, bool is_primary)
+int _update_versionlink(struct mars_global *global, struct mars_dent *parent, int sequence, loff_t start_pos, loff_t end_pos)
 {
 	char *prev = NULL;
 	struct mars_dent *prev_link = NULL;
@@ -1186,7 +1192,7 @@ int _check_versionlink(struct mars_global *global, struct mars_dent *parent, int
 	char *log_prefix = NULL;
 	struct mars_dent *my_log_dent;
 	struct mars_dent *my_version_dent;
-	struct mars_dent *table = NULL;
+	struct mars_dent **table = NULL;
 	int version_prefix_len;
 	int table_count;
 	int i;
@@ -1206,17 +1212,17 @@ int _check_versionlink(struct mars_global *global, struct mars_dent *parent, int
 	if (!log_prefix) {
 		goto out;
 	}
-	version_prefix_len = strlen(log_prefix) - strlen("log") + strlen("version");
+	version_prefix_len = strlen(log_prefix);
 
 	status = -ENOENT;
 	my_log_dent = mars_find_dent(global, my_log);
-	if (!my_log_dent || !my_log_dent->new_link) {
-		MARS_WRN("cannot find symlink '%s'\n", my_log);
+	if (!my_log_dent) {
+		MARS_WRN("cannot find logfile/symlink '%s'\n", my_log);
 		goto out;
 	}
 	my_version_dent = mars_find_dent(global, my_version);
 	if (!my_version_dent || !my_version_dent->new_link) {
-		MARS_WRN("cannot find symlink '%s'\n", my_version);
+		MARS_WRN("cannot find version symlink '%s'\n", my_version);
 		goto out;
 	}
 
@@ -1228,7 +1234,7 @@ int _check_versionlink(struct mars_global *global, struct mars_dent *parent, int
 		char *other_host;
 		char *other_version = NULL;
 
-		other_log_dent = table + i;
+		other_log_dent = table[i];
 		if (other_log_dent->new_link) {
 			MARS_DBG("'%s' is secondary\n", other_log_dent->d_path);
 			continue;
@@ -1243,7 +1249,7 @@ int _check_versionlink(struct mars_global *global, struct mars_dent *parent, int
 		}
 		other_version_dent = mars_find_dent(global, other_version);
 		if (!other_version_dent || !other_version_dent->new_link) {
-			MARS_WRN("cannot find symlink '%s'\n", my_version);
+			MARS_WRN("cannot find symlink '%s'\n", other_version);
 		} else if (!strcmp(my_version_dent->new_link, other_version_dent->new_link)) {
 			ok_count++;
 		}
@@ -1347,7 +1353,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	if (unlikely(!aio_dent)) {
 		MARS_DBG("logfile '%s' does not exist\n", aio_path);
 		status = -ENOENT;
-		if (rot->is_primary) { // try to create an empty logfile
+		if (rot->todo_primary) { // try to create an empty logfile
 			_create_new_logfile(aio_path);
 		}
 		goto done;
@@ -1524,7 +1530,7 @@ int _check_logging_status(struct mars_rotate *rot, long long *oldpos_start, long
 {
 	struct mars_dent *dent = rot->relevant_log;
 	struct mars_dent *parent;
-	struct mars_global *global;
+	struct mars_global *global = NULL;
 	int status = 0;
 
 	if (!dent)
@@ -1566,7 +1572,7 @@ int _check_logging_status(struct mars_rotate *rot, long long *oldpos_start, long
 		MARS_DBG("transaction log '%s' is already applied, and the next one is available for switching\n", rot->aio_dent->d_path);
 		*newpos = rot->aio_info.current_size;
 		status = 1;
-	} else if (rot->is_primary) {
+	} else if (rot->todo_primary) {
 		if (!S_ISREG(dent->new_stat.mode)) {
 			MARS_DBG("transaction log '%s' is a symlink, therefore a fresh local logfile must be created\n", dent->d_path);
 			*newpos = rot->aio_info.current_size;
@@ -1594,7 +1600,7 @@ int _make_logging_status(struct mars_rotate *rot)
 {
 	struct mars_dent *dent = rot->relevant_log;
 	struct mars_dent *parent;
-	struct mars_global *global;
+	struct mars_global *global = NULL;
 	struct trans_logger_brick *trans_brick;
 	loff_t start_pos = 0;
 	loff_t dirty_pos = 0;
@@ -1632,9 +1638,10 @@ int _make_logging_status(struct mars_rotate *rot)
 		 * Allow switching over to a new logfile.
 		 */
 		if (!trans_brick->power.button && !trans_brick->power.led_on && trans_brick->power.led_off &&
-		   (rot->is_primary || _check_versionlink(global, dent->d_parent, dent->d_serial, end_pos) > 0)) {
-			_update_replaylink(dent->d_parent, dent->d_serial + 1, 0, 0, !rot->is_primary);
-			_update_versionlink(global, dent->d_parent, dent->d_serial + 1, 0, 0, rot->is_primary);
+		   (rot->todo_primary || _check_versionlink(global, dent->d_parent, dent->d_serial, end_pos) > 0)) {
+			MARS_DBG("switching over transaction log '%s' from version %d to %d\n", dent->d_path, dent->d_serial, dent->d_serial + 1);
+			_update_replaylink(dent->d_parent, dent->d_serial + 1, 0, 0, !rot->todo_primary);
+			_update_versionlink(global, dent->d_parent, dent->d_serial + 1, 0, 0);
 			trans_brick->current_pos = 0;
 			rot->last_jiffies = jiffies;
 			//mars_trigger();
@@ -1839,9 +1846,9 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 			do_stop = trans_brick->replay_code != 0;
 		} else {
 			do_stop =
+				!rot->is_primary ||
 				(rot->relevant_log && rot->relevant_log != rot->current_log) ||
-				(rot->current_log && !S_ISREG(rot->current_log->new_stat.mode)) ||
-				(!rot->is_primary && (!rot->if_brick || rot->if_brick->power.led_off));
+				(rot->current_log && !S_ISREG(rot->current_log->new_stat.mode));
 		}
 
 		MARS_DBG("do_stop = %d\n", (int)do_stop);
@@ -1856,7 +1863,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 					continue;
 				}
 				status = _update_replaylink(parent, trans_input->sequence, trans_input->replay_min_pos, trans_input->replay_max_pos, true);
-				status = _update_versionlink(global, parent, trans_input->sequence, trans_input->replay_min_pos, trans_input->replay_max_pos, rot->is_primary);
+				status = _update_versionlink(global, parent, trans_input->sequence, trans_input->replay_min_pos, trans_input->replay_max_pos);
 				old_input = trans_input;
 			}
 			rot->last_jiffies = jiffies;
@@ -1921,11 +1928,10 @@ int make_primary(void *buf, struct mars_dent *dent)
 	rot = parent->d_private;
 	CHECK_PTR(rot, done);
 
-	rot->should_primary =
-		dent->new_link && !strcmp(dent->new_link, my_id());
+	rot->todo_primary =
+		global->global_power.button && dent->new_link && !strcmp(dent->new_link, my_id());
 	rot->is_primary =
-		rot->should_primary ||
-		(rot->if_brick && !rot->if_brick->power.led_off);
+		rot->if_brick && !rot->if_brick->power.led_off;
 	status = 0;
 
 done:
@@ -2006,9 +2012,6 @@ void _show_primary(struct mars_rotate *rot, struct mars_dent *parent)
 	}
 
 	ok = rot->is_primary;
-	if (rot->if_brick && !rot->if_brick->power.led_off) {
-		ok = true;
-	}
 
 	src = ok ? "1" : "0";
 	dst = path_make("%s/actual-%s/is-primary", parent->d_path, my_id());
@@ -2058,7 +2061,7 @@ int make_dev(void *buf, struct mars_dent *dent)
 
 	switch_on =
 		(rot->if_brick && atomic_read(&rot->if_brick->inputs[0]->open_count) > 0) ||
-		(rot->should_primary &&
+		(rot->todo_primary &&
 		 !rot->trans_brick->do_replay &&
 		 rot->trans_brick->power.led_on);
 
@@ -2960,7 +2963,7 @@ done:
 	MARS_INF("-------- cleaning up ----------\n");
 
 	mars_kill_brick_all(&_global, &_global.server_anchor, false);
-	mars_free_dent_all(&_global.dent_anchor);
+	mars_free_dent_all(&_global, &_global.dent_anchor);
 	mars_kill_brick_all(&_global, &_global.brick_anchor, false);
 
 	_show_status(&_global);

@@ -624,6 +624,7 @@ void fd_uninstall(unsigned int fd)
 {
 	struct files_struct *files = current->files;
 	struct fdtable *fdt;
+	MARS_INF("fd = %d\n", fd);
 	spin_lock(&files->file_lock);
 	fdt = files_fdtable(files);
 	rcu_assign_pointer(fdt->fd[fd], NULL);
