@@ -453,16 +453,6 @@ void _show_brick_status(struct mars_brick *test, bool shutdown)
 
 	status = mars_symlink(src, dst, NULL, 0);
 	MARS_DBG("status symlink '%s' -> '%s' status = %d\n", dst, src, status);
-	if (test->status_level > 1) {
-		char perc[8];
-		char *dst2 = path_make("%s.percent", dst);
-		if (likely(dst2)) {
-			snprintf(perc, sizeof(perc), "%d", test->power.percent_done);
-			status = mars_symlink(perc, dst2, NULL, 0);
-			MARS_DBG("percent symlink '%s' -> '%s' status = %d\n", dst2, src, status);
-			brick_string_free(dst2);
-		}
-	}
 	brick_string_free(dst);
 }
 
@@ -476,7 +466,7 @@ void _show_status_all(struct mars_global *global)
 		struct mars_brick *test;
 		
 		test = container_of(tmp, struct mars_brick, global_brick_link);
-		if (test->status_level <= 0)
+		if (!test->show_status)
 			continue;
 		_show_brick_status(test, false);
 	}
@@ -570,7 +560,6 @@ int __make_copy(
 		goto done;
 	}
 	copy->show_status = _show_brick_status;
-	copy->status_level = 2;
 	_copy = (void*)copy;
 	if (__copy)
 		*__copy = _copy;
@@ -2158,7 +2147,6 @@ int make_dev(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 	dev_brick->show_status = _show_brick_status;
-	dev_brick->status_level = 1;
 	_dev_brick = (void*)dev_brick;
 #if 0
 	if (_dev_brick->has_closed) {
@@ -2875,7 +2863,7 @@ void _show_one(struct mars_brick *test, int *brick_count)
 	if (*brick_count) {
 		MARS_STAT("---------\n");
 	}
-	MARS_STAT("BRICK type = %s path = '%s' name = '%s' level = %d button = %d off = %d on = %d\n", SAFE_STR(test->type->type_name), SAFE_STR(test->brick_path), SAFE_STR(test->brick_name), test->status_level, test->power.button, test->power.led_off, test->power.led_on);
+	MARS_STAT("BRICK type = %s path = '%s' name = '%s' button = %d off = %d on = %d\n", SAFE_STR(test->type->type_name), SAFE_STR(test->brick_path), SAFE_STR(test->brick_name), test->power.button, test->power.led_off, test->power.led_on);
 	(*brick_count)++;
 	if (test->ops && test->ops->brick_statistics) {
 		char *info = test->ops->brick_statistics(test, 0);
