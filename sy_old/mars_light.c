@@ -1220,8 +1220,8 @@ int _update_versionlink(struct mars_global *global, struct mars_dent *parent, in
 
 	char *new = NULL;
 	char *data = brick_string_alloc(0);
-	char *digest = brick_string_alloc(0);
 	char *old = brick_string_alloc(0);
+	unsigned char *digest = brick_string_alloc(0);
 
 	if (unlikely(!data || !digest || !old)) {
 		MARS_ERR("no MEM\n");

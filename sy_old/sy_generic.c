@@ -181,7 +181,7 @@ struct crypto_hash *mars_tfm = NULL;
 int mars_digest_size = 0;
 EXPORT_SYMBOL_GPL(mars_digest_size);
 
-void mars_digest(void *digest, void *data, int len)
+void mars_digest(unsigned char *digest, void *data, int len)
 {
 	struct hash_desc desc = {
 		.tfm = mars_tfm,
