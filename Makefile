@@ -46,3 +46,12 @@ obj-$(CONFIG_MARS_LIGHT)	+= sy_old/mars_light.o \
 ifdef CONFIG_DEBUG_KERNEL
 KBUILD_CFLAGS += -fno-inline-functions -fno-inline-small-functions -fno-inline-functions-called-once
 endif
+
+.PHONY FORCE: block/mars/buildtag.h
+block/mars/buildtag.h:
+	set -e; exec > $@;\
+	cd block/mars;\
+	echo -e "/* Automatically generated -- DO NOT EDIT! */";\
+	echo -e "#define BUILDTAG  \"$$(git log -1 --pretty='format:%H')\"";\
+	echo -e "#define BUILDHOST \"$$USER@$$HOSTNAME\"";\
+	echo -e "#define BUILDDATE \"$$(date '+%F %T')\""

@@ -25,6 +25,7 @@
 #include <linux/blkdev.h>
 
 #include "strategy.h"
+#include "../buildtag.h"
 
 #include <linux/kthread.h>
 #include <linux/wait.h>
@@ -3097,6 +3098,7 @@ const void *dummy2 = &server_brick_type;
 
 MODULE_DESCRIPTION("MARS Light");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@1und1.de>");
+MODULE_VERSION(BUILDTAG " (" BUILDHOST BUILDDATE ")");
 MODULE_LICENSE("GPL");
 
 module_init(init_light);
