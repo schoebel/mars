@@ -258,7 +258,6 @@ struct generic_brick_ops {
 #define GENERIC_OUTPUT_OPS(BRICK)					\
 	/*int (*output_start)(struct BRICK##_output *output);*/	\
 	/*int (*output_stop)(struct BRICK##_output *output);*/		\
-	int (*make_object_layout)(struct BRICK##_output *output, struct generic_object_layout *object_layout); \
 	
 struct generic_output_ops {
 	GENERIC_OUTPUT_OPS(generic)
@@ -300,17 +299,10 @@ struct generic_input_type {
 	int (*output_construct)(struct BRICK##_output *output);		\
 	int (*output_destruct)(struct BRICK##_output *output);		\
 	const struct generic_aspect_type **aspect_types;		\
-	const int layout_code[BRICK_OBJ_MAX];				\
 
 struct generic_output_type {
 	GENERIC_OUTPUT_TYPE(generic);
 };
-
-#define LAYOUT_NONE         0
-#define LAYOUT_ALL          -1
-#define LAYOUT_1(X1)        ((X1) | 255 << 8)
-#define LAYOUT_2(X1,X2)     ((X1) | (X2) << 8 | 255 << 16)
-#define LAYOUT_3(X1,X2,X3)  ((X1) | (X2) << 8 | (X3) << 16 | 255 << 24)
 
 int generic_register_brick_type(const struct generic_brick_type *new_type);
 int generic_unregister_brick_type(const struct generic_brick_type *old_type);
@@ -498,11 +490,6 @@ static inline int BRICK##_unregister_brick_type(void)		        \
 	return generic_unregister_brick_type((const struct generic_brick_type*)&BRICK##_brick_type); \
 }									\
 									\
-static inline int BRICK##_make_object_layout(struct BRICK##_output *output, struct generic_object_layout *object_layout) \
-{									\
-	return default_make_object_layout((struct generic_output*)output, object_layout); \
-}									\
-									\
 extern const struct BRICK##_brick_type BRICK##_brick_type;	        \
 extern const struct BRICK##_input_type BRICK##_input_type;	        \
 extern const struct BRICK##_output_type BRICK##_output_type;	        \
@@ -547,7 +534,7 @@ INLINE int BRICK##_output_init(struct BRICK##_brick *brick, int index, struct BR
 /* Define a pair of connectable subtypes.
  * For type safety, use this for all possible combinations.
  * Yes, this may become quadratic in large type systems, but
- * (a) thou shalt not define many types,
+ * (a) thou shalt not define much types,
  * (b) these macros generate only definitions, but no additional 
  * code at runtime.
  */
@@ -573,34 +560,12 @@ INLINE int INPUT_BRICK##_##OUTPUT_BRICK####_disconnect(        \
 
 // default operations on objects / aspects
 
-extern int default_make_object_layout(struct generic_output *output, struct generic_object_layout *object_layout);
-
-extern int generic_add_aspect(struct generic_output *output, struct generic_object_layout *object_layout, const struct generic_aspect_type *aspect_type);
-
 extern int default_init_object_layout(struct generic_output *output, struct generic_object_layout *object_layout, int aspect_max, const struct generic_object_type *object_type, char *module_name);
 extern void default_exit_object_layout(struct generic_object_layout *object_layout);
 
 extern struct generic_object *alloc_generic(struct generic_object_layout *object_layout);
 
 extern void free_generic(struct generic_object *object);
-
-#define GENERIC_OBJECT_LAYOUT_FUNCTIONS(BRICK)				\
-									\
-INLINE int BRICK##_init_object_layout(struct BRICK##_output *output, struct generic_object_layout *object_layout, int aspect_max, const struct generic_object_type *object_type) \
-{									\
-	if (likely(object_layout->aspect_layouts_table && object_layout->aspect_layouts && object_layout->object_layout_generation == brick_layout_generation)) \
-		return 0;						\
-	return default_init_object_layout((struct generic_output*)output, object_layout, aspect_max, object_type, #BRICK); \
-}									\
-
-#define GENERIC_ASPECT_LAYOUT_FUNCTIONS(BRICK,TYPE)			\
-									\
-INLINE int BRICK##_##TYPE##_add_aspect(struct BRICK##_output *output, struct TYPE##_object_layout *object_layout, const struct generic_aspect_type *aspect_type) \
-{									\
-	int res = generic_add_aspect((struct generic_output*)output, (struct generic_object_layout *)object_layout, aspect_type); \
-	BRICK_DBG(#BRICK " " #TYPE "added aspect_type %p (%s) to object_layout %p (type %s) on output %p (type %s), status=%d\n", aspect_type, aspect_type->aspect_type_name, object_layout, object_layout->object_type->object_type_name, output, output->type->type_name, res); \
-	return res;							\
-}									\
 
 #define GENERIC_OBJECT_FUNCTIONS(TYPE)					\
 									\
@@ -704,7 +669,6 @@ INLINE void BRICK##_free_##TYPE(struct TYPE##_object *object)     \
 }									\
 
 
-GENERIC_OBJECT_LAYOUT_FUNCTIONS(generic);
 GENERIC_OBJECT_FUNCTIONS(generic);
 
 ///////////////////////////////////////////////////////////////////////

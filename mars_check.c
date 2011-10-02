@@ -306,7 +306,6 @@ static struct check_brick_ops check_brick_ops = {
 };
 
 static struct check_output_ops check_output_ops = {
-	.make_object_layout = check_make_object_layout,
 	.mars_get_info = check_get_info,
 	.mref_get = check_ref_get,
 	.mref_put = check_ref_put,
@@ -328,9 +327,6 @@ const struct check_output_type check_output_type = {
 	.master_ops = &check_output_ops,
 	.output_construct = &check_output_construct,
 	.aspect_types = check_aspect_types,
-	.layout_code = {
-		[BRICK_OBJ_MREF] = LAYOUT_ALL,
-	}
 };
 
 static const struct check_output_type *check_output_types[] = {

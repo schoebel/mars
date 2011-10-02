@@ -554,7 +554,6 @@ static struct client_brick_ops client_brick_ops = {
 };
 
 static struct client_output_ops client_output_ops = {
-	.make_object_layout = client_make_object_layout,
 	.mars_get_info = client_get_info,
 	.mref_get = client_ref_get,
 	.mref_put = client_ref_put,
@@ -577,9 +576,6 @@ const struct client_output_type client_output_type = {
 	.output_construct = &client_output_construct,
 	.output_destruct = &client_output_destruct,
 	.aspect_types = client_aspect_types,
-	.layout_code = {
-		[BRICK_OBJ_MREF] = LAYOUT_ALL,
-	}
 };
 
 static const struct client_output_type *client_output_types[] = {

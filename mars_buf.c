@@ -1098,7 +1098,6 @@ static struct buf_brick_ops buf_brick_ops = {
 };
 
 static struct buf_output_ops buf_output_ops = {
-	.make_object_layout = buf_make_object_layout,
 	.mars_get_info = buf_get_info,
 	.mref_get = buf_ref_get,
 	.mref_put = buf_ref_put,
@@ -1120,9 +1119,6 @@ const struct buf_output_type buf_output_type = {
 	.master_ops = &buf_output_ops,
 	.output_construct = &buf_output_construct,
 	.aspect_types = buf_aspect_types,
-	.layout_code = {
-		[BRICK_OBJ_MREF] = LAYOUT_ALL,
-	}
 };
 
 static const struct buf_output_type *buf_output_types[] = {

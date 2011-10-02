@@ -2639,7 +2639,6 @@ static struct trans_logger_brick_ops trans_logger_brick_ops = {
 };
 
 static struct trans_logger_output_ops trans_logger_output_ops = {
-	.make_object_layout = trans_logger_make_object_layout,
 	.mars_get_info = trans_logger_get_info,
 	.mref_get = trans_logger_ref_get,
 	.mref_put = trans_logger_ref_put,
@@ -2667,9 +2666,6 @@ const struct trans_logger_output_type trans_logger_output_type = {
 	.master_ops = &trans_logger_output_ops,
 	.output_construct = &trans_logger_output_construct,
 	.aspect_types = trans_logger_aspect_types,
-	.layout_code = {
-		[BRICK_OBJ_MREF] = LAYOUT_ALL,
-	}
 };
 
 static const struct trans_logger_output_type *trans_logger_output_types[] = {

@@ -504,7 +504,6 @@ static struct sio_brick_ops sio_brick_ops = {
 };
 
 static struct sio_output_ops sio_output_ops = {
-	.make_object_layout = sio_make_object_layout,
 	.mref_get = sio_ref_get,
 	.mref_put = sio_ref_put,
 	.mref_io = sio_mars_queue,
@@ -527,9 +526,6 @@ const struct sio_output_type sio_output_type = {
 	.output_construct = &sio_output_construct,
 	.output_destruct = &sio_output_destruct,
 	.aspect_types = sio_aspect_types,
-	.layout_code = {
-		[BRICK_OBJ_MREF] = LAYOUT_NONE,
-	}
 };
 
 static const struct sio_output_type *sio_output_types[] = {

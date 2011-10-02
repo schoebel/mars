@@ -628,7 +628,6 @@ static struct copy_brick_ops copy_brick_ops = {
 };
 
 static struct copy_output_ops copy_output_ops = {
-	.make_object_layout = copy_make_object_layout,
 	.mars_get_info = copy_get_info,
 	.mref_get = copy_ref_get,
 	.mref_put = copy_ref_put,
@@ -654,9 +653,6 @@ const struct copy_output_type copy_output_type = {
 	.output_construct = &copy_output_construct,
 	.output_destruct = &copy_output_destruct,
 	.aspect_types = copy_aspect_types,
-	.layout_code = {
-		[BRICK_OBJ_MREF] = LAYOUT_ALL,
-	}
 };
 
 static const struct copy_output_type *copy_output_types[] = {

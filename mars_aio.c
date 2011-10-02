@@ -977,7 +977,6 @@ static struct aio_brick_ops aio_brick_ops = {
 };
 
 static struct aio_output_ops aio_output_ops = {
-	.make_object_layout = aio_make_object_layout,
 	.mref_get = aio_ref_get,
 	.mref_put = aio_ref_put,
 	.mref_io = aio_ref_io,
@@ -1000,9 +999,6 @@ const struct aio_output_type aio_output_type = {
 	.output_construct = &aio_output_construct,
 	.output_destruct = &aio_output_destruct,
 	.aspect_types = aio_aspect_types,
-	.layout_code = {
-		[BRICK_OBJ_MREF] = LAYOUT_NONE,
-	}
 };
 
 static const struct aio_output_type *aio_output_types[] = {

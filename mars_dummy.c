@@ -135,7 +135,6 @@ struct dummy_brick_ops dummy_brick_ops = {
 
 static
 struct dummy_output_ops dummy_output_ops = {
-	.make_object_layout = dummy_make_object_layout,
 	.mars_get_info = dummy_get_info,
 	.mref_get = dummy_ref_get,
 	.mref_put = dummy_ref_put,
@@ -159,9 +158,6 @@ const struct dummy_output_type dummy_output_type = {
 	.output_construct = &dummy_output_construct,
 	.output_destruct = &dummy_output_destruct,
 	.aspect_types = dummy_aspect_types,
-	.layout_code = {
-		[BRICK_OBJ_MREF] = LAYOUT_ALL,
-	}
 };
 
 static

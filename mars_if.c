@@ -792,7 +792,6 @@ static struct if_brick_ops if_brick_ops = {
 };
 
 static struct if_output_ops if_output_ops = {
-	.make_object_layout = if_make_object_layout,
 };
 
 const struct if_input_type if_input_type = {
@@ -812,9 +811,6 @@ const struct if_output_type if_output_type = {
 	.master_ops = &if_output_ops,
 	.output_construct = &if_output_construct,
 	.aspect_types = if_aspect_types,
-	.layout_code = {
-		[BRICK_OBJ_MREF] = LAYOUT_ALL,
-	}
 };
 
 static const struct if_output_type *if_output_types[] = {

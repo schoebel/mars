@@ -519,7 +519,6 @@ static struct server_brick_ops server_brick_ops = {
 };
 
 static struct server_output_ops server_output_ops = {
-	.make_object_layout = server_make_object_layout,
 	.mars_get_info = server_get_info,
 	.mref_get = server_ref_get,
 	.mref_put = server_ref_put,
@@ -541,9 +540,6 @@ const struct server_output_type server_output_type = {
 	.master_ops = &server_output_ops,
 	.output_construct = &server_output_construct,
 	.aspect_types = server_aspect_types,
-	.layout_code = {
-		[BRICK_OBJ_MREF] = LAYOUT_ALL,
-	}
 };
 
 static const struct server_output_type *server_output_types[] = {

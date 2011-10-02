@@ -237,8 +237,6 @@ _MARS_TYPES(BRICK)						        \
 struct BRICK##_object_layout;						\
 									\
 GENERIC_MAKE_CONNECT(generic,BRICK);				        \
-GENERIC_OBJECT_LAYOUT_FUNCTIONS(BRICK);				        \
-GENERIC_ASPECT_LAYOUT_FUNCTIONS(BRICK,mref);				\
 GENERIC_ASPECT_FUNCTIONS(BRICK,mref);					\
 extern int init_mars_##BRICK(void);					\
 extern void exit_mars_##BRICK(void);
@@ -251,7 +249,6 @@ GENERIC_OBJECT_FUNCTIONS(mref);
 // instantiate a pseudo base-class "mars"
 
 _MARS_TYPES(mars);
-GENERIC_OBJECT_LAYOUT_FUNCTIONS(mars);
 GENERIC_ASPECT_FUNCTIONS(mars,mref);
 
 /////////////////////////////////////////////////////////////////////////

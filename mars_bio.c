@@ -616,7 +616,6 @@ static struct bio_brick_ops bio_brick_ops = {
 };
 
 static struct bio_output_ops bio_output_ops = {
-	.make_object_layout = bio_make_object_layout,
 	.mars_get_info = bio_get_info,
 	.mref_get = bio_ref_get,
 	.mref_put = bio_ref_put,
@@ -639,9 +638,6 @@ const struct bio_output_type bio_output_type = {
 	.output_construct = &bio_output_construct,
 	.output_destruct = &bio_output_destruct,
 	.aspect_types = bio_aspect_types,
-	.layout_code = {
-		[BRICK_OBJ_MREF] = LAYOUT_ALL,
-	}
 };
 
 static const struct bio_output_type *bio_output_types[] = {
