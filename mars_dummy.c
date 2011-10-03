@@ -79,7 +79,7 @@ void dummy_reset_statistics(struct dummy_brick *brick)
 //////////////// object / aspect constructors / destructors ///////////////
 
 static
-int dummy_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+int dummy_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
 	struct dummy_mref_aspect *ini = (void*)_ini;
 	(void)ini;
@@ -88,7 +88,7 @@ int dummy_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 }
 
 static
-void dummy_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+void dummy_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
 	struct dummy_mref_aspect *ini = (void*)_ini;
 	(void)ini;
@@ -157,7 +157,6 @@ const struct dummy_output_type dummy_output_type = {
 	.master_ops = &dummy_output_ops,
 	.output_construct = &dummy_output_construct,
 	.output_destruct = &dummy_output_destruct,
-	.aspect_types = dummy_aspect_types,
 };
 
 static
@@ -171,6 +170,7 @@ const struct dummy_brick_type dummy_brick_type = {
 	.max_inputs = 1,
 	.max_outputs = 1,
 	.master_ops = &dummy_brick_ops,
+	.aspect_types = dummy_aspect_types,
 	.default_input_types = dummy_input_types,
 	.default_output_types = dummy_output_types,
 	.brick_construct = &dummy_brick_construct,

@@ -153,7 +153,7 @@ static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
 	/* Buffered IO.
 	 */
 	if (!mref->ref_data) {
-		struct aio_mref_aspect *mref_a = aio_mref_get_aspect(output, mref);
+		struct aio_mref_aspect *mref_a = aio_mref_get_aspect(output->brick, mref);
 		if (!mref_a)
 			return -EILSEQ;
 		if (mref->ref_len <= 0) {
@@ -191,7 +191,7 @@ static void aio_ref_put(struct aio_output *output, struct mref_object *mref)
 		mref->ref_total_size = i_size_read(file->f_mapping->host);
 	}
 
-	mref_a = aio_mref_get_aspect(output, mref);
+	mref_a = aio_mref_get_aspect(output->brick, mref);
 	if (mref_a && mref_a->do_dealloc) {
 		brick_block_free(mref->ref_data, mref_a->alloc_len);
 		atomic_dec(&output->alloc_count);
@@ -268,7 +268,7 @@ static void aio_ref_io(struct aio_output *output, struct mref_object *mref)
 
 	MARS_IO("AIO rw=%d pos=%lld len=%d data=%p\n", mref->ref_rw, mref->ref_pos, mref->ref_len, mref->ref_data);
 
-	mref_a = aio_mref_get_aspect(output, mref);
+	mref_a = aio_mref_get_aspect(output->brick, mref);
 	if (unlikely(!mref_a)) {
 		goto done;
 	}
@@ -854,14 +854,14 @@ void aio_reset_statistics(struct aio_brick *brick)
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int aio_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+static int aio_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
 	struct aio_mref_aspect *ini = (void*)_ini;
 	INIT_LIST_HEAD(&ini->io_head);
 	return 0;
 }
 
-static void aio_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+static void aio_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
 	struct aio_mref_aspect *ini = (void*)_ini;
 	(void)ini;
@@ -998,7 +998,6 @@ const struct aio_output_type aio_output_type = {
 	.master_ops = &aio_output_ops,
 	.output_construct = &aio_output_construct,
 	.output_destruct = &aio_output_destruct,
-	.aspect_types = aio_aspect_types,
 };
 
 static const struct aio_output_type *aio_output_types[] = {
@@ -1011,6 +1010,7 @@ const struct aio_brick_type aio_brick_type = {
 	.max_inputs = 0,
 	.max_outputs = 1,
 	.master_ops = &aio_brick_ops,
+	.aspect_types = aio_aspect_types,
 	.default_input_types = aio_input_types,
 	.default_output_types = aio_output_types,
 	.brick_construct = &aio_brick_construct,

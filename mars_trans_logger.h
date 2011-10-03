@@ -63,7 +63,7 @@ struct hash_anchor {
 };
 
 struct writeback_info {
-	struct trans_logger_output *w_output;
+	struct trans_logger_brick *w_brick;
 	struct logger_head w_lh;
 	loff_t w_pos;
 	int    w_len;
@@ -80,7 +80,7 @@ struct writeback_info {
 
 struct trans_logger_mref_aspect {
 	GENERIC_ASPECT(mref);
-	struct trans_logger_output *my_output;
+	struct trans_logger_brick *my_brick;
 	struct trans_logger_input *my_input;
 	struct trans_logger_input *log_input;
 	struct logger_head lh;
@@ -188,7 +188,6 @@ struct trans_logger_input {
 
 	// private
 	struct generic_object_layout sub_layout;
-	struct trans_logger_output hidden_output;
 	struct log_status logst;
 };
 

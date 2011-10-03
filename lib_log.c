@@ -6,12 +6,12 @@
 
 #include "lib_log.h"
 
-void init_logst(struct log_status *logst, struct mars_input *input, struct mars_output *output, loff_t start_pos)
+void init_logst(struct log_status *logst, struct mars_input *input, loff_t start_pos)
 {
 	struct mars_brick *brick;
 	memset(logst, 0, sizeof(struct log_status));
 	logst->input = input;
-	logst->output = output;
+	logst->brick = input->brick;
 	logst->log_pos = start_pos;
 	init_waitqueue_head(&logst->event);
 	brick = input->brick;
@@ -165,7 +165,7 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 		sema_init(&cb_info->mutex, 1);
 		atomic_set(&cb_info->refcount, 2);
 
-		mref = mars_alloc_mref(logst->output, &logst->ref_object_layout);
+		mref = mars_alloc_mref(logst->brick, &logst->ref_object_layout);
 		if (unlikely(!mref)) {
 			MARS_ERR("no mref\n");
 			goto err;
@@ -465,7 +465,7 @@ restart:
 			logst->offset = 0;
 		}
 
-		mref = mars_alloc_mref(logst->output, &logst->ref_object_layout);
+		mref = mars_alloc_mref(logst->brick, &logst->ref_object_layout);
 		if (unlikely(!mref)) {
 			MARS_ERR("no mref\n");
 			goto done;

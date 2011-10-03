@@ -288,7 +288,7 @@ static void sio_mars_queue(struct sio_output *output, struct mref_object *mref)
 		traced_unlock(&output->g_lock, flags);
 		index = (index % WITH_THREAD) + 1;
 	}
-	mref_a = sio_mref_get_aspect(output, mref);
+	mref_a = sio_mref_get_aspect(output->brick, mref);
 	if (unlikely(!mref_a)) {
 		MARS_FAT("cannot get aspect\n");
 		cb->cb_error = -EINVAL;
@@ -383,14 +383,14 @@ static int sio_get_info(struct sio_output *output, struct mars_info *info)
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int sio_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+static int sio_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
 	struct sio_mref_aspect *ini = (void*)_ini;
 	INIT_LIST_HEAD(&ini->io_head);
 	return 0;
 }
 
-static void sio_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+static void sio_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
 	struct sio_mref_aspect *ini = (void*)_ini;
 	(void)ini;
@@ -525,7 +525,6 @@ const struct sio_output_type sio_output_type = {
 	.master_ops = &sio_output_ops,
 	.output_construct = &sio_output_construct,
 	.output_destruct = &sio_output_destruct,
-	.aspect_types = sio_aspect_types,
 };
 
 static const struct sio_output_type *sio_output_types[] = {
@@ -538,6 +537,7 @@ const struct sio_brick_type sio_brick_type = {
 	.max_inputs = 0,
 	.max_outputs = 1,
 	.master_ops = &sio_brick_ops,
+	.aspect_types = sio_aspect_types,
 	.default_input_types = sio_input_types,
 	.default_output_types = sio_output_types,
 	.brick_construct = &sio_brick_construct,

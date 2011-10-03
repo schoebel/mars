@@ -93,8 +93,8 @@ struct generic_aspect;
 	char *aspect_type_name;						\
 	const struct generic_object_type *object_type;			\
 	int  aspect_size;						\
-	int  (*init_fn)(struct generic_aspect *ini, void *data);	\
-	void (*exit_fn)(struct generic_aspect *ini, void *data);	\
+        int  (*init_fn)(struct generic_aspect *ini);			\
+        void (*exit_fn)(struct generic_aspect *ini);			\
 
 struct generic_aspect_type {
 	GENERIC_ASPECT_TYPE(generic);
@@ -102,7 +102,6 @@ struct generic_aspect_type {
 
 #define GENERIC_ASPECT_LAYOUT(TYPE)					\
 	const struct generic_aspect_type *aspect_type;			\
-	struct generic_output *tied_to;					\
 	int aspect_offset;						\
 	int aspect_layout_generation;					\
 
@@ -114,8 +113,8 @@ struct generic_aspect_layout {
 	char *object_type_name;						\
 	int default_size;						\
 	int brick_obj_nr;						\
-	int  (*init_fn)(struct generic_aspect *ini, void *data);	\
-	void (*exit_fn)(struct generic_aspect *ini, void *data);	\
+        int  (*init_fn)(struct generic_aspect *ini);			\
+        void (*exit_fn)(struct generic_aspect *ini);			\
 
 struct generic_object_type {
 	GENERIC_OBJECT_TYPE(generic);
@@ -125,7 +124,6 @@ struct generic_object_type {
 	struct generic_aspect_layout **aspect_layouts_table;		\
 	struct generic_aspect_layout *aspect_layouts;			\
 	const struct generic_object_type *object_type;			\
-	struct generic_output *tied_to;					\
 	atomic_t *data_ref;						\
 	struct list_head layout_head;					\
 	int aspect_count;						\
@@ -195,6 +193,8 @@ struct generic_switch {
 	struct BRICK##_brick_ops *ops;					\
 	int nr_inputs;							\
 	int nr_outputs;							\
+	int brick_index; /* globally unique */                          \
+	struct list_head layout_list;					\
 	struct BRICK##_input **inputs;					\
 	struct BRICK##_output **outputs;				\
 	struct generic_switch power;					\
@@ -222,9 +222,7 @@ struct generic_input {
 	const struct BRICK##_output_type *type;				\
 	struct BRICK##_output_ops *ops;					\
 	struct list_head output_head;					\
-	struct list_head layout_list;					\
 	int nr_connected;						\
-	int output_index; /* globally unique */				\
 	/* _must_ be the last member (may expand to open array) */	\
 	struct generic_aspect_layout output_aspect_layouts[BRICK_OBJ_MAX]; \
 	
@@ -274,6 +272,7 @@ struct generic_output_ops {
 	const struct BRICK##_output_type **default_output_types;	\
 	const char **default_output_names;				\
 	struct BRICK##_brick_ops *master_ops;				\
+	const struct generic_aspect_type **aspect_types;		\
 	const struct BRICK##_input_types **default_type;		\
 	int (*brick_construct)(struct BRICK##_brick *brick);		\
 	int (*brick_destruct)(struct BRICK##_brick *brick);		\
@@ -298,7 +297,6 @@ struct generic_input_type {
 	struct BRICK##_output_ops *master_ops;				\
 	int (*output_construct)(struct BRICK##_output *output);		\
 	int (*output_destruct)(struct BRICK##_output *output);		\
-	const struct generic_aspect_type **aspect_types;		\
 
 struct generic_output_type {
 	GENERIC_OUTPUT_TYPE(generic);
@@ -314,9 +312,7 @@ INLINE void _generic_output_init(struct generic_brick *brick, const struct gener
 	output->type = type;
 	output->ops = type->master_ops;
 	output->nr_connected = 0;
-	output->output_index = get_nr();
 	INIT_LIST_HEAD(&output->output_head);
-	INIT_LIST_HEAD(&output->layout_list);
 }
 
 extern void default_exit_object_layout(struct generic_object_layout *object_layout);
@@ -324,16 +320,11 @@ extern void default_exit_object_layout(struct generic_object_layout *object_layo
 INLINE void _generic_output_exit(struct generic_output *output)
 {
 	list_del_init(&output->output_head);
-	while (!list_empty(&output->layout_list)) {
-		struct generic_object_layout *object_layout = container_of(output->layout_list.next, struct generic_object_layout, layout_head);
-		default_exit_object_layout(object_layout);
-	}
 	output->output_name = NULL;
 	output->brick = NULL;
 	output->type = NULL;
 	output->ops = NULL;
 	output->nr_connected = 0;
-	put_nr(output->output_index);
 }
 
 #ifdef _STRATEGY // call this only in strategy bricks, never in ordinary bricks
@@ -341,6 +332,7 @@ INLINE void _generic_output_exit(struct generic_output *output)
 // you need this only if you circumvent generic_brick_init_full()
 INLINE int generic_brick_init(const struct generic_brick_type *type, struct generic_brick *brick, const char *brick_name)
 {
+	brick->brick_index = get_nr();
 	brick->brick_name = brick_name;
 	brick->type = type;
 	brick->ops = type->master_ops;
@@ -348,6 +340,7 @@ INLINE int generic_brick_init(const struct generic_brick_type *type, struct gene
 	brick->nr_outputs = 0;
 	brick->power.led_off = true;
 	init_waitqueue_head(&brick->power.event);
+	INIT_LIST_HEAD(&brick->layout_list);
 	INIT_LIST_HEAD(&brick->tmp_head);
 	return 0;
 }
@@ -355,11 +348,16 @@ INLINE int generic_brick_init(const struct generic_brick_type *type, struct gene
 INLINE void generic_brick_exit(struct generic_brick *brick)
 {
 	list_del_init(&brick->tmp_head);
+	while (!list_empty(&brick->layout_list)) {
+		struct generic_object_layout *object_layout = container_of(brick->layout_list.next, struct generic_object_layout, layout_head);
+		default_exit_object_layout(object_layout);
+	}
 	brick->brick_name = NULL;
 	brick->type = NULL;
 	brick->ops = NULL;
 	brick->nr_inputs = 0;
 	brick->nr_outputs = 0;
+	put_nr(brick->brick_index);
 }
 
 INLINE int generic_input_init(struct generic_brick *brick, int index, const struct generic_input_type *type, struct generic_input *input, const char *input_name)
@@ -560,7 +558,7 @@ INLINE int INPUT_BRICK##_##OUTPUT_BRICK####_disconnect(        \
 
 // default operations on objects / aspects
 
-extern int default_init_object_layout(struct generic_output *output, struct generic_object_layout *object_layout, int aspect_max, const struct generic_object_type *object_type, char *module_name);
+extern int default_init_object_layout(struct generic_brick *brick, struct generic_object_layout *object_layout, int aspect_max, const struct generic_object_type *object_type, char *module_name);
 extern void default_exit_object_layout(struct generic_object_layout *object_layout);
 
 extern struct generic_object *alloc_generic(struct generic_object_layout *object_layout);
@@ -576,7 +574,7 @@ INLINE struct TYPE##_object *TYPE##_construct(void *data, struct TYPE##_object_l
 									\
 	obj->object_layout = object_layout;				\
 	if (object_layout->object_type->init_fn) {			\
-		int status = object_layout->object_type->init_fn((void*)obj, object_layout->tied_to); \
+		int status = object_layout->object_type->init_fn((void*)obj); \
 		if (status < 0) {					\
 			return NULL;					\
 		}							\
@@ -590,7 +588,7 @@ INLINE struct TYPE##_object *TYPE##_construct(void *data, struct TYPE##_object_l
 		aspect = data + aspect_layout->aspect_offset;		\
 		aspect->object = (void*)obj;				\
 		if (aspect_layout->aspect_type->init_fn) {		\
-			int status = aspect_layout->aspect_type->init_fn((void*)aspect, aspect_layout->tied_to); \
+			int status = aspect_layout->aspect_type->init_fn((void*)aspect); \
 			if (status < 0) {				\
 				return NULL;				\
 			}						\
@@ -610,7 +608,7 @@ INLINE void TYPE##_destruct(struct TYPE##_object *obj)	        \
 		return;							\
 	}								\
 	if (object_layout->object_type->exit_fn) {			\
-		object_layout->object_type->exit_fn((void*)obj, object_layout->tied_to); \
+		object_layout->object_type->exit_fn((void*)obj); \
 	}								\
 	for (i = 0; i < object_layout->aspect_count; i++) {		\
 		struct generic_aspect_layout *aspect_layout;		\
@@ -620,14 +618,14 @@ INLINE void TYPE##_destruct(struct TYPE##_object *obj)	        \
 			continue;					\
 		aspect = ((void*)obj) + aspect_layout->aspect_offset;	\
 		if (aspect_layout->aspect_type->exit_fn) {		\
-			aspect_layout->aspect_type->exit_fn((void*)aspect, aspect_layout->tied_to); \
+			aspect_layout->aspect_type->exit_fn((void*)aspect); \
 		}							\
 	}								\
 }									\
 
 #define GENERIC_ASPECT_FUNCTIONS(BRICK,TYPE)				\
 									\
-INLINE struct BRICK##_##TYPE##_aspect *BRICK##_##TYPE##_get_aspect(struct BRICK##_output *output, struct TYPE##_object *obj) \
+INLINE struct BRICK##_##TYPE##_aspect *BRICK##_##TYPE##_get_aspect(struct BRICK##_brick *brick, struct TYPE##_object *obj) \
 {									\
 	struct generic_object_layout *object_layout;			\
 	struct generic_aspect_layout *aspect_layout;			\
@@ -635,23 +633,23 @@ INLINE struct BRICK##_##TYPE##_aspect *BRICK##_##TYPE##_get_aspect(struct BRICK#
 	extern int nr_max;						\
 									\
 	object_layout = (struct generic_object_layout*)obj->object_layout; \
-	nr = output->output_index;					\
+	nr = brick->brick_index;				\
 	if (unlikely(nr <= 0 || nr > nr_max)) {				\
 		BRICK_ERR("brick "#BRICK": bad " #TYPE " nr = %d\n", nr); \
 		return NULL;						\
 	}								\
 	aspect_layout = &object_layout->aspect_layouts[nr];		\
 	if (unlikely(!aspect_layout->aspect_type)) {			\
-		BRICK_ERR("brick "#BRICK": bad " #TYPE " aspect slot %d, output = %p obj = %p object_layout = %p aspect_layout 0 %p\n", nr, output, obj, object_layout, aspect_layout); \
+		BRICK_ERR("brick "#BRICK": bad " #TYPE " aspect slot %d, brick = %p obj = %p object_layout = %p aspect_layout 0 %p\n", nr, brick, obj, object_layout, aspect_layout); \
 		return NULL;						\
 	}								\
 	return (void*)obj + aspect_layout->aspect_offset;		\
 }									\
 									\
-INLINE struct TYPE##_object *BRICK##_alloc_##TYPE(struct BRICK##_output *output, struct generic_object_layout *object_layout) \
+INLINE struct TYPE##_object *BRICK##_alloc_##TYPE(struct BRICK##_brick *brick, struct generic_object_layout *object_layout) \
 {									\
 	if (unlikely(!object_layout->aspect_layouts_table || !object_layout->aspect_layouts || object_layout->object_layout_generation != brick_layout_generation)) {			\
-		int status = default_init_object_layout((struct generic_output*)output, object_layout, BRICK_DEPTH_MAX, &TYPE##_type, #BRICK); \
+		int status = default_init_object_layout((struct generic_brick*)brick, object_layout, BRICK_DEPTH_MAX, &TYPE##_type, #BRICK); \
 		if (status < 0)						\
 			return NULL;					\
 	}								\

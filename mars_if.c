@@ -344,12 +344,12 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 			if (!mref) {
 				int prefetch_len;
 				error = -ENOMEM;
-				mref = if_alloc_mref(&brick->hidden_output, &input->mref_object_layout);
+				mref = if_alloc_mref(brick, &input->mref_object_layout);
 				if (unlikely(!mref)) {
 					up(&input->kick_sem);
 					goto err;
 				}
-				mref_a = if_mref_get_aspect(&brick->hidden_output, mref);
+				mref_a = if_mref_get_aspect(brick, mref);
 				if (unlikely(!mref_a)) {
 					up(&input->kick_sem);
 					goto err;
@@ -723,7 +723,7 @@ void if_reset_statistics(struct if_brick *brick)
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int if_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+static int if_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
 	struct if_mref_aspect *ini = (void*)_ini;
 	INIT_LIST_HEAD(&ini->plug_head);
@@ -731,7 +731,7 @@ static int if_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
 	return 0;
 }
 
-static void if_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+static void if_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
 	struct if_mref_aspect *ini = (void*)_ini;
 	CHECK_HEAD_EMPTY(&ini->plug_head);
@@ -744,8 +744,6 @@ MARS_MAKE_STATICS(if);
 
 static int if_brick_construct(struct if_brick *brick)
 {
-	struct if_output *hidden = &brick->hidden_output;
-	_if_output_init(brick, hidden, "internal");
 	return 0;
 }
 
@@ -810,7 +808,6 @@ const struct if_output_type if_output_type = {
 	.output_size = sizeof(struct if_output),
 	.master_ops = &if_output_ops,
 	.output_construct = &if_output_construct,
-	.aspect_types = if_aspect_types,
 };
 
 static const struct if_output_type *if_output_types[] = {
@@ -824,6 +821,7 @@ const struct if_brick_type if_brick_type = {
 	.max_inputs = 1,
 	.max_outputs = 0,
 	.master_ops = &if_brick_ops,
+	.aspect_types = if_aspect_types,
 	.default_input_types = if_input_types,
 	.default_output_types = if_output_types,
 	.brick_construct = &if_brick_construct,

@@ -198,7 +198,7 @@ static void check_ref_put(struct check_output *output, struct mref_object *mref)
 static void check_ref_io(struct check_output *output, struct mref_object *mref)
 {
 	struct check_input *input = output->brick->inputs[0];
-	struct check_mref_aspect *mref_a = check_mref_get_aspect(output, mref);
+	struct check_mref_aspect *mref_a = check_mref_get_aspect(output->brick, mref);
 	unsigned long flags;
 
 	CHECK_PTR(mref_a, fatal);
@@ -243,7 +243,7 @@ fatal: ;
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int check_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+static int check_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
 	struct check_mref_aspect *ini = (void*)_ini;
 #ifdef CHECK_LOCK
@@ -256,7 +256,7 @@ static int check_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_da
 	return 0;
 }
 
-static void check_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+static void check_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
 	struct check_mref_aspect *ini = (void*)_ini;
 	(void)ini;
@@ -326,7 +326,6 @@ const struct check_output_type check_output_type = {
 	.output_size = sizeof(struct check_output),
 	.master_ops = &check_output_ops,
 	.output_construct = &check_output_construct,
-	.aspect_types = check_aspect_types,
 };
 
 static const struct check_output_type *check_output_types[] = {
@@ -339,6 +338,7 @@ const struct check_brick_type check_brick_type = {
 	.max_inputs = 1,
 	.max_outputs = 1,
 	.master_ops = &check_brick_ops,
+	.aspect_types = check_aspect_types,
 	.default_input_types = check_input_types,
 	.default_output_types = check_output_types,
 	.brick_construct = &check_brick_construct,

@@ -166,12 +166,12 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 	if (brick->clash || !tmp_pos)
 		goto done;
 
-	mref = copy_alloc_mref(brick->outputs[0], &brick->mref_object_layout);
+	mref = copy_alloc_mref(brick, &brick->mref_object_layout);
 	status = -ENOMEM;
 	if (unlikely(!mref))
 		goto done;
 
-	mref_a = copy_mref_get_aspect(brick->outputs[0], mref);
+	mref_a = copy_mref_get_aspect(brick, mref);
 	if (unlikely(!mref_a)) {
 		MARS_FAT("cannot get own apsect\n");
 		goto done;
@@ -580,14 +580,14 @@ void copy_reset_statistics(struct copy_brick *brick)
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int copy_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+static int copy_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
 	struct copy_mref_aspect *ini = (void*)_ini;
 	(void)ini;
 	return 0;
 }
 
-static void copy_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+static void copy_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
 	struct copy_mref_aspect *ini = (void*)_ini;
 	(void)ini;
@@ -652,7 +652,6 @@ const struct copy_output_type copy_output_type = {
 	.master_ops = &copy_output_ops,
 	.output_construct = &copy_output_construct,
 	.output_destruct = &copy_output_destruct,
-	.aspect_types = copy_aspect_types,
 };
 
 static const struct copy_output_type *copy_output_types[] = {
@@ -665,6 +664,7 @@ const struct copy_brick_type copy_brick_type = {
 	.max_inputs = 4,
 	.max_outputs = 1,
 	.master_ops = &copy_brick_ops,
+	.aspect_types = copy_aspect_types,
 	.default_input_types = copy_input_types,
 	.default_output_types = copy_output_types,
 	.brick_construct = &copy_brick_construct,

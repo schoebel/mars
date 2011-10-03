@@ -27,7 +27,6 @@ struct server_brick {
 	wait_queue_head_t startup_event;
 	wait_queue_head_t cb_event;
 	struct generic_object_layout mref_object_layout;
-	struct server_output hidden_output;
 	spinlock_t cb_lock;
 	struct list_head cb_read_list;
 	struct list_head cb_write_list;

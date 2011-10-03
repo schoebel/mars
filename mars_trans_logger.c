@@ -477,7 +477,7 @@ int _make_sshadow(struct trans_logger_output *output, struct trans_logger_mref_a
 	}
 	mref->ref_flags = mshadow->ref_flags;
 	mref_a->shadow_ref = mshadow_a;
-	mref_a->my_output = output;
+	mref_a->my_brick = brick;
 
 	/* Get an ordinary internal reference
 	 */
@@ -554,7 +554,7 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 		mref->ref_data = data;
 		mref_a->do_buffered = true;
 	}
-	mref_a->my_output = output;
+	mref_a->my_brick = brick;
 	mref->ref_flags = 0;
 	mref_a->shadow_ref = mref_a; // cyclic self-reference => indicates master shadow
 
@@ -595,7 +595,7 @@ int trans_logger_ref_get(struct trans_logger_output *output, struct mref_object 
 		return mref->ref_len;
 	}
 
-	mref_a = trans_logger_mref_get_aspect(output, mref);
+	mref_a = trans_logger_mref_get_aspect(brick, mref);
 	CHECK_PTR(mref_a, err);
 	CHECK_PTR(mref_a->object, err);
 
@@ -622,9 +622,8 @@ err:
 }
 
 static noinline
-void __trans_logger_ref_put(struct trans_logger_output *output, struct trans_logger_mref_aspect *mref_a)
+void __trans_logger_ref_put(struct trans_logger_brick *brick, struct trans_logger_mref_aspect *mref_a)
 {
-	struct trans_logger_brick *brick = output->brick;
 	struct mref_object *mref;
 	struct trans_logger_mref_aspect *shadow_a;
 	struct trans_logger_input *input;
@@ -634,8 +633,6 @@ restart:
 	MARS_IO("pos = %lld len = %d\n", mref->ref_pos, mref->ref_len);
 
 	CHECK_ATOMIC(&mref->ref_count, 1);
-
-	CHECK_PTR(output, err);
 
 	// are we a shadow (whether master or slave)?
 	shadow_a = mref_a->shadow_ref;
@@ -707,10 +704,10 @@ void _trans_logger_ref_put(struct trans_logger_output *output, struct mref_objec
 {
 	struct trans_logger_mref_aspect *mref_a;
 
-	mref_a = trans_logger_mref_get_aspect(output, mref);
+	mref_a = trans_logger_mref_get_aspect(output->brick, mref);
 	CHECK_PTR(mref_a, err);
 
-	__trans_logger_ref_put(output, mref_a);
+	__trans_logger_ref_put(output->brick, mref_a);
 	return;
 
 err:
@@ -729,7 +726,6 @@ static noinline
 void _trans_logger_endio(struct generic_callback *cb)
 {
 	struct trans_logger_mref_aspect *mref_a;
-	struct trans_logger_output *output;
 	struct trans_logger_brick *brick;
 	struct mref_object *mref;
 	struct generic_callback *prev_cb;
@@ -740,9 +736,7 @@ void _trans_logger_endio(struct generic_callback *cb)
 		MARS_FAT("bad callback -- hanging up\n");
 		goto err;
 	}
-	output = mref_a->my_output;
-	CHECK_PTR(output, err);
-	brick = output->brick;
+	brick = mref_a->my_brick;
 	CHECK_PTR(brick, err);
 
 	prev_cb = cb->cb_prev;
@@ -773,7 +767,7 @@ void trans_logger_ref_io(struct trans_logger_output *output, struct mref_object 
 
 	CHECK_ATOMIC(&mref->ref_count, 1);
 
-	mref_a = trans_logger_mref_get_aspect(output, mref);
+	mref_a = trans_logger_mref_get_aspect(brick, mref);
 	CHECK_PTR(mref_a, err);
 
 	MARS_IO("pos = %lld len = %d\n", mref->ref_pos, mref->ref_len);
@@ -808,7 +802,7 @@ void trans_logger_ref_io(struct trans_logger_output *output, struct mref_object 
 
 	atomic_inc(&brick->fly_count);
 
-	mref_a->my_output = output;
+	mref_a->my_brick = brick;
 	cb = &mref_a->cb;
 	cb->cb_fn = _trans_logger_endio;
 	cb->cb_private = mref_a;
@@ -831,8 +825,7 @@ err:
 static noinline
 void pos_complete(struct trans_logger_mref_aspect *orig_mref_a)
 {
-	struct trans_logger_output *output = orig_mref_a->my_output;
-	struct trans_logger_brick *brick = output->brick;
+	struct trans_logger_brick *brick = orig_mref_a->my_brick;
 	struct trans_logger_input *input = orig_mref_a->log_input;
 	struct list_head *tmp;
 	unsigned long flags;
@@ -925,7 +918,7 @@ void free_writeback(struct writeback_info *wb)
 			pos_complete(orig_mref_a);
 		}
 
-		__trans_logger_ref_put(orig_mref_a->my_output, orig_mref_a);
+		__trans_logger_ref_put(orig_mref_a->my_brick, orig_mref_a);
 	}
 
 	brick_mem_free(wb);
@@ -938,7 +931,6 @@ void wb_endio(struct generic_callback *cb)
 {
 	struct trans_logger_mref_aspect *sub_mref_a;
 	struct mref_object *sub_mref;
-	struct trans_logger_output *output;
 	struct trans_logger_brick *brick;
 	struct writeback_info *wb;
 	int rw;
@@ -952,9 +944,7 @@ void wb_endio(struct generic_callback *cb)
 	CHECK_PTR(sub_mref, err);
 	wb = sub_mref_a->wb;
 	CHECK_PTR(wb, err);
-	output = wb->w_output;
-	CHECK_PTR(output, err);
-	brick = output->brick;
+	brick = wb->w_brick;
 	CHECK_PTR(brick, err);
 
 	atomic_dec(&brick->wb_balance_count);
@@ -992,9 +982,8 @@ err:
  * point in time.
  */
 static noinline
-struct writeback_info *make_writeback(struct trans_logger_output *output, loff_t pos, int len)
+struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t pos, int len)
 {
-	struct trans_logger_brick *brick = output->brick;
 	struct writeback_info *wb;
 	struct trans_logger_input *log_input;
 	struct trans_logger_input *read_input;
@@ -1012,7 +1001,7 @@ struct writeback_info *make_writeback(struct trans_logger_output *output, loff_t
 		MARS_ERR("len = %d\n", len);
 	}
 
-	wb->w_output = output;
+	wb->w_brick = brick;
 	wb->w_pos = pos;
 	wb->w_len = len;
 	wb->w_lh.lh_pos = &wb->w_pos;
@@ -1062,7 +1051,7 @@ struct writeback_info *make_writeback(struct trans_logger_output *output, loff_t
 			int this_len;
 			int status;
 
-			sub_mref = trans_logger_alloc_mref(&read_input->hidden_output, &read_input->sub_layout);
+			sub_mref = trans_logger_alloc_mref(brick, &read_input->sub_layout);
 			if (unlikely(!sub_mref)) {
 				MARS_FAT("cannot alloc sub_mref\n");
 				goto err;
@@ -1074,11 +1063,11 @@ struct writeback_info *make_writeback(struct trans_logger_output *output, loff_t
 			sub_mref->ref_rw = READ;
 			sub_mref->ref_data = NULL;
 
-			sub_mref_a = trans_logger_mref_get_aspect(&read_input->hidden_output, sub_mref);
+			sub_mref_a = trans_logger_mref_get_aspect(brick, sub_mref);
 			CHECK_PTR(sub_mref_a, err);
 
 			sub_mref_a->my_input = read_input;
-			sub_mref_a->my_output = &read_input->hidden_output;
+			sub_mref_a->my_brick = brick;
 			sub_mref_a->wb = wb;
 
 			status = GENERIC_INPUT_CALL(read_input, mref_get, sub_mref);
@@ -1127,7 +1116,7 @@ struct writeback_info *make_writeback(struct trans_logger_output *output, loff_t
 		}
 		data = orig_mref_a->shadow_data + diff;
 
-		sub_mref = trans_logger_alloc_mref(&write_input->hidden_output, &write_input->sub_layout);
+		sub_mref = trans_logger_alloc_mref(brick, &write_input->sub_layout);
 		if (unlikely(!sub_mref)) {
 			MARS_FAT("cannot alloc sub_mref\n");
 			goto err;
@@ -1143,13 +1132,13 @@ struct writeback_info *make_writeback(struct trans_logger_output *output, loff_t
 		sub_mref->ref_data = data;
 #endif
 
-		sub_mref_a = trans_logger_mref_get_aspect(&write_input->hidden_output, sub_mref);
+		sub_mref_a = trans_logger_mref_get_aspect(brick, sub_mref);
 		CHECK_PTR(sub_mref_a, err);
 
 		sub_mref_a->orig_mref_a = orig_mref_a;
 		sub_mref_a->my_input = write_input;
 		sub_mref_a->log_input = log_input;
-		sub_mref_a->my_output = &write_input->hidden_output;
+		sub_mref_a->my_brick = brick;
 		sub_mref_a->wb = wb;
 
 		status = GENERIC_INPUT_CALL(write_input, mref_get, sub_mref);
@@ -1320,14 +1309,11 @@ static noinline
 void phase1_preio(void *private)
 {
 	struct trans_logger_mref_aspect *orig_mref_a;
-	struct trans_logger_output *output;
 	struct trans_logger_brick *brick;
 
 	orig_mref_a = private;
 	CHECK_PTR(orig_mref_a, err);
-	output = orig_mref_a->my_output;
-	CHECK_PTR(output, err);
-	brick = output->brick;
+	brick = orig_mref_a->my_brick;
 	CHECK_PTR(brick, err);
 
 	// signal completion to the upper layer
@@ -1346,14 +1332,11 @@ static noinline
 void phase1_endio(void *private, int error)
 {
 	struct trans_logger_mref_aspect *orig_mref_a;
-	struct trans_logger_output *output;
 	struct trans_logger_brick *brick;
 
 	orig_mref_a = private;
 	CHECK_PTR(orig_mref_a, err);
-	output = orig_mref_a->my_output;
-	CHECK_PTR(output, err);
-	brick = output->brick;
+	brick = orig_mref_a->my_brick;
 	CHECK_PTR(brick, err);
 
 	qq_dec_flying(&brick->q_phase1);
@@ -1377,7 +1360,6 @@ static noinline
 bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 {
 	struct mref_object *orig_mref;
-	struct trans_logger_output *output;
 	struct trans_logger_brick *brick;
 	struct log_status *logst;
 	void *data;
@@ -1388,9 +1370,7 @@ bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	orig_mref = orig_mref_a->object;
 	CHECK_PTR(orig_mref, err);
 	CHECK_PTR_NULL(orig_mref->ref_cb, err);
-	output = orig_mref_a->my_output;
-	CHECK_PTR(output, err);
-	brick = output->brick;
+	brick = orig_mref_a->my_brick;
 	CHECK_PTR(brick, err);
 	logst = &brick->inputs[TL_INPUT_FW_LOG1]->logst;
 
@@ -1441,15 +1421,12 @@ bool phase0_startio(struct trans_logger_mref_aspect *mref_a)
 {
 	struct mref_object *mref = mref_a->object;
 	struct trans_logger_mref_aspect *shadow_a;
-	struct trans_logger_output *output;
 	struct trans_logger_brick *brick;
 
 	CHECK_PTR(mref, err);
 	shadow_a = mref_a->shadow_ref;
 	CHECK_PTR(shadow_a, err);
-	output = mref_a->my_output;
-	CHECK_PTR(output, err);
-	brick = output->brick;
+	brick = mref_a->my_brick;
 	CHECK_PTR(brick, err);
 
 	MARS_IO("pos = %lld len = %d rw = %d\n", mref->ref_pos, mref->ref_len, mref->ref_rw);
@@ -1474,7 +1451,7 @@ bool phase0_startio(struct trans_logger_mref_aspect *mref_a)
 		mref->ref_flags |= MREF_UPTODATE;
 		cb->cb_fn(cb);
 
-		__trans_logger_ref_put(output, mref_a);
+		__trans_logger_ref_put(brick, mref_a);
 
 		return true;
 	} 
@@ -1534,7 +1511,6 @@ void phase2_endio(struct generic_callback *cb)
 {
 	struct trans_logger_mref_aspect *sub_mref_a;
 	struct writeback_info *wb;
-	struct trans_logger_output *output;
 	struct trans_logger_brick *brick;
 
 	CHECK_PTR(cb, err);
@@ -1542,9 +1518,7 @@ void phase2_endio(struct generic_callback *cb)
 	CHECK_PTR(sub_mref_a, err);
 	wb = sub_mref_a->wb;
 	CHECK_PTR(wb, err);
-	output = wb->w_output;
-	CHECK_PTR(output, err);
-	brick = output->brick;
+	brick = wb->w_brick;
 	CHECK_PTR(brick, err);
 	
 	if (unlikely(cb->cb_error < 0)) {
@@ -1572,16 +1546,13 @@ static noinline
 bool phase2_startio(struct trans_logger_mref_aspect *orig_mref_a)
 {
 	struct mref_object *orig_mref;
-	struct trans_logger_output *output;
 	struct trans_logger_brick *brick;
 	struct writeback_info *wb;
 
 	CHECK_PTR(orig_mref_a, err);
 	orig_mref = orig_mref_a->object;
 	CHECK_PTR(orig_mref, err);
-	output = orig_mref_a->my_output;
-	CHECK_PTR(output, err);
-	brick = output->brick;
+	brick = orig_mref_a->my_brick;
 	CHECK_PTR(brick, err);
 
 	if (orig_mref_a->is_collected) {
@@ -1592,7 +1563,7 @@ bool phase2_startio(struct trans_logger_mref_aspect *orig_mref_a)
 		MARS_IO("AHA not hashed, pos = %lld len = %d\n", orig_mref->ref_pos, orig_mref->ref_len);
 		goto done;
 	}
-	wb = make_writeback(output, orig_mref->ref_pos, orig_mref->ref_len);
+	wb = make_writeback(brick, orig_mref->ref_pos, orig_mref->ref_len);
 	if (unlikely(!wb)) {
 		goto err;
 	}
@@ -1612,7 +1583,7 @@ bool phase2_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	wb->write_endio = phase4_endio;
 	atomic_set(&wb->w_sub_log_count, atomic_read(&wb->w_sub_read_count));
 
-	if (output->brick->log_reads) {
+	if (brick->log_reads) {
 		qq_inc_flying(&brick->q_phase2);
 		fire_writeback(&wb->w_sub_read_list, false, false);
 	} else { // shortcut
@@ -1639,8 +1610,7 @@ bool phase2_startio(struct trans_logger_mref_aspect *orig_mref_a)
 static inline
 void _phase3_endio(struct writeback_info *wb)
 {
-	struct trans_logger_output *output = wb->w_output;
-	struct trans_logger_brick *brick = output->brick;
+	struct trans_logger_brick *brick = wb->w_brick;
 	
 	// queue up for the next phase
 	qq_wb_insert(&brick->q_phase4, wb);
@@ -1652,7 +1622,6 @@ static noinline
 void phase3_endio(void *private, int error)
 {
 	struct trans_logger_mref_aspect *sub_mref_a;
-	struct trans_logger_output *output;
 	struct trans_logger_brick *brick;
 	struct writeback_info *wb;
 
@@ -1660,9 +1629,7 @@ void phase3_endio(void *private, int error)
 	CHECK_PTR(sub_mref_a, err);
 	wb = sub_mref_a->wb;
 	CHECK_PTR(wb, err);
-	output = wb->w_output;
-	CHECK_PTR(output, err);
-	brick = output->brick;
+	brick = wb->w_brick;
 	CHECK_PTR(brick, err);
 
 	qq_dec_flying(&brick->q_phase3);
@@ -1688,7 +1655,6 @@ bool _phase3_startio(struct trans_logger_mref_aspect *sub_mref_a)
 	struct mref_object *sub_mref = NULL;
 	struct writeback_info *wb;
 	struct trans_logger_input *input;
-	struct trans_logger_output *output;
 	struct trans_logger_brick *brick;
 	struct log_status *logst;
 	void *data;
@@ -1699,9 +1665,7 @@ bool _phase3_startio(struct trans_logger_mref_aspect *sub_mref_a)
 	CHECK_PTR(sub_mref, err);
 	wb = sub_mref_a->wb;
 	CHECK_PTR(wb, err);
-	output = wb->w_output;
-	CHECK_PTR(output, err);
-	brick = output->brick;
+	brick = wb->w_brick;
 	CHECK_PTR(brick, err);
 	input = brick->inputs[TL_INPUT_BW_LOG1];
 	if (!input || !input->connect) {
@@ -1742,14 +1706,11 @@ err:
 static noinline
 bool phase3_startio(struct writeback_info *wb)
 {
-	struct trans_logger_output *output;
 	struct trans_logger_brick *brick;
 	bool ok = true;
 
 	CHECK_PTR(wb, err);
-	output = wb->w_output;
-	CHECK_PTR(output, err);
-	brick = output->brick;
+	brick = wb->w_brick;
 	CHECK_PTR(brick, err);
 
 	if (brick->log_reads && atomic_read(&wb->w_sub_log_count) > 0) {
@@ -1788,7 +1749,6 @@ void phase4_endio(struct generic_callback *cb)
 {
 	struct trans_logger_mref_aspect *sub_mref_a;
 	struct writeback_info *wb;
-	struct trans_logger_output *output;
 	struct trans_logger_brick *brick;
 
 	CHECK_PTR(cb, err);
@@ -1796,9 +1756,7 @@ void phase4_endio(struct generic_callback *cb)
 	CHECK_PTR(sub_mref_a, err);
 	wb = sub_mref_a->wb;
 	CHECK_PTR(wb, err);
-	output = wb->w_output;
-	CHECK_PTR(output, err);
-	brick = output->brick;
+	brick = wb->w_brick;
 	CHECK_PTR(brick, err);
 	
 	if (unlikely(cb->cb_error < 0)) {
@@ -1846,7 +1804,7 @@ bool phase4_startio(struct writeback_info *wb)
 
 	/* Start writeback IO
 	 */
-	qq_inc_flying(&wb->w_output->brick->q_phase4);
+	qq_inc_flying(&wb->w_brick->q_phase4);
 	fire_writeback(&wb->w_sub_write_list, true, true);
 	return true;
 }
@@ -1880,7 +1838,7 @@ int run_mref_queue(struct logger_queue *q, bool (*startio)(struct trans_logger_m
 		}
 		brick->did_work = true;
 		found = true;
-		__trans_logger_ref_put(mref_a->my_output, mref_a);
+		__trans_logger_ref_put(mref_a->my_brick, mref_a);
 	} while (--max > 0);
 	res = 0;
 
@@ -1984,7 +1942,7 @@ void trans_logger_log(struct trans_logger_output *output)
 
 	fw_input = brick->inputs[TL_INPUT_FW_LOG1];
 	fw_logst = &fw_input->logst;
-	init_logst(fw_logst, (void*)fw_input, (void*)&fw_input->hidden_output, 0);
+	init_logst(fw_logst, (void*)fw_input, 0);
 	fw_logst->align_size = brick->align_size;
 	fw_logst->chunk_size = brick->chunk_size;
 
@@ -1995,7 +1953,7 @@ void trans_logger_log(struct trans_logger_output *output)
 		bw_input = fw_input;
 		bw_logst = fw_logst;
 	} else if (bw_input != fw_input) {
-		init_logst(bw_logst, (void*)bw_input, (void*)&bw_input->hidden_output, 0);
+		init_logst(bw_logst, (void*)bw_input, 0);
 		bw_logst->align_size = brick->align_size;
 		bw_logst->chunk_size = brick->chunk_size;
 	}
@@ -2173,14 +2131,11 @@ static noinline
 void replay_endio(struct generic_callback *cb)
 {
 	struct trans_logger_mref_aspect *mref_a = cb->cb_private;
-	struct trans_logger_output *output;
 	struct trans_logger_brick *brick;
 	unsigned long flags;
 
 	CHECK_PTR(mref_a, err);
-	output = mref_a->my_output;
-	CHECK_PTR(output, err);
-	brick = output->brick;
+	brick = mref_a->my_brick;
 	CHECK_PTR(brick, err);
 
 	traced_lock(&brick->replay_lock, flags);
@@ -2267,12 +2222,12 @@ int apply_data(struct trans_logger_brick *brick, loff_t pos, void *buf, int len)
 		struct generic_callback *cb;
 		
 		status = -ENOMEM;
-		mref = trans_logger_alloc_mref(&input->hidden_output, &input->sub_layout);
+		mref = trans_logger_alloc_mref(brick, &input->sub_layout);
 		if (unlikely(!mref)) {
 			MARS_ERR("no memory\n");
 			goto done;
 		}
-		mref_a = trans_logger_mref_get_aspect(&input->hidden_output, mref);
+		mref_a = trans_logger_mref_get_aspect(brick, mref);
 		CHECK_PTR(mref_a, done);
 		
 		mref->ref_pos = pos;
@@ -2311,7 +2266,7 @@ int apply_data(struct trans_logger_brick *brick, loff_t pos, void *buf, int len)
 		cb->cb_error = 0;
 		cb->cb_prev = NULL;
 		mref->ref_cb = cb;
-		mref_a->my_output = &input->hidden_output;
+		mref_a->my_brick = brick;
 		
 		GENERIC_INPUT_CALL(input, mref_io, mref);
 
@@ -2346,7 +2301,7 @@ void trans_logger_replay(struct trans_logger_output *output)
 	brick->replay_code = 0; // indicates "running"
 
 	start_pos = brick->replay_start_pos;
-	init_logst(&input->logst, (void*)input, (void*)&input->hidden_output, start_pos);
+	init_logst(&input->logst, (void*)input, start_pos);
 	input->logst.align_size = brick->align_size;
 	input->logst.chunk_size = brick->chunk_size;
 
@@ -2544,7 +2499,7 @@ void trans_logger_reset_statistics(struct trans_logger_brick *brick)
 //////////////// object / aspect constructors / destructors ///////////////
 
 static noinline
-int trans_logger_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+int trans_logger_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
 	struct trans_logger_mref_aspect *ini = (void*)_ini;
 	ini->lh.lh_pos = &ini->object->ref_pos;
@@ -2559,7 +2514,7 @@ int trans_logger_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_da
 }
 
 static noinline
-void trans_logger_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+void trans_logger_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
 	struct trans_logger_mref_aspect *ini = (void*)_ini;
 	CHECK_HEAD_EMPTY(&ini->lh.lh_head);
@@ -2625,8 +2580,6 @@ int trans_logger_output_construct(struct trans_logger_output *output)
 static noinline
 int trans_logger_input_construct(struct trans_logger_input *input)
 {
-	struct trans_logger_output *hidden = &input->hidden_output;
-	_trans_logger_output_init(input->brick, hidden, "internal");
 	return 0;
 }
 
@@ -2665,7 +2618,6 @@ const struct trans_logger_output_type trans_logger_output_type = {
 	.output_size = sizeof(struct trans_logger_output),
 	.master_ops = &trans_logger_output_ops,
 	.output_construct = &trans_logger_output_construct,
-	.aspect_types = trans_logger_aspect_types,
 };
 
 static const struct trans_logger_output_type *trans_logger_output_types[] = {
@@ -2678,6 +2630,7 @@ const struct trans_logger_brick_type trans_logger_brick_type = {
 	.max_inputs = TL_INPUT_NR,
 	.max_outputs = 1,
 	.master_ops = &trans_logger_brick_ops,
+	.aspect_types = trans_logger_aspect_types,
 	.default_input_types = trans_logger_input_types,
 	.default_output_types = trans_logger_output_types,
 	.brick_construct = &trans_logger_brick_construct,

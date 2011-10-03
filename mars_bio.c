@@ -198,7 +198,7 @@ static int bio_get_info(struct bio_output *output, struct mars_info *info)
 
 static int bio_ref_get(struct bio_output *output, struct mref_object *mref)
 {
-	struct bio_mref_aspect *mref_a = bio_mref_get_aspect(output, mref);
+	struct bio_mref_aspect *mref_a = bio_mref_get_aspect(output->brick, mref);
 	int status = -EINVAL;
 
 	CHECK_PTR(mref_a, done);
@@ -250,7 +250,7 @@ void bio_ref_put(struct bio_output *output, struct mref_object *mref)
 
 	mref->ref_total_size = output->brick->total_size;
 
-	mref_a = bio_mref_get_aspect(output, mref);
+	mref_a = bio_mref_get_aspect(output->brick, mref);
 	CHECK_PTR(mref_a, err);
 
 	if (likely(mref_a->bio)) {
@@ -281,7 +281,7 @@ static
 void _bio_ref_io(struct bio_output *output, struct mref_object *mref)
 {
 	struct bio_brick *brick = output->brick;
-	struct bio_mref_aspect *mref_a = bio_mref_get_aspect(output, mref);
+	struct bio_mref_aspect *mref_a = bio_mref_get_aspect(output->brick, mref);
 	struct bio *bio;
 	struct generic_callback *cb;
 	int rw;
@@ -346,7 +346,7 @@ static
 void bio_ref_io(struct bio_output *output, struct mref_object *mref)
 {
 	if (mref->ref_prio == MARS_PRIO_LOW) { // queue for background IO
-		struct bio_mref_aspect *mref_a = bio_mref_get_aspect(output, mref);
+		struct bio_mref_aspect *mref_a = bio_mref_get_aspect(output->brick, mref);
 		struct bio_brick *brick = output->brick;
 		unsigned long flags;
 		
@@ -566,14 +566,14 @@ void bio_reset_statistics(struct bio_brick *brick)
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int bio_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+static int bio_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
 	struct bio_mref_aspect *ini = (void*)_ini;
 	INIT_LIST_HEAD(&ini->io_head);
 	return 0;
 }
 
-static void bio_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+static void bio_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
 	struct bio_mref_aspect *ini = (void*)_ini;
 	(void)ini;
@@ -637,7 +637,6 @@ const struct bio_output_type bio_output_type = {
 	.master_ops = &bio_output_ops,
 	.output_construct = &bio_output_construct,
 	.output_destruct = &bio_output_destruct,
-	.aspect_types = bio_aspect_types,
 };
 
 static const struct bio_output_type *bio_output_types[] = {
@@ -650,6 +649,7 @@ const struct bio_brick_type bio_brick_type = {
 	.max_inputs = 0,
 	.max_outputs = 1,
 	.master_ops = &bio_brick_ops,
+	.aspect_types = bio_aspect_types,
 	.default_input_types = bio_input_types,
 	.default_output_types = bio_output_types,
 	.brick_construct = &bio_brick_construct,

@@ -72,7 +72,6 @@ struct if_brick {
 	// inspectable
 	bool has_closed;
 	// private
-	struct if_output hidden_output;
 };
 
 MARS_TYPES(if);

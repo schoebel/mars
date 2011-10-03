@@ -144,12 +144,12 @@ int server_io(struct server_brick *brick, struct mars_socket *sock)
 	if (!brick->cb_running || !mars_socket_is_alive(sock))
 		goto done;
 
-	mref = server_alloc_mref(&brick->hidden_output, &brick->mref_object_layout);
+	mref = server_alloc_mref(brick, &brick->mref_object_layout);
 	status = -ENOMEM;
 	if (!mref)
 		goto done;
 
-	mref_a = server_mref_get_aspect(&brick->hidden_output, mref);
+	mref_a = server_mref_get_aspect(brick, mref);
 	if (unlikely(!mref_a)) {
 		mars_free_mref(mref);
 		goto done;
@@ -476,14 +476,14 @@ static int server_switch(struct server_brick *brick)
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int server_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+static int server_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
 	struct server_mref_aspect *ini = (void*)_ini;
 	INIT_LIST_HEAD(&ini->cb_head);
 	return 0;
 }
 
-static void server_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+static void server_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
 	struct server_mref_aspect *ini = (void*)_ini;
 	CHECK_HEAD_EMPTY(&ini->cb_head);
@@ -495,8 +495,6 @@ MARS_MAKE_STATICS(server);
 
 static int server_brick_construct(struct server_brick *brick)
 {
-	struct server_output *hidden = &brick->hidden_output;
-	_server_output_init(brick, hidden, "internal");
 	INIT_LIST_HEAD(&brick->server_link);
 	init_waitqueue_head(&brick->startup_event);
 	init_waitqueue_head(&brick->cb_event);
@@ -539,7 +537,6 @@ const struct server_output_type server_output_type = {
 	.output_size = sizeof(struct server_output),
 	.master_ops = &server_output_ops,
 	.output_construct = &server_output_construct,
-	.aspect_types = server_aspect_types,
 };
 
 static const struct server_output_type *server_output_types[] = {
@@ -552,6 +549,7 @@ const struct server_brick_type server_brick_type = {
 	.max_inputs = 1,
 	.max_outputs = 0,
 	.master_ops = &server_brick_ops,
+	.aspect_types = server_aspect_types,
 	.default_input_types = server_input_types,
 	.default_output_types = server_output_types,
 	.brick_construct = &server_brick_construct,

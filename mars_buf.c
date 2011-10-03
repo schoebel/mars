@@ -430,7 +430,7 @@ static int buf_ref_get(struct buf_output *output, struct mref_object *mref)
 		return 0;
 	}
 
-	mref_a = buf_mref_get_aspect(output, mref);
+	mref_a = buf_mref_get_aspect(brick, mref);
 	if (unlikely(!mref_a))
 		goto done;
 	
@@ -569,7 +569,7 @@ static void _buf_ref_put(struct buf_output *output, struct buf_mref_aspect *mref
 static void buf_ref_put(struct buf_output *output, struct mref_object *mref)
 {
 	struct buf_mref_aspect *mref_a;
-	mref_a = buf_mref_get_aspect(output, mref);
+	mref_a = buf_mref_get_aspect(output->brick, mref);
 	if (unlikely(!mref_a)) {
 		MARS_FAT("cannot get aspect\n");
 		return;
@@ -616,11 +616,11 @@ static int _buf_make_io(struct buf_brick *brick, struct buf_head *bf, void *star
 		struct buf_mref_aspect *mref_a;
 		int len;
 
-		mref = buf_alloc_mref(brick->outputs[0], &brick->mref_object_layout);
+		mref = buf_alloc_mref(brick, &brick->mref_object_layout);
 		if (unlikely(!mref))
 			break;
 
-		mref_a = buf_mref_get_aspect(brick->outputs[0], mref);
+		mref_a = buf_mref_get_aspect(brick, mref);
 		if (unlikely(!mref_a)) {
 			buf_free_mref(mref);
 			break;
@@ -857,7 +857,7 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 		MARS_FAT("internal problem: forgotten to supply mref\n");
 		goto fatal;
 	}
-	mref_a = buf_mref_get_aspect(output, mref);
+	mref_a = buf_mref_get_aspect(brick, mref);
 	if (unlikely(!mref_a)) {
 		MARS_ERR("internal problem: mref aspect does not work\n");
 		goto fatal;
@@ -1030,7 +1030,7 @@ fatal: // no chance to call callback: may produce hanging tasks :(
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int buf_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+static int buf_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
 	struct buf_mref_aspect *ini = (void*)_ini;
 	ini->rfa_bf = NULL;
@@ -1039,7 +1039,7 @@ static int buf_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data
 	return 0;
 }
 
-static void buf_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+static void buf_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
 	struct buf_mref_aspect *ini = (void*)_ini;
 	(void)ini;
@@ -1118,7 +1118,6 @@ const struct buf_output_type buf_output_type = {
 	.output_size = sizeof(struct buf_output),
 	.master_ops = &buf_output_ops,
 	.output_construct = &buf_output_construct,
-	.aspect_types = buf_aspect_types,
 };
 
 static const struct buf_output_type *buf_output_types[] = {
@@ -1131,6 +1130,7 @@ const struct buf_brick_type buf_brick_type = {
 	.max_inputs = 1,
 	.max_outputs = 1,
 	.master_ops = &buf_brick_ops,
+	.aspect_types = buf_aspect_types,
 	.default_input_types = buf_input_types,
 	.default_output_types = buf_output_types,
 	.brick_construct = &buf_brick_construct,

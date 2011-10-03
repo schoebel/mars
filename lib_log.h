@@ -97,7 +97,7 @@ struct log_status {
 	loff_t log_pos;
 	// internal
 	struct mars_input *input;
-	struct mars_output *output;
+	struct mars_brick *brick;
 	struct generic_object_layout ref_object_layout;
 	struct mars_info info;
 	int offset;
@@ -114,7 +114,7 @@ struct log_status {
 	void *private;
 };
 
-void init_logst(struct log_status *logst, struct mars_input *input, struct mars_output *output, loff_t start_pos);
+void init_logst(struct log_status *logst, struct mars_input *input, loff_t start_pos);
 
 void log_flush(struct log_status *logst);
 

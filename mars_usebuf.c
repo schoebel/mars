@@ -123,7 +123,7 @@ static int usebuf_ref_get(struct usebuf_output *output, struct mref_object *mref
 
 	might_sleep();
 
-	mref_a = usebuf_mref_get_aspect(output, mref);
+	mref_a = usebuf_mref_get_aspect(output->brick, mref);
 	if (unlikely(!mref_a)) {
 		MARS_FAT("cannot get aspect\n");
 		return -EILSEQ;
@@ -131,13 +131,13 @@ static int usebuf_ref_get(struct usebuf_output *output, struct mref_object *mref
 
 	sub_mref_a = mref_a->sub_mref_a;
 	if (!sub_mref_a) {
-		sub_mref = usebuf_alloc_mref(output, &output->mref_object_layout);
+		sub_mref = usebuf_alloc_mref(output->brick, &output->mref_object_layout);
 		if (unlikely(!sub_mref)) {
 			MARS_FAT("cannot get sub_mref\n");
 			return -ENOMEM;
 		}
 
-		sub_mref_a = usebuf_mref_get_aspect(output, sub_mref);
+		sub_mref_a = usebuf_mref_get_aspect(output->brick, sub_mref);
 		if (unlikely(!sub_mref_a)) {
 			MARS_FAT("cannot get aspect\n");
 			return -EILSEQ;
@@ -189,7 +189,7 @@ static void usebuf_ref_put(struct usebuf_output *output, struct mref_object *mre
 	struct usebuf_mref_aspect *sub_mref_a;
 	struct mref_object *sub_mref;
 
-	mref_a = usebuf_mref_get_aspect(output, mref);
+	mref_a = usebuf_mref_get_aspect(output->brick, mref);
 	if (unlikely(!mref_a)) {
 		MARS_FAT("cannot get aspect\n");
 		return;
@@ -226,7 +226,7 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mref_object *mref
 
 	might_sleep();
 
-	mref_a = usebuf_mref_get_aspect(output, mref);
+	mref_a = usebuf_mref_get_aspect(output->brick, mref);
 	if (unlikely(!mref_a)) {
 		MARS_FAT("cannot get aspect\n");
 		goto err;
@@ -297,14 +297,14 @@ err:
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int usebuf_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+static int usebuf_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
 	struct usebuf_mref_aspect *ini = (void*)_ini;
 	(void)ini;
 	return 0;
 }
 
-static void usebuf_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+static void usebuf_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
 	struct usebuf_mref_aspect *ini = (void*)_ini;
 	(void)ini;
@@ -350,7 +350,6 @@ const struct usebuf_output_type usebuf_output_type = {
 	.output_size = sizeof(struct usebuf_output),
 	.master_ops = &usebuf_output_ops,
 	.output_construct = &usebuf_output_construct,
-	.aspect_types = usebuf_aspect_types,
 };
 
 static const struct usebuf_output_type *usebuf_output_types[] = {
@@ -363,6 +362,7 @@ const struct usebuf_brick_type usebuf_brick_type = {
 	.max_inputs = 1,
 	.max_outputs = 1,
 	.master_ops = &usebuf_brick_ops,
+	.aspect_types = usebuf_aspect_types,
 	.default_input_types = usebuf_input_types,
 	.default_output_types = usebuf_output_types,
 	.brick_construct = &usebuf_brick_construct,

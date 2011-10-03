@@ -178,7 +178,7 @@ static int client_ref_get(struct client_output *output, struct mref_object *mref
 
 	_CHECK_ATOMIC(&mref->ref_count, !=,  0);
 	if (!mref->ref_data) { // buffered IO
-		struct client_mref_aspect *mref_a = client_mref_get_aspect(output, mref);
+		struct client_mref_aspect *mref_a = client_mref_get_aspect(output->brick, mref);
 		if (!mref_a)
 			return -EILSEQ;
 
@@ -200,7 +200,7 @@ static void client_ref_put(struct client_output *output, struct mref_object *mre
 	CHECK_ATOMIC(&mref->ref_count, 1);
 	if (!atomic_dec_and_test(&mref->ref_count))
 		return;
-	mref_a = client_mref_get_aspect(output, mref);
+	mref_a = client_mref_get_aspect(output->brick, mref);
 	if (mref_a && mref_a->do_dealloc) {
 		brick_block_free(mref->ref_data, mref->ref_len);
 	}
@@ -215,7 +215,7 @@ static void client_ref_io(struct client_output *output, struct mref_object *mref
 	unsigned long flags;
 	int error = -EINVAL;
 
-	mref_a = client_mref_get_aspect(output, mref);
+	mref_a = client_mref_get_aspect(output->brick, mref);
 	if (unlikely(!mref_a)) {
 		goto error;
 	}
@@ -495,7 +495,7 @@ done:
 
 //////////////// object / aspect constructors / destructors ///////////////
 
-static int client_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_data)
+static int client_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
 	struct client_mref_aspect *ini = (void*)_ini;
 	INIT_LIST_HEAD(&ini->io_head);
@@ -503,7 +503,7 @@ static int client_mref_aspect_init_fn(struct generic_aspect *_ini, void *_init_d
 	return 0;
 }
 
-static void client_mref_aspect_exit_fn(struct generic_aspect *_ini, void *_init_data)
+static void client_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
 	struct client_mref_aspect *ini = (void*)_ini;
 	CHECK_HEAD_EMPTY(&ini->io_head);
@@ -575,7 +575,6 @@ const struct client_output_type client_output_type = {
 	.master_ops = &client_output_ops,
 	.output_construct = &client_output_construct,
 	.output_destruct = &client_output_destruct,
-	.aspect_types = client_aspect_types,
 };
 
 static const struct client_output_type *client_output_types[] = {
@@ -588,6 +587,7 @@ const struct client_brick_type client_brick_type = {
 	.max_inputs = 0,
 	.max_outputs = 1,
 	.master_ops = &client_brick_ops,
+	.aspect_types = client_aspect_types,
 	.default_input_types = client_input_types,
 	.default_output_types = client_output_types,
 	.brick_construct = &client_brick_construct,

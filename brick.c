@@ -409,7 +409,7 @@ EXPORT_SYMBOL_GPL(generic_brick_exit_recursively);
 
 // to disappear!
 
-int generic_add_aspect(struct generic_output *output, struct generic_object_layout *object_layout, const struct generic_aspect_type *aspect_type)
+int generic_add_aspect(struct generic_brick *brick, struct generic_object_layout *object_layout, const struct generic_aspect_type *aspect_type)
 {
 	struct generic_aspect_layout *aspect_layout;
 	int nr;
@@ -422,7 +422,7 @@ int generic_add_aspect(struct generic_output *output, struct generic_object_layo
 	if (unlikely(!object_layout || !object_layout->object_type)) {
 		goto err;
 	}
-	nr = output->output_index;
+	nr = brick->brick_index;
 	if (unlikely(nr <= 0 || nr > nr_max)) {
 		BRICK_ERR("oops, bad nr = %d\n", nr);
 		goto err;
@@ -440,10 +440,6 @@ int generic_add_aspect(struct generic_output *output, struct generic_object_layo
 			BRICK_ERR("inconsistent use of aspect_type %s != %s\n", aspect_type->aspect_type_name, aspect_layout->aspect_type->aspect_type_name);
 			goto done;
 		}
-		if (unlikely(aspect_layout->tied_to != output)) {
-			BRICK_ERR("inconsistent output assigment (aspect_type=%s)\n", aspect_type->aspect_type_name);
-			goto done;
-		}
 		min_offset = aspect_layout->aspect_offset + aspect_type->aspect_size;
 		status = -ENOMEM;
 		if (unlikely(object_layout->object_size > min_offset)) {
@@ -455,7 +451,6 @@ int generic_add_aspect(struct generic_output *output, struct generic_object_layo
 	} else {
 		/* first call: initialize aspect_layout. */
 		aspect_layout->aspect_type = aspect_type;
-		aspect_layout->tied_to = output;
 		aspect_layout->aspect_offset = object_layout->object_size;
 		object_layout->object_size += aspect_type->aspect_size;
 		aspect_layout->aspect_layout_generation = object_layout->object_layout_generation;
@@ -474,13 +469,11 @@ err:
 	return status;
 }
 
-/* Callback, usually called for each brick instance.
- * Initialize the information for single aspect associated to a single brick.
+/* Initialize the information for single aspect associated to a single brick.
  */
-int default_make_object_layout(struct generic_output *output, struct generic_object_layout *object_layout)
+int default_make_object_layout(struct generic_brick *brick, struct generic_object_layout *object_layout)
 {
-	struct generic_brick *brick;
-	const struct generic_output_type *output_type;
+	const struct generic_brick_type *brick_type;
 	const struct generic_object_type *object_type;
 	const struct generic_aspect_type *aspect_type;
 	int i;
@@ -488,22 +481,17 @@ int default_make_object_layout(struct generic_output *output, struct generic_obj
 	int aspect_size = 0;
 	int status = -EINVAL;
 
-	if (unlikely(!output)) {
-		BRICK_ERR("output is missing\n");
+	if (unlikely(!brick)) {
+		BRICK_ERR("brick is missing\n");
 		goto done;
 	}
 	if (unlikely(!object_layout || !object_layout->object_type)) {
 		BRICK_ERR("object_layout not inizialized\n");
 		goto done;
 	}
-	brick = output->brick;
-	if (unlikely(!brick)) {
-		BRICK_ERR("brick is missing\n");
-		goto done;
-	}
-	output_type = output->type;
-	if (unlikely(!output_type)) {
-		BRICK_ERR("output_type is missing\n");
+	brick_type = brick->type;
+	if (unlikely(!brick_type)) {
+		BRICK_ERR("brick_type is missing\n");
 		goto done;
 	}
 	object_type = object_layout->object_type;
@@ -516,10 +504,10 @@ int default_make_object_layout(struct generic_output *output, struct generic_obj
 		BRICK_ERR("bad brick_obj_nr = %d\n", nr);
 		goto done;
 	}
-	aspect_type = output_type->aspect_types[nr];
+	aspect_type = brick_type->aspect_types[nr];
 	status = -ENOENT;
 	if (unlikely(!aspect_type)) {
-		BRICK_ERR("aspect type on %s does not exist\n", output_type->type_name);
+		BRICK_ERR("aspect type on %s does not exist\n", brick_type->type_name);
 		goto done;
 	}
 
@@ -528,14 +516,14 @@ int default_make_object_layout(struct generic_output *output, struct generic_obj
 	for (i = 0; i < brick->type->max_inputs; i++) {
 	        struct generic_input *input = brick->inputs[i];
 		if (input && input->connect) {
-		        int substatus = default_make_object_layout(input->connect, object_layout);
+		        int substatus = default_make_object_layout(input->connect->brick, object_layout);
 			if (substatus < 0)
 			        return substatus;
 			aspect_size += substatus;
 		}
 	}
 
-	status = generic_add_aspect(output, object_layout, aspect_type);
+	status = generic_add_aspect(brick, object_layout, aspect_type);
 
 done:
 	if (status < 0)
@@ -580,7 +568,7 @@ EXPORT_SYMBOL_GPL(default_exit_object_layout);
 
 /* (Re-)Make an object layout
  */
-int default_init_object_layout(struct generic_output *output, struct generic_object_layout *object_layout, int aspect_max, const struct generic_object_type *object_type, char *module_name)
+int default_init_object_layout(struct generic_brick *brick, struct generic_object_layout *object_layout, int aspect_max, const struct generic_object_type *object_type, char *module_name)
 {
 	// TODO: make locking granularity finer (if it were worth).
 	atomic_t *data_ref;
@@ -624,11 +612,10 @@ int default_init_object_layout(struct generic_output *output, struct generic_obj
 	object_layout->aspect_layouts =  ((void*)data_ref) + size0 + size1;
 	old_data_ref = object_layout->data_ref;
 	object_layout->data_ref = data_ref;
-	object_layout->tied_to = output;
 	if (object_layout->layout_head.next) {
 		list_del_init(&object_layout->layout_head);
 	}
-	list_add(&object_layout->layout_head, &output->layout_list);
+	list_add(&object_layout->layout_head, &brick->layout_list);
 	object_layout->object_layout_generation = brick_layout_generation;
 	object_layout->object_type = object_type;
 	object_layout->aspect_count = 0;
@@ -640,7 +627,7 @@ int default_init_object_layout(struct generic_output *output, struct generic_obj
 	object_layout->free_list = NULL;
 	object_layout->module_name = module_name;
 
-	status = default_make_object_layout(output, object_layout);
+	status = default_make_object_layout(brick, object_layout);
 
 	if (unlikely(status < 0)) {
                 object_layout->object_type = NULL;
