@@ -672,6 +672,7 @@ int mars_find_dent_all(struct mars_global *global, char *prefix, struct mars_den
 done:
 	return count;
 }
+EXPORT_SYMBOL_GPL(mars_find_dent_all);
 
 void mars_kill_dent(struct mars_dent *dent)
 {

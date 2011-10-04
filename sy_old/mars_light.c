@@ -3036,10 +3036,12 @@ static void __exit exit_light(void)
 		put_task_struct(thread);
 	}
 
+#ifdef CONFIG_MARS_HAVE_BIGMODULE
 	while (exit_fn_nr > 0) {
 		MARS_DBG("=== stopping module %s ...\n", exit_names[exit_fn_nr - 1]);
 		exit_fn[--exit_fn_nr]();
 	}
+#endif
 	MARS_DBG("====================== stopped everything.\n");
 }
 
@@ -3098,7 +3100,7 @@ const void *dummy2 = &server_brick_type;
 
 MODULE_DESCRIPTION("MARS Light");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@1und1.de>");
-MODULE_VERSION(BUILDTAG " (" BUILDHOST BUILDDATE ")");
+MODULE_VERSION(BUILDTAG " (" BUILDHOST " " BUILDDATE ")");
 MODULE_LICENSE("GPL");
 
 module_init(init_light);
