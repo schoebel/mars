@@ -93,7 +93,7 @@ void if_endio(struct generic_callback *cb)
 		}
 #endif
 
-		error = mref_a->cb.cb_error;
+		error = CALLBACK_ERROR(mref_a->object);
 		if (unlikely(error < 0)) {
 			MARS_ERR("NYI: error=%d RETRY LOGIC %u\n", error, bio->bi_size);
 		} else { // bio conventions are slightly different...
@@ -189,7 +189,6 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 	struct if_brick *brick = NULL;
 	struct mref_object *mref = NULL;
 	struct if_mref_aspect *mref_a;
-	struct generic_callback *cb;
 	struct bio_vec *bvec;
 	int i;
 	bool assigned = false;
@@ -373,12 +372,8 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 				prefetch_len = bv_len;
 #endif
 
-				cb = &mref_a->cb;
-				cb->cb_fn = if_endio;
-				cb->cb_private = mref_a;
-				cb->cb_error = 0;
-				cb->cb_prev = NULL;
-				mref->ref_cb = cb;
+				SETUP_CALLBACK(mref, if_endio, mref_a);
+
 				mref_a->input = input;
 				mref->ref_rw = mref->ref_may_write = rw;
 				mref->ref_pos = pos;

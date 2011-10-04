@@ -122,7 +122,7 @@ extern void mars_log_trace(struct mref_object *mref);
 #endif
 
 #define MREF_OBJECT(PREFIX)						\
-	GENERIC_OBJECT(PREFIX);						\
+	CALLBACK_OBJECT(PREFIX);					\
 	/* supplied by caller */					\
 	void  *ref_data;         /* preset to NULL for buffered IO */	\
 	loff_t ref_pos;							\
@@ -139,9 +139,7 @@ extern void mars_log_trace(struct mref_object *mref);
 	/* maintained by the ref implementation, incrementable for	\
 	 * callers (but not decrementable! use ref_put()) */		\
 	atomic_t ref_count;						\
-        /* callback part */						\
-	struct generic_callback *ref_cb;				\
-	struct generic_callback _ref_cb;				\
+	/* internal */							\
 	TRACING_INFO;
 
 struct mref_object {

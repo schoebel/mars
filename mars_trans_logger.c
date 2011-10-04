@@ -727,8 +727,6 @@ void _trans_logger_endio(struct generic_callback *cb)
 {
 	struct trans_logger_mref_aspect *mref_a;
 	struct trans_logger_brick *brick;
-	struct mref_object *mref;
-	struct generic_callback *prev_cb;
 
 	mref_a = cb->cb_private;
 	CHECK_PTR(mref_a, err);
@@ -739,13 +737,7 @@ void _trans_logger_endio(struct generic_callback *cb)
 	brick = mref_a->my_brick;
 	CHECK_PTR(brick, err);
 
-	prev_cb = cb->cb_prev;
-	CHECK_PTR_NULL(prev_cb, err);
-	mref = mref_a->object;
-	CHECK_PTR(mref, err);
-
-	mref->ref_cb = prev_cb;
-	prev_cb->cb_fn(prev_cb);
+	NEXT_CHECKED_CALLBACK(cb, err);
 
 	atomic_dec(&brick->fly_count);
 	atomic_inc(&brick->total_cb_count);
@@ -763,7 +755,6 @@ void trans_logger_ref_io(struct trans_logger_output *output, struct mref_object 
 	struct trans_logger_mref_aspect *mref_a;
 	struct trans_logger_mref_aspect *shadow_a;
 	struct trans_logger_input *input;
-	struct generic_callback *cb;
 
 	CHECK_ATOMIC(&mref->ref_count, 1);
 
@@ -803,12 +794,8 @@ void trans_logger_ref_io(struct trans_logger_output *output, struct mref_object 
 	atomic_inc(&brick->fly_count);
 
 	mref_a->my_brick = brick;
-	cb = &mref_a->cb;
-	cb->cb_fn = _trans_logger_endio;
-	cb->cb_private = mref_a;
-	cb->cb_error = 0;
-	cb->cb_prev = mref->ref_cb;
-	mref->ref_cb = cb;
+
+	INSERT_CALLBACK(mref, &mref_a->cb, _trans_logger_endio, mref_a);
 
 	input = output->brick->inputs[TL_INPUT_READ];
 
@@ -1176,17 +1163,11 @@ void _fire_one(struct list_head *tmp, bool do_update, bool do_put)
 	struct mref_object *sub_mref;
 	struct trans_logger_input *sub_input;
 	struct trans_logger_input *log_input;
-	struct generic_callback *cb;
 	
 	sub_mref_a = container_of(tmp, struct trans_logger_mref_aspect, sub_head);
 	sub_mref = sub_mref_a->object;
 
-	cb = &sub_mref_a->cb;
-	cb->cb_fn = wb_endio;
-	cb->cb_private = sub_mref_a;
-	cb->cb_error = 0;
-	cb->cb_prev = NULL;
-	sub_mref->ref_cb = cb;
+	SETUP_CALLBACK(sub_mref, wb_endio, sub_mref_a);
 
 	sub_input = sub_mref_a->my_input;
 	log_input = sub_mref_a->log_input;
@@ -1271,7 +1252,6 @@ static noinline
 void _complete(struct trans_logger_brick *brick, struct trans_logger_mref_aspect *orig_mref_a, int error, bool pre_io)
 {
 	struct mref_object *orig_mref;
-	struct generic_callback *orig_cb;
 
 	orig_mref = orig_mref_a->object;
 	CHECK_PTR(orig_mref, err);
@@ -1283,20 +1263,12 @@ void _complete(struct trans_logger_brick *brick, struct trans_logger_mref_aspect
 		goto done;
 	}
 
-	orig_cb = orig_mref->ref_cb;
-	CHECK_PTR(orig_cb, err);
-	CHECK_PTR_NULL(orig_cb->cb_fn, err);
-	
-	if (unlikely(error < 0)) {
-		orig_cb->cb_error = error;
-	}
-	if (likely(orig_cb->cb_error >= 0)) {
+	if (likely(error >= 0)) {
 		orig_mref->ref_flags &= ~MREF_WRITING;
 		orig_mref->ref_flags |= MREF_UPTODATE;
 	}
-
+	CHECKED_CALLBACK(orig_mref, error, err);
 	orig_mref_a->is_completed = true;
-	orig_cb->cb_fn(orig_cb);
 
 done:
 	return;
@@ -1369,7 +1341,6 @@ bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	CHECK_PTR(orig_mref_a, err);
 	orig_mref = orig_mref_a->object;
 	CHECK_PTR(orig_mref, err);
-	CHECK_PTR_NULL(orig_mref->ref_cb, err);
 	brick = orig_mref_a->my_brick;
 	CHECK_PTR(brick, err);
 	logst = &brick->inputs[TL_INPUT_FW_LOG1]->logst;
@@ -1433,7 +1404,6 @@ bool phase0_startio(struct trans_logger_mref_aspect *mref_a)
 
 	if (mref->ref_rw == READ) {
 		// nothing to do: directly signal success.
-		struct generic_callback *cb = mref->ref_cb;
 		struct mref_object *shadow = shadow_a->object;
 		if (unlikely(shadow == mref)) {
 			MARS_ERR("oops, we should be a slave shadow, but are a master one\n");
@@ -1447,9 +1417,9 @@ bool phase0_startio(struct trans_logger_mref_aspect *mref_a)
 			memcpy(mref->ref_data, mref_a->shadow_data, mref->ref_len);
 		}
 #endif
-		cb->cb_error = 0;
 		mref->ref_flags |= MREF_UPTODATE;
-		cb->cb_fn(cb);
+
+		CHECKED_CALLBACK(mref, 0, err);
 
 		__trans_logger_ref_put(brick, mref_a);
 
@@ -2219,7 +2189,6 @@ int apply_data(struct trans_logger_brick *brick, loff_t pos, void *buf, int len)
 	while (len > 0) {
 		struct mref_object *mref;
 		struct trans_logger_mref_aspect *mref_a;
-		struct generic_callback *cb;
 		
 		status = -ENOMEM;
 		mref = trans_logger_alloc_mref(brick, &input->sub_layout);
@@ -2260,12 +2229,7 @@ int apply_data(struct trans_logger_brick *brick, loff_t pos, void *buf, int len)
 
 		memcpy(mref->ref_data, buf, mref->ref_len);
 
-		cb = &mref_a->cb;
-		cb->cb_fn = replay_endio;
-		cb->cb_private = mref_a;
-		cb->cb_error = 0;
-		cb->cb_prev = NULL;
-		mref->ref_cb = cb;
+		SETUP_CALLBACK(mref, replay_endio, mref_a);
 		mref_a->my_brick = brick;
 		
 		GENERIC_INPUT_CALL(input, mref_io, mref);

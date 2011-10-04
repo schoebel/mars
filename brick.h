@@ -158,15 +158,86 @@ struct generic_aspect {
 	GENERIC_ASPECT(generic);
 };
 
+/////////////////////////////////////////////////////////////////////////
+
+// definitions for asynchronous callback objects
+
 #define GENERIC_CALLBACK(TYPE)						\
 	void (*cb_fn)(struct TYPE##_callback *cb);			\
 	void  *cb_private;						\
 	int    cb_error;						\
-	struct generic_callback *cb_prev;				\
+	struct generic_callback *cb_next;				\
 
 struct generic_callback {
 	GENERIC_CALLBACK(generic);
 };
+
+#define CALLBACK_OBJECT(TYPE)						\
+	GENERIC_OBJECT(TYPE);						\
+	struct generic_callback *object_cb;				\
+	struct generic_callback _object_cb;				\
+
+struct callback_object {
+	CALLBACK_OBJECT(generic);
+};
+
+/* Initial setup of the callback chain
+ */
+#define SETUP_CALLBACK(obj,fn,priv)					\
+	(obj)->_object_cb.cb_fn = (fn);					\
+	(obj)->_object_cb.cb_private = (priv);				\
+	(obj)->_object_cb.cb_error = 0;					\
+	(obj)->_object_cb.cb_next = NULL;				\
+	(obj)->object_cb = &(obj)->_object_cb;				\
+
+/* Insert a new member into the callback chain
+ */
+#define INSERT_CALLBACK(obj,new,fn,priv)				\
+	if (!(new)->cb_fn) {						\
+		(new)->cb_fn = (fn);					\
+		(new)->cb_private = (priv);				\
+		(new)->cb_error = 0;					\
+		(new)->cb_next = (obj)->object_cb;			\
+		(obj)->object_cb = (new);				\
+	}
+
+/* Call the first callback in the chain.
+ */
+#define SIMPLE_CALLBACK(obj,err)					\
+	if (obj) {							\
+		struct generic_callback *__cb = (obj)->object_cb;	\
+		if (__cb) {						\
+			__cb->cb_error = (err);				\
+			__cb->cb_fn(__cb);				\
+		}							\
+	}
+
+#define CHECKED_CALLBACK(obj,err,done)					\
+	{								\
+		struct generic_callback *__cb;				\
+		CHECK_PTR(obj, done);					\
+		__cb = (obj)->object_cb;				\
+		CHECK_PTR_NULL(__cb, done);				\
+		__cb->cb_error = (err);					\
+		__cb->cb_fn(__cb);					\
+	}
+
+/* An intermediate callback handler must call this
+ * to continue the callback chain.
+ */
+#define NEXT_CHECKED_CALLBACK(cb,done)					\
+	{								\
+		struct generic_callback *__next_cb = (cb)->cb_next;	\
+		CHECK_PTR_NULL(__next_cb, done);			\
+		__next_cb->cb_error = (cb)->cb_error;			\
+		__next_cb->cb_fn(__next_cb);				\
+	}
+
+/* Query the callback status.
+ * This uses always the first member of the chain!
+ */
+#define CALLBACK_ERROR(obj)						\
+	((obj)->object_cb ? (obj)->object_cb->cb_error : -EINVAL)
 
 /////////////////////////////////////////////////////////////////////////
 

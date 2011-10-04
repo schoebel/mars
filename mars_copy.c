@@ -190,9 +190,8 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 	}
 	mref->ref_len = len;
 	mref->ref_prio = brick->io_prio;
-	mref->_ref_cb.cb_private = mref_a;
-	mref->_ref_cb.cb_fn = copy_endio;
-	mref->ref_cb = &mref->_ref_cb;
+
+	SETUP_CALLBACK(mref, copy_endio, mref_a);
 	
 	input = queue ? brick->inputs[INPUT_B_COPY] : brick->inputs[INPUT_A_COPY];
 	status = GENERIC_INPUT_CALL(input, mref_get, mref);

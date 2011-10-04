@@ -283,7 +283,6 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref)
 	struct bio_brick *brick = output->brick;
 	struct bio_mref_aspect *mref_a = bio_mref_get_aspect(output->brick, mref);
 	struct bio *bio;
-	struct generic_callback *cb;
 	int rw;
 	int status = -EINVAL;
 
@@ -334,11 +333,8 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref)
 
 err:
 	MARS_ERR("IO error %d\n", status);
-	cb = mref->ref_cb;
-	if (cb) {
-		cb->cb_error = status;
-		cb->cb_fn(cb);
-	}
+	CHECKED_CALLBACK(mref, status, done);
+
 done: ;
 }
 
@@ -386,7 +382,6 @@ static int bio_thread(void *data)
 			struct list_head *tmp;
 			struct bio_mref_aspect *mref_a;
 			struct mref_object *mref;
-			struct generic_callback *cb;
 			int code;
 
 			if (list_empty(&tmp_list)) {
@@ -407,15 +402,13 @@ static int bio_thread(void *data)
 
 			mars_trace(mref, "bio_endio");
 
-			cb = mref->ref_cb;
-			cb->cb_error = code;
 			if (code < 0) {
 				MARS_ERR("IO error %d\n", code);
 			} else {
 				mref->ref_flags |= MREF_UPTODATE;
 			}
-			
-			cb->cb_fn(cb);
+
+			SIMPLE_CALLBACK(mref, code);
 			
 			atomic_dec(&brick->fly_count);
 			atomic_inc(&brick->total_completed_count);

@@ -72,7 +72,6 @@ err:
 void log_flush(struct log_status *logst)
 {
 	struct mref_object *mref = logst->log_mref;
-	struct generic_callback *cb;
 	struct log_cb_info *cb_info;
 	int gap;
 	int i;
@@ -100,14 +99,9 @@ void log_flush(struct log_status *logst)
 	mref->ref_len = logst->offset;
 	logst->log_pos += logst->offset;
 
-	cb = &mref->_ref_cb;
-	cb->cb_fn = log_write_endio;
 	cb_info = logst->private;
-	cb->cb_private = cb_info;
+	SETUP_CALLBACK(mref, log_write_endio, cb_info);
 	logst->private = NULL;
-	cb->cb_error = 0;
-	cb->cb_prev = NULL;
-	mref->ref_cb = cb;
 	mref->ref_rw = 1;
 
 	mars_trace(mref, "log_flush");
@@ -454,7 +448,6 @@ restart:
 	status = 0;
 	mref = logst->read_mref;
 	if (!mref || logst->do_free) {
-		struct generic_callback *cb;
 		int chunk_offset;
 		int chunk_rest;
 
@@ -484,13 +477,7 @@ restart:
 			goto done_free;
 		}
 
-
-		cb = &mref->_ref_cb;
-		cb->cb_fn = log_read_endio;
-		cb->cb_private = logst;
-		cb->cb_error = 0;
-		cb->cb_prev = NULL;
-		mref->ref_cb = cb;
+		SETUP_CALLBACK(mref, log_read_endio, logst);
 		mref->ref_rw = READ;
 		logst->offset = 0;
 		logst->got = false;

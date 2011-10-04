@@ -162,16 +162,13 @@ int server_io(struct server_brick *brick, struct mars_socket *sock)
 	}
 	
 	mref_a->brick = brick;
-	mref->_ref_cb.cb_private = mref_a;
-	mref->_ref_cb.cb_fn = server_endio;
-	mref->ref_cb = &mref->_ref_cb;
+	SETUP_CALLBACK(mref, server_endio, mref_a);
 	atomic_inc(&brick->in_flight);
 	
 	status = GENERIC_INPUT_CALL(brick->inputs[0], mref_get, mref);
 	if (status < 0) {
 		MARS_INF("mref_get execution error = %d\n", status);
-		mref->_ref_cb.cb_error = status;
-		server_endio(&mref->_ref_cb);
+		SIMPLE_CALLBACK(mref, status);
 		status = 0; // continue serving requests
 		goto done;
 	}

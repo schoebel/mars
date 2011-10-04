@@ -203,21 +203,15 @@ static void aio_ref_put(struct aio_output *output, struct mref_object *mref)
 static
 void _complete(struct aio_output *output, struct mref_object *mref, int err)
 {
-	struct generic_callback *cb;
-
 	mars_trace(mref, "aio_endio");
 
-	cb = mref->ref_cb;
-	CHECK_PTR(cb, err_found);
-
-	cb->cb_error = err;
 	if (err < 0) {
 		MARS_ERR("IO error %d at pos=%lld len=%d (mref=%p ref_data=%p)\n", err, mref->ref_pos, mref->ref_len, mref, mref->ref_data);
 	} else {
 		mref->ref_flags |= MREF_UPTODATE;
 	}
 
-	cb->cb_fn(cb);
+	CHECKED_CALLBACK(mref, err, err_found);
 
 done:
 	if (mref->ref_rw) {

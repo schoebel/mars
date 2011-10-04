@@ -25,7 +25,6 @@ struct if_mref_aspect {
 	bool is_kmapped;
 	struct page *orig_page;
 	struct bio *orig_bio[MAX_BIO];
-	struct generic_callback cb;
 	struct if_input *input;
 };
 

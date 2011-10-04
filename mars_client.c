@@ -209,7 +209,6 @@ static void client_ref_put(struct client_output *output, struct mref_object *mre
 
 static void client_ref_io(struct client_output *output, struct mref_object *mref)
 {
-	struct generic_callback *cb;
 	struct client_mref_aspect *mref_a;
 	int hash_index;
 	unsigned long flags;
@@ -250,9 +249,7 @@ static void client_ref_io(struct client_output *output, struct mref_object *mref
 
 error:
 	MARS_ERR("IO error = %d\n", error);
-	cb = mref->ref_cb;
-	cb->cb_error = error;
-	cb->cb_fn(cb);
+	SIMPLE_CALLBACK(mref, error);
 	client_ref_put(output, mref);
 }
 
@@ -267,7 +264,6 @@ int receiver_thread(void *data)
 		struct list_head *tmp;
 		struct client_mref_aspect *mref_a = NULL;
 		struct mref_object *mref = NULL;
-		struct generic_callback *cb;
 		unsigned long flags;
 
 		status = mars_recv_struct(output->socket, &cmd, mars_cmd_meta);
@@ -330,8 +326,7 @@ int receiver_thread(void *data)
 
 			atomic_dec(&output->fly_count);
 
-			cb = mref->ref_cb;
-			cb->cb_fn(cb);
+			SIMPLE_CALLBACK(mref, 0);
 			client_ref_put(output, mref);
 			break;
 		}
