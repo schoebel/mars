@@ -115,6 +115,7 @@ struct log_status {
 };
 
 void init_logst(struct log_status *logst, struct mars_input *input, loff_t start_pos);
+void exit_logst(struct log_status *logst);
 
 void log_flush(struct log_status *logst);
 

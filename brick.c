@@ -558,7 +558,9 @@ void default_exit_object_layout(struct generic_object_layout *object_layout)
 
 	traced_lock(&global_lock, flags);
 	object_layout->object_type = NULL;
-	list_del_init(&object_layout->layout_head);
+	if (object_layout->layout_head.next) {
+		list_del_init(&object_layout->layout_head);
+	}
 	old_data_ref = object_layout->data_ref;
 	traced_unlock(&global_lock, flags);
 
@@ -580,11 +582,11 @@ int default_init_object_layout(struct generic_brick *brick, struct generic_objec
 	int status= -ENOMEM;
 	unsigned long flags;
 
-	BRICK_DBG("\n");
-
 	if (unlikely(!module_name)) {
 		module_name = "(unknown)";
 	}
+
+	BRICK_DBG("module_name = %s brick_layout_genercation = %d brick = %p object_layout = %p\n", module_name, brick_layout_generation, brick, object_layout);
 
 	aspect_max = nr_max;
 
@@ -959,9 +961,8 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 		if (force && !val && (mode == BR_FREE_ONE || mode == BR_FREE_ALL) && brick->free) {
 			BRICK_DBG("---> freeing '%s'\n", SAFE_STR(brick->brick_name));
 			status = brick->free(brick);
-			BRICK_DBG("---> freeing '%s' status = %d\n", SAFE_STR(brick->brick_name), status);
 			if (status < 0) {
-				BRICK_DBG("freeing brick '%s' (%s) failed, status = %d\n", SAFE_STR(brick->brick_name), SAFE_STR(orig_brick->brick_name), status);
+				BRICK_DBG("freeing failed, status = %d\n", status);
 				goto done;
 			}
 		}
@@ -970,7 +971,7 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 	status = 0;
 
 done:
-	BRICK_DBG("-> done '%s' status = %d\n", SAFE_STR(orig_brick->brick_name), status);
+	BRICK_DBG("-> done status = %d\n", status);
 	brick_mem_free(table);
 	return status;
 }

@@ -6,15 +6,22 @@
 
 #include "lib_log.h"
 
+void exit_logst(struct log_status *logst)
+{
+	default_exit_object_layout(&logst->ref_object_layout);
+}
+EXPORT_SYMBOL_GPL(exit_logst);
+
 void init_logst(struct log_status *logst, struct mars_input *input, loff_t start_pos)
 {
-	struct mars_brick *brick;
+	exit_logst(logst);
+
 	memset(logst, 0, sizeof(struct log_status));
+
 	logst->input = input;
 	logst->brick = input->brick;
 	logst->log_pos = start_pos;
 	init_waitqueue_head(&logst->event);
-	brick = input->brick;
 }
 EXPORT_SYMBOL_GPL(init_logst);
 

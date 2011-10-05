@@ -2093,6 +2093,8 @@ void trans_logger_log(struct trans_logger_output *output)
 		}
 #endif
 	}
+	exit_logst(fw_logst);
+	exit_logst(bw_logst);
 }
 
 ////////////////////////////// log replay //////////////////////////////
@@ -2367,6 +2369,7 @@ void trans_logger_replay(struct trans_logger_output *output)
 	while (!kthread_should_stop()) {
 		msleep(500);
 	}
+	exit_logst(&input->logst);
 }
 
 ///////////////////////// logger thread / switching /////////////////////////
