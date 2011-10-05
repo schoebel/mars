@@ -647,8 +647,7 @@ int _update_file(struct mars_global *global, const char *switch_path, const char
 	}
 
 done:
-	if (tmp)
-		brick_string_free(tmp);
+	brick_string_free(tmp);
 	return status;
 }
 
@@ -659,8 +658,6 @@ int check_logfile(struct mars_peerinfo *peer, struct mars_dent *dent, struct mar
 	struct mars_rotate *rot;
 	const char *switch_path = NULL;
 	const char *copy_path = NULL;
-	const char *alias_path = NULL;
-	struct mars_dent *local_alias;
 	struct copy_brick *copy_brick;
 	int status = 0;
 
@@ -709,29 +706,9 @@ int check_logfile(struct mars_peerinfo *peer, struct mars_dent *dent, struct mar
 		}
 	}
 
-	// create local alias symlink
-	if (unlikely(dent->d_serial <= 0)) {
-		MARS_ERR("path '%s' has invalid serial %d\n", dent->d_path, dent->d_serial);
-		status = -EINVAL;
-		goto done;
-	}
-	alias_path = path_make("%s/log-%09d-%s", parent->d_path, dent->d_serial, my_id());
-	if (unlikely(!alias_path)) {
-		status = -ENOMEM;
-		goto done;
-	}
-	status = 0;
-	MARS_DBG("local alias for '%s' is '%s'\n", dent->d_path, alias_path);
-	local_alias = mars_find_dent((void*)peer->global, alias_path);
-	if (!local_alias) {
-		status = mars_symlink(dent->d_name, alias_path, &dent->new_stat.mtime, 0);
-		MARS_DBG("create alias '%s' -> '%s' status = %d\n", alias_path, dent->d_name, status);
-		//run_trigger = true;
-	}
-
 	// copy necessary?
 	status = 0;
-	if (dst_size >= src_size) { // nothing to do
+	if (dst_size >= src_size && src_size > 0) { // nothing to do
 		goto done;
 	}
 
@@ -747,12 +724,8 @@ int check_logfile(struct mars_peerinfo *peer, struct mars_dent *dent, struct mar
 	parent->d_logfile_serial = dent->d_serial;
 
 done:
-	if (copy_path)
-		brick_string_free(copy_path);
-	if (alias_path)
-		brick_string_free(alias_path);
-	if (switch_path)
-		brick_string_free(switch_path);
+	brick_string_free(copy_path);
+	brick_string_free(switch_path);
 	return status;
 }
 
@@ -1150,35 +1123,36 @@ void _create_new_logfile(const char *path)
 }
 
 static
-int _update_replaylink(struct mars_dent *parent, int sequence, loff_t start_pos, loff_t end_pos, bool check_exist)
+int _update_replaylink(struct mars_dent *parent, char *host, int sequence, loff_t start_pos, loff_t end_pos, bool check_exist)
 {
 	struct timespec now = {};
-	char *old;
-	char *new;
+	char *old = NULL;
+	char *new = NULL;
+	char *test = NULL;
 	int status = -ENOMEM;
 
 	if (check_exist) {
 		struct kstat kstat;
-		char *test = path_make("%s/log-%09d-%s", parent->d_path, sequence, my_id());
+		char *test = path_make("%s/log-%09d-%s", parent->d_path, sequence, host);
 		if (!test) {
-			goto out_old;
+			goto out;
 		}
 		status = mars_stat(test, &kstat, true);
 		brick_string_free(test);
 		if (status < 0) {
-			MARS_DBG("could not update replay link to nonexisting logfile %09d\n", sequence);
-			goto out_old;
+			MARS_DBG("could not update replay link to nonexisting logfile '%s'\n", test);
+			goto out;
 		}
 		status = -ENOMEM;
 	}
 
-	old = path_make("log-%09d-%s,%lld,%lld", sequence, my_id(), start_pos, end_pos - start_pos);
+	old = path_make("log-%09d-%s,%lld,%lld", sequence, host, start_pos, end_pos - start_pos);
 	if (!old) {
-		goto out_old;
+		goto out;
 	}
 	new = path_make("%s/replay-%s", parent->d_path, my_id());
 	if (!new) {
-		goto out_new;
+		goto out;
 	}
 
 	get_lamport(&now);
@@ -1186,18 +1160,18 @@ int _update_replaylink(struct mars_dent *parent, int sequence, loff_t start_pos,
 	if (status < 0) {
 		MARS_ERR("cannot create symlink '%s' -> '%s' status = %d\n", old, new, status);
 	} else {
-		MARS_DBG("make replay symlink '%s' -> '%s' status = %d\n", old, new, status);
+		MARS_DBG("made replay symlink '%s' -> '%s' status = %d\n", old, new, status);
 	}
 
+out:
 	brick_string_free(new);
-out_new:
 	brick_string_free(old);
-out_old:
+	brick_string_free(test);
 	return status;
 }
 
 static
-int _update_versionlink(struct mars_global *global, struct mars_dent *parent, int sequence, loff_t start_pos, loff_t end_pos)
+int _update_versionlink(struct mars_global *global, struct mars_dent *parent, char *host, int sequence, loff_t start_pos, loff_t end_pos)
 {
 	char *prev = NULL;
 	struct mars_dent *prev_link = NULL;
@@ -1231,7 +1205,7 @@ int _update_versionlink(struct mars_global *global, struct mars_dent *parent, in
 		prev_digest = prev_link->new_link;
 	}
 
-	len = sprintf(data, "%d,%lld,%lld,%s", sequence, start_pos, end_pos, prev_digest ? prev_digest : "");
+	len = sprintf(data, "%s,%d,%lld,%lld,%s", host, sequence, start_pos, end_pos, prev_digest ? prev_digest : "");
 
 	MARS_DBG("data = '%s' len = %d\n", data, len);
 
@@ -1241,7 +1215,7 @@ int _update_versionlink(struct mars_global *global, struct mars_dent *parent, in
 	for (i = 0; i < mars_digest_size; i++) {
 		oldlen += sprintf(old + oldlen, "%02x", digest[i]);
 	}
-	oldlen += sprintf(old + oldlen, ",%lld,%lld", start_pos, end_pos);
+	oldlen += sprintf(old + oldlen, ",%s,%lld,%lld", host, start_pos, end_pos - start_pos);
 
 	new = path_make("%s/version-%09d-%s", parent->d_path, sequence, my_id());
 	if (!new) {
@@ -1266,89 +1240,75 @@ out:
 }
 
 static
-int _check_versionlink(struct mars_global *global, struct mars_dent *parent, int sequence, loff_t end_pos)
+int _update_all_links(struct mars_global *global, struct mars_dent *parent, char *host, int sequence, loff_t start_pos, loff_t end_pos, bool check_exist)
 {
-	char *my_log = NULL;
+	int status;
+	status = _update_replaylink(parent, host, sequence, start_pos, end_pos, check_exist);
+	if (status >= 0) {
+		status = _update_versionlink(global, parent, host, sequence, start_pos, end_pos);
+	}
+	return status;
+}
+
+static
+int _check_versionlink(struct mars_global *global, struct mars_dent *parent, char *host, int sequence, loff_t end_pos)
+{
 	char *my_version = NULL;
-	char *log_prefix = NULL;
-	struct mars_dent *my_log_dent;
+	char *version_prefix = NULL;
 	struct mars_dent *my_version_dent;
 	struct mars_dent **table = NULL;
-	int version_prefix_len;
 	int table_count;
 	int i;
 	int other_count = 0;
 	int ok_count = 0;
 	int status = -ENOMEM;
 
-	my_log = path_make("%s/log-%09d-%s", parent->d_path, sequence, my_id());
-	if (!my_log) {
-		goto out;
-	}
 	my_version = path_make("%s/version-%09d-%s", parent->d_path, sequence, my_id());
 	if (!my_version) {
 		goto out;
 	}
-	log_prefix = path_make("%s/log-%09d-", parent->d_path, sequence);
-	if (!log_prefix) {
+	version_prefix = path_make("%s/version-%09d-", parent->d_path, sequence);
+	if (!version_prefix) {
 		goto out;
 	}
-	version_prefix_len = strlen(log_prefix);
 
 	status = -ENOENT;
-	my_log_dent = mars_find_dent(global, my_log);
-	if (!my_log_dent) {
-		MARS_WRN("cannot find logfile/symlink '%s'\n", my_log);
-		goto out;
-	}
 	my_version_dent = mars_find_dent(global, my_version);
 	if (!my_version_dent || !my_version_dent->new_link) {
 		MARS_WRN("cannot find version symlink '%s'\n", my_version);
 		goto out;
 	}
 
-	table_count = mars_find_dent_all(global, log_prefix, &table);
+	table_count = mars_find_dent_all(global, version_prefix, &table);
 
 	for (i = 0; i < table_count; i++) {
-		struct mars_dent *other_log_dent;
 		struct mars_dent *other_version_dent;
-		char *other_host;
-		char *other_version = NULL;
 
-		other_log_dent = table[i];
-		if (other_log_dent->new_link) {
-			MARS_DBG("'%s' is secondary\n", other_log_dent->d_path);
-			continue;
-		}
-		other_count++;
-		other_host = other_log_dent->d_path + version_prefix_len;
-		other_version = path_make("%s/version-%09d-%s", parent->d_path, sequence, other_host);
-		if (!other_version) {
-			MARS_ERR("cannot build path for '%s'\n", other_log_dent->d_path);
-			status = -ENOMEM;
+		other_version_dent = table[i];
+		if (!other_version_dent->new_link) {
+			MARS_ERR("bad version symlink '%s'\n", other_version_dent->d_path);
+			status = -EINVAL;
 			goto out;
 		}
-		other_version_dent = mars_find_dent(global, other_version);
-		if (!other_version_dent || !other_version_dent->new_link) {
-			MARS_WRN("cannot find symlink '%s'\n", other_version);
-		} else if (!strcmp(my_version_dent->new_link, other_version_dent->new_link)) {
+		other_count++;
+		if (!strcmp(my_version_dent->new_link, other_version_dent->new_link)) {
 			ok_count++;
+		} else {
+			MARS_DBG("'%s' != '%s'\n", my_version_dent->new_link, other_version_dent->new_link);
 		}
-		brick_string_free(other_version);
 	}
 	
 	status = 0;
-	if (other_count == 1 && ok_count > 0) {
+	if (other_count == ok_count) {
 		status++;
-		MARS_DBG("versions OK\n");
+		MARS_DBG("versions OK, count = %d\n", ok_count);
 	} else {
 		MARS_DBG("versions MISMATCH #logfiles=%d #ok=%d\n", other_count, ok_count);
 	}
 
 out:
-	brick_string_free(my_log);
 	brick_string_free(my_version);
-	brick_string_free(log_prefix);
+	brick_string_free(version_prefix);
 	brick_mem_free(table);
 	return status;
 }
@@ -1514,12 +1474,9 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	status = 0;
 
 done:
-	if (aio_path)
-		brick_string_free(aio_path);
-	if (replay_path)
-		brick_string_free(replay_path);
-	if (switch_path)
-		brick_string_free(switch_path);
+	brick_string_free(aio_path);
+	brick_string_free(replay_path);
+	brick_string_free(switch_path);
 	return status;
 }
 
@@ -1577,7 +1534,7 @@ int make_log_step(void *buf, struct mars_dent *dent)
 		goto ok;
 	}
 
-	/* Remember the relevant logs.
+	/* Remember the relevant log.
 	 */
 	if (rot->aio_dent->d_serial == dent->d_serial) {
 		rot->relevant_log = dent;
@@ -1654,11 +1611,7 @@ int _check_logging_status(struct mars_rotate *rot, long long *oldpos_start, long
 		*newpos = rot->aio_info.current_size;
 		status = 1;
 	} else if (rot->todo_primary) {
-		if (!S_ISREG(dent->new_stat.mode)) {
-			MARS_DBG("transaction log '%s' is a symlink, therefore a fresh local logfile must be created\n", dent->d_path);
-			*newpos = rot->aio_info.current_size;
-			status = 1;
-		} else if (rot->aio_info.current_size > 0) {
+		if (rot->aio_info.current_size > 0 || strcmp(dent->d_rest, my_id()) != 0) {
 			MARS_DBG("transaction log '%s' is already applied (would be usable for appending at position %lld, but a fresh logfile will be used for safety reasons)\n", rot->aio_dent->d_path, *oldpos_end);
 			*newpos = rot->aio_info.current_size;
 			status = 1;
@@ -1718,12 +1671,19 @@ int _make_logging_status(struct mars_rotate *rot)
 	case 1: /* Relevant, and transaction replay already finished.
 		 * Allow switching over to a new logfile.
 		 */
-		if (!trans_brick->power.button && !trans_brick->power.led_on && trans_brick->power.led_off &&
-		   (rot->todo_primary || _check_versionlink(global, dent->d_parent, dent->d_serial, end_pos) > 0)) {
-			MARS_DBG("switching over transaction log '%s' from version %d to %d\n", dent->d_path, dent->d_serial, dent->d_serial + 1);
-			_update_replaylink(dent->d_parent, dent->d_serial + 1, 0, 0, !rot->todo_primary);
-			_update_versionlink(global, dent->d_parent, dent->d_serial + 1, 0, 0);
-			trans_brick->current_pos = 0;
+		if (!trans_brick->power.button && !trans_brick->power.led_on && trans_brick->power.led_off) {
+			if (rot->next_relevant_log) {
+				MARS_DBG("switching over from '%s' to next relevant transaction log '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
+				if (_check_versionlink(global, dent->d_parent, dent->d_rest, dent->d_serial, end_pos) > 0) {
+					_update_all_links(global, dent->d_parent, rot->next_relevant_log->d_rest, dent->d_serial + 1, 0, 0, true);
+				}
+			} else if (rot->todo_primary) {
+				MARS_DBG("preparing new transaction log '%s' from version %d to %d\n", dent->d_path, dent->d_serial, dent->d_serial + 1);
+				_update_all_links(global, dent->d_parent, my_id(), dent->d_serial + 1, 0, 0, false);
+			} else {
+				MARS_DBG("nothing to do on last transaction log '%s'\n", dent->d_path);
+			}
+			//trans_brick->current_pos = 0;
 			rot->last_jiffies = jiffies;
 			//mars_trigger();
 		}
@@ -1734,14 +1694,12 @@ int _make_logging_status(struct mars_rotate *rot)
 		rot->do_replay = true;
 		rot->start_pos = start_pos;
 		rot->end_pos = end_pos;
-		rot->relevant_log = dent;
 		break;
 	case 3: // relevant for appending
 		MARS_DBG("appending to transaction log '%s'\n", dent->d_path);
 		rot->do_replay = false;
 		rot->start_pos = 0;
 		rot->end_pos = 0;
-		rot->relevant_log = dent;
 		break;
 	default:
 		MARS_ERR("bad internal status %d\n", status);
@@ -1855,7 +1813,8 @@ int _start_trans(struct mars_rotate *rot)
 
 	/* Supply all relevant parameters
 	 */
-	trans_input->sequence = rot->relevant_log->d_serial;
+	trans_input->inf_host = brick_strdup(rot->relevant_log->d_rest);
+	trans_input->inf_sequence = rot->relevant_log->d_serial;
 	trans_brick->do_replay = rot->do_replay;
 	_change_trans(rot);
 
@@ -1943,8 +1902,8 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 				if (!trans_input || trans_input == old_input) {
 					continue;
 				}
-				status = _update_replaylink(parent, trans_input->sequence, trans_input->replay_min_pos, trans_input->replay_max_pos, true);
-				status = _update_versionlink(global, parent, trans_input->sequence, trans_input->replay_min_pos, trans_input->replay_max_pos);
+				status = _update_replaylink(parent, trans_input->inf_host, trans_input->inf_sequence, trans_input->replay_min_pos, trans_input->replay_max_pos, true);
+				status = _update_versionlink(global, parent, trans_input->inf_host, trans_input->inf_sequence, trans_input->replay_min_pos, trans_input->replay_max_pos);
 				old_input = trans_input;
 			}
 			rot->last_jiffies = jiffies;
@@ -2671,7 +2630,7 @@ static const struct light_class light_classes[] = {
 		.cl_len = 4,
 		.cl_type = 'F',
 		.cl_serial = true,
-		.cl_hostcontext = true,
+		.cl_hostcontext = false,
 		.cl_father = CL_RESOURCE,
 #ifdef RUN_LOGFILES
 		.cl_forward = make_log_step,
@@ -2873,7 +2832,7 @@ void _show_one(struct mars_brick *test, int *brick_count)
 			brick_string_free(info);
 		}
 	}
-	for (i = 0; i < test->nr_inputs; i++) {
+	for (i = 0; i < test->type->max_inputs; i++) {
 		struct mars_input *input = test->inputs[i];
 		struct mars_output *output = input ? input->connect : NULL;
 		if (output) {
@@ -2882,9 +2841,11 @@ void _show_one(struct mars_brick *test, int *brick_count)
 			MARS_STAT("    input %d not connected\n", i);
 		}
 	}
-	for (i = 0; i < test->nr_outputs; i++) {
+	for (i = 0; i < test->type->max_outputs; i++) {
 		struct mars_output *output = test->outputs[i];
-		MARS_STAT("    output %d nr_connected = %d\n", i, output->nr_connected);
+		if (output) {
+			MARS_STAT("    output %d nr_connected = %d\n", i, output->nr_connected);
+		}
 	}
 }
 

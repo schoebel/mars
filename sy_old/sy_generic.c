@@ -776,8 +776,9 @@ int mars_free_brick(struct mars_brick *brick)
 	}
 
 	// first check whether the brick is in use somewhere
-	for (i = 0; i < brick->nr_outputs; i++) {
-		if (brick->outputs[i]->nr_connected > 0) {
+	for (i = 0; i < brick->type->max_outputs; i++) {
+		struct mars_output *output = brick->outputs[i];
+		if (output && output->nr_connected > 0) {
 			MARS_DBG("brick '%s' not freeable, output %i is used\n", brick->brick_name, i);
 			status = -EEXIST;
 			goto done;
@@ -794,7 +795,7 @@ int mars_free_brick(struct mars_brick *brick)
 		up_write(&global->brick_mutex);
 	}
 
-	for (i = 0; i < brick->nr_inputs; i++) {
+	for (i = 0; i < brick->type->max_inputs; i++) {
 		struct mars_input *input = brick->inputs[i];
 		if (input) {
 			MARS_DBG("disconnecting input %i\n", i);

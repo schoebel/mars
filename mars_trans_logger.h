@@ -181,7 +181,9 @@ struct trans_logger_output {
 struct trans_logger_input {
 	MARS_INPUT(trans_logger);
 	// parameters
-	int sequence;     // logfile sequence number
+	// informational
+	char *inf_host;
+	int inf_sequence;     // logfile sequence number
 	// readonly from outside
 	loff_t replay_min_pos;  // current replay position (both in replay mode and in logging mode)
 	loff_t replay_max_pos;  // dito, indicating the "dirty" area which could be potentially "inconsistent"
