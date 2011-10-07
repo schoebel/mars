@@ -477,7 +477,7 @@ int aio_sync_thread(void *data)
 	struct q_sync q_sync = {};
 #endif
 	
-	MARS_INF("kthread has started on '%s'.\n", output->brick->brick_name);
+	MARS_INF("kthread has started on '%s'.\n", output->brick->brick_path);
 	//set_user_nice(current, -20);
 
 	while (!kthread_should_stop()) {
@@ -873,7 +873,7 @@ static int aio_brick_construct(struct aio_brick *brick)
 static int aio_switch(struct aio_brick *brick)
 {
 	struct aio_output *output = brick->outputs[0];
-	const char *path = output->brick->brick_name;
+	const char *path = output->brick->brick_path;
 	int flags = O_CREAT | O_RDWR | O_LARGEFILE;
 	int prot = 0600;
 	mm_segment_t oldfs;

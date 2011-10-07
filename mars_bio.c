@@ -362,7 +362,7 @@ static int bio_thread(void *data)
 {
 	struct bio_brick *brick = data;
 
-	MARS_INF("bio kthread has started on '%s'.\n", brick->brick_name);
+	MARS_INF("bio kthread has started on '%s'.\n", brick->brick_path);
 
 	for (;;) {
 		LIST_HEAD(tmp_list);
@@ -453,7 +453,7 @@ static int bio_switch(struct bio_brick *brick)
 		
 		if (!brick->bdev) {
 			static int index = 0;
-			const char *path = brick->brick_name;
+			const char *path = brick->brick_path;
 			int flags = O_RDWR | O_LARGEFILE;
 			int prot = 0600;
 			struct inode *inode;

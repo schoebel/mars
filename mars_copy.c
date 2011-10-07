@@ -236,7 +236,7 @@ void _update_percent(struct copy_brick *brick)
 		brick->copy_start = brick->copy_last;
 		brick->last_jiffies = jiffies;
 		brick->power.percent_done = brick->copy_end > 0 ? brick->copy_start * 100 / brick->copy_end : 0;
-		MARS_INF("'%s' copied %lld / %lld bytes (%d%%)\n", brick->brick_name, brick->copy_last, brick->copy_end, brick->power.percent_done);
+		MARS_INF("'%s' copied %lld / %lld bytes (%d%%)\n", brick->brick_path, brick->copy_last, brick->copy_end, brick->power.percent_done);
 	}
 }
 

@@ -770,7 +770,7 @@ int mars_free_brick(struct mars_brick *brick)
 	}
 
 	if (!brick->power.force_off || !brick->power.led_off) {
-		MARS_DBG("brick '%s' is not freeable\n", brick->brick_name);
+		MARS_DBG("brick '%s' is not freeable\n", brick->brick_path);
 		status = -ETXTBSY;
 		goto done;
 	}
@@ -779,7 +779,7 @@ int mars_free_brick(struct mars_brick *brick)
 	for (i = 0; i < brick->type->max_outputs; i++) {
 		struct mars_output *output = brick->outputs[i];
 		if (output && output->nr_connected > 0) {
-			MARS_DBG("brick '%s' not freeable, output %i is used\n", brick->brick_name, i);
+			MARS_DBG("brick '%s' not freeable, output %i is used\n", brick->brick_path, i);
 			status = -EEXIST;
 			goto done;
 		}

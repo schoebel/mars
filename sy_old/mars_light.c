@@ -691,12 +691,12 @@ int check_logfile(struct mars_peerinfo *peer, struct mars_dent *dent, struct mar
 	MARS_DBG("copy_path = '%s' copy_brick = %p dent = '%s'\n", copy_path, copy_brick, dent->d_path);
 	if (copy_brick) {
 		bool copy_is_done = (copy_brick->copy_last == copy_brick->copy_end);
-		bool is_my_copy = !strcmp(copy_brick->brick_name, dent->d_path);
+		bool is_my_copy = !strcmp(copy_brick->brick_path, dent->d_path);
 		bool is_next_copy = (dent->d_serial == parent->d_logfile_serial + 1);
-		MARS_DBG("copy brick '%s' copy_last = %lld copy_end = %lld dent '%s' serial = %d/%d is_done = %d is_my_copy = %d is_next_copy = %d\n", copy_brick->brick_name, copy_brick->copy_last, copy_brick->copy_end, dent->d_path, dent->d_serial, parent->d_logfile_serial, copy_is_done, is_my_copy, is_next_copy);
+		MARS_DBG("copy brick '%s' copy_last = %lld copy_end = %lld dent '%s' serial = %d/%d is_done = %d is_my_copy = %d is_next_copy = %d\n", copy_brick->brick_path, copy_brick->copy_last, copy_brick->copy_end, dent->d_path, dent->d_serial, parent->d_logfile_serial, copy_is_done, is_my_copy, is_next_copy);
 		// ensure consecutiveness of logfiles
 		if (copy_is_done && !is_my_copy && is_next_copy) {
-			MARS_DBG("killing old copy brick '%s', now going to '%s'\n", copy_brick->brick_name, dent->d_path);
+			MARS_DBG("killing old copy brick '%s', now going to '%s'\n", copy_brick->brick_path, dent->d_path);
 			status = mars_kill_brick((void*)copy_brick);
 			if (status < 0)
 				goto done;
