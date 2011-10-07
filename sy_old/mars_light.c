@@ -652,9 +652,9 @@ done:
 }
 
 static
-int check_logfile(struct mars_peerinfo *peer, struct mars_dent *dent, struct mars_dent *parent, loff_t dst_size)
+int check_logfile(struct mars_peerinfo *peer, struct mars_dent *remote_dent, struct mars_dent *local_dent, struct mars_dent *parent, loff_t dst_size)
 {
-	loff_t src_size = dent->new_stat.size;
+	loff_t src_size = remote_dent->new_stat.size;
 	struct mars_rotate *rot;
 	const char *switch_path = NULL;
 	const char *copy_path = NULL;
@@ -668,16 +668,11 @@ int check_logfile(struct mars_peerinfo *peer, struct mars_dent *dent, struct mar
 		goto done;
 	}
 
-	// check whether we are pariticipating in that resource
+	// check whether we are participating in that resource
 	rot = parent->d_private;
 	if (!rot) {
-		MARS_WRN("parent has no rot info\n");
+		MARS_ERR("parent has no rot info\n");
 		status = -EINVAL;
-		goto done;
-	}
-	if (!rot->try_sync) {
-		MARS_DBG("logfiles are not for me.");
-		status = 0;
 		goto done;
 	}
 
@@ -688,49 +683,56 @@ int check_logfile(struct mars_peerinfo *peer, struct mars_dent *dent, struct mar
 		goto done;
 	}
 	copy_brick = (struct copy_brick*)mars_find_brick(peer->global, &copy_brick_type, copy_path);
-	MARS_DBG("copy_path = '%s' copy_brick = %p dent = '%s'\n", copy_path, copy_brick, dent->d_path);
+	MARS_DBG("copy_path = '%s' copy_brick = %p dent = '%s'\n", copy_path, copy_brick, remote_dent->d_path);
 	if (copy_brick) {
-		bool copy_is_done = (copy_brick->copy_last == copy_brick->copy_end);
-		bool is_my_copy = !strcmp(copy_brick->brick_path, dent->d_path);
-		bool is_next_copy = (dent->d_serial == parent->d_logfile_serial + 1);
-		MARS_DBG("copy brick '%s' copy_last = %lld copy_end = %lld dent '%s' serial = %d/%d is_done = %d is_my_copy = %d is_next_copy = %d\n", copy_brick->brick_path, copy_brick->copy_last, copy_brick->copy_end, dent->d_path, dent->d_serial, parent->d_logfile_serial, copy_is_done, is_my_copy, is_next_copy);
-		// ensure consecutiveness of logfiles
-		if (copy_is_done && !is_my_copy && is_next_copy) {
-			MARS_DBG("killing old copy brick '%s', now going to '%s'\n", copy_brick->brick_path, dent->d_path);
-			status = mars_kill_brick((void*)copy_brick);
-			if (status < 0)
-				goto done;
+		bool copy_is_done = (copy_brick->copy_last == copy_brick->copy_end && local_dent != NULL);
+		bool is_next_copy = (remote_dent->d_serial == parent->d_logfile_serial + 1);
+		MARS_DBG("current copy brick '%s' copy_last = %lld copy_end = %lld dent '%s' serial = %d/%d is_done = %d is_next_copy = %d\n", copy_brick->brick_path, copy_brick->copy_last, copy_brick->copy_end, remote_dent->d_path, remote_dent->d_serial, parent->d_logfile_serial, copy_is_done, is_next_copy);
+		if (!copy_is_done && peer->global->global_power.button) {
+			goto done;
 		}
-		if (!is_my_copy) {
+		MARS_DBG("killing old copy brick '%s'\n", copy_brick->brick_path);
+		status = mars_kill_brick((void*)copy_brick);
+		if (status < 0)
+			goto done;
+		// ensure consecutiveness of logfiles
+		if (!is_next_copy || !copy_is_done) {
 			goto done;
 		}
 	}
 
-	// copy necessary?
+	// (new) copy necessary?
 	status = 0;
-	if (dst_size >= src_size && src_size > 0) { // nothing to do
+	if (!rot->try_sync) {
+		MARS_DBG("logfiles are not for me.");
 		goto done;
+	}
+	if (dst_size >= src_size && local_dent != NULL) { // nothing to do
+		goto ok;
 	}
 
 	// check whether connection is allowed
 	switch_path = path_make("%s/todo-%s/connect", parent->d_path, my_id());
 	
 	// start / treat copy brick instance
-	status = _update_file(peer->global, switch_path, copy_path, dent->d_path, peer->peer, src_size);
-	MARS_DBG("update '%s' from peer '%s' status = %d\n", dent->d_path, peer->peer, status);
+	status = _update_file(peer->global, switch_path, copy_path, remote_dent->d_path, peer->peer, src_size);
+	MARS_DBG("update '%s' from peer '%s' status = %d\n", remote_dent->d_path, peer->peer, status);
 	if (status < 0) {
 		goto done;
 	}
-	parent->d_logfile_serial = dent->d_serial;
+ok:
+	parent->d_logfile_serial = remote_dent->d_serial;
 
 done:
 	brick_string_free(copy_path);
 	brick_string_free(switch_path);
+	if (status < 0 && parent)
+		parent->d_logfile_serial = status;
 	return status;
 }
 
 static
-int run_bone(struct mars_peerinfo *peer, struct mars_dent *dent)
+int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 {
 	int status = 0;
 	struct kstat local_stat = {};
@@ -739,72 +741,73 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *dent)
 	bool update_ctime = true;
 	bool run_trigger = false;
 
-	if (!strncmp(dent->d_name, ".tmp", 4)) {
+	if (!strncmp(remote_dent->d_name, ".tmp", 4)) {
 		goto done;
 	}
-	if (!strncmp(dent->d_name, "ignore", 6)) {
+	if (!strncmp(remote_dent->d_name, "ignore", 6)) {
 		goto done;
 	}
 
-	status = mars_stat(dent->d_path, &local_stat, true);
+	status = mars_stat(remote_dent->d_path, &local_stat, true);
 	stat_ok = (status >= 0);
 
 	if (stat_ok) {
-		update_mtime = timespec_compare(&dent->new_stat.mtime, &local_stat.mtime) > 0;
-		update_ctime = timespec_compare(&dent->new_stat.ctime, &local_stat.ctime) > 0;
+		update_mtime = timespec_compare(&remote_dent->new_stat.mtime, &local_stat.mtime) > 0;
+		update_ctime = timespec_compare(&remote_dent->new_stat.ctime, &local_stat.ctime) > 0;
 
-		MARS_DBG("timestamps '%s' remote = %ld.%09ld local = %ld.%09ld\n", dent->d_path, dent->new_stat.mtime.tv_sec, dent->new_stat.mtime.tv_nsec, local_stat.mtime.tv_sec, local_stat.mtime.tv_nsec);
+		MARS_DBG("timestamps '%s' remote = %ld.%09ld local = %ld.%09ld\n", remote_dent->d_path, remote_dent->new_stat.mtime.tv_sec, remote_dent->new_stat.mtime.tv_nsec, local_stat.mtime.tv_sec, local_stat.mtime.tv_nsec);
 
-		if ((dent->new_stat.mode & S_IRWXU) !=
+		if ((remote_dent->new_stat.mode & S_IRWXU) !=
 		   (local_stat.mode & S_IRWXU) &&
 		   update_ctime) {
 			mode_t newmode = local_stat.mode;
-			MARS_DBG("chmod '%s' 0x%xd -> 0x%xd\n", dent->d_path, newmode & S_IRWXU, dent->new_stat.mode & S_IRWXU);
+			MARS_DBG("chmod '%s' 0x%xd -> 0x%xd\n", remote_dent->d_path, newmode & S_IRWXU, remote_dent->new_stat.mode & S_IRWXU);
 			newmode &= ~S_IRWXU;
-			newmode |= (dent->new_stat.mode & S_IRWXU);
-			mars_chmod(dent->d_path, newmode);
+			newmode |= (remote_dent->new_stat.mode & S_IRWXU);
+			mars_chmod(remote_dent->d_path, newmode);
 			run_trigger = true;
 		}
 
-		if (dent->new_stat.uid != local_stat.uid && update_ctime) {
-			MARS_DBG("lchown '%s' %d -> %d\n", dent->d_path, local_stat.uid, dent->new_stat.uid);
-			mars_lchown(dent->d_path, dent->new_stat.uid);
+		if (remote_dent->new_stat.uid != local_stat.uid && update_ctime) {
+			MARS_DBG("lchown '%s' %d -> %d\n", remote_dent->d_path, local_stat.uid, remote_dent->new_stat.uid);
+			mars_lchown(remote_dent->d_path, remote_dent->new_stat.uid);
 			run_trigger = true;
 		}
 	}
 
-	if (S_ISDIR(dent->new_stat.mode)) {
-		if (!_is_usable_dir(dent->d_name)) {
-			MARS_DBG("ignoring directory '%s'\n", dent->d_path);
+	if (S_ISDIR(remote_dent->new_stat.mode)) {
+		if (!_is_usable_dir(remote_dent->d_name)) {
+			MARS_DBG("ignoring directory '%s'\n", remote_dent->d_path);
 			goto done;
 		}
 		if (!stat_ok) {
-			status = mars_mkdir(dent->d_path);
-			MARS_DBG("create directory '%s' status = %d\n", dent->d_path, status);
+			status = mars_mkdir(remote_dent->d_path);
+			MARS_DBG("create directory '%s' status = %d\n", remote_dent->d_path, status);
 			if (status >= 0) {
-				mars_chmod(dent->d_path, dent->new_stat.mode);
-				mars_lchown(dent->d_path, dent->new_stat.uid);
+				mars_chmod(remote_dent->d_path, remote_dent->new_stat.mode);
+				mars_lchown(remote_dent->d_path, remote_dent->new_stat.uid);
 			}
 		}
-	} else if (S_ISLNK(dent->new_stat.mode) && dent->new_link) {
+	} else if (S_ISLNK(remote_dent->new_stat.mode) && remote_dent->new_link) {
 		if (!stat_ok || update_mtime) {
-			status = mars_symlink(dent->new_link, dent->d_path, &dent->new_stat.mtime, dent->new_stat.uid);
-			MARS_DBG("create symlink '%s' -> '%s' status = %d\n", dent->d_path, dent->new_link, status);
+			status = mars_symlink(remote_dent->new_link, remote_dent->d_path, &remote_dent->new_stat.mtime, remote_dent->new_stat.uid);
+			MARS_DBG("create symlink '%s' -> '%s' status = %d\n", remote_dent->d_path, remote_dent->new_link, status);
 			run_trigger = true;
 		}
-	} else if (S_ISREG(dent->new_stat.mode) && _is_peer_logfile(dent->d_name, my_id())) {
-		const char *parent_path = backskip_replace(dent->d_path, '/', false, "");
+	} else if (S_ISREG(remote_dent->new_stat.mode) && _is_peer_logfile(remote_dent->d_name, my_id())) {
+		const char *parent_path = backskip_replace(remote_dent->d_path, '/', false, "");
 		if (likely(parent_path)) {
 			struct mars_dent *parent = mars_find_dent(peer->global, parent_path);
+			struct mars_dent *local_dent = mars_find_dent(peer->global, remote_dent->d_path);
 			if (unlikely(!parent)) {
 				MARS_DBG("ignoring non-existing local resource '%s'\n", parent_path);
 			} else {
-				status = check_logfile(peer, dent, parent, local_stat.size);
+				status = check_logfile(peer, remote_dent, local_dent, parent, local_stat.size);
 			}
 			brick_string_free(parent_path);
 		}
 	} else {
-		MARS_DBG("ignoring '%s'\n", dent->d_path);
+		MARS_DBG("ignoring '%s'\n", remote_dent->d_path);
 	}
 
  done:
@@ -830,16 +833,16 @@ int run_bones(struct mars_peerinfo *peer)
 	traced_unlock(&peer->lock, flags);
 
 	for (tmp = tmp_list.next; tmp != &tmp_list; tmp = tmp->next) {
-		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
-		if (!dent->d_path) {
+		struct mars_dent *remote_dent = container_of(tmp, struct mars_dent, dent_link);
+		if (!remote_dent->d_path) {
 			MARS_DBG("NULL\n");
 			continue;
 		}
-		MARS_DBG("path = '%s'\n", dent->d_path);
-		status = run_bone(peer, dent);
+		MARS_DBG("path = '%s'\n", remote_dent->d_path);
+		status = run_bone(peer, remote_dent);
 		if (status > 0)
 			run_trigger = true;
-		//MARS_DBG("path = '%s' worker status = %d\n", dent->d_path, status);
+		//MARS_DBG("path = '%s' worker status = %d\n", remote_dent->d_path, status);
 	}
 	mars_free_dent_all(NULL, &tmp_list);
 #if 0
