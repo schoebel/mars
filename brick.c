@@ -562,6 +562,7 @@ void default_exit_object_layout(struct generic_object_layout *object_layout)
 		list_del_init(&object_layout->layout_head);
 	}
 	old_data_ref = object_layout->data_ref;
+	object_layout->data_ref = NULL;
 	traced_unlock(&global_lock, flags);
 
 	_put_data_ref(old_data_ref);
@@ -575,7 +576,7 @@ int default_init_object_layout(struct generic_brick *brick, struct generic_objec
 	// TODO: make locking granularity finer (if it were worth).
 	atomic_t *data_ref;
 	atomic_t *old_data_ref = NULL;
-	const int size0 = sizeof(atomic_t);
+	const int size0 = max(sizeof(atomic_t), sizeof(void*));
 	int size1;
 	int size2;
 	int size;
@@ -598,6 +599,7 @@ int default_init_object_layout(struct generic_brick *brick, struct generic_objec
 		BRICK_ERR("alloc failed, size = %ld\n", size);
 		goto done;
 	}
+	atomic_set(data_ref, 1);
 
 	traced_lock(&global_lock, flags);
 
@@ -605,11 +607,11 @@ int default_init_object_layout(struct generic_brick *brick, struct generic_objec
 		traced_unlock(&global_lock, flags);
 		BRICK_DBG("lost the race on object_layout %p/%s (no harm)\n", object_layout, module_name);
 		old_data_ref = data_ref;
+		data_ref = NULL;
 		status = 0;
 		goto done;
 	}
 
-	atomic_set(data_ref, 1);
 	object_layout->aspect_layouts_table = ((void*)data_ref) + size0;
 	object_layout->aspect_layouts =  ((void*)data_ref) + size0 + size1;
 	old_data_ref = object_layout->data_ref;
