@@ -983,6 +983,50 @@ int mars_kill_brick_all(struct mars_global *global, struct list_head *anchor, bo
 }
 EXPORT_SYMBOL_GPL(mars_kill_brick_all);
 
+int mars_kill_brick_when_possible(struct mars_global *global, struct list_head *anchor, bool use_dent_link, const struct mars_brick_type *type)
+{
+	int return_status = 0;
+	struct list_head *tmp;
+	struct list_head *next;
+	if (global) {
+		down_write(&global->brick_mutex);
+	}
+	for (tmp = anchor->next, next = tmp->next; tmp != anchor; tmp = next, next = next->next) {
+		struct mars_brick *brick;
+		int status;
+		if (use_dent_link) {
+			brick = container_of(tmp, struct mars_brick, dent_brick_link);
+		} else {
+			brick = container_of(tmp, struct mars_brick, global_brick_link);
+		}
+		if (brick->type != type) {
+			continue;
+		}
+		if (brick->outputs[0]->nr_connected > 0) {
+			continue;
+		}
+		list_del_init(tmp);
+		if (global) {
+			up_write(&global->brick_mutex);
+		}
+		status = mars_kill_brick(brick);
+		if (global) {
+			down_write(&global->brick_mutex);
+		}
+		if (status >= 0) {
+			return_status++;
+		} else {
+			return_status = status;
+			break;
+		}
+	}
+	if (global) {
+		up_write(&global->brick_mutex);
+	}
+	return return_status;
+}
+EXPORT_SYMBOL_GPL(mars_kill_brick_when_possible);
+
 
 /////////////////////////////////////////////////////////////////////
 
