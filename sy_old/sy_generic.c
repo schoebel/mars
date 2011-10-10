@@ -500,6 +500,7 @@ int mars_dent_work(struct mars_global *global, char *dirname, int allocsize, mar
 	/* Initialize the flat dent list
 	 */
 	version++;
+	global->global_version = version;
 	total_status = _mars_readdir(&cookie);
 
 	if (total_status || !worker) {
@@ -685,7 +686,7 @@ void mars_free_dent(struct mars_dent *dent)
 {
 	int i;
 	
-	MARS_DBG("%p path='%s'\n", dent, dent->d_path);
+	MARS_IO("%p path='%s'\n", dent, dent->d_path);
 
 	mars_kill_dent(dent);
 
@@ -999,10 +1000,21 @@ int mars_kill_brick_when_possible(struct mars_global *global, struct list_head *
 		} else {
 			brick = container_of(tmp, struct mars_brick, global_brick_link);
 		}
+		// only kill the right brick types
 		if (brick->type != type) {
 			continue;
 		}
+		// only kill unconnected bricks
 		if (brick->outputs[0]->nr_connected > 0) {
+			continue;
+		}
+#if 1
+		/* optimization:
+		 * only kill bricks which have not been touched during the current mars_dent_work() round.
+		 * disable this for stress-testing the allocation/deallocation logic.
+		 */
+#endif
+		if (global && global->global_version == brick->brick_version) {
 			continue;
 		}
 		list_del_init(tmp);
@@ -1255,6 +1267,9 @@ struct mars_brick *make_brick_all(
 	}
 
 do_switch:
+	if (global) {
+		brick->brick_version = global->global_version;
+	}
 	// call setup function
 	if (setup_fn) {
 		int setup_status = setup_fn(brick, private);

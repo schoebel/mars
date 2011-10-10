@@ -2947,7 +2947,7 @@ static int light_thread(void *data)
 		_show_statist(&_global);
 #endif
 
-		msleep(500);
+		msleep(1000);
 
 		wait_event_interruptible_timeout(_global.main_event, _global.main_trigger, 10 * HZ);
 		_global.main_trigger = false;

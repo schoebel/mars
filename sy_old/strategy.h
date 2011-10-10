@@ -54,7 +54,7 @@ struct mars_global {
 	struct list_head server_anchor;
 	volatile bool main_trigger;
 	wait_queue_head_t main_event;
-	//void *private;
+	int global_version;
 };
 
 typedef int (*mars_dent_checker)(struct mars_dent *parent, const char *name, int namlen, unsigned int d_type, int *prefix, int *serial);

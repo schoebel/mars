@@ -163,6 +163,7 @@ struct mars_info {
 	struct list_head dent_brick_link;				\
 	const char *brick_path;						\
 	struct mars_global *global;					\
+	int brick_version;						\
 	void (*show_status)(struct mars_brick *brick, bool shutdown);	\
 
 struct mars_brick {
