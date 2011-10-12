@@ -24,6 +24,7 @@
 
 //#define USE_CONGESTED_FN
 #define USE_MERGE_BVEC
+//#define DENY_READA
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -68,6 +69,8 @@ void if_endio(struct generic_callback *cb)
 	mars_trace(mref_a->object, "if_endio");
 	mars_log_trace(mref_a->object);
 
+	MARS_IO("bio_count = %d\n", mref_a->bio_count);
+
 	for (k = 0; k < mref_a->bio_count; k++) {
 		bio = mref_a->orig_bio[k];
 		mref_a->orig_bio[k] = NULL;
@@ -100,6 +103,7 @@ void if_endio(struct generic_callback *cb)
 			error = 0;
 			bio->bi_size = 0;
 		}
+		MARS_IO("calling end_io() rw = %d error = %d\n", rw, error);
 		bio_endio(bio, error);
 		bio_put(bio);
 	}
@@ -111,7 +115,16 @@ void if_endio(struct generic_callback *cb)
 		} else {
 			atomic_dec(&input->read_flying_count);
 		}
+#ifdef IO_DEBUGGING
+		{
+			struct if_brick *brick = input->brick;
+			char *txt = brick->ops->brick_statistics(brick, false);
+			MARS_IO("%s", txt);
+			brick_string_free(txt);
+		}
+#endif
 	}
+	MARS_IO("finished.\n");
 }
 
 /* Kick off plugged mrefs
@@ -123,7 +136,9 @@ void _if_unplug(struct if_input *input)
 	LIST_HEAD(tmp_list);
 	unsigned long flags;
 
+#ifdef CONFIG_DEBUG_KERNEL
 	might_sleep();
+#endif
 
 	down(&input->kick_sem);
 	traced_lock(&input->req_lock, flags);
@@ -171,6 +186,14 @@ void _if_unplug(struct if_input *input)
 		GENERIC_INPUT_CALL(input, mref_io, mref);
 		GENERIC_INPUT_CALL(input, mref_put, mref);
 	}
+#ifdef IO_DEBUGGING
+	{
+		struct if_brick *brick = input->brick;
+		char *txt = brick->ops->brick_statistics(brick, false);
+		MARS_IO("%s", txt);
+		brick_string_free(txt);
+	}
+#endif
 }
 
 #ifdef USE_TIMER
@@ -192,14 +215,14 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 	struct bio_vec *bvec;
 	int i;
 	bool assigned = false;
-	const bool unplug = bio_rw_flagged(bio, BIO_RW_UNPLUG);
+	const bool unplug = bio_rw_flagged(bio, BIO_RW_UNPLUG) || bio_rw_flagged(bio, BIO_RW_SYNCIO);
 	const bool barrier = ((bio->bi_rw & 1) != READ && bio_rw_flagged(bio, BIO_RW_BARRIER));
 	loff_t pos = ((loff_t)bio->bi_sector) << 9; // TODO: make dynamic
 	int rw = bio_data_dir(bio);
 	int total_len = bio->bi_size;
         int error = -ENOSYS;
 
-	MARS_IO("bio %p size = %d\n", bio, bio->bi_size);
+	MARS_IO("bio %p size = %d rw = %d unplug = %d barrier = %d\n", bio, bio->bi_size, rw, unplug, barrier);
 
 	might_sleep();
 
@@ -220,7 +243,7 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 		return 0;
 	}
 
-#if 1 // provisinary -- we should introduce an equivalent of READA also to the MARS infrastructure
+#ifdef DENY_READA // provisinary -- we should introduce an equivalent of READA also to the MARS infrastructure
 	if (bio_rw(bio) == READA) {
 		atomic_inc(&input->total_reada_count);
 		bio_endio(bio, -EWOULDBLOCK);
@@ -245,7 +268,7 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 	/* FIXME: THIS IS PROVISIONARY (use event instead)
 	 */
 	while (unlikely(!brick->power.led_on)) {
-		msleep(2 * HZ);
+		msleep(100);
 	}
 
 	_CHECK_ATOMIC(&bio->bi_comp_cnt, !=, 0);
@@ -255,8 +278,7 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 	{
 		const unsigned short prio = bio_prio(bio);
 		const bool sync = bio_rw_flagged(bio, BIO_RW_SYNCIO);
-		const unsigned int ff = bio->bi_rw & REQ_FAILFAST_MASK;
-		MARS_IO("BIO rw = %lx len = %d prio = %d sync = %d unplug = %d ff = %d\n", bio->bi_rw, bio->bi_size, prio, sync, unplug, ff);
+		MARS_IO("BIO raw_rw = 0x%016lx len = %d prio = %d sync = %d unplug = %d\n", bio->bi_rw, bio->bi_size, prio, sync, unplug);
 	}
 #endif
 
@@ -441,6 +463,14 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 
 err:
 
+#ifdef IO_DEBUGGING
+	{
+		char *txt = brick->ops->brick_statistics(brick, false);
+		MARS_IO("%s", txt);
+		brick_string_free(txt);
+	}
+#endif
+
 	if (error < 0) {
 		MARS_ERR("cannot submit request from bio, status=%d\n", error);
 		if (assigned) {
@@ -514,7 +544,7 @@ void if_unplug(struct request_queue *q)
 #else
 	queue_flag_clear_unlocked(QUEUE_FLAG_PLUGGED, q);
 #endif
-	MARS_IO("UNPLUG %d\n", was_plugged);
+	MARS_IO("block layer called UNPLUG was_plugged = %d\n", was_plugged);
 	if (true || was_plugged) {
 		struct if_input *input = q->queuedata;
 		_if_unplug(input);

@@ -361,6 +361,9 @@ void bio_ref_io(struct bio_output *output, struct mref_object *mref)
 static int bio_thread(void *data)
 {
 	struct bio_brick *brick = data;
+#ifdef IO_DEBUGGING
+	int round = 0;
+#endif
 
 	MARS_INF("bio kthread has started on '%s'.\n", brick->brick_path);
 
@@ -368,11 +371,16 @@ static int bio_thread(void *data)
 		LIST_HEAD(tmp_list);
 		unsigned long flags;
 
+#ifdef IO_DEBUGGING
+		round++;
+		MARS_IO("%d sleeping...\n", round);
+#endif
 		wait_event_interruptible_timeout(
 			brick->event,
 			atomic_read(&brick->completed_count) > 0 ||
 			(atomic_read(&brick->background_count) > 0 && !atomic_read(&brick->fly_count)),
 			12 * HZ);
+		MARS_IO("%d woken up, completed_count = %d background_count = %d fly_count = %d\n", round, atomic_read(&brick->completed_count), atomic_read(&brick->background_count), atomic_read(&brick->fly_count));
 
 		spin_lock_irqsave(&brick->lock, flags);
 		list_replace_init(&brick->completed_list, &tmp_list);
@@ -396,7 +404,10 @@ static int bio_thread(void *data)
 			mref_a = container_of(tmp, struct bio_mref_aspect, io_head);
 			
 			code = mref_a->status_code;
-			MARS_IO("completed , status = %d\n", code);
+#ifdef IO_DEBUGGING
+			round++;
+			MARS_IO("%d completed , status = %d\n", round, code);
+#endif
 		
 			mref = mref_a->object;
 
@@ -409,10 +420,12 @@ static int bio_thread(void *data)
 			}
 
 			SIMPLE_CALLBACK(mref, code);
+
+			MARS_IO("%d callback done.\n", round);
 			
 			atomic_dec(&brick->fly_count);
 			atomic_inc(&brick->total_completed_count);
-			MARS_IO("fly = %d\n", atomic_read(&brick->fly_count));
+			MARS_IO("%d completed_count = %d background_count = %d fly_count = %d\n", round, atomic_read(&brick->completed_count), atomic_read(&brick->background_count), atomic_read(&brick->fly_count));
 			if (likely(mref_a->bio)) {
 				bio_put(mref_a->bio);
 			}
@@ -424,7 +437,9 @@ static int bio_thread(void *data)
 			struct bio_mref_aspect *mref_a;
 			struct mref_object *mref;
 
+			MARS_IO("%d pushing background to foreground, completed_count = %d background_count = %d fly_count = %d\n", round, atomic_read(&brick->completed_count), atomic_read(&brick->background_count), atomic_read(&brick->fly_count));
 			atomic_dec(&brick->background_count);
+
 			spin_lock_irqsave(&brick->lock, flags);
 			tmp = brick->background_list.next;
 			list_del_init(tmp);

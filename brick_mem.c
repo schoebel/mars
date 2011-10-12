@@ -11,9 +11,9 @@
 
 #define BRICK_DEBUG_MEM 10000
 
-#define MAGIC_MEM (int)0x8B395D7D
-#define MAGIC_END (int)0x8B395D7E
-#define MAGIC_STR (int)0x8B395D7F
+#define MAGIC_MEM  (int)0x8B395D7D
+#define MAGIC_END  (int)0x8B395D7E
+#define MAGIC_STR  (int)0x8B395D7F
 
 #define INT_ACCESS(ptr,offset) (*(int*)(((char*)(ptr)) + (offset)))
 
@@ -113,25 +113,37 @@ static atomic_t string_free[BRICK_DEBUG_MEM] = {};
 char *_brick_string_alloc(int len, int line)
 {
 	char *res;
+
 #ifdef CONFIG_DEBUG_KERNEL
 	might_sleep();
 #endif
-#ifdef FIXME
-	if (len <= 0)
+
+	if (len <= 0) {
 		len = BRICK_STRING_LEN;
-#else // provisionary
-	len = BRICK_STRING_LEN;
+	}
+
+#ifdef BRICK_DEBUG_MEM
+	len += sizeof(int) * 4;
 #endif
-	res = kmalloc(len, GFP_BRICK);
+
+#ifdef CONFIG_DEBUG_KERNEL
+	res = kzalloc(len + 1024, GFP_BRICK);
+#else
+	res = kzalloc(len, GFP_BRICK);
+#endif
+
 #ifdef BRICK_DEBUG_MEM
 	if (likely(res)) {
 		if (unlikely(line < 0))
 			line = 0;
 		else if (unlikely(line >= BRICK_DEBUG_MEM))
 			line = BRICK_DEBUG_MEM - 1;
-		INT_ACCESS(res, len - PLUS_SIZE) = MAGIC_STR;
-		INT_ACCESS(res, len - PLUS_SIZE + sizeof(int)) = line;
+		INT_ACCESS(res, 0) = MAGIC_STR;
+		INT_ACCESS(res, sizeof(int)) = len;
+		INT_ACCESS(res, sizeof(int) * 2) = line;
+		INT_ACCESS(res, len - sizeof(int)) = MAGIC_END;
 		atomic_inc(&string_count[line]);
+		res += sizeof(int) * 3;
 	}
 #endif
 	return res;
@@ -142,18 +154,28 @@ void _brick_string_free(const char *data, int cline)
 {
 	if (data) {
 #ifdef BRICK_DEBUG_MEM
-		int len = BRICK_STRING_LEN;
-		int magic = INT_ACCESS(data, len - PLUS_SIZE);
-		int line = INT_ACCESS(data, len - PLUS_SIZE + sizeof(int));
+		int magic;
+		int len;
+		int line;
+
+		data -= sizeof(int) * 3;
+		magic = INT_ACCESS(data, 0);
 		if (unlikely(magic != MAGIC_STR)) {
-			BRICK_ERR("line %d stringmem corruption: magix %08x != %08x\n", cline, magic, MAGIC_STR);
+			BRICK_ERR("cline %d stringmem corruption: magix %08x != %08x\n", cline, magic, MAGIC_STR);
 			return;
 		}
+		len =  INT_ACCESS(data, sizeof(int));
+		line = INT_ACCESS(data, sizeof(int) * 2);
 		if (unlikely(line < 0 || line >= BRICK_DEBUG_MEM)) {
-			BRICK_ERR("line %d stringmem corruption: line = %d\n", cline, line);
+			BRICK_ERR("cline %d stringmem corruption: line = %d (len = %d)\n", cline, line, len);
 			return;
 		}
-		INT_ACCESS(data, len - PLUS_SIZE) = 0xffffffff;
+		magic = INT_ACCESS(data, len - sizeof(int));
+		if (unlikely(magic != MAGIC_END)) {
+			BRICK_ERR("cline %d stringmem corruption: end_magix %08x != %08x, line = %d len = %d\n", cline, magic, MAGIC_END, len, line);
+			return;
+		}
+		INT_ACCESS(data, len - sizeof(int)) = 0xffffffff;
 		atomic_dec(&string_count[line]);
 		atomic_inc(&string_free[line]);
 #endif

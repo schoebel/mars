@@ -596,7 +596,7 @@ int default_init_object_layout(struct generic_brick *brick, struct generic_objec
 	size = size0 + size1 + size2;
 	data_ref = brick_zmem_alloc(size);
 	if (unlikely(!data_ref)) {
-		BRICK_ERR("alloc failed, size = %ld\n", size);
+		BRICK_ERR("alloc failed, size = %d\n", size);
 		goto done;
 	}
 	atomic_set(data_ref, 1);

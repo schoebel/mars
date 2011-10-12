@@ -359,7 +359,7 @@ void aio_stop_thread(struct aio_output *output, int i, bool do_submit_dummy)
 
 		// workaround for waking up the receiver thread. TODO: check whether signal handlong could do better.
 		if (do_submit_dummy) {
-			MARS_INF("submitting dummy for wakeup...\n", i);
+			MARS_INF("submitting dummy for wakeup %d...\n", i);
 			aio_submit_dummy(output);
 		}
 

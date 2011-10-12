@@ -26,7 +26,7 @@ extern void _brick_mem_free(void *data, int line);
 #define BRICK_STRING_LEN 1024 /* default value when len == 0 */
 
 #define brick_string_alloc(_len_) _brick_string_alloc(_len_, __LINE__)
-#define brick_strdup(_orig_) ({ int _len_ = strlen(_orig_); char *_res_ = _brick_string_alloc(_len_ + 1, __LINE__); if (_res_) { strcpy(_res_, _orig_); } _res_; })
+#define brick_strdup(_orig_) ({ int _len_ = strlen(_orig_); char *_res_ = _brick_string_alloc(_len_ + 1, __LINE__); if (_res_) { strncpy(_res_, _orig_, _len_ + 1); } _res_; })
 extern char *_brick_string_alloc(int len, int line);
 #define brick_string_free(_data_) _brick_string_free(_data_, __LINE__)
 extern void _brick_string_free(const char *data, int line);

@@ -427,7 +427,7 @@ static int server_switch(struct server_brick *brick)
 		thread = kthread_create(cb_thread, brick, "mars_cb%d", version);
 		if (IS_ERR(thread)) {
 			status = PTR_ERR(thread);
-			MARS_ERR("cannot create cb thread, status = %ld\n", status);
+			MARS_ERR("cannot create cb thread, status = %d\n", status);
 			goto err;
 		}
 		get_task_struct(thread);
@@ -437,7 +437,7 @@ static int server_switch(struct server_brick *brick)
 		thread = kthread_create(handler_thread, brick, "mars_handler%d", version++);
 		if (IS_ERR(thread)) {
 			status = PTR_ERR(thread);
-			MARS_ERR("cannot create handler thread, status = %ld\n", status);
+			MARS_ERR("cannot create handler thread, status = %d\n", status);
 			kthread_stop(brick->cb_thread);
 			goto err;
 		}

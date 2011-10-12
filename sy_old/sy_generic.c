@@ -372,7 +372,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 		return 0;
 
 	pathlen = cookie->pathlen;
-	newpath = brick_string_alloc(pathlen + 1);
+	newpath = brick_string_alloc(pathlen + namlen + 2);
 	if (unlikely(!newpath))
 		goto err_mem0;
 	memcpy(newpath, cookie->path, pathlen);
