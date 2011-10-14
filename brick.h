@@ -294,8 +294,6 @@ struct generic_input {
 	struct BRICK##_output_ops *ops;					\
 	struct list_head output_head;					\
 	int nr_connected;						\
-	/* _must_ be the last member (may expand to open array) */	\
-	struct generic_aspect_layout output_aspect_layouts[BRICK_OBJ_MAX]; \
 	
 struct generic_output {
 	GENERIC_OUTPUT(generic);
