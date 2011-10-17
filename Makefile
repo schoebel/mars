@@ -51,7 +51,7 @@ endif
 block/mars/buildtag.h:
 	set -e; exec > $@;\
 	cd block/mars;\
-	echo -e "/* Automatically generated -- DO NOT EDIT! */";\
-	echo -e "#define BUILDTAG  \"$$(git log -1 --pretty='format:%H')\"";\
-	echo -e "#define BUILDHOST \"$$USER@$$HOSTNAME\"";\
-	echo -e "#define BUILDDATE \"$$(date '+%F %T')\""
+	/bin/echo -e "/* Automatically generated -- DO NOT EDIT! */";\
+	/bin/echo -e "#define BUILDTAG  \"$$(git log -1 --pretty='format:%H')\"";\
+	/bin/echo -e "#define BUILDHOST \"$$USER@$$HOSTNAME\"";\
+	/bin/echo -e "#define BUILDDATE \"$$(date '+%F %T')\""
