@@ -49,7 +49,7 @@ EXPORT_SYMBOL_GPL(my_id);
 const struct generic_object_type mref_type = {
         .object_type_name = "mref",
         .default_size = sizeof(struct mref_object),
-        .brick_obj_nr = BRICK_OBJ_MREF,
+	.object_type_nr = OBJ_TYPE_MREF,
 };
 EXPORT_SYMBOL_GPL(mref_type);
 

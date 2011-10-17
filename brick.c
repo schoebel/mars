@@ -7,8 +7,6 @@
 
 //#define BRICK_DEBUGGING
 
-//#define USE_FREELIST // TODO: cleanup
-
 #define _STRATEGY
 
 #include "brick.h"
@@ -122,9 +120,6 @@ EXPORT_SYMBOL_GPL(put_nr);
 //////////////////////////////////////////////////////////////
 
 // brick stuff
-
-int brick_obj_max = 0;
-EXPORT_SYMBOL_GPL(brick_obj_max);
 
 static int nr_brick_types = 0;
 static const struct generic_brick_type *brick_types[MAX_BRICK_TYPES] = {};
@@ -407,307 +402,62 @@ EXPORT_SYMBOL_GPL(generic_brick_exit_recursively);
 
 ////////////////////////////////////////////////////////////////////////
 
-// to disappear!
+// object_layout init stuff
 
-int generic_add_aspect(struct generic_brick *brick, struct generic_object_layout *object_layout, const struct generic_aspect_type *aspect_type)
+void init_generic_object_layout(struct generic_object_layout *lay, const struct generic_object_type *type)
 {
-	struct generic_aspect_layout *aspect_layout;
-	int nr;
-	int i;
-	int status;
-
-	(void)i;
-
-	status = -EINVAL;
-	if (unlikely(!object_layout || !object_layout->object_type)) {
-		goto err;
-	}
-	nr = brick->brick_index;
-	if (unlikely(nr <= 0 || nr > nr_max)) {
-		BRICK_ERR("oops, bad nr = %d\n", nr);
-		goto err;
-	}
-	aspect_layout = &object_layout->aspect_layouts[nr];
-	if (aspect_layout->aspect_type && aspect_layout->aspect_layout_generation == object_layout->object_layout_generation) {
-		/* aspect_layout is already initialized.
-		 * this is a kind of "dynamic programming".
-		 * ensure consistency to last call.
-		 */
-		int min_offset;
-		BRICK_DBG("reusing aspect_type %s on object_layout %p\n", aspect_type->aspect_type_name, object_layout);
-		status = -EBADF;
-		if (unlikely(aspect_layout->aspect_type != aspect_type)) {
-			BRICK_ERR("inconsistent use of aspect_type %s != %s\n", aspect_type->aspect_type_name, aspect_layout->aspect_type->aspect_type_name);
-			goto done;
-		}
-		min_offset = aspect_layout->aspect_offset + aspect_type->aspect_size;
-		status = -ENOMEM;
-		if (unlikely(object_layout->object_size > min_offset)) {
-			BRICK_ERR("overlapping aspects %d > %d (aspect_type=%s)\n", object_layout->object_size, min_offset, aspect_type->aspect_type_name);
-			goto done;
-		}
-		BRICK_DBG("adjusting object_size %d to %d (aspect_type=%s)\n", object_layout->object_size, min_offset, aspect_type->aspect_type_name);
-		object_layout->object_size = min_offset;
-	} else {
-		/* first call: initialize aspect_layout. */
-		aspect_layout->aspect_type = aspect_type;
-		aspect_layout->aspect_offset = object_layout->object_size;
-		object_layout->object_size += aspect_type->aspect_size;
-		aspect_layout->aspect_layout_generation = object_layout->object_layout_generation;
-		BRICK_DBG("initializing aspect_type %s on object_layout %p, object_size=%d\n", aspect_type->aspect_type_name, object_layout, object_layout->object_size);
-	}
-	if (object_layout->aspect_count <= nr) {
-		object_layout->aspect_count = nr + 1;
-	}
-	status = 0;
-
-done:
-	if (status < 0) { // invalidate the layout
-		object_layout->object_type = NULL;
-	}
-err:
-	return status;
 }
+EXPORT_SYMBOL_GPL(init_generic_object_layout);
 
-/* Initialize the information for single aspect associated to a single brick.
- */
-int default_make_object_layout(struct generic_brick *brick, struct generic_object_layout *object_layout)
+void exit_generic_object_layout(struct generic_object_layout *lay)
 {
-	const struct generic_brick_type *brick_type;
-	const struct generic_object_type *object_type;
-	const struct generic_aspect_type *aspect_type;
-	int i;
-	int nr;
-	int aspect_size = 0;
-	int status = -EINVAL;
-
-	if (unlikely(!brick)) {
-		BRICK_ERR("brick is missing\n");
-		goto done;
-	}
-	if (unlikely(!object_layout || !object_layout->object_type)) {
-		BRICK_ERR("object_layout not inizialized\n");
-		goto done;
-	}
-	brick_type = brick->type;
-	if (unlikely(!brick_type)) {
-		BRICK_ERR("brick_type is missing\n");
-		goto done;
-	}
-	object_type = object_layout->object_type;
-	if (unlikely(!object_type)) {
-		BRICK_ERR("object_type is missing\n");
-		goto done;
-	}
-	nr = object_type->brick_obj_nr;
-	if (unlikely(nr < 0 || nr >= brick_obj_max)) {
-		BRICK_ERR("bad brick_obj_nr = %d\n", nr);
-		goto done;
-	}
-	aspect_type = brick_type->aspect_types[nr];
-	status = -ENOENT;
-	if (unlikely(!aspect_type)) {
-		BRICK_ERR("aspect type on %s does not exist\n", brick_type->type_name);
-		goto done;
-	}
-
-	aspect_size = aspect_type->aspect_size;
-
-	for (i = 0; i < brick->type->max_inputs; i++) {
-	        struct generic_input *input = brick->inputs[i];
-		if (input && input->connect) {
-		        int substatus = default_make_object_layout(input->connect->brick, object_layout);
-			if (substatus < 0)
-			        return substatus;
-			aspect_size += substatus;
-		}
-	}
-
-	status = generic_add_aspect(brick, object_layout, aspect_type);
-
-done:
-	if (status < 0)
-		return status;
-
-	return aspect_size;
 }
+EXPORT_SYMBOL_GPL(exit_generic_object_layout);
+
 
 ////////////////////////////////////////////////////////////////////////
 
 // default implementations
 
-int brick_layout_generation = 1;
-EXPORT_SYMBOL_GPL(brick_layout_generation);
-
-static inline
-void _put_data_ref(atomic_t *data_ref)
-{
-	if (data_ref && atomic_dec_and_test(data_ref)) {
-		brick_mem_free(data_ref);
-	}
-}
-
-static DEFINE_SPINLOCK(global_lock);
-
-void default_exit_object_layout(struct generic_object_layout *object_layout)
-{
-	atomic_t *old_data_ref;
-	unsigned long flags;
-
-	BRICK_DBG("\n");
-
-	traced_lock(&global_lock, flags);
-	object_layout->object_type = NULL;
-	if (object_layout->layout_head.next) {
-		list_del_init(&object_layout->layout_head);
-	}
-	old_data_ref = object_layout->data_ref;
-	object_layout->data_ref = NULL;
-	traced_unlock(&global_lock, flags);
-
-	_put_data_ref(old_data_ref);
-}
-EXPORT_SYMBOL_GPL(default_exit_object_layout);
-
-/* (Re-)Make an object layout
- */
-int default_init_object_layout(struct generic_brick *brick, struct generic_object_layout *object_layout, int aspect_max, const struct generic_object_type *object_type, char *module_name)
-{
-	// TODO: make locking granularity finer (if it were worth).
-	atomic_t *data_ref;
-	atomic_t *old_data_ref = NULL;
-	const int size0 = max(sizeof(atomic_t), sizeof(void*));
-	int size1;
-	int size2;
-	int size;
-	int status= -ENOMEM;
-	unsigned long flags;
-
-	if (unlikely(!module_name)) {
-		module_name = "(unknown)";
-	}
-
-	BRICK_DBG("module_name = %s brick_layout_genercation = %d brick = %p object_layout = %p\n", module_name, brick_layout_generation, brick, object_layout);
-
-	aspect_max = nr_max;
-
-	size1 = aspect_max * sizeof(struct generic_aspect_layout);
-	size2 = aspect_max * sizeof(void*);
-	size = size0 + size1 + size2;
-	data_ref = brick_zmem_alloc(size);
-	if (unlikely(!data_ref)) {
-		BRICK_ERR("alloc failed, size = %d\n", size);
-		goto done;
-	}
-	atomic_set(data_ref, 1);
-
-	traced_lock(&global_lock, flags);
-
-	if (unlikely(object_layout->object_type && object_layout->object_layout_generation == brick_layout_generation)) {
-		traced_unlock(&global_lock, flags);
-		BRICK_DBG("lost the race on object_layout %p/%s (no harm)\n", object_layout, module_name);
-		old_data_ref = data_ref;
-		data_ref = NULL;
-		status = 0;
-		goto done;
-	}
-
-	object_layout->aspect_layouts_table = ((void*)data_ref) + size0;
-	object_layout->aspect_layouts =  ((void*)data_ref) + size0 + size1;
-	old_data_ref = object_layout->data_ref;
-	object_layout->data_ref = data_ref;
-	if (object_layout->layout_head.next) {
-		list_del_init(&object_layout->layout_head);
-	}
-	list_add(&object_layout->layout_head, &brick->layout_list);
-	object_layout->object_layout_generation = brick_layout_generation;
-	object_layout->object_type = object_type;
-	object_layout->aspect_count = 0;
-	object_layout->aspect_max = aspect_max;
-	object_layout->object_size = object_type->default_size;
-	atomic_set(&object_layout->alloc_count, 0);
-	atomic_set(&object_layout->free_count, 0);
-	spin_lock_init(&object_layout->free_lock);
-	object_layout->free_list = NULL;
-	object_layout->module_name = module_name;
-
-	status = default_make_object_layout(brick, object_layout);
-
-	if (unlikely(status < 0)) {
-                object_layout->object_type = NULL;
-	}
-	
-	traced_unlock(&global_lock, flags);
-
-	if (unlikely(status < 0)) {
-		BRICK_ERR("emergency, cannot add aspects to object_layout %s (module %s)\n", object_type->object_type_name, module_name);
-		goto done;
-	}
-	
-
-	BRICK_INF("OK, object_layout %s init succeeded (size = %d).\n", object_type->object_type_name, object_layout->object_size);
-
-done:
-	_put_data_ref(old_data_ref);
-	return status;
-}
-EXPORT_SYMBOL_GPL(default_init_object_layout);
-
-
-struct generic_object *alloc_generic(struct generic_object_layout *object_layout)
+struct generic_object *generic_alloc(struct generic_brick *brick, struct generic_object_layout *object_layout, const struct generic_object_type *object_type)
 {
 	struct generic_object *object;
 	void *data;
+	int object_size;
+	int aspect_nr_max;
+	int total_size;
+	int hint_size;
 
-	if (unlikely(!object_layout || !object_layout->object_type)) {
-		BRICK_ERR("bad object_layout\n");
-		goto err;
-	}
+	CHECK_PTR_NULL(object_type, err);
+	CHECK_PTR(object_layout, err);
 
-#ifdef USE_FREELIST
-	object = object_layout->free_list;
-	if (object) {
-		unsigned long flags;
-		traced_lock(&object_layout->free_lock, flags);
-		object = object_layout->free_list;
-		if (object) {
-			object_layout->free_list = *(struct generic_object**)object;
-			*(struct generic_object**)object = NULL;
-			traced_unlock(&object_layout->free_lock, flags);
-			atomic_dec(&object_layout->free_count);
-			data = object;
-			goto ok;
-		}
-		traced_unlock(&object_layout->free_lock, flags);
-	}
-#else
-	if (false) goto ok; // shut up gcc
-#endif
+	object_size = object_type->default_size;
+	aspect_nr_max = nr_max;
+	total_size = object_size + aspect_nr_max * sizeof(void*);
+	hint_size = object_layout->size_hint;
+	if (likely(total_size < hint_size))
+		total_size = hint_size;
 
-	data = brick_zmem_alloc(object_layout->object_size);
-	if (unlikely(!data))
+	data = brick_zmem_alloc(total_size);
+	if (!data)
 		goto err;
 
 	atomic_inc(&object_layout->alloc_count);
 
-ok:
-	object = generic_construct(data, object_layout);
-	if (unlikely(!object))
-		goto err_free;
+	object = data;
+	object->object_type = object_type;
+	object->object_layout = object_layout;
+	object->aspects = data + object_size;
+	object->aspect_nr_max = aspect_nr_max;
+	object->free_offset = object_size + aspect_nr_max * sizeof(void*);
+	object->max_offset = total_size;
 
-	object->data_ref = object_layout->data_ref;
-	atomic_inc(object->data_ref);
-
-#if 1
-	{
-		int count = atomic_read(&object_layout->alloc_count);
-		if (count >= object_layout->last_count + 1000 || ((int)jiffies - object_layout->last_jiffies) >= 30 * HZ) {
-			object_layout->last_count = count;
-			object_layout->last_jiffies = jiffies;
-			BRICK_INF("pool %s/%p/%s alloc=%d free=%d\n", object_layout->object_type->object_type_name, object_layout, object_layout->module_name, count, atomic_read(&object_layout->free_count));
+	if (object_type->init_fn) {
+		int status = object_type->init_fn(object);
+		if (status < 0) {
+			goto err_free;
 		}
 	}
-#endif
 
 	return object;
 
@@ -716,42 +466,125 @@ err_free:
 err:
 	return NULL;
 }
-EXPORT_SYMBOL_GPL(alloc_generic);
+EXPORT_SYMBOL_GPL(generic_alloc);
 
-void free_generic(struct generic_object *object)
+void generic_free(struct generic_object *object)
 {
+	const struct generic_object_type *object_type;
 	struct generic_object_layout *object_layout;
-	if (unlikely(!object)) {
-		BRICK_ERR("free_generic on NULL object\n");
-		return;
-	}
+	int i;
+
+	CHECK_PTR(object, done);
+	object_type = object->object_type;
+	CHECK_PTR_NULL(object_type, done);
 	object_layout = object->object_layout;
-	if (likely(object_layout)) {
-		generic_destruct(object);
-
-#ifdef USE_FREELIST
-		memset(object, 0, object_layout->object_size);
-		atomic_inc(&object_layout->free_count);
-
-		{
-			unsigned long flags;
-
-			traced_lock(&object_layout->free_lock, flags);
-
-			*(struct generic_object**)object = object_layout->free_list;
-			object_layout->free_list = object;
-			
-			traced_unlock(&object_layout->free_lock, flags);
+	CHECK_PTR(object_layout, done);
+	atomic_dec(&object_layout->alloc_count);
+	for (i = 0; i < object->aspect_nr_max; i++) {
+		const struct generic_aspect_type *aspect_type;
+		struct generic_aspect *aspect = object->aspects[i];
+		if (!aspect)
+			continue;
+		object->aspects[i] = NULL;
+		aspect_type = aspect->aspect_type;
+		CHECK_PTR_NULL(aspect_type, done);
+		if (aspect_type->exit_fn) {
+			aspect_type->exit_fn(aspect);
 		}
-		return;
-#endif
-		atomic_dec(&object_layout->alloc_count);
-		_put_data_ref(object->data_ref);
+		if (aspect->shortcut)
+			continue;
+		brick_mem_free(aspect);
+	}
+	if (object_type->exit_fn) {
+		object_type->exit_fn(object);
+	}
+	brick_mem_free(object);
+done: ;
+}
+EXPORT_SYMBOL_GPL(generic_free);
+
+static
+struct generic_aspect *_new_aspect(struct generic_brick *brick, struct generic_object *obj)
+{
+	struct generic_aspect *res = NULL;
+	const struct generic_brick_type *brick_type = brick->type;
+	const struct generic_object_type *object_type;
+	const struct generic_aspect_type *aspect_type;
+	int object_type_nr;
+	int size;
+	int rest;
+	
+	object_type = obj->object_type;
+	CHECK_PTR_NULL(object_type, done);
+	object_type_nr = object_type->object_type_nr;
+	aspect_type = brick_type->aspect_types[object_type_nr];
+	CHECK_PTR_NULL(aspect_type, done);
+	
+	size = aspect_type->aspect_size;
+	rest = obj->max_offset - obj->free_offset;
+	if (likely(size <= rest)) {
+		res = ((void*)obj) + obj->free_offset;
+		obj->free_offset += size;
+		res->shortcut = true;
+	} else {
+		struct generic_object_layout *object_layout = obj->object_layout;
+		int max;
+
+		CHECK_PTR(object_layout, done);
+		max = obj->free_offset + size;
+		/* This is racy, but races won't do any harm because
+		 * it is just a hint, not essential.
+		 */
+		if (object_layout->size_hint < max)
+			object_layout->size_hint = max;
+
+		res = brick_zmem_alloc(size);
+		if (unlikely(!res)) {
+			goto done;
+		}
+	}
+	res->object = obj;
+	res->aspect_type = aspect_type;
+
+	if (aspect_type->init_fn) {
+		int status = aspect_type->init_fn(res);
+		if (unlikely(status < 0)) {
+			BRICK_ERR("aspect init %p %p %p status = %d\n", brick, obj, res, status);
+			goto done;
+		}
 	}
 
-	brick_mem_free(object);
+done:
+	return res;
 }
-EXPORT_SYMBOL_GPL(free_generic);
+
+struct generic_aspect *generic_get_aspect(struct generic_brick *brick, struct generic_object *obj)
+{
+	struct generic_aspect *res = NULL;
+	int nr;
+
+	CHECK_PTR(brick, done);
+	CHECK_PTR(obj, done);
+
+	nr = brick->brick_index;
+	if (unlikely(nr <= 0 || nr >= obj->aspect_nr_max)) {
+		BRICK_ERR("bad nr = %d\n", nr);
+		goto done;
+	}
+
+	res = obj->aspects[nr];
+	if (!res) {
+		res = _new_aspect(brick, obj);
+		obj->aspects[nr] = res;
+	}
+	CHECK_PTR(res, done);
+	CHECK_PTR(res->object, done);
+	_CHECK(res->object == obj, done);
+
+done:
+	return res;
+}
+EXPORT_SYMBOL_GPL(generic_get_aspect);
 
 /////////////////////////////////////////////////////////////////
 

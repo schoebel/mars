@@ -1325,7 +1325,6 @@ int __init init_sy(void)
 	MARS_INF("init_sy()\n");
 
 	_mars_trigger = __mars_trigger;
-	brick_obj_max = BRICK_OBJ_MAX;
 
 	mars_tfm = crypto_alloc_hash("md5", 0, CRYPTO_ALG_ASYNC);
 	if (!mars_tfm) {

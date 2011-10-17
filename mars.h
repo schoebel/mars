@@ -13,13 +13,8 @@
 
 // include the generic brick infrastructure
 
-#ifdef BRICK_H
-#error "brick.h must not be already included - please reorganize your includes"
-#endif
-
-#define BRICK_OBJ_MREF            0
-#define BRICK_OBJ_MAX             1
-#define BRICK_DEPTH_MAX           128
+#define OBJ_TYPE_MREF               0
+#define OBJ_TYPE_MAX                1
 
 #include "brick.h"
 #include "brick_mem.h"
@@ -87,10 +82,6 @@ extern const struct generic_object_type mref_type;
 
 struct mref_aspect {
 	GENERIC_ASPECT(mref);
-};
-
-struct mref_aspect_layout {
-	GENERIC_ASPECT_LAYOUT(mref);
 };
 
 struct mref_object_layout {
@@ -241,10 +232,6 @@ extern int init_mars_##BRICK(void);					\
 extern void exit_mars_##BRICK(void);
 
 
-// instantiate all mars-specific functions
-
-GENERIC_OBJECT_FUNCTIONS(mref);
-
 // instantiate a pseudo base-class "mars"
 
 _MARS_TYPES(mars);
@@ -267,60 +254,13 @@ static const struct generic_aspect_type BRICK##_mref_aspect_type = {    \
 	.exit_fn = BRICK##_mref_aspect_exit_fn,				\
 };									\
 									\
-static const struct generic_aspect_type *BRICK##_aspect_types[BRICK_OBJ_MAX] = {	\
-	[BRICK_OBJ_MREF] = &BRICK##_mref_aspect_type,			\
+static const struct generic_aspect_type *BRICK##_aspect_types[OBJ_TYPE_MAX] = {	\
+	[OBJ_TYPE_MREF] = &BRICK##_mref_aspect_type,			\
 };									\
 
 extern const struct meta mars_info_meta[];
 extern const struct meta mars_mref_meta[];
 extern const struct meta mars_timespec_meta[];
-
-/////////////////////////////////////////////////////////////////////////
-
-// checking
-
-#ifdef CONFIG_DEBUG_KERNEL
-#define CHECKING true
-#else
-#define CHECKING false
-#endif
-
-#define _CHECK_ATOMIC(atom,OP,minval)					\
-	if (CHECKING) do {						\
-		int __test = atomic_read(atom);				\
-		if (__test OP (minval)) {				\
-			atomic_set(atom, minval);			\
-			MARS_ERR("%d: atomic " #atom " " #OP " " #minval " (%d)\n", __LINE__, __test); \
-		}							\
-	} while (0)
-
-#define CHECK_ATOMIC(atom,minval)		\
-	_CHECK_ATOMIC(atom, <, minval)
-
-#define CHECK_HEAD_EMPTY(head)						\
-	if (CHECKING && unlikely(!list_empty(head))) {			\
-		list_del_init(head);					\
-		MARS_ERR("%d: list_head " #head " (%p) not empty\n", __LINE__, head); \
-	}								\
-
-#define CHECK_PTR_NULL(ptr,label)					\
-	if (CHECKING && unlikely(!(ptr))) {				\
-		MARS_FAT("%d: ptr '" #ptr "' is NULL\n", __LINE__);	\
-		goto label;						\
-	}
-
-#define CHECK_PTR(ptr,label)						\
-	CHECK_PTR_NULL(ptr, label);					\
-	if (CHECKING && unlikely(!virt_addr_valid(ptr))) {		\
-		MARS_FAT("%d: ptr '" #ptr "' is no valid virtual KERNEL address\n", __LINE__); \
-		goto label;						\
-	}
-
-#define _CHECK(ptr,label)						\
-	if (CHECKING && unlikely(!(ptr))) {				\
-		MARS_FAT("%d: condition '" #ptr "' is VIOLATED\n", __LINE__); \
-		goto label;						\
-	}
 
 /////////////////////////////////////////////////////////////////////////
 

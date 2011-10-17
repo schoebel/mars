@@ -8,7 +8,7 @@
 
 void exit_logst(struct log_status *logst)
 {
-	default_exit_object_layout(&logst->ref_object_layout);
+	exit_generic_object_layout(&logst->ref_object_layout);
 }
 EXPORT_SYMBOL_GPL(exit_logst);
 
