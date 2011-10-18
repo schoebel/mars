@@ -1156,7 +1156,7 @@ struct mars_brick *make_brick_all(
 	va_start(args, prev_count);
 	if (switch_fmt) {
 		switch_state = false;
-		if (switch_fmt[0]) {
+		if (switch_fmt[0] && global && global->global_power.button) {
 			switch_path = vpath_make(switch_fmt, &args);
 		}
 	}
