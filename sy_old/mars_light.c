@@ -928,6 +928,7 @@ int remote_thread(void *data)
 				continue;
 			}
 			MARS_DBG("successfully opened socket to '%s'\n", real_peer);
+			msleep(1000);
 			continue;
 		}
 
@@ -962,8 +963,9 @@ int remote_thread(void *data)
 
 		mars_free_dent_all(NULL, &old_list);
 
+		msleep(1000);
 		if (!kthread_should_stop())
-			msleep(5 * 1000);
+			msleep(4000);
 	}
 
 	MARS_INF("-------- remote thread terminating\n");

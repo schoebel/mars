@@ -418,7 +418,7 @@ static int server_switch(struct server_brick *brick)
 
 		mars_power_led_off((void*)brick, false);
 
-		MARS_INF("starting.....");
+		MARS_INF("starting.....\n");
 		
 		spin_lock(&server_lock);
 		list_add(&brick->server_link, &server_list);
@@ -566,7 +566,7 @@ static int _server_thread(void *data)
 
 	MARS_INF("-------- server starting on host '%s' ----------\n", id);
 
-        while (!kthread_should_stop()) {
+        while (!kthread_should_stop() && mars_global && mars_global->global_power.button) {
 		struct server_brick *brick;
 		struct mars_socket *new_socket;
 
@@ -607,6 +607,7 @@ static int _server_thread(void *data)
 			goto err;
 		}
 
+		msleep(1000);
 		continue;
 
 	err:
