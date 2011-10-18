@@ -566,6 +566,13 @@ static int _server_thread(void *data)
 
 	MARS_INF("-------- server starting on host '%s' ----------\n", id);
 
+        while (!kthread_should_stop() &&
+	      (!mars_global || !mars_global->global_power.button)) {
+		msleep(1000);
+	}
+
+	MARS_INF("-------- server now working on host '%s' ----------\n", id);
+
         while (!kthread_should_stop() && mars_global && mars_global->global_power.button) {
 		struct server_brick *brick;
 		struct mars_socket *new_socket;

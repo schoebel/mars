@@ -1037,7 +1037,7 @@ static int _make_peer(struct mars_global *global, struct mars_dent *dent, char *
 
 	peer = dent->d_private;
 	if (!peer->peer_thread) {
-		peer->peer_thread = kthread_create(remote_thread, peer, "mars_remote%d", serial++);
+		peer->peer_thread = kthread_create(remote_thread, peer, "mars_peer%d", serial++);
 		if (unlikely(IS_ERR(peer->peer_thread))) {
 			MARS_ERR("cannot start peer thread, status = %d\n", (int)PTR_ERR(peer->peer_thread));
 			peer->peer_thread = NULL;
@@ -2385,6 +2385,7 @@ enum {
 	// replacement for DNS in kernelspace
 	CL_IPS,
 	CL_PEERS,
+	CL_ALIVE,
 	// resource definitions
 	CL_RESOURCE,
 	CL_DEFAULTS0,
@@ -2438,6 +2439,15 @@ static const struct light_class light_classes[] = {
 		.cl_forward = make_scan,
 #endif
 		.cl_backward = kill_scan,
+	},
+	/* Indicate aliveness of all cluster paritcipants
+	 * by the timestamp of this link.
+	 */
+	[CL_ALIVE] = {
+		.cl_name = "alive-",
+		.cl_len = 6,
+		.cl_type = 'l',
+		.cl_father = CL_ROOT,
 	},
 
 	/* Directory containing all items of a resource
@@ -2898,6 +2908,15 @@ void _show_statist(struct mars_global *global)
 }
 #endif
 
+static
+void _make_alivelink(bool alive)
+{
+	char *src = alive ? "1" : "0";
+	char *dst = path_make("/mars/alive-%s", my_id());
+	mars_symlink(src, dst, NULL, 0);
+	brick_string_free(dst);
+}
+
 static struct mars_global _global = {
 	.dent_anchor = LIST_HEAD_INIT(_global.dent_anchor),
 	.brick_anchor = LIST_HEAD_INIT(_global.brick_anchor),
@@ -2929,6 +2948,8 @@ static int light_thread(void *data)
         while (_global.global_power.button || !list_empty(&_global.brick_anchor)) {
 		int status;
 		_global.global_power.button = !kthread_should_stop();
+
+		_make_alivelink(_global.global_power.button);
 
 #if 1
 		if (!_global.global_power.button) {
