@@ -1,5 +1,6 @@
 #!/usr/bin/perl -w
 # (c) 2010 Thomas Schoebel-Theuer / 1&1 Internet AG
+# Time-stamp: <11/10/18 11:13:04 schoebel>
 
 use strict;
 use English;
@@ -243,6 +244,7 @@ sub create_res {
     die "resource '$res' already exists\n" if -d "$mars/resource-$res";
     print "creating new resource '$res'\n";
   } else {
+    die "resource '$res' has been already joined -- this is dangerous!\n" if -e "$mars/resource-$res/connect-$host";
     print "joining to existing resource '$res'\n";
   }
 
@@ -257,7 +259,7 @@ sub create_res {
     $size = sysseek(TEST, 0, SEEK_END);
     close(TEST);
     print "device size = $size bytes\n";
-    die "implausible size" unless $size > 0;
+    die "implausible size $size" unless $size > 0;
   }
 
   my $tmp = "$mars/.tmp.$res";
