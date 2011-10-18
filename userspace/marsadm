@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 # (c) 2010 Thomas Schoebel-Theuer / 1&1 Internet AG
-# Time-stamp: <11/10/18 11:13:04 schoebel>
+# $Id$
 
 use strict;
 use English;
@@ -222,7 +222,7 @@ sub create_cluster {
 
 sub join_cluster {
   my ($cmd, $peer, $force) = @_;
-  if(glob("$mars/resource-*")) {
+  if(glob("$mars/resource-*") or glob("$mars/ips/*") {
     die "Sorry, some resources already exist!\nThis is dangerous!\nIf you are sure that no resource clash is possible, re-invoke this command with '--force' option\n" unless ($force and $force =~ m/--force/);
   }
   print "joining cluster via rsync (peer='$peer')\n";
