@@ -349,7 +349,7 @@ int mars_recv(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 			if (!done)
 				goto err;
 #endif
-			//msleep(50);
+			msleep(50);
 			continue;
 		}
 		if (!status) { // EOF
