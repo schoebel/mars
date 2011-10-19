@@ -222,7 +222,7 @@ sub create_cluster {
 
 sub join_cluster {
   my ($cmd, $peer, $force) = @_;
-  if(glob("$mars/resource-*") or glob("$mars/ips/*") {
+  if(glob("$mars/resource-*") or glob("$mars/ips/*")) {
     die "Sorry, some resources already exist!\nThis is dangerous!\nIf you are sure that no resource clash is possible, re-invoke this command with '--force' option\n" unless ($force and $force =~ m/--force/);
   }
   print "joining cluster via rsync (peer='$peer')\n";
