@@ -95,12 +95,25 @@ sub check_primary_gone {
   }
 }
 
+sub check_todo {
+  my ($res, $key, $val, $wait) = @_;
+  for(;;) {
+    my $path = "$mars/resource-$res/todo-$host/$key";
+    my $link = readlink($path) or die "cannot read symlink '$path'\n";
+    last if $link == $val;
+    die "$path must have value $val\n" if $wait;
+    print "waiting until $key reaches the value $val....\n";
+    sleep(5);
+  }
+}
+
 sub check_status {
-  my ($res, $key, $val) = @_;
+  my ($res, $key, $val, $wait) = @_;
   for(;;) {
     my $path = "$mars/resource-$res/actual-$host/$key";
     my $link = readlink($path) or die "cannot read symlink '$path'\n";
     last if $link == $val;
+    die "$path must have value $val\n" if $wait;
     print "waiting until $key reaches the value $val....\n";
     sleep(5);
   }
@@ -109,7 +122,12 @@ sub check_status {
 sub check_splitbrain {
   my ($res, $host) = @_;
   my @links = glob("$mars/resource-$res/version-[0-9]*-$host");
-  die "no version information available for host $host\n" unless @links;
+  if(!@links) {
+    my @links = glob("$mars/resource-$res/version-[0-9]*-*");
+    die "no version information available\n" unless @links;
+    print "assuming that I am primary for the first time\n";
+    return;
+  }
   my $link = pop @links;
   die "cannot pop last link element\n" unless $link;
   my $version = readlink($link);
@@ -290,15 +308,6 @@ sub create_res {
     }
     die "sizes differ: real size = $oldsize, but requested size = $size\n" unless $oldsize == $size;
     $replay = readlink("$tmp/replay-$primary") or die "cannot read replay status of primary '$primary'\n";
-    $replay =~ s/-$primary,[0-9]+,[0-9]+/-$host,0,0/ or die "something is wrong here\n";
-    my $nr = $replay;
-    $nr =~ s/^.*log-([0-9]+)-.+$/$1/;
-    if($nr > 1) { # fake version symlink for predecessor logfile
-      my $prev = sprintf("$tmp/version-%09d-$primary", $nr - 1);
-      my $version = readlink($prev) or die "cannot read symlink '$prev'\n";
-      my $old = sprintf("$tmp/version-%09d-$host", $nr - 1);
-      symlink($version, $old) or die "cann create symlink '$old'\n";
-    }
   }
 
   my $file = "$tmp/data-$host";
@@ -453,6 +462,7 @@ sub primary_res {
   } else { # try to switch myself to primary
     print "trying to switch $host to primary...\n";
     check_sync_finished($res, $host);
+    check_todo($res, "connect", 1, 1);
     _primary_res($res, "(none)", $pri, $old) unless $old eq "(none)";
     check_primary_gone($res);
     check_splitbrain($res, $host);
