@@ -2,8 +2,6 @@
 #ifndef BRICK_H
 #define BRICK_H
 
-#define msleep msleep_interruptible
-
 #include <linux/list.h>
 #include <linux/spinlock.h>
 #include <linux/sched.h>

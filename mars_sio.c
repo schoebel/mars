@@ -358,7 +358,7 @@ static int sio_watchdog(void *data)
 	while (!kthread_should_stop()) {
 		int i;
 
-		msleep(5000);
+		msleep_interruptible(5000);
 
 		for (i = 0; i <= WITH_THREAD; i++) {
 			struct sio_threadinfo *tinfo = &output->tinfo[i];

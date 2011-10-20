@@ -7,6 +7,8 @@
 
 //#define MARS_TRACING // write runtime trace data to /mars/trace.csv
 
+#define msleep msleep_interruptible
+
 /////////////////////////////////////////////////////////////////////////
 
 // include the generic brick infrastructure

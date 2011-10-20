@@ -1868,35 +1868,13 @@ done:
 }
 
 static
-int __update_all_links(struct mars_global *global, struct mars_dent *parent, struct trans_logger_brick *trans_brick)
-{
-	struct trans_logger_input *old_input = NULL; // FIXME: kludge, do it right(tm)
-	int i;
-	int status = 0;
-
-	for (i = TL_INPUT_FW_LOG1; i <= TL_INPUT_FW_LOG2; i++) {
-		struct trans_logger_input *trans_input;
-		trans_input = trans_brick->inputs[i];
-		if (!trans_input || trans_input == old_input) {
-			continue;
-		}
-		status = _update_replaylink(parent, trans_input->inf_host, trans_input->inf_sequence, trans_input->replay_min_pos, trans_input->replay_max_pos, true);
-		status = _update_versionlink(global, parent, trans_input->inf_host, trans_input->inf_sequence, trans_input->replay_min_pos, trans_input->replay_max_pos);
-		old_input = trans_input;
-	}
-	return status;
-}
-
-static
 int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 {
 	struct mars_dent *parent = dent->d_parent;
-	struct mars_rotate *rot;
+	struct mars_rotate *rot = parent->d_private;
 	struct trans_logger_brick *trans_brick;
 	int status = -EINVAL;
 
-	CHECK_PTR(parent, done);
-	rot = parent->d_private;
 	CHECK_PTR(rot, done);
 	trans_brick = rot->trans_brick;
 	status = 0;
@@ -1921,7 +1899,18 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		MARS_DBG("do_stop = %d\n", (int)do_stop);
 
 		if (do_stop || (long long)jiffies > rot->last_jiffies + 5 * HZ) {
-			status = __update_all_links(global, parent, trans_brick);
+			struct trans_logger_input *old_input = NULL; // FIXME: kludge, do it right(tm)
+			int i;
+			for (i = TL_INPUT_FW_LOG1; i <= TL_INPUT_FW_LOG2; i++) {
+				struct trans_logger_input *trans_input;
+				trans_input = trans_brick->inputs[i];
+				if (!trans_input || trans_input == old_input) {
+					continue;
+				}
+				status = _update_replaylink(parent, trans_input->inf_host, trans_input->inf_sequence, trans_input->replay_min_pos, trans_input->replay_max_pos, true);
+				status = _update_versionlink(global, parent, trans_input->inf_host, trans_input->inf_sequence, trans_input->replay_min_pos, trans_input->replay_max_pos);
+				old_input = trans_input;
+			}
 			rot->last_jiffies = jiffies;
 		}
 		if (do_stop) {
@@ -1952,9 +1941,6 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 
 		if (do_start) {
 			status = _start_trans(rot);
-			if (status >= 0) {
-				status = __update_all_links(global, parent, trans_brick);
-			}
 			rot->current_log = rot->relevant_log;
 		}
 	} else {
@@ -2281,7 +2267,6 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	const char *copy_path = NULL;
 	const char *src = NULL;
 	const char *dst = NULL;
-	bool do_start = true;
 	int status;
 
 	if (!global->global_power.button || !dent->d_parent || !dent->new_link) {
@@ -2322,7 +2307,8 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	}
 	if (start_pos == end_pos) {
 		MARS_DBG("no data sync necessary, size = %lld\n", start_pos);
-		do_start = false;
+		status = 0;
+		goto done;
 	}
 	brick_string_free(tmp);
 
@@ -2353,11 +2339,11 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	if (unlikely(!src || !dst || !copy_path || !switch_path))
 		goto done;
 
-	MARS_DBG("initial sync '%s' => '%s' do_start = %d\n", src, dst, do_start);
+	MARS_DBG("starting initial sync '%s' => '%s'\n", src, dst);
 
 	{
 		const char *argv[2] = { src, dst };
-		status = __make_copy(global, dent, do_start ? switch_path : "", copy_path, dent->d_parent->d_path, argv, start_pos, &copy);
+		status = __make_copy(global, dent, switch_path, copy_path, dent->d_parent->d_path, argv, start_pos, &copy);
 	}
 
 	/* Update syncstatus symlink
@@ -2377,11 +2363,16 @@ static int make_sync(void *buf, struct mars_dent *dent)
 
 done:
 	MARS_DBG("status = %d\n", status);
-	brick_string_free(tmp);
-	brick_string_free(src);
-	brick_string_free(dst);
-	brick_string_free(copy_path);
-	brick_string_free(switch_path);
+	if (tmp)
+		brick_string_free(tmp);
+	if (src)
+		brick_string_free(src);
+	if (dst)
+		brick_string_free(dst);
+	if (copy_path)
+		brick_string_free(copy_path);
+	if (switch_path)
+		brick_string_free(switch_path);
 	return status;
 }
 
