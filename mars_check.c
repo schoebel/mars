@@ -130,7 +130,7 @@ static int check_watchdog(void *data)
 		unsigned long flags;
 		unsigned long now;
 
-		msleep_interruptible(5000);
+		msleep(5000);
 
 		traced_lock(&output->check_lock, flags);
 
