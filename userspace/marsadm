@@ -338,6 +338,7 @@ sub create_res {
   symlink("1", "$todo/attach");
   symlink("0", "$todo/connect");
   symlink("1", "$todo/sync");
+  symlink("1", "$todo/allow-replay");
   system("rm -f $tmp/syncstatus-$host");
 
   if($create) {
@@ -384,9 +385,9 @@ sub attach_res {
 sub connect_res {
   my ($cmd, $res) = @_;
   my $disconnect = ($cmd eq "disconnect");
-  my @paths = glob("$mars/resource-$res/todo-*/connect");
+  my @paths = glob("$mars/resource-$res/todo-*/");
   for my $path (@paths) {
-    _switch($cmd, $res, $path, !$disconnect);
+    _switch($cmd, $res, "$path/connect", !$disconnect);
   }
 }
 
@@ -397,19 +398,35 @@ sub connect_local_res {
   _switch($cmd, $res, $path, !$disconnect);
 }
 
-sub pause_res {
+sub pause_sync_res {
   my ($cmd, $res) = @_;
   my $pause = ($cmd eq "pause-sync");
-  my @paths = glob("$mars/resource-$res/todo-*/sync");
+  my @paths = glob("$mars/resource-$res/todo-*/");
   for my $path (@paths) {
-    _switch($cmd, $res, $path, !$pause);
+    _switch($cmd, $res, "$path/sync", !$pause);
   }
 }
 
-sub pause_local_res {
+sub pause_sync_local_res {
   my ($cmd, $res) = @_;
   my $pause = ($cmd eq "pause-sync-local");
   my $path = "$mars/resource-$res/todo-$host/sync";
+  _switch($cmd, $res, $path, !$pause);
+}
+
+sub pause_replay_res {
+  my ($cmd, $res) = @_;
+  my $pause = ($cmd eq "pause-replay");
+  my @paths = glob("$mars/resource-$res/todo-*/");
+  for my $path (@paths) {
+    _switch($cmd, $res, "$path/allow-replay", !$pause);
+  }
+}
+
+sub pause_replay_local_res {
+  my ($cmd, $res) = @_;
+  my $pause = ($cmd eq "pause-sync-local");
+  my $path = "$mars/resource-$res/todo-$host/allow-replay";
   _switch($cmd, $res, $path, !$pause);
 }
 
@@ -417,13 +434,15 @@ sub up_res {
   my ($cmd, $res) = @_;
   my $down = ($cmd eq "down");
   if($down) {
-    pause_res("pause-sync", $res);
+    pause_replay_res("pause-replay", $res);
+    pause_sync_res("pause-sync", $res);
     connect_res("disconnect", $res);
     attach_res("detach", $res);
   } else {
     attach_res("attach", $res);
     connect_res("connect", $res);
-    pause_res("resume-sync", $res);
+    pause_sync_res("resume-sync", $res);
+    pause_replay_res("resume-replay", $res);
   }
 }
 
@@ -535,10 +554,14 @@ my %cmd_table =
    "status"            => \&nyi_cmd,
    "dump"              => \&senseless_cmd,
    "verify"            => \&nyi_cmd,
-   "pause-sync"        => \&pause_res,
-   "resume-sync"       => \&pause_res,
-   "pause-sync-local"  => \&pause_local_res,
-   "resume-sync-local" => \&pause_local_res,
+   "pause-sync"        => \&pause_sync_res,
+   "resume-sync"       => \&pause_sync_res,
+   "pause-sync-local"  => \&pause_sync_local_res,
+   "resume-sync-local" => \&pause_sync_local_res,
+   "pause-replay"        => \&pause_replay_res,
+   "resume-replay"       => \&pause_replay_res,
+   "pause-replay-local"  => \&pause_replay_local_res,
+   "resume-replay-local" => \&pause_replay_local_res,
    "new-current-uuid"  => \&senseless_cmd,
    "dstate"            => \&nyi_cmd,
    "hidden-commands"   => \&ignore_cmd,

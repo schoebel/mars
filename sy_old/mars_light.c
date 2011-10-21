@@ -1888,6 +1888,26 @@ int __update_all_links(struct mars_global *global, struct mars_dent *parent, str
 }
 
 static
+bool _check_allow_replay(struct mars_global *global, struct mars_dent *parent)
+{
+	int res = false;
+	char *path = path_make("%s/todo-%s/allow-replay", parent->d_path, my_id());
+	struct mars_dent *allow_dent;
+
+	if (!path)
+		goto done;
+	allow_dent = mars_find_dent(global, path);
+	if (!allow_dent || !allow_dent->new_link)
+		goto done;
+	sscanf(allow_dent->new_link, "%d", &res);
+	MARS_DBG("'%s' -> %d\n", path, res);
+
+done:
+	brick_string_free(path);
+	return res;
+}
+
+static
 int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 {
 	struct mars_dent *parent = dent->d_parent;
@@ -1910,7 +1930,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	if (trans_brick->power.button && trans_brick->power.led_on && !trans_brick->power.led_off) {
 		bool do_stop = true;
 		if (trans_brick->do_replay) {
-			do_stop = trans_brick->replay_code != 0;
+			do_stop = trans_brick->replay_code != 0 || !_check_allow_replay(global, parent);
 		} else {
 			do_stop =
 				!rot->is_primary ||
@@ -1947,7 +1967,8 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 			goto done;
 		}
 
-		do_start = (!rot->do_replay || rot->start_pos != rot->end_pos);
+		do_start = (!rot->do_replay ||
+			    (rot->start_pos != rot->end_pos && _check_allow_replay(global, parent)));
 		MARS_DBG("do_start = %d\n", (int)do_start);
 
 		if (do_start) {
