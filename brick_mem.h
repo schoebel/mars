@@ -45,20 +45,6 @@ extern struct page *brick_iomap(void *data, int *offset, int *len);
 
 /////////////////////////////////////////////////////////////////////////
 
-// reservations / preallocation
-
-#define BRICK_MAX_ORDER 7
-
-extern bool brick_allow_freelist;
-
-struct mem_reservation {
-	int amount[BRICK_MAX_ORDER+1];
-};
-
-extern int brick_mem_reserve(struct mem_reservation *r);
-
-/////////////////////////////////////////////////////////////////////////
-
 // init
 
 extern int init_brick_mem(void);

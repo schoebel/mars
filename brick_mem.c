@@ -8,7 +8,6 @@
 #include <asm/atomic.h>
 
 #include "brick_mem.h"
-#include "brick_locks.h"
 
 #define BRICK_DEBUG_MEM 10000
 
@@ -190,212 +189,94 @@ EXPORT_SYMBOL_GPL(_brick_string_free);
 // block memory allocation
 
 #define USE_KERNEL_PAGES
+#define BRICK_MAX_ORDER 8
+//#define USE_OFFSET
+//#define USE_INTERNAL_FREELIST
 
-int len2order(int len)
-{
-	int order = BRICK_MAX_ORDER;
-	if (unlikely(len > (PAGE_SIZE << order) || len <= 0)) {
-		BRICK_ERR("trying to allocate %d bytes (max = %d)\n", len, (int)(PAGE_SIZE << order));
-		return -1;
-	}
-	while (order > 0 && (PAGE_SIZE << (order-1)) >= len) {
-		order--;
-	}
-	return order;
-}
-
-#ifdef BRICK_DEBUG_MEM
-static atomic_t op_count[BRICK_MAX_ORDER+1] = {};
-static atomic_t raw_count[BRICK_MAX_ORDER+1] = {};
-static atomic_t alloc_count[BRICK_MAX_ORDER+1] = {};
-static int alloc_max[BRICK_MAX_ORDER+1] = {};
+#ifdef USE_INTERNAL_FREELIST
+void *brick_freelist[BRICK_MAX_ORDER+1] = {};
+atomic_t freelist_count[BRICK_MAX_ORDER+1] = {};
 #endif
-
-static inline
-void *__brick_block_alloc(int order)
-{
-#ifdef BRICK_DEBUG_MEM
-	atomic_inc(&raw_count[order]);
-#endif
-#ifdef USE_KERNEL_PAGES
-	return (void*)__get_free_pages(GFP_BRICK, order);
-#else
-	return __vmalloc(PAGE_SIZE << order, GFP_BRICK, PAGE_KERNEL_IO);
-#endif
-}
-
-static inline
-void __brick_block_free(void *data, int order)
-{
-#ifdef USE_KERNEL_PAGES
-	__free_pages(virt_to_page((unsigned long)data), order);
-#else
-	vfree(data);
-#endif
-#ifdef BRICK_DEBUG_MEM
-	atomic_dec(&raw_count[order]);
-#endif
-}
-
-bool brick_allow_freelist = true;
-EXPORT_SYMBOL_GPL(brick_allow_freelist);
-
-#ifdef CONFIG_MARS_MEM_PREALLOC
-/* Note: we have no separate lists per CPU.
- * This should not hurt because the freelists are only used
- * for higher-order pages which should be rather low-frequency.
- */
-static spinlock_t freelist_lock[BRICK_MAX_ORDER+1];
-static void *brick_freelist[BRICK_MAX_ORDER+1] = {};
-static atomic_t freelist_count[BRICK_MAX_ORDER+1] = {};
-
-static
-void *_get_free(int order)
-{
-	void *data;
-	unsigned long flags;
-
-	traced_lock(&freelist_lock[order], flags);
-	data = brick_freelist[order];
-	if (likely(data)) {
-		void *next = *(void**)data;
-#ifdef BRICK_DEBUG_MEM // check for corruptions
-		void *copy = *(((void**)data)+1);
-		if (unlikely(next != copy)) { // found a corruption
-			// prevent further trouble by leaving a memleak
-			brick_freelist[order] = NULL;
-			traced_unlock(&freelist_lock[order], flags);
-			BRICK_ERR("freelist corruption at %p (next %p != %p, murdered = %d), order = %d\n", data, next, copy, atomic_read(&freelist_count[order]), order);
-			return NULL;
-		}
-#endif
-		brick_freelist[order] = next;
-		atomic_dec(&freelist_count[order]);
-	}
-	traced_unlock(&freelist_lock[order], flags);
-	return data;
-}
-
-static
-void _put_free(void *data, int order)
-{
-	void *next;
-	unsigned long flags;
-
-	traced_lock(&freelist_lock[order], flags);
-	next = brick_freelist[order];
-	*(void**)data = next;
-#ifdef BRICK_DEBUG_MEM // insert redundant copy for checking
-	*(((void**)data)+1) = next;
-#endif
-	brick_freelist[order] = data;
-	traced_unlock(&freelist_lock[order], flags);
-	atomic_inc(&freelist_count[order]);
-}
-
-static
-void _free_all(void)
-{
-	int order;
-	for (order = BRICK_MAX_ORDER; order > 0; order--) {
-		for (;;) {
-			void *data = _get_free(order);
-			if (!data)
-				break;
-			__brick_block_free(data, order);
-		}
-	}
-}
-
-int brick_mem_reserve(struct mem_reservation *r)
-{
-	int order;
-	int status = 0;
-	for (order = BRICK_MAX_ORDER; order > 0; order--) {
-		int max = r->amount[order];
-		int i;
-		BRICK_INF("preallocating %d at order %d\n", max, order);
-		if (max >= 0) {
-			for (i = 0; i < max; i++) {
-				void *data = __brick_block_alloc(order);
-				if (likely(data)) {
-					_put_free(data, order);
-				} else {
-					status = -ENOMEM;
-				}
-			}
-		} else {
-			for (i = 0; i < -max; i++) {
-				void *data = _get_free(order);
-				if (likely(data)) {
-					__brick_block_free(data, order);
-				}
-			}
-		}
-	}
-	return status;
-}
-#else
-int brick_mem_reserve(struct mem_reservation *r)
-{
-	BRICK_INF("preallocation is not compiled in\n");
-	return 0;
-}
-#endif
-EXPORT_SYMBOL_GPL(brick_mem_reserve);
 
 void *_brick_block_alloc(loff_t pos, int len, int line)
 {
+	int offset = 0;
 	void *data;
-	int order = len2order(len);
-#ifdef BRICK_DEBUG_MEM
-	int count;
-#endif
-
-	if (unlikely(order < 0)) {
+#ifdef USE_KERNEL_PAGES
+	int order = BRICK_MAX_ORDER;
+	if (unlikely(len > (PAGE_SIZE << order) || len <=0)) {
 		BRICK_ERR("trying to allocate %d bytes (max = %d)\n", len, (int)(PAGE_SIZE << order));
 		return NULL;
 	}
-
+#endif
 #ifdef CONFIG_DEBUG_KERNEL
 	might_sleep();
 #endif
-
-#ifdef BRICK_DEBUG_MEM
-	atomic_inc(&op_count[order]);
-	atomic_inc(&alloc_count[order]);
-	count = atomic_read(&alloc_count[order]);
-	if (count > alloc_max[order])
-		alloc_max[order] = count;
+#ifdef USE_OFFSET
+	offset = pos & (PAGE_SIZE-1);
 #endif
-
-#ifdef CONFIG_MARS_MEM_PREALLOC
-	data = NULL;
-	if (order > 0)
-		data = _get_free(order);
-	if (!data)
+#ifdef USE_KERNEL_PAGES
+	len += offset;
+	while (order > 0 && (PAGE_SIZE << (order-1)) >= len) {
+		order--;
+	}
+#ifdef USE_INTERNAL_FREELIST
+	data = brick_freelist[order];
+	if (data) {
+		brick_freelist[order] = *(void**)data;
+		atomic_dec(&freelist_count[order]);
+	} else
 #endif
-		data = __brick_block_alloc(order);
+	data = (void*)__get_free_pages(GFP_BRICK, order);
+#else
+	data = __vmalloc(len + offset, GFP_BRICK, PAGE_KERNEL_IO);
+#endif
+	if (likely(data)) {
+		data += offset;
+	}
 	return data;
 }
 EXPORT_SYMBOL_GPL(_brick_block_alloc);
 
 void brick_block_free(void *data, int len)
 {
-	int order;
+	int offset = 0;
+#ifdef USE_KERNEL_PAGES
+	int order = BRICK_MAX_ORDER;
+#endif
 	if (!data) {
 		return;
 	}
-	order = len2order(len);
-#ifdef CONFIG_MARS_MEM_PREALLOC
-	if (order > 0 && brick_allow_freelist) {
-		_put_free(data, order);
+#ifdef USE_OFFSET
+	offset = ((unsigned long)data) & (PAGE_SIZE-1);
+#endif
+	data -= offset;
+#ifdef USE_KERNEL_PAGES
+	len += offset;
+	while (order > 0 && (PAGE_SIZE << (order-1)) >= len) {
+		order--;
+	}
+#ifdef USE_INTERNAL_FREELIST
+	if (order > 0 && atomic_read(&freelist_count[order]) < 500) {
+		static int max[BRICK_MAX_ORDER+1] = {};
+		int now;
+		*(void**)data = brick_freelist[order];
+		brick_freelist[order] = data;
+		atomic_inc(&freelist_count[order]);
+		now = atomic_read(&freelist_count[order]);
+		if (now > max[order] + 50) {
+			int i;
+			max[order] = now;
+			BRICK_INF("now %d freelist members at order %d (len = %d)\n", now, order, len);
+			for (i = 0; i <= BRICK_MAX_ORDER; i++) {
+				BRICK_INF("  %d : %4d\n", i, atomic_read(&freelist_count[i]));
+			}
+		}
 	} else
 #endif
-		__brick_block_free(data, order);
-
-#ifdef BRICK_DEBUG_MEM
-	atomic_dec(&alloc_count[order]);
+	__free_pages(virt_to_page((unsigned long)data), order);
+#else
+	vfree(data);
 #endif
 }
 EXPORT_SYMBOL_GPL(brick_block_free);
@@ -428,13 +309,6 @@ void brick_mem_statistics(void)
 	int count = 0;
 	int places = 0;
 
-#ifdef CONFIG_MARS_MEM_PREALLOC
-	BRICK_INF("======== page allocation:\n");
-	for (i = 0; i <= BRICK_MAX_ORDER; i++) {
-		BRICK_INF("pages order = %d operations = %9d freelist_count = %3d raw_count = %5d alloc_count = %5d max_count = %5d\n", i, atomic_read(&op_count[i]), atomic_read(&freelist_count[i]), atomic_read(&raw_count[i]), atomic_read(&alloc_count[i]), alloc_max[i]);
-	}
-#endif
-	BRICK_INF("======== brick_mem allocation:\n");
 	for (i = 0; i < BRICK_DEBUG_MEM; i++) {
 		int val = atomic_read(&mem_count[i]);
 		if (val) {
@@ -462,12 +336,6 @@ EXPORT_SYMBOL_GPL(brick_mem_statistics);
 
 int __init init_brick_mem(void)
 {
-#ifdef CONFIG_MARS_MEM_PREALLOC
-	int i;
-	for (i = BRICK_MAX_ORDER; i >= 0; i--) {
-		spin_lock_init(&freelist_lock[i]);
-	}
-#endif
 #ifdef LIMIT_MEM // provisionary
 	brick_global_memlimit = total_swapcache_pages * (PAGE_SIZE / 4);
 	BRICK_INF("brick_global_memlimit = %lld\n", brick_global_memlimit);
@@ -478,9 +346,6 @@ int __init init_brick_mem(void)
 
 void __exit exit_brick_mem(void)
 {
-#ifdef CONFIG_MARS_MEM_PREALLOC
-	_free_all();
-#endif
 	brick_mem_statistics();
 }
 
