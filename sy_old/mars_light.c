@@ -1494,11 +1494,13 @@ int make_log_step(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
 	struct mars_dent *parent = dent->d_parent;
-	struct mars_rotate *rot = parent->d_private;
+	struct mars_rotate *rot;
 	struct trans_logger_brick *trans_brick;
 	struct mars_dent *prev_log;
 	int status = -EINVAL;
 
+	CHECK_PTR(parent, err);
+	rot = parent->d_private;
 	CHECK_PTR(rot, err);
 
 	status = 0;
