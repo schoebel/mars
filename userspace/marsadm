@@ -378,15 +378,16 @@ sub logrotate_res {
 
 sub _allowed_logdelete {
   my ($cmd, $res) = @_;
-  my $max = -1;
+  my $min = -1;
   my @paths = glob("$mars/resource-$res/replay-*") or die "cannot find any replay symlinks\n";
   foreach my $path (@paths) {
     my $target = readlink($path) or die "cannot read symlink '$path'\n";
     my $nr = $target;
-    $nr =~ s/^.*log-([0-9]+)-.+$/$1/;
-    $max = $nr if $nr > $max;
+    $nr =~ s/^log-([0-9]+)-.*$/$1/;
+    $min = $nr if ($nr < $min || $min < 0);
   }
-  return $max;
+  print "max allowed deletable logfile number: $min\n";
+  return $min;
 }
 
 sub _create_delete {
@@ -405,14 +406,14 @@ sub _create_delete {
 
 sub logdelete_res {
   my ($cmd, $res) = @_;
-  my @paths = glob("$mars/resource-$res/log-*-$host") or die "cannot find any logfiles\n";
+  my @paths = glob("$mars/resource-$res/log-*") or die "cannot find any logfiles\n";
   @paths = sort(@paths);
   my $first = shift(@paths);
   print "chosen '$first' for deletion\n";
   my $nr = $first;
   $nr =~ s/^.*log-([0-9]+)-.+$/$1/;
   my $max = _allowed_logdelete(@_);
-  die "only logfile numbers smaller than $max are allowed to be deleted\n" unless $nr < $max;
+  die "only logfile numbers truly smaller than $max are allowed to be deleted\n" unless $nr < $max;
   _create_delete($first);
 }
 
