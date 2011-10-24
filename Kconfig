@@ -3,7 +3,7 @@
 #
 
 config MARS
-	tristate "storage system MARS"
+	tristate "storage system MARS (EXPERIMENTAL)"
 	default n
 	---help---
 	Experimental storage System. Only compile as modules!
@@ -15,6 +15,13 @@ config MARS_BIGMODULE
 	select MARS_HAVE_BIGMODULE
 	---help---
 	Experimental storage System. Only compile as modules!
+
+config MARS_MEM_PREALLOC
+	bool "avoid memory fragmentation by preallocation (EXPERIMENTAL)"
+	depends on MARS
+	default y
+	---help---
+	Experimental storage System.
 
 config MARS_HUNG
 	bool "hangup on kernel stacktrace (only for debugging)"

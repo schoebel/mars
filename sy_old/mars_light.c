@@ -3029,6 +3029,17 @@ done:
 	return status;
 }
 
+static struct mem_reservation global_reserve = {
+	.amount = {
+		[1] = 32,
+		[2] = 32,
+		[3] = 32,
+		[4] = 32,
+		[5] = 32,
+		[6] = 32,
+	},
+};
+
 #ifdef CONFIG_MARS_HAVE_BIGMODULE
 #define INIT_MAX 32
 static char *exit_names[INIT_MAX] = {};
@@ -3060,6 +3071,8 @@ static void __exit exit_light(void)
 		kthread_stop(thread);
 		put_task_struct(thread);
 	}
+
+	brick_allow_freelist = false;
 
 #ifdef CONFIG_MARS_HAVE_BIGMODULE
 	while (exit_fn_nr > 0) {
@@ -3095,6 +3108,8 @@ static int __init init_light(void)
 	DO_INIT(sy_net);
 	DO_INIT(mars_proc);
 #endif
+
+	brick_mem_reserve(&global_reserve);
 
 	thread = kthread_create(light_thread, NULL, "mars_light");
 	if (IS_ERR(thread)) {
