@@ -229,6 +229,7 @@ sub _create_cluster {
   system("mkdir $mars/ips") unless -d "$mars/ips";
   system("mkdir $mars/defaults") unless -d "$mars/defaults";
   system("mkdir $mars/defaults-$host") unless -d "$mars/defaults-$host";
+  system("mkdir $mars/todo-global") unless -d "$mars/todo-global";
   symlink($ip, "$mars/ips/ip-$host");
 }
 
@@ -373,6 +374,46 @@ sub logrotate_res {
   my $next = sprintf("$mars/resource-$res/log-%09d-$host", $nr + 1);
   die "logfile '$next' already exists\n" if -e $next;
   system("touch $next");
+}
+
+sub _allowed_logdelete {
+  my ($cmd, $res) = @_;
+  my $max = -1;
+  my @paths = glob("$mars/resource-$res/replay-*") or die "cannot find any replay symlinks\n";
+  foreach my $path (@paths) {
+    my $target = readlink($path) or die "cannot read symlink '$path'\n";
+    my $nr = $target;
+    $nr =~ s/^.*log-([0-9]+)-.+$/$1/;
+    $max = $nr if $nr > $max;
+  }
+  return $max;
+}
+
+sub _create_delete {
+  my ($target) = @_;
+  my $nr = 0;
+  my @paths = glob("$mars/todo-global/delete-*");
+  if(@paths) {
+    my $last = pop(@paths);
+    $nr = $last;
+    $nr =~ s/^.*delete-([0-9]+)$/$1/;
+  }
+  my $new = sprintf("$mars/todo-global/delete-%09d", $nr + 1);
+  print "create symlink $new -> $target\n";
+  symlink($target, $new);
+}
+
+sub logdelete_res {
+  my ($cmd, $res) = @_;
+  my @paths = glob("$mars/resource-$res/log-*-$host") or die "cannot find any logfiles\n";
+  @paths = sort(@paths);
+  my $first = shift(@paths);
+  print "chosen '$first' for deletion\n";
+  my $nr = $first;
+  $nr =~ s/^.*log-([0-9]+)-.+$/$1/;
+  my $max = _allowed_logdelete(@_);
+  die "only logfile numbers smaller than $max are allowed to be deleted\n" unless $nr < $max;
+  _create_delete($first);
 }
 
 sub attach_res {
@@ -523,6 +564,9 @@ my %cmd_table =
    "create-resource"   => \&create_res,
    "join-resource"     => \&create_res,
    "logrotate"         => \&logrotate_res,
+   "log-rotate"        => \&logrotate_res,
+   "logdelete"         => \&logdelete_res,
+   "log-delete"        => \&logdelete_res,
    "fake-sync"         => \&fake_local_res,
 
    # compatible keywords

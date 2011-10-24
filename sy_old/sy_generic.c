@@ -96,6 +96,20 @@ int mars_mkdir(const char *path)
 }
 EXPORT_SYMBOL_GPL(mars_mkdir);
 
+int mars_unlink(const char *path)
+{
+	mm_segment_t oldfs;
+	int status;
+	
+	oldfs = get_fs();
+	set_fs(get_ds());
+	status = sys_unlink(path);
+	set_fs(oldfs);
+
+	return status;
+}
+EXPORT_SYMBOL_GPL(mars_unlink);
+
 int mars_symlink(const char *oldpath, const char *newpath, const struct timespec *stamp, uid_t uid)
 {
 	char *tmp = backskip_replace(newpath, '/', true, "/.tmp-"); 
@@ -270,7 +284,7 @@ EXPORT_SYMBOL_GPL(mars_power_button_recursive);
 
 struct mars_cookie {
 	struct mars_global *global;
-	mars_dent_checker checker;
+	mars_dent_checker_fn checker;
 	char *path;
 	struct mars_dent *parent;
 	int pathlen;
@@ -479,7 +493,7 @@ static int _mars_readdir(struct mars_cookie *cookie)
 	return status;
 }
 
-int mars_dent_work(struct mars_global *global, char *dirname, int allocsize, mars_dent_checker checker, mars_dent_worker worker, void *buf, int maxdepth)
+int mars_dent_work(struct mars_global *global, char *dirname, int allocsize, mars_dent_checker_fn checker, mars_dent_worker_fn worker, void *buf, int maxdepth)
 {
 	static int version = 0;
 	struct mars_cookie cookie = {
@@ -555,6 +569,20 @@ restart:
 		goto restart;
 	}
 
+	/* Preparation pass.
+	 * Here is a chance to mark some dents for removal
+	 * (or other types of non-destructive operations)
+	 */
+	for (tmp = global->dent_anchor.next, next = tmp->next; tmp != &global->dent_anchor; tmp = next, next = next->next) {
+		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
+		msleep(10); // yield
+		MARS_IO("forward prepare '%s'\n", dent->d_path);
+		status = worker(buf, dent, true, false);
+		if (status)
+			MARS_IO("forward treat '%s' status = %d\n", dent->d_path, status);
+		total_status |= status;
+	}
+
 	/* Remove all dents marked for removal.
 	 */
 	for (tmp = global->dent_anchor.next, next = tmp->next; tmp != &global->dent_anchor; tmp = next, next = next->next) {
@@ -576,7 +604,7 @@ restart:
 		up_read(&global->dent_mutex);
 		msleep(10); // yield
 		MARS_IO("forward treat '%s'\n", dent->d_path);
-		status = worker(buf, dent, false);
+		status = worker(buf, dent, false, false);
 		if (status)
 			MARS_IO("forward treat '%s' status = %d\n", dent->d_path, status);
 		down_read(&global->dent_mutex);
@@ -590,7 +618,7 @@ restart:
 		up_read(&global->dent_mutex);
 		msleep(10); // yield
 		MARS_IO("backward treat '%s'\n", dent->d_path);
-		status = worker(buf, dent, true);
+		status = worker(buf, dent, false, true);
 		if (status)
 			MARS_IO("backward treat '%s' status = %d\n", dent->d_path, status);
 		down_read(&global->dent_mutex);
@@ -607,7 +635,6 @@ done:
 }
 EXPORT_SYMBOL_GPL(mars_dent_work);
 
-static
 struct mars_dent *_mars_find_dent(struct mars_global *global, const char *path)
 {
 	struct mars_dent *res = NULL;
@@ -627,7 +654,7 @@ struct mars_dent *_mars_find_dent(struct mars_global *global, const char *path)
 
 	return res;
 }
-//EXPORT_SYMBOL_GPL(_mars_find_dent);
+EXPORT_SYMBOL_GPL(_mars_find_dent);
 
 struct mars_dent *mars_find_dent(struct mars_global *global, const char *path)
 {

@@ -57,10 +57,11 @@ struct mars_global {
 	int global_version;
 };
 
-typedef int (*mars_dent_checker)(struct mars_dent *parent, const char *name, int namlen, unsigned int d_type, int *prefix, int *serial);
-typedef int (*mars_dent_worker)(struct mars_global *global, struct mars_dent *dent, bool direction);
+typedef int (*mars_dent_checker_fn)(struct mars_dent *parent, const char *name, int namlen, unsigned int d_type, int *prefix, int *serial);
+typedef int (*mars_dent_worker_fn)(struct mars_global *global, struct mars_dent *dent, bool prepare, bool direction);
 
-extern int mars_dent_work(struct mars_global *global, char *dirname, int allocsize, mars_dent_checker checker, mars_dent_worker worker, void *buf, int maxdepth);
+extern int mars_dent_work(struct mars_global *global, char *dirname, int allocsize, mars_dent_checker_fn checker, mars_dent_worker_fn worker, void *buf, int maxdepth);
+extern struct mars_dent *_mars_find_dent(struct mars_global *global, const char *path);
 extern struct mars_dent *mars_find_dent(struct mars_global *global, const char *path);
 extern int mars_find_dent_all(struct mars_global *global, char *prefix, struct mars_dent ***table);
 extern void mars_kill_dent(struct mars_dent *dent);
@@ -112,6 +113,7 @@ extern struct mars_brick *make_brick_all(
  */
 extern int mars_stat(const char *path, struct kstat *stat, bool use_lstat);
 extern int mars_mkdir(const char *path);
+extern int mars_unlink(const char *path);
 extern int mars_symlink(const char *oldpath, const char *newpath, const struct timespec *stamp, uid_t uid);
 extern int mars_rename(const char *oldpath, const char *newpath);
 extern int mars_chmod(const char *path, mode_t mode);

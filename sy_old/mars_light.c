@@ -55,6 +55,7 @@ struct light_class {
 	bool   cl_hostcontext;
 	bool   cl_serial;
 	int    cl_father;
+	light_worker_fn cl_prepare;
 	light_worker_fn cl_forward;
 	light_worker_fn cl_backward;
 };
@@ -2406,12 +2407,57 @@ done:
 	return status;
 }
 
+static int prepare_delete(void *buf, struct mars_dent *dent)
+{
+	struct mars_global *global = buf;
+	struct mars_dent *target;
+	struct mars_dent *response;
+	const char *response_path = NULL;
+	int max_serial = 0;
+
+	if (!global || !dent || !dent->new_link) {
+		goto done;
+	}
+	target = _mars_find_dent(global, dent->new_link);
+	if (target) {
+		mars_unlink(dent->new_link);
+		target->d_killme = true;
+		MARS_DBG("target '%s' deleted and marked for removal\n", dent->new_link);
+	} else {
+		MARS_DBG("target '%s' does no longer exist\n", dent->new_link);
+	}
+	
+	response_path = path_make("/mars/todo-global/deleted-%s", my_id());
+	if (!response_path) {
+		MARS_ERR("cannot build response path for '%s'\n", dent->new_link);
+		goto done;
+	}
+	response = _mars_find_dent(global, response_path);
+	if (response && response->new_link) {
+		sscanf(response->new_link, "%d", &max_serial);
+	}
+	if (dent->d_serial > max_serial) {
+		char response_val[16];
+		max_serial = dent->d_serial;
+		snprintf(response_val, sizeof(response_val), "%09d", max_serial);
+		mars_symlink(response_val, response_path, NULL, 0);
+	}
+
+ done:
+	brick_string_free(response_path);
+	return 0;
+}
+
 ///////////////////////////////////////////////////////////////////////
 
 // the order is important!
 enum {
 	// root element: this must have index 0
 	CL_ROOT,
+	// global todos
+	CL_GLOBAL_TODO,
+	CL_GLOBAL_TODO_DELETE,
+	CL_GLOBAL_TODO_ITEMS,
 	// replacement for DNS in kernelspace
 	CL_IPS,
 	CL_PEERS,
@@ -2446,6 +2492,32 @@ static const struct light_class light_classes[] = {
 	/* Placeholder for root node /mars/
 	 */
 	[CL_ROOT] = {
+	},
+
+	/* Subdirectory for global controlling items...
+	 */
+	[CL_GLOBAL_TODO] = {
+		.cl_name = "todo-global",
+		.cl_len = 11,
+		.cl_type = 'd',
+		.cl_hostcontext = false,
+		.cl_father = CL_ROOT,
+	},
+	/* ... and its contents
+	 */
+	[CL_GLOBAL_TODO_DELETE] = {
+		.cl_name = "delete-",
+		.cl_len = 7,
+		.cl_type = 'l',
+		.cl_serial = true,
+		.cl_father = CL_GLOBAL_TODO,
+		.cl_prepare = prepare_delete,
+	},
+	[CL_GLOBAL_TODO_ITEMS] = {
+		.cl_name = "",
+		.cl_len = 0, // catch any
+		.cl_type = 'l',
+		.cl_father = CL_GLOBAL_TODO,
 	},
 
 	/* Directory containing the addresses of all peers
@@ -2798,7 +2870,7 @@ done:
 /* Do some syntactic checks, then delegate work to the real worker functions
  * from the light_classes[] table.
  */
-static int light_worker(struct mars_global *global, struct mars_dent *dent, bool direction)
+static int light_worker(struct mars_global *global, struct mars_dent *dent, bool prepare, bool direction)
 {
 	light_worker_fn worker;
 	int class = dent->d_class;
@@ -2845,7 +2917,9 @@ static int light_worker(struct mars_global *global, struct mars_dent *dent, bool
 			return -EINVAL;
 		}
 	}
-	if (direction) {
+	if (prepare) {
+		worker = light_classes[class].cl_prepare;
+	} else if (direction) {
 		worker = light_classes[class].cl_backward;
 	} else {
 		worker = light_classes[class].cl_forward;
