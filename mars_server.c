@@ -308,6 +308,7 @@ int handler_thread(void *data)
 				(const struct generic_brick_type*)_bio_brick_type,
 				(const struct generic_brick_type*[]){},
 				NULL,
+				1, // start always
 				path,
 				(const char *[]){},
 				0);

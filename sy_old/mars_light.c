@@ -528,6 +528,7 @@ int __make_copy(
 				       (const struct generic_brick_type*)&bio_brick_type,
 				       (const struct generic_brick_type*[]){},
 				       NULL,
+				       1, // start always
 				       cc.fullpath[i],
 				       (const char *[]){},
 				       0);
@@ -552,6 +553,7 @@ int __make_copy(
 			       (const struct generic_brick_type*)&copy_brick_type,
 			       (const struct generic_brick_type*[]){NULL,NULL,NULL,NULL},
 			       "%s",
+			       0, // let switch decide
 			       "%s",
 			       (const char *[]){"%s", "%s", "%s", "%s"},
 			       4,
@@ -1424,6 +1426,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 			       (const struct generic_brick_type*)&aio_brick_type,
 			       (const struct generic_brick_type*[]){},
 			       NULL,
+			       1, // start always
 			       "%s/%s",
 			       (const char *[]){},
 			       0,
@@ -1465,6 +1468,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 			       (const struct generic_brick_type*)&trans_logger_brick_type,
 			       (const struct generic_brick_type*[]){NULL},
 			       switch_path,
+			       0, // let switch decide
 			       "%s/logger", 
 			       (const char *[]){"%s/data-%s"},
 			       1,
@@ -1803,6 +1807,7 @@ void _rotate_trans(struct mars_rotate *rot)
 				       (const struct generic_brick_type*)&aio_brick_type,
 				       (const struct generic_brick_type*[]){},
 				       NULL,
+				       0, // let switch decide
 				       rot->next_relevant_log->d_path,
 				       (const char *[]){},
 				       0);
@@ -1910,6 +1915,7 @@ int _start_trans(struct mars_rotate *rot)
 			       (const struct generic_brick_type*)&aio_brick_type,
 			       (const struct generic_brick_type*[]){},
 			       NULL,
+			       1, // start always
 			       rot->relevant_log->d_path,
 			       (const char *[]){},
 			       0);
@@ -2154,6 +2160,7 @@ int make_bio(void *buf, struct mars_dent *dent)
 			       (const struct generic_brick_type*)&bio_brick_type,
 			       (const struct generic_brick_type*[]){},
 			       NULL,
+			       1, // start always
 			       dent->d_path,
 			       (const char *[]){},
 			       0);
@@ -2246,7 +2253,8 @@ int make_dev(void *buf, struct mars_dent *dent)
 			       dent->d_argv[0],
 			       (const struct generic_brick_type*)&if_brick_type,
 			       (const struct generic_brick_type*[]){(const struct generic_brick_type*)&trans_logger_brick_type},
-			       switch_on ? NULL : "", // KLUDGE
+			       NULL,
+			       switch_on ? 1 : -1,
 			       "%s/device-%s", 
 			       (const char *[]){"%s/logger"},
 			       1,
@@ -2325,6 +2333,7 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 			       (const struct generic_brick_type*)&bio_brick_type,
 			       (const struct generic_brick_type*[]){},
 			       NULL,
+			       0,
 			       "%s",
 			       (const char *[]){},
 			       0,
@@ -2346,6 +2355,7 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 			       (const struct generic_brick_type*)&if_brick_type,
 			       (const struct generic_brick_type*[]){NULL},
 			       NULL,
+			       0,
 			       "%s/directdevice-%s",
 			       (const char *[]){ "%s" },
 			       1,

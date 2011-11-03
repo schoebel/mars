@@ -1163,6 +1163,7 @@ struct mars_brick *make_brick_all(
 	const struct generic_brick_type *new_brick_type,
 	const struct generic_brick_type *prev_brick_type[],
 	const char *switch_fmt,
+	int switch_override, // -1 = off, +1 = on, 0 = let switch decide
 	const char *new_fmt,
 	const char *prev_fmt[],
 	int prev_count,
@@ -1207,6 +1208,10 @@ struct mars_brick *make_brick_all(
 			sscanf(test->new_link, "%d", &switch_state);
 		}
 	}
+	if (switch_override > 0)
+		switch_state = true;
+	else if (switch_override < 0)
+		switch_state = false;
 	if (global && !global->global_power.button) {
 		switch_state = false;
 	}
@@ -1244,6 +1249,10 @@ struct mars_brick *make_brick_all(
 			goto err;
 		}
 		MARS_DBG("------> predecessor %d path = '%s'\n", i, path);
+		if (!prev[i]->power.led_on) {
+			switch_state = false;
+			MARS_DBG("predecessor power is not on\n");
+		}
 	}
 
 	// some generic brick replacements (better performance / network functionality)
