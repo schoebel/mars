@@ -587,6 +587,9 @@ int trans_logger_ref_get(struct trans_logger_output *output, struct mref_object 
 
 	MARS_IO("pos = %lld len = %d\n", mref->ref_pos, mref->ref_len);
 
+	if (mref->ref_len > brick->max_mref_size && brick->max_mref_size > 0)
+		mref->ref_len = brick->max_mref_size;
+
 	atomic_inc(&brick->outer_balance_count);
 
 	if (atomic_read(&mref->ref_count) > 0) { // setup already performed

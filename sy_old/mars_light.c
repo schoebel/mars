@@ -66,6 +66,8 @@ struct light_class {
 
 #define CONF_TRANS_SHADOW_LIMIT (65536 * 1) // don't fill the hashtable too much
 #define CONF_TRANS_CHUNKSIZE  (128 * 1024)
+#define CONF_TRANS_MAX_MREF_SIZE 0
+//#define CONF_TRANS_MAX_MREF_SIZE PAGE_SIZE
 //#define CONF_TRANS_ALIGN      512
 #define CONF_TRANS_ALIGN      0
 //#define FLUSH_DELAY (HZ / 100 + 1)
@@ -166,6 +168,7 @@ int _set_trans_params(struct mars_brick *_brick, void *private)
 		trans_brick->debug_shortcut = true;
 #endif
 
+		trans_brick->max_mref_size = CONF_TRANS_MAX_MREF_SIZE;
 		trans_brick->align_size = CONF_TRANS_ALIGN;
 		trans_brick->chunk_size = CONF_TRANS_CHUNKSIZE;
 		trans_brick->flush_delay = FLUSH_DELAY;

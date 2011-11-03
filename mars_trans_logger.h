@@ -111,6 +111,7 @@ struct trans_logger_brick {
 	// parameters
 	int shadow_mem_limit; // max # master shadows
 	int limit_congest;// limit phase1 congestion.
+	int max_mref_size;// shorten mrefs to this maxlen
 	int align_size;   // alignment between requests
 	int chunk_size;   // must be at least 8K (better 64k)
 	int flush_delay;  // delayed firing of incomplete chunks
