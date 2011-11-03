@@ -75,7 +75,8 @@ struct light_class {
 
 #define CONF_TRANS_BATCHLEN 1024
 //#define CONF_TRANS_FLYING 4
-#define CONF_TRANS_FLYING 128
+//#define CONF_TRANS_FLYING 128
+#define CONF_TRANS_FLYING 16
 #define CONF_TRANS_PRIO   MARS_PRIO_HIGH
 #define CONF_TRANS_LOG_READS false
 //#define CONF_TRANS_LOG_READS true
@@ -381,7 +382,7 @@ struct mars_rotate {
 	struct mars_dent *relevant_log;
 	struct mars_brick *relevant_brick;
 	struct mars_dent *next_relevant_log;
-	struct mars_dent *current_log;
+	struct mars_brick *next_relevant_brick;
 	struct mars_dent *prev_log;
 	struct mars_dent *next_log;
 	struct if_brick *if_brick;
@@ -1532,6 +1533,7 @@ int make_log_step(void *buf, struct mars_dent *dent)
 		if (!rot->next_relevant_log) {
 			rot->next_relevant_log = dent;
 		}
+		MARS_DBG("next_relevant_log = %p\n", rot->next_relevant_log);
 		goto ok;
 	}
 
@@ -1691,7 +1693,6 @@ int _make_logging_status(struct mars_rotate *rot)
 			} else {
 				MARS_DBG("nothing to do on last transaction log '%s'\n", dent->d_path);
 			}
-			//trans_brick->current_pos = 0;
 			rot->last_jiffies = jiffies;
 			//mars_trigger();
 		}
@@ -1730,18 +1731,118 @@ done:
 }
 
 static
+void _prepare_trans_input(struct trans_logger_input *trans_input, struct mars_dent *log_dent)
+{
+	brick_string_free(trans_input->inf_host);
+	trans_input->inf_host = brick_strdup(log_dent->d_rest);
+	trans_input->inf_sequence = log_dent->d_serial;
+	trans_input->replay_min_pos = 0;
+	trans_input->replay_max_pos = 0;
+}
+
+#ifdef CONFIG_MARS_LOGROT
+static
+int _get_free_input(struct trans_logger_brick *trans_brick)
+{
+	int nr = (((trans_brick->log_input_nr - TL_INPUT_LOG1) + 1) % 2) + TL_INPUT_LOG1;
+	struct trans_logger_input *candidate;
+	MARS_DBG("nr = %d\n", nr);
+	candidate = trans_brick->inputs[nr];
+	MARS_DBG("candidate = %p\n", candidate);
+	if (!candidate || candidate->is_operating || candidate->connect) {
+		MARS_DBG("%d unusable!\n", nr);
+		return -EEXIST;
+	}
+	return nr;
+}
+
+static
+void _rotate_trans(struct mars_rotate *rot)
+{
+	struct trans_logger_brick *trans_brick = rot->trans_brick;
+	int old_nr = trans_brick->old_input_nr;
+	int log_nr = trans_brick->log_input_nr;
+	int next_nr;
+
+	MARS_DBG("log_input_nr = %d old_input_nr = %d next_relevant_log = %p\n", log_nr, old_nr, rot->next_relevant_log);
+
+	// try to cleanup old log
+	if (log_nr != old_nr) {
+		struct trans_logger_input *trans_input = trans_brick->inputs[old_nr];
+		if (!trans_input->connect) {
+			MARS_DBG("ignoring unused input %d\n", old_nr);
+		} else if (trans_input->replay_min_pos == trans_input->replay_max_pos) {
+			int status = generic_disconnect((void*)trans_input);
+			if (status < 0) {
+				MARS_ERR("disconnect failed\n");
+			} else {
+				MARS_INF("closed old transaction log (%d -> %d)\n", old_nr, log_nr);
+			}
+		} else {
+			MARS_DBG("old transaction replay not yet finished: %lld != %lld\n", trans_input->replay_min_pos, trans_input->replay_max_pos);
+		}
+	} 
+	// try to setup new log
+	else if (rot->next_relevant_log && (next_nr = _get_free_input(trans_brick)) >= 0) {
+		struct trans_logger_input *trans_input;
+		int status;
+
+		MARS_DBG("start switchover %d -> %d\n", old_nr, next_nr);
+
+		rot->next_relevant_brick =
+			make_brick_all(rot->global,
+				       rot->next_relevant_log,
+				       false,
+				       NULL,
+				       NULL,
+				       10 * HZ,
+				       rot->next_relevant_log->d_path,
+				       (const struct generic_brick_type*)&aio_brick_type,
+				       (const struct generic_brick_type*[]){},
+				       NULL,
+				       rot->next_relevant_log->d_path,
+				       (const char *[]){},
+				       0);
+		if (unlikely(!rot->next_relevant_brick)) {
+			MARS_ERR("could not open next transaction log '%s'\n", rot->next_relevant_log->d_path);
+			goto done;
+		}
+		trans_input = trans_brick->inputs[next_nr];
+		if (unlikely(!trans_input)) {
+			MARS_ERR("log input does not exist\n");
+			goto done;
+		}
+
+		_prepare_trans_input(trans_input, rot->next_relevant_log);
+
+		status = generic_connect((void*)trans_input, (void*)rot->next_relevant_brick->outputs[0]);
+		if (unlikely(status < 0)) {
+			MARS_ERR("connect failed\n");
+			goto done;
+		}
+		trans_brick->log_start_pos = 0;
+		trans_brick->new_input_nr = next_nr;
+		MARS_INF("started switchover to '%s'\n", rot->next_relevant_log->d_path);
+	}
+done: ;
+}
+#endif
+
+static
 void _change_trans(struct mars_rotate *rot)
 {
 	struct trans_logger_brick *trans_brick = rot->trans_brick;
-
+	
 	MARS_DBG("do_replay = %d start_pos = %lld end_pos = %lld\n", trans_brick->do_replay, rot->start_pos, rot->end_pos);
 
 	if (trans_brick->do_replay) {
 		trans_brick->replay_start_pos = rot->start_pos;
 		trans_brick->replay_end_pos = rot->end_pos;
-		trans_brick->replay_code = 0;
 	} else {
 		trans_brick->log_start_pos = rot->start_pos;
+#ifdef CONFIG_MARS_LOGROT
+		_rotate_trans(rot);
+#endif
 	}
 }
 
@@ -1750,6 +1851,7 @@ int _start_trans(struct mars_rotate *rot)
 {
 	struct trans_logger_brick *trans_brick = rot->trans_brick;
 	struct trans_logger_input *trans_input;
+	int nr;
 	int status;
 
 	/* Internal safety checks
@@ -1759,9 +1861,10 @@ int _start_trans(struct mars_rotate *rot)
 		MARS_ERR("logger instance does not exist\n");
 		goto done;
 	}
-	trans_input = trans_brick->inputs[TL_INPUT_FW_LOG1];
+	nr = trans_brick->new_input_nr;
+	trans_input = trans_brick->inputs[nr];
 	if (unlikely(!trans_input)) {
-		MARS_ERR("log input does not exist\n");
+		MARS_ERR("log input %d does not exist\n", nr);
 		goto done;
 	}
 	if (unlikely(!rot->aio_brick || !rot->relevant_log)) {
@@ -1821,9 +1924,8 @@ int _start_trans(struct mars_rotate *rot)
 
 	/* Supply all relevant parameters
 	 */
-	trans_input->inf_host = brick_strdup(rot->relevant_log->d_rest);
-	trans_input->inf_sequence = rot->relevant_log->d_serial;
 	trans_brick->do_replay = rot->do_replay;
+	_prepare_trans_input(trans_input, rot->relevant_log);
 	_change_trans(rot);
 
 	/* Switch on....
@@ -1857,7 +1959,7 @@ int _stop_trans(struct mars_rotate *rot)
 	 */
 	if (trans_brick->power.led_off) {
 		int i;
-		for (i = TL_INPUT_FW_LOG1; i <= TL_INPUT_BW_LOG2; i++) {
+		for (i = TL_INPUT_LOG1; i <= TL_INPUT_LOG2; i++) {
 			struct trans_logger_input *trans_input;
 			trans_input = trans_brick->inputs[i];
 			if (trans_input && trans_input->connect) {
@@ -1873,20 +1975,24 @@ done:
 static
 int __update_all_links(struct mars_global *global, struct mars_dent *parent, struct trans_logger_brick *trans_brick)
 {
-	struct trans_logger_input *old_input = NULL; // FIXME: kludge, do it right(tm)
-	int i;
-	int status = 0;
+	struct trans_logger_input *trans_input;
+	int nr = trans_brick->old_input_nr;
+	int status;
 
-	for (i = TL_INPUT_FW_LOG1; i <= TL_INPUT_FW_LOG2; i++) {
-		struct trans_logger_input *trans_input;
-		trans_input = trans_brick->inputs[i];
-		if (!trans_input || trans_input == old_input) {
-			continue;
-		}
-		status = _update_replaylink(parent, trans_input->inf_host, trans_input->inf_sequence, trans_input->replay_min_pos, trans_input->replay_max_pos, true);
-		status = _update_versionlink(global, parent, trans_input->inf_host, trans_input->inf_sequence, trans_input->replay_min_pos, trans_input->replay_max_pos);
-		old_input = trans_input;
+	if (nr < TL_INPUT_LOG1 || nr > TL_INPUT_LOG2) {
+		MARS_ERR("bad nr = %d\n", nr);
+		status = -EINVAL;
+		goto done;
 	}
+	trans_input = trans_brick->inputs[nr];
+	if (!trans_input) {
+		MARS_ERR("bad trans_input = %p\n", trans_input);
+		status = -EINVAL;
+		goto done;
+	}
+	status = _update_replaylink(parent, trans_input->inf_host, trans_input->inf_sequence, trans_input->replay_min_pos, trans_input->replay_max_pos, true);
+	status = _update_versionlink(global, parent, trans_input->inf_host, trans_input->inf_sequence, trans_input->replay_min_pos, trans_input->replay_max_pos);
+ done:
 	return status;
 }
 
@@ -1935,10 +2041,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		if (trans_brick->do_replay) {
 			do_stop = trans_brick->replay_code != 0 || !_check_allow_replay(global, parent);
 		} else {
-			do_stop =
-				!rot->is_primary ||
-				(rot->relevant_log && rot->relevant_log != rot->current_log) ||
-				(rot->current_log && !S_ISREG(rot->current_log->new_stat.mode));
+			do_stop = !rot->is_primary;
 		}
 
 		MARS_DBG("do_stop = %d\n", (int)do_stop);
@@ -1949,6 +2052,10 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		}
 		if (do_stop) {
 			status = _stop_trans(rot);
+#ifdef CONFIG_MARS_LOGROT
+		} else {
+			_change_trans(rot);
+#endif
 		}
 		goto done;
 	}
@@ -1979,7 +2086,6 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 			if (status >= 0) {
 				status = __update_all_links(global, parent, trans_brick);
 			}
-			rot->current_log = rot->relevant_log;
 		}
 	} else {
 		MARS_DBG("trans_brick %d %d %d\n", trans_brick->power.button, trans_brick->power.led_on, trans_brick->power.led_off);

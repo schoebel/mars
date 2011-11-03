@@ -80,6 +80,20 @@ sub check_sync_finished {
   print "OK, it seems that sync has finished on $host.\n";
 }
 
+sub check_primary {
+  my ($cmd, $res) = @_;
+  my $pri = "$mars/resource-$res/primary";
+  my $old = readlink($pri) or die "cannot determine current primary\n";
+  die "for operation '$cmd' I need to be primary\n" unless $old eq $host;
+}
+
+sub check_not_primary {
+  my ($cmd, $res) = @_;
+  my $pri = "$mars/resource-$res/primary";
+  my $old = readlink($pri) or die "cannot determine current primary\n";
+  die "operation '$cmd' cannot be executed on primary\n" if $old eq $host;
+}
+
 sub check_primary_gone {
   my ($res) = @_;
   for(;;) {
@@ -362,6 +376,7 @@ sub create_res {
 
 sub logrotate_res {
   my ($cmd, $res) = @_;
+  check_primary(@_);
   my @paths = glob("$mars/resource-$res/log-*-$host") or die "cannot find any logfiles\n";
   @paths = sort(@paths);
   my $last = pop(@paths);
@@ -534,12 +549,8 @@ sub primary_res {
 
 sub invalidate_res {
   my ($cmd, $res) = @_;
-  my $pri = "$mars/resource-$res/primary";
-  my $old = readlink($pri) or die "cannot determine current primary\n";
+  check_not_primary(@_);
   my $dst = "$mars/resource-$res/syncstatus-$host";
-
-  die "primary side cannot be invalidated\n" if $old eq $host;
-
   system("rm -f $dst");
   symlink("0", $dst) or die "cannot create invalidation symlink '$dst'\n";
 }

@@ -6,8 +6,22 @@
 
 #include "lib_log.h"
 
+bool is_log_ready(struct log_status *logst)
+{
+	return logst->max_flying <= 0 ||
+		atomic_read(&logst->mref_flying) < logst->max_flying;
+}
+EXPORT_SYMBOL_GPL(is_log_ready);
+
 void exit_logst(struct log_status *logst)
 {
+	int count = 0;
+	log_flush(logst);
+	while (atomic_read(&logst->mref_flying) > 0) {
+		if (!count++)
+			MARS_DBG("waiting for IO terminating...");
+		msleep(500);
+	}
 	exit_generic_object_layout(&logst->ref_object_layout);
 }
 EXPORT_SYMBOL_GPL(exit_logst);
@@ -29,6 +43,7 @@ EXPORT_SYMBOL_GPL(init_logst);
 
 struct log_cb_info {
 	struct mref_object *mref;
+	struct log_status *logst;
 	struct semaphore mutex;
 	atomic_t refcount;
 	int nr_cb;
@@ -49,6 +64,7 @@ static
 void log_write_endio(struct generic_callback *cb)
 {
 	struct log_cb_info *cb_info = cb->cb_private;
+	struct log_status *logst;
 	int i;
 
 	CHECK_PTR(cb_info, err);
@@ -69,6 +85,10 @@ void log_write_endio(struct generic_callback *cb)
 	}
 	cb_info->nr_cb = 0; // prevent late preio() callbacks
 	up(&cb_info->mutex);
+	logst = cb_info->logst;
+	CHECK_PTR(logst, done);
+	atomic_dec(&logst->mref_flying);
+ done:
 	put_log_cb_info(cb_info);
 	return;
 
@@ -107,12 +127,14 @@ void log_flush(struct log_status *logst)
 	logst->log_pos += logst->offset;
 
 	cb_info = logst->private;
-	SETUP_CALLBACK(mref, log_write_endio, cb_info);
 	logst->private = NULL;
+	SETUP_CALLBACK(mref, log_write_endio, cb_info);
+	cb_info->logst = logst;
 	mref->ref_rw = 1;
 
 	mars_trace(mref, "log_flush");
 
+	atomic_inc(&logst->mref_flying);
 	GENERIC_INPUT_CALL(logst->input, mref_io, mref);
 	GENERIC_INPUT_CALL(logst->input, mref_put, mref);
 
@@ -186,6 +208,11 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 				chunk_rest += logst->chunk_size;
 			}
 			mref->ref_len = chunk_rest;
+		}
+
+		while (!is_log_ready(logst)) {
+			MARS_DBG("this should not happen! ensure that is_log_ready() is called beforhand.\n");
+			msleep(10000); // punishment delay
 		}
 
 		for (;;) {

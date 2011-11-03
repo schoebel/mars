@@ -186,6 +186,16 @@ struct mars_socket *mars_accept_socket(struct mars_socket *msock, bool do_block)
 		if (unlikely(status < 0)) {
 			goto err;
 		}
+		if (unlikely(!new_socket || !new_socket->file)) {
+			status = -EBADF;
+			goto err;
+		}
+
+#if 0
+		if (!do_block) { // switch back to blocking mode
+			new_socket->file->f_flags &= ~O_NONBLOCK;
+		}
+#endif
 		
 		status = -ENOMEM;
 		new_msock = brick_zmem_alloc(sizeof(struct mars_socket));

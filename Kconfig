@@ -17,8 +17,15 @@ config MARS_BIGMODULE
 	Experimental storage System. Only compile as modules!
 
 config MARS_HUNG
-	bool "hangup on kernel stacktrace (only for debugging)"
+	bool "hangup on kernel stacktrace (EXPERIMENTAL!!!)"
 	depends on MARS && MARS_BIGMODULE!=m
+	default n
+	---help---
+	Experimental storage System.
+
+config MARS_LOGROT
+	bool "allow logrotate during operation (only for testing)"
+	depends on MARS
 	default n
 	---help---
 	Experimental storage System.

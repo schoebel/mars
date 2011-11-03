@@ -34,24 +34,20 @@ struct logger_head {
 
 ////////////////////////////////////////////////////////////////////
 
-#if 0
+#ifdef CONFIG_MARS_LOGROT
 
 #define TL_INPUT_READ         0
-#define TL_INPUT_WRITEBACK    1
-#define TL_INPUT_FW_LOG1      2
-#define TL_INPUT_FW_LOG2      3
-#define TL_INPUT_BW_LOG1      4
-#define TL_INPUT_BW_LOG2      5
-#define TL_INPUT_NR           6
+#define TL_INPUT_WRITEBACK    0
+#define TL_INPUT_LOG1         1
+#define TL_INPUT_LOG2         2
+#define TL_INPUT_NR           3
 
 #else
 
 #define TL_INPUT_READ         0
 #define TL_INPUT_WRITEBACK    0
-#define TL_INPUT_FW_LOG1      1
-#define TL_INPUT_FW_LOG2      1
-#define TL_INPUT_BW_LOG1      1
-#define TL_INPUT_BW_LOG2      1
+#define TL_INPUT_LOG1         1
+#define TL_INPUT_LOG2         1
 #define TL_INPUT_NR           2
 
 #endif
@@ -119,6 +115,7 @@ struct trans_logger_brick {
 	int chunk_size;   // must be at least 8K (better 64k)
 	int flush_delay;  // delayed firing of incomplete chunks
 	int completion_semantics; // 0 = early completion of all writes, 1 = early completion of non-sync, 2 = late completion
+	int max_flying;   // limit # of log write requests in parallel
 	bool do_replay;   // mode of operation
 	bool do_continuous_replay;   // mode of operation
 	bool log_reads;   // additionally log pre-images
@@ -127,14 +124,15 @@ struct trans_logger_brick {
 	loff_t log_start_pos; // where to start logging
 	loff_t replay_start_pos; // where to start replay
 	loff_t replay_end_pos;   // end of replay
+	int new_input_nr;   // whereto we should switchover ASAP
 	// readonly from outside
-	loff_t current_pos; // current logging position (usually ahead of replay_pos)
+	int log_input_nr;   // where we are currently logging to
+	int old_input_nr;   // where old IO requests may be on the fly
 	int replay_code;    // replay errors (if any)
 	// private
 	loff_t old_margin;
 	spinlock_t pos_lock;
 	spinlock_t replay_lock;
-	struct list_head pos_list;
 	struct list_head replay_list;
 	struct task_struct *thread;
 	wait_queue_head_t worker_event;
@@ -187,10 +185,12 @@ struct trans_logger_input {
 	// readonly from outside
 	loff_t replay_min_pos;  // current replay position (both in replay mode and in logging mode)
 	loff_t replay_max_pos;  // dito, indicating the "dirty" area which could be potentially "inconsistent"
+	bool is_operating;
 
 	// private
 	struct generic_object_layout sub_layout;
 	struct log_status logst;
+	struct list_head pos_list;
 };
 
 MARS_TYPES(trans_logger);
