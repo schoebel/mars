@@ -569,7 +569,8 @@ static int _server_thread(void *data)
 
         while (!kthread_should_stop() &&
 	      (!mars_global || !mars_global->global_power.button)) {
-		msleep(1000);
+		MARS_DBG("system did not start up\n");
+		msleep(5000);
 	}
 
 	MARS_INF("-------- server now working on host '%s' ----------\n", id);

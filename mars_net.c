@@ -186,13 +186,13 @@ struct mars_socket *mars_accept_socket(struct mars_socket *msock, bool do_block)
 		if (unlikely(status < 0)) {
 			goto err;
 		}
-		if (unlikely(!new_socket || !new_socket->file)) {
+		if (unlikely(!new_socket)) {
 			status = -EBADF;
 			goto err;
 		}
 
-#if 0
-		if (!do_block) { // switch back to blocking mode
+#if 0 // do not use for now
+		if (!do_block && new_socket->file) { // switch back to blocking mode
 			new_socket->file->f_flags &= ~O_NONBLOCK;
 		}
 #endif
