@@ -954,7 +954,7 @@ int mars_kill_brick(struct mars_brick *brick)
 	CHECK_PTR(brick, done);
 	global = brick->global;
 
-	MARS_DBG("===> killing brick path = '%s' name = '%s'\n", SAFE_STR(brick->brick_path), SAFE_STR(brick->brick_name));
+	MARS_DBG("===> killing brick %s path = '%s' name = '%s'\n", SAFE_STR(brick->type->type_name), SAFE_STR(brick->brick_path), SAFE_STR(brick->brick_name));
 
 	if (global) {
 		down_write(&global->brick_mutex);
@@ -1011,7 +1011,7 @@ int mars_kill_brick_all(struct mars_global *global, struct list_head *anchor, bo
 }
 EXPORT_SYMBOL_GPL(mars_kill_brick_all);
 
-int mars_kill_brick_when_possible(struct mars_global *global, struct list_head *anchor, bool use_dent_link, const struct mars_brick_type *type)
+int mars_kill_brick_when_possible(struct mars_global *global, struct list_head *anchor, bool use_dent_link, const struct mars_brick_type *type, bool only_off)
 {
 	int return_status = 0;
 	struct list_head *tmp;
@@ -1032,15 +1032,18 @@ int mars_kill_brick_when_possible(struct mars_global *global, struct list_head *
 			continue;
 		}
 		// only kill unconnected bricks
-		if (brick->outputs[0]->nr_connected > 0) {
+		if (brick->outputs[0] && brick->outputs[0]->nr_connected > 0) {
 			continue;
 		}
-#if 1
+		if (only_off) {
+			MARS_DBG("POWER OFF '%s'\n", brick->brick_name);
+			status = mars_power_button(brick, false, false);
+			goto success;
+		}
 		/* optimization:
 		 * only kill bricks which have not been touched during the current mars_dent_work() round.
 		 * disable this for stress-testing the allocation/deallocation logic.
 		 */
-#endif
 		if (global && global->global_version == brick->brick_version) {
 			continue;
 		}
@@ -1048,10 +1051,12 @@ int mars_kill_brick_when_possible(struct mars_global *global, struct list_head *
 		if (global) {
 			up_write(&global->brick_mutex);
 		}
+		MARS_DBG("KILLING '%s'\n", brick->brick_name);
 		status = mars_kill_brick(brick);
 		if (global) {
 			down_write(&global->brick_mutex);
 		}
+	success:
 		if (status >= 0) {
 			return_status++;
 		} else {

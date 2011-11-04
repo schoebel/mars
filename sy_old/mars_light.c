@@ -3186,11 +3186,12 @@ static int light_thread(void *data)
 		MARS_DBG("worker status = %d\n", status);
 
 		if (!_global.global_power.button) {
-			status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&copy_brick_type);
+			status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&copy_brick_type, false);
+			MARS_DBG("kill copy bricks (when possible) = %d\n", status);
 		}
-		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&client_brick_type);
+		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&client_brick_type, false);
 		MARS_DBG("kill client bricks (when possible) = %d\n", status);
-		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&aio_brick_type);
+		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&aio_brick_type, false);
 		MARS_DBG("kill aio    bricks (when possible) = %d\n", status);
 
 		_show_status_all(&_global);

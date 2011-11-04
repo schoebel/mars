@@ -130,14 +130,14 @@ void copy_endio(struct generic_callback *cb)
 		goto exit;
 	}
 	if (unlikely(cb->cb_error < 0)) {
-		MARS_ERR("IO error %d on index %d, old state = %d\n", cb->cb_error, index, st->state);
+		MARS_DBG("IO error %d on index %d, old state = %d\n", cb->cb_error, index, st->state);
 		error = cb->cb_error;
 	} else if (likely(!st->error)) {
 		st->table[queue] = mref;
 	}
 
 exit:
-	if (unlikely(error)) {
+	if (unlikely(error < 0)) {
 		st->error = error;
 		_clash(brick);
 	}

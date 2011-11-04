@@ -789,16 +789,30 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 		BRICK_DBG("--> switch '%s' stack = %d\n", SAFE_STR(brick->brick_name), stack);
 		set_button_wait(brick, val, force, timeout);
 		if (val ? !brick->power.led_on : !brick->power.led_off) {
-			BRICK_DBG("switching to %d: brick '%s' not ready (%s)\n", val, SAFE_STR(brick->brick_name), SAFE_STR(orig_brick->brick_name));
+			BRICK_ERR("switching '%s' to %d: brick not ready (%s)\n", SAFE_STR(brick->brick_name), val, SAFE_STR(orig_brick->brick_name));
 			goto done;
 		}
 
-		if (force && !val && (mode == BR_FREE_ONE || mode == BR_FREE_ALL) && brick->free) {
+		if (force && !val && (mode == BR_FREE_ONE || mode == BR_FREE_ALL)) {
+			int i;
 			BRICK_DBG("---> freeing '%s'\n", SAFE_STR(brick->brick_name));
-			status = brick->free(brick);
-			if (status < 0) {
-				BRICK_DBG("freeing failed, status = %d\n", status);
-				goto done;
+			for (i = 0; i < brick->type->max_inputs; i++) {
+				struct generic_input *input = brick->inputs[i];
+				BRICK_DBG("---> i = %d\n", i);
+				if (!input)
+					continue;
+				status = generic_disconnect(input);
+				if (status < 0) {
+					BRICK_ERR("disconnect %d failed, status = %d\n", i, status);
+					goto done;
+				}
+			}
+			if (brick->free) {
+				status = brick->free(brick);
+				if (status < 0) {
+					BRICK_ERR("freeing failed, status = %d\n", status);
+					goto done;
+				}
 			}
 		}
 

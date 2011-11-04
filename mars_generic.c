@@ -196,7 +196,7 @@ EXPORT_SYMBOL_GPL(mars_log_trace);
 
 // power led handling
 
-void mars_power_led_on(struct generic_brick *brick, bool val)
+void mars_power_led_on(struct mars_brick *brick, bool val)
 {
 	bool oldval = brick->power.led_on;
 	if (val != oldval) {
@@ -207,7 +207,7 @@ void mars_power_led_on(struct generic_brick *brick, bool val)
 }
 EXPORT_SYMBOL_GPL(mars_power_led_on);
 
-void mars_power_led_off(struct generic_brick *brick, bool val)
+void mars_power_led_off(struct mars_brick *brick, bool val)
 {
 	bool oldval = brick->power.led_off;
 	if (val != oldval) {

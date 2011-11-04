@@ -313,7 +313,7 @@ int receiver_thread(void *data)
 			status = mars_recv_cb(output->socket, mref);
 			MARS_IO("new status = %d, pos = %lld len = %d rw = %d\n", status, mref->ref_pos, mref->ref_len, mref->ref_rw);
 			if (status < 0) {
-				MARS_ERR("interrupted data transfer during callback, status = %d\n", status);
+				MARS_WRN("interrupted data transfer during callback, status = %d\n", status);
 				traced_lock(&output->hash_lock[hash_index], flags);
 				list_add_tail(&mref_a->hash_head, &output->hash_table[hash_index]);
 				traced_unlock(&output->hash_lock[hash_index], flags);
@@ -325,7 +325,6 @@ int receiver_thread(void *data)
 			traced_unlock(&output->lock, flags);
 
 			atomic_dec(&output->fly_count);
-
 			SIMPLE_CALLBACK(mref, 0);
 			client_ref_put(output, mref);
 			break;
@@ -333,7 +332,7 @@ int receiver_thread(void *data)
 		case CMD_GETINFO:
 			status = mars_recv_struct(output->socket, &output->info, mars_info_meta);
 			if (status < 0) {
-				MARS_ERR("got bad info from remote side, status = %d\n", status);
+				MARS_WRN("got bad info from remote side, status = %d\n", status);
 				goto done;
 			}
 			output->got_info = true;
@@ -488,6 +487,28 @@ done:
 }
 
 
+//////////////// informational / statistics ///////////////
+
+static
+char *client_statistics(struct client_brick *brick, int verbose)
+{
+	struct client_output *output = brick->outputs[0];
+	char *res = brick_string_alloc(0);
+        if (!res)
+                return NULL;
+
+	snprintf(res, 512, "socket = %p fly_count = %d\n",
+		 output->socket,
+		 atomic_read(&output->fly_count));
+
+        return res;
+}
+
+static
+void client_reset_statistics(struct client_brick *brick)
+{
+}
+
 //////////////// object / aspect constructors / destructors ///////////////
 
 static int client_mref_aspect_init_fn(struct generic_aspect *_ini)
@@ -546,6 +567,8 @@ static int client_output_destruct(struct client_output *output)
 
 static struct client_brick_ops client_brick_ops = {
 	.brick_switch = client_switch,
+        .brick_statistics = client_statistics,
+        .reset_statistics = client_reset_statistics,
 };
 
 static struct client_output_ops client_output_ops = {
