@@ -48,8 +48,10 @@ struct copy_brick {
 	int append_mode; // 1 = passively, 2 = actively
 	bool verify_mode;
 	bool utilize_mode; // utilize already copied data
+	bool abort_mode; // abort on IO error (default is retry forever)
 	// readonly from outside
 	loff_t copy_last; // current working position
+	int copy_error;
 	bool low_dirty;
 	// internal
 	volatile bool trigger;

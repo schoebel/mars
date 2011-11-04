@@ -357,10 +357,26 @@ int receiver_thread(void *data)
 	return status;
 }
 
+static
+void _do_resubmit(struct client_output *output)
+{
+	if (!list_empty(&output->wait_list)) {
+		struct list_head *first = output->wait_list.next;
+		struct list_head *last = output->wait_list.prev;
+		struct list_head *old_start = output->mref_list.next;
+#define list_connect __list_del // the original routine has a misleading name: in reality it is more general
+		list_connect(&output->mref_list, first);
+		list_connect(last, old_start);
+		INIT_LIST_HEAD(&output->wait_list);
+		MARS_IO("done re-submit %p %p\n", first, last);
+	}
+}
+
 static int sender_thread(void *data)
 {
 	struct client_output *output = data;
 	struct client_brick *brick = output->brick;
+	unsigned long flags;
 	int status = 0;
 
 	output->receiver.restart_count = 0;
@@ -369,7 +385,6 @@ static int sender_thread(void *data)
 		struct list_head *tmp;
 		struct client_mref_aspect *mref_a;
 		struct mref_object *mref;
-		unsigned long flags;
 		bool do_resubmit = false;
 
 		if (unlikely(!output->socket)) {
@@ -387,20 +402,11 @@ static int sender_thread(void *data)
 			 */
 			MARS_IO("re-submit\n");
 			traced_lock(&output->lock, flags);
-			if (!list_empty(&output->wait_list)) {
-				struct list_head *first = output->wait_list.next;
-				struct list_head *last = output->wait_list.prev;
-				struct list_head *old_start = output->mref_list.next;
-#define list_connect __list_del // the original routine has a misleading name: in reality it is more general
-				list_connect(&output->mref_list, first);
-				list_connect(last, old_start);
-				INIT_LIST_HEAD(&output->wait_list);
-				MARS_IO("done re-submit %p %p\n", first, last);
-			}
+			_do_resubmit(output);
 			traced_unlock(&output->lock, flags);
 		}
 
-		wait_event_interruptible_timeout(output->event, !list_empty(&output->mref_list) || output->get_info, 10 * HZ);
+		wait_event_interruptible_timeout(output->event, !list_empty(&output->mref_list) || output->get_info || kthread_should_stop(), 1 * HZ);
 		
 		if (output->get_info) {
 			status = _request_info(output);
@@ -446,8 +452,33 @@ static int sender_thread(void *data)
 
 	_kill_socket(output);
 
+	/* Signal error on all pending IO requests.
+	 * We have no other chance (except probably delaying
+	 * this until destruction which mostly is not what
+	 * we want).
+	 */
+	traced_lock(&output->lock, flags);
+	_do_resubmit(output);
+	while (!list_empty(&output->mref_list)) {
+		struct list_head *tmp = output->mref_list.next;
+		struct client_mref_aspect *mref_a;
+		struct mref_object *mref;
+
+		list_del_init(tmp);
+		traced_unlock(&output->lock, flags);
+		mref_a = container_of(tmp, struct client_mref_aspect, io_head);
+		mref = mref_a->object;
+		MARS_DBG("signalling IO error at pos = %lld len = %d\n", mref->ref_pos, mref->ref_len);
+		atomic_dec(&output->fly_count);
+		SIMPLE_CALLBACK(mref, -ENOTCONN);
+		client_ref_put(output, mref);
+		traced_lock(&output->lock, flags);
+	}
+	traced_unlock(&output->lock, flags);
+
 	output->sender.terminated = true;
 	wake_up_interruptible(&output->sender.run_event);
+	MARS_DBG("sender terminated\n");
 	return status;
 }
 

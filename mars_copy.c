@@ -372,13 +372,13 @@ done:
 }
 
 static
-void _run_copy(struct copy_brick *brick)
+int _run_copy(struct copy_brick *brick)
 {
 	int max;
 	loff_t pos;
 	loff_t limit = 0;
 	short prev;
-	int status;
+	int res_status = 0;
 
 	if (unlikely(_clear_clash(brick))) {
 		int i;
@@ -389,7 +389,7 @@ void _run_copy(struct copy_brick *brick)
 			_clash(brick);
 			MARS_DBG("re-clash\n");
 			msleep(100);
-			return;
+			return 0;
 		}
 		for (i = 0; i < MAX_COPY_PARA; i++) {
 			_clear_mref(brick, i, 0);
@@ -416,7 +416,9 @@ void _run_copy(struct copy_brick *brick)
 		prev = index;
 		// call the finite state automaton
 		if (!st->active[0] && !st->active[1]) {
+			int status;
 			status = _next_state(brick, index, pos);
+			MARS_IO("index = %d pos = %lld status 0 %d\n", index, pos, status);
 			limit = pos;
 		}
 	}
@@ -432,6 +434,7 @@ void _run_copy(struct copy_brick *brick)
 			}
 			st->state = COPY_STATE_START;
 			if (unlikely(st->error < 0)) {
+				res_status = st->error;
 				break;
 			}
 			count += st->len;
@@ -446,6 +449,7 @@ void _run_copy(struct copy_brick *brick)
 			_update_percent(brick);
 		}
 	}
+	return res_status;
 }
 
 static int _copy_thread(void *data)
@@ -453,6 +457,7 @@ static int _copy_thread(void *data)
 	struct copy_brick *brick = data;
 
 	MARS_DBG("--------------- copy_thread %p starting\n", brick);
+	brick->copy_error = 0;
 	mars_power_led_on((void*)brick, true);
 	brick->trigger = true;
 
@@ -460,18 +465,25 @@ static int _copy_thread(void *data)
 		loff_t old_start = brick->copy_start;
 		loff_t old_end = brick->copy_end;
 		if (old_end > 0) {
-			_run_copy(brick);
+			int status = _run_copy(brick);
+			if (unlikely(status < 0)) {
+				brick->copy_error = status;
+				if (brick->abort_mode) {
+					MARS_INF("IO error, terminating prematurely, status = %d\n", status);
+					break;
+				}
+			}
 			msleep(10); // yield FIXME: remove this, use event handling for over/underflow
 		}
 
 		wait_event_interruptible_timeout(brick->event,
 						 brick->trigger || brick->copy_start != old_start || brick->copy_end != old_end || kthread_should_stop(),
 
-						 5 * HZ);
+						 1 * HZ);
 		brick->trigger = false;
 	}
 
-	MARS_DBG("--------------- copy_thread terminating\n");
+	MARS_DBG("--------------- copy_thread terminating (%d requests flying)\n", atomic_read(&brick->copy_flight));
 	wait_event_interruptible_timeout(brick->event, !atomic_read(&brick->copy_flight), 300 * HZ);
 	mars_power_led_off((void*)brick, true);
 	MARS_DBG("--------------- copy_thread done.\n");
@@ -545,7 +557,7 @@ static int copy_switch(struct copy_brick *brick)
 		mars_power_led_on((void*)brick, false);
 		if (brick->thread) {
 			MARS_INF("stopping thread...\n");
-			kthread_stop_nowait(brick->thread);
+			kthread_stop(brick->thread);
 			put_task_struct(brick->thread);
 			brick->thread = NULL;
 			wake_up_interruptible(&brick->event);
