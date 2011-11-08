@@ -20,11 +20,13 @@ int brick_msleep(int msecs, bool shorten)
 		return 0;
 	}
 	timeout = msecs_to_jiffies(msecs) + 1;
-	if (shorten)
-		timeout = schedule_timeout_interruptible(timeout);
-	else
+
+	timeout = schedule_timeout_interruptible(timeout);
+
+	if (!shorten)
 		while (timeout)
-			timeout = schedule_timeout_interruptible(timeout);
+			timeout = schedule_timeout_uninterruptible(timeout);
+
 	return jiffies_to_msecs(timeout);
 }
 EXPORT_SYMBOL_GPL(brick_msleep);
