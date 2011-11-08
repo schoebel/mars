@@ -12,6 +12,23 @@
 #include "brick.h"
 #include "brick_mem.h"
 
+int brick_msleep(int msecs, bool shorten)
+{
+	unsigned long timeout;
+	if (msecs <= 0) {
+		schedule();
+		return 0;
+	}
+	timeout = msecs_to_jiffies(msecs) + 1;
+	if (shorten)
+		timeout = schedule_timeout_interruptible(timeout);
+	else
+		while (timeout)
+			timeout = schedule_timeout_interruptible(timeout);
+	return jiffies_to_msecs(timeout);
+}
+EXPORT_SYMBOL_GPL(brick_msleep);
+
 /////////////////////////////////////////////////////////////////////
 
 // messaging

@@ -2,8 +2,6 @@
 #ifndef BRICK_H
 #define BRICK_H
 
-#define msleep msleep_interruptible
-
 #include <linux/list.h>
 #include <linux/spinlock.h>
 #include <linux/sched.h>
@@ -22,6 +20,9 @@
 #define _STRATEGY_CODE(X) /**/
 #define _NORMAL_CODE(X) X
 #endif
+
+#define msleep(msecs) brick_msleep(msecs, false)
+extern int brick_msleep(int msecs, bool shorten);
 
 /////////////////////////////////////////////////////////////////////////
 
