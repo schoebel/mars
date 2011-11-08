@@ -378,6 +378,38 @@ done:
 	return status;
 }
 
+static
+bool _check_switch(struct mars_global *global, const char *path)
+{
+	int res = false;
+	struct mars_dent *allow_dent;
+
+	allow_dent = mars_find_dent(global, path);
+	if (!allow_dent || !allow_dent->new_link)
+		goto done;
+	sscanf(allow_dent->new_link, "%d", &res);
+	MARS_DBG("'%s' -> %d\n", path, res);
+
+done:
+	return res;
+}
+
+static
+bool _check_allow(struct mars_global *global, struct mars_dent *parent, const char *name)
+{
+	int res = false;
+	char *path = path_make("%s/todo-%s/%s", parent->d_path, my_id(), name);
+
+	if (!path)
+		goto done;
+
+	res = _check_switch(global, path);
+
+done:
+	brick_string_free(path);
+	return res;
+}
+
 ///////////////////////////////////////////////////////////////////////
 
 // needed for logfile rotation
@@ -397,6 +429,7 @@ struct mars_rotate {
 	struct mars_dent *next_log;
 	struct if_brick *if_brick;
 	loff_t remaining_space;
+	loff_t copy_end_pos;
 	long long last_jiffies;
 	loff_t start_pos;
 	loff_t end_pos;
@@ -406,6 +439,7 @@ struct mars_rotate {
 	bool do_replay;
 	bool todo_primary;
 	bool is_primary;
+	bool copy_is_done;
 };
 
 ///////////////////////////////////////////////////////////////////////
@@ -507,10 +541,16 @@ int __make_copy(
 	int i;
 	int status = -EINVAL;
 
-	if (!switch_path) {
+	if (!switch_path || !global) {
 		goto done;
 	}
 
+	// don't generate empty aio files if copy does not yet exist
+	copy = mars_find_brick(global, &copy_brick_type, copy_path);
+	if (!copy && !_check_switch(global, switch_path))
+		goto done;
+
+	// create/find predecessor aio bricks
 	for (i = 0; i < 2; i++) {
 		struct mars_brick *aio;
 
@@ -686,7 +726,7 @@ int check_logfile(struct mars_peerinfo *peer, struct mars_dent *remote_dent, str
 	// check whether we are participating in that resource
 	rot = parent->d_private;
 	if (!rot) {
-		MARS_ERR("parent has no rot info\n");
+		MARS_WRN("parent has no rot info\n");
 		status = -EINVAL;
 		goto done;
 	}
@@ -700,22 +740,32 @@ int check_logfile(struct mars_peerinfo *peer, struct mars_dent *remote_dent, str
 	copy_brick = (struct copy_brick*)mars_find_brick(peer->global, &copy_brick_type, copy_path);
 	MARS_DBG("copy_path = '%s' copy_brick = %p dent = '%s'\n", copy_path, copy_brick, remote_dent->d_path);
 	if (copy_brick) {
-		bool copy_is_done = (copy_brick->copy_last == copy_brick->copy_end && local_dent != NULL);
+		bool is_my_copy = (remote_dent->d_serial == parent->d_logfile_serial);
+		bool copy_is_done = (is_my_copy && copy_brick->copy_last == copy_brick->copy_end && local_dent != NULL && copy_brick->copy_end == rot->copy_end_pos);
 		bool is_next_copy = (remote_dent->d_serial == parent->d_logfile_serial + 1);
-		MARS_DBG("current copy brick '%s' copy_last = %lld copy_end = %lld dent '%s' serial = %d/%d is_done = %d is_next_copy = %d\n", copy_brick->brick_path, copy_brick->copy_last, copy_brick->copy_end, remote_dent->d_path, remote_dent->d_serial, parent->d_logfile_serial, copy_is_done, is_next_copy);
-		if (!copy_is_done && peer->global->global_power.button) {
+
+		MARS_DBG("current copy brick '%s' copy_last = %lld copy_end = %lld dent '%s' serial = %d/%d is_done = %d is_my_copy = %d is_next_copy = %d\n", copy_brick->brick_path, copy_brick->copy_last, copy_brick->copy_end, remote_dent->d_path, remote_dent->d_serial, parent->d_logfile_serial, copy_is_done, is_my_copy, is_next_copy);
+
+		if (is_my_copy) {
+			rot->copy_is_done = copy_is_done;
+			goto treat;
+		}
+		if (peer->global->global_power.button && !rot->copy_is_done) {
 			goto done;
 		}
 		MARS_DBG("killing old copy brick '%s'\n", copy_brick->brick_path);
 		status = mars_kill_brick((void*)copy_brick);
 		if (status < 0)
 			goto done;
+		rot->copy_is_done = false;
 		// ensure consecutiveness of logfiles
-		if (!is_next_copy || !copy_is_done) {
+		if (!is_next_copy) {
 			goto done;
 		}
+		// fallthrough: take the next logfile
 	}
 
+treat:
 	// (new) copy necessary?
 	status = 0;
 	if (!rot->try_sync) {
@@ -730,6 +780,7 @@ int check_logfile(struct mars_peerinfo *peer, struct mars_dent *remote_dent, str
 	switch_path = path_make("%s/todo-%s/connect", parent->d_path, my_id());
 	
 	// start / treat copy brick instance
+	rot->copy_end_pos = src_size;
 	status = _update_file(peer->global, switch_path, copy_path, remote_dent->d_path, peer->peer, src_size);
 	MARS_DBG("update '%s' from peer '%s' status = %d\n", remote_dent->d_path, peer->peer, status);
 	if (status < 0) {
@@ -2021,26 +2072,6 @@ int __update_all_links(struct mars_global *global, struct mars_dent *parent, str
 }
 
 static
-bool _check_allow_replay(struct mars_global *global, struct mars_dent *parent)
-{
-	int res = false;
-	char *path = path_make("%s/todo-%s/allow-replay", parent->d_path, my_id());
-	struct mars_dent *allow_dent;
-
-	if (!path)
-		goto done;
-	allow_dent = mars_find_dent(global, path);
-	if (!allow_dent || !allow_dent->new_link)
-		goto done;
-	sscanf(allow_dent->new_link, "%d", &res);
-	MARS_DBG("'%s' -> %d\n", path, res);
-
-done:
-	brick_string_free(path);
-	return res;
-}
-
-static
 int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 {
 	struct mars_dent *parent = dent->d_parent;
@@ -2063,12 +2094,12 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	if (trans_brick->power.button && trans_brick->power.led_on && !trans_brick->power.led_off) {
 		bool do_stop = true;
 		if (trans_brick->do_replay) {
-			do_stop = trans_brick->replay_code != 0 || !_check_allow_replay(global, parent);
+			do_stop = trans_brick->replay_code != 0 || !_check_allow(global, parent, "allow-replay");
 		} else {
 			do_stop = !rot->is_primary;
 		}
 
-		MARS_DBG("do_stop = %d\n", (int)do_stop);
+		MARS_DBG("replay_code = %d do_stop = %d\n", trans_brick->replay_code, (int)do_stop);
 
 		if (do_stop || (long long)jiffies > rot->last_jiffies + 5 * HZ) {
 			status = __update_all_links(global, parent, trans_brick);
@@ -2102,7 +2133,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		}
 
 		do_start = (!rot->do_replay ||
-			    (rot->start_pos != rot->end_pos && _check_allow_replay(global, parent)));
+			    (rot->start_pos != rot->end_pos && _check_allow(global, parent, "allow-replay")));
 		MARS_DBG("do_start = %d\n", (int)do_start);
 
 		if (do_start) {
