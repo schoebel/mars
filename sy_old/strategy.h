@@ -52,9 +52,10 @@ struct mars_global {
 	struct list_head dent_anchor;
 	struct list_head brick_anchor;
 	struct list_head server_anchor;
-	volatile bool main_trigger;
 	wait_queue_head_t main_event;
+	loff_t remaining_space;
 	int global_version;
+	volatile bool main_trigger;
 };
 
 typedef int (*mars_dent_checker_fn)(struct mars_dent *parent, const char *name, int namlen, unsigned int d_type, int *prefix, int *serial);
@@ -119,6 +120,7 @@ extern int mars_symlink(const char *oldpath, const char *newpath, const struct t
 extern int mars_rename(const char *oldpath, const char *newpath);
 extern int mars_chmod(const char *path, mode_t mode);
 extern int mars_lchown(const char *path, uid_t uid);
+extern loff_t mars_remaining_space(const char *fspath);
 
 /////////////////////////////////////////////////////////////////////////
 

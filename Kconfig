@@ -26,7 +26,14 @@ config MARS_HUNG
 config MARS_LOGROT
 	bool "allow logrotate during operation (only for testing)"
 	depends on MARS
-	default n
+	default y
+	---help---
+	Experimental storage System.
+
+config MARS_MIN_SPACE
+	bool "check for filesystem overflow in /mars (EXPERIMENTAL)"
+	depends on MARS
+	default y
 	---help---
 	Experimental storage System.
 

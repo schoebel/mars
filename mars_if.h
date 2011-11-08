@@ -69,8 +69,8 @@ struct if_brick {
 	int readahead;
 	bool skip_sync;
 	// inspectable
-	bool has_closed;
 	// private
+	struct semaphore switch_sem;
 };
 
 MARS_TYPES(if);

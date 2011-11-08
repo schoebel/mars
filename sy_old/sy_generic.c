@@ -19,6 +19,7 @@
 #include <linux/syscalls.h>
 #include <linux/namei.h>
 #include <linux/kthread.h>
+#include <linux/statfs.h>
 
 #define SKIP_BIO false
 
@@ -184,6 +185,41 @@ int mars_lchown(const char *path, uid_t uid)
 	return status;
 }
 EXPORT_SYMBOL_GPL(mars_lchown);
+
+loff_t mars_remaining_space(const char *fspath)
+{
+	struct path path = {};
+	struct kstatfs kstatfs = {};
+	loff_t res;
+
+	res = user_path_at(AT_FDCWD, fspath, 0, &path);
+	if (unlikely(res < 0)) {
+		MARS_ERR("cannot get fspath '%s'\n", fspath);
+		goto err;
+	}
+	if (unlikely(!path.dentry)) {
+		MARS_ERR("bad dentry for fspath '%s'\n", fspath);
+		res = -ENXIO;
+		goto done;
+	}
+
+	res = vfs_statfs(path.dentry, &kstatfs);
+	if (unlikely(res < 0)) {
+		goto done;
+	}
+
+	/* It seems that most filesystems use KB rather
+	 * than blocks as base unit.
+	 */
+	//res = (loff_t)kstatfs.f_bavail;
+	res = (loff_t)kstatfs.f_bfree;
+	
+done:
+	path_put(&path);
+err:
+	return res;
+}
+EXPORT_SYMBOL_GPL(mars_remaining_space);
 
 //////////////////////////////////////////////////////////////
 

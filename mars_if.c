@@ -502,37 +502,6 @@ err:
 	return error;
 }
 
-static int if_open(struct block_device *bdev, fmode_t mode)
-{
-	struct if_input *input = bdev->bd_disk->private_data;
-	atomic_inc(&input->open_count);
-	MARS_INF("----------------------- OPEN %d ------------------------------\n", atomic_read(&input->open_count));
-	return 0;
-}
-
-static int if_release(struct gendisk *gd, fmode_t mode)
-{
-	struct if_input *input = gd->private_data;
-	int max = 0;
-	int nr;
-
-	MARS_INF("----------------------- CLOSE %d ------------------------------\n", atomic_read(&input->open_count));
-
-	while ((nr = atomic_read(&input->flying_count)) > 0) {
-		MARS_INF("%d IO requests not yet completed\n", nr);
-		if (max++ > 10)
-			break;
-		msleep(2000);
-	}
-
-	if (atomic_dec_and_test(&input->open_count)) {
-		struct if_brick *brick = input->brick;
-		brick->has_closed = true;
-		mars_trigger();
-	}
-	return 0;
-}
-
 //static
 void if_unplug(struct request_queue *q)
 {
@@ -574,12 +543,7 @@ int mars_merge_bvec(struct request_queue *q, struct bvec_merge_data *bvm, struct
 	return 128;
 }
 
-static const struct block_device_operations if_blkdev_ops = {
-	.owner =   THIS_MODULE,
-	.open =    if_open,
-	.release = if_release,
-
-};
+static const struct block_device_operations if_blkdev_ops;
 
 static int if_switch(struct if_brick *brick)
 {
@@ -588,21 +552,24 @@ static int if_switch(struct if_brick *brick)
 	struct gendisk *disk;
 	int minor;
 	unsigned long capacity;
-	int status;
+	int status = 0;
 
-	if (brick->power.button) {
+	down(&brick->switch_sem);
+
+	if (brick->power.button && brick->power.led_off) {
 		mars_power_led_off((void*)brick,  false);
 		status = GENERIC_INPUT_CALL(input, mars_get_info, &input->info);
 		if (status < 0) {
 			MARS_ERR("cannot get device info, status=%d\n", status);
-			return status;
+			goto is_down;
 		}
 		capacity = input->info.current_size >> 9; // TODO: make this dynamic
 		
+		status = -ENOMEM;
 		q = blk_alloc_queue(GFP_MARS);
 		if (!q) {
 			MARS_ERR("cannot allocate device request queue\n");
-			return -ENOMEM;
+			goto is_down;
 		}
 		q->queuedata = input;
 		input->q = q;
@@ -610,7 +577,7 @@ static int if_switch(struct if_brick *brick)
 		disk = alloc_disk(1);
 		if (!disk) {
 			MARS_ERR("cannot allocate gendisk\n");
-			return -ENOMEM;
+			goto is_down;
 		}
 
 		minor = device_minor++; //TODO: protect against races (e.g. atomic_t)
@@ -670,8 +637,12 @@ static int if_switch(struct if_brick *brick)
 		add_disk(disk);
 		input->disk = disk;
 		//set_device_ro(input->bdev, 0); // TODO: implement modes
+		status = 0;
+	}
+	if (brick->power.button) {
 		mars_power_led_on((void*)brick, true);
-	} else {
+		status = 0;
+	} else if (!brick->power.led_off) {
 		mars_power_led_on((void*)brick, false);
 		disk = input->disk;
 		if (!disk)
@@ -686,7 +657,8 @@ static int if_switch(struct if_brick *brick)
 #endif
 		if (atomic_read(&input->open_count) > 0) {
 			MARS_INF("device '%s' is open %d times, cannot shutdown\n", disk->disk_name, atomic_read(&input->open_count));
-			return -EBUSY;
+			status = -EBUSY;
+			goto done; // don't indicate "off" status
 		}
 		if (input->bdev) {
 			bdput(input->bdev);
@@ -695,11 +667,55 @@ static int if_switch(struct if_brick *brick)
 		del_gendisk(input->disk);
 		put_disk(input->disk);
 		input->disk = NULL;
+		status = 0;
 	is_down:
 		mars_power_led_off((void*)brick, true);
 	}
+
+done:
+	up(&brick->switch_sem);
+	return status;
+}
+
+//////////////// interface to the outer world (kernel) ///////////////
+
+static int if_open(struct block_device *bdev, fmode_t mode)
+{
+	struct if_input *input = bdev->bd_disk->private_data;
+	atomic_inc(&input->open_count);
+	MARS_INF("----------------------- OPEN %d ------------------------------\n", atomic_read(&input->open_count));
 	return 0;
 }
+
+static int if_release(struct gendisk *gd, fmode_t mode)
+{
+	struct if_input *input = gd->private_data;
+	int max = 0;
+	int nr;
+
+	MARS_INF("----------------------- CLOSE %d ------------------------------\n", atomic_read(&input->open_count));
+
+	while ((nr = atomic_read(&input->flying_count)) > 0) {
+		MARS_INF("%d IO requests not yet completed\n", nr);
+		if (max++ > 10)
+			break;
+		msleep(2000);
+	}
+
+	if (atomic_dec_and_test(&input->open_count)) {
+		struct if_brick *brick = input->brick;
+		if_switch(brick);
+		mars_trigger();
+	}
+	return 0;
+}
+
+static const struct block_device_operations if_blkdev_ops = {
+	.owner =   THIS_MODULE,
+	.open =    if_open,
+	.release = if_release,
+
+};
 
 //////////////// informational / statistics ///////////////
 
@@ -769,6 +785,7 @@ MARS_MAKE_STATICS(if);
 
 static int if_brick_construct(struct if_brick *brick)
 {
+	sema_init(&brick->switch_sem, 1);
 	return 0;
 }
 

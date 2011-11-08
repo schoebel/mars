@@ -117,6 +117,13 @@ struct light_class {
 //#define COPY_APPEND_MODE 1 // FIXME: does not work yet
 #define COPY_PRIO MARS_PRIO_LOW
 
+#define MIN_SPACE (1024 * 1024 * 8) // 8 GB
+#ifdef CONFIG_MARS_MIN_SPACE
+#define EXHAUSTED(x) ((x) <= MIN_SPACE)
+#else
+#define EXHAUSTED(x) (false)
+#endif
+
 static
 int _set_trans_params(struct mars_brick *_brick, void *private)
 {
@@ -389,6 +396,7 @@ struct mars_rotate {
 	struct mars_dent *prev_log;
 	struct mars_dent *next_log;
 	struct if_brick *if_brick;
+	loff_t remaining_space;
 	long long last_jiffies;
 	loff_t start_pos;
 	loff_t end_pos;
@@ -553,7 +561,7 @@ int __make_copy(
 			       (const struct generic_brick_type*)&copy_brick_type,
 			       (const struct generic_brick_type*[]){NULL,NULL,NULL,NULL},
 			       "%s",
-			       0, // let switch decide
+			       EXHAUSTED(global->remaining_space) ? -1 : 0,
 			       "%s",
 			       (const char *[]){"%s", "%s", "%s", "%s"},
 			       4,
@@ -1338,14 +1346,19 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	struct mars_dent *replay_link;
 	struct mars_dent *aio_dent;
 	struct mars_output *output;
+	const char *parent_path;
 	const char *replay_path = NULL;
 	const char *aio_path = NULL;
 	const char *switch_path = NULL;
-	int status;
+	int status = 0;
 
 	if (!global->global_power.button) {
-		return 0;
+		goto done;
 	}
+	status = -EINVAL;
+	CHECK_PTR(parent, done);
+	parent_path = parent->d_path;
+	CHECK_PTR(parent_path, done);
 
 	if (!rot) {
 		rot = brick_zmem_alloc(sizeof(struct mars_rotate));
@@ -1369,10 +1382,12 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	rot->max_sequence = 0;
 	rot->has_error = false;
 
+	rot->remaining_space = mars_remaining_space(parent_path);
+
 	/* Fetch the replay status symlink.
 	 * It must exist, and its value will control everything.
 	 */
-	replay_path = path_make("%s/replay-%s", parent->d_path, my_id());
+	replay_path = path_make("%s/replay-%s", parent_path, my_id());
 	if (unlikely(!replay_path)) {
 		MARS_ERR("cannot make path\n");
 		status = -ENOMEM;
@@ -1395,7 +1410,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 
 	/* Fetch the referenced AIO dentry.
 	 */
-	aio_path = path_make("%s/%s", parent->d_path, replay_link->d_argv[0]);
+	aio_path = path_make("%s/%s", parent_path, replay_link->d_argv[0]);
 	if (unlikely(!aio_path)) {
 		MARS_ERR("cannot make path\n");
 		status = -ENOMEM;
@@ -1430,7 +1445,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 			       "%s/%s",
 			       (const char *[]){},
 			       0,
-			       parent->d_path,
+			       parent_path,
 			       replay_link->d_argv[0]);
 	if (!aio_brick) {
 		MARS_ERR("cannot access '%s'\n", aio_path);
@@ -1450,7 +1465,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	MARS_DBG("logfile '%s' size = %lld\n", aio_path, rot->aio_info.current_size);
 
 	// check whether attach is allowed
-	switch_path = path_make("%s/todo-%s/attach", parent->d_path, my_id());
+	switch_path = path_make("%s/todo-%s/attach", parent_path, my_id());
 
 	/* Fetch / make the transaction logger.
 	 * We deliberately "forget" to connect the log input here.
@@ -1472,8 +1487,8 @@ int make_log_init(void *buf, struct mars_dent *dent)
 			       "%s/logger", 
 			       (const char *[]){"%s/data-%s"},
 			       1,
-			       parent->d_path,
-			       parent->d_path,
+			       parent_path,
+			       parent_path,
 			       my_id());
 	status = -ENOENT;
 	if (!trans_brick) {
@@ -2239,7 +2254,7 @@ int make_dev(void *buf, struct mars_dent *dent)
 		(rot->todo_primary &&
 		 !rot->trans_brick->do_replay &&
 		 rot->trans_brick->power.led_on);
-	if (!global->global_power.button) {
+	if (!global->global_power.button || EXHAUSTED(global->remaining_space)) {
 		switch_on = false;
 	}
 
@@ -2477,7 +2492,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 		goto done;
 	connect_dent = (void*)mars_find_dent(global, tmp);
 	if (!connect_dent || !connect_dent->new_link) {
-		MARS_ERR("cannot determine peer, symlink '%s' is missing\n", tmp);
+		MARS_WRN("cannot determine peer, symlink '%s' is missing\n", tmp);
 		status = -ENOENT;
 		goto done;
 	}
@@ -3129,7 +3144,7 @@ void _show_statist(struct mars_global *global)
 	}
 	up_read(&global->dent_mutex);
 
-	MARS_INF("==================== STATISTICS: %d dents, %d bricks\n", dent_count, brick_count);
+	MARS_INF("==================== STATISTICS: %d dents, %d bricks, %lld KB free\n", dent_count, brick_count, global->remaining_space);
 }
 #endif
 
@@ -3173,6 +3188,9 @@ static int light_thread(void *data)
         while (_global.global_power.button || !list_empty(&_global.brick_anchor)) {
 		int status;
 		_global.global_power.button = !kthread_should_stop();
+		_global.remaining_space = mars_remaining_space("/mars");
+		if (EXHAUSTED(_global.remaining_space))
+			MARS_WRN("filesystem space = %lld, STOPPING IO\n", _global.remaining_space);
 
 		_make_alivelink(_global.global_power.button);
 
