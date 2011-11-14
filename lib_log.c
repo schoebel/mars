@@ -74,6 +74,10 @@ void log_write_endio(struct generic_callback *cb)
 		mars_log_trace(cb_info->mref);
 	}
 
+	logst = cb_info->logst;
+	CHECK_PTR(logst, done);
+	atomic_dec(&logst->mref_flying);
+
 	MARS_IO("nr_cb = %d\n", cb_info->nr_cb);
 
 	down(&cb_info->mutex);
@@ -85,9 +89,7 @@ void log_write_endio(struct generic_callback *cb)
 	}
 	cb_info->nr_cb = 0; // prevent late preio() callbacks
 	up(&cb_info->mutex);
-	logst = cb_info->logst;
-	CHECK_PTR(logst, done);
-	atomic_dec(&logst->mref_flying);
+
  done:
 	put_log_cb_info(cb_info);
 	return;
@@ -208,11 +210,6 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 				chunk_rest += logst->chunk_size;
 			}
 			mref->ref_len = chunk_rest;
-		}
-
-		while (!is_log_ready(logst)) {
-			MARS_DBG("this should not happen! ensure that is_log_ready() is called beforhand.\n");
-			msleep(10000); // punishment delay
 		}
 
 		for (;;) {

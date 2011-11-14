@@ -67,8 +67,8 @@ struct light_class {
 
 #define CONF_TRANS_SHADOW_LIMIT (65536 * 1) // don't fill the hashtable too much
 #define CONF_TRANS_CHUNKSIZE  (128 * 1024)
-#define CONF_TRANS_MAX_MREF_SIZE 0
-//#define CONF_TRANS_MAX_MREF_SIZE PAGE_SIZE
+//#define CONF_TRANS_MAX_MREF_SIZE 0
+#define CONF_TRANS_MAX_MREF_SIZE PAGE_SIZE
 //#define CONF_TRANS_ALIGN      512
 #define CONF_TRANS_ALIGN      0
 //#define FLUSH_DELAY (HZ / 100 + 1)
@@ -77,9 +77,10 @@ struct light_class {
 //#define TRANS_FAKE
 
 #define CONF_TRANS_BATCHLEN 1024
-//#define CONF_TRANS_FLYING 4
-//#define CONF_TRANS_FLYING 128
-#define CONF_TRANS_FLYING 16
+//#define CONF_LOGST_FLYING 0
+#define CONF_LOGST_FLYING 16
+//#define CONF_TRANS_FLYING 16
+#define CONF_TRANS_FLYING 0
 #define CONF_TRANS_PRIO   MARS_PRIO_HIGH
 #define CONF_TRANS_LOG_READS false
 //#define CONF_TRANS_LOG_READS true
@@ -180,6 +181,7 @@ int _set_trans_params(struct mars_brick *_brick, void *private)
 		trans_brick->align_size = CONF_TRANS_ALIGN;
 		trans_brick->chunk_size = CONF_TRANS_CHUNKSIZE;
 		trans_brick->flush_delay = FLUSH_DELAY;
+		trans_brick->max_flying = CONF_LOGST_FLYING;
 
 		if (!trans_brick->log_reads) {
 			trans_brick->q_phase2.q_max_queued = 0;

@@ -14,6 +14,7 @@
 #define KEEP_UNIQUE
 //#define WB_COPY
 #define LATER
+#define DELAY_CALLERS // this is _needed_
 
 // commenting this out is dangerous for data integrity! use only for testing!
 #define USE_MEMCPY
@@ -536,8 +537,10 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 	}
 #endif
 
+#ifdef DELAY_CALLERS
 	// delay in case of too many master shadows / memory shortage
 	wait_event_interruptible_timeout(brick->caller_event, !brick->delay_callers, HZ / 2);
+#endif
 
 	// create a new master shadow
 	data = brick_block_alloc(mref->ref_pos, (mref_a->alloc_len = mref->ref_len));
@@ -950,7 +953,7 @@ void wb_endio(struct generic_callback *cb)
 	dec = rw ? &wb->w_sub_write_count : &wb->w_sub_read_count;
 	CHECK_ATOMIC(dec, 1);
 	if (!atomic_dec_and_test(dec)) {
-		return;
+		goto done;
 	}
 
 	_endio = rw ? &wb->write_endio : &wb->read_endio;
@@ -961,6 +964,7 @@ void wb_endio(struct generic_callback *cb)
 	} else {
 		MARS_ERR("internal: no endio defined\n");
 	}
+done:
 	wake_up_interruptible_all(&brick->worker_event);
 	return;
 
@@ -1884,6 +1888,7 @@ struct condition_status {
 	bool q3_ready;
 	bool q4_ready;
 	bool extra_ready;
+	bool some_ready;
 };
 
 static noinline
@@ -1895,7 +1900,7 @@ bool _condition(struct condition_status *st, struct trans_logger_brick *brick)
 	st->q3_ready = qq_is_ready(&brick->q_phase3);
 	st->q4_ready = qq_is_ready(&brick->q_phase4);
 	st->extra_ready = (kthread_should_stop() && !_congested(brick));
-	return st->q1_ready | st->q2_ready | st->q3_ready | st->q4_ready | st->extra_ready;
+	return (st->some_ready = st->q1_ready | st->q2_ready | st->q3_ready | st->q4_ready | st->extra_ready);
 }
 
 static
@@ -1979,9 +1984,11 @@ void _exit_inputs(struct trans_logger_brick *brick, bool force)
 static noinline
 void trans_logger_log(struct trans_logger_brick *brick)
 {
+#ifdef DELAY_CALLERS
 	bool unlimited = false;
 	bool old_unlimited = false;
 	bool delay_callers;
+#endif
 	long wait_timeout = HZ;
 #ifdef  STAT_DEBUGGING
 	long long last_jiffies = jiffies;
@@ -2005,7 +2012,6 @@ void trans_logger_log(struct trans_logger_brick *brick)
 		long long j2;
 		long long j3;
 		long long j4;
-		bool orig;
 #endif
 
 		MARS_IO("waiting for request\n");
@@ -2021,7 +2027,6 @@ void trans_logger_log(struct trans_logger_brick *brick)
 
 #if 1
 		j0 = jiffies;
-		orig = st.q1_ready | st.q2_ready | st.q3_ready | st.q4_ready | st.extra_ready;
 #endif
 
 		//MARS_DBG("AHA %d\n", atomic_read(&brick->q_phase1.q_queued));
@@ -2042,7 +2047,9 @@ void trans_logger_log(struct trans_logger_brick *brick)
 
 		/* This is highest priority, do it first.
 		 */
-		run_mref_queue(&brick->q_phase1, phase0_startio, brick->q_phase1.q_batchlen);
+		if (st.q1_ready) {
+			run_mref_queue(&brick->q_phase1, phase0_startio, brick->q_phase1.q_batchlen);
+		}
 		j1 = jiffies;
 
 		/* In order to speed up draining, check the other queues
@@ -2106,7 +2113,7 @@ void trans_logger_log(struct trans_logger_brick *brick)
 			}
 		}
 
-		if (orig && !brick->did_work) {
+		if (st.some_ready && !brick->did_work) {
 			char *txt;
 			txt = brick->ops->brick_statistics(brick, 0);
 			MARS_WRN("inconsistent work, pushback = %d q1 = %d q2 = %d q3 = %d q4 = %d extra = %d ====> %s\n", brick->did_pushback, st.q1_ready, st.q2_ready, st.q3_ready, st.q4_ready, st.extra_ready, txt ? txt : "(ERROR)");
@@ -2115,7 +2122,7 @@ void trans_logger_log(struct trans_logger_brick *brick)
 			}
 		}
 #endif
-#if 1 // provisionary flood handling FIXME: do better
+#ifdef DELAY_CALLERS // provisionary flood handling FIXME: do better
 #define LIMIT_FN(factor,divider)					\
 		(atomic_read(&brick->mshadow_count) > brick->shadow_mem_limit  * (factor) / (divider) && brick->shadow_mem_limit > 16) || \
 		(atomic64_read(&brick->shadow_mem_used) > brick_global_memlimit  * (factor) / (divider) && brick_global_memlimit > PAGE_SIZE * 16)
