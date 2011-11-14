@@ -35,6 +35,7 @@
 #include "../mars_client.h"
 #include "../mars_copy.h"
 #include "../mars_bio.h"
+#include "../mars_sio.h"
 #include "../mars_aio.h"
 #include "../mars_trans_logger.h"
 #include "../mars_if.h"
@@ -198,11 +199,31 @@ int _set_client_params(struct mars_brick *_brick, void *private)
 }
 
 static
+int _set_sio_params(struct mars_brick *_brick, void *private)
+{
+	struct sio_brick *sio_brick = (void*)_brick;
+	if (_brick->type == (void*)&client_brick_type) {
+		return _set_client_params(_brick, private);
+	}
+	if (_brick->type != (void*)&sio_brick_type) {
+		MARS_ERR("bad brick type\n");
+		return -EINVAL;
+	}
+	sio_brick->o_direct = false; // important!
+	sio_brick->o_fdsync = true;
+	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
+	return 1;
+}
+
+static
 int _set_aio_params(struct mars_brick *_brick, void *private)
 {
 	struct aio_brick *aio_brick = (void*)_brick;
 	if (_brick->type == (void*)&client_brick_type) {
 		return _set_client_params(_brick, private);
+	}
+	if (_brick->type == (void*)&sio_brick_type) {
+		return _set_sio_params(_brick, private);
 	}
 	if (_brick->type != (void*)&aio_brick_type) {
 		MARS_ERR("bad brick type\n");
@@ -225,6 +246,9 @@ int _set_bio_params(struct mars_brick *_brick, void *private)
 	}
 	if (_brick->type == (void*)&aio_brick_type) {
 		return _set_aio_params(_brick, private);
+	}
+	if (_brick->type == (void*)&sio_brick_type) {
+		return _set_sio_params(_brick, private);
 	}
 	if (_brick->type != (void*)&bio_brick_type) {
 		MARS_ERR("bad brick type\n");
@@ -3242,6 +3266,8 @@ static int light_thread(void *data)
 		MARS_DBG("kill client bricks (when possible) = %d\n", status);
 		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&aio_brick_type, false);
 		MARS_DBG("kill aio    bricks (when possible) = %d\n", status);
+		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&sio_brick_type, false);
+		MARS_DBG("kill sio    bricks (when possible) = %d\n", status);
 
 		_show_status_all(&_global);
 #ifdef STAT_DEBUGGING
@@ -3331,6 +3357,7 @@ static int __init init_light(void)
 	DO_INIT(mars_server);
 	DO_INIT(mars_client);
 	DO_INIT(mars_aio);
+	DO_INIT(mars_sio);
 	DO_INIT(mars_bio);
 	DO_INIT(mars_if);
 	DO_INIT(mars_copy);

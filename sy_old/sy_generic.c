@@ -1192,6 +1192,8 @@ const struct generic_brick_type *_bio_brick_type = NULL;
 EXPORT_SYMBOL_GPL(_bio_brick_type);
 const struct generic_brick_type *_aio_brick_type = NULL;
 EXPORT_SYMBOL_GPL(_aio_brick_type);
+const struct generic_brick_type *_sio_brick_type = NULL;
+EXPORT_SYMBOL_GPL(_sio_brick_type);
 
 struct mars_brick *make_brick_all(
 	struct mars_global *global,
@@ -1320,6 +1322,12 @@ struct mars_brick *make_brick_all(
 			MARS_DBG("substitute bio by aio\n");
 		}
 	}
+#ifdef CONFIG_MARS_PREFER_SIO
+	if (!brick && new_brick_type == _aio_brick_type && _sio_brick_type) {
+		new_brick_type = _sio_brick_type;
+		MARS_DBG("substitute aio by sio\n");
+	}
+#endif
 
 	// create it...
 	if (!brick)

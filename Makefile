@@ -11,6 +11,7 @@ mars-objs := \
 	mars_server.o \
 	mars_client.o \
 	mars_aio.o \
+	mars_sio.o \
 	mars_bio.o \
 	mars_if.o \
 	mars_copy.o \

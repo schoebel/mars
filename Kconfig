@@ -37,6 +37,13 @@ config MARS_MIN_SPACE
 	---help---
 	Experimental storage System.
 
+config MARS_PREFER_SIO
+	bool "prefer sio bricks instead of aio (EXPERIMENTAL)"
+	depends on MARS
+	default y
+	---help---
+	Experimental storage System.
+
 config MARS_DUMMY
 	tristate "MARS dummy brick"
 	depends on MARS && MARS_BIGMODULE!=m

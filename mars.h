@@ -284,6 +284,7 @@ extern void (*_mars_trigger)(void);
 extern const struct generic_brick_type *_client_brick_type;
 extern const struct generic_brick_type *_bio_brick_type;
 extern const struct generic_brick_type *_aio_brick_type;
+extern const struct generic_brick_type *_sio_brick_type;
 
 /* Kludge: our kernel threads will have no mm context, but need one
  * for stuff like ioctx_alloc() / aio_setup_ring() etc

@@ -2,6 +2,10 @@
 
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
+//#define IO_DEBUGGING
+
+#define USE_VFS_READ
+#define USE_VFS_WRITE
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -25,22 +29,84 @@
 
 static int sio_ref_get(struct sio_output *output, struct mref_object *mref)
 {
-	_CHECK_ATOMIC(&mref->ref_count, !=,  0);
-	/* Buffered IO is not implemented.
-	 * Use an intermediate buf instance if you need it.
-	 */
-	if (!mref->ref_data)
-		return -ENOSYS;
+	struct file *file;
 
+	if (atomic_read(&mref->ref_count) > 0) {
+		goto done;
+	}
+
+	file = output->filp;
+	if (file) {
+		loff_t total_size = i_size_read(file->f_mapping->host);
+		mref->ref_total_size = total_size;
+		/* Only check reads.
+		 * Writes behind EOF are always allowed (sparse files)
+		 */
+		if (!mref->ref_may_write) {
+			loff_t len = total_size - mref->ref_pos;
+			if (unlikely(len <= 0)) {
+				/* Special case: allow reads starting _exactly_ at EOF when a timeout is specified.
+				 */
+				if (len < 0 || mref->ref_timeout <= 0) {
+					MARS_DBG("ENODATA %lld\n", len);
+					return -ENODATA;
+				}
+			}
+			// Shorten below EOF, but allow special case
+			if (mref->ref_len > len && len > 0) {
+				mref->ref_len = len;
+			}
+		}
+	}
+
+	/* Buffered IO.
+	 */
+	if (!mref->ref_data) {
+		struct sio_mref_aspect *mref_a = sio_mref_get_aspect(output->brick, mref);
+		if (unlikely(!mref_a))
+			return -EILSEQ;
+		if (unlikely(mref->ref_len <= 0)) {
+			MARS_ERR("bad ref_len = %d\n", mref->ref_len);
+			return -ENOMEM;
+		}
+		mref->ref_data = brick_block_alloc(mref->ref_pos, (mref_a->alloc_len = mref->ref_len));
+		if (unlikely(!mref->ref_data)) {
+			MARS_ERR("ENOMEM %d bytes\n", mref->ref_len);
+			return -ENOMEM;
+		}
+#if 0 // ???
+		mref->ref_flags = 0;
+#endif
+		mref_a->do_dealloc = true;
+		//atomic_inc(&output->total_alloc_count);
+		//atomic_inc(&output->alloc_count);
+	}
+
+done:
 	atomic_inc(&mref->ref_count);
-	return 0;
+	return mref->ref_len;
 }
 
 static void sio_ref_put(struct sio_output *output, struct mref_object *mref)
 {
+	struct file *file;
+	struct sio_mref_aspect *mref_a;
+
 	CHECK_ATOMIC(&mref->ref_count, 1);
 	if (!atomic_dec_and_test(&mref->ref_count))
 		return;
+
+	file = output->filp;
+	if (file) {
+		mref->ref_total_size = i_size_read(file->f_mapping->host);
+	}
+
+	mref_a = sio_mref_get_aspect(output->brick, mref);
+	if (mref_a && mref_a->do_dealloc) {
+		brick_block_free(mref->ref_data, mref_a->alloc_len);
+		//atomic_dec(&output->alloc_count);
+	}
+
 	sio_free_mref(mref);
 }
 
@@ -73,26 +139,36 @@ static int transfer_none(int cmd,
 	return 0;
 }
 
-static void write_aops(struct sio_output *output, struct mref_object *mref)
+static
+int write_aops(struct sio_output *output, struct mref_object *mref)
 {
 	struct file *file = output->filp;
 	loff_t pos = mref->ref_pos;
 	void *data = mref->ref_data;
-	unsigned offset;
-	int len;
-	struct address_space *mapping;
+	int  len = mref->ref_len;
 	int ret = 0;
+
+
+#ifdef USE_VFS_WRITE
+	mm_segment_t oldfs;
+
+	oldfs = get_fs();
+	set_fs(get_ds());
+	ret = vfs_write(file, data, len, &pos);
+	set_fs(oldfs);
+#else
+	unsigned offset;
+	struct address_space *mapping;
 
 	if (unlikely(!file)) {
 		MARS_FAT("No FILE\n");
-		return;
+		return -ENXIO;
 	}
 	mapping = file->f_mapping;
 
 	mutex_lock(&mapping->host->i_mutex);
 		
 	offset = pos & ((pgoff_t)PAGE_CACHE_SIZE - 1);
-	len = mref->ref_len;
 	
 	while (len > 0) {
 		int transfer_result;
@@ -142,18 +218,16 @@ static void write_aops(struct sio_output *output, struct mref_object *mref)
 fail:
 	mutex_unlock(&mapping->host->i_mutex);
 
-	mref->ref_cb->cb_error = ret;
-
 #if 1
 	blk_run_address_space(mapping);
 #endif
+#endif
+	return ret;
 }
 
 struct cookie_data {
 	struct sio_output *output;
 	struct mref_object *mref;
-	void *data;
-	int len;
 };
 
 static int
@@ -161,22 +235,22 @@ sio_splice_actor(struct pipe_inode_info *pipe,
 			struct pipe_buffer *buf,
 			struct splice_desc *sd)
 {
-	struct cookie_data *p = sd->u.data;
+	struct cookie_data *cookie = sd->u.data;
+	struct mref_object *mref = cookie->mref;
 	struct page *page = buf->page;
-	sector_t IV;
+	void *data;
 	int size, ret;
 
 	ret = buf->ops->confirm(pipe, buf);
 	if (unlikely(ret))
 		return ret;
 
-	IV = ((sector_t) page->index << (PAGE_CACHE_SHIFT - 9)) +
-		(buf->offset >> 9);
 	size = sd->len;
-	if (size > p->len)
-		size = p->len;
+	if (size > mref->ref_len)
+		size = mref->ref_len;
 
-	if (transfer_none(READ, page, buf->offset, p->data, size)) {
+	data = mref->ref_data;
+	if (transfer_none(READ, page, buf->offset, data, size)) {
 		MARS_ERR("transfer error\n");
 		size = -EINVAL;
 	}
@@ -192,30 +266,41 @@ sio_direct_splice_actor(struct pipe_inode_info *pipe, struct splice_desc *sd)
 	return __splice_from_pipe(pipe, sd, sio_splice_actor);
 }
 
-static void read_aops(struct sio_output *output, struct mref_object *mref)
+static 
+int read_aops(struct sio_output *output, struct mref_object *mref)
 {
 	loff_t pos = mref->ref_pos;
+	int len = mref->ref_len;
 	int ret = -EIO;
 
+#ifdef USE_VFS_READ
+	mm_segment_t oldfs;
+	(void) sio_direct_splice_actor; // shut up gcc
+
+	oldfs = get_fs();
+	set_fs(get_ds());
+	ret = vfs_read(output->filp, mref->ref_data, len, &pos);
+	set_fs(oldfs);
+#else
 	struct cookie_data cookie = {
 		.output = output,
 		.mref = mref,
-		.data = mref->ref_data,
-		.len = mref->ref_len,
 	};
 	struct splice_desc sd = {
 		.len = 0,
-		.total_len = mref->ref_len,
+		.total_len = len,
 		.flags = 0,
 		.pos = pos,
 		.u.data = &cookie,
 	};
 
 	ret = splice_direct_to_actor(output->filp, &sd, sio_direct_splice_actor);
+#endif
+
 	if (unlikely(ret < 0)) {
-		MARS_ERR("splice %p %p status=%d\n", output, mref, ret);
+		MARS_ERR("%p %p status=%d\n", output, mref, ret);
 	}
-	mref->ref_cb->cb_error = ret;
+	return ret;
 }
 
 static void sync_file(struct sio_output *output)
@@ -231,14 +316,45 @@ static void sync_file(struct sio_output *output)
 #endif
 }
 
-static void sio_ref_io(struct sio_output *output, struct mref_object *mref)
+static
+void _complete(struct sio_output *output, struct mref_object *mref, int err)
 {
-	struct generic_callback *cb = mref->ref_cb;
+	mars_trace(mref, "sio_endio");
+
+	if (err < 0) {
+		MARS_ERR("IO error %d at pos=%lld len=%d (mref=%p ref_data=%p)\n", err, mref->ref_pos, mref->ref_len, mref, mref->ref_data);
+	} else {
+		mref->ref_flags |= MREF_UPTODATE;
+	}
+
+	CHECKED_CALLBACK(mref, err, err_found);
+
+done:
+#if 0
+	if (mref->ref_rw) {
+		atomic_dec(&output->write_count);
+	} else {
+		atomic_dec(&output->read_count);
+	}
+#endif
+	sio_ref_put(output, mref);
+	return;
+
+err_found:
+	MARS_FAT("giving up...\n");
+	goto done;
+}
+
+/* This is called by the threads
+ */
+static
+void _sio_ref_io(struct sio_output *output, struct mref_object *mref)
+{
 	bool barrier = false;
-	int test;
+	int status;
 
 	if (unlikely(!output->filp)) {
-		cb->cb_error = -EINVAL;
+		status = -EINVAL;
 		goto done;
 	}
 
@@ -248,58 +364,46 @@ static void sio_ref_io(struct sio_output *output, struct mref_object *mref)
 	}
 
 	if (mref->ref_rw == READ) {
-		read_aops(output, mref);
+		status = read_aops(output, mref);
 	} else {
-		write_aops(output, mref);
-		if (barrier || output->o_fdsync)
+		status = write_aops(output, mref);
+		if (barrier || output->brick->o_fdsync)
 			sync_file(output);
 	}
 
 done:
-#if 1
-	if (cb->cb_error < 0)
-		MARS_ERR("IO error %d\n", cb->cb_error);
-#endif
-
-	cb->cb_fn(cb);
-
-	test = atomic_read(&mref->ref_count);
-	if (test <= 0) {
-		MARS_ERR("ref_count UNDERRUN %d\n", test);
-		atomic_set(&mref->ref_count, 1);
-	}
-	if (!atomic_dec_and_test(&mref->ref_count))
-		return;
-
-	sio_free_mref(mref);
+	_complete(output, mref, status);
 }
 
-static void sio_mars_queue(struct sio_output *output, struct mref_object *mref)
+/* This is called from outside
+ */
+static
+void sio_ref_io(struct sio_output *output, struct mref_object *mref)
 {
-	int index = 0;
+	int index;
 	struct sio_threadinfo *tinfo;
 	struct sio_mref_aspect *mref_a;
-	struct generic_callback *cb = mref->ref_cb;
 	unsigned long flags;
 
+	mref_a = sio_mref_get_aspect(output->brick, mref);
+	if (unlikely(!mref_a)) {
+		MARS_FAT("cannot get aspect\n");
+		SIMPLE_CALLBACK(mref, -EINVAL);
+		return;
+	}
+
+	atomic_inc(&mref->ref_count);
+
+	index = 0;
 	if (mref->ref_rw == READ) {
 		traced_lock(&output->g_lock, flags);
 		index = output->index++;
 		traced_unlock(&output->g_lock, flags);
 		index = (index % WITH_THREAD) + 1;
 	}
-	mref_a = sio_mref_get_aspect(output->brick, mref);
-	if (unlikely(!mref_a)) {
-		MARS_FAT("cannot get aspect\n");
-		cb->cb_error = -EINVAL;
-		cb->cb_fn(cb);
-		return;
-	}
-
-	atomic_inc(&mref->ref_count);
 
 	tinfo = &output->tinfo[index];
-	MARS_DBG("queueing %p on %d\n", mref, index);
+	MARS_IO("queueing %p on %d\n", mref, index);
 
 	traced_lock(&tinfo->lock, flags);
 	list_add_tail(&mref_a->io_head, &tinfo->mref_list);
@@ -343,40 +447,22 @@ static int sio_thread(void *data)
 
 		mref_a = container_of(tmp, struct sio_mref_aspect, io_head);
 		mref = mref_a->object;
-		MARS_DBG("got %p %p\n", mref_a, mref);
-		sio_ref_io(output, mref);
+		MARS_IO("got %p %p\n", mref_a, mref);
+		_sio_ref_io(output, mref);
 	}
 
 	MARS_INF("kthread has stopped.\n");
 	return 0;
 }
 
-static int sio_watchdog(void *data)
-{
-	struct sio_output *output = data;
-	MARS_INF("watchdog has started.\n");
-	while (!kthread_should_stop()) {
-		int i;
-
-		msleep(5000);
-
-		for (i = 0; i <= WITH_THREAD; i++) {
-			struct sio_threadinfo *tinfo = &output->tinfo[i];
-			unsigned long now = jiffies;
-			unsigned long elapsed = now - tinfo->last_jiffies;
-			if (elapsed > 10 * HZ) {
-				tinfo->last_jiffies = now;
-				MARS_ERR("thread %d is dead for more than 10 seconds.\n", i);
-			}
-		}
-	}
-	return 0;
-}
-
 static int sio_get_info(struct sio_output *output, struct mars_info *info)
 {
 	struct file *file = output->filp;
+	if (unlikely(!file || !file->f_mapping || !file->f_mapping->host))
+		return -EINVAL;
+
 	info->current_size = i_size_read(file->f_mapping->host);
+	MARS_DBG("determined file size = %lld\n", info->current_size);
 	info->backing_file = file;
 	return 0;
 }
@@ -410,24 +496,30 @@ static int sio_brick_construct(struct sio_brick *brick)
 
 static int sio_switch(struct sio_brick *brick)
 {
+	static int sio_nr = 0;
 	struct sio_output *output = brick->outputs[0];
-	const char *path = output->output_name;
+	const char *path = output->brick->brick_path;
 	int flags = O_CREAT | O_RDWR | O_LARGEFILE;
 	int prot = 0600;
 	mm_segment_t oldfs;
 
-	if (output->o_direct) {
+	if (brick->o_direct) {
 		flags |= O_DIRECT;
 		MARS_INF("using O_DIRECT on %s\n", path);
 	}
 	if (brick->power.button) {
+		int index;
+
 		mars_power_led_off((void*)brick, false);
+		if (brick->power.led_on)
+			goto done;
+
 		oldfs = get_fs();
 		set_fs(get_ds());
 		output->filp = filp_open(path, flags, prot);
 		set_fs(oldfs);
 		
-		if (IS_ERR(output->filp)) {
+		if (unlikely(IS_ERR(output->filp))) {
 			int err = PTR_ERR(output->filp);
 			MARS_ERR("can't open file '%s' status=%d\n", path, err);
 			output->filp = NULL;
@@ -440,60 +532,64 @@ static int sio_switch(struct sio_brick *brick)
 			mapping_set_gfp_mask(mapping, old_gfp_mask & ~(__GFP_IO|__GFP_FS));
 		}
 #endif
-		MARS_INF("opened file '%s'\n", path);
+		MARS_INF("opened file '%s' as %p\n", path, output->filp);
+
+		output->index = 0;
+		for (index = 0; index <= WITH_THREAD; index++) {
+			struct sio_threadinfo *tinfo = &output->tinfo[index];
+			
+			tinfo->last_jiffies = jiffies;
+			tinfo->thread = kthread_create(sio_thread, tinfo, "mars_sio%d", sio_nr++);
+			if (IS_ERR(tinfo->thread)) {
+				int error = PTR_ERR(tinfo->thread);
+				MARS_ERR("cannot create thread, status=%d\n", error);
+				filp_close(output->filp, NULL);
+				output->filp = NULL;
+				return error;
+			}
+			get_task_struct(tinfo->thread);
+			wake_up_process(tinfo->thread);
+		}
 		mars_power_led_on((void*)brick, true);
 	} else {
 		mars_power_led_on((void*)brick, false);
-		// TODO: close etc...
+		if (output->filp) {
+			int index;
+			for (index = 0; index <= WITH_THREAD; index++) {
+				struct sio_threadinfo *tinfo = &output->tinfo[index];
+				MARS_DBG("stopping thread %d\n", index);
+				kthread_stop(tinfo->thread);
+				put_task_struct(tinfo->thread);
+				tinfo->thread = NULL;
+			}
+			MARS_DBG("closing file\n");
+			filp_close(output->filp, NULL);
+			output->filp = NULL;
+		}
 		mars_power_led_off((void*)brick, true);
 	}
+done:
 	return 0;
 }
 
 static int sio_output_construct(struct sio_output *output)
 {
-	struct task_struct *watchdog;
 	int index;
 
 	spin_lock_init(&output->g_lock);
-	output->index = 0;
 	for (index = 0; index <= WITH_THREAD; index++) {
 		struct sio_threadinfo *tinfo = &output->tinfo[index];
 		tinfo->output = output;
 		spin_lock_init(&tinfo->lock);
 		init_waitqueue_head(&tinfo->event);
 		INIT_LIST_HEAD(&tinfo->mref_list);
-		tinfo->last_jiffies = jiffies;
-		tinfo->thread = kthread_create(sio_thread, tinfo, "mars_sio%d", index);
-		if (IS_ERR(tinfo->thread)) {
-			int error = PTR_ERR(tinfo->thread);
-			MARS_ERR("cannot create thread, status=%d\n", error);
-			filp_close(output->filp, NULL);
-			return error;
-		}
-		wake_up_process(tinfo->thread);
 	}
 
-	watchdog = kthread_create(sio_watchdog, output, "mars_watchdog%d", 0);
-	if (!IS_ERR(watchdog)) {
-		wake_up_process(watchdog);
-	}
 	return 0;
 }
 
 static int sio_output_destruct(struct sio_output *output)
 {
-	int index;
-	for (index = 0; index <= WITH_THREAD; index++) {
-		kthread_stop(output->tinfo[index].thread);
-		output->tinfo[index].thread = NULL;
-	}
-
-	if (output->filp) {
-		filp_close(output->filp, NULL);
-		output->filp = NULL;
-	}
-
 	return 0;
 }
 
@@ -506,7 +602,7 @@ static struct sio_brick_ops sio_brick_ops = {
 static struct sio_output_ops sio_output_ops = {
 	.mref_get = sio_ref_get,
 	.mref_put = sio_ref_put,
-	.mref_io = sio_mars_queue,
+	.mref_io = sio_ref_io,
 	.mars_get_info = sio_get_info,
 };
 
@@ -546,21 +642,24 @@ EXPORT_SYMBOL_GPL(sio_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 
-static int __init init_sio(void)
+int __init init_mars_sio(void)
 {
 	MARS_INF("init_sio()\n");
+	_sio_brick_type = (void*)&sio_brick_type;
 	return sio_register_brick_type();
 }
 
-static void __exit exit_sio(void)
+void __exit exit_mars_sio(void)
 {
 	MARS_INF("exit_sio()\n");
 	sio_unregister_brick_type();
 }
 
+#ifndef CONFIG_MARS_HAVE_BIGMODULE
 MODULE_DESCRIPTION("MARS sio brick");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@1und1.de>");
 MODULE_LICENSE("GPL");
 
-module_init(init_sio);
-module_exit(exit_sio);
+module_init(init_mars_sio);
+module_exit(exit_mars_sio);
+#endif
