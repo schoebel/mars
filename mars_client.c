@@ -182,7 +182,7 @@ static int client_ref_get(struct client_output *output, struct mref_object *mref
 		if (!mref_a)
 			return -EILSEQ;
 
-		mref->ref_data = brick_block_alloc(mref->ref_pos, mref->ref_len);
+		mref->ref_data = brick_block_alloc(mref->ref_pos, (mref_a->alloc_len = mref->ref_len));
 		if (!mref->ref_data)
 			return -ENOMEM;
 
@@ -202,7 +202,7 @@ static void client_ref_put(struct client_output *output, struct mref_object *mre
 		return;
 	mref_a = client_mref_get_aspect(output->brick, mref);
 	if (mref_a && mref_a->do_dealloc) {
-		brick_block_free(mref->ref_data, mref->ref_len);
+		brick_block_free(mref->ref_data, mref_a->alloc_len);
 	}
 	client_free_mref(mref);
 }

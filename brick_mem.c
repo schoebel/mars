@@ -8,12 +8,22 @@
 #include <asm/atomic.h>
 
 #include "brick_mem.h"
+#include "brick_locks.h"
 
 #define BRICK_DEBUG_MEM 10000
+//#define LIMIT_MEM
+#define USE_KERNEL_PAGES // currently mandatory (vmalloc does not work)
+//#define BUMP_LIMITS // try to avoid this
 
-#define MAGIC_MEM  (int)0x8B395D7D
-#define MAGIC_END  (int)0x8B395D7E
-#define MAGIC_STR  (int)0x8B395D7F
+#ifndef CONFIG_DEBUG_KERNEL
+#undef BRICK_DEBUG_MEM
+#endif
+
+#define MAGIC_BLOCK  (int)0x8B395D7B
+#define MAGIC_BEND   (int)0x8B395D7C
+#define MAGIC_MEM    (int)0x8B395D7D
+#define MAGIC_END    (int)0x8B395D7E
+#define MAGIC_STR    (int)0x8B395D7F
 
 #define INT_ACCESS(ptr,offset) (*(int*)(((char*)(ptr)) + (offset)))
 
@@ -30,7 +40,6 @@
 
 // limit handling
 
-#define LIMIT_MEM
 #ifdef LIMIT_MEM
 #include <linux/swap.h>
 #include <linux/mm.h>
@@ -188,98 +197,280 @@ EXPORT_SYMBOL_GPL(_brick_string_free);
 
 // block memory allocation
 
-#define USE_KERNEL_PAGES
-#define BRICK_MAX_ORDER 8
-//#define USE_OFFSET
-//#define USE_INTERNAL_FREELIST
-
-#ifdef USE_INTERNAL_FREELIST
-void *brick_freelist[BRICK_MAX_ORDER+1] = {};
-atomic_t freelist_count[BRICK_MAX_ORDER+1] = {};
-#endif
-
-void *_brick_block_alloc(loff_t pos, int len, int line)
+static
+int len2order(int len)
 {
-	int offset = 0;
-	void *data;
-#ifdef USE_KERNEL_PAGES
-	int order = BRICK_MAX_ORDER;
-	if (unlikely(len > (PAGE_SIZE << order) || len <=0)) {
+	int order = 0;
+
+	while ((PAGE_SIZE << order) < len)
+		order++;
+
+	if (unlikely(order > BRICK_MAX_ORDER || len <= 0)) {
 		BRICK_ERR("trying to allocate %d bytes (max = %d)\n", len, (int)(PAGE_SIZE << order));
-		return NULL;
+		return -1;
 	}
-#endif
-#ifdef CONFIG_DEBUG_KERNEL
-	might_sleep();
-#endif
-#ifdef USE_OFFSET
-	offset = pos & (PAGE_SIZE-1);
-#endif
-#ifdef USE_KERNEL_PAGES
-	len += offset;
-	while (order > 0 && (PAGE_SIZE << (order-1)) >= len) {
-		order--;
-	}
-#ifdef USE_INTERNAL_FREELIST
-	data = brick_freelist[order];
-	if (data) {
-		brick_freelist[order] = *(void**)data;
-		atomic_dec(&freelist_count[order]);
-	} else
-#endif
-	data = (void*)__get_free_pages(GFP_BRICK, order);
-#else
-	data = __vmalloc(len + offset, GFP_BRICK, PAGE_KERNEL_IO);
-#endif
-	if (likely(data)) {
-		data += offset;
-	}
-	return data;
+	return order;
 }
-EXPORT_SYMBOL_GPL(_brick_block_alloc);
 
-void brick_block_free(void *data, int len)
+#ifdef BRICK_DEBUG_MEM
+// indexed by line
+static atomic_t block_count[BRICK_DEBUG_MEM] = {};
+static atomic_t block_free[BRICK_DEBUG_MEM] = {};
+static int  block_len[BRICK_DEBUG_MEM] = {};
+// indexed by order
+static atomic_t op_count[BRICK_MAX_ORDER+1] = {};
+static atomic_t raw_count[BRICK_MAX_ORDER+1] = {};
+static atomic_t alloc_count[BRICK_MAX_ORDER+1] = {};
+static int alloc_max[BRICK_MAX_ORDER+1] = {};
+#endif
+
+static inline
+void *__brick_block_alloc(int order)
 {
-	int offset = 0;
+#ifdef BRICK_DEBUG_MEM
+	atomic_inc(&raw_count[order]);
+#endif
 #ifdef USE_KERNEL_PAGES
-	int order = BRICK_MAX_ORDER;
+	return (void*)__get_free_pages(GFP_BRICK, order);
+#else
+	return __vmalloc(PAGE_SIZE << order, GFP_BRICK, PAGE_KERNEL_IO);
 #endif
-	if (!data) {
-		return;
-	}
-#ifdef USE_OFFSET
-	offset = ((unsigned long)data) & (PAGE_SIZE-1);
-#endif
-	data -= offset;
+}
+
+static inline
+void __brick_block_free(void *data, int order)
+{
 #ifdef USE_KERNEL_PAGES
-	len += offset;
-	while (order > 0 && (PAGE_SIZE << (order-1)) >= len) {
-		order--;
-	}
-#ifdef USE_INTERNAL_FREELIST
-	if (order > 0 && atomic_read(&freelist_count[order]) < 500) {
-		static int max[BRICK_MAX_ORDER+1] = {};
-		int now;
-		*(void**)data = brick_freelist[order];
-		brick_freelist[order] = data;
-		atomic_inc(&freelist_count[order]);
-		now = atomic_read(&freelist_count[order]);
-		if (now > max[order] + 50) {
-			int i;
-			max[order] = now;
-			BRICK_INF("now %d freelist members at order %d (len = %d)\n", now, order, len);
-			for (i = 0; i <= BRICK_MAX_ORDER; i++) {
-				BRICK_INF("  %d : %4d\n", i, atomic_read(&freelist_count[i]));
-			}
-		}
-	} else
-#endif
 	__free_pages(virt_to_page((unsigned long)data), order);
 #else
 	vfree(data);
 #endif
+#ifdef BRICK_DEBUG_MEM
+	atomic_dec(&raw_count[order]);
+#endif
 }
-EXPORT_SYMBOL_GPL(brick_block_free);
+
+bool brick_allow_freelist = true;
+EXPORT_SYMBOL_GPL(brick_allow_freelist);
+
+#ifdef CONFIG_MARS_MEM_PREALLOC
+/* Note: we have no separate lists per CPU.
+ * This should not hurt because the freelists are only used
+ * for higher-order pages which should be rather low-frequency.
+ */
+static spinlock_t freelist_lock[BRICK_MAX_ORDER+1];
+static void *brick_freelist[BRICK_MAX_ORDER+1] = {};
+static atomic_t freelist_count[BRICK_MAX_ORDER+1] = {};
+static int freelist_max[BRICK_MAX_ORDER+1] = {};
+
+static
+void *_get_free(int order)
+{
+	void *data;
+	unsigned long flags;
+
+	traced_lock(&freelist_lock[order], flags);
+	data = brick_freelist[order];
+	if (likely(data)) {
+		void *next = *(void**)data;
+#ifdef BRICK_DEBUG_MEM // check for corruptions
+		void *copy = *(((void**)data)+1);
+		if (unlikely(next != copy)) { // found a corruption
+			// prevent further trouble by leaving a memleak
+			brick_freelist[order] = NULL;
+			traced_unlock(&freelist_lock[order], flags);
+			BRICK_ERR("freelist corruption at %p (next %p != %p, murdered = %d), order = %d\n", data, next, copy, atomic_read(&freelist_count[order]), order);
+			return NULL;
+		}
+#endif
+		brick_freelist[order] = next;
+		atomic_dec(&freelist_count[order]);
+	}
+	traced_unlock(&freelist_lock[order], flags);
+	return data;
+}
+
+static
+void _put_free(void *data, int order)
+{
+	void *next;
+	unsigned long flags;
+
+	traced_lock(&freelist_lock[order], flags);
+	next = brick_freelist[order];
+	*(void**)data = next;
+#ifdef BRICK_DEBUG_MEM // insert redundant copy for checking
+	*(((void**)data)+1) = next;
+#endif
+	brick_freelist[order] = data;
+	traced_unlock(&freelist_lock[order], flags);
+	atomic_inc(&freelist_count[order]);
+}
+
+static
+void _free_all(void)
+{
+	int order;
+	for (order = BRICK_MAX_ORDER; order >= 0; order--) {
+		for (;;) {
+			void *data = _get_free(order);
+			if (!data)
+				break;
+			__brick_block_free(data, order);
+		}
+	}
+}
+
+int brick_mem_reserve(struct mem_reservation *r)
+{
+	int order;
+	int status = 0;
+	for (order = BRICK_MAX_ORDER; order >= 0; order--) {
+		int max = r->amount[order];
+		int i;
+
+		freelist_max[order] += max;
+		BRICK_INF("preallocating %d at order %d (new maxlevel = %d)\n", max, order, freelist_max[order]);
+
+		max = freelist_max[order] - atomic_read(&freelist_count[order]);
+		if (max >= 0) {
+			for (i = 0; i < max; i++) {
+				void *data = __brick_block_alloc(order);
+				if (likely(data)) {
+					_put_free(data, order);
+				} else {
+					status = -ENOMEM;
+				}
+			}
+		} else {
+			for (i = 0; i < -max; i++) {
+				void *data = _get_free(order);
+				if (likely(data)) {
+					__brick_block_free(data, order);
+				}
+			}
+		}
+	}
+	return status;
+}
+#else
+int brick_mem_reserve(struct mem_reservation *r)
+{
+	BRICK_INF("preallocation is not compiled in\n");
+	return 0;
+}
+#endif
+EXPORT_SYMBOL_GPL(brick_mem_reserve);
+
+void *_brick_block_alloc(loff_t pos, int len, int line)
+{
+	void *data;
+#ifdef BRICK_DEBUG_MEM
+	int count;
+	const int plus = len <= PAGE_SIZE ? 0 : PAGE_SIZE * 2;
+#else
+	const int plus = 0;
+#endif
+	int order = len2order(len + plus);
+
+	if (unlikely(order < 0)) {
+		BRICK_ERR("trying to allocate %d bytes (max = %d)\n", len, (int)(PAGE_SIZE << order));
+		return NULL;
+	}
+
+#ifdef CONFIG_DEBUG_KERNEL
+	might_sleep();
+#endif
+
+#ifdef BRICK_DEBUG_MEM
+	atomic_inc(&op_count[order]);
+	atomic_inc(&alloc_count[order]);
+	count = atomic_read(&alloc_count[order]);
+	if (count > alloc_max[order])
+		alloc_max[order] = count;
+#endif
+
+#ifdef CONFIG_MARS_MEM_PREALLOC
+	data = _get_free(order);
+	if (!data)
+#endif
+		data = __brick_block_alloc(order);
+
+#ifdef BRICK_DEBUG_MEM
+	if (likely(data) && order > 0) {
+		if (unlikely(line < 0))
+			line = 0;
+		else if (unlikely(line >= BRICK_DEBUG_MEM))
+			line = BRICK_DEBUG_MEM - 1;
+		atomic_inc(&block_count[line]);
+		block_len[line] = len;
+		INT_ACCESS(data, 0) = MAGIC_BLOCK;
+		INT_ACCESS(data, sizeof(int)) = line;
+		INT_ACCESS(data, sizeof(int) * 2) = len;
+		data += PAGE_SIZE;
+		INT_ACCESS(data, len) = MAGIC_BEND;
+	}
+#endif
+	return data;
+}
+EXPORT_SYMBOL_GPL(_brick_block_alloc);
+
+void _brick_block_free(void *data, int len, int cline)
+{
+	int order;
+#ifdef BRICK_DEBUG_MEM
+	const int plus = len <= PAGE_SIZE ? 0 : PAGE_SIZE * 2;
+#else
+	const int plus = 0;
+#endif
+	if (!data) {
+		return;
+	}
+	order = len2order(len + plus);
+#ifdef BRICK_DEBUG_MEM
+	if (order > 0) {
+		void *test = data - PAGE_SIZE;
+		int magic = INT_ACCESS(test, 0);
+		int line = INT_ACCESS(test, sizeof(int));
+		int oldlen = INT_ACCESS(test, sizeof(int)*2);
+		int magic2;
+
+		if (unlikely(magic != MAGIC_BLOCK)) {
+			BRICK_ERR("line %d memory corruption: magix %08x != %08x\n", cline, magic, MAGIC_BLOCK);
+			return;
+		}
+		if (unlikely(line < 0 || line >= BRICK_DEBUG_MEM)) {
+			BRICK_ERR("line %d memory corruption: alloc line = %d\n", cline, line);
+			return;
+		}
+		if (unlikely(oldlen != len)) {
+			BRICK_ERR("line %d memory corruption: len != oldlen (%d != %d)\n", cline, len, oldlen);
+			return;
+		}
+		magic2 = INT_ACCESS(data, len);
+		if (unlikely(magic2 != MAGIC_BEND)) {
+			BRICK_ERR("line %d memory corruption: magix %08x != %08x\n", cline, magic, MAGIC_BEND);
+			return;
+		}
+		INT_ACCESS(test, 0) = 0xffffffff;
+		INT_ACCESS(data, len) = 0xffffffff;
+		atomic_dec(&block_count[line]);
+		atomic_inc(&block_free[line]);
+		data = test;
+	}
+#endif
+#ifdef CONFIG_MARS_MEM_PREALLOC
+	if (order > 0 && brick_allow_freelist && atomic_read(&freelist_count[order]) <= freelist_max[order]) {
+		_put_free(data, order);
+	} else
+#endif
+		__brick_block_free(data, order);
+
+#ifdef BRICK_DEBUG_MEM
+	atomic_dec(&alloc_count[order]);
+#endif
+}
+EXPORT_SYMBOL_GPL(_brick_block_free);
 
 struct page *brick_iomap(void *data, int *offset, int *len)
 {
@@ -309,6 +500,22 @@ void brick_mem_statistics(void)
 	int count = 0;
 	int places = 0;
 
+	BRICK_INF("======== page allocation:\n");
+#ifdef CONFIG_MARS_MEM_PREALLOC
+	for (i = 0; i <= BRICK_MAX_ORDER; i++) {
+		BRICK_INF("pages order = %d operations = %9d freelist_count = %4d / %3d raw_count = %5d alloc_count = %5d max_count = %5d\n", i, atomic_read(&op_count[i]), atomic_read(&freelist_count[i]), freelist_max[i], atomic_read(&raw_count[i]), atomic_read(&alloc_count[i]), alloc_max[i]);
+	}
+#endif
+	for (i = 0; i < BRICK_DEBUG_MEM; i++) {
+		int val = atomic_read(&block_count[i]);
+		if (val) {
+			count += val;
+			places++;
+			BRICK_INF("line %4d: %6d allocated (last size = %4d, freed = %6d)\n", i, val, block_len[i], atomic_read(&block_free[i]));
+		}
+	}
+	BRICK_INF("======== %d block allocations in %d places\n", count, places);
+	count = places = 0;
 	for (i = 0; i < BRICK_DEBUG_MEM; i++) {
 		int val = atomic_read(&mem_count[i]);
 		if (val) {
@@ -334,11 +541,27 @@ EXPORT_SYMBOL_GPL(brick_mem_statistics);
 
 // module init stuff
 
+#ifdef BUMP_LIMITS // quirk: bump the memory reserve limits.
+extern int min_free_kbytes;
+static int old_free_kbytes = 0;
+#endif
+
 int __init init_brick_mem(void)
 {
+#ifdef CONFIG_MARS_MEM_PREALLOC
+	int i;
+	for (i = BRICK_MAX_ORDER; i >= 0; i--) {
+		spin_lock_init(&freelist_lock[i]);
+	}
+#endif
 #ifdef LIMIT_MEM // provisionary
 	brick_global_memlimit = total_swapcache_pages * (PAGE_SIZE / 4);
 	BRICK_INF("brick_global_memlimit = %lld\n", brick_global_memlimit);
+#endif
+#ifdef BUMP_LIMITS // quirk: bump the memory reserve limits. TODO: determine right values.
+	old_free_kbytes = min_free_kbytes;
+	min_free_kbytes *= 4;
+	setup_per_zone_wmarks();
 #endif
 
 	return 0;
@@ -346,6 +569,14 @@ int __init init_brick_mem(void)
 
 void __exit exit_brick_mem(void)
 {
+#ifdef CONFIG_MARS_MEM_PREALLOC
+	_free_all();
+#endif
+#ifdef BUMP_LIMITS // quirk: bump the memory reserve limits.
+	min_free_kbytes = old_free_kbytes;
+	setup_per_zone_wmarks();
+#endif
+
 	brick_mem_statistics();
 }
 

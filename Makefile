@@ -3,6 +3,7 @@
 #
 
 mars-objs := \
+	brick_say.o \
 	brick_mem.o \
 	brick.o \
 	mars_generic.o \
@@ -39,7 +40,7 @@ obj-$(CONFIG_MARS_CLIENT)	+= mars_client.o
 obj-$(CONFIG_MARS_COPY)		+= mars_copy.o
 
 obj-$(CONFIG_MARS_LIGHT)	+= sy_old/mars_light.o \
-				   brick.o brick_mem.o \
+				   brick.o brick_mem.o brick_say.o \
 				   mars_generic.o sy_old/sy_generic.o \
 				   mars_net.o sy_old/sy_net.o \
 				   sy_old/mars_proc.o

@@ -40,9 +40,24 @@ extern void brick_mem_statistics(void);
 
 #define brick_block_alloc(_pos_,_len_) _brick_block_alloc(_pos_, _len_, __LINE__)
 extern void *_brick_block_alloc(loff_t pos, int len, int line);
-extern void brick_block_free(void *data, int len);
+extern void _brick_block_free(void *data, int len, int cline);
+#define brick_block_free(_data_,_len_) _brick_block_free(_data_, _len_, __LINE__)
 extern struct page *brick_iomap(void *data, int *offset, int *len);
 
+
+/////////////////////////////////////////////////////////////////////////
+
+// reservations / preallocation
+
+#define BRICK_MAX_ORDER 8
+
+extern bool brick_allow_freelist;
+
+struct mem_reservation {
+	int amount[BRICK_MAX_ORDER+1];
+};
+
+extern int brick_mem_reserve(struct mem_reservation *r);
 
 /////////////////////////////////////////////////////////////////////////
 
