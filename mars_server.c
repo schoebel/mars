@@ -226,8 +226,6 @@ int handler_thread(void *data)
 	wake_up_interruptible(&brick->startup_event);
 
 	MARS_DBG("--------------- handler_thread starting on socket %p\n", sock);
-	//fake_mm();
-
         while (brick->cb_running && !kthread_should_stop()) {
 		struct mars_cmd cmd = {};
 
@@ -562,8 +560,6 @@ static int _server_thread(void *data)
 {
 	char *id = my_id();
 	int status = 0;
-
-	//fake_mm();
 
 	MARS_INF("-------- server starting on host '%s' ----------\n", id);
 

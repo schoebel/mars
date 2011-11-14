@@ -286,6 +286,8 @@ extern const struct generic_brick_type *_bio_brick_type;
 extern const struct generic_brick_type *_aio_brick_type;
 extern const struct generic_brick_type *_sio_brick_type;
 
+#ifndef CONFIG_MARS_PREFER_SIO
+
 /* Kludge: our kernel threads will have no mm context, but need one
  * for stuff like ioctx_alloc() / aio_setup_ring() etc
  * which expect userspace resources.
@@ -340,6 +342,13 @@ static inline void unuse_fake_mm(void)
 		//current->mm = NULL;
 	}
 }
+
+#else
+static inline void set_fake(void) {}
+static inline void put_fake(void) {}
+static inline void use_fake_mm(void) {}
+static inline void unuse_fake_mm(void) {}
+#endif
 
 /////////////////////////////////////////////////////////////////////////
 

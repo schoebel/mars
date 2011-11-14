@@ -992,8 +992,6 @@ int remote_thread(void *data)
 	real_peer = mars_translate_hostname(peer->peer);
 	MARS_INF("-------- remote thread starting on peer '%s' (%s)\n", peer->peer, real_peer);
 
-	//fake_mm();
-
 	status = mars_create_sockaddr(&sockaddr, real_peer);
 	if (unlikely(status < 0)) {
 		MARS_ERR("unusable remote address '%s' (%s)\n", real_peer, peer->peer);
@@ -3237,8 +3235,6 @@ static int light_thread(void *data)
 		status = -EFAULT;
 		goto done;
 	}	
-
-	//fake_mm();
 
 	MARS_INF("-------- starting as host '%s' ----------\n", id);
 
