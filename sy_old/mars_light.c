@@ -2985,7 +2985,7 @@ static int light_checker(struct mars_dent *parent, const char *_name, int namlen
 	int class;
 	int status = -2;
 #ifdef MARS_DEBUGGING
-	const char *name = brick_strdup(_name);
+	const char *name = brick_strndup(_name, namlen);
 	if (!name)
 		return -ENOMEM;
 #else
