@@ -122,7 +122,6 @@ struct trans_logger_brick {
 	bool log_reads;   // additionally log pre-images
 	bool minimize_latency; // ... at the cost of throughput. ==0 means immediate flushing
 	bool debug_shortcut; // only for testing! never use in production!
-	loff_t log_start_pos; // where to start logging
 	loff_t replay_start_pos; // where to start replay
 	loff_t replay_end_pos;   // end of replay
 	int new_input_nr;   // whereto we should switchover ASAP
@@ -180,9 +179,12 @@ struct trans_logger_output {
 struct trans_logger_input {
 	MARS_INPUT(trans_logger);
 	// parameters
+	loff_t log_start_pos; // where to start logging
 	// informational
+	long long last_jiffies;
 	char *inf_host;
 	int inf_sequence;     // logfile sequence number
+	bool is_prepared;
 	// readonly from outside
 	loff_t replay_min_pos;  // current replay position (both in replay mode and in logging mode)
 	loff_t replay_max_pos;  // dito, indicating the "dirty" area which could be potentially "inconsistent"

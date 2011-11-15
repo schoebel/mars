@@ -1904,10 +1904,11 @@ bool _condition(struct condition_status *st, struct trans_logger_brick *brick)
 }
 
 static
-void _init_input(struct trans_logger_input *input, loff_t start_pos)
+void _init_input(struct trans_logger_input *input)
 {
 	struct trans_logger_brick *brick = input->brick;
 	struct log_status *logst = &input->logst;
+	loff_t start_pos = input->log_start_pos;
 
 	init_logst(logst, (void*)input, 0);
 	logst->align_size = brick->align_size;
@@ -1943,9 +1944,9 @@ void _init_inputs(struct trans_logger_brick *brick)
 		goto done;
 	}
 
-	_init_input(input, brick->log_start_pos);
+	_init_input(input);
 	brick->log_input_nr = nr;
-	MARS_INF("switching over to new logfile %d (old = %d) startpos = %lld\n", nr, brick->old_input_nr, brick->log_start_pos);
+	MARS_INF("switching over to new logfile %d (old = %d) startpos = %lld\n", nr, brick->old_input_nr, input->log_start_pos);
 done: ;
 }
 
@@ -2490,9 +2491,9 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 	if (!res)
 		return NULL;
 
-	snprintf(res, 1023, "mode replay=%d continuous=%d replay_code=%d log_reads=%d | log_start_pos = %lld replay_start_pos = %lld replay_end_pos = %lld | new_input_nr = %d log_input_nr = %d (old = %d) replay_min_pos1 = %lld replay_max_pos1 = %lld replay_min_pos2 = %lld replay_max_pos2 = %lld | total replay=%d callbacks=%d reads=%d writes=%d flushes=%d (%d%%) wb_clusters=%d writebacks=%d (%d%%) shortcut=%d (%d%%) mshadow=%d sshadow=%d rounds=%d restarts=%d phase1=%d phase2=%d phase3=%d phase4=%d | current shadow_mem_used=%ld/%lld replay=%d mshadow=%d/%d sshadow=%d hash_count=%d pos_count=%d balance=%d/%d/%d/%d fly=%d phase1=%d+%d phase2=%d+%d phase3=%d+%d phase4=%d+%d\n",
+	snprintf(res, 1023, "mode replay=%d continuous=%d replay_code=%d log_reads=%d | replay_start_pos = %lld replay_end_pos = %lld | new_input_nr = %d log_input_nr = %d (old = %d) replay_min_pos1 = %lld replay_max_pos1 = %lld replay_min_pos2 = %lld replay_max_pos2 = %lld | total replay=%d callbacks=%d reads=%d writes=%d flushes=%d (%d%%) wb_clusters=%d writebacks=%d (%d%%) shortcut=%d (%d%%) mshadow=%d sshadow=%d rounds=%d restarts=%d phase1=%d phase2=%d phase3=%d phase4=%d | current shadow_mem_used=%ld/%lld replay=%d mshadow=%d/%d sshadow=%d hash_count=%d pos_count=%d balance=%d/%d/%d/%d fly=%d phase1=%d+%d phase2=%d+%d phase3=%d+%d phase4=%d+%d\n",
 		 brick->do_replay, brick->do_continuous_replay, brick->replay_code, brick->log_reads,
-		 brick->log_start_pos, brick->replay_start_pos, brick->replay_end_pos,
+		 brick->replay_start_pos, brick->replay_end_pos,
 		 brick->new_input_nr, brick->log_input_nr, brick->old_input_nr,
 		 brick->inputs[TL_INPUT_LOG1]->replay_min_pos, brick->inputs[TL_INPUT_LOG1]->replay_max_pos, 
 		 brick->inputs[TL_INPUT_LOG2]->replay_min_pos, brick->inputs[TL_INPUT_LOG2]->replay_max_pos, 
