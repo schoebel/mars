@@ -144,16 +144,15 @@ void log_flush(struct log_status *logst)
 	logst->count = 0;
 	logst->log_mref = NULL;
 
-	if (cb_info->nr_cb > 0) {
-		down(&cb_info->mutex);
-		for (i = 0; i < cb_info->nr_cb; i++) {
-			void (*cbf)(void *private) = cb_info->preios[i];
-			if (cbf) {
-				cbf(cb_info->privates[i]);
-			}
+	down(&cb_info->mutex);
+	for (i = 0; i < cb_info->nr_cb; i++) {
+		void (*cbf)(void *private) = cb_info->preios[i];
+		if (cbf) {
+			cbf(cb_info->privates[i]);
 		}
-		up(&cb_info->mutex);
 	}
+	up(&cb_info->mutex);
+
 	put_log_cb_info(cb_info);
 }
 EXPORT_SYMBOL_GPL(log_flush);
