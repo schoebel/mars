@@ -322,6 +322,7 @@ EXPORT_SYMBOL_GPL(mars_send);
 
 int mars_recv(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 {
+	int sleeptime = 1000 / HZ;
 	int status = -EIDRM;
 	int done = 0;
 
@@ -355,11 +356,10 @@ int mars_recv(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 		status = kernel_recvmsg(msock->s_socket, &msg, &iov, 1, maxlen-done, msg.msg_flags);
 
 		if (status == -EAGAIN) {
-#if 0
-			if (!done)
-				goto err;
-#endif
-			msleep(50);
+			// linearly increasing backoff
+			if (sleeptime < 100)
+				sleeptime++;
+			msleep(sleeptime);
 			continue;
 		}
 		if (!status) { // EOF
@@ -372,6 +372,7 @@ int mars_recv(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 			goto err;
 		}
 		done += status;
+		sleeptime = 1000 / HZ;
 	}
 	status = done;
 
