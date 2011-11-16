@@ -14,6 +14,7 @@
 //#define LIMIT_MEM
 #define USE_KERNEL_PAGES // currently mandatory (vmalloc does not work)
 //#define BUMP_LIMITS // try to avoid this
+#define ALLOW_DYNAMIC_RAISE 512
 
 #ifndef CONFIG_DEBUG_KERNEL
 #undef BRICK_DEBUG_MEM
@@ -386,8 +387,18 @@ void *_brick_block_alloc(loff_t pos, int len, int line)
 	atomic_inc(&op_count[order]);
 	atomic_inc(&alloc_count[order]);
 	count = atomic_read(&alloc_count[order]);
+	// statistics
 	if (count > alloc_max[order])
 		alloc_max[order] = count;
+
+	/* Dynamic increase of limits, in order to reduce
+	 * fragmentation on higher-order pages.
+	 * This comes on cost of higher memory usage.
+	 */
+#if defined(ALLOW_DYNAMIC_RAISE) && defined(CONFIG_MARS_MEM_PREALLOC)
+	if (order > 0 && count > freelist_max[order] && count <= ALLOW_DYNAMIC_RAISE)
+		freelist_max[order] = count;
+#endif
 #endif
 
 #ifdef CONFIG_MARS_MEM_PREALLOC
