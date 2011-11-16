@@ -131,7 +131,6 @@ struct trans_logger_brick {
 	int replay_code;    // replay errors (if any)
 	// private
 	loff_t old_margin;
-	spinlock_t pos_lock;
 	spinlock_t replay_lock;
 	struct list_head replay_list;
 	struct task_struct *thread;
@@ -193,6 +192,7 @@ struct trans_logger_input {
 	// private
 	struct generic_object_layout sub_layout;
 	struct log_status logst;
+	spinlock_t pos_lock;
 	struct list_head pos_list;
 };
 

@@ -829,7 +829,7 @@ void pos_complete(struct trans_logger_mref_aspect *orig_mref_a)
 
 	tmp = &orig_mref_a->pos_head;
 
-	traced_lock(&brick->pos_lock, flags);
+	traced_lock(&log_input->pos_lock, flags);
 	// am I the first member? (means "youngest" list entry)
 	if (tmp == log_input->pos_list.next) {
 		if (unlikely(!log_input)) {
@@ -856,7 +856,7 @@ void pos_complete(struct trans_logger_mref_aspect *orig_mref_a)
 	}
 	list_del_init(tmp);
 	atomic_dec(&brick->pos_count);
-	traced_unlock(&brick->pos_lock, flags);
+	traced_unlock(&log_input->pos_lock, flags);
 err:;
 }
 
@@ -1369,7 +1369,7 @@ bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	}
 	orig_mref_a->log_pos = logst->log_pos + logst->offset;
 
-	traced_lock(&brick->pos_lock, flags);
+	traced_lock(&input->pos_lock, flags);
 #if 1
 	if (!list_empty(&input->pos_list)) {
 		struct trans_logger_mref_aspect *last_mref_a;
@@ -1381,7 +1381,7 @@ bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 #endif
 	list_add_tail(&orig_mref_a->pos_head, &input->pos_list);
 	atomic_inc(&brick->pos_count);
-	traced_unlock(&brick->pos_lock, flags);
+	traced_unlock(&input->pos_lock, flags);
 
 	qq_inc_flying(&brick->q_phase1);
 	return true;
@@ -2565,7 +2565,6 @@ int trans_logger_brick_construct(struct trans_logger_brick *brick)
 		INIT_LIST_HEAD(&start->hash_anchor);
 	}
 	atomic_set(&brick->hash_count, 0);
-	spin_lock_init(&brick->pos_lock);
 	spin_lock_init(&brick->replay_lock);
 	INIT_LIST_HEAD(&brick->replay_list);
 	init_waitqueue_head(&brick->worker_event);
@@ -2606,6 +2605,7 @@ int trans_logger_output_construct(struct trans_logger_output *output)
 static noinline
 int trans_logger_input_construct(struct trans_logger_input *input)
 {
+	spin_lock_init(&input->pos_lock);
 	INIT_LIST_HEAD(&input->pos_list);
 	return 0;
 }

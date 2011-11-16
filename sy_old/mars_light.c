@@ -1946,7 +1946,7 @@ void _rotate_trans(struct mars_rotate *rot)
 		struct trans_logger_input *trans_input = trans_brick->inputs[old_nr];
 		if (!trans_input->connect) {
 			MARS_DBG("ignoring unused input %d\n", old_nr);
-		} else if (trans_input->replay_min_pos == trans_input->replay_max_pos) {
+		} else if (trans_input->replay_min_pos == trans_input->replay_max_pos && list_empty(&trans_input->pos_list)) {
 			int status = generic_disconnect((void*)trans_input);
 			if (status < 0) {
 				MARS_ERR("disconnect failed\n");
