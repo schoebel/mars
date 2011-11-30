@@ -56,7 +56,6 @@ void if_endio(struct generic_callback *cb)
 {
 	struct if_mref_aspect *mref_a = cb->cb_private;
 	struct if_input *input;
-	struct bio *bio;
 	int k;
 	int rw = 0;
 	int error;
@@ -72,19 +71,23 @@ void if_endio(struct generic_callback *cb)
 	MARS_IO("bio_count = %d\n", mref_a->bio_count);
 
 	for (k = 0; k < mref_a->bio_count; k++) {
-		bio = mref_a->orig_bio[k];
-		mref_a->orig_bio[k] = NULL;
-		if (unlikely(!bio)) {
-			MARS_FAT("callback with no bio called (k = %d). something is very wrong here!\n", k);
+		struct bio_wrapper *biow;
+		struct bio *bio;
+
+		biow = mref_a->orig_biow[k];
+		mref_a->orig_biow[k] = NULL;
+		CHECK_PTR(biow, err);
+
+		CHECK_ATOMIC(&biow->bi_comp_cnt, 1);
+		if (!atomic_dec_and_test(&biow->bi_comp_cnt)) {
 			continue;
 		}
+
+		bio = biow->bio;
+		CHECK_PTR_NULL(bio, err);
 
 		rw = bio->bi_rw & 1;
 
-		CHECK_ATOMIC(&bio->bi_comp_cnt, 1);
-		if (!atomic_dec_and_test(&bio->bi_comp_cnt)) {
-			continue;
-		}
 #if 1
 		if (mref_a->is_kmapped) {
 			struct bio_vec *bvec;
@@ -106,6 +109,7 @@ void if_endio(struct generic_callback *cb)
 		MARS_IO("calling end_io() rw = %d error = %d\n", rw, error);
 		bio_endio(bio, error);
 		bio_put(bio);
+		brick_mem_free(biow);
 	}
 	input = mref_a->input;
 	if (input) {
@@ -125,6 +129,10 @@ void if_endio(struct generic_callback *cb)
 #endif
 	}
 	MARS_IO("finished.\n");
+	return;
+
+err:
+	MARS_FAT("error in callback, giving up\n");
 }
 
 /* Kick off plugged mrefs
@@ -208,6 +216,7 @@ void if_timer(unsigned long data)
  */
 static int if_make_request(struct request_queue *q, struct bio *bio)
 {
+	struct bio_wrapper *biow;
 	struct if_input *input;
 	struct if_brick *brick = NULL;
 	struct mref_object *mref = NULL;
@@ -250,15 +259,20 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 		return 0;
 	}
 #endif
+
+	brick = input->brick;
+	CHECK_PTR(brick, err);
+
+	biow = brick_mem_alloc(sizeof(struct bio_wrapper));
+	CHECK_PTR(biow, err);
+	biow->bio = bio;
+	atomic_set(&biow->bi_comp_cnt, 0);
+
 	if (rw) {
 		atomic_inc(&input->total_write_count);
 	} else {
 		atomic_inc(&input->total_read_count);
 	}
-
-	brick = input->brick;
-        if (unlikely(!brick))
-                goto err;
 
 	/* Get a reference to the bio.
 	 * Will be released after bio_endio().
@@ -270,9 +284,6 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 	while (unlikely(!brick->power.led_on)) {
 		msleep(100);
 	}
-
-	_CHECK_ATOMIC(&bio->bi_comp_cnt, !=, 0);
-	atomic_set(&bio->bi_comp_cnt, 0);
 
 #ifdef IO_DEBUGGING
 	{
@@ -347,14 +358,14 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 				}
 
 				for (i = 0; i < mref_a->bio_count; i++) {
-					if (mref_a->orig_bio[i] == bio) {
+					if (mref_a->orig_biow[i]->bio == bio) {
 						goto unlock;
 					}
 				}
 
-				CHECK_ATOMIC(&bio->bi_comp_cnt, 0);
-				atomic_inc(&bio->bi_comp_cnt);
-				mref_a->orig_bio[mref_a->bio_count++] = bio;
+				CHECK_ATOMIC(&biow->bi_comp_cnt, 0);
+				atomic_inc(&biow->bi_comp_cnt);
+				mref_a->orig_biow[mref_a->bio_count++] = biow;
 				assigned = true;
 				goto unlock;
 			} // foreach hash collision list member
@@ -424,9 +435,9 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 					atomic_inc(&input->total_mref_read_count);
 				}
 
-				CHECK_ATOMIC(&bio->bi_comp_cnt, 0);
-				atomic_inc(&bio->bi_comp_cnt);
-				mref_a->orig_bio[0] = bio;
+				CHECK_ATOMIC(&biow->bi_comp_cnt, 0);
+				atomic_inc(&biow->bi_comp_cnt);
+				mref_a->orig_biow[0] = biow;
 				mref_a->bio_count = 1;
 				assigned = true;
 				

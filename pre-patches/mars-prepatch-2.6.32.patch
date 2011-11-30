@@ -1,0 +1,235 @@
+diff -uri linux-2.6.32.14.orig/block/Kconfig linux-2.6.32.14.new.00/block/Kconfig
+--- linux-2.6.32.14.orig/block/Kconfig	2010-05-26 23:29:57.000000000 +0200
++++ linux-2.6.32.14.new.00/block/Kconfig	2010-06-11 17:05:53.000000000 +0200
+@@ -77,6 +77,8 @@
+ 	T10/SCSI Data Integrity Field or the T13/ATA External Path
+ 	Protection.  If in doubt, say N.
+ 
++source block/mars/Kconfig
++
+ endif # BLOCK
+ 
+ config BLOCK_COMPAT
+diff -uri linux-2.6.32.14.orig/block/Makefile linux-2.6.32.14.new.00/block/Makefile
+--- linux-2.6.32.14.orig/block/Makefile	2010-05-26 23:29:57.000000000 +0200
++++ linux-2.6.32.14.new.00/block/Makefile	2010-06-11 17:10:46.000000000 +0200
+@@ -15,3 +15,5 @@
+ 
+ obj-$(CONFIG_BLOCK_COMPAT)	+= compat_ioctl.o
+ obj-$(CONFIG_BLK_DEV_INTEGRITY)	+= blk-integrity.o
++
++obj-$(CONFIG_MARS)		+= mars/
+\ No newline at end of file
+--- linux-2.6.32.14.orig/fs/aio.c	2010-05-31 14:09:40.000000000 +0200
++++ linux-2.6.32.14.new.00/fs/aio.c	2011-01-26 16:02:44.000000000 +0100
+@@ -1267,6 +1268,7 @@
+ out:
+ 	return ret;
+ }
++EXPORT_SYMBOL(sys_io_setup);
+ 
+ /* sys_io_destroy:
+  *	Destroy the aio_context specified.  May cancel any outstanding 
+@@ -1284,6 +1286,7 @@
+ 	pr_debug("EINVAL: io_destroy: invalid context id\n");
+ 	return -EINVAL;
+ }
++EXPORT_SYMBOL(sys_io_destroy);
+ 
+ static void aio_advance_iovec(struct kiocb *iocb, ssize_t ret)
+ {
+@@ -1674,6 +1677,7 @@
+ 	put_ioctx(ctx);
+ 	return i ? i : ret;
+ }
++EXPORT_SYMBOL(sys_io_submit);
+ 
+ /* lookup_kiocb
+  *	Finds a given iocb for cancellation.
+@@ -1753,6 +1757,7 @@
+ 
+ 	return ret;
+ }
++EXPORT_SYMBOL(sys_io_cancel);
+ 
+ /* io_getevents:
+  *	Attempts to read at least min_nr events and up to nr events from
+@@ -1784,3 +1789,4 @@
+ 	asmlinkage_protect(5, ret, ctx_id, min_nr, nr, events, timeout);
+ 	return ret;
+ }
++EXPORT_SYMBOL(sys_io_getevents);
+diff -uri linux-2.6.32.14.orig/fs/namei.c linux-2.6.32.14.new.00/fs/namei.c
+--- linux-2.6.32.14.orig/fs/namei.c	2010-05-31 14:09:40.000000000 +0200
++++ linux-2.6.32.14.new.00/fs/namei.c	2011-02-21 15:14:05.000000000 +0100
+@@ -3105,12 +3105,16 @@
+ EXPORT_SYMBOL(vfs_follow_link);
+ EXPORT_SYMBOL(vfs_link);
+ EXPORT_SYMBOL(vfs_mkdir);
++EXPORT_SYMBOL(sys_mkdir);
+ EXPORT_SYMBOL(vfs_mknod);
+ EXPORT_SYMBOL(generic_permission);
+ EXPORT_SYMBOL(vfs_readlink);
+ EXPORT_SYMBOL(vfs_rename);
++EXPORT_SYMBOL(sys_rename);
+ EXPORT_SYMBOL(vfs_rmdir);
+ EXPORT_SYMBOL(vfs_symlink);
++EXPORT_SYMBOL(sys_symlink);
+ EXPORT_SYMBOL(vfs_unlink);
++EXPORT_SYMBOL(sys_unlink);
+ EXPORT_SYMBOL(dentry_unhash);
+ EXPORT_SYMBOL(generic_readlink);
+diff -uri linux-2.6.32.14.orig/fs/open.c linux-2.6.32.14.new.00/fs/open.c
+--- linux-2.6.32.14.orig/fs/open.c	2010-05-31 14:09:40.000000000 +0200
++++ linux-2.6.32.14.new.00/fs/open.c	2011-02-28 12:36:20.000000000 +0100
+@@ -719,6 +719,7 @@
+ {
+ 	return sys_fchmodat(AT_FDCWD, filename, mode);
+ }
++EXPORT_SYMBOL(sys_chmod);
+ 
+ static int chown_common(struct dentry * dentry, uid_t user, gid_t group, struct vfsmount *mnt)
+ {
+@@ -810,6 +811,7 @@
+ out:
+ 	return error;
+ }
++EXPORT_SYMBOL(sys_lchown);
+ 
+ SYSCALL_DEFINE3(fchown, unsigned int, fd, uid_t, user, gid_t, group)
+ {
+diff -uri linux-2.6.32.14.orig/fs/utimes.c linux-2.6.32.14.new.00/fs/utimes.c
+--- linux-2.6.32.14.orig/fs/utimes.c	2010-05-31 14:09:40.000000000 +0200
++++ linux-2.6.32.14.new.00/fs/utimes.c	2011-02-25 12:40:00.000000000 +0100
+@@ -1,3 +1,4 @@
++#include <linux/module.h>
+ #include <linux/compiler.h>
+ #include <linux/file.h>
+ #include <linux/fs.h>
+@@ -176,6 +177,7 @@
+ out:
+ 	return error;
+ }
++EXPORT_SYMBOL(do_utimes);
+ 
+ SYSCALL_DEFINE4(utimensat, int, dfd, char __user *, filename,
+ 		struct timespec __user *, utimes, int, flags)
+diff -uri linux-2.6.32.14.orig/include/linux/major.h linux-2.6.32.14.new.00/include/linux/major.h
+--- linux-2.6.32.14.orig/include/linux/major.h	2010-05-26 23:29:57.000000000 +0200
++++ linux-2.6.32.14.new.00/include/linux/major.h	2010-06-13 10:08:53.000000000 +0200
+@@ -146,6 +146,7 @@
+ #define UNIX98_PTY_SLAVE_MAJOR	(UNIX98_PTY_MASTER_MAJOR+UNIX98_PTY_MAJOR_COUNT)
+ 
+ #define DRBD_MAJOR		147
++#define MARS_MAJOR		148
+ #define RTF_MAJOR		150
+ #define RAW_MAJOR		162
+ 
+diff -uri linux-2.6.32.14.orig/include/linux/sched.h linux-2.6.32.14.new.00/include/linux/sched.h
+--- linux-2.6.32.14.orig/include/linux/sched.h	2010-05-31 14:09:46.000000000 +0200
++++ linux-2.6.32.14.new.00/include/linux/sched.h	2010-07-29 15:37:05.000000000 +0200
+@@ -1429,6 +1429,9 @@
+ 	/* mutex deadlock detection */
+ 	struct mutex_waiter *blocked_on;
+ #endif
++#ifdef CONFIG_DEBUG_SPINLOCK
++	atomic_t lock_count;
++#endif
+ #ifdef CONFIG_TRACE_IRQFLAGS
+ 	unsigned int irq_events;
+ 	int hardirqs_enabled;
+diff -uri linux-2.6.32.14.orig/kernel/fork.c linux-2.6.32.14.new.00/kernel/fork.c
+--- linux-2.6.32.14.orig/kernel/fork.c	2010-05-31 14:09:46.000000000 +0200
++++ linux-2.6.32.14.new.00/kernel/fork.c	2011-02-17 10:37:57.000000000 +0100
+@@ -169,6 +169,7 @@
+ 	if (!profile_handoff_task(tsk))
+ 		free_task(tsk);
+ }
++EXPORT_SYMBOL(__put_task_struct);
+ 
+ /*
+  * macro override instead of weak attribute alias, to workaround
+diff -uri linux-2.6.32.14.orig/lib/debug_locks.c linux-2.6.32.14.new.00/lib/debug_locks.c
+--- linux-2.6.32.14.orig/lib/debug_locks.c	2010-05-26 23:29:57.000000000 +0200
++++ linux-2.6.32.14.new.00/lib/debug_locks.c	2010-12-10 17:08:44.000000000 +0100
+@@ -45,3 +45,4 @@
+ 	}
+ 	return 0;
+ }
++EXPORT_SYMBOL(debug_locks_off);
+diff -uri linux-2.6.32.14.orig/mm/init-mm.c linux-2.6.32.14.new.00/mm/init-mm.c
+--- linux-2.6.32.14.orig/mm/init-mm.c	2010-05-26 23:29:57.000000000 +0200
++++ linux-2.6.32.14.new.00/mm/init-mm.c	2011-01-26 16:53:17.000000000 +0100
+@@ -4,6 +4,8 @@
+ #include <linux/spinlock.h>
+ #include <linux/list.h>
+ #include <linux/cpumask.h>
++#include <linux/module.h>
++#include <linux/sched.h>
+ 
+ #include <asm/atomic.h>
+ #include <asm/pgtable.h>
+@@ -17,4 +19,10 @@
+ 	.page_table_lock =  __SPIN_LOCK_UNLOCKED(init_mm.page_table_lock),
+ 	.mmlist		= LIST_HEAD_INIT(init_mm.mmlist),
+ 	.cpu_vm_mask	= CPU_MASK_ALL,
++#ifdef CONFIG_AIO
++	.ioctx_lock     =  __SPIN_LOCK_UNLOCKED(init_mm.ioctx_lock),
++	.ioctx_list	= HLIST_HEAD_INIT,
++	.get_unmapped_area = arch_get_unmapped_area,
++#endif
+ };
++EXPORT_SYMBOL(init_mm);
+diff -uri linux-2.6.32.14.orig/mm/mmu_context.c linux-2.6.32.14.new.00/mm/mmu_context.c
+--- linux-2.6.32.14.orig/mm/mmu_context.c	2010-05-26 23:29:57.000000000 +0200
++++ linux-2.6.32.14.new.00/mm/mmu_context.c	2010-11-16 17:12:01.000000000 +0100
+@@ -6,6 +6,7 @@
+ #include <linux/mm.h>
+ #include <linux/mmu_context.h>
+ #include <linux/sched.h>
++#include <linux/module.h>
+ 
+ #include <asm/mmu_context.h>
+ 
+@@ -37,6 +38,7 @@
+ 	if (active_mm != mm)
+ 		mmdrop(active_mm);
+ }
++EXPORT_SYMBOL(use_mm);
+ 
+ /*
+  * unuse_mm
+@@ -56,3 +58,4 @@
+ 	enter_lazy_tlb(mm, tsk);
+ 	task_unlock(tsk);
+ }
++EXPORT_SYMBOL(unuse_mm);
+diff -uri linux-2.6.32.14.orig/mm/page_alloc.c linux-2.6.32.14.new.00/mm/page_alloc.c
+--- linux-2.6.32.14.orig/mm/page_alloc.c	2010-05-31 14:09:46.000000000 +0200
++++ linux-2.6.32.14.new.00/mm/page_alloc.c	2011-03-07 14:47:16.000000000 +0100
+@@ -122,6 +122,7 @@
+ };
+ 
+ int min_free_kbytes = 1024;
++EXPORT_SYMBOL(min_free_kbytes);
+ 
+ static unsigned long __meminitdata nr_kernel_pages;
+ static unsigned long __meminitdata nr_all_pages;
+@@ -4769,6 +4770,7 @@
+ 	/* update totalreserve_pages */
+ 	calculate_totalreserve_pages();
+ }
++EXPORT_SYMBOL(setup_per_zone_wmarks);
+ 
+ /*
+  * The inactive anon list should be small enough that the VM never has to
+--- a/mm/swap_state.c~	2010-12-09 22:29:45.000000000 +0100
++++ b/mm/swap_state.c	2011-06-27 14:45:43.000000000 +0200
+@@ -46,6 +46,7 @@
+ 	.i_mmap_nonlinear = LIST_HEAD_INIT(swapper_space.i_mmap_nonlinear),
+ 	.backing_dev_info = &swap_backing_dev_info,
+ };
++EXPORT_SYMBOL(swapper_space);
+ 
+ #define INC_CACHE_INFO(x)	do { swap_cache_info.x++; } while (0)
+ 

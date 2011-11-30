@@ -3386,11 +3386,10 @@ static void __exit exit_light(void)
 	if (thread) {
 		main_thread = NULL;
 		MARS_DBG("=== stopping light thread...\n");
-		kthread_stop_nowait(thread);
-		mars_trigger();
 		MARS_INF("stopping thread...\n");
 		kthread_stop(thread);
 		put_task_struct(thread);
+		mars_trigger();
 	}
 
 	brick_allow_freelist = false;

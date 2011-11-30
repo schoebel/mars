@@ -1,0 +1,21 @@
+The patches in this directory have to be applied to the
+pristine kernel sources, _before_ MARS can be compiled.
+
+The main reason is that MARS needs some additional EXPORT_SYMBOL
+statements not present in most kernels.
+
+Therefore the pre-patches are rather simple and lightweight.
+
+Usage:
+
+cd /path/to/your/kernel/source
+patch -p1 < /path/to/according/pre-patch.patch
+cd block/
+git clone git://url/to/mars.git
+# (or another way of putting the mars sources into block/ )
+
+# afterwards, configure and compile your kernel as usual, e.g.
+cd .. # goto root of the kernel sources again
+make oldconfig
+make
+# ... and so on
