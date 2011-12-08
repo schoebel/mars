@@ -9,20 +9,21 @@
 //#define IO_DEBUGGING
 
 #define REQUEST_MERGING
-//#define ALWAYS_UNPLUG false
-#define ALWAYS_UNPLUG true
+#define ALWAYS_UNPLUG false
+#define ALWAYS_UNPLUG_FROM_EXTERNAL true
 #define PREFETCH_LEN PAGE_SIZE
 //#define FRONT_MERGE // FIXME: this does not work.
+//#define MODIFY_READAHEAD // don't use it, otherwise sequential IO will suffer
 
 // low-level device parameters
-//#define USE_MAX_SECTORS         (MARS_MAX_SEGMENT_SIZE >> 9)
-//#define USE_MAX_PHYS_SEGMENTS   (MARS_MAX_SEGMENT_SIZE >> 9)
-//#define USE_MAX_SEGMENT_SIZE    MARS_MAX_SEGMENT_SIZE
-//#define USE_LOGICAL_BLOCK_SIZE  512
-//#define USE_SEGMENT_BOUNDARY    (PAGE_SIZE-1)
-//#define USE_QUEUE_ORDERED       QUEUE_ORDERED_DRAIN
+#define USE_MAX_SECTORS         (MARS_MAX_SEGMENT_SIZE >> 9)
+#define USE_MAX_PHYS_SEGMENTS   (MARS_MAX_SEGMENT_SIZE >> 9)
+#define USE_MAX_SEGMENT_SIZE    MARS_MAX_SEGMENT_SIZE
+#define USE_LOGICAL_BLOCK_SIZE  512
+#define USE_SEGMENT_BOUNDARY    (PAGE_SIZE-1)
+#define USE_QUEUE_ORDERED       QUEUE_ORDERED_DRAIN // probably not needed, but safer for production systems
 
-//#define USE_CONGESTED_FN
+#define USE_CONGESTED_FN
 #define USE_MERGE_BVEC
 //#define DENY_READA
 
@@ -148,6 +149,8 @@ void _if_unplug(struct if_input *input)
 	might_sleep();
 #endif
 
+	MARS_IO("plugged_count = %d\n", atomic_read(&input->plugged_count));
+
 	down(&input->kick_sem);
 	traced_lock(&input->req_lock, flags);
 #ifdef USE_TIMER
@@ -208,6 +211,7 @@ void _if_unplug(struct if_input *input)
 static
 void if_timer(unsigned long data)
 {
+	MARS_IO("\n");
 	_if_unplug((void*)data);
 }
 #endif
@@ -504,7 +508,7 @@ err:
 		}
 		input->timer.function = if_timer;
 		input->timer.data = (unsigned long)input;
-		input->timer.expires = jiffies + HZ/10;
+		input->timer.expires = jiffies + USE_TIMER;
 		add_timer(&input->timer);
 		traced_unlock(&input->req_lock, flags);
 	}
@@ -516,6 +520,7 @@ err:
 //static
 void if_unplug(struct request_queue *q)
 {
+	struct if_input *input = q->queuedata;
 	int was_plugged = 1;
 #if 1
 	spin_lock_irq(q->queue_lock);
@@ -524,9 +529,11 @@ void if_unplug(struct request_queue *q)
 #else
 	queue_flag_clear_unlocked(QUEUE_FLAG_PLUGGED, q);
 #endif
+
+	was_plugged += atomic_read(&input->plugged_count);
+
 	MARS_IO("block layer called UNPLUG was_plugged = %d\n", was_plugged);
-	if (true || was_plugged) {
-		struct if_input *input = q->queuedata;
+	if (ALWAYS_UNPLUG_FROM_EXTERNAL || was_plugged) {
 		_if_unplug(input);
 	}
 }
@@ -632,7 +639,7 @@ static int if_switch(struct if_brick *brick)
 		/* we have no partitions. we contain only ourselves. */
 		input->bdev->bd_contains = input->bdev;
 
-#if 1
+#ifdef MODIFY_READAHEAD
 		MARS_INF("ra_pages OLD = %lu NEW = %d\n", q->backing_dev_info.ra_pages, brick->readahead);
 		q->backing_dev_info.ra_pages = brick->readahead;
 #endif

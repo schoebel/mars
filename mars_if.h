@@ -12,7 +12,7 @@
 #define IF_HASH_MAX   2048
 #define IF_HASH_CHUNK (PAGE_SIZE * 32)
 
-//#define USE_TIMER
+//#define USE_TIMER (HZ/10) // use this ONLY for debugging
 
 /* I don't want to enhance / intrude into struct bio for compatibility reasons
  * (support for a variety of kernel versions).
