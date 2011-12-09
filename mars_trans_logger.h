@@ -160,6 +160,7 @@ struct trans_logger_brick {
 	atomic_t total_sshadow_count;
 	atomic_t total_round_count;
 	atomic_t total_restart_count;
+	atomic_t total_delay_count;
 	// queues
 	struct logger_queue q_phase1;
 	struct logger_queue q_phase2;
