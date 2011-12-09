@@ -6,7 +6,7 @@ config MARS
 	tristate "storage system MARS (EXPERIMENTAL)"
 	default n
 	---help---
-	Experimental storage System. Only compile as modules!
+	Experimental storage System. Only compile as a module!
 
 config MARS_BIGMODULE
 	tristate "compile all MARS modules into a single kernel module"
@@ -14,42 +14,46 @@ config MARS_BIGMODULE
 	default m
 	select MARS_HAVE_BIGMODULE
 	---help---
-	Experimental storage System. Only compile as modules!
+	Normally ON. Switch off only for EXPERIMENTS!
 
 config MARS_MEM_PREALLOC
-	bool "avoid memory fragmentation by preallocation (EXPERIMENTAL)"
+	bool "avoid memory fragmentation by preallocation"
 	depends on MARS
 	default y
 	---help---
-	Experimental storage System.
+	Normally ON. Switch off only for EXPERIMENTS!
 
-config MARS_HUNG
-	bool "hangup on kernel stacktrace (EXPERIMENTAL!!!)"
-	depends on MARS && MARS_BIGMODULE!=m
-	default n
-	---help---
-	Experimental storage System.
+#config MARS_HUNG
+#	bool "hangup on kernel stacktrace (EXPERIMENTAL!!!)"
+#	depends on MARS && MARS_BIGMODULE!=m
+#	default n
+#	---help---
+#	Normally OFF. Switch on only for EXPERIMENTS!
 
 config MARS_LOGROT
-	bool "allow logrotate during operation (only for testing)"
+	bool "allow logrotate during operation"
 	depends on MARS
 	default y
 	---help---
-	Experimental storage System.
+	Normally ON. Switch off only for EXPERIMENTS!
 
 config MARS_MIN_SPACE
-	bool "check for filesystem overflow in /mars (EXPERIMENTAL)"
+	bool "check for filesystem overflow in /mars"
 	depends on MARS
 	default y
 	---help---
-	Experimental storage System.
+	Normally ON. Switch off only for EXPERIMENTS!
 
 config MARS_PREFER_SIO
-	bool "prefer sio bricks instead of aio (EXPERIMENTAL)"
+	bool "prefer sio bricks instead of aio"
 	depends on MARS
 	default y
 	---help---
-	Experimental storage System.
+	Normally ON for production systems.
+	OFF gives better performance (in most cases), but is
+        currently less stable.
+
+##### mostly obsolete
 
 config MARS_DUMMY
 	tristate "MARS dummy brick"
