@@ -794,7 +794,7 @@ treat:
 	// (new) copy necessary?
 	status = 0;
 	if (!rot->try_sync) {
-		MARS_DBG("logfiles are not for me.");
+		MARS_DBG("logfiles are not for me.\n");
 		goto done;
 	}
 	if (dst_size >= src_size && local_dent != NULL) { // nothing to do
