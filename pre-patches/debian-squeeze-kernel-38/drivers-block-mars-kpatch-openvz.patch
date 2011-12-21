@@ -59,26 +59,6 @@ diff -uri linux-2.6.32.14.orig/block/Makefile linux-2.6.32.14.new.00/block/Makef
  	return ret;
  }
 +EXPORT_SYMBOL(sys_io_getevents);
-diff -uri linux-2.6.32.14.orig/fs/namei.c linux-2.6.32.14.new.00/fs/namei.c
---- linux-2.6.32.14.orig/fs/namei.c	2010-05-31 14:09:40.000000000 +0200
-+++ linux-2.6.32.14.new.00/fs/namei.c	2011-02-21 15:14:05.000000000 +0100
-@@ -3105,12 +3105,16 @@
- EXPORT_SYMBOL(vfs_follow_link);
- EXPORT_SYMBOL(vfs_link);
- EXPORT_SYMBOL(vfs_mkdir);
-+EXPORT_SYMBOL(sys_mkdir);
- EXPORT_SYMBOL(vfs_mknod);
- EXPORT_SYMBOL(generic_permission);
- EXPORT_SYMBOL(vfs_readlink);
- EXPORT_SYMBOL(vfs_rename);
-+EXPORT_SYMBOL(sys_rename);
- EXPORT_SYMBOL(vfs_rmdir);
- EXPORT_SYMBOL(vfs_symlink);
-+EXPORT_SYMBOL(sys_symlink);
- EXPORT_SYMBOL(vfs_unlink);
-+EXPORT_SYMBOL(sys_unlink);
- EXPORT_SYMBOL(dentry_unhash);
- EXPORT_SYMBOL(generic_readlink);
 diff -uri linux-2.6.32.14.orig/fs/open.c linux-2.6.32.14.new.00/fs/open.c
 --- linux-2.6.32.14.orig/fs/open.c	2010-05-31 14:09:40.000000000 +0200
 +++ linux-2.6.32.14.new.00/fs/open.c	2011-02-28 12:36:20.000000000 +0100
@@ -138,17 +118,6 @@ diff -uri linux-2.6.32.14.orig/include/linux/sched.h linux-2.6.32.14.new.00/incl
  #ifdef CONFIG_TRACE_IRQFLAGS
  	unsigned int irq_events;
  	int hardirqs_enabled;
-diff -uri linux-2.6.32.14.orig/kernel/fork.c linux-2.6.32.14.new.00/kernel/fork.c
---- linux-2.6.32.14.orig/kernel/fork.c	2010-05-31 14:09:46.000000000 +0200
-+++ linux-2.6.32.14.new.00/kernel/fork.c	2011-02-17 10:37:57.000000000 +0100
-@@ -169,6 +169,7 @@
- 	if (!profile_handoff_task(tsk))
- 		free_task(tsk);
- }
-+EXPORT_SYMBOL(__put_task_struct);
- EXPORT_SYMBOL_GPL(__put_task_struct);
- 
- /*
 diff -uri linux-2.6.32.14.orig/lib/debug_locks.c linux-2.6.32.14.new.00/lib/debug_locks.c
 --- linux-2.6.32.14.orig/lib/debug_locks.c	2010-05-26 23:29:57.000000000 +0200
 +++ linux-2.6.32.14.new.00/lib/debug_locks.c	2010-12-10 17:08:44.000000000 +0100
