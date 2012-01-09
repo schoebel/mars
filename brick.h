@@ -28,22 +28,6 @@ extern int brick_msleep(int msecs, bool shorten);
 
 // printk() replacements
 
-#ifdef CONFIG_DEBUG_KERNEL
-#define INLINE static inline
-//#define INLINE __attribute__((__noinline__))
-extern void say(const char *fmt, ...);
-extern void say_mark(void);
-extern void brick_dump_stack(void);
-
-#else // CONFIG_DEBUG_KERNEL
-
-#define INLINE static inline
-#define say printk
-#define say_mark() /*empty*/
-#define brick_dump_stack() /*empty*/
-
-#endif // CONFIG_DEBUG_KERNEL
-
 #define SAFE_STR(str) ((str) ? (str) : "NULL")
 
 #define BRICK_FATAL   "BRICK_FATAL "
@@ -52,9 +36,7 @@ extern void brick_dump_stack(void);
 #define BRICK_INFO    "BRICK_INFO  "
 #define BRICK_DEBUG   "BRICK_DEBUG "
 
-#define _BRICK_FMT(_fmt) __BASE_FILE__ " %d %s(): " _fmt, __LINE__, __FUNCTION__
-
-#define _BRICK_MSG(_dump, PREFIX, _fmt, _args...) do { say(PREFIX _BRICK_FMT(_fmt), ##_args); if (_dump) brick_dump_stack(); } while (0)
+#define _BRICK_MSG(_dump, PREFIX, _fmt, _args...) do { brick_say(PREFIX, __BASE_FILE__, __LINE__, __FUNCTION__, _fmt, ##_args); if (_dump) brick_dump_stack(); } while (0)
 
 #define BRICK_FAT(_fmt, _args...) _BRICK_MSG(true,  BRICK_FATAL,   _fmt, ##_args)
 #define BRICK_ERR(_fmt, _args...) _BRICK_MSG(true,  BRICK_ERROR,   _fmt, ##_args)

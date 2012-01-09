@@ -8,6 +8,7 @@
 #include <asm/atomic.h>
 
 #include "brick_mem.h"
+#include "brick_say.h"
 #include "brick_locks.h"
 
 #define BRICK_DEBUG_MEM 10000
@@ -589,6 +590,7 @@ void __exit exit_brick_mem(void)
 #endif
 
 	brick_mem_statistics();
+	exit_say();
 }
 
 #ifndef CONFIG_MARS_HAVE_BIGMODULE
