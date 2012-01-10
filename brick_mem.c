@@ -590,7 +590,6 @@ void __exit exit_brick_mem(void)
 #endif
 
 	brick_mem_statistics();
-	exit_say();
 }
 
 #ifndef CONFIG_MARS_HAVE_BIGMODULE

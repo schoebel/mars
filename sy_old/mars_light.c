@@ -3401,6 +3401,7 @@ static void __exit exit_light(void)
 	}
 #endif
 	MARS_DBG("====================== stopped everything.\n");
+	exit_say();
 }
 
 static int __init init_light(void)
