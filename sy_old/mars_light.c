@@ -3409,6 +3409,8 @@ static int __init init_light(void)
 	int status = 0;
 	struct task_struct *thread;
 
+	init_say(); // this must come first
+
 #ifdef CONFIG_MARS_HAVE_BIGMODULE
 	/* be careful: order is important!
 	 */

@@ -16,6 +16,15 @@ config MARS_BIGMODULE
 	---help---
 	Normally ON. Switch off only for EXPERIMENTS!
 
+config MARS_USE_SYSLOG
+	bool "use syslog for messages"
+	depends on MARS
+	default n
+	---help---
+	Normally OFF.
+	When switched on, the syslog may be flooded by printk().
+	When off, logging goes to /mars/log.txt
+
 config MARS_MEM_PREALLOC
 	bool "avoid memory fragmentation by preallocation"
 	depends on MARS

@@ -30,7 +30,7 @@
 #define INT_ACCESS(ptr,offset) (*(int*)(((char*)(ptr)) + (offset)))
 
 #define _BRICK_FMT(_fmt) __BASE_FILE__ " %d %s(): " _fmt, __LINE__, __FUNCTION__
-#define _BRICK_MSG(_dump, PREFIX, _fmt, _args...) do { printk(PREFIX _BRICK_FMT(_fmt), ##_args); if (_dump) dump_stack(); } while (0)
+#define _BRICK_MSG(_dump, PREFIX, _fmt, _args...) do { say(PREFIX _BRICK_FMT(_fmt), ##_args); if (_dump) dump_stack(); } while (0)
 #define BRICK_ERROR   "MEM_ERROR "
 #define BRICK_WARNING "MEM_WARN  "
 #define BRICK_INFO    "MEM_INFO  "

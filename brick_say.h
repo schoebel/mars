@@ -11,6 +11,7 @@ extern void say_mark(void);
 
 extern void brick_say(const char *prefix, const char *file, int line, const char *func, const char *fmt, ...) __attribute__ ((format (printf, 5, 6)));
 
+extern void init_say(void);
 extern void exit_say(void);
 
 #ifdef CONFIG_DEBUG_KERNEL
