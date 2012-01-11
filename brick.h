@@ -36,7 +36,8 @@ extern int brick_msleep(int msecs, bool shorten);
 #define BRICK_INFO    "BRICK_INFO  "
 #define BRICK_DEBUG   "BRICK_DEBUG "
 
-#define _BRICK_MSG(_dump, PREFIX, _fmt, _args...) do { brick_say(PREFIX, __BASE_FILE__, __LINE__, __FUNCTION__, _fmt, ##_args); if (_dump) brick_dump_stack(); } while (0)
+#define _BRICK_MSG(_dump, PREFIX, _fmt, _args...) \
+	brick_say(_dump, PREFIX, __BASE_FILE__, __LINE__, __FUNCTION__, _fmt, ##_args)
 
 #define BRICK_FAT(_fmt, _args...) _BRICK_MSG(true,  BRICK_FATAL,   _fmt, ##_args)
 #define BRICK_ERR(_fmt, _args...) _BRICK_MSG(true,  BRICK_ERROR,   _fmt, ##_args)

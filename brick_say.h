@@ -6,10 +6,13 @@
 
 // printk() replacements
 
+extern void check_open(const char *filename, bool must_exist);
+extern void check_close(const char *filename, bool force, bool re_open);
+
 extern void say(const char *fmt, ...) __attribute__ ((format (printf, 1, 2)));
 extern void say_mark(void);
 
-extern void brick_say(const char *prefix, const char *file, int line, const char *func, const char *fmt, ...) __attribute__ ((format (printf, 5, 6)));
+extern void brick_say(bool dump, const char *prefix, const char *file, int line, const char *func, const char *fmt, ...) __attribute__ ((format (printf, 6, 7)));
 
 extern void init_say(void);
 extern void exit_say(void);

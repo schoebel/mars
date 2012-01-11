@@ -23,16 +23,14 @@
 
 // MARS-specific debugging helpers
 
-#define MARS_DELAY /**/
-//#define MARS_DELAY msleep(20000)
-
 #define MARS_FATAL   "MARS_FATAL  "
 #define MARS_ERROR   "MARS_ERROR  "
 #define MARS_WARNING "MARS_WARN   "
 #define MARS_INFO    "MARS_INFO   "
 #define MARS_DEBUG   "MARS_DEBUG  "
 
-#define _MARS_MSG(_dump, PREFIX, _fmt, _args...) do { brick_say(PREFIX, __BASE_FILE__, __LINE__, __FUNCTION__, _fmt, ##_args); MARS_DELAY; if (_dump) brick_dump_stack(); } while (0)
+#define _MARS_MSG(_dump, PREFIX, _fmt, _args...) \
+	brick_say(_dump, PREFIX, __BASE_FILE__, __LINE__, __FUNCTION__, _fmt, ##_args)
 
 #define MARS_FAT(_fmt, _args...) _MARS_MSG(true,  MARS_FATAL,   _fmt, ##_args)
 #define MARS_ERR(_fmt, _args...) _MARS_MSG(true,  MARS_ERROR,   _fmt, ##_args)

@@ -26,17 +26,15 @@ static char *say_buf[NR_CPUS] = {};
 static int say_index[NR_CPUS] = {};
 static int dump_max = 5;
 
-#ifndef CONFIG_MARS_USE_SYSLOG
 static struct file *log_file = NULL;
-#endif
 
-static
-void say_alloc(unsigned long cpu)
+static inline
+void say_alloc(unsigned long cpu, bool use_atomic)
 {
 	if (cpu >= NR_CPUS || say_buf[cpu])
 		goto done;
 
-	say_buf[cpu] = (void*)__get_free_pages(GFP_ATOMIC, SAY_ORDER);
+	say_buf[cpu] = (void*)__get_free_pages(use_atomic? GFP_ATOMIC : GFP_KERNEL, SAY_ORDER);
 	if (likely(say_buf[cpu])) {
 		say_buf[cpu][0] = '\0';
 		say_index[cpu] = 0;
@@ -48,37 +46,60 @@ done: ;
 static inline
 void _say_mark(unsigned long cpu)
 {
-	if (preempt_count() & (PREEMPT_MASK | SOFTIRQ_MASK | HARDIRQ_MASK) ||
-	    cpu >= NR_CPUS)
+	bool use_atomic = (preempt_count() & (PREEMPT_MASK | SOFTIRQ_MASK | HARDIRQ_MASK)) != 0;
+
+	say_alloc(cpu, use_atomic);
+	if (use_atomic || cpu >= NR_CPUS)
 		goto done;
 
-	say_alloc(cpu);
 
 	if (!say_buf[cpu] ||
 	    !say_buf[cpu][0])
 		goto done;
 	
-#ifdef CONFIG_MARS_USE_SYSLOG
-	printk("%s", say_buf[cpu]);
-#else
 	if (log_file) {
 		loff_t log_pos = 0;
 		int rest = say_index[cpu];
 		int len = 0;
 		while (rest > 0) {
-			int status = vfs_write(log_file, say_buf[cpu] + len, rest, &log_pos);
+			int status;
+			mm_segment_t oldfs;
+
+			oldfs = get_fs();
+			set_fs(get_ds());
+			status = vfs_write(log_file, say_buf[cpu] + len, rest, &log_pos);
+			set_fs(oldfs);
 			if (status <= 0)
 				break;
 			len += status;
 			rest -= status;
 		}
+#ifdef CONFIG_MARS_USE_SYSLOG
 	} else {
 		printk("%s", say_buf[cpu]);
-	}
 #endif
+	}
+
 	say_buf[cpu][0] = '\0';
 	say_index[cpu] = 0;
 	
+	{
+		static long long old_jiffies = 0;
+		if (((long long)jiffies) - old_jiffies >= HZ * 5) {
+			static spinlock_t lock = SPIN_LOCK_UNLOCKED;
+			bool won_the_race = false;
+
+			spin_lock(&lock);
+			if (((long long)jiffies) - old_jiffies >= HZ * 5) {
+				old_jiffies = jiffies;
+				won_the_race = true;
+			}
+			spin_unlock(&lock);
+			if (won_the_race)
+				check_close(CONFIG_MARS_LOGFILE, false, true);
+		}
+	}
+
 done: ;
 }
 
@@ -114,7 +135,7 @@ done:
 }
 EXPORT_SYMBOL_GPL(say);
 
-void brick_say(const char *prefix, const char *file, int line, const char *func, const char *fmt, ...)
+void brick_say(bool dump, const char *prefix, const char *file, int line, const char *func, const char *fmt, ...)
 {
 	struct timespec now = CURRENT_TIME;
 	unsigned long cpu = get_cpu();
@@ -143,26 +164,72 @@ void brick_say(const char *prefix, const char *file, int line, const char *func,
 	}
 
 	_say_mark(cpu);
+#ifdef CONFIG_DEBUG_KERNEL
+	if (dump)
+		brick_dump_stack();
+#endif
 done:
 	put_cpu();
 }
 EXPORT_SYMBOL_GPL(brick_say);
 
-void init_say(void)
+void check_open(const char *filename, bool must_exist)
 {
-#ifndef CONFIG_MARS_USE_SYSLOG
-	int flags = O_CREAT | O_APPEND | O_RDWR | O_LARGEFILE;
+	int flags = O_EXCL | O_APPEND | O_WRONLY | O_LARGEFILE;
 	int prot = 0600;
 	mm_segment_t oldfs;
+
+	if (log_file)
+		return;
+
+	if (!must_exist)
+		flags |= O_CREAT;
+
 	oldfs = get_fs();
 	set_fs(get_ds());
- 	log_file = filp_open("/mars/log.txt", flags, prot);
+ 	log_file = filp_open(filename, flags, prot);
 	set_fs(oldfs);
 	if (IS_ERR(log_file)) {
-		say("cannot create logfile, status = %ld\n", PTR_ERR(log_file));
+		int status = PTR_ERR(log_file);
 		log_file = NULL;
+		say("cannot open logfile '%s', status = %d\n", filename, status);
+	} else {
+		say("opened logfile '%s' %p\n", filename, log_file);
 	}
-#endif
+}
+
+void check_close(const char *filename, bool force, bool re_open)
+{
+	struct kstat st = {};
+	int status;
+
+	if (!force) {
+		mm_segment_t oldfs;
+		oldfs = get_fs();
+		set_fs(get_ds());
+		status = vfs_stat((char*)filename, &st);
+		set_fs(oldfs);
+		force = (status < 0 || !st.size);
+	}
+	
+	if (force) {
+		if (log_file) {
+			struct file *old;
+			say("closing logfile....\n");
+			old = log_file;
+			log_file = NULL;
+			// FIXME: this may race against vfs_write(). Use rcu here.
+			filp_close(old, NULL);
+			say("closed logfile.\n");
+		}
+		if (re_open)
+			check_open(filename, true);
+	}
+}
+
+void init_say(void)
+{
+	check_open(CONFIG_MARS_LOGFILE, true);
 }
 EXPORT_SYMBOL_GPL(init_say);
 
@@ -175,12 +242,7 @@ void exit_say(void)
 		__free_pages(virt_to_page((unsigned long)say_buf[i]), SAY_ORDER);
 		say_buf[i] = NULL;
 	}
-#ifndef CONFIG_MARS_USE_SYSLOG
-	if (log_file) {
-		filp_close(log_file, NULL);
-		log_file = NULL;
-	}
-#endif
+	check_close(CONFIG_MARS_LOGFILE, true, false);
 }
 EXPORT_SYMBOL_GPL(exit_say);
 
