@@ -259,6 +259,8 @@ sub join_cluster {
     die "Sorry, some resources already exist!\nThis is dangerous!\nIf you are sure that no resource clash is possible, re-invoke this command with '--force' option\n" unless ($force and $force =~ m/--force/);
   }
   print "joining cluster via rsync (peer='$peer')\n";
+  # check connect
+  system("ssh $peer uname -a") == 0 or die "oops, no connect to $peer ...\n";
   _create_cluster(@_);
   system("rsync --recursive --links -v $peer:$mars/ips/ $mars/ips/") == 0 or die "oops\n";
   symlink($ip, "$mars/ips/ip-$host");
