@@ -39,7 +39,7 @@ struct client_output {
 	struct list_head wait_list;
 	wait_queue_head_t event;
 	int  last_id;
-	struct mars_socket *socket;
+	struct mars_socket socket;
 	char *host;
 	char *path;
 	struct client_threadinfo sender;

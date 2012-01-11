@@ -21,7 +21,7 @@ struct server_brick {
 	struct list_head server_link;
 	atomic_t in_flight;
 	struct semaphore socket_sem;
-	struct mars_socket *handler_socket;
+	struct mars_socket handler_socket;
 	struct task_struct *handler_thread;
 	struct task_struct *cb_thread;
 	wait_queue_head_t startup_event;

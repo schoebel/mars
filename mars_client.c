@@ -33,16 +33,13 @@ static void _kill_thread(struct client_threadinfo *ti)
 
 static void _kill_socket(struct client_output *output)
 {
-	if (output->socket) {
+	if (mars_socket_is_alive(&output->socket)) {
 		MARS_DBG("shutdown socket\n");
-		mars_shutdown_socket(output->socket);
+		mars_shutdown_socket(&output->socket);
 	}
 	_kill_thread(&output->receiver);
-	if (output->socket) {
-		MARS_DBG("close socket\n");
-		mars_put_socket(output->socket);
-		output->socket = NULL;
-	}
+	MARS_DBG("close socket\n");
+	mars_put_socket(&output->socket);
 }
 
 static int _request_info(struct client_output *output)
@@ -53,7 +50,7 @@ static int _request_info(struct client_output *output)
 	int status;
 	
 	MARS_DBG("\n");
-	status = mars_send_struct(output->socket, &cmd, mars_cmd_meta);
+	status = mars_send_struct(&output->socket, &cmd, mars_cmd_meta);
 	if (unlikely(status < 0)) {
 		MARS_DBG("send of getinfo failed, status = %d\n", status);
 	}
@@ -85,24 +82,16 @@ static int _connect(struct client_output *output, const char *str)
 		*output->host++ = '\0';
 	}
 
-	_kill_socket(output);
-			
 	status = mars_create_sockaddr(&sockaddr, output->host);
 	if (unlikely(status < 0)) {
 		MARS_DBG("no sockaddr, status = %d\n", status);
 		goto done;
 	}
 	
-	output->socket = mars_create_socket(&sockaddr, false);
-	if (unlikely(IS_ERR(output->socket))) {
-		status = PTR_ERR(output->socket);
-		output->socket = NULL;
-		if (status == -EINPROGRESS) {
-			MARS_DBG("operation is in progress....\n");
-			goto really_done; // give it a chance next time
-		}
+	status = mars_create_socket(&output->socket, &sockaddr, false);
+	if (unlikely(status < 0)) {
 		MARS_DBG("no socket, status = %d\n", status);
-		goto done;
+		goto really_done;
 	}
 
 	output->receiver.thread = kthread_create(receiver_thread, output, "mars_receiver%d", thread_count++);
@@ -123,7 +112,7 @@ static int _connect(struct client_output *output, const char *str)
 			.cmd_str1 = output->path,
 		};
 
-		status = mars_send_struct(output->socket, &cmd, mars_cmd_meta);
+		status = mars_send_struct(&output->socket, &cmd, mars_cmd_meta);
 		if (unlikely(status < 0)) {
 			MARS_DBG("send of connect failed, status = %d\n", status);
 			goto done;
@@ -259,14 +248,14 @@ int receiver_thread(void *data)
 	struct client_output *output = data;
 	int status = 0;
 
-        while (status >= 0 && mars_socket_is_alive(output->socket) && !kthread_should_stop()) {
+        while (status >= 0 && mars_socket_is_alive(&output->socket) && !kthread_should_stop()) {
 		struct mars_cmd cmd = {};
 		struct list_head *tmp;
 		struct client_mref_aspect *mref_a = NULL;
 		struct mref_object *mref = NULL;
 		unsigned long flags;
 
-		status = mars_recv_struct(output->socket, &cmd, mars_cmd_meta);
+		status = mars_recv_struct(&output->socket, &cmd, mars_cmd_meta);
 		MARS_IO("got cmd = %d status = %d\n", cmd.cmd_code, status);
 		if (status < 0)
 			goto done;
@@ -310,7 +299,7 @@ int receiver_thread(void *data)
 
 			MARS_IO("got callback id = %d, old pos = %lld len = %d rw = %d\n", mref->ref_id, mref->ref_pos, mref->ref_len, mref->ref_rw);
 
-			status = mars_recv_cb(output->socket, mref);
+			status = mars_recv_cb(&output->socket, mref);
 			MARS_IO("new status = %d, pos = %lld len = %d rw = %d\n", status, mref->ref_pos, mref->ref_len, mref->ref_rw);
 			if (status < 0) {
 				MARS_WRN("interrupted data transfer during callback, status = %d\n", status);
@@ -330,7 +319,7 @@ int receiver_thread(void *data)
 			break;
 		}
 		case CMD_GETINFO:
-			status = mars_recv_struct(output->socket, &output->info, mars_info_meta);
+			status = mars_recv_struct(&output->socket, &output->info, mars_info_meta);
 			if (status < 0) {
 				MARS_WRN("got bad info from remote side, status = %d\n", status);
 				goto done;
@@ -351,7 +340,7 @@ int receiver_thread(void *data)
 		MARS_WRN("receiver thread terminated with status = %d\n", status);
 	}
 
-	mars_shutdown_socket(output->socket);
+	mars_shutdown_socket(&output->socket);
 	output->receiver.terminated = true;
 	wake_up_interruptible(&output->receiver.run_event);
 	return status;
@@ -377,6 +366,7 @@ static int sender_thread(void *data)
 	struct client_output *output = data;
 	struct client_brick *brick = output->brick;
 	unsigned long flags;
+	bool do_kill = false;
 	int status = 0;
 
 	output->receiver.restart_count = 0;
@@ -387,13 +377,18 @@ static int sender_thread(void *data)
 		struct mref_object *mref;
 		bool do_resubmit = false;
 
-		if (unlikely(!output->socket)) {
+		if (unlikely(!mars_socket_is_alive(&output->socket))) {
+			if (do_kill) {
+				do_kill = false;
+				_kill_socket(output);
+			}
 			status = _connect(output, brick->brick_name);
 			MARS_IO("connect status = %d\n", status);
 			if (unlikely(status < 0)) {
 				msleep(5000);
 				continue;
 			}
+			do_kill = true;
 			do_resubmit = true;
 		}
 
@@ -429,7 +424,7 @@ static int sender_thread(void *data)
 
 		MARS_IO("sending mref, id = %d pos = %lld len = %d rw = %d\n", mref->ref_id, mref->ref_pos, mref->ref_len, mref->ref_rw);
 
-		status = mars_send_mref(output->socket, mref);
+		status = mars_send_mref(&output->socket, mref);
 		MARS_IO("status = %d\n", status);
 		if (unlikely(status < 0)) {
 			// retry submission on next occasion..
@@ -440,8 +435,10 @@ static int sender_thread(void *data)
 
 			MARS_WRN("sending failed, status = %d\n", status);
 
-			_kill_socket(output);
-
+			if (do_kill) {
+				do_kill = false;
+				_kill_socket(output);
+			}
 			continue;
 		}
 	}
@@ -450,7 +447,9 @@ static int sender_thread(void *data)
 		MARS_WRN("sender thread terminated with status = %d\n", status);
 	}
 
-	_kill_socket(output);
+	if (do_kill) {
+		_kill_socket(output);
+	}
 
 	/* Signal error on all pending IO requests.
 	 * We have no other chance (except probably delaying
@@ -528,8 +527,8 @@ char *client_statistics(struct client_brick *brick, int verbose)
         if (!res)
                 return NULL;
 
-	snprintf(res, 512, "socket = %p fly_count = %d\n",
-		 output->socket,
+	snprintf(res, 512, "#%d socket fly_count = %d\n",
+		 output->socket.s_debug_nr,
 		 atomic_read(&output->fly_count));
 
         return res;

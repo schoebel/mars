@@ -315,7 +315,7 @@ int _set_copy_params(struct mars_brick *_brick, void *private)
 		for (i = 0; i < 2; i++) {
 			status = cc->output[i]->ops->mars_get_info(cc->output[i], &cc->info[i]);
 			if (status < 0) {
-				MARS_ERR("cannot determine current size of '%s'\n", cc->argv[i]);
+				MARS_WRN("cannot determine current size of '%s'\n", cc->argv[i]);
 				goto done;
 			}
 			MARS_DBG("%d '%s' current_size = %lld\n", i, cc->fullpath[i], cc->info[i].current_size);
@@ -664,7 +664,7 @@ struct mars_peerinfo {
 	struct mars_global *global;
 	char *peer;
 	char *path;
-	struct mars_socket *socket;
+	struct mars_socket socket;
 	struct task_struct *peer_thread;
 	spinlock_t lock;
 	struct list_head remote_dent_list;
@@ -949,36 +949,19 @@ int run_bones(struct mars_peerinfo *peer)
 // remote working infrastructure
 
 static
-void _peer_cleanup(struct mars_peerinfo *peer, bool do_stop)
+void _peer_cleanup(struct mars_peerinfo *peer)
 {
-	unsigned long flags;
-	MARS_DBG("\n");
-	if (peer->socket) {
-		mars_shutdown_socket(peer->socket);
-	}
-	if (do_stop && peer->peer_thread) {
-		kthread_stop(peer->peer_thread);
-		put_task_struct(peer->peer_thread);
-		peer->peer_thread = NULL;
-	}
-	if (peer->socket) {
-		mars_put_socket(peer->socket);
-		peer->socket = NULL;
+	MARS_DBG("cleanup\n");
+	if (peer->socket.s_socket) {
+		MARS_DBG("really shutdown socket\n");
+		mars_shutdown_socket(&peer->socket);
+		mars_put_socket(&peer->socket);
 	}
 
-	if (do_stop) {
-		LIST_HEAD(tmp_list);
-		traced_lock(&peer->lock, flags);
-		list_replace_init(&peer->remote_dent_list, &tmp_list);
-		traced_unlock(&peer->lock, flags);
-		mars_free_dent_all(NULL, &tmp_list);
-		brick_string_free(peer->peer);
-		brick_string_free(peer->path);
-	}
 }
 
 static
-int remote_thread(void *data)
+int peer_thread(void *data)
 {
 	struct mars_peerinfo *peer = data;
 	char *real_peer;
@@ -989,7 +972,7 @@ int remote_thread(void *data)
 		return -1;
 
 	real_peer = mars_translate_hostname(peer->peer);
-	MARS_INF("-------- remote thread starting on peer '%s' (%s)\n", peer->peer, real_peer);
+	MARS_INF("-------- peer thread starting on peer '%s' (%s)\n", peer->peer, real_peer);
 
 	status = mars_create_sockaddr(&sockaddr, real_peer);
 	if (unlikely(status < 0)) {
@@ -1007,32 +990,35 @@ int remote_thread(void *data)
 			.cmd_int1 = peer->maxdepth,
 		};
 
-		if (!peer->socket) {
-			peer->socket = mars_create_socket(&sockaddr, false);
-			if (unlikely(IS_ERR(peer->socket))) {
-				status = PTR_ERR(peer->socket);
-				peer->socket = NULL;
+		if (!mars_socket_is_alive(&peer->socket)) {
+			if (peer->socket.s_socket) {
+				_peer_cleanup(peer);
+				msleep(5000);
+				continue;
+			}
+			status = mars_create_socket(&peer->socket, &sockaddr, false);
+			if (unlikely(status < 0)) {
 				MARS_INF("no connection to '%s'\n", real_peer);
 				msleep(5000);
 				continue;
 			}
 			MARS_DBG("successfully opened socket to '%s'\n", real_peer);
-			msleep(1000);
+			msleep(100);
 			continue;
 		}
 
-		status = mars_send_struct(peer->socket, &cmd, mars_cmd_meta);
+		status = mars_send_struct(&peer->socket, &cmd, mars_cmd_meta);
 		if (unlikely(status < 0)) {
 			MARS_WRN("communication error on send, status = %d\n", status);
-			_peer_cleanup(peer, false);
+			_peer_cleanup(peer);
 			msleep(2000);
 			continue;
 		}
 
-		status = mars_recv_dent_list(peer->socket, &tmp_list);
+		status = mars_recv_dent_list(&peer->socket, &tmp_list);
 		if (unlikely(status < 0)) {
 			MARS_WRN("communication error on receive, status = %d\n", status);
-			_peer_cleanup(peer, false);
+			_peer_cleanup(peer);
 			msleep(5000);
 			continue;
 		}
@@ -1059,10 +1045,9 @@ int remote_thread(void *data)
 
 	MARS_INF("-------- remote thread terminating\n");
 
-	_peer_cleanup(peer, false);
+	_peer_cleanup(peer);
 
 done:
-	//cleanup_mm();
 	brick_string_free(real_peer);
 	return 0;
 }
@@ -1073,8 +1058,10 @@ done:
 
 static int _kill_peer(void *buf, struct mars_dent *dent)
 {
+	LIST_HEAD(tmp_list);
 	struct mars_global *global = buf;
 	struct mars_peerinfo *peer = dent->d_private;
+	unsigned long flags;
 
 	if (global->global_power.button) {
 		return 0;
@@ -1084,7 +1071,17 @@ static int _kill_peer(void *buf, struct mars_dent *dent)
 	}
 
 	MARS_INF("stopping peer thread...\n");
-	_peer_cleanup(peer, true);
+	if (peer->peer_thread) {
+		kthread_stop(peer->peer_thread);
+		put_task_struct(peer->peer_thread);
+		peer->peer_thread = NULL;
+	}
+	traced_lock(&peer->lock, flags);
+	list_replace_init(&peer->remote_dent_list, &tmp_list);
+	traced_unlock(&peer->lock, flags);
+	mars_free_dent_all(NULL, &tmp_list);
+	brick_string_free(peer->peer);
+	brick_string_free(peer->path);
 	dent->d_private = NULL;
 	brick_mem_free(peer);
 	return 0;
@@ -1126,7 +1123,7 @@ static int _make_peer(struct mars_global *global, struct mars_dent *dent, char *
 
 	peer = dent->d_private;
 	if (!peer->peer_thread) {
-		peer->peer_thread = kthread_create(remote_thread, peer, "mars_peer%d", serial++);
+		peer->peer_thread = kthread_create(peer_thread, peer, "mars_peer%d", serial++);
 		if (unlikely(IS_ERR(peer->peer_thread))) {
 			MARS_ERR("cannot start peer thread, status = %d\n", (int)PTR_ERR(peer->peer_thread));
 			peer->peer_thread = NULL;
@@ -3368,6 +3365,7 @@ static void (*exit_fn[INIT_MAX])(void) = {};
 static int exit_fn_nr = 0;
 
 #define DO_INIT(name)						\
+	MARS_DBG("=== starting module " #name "...\n");		\
 	do {							\
 		if ((status = init_##name()) < 0) goto done;	\
 		exit_names[exit_fn_nr] = #name;			\

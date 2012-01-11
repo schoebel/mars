@@ -10,7 +10,16 @@
 
 #define MARS_DEFAULT_PORT 7777
 
-struct mars_socket; // opaque
+/* The original struct socket has no refcount. This leads to problems
+ * during long-lasting system calls when racing with socket shutdown.
+ * This is just a small wrapper adding a refcount and some debugging aid.
+ */
+struct mars_socket {
+	struct socket *s_socket;
+	atomic_t s_count;
+	int s_debug_nr;
+	bool s_dead;
+};
 
 struct mars_tcp_params {
 	int tcp_timeout;
@@ -52,15 +61,15 @@ extern char *(*mars_translate_hostname)(const char *name);
  */
 extern int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec);
 
-extern struct mars_socket *mars_create_socket(struct sockaddr_storage *addr, bool is_server);
-extern struct mars_socket *mars_accept_socket(struct mars_socket *msock, bool do_block);
-extern struct mars_socket *mars_get_socket(struct mars_socket *msock);
+extern int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *addr, bool is_server);
+extern int mars_accept_socket(struct mars_socket *new_msock, struct mars_socket *old_msock, bool do_block);
+extern bool mars_get_socket(struct mars_socket *msock);
 extern void mars_put_socket(struct mars_socket *msock);
 extern void mars_shutdown_socket(struct mars_socket *msock);
 extern bool mars_socket_is_alive(struct mars_socket *msock);
 
-extern int mars_send(struct mars_socket *msock, void *buf, int len);
-extern int mars_recv(struct mars_socket *msock, void *buf, int minlen, int maxlen);
+extern int mars_send_raw(struct mars_socket *msock, void *buf, int len, bool cork);
+extern int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen);
 
 /* Mid-level generic field data exchange
  */
