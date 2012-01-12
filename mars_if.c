@@ -708,16 +708,13 @@ static int if_open(struct block_device *bdev, fmode_t mode)
 static int if_release(struct gendisk *gd, fmode_t mode)
 {
 	struct if_input *input = gd->private_data;
-	int max = 0;
 	int nr;
 
 	MARS_INF("----------------------- CLOSE %d ------------------------------\n", atomic_read(&input->open_count));
 
 	while ((nr = atomic_read(&input->flying_count)) > 0) {
 		MARS_INF("%d IO requests not yet completed\n", nr);
-		if (max++ > 10)
-			break;
-		msleep(2000);
+		msleep(3000);
 	}
 
 	if (atomic_dec_and_test(&input->open_count)) {
