@@ -71,11 +71,10 @@ config MARS_MIN_SPACE
 config MARS_PREFER_SIO
 	bool "prefer sio bricks instead of aio"
 	depends on MARS
-	default y
+	default n
 	---help---
-	Normally ON for production systems.
-	OFF gives better performance (in most cases), but is
-        currently less stable.
+	Normally OFF for production systems.
+	Only use as alternative for testing.
 
 ##### mostly obsolete
 
