@@ -114,19 +114,33 @@ EXPORT_SYMBOL_GPL(say_mark);
 void say(const char *fmt, ...)
 {
 	unsigned long cpu = get_cpu();
+	char *start;
+	int rest;
+	int written;
 	va_list args;
 
 	_say_mark(cpu);
 	if (!say_buf[cpu])
 		goto done;
 
+	rest = SAY_BUFMAX - say_index[cpu];
+	if (rest <= 0)
+		goto done;
+
+	start = say_buf[cpu] + say_index[cpu];
 	va_start(args, fmt);
-	say_index[cpu] += vsnprintf(say_buf[cpu] + say_index[cpu], SAY_BUFMAX - say_index[cpu], fmt, args);
+	written = vsnprintf(start, rest, fmt, args);
 	va_end(args);
 
-	if (unlikely(say_index[cpu] >= SAY_BUFMAX)) {
-		say_index[cpu] = SAY_BUFMAX;
-		say_buf[cpu][SAY_BUFMAX-1] = '\0';
+	if (likely(rest > written)) {
+		start[written] = '\0';
+		say_index[cpu] += written;
+	} else if (rest > 2) {
+		// indicate overflow when possible
+		start[0] = '@';
+		start[1] = '\n';
+		start[2] = '\0';
+		say_index[cpu] += 2;
 	}
 
 	_say_mark(cpu);
@@ -140,27 +154,42 @@ void brick_say(bool dump, const char *prefix, const char *file, int line, const 
 	struct timespec now = CURRENT_TIME;
 	unsigned long cpu = get_cpu();
 	int filelen;
+	char *start;
+	int rest;
+	int written;
 	va_list args;
 
 	_say_mark(cpu);
 	if (!say_buf[cpu])
 		goto done;
 
-	// limit the
+	// limit the filename
 	filelen = strlen(file);
 	if (filelen > MAX_FILELEN)
 		file += filelen - MAX_FILELEN;
 
-	
-	say_index[cpu] += snprintf(say_buf[cpu] + say_index[cpu], SAY_BUFMAX - say_index[cpu], "%ld.%09ld %s %s[%d] %s %d %s(): ", now.tv_sec, now.tv_nsec, prefix, current->comm, (int)cpu, file, line, func);
+	rest = SAY_BUFMAX - say_index[cpu];
+	if (rest <= 0)
+		goto done;
 
-	va_start(args, fmt);
-	say_index[cpu] += vsnprintf(say_buf[cpu] + say_index[cpu], SAY_BUFMAX - say_index[cpu], fmt, args);
-	va_end(args);
+	start = say_buf[cpu] + say_index[cpu];
+	written = snprintf(start, rest, "%ld.%09ld %s %s[%d] %s %d %s(): ", now.tv_sec, now.tv_nsec, prefix, current->comm, (int)cpu, file, line, func);
 
-	if (unlikely(say_index[cpu] >= SAY_BUFMAX)) {
-		say_index[cpu] = SAY_BUFMAX;
-		say_buf[cpu][SAY_BUFMAX-1] = '\0';
+	if (likely(rest > written)) {
+		va_start(args, fmt);
+		written += vsnprintf(start + written, rest - written, fmt, args);
+		va_end(args);
+	}
+
+	if (likely(rest > written)) {
+		start[written] = '\0';
+		say_index[cpu] += written;
+	} else if (rest > 2) {
+		// indicate overflow when possible
+		start[0] = '@';
+		start[1] = '\n';
+		start[2] = '\0';
+		say_index[cpu] += 2;
 	}
 
 	_say_mark(cpu);
