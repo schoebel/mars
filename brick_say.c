@@ -25,6 +25,7 @@
 static char *say_buf[NR_CPUS] = {};
 static int say_index[NR_CPUS] = {};
 static int dump_max = 5;
+static atomic_t overflow = ATOMIC_INIT(0);
 
 static struct file *log_file = NULL;
 
@@ -111,15 +112,13 @@ void say_mark(void)
 }
 EXPORT_SYMBOL_GPL(say_mark);
 
-void say(const char *fmt, ...)
+static
+void _say(unsigned long cpu, va_list args, bool use_args, const char *fmt, ...)
 {
-	unsigned long cpu = get_cpu();
 	char *start;
 	int rest;
 	int written;
-	va_list args;
 
-	_say_mark(cpu);
 	if (!say_buf[cpu])
 		goto done;
 
@@ -128,20 +127,53 @@ void say(const char *fmt, ...)
 		goto done;
 
 	start = say_buf[cpu] + say_index[cpu];
-	va_start(args, fmt);
-	written = vsnprintf(start, rest, fmt, args);
-	va_end(args);
+	if (use_args) {
+		/* bug in gcc: use register variable
+		 * shading the parameter
+		 */
+		va_list args; 
+		va_start(args, fmt);
+		written = vsnprintf(start, rest, fmt, args);
+		va_end(args);
+	} else {
+		written = vsnprintf(start, rest, fmt, args);
+	}
 
 	if (likely(rest > written)) {
 		start[written] = '\0';
 		say_index[cpu] += written;
-	} else if (rest > 2) {
-		// indicate overflow when possible
-		start[0] = '@';
-		start[1] = '\n';
-		start[2] = '\0';
-		say_index[cpu] += 2;
+	} else {
+		// indicate overflow
+		atomic_inc(&overflow);
 	}
+done: ;
+}
+
+static inline
+void _check_overflow(unsigned long cpu)
+{
+	if (say_index[cpu] < SAY_BUFMAX - 8) {
+		int count = 0;
+		atomic_xchg(&overflow, count);
+		if (unlikely(count > 0)) {
+			_say(cpu, NULL, true, "#%d#\n", count);
+		}
+	}
+}
+
+void say(const char *fmt, ...)
+{
+	unsigned long cpu = get_cpu();
+	va_list args;
+
+	_say_mark(cpu);
+	if (!say_buf[cpu])
+		goto done;
+	_check_overflow(cpu);
+
+	va_start(args, fmt);
+	_say(cpu, args, false, fmt);
+	va_end(args);
 
 	_say_mark(cpu);
 done:
@@ -154,43 +186,22 @@ void brick_say(bool dump, const char *prefix, const char *file, int line, const 
 	struct timespec now = CURRENT_TIME;
 	unsigned long cpu = get_cpu();
 	int filelen;
-	char *start;
-	int rest;
-	int written;
 	va_list args;
 
 	_say_mark(cpu);
 	if (!say_buf[cpu])
 		goto done;
+	_check_overflow(cpu);
 
 	// limit the filename
 	filelen = strlen(file);
 	if (filelen > MAX_FILELEN)
 		file += filelen - MAX_FILELEN;
 
-	rest = SAY_BUFMAX - say_index[cpu];
-	if (rest <= 0)
-		goto done;
-
-	start = say_buf[cpu] + say_index[cpu];
-	written = snprintf(start, rest, "%ld.%09ld %s %s[%d] %s %d %s(): ", now.tv_sec, now.tv_nsec, prefix, current->comm, (int)cpu, file, line, func);
-
-	if (likely(rest > written)) {
-		va_start(args, fmt);
-		written += vsnprintf(start + written, rest - written, fmt, args);
-		va_end(args);
-	}
-
-	if (likely(rest > written)) {
-		start[written] = '\0';
-		say_index[cpu] += written;
-	} else if (rest > 2) {
-		// indicate overflow when possible
-		start[0] = '@';
-		start[1] = '\n';
-		start[2] = '\0';
-		say_index[cpu] += 2;
-	}
+	_say(cpu, NULL, true, "%ld.%09ld %s %s[%d] %s %d %s(): ", now.tv_sec, now.tv_nsec, prefix, current->comm, (int)cpu, file, line, func);
+	va_start(args, fmt);
+	_say(cpu, args, false, fmt);
+	va_end(args);
 
 	_say_mark(cpu);
 #ifdef CONFIG_DEBUG_KERNEL
