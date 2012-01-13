@@ -9,7 +9,8 @@
 //#define IO_DEBUGGING
 
 #define REQUEST_MERGING
-#define ALWAYS_UNPLUG false
+//#define ALWAYS_UNPLUG false // FIXME: does not work! single requests left over!
+#define ALWAYS_UNPLUG true
 #define ALWAYS_UNPLUG_FROM_EXTERNAL true
 #define PREFETCH_LEN PAGE_SIZE
 //#define FRONT_MERGE // FIXME: this does not work.
@@ -58,18 +59,19 @@ void if_endio(struct generic_callback *cb)
 	struct if_mref_aspect *mref_a = cb->cb_private;
 	struct if_input *input;
 	int k;
-	int rw = 0;
+	int rw;
 	int error;
 
-	if (unlikely(!mref_a)) {
-		MARS_FAT("callback with no mref_a called. something is very wrong here!\n");
+	if (unlikely(!mref_a || !mref_a->object)) {
+		MARS_FAT("mref_a = %p mref = %p, something is very wrong here!\n", mref_a, mref_a->object);
 		return;
 	}
 
 	mars_trace(mref_a->object, "if_endio");
 	mars_log_trace(mref_a->object);
 
-	MARS_IO("bio_count = %d\n", mref_a->bio_count);
+	rw = mref_a->object->ref_rw;
+	MARS_IO("rw = %d bio_count = %d\n", rw, mref_a->bio_count);
 
 	for (k = 0; k < mref_a->bio_count; k++) {
 		struct bio_wrapper *biow;
@@ -86,8 +88,6 @@ void if_endio(struct generic_callback *cb)
 
 		bio = biow->bio;
 		CHECK_PTR_NULL(bio, err);
-
-		rw = bio->bi_rw & 1;
 
 #if 1
 		if (mref_a->is_kmapped) {
@@ -821,6 +821,8 @@ static int if_input_construct(struct if_input *input)
 	spin_lock_init(&input->req_lock);
 	atomic_set(&input->open_count, 0);
 	atomic_set(&input->flying_count, 0);
+	atomic_set(&input->read_flying_count, 0);
+	atomic_set(&input->write_flying_count, 0);
 	atomic_set(&input->plugged_count, 0);
 #ifdef USE_TIMER
 	init_timer(&input->timer);
