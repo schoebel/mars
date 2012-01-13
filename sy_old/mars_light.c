@@ -1262,7 +1262,7 @@ out:
 }
 
 static
-int _update_versionlink(struct mars_global *global, struct mars_dent *parent, const char *host, int sequence, loff_t start_pos, loff_t end_pos)
+int _update_versionlink(struct mars_global *global, const char *parent_path, const char *host, int sequence, loff_t start_pos, loff_t end_pos)
 {
 	char *prev = NULL;
 	struct mars_dent *prev_link = NULL;
@@ -1284,7 +1284,7 @@ int _update_versionlink(struct mars_global *global, struct mars_dent *parent, co
 	}
 	status = -EINVAL;
 	if (sequence > 1) {
-		prev = path_make("%s/version-%09d-%s", parent->d_path, sequence-1, my_id());
+		prev = path_make("%s/version-%09d-%s", parent_path, sequence-1, my_id());
 		if (unlikely(!prev)) {
 			goto out;
 		}
@@ -1308,7 +1308,7 @@ int _update_versionlink(struct mars_global *global, struct mars_dent *parent, co
 	}
 	oldlen += sprintf(old + oldlen, ",%s,%lld,%lld", host, start_pos, end_pos - start_pos);
 
-	new = path_make("%s/version-%09d-%s", parent->d_path, sequence, my_id());
+	new = path_make("%s/version-%09d-%s", parent_path, sequence, my_id());
 	if (!new) {
 		goto out;
 	}
@@ -1352,7 +1352,7 @@ int _update_all_links(struct mars_global *global, struct mars_dent *parent, stru
 		status = -EINVAL;
 		goto done;
 	}
-	if (!force && (long long)jiffies < trans_input->last_jiffies + 5 * HZ) {
+	if (!force && (long long)jiffies < trans_input->last_jiffies + 3 * HZ) {
 		status = 0;
 		goto done;
 	}
@@ -1375,7 +1375,7 @@ int _update_all_links(struct mars_global *global, struct mars_dent *parent, stru
 	}
 
 	status = _update_replaylink(parent, host, sequence, min_pos, max_pos, check_exist);
-	status |= _update_versionlink(global, parent, host, sequence, min_pos, max_pos);
+	status |= _update_versionlink(global, parent->d_path, host, sequence, min_pos, max_pos);
 	if (!status)
 		trans_input->last_jiffies = jiffies;
  done:
@@ -1828,14 +1828,13 @@ int _make_logging_status(struct mars_rotate *rot)
 		 */
 		if (!trans_brick->power.button && !trans_brick->power.led_on && trans_brick->power.led_off) {
 			if (rot->next_relevant_log) {
-				MARS_DBG("switching over from '%s' to next relevant transaction log '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
+				MARS_DBG("check switchover from '%s' to '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
 				if (_check_versionlink(global, dent->d_parent, dent->d_rest, dent->d_serial, end_pos) > 0) {
-					//_update_all_links(global, dent->d_parent, rot->next_relevant_log->d_rest, dent->d_serial + 1, 0, 0, true);
+					MARS_DBG("switching over from '%s' to next relevant transaction log '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
 					_update_all_links(global, dent->d_parent, trans_brick, rot->next_relevant_log->d_rest, dent->d_serial + 1, true, true);
 				}
 			} else if (rot->todo_primary) {
 				MARS_DBG("preparing new transaction log '%s' from version %d to %d\n", dent->d_path, dent->d_serial, dent->d_serial + 1);
-				//_update_all_links(global, dent->d_parent, my_id(), dent->d_serial + 1, 0, 0, false);
 				_update_all_links(global, dent->d_parent, trans_brick, my_id(), dent->d_serial + 1, false, true);
 			} else {
 				MARS_DBG("nothing to do on last transaction log '%s'\n", dent->d_path);
@@ -1949,6 +1948,12 @@ void _rotate_trans(struct mars_rotate *rot)
 				MARS_ERR("disconnect failed\n");
 			} else {
 				MARS_INF("closed old transaction log (%d -> %d)\n", old_nr, log_nr);
+				// we must not change the replaylink (races)
+				if (likely(rot->replay_link && rot->replay_link->d_parent && rot->replay_link->d_parent->d_path)) {
+					(void)_update_versionlink(rot->global, rot->replay_link->d_parent->d_path, trans_input->inf_host, trans_input->inf_sequence, trans_input->replay_min_pos, trans_input->replay_max_pos);
+				} else {
+					MARS_ERR("bad pointers\n");
+				}
 				_exit_trans_input(trans_input);
 			}
 		} else {
@@ -2177,7 +2182,6 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 
 		MARS_DBG("replay_code = %d do_stop = %d\n", trans_brick->replay_code, (int)do_stop);
 
-		status = _update_all_links(global, parent, trans_brick, NULL, 0, false, do_stop);
 		if (do_stop) {
 			status = _stop_trans(rot);
 #ifdef CONFIG_MARS_LOGROT
@@ -2185,6 +2189,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 			_change_trans(rot);
 #endif
 		}
+		(void)_update_all_links(global, parent, trans_brick, NULL, 0, false, do_stop);
 		goto done;
 	}
 
@@ -2211,9 +2216,11 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 
 		if (do_start) {
 			status = _start_trans(rot);
+#if 0 // silly idea!
 			if (status >= 0) {
 				status = _update_all_links(global, parent, trans_brick, NULL, 0, true, true);
 			}
+#endif
 		}
 	} else {
 		MARS_DBG("trans_brick %d %d %d\n", trans_brick->power.button, trans_brick->power.led_on, trans_brick->power.led_off);
