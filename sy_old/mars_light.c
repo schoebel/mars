@@ -1214,7 +1214,7 @@ void _create_new_logfile(const char *path)
 }
 
 static
-int _update_replaylink(struct mars_dent *parent, const char *host, int sequence, loff_t start_pos, loff_t end_pos, bool check_exist)
+int _update_replaylink(const char *parent_path, const char *host, int sequence, loff_t start_pos, loff_t end_pos, bool check_exist)
 {
 	struct timespec now = {};
 	char *old = NULL;
@@ -1224,7 +1224,7 @@ int _update_replaylink(struct mars_dent *parent, const char *host, int sequence,
 
 	if (check_exist) {
 		struct kstat kstat;
-		char *test = path_make("%s/log-%09d-%s", parent->d_path, sequence, host);
+		char *test = path_make("%s/log-%09d-%s", parent_path, sequence, host);
 		if (!test) {
 			goto out;
 		}
@@ -1241,7 +1241,7 @@ int _update_replaylink(struct mars_dent *parent, const char *host, int sequence,
 	if (!old) {
 		goto out;
 	}
-	new = path_make("%s/replay-%s", parent->d_path, my_id());
+	new = path_make("%s/replay-%s", parent_path, my_id());
 	if (!new) {
 		goto out;
 	}
@@ -1331,10 +1331,9 @@ out:
 }
 
 static
-int _update_all_links(struct mars_global *global, struct mars_dent *parent, struct trans_logger_brick *trans_brick, const char *override_host, int override_sequence, bool check_exist, bool force)
+int __update_all_links(struct mars_global *global, const char *parent_path, struct trans_logger_brick *trans_brick, const char *override_host, int override_sequence, bool check_exist, bool force, int nr, bool both)
 {
 	struct trans_logger_input *trans_input;
-	int nr = trans_brick->old_input_nr;
 	loff_t min_pos;
 	loff_t max_pos;
 	const char *host;
@@ -1369,16 +1368,34 @@ int _update_all_links(struct mars_global *global, struct mars_dent *parent, stru
 	}
 
 	if (!host) {
-		MARS_ERR("bad host string\n");
-		status = -EINVAL;
+		MARS_DBG("no host string\n");
+		status = 0;
 		goto done;
 	}
 
-	status = _update_replaylink(parent, host, sequence, min_pos, max_pos, check_exist);
-	status |= _update_versionlink(global, parent->d_path, host, sequence, min_pos, max_pos);
+	status = 0;
+	if (both)
+		status = _update_replaylink(parent_path, host, sequence, min_pos, max_pos, check_exist);
+	status |= _update_versionlink(global, parent_path, host, sequence, min_pos, max_pos);
 	if (!status)
 		trans_input->last_jiffies = jiffies;
  done:
+	return status;
+}
+
+static
+int _update_all_links(struct mars_global *global, const char *parent_path, struct trans_logger_brick *trans_brick, const char *override_host, int override_sequence, bool check_exist, bool force)
+{
+	int old_nr = trans_brick->old_input_nr;
+	int new_nr = trans_brick->new_input_nr;
+	int status;
+
+	if (old_nr == new_nr) {
+		status = __update_all_links(global, parent_path, trans_brick, override_host, override_sequence, check_exist, force, new_nr, true);
+	} else {
+		status = __update_all_links(global, parent_path, trans_brick, override_host, override_sequence, check_exist, force, old_nr, false);
+		status |= __update_all_links(global, parent_path, trans_brick, override_host, override_sequence, check_exist, force, new_nr, true);
+	}
 	return status;
 }
 
@@ -1831,11 +1848,11 @@ int _make_logging_status(struct mars_rotate *rot)
 				MARS_DBG("check switchover from '%s' to '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
 				if (_check_versionlink(global, dent->d_parent, dent->d_rest, dent->d_serial, end_pos) > 0) {
 					MARS_DBG("switching over from '%s' to next relevant transaction log '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
-					_update_all_links(global, dent->d_parent, trans_brick, rot->next_relevant_log->d_rest, dent->d_serial + 1, true, true);
+					_update_all_links(global, parent->d_path, trans_brick, rot->next_relevant_log->d_rest, dent->d_serial + 1, true, true);
 				}
 			} else if (rot->todo_primary) {
 				MARS_DBG("preparing new transaction log '%s' from version %d to %d\n", dent->d_path, dent->d_serial, dent->d_serial + 1);
-				_update_all_links(global, dent->d_parent, trans_brick, my_id(), dent->d_serial + 1, false, true);
+				_update_all_links(global, parent->d_path, trans_brick, my_id(), dent->d_serial + 1, false, true);
 			} else {
 				MARS_DBG("nothing to do on last transaction log '%s'\n", dent->d_path);
 			}
@@ -2116,7 +2133,7 @@ done:
 }
 
 static
-int _stop_trans(struct mars_rotate *rot)
+int _stop_trans(struct mars_rotate *rot, const char *parent_path)
 {
 	struct trans_logger_brick *trans_brick = rot->trans_brick;
 	int status = 0;
@@ -2137,6 +2154,7 @@ int _stop_trans(struct mars_rotate *rot)
 	 */
 	if (trans_brick->power.led_off) {
 		int i;
+		(void)_update_all_links(rot->global, parent_path, trans_brick, NULL, 0, false, true);
 		for (i = TL_INPUT_LOG1; i <= TL_INPUT_LOG2; i++) {
 			struct trans_logger_input *trans_input;
 			trans_input = trans_brick->inputs[i];
@@ -2183,13 +2201,13 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		MARS_DBG("replay_code = %d do_stop = %d\n", trans_brick->replay_code, (int)do_stop);
 
 		if (do_stop) {
-			status = _stop_trans(rot);
+			status = _stop_trans(rot, parent->d_path);
 #ifdef CONFIG_MARS_LOGROT
 		} else {
 			_change_trans(rot);
 #endif
+			(void)_update_all_links(global, parent->d_path, trans_brick, NULL, 0, false, do_stop);
 		}
-		(void)_update_all_links(global, parent, trans_brick, NULL, 0, false, do_stop);
 		goto done;
 	}
 
@@ -2218,7 +2236,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 			status = _start_trans(rot);
 #if 0 // silly idea!
 			if (status >= 0) {
-				status = _update_all_links(global, parent, trans_brick, NULL, 0, true, true);
+				status = _update_all_links(global, parent->d_path, trans_brick, NULL, 0, true, true);
 			}
 #endif
 		}
