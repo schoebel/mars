@@ -157,29 +157,6 @@ diff -uri linux-2.6.32.14.orig/lib/debug_locks.c linux-2.6.32.14.new.00/lib/debu
  	return 0;
  }
 +EXPORT_SYMBOL(debug_locks_off);
-diff -uri linux-2.6.32.14.orig/mm/init-mm.c linux-2.6.32.14.new.00/mm/init-mm.c
---- linux-2.6.32.14.orig/mm/init-mm.c	2010-05-26 23:29:57.000000000 +0200
-+++ linux-2.6.32.14.new.00/mm/init-mm.c	2011-01-26 16:53:17.000000000 +0100
-@@ -4,6 +4,8 @@
- #include <linux/spinlock.h>
- #include <linux/list.h>
- #include <linux/cpumask.h>
-+#include <linux/module.h>
-+#include <linux/sched.h>
- 
- #include <asm/atomic.h>
- #include <asm/pgtable.h>
-@@ -17,4 +19,10 @@
- 	.page_table_lock =  __SPIN_LOCK_UNLOCKED(init_mm.page_table_lock),
- 	.mmlist		= LIST_HEAD_INIT(init_mm.mmlist),
- 	.cpu_vm_mask	= CPU_MASK_ALL,
-+#ifdef CONFIG_AIO
-+	.ioctx_lock     =  __SPIN_LOCK_UNLOCKED(init_mm.ioctx_lock),
-+	.ioctx_list	= HLIST_HEAD_INIT,
-+	.get_unmapped_area = arch_get_unmapped_area,
-+#endif
- };
-+EXPORT_SYMBOL(init_mm);
 diff -uri linux-2.6.32.14.orig/mm/mmu_context.c linux-2.6.32.14.new.00/mm/mmu_context.c
 --- linux-2.6.32.14.orig/mm/mmu_context.c	2010-05-26 23:29:57.000000000 +0200
 +++ linux-2.6.32.14.new.00/mm/mmu_context.c	2010-11-16 17:12:01.000000000 +0100

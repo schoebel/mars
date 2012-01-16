@@ -356,46 +356,6 @@ done:
 
 #define MARS_DELIM ','
 
-static
-char *_parse_versionlink(const char *str, loff_t *start_pos, loff_t *end_pos)
-{
-	char *res = NULL;
-	const char *tmp;
-	int count;
-	int status;
-
-	*start_pos = 0;
-	*end_pos = 0;
-
-	while (*str && *str++ != MARS_DELIM) {
-		// empty
-	}
-
-	tmp = str;
-	count = 0;
-	while (*tmp && *tmp != MARS_DELIM) {
-		tmp++;
-		count++;
-	}
-	res = brick_string_alloc(count + 1);
-	if (unlikely(!res)) {
-		MARS_DBG("bad alloc\n");
-		goto done;
-	}
-
-	strncpy(res, str, count);
-	res[count] = '\0';
-
-	status = sscanf(tmp, ",%lld,%lld", start_pos, end_pos);
-	if (unlikely(status != 2)) {
-		MARS_DBG("status = %d\n", status);
-		brick_string_free(res);
-		res = NULL;
-	}
-done:
-	return res;
-}
-
 static int _parse_args(struct mars_dent *dent, char *str, int count)
 {
 	int i;
@@ -1416,7 +1376,7 @@ int __update_all_links(struct mars_global *global, const char *parent_path, stru
 	status = 0;
 	if (both)
 		status = _update_replaylink(parent_path, host, sequence, min_pos, max_pos, check_exist);
-	status |= _update_versionlink(global, parent_path, host, sequence, max_pos, max_pos);
+	status |= _update_versionlink(global, parent_path, host, sequence, min_pos, max_pos);
 	if (!status)
 		trans_input->last_jiffies = jiffies;
  done:
@@ -1440,77 +1400,65 @@ int _update_all_links(struct mars_global *global, const char *parent_path, struc
 }
 
 static
-int _check_versionlink(struct mars_global *global, const char *parent_path, int sequence, loff_t target_end_pos)
+int _check_versionlink(struct mars_global *global, struct mars_dent *parent, char *host, int sequence, loff_t end_pos)
 {
 	char *my_version = NULL;
-	char *other_version = NULL;
+	char *version_prefix = NULL;
 	struct mars_dent *my_version_dent;
-	struct mars_dent *other_version_dent;
-	const char *my_data;
-	const char *other_data;
-	char *from_host = NULL;
-	loff_t start_pos;
-	loff_t end_pos;
+	struct mars_dent **table = NULL;
+	int table_count;
+	int i;
+	int other_count = 0;
+	int ok_count = 0;
 	int status = -ENOMEM;
 
-	my_version = path_make("%s/version-%09d-%s", parent_path, sequence, my_id());
+	my_version = path_make("%s/version-%09d-%s", parent->d_path, sequence, my_id());
 	if (!my_version) {
-		MARS_WRN("out of memory");
+		goto out;
+	}
+	version_prefix = path_make("%s/version-%09d-", parent->d_path, sequence);
+	if (!version_prefix) {
 		goto out;
 	}
 
 	status = -ENOENT;
 	my_version_dent = mars_find_dent(global, my_version);
 	if (!my_version_dent || !my_version_dent->new_link) {
-		MARS_WRN("cannot find my own version symlink '%s'\n", my_version);
+		MARS_WRN("cannot find version symlink '%s'\n", my_version);
 		goto out;
 	}
 
-	my_data = my_version_dent->new_link;
-	from_host = _parse_versionlink(my_data, &start_pos, &end_pos);
-	if (!from_host) {
-		MARS_WRN("cannot parse '%s'\n", my_data);
-		goto out;
-	}
+	table_count = mars_find_dent_all(global, version_prefix, &table);
 
-	if (!strcmp(from_host, my_id())) {
-		MARS_DBG("found version stemming from myself, no check of other version necessary.\n");
-		status = 1;
-		if (unlikely(start_pos != target_end_pos || end_pos != 0)) {
-			MARS_WRN("start_pos = %lld != target_end_pos = %lld || end_pos = %lld != 0\n", start_pos, target_end_pos, end_pos);
-			status = 0;
+	for (i = 0; i < table_count; i++) {
+		struct mars_dent *other_version_dent;
+
+		other_version_dent = table[i];
+		if (!other_version_dent->new_link) {
+			MARS_ERR("bad version symlink '%s'\n", other_version_dent->d_path);
+			status = -EINVAL;
+			goto out;
 		}
-		goto out;
+		other_count++;
+		if (!strcmp(my_version_dent->new_link, other_version_dent->new_link)) {
+			ok_count++;
+		} else {
+			MARS_DBG("'%s' != '%s'\n", my_version_dent->new_link, other_version_dent->new_link);
+		}
 	}
-
-	status = -ENOMEM;
-	other_version = path_make("%s/version-%09d-%s", parent_path, sequence, from_host);
-	if (!other_version) {
-		MARS_WRN("out of memory");
-		goto out;
-	}
-
-	status = -ENOENT;
-	other_version_dent = mars_find_dent(global, other_version);
-	if (!other_version_dent || !other_version_dent->new_link) {
-		MARS_WRN("cannot find other version symlink '%s'\n", other_version);
-		goto out;
-	}
-
-	other_data = other_version_dent->new_link;
-
-	if (!strcmp(my_data, other_data)) {
-		MARS_DBG("VERSION OK '%s'\n", my_data);
-		status = 1;
+	
+	status = 0;
+	if (other_count == ok_count) {
+		status++;
+		MARS_DBG("versions OK, count = %d\n", ok_count);
 	} else {
-		MARS_DBG("VERSION MISMATCH '%s' != '%s'\n", my_data, other_data);
-		status = 0;
+		MARS_DBG("versions MISMATCH #logfiles=%d #ok=%d\n", other_count, ok_count);
 	}
 
 out:
 	brick_string_free(my_version);
-	brick_string_free(other_version);
-	brick_string_free(from_host);
+	brick_string_free(version_prefix);
+	brick_mem_free(table);
 	return status;
 }
 
@@ -1898,7 +1846,7 @@ int _make_logging_status(struct mars_rotate *rot)
 		if (!trans_brick->power.button && !trans_brick->power.led_on && trans_brick->power.led_off) {
 			if (rot->next_relevant_log) {
 				MARS_DBG("check switchover from '%s' to '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
-				if (_check_versionlink(global, parent->d_path, dent->d_serial, end_pos) > 0) {
+				if (_check_versionlink(global, dent->d_parent, dent->d_rest, dent->d_serial, end_pos) > 0) {
 					MARS_DBG("switching over from '%s' to next relevant transaction log '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
 					_update_all_links(global, parent->d_path, trans_brick, rot->next_relevant_log->d_rest, dent->d_serial + 1, true, true);
 				}
