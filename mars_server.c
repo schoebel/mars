@@ -231,12 +231,12 @@ int handler_thread(void *data)
 	wake_up_interruptible(&brick->startup_event);
 
 	MARS_DBG("--------------- handler_thread starting on socket %p\n", sock);
-        while (brick->cb_running && !kthread_should_stop()) {
+        while (brick->cb_running && !sock->s_dead && !kthread_should_stop()) {
 		struct mars_cmd cmd = {};
 
 		status = mars_recv_struct(sock, &cmd, mars_cmd_meta);
-		if (status < 0) {
-			MARS_WRN("bad command status = %d\n", status);
+		if (unlikely(status < 0 || sock->s_dead)) {
+			MARS_WRN("dead = %d recv cmd status = %d\n", sock->s_dead, status);
 			break;
 		}
 

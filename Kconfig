@@ -40,6 +40,20 @@ config MARS_USE_SYSLOG
 	in other cases). Thus we recommend to prefer file logging.
 	When this option is off, the logfile will be used (if one exists).
 
+config MARS_SCAN_INTERVAL
+	int "re-scanning of symlinks in /mars/ (in seconds)"
+	depends on MARS
+	default 10
+	---help---
+	May influence the system load; dont use too low nubmers.
+
+config MARS_FAST_TRIGGER
+	bool "fast internal triggering"
+	depends on MARS
+	default y
+	---help---
+	Normally ON. Switch off in case of endless trigger loops
+
 config MARS_MEM_PREALLOC
 	bool "avoid memory fragmentation by preallocation"
 	depends on MARS

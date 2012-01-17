@@ -976,7 +976,7 @@ int run_bones(struct mars_peerinfo *peer)
 		//MARS_DBG("path = '%s' worker status = %d\n", remote_dent->d_path, status);
 	}
 	mars_free_dent_all(NULL, &tmp_list);
-#if 0
+#ifdef CONFIG_MARS_FAST_TRIGGER
 	if (run_trigger) {
 		mars_trigger();
 	}
@@ -1901,14 +1901,19 @@ int _make_logging_status(struct mars_rotate *rot)
 				if (_check_versionlink(global, parent->d_path, dent->d_serial, end_pos) > 0) {
 					MARS_DBG("switching over from '%s' to next relevant transaction log '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
 					_update_all_links(global, parent->d_path, trans_brick, rot->next_relevant_log->d_rest, dent->d_serial + 1, true, true);
+#ifdef CONFIG_MARS_FAST_TRIGGER
+					mars_trigger();
+#endif
 				}
 			} else if (rot->todo_primary) {
 				MARS_DBG("preparing new transaction log '%s' from version %d to %d\n", dent->d_path, dent->d_serial, dent->d_serial + 1);
 				_update_all_links(global, parent->d_path, trans_brick, my_id(), dent->d_serial + 1, false, true);
+#ifdef CONFIG_MARS_FAST_TRIGGER
+				mars_trigger();
+#endif
 			} else {
 				MARS_DBG("nothing to do on last transaction log '%s'\n", dent->d_path);
 			}
-			//mars_trigger();
 		}
 		status = -EAGAIN;
 		goto done;
@@ -3243,9 +3248,10 @@ static int light_worker(struct mars_global *global, struct mars_dent *dent, bool
 	}
 	if (worker) {
 		int status;
-		//MARS_DBG("working %s on '%s' rest='%s'\n", direction ? "backward" : "forward", dent->d_path, dent->d_rest);
+		if (!direction)
+			MARS_DBG("--- start working %s on '%s' rest='%s'\n", direction ? "backward" : "forward", dent->d_path, dent->d_rest);
 		status = worker(global, (void*)dent);
-		MARS_DBG("worked %s on '%s', status = %d\n", direction ? "backward" : "forward", dent->d_path, status);
+		MARS_DBG("--- done, worked %s on '%s', status = %d\n", direction ? "backward" : "forward", dent->d_path, status);
 		return status;
 	}
 	return 0;
@@ -3366,6 +3372,10 @@ static int light_thread(void *data)
 
         while (_global.global_power.button || !list_empty(&_global.brick_anchor)) {
 		int status;
+
+		MARS_DBG("-------- NEW ROUND ---------\n");
+		msleep(100);
+
 		_global.global_power.button = !kthread_should_stop();
 		_global.remaining_space = mars_remaining_space("/mars");
 		if (EXHAUSTED(_global.remaining_space))
@@ -3379,8 +3389,9 @@ static int light_thread(void *data)
 		}
 #endif
 
+		MARS_DBG("-------- start worker ---------\n");
 		status = mars_dent_work(&_global, "/mars", sizeof(struct mars_dent), light_checker, light_worker, &_global, 3);
-		MARS_DBG("worker status = %d\n", status);
+		MARS_DBG("-------- worker status = %d\n", status);
 
 		if (!_global.global_power.button) {
 			status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&copy_brick_type, false);
@@ -3398,9 +3409,9 @@ static int light_thread(void *data)
 		_show_statist(&_global);
 #endif
 
-		msleep(1000);
+		msleep(500);
 
-		wait_event_interruptible_timeout(_global.main_event, _global.main_trigger, 10 * HZ);
+		wait_event_interruptible_timeout(_global.main_event, _global.main_trigger, CONFIG_MARS_SCAN_INTERVAL * HZ);
 		_global.main_trigger = false;
 	}
 
@@ -3462,9 +3473,9 @@ static void __exit exit_light(void)
 		main_thread = NULL;
 		MARS_DBG("=== stopping light thread...\n");
 		MARS_INF("stopping thread...\n");
+		mars_trigger();
 		kthread_stop(thread);
 		put_task_struct(thread);
-		mars_trigger();
 	}
 
 	brick_allow_freelist = false;

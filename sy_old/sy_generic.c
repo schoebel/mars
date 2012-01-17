@@ -261,7 +261,7 @@ void __mars_trigger(void)
 {
 	if (mars_global) {
 		mars_global->main_trigger = true;
-		wake_up_interruptible(&mars_global->main_event);
+		wake_up_interruptible_all(&mars_global->main_event);
 	}
 }
 
@@ -560,6 +560,7 @@ int mars_dent_work(struct mars_global *global, char *dirname, int allocsize, mar
 	down_write(&global->dent_mutex);
 
 restart:
+	MARS_IO("at restart\n");
 	found_dir = false;
 
 	/* First, get all the inode information in a separate pass
@@ -575,9 +576,11 @@ restart:
 			continue;
 		dent->d_version = version;
 
+#ifdef CONFIG_MARS_USE_SYSLOG
 		msleep(10); // yield
+#endif
 
-		MARS_IO("reading inode '%s'\n", dent->d_path);
+		//MARS_IO("reading inode '%s'\n", dent->d_path);
 		status = get_inode(dent->d_path, dent);
 		total_status |= status;
 
@@ -609,18 +612,23 @@ restart:
 	 * Here is a chance to mark some dents for removal
 	 * (or other types of non-destructive operations)
 	 */
+	MARS_IO("prep pass\n");
 	for (tmp = global->dent_anchor.next, next = tmp->next; tmp != &global->dent_anchor; tmp = next, next = next->next) {
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
+#ifdef CONFIG_MARS_USE_SYSLOG
 		msleep(10); // yield
-		MARS_IO("forward prepare '%s'\n", dent->d_path);
+#endif
+		//MARS_IO("forward prepare '%s'\n", dent->d_path);
 		status = worker(buf, dent, true, false);
-		if (status)
-			MARS_IO("forward treat '%s' status = %d\n", dent->d_path, status);
+		if (status) {
+			//MARS_IO("forward treat '%s' status = %d\n", dent->d_path, status);
+		}
 		total_status |= status;
 	}
 
 	/* Remove all dents marked for removal.
 	 */
+	MARS_IO("removal pass\n");
 	for (tmp = global->dent_anchor.next, next = tmp->next; tmp != &global->dent_anchor; tmp = next, next = next->next) {
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
 		if (!dent->d_killme)
@@ -635,28 +643,36 @@ restart:
 	/* Forward pass.
 	*/
 	down_read(&global->dent_mutex);
+	MARS_IO("forward pass\n");
 	for (tmp = global->dent_anchor.next, next = tmp->next; tmp != &global->dent_anchor; tmp = next, next = next->next) {
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
 		up_read(&global->dent_mutex);
+#ifdef CONFIG_MARS_USE_SYSLOG
 		msleep(10); // yield
-		MARS_IO("forward treat '%s'\n", dent->d_path);
+#endif
+		//MARS_IO("forward treat '%s'\n", dent->d_path);
 		status = worker(buf, dent, false, false);
-		if (status)
-			MARS_IO("forward treat '%s' status = %d\n", dent->d_path, status);
+		if (status) {
+			//MARS_IO("forward treat '%s' status = %d\n", dent->d_path, status);
+		}
 		down_read(&global->dent_mutex);
 		total_status |= status;
 	}
 
 	/* Backward pass.
 	*/
+	MARS_IO("forward pass\n");
 	for (tmp = global->dent_anchor.prev, next = tmp->prev; tmp != &global->dent_anchor; tmp = next, next = next->prev) {
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
 		up_read(&global->dent_mutex);
+#ifdef CONFIG_MARS_USE_SYSLOG
 		msleep(10); // yield
-		MARS_IO("backward treat '%s'\n", dent->d_path);
+#endif
+		//MARS_IO("backward treat '%s'\n", dent->d_path);
 		status = worker(buf, dent, false, true);
-		if (status)
-			MARS_IO("backward treat '%s' status = %d\n", dent->d_path, status);
+		if (status) {
+			//MARS_IO("backward treat '%s' status = %d\n", dent->d_path, status);
+		}
 		down_read(&global->dent_mutex);
 		total_status |= status;
 		if (status < 0) {
