@@ -248,9 +248,8 @@ int handler_thread(void *data)
 			MARS_DBG("got NOP operation\n");
 			status = 0;
 			break;
-		case CMD_STATUS:
-			//...
-			MARS_ERR("NYI\n");
+		case CMD_NOTIFY:
+			mars_trigger();
 			break;
 		case CMD_GETINFO:
 		{

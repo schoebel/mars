@@ -423,7 +423,7 @@ EXPORT_SYMBOL_GPL(mars_recv_raw);
 
 /* TODO: make this bytesex-aware
  */
-#define MARS_NET_MAGIC 0x63f092ec6148f48cll
+#define MARS_NET_MAGIC 0x63f0A2ec6148f48cll
 #define MAX_FIELD_LEN 32
 
 

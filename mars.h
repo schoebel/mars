@@ -267,7 +267,9 @@ extern void mars_power_led_off(struct mars_brick *brick, bool val);
 /* this should disappear!
  */
 extern void (*_mars_trigger)(void);
-#define mars_trigger() do { if (_mars_trigger) { MARS_INF("trigger...\n"); _mars_trigger(); } } while (0)
+extern void (*_mars_remote_trigger)(void);
+#define mars_trigger() do { if (_mars_trigger) { MARS_DBG("trigger...\n"); _mars_trigger(); } } while (0)
+#define mars_remote_trigger() do { if (_mars_remote_trigger) { MARS_DBG("remote_trigger...\n"); _mars_remote_trigger(); } } while (0)
 
 /////////////////////////////////////////////////////////////////////////
 

@@ -504,6 +504,7 @@ struct mars_rotate {
 	bool do_replay;
 	bool todo_primary;
 	bool is_primary;
+	bool old_is_primary;
 	bool copy_is_done;
 };
 
@@ -539,6 +540,10 @@ void _show_primary(struct mars_rotate *rot, struct mars_dent *parent)
 		return;
 	}
 	status = _show_actual(parent->d_path, "is-primary", rot->is_primary);
+	if (rot->is_primary != rot->old_is_primary) {
+		rot->old_is_primary = rot->is_primary;
+		mars_remote_trigger();
+	}
 }
 
 static
@@ -1000,6 +1005,10 @@ void _peer_cleanup(struct mars_peerinfo *peer)
 
 }
 
+static DECLARE_WAIT_QUEUE_HEAD(remote_event);
+static atomic_t remote_trigger_count = ATOMIC_INIT(0);
+static atomic_t peer_thread_count = ATOMIC_INIT(0);
+
 static
 int peer_thread(void *data)
 {
@@ -1019,6 +1028,8 @@ int peer_thread(void *data)
 		MARS_ERR("unusable remote address '%s' (%s)\n", real_peer, peer->peer);
 		goto done;
 	}
+
+	atomic_inc(&peer_thread_count);
 
         while (!kthread_should_stop()) {
 		LIST_HEAD(tmp_list);
@@ -1047,6 +1058,15 @@ int peer_thread(void *data)
 			continue;
 		}
 
+		/* This is not completely race-free, but does no harm.
+		 * In worst case, network propagation will just take
+		 * a litte longer (see CONFIG_MARS_PROPAGATE_INTERVAL).
+		 */
+		if (atomic_read(&remote_trigger_count) > 0) {
+			atomic_dec(&remote_trigger_count);
+			cmd.cmd_code = CMD_NOTIFY;
+		}
+
 		status = mars_send_struct(&peer->socket, &cmd, mars_cmd_meta);
 		if (unlikely(status < 0)) {
 			MARS_WRN("communication error on send, status = %d\n", status);
@@ -1054,6 +1074,8 @@ int peer_thread(void *data)
 			msleep(2000);
 			continue;
 		}
+		if (cmd.cmd_code == CMD_NOTIFY)
+			continue;
 
 		status = mars_recv_dent_list(&peer->socket, &tmp_list);
 		if (unlikely(status < 0)) {
@@ -1080,7 +1102,7 @@ int peer_thread(void *data)
 
 		msleep(1000);
 		if (!kthread_should_stop())
-			msleep(4000);
+			wait_event_interruptible_timeout(remote_event, atomic_read(&peer_thread_count) > 0, CONFIG_MARS_PROPAGATE_INTERVAL * HZ);
 	}
 
 	MARS_INF("-------- remote thread terminating\n");
@@ -1088,8 +1110,17 @@ int peer_thread(void *data)
 	_peer_cleanup(peer);
 
 done:
+	atomic_dec(&peer_thread_count);
 	brick_string_free(real_peer);
 	return 0;
+}
+
+static
+void __mars_remote_trigger(void)
+{
+	int count = atomic_read(&peer_thread_count);
+	atomic_add(count, &remote_trigger_count);
+	wake_up_interruptible_all(&remote_event);
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -1903,6 +1934,7 @@ int _make_logging_status(struct mars_rotate *rot)
 					_update_all_links(global, parent->d_path, trans_brick, rot->next_relevant_log->d_rest, dent->d_serial + 1, true, true);
 #ifdef CONFIG_MARS_FAST_TRIGGER
 					mars_trigger();
+					mars_remote_trigger();
 #endif
 				}
 			} else if (rot->todo_primary) {
@@ -1910,6 +1942,7 @@ int _make_logging_status(struct mars_rotate *rot)
 				_update_all_links(global, parent->d_path, trans_brick, my_id(), dent->d_serial + 1, false, true);
 #ifdef CONFIG_MARS_FAST_TRIGGER
 				mars_trigger();
+				mars_remote_trigger();
 #endif
 			} else {
 				MARS_DBG("nothing to do on last transaction log '%s'\n", dent->d_path);
@@ -2029,6 +2062,7 @@ void _rotate_trans(struct mars_rotate *rot)
 					MARS_ERR("bad pointers\n");
 				}
 				_exit_trans_input(trans_input);
+				mars_remote_trigger();
 			}
 		} else {
 			MARS_DBG("old transaction replay not yet finished: %lld != %lld\n", trans_input->replay_min_pos, trans_input->replay_max_pos);
@@ -3417,6 +3451,8 @@ static int light_thread(void *data)
 
 done:
 	MARS_INF("-------- cleaning up ----------\n");
+	mars_remote_trigger();
+	msleep(2000);
 
 	mars_kill_brick_all(&_global, &_global.server_anchor, false);
 	mars_free_dent_all(&_global, &_global.dent_anchor);
@@ -3462,6 +3498,9 @@ static int exit_fn_nr = 0;
 
 #endif
 
+void (*_mars_remote_trigger)(void);
+EXPORT_SYMBOL_GPL(_mars_remote_trigger);
+
 static void __exit exit_light(void)
 {
 	struct task_struct *thread;
@@ -3478,6 +3517,7 @@ static void __exit exit_light(void)
 		put_task_struct(thread);
 	}
 
+	_mars_remote_trigger = NULL;
 	brick_allow_freelist = false;
 
 #ifdef CONFIG_MARS_HAVE_BIGMODULE
@@ -3535,6 +3575,7 @@ done:
 		MARS_ERR("module init failed with status = %d, exiting.\n", status);
 		exit_light();
 	}
+	_mars_remote_trigger = __mars_remote_trigger;
 	return status;
 }
 

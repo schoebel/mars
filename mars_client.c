@@ -261,6 +261,9 @@ int receiver_thread(void *data)
 			goto done;
 
 		switch (cmd.cmd_code) {
+		case CMD_NOTIFY:
+			mars_trigger();
+			break;
 		case CMD_CONNECT:
 			if (cmd.cmd_int1 < 0) {
 				status = cmd.cmd_int1;

@@ -34,10 +34,10 @@ extern struct mars_tcp_params default_tcp_params;
 
 enum {
 	CMD_NOP,
-	CMD_STATUS,
+	CMD_NOTIFY,
+	CMD_CONNECT,
 	CMD_GETINFO,
 	CMD_GETENTS,
-	CMD_CONNECT,
 	CMD_MREF,
 	CMD_CB,
 };
