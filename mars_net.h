@@ -19,6 +19,7 @@ struct mars_socket {
 	atomic_t s_count;
 	int s_debug_nr;
 	bool s_dead;
+	bool s_shutdown_on_err;
 };
 
 struct mars_tcp_params {

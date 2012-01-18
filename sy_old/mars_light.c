@@ -1053,6 +1053,7 @@ int peer_thread(void *data)
 				msleep(5000);
 				continue;
 			}
+			peer->socket.s_shutdown_on_err = true;
 			MARS_DBG("successfully opened socket to '%s'\n", real_peer);
 			msleep(100);
 			continue;

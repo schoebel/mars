@@ -93,6 +93,7 @@ static int _connect(struct client_output *output, const char *str)
 		MARS_DBG("no socket, status = %d\n", status);
 		goto really_done;
 	}
+	output->socket.s_shutdown_on_err = true;
 
 	output->receiver.thread = kthread_create(receiver_thread, output, "mars_receiver%d", thread_count++);
 	if (unlikely(IS_ERR(output->receiver.thread))) {

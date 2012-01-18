@@ -596,6 +596,7 @@ static int _server_thread(void *data)
 			msleep(2000);
 			continue;
 		}
+		brick->handler_socket.s_shutdown_on_err = true;
 
 		MARS_DBG("got new connection #%d\n", brick->handler_socket.s_debug_nr);
 

@@ -345,6 +345,8 @@ int mars_send_raw(struct mars_socket *msock, void *buf, int len, bool cork)
 	MARS_IO("#%d sent %d\n", msock->s_debug_nr, sent);
 
 done:
+	if (status < 0 && msock->s_shutdown_on_err)
+		mars_shutdown_socket(msock);
 	mars_put_socket(msock);
 final:
 	return status;
@@ -410,6 +412,8 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 	status = done;
 
 err:
+	if (status < 0 && msock->s_shutdown_on_err)
+		mars_shutdown_socket(msock);
 	mars_put_socket(msock);
 final:
 	return status;
