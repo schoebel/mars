@@ -1086,20 +1086,18 @@ int peer_thread(void *data)
 			continue;
 		}
 
-		if (list_empty(&tmp_list)) {
-			msleep(5000);
-			continue;
+		if (likely(!list_empty(&tmp_list))) {
+			//MARS_DBG("AHA!!!!!!!!!!!!!!!!!!!!\n");
+
+			traced_lock(&peer->lock, flags);
+
+			list_replace_init(&peer->remote_dent_list, &old_list);
+			list_replace_init(&tmp_list, &peer->remote_dent_list);
+
+			traced_unlock(&peer->lock, flags);
+
+			mars_free_dent_all(NULL, &old_list);
 		}
-		//MARS_DBG("AHA!!!!!!!!!!!!!!!!!!!!\n");
-
-		traced_lock(&peer->lock, flags);
-
-		list_replace_init(&peer->remote_dent_list, &old_list);
-		list_replace_init(&tmp_list, &peer->remote_dent_list);
-
-		traced_unlock(&peer->lock, flags);
-
-		mars_free_dent_all(NULL, &old_list);
 
 		msleep(1000);
 		if (!kthread_should_stop())

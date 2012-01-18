@@ -96,33 +96,11 @@ EXPORT_SYMBOL_GPL(mars_create_sockaddr);
 
 static int current_debug_nr = 0; // no locking, just for debugging
 
-int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *addr, bool is_server)
+static
+void _set_socketopts(struct socket *sock)
 {
-	struct socket *sock;
-	struct sockaddr *sockaddr = (void*)addr;
 	int x_true = 1;
-	int status = -EEXIST;
-
-	if (unlikely(atomic_read(&msock->s_count))) {
-		MARS_WRN("#%d socket already in use\n", msock->s_debug_nr);
-		goto final;
-	}
-	if (unlikely(msock->s_socket)) {
-		MARS_WRN("#%d socket already open\n", msock->s_debug_nr);
-		goto final;
-	}
-	status = sock_create_kern(AF_INET, SOCK_STREAM, IPPROTO_TCP, &msock->s_socket);
-	if (unlikely(status < 0)) {
-		msock->s_socket = NULL;
-		MARS_WRN("cannot create socket, status = %d\n", status);
-		goto final;
-	}
-	atomic_set(&msock->s_count, 1);
-	msock->s_debug_nr = ++current_debug_nr;
-	sock = msock->s_socket;
-	status = -EINVAL;
-	CHECK_PTR(sock, done);
-
+	int status;
 	/* TODO: improve this by a table-driven approach
 	 */
 	sock->sk->sk_rcvtimeo = sock->sk->sk_sndtimeo = default_tcp_params.tcp_timeout * HZ;
@@ -145,6 +123,51 @@ int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *addr,
 	_check(status);
 	status = kernel_setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, (char*)&default_tcp_params.tcp_keepidle, sizeof(default_tcp_params.tcp_keepidle));
 	_check(status);
+
+#if 1
+	{
+		struct timeval t = {
+			.tv_sec = default_tcp_params.tcp_timeout,
+		};
+		status = kernel_setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (char*)&t, sizeof(t));
+		status = kernel_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char*)&t, sizeof(t));
+		_check(status);
+	}
+#endif
+
+#if 0 // do not use for now
+	if (!do_block && sock->file) { // switch back to blocking mode
+		sock->file->f_flags &= ~O_NONBLOCK;
+	}
+#endif
+}
+
+int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *addr, bool is_server)
+{
+	struct socket *sock;
+	struct sockaddr *sockaddr = (void*)addr;
+	int status = -EEXIST;
+
+	if (unlikely(atomic_read(&msock->s_count))) {
+		MARS_WRN("#%d socket already in use\n", msock->s_debug_nr);
+		goto final;
+	}
+	if (unlikely(msock->s_socket)) {
+		MARS_WRN("#%d socket already open\n", msock->s_debug_nr);
+		goto final;
+	}
+	status = sock_create_kern(AF_INET, SOCK_STREAM, IPPROTO_TCP, &msock->s_socket);
+	if (unlikely(status < 0)) {
+		msock->s_socket = NULL;
+		MARS_WRN("cannot create socket, status = %d\n", status);
+		goto final;
+	}
+	atomic_set(&msock->s_count, 1);
+	msock->s_debug_nr = ++current_debug_nr;
+	sock = msock->s_socket;
+	CHECK_PTR(sock, done);
+
+	_set_socketopts(sock);
 
 	if (is_server) {
 		status = kernel_bind(sock, sockaddr, sizeof(*sockaddr));
@@ -193,12 +216,8 @@ int mars_accept_socket(struct mars_socket *new_msock, struct mars_socket *old_ms
 
 		MARS_IO("old#%d status = %d file = %p flags = 0x%x\n", old_msock->s_debug_nr, status, new_socket->file, new_socket->file ? new_socket->file->f_flags : 0);
 
-#if 0 // do not use for now
-		if (!do_block && new_socket->file) { // switch back to blocking mode
-			new_socket->file->f_flags &= ~O_NONBLOCK;
-		}
-#endif
-		
+		_set_socketopts(new_socket);
+
 		memset(new_msock, 0, sizeof(struct mars_socket));
 		new_msock->s_socket = new_socket;
 		atomic_set(&new_msock->s_count, 1);
