@@ -7,6 +7,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/string.h>
+#include <linux/kthread.h>
 
 #include "mars.h"
 #include "mars_net.h"
@@ -205,7 +206,7 @@ int mars_accept_socket(struct mars_socket *new_msock, struct mars_socket *old_ms
 
 	ok = mars_get_socket(old_msock);
 	if (likely(ok)) {
-		status = kernel_accept(old_msock->s_socket, &new_socket, 0);
+		status = kernel_accept(old_msock->s_socket, &new_socket, O_NONBLOCK);
 		if (unlikely(status < 0)) {
 			goto err;
 		}
@@ -416,8 +417,14 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 		if (status == -EAGAIN) {
 			msleep(sleeptime);
 			// linearly increasing backoff
-			if (sleeptime < 100)
+			if (sleeptime < 100) {
 				sleeptime += 1000 / HZ;
+			} else if (kthread_should_stop()) {
+				MARS_WRN("interrupting, done = %d\n", done);
+				if (done > 0)
+					status = -EIDRM;
+				goto err;
+			}
 			continue;
 		}
 		if (!status) { // EOF

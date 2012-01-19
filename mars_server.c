@@ -603,7 +603,7 @@ static int _server_thread(void *data)
 		/* TODO: check authorization.
 		 */
 
-		if (!mars_global || !mars_global->global_power.button) {
+		if (!mars_global || !mars_global->global_power.button || kthread_should_stop()) {
 			MARS_WRN("system is not alive\n");
 			goto err;
 		}
@@ -626,11 +626,22 @@ static int _server_thread(void *data)
 			if (status < 0) {
 				BRICK_ERR("kill status = %d, giving up\n", status);
 			}
+			brick = NULL;
 		}
 		msleep(3000);
 	}
 
 	MARS_INF("-------- cleaning up ----------\n");
+
+	if (brick) {
+		//FIXME: this hangs up. Leaving a minor memleak for now.
+		//mars_put_socket(&brick->handler_socket);
+		//status = mars_kill_brick((void*)brick);
+		//if(status < 0) {
+		//BRICK_WRN("kill status = %d, giving up\n", status);
+		//}
+		brick = NULL;
+	}
 
 	spin_lock(&server_lock);
 	while (!list_empty(&server_list)) {
