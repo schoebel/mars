@@ -681,6 +681,7 @@ int __init init_mars_server(void)
 	thread = kthread_create(_server_thread, NULL, "mars_server");
 	if (IS_ERR(thread)) {
 		status = PTR_ERR(thread);
+		mars_put_socket(&server_socket);
 		return status;
 	}
 
@@ -697,11 +698,11 @@ void __exit exit_mars_server(void)
 	MARS_INF("exit_server()\n");
 	server_unregister_brick_type();
 	if (server_thread) {
-		mars_put_socket(&server_socket);
 		MARS_INF("stopping server thread...\n");
 		kthread_stop(server_thread);
 		put_task_struct(server_thread);
 		server_thread = NULL;
+		mars_put_socket(&server_socket);
 	}
 }
 
