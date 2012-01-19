@@ -1104,7 +1104,7 @@ int peer_thread(void *data)
 			wait_event_interruptible_timeout(remote_event, atomic_read(&peer_thread_count) > 0, CONFIG_MARS_PROPAGATE_INTERVAL * HZ);
 	}
 
-	MARS_INF("-------- remote thread terminating\n");
+	MARS_INF("-------- peer thread terminating\n");
 
 	_peer_cleanup(peer);
 

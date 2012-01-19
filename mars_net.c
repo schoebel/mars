@@ -197,7 +197,7 @@ final:
 }
 EXPORT_SYMBOL_GPL(mars_create_socket);
 
-int mars_accept_socket(struct mars_socket *new_msock, struct mars_socket *old_msock, bool do_block)
+int mars_accept_socket(struct mars_socket *new_msock, struct mars_socket *old_msock)
 {
 	int status = -ENOENT;
 	struct socket *new_socket = NULL;
@@ -205,7 +205,7 @@ int mars_accept_socket(struct mars_socket *new_msock, struct mars_socket *old_ms
 
 	ok = mars_get_socket(old_msock);
 	if (likely(ok)) {
-		status = kernel_accept(old_msock->s_socket, &new_socket, do_block ? 0 : O_NONBLOCK);
+		status = kernel_accept(old_msock->s_socket, &new_socket, 0);
 		if (unlikely(status < 0)) {
 			goto err;
 		}
@@ -394,7 +394,11 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 		struct msghdr msg = {
 			.msg_iovlen = 1,
 			.msg_iov = (struct iovec*)&iov,
+#if 0 // There seems to be a race in the kernel: MSG_MAITALL sometimes blocks forever on a shutdown socket even when sk->sk_rcvtimeo is set. Workaround by accepting incomplete messages.
 			.msg_flags = 0 | MSG_WAITALL | MSG_NOSIGNAL,
+#else
+			.msg_flags = 0,
+#endif
 		};
 
 		if (unlikely(msock->s_dead)) {

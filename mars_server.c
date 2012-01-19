@@ -587,7 +587,7 @@ static int _server_thread(void *data)
 			}
 		}
 
-		status = mars_accept_socket(&brick->handler_socket, &server_socket, false);
+		status = mars_accept_socket(&brick->handler_socket, &server_socket);
 		if (unlikely(status < 0)) {
 			msleep(500);
 			if (status == -EAGAIN)

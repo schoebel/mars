@@ -63,7 +63,7 @@ extern char *(*mars_translate_hostname)(const char *name);
 extern int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec);
 
 extern int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *addr, bool is_server);
-extern int mars_accept_socket(struct mars_socket *new_msock, struct mars_socket *old_msock, bool do_block);
+extern int mars_accept_socket(struct mars_socket *new_msock, struct mars_socket *old_msock);
 extern bool mars_get_socket(struct mars_socket *msock);
 extern void mars_put_socket(struct mars_socket *msock);
 extern void mars_shutdown_socket(struct mars_socket *msock);
