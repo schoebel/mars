@@ -228,6 +228,16 @@ void _clear_mref(struct copy_brick *brick, int index, int queue)
 }
 
 static
+void _clear_all_mref(struct copy_brick *brick)
+{
+	int i;
+	for (i = 0; i < MAX_COPY_PARA; i++) {
+		_clear_mref(brick, i, 0);
+		_clear_mref(brick, i, 1);
+	}
+}
+
+static
 void _update_percent(struct copy_brick *brick)
 {
 	if (brick->copy_last > brick->copy_start + 8 * 1024 * 1024
@@ -269,6 +279,8 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 		st->active[0] = false;
 		st->active[1] = false;
 		st->error = 0;
+		if (brick->is_aborting || kthread_should_stop())
+			goto done;
 		i = 0;
 		next_state = COPY_STATE_READ1;
 		if (brick->verify_mode) {
@@ -334,6 +346,8 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 			status = -EILSEQ;
 			goto done;
 		}
+		if (brick->is_aborting || kthread_should_stop())
+			goto done;
 		/* start writeout */
 		status = _make_mref(brick, index, 1, mref0->ref_data, pos, 1);
 		next_state = COPY_STATE_WRITTEN;
@@ -381,9 +395,8 @@ int _run_copy(struct copy_brick *brick)
 	int res_status = 0;
 
 	if (unlikely(_clear_clash(brick))) {
-		int i;
 		MARS_DBG("clash\n");
-		if (atomic_read(&brick->copy_flight)) {
+		if (atomic_read(&brick->copy_flight) > 0) {
 			/* wait until all pending copy IO has finished
 			 */
 			_clash(brick);
@@ -391,10 +404,7 @@ int _run_copy(struct copy_brick *brick)
 			msleep(100);
 			return 0;
 		}
-		for (i = 0; i < MAX_COPY_PARA; i++) {
-			_clear_mref(brick, i, 0);
-			_clear_mref(brick, i, 1);
-		}
+		_clear_all_mref(brick);
 		memset(brick->st, 0, sizeof(brick->st));
 	}
 
@@ -409,7 +419,7 @@ int _run_copy(struct copy_brick *brick)
 		struct copy_state *st = &brick->st[index];
 
 		//MARS_IO("pos = %lld\n", pos);
-		if (brick->clash || max-- <= 0 || kthread_should_stop()) {
+		if (max-- <= 0) {
 			break;
 		}
 		st->prev = prev;
@@ -452,6 +462,13 @@ int _run_copy(struct copy_brick *brick)
 	return res_status;
 }
 
+static
+bool _is_done(struct copy_brick *brick)
+{
+	return (brick->is_aborting || kthread_should_stop())
+		&& atomic_read(&brick->copy_flight) <= 0;
+}
+
 static int _copy_thread(void *data)
 {
 	struct copy_brick *brick = data;
@@ -461,30 +478,30 @@ static int _copy_thread(void *data)
 	mars_power_led_on((void*)brick, true);
 	brick->trigger = true;
 
-        while (!kthread_should_stop()) {
+        while (!_is_done(brick)) {
 		loff_t old_start = brick->copy_start;
 		loff_t old_end = brick->copy_end;
 		if (old_end > 0) {
 			int status = _run_copy(brick);
 			if (unlikely(status < 0)) {
 				brick->copy_error = status;
-				if (brick->abort_mode) {
+				if (brick->abort_mode && !brick->is_aborting) {
 					MARS_INF("IO error, terminating prematurely, status = %d\n", status);
-					break;
+					brick->is_aborting = true;
 				}
 			}
 			msleep(10); // yield FIXME: remove this, use event handling for over/underflow
 		}
 
 		wait_event_interruptible_timeout(brick->event,
-						 brick->trigger || brick->copy_start != old_start || brick->copy_end != old_end || kthread_should_stop(),
+						 brick->trigger || brick->copy_start != old_start || brick->copy_end != old_end || _is_done(brick),
 
 						 1 * HZ);
 		brick->trigger = false;
 	}
 
-	MARS_DBG("--------------- copy_thread terminating (%d requests flying)\n", atomic_read(&brick->copy_flight));
-	wait_event_interruptible_timeout(brick->event, !atomic_read(&brick->copy_flight), 300 * HZ);
+	MARS_DBG("--------------- copy_thread terminating (%d requests flying, copy_start = %lld copy_end = %lld)\n", atomic_read(&brick->copy_flight), brick->copy_start, brick->copy_end);
+	_clear_all_mref(brick);
 	mars_power_led_off((void*)brick, true);
 	MARS_DBG("--------------- copy_thread done.\n");
 	return 0;
@@ -541,6 +558,7 @@ static int copy_switch(struct copy_brick *brick)
 	MARS_DBG("power.button = %d\n", brick->power.button);
 	if (brick->power.button) {
 		mars_power_led_off((void*)brick, false);
+		brick->is_aborting = false;
 		if (!brick->thread) {
 			brick->copy_last = brick->copy_start;
 			brick->thread = kthread_create(_copy_thread, brick, "mars_copy%d", version++);
@@ -573,13 +591,15 @@ static int copy_switch(struct copy_brick *brick)
 static
 char *copy_statistics(struct copy_brick *brick, int verbose)
 {
-	char *res = brick_string_alloc(0);
+	char *res = brick_string_alloc(1024);
         if (!res)
                 return NULL;
-
-	snprintf(res, 512, "copy_start = %lld copy_last = %lld copy_end = %lld clash = %lu | io_flight = %d copy_flight = %d\n",
-		brick->copy_start, brick->copy_last, brick->copy_end, brick->clash,
-		atomic_read(&brick->io_flight), atomic_read(&brick->copy_flight));
+	
+	snprintf(res, 1024,
+		 "copy_start = %lld copy_last = %lld copy_end = %lld copy_error = %d low_dirty = %d is_aborting = %d clash = %lu | io_flight = %d copy_flight = %d\n",
+		 brick->copy_start, brick->copy_last, brick->copy_end,
+		 brick->copy_error, brick->low_dirty, brick->is_aborting, brick->clash,
+		 atomic_read(&brick->io_flight), atomic_read(&brick->copy_flight));
 
         return res;
 }

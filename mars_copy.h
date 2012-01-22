@@ -53,6 +53,7 @@ struct copy_brick {
 	loff_t copy_last; // current working position
 	int copy_error;
 	bool low_dirty;
+	bool is_aborting;
 	// internal
 	volatile bool trigger;
 	volatile unsigned long clash;
