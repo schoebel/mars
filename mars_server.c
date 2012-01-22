@@ -41,7 +41,7 @@ int cb_thread(void *data)
 	if (!ok)
 		goto done;
 
-        while (!kthread_should_stop() || !list_empty(&brick->cb_read_list) || !list_empty(&brick->cb_write_list)) {
+        while (!kthread_should_stop() || !list_empty(&brick->cb_read_list) || !list_empty(&brick->cb_write_list) || atomic_read(&brick->in_flight) > 0) {
 		struct server_mref_aspect *mref_a;
 		struct mref_object *mref;
 		struct list_head *tmp;
@@ -92,8 +92,8 @@ int cb_thread(void *data)
 #endif
 		}
 
-		atomic_dec(&brick->in_flight);
 		GENERIC_INPUT_CALL(brick->inputs[0], mref_put, mref);
+		atomic_dec(&brick->in_flight);
 	}
 done:
 	brick->cb_running = false;
@@ -168,16 +168,16 @@ int server_io(struct server_brick *brick, struct mars_socket *sock)
 	
 	mref_a->brick = brick;
 	SETUP_CALLBACK(mref, server_endio, mref_a);
-	atomic_inc(&brick->in_flight);
 	
 	status = GENERIC_INPUT_CALL(brick->inputs[0], mref_get, mref);
-	if (status < 0) {
-		MARS_INF("mref_get execution error = %d\n", status);
+	if (unlikely(status < 0)) {
+		MARS_WRN("mref_get execution error = %d\n", status);
 		SIMPLE_CALLBACK(mref, status);
 		status = 0; // continue serving requests
 		goto done;
 	}
 	
+	atomic_inc(&brick->in_flight);
 	GENERIC_INPUT_CALL(brick->inputs[0], mref_io, mref);
 
 done:
@@ -474,6 +474,28 @@ static int server_switch(struct server_brick *brick)
 	return status;
 }
 
+//////////////// informational / statistics ///////////////
+
+static
+char *server_statistics(struct server_brick *brick, int verbose)
+{
+	char *res = brick_string_alloc(1024);
+        if (!res)
+                return NULL;
+	
+	snprintf(res, 1024,
+		 "cb_running = %d self_shutdown = %d in_flight = %d\n",
+		 brick->cb_running, brick->self_shutdown,
+		 atomic_read(&brick->in_flight));
+
+        return res;
+}
+
+static
+void server_reset_statistics(struct server_brick *brick)
+{
+}
+
 //////////////// object / aspect constructors / destructors ///////////////
 
 static int server_mref_aspect_init_fn(struct generic_aspect *_ini)
@@ -514,6 +536,8 @@ static int server_output_construct(struct server_output *output)
 
 static struct server_brick_ops server_brick_ops = {
 	.brick_switch = server_switch,
+        .brick_statistics = server_statistics,
+        .reset_statistics = server_reset_statistics,
 };
 
 static struct server_output_ops server_output_ops = {
