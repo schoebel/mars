@@ -3478,6 +3478,11 @@ static struct mem_reservation global_reserve = {
 		[4] = 32,
 		[5] = 32,
 		[6] = 64,
+		[7] = 2,
+		[8] = 2,
+		[9] = 1,
+		[10] = 1,
+		[11] = 0,
 	},
 };
 

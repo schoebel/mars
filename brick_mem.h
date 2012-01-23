@@ -49,7 +49,7 @@ extern struct page *brick_iomap(void *data, int *offset, int *len);
 
 // reservations / preallocation
 
-#define BRICK_MAX_ORDER 8
+#define BRICK_MAX_ORDER 11
 
 extern bool brick_allow_freelist;
 

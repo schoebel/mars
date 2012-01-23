@@ -224,6 +224,7 @@ static atomic_t op_count[BRICK_MAX_ORDER+1] = {};
 static atomic_t raw_count[BRICK_MAX_ORDER+1] = {};
 static atomic_t alloc_count[BRICK_MAX_ORDER+1] = {};
 static int alloc_max[BRICK_MAX_ORDER+1] = {};
+static int alloc_line[BRICK_MAX_ORDER+1] = {};
 #endif
 
 static inline
@@ -389,6 +390,7 @@ void *_brick_block_alloc(loff_t pos, int len, int line)
 	atomic_inc(&alloc_count[order]);
 	count = atomic_read(&alloc_count[order]);
 	// statistics
+	alloc_line[order] = line;
 	if (count > alloc_max[order])
 		alloc_max[order] = count;
 
@@ -515,7 +517,7 @@ void brick_mem_statistics(void)
 	BRICK_INF("======== page allocation:\n");
 #ifdef CONFIG_MARS_MEM_PREALLOC
 	for (i = 0; i <= BRICK_MAX_ORDER; i++) {
-		BRICK_INF("pages order = %d operations = %9d freelist_count = %4d / %3d raw_count = %5d alloc_count = %5d max_count = %5d\n", i, atomic_read(&op_count[i]), atomic_read(&freelist_count[i]), freelist_max[i], atomic_read(&raw_count[i]), atomic_read(&alloc_count[i]), alloc_max[i]);
+		BRICK_INF("pages order = %2d operations = %9d freelist_count = %4d / %3d raw_count = %5d alloc_count = %5d line = %5d max_count = %5d\n", i, atomic_read(&op_count[i]), atomic_read(&freelist_count[i]), freelist_max[i], atomic_read(&raw_count[i]), atomic_read(&alloc_count[i]), alloc_line[i], alloc_max[i]);
 	}
 #endif
 	for (i = 0; i < BRICK_DEBUG_MEM; i++) {
