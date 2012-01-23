@@ -672,7 +672,7 @@ int __make_copy(
 			       (const struct generic_brick_type*)&copy_brick_type,
 			       (const struct generic_brick_type*[]){NULL,NULL,NULL,NULL},
 			       "%s",
-			       EXHAUSTED(global->remaining_space) ? -1 : 0,
+			       global->exhausted ? -1 : 0,
 			       "%s",
 			       (const char *[]){"%s", "%s", "%s", "%s"},
 			       4,
@@ -1927,7 +1927,9 @@ int _make_logging_status(struct mars_rotate *rot)
 		 * Allow switching over to a new logfile.
 		 */
 		if (!trans_brick->power.button && !trans_brick->power.led_on && trans_brick->power.led_off) {
-			if (rot->next_relevant_log) {
+			if (global->exhausted) {
+				MARS_DBG("filesystem is exhausted, refraining from log rotation\n");
+			} else if (rot->next_relevant_log) {
 				MARS_DBG("check switchover from '%s' to '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
 				if (_check_versionlink(global, parent->d_path, dent->d_serial, end_pos) > 0) {
 					MARS_DBG("switching over from '%s' to next relevant transaction log '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
@@ -2474,7 +2476,7 @@ int make_dev(void *buf, struct mars_dent *dent)
 		(rot->todo_primary &&
 		 !rot->trans_brick->do_replay &&
 		 rot->trans_brick->power.led_on);
-	if (!global->global_power.button || EXHAUSTED(global->remaining_space)) {
+	if (!global->global_power.button || global->exhausted) {
 		switch_on = false;
 	}
 
@@ -3416,6 +3418,7 @@ static int light_thread(void *data)
 
 		_global.remaining_space = mars_remaining_space("/mars");
 		exhausted = EXHAUSTED(_global.remaining_space);
+		_global.exhausted = exhausted;
 		_make_alivelink("exhausted", exhausted);
 		if (exhausted)
 			MARS_WRN("EXHAUSTED filesystem space = %lld, STOPPING IO\n", _global.remaining_space);
