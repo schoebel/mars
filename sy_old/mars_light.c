@@ -2823,6 +2823,7 @@ enum {
 	CL_IPS,
 	CL_PEERS,
 	CL_ALIVE,
+	CL_EXHAUSTED,
 	// resource definitions
 	CL_RESOURCE,
 	CL_DEFAULTS0,
@@ -2909,6 +2910,14 @@ static const struct light_class light_classes[] = {
 	[CL_ALIVE] = {
 		.cl_name = "alive-",
 		.cl_len = 6,
+		.cl_type = 'l',
+		.cl_father = CL_ROOT,
+	},
+	/* Indicate whether filesystem is full
+	 */
+	[CL_EXHAUSTED] = {
+		.cl_name = "exhausted-",
+		.cl_len = 10,
 		.cl_type = 'l',
 		.cl_father = CL_ROOT,
 	},
