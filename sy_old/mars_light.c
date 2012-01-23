@@ -451,6 +451,9 @@ bool _check_switch(struct mars_global *global, const char *path)
 	int res = false;
 	struct mars_dent *allow_dent;
 
+	if (global->exhausted)
+		goto done;
+
 	allow_dent = mars_find_dent(global, path);
 	if (!allow_dent || !allow_dent->new_link)
 		goto done;
