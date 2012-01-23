@@ -195,7 +195,8 @@ int _set_trans_params(struct mars_brick *_brick, void *private)
 static
 int _set_client_params(struct mars_brick *_brick, void *private)
 {
-	// currently no params
+	struct client_brick *client_brick = (void*)_brick;
+	client_brick->io_timeout = CONFIG_MARS_NETIO_TIMEOUT;
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 	return 1;
 }

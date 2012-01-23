@@ -97,6 +97,34 @@ int _determine_input(struct copy_brick *brick, struct mref_object *mref)
 #define GET_OFFSET(pos)   ((pos) % COPY_CHUNK)
 
 static
+void __clear_mref(struct copy_brick *brick, struct mref_object *mref, int queue)
+{
+	struct copy_input *input;
+	input = queue ? brick->inputs[INPUT_B_COPY] : brick->inputs[INPUT_A_COPY];
+	GENERIC_INPUT_CALL(input, mref_put, mref);
+}
+
+static
+void _clear_mref(struct copy_brick *brick, int index, int queue)
+{
+	struct mref_object *mref = brick->st[index].table[queue];
+	if (mref) {
+		__clear_mref(brick, mref, queue);
+		brick->st[index].table[queue] = NULL;
+	}
+}
+
+static
+void _clear_all_mref(struct copy_brick *brick)
+{
+	int i;
+	for (i = 0; i < MAX_COPY_PARA; i++) {
+		_clear_mref(brick, i, 0);
+		_clear_mref(brick, i, 1);
+	}
+}
+
+static
 void copy_endio(struct generic_callback *cb)
 {
 	struct copy_mref_aspect *mref_a;
@@ -130,7 +158,7 @@ void copy_endio(struct generic_callback *cb)
 		goto exit;
 	}
 	if (unlikely(cb->cb_error < 0)) {
-		MARS_DBG("IO error %d on index %d, old state = %d\n", cb->cb_error, index, st->state);
+		MARS_WRN("IO error %d on index %d, old state = %d\n", cb->cb_error, index, st->state);
 		error = cb->cb_error;
 	} else if (likely(!st->error)) {
 		st->table[queue] = mref;
@@ -140,6 +168,7 @@ exit:
 	if (unlikely(error < 0)) {
 		st->error = error;
 		_clash(brick);
+		__clear_mref(brick, mref, queue);
 	}
 	st->active[queue] = false;
 	atomic_dec(&brick->copy_flight);
@@ -216,28 +245,6 @@ done:
 }
 
 static
-void _clear_mref(struct copy_brick *brick, int index, int queue)
-{
-	struct mref_object *mref = brick->st[index].table[queue];
-	if (mref) {
-		struct copy_input *input;
-		input = queue ? brick->inputs[INPUT_B_COPY] : brick->inputs[INPUT_A_COPY];
-		GENERIC_INPUT_CALL(input, mref_put, mref);
-		brick->st[index].table[queue] = NULL;
-	}
-}
-
-static
-void _clear_all_mref(struct copy_brick *brick)
-{
-	int i;
-	for (i = 0; i < MAX_COPY_PARA; i++) {
-		_clear_mref(brick, i, 0);
-		_clear_mref(brick, i, 1);
-	}
-}
-
-static
 void _update_percent(struct copy_brick *brick)
 {
 	if (brick->copy_last > brick->copy_start + 8 * 1024 * 1024
@@ -281,6 +288,10 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 		st->error = 0;
 		if (brick->is_aborting || kthread_should_stop())
 			goto done;
+
+		_clear_mref(brick, index, 1);
+		_clear_mref(brick, index, 0);
+
 		i = 0;
 		next_state = COPY_STATE_READ1;
 		if (brick->verify_mode) {
@@ -377,7 +388,7 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 	st->state = next_state;
 	if (status < 0) {
 		st->error = status;
-		MARS_ERR("status = %d\n", status);
+		MARS_WRN("status = %d\n", status);
 		_clash(brick);
 	}
 	
@@ -486,9 +497,10 @@ static int _copy_thread(void *data)
 			if (unlikely(status < 0)) {
 				brick->copy_error = status;
 				if (brick->abort_mode && !brick->is_aborting) {
-					MARS_INF("IO error, terminating prematurely, status = %d\n", status);
+					MARS_WRN("IO error, terminating prematurely, status = %d\n", status);
 					brick->is_aborting = true;
 				}
+				MARS_WRN("IO error, status = %d\n", status);
 			}
 			msleep(10); // yield FIXME: remove this, use event handling for over/underflow
 		}

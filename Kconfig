@@ -61,6 +61,16 @@ config MARS_FAST_TRIGGER
 	---help---
 	Normally ON. Switch off in case of endless trigger loops
 
+config MARS_NETIO_TIMEOUT
+	int "timeout for remote IO operations (in seconds)"
+	depends on MARS
+	default 30
+	---help---
+	In case of network hangs, don't wait forever, but rather
+	abort with -ENOTCONN
+	when == 0, wait forever (may lead to hanging operations
+	similar to NFS hard mounts)
+
 config MARS_MEM_PREALLOC
 	bool "avoid memory fragmentation by preallocation"
 	depends on MARS
