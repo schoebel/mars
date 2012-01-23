@@ -99,6 +99,25 @@ config MARS_MIN_SPACE
 	---help---
 	Normally ON. Switch off only for EXPERIMENTS!
 
+config MARS_MIN_SPACE_BASE
+	int "free space in /mars/ (hard limit in gigabytes)"
+	depends on MARS && MARS_MIN_SPACE
+	default 8
+	---help---
+	when this limit is exceeded, all write requests to /mars/
+	will stop. This affects not only write IO to /dev/mars/*,
+	but also logfile transfers etc.
+	In order to retain full operations, you _need_ to implement
+	your own monitoring which _must_ warn you long before this
+	hard limit catches you.
+
+config MARS_MIN_SPACE_PERCENT
+	int "free space in /mars/ (hard limit in percent)"
+	depends on MARS && MARS_MIN_SPACE
+	default 0
+	---help---
+	this limit is in addition to CONFIG_MARS_MIN_SPACE_BASE.
+
 config MARS_PREFER_SIO
 	bool "prefer sio bricks instead of aio"
 	depends on MARS

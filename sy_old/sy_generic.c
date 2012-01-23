@@ -186,11 +186,31 @@ int mars_lchown(const char *path, uid_t uid)
 }
 EXPORT_SYMBOL_GPL(mars_lchown);
 
-loff_t mars_remaining_space(const char *fspath)
+loff_t _compute_space(struct kstatfs *kstatfs, loff_t raw_val)
+{
+	int fsize = kstatfs->f_frsize;
+	if (fsize <= 0)
+		fsize = kstatfs->f_bsize;
+
+	MARS_INF("fsize = %d raw_val = %lld\n", fsize, raw_val);
+	// illegal values? cannot do anything....
+	if (fsize <= 0)
+		return 0;
+
+	// prevent intermediate integer overflows
+	if (fsize <= 1024)
+		return raw_val / (1024 / fsize);
+
+	return raw_val * (fsize / 1024);
+}
+
+void mars_remaining_space(const char *fspath, loff_t *total, loff_t *remaining)
 {
 	struct path path = {};
 	struct kstatfs kstatfs = {};
-	loff_t res;
+	int res;
+
+	*total = *remaining = 0;
 
 	res = user_path_at(AT_FDCWD, fspath, 0, &path);
 	if (unlikely(res < 0)) {
@@ -208,16 +228,12 @@ loff_t mars_remaining_space(const char *fspath)
 		goto done;
 	}
 
-	/* It seems that most filesystems use KB rather
-	 * than blocks as base unit.
-	 */
-	//res = (loff_t)kstatfs.f_bavail;
-	res = (loff_t)kstatfs.f_bfree;
+	*total = _compute_space(&kstatfs, kstatfs.f_blocks);
+	*remaining = _compute_space(&kstatfs, kstatfs.f_bfree);
 	
 done:
 	path_put(&path);
-err:
-	return res;
+err: ;
 }
 EXPORT_SYMBOL_GPL(mars_remaining_space);
 

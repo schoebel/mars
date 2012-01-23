@@ -119,11 +119,10 @@ struct light_class {
 //#define COPY_APPEND_MODE 1 // FIXME: does not work yet
 #define COPY_PRIO MARS_PRIO_LOW
 
-#define MIN_SPACE (1024 * 1024 * 8) // 8 GB
 #ifdef CONFIG_MARS_MIN_SPACE
-#define EXHAUSTED(x) ((x) <= MIN_SPACE)
+#define EXHAUSTED(x,max) ((x) <= ((max) / 100 * CONFIG_MARS_MIN_SPACE_PERCENT + CONFIG_MARS_MIN_SPACE_BASE * 1024 * 1024))
 #else
-#define EXHAUSTED(x) (false)
+#define EXHAUSTED(x,max) (false)
 #endif
 
 static
@@ -498,6 +497,7 @@ struct mars_rotate {
 	struct mars_dent *prev_log;
 	struct mars_dent *next_log;
 	struct if_brick *if_brick;
+	loff_t total_space;
 	loff_t remaining_space;
 	loff_t copy_end_pos;
 	loff_t start_pos;
@@ -1597,7 +1597,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	rot->max_sequence = 0;
 	rot->has_error = false;
 
-	rot->remaining_space = mars_remaining_space(parent_path);
+	mars_remaining_space(parent_path, &rot->total_space, &rot->remaining_space);
 
 	/* Fetch the replay status symlink.
 	 * It must exist, and its value will control everything.
@@ -3428,8 +3428,8 @@ static int light_thread(void *data)
 		_global.global_power.button = !kthread_should_stop();
 		_make_alivelink("alive", _global.global_power.button);
 
-		_global.remaining_space = mars_remaining_space("/mars");
-		exhausted = EXHAUSTED(_global.remaining_space);
+		mars_remaining_space("/mars", &_global.total_space, &_global.remaining_space);
+		exhausted = EXHAUSTED(_global.remaining_space, _global.total_space);
 		_global.exhausted = exhausted;
 		_make_alivelink("exhausted", exhausted);
 		if (exhausted)

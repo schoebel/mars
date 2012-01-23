@@ -53,6 +53,7 @@ struct mars_global {
 	struct list_head brick_anchor;
 	struct list_head server_anchor;
 	wait_queue_head_t main_event;
+	loff_t total_space;
 	loff_t remaining_space;
 	int global_version;
 	volatile bool main_trigger;
@@ -121,7 +122,7 @@ extern int mars_symlink(const char *oldpath, const char *newpath, const struct t
 extern int mars_rename(const char *oldpath, const char *newpath);
 extern int mars_chmod(const char *path, mode_t mode);
 extern int mars_lchown(const char *path, uid_t uid);
-extern loff_t mars_remaining_space(const char *fspath);
+extern void mars_remaining_space(const char *fspath, loff_t *total, loff_t *remaining);
 
 /////////////////////////////////////////////////////////////////////////
 
