@@ -17,7 +17,7 @@
 mars_info_fn mars_info = NULL;
 
 static
-int mars_sysctl_handler(ctl_table *table,
+int trigger_sysctl_handler(ctl_table *table,
 			       int write, 
 			       void __user *buffer,
 			       size_t *length,
@@ -83,9 +83,20 @@ static
 ctl_table mars_table[] = {
 	{
 		.ctl_name       = CTL_UNNUMBERED,
+		.procname	= "trigger",
+		.mode		= 0200,
+		.proc_handler	= &trigger_sysctl_handler,
+	},
+	{}
+};
+
+static
+ctl_table mars_root_table[] = {
+	{
+		.ctl_name       = CTL_UNNUMBERED,
 		.procname	= "mars",
-		.mode		= 0600,
-		.proc_handler	= &mars_sysctl_handler,
+		.mode		= 0500,
+		.child = mars_table,
 	},
 	{}
 };
@@ -99,9 +110,7 @@ int __init init_mars_proc(void)
 
 	MARS_INF("init_proc()\n");
 
-#if 1
-	header = register_sysctl_table(mars_table);
-#endif
+	header = register_sysctl_table(mars_root_table);
 
 	return 0;
 }
