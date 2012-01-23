@@ -3370,10 +3370,10 @@ void _show_statist(struct mars_global *global)
 #endif
 
 static
-void _make_alivelink(bool alive)
+void _make_alivelink(const char *name, bool alive)
 {
 	char *src = alive ? "1" : "0";
-	char *dst = path_make("/mars/alive-%s", my_id());
+	char *dst = path_make("/mars/%s-%s", name, my_id());
 	mars_symlink(src, dst, NULL, 0);
 	brick_string_free(dst);
 }
@@ -3406,16 +3406,20 @@ static int light_thread(void *data)
 
         while (_global.global_power.button || !list_empty(&_global.brick_anchor)) {
 		int status;
+		bool exhausted;
 
 		MARS_DBG("-------- NEW ROUND ---------\n");
 		msleep(100);
 
 		_global.global_power.button = !kthread_should_stop();
-		_global.remaining_space = mars_remaining_space("/mars");
-		if (EXHAUSTED(_global.remaining_space))
-			MARS_WRN("filesystem space = %lld, STOPPING IO\n", _global.remaining_space);
+		_make_alivelink("alive", _global.global_power.button);
 
-		_make_alivelink(_global.global_power.button);
+		_global.remaining_space = mars_remaining_space("/mars");
+		exhausted = EXHAUSTED(_global.remaining_space);
+		_make_alivelink("exhausted", exhausted);
+		if (exhausted)
+			MARS_WRN("EXHAUSTED filesystem space = %lld, STOPPING IO\n", _global.remaining_space);
+
 
 #if 1
 		if (!_global.global_power.button) {
