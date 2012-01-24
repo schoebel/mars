@@ -969,10 +969,10 @@ int run_bones(struct mars_peerinfo *peer)
 	int status = 0;
 
 	traced_lock(&peer->lock, flags);
-
 	list_replace_init(&peer->remote_dent_list, &tmp_list);
-	
 	traced_unlock(&peer->lock, flags);
+
+	MARS_DBG("remote_dent_list list_empty = %d\n", list_empty(&tmp_list));
 
 	for (tmp = tmp_list.next; tmp != &tmp_list; tmp = tmp->next) {
 		struct mars_dent *remote_dent = container_of(tmp, struct mars_dent, dent_link);
@@ -1021,6 +1021,7 @@ int peer_thread(void *data)
 	struct mars_peerinfo *peer = data;
 	char *real_peer;
 	struct sockaddr_storage sockaddr = {};
+	bool flip = false;
 	int status;
 
 	if (!peer)
@@ -1069,9 +1070,11 @@ int peer_thread(void *data)
 		 * In worst case, network propagation will just take
 		 * a litte longer (see CONFIG_MARS_PROPAGATE_INTERVAL).
 		 */
-		if (atomic_read(&remote_trigger_count) > 0) {
+		if (!flip && atomic_read(&remote_trigger_count) > 0) {
+			MARS_DBG("sending notify ... remote_tiogger_count = %d\n", atomic_read(&remote_trigger_count));
 			atomic_dec(&remote_trigger_count);
 			cmd.cmd_code = CMD_NOTIFY;
+			flip = true;
 		}
 
 		status = mars_send_struct(&peer->socket, &cmd, mars_cmd_meta);
@@ -1081,9 +1084,13 @@ int peer_thread(void *data)
 			msleep(2000);
 			continue;
 		}
-		if (cmd.cmd_code == CMD_NOTIFY)
+		if (cmd.cmd_code == CMD_NOTIFY) {
+			flip = false;
+			msleep(1000);
 			continue;
+		}
 
+		MARS_DBG("fetching remote dentry list\n");
 		status = mars_recv_dent_list(&peer->socket, &tmp_list);
 		if (unlikely(status < 0)) {
 			MARS_WRN("communication error on receive, status = %d\n", status);
@@ -1093,7 +1100,7 @@ int peer_thread(void *data)
 		}
 
 		if (likely(!list_empty(&tmp_list))) {
-			//MARS_DBG("AHA!!!!!!!!!!!!!!!!!!!!\n");
+			MARS_DBG("got remote denties\n");
 
 			traced_lock(&peer->lock, flags);
 
@@ -2926,7 +2933,7 @@ static const struct light_class light_classes[] = {
 	},
 	/* dto as percentage
 	 */
-	[CL_EXHAUSTED] = {
+	[CL_REST_SPACE] = {
 		.cl_name = "rest-space-",
 		.cl_len = 11,
 		.cl_type = 'l',
