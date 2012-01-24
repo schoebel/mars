@@ -3406,7 +3406,13 @@ void _make_alivelink(const char *name, loff_t val)
 {
 	char *src = path_make("%lld", val);
 	char *dst = path_make("/mars/%s-%s", name, my_id());
+	if (!src || !dst) {
+		MARS_ERR("cannot make symlink paths\n");
+		goto err;
+	}
+	MARS_DBG("'%s' -> '%s'", src, dst);
 	mars_symlink(src, dst, NULL, 0);
+err:
 	brick_string_free(dst);
 	brick_string_free(src);
 }
