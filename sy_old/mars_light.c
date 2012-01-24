@@ -120,8 +120,10 @@ struct light_class {
 #define COPY_PRIO MARS_PRIO_LOW
 
 #ifdef CONFIG_MARS_MIN_SPACE
-#define EXHAUSTED(x,max) ((x) <= ((max) / 100 * CONFIG_MARS_MIN_SPACE_PERCENT + CONFIG_MARS_MIN_SPACE_BASE * 1024 * 1024))
+#define EXHAUSTED_LIMIT(max) ((max) / 100 * CONFIG_MARS_MIN_SPACE_PERCENT + CONFIG_MARS_MIN_SPACE_BASE * 1024 * 1024)
+#define EXHAUSTED(x,max) ((x) <= EXHAUSTED_LIMIT(max))
 #else
+#define EXHAUSTED_LIMIT(max) 0
 #define EXHAUSTED(x,max) (false)
 #endif
 
@@ -2824,6 +2826,7 @@ enum {
 	CL_PEERS,
 	CL_ALIVE,
 	CL_EXHAUSTED,
+	CL_REST_SPACE,
 	// resource definitions
 	CL_RESOURCE,
 	CL_DEFAULTS0,
@@ -2918,6 +2921,14 @@ static const struct light_class light_classes[] = {
 	[CL_EXHAUSTED] = {
 		.cl_name = "exhausted-",
 		.cl_len = 10,
+		.cl_type = 'l',
+		.cl_father = CL_ROOT,
+	},
+	/* dto as percentage
+	 */
+	[CL_EXHAUSTED] = {
+		.cl_name = "rest-space-",
+		.cl_len = 12,
 		.cl_type = 'l',
 		.cl_father = CL_ROOT,
 	},
@@ -3384,12 +3395,13 @@ void _show_statist(struct mars_global *global)
 #endif
 
 static
-void _make_alivelink(const char *name, bool alive)
+void _make_alivelink(const char *name, loff_t val)
 {
-	char *src = alive ? "1" : "0";
+	char *src = path_make("%lld", val);
 	char *dst = path_make("/mars/%s-%s", name, my_id());
 	mars_symlink(src, dst, NULL, 0);
 	brick_string_free(dst);
+	brick_string_free(src);
 }
 
 static struct mars_global _global = {
@@ -3420,21 +3432,23 @@ static int light_thread(void *data)
 
         while (_global.global_power.button || !list_empty(&_global.brick_anchor)) {
 		int status;
+		loff_t rest_space;
 		bool exhausted;
 
 		MARS_DBG("-------- NEW ROUND ---------\n");
 		msleep(100);
 
 		_global.global_power.button = !kthread_should_stop();
-		_make_alivelink("alive", _global.global_power.button);
+		_make_alivelink("alive", _global.global_power.button ? 1 : 0);
 
 		mars_remaining_space("/mars", &_global.total_space, &_global.remaining_space);
 		exhausted = EXHAUSTED(_global.remaining_space, _global.total_space);
 		_global.exhausted = exhausted;
-		_make_alivelink("exhausted", exhausted);
+		_make_alivelink("exhausted", exhausted ? 1 : 0);
 		if (exhausted)
 			MARS_WRN("EXHAUSTED filesystem space = %lld, STOPPING IO\n", _global.remaining_space);
-
+		rest_space = _global.remaining_space - EXHAUSTED_LIMIT(_global.total_space);
+		_make_alivelink("rest-space", rest_space);
 
 #if 1
 		if (!_global.global_power.button) {
