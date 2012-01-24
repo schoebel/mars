@@ -2928,7 +2928,7 @@ static const struct light_class light_classes[] = {
 	 */
 	[CL_EXHAUSTED] = {
 		.cl_name = "rest-space-",
-		.cl_len = 12,
+		.cl_len = 11,
 		.cl_type = 'l',
 		.cl_father = CL_ROOT,
 	},
