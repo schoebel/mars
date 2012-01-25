@@ -501,7 +501,6 @@ struct mars_rotate {
 	struct if_brick *if_brick;
 	loff_t total_space;
 	loff_t remaining_space;
-	loff_t copy_end_pos;
 	loff_t start_pos;
 	loff_t end_pos;
 	int max_sequence;
@@ -775,7 +774,6 @@ int _update_file(struct mars_rotate *rot, const char *switch_path, const char *c
 		if (end_pos > copy->copy_end) {
 			MARS_DBG("appending to '%s' %lld => %lld\n", copy_path, copy->copy_end, end_pos);
 			copy->copy_end = end_pos;
-			rot->copy_end_pos = end_pos;
 		}
 	}
 
@@ -819,11 +817,11 @@ int check_logfile(struct mars_peerinfo *peer, struct mars_dent *remote_dent, str
 	MARS_DBG("copy_path = '%s' copy_brick = %p dent = '%s'\n", copy_path, copy_brick, remote_dent->d_path);
 	if (copy_brick) {
 		bool is_my_copy = (remote_dent->d_serial == parent->d_logfile_serial);
-		bool copy_is_done = (is_my_copy && copy_brick->copy_last == copy_brick->copy_end && local_dent != NULL && copy_brick->copy_end == rot->copy_end_pos);
+		bool copy_is_done = (is_my_copy && copy_brick->copy_last == copy_brick->copy_end && local_dent != NULL);
 		bool is_next_copy = (remote_dent->d_serial == parent->d_logfile_serial + 1);
 
-		MARS_DBG("current copy brick '%s' copy_last = %lld copy_end = %lld dent '%s' serial = %d/%d local_dent = '%s' copy_end_pos = %lld | is_done = %d is_my_copy = %d is_next_copy = %d\n",
-			 copy_brick->brick_path, copy_brick->copy_last, copy_brick->copy_end, remote_dent->d_path, remote_dent->d_serial, parent->d_logfile_serial, local_dent ? local_dent->d_path : "", rot->copy_end_pos,
+		MARS_DBG("current copy brick '%s' copy_last = %lld copy_end = %lld dent '%s' serial = %d/%d local_dent = '%s' | is_done = %d is_my_copy = %d is_next_copy = %d\n",
+			 copy_brick->brick_path, copy_brick->copy_last, copy_brick->copy_end, remote_dent->d_path, remote_dent->d_serial, parent->d_logfile_serial, local_dent ? local_dent->d_path : "",
 			 copy_is_done, is_my_copy, is_next_copy);
 
 		if (is_my_copy) {
@@ -860,7 +858,6 @@ treat:
 	switch_path = path_make("%s/todo-%s/connect", parent->d_path, my_id());
 	
 	// start / treat copy brick instance
-	rot->copy_end_pos = src_size;
 	status = _update_file(rot, switch_path, copy_path, remote_dent->d_path, peer->peer, src_size);
 	MARS_DBG("update '%s' from peer '%s' status = %d\n", remote_dent->d_path, peer->peer, status);
 	if (status < 0) {
