@@ -9,6 +9,7 @@ use warnings;
 my $mars = "/mars";
 my $host = `uname -n` or die "cannot determine my network node name\n";
 chomp $host;
+my $force = 0;
 my $ip = `ip a` or die "cannot determine my IP address\n";
 $ip =~ s/\A.*inet +(?!127\.0\.)([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+).*?\Z/$1/ms or die "cannot parse my IP address\n";
 chomp $ip;
@@ -297,15 +298,15 @@ sub _create_cluster {
 }
 
 sub create_cluster {
-  my ($cmd, $peer, $force) = @_;
+  my ($cmd, $peer) = @_;
   die "cluster is already created\n" if !$force && -d "$mars/ips";
   _create_cluster(@_);
 }
 
 sub join_cluster {
-  my ($cmd, $peer, $force) = @_;
+  my ($cmd, $peer) = @_;
   if(glob("$mars/resource-*") or glob("$mars/ips/*")) {
-    die "Sorry, some resources already exist!\nThis is dangerous!\nIf you are sure that no resource clash is possible, re-invoke this command with '--force' option\n" unless ($force and $force =~ m/--force/);
+    die "Sorry, some resources already exist!\nThis is dangerous!\nIf you are sure that no resource clash is possible, re-invoke this command with '--force' option\n" unless $force;
   }
   print "joining cluster via rsync (peer='$peer')\n";
   # check connect
@@ -585,8 +586,8 @@ sub primary_res {
   } elsif($old eq $host) {
     print "I am already primary.\n";
     exit(0);
-  } elsif($cmd eq "force-primary") {
-    print "forcing myself ($host) to primary...\n";
+  } elsif($force) {
+    print "FORCING myself ($host) to primary...\n";
   } else { # try to switch myself to primary
     print "trying to switch $host to primary...\n";
     check_sync_finished($res, $host);
@@ -644,7 +645,6 @@ my %cmd_table =
    "down"              => \&up_res,
    "primary"           => \&primary_res,
    "secondary"         => \&primary_res,
-   "force-primary"     => \&primary_res,
    "invalidate"        => \&invalidate_res,
    "invalidate-remote" => \&forbidden_cmd,
    "resize"            => \&nyi_cmd,
@@ -674,14 +674,29 @@ my %cmd_table =
    "hidden-commands"   => \&ignore_cmd,
   );
 
-my $cmd = shift || die "command argument is missing\n";
+my @args;
+
+foreach my $arg (@ARGV) {
+  if($arg eq "--force") {
+    $force++;
+    next;
+  }
+  if($arg =~ s/^force-//) {
+    $force++;
+  }
+  push @args, $arg;
+}
+
+my $cmd = shift @args || die "command argument is missing\n";
 die "unknown command '$cmd'\n" if !exists $cmd_table{$cmd};
 
 my $res = "";
 unless($cmd =~ m/^create-cluster$/) {
-  $res = shift || die "resource argument is missing\n";
+  $res = shift @args || die "resource argument is missing\n";
   check_id($res);
 }
+
+print "using FORCE option -- hopefully you know what you do!\n" if $force;
 
 sub do_res {
   my $cmd = shift;
@@ -699,10 +714,10 @@ if($res eq "all") {
     next unless -e "$res/data-$host";
     $res =~ s/^.*\/resource-(.*)$/$1/;
     print "--------- resource $res\n";
-    do_res($cmd, $res, @ARGV);
+    do_res($cmd, $res, @args);
   }
 } else {
-  do_res($cmd, $res, @ARGV);
+  do_res($cmd, $res, @args);
 }
 
 _trigger();
