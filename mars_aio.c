@@ -674,8 +674,11 @@ static int aio_submit_thread(void *data)
 	struct aio_threadinfo *tinfo = data;
 	struct aio_output *output = tinfo->output;
 	struct file *file = output->filp;
-	int err;
-	
+	mm_segment_t oldfs;
+	int err = -EINVAL;
+
+	CHECK_PTR_NULL(file, done);
+
 	/* TODO: this is provisionary. We only need it for sys_io_submit()
 	 * which uses userspace concepts like file handles.
 	 * This should be accompanied by a future kernelsapce vfs_submit() or
@@ -687,7 +690,7 @@ static int aio_submit_thread(void *data)
 	if (unlikely(err < 0))
 		goto done;
 	output->fd = err;
-	fd_install(err, output->filp);
+	fd_install(err, file);
 
 	MARS_INF("kthread has started.\n");
 	//set_user_nice(current, -20);
@@ -696,28 +699,18 @@ static int aio_submit_thread(void *data)
 
 	err = -ENOMEM;
 	if (unlikely(!current->mm))
-		goto done;
+		goto cleanup_fd;
 
-#if 1
-	if (true) {
-		mm_segment_t oldfs;
-		if (!current->mm) {
-			MARS_ERR("mm = %p\n", current->mm);
-			err = -EINVAL;
-			goto done;
-		}
-		oldfs = get_fs();
-		set_fs(get_ds());
-		err = sys_io_setup(MARS_MAX_AIO, &output->ctxp);
-		set_fs(oldfs);
-		if (unlikely(err < 0))
-			goto done;
-	}
-#endif
-
+	oldfs = get_fs();
+	set_fs(get_ds());
+	err = sys_io_setup(MARS_MAX_AIO, &output->ctxp);
+	set_fs(oldfs);
+	if (unlikely(err < 0))
+		goto cleanup_mm;
+	
 	err = aio_start_thread(output, 1, aio_event_thread);
 	if (unlikely(err < 0))
-		goto done;
+		goto cleanup_ctxp;
 
 	while (!kthread_should_stop()) {
 		struct aio_mref_aspect *mref_a;
@@ -802,24 +795,26 @@ static int aio_submit_thread(void *data)
 
 	aio_stop_thread(output, 1, true);
 
-#if 1
-	if (true) {
-		mm_segment_t oldfs;
-		MARS_INF("destroying ioctx.....\n");
-		oldfs = get_fs();
-		set_fs(get_ds());
-		sys_io_destroy(output->ctxp);
-		set_fs(oldfs);
-		output->ctxp = 0;
-	}
-#endif
-	MARS_INF("destroying fd %d\n", output->fd);
+cleanup_ctxp:
+	MARS_DBG("destroying ioctx.....\n");
+	oldfs = get_fs();
+	set_fs(get_ds());
+	sys_io_destroy(output->ctxp);
+	set_fs(oldfs);
+	output->ctxp = 0;
+
+cleanup_mm:
+	unuse_fake_mm();
+
+cleanup_fd:
+	MARS_DBG("destroying fd %d\n", output->fd);
 	fd_uninstall(output->fd);
 	put_unused_fd(output->fd);
-	unuse_fake_mm();
+
 	err = 0;
 
 done:
+	MARS_DBG("status = %d\n", err);
 	tinfo->terminated = true;
 	wake_up_interruptible_all(&tinfo->event);
 	return err;
@@ -925,7 +920,7 @@ static int aio_switch(struct aio_brick *brick)
 	if (!brick->power.button)
 		goto cleanup;
 
-	if (brick->power.led_on)
+	if (brick->power.led_on || output->filp)
 		goto done;
 
 	mars_power_led_off((void*)brick, false);
@@ -940,13 +935,16 @@ static int aio_switch(struct aio_brick *brick)
 	output->filp = filp_open(path, flags, prot);
 	set_fs(oldfs);
 	
-	if (unlikely(IS_ERR(output->filp))) {
+	MARS_DBG("opened file '%s' flags = %d prot = %d filp = %p\n", path, flags, prot, output->filp);
+
+	if (unlikely(!output->filp || IS_ERR(output->filp))) {
 		err = PTR_ERR(output->filp);
 		MARS_ERR("can't open file '%s' status=%d\n", path, err);
 		output->filp = NULL;
+		if (err >= 0)
+			err = -ENOENT;
 		return err;
 	}
-	MARS_DBG("opened file '%s'\n", path);
 #if 1
 	{
 		struct inode *inode = output->filp->f_mapping->host;
