@@ -158,15 +158,31 @@ sub _check_all_mtimes {
 
 sub check_splitbrain {
   my ($res, $host) = @_;
-  for(;;) {
+  while(1) {
     my $pri = "$mars/resource-$res/primary";
     my $old = readlink($pri) or die "cannot determine current primary\n";
     _primary_res($res, "(none)", $pri, $old) unless $old eq "(none)";
     _trigger();
     sleep(5);
-    last if _check_all_mtimes("$mars/resource-$res/[lvr]*", 60);
-    print "resource directory $res not stable, waiting....\n";
-    sleep(5);
+    if(!_check_all_mtimes("$mars/resource-$res/[lvr]*", 60)) {
+      print "resource directory $res not stable, waiting....\n";
+      sleep(5);
+      next;
+    }
+    my $max = 0;
+    my @list = glob("$mars/resource-$res/replay-*");
+    foreach my $l (@list) {
+      my $cont = readlink($l);
+      $cont =~ s/^log-([0-9]+)-.*$/$1/;
+      $max = $cont if $cont > $max;
+    }
+    my $last = sprintf("$mars/resource-$res/log-%09d-*", $max);
+    if(glob($last)) {
+      print "resource $res: logfile $max is present.\n";
+      last;
+    }
+    print "resource $res: logfile $max is not yet transferred, waiting....\n";
+    sleep(10);
   }
   my @links = glob("$mars/resource-$res/version-[0-9]*-$host");
   if(!@links) {

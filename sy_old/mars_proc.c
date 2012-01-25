@@ -44,6 +44,7 @@ int trigger_sysctl_handler(ctl_table *table,
 			sscanf(tmp, "%d", &code);
 			if (code) {
 				mars_trigger();
+				mars_remote_trigger();
 			}
 		}
 	} else {
