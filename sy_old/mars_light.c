@@ -872,8 +872,6 @@ ok:
 done:
 	brick_string_free(copy_path);
 	brick_string_free(switch_path);
-	if (status < 0 && parent)
-		parent->d_logfile_serial = status;
 	return status;
 }
 
