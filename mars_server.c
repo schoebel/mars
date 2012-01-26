@@ -31,6 +31,7 @@ int cb_thread(void *data)
 {
 	struct server_brick *brick = data;
 	struct mars_socket *sock = &brick->handler_socket;
+	bool aborted = false;
 	bool ok = mars_get_socket(sock);
 	int status = -EINVAL;
 
@@ -50,9 +51,8 @@ int cb_thread(void *data)
 		wait_event_interruptible_timeout(
 			brick->cb_event,
 			!list_empty(&brick->cb_read_list) ||
-			!list_empty(&brick->cb_write_list) ||
-			kthread_should_stop(),
-			3 * HZ);
+			!list_empty(&brick->cb_write_list),
+			1 * HZ);
 
 		traced_lock(&brick->cb_lock, flags);
 		tmp = brick->cb_write_list.next;
@@ -60,6 +60,7 @@ int cb_thread(void *data)
 			tmp = brick->cb_read_list.next;
 			if (tmp == &brick->cb_read_list) {
 				traced_unlock(&brick->cb_lock, flags);
+				msleep(1000 / HZ);
 				continue;
 			}
 		}
@@ -76,20 +77,15 @@ int cb_thread(void *data)
 		up(&brick->socket_sem);
 
 	err:
-		if (unlikely(status < 0)) {
+		if (unlikely(status < 0) && !aborted) {
+			aborted = true;
 			MARS_WRN("cannot send response, status = %d\n", status);
-#if 0 // THINK: not sure whether we need this at all. The _client_ should be responsible for resending any lost operations. Disable this for the next future.
-			traced_lock(&brick->cb_lock, flags);
-			if (mref->ref_rw) {
-				list_add(tmp, &brick->cb_write_list);
-			} else {
-				list_add(tmp, &brick->cb_read_list);
-			}
-			traced_unlock(&brick->cb_lock, flags);
-			continue;
-#else
+			/* Just shutdown the socket and forget all pending
+			 * requests.
+			 * The _client_ is responsible for resending
+			 * any lost operations.
+			 */
 			mars_shutdown_socket(sock);
-#endif
 		}
 
 		GENERIC_INPUT_CALL(brick->inputs[0], mref_put, mref);
