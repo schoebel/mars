@@ -416,6 +416,18 @@ sub create_res {
     rename($tmp, "$mars/resource-$res") or die "cannot finalize resource '$res'\n";
     print "successfully created resource '$res'\n";
   } else {
+    # copy pervious version symlink
+    my $prev = $replay;
+    $prev =~ s/^log-([0-9]+)-.*$/$1/;
+    $prev--;
+    if($prev > 0) {
+      print "creating faked version symlink...\n";
+      my $prevversion = sprintf("$mars/resource-$res/version-%09d-$primary", $prev);
+      my $prevlink = readlink($prevversion) or die "cannot read symlink '$prevversion'\n";
+      my $myversion = sprintf("$mars/resource-$res/version-%09d-$host", $prev);
+      symlink($prevlink, $myversion) or die "cannot create faked version symlink '$myversion'\n";
+    }
+    # create replay symlink
     system("rm -f $tmp/replay-$host");
     symlink($replay, "$tmp/replay-$host") or die "cannot create replay status\n";
     symlink("0", "$tmp/syncstatus-$host") or die "cannot start initial sync\n";
