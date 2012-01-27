@@ -1,5 +1,7 @@
 #!/usr/bin/perl -w
 #
+# $Id$
+# $Author$ $Date$
 # last update at Fr 27. Jan 12:59:55 CET 2012 by joerg.mann@1und1.de
 
 # TODO:
@@ -18,7 +20,7 @@ use Term::ANSIColor;
 
 
 ### defaults
-my $version       = "0.067j";
+my $version       = "0.067k";
 my $alife_timeout = "99";	# sec
 my $is_tty 	  = 0;
 my $mars_dir      = '/mars';
