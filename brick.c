@@ -692,8 +692,22 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 	status = -EAGAIN;
 	for (pos = 0; pos < stack; pos++) {
 		struct generic_brick *brick = table[pos];
+		int max_inputs = 0;
+		int max_outputs = 0;
 
-		BRICK_DBG("--> pos = %d stack = %d brick = '%s' inputs = %d/%d outputs = %d/%d\n", pos, stack, SAFE_STR(brick->brick_name), brick->nr_inputs, brick->type->max_inputs, brick->nr_outputs, brick->type->max_outputs);
+		if (unlikely(!brick)) {
+			BRICK_ERR("intenal problem\n");
+			status = -EINVAL;
+			goto done;
+		}
+		if (likely(brick->type)) {
+			max_inputs = brick->type->max_inputs;
+			max_outputs = brick->type->max_outputs;
+		} else {
+			BRICK_WRN("uninitialized brick\n");
+		}
+
+		BRICK_DBG("--> pos = %d stack = %d brick = '%s' inputs = %d/%d outputs = %d/%d\n", pos, stack, SAFE_STR(brick->brick_name), brick->nr_inputs, max_inputs, brick->nr_outputs, max_outputs);
 
 		if (val) {
 			force = false;
@@ -703,7 +717,7 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 			}
 			if (mode >= BR_ON_ALL) {
 				int i;
-				for (i = 0; i < brick->type->max_inputs; i++) {
+				for (i = 0; i < max_inputs; i++) {
 					struct generic_input *input = brick->inputs[i];
 					struct generic_output *output;
 					struct generic_brick *next;
@@ -723,7 +737,7 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 			}
 		} else if (mode >= BR_ON_ALL) {
 			int i;
-			for (i = 0; i < brick->type->max_outputs; i++) {
+			for (i = 0; i < max_outputs; i++) {
 				struct generic_output *output = brick->outputs[i];
 				struct list_head *tmp;
 				BRICK_DBG("---> i = %d output = %p\n", i, output);
@@ -750,6 +764,13 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 
 	while (stack > 0) {
 		struct generic_brick *brick = table[--stack];
+
+		if (unlikely(!brick)) {
+			BRICK_ERR("intenal problem\n");
+			status = -EINVAL;
+			goto done;
+		}
+
 		BRICK_DBG("--> switch '%s' stack = %d\n", SAFE_STR(brick->brick_name), stack);
 		set_button_wait(brick, val, force, timeout);
 		if (val ? !brick->power.led_on : !brick->power.led_off) {
@@ -758,9 +779,17 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 		}
 
 		if (force && !val && (mode == BR_FREE_ONE || mode == BR_FREE_ALL)) {
+			int max_inputs = 0;
 			int i;
+
+			if (likely(brick->type)) {
+				max_inputs = brick->type->max_inputs;
+			} else {
+				BRICK_WRN("uninitialized brick\n");
+			}
+
 			BRICK_DBG("---> freeing '%s'\n", SAFE_STR(brick->brick_name));
-			for (i = 0; i < brick->type->max_inputs; i++) {
+			for (i = 0; i < max_inputs; i++) {
 				struct generic_input *input = brick->inputs[i];
 				BRICK_DBG("---> i = %d\n", i);
 				if (!input)
