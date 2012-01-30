@@ -654,12 +654,17 @@ static int _server_thread(void *data)
 	MARS_INF("-------- cleaning up ----------\n");
 
 	if (brick) {
-		//FIXME: this hangs up. Leaving a minor memleak for now.
-		//mars_put_socket(&brick->handler_socket);
-		//status = mars_kill_brick((void*)brick);
-		//if(status < 0) {
-		//BRICK_WRN("kill status = %d, giving up\n", status);
-		//}
+		MARS_DBG("cleaning up unused brick\n");
+#if 0 // FIXME
+		if (brick->handler_socket.s_socket) {
+			MARS_DBG("put socket\n");
+			mars_put_socket(&brick->handler_socket);
+		}
+		status = mars_kill_brick((void*)brick);
+		if (unlikely(status < 0)) {
+			BRICK_WRN("kill status = %d, giving up\n", status);
+		}
+#endif
 		brick = NULL;
 	}
 

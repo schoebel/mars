@@ -878,6 +878,7 @@ static noinline
 void free_writeback(struct writeback_info *wb)
 {
 	struct list_head *tmp;
+	int cleanup_count = 0;
 
 	if (unlikely(wb->w_error < 0)) {
 		MARS_ERR("writeback error = %d at pos = %lld len = %d, writeback is incomplete\n", wb->w_error, wb->w_pos, wb->w_len);
@@ -887,9 +888,11 @@ void free_writeback(struct writeback_info *wb)
 	 * This code is only for cleanup in case of errors.
 	 */
 	while (unlikely((tmp = wb->w_sub_read_list.next) != &wb->w_sub_read_list)) {
+		cleanup_count++;
 		_free_one(tmp);
 	}
 	while (unlikely((tmp = wb->w_sub_write_list.next) != &wb->w_sub_write_list)) {
+		cleanup_count++;
 		_free_one(tmp);
 	}
 
@@ -906,8 +909,9 @@ void free_writeback(struct writeback_info *wb)
 		
 		CHECK_ATOMIC(&orig_mref->ref_count, 1);
 #if 1
-		if (!orig_mref_a->is_completed) {
-			MARS_ERR("request %lld (len = %d) was not completed\n", orig_mref->ref_pos, orig_mref->ref_len);
+		while (!orig_mref_a->is_completed) {
+			MARS_ERR("request %lld (len = %d) was not completed, cleanup_count = %d\n", orig_mref->ref_pos, orig_mref->ref_len, cleanup_count);
+			msleep(10000);
 		}
 #endif
 		if (likely(wb->w_error >= 0)) {

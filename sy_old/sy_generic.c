@@ -1022,7 +1022,7 @@ int mars_kill_brick(struct mars_brick *brick)
 	CHECK_PTR(brick, done);
 	global = brick->global;
 
-	MARS_DBG("===> killing brick %s path = '%s' name = '%s'\n", SAFE_STR(brick->type->type_name), SAFE_STR(brick->brick_path), SAFE_STR(brick->brick_name));
+	MARS_DBG("===> killing brick %s path = '%s' name = '%s'\n", brick->type ? SAFE_STR(brick->type->type_name) : "undef", SAFE_STR(brick->brick_path), SAFE_STR(brick->brick_name));
 
 	if (global) {
 		down_write(&global->brick_mutex);
