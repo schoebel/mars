@@ -18,6 +18,10 @@
 
 #include <asm/uaccess.h>
 
+#ifndef GFP_BRICK
+#define GFP_BRICK GFP_NOIO
+#endif
+
 #define SAY_ORDER 0
 #define SAY_BUFMAX (PAGE_SIZE << SAY_ORDER)
 #define MAX_FILELEN 16
@@ -32,30 +36,32 @@ static struct file *log_file = NULL;
 static inline
 void say_alloc(unsigned long cpu, bool use_atomic)
 {
-	if (cpu >= NR_CPUS || say_buf[cpu])
+	char *ptr;
+	if (likely(say_buf[cpu]) || unlikely(cpu >= NR_CPUS))
 		goto done;
 
-	say_buf[cpu] = (void*)__get_free_pages(use_atomic? GFP_ATOMIC : GFP_KERNEL, SAY_ORDER);
-	if (likely(say_buf[cpu])) {
-		say_buf[cpu][0] = '\0';
+	ptr = (void*)__get_free_pages(use_atomic ? GFP_ATOMIC : GFP_BRICK, SAY_ORDER);
+	if (likely(ptr)) {
+		ptr[0] = '\0';
+		say_buf[cpu] = ptr;
 		say_index[cpu] = 0;
 	}
 
 done: ;
 }
 
-static inline
+static
 void _say_mark(unsigned long cpu)
 {
-	bool use_atomic = (preempt_count() & (PREEMPT_MASK | SOFTIRQ_MASK | HARDIRQ_MASK)) != 0;
+	char *ptr;
+	bool use_atomic = (preempt_count() & (SOFTIRQ_MASK | HARDIRQ_MASK | NMI_MASK)) != 0;
 
 	say_alloc(cpu, use_atomic);
-	if (use_atomic || cpu >= NR_CPUS)
+	if (unlikely(use_atomic || cpu >= NR_CPUS))
 		goto done;
 
-
-	if (!say_buf[cpu] ||
-	    !say_buf[cpu][0])
+	ptr = say_buf[cpu];
+	if (unlikely(!ptr) || !ptr[0])
 		goto done;
 	
 	if (log_file) {
@@ -68,20 +74,20 @@ void _say_mark(unsigned long cpu)
 
 			oldfs = get_fs();
 			set_fs(get_ds());
-			status = vfs_write(log_file, say_buf[cpu] + len, rest, &log_pos);
+			status = vfs_write(log_file, ptr + len, rest, &log_pos);
 			set_fs(oldfs);
-			if (status <= 0)
+			if (unlikely(status <= 0))
 				break;
 			len += status;
 			rest -= status;
 		}
 #ifdef CONFIG_MARS_USE_SYSLOG
 	} else {
-		printk("%s", say_buf[cpu]);
+		printk("%s", ptr);
 #endif
 	}
 
-	say_buf[cpu][0] = '\0';
+	ptr[0] = '\0';
 	say_index[cpu] = 0;
 	
 	{
@@ -144,6 +150,7 @@ void _say(unsigned long cpu, va_list args, bool use_args, const char *fmt, ...)
 		say_index[cpu] += written;
 	} else {
 		// indicate overflow
+		start[0] = '\0';
 		atomic_inc(&overflow);
 	}
 done: ;
@@ -152,10 +159,10 @@ done: ;
 static inline
 void _check_overflow(unsigned long cpu)
 {
-	if (say_index[cpu] < SAY_BUFMAX - 8) {
-		int count = 0;
-		atomic_xchg(&overflow, count);
-		if (unlikely(count > 0)) {
+	int count = 0;
+	atomic_xchg(&overflow, count);
+	if (unlikely(count > 0)) {
+		if (likely(say_index[cpu] < SAY_BUFMAX - 8)) {
 			_say(cpu, NULL, true, "#%d#\n", count);
 		}
 	}
@@ -167,7 +174,7 @@ void say(const char *fmt, ...)
 	va_list args;
 
 	_say_mark(cpu);
-	if (!say_buf[cpu])
+	if (unlikely(!say_buf[cpu]))
 		goto done;
 	_check_overflow(cpu);
 
@@ -189,7 +196,7 @@ void brick_say(bool dump, const char *prefix, const char *file, int line, const 
 	va_list args;
 
 	_say_mark(cpu);
-	if (!say_buf[cpu])
+	if (unlikely(!say_buf[cpu]))
 		goto done;
 	_check_overflow(cpu);
 
@@ -229,7 +236,7 @@ void check_open(const char *filename, bool must_exist)
 	set_fs(get_ds());
  	log_file = filp_open(filename, flags, prot);
 	set_fs(oldfs);
-	if (IS_ERR(log_file)) {
+	if (unlikely(IS_ERR(log_file))) {
 		int status = PTR_ERR(log_file);
 		log_file = NULL;
 		say("cannot open logfile '%s', status = %d\n", filename, status);
