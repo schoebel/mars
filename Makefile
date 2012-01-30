@@ -2,24 +2,24 @@
 # Makefile for MARS
 #
 
-mars-objs := \
-	brick_say.o \
-	brick_mem.o \
-	brick.o \
-	mars_generic.o \
-	lib_log.o \
-	mars_net.o \
-	mars_server.o \
-	mars_client.o \
-	mars_aio.o \
-	mars_sio.o \
-	mars_bio.o \
-	mars_if.o \
-	mars_copy.o \
-	mars_trans_logger.o \
-	sy_old/sy_generic.o \
-	sy_old/sy_net.o \
-	sy_old/mars_proc.o \
+mars-objs :=				\
+	brick_say.o			\
+	brick_mem.o			\
+	brick.o				\
+	mars_generic.o			\
+	lib_log.o			\
+	mars_net.o			\
+	mars_server.o			\
+	mars_client.o			\
+	mars_aio.o			\
+	mars_sio.o			\
+	mars_bio.o			\
+	mars_if.o			\
+	mars_copy.o			\
+	mars_trans_logger.o		\
+	sy_old/sy_generic.o		\
+	sy_old/sy_net.o			\
+	sy_old/mars_proc.o		\
 	sy_old/mars_light.o
 
 obj-$(CONFIG_MARS_BIGMODULE)	+= mars.o
@@ -46,7 +46,19 @@ obj-$(CONFIG_MARS_LIGHT)	+= sy_old/mars_light.o \
 				   sy_old/mars_proc.o
 
 ifdef CONFIG_DEBUG_KERNEL
+
 KBUILD_CFLAGS += -fno-inline-functions -fno-inline-small-functions -fno-inline-functions-called-once
+
+# This is currently not really used.
+# We urge people to maintain it by including it in debug versions
+# (so the compiler may throw any complaints)
+
+mars-objs += 				\
+	mars_dummy.o			\
+	mars_check.o			\
+	mars_buf.o			\
+	mars_usebuf.o			\
+
 endif
 
 .PHONY FORCE: block/mars/buildtag.h

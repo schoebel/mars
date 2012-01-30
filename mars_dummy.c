@@ -4,6 +4,8 @@
 
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
+//#define IO_DEBUGGING
+//#define STAT_DEBUGGING
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -68,7 +70,15 @@ int dummy_switch(struct dummy_brick *brick)
 static
 char *dummy_statistics(struct dummy_brick *brick, int verbose)
 {
-	return NULL;
+	char *res = brick_string_alloc(1024);
+	if (!res)
+		return NULL;
+
+	snprintf(res, 1023,
+		 "nothing has happened.\n"
+		);
+
+	return res;
 }
 
 static
@@ -180,15 +190,13 @@ EXPORT_SYMBOL_GPL(dummy_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 
-static
-int __init init_dummy(void)
+int __init init_mars_dummy(void)
 {
 	MARS_INF("init_dummy()\n");
 	return dummy_register_brick_type();
 }
 
-static
-void __exit exit_dummy(void)
+void __exit exit_mars_dummy(void)
 {
 	MARS_INF("exit_dummy()\n");
 	dummy_unregister_brick_type();
@@ -199,6 +207,6 @@ MODULE_DESCRIPTION("MARS dummy brick");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@1und1.de>");
 MODULE_LICENSE("GPL");
 
-module_init(init_dummy);
-module_exit(exit_dummy);
+module_init(init_mars_dummy);
+module_exit(exit_mars_dummy);
 #endif

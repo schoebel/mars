@@ -40,6 +40,12 @@
 #include "../mars_trans_logger.h"
 #include "../mars_if.h"
 #include "mars_proc.h"
+#ifdef CONFIG_DEBUG_KERNEL // otherwise currently unused
+#include "../mars_dummy.h"
+#include "../mars_check.h"
+#include "../mars_buf.h"
+#include "../mars_usebuf.h"
+#endif
 
 #if 0
 #define inline __attribute__((__noinline__))
@@ -3593,6 +3599,12 @@ static int __init init_light(void)
 	DO_INIT(brick_mem);
 	DO_INIT(brick);
 	DO_INIT(mars);
+#ifdef CONFIG_DEBUG_KERNEL // otherwise currently unused
+	DO_INIT(mars_dummy);
+	DO_INIT(mars_check);
+	DO_INIT(mars_buf);
+	DO_INIT(mars_usebuf);
+#endif
 	DO_INIT(log_format);
 	DO_INIT(mars_net);
 	DO_INIT(mars_server);

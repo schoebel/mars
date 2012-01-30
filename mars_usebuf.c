@@ -2,12 +2,18 @@
 
 // Usebuf brick (just for demonstration)
 
+/* FIXME: this code has been unused for a long time, it is unlikly
+ * to work at all.
+ */
+
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
+//#define IO_DEBUGGING
+//#define STAT_DEBUGGING
+
 //#define FAKE_ALL // only for testing
 //#define DIRECT_IO // shortcut solely for testing: do direct IO
 //#define DIRECT_WRITE // only for testing: this risks trashing the data by omitting read-before-write in case of false sharing
-//#define LOG
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -34,9 +40,7 @@ static int usebuf_get_info(struct usebuf_output *output, struct mars_info *info)
 static inline
 void _usebuf_copy(struct mref_object *mref, struct mref_object *sub_mref, int rw)
 {
-#ifdef LOG
-	MARS_INF("memcpy rw = %d %p %p %d\n", rw, mref->ref_data, sub_mref->ref_data, mref->ref_len);
-#endif
+	MARS_IO("memcpy rw = %d %p %p %d\n", rw, mref->ref_data, sub_mref->ref_data, mref->ref_len);
 #ifndef FAKE_ALL
 	if (rw == 0) {
 		memcpy(mref->ref_data, sub_mref->ref_data, mref->ref_len);
@@ -56,7 +60,6 @@ static void _usebuf_endio(struct generic_callback *cb)
 	CHECK_PTR(mref_a, done);
 	mref = mref_a->object;
 	CHECK_PTR(mref, done);
-	CHECK_PTR(mref->ref_cb, done);
 	sub_mref_a = mref_a->sub_mref_a;
 	CHECK_PTR(sub_mref_a, done);
 	sub_mref = sub_mref_a->object;
@@ -72,11 +75,8 @@ static void _usebuf_endio(struct generic_callback *cb)
 			}
 #ifndef FAKE_ALL
 		} else if (sub_mref->ref_rw == 0) {
-#ifdef LOG
-			MARS_INF("re-kick %p\n", sub_mref);
-#endif
+			MARS_IO("re-kick %p\n", sub_mref);
 			sub_mref->ref_rw = 1;
-			sub_mref->ref_cb = &sub_mref_a->cb;
 			_usebuf_copy(mref, sub_mref, 1);
 			mref->ref_flags |= MREF_UPTODATE;
 			GENERIC_INPUT_CALL(mref_a->input, mref_io, sub_mref);
@@ -91,8 +91,7 @@ static void _usebuf_endio(struct generic_callback *cb)
 	if (cb->cb_error < 0)
 		MARS_ERR("error = %d\n", cb->cb_error);
 #endif
-	mref->ref_cb->cb_error = cb->cb_error;
-	mref->ref_cb->cb_fn(mref->ref_cb);
+	CHECKED_CALLBACK(mref, cb->cb_error, done);
 
 	CHECK_ATOMIC(&mref->ref_count, 1);
 	if (!atomic_dec_and_test(&mref->ref_count))
@@ -154,10 +153,7 @@ static int usebuf_ref_get(struct usebuf_output *output, struct mref_object *mref
 #else // normal case: buffered IO
 		sub_mref->ref_data = NULL;
 #endif
-		sub_mref->ref_cb = &sub_mref_a->cb;
-		sub_mref_a->cb.cb_private = mref_a;
-		sub_mref_a->cb.cb_fn = _usebuf_endio;
-		sub_mref_a->cb.cb_error = 0;
+		SETUP_CALLBACK(sub_mref, _usebuf_endio, mref_a);
 		mref->ref_flags = 0;
 	} else {
 		sub_mref = sub_mref_a->object;
@@ -221,7 +217,6 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mref_object *mref
 	struct usebuf_mref_aspect *mref_a;
 	struct usebuf_mref_aspect *sub_mref_a;
 	struct mref_object *sub_mref;
-	struct generic_callback *cb;
 	int error = -EILSEQ;
 
 	might_sleep();
@@ -267,10 +262,8 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mref_object *mref
 		}
 #endif
 	} else if (sub_mref->ref_flags & MREF_UPTODATE) {
-#ifdef LOG
-		MARS_INF("direct _usebuf_endio\n");
-#endif
-		_usebuf_endio(sub_mref->ref_cb);
+		MARS_IO("direct _usebuf_endio\n");
+		_usebuf_endio(sub_mref->object_cb);
 		return;
 	}
 	if (mref->ref_data != sub_mref->ref_data) {
@@ -289,9 +282,7 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mref_object *mref
 	return;
 
 err:
-	cb = mref->ref_cb;
-	cb->cb_error = error;
-	cb->cb_fn(cb);
+	SIMPLE_CALLBACK(mref, error);
 	return;
 }
 
@@ -371,21 +362,23 @@ EXPORT_SYMBOL_GPL(usebuf_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 
-static int __init init_usebuf(void)
+int __init init_mars_usebuf(void)
 {
 	printk(MARS_INFO "init_usebuf()\n");
 	return usebuf_register_brick_type();
 }
 
-static void __exit exit_usebuf(void)
+void __exit exit_mars_usebuf(void)
 {
 	printk(MARS_INFO "exit_usebuf()\n");
 	usebuf_unregister_brick_type();
 }
 
+#ifndef CONFIG_MARS_HAVE_BIGMODULE
 MODULE_DESCRIPTION("MARS usebuf brick");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@1und1.de>");
 MODULE_LICENSE("GPL");
 
-module_init(init_usebuf);
-module_exit(exit_usebuf);
+module_init(init_mars_usebuf);
+module_exit(exit_mars_usebuf);
+#endif

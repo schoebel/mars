@@ -4,8 +4,19 @@
  * checks various semantic properties, uses watchdog to find lost callbacks.
  */
 
+/* FIXME: this code has been unused for a long time, it is unlikly
+ * to work at all.
+ */
+
+/* FIXME: improve this a lot!
+ * Check really _anything_ in the interface which _could_ go wrong,
+ * even by the silliest type of accident!
+ */
+
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
+//#define IO_DEBUGGING
+//#define STAT_DEBUGGING
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -37,13 +48,12 @@
 		}							\
 	} while (0)
 
-static void check_buf_endio(struct generic_callback *cb)
+static void check_endio(struct generic_callback *cb)
 {
 	struct check_mref_aspect *mref_a;
 	struct mref_object *mref;
 	struct check_output *output;
 	struct check_input *input;
-	struct generic_callback *prev_cb;
 	unsigned long flags;
 
 	mref_a = cb->cb_private;
@@ -79,16 +89,8 @@ static void check_buf_endio(struct generic_callback *cb)
 
 	mref_a->last_jiffies = jiffies;
 
-	prev_cb = cb->cb_prev;
-	if (!prev_cb) {
-		MARS_FAT("cannot get chain callback\n");
-		return;
-	}
-#if 1
-	mref->ref_cb = prev_cb;
-	mref_a->installed = false;
-#endif
-	prev_cb->cb_fn(prev_cb);
+	NEXT_CHECKED_CALLBACK(cb, fatal);
+
 	return;
 fatal:
 	msleep(60000);
@@ -109,14 +111,14 @@ static void dump_mem(void *data, int len)
 		unsigned char byte = ((unsigned char*)data)[i];
 		if (!(i % 8)) {
 			if (tmp != buf) {
-				printk("%4d: %s\n", i, buf);
+				say("%4d: %s\n", i, buf);
 			}
 			tmp = buf;
 		}
 		tmp += snprintf(tmp, 1024 - i * 3, " %02x", byte);
 	}
 	if (tmp != buf) {
-		printk("%4d: %s\n", i, buf);
+		say("%4d: %s\n", i, buf);
 	}
 	brick_string_free(buf);
 }
@@ -147,24 +149,11 @@ static int check_watchdog(void *data)
 			elapsed = now - mref_a->last_jiffies;
 			if (elapsed > timeout * HZ && limit-- > 0) {
 				struct generic_object_layout *object_layout;
-				int i;
 				mref_a->last_jiffies = now + 600 * HZ;
 				MARS_INF("================================\n");
 				CHECK_ERR(output, "mref %p callback is missing for more than %d seconds.\n", mref, timeout);
 				object_layout = (void*)mref->object_layout;
-				//dump_mem(mref, object_layout->object_size);
-				for (i = 0; i < object_layout->aspect_count; i++) {
-					struct generic_aspect_layout *aspect_layout;
-					int pos;
-					aspect_layout = object_layout->aspect_layouts_table[i];
-					pos = aspect_layout->aspect_offset;
-					if (i == 0) {
-						MARS_INF("object %s:\n", object_layout->object_type->object_type_name);
-						dump_mem(mref, pos);
-					}
-					MARS_INF("--- aspect %s ---:\n", aspect_layout->aspect_type->aspect_type_name);
-					dump_mem(((void*)mref + pos), aspect_layout->aspect_type->aspect_size);
-				}
+				dump_mem(mref, object_layout->size_hint);
 				MARS_INF("================================\n");
 			}
 		}
@@ -223,17 +212,12 @@ static void check_ref_io(struct check_output *output, struct mref_object *mref)
 	(void)flags;
 #endif
 
+	mref_a->last_jiffies = jiffies;
 	if (!mref_a->installed) {
-		struct generic_callback *cb = &mref_a->cb;
 		mref_a->installed = true;
 		mref_a->output = output;
-		cb->cb_fn = check_buf_endio;
-		cb->cb_private = mref_a;
-		cb->cb_error = 0;
-		cb->cb_prev = mref->ref_cb;
-		mref->ref_cb = cb;
+		INSERT_CALLBACK(mref, &mref_a->cb, check_endio, mref_a);
 	}
-	mref_a->last_jiffies = jiffies;
 
 	GENERIC_INPUT_CALL(input, mref_io, mref);
 
@@ -347,21 +331,23 @@ EXPORT_SYMBOL_GPL(check_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 
-static int __init init_check(void)
+int __init init_mars_check(void)
 {
-	printk(MARS_INFO "init_check()\n");
+	MARS_INF("init_check()\n");
 	return check_register_brick_type();
 }
 
-static void __exit exit_check(void)
+void __exit exit_mars_check(void)
 {
-	printk(MARS_INFO "exit_check()\n");
+	MARS_INF("exit_check()\n");
 	check_unregister_brick_type();
 }
 
+#ifndef CONFIG_MARS_HAVE_BIGMODULE
 MODULE_DESCRIPTION("MARS check brick");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@1und1.de>");
 MODULE_LICENSE("GPL");
 
-module_init(init_check);
-module_exit(exit_check);
+module_init(init_mars_check);
+module_exit(exit_mars_check);
+#endif

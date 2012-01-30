@@ -2,8 +2,14 @@
 
 // Buf brick
 
+/* FIXME: this code has been unused for a long time, it is unlikly
+ * to work at all.
+ */
+
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
+//#define IO_DEBUGGING
+//#define STAT_DEBUGGING
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -14,7 +20,6 @@
 #include "mars.h"
 
 //#define USE_VMALLOC
-#define CHECK_CB
 
 //#define FAKE_IO // only for testing
 //#define FAKE_READS // only for testing
@@ -627,11 +632,7 @@ static int _buf_make_io(struct buf_brick *brick, struct buf_head *bf, void *star
 		}
 
 		mref_a->rfa_bf = bf;
-		mref_a->cb.cb_fn = _buf_endio;
-		mref_a->cb.cb_private = mref_a;
-		mref_a->cb.cb_error = 0;
-		mref_a->cb.cb_prev = NULL;
-		mref->ref_cb = &mref_a->cb;
+		SETUP_CALLBACK(mref, _buf_endio, mref_a);
 
 		mref->ref_pos = start_pos;
 		mref->ref_len = start_len;
@@ -641,7 +642,7 @@ static int _buf_make_io(struct buf_brick *brick, struct buf_head *bf, void *star
 
 		status = GENERIC_INPUT_CALL(input, mref_get, mref);
 		if (status < 0) {
-			MARS_ERR();
+			MARS_ERR("status = %d\n", status);
 			goto done;
 		}
 
@@ -792,7 +793,6 @@ static void _buf_endio(struct generic_callback *cb)
 	while (!list_empty(&tmp)) {
 		struct buf_mref_aspect *mref_a = container_of(tmp.next, struct buf_mref_aspect, rfa_pending_head);
 		struct mref_object *mref = mref_a->object;
-		struct generic_callback *cb;
 
 		if (mref_a->rfa_bf != bf) {
 			MARS_ERR("bad pointers %p != %p\n", mref_a->rfa_bf, bf);
@@ -810,22 +810,10 @@ static void _buf_endio(struct generic_callback *cb)
 
 		// update infos for callbacks, they may inspect it.
 		mref->ref_flags = bf->bf_flags;
-		cb = mref->ref_cb;
-		cb->cb_error = bf->bf_error;
+
+		CHECKED_CALLBACK(mref, bf->bf_error, err);
 
 		atomic_dec(&brick->nr_io_pending);
-
-#ifdef CHECK_CB
-		if (cb) {
-			mref->ref_cb = NULL;
-#endif
-			MARS_DBG("callback %p\n", mref);
-			cb->cb_fn(cb);
-#ifdef CHECK_CB
-		} else {
-			MARS_ERR("double callback\n");
-		}
-#endif
 
 		_buf_ref_put(brick->outputs[0], mref_a);
 	}
@@ -836,15 +824,16 @@ static void _buf_endio(struct generic_callback *cb)
 	}
 	// drop the extra reference from above
 	_bf_put(bf);
+	return;
 
-err:;
+err:
+	MARS_FAT("giving up.\n");
 }
 
 static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 {
 	struct buf_brick *brick = output->brick;
 	struct buf_mref_aspect *mref_a;
-	struct generic_callback *cb;
 	struct buf_head *bf;
 	void  *start_data = NULL;
 	loff_t start_pos = 0;
@@ -969,9 +958,6 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 		delay = true;
 	}
 
-	mref->ref_flags = bf->bf_flags;
-	mref->ref_cb->cb_error = bf->bf_error;
-
 	if (likely(delay)) {
 		atomic_inc(&brick->nr_io_pending);
 		atomic_inc(&brick->io_count);
@@ -1005,18 +991,7 @@ already_done:
 
 callback:
 	mref->ref_flags = bf->bf_flags;
-	cb = mref->ref_cb;
-#ifdef CHECK_CB
-	if (cb) {
-		mref->ref_cb = NULL;
-#endif
-		cb->cb_error = status;
-		cb->cb_fn(cb);
-#ifdef CHECK_CB
-	} else {
-		MARS_ERR("double callback\n");
-	}
-#endif
+	CHECKED_CALLBACK(mref, status, fatal);
 
 no_callback:
 	if (!delay) {
@@ -1140,21 +1115,23 @@ EXPORT_SYMBOL_GPL(buf_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 
-static int __init init_buf(void)
+int __init init_mars_buf(void)
 {
 	printk(MARS_INFO "init_buf()\n");
 	return buf_register_brick_type();
 }
 
-static void __exit exit_buf(void)
+void __exit exit_mars_buf(void)
 {
 	printk(MARS_INFO "exit_buf()\n");
 	buf_unregister_brick_type();
 }
 
+#ifndef CONFIG_MARS_HAVE_BIGMODULE
 MODULE_DESCRIPTION("MARS buf brick");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@1und1.de>");
 MODULE_LICENSE("GPL");
 
-module_init(init_buf);
-module_exit(exit_buf);
+module_init(init_mars_buf);
+module_exit(exit_mars_buf);
+#endif

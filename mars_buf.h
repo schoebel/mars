@@ -19,7 +19,6 @@ struct buf_mref_aspect {
 	//struct list_head rfa_bf_head;
 	struct list_head rfa_pending_head;
 	//struct list_head tmp_head;
-	struct generic_callback cb;
 };
 
 struct cache_anchor {
