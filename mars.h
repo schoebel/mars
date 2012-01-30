@@ -106,8 +106,8 @@ extern void mars_log_trace(struct mref_object *mref);
 #define mars_log_trace(mref) /*empty*/
 #endif
 
-#define MREF_OBJECT(PREFIX)						\
-	CALLBACK_OBJECT(PREFIX);					\
+#define MREF_OBJECT(OBJTYPE)						\
+	CALLBACK_OBJECT(OBJTYPE);					\
 	/* supplied by caller */					\
 	void  *ref_data;         /* preset to NULL for buffered IO */	\
 	loff_t ref_pos;							\
@@ -142,8 +142,8 @@ struct mars_info {
 
 // brick stuff
 
-#define MARS_BRICK(PREFIX)						\
-	GENERIC_BRICK(PREFIX);						\
+#define MARS_BRICK(BRITYPE)						\
+	GENERIC_BRICK(BRITYPE);						\
 	struct list_head global_brick_link;				\
 	struct list_head dent_brick_link;				\
 	const char *brick_path;						\
@@ -155,101 +155,99 @@ struct mars_brick {
 	MARS_BRICK(mars);
 };
 
-#define MARS_INPUT(PREFIX)						\
-	GENERIC_INPUT(PREFIX);						\
+#define MARS_INPUT(BRITYPE)						\
+	GENERIC_INPUT(BRITYPE);						\
 
 struct mars_input {
 	MARS_INPUT(mars);
 };
 
-#define MARS_OUTPUT(PREFIX)						\
-	GENERIC_OUTPUT(PREFIX);						\
+#define MARS_OUTPUT(BRITYPE)						\
+	GENERIC_OUTPUT(BRITYPE);					\
 
 struct mars_output {
 	MARS_OUTPUT(mars);
 };
 
-#define MARS_BRICK_OPS(PREFIX)						\
-	GENERIC_BRICK_OPS(PREFIX);					\
-	char *(*brick_statistics)(struct PREFIX##_brick *brick, int verbose); \
-	void (*reset_statistics)(struct PREFIX##_brick *brick);		\
+#define MARS_BRICK_OPS(BRITYPE)						\
+	GENERIC_BRICK_OPS(BRITYPE);					\
+	char *(*brick_statistics)(struct BRITYPE##_brick *brick, int verbose); \
+	void (*reset_statistics)(struct BRITYPE##_brick *brick);	\
 	
-#define MARS_OUTPUT_OPS(PREFIX)						\
-	GENERIC_OUTPUT_OPS(PREFIX);					\
-	int  (*mars_get_info)(struct PREFIX##_output *output, struct mars_info *info); \
+#define MARS_OUTPUT_OPS(BRITYPE)					\
+	GENERIC_OUTPUT_OPS(BRITYPE);					\
+	int  (*mars_get_info)(struct BRITYPE##_output *output, struct mars_info *info); \
 	/* mref */							\
-	int  (*mref_get)(struct PREFIX##_output *output, struct mref_object *mref); \
-	void (*mref_io)(struct PREFIX##_output *output, struct mref_object *mref); \
-	void (*mref_put)(struct PREFIX##_output *output, struct mref_object *mref); \
+	int  (*mref_get)(struct BRITYPE##_output *output, struct mref_object *mref); \
+	void (*mref_io)(struct BRITYPE##_output *output, struct mref_object *mref); \
+	void (*mref_put)(struct BRITYPE##_output *output, struct mref_object *mref); \
 
 // all non-extendable types
 
-#define _MARS_TYPES(BRICK)						\
+#define _MARS_TYPES(BRITYPE)						\
 									\
-struct BRICK##_brick_ops {                                              \
-        MARS_BRICK_OPS(BRICK);                                          \
+struct BRITYPE##_brick_ops {					        \
+        MARS_BRICK_OPS(BRITYPE);					\
 };                                                                      \
                                                                         \
-struct BRICK##_output_ops {					        \
-	MARS_OUTPUT_OPS(BRICK);						\
+struct BRITYPE##_output_ops {					        \
+	MARS_OUTPUT_OPS(BRITYPE);					\
 };                                                                      \
 									\
-struct BRICK##_brick_type {                                             \
-	GENERIC_BRICK_TYPE(BRICK);                                      \
+struct BRITYPE##_brick_type {                                           \
+	GENERIC_BRICK_TYPE(BRITYPE);					\
 };									\
 									\
-struct BRICK##_input_type {					        \
-	GENERIC_INPUT_TYPE(BRICK);                                      \
+struct BRITYPE##_input_type {					        \
+	GENERIC_INPUT_TYPE(BRITYPE);					\
 };									\
 									\
-struct BRICK##_output_type {					        \
-	GENERIC_OUTPUT_TYPE(BRICK);                                     \
+struct BRITYPE##_output_type {					        \
+	GENERIC_OUTPUT_TYPE(BRITYPE);					\
 };									\
 									\
-struct BRICK##_callback {					        \
-	GENERIC_CALLBACK(BRICK);					\
+struct BRITYPE##_callback {					        \
+	GENERIC_CALLBACK(BRITYPE);					\
 };									\
 									\
-GENERIC_MAKE_FUNCTIONS(BRICK);					        \
-GENERIC_MAKE_CONNECT(BRICK,BRICK);				        \
+DECLARE_BRICK_FUNCTIONS(BRITYPE);				        \
 
 
-#define MARS_TYPES(BRICK)						\
+#define MARS_TYPES(BRITYPE)						\
 									\
-_MARS_TYPES(BRICK)						        \
+_MARS_TYPES(BRITYPE)						        \
 									\
-struct BRICK##_object_layout;						\
+struct BRITYPE##_object_layout;						\
 									\
-GENERIC_MAKE_CONNECT(generic,BRICK);				        \
-GENERIC_ASPECT_FUNCTIONS(BRICK,mref);					\
-extern int init_mars_##BRICK(void);					\
-extern void exit_mars_##BRICK(void);
+DECLARE_ASPECT_FUNCTIONS(BRITYPE,mref);					\
+extern int init_mars_##BRITYPE(void);					\
+extern void exit_mars_##BRITYPE(void);
 
 
 // instantiate a pseudo base-class "mars"
 
 _MARS_TYPES(mars);
-GENERIC_ASPECT_FUNCTIONS(mars,mref);
+DECLARE_ASPECT_FUNCTIONS(mars,mref);
 
 /////////////////////////////////////////////////////////////////////////
 
 // MARS-specific helpers
 
-#define MARS_MAKE_STATICS(BRICK)					\
+#define MARS_MAKE_STATICS(BRITYPE)					\
 									\
-int BRICK##_brick_nr = -EEXIST;				                \
-EXPORT_SYMBOL_GPL(BRICK##_brick_nr);			                \
+int BRITYPE##_brick_nr = -EEXIST;				        \
+EXPORT_SYMBOL_GPL(BRITYPE##_brick_nr);			                \
 									\
-static const struct generic_aspect_type BRICK##_mref_aspect_type = {    \
-	.aspect_type_name = #BRICK "_mref_aspect_type",			\
+static const struct generic_aspect_type BRITYPE##_mref_aspect_type = {  \
+	.aspect_type_name = #BRITYPE "_mref_aspect_type",		\
 	.object_type = &mref_type,					\
-	.aspect_size = sizeof(struct BRICK##_mref_aspect),		\
-	.init_fn = BRICK##_mref_aspect_init_fn,				\
-	.exit_fn = BRICK##_mref_aspect_exit_fn,				\
+	.aspect_size = sizeof(struct BRITYPE##_mref_aspect),		\
+	.init_fn = BRITYPE##_mref_aspect_init_fn,			\
+	.exit_fn = BRITYPE##_mref_aspect_exit_fn,			\
 };									\
 									\
-static const struct generic_aspect_type *BRICK##_aspect_types[OBJ_TYPE_MAX] = {	\
-	[OBJ_TYPE_MREF] = &BRICK##_mref_aspect_type,			\
+static const struct generic_aspect_type *BRITYPE##_aspect_types[OBJ_TYPE_MAX] = {	\
+	[OBJ_TYPE_MREF] = &BRITYPE##_mref_aspect_type,			\
 };									\
 
 extern const struct meta mars_info_meta[];
