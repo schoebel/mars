@@ -502,6 +502,7 @@ struct mars_rotate {
 	struct mars_brick *relevant_brick;
 	struct mars_dent *next_relevant_log;
 	struct mars_brick *next_relevant_brick;
+	struct mars_dent *next_next_relevant_log;
 	struct mars_dent *prev_log;
 	struct mars_dent *next_log;
 	struct if_brick *if_brick;
@@ -1606,6 +1607,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	rot->relevant_log = NULL;
 	rot->relevant_brick = NULL;
 	rot->next_relevant_log = NULL;
+	rot->next_next_relevant_log = NULL;
 	rot->prev_log = NULL;
 	rot->next_log = NULL;
 	rot->max_sequence = 0;
@@ -1794,8 +1796,10 @@ int make_log_step(void *buf, struct mars_dent *dent)
 	if (rot->relevant_log) {
 		if (!rot->next_relevant_log) {
 			rot->next_relevant_log = dent;
+		} else if (!rot->next_next_relevant_log) {
+			rot->next_next_relevant_log = dent;
 		}
-		MARS_DBG("next_relevant_log = %p\n", rot->next_relevant_log);
+		MARS_DBG("next_relevant_log = %p next_next_relevant_log = %p\n", rot->next_relevant_log, rot->next_next_relevant_log);
 		goto ok;
 	}
 
@@ -1947,8 +1951,9 @@ int _make_logging_status(struct mars_rotate *rot)
 			if (global->exhausted) {
 				MARS_DBG("filesystem is exhausted, refraining from log rotation\n");
 			} else if (rot->next_relevant_log) {
-				MARS_DBG("check switchover from '%s' to '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
-				if (_check_versionlink(global, parent->d_path, dent->d_serial, end_pos) > 0) {
+				MARS_DBG("check switchover from '%s' to '%s' (size = %lld, next_next = %p)\n", dent->d_path, rot->next_relevant_log->d_path, rot->next_relevant_log->new_stat.size, rot->next_next_relevant_log);
+				if ((rot->next_relevant_log->new_stat.size > 0 || rot->next_next_relevant_log) &&
+				    _check_versionlink(global, parent->d_path, dent->d_serial, end_pos) > 0) {
 					MARS_DBG("switching over from '%s' to next relevant transaction log '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
 					_update_all_links(global, parent->d_path, trans_brick, rot->next_relevant_log->d_rest, dent->d_serial + 1, true, true);
 #ifdef CONFIG_MARS_FAST_TRIGGER
