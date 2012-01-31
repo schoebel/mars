@@ -57,10 +57,41 @@ EXPORT_SYMBOL_GPL(brick_global_memlimit);
 static atomic_t mem_count[BRICK_DEBUG_MEM] = {};
 static atomic_t mem_free[BRICK_DEBUG_MEM] = {};
 static int  mem_len[BRICK_DEBUG_MEM] = {};
-#define PLUS_SIZE (2 * sizeof(int))
+#define PLUS_SIZE (4 * sizeof(int))
 #else
-#define PLUS_SIZE 0
+#define PLUS_SIZE (1 * sizeof(int))
 #endif
+
+static inline
+void *__brick_mem_alloc(int len)
+{
+	void *res;
+	if (len >= PAGE_SIZE) {
+		res = _brick_block_alloc(0, len, 0);
+	} else {
+#ifdef CONFIG_MARS_MEM_RETRY
+		for (;;) {
+			res = kmalloc(len, GFP_BRICK);
+			if (likely(res))
+				break;
+			msleep(1000);
+		}
+#else
+		res = kmalloc(len, GFP_BRICK);
+#endif
+	}
+	return res;
+}
+
+static inline
+void __brick_mem_free(void *data, int len)
+{
+	if (len >= PAGE_SIZE) {
+		_brick_block_free(data, len, 0);
+	} else {
+		kfree(data);
+	}
+}
 
 void *_brick_mem_alloc(int len, int line)
 {
@@ -68,21 +99,27 @@ void *_brick_mem_alloc(int len, int line)
 #ifdef CONFIG_DEBUG_KERNEL
 	might_sleep();
 #endif
-	res = kmalloc(len + PLUS_SIZE + sizeof(int), GFP_BRICK);
-#ifdef BRICK_DEBUG_MEM
+
+	res = __brick_mem_alloc(len + PLUS_SIZE);
+
 	if (likely(res)) {
+#ifdef BRICK_DEBUG_MEM
 		if (unlikely(line < 0))
 			line = 0;
 		else if (unlikely(line >= BRICK_DEBUG_MEM))
 			line = BRICK_DEBUG_MEM - 1;
-		INT_ACCESS(res, 0) = MAGIC_MEM;
-		INT_ACCESS(res, sizeof(int)) = line;
-		res += PLUS_SIZE;
+		INT_ACCESS(res, 0 * sizeof(int)) = MAGIC_MEM;
+		INT_ACCESS(res, 1 * sizeof(int)) = len;
+		INT_ACCESS(res, 2 * sizeof(int)) = line;
+		res += 3 * sizeof(int);
 		INT_ACCESS(res, len) = MAGIC_END;
 		atomic_inc(&mem_count[line]);
 		mem_len[line] = len;
-	}
+#else
+		INT_ACCESS(res, 0 * sizeof(int)) = len;
+		res += 1 * sizeof(int);
 #endif
+	}
 	return res;
 }
 EXPORT_SYMBOL_GPL(_brick_mem_alloc);
@@ -91,23 +128,33 @@ void _brick_mem_free(void *data, int cline)
 {
 	if (data) {
 #ifdef BRICK_DEBUG_MEM
-		void *test = data - PLUS_SIZE;
-		int magic = INT_ACCESS(test, 0);
-		int line = INT_ACCESS(test, sizeof(int));
+		void *test = data - 3 * sizeof(int);
+		int magic = INT_ACCESS(test, 0 * sizeof(int));
+		int len   = INT_ACCESS(test, 1 * sizeof(int));
+		int line  = INT_ACCESS(test, 2 * sizeof(int));
 		if (unlikely(magic != MAGIC_MEM)) {
-			BRICK_ERR("line %d memory corruption: magix %08x != %08x\n", cline, magic, MAGIC_STR);
+			BRICK_ERR("line %d memory corruption: magix %08x != %08x, len = %d\n", cline, magic, MAGIC_MEM, len);
 			return;
 		}
 		if (unlikely(line < 0 || line >= BRICK_DEBUG_MEM)) {
-			BRICK_ERR("line %d memory corruption: alloc line = %d\n", cline, line);
+			BRICK_ERR("line %d memory corruption: alloc line = %d, len = %d\n", cline, line, len);
 			return;
 		}
 		INT_ACCESS(test, 0) = 0xffffffff;
+		magic = INT_ACCESS(data, len);
+		if (unlikely(magic != MAGIC_END)) {
+			BRICK_ERR("line %d memory corruption: magix %08x != %08x, len = %d\n", cline, magic, MAGIC_END, len);
+			return;
+		}
+		INT_ACCESS(data, len) = 0xffffffff;
 		atomic_dec(&mem_count[line]);
 		atomic_inc(&mem_free[line]);
-		data = test;
+#else
+		void *test = data - 1 * sizeof(int);
+		int len   = INT_ACCESS(test, 0 * sizeof(int));
 #endif
-		kfree(data);
+		data = test;
+		__brick_mem_free(data, len + PLUS_SIZE);
 	}
 }
 EXPORT_SYMBOL_GPL(_brick_mem_free);
@@ -137,10 +184,19 @@ char *_brick_string_alloc(int len, int line)
 	len += sizeof(int) * 4;
 #endif
 
+#ifdef CONFIG_MARS_MEM_RETRY
+	for (;;) {
+#endif
 #ifdef CONFIG_DEBUG_KERNEL
-	res = kzalloc(len + 1024, GFP_BRICK);
+		res = kzalloc(len + 1024, GFP_BRICK);
 #else
-	res = kzalloc(len, GFP_BRICK);
+		res = kzalloc(len, GFP_BRICK);
+#endif
+#ifdef CONFIG_MARS_MEM_RETRY
+		if (likely(res))
+			break;
+		msleep(1000);
+	}
 #endif
 
 #ifdef BRICK_DEBUG_MEM
@@ -228,16 +284,27 @@ static int alloc_line[BRICK_MAX_ORDER+1] = {};
 #endif
 
 static inline
-void *__brick_block_alloc(int order)
+void *__brick_block_alloc(gfp_t gfp, int order)
 {
+	void *res;
 #ifdef BRICK_DEBUG_MEM
 	atomic_inc(&raw_count[order]);
 #endif
-#ifdef USE_KERNEL_PAGES
-	return (void*)__get_free_pages(GFP_BRICK, order);
-#else
-	return __vmalloc(PAGE_SIZE << order, GFP_BRICK, PAGE_KERNEL_IO);
+#ifdef CONFIG_MARS_MEM_RETRY
+	for (;;) {
 #endif
+#ifdef USE_KERNEL_PAGES
+		res = (void*)__get_free_pages(gfp, order);
+#else
+		res = __vmalloc(PAGE_SIZE << order, gfp, PAGE_KERNEL_IO);
+#endif
+#ifdef CONFIG_MARS_MEM_RETRY
+		if (likely(res))
+			break;
+		msleep(1000);
+	}
+#endif
+	return res;
 }
 
 static inline
@@ -338,7 +405,7 @@ int brick_mem_reserve(struct mem_reservation *r)
 		max = freelist_max[order] - atomic_read(&freelist_count[order]);
 		if (max >= 0) {
 			for (i = 0; i < max; i++) {
-				void *data = __brick_block_alloc(order);
+				void *data = __brick_block_alloc(GFP_KERNEL, order);
 				if (likely(data)) {
 					_put_free(data, order);
 				} else {
@@ -408,7 +475,7 @@ void *_brick_block_alloc(loff_t pos, int len, int line)
 	data = _get_free(order);
 	if (!data)
 #endif
-		data = __brick_block_alloc(order);
+		data = __brick_block_alloc(GFP_BRICK, order);
 
 #ifdef BRICK_DEBUG_MEM
 	if (likely(data) && order > 0) {

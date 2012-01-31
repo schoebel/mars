@@ -16,6 +16,13 @@ config MARS_BIGMODULE
 	---help---
 	Normally ON. Switch off only for EXPERIMENTS!
 
+config MARS_MEM_RETRY
+	bool "make MARS memory allocation more robust"
+	depends on MARS
+	default y
+	---help---
+	Normally ON. Switch only off for systems having very low memory.
+
 config MARS_LOGFILE
 	string "full path to the logfile"
 	depends on MARS

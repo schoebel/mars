@@ -4,8 +4,8 @@
 
 #define REGION_SIZE_BITS      (PAGE_SHIFT + 4)
 #define REGION_SIZE           (1 << REGION_SIZE_BITS)
-//#define TRANS_HASH_MAX        8192
-#define TRANS_HASH_MAX        16384
+#define TRANS_HASH_MAX        8192
+//#define TRANS_HASH_MAX        16384
 
 #include <linux/time.h>
 
