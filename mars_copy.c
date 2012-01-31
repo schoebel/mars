@@ -119,6 +119,7 @@ void _clear_all_mref(struct copy_brick *brick)
 {
 	int i;
 	for (i = 0; i < MAX_COPY_PARA; i++) {
+		brick->st[i].state = COPY_STATE_START;
 		_clear_mref(brick, i, 0);
 		_clear_mref(brick, i, 1);
 	}
@@ -353,7 +354,7 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 		}
 		mref0 = st->table[0];
 		if (unlikely(!mref0)) {
-			MARS_ERR("src buffer for write does not exist");
+			MARS_ERR("src buffer for write does not exist, state %d at index %d\n", state, index);
 			status = -EILSEQ;
 			goto done;
 		}
