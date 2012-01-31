@@ -686,7 +686,7 @@ int __make_copy(
 			       (const struct generic_brick_type*)&copy_brick_type,
 			       (const struct generic_brick_type*[]){NULL,NULL,NULL,NULL},
 			       "%s",
-			       global->exhausted ? -1 : 0,
+			       (global->exhausted || !switch_path[0]) ? -1 : 0,
 			       "%s",
 			       (const char *[]){"%s", "%s", "%s", "%s"},
 			       4,
@@ -3431,7 +3431,7 @@ void _make_alivelink(const char *name, loff_t val)
 		MARS_ERR("cannot make symlink paths\n");
 		goto err;
 	}
-	MARS_DBG("'%s' -> '%s'", src, dst);
+	MARS_DBG("'%s' -> '%s'\n", src, dst);
 	mars_symlink(src, dst, NULL, 0);
 err:
 	brick_string_free(dst);
