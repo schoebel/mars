@@ -493,6 +493,7 @@ done:
 
 struct mars_rotate {
 	struct mars_global *global;
+	struct copy_brick *sync_brick;
 	struct mars_dent *replay_link;
 	struct mars_dent *aio_dent;
 	struct aio_brick *aio_brick;
@@ -512,7 +513,9 @@ struct mars_rotate {
 	loff_t end_pos;
 	int max_sequence;
 	bool has_error;
-	bool try_sync;
+	bool allow_update;
+	bool allow_sync;
+	bool allow_replay;
 	bool do_replay;
 	bool todo_primary;
 	bool is_primary;
@@ -853,7 +856,7 @@ int check_logfile(struct mars_peerinfo *peer, struct mars_dent *remote_dent, str
 treat:
 	// (new) copy necessary?
 	status = 0;
-	if (!rot->try_sync) {
+	if (!rot->allow_update) {
 		MARS_DBG("logfiles are not for me.\n");
 		goto done;
 	}
@@ -1628,7 +1631,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	replay_link = (void*)mars_find_dent(global, replay_path);
 	if (unlikely(!replay_link || !replay_link->new_link)) {
 		MARS_DBG("replay status symlink '%s' does not exist (%p)\n", replay_path, replay_link);
-		rot->try_sync = false;
+		rot->allow_update = false;
 		status = -ENOENT;
 		goto done;
 	}
@@ -1951,8 +1954,9 @@ int _make_logging_status(struct mars_rotate *rot)
 			if (global->exhausted) {
 				MARS_DBG("filesystem is exhausted, refraining from log rotation\n");
 			} else if (rot->next_relevant_log) {
-				MARS_DBG("check switchover from '%s' to '%s' (size = %lld, next_next = %p)\n", dent->d_path, rot->next_relevant_log->d_path, rot->next_relevant_log->new_stat.size, rot->next_next_relevant_log);
+				MARS_DBG("check switchover from '%s' to '%s' (size = %lld, next_next = %p, allow_replay = %d)\n", dent->d_path, rot->next_relevant_log->d_path, rot->next_relevant_log->new_stat.size, rot->next_next_relevant_log, rot->allow_replay);
 				if ((rot->next_relevant_log->new_stat.size > 0 || rot->next_next_relevant_log) &&
+				    rot->allow_replay &&
 				    _check_versionlink(global, parent->d_path, dent->d_serial, end_pos) > 0) {
 					MARS_DBG("switching over from '%s' to next relevant transaction log '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
 					_update_all_links(global, parent->d_path, trans_brick, rot->next_relevant_log->d_rest, dent->d_serial + 1, true, true);
@@ -2293,9 +2297,9 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	struct trans_logger_brick *trans_brick;
 	int status = -EINVAL;
 
-	CHECK_PTR(parent, done);
+	CHECK_PTR(parent, err);
 	rot = parent->d_private;
-	CHECK_PTR(rot, done);
+	CHECK_PTR(rot, err);
 	trans_brick = rot->trans_brick;
 	status = 0;
 	if (!trans_brick) {
@@ -2344,22 +2348,20 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		}
 
 		do_start = (!rot->do_replay ||
-			    (rot->start_pos != rot->end_pos && _check_allow(global, parent, "allow-replay")));
-		MARS_DBG("do_start = %d\n", (int)do_start);
+			    (rot->start_pos != rot->end_pos &&
+			     rot->allow_replay &&
+			     _check_allow(global, parent, "allow-replay")));
+
+		MARS_DBG("rot->do_replay = %d rot->start_pos = %lld rot->end_pos = %lld rot->allow_replay = %d | do_start = %d\n", rot->do_replay, rot->start_pos, rot->end_pos, rot->allow_replay, do_start);
 
 		if (do_start) {
 			status = _start_trans(rot);
-#if 0 // silly idea!
-			if (status >= 0) {
-				status = _update_all_links(global, parent->d_path, trans_brick, NULL, 0, true, true);
-			}
-#endif
 		}
-	} else {
-		MARS_DBG("trans_brick %d %d %d\n", trans_brick->power.button, trans_brick->power.led_on, trans_brick->power.led_off);
 	}
 
 done:
+	rot->allow_sync = (rot->trans_brick && rot->trans_brick->power.led_off);
+err:
 	return status;
 }
 
@@ -2701,7 +2703,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 
 	rot = dent->d_parent->d_private;
 	if (rot) {
-		rot->try_sync = true;
+		rot->allow_update = true;
 	}
 
 	/* Sync necessary?
@@ -2742,6 +2744,13 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	}
 	peer = connect_dent->new_link;
 
+	/* Disallow contemporary sync & logfile_apply
+	 */
+	if (do_start && !rot->allow_sync && (!rot->sync_brick || rot->sync_brick->power.led_off)) {
+		MARS_WRN("cannot start sync because logfile application is running!\n");
+		do_start = false;
+	}
+
 	/* Start copy
 	 */
 	src = path_make("data-%s@%s", peer, peer);
@@ -2755,11 +2764,13 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	if (unlikely(!src || !dst || !copy_path || !switch_path))
 		goto done;
 
-	MARS_DBG("initial sync '%s' => '%s' do_start = %d\n", src, dst, do_start);
+	MARS_DBG("initial sync '%s' => '%s' rot->allow_sync = %d do_start = %d\n", src, dst, rot->allow_sync, do_start);
 
 	{
 		const char *argv[2] = { src, dst };
 		status = __make_copy(global, dent, do_start ? switch_path : "", copy_path, dent->d_parent->d_path, argv, start_pos, &copy);
+		rot->sync_brick = copy;
+		rot->allow_replay = (!copy || copy->power.led_off);
 	}
 
 	/* Update syncstatus symlink
