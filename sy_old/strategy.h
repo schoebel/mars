@@ -56,7 +56,7 @@ struct mars_global {
 	loff_t total_space;
 	loff_t remaining_space;
 	int global_version;
-	volatile bool main_trigger;
+	bool main_trigger;
 	bool exhausted;
 };
 

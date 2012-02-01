@@ -42,8 +42,8 @@ struct copy_mref_aspect {
 struct copy_brick {
 	MARS_BRICK(copy);
 	// parameters
-	volatile loff_t copy_start;
-	volatile loff_t copy_end; // stop working if == 0
+	loff_t copy_start;
+	loff_t copy_end; // stop working if == 0
 	int io_prio;
 	int append_mode; // 1 = passively, 2 = actively
 	bool verify_mode;
@@ -55,8 +55,8 @@ struct copy_brick {
 	bool low_dirty;
 	bool is_aborting;
 	// internal
-	volatile bool trigger;
-	volatile unsigned long clash;
+	bool trigger;
+	unsigned long clash;
 	atomic_t io_flight;
 	atomic_t copy_flight;
 	long long last_jiffies;

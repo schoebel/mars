@@ -62,7 +62,7 @@ struct aio_output {
 	struct aio_threadinfo tinfo[3];
 	aio_context_t ctxp;
 	wait_queue_head_t fdsync_event;
-	volatile bool fdsync_active;
+	bool fdsync_active;
 	// statistics
 	atomic_t total_read_count;
 	atomic_t total_write_count;
