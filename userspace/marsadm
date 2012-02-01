@@ -157,57 +157,111 @@ sub _check_all_mtimes {
   return $res;
 }
 
+sub _get_minmax {
+  my ($res, $glob, $take_symlink) = @_;
+  my $min = -1;
+  my $max = -1;
+  my @paths = glob($glob) or die "cannot find '$glob'\n";
+  foreach my $path (@paths) {
+    my $nr = $path;
+    if($take_symlink) {
+      $nr = readlink($path) or die "cannot read symlink '$path'\n";
+    }
+    $nr =~ s:^.*[a-z]+-([0-9]+)(-[^/]*)?$:$1:;
+    $min = $nr if ($nr < $min || $min < 0);
+    $max = $nr if ($nr > $max || $max < 0);
+  }
+  return ($min, $max);
+}
+
+sub get_minmax_logfiles {
+  my ($res) = @_;
+  return _get_minmax($res, "$mars/resource-$res/log-*", 0);
+}
+
+sub get_minmax_versions {
+  my ($res) = @_;
+  return _get_minmax($res, "$mars/resource-$res/version-*", 0);
+}
+
+sub get_minmax_any {
+  my ($res) = @_;
+  return _get_minmax($res, "$mars/resource-$res/{log,version}-*", 0);
+}
+
+sub get_minmax_replays {
+  my ($res) = @_;
+  return _get_minmax($res, "$mars/resource-$res/replay-*", 1);
+}
+
 sub check_splitbrain {
-  my ($res, $host) = @_;
-  while(1) {
+  # check only the chain of $host (or all hosts if unset)
+  # check up to $sequence (or for all if unset)
+  my ($res, $host, $sequence) = @_;
+  if(!$sequence) {
     my $pri = "$mars/resource-$res/primary";
     my $old = readlink($pri) or die "cannot determine current primary\n";
     _primary_res($res, "(none)", $pri, $old) unless $old eq "(none)";
     _trigger();
     sleep(5);
-    if(!_check_all_mtimes("$mars/resource-$res/[lvr]*", 60)) {
+    while(!_check_all_mtimes("$mars/resource-$res/[lvr]*", 60)) {
       print "resource directory $res not stable, waiting....\n";
       sleep(5);
-      next;
     }
-    my $max = 0;
-    my @list = glob("$mars/resource-$res/replay-*");
-    foreach my $l (@list) {
-      my $cont = readlink($l);
-      $cont =~ s/^log-([0-9]+)-.*$/$1/;
-      $max = $cont if $cont > $max;
+    while(1) {
+      my ($min_log, $max_log) = get_minmax_logfiles($res);
+      my ($min_ver, $max_ver) = get_minmax_versions($res);
+      my ($min_rep, $max_rep) = get_minmax_replays($res);
+      if($min_ver > $min_log || $max_ver < $max_log) {
+	print "some version links are missing...\n";
+	sleep(10);
+	next;
+      }
+      if($max_log >= $max_rep) {
+	print "resource $res: logfile $max_log is present.\n";
+	last;
+      }
+      print "resource $res: logfile $max_log is not yet transferred (need $max_rep), waiting....\n";
+      sleep(10);
     }
-    my $last = sprintf("$mars/resource-$res/log-%09d-*", $max);
-    if(glob($last)) {
-      print "resource $res: logfile $max is present.\n";
-      last;
-    }
-    print "resource $res: logfile $max is not yet transferred, waiting....\n";
-    sleep(10);
-  }
-  my @links = glob("$mars/resource-$res/version-[0-9]*-$host");
+  } # $sequence == 0
+
+  my $glob = "$mars/resource-$res/version-[0-9]*";
+  my @links = glob($glob);
   if(!@links) {
     @links = glob("$mars/resource-$res/version-[0-9]*-*");
     die "no version information available\n" unless @links;
     print "assuming that I am primary for the first time\n";
     return;
   }
-  my $link = pop @links;
-  die "cannot pop last link element\n" unless $link;
-  my $version = readlink($link);
-  die "cannot get version information for $link\n" unless $version;
-  my $serial = $link;
-  $serial =~ s:$mars/resource-$res/version-([0-9]+).*$:$1:;
-  print "my    version: $link -> $version\n";
-  foreach my $other (glob("$mars/resource-$res/version-[0-9]*-*")) {
-    $other =~ m:$mars/resource-$res/version-([0-9]+)-(.*)$:;
-    my $other_serial = $1;
-    my $other_host = $2;
-    next if $serial ne $other_serial;
-    next if $host eq $other_host;
-    my $other_version = readlink($other);
-    print "other version: $other -> $other_version\n";
-    die "split brain detected: $other_version != $version\n" unless $version eq $other_version;
+
+  @links = sort(@links);
+  foreach my $link (@links) {
+    my $nr = $link;
+    $nr =~ s:^.*[a-z]+-([0-9]+)(-[^/]*)?$:$1:;
+    $nr = int($nr);
+
+    next if ($sequence && $nr > $sequence);
+
+    my $fromhost = $link;
+    $fromhost =~ s:^.*version-[0-9]*-(.*)$:$1:;
+
+    my $version = readlink($link) or die  "cannot read symlink '$link'\n";
+    my $otherhost = $version;
+    $otherhost =~ s:^[^,]*,([^,]*),.*$:$1:;
+    my $otherlink = sprintf("$mars/resource-$res/version-%09d-$otherhost", $nr);
+    my $otherversion = readlink($otherlink) or die  "cannot read symlink '$otherlink'\n";
+
+    # ignore foreign mismatches
+    if($host) {
+      next if $fromhost ne $host;
+    }
+
+    # by defintion, the originator of a logfile is always "right"
+    next if $otherhost eq $fromhost;
+
+    # final check
+    die "splitbrain at sequence $nr detected\n" unless $version eq $otherversion;
   }
 }
 
@@ -226,6 +280,12 @@ sub get_size {
     /p/i and $arg *= 1024 * 1024 * 1024 * 1024 * 1024, last SWITCH;
   }
   return $arg;
+}
+
+sub get_peers {
+  my ($res) = @_;
+  my @list = glob("$mars/resource-$res/connect-*");
+  return map { $_ =~ s:$mars/resource-$res/connect-::; $_ } @list;
 }
 
 ##################################################################
@@ -295,6 +355,7 @@ sub _create_cluster {
   system("mkdir $mars/defaults-$host") unless -d "$mars/defaults-$host";
   system("mkdir $mars/todo-global") unless -d "$mars/todo-global";
   symlink($ip, "$mars/ips/ip-$host");
+  symlink("1", "$mars/todo-global/deleted-$host");
 }
 
 sub create_cluster {
@@ -309,8 +370,8 @@ sub join_cluster {
     die "Sorry, some resources already exist!\nThis is dangerous!\nIf you are sure that no resource clash is possible, re-invoke this command with '--force' option\n" unless $force;
   }
   print "joining cluster via rsync (peer='$peer')\n";
-  # check connect
-  system("ssh $peer uname -a") == 0 or die "oops, no connect to $peer ...\n";
+  # check connection
+  system("ssh $peer uname -a") == 0 or die "oops, no connection to $peer ...\n";
   _create_cluster(@_);
   system("rsync --recursive --links -v $peer:$mars/ips/ $mars/ips/") == 0 or die "oops\n";
   symlink($ip, "$mars/ips/ip-$host");
@@ -493,7 +554,17 @@ sub logdelete_res {
   $nr =~ s/^.*log-([0-9]+)-.+$/$1/;
   my $max = _allowed_logdelete(@_);
   die "only logfile numbers truly smaller than $max are allowed to be deleted\n" unless $nr < $max;
+
+  # is there any splitbrain up to $nr?
+  check_splitbrain($res, "", $nr);
+
   _create_delete($first);
+  if($nr > 1) {
+    foreach my $peer (get_peers($res)) {
+      my $versionlink = sprintf("$mars/resource-$res/version-%09d-$peer", $nr - 1);
+      _create_delete($versionlink);
+    }
+  }
 }
 
 sub attach_res {
@@ -606,7 +677,7 @@ sub primary_res {
     check_todo($res, "connect", 1, 1);
     _primary_res($res, "(none)", $pri, $old) unless $old eq "(none)";
     check_primary_gone($res);
-    check_splitbrain($res, $host);
+    check_splitbrain($res, $host, 0);
   }
   _primary_res($res, $host, $pri, $old);
 }
