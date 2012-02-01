@@ -364,13 +364,13 @@ EXPORT_SYMBOL_GPL(usebuf_brick_type);
 
 int __init init_mars_usebuf(void)
 {
-	printk(MARS_INFO "init_usebuf()\n");
+	MARS_INF("init_usebuf()\n");
 	return usebuf_register_brick_type();
 }
 
 void __exit exit_mars_usebuf(void)
 {
-	printk(MARS_INFO "exit_usebuf()\n");
+	MARS_INF("exit_usebuf()\n");
 	usebuf_unregister_brick_type();
 }
 

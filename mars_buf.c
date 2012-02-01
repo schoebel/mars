@@ -1117,13 +1117,13 @@ EXPORT_SYMBOL_GPL(buf_brick_type);
 
 int __init init_mars_buf(void)
 {
-	printk(MARS_INFO "init_buf()\n");
+	MARS_INF("init_buf()\n");
 	return buf_register_brick_type();
 }
 
 void __exit exit_mars_buf(void)
 {
-	printk(MARS_INFO "exit_buf()\n");
+	MARS_INF("exit_buf()\n");
 	buf_unregister_brick_type();
 }
 
