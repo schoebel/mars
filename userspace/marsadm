@@ -548,23 +548,29 @@ sub logdelete_res {
   my ($cmd, $res) = @_;
   my @paths = glob("$mars/resource-$res/log-*") or die "cannot find any logfiles\n";
   @paths = sort(@paths);
-  my $first = shift(@paths);
-  print "chosen '$first' for deletion\n";
-  my $nr = $first;
-  $nr =~ s/^.*log-([0-9]+)-.+$/$1/;
   my $max = _allowed_logdelete(@_);
-  die "only logfile numbers truly smaller than $max are allowed to be deleted\n" unless $nr < $max;
+  # is there any splitbrain up to $max-1?
+  check_splitbrain($res, "", $max - 1) if $cmd eq "log-delete-all";
+  my $nr;
 
-  # is there any splitbrain up to $nr?
-  check_splitbrain($res, "", $nr);
+  do {
+    my $first = shift(@paths);
+    print "chosen '$first' for deletion\n";
+    $nr = $first;
+    $nr =~ s/^.*log-([0-9]+)-.+$/$1/;
+    die "only logfile sequence numbers truly smaller than $max are allowed to be deleted\n" unless $nr < $max;
 
-  _create_delete($first);
-  if($nr > 1) {
-    foreach my $peer (get_peers($res)) {
-      my $versionlink = sprintf("$mars/resource-$res/version-%09d-$peer", $nr - 1);
-      _create_delete($versionlink);
+    # is there any splitbrain up to $nr?
+    check_splitbrain($res, "", $nr) unless $cmd eq "log-delete-all";
+
+    _create_delete($first);
+    if($nr > 1) {
+      foreach my $peer (get_peers($res)) {
+	my $versionlink = sprintf("$mars/resource-$res/version-%09d-$peer", $nr - 1);
+	_create_delete($versionlink);
+      }
     }
-  }
+  } while($cmd eq "log-delete-all" && $nr + 1 < $max);
 }
 
 sub attach_res {
@@ -714,6 +720,7 @@ my %cmd_table =
    "log-rotate"        => \&logrotate_res,
    "logdelete"         => \&logdelete_res,
    "log-delete"        => \&logdelete_res,
+   "log-delete-all"    => \&logdelete_res,
    "fake-sync"         => \&fake_local_res,
 
    # compatible keywords
