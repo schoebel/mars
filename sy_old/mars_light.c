@@ -2806,9 +2806,10 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	const char *response_path = NULL;
 	int max_serial = 0;
 
-	if (!global || !dent || !dent->new_link) {
+	if (!global || !dent || !dent->new_link || !dent->d_path) {
 		goto done;
 	}
+
 	target = _mars_find_dent(global, dent->new_link);
 	if (target) {
 		mars_unlink(dent->new_link);
@@ -2816,6 +2817,11 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 		MARS_DBG("target '%s' deleted and marked for removal\n", dent->new_link);
 	} else {
 		MARS_DBG("target '%s' does no longer exist\n", dent->new_link);
+		if (dent->d_serial < global->deleted_border) {
+			MARS_DBG("removing deletion symlink '%s'\n", dent->d_path);
+			dent->d_killme = true;
+			mars_unlink(dent->d_path);
+		}
 	}
 	
 	response_path = path_make("/mars/todo-global/deleted-%s", my_id());
@@ -2839,6 +2845,33 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	return 0;
 }
 
+static int check_deleted(void *buf, struct mars_dent *dent)
+{
+	struct mars_global *global = buf;
+	int serial = 0;
+	int status;
+
+	if (!global || !dent || !dent->new_link) {
+		goto done;
+	}
+
+	status = sscanf(dent->new_link, "%d", &serial);
+	if (status != 1 || serial <= 0) {
+		MARS_WRN("cannot parse symlink '%s' -> '%s'\n", dent->d_path, dent->new_link);
+		goto done;
+	}
+
+	/* Compute the minimum of the deletion progress among
+	 * the resource members.
+	 */
+	if (serial < global->deleted_min || !global->deleted_min)
+		global->deleted_min = serial;
+
+	
+ done:
+	return 0;
+}
+
 ///////////////////////////////////////////////////////////////////////
 
 // the order is important!
@@ -2848,7 +2881,7 @@ enum {
 	// global todos
 	CL_GLOBAL_TODO,
 	CL_GLOBAL_TODO_DELETE,
-	CL_GLOBAL_TODO_ITEMS,
+	CL_GLOBAL_TODO_DELETED,
 	// replacement for DNS in kernelspace
 	CL_IPS,
 	CL_PEERS,
@@ -2906,11 +2939,12 @@ static const struct light_class light_classes[] = {
 		.cl_father = CL_GLOBAL_TODO,
 		.cl_prepare = prepare_delete,
 	},
-	[CL_GLOBAL_TODO_ITEMS] = {
-		.cl_name = "",
-		.cl_len = 0, // catch any
+	[CL_GLOBAL_TODO_DELETED] = {
+		.cl_name = "deleted-",
+		.cl_len = 8,
 		.cl_type = 'l',
 		.cl_father = CL_GLOBAL_TODO,
+		.cl_prepare = check_deleted,
 	},
 
 	/* Directory containing the addresses of all peers
@@ -3491,8 +3525,10 @@ static int light_thread(void *data)
 #endif
 
 		MARS_DBG("-------- start worker ---------\n");
+		_global.deleted_min = 0;
 		status = mars_dent_work(&_global, "/mars", sizeof(struct mars_dent), light_checker, light_worker, &_global, 3);
-		MARS_DBG("-------- worker status = %d\n", status);
+		_global.deleted_border = _global.deleted_min;
+		MARS_DBG("-------- worker deleted_min = %d status = %d\n", _global.deleted_min, status);
 
 		if (!_global.global_power.button) {
 			status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&copy_brick_type, false);

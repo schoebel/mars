@@ -56,6 +56,8 @@ struct mars_global {
 	loff_t total_space;
 	loff_t remaining_space;
 	int global_version;
+	int deleted_border;
+	int deleted_min;
 	bool main_trigger;
 	bool exhausted;
 };
