@@ -1306,9 +1306,10 @@ void _create_new_logfile(const char *path)
 }
 
 static
-int _update_replaylink(const char *parent_path, const char *host, int sequence, loff_t start_pos, loff_t end_pos, bool check_exist)
+int _update_replaylink(struct mars_global *global, const char *parent_path, const char *host, int sequence, loff_t start_pos, loff_t end_pos, bool check_exist)
 {
 	struct timespec now = {};
+	struct mars_dent *check;
 	char *old = NULL;
 	char *new = NULL;
 	char *test = NULL;
@@ -1338,6 +1339,15 @@ int _update_replaylink(const char *parent_path, const char *host, int sequence, 
 		goto out;
 	}
 
+	/* Check whether something really has changed (avoid
+	 * useless/disturbing timestamp updates)
+	 */
+	check = mars_find_dent(global, new);
+	if (check && check->new_link && !strcmp(check->new_link, old)) {
+		MARS_DBG("replay symlink '%s' -> '%s' has not changed\n", old, new);
+		goto out;
+	}
+
 	get_lamport(&now);
 	status = mars_symlink(old, new, &now, 0);
 	if (status < 0) {
@@ -1360,6 +1370,7 @@ int _update_versionlink(struct mars_global *global, const char *parent_path, con
 	struct mars_dent *prev_link = NULL;
 	char *prev_digest = NULL;
 	struct timespec now = {};
+	struct mars_dent *check;
 	int i;
 	int status = -ENOMEM;
 	int len = 0;
@@ -1402,6 +1413,15 @@ int _update_versionlink(struct mars_global *global, const char *parent_path, con
 
 	new = path_make("%s/version-%09d-%s", parent_path, sequence, my_id());
 	if (!new) {
+		goto out;
+	}
+
+	/* Check whether something really has changed (avoid
+	 * useless/disturbing timestamp updates)
+	 */
+	check = mars_find_dent(global, new);
+	if (check && check->new_link && !strcmp(check->new_link, old)) {
+		MARS_DBG("version symlink '%s' -> '%s' has not changed\n", old, new);
 		goto out;
 	}
 
@@ -1467,7 +1487,7 @@ int __update_all_links(struct mars_global *global, const char *parent_path, stru
 
 	status = 0;
 	if (both)
-		status = _update_replaylink(parent_path, host, sequence, min_pos, max_pos, check_exist);
+		status = _update_replaylink(global, parent_path, host, sequence, min_pos, max_pos, check_exist);
 	status |= _update_versionlink(global, parent_path, host, sequence, max_pos, max_pos);
 	if (!status)
 		trans_input->last_jiffies = jiffies;
