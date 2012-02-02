@@ -6,6 +6,11 @@
 
 #include "lib_log.h"
 
+//#define BRICK_DEBUGGING
+//#define MARS_DEBUGGING
+//#define IO_DEBUGGING
+
+
 bool is_log_ready(struct log_status *logst)
 {
 	return logst->max_flying <= 0 ||
@@ -21,6 +26,16 @@ void exit_logst(struct log_status *logst)
 		if (!count++)
 			MARS_DBG("waiting for IO terminating...");
 		msleep(500);
+	}
+	if (logst->read_mref) {
+		MARS_DBG("putting read_mref\n");
+		GENERIC_INPUT_CALL(logst->input, mref_put, logst->read_mref);
+		logst->read_mref = NULL;
+	}
+	if (logst->log_mref) {
+		MARS_DBG("putting log_mref\n");
+		GENERIC_INPUT_CALL(logst->input, mref_put, logst->log_mref);
+		logst->log_mref = NULL;
 	}
 }
 EXPORT_SYMBOL_GPL(exit_logst);

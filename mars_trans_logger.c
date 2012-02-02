@@ -1975,8 +1975,8 @@ void _exit_inputs(struct trans_logger_brick *brick, bool force)
 	for (i = TL_INPUT_LOG1; i <= TL_INPUT_LOG2; i++) {
 		struct trans_logger_input *input = brick->inputs[i];
 		struct log_status *logst = &input->logst;
-		if (input->is_operating &&
-		   (force || !input->connect)) {
+		if (force ||
+		    (input->is_operating &&!input->connect)) {
 			MARS_DBG("cleaning up input %d (log = %d old = %d)\n", i, brick->log_input_nr, brick->old_input_nr);
 			exit_logst(logst);
 			input->is_operating = false;
