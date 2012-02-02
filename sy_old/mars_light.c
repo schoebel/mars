@@ -507,6 +507,7 @@ struct mars_rotate {
 	struct mars_dent *prev_log;
 	struct mars_dent *next_log;
 	struct if_brick *if_brick;
+	long long switchover_timeout;
 	loff_t total_space;
 	loff_t remaining_space;
 	loff_t start_pos;
@@ -1975,15 +1976,20 @@ int _make_logging_status(struct mars_rotate *rot)
 				MARS_DBG("filesystem is exhausted, refraining from log rotation\n");
 			} else if (rot->next_relevant_log) {
 				MARS_DBG("check switchover from '%s' to '%s' (size = %lld, next_next = %p, allow_replay = %d)\n", dent->d_path, rot->next_relevant_log->d_path, rot->next_relevant_log->new_stat.size, rot->next_next_relevant_log, rot->allow_replay);
-				if ((rot->next_relevant_log->new_stat.size > 0 || rot->next_next_relevant_log) &&
+				if ((rot->next_relevant_log->new_stat.size > 0 || rot->next_next_relevant_log || (long long)jiffies > rot->switchover_timeout + 30 * HZ) &&
 				    rot->allow_replay &&
 				    _check_versionlink(global, parent->d_path, dent->d_serial, end_pos) > 0) {
+					rot->switchover_timeout = 0;
 					MARS_DBG("switching over from '%s' to next relevant transaction log '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
 					_update_all_links(global, parent->d_path, trans_brick, rot->next_relevant_log->d_rest, dent->d_serial + 1, true, true);
 #ifdef CONFIG_MARS_FAST_TRIGGER
 					mars_trigger();
 					mars_remote_trigger();
 #endif
+				} else {
+					MARS_DBG("waiting for logfile to become stable\n");
+					if (!rot->switchover_timeout)
+						rot->switchover_timeout = jiffies;
 				}
 			} else if (rot->todo_primary) {
 				MARS_DBG("preparing new transaction log '%s' from version %d to %d\n", dent->d_path, dent->d_serial, dent->d_serial + 1);
