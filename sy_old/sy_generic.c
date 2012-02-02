@@ -864,6 +864,7 @@ int mars_free_brick(struct mars_brick *brick)
 {
 	struct mars_global *global;
 	int i;
+	int count;
 	int status;
 
 	if (!brick) {
@@ -873,7 +874,7 @@ int mars_free_brick(struct mars_brick *brick)
 	}
 
 	if (!brick->power.force_off || !brick->power.led_off) {
-		MARS_DBG("brick '%s' is not freeable\n", brick->brick_path);
+		MARS_WRN("brick '%s' is not freeable\n", brick->brick_path);
 		status = -ETXTBSY;
 		goto done;
 	}
@@ -882,10 +883,15 @@ int mars_free_brick(struct mars_brick *brick)
 	for (i = 0; i < brick->type->max_outputs; i++) {
 		struct mars_output *output = brick->outputs[i];
 		if (output && output->nr_connected > 0) {
-			MARS_DBG("brick '%s' not freeable, output %i is used\n", brick->brick_path, i);
+			MARS_WRN("brick '%s' not freeable, output %i is used\n", brick->brick_path, i);
 			status = -EEXIST;
 			goto done;
 		}
+	}
+
+	count = atomic_read(&brick->mref_object_layout.alloc_count);
+	if (count > 0) {
+		MARS_ERR("MEMLEAK: brick '%s' has %d mrefs allocated (total = %d)\n", brick->brick_path, count, atomic_read(&brick->mref_object_layout.total_alloc_count));
 	}
 
 	MARS_DBG("===> freeing brick name = '%s' path = '%s'\n", brick->brick_name, brick->brick_path);
@@ -906,18 +912,14 @@ int mars_free_brick(struct mars_brick *brick)
 		}
 	}
 
-#ifndef MEMLEAK // TODO: check whether crash remains possible
 	MARS_DBG("deallocate name = '%s' path = '%s'\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
 	brick_string_free(brick->brick_name);
 	brick_string_free(brick->brick_path);
-#endif
 
 	status = generic_brick_exit_full((void*)brick);
 
 	if (status >= 0) {
-#ifndef MEMLEAK // TODO: check whether crash remains possible
 		brick_mem_free(brick);
-#endif
 		mars_trigger();
 	} else {
 		MARS_ERR("error freeing brick, status = %d\n", status);

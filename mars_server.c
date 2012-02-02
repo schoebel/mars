@@ -145,7 +145,7 @@ int server_io(struct server_brick *brick, struct mars_socket *sock)
 	if (!brick->cb_running || !mars_socket_is_alive(sock))
 		goto done;
 
-	mref = server_alloc_mref(brick, &brick->mref_object_layout);
+	mref = server_alloc_mref(brick);
 	status = -ENOMEM;
 	if (!mref)
 		goto done;

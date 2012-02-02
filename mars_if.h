@@ -61,7 +61,6 @@ struct if_input {
 	atomic_t total_mref_write_count;
 	spinlock_t req_lock;
 	struct semaphore kick_sem;
-	struct generic_object_layout mref_object_layout;
 	struct mars_info info;
 	spinlock_t hash_lock[IF_HASH_MAX];
 	struct list_head hash_table[IF_HASH_MAX];

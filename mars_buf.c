@@ -621,7 +621,7 @@ static int _buf_make_io(struct buf_brick *brick, struct buf_head *bf, void *star
 		struct buf_mref_aspect *mref_a;
 		int len;
 
-		mref = buf_alloc_mref(brick, &brick->mref_object_layout);
+		mref = buf_alloc_mref(brick);
 		if (unlikely(!mref))
 			break;
 

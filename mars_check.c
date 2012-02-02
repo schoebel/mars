@@ -152,7 +152,7 @@ static int check_watchdog(void *data)
 				mref_a->last_jiffies = now + 600 * HZ;
 				MARS_INF("================================\n");
 				CHECK_ERR(output, "mref %p callback is missing for more than %d seconds.\n", mref, timeout);
-				object_layout = (void*)mref->object_layout;
+				object_layout = mref->object_layout;
 				dump_mem(mref, object_layout->size_hint);
 				MARS_INF("================================\n");
 			}

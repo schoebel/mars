@@ -380,7 +380,7 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 			if (!mref) {
 				int prefetch_len;
 				error = -ENOMEM;
-				mref = if_alloc_mref(brick, &input->mref_object_layout);
+				mref = if_alloc_mref(brick);
 				if (unlikely(!mref)) {
 					up(&input->kick_sem);
 					goto err;

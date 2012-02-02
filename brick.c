@@ -366,21 +366,6 @@ EXPORT_SYMBOL_GPL(generic_brick_exit_recursively);
 
 ////////////////////////////////////////////////////////////////////////
 
-// object_layout init stuff
-
-void init_generic_object_layout(struct generic_object_layout *lay, const struct generic_object_type *type)
-{
-}
-EXPORT_SYMBOL_GPL(init_generic_object_layout);
-
-void exit_generic_object_layout(struct generic_object_layout *lay)
-{
-}
-EXPORT_SYMBOL_GPL(exit_generic_object_layout);
-
-
-////////////////////////////////////////////////////////////////////////
-
 // default implementations
 
 struct generic_object *generic_alloc(struct generic_brick *brick, struct generic_object_layout *object_layout, const struct generic_object_type *object_type)
@@ -407,6 +392,7 @@ struct generic_object *generic_alloc(struct generic_brick *brick, struct generic
 		goto err;
 
 	atomic_inc(&object_layout->alloc_count);
+	atomic_inc(&object_layout->total_alloc_count);
 
 	object = data;
 	object->object_type = object_type;

@@ -63,7 +63,6 @@ struct copy_brick {
 	wait_queue_head_t event;
 	struct semaphore mutex;
 	struct task_struct *thread;
-	struct generic_object_layout mref_object_layout;
 	struct copy_state st[MAX_COPY_PARA];
 };
 

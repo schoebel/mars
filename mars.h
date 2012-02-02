@@ -74,14 +74,6 @@
 
 extern const struct generic_object_type mref_type;
 
-struct mref_aspect {
-	GENERIC_ASPECT(mref);
-};
-
-struct mref_object_layout {
-	GENERIC_OBJECT_LAYOUT(mref);
-};
-
 #ifdef MARS_TRACING
 
 extern unsigned long long start_trace_clock;
@@ -144,6 +136,7 @@ struct mars_info {
 
 #define MARS_BRICK(BRITYPE)						\
 	GENERIC_BRICK(BRITYPE);						\
+	struct generic_object_layout mref_object_layout;		\
 	struct list_head global_brick_link;				\
 	struct list_head dent_brick_link;				\
 	const char *brick_path;						\
@@ -216,8 +209,6 @@ DECLARE_BRICK_FUNCTIONS(BRITYPE);				        \
 #define MARS_TYPES(BRITYPE)						\
 									\
 _MARS_TYPES(BRITYPE)						        \
-									\
-struct BRITYPE##_object_layout;						\
 									\
 DECLARE_ASPECT_FUNCTIONS(BRITYPE,mref);					\
 extern int init_mars_##BRITYPE(void);					\

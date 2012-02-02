@@ -100,7 +100,6 @@ struct log_status {
 	// internal
 	struct mars_input *input;
 	struct mars_brick *brick;
-	struct generic_object_layout ref_object_layout;
 	struct mars_info info;
 	int offset;
 	int validflag_offset;

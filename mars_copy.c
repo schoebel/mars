@@ -196,7 +196,7 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 	if (brick->clash || !tmp_pos)
 		goto done;
 
-	mref = copy_alloc_mref(brick, &brick->mref_object_layout);
+	mref = copy_alloc_mref(brick);
 	status = -ENOMEM;
 	if (unlikely(!mref))
 		goto done;

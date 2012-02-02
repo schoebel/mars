@@ -191,7 +191,6 @@ struct trans_logger_input {
 	bool is_operating;
 
 	// private
-	struct generic_object_layout sub_layout;
 	struct log_status logst;
 	spinlock_t pos_lock;
 	struct list_head pos_list;

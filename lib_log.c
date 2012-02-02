@@ -22,7 +22,6 @@ void exit_logst(struct log_status *logst)
 			MARS_DBG("waiting for IO terminating...");
 		msleep(500);
 	}
-	exit_generic_object_layout(&logst->ref_object_layout);
 }
 EXPORT_SYMBOL_GPL(exit_logst);
 
@@ -189,7 +188,7 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 		sema_init(&cb_info->mutex, 1);
 		atomic_set(&cb_info->refcount, 2);
 
-		mref = mars_alloc_mref(logst->brick, &logst->ref_object_layout);
+		mref = mars_alloc_mref(logst->brick);
 		if (unlikely(!mref)) {
 			MARS_ERR("no mref\n");
 			goto err;
@@ -488,7 +487,7 @@ restart:
 			logst->offset = 0;
 		}
 
-		mref = mars_alloc_mref(logst->brick, &logst->ref_object_layout);
+		mref = mars_alloc_mref(logst->brick);
 		if (unlikely(!mref)) {
 			MARS_ERR("no mref\n");
 			goto done;

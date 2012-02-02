@@ -41,7 +41,6 @@ struct buf_brick {
 	atomic_t hashed_count;
 	atomic_t nr_io_pending;
 	atomic_t nr_collisions;
-	struct generic_object_layout mref_object_layout;
 	struct mars_info base_info;
 	bool got_info;
 

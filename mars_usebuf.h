@@ -21,7 +21,6 @@ struct usebuf_input {
 
 struct usebuf_output {
 	MARS_OUTPUT(usebuf);
-	struct generic_object_layout mref_object_layout;
 };
 
 MARS_TYPES(usebuf);

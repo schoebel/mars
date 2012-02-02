@@ -89,18 +89,15 @@ struct generic_object_type {
 #define GENERIC_OBJECT_LAYOUT(OBJTYPE)					\
 	int size_hint;							\
 	atomic_t alloc_count;						\
-	atomic_t free_count;						\
+	atomic_t total_alloc_count;					\
 
 struct generic_object_layout {
 	GENERIC_OBJECT_LAYOUT(generic);
 };
 
-extern void init_generic_object_layout(struct generic_object_layout *lay, const struct generic_object_type *type);
-extern void exit_generic_object_layout(struct generic_object_layout *lay);
-
 #define GENERIC_OBJECT(OBJTYPE)						\
 	const struct generic_object_type *object_type;			\
-	struct OBJTYPE##_object_layout *object_layout;			\
+	struct generic_object_layout *object_layout;			\
 	struct OBJTYPE##_aspect **aspects;				\
 	int aspect_nr_max;						\
 	int free_offset;						\
@@ -530,9 +527,9 @@ extern struct generic_aspect *generic_get_aspect(struct generic_brick *brick, st
 
 #define DECLARE_ASPECT_FUNCTIONS(BRITYPE,OBJTYPE)			\
 									\
-INLINE struct OBJTYPE##_object *BRITYPE##_alloc_##OBJTYPE(struct BRITYPE##_brick *brick, struct generic_object_layout *object_layout) \
+INLINE struct OBJTYPE##_object *BRITYPE##_alloc_##OBJTYPE(struct BRITYPE##_brick *brick) \
 {									\
-        return (void*)generic_alloc((struct generic_brick*)brick, object_layout, &OBJTYPE##_type); \
+        return (void*)generic_alloc((struct generic_brick*)brick, &brick->OBJTYPE##_object_layout, &OBJTYPE##_type); \
 }									\
 									\
 INLINE void BRITYPE##_free_##OBJTYPE(struct OBJTYPE##_object *object)   \
