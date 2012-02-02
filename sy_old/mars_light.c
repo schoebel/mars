@@ -1555,7 +1555,7 @@ int _check_versionlink(struct mars_global *global, const char *parent_path, int 
 		MARS_DBG("VERSION OK '%s'\n", my_data);
 		status = 1;
 	} else {
-		MARS_DBG("VERSION MISMATCH '%s' != '%s'\n", my_data, other_data);
+		MARS_WRN("VERSION MISMATCH '%s' != '%s' => check for SPLIT BRAIN!\n", my_data, other_data);
 		status = 0;
 	}
 
@@ -3540,6 +3540,8 @@ static int light_thread(void *data)
 		MARS_DBG("kill aio    bricks (when possible) = %d\n", status);
 		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&sio_brick_type, false);
 		MARS_DBG("kill sio    bricks (when possible) = %d\n", status);
+
+		proc_say_commit();
 
 		_show_status_all(&_global);
 #ifdef STAT_DEBUGGING

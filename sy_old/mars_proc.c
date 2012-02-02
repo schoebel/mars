@@ -17,11 +17,12 @@
 mars_info_fn mars_info = NULL;
 
 static
-int trigger_sysctl_handler(ctl_table *table,
-			       int write, 
-			       void __user *buffer,
-			       size_t *length,
-			       loff_t *ppos)
+int trigger_sysctl_handler(
+	ctl_table *table,
+	int write, 
+	void __user *buffer,
+	size_t *length,
+	loff_t *ppos)
 {
 	ssize_t res = 0;
 	size_t len = *length;
@@ -81,12 +82,88 @@ done:
 }
 
 static
+int _proc_sysctl_handler(
+	int class,
+	int write, 
+	void __user *buffer,
+	size_t *length,
+	loff_t *ppos)
+{
+	ssize_t res = 0;
+	size_t len = *length;
+
+	MARS_DBG("write = %d len = %ld pos = %lld\n", write, len, *ppos);
+
+	if (!len || *ppos > 0) {
+		goto done;
+	}
+
+	if (write) {
+		res = len; // fake consumption of all data
+	} else {
+		int len;
+		const char *answer = proc_say_get(class, &len);
+
+		if (answer) {
+			res = len;
+			if (copy_to_user(buffer, answer, len)) {
+				MARS_ERR("write %d bytes at %p failed\n", len, answer);
+				res = -EFAULT;
+			}
+		}
+	}
+	
+done:
+	MARS_DBG("res = %ld\n", res);
+	*length = res;
+	if (res >= 0) {
+	        *ppos += res;
+		return 0;
+	}
+	return res;
+}
+
+static
+int warnings_sysctl_handler(
+	ctl_table *table,
+	int write, 
+	void __user *buffer,
+	size_t *length,
+	loff_t *ppos)
+{
+	return _proc_sysctl_handler(0, write, buffer, length, ppos);
+}
+
+static
+int errors_sysctl_handler(
+	ctl_table *table,
+	int write, 
+	void __user *buffer,
+	size_t *length,
+	loff_t *ppos)
+{
+	return _proc_sysctl_handler(1, write, buffer, length, ppos);
+}
+
+static
 ctl_table mars_table[] = {
 	{
 		.ctl_name       = CTL_UNNUMBERED,
 		.procname	= "trigger",
 		.mode		= 0200,
 		.proc_handler	= &trigger_sysctl_handler,
+	},
+	{
+		.ctl_name       = CTL_UNNUMBERED,
+		.procname	= "warnings",
+		.mode		= 0400,
+		.proc_handler	= &warnings_sysctl_handler,
+	},
+	{
+		.ctl_name       = CTL_UNNUMBERED,
+		.procname	= "errors",
+		.mode		= 0400,
+		.proc_handler	= &errors_sysctl_handler,
 	},
 	{}
 };

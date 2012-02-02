@@ -30,13 +30,13 @@
 #define INT_ACCESS(ptr,offset) (*(int*)(((char*)(ptr)) + (offset)))
 
 #define _BRICK_FMT(_fmt) __BASE_FILE__ " %d %s(): " _fmt, __LINE__, __FUNCTION__
-#define _BRICK_MSG(_dump, PREFIX, _fmt, _args...) do { say(PREFIX _BRICK_FMT(_fmt), ##_args); if (_dump) dump_stack(); } while (0)
+#define _BRICK_MSG(_class, _dump, PREFIX, _fmt, _args...) do { say(_class, PREFIX _BRICK_FMT(_fmt), ##_args); if (_dump) dump_stack(); } while (0)
 #define BRICK_ERROR   "MEM_ERROR "
 #define BRICK_WARNING "MEM_WARN  "
 #define BRICK_INFO    "MEM_INFO  "
-#define BRICK_ERR(_fmt, _args...) _BRICK_MSG(true,  BRICK_ERROR,   _fmt, ##_args)
-#define BRICK_WRN(_fmt, _args...) _BRICK_MSG(false, BRICK_WARNING, _fmt, ##_args)
-#define BRICK_INF(_fmt, _args...) _BRICK_MSG(false, BRICK_INFO,    _fmt, ##_args)
+#define BRICK_ERR(_fmt, _args...) _BRICK_MSG(1,  true,  BRICK_ERROR,   _fmt, ##_args)
+#define BRICK_WRN(_fmt, _args...) _BRICK_MSG(0,  false, BRICK_WARNING, _fmt, ##_args)
+#define BRICK_INF(_fmt, _args...) _BRICK_MSG(-1, false, BRICK_INFO,    _fmt, ##_args)
 
 /////////////////////////////////////////////////////////////////////////
 

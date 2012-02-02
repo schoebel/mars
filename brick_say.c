@@ -31,7 +31,47 @@ static int say_index[NR_CPUS] = {};
 static int dump_max = 5;
 static atomic_t overflow = ATOMIC_INIT(0);
 
+static spinlock_t proc_lock = SPIN_LOCK_UNLOCKED;
+static char *proc_buf1[MAX_SAY_CLASS] = {};
+static char *proc_buf2[MAX_SAY_CLASS] = {};
+static int proc_index1[MAX_SAY_CLASS] = {};
+static int proc_index2[MAX_SAY_CLASS] = {};
+static long long proc_stamp[MAX_SAY_CLASS] = {};
+
 static struct file *log_file = NULL;
+
+const char *proc_say_get(int class, int *len)
+{
+	*len = 0;
+	if (class >= 0 && class < MAX_SAY_CLASS) {
+		*len = proc_index2[class];
+		return proc_buf2[class];
+	}
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(proc_say_get);
+
+void proc_say_commit(void)
+{
+	unsigned long flags;
+	int class;
+	
+	spin_lock_irqsave(&proc_lock, flags);
+
+	for (class = 0; class < MAX_SAY_CLASS; class++) {
+		char *tmp = proc_buf1[class];
+		if (!tmp || (!proc_index1[class] && proc_stamp[class] - (long long)jiffies < 60 * HZ))
+			continue;
+		proc_buf1[class] = proc_buf2[class];
+		proc_buf2[class] = tmp;
+		proc_index2[class] = proc_index1[class];
+		proc_index1[class] = 0;
+		proc_stamp[class] = jiffies;
+	}
+
+	spin_unlock_irqrestore(&proc_lock, flags);
+}
+EXPORT_SYMBOL_GPL(proc_say_commit);
 
 static inline
 void say_alloc(unsigned long cpu, bool use_atomic)
@@ -119,11 +159,13 @@ void say_mark(void)
 EXPORT_SYMBOL_GPL(say_mark);
 
 static
-void _say(unsigned long cpu, va_list args, bool use_args, const char *fmt, ...)
+void _say(int class, unsigned long cpu, va_list args, bool use_args, const char *fmt, ...)  __attribute__ ((format (printf, 5, 6)));
+static
+void _say(int class, unsigned long cpu, va_list args, bool use_args, const char *fmt, ...)
 {
-	char *start;
+	char *start = NULL;
 	int rest;
-	int written;
+	int written = 0;
 
 	if (!say_buf[cpu])
 		goto done;
@@ -151,9 +193,33 @@ void _say(unsigned long cpu, va_list args, bool use_args, const char *fmt, ...)
 	} else {
 		// indicate overflow
 		start[0] = '\0';
+		written = 0;
 		atomic_inc(&overflow);
 	}
-done: ;
+
+done:
+	if (class >= 0 && class < MAX_SAY_CLASS && start && written > 0) {
+		char *pstart;
+		unsigned long flags;
+
+		spin_lock_irqsave(&proc_lock, flags);
+
+		if (!proc_buf1[class])
+			goto proc_done;
+
+		rest = SAY_BUFMAX - proc_index1[class];
+		if (rest <= 0)
+			goto proc_done;
+
+		if (likely(rest > written)) {
+			pstart = proc_buf1[class] + proc_index1[class];
+			memcpy(pstart, start, written);
+			pstart[written] = '\0';
+			proc_index1[class] += written;
+		}
+	proc_done:
+		spin_unlock_irqrestore(&proc_lock, flags);
+	}
 }
 
 static inline
@@ -163,12 +229,12 @@ void _check_overflow(unsigned long cpu)
 	atomic_xchg(&overflow, count);
 	if (unlikely(count > 0)) {
 		if (likely(say_index[cpu] < SAY_BUFMAX - 8)) {
-			_say(cpu, NULL, true, "#%d#\n", count);
+			_say(0, cpu, NULL, true, "#%d#\n", count);
 		}
 	}
 }
 
-void say(const char *fmt, ...)
+void say(int class, const char *fmt, ...)
 {
 	unsigned long cpu = get_cpu();
 	va_list args;
@@ -179,7 +245,7 @@ void say(const char *fmt, ...)
 	_check_overflow(cpu);
 
 	va_start(args, fmt);
-	_say(cpu, args, false, fmt);
+	_say(class, cpu, args, false, fmt);
 	va_end(args);
 
 	_say_mark(cpu);
@@ -188,7 +254,7 @@ done:
 }
 EXPORT_SYMBOL_GPL(say);
 
-void brick_say(bool dump, const char *prefix, const char *file, int line, const char *func, const char *fmt, ...)
+void brick_say(int class, bool dump, const char *prefix, const char *file, int line, const char *func, const char *fmt, ...) 
 {
 	struct timespec now = CURRENT_TIME;
 	unsigned long cpu = get_cpu();
@@ -205,9 +271,9 @@ void brick_say(bool dump, const char *prefix, const char *file, int line, const 
 	if (filelen > MAX_FILELEN)
 		file += filelen - MAX_FILELEN;
 
-	_say(cpu, NULL, true, "%ld.%09ld %s %s[%d] %s %d %s(): ", now.tv_sec, now.tv_nsec, prefix, current->comm, (int)cpu, file, line, func);
+	_say(class, cpu, NULL, true, "%ld.%09ld %s %s[%d] %s %d %s(): ", now.tv_sec, now.tv_nsec, prefix, current->comm, (int)cpu, file, line, func);
 	va_start(args, fmt);
-	_say(cpu, args, false, fmt);
+	_say(class, cpu, args, false, fmt);
 	va_end(args);
 
 	_say_mark(cpu);
@@ -239,9 +305,9 @@ void check_open(const char *filename, bool must_exist)
 	if (unlikely(IS_ERR(log_file))) {
 		int status = PTR_ERR(log_file);
 		log_file = NULL;
-		say("cannot open logfile '%s', status = %d\n", filename, status);
+		say(1, "cannot open logfile '%s', status = %d\n", filename, status);
 	} else {
-		say("opened logfile '%s' %p\n", filename, log_file);
+		say(0, "opened logfile '%s' %p\n", filename, log_file);
 	}
 }
 
@@ -262,12 +328,12 @@ void check_close(const char *filename, bool force, bool re_open)
 	if (force) {
 		if (log_file) {
 			struct file *old;
-			say("closing logfile....\n");
+			say(0, "closing logfile....\n");
 			old = log_file;
 			log_file = NULL;
 			// FIXME: this may race against vfs_write(). Use rcu here.
 			filp_close(old, NULL);
-			say("closed logfile.\n");
+			say(0, "closed logfile.\n");
 		}
 		if (re_open)
 			check_open(filename, true);
@@ -276,6 +342,11 @@ void check_close(const char *filename, bool force, bool re_open)
 
 void init_say(void)
 {
+	int i;
+	for (i = 0; i < MAX_SAY_CLASS; i++) {
+		proc_buf1[i] = (void*)__get_free_pages(GFP_KERNEL, SAY_ORDER);
+		proc_buf2[i] = (void*)__get_free_pages(GFP_KERNEL, SAY_ORDER);
+	}
 	check_open(CONFIG_MARS_LOGFILE, true);
 }
 EXPORT_SYMBOL_GPL(init_say);
@@ -290,6 +361,14 @@ void exit_say(void)
 		say_buf[i] = NULL;
 	}
 	check_close(CONFIG_MARS_LOGFILE, true, false);
+	for (i = 0; i < MAX_SAY_CLASS; i++) {
+		if (proc_buf1[i])
+			__free_pages(virt_to_page((unsigned long)proc_buf1[i]), SAY_ORDER);
+		if (proc_buf2[i])
+			__free_pages(virt_to_page((unsigned long)proc_buf2[i]), SAY_ORDER);
+		proc_buf1[i] = NULL;
+		proc_buf2[i] = NULL;
+	}
 }
 EXPORT_SYMBOL_GPL(exit_say);
 

@@ -111,14 +111,14 @@ static void dump_mem(void *data, int len)
 		unsigned char byte = ((unsigned char*)data)[i];
 		if (!(i % 8)) {
 			if (tmp != buf) {
-				say("%4d: %s\n", i, buf);
+				say(-1, "%4d: %s\n", i, buf);
 			}
 			tmp = buf;
 		}
 		tmp += snprintf(tmp, 1024 - i * 3, " %02x", byte);
 	}
 	if (tmp != buf) {
-		say("%4d: %s\n", i, buf);
+		say(-1, "%4d: %s\n", i, buf);
 	}
 	brick_string_free(buf);
 }
