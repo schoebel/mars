@@ -35,7 +35,6 @@ extern char *my_id(void);
 	char *new_link;							\
 	char *old_link;							\
 	struct mars_global *d_global;					\
-	int  d_logfile_serial;						\
 	void *d_private;
 
 struct mars_dent {
