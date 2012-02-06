@@ -836,7 +836,7 @@ void pos_complete(struct trans_logger_mref_aspect *orig_mref_a)
 			MARS_ERR("cannot tell what input I am operating on\n");
 		} else {
 			loff_t finished = orig_mref_a->log_pos;
-			MARS_DBG("finished = %lld\n", finished);
+			MARS_IO("finished = %lld\n", finished);
 			if (finished <= log_input->replay_min_pos) {
 				MARS_ERR("backskip in log replay: %lld -> %lld\n", log_input->replay_min_pos, orig_mref_a->log_pos);
 			}
@@ -1932,7 +1932,7 @@ void _init_inputs(struct trans_logger_brick *brick)
 	int nr = brick->new_input_nr;
 
 	if (brick->log_input_nr != brick->old_input_nr) {
-		MARS_DBG("nothing to do, new_input_nr = %d log_input_nr = %d old_input_nr = %d\n", brick->new_input_nr, brick->log_input_nr, brick->old_input_nr);
+		MARS_IO("nothing to do, new_input_nr = %d log_input_nr = %d old_input_nr = %d\n", brick->new_input_nr, brick->log_input_nr, brick->old_input_nr);
 		goto done;
 	}
 	if (unlikely(nr < TL_INPUT_LOG1 || nr > TL_INPUT_LOG2)) {
@@ -1944,7 +1944,7 @@ void _init_inputs(struct trans_logger_brick *brick)
 	CHECK_PTR(input, done);
 
 	if (input->is_operating || !input->connect) {
-		MARS_DBG("cannot yet switch over to %d (is_operating = %d connect = %p)\n", nr, input->is_operating, input->connect);
+		MARS_IO("cannot yet switch over to %d (is_operating = %d connect = %p)\n", nr, input->is_operating, input->connect);
 		goto done;
 	}
 
