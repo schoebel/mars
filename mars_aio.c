@@ -336,7 +336,7 @@ int aio_start_thread(struct aio_output *output, int i, int(*fn)(void*))
 	spin_lock_init(&tinfo->lock);
 	init_waitqueue_head(&tinfo->event);
 	tinfo->terminated = false;
-	tinfo->thread = kthread_create(fn, tinfo, "mars_aio%d", index++);
+	tinfo->thread = kthread_create(fn, tinfo, "mars_%daio%d", i, index++);
 	if (IS_ERR(tinfo->thread)) {
 		int err = PTR_ERR(tinfo->thread);
 		MARS_ERR("cannot create thread\n");
@@ -849,11 +849,14 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 
 	// FIXME: check for allocation overflows
 
-	snprintf(res, 1024, "total reads = %d writes = %d allocs = %d delays = %d msleeps = %d fdsyncs = %d fdsync_waits = %d | flying reads = %d writes = %d allocs = %d q0 = %d/%d q1 = %d/%d q2 = %d/%d | %s\n",
+	snprintf(res, 1024, "total reads = %d writes = %d allocs = %d delays = %d msleeps = %d fdsyncs = %d fdsync_waits = %d | flying reads = %d writes = %d allocs = %d q0 = %d (%d - %d) q1 = %d (%d - %d) q2 = %d (%d - %d) | %s\n",
 		atomic_read(&output->total_read_count), atomic_read(&output->total_write_count), atomic_read(&output->total_alloc_count), atomic_read(&output->total_delay_count), atomic_read(&output->total_msleep_count), atomic_read(&output->total_fdsync_count), atomic_read(&output->total_fdsync_wait_count),
 		atomic_read(&output->read_count), atomic_read(&output->write_count), atomic_read(&output->alloc_count),
+		 atomic_read(&output->tinfo[0].total_enqueue_count) - atomic_read(&output->tinfo[0].total_dequeue_count),
 		atomic_read(&output->tinfo[0].total_enqueue_count), atomic_read(&output->tinfo[0].total_dequeue_count),
-		atomic_read(&output->tinfo[1].total_enqueue_count), atomic_read(&output->tinfo[2].total_dequeue_count),
+		atomic_read(&output->tinfo[1].total_enqueue_count) - atomic_read(&output->tinfo[1].total_dequeue_count),
+		atomic_read(&output->tinfo[1].total_enqueue_count), atomic_read(&output->tinfo[1].total_dequeue_count),
+		atomic_read(&output->tinfo[2].total_enqueue_count) - atomic_read(&output->tinfo[2].total_dequeue_count),
 		atomic_read(&output->tinfo[2].total_enqueue_count), atomic_read(&output->tinfo[2].total_dequeue_count),
 		sync ? sync : "");
 	

@@ -8,13 +8,13 @@
 //#define REPLAY_DEBUGGING
 //#define STAT_DEBUGGING // here means: display full statistics
 //#define HASH_DEBUGGING
-//#define REFCOUNT_BUG // FIXME!!!
 
 // variants
 #define KEEP_UNIQUE
 //#define WB_COPY
 #define LATER
 #define DELAY_CALLERS // this is _needed_
+//#define EARLY_COMPLETION
 
 // commenting this out is dangerous for data integrity! use only for testing!
 #define USE_MEMCPY
@@ -617,8 +617,8 @@ int trans_logger_ref_get(struct trans_logger_output *output, struct mref_object 
 
 	/* FIXME: THIS IS PROVISIONARY (use event instead)
 	 */
-	while (unlikely(!output->brick->power.led_on)) {
-		msleep(HZ);
+	while (unlikely(!brick->power.led_on)) {
+		msleep(HZ / 10);
 	}
 
 	return _write_ref_get(output, mref_a);
@@ -911,7 +911,7 @@ void free_writeback(struct writeback_info *wb)
 #if 1
 		while (!orig_mref_a->is_completed) {
 			MARS_ERR("request %lld (len = %d) was not completed, cleanup_count = %d\n", orig_mref->ref_pos, orig_mref->ref_len, cleanup_count);
-			msleep(10000);
+			msleep(3000);
 		}
 #endif
 		if (likely(wb->w_error >= 0)) {
@@ -1294,7 +1294,7 @@ void phase1_preio(void *private)
 	// signal completion to the upper layer
 	// FIXME: immediate error signalling is impossible here, but some delayed signalling should be possible as a workaround. Think!
 	CHECK_ATOMIC(&orig_mref_a->object->ref_count, 1);
-#ifdef REFCOUNT_BUG // FIXME!!!
+#ifdef EARLY_COMPLETION
 	_complete(brick, orig_mref_a, 0, true);
 	CHECK_ATOMIC(&orig_mref_a->object->ref_count, 1);
 #endif
@@ -1932,7 +1932,7 @@ void _init_inputs(struct trans_logger_brick *brick)
 	int nr = brick->new_input_nr;
 
 	if (brick->log_input_nr != brick->old_input_nr) {
-		MARS_DBG("nothing to do, new_input_nr = %d log_input_nr = &d old_input_nr = %d\n", brick->new_input_nr, brick->log_input_nr, brick->old_input_nr);
+		MARS_DBG("nothing to do, new_input_nr = %d log_input_nr = %d old_input_nr = %d\n", brick->new_input_nr, brick->log_input_nr, brick->old_input_nr);
 		goto done;
 	}
 	if (unlikely(nr < TL_INPUT_LOG1 || nr > TL_INPUT_LOG2)) {
@@ -2134,7 +2134,7 @@ void trans_logger_log(struct trans_logger_brick *brick)
 
 		delay_callers = LIMIT_FN(1, 1);
 		if (delay_callers != brick->delay_callers) {
-			MARS_DBG("mshadow_count = %d/%d global_mem = %lld/%lld stalling %d -> %d\n", atomic_read(&brick->mshadow_count), brick->shadow_mem_limit, atomic64_read(&brick->shadow_mem_used), brick_global_memlimit, brick->delay_callers, delay_callers);
+			MARS_DBG("mshadow_count = %d/%d global_mem = %ld/%lld stalling %d -> %d\n", atomic_read(&brick->mshadow_count), brick->shadow_mem_limit, atomic64_read(&brick->shadow_mem_used), brick_global_memlimit, brick->delay_callers, delay_callers);
 			brick->delay_callers = delay_callers;
 			wake_up_interruptible_all(&brick->worker_event);
 			wake_up_interruptible_all(&brick->caller_event);
@@ -2150,7 +2150,7 @@ void trans_logger_log(struct trans_logger_brick *brick)
 			brick->q_phase2.q_unlimited = unlimited;
 			brick->q_phase3.q_unlimited = unlimited;
 			brick->q_phase4.q_unlimited = unlimited;
-			MARS_DBG("mshadow_count = %d/%d global_mem = %lld/%lld unlimited %d -> %d\n", atomic_read(&brick->mshadow_count), brick->shadow_mem_limit, atomic64_read(&brick->shadow_mem_used), brick_global_memlimit, old_unlimited, unlimited);
+			MARS_DBG("mshadow_count = %d/%d global_mem = %ld/%lld unlimited %d -> %d\n", atomic_read(&brick->mshadow_count), brick->shadow_mem_limit, atomic64_read(&brick->shadow_mem_used), brick_global_memlimit, old_unlimited, unlimited);
 			old_unlimited = unlimited;
 			wake_up_interruptible_all(&brick->worker_event);
 			wake_up_interruptible_all(&brick->caller_event);
@@ -2325,6 +2325,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 	loff_t start_pos;
 	loff_t finished_pos;
 	long long old_jiffies = jiffies;
+	int backoff = 0;
 	int status = 0;
 
 	brick->replay_code = 0; // indicates "running"
@@ -2357,12 +2358,17 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		status = log_read(&input->logst, &lh, &buf, &len);
 		if (status == -EAGAIN) {
 			MARS_DBG("got -EAGAIN\n");
-			msleep(100);
+			msleep(backoff);
+			if (backoff < 3000) {
+				backoff += 100;
+			} else {
+				MARS_WRN("logfile replay not possible at position %lld (end_pos = %lld, remaining = %lld), please check/repair your logfile in userspace by some tool!\n", finished_pos, brick->replay_end_pos, brick->replay_end_pos - finished_pos);
+			}
 			continue;
 		}
 		if (unlikely(status < 0)) {
 			brick->replay_code = status;
-			MARS_ERR("cannot read logfile data, status = %d\n", status);
+			MARS_WRN("cannot read logfile data, status = %d\n", status);
 			break;
 		}
 
