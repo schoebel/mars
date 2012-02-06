@@ -4,12 +4,11 @@
 #include <linux/module.h>
 #include <linux/bio.h>
 
-#include "lib_log.h"
-
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
 //#define IO_DEBUGGING
 
+#include "lib_log.h"
 
 bool is_log_ready(struct log_status *logst)
 {
@@ -75,11 +74,34 @@ void put_log_cb_info(struct log_cb_info *cb_info)
 }
 
 static
+void _do_callbacks(struct log_cb_info *cb_info, int error, bool both)
+{
+	int i;
+	down(&cb_info->mutex);
+	for (i = 0; i < cb_info->nr_cb; i++) {
+		void (*pre_fn)(void *private);
+		void (*end_fn)(void *private, int error);
+		pre_fn = cb_info->preios[i];
+		cb_info->preios[i] = NULL;
+		if (pre_fn) {
+			pre_fn(cb_info->privates[i]);
+		}
+		if (!both)
+			continue;
+		end_fn = cb_info->endios[i];
+		cb_info->endios[i] = NULL;
+		if (end_fn) {
+			end_fn(cb_info->privates[i], error);
+		}
+	}
+	up(&cb_info->mutex);
+}
+
+static
 void log_write_endio(struct generic_callback *cb)
 {
 	struct log_cb_info *cb_info = cb->cb_private;
 	struct log_status *logst;
-	int i;
 
 	CHECK_PTR(cb_info, err);
 
@@ -94,15 +116,7 @@ void log_write_endio(struct generic_callback *cb)
 
 	MARS_IO("nr_cb = %d\n", cb_info->nr_cb);
 
-	down(&cb_info->mutex);
-	for (i = 0; i < cb_info->nr_cb; i++) {
-		void (*cbf)(void *private, int error) = cb_info->endios[i];
-		if (cbf) {
-			cbf(cb_info->privates[i], cb->cb_error);
-		}
-	}
-	cb_info->nr_cb = 0; // prevent late preio() callbacks
-	up(&cb_info->mutex);
+	_do_callbacks(cb_info, cb->cb_error, true);
 
  done:
 	put_log_cb_info(cb_info);
@@ -117,7 +131,6 @@ void log_flush(struct log_status *logst)
 	struct mref_object *mref = logst->log_mref;
 	struct log_cb_info *cb_info;
 	int gap;
-	int i;
 
 	if (!mref || !logst->count)
 		return;
@@ -151,21 +164,13 @@ void log_flush(struct log_status *logst)
 	mars_trace(mref, "log_flush");
 
 	atomic_inc(&logst->mref_flying);
+	_do_callbacks(cb_info, 0, false);
 	GENERIC_INPUT_CALL(logst->input, mref_io, mref);
 	GENERIC_INPUT_CALL(logst->input, mref_put, mref);
 
 	logst->offset = 0;
 	logst->count = 0;
 	logst->log_mref = NULL;
-
-	down(&cb_info->mutex);
-	for (i = 0; i < cb_info->nr_cb; i++) {
-		void (*cbf)(void *private) = cb_info->preios[i];
-		if (cbf) {
-			cbf(cb_info->privates[i]);
-		}
-	}
-	up(&cb_info->mutex);
 
 	put_log_cb_info(cb_info);
 }
@@ -408,6 +413,7 @@ int log_scan(void *buf, int len, struct log_header *lh, void **payload, int *pay
 		}
 		DATA_GET(buf, offset, total_len);
 		if (total_len > restlen) {
+			MARS_WRN("data at offset %d is longer than expected, total_len = %d restlen = %d\n", i, total_len, restlen);
 			return -EAGAIN;
 		}
 
@@ -511,6 +517,7 @@ restart:
 		chunk_offset = logst->log_pos & (loff_t)(logst->chunk_size - 1);
 		chunk_rest = logst->chunk_size - chunk_offset;
 		mref->ref_len = chunk_rest + logst->chunk_size * 4;
+		MARS_DBG("log_pos = %lld chunk_offset = %d chunk_rest = %d ref_len = %d\n", logst->log_pos, chunk_offset, chunk_rest, mref->ref_len);
 		mref->ref_prio = logst->io_prio;
 
 		status = GENERIC_INPUT_CALL(logst->input, mref_get, mref);
@@ -545,6 +552,7 @@ restart:
 		status = -EINVAL;
 	}
 	if (unlikely(status < 0)) {
+		MARS_DBG("ref_len = %d offset = %d status = %d\n", mref->ref_len, logst->offset, status);
 		goto done_put;
 	}
 
