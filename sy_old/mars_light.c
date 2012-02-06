@@ -2753,8 +2753,9 @@ static int make_sync(void *buf, struct mars_dent *dent)
 		goto done;
 	connect_dent = (void*)mars_find_dent(global, tmp);
 	if (!connect_dent || !connect_dent->new_link) {
-		MARS_WRN("cannot determine peer, symlink '%s' is missing\n", tmp);
-		status = -ENOENT;
+		MARS_WRN("cannot determine peer, symlink '%s' is missing => assuming that I am STANDALONE\n", tmp);
+		rot->allow_replay = true;
+		status = 0;
 		goto done;
 	}
 	peer = connect_dent->new_link;
