@@ -185,7 +185,7 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 	int offset;
 	int status;
 
-	MARS_DBG("reserving %d bytes at %lld\n", lh->l_len, logst->log_pos);
+	MARS_IO("reserving %d bytes at %lld\n", lh->l_len, logst->log_pos);
 
 	mref = logst->log_mref;
 	if ((mref && total_len > mref->ref_len - logst->offset)
@@ -517,7 +517,7 @@ restart:
 		chunk_offset = logst->log_pos & (loff_t)(logst->chunk_size - 1);
 		chunk_rest = logst->chunk_size - chunk_offset;
 		mref->ref_len = chunk_rest + logst->chunk_size * 4;
-		MARS_DBG("log_pos = %lld chunk_offset = %d chunk_rest = %d ref_len = %d\n", logst->log_pos, chunk_offset, chunk_rest, mref->ref_len);
+		MARS_IO("log_pos = %lld chunk_offset = %d chunk_rest = %d ref_len = %d\n", logst->log_pos, chunk_offset, chunk_rest, mref->ref_len);
 		mref->ref_prio = logst->io_prio;
 
 		status = GENERIC_INPUT_CALL(logst->input, mref_get, mref);
@@ -552,7 +552,7 @@ restart:
 		status = -EINVAL;
 	}
 	if (unlikely(status < 0)) {
-		MARS_DBG("ref_len = %d offset = %d status = %d\n", mref->ref_len, logst->offset, status);
+		MARS_IO("ref_len = %d offset = %d status = %d\n", mref->ref_len, logst->offset, status);
 		goto done_put;
 	}
 
