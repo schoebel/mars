@@ -2019,6 +2019,9 @@ void trans_logger_log(struct trans_logger_brick *brick)
 		long long j4;
 #endif
 
+#if 1
+		schedule(); // yield
+#endif
 		MARS_IO("waiting for request\n");
 
 		__wait_event_interruptible_timeout(
@@ -2042,7 +2045,7 @@ void trans_logger_log(struct trans_logger_brick *brick)
 			last_jiffies = jiffies;
 			txt = brick->ops->brick_statistics(brick, 0);
 			if (txt) {
-				MARS_INF("%s", txt);
+				MARS_INF("q1_ready = %d q2_ready = %d q3_ready = %d q4_ready = %d extra_ready = %d some_ready = %d || %s", st.q1_ready, st.q2_ready, st.q3_ready, st.q4_ready, st.extra_ready, st.some_ready, txt);
 				brick_string_free(txt);
 			}
 		}
@@ -2060,17 +2063,28 @@ void trans_logger_log(struct trans_logger_brick *brick)
 		/* In order to speed up draining, check the other queues
 		 * in backward direction.
 		 */
-		if (st.q4_ready) {
+		/* FIXME: in order to avoid deadlock, q4_ready _must not_
+		 * cylically depend from q1 (which is currently the case).
+		 * However, for performance reasons q4 should be slowed down
+		 * when q1 is too much contended.
+		 * Solution: distinguish between hard start/stop and
+		 * soft rate (or rate balance).
+		 */
+		if (true || st.q4_ready) {
 			run_wb_queue(&brick->q_phase4, phase4_startio, brick->q_phase4.q_batchlen);
 		}
 		j2 = jiffies;
 
-		if (st.q3_ready) {
+		if (true || st.q3_ready) {
 			run_wb_queue(&brick->q_phase3, phase3_startio, brick->q_phase3.q_batchlen);
 		}
 		j3 = jiffies;
 
-		if (st.q2_ready) {
+		/* FIXME: can also lead to deadlock.
+		 * Scheduling should be done by balancing, not completely
+		 * stopping individual queues!
+		 */
+		if (true || st.q2_ready) {
 			run_mref_queue(&brick->q_phase2, phase2_startio, brick->q_phase2.q_batchlen);
 		}
 		j4 = jiffies;
@@ -2589,8 +2603,10 @@ int trans_logger_brick_construct(struct trans_logger_brick *brick)
 	qq_init(&brick->q_phase4, brick);
 #if 1
 	brick->q_phase2.q_dep = &brick->q_phase4;
-	brick->q_phase4.q_dep = &brick->q_phase1;
-
+	/* TODO: this is cyclic and therefore potentially dangerous.
+	 * Find a better solution to the starvation problem!
+	 */
+	//brick->q_phase4.q_dep = &brick->q_phase1;
 #endif
 	brick->q_phase1.q_insert_info   = "q1_ins";
 	brick->q_phase1.q_pushback_info = "q1_push";
