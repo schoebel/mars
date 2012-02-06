@@ -1463,7 +1463,7 @@ bool phase0_startio(struct trans_logger_mref_aspect *mref_a)
 	}
 #endif
 	if (!mref_a->is_hashed) {
-		MARS_DBG("hashing %d at %lld\n", mref->ref_len, mref->ref_pos);
+		MARS_IO("hashing %d at %lld\n", mref->ref_len, mref->ref_pos);
 		hash_insert(brick, mref_a);
 	}
 	return phase1_startio(mref_a);
