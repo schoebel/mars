@@ -84,7 +84,7 @@ struct light_class {
 
 #define CONF_TRANS_BATCHLEN 1024
 //#define CONF_LOGST_FLYING 0
-#define CONF_LOGST_FLYING 16
+#define CONF_LOGST_FLYING 64 // CHECK: could too small values lead to resource deadlocks?
 //#define CONF_TRANS_FLYING 16
 #define CONF_TRANS_FLYING 0
 #define CONF_TRANS_PRIO   MARS_PRIO_HIGH

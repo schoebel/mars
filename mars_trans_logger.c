@@ -1903,6 +1903,7 @@ bool logst_is_ready(struct trans_logger_brick *brick)
  * use the captured status during processing.
  */
 struct condition_status {
+	bool log_ready;
 	bool q1_ready;
 	bool q2_ready;
 	bool q3_ready;
@@ -1914,13 +1915,19 @@ struct condition_status {
 static noinline
 bool _condition(struct condition_status *st, struct trans_logger_brick *brick)
 {
+	st->log_ready = logst_is_ready(brick);
 	st->q1_ready = atomic_read(&brick->q_phase1.q_queued) > 0 &&
-		logst_is_ready(brick);
+		st->log_ready;
 	st->q2_ready = qq_is_ready(&brick->q_phase2);
 	st->q3_ready = qq_is_ready(&brick->q_phase3);
 	st->q4_ready = qq_is_ready(&brick->q_phase4);
 	st->extra_ready = (kthread_should_stop() && !_congested(brick));
-	return (st->some_ready = st->q1_ready | st->q2_ready | st->q3_ready | st->q4_ready | st->extra_ready);
+	st->some_ready = st->q1_ready | st->q2_ready | st->q3_ready | st->q4_ready | st->extra_ready;
+#if 0
+	if (!st->some_ready)
+		st->q1_ready = atomic_read(&brick->q_phase1.q_queued) > 0;
+#endif
+	return st->some_ready;
 }
 
 static
@@ -2061,7 +2068,7 @@ void trans_logger_log(struct trans_logger_brick *brick)
 			last_jiffies = jiffies;
 			txt = brick->ops->brick_statistics(brick, 0);
 			if (txt) {
-				MARS_INF("q1_ready = %d q2_ready = %d q3_ready = %d q4_ready = %d extra_ready = %d some_ready = %d || %s", st.q1_ready, st.q2_ready, st.q3_ready, st.q4_ready, st.extra_ready, st.some_ready, txt);
+				MARS_INF("log_ready = %d q1_ready = %d q2_ready = %d q3_ready = %d q4_ready = %d extra_ready = %d some_ready = %d || %s", st.q1_ready, st.log_ready, st.q2_ready, st.q3_ready, st.q4_ready, st.extra_ready, st.some_ready, txt);
 				brick_string_free(txt);
 			}
 		}
