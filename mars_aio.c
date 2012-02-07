@@ -534,7 +534,7 @@ int aio_sync_thread(void *data)
 			tinfo->event,
 			kthread_should_stop() ||
 			_dequeue(tinfo, false),
-			60 * HZ);
+			1 * HZ);
 
 		traced_lock(&tinfo->lock, flags);
 		for (i = 0; i < MARS_PRIO_NR; i++) {
