@@ -28,6 +28,9 @@ struct sio_threadinfo {
 	struct task_struct *thread;
 	wait_queue_head_t event;
 	spinlock_t lock;
+	atomic_t queue_count;
+	atomic_t fly_count;
+	atomic_t total_count;
 	unsigned long last_jiffies;
 };
 

@@ -348,8 +348,9 @@ err_found:
 /* This is called by the threads
  */
 static
-void _sio_ref_io(struct sio_output *output, struct mref_object *mref)
+void _sio_ref_io(struct sio_threadinfo *tinfo, struct mref_object *mref)
 {
+	struct sio_output *output = tinfo->output;
 	bool barrier = false;
 	int status;
 
@@ -363,6 +364,8 @@ void _sio_ref_io(struct sio_output *output, struct mref_object *mref)
 		sync_file(output);
 	}
 
+	atomic_inc(&tinfo->fly_count);
+
 	if (mref->ref_rw == READ) {
 		status = read_aops(output, mref);
 	} else {
@@ -370,6 +373,8 @@ void _sio_ref_io(struct sio_output *output, struct mref_object *mref)
 		if (barrier || output->brick->o_fdsync)
 			sync_file(output);
 	}
+
+	atomic_dec(&tinfo->fly_count);
 
 done:
 	_complete(output, mref, status);
@@ -405,6 +410,9 @@ void sio_ref_io(struct sio_output *output, struct mref_object *mref)
 	tinfo = &output->tinfo[index];
 	MARS_IO("queueing %p on %d\n", mref, index);
 
+	atomic_inc(&tinfo->total_count);
+	atomic_inc(&tinfo->queue_count);
+
 	traced_lock(&tinfo->lock, flags);
 	list_add_tail(&mref_a->io_head, &tinfo->mref_list);
 	traced_unlock(&tinfo->lock, flags);
@@ -415,7 +423,6 @@ void sio_ref_io(struct sio_output *output, struct mref_object *mref)
 static int sio_thread(void *data)
 {
 	struct sio_threadinfo *tinfo = data;
-	struct sio_output *output = tinfo->output;
 	
 	MARS_INF("kthread has started.\n");
 	//set_user_nice(current, -20);
@@ -438,6 +445,7 @@ static int sio_thread(void *data)
 		if (!list_empty(&tinfo->mref_list)) {
 			tmp = tinfo->mref_list.next;
 			list_del_init(tmp);
+			atomic_dec(&tinfo->queue_count);
 		}
 
 		traced_unlock(&tinfo->lock, flags);
@@ -448,7 +456,7 @@ static int sio_thread(void *data)
 		mref_a = container_of(tmp, struct sio_mref_aspect, io_head);
 		mref = mref_a->object;
 		MARS_IO("got %p %p\n", mref_a, mref);
-		_sio_ref_io(output, mref);
+		_sio_ref_io(tinfo, mref);
 	}
 
 	MARS_INF("kthread has stopped.\n");
@@ -466,6 +474,51 @@ static int sio_get_info(struct sio_output *output, struct mars_info *info)
 	info->backing_file = file;
 	return 0;
 }
+
+//////////////// informational / statistics ///////////////
+
+static noinline
+char *sio_statistics(struct sio_brick *brick, int verbose)
+{
+	struct sio_output *output = brick->outputs[0];
+	char *res = brick_string_alloc(1024);
+	int queue_sum = 0;
+	int fly_sum   = 0;
+	int total_sum = 0;
+	int i;
+	if (!res)
+		return NULL;
+
+	for (i = 1; i <= WITH_THREAD; i++) {
+		struct sio_threadinfo *tinfo = &output->tinfo[i];
+		queue_sum += atomic_read(&tinfo->queue_count);
+		fly_sum   += atomic_read(&tinfo->fly_count);
+		total_sum += atomic_read(&tinfo->total_count);
+	}
+
+	snprintf(res, 1024,
+		 "queued read = %d write = %d "
+		 "flying read = %d write = %d "
+		 "total  read = %d write = %d "
+		 "\n",
+		 queue_sum, atomic_read(&output->tinfo[0].queue_count),
+		 fly_sum,   atomic_read(&output->tinfo[0].fly_count),
+		 total_sum, atomic_read(&output->tinfo[0].total_count)
+		);
+	return res;
+}
+
+static noinline
+void sio_reset_statistics(struct sio_brick *brick)
+{
+	struct sio_output *output = brick->outputs[0];
+	int i;
+	for (i = 0; i <= WITH_THREAD; i++) {
+		struct sio_threadinfo *tinfo = &output->tinfo[i];
+		atomic_set(&tinfo->total_count, 0);
+	}
+}
+
 
 //////////////// object / aspect constructors / destructors ///////////////
 
@@ -597,6 +650,8 @@ static int sio_output_destruct(struct sio_output *output)
 
 static struct sio_brick_ops sio_brick_ops = {
 	.brick_switch = sio_switch,
+	.brick_statistics = sio_statistics,
+	.reset_statistics = sio_reset_statistics,
 };
 
 static struct sio_output_ops sio_output_ops = {
