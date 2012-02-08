@@ -964,13 +964,13 @@ void wb_endio(struct generic_callback *cb)
 	brick = wb->w_brick;
 	CHECK_PTR(brick, err);
 
-	atomic_dec(&brick->wb_balance_count);
-
 	if (cb->cb_error < 0) {
 		wb->w_error = cb->cb_error;
 	}
 
-	rw = sub_mref->ref_rw;
+	atomic_dec(&brick->wb_balance_count);
+
+	rw = sub_mref_a->orig_rw;
 	dec = rw ? &wb->w_sub_write_count : &wb->w_sub_read_count;
 	CHECK_ATOMIC(dec, 1);
 	if (!atomic_dec_and_test(dec)) {
@@ -1075,6 +1075,7 @@ struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t p
 			sub_mref_a->my_input = read_input;
 			sub_mref_a->log_input = log_input;
 			sub_mref_a->my_brick = brick;
+			sub_mref_a->orig_rw = READ;
 			sub_mref_a->wb = wb;
 
 			status = GENERIC_INPUT_CALL(read_input, mref_get, sub_mref);
@@ -1146,6 +1147,7 @@ struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t p
 		sub_mref_a->my_input = write_input;
 		sub_mref_a->log_input = log_input;
 		sub_mref_a->my_brick = brick;
+		sub_mref_a->orig_rw = WRITE;
 		sub_mref_a->wb = wb;
 
 		status = GENERIC_INPUT_CALL(write_input, mref_get, sub_mref);
