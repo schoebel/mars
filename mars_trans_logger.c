@@ -11,13 +11,14 @@
 
 // variants
 #define KEEP_UNIQUE
-//#define WB_COPY
 #define LATER
 #define DELAY_CALLERS // this is _needed_
 //#define EARLY_COMPLETION
 
 // commenting this out is dangerous for data integrity! use only for testing!
 #define USE_MEMCPY
+#define WB_COPY
+#define LATE_COMPLETE
 #define DO_WRITEBACK // otherwise FAKE IO
 #define APPLY_DATA
 
@@ -1338,8 +1339,10 @@ void phase1_endio(void *private, int error)
 	 */
 	qq_mref_insert(&brick->q_phase2, orig_mref_a);
 
+#ifndef LATE_COMPLETE
 	// signal completion to the upper layer
 	_complete(brick, orig_mref_a, error, false);
+#endif
 
 	wake_up_interruptible_all(&brick->worker_event);
 	return;
@@ -1560,6 +1563,11 @@ bool phase2_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	if (unlikely(!wb)) {
 		goto err;
 	}
+
+#ifdef LATE_COMPLETE
+	// signal completion to the upper layer
+	_complete(brick, orig_mref_a, 0, false);
+#endif
 
 	if (unlikely(list_empty(&wb->w_collect_list))) {
 		MARS_ERR("collection list is empty, orig pos = %lld len = %d (collected=%d), extended pos = %lld len = %d\n", orig_mref->ref_pos, orig_mref->ref_len, (int)orig_mref_a->is_collected, wb->w_pos, wb->w_len);
