@@ -1283,12 +1283,12 @@ void _complete(struct trans_logger_brick *brick, struct trans_logger_mref_aspect
 		goto done;
 	}
 
+	orig_mref_a->is_completed = true;
 	if (likely(error >= 0)) {
 		orig_mref->ref_flags &= ~MREF_WRITING;
 		orig_mref->ref_flags |= MREF_UPTODATE;
 	}
 	CHECKED_CALLBACK(orig_mref, error, err);
-	orig_mref_a->is_completed = true;
 
 done:
 	return;
@@ -1323,6 +1323,7 @@ err:
 static noinline
 void phase1_endio(void *private, int error)
 {
+	struct mref_object *orig_mref;
 	struct trans_logger_mref_aspect *orig_mref_a;
 	struct trans_logger_brick *brick;
 
@@ -1330,19 +1331,31 @@ void phase1_endio(void *private, int error)
 	CHECK_PTR(orig_mref_a, err);
 	brick = orig_mref_a->my_brick;
 	CHECK_PTR(brick, err);
+	orig_mref = orig_mref_a->object;
+	CHECK_PTR(orig_mref, err);
 
 	qq_dec_flying(&brick->q_phase1);
 
-	/* Queue up for the next phase.
-	 * This will pin mref->ref_count so it can't go away
+	/* Pin mref->ref_count so it can't go away
 	 * after _complete().
 	 */
-	qq_mref_insert(&brick->q_phase2, orig_mref_a);
+	CHECK_ATOMIC(&orig_mref->ref_count, 1);
+	_CHECK(orig_mref_a->shadow_ref, err);
+	atomic_inc(&orig_mref->ref_count); // must be paired with __trans_logger_ref_put()
+	atomic_inc(&brick->inner_balance_count);
 
 #ifndef LATE_COMPLETE
 	// signal completion to the upper layer
 	_complete(brick, orig_mref_a, error, false);
 #endif
+
+	/* Queue up for the next phase.
+	 */
+	qq_mref_insert(&brick->q_phase2, orig_mref_a);
+
+	/* Undo the above pinning
+	 */
+	__trans_logger_ref_put(brick, orig_mref_a);
 
 	wake_up_interruptible_all(&brick->worker_event);
 	return;
