@@ -92,6 +92,13 @@ config MARS_MEM_PREALLOC
 	---help---
 	Normally ON. Switch off only for EXPERIMENTS!
 
+config MARS_LOADAVG_LIMIT
+	bool "stall copy traffic when loadavg gets too high"
+	depends on MARS
+	default y
+	---help---
+	Normally ON.
+
 #config MARS_HUNG
 #	bool "hangup on kernel stacktrace (EXPERIMENTAL!!!)"
 #	depends on MARS && MARS_BIGMODULE!=m

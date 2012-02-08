@@ -486,6 +486,7 @@ static int sender_thread(void *data)
 				do_kill = false;
 				_kill_socket(output);
 			}
+			msleep(3000);
 			continue;
 		}
 

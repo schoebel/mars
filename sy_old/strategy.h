@@ -139,6 +139,14 @@ extern void mars_digest(unsigned char *digest, void *data, int len);
 
 /////////////////////////////////////////////////////////////////////////
 
+// quirk
+
+#ifdef CONFIG_MARS_LOADAVG_LIMIT
+extern int mars_max_loadavg;
+#endif
+
+/////////////////////////////////////////////////////////////////////////
+
 // init
 
 extern int init_sy(void);

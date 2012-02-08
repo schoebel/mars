@@ -324,8 +324,18 @@ int handler_thread(void *data)
 			break;
 		}
 		case CMD_MREF:
+		{
+#ifdef CONFIG_MARS_LOADAVG_LIMIT // quirk
+			int my_load = (avenrun[0] + FIXED_1/200) >> FSHIFT;
+			if (mars_max_loadavg && my_load >= mars_max_loadavg) {
+				MARS_WRN("loadavg %d too high (%d), aborting data traffic\n", my_load, mars_max_loadavg);
+				status = -EBUSY;
+				break;
+			}
+#endif
 			status = server_io(brick, sock);
 			break;
+		}
 		case CMD_CB:
 			MARS_ERR("oops, as a server I should never get CMD_CB; something is wrong here - attack attempt??\n");
 			break;

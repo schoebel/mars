@@ -145,6 +145,11 @@ int errors_sysctl_handler(
 	return _proc_sysctl_handler(1, write, buffer, length, ppos);
 }
 
+#ifdef CONFIG_MARS_LOADAVG_LIMIT
+int mars_max_loadavg = 8;
+EXPORT_SYMBOL_GPL(mars_max_loadavg);
+#endif
+
 static
 ctl_table mars_table[] = {
 	{
@@ -165,6 +170,17 @@ ctl_table mars_table[] = {
 		.mode		= 0400,
 		.proc_handler	= &errors_sysctl_handler,
 	},
+#ifdef CONFIG_MARS_LOADAVG_LIMIT
+	{
+		.ctl_name       = CTL_UNNUMBERED,
+		.procname	= "loadavg_limit",
+		.data           = &mars_max_loadavg,
+		.maxlen         = sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+		.strategy       = &sysctl_intvec,
+	},
+#endif
 	{}
 };
 
