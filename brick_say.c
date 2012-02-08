@@ -277,7 +277,7 @@ void brick_say(int class, bool dump, const char *prefix, const char *file, int l
 	va_end(args);
 
 	_say_mark(cpu);
-#ifdef CONFIG_DEBUG_KERNEL
+#ifdef CONFIG_MARS_DEBUG
 	if (dump)
 		brick_dump_stack();
 #endif
@@ -372,7 +372,7 @@ void exit_say(void)
 }
 EXPORT_SYMBOL_GPL(exit_say);
 
-#ifdef CONFIG_DEBUG_KERNEL
+#ifdef CONFIG_MARS_DEBUG
 
 void brick_dump_stack(void)
 {

@@ -8,6 +8,13 @@ config MARS
 	---help---
 	Experimental storage System. Only compile as a module!
 
+config MARS_DEBUG
+	bool "enable runtime checks in MARS"
+	depends on MARS
+	default n
+	---help---
+	OFF for production systems. ON for testing!
+
 config MARS_BIGMODULE
 	tristate "compile all MARS modules into a single kernel module"
 	depends on MARS

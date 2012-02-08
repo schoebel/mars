@@ -22,16 +22,16 @@ extern void brick_say(int class, bool dump, const char *prefix, const char *file
 extern void init_say(void);
 extern void exit_say(void);
 
-#ifdef CONFIG_DEBUG_KERNEL
+#ifdef CONFIG_MARS_DEBUG
 #define INLINE static inline
 //#define INLINE __attribute__((__noinline__))
 extern void brick_dump_stack(void);
 
-#else // CONFIG_DEBUG_KERNEL
+#else // CONFIG_MARS_DEBUG
 
 #define INLINE static inline
 #define brick_dump_stack() /*empty*/
 
-#endif // CONFIG_DEBUG_KERNEL
+#endif // CONFIG_MARS_DEBUG
 
 #endif

@@ -6,7 +6,7 @@
 
 // checking
 
-#ifdef CONFIG_DEBUG_KERNEL
+#ifdef CONFIG_MARS_DEBUG
 #define BRICK_CHECKING true
 #else
 #define BRICK_CHECKING false

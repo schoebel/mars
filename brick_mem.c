@@ -17,7 +17,7 @@
 //#define BUMP_LIMITS // try to avoid this
 #define ALLOW_DYNAMIC_RAISE 512
 
-#ifndef CONFIG_DEBUG_KERNEL
+#ifndef CONFIG_MARS_DEBUG
 #undef BRICK_DEBUG_MEM
 #endif
 
@@ -96,7 +96,7 @@ void __brick_mem_free(void *data, int len)
 void *_brick_mem_alloc(int len, int line)
 {
 	void *res;
-#ifdef CONFIG_DEBUG_KERNEL
+#ifdef CONFIG_MARS_DEBUG
 	might_sleep();
 #endif
 
@@ -172,7 +172,7 @@ char *_brick_string_alloc(int len, int line)
 {
 	char *res;
 
-#ifdef CONFIG_DEBUG_KERNEL
+#ifdef CONFIG_MARS_DEBUG
 	might_sleep();
 #endif
 
@@ -187,7 +187,7 @@ char *_brick_string_alloc(int len, int line)
 #ifdef CONFIG_MARS_MEM_RETRY
 	for (;;) {
 #endif
-#ifdef CONFIG_DEBUG_KERNEL
+#ifdef CONFIG_MARS_DEBUG
 		res = kzalloc(len + 1024, GFP_BRICK);
 #else
 		res = kzalloc(len, GFP_BRICK);
@@ -448,7 +448,7 @@ void *_brick_block_alloc(loff_t pos, int len, int line)
 		return NULL;
 	}
 
-#ifdef CONFIG_DEBUG_KERNEL
+#ifdef CONFIG_MARS_DEBUG
 	might_sleep();
 #endif
 

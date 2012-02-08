@@ -563,7 +563,7 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 		return -ENOMEM;
 	}
 	atomic64_add(mref->ref_len, &brick->shadow_mem_used);
-#ifdef CONFIG_DEBUG_KERNEL
+#ifdef CONFIG_MARS_DEBUG
 	memset(data, 0x11, mref->ref_len);
 #endif
 	mref_a->shadow_data = data;
@@ -2116,7 +2116,7 @@ void trans_logger_log(struct trans_logger_brick *brick)
 		 */
 		old_wait_timeout = wait_timeout;
 		wait_timeout = HZ / 10; // 100ms before flushing
-#ifdef CONFIG_DEBUG_KERNEL // debug override for catching long blocks
+#ifdef CONFIG_MARS_DEBUG // debug override for catching long blocks
 		//wait_timeout = 16 * HZ;
 #endif
 		/* Calling log_flush() too often may result in

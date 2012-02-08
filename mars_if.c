@@ -145,7 +145,7 @@ void _if_unplug(struct if_input *input)
 	LIST_HEAD(tmp_list);
 	unsigned long flags;
 
-#ifdef CONFIG_DEBUG_KERNEL
+#ifdef CONFIG_MARS_DEBUG
 	might_sleep();
 #endif
 
