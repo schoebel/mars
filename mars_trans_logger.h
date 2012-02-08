@@ -95,6 +95,7 @@ struct trans_logger_mref_aspect {
 	bool   is_hashed;
 	bool   is_dirty;
 	bool   is_collected;
+	bool   is_fired;
 	bool   is_completed;
 	struct timespec stamp;
 	loff_t log_pos;

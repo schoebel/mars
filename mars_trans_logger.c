@@ -894,40 +894,13 @@ void pos_complete(struct trans_logger_mref_aspect *orig_mref_a)
 err:;
 }
 
-static inline
-void _free_one(struct list_head *tmp)
-{
-	struct trans_logger_mref_aspect *sub_mref_a;
-	struct mref_object *sub_mref;
-	
-	list_del_init(tmp);
-	
-	sub_mref_a = container_of(tmp, struct trans_logger_mref_aspect, sub_head);
-	sub_mref = sub_mref_a->object;
-	
-	trans_logger_free_mref(sub_mref);
-}
-
 static noinline
 void free_writeback(struct writeback_info *wb)
 {
 	struct list_head *tmp;
-	int cleanup_count = 0;
 
 	if (unlikely(wb->w_error < 0)) {
 		MARS_ERR("writeback error = %d at pos = %lld len = %d, writeback is incomplete\n", wb->w_error, wb->w_pos, wb->w_len);
-	}
-
-	/* The sub_read and sub_write lists are usually empty here.
-	 * This code is only for cleanup in case of errors.
-	 */
-	while (unlikely((tmp = wb->w_sub_read_list.next) != &wb->w_sub_read_list)) {
-		cleanup_count++;
-		_free_one(tmp);
-	}
-	while (unlikely((tmp = wb->w_sub_write_list.next) != &wb->w_sub_write_list)) {
-		cleanup_count++;
-		_free_one(tmp);
 	}
 
 	/* Now complete the original requests.
@@ -947,7 +920,7 @@ void free_writeback(struct writeback_info *wb)
 		}
 #ifdef LATE_COMPLETE
 		while (!orig_mref_a->is_completed) {
-			MARS_ERR("request %lld (len = %d) was not completed, cleanup_count = %d\n", orig_mref->ref_pos, orig_mref->ref_len, cleanup_count);
+			MARS_ERR("request %lld (len = %d) was not completed\n", orig_mref->ref_pos, orig_mref->ref_len);
 			msleep(3000);
 		}
 #endif
@@ -1201,13 +1174,14 @@ struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t p
  err:
 	MARS_ERR("cleaning up...\n");
 	if (wb) {
+		wb->w_error = -EINVAL;
 		free_writeback(wb);
 	}
 	return NULL;
 }
 
 static inline
-void _fire_one(struct list_head *tmp, bool do_update, bool do_put)
+void _fire_one(struct list_head *tmp, bool do_update)
 {
 	struct trans_logger_mref_aspect *sub_mref_a;
 	struct mref_object *sub_mref;
@@ -1216,6 +1190,12 @@ void _fire_one(struct list_head *tmp, bool do_update, bool do_put)
 	
 	sub_mref_a = container_of(tmp, struct trans_logger_mref_aspect, sub_head);
 	sub_mref = sub_mref_a->object;
+
+	if (unlikely(sub_mref_a->is_fired)) {
+		MARS_ERR("trying to fire twice\n");
+		return;
+	}
+	sub_mref_a->is_fired = true;
 
 	SETUP_CALLBACK(sub_mref, wb_endio, sub_mref_a);
 
@@ -1239,58 +1219,30 @@ void _fire_one(struct list_head *tmp, bool do_update, bool do_put)
 #else
 	SIMPLE_CALLBACK(sub_mref, 0);
 #endif
-	if (do_put) {
+	if (do_update) { // CHECK: shouldnt we do this always?
 		GENERIC_INPUT_CALL(sub_input, mref_put, sub_mref);
 	}
 }
 
 static inline
-void fire_writeback(struct list_head *start, bool do_update, bool do_remove)
+void fire_writeback(struct list_head *start, bool do_update)
 {
 	struct list_head *tmp;
 
-	if (do_remove) {
-		/* Caution! The wb structure may get deallocated
-		 * during _fire_one() in some cases (e.g. when the
-		 * callback is directly called by the mref_io operation).
-		 * Ensure that no ptr dereferencing can take
-		 * place after working on the last list member.
-		 */
-		tmp = start->next;
-		while (tmp != start) {
-			struct list_head *next;
-			list_del_init(tmp);
-			next = start->next;
-			_fire_one(tmp, do_update, true);
-			tmp = next;
-		}
-	} else {
-		for (tmp = start->next; tmp != start; tmp = tmp->next) {
-			_fire_one(tmp, do_update, false);
-		}
-	}
-}
-
-#if 0 // currently not used
-static inline
-void put_list(struct writeback_info *wb, struct list_head *start)
-{
-	struct list_head *tmp;
-
-	while ((tmp = start->next) != start) {
-		struct trans_logger_mref_aspect *sub_mref_a;
-		struct mref_object *sub_mref;
-		struct trans_logger_input *sub_input;
-
+	/* Caution! The wb structure may get deallocated
+	 * during _fire_one() in some cases (e.g. when the
+	 * callback is directly called by the mref_io operation).
+	 * Ensure that no ptr dereferencing can take
+	 * place after working on the last list member.
+	 */
+	tmp = start->next;
+	while (tmp != start) {
+		struct list_head *next = tmp->next;
 		list_del_init(tmp);
-		
-		sub_mref_a = container_of(tmp, struct trans_logger_mref_aspect, sub_head);
-		sub_mref = sub_mref_a->object;
-		sub_input = sub_mref_a->my_input;
-		GENERIC_INPUT_CALL(sub_input, mref_put, sub_mref);
+		_fire_one(tmp, do_update);
+		tmp = next;
 	}
 }
-#endif
 
 ////////////////////////////// worker thread //////////////////////////////
 
@@ -1631,7 +1583,7 @@ bool phase2_startio(struct trans_logger_mref_aspect *orig_mref_a)
 
 	if (brick->log_reads) {
 		qq_inc_flying(&brick->q_phase2);
-		fire_writeback(&wb->w_sub_read_list, false, false);
+		fire_writeback(&wb->w_sub_read_list, false);
 	} else { // shortcut
 #ifdef LATER
 		qq_wb_insert(&brick->q_phase4, wb);
@@ -1853,7 +1805,7 @@ bool phase4_startio(struct writeback_info *wb)
 	/* Start writeback IO
 	 */
 	qq_inc_flying(&wb->w_brick->q_phase4);
-	fire_writeback(&wb->w_sub_write_list, true, true);
+	fire_writeback(&wb->w_sub_write_list, true);
 	return true;
 }
 
