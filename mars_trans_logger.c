@@ -15,6 +15,7 @@
 #define DELAY_CALLERS // this is _needed_
 //#define WB_COPY // unnecessary (only costs performance)
 //#define EARLY_COMPLETION
+//#define OLD_POSCOMPLETE
 
 // commenting this out is dangerous for data integrity! use only for testing!
 #define USE_MEMCPY
@@ -645,6 +646,9 @@ err:
 }
 
 static noinline
+void pos_complete(struct trans_logger_mref_aspect *orig_mref_a);
+
+static noinline
 void __trans_logger_ref_put(struct trans_logger_brick *brick, struct trans_logger_mref_aspect *mref_a)
 {
 	struct mref_object *mref;
@@ -680,6 +684,13 @@ restart:
 		CHECK_HEAD_EMPTY(&mref_a->collect_head);
 		CHECK_HEAD_EMPTY(&mref_a->sub_list);
 		CHECK_HEAD_EMPTY(&mref_a->sub_head);
+
+#ifndef OLD_POSCOMPLETE
+		if (mref_a->is_collected && likely(mref_a->wb_error >= 0)) {
+			pos_complete(mref_a);
+		}
+#endif
+
 		CHECK_HEAD_EMPTY(&mref_a->pos_head);
 
 		if (shadow_a != mref_a) { // we are a slave shadow
@@ -925,15 +936,24 @@ void free_writeback(struct writeback_info *wb)
 		orig_mref = orig_mref_a->object;
 		
 		CHECK_ATOMIC(&orig_mref->ref_count, 1);
-#if 1
+		if (unlikely(!orig_mref_a->is_collected)) {
+			MARS_ERR("request %lld (len = %d) was not collected\n", orig_mref->ref_pos, orig_mref->ref_len);
+		}
+#ifdef OLD_POSCOMPLETE
 		while (!orig_mref_a->is_completed) {
 			MARS_ERR("request %lld (len = %d) was not completed, cleanup_count = %d\n", orig_mref->ref_pos, orig_mref->ref_len, cleanup_count);
 			msleep(3000);
 		}
 #endif
+#ifdef OLD_POSCOMPLETE
 		if (likely(wb->w_error >= 0)) {
 			pos_complete(orig_mref_a);
 		}
+#else
+		if (unlikely(wb->w_error < 0)) {
+			orig_mref_a->wb_error = wb->w_error;
+		}
+#endif
 
 		__trans_logger_ref_put(orig_mref_a->my_brick, orig_mref_a);
 	}

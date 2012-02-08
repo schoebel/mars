@@ -90,6 +90,7 @@ struct trans_logger_mref_aspect {
 	struct trans_logger_mref_aspect *orig_mref_a;
 	void  *shadow_data;
 	int    orig_rw;
+	int    wb_error;
 	bool   do_dealloc;
 	bool   do_buffered;
 	bool   is_hashed;
