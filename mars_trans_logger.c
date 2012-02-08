@@ -419,7 +419,7 @@ void hash_put_all(struct trans_logger_brick *brick, struct list_head *list)
 
 		elem_a = container_of(tmp, struct trans_logger_mref_aspect, collect_head);
 		elem = elem_a->object;
-
+		CHECK_PTR(elem, err);
 		CHECK_ATOMIC(&elem->ref_count, 1);
 
 		hash = hash_fn(elem->ref_pos);
@@ -440,7 +440,8 @@ void hash_put_all(struct trans_logger_brick *brick, struct list_head *list)
 		elem_a->is_hashed = false;
 		atomic_dec(&brick->hash_count);
 	}
-	
+
+err:	
 	if (start) {
 		//traced_writeunlock(&start->hash_lock, flags);
 		up_write(&start->hash_mutex);
@@ -656,7 +657,10 @@ void __trans_logger_ref_put(struct trans_logger_brick *brick, struct trans_logge
 	struct trans_logger_input *input;
 
 restart:
+	CHECK_PTR(mref_a, err);
 	mref = mref_a->object;
+	CHECK_PTR(mref, err);
+
 	MARS_IO("pos = %lld len = %d\n", mref->ref_pos, mref->ref_len);
 
 	CHECK_ATOMIC(&mref->ref_count, 1);
@@ -666,7 +670,9 @@ restart:
 	if (shadow_a) {
 		bool finished;
 
+		CHECK_PTR(shadow_a, err);
 		CHECK_ATOMIC(&mref->ref_count, 1);
+
 		finished = atomic_dec_and_test(&mref->ref_count);
 		atomic_dec(&brick->inner_balance_count);
 		if (unlikely(finished && mref_a->is_hashed)) {
@@ -727,10 +733,11 @@ restart:
 	// no shadow => call through
 
 	input = brick->inputs[TL_INPUT_READ];
+	CHECK_PTR(input, err);
+
 	GENERIC_INPUT_CALL(input, mref_put, mref);
-	return;
-err:
-	MARS_FAT("oops\n");
+
+err: ;
 }
 
 static noinline
@@ -1578,7 +1585,7 @@ bool phase2_startio(struct trans_logger_mref_aspect *orig_mref_a)
 {
 	struct mref_object *orig_mref;
 	struct trans_logger_brick *brick;
-	struct writeback_info *wb;
+	struct writeback_info *wb = NULL;
 
 	CHECK_PTR(orig_mref_a, err);
 	orig_mref = orig_mref_a->object;
@@ -1594,8 +1601,10 @@ bool phase2_startio(struct trans_logger_mref_aspect *orig_mref_a)
 		MARS_IO("AHA not hashed, pos = %lld len = %d\n", orig_mref->ref_pos, orig_mref->ref_len);
 		goto done;
 	}
+
 	wb = make_writeback(brick, orig_mref->ref_pos, orig_mref->ref_len, &orig_mref_a->stamp, orig_mref_a->log_input);
 	if (unlikely(!wb)) {
+		MARS_ERR("no mem\n");
 		goto err;
 	}
 
@@ -1606,13 +1615,11 @@ bool phase2_startio(struct trans_logger_mref_aspect *orig_mref_a)
 
 	if (unlikely(list_empty(&wb->w_collect_list))) {
 		MARS_ERR("collection list is empty, orig pos = %lld len = %d (collected=%d), extended pos = %lld len = %d\n", orig_mref->ref_pos, orig_mref->ref_len, (int)orig_mref_a->is_collected, wb->w_pos, wb->w_len);
-		free_writeback(wb);
-		goto done;
+		goto err;
 	}
 	if (unlikely(list_empty(&wb->w_sub_write_list))) {
 		MARS_ERR("hmmm.... this should not happen\n");
-		free_writeback(wb);	
-		goto done;
+		goto err;
 	}
 
 	wb->read_endio = phase2_endio;
@@ -1635,6 +1642,10 @@ bool phase2_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	return true;
 	
  err:
+	if (wb) {
+		wb->w_error = -EINVAL;
+		free_writeback(wb);
+	}
 	return false;
 }
 
