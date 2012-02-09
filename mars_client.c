@@ -429,6 +429,7 @@ static int sender_thread(void *data)
 			if (do_kill) {
 				do_kill = false;
 				_kill_socket(output);
+				msleep(3000);
 			}
 
 			status = _connect(output, brick->brick_name);
