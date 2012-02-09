@@ -14,12 +14,12 @@
 #define LATER
 #define DELAY_CALLERS // this is _needed_
 //#define WB_COPY // unnecessary (only costs performance)
+//#define LATE_COMPLETE // unnecessary (only costs performance)
 //#define EARLY_COMPLETION
 //#define OLD_POSCOMPLETE
 
 // commenting this out is dangerous for data integrity! use only for testing!
 #define USE_MEMCPY
-#define LATE_COMPLETE
 #define DO_WRITEBACK // otherwise FAKE IO
 #define APPLY_DATA
 
@@ -939,7 +939,7 @@ void free_writeback(struct writeback_info *wb)
 		if (unlikely(!orig_mref_a->is_collected)) {
 			MARS_ERR("request %lld (len = %d) was not collected\n", orig_mref->ref_pos, orig_mref->ref_len);
 		}
-#ifdef OLD_POSCOMPLETE
+#ifdef LATE_COMPLETE
 		while (!orig_mref_a->is_completed) {
 			MARS_ERR("request %lld (len = %d) was not completed, cleanup_count = %d\n", orig_mref->ref_pos, orig_mref->ref_len, cleanup_count);
 			msleep(3000);
