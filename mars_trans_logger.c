@@ -13,11 +13,11 @@
 #define KEEP_UNIQUE
 #define LATER
 #define DELAY_CALLERS // this is _needed_
+//#define WB_COPY // unnecessary (only costs performance)
 //#define EARLY_COMPLETION
 
 // commenting this out is dangerous for data integrity! use only for testing!
 #define USE_MEMCPY
-#define WB_COPY
 #define LATE_COMPLETE
 #define DO_WRITEBACK // otherwise FAKE IO
 #define APPLY_DATA
