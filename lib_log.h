@@ -91,7 +91,6 @@ struct log_status {
 	// tunables
 	int align_size;   // alignment between requests
 	int chunk_size;   // must be at least 8K (better 64k)
-	int max_flying;  // limit allocation of buffers
 	int io_prio;
 	// informational
 	atomic_t mref_flying;
@@ -117,8 +116,6 @@ struct log_status {
 
 void init_logst(struct log_status *logst, struct mars_input *input, loff_t start_pos);
 void exit_logst(struct log_status *logst);
-
-bool is_log_ready(struct log_status *logst);
 
 void log_flush(struct log_status *logst);
 

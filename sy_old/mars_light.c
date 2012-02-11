@@ -71,40 +71,25 @@ struct light_class {
 
 // TUNING
 
-#define CONF_TRANS_SHADOW_LIMIT (65536 * 1) // don't fill the hashtable too much
+#define CONF_TRANS_SHADOW_LIMIT (1024 * 128) // don't fill the hashtable too much
 #define CONF_TRANS_CHUNKSIZE  (128 * 1024)
-//#define CONF_TRANS_MAX_MREF_SIZE 0
 #define CONF_TRANS_MAX_MREF_SIZE PAGE_SIZE
 //#define CONF_TRANS_ALIGN      512
 #define CONF_TRANS_ALIGN      0
-//#define FLUSH_DELAY (HZ / 100 + 1)
-#define FLUSH_DELAY 0
 
 //#define TRANS_FAKE
 
-#define CONF_TRANS_BATCHLEN 1024
-//#define CONF_LOGST_FLYING 0
-#define CONF_LOGST_FLYING 64 // CHECK: could too small values lead to resource deadlocks?
-//#define CONF_TRANS_FLYING 16
-#define CONF_TRANS_FLYING 0
+#define CONF_TRANS_BATCHLEN 256
+#define CONF_TRANS_FLYING 128
 #define CONF_TRANS_PRIO   MARS_PRIO_HIGH
 #define CONF_TRANS_LOG_READS false
 //#define CONF_TRANS_LOG_READS true
-#define CONF_TRANS_MINIMIZE_LATENCY false
-//#define CONF_TRANS_MINIMIZE_LATENCY true
 //#define CONF_TRANS_COMPLETION_SEMANTICS 2
 #define CONF_TRANS_COMPLETION_SEMANTICS 0
 
-//#define CONF_ALL_BATCHLEN 2
-#define CONF_ALL_BATCHLEN 1
-#define CONF_ALL_FLYING 4
-//#define CONF_ALL_FLYING 1
-#define CONF_ALL_CONTENTION 0
-#define CONF_ALL_PRESSURE 0
+#define CONF_ALL_BATCHLEN 4
+#define CONF_ALL_FLYING 12
 #define CONF_ALL_PRIO   MARS_PRIO_NORMAL
-
-#define CONF_ALL_MAX_QUEUE 10000
-#define CONF_ALL_MAX_JIFFIES (180 * HZ)
 
 #define IF_SKIP_SYNC true
 
@@ -152,26 +137,10 @@ int _set_trans_params(struct mars_brick *_brick, void *private)
 		trans_brick->q_phase[2].q_max_flying = CONF_ALL_FLYING;
 		trans_brick->q_phase[3].q_max_flying = CONF_ALL_FLYING;
 
-		trans_brick->q_phase[0].q_max_contention = CONF_ALL_CONTENTION;
-		trans_brick->q_phase[1].q_max_contention = CONF_ALL_CONTENTION;
-		trans_brick->q_phase[2].q_max_contention = CONF_ALL_CONTENTION;
-		trans_brick->q_phase[3].q_max_contention = CONF_ALL_CONTENTION;
-
-		trans_brick->q_phase[0].q_over_pressure = CONF_ALL_PRESSURE;
-		trans_brick->q_phase[1].q_over_pressure = CONF_ALL_PRESSURE;
-		trans_brick->q_phase[2].q_over_pressure = CONF_ALL_PRESSURE;
-		trans_brick->q_phase[3].q_over_pressure = CONF_ALL_PRESSURE;
-
 		trans_brick->q_phase[0].q_io_prio = CONF_TRANS_PRIO;
 		trans_brick->q_phase[1].q_io_prio = CONF_ALL_PRIO;
 		trans_brick->q_phase[2].q_io_prio = CONF_ALL_PRIO;
 		trans_brick->q_phase[3].q_io_prio = CONF_ALL_PRIO;
-
-		trans_brick->q_phase[1].q_max_queued = CONF_ALL_MAX_QUEUE;
-		trans_brick->q_phase[3].q_max_queued = CONF_ALL_MAX_QUEUE;
-
-		trans_brick->q_phase[1].q_max_jiffies = CONF_ALL_MAX_JIFFIES;
-		trans_brick->q_phase[3].q_max_jiffies = CONF_ALL_MAX_JIFFIES;
 
 		trans_brick->q_phase[1].q_ordering = true;
 		trans_brick->q_phase[3].q_ordering = true;
@@ -179,7 +148,6 @@ int _set_trans_params(struct mars_brick *_brick, void *private)
 		trans_brick->shadow_mem_limit = CONF_TRANS_SHADOW_LIMIT;
 		trans_brick->log_reads = CONF_TRANS_LOG_READS;
 		trans_brick->completion_semantics = CONF_TRANS_COMPLETION_SEMANTICS;
-		trans_brick->minimize_latency = CONF_TRANS_MINIMIZE_LATENCY;
 #ifdef TRANS_FAKE
 		trans_brick->debug_shortcut = true;
 #endif
@@ -187,13 +155,6 @@ int _set_trans_params(struct mars_brick *_brick, void *private)
 		trans_brick->max_mref_size = CONF_TRANS_MAX_MREF_SIZE;
 		trans_brick->align_size = CONF_TRANS_ALIGN;
 		trans_brick->chunk_size = CONF_TRANS_CHUNKSIZE;
-		trans_brick->flush_delay = FLUSH_DELAY;
-		trans_brick->max_flying = CONF_LOGST_FLYING;
-
-		if (!trans_brick->log_reads) {
-			trans_brick->q_phase[1].q_max_queued = 0;
-			trans_brick->q_phase[3].q_max_queued *= 2;
-		}
 	}
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 	return 1;

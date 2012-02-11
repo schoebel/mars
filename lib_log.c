@@ -10,13 +10,6 @@
 
 #include "lib_log.h"
 
-bool is_log_ready(struct log_status *logst)
-{
-	return logst->max_flying <= 0 ||
-		atomic_read(&logst->mref_flying) < logst->max_flying;
-}
-EXPORT_SYMBOL_GPL(is_log_ready);
-
 void exit_logst(struct log_status *logst)
 {
 	int count = 0;

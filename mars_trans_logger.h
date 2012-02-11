@@ -113,17 +113,13 @@ struct trans_logger_brick {
 	MARS_BRICK(trans_logger);
 	// parameters
 	int shadow_mem_limit; // max # master shadows
-	int limit_congest;// limit phase1 congestion.
 	int max_mref_size;// shorten mrefs to this maxlen
 	int align_size;   // alignment between requests
 	int chunk_size;   // must be at least 8K (better 64k)
-	int flush_delay;  // delayed firing of incomplete chunks
 	int completion_semantics; // 0 = early completion of all writes, 1 = early completion of non-sync, 2 = late completion
-	int max_flying;   // limit # of log write requests in parallel
 	bool do_replay;   // mode of operation
 	bool do_continuous_replay;   // mode of operation
 	bool log_reads;   // additionally log pre-images
-	bool minimize_latency; // ... at the cost of throughput. ==0 means immediate flushing
 	bool debug_shortcut; // only for testing! never use in production!
 	loff_t replay_start_pos; // where to start replay
 	loff_t replay_end_pos;   // end of replay
@@ -172,8 +168,6 @@ struct trans_logger_brick {
 	atomic_t total_delay_count;
 	// queues
 	struct logger_queue q_phase[LOGGER_QUEUES];
-	bool   did_pushback;
-	bool   did_work;
 	bool   delay_callers;
 	struct hash_anchor hash_table[TRANS_HASH_MAX];
 };

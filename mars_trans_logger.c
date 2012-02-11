@@ -12,7 +12,7 @@
 // variants
 #define KEEP_UNIQUE
 #define LATER
-#define DELAY_CALLERS // this is _needed_
+#define DELAY_CALLERS // this is _needed_ for production systems
 //#define WB_COPY // unnecessary (only costs performance)
 //#define LATE_COMPLETE // unnecessary (only costs performance)
 //#define EARLY_COMPLETION
@@ -30,6 +30,7 @@
 #include <linux/kthread.h>
 
 #include "mars.h"
+#include "lib_rank.h"
 
 #ifdef REPLAY_DEBUGGING
 #define MARS_RPL(_fmt, _args...)  _MARS_MSG(false, "REPLAY ", _fmt, ##_args)
@@ -81,7 +82,6 @@ void qq_init(struct logger_queue *q, struct trans_logger_brick *brick)
 {
 	q_logger_init(q);
 	q->q_event = &brick->worker_event;
-	q->q_contention = &brick->fly_count;
 	q->q_brick = brick;
 }
 
@@ -95,12 +95,6 @@ static inline
 void qq_dec_flying(struct logger_queue *q)
 {
 	q_logger_dec_flying(q);
-}
-
-static noinline
-bool qq_is_ready(struct logger_queue *q)
-{
-	return q_logger_is_ready(q);
 }
 
 static inline
@@ -447,7 +441,8 @@ err:
 
 ////////////////// own brick / input / output operations //////////////////
 
-static atomic_t global_mshadow_count = ATOMIC_INIT(0);
+static atomic_t   global_mshadow_count =   ATOMIC_INIT(0);
+static atomic64_t global_mshadow_used  = ATOMIC64_INIT(0);
 
 static noinline
 int trans_logger_get_info(struct trans_logger_output *output, struct mars_info *info)
@@ -591,6 +586,7 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 	atomic_inc(&brick->mshadow_count);
 	atomic_inc(&brick->total_mshadow_count);
 	atomic_inc(&global_mshadow_count);
+	atomic64_add(mref->ref_len, &global_mshadow_used);
 
 	return mref->ref_len;
 }
@@ -720,6 +716,7 @@ restart:
 		}
 		atomic_dec(&brick->mshadow_count);
 		atomic_dec(&global_mshadow_count);
+		atomic64_sub(mref->ref_len, &global_mshadow_used);
 		trans_logger_free_mref(mref);
 		return;
 	}
@@ -1820,27 +1817,23 @@ int run_mref_queue(struct logger_queue *q, bool (*startio)(struct trans_logger_m
 	struct trans_logger_brick *brick = q->q_brick;
 	bool found = false;
 	bool ok;
-	int res;
+	int res = 0;
 
 	do {
 		struct trans_logger_mref_aspect *mref_a;
 		mref_a = qq_mref_fetch(q);
-		res = -1;
 		if (!mref_a)
 			goto done;
 
 		ok = startio(mref_a);
 		if (unlikely(!ok)) {
 			qq_mref_pushback(q, mref_a);
-			brick->did_pushback = true;
-			res = 1;
 			goto done;
 		}
-		brick->did_work = true;
+		res++;
 		found = true;
 		__trans_logger_ref_put(mref_a->my_brick, mref_a);
 	} while (--max > 0);
-	res = 0;
 
 done:
 	if (found) {
@@ -1855,26 +1848,22 @@ int run_wb_queue(struct logger_queue *q, bool (*startio)(struct writeback_info *
 	struct trans_logger_brick *brick = q->q_brick;
 	bool found = false;
 	bool ok;
-	int res;
+	int res = 0;
 
 	do {
 		struct writeback_info *wb;
 		wb = qq_wb_fetch(q);
-		res = -1;
 		if (!wb)
 			goto done;
 
 		ok = startio(wb);
 		if (unlikely(!ok)) {
 			qq_wb_pushback(q, wb);
-			brick->did_pushback = true;
-			res = 1;
 			goto done;
 		}
-		brick->did_work = true;
+		res++;
 		found = true;
 	} while (--max > 0);
-	res = 0;
 
 done:
 	if (found) {
@@ -1896,47 +1885,124 @@ int _congested(struct trans_logger_brick *brick)
 		|| atomic_read(&brick->q_phase[3].q_flying);
 }
 
-static inline
-bool logst_is_ready(struct trans_logger_brick *brick)
-{
-	int nr = brick->log_input_nr;
-	struct trans_logger_input *input = brick->inputs[nr];
-	struct log_status *logst = &input->logst;
-	return is_log_ready(logst);
-}
+static const
+struct rank_info rank0[] = {
+	{    0,  100 },
+	{  100,  200 },
+};
 
-/* The readyness of the queues is volatile (may change underneath due
- * to interrupts etc).
- * In order to get consistency during one round of the loop in
- * trans_logger_log(), we capture the status exactly once and
- * use the captured status during processing.
+static const
+struct rank_info rank1[] = {
+	{    0,   10 },
+	{  100,   20 },
+};
+
+static const
+struct rank_info rank2[] = {
+	{    0,   10 },
+	{  100,   20 },
+};
+
+static const
+struct rank_info rank3[] = {
+	{    0,   10 },
+	{  100,   20 },
+};
+
+/* In general, each individual ranking table may have a different length.
  */
-struct condition_status {
-	bool log_ready;
-	bool q0_ready;
-	bool q1_ready;
-	bool q2_ready;
-	bool q3_ready;
-	bool extra_ready;
-	bool some_ready;
+static const
+struct rank_info *ranks[LOGGER_QUEUES] = {
+	[0] = rank0,
+	[1] = rank1,
+	[2] = rank2,
+	[3] = rank3,
+};
+
+static const
+int rank_counts[LOGGER_QUEUES] = {
+	[0] = sizeof(rank0) / sizeof(struct rank_info),
+	[1] = sizeof(rank1) / sizeof(struct rank_info),
+	[2] = sizeof(rank2) / sizeof(struct rank_info),
+	[3] = sizeof(rank3) / sizeof(struct rank_info),
 };
 
 static noinline
-bool _condition(struct condition_status *st, struct trans_logger_brick *brick)
+int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 {
-	st->log_ready = logst_is_ready(brick);
-	st->q0_ready = atomic_read(&brick->q_phase[0].q_queued) > 0 &&
-		st->log_ready;
-	st->q1_ready = qq_is_ready(&brick->q_phase[1]);
-	st->q2_ready = qq_is_ready(&brick->q_phase[2]);
-	st->q3_ready = qq_is_ready(&brick->q_phase[3]);
-	st->extra_ready = (kthread_should_stop() && !_congested(brick));
-	st->some_ready = st->q0_ready | st->q1_ready | st->q2_ready | st->q3_ready | st->extra_ready;
-#if 0
-	if (!st->some_ready)
-		st->q0_ready = atomic_read(&brick->q_phase[0].q_queued) > 0;
+	int i;
+#ifdef DELAY_CALLERS
+	bool delay_callers;
 #endif
-	return st->some_ready;
+
+	ranking_start(rkd, LOGGER_QUEUES);
+
+	// obey the basic rules...
+	for (i = 0; i < LOGGER_QUEUES; i++) {
+		int queued = atomic_read(&brick->q_phase[i].q_queued);
+		int flying;
+
+		MARS_IO("i = %d queued = %d\n", i, queued);
+
+		if (queued <= 0)
+			continue;
+
+		flying = atomic_read(&brick->q_phase[i].q_flying);
+		if (flying >= brick->q_phase[i].q_max_flying && brick->q_phase[i].q_max_flying > 0)
+			continue;
+
+		MARS_IO("i = %d queued = %d\n", i, queued);
+		ranking_compute(&rkd[i], ranks[i], rank_counts[i], queued);
+	}
+	// ... and the contention rule for queue 0 ...
+	if (brick->q_phase[0].q_max_flying > 0) {
+		struct rank_info contention[] = {
+			{ 0,                                    0 },
+			{ brick->q_phase[0].q_max_flying,     300 },
+		};
+		int flying = atomic_read(&brick->q_phase[0].q_flying);
+		MARS_IO("flying = %d\n", flying);
+		ranking_compute(&rkd[0], contention,  2, flying);
+	}
+
+	// ... and now the exceptions from the rules ...
+#ifdef DELAY_CALLERS
+	delay_callers = false;
+	if (brick->shadow_mem_limit >= 8) {
+		struct rank_info full_punish_local[] = {
+			{ 0,                                    0 },
+			{ brick->shadow_mem_limit * 7 / 8,      0 },
+			{ brick->shadow_mem_limit,          -1000 },
+		};
+		int local_mem_used   = atomic64_read(&brick->shadow_mem_used) / 1024;
+
+		if (local_mem_used >= brick->shadow_mem_limit)
+			delay_callers = true;
+
+		MARS_IO("local_mem_used = %d\n", local_mem_used);
+		ranking_compute(&rkd[0], full_punish_local,  3, local_mem_used);
+	}
+	if (brick_global_memlimit >= 8) {
+		struct rank_info full_punish_global[] = {
+			{ 0,                                    0 },
+			{ brick_global_memlimit * 7 / 8,        0 },
+			{ brick_global_memlimit,            -1000 },
+		};
+		int global_mem_used  = atomic64_read(&global_mshadow_used) / 1024;
+
+		if (global_mem_used >= brick_global_memlimit)
+			delay_callers = true;
+
+		MARS_IO("global_mem_used = %d\n", global_mem_used);
+		ranking_compute(&rkd[0], full_punish_global, 3, global_mem_used);
+	}
+	brick->delay_callers = delay_callers;
+#endif
+
+	// finalize it
+	ranking_stop(rkd, LOGGER_QUEUES);
+
+	return ranking_select(rkd, LOGGER_QUEUES);
 }
 
 static
@@ -1949,7 +2015,6 @@ void _init_input(struct trans_logger_input *input)
 	init_logst(logst, (void*)input, 0);
 	logst->align_size = brick->align_size;
 	logst->chunk_size = brick->chunk_size;
-	logst->max_flying = brick->max_flying;
 	
 	input->replay_min_pos = start_pos;
 	input->replay_max_pos = start_pos; // FIXME: Theoretically, this could be wrong when starting on an interrupted replay / inconsistent system. However, we normally never start ordinary logging in such a case (possibly except some desperate emergency cases when there really is no other chance, such as physical loss of transaction logs). Nevertheless, better use old consistenty information from the FS here.
@@ -1987,6 +2052,21 @@ done: ;
 }
 
 static
+int _nr_flying_inputs(struct trans_logger_brick *brick)
+{
+	int count = 0;
+	int i;
+	for (i = TL_INPUT_LOG1; i <= TL_INPUT_LOG2; i++) {
+		struct trans_logger_input *input = brick->inputs[i];
+		struct log_status *logst = &input->logst;
+		if (input->is_operating) {
+			count += logst->count;
+		}
+	}
+	return count;
+}
+
+static
 void _flush_inputs(struct trans_logger_brick *brick)
 {
 	int i;
@@ -2021,187 +2101,60 @@ void _exit_inputs(struct trans_logger_brick *brick, bool force)
 static noinline
 void trans_logger_log(struct trans_logger_brick *brick)
 {
-#ifdef DELAY_CALLERS
-	bool unlimited = false;
-	bool old_unlimited = false;
-	bool delay_callers;
-#endif
-	long wait_timeout = HZ;
-#ifdef  STAT_DEBUGGING
-	long long last_jiffies = jiffies;
-#endif
-#if 1
-	int max_delta = 0;
-#endif
+	struct rank_data rkd[LOGGER_QUEUES] = {};
 
 	_init_inputs(brick);
 
 	mars_power_led_on((void*)brick, true);
 
 	while (!kthread_should_stop() || _congested(brick)) {
-		long long old_jiffies = jiffies;
-		long old_wait_timeout;
-		bool do_flush;
-		struct condition_status st = {};
-#if 1
-		long long j0;
-		long long j1;
-		long long j2;
-		long long j3;
-		long long j4;
-#endif
+		int winner;
+		int nr;
 
 #if 1
 		schedule(); // yield
 #endif
-		MARS_IO("waiting for request\n");
-
-		__wait_event_interruptible_timeout(
+		wait_event_interruptible_timeout(
 			brick->worker_event,
-			_condition(&st, brick),
-			wait_timeout);
+			(winner = _do_ranking(brick, rkd)) >= 0,
+			1 * HZ);
+
+		MARS_IO("winner = %d\n", winner);
 
 		atomic_inc(&brick->total_round_count);
 
 		_init_inputs(brick);
 
-#if 1
-		j0 = jiffies;
-#endif
+		switch (winner) {
+		case 0:
+			nr = run_mref_queue(&brick->q_phase[0], prep_phase_startio, brick->q_phase[0].q_batchlen);
+			goto done;
+		case 1:
+			nr = run_mref_queue(&brick->q_phase[1], phase1_startio, brick->q_phase[1].q_batchlen);
+			goto done;
+		case 2:
+			nr = run_wb_queue(&brick->q_phase[2], phase2_startio, brick->q_phase[2].q_batchlen);
+			goto done;
+		case 3:
+			nr = run_wb_queue(&brick->q_phase[3], phase3_startio, brick->q_phase[3].q_batchlen);
+		done:
+			ranking_select_done(rkd, winner, nr);
+			break;
 
-		//MARS_DBG("AHA %d\n", atomic_read(&brick->q_phase[0].q_queued));
-
-#ifdef STAT_DEBUGGING
-		if (((long long)jiffies) - last_jiffies >= HZ * 5 && brick->power.button) {
-			char *txt;
-			last_jiffies = jiffies;
-			txt = brick->ops->brick_statistics(brick, 0);
-			if (txt) {
-				MARS_INF("log_ready = %d q0_ready = %d q1_ready = %d q2_ready = %d q3_ready = %d extra_ready = %d some_ready = %d || %s", st.q0_ready, st.log_ready, st.q1_ready, st.q2_ready, st.q3_ready, st.extra_ready, st.some_ready, txt);
-				brick_string_free(txt);
-			}
+		default: ;
 		}
-#endif
-		brick->did_pushback = false;
-		brick->did_work = false;
 
-		/* This is highest priority, do it first.
-		 */
-		if (st.q0_ready) {
-			run_mref_queue(&brick->q_phase[0], prep_phase_startio, brick->q_phase[0].q_batchlen);
-		}
-		j1 = jiffies;
-
-		/* In order to speed up draining, check the other queues
-		 * in backward direction.
-		 */
-		/* FIXME: in order to avoid deadlock, q3_ready _must not_
-		 * cylically depend from q0 (which is currently the case).
-		 * However, for performance reasons q3 should be slowed down
-		 * when q0 is too much contended.
-		 * Solution: distinguish between hard start/stop and
-		 * soft rate (or rate balance).
-		 */
-		if (true || st.q3_ready) {
-			run_wb_queue(&brick->q_phase[3], phase3_startio, brick->q_phase[3].q_batchlen);
-		}
-		j2 = jiffies;
-
-		if (true || st.q2_ready) {
-			run_wb_queue(&brick->q_phase[2], phase2_startio, brick->q_phase[2].q_batchlen);
-		}
-		j3 = jiffies;
-
-		/* FIXME: can also lead to deadlock.
-		 * Scheduling should be done by balancing, not completely
-		 * stopping individual queues!
-		 */
-		if (true || st.q1_ready) {
-			run_mref_queue(&brick->q_phase[1], phase1_startio, brick->q_phase[1].q_batchlen);
-		}
-		j4 = jiffies;
-
-		/* A kind of delayed plugging mechanism
-		 */
-		old_wait_timeout = wait_timeout;
-		wait_timeout = HZ / 10; // 100ms before flushing
-#ifdef CONFIG_MARS_DEBUG // debug override for catching long blocks
-		//wait_timeout = 16 * HZ;
-#endif
 		/* Calling log_flush() too often may result in
 		 * increased overhead (and thus in lower throughput).
 		 * OTOH, calling it too seldom may hold back
 		 * IO completion for the end user for some time.
-		 * Play around with wait_timeout to optimize this.
 		 */
-		do_flush = false;
-		if (brick->did_work) {
-			atomic_inc(&brick->total_restart_count);
-			do_flush = !brick->flush_delay;
-			if (!do_flush) { // start over soon
-				wait_timeout = brick->flush_delay;
-			}
-		} else if (atomic_read(&brick->q_phase[0].q_queued) <= 0 &&
-			  (brick->minimize_latency || (long long)jiffies - old_jiffies >= old_wait_timeout)) {
-			do_flush = true;
-		}
-#if 1
-		do_flush = true;
-#endif
-		if (do_flush) {
+		if (atomic_read(&brick->q_phase[0].q_flying) > 0 &&
+		    (atomic_read(&brick->q_phase[0].q_queued) <= 0 ||
+		     (winner != 0 && _nr_flying_inputs(brick) == 0))) {
 			_flush_inputs(brick);
 		}
-#if 1
-		{
-			int delta = (long long)jiffies - j0;
-			int delta1 = (long long)j1 - j0;
-			int delta2 = (long long)j2 - j0;
-			int delta3 = (long long)j3 - j0;
-			int delta4 = (long long)j4 - j0;
-			if (delta > max_delta) {
-				max_delta = delta;
-				MARS_INF("delta = %d %d %d %d %d\n", delta, delta1, delta2, delta3, delta4);
-			}
-		}
 
-		if (st.some_ready && !brick->did_work) {
-			char *txt;
-			txt = brick->ops->brick_statistics(brick, 0);
-			MARS_WRN("inconsistent work, pushback = %d q0 = %d q1 = %d q2 = %d q3 = %d extra = %d ====> %s\n", brick->did_pushback, st.q0_ready, st.q1_ready, st.q2_ready, st.q3_ready, st.extra_ready, txt ? txt : "(ERROR)");
-			if (txt) {
-				brick_string_free(txt);
-			}
-		}
-#endif
-#ifdef DELAY_CALLERS // provisionary flood handling FIXME: do better
-#define LIMIT_FN(factor,divider)					\
-		(atomic_read(&brick->mshadow_count) > brick->shadow_mem_limit  * (factor) / (divider) && brick->shadow_mem_limit > 16) || \
-		(atomic64_read(&brick->shadow_mem_used) > brick_global_memlimit  * (factor) / (divider) && brick_global_memlimit > PAGE_SIZE * 16)
-
-		delay_callers = LIMIT_FN(1, 1);
-		if (delay_callers != brick->delay_callers) {
-			MARS_DBG("mshadow_count = %d/%d global_mem = %ld/%lld stalling %d -> %d\n", atomic_read(&brick->mshadow_count), brick->shadow_mem_limit, atomic64_read(&brick->shadow_mem_used), brick_global_memlimit, brick->delay_callers, delay_callers);
-			brick->delay_callers = delay_callers;
-			wake_up_interruptible_all(&brick->worker_event);
-			wake_up_interruptible_all(&brick->caller_event);
-			if (delay_callers)
-				atomic_inc(&brick->total_delay_count);
-		}
-		if (unlimited) {
-			unlimited = LIMIT_FN(3, 8);
-		} else {
-			unlimited = LIMIT_FN(1, 2);
-		}
-		if (unlimited != old_unlimited) {
-			brick->q_phase[1].q_unlimited = unlimited;
-			brick->q_phase[2].q_unlimited = unlimited;
-			brick->q_phase[3].q_unlimited = unlimited;
-			MARS_DBG("mshadow_count = %d/%d global_mem = %ld/%lld unlimited %d -> %d\n", atomic_read(&brick->mshadow_count), brick->shadow_mem_limit, atomic64_read(&brick->shadow_mem_used), brick_global_memlimit, old_unlimited, unlimited);
-			old_unlimited = unlimited;
-			wake_up_interruptible_all(&brick->worker_event);
-			wake_up_interruptible_all(&brick->caller_event);
-		}
-#endif
 		_exit_inputs(brick, false);
 	}
 	_exit_inputs(brick, true);
@@ -2750,13 +2703,6 @@ int trans_logger_brick_construct(struct trans_logger_brick *brick)
 	qq_init(&brick->q_phase[1], brick);
 	qq_init(&brick->q_phase[2], brick);
 	qq_init(&brick->q_phase[3], brick);
-#if 1
-	brick->q_phase[1].q_dep = &brick->q_phase[3];
-	/* TODO: this is cyclic and therefore potentially dangerous.
-	 * Find a better solution to the starvation problem!
-	 */
-	//brick->q_phase[3].q_dep = &brick->q_phase[0];
-#endif
 	brick->q_phase[0].q_insert_info   = "q0_ins";
 	brick->q_phase[0].q_pushback_info = "q0_push";
 	brick->q_phase[0].q_fetch_info    = "q0_fetch";
