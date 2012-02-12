@@ -53,7 +53,6 @@ struct logger_head {
 #endif
 
 struct hash_anchor {
-	//rwlock_t hash_lock;
 	struct rw_semaphore hash_mutex;
 	struct list_head hash_anchor;
 };
@@ -150,6 +149,9 @@ struct trans_logger_brick {
 	atomic_t inner_balance_count;
 	atomic_t sub_balance_count;
 	atomic_t wb_balance_count;
+	atomic_t total_hash_insert_count;
+	atomic_t total_hash_find_count;
+	atomic_t total_hash_extend_count;
 	atomic_t total_replay_count;
 	atomic_t total_cb_count;
 	atomic_t total_read_count;
@@ -160,6 +162,8 @@ struct trans_logger_brick {
 	atomic_t total_shortcut_count;
 	atomic_t total_mshadow_count;
 	atomic_t total_sshadow_count;
+	atomic_t total_mshadow_buffered_count;
+	atomic_t total_sshadow_buffered_count;
 	atomic_t total_round_count;
 	atomic_t total_restart_count;
 	atomic_t total_delay_count;

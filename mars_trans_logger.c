@@ -253,12 +253,12 @@ struct trans_logger_mref_aspect *hash_find(struct trans_logger_brick *brick, lof
 	struct trans_logger_mref_aspect *res;
 	//unsigned int flags;
 
-	//traced_readlock(&start->hash_lock, flags);
+	atomic_inc(&brick->total_hash_find_count);
+
 	down_read(&start->hash_mutex);
 
 	res = _hash_find(&start->hash_anchor, pos, max_len, NULL, false);
 
-	//traced_readunlock(&start->hash_lock, flags);
 	up_read(&start->hash_mutex);
 
 	return res;
@@ -278,14 +278,13 @@ void hash_insert(struct trans_logger_brick *brick, struct trans_logger_mref_aspe
 
 	// only for statistics:
 	atomic_inc(&brick->hash_count);
+	atomic_inc(&brick->total_hash_insert_count);
 
-        //traced_writelock(&start->hash_lock, flags);
 	down_write(&start->hash_mutex);
 
         list_add(&elem_a->hash_head, &start->hash_anchor);
 	elem_a->is_hashed = true;
 
-        //traced_writeunlock(&start->hash_lock, flags);
 	up_write(&start->hash_mutex);
 }
 
@@ -310,7 +309,8 @@ void hash_extend(struct trans_logger_brick *brick, loff_t *_pos, int *_len, stru
 		CHECK_HEAD_EMPTY(collect_list);
 	}
 
-        //traced_readlock(&start->hash_lock, flags);
+	atomic_inc(&brick->total_hash_extend_count);
+
 	down_read(&start->hash_mutex);
 
 	do {
@@ -397,7 +397,6 @@ void hash_extend(struct trans_logger_brick *brick, loff_t *_pos, int *_len, stru
 		list_add_tail(&test_a->collect_head, collect_list);
 	}
 
-        //traced_readunlock(&start->hash_lock, flags);
 	up_read(&start->hash_mutex);
 }
 
@@ -426,7 +425,6 @@ void hash_put_all(struct trans_logger_brick *brick, struct list_head *list)
 		if (!start) {
 			first_hash = hash;
 			start = &brick->hash_table[hash];
-			//traced_writelock(&start->hash_lock, flags);
 			down_write(&start->hash_mutex);
 		} else if (unlikely(hash != first_hash)) {
 			MARS_ERR("oops, different hashes: %d != %d\n", hash, first_hash);
@@ -443,7 +441,6 @@ void hash_put_all(struct trans_logger_brick *brick, struct list_head *list)
 
 err:	
 	if (start) {
-		//traced_writeunlock(&start->hash_lock, flags);
 		up_write(&start->hash_mutex);
 	}
 }
@@ -493,6 +490,7 @@ int _make_sshadow(struct trans_logger_output *output, struct trans_logger_mref_a
 	if (!mref->ref_data) { // buffered IO
 		mref->ref_data = mref_a->shadow_data;
 		mref_a->do_buffered = true;
+		atomic_inc(&brick->total_sshadow_buffered_count);
 	}
 	mref->ref_flags = mshadow->ref_flags;
 	mref_a->shadow_ref = mshadow_a;
@@ -571,9 +569,10 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 #endif
 	mref_a->shadow_data = data;
 	mref_a->do_dealloc = true;
-	if (!mref->ref_data) {
+	if (!mref->ref_data) { // buffered IO
 		mref->ref_data = data;
 		mref_a->do_buffered = true;
+		atomic_inc(&brick->total_mshadow_buffered_count);
 	}
 	mref_a->my_brick = brick;
 	mref->ref_flags = 0;
@@ -1137,6 +1136,8 @@ struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t p
 		int diff;
 		int status;
 
+		atomic_inc(&brick->total_hash_find_count);
+
 		orig_mref_a = _hash_find(&wb->w_collect_list, pos, &this_len, elder, true);
 		if (unlikely(!orig_mref_a)) {
 			MARS_FAT("could not find data\n");
@@ -1523,9 +1524,11 @@ bool phase0_startio(struct trans_logger_mref_aspect *mref_a)
 		MARS_ERR("something is wrong: %p != %p\n", mref_a->shadow_ref, mref_a);
 	}
 #endif
-	if (!mref_a->is_hashed) {
+	if (likely(!mref_a->is_hashed)) {
 		MARS_IO("hashing %d at %lld\n", mref->ref_len, mref->ref_pos);
 		hash_insert(brick, mref_a);
+	} else {
+		MARS_ERR("tried to hash twice\n");
 	}
 	return phase1_startio(mref_a);
 
@@ -2608,7 +2611,10 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 "replay_max_pos1 = %lld "
 		 "replay_min_pos2 = %lld "
 		 "replay_max_pos2 = %lld | "
-		 "total replay=%d "
+		 "total hash_insert=%d "
+		 "hash_find=%d "
+		 "hash_extend=%d "
+		 "replay=%d "
 		 "callbacks=%d "
 		 "reads=%d "
 		 "writes=%d "
@@ -2618,6 +2624,7 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 "shortcut=%d (%d%%) "
 		 "mshadow=%d "
 		 "sshadow=%d "
+		 "mshadow_buffered=%d sshadow_buffered=%d "
 		 "rounds=%d "
 		 "restarts=%d "
 		 "delays=%d "
@@ -2651,6 +2658,9 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 brick->inputs[TL_INPUT_LOG1]->replay_max_pos, 
 		 brick->inputs[TL_INPUT_LOG2]->replay_min_pos,
 		 brick->inputs[TL_INPUT_LOG2]->replay_max_pos, 
+		 atomic_read(&brick->total_hash_insert_count),
+		 atomic_read(&brick->total_hash_find_count),
+		 atomic_read(&brick->total_hash_extend_count),
 		 atomic_read(&brick->total_replay_count),
 		 atomic_read(&brick->total_cb_count),
 		 atomic_read(&brick->total_read_count),
@@ -2664,6 +2674,8 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 atomic_read(&brick->total_writeback_count) ? atomic_read(&brick->total_shortcut_count) * 100 / atomic_read(&brick->total_writeback_count) : 0,
 		 atomic_read(&brick->total_mshadow_count),
 		 atomic_read(&brick->total_sshadow_count),
+		 atomic_read(&brick->total_mshadow_buffered_count),
+		 atomic_read(&brick->total_sshadow_buffered_count),
 		 atomic_read(&brick->total_round_count),
 		 atomic_read(&brick->total_restart_count),
 		 atomic_read(&brick->total_delay_count),
@@ -2673,7 +2685,8 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 atomic_read(&brick->q_phase4.q_total),
 		 atomic_read(&brick->mref_object_layout.alloc_count),
 		 atomic64_read(&brick->shadow_mem_used),
-		 brick_global_memlimit, atomic_read(&brick->replay_count),
+		 brick_global_memlimit,
+		 atomic_read(&brick->replay_count),
 		 atomic_read(&brick->mshadow_count),
 		 brick->shadow_mem_limit,
 		 atomic_read(&brick->sshadow_count),
@@ -2698,6 +2711,9 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 static noinline
 void trans_logger_reset_statistics(struct trans_logger_brick *brick)
 {
+	atomic_set(&brick->total_hash_insert_count, 0);
+	atomic_set(&brick->total_hash_find_count, 0);
+	atomic_set(&brick->total_hash_extend_count, 0);
 	atomic_set(&brick->total_replay_count, 0);
 	atomic_set(&brick->total_cb_count, 0);
 	atomic_set(&brick->total_read_count, 0);
@@ -2708,6 +2724,8 @@ void trans_logger_reset_statistics(struct trans_logger_brick *brick)
 	atomic_set(&brick->total_shortcut_count, 0);
 	atomic_set(&brick->total_mshadow_count, 0);
 	atomic_set(&brick->total_sshadow_count, 0);
+	atomic_set(&brick->total_mshadow_buffered_count, 0);
+	atomic_set(&brick->total_sshadow_buffered_count, 0);
 	atomic_set(&brick->total_round_count, 0);
 	atomic_set(&brick->total_restart_count, 0);
 	atomic_set(&brick->total_delay_count, 0);
@@ -2754,7 +2772,6 @@ int trans_logger_brick_construct(struct trans_logger_brick *brick)
 	int i;
 	for (i = 0; i < TRANS_HASH_MAX; i++) {
 		struct hash_anchor *start = &brick->hash_table[i];
-		//rwlock_init(&start->hash_lock);
 		init_rwsem(&start->hash_mutex);
 		INIT_LIST_HEAD(&start->hash_anchor);
 	}
