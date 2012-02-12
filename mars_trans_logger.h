@@ -170,10 +170,10 @@ struct trans_logger_brick {
 	atomic_t total_restart_count;
 	atomic_t total_delay_count;
 	// queues
+	struct logger_queue q_phase0;
 	struct logger_queue q_phase1;
 	struct logger_queue q_phase2;
 	struct logger_queue q_phase3;
-	struct logger_queue q_phase4;
 	bool   did_pushback;
 	bool   did_work;
 	bool   delay_callers;

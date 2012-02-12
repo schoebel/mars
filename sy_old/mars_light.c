@@ -141,40 +141,40 @@ int _set_trans_params(struct mars_brick *_brick, void *private)
 		MARS_ERR("bad brick type\n");
 		return -EINVAL;
 	}
-	if (!trans_brick->q_phase2.q_ordering) {
-		trans_brick->q_phase1.q_batchlen = CONF_TRANS_BATCHLEN;
+	if (!trans_brick->q_phase1.q_ordering) {
+		trans_brick->q_phase0.q_batchlen = CONF_TRANS_BATCHLEN;
+		trans_brick->q_phase1.q_batchlen = CONF_ALL_BATCHLEN;
 		trans_brick->q_phase2.q_batchlen = CONF_ALL_BATCHLEN;
 		trans_brick->q_phase3.q_batchlen = CONF_ALL_BATCHLEN;
-		trans_brick->q_phase4.q_batchlen = CONF_ALL_BATCHLEN;
 
-		trans_brick->q_phase1.q_max_flying = CONF_TRANS_FLYING;
+		trans_brick->q_phase0.q_max_flying = CONF_TRANS_FLYING;
+		trans_brick->q_phase1.q_max_flying = CONF_ALL_FLYING;
 		trans_brick->q_phase2.q_max_flying = CONF_ALL_FLYING;
 		trans_brick->q_phase3.q_max_flying = CONF_ALL_FLYING;
-		trans_brick->q_phase4.q_max_flying = CONF_ALL_FLYING;
 
+		trans_brick->q_phase0.q_max_contention = CONF_ALL_CONTENTION;
 		trans_brick->q_phase1.q_max_contention = CONF_ALL_CONTENTION;
 		trans_brick->q_phase2.q_max_contention = CONF_ALL_CONTENTION;
 		trans_brick->q_phase3.q_max_contention = CONF_ALL_CONTENTION;
-		trans_brick->q_phase4.q_max_contention = CONF_ALL_CONTENTION;
 
+		trans_brick->q_phase0.q_over_pressure = CONF_ALL_PRESSURE;
 		trans_brick->q_phase1.q_over_pressure = CONF_ALL_PRESSURE;
 		trans_brick->q_phase2.q_over_pressure = CONF_ALL_PRESSURE;
 		trans_brick->q_phase3.q_over_pressure = CONF_ALL_PRESSURE;
-		trans_brick->q_phase4.q_over_pressure = CONF_ALL_PRESSURE;
 
-		trans_brick->q_phase1.q_io_prio = CONF_TRANS_PRIO;
+		trans_brick->q_phase0.q_io_prio = CONF_TRANS_PRIO;
+		trans_brick->q_phase1.q_io_prio = CONF_ALL_PRIO;
 		trans_brick->q_phase2.q_io_prio = CONF_ALL_PRIO;
 		trans_brick->q_phase3.q_io_prio = CONF_ALL_PRIO;
-		trans_brick->q_phase4.q_io_prio = CONF_ALL_PRIO;
 
-		trans_brick->q_phase2.q_max_queued = CONF_ALL_MAX_QUEUE;
-		trans_brick->q_phase4.q_max_queued = CONF_ALL_MAX_QUEUE;
+		trans_brick->q_phase1.q_max_queued = CONF_ALL_MAX_QUEUE;
+		trans_brick->q_phase3.q_max_queued = CONF_ALL_MAX_QUEUE;
 
-		trans_brick->q_phase2.q_max_jiffies = CONF_ALL_MAX_JIFFIES;
-		trans_brick->q_phase4.q_max_jiffies = CONF_ALL_MAX_JIFFIES;
+		trans_brick->q_phase1.q_max_jiffies = CONF_ALL_MAX_JIFFIES;
+		trans_brick->q_phase3.q_max_jiffies = CONF_ALL_MAX_JIFFIES;
 
-		trans_brick->q_phase2.q_ordering = true;
-		trans_brick->q_phase4.q_ordering = true;
+		trans_brick->q_phase1.q_ordering = true;
+		trans_brick->q_phase3.q_ordering = true;
 
 		trans_brick->shadow_mem_limit = CONF_TRANS_SHADOW_LIMIT;
 		trans_brick->log_reads = CONF_TRANS_LOG_READS;
@@ -191,8 +191,8 @@ int _set_trans_params(struct mars_brick *_brick, void *private)
 		trans_brick->max_flying = CONF_LOGST_FLYING;
 
 		if (!trans_brick->log_reads) {
-			trans_brick->q_phase2.q_max_queued = 0;
-			trans_brick->q_phase4.q_max_queued *= 2;
+			trans_brick->q_phase1.q_max_queued = 0;
+			trans_brick->q_phase3.q_max_queued *= 2;
 		}
 	}
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
