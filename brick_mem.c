@@ -584,7 +584,20 @@ void brick_mem_statistics(void)
 	BRICK_INF("======== page allocation:\n");
 #ifdef CONFIG_MARS_MEM_PREALLOC
 	for (i = 0; i <= BRICK_MAX_ORDER; i++) {
-		BRICK_INF("pages order = %2d operations = %9d freelist_count = %4d / %3d raw_count = %5d alloc_count = %5d line = %5d max_count = %5d\n", i, atomic_read(&op_count[i]), atomic_read(&freelist_count[i]), freelist_max[i], atomic_read(&raw_count[i]), atomic_read(&alloc_count[i]), alloc_line[i], alloc_max[i]);
+		BRICK_INF("pages order = %2d "
+			  "operations = %9d "
+			  "freelist_count = %4d / %3d "
+			  "raw_count = %5d "
+			  "alloc_count = %5d "
+			  "line = %5d "
+			  "max_count = %5d\n",
+			  i,
+			  atomic_read(&op_count[i]),
+			  atomic_read(&freelist_count[i]),
+			  freelist_max[i],
+			  atomic_read(&raw_count[i]),
+			  atomic_read(&alloc_count[i]),
+			  alloc_line[i], alloc_max[i]);
 	}
 #endif
 	for (i = 0; i < BRICK_DEBUG_MEM; i++) {
@@ -592,7 +605,13 @@ void brick_mem_statistics(void)
 		if (val) {
 			count += val;
 			places++;
-			BRICK_INF("line %4d: %6d allocated (last size = %4d, freed = %6d)\n", i, val, block_len[i], atomic_read(&block_free[i]));
+			BRICK_INF("line %4d: "
+				  "%6d allocated "
+				  "(last size = %4d, freed = %6d)\n",
+				  i,
+				  val,
+				  block_len[i],
+				  atomic_read(&block_free[i]));
 		}
 	}
 	BRICK_INF("======== %d block allocations in %d places\n", count, places);
@@ -602,7 +621,13 @@ void brick_mem_statistics(void)
 		if (val) {
 			count += val;
 			places++;
-			BRICK_INF("line %4d: %6d allocated (last size = %4d, freed = %6d)\n", i, val, mem_len[i], atomic_read(&mem_free[i]));
+			BRICK_INF("line %4d: "
+				  "%6d allocated "
+				  "(last size = %4d, freed = %6d)\n",
+				  i,
+				  val,
+				  mem_len[i],
+				  atomic_read(&mem_free[i]));
 		}
 	}
 	BRICK_INF("======== %d memory allocations in %d places\n", count, places);
@@ -612,7 +637,12 @@ void brick_mem_statistics(void)
 		if (val) {
 			count += val;
 			places++;
-			BRICK_INF("line %4d: %6d allocated (freed = %6d)\n", i, val, atomic_read(&string_free[i]));
+			BRICK_INF("line %4d: "
+				  "%6d allocated "
+				  "(freed = %6d)\n",
+				  i,
+				  val,
+				  atomic_read(&string_free[i]));
 		}
 	}
 	BRICK_INF("======== %d string allocations in %d places\n", count, places);

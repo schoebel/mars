@@ -1,5 +1,7 @@
 // (c) 2010 Thomas Schoebel-Theuer / 1&1 Internet AG
 
+// (c) 2010 Thomas Schoebel-Theuer / 1&1 Internet AG
+
 // Bio brick (interface to blkdev IO via kernel bios)
 
 //#define BRICK_DEBUGGING
@@ -559,7 +561,17 @@ char *bio_statistics(struct bio_brick *brick, int verbose)
 
 	// FIXME: check for allocation overflows
 
-	snprintf(res, 512, "total completed = %d background = %d | flying = %d completing = %d background = %d\n", atomic_read(&brick->total_completed_count), atomic_read(&brick->total_background_count), atomic_read(&brick->fly_count), atomic_read(&brick->completed_count), atomic_read(&brick->background_count));
+	snprintf(res, 512,
+		 "total completed = %d "
+		 "background = %d | "
+		 "flying = %d "
+		 "completing = %d "
+		 "background = %d\n",
+		 atomic_read(&brick->total_completed_count),
+		 atomic_read(&brick->total_background_count),
+		 atomic_read(&brick->fly_count),
+		 atomic_read(&brick->completed_count),
+		 atomic_read(&brick->background_count));
 
 	return res;
 }

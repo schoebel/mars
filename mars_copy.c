@@ -609,10 +609,24 @@ char *copy_statistics(struct copy_brick *brick, int verbose)
                 return NULL;
 	
 	snprintf(res, 1024,
-		 "copy_start = %lld copy_last = %lld copy_end = %lld copy_error = %d low_dirty = %d is_aborting = %d clash = %lu | io_flight = %d copy_flight = %d\n",
-		 brick->copy_start, brick->copy_last, brick->copy_end,
-		 brick->copy_error, brick->low_dirty, brick->is_aborting, brick->clash,
-		 atomic_read(&brick->io_flight), atomic_read(&brick->copy_flight));
+		 "copy_start = %lld "
+		 "copy_last = %lld "
+		 "copy_end = %lld "
+		 "copy_error = %d "
+		 "low_dirty = %d "
+		 "is_aborting = %d "
+		 "clash = %lu | "
+		 "io_flight = %d "
+		 "copy_flight = %d\n",
+		 brick->copy_start,
+		 brick->copy_last,
+		 brick->copy_end,
+		 brick->copy_error,
+		 brick->low_dirty,
+		 brick->is_aborting,
+		 brick->clash,
+		 atomic_read(&brick->io_flight),
+		 atomic_read(&brick->copy_flight));
 
         return res;
 }

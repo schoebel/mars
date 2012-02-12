@@ -738,7 +738,7 @@ static
 char *if_statistics(struct if_brick *brick, int verbose)
 {
 	struct if_input *input = brick->inputs[0];
-	char *res = brick_string_alloc(0);
+	char *res = brick_string_alloc(512);
 	int tmp0 = atomic_read(&input->total_reada_count); 
 	int tmp1 = atomic_read(&input->total_read_count); 
 	int tmp2 = atomic_read(&input->total_mref_read_count);
@@ -746,19 +746,28 @@ char *if_statistics(struct if_brick *brick, int verbose)
 	int tmp4 = atomic_read(&input->total_mref_write_count);
 	if (!res)
 		return NULL;
-	snprintf(res, 512, "total reada = %d reads = %d mref_reads = %d (%d%%) writes = %d mref_writes = %d (%d%%) empty = %d | plugged = %d flying = %d (reads = %d writes = %d)\n",
-		tmp0,
-		tmp1,
-		tmp2,
-		tmp1 ? tmp2 * 100 / tmp1 : 0,
-		tmp3,
-		tmp4,
-		tmp3 ? tmp4 * 100 / tmp3 : 0,
-		atomic_read(&input->total_empty_count),
-		atomic_read(&input->plugged_count),
-		atomic_read(&input->flying_count),
-		atomic_read(&input->read_flying_count),
-		atomic_read(&input->write_flying_count));
+	snprintf(res, 512,
+		 "total reada = %d "
+		 "reads = %d "
+		 "mref_reads = %d (%d%%) "
+		 "writes = %d "
+		 "mref_writes = %d (%d%%) "
+		 "empty = %d | "
+		 "plugged = %d "
+		 "flying = %d "
+		 "(reads = %d writes = %d)\n",
+		 tmp0,
+		 tmp1,
+		 tmp2,
+		 tmp1 ? tmp2 * 100 / tmp1 : 0,
+		 tmp3,
+		 tmp4,
+		 tmp3 ? tmp4 * 100 / tmp3 : 0,
+		 atomic_read(&input->total_empty_count),
+		 atomic_read(&input->plugged_count),
+		 atomic_read(&input->flying_count),
+		 atomic_read(&input->read_flying_count),
+		 atomic_read(&input->write_flying_count));
 	return res;
 }
 

@@ -567,9 +567,16 @@ char *client_statistics(struct client_brick *brick, int verbose)
                 return NULL;
 
 	snprintf(res, 1024,
-		 "#%d socket max_flying = %d io_timeout = %d | timeout_count = %d fly_count = %d\n",
-		 output->socket.s_debug_nr, brick->max_flying, brick->io_timeout,
-		 atomic_read(&output->timeout_count), atomic_read(&output->fly_count));
+		 "#%d socket "
+		 "max_flying = %d "
+		 "io_timeout = %d | "
+		 "timeout_count = %d "
+		 "fly_count = %d\n",
+		 output->socket.s_debug_nr,
+		 brick->max_flying,
+		 brick->io_timeout,
+		 atomic_read(&output->timeout_count),
+		 atomic_read(&output->fly_count));
 	
         return res;
 }
