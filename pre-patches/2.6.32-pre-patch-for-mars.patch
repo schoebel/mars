@@ -1,0 +1,252 @@
+From 2aac8eddf264fa96a67de5672dd4efdbec59c59c Mon Sep 17 00:00:00 2001
+From: Thomas Schoebel-Theuer <tst@1und1.de>
+Date: Mon, 13 Feb 2012 08:55:36 +0100
+Subject: [PATCH] pre-patch for mars
+
+mostly introduces missint EXPORT_SYMBOL()
+---
+ block/Kconfig         |    2 ++
+ block/Makefile        |    2 ++
+ fs/aio.c              |    5 +++++
+ fs/namei.c            |    4 ++++
+ fs/open.c             |    2 ++
+ fs/utimes.c           |    2 ++
+ include/linux/major.h |    1 +
+ include/linux/sched.h |    3 +++
+ kernel/fork.c         |    1 +
+ lib/debug_locks.c     |    1 +
+ mm/mmu_context.c      |    3 +++
+ mm/page_alloc.c       |    2 ++
+ mm/swap_state.c       |    1 +
+ 13 files changed, 29 insertions(+), 0 deletions(-)
+
+diff --git a/block/Kconfig b/block/Kconfig
+index 9be0b56..80cd020 100644
+--- a/block/Kconfig
++++ b/block/Kconfig
+@@ -77,6 +77,8 @@ config BLK_DEV_INTEGRITY
+ 	T10/SCSI Data Integrity Field or the T13/ATA External Path
+ 	Protection.  If in doubt, say N.
+ 
++source block/mars/Kconfig
++
+ endif # BLOCK
+ 
+ config BLOCK_COMPAT
+diff --git a/block/Makefile b/block/Makefile
+index ba74ca6..d547b2c 100644
+--- a/block/Makefile
++++ b/block/Makefile
+@@ -15,3 +15,5 @@ obj-$(CONFIG_IOSCHED_CFQ)	+= cfq-iosched.o
+ 
+ obj-$(CONFIG_BLOCK_COMPAT)	+= compat_ioctl.o
+ obj-$(CONFIG_BLK_DEV_INTEGRITY)	+= blk-integrity.o
++
++obj-$(CONFIG_MARS)		+= mars/
+\ No newline at end of file
+diff --git a/fs/aio.c b/fs/aio.c
+index 22a19ad..466a59f 100644
+--- a/fs/aio.c
++++ b/fs/aio.c
+@@ -1267,6 +1267,7 @@ SYSCALL_DEFINE2(io_setup, unsigned, nr_events, aio_context_t __user *, ctxp)
+ out:
+ 	return ret;
+ }
++EXPORT_SYMBOL(sys_io_setup);
+ 
+ /* sys_io_destroy:
+  *	Destroy the aio_context specified.  May cancel any outstanding 
+@@ -1284,6 +1285,7 @@ SYSCALL_DEFINE1(io_destroy, aio_context_t, ctx)
+ 	pr_debug("EINVAL: io_destroy: invalid context id\n");
+ 	return -EINVAL;
+ }
++EXPORT_SYMBOL(sys_io_destroy);
+ 
+ static void aio_advance_iovec(struct kiocb *iocb, ssize_t ret)
+ {
+@@ -1677,6 +1679,7 @@ SYSCALL_DEFINE3(io_submit, aio_context_t, ctx_id, long, nr,
+ 	put_ioctx(ctx);
+ 	return i ? i : ret;
+ }
++EXPORT_SYMBOL(sys_io_submit);
+ 
+ /* lookup_kiocb
+  *	Finds a given iocb for cancellation.
+@@ -1756,6 +1759,7 @@ SYSCALL_DEFINE3(io_cancel, aio_context_t, ctx_id, struct iocb __user *, iocb,
+ 
+ 	return ret;
+ }
++EXPORT_SYMBOL(sys_io_cancel);
+ 
+ /* io_getevents:
+  *	Attempts to read at least min_nr events and up to nr events from
+@@ -1787,3 +1791,4 @@ SYSCALL_DEFINE5(io_getevents, aio_context_t, ctx_id,
+ 	asmlinkage_protect(5, ret, ctx_id, min_nr, nr, events, timeout);
+ 	return ret;
+ }
++EXPORT_SYMBOL(sys_io_getevents);
+diff --git a/fs/namei.c b/fs/namei.c
+index b0afbd4..174571e 100644
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -2956,12 +2956,16 @@ EXPORT_SYMBOL(vfs_create);
+ EXPORT_SYMBOL(vfs_follow_link);
+ EXPORT_SYMBOL(vfs_link);
+ EXPORT_SYMBOL(vfs_mkdir);
++EXPORT_SYMBOL(sys_mkdir);
+ EXPORT_SYMBOL(vfs_mknod);
+ EXPORT_SYMBOL(generic_permission);
+ EXPORT_SYMBOL(vfs_readlink);
+ EXPORT_SYMBOL(vfs_rename);
++EXPORT_SYMBOL(sys_rename);
+ EXPORT_SYMBOL(vfs_rmdir);
+ EXPORT_SYMBOL(vfs_symlink);
++EXPORT_SYMBOL(sys_symlink);
+ EXPORT_SYMBOL(vfs_unlink);
++EXPORT_SYMBOL(sys_unlink);
+ EXPORT_SYMBOL(dentry_unhash);
+ EXPORT_SYMBOL(generic_readlink);
+diff --git a/fs/open.c b/fs/open.c
+index 4f01e06..00bdef5 100644
+--- a/fs/open.c
++++ b/fs/open.c
+@@ -707,6 +707,7 @@ out_release:
+ out:
+ 	return error;
+ }
++EXPORT_SYMBOL(sys_chmod);
+ 
+ SYSCALL_DEFINE5(fchownat, int, dfd, const char __user *, filename, uid_t, user,
+ 		gid_t, group, int, flag)
+@@ -751,6 +752,7 @@ out_release:
+ out:
+ 	return error;
+ }
++EXPORT_SYMBOL(sys_lchown);
+ 
+ SYSCALL_DEFINE3(fchown, unsigned int, fd, uid_t, user, gid_t, group)
+ {
+diff --git a/fs/utimes.c b/fs/utimes.c
+index e4c75db..a33c116 100644
+--- a/fs/utimes.c
++++ b/fs/utimes.c
+@@ -1,3 +1,4 @@
++#include <linux/module.h>
+ #include <linux/compiler.h>
+ #include <linux/file.h>
+ #include <linux/fs.h>
+@@ -169,6 +170,7 @@ long do_utimes(int dfd, char __user *filename, struct timespec *times, int flags
+ out:
+ 	return error;
+ }
++EXPORT_SYMBOL(do_utimes);
+ 
+ SYSCALL_DEFINE4(utimensat, int, dfd, char __user *, filename,
+ 		struct timespec __user *, utimes, int, flags)
+diff --git a/include/linux/major.h b/include/linux/major.h
+index 6a8ca98..faf6692 100644
+--- a/include/linux/major.h
++++ b/include/linux/major.h
+@@ -146,6 +146,7 @@
+ #define UNIX98_PTY_SLAVE_MAJOR	(UNIX98_PTY_MASTER_MAJOR+UNIX98_PTY_MAJOR_COUNT)
+ 
+ #define DRBD_MAJOR		147
++#define MARS_MAJOR		148
+ #define RTF_MAJOR		150
+ #define RAW_MAJOR		162
+ 
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index 71849bf..570444e 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -1421,6 +1421,9 @@ struct task_struct {
+ 	/* mutex deadlock detection */
+ 	struct mutex_waiter *blocked_on;
+ #endif
++#ifdef CONFIG_DEBUG_SPINLOCK
++	atomic_t lock_count;
++#endif
+ #ifdef CONFIG_TRACE_IRQFLAGS
+ 	unsigned int irq_events;
+ 	int hardirqs_enabled;
+diff --git a/kernel/fork.c b/kernel/fork.c
+index 4bde56f..ff87740 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -168,6 +168,7 @@ void __put_task_struct(struct task_struct *tsk)
+ 	if (!profile_handoff_task(tsk))
+ 		free_task(tsk);
+ }
++EXPORT_SYMBOL(__put_task_struct);
+ 
+ /*
+  * macro override instead of weak attribute alias, to workaround
+diff --git a/lib/debug_locks.c b/lib/debug_locks.c
+index bc3b117..35d6084 100644
+--- a/lib/debug_locks.c
++++ b/lib/debug_locks.c
+@@ -45,3 +45,4 @@ int debug_locks_off(void)
+ 	}
+ 	return 0;
+ }
++EXPORT_SYMBOL(debug_locks_off);
+diff --git a/mm/mmu_context.c b/mm/mmu_context.c
+index ded9081..addb2e3 100644
+--- a/mm/mmu_context.c
++++ b/mm/mmu_context.c
+@@ -6,6 +6,7 @@
+ #include <linux/mm.h>
+ #include <linux/mmu_context.h>
+ #include <linux/sched.h>
++#include <linux/module.h>
+ 
+ #include <asm/mmu_context.h>
+ 
+@@ -37,6 +38,7 @@ void use_mm(struct mm_struct *mm)
+ 	if (active_mm != mm)
+ 		mmdrop(active_mm);
+ }
++EXPORT_SYMBOL(use_mm);
+ 
+ /*
+  * unuse_mm
+@@ -56,3 +58,4 @@ void unuse_mm(struct mm_struct *mm)
+ 	enter_lazy_tlb(mm, tsk);
+ 	task_unlock(tsk);
+ }
++EXPORT_SYMBOL(unuse_mm);
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 3ecab7e..9774425 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -122,6 +122,7 @@ static char * const zone_names[MAX_NR_ZONES] = {
+ };
+ 
+ int min_free_kbytes = 1024;
++EXPORT_SYMBOL(min_free_kbytes);
+ 
+ static unsigned long __meminitdata nr_kernel_pages;
+ static unsigned long __meminitdata nr_all_pages;
+@@ -4645,6 +4646,7 @@ void setup_per_zone_wmarks(void)
+ 	/* update totalreserve_pages */
+ 	calculate_totalreserve_pages();
+ }
++EXPORT_SYMBOL(setup_per_zone_wmarks);
+ 
+ /*
+  * The inactive anon list should be small enough that the VM never has to
+diff --git a/mm/swap_state.c b/mm/swap_state.c
+index 6d1daeb..8f2038a 100644
+--- a/mm/swap_state.c
++++ b/mm/swap_state.c
+@@ -46,6 +46,7 @@ struct address_space swapper_space = {
+ 	.i_mmap_nonlinear = LIST_HEAD_INIT(swapper_space.i_mmap_nonlinear),
+ 	.backing_dev_info = &swap_backing_dev_info,
+ };
++EXPORT_SYMBOL(swapper_space);
+ 
+ #define INC_CACHE_INFO(x)	do { swap_cache_info.x++; } while (0)
+ 
+-- 
+1.7.8.3
+
