@@ -550,7 +550,7 @@ sub logdelete_res {
   @paths = sort(@paths);
   my $max = _allowed_logdelete(@_);
   # is there any splitbrain up to $max-1?
-  check_splitbrain($res, "", $max - 1) if $cmd eq "log-delete-all";
+  check_splitbrain($res, "", $max - 1) if ($cmd eq "log-delete-all" && !$force);
   my $nr;
 
   do {
