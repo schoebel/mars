@@ -146,7 +146,7 @@ int errors_sysctl_handler(
 }
 
 #ifdef CONFIG_MARS_LOADAVG_LIMIT
-int mars_max_loadavg = 8;
+int mars_max_loadavg = 0;
 EXPORT_SYMBOL_GPL(mars_max_loadavg);
 #endif
 
