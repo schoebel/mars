@@ -1092,11 +1092,12 @@ int mars_kill_brick_when_possible(struct mars_global *global, struct list_head *
 {
 	int return_status = 0;
 	struct list_head *tmp;
-	struct list_head *next;
+
+restart:
 	if (global) {
 		down_write(&global->brick_mutex);
 	}
-	for (tmp = anchor->next, next = tmp->next; tmp != anchor; tmp = next, next = next->next) {
+	for (tmp = anchor->next; tmp != anchor; tmp = tmp->next) {
 		struct mars_brick *brick;
 		int status;
 		if (use_dent_link) {
@@ -1113,6 +1114,12 @@ int mars_kill_brick_when_possible(struct mars_global *global, struct list_head *
 			continue;
 		}
 		if (only_off) {
+			if (brick->power.led_off) { // already off
+				continue;
+			}
+			if (global) {
+				up_write(&global->brick_mutex);
+			}
 			MARS_DBG("POWER OFF '%s'\n", brick->brick_name);
 			status = mars_power_button(brick, false, false);
 			goto success;
@@ -1124,22 +1131,25 @@ int mars_kill_brick_when_possible(struct mars_global *global, struct list_head *
 		if (global && global->global_version == brick->brick_version) {
 			continue;
 		}
+
 		list_del_init(tmp);
 		if (global) {
 			up_write(&global->brick_mutex);
 		}
+
 		MARS_DBG("KILLING '%s'\n", brick->brick_name);
 		status = mars_kill_brick(brick);
-		if (global) {
-			down_write(&global->brick_mutex);
-		}
+
 	success:
 		if (status >= 0) {
 			return_status++;
 		} else {
-			return_status = status;
-			break;
+			return status;
 		}
+		/* The list may have changed during the open lock
+		 * in unpredictable ways.
+		 */
+		goto restart;
 	}
 	if (global) {
 		up_write(&global->brick_mutex);

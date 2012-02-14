@@ -3556,9 +3556,9 @@ static int light_thread(void *data)
 		MARS_DBG("kill aio    bricks (when possible) = %d\n", status);
 		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&sio_brick_type, false);
 		MARS_DBG("kill sio    bricks (when possible) = %d\n", status);
-		status = mars_kill_brick_when_possible(&_global, &_global.server_anchor, true, (void*)&aio_brick_type, false);
+		status = mars_kill_brick_when_possible(&_global, &_global.server_anchor, false, (void*)&aio_brick_type, false);
 		MARS_DBG("kill server aio bricks (when possible) = %d\n", status);
-		status = mars_kill_brick_when_possible(&_global, &_global.server_anchor, true, (void*)&sio_brick_type, false);
+		status = mars_kill_brick_when_possible(&_global, &_global.server_anchor, false, (void*)&sio_brick_type, false);
 		MARS_DBG("kill server sio bricks (when possible) = %d\n", status);
 
 		proc_say_commit();
