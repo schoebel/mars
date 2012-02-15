@@ -10,7 +10,7 @@ my $mars = "/mars";
 my $host = `uname -n` or die "cannot determine my network node name\n";
 chomp $host;
 my $force = 0;
-my $ip = _get_ip();
+my $ip = _get_ip() or die "cannot determine my IP address\n";
 print "my IP is $ip\n";
 
 umask 0077;
