@@ -10,9 +10,7 @@ my $mars = "/mars";
 my $host = `uname -n` or die "cannot determine my network node name\n";
 chomp $host;
 my $force = 0;
-my $ip = `ip a` or die "cannot determine my IP address\n";
-$ip =~ s/\A.*inet +(?!127\.0\.)([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+).*?\Z/$1/ms or die "cannot parse my IP address\n";
-chomp $ip;
+my $ip = _get_ip();
 print "my IP is $ip\n";
 
 umask 0077;
@@ -319,6 +317,14 @@ sub _writable {
   my $newmode = $on ? $oldmode | 0200 : $oldmode & ~0200;
   print "chmod '$path' $oldmode $newmode";
   chmod($newmode, $path) == 1 or die "cannot chmod '$path'\n";
+}
+
+sub _get_ip {
+  chomp (my @info = `/sbin/ip addr show dev eth0`);
+  foreach (@info) {
+    m#\sinet\s(\d+\.\d+\.\d+\.\d+)# && return $1;
+  }
+  return undef;
 }
 
 ##################################################################
