@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 #
-# $Id: 2b6f6680ca500b1187b5603b12bfb04fd0751e48 $
+# $Id: daaddde142fd7f312645efe712e13993596ae91e $
 # $Author$ $Date$
 # last update at Fr 27. Jan 12:59:55 CET 2012 by joerg.mann@1und1.de
 
@@ -16,7 +16,10 @@
 use warnings;
 use strict;
 use English;
+use File::Which;
+use Getopt::Long;
 use Term::ANSIColor;
+use Date::Language;
 
 
 ### defaults
@@ -25,16 +28,41 @@ my $alife_timeout = "99";	# sec
 my $is_tty 	  = 0;
 my $mars_dir      = '/mars';
 my $himself       = `uname -n` or die "cannot determine my network node name\n";
+my $clearscreen	  = `clear`;
 chomp $himself;
 
 
 ### ARGV
-# Todo: @argv
-my $OptionList    = shift;
-my $OptionRes     = shift;
-if ( !$OptionList ) {
+# 
+# Optionen in Hash-Ref parsen
+my $params = {};
+GetOptions( $params, 'resource=s', 'long','interval=i', 'help' );
+
+my $OptionList = "long";
+if(not $params->{long}) {
 	$OptionList = "small";
 }
+
+my $OptionRes = $params->{resource};
+
+if($params->{help}) {
+	print "Usage: $0 [--resource <RESNAME>] [--long] [--interval <seconds>] [--help]\n";
+	exit;
+}
+
+# Farbe zuruecksetzen
+$SIG{INT} = sub {
+	print color 'reset';
+	print $clearscreen;
+	exit;	
+};
+
+
+# my $OptionList    = shift;
+# my $OptionRes     = shift;
+# if ( !$OptionList ) {
+# 	$OptionList = "small";
+# }
 
 ### figure out TTY
 my $tty = readlink '/dev/stdout';
@@ -300,173 +328,188 @@ sub check_logfile {
 	}
 }
 
-#########################################################################################
-### read mars infos
-my %mars_info;
-open ( my $lsmod_handle,'-|','lsmod | grep mars' ) || die "blub ... $!";
-if (!<$lsmod_handle>) {
-	print_warn "Module Mars not running\n",'red';
-	exit 1;
-}
 
-open ( my $modinfo_handle, '-|', 'modinfo mars' ) || die "cannot run modinfo mars: $!";
-while ( my $line = <$modinfo_handle> ) {
-	chomp $line;
-	my ( $key, $value) = split /: +/, $line;
-	if ( $value) {
-		$mars_info{$key} = $value;
+while(1) {
+	print $clearscreen;
+        my $dateFormat = Date::Language->new('English');
+#        $DateFormat->time2str("%a %b %e %T %Y\n", time);
+	print $dateFormat->time2str("%a %b %e %T %Y\n", time) . "\n";
+	#########################################################################################
+	### read mars infos
+	my %mars_info;
+	open ( my $lsmod_handle,'-|','lsmod | grep mars' ) || die "blub ... $!";
+	if (!<$lsmod_handle>) {
+		print_warn "Module Mars not running\n",'red';
+		exit 1;
 	}
-}
-
-if ( $mars_info{author} eq "") {
-	print_warn "Module Mars not running\n",'red';
-	exit 1;
-}
-
-# status
-print_warn "MARS Status - $himself, $version",'blue';
-if ( $OptionList ) { print_warn ", Listmodus $OptionList",'blue'; }
-if ( $OptionRes  ) { print_warn ", Ressource $OptionRes",'blue'; }
-print "\n";
-
-# marsadm
-my $MAVersion = '/usr/local/bin/marsadm';
-open my $Mfh, '<', "$MAVersion" or die $!;
-$MAVersion = ( grep { /^# \$Id: 2b6f6680ca500b1187b5603b12bfb04fd0751e48 $Mfh> )[0];
-$MAVersion = ( split / /, $MAVersion )[2];
-print_warn "MARS Admin  - $MAVersion\n",'blue';
-
-# module
-print_warn "MARS Module - $mars_info{version}\n",'blue';
-
-# kernel
-my $KVersion = '/proc/version';
-open my $Kfh, '<', "$KVersion" or die $!;
-$KVersion = ( grep { /^Linux/ } <$Kfh> )[0];
-$KVersion = ( split / /, $KVersion )[2];
-print_warn "MARS Kernel - $KVersion\n",'blue';
-
-print "-------------------------------------------------------------------------------\n";
-
-#########################################################################################
-### check system error's
-### diskfull
-my @diskfull = glob("$mars_dir/rest-space-*");
-if ( @diskfull ) { 
-	foreach ( @diskfull) {
-               	my $diskfullspace     = check_link "$_";                        
-               	my $diskfullsystem = $_;                
-               	$diskfullsystem    =~ s!/mars/rest-space-!!;
-               	if ( $diskfullspace < 1 ) {
-               		$diskfullspace = sprintf ("%.2f", $diskfullspace / 1024 );
-               		if ( $diskfullsystem eq $himself ) {
-               			print_warn "\n-> ERROR ! Local Partition $mars_dir full ($diskfullspace kb Limit) !!! mars is stopping !!!\n\n", "red";
-               		} else {
-               			print_warn "\n-> WARNING ! Remotesystem $diskfullsystem have mars-disk full ($diskfullspace kb Limit) !!!\n\n", "red";
-               		}
-		}
-	}
-}
-              	
-#########################################################################################
-### check resources
-opendir my $dirhandle, $mars_dir or die "Cannot open $mars_dir: $!";
-my @resources = grep { /^res/ && -d "$mars_dir/$_" } readdir $dirhandle;
-if ( !@resources ) {
-        print_warn "---> no resources found\n", 'red';
-        exit;
-}
-
-
-foreach my $res (@resources) {
-	my $ResPartner   = 0;
-	my $ResInReplay  = 0;
-	my $ResInReplayE = 0;
-	my $ResInSync    = 0;
-	my $ResInSyncE   = 0;
-	my $res_name     = $res;
-	$res_name        =~ s/^resource-//;
-	if ( $OptionRes ) {
-		if (!( $OptionRes eq $res_name)) {
-			next;
-		}
-	}
-	my $res_size     = check_link "$mars_dir/$res/size";
-        if ( $res_size eq 0 ) { $res_size = 1 };
-        my $res_tbsize   = ( $res_size) / 1024 / 1024 /1024 / 1024;
-        my $res_master   = check_link "$mars_dir/$res/primary";
-        if ( $res_master eq 0 ) { $res_master = "unknown" };
-        print color 'bold' if ( $is_tty );
-        printf  "-> check resource %s, with %d bytes (%.3fTB), Primary Node is %s\n", $res_name, $res_size, $res_tbsize, $res_master;
-        print color 'reset' if ( $is_tty );
 	
-
-	### hin self
-	print_warn "   -> local node ($himself) ",'blue';
-	my $ActualUsedLogfile = display_partner(
-		ressource	=> $res,
-		nodename	=> $himself,
-		ressource_size	=> $res_size,
-		res_partner	=> \$ResPartner,
-		res_inreplay    => \$ResInReplay,
-		res_insync      => \$ResInSync,
-		res_AULogfile   => "",
-	);
-	$ResInReplayE = $ResInReplay;
-	$ResInSyncE   = $ResInSync;
-
-	# not joined ...
-	if ( $ResPartner eq 1) {
-		### partners
-		opendir my $server_dh, "$mars_dir/$res" or die "Cannot open $mars_dir/$res: $!";
-		my @servers = grep { /^data/ && readlink "$mars_dir/$res/$_" } readdir $server_dh;
-		@servers    = sort (@servers);
-		foreach my $partner (@servers) {
-			$partner  =~ s/^data-//;
-			if ( $partner eq $himself ) { next; }
-			print_warn "   -> remote node ($partner) ", 'blue';
-			display_partner(
-				ressource	=> $res,
-				nodename	=> $partner,
-				ressource_size	=> $res_size,
-				res_partner	=> \$ResPartner,
-				res_inreplay    => \$ResInReplay,
-				res_insync      => \$ResInSync,
-				res_AULogfile   => $ActualUsedLogfile,
-				);
+	open ( my $modinfo_handle, '-|', 'modinfo mars' ) || die "cannot run modinfo mars: $!";
+	while ( my $line = <$modinfo_handle> ) {
+		chomp $line;
+		my ( $key, $value) = split /: +/, $line;
+		if ( $value) {
+			$mars_info{$key} = $value;
 		}
-		$ResInReplayE = $ResInReplayE + $ResInReplay;
-		$ResInSyncE   = $ResInSyncE + $ResInSync;
 	}
-
 	
-	### modus
-        if ( $ResPartner eq 0) { 
-            if ( $OptionList eq "long" ) { print_warn "   -> modus for $res_name is remote ($ResPartner nodes)\n",'blue'; }
-        } elsif ( $ResPartner eq 1 ) { 
-	    if ( $OptionList eq "long" ) { print_warn "   -> modus for $res_name is standalone ($ResPartner node)\n",'blue'; }
-        } else {
-	    print_warn "   -> modus for $res_name is cluster ($ResPartner nodes), ",'blue';
-            $ResInReplayE = sprintf("%.2f", $ResInReplayE / $ResPartner );
-            $ResInSyncE   = sprintf("%.2f", $ResInSyncE / $ResPartner );
-            if ( $ResInReplayE eq "100.00" ) {
-        	print_warn "in replay ($ResInReplayE%),", 'green';
-            } elsif ( $ResInReplayE eq "0.00" ) {
-        	print_warn "inaktiv ($ResInReplayE%),", 'red';
-            } else {
-	        print_warn "not in replay ($ResInReplayE%),", 'red';
-            }
-	    if ( $ResInSyncE eq "100.00" ) {
-		print_warn " in sync ($ResInSyncE%)\n", 'green';
-	    } else {
-	        print_warn " not in sync ($ResInSyncE%)\n", "red";
-	    }
-        }
-
-
-        ### history
-        if ( $OptionList eq "long" ) { check_logfile( $res, $ResPartner ); }
+	if ( $mars_info{author} eq "") {
+		print_warn "Module Mars not running\n",'red';
+		exit 1;
+	}
+	
+	# status
+	print_warn "MARS Status - $himself, $version",'blue';
+	if ( $OptionList ) { print_warn ", Listmodus $OptionList",'blue'; }
+	if ( $OptionRes  ) { print_warn ", Ressource $OptionRes",'blue'; }
+	print "\n";
+	
+	# marsadm
+	my $MAVersion = which('marsadm');
+	if(defined $MAVersion && -e $MAVersion) {
+		open my $Mfh, '<', "$MAVersion" or die $!;
+		$MAVersion = ( grep { /^# \$Id: daaddde142fd7f312645efe712e13993596ae91e $Mfh> )[0];
+		$MAVersion = ( split / /, $MAVersion )[2];
+		close $Mfh;
+	} else {
+		$MAVersion = "ukn";
+	}
+	print_warn "MARS Admin  - $MAVersion\n",'blue';
+	
+	
+	# module
+	print_warn "MARS Module - $mars_info{version}\n",'blue';
+	
+	# kernel
+	my $KVersion = '/proc/version';
+	open my $Kfh, '<', "$KVersion" or die $!;
+	$KVersion = ( grep { /^Linux/ } <$Kfh> )[0];
+	$KVersion = ( split / /, $KVersion )[2];
+	print_warn "MARS Kernel - $KVersion\n",'blue';
+	
+	print "-------------------------------------------------------------------------------\n";
+	
+	#########################################################################################
+	### check system error's
+	### diskfull
+	my @diskfull = glob("$mars_dir/rest-space-*");
+	if ( @diskfull ) { 
+		foreach ( @diskfull) {
+	               	my $diskfullspace     = check_link "$_";                        
+	               	my $diskfullsystem = $_;                
+	               	$diskfullsystem    =~ s!/mars/rest-space-!!;
+	               	if ( $diskfullspace < 1 ) {
+	               		$diskfullspace = sprintf ("%.2f", $diskfullspace / 1024 );
+	               		if ( $diskfullsystem eq $himself ) {
+	               			print_warn "\n-> ERROR ! Local Partition $mars_dir full ($diskfullspace kb Limit) !!! mars is stopping !!!\n\n", "red";
+	               		} else {
+	               			print_warn "\n-> WARNING ! Remotesystem $diskfullsystem have mars-disk full ($diskfullspace kb Limit) !!!\n\n", "red";
+	               		}
+			}
+		}
+	}
+	              	
+	#########################################################################################
+	### check resources
+	opendir my $dirhandle, $mars_dir or die "Cannot open $mars_dir: $!";
+	my @resources = grep { /^res/ && -d "$mars_dir/$_" } readdir $dirhandle;
+	if ( !@resources ) {
+	        print_warn "---> no resources found\n", 'red';
+	        exit;
+	}
+	
+	
+	foreach my $res (@resources) {
+		my $ResPartner   = 0;
+		my $ResInReplay  = 0;
+		my $ResInReplayE = 0;
+		my $ResInSync    = 0;
+		my $ResInSyncE   = 0;
+		my $res_name     = $res;
+		$res_name        =~ s/^resource-//;
+		if ( $OptionRes ) {
+			if (!( $OptionRes eq $res_name)) {
+				next;
+			}
+		}
+		my $res_size     = check_link "$mars_dir/$res/size";
+	        if ( $res_size eq 0 ) { $res_size = 1 };
+	        my $res_tbsize   = ( $res_size) / 1024 / 1024 /1024 / 1024;
+	        my $res_master   = check_link "$mars_dir/$res/primary";
+	        if ( $res_master eq 0 ) { $res_master = "unknown" };
+	        print color 'bold' if ( $is_tty );
+	        printf  "-> check resource %s, with %d bytes (%.3fTB), Primary Node is %s\n", $res_name, $res_size, $res_tbsize, $res_master;
+	        print color 'reset' if ( $is_tty );
+		
+	
+		### hin self
+		print_warn "   -> local node ($himself) ",'blue';
+		my $ActualUsedLogfile = display_partner(
+			ressource	=> $res,
+			nodename	=> $himself,
+			ressource_size	=> $res_size,
+			res_partner	=> \$ResPartner,
+			res_inreplay    => \$ResInReplay,
+			res_insync      => \$ResInSync,
+			res_AULogfile   => "",
+		);
+		$ResInReplayE = $ResInReplay;
+		$ResInSyncE   = $ResInSync;
+	
+		# not joined ...
+		if ( $ResPartner eq 1) {
+			### partners
+			opendir my $server_dh, "$mars_dir/$res" or die "Cannot open $mars_dir/$res: $!";
+			my @servers = grep { /^data/ && readlink "$mars_dir/$res/$_" } readdir $server_dh;
+			@servers    = sort (@servers);
+			foreach my $partner (@servers) {
+				$partner  =~ s/^data-//;
+				if ( $partner eq $himself ) { next; }
+				print_warn "   -> remote node ($partner) ", 'blue';
+				display_partner(
+					ressource	=> $res,
+					nodename	=> $partner,
+					ressource_size	=> $res_size,
+					res_partner	=> \$ResPartner,
+					res_inreplay    => \$ResInReplay,
+					res_insync      => \$ResInSync,
+					res_AULogfile   => $ActualUsedLogfile,
+					);
+			}
+			$ResInReplayE = $ResInReplayE + $ResInReplay;
+			$ResInSyncE   = $ResInSyncE + $ResInSync;
+		}
+	
+		
+		### modus
+	        if ( $ResPartner eq 0) { 
+	            if ( $OptionList eq "long" ) { print_warn "   -> modus for $res_name is remote ($ResPartner nodes)\n",'blue'; }
+	        } elsif ( $ResPartner eq 1 ) { 
+		    if ( $OptionList eq "long" ) { print_warn "   -> modus for $res_name is standalone ($ResPartner node)\n",'blue'; }
+	        } else {
+		    print_warn "   -> modus for $res_name is cluster ($ResPartner nodes), ",'blue';
+	            $ResInReplayE = sprintf("%.2f", $ResInReplayE / $ResPartner );
+	            $ResInSyncE   = sprintf("%.2f", $ResInSyncE / $ResPartner );
+	            if ( $ResInReplayE eq "100.00" ) {
+	        	print_warn "in replay ($ResInReplayE%),", 'green';
+	            } elsif ( $ResInReplayE eq "0.00" ) {
+	        	print_warn "inaktiv ($ResInReplayE%),", 'red';
+	            } else {
+		        print_warn "not in replay ($ResInReplayE%),", 'red';
+	            }
+		    if ( $ResInSyncE eq "100.00" ) {
+			print_warn " in sync ($ResInSyncE%)\n", 'green';
+		    } else {
+		        print_warn " not in sync ($ResInSyncE%)\n", "red";
+		    }
+	        }
+	
+	
+	        ### history
+	        if ( $OptionList eq "long" ) { check_logfile( $res, $ResPartner ); }
+	}
+	print color 'reset';
+	exit if (not $params->{'interval'});
+	sleep($params->{'interval'});
 }
-print color 'reset';
 exit;
 	
