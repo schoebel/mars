@@ -911,6 +911,9 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 		 "fdsyncs = %d "
 		 "fdsync_waits = %d "
 		 "map_free = %d | "
+		 "linear_cache_size = %d "
+		 "linear_cache_rounds = %d "
+		 "min_pos = %lld | "
 		 "flying reads = %d "
 		 "writes = %d "
 		 "allocs = %d "
@@ -926,6 +929,9 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 		 atomic_read(&output->total_fdsync_count),
 		 atomic_read(&output->total_fdsync_wait_count),
 		 atomic_read(&output->total_mapfree_count),
+		 brick->linear_cache_size,
+		 brick->linear_cache_rounds,
+		 output->min_pos,
 		 atomic_read(&output->read_count),
 		 atomic_read(&output->write_count),
 		 atomic_read(&output->alloc_count),
