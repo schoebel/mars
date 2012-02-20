@@ -696,6 +696,7 @@ void _mapfree_pages(struct aio_output *output, bool force)
 	} else {
 		gap = brick->linear_cache_size * (1024 * 1024 / PAGE_SIZE);
 		end = output->min_pos / PAGE_SIZE - gap;
+		output->min_pos = 0;
 		if (end <= 0)
 			goto done;
 
@@ -704,7 +705,6 @@ void _mapfree_pages(struct aio_output *output, bool force)
 			start = 0;
 	}
 
-	output->min_pos = 0;
 	output->rounds = 0;
 	atomic_inc(&output->total_mapfree_count);
 
