@@ -1,20 +1,18 @@
 #!/usr/bin/perl -w
 # (c) 2010 Thomas Schoebel-Theuer / 1&1 Internet AG
-# $Id$
 
 use strict;
 use English;
 use warnings;
 
+my $Id = "267700a8a877ad79bc9b86f17891c9d7bf6fa766";
 my $mars = "/mars";
 my $host = `uname -n` or die "cannot determine my network node name\n";
 chomp $host;
 my $force = 0;
 my $ip = _get_ip() or die "cannot determine my IP address\n";
-print "my IP is $ip\n";
 
 umask 0077;
-die "only root may use this tool\n" unless `whoami` eq "root\n"; # getpid() seems to be missing in perlfunc
 
 ##################################################################
 
@@ -713,6 +711,7 @@ sub role_cmd {
   }
 }
 
+
 ##################################################################
 
 my %cmd_table =
@@ -784,6 +783,15 @@ foreach my $arg (@ARGV) {
 }
 
 my $cmd = shift @args || die "command argument is missing\n";
+if($cmd eq "--version") {
+	print "$Id\n";
+	exit 0;
+}
+
+
+
+die "only root may use this tool\n" if $< != 0; # getpid() seems to be missing in perlfunc
+print "my IP is $ip\n";
 die "unknown command '$cmd'\n" if !exists $cmd_table{$cmd};
 
 my $res = "";
@@ -791,6 +799,7 @@ unless($cmd =~ m/^create-cluster$/) {
   $res = shift @args || die "resource argument is missing\n";
   check_id($res);
 }
+
 
 print "using FORCE option -- hopefully you know what you do!\n" if $force;
 
