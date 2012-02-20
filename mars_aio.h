@@ -34,6 +34,8 @@ struct aio_brick {
 	MARS_BRICK(aio);
 	// parameters
 	int readahead;
+	int linear_cache_size; // in MB
+	int linear_cache_rounds;
 	bool o_direct;
 	bool o_fdsync;
 	bool wait_during_fdsync;
@@ -59,6 +61,8 @@ struct aio_output {
         // private
 	struct file *filp;
 	int fd; // FIXME: remove this!
+	int rounds;
+	loff_t min_pos;
 	struct aio_threadinfo tinfo[3];
 	aio_context_t ctxp;
 	wait_queue_head_t fdsync_event;
@@ -71,6 +75,7 @@ struct aio_output {
 	atomic_t total_msleep_count;
 	atomic_t total_fdsync_count;
 	atomic_t total_fdsync_wait_count;
+	atomic_t total_mapfree_count;
 	atomic_t read_count;
 	atomic_t write_count;
 	atomic_t alloc_count;

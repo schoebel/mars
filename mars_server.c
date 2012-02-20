@@ -13,6 +13,9 @@
 
 #define _STRATEGY
 #include "mars.h"
+#include "mars_bio.h"
+#include "mars_aio.h"
+#include "mars_sio.h"
 
 ///////////////////////// own type definitions ////////////////////////
 
@@ -203,6 +206,63 @@ void _clean_list(struct server_brick *brick, struct list_head *start)
 }
 
 static
+int _set_server_sio_params(struct mars_brick *_brick, void *private)
+{
+	struct sio_brick *sio_brick = (void*)_brick;
+	if (_brick->type != (void*)_sio_brick_type) {
+		MARS_ERR("bad brick type\n");
+		return -EINVAL;
+	}
+	sio_brick->o_direct = false;
+	sio_brick->o_fdsync = false;
+	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
+	return 1;
+}
+
+static
+int _set_server_aio_params(struct mars_brick *_brick, void *private)
+{
+	struct aio_brick *aio_brick = (void*)_brick;
+	if (_brick->type == (void*)_sio_brick_type) {
+		return _set_server_sio_params(_brick, private);
+	}
+	if (_brick->type != (void*)_aio_brick_type) {
+		MARS_ERR("bad brick type\n");
+		return -EINVAL;
+	}
+	aio_brick->readahead = 1;
+	aio_brick->linear_cache_size = CONFIG_MARS_LINEAR_CACHE_SIZE;
+	aio_brick->o_direct = false;
+	aio_brick->o_fdsync = false;
+	aio_brick->wait_during_fdsync = false;
+	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
+	return 1;
+}
+
+static
+int _set_server_bio_params(struct mars_brick *_brick, void *private)
+{
+	struct bio_brick *bio_brick;
+	if (_brick->type == (void*)_aio_brick_type) {
+		return _set_server_aio_params(_brick, private);
+	}
+	if (_brick->type == (void*)_sio_brick_type) {
+		return _set_server_sio_params(_brick, private);
+	}
+	if (_brick->type != (void*)_bio_brick_type) {
+		MARS_ERR("bad brick type\n");
+		return -EINVAL;
+	}
+	bio_brick = (void*)_brick;
+	bio_brick->ra_pages = 1;
+	bio_brick->do_noidle = true;
+	bio_brick->do_sync = true;
+	bio_brick->do_unplug = true;
+	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
+	return 1;
+}
+
+static
 struct task_struct *_grab_handler(struct server_brick *brick)
 {
 	struct task_struct *res;
@@ -299,7 +359,7 @@ int handler_thread(void *data)
 				mars_global,
 				NULL,
 				true,
-				NULL,
+				_set_server_bio_params,
 				NULL,
 				10 * HZ,
 				path,

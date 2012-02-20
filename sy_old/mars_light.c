@@ -248,6 +248,18 @@ int _set_aio_params(struct mars_brick *_brick, void *private)
 }
 
 static
+int _set_aio_params_nocache(struct mars_brick *_brick, void *private)
+{
+	int res;
+	res = _set_aio_params(_brick, private);
+	if (_brick->type == (void*)&aio_brick_type) {
+		struct aio_brick *aio_brick = (void*)_brick;
+		aio_brick->linear_cache_size = CONFIG_MARS_LINEAR_CACHE_SIZE;
+	}
+	return res;
+}
+
+static
 int _set_bio_params(struct mars_brick *_brick, void *private)
 {
 	struct bio_brick *bio_brick;
@@ -271,6 +283,16 @@ int _set_bio_params(struct mars_brick *_brick, void *private)
 	bio_brick->do_unplug = BIO_UNPLUG;
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 	return 1;
+}
+
+
+static
+int _set_bio_params_nocache(struct mars_brick *_brick, void *private)
+{
+	if (_brick->type == (void*)&aio_brick_type) {
+		return _set_aio_params_nocache(_brick, private);
+	}
+	return _set_bio_params(_brick, private);
 }
 
 
@@ -655,7 +677,7 @@ int __make_copy(
 			make_brick_all(global,
 				       NULL,
 				       false,
-				       _set_bio_params,
+				       _set_bio_params_nocache,
 				       NULL,
 				       10 * HZ,
 				       NULL,
@@ -1690,7 +1712,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 		make_brick_all(global,
 			       aio_dent,
 			       false,
-			       _set_aio_params,
+			       _set_aio_params_nocache,
 			       NULL,
 			       10 * HZ,
 			       aio_path,

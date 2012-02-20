@@ -669,6 +669,50 @@ void fd_uninstall(unsigned int fd)
 EXPORT_SYMBOL(fd_uninstall);
 #endif
 
+static
+void _mapfree_pages(struct aio_output *output, bool force)
+{
+	struct aio_brick *brick = output->brick;
+	struct address_space *mapping;
+	pgoff_t start;
+	pgoff_t end;
+	pgoff_t gap;
+
+	if (brick->linear_cache_size <= 0)
+		goto done;
+
+	if (!force && ++output->rounds < brick->linear_cache_rounds)
+		goto done;
+
+	if (unlikely(!output->filp || !(mapping = output->filp->f_mapping)))
+		goto done;
+
+	if (unlikely(brick->linear_cache_rounds <= 0))
+		brick->linear_cache_rounds = 1024;
+
+	if (force) {
+		start = 0;
+		end = -1;
+	} else {
+		gap = brick->linear_cache_size * (1024 * 1024 / PAGE_SIZE);
+		end = output->min_pos / PAGE_SIZE - gap;
+		if (end <= 0)
+			goto done;
+
+		start = end - gap * 4;
+		if (start < 0)
+			start = 0;
+	}
+
+	output->min_pos = 0;
+	output->rounds = 0;
+	atomic_inc(&output->total_mapfree_count);
+
+	invalidate_mapping_pages(mapping, start, end);
+
+done:;
+}
+
 static int aio_submit_thread(void *data)
 {
 	struct aio_threadinfo *tinfo = data;
@@ -718,6 +762,8 @@ static int aio_submit_thread(void *data)
 		int sleeptime;
 		int err;
 
+		_mapfree_pages(output, false);
+
 		wait_event_interruptible_timeout(
 			tinfo->event,
 			kthread_should_stop() ||
@@ -729,8 +775,14 @@ static int aio_submit_thread(void *data)
 			continue;
 		}
 
-		// check for reads exactly at EOF (special case)
 		mref = mref_a->object;
+		err = -EINVAL;
+		CHECK_PTR(mref, err);
+
+		if (!output->min_pos || mref->ref_pos < output->min_pos)
+			output->min_pos = mref->ref_pos;
+
+		// check for reads exactly at EOF (special case)
 		if (mref->ref_pos == mref->ref_total_size &&
 		   !mref->ref_rw &&
 		   mref->ref_timeout > 0) {
@@ -786,6 +838,7 @@ static int aio_submit_thread(void *data)
 				sleeptime += 1000 / HZ;
 			}
 		}
+	err:
 		if (unlikely(err < 0)) {
 			_complete(output, mref, err);
 		}
@@ -856,7 +909,8 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 		 "delays = %d "
 		 "msleeps = %d "
 		 "fdsyncs = %d "
-		 "fdsync_waits = %d | "
+		 "fdsync_waits = %d "
+		 "map_free = %d | "
 		 "flying reads = %d "
 		 "writes = %d "
 		 "allocs = %d "
@@ -871,6 +925,7 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 		 atomic_read(&output->total_msleep_count),
 		 atomic_read(&output->total_fdsync_count),
 		 atomic_read(&output->total_fdsync_wait_count),
+		 atomic_read(&output->total_mapfree_count),
 		 atomic_read(&output->read_count),
 		 atomic_read(&output->write_count),
 		 atomic_read(&output->alloc_count),
@@ -900,6 +955,7 @@ void aio_reset_statistics(struct aio_brick *brick)
 	atomic_set(&output->total_msleep_count, 0);
 	atomic_set(&output->total_fdsync_count, 0);
 	atomic_set(&output->total_fdsync_wait_count, 0);
+	atomic_set(&output->total_mapfree_count, 0);
 	for (i = 0; i < 3; i++) {
 		struct aio_threadinfo *tinfo = &output->tinfo[i];
 		atomic_set(&tinfo->total_enqueue_count, 0);
@@ -1008,6 +1064,7 @@ cleanup:
 
 	if (brick->power.led_off) {
 		if (output->filp) {
+			_mapfree_pages(output, true);
 			filp_close(output->filp, NULL);
 			output->filp = NULL;
 		}
