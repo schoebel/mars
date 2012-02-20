@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 #
-# $Id: daaddde142fd7f312645efe712e13993596ae91e $
+# $Id: 29bc1ce51d2d1ddf6ecf288cc25e512c793854b1 $
 # $Author$ $Date$
 # last update at Fr 27. Jan 12:59:55 CET 2012 by joerg.mann@1und1.de
 
@@ -364,17 +364,17 @@ while(1) {
 	print "\n";
 	
 	# marsadm
-	my $MAVersion = which('marsadm');
-	if(defined $MAVersion && -e $MAVersion) {
-		open my $Mfh, '<', "$MAVersion" or die $!;
-		$MAVersion = ( grep { /^# \$Id: daaddde142fd7f312645efe712e13993596ae91e $Mfh> )[0];
-		$MAVersion = ( split / /, $MAVersion )[2];
-		close $Mfh;
-	} else {
-		$MAVersion = "ukn";
-	}
+	# my $MAVersion = which('marsadm');
+	# if(defined $MAVersion && -e $MAVersion) {
+	#	open my $Mfh, '<', "$MAVersion" or die $!;
+	#	$MAVersion = ( grep { /^# \$Id: 29bc1ce51d2d1ddf6ecf288cc25e512c793854b1 $Mfh> )[0];
+	#	$MAVersion = ( split / /, $MAVersion )[2];
+	#	close $Mfh;
+	#} else {
+	#	$MAVersion = "ukn";
+	#}
+	my $MAVersion = system("marsadm --version");
 	print_warn "MARS Admin  - $MAVersion\n",'blue';
-	
 	
 	# module
 	print_warn "MARS Module - $mars_info{version}\n",'blue';
