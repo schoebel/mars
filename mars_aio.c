@@ -756,7 +756,7 @@ static int aio_submit_thread(void *data)
 	if (unlikely(err < 0))
 		goto cleanup_ctxp;
 
-	while (!kthread_should_stop()) {
+	while (!kthread_should_stop() || atomic_read(&output->read_count) > 0 || atomic_read(&output->write_count) > 0) {
 		struct aio_mref_aspect *mref_a;
 		struct mref_object *mref;
 		int sleeptime;
