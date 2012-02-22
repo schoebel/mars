@@ -13,6 +13,11 @@
 
 #include "mars.h"
 
+#ifndef READ
+#define READ  0
+#define WRITE 1
+#endif
+
 ///////////////////////// own type definitions ////////////////////////
 
 #include "mars_copy.h"
@@ -182,18 +187,16 @@ err:
 }
 
 static
-int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_t pos, int rw)
+int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_t pos, loff_t end_pos, int rw)
 {
 	struct mref_object *mref;
 	struct copy_mref_aspect *mref_a;
 	struct copy_input *input;
-	loff_t tmp_pos;
 	int offset;
 	int len;
-	int status = -1;
+	int status = -EAGAIN;
 
-	tmp_pos = brick->copy_end;
-	if (brick->clash || !tmp_pos)
+	if (brick->clash || end_pos <= 0)
 		goto done;
 
 	mref = copy_alloc_mref(brick);
@@ -215,8 +218,8 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 	mref->ref_pos = pos;
 	offset = GET_OFFSET(pos);
 	len = COPY_CHUNK - offset;
-	if (pos + len > tmp_pos) {
-		len = tmp_pos - pos;
+	if (pos + len > end_pos) {
+		len = end_pos - pos;
 	}
 	mref->ref_len = len;
 	mref->ref_prio = brick->io_prio;
@@ -233,11 +236,16 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 	if (unlikely(mref->ref_len < len)) {
 		MARS_DBG("shorten len %d < %d\n", mref->ref_len, len);
 	}
+	if (queue == 0) {
+		brick->st[index].len = mref->ref_len;
+	} else if (unlikely(mref->ref_len < brick->st[index].len)) {
+		MARS_DBG("shorten len %d < %d\n", mref->ref_len, brick->st[index].len);
+		brick->st[index].len = mref->ref_len;
+	}
 
 	MARS_IO("queue = %d index = %d pos = %lld len = %d rw = %d\n", queue, index, mref->ref_pos, mref->ref_len, rw);
 
 	atomic_inc(&brick->copy_flight);
-	brick->st[index].len = mref->ref_len;
 	brick->st[index].active[queue] = true;
 	GENERIC_INPUT_CALL(input, mref_io, mref);
 
@@ -266,7 +274,6 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 	struct copy_state *st;
 	char state;
 	char next_state;
-	int i;
 	int status;
 
 	st = &brick->st[index];
@@ -284,6 +291,7 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 			status = -EPROTO;
 			goto done;
 		}
+
 		st->active[0] = false;
 		st->active[1] = false;
 		st->error = 0;
@@ -293,16 +301,20 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 		_clear_mref(brick, index, 1);
 		_clear_mref(brick, index, 0);
 
-		i = 0;
+		status = _make_mref(brick, index, 0, NULL, pos, brick->copy_end, READ);
+		if (unlikely(status < 0)) {
+			MARS_WRN("status = %d\n", status);
+			goto done;
+		}
+
 		next_state = COPY_STATE_READ1;
 		if (brick->verify_mode) {
-			i = 1;
 			next_state = COPY_STATE_READ2;
-		}
-		for ( ; i >= 0; i--) {
-			status = _make_mref(brick, index, i, NULL, pos, 0);
-			if (status < 0) {
-				break;
+			mref0 = st->table[0];
+			status = _make_mref(brick, index, 1, NULL, pos, pos + mref0->ref_len, READ);
+			if (unlikely(status < 0)) {
+				MARS_WRN("status = %d\n", status);
+				goto done;
 			}
 		}
 		break;
@@ -361,7 +373,7 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 		if (brick->is_aborting || kthread_should_stop())
 			goto done;
 		/* start writeout */
-		status = _make_mref(brick, index, 1, mref0->ref_data, pos, 1);
+		status = _make_mref(brick, index, 1, mref0->ref_data, pos, pos + mref0->ref_len, WRITE);
 		next_state = COPY_STATE_WRITTEN;
 		break;
 	case COPY_STATE_WRITTEN:
@@ -402,7 +414,7 @@ int _run_copy(struct copy_brick *brick)
 {
 	int max;
 	loff_t pos;
-	loff_t limit = 0;
+	loff_t limit = -1;
 	short prev;
 	int res_status = 0;
 
@@ -461,7 +473,7 @@ int _run_copy(struct copy_brick *brick)
 			}
 			count += st->len;
 			// check contiguity
-			if (unlikely(GET_OFFSET(pos) + st->len != COPY_CHUNK && pos + st->len != brick->copy_end)) {
+			if (unlikely(GET_OFFSET(pos) + st->len != COPY_CHUNK)) {
 				break;
 			}
 		}
