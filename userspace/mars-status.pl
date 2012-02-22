@@ -1,29 +1,30 @@
 #!/usr/bin/perl -w
 #
-# $Id: 29bc1ce51d2d1ddf6ecf288cc25e512c793854b1 $
-# $Author$ $Date$
-# last update at Fr 27. Jan 12:59:55 CET 2012 by joerg.mann@1und1.de
+# $Id: 4067a85f5e122dafb35d324d259e52459794d691 $
+# last update at Mo 20. Feb 08:46:09 CET 2012  by joerg.mann@1und1.de
 
 # TODO:
-# version marsadm
 # check replay-blocks
-# check division zero
 # check deutsch/englich
 # add todo-global delete-logfiles
-
+# check "Id:" to git checkin
+# anzeige bandbreite / i/o-load wenn dieser genutzt wird
+# bugix fuer nachtaegliches join (log-v-4 ...)
+# wich ... (374)
+# fix optionlist
 
 ###
 use warnings;
 use strict;
 use English;
-use File::Which;
+#use File::Which;
 use Getopt::Long;
 use Term::ANSIColor;
 use Date::Language;
-
+use POSIX qw(strftime);
 
 ### defaults
-my $version       = "0.067k";
+my $version       = "0.067q";
 my $alife_timeout = "99";	# sec
 my $is_tty 	  = 0;
 my $mars_dir      = '/mars';
@@ -33,10 +34,9 @@ chomp $himself;
 
 
 ### ARGV
-# 
 # Optionen in Hash-Ref parsen
 my $params = {};
-GetOptions( $params, 'resource=s', 'long','interval=i', 'help' );
+GetOptions( $params, 'help', 'resource=s', 'interval=i', 'help', 'long', 'history' );
 
 my $OptionList = "long";
 if(not $params->{long}) {
@@ -46,7 +46,8 @@ if(not $params->{long}) {
 my $OptionRes = $params->{resource};
 
 if($params->{help}) {
-	print "Usage: $0 [--resource <RESNAME>] [--long] [--interval <seconds>] [--help]\n";
+	print "Usage: $0 [--help]\n";
+	print "Usage: $0 [--resource <RESNAME>] [--interval <seconds>] [--long [--history]]\n";
 	exit;
 }
 
@@ -57,12 +58,6 @@ $SIG{INT} = sub {
 	exit;	
 };
 
-
-# my $OptionList    = shift;
-# my $OptionRes     = shift;
-# if ( !$OptionList ) {
-# 	$OptionList = "small";
-# }
 
 ### figure out TTY
 my $tty = readlink '/dev/stdout';
@@ -171,7 +166,7 @@ sub display_partner {
 					print_warn "\n\t---> TODO: enable to mount\n",'green';
 				}
 			} else {
-	                	print_warn "\n\t---> TODO: unable to mount, Device is Secondary or mars is starting ...\n",'red';			
+	                	print_warn "\n\t---> HINT: unable to mount, Device is Secondary or mars is starting ...\n",'blue';			
 			}
 		} else {
 			print "\n";
@@ -181,10 +176,11 @@ sub display_partner {
 
 
 	### logfile
-	my @PLogFile = split (',', check_link "$mars_dir/$PRes/replay-$PName" );
-	my @PLogLink = split ("-", $PLogFile[0]);
-	my $PLogName = "$PLogLink[0]-$PLogLink[1]";
+	my @PLogFile  = split (',', check_link "$mars_dir/$PRes/replay-$PName" );
+	my @PLogLink  = split ("-", $PLogFile[0]);
+	my $PLogName  = "$PLogLink[0]-$PLogLink[1]";
 	my $PLogSize  = -s "$mars_dir/$PRes/$PLogFile[0]";
+	if ( ! $PLogFile[1] ) { $PLogFile[1] = 0; $PLogFile[2] = 0; }
 	if (( !$PLogSize ) || ( $PLogSize eq 0 )) { $PLogSize = 0.0001; }
 	if ( $OptionList eq "long" ) {
 		printf "\tLogfile : %s with %s bytes (%.3fGB) received\n", $PLogName, $PLogSize, ( $PLogSize/1024/1024/1024 );
@@ -206,10 +202,10 @@ sub display_partner {
 			$PLogFile[1], ( $PLogFile[1]/1024/1024/1024 ), 
 			$PLogFile[2], ( $PLogFile[2]/1024/1024/1024 );
 		$RStatus = sprintf("%.2f", $RStatus);
-		if ( $RStatus < 1) {
-			print_warn "$RStatus%\n\t---> TODO: Replay not started, Logfile inactive or empty ?\n", 'red';
-		} elsif ( $RStatus < 100) {
-			print_warn "$RStatus%\n\t---> TODO: Replay in progress = ($RStatus% < 100.00%)\n", 'red';
+		if (( $RStatus < 1 ) && ( $PLogSize != 0.0001 )){
+			print_warn "$RStatus%\n\t---> TODO: Replay not started, Logfile inactive or empty (Size: $PLogSize)\n", 'red';
+		} elsif (( $RStatus < 100 ) && ( $PLogSize != 0.0001 )) {
+			print_warn "$RStatus%\n\t---> WORK: Replay in progress = ($RStatus% < 100.00%)\n", 'red';
 		} else {
 			print_warn "$RStatus%\n", 'green';
 		}			
@@ -224,7 +220,7 @@ sub display_partner {
 		printf "\tSync    : %s bytes (%.3fTB) synced = ", $PSyncsize, ( $PSyncsize/1024/1024/1024/1024);
                 $SStatus = sprintf("%.2f", $SStatus);
                 if ( $SStatus < 100) {
-                        print_warn "$SStatus%\n\t---> TODO: Sync in progress = ($SStatus% < 100.00%)\n", 'red';
+                        print_warn "$SStatus%\n\t---> WORK: Sync in progress = ($SStatus% < 100.00%)\n", 'red';
 		} else {
 			print_warn "$SStatus%\n", 'green';
                 }
@@ -273,6 +269,13 @@ sub check_logfile {
 			# info to old logfiles (old loop) ...
 			if ( $oldEqual eq 1 ) {
                                 print_warn "\t\t---> TODO: logfiles has all equal Sizes and Checksums, can be deleted?\n",'green';
+                                #lrwxrwxrwx 1 root root 52 Feb 20 14:50 delete-000000491 -> /mars/resource-TestBS1/log-000000099-istore-test-bs1
+                                #lrwxrwxrwx 1 root root 56 Feb 20 14:50 delete-000000492 -> /mars/resource-TestBS1/version-000000098-istore-test-bs1
+                                #lrwxrwxrwx 1 root root 56 Feb 20 14:50 delete-000000493 -> /mars/resource-TestBS1/version-000000098-istore-test-bs7
+#				if ( check_link $mars_dir/todo-global/) {
+#				} else {
+#				}                                
+                                
 			}
 
 			# found logfile
@@ -328,7 +331,98 @@ sub check_logfile {
 	}
 }
 
+#########################################################################################
+### avg_limit
+sub check_avg_limit {
+	if ( open (MARS_LOADAVG, "< /proc/sys/mars/loadavg_limit") ) {
+		my $mars_avg_limit;
+	       	while (<MARS_LOADAVG>) {
+	       		$mars_avg_limit = $_;
+		}
+		close MARS_LOADAVG;
+		print_warn "-> Node AVG-Speed-Limit is ", 'bold';
+		if (( !$mars_avg_limit ) || ( $mars_avg_limit < "1" )) {
+			print_warn "unset, used full speed\n", 'green';
+		} else { 
+			print_warn "is $mars_avg_limit", 'red';
+		}
+	}
+}
 
+
+#########################################################################################
+### diskfull
+sub check_disk_is_full {
+	my @diskfull = glob("$mars_dir/rest-space-*");
+	my $diskfull_mars;
+	print_warn "-> Diskspace on Cluster:", 'bold';
+	if ( @diskfull ) { 
+		foreach ( @diskfull) {
+	               	my $diskfull_space     = check_link "$_";                        
+	               	my $diskfull_system = $_;                
+	               	$diskfull_system    =~ s!/mars/rest-space-!!;
+	               	if ( $diskfull_space < 1 ) {
+	               		$diskfull_space = sprintf ("%.2f", $diskfull_space / 1024 );
+	               		if ( $diskfull_system eq $himself ) {
+	               			print_warn "\n\t-> ERROR ! Local Partition $mars_dir full ($diskfull_space kb Limit) !!! mars is stopping !!!\n\n", "red";
+	               			$diskfull_mars = "$diskfull_mars,$diskfull_system";
+	               		} else {
+	               			print_warn "\n\t-> WARNING ! Remotesystem $diskfull_system have mars-disk full ($diskfull_space kb Limit) !!!\n\n", "red";
+	               			$diskfull_mars = "$diskfull_mars,$diskfull_system";
+	               		}
+			}
+		}
+	}
+	if ( !$diskfull_mars ) {
+		print_warn " ok\n", 'green';
+	}
+}
+
+#########################################################################################
+### check /proc/sys/mars/warnings
+sub check_mars_warn {
+	if ( open  (MARS_WARN, "< /proc/sys/mars/warnings") ) {
+		my $mars_warn;
+		while ( <MARS_WARN> ) {
+			my $mars_w_time = $_;
+			$mars_w_time =~ s/ MARS_WARN.*//;
+			$mars_w_time =~ s/\\n//g;
+			$mars_w_time = strftime "%a %b %e %H:%M:%S %Y", localtime $mars_w_time;
+			my $mars_w_text = $_;
+			$mars_w_text =~ s/.*MARS_WARN //;
+			$mars_w_text =~ s/  //g;
+			$mars_warn = "\t$mars_w_time:$mars_w_text";
+		}
+		close MARS_WARN;
+		if ( $mars_warn ne "" ) { print_warn "-> MARS WARNINGS:\n", 'red'; print "$mars_warn" }
+	}
+}	
+
+#########################################################################################
+### check /proc/sys/mars/errors
+sub check_mars_error {
+	if ( open (MARS_ERROR, "< /proc/sys/mars/errors") ) {
+		my $mars_error = "";
+		while ( <MARS_ERROR> ) {
+			$_ =~ s/cannot open logfile.*/xxx/;
+			my $mars_e_time = $_;
+			if ( "$mars_e_time" eq "xxx\n" ) { next; }
+			$mars_e_time =~ s/ MARS_ERROR.*//;
+			$mars_e_time =~ s/\\n//g;
+			$mars_e_time = strftime "%a %b %e %H:%M:%S %Y", localtime $mars_e_time;
+			my $mars_e_text = $_;
+			$mars_e_text =~ s/.*MARS_ERROR //;
+			$mars_e_text =~ s/  //g;
+			$mars_error = "\t$mars_e_time:$mars_e_text";
+		}
+		close MARS_ERROR;
+		if ( $mars_error ne "" ) { print_warn "-> MARS ERRORS:\n", 'red'; print "$mars_error" }
+	}
+}
+
+
+#########################################################################################
+### main loop ...
 while(1) {
 	print $clearscreen;
         my $dateFormat = Date::Language->new('English');
@@ -363,18 +457,14 @@ while(1) {
 	if ( $OptionRes  ) { print_warn ", Ressource $OptionRes",'blue'; }
 	print "\n";
 	
+
+
 	# marsadm
-	# my $MAVersion = which('marsadm');
-	# if(defined $MAVersion && -e $MAVersion) {
-	#	open my $Mfh, '<', "$MAVersion" or die $!;
-	#	$MAVersion = ( grep { /^# \$Id: 29bc1ce51d2d1ddf6ecf288cc25e512c793854b1 $Mfh> )[0];
-	#	$MAVersion = ( split / /, $MAVersion )[2];
-	#	close $Mfh;
-	#} else {
-	#	$MAVersion = "ukn";
-	#}
-	my $MAVersion = system("marsadm --version");
-	print_warn "MARS Admin  - $MAVersion\n",'blue';
+	## TODO
+	### my $MAVersion = which('marsadm');
+	my $MAVersion = qx"marsadm --version";
+	print_warn "MARS Admin  - $MAVersion",'blue';
+	
 	
 	# module
 	print_warn "MARS Module - $mars_info{version}\n",'blue';
@@ -389,25 +479,9 @@ while(1) {
 	print "-------------------------------------------------------------------------------\n";
 	
 	#########################################################################################
-	### check system error's
-	### diskfull
-	my @diskfull = glob("$mars_dir/rest-space-*");
-	if ( @diskfull ) { 
-		foreach ( @diskfull) {
-	               	my $diskfullspace     = check_link "$_";                        
-	               	my $diskfullsystem = $_;                
-	               	$diskfullsystem    =~ s!/mars/rest-space-!!;
-	               	if ( $diskfullspace < 1 ) {
-	               		$diskfullspace = sprintf ("%.2f", $diskfullspace / 1024 );
-	               		if ( $diskfullsystem eq $himself ) {
-	               			print_warn "\n-> ERROR ! Local Partition $mars_dir full ($diskfullspace kb Limit) !!! mars is stopping !!!\n\n", "red";
-	               		} else {
-	               			print_warn "\n-> WARNING ! Remotesystem $diskfullsystem have mars-disk full ($diskfullspace kb Limit) !!!\n\n", "red";
-	               		}
-			}
-		}
-	}
-	              	
+	### check load-limit
+	check_avg_limit;
+
 	#########################################################################################
 	### check resources
 	opendir my $dirhandle, $mars_dir or die "Cannot open $mars_dir: $!";
@@ -442,7 +516,7 @@ while(1) {
 		
 	
 		### hin self
-		print_warn "   -> local node ($himself) ",'blue';
+		print_warn "   -> local node ($himself) ",'bold';
 		my $ActualUsedLogfile = display_partner(
 			ressource	=> $res,
 			nodename	=> $himself,
@@ -464,7 +538,7 @@ while(1) {
 			foreach my $partner (@servers) {
 				$partner  =~ s/^data-//;
 				if ( $partner eq $himself ) { next; }
-				print_warn "   -> remote node ($partner) ", 'blue';
+				print_warn "   -> remote node ($partner) ", 'bold';
 				display_partner(
 					ressource	=> $res,
 					nodename	=> $partner,
@@ -482,11 +556,11 @@ while(1) {
 		
 		### modus
 	        if ( $ResPartner eq 0) { 
-	            if ( $OptionList eq "long" ) { print_warn "   -> modus for $res_name is remote ($ResPartner nodes)\n",'blue'; }
+	            if ( $OptionList eq "long" ) { print_warn "   -> modus for $res_name is remote ($ResPartner nodes)\n",'bold'; }
 	        } elsif ( $ResPartner eq 1 ) { 
-		    if ( $OptionList eq "long" ) { print_warn "   -> modus for $res_name is standalone ($ResPartner node)\n",'blue'; }
+		    if ( $OptionList eq "long" ) { print_warn "   -> modus for $res_name is standalone ($ResPartner node)\n",'bold'; }
 	        } else {
-		    print_warn "   -> modus for $res_name is cluster ($ResPartner nodes), ",'blue';
+		    print_warn "   -> modus for $res_name is cluster ($ResPartner nodes), ",'bold';
 	            $ResInReplayE = sprintf("%.2f", $ResInReplayE / $ResPartner );
 	            $ResInSyncE   = sprintf("%.2f", $ResInSyncE / $ResPartner );
 	            if ( $ResInReplayE eq "100.00" ) {
@@ -504,9 +578,26 @@ while(1) {
 	        }
 	
 	
-	        ### history
-	        if ( $OptionList eq "long" ) { check_logfile( $res, $ResPartner ); }
+	        ### debug output
+	        if ( $OptionList eq "long" ) { 
+	        	### history
+	        	if ( $params->{'history'} ) {
+	        		check_logfile( $res, $ResPartner );
+	        	}
+
+		} # end debug
+
+	} # end foreach
+
+        ### debug output
+        if ( $OptionList eq "long" ) { 
+	        	### mars-warn/error
+			check_disk_is_full;
+	        	check_mars_warn;
+	        	check_mars_error;
 	}
+
+
 	print color 'reset';
 	exit if (not $params->{'interval'});
 	sleep($params->{'interval'});
