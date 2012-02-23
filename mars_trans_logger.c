@@ -11,7 +11,7 @@
 
 // variants
 #define KEEP_UNIQUE
-#define LATER
+//#define LATER
 #define DELAY_CALLERS // this is _needed_ for production systems
 //#define WB_COPY // unnecessary (only costs performance)
 //#define LATE_COMPLETE // unnecessary (only costs performance)

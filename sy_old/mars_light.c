@@ -79,8 +79,8 @@ struct light_class {
 
 //#define TRANS_FAKE
 
-#define CONF_TRANS_BATCHLEN 256
-#define CONF_TRANS_FLYING 128
+#define CONF_TRANS_BATCHLEN 64
+#define CONF_TRANS_FLYING 256
 #define CONF_TRANS_PRIO   MARS_PRIO_HIGH
 #define CONF_TRANS_LOG_READS false
 //#define CONF_TRANS_LOG_READS true
@@ -88,7 +88,7 @@ struct light_class {
 #define CONF_TRANS_COMPLETION_SEMANTICS 0
 
 #define CONF_ALL_BATCHLEN 4
-#define CONF_ALL_FLYING 12
+#define CONF_ALL_FLYING 32
 #define CONF_ALL_PRIO   MARS_PRIO_NORMAL
 
 #define IF_SKIP_SYNC true
