@@ -480,9 +480,6 @@ bool _check_switch(struct mars_global *global, const char *path)
 	int res = false;
 	struct mars_dent *allow_dent;
 
-	if (global->exhausted)
-		goto done;
-
 	allow_dent = mars_find_dent(global, path);
 	if (!allow_dent || !allow_dent->new_link)
 		goto done;
@@ -1990,9 +1987,7 @@ int _make_logging_status(struct mars_rotate *rot)
 		 * Allow switching over to a new logfile.
 		 */
 		if (!trans_brick->power.button && !trans_brick->power.led_on && trans_brick->power.led_off) {
-			if (global->exhausted) {
-				MARS_DBG("filesystem is exhausted, refraining from log rotation\n");
-			} else if (rot->next_relevant_log) {
+			if (rot->next_relevant_log) {
 				MARS_DBG("check switchover from '%s' to '%s' (size = %lld, next_next = %p, allow_replay = %d)\n", dent->d_path, rot->next_relevant_log->d_path, rot->next_relevant_log->new_stat.size, rot->next_next_relevant_log, rot->allow_replay);
 				if ((rot->next_relevant_log->new_stat.size > 0 || rot->next_next_relevant_log || (long long)jiffies > rot->switchover_timeout + 30 * HZ) &&
 				    rot->allow_replay &&
