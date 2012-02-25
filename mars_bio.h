@@ -19,15 +19,17 @@ struct bio_brick {
 	MARS_BRICK(bio);
 	// tunables
 	int ra_pages;
+	int bg_threshold;
+	int bg_maxfly;
 	bool do_noidle;
 	bool do_sync;
 	bool do_unplug;
 	// readonly
 	loff_t total_size;
-	atomic_t fly_count;
+	atomic_t fly_count[MARS_PRIO_NR];
 	atomic_t background_count;
 	atomic_t completed_count;
-	atomic_t total_completed_count;
+	atomic_t total_completed_count[MARS_PRIO_NR];
 	atomic_t total_background_count;
 	// private
 	spinlock_t lock;

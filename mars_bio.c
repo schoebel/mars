@@ -185,6 +185,8 @@ out:
 
 ////////////////// own brick / input / output operations //////////////////
 
+#define PRIO_INDEX(mref) ((mref)->ref_prio + 1)
+
 static int bio_get_info(struct bio_output *output, struct mars_info *info)
 {
 	struct bio_brick *brick = output->brick;
@@ -209,6 +211,7 @@ static int bio_ref_get(struct bio_output *output, struct mref_object *mref)
 
 	if (mref_a->output)
 		goto ok;
+
 	mref_a->output = output;
 	mref_a->bio = NULL;
 
@@ -227,7 +230,12 @@ static int bio_ref_get(struct bio_output *output, struct mref_object *mref)
 		goto done;
 	}
 
-	MARS_IO("len %d -> %d fly = %d\n", mref->ref_len, status, atomic_read(&output->brick->fly_count));
+	if (unlikely(mref->ref_prio < MARS_PRIO_HIGH))
+		mref->ref_prio = MARS_PRIO_HIGH;
+	else if (unlikely(mref->ref_prio > MARS_PRIO_LOW))
+		mref->ref_prio = MARS_PRIO_LOW;
+
+	MARS_IO("len = %d status = %d prio = %d fly = %d\n", mref->ref_len, status, mref->ref_prio, atomic_read(&output->brick->fly_count[PRIO_INDEX(mref)]));
 
 	mref->ref_len = status;
 ok:
@@ -280,7 +288,7 @@ err:
 }
 
 static
-void _bio_ref_io(struct bio_output *output, struct mref_object *mref)
+void _bio_ref_io(struct bio_output *output, struct mref_object *mref, bool cork)
 {
 	struct bio_brick *brick = output->brick;
 	struct bio_mref_aspect *mref_a = bio_mref_get_aspect(output->brick, mref);
@@ -294,24 +302,24 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref)
 
 	CHECK_ATOMIC(&mref->ref_count, 1);
 	atomic_inc(&mref->ref_count);
-	atomic_inc(&brick->fly_count);
+	atomic_inc(&brick->fly_count[PRIO_INDEX(mref)]);
 
 	bio_get(bio);
 
 	rw = mref->ref_rw & 1;
-	if (brick->do_noidle) {
+	if (brick->do_noidle && !cork) {
 		rw |= (1 << BIO_RW_NOIDLE);
 	}
 	if (!mref->ref_skip_sync) {
 		if (brick->do_sync) {
 			rw |= (1 << BIO_RW_SYNCIO);
 		}
-		if (brick->do_unplug) {
+		if (brick->do_unplug && !cork) {
 			rw |= (1 << BIO_RW_UNPLUG);
 		}
 	}
 
-	MARS_IO("starting IO rw = %d fly = %d\n", rw, atomic_read(&brick->fly_count));
+	MARS_IO("starting IO rw = %d prio 0 %d fly = %d\n", rw, mref->ref_prio, atomic_read(&brick->fly_count[PRIO_INDEX(mref)]));
 	mars_trace(mref, "bio_submit");
 
 #ifdef FAKE_IO
@@ -331,7 +339,7 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref)
 		goto done;
 
 	bio_put(bio);
-	atomic_dec(&brick->fly_count);
+	atomic_dec(&brick->fly_count[PRIO_INDEX(mref)]);
 
 err:
 	MARS_ERR("IO error %d\n", status);
@@ -357,7 +365,15 @@ void bio_ref_io(struct bio_output *output, struct mref_object *mref)
 		return;
 	}
 	// foreground IO: start immediately
-	_bio_ref_io(output, mref);
+	_bio_ref_io(output, mref, false);
+}
+
+static
+bool _bg_should_run(struct bio_brick *brick)
+{
+	return (atomic_read(&brick->background_count) > 0 && 
+		atomic_read(&brick->fly_count[0]) + atomic_read(&brick->fly_count[1]) <= brick->bg_threshold &&
+		(brick->bg_maxfly <= 0 || atomic_read(&brick->fly_count[2]) < brick->bg_maxfly));
 }
 
 static int bio_thread(void *data)
@@ -380,9 +396,16 @@ static int bio_thread(void *data)
 		wait_event_interruptible_timeout(
 			brick->event,
 			atomic_read(&brick->completed_count) > 0 ||
-			(atomic_read(&brick->background_count) > 0 && !atomic_read(&brick->fly_count)),
+			_bg_should_run(brick),
 			12 * HZ);
-		MARS_IO("%d woken up, completed_count = %d background_count = %d fly_count = %d\n", round, atomic_read(&brick->completed_count), atomic_read(&brick->background_count), atomic_read(&brick->fly_count));
+
+		MARS_IO("%d woken up, completed_count = %d background_count = %d fly_count[0] = %d fly_count[1] = %d fly_count[2] = %d\n",
+			round,
+			atomic_read(&brick->completed_count),
+			atomic_read(&brick->background_count),
+			atomic_read(&brick->fly_count[0]),
+			atomic_read(&brick->fly_count[1]),
+			atomic_read(&brick->fly_count[2]));
 
 		spin_lock_irqsave(&brick->lock, flags);
 		list_replace_init(&brick->completed_list, &tmp_list);
@@ -395,7 +418,7 @@ static int bio_thread(void *data)
 			int code;
 
 			if (list_empty(&tmp_list)) {
-				if (kthread_should_stop())
+				if (kthread_should_stop() && atomic_read(&brick->background_count) <= 0)
 					goto done;
 				break;
 			}
@@ -425,21 +448,24 @@ static int bio_thread(void *data)
 
 			MARS_IO("%d callback done.\n", round);
 			
-			atomic_dec(&brick->fly_count);
-			atomic_inc(&brick->total_completed_count);
-			MARS_IO("%d completed_count = %d background_count = %d fly_count = %d\n", round, atomic_read(&brick->completed_count), atomic_read(&brick->background_count), atomic_read(&brick->fly_count));
+			atomic_dec(&brick->fly_count[PRIO_INDEX(mref)]);
+			atomic_inc(&brick->total_completed_count[PRIO_INDEX(mref)]);
+
+			MARS_IO("%d completed_count = %d background_count = %d fly_count = %d\n", round, atomic_read(&brick->completed_count), atomic_read(&brick->background_count), atomic_read(&brick->fly_count[PRIO_INDEX(mref)]));
+
 			if (likely(mref_a->bio)) {
 				bio_put(mref_a->bio);
 			}
 			bio_ref_put(mref_a->output, mref);
 		}
 
-		if (!atomic_read(&brick->fly_count) && atomic_read(&brick->background_count) > 0) {
+		while (_bg_should_run(brick)) {
 			struct list_head *tmp;
 			struct bio_mref_aspect *mref_a;
 			struct mref_object *mref;
+			bool cork;
 
-			MARS_IO("%d pushing background to foreground, completed_count = %d background_count = %d fly_count = %d\n", round, atomic_read(&brick->completed_count), atomic_read(&brick->background_count), atomic_read(&brick->fly_count));
+			MARS_IO("%d pushing background to foreground, completed_count = %d background_count = %d\n", round, atomic_read(&brick->completed_count), atomic_read(&brick->background_count));
 			atomic_dec(&brick->background_count);
 
 			spin_lock_irqsave(&brick->lock, flags);
@@ -454,7 +480,8 @@ static int bio_thread(void *data)
 				continue;
 			}
 
-			_bio_ref_io(mref_a->output, mref);
+			cork = atomic_read(&brick->background_count) > 0;
+			_bio_ref_io(mref_a->output, mref, cork);
 		}
 	}
 done:
@@ -562,14 +589,23 @@ char *bio_statistics(struct bio_brick *brick, int verbose)
 	// FIXME: check for allocation overflows
 
 	snprintf(res, 512,
-		 "total completed = %d "
+		 "total "
+		 "completed[0] = %d "
+		 "completed[1] = %d "
+		 "completed[2] = %d "
 		 "background = %d | "
-		 "flying = %d "
+		 "flying[0] = %d "
+		 "flying[1] = %d "
+		 "flying[2] = %d "
 		 "completing = %d "
 		 "background = %d\n",
-		 atomic_read(&brick->total_completed_count),
+		 atomic_read(&brick->total_completed_count[0]),
+		 atomic_read(&brick->total_completed_count[1]),
+		 atomic_read(&brick->total_completed_count[2]),
 		 atomic_read(&brick->total_background_count),
-		 atomic_read(&brick->fly_count),
+		 atomic_read(&brick->fly_count[0]),
+		 atomic_read(&brick->fly_count[1]),
+		 atomic_read(&brick->fly_count[2]),
 		 atomic_read(&brick->completed_count),
 		 atomic_read(&brick->background_count));
 
@@ -579,7 +615,9 @@ char *bio_statistics(struct bio_brick *brick, int verbose)
 static noinline
 void bio_reset_statistics(struct bio_brick *brick)
 {
-	atomic_set(&brick->total_completed_count, 0);
+	atomic_set(&brick->total_completed_count[0], 0);
+	atomic_set(&brick->total_completed_count[1], 0);
+	atomic_set(&brick->total_completed_count[2], 0);
 	atomic_set(&brick->total_background_count, 0);
 }
 
