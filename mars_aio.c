@@ -65,10 +65,10 @@ void _enqueue(struct aio_threadinfo *tinfo, struct aio_mref_aspect *mref_a, int 
 	unsigned long flags;
 #if 1
 	prio++;
-	if (prio < 0) {
+	if (unlikely(prio < 0)) {
 		prio = 0;
-	} else if (prio > MARS_PRIO_NR) {
-		prio = MARS_PRIO_NR;
+	} else if (unlikely(prio >= MARS_PRIO_NR)) {
+		prio = MARS_PRIO_NR - 1;
 	}
 #else
 	prio = 0;
