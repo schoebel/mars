@@ -1237,7 +1237,7 @@ void _fire_one(struct list_head *tmp, bool do_update, bool do_put)
 #ifdef DO_WRITEBACK
 	GENERIC_INPUT_CALL(sub_input, mref_io, sub_mref);
 #else
-	wb_endio(cb);
+	SIMPLE_CALLBACK(sub_mref, 0);
 #endif
 	if (do_put) {
 		GENERIC_INPUT_CALL(sub_input, mref_put, sub_mref);
@@ -2268,11 +2268,17 @@ void replay_endio(struct generic_callback *cb)
 	brick = mref_a->my_brick;
 	CHECK_PTR(brick, err);
 
+	if (unlikely(cb->cb_error < 0)) {
+		MARS_ERR("IO error = %d\n", cb->cb_error);
+		goto done;
+	}
+
 	traced_lock(&brick->replay_lock, flags);
 	list_del_init(&mref_a->replay_head);
 	traced_unlock(&brick->replay_lock, flags);
 
 	atomic_dec(&brick->replay_count);
+ done:
 	wake_up_interruptible_all(&brick->worker_event);
 	return;
  err:
@@ -2297,7 +2303,7 @@ bool _has_conflict(struct trans_logger_brick *brick, struct trans_logger_mref_as
 
 		tmp_a = container_of(tmp, struct trans_logger_mref_aspect, replay_head);
 		tmp_mref = tmp_a->object;
-		if (tmp_mref->ref_pos + tmp_mref->ref_len > mref->ref_len && tmp_mref->ref_pos < mref->ref_pos + mref->ref_len) {
+		if (tmp_mref->ref_pos + tmp_mref->ref_len > mref->ref_pos && tmp_mref->ref_pos < mref->ref_pos + mref->ref_len) {
 			res = true;
 			break;
 		}
@@ -2310,16 +2316,20 @@ bool _has_conflict(struct trans_logger_brick *brick, struct trans_logger_mref_as
 static noinline
 void wait_replay(struct trans_logger_brick *brick, struct trans_logger_mref_aspect *mref_a)
 {
-	int max = 1024 * 2; // limit parallelism somewhat
+	const int max = 512; // limit parallelism somewhat
+	int conflicts = 0;
+	bool ok = false;
 	unsigned long flags;
 
 	wait_event_interruptible_timeout(brick->worker_event,
-					 atomic_read(&brick->replay_count) <= max
-					 && !_has_conflict(brick, mref_a),
+					 atomic_read(&brick->replay_count) < max
+					 && (_has_conflict(brick, mref_a) ? conflicts++ : (ok = true), ok),
 					 60 * HZ);
 
 	atomic_inc(&brick->replay_count);
 	atomic_inc(&brick->total_replay_count);
+	if (conflicts)
+		atomic_inc(&brick->total_replay_conflict_count);
 
 	traced_lock(&brick->replay_lock, flags);
 	list_add(&mref_a->replay_head, &brick->replay_list);
@@ -2391,7 +2401,7 @@ int apply_data(struct trans_logger_brick *brick, loff_t pos, void *buf, int len)
 
 		SETUP_CALLBACK(mref, replay_endio, mref_a);
 		mref_a->my_brick = brick;
-		
+
 		GENERIC_INPUT_CALL(input, mref_io, mref);
 
 		if (unlikely(mref->ref_len <= 0)) {
@@ -2615,6 +2625,7 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 "hash_find=%d "
 		 "hash_extend=%d "
 		 "replay=%d "
+		 "replay_conflict=%d  (%d%%) "
 		 "callbacks=%d "
 		 "reads=%d "
 		 "writes=%d "
@@ -2634,7 +2645,7 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 "phase4=%d | "
 		 "current #mrefs = %d "
 		 "shadow_mem_used=%ld/%lld "
-		 "replay=%d "
+		 "replay_count=%d "
 		 "mshadow=%d/%d "
 		 "sshadow=%d "
 		 "hash_count=%d "
@@ -2662,6 +2673,8 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 atomic_read(&brick->total_hash_find_count),
 		 atomic_read(&brick->total_hash_extend_count),
 		 atomic_read(&brick->total_replay_count),
+		 atomic_read(&brick->total_replay_conflict_count),
+		 atomic_read(&brick->total_replay_count) ? atomic_read(&brick->total_replay_conflict_count) * 100 / atomic_read(&brick->total_replay_count) : 0,
 		 atomic_read(&brick->total_cb_count),
 		 atomic_read(&brick->total_read_count),
 		 atomic_read(&brick->total_write_count),
@@ -2715,6 +2728,7 @@ void trans_logger_reset_statistics(struct trans_logger_brick *brick)
 	atomic_set(&brick->total_hash_find_count, 0);
 	atomic_set(&brick->total_hash_extend_count, 0);
 	atomic_set(&brick->total_replay_count, 0);
+	atomic_set(&brick->total_replay_conflict_count, 0);
 	atomic_set(&brick->total_cb_count, 0);
 	atomic_set(&brick->total_read_count, 0);
 	atomic_set(&brick->total_write_count, 0);

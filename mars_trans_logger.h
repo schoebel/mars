@@ -153,6 +153,7 @@ struct trans_logger_brick {
 	atomic_t total_hash_find_count;
 	atomic_t total_hash_extend_count;
 	atomic_t total_replay_count;
+	atomic_t total_replay_conflict_count;
 	atomic_t total_cb_count;
 	atomic_t total_read_count;
 	atomic_t total_write_count;
