@@ -220,30 +220,75 @@ void if_timer(unsigned long data)
  */
 static int if_make_request(struct request_queue *q, struct bio *bio)
 {
+	struct if_input *input = q->queuedata;
+	struct if_brick *brick = input->brick;
+
+	/* Original flags of the source bio
+	 */
+	const int  rw      = bio_data_dir(bio);
+	const int  sectors = bio_sectors(bio);
+	const bool ahead   = bio_rw_flagged(bio, BIO_RW_AHEAD) && rw == READ;
+	const bool barrier = bio_rw_flagged(bio, BIO_RW_BARRIER);
+	const bool syncio  = bio_rw_flagged(bio, BIO_RW_SYNCIO);
+	const bool unplug  = bio_rw_flagged(bio, BIO_RW_UNPLUG);
+	const bool meta    = bio_rw_flagged(bio, BIO_RW_META);
+	const bool discard = bio_rw_flagged(bio, BIO_RW_DISCARD);
+	const bool noidle  = bio_rw_flagged(bio, BIO_RW_NOIDLE);
+	const int  prio    = bio_prio(bio);
+
+	/* Transform into MARS flags
+	 */
+	const int  ref_prio =
+		(prio == IOPRIO_CLASS_RT || (meta | syncio)) ?
+		MARS_PRIO_HIGH :
+		(prio == IOPRIO_CLASS_IDLE) ?
+		MARS_PRIO_LOW :
+		MARS_PRIO_NORMAL;
+	const bool do_unplug = ALWAYS_UNPLUG | unplug | noidle;
+	const bool do_skip_sync = brick->skip_sync && !(barrier | syncio);
+
 	struct bio_wrapper *biow;
-	struct if_input *input;
-	struct if_brick *brick = NULL;
 	struct mref_object *mref = NULL;
 	struct if_mref_aspect *mref_a;
 	struct bio_vec *bvec;
 	int i;
 	bool assigned = false;
-	const bool unplug = bio_rw_flagged(bio, BIO_RW_UNPLUG) || bio_rw_flagged(bio, BIO_RW_SYNCIO);
-	const bool barrier = ((bio->bi_rw & 1) != READ && bio_rw_flagged(bio, BIO_RW_BARRIER));
 	loff_t pos = ((loff_t)bio->bi_sector) << 9; // TODO: make dynamic
-	int rw = bio_data_dir(bio);
 	int total_len = bio->bi_size;
         int error = -ENOSYS;
 
-	MARS_IO("bio %p size = %d rw = %d unplug = %d barrier = %d\n", bio, bio->bi_size, rw, unplug, barrier);
+	MARS_IO("bio %p "
+		"size = %d "
+		"rw = %d "
+		"sectors = %d "
+		"ahead = %d "
+		"barrier = %d "
+		"syncio = %d "
+		"unplug = %d "
+		"meta = %d "
+		"discard = %d "
+		"noidle = %d "
+		"prio = %d "
+		"pos = %lldd "
+		"total_len = %d\n",
+		bio,
+		bio->bi_size,
+		rw,
+		sectors,
+		ahead,
+		barrier,
+		syncio,
+		unplug,
+		meta,
+		discard,
+		noidle,
+		prio,
+		pos,
+		total_len);
 
 	might_sleep();
 
-	input = q->queuedata;
-        if (unlikely(!input))
-                goto err;
-	
-	if (unlikely(!bio_sectors(bio))) {
+	if (unlikely(!sectors)) {
 		_if_unplug(input);
 		/* THINK: usually this happens only at write barriers.
 		 * We have no "barrier" operation in MARS, since
@@ -257,15 +302,18 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 	}
 
 #ifdef DENY_READA // provisinary -- we should introduce an equivalent of READA also to the MARS infrastructure
-	if (bio_rw(bio) == READA) {
+	if (ahead) {
 		atomic_inc(&input->total_reada_count);
 		bio_endio(bio, -EWOULDBLOCK);
 		return 0;
 	}
+#else
+	(void)ahead; // shut up gcc
 #endif
-
-	brick = input->brick;
-	CHECK_PTR(brick, err);
+	if (unlikely(discard)) { // NYI
+		bio_endio(bio, 0);
+		return 0;
+	}
 
 	biow = brick_mem_alloc(sizeof(struct bio_wrapper));
 	CHECK_PTR(biow, err);
@@ -288,14 +336,6 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 	while (unlikely(!brick->power.led_on)) {
 		msleep(100);
 	}
-
-#ifdef IO_DEBUGGING
-	{
-		const unsigned short prio = bio_prio(bio);
-		const bool sync = bio_rw_flagged(bio, BIO_RW_SYNCIO);
-		MARS_IO("BIO raw_rw = 0x%016lx len = %d prio = %d sync = %d unplug = %d\n", bio->bi_rw, bio->bi_size, prio, sync, unplug);
-	}
-#endif
 
 	down(&input->kick_sem);
 
@@ -357,7 +397,7 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 				mref = tmp_mref;
 				mref_a = tmp_a;
 				this_len = bv_len;
-				if (barrier) {
+				if (!do_skip_sync) {
 					mref->ref_skip_sync = false;
 				}
 
@@ -416,6 +456,7 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 				mref->ref_pos = pos;
 				mref->ref_len = prefetch_len;
 				mref->ref_data = data; // direct IO
+				mref->ref_prio = ref_prio;
 				mref_a->orig_page = page;
 				mref_a->is_kmapped = true;
 
@@ -445,7 +486,7 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 				mref_a->bio_count = 1;
 				assigned = true;
 				
-				if (brick->skip_sync && !barrier) {
+				if (do_skip_sync) {
 					mref->ref_skip_sync = true;
 				}
 
@@ -495,7 +536,7 @@ err:
 		}
 	}
 
-	if (ALWAYS_UNPLUG || unplug ||
+	if (do_unplug ||
 	   (brick && brick->max_plugged > 0 && atomic_read(&input->plugged_count) > brick->max_plugged)) {
 		_if_unplug(input);
 	}
