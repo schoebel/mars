@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 #
-# $Id: 4067a85f5e122dafb35d324d259e52459794d691 $
-# last update at Mo 20. Feb 08:46:09 CET 2012  by joerg.mann@1und1.de
+# $Id: b9601a79105451a8524cd8b874c2495021b067ed $
+# last update at Fr 24. Feb 15:34:26 CET 2012 by joerg.mann@1und1.de
 
 # TODO:
 # check replay-blocks
@@ -24,7 +24,7 @@ use Date::Language;
 use POSIX qw(strftime);
 
 ### defaults
-my $version       = "0.067q";
+my $version       = "0.067r";
 my $alife_timeout = "99";	# sec
 my $is_tty 	  = 0;
 my $mars_dir      = '/mars';
@@ -163,10 +163,10 @@ sub display_partner {
                 			$PUDevice = ( split / /, $PUDevice )[1];
 	                		print_warn " and mountet as $PUDevice\n",'blue';
 				} else {
-					print_warn "\n\t---> TODO: enable to mount\n",'green';
+					print_warn "\n\t\t---> TODO: enable to mount\n",'green';
 				}
 			} else {
-	                	print_warn "\n\t---> HINT: unable to mount, Device is Secondary or mars is starting ...\n",'blue';			
+	                	print_warn "\n\t\t---> HINT: unable to mount, Device is Secondary or mars is starting ...\n",'blue';			
 			}
 		} else {
 			print "\n";
@@ -178,6 +178,7 @@ sub display_partner {
 	### logfile
 	my @PLogFile  = split (',', check_link "$mars_dir/$PRes/replay-$PName" );
 	my @PLogLink  = split ("-", $PLogFile[0]);
+	# TODO: kein Logfile vorhanden ...
 	my $PLogName  = "$PLogLink[0]-$PLogLink[1]";
 	my $PLogSize  = -s "$mars_dir/$PRes/$PLogFile[0]";
 	if ( ! $PLogFile[1] ) { $PLogFile[1] = 0; $PLogFile[2] = 0; }
@@ -185,10 +186,10 @@ sub display_partner {
 	if ( $OptionList eq "long" ) {
 		printf "\tLogfile : %s with %s bytes (%.3fGB) received\n", $PLogName, $PLogSize, ( $PLogSize/1024/1024/1024 );
 		if ( $Ljoined eq "0" || $PLogSize eq "0.0001" ) {
-			print_warn "\t---> TODO: Logfile inactive or empty (Size: $PLogSize)\n", 'red';
+			print_warn "\t\t---> TODO: Logfile inactive or empty (Size: $PLogSize)\n", 'red';
 		}
 		if ( ( $ref_AULogfile ) && !($PLogName eq $ref_AULogfile) ) {
-			print_warn "\t---> TODO: Logfile Version not actual = ($PLogName ! $ref_AULogfile)\n", 'red';
+			print_warn "\t\t---> TODO: Logfile Version not actual = ($PLogName ! $ref_AULogfile)\n", 'red';
 		}
 	}
 	
@@ -202,14 +203,21 @@ sub display_partner {
 			$PLogFile[1], ( $PLogFile[1]/1024/1024/1024 ), 
 			$PLogFile[2], ( $PLogFile[2]/1024/1024/1024 );
 		$RStatus = sprintf("%.2f", $RStatus);
-		if (( $RStatus < 1 ) && ( $PLogSize != 0.0001 )){
-			print_warn "$RStatus%\n\t---> TODO: Replay not started, Logfile inactive or empty (Size: $PLogSize)\n", 'red';
+		if (( $RStatus < 1 ) && ( $PLogSize != 0.0001 )) {
+			print_warn "$RStatus%\n\t\t---> TODO: Replay not started, Logfile inactive or empty (Size: $PLogSize)\n", 'red';
 		} elsif (( $RStatus < 100 ) && ( $PLogSize != 0.0001 )) {
-			print_warn "$RStatus%\n\t---> WORK: Replay in progress = ($RStatus% < 100.00%)\n", 'red';
+			print_warn "$RStatus%\n\t\t---> WORK: Replay in progress = ($RStatus% < 100.00%)\n", 'red';
+                } elsif ( $PLogFile[2] > 0 ) {
+                        $RStatus = sprintf("%.2f", ($PLogFile[1]-$PLogFile[2])/$PLogFile[1] * 100);
+                        print_warn "$RStatus%\n", 'red';
+		} elsif ( $PLogSize = 0.0001 ) {
+		        $RStatus = "100.00";
+			print_warn "$RStatus%\n", 'green';
 		} else {
 			print_warn "$RStatus%\n", 'green';
 		}			
 	}	
+	$$ref_ResInReplay = $RStatus;
 	
 
 	### sync
@@ -220,7 +228,7 @@ sub display_partner {
 		printf "\tSync    : %s bytes (%.3fTB) synced = ", $PSyncsize, ( $PSyncsize/1024/1024/1024/1024);
                 $SStatus = sprintf("%.2f", $SStatus);
                 if ( $SStatus < 100) {
-                        print_warn "$SStatus%\n\t---> WORK: Sync in progress = ($SStatus% < 100.00%)\n", 'red';
+                        print_warn "$SStatus%\n\t\t---> WORK: Sync in progress = ($SStatus% < 100.00%)\n", 'red';
 		} else {
 			print_warn "$SStatus%\n", 'green';
                 }
@@ -257,6 +265,7 @@ sub check_logfile {
         my $LPartner  	= shift;
 	my $oldEqual 	= 0;
 	my $LogCount	= 0;
+	my $LogFailed   = 0;
 	print_warn "   -> History Replay/Status\n",'blue';
 
 	my @logfile 	= <$mars_dir/$LResource/log*>;
@@ -266,17 +275,14 @@ sub check_logfile {
 		my $LogStatus   = check_link "$logfile";
 		my $allEqual    = 1;
 		if ( $LogStatus eq 0 ) { 
-			# info to old logfiles (old loop) ...
-			if ( $oldEqual eq 1 ) {
-                                print_warn "\t\t---> TODO: logfiles has all equal Sizes and Checksums, can be deleted?\n",'green';
-                                #lrwxrwxrwx 1 root root 52 Feb 20 14:50 delete-000000491 -> /mars/resource-TestBS1/log-000000099-istore-test-bs1
-                                #lrwxrwxrwx 1 root root 56 Feb 20 14:50 delete-000000492 -> /mars/resource-TestBS1/version-000000098-istore-test-bs1
-                                #lrwxrwxrwx 1 root root 56 Feb 20 14:50 delete-000000493 -> /mars/resource-TestBS1/version-000000098-istore-test-bs7
-#				if ( check_link $mars_dir/todo-global/) {
-#				} else {
-#				}                                
-                                
-			}
+#			# info to old logfiles (old loop) ...
+#			if (( $oldEqual eq 1 ) && ( $LogFailed eq 0 )) {
+#                                print_warn "\t\t---> TODO: logfiles has all equal Sizes and Checksums, can be deleted?\n",'green';
+#                                # TODO delete Links
+#			} elsif (( $oldEqual eq 1 ) && ( $LogFailed ne 0 )) {
+#                                print_warn "\t\t---> TODO: logfiles has same other errors - Please check History of Logfiles\n",'blue';
+#			}
+			
 
 			# found logfile
 			my $OldCheck;
@@ -291,7 +297,7 @@ sub check_logfile {
 				my $LogServer = $LVersion;
 				$LogServer    =~ s/.*[0-9]-//;
 				$LogCount++;
-				print "\t\tSource: $LogServer, Check: $LogDetail[0], Size: $LogDetail[2], Todo: $LogDetail[3] blocks\n";
+				print "\t\tSource: $LogServer, Check: $LogDetail[0], ReplayPosition: $LogDetail[2], Todo: $LogDetail[3] blocks\n";
 				# Initial Values
 				if ( !defined $OldCheck ) {
 				      # new
@@ -303,9 +309,11 @@ sub check_logfile {
 				      $allEqual = 0;
 				      if ( !($LogDetail[0] eq $OldCheck) && ($LogDetail[2] eq $OldSize) ) {
 				      		print_warn "\t\t---> TODO: check logfiles has not equal Checksums and same size !!!\n",'red';
-			      		} else {
-			      			print_warn "\t\t---> TODO: check logfiles has not equal Checksums and different size ???\n",'blue';
-					}
+				      		$LogFailed = 1;
+                                      } elsif ( $LogFailed eq 0 )  { 
+			      			print_warn "\t\t---> TODO: check logfiles has not equal Checksums and different size ???\n",'red';
+				      		$LogFailed = 1;
+				      }
                                 } else {
 				      # same
 				      $allEqual = 1;
@@ -314,6 +322,7 @@ sub check_logfile {
                                 # check bad values
 				if ( $LogDetail[3] < 0 ) {
 					print_warn "\t\t---> TODO: Found bad values ($LogDetail[3])it's ok ???\n", 'red';
+			      		$LogFailed = 1;
 				}
 			}
 			if ( $allEqual eq 1 ) {
@@ -324,9 +333,19 @@ sub check_logfile {
 			# check Count Logfiles
                         if ( !($LogCount eq $LPartner) ) {
                         	print_warn "\t\t---> TODO: Count of Logfiles different (have:$LPartner found:$LogCount)\n", 'red';
+		      		$LogFailed = 1;
                         	$oldEqual = 0;
 			}
 			$LogCount=0;
+###
+			if (( $oldEqual eq 1 ) && ( $LogFailed eq 0 )) {
+                                print_warn "\t\t*---> TODO: logfiles has all equal Sizes and Checksums, can be deleted?\n",'green';
+                                # TODO delete links !
+			} elsif (( $oldEqual eq 1 ) && ( $LogFailed ne 0 )) {
+                                print_warn "\t\t*---> TODO: logfiles has same other errors - Please check History of Logfiles\n",'red';
+			}
+
+###
                 }
 	}
 }
@@ -354,7 +373,7 @@ sub check_avg_limit {
 ### diskfull
 sub check_disk_is_full {
 	my @diskfull = glob("$mars_dir/rest-space-*");
-	my $diskfull_mars;
+	my $diskfull_mars = "";
 	print_warn "-> Diskspace on Cluster:", 'bold';
 	if ( @diskfull ) { 
 		foreach ( @diskfull) {
@@ -373,6 +392,7 @@ sub check_disk_is_full {
 			}
 		}
 	}
+	# TODO /0
 	if ( !$diskfull_mars ) {
 		print_warn " ok\n", 'green';
 	}
@@ -382,7 +402,7 @@ sub check_disk_is_full {
 ### check /proc/sys/mars/warnings
 sub check_mars_warn {
 	if ( open  (MARS_WARN, "< /proc/sys/mars/warnings") ) {
-		my $mars_warn;
+		my $mars_warn = "";
 		while ( <MARS_WARN> ) {
 			my $mars_w_time = $_;
 			$mars_w_time =~ s/ MARS_WARN.*//;
@@ -427,14 +447,16 @@ while(1) {
 	print $clearscreen;
         my $dateFormat = Date::Language->new('English');
 #        $DateFormat->time2str("%a %b %e %T %Y\n", time);
-	print $dateFormat->time2str("%a %b %e %T %Y\n", time) . "\n";
+#	print $dateFormat->time2str("%a %b %e %T %Y\n", time) . "\n";
 	#########################################################################################
 	### read mars infos
 	my %mars_info;
 	open ( my $lsmod_handle,'-|','lsmod | grep mars' ) || die "blub ... $!";
 	if (!<$lsmod_handle>) {
 		print_warn "Module Mars not running\n",'red';
-		exit 1;
+                sleep(10);
+                next;
+		#exit 1;
 	}
 	
 	open ( my $modinfo_handle, '-|', 'modinfo mars' ) || die "cannot run modinfo mars: $!";
@@ -458,16 +480,14 @@ while(1) {
 	print "\n";
 	
 
-
 	# marsadm
-	## TODO
-	### my $MAVersion = which('marsadm');
 	my $MAVersion = qx"marsadm --version";
 	print_warn "MARS Admin  - $MAVersion",'blue';
 	
 	
 	# module
 	print_warn "MARS Module - $mars_info{version}\n",'blue';
+
 	
 	# kernel
 	my $KVersion = '/proc/version';
@@ -563,6 +583,7 @@ while(1) {
 		    print_warn "   -> modus for $res_name is cluster ($ResPartner nodes), ",'bold';
 	            $ResInReplayE = sprintf("%.2f", $ResInReplayE / $ResPartner );
 	            $ResInSyncE   = sprintf("%.2f", $ResInSyncE / $ResPartner );
+	            print_warn "ClusterSummary: ", 'black';
 	            if ( $ResInReplayE eq "100.00" ) {
 	        	print_warn "in replay ($ResInReplayE%),", 'green';
 	            } elsif ( $ResInReplayE eq "0.00" ) {
