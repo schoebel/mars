@@ -1745,6 +1745,18 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	}
 	MARS_DBG("logfile '%s' size = %lld\n", aio_path, rot->aio_info.current_size);
 
+#if defined(CONFIG_MARS_LOGROT_AUTO) && CONFIG_MARS_LOGROT_AUTO > 0
+	if (rot->is_primary &&
+	    unlikely(rot->aio_info.current_size >= (loff_t)CONFIG_MARS_LOGROT_AUTO * 1024 * 1024 * 1024)) {
+		char *new_path = path_make("%s/log-%09d-%s", parent_path, aio_dent->d_serial + 1, my_id());
+		if (likely(new_path && !mars_find_dent(global, new_path))) {
+			MARS_INF("old logfile size = %lld, creating new logfile '%s'\n", rot->aio_info.current_size, new_path);
+			_create_new_logfile(new_path);
+		}
+		brick_string_free(new_path);
+	}
+#endif
+
 	// check whether attach is allowed
 	switch_path = path_make("%s/todo-%s/attach", parent_path, my_id());
 

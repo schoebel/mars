@@ -130,6 +130,17 @@ config MARS_LOGROT
 	---help---
 	Normally ON. Switch off only for EXPERIMENTS!
 
+config MARS_LOGROT_AUTO
+	int "automatic logrotate when logfile exceeds size (in GB)"
+	depends on MARS_LOGROT
+	default 64
+	---help---
+	You could switch this off by setting to 0. However, deletion
+	of really huge logfile can take several minutes, or even substantial
+	fractions of hours (depending on the underlying filesystem).
+	Thus it is highly recommended to limit the logfile size to some
+	reasonable maximum size. Switch only off for experiments!
+
 config MARS_MIN_SPACE
 	bool "check for filesystem overflow in /mars"
 	depends on MARS
