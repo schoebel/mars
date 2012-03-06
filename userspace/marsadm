@@ -355,6 +355,7 @@ sub _create_cluster {
   my ($cmd) = @_;
   system("mkdir $mars") unless -d $mars;
   system("mkdir $mars/ips") unless -d "$mars/ips";
+  system("mkdir $mars/userspace") unless -d "$mars/userspace";
   system("mkdir $mars/defaults") unless -d "$mars/defaults";
   system("mkdir $mars/defaults-$host") unless -d "$mars/defaults-$host";
   system("mkdir $mars/todo-global") unless -d "$mars/todo-global";
@@ -462,6 +463,7 @@ sub create_res {
     symlink($appear, "$tmp/device-$host") or die "cannot create symlink for local device appearance\n";
   }
 
+  mkdir("$tmp/userspace") unless -d "$tmp/userspace";
   mkdir("$tmp/defaults") unless -d "$tmp/defaults";
   mkdir("$tmp/defaults-$host");
   mkdir("$tmp/actual-$host");

@@ -2972,6 +2972,9 @@ static int check_deleted(void *buf, struct mars_dent *dent)
 enum {
 	// root element: this must have index 0
 	CL_ROOT,
+	// global userspace
+	CL_GLOBAL_USERSPACE,
+	CL_GLOBAL_USERSPACE_ITEMS,
 	// global todos
 	CL_GLOBAL_TODO,
 	CL_GLOBAL_TODO_DELETE,
@@ -2984,6 +2987,8 @@ enum {
 	CL_REST_SPACE,
 	// resource definitions
 	CL_RESOURCE,
+	CL_RESOURCE_USERSPACE,
+	CL_RESOURCE_USERSPACE_ITEMS,
 	CL_DEFAULTS0,
 	CL_DEFAULTS,
 	CL_DEFAULTS_ITEMS0,
@@ -3012,6 +3017,22 @@ static const struct light_class light_classes[] = {
 	/* Placeholder for root node /mars/
 	 */
 	[CL_ROOT] = {
+	},
+
+	/* Subdirectory for global userspace items...
+	 */
+	[CL_GLOBAL_USERSPACE] = {
+		.cl_name = "userspace",
+		.cl_len = 9,
+		.cl_type = 'd',
+		.cl_hostcontext = false,
+		.cl_father = CL_ROOT,
+	},
+	[CL_GLOBAL_USERSPACE_ITEMS] = {
+		.cl_name = "",
+		.cl_len = 0, // catch any
+		.cl_type = 'l',
+		.cl_father = CL_GLOBAL_USERSPACE,
 	},
 
 	/* Subdirectory for global controlling items...
@@ -3096,6 +3117,22 @@ static const struct light_class light_classes[] = {
 		.cl_len = 9,
 		.cl_type = 'd',
 		.cl_father = CL_ROOT,
+	},
+
+	/* Subdirectory for resource-specific userspace items...
+	 */
+	[CL_RESOURCE_USERSPACE] = {
+		.cl_name = "userspace",
+		.cl_len = 9,
+		.cl_type = 'd',
+		.cl_hostcontext = false,
+		.cl_father = CL_RESOURCE,
+	},
+	[CL_RESOURCE_USERSPACE_ITEMS] = {
+		.cl_name = "",
+		.cl_len = 0, // catch any
+		.cl_type = 'l',
+		.cl_father = CL_RESOURCE_USERSPACE,
 	},
 
 	/* Subdirectory for defaults...
