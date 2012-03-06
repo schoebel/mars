@@ -518,6 +518,7 @@ struct mars_rotate {
 	struct aio_brick *aio_brick;
 	struct mars_info aio_info;
 	struct trans_logger_brick *trans_brick;
+	struct mars_dent *first_log;
 	struct mars_dent *relevant_log;
 	struct mars_brick *relevant_brick;
 	struct mars_dent *next_relevant_log;
@@ -535,6 +536,7 @@ struct mars_rotate {
 	loff_t end_pos;
 	int max_sequence;
 	int copy_serial;
+	int relevant_serial;
 	bool has_error;
 	bool allow_update;
 	bool allow_sync;
@@ -938,6 +940,12 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 			struct mars_dent *local_dent = mars_find_dent(peer->global, remote_dent->d_path);
 			if (unlikely(!parent)) {
 				MARS_IO("ignoring non-existing local resource '%s'\n", parent_path);
+#if defined(CONFIG_MARS_LOGDELETE_AUTO) && CONFIG_MARS_LOGDELETE_AUTO > 0
+			// don't copy old / outdated logfiles
+			} else if (parent->d_private &&
+				   ((struct mars_rotate *)parent->d_private)->relevant_serial > remote_dent->d_serial) {
+				MARS_IO("ignoring outdated remote logfile '%s'\n", remote_dent->d_path);
+#endif
 			} else {
 				status = check_logfile(peer->peer, remote_dent, local_dent, parent, local_stat.size);
 			}
@@ -1643,6 +1651,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	rot->replay_link = NULL;
 	rot->aio_dent = NULL;
 	rot->aio_brick = NULL;
+	rot->first_log = NULL;
 	rot->relevant_log = NULL;
 	rot->relevant_brick = NULL;
 	rot->next_relevant_log = NULL;
@@ -1839,6 +1848,9 @@ int make_log_step(void *buf, struct mars_dent *dent)
 		rot->max_sequence = dent->d_serial;
 	}
 
+	if (!rot->first_log)
+		rot->first_log = dent;
+
 	/* Skip any logfiles after the relevant one.
 	 * This should happen only when replaying multiple logfiles
 	 * in sequence, or when starting a new logfile for writing.
@@ -1864,6 +1876,7 @@ int make_log_step(void *buf, struct mars_dent *dent)
 	/* Remember the relevant log.
 	 */
 	if (rot->aio_dent->d_serial == dent->d_serial) {
+		rot->relevant_serial = dent->d_serial;
 		rot->relevant_log = dent;
 	}
 
@@ -2373,6 +2386,19 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	rot->copy_brick = copy_brick;
 	if (!copy_brick)
 		rot->copy_serial = 0;
+
+#if defined(CONFIG_MARS_LOGDELETE_AUTO) && CONFIG_MARS_LOGDELETE_AUTO > 0
+#define LIMIT1 ((loff_t)EXHAUSTED_LIMIT(rot->total_space))
+#define LIMIT2 ((loff_t)CONFIG_MARS_LOGDELETE_AUTO * 1024 * 1024)
+	if (rot->remaining_space <= LIMIT1 + LIMIT2) {
+		MARS_WRN("filesystem space = %lld kiB is lower than %lld + %lld = %lld\n", rot->remaining_space, LIMIT1, LIMIT2, LIMIT1 + LIMIT2);
+		if (rot->first_log && rot->first_log != rot->relevant_log) {
+			MARS_DBG("freeing old logfile '%s'\n", rot->first_log->d_path);
+			mars_unlink(rot->first_log->d_path);
+			rot->first_log->d_killme = true;
+		}
+	}
+#endif
 
 	/* Stopping is also possible in case of errors
 	 */

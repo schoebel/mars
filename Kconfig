@@ -133,7 +133,7 @@ config MARS_LOGROT
 config MARS_LOGROT_AUTO
 	int "automatic logrotate when logfile exceeds size (in GB)"
 	depends on MARS_LOGROT
-	default 64
+	default 32
 	---help---
 	You could switch this off by setting to 0. However, deletion
 	of really huge logfile can take several minutes, or even substantial
@@ -150,7 +150,7 @@ config MARS_MIN_SPACE
 
 config MARS_MIN_SPACE_BASE
 	int "free space in /mars/ (hard limit in gigabytes)"
-	depends on MARS && MARS_MIN_SPACE
+	depends on MARS_MIN_SPACE
 	default 8
 	---help---
 	when this limit is exceeded, all write requests to /mars/
@@ -162,10 +162,24 @@ config MARS_MIN_SPACE_BASE
 
 config MARS_MIN_SPACE_PERCENT
 	int "free space in /mars/ (hard limit in percent)"
-	depends on MARS && MARS_MIN_SPACE
+	depends on MARS_MIN_SPACE
 	default 0
 	---help---
 	this limit is in addition to CONFIG_MARS_MIN_SPACE_BASE.
+
+config MARS_LOGDELETE_AUTO
+	int "automatic log-delete when space in /mars/ gets short (in GB)"
+	depends on MARS_MIN_SPACE
+	default 8
+	---help---
+	This limit is in addition to CONFIG_MARS_MIN_SPACE_BASE
+	and CONFIG_MARS_MIN_SPACE_PERCENT.
+	You can switch this off by setting to 0.
+	When the limit is hit, MARS tries to delete the eldest logfile,
+	when possible, in order to free some space.
+	Notice: deleting logfiles on a primary which have not yet
+	been transferred to some secondary is possible, but as a
+	consequence the secondary may need a full-sync afterwards.
 
 config MARS_PREFER_SIO
 	bool "prefer sio bricks instead of aio"
