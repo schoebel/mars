@@ -1,30 +1,25 @@
 #!/usr/bin/perl -w
 #
-# $Id: b9601a79105451a8524cd8b874c2495021b067ed $
-# last update at Fr 24. Feb 15:34:26 CET 2012 by joerg.mann@1und1.de
+# $Id: 93258bf9e072ff1d16807a2885dfc9c9714e8cfb $
+# last update at Thu Mar  8 17:53:37 CET 2012 by joerg.mann@1und1.de
 
 # TODO:
-# check replay-blocks
 # check deutsch/englich
 # add todo-global delete-logfiles
-# check "Id:" to git checkin
 # anzeige bandbreite / i/o-load wenn dieser genutzt wird
 # bugix fuer nachtaegliches join (log-v-4 ...)
-# wich ... (374)
-# fix optionlist
 
 ###
 use warnings;
 use strict;
 use English;
-#use File::Which;
 use Getopt::Long;
 use Term::ANSIColor;
 use Date::Language;
 use POSIX qw(strftime);
 
 ### defaults
-my $version       = "0.067r";
+my $version       = "0.067s";
 my $alife_timeout = "99";	# sec
 my $is_tty 	  = 0;
 my $mars_dir      = '/mars';
@@ -36,18 +31,11 @@ chomp $himself;
 ### ARGV
 # Optionen in Hash-Ref parsen
 my $params = {};
-GetOptions( $params, 'help', 'resource=s', 'interval=i', 'help', 'long', 'history' );
-
-my $OptionList = "long";
-if(not $params->{long}) {
-	$OptionList = "small";
-}
-
-my $OptionRes = $params->{resource};
+GetOptions( $params, 'help', 'resource=s', 'interval=i', 'help', 'long', 'history', 'debug' );
 
 if($params->{help}) {
 	print "Usage: $0 [--help]\n";
-	print "Usage: $0 [--resource <RESNAME>] [--interval <seconds>] [--long [--history]]\n";
+	print "Usage: $0 [--resource <RESNAME>] [--interval <seconds>] [--long [--history] [--debug]]\n";
 	exit;
 }
 
@@ -145,10 +133,10 @@ sub display_partner {
         ### device
         # joined  ?
         if ( $PDevice eq 0 ) {
-                if ( $OptionList eq "long" ) { print_warn "   -> Resource is not joined to this node\n", 'red'; }
+                if ( $params->{'long'} ) { print_warn "   -> Resource is not joined to this node\n", 'red'; }
                 return; 
         }
-        if ( $OptionList eq "long" ) {
+        if ( $params->{'long'} ) {
                 print "\tDevice  : ".check_link "$mars_dir/$PRes/data-$PName";
                 print ", used as $PDevice";
                 
@@ -183,7 +171,7 @@ sub display_partner {
 	my $PLogSize  = -s "$mars_dir/$PRes/$PLogFile[0]";
 	if ( ! $PLogFile[1] ) { $PLogFile[1] = 0; $PLogFile[2] = 0; }
 	if (( !$PLogSize ) || ( $PLogSize eq 0 )) { $PLogSize = 0.0001; }
-	if ( $OptionList eq "long" ) {
+	if ( $params->{'long'} ) {
 		printf "\tLogfile : %s with %s bytes (%.3fGB) received\n", $PLogName, $PLogSize, ( $PLogSize/1024/1024/1024 );
 		if ( $Ljoined eq "0" || $PLogSize eq "0.0001" ) {
 			print_warn "\t\t---> TODO: Logfile inactive or empty (Size: $PLogSize)\n", 'red';
@@ -198,7 +186,7 @@ sub display_partner {
 	my $RStatus = ( $PLogFile[1] / $PLogSize ) * 100;
 	if ( $Ljoined eq "0" || $PLogSize eq "1" ) { $RStatus = 0; }
 	$$ref_ResInReplay = $RStatus;
-	if ( $OptionList eq "long" ) {
+	if ( $params->{'long'} ) {
 		printf "\tReplayed: %s bytes (%.3fGB) replayed, Todo %d (%.3fGB) = ", 
 			$PLogFile[1], ( $PLogFile[1]/1024/1024/1024 ), 
 			$PLogFile[2], ( $PLogFile[2]/1024/1024/1024 );
@@ -224,7 +212,7 @@ sub display_partner {
 	my $PSyncsize = check_link "$mars_dir/$PRes/syncstatus-$PName";
 	my $SStatus = ( $PSyncsize / $PSize * 100);
 	$$ref_ResInSync = $SStatus;
-	if ( $OptionList eq "long") {
+	if ( $params->{'long'} ) {
 		printf "\tSync    : %s bytes (%.3fTB) synced = ", $PSyncsize, ( $PSyncsize/1024/1024/1024/1024);
                 $SStatus = sprintf("%.2f", $SStatus);
                 if ( $SStatus < 100) {
@@ -235,7 +223,7 @@ sub display_partner {
 	}
 
 	
-	if ( $OptionList eq "long") {
+	if ( $params->{'long'} ) {
         	### actual
         	my $ActStatus  = check_link "$mars_dir/$PRes/actual-$PName/is-primary";
         	if ( $ActStatus eq 1 ) {
@@ -340,6 +328,7 @@ sub check_logfile {
 ###
 			if (( $oldEqual eq 1 ) && ( $LogFailed eq 0 )) {
                                 print_warn "\t\t*---> TODO: logfiles has all equal Sizes and Checksums, can be deleted?\n",'green';
+                                # TODO check aktuell logfile
                                 # TODO delete links !
 			} elsif (( $oldEqual eq 1 ) && ( $LogFailed ne 0 )) {
                                 print_warn "\t\t*---> TODO: logfiles has same other errors - Please check History of Logfiles\n",'red';
@@ -401,53 +390,52 @@ sub check_disk_is_full {
 #########################################################################################
 ### check /proc/sys/mars/warnings
 sub check_mars_warn {
-	if ( open  (MARS_WARN, "< /proc/sys/mars/warnings") ) {
-		my $mars_warn = "";
-		while ( <MARS_WARN> ) {
-			my $mars_w_time = $_;
-			$mars_w_time =~ s/ MARS_WARN.*//;
-			$mars_w_time =~ s/\\n//g;
-			$mars_w_time = strftime "%a %b %e %H:%M:%S %Y", localtime $mars_w_time;
-			my $mars_w_text = $_;
-			$mars_w_text =~ s/.*MARS_WARN //;
-			$mars_w_text =~ s/  //g;
-			$mars_warn = "\t$mars_w_time:$mars_w_text";
-		}
-		close MARS_WARN;
-		if ( $mars_warn ne "" ) { print_warn "-> MARS WARNINGS:\n", 'red'; print "$mars_warn" }
-	}
-}	
+        if ( open  (MARS_WARN, "< /proc/sys/mars/warnings") ) {
+                my $mars_warn = "";
+                while ( <MARS_WARN> ) {
+                        my $mars_w_time = $_;
+                        $mars_w_time =~ s/ MARS_WARN.*//;
+                        $mars_w_time =~ s/\n//g;
+                        if ( $mars_w_time eq '' ) { $mars_w_time = time(); }
+                        $mars_w_time = strftime "%a %b %e %H:%M:%S %Y", localtime $mars_w_time;
+                        my $mars_w_text = $_;
+                        $mars_w_text =~ s/.*MARS_WARN //;
+                        $mars_w_text =~ s/  //g;
+                        $mars_warn = "\t$mars_w_time:$mars_w_text";
+                }
+                close MARS_WARN;
+                if ( $mars_warn ne "" ) { print_warn "-> MARS WARNINGS:\n", 'red'; print "$mars_warn" }
+        } 
+}       
 
 #########################################################################################
 ### check /proc/sys/mars/errors
 sub check_mars_error {
-	if ( open (MARS_ERROR, "< /proc/sys/mars/errors") ) {
-		my $mars_error = "";
-		while ( <MARS_ERROR> ) {
-			$_ =~ s/cannot open logfile.*/xxx/;
-			my $mars_e_time = $_;
-			if ( "$mars_e_time" eq "xxx\n" ) { next; }
-			$mars_e_time =~ s/ MARS_ERROR.*//;
-			$mars_e_time =~ s/\\n//g;
-			$mars_e_time = strftime "%a %b %e %H:%M:%S %Y", localtime $mars_e_time;
-			my $mars_e_text = $_;
-			$mars_e_text =~ s/.*MARS_ERROR //;
-			$mars_e_text =~ s/  //g;
-			$mars_error = "\t$mars_e_time:$mars_e_text";
-		}
-		close MARS_ERROR;
-		if ( $mars_error ne "" ) { print_warn "-> MARS ERRORS:\n", 'red'; print "$mars_error" }
-	}
+        if ( open (MARS_ERROR, "< /proc/sys/mars/errors") ) {
+                my $mars_error = "";
+                while ( <MARS_ERROR> ) {
+                        $_ =~ s/cannot open logfile.*/xxx/;
+                        my $mars_e_time = $_;
+                        if ( "$mars_e_time" eq "xxx\n" ) { next; }
+                        $mars_e_time =~ s/ MARS_ERROR.*//;
+                        $mars_e_time =~ s/\n//g;
+                        if ( $mars_e_time eq '' ) { $mars_e_time = time(); }
+                        $mars_e_time = strftime "%a %b %e %H:%M:%S %Y", localtime $mars_e_time;
+                        my $mars_e_text = $_;
+                        $mars_e_text =~ s/.*MARS_ERROR //;
+                        $mars_e_text =~ s/  //g;
+                        $mars_error = "\t$mars_e_time:$mars_e_text";
+                }
+                close MARS_ERROR;
+                if ( $mars_error ne "" ) { print_warn "-> MARS ERRORS:\n", 'red'; print "$mars_error" }
+        }
 }
-
 
 #########################################################################################
 ### main loop ...
 while(1) {
 	print $clearscreen;
         my $dateFormat = Date::Language->new('English');
-#        $DateFormat->time2str("%a %b %e %T %Y\n", time);
-#	print $dateFormat->time2str("%a %b %e %T %Y\n", time) . "\n";
 	#########################################################################################
 	### read mars infos
 	my %mars_info;
@@ -475,8 +463,8 @@ while(1) {
 	
 	# status
 	print_warn "MARS Status - $himself, $version",'blue';
-	if ( $OptionList ) { print_warn ", Listmodus $OptionList",'blue'; }
-	if ( $OptionRes  ) { print_warn ", Ressource $OptionRes",'blue'; }
+	# TODO: if ( $$params->{'???'} ) { print_warn ", Listmodus $???",'blue'; }
+	if ( $params->{'resource'}  ) { print_warn ", Ressource: $params->{'resource'}",'blue'; }
 	print "\n";
 	
 
@@ -520,8 +508,8 @@ while(1) {
 		my $ResInSyncE   = 0;
 		my $res_name     = $res;
 		$res_name        =~ s/^resource-//;
-		if ( $OptionRes ) {
-			if (!( $OptionRes eq $res_name)) {
+		if ( $params->{'resource'} ) {
+			if (!( $params->{'resource'} eq $res_name)) {
 				next;
 			}
 		}
@@ -548,6 +536,7 @@ while(1) {
 		);
 		$ResInReplayE = $ResInReplay;
 		$ResInSyncE   = $ResInSync;
+		# TODO: short modus ... bug empty ...
 	
 		# not joined ...
 		if ( $ResPartner eq 1) {
@@ -571,19 +560,20 @@ while(1) {
 			}
 			$ResInReplayE = $ResInReplayE + $ResInReplay;
 			$ResInSyncE   = $ResInSyncE + $ResInSync;
+			# TODO: short modus ... bug empty ...
 		}
 	
 		
 		### modus
 	        if ( $ResPartner eq 0) { 
-	            if ( $OptionList eq "long" ) { print_warn "   -> modus for $res_name is remote ($ResPartner nodes)\n",'bold'; }
+	            if ( $params->{'long'} ) { print_warn "   -> modus for $res_name is remote ($ResPartner nodes)\n",'bold'; }
 	        } elsif ( $ResPartner eq 1 ) { 
-		    if ( $OptionList eq "long" ) { print_warn "   -> modus for $res_name is standalone ($ResPartner node)\n",'bold'; }
+		    if ( $params->{'long'} ) { print_warn "   -> modus for $res_name is standalone ($ResPartner node)\n",'bold'; }
 	        } else {
 		    print_warn "   -> modus for $res_name is cluster ($ResPartner nodes), ",'bold';
 	            $ResInReplayE = sprintf("%.2f", $ResInReplayE / $ResPartner );
 	            $ResInSyncE   = sprintf("%.2f", $ResInSyncE / $ResPartner );
-	            print_warn "ClusterSummary: ", 'black';
+	            print_warn "ClusterSummaryx: ", 'black';
 	            if ( $ResInReplayE eq "100.00" ) {
 	        	print_warn "in replay ($ResInReplayE%),", 'green';
 	            } elsif ( $ResInReplayE eq "0.00" ) {
@@ -600,22 +590,28 @@ while(1) {
 	
 	
 	        ### debug output
-	        if ( $OptionList eq "long" ) { 
+	        if ( $params->{'long'} ) { 
 	        	### history
 	        	if ( $params->{'history'} ) {
 	        		check_logfile( $res, $ResPartner );
 	        	}
+	        	#
+	        	#
+	        	#
+	        	
 
 		} # end debug
 
 	} # end foreach
 
         ### debug output
-        if ( $OptionList eq "long" ) { 
+        if ( $params->{'long'} ) { 
 	        	### mars-warn/error
 			check_disk_is_full;
-	        	check_mars_warn;
-	        	check_mars_error;
+			if  ( $params->{'debug'} ) {
+	        	    check_mars_warn;
+	        	    check_mars_error;
+                        }
 	}
 
 
