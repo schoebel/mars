@@ -711,9 +711,38 @@ sub role_cmd {
   }
 }
 
+sub helplist {
+  my $temp;
+  $temp = shift;
+  print "ERROR: $temp" if ($temp);
+  print "
+marsadm command resource [option]
+
+command for ...
+  - cluster  : create-cluster join-cluster create-resource join-resource
+  - logfile  : log-rotate log-delete log-delete-all 
+  - device   : attach detach connect disconnect connect-local disconnect-local up down 
+  - resource : primary secondary invalidate-remote 
+  - sync     : pause-sync resume-sync pause-sync-local resume-sync-local fake-sync
+  - replay   : pause-replay resume-replay pause-replay-local resume-replay-local
+  - internal : help version
+
+resource = name of resource or [all] for all resources...
+
+option   = special by command
+
+Advanced information are also available here: http://http://wiki.intranet.1and1.com/bin/view/PO/ProjektTEC1603 
+  \n";
+  exit 0;
+}
+
+sub version {
+	print "$0 $Id\n";
+	print "my IP is $ip\n";
+	exit 0;
+} 
 
 ##################################################################
-
 my %cmd_table =
   (
    # new keywords
@@ -782,21 +811,22 @@ foreach my $arg (@ARGV) {
   push @args, $arg;
 }
 
-my $cmd = shift @args || die "command argument is missing\n";
-if($cmd eq "--version") {
-	print "$Id\n";
-	exit 0;
+my $cmd = shift @args || helplist "command argument is missing\n";
+
+if($cmd =~ m/^help$/ || $cmd =~ m/^h$/) {
+  helplist;
 }
 
-
+if($cmd =~ m/^version$/ || $cmd =~ m/^v$/) {      
+  version;
+}
 
 die "only root may use this tool\n" if $< != 0; # getpid() seems to be missing in perlfunc
-print "my IP is $ip\n";
-die "unknown command '$cmd'\n" if !exists $cmd_table{$cmd};
+helplist "unknown command $cmd\n" if !exists $cmd_table{$cmd};
 
 my $res = "";
 unless($cmd =~ m/^create-cluster$/) {
-  $res = shift @args || die "resource argument is missing\n";
+  $res = shift @args || helplist "resource argument is missing\n";
   check_id($res);
 }
 

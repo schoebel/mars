@@ -1,0 +1,69 @@
+.TH mars-status 8 "April 10, 2012" "" "Mars Admin"
+
+.SH NAME
+mars-status \- program to display status information from mars
+
+.SH SYNOPSIS
+.B "mars-status \-? \-h \-help"
+.br
+.B "mars-status \-v \-\-version "
+.br
+.B "mars-status [--resource <RESNAME>] [--interval <seconds>] [--long [--history] [--debug]]"
+.br
+.br
+(See the OPTIONS section for alternate option syntax with long option names.)
+
+
+.SH DESCRIPTION
+This manual page explains the
+.B mars-status
+program. This program is used to display information from the Mars clusters, whose resources and the logfiles with its versions.
+
+.SH OPTIONS
+.SS "Generic Program Information"
+.TP
+.B \-h ", " \-\^\-help
+Print a usage message briefly summarizing these command-line options and the bug-reporting address, then exit.
+.TP
+.BR \-V ", " \-\^\-version
+Print the version number of
+.B marsadm
+This version number should be included in all bug reports (see below).
+
+.SS "Display Options"
+.TP
+.BR without " " options
+.B mars-status
+display short summary of all informations of all resources on Cluster.
+.TP
+
+.BR resource " " RESNAME
+Limits the display to the specified resource.
+.TP
+
+.BR interval " " seconds
+Refreshes the display every second xxx.
+.TP
+
+.BR long 
+Displays more detailed information.
+.TP
+
+.BR long " " history
+Shows information about the log files, version numbers and their status.
+.TP
+
+.BR debug
+Additional display error messages and warnings to internal.
+.TP
+
+.BR monitor
+Indicator to use for monitoring (not available).
+
+
+.SH NOTES
+Advanced information are also available here: http://http://wiki.intranet.1and1.com/bin/view/PO/ProjektTEC1603.
+
+
+.SH BUGS
+Problems and errors in the program are not known ;)

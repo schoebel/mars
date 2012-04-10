@@ -1,7 +1,8 @@
 #!/usr/bin/perl -w
+# (c) 2012 Joerg Mann / 1&1 Internet AG
 #
-# $Id: 93258bf9e072ff1d16807a2885dfc9c9714e8cfb $
-# last update at Thu Mar  8 17:53:37 CET 2012 by joerg.mann@1und1.de
+# $Id: 1cfc331c2f2dbd3c929c666e4fcc518f78b38c73 $
+# last update at Tue Apr 10 17:20:32 CEST 2012 by joerg.mann@1und1.de
 
 # TODO:
 # check deutsch/englich
@@ -19,7 +20,7 @@ use Date::Language;
 use POSIX qw(strftime);
 
 ### defaults
-my $version       = "0.067s";
+my $version       = "0.067t";
 my $alife_timeout = "99";	# sec
 my $is_tty 	  = 0;
 my $mars_dir      = '/mars';
@@ -31,11 +32,20 @@ chomp $himself;
 ### ARGV
 # Optionen in Hash-Ref parsen
 my $params = {};
-GetOptions( $params, 'help', 'resource=s', 'interval=i', 'help', 'long', 'history', 'debug' );
+GetOptions( $params, 'help', 'h', 'version', 'v', 'resource=s', 'interval=i', 'long', 'history', 'debug' );
 
-if($params->{help}) {
-	print "Usage: $0 [--help]\n";
-	print "Usage: $0 [--resource <RESNAME>] [--interval <seconds>] [--long [--history] [--debug]]\n";
+if($params->{help} || $params->{h}) {
+	print "Usage: mars-status [--help]\n";
+	print "Usage: mars-status [--version]\n";
+	print "Usage: mars-status (without specification of parameters, an abstract of all the informations spent)\n";
+	print "Usage: mars-status [--resource <RESNAME>] [--interval <seconds>] [--long [--history] [--debug]]\n";
+	print "       --resource : limits the display to the specified resource\n";
+	print "       --interval : refreshes the display every second xxx\n";
+	print "       --long     : displays more detailed information\n";
+        print "       --history  : shows information about the log files, version numbers and their status\n";
+	print "       --debug    : additional display error messages and warnings to internal\n";
+	print "       --monitor  : indicator to use for monitoring (not available)\n";
+	print "\nAdvanced information are also available here: http://http://wiki.intranet.1and1.com/bin/view/PO/ProjektTEC1603\n";
 	exit;
 }
 
@@ -486,6 +496,10 @@ while(1) {
 	
 	print "-------------------------------------------------------------------------------\n";
 	
+        if($params->{version} || $params->{v}) {
+            exit 0;
+        }
+
 	#########################################################################################
 	### check load-limit
 	check_avg_limit;
