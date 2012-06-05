@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 # (c) 2012 Joerg Mann / 1&1 Internet AG
 #
-# $Id: 1cfc331c2f2dbd3c929c666e4fcc518f78b38c73 $
+# $Id: 7925d898464c836d5dbf76d2b6d3fed2413f6034 $
 # last update at Tue Apr 10 17:20:32 CEST 2012 by joerg.mann@1und1.de
 
 # TODO:
@@ -20,7 +20,7 @@ use Date::Language;
 use POSIX qw(strftime);
 
 ### defaults
-my $version       = "0.067t";
+my $version       = "0.067u";
 my $alife_timeout = "99";	# sec
 my $is_tty 	  = 0;
 my $mars_dir      = '/mars';
@@ -179,7 +179,7 @@ sub display_partner {
 	# TODO: kein Logfile vorhanden ...
 	my $PLogName  = "$PLogLink[0]-$PLogLink[1]";
 	my $PLogSize  = -s "$mars_dir/$PRes/$PLogFile[0]";
-	if ( ! $PLogFile[1] ) { $PLogFile[1] = 0; $PLogFile[2] = 0; }
+	if ( !$PLogFile[1] ) { $PLogFile[1] = 0; $PLogFile[2] = 0; }
 	if (( !$PLogSize ) || ( $PLogSize eq 0 )) { $PLogSize = 0.0001; }
 	if ( $params->{'long'} ) {
 		printf "\tLogfile : %s with %s bytes (%.3fGB) received\n", $PLogName, $PLogSize, ( $PLogSize/1024/1024/1024 );
@@ -403,15 +403,13 @@ sub check_mars_warn {
         if ( open  (MARS_WARN, "< /proc/sys/mars/warnings") ) {
                 my $mars_warn = "";
                 while ( <MARS_WARN> ) {
-                        my $mars_w_time = $_;
-                        $mars_w_time =~ s/ MARS_WARN.*//;
-                        $mars_w_time =~ s/\n//g;
-                        if ( $mars_w_time eq '' ) { $mars_w_time = time(); }
-                        $mars_w_time = strftime "%a %b %e %H:%M:%S %Y", localtime $mars_w_time;
-                        my $mars_w_text = $_;
-                        $mars_w_text =~ s/.*MARS_WARN //;
-                        $mars_w_text =~ s/  //g;
-                        $mars_warn = "\t$mars_w_time:$mars_w_text";
+                    if ( m/^(\d+\.\d+)/ ) {
+                        s/^(\d+\.\d+)/strftime("%a %b %e %H:%M:%S %Y:", localtime($1))/e;
+                    } else {
+                        $_ = localtime(0) . ': ' . $_;
+                    }
+                    s/MARS_WARN\s+//;
+                    $mars_warn = "$mars_warn\t$_";
                 }
                 close MARS_WARN;
                 if ( $mars_warn ne "" ) { print_warn "-> MARS WARNINGS:\n", 'red'; print "$mars_warn" }
@@ -424,17 +422,13 @@ sub check_mars_error {
         if ( open (MARS_ERROR, "< /proc/sys/mars/errors") ) {
                 my $mars_error = "";
                 while ( <MARS_ERROR> ) {
-                        $_ =~ s/cannot open logfile.*/xxx/;
-                        my $mars_e_time = $_;
-                        if ( "$mars_e_time" eq "xxx\n" ) { next; }
-                        $mars_e_time =~ s/ MARS_ERROR.*//;
-                        $mars_e_time =~ s/\n//g;
-                        if ( $mars_e_time eq '' ) { $mars_e_time = time(); }
-                        $mars_e_time = strftime "%a %b %e %H:%M:%S %Y", localtime $mars_e_time;
-                        my $mars_e_text = $_;
-                        $mars_e_text =~ s/.*MARS_ERROR //;
-                        $mars_e_text =~ s/  //g;
-                        $mars_error = "\t$mars_e_time:$mars_e_text";
+                    if ( m/^(\d+\.\d+)/ ) {
+                        s/^(\d+\.\d+)/strftime("%a %b %e %H:%M:%S %Y:", localtime($1))/e;
+                    } else {
+                        $_ = localtime(0) . ': ' . $_;
+                    }
+                    s/MARS_ERROR\s+//;
+                    $mars_error = "$mars_error\t$_";
                 }
                 close MARS_ERROR;
                 if ( $mars_error ne "" ) { print_warn "-> MARS ERRORS:\n", 'red'; print "$mars_error" }
@@ -479,7 +473,7 @@ while(1) {
 	
 
 	# marsadm
-	my $MAVersion = qx"marsadm --version";
+	my $MAVersion = qx"marsadm version";
 	print_warn "MARS Admin  - $MAVersion",'blue';
 	
 	
@@ -515,13 +509,15 @@ while(1) {
 	
 	
 	foreach my $res (@resources) {
-		my $ResPartner   = 0;
-		my $ResInReplay  = 0;
-		my $ResInReplayE = 0;
-		my $ResInSync    = 0;
-		my $ResInSyncE   = 0;
-		my $res_name     = $res;
-		$res_name        =~ s/^resource-//;
+		my $ResPartner     = 0;
+		my $ResInReplay    = 0;
+		my $ResInReplaySum = 0;
+		my $ResInReplayPar = 0;
+		my $ResInSync      = 0;
+		my $ResInSyncSum   = 0;
+		my $ResInSyncPar   = 0;
+		my $res_name       = $res;
+		$res_name          =~ s/^resource-//;
 		if ( $params->{'resource'} ) {
 			if (!( $params->{'resource'} eq $res_name)) {
 				next;
@@ -548,9 +544,10 @@ while(1) {
 			res_insync      => \$ResInSync,
 			res_AULogfile   => "",
 		);
-		$ResInReplayE = $ResInReplay;
-		$ResInSyncE   = $ResInSync;
-		# TODO: short modus ... bug empty ...
+		$ResInReplaySum = $ResInReplay;
+		$ResInReplayPar = 1;
+		$ResInSyncSum   = $ResInSync;
+		$ResInSyncPar   = 1;
 	
 		# not joined ...
 		if ( $ResPartner eq 1) {
@@ -572,9 +569,14 @@ while(1) {
 					res_AULogfile   => $ActualUsedLogfile,
 					);
 			}
-			$ResInReplayE = $ResInReplayE + $ResInReplay;
-			$ResInSyncE   = $ResInSyncE + $ResInSync;
-			# TODO: short modus ... bug empty ...
+			if ($ResInReplay != 100) { 
+			    $ResInReplaySum = $ResInReplaySum + $ResInReplay;
+			    $ResInReplayPar = $ResInReplayPar + 1; 
+                        }
+			if ($ResInSync != 100) { 
+			    $ResInSyncSum   = $ResInSyncSum + $ResInSync;
+			    $ResInSyncPar = $ResInSyncPar + 1; 
+                        }
 		}
 	
 		
@@ -585,20 +587,20 @@ while(1) {
 		    if ( $params->{'long'} ) { print_warn "   -> modus for $res_name is standalone ($ResPartner node)\n",'bold'; }
 	        } else {
 		    print_warn "   -> modus for $res_name is cluster ($ResPartner nodes), ",'bold';
-	            $ResInReplayE = sprintf("%.2f", $ResInReplayE / $ResPartner );
-	            $ResInSyncE   = sprintf("%.2f", $ResInSyncE / $ResPartner );
-	            print_warn "ClusterSummaryx: ", 'black';
-	            if ( $ResInReplayE eq "100.00" ) {
-	        	print_warn "in replay ($ResInReplayE%),", 'green';
-	            } elsif ( $ResInReplayE eq "0.00" ) {
-	        	print_warn "inaktiv ($ResInReplayE%),", 'red';
+	            $ResInReplaySum = sprintf("%.2f", $ResInReplaySum / $ResInReplayPar );
+	            $ResInSyncSum   = sprintf("%.2f", $ResInSyncSum / $ResInSyncPar );
+	            print_warn "ClusterSummary: ", 'black';
+	            if ( $ResInReplaySum eq "100.00" ) {
+	        	print_warn "in replay ($ResInReplaySum%),", 'green';
+	            } elsif ( $ResInReplaySum eq "0.00" ) {
+	        	print_warn "inaktiv ($ResInReplaySum%),", 'red';
 	            } else {
-		        print_warn "not in replay ($ResInReplayE%),", 'red';
+		        print_warn "not in replay ($ResInReplaySum%),", 'red';
 	            }
-		    if ( $ResInSyncE eq "100.00" ) {
-			print_warn " in sync ($ResInSyncE%)\n", 'green';
+		    if ( $ResInSyncSum eq "100.00" ) {
+			print_warn " in sync ($ResInSyncSum%)\n", 'green';
 		    } else {
-		        print_warn " not in sync ($ResInSyncE%)\n", "red";
+		        print_warn " not in sync ($ResInSyncSum%)\n", "red";
 		    }
 	        }
 	
