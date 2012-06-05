@@ -738,7 +738,7 @@ Advanced information are also available here: http://http://wiki.intranet.1and1.
 
 sub version {
 	print "$0 $Id\n";
-	print "my IP is $ip\n";
+	#print "my IP is $ip\n";
 	exit 0;
 } 
 
