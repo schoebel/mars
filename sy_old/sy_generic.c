@@ -115,21 +115,42 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct timespec
 {
 	char *tmp = backskip_replace(newpath, '/', true, "/.tmp-"); 
 	mm_segment_t oldfs;
+	struct kstat stat = {};
+	struct timespec new_stamp = {};
 	int status = -ENOMEM;
 	
 	if (unlikely(!tmp))
 		goto done;
 
+	if (stamp)
+		memcpy(&new_stamp, stamp, sizeof(new_stamp));
+
 	oldfs = get_fs();
 	set_fs(get_ds());
+	/* Some filesystems have only full second resolution.
+	 * Thus it may happen that the new timestamp is not
+	 * truly moving forward when called twice shortly.
+	 * This is a _workaround_, to be replaced by a better
+	 * method somewhen.
+	 */
+	if (stamp) {
+		status = vfs_lstat((char*)newpath, &stat);
+		if (status >= 0 &&
+		    !stat.mtime.tv_nsec &&
+		    new_stamp.tv_sec <= stat.mtime.tv_sec) {
+			new_stamp.tv_sec = stat.mtime.tv_sec + 1;
+		}
+	}
+
 	(void)sys_unlink(tmp);
+
 	status = sys_symlink(oldpath, tmp);
 
 	if (stamp) {
 		struct timespec times[2];
 		sys_lchown(tmp, uid, 0);
-		memcpy(&times[0], stamp, sizeof(struct timespec));
-		memcpy(&times[1], stamp, sizeof(struct timespec));
+		memcpy(&times[0], &new_stamp, sizeof(struct timespec));
+		memcpy(&times[1], &new_stamp, sizeof(struct timespec));
 		status = do_utimes(AT_FDCWD, tmp, times, AT_SYMLINK_NOFOLLOW);
 	}
 
