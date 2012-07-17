@@ -985,6 +985,7 @@ int peer_thread(void *data)
 	struct mars_peerinfo *peer = data;
 	char *real_peer;
 	struct sockaddr_storage sockaddr = {};
+	int pause_time = 0;
 	bool flip = false;
 	int status;
 
@@ -1050,6 +1051,7 @@ int peer_thread(void *data)
 		}
 		if (cmd.cmd_code == CMD_NOTIFY) {
 			flip = false;
+			pause_time = 0;
 			msleep(1000);
 			continue;
 		}
@@ -1077,8 +1079,14 @@ int peer_thread(void *data)
 		}
 
 		msleep(1000);
-		if (!kthread_should_stop())
-			wait_event_interruptible_timeout(remote_event, atomic_read(&peer_thread_count) > 0, CONFIG_MARS_PROPAGATE_INTERVAL * HZ);
+		if (!kthread_should_stop()) {
+			if (pause_time < CONFIG_MARS_PROPAGATE_INTERVAL)
+				pause_time++;
+			wait_event_interruptible_timeout(remote_event,
+							 atomic_read(&remote_trigger_count) > 0 ||
+							 (mars_global && mars_global->main_trigger),
+							 pause_time * HZ);
+		}
 	}
 
 	MARS_INF("-------- peer thread terminating\n");
