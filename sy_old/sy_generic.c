@@ -636,7 +636,7 @@ restart:
 			status = _mars_readdir(&sub_cookie);
 			total_status |= status;
 			if (status < 0) {
-				MARS_ERR("forward: status %d on '%s'\n", status, dent->d_path);
+				MARS_INF("forward: status %d on '%s'\n", status, dent->d_path);
 			}
 		}
 	}
@@ -720,7 +720,7 @@ restart:
 		down_read(&global->dent_mutex);
 		total_status |= status;
 		if (status < 0) {
-			MARS_ERR("backwards: status %d on '%s'\n", status, dent->d_path);
+			MARS_INF("backwards: status %d on '%s'\n", status, dent->d_path);
 		}
 	}
 	up_read(&global->dent_mutex);
