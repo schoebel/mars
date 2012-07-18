@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 # (c) 2012 Joerg Mann / 1&1 Internet AG
 #
-# $Id: da08f9916a78493db1b6651199bf3ea940a2e5af $
+# $Id: 8174222857e611445de87bba92b52677b387c939 $
 # last update at Tue Apr 10 17:20:32 CEST 2012 by joerg.mann@1und1.de
 
 # TODO:
@@ -21,7 +21,7 @@ use POSIX qw(strftime);
 use File::Basename;
 
 ### defaults
-my $version       = "0.067w";
+my $version       = "0.068a";
 my $alife_timeout = "99";	# sec
 my $is_tty 	  = 0;
 my $mars_dir      = '/mars';
@@ -212,7 +212,7 @@ sub display_partner {
     if ( !$PLogFile[1] ) { $PLogFile[1] = 0; $PLogFile[2] = 0; }
     if (( !$PLogSize ) || ( $PLogSize eq 0 )) { $PLogSize = 0.0001; }
     if ( $params->{'long'} ) {
-        print_screen (sprintf "\tLogfile : %s with %s bytes (%.3fGB) received\n", $PLogName, $PLogSize, ( $PLogSize/1024/1024/1024 ));
+        print_screen (sprintf "\tLogfile : %s bytes (%.3fGB) in %s active\n", $PLogSize, ( $PLogSize/1024/1024/1024 ), $PLogName);
         if ( $Ljoined eq "0" || $PLogSize eq "0.0001" ) {
             print_screen "\t\t---> WORK: Logfile inactive or empty = (Size: $PLogSize)\n", 'red';
         }
@@ -225,10 +225,10 @@ sub display_partner {
     ### replay
     my $RStatus = sprintf("%.2f", ( $PLogFile[1] / $PLogSize * 100));
     if ( $Ljoined eq "0" || $PLogSize eq "1" ) { $RStatus = 0; }
+    if ((  $PLogFile[1] ne $PLogSize ) && ( $RStatus eq "100.00" )) { $RStatus = 99.99; }
     if ( $params->{'long'} ) {
-        print_screen sprintf ("\tReplayed: %s bytes (%.3fGB) replayed, Todo %d (%.3fGB) = ", 
-            $PLogFile[1], ( $PLogFile[1]/1024/1024/1024 ), 
-            $PLogFile[2], ( $PLogFile[2]/1024/1024/1024 ));
+        print_screen sprintf ("\tReplayed: %s bytes (%.3fGB) now replayed, Todo %d (%.3fGB) = ", 
+            $PLogFile[1], ( $PLogFile[1]/1024/1024/1024 ), $PLogFile[2], ( $PLogFile[2]/1024/1024/1024 ));
         if (( $RStatus < 1 ) && ( $PLogSize != 0.0001 )) {
             print_screen "$RStatus%\n";
             print_screen "\t\t---> HINT: Replay not started, Logfile inactive or empty = (Size: $PLogSize)\n", 'red';
@@ -386,7 +386,11 @@ sub check_logfile {
             my $DelLogfile = "log-$1";
             my @DeleteFiles = <$mars_dir/todo-global/delete-*>;
             foreach my $DeleteFiles (@DeleteFiles) {
-                $DeleteFiles = basename (readlink $DeleteFiles);
+                if ( !(readlink $DeleteFiles) ) {
+                    $DeleteFiles = "n/a";
+                } else {
+                    $DeleteFiles = basename (readlink $DeleteFiles);
+                }
                 if ( $DeleteFiles eq $DelLogfile ) {
                     print_screen "\t\t---> HINT: LogFile ist marked for delete ($DeleteFiles).\n",'green';
                 }
