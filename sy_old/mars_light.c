@@ -87,6 +87,7 @@ struct mars_rotate {
 	struct mars_dent *next_next_relevant_log;
 	struct mars_dent *prev_log;
 	struct mars_dent *next_log;
+	struct mars_dent *syncstatus_dent;
 	struct if_brick *if_brick;
 	const char *copy_path;
 	struct copy_brick *copy_brick;
@@ -164,6 +165,8 @@ EXPORT_SYMBOL_GPL(mars_mem_percent);
 #define EXHAUSTED_LIMIT(max) 0
 #define EXHAUSTED(x,max) (false)
 #endif
+
+#define JAMMED(x) ((x) <= 1024 * 1024)
 
 static
 int _set_trans_params(struct mars_brick *_brick, void *private)
@@ -2349,6 +2352,40 @@ done:
 }
 
 static
+void override_all_syncstatus(struct mars_global *global, struct mars_rotate *rot, char *parent_path)
+{
+	char *prefix = NULL;
+	struct mars_dent **table = NULL;
+	int count;
+	int i;
+
+
+	prefix = path_make("%s/syncstatus-", parent_path);
+	if (!prefix)
+		goto done;
+		
+	count = mars_find_dent_all(global, prefix, &table);
+	MARS_DBG("prefix='%s' count=%d\n", prefix, count);
+
+	for (i = 0; i < count; i++) {
+		struct mars_dent *dent = table[i];
+		int status;
+
+		if (!dent || !dent->d_path || dent == rot->syncstatus_dent)
+			continue;
+		
+		status = mars_symlink("0", dent->d_path, NULL, 0);
+		MARS_DBG("clearing syncstatus link '%s' status=%d\n", dent->d_path, status);
+	}
+
+done:
+	if (table)
+		brick_mem_free(table);
+	if (prefix)
+		brick_string_free(prefix);
+}
+
+static
 int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 {
 	struct mars_dent *parent = dent->d_parent;
@@ -2366,6 +2403,17 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		MARS_DBG("nothing to do\n");
 		goto done;
 	}
+
+	/* Handle jamming (a very exceptional state)
+	 */
+	if (global->jammed) {
+		if (rot->todo_primary || rot->is_primary)
+			trans_brick->cease_logging = true;
+	} else if (!rot->todo_primary && !rot->is_primary) {
+		trans_brick->cease_logging = false;
+	}
+	if (trans_brick->cease_logging)
+		override_all_syncstatus(global, rot, parent->d_path);
 
 	// check whether some copy has finished
 	copy_brick = (struct copy_brick*)mars_find_brick(global, &copy_brick_type, rot->copy_path);
@@ -2824,6 +2872,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	rot = dent->d_parent->d_private;
 	if (rot) {
 		rot->allow_update = true;
+		rot->syncstatus_dent = dent;
 	}
 
 	/* Sync necessary?
@@ -3039,6 +3088,7 @@ enum {
 	CL_PEERS,
 	CL_ALIVE,
 	CL_EXHAUSTED,
+	CL_JAMMED,
 	CL_REST_SPACE,
 	// resource definitions
 	CL_RESOURCE,
@@ -3163,6 +3213,12 @@ static const struct light_class light_classes[] = {
 	[CL_REST_SPACE] = {
 		.cl_name = "rest-space-",
 		.cl_len = 11,
+		.cl_type = 'l',
+		.cl_father = CL_ROOT,
+	},
+	[CL_JAMMED] = {
+		.cl_name = "jammed-",
+		.cl_len = 7,
 		.cl_type = 'l',
 		.cl_father = CL_ROOT,
 	},
@@ -3703,6 +3759,7 @@ static int light_thread(void *data)
 		int status;
 		loff_t rest_space;
 		bool exhausted;
+		bool jammed;
 
 		MARS_DBG("-------- NEW ROUND ---------\n");
 
@@ -3718,11 +3775,19 @@ static int light_thread(void *data)
 		_make_alivelink("alive", _global.global_power.button ? 1 : 0);
 
 		mars_remaining_space("/mars", &_global.total_space, &_global.remaining_space);
+
 		exhausted = EXHAUSTED(_global.remaining_space, _global.total_space);
 		_global.exhausted = exhausted;
 		_make_alivelink("exhausted", exhausted ? 1 : 0);
 		if (exhausted)
-			MARS_WRN("EXHAUSTED filesystem space = %lld, STOPPING IO\n", _global.remaining_space);
+			MARS_WRN("EXHAUSTED filesystem space = %lld\n", _global.remaining_space);
+
+		jammed = JAMMED(_global.remaining_space);
+		_global.jammed = jammed;
+		_make_alivelink("jammed", jammed ? 1 : 0);
+		if (jammed)
+			MARS_WRN("JAMMED filesystem space = %lld, STOPPING TRANSACTION LOGGING\n", _global.remaining_space);
+
 		rest_space = _global.remaining_space - EXHAUSTED_LIMIT(_global.total_space);
 		_make_alivelink("rest-space", rest_space);
 

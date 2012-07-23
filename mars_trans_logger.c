@@ -625,7 +625,7 @@ int trans_logger_ref_get(struct trans_logger_output *output, struct mref_object 
 		mref->ref_len = REGION_SIZE - base_offset;
 	}
 
-	if (mref->ref_may_write == READ) {
+	if (mref->ref_may_write == READ || unlikely(brick->cease_logging)) {
 		return _read_ref_get(output, mref_a);
 	}
 
@@ -824,7 +824,7 @@ void trans_logger_ref_io(struct trans_logger_output *output, struct mref_object 
 	}
 
 	// only READ is allowed on non-shadow buffers
-	if (unlikely(mref->ref_rw != READ)) {
+	if (unlikely(mref->ref_rw != READ && !brick->cease_logging)) {
 		MARS_FAT("bad operation %d on non-shadow\n", mref->ref_rw);
 	}
 

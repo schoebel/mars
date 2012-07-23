@@ -59,6 +59,7 @@ struct mars_global {
 	int deleted_min;
 	bool main_trigger;
 	bool exhausted;
+	bool jammed;
 };
 
 typedef int (*mars_dent_checker_fn)(struct mars_dent *parent, const char *name, int namlen, unsigned int d_type, int *prefix, int *serial);
