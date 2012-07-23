@@ -1244,7 +1244,7 @@ void fire_writeback(struct list_head *start, bool do_update)
 ////////////////////////////// worker thread //////////////////////////////
 
 /********************************************************************* 
- * Phase 1: write transaction log entry for the original write request.
+ * Phase 0: write transaction log entry for the original write request.
  */
 
 static noinline
@@ -1488,8 +1488,8 @@ err:
 }
 
 /********************************************************************* 
- * Phase 2: read original version of data.
- * This happens _after_ phase 1, deliberately.
+ * Phase 1: read original version of data.
+ * This happens _after_ phase 0, deliberately.
  * We are explicitly dealing with old and new versions.
  * The new version is hashed in memory all the time (such that parallel
  * READs will see them), so we have plenty of time for getting the
@@ -1603,7 +1603,7 @@ bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 
 
 /********************************************************************* 
- * Phase 3: log the old disk version.
+ * Phase 2: log the old disk version.
  */
 
 static inline
@@ -1738,7 +1738,7 @@ err:
 }
 
 /********************************************************************* 
- * Phase 4: overwrite old disk version with new version.
+ * Phase 3: overwrite old disk version with new version.
  */
 
 static noinline
