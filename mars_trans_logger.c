@@ -1953,16 +1953,17 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 
 		MARS_IO("i = %d queued = %d\n", i, queued);
 		ranking_compute(&rkd[i], ranks[i], rank_counts[i], queued);
-	}
-	// ... and the contention rule for queue 0 ...
-	if (brick->q_phase[0].q_max_flying > 0) {
-		struct rank_info contention[] = {
-			{ 0,                                    0 },
-			{ brick->q_phase[0].q_max_flying,     300 },
-		};
-		int flying = atomic_read(&brick->q_phase[0].q_flying);
-		MARS_IO("flying = %d\n", flying);
-		ranking_compute(&rkd[0], contention,  2, flying);
+
+		// ... and the contention rule for queue 0 ...
+		if (i == 0 && brick->q_phase[0].q_max_flying > 0) {
+			struct rank_info contention[] = {
+				{ 0,                                    0 },
+				{ brick->q_phase[0].q_max_flying,     300 },
+			};
+			
+			MARS_IO("flying = %d\n", flying);
+			ranking_compute(&rkd[0], contention,  2, flying);
+		}
 	}
 
 	// ... and now the exceptions from the rules ...
