@@ -260,34 +260,6 @@ EXPORT_SYMBOL_GPL(mars_remaining_space);
 
 //////////////////////////////////////////////////////////////
 
-// crypto stuff
-
-#include <linux/crypto.h>
-
-struct crypto_hash *mars_tfm = NULL;
-int mars_digest_size = 0;
-EXPORT_SYMBOL_GPL(mars_digest_size);
-
-void mars_digest(unsigned char *digest, void *data, int len)
-{
-	struct hash_desc desc = {
-		.tfm = mars_tfm,
-		.flags = 0,
-	};
-	struct scatterlist sg;
-
-	memset(digest, 0, mars_digest_size);
-
-	crypto_hash_init(&desc);
-	sg_init_table(&sg, 1);
-	sg_set_buf(&sg, data, len);
-	crypto_hash_update(&desc, &sg, sg.length);
-	crypto_hash_final(&desc, digest);
-}
-EXPORT_SYMBOL_GPL(mars_digest);
-
-//////////////////////////////////////////////////////////////
-
 // infrastructure
 
 struct mars_global *mars_global = NULL;
@@ -1484,33 +1456,12 @@ int __init init_sy(void)
 
 	_mars_trigger = __mars_trigger;
 
-	mars_tfm = crypto_alloc_hash("md5", 0, CRYPTO_ALG_ASYNC);
-	if (!mars_tfm) {
-		MARS_ERR("cannot alloc crypto hash\n");
-		return -ENOMEM;
-	}
-	if (IS_ERR(mars_tfm)) {
-		MARS_ERR("alloc crypto hash failed, status = %d\n", (int)PTR_ERR(mars_tfm));
-		return PTR_ERR(mars_tfm);
-	}
-#if 0
-	if (crypto_tfm_alg_type(crypto_hash_tfm(mars_tfm)) != CRYPTO_ALG_TYPE_DIGEST) {
-		MARS_ERR("bad crypto hash type\n");
-		return -EINVAL;
-	}
-#endif
-	mars_digest_size = crypto_hash_digestsize(mars_tfm);
-	MARS_INF("digest_size = %d\n", mars_digest_size);
-
 	return 0;
 }
 
 void __exit exit_sy(void)
 {
 	MARS_INF("exit_sy()\n");
-	if (mars_tfm) {
-		crypto_free_hash(mars_tfm);
-	}
 }
 
 #ifndef CONFIG_MARS_HAVE_BIGMODULE

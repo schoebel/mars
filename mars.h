@@ -339,6 +339,14 @@ static inline void unuse_fake_mm(void) {}
 
 /////////////////////////////////////////////////////////////////////////
 
+/* Crypto stuff
+ */
+
+extern int mars_digest_size;
+extern void mars_digest(unsigned char *digest, void *data, int len);
+
+/////////////////////////////////////////////////////////////////////////
+
 // init
 
 extern int init_mars(void);
