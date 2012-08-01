@@ -208,6 +208,7 @@ void _complete(struct aio_output *output, struct mref_object *mref, int err)
 	if (err < 0) {
 		MARS_ERR("IO error %d at pos=%lld len=%d (mref=%p ref_data=%p)\n", err, mref->ref_pos, mref->ref_len, mref, mref->ref_data);
 	} else {
+		mref_checksum(mref);
 		mref->ref_flags |= MREF_UPTODATE;
 	}
 

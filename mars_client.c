@@ -262,7 +262,7 @@ int receiver_thread(void *data)
 		if (status < 0)
 			goto done;
 
-		switch (cmd.cmd_code) {
+		switch (cmd.cmd_code & CMD_FLAG_MASK) {
 		case CMD_NOTIFY:
 			mars_trigger();
 			break;
@@ -303,7 +303,7 @@ int receiver_thread(void *data)
 
 			MARS_IO("got callback id = %d, old pos = %lld len = %d rw = %d\n", mref->ref_id, mref->ref_pos, mref->ref_len, mref->ref_rw);
 
-			status = mars_recv_cb(&output->socket, mref);
+			status = mars_recv_cb(&output->socket, mref, &cmd);
 			MARS_IO("new status = %d, pos = %lld len = %d rw = %d\n", status, mref->ref_pos, mref->ref_len, mref->ref_rw);
 			if (status < 0) {
 				MARS_WRN("interrupted data transfer during callback, status = %d\n", status);

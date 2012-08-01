@@ -346,6 +346,7 @@ static inline void unuse_fake_mm(void) {}
 
 extern int mars_digest_size;
 extern void mars_digest(unsigned char *digest, void *data, int len);
+extern void mref_checksum(struct mref_object *mref);
 
 /////////////////////////////////////////////////////////////////////////
 

@@ -123,6 +123,23 @@ void mars_digest(unsigned char *digest, void *data, int len)
 }
 EXPORT_SYMBOL_GPL(mars_digest);
 
+void mref_checksum(struct mref_object *mref)
+{
+	unsigned char checksum[mars_digest_size];
+	int len;
+
+	if (mref->ref_cs_mode <= 0 || !mref->ref_data)
+		return;
+
+	mars_digest(checksum, mref->ref_data, mref->ref_len);
+
+	len = sizeof(mref->ref_checksum);
+	if (len > mars_digest_size)
+		len = mars_digest_size;
+	memcpy(&mref->ref_checksum, checksum, len);
+}
+EXPORT_SYMBOL_GPL(mref_checksum);
+
 /////////////////////////////////////////////////////////////////////
 
 // tracing

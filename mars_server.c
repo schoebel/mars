@@ -139,7 +139,7 @@ err:
 	MARS_FAT("cannot handle callback - giving up\n");
 }
 
-int server_io(struct server_brick *brick, struct mars_socket *sock)
+int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_cmd *cmd)
 {
 	struct mref_object *mref;
 	struct server_mref_aspect *mref_a;
@@ -159,7 +159,7 @@ int server_io(struct server_brick *brick, struct mars_socket *sock)
 		goto done;
 	}
 
-	status = mars_recv_mref(sock, mref);
+	status = mars_recv_mref(sock, mref, cmd);
 	if (status < 0) {
 		mars_free_mref(mref);
 		goto done;
@@ -299,7 +299,7 @@ int handler_thread(void *data)
 		MARS_IO("cmd = %d\n", cmd.cmd_code);
 
 		status = -EPROTO;
-		switch (cmd.cmd_code) {
+		switch (cmd.cmd_code & CMD_FLAG_MASK) {
 		case CMD_NOP:
 			MARS_DBG("got NOP operation\n");
 			status = 0;
@@ -393,7 +393,7 @@ int handler_thread(void *data)
 				break;
 			}
 #endif
-			status = server_io(brick, sock);
+			status = server_io(brick, sock, &cmd);
 			break;
 		}
 		case CMD_CB:

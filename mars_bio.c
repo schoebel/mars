@@ -441,6 +441,7 @@ static int bio_thread(void *data)
 			if (code < 0) {
 				MARS_ERR("IO error %d\n", code);
 			} else {
+				mref_checksum(mref);
 				mref->ref_flags |= MREF_UPTODATE;
 			}
 

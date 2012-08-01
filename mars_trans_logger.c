@@ -1264,6 +1264,7 @@ void _complete(struct trans_logger_brick *brick, struct trans_logger_mref_aspect
 
 	orig_mref_a->is_completed = true;
 	if (likely(error >= 0)) {
+		mref_checksum(orig_mref);
 		orig_mref->ref_flags &= ~MREF_WRITING;
 		orig_mref->ref_flags |= MREF_UPTODATE;
 	}

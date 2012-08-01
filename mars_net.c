@@ -762,16 +762,19 @@ int mars_send_mref(struct mars_socket *msock, struct mref_object *mref)
 	int seq = 0;
 	int status;
 
+	if (mref->ref_rw != 0 && mref->ref_data && mref->ref_cs_mode < 2)
+		cmd.cmd_code |= CMD_FLAG_HAS_DATA;
+
 	status = _mars_send_struct(msock, &cmd, mars_cmd_meta, &seq, true);
 	if (status < 0)
 		goto done;
 
 	seq = 0;
-	status = _mars_send_struct(msock, mref, mars_mref_meta, &seq, mref->ref_rw != 0);
+	status = _mars_send_struct(msock, mref, mars_mref_meta, &seq, cmd.cmd_code & CMD_FLAG_HAS_DATA);
 	if (status < 0)
 		goto done;
 
-	if (mref->ref_rw != 0) {
+	if (cmd.cmd_code & CMD_FLAG_HAS_DATA) {
 		status = mars_send_raw(msock, mref->ref_data, mref->ref_len, false);
 	}
 done:
@@ -779,7 +782,7 @@ done:
 }
 EXPORT_SYMBOL_GPL(mars_send_mref);
 
-int mars_recv_mref(struct mars_socket *msock, struct mref_object *mref)
+int mars_recv_mref(struct mars_socket *msock, struct mref_object *mref, struct mars_cmd *cmd)
 {
 	int seq = 0;
 	int status;
@@ -787,7 +790,8 @@ int mars_recv_mref(struct mars_socket *msock, struct mref_object *mref)
 	status = _mars_recv_struct(msock, mref, mars_mref_meta, &seq, __LINE__);
 	if (status < 0)
 		goto done;
-	if (mref->ref_rw) {
+
+	if (cmd->cmd_code & CMD_FLAG_HAS_DATA) {
 		if (!mref->ref_data)
 			mref->ref_data = brick_zmem_alloc(mref->ref_len);
 		if (!mref->ref_data) {
@@ -812,16 +816,19 @@ int mars_send_cb(struct mars_socket *msock, struct mref_object *mref)
 	int seq = 0;
 	int status;
 
+	if (mref->ref_rw == 0 && mref->ref_data && mref->ref_cs_mode < 2)
+		cmd.cmd_code |= CMD_FLAG_HAS_DATA;
+
 	status = _mars_send_struct(msock, &cmd, mars_cmd_meta, &seq, true);
 	if (status < 0)
 		goto done;
 
 	seq = 0;
-	status = _mars_send_struct(msock, mref, mars_mref_meta, &seq, !mref->ref_rw);
+	status = _mars_send_struct(msock, mref, mars_mref_meta, &seq, cmd.cmd_code & CMD_FLAG_HAS_DATA);
 	if (status < 0)
 		goto done;
 
-	if (!mref->ref_rw) {
+	if (cmd.cmd_code & CMD_FLAG_HAS_DATA) {
 		MARS_IO("#%d sending blocklen = %d\n", msock->s_debug_nr, mref->ref_len);
 		status = mars_send_raw(msock, mref->ref_data, mref->ref_len, false);
 	}
@@ -830,7 +837,7 @@ done:
 }
 EXPORT_SYMBOL_GPL(mars_send_cb);
 
-int mars_recv_cb(struct mars_socket *msock, struct mref_object *mref)
+int mars_recv_cb(struct mars_socket *msock, struct mref_object *mref, struct mars_cmd *cmd)
 {
 	int seq = 0;
 	int status;
@@ -838,7 +845,8 @@ int mars_recv_cb(struct mars_socket *msock, struct mref_object *mref)
 	status = _mars_recv_struct(msock, mref, mars_mref_meta, &seq, __LINE__);
 	if (status < 0)
 		goto done;
-	if (!mref->ref_rw) {
+
+	if (cmd->cmd_code & CMD_FLAG_HAS_DATA) {
 		if (!mref->ref_data) {
 			MARS_WRN("#%d no internal buffer available\n", msock->s_debug_nr);
 			status = -EINVAL;
