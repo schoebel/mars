@@ -107,8 +107,10 @@ extern void mars_log_trace(struct mref_object *mref);
 	int    ref_may_write;						\
 	int    ref_prio;						\
 	int    ref_timeout;						\
+	int    ref_cs_mode; /* 0 = off, 1 = checksum + data, 2 = checksum only */	\
 	/* maintained by the ref implementation, readable for callers */ \
 	loff_t ref_total_size; /* just for info, need not be implemented */ \
+	unsigned char ref_checksum[16];					\
 	int    ref_flags;						\
 	int    ref_rw;							\
 	int    ref_id; /* not mandatory; may be used for identification */ \
