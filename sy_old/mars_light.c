@@ -276,6 +276,7 @@ struct copy_cookie {
 	const char *argv[2];
 	const char *copy_path;
 	loff_t start_pos;
+	bool verify_mode;
 
  	const char *fullpath[2];
 	struct mars_output *output[2];
@@ -296,6 +297,8 @@ int _set_copy_params(struct mars_brick *_brick, void *private)
 	}
 	copy_brick->append_mode = COPY_APPEND_MODE;
 	copy_brick->io_prio = COPY_PRIO;
+	copy_brick->verify_mode = cc->verify_mode;
+	copy_brick->repair_mode = true;
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 
 	/* Determine the copy area, switch on/off when necessary
@@ -604,6 +607,7 @@ int __make_copy(
 		const char *parent,
 		const char *argv[],
 		loff_t start_pos, // -1 means at EOF
+		bool verify_mode,
 		struct copy_brick **__copy)
 {
 	struct mars_brick *copy;
@@ -660,6 +664,7 @@ int __make_copy(
 
 	cc.copy_path = copy_path;
 	cc.start_pos = start_pos;
+	cc.verify_mode = verify_mode;
 
 	copy =
 		make_brick_all(global,
@@ -764,7 +769,7 @@ int _update_file(struct mars_rotate *rot, const char *switch_path, const char *c
 		goto done;
 
 	MARS_DBG("src = '%s' dst = '%s'\n", tmp, file);
-	status = __make_copy(global, NULL, switch_path, copy_path, NULL, argv, -1, &copy);
+	status = __make_copy(global, NULL, switch_path, copy_path, NULL, argv, -1, false, &copy);
 	if (status >= 0 && copy && (!copy->append_mode || copy->power.led_off)) {
 		if (end_pos > copy->copy_end) {
 			MARS_DBG("appending to '%s' %lld => %lld\n", copy_path, copy->copy_end, end_pos);
@@ -2721,7 +2726,7 @@ static int _make_copy(void *buf, struct mars_dent *dent)
 	// check whether connection is allowed
 	switch_path = path_make("%s/todo-%s/connect", dent->d_parent->d_path, my_id());
 
-	status = __make_copy(global, dent, switch_path, copy_path, dent->d_parent->d_path, (const char**)dent->d_argv, -1, NULL);
+	status = __make_copy(global, dent, switch_path, copy_path, dent->d_parent->d_path, (const char**)dent->d_argv, -1, false, NULL);
 
 done:
 	MARS_DBG("status = %d\n", status);
@@ -2831,7 +2836,12 @@ static int make_sync(void *buf, struct mars_dent *dent)
 
 	{
 		const char *argv[2] = { src, dst };
-		status = __make_copy(global, dent, do_start ? switch_path : "", copy_path, dent->d_parent->d_path, argv, start_pos, &copy);
+#ifdef CONFIG_MARS_FAST_FULLSYNC
+# define VERIFY_MODE true
+#else
+# define VERIFY_MODE false
+#endif
+		status = __make_copy(global, dent, do_start ? switch_path : "", copy_path, dent->d_parent->d_path, argv, start_pos, VERIFY_MODE, &copy);
 		rot->sync_brick = copy;
 		rot->allow_replay = (!copy || copy->power.led_off);
 	}
