@@ -2422,7 +2422,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	}
 
 done:
-	rot->allow_sync = (rot->trans_brick && rot->trans_brick->power.led_off);
+	rot->allow_sync = (!rot->trans_brick || rot->trans_brick->power.led_off);
 err:
 	return status;
 }
@@ -2809,7 +2809,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 
 	/* Disallow contemporary sync & logfile_apply
 	 */
-	if (do_start && !rot->allow_sync && (!rot->sync_brick || rot->sync_brick->power.led_off)) {
+	if (do_start && !rot->allow_sync) {
 		MARS_WRN("cannot start sync because logfile application is running!\n");
 		do_start = false;
 	}
