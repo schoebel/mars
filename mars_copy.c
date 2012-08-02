@@ -187,7 +187,7 @@ err:
 }
 
 static
-int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_t pos, loff_t end_pos, int rw)
+int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_t pos, loff_t end_pos, int rw, int cs_mode)
 {
 	struct mref_object *mref;
 	struct copy_mref_aspect *mref_a;
@@ -216,6 +216,7 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 	mref->ref_rw = rw;
 	mref->ref_data = data;
 	mref->ref_pos = pos;
+	mref->ref_cs_mode = cs_mode;
 	offset = GET_OFFSET(pos);
 	len = COPY_CHUNK - offset;
 	if (pos + len > end_pos) {
@@ -266,6 +267,12 @@ void _update_percent(struct copy_brick *brick)
 	}
 }
 
+/* The heart of this brick.
+ * State transition function of the finite automaton.
+ * In case no progress is possible (e.g. preconditions not
+ * yet true), the state is left as is (idempotence property:
+ * calling this too often does no harm, just costs performance).
+ */
 static
 int _next_state(struct copy_brick *brick, int index, loff_t pos)
 {
@@ -274,6 +281,7 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 	struct copy_state *st;
 	char state;
 	char next_state;
+	int cs_mode;
 	int status;
 
 	st = &brick->st[index];
@@ -301,32 +309,38 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 		_clear_mref(brick, index, 1);
 		_clear_mref(brick, index, 0);
 
-		status = _make_mref(brick, index, 0, NULL, pos, brick->copy_end, READ);
+		cs_mode = 0;
+		if (brick->verify_mode)
+			cs_mode = 2;
+
+		status = _make_mref(brick, index, 0, NULL, pos, brick->copy_end, READ, cs_mode);
 		if (unlikely(status < 0)) {
 			MARS_WRN("status = %d\n", status);
 			goto done;
 		}
 
 		next_state = COPY_STATE_READ1;
-		if (brick->verify_mode) {
-			next_state = COPY_STATE_READ2;
-			mref0 = st->table[0];
-			status = _make_mref(brick, index, 1, NULL, pos, pos + mref0->ref_len, READ);
-			if (unlikely(status < 0)) {
-				MARS_WRN("status = %d\n", status);
-				goto done;
-			}
+		if (!brick->verify_mode) {
+			break;
+		}
+
+		next_state = COPY_STATE_READ2;
+		status = _make_mref(brick, index, 1, NULL, pos, brick->copy_end, READ, cs_mode);
+		if (unlikely(status < 0)) {
+			MARS_WRN("status = %d\n", status);
+			goto done;
 		}
 		break;
 	case COPY_STATE_READ2:
 		mref1 = st->table[1];
-		if (!mref1) {
+		if (!mref1) { // idempotence: wait by unchanged state
 			goto done;
 		}
 		/* fallthrough */
 	case COPY_STATE_READ1:
+	case COPY_STATE_READ3:
 		mref0 = st->table[0];
-		if (!mref0) {
+		if (!mref0) { // idempotence: wait by unchanged state
 			goto done;
 		}
 		// on append mode: increase the end pointer dynamically
@@ -334,18 +348,48 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 			brick->copy_end = mref0->ref_total_size;
 		}
 		// do verify (when applicable)
-		if (mref1) { 
+		if (mref1 && state != COPY_STATE_READ3) { 
 			int len = mref0->ref_len;
-			bool ok =
-				(len == mref1->ref_len &&
-				 !memcmp(mref0->ref_data, mref1->ref_data, len));
-			_clear_mref(brick, index, 1);
-			if (ok) {
-				/* skip start of writing, goto final treatment of writeout */
-				next_state = COPY_STATE_WRITTEN;
-				st->state = next_state;
-				goto COPY_STATE_WRITTEN;
+			bool ok;
+
+			if (len != mref1->ref_len) {
+				ok = false;
+			} else if (mref0->ref_cs_mode) {
+				static unsigned char null[sizeof(mref0->ref_checksum)];
+				ok = !memcmp(mref0->ref_checksum, mref1->ref_checksum, sizeof(mref0->ref_checksum));
+				if (ok)
+					ok = memcmp(mref0->ref_checksum, null, sizeof(mref0->ref_checksum)) != 0;
+			} else if (!mref0->ref_data || !mref1->ref_data) {
+				ok = false;
+			} else {
+				ok = !memcmp(mref0->ref_data, mref1->ref_data, len);
 			}
+
+			_clear_mref(brick, index, 1);
+
+			if (ok)
+				brick->verify_ok_count++;
+			else
+				brick->verify_error_count++;
+
+			if (ok || !brick->repair_mode) {
+				/* skip start of writing, goto final treatment of writeout */
+				next_state = COPY_STATE_CLEANUP;
+				break;
+			}
+		}
+
+		if (!mref0->ref_data) { // re-read, this time with data
+			_clear_mref(brick, index, 0);
+			next_state = COPY_STATE_START;
+			st->state = next_state;
+			status = _make_mref(brick, index, 0, NULL, pos, brick->copy_end, READ, 0);
+			if (unlikely(status < 0)) {
+				MARS_WRN("status = %d\n", status);
+				goto done;
+			}
+			next_state = COPY_STATE_READ3;
+			break;
 		}
 		next_state = COPY_STATE_WRITE;
 		st->state = next_state;
@@ -365,7 +409,7 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 			goto done;
 		}
 		mref0 = st->table[0];
-		if (unlikely(!mref0)) {
+		if (unlikely(!mref0 || !mref0->ref_data)) {
 			MARS_ERR("src buffer for write does not exist, state %d at index %d\n", state, index);
 			status = -EILSEQ;
 			goto done;
@@ -373,13 +417,12 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 		if (brick->is_aborting || kthread_should_stop())
 			goto done;
 		/* start writeout */
-		status = _make_mref(brick, index, 1, mref0->ref_data, pos, pos + mref0->ref_len, WRITE);
+		status = _make_mref(brick, index, 1, mref0->ref_data, pos, pos + mref0->ref_len, WRITE, 0);
 		next_state = COPY_STATE_WRITTEN;
 		break;
 	case COPY_STATE_WRITTEN:
-	COPY_STATE_WRITTEN:
 		mref1 = st->table[1];
-		if (!mref1) {
+		if (!mref1) { // idempotence: wait by unchanged state
 			MARS_IO("irrelevant\n");
 			goto done;
 		}
@@ -391,6 +434,9 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 		next_state = COPY_STATE_FINISHED;
 		break;
 	case COPY_STATE_FINISHED:
+		/* Indicate successful completion by remaining in this state.
+		 * Restart of the finite automaton must be done externally.
+		 */
 		goto done;
 	default:
 		MARS_ERR("illegal state %d at index %d\n", state, index);
@@ -499,6 +545,8 @@ static int _copy_thread(void *data)
 
 	MARS_DBG("--------------- copy_thread %p starting\n", brick);
 	brick->copy_error = 0;
+	brick->verify_ok_count = 0;
+	brick->verify_error_count = 0;
 	mars_power_led_on((void*)brick, true);
 	brick->trigger = true;
 
@@ -625,6 +673,8 @@ char *copy_statistics(struct copy_brick *brick, int verbose)
 		 "copy_last = %lld "
 		 "copy_end = %lld "
 		 "copy_error = %d "
+		 "verify_ok_count = %d "
+		 "verify_error_count = %d "
 		 "low_dirty = %d "
 		 "is_aborting = %d "
 		 "clash = %lu | "
@@ -634,6 +684,8 @@ char *copy_statistics(struct copy_brick *brick, int verbose)
 		 brick->copy_last,
 		 brick->copy_end,
 		 brick->copy_error,
+		 brick->verify_ok_count,
+		 brick->verify_error_count,
 		 brick->low_dirty,
 		 brick->is_aborting,
 		 brick->clash,

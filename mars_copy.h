@@ -16,12 +16,13 @@
 
 enum {
 	COPY_STATE_START    = 0,
-	COPY_STATE_READ1    = 1,
-	COPY_STATE_READ2    = 2,
-	COPY_STATE_WRITE    = 3,
-	COPY_STATE_WRITTEN  = 4,
-	COPY_STATE_CLEANUP  = 5,
-	COPY_STATE_FINISHED = 6,
+	COPY_STATE_READ1,
+	COPY_STATE_READ2,
+	COPY_STATE_READ3,
+	COPY_STATE_WRITE,
+	COPY_STATE_WRITTEN,
+	COPY_STATE_CLEANUP,
+	COPY_STATE_FINISHED,
 };
 
 struct copy_state {
@@ -47,11 +48,14 @@ struct copy_brick {
 	int io_prio;
 	int append_mode; // 1 = passively, 2 = actively
 	bool verify_mode;
+	bool repair_mode; // whether to repair in case of verify errors
 	bool utilize_mode; // utilize already copied data
 	bool abort_mode; // abort on IO error (default is retry forever)
 	// readonly from outside
 	loff_t copy_last; // current working position
 	int copy_error;
+	int verify_ok_count;
+	int verify_error_count;
 	bool low_dirty;
 	bool is_aborting;
 	// internal
