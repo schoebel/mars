@@ -2859,6 +2859,14 @@ static int make_sync(void *buf, struct mars_dent *dent)
 		if (unlikely(!src || !dst))
 			goto done;
 		status = mars_symlink(src, dst, NULL, 0);
+		brick_string_free(src);
+		brick_string_free(dst);
+		src = path_make("%lld,%lld", copy->verify_ok_count, copy->verify_error_count);
+		dst = path_make("%s/verifystatus-%s", dent->d_parent->d_path, my_id());
+		status = -ENOMEM;
+		if (unlikely(!src || !dst))
+			goto done;
+		status = mars_symlink(src, dst, NULL, 0);
 	}
 
 done:
@@ -2982,6 +2990,7 @@ enum {
 	CL_PRIMARY,
 	CL__FILE,
 	CL_SYNC,
+	CL_VERIF,
 	CL__COPY,
 	CL__DIRECT,
 	CL_VERSION,
@@ -3257,6 +3266,16 @@ static const struct light_class light_classes[] = {
 		.cl_forward = make_sync,
 #endif
 		.cl_backward = kill_any,
+	},
+	/* informational symlink for verify status
+	 * of initial data sync.
+	 */
+	[CL_VERIF] = {
+		.cl_name = "verifystatus-",
+		.cl_len = 13,
+		.cl_type = 'l',
+		.cl_hostcontext = true,
+		.cl_father = CL_RESOURCE,
 	},
 	/* Only for testing: make a copy instance
 	 */
