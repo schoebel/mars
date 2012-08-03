@@ -68,6 +68,21 @@ config MARS_PROPAGATE_INTERVAL
 	---help---
 	May influence the system load; dont use too low nubmers.
 
+config MARS_SYNC_FLIP_INTERVAL
+	int "interrpt sync by logfile update after (seconds)"
+	depends on MARS
+	default 60
+	---help---
+	0 = OFF. Normally ON.
+	When disabled, application of logfiles may wait for
+	a very time, until full sync has finished. As a
+	consequence, your /mars/ filesystem may run out
+	of space. When enabled, the applied logfiles can
+	be deleted, freeing space on /mars/. Therefore,
+	will usually want this. However, you may increase
+	the time interval to increase throughput in favour
+	of latency.
+
 config MARS_FAST_TRIGGER
 	bool "fast internal triggering"
 	depends on MARS

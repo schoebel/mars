@@ -494,6 +494,7 @@ struct mars_rotate {
 	const char *copy_path;
 	struct copy_brick *copy_brick;
 	long long switchover_timeout;
+	long long flip_start;
 	loff_t total_space;
 	loff_t remaining_space;
 	loff_t start_pos;
@@ -2818,6 +2819,21 @@ static int make_sync(void *buf, struct mars_dent *dent)
 		MARS_WRN("cannot start sync because logfile application is running!\n");
 		do_start = false;
 	}
+
+#if defined(CONFIG_MARS_SYNC_FLIP_INTERVAL) && CONFIG_MARS_SYNC_FLIP_INTERVAL > 0
+	/* Flip between replay and sync
+	 */
+	if (do_start && rot->replay_mode && rot->end_pos > rot->start_pos) {
+		if (!rot->flip_start) {
+			rot->flip_start = jiffies;
+		} else if ((long long)jiffies - rot->flip_start > CONFIG_MARS_SYNC_FLIP_INTERVAL * HZ) {
+			do_start = false;
+			rot->flip_start = jiffies + CONFIG_MARS_SYNC_FLIP_INTERVAL * HZ;
+		}
+	} else {
+		rot->flip_start = 0;
+	}
+#endif
 
 	/* Start copy
 	 */
