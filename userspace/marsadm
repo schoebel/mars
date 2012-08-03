@@ -470,7 +470,7 @@ sub create_res {
   my $todo = "$tmp/todo-$host";
   mkdir($todo);
   symlink("1", "$todo/attach");
-  symlink("0", "$todo/connect");
+  symlink("1", "$todo/connect");
   symlink("1", "$todo/sync");
   symlink("1", "$todo/allow-replay");
   system("rm -f $tmp/syncstatus-$host");
