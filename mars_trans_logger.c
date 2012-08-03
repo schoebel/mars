@@ -2360,7 +2360,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 
 		finished_pos = input->logst.log_pos + input->logst.offset;
 		if (kthread_should_stop() ||
-		   (!brick->do_continuous_replay && finished_pos >= brick->replay_end_pos)) {
+		   (!brick->continuous_replay_mode && finished_pos >= brick->replay_end_pos)) {
 			status = 0; // treat as EOF
 			break;
 		}
@@ -2388,7 +2388,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		if ((!status && len <= 0) ||
 		   new_finished_pos > brick->replay_end_pos) { // EOF -> wait until kthread_should_stop()
 			MARS_DBG("EOF at %lld (old = %lld, end_pos = %lld)\n", new_finished_pos, finished_pos, brick->replay_end_pos);
-			if (!brick->do_continuous_replay) {
+			if (!brick->continuous_replay_mode) {
 				// notice: finished_pos remains at old value here!
 				brick->replay_end_pos = finished_pos;
 				break;
@@ -2460,7 +2460,7 @@ int trans_logger_thread(void *data)
 
 	MARS_INF("........... logger has started.\n");
 
-	if (brick->do_replay) {
+	if (brick->replay_mode) {
 		trans_logger_replay(brick);
 	} else {
 		trans_logger_log(brick);
@@ -2562,8 +2562,8 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 "phase1=%d+%d "
 		 "phase2=%d+%d "
 		 "phase3=%d+%d\n",
-		 brick->do_replay,
-		 brick->do_continuous_replay,
+		 brick->replay_mode,
+		 brick->continuous_replay_mode,
 		 brick->replay_code,
 		 brick->log_reads,
 		 brick->replay_start_pos,

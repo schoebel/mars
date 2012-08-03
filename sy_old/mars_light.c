@@ -502,7 +502,7 @@ struct mars_rotate {
 	bool allow_update;
 	bool allow_sync;
 	bool allow_replay;
-	bool do_replay;
+	bool replay_mode;
 	bool todo_primary;
 	bool is_primary;
 	bool old_is_primary;
@@ -1769,7 +1769,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	/* For safety, default is to try an (unnecessary) replay in case
 	 * something goes wrong later.
 	 */
-	rot->do_replay = true;
+	rot->replay_mode = true;
 
 	status = 0;
 
@@ -2013,13 +2013,13 @@ int _make_logging_status(struct mars_rotate *rot)
 		goto done;
 	case 2: // relevant for transaction replay
 		MARS_DBG("replaying transaction log '%s' from %lld to %lld\n", dent->d_path, start_pos, end_pos);
-		rot->do_replay = true;
+		rot->replay_mode = true;
 		rot->start_pos = start_pos;
 		rot->end_pos = end_pos;
 		break;
 	case 3: // relevant for appending
 		MARS_DBG("appending to transaction log '%s'\n", dent->d_path);
-		rot->do_replay = false;
+		rot->replay_mode = false;
 		rot->start_pos = 0;
 		rot->end_pos = 0;
 		break;
@@ -2180,9 +2180,9 @@ void _change_trans(struct mars_rotate *rot)
 {
 	struct trans_logger_brick *trans_brick = rot->trans_brick;
 	
-	MARS_DBG("do_replay = %d start_pos = %lld end_pos = %lld\n", trans_brick->do_replay, rot->start_pos, rot->end_pos);
+	MARS_DBG("replay_mode = %d start_pos = %lld end_pos = %lld\n", trans_brick->replay_mode, rot->start_pos, rot->end_pos);
 
-	if (trans_brick->do_replay) {
+	if (trans_brick->replay_mode) {
 		trans_brick->replay_start_pos = rot->start_pos;
 		trans_brick->replay_end_pos = rot->end_pos;
 	} else {
@@ -2271,7 +2271,7 @@ int _start_trans(struct mars_rotate *rot)
 
 	/* Supply all relevant parameters
 	 */
-	trans_brick->do_replay = rot->do_replay;
+	trans_brick->replay_mode = rot->replay_mode;
 	_init_trans_input(trans_input, rot->relevant_log);
 	_change_trans(rot);
 
@@ -2373,7 +2373,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	 */
 	if (trans_brick->power.button && trans_brick->power.led_on && !trans_brick->power.led_off) {
 		bool do_stop = true;
-		if (trans_brick->do_replay) {
+		if (trans_brick->replay_mode) {
 			do_stop = trans_brick->replay_code != 0 || !_check_allow(global, parent, "allow-replay");
 		} else {
 			do_stop = !rot->is_primary;
@@ -2409,12 +2409,12 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 			goto done;
 		}
 
-		do_start = (!rot->do_replay ||
+		do_start = (!rot->replay_mode ||
 			    (rot->start_pos != rot->end_pos &&
 			     rot->allow_replay &&
 			     _check_allow(global, parent, "allow-replay")));
 
-		MARS_DBG("rot->do_replay = %d rot->start_pos = %lld rot->end_pos = %lld rot->allow_replay = %d | do_start = %d\n", rot->do_replay, rot->start_pos, rot->end_pos, rot->allow_replay, do_start);
+		MARS_DBG("rot->replay_mode = %d rot->start_pos = %lld rot->end_pos = %lld rot->allow_replay = %d | do_start = %d\n", rot->replay_mode, rot->start_pos, rot->end_pos, rot->allow_replay, do_start);
 
 		if (do_start) {
 			status = _start_trans(rot);
@@ -2560,7 +2560,7 @@ int make_dev(void *buf, struct mars_dent *dent)
 	switch_on =
 		(rot->if_brick && atomic_read(&rot->if_brick->inputs[0]->open_count) > 0) ||
 		(rot->todo_primary &&
-		 !rot->trans_brick->do_replay &&
+		 !rot->trans_brick->replay_mode &&
 		 rot->trans_brick->power.led_on);
 	if (!global->global_power.button || global->exhausted) {
 		switch_on = false;

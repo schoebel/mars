@@ -117,8 +117,8 @@ struct trans_logger_brick {
 	int align_size;   // alignment between requests
 	int chunk_size;   // must be at least 8K (better 64k)
 	int completion_semantics; // 0 = early completion of all writes, 1 = early completion of non-sync, 2 = late completion
-	bool do_replay;   // mode of operation
-	bool do_continuous_replay;   // mode of operation
+	bool replay_mode;   // mode of operation
+	bool continuous_replay_mode;   // mode of operation
 	bool log_reads;   // additionally log pre-images
 	bool debug_shortcut; // only for testing! never use in production!
 	loff_t replay_start_pos; // where to start replay
