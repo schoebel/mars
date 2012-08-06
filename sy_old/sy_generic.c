@@ -574,6 +574,7 @@ int mars_dent_work(struct mars_global *global, char *dirname, int allocsize, mar
 		.checker = checker,
 		.path = dirname,
 		.pathlen = strlen(dirname),
+		.parent = NULL,
 		.allocsize = allocsize,
 		.depth = 0,
 	};

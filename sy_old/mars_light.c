@@ -3378,8 +3378,7 @@ static int light_checker(struct mars_dent *parent, const char *_name, int namlen
 			count = sscanf(name+len, "%d%n", serial, &plus);
 			if (count < 1) {
 				//MARS_DBG("'%s' serial number mismatch at '%s'\n", name, name+len);
-				status = -1;
-				goto done;
+				continue;
 			}
 			//MARS_DBG("'%s' serial number = %d\n", name, *serial);
 			len += plus;
@@ -3391,19 +3390,14 @@ static int light_checker(struct mars_dent *parent, const char *_name, int namlen
 		if (test->cl_hostcontext) {
 			if (memcmp(name+len, my_id(), namlen-len)) {
 				//MARS_DBG("context mismatch '%s' at '%s'\n", name, name+len);
-				status = -1;
-				goto done;
+				continue;
 			}
 		}
 
 		// all ok
 		status = class;
-		goto done;
 	}
 
-	//MARS_DBG("no match for '%s' '%s'\n", path, name);
-
-done:
 #ifdef MARS_DEBUGGING
 	brick_string_free(name);
 #endif
@@ -3452,7 +3446,7 @@ static int light_worker(struct mars_global *global, struct mars_dent *dent, bool
 		int father = light_classes[class].cl_father;
 		if (father == CL_ROOT) {
 			if (unlikely(dent->d_parent)) {
-				MARS_ERR_ONCE(dent, "'%s' is not at the root of the hierarchy\n", dent->d_path);
+				MARS_ERR_ONCE(dent, "'%s' class %d is not at the root of the hierarchy\n", dent->d_path, class);
 				return -EINVAL;
 			}
 		} else if (unlikely(!dent->d_parent || dent->d_parent->d_class != father)) {
