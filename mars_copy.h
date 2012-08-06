@@ -12,7 +12,7 @@
 
 //#define COPY_CHUNK      (64 * 1024)
 #define COPY_CHUNK      (PAGE_SIZE)
-#define MAX_COPY_PARA   (4 * 1024 * 1024 / COPY_CHUNK)
+#define MAX_COPY_PARA   (32 * 1024 * 1024 / COPY_CHUNK)
 
 enum {
 	COPY_STATE_START    = 0,
