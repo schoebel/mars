@@ -10,13 +10,21 @@
 
 #define MARS_DEFAULT_PORT 7777
 
+extern bool mars_net_is_alive;
+
 /* The original struct socket has no refcount. This leads to problems
  * during long-lasting system calls when racing with socket shutdown.
- * This is just a small wrapper adding a refcount and some debugging aid.
+ *
+ * The original idea of struct mars_docket was just a small wrapper
+ * adding a refcount and some debugging aid.
+ * Nowadays, some buffering was added in order to take advantage of
+ * kernel_sendpage().
  */
 struct mars_socket {
 	struct socket *s_socket;
+	void *s_buffer;
 	atomic_t s_count;
+	int s_pos;
 	int s_debug_nr;
 	bool s_dead;
 	bool s_shutdown_on_err;

@@ -12,6 +12,9 @@
 #include "mars.h"
 #include "mars_net.h"
 
+#undef USE_SENDPAGE // FIXME: does not work, leads to data corruption (probably due to races with asynchrous sending)
+#define USE_BUFFERING
+
 static
 void mars_check_meta(const struct meta *meta, void *data);
 
@@ -28,7 +31,7 @@ void mars_check_meta(const struct meta *meta, void *data);
 struct mars_tcp_params default_tcp_params = {
 	.window_size = 8 * 1024 * 1024, // for long distance replications
 	.tcp_timeout = 20,
-	.tcp_keepcnt = 6,
+	.tcp_keepcnt = 3,
 	.tcp_keepintvl = 10, // keepalive ping time
 	.tcp_keepidle = 10,
 	.tos = IPTOS_LOWDELAY,
@@ -136,8 +139,8 @@ void _set_socketopts(struct socket *sock)
 	}
 #endif
 
-#if 0 // do not use for now
-	if (!do_block && sock->file) { // switch back to blocking mode
+#if 1
+	if (sock->file) { // switch back to blocking mode
 		sock->file->f_flags &= ~O_NONBLOCK;
 	}
 #endif
@@ -259,6 +262,8 @@ void mars_put_socket(struct mars_socket *msock)
 			kernel_sock_shutdown(sock, SHUT_WR);
 			sock_release(sock);
 		}
+		brick_block_free(msock->s_buffer, PAGE_SIZE);
+		msock->s_buffer = NULL;
 		memset(msock, 0, sizeof(struct mars_socket));
 	}
 }
@@ -299,75 +304,149 @@ done:
 }
 EXPORT_SYMBOL_GPL(mars_socket_is_alive);
 
-int mars_send_raw(struct mars_socket *msock, void *buf, int len, bool cork)
+static
+int _mars_send_raw(struct mars_socket *msock, void *buf, int len)
 {
-	struct kvec iov = {
-		.iov_base = buf,
-		.iov_len  = len,
-	};
-	struct msghdr msg = {
-		.msg_iov = (struct iovec*)&iov,
-		.msg_flags = 0 | MSG_NOSIGNAL,
-	};
-	int status = -EIDRM;
+	int sleeptime = 1000 / HZ;
 	int sent = 0;
+	int status = 0;
 
-	if (!mars_get_socket(msock))
-		goto final;
+	while (len > 0) {
+		int this_len = len;
 
-#if 0 // leads to obscure effects (short reads at other end)
-	if (cork)
-		msg.msg_flags |= TCP_CORK;
+		if (!mars_net_is_alive || kthread_should_stop()) {
+			MARS_WRN("interrupting, sent = %d\n", sent);
+			status = -EIDRM;
+			break;
+		}
+
+#ifdef USE_SENDPAGE // FIXME: does not work, leads to data corruption (probably due to races with asynchrous sending)
+		{
+			int page_offset = 0;
+			struct page *page;
+			int flags = MSG_NOSIGNAL;
+			page = brick_iomap(buf, &page_offset, &this_len);
+			if (unlikely(!page)) {
+				MARS_ERR("cannot iomap() kernel address %p\n", buf);
+				status = -EINVAL;
+				break;
+			}
+
+			if (this_len < len)
+				flags |= MSG_MORE;
+			
+			status = kernel_sendpage(msock->s_socket, page, page_offset, this_len, flags);
+			if (status > 0 && status != this_len) {
+				MARS_WRN("#%d status = %d this_len = %d\n", msock->s_debug_nr, status, this_len);
+			}
+		}
+#else // spare code, activate in case of problems with sendpage()
+		{
+			struct kvec iov = {
+				.iov_base = buf,
+				.iov_len  = this_len,
+			};
+			struct msghdr msg = {
+				.msg_iov = (struct iovec*)&iov,
+				.msg_flags = 0 | MSG_NOSIGNAL,
+			};
+			status = kernel_sendmsg(msock->s_socket, &msg, &iov, 1, this_len);
+		}
 #endif
 
-	MARS_IO("#%d buf = %p, len = %d, cork = %d\n", msock->s_debug_nr, buf, len, cork);
-	while (sent < len) {
-		if (unlikely(msock->s_dead)) {
-			MARS_WRN("#%d socket has disappeared\n", msock->s_debug_nr);
-			msleep(50);
-			status = -EIDRM;
-			goto done;
-		}
-
-		status = kernel_sendmsg(msock->s_socket, &msg, &iov, 1, len);
-		MARS_IO("#%d sendmsg status = %d\n", msock->s_debug_nr, status);
-
 		if (status == -EAGAIN) {
-			msleep(50);
+			msleep(sleeptime);
+			// linearly increasing backoff
+			if (sleeptime < 100) {
+				sleeptime += 1000 / HZ;
+			}
 			continue;
 		}
-
-		if (status == -EINTR) { // ignore it
+		if (unlikely(status == -EINTR)) { // ignore it
 			flush_signals(current);
 			MARS_IO("#%d got signal\n", msock->s_debug_nr);
 			msleep(50);
 			continue;
 		}
-
-		if (status < 0) {
-			MARS_WRN("#%d bad socket sendmsg, len=%d, iov_len=%d, sent=%d, status = %d\n", msock->s_debug_nr, len, (int)iov.iov_len, sent, status);
-			msleep(50);
-			goto done;
-		}
-
-		if (!status) {
-			MARS_WRN("#%d EOF from socket upon sendmsg\n", msock->s_debug_nr);
+		if (unlikely(!status)) {
+			MARS_WRN("#%d EOF from socket upon send_page()\n", msock->s_debug_nr);
 			msleep(50);
 			status = -ECOMM;
-			goto done;
+			break;
+		}
+		if (unlikely(status < 0)) {
+			MARS_WRN("#%d bad socket sendmsg, len=%d, this_len=%d, sent=%d, status = %d\n", msock->s_debug_nr, len, this_len, sent, status);
+			break;
 		}
 
-		iov.iov_base += status;
-		iov.iov_len  -= status;
+		len -= status;
+		buf += status;
 		sent += status;
+		sleeptime = 1000 / HZ;
+	}
+
+	if (sent > 0)
+		status = sent;
+
+	return status;
+}
+
+int mars_send_raw(struct mars_socket *msock, void *buf, int len, bool cork)
+{
+#ifdef USE_BUFFERING
+	int sent = 0;
+	int rest = len;
+#endif
+	int status = -EINVAL;
+
+	if (!mars_get_socket(msock))
+		goto final;
+
+#ifdef USE_BUFFERING
+restart:
+	while (!msock->s_buffer) {
+		msock->s_pos = 0;
+		msock->s_buffer = brick_block_alloc(0, PAGE_SIZE);
+		if (unlikely(!msock->s_buffer))
+			msleep(100);
+	}
+
+	if (msock->s_pos + rest < PAGE_SIZE) {
+		memcpy(msock->s_buffer + msock->s_pos, buf, rest);
+		msock->s_pos += rest;
+		sent += rest;
+		rest = 0;
+		status = sent;
+		if (cork)
+			goto done;
+	}
+
+	if (msock->s_pos > 0) {
+		status = _mars_send_raw(msock, msock->s_buffer, msock->s_pos);
+		if (status < 0)
+			goto done;
+		
+		brick_block_free(msock->s_buffer, PAGE_SIZE);
+		msock->s_buffer = NULL;
+		msock->s_pos = 0;
+	}
+
+	if (rest >= PAGE_SIZE) {
+		return _mars_send_raw(msock, buf, rest);
+	} else if (rest > 0) {
+		goto restart;
 	}
 	status = sent;
-	MARS_IO("#%d sent %d\n", msock->s_debug_nr, sent);
 
 done:
+#else
+	status = _mars_send_raw(msock, buf, len);
+#endif
 	if (status < 0 && msock->s_shutdown_on_err)
 		mars_shutdown_socket(msock);
+
 	mars_put_socket(msock);
+
 final:
 	return status;
 }
@@ -408,22 +487,31 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 			goto err;
 		}
 
+		if (!mars_net_is_alive || kthread_should_stop()) {
+			MARS_WRN("#%d interrupting, done = %d\n", msock->s_debug_nr, done);
+			if (done > 0)
+				status = -EIDRM;
+			goto err;
+		}
+
 		MARS_IO("#%d done %d, fetching %d bytes\n", msock->s_debug_nr, done, maxlen-done);
 
 		status = kernel_recvmsg(msock->s_socket, &msg, &iov, 1, maxlen-done, msg.msg_flags);
 
 		MARS_IO("#%d status = %d\n", msock->s_debug_nr, status);
 
+		if (!mars_net_is_alive || kthread_should_stop()) {
+			MARS_WRN("#%d interrupting, done = %d\n", msock->s_debug_nr, done);
+			if (done > 0)
+				status = -EIDRM;
+			goto err;
+		}
+
 		if (status == -EAGAIN) {
 			msleep(sleeptime);
 			// linearly increasing backoff
 			if (sleeptime < 100) {
 				sleeptime += 1000 / HZ;
-			} else if (kthread_should_stop()) {
-				MARS_WRN("interrupting, done = %d\n", done);
-				if (done > 0)
-					status = -EIDRM;
-				goto err;
 			}
 			continue;
 		}
@@ -865,14 +953,19 @@ EXPORT_SYMBOL_GPL(mars_recv_cb);
 char *(*mars_translate_hostname)(const char *name) = NULL;
 EXPORT_SYMBOL_GPL(mars_translate_hostname);
 
+bool mars_net_is_alive = false;
+EXPORT_SYMBOL_GPL(mars_net_is_alive);
+
 int __init init_mars_net(void)
 {
 	MARS_INF("init_net()\n");
+	mars_net_is_alive = true;
 	return 0;
 }
 
 void __exit exit_mars_net(void)
 {
+	mars_net_is_alive = false;
 	MARS_INF("exit_net()\n");
 }
 

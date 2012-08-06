@@ -1045,6 +1045,11 @@ int peer_thread(void *data)
 				msleep(5000);
 				continue;
 			}
+			if (!mars_net_is_alive) {
+				msleep(1000);
+				continue;
+			}
+
 			status = mars_create_socket(&peer->socket, &sockaddr, false);
 			if (unlikely(status < 0)) {
 				MARS_INF("no connection to '%s'\n", real_peer);
@@ -3771,7 +3776,10 @@ static int light_thread(void *data)
 
 		msleep(100);
 
-		_global.global_power.button = !kthread_should_stop();
+		if (kthread_should_stop()) {
+			_global.global_power.button = false;
+			mars_net_is_alive = false;
+		}
 		_make_alivelink("alive", _global.global_power.button ? 1 : 0);
 
 		mars_remaining_space("/mars", &_global.total_space, &_global.remaining_space);

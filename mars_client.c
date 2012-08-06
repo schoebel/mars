@@ -390,6 +390,7 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, bool fo
 		mref = mref_a->object;
 
 		if (!force &&
+		    mars_net_is_alive &&
 		    (io_timeout <= 0 || !time_is_before_jiffies(mref_a->submit_jiffies + io_timeout * HZ))) {
 			break;
 		}
