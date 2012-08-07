@@ -13,6 +13,8 @@
 
 #include "strategy.h"
 #include "mars_proc.h"
+#include "../mars_client.h"
+#include "../mars_server.h"
 
 mars_info_fn mars_info = NULL;
 
@@ -181,6 +183,24 @@ ctl_table mars_table[] = {
 		.strategy       = &sysctl_intvec,
 	},
 #endif
+	{
+		.ctl_name       = CTL_UNNUMBERED,
+		.procname	= "network_traffic_limit",
+		.data           = &client_limiter.lim_max_rate,
+		.maxlen         = sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+		.strategy       = &sysctl_intvec,
+	},
+	{
+		.ctl_name       = CTL_UNNUMBERED,
+		.procname	= "server_io_limit",
+		.data           = &server_limiter.lim_max_rate,
+		.maxlen         = sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+		.strategy       = &sysctl_intvec,
+	},
 	{}
 };
 

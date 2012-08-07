@@ -143,6 +143,7 @@ int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_
 {
 	struct mref_object *mref;
 	struct server_mref_aspect *mref_a;
+	int amount;
 	int status = -ENOTRECOVERABLE;
 
 	if (!brick->cb_running || !mars_socket_is_alive(sock))
@@ -167,6 +168,11 @@ int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_
 	
 	mref_a->brick = brick;
 	SETUP_CALLBACK(mref, server_endio, mref_a);
+
+	amount = 0;
+	if (!mref->ref_cs_mode < 2)
+		amount = (mref->ref_len - 1) / 1024 + 1;
+	mars_limit_sleep(&server_limiter, amount);
 	
 	status = GENERIC_INPUT_CALL(brick->inputs[0], mref_get, mref);
 	if (unlikely(status < 0)) {
@@ -254,7 +260,7 @@ int _set_server_bio_params(struct mars_brick *_brick, void *private)
 		return -EINVAL;
 	}
 	bio_brick = (void*)_brick;
-	bio_brick->ra_pages = 1;
+	bio_brick->ra_pages = 0;
 	bio_brick->do_noidle = true;
 	bio_brick->do_sync = true;
 	bio_brick->do_unplug = true;
@@ -767,6 +773,11 @@ static int _server_thread(void *data)
 }
 
 ////////////////// module init stuff /////////////////////////
+
+struct mars_limiter server_limiter = {
+	.lim_max_rate = 0,
+};
+EXPORT_SYMBOL_GPL(server_limiter);
 
 int __init init_mars_server(void)
 {

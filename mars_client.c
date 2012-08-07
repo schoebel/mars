@@ -475,6 +475,13 @@ static int sender_thread(void *data)
 		mref_a = container_of(tmp, struct client_mref_aspect, io_head);
 		mref = mref_a->object;
 
+		if (brick->limit_mode) {
+			int amount = 0;
+			if (mref->ref_cs_mode < 2)
+				amount = (mref->ref_len - 1) / 1024 + 1;
+			mars_limit_sleep(&client_limiter, amount);
+		}
+
 		MARS_IO("sending mref, id = %d pos = %lld len = %d rw = %d\n", mref->ref_id, mref->ref_pos, mref->ref_len, mref->ref_rw);
 
 		status = mars_send_mref(&output->socket, mref);
@@ -692,6 +699,11 @@ const struct client_brick_type client_brick_type = {
 EXPORT_SYMBOL_GPL(client_brick_type);
 
 ////////////////// module init stuff /////////////////////////
+
+struct mars_limiter client_limiter = {
+	.lim_max_rate = 0,
+};
+EXPORT_SYMBOL_GPL(client_limiter);
 
 int __init init_mars_client(void)
 {

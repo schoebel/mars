@@ -160,11 +160,17 @@ int _set_trans_params(struct mars_brick *_brick, void *private)
 	return 1;
 }
 
+struct client_cookie {
+	bool limit_mode;
+};
+
 static
 int _set_client_params(struct mars_brick *_brick, void *private)
 {
 	struct client_brick *client_brick = (void*)_brick;
+	struct client_cookie *clc = private;
 	client_brick->io_timeout = CONFIG_MARS_NETIO_TIMEOUT;
+	client_brick->limit_mode = clc ? clc->limit_mode : false;
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 	return 1;
 }
@@ -609,11 +615,15 @@ int __make_copy(
 		const char *argv[],
 		loff_t start_pos, // -1 means at EOF
 		bool verify_mode,
+		bool limit_mode,
 		struct copy_brick **__copy)
 {
 	struct mars_brick *copy;
 	struct copy_brick *_copy;
 	struct copy_cookie cc = {};
+	struct client_cookie clc = {
+		.limit_mode = limit_mode,
+	};
 	int i;
 	int status = -EINVAL;
 
@@ -646,7 +656,7 @@ int __make_copy(
 				       NULL,
 				       false,
 				       _set_bio_params_nocache,
-				       NULL,
+				       &clc,
 				       10 * HZ,
 				       NULL,
 				       (const struct generic_brick_type*)&bio_brick_type,
@@ -770,7 +780,7 @@ int _update_file(struct mars_rotate *rot, const char *switch_path, const char *c
 		goto done;
 
 	MARS_DBG("src = '%s' dst = '%s'\n", tmp, file);
-	status = __make_copy(global, NULL, switch_path, copy_path, NULL, argv, -1, false, &copy);
+	status = __make_copy(global, NULL, switch_path, copy_path, NULL, argv, -1, false, false, &copy);
 	if (status >= 0 && copy && (!copy->append_mode || copy->power.led_off)) {
 		if (end_pos > copy->copy_end) {
 			MARS_DBG("appending to '%s' %lld => %lld\n", copy_path, copy->copy_end, end_pos);
@@ -2727,7 +2737,7 @@ static int _make_copy(void *buf, struct mars_dent *dent)
 	// check whether connection is allowed
 	switch_path = path_make("%s/todo-%s/connect", dent->d_parent->d_path, my_id());
 
-	status = __make_copy(global, dent, switch_path, copy_path, dent->d_parent->d_path, (const char**)dent->d_argv, -1, false, NULL);
+	status = __make_copy(global, dent, switch_path, copy_path, dent->d_parent->d_path, (const char**)dent->d_argv, -1, false, true, NULL);
 
 done:
 	MARS_DBG("status = %d\n", status);
@@ -2857,7 +2867,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 #else
 # define VERIFY_MODE false
 #endif
-		status = __make_copy(global, dent, do_start ? switch_path : "", copy_path, dent->d_parent->d_path, argv, start_pos, VERIFY_MODE, &copy);
+		status = __make_copy(global, dent, do_start ? switch_path : "", copy_path, dent->d_parent->d_path, argv, start_pos, VERIFY_MODE, true, &copy);
 		rot->sync_brick = copy;
 		rot->allow_replay = (!copy || copy->power.led_off);
 	}

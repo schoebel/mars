@@ -5,6 +5,9 @@
 #include <linux/wait.h>
 
 #include "mars_net.h"
+#include "lib_limiter.h"
+
+extern struct mars_limiter server_limiter;
 
 struct server_mref_aspect {
 	GENERIC_ASPECT(mref);

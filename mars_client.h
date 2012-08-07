@@ -3,6 +3,10 @@
 #define MARS_CLIENT_H
 
 #include "mars_net.h"
+#include "lib_limiter.h"
+
+extern struct mars_limiter client_limiter;
+
 
 #define CLIENT_HASH_MAX 256
 
@@ -20,6 +24,7 @@ struct client_brick {
 	// tunables
 	int max_flying; // limit on parallelism
 	int io_timeout;    // > 0: report IO errors after timeout (in seconds)
+	bool limit_mode;
 };
 
 struct client_input {
