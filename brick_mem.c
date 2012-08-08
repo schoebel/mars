@@ -12,9 +12,7 @@
 #include "brick_locks.h"
 
 #define BRICK_DEBUG_MEM 10000
-//#define LIMIT_MEM
 #define USE_KERNEL_PAGES // currently mandatory (vmalloc does not work)
-//#define BUMP_LIMITS // try to avoid this
 #define ALLOW_DYNAMIC_RAISE 512
 
 #ifndef CONFIG_MARS_DEBUG
@@ -42,12 +40,21 @@
 
 // limit handling
 
-#ifdef LIMIT_MEM
 #include <linux/swap.h>
-#include <linux/mm.h>
-#endif
+
+long long brick_global_memavail = 0;
+EXPORT_SYMBOL_GPL(brick_global_memavail);
 long long brick_global_memlimit = 0;
 EXPORT_SYMBOL_GPL(brick_global_memlimit);
+
+void get_total_ram(void)
+{
+	struct sysinfo i = {};
+	si_meminfo(&i);
+	//si_swapinfo(&i);
+	brick_global_memavail = (long long)i.totalram * (PAGE_SIZE / 1024);
+	BRICK_INF("total RAM = %lld [KiB]\n", brick_global_memavail);
+}
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -652,11 +659,6 @@ EXPORT_SYMBOL_GPL(brick_mem_statistics);
 
 // module init stuff
 
-#ifdef BUMP_LIMITS // quirk: bump the memory reserve limits.
-extern int min_free_kbytes;
-static int old_free_kbytes = 0;
-#endif
-
 int __init init_brick_mem(void)
 {
 #ifdef CONFIG_MARS_MEM_PREALLOC
@@ -665,15 +667,8 @@ int __init init_brick_mem(void)
 		spin_lock_init(&freelist_lock[i]);
 	}
 #endif
-#ifdef LIMIT_MEM // provisionary
-	brick_global_memlimit = total_swapcache_pages * (PAGE_SIZE / 4);
-	BRICK_INF("brick_global_memlimit = %lld\n", brick_global_memlimit);
-#endif
-#ifdef BUMP_LIMITS // quirk: bump the memory reserve limits. TODO: determine right values.
-	old_free_kbytes = min_free_kbytes;
-	min_free_kbytes *= 4;
-	setup_per_zone_wmarks();
-#endif
+
+	get_total_ram();
 
 	return 0;
 }
@@ -682,10 +677,6 @@ void __exit exit_brick_mem(void)
 {
 #ifdef CONFIG_MARS_MEM_PREALLOC
 	_free_all();
-#endif
-#ifdef BUMP_LIMITS // quirk: bump the memory reserve limits.
-	min_free_kbytes = old_free_kbytes;
-	setup_per_zone_wmarks();
 #endif
 
 	brick_mem_statistics();

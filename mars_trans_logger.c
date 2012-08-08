@@ -1970,21 +1970,7 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 	// ... and now the exceptions from the rules ...
 #ifdef DELAY_CALLERS
 	delay_callers = false;
-	if (brick->shadow_mem_limit >= 8) {
-		struct rank_info full_punish_local[] = {
-			{ 0,                                    0 },
-			{ brick->shadow_mem_limit * 7 / 8,      0 },
-			{ brick->shadow_mem_limit,          -1000 },
-		};
-		int local_mem_used   = atomic64_read(&brick->shadow_mem_used) / 1024;
-
-		if (local_mem_used >= brick->shadow_mem_limit)
-			delay_callers = true;
-
-		MARS_IO("local_mem_used = %d\n", local_mem_used);
-		ranking_compute(&rkd[0], full_punish_local,  3, local_mem_used);
-	}
-	if (brick_global_memlimit >= 8) {
+	if (brick_global_memlimit >= 1024) {
 		struct rank_info full_punish_global[] = {
 			{ 0,                                    0 },
 			{ brick_global_memlimit * 7 / 8,        0 },
@@ -1997,6 +1983,19 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 
 		MARS_IO("global_mem_used = %d\n", global_mem_used);
 		ranking_compute(&rkd[0], full_punish_global, 3, global_mem_used);
+	} else if (brick->shadow_mem_limit >= 8) {
+		struct rank_info full_punish_local[] = {
+			{ 0,                                    0 },
+			{ brick->shadow_mem_limit * 7 / 8,      0 },
+			{ brick->shadow_mem_limit,          -1000 },
+		};
+		int local_mem_used   = atomic64_read(&brick->shadow_mem_used) / 1024;
+
+		if (local_mem_used >= brick->shadow_mem_limit)
+			delay_callers = true;
+
+		MARS_IO("local_mem_used = %d\n", local_mem_used);
+		ranking_compute(&rkd[0], full_punish_local,  3, local_mem_used);
 	}
 	brick->delay_callers = delay_callers;
 #endif
@@ -2604,7 +2603,7 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 atomic_read(&brick->q_phase[2].q_total),
 		 atomic_read(&brick->q_phase[3].q_total),
 		 atomic_read(&brick->mref_object_layout.alloc_count),
-		 atomic64_read(&brick->shadow_mem_used),
+		 atomic64_read(&brick->shadow_mem_used) / 1024,
 		 brick_global_memlimit,
 		 atomic_read(&brick->replay_count),
 		 atomic_read(&brick->mshadow_count),

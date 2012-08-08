@@ -140,6 +140,8 @@ extern int  mars_power_button_recursive(struct mars_brick *brick, bool val, bool
 extern int mars_max_loadavg;
 #endif
 
+extern int mars_mem_percent;
+
 /////////////////////////////////////////////////////////////////////////
 
 // init

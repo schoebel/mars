@@ -172,6 +172,15 @@ ctl_table mars_table[] = {
 		.mode		= 0400,
 		.proc_handler	= &errors_sysctl_handler,
 	},
+	{
+		.ctl_name       = CTL_UNNUMBERED,
+		.procname	= "percent_mem_limit",
+		.data           = &mars_mem_percent,
+		.maxlen         = sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+		.strategy       = &sysctl_intvec,
+	},
 #ifdef CONFIG_MARS_LOADAVG_LIMIT
 	{
 		.ctl_name       = CTL_UNNUMBERED,

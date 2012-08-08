@@ -71,6 +71,9 @@ struct light_class {
 
 // TUNING
 
+int mars_mem_percent = 0;
+EXPORT_SYMBOL_GPL(mars_mem_percent);
+
 #define CONF_TRANS_SHADOW_LIMIT (1024 * 128) // don't fill the hashtable too much
 #define CONF_TRANS_CHUNKSIZE  (128 * 1024)
 #define CONF_TRANS_MAX_MREF_SIZE PAGE_SIZE
@@ -3653,6 +3656,13 @@ static int light_thread(void *data)
 		bool exhausted;
 
 		MARS_DBG("-------- NEW ROUND ---------\n");
+
+		if (mars_mem_percent < 0)
+			mars_mem_percent = 0;
+		if (mars_mem_percent > 70)
+			mars_mem_percent = 70;
+		brick_global_memlimit = brick_global_memavail * mars_mem_percent / 100;
+
 		msleep(100);
 
 		_global.global_power.button = !kthread_should_stop();

@@ -7,6 +7,7 @@
 #define GFP_BRICK GFP_NOIO
 //#define GFP_BRICK GFP_KERNEL // can lead to deadlocks!
 
+extern long long brick_global_memavail;
 extern long long brick_global_memlimit;
 
 /////////////////////////////////////////////////////////////////////////
