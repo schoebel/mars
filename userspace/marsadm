@@ -383,6 +383,13 @@ sub join_cluster {
   system("rsync --recursive --links -v $mars/ips/ $peer:$mars/ips/") == 0 or die "oops\n";
 }
 
+sub leave_cluster {
+  my ($cmd) = @_;
+  my $check = "/mars/resource-*/*-$host";
+  die "I am member of some resources\n" if glob($check) && !$force;
+  _create_delete("$mars/ips/$host");
+}
+
 sub create_res {
   my ($cmd, $res, $dev, $appear) = @_;
   my $create = ($cmd eq "create-resource");
@@ -503,6 +510,33 @@ sub create_res {
     symlink($host, "$tmp/connect-$primary") unless -l "$tmp/connect-$primary";
     print "successfully joined resource '$res'\n";
   }
+}
+
+sub leave_res {
+  my ($cmd, $res) = @_;
+  check_not_primary(@_);
+  foreach my $tmp (glob("$mars/resource-$res/todo-$host/*")) {
+    my $status = readlink($tmp);
+    die "cannot read symlink '$tmp'\n" unless defined($status);
+    die "switch '$tmp' is not off\n" if $status;
+  }
+  foreach my $tmp (glob("$mars/resource-$res/actual-$host/*")) {
+    my $status = readlink($tmp);
+    die "cannot read symlink '$tmp'\n" unless defined($status);
+    die "running status '$tmp' is not off\n" if $status;
+  }
+  my $peerlink = "$mars/resource-$res/connect-$host";
+  my $peer = readlink($peerlink) or die "cannot read symlink '$peerlink'\n";
+  foreach my $tmp (glob("$mars/resource-$res/connect-*")) {
+    next if $tmp eq $peerlink;
+    my $target = readlink($tmp) or die "cannot read symlink '$tmp'\n";
+    next unless $target eq $host;
+    print "changing '$tmp' from '$host' to '$peer'\n";
+    unlink("$tmp.new");
+    symlink($peer, "$tmp.new") or die "cannot create symlink '$tmp.new'\n";
+    rename("$tmp.new", $tmp) or die "cannot create symlink '$tmp'\n";
+  }
+  unlink($peerlink);
 }
 
 sub logrotate_res {
@@ -739,20 +773,23 @@ sub helplist {
   $temp = shift;
   print "ERROR: $temp" if ($temp);
   print "
-marsadm command resource [option]
+marsadm <command> [<resource>] [<option>]
 
-command for ...
-  - cluster  : create-cluster join-cluster create-resource join-resource
-  - logfile  : log-rotate log-delete log-delete-all 
-  - device   : attach detach connect disconnect connect-local disconnect-local up down 
-  - resource : primary secondary invalidate-remote 
-  - sync     : pause-sync resume-sync pause-sync-local resume-sync-local fake-sync
-  - replay   : pause-replay resume-replay pause-replay-local resume-replay-local
-  - internal : help version
+<command> =
+  cluster    : create-cluster join-cluster leave-cluster
+  resource   : create-resource join-resource leave-resource
+               primary secondary invalidate-remote
+               up down
+  replication: connect disconnect connect-local disconnect-local
+  replay     : pause-replay resume-replay pause-replay-local resume-replay-local
+  sync       : pause-sync resume-sync pause-sync-local resume-sync-local fake-sync
+  logfile    : log-rotate log-delete log-delete-all
+  device     : attach detach
+  internal   : help version
 
-resource = name of resource or [all] for all resources...
+<resource> = name of resource or \"all\" for all resources
 
-option   = special by command
+<option>   = special by command
 
 Advanced information are also available here: http://http://wiki.intranet.1and1.com/bin/view/PO/ProjektTEC1603 
   \n";
@@ -771,8 +808,10 @@ my %cmd_table =
    # new keywords
    "create-cluster"     => \&create_cluster,
    "join-cluster"       => \&join_cluster,
+   "leave-cluster"      => \&leave_cluster,
    "create-resource"   => \&create_res,
    "join-resource"     => \&create_res,
+   "leave-resource"    => \&leave_res,
    "logrotate"         => \&logrotate_res,
    "log-rotate"        => \&logrotate_res,
    "logdelete"         => \&logdelete_res,
@@ -848,7 +887,7 @@ die "only root may use this tool\n" if $< != 0; # getpid() seems to be missing i
 helplist "unknown command $cmd\n" if !exists $cmd_table{$cmd};
 
 my $res = "";
-unless($cmd =~ m/^create-cluster$/) {
+unless($cmd =~ m/^(create|leave)-cluster$/) {
   $res = shift @args || helplist "resource argument is missing\n";
   check_id($res);
 }
@@ -860,8 +899,8 @@ sub do_res {
   my $cmd = shift;
   my $res = shift;
 
-  $res = check_res($res) unless $cmd =~ m/^(join|create)-cluster|create-resource$/;
-  check_res_member($res) unless $cmd =~ m/^(join|create)-(cluster|resource)$/;
+  $res = check_res($res) unless $cmd =~ m/^(join|create|leave)-cluster|create-resource$/;
+  check_res_member($res) unless $cmd =~ m/^(join|create)-(cluster|resource)|leave-cluster$/;
 
   my $func = $cmd_table{$cmd};
   &{$func}($cmd, $res, @_);
