@@ -2488,8 +2488,9 @@ int make_bio(void *buf, struct mars_dent *dent)
 	if (!global->global_power.button) {
 		goto done;
 	}
-	if (mars_find_brick(global, NULL, dent->d_path)) {
-		goto done;
+	brick = mars_find_brick(global, NULL, dent->d_path);
+	if (brick) {
+		goto check;
 	}
 	brick =
 		make_brick_all(global,
@@ -2514,7 +2515,34 @@ int make_bio(void *buf, struct mars_dent *dent)
 	status = mars_power_button((void*)brick, true, false);
 	if (status < 0) {
 		kill_any(buf, dent);
+		goto done;
 	}
+
+check:
+	/* Report the actual size of the device.
+	 * It may be larger than the global size.
+	 */
+	if (brick && brick->power.led_on && dent->d_parent) {
+		struct mars_info info = {};
+		struct mars_output *output;
+		char *src = NULL;
+		char *dst = NULL;
+
+		output = brick->outputs[0];
+		status = output->ops->mars_get_info(output, &info);
+		if (status < 0) {
+			MARS_ERR("cannot get info on '%s'\n", dent->d_path);
+			goto done;
+		}
+		src = path_make("%lld", info.current_size);
+		dst = path_make("%s/actsize-%s", dent->d_parent->d_path, my_id());
+		if (src && dst) {
+			(void)mars_symlink(src, dst, NULL, 0);
+		}
+		brick_string_free(src);
+		brick_string_free(dst);
+	}
+
  done:
 	return status;
 }
@@ -3016,6 +3044,7 @@ enum {
 	CL_CONNECT,
 	CL_DATA,
 	CL_SIZE,
+	CL_ACTSIZE,
 	CL_PRIMARY,
 	CL__FILE,
 	CL_SYNC,
@@ -3256,6 +3285,15 @@ static const struct light_class light_classes[] = {
 		.cl_forward = make_log_init,
 #endif
 		.cl_backward = kill_log,
+	},
+	/* Dito for each individual size
+	 */
+	[CL_ACTSIZE] = {
+		.cl_name = "actsize-",
+		.cl_len = 8,
+		.cl_type = 'l',
+		.cl_hostcontext = true,
+		.cl_father = CL_RESOURCE,
 	},
 	/* Symlink pointing to the name of the primary node
 	 */
