@@ -47,6 +47,7 @@ struct if_input {
 #ifdef USE_TIMER
 	struct timer_list timer;
 #endif
+	unsigned long capacity;
 	atomic_t open_count;
 	atomic_t plugged_count;
 	atomic_t flying_count;
@@ -61,7 +62,6 @@ struct if_input {
 	atomic_t total_mref_write_count;
 	spinlock_t req_lock;
 	struct semaphore kick_sem;
-	struct mars_info info;
 	spinlock_t hash_lock[IF_HASH_MAX];
 	struct list_head hash_table[IF_HASH_MAX];
 };
@@ -73,6 +73,7 @@ struct if_output {
 struct if_brick {
 	MARS_BRICK(if);
 	// parameters
+	loff_t dev_size;
 	int max_plugged;
 	int readahead;
 	bool skip_sync;

@@ -702,6 +702,27 @@ sub invalidate_res {
   symlink("0", $dst) or die "cannot create invalidation symlink '$dst'\n";
 }
 
+sub resize_res {
+  my ($cmd, $res) = @_;
+  my @actsizes = glob("$mars/resource-$res/actsize-*");
+  die "resource $res has no actsize-* symlinks\n" unless @actsizes;
+  my $lnk = "$mars/resource-$res/size";
+  my $old_size = readlink($lnk) or die "cannot read symlink '$lnk'\n";
+  my $min_size = 0;
+  foreach my $actsize (@actsizes) {
+    my $this_size = readlink($actsize) or die "cannot read symlink '$actsize'\n";
+    if (!$min_size || $min_size < $this_size) {
+      $min_size = $this_size;
+    }
+  }
+  print "old_size=$old_size\n";
+  print "new_size=$min_size\n";
+  die "only increases of the size are possible\n" if $min_size <= $old_size && !$force;
+  unlink("$lnk.new");
+  symlink($min_size, "$lnk.new") or die "cannot create size symlink '$lnk.new'\n";
+  rename("$lnk.new", $lnk) or die "cannot create size symlink '$lnk'\n";;
+}
+
 sub role_cmd {
   my ($cmd, $res) = @_;
   my $pri = "$mars/resource-$res/primary";
@@ -773,7 +794,7 @@ my %cmd_table =
    "secondary"         => \&primary_res,
    "invalidate"        => \&invalidate_res,
    "invalidate-remote" => \&forbidden_cmd,
-   "resize"            => \&nyi_cmd,
+   "resize"            => \&resize_res,
    "create-md"         => \&senseless_cmd,
    "get-gi"            => \&ignore_cmd,
    "show-gi"           => \&ignore_cmd,

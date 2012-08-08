@@ -69,6 +69,50 @@ struct light_class {
 
 ///////////////////////////////////////////////////////////////////////
 
+// needed for logfile rotation
+
+struct mars_rotate {
+	struct mars_global *global;
+	struct copy_brick *sync_brick;
+	struct mars_dent *replay_link;
+	struct mars_dent *aio_dent;
+	struct aio_brick *aio_brick;
+	struct mars_info aio_info;
+	struct trans_logger_brick *trans_brick;
+	struct mars_dent *first_log;
+	struct mars_dent *relevant_log;
+	struct mars_brick *relevant_brick;
+	struct mars_dent *next_relevant_log;
+	struct mars_brick *next_relevant_brick;
+	struct mars_dent *next_next_relevant_log;
+	struct mars_dent *prev_log;
+	struct mars_dent *next_log;
+	struct if_brick *if_brick;
+	const char *copy_path;
+	struct copy_brick *copy_brick;
+	long long switchover_timeout;
+	long long flip_start;
+	loff_t dev_size;
+	loff_t total_space;
+	loff_t remaining_space;
+	loff_t start_pos;
+	loff_t end_pos;
+	int max_sequence;
+	int copy_serial;
+	int relevant_serial;
+	bool has_error;
+	bool allow_update;
+	bool allow_sync;
+	bool allow_replay;
+	bool replay_mode;
+	bool todo_primary;
+	bool is_primary;
+	bool old_is_primary;
+	bool copy_is_done;
+};
+
+///////////////////////////////////////////////////////////////////////
+
 // TUNING
 
 int mars_mem_percent = 0;
@@ -270,14 +314,17 @@ static
 int _set_if_params(struct mars_brick *_brick, void *private)
 {
 	struct if_brick *if_brick = (void*)_brick;
+	struct mars_rotate *rot = private;
 	if (_brick->type != (void*)&if_brick_type) {
 		MARS_ERR("bad brick type\n");
 		return -EINVAL;
 	}
+	if (rot)
+		if_brick->dev_size = rot->dev_size;
 	if_brick->max_plugged = IF_MAX_PLUGGED;
 	if_brick->readahead = IF_READAHEAD;
 	if_brick->skip_sync = IF_SKIP_SYNC;
-	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
+	MARS_INF("name = '%s' path = '%s' size = %lld\n", _brick->brick_name, _brick->brick_path, if_brick->dev_size);
 	return 1;
 }
 
@@ -478,49 +525,6 @@ done:
 	brick_string_free(path);
 	return res;
 }
-
-///////////////////////////////////////////////////////////////////////
-
-// needed for logfile rotation
-
-struct mars_rotate {
-	struct mars_global *global;
-	struct copy_brick *sync_brick;
-	struct mars_dent *replay_link;
-	struct mars_dent *aio_dent;
-	struct aio_brick *aio_brick;
-	struct mars_info aio_info;
-	struct trans_logger_brick *trans_brick;
-	struct mars_dent *first_log;
-	struct mars_dent *relevant_log;
-	struct mars_brick *relevant_brick;
-	struct mars_dent *next_relevant_log;
-	struct mars_brick *next_relevant_brick;
-	struct mars_dent *next_next_relevant_log;
-	struct mars_dent *prev_log;
-	struct mars_dent *next_log;
-	struct if_brick *if_brick;
-	const char *copy_path;
-	struct copy_brick *copy_brick;
-	long long switchover_timeout;
-	long long flip_start;
-	loff_t total_space;
-	loff_t remaining_space;
-	loff_t start_pos;
-	loff_t end_pos;
-	int max_sequence;
-	int copy_serial;
-	int relevant_serial;
-	bool has_error;
-	bool allow_update;
-	bool allow_sync;
-	bool allow_replay;
-	bool replay_mode;
-	bool todo_primary;
-	bool is_primary;
-	bool old_is_primary;
-	bool copy_is_done;
-};
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -1649,6 +1653,9 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	rot->max_sequence = 0;
 	rot->has_error = false;
 
+	if (dent->new_link)
+		sscanf(dent->new_link, "%lld", &rot->dev_size);
+
 	mars_remaining_space(parent_path, &rot->total_space, &rot->remaining_space);
 
 	/* Fetch the replay status symlink.
@@ -2597,6 +2604,10 @@ int make_dev(void *buf, struct mars_dent *dent)
 		MARS_DBG("nothing to do\n");
 		goto done;
 	}
+	if (rot->dev_size <= 0) {
+		MARS_WRN("trying to create device '%s' with zero size\n", dent->d_path);
+		goto done;
+	}
 
 	status = _parse_args(dent, dent->new_link, 1);
 	if (status < 0) {
@@ -2618,7 +2629,7 @@ int make_dev(void *buf, struct mars_dent *dent)
 			       dent,
 			       false,
 			       _set_if_params,
-			       NULL,
+			       rot,
 			       10 * HZ,
 			       dent->d_argv[0],
 			       (const struct generic_brick_type*)&if_brick_type,

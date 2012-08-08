@@ -439,8 +439,8 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 					prefetch_len = total_len;
 				}
 #endif
-				if (pos + prefetch_len > input->info.current_size) {
-					prefetch_len = input->info.current_size - pos;
+				if (pos + prefetch_len > brick->dev_size) {
+					prefetch_len = brick->dev_size - pos;
 				}
 				if (prefetch_len < bv_len) {
 					prefetch_len = bv_len;
@@ -602,6 +602,23 @@ int mars_merge_bvec(struct request_queue *q, struct bvec_merge_data *bvm, struct
 	return 128;
 }
 
+static
+unsigned long compute_capacity(struct if_brick *brick)
+{
+	if (brick->dev_size <= 0) {
+		struct mars_info info = {};
+		struct if_input *input = brick->inputs[0];
+		int status;
+		status = GENERIC_INPUT_CALL(input, mars_get_info, &info);
+		if (status < 0) {
+			MARS_ERR("cannot get device info, status=%d\n", status);
+			return 0;
+		}
+		brick->dev_size = info.current_size;
+	}
+	return brick->dev_size >> 9; // TODO: make this dynamic
+}
+
 static const struct block_device_operations if_blkdev_ops;
 
 static int if_switch(struct if_brick *brick)
@@ -617,13 +634,7 @@ static int if_switch(struct if_brick *brick)
 
 	if (brick->power.button && brick->power.led_off) {
 		mars_power_led_off((void*)brick,  false);
-		status = GENERIC_INPUT_CALL(input, mars_get_info, &input->info);
-		if (status < 0) {
-			MARS_ERR("cannot get device info, status=%d\n", status);
-			goto is_down;
-		}
-		capacity = input->info.current_size >> 9; // TODO: make this dynamic
-		
+		capacity = compute_capacity(brick);
 		status = -ENOMEM;
 		q = blk_alloc_queue(GFP_MARS);
 		if (!q) {
@@ -648,6 +659,7 @@ static int if_switch(struct if_brick *brick)
 		snprintf(disk->disk_name, sizeof(disk->disk_name),  "mars/%s", brick->brick_name);
 		MARS_DBG("created device name %s\n", disk->disk_name);
 		disk->private_data = input;
+		input->capacity = capacity;
 		set_capacity(disk, capacity);
 		
 		blk_queue_make_request(q, if_make_request);
@@ -700,6 +712,12 @@ static int if_switch(struct if_brick *brick)
 	}
 	if (brick->power.button) {
 		mars_power_led_on((void*)brick, true);
+		capacity = compute_capacity(brick);
+		if (capacity > 0 && capacity != input->capacity) {
+			MARS_INF("changing capacity from %lld to %lld\n", (long long)input->capacity * 2, (long long)capacity * 2);
+			input->capacity = capacity;
+			set_capacity(input->disk, capacity);
+		}
 		status = 0;
 	} else if (!brick->power.led_off) {
 		mars_power_led_on((void*)brick, false);
