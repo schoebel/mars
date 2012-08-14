@@ -192,9 +192,9 @@ sub get_minmax_replays {
 
 sub check_splitbrain {
   # check only the chain of $host (or all hosts if unset)
-  # check up to $sequence (or for all if unset)
+  # check up to $sequence (or for all if < 0)
   my ($res, $host, $sequence) = @_;
-  if(!$sequence) {
+  if($sequence < 0) {
     my $pri = "$mars/resource-$res/primary";
     my $old = readlink($pri) or die "cannot determine current primary\n";
     _primary_res($res, "(none)", $pri, $old) unless $old eq "(none)";
@@ -220,7 +220,7 @@ sub check_splitbrain {
       print "resource $res: logfile $max_log is not yet transferred (need $max_rep), waiting....\n";
       sleep(10);
     }
-  } # $sequence == 0
+  } # $sequence < 0
 
   my $glob = "$mars/resource-$res/version-[0-9]*";
   my @links = glob($glob);
@@ -237,7 +237,7 @@ sub check_splitbrain {
     $nr =~ s:^.*[a-z]+-([0-9]+)(-[^/]*)?$:$1:;
     $nr = int($nr);
 
-    next if ($sequence && $nr > $sequence);
+    next if ($sequence >= 0 && $nr > $sequence);
 
     my $fromhost = $link;
     $fromhost =~ s:^.*version-[0-9]*-(.*)$:$1:;
@@ -590,7 +590,9 @@ sub logdelete_res {
   @paths = sort(@paths);
   my $max = _allowed_logdelete(@_);
   # is there any splitbrain up to $max-1?
-  check_splitbrain($res, "", $max - 1) if ($cmd eq "log-delete-all" && !$force);
+  my $check_max = $max - 1;
+  $check_max = 0 if $check_max < 0;
+  check_splitbrain($res, "", $check_max) if ($cmd eq "log-delete-all" && !$force);
   my $nr;
 
   do {
@@ -723,7 +725,7 @@ sub primary_res {
     check_todo($res, "connect", 1, 1);
     _primary_res($res, "(none)", $pri, $old) unless $old eq "(none)";
     check_primary_gone($res);
-    check_splitbrain($res, $host, 0);
+    check_splitbrain($res, $host, -1);
   }
   _primary_res($res, $host, $pri, $old);
 }
