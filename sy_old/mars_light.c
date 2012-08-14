@@ -3917,6 +3917,9 @@ static void __exit exit_light(void)
 	exit_say();
 }
 
+int global_logrot_auto = CONFIG_MARS_LOGROT_AUTO;
+EXPORT_SYMBOL_GPL(global_logrot_auto);
+
 static int __init init_light(void)
 {
 	int status = 0;

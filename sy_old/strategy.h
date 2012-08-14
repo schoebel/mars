@@ -10,6 +10,8 @@
 #define MARS_ARGV_MAX 4
 #define MARS_PATH_MAX 256
 
+extern int global_logrot_auto;
+
 extern char *my_id(void);
 
 #define MARS_DENT(TYPE)							\

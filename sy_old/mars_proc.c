@@ -183,8 +183,8 @@ ctl_table mars_table[] = {
 	},
 	{
 		.ctl_name       = CTL_UNNUMBERED,
-		.procname	= "net_io_timeout",
-		.data           = &global_net_io_timeout,
+		.procname	= "logrot_auto",
+		.data           = &global_logrot_auto,
 		.maxlen         = sizeof(int),
 		.mode		= 0600,
 		.proc_handler	= &proc_dointvec,
