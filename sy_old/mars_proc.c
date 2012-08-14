@@ -181,6 +181,15 @@ ctl_table mars_table[] = {
 		.proc_handler	= &proc_dointvec,
 		.strategy       = &sysctl_intvec,
 	},
+	{
+		.ctl_name       = CTL_UNNUMBERED,
+		.procname	= "net_io_timeout",
+		.data           = &global_net_io_timeout,
+		.maxlen         = sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+		.strategy       = &sysctl_intvec,
+	},
 #ifdef CONFIG_MARS_LOADAVG_LIMIT
 	{
 		.ctl_name       = CTL_UNNUMBERED,

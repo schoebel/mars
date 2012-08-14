@@ -219,7 +219,7 @@ int _set_client_params(struct mars_brick *_brick, void *private)
 {
 	struct client_brick *client_brick = (void*)_brick;
 	struct client_cookie *clc = private;
-	client_brick->io_timeout = CONFIG_MARS_NETIO_TIMEOUT;
+	client_brick->io_timeout = 0;
 	client_brick->limit_mode = clc ? clc->limit_mode : false;
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 	return 1;

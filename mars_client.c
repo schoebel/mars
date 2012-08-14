@@ -385,9 +385,13 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, bool fo
 		mref_a = container_of(tmp, struct client_mref_aspect, io_head);
 		mref = mref_a->object;
 
-		if (!force &&
-		    (brick->io_timeout <= 0 || !time_is_before_jiffies(mref_a->submit_jiffies + brick->io_timeout * HZ))) {
-			break;
+		if (!force) {
+			int io_timeout = brick->io_timeout;
+			if (io_timeout <= 0)
+				io_timeout = global_net_io_timeout;
+			if (io_timeout <= 0 || !time_is_before_jiffies(mref_a->submit_jiffies + io_timeout * HZ)) {
+				break;
+			}
 		}
 
 		MARS_DBG("signalling IO error at pos = %lld len = %d\n", mref->ref_pos, mref->ref_len);
@@ -704,6 +708,9 @@ struct mars_limiter client_limiter = {
 	.lim_max_rate = 0,
 };
 EXPORT_SYMBOL_GPL(client_limiter);
+
+int global_net_io_timeout = CONFIG_MARS_NETIO_TIMEOUT;
+EXPORT_SYMBOL_GPL(global_net_io_timeout);
 
 int __init init_mars_client(void)
 {

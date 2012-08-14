@@ -6,7 +6,7 @@
 #include "lib_limiter.h"
 
 extern struct mars_limiter client_limiter;
-
+extern int global_net_io_timeout;
 
 #define CLIENT_HASH_MAX 256
 
