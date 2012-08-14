@@ -927,7 +927,7 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 			struct mars_dent *local_dent = mars_find_dent(peer->global, remote_dent->d_path);
 			if (unlikely(!parent)) {
 				MARS_IO("ignoring non-existing local resource '%s'\n", parent_path);
-#if defined(CONFIG_MARS_LOGDELETE_AUTO) && CONFIG_MARS_LOGDELETE_AUTO > 0
+#if defined(CONFIG_MARS_LOGDELETE_AUTO)
 			// don't copy old / outdated logfiles
 			} else if (parent->d_private &&
 				   ((struct mars_rotate *)parent->d_private)->relevant_serial > remote_dent->d_serial) {
@@ -2430,9 +2430,9 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	if (!copy_brick)
 		rot->copy_serial = 0;
 
-#if defined(CONFIG_MARS_LOGDELETE_AUTO) && CONFIG_MARS_LOGDELETE_AUTO > 0
+#if defined(CONFIG_MARS_LOGDELETE_AUTO)
 #define LIMIT1 ((loff_t)EXHAUSTED_LIMIT(rot->total_space))
-#define LIMIT2 ((loff_t)CONFIG_MARS_LOGDELETE_AUTO * 1024 * 1024)
+#define LIMIT2 ((loff_t)global_logdel_auto * 1024 * 1024)
 	if (rot->remaining_space <= LIMIT1 + LIMIT2) {
 		MARS_WRN("filesystem space = %lld kiB is lower than %lld + %lld = %lld\n", rot->remaining_space, LIMIT1, LIMIT2, LIMIT1 + LIMIT2);
 		if (rot->first_log && rot->first_log != rot->relevant_log) {
@@ -3919,6 +3919,9 @@ static void __exit exit_light(void)
 
 int global_logrot_auto = CONFIG_MARS_LOGROT_AUTO;
 EXPORT_SYMBOL_GPL(global_logrot_auto);
+
+int global_logdel_auto = CONFIG_MARS_LOGDELETE_AUTO;
+EXPORT_SYMBOL_GPL(global_logdel_auto);
 
 int global_free_space = CONFIG_MARS_MIN_SPACE_BASE;
 EXPORT_SYMBOL_GPL(global_free_space);

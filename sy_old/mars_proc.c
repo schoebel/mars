@@ -183,8 +183,17 @@ ctl_table mars_table[] = {
 	},
 	{
 		.ctl_name       = CTL_UNNUMBERED,
-		.procname	= "logrot_auto",
+		.procname	= "logrot_auto_gb",
 		.data           = &global_logrot_auto,
+		.maxlen         = sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+		.strategy       = &sysctl_intvec,
+	},
+	{
+		.ctl_name       = CTL_UNNUMBERED,
+		.procname	= "logdel_auto_gb",
+		.data           = &global_logdel_auto,
 		.maxlen         = sizeof(int),
 		.mode		= 0600,
 		.proc_handler	= &proc_dointvec,

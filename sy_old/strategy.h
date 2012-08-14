@@ -11,6 +11,7 @@
 #define MARS_PATH_MAX 256
 
 extern int global_logrot_auto;
+extern int global_logdel_auto;
 extern int global_free_space;
 
 extern char *my_id(void);
