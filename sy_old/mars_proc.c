@@ -190,6 +190,15 @@ ctl_table mars_table[] = {
 		.proc_handler	= &proc_dointvec,
 		.strategy       = &sysctl_intvec,
 	},
+	{
+		.ctl_name       = CTL_UNNUMBERED,
+		.procname	= "free_space_mb",
+		.data           = &global_free_space,
+		.maxlen         = sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+		.strategy       = &sysctl_intvec,
+	},
 #ifdef CONFIG_MARS_LOADAVG_LIMIT
 	{
 		.ctl_name       = CTL_UNNUMBERED,

@@ -184,12 +184,16 @@ config MARS_MIN_SPACE_BASE
 	depends on MARS_MIN_SPACE
 	default 8
 	---help---
-	when this limit is exceeded, all write requests to /mars/
+	when this limit is exceeded, transaction logging to /mars/
 	will stop. This affects not only write IO to /dev/mars/*,
-	but also logfile transfers etc.
+	but also logfile transfers etc. As a consequence, writes
+	on the primary will directly go to the device, and the secondaries
+	will be outdated.
 	In order to retain full operations, you _need_ to implement
 	your own monitoring which _must_ warn you long before this
-	hard limit catches you.
+	hard limit catches you. If it already has caught you, it
+	will be too late: you have to recover by hand, e.g. by
+	starting a full sync.
 
 config MARS_MIN_SPACE_PERCENT
 	int "free space in /mars/ (hard limit in percent)"

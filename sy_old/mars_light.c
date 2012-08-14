@@ -159,7 +159,7 @@ EXPORT_SYMBOL_GPL(mars_mem_percent);
 #define COPY_PRIO MARS_PRIO_LOW
 
 #ifdef CONFIG_MARS_MIN_SPACE
-#define EXHAUSTED_LIMIT(max) ((max) / 100 * CONFIG_MARS_MIN_SPACE_PERCENT + CONFIG_MARS_MIN_SPACE_BASE * 1024 * 1024)
+#define EXHAUSTED_LIMIT(max) ((max) / 100 * CONFIG_MARS_MIN_SPACE_PERCENT + global_free_space * 1024 * 1024)
 #define EXHAUSTED(x,max) ((x) <= EXHAUSTED_LIMIT(max))
 #else
 #define EXHAUSTED_LIMIT(max) 0
@@ -3919,6 +3919,9 @@ static void __exit exit_light(void)
 
 int global_logrot_auto = CONFIG_MARS_LOGROT_AUTO;
 EXPORT_SYMBOL_GPL(global_logrot_auto);
+
+int global_free_space = CONFIG_MARS_MIN_SPACE_BASE;
+EXPORT_SYMBOL_GPL(global_free_space);
 
 static int __init init_light(void)
 {
