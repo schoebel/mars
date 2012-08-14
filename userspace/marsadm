@@ -351,6 +351,13 @@ sub nyi_cmd {
   die "command '$cmd' is not yet implemented\n";
 }
 
+sub is_module_loaded {
+  open TEST, "lsmod | grep mars |";
+  my $res = <TEST>;
+  close TEST;
+  return $res;
+}
+
 sub _create_cluster {
   my ($cmd) = @_;
   system("mkdir $mars") unless -d $mars;
@@ -366,6 +373,7 @@ sub _create_cluster {
 sub create_cluster {
   my ($cmd, $peer) = @_;
   die "cluster is already created\n" if !$force && -d "$mars/ips";
+  die "mars module is loaded, please unload first\n" if is_module_loaded();
   _create_cluster(@_);
 }
 
@@ -374,6 +382,7 @@ sub join_cluster {
   if(glob("$mars/resource-*") or glob("$mars/ips/*")) {
     die "Sorry, some resources already exist!\nThis is dangerous!\nIf you are sure that no resource clash is possible, re-invoke this command with '--force' option\n" unless $force;
   }
+  die "mars module is loaded, please unload first\n" if is_module_loaded();
   print "joining cluster via rsync (peer='$peer')\n";
   # check connection
   system("ssh $peer uname -a") == 0 or die "oops, no connection to $peer ...\n";
