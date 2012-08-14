@@ -200,7 +200,7 @@ sub check_splitbrain {
     _primary_res($res, "(none)", $pri, $old) unless $old eq "(none)";
     _trigger();
     sleep(5);
-    while(!_check_all_mtimes("$mars/resource-$res/[lvr]*", 60)) {
+    while(!_check_all_mtimes("$mars/resource-$res/{log,version,replay}-*", 60)) {
       print "resource directory $res not stable, waiting....\n";
       sleep(5);
     }
