@@ -789,7 +789,7 @@ marsadm <command> [<resource>] [<option>]
 <command> =
   cluster    : create-cluster join-cluster leave-cluster
   resource   : create-resource join-resource leave-resource
-               primary secondary invalidate-remote
+               primary secondary invalidate
                up down
   replication: connect disconnect connect-local disconnect-local
   replay     : pause-replay resume-replay pause-replay-local resume-replay-local
@@ -823,9 +823,7 @@ my %cmd_table =
    "create-resource"   => \&create_res,
    "join-resource"     => \&create_res,
    "leave-resource"    => \&leave_res,
-   "logrotate"         => \&logrotate_res,
    "log-rotate"        => \&logrotate_res,
-   "logdelete"         => \&logdelete_res,
    "log-delete"        => \&logdelete_res,
    "log-delete-all"    => \&logdelete_res,
    "fake-sync"         => \&fake_local_res,
