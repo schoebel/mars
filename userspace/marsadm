@@ -674,7 +674,7 @@ sub pause_replay_res {
 
 sub pause_replay_local_res {
   my ($cmd, $res) = @_;
-  my $pause = ($cmd eq "pause-sync-local");
+  my $pause = ($cmd eq "pause-replay-local");
   my $path = "$mars/resource-$res/todo-$host/allow-replay";
   _switch($cmd, $res, $path, !$pause);
 }
