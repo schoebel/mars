@@ -749,6 +749,7 @@ sub invalidate_res {
 
 sub resize_res {
   my ($cmd, $res) = @_;
+  check_primary(@_);
   my @actsizes = glob("$mars/resource-$res/actsize-*");
   die "resource $res has no actsize-* symlinks\n" unless @actsizes;
   my $lnk = "$mars/resource-$res/size";
@@ -768,7 +769,7 @@ sub resize_res {
     die "cannot read symlink '$switch'\n" unless defined($this_switch);
     die "sync on '$switch' is switched on -- use marsadm pause-sync to stop\n" unless !$this_switch;
   }
-  my @syncsizes = glob("$mars/resource-$res/syncstatus-*");
+  my @syncsizes = glob("$mars/resource-$res/syncstatus-$host");
   foreach my $syncsize (@syncsizes) {
     my $this_size = readlink($syncsize) or die "cannot read symlink '$syncsize'\n";
     die "sync on $syncsize has not yet finished: $this_size != $old_size (DANGEROUS FIX: if you know what you are doing, marsadm fake-sync can 'fix' it -- but this may need a full-sync afterwards)\n" unless $this_size == $old_size;
