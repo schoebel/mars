@@ -756,7 +756,7 @@ sub resize_res {
   my $min_size = 0;
   foreach my $actsize (@actsizes) {
     my $this_size = readlink($actsize) or die "cannot read symlink '$actsize'\n";
-    if (!$min_size || $min_size < $this_size) {
+    if (!$min_size || $this_size < $min_size) {
       $min_size = $this_size;
     }
   }
