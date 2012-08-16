@@ -190,13 +190,20 @@ out:
 static int bio_get_info(struct bio_output *output, struct mars_info *info)
 {
 	struct bio_brick *brick = output->brick;
+	struct inode *inode;
 	int status = 0;
+
+	if (unlikely(!brick->filp ||
+		     !brick->filp->f_mapping ||
+		     !(inode = brick->filp->f_mapping->host))) {
+		status = -ENOENT;
+		goto done;
+	}
+	brick->total_size = inode->i_size;
 	info->current_size = brick->total_size;
 	MARS_DBG("determined device size = %lld\n", info->current_size);
 	info->backing_file = brick->filp;
-	if (!brick->filp) {
-		status = -ENOENT;
-	}
+done:
 	return status;
 }
 
