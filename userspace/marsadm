@@ -771,7 +771,7 @@ sub resize_res {
   my @syncsizes = glob("$mars/resource-$res/syncstatus-*");
   foreach my $syncsize (@syncsizes) {
     my $this_size = readlink($syncsize) or die "cannot read symlink '$syncsize'\n";
-    die "sync on $syncsize has not yet finished\n" unless $this_size == $old_size;
+    die "sync on $syncsize has not yet finished: $this_size != $old_size (DANGEROUS FIX: if you know what you are doing, marsadm fake-sync can 'fix' it -- but this may need a full-sync afterwards)\n" unless $this_size == $old_size;
   }
   foreach my $syncsize (@syncsizes) {
     my $this_size = readlink($syncsize) or die "cannot read symlink '$syncsize'\n";
