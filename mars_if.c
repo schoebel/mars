@@ -712,12 +712,6 @@ static int if_switch(struct if_brick *brick)
 	}
 	if (brick->power.button) {
 		mars_power_led_on((void*)brick, true);
-		capacity = compute_capacity(brick);
-		if (capacity > 0 && capacity != input->capacity) {
-			MARS_INF("changing capacity from %lld to %lld\n", (long long)input->capacity * 2, (long long)capacity * 2);
-			input->capacity = capacity;
-			set_capacity(input->disk, capacity);
-		}
 		status = 0;
 	} else if (!brick->power.led_off) {
 		mars_power_led_on((void*)brick, false);
@@ -803,6 +797,16 @@ char *if_statistics(struct if_brick *brick, int verbose)
 	int tmp2 = atomic_read(&input->total_mref_read_count);
 	int tmp3 = atomic_read(&input->total_write_count); 
 	int tmp4 = atomic_read(&input->total_mref_write_count);
+
+#if 1 // HACK!
+	unsigned long capacity;
+	capacity = compute_capacity(brick);
+	if (capacity > 0 && capacity != input->capacity) {
+		MARS_INF("changing capacity from %lld to %lld\n", (long long)input->capacity * 2, (long long)capacity * 2);
+		input->capacity = capacity;
+		set_capacity(input->disk, capacity);
+	}
+#endif
 	if (!res)
 		return NULL;
 	snprintf(res, 512,
