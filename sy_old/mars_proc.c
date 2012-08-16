@@ -174,7 +174,7 @@ ctl_table mars_table[] = {
 	},
 	{
 		.ctl_name       = CTL_UNNUMBERED,
-		.procname	= "percent_mem_limit",
+		.procname	= "percent_mem_limit_kb",
 		.data           = &mars_mem_percent,
 		.maxlen         = sizeof(int),
 		.mode		= 0600,
@@ -221,7 +221,7 @@ ctl_table mars_table[] = {
 #endif
 	{
 		.ctl_name       = CTL_UNNUMBERED,
-		.procname	= "network_traffic_limit",
+		.procname	= "network_traffic_limit_kb",
 		.data           = &client_limiter.lim_max_rate,
 		.maxlen         = sizeof(int),
 		.mode		= 0600,
@@ -230,7 +230,7 @@ ctl_table mars_table[] = {
 	},
 	{
 		.ctl_name       = CTL_UNNUMBERED,
-		.procname	= "server_io_limit",
+		.procname	= "server_io_limit_mb",
 		.data           = &server_limiter.lim_max_rate,
 		.maxlen         = sizeof(int),
 		.mode		= 0600,
