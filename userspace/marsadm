@@ -763,6 +763,22 @@ sub resize_res {
   print "old_size=$old_size\n";
   print "new_size=$min_size\n";
   die "only increases of the size are possible\n" if $min_size <= $old_size && !$force;
+  foreach my $switch (glob("$mars/resource-$res/todo-*/sync")) {
+    my $this_switch = readlink($switch);
+    die "cannot read symlink '$switch'\n" unless defined($this_switch);
+    die "sync on '$switch' is switched on -- use marsadm pause-sync to stop\n" unless !$this_switch;
+  }
+  my @syncsizes = glob("$mars/resource-$res/syncstatus-*");
+  foreach my $syncsize (@syncsizes) {
+    my $this_size = readlink($syncsize) or die "cannot read symlink '$syncsize'\n";
+    die "sync on $syncsize has not yet finished\n" unless $this_size == $old_size;
+  }
+  foreach my $syncsize (@syncsizes) {
+    my $this_size = readlink($syncsize) or die "cannot read symlink '$syncsize'\n";
+    unlink("$syncsize.new");
+    symlink($min_size, "$syncsize.new") or die "cannot create size symlink '$syncsize.new'\n";
+    rename("$syncsize.new", $syncsize) or die "cannot create size symlink '$syncsize'\n";;
+  }
   unlink("$lnk.new");
   symlink($min_size, "$lnk.new") or die "cannot create size symlink '$lnk.new'\n";
   rename("$lnk.new", $lnk) or die "cannot create size symlink '$lnk'\n";;
