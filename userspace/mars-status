@@ -1,11 +1,10 @@
 #!/usr/bin/perl -w
 # (c) 2012 Joerg Mann / 1&1 Internet AG
 #
-# $Id: 8174222857e611445de87bba92b52677b387c939 $
-# last update at Tue Apr 10 17:20:32 CEST 2012 by joerg.mann@1und1.de
+# $Id: 5a8a13c09fa23ae74858e48fc010e7f61f90dc02 $
+# last update at now ...
 
 # TODO:
-# check deutsch/englich
 # add todo-global delete-logfiles
 # anzeige bandbreite / i/o-load wenn dieser genutzt wird
 # bugix fuer nachtaegliches join (log-v-4 ...)
@@ -21,7 +20,7 @@ use POSIX qw(strftime);
 use File::Basename;
 
 ### defaults
-my $version       = "0.068a";
+my $version       = "0.068e";
 my $alife_timeout = "99";	# sec
 my $is_tty 	  = 0;
 my $mars_dir      = '/mars';
@@ -88,7 +87,7 @@ sub check_link {
 sub print_screen {
     my $text  = shift;
     my $color = shift;
-    if (!$color) {$color = 'black';}
+    if (!$color) {$color = 'FAINT';}
 
     if ( $params->{'monitor'} ) {
         chomp $text;
@@ -181,6 +180,13 @@ sub display_partner {
         print_screen "\tDevice  : ".check_link "$mars_dir/$PRes/data-$PName";
         print_screen ", used as $PDevice";
 
+        my $ASize = check_link "$mars_dir/$PRes/actsize-$PName";
+        if ( $PSize eq $ASize) {
+            print_screen ", not resized";
+        } else {
+            print_screen "\n\t\t---> HINT: resizing used ($PSize != $ASize)",'red';
+        }
+
         # check mountpint
         if ( $himself eq $PName ) {
             my $PUDevice = "/dev/mars/$PDevice";
@@ -202,6 +208,23 @@ sub display_partner {
     }
     $$ref_ResPartner++;
 
+
+    ### sync
+    my $PSyncsize = check_link "$mars_dir/$PRes/syncstatus-$PName";
+    my $SStatus = sprintf("%.2f", ($PSyncsize / $PSize * 100));
+    if ( $params->{'long'} ) {
+        print_screen (sprintf "\tSync    : %s bytes (%.3fTB) synced = ", $PSyncsize, ( $PSyncsize/1024/1024/1024/1024));
+        if ( $SStatus < 100) {
+            print_screen "$SStatus%\n";
+            print_screen "\t\t---> WORK: Sync in progress = ($SStatus% < 100.00%)\n", 'red';
+        } else {
+            print_screen "$SStatus%\n", 'green';
+        }
+    }
+    $$ref_ResInSync = $SStatus;
+
+### work by resize ...
+#print "\n$PSize\n$PSyncsize\n$PName";
 
     ### logfile
     my @PLogFile  = split (',', check_link "$mars_dir/$PRes/replay-$PName" );
@@ -244,22 +267,17 @@ sub display_partner {
         } else {
             print_screen "$RStatus%\n", 'green';
         }
+
+### start work speed
+
+#if $params->{'interval'} ...
+#if nicht lokale ressource ...
+
+### end work speed
+
     }	
     $$ref_ResInReplay = $RStatus;
 
-    ### sync
-    my $PSyncsize = check_link "$mars_dir/$PRes/syncstatus-$PName";
-    my $SStatus = sprintf("%.2f", ($PSyncsize / $PSize * 100));
-    if ( $params->{'long'} ) {
-        print_screen (sprintf "\tSync    : %s bytes (%.3fTB) synced = ", $PSyncsize, ( $PSyncsize/1024/1024/1024/1024));
-        if ( $SStatus < 100) {
-            print_screen "$SStatus%\n";
-            print_screen "\t\t---> WORK: Sync in progress = ($SStatus% < 100.00%)\n", 'red';
-        } else {
-            print_screen "$SStatus%\n", 'green';
-        }
-    }
-    $$ref_ResInSync = $SStatus;
 
 
     if ( $params->{'long'} ) {
@@ -400,25 +418,6 @@ sub check_logfile {
         } # end logstatus
         $LogCountNow++;
     } # end foreach
-}
-
-
-#########################################################################################
-### avg_limit
-sub check_avg_limit {
-    if ( open (MARS_LOADAVG, "< /proc/sys/mars/loadavg_limit") ) {
-        my $mars_avg_limit;
-        while (<MARS_LOADAVG>) {
-            $mars_avg_limit = $_;
-        }
-        close MARS_LOADAVG;
-        print_screen "-> Node AVG-Speed-Limit is ", 'bold';
-        if (( !$mars_avg_limit ) || ( $mars_avg_limit < "1" )) {
-            print_screen "unset, used full speed\n", 'green';
-        } else { 
-            print_screen "is $mars_avg_limit", 'red';
-        }
-    }
 }
 
 
@@ -584,7 +583,7 @@ sub check_ressource {
         }
         if ($ResInSync ne "100.00") { 
             $ResInSyncSum   = $ResInSyncSum + $ResInSync;
-            $ResInSyncPar = $ResInSyncPar + 1; 
+            $ResInSyncPar   = $ResInSyncPar + 1; 
         } 
         # end him self
 
@@ -663,6 +662,41 @@ sub check_ressource {
 }
 
 #########################################################################################
+### avg_limit
+sub check_jammed {
+    my $jammed = check_link "$mars_dir/jammed-$himself";
+    print_screen "-> Mars-Transaktion ", 'bold';
+    if (( !$jammed ) || ( $jammed ne 0 )) {
+        print_screen "running normaly\n", 'green';
+    } else {
+        print_screen "and Replication not runnunig !!!\n", 'red';
+    }            
+}
+
+#########################################################################################
+### limit's auslesen ...
+sub check_limit {
+    my $LimitL = shift;
+    my $LimitT = shift;
+    my $LimitE = shift;
+    my $mars_limit;
+
+    if ( open (MARS_LIMIT, "< /proc/sys/mars/$LimitL") ) {
+        while (<MARS_LIMIT>) {
+            $mars_limit = $_;
+            $mars_limit =~ s/[\n\t]//g;
+        }
+        close MARS_LIMIT;
+    }
+    print_screen "-> $LimitT: ", 'bold';    
+    if (( !$mars_limit ) || ( $mars_limit < "1" )) {
+        print_screen "unset, used full speed\n", '';
+    } else { 
+        print_screen "is $mars_limit $LimitE\n", 'red';
+    }
+}
+
+#########################################################################################
 ### main loop ...
 while(1) {
     my $dateFormat = Date::Language->new('English');
@@ -682,14 +716,23 @@ while(1) {
         $params->{'long'} = 1;
         $params->{'history'} = 1;
     }
-    
+
     ### read mars infos
     if ( $params->{'long'} ) { 
         # read mars info
         info_version;
 
-        # system check 
-        check_avg_limit;
+        # check system limits
+        check_limit "loadavg_limit", "AVG-Limit", "";
+        check_limit "network_traffic_limit_kb", "Network-Traffic-Limit", "kb/s";
+        check_limit "percent_mem_limit_kb", "Memory-Limit", "kb/s";
+        check_limit "server_io_limit_mb", "Server-IO-Limit", "mb/s";
+        check_limit "free_space_mb", "Free-Space-Limit on /mars", "mb";
+        check_limit "logdel_auto_gb", "Free-Space-Limit for Auto-Log-Delete", 'gb';
+        check_limit "logrot_auto_gb", "Free-Space-Limit for Auto-Log-Rotate", 'gb';
+        
+        # check system params
+        check_jammed;
         check_disk_is_full;
     }
 
@@ -724,6 +767,7 @@ while(1) {
     print color 'reset';
     exit if (not $params->{'interval'});
     sleep($params->{'interval'});
+
 }
 exit;
 	
