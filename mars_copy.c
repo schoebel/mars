@@ -244,7 +244,7 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 		brick->st[index].len = mref->ref_len;
 	}
 
-	MARS_IO("queue = %d index = %d pos = %lld len = %d rw = %d\n", queue, index, mref->ref_pos, mref->ref_len, rw);
+	//MARS_IO("queue = %d index = %d pos = %lld len = %d rw = %d\n", queue, index, mref->ref_pos, mref->ref_len, rw);
 
 	atomic_inc(&brick->copy_flight);
 	brick->st[index].active[queue] = true;
@@ -281,30 +281,33 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 	struct copy_state *st;
 	char state;
 	char next_state;
+	bool do_restart;
 	int cs_mode;
 	int status;
 
+restart:
 	st = &brick->st[index];
 	state = st->state;
-	next_state = -1;
-	mref1 = NULL;
+	next_state = state;
 	status = 0;
+	do_restart = false;
 
-	MARS_IO("index = %d state = %d pos = %lld\n", index, state, pos);
+	MARS_IO("index = %d state = %d pos = %lld table[0]=%p table[1]=%p\n", index, state, pos, st->table[0], st->table[1]);
 
 	switch (state) {
 	case COPY_STATE_START:
 		if (st->table[0] || st->table[1]) {
 			MARS_ERR("index %d not startable\n", index);
 			status = -EPROTO;
-			goto done;
+			goto idle;
 		}
 
 		st->active[0] = false;
 		st->active[1] = false;
+		st->writeout = false;
 		st->error = 0;
 		if (brick->is_aborting || kthread_should_stop())
-			goto done;
+			goto idle;
 
 		_clear_mref(brick, index, 1);
 		_clear_mref(brick, index, 0);
@@ -316,7 +319,7 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 		status = _make_mref(brick, index, 0, NULL, pos, brick->copy_end, READ, cs_mode);
 		if (unlikely(status < 0)) {
 			MARS_WRN("status = %d\n", status);
-			goto done;
+			break;
 		}
 
 		next_state = COPY_STATE_READ1;
@@ -328,26 +331,27 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 		status = _make_mref(brick, index, 1, NULL, pos, brick->copy_end, READ, cs_mode);
 		if (unlikely(status < 0)) {
 			MARS_WRN("status = %d\n", status);
-			goto done;
+			break;
 		}
 		break;
 	case COPY_STATE_READ2:
 		mref1 = st->table[1];
 		if (!mref1) { // idempotence: wait by unchanged state
-			goto done;
+			goto idle;
 		}
 		/* fallthrough */
 	case COPY_STATE_READ1:
 	case COPY_STATE_READ3:
 		mref0 = st->table[0];
 		if (!mref0) { // idempotence: wait by unchanged state
-			goto done;
+			goto idle;
 		}
 		// on append mode: increase the end pointer dynamically
 		if (brick->append_mode > 0 && mref0->ref_total_size && mref0->ref_total_size > brick->copy_end) {
 			brick->copy_end = mref0->ref_total_size;
 		}
 		// do verify (when applicable)
+		mref1 = st->table[1];
 		if (mref1 && state != COPY_STATE_READ3) { 
 			int len = mref0->ref_len;
 			bool ok;
@@ -379,20 +383,18 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 			}
 		}
 
-		if (!mref0->ref_data) { // re-read, this time with data
+		if (mref0->ref_cs_mode > 1) { // re-read, this time with data
 			_clear_mref(brick, index, 0);
 			next_state = COPY_STATE_START;
-			st->state = next_state;
 			status = _make_mref(brick, index, 0, NULL, pos, brick->copy_end, READ, 0);
 			if (unlikely(status < 0)) {
 				MARS_WRN("status = %d\n", status);
-				goto done;
+				break;
 			}
 			next_state = COPY_STATE_READ3;
 			break;
 		}
 		next_state = COPY_STATE_WRITE;
-		st->state = next_state;
 		/* fallthrough */
 	case COPY_STATE_WRITE:
 		/* Obey ordering to get a strict "append" behaviour.
@@ -405,26 +407,34 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 		 * Currenty, bio and aio are obeying this. Be careful when
 		 * implementing new IO bricks!
 		 */
-		if (st->prev >= 0 && brick->st[st->prev].state <= COPY_STATE_WRITE) {
-			goto done;
+		if (st->prev >= 0 && !brick->st[st->prev].writeout) {
+			goto idle;
 		}
 		mref0 = st->table[0];
 		if (unlikely(!mref0 || !mref0->ref_data)) {
 			MARS_ERR("src buffer for write does not exist, state %d at index %d\n", state, index);
 			status = -EILSEQ;
-			goto done;
+			break;
 		}
 		if (brick->is_aborting || kthread_should_stop())
-			goto done;
+			break;
 		/* start writeout */
 		status = _make_mref(brick, index, 1, mref0->ref_data, pos, pos + mref0->ref_len, WRITE, 0);
+		st->writeout = true;
 		next_state = COPY_STATE_WRITTEN;
-		break;
+		/* fallthrough */
 	case COPY_STATE_WRITTEN:
 		mref1 = st->table[1];
 		if (!mref1) { // idempotence: wait by unchanged state
 			MARS_IO("irrelevant\n");
-			goto done;
+			goto idle;
+		}
+		// rechecking means to start over again
+		if (brick->recheck_mode && brick->repair_mode) {
+			_clear_mref(brick, index, 1);
+			_clear_mref(brick, index, 0);
+			next_state = COPY_STATE_START;
+			break;
 		}
 		next_state = COPY_STATE_CLEANUP;
 		/* fallthrough */
@@ -432,26 +442,31 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 		_clear_mref(brick, index, 1);
 		_clear_mref(brick, index, 0);
 		next_state = COPY_STATE_FINISHED;
-		break;
+		/* fallthrough */
 	case COPY_STATE_FINISHED:
 		/* Indicate successful completion by remaining in this state.
 		 * Restart of the finite automaton must be done externally.
 		 */
-		goto done;
+		goto idle;
 	default:
 		MARS_ERR("illegal state %d at index %d\n", state, index);
 		_clash(brick);
 		status = -EILSEQ;
 	}
 
+	do_restart = (st->state != next_state);
+
+idle:
+	MARS_IO("index = %d next_state = %d pos = %lld table[0]=%p table[1]=%p\n", index, next_state, pos, st->table[0], st->table[1]);
+
 	st->state = next_state;
 	if (status < 0) {
 		st->error = status;
 		MARS_WRN("status = %d\n", status);
 		_clash(brick);
+	} else if (do_restart) {
+		goto restart;
 	}
-	
-done:
 	return status;
 }
 
@@ -488,7 +503,6 @@ int _run_copy(struct copy_brick *brick)
 		int index = GET_INDEX(pos);
 		struct copy_state *st = &brick->st[index];
 
-		//MARS_IO("pos = %lld\n", pos);
 		if (max-- <= 0) {
 			break;
 		}
@@ -498,7 +512,6 @@ int _run_copy(struct copy_brick *brick)
 		if (!st->active[0] && !st->active[1]) {
 			int status;
 			status = _next_state(brick, index, pos);
-			MARS_IO("index = %d pos = %lld status 0 %d\n", index, pos, status);
 			limit = pos;
 		}
 	}

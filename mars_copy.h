@@ -29,6 +29,7 @@ struct copy_state {
 	struct mref_object *table[2];
 	bool active[2];
 	char state;
+	bool writeout;
 	short prev;
 	short len;
 	short error;
@@ -47,10 +48,11 @@ struct copy_brick {
 	loff_t copy_end; // stop working if == 0
 	int io_prio;
 	int append_mode; // 1 = passively, 2 = actively
-	bool verify_mode;
+	bool verify_mode; // 0 = copy, 1 = checksum+compare
 	bool repair_mode; // whether to repair in case of verify errors
+	bool recheck_mode; // whether to re-check after repairs (costs performance)
 	bool utilize_mode; // utilize already copied data
-	bool abort_mode; // abort on IO error (default is retry forever)
+	bool abort_mode;  // abort on IO error (default is retry forever)
 	// readonly from outside
 	loff_t copy_last; // current working position
 	int copy_error;
