@@ -221,6 +221,15 @@ ctl_table mars_table[] = {
 #endif
 	{
 		.ctl_name       = CTL_UNNUMBERED,
+		.procname	= "network_io_timeout",
+		.data           = &global_net_io_timeout,
+		.maxlen         = sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+		.strategy       = &sysctl_intvec,
+	},
+	{
+		.ctl_name       = CTL_UNNUMBERED,
 		.procname	= "network_traffic_limit_kb",
 		.data           = &client_limiter.lim_max_rate,
 		.maxlen         = sizeof(int),

@@ -370,6 +370,10 @@ static
 void _do_timeout(struct client_output *output, struct list_head *anchor, bool force)
 {
 	struct client_brick *brick = output->brick;
+	int rounds = 0;
+	int io_timeout = brick->io_timeout;
+	if (io_timeout <= 0)
+		io_timeout = global_net_io_timeout;
 
 	while (!list_empty(anchor)) {
 		struct list_head *tmp;
@@ -385,16 +389,17 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, bool fo
 		mref_a = container_of(tmp, struct client_mref_aspect, io_head);
 		mref = mref_a->object;
 
-		if (!force) {
-			int io_timeout = brick->io_timeout;
-			if (io_timeout <= 0)
-				io_timeout = global_net_io_timeout;
-			if (io_timeout <= 0 || !time_is_before_jiffies(mref_a->submit_jiffies + io_timeout * HZ)) {
-				break;
-			}
+		if (!force &&
+		    (io_timeout <= 0 || !time_is_before_jiffies(mref_a->submit_jiffies + io_timeout * HZ))) {
+			break;
 		}
 
-		MARS_DBG("signalling IO error at pos = %lld len = %d\n", mref->ref_pos, mref->ref_len);
+		if (!rounds++) {
+			MARS_WRN("timeout after %d: signalling IO error at pos = %lld len = %d\n",
+				 io_timeout,
+				 mref->ref_pos,
+				 mref->ref_len);
+		}
 		atomic_inc(&output->timeout_count);
 
 		hash_index = mref->ref_id % CLIENT_HASH_MAX;
@@ -439,9 +444,9 @@ static int sender_thread(void *data)
 			status = _connect(output, brick->brick_name);
 			MARS_IO("connect status = %d\n", status);
 			if (unlikely(status < 0)) {
+				msleep(3000);
 				_do_timeout(output, &output->wait_list, false);
 				_do_timeout(output, &output->mref_list, false);
-				msleep(3000);
 				continue;
 			}
 			do_kill = true;
@@ -455,6 +460,7 @@ static int sender_thread(void *data)
 			traced_lock(&output->lock, flags);
 			_do_resubmit(output);
 			traced_unlock(&output->lock, flags);
+			_do_timeout(output, &output->mref_list, false);
 		}
 
 		wait_event_interruptible_timeout(output->event, !list_empty(&output->mref_list) || output->get_info || kthread_should_stop(), 1 * HZ);
