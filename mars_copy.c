@@ -164,9 +164,19 @@ void copy_endio(struct generic_callback *cb)
 		goto exit;
 	}
 	if (unlikely(cb->cb_error < 0)) {
-		MARS_WRN("IO error %d on index %d, old state = %d\n", cb->cb_error, index, st->state);
 		error = cb->cb_error;
-	} else if (likely(!st->error)) {
+		__clear_mref(brick, mref, queue);
+		/* This is racy, but does no harm.
+		 * Worst case just produces more error output.
+		 */
+		if (!brick->copy_error_count++) {
+			MARS_WRN("IO error %d on index %d, old state = %d\n", cb->cb_error, index, st->state);
+		}
+	} else {
+		if (unlikely(st->table[queue])) {
+			MARS_ERR("overwriting index %d, state = %d\n", index, st->state);
+			_clear_mref(brick, index, queue);
+		}
 		st->table[queue] = mref;
 	}
 
@@ -174,7 +184,6 @@ exit:
 	if (unlikely(error < 0)) {
 		st->error = error;
 		_clash(brick);
-		__clear_mref(brick, mref, queue);
 	}
 	st->active[queue] = false;
 	atomic_dec(&brick->copy_flight);
@@ -283,13 +292,14 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 	char next_state;
 	bool do_restart;
 	int cs_mode;
+	int progress = 0;
 	int status;
 
-restart:
 	st = &brick->st[index];
-	state = st->state;
-	next_state = state;
-	status = 0;
+	next_state = st->state;
+
+restart:
+	state = next_state;
 	do_restart = false;
 
 	MARS_IO("index = %d state = %d pos = %lld table[0]=%p table[1]=%p\n", index, state, pos, st->table[0], st->table[1]);
@@ -298,7 +308,7 @@ restart:
 	case COPY_STATE_START:
 		if (st->table[0] || st->table[1]) {
 			MARS_ERR("index %d not startable\n", index);
-			status = -EPROTO;
+			progress = -EPROTO;
 			goto idle;
 		}
 
@@ -306,7 +316,7 @@ restart:
 		st->active[1] = false;
 		st->writeout = false;
 		st->error = 0;
-		if (brick->is_aborting || kthread_should_stop())
+		if (brick->is_aborting)
 			goto idle;
 
 		_clear_mref(brick, index, 1);
@@ -319,6 +329,7 @@ restart:
 		status = _make_mref(brick, index, 0, NULL, pos, brick->copy_end, READ, cs_mode);
 		if (unlikely(status < 0)) {
 			MARS_WRN("status = %d\n", status);
+			progress = status;
 			break;
 		}
 
@@ -331,6 +342,7 @@ restart:
 		status = _make_mref(brick, index, 1, NULL, pos, brick->copy_end, READ, cs_mode);
 		if (unlikely(status < 0)) {
 			MARS_WRN("status = %d\n", status);
+			progress = status;
 			break;
 		}
 		break;
@@ -389,6 +401,7 @@ restart:
 			status = _make_mref(brick, index, 0, NULL, pos, brick->copy_end, READ, 0);
 			if (unlikely(status < 0)) {
 				MARS_WRN("status = %d\n", status);
+				progress = status;
 				break;
 			}
 			next_state = COPY_STATE_READ3;
@@ -413,13 +426,22 @@ restart:
 		mref0 = st->table[0];
 		if (unlikely(!mref0 || !mref0->ref_data)) {
 			MARS_ERR("src buffer for write does not exist, state %d at index %d\n", state, index);
-			status = -EILSEQ;
+			progress = -EILSEQ;
 			break;
 		}
-		if (brick->is_aborting || kthread_should_stop())
+		if (unlikely(brick->is_aborting)) {
+			_clear_mref(brick, index, 1);
+			_clear_mref(brick, index, 0);
+			next_state = COPY_STATE_START;
 			break;
+		}
 		/* start writeout */
 		status = _make_mref(brick, index, 1, mref0->ref_data, pos, pos + mref0->ref_len, WRITE, 0);
+		if (unlikely(status < 0)) {
+			MARS_WRN("status = %d\n", status);
+			progress = status;
+			break;
+		}
 		st->writeout = true;
 		next_state = COPY_STATE_WRITTEN;
 		/* fallthrough */
@@ -451,23 +473,27 @@ restart:
 	default:
 		MARS_ERR("illegal state %d at index %d\n", state, index);
 		_clash(brick);
-		status = -EILSEQ;
+		progress = -EILSEQ;
 	}
 
-	do_restart = (st->state != next_state);
+	do_restart = (state != next_state);
 
 idle:
 	MARS_IO("index = %d next_state = %d pos = %lld table[0]=%p table[1]=%p\n", index, next_state, pos, st->table[0], st->table[1]);
 
-	st->state = next_state;
-	if (status < 0) {
-		st->error = status;
-		MARS_WRN("status = %d\n", status);
+	if (unlikely(progress < 0)) {
+		st->error = progress;
+		MARS_WRN("progress = %d\n", progress);
+		progress = 0;
 		_clash(brick);
 	} else if (do_restart) {
 		goto restart;
+	} else if (st->state != next_state) {
+		progress++;
 	}
-	return status;
+	// save the resulting state
+	st->state = next_state;
+	return progress;
 }
 
 static
@@ -477,7 +503,7 @@ int _run_copy(struct copy_brick *brick)
 	loff_t pos;
 	loff_t limit = -1;
 	short prev;
-	int res_status = 0;
+	int progress;
 
 	if (unlikely(_clear_clash(brick))) {
 		MARS_DBG("clash\n");
@@ -499,25 +525,24 @@ int _run_copy(struct copy_brick *brick)
 	MARS_IO("max = %d\n", max);
 
 	prev = -1;
+	progress = 0;
 	for (pos = brick->copy_last; pos < brick->copy_end || brick->append_mode > 1; pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
 		int index = GET_INDEX(pos);
 		struct copy_state *st = &brick->st[index];
-
 		if (max-- <= 0) {
 			break;
 		}
 		st->prev = prev;
 		prev = index;
 		// call the finite state automaton
-		if (!st->active[0] && !st->active[1]) {
-			int status;
-			status = _next_state(brick, index, pos);
+		if (!(st->active[0] | st->active[1])) {
+			progress += _next_state(brick, index, pos);
 			limit = pos;
 		}
 	}
 
 	// check the resulting state: can we advance the copy_last pointer?
-	if (likely(!brick->clash)) {
+	if (likely(progress && !brick->clash)) {
 		int count = 0;
 		for (pos = brick->copy_last; pos <= limit; pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
 			int index = GET_INDEX(pos);
@@ -527,7 +552,13 @@ int _run_copy(struct copy_brick *brick)
 			}
 			st->state = COPY_STATE_START;
 			if (unlikely(st->error < 0)) {
-				res_status = st->error;
+				if (!brick->copy_error) {
+					brick->copy_error = st->error;
+					MARS_WRN("IO error = %d\n", st->error);
+				}
+				if (brick->abort_mode) {
+					brick->is_aborting = true;
+				}
 				break;
 			}
 			count += st->len;
@@ -542,22 +573,26 @@ int _run_copy(struct copy_brick *brick)
 			_update_percent(brick);
 		}
 	}
-	return res_status;
+	return progress;
 }
 
 static
 bool _is_done(struct copy_brick *brick)
 {
-	return (brick->is_aborting || kthread_should_stop())
-		&& atomic_read(&brick->copy_flight) <= 0;
+	if (kthread_should_stop())
+		brick->is_aborting = true;
+	return brick->is_aborting &&
+		atomic_read(&brick->copy_flight) <= 0;
 }
 
 static int _copy_thread(void *data)
 {
 	struct copy_brick *brick = data;
+	int rounds = 0;
 
 	MARS_DBG("--------------- copy_thread %p starting\n", brick);
 	brick->copy_error = 0;
+	brick->copy_error_count = 0;
 	brick->verify_ok_count = 0;
 	brick->verify_error_count = 0;
 	mars_power_led_on((void*)brick, true);
@@ -566,22 +601,21 @@ static int _copy_thread(void *data)
         while (!_is_done(brick)) {
 		loff_t old_start = brick->copy_start;
 		loff_t old_end = brick->copy_end;
+		int progress = 0;
 		if (old_end > 0) {
-			int status = _run_copy(brick);
-			if (unlikely(status < 0)) {
-				brick->copy_error = status;
-				if (brick->abort_mode && !brick->is_aborting) {
-					MARS_WRN("IO error, terminating prematurely, status = %d\n", status);
-					brick->is_aborting = true;
-				}
-				MARS_WRN("IO error, status = %d\n", status);
+			progress = _run_copy(brick);
+			if (!progress || ++rounds > 1000) {
+				rounds = 0;
+				schedule(); // yield
 			}
-			msleep(10); // yield FIXME: remove this, use event handling for over/underflow
 		}
 
 		wait_event_interruptible_timeout(brick->event,
-						 brick->trigger || brick->copy_start != old_start || brick->copy_end != old_end || _is_done(brick),
-
+						 progress > 0 ||
+						 brick->trigger ||
+						 brick->copy_start != old_start ||
+						 brick->copy_end != old_end ||
+						 _is_done(brick),
 						 1 * HZ);
 		brick->trigger = false;
 	}
@@ -686,6 +720,7 @@ char *copy_statistics(struct copy_brick *brick, int verbose)
 		 "copy_last = %lld "
 		 "copy_end = %lld "
 		 "copy_error = %d "
+		 "copy_error_count = %d "
 		 "verify_ok_count = %d "
 		 "verify_error_count = %d "
 		 "low_dirty = %d "
@@ -697,6 +732,7 @@ char *copy_statistics(struct copy_brick *brick, int verbose)
 		 brick->copy_last,
 		 brick->copy_end,
 		 brick->copy_error,
+		 brick->copy_error_count,
 		 brick->verify_ok_count,
 		 brick->verify_error_count,
 		 brick->low_dirty,

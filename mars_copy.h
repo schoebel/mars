@@ -56,6 +56,7 @@ struct copy_brick {
 	// readonly from outside
 	loff_t copy_last; // current working position
 	int copy_error;
+	int copy_error_count;
 	int verify_ok_count;
 	int verify_error_count;
 	bool low_dirty;
