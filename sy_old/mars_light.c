@@ -1435,9 +1435,29 @@ int _update_versionlink(struct mars_global *global, const char *parent_path, con
 	 * useless/disturbing timestamp updates)
 	 */
 	check = mars_find_dent(global, new);
-	if (check && check->new_link && !strcmp(check->new_link, old)) {
-		MARS_DBG("version symlink '%s' -> '%s' has not changed\n", old, new);
-		goto out;
+	if (likely(check && check->new_link)) {
+		loff_t old_start_pos;
+		loff_t old_end_pos;
+		int count;
+		int pos;
+		if (!strcmp(check->new_link, old)) {
+			MARS_DBG("version symlink '%s' -> '%s' has not changed\n", old, new);
+			goto out;
+		}
+		count = 0;
+		pos = 0;
+		do {
+			if (unlikely(!check->new_link[pos])) {
+				MARS_ERR("cannot scan old version symlink '%s', pos=%d\n", check->new_link, pos);
+				goto out;
+			}
+		} while (check->new_link[pos++] != ',' || !count++);
+		count = sscanf(check->new_link + pos, "%lld,%lld", &old_start_pos, &old_end_pos);
+		if (unlikely(count != 2)) {
+			MARS_ERR("cannot sscanf() old version symlink '%s', pos=%d, count=%d\n", check->new_link, pos, count);
+		} else if (unlikely(old_start_pos > start_pos || old_end_pos > end_pos)) {
+			MARS_ERR("BACKSKIP old version symlink '%s', new host='%s', sequence=%d, start_pos=%lld, end_pos=%lld\n", check->new_link, host, sequence, start_pos, end_pos);
+		}
 	}
 
 	get_lamport(&now);
