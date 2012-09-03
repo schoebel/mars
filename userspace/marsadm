@@ -606,6 +606,7 @@ sub logdelete_res {
 
   do {
     my $first = shift(@paths);
+    last unless $first;
     print "chosen '$first' for deletion\n";
     $nr = $first;
     $nr =~ s/^.*log-([0-9]+)-.+$/$1/;
