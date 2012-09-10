@@ -1,0 +1,209 @@
+commit ef30fa053dc9f9593b464271878e5e08ab897ef8
+Author: Thomas Schoebel-Theuer <tst@1und1.de>
+Date:   Mon Feb 13 08:55:36 2012 +0100
+
+    pre-patch for mars
+    
+    mostly introduces missint EXPORT_SYMBOL()
+
+diff --git a/block/Kconfig b/block/Kconfig
+index e97934e..9e9201a 100644
+--- a/block/Kconfig
++++ b/block/Kconfig
+@@ -99,6 +99,8 @@ config BLK_DEV_THROTTLING
+ 
+ 	See Documentation/cgroups/blkio-controller.txt for more information.
+ 
++source block/mars/Kconfig
++
+ endif # BLOCK
+ 
+ config BLOCK_COMPAT
+diff --git a/block/Makefile b/block/Makefile
+index 514c6e4..97dbbd4 100644
+--- a/block/Makefile
++++ b/block/Makefile
+@@ -17,3 +17,5 @@ obj-$(CONFIG_IOSCHED_CFQ)	+= cfq-iosched.o
+ 
+ obj-$(CONFIG_BLOCK_COMPAT)	+= compat_ioctl.o
+ obj-$(CONFIG_BLK_DEV_INTEGRITY)	+= blk-integrity.o
++
++obj-$(CONFIG_MARS)		+= mars/
+diff --git a/fs/aio.c b/fs/aio.c
+index 3b65ee7..de4ff1f 100644
+--- a/fs/aio.c
++++ b/fs/aio.c
+@@ -1346,6 +1346,7 @@ SYSCALL_DEFINE2(io_setup, unsigned, nr_events, aio_context_t __user *, ctxp)
+ out:
+ 	return ret;
+ }
++EXPORT_SYMBOL(sys_io_setup);
+ 
+ /* sys_io_destroy:
+  *	Destroy the aio_context specified.  May cancel any outstanding 
+@@ -1363,6 +1364,7 @@ SYSCALL_DEFINE1(io_destroy, aio_context_t, ctx)
+ 	pr_debug("EINVAL: io_destroy: invalid context id\n");
+ 	return -EINVAL;
+ }
++EXPORT_SYMBOL(sys_io_destroy);
+ 
+ static void aio_advance_iovec(struct kiocb *iocb, ssize_t ret)
+ {
+@@ -1751,6 +1753,7 @@ long do_io_submit(aio_context_t ctx_id, long nr,
+ 	put_ioctx(ctx);
+ 	return i ? i : ret;
+ }
++EXPORT_SYMBOL(sys_io_submit);
+ 
+ /* sys_io_submit:
+  *	Queue the nr iocbs pointed to by iocbpp for processing.  Returns
+@@ -1848,6 +1851,7 @@ SYSCALL_DEFINE3(io_cancel, aio_context_t, ctx_id, struct iocb __user *, iocb,
+ 
+ 	return ret;
+ }
++EXPORT_SYMBOL(sys_io_cancel);
+ 
+ /* io_getevents:
+  *	Attempts to read at least min_nr events and up to nr events from
+@@ -1880,3 +1884,4 @@ SYSCALL_DEFINE5(io_getevents, aio_context_t, ctx_id,
+ 	asmlinkage_protect(5, ret, ctx_id, min_nr, nr, events, timeout);
+ 	return ret;
+ }
++EXPORT_SYMBOL(sys_io_getevents);
+diff --git a/fs/namei.c b/fs/namei.c
+index 9680cef..ff29db5 100644
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -3399,12 +3399,16 @@ EXPORT_SYMBOL(vfs_create);
+ EXPORT_SYMBOL(vfs_follow_link);
+ EXPORT_SYMBOL(vfs_link);
+ EXPORT_SYMBOL(vfs_mkdir);
++EXPORT_SYMBOL(sys_mkdir);
+ EXPORT_SYMBOL(vfs_mknod);
+ EXPORT_SYMBOL(generic_permission);
+ EXPORT_SYMBOL(vfs_readlink);
+ EXPORT_SYMBOL(vfs_rename);
++EXPORT_SYMBOL(sys_rename);
+ EXPORT_SYMBOL(vfs_rmdir);
+ EXPORT_SYMBOL(vfs_symlink);
++EXPORT_SYMBOL(sys_symlink);
+ EXPORT_SYMBOL(vfs_unlink);
++EXPORT_SYMBOL(sys_unlink);
+ EXPORT_SYMBOL(dentry_unhash);
+ EXPORT_SYMBOL(generic_readlink);
+diff --git a/fs/open.c b/fs/open.c
+index e2b5d51..4e22bad 100644
+--- a/fs/open.c
++++ b/fs/open.c
+@@ -545,6 +545,7 @@ out_release:
+ out:
+ 	return error;
+ }
++EXPORT_SYMBOL(sys_chmod);
+ 
+ SYSCALL_DEFINE5(fchownat, int, dfd, const char __user *, filename, uid_t, user,
+ 		gid_t, group, int, flag)
+@@ -591,6 +592,7 @@ out_release:
+ out:
+ 	return error;
+ }
++EXPORT_SYMBOL(sys_lchown);
+ 
+ SYSCALL_DEFINE3(fchown, unsigned int, fd, uid_t, user, gid_t, group)
+ {
+diff --git a/fs/utimes.c b/fs/utimes.c
+index ba653f3..f021ea4 100644
+--- a/fs/utimes.c
++++ b/fs/utimes.c
+@@ -1,3 +1,4 @@
++#include <linux/module.h>
+ #include <linux/compiler.h>
+ #include <linux/file.h>
+ #include <linux/fs.h>
+@@ -170,6 +171,7 @@ long do_utimes(int dfd, const char __user *filename, struct timespec *times,
+ out:
+ 	return error;
+ }
++EXPORT_SYMBOL(do_utimes);
+ 
+ SYSCALL_DEFINE4(utimensat, int, dfd, const char __user *, filename,
+ 		struct timespec __user *, utimes, int, flags)
+diff --git a/include/linux/major.h b/include/linux/major.h
+index 6a8ca98..faf6692 100644
+--- a/include/linux/major.h
++++ b/include/linux/major.h
+@@ -146,6 +146,7 @@
+ #define UNIX98_PTY_SLAVE_MAJOR	(UNIX98_PTY_MASTER_MAJOR+UNIX98_PTY_MAJOR_COUNT)
+ 
+ #define DRBD_MAJOR		147
++#define MARS_MAJOR		148
+ #define RTF_MAJOR		150
+ #define RAW_MAJOR		162
+ 
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index 1e86bb4..4b6ab71 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -1433,6 +1433,9 @@ struct task_struct {
+ 	/* mutex deadlock detection */
+ 	struct mutex_waiter *blocked_on;
+ #endif
++#ifdef CONFIG_DEBUG_SPINLOCK
++	atomic_t lock_count;
++#endif
+ #ifdef CONFIG_TRACE_IRQFLAGS
+ 	unsigned int irq_events;
+ 	unsigned long hardirq_enable_ip;
+diff --git a/lib/debug_locks.c b/lib/debug_locks.c
+index b1c1773..1d312c0 100644
+--- a/lib/debug_locks.c
++++ b/lib/debug_locks.c
+@@ -44,3 +44,4 @@ int debug_locks_off(void)
+ 	}
+ 	return 0;
+ }
++EXPORT_SYMBOL(debug_locks_off);
+diff --git a/mm/mmu_context.c b/mm/mmu_context.c
+index cf332bc..19cd576 100644
+--- a/mm/mmu_context.c
++++ b/mm/mmu_context.c
+@@ -7,6 +7,7 @@
+ #include <linux/mmu_context.h>
+ #include <linux/export.h>
+ #include <linux/sched.h>
++#include <linux/module.h>
+ 
+ #include <asm/mmu_context.h>
+ 
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 6e51bf0..671c322 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -176,6 +176,7 @@ static char * const zone_names[MAX_NR_ZONES] = {
+ };
+ 
+ int min_free_kbytes = 1024;
++EXPORT_SYMBOL(min_free_kbytes);
+ 
+ static unsigned long __meminitdata nr_kernel_pages;
+ static unsigned long __meminitdata nr_all_pages;
+@@ -5230,6 +5231,7 @@ void setup_per_zone_wmarks(void)
+ 	/* update totalreserve_pages */
+ 	calculate_totalreserve_pages();
+ }
++EXPORT_SYMBOL(setup_per_zone_wmarks);
+ 
+ /*
+  * The inactive anon list should be small enough that the VM never has to
+diff --git a/mm/swap_state.c b/mm/swap_state.c
+index 7704d9c..16a989b 100644
+--- a/mm/swap_state.c
++++ b/mm/swap_state.c
+@@ -43,6 +43,7 @@ struct address_space swapper_space = {
+ 	.i_mmap_nonlinear = LIST_HEAD_INIT(swapper_space.i_mmap_nonlinear),
+ 	.backing_dev_info = &swap_backing_dev_info,
+ };
++EXPORT_SYMBOL(swapper_space);
+ 
+ #define INC_CACHE_INFO(x)	do { swap_cache_info.x++; } while (0)
+ 
