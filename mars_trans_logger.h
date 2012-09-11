@@ -182,14 +182,15 @@ struct trans_logger_input {
 	// parameters
 	loff_t log_start_pos; // where to start logging
 	// informational
-	long long last_jiffies;
 	char *inf_host;
 	int inf_sequence;     // logfile sequence number
 	bool is_prepared;
+	bool is_deletable;
 	// readonly from outside
+	bool is_operating;
+	long long last_jiffies;
 	loff_t replay_min_pos;  // current replay position (both in replay mode and in logging mode)
 	loff_t replay_max_pos;  // dito, indicating the "dirty" area which could be potentially "inconsistent"
-	bool is_operating;
 
 	// private
 	struct log_status logst;

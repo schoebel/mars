@@ -2117,6 +2117,7 @@ void __exit_trans_input(struct trans_logger_input *trans_input)
 	brick_string_free(trans_input->inf_host);
 	trans_input->inf_host = NULL;
 	trans_input->is_prepared = false;
+	trans_input->is_deletable = true;
 }
 
 static
@@ -2165,23 +2166,21 @@ void _rotate_trans(struct mars_rotate *rot)
 			if (status < 0) {
 				MARS_ERR("disconnect failed\n");
 			} else {
-				MARS_INF("closed old transaction log (%d -> %d)\n", old_nr, log_nr);
+				MARS_INF("closing old transaction log (%d -> %d)\n", old_nr, log_nr);
 				if (likely(rot->replay_link && rot->replay_link->d_parent && rot->replay_link->d_parent->d_path)) {
 					(void)_update_all_links(rot->global, rot->replay_link->d_parent->d_path, trans_brick, trans_input->inf_host, trans_input->inf_sequence, false, true, false);
 				} else {
 					MARS_ERR("bad pointers\n");
 				}
 				_exit_trans_input(trans_input);
-				trans_brick->old_input_nr = old_nr = log_nr;
 				mars_remote_trigger();
 			}
 		} else {
 			MARS_DBG("old transaction replay not yet finished: %lld != %lld\n", trans_input->replay_min_pos, trans_input->replay_max_pos);
 		}
-	} 
+	} else
 	// try to setup new log
-	if (log_nr == old_nr &&
-	    log_nr == trans_brick->new_input_nr &&
+	if (log_nr == trans_brick->new_input_nr &&
 	    rot->next_relevant_log &&
 	    (next_nr = _get_free_input(trans_brick)) >= 0 &&
 	    trans_brick->inputs[next_nr] &&

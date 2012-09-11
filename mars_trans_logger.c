@@ -2089,10 +2089,13 @@ void _exit_inputs(struct trans_logger_brick *brick, bool force)
 		struct trans_logger_input *input = brick->inputs[i];
 		struct log_status *logst = &input->logst;
 		if (force ||
-		    (input->is_operating &&!input->connect)) {
+		    (!input->connect &&
+		     input->is_operating &&
+		     input->is_deletable)) {
 			MARS_DBG("cleaning up input %d (log = %d old = %d)\n", i, brick->log_input_nr, brick->old_input_nr);
 			exit_logst(logst);
 			input->is_operating = false;
+			input->is_deletable = false;
 			if (i == brick->old_input_nr)
 				brick->old_input_nr = brick->log_input_nr;
 		}
