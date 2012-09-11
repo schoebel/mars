@@ -1457,6 +1457,10 @@ int _update_versionlink(struct mars_global *global, const char *parent_path, con
 			MARS_ERR("cannot sscanf() old version symlink '%s', pos=%d, count=%d\n", check->new_link, pos, count);
 		} else if (unlikely(old_start_pos > start_pos || old_end_pos > end_pos)) {
 			MARS_ERR("BACKSKIP old version symlink '%s', new host='%s', sequence=%d, start_pos=%lld, end_pos=%lld\n", check->new_link, host, sequence, start_pos, end_pos);
+		} else { // update dent
+			brick_string_free(check->old_link);
+			check->old_link = check->new_link;
+			check->new_link = brick_strdup(old);
 		}
 	}
 
