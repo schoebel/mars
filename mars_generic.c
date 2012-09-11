@@ -101,7 +101,8 @@ EXPORT_SYMBOL_GPL(mars_timespec_meta);
 
 #include <linux/crypto.h>
 
-struct crypto_hash *mars_tfm = NULL;
+static struct crypto_hash *mars_tfm = NULL;
+static struct semaphore tfm_sem = __SEMAPHORE_INITIALIZER(tfm_sem, 1);
 int mars_digest_size = 0;
 EXPORT_SYMBOL_GPL(mars_digest_size);
 
@@ -115,11 +116,15 @@ void mars_digest(unsigned char *digest, void *data, int len)
 
 	memset(digest, 0, mars_digest_size);
 
+	// TODO: use per-thread instance, omit locking
+	down(&tfm_sem);
+
 	crypto_hash_init(&desc);
 	sg_init_table(&sg, 1);
 	sg_set_buf(&sg, data, len);
 	crypto_hash_update(&desc, &sg, sg.length);
 	crypto_hash_final(&desc, digest);
+	up(&tfm_sem);
 }
 EXPORT_SYMBOL_GPL(mars_digest);
 
