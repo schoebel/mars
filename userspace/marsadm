@@ -330,7 +330,6 @@ sub _fake_versionlink {
   $prev =~ s/^log-([0-9]+)-.*$/$1/;
   $prev--;
   if($prev > 0) {
-    print "creating faked version symlink...\n";
     my $prevversion = sprintf("$basedir/version-%09d-$primary", $prev);
     my $prevlink = readlink($prevversion);
     if (!$prevlink) { # try any one else
@@ -338,10 +337,15 @@ sub _fake_versionlink {
       my @test = glob($prevversion);
       $prevlink = shift @test;
     }
-    die "cannot read symlink '$prevversion'\n" unless $prevlink;
-    my $myversion = sprintf("$basedir/version-%09d-$host", $prev);
-    symlink($prevlink, "$myversion.tmp") or die "cannot create faked version symlink '$myversion'\n";
-    system("mv $myversion.tmp $myversion");
+    if ($prevlink) {
+      print "creating faked version symlink...\n";
+      my $myversion = sprintf("$basedir/version-%09d-$host", $prev);
+      system("rm -f $myversion.tmp");
+      symlink($prevlink, "$myversion.tmp") or die "cannot create faked version symlink '$myversion'\n";
+      system("mv $myversion.tmp $myversion");
+    } else {
+      warn "cannot read symlink '$prevversion' -- cannot create fake\n";
+    }
   }
 }
 
