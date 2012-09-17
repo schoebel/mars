@@ -57,7 +57,7 @@ void mars_limit_sleep(struct mars_limiter *lim, int amount)
 	if (sleep > 0) {
 		if (sleep > 1000)
 			sleep = 1000;
-		msleep(sleep);
+		brick_msleep(sleep);
 	}
 }
 

@@ -93,7 +93,7 @@ static void check_endio(struct generic_callback *cb)
 
 	return;
 fatal:
-	msleep(60000);
+	brick_msleep(60000);
 	return;
 }
 
@@ -132,7 +132,7 @@ static int check_watchdog(void *data)
 		unsigned long flags;
 		unsigned long now;
 
-		msleep(5000);
+		brick_msleep(5000);
 
 		traced_lock(&output->check_lock, flags);
 

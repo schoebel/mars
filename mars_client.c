@@ -212,9 +212,9 @@ static void client_ref_io(struct client_output *output, struct mref_object *mref
 	while (output->brick->max_flying > 0 && atomic_read(&output->fly_count) > output->brick->max_flying) {
 		MARS_IO("sleeping request pos = %lld len = %d rw = %d (flying = %d)\n", mref->ref_pos, mref->ref_len, mref->ref_rw, atomic_read(&output->fly_count));
 #ifdef IO_DEBUGGING
-		msleep(3000);
+		brick_msleep(3000);
 #else
-		msleep(1000 * 2 / HZ);
+		brick_msleep(1000 * 2 / HZ);
 #endif
 	}
 
@@ -439,13 +439,13 @@ static int sender_thread(void *data)
 			if (do_kill) {
 				do_kill = false;
 				_kill_socket(output);
-				msleep(3000);
+				brick_msleep(3000);
 			}
 
 			status = _connect(output, brick->brick_name);
 			MARS_IO("connect status = %d\n", status);
 			if (unlikely(status < 0)) {
-				msleep(3000);
+				brick_msleep(3000);
 				_do_timeout(output, &output->wait_list, false);
 				_do_timeout(output, &output->mref_list, false);
 				continue;
@@ -472,7 +472,7 @@ static int sender_thread(void *data)
 				output->get_info = false;
 			} else {
 				MARS_WRN("cannot get info, status = %d\n", status);
-				msleep(1000);
+				brick_msleep(1000);
 			}
 		}
 
@@ -505,7 +505,7 @@ static int sender_thread(void *data)
 				do_kill = false;
 				_kill_socket(output);
 			}
-			msleep(3000);
+			brick_msleep(3000);
 			continue;
 		}
 

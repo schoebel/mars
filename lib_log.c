@@ -17,7 +17,7 @@ void exit_logst(struct log_status *logst)
 	while (atomic_read(&logst->mref_flying) > 0) {
 		if (!count++)
 			MARS_DBG("waiting for IO terminating...");
-		msleep(500);
+		brick_msleep(500);
 	}
 	if (logst->read_mref) {
 		MARS_DBG("putting read_mref\n");
@@ -232,7 +232,7 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 				MARS_ERR("mref_get() failed, status = %d\n", status);
 				goto err_free;
 			}
-			msleep(100);
+			brick_msleep(100);
 		}
 
 		mars_trace(mref, "log_start");

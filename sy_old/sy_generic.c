@@ -587,7 +587,7 @@ restart:
 		dent->d_version = version;
 
 #ifdef CONFIG_MARS_USE_SYSLOG
-		msleep(10); // yield
+		brick_msleep(10); // yield
 #endif
 
 		//MARS_IO("reading inode '%s'\n", dent->d_path);
@@ -627,7 +627,7 @@ restart:
 	for (tmp = global->dent_anchor.next, next = tmp->next; tmp != &global->dent_anchor; tmp = next, next = next->next) {
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
 #ifdef CONFIG_MARS_USE_SYSLOG
-		msleep(10); // yield
+		brick_msleep(10); // yield
 #else
 		schedule();
 #endif
@@ -661,7 +661,7 @@ restart:
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
 		up_read(&global->dent_mutex);
 #ifdef CONFIG_MARS_USE_SYSLOG
-		msleep(10); // yield
+		brick_msleep(10); // yield
 #else
 		schedule();
 #endif
@@ -681,7 +681,7 @@ restart:
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
 		up_read(&global->dent_mutex);
 #ifdef CONFIG_MARS_USE_SYSLOG
-		msleep(10); // yield
+		brick_msleep(10); // yield
 #else
 		schedule();
 #endif

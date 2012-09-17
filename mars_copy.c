@@ -512,7 +512,7 @@ int _run_copy(struct copy_brick *brick)
 			 */
 			_clash(brick);
 			MARS_DBG("re-clash\n");
-			msleep(100);
+			brick_msleep(100);
 			return 0;
 		}
 		_clear_all_mref(brick);

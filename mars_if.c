@@ -334,7 +334,7 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 	/* FIXME: THIS IS PROVISIONARY (use event instead)
 	 */
 	while (unlikely(!brick->power.led_on)) {
-		msleep(100);
+		brick_msleep(100);
 	}
 
 	down(&input->kick_sem);
@@ -767,7 +767,7 @@ static int if_release(struct gendisk *gd, fmode_t mode)
 
 	while ((nr = atomic_read(&input->flying_count)) > 0) {
 		MARS_INF("%d IO requests not yet completed\n", nr);
-		msleep(3000);
+		brick_msleep(3000);
 	}
 
 	if (atomic_dec_and_test(&input->open_count)) {

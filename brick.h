@@ -13,8 +13,8 @@
 
 #define MAX_BRICK_TYPES 64
 
-#define msleep(msecs) brick_msleep(msecs, false)
-extern int brick_msleep(int msecs, bool shorten);
+#define brick_msleep(msecs) _brick_msleep(msecs, false)
+extern int _brick_msleep(int msecs, bool shorten);
 
 /////////////////////////////////////////////////////////////////////////
 

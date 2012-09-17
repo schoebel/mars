@@ -1042,23 +1042,23 @@ int peer_thread(void *data)
 		if (!mars_socket_is_alive(&peer->socket)) {
 			if (peer->socket.s_socket) {
 				_peer_cleanup(peer);
-				msleep(5000);
+				brick_msleep(5000);
 				continue;
 			}
 			if (!mars_net_is_alive) {
-				msleep(1000);
+				brick_msleep(1000);
 				continue;
 			}
 
 			status = mars_create_socket(&peer->socket, &sockaddr, false);
 			if (unlikely(status < 0)) {
 				MARS_INF("no connection to '%s'\n", real_peer);
-				msleep(5000);
+				brick_msleep(5000);
 				continue;
 			}
 			peer->socket.s_shutdown_on_err = true;
 			MARS_DBG("successfully opened socket to '%s'\n", real_peer);
-			msleep(100);
+			brick_msleep(100);
 			continue;
 		}
 
@@ -1077,13 +1077,13 @@ int peer_thread(void *data)
 		if (unlikely(status < 0)) {
 			MARS_WRN("communication error on send, status = %d\n", status);
 			_peer_cleanup(peer);
-			msleep(2000);
+			brick_msleep(2000);
 			continue;
 		}
 		if (cmd.cmd_code == CMD_NOTIFY) {
 			flip = false;
 			pause_time = 0;
-			msleep(1000);
+			brick_msleep(1000);
 			continue;
 		}
 
@@ -1092,7 +1092,7 @@ int peer_thread(void *data)
 		if (unlikely(status < 0)) {
 			MARS_WRN("communication error on receive, status = %d\n", status);
 			_peer_cleanup(peer);
-			msleep(5000);
+			brick_msleep(5000);
 			continue;
 		}
 
@@ -1109,7 +1109,7 @@ int peer_thread(void *data)
 			mars_free_dent_all(NULL, &old_list);
 		}
 
-		msleep(1000);
+		brick_msleep(1000);
 		if (!kthread_should_stop()) {
 			if (pause_time < CONFIG_MARS_PROPAGATE_INTERVAL)
 				pause_time++;
@@ -3794,7 +3794,7 @@ static int light_thread(void *data)
 			mars_mem_percent = 70;
 		brick_global_memlimit = brick_global_memavail * mars_mem_percent / 100;
 
-		msleep(100);
+		brick_msleep(100);
 
 		if (kthread_should_stop()) {
 			_global.global_power.button = false;
@@ -3853,7 +3853,7 @@ static int light_thread(void *data)
 		_show_statist(&_global);
 #endif
 
-		msleep(500);
+		brick_msleep(500);
 
 		wait_event_interruptible_timeout(_global.main_event, _global.main_trigger, CONFIG_MARS_SCAN_INTERVAL * HZ);
 		_global.main_trigger = false;
@@ -3862,7 +3862,7 @@ static int light_thread(void *data)
 done:
 	MARS_INF("-------- cleaning up ----------\n");
 	mars_remote_trigger();
-	msleep(2000);
+	brick_msleep(2000);
 
 	mars_kill_brick_all(&_global, &_global.server_anchor, false);
 	mars_free_dent_all(&_global, &_global.dent_anchor);

@@ -632,7 +632,7 @@ int trans_logger_ref_get(struct trans_logger_output *output, struct mref_object 
 	/* FIXME: THIS IS PROVISIONARY (use event instead)
 	 */
 	while (unlikely(!brick->power.led_on)) {
-		msleep(HZ / 10);
+		brick_msleep(HZ / 10);
 	}
 
 	return _write_ref_get(output, mref_a);
@@ -918,7 +918,7 @@ void free_writeback(struct writeback_info *wb)
 #ifdef LATE_COMPLETE
 		while (!orig_mref_a->is_completed) {
 			MARS_ERR("request %lld (len = %d) was not completed\n", orig_mref->ref_pos, orig_mref->ref_len);
-			msleep(3000);
+			brick_msleep(3000);
 		}
 #endif
 #ifdef OLD_POSCOMPLETE
@@ -1484,7 +1484,7 @@ bool prep_phase_startio(struct trans_logger_mref_aspect *mref_a)
 
 err:
 	MARS_ERR("cannot work\n");
-	msleep(1000);
+	brick_msleep(1000);
 	return false;
 }
 
@@ -2371,7 +2371,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		status = log_read(&input->logst, &lh, &buf, &len);
 		if (status == -EAGAIN) {
 			MARS_DBG("got -EAGAIN\n");
-			msleep(backoff);
+			brick_msleep(backoff);
 			if (backoff < 3000) {
 				backoff += 100;
 			} else {
@@ -2396,7 +2396,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 				brick->replay_end_pos = finished_pos;
 				break;
 			}
-			msleep(1000);
+			brick_msleep(1000);
 			continue;
 		}
 
@@ -2449,7 +2449,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 	mars_trigger();
 
 	while (!kthread_should_stop()) {
-		msleep(500);
+		brick_msleep(500);
 	}
 }
 

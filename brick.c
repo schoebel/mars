@@ -12,7 +12,7 @@
 #include "brick.h"
 #include "brick_mem.h"
 
-int brick_msleep(int msecs, bool shorten)
+int _brick_msleep(int msecs, bool shorten)
 {
 	unsigned long timeout;
 	if (msecs <= 0) {
@@ -29,7 +29,7 @@ int brick_msleep(int msecs, bool shorten)
 
 	return jiffies_to_msecs(timeout);
 }
-EXPORT_SYMBOL_GPL(brick_msleep);
+EXPORT_SYMBOL_GPL(_brick_msleep);
 
 //////////////////////////////////////////////////////////////
 
@@ -708,7 +708,7 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 					struct generic_output *output;
 					struct generic_brick *next;
 					BRICK_DBG("---> i = %d\n", i);
-					//msleep(1000);
+					//brick_msleep(1000);
 					if (!input)
 						continue;
 					output = input->connect;
@@ -727,14 +727,14 @@ int set_recursive_button(struct generic_brick *orig_brick, brick_switch_t mode, 
 				struct generic_output *output = brick->outputs[i];
 				struct list_head *tmp;
 				BRICK_DBG("---> i = %d output = %p\n", i, output);
-				//msleep(1000);
+				//brick_msleep(1000);
 				if (!output)
 					continue;
 				for (tmp = output->output_head.next; tmp && tmp != &output->output_head; tmp = tmp->next) {
 					struct generic_input *input = container_of(tmp, struct generic_input, input_head);
 					struct generic_brick *next = input->brick;
 					BRICK_DBG("----> tmp = %p input = %p next = %p\n", tmp, input, next);
-					//msleep(1000);
+					//brick_msleep(1000);
 					if (unlikely(!next)) {
 						BRICK_ERR("oops, bad brick pointer\n");
 						status = -EINVAL;

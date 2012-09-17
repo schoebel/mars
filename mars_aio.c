@@ -799,7 +799,7 @@ static int aio_submit_thread(void *data)
 				if ((long long)jiffies - mref_a->start_jiffies <= mref->ref_timeout) {
 					if (!_dequeue(tinfo, false)) {
 						atomic_inc(&output->total_msleep_count);
-						msleep(1000 * 4 / HZ);
+						brick_msleep(1000 * 4 / HZ);
 					}
 					_enqueue(tinfo, mref_a, MARS_PRIO_LOW, true);
 					continue;
@@ -834,7 +834,7 @@ static int aio_submit_thread(void *data)
 				break;
 			}
 			atomic_inc(&output->total_delay_count);
-			msleep(sleeptime);
+			brick_msleep(sleeptime);
 			if (sleeptime < 100) {
 				sleeptime += 1000 / HZ;
 			}

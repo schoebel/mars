@@ -63,7 +63,7 @@ int cb_thread(void *data)
 			tmp = brick->cb_read_list.next;
 			if (tmp == &brick->cb_read_list) {
 				traced_unlock(&brick->cb_lock, flags);
-				msleep(1000 / HZ);
+				brick_msleep(1000 / HZ);
 				continue;
 			}
 		}
@@ -670,7 +670,7 @@ static int _server_thread(void *data)
         while (!kthread_should_stop() &&
 	      (!mars_global || !mars_global->global_power.button)) {
 		MARS_DBG("system did not start up\n");
-		msleep(5000);
+		brick_msleep(5000);
 	}
 
 	MARS_INF("-------- server now working on host '%s' ----------\n", id);
@@ -681,18 +681,18 @@ static int _server_thread(void *data)
 			brick = (void*)mars_make_brick(mars_global, NULL, true, &server_brick_type, "server", "server");
 			if (!brick) {
 				MARS_ERR("cannot create server instance\n");
-				msleep(5000);
+				brick_msleep(5000);
 				continue;
 			}
 		}
 
 		status = mars_accept_socket(&brick->handler_socket, &server_socket);
 		if (unlikely(status < 0)) {
-			msleep(500);
+			brick_msleep(500);
 			if (status == -EAGAIN)
 				continue; // without error message
 			MARS_WRN("accept status = %d\n", status);
-			msleep(2000);
+			brick_msleep(2000);
 			continue;
 		}
 		brick->handler_socket.s_shutdown_on_err = true;
@@ -715,7 +715,7 @@ static int _server_thread(void *data)
 		}
 
 		brick = NULL;
-		msleep(1000);
+		brick_msleep(1000);
 		continue;
 
 	err:
@@ -727,7 +727,7 @@ static int _server_thread(void *data)
 			}
 			brick = NULL;
 		}
-		msleep(3000);
+		brick_msleep(3000);
 	}
 
 	MARS_INF("-------- cleaning up ----------\n");

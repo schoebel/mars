@@ -355,7 +355,7 @@ int _mars_send_raw(struct mars_socket *msock, void *buf, int len)
 #endif
 
 		if (status == -EAGAIN) {
-			msleep(sleeptime);
+			brick_msleep(sleeptime);
 			// linearly increasing backoff
 			if (sleeptime < 100) {
 				sleeptime += 1000 / HZ;
@@ -365,12 +365,12 @@ int _mars_send_raw(struct mars_socket *msock, void *buf, int len)
 		if (unlikely(status == -EINTR)) { // ignore it
 			flush_signals(current);
 			MARS_IO("#%d got signal\n", msock->s_debug_nr);
-			msleep(50);
+			brick_msleep(50);
 			continue;
 		}
 		if (unlikely(!status)) {
 			MARS_WRN("#%d EOF from socket upon send_page()\n", msock->s_debug_nr);
-			msleep(50);
+			brick_msleep(50);
 			status = -ECOMM;
 			break;
 		}
@@ -408,7 +408,7 @@ restart:
 		msock->s_pos = 0;
 		msock->s_buffer = brick_block_alloc(0, PAGE_SIZE);
 		if (unlikely(!msock->s_buffer))
-			msleep(100);
+			brick_msleep(100);
 	}
 
 	if (msock->s_pos + rest < PAGE_SIZE) {
@@ -508,7 +508,7 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 		}
 
 		if (status == -EAGAIN) {
-			msleep(sleeptime);
+			brick_msleep(sleeptime);
 			// linearly increasing backoff
 			if (sleeptime < 100) {
 				sleeptime += 1000 / HZ;
@@ -574,7 +574,7 @@ int _mars_send_struct(struct mars_socket *msock, void *data, const struct meta *
 #if 1
 		if (len > 16 * PAGE_SIZE) {
 			MARS_WRN("#%d implausible len=%d, \n", msock->s_debug_nr, len);
-			msleep(30000);
+			brick_msleep(30000);
 			status = -EINVAL;
 			break;
 		}
@@ -687,7 +687,7 @@ int _mars_recv_struct(struct mars_socket *msock, void *data, const struct meta *
 		void *mem;
 		status = mars_recv_raw(msock, &header, sizeof(header), sizeof(header));
 		if (status == -EAGAIN) {
-			msleep(50);
+			brick_msleep(50);
 			continue;
 		}
 		if (status < 0) {
@@ -787,7 +787,7 @@ int _mars_recv_struct(struct mars_socket *msock, void *data, const struct meta *
 				MARS_IO("#%d called from line %d reading extra %d\n", msock->s_debug_nr, line, header.h_len);
 				status = mars_recv_raw(msock, item, header.h_len, header.h_len);
 				while (status == -EAGAIN) {
-					msleep(50);
+					brick_msleep(50);
 					status = mars_recv_raw(msock, item, header.h_len, header.h_len);
 				}
 				if (status >= 0) {
