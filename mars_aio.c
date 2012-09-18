@@ -358,6 +358,9 @@ int aio_start_thread(struct aio_output *output, int i, int(*fn)(void*))
 #if 1 // remove this for migration to kernel/kthread.c
 struct kthread {
         int should_stop;
+#ifdef KTHREAD_WORKER_INIT
+	void *data;
+#endif
         struct completion exited;
 };
 #define to_kthread(tsk) \
@@ -432,7 +435,7 @@ int aio_sync(struct file *file)
 	long long old_jiffies = jiffies;
 #endif
 
-	err = do_sync_mapping_range(file->f_mapping, 0, LLONG_MAX, SYNC_FILE_RANGE_WAIT_BEFORE | SYNC_FILE_RANGE_WRITE | SYNC_FILE_RANGE_WAIT_AFTER);
+	err = filemap_write_and_wait_range(file->f_mapping, 0, LLONG_MAX);
 
 
 #ifdef MEASURE_SYNC

@@ -24,7 +24,7 @@
 static struct mars_socket server_socket = {};
 static struct task_struct *server_thread = NULL;
 static LIST_HEAD(server_list);
-static spinlock_t server_lock = SPIN_LOCK_UNLOCKED;
+static spinlock_t server_lock = __SPIN_LOCK_UNLOCKED(server_lock);
 
 ///////////////////////// own helper functions ////////////////////////
 

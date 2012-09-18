@@ -152,99 +152,107 @@ int mars_max_loadavg = 0;
 EXPORT_SYMBOL_GPL(mars_max_loadavg);
 #endif
 
+#ifdef CTL_UNNUMBERED
+#define _CTL_NAME 		.ctl_name       = CTL_UNNUMBERED,
+#define _CTL_STRATEGY(handler)	.strategy       = &handler,
+#else
+#define _CTL_NAME 		/*empty*/
+#define _CTL_STRATEGY(handler)	/*empty*/
+#endif
+
 static
 ctl_table mars_table[] = {
 	{
-		.ctl_name       = CTL_UNNUMBERED,
+		_CTL_NAME
 		.procname	= "trigger",
 		.mode		= 0200,
 		.proc_handler	= &trigger_sysctl_handler,
 	},
 	{
-		.ctl_name       = CTL_UNNUMBERED,
+		_CTL_NAME
 		.procname	= "warnings",
 		.mode		= 0400,
 		.proc_handler	= &warnings_sysctl_handler,
 	},
 	{
-		.ctl_name       = CTL_UNNUMBERED,
+		_CTL_NAME
 		.procname	= "errors",
 		.mode		= 0400,
 		.proc_handler	= &errors_sysctl_handler,
 	},
 	{
-		.ctl_name       = CTL_UNNUMBERED,
+		_CTL_NAME
 		.procname	= "percent_mem_limit_kb",
 		.data           = &mars_mem_percent,
 		.maxlen         = sizeof(int),
 		.mode		= 0600,
 		.proc_handler	= &proc_dointvec,
-		.strategy       = &sysctl_intvec,
+		_CTL_STRATEGY(sysctl_intvec)
 	},
 	{
-		.ctl_name       = CTL_UNNUMBERED,
+		_CTL_NAME
 		.procname	= "logrot_auto_gb",
 		.data           = &global_logrot_auto,
 		.maxlen         = sizeof(int),
 		.mode		= 0600,
 		.proc_handler	= &proc_dointvec,
-		.strategy       = &sysctl_intvec,
+		_CTL_STRATEGY(sysctl_intvec)
 	},
 	{
-		.ctl_name       = CTL_UNNUMBERED,
+		_CTL_NAME
 		.procname	= "logdel_auto_gb",
 		.data           = &global_logdel_auto,
 		.maxlen         = sizeof(int),
 		.mode		= 0600,
 		.proc_handler	= &proc_dointvec,
-		.strategy       = &sysctl_intvec,
+		_CTL_STRATEGY(sysctl_intvec)
 	},
 	{
-		.ctl_name       = CTL_UNNUMBERED,
+		_CTL_NAME
 		.procname	= "free_space_mb",
 		.data           = &global_free_space,
 		.maxlen         = sizeof(int),
 		.mode		= 0600,
 		.proc_handler	= &proc_dointvec,
-		.strategy       = &sysctl_intvec,
+		_CTL_STRATEGY(sysctl_intvec)
 	},
 #ifdef CONFIG_MARS_LOADAVG_LIMIT
 	{
-		.ctl_name       = CTL_UNNUMBERED,
+		_CTL_NAME
 		.procname	= "loadavg_limit",
 		.data           = &mars_max_loadavg,
 		.maxlen         = sizeof(int),
 		.mode		= 0600,
 		.proc_handler	= &proc_dointvec,
-		.strategy       = &sysctl_intvec,
+		_CTL_STRATEGY(sysctl_intvec)
 	},
 #endif
 	{
-		.ctl_name       = CTL_UNNUMBERED,
+		_CTL_NAME
 		.procname	= "network_io_timeout",
 		.data           = &global_net_io_timeout,
 		.maxlen         = sizeof(int),
 		.mode		= 0600,
 		.proc_handler	= &proc_dointvec,
-		.strategy       = &sysctl_intvec,
+		_CTL_STRATEGY(sysctl_intvec)
 	},
 	{
-		.ctl_name       = CTL_UNNUMBERED,
+		_CTL_NAME
 		.procname	= "network_traffic_limit_kb",
 		.data           = &client_limiter.lim_max_rate,
 		.maxlen         = sizeof(int),
 		.mode		= 0600,
 		.proc_handler	= &proc_dointvec,
-		.strategy       = &sysctl_intvec,
+		_CTL_STRATEGY(sysctl_intvec)
 	},
 	{
-		.ctl_name       = CTL_UNNUMBERED,
+		_CTL_NAME
 		.procname	= "server_io_limit_mb",
 		.data           = &server_limiter.lim_max_rate,
 		.maxlen         = sizeof(int),
 		.mode		= 0600,
 		.proc_handler	= &proc_dointvec,
-		.strategy       = &sysctl_intvec,
+		_CTL_STRATEGY(sysctl_intvec)
 	},
 	{}
 };
@@ -252,7 +260,7 @@ ctl_table mars_table[] = {
 static
 ctl_table mars_root_table[] = {
 	{
-		.ctl_name       = CTL_UNNUMBERED,
+		_CTL_NAME
 		.procname	= "mars",
 		.mode		= 0500,
 		.child = mars_table,

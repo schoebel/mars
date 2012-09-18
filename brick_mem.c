@@ -4,6 +4,8 @@
 #include <linux/module.h>
 #include <linux/mm.h>
 #include <linux/fs.h>
+#include <linux/slab.h>
+#include <linux/delay.h>
 
 #include <asm/atomic.h>
 

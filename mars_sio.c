@@ -307,13 +307,15 @@ static void sync_file(struct sio_output *output)
 {
 	struct file *file = output->filp;
 	int ret;
-#if 1
+#ifdef S_BIAS
 	ret = vfs_fsync(file, file->f_path.dentry, 1);
+#else
+	ret = vfs_fsync(file, 1);
+#endif
 	if (unlikely(ret)) {
 		MARS_ERR("syncing pages failed: %d\n", ret);
 	}
 	return;
-#endif
 }
 
 static

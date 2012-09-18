@@ -314,16 +314,22 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref, bool cork)
 	bio_get(bio);
 
 	rw = mref->ref_rw & 1;
+#ifdef BIO_RW_NOIDLE
 	if (brick->do_noidle && !cork) {
 		rw |= (1 << BIO_RW_NOIDLE);
 	}
+#endif
 	if (!mref->ref_skip_sync) {
+#ifdef BIO_RW_SYNCIO
 		if (brick->do_sync) {
 			rw |= (1 << BIO_RW_SYNCIO);
 		}
+#endif
+#ifdef BIO_RW_UNPLUG
 		if (brick->do_unplug && !cork) {
 			rw |= (1 << BIO_RW_UNPLUG);
 		}
+#endif
 	}
 
 	MARS_IO("starting IO rw = %d prio 0 %d fly = %d\n", rw, mref->ref_prio, atomic_read(&brick->fly_count[PRIO_INDEX(mref)]));

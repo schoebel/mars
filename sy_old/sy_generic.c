@@ -244,7 +244,11 @@ void mars_remaining_space(const char *fspath, loff_t *total, loff_t *remaining)
 		goto done;
 	}
 
+#ifdef ST_RDONLY
+	res = vfs_statfs(&path, &kstatfs);
+#else
 	res = vfs_statfs(path.dentry, &kstatfs);
+#endif
 	if (unlikely(res < 0)) {
 		goto done;
 	}

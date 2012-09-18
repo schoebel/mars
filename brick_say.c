@@ -31,7 +31,7 @@ static int say_index[NR_CPUS] = {};
 static int dump_max = 5;
 static atomic_t overflow = ATOMIC_INIT(0);
 
-static spinlock_t proc_lock = SPIN_LOCK_UNLOCKED;
+static spinlock_t proc_lock = __SPIN_LOCK_UNLOCKED(proc_lock);
 static char *proc_buf1[MAX_SAY_CLASS] = {};
 static char *proc_buf2[MAX_SAY_CLASS] = {};
 static int proc_index1[MAX_SAY_CLASS] = {};
@@ -133,7 +133,7 @@ void _say_mark(unsigned long cpu)
 	{
 		static long long old_jiffies = 0;
 		if (((long long)jiffies) - old_jiffies >= HZ * 5) {
-			static spinlock_t lock = SPIN_LOCK_UNLOCKED;
+			static spinlock_t lock = __SPIN_LOCK_UNLOCKED(lock);
 			bool won_the_race = false;
 
 			spin_lock(&lock);

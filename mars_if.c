@@ -22,7 +22,6 @@
 #define USE_MAX_SEGMENT_SIZE    MARS_MAX_SEGMENT_SIZE
 #define USE_LOGICAL_BLOCK_SIZE  512
 #define USE_SEGMENT_BOUNDARY    (PAGE_SIZE-1)
-#define USE_QUEUE_ORDERED       QUEUE_ORDERED_DRAIN // probably not needed, but safer for production systems
 
 #define USE_CONGESTED_FN
 #define USE_MERGE_BVEC
@@ -207,6 +206,7 @@ void _if_unplug(struct if_input *input)
 #endif
 }
 
+#ifndef BLK_MAX_REQUEST_COUNT
 #ifdef USE_TIMER
 static
 void if_timer(unsigned long data)
@@ -215,10 +215,17 @@ void if_timer(unsigned long data)
 	_if_unplug((void*)data);
 }
 #endif
+#endif // BLK_MAX_REQUEST_COUNT
 
 /* accept a linux bio, convert to mref and call buf_io() on it.
  */
-static int if_make_request(struct request_queue *q, struct bio *bio)
+static
+#ifdef BIO_CPU_AFFINE
+int
+#else
+void
+#endif
+if_make_request(struct request_queue *q, struct bio *bio)
 {
 	struct if_input *input = q->queuedata;
 	struct if_brick *brick = input->brick;
@@ -227,6 +234,7 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 	 */
 	const int  rw      = bio_data_dir(bio);
 	const int  sectors = bio_sectors(bio);
+#ifdef BIO_RW_RQ_MASK
 	const bool ahead   = bio_rw_flagged(bio, BIO_RW_AHEAD) && rw == READ;
 	const bool barrier = bio_rw_flagged(bio, BIO_RW_BARRIER);
 	const bool syncio  = bio_rw_flagged(bio, BIO_RW_SYNCIO);
@@ -234,6 +242,15 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 	const bool meta    = bio_rw_flagged(bio, BIO_RW_META);
 	const bool discard = bio_rw_flagged(bio, BIO_RW_DISCARD);
 	const bool noidle  = bio_rw_flagged(bio, BIO_RW_NOIDLE);
+#else
+	const bool ahead   = bio_flagged(bio, __REQ_RAHEAD) && rw == READ;
+	const bool barrier = bio_flagged(bio, __REQ_FLUSH);
+	const bool syncio  = bio_flagged(bio, __REQ_SYNC);
+	const bool unplug  = false;
+	const bool meta    = bio_flagged(bio, __REQ_META);
+	const bool discard = bio_flagged(bio, __REQ_DISCARD);
+	const bool noidle  = bio_flagged(bio, __REQ_THROTTLED);
+#endif
 	const int  prio    = bio_prio(bio);
 
 	/* Transform into MARS flags
@@ -298,21 +315,24 @@ static int if_make_request(struct request_queue *q, struct bio *bio)
 		 * something here. For now, we do just nothing.
 		 */
 		bio_endio(bio, 0);
-		return 0;
+		error = 0;
+		goto done;
 	}
 
 #ifdef DENY_READA // provisinary -- we should introduce an equivalent of READA also to the MARS infrastructure
 	if (ahead) {
 		atomic_inc(&input->total_reada_count);
 		bio_endio(bio, -EWOULDBLOCK);
-		return 0;
+		error = 0;
+		goto done;
 	}
 #else
 	(void)ahead; // shut up gcc
 #endif
 	if (unlikely(discard)) { // NYI
 		bio_endio(bio, 0);
-		return 0;
+		error = 0;
+		goto done;
 	}
 
 	biow = brick_mem_alloc(sizeof(struct bio_wrapper));
@@ -555,9 +575,15 @@ err:
 	}
 #endif
 
+done:
+#ifdef BIO_CPU_AFFINE
 	return error;
+#else
+	return;
+#endif
 }
 
+#ifndef BLK_MAX_REQUEST_COUNT
 //static
 void if_unplug(struct request_queue *q)
 {
@@ -578,6 +604,7 @@ void if_unplug(struct request_queue *q)
 		_if_unplug(input);
 	}
 }
+#endif
 
 //static
 int mars_congested(void *data, int bdi_bits)
@@ -651,41 +678,64 @@ static int if_switch(struct if_brick *brick)
 		}
 
 		minor = device_minor++; //TODO: protect against races (e.g. atomic_t)
+		set_disk_ro(disk, true);
+
 		disk->queue = q;
 		disk->major = MARS_MAJOR; //TODO: make this dynamic for >256 devices
 		disk->first_minor = minor;
 		disk->fops = &if_blkdev_ops;
-		//snprintf(disk->disk_name, sizeof(disk->disk_name),  "mars%d", minor);
 		snprintf(disk->disk_name, sizeof(disk->disk_name),  "mars/%s", brick->brick_name);
-		MARS_DBG("created device name %s\n", disk->disk_name);
+		MARS_DBG("created device name %s, capacity=%lu\n", disk->disk_name, capacity);
 		disk->private_data = input;
 		input->capacity = capacity;
 		set_capacity(disk, capacity);
 		
 		blk_queue_make_request(q, if_make_request);
 #ifdef USE_MAX_SECTORS
+#ifdef MAX_SEGMENT_SIZE
+		MARS_DBG("blk_queue_max_sectors()\n");
 		blk_queue_max_sectors(q, USE_MAX_SECTORS);
+#else
+		MARS_DBG("blk_queue_max_hw_sectors()\n");
+		blk_queue_max_hw_sectors(q, USE_MAX_SECTORS);
+#endif
 #endif
 #ifdef USE_MAX_PHYS_SEGMENTS
+#ifdef MAX_SEGMENT_SIZE
+		MARS_DBG("blk_queue_max_phys_segments()\n");
 		blk_queue_max_phys_segments(q, USE_MAX_PHYS_SEGMENTS);
+#else
+		MARS_DBG("blk_queue_max_segments()\n");
+		blk_queue_max_segments(q, USE_MAX_PHYS_SEGMENTS);
+#endif
 #endif
 #ifdef USE_MAX_HW_SEGMENTS
+		MARS_DBG("blk_queue_max_hw_segments()\n");
 		blk_queue_max_hw_segments(q, USE_MAX_HW_SEGMENTS);
 #endif
 #ifdef USE_MAX_SEGMENT_SIZE
+		MARS_DBG("blk_queue_max_segment_size()\n");
 		blk_queue_max_segment_size(q, USE_MAX_SEGMENT_SIZE);
 #endif
 #ifdef USE_LOGICAL_BLOCK_SIZE
+		MARS_DBG("blk_queue_logical_block_size()\n");
 		blk_queue_logical_block_size(q, USE_LOGICAL_BLOCK_SIZE);
 #endif
 #ifdef USE_SEGMENT_BOUNDARY
+		MARS_DBG("blk_queue_segment_boundary()\n");
 		blk_queue_segment_boundary(q, USE_SEGMENT_BOUNDARY);
 #endif
-#ifdef USE_QUEUE_ORDERED
-		blk_queue_ordered(q, USE_QUEUE_ORDERED, NULL);
+#ifdef QUEUE_ORDERED_DRAIN
+		MARS_DBG("blk_queue_ordered()\n");
+		blk_queue_ordered(q, QUEUE_ORDERED_DRAIN, NULL);
 #endif
+		MARS_DBG("blk_queue_bounce_limit()\n");
 		blk_queue_bounce_limit(q, BLK_BOUNCE_ANY);
+#ifndef BLK_MAX_REQUEST_COUNT
+		MARS_DBG("unplug_fn\n");
 		q->unplug_fn = if_unplug;
+#endif
+		MARS_DBG("queue_lock\n");
 		q->queue_lock = &input->req_lock; // needed!
 		
 		input->bdev = bdget(MKDEV(disk->major, minor));
@@ -697,17 +747,24 @@ static int if_switch(struct if_brick *brick)
 		q->backing_dev_info.ra_pages = brick->readahead;
 #endif
 #ifdef USE_CONGESTED_FN
+		MARS_DBG("congested_fn\n");
 		q->backing_dev_info.congested_fn = mars_congested;
 		q->backing_dev_info.congested_data = input;
 #endif
 #ifdef USE_MERGE_BVEC
+		MARS_DBG("blk_queue_merge_bvec()\n");
 		blk_queue_merge_bvec(q, mars_merge_bvec);
 #endif
 
 		// point of no return
+		MARS_DBG("add_disk()\n");
 		add_disk(disk);
 		input->disk = disk;
-		//set_device_ro(input->bdev, 0); // TODO: implement modes
+#if 1
+		set_disk_ro(disk, false);
+#else
+		set_device_ro(input->bdev, 0); // TODO: implement modes
+#endif
 		status = 0;
 	}
 	if (brick->power.button) {
