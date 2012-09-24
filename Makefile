@@ -9,6 +9,7 @@ mars-objs :=				\
 	mars_generic.o			\
 	lib_log.o			\
 	lib_rank.o			\
+	lib_limiter.o			\
 	mars_net.o			\
 	mars_server.o			\
 	mars_client.o			\
