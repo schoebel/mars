@@ -94,7 +94,7 @@ static
 void _say_mark(unsigned long cpu)
 {
 	char *ptr;
-	bool use_atomic = (preempt_count() & (SOFTIRQ_MASK | HARDIRQ_MASK | NMI_MASK)) != 0 || irqs_disabled();
+	bool use_atomic = (preempt_count() & (SOFTIRQ_MASK | HARDIRQ_MASK | NMI_MASK)) != 0 || in_atomic() || irqs_disabled();
 
 	say_alloc(cpu, use_atomic);
 	if (unlikely(use_atomic || cpu >= NR_CPUS))
