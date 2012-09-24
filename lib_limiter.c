@@ -7,36 +7,49 @@
 
 int mars_limit(struct mars_limiter *lim, int amount)
 {
-	int res = 0;
+	int delay = 0;
 	unsigned long long now;
 
 	now = cpu_clock(raw_smp_processor_id());
 
-	if (lim->lim_max_rate > 0 && likely(lim->lim_stamp)) {
-		long long elapsed = now - lim->lim_stamp;
-		long long rate;
-
-		/* Races are possible, but taken into account.
-		 * There is no real harm from rarely lost updates.
-		 */
-		lim->lim_accu += amount;
-
-		rate = (long long)lim->lim_accu * LIMITER_TIME_RESOLUTION / elapsed;
-
-		if (rate > lim->lim_max_rate) {
-			res = 1001 - lim->lim_max_rate * 1000 / rate;
+	/* Compute the maximum delay along the path
+	 * down to the root of the hierarchy tree.
+	 */
+	while (lim != NULL) {
+		if (likely(lim->lim_stamp)) {
+			long long elapsed = now - lim->lim_stamp;
+			int rate;
+			
+			/* Races are possible, but taken into account.
+			 * There is no real harm from rarely lost updates.
+			 */
+			lim->lim_accu += amount;
+			
+			rate = (long long)lim->lim_accu * LIMITER_TIME_RESOLUTION / elapsed;
+			lim->lim_rate = rate;
+			
+			// limit exceeded?
+			if (lim->lim_max_rate > 0 && rate > lim->lim_max_rate) {
+				int this_delay = 1001 - lim->lim_max_rate * 1000 / rate;
+				// compute maximum
+				if (!delay || this_delay > delay)
+					delay = this_delay;
+			}
+			
+			elapsed -= LIMITER_TIME_RESOLUTION * 2;
+			if (elapsed > LIMITER_TIME_RESOLUTION) {
+				lim->lim_stamp += elapsed;
+				if (lim->lim_accu > 0) {
+					lim->lim_accu -= (long long)lim->lim_max_rate * elapsed / LIMITER_TIME_RESOLUTION;
+				}
+			}
+		} else {
+			lim->lim_accu = amount;
+			lim->lim_stamp = now;
+			lim->lim_rate = 0;
 		}
-
-		elapsed -= LIMITER_TIME_RESOLUTION * 2;
-		if (elapsed > LIMITER_TIME_RESOLUTION) {
-			lim->lim_stamp += elapsed;
-			if (lim->lim_accu > 0)
-				lim->lim_accu -= (long long)lim->lim_max_rate * elapsed / LIMITER_TIME_RESOLUTION;
-		}
-	} else {
-		lim->lim_accu = amount;
-		lim->lim_stamp = now;
+		lim = lim->lim_father;
 	}
-	return res;
+	return delay;
 }
 EXPORT_SYMBOL_GPL(mars_limit);

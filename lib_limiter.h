@@ -9,11 +9,15 @@
 #define LIMITER_TIME_RESOLUTION NSEC_PER_SEC
 
 struct mars_limiter {
+	/* hierarchy tree */
+	struct mars_limiter *lim_father;
 	/* tunables */
 	int lim_max_rate;
+	/* readable */
+	int lim_rate;
+	unsigned long long lim_stamp;
 	/* internal */
 	int lim_accu;
-	unsigned long long lim_stamp;
 };
 
 extern int mars_limit(struct mars_limiter *lim, int amount);
