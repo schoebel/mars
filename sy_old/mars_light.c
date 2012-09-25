@@ -90,7 +90,11 @@ struct mars_rotate {
 	struct mars_dent *syncstatus_dent;
 	struct if_brick *if_brick;
 	const char *copy_path;
+	const char *parent_path;
 	struct copy_brick *copy_brick;
+	struct mars_limiter replay_limiter;
+	struct mars_limiter sync_limiter;
+	struct mars_limiter file_limiter;
 	long long switchover_timeout;
 	long long flip_start;
 	loff_t dev_size;
@@ -534,23 +538,31 @@ done:
 // status display
 
 static
-int _show_actual(const char *path, const char *name, bool val)
+int __show_actual(const char *path, const char *name, int val)
 {
 	char *src;
 	char *dst = NULL;
 	int status = -EINVAL;
 
-	src = val ? "1" : "0";
+	src = path_make("%d", val);
 	dst = path_make("%s/actual-%s/%s", path, my_id(), name);
 	status = -ENOMEM;
 	if (!dst)
 		goto done;
+
 	MARS_DBG("symlink '%s' -> '%s'\n", dst, src);
 	status = mars_symlink(src, dst, NULL, 0);
 
 done:
+	brick_string_free(src);
 	brick_string_free(dst);
 	return status;
+}
+
+static inline
+int _show_actual(const char *path, const char *name, bool val)
+{
+	return __show_actual(path, name, val ? 1 : 0);
 }
 
 static
@@ -612,6 +624,14 @@ void _show_status_all(struct mars_global *global)
 	up_read(&global->brick_mutex);
 }
 
+static
+void _show_rate(struct mars_rotate *rot, struct mars_limiter *limiter, bool running, const char *name)
+{
+	int rate = limiter->lim_rate;
+	if (!running)
+		rate = 0;
+	__show_actual(rot->parent_path, name, rate);
+}
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -791,8 +811,10 @@ int _update_file(struct mars_rotate *rot, const char *switch_path, const char *c
 
 	MARS_DBG("src = '%s' dst = '%s'\n", tmp, file);
 	status = __make_copy(global, NULL, switch_path, copy_path, NULL, argv, -1, false, false, &copy);
-	if (status >= 0 && copy && (!copy->append_mode || copy->power.led_off)) {
-		if (end_pos > copy->copy_end) {
+	if (status >= 0 && copy) {
+		copy->copy_limiter = &rot->file_limiter;
+		if ((!copy->append_mode || copy->power.led_off) &&
+		    end_pos > copy->copy_end) {
 			MARS_DBG("appending to '%s' %lld => %lld\n", copy_path, copy->copy_end, end_pos);
 			copy->copy_end = end_pos;
 		}
@@ -1284,7 +1306,9 @@ int kill_log(void *buf, struct mars_dent *dent)
 
 	if (likely(rot)) {
 		brick_string_free(rot->copy_path);
+		brick_string_free(rot->parent_path);
 		rot->copy_path = NULL;
+		rot->parent_path = NULL;
 	}
 
 	return kill_any(buf, dent);
@@ -1681,6 +1705,8 @@ int make_log_init(void *buf, struct mars_dent *dent)
 
 	if (dent->new_link)
 		sscanf(dent->new_link, "%lld", &rot->dev_size);
+	if (!rot->parent_path)
+		rot->parent_path =brick_strdup(parent_path);
 
 	mars_remaining_space(parent_path, &rot->total_space, &rot->remaining_space);
 
@@ -1816,6 +1842,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 	rot->trans_brick = (void*)trans_brick;
+	rot->trans_brick->replay_limiter = &rot->replay_limiter;
 	/* For safety, default is to try an (unnecessary) replay in case
 	 * something goes wrong later.
 	 */
@@ -2522,6 +2549,12 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 
 done:
 	rot->allow_sync = (!rot->trans_brick || rot->trans_brick->power.led_off);
+	if (rot->trans_brick)
+		_show_rate(rot, &rot->replay_limiter, rot->trans_brick->power.led_on, "replay_rate");
+	if (rot->copy_brick)
+		_show_rate(rot, &rot->file_limiter, rot->copy_brick->power.led_on, "file_rate");
+	if (rot->sync_brick)
+		_show_rate(rot, &rot->sync_limiter, rot->sync_brick->power.led_on, "sync_rate");
 err:
 	return status;
 }
@@ -2984,6 +3017,8 @@ static int make_sync(void *buf, struct mars_dent *dent)
 # define VERIFY_MODE false
 #endif
 		status = __make_copy(global, dent, do_start ? switch_path : "", copy_path, dent->d_parent->d_path, argv, start_pos, VERIFY_MODE, true, &copy);
+		if (copy)
+			copy->copy_limiter = &rot->sync_limiter;
 		rot->sync_brick = copy;
 		rot->allow_replay = (!copy || copy->power.led_off);
 	}

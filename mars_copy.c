@@ -12,6 +12,7 @@
 #include <linux/kthread.h>
 
 #include "mars.h"
+#include "lib_limiter.h"
 
 #ifndef READ
 #define READ  0
@@ -358,6 +359,8 @@ restart:
 		if (!mref0) { // idempotence: wait by unchanged state
 			goto idle;
 		}
+		if (brick->copy_limiter)
+			mars_limit_sleep(brick->copy_limiter, mref0->ref_len);
 		// on append mode: increase the end pointer dynamically
 		if (brick->append_mode > 0 && mref0->ref_total_size && mref0->ref_total_size > brick->copy_end) {
 			brick->copy_end = mref0->ref_total_size;

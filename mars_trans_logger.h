@@ -112,6 +112,7 @@ struct trans_logger_mref_aspect {
 struct trans_logger_brick {
 	MARS_BRICK(trans_logger);
 	// parameters
+	struct mars_limiter *replay_limiter;
 	int shadow_mem_limit; // max # master shadows
 	int max_mref_size;// shorten mrefs to this maxlen
 	int align_size;   // alignment between requests

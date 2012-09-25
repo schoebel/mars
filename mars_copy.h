@@ -44,6 +44,7 @@ struct copy_mref_aspect {
 struct copy_brick {
 	MARS_BRICK(copy);
 	// parameters
+	struct mars_limiter *copy_limiter;
 	loff_t copy_start;
 	loff_t copy_end; // stop working if == 0
 	int io_prio;

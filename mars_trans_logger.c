@@ -31,6 +31,7 @@
 
 #include "mars.h"
 #include "lib_rank.h"
+#include "lib_limiter.h"
 
 #ifdef REPLAY_DEBUGGING
 #define MARS_RPL(_fmt, _args...)  _MARS_MSG(false, "REPLAY ", _fmt, ##_args)
@@ -2403,6 +2404,8 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		if (lh.l_code != CODE_WRITE_NEW) {
 			MARS_IO("ignoring pos = %lld len = %d code = %d\n", lh.l_pos, lh.l_len, lh.l_code);
 		} else if (likely(buf && len)) {
+			if (brick->replay_limiter)
+				mars_limit_sleep(brick->replay_limiter, len);
 			status = apply_data(brick, lh.l_pos, buf, len);
 			MARS_RPL("apply %lld %lld (pos=%lld status=%d)\n", finished_pos, new_finished_pos, lh.l_pos, status);
 			if (unlikely(status < 0)) {
