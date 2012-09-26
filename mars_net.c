@@ -55,7 +55,7 @@ int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec)
 
 	memset(addr, 0, sizeof(*addr));
 	sockaddr->sin_family = AF_INET;
-	sockaddr->sin_port = htons(MARS_DEFAULT_PORT);
+	sockaddr->sin_port = htons(CONFIG_MARS_DEFAULT_PORT);
 
 	/* Try to translate hostnames to IPs if possible.
 	 */

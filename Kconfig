@@ -24,6 +24,14 @@ config MARS_BIGMODULE
 	---help---
 	Normally ON. Switch off only for EXPERIMENTS!
 
+config MARS_DEFAULT_PORT
+	int "port number where MARS is listening"
+	depends on MARS
+	default 7777
+	---help---
+	Best practice is to uniformly use the same port number
+	in a cluster. Therefore, this is compiletime constant.
+
 config MARS_MEM_RETRY
 	bool "make MARS memory allocation more robust"
 	depends on MARS

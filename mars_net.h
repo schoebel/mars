@@ -8,8 +8,6 @@
 
 #include "brick.h"
 
-#define MARS_DEFAULT_PORT 7777
-
 extern bool mars_net_is_alive;
 
 /* The original struct socket has no refcount. This leads to problems
