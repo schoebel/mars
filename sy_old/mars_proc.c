@@ -257,10 +257,28 @@ ctl_table mars_table[] = {
 	},
 	{
 		_CTL_NAME
+		.procname	= "network_traffic_rate_kb",
+		.data           = &client_limiter.lim_rate,
+		.maxlen         = sizeof(int),
+		.mode		= 0400,
+		.proc_handler	= &proc_dointvec,
+		_CTL_STRATEGY(sysctl_intvec)
+	},
+	{
+		_CTL_NAME
 		.procname	= "server_io_limit_mb",
 		.data           = &server_limiter.lim_max_rate,
 		.maxlen         = sizeof(int),
 		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+		_CTL_STRATEGY(sysctl_intvec)
+	},
+	{
+		_CTL_NAME
+		.procname	= "server_io_rate_mb",
+		.data           = &server_limiter.lim_rate,
+		.maxlen         = sizeof(int),
+		.mode		= 0400,
 		.proc_handler	= &proc_dointvec,
 		_CTL_STRATEGY(sysctl_intvec)
 	},
