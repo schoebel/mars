@@ -14,6 +14,8 @@
 #include "lib_pairing_heap.h"
 #include "lib_queue.h"
 
+extern int trans_logger_mem_usage; // in KB
+
 ////////////////////////////////////////////////////////////////////
 
 _PAIRING_HEAP_TYPEDEF(logger,)

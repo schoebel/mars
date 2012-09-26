@@ -15,6 +15,7 @@
 #include "mars_proc.h"
 #include "../mars_client.h"
 #include "../mars_server.h"
+#include "../mars_trans_logger.h"
 
 mars_info_fn mars_info = NULL;
 
@@ -186,6 +187,15 @@ ctl_table mars_table[] = {
 		.data           = &mars_mem_percent,
 		.maxlen         = sizeof(int),
 		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+		_CTL_STRATEGY(sysctl_intvec)
+	},
+	{
+		_CTL_NAME
+		.procname	= "mem_used_kb",
+		.data           = &trans_logger_mem_usage,
+		.maxlen         = sizeof(int),
+		.mode		= 0400,
 		.proc_handler	= &proc_dointvec,
 		_CTL_STRATEGY(sysctl_intvec)
 	},

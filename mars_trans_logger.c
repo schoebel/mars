@@ -39,6 +39,8 @@
 #define MARS_RPL(_args...) /*empty*/
 #endif
 
+int trans_logger_mem_usage; // in KB
+EXPORT_SYMBOL_GPL(trans_logger_mem_usage);
 
 ///////////////////////// own type definitions ////////////////////////
 
@@ -1978,6 +1980,7 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 			{ brick_global_memlimit,            -1000 },
 		};
 		int global_mem_used  = atomic64_read(&global_mshadow_used) / 1024;
+		trans_logger_mem_usage = global_mem_used;
 
 		if (global_mem_used >= brick_global_memlimit)
 			delay_callers = true;
