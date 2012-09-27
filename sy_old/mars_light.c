@@ -1506,6 +1506,34 @@ out:
 }
 
 static
+int _update_timelink(struct mars_global *global, const char *parent_path, const char *host, int sequence, loff_t start_pos, loff_t end_pos, struct timespec *stamp)
+{
+	struct timespec now = {};
+	char *new = NULL;
+	char *old = NULL;
+	int status = -ENOMEM;
+
+	old = path_make("%s,%09d,%lld,%lld,%lu.%09lu", host, sequence, start_pos, end_pos - start_pos, stamp->tv_sec, stamp->tv_nsec);
+	new = path_make("%s/actual-%s/timestamp", parent_path, my_id());
+	if (unlikely(!old || !new)) {
+		goto out;
+	}
+
+	get_lamport(&now);
+	status = mars_symlink(old, new, &now, 0);
+	if (status < 0) {
+		MARS_ERR("cannot create symlink '%s' -> '%s' status = %d\n", old, new, status);
+	} else {
+		MARS_DBG("make version symlink '%s' -> '%s' status = %d\n", old, new, status);
+	}
+
+out:
+	brick_string_free(new);
+	brick_string_free(old);
+	return status;
+}
+
+static
 int __update_all_links(struct mars_global *global, const char *parent_path, struct trans_logger_brick *trans_brick, const char *override_host, int override_sequence, bool check_exist, bool force, bool reset_pos, int nr)
 {
 	struct trans_logger_input *trans_input;
@@ -1552,6 +1580,7 @@ int __update_all_links(struct mars_global *global, const char *parent_path, stru
 
 	status = _update_replaylink(global, parent_path, host, sequence, min_pos, max_pos, check_exist);
 	status |= _update_versionlink(global, parent_path, host, sequence, max_pos, max_pos);
+	status |= _update_timelink(global, parent_path, host, sequence, min_pos, max_pos, &trans_input->last_stamp);
 	if (!status)
 		trans_input->last_jiffies = jiffies;
  done:
@@ -2133,6 +2162,7 @@ void _init_trans_input(struct trans_logger_input *trans_input, struct mars_dent 
 	trans_input->replay_min_pos = 0;
 	trans_input->replay_max_pos = 0;
 	trans_input->log_start_pos = 0;
+	memset(&trans_input->last_stamp, 0, sizeof(trans_input->last_stamp));
 	trans_input->is_prepared = true;
 	MARS_DBG("initialized '%s' %d\n", trans_input->inf_host, trans_input->inf_sequence);
 }

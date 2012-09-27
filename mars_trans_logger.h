@@ -194,6 +194,7 @@ struct trans_logger_input {
 	long long last_jiffies;
 	loff_t replay_min_pos;  // current replay position (both in replay mode and in logging mode)
 	loff_t replay_max_pos;  // dito, indicating the "dirty" area which could be potentially "inconsistent"
+	struct timespec last_stamp;
 
 	// private
 	struct log_status logst;

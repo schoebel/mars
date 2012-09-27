@@ -875,6 +875,7 @@ void pos_complete(struct trans_logger_mref_aspect *orig_mref_a)
 				MARS_ERR("backskip in log replay: %lld -> %lld\n", log_input->replay_min_pos, orig_mref_a->log_pos);
 			}
 			log_input->replay_min_pos = finished;
+			memcpy(&log_input->last_stamp, &orig_mref_a->stamp, sizeof(log_input->last_stamp));
 		}
 	} else {
 		struct trans_logger_mref_aspect *prev_mref_a;
@@ -2024,6 +2025,7 @@ void _init_input(struct trans_logger_input *input)
 	input->replay_min_pos = start_pos;
 	input->replay_max_pos = start_pos; // FIXME: Theoretically, this could be wrong when starting on an interrupted replay / inconsistent system. However, we normally never start ordinary logging in such a case (possibly except some desperate emergency cases when there really is no other chance, such as physical loss of transaction logs). Nevertheless, better use old consistenty information from the FS here.
 	logst->log_pos = start_pos;
+	memset(&input->last_stamp, 0, sizeof(input->last_stamp));
 	input->is_operating = true;
 }
 
@@ -2356,6 +2358,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 	
 	input->replay_min_pos = start_pos;
 	input->replay_max_pos = start_pos; // FIXME: this is wrong.
+	memset(&input->last_stamp, 0, sizeof(input->last_stamp));
 
 	mars_power_led_on((void*)brick, true);
 
@@ -2424,6 +2427,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		if (atomic_read(&brick->replay_count) <= 0 || ((long long)jiffies) - old_jiffies >= HZ * 5) {
 			input->replay_min_pos = finished_pos;
 			input->replay_max_pos = finished_pos; // FIXME
+			memcpy(&input->last_stamp, &lh.l_stamp, sizeof(input->last_stamp));
 			old_jiffies = jiffies;
 		}
 		_exit_inputs(brick, false);
