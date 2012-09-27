@@ -630,10 +630,6 @@ sub logdelete_res {
   my @paths = glob("$mars/resource-$res/log-*") or die "cannot find any logfiles\n";
   @paths = sort(@paths);
   my $max = _allowed_logdelete(@_);
-  # is there any splitbrain up to $max-1?
-  my $check_max = $max - 1;
-  $check_max = 0 if $check_max < 0;
-  check_splitbrain($res, "", $check_max) if ($cmd eq "log-delete-all" && !$force);
 
   my $nr = 0;
   for (;;) {
@@ -645,11 +641,7 @@ sub logdelete_res {
 
     print "chosen '$first' for deletion\n";
 
-    # is there any splitbrain up to $nr?
-    check_splitbrain($res, "", $nr) unless $cmd eq "log-delete-all";
-
     _create_delete($first);
-    last unless $cmd eq "log-delete-all" && $nr + 1 < $max;
   }
   print "removing left-over version symlinks...\n";
   foreach my $versionlink (glob("$mars/resource-$res/version-*")) {
