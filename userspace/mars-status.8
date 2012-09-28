@@ -4,11 +4,31 @@
 mars-status \- program to display status information from mars
 
 .SH SYNOPSIS
-.B "mars-status \-? \-h \-help"
+.B "Usage: mars-status [--help]"
 .br
-.B "mars-status \-v \-\-version "
+.B "Usage: mars-status [--version]"
 .br
-.B "mars-status [--resource <RESNAME>] [--interval <seconds>] [--long [--history] [--debug]]"
+.B "Usage: mars-status (without specification of parameters, an abstract of all the informations spent)"
+.br
+.B "Usage: mars-status [--resource <RESNAME>] [--interval <seconds>] [[--history] [--debug] [--system]]"
+.br
+.B "Usage: mars-status [--resource <RESNAME>] --monitor "
+.br
+.B "Usage: mars-status --resource <RESNAME> [--role | --cstate | --dstate]"
+.br
+.B "       --resource : limits the display to the specified resource"
+.br
+.B "       --interval : refreshes the display every second xxx"
+.br
+.B "       --history  : shows information about the log files, version numbers and their status"
+.br
+.B "       --system   : display mars-system informations"
+.br
+.B "       --monitor  : indicator to use for monitoring on all state"
+.br
+.B "       --role|--cstate|--dstate single state on lokal node"
+.br
+.B "       --debug    : additional display error messages and warnings to internal"
 .br
 .br
 (See the OPTIONS section for alternate option syntax with long option names.)
@@ -45,10 +65,6 @@ Limits the display to the specified resource.
 Refreshes the display every second xxx.
 .TP
 
-.BR long 
-Displays more detailed information.
-.TP
-
 .BR long " " history
 Shows information about the log files, version numbers and their status.
 .TP
@@ -58,7 +74,20 @@ Additional display error messages and warnings to internal.
 .TP
 
 .BR monitor
-Indicator to use for monitoring (not available).
+Indicator to use for monitoring.
+.TP
+.BR cstate
+Indicator to use for monitoring.
+.TP
+
+.BR dstate
+Indicator to use for monitoring.
+.TP
+
+.BR role
+Indicator to use for monitoring.
+.TP
+
 
 
 .SH NOTES
