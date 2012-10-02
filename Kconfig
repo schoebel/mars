@@ -4,6 +4,7 @@
 
 config MARS
 	tristate "storage system MARS (EXPERIMENTAL)"
+	depends on BLOCK && HIGH_RES_TIMERS
 	default n
 	---help---
 	Experimental storage System. Only compile as a module!
