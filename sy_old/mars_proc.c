@@ -136,7 +136,7 @@ int warnings_sysctl_handler(
 	size_t *length,
 	loff_t *ppos)
 {
-	return _proc_sysctl_handler(0, write, buffer, length, ppos);
+	return _proc_sysctl_handler(SAY_WARN, write, buffer, length, ppos);
 }
 
 static
@@ -147,7 +147,7 @@ int errors_sysctl_handler(
 	size_t *length,
 	loff_t *ppos)
 {
-	return _proc_sysctl_handler(1, write, buffer, length, ppos);
+	return _proc_sysctl_handler(SAY_ERROR, write, buffer, length, ppos);
 }
 
 #ifdef CONFIG_MARS_LOADAVG_LIMIT

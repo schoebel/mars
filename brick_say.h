@@ -6,18 +6,38 @@
 
 // printk() replacements
 
-#define MAX_SAY_CLASS 2
+enum {
+	SAY_DEBUG,
+	SAY_INFO,
+	SAY_WARN,
+	SAY_ERROR,
+	SAY_FATAL,
+	SAY_TOTAL,
+	MAX_SAY_CLASS
+};
 
-extern const char *proc_say_get(int class, int *len);
-extern void proc_say_commit(void);
+struct say_channel;
 
-extern void check_open(const char *filename, bool must_exist);
-extern void check_close(const char *filename, bool force, bool re_open);
+extern struct say_channel *default_channel;
 
-extern void say(int class, const char *fmt, ...) __attribute__ ((format (printf, 2, 3)));
-extern void say_mark(void);
+extern struct say_channel *make_channel(const char *name);
 
-extern void brick_say(int class, bool dump, const char *prefix, const char *file, int line, const char *func, const char *fmt, ...) __attribute__ ((format (printf, 7, 8)));
+extern void bind_to_channel(struct say_channel *ch, struct task_struct *whom);
+
+#define bind_me(_name)					\
+	bind_to_channel(make_channel(_name), current)
+
+extern void remove_binding(struct task_struct *whom);
+
+extern void say_to(struct say_channel *ch, int class, const char *fmt, ...) __attribute__ ((format (printf, 3, 4)));
+
+#define say(_class, _fmt, _args...)			\
+	say_to(NULL, _class, _fmt, ##_args)
+
+extern void brick_say_to(struct say_channel *ch, int class, bool dump, const char *prefix, const char *file, int line, const char *func, const char *fmt, ...) __attribute__ ((format (printf, 8, 9)));
+
+#define brick_say(_class, _dump, _prefix, _file, _line, _func, _fmt, _args...) \
+	brick_say_to(NULL, _class, _dump, _prefix, _file, _line, _func, _fmt, ##_args)
 
 extern void init_say(void);
 extern void exit_say(void);
@@ -33,5 +53,11 @@ extern void brick_dump_stack(void);
 #define brick_dump_stack() /*empty*/
 
 #endif // CONFIG_MARS_DEBUG
+
+// legacy, deprecated, to disappear...
+
+extern const char *proc_say_get(int class, int *len);
+extern void proc_say_commit(void);
+
 
 #endif

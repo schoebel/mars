@@ -24,28 +24,22 @@
 
 // MARS-specific debugging helpers
 
-#define MARS_FATAL   "MARS_FATAL  "
-#define MARS_ERROR   "MARS_ERROR  "
-#define MARS_WARNING "MARS_WARN   "
-#define MARS_INFO    "MARS_INFO   "
-#define MARS_DEBUG   "MARS_DEBUG  "
+#define _MARS_MSG(_class, _dump, _fmt, _args...)		\
+	brick_say(_class, _dump, "MARS", __BASE_FILE__, __LINE__, __FUNCTION__, _fmt, ##_args)
 
-#define _MARS_MSG(_class, _dump, PREFIX, _fmt, _args...)		\
-	brick_say(_class, _dump, PREFIX, __BASE_FILE__, __LINE__, __FUNCTION__, _fmt, ##_args)
-
-#define MARS_FAT(_fmt, _args...) _MARS_MSG(1,  true,  MARS_FATAL,   _fmt, ##_args)
-#define MARS_ERR(_fmt, _args...) _MARS_MSG(1,  true,  MARS_ERROR,   _fmt, ##_args)
-#define MARS_WRN(_fmt, _args...) _MARS_MSG(0,  false, MARS_WARNING, _fmt, ##_args)
-#define MARS_INF(_fmt, _args...) _MARS_MSG(-1, false, MARS_INFO,    _fmt, ##_args)
+#define MARS_FAT(_fmt, _args...) _MARS_MSG(SAY_FATAL, true,  _fmt, ##_args)
+#define MARS_ERR(_fmt, _args...) _MARS_MSG(SAY_ERROR, true,  _fmt, ##_args)
+#define MARS_WRN(_fmt, _args...) _MARS_MSG(SAY_WARN,  false, _fmt, ##_args)
+#define MARS_INF(_fmt, _args...) _MARS_MSG(SAY_INFO,  false, _fmt, ##_args)
 
 #ifdef MARS_DEBUGGING
-#define MARS_DBG(_fmt, _args...) _MARS_MSG(-1, false, MARS_DEBUG,   _fmt, ##_args)
+#define MARS_DBG(_fmt, _args...) _MARS_MSG(SAY_DEBUG, false, _fmt, ##_args)
 #else
 #define MARS_DBG(_args...) /**/
 #endif
 
 #ifdef IO_DEBUGGING
-#define MARS_IO(_fmt, _args...)  _MARS_MSG(-1, false, MARS_DEBUG,   _fmt, ##_args)
+#define MARS_IO(_fmt, _args...)  _MARS_MSG(SAY_DEBUG, false, _fmt, ##_args)
 #else
 #define MARS_IO(_args...) /*empty*/
 #endif

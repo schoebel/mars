@@ -22,28 +22,22 @@ extern int _brick_msleep(int msecs, bool shorten);
 
 #define SAFE_STR(str) ((str) ? (str) : "NULL")
 
-#define BRICK_FATAL   "BRICK_FATAL "
-#define BRICK_ERROR   "BRICK_ERROR "
-#define BRICK_WARNING "BRICK_WARN  "
-#define BRICK_INFO    "BRICK_INFO  "
-#define BRICK_DEBUG   "BRICK_DEBUG "
+#define _BRICK_MSG(_class, _dump, _fmt, _args...)		\
+	brick_say(_class, _dump, "BRICK", __BASE_FILE__, __LINE__, __FUNCTION__, _fmt, ##_args)
 
-#define _BRICK_MSG(_class, _dump, PREFIX, _fmt, _args...)		\
-	brick_say(_class, _dump, PREFIX, __BASE_FILE__, __LINE__, __FUNCTION__, _fmt, ##_args)
-
-#define BRICK_FAT(_fmt, _args...) _BRICK_MSG(1,  true,  BRICK_FATAL,   _fmt, ##_args)
-#define BRICK_ERR(_fmt, _args...) _BRICK_MSG(1,  true,  BRICK_ERROR,   _fmt, ##_args)
-#define BRICK_WRN(_fmt, _args...) _BRICK_MSG(0,  false, BRICK_WARNING, _fmt, ##_args)
-#define BRICK_INF(_fmt, _args...) _BRICK_MSG(-1, false, BRICK_INFO,    _fmt, ##_args)
+#define BRICK_FAT(_fmt, _args...) _BRICK_MSG(SAY_FATAL, true,  _fmt, ##_args)
+#define BRICK_ERR(_fmt, _args...) _BRICK_MSG(SAY_ERROR, true,  _fmt, ##_args)
+#define BRICK_WRN(_fmt, _args...) _BRICK_MSG(SAY_WARN,  false, _fmt, ##_args)
+#define BRICK_INF(_fmt, _args...) _BRICK_MSG(SAY_INFO,  false, _fmt, ##_args)
 
 #ifdef BRICK_DEBUGGING
-#define BRICK_DBG(_fmt, _args...) _BRICK_MSG(-1, false, BRICK_DEBUG,   _fmt, ##_args)
+#define BRICK_DBG(_fmt, _args...) _BRICK_MSG(SAY_DEBUG, false, _fmt, ##_args)
 #else
 #define BRICK_DBG(_args...) /**/
 #endif
 
 #ifdef IO_DEBUGGING
-#define BRICK_IO(_fmt, _args...)  _BRICK_MSG(-1, false, BRICK_DEBUG,   _fmt, ##_args)
+#define BRICK_IO(_fmt, _args...)  _BRICK_MSG(SAY_DEBUG, false, _fmt, ##_args)
 #else
 #define BRICK_IO(_args...) /*empty*/
 #endif

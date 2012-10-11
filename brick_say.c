@@ -15,6 +15,9 @@
 #include <linux/sched.h>
 #include <linux/preempt.h>
 #include <linux/hardirq.h>
+#include <linux/smp.h>
+#include <linux/slab.h>
+#include <linux/kthread.h>
 
 #include <asm/uaccess.h>
 
@@ -25,27 +28,351 @@
 #define SAY_ORDER 0
 #define SAY_BUFMAX (PAGE_SIZE << SAY_ORDER)
 #define MAX_FILELEN 16
+#define MAX_IDS 64
 
-static char *say_buf[NR_CPUS] = {};
-static int say_index[NR_CPUS] = {};
-static int dump_max = 5;
-static atomic_t overflow = ATOMIC_INIT(0);
+char *say_class[MAX_SAY_CLASS] = {
+	[SAY_DEBUG] = "debug",
+	[SAY_INFO] = "info",
+	[SAY_WARN] = "warn",
+	[SAY_ERROR] = "error",
+	[SAY_FATAL] = "fatal",
+	[SAY_TOTAL] = "total",
+};
 
-static spinlock_t proc_lock = __SPIN_LOCK_UNLOCKED(proc_lock);
-static char *proc_buf1[MAX_SAY_CLASS] = {};
-static char *proc_buf2[MAX_SAY_CLASS] = {};
-static int proc_index1[MAX_SAY_CLASS] = {};
-static int proc_index2[MAX_SAY_CLASS] = {};
-static long long proc_stamp[MAX_SAY_CLASS] = {};
+struct say_channel {
+	char *ch_name;
+	struct say_channel *ch_next;
+	struct say_channel *ch_transact;
+	spinlock_t ch_lock[MAX_SAY_CLASS];
+	char *ch_buf[MAX_SAY_CLASS][2];
+	short ch_index[MAX_SAY_CLASS][2];
+	struct file *ch_filp[MAX_SAY_CLASS];
+	int ch_overflow[MAX_SAY_CLASS];
+	bool ch_written[MAX_SAY_CLASS];
+	int ch_id_max;
+	void *ch_ids[MAX_IDS];
+};
 
-static struct file *log_file = NULL;
+struct say_channel *default_channel = NULL;
+EXPORT_SYMBOL_GPL(default_channel);
+
+static struct say_channel *channel_list = NULL;
+
+static rwlock_t say_lock = __RW_LOCK_UNLOCKED(say_lock);
+
+static struct task_struct *say_thread = NULL;
+
+static DECLARE_WAIT_QUEUE_HEAD(say_event);
+
+bool say_dirty = false;
+
+static
+struct say_channel *find_channel(const void *id)
+{
+	struct say_channel *res = default_channel;
+	struct say_channel *ch;
+
+	read_lock(&say_lock);
+	for (ch = channel_list; ch; ch = ch->ch_next) {
+		int i;
+		for (i = 0; i < ch->ch_id_max; i++) {
+			if (ch->ch_ids[i] == id) {
+				res = ch;
+				goto found;
+			}
+		}
+	}
+found:
+	read_unlock(&say_lock);
+	return res;
+}
+
+void bind_to_channel(struct say_channel *ch, struct task_struct *whom)
+{
+	int i;
+	write_lock(&say_lock);
+	for (i = 0; i < ch->ch_id_max; i++) {
+		if (!ch->ch_ids[i]) {
+			ch->ch_ids[i] = whom;
+			goto done;
+		}
+	}
+	if (likely(ch->ch_id_max < MAX_IDS - 1)) {
+		ch->ch_ids[ch->ch_id_max++] = current;
+	} else {
+		say_to(default_channel, SAY_ERROR, "ID overflow for thread '%s'\n", current->comm);
+	}
+done:
+	write_unlock(&say_lock);
+}
+EXPORT_SYMBOL_GPL(bind_to_channel);
+
+void remove_binding(struct task_struct *whom)
+{
+	struct say_channel *ch;
+	int i;
+
+	write_lock(&say_lock);
+	for (ch = channel_list; ch; ch = ch->ch_next) {
+		for (i = 0; i < ch->ch_id_max; i++) {
+			if (ch->ch_ids[i] == whom) {
+				ch->ch_ids[i] = NULL;
+			}
+		}
+	}
+	write_unlock(&say_lock);
+}
+EXPORT_SYMBOL_GPL(remove_binding);
+
+static
+void del_channel(struct say_channel *ch)
+{
+	struct say_channel *tmp;
+	struct say_channel **_tmp;
+
+	write_lock(&say_lock);
+	for (_tmp = &channel_list; (tmp = *_tmp) != NULL; _tmp = &tmp->ch_next) {
+		if (tmp == ch) {
+			*_tmp = tmp->ch_next;
+			break;
+		}
+	}
+	write_unlock(&say_lock);
+
+	while (ch) {
+		int i, j;
+		for (i = 0; i < MAX_SAY_CLASS; i++) {
+			if (ch->ch_filp[i]) {
+				filp_close(ch->ch_filp[i], NULL);
+			}
+			for (j = 0; j < 2; j++) {
+				char *buf = ch->ch_buf[i][j];
+				if (buf)
+					__free_pages(virt_to_page((unsigned long)buf), SAY_ORDER);
+			}
+		}
+		tmp = ch;
+		ch = ch->ch_transact;
+		kfree(tmp);
+	}
+}
+
+static
+struct say_channel *_make_channel(const char *name)
+{
+	struct say_channel *res = NULL;
+	int i, j;
+	bool use_atomic = (preempt_count() & (SOFTIRQ_MASK | HARDIRQ_MASK | NMI_MASK)) != 0 || in_atomic() || irqs_disabled();
+	unsigned long mode = use_atomic ? GFP_ATOMIC : GFP_BRICK;
+	
+	res = kzalloc(sizeof(struct say_channel), mode);
+	if (unlikely(!res)) {
+		goto done;
+	}
+	res->ch_name = kstrdup(name, mode);
+	if (unlikely(!res->ch_name)) {
+		kfree(res);
+		goto done;
+	}
+	for (i = 0; i < MAX_SAY_CLASS; i++) {
+		spin_lock_init(&res->ch_lock[i]);
+		for (j = 0; j < 2; j++) {
+			char *buf = (void*)__get_free_pages(mode, SAY_ORDER);
+			if (unlikely(!buf)) {
+				del_channel(res);
+				res = NULL;
+				goto done;
+			}
+			res->ch_buf[i][j] = buf;
+		}
+	}
+done:
+	return res;
+}
+
+struct say_channel *make_channel(const char *name)
+{
+	struct say_channel *res = NULL;
+	struct say_channel *ch;
+
+	read_lock(&say_lock);
+	for (ch = channel_list; ch; ch = ch->ch_next) {
+		if (!strcmp(ch->ch_name, name)) {
+			res = ch;
+			break;
+		}
+	}
+	read_unlock(&say_lock);
+
+	if (unlikely(!res)) {
+		res = _make_channel(name);
+		if (unlikely(!res))
+			goto done;
+
+		res->ch_transact = _make_channel(name);
+		if (unlikely(!res->ch_transact)) {
+			del_channel(res);
+			res = NULL;
+			goto done;
+		}
+
+		write_lock(&say_lock);
+
+		for (ch = channel_list; ch; ch = ch->ch_next) {
+			if (unlikely(!strcmp(ch->ch_name, name))) {
+				del_channel(res);
+				res = ch;
+				goto race_found;
+			}
+		}
+
+		res->ch_next = channel_list;
+		channel_list = res;
+
+	race_found:
+		write_unlock(&say_lock);
+	}
+
+done:
+	return res;
+}
+EXPORT_SYMBOL_GPL(make_channel);
+
+// tell gcc to check for varargs errors
+static
+void _say(struct say_channel *ch, int class, va_list args, bool use_args, const char *fmt, ...)  __attribute__ ((format (printf, 5, 6)));
+
+static
+void _say(struct say_channel *ch, int class, va_list args, bool use_args, const char *fmt, ...)
+{
+	char *start;
+	int rest;
+	int written;
+
+	if (!ch) {
+		ch = find_channel(current);
+	}
+	if (!ch)
+		return;
+
+	start = ch->ch_buf[class][0] + ch->ch_index[class][0];
+	rest = SAY_BUFMAX - 1 - ch->ch_index[class][0];
+	if (unlikely(rest <= 0)) {
+		ch->ch_overflow[class]++;
+		return;
+	}
+
+	if (use_args) {
+		va_list args2; 
+		va_start(args2, fmt);
+		written = vsnprintf(start, rest, fmt, args2);
+		va_end(args2);
+	} else {
+		written = vsnprintf(start, rest, fmt, args);
+	}
+
+	if (likely(rest > written)) {
+		start[written] = '\0';
+		ch->ch_index[class][0] += written;
+		say_dirty = true;
+	} else {
+		// indicate overflow
+		start[0] = '\0';
+		ch->ch_overflow[class]++;
+	}
+}
+
+void say_to(struct say_channel *ch, int class, const char *fmt, ...)
+{
+	va_list args;
+	unsigned long flags;
+
+	if (!ch) {
+		ch = find_channel(current);
+	}
+
+	if (likely(ch)) {
+		if (likely(class >= 0 && class < MAX_SAY_CLASS)) {
+			spin_lock_irqsave(&ch->ch_lock[class], flags);
+
+			va_start(args, fmt);
+			_say(ch, class, args, false, fmt);
+			va_end(args);
+
+			spin_unlock_irqrestore(&ch->ch_lock[class], flags);
+		}
+
+		class = SAY_TOTAL;
+		spin_lock_irqsave(&ch->ch_lock[class], flags);
+		
+		va_start(args, fmt);
+		_say(ch, class, args, false, fmt);
+		va_end(args);
+
+		va_start(args, fmt);
+		_say(ch->ch_transact, class, args, false, fmt);
+		va_end(args);
+		
+		spin_unlock_irqrestore(&ch->ch_lock[class], flags);
+
+		wake_up_interruptible(&say_event);
+	}
+}
+EXPORT_SYMBOL_GPL(say_to);
+
+void brick_say_to(struct say_channel *ch, int class, bool dump, const char *prefix, const char *file, int line, const char *func, const char *fmt, ...) 
+{
+	struct timespec now = CURRENT_TIME;
+	int filelen;
+	va_list args;
+	unsigned long flags;
+
+	if (!ch) {
+		ch = find_channel(current);
+	}
+
+	// limit the filename
+	filelen = strlen(file);
+	if (filelen > MAX_FILELEN)
+		file += filelen - MAX_FILELEN;
+	
+	for (; ch; ch = ch->ch_transact) {
+		if (likely(class >= 0 && class < MAX_SAY_CLASS)) {
+			spin_lock_irqsave(&ch->ch_lock[class], flags);
+			
+			_say(ch, class, NULL, true, "%ld.%09ld %s %s[%d] %s %d %s(): ", now.tv_sec, now.tv_nsec, prefix, current->comm, (int)smp_processor_id(), file, line, func);
+			va_start(args, fmt);
+			_say(ch, class, args, false, fmt);
+			va_end(args);
+			
+			spin_unlock_irqrestore(&ch->ch_lock[class], flags);
+		}
+
+		spin_lock_irqsave(&ch->ch_lock[SAY_TOTAL], flags);
+
+		_say(ch, SAY_TOTAL, NULL, true, "%ld.%09ld %s_%-5s %s[%d] %s %d %s(): ", now.tv_sec, now.tv_nsec, prefix, say_class[class], current->comm, (int)smp_processor_id(), file, line, func);
+		va_start(args, fmt);
+		_say(ch, SAY_TOTAL, args, false, fmt);
+		va_end(args);
+
+		spin_unlock_irqrestore(&ch->ch_lock[SAY_TOTAL], flags);
+
+		wake_up_interruptible(&say_event);
+	}
+#ifdef CONFIG_MARS_DEBUG
+	if (dump)
+		brick_dump_stack();
+#endif
+}
+EXPORT_SYMBOL_GPL(brick_say_to);
 
 const char *proc_say_get(int class, int *len)
 {
-	*len = 0;
-	if (class >= 0 && class < MAX_SAY_CLASS) {
-		*len = proc_index2[class];
-		return proc_buf2[class];
+	struct say_channel *ch;
+	if (likely(class >= 0 && class < MAX_SAY_CLASS &&
+		   default_channel && (ch = default_channel->ch_transact))) {
+		*len = ch->ch_index[class][1];
+		return ch->ch_buf[class][1];
 	}
 	return NULL;
 }
@@ -53,326 +380,182 @@ EXPORT_SYMBOL_GPL(proc_say_get);
 
 void proc_say_commit(void)
 {
-	unsigned long flags;
-	int class;
-	
-	spin_lock_irqsave(&proc_lock, flags);
+	struct say_channel *ch;
+	if (likely(default_channel && (ch = default_channel->ch_transact))) {
+		int class;
+		for (class = 0; class < MAX_SAY_CLASS; class++) {
+			char *tmp;
+			unsigned long flags;
 
-	for (class = 0; class < MAX_SAY_CLASS; class++) {
-		char *tmp = proc_buf1[class];
-		if (!tmp || (!proc_index1[class] && proc_stamp[class] - (long long)jiffies < 60 * HZ))
-			continue;
-		proc_buf1[class] = proc_buf2[class];
-		proc_buf2[class] = tmp;
-		proc_index2[class] = proc_index1[class];
-		proc_index1[class] = 0;
-		proc_stamp[class] = jiffies;
+			spin_lock_irqsave(&ch->ch_lock[class], flags);
+
+			tmp = ch->ch_buf[class][1];
+			ch->ch_buf[class][1] = ch->ch_buf[class][0];
+			ch->ch_buf[class][0] = tmp;
+			ch->ch_index[class][1] = ch->ch_index[class][0];
+			ch->ch_index[class][0] = 0;
+			ch->ch_written[class] = false;
+
+			spin_unlock_irqrestore(&ch->ch_lock[class], flags);
+		}
 	}
-
-	spin_unlock_irqrestore(&proc_lock, flags);
 }
 EXPORT_SYMBOL_GPL(proc_say_commit);
 
-static inline
-void say_alloc(unsigned long cpu, bool use_atomic)
-{
-	char *ptr;
-	if (likely(say_buf[cpu]) || unlikely(cpu >= NR_CPUS))
-		goto done;
-
-	ptr = (void*)__get_free_pages(use_atomic ? GFP_ATOMIC : GFP_BRICK, SAY_ORDER);
-	if (likely(ptr)) {
-		ptr[0] = '\0';
-		say_buf[cpu] = ptr;
-		say_index[cpu] = 0;
-	}
-
-done: ;
-}
-
 static
-void _say_mark(unsigned long cpu)
+void try_open_file(struct file **file, char *filename, bool creat)
 {
-	char *ptr;
-	bool use_atomic = (preempt_count() & (SOFTIRQ_MASK | HARDIRQ_MASK | NMI_MASK)) != 0 || in_atomic() || irqs_disabled();
-
-	say_alloc(cpu, use_atomic);
-	if (unlikely(use_atomic || cpu >= NR_CPUS))
-		goto done;
-
-	ptr = say_buf[cpu];
-	if (unlikely(!ptr) || !ptr[0])
-		goto done;
-	
-	if (log_file) {
-		loff_t log_pos = 0;
-		int rest = say_index[cpu];
-		int len = 0;
-		while (rest > 0) {
-			int status;
-			mm_segment_t oldfs;
-
-			oldfs = get_fs();
-			set_fs(get_ds());
-			status = vfs_write(log_file, ptr + len, rest, &log_pos);
-			set_fs(oldfs);
-			if (unlikely(status <= 0))
-				break;
-			len += status;
-			rest -= status;
-		}
-#ifdef CONFIG_MARS_USE_SYSLOG
-	} else {
-		printk("%s", ptr);
-#endif
-	}
-
-	ptr[0] = '\0';
-	say_index[cpu] = 0;
-	
-	{
-		static long long old_jiffies = 0;
-		if (((long long)jiffies) - old_jiffies >= HZ * 5) {
-			static spinlock_t lock = __SPIN_LOCK_UNLOCKED(lock);
-			bool won_the_race = false;
-
-			spin_lock(&lock);
-			if (((long long)jiffies) - old_jiffies >= HZ * 5) {
-				old_jiffies = jiffies;
-				won_the_race = true;
-			}
-			spin_unlock(&lock);
-			if (won_the_race)
-				check_close(CONFIG_MARS_LOGFILE, false, true);
-		}
-	}
-
-done: ;
-}
-
-void say_mark(void)
-{
-	unsigned long cpu = get_cpu();
-	_say_mark(cpu);
-	put_cpu();
-}
-EXPORT_SYMBOL_GPL(say_mark);
-
-static
-void _say(int class, unsigned long cpu, va_list args, bool use_args, const char *fmt, ...)  __attribute__ ((format (printf, 5, 6)));
-static
-void _say(int class, unsigned long cpu, va_list args, bool use_args, const char *fmt, ...)
-{
-	char *start = NULL;
-	int rest;
-	int written = 0;
-
-	if (!say_buf[cpu])
-		goto done;
-
-	rest = SAY_BUFMAX - say_index[cpu];
-	if (rest <= 0)
-		goto done;
-
-	start = say_buf[cpu] + say_index[cpu];
-	if (use_args) {
-		/* bug in gcc: use register variable
-		 * shading the parameter
-		 */
-		va_list args; 
-		va_start(args, fmt);
-		written = vsnprintf(start, rest, fmt, args);
-		va_end(args);
-	} else {
-		written = vsnprintf(start, rest, fmt, args);
-	}
-
-	if (likely(rest > written)) {
-		start[written] = '\0';
-		say_index[cpu] += written;
-	} else {
-		// indicate overflow
-		start[0] = '\0';
-		written = 0;
-		atomic_inc(&overflow);
-	}
-
-done:
-	if (class >= 0 && class < MAX_SAY_CLASS && start && written > 0) {
-		char *pstart;
-		unsigned long flags;
-
-		spin_lock_irqsave(&proc_lock, flags);
-
-		if (!proc_buf1[class])
-			goto proc_done;
-
-		rest = SAY_BUFMAX - proc_index1[class];
-		if (rest <= 0)
-			goto proc_done;
-
-		if (likely(rest > written)) {
-			pstart = proc_buf1[class] + proc_index1[class];
-			memcpy(pstart, start, written);
-			pstart[written] = '\0';
-			proc_index1[class] += written;
-		}
-	proc_done:
-		spin_unlock_irqrestore(&proc_lock, flags);
-	}
-}
-
-static inline
-void _check_overflow(unsigned long cpu)
-{
-	int count = 0;
-	atomic_xchg(&overflow, count);
-	if (unlikely(count > 0)) {
-		if (likely(say_index[cpu] < SAY_BUFMAX - 8)) {
-			_say(0, cpu, NULL, true, "#%d#\n", count);
-		}
-	}
-}
-
-void say(int class, const char *fmt, ...)
-{
-	unsigned long cpu = get_cpu();
-	va_list args;
-
-	_say_mark(cpu);
-	if (unlikely(!say_buf[cpu]))
-		goto done;
-	_check_overflow(cpu);
-
-	va_start(args, fmt);
-	_say(class, cpu, args, false, fmt);
-	va_end(args);
-
-	_say_mark(cpu);
-done:
-	put_cpu();
-}
-EXPORT_SYMBOL_GPL(say);
-
-void brick_say(int class, bool dump, const char *prefix, const char *file, int line, const char *func, const char *fmt, ...) 
-{
-	struct timespec now = CURRENT_TIME;
-	unsigned long cpu = get_cpu();
-	int filelen;
-	va_list args;
-
-	_say_mark(cpu);
-	if (unlikely(!say_buf[cpu]))
-		goto done;
-	_check_overflow(cpu);
-
-	// limit the filename
-	filelen = strlen(file);
-	if (filelen > MAX_FILELEN)
-		file += filelen - MAX_FILELEN;
-
-	_say(class, cpu, NULL, true, "%ld.%09ld %s %s[%d] %s %d %s(): ", now.tv_sec, now.tv_nsec, prefix, current->comm, (int)cpu, file, line, func);
-	va_start(args, fmt);
-	_say(class, cpu, args, false, fmt);
-	va_end(args);
-
-	_say_mark(cpu);
-#ifdef CONFIG_MARS_DEBUG
-	if (dump)
-		brick_dump_stack();
-#endif
-done:
-	put_cpu();
-}
-EXPORT_SYMBOL_GPL(brick_say);
-
-void check_open(const char *filename, bool must_exist)
-{
-	int flags = O_EXCL | O_APPEND | O_WRONLY | O_LARGEFILE;
+	int flags = O_APPEND | O_WRONLY | O_LARGEFILE;
 	int prot = 0600;
+
+	if (creat)
+		flags |= O_CREAT | O_TRUNC;
+
+	*file = filp_open(filename, flags, prot);
+	if (unlikely(IS_ERR(*file))) {
+		*file = NULL;
+	}
+}
+
+static
+void out_to_file(struct file *file, char *buf, int len)
+{
+	loff_t log_pos = 0;
 	mm_segment_t oldfs;
 
-	if (log_file)
-		return;
-
-	if (!must_exist)
-		flags |= O_CREAT;
-
-	oldfs = get_fs();
-	set_fs(get_ds());
- 	log_file = filp_open(filename, flags, prot);
-	set_fs(oldfs);
-	if (unlikely(IS_ERR(log_file))) {
-		int status = PTR_ERR(log_file);
-		log_file = NULL;
-		say(1, "cannot open logfile '%s', status = %d\n", filename, status);
+	if (file) {
+		oldfs = get_fs();
+		set_fs(get_ds());
+		(void)vfs_write(file, buf, len, &log_pos);
+		set_fs(oldfs);
+#ifdef CONFIG_MARS_USE_SYSLOG
 	} else {
-		say(0, "opened logfile '%s' %p\n", filename, log_file);
+		printk("%s", buf);
+#endif
 	}
 }
 
-void check_close(const char *filename, bool force, bool re_open)
+static
+void treat_channel(struct say_channel *ch, int class, bool transact)
 {
-	struct kstat st = {};
-	int status;
+	int len;
+	int overflow;
+	char *buf;
+	char *tmp;
+	unsigned long flags;
 
-	if (!force) {
-		mm_segment_t oldfs;
-		oldfs = get_fs();
-		set_fs(get_ds());
-		status = vfs_stat((char*)filename, &st);
-		set_fs(oldfs);
-		force = (status < 0 || !st.size);
+	if (unlikely(!ch->ch_filp[class])) {
+		char *filename = kmalloc(1024, GFP_KERNEL);
+		if (unlikely(!filename))
+			return;
+
+		snprintf(filename, 1023, "%s/%d.%s.%s", ch->ch_name, class, say_class[class], transact ? "status" : "log");
+		try_open_file(&ch->ch_filp[class], filename, transact);
+		kfree(filename);
 	}
-	
-	if (force) {
-		if (log_file) {
-			struct file *old;
-			say(0, "closing logfile....\n");
-			old = log_file;
-			log_file = NULL;
-			// FIXME: this may race against vfs_write(). Use rcu here.
-			filp_close(old, NULL);
-			say(0, "closed logfile.\n");
+
+	spin_lock_irqsave(&ch->ch_lock[class], flags);
+
+	if (transact) {
+		buf = ch->ch_buf[class][1];
+		len = ch->ch_index[class][1];
+	} else {
+		buf = ch->ch_buf[class][0];
+		tmp = ch->ch_buf[class][1];
+		ch->ch_buf[class][1] = buf;
+		ch->ch_buf[class][0] = tmp;
+		len = ch->ch_index[class][0];
+		ch->ch_index[class][0] = 0;
+	}
+	overflow = ch->ch_overflow[class];
+	ch->ch_overflow[class] = 0;
+
+	spin_unlock_irqrestore(&ch->ch_lock[class], flags);
+
+	out_to_file(ch->ch_filp[class], buf, len);
+
+	if (unlikely(overflow > 0)) {
+		struct timespec now = CURRENT_TIME;
+		len = snprintf(buf, SAY_BUFMAX, "%ld.%09ld OVERFLOW %d times\n", now.tv_sec, now.tv_nsec, overflow);
+		out_to_file(ch->ch_filp[class], buf, len);
+	}
+
+	if (transact && ch->ch_filp[class]) {
+		filp_close(ch->ch_filp[class], NULL);
+		ch->ch_filp[class] = NULL;
+	}
+}
+
+static
+int _say_thread(void *data)
+{
+	while (!kthread_should_stop()) {
+		struct say_channel *ch;
+		struct say_channel *tmp;
+		int i;
+
+		wait_event_interruptible_timeout(say_event, say_dirty, HZ);
+		say_dirty = false;
+
+	restart:
+		ch = NULL;
+		read_lock(&say_lock);
+		for (tmp = channel_list; tmp; tmp = tmp->ch_next) {
+			for (i = 0; i < MAX_SAY_CLASS; i++) {
+				if (likely(tmp->ch_transact) &&
+				    unlikely(!tmp->ch_transact->ch_written[i])) {
+					treat_channel(tmp->ch_transact, i, true);
+					tmp->ch_transact->ch_written[i] = true;
+				}
+				if (tmp->ch_index[i][0] > 0) {
+					ch = tmp;
+					break;
+				}
+			}
 		}
-		if (re_open)
-			check_open(filename, true);
+		read_unlock(&say_lock);
+
+		if (ch) {
+			treat_channel(ch, i, false);
+			goto restart;
+		}
 	}
+
+	return 0;
 }
 
 void init_say(void)
 {
-	int i;
-	for (i = 0; i < MAX_SAY_CLASS; i++) {
-		proc_buf1[i] = (void*)__get_free_pages(GFP_KERNEL, SAY_ORDER);
-		proc_buf2[i] = (void*)__get_free_pages(GFP_KERNEL, SAY_ORDER);
+	default_channel = make_channel("/mars");
+	say_thread = kthread_create(_say_thread, NULL, "brick_say");
+	if (IS_ERR(say_thread)) {
+		say_thread = NULL;
+	} else {
+		get_task_struct(say_thread);
+		wake_up_process(say_thread);
 	}
-	check_open(CONFIG_MARS_LOGFILE, true);
+
 }
 EXPORT_SYMBOL_GPL(init_say);
 
 void exit_say(void)
 {
-	int i;
-	for (i = 0; i < NR_CPUS; i++) {
-		if (!say_buf[i])
-			continue;
-		__free_pages(virt_to_page((unsigned long)say_buf[i]), SAY_ORDER);
-		say_buf[i] = NULL;
+	if (say_thread) {
+		kthread_stop(say_thread);
+		put_task_struct(say_thread);
+		say_thread = NULL;
 	}
-	check_close(CONFIG_MARS_LOGFILE, true, false);
-	for (i = 0; i < MAX_SAY_CLASS; i++) {
-		if (proc_buf1[i])
-			__free_pages(virt_to_page((unsigned long)proc_buf1[i]), SAY_ORDER);
-		if (proc_buf2[i])
-			__free_pages(virt_to_page((unsigned long)proc_buf2[i]), SAY_ORDER);
-		proc_buf1[i] = NULL;
-		proc_buf2[i] = NULL;
+
+	default_channel = NULL;
+	while (channel_list) {
+		del_channel(channel_list);
 	}
 }
 EXPORT_SYMBOL_GPL(exit_say);
 
 #ifdef CONFIG_MARS_DEBUG
+
+static int dump_max = 5;
 
 void brick_dump_stack(void)
 {
@@ -384,4 +567,3 @@ void brick_dump_stack(void)
 EXPORT_SYMBOL(brick_dump_stack);
 
 #endif
-

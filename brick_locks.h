@@ -31,7 +31,6 @@
 	do {								\
 		spin_unlock_irqrestore(spinlock, flags);		\
 		atomic_dec(&current->lock_count);			\
-		say_mark();						\
 	} while (0)
 
 # define traced_readlock(spinlock,flags)				\
@@ -49,7 +48,6 @@
 		/*spin_unlock_irqrestore(spinlock,flags);*/		\
 		read_unlock(spinlock);					\
 		atomic_dec(&current->lock_count);			\
-		say_mark();						\
 	} while (0)
 
 # define traced_writelock(spinlock,flags)				\
@@ -67,7 +65,6 @@
 		/*spin_unlock_irqrestore(spinlock,flags);*/		\
 		write_unlock(spinlock);					\
 		atomic_dec(&current->lock_count);			\
-		say_mark();						\
 	} while (0)
 
 #else
