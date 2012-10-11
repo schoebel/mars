@@ -588,6 +588,41 @@ extern int set_recursive_button(struct generic_brick *brick, brick_switch_t mode
 
 /////////////////////////////////////////////////////////////////////////
 
+// threads
+
+/* Please do not directly use kthreads any more in future.
+ * Use these thin abstractions instead.
+ */
+
+#define brick_thread_t struct task_struct
+
+#define brick_thread_create(_thread_fn, _data, _fmt, _args...)		\
+	({								\
+		brick_thread_t *_thr = kthread_create(_thread_fn, _data, _fmt, ##_args);	\
+		if (unlikely(IS_ERR(_thr))) {				\
+			int _err = PTR_ERR(_thr);			\
+			BRICK_ERR("cannot create thread '%s', status = %d\n", _fmt, _err); \
+			_thr = NULL;					\
+		} else {						\
+			get_task_struct(_thr);				\
+			wake_up_process(_thr);				\
+		}							\
+		_thr;							\
+	})
+
+#define brick_thread_stop(_thread)					\
+	do {								\
+		if (likely(_thread)) {					\
+			BRICK_INF("stopping thread '%s'\n", (_thread)->comm); \
+			kthread_stop(_thread);				\
+			remove_binding(_thread);			\
+			put_task_struct(_thread);			\
+			_thread = NULL;					\
+		}							\
+	} while (0)
+
+/////////////////////////////////////////////////////////////////////////
+
 // init
 
 extern int init_brick(void);
