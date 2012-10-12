@@ -17,6 +17,9 @@
 #include <linux/kthread.h>
 
 #include "mars.h"
+#include "lib_timing.h"
+
+static struct timing_stats timings[2] = {};
 
 ///////////////////////// own type definitions ////////////////////////
 
@@ -339,7 +342,7 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref, bool cork)
 	bio->bi_end_io(bio, 0);
 #else
 	bio->bi_rw = rw;
-	submit_bio(rw, bio);
+	TIME_STATS(&timings[rw & 1], submit_bio(rw, bio));
 #endif
 
 	status = 0;
@@ -648,13 +651,15 @@ done:
 static noinline
 char *bio_statistics(struct bio_brick *brick, int verbose)
 {
-	char *res = brick_string_alloc(0);
+	char *res = brick_string_alloc(4096);
+	int pos = 0;
 	if (!res)
 		return NULL;
 
-	// FIXME: check for allocation overflows
+	pos += report_timing(&timings[0], res + pos, 4096 - pos);
+	pos += report_timing(&timings[1], res + pos, 4096 - pos);
 
-	snprintf(res, 512,
+	snprintf(res + pos, 4096 - pos,
 		 "total "
 		 "completed[0] = %d "
 		 "completed[1] = %d "

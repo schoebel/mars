@@ -10,6 +10,7 @@ mars-objs :=				\
 	lib_log.o			\
 	lib_rank.o			\
 	lib_limiter.o			\
+	lib_timing.o			\
 	mars_net.o			\
 	mars_server.o			\
 	mars_client.o			\

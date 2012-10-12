@@ -16,11 +16,14 @@
 #include <linux/file.h>
 
 #include "mars.h"
+#include "lib_timing.h"
 
 #define MARS_MAX_AIO      1024
 #define MARS_MAX_AIO_READ 32
 
 #define MEASURE_SYNC 8
+
+static struct timing_stats timings[2] = {};
 
 ///////////////////////// own type definitions ////////////////////////
 
@@ -297,7 +300,7 @@ static int aio_submit(struct aio_output *output, struct aio_mref_aspect *mref_a,
 
 	oldfs = get_fs();
 	set_fs(get_ds());
-	res = sys_io_submit(output->ctxp, 1, &iocbp);
+	TIME_STATS(&timings[mref->ref_rw & 1], res = sys_io_submit(output->ctxp, 1, &iocbp));
 	set_fs(oldfs);
 
 	if (res < 0 && res != -EAGAIN)
@@ -895,8 +898,9 @@ static noinline
 char *aio_statistics(struct aio_brick *brick, int verbose)
 {
 	struct aio_output *output = brick->outputs[0];
-	char *res = brick_string_alloc(0);
+	char *res = brick_string_alloc(4096);
 	char *sync = NULL;
+	int pos = 0;
 	if (!res)
 		return NULL;
 
@@ -904,10 +908,12 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 	sync = show_sync();
 #endif
 
-	// FIXME: check for allocation overflows
+	pos += report_timing(&timings[0], res + pos, 4096 - pos);
+	pos += report_timing(&timings[1], res + pos, 4096 - pos);
 
-	snprintf(res, 1024,
-		 "total reads = %d "
+	snprintf(res + pos, 4096 - pos,
+		 "total "
+		 "reads = %d "
 		 "writes = %d "
 		 "allocs = %d "
 		 "delays = %d "
