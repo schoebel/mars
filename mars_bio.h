@@ -27,19 +27,21 @@ struct bio_brick {
 	// readonly
 	loff_t total_size;
 	atomic_t fly_count[MARS_PRIO_NR];
-	atomic_t background_count;
+	atomic_t queue_count[MARS_PRIO_NR];
 	atomic_t completed_count;
 	atomic_t total_completed_count[MARS_PRIO_NR];
-	atomic_t total_background_count;
 	// private
 	spinlock_t lock;
-	struct list_head background_list;
+	struct list_head queue_list[MARS_PRIO_NR];
 	struct list_head completed_list;
-	wait_queue_head_t event;
+	wait_queue_head_t submit_event;
+	wait_queue_head_t response_event;
 	struct file *filp;
 	struct block_device *bdev;
-	struct task_struct *thread;
+	brick_thread_t *submit_thread;
+	brick_thread_t *response_thread;
 	int bvec_max;
+	bool submitted;
 };
 
 struct bio_input {
