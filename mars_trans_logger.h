@@ -10,11 +10,26 @@
 
 #include <linux/time.h>
 
+#include "mars.h"
 #include "lib_log.h"
 #include "lib_pairing_heap.h"
 #include "lib_queue.h"
 
+///////////////////////// global tuning ////////////////////////
+
 extern int trans_logger_mem_usage; // in KB
+
+struct writeback_group {
+	rwlock_t lock;
+	struct trans_logger_brick *leader;
+	loff_t biggest;
+	struct list_head group_anchor;
+	// tuning
+	struct mars_limiter limiter;
+	int until_percent;
+};
+
+extern struct writeback_group global_writeback;
 
 ////////////////////////////////////////////////////////////////////
 
@@ -133,6 +148,7 @@ struct trans_logger_brick {
 	int old_input_nr;   // where old IO requests may be on the fly
 	int replay_code;    // replay errors (if any)
 	// private
+	struct list_head group_head;
 	loff_t old_margin;
 	spinlock_t replay_lock;
 	struct list_head replay_list;

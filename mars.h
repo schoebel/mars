@@ -16,6 +16,7 @@
 
 #include "brick.h"
 #include "brick_mem.h"
+#include "lib_timing.h"
 
 #define GFP_MARS GFP_BRICK
 
@@ -261,6 +262,13 @@ extern void (*_mars_trigger)(void);
 extern void (*_mars_remote_trigger)(void);
 #define mars_trigger() do { if (_mars_trigger) { MARS_DBG("trigger...\n"); _mars_trigger(); } } while (0)
 #define mars_remote_trigger() do { if (_mars_remote_trigger) { MARS_DBG("remote_trigger...\n"); _mars_remote_trigger(); } } while (0)
+
+/////////////////////////////////////////////////////////////////////////
+
+/* Some global stuff.
+ */
+
+extern struct banning mars_global_ban;
 
 /////////////////////////////////////////////////////////////////////////
 

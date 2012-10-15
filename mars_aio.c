@@ -18,47 +18,46 @@
 #include "mars.h"
 #include "lib_timing.h"
 
+#include "mars_aio.h"
+
 #define MARS_MAX_AIO      1024
 #define MARS_MAX_AIO_READ 32
 
-#define MEASURE_SYNC 8
+static struct timing_stats timings[3] = {};
 
-static struct timing_stats timings[2] = {};
+struct threshold aio_submit_threshold = {
+	.thr_ban = &mars_global_ban,
+	.thr_limit = AIO_SUBMIT_MAX_LATENCY,
+	.thr_factor = 10,
+	.thr_plus = 10000,
+};
+EXPORT_SYMBOL_GPL(aio_submit_threshold);
+
+struct threshold aio_io_threshold[2] = {
+	[0] = {
+		.thr_ban = &mars_global_ban,
+		.thr_limit = AIO_IO_R_MAX_LATENCY,
+		.thr_factor = 100,
+		.thr_plus = 0,
+	},
+	[1] = {
+		.thr_ban = &mars_global_ban,
+		.thr_limit = AIO_IO_W_MAX_LATENCY,
+		.thr_factor = 100,
+		.thr_plus = 0,
+	},
+};
+EXPORT_SYMBOL_GPL(aio_io_threshold);
+
+struct threshold aio_sync_threshold = {
+	.thr_ban = &mars_global_ban,
+	.thr_limit = AIO_SYNC_MAX_LATENCY,
+	.thr_factor = 100,
+	.thr_plus = 0,
+};
+EXPORT_SYMBOL_GPL(aio_sync_threshold);
 
 ///////////////////////// own type definitions ////////////////////////
-
-#include "mars_aio.h"
-
-#ifdef MEASURE_SYNC
-static int sync_ticks[MEASURE_SYNC] = {};
-
-static void measure_sync(int ticks)
-{
-	int order = ticks;
-	if (ticks > 1) {
-		order = MEASURE_SYNC - 1;
-		while (order > 0 && (1 << (order-1)) >= ticks) {
-			order--;
-		}
-		order++;
-	}
-	sync_ticks[order]++;
-}
-
-static char *show_sync(void)
-{
-	char *res = brick_string_alloc(0);
-	int i;
-	int pos = 0;
-	if (!res)
-		return NULL;
-	for (i = 0; i < MEASURE_SYNC; i++) {
-		pos += snprintf(res + pos, 256, "%d: %d ", i, sync_ticks[i]);
-	}
-	return res;
-}
-
-#endif
 
 ////////////////// some helpers //////////////////
 
@@ -77,6 +76,8 @@ void _enqueue(struct aio_threadinfo *tinfo, struct aio_mref_aspect *mref_a, int 
 	prio = 0;
 #endif
 
+	mref_a->enqueue_stamp = cpu_clock(raw_smp_processor_id());
+
 	traced_lock(&tinfo->lock, flags);
 
 	if (at_end) {
@@ -84,38 +85,45 @@ void _enqueue(struct aio_threadinfo *tinfo, struct aio_mref_aspect *mref_a, int 
 	} else {
 		list_add(&mref_a->io_head, &tinfo->mref_list[prio]);
 	}
+	tinfo->queued[prio]++;
+	tinfo->queued_sum++;
 
 	traced_unlock(&tinfo->lock, flags);
 
 	atomic_inc(&tinfo->total_enqueue_count);
+
+	wake_up_interruptible_all(&tinfo->event);
 }
 
 static inline
-struct aio_mref_aspect *_dequeue(struct aio_threadinfo *tinfo, bool do_remove)
+struct aio_mref_aspect *_dequeue(struct aio_threadinfo *tinfo)
 {
 	struct aio_mref_aspect *mref_a = NULL;
 	int prio;
 	unsigned long flags = 0;
 
-	if (do_remove)
-		traced_lock(&tinfo->lock, flags);
+	traced_lock(&tinfo->lock, flags);
 
 	for (prio = 0; prio < MARS_PRIO_NR; prio++) {
 		struct list_head *start = &tinfo->mref_list[prio];
 		struct list_head *tmp = start->next;
 		if (tmp != start) {
-			if (do_remove) {
-				list_del_init(tmp);
-				atomic_inc(&tinfo->total_dequeue_count);
-			}
+			list_del_init(tmp);
+			tinfo->queued[prio]--;
+			tinfo->queued_sum--;
 			mref_a = container_of(tmp, struct aio_mref_aspect, io_head);
 			goto done;
 		}
 	}
 
 done:
-	if (do_remove)
-		traced_unlock(&tinfo->lock, flags);
+	traced_unlock(&tinfo->lock, flags);
+
+	if (likely(mref_a && mref_a->object)) {
+		unsigned long long latency;
+		latency = cpu_clock(raw_smp_processor_id()) - mref_a->enqueue_stamp;
+		threshold_check(&aio_io_threshold[mref_a->object->ref_rw & 1], latency);
+	}
 	return mref_a;
 }
 
@@ -272,8 +280,6 @@ static void aio_ref_io(struct aio_output *output, struct mref_object *mref)
 	}
 
 	_enqueue(tinfo, mref_a, mref->ref_prio, true);
-
-	wake_up_interruptible_all(&tinfo->event);
 	return;
 
 done:
@@ -295,16 +301,20 @@ static int aio_submit(struct aio_output *output, struct aio_mref_aspect *mref_a,
 		// .aio_reqprio = something(mref->ref_prio) field exists, but not yet implemented in kernelspace :(
 	};
 	struct iocb *iocbp = &iocb;
+	unsigned long long latency;
 
 	mars_trace(mref, "aio_submit");
 
 	oldfs = get_fs();
 	set_fs(get_ds());
-	TIME_STATS(&timings[mref->ref_rw & 1], res = sys_io_submit(output->ctxp, 1, &iocbp));
+	latency = TIME_STATS(&timings[mref->ref_rw & 1], res = sys_io_submit(output->ctxp, 1, &iocbp));
 	set_fs(oldfs);
+
+	threshold_check(&aio_submit_threshold, latency);
 
 	if (res < 0 && res != -EAGAIN)
 		MARS_ERR("error = %d\n", res);
+
 	return res;
 }
 
@@ -327,10 +337,12 @@ static int aio_submit_dummy(struct aio_output *output)
 }
 
 static
-int aio_start_thread(struct aio_output *output, int i, int(*fn)(void*))
+int aio_start_thread(
+	struct aio_output *output,
+	struct aio_threadinfo *tinfo,
+	int(*fn)(void*),
+	char class)
 {
-	static int index = 0;
-	struct aio_threadinfo *tinfo = &output->tinfo[i];
 	int j;
 
 	for (j = 0; j < MARS_PRIO_NR; j++) {
@@ -339,8 +351,9 @@ int aio_start_thread(struct aio_output *output, int i, int(*fn)(void*))
 	tinfo->output = output;
 	spin_lock_init(&tinfo->lock);
 	init_waitqueue_head(&tinfo->event);
+	init_waitqueue_head(&tinfo->terminate_event);
 	tinfo->terminated = false;
-	tinfo->thread = kthread_create(fn, tinfo, "mars_%daio%d", i, index++);
+	tinfo->thread = kthread_create(fn, tinfo, "mars_aio_%c%d", class, output->index);
 	if (IS_ERR(tinfo->thread)) {
 		int err = PTR_ERR(tinfo->thread);
 		MARS_ERR("cannot create thread\n");
@@ -415,7 +428,7 @@ void aio_stop_thread(struct aio_output *output, int i, bool do_submit_dummy)
 		// wait for termination
 		MARS_INF("waiting for thread %d ...\n", i);
 		wait_event_interruptible_timeout(
-			tinfo->event,
+			tinfo->terminate_event,
 			tinfo->terminated,
 			(60 - i * 2) * HZ);
 		if (likely(tinfo->terminated)) {
@@ -434,29 +447,28 @@ static
 int aio_sync(struct file *file)
 {
 	int err;
-#ifdef MEASURE_SYNC
-	long long old_jiffies = jiffies;
-#endif
 
 	err = filemap_write_and_wait_range(file->f_mapping, 0, LLONG_MAX);
 
-
-#ifdef MEASURE_SYNC
-	measure_sync(jiffies - old_jiffies);
-#endif
 	return err;
 }
 
 static
 void aio_sync_all(struct aio_output *output, struct list_head *tmp_list)
 {
+	unsigned long long latency;
 	int err;
 
 	output->fdsync_active = true;
 	atomic_inc(&output->total_fdsync_count);
 	
-	err = aio_sync(output->filp);
+	latency = TIME_STATS(
+		&timings[2],
+		err = aio_sync(output->filp)
+		);
 	
+	threshold_check(&aio_sync_threshold, latency);
+
 	output->fdsync_active = false;
 	wake_up_interruptible_all(&output->fdsync_event);
 	if (err < 0) {
@@ -529,7 +541,7 @@ int aio_sync_thread(void *data)
 	MARS_INF("kthread has started on '%s'.\n", output->brick->brick_path);
 	//set_user_nice(current, -20);
 
-	while (!kthread_should_stop()) {
+	while (!kthread_should_stop() || tinfo->queued_sum > 0) {
 		LIST_HEAD(tmp_list);
 		unsigned long flags;
 		int i;
@@ -539,9 +551,8 @@ int aio_sync_thread(void *data)
 
 		wait_event_interruptible_timeout(
 			tinfo->event,
-			kthread_should_stop() ||
-			_dequeue(tinfo, false),
-			1 * HZ);
+			tinfo->queued_sum > 0,
+			HZ / 4);
 
 		traced_lock(&tinfo->lock, flags);
 		for (i = 0; i < MARS_PRIO_NR; i++) {
@@ -549,6 +560,8 @@ int aio_sync_thread(void *data)
 			if (!list_empty(start)) {
 				// move over the whole list
 				list_replace_init(start, &tmp_list);
+				tinfo->queued_sum -= tinfo->queued[i];
+				tinfo->queued[i] = 0;
 				break;
 			}
 		}
@@ -568,7 +581,7 @@ int aio_sync_thread(void *data)
 
 	MARS_INF("kthread has stopped.\n");
 	tinfo->terminated = true;
-	wake_up_interruptible_all(&tinfo->event);
+	wake_up_interruptible_all(&tinfo->terminate_event);
 	return 0;
 }
 
@@ -586,17 +599,16 @@ static int aio_event_thread(void *data)
 	if (!current->mm)
 		goto err;
 
-	err = aio_start_thread(output, 2, aio_sync_thread);
+	err = aio_start_thread(output, &output->tinfo[2], aio_sync_thread, 'y');
 	if (unlikely(err < 0))
 		goto err;
 
-	while (!kthread_should_stop()) {
+	while (!kthread_should_stop() || tinfo->queued_sum > 0) {
 		mm_segment_t oldfs;
 		int count;
-		int bounced;
 		int i;
 		struct timespec timeout = {
-			.tv_sec = 10,
+			.tv_sec = 1,
 		};
 		struct io_event events[MARS_MAX_AIO_READ];
 
@@ -609,7 +621,6 @@ static int aio_event_thread(void *data)
 		set_fs(oldfs);
 
 		//MARS_INF("count = %d\n", count);
-		bounced = 0;
 		for (i = 0; i < count; i++) {
 			struct aio_mref_aspect *mref_a = (void*)events[i].data;
 			struct mref_object *mref;
@@ -631,7 +642,6 @@ static int aio_event_thread(void *data)
 				if (!output->filp->f_op->aio_fsync) {
 					mars_trace(mref, "aio_fsync");
 					_enqueue(other, mref_a, mref->ref_prio, true);
-					bounced++;
 					continue;
 				}
 				err = aio_submit(output, mref_a, true);
@@ -642,8 +652,6 @@ static int aio_event_thread(void *data)
 			_complete(output, mref, err);
 
 		}
-		if (bounced)
-			wake_up_interruptible_all(&other->event);
 	}
 	err = 0;
 
@@ -655,7 +663,7 @@ static int aio_event_thread(void *data)
 	unuse_fake_mm();
 
 	tinfo->terminated = true;
-	wake_up_interruptible_all(&tinfo->event);
+	wake_up_interruptible_all(&tinfo->terminate_event);
 	return err;
 }
 
@@ -759,11 +767,11 @@ static int aio_submit_thread(void *data)
 	if (unlikely(err < 0))
 		goto cleanup_mm;
 	
-	err = aio_start_thread(output, 1, aio_event_thread);
+	err = aio_start_thread(output, &output->tinfo[1], aio_event_thread, 'e');
 	if (unlikely(err < 0))
 		goto cleanup_ctxp;
 
-	while (!kthread_should_stop() || atomic_read(&output->read_count) > 0 || atomic_read(&output->write_count) > 0) {
+	while (!kthread_should_stop() || atomic_read(&output->read_count) + atomic_read(&output->write_count) + tinfo->queued_sum > 0) {
 		struct aio_mref_aspect *mref_a;
 		struct mref_object *mref;
 		int sleeptime;
@@ -773,11 +781,10 @@ static int aio_submit_thread(void *data)
 
 		wait_event_interruptible_timeout(
 			tinfo->event,
-			kthread_should_stop() ||
-			_dequeue(tinfo, false),
-			HZ);
+			tinfo->queued_sum > 0,
+			HZ / 4);
 
-		mref_a = _dequeue(tinfo, true);
+		mref_a = _dequeue(tinfo);
 		if (!mref_a) {
 			continue;
 		}
@@ -803,7 +810,7 @@ static int aio_submit_thread(void *data)
 					mref_a->start_jiffies = jiffies;
 				}
 				if ((long long)jiffies - mref_a->start_jiffies <= mref->ref_timeout) {
-					if (!_dequeue(tinfo, false)) {
+					if (!tinfo->queued_sum) {
 						atomic_inc(&output->total_msleep_count);
 						brick_msleep(1000 * 4 / HZ);
 					}
@@ -816,9 +823,9 @@ static int aio_submit_thread(void *data)
 			}
 		}
 
-		sleeptime = 1000 / HZ;
+		sleeptime = 1;
 		for (;;) {
-			/* This is just a test. Don't use it for performance reasons.
+			/* This is just a test. Don't enable it for performance reasons.
 			 */
 			if (output->brick->wait_during_fdsync && mref->ref_rw != READ) {
 				if (output->fdsync_active) {
@@ -826,7 +833,7 @@ static int aio_submit_thread(void *data)
 					atomic_inc(&output->total_fdsync_wait_count);
 					__wait_event_interruptible_timeout(
 						output->fdsync_event,
-						!output->fdsync_active || kthread_should_stop(),
+						!output->fdsync_active,
 						delay);
 				}
 
@@ -842,7 +849,7 @@ static int aio_submit_thread(void *data)
 			atomic_inc(&output->total_delay_count);
 			brick_msleep(sleeptime);
 			if (sleeptime < 100) {
-				sleeptime += 1000 / HZ;
+				sleeptime++;
 			}
 		}
 	err:
@@ -876,7 +883,7 @@ cleanup_fd:
 done:
 	MARS_DBG("status = %d\n", err);
 	tinfo->terminated = true;
-	wake_up_interruptible_all(&tinfo->event);
+	wake_up_interruptible_all(&tinfo->terminate_event);
 	return err;
 }
 
@@ -904,12 +911,9 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 	if (!res)
 		return NULL;
 
-#ifdef MEASURE_SYNC
-	sync = show_sync();
-#endif
-
 	pos += report_timing(&timings[0], res + pos, 4096 - pos);
 	pos += report_timing(&timings[1], res + pos, 4096 - pos);
+	pos += report_timing(&timings[2], res + pos, 4096 - pos);
 
 	snprintf(res + pos, 4096 - pos,
 		 "total "
@@ -927,10 +931,14 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 		 "flying reads = %d "
 		 "writes = %d "
 		 "allocs = %d "
-		 "q0 = %d (%d - %d) "
-		 "q1 = %d (%d - %d) "
-		 "q2 = %d (%d - %d) |"
-		 " %s\n",
+		 "q0 = %d "
+		 "q1 = %d "
+		 "q2 = %d "
+		 "| total "
+		 "q0 = %d "
+		 "q1 = %d "
+		 "q2 = %d "
+		 "%s\n",
 		 atomic_read(&output->total_read_count),
 		 atomic_read(&output->total_write_count),
 		 atomic_read(&output->total_alloc_count),
@@ -945,12 +953,12 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 		 atomic_read(&output->read_count),
 		 atomic_read(&output->write_count),
 		 atomic_read(&output->alloc_count),
-		 atomic_read(&output->tinfo[0].total_enqueue_count) - atomic_read(&output->tinfo[0].total_dequeue_count),
-		 atomic_read(&output->tinfo[0].total_enqueue_count), atomic_read(&output->tinfo[0].total_dequeue_count),
-		 atomic_read(&output->tinfo[1].total_enqueue_count) - atomic_read(&output->tinfo[1].total_dequeue_count),
-		 atomic_read(&output->tinfo[1].total_enqueue_count), atomic_read(&output->tinfo[1].total_dequeue_count),
-		 atomic_read(&output->tinfo[2].total_enqueue_count) - atomic_read(&output->tinfo[2].total_dequeue_count),
-		 atomic_read(&output->tinfo[2].total_enqueue_count), atomic_read(&output->tinfo[2].total_dequeue_count),
+		 output->tinfo[0].queued_sum,
+		 output->tinfo[1].queued_sum,
+		 output->tinfo[2].queued_sum,
+		 atomic_read(&output->tinfo[0].total_enqueue_count),
+		 atomic_read(&output->tinfo[1].total_enqueue_count),
+		 atomic_read(&output->tinfo[2].total_enqueue_count),
 		 sync ? sync : "");
 	
 	if (sync)
@@ -975,7 +983,6 @@ void aio_reset_statistics(struct aio_brick *brick)
 	for (i = 0; i < 3; i++) {
 		struct aio_threadinfo *tinfo = &output->tinfo[i];
 		atomic_set(&tinfo->total_enqueue_count, 0);
-		atomic_set(&tinfo->total_dequeue_count, 0);
 	}
 }
 
@@ -1006,6 +1013,7 @@ static int aio_brick_construct(struct aio_brick *brick)
 
 static int aio_switch(struct aio_brick *brick)
 {
+	static int index;
 	struct aio_output *output = brick->outputs[0];
 	const char *path = output->brick->brick_path;
 	int flags = O_CREAT | O_RDWR | O_LARGEFILE;
@@ -1052,7 +1060,8 @@ static int aio_switch(struct aio_brick *brick)
 	}
 #endif
 
-	err = aio_start_thread(output, 0, aio_submit_thread);
+	output->index = ++index;
+	err = aio_start_thread(output, &output->tinfo[0], aio_submit_thread, 's');
 	if (err < 0)
 		goto err;
 

@@ -19,11 +19,35 @@
 #include "mars.h"
 #include "lib_timing.h"
 
+#include "mars_bio.h"
+
 static struct timing_stats timings[2] = {};
 
-///////////////////////// own type definitions ////////////////////////
+struct threshold bio_submit_threshold = {
+	.thr_ban = &mars_global_ban,
+	.thr_limit = BIO_SUBMIT_MAX_LATENCY,
+	.thr_factor = 100,
+	.thr_plus = 0,
+};
+EXPORT_SYMBOL_GPL(bio_submit_threshold);
 
-#include "mars_bio.h"
+struct threshold bio_io_threshold[2] = {
+	[0] = {
+		.thr_ban = &mars_global_ban,
+		.thr_limit = BIO_IO_R_MAX_LATENCY,
+		.thr_factor = 10,
+		.thr_plus = 10000,
+	},
+	[1] = {
+		.thr_ban = &mars_global_ban,
+		.thr_limit = BIO_IO_W_MAX_LATENCY,
+		.thr_factor = 10,
+		.thr_plus = 10000,
+	},
+};
+EXPORT_SYMBOL_GPL(bio_io_threshold);
+
+///////////////////////// own type definitions ////////////////////////
 
 static void bio_ref_put(struct bio_output *output, struct mref_object *mref);
 
@@ -46,10 +70,9 @@ void bio_callback(struct bio *bio, int code)
 	mref_a->status_code = code;
 
 	spin_lock_irqsave(&brick->lock, flags);
-	if (list_empty(&mref_a->io_head)) {
-		list_add_tail(&mref_a->io_head, &brick->completed_list);
-		atomic_inc(&brick->completed_count);
-	}
+	list_del(&mref_a->io_head);
+	list_add_tail(&mref_a->io_head, &brick->completed_list);
+	atomic_inc(&brick->completed_count);
 	spin_unlock_irqrestore(&brick->lock, flags);
 
 	wake_up_interruptible(&brick->response_event);
@@ -303,6 +326,8 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref, bool cork)
 	struct bio_brick *brick = output->brick;
 	struct bio_mref_aspect *mref_a = bio_mref_get_aspect(output->brick, mref);
 	struct bio *bio;
+	unsigned long long latency;
+	unsigned long flags;
 	int rw;
 	int status = -EINVAL;
 
@@ -338,12 +363,22 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref, bool cork)
 	MARS_IO("starting IO rw = %d prio 0 %d fly = %d\n", rw, mref->ref_prio, atomic_read(&brick->fly_count[PRIO_INDEX(mref)]));
 	mars_trace(mref, "bio_submit");
 
+	mref_a->start_stamp = cpu_clock(raw_smp_processor_id());
+	spin_lock_irqsave(&brick->lock, flags);
+	list_add_tail(&mref_a->io_head, &brick->submitted_list[rw & 1]);
+	spin_unlock_irqrestore(&brick->lock, flags);
+
 #ifdef FAKE_IO
 	bio->bi_end_io(bio, 0);
 #else
 	bio->bi_rw = rw;
-	TIME_STATS(&timings[rw & 1], submit_bio(rw, bio));
+	latency = TIME_STATS(
+		&timings[rw & 1],
+		submit_bio(rw, bio)
+		);
 #endif
+
+	threshold_check(&bio_submit_threshold, latency);
 
 	status = 0;
 	if (unlikely(bio_flagged(bio, BIO_EOPNOTSUPP)))
@@ -401,16 +436,30 @@ int bio_response_thread(void *data)
 	for (;;) {
 		LIST_HEAD(tmp_list);
 		unsigned long flags;
+		int thr_limit;
+		int sleeptime;
 		int count;
+		int i;
+
+		thr_limit = bio_io_threshold[0].thr_limit;
+		if (bio_io_threshold[1].thr_limit < thr_limit)
+			thr_limit = bio_io_threshold[1].thr_limit;
+
+		sleeptime = HZ / 10;
+		if (thr_limit > 0) {
+			sleeptime = thr_limit / (1000000 * 2 / HZ);
+			if (unlikely(sleeptime < 2))
+				sleeptime = 2;
+		}
 
 #ifdef IO_DEBUGGING
 		round++;
-		MARS_IO("%d sleeping...\n", round);
+		MARS_IO("%d sleeping %d...\n", round, sleeptime);
 #endif
 		wait_event_interruptible_timeout(
 			brick->response_event,
 			atomic_read(&brick->completed_count) > 0,
-			HZ);
+			sleeptime);
 
 		MARS_IO("%d woken up, completed_count = %d fly_count[0] = %d fly_count[1] = %d fly_count[2] = %d\n",
 			round,
@@ -428,6 +477,7 @@ int bio_response_thread(void *data)
 			struct list_head *tmp;
 			struct bio_mref_aspect *mref_a;
 			struct mref_object *mref;
+			unsigned long long latency;
 			int code;
 
 			if (list_empty(&tmp_list)) {
@@ -439,16 +489,20 @@ int bio_response_thread(void *data)
 			tmp = tmp_list.next;
 			list_del_init(tmp);
 			atomic_dec(&brick->completed_count);
+
 			mref_a = container_of(tmp, struct bio_mref_aspect, io_head);
+			mref = mref_a->object;
+
 			
+			latency = cpu_clock(raw_smp_processor_id()) - mref_a->start_stamp;
+			threshold_check(&bio_io_threshold[mref->ref_rw & 1], latency);
+
 			code = mref_a->status_code;
 #ifdef IO_DEBUGGING
 			round++;
 			MARS_IO("%d completed , status = %d\n", round, code);
 #endif
 		
-			mref = mref_a->object;
-
 			mars_trace(mref, "bio_endio");
 
 			if (code < 0) {
@@ -473,6 +527,26 @@ int bio_response_thread(void *data)
 			}
 			bio_ref_put(mref_a->output, mref);
 		}
+
+		/* Try to detect slow requests as early as possible,
+		 * even before they have completed.
+		 */
+		for (i = 0; i < 2; i++) {
+			unsigned long long eldest = 0;
+
+			spin_lock_irqsave(&brick->lock, flags);
+			if (!list_empty(&brick->submitted_list[i])) {
+				struct bio_mref_aspect *mref_a;
+				mref_a = container_of(brick->submitted_list[i].next, struct bio_mref_aspect, io_head);
+				eldest = mref_a->start_stamp;
+			}
+			spin_unlock_irqrestore(&brick->lock, flags);
+
+			if (eldest) {
+				threshold_check(&bio_io_threshold[i], cpu_clock(raw_smp_processor_id()) - eldest);
+			}
+		}
+
 		if (count) {
 			brick->submitted = true;
 			wake_up_interruptible(&brick->submit_event);
@@ -510,7 +584,7 @@ int bio_submit_thread(void *data)
 		wait_event_interruptible_timeout(
 			brick->submit_event,
 			brick->submitted,
-			HZ);
+			HZ / 2);
 
 		brick->submitted = false;
 
@@ -719,6 +793,8 @@ static int bio_brick_construct(struct bio_brick *brick)
 	INIT_LIST_HEAD(&brick->queue_list[0]);
 	INIT_LIST_HEAD(&brick->queue_list[1]);
 	INIT_LIST_HEAD(&brick->queue_list[2]);
+	INIT_LIST_HEAD(&brick->submitted_list[0]);
+	INIT_LIST_HEAD(&brick->submitted_list[1]);
 	INIT_LIST_HEAD(&brick->completed_list);
 	init_waitqueue_head(&brick->submit_event);
 	init_waitqueue_head(&brick->response_event);

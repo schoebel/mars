@@ -7,6 +7,8 @@
 /* Generic round-robin scheduler based on ranking information.
  */
 
+#define RKI_DUMMY INT_MIN
+
 struct rank_info {
 	int rki_x;
 	int rki_y;
@@ -41,8 +43,10 @@ struct rank_data {
  * Important: the rki[] array describes a ranking function at some
  * example points (x_i,y_i) which must be ordered according to x_i
  * in ascending order. And, of course, you need to supply at least
- * rki_count >= 2 sample points (otherwise a linear function cannot
+ * two sample points (otherwise a linear function cannot
  * be described).
+ * The array _must_ always end with a dummy record where the x_i has the
+ * value RKI_DUMMY.
  */
 
 extern inline
@@ -54,7 +58,7 @@ void ranking_start(struct rank_data rkd[], int rkd_count)
 	}
 }
 
-extern void ranking_compute(struct rank_data *rkd, const struct rank_info rki[], int rki_count, int x);
+extern void ranking_compute(struct rank_data *rkd, const struct rank_info rki[], int x);
 
 /* This may be used to (exceptionally) add some extra salt...
  */
@@ -105,9 +109,11 @@ extern int ranking_select(struct rank_data rkd[], int rkd_count);
 extern inline
 void ranking_select_done(struct rank_data rkd[], int winner, int win_points)
 {
-	if (win_points < 1)
-		win_points = 1;
-	rkd[winner].rkd_got += win_points;
+	if (winner >= 0) {
+		if (win_points < 1)
+			win_points = 1;
+		rkd[winner].rkd_got += win_points;
+	}
 }
 
 #endif

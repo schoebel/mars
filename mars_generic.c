@@ -18,6 +18,9 @@
 
 // infrastructure
 
+struct banning mars_global_ban = {};
+EXPORT_SYMBOL_GPL(mars_global_ban);
+
 static char *id = NULL;
 
 /* TODO: better use MAC addresses (or motherboard IDs where available).

@@ -13,6 +13,8 @@
 
 #include "strategy.h"
 #include "mars_proc.h"
+#include "../mars_bio.h"
+#include "../mars_aio.h"
 #include "../mars_client.h"
 #include "../mars_server.h"
 #include "../mars_trans_logger.h"
@@ -161,6 +163,44 @@ EXPORT_SYMBOL_GPL(mars_max_loadavg);
 #define _CTL_STRATEGY(handler)	/*empty*/
 #endif
 
+#define INT_ENTRY(NAME,VAR,MODE)			\
+	{						\
+		_CTL_NAME				\
+		.procname	= NAME,			\
+		.data           = &(VAR),		\
+		.maxlen         = sizeof(int),		\
+		.mode		= MODE,			\
+		.proc_handler	= &proc_dointvec,	\
+		_CTL_STRATEGY(sysctl_intvec)		\
+	}
+
+#define LIMITER_ENTRIES(VAR, PREFIX, SUFFIX)				\
+	INT_ENTRY(PREFIX "_limit_" SUFFIX, (VAR)->lim_max_rate, 0600),	\
+	INT_ENTRY(PREFIX "_rate_"  SUFFIX, (VAR)->lim_rate,     0600)	\
+
+#define THRESHOLD_ENTRIES(VAR, PREFIX)					\
+	INT_ENTRY(PREFIX "_threshold_us",   (VAR)->thr_limit,    0600),	\
+	INT_ENTRY(PREFIX "_factor_percent", (VAR)->thr_factor,   0600),	\
+	INT_ENTRY(PREFIX "_plus_us",        (VAR)->thr_plus,     0600),	\
+	INT_ENTRY(PREFIX "_triggered",      (VAR)->thr_triggered, 0600), \
+	INT_ENTRY(PREFIX "_true_hit",       (VAR)->thr_true_hit, 0600)	\
+
+static
+ctl_table tuning_table[] = {
+	LIMITER_ENTRIES(&client_limiter,           "network_traffic", "kb"),
+	LIMITER_ENTRIES(&server_limiter,           "server_io",       "kb"),
+	LIMITER_ENTRIES(&global_writeback.limiter, "writeback",       "kb"),
+	INT_ENTRY("writeback_until_percent", global_writeback.until_percent, 0600),
+	THRESHOLD_ENTRIES(&bio_submit_threshold, "bio_submit"),
+	THRESHOLD_ENTRIES(&bio_io_threshold[0],  "bio_io_r"),
+	THRESHOLD_ENTRIES(&bio_io_threshold[1],  "bio_io_w"),
+	THRESHOLD_ENTRIES(&aio_submit_threshold, "aio_submit"),
+	THRESHOLD_ENTRIES(&aio_io_threshold[0],  "aio_io_r"),
+	THRESHOLD_ENTRIES(&aio_io_threshold[1],  "aio_io_w"),
+	THRESHOLD_ENTRIES(&aio_sync_threshold,   "aio_sync"),
+	{}
+};
+
 static
 ctl_table mars_table[] = {
 	{
@@ -181,106 +221,20 @@ ctl_table mars_table[] = {
 		.mode		= 0400,
 		.proc_handler	= &errors_sysctl_handler,
 	},
-	{
-		_CTL_NAME
-		.procname	= "percent_mem_limit_kb",
-		.data           = &mars_mem_percent,
-		.maxlen         = sizeof(int),
-		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
-		_CTL_STRATEGY(sysctl_intvec)
-	},
-	{
-		_CTL_NAME
-		.procname	= "mem_used_kb",
-		.data           = &trans_logger_mem_usage,
-		.maxlen         = sizeof(int),
-		.mode		= 0400,
-		.proc_handler	= &proc_dointvec,
-		_CTL_STRATEGY(sysctl_intvec)
-	},
-	{
-		_CTL_NAME
-		.procname	= "logrot_auto_gb",
-		.data           = &global_logrot_auto,
-		.maxlen         = sizeof(int),
-		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
-		_CTL_STRATEGY(sysctl_intvec)
-	},
-	{
-		_CTL_NAME
-		.procname	= "logdel_auto_gb",
-		.data           = &global_logdel_auto,
-		.maxlen         = sizeof(int),
-		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
-		_CTL_STRATEGY(sysctl_intvec)
-	},
-	{
-		_CTL_NAME
-		.procname	= "free_space_mb",
-		.data           = &global_free_space,
-		.maxlen         = sizeof(int),
-		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
-		_CTL_STRATEGY(sysctl_intvec)
-	},
+	INT_ENTRY("percent_mem_limit_kb", mars_mem_percent,       0600),
+	INT_ENTRY("mem_used_kb",          trans_logger_mem_usage, 0400),
+	INT_ENTRY("logrot_auto_gb",       global_logrot_auto,     0600),
+	INT_ENTRY("logdel_auto_gb",       global_logdel_auto,     0600),
+	INT_ENTRY("free_space_mb",        global_free_space,      0600),
 #ifdef CONFIG_MARS_LOADAVG_LIMIT
-	{
-		_CTL_NAME
-		.procname	= "loadavg_limit",
-		.data           = &mars_max_loadavg,
-		.maxlen         = sizeof(int),
-		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
-		_CTL_STRATEGY(sysctl_intvec)
-	},
+	INT_ENTRY("loadavg_limit",        mars_max_loadavg,       0600),
 #endif
+	INT_ENTRY("network_io_timeout",   global_net_io_timeout,  0600),
 	{
 		_CTL_NAME
-		.procname	= "network_io_timeout",
-		.data           = &global_net_io_timeout,
-		.maxlen         = sizeof(int),
-		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
-		_CTL_STRATEGY(sysctl_intvec)
-	},
-	{
-		_CTL_NAME
-		.procname	= "network_traffic_limit_kb",
-		.data           = &client_limiter.lim_max_rate,
-		.maxlen         = sizeof(int),
-		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
-		_CTL_STRATEGY(sysctl_intvec)
-	},
-	{
-		_CTL_NAME
-		.procname	= "network_traffic_rate_kb",
-		.data           = &client_limiter.lim_rate,
-		.maxlen         = sizeof(int),
-		.mode		= 0400,
-		.proc_handler	= &proc_dointvec,
-		_CTL_STRATEGY(sysctl_intvec)
-	},
-	{
-		_CTL_NAME
-		.procname	= "server_io_limit_mb",
-		.data           = &server_limiter.lim_max_rate,
-		.maxlen         = sizeof(int),
-		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
-		_CTL_STRATEGY(sysctl_intvec)
-	},
-	{
-		_CTL_NAME
-		.procname	= "server_io_rate_mb",
-		.data           = &server_limiter.lim_rate,
-		.maxlen         = sizeof(int),
-		.mode		= 0400,
-		.proc_handler	= &proc_dointvec,
-		_CTL_STRATEGY(sysctl_intvec)
+		.procname	= "tuning",
+		.mode		= 0500,
+		.child = tuning_table,
 	},
 	{}
 };

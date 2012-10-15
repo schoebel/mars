@@ -11,28 +11,27 @@
 #include "mars.h"
 #include "lib_rank.h"
 
-void ranking_compute(struct rank_data *rkd, const struct rank_info rki[], int rki_count, int x)
+void ranking_compute(struct rank_data *rkd, const struct rank_info rki[], int x)
 {
 	int i;
 
-	MARS_IO("rki_count = %d at x = %d\n", rki_count, x);
-
-	BUG_ON(rki_count < 2);
-
-	rki_count--;
-	for (i = 0; i < rki_count; i++) {
+	for (i = 0; ; i++) {
 		int x0 = rki[i].rki_x;
 		int x1;
 		int y0;
 		int y1;
 		int points;
+		
+		if (x0 == RKI_DUMMY)
+			break;
 
-		if (x < x0 && i+1 < rki_count)
+		if (x < x0)
 			continue;
 
 		x1 = rki[i+1].rki_x;
 
-		BUG_ON(x1 == x0);
+		if (x1 == RKI_DUMMY)
+			break;
 		
 		y0 = rki[i].rki_y;
 		y1 = rki[i+1].rki_y;
@@ -59,7 +58,7 @@ int ranking_select(struct rank_data rkd[], int rkd_count)
 		int rest = tmp->rkd_current_points;
 		if (rest <= 0)
 			continue;
-		rest -= tmp->rkd_got;
+		//rest -= tmp->rkd_got;
 		if (rest > max) {
 			max = rest;
 			res = i;
@@ -69,9 +68,9 @@ int ranking_select(struct rank_data rkd[], int rkd_count)
 	 * and reset the "clocks" after each round of
 	 * weighted round-robin selection.
 	 */
-	if (max <= 0 && res >= 0) {
+	if (max < 0 && res >= 0) {
 		for (i = 0; i < rkd_count; i++)
-			rkd[i].rkd_got -= rkd[i].rkd_current_points;
+			rkd[i].rkd_got += max;
 	}
 	MARS_IO("res = %d\n", res);
 	return res;

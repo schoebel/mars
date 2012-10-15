@@ -11,12 +11,12 @@
 
 // variants
 #define KEEP_UNIQUE
-//#define LATER
 #define DELAY_CALLERS // this is _needed_ for production systems
 //#define WB_COPY // unnecessary (only costs performance)
 //#define LATE_COMPLETE // unnecessary (only costs performance)
 //#define EARLY_COMPLETION
 //#define OLD_POSCOMPLETE
+#define SHORTCUT_1_to_3 // when possible, queue 1 executes phase3_startio() directly without intermediate queueing into queue 3 => may be irritating, but has better performance. NOTICE: when some day the IO scheduling should be different between queue 1 and 3, you MUST disable this in order to distinguish between them!
 
 // commenting this out is dangerous for data integrity! use only for testing!
 #define USE_MEMCPY
@@ -33,22 +33,78 @@
 #include "lib_rank.h"
 #include "lib_limiter.h"
 
+#include "mars_trans_logger.h"
+
 #ifdef REPLAY_DEBUGGING
 #define MARS_RPL(_fmt, _args...)  _MARS_MSG(false, "REPLAY ", _fmt, ##_args)
 #else
 #define MARS_RPL(_args...) /*empty*/
 #endif
 
+#if 0
+#define inline noinline
+#endif
+
+///////////////////////// global tuning ////////////////////////
+
 int trans_logger_mem_usage; // in KB
 EXPORT_SYMBOL_GPL(trans_logger_mem_usage);
 
+struct writeback_group global_writeback = {
+	.lock = __RW_LOCK_UNLOCKED(global_writeback.lock),
+	.group_anchor = LIST_HEAD_INIT(global_writeback.group_anchor),
+	.until_percent = 30,
+};
+EXPORT_SYMBOL_GPL(global_writeback);
+
+static
+void add_to_group(struct writeback_group *gr, struct trans_logger_brick *brick)
+{
+	write_lock(&gr->lock);
+	list_add_tail(&brick->group_head, &gr->group_anchor);
+	write_unlock(&gr->lock);
+}
+
+static
+void remove_from_group(struct writeback_group *gr, struct trans_logger_brick *brick)
+{
+	write_lock(&gr->lock);
+	list_del_init(&brick->group_head);
+	gr->leader = NULL;
+	write_unlock(&gr->lock);
+}
+
+static
+struct trans_logger_brick *elect_leader(struct writeback_group *gr)
+{
+	struct trans_logger_brick *res = gr->leader;
+	struct list_head *tmp;
+
+	if (res && gr->until_percent >= 0) {
+		loff_t used = atomic64_read(&res->shadow_mem_used);
+		if (used > gr->biggest * gr->until_percent / 100)
+			goto done;
+	}
+
+	read_lock(&gr->lock);
+	for (tmp = gr->group_anchor.next; tmp != &gr->group_anchor; tmp = tmp->next) {
+		struct trans_logger_brick *test = container_of(tmp, struct trans_logger_brick, group_head);
+		loff_t new_used = atomic64_read(&test->shadow_mem_used);
+
+		if (!res || new_used > atomic64_read(&res->shadow_mem_used)) {
+			res = test;
+			gr->biggest = new_used;
+		}
+	}
+	read_unlock(&gr->lock);
+
+	gr->leader = res;
+
+done:
+	return res;
+}
+
 ///////////////////////// own type definitions ////////////////////////
-
-#include "mars_trans_logger.h"
-
-#if 1
-#define inline noinline
-#endif
 
 static inline
 int lh_cmp(loff_t *a, loff_t *b)
@@ -1587,7 +1643,7 @@ bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 		qq_inc_flying(&brick->q_phase[1]);
 		fire_writeback(&wb->w_sub_read_list, false);
 	} else { // shortcut
-#ifdef LATER
+#ifndef SHORTCUT_1_to_3
 		qq_wb_insert(&brick->q_phase[3], wb);
 		wake_up_interruptible_all(&brick->worker_event);
 #else
@@ -1817,9 +1873,10 @@ bool phase3_startio(struct writeback_info *wb)
  */
 
 static noinline
-int run_mref_queue(struct logger_queue *q, bool (*startio)(struct trans_logger_mref_aspect *sub_mref_a), int max)
+int run_mref_queue(struct logger_queue *q, bool (*startio)(struct trans_logger_mref_aspect *sub_mref_a), int max, bool do_limit)
 {
 	struct trans_logger_brick *brick = q->q_brick;
+	int total_len = 0;
 	bool found = false;
 	bool ok;
 	int res = 0;
@@ -1829,6 +1886,9 @@ int run_mref_queue(struct logger_queue *q, bool (*startio)(struct trans_logger_m
 		mref_a = qq_mref_fetch(q);
 		if (!mref_a)
 			goto done;
+
+		if (do_limit && likely(mref_a->object))
+			total_len += mref_a->object->ref_len;
 
 		ok = startio(mref_a);
 		if (unlikely(!ok)) {
@@ -1842,6 +1902,7 @@ int run_mref_queue(struct logger_queue *q, bool (*startio)(struct trans_logger_m
 
 done:
 	if (found) {
+		mars_limit(&global_writeback.limiter, (total_len - 1) / 1024 + 1);
 		wake_up_interruptible_all(&brick->worker_event);
 	}
 	return res;
@@ -1851,6 +1912,7 @@ static noinline
 int run_wb_queue(struct logger_queue *q, bool (*startio)(struct writeback_info *wb), int max)
 {
 	struct trans_logger_brick *brick = q->q_brick;
+	int total_len = 0;
 	bool found = false;
 	bool ok;
 	int res = 0;
@@ -1860,6 +1922,8 @@ int run_wb_queue(struct logger_queue *q, bool (*startio)(struct writeback_info *
 		wb = qq_wb_fetch(q);
 		if (!wb)
 			goto done;
+
+		total_len += wb->w_len;
 
 		ok = startio(wb);
 		if (unlikely(!ok)) {
@@ -1872,6 +1936,7 @@ int run_wb_queue(struct logger_queue *q, bool (*startio)(struct writeback_info *
 
 done:
 	if (found) {
+		mars_limit(&global_writeback.limiter, (total_len - 1) / 1024 + 1);
 		wake_up_interruptible_all(&brick->worker_event);
 	}
 	return res;
@@ -1890,57 +1955,165 @@ int _congested(struct trans_logger_brick *brick)
 		|| atomic_read(&brick->q_phase[3].q_flying);
 }
 
-static const
-struct rank_info rank0[] = {
-	{    0,  100 },
-	{  100,  200 },
-};
-
-static const
-struct rank_info rank1[] = {
-	{    0,   10 },
-	{  100,   20 },
-};
-
-static const
-struct rank_info rank2[] = {
-	{    0,   10 },
-	{  100,   20 },
-};
-
-static const
-struct rank_info rank3[] = {
-	{    0,   10 },
-	{  100,   20 },
-};
-
-/* In general, each individual ranking table may have a different length.
+/* Ranking tables.
  */
-static const
-struct rank_info *ranks[LOGGER_QUEUES] = {
-	[0] = rank0,
-	[1] = rank1,
-	[2] = rank2,
-	[3] = rank3,
+static
+struct rank_info float_queue_rank_log[] = {
+	{     0,    0 },
+	{     1,  100 },
+	{ 10000,  100 },
+	{ RKI_DUMMY }
 };
 
-static const
-int rank_counts[LOGGER_QUEUES] = {
-	[0] = sizeof(rank0) / sizeof(struct rank_info),
-	[1] = sizeof(rank1) / sizeof(struct rank_info),
-	[2] = sizeof(rank2) / sizeof(struct rank_info),
-	[3] = sizeof(rank3) / sizeof(struct rank_info),
+static
+struct rank_info float_queue_rank_io[] = {
+	{     0,    0 },
+	{     1,    1 },
+	{ 10000,    1 },
+	{ RKI_DUMMY }
+};
+
+static
+struct rank_info float_fly_rank_log[] = {
+	{     0,    0 },
+	{    32,   10 },
+	{ 10000,   10 },
+	{ RKI_DUMMY }
+};
+
+static
+struct rank_info float_fly_rank_io[] = {
+	{     0,    0 },
+	{     1,   10 },
+	{     2,  -20 },
+	{ 10000, -100 },
+	{ RKI_DUMMY }
+};
+
+
+static
+struct rank_info nofloat_queue_rank_log[] = {
+	{     0,    0 },
+	{     1,  100 },
+	{   100,   10 },
+	{ 10000,   10 },
+	{ RKI_DUMMY }
+};
+
+static
+struct rank_info nofloat_queue_rank_io[] = {
+	{     0,    0 },
+	{     1,   10 },
+	{   100,  100 },
+	{ 10000,  200 },
+	{ RKI_DUMMY }
+};
+
+static
+struct rank_info nofloat_fly_rank_log[] = {
+	{     0,    0 },
+	{     1,    1 },
+	{    32,   10 },
+	{ 10000,    1 },
+	{ RKI_DUMMY }
+};
+
+static
+struct rank_info nofloat_fly_rank_io[] = {
+	{     0,    0 },
+	{     1,   10 },
+	{   128,    8 },
+	{   129, -100 },
+	{ 10000, -200 },
+	{ RKI_DUMMY }
+};
+
+
+static
+struct rank_info *queue_ranks[2][LOGGER_QUEUES] = {
+	[0] = {
+		[0] = float_queue_rank_log,
+		[1] = float_queue_rank_io,
+		[2] = float_queue_rank_io,
+		[3] = float_queue_rank_io,
+	},
+	[1] = {
+		[0] = nofloat_queue_rank_log,
+		[1] = nofloat_queue_rank_io,
+		[2] = nofloat_queue_rank_io,
+		[3] = nofloat_queue_rank_io,
+	},
+};
+static
+struct rank_info *fly_ranks[2][LOGGER_QUEUES] = {
+	[0] = {
+		[0] = float_fly_rank_log,
+		[1] = float_fly_rank_io,
+		[2] = float_fly_rank_io,
+		[3] = float_fly_rank_io,
+	},
+	[1] = {
+		[0] = nofloat_fly_rank_log,
+		[1] = nofloat_fly_rank_io,
+		[2] = nofloat_fly_rank_io,
+		[3] = nofloat_fly_rank_io,
+	},
 };
 
 static noinline
 int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 {
 	int i;
-#ifdef DELAY_CALLERS
+	int floating_mode;
 	bool delay_callers;
-#endif
 
 	ranking_start(rkd, LOGGER_QUEUES);
+
+	// check the memory situation...
+	delay_callers = false;
+	floating_mode = 1;
+	if (brick_global_memlimit >= 1024) {
+		struct rank_info full_punish_global[] = {
+			{ 0,                                    0 },
+			{ brick_global_memlimit * 3 / 4,        0 },
+			{ brick_global_memlimit,            -1000 },
+			{ RKI_DUMMY }
+		};
+		int global_mem_used  = atomic64_read(&global_mshadow_used) / 1024;
+		trans_logger_mem_usage = global_mem_used;
+
+		floating_mode = (global_mem_used < brick_global_memlimit / 2) ? 0 : 1;
+
+		if (global_mem_used >= brick_global_memlimit)
+			delay_callers = true;
+
+		MARS_IO("global_mem_used = %d\n", global_mem_used);
+		ranking_compute(&rkd[0], full_punish_global, global_mem_used);
+	} else if (brick->shadow_mem_limit >= 8) {
+		struct rank_info full_punish_local[] = {
+			{ 0,                                    0 },
+			{ brick->shadow_mem_limit * 3 / 4,      0 },
+			{ brick->shadow_mem_limit,          -1000 },
+			{ RKI_DUMMY }
+		};
+		int local_mem_used   = atomic64_read(&brick->shadow_mem_used) / 1024;
+
+		floating_mode = (local_mem_used < brick->shadow_mem_limit / 2) ? 0 : 1;
+
+		if (local_mem_used >= brick->shadow_mem_limit)
+			delay_callers = true;
+
+		MARS_IO("local_mem_used = %d\n", local_mem_used);
+		ranking_compute(&rkd[0], full_punish_local,  local_mem_used);
+	}
+	if (delay_callers) {
+		if (!brick->delay_callers) {
+			brick->delay_callers = true;
+			atomic_inc(&brick->total_delay_count);
+		}
+	} else {
+		brick->delay_callers = false;
+	}
 
 	// obey the basic rules...
 	for (i = 0; i < LOGGER_QUEUES; i++) {
@@ -1949,61 +2122,43 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 
 		MARS_IO("i = %d queued = %d\n", i, queued);
 
+		/* This must come first.
+		 * When a queue is empty, you must not credit any positive points.
+		 * Otherwise, (almost) infinite selection of untreatable
+		 * queues may occur.
+		 */
 		if (queued <= 0)
 			continue;
 
-		flying = atomic_read(&brick->q_phase[i].q_flying);
-		if (flying >= brick->q_phase[i].q_max_flying && brick->q_phase[i].q_max_flying > 0)
-			continue;
+		if (i == 1 && !floating_mode) {
+			int lim;
 
-		MARS_IO("i = %d queued = %d\n", i, queued);
-		ranking_compute(&rkd[i], ranks[i], rank_counts[i], queued);
+			if (atomic_read(&brick->q_phase[0].q_queued) + atomic_read(&brick->q_phase[0].q_flying) > 0) {
+				break;
+			}
 
-		// ... and the contention rule for queue 0 ...
-		if (i == 0 && brick->q_phase[0].q_max_flying > 0) {
-			struct rank_info contention[] = {
-				{ 0,                                    0 },
-				{ brick->q_phase[0].q_max_flying,     300 },
-			};
-			
-			MARS_IO("flying = %d\n", flying);
-			ranking_compute(&rkd[0], contention,  2, flying);
+			if (elect_leader(&global_writeback) != brick) {
+				break;
+			}
+
+			if (banning_is_hit(&mars_global_ban)) {
+				break;
+			}
+
+			lim = mars_limit(&global_writeback.limiter, 0);
+			if (lim > 0) {
+				break;
+			}
 		}
+
+		ranking_compute(&rkd[i], queue_ranks[floating_mode][i], queued);
+
+		flying = atomic_read(&brick->q_phase[i].q_flying);
+
+		MARS_IO("i = %d queued = %d flying = %d\n", i, queued, flying);
+
+		ranking_compute(&rkd[i], fly_ranks[floating_mode][i], flying);
 	}
-
-	// ... and now the exceptions from the rules ...
-#ifdef DELAY_CALLERS
-	delay_callers = false;
-	if (brick_global_memlimit >= 1024) {
-		struct rank_info full_punish_global[] = {
-			{ 0,                                    0 },
-			{ brick_global_memlimit * 7 / 8,        0 },
-			{ brick_global_memlimit,            -1000 },
-		};
-		int global_mem_used  = atomic64_read(&global_mshadow_used) / 1024;
-		trans_logger_mem_usage = global_mem_used;
-
-		if (global_mem_used >= brick_global_memlimit)
-			delay_callers = true;
-
-		MARS_IO("global_mem_used = %d\n", global_mem_used);
-		ranking_compute(&rkd[0], full_punish_global, 3, global_mem_used);
-	} else if (brick->shadow_mem_limit >= 8) {
-		struct rank_info full_punish_local[] = {
-			{ 0,                                    0 },
-			{ brick->shadow_mem_limit * 7 / 8,      0 },
-			{ brick->shadow_mem_limit,          -1000 },
-		};
-		int local_mem_used   = atomic64_read(&brick->shadow_mem_used) / 1024;
-
-		if (local_mem_used >= brick->shadow_mem_limit)
-			delay_callers = true;
-
-		MARS_IO("local_mem_used = %d\n", local_mem_used);
-		ranking_compute(&rkd[0], full_punish_local,  3, local_mem_used);
-	}
-	brick->delay_callers = delay_callers;
-#endif
 
 	// finalize it
 	ranking_stop(rkd, LOGGER_QUEUES);
@@ -2137,10 +2292,10 @@ void trans_logger_log(struct trans_logger_brick *brick)
 
 		switch (winner) {
 		case 0:
-			nr = run_mref_queue(&brick->q_phase[0], prep_phase_startio, brick->q_phase[0].q_batchlen);
+			nr = run_mref_queue(&brick->q_phase[0], prep_phase_startio, brick->q_phase[0].q_batchlen, true);
 			goto done;
 		case 1:
-			nr = run_mref_queue(&brick->q_phase[1], phase1_startio, brick->q_phase[1].q_batchlen);
+			nr = run_mref_queue(&brick->q_phase[1], phase1_startio, brick->q_phase[1].q_batchlen, true);
 			goto done;
 		case 2:
 			nr = run_wb_queue(&brick->q_phase[2], phase2_startio, brick->q_phase[2].q_batchlen);
@@ -2711,6 +2866,7 @@ int trans_logger_brick_construct(struct trans_logger_brick *brick)
 	atomic_set(&brick->hash_count, 0);
 	spin_lock_init(&brick->replay_lock);
 	INIT_LIST_HEAD(&brick->replay_list);
+	INIT_LIST_HEAD(&brick->group_head);
 	init_waitqueue_head(&brick->worker_event);
 	init_waitqueue_head(&brick->caller_event);
 	qq_init(&brick->q_phase[0], brick);
@@ -2732,6 +2888,20 @@ int trans_logger_brick_construct(struct trans_logger_brick *brick)
 	brick->new_input_nr = TL_INPUT_LOG1;
 	brick->log_input_nr = TL_INPUT_LOG1;
 	brick->old_input_nr = TL_INPUT_LOG1;
+	add_to_group(&global_writeback, brick);
+	return 0;
+}
+
+static noinline
+int trans_logger_brick_destruct(struct trans_logger_brick *brick)
+{
+	int i;
+	for (i = 0; i < TRANS_HASH_MAX; i++) {
+		struct hash_anchor *start = &brick->hash_table[i];
+		CHECK_HEAD_EMPTY(&start->hash_anchor);
+	}
+	CHECK_HEAD_EMPTY(&brick->replay_list);
+	remove_from_group(&global_writeback, brick);
 	return 0;
 }
 
@@ -2810,6 +2980,7 @@ const struct trans_logger_brick_type trans_logger_brick_type = {
 	.default_input_types = trans_logger_input_types,
 	.default_output_types = trans_logger_output_types,
 	.brick_construct = &trans_logger_brick_construct,
+	.brick_destruct = &trans_logger_brick_destruct,
 };
 EXPORT_SYMBOL_GPL(trans_logger_brick_type);
 

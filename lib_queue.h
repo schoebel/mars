@@ -11,7 +11,6 @@
 	atomic_t q_total;						\
 	/* tunables */							\
 	int q_batchlen;							\
-	int q_max_flying;						\
 	int q_io_prio;							\
 	bool q_ordering;						\
 	/* private */							\

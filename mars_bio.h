@@ -2,6 +2,13 @@
 #ifndef MARS_BIO_H
 #define MARS_BIO_H
 
+#define BIO_SUBMIT_MAX_LATENCY    250 // 250 us
+#define BIO_IO_R_MAX_LATENCY    40000 //  40 ms
+#define BIO_IO_W_MAX_LATENCY   100000 // 100 ms
+
+extern struct threshold bio_submit_threshold;
+extern struct threshold bio_io_threshold[2];
+
 #include <linux/blkdev.h>
 
 struct bio_mref_aspect {
@@ -9,6 +16,7 @@ struct bio_mref_aspect {
 	struct list_head io_head;
 	struct bio *bio;
 	struct bio_output *output;
+	unsigned long long start_stamp;
 	int status_code;
 	int hash_pos;
 	int alloc_len;
@@ -33,6 +41,7 @@ struct bio_brick {
 	// private
 	spinlock_t lock;
 	struct list_head queue_list[MARS_PRIO_NR];
+	struct list_head submitted_list[2];
 	struct list_head completed_list;
 	wait_queue_head_t submit_event;
 	wait_queue_head_t response_event;

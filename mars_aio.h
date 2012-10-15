@@ -5,6 +5,15 @@
 #include <linux/aio.h>
 #include <linux/syscalls.h>
 
+#define AIO_SUBMIT_MAX_LATENCY    1000 //   1 ms
+#define AIO_IO_R_MAX_LATENCY     50000 //  50 ms
+#define AIO_IO_W_MAX_LATENCY    150000 // 150 ms
+#define AIO_SYNC_MAX_LATENCY    150000 // 150 ms
+
+extern struct threshold aio_submit_threshold;
+extern struct threshold aio_io_threshold[2];
+extern struct threshold aio_sync_threshold;
+
 //#define USE_CLEVER_SYNC // TODO: NYI (should result in better write performance)
 #ifdef USE_CLEVER_SYNC
 
@@ -24,6 +33,7 @@ struct aio_mref_aspect {
 	struct pairing_heap_sync heap_head;
 #endif
 	struct list_head io_head;
+	unsigned long long enqueue_stamp;
 	long long start_jiffies;
 	int resubmit;
 	int alloc_len;
@@ -50,10 +60,12 @@ struct aio_threadinfo {
 	struct aio_output *output;
 	struct task_struct *thread;
 	wait_queue_head_t event;
+	wait_queue_head_t terminate_event;
 	spinlock_t lock;
-	bool terminated;
+	int queued[MARS_PRIO_NR];
+	int queued_sum;
 	atomic_t total_enqueue_count;
-	atomic_t total_dequeue_count;
+	bool terminated;
 };
 
 struct aio_output {
@@ -68,6 +80,7 @@ struct aio_output {
 	wait_queue_head_t fdsync_event;
 	bool fdsync_active;
 	// statistics
+	int index;
 	atomic_t total_read_count;
 	atomic_t total_write_count;
 	atomic_t total_alloc_count;

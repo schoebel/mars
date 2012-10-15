@@ -120,7 +120,7 @@ struct mars_rotate {
 
 // TUNING
 
-int mars_mem_percent = 0;
+int mars_mem_percent = 20;
 EXPORT_SYMBOL_GPL(mars_mem_percent);
 
 #define CONF_TRANS_SHADOW_LIMIT (1024 * 128) // don't fill the hashtable too much
@@ -132,15 +132,13 @@ EXPORT_SYMBOL_GPL(mars_mem_percent);
 //#define TRANS_FAKE
 
 #define CONF_TRANS_BATCHLEN 64
-#define CONF_TRANS_FLYING 256
 #define CONF_TRANS_PRIO   MARS_PRIO_HIGH
 #define CONF_TRANS_LOG_READS false
 //#define CONF_TRANS_LOG_READS true
 //#define CONF_TRANS_COMPLETION_SEMANTICS 2
 #define CONF_TRANS_COMPLETION_SEMANTICS 0
 
-#define CONF_ALL_BATCHLEN 4
-#define CONF_ALL_FLYING 32
+#define CONF_ALL_BATCHLEN 1
 #define CONF_ALL_PRIO   MARS_PRIO_NORMAL
 
 #define IF_SKIP_SYNC true
@@ -185,11 +183,6 @@ int _set_trans_params(struct mars_brick *_brick, void *private)
 		trans_brick->q_phase[1].q_batchlen = CONF_ALL_BATCHLEN;
 		trans_brick->q_phase[2].q_batchlen = CONF_ALL_BATCHLEN;
 		trans_brick->q_phase[3].q_batchlen = CONF_ALL_BATCHLEN;
-
-		trans_brick->q_phase[0].q_max_flying = CONF_TRANS_FLYING;
-		trans_brick->q_phase[1].q_max_flying = CONF_ALL_FLYING;
-		trans_brick->q_phase[2].q_max_flying = CONF_ALL_FLYING;
-		trans_brick->q_phase[3].q_max_flying = CONF_ALL_FLYING;
 
 		trans_brick->q_phase[0].q_io_prio = CONF_TRANS_PRIO;
 		trans_brick->q_phase[1].q_io_prio = CONF_ALL_PRIO;
@@ -3857,7 +3850,7 @@ static int light_thread(void *data)
 			mars_mem_percent = 0;
 		if (mars_mem_percent > 70)
 			mars_mem_percent = 70;
-		brick_global_memlimit = brick_global_memavail * mars_mem_percent / 100;
+		brick_global_memlimit = (long long)brick_global_memavail * mars_mem_percent / 100;
 
 		brick_msleep(100);
 
@@ -3917,6 +3910,8 @@ static int light_thread(void *data)
 #ifdef STAT_DEBUGGING
 		_show_statist(&_global);
 #endif
+
+		MARS_DBG("ban_count = %d ban_renew_count = %d\n", mars_global_ban.ban_count, mars_global_ban.ban_renew_count);
 
 		brick_msleep(500);
 
