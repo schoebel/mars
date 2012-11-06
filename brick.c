@@ -384,8 +384,11 @@ struct generic_object *generic_alloc(struct generic_brick *brick, struct generic
 	aspect_nr_max = nr_max;
 	total_size = object_size + aspect_nr_max * sizeof(void*);
 	hint_size = object_layout->size_hint;
-	if (likely(total_size < hint_size))
+	if (likely(total_size <= hint_size)) {
 		total_size = hint_size;
+	} else { // usually happens only at the first time
+		object_layout->size_hint = total_size;
+	}
 
 	data = brick_zmem_alloc(total_size);
 	if (!data)
@@ -473,20 +476,31 @@ struct generic_aspect *_new_aspect(struct generic_brick *brick, struct generic_o
 	size = aspect_type->aspect_size;
 	rest = obj->max_offset - obj->free_offset;
 	if (likely(size <= rest)) {
+		/* Optimisation: re-use single memory allocation for both
+		 * the object and the new aspect.
+		 */
 		res = ((void*)obj) + obj->free_offset;
 		obj->free_offset += size;
 		res->shortcut = true;
 	} else {
-		struct generic_object_layout *object_layout = obj->object_layout;
-		int max;
-
-		CHECK_PTR(object_layout, done);
-		max = obj->free_offset + size;
-		/* This is racy, but races won't do any harm because
-		 * it is just a hint, not essential.
+		/* Maintain the size hint.
+		 * In future, only small aspects should be integrated into
+		 * the same memory block, and the hint should not grow larger
+		 * than PAGE_SIZE if it was smaller before.
 		 */
-		if (object_layout->size_hint < max)
-			object_layout->size_hint = max;
+		if (size < PAGE_SIZE / 2) {
+			struct generic_object_layout *object_layout = obj->object_layout;
+			int max;
+
+			CHECK_PTR(object_layout, done);
+			max = obj->free_offset + size;
+			/* This is racy, but races won't do any harm because
+			 * it is just a hint, not essential.
+			 */
+			if ((max < PAGE_SIZE || object_layout->size_hint > PAGE_SIZE) && 
+			    object_layout->size_hint < max)
+				object_layout->size_hint = max;
+		}
 
 		res = brick_zmem_alloc(size);
 		if (unlikely(!res)) {
