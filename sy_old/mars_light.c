@@ -3877,11 +3877,15 @@ static int light_thread(void *data)
 		rest_space = _global.remaining_space - EXHAUSTED_LIMIT(_global.total_space);
 		_make_alivelink("rest-space", rest_space);
 
-#if 1
 		if (!_global.global_power.button) {
-			mars_kill_brick_all(&_global, &_global.server_anchor, false);
+			int used = atomic_read(&global_mshadow_count);
+			if (used > 0) {
+				MARS_INF("global shutdown delayed: there are %d buffers in use, occupying %ld bytes\n", used, atomic64_read(&global_mshadow_used));
+			} else {
+				MARS_INF("global shutdown of all bricks...\n");
+				mars_kill_brick_all(&_global, &_global.server_anchor, false);
+			}
 		}
-#endif
 
 		MARS_DBG("-------- start worker ---------\n");
 		_global.deleted_min = 0;

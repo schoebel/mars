@@ -500,8 +500,10 @@ err:
 
 ////////////////// own brick / input / output operations //////////////////
 
-static atomic_t   global_mshadow_count =   ATOMIC_INIT(0);
-static atomic64_t global_mshadow_used  = ATOMIC64_INIT(0);
+atomic_t   global_mshadow_count =   ATOMIC_INIT(0);
+EXPORT_SYMBOL_GPL(global_mshadow_count);
+atomic64_t global_mshadow_used  = ATOMIC64_INIT(0);
+EXPORT_SYMBOL_GPL(global_mshadow_used);
 
 static noinline
 int trans_logger_get_info(struct trans_logger_output *output, struct mars_info *info)
