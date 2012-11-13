@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 # (c) 2012 Joerg Mann / 1&1 Internet AG
 #
-# $Id: b0910b723d6d5b504873fd484b536e9108941ac0 $
+# $Id: 3eb9888419079c49d2a5ac752eb49954a185e26e $
 # last update at now ...
 
 # TODO:
@@ -687,7 +687,7 @@ sub check_disk_is_full {
 #########################################################################################
 ### check /proc/sys/mars/warnings
 sub check_mars_warn {
-    if ( open  (MARS_WARN, "< /proc/sys/mars/warnings") ) {
+    if ( open  (MARS_WARN, "< /mars/2.warn.status") ) {
         my $mars_warn = "";
         while ( <MARS_WARN> ) {
             if ( m/^(\d+\.\d+)/ ) {
@@ -706,7 +706,7 @@ sub check_mars_warn {
 #########################################################################################
 ### check /proc/sys/mars/errors
 sub check_mars_error {
-    if ( open (MARS_ERROR, "< /proc/sys/mars/errors") ) {
+    if ( open (MARS_ERROR, "< /mars/3.error.status") ) {
         my $mars_error = "";
         while ( <MARS_ERROR> ) {
             if ( m/^(\d+\.\d+)/ ) {

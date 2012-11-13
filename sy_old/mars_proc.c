@@ -86,70 +86,6 @@ done:
 	return res;
 }
 
-static
-int _proc_sysctl_handler(
-	int class,
-	int write, 
-	void __user *buffer,
-	size_t *length,
-	loff_t *ppos)
-{
-	ssize_t res = 0;
-	size_t len = *length;
-
-	MARS_DBG("write = %d len = %ld pos = %lld\n", write, len, *ppos);
-
-	if (!len || *ppos > 0) {
-		goto done;
-	}
-
-	if (write) {
-		res = len; // fake consumption of all data
-	} else {
-		int len;
-		const char *answer = proc_say_get(class, &len);
-
-		if (answer) {
-			res = len;
-			if (copy_to_user(buffer, answer, len)) {
-				MARS_ERR("write %d bytes at %p failed\n", len, answer);
-				res = -EFAULT;
-			}
-		}
-	}
-	
-done:
-	MARS_DBG("res = %ld\n", res);
-	*length = res;
-	if (res >= 0) {
-	        *ppos += res;
-		return 0;
-	}
-	return res;
-}
-
-static
-int warnings_sysctl_handler(
-	ctl_table *table,
-	int write, 
-	void __user *buffer,
-	size_t *length,
-	loff_t *ppos)
-{
-	return _proc_sysctl_handler(SAY_WARN, write, buffer, length, ppos);
-}
-
-static
-int errors_sysctl_handler(
-	ctl_table *table,
-	int write, 
-	void __user *buffer,
-	size_t *length,
-	loff_t *ppos)
-{
-	return _proc_sysctl_handler(SAY_ERROR, write, buffer, length, ppos);
-}
-
 #ifdef CONFIG_MARS_LOADAVG_LIMIT
 int mars_max_loadavg = 0;
 EXPORT_SYMBOL_GPL(mars_max_loadavg);
@@ -209,18 +145,8 @@ ctl_table mars_table[] = {
 		.mode		= 0200,
 		.proc_handler	= &trigger_sysctl_handler,
 	},
-	{
-		_CTL_NAME
-		.procname	= "warnings",
-		.mode		= 0400,
-		.proc_handler	= &warnings_sysctl_handler,
-	},
-	{
-		_CTL_NAME
-		.procname	= "errors",
-		.mode		= 0400,
-		.proc_handler	= &errors_sysctl_handler,
-	},
+	INT_ENTRY("syslog_min_class",     brick_say_syslog_min,   0600),
+	INT_ENTRY("syslog_max_class",     brick_say_syslog_max,   0600),
 	INT_ENTRY("percent_mem_limit_kb", mars_mem_percent,       0600),
 	INT_ENTRY("mem_used_kb",          trans_logger_mem_usage, 0400),
 	INT_ENTRY("logrot_auto_gb",       global_logrot_auto,     0600),

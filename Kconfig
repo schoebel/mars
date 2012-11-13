@@ -39,29 +39,28 @@ config MARS_MEM_RETRY
 	---help---
 	Normally ON. Switch only off for systems having very low memory.
 
-config MARS_LOGFILE
-	string "full path to the logfile"
+config MARS_LOGDIR
+	string "absolute path to the logging directory"
 	depends on MARS
-	default "/mars/log.txt"
+	default "/mars"
 	---help---
-	Path to the logfile where all MARS messages go to.
-	The logfile must already exist in order to be appended.
+	Path to the directory where all MARS messages will reside.
+	Usually this is equal to the global /mars directory.
+
+	Logfiles and status files obey the following naming conventions:
+		0.debug.log
+		1.info.log
+		2.warn.log
+		3.error.log
+		4.fatal.log
+		5.total.log
+	Logfiles must already exist in order to be appended.
 	Logiles can be rotated by renaming them and creating
 	a new empty file in place of the old one.
-	When none exists, messages are either reported to syslog when
-	CONFIG_MARS_USE_SYSLOG	is set, or else MARS will be qiet.
 
-config MARS_USE_SYSLOG
-	bool "use syslog for messages"
-	depends on MARS
-	default n
-	---help---
-	Normally OFF.
-	When switched on (and no logfile exists), the syslog
-	may get flooded by printk() messages, leading to performance
-	problems if remote syslog forwarding is enabled (and possibly
-	in other cases). Thus we recommend to prefer file logging.
-	When this option is off, the logfile will be used (if one exists).
+	Status files follow the same rules, but .log is replaced
+	by .status, and they are created automatically. Their content
+	is however limited to a few seconds or minutes.
 
 config MARS_SCAN_INTERVAL
 	int "re-scanning of symlinks in /mars/ (in seconds)"

@@ -3908,7 +3908,7 @@ static int light_thread(void *data)
 		status = mars_kill_brick_when_possible(&_global, &_global.server_anchor, false, (void*)&sio_brick_type, false);
 		MARS_DBG("kill server sio bricks (when possible) = %d\n", status);
 
-		proc_say_commit();
+		rollover_channel(default_channel);
 
 		_show_status_all(&_global);
 #ifdef STAT_DEBUGGING

@@ -4,6 +4,9 @@
 
 /////////////////////////////////////////////////////////////////////////
 
+extern int brick_say_syslog_min;
+extern int brick_say_syslog_max;
+
 // printk() replacements
 
 enum {
@@ -27,7 +30,13 @@ extern void bind_to_channel(struct say_channel *ch, struct task_struct *whom);
 #define bind_me(_name)					\
 	bind_to_channel(make_channel(_name), current)
 
+extern struct say_channel *get_binding(struct task_struct *whom);
+
+extern void remove_binding_from(struct say_channel *ch, struct task_struct *whom);
 extern void remove_binding(struct task_struct *whom);
+
+extern void rollover_channel(struct say_channel *ch);
+extern void rollover_all(void);
 
 extern void say_to(struct say_channel *ch, int class, const char *fmt, ...) __attribute__ ((format (printf, 3, 4)));
 
@@ -53,11 +62,5 @@ extern void brick_dump_stack(void);
 #define brick_dump_stack() /*empty*/
 
 #endif // CONFIG_MARS_DEBUG
-
-// legacy, deprecated, to disappear...
-
-extern const char *proc_say_get(int class, int *len);
-extern void proc_say_commit(void);
-
 
 #endif

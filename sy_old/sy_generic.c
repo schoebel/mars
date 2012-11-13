@@ -590,10 +590,6 @@ restart:
 			continue;
 		dent->d_version = version;
 
-#ifdef CONFIG_MARS_USE_SYSLOG
-		brick_msleep(10); // yield
-#endif
-
 		//MARS_IO("reading inode '%s'\n", dent->d_path);
 		status = get_inode(dent->d_path, dent);
 		total_status |= status;
@@ -630,11 +626,9 @@ restart:
 	MARS_IO("prep pass\n");
 	for (tmp = global->dent_anchor.next, next = tmp->next; tmp != &global->dent_anchor; tmp = next, next = next->next) {
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
-#ifdef CONFIG_MARS_USE_SYSLOG
-		brick_msleep(10); // yield
-#else
+
 		schedule();
-#endif
+
 		//MARS_IO("forward prepare '%s'\n", dent->d_path);
 		status = worker(buf, dent, true, false);
 		if (status) {
@@ -664,11 +658,9 @@ restart:
 	for (tmp = global->dent_anchor.next, next = tmp->next; tmp != &global->dent_anchor; tmp = next, next = next->next) {
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
 		up_read(&global->dent_mutex);
-#ifdef CONFIG_MARS_USE_SYSLOG
-		brick_msleep(10); // yield
-#else
+
 		schedule();
-#endif
+
 		//MARS_IO("forward treat '%s'\n", dent->d_path);
 		status = worker(buf, dent, false, false);
 		if (status) {
@@ -684,11 +676,9 @@ restart:
 	for (tmp = global->dent_anchor.prev, next = tmp->prev; tmp != &global->dent_anchor; tmp = next, next = next->prev) {
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
 		up_read(&global->dent_mutex);
-#ifdef CONFIG_MARS_USE_SYSLOG
-		brick_msleep(10); // yield
-#else
+
 		schedule();
-#endif
+
 		//MARS_IO("backward treat '%s'\n", dent->d_path);
 		status = worker(buf, dent, false, true);
 		if (status) {
