@@ -14,7 +14,6 @@
 #include <linux/module.h>
 #include <linux/string.h>
 #include <linux/bio.h>
-#include <linux/kthread.h>
 
 #include "mars.h"
 #include "lib_timing.h"
@@ -481,7 +480,7 @@ int bio_response_thread(void *data)
 			int code;
 
 			if (list_empty(&tmp_list)) {
-				if (kthread_should_stop())
+				if (brick_thread_should_stop())
 					goto done;
 				break;
 			}
@@ -575,7 +574,7 @@ int bio_submit_thread(void *data)
 
 	MARS_INF("bio submit thread has started on '%s'.\n", brick->brick_path);
 
-	while (!kthread_should_stop()) {
+	while (!brick_thread_should_stop()) {
 		int prio;
 #ifdef IO_DEBUGGING
 		round++;

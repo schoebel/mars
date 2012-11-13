@@ -7,7 +7,6 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/string.h>
-#include <linux/kthread.h>
 
 #include "mars.h"
 #include "mars_net.h"
@@ -314,7 +313,7 @@ int _mars_send_raw(struct mars_socket *msock, void *buf, int len)
 	while (len > 0) {
 		int this_len = len;
 
-		if (!mars_net_is_alive || kthread_should_stop()) {
+		if (!mars_net_is_alive || brick_thread_should_stop()) {
 			MARS_WRN("interrupting, sent = %d\n", sent);
 			status = -EIDRM;
 			break;
@@ -487,7 +486,7 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 			goto err;
 		}
 
-		if (!mars_net_is_alive || kthread_should_stop()) {
+		if (!mars_net_is_alive || brick_thread_should_stop()) {
 			MARS_WRN("#%d interrupting, done = %d\n", msock->s_debug_nr, done);
 			if (done > 0)
 				status = -EIDRM;
@@ -500,7 +499,7 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 
 		MARS_IO("#%d status = %d\n", msock->s_debug_nr, status);
 
-		if (!mars_net_is_alive || kthread_should_stop()) {
+		if (!mars_net_is_alive || brick_thread_should_stop()) {
 			MARS_WRN("#%d interrupting, done = %d\n", msock->s_debug_nr, done);
 			if (done > 0)
 				status = -EIDRM;

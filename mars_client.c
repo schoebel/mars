@@ -9,7 +9,6 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/string.h>
-#include <linux/kthread.h>
 
 #include "mars.h"
 
@@ -24,10 +23,7 @@ static int thread_count = 0;
 static void _kill_thread(struct client_threadinfo *ti)
 {
 	if (ti->thread) {
-		MARS_INF("stopping thread...\n");
-		kthread_stop(ti->thread);
-		put_task_struct(ti->thread);
-		ti->thread = NULL;
+		brick_thread_stop(ti->thread);
 	}
 }
 
@@ -95,16 +91,13 @@ static int _connect(struct client_output *output, const char *str)
 	}
 	output->socket.s_shutdown_on_err = true;
 
-	output->receiver.thread = kthread_create(receiver_thread, output, "mars_receiver%d", thread_count++);
-	if (unlikely(IS_ERR(output->receiver.thread))) {
-		status = PTR_ERR(output->receiver.thread);
+	output->receiver.thread = brick_thread_create(receiver_thread, output, "mars_receiver%d", thread_count++);
+	if (unlikely(!output->receiver.thread)) {
 		MARS_ERR("cannot start receiver thread, status = %d\n", status);
-		output->receiver.thread = NULL;
+		status = -ENOENT;
 		output->receiver.terminated = true;
 		goto done;
 	}
-	get_task_struct(output->receiver.thread);
-	wake_up_process(output->receiver.thread);
 
 
 	{
@@ -250,7 +243,7 @@ int receiver_thread(void *data)
 	struct client_output *output = data;
 	int status = 0;
 
-        while (status >= 0 && mars_socket_is_alive(&output->socket) && !kthread_should_stop()) {
+        while (status >= 0 && mars_socket_is_alive(&output->socket) && !brick_thread_should_stop()) {
 		struct mars_cmd cmd = {};
 		struct list_head *tmp;
 		struct client_mref_aspect *mref_a = NULL;
@@ -429,7 +422,7 @@ static int sender_thread(void *data)
 
 	output->receiver.restart_count = 0;
 
-        while (!kthread_should_stop()) {
+        while (!brick_thread_should_stop()) {
 		struct list_head *tmp = NULL;
 		struct client_mref_aspect *mref_a;
 		struct mref_object *mref;
@@ -464,7 +457,7 @@ static int sender_thread(void *data)
 			_do_timeout(output, &output->mref_list, false);
 		}
 
-		wait_event_interruptible_timeout(output->event, !list_empty(&output->mref_list) || output->get_info || kthread_should_stop(), 1 * HZ);
+		wait_event_interruptible_timeout(output->event, !list_empty(&output->mref_list) || output->get_info || brick_thread_should_stop(), 1 * HZ);
 		
 		if (output->get_info) {
 			status = _request_info(output);
@@ -547,17 +540,14 @@ static int client_switch(struct client_brick *brick)
 		mars_power_led_off((void*)brick, false);
 		if (output->sender.terminated) {
 			output->sender.terminated = false;
-			output->sender.thread = kthread_create(sender_thread, output, "mars_sender%d", thread_count++);
-			if (unlikely(IS_ERR(output->sender.thread))) {
-				status = PTR_ERR(output->sender.thread);
-				MARS_ERR("cannot start sender thread, status = %d\n", status);
-				output->sender.thread = NULL;
+			output->sender.thread = brick_thread_create(sender_thread, output, "mars_sender%d", thread_count++);
+			if (unlikely(!output->sender.thread)) {
+				MARS_ERR("cannot start sender thread\n");
 				output->sender.terminated = true;
+				status = -ENOENT;
 				goto done;
 			}
 		}
-		get_task_struct(output->sender.thread);
-		wake_up_process(output->sender.thread);
 		if (!output->sender.terminated) {
 			mars_power_led_on((void*)brick, true);
 		}

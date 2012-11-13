@@ -27,7 +27,6 @@
 #include "strategy.h"
 #include "../buildtag.h"
 
-#include <linux/kthread.h>
 #include <linux/wait.h>
 
 // used brick types
@@ -1044,7 +1043,7 @@ int peer_thread(void *data)
 
 	atomic_inc(&peer_thread_count);
 
-        while (!kthread_should_stop()) {
+        while (!brick_thread_should_stop()) {
 		LIST_HEAD(tmp_list);
 		LIST_HEAD(old_list);
 		unsigned long flags;
@@ -1125,7 +1124,7 @@ int peer_thread(void *data)
 		}
 
 		brick_msleep(1000);
-		if (!kthread_should_stop()) {
+		if (!brick_thread_should_stop()) {
 			if (pause_time < CONFIG_MARS_PROPAGATE_INTERVAL)
 				pause_time++;
 			wait_event_interruptible_timeout(remote_event,
@@ -1173,9 +1172,7 @@ static int _kill_peer(void *buf, struct mars_dent *dent)
 
 	MARS_INF("stopping peer thread...\n");
 	if (peer->peer_thread) {
-		kthread_stop(peer->peer_thread);
-		put_task_struct(peer->peer_thread);
-		peer->peer_thread = NULL;
+		brick_thread_stop(peer->peer_thread);
 	}
 	traced_lock(&peer->lock, flags);
 	list_replace_init(&peer->remote_dent_list, &tmp_list);
@@ -1227,15 +1224,12 @@ static int _make_peer(struct mars_global *global, struct mars_dent *dent, char *
 
 	peer = dent->d_private;
 	if (!peer->peer_thread) {
-		peer->peer_thread = kthread_create(peer_thread, peer, "mars_peer%d", serial++);
-		if (unlikely(IS_ERR(peer->peer_thread))) {
-			MARS_ERR("cannot start peer thread, status = %d\n", (int)PTR_ERR(peer->peer_thread));
-			peer->peer_thread = NULL;
+		peer->peer_thread = brick_thread_create(peer_thread, peer, "mars_peer%d", serial++);
+		if (unlikely(!peer->peer_thread)) {
+			MARS_ERR("cannot start peer thread\n");
 			return -1;
 		}
-		MARS_DBG("starting peer thread\n");
-		get_task_struct(peer->peer_thread);
-		wake_up_process(peer->peer_thread);
+		MARS_DBG("started peer thread\n");
 	}
 
 	/* This must be called by the main thread in order to
@@ -3854,7 +3848,7 @@ static int light_thread(void *data)
 
 		brick_msleep(100);
 
-		if (kthread_should_stop()) {
+		if (brick_thread_should_stop()) {
 			_global.global_power.button = false;
 			mars_net_is_alive = false;
 		}
@@ -3938,7 +3932,6 @@ done:
 #endif
 
 	mars_global = NULL;
-	main_thread = NULL;
 
 	MARS_INF("-------- done status = %d ----------\n", status);
 	//cleanup_mm();
@@ -3982,18 +3975,13 @@ EXPORT_SYMBOL_GPL(_mars_remote_trigger);
 
 static void __exit exit_light(void)
 {
-	struct task_struct *thread;
-
 	MARS_DBG("====================== stopping everything...\n");
 	// TODO: make this thread-safe.
-	thread = main_thread;
-	if (thread) {
-		main_thread = NULL;
+	if (main_thread) {
 		MARS_DBG("=== stopping light thread...\n");
-		MARS_INF("stopping thread...\n");
 		mars_trigger();
-		kthread_stop(thread);
-		put_task_struct(thread);
+		MARS_INF("stopping main thread...\n");
+		brick_thread_stop(main_thread);
 	}
 
 	_mars_remote_trigger = NULL;
@@ -4021,7 +4009,6 @@ EXPORT_SYMBOL_GPL(global_free_space);
 static int __init init_light(void)
 {
 	int status = 0;
-	struct task_struct *thread;
 
 	init_say(); // this must come first
 
@@ -4055,14 +4042,11 @@ static int __init init_light(void)
 
 	brick_mem_reserve(&global_reserve);
 
-	thread = kthread_create(light_thread, NULL, "mars_light");
-	if (IS_ERR(thread)) {
-		status = PTR_ERR(thread);
+	main_thread = brick_thread_create(light_thread, NULL, "mars_light");
+	if (unlikely(!main_thread)) {
+		status = -ENOENT;
 		goto done;
 	}
-	get_task_struct(thread);
-	main_thread = thread;
-	wake_up_process(thread);
 
 done:
 	if (status < 0) {

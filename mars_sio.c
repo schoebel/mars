@@ -14,7 +14,6 @@
 #include <linux/types.h>
 #include <linux/blkdev.h>
 #include <linux/highmem.h>
-#include <linux/kthread.h>
 #include <linux/spinlock.h>
 #include <linux/wait.h>
 #include <linux/splice.h>
@@ -427,10 +426,10 @@ static int sio_thread(void *data)
 {
 	struct sio_threadinfo *tinfo = data;
 	
-	MARS_INF("kthread has started.\n");
+	MARS_INF("sio thread has started.\n");
 	//set_user_nice(current, -20);
 
-	while (!kthread_should_stop()) {
+	while (!brick_thread_should_stop()) {
 		struct list_head *tmp = NULL;
 		struct mref_object *mref;
 		struct sio_mref_aspect *mref_a;
@@ -438,7 +437,7 @@ static int sio_thread(void *data)
 
 		wait_event_interruptible_timeout(
 			tinfo->event,
-			!list_empty(&tinfo->mref_list) || kthread_should_stop(),
+			!list_empty(&tinfo->mref_list) || brick_thread_should_stop(),
 			HZ);
 
 		tinfo->last_jiffies = jiffies;
@@ -462,7 +461,7 @@ static int sio_thread(void *data)
 		_sio_ref_io(tinfo, mref);
 	}
 
-	MARS_INF("kthread has stopped.\n");
+	MARS_INF("sio thread has stopped.\n");
 	return 0;
 }
 
@@ -595,16 +594,11 @@ static int sio_switch(struct sio_brick *brick)
 			struct sio_threadinfo *tinfo = &output->tinfo[index];
 			
 			tinfo->last_jiffies = jiffies;
-			tinfo->thread = kthread_create(sio_thread, tinfo, "mars_sio%d", sio_nr++);
-			if (IS_ERR(tinfo->thread)) {
-				int error = PTR_ERR(tinfo->thread);
-				MARS_ERR("cannot create thread, status=%d\n", error);
-				filp_close(output->filp, NULL);
-				output->filp = NULL;
-				return error;
+			tinfo->thread = brick_thread_create(sio_thread, tinfo, "mars_sio%d", sio_nr++);
+			if (unlikely(!tinfo->thread)) {
+				MARS_ERR("cannot create thread\n");
+				return -ENOENT;
 			}
-			get_task_struct(tinfo->thread);
-			wake_up_process(tinfo->thread);
 		}
 		mars_power_led_on((void*)brick, true);
 	} else {
@@ -614,9 +608,7 @@ static int sio_switch(struct sio_brick *brick)
 			for (index = 0; index <= WITH_THREAD; index++) {
 				struct sio_threadinfo *tinfo = &output->tinfo[index];
 				MARS_DBG("stopping thread %d\n", index);
-				kthread_stop(tinfo->thread);
-				put_task_struct(tinfo->thread);
-				tinfo->thread = NULL;
+				brick_thread_stop(tinfo->thread);
 			}
 			MARS_DBG("closing file\n");
 			filp_close(output->filp, NULL);

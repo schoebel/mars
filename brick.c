@@ -31,6 +31,57 @@ int _brick_msleep(int msecs, bool shorten)
 }
 EXPORT_SYMBOL_GPL(_brick_msleep);
 
+#if 1
+/* The following _could_ go to kernel/kthread.c.
+ * However, we need it only for a workaround here.
+ * This has some conceptual shortcomings, so I will not
+ * force that.
+ */
+#if 1 // remove this for migration to kernel/kthread.c
+struct kthread {
+        int should_stop;
+#ifdef KTHREAD_WORKER_INIT
+	void *data;
+#endif
+        struct completion exited;
+};
+#define to_kthread(tsk) \
+	container_of((tsk)->vfork_done, struct kthread, exited)
+#endif
+/**
+ * kthread_stop_nowait - like kthread_stop(), but don't wait for termination.
+ * @k: thread created by kthread_create().
+ *
+ * If threadfn() may call do_exit() itself, the caller must ensure
+ * task_struct can't go away.
+ *
+ * Therefore, you must not call this twice (or after kthread_stop()), at least
+ * if you don't get_task_struct() yourself.
+ */
+void kthread_stop_nowait(struct task_struct *k)
+{
+       struct kthread *kthread;
+
+#if 0 // enable this after migration to kernel/kthread.c
+       trace_sched_kthread_stop(k);
+#endif
+
+       kthread = to_kthread(k);
+       barrier(); /* it might have exited */
+       if (k->vfork_done != NULL) {
+               kthread->should_stop = 1;
+               wake_up_process(k);
+       }
+}
+EXPORT_SYMBOL_GPL(kthread_stop_nowait);
+#endif
+
+void brick_thread_stop_nowait(struct task_struct *k)
+{
+	kthread_stop_nowait(k);
+}
+EXPORT_SYMBOL_GPL(brick_thread_stop_nowait);
+
 //////////////////////////////////////////////////////////////
 
 // number management

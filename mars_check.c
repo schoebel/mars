@@ -21,7 +21,6 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/string.h>
-#include <linux/kthread.h>
 
 #include "mars.h"
 
@@ -127,7 +126,7 @@ static int check_watchdog(void *data)
 {
 	struct check_output *output = data;
 	MARS_INF("watchdog has started.\n");
-	while (!kthread_should_stop()) {
+	while (!brick_thread_should_stop()) {
 		struct list_head *h;
 		unsigned long flags;
 		unsigned long now;
@@ -270,15 +269,10 @@ static int check_output_construct(struct check_output *output)
 {
 	static int count = 0;
 #ifdef CHECK_LOCK
-	struct task_struct *watchdog;
 
 	spin_lock_init(&output->check_lock);
 	INIT_LIST_HEAD(&output->mref_anchor);
-	watchdog = kthread_create(check_watchdog, output, "check_watchdog%d", output->instance_nr);
-	if (!IS_ERR(watchdog)) {
-		output->watchdog = watchdog;
-		wake_up_process(watchdog);
-	}
+	output->watchdog = brick_thread_create(check_watchdog, output, "check_watchdog%d", output->instance_nr);
 #endif
 	output->instance_nr = ++count;
 	return 0;

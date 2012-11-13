@@ -10,7 +10,6 @@
 #include <linux/list.h>
 #include <linux/types.h>
 #include <linux/blkdev.h>
-#include <linux/kthread.h>
 #include <linux/spinlock.h>
 #include <linux/wait.h>
 #include <linux/file.h>
@@ -353,62 +352,13 @@ int aio_start_thread(
 	init_waitqueue_head(&tinfo->event);
 	init_waitqueue_head(&tinfo->terminate_event);
 	tinfo->terminated = false;
-	tinfo->thread = kthread_create(fn, tinfo, "mars_aio_%c%d", class, output->index);
-	if (IS_ERR(tinfo->thread)) {
-		int err = PTR_ERR(tinfo->thread);
+	tinfo->thread = brick_thread_create(fn, tinfo, "mars_aio_%c%d", class, output->index);
+	if (unlikely(!tinfo->thread)) {
 		MARS_ERR("cannot create thread\n");
-		tinfo->thread = NULL;
-		return err;
+		return -ENOENT;
 	}
-	get_task_struct(tinfo->thread);
-	wake_up_process(tinfo->thread);
 	return 0;
 }
-
-#if 1
-/* The following _could_ go to kernel/kthread.c.
- * However, we need it only for a workaround here.
- * This has some conceptual shortcomings, so I will not
- * force that.
- */
-#if 1 // remove this for migration to kernel/kthread.c
-struct kthread {
-        int should_stop;
-#ifdef KTHREAD_WORKER_INIT
-	void *data;
-#endif
-        struct completion exited;
-};
-#define to_kthread(tsk) \
-	container_of((tsk)->vfork_done, struct kthread, exited)
-#endif
-/**
- * kthread_stop_nowait - like kthread_stop(), but don't wait for termination.
- * @k: thread created by kthread_create().
- *
- * If threadfn() may call do_exit() itself, the caller must ensure
- * task_struct can't go away.
- *
- * Therefore, you must not call this twice (or after kthread_stop()), at least
- * if you don't get_task_struct() yourself.
- */
-void kthread_stop_nowait(struct task_struct *k)
-{
-       struct kthread *kthread;
-
-#if 0 // enable this after migration to kernel/kthread.c
-       trace_sched_kthread_stop(k);
-#endif
-
-       kthread = to_kthread(k);
-       barrier(); /* it might have exited */
-       if (k->vfork_done != NULL) {
-               kthread->should_stop = 1;
-               wake_up_process(k);
-       }
-}
-//EXPORT_SYMBOL(kthread_stop_nowait);
-#endif
 
 static
 void aio_stop_thread(struct aio_output *output, int i, bool do_submit_dummy)
@@ -417,7 +367,7 @@ void aio_stop_thread(struct aio_output *output, int i, bool do_submit_dummy)
 
 	if (tinfo->thread) {
 		MARS_INF("stopping thread %d ...\n", i);
-		kthread_stop_nowait(tinfo->thread);
+		brick_thread_stop_nowait(tinfo->thread);
 
 		// workaround for waking up the receiver thread. TODO: check whether signal handlong could do better.
 		if (do_submit_dummy) {
@@ -432,11 +382,7 @@ void aio_stop_thread(struct aio_output *output, int i, bool do_submit_dummy)
 			tinfo->terminated,
 			(60 - i * 2) * HZ);
 		if (likely(tinfo->terminated)) {
-			//MARS_INF("finalizing thread %d ...\n", i);
-			//kthread_stop(tinfo->thread);
-			MARS_INF("thread %d finished.\n", i);
-			put_task_struct(tinfo->thread);
-			tinfo->thread = NULL;
+			brick_thread_stop(tinfo->thread);
 		} else {
 			MARS_ERR("thread %d did not terminate - leaving a zombie\n", i);
 		}
@@ -538,10 +484,10 @@ int aio_sync_thread(void *data)
 	struct q_sync q_sync = {};
 #endif
 	
-	MARS_INF("kthread has started on '%s'.\n", output->brick->brick_path);
+	MARS_INF("sync thread has started on '%s'.\n", output->brick->brick_path);
 	//set_user_nice(current, -20);
 
-	while (!kthread_should_stop() || tinfo->queued_sum > 0) {
+	while (!brick_thread_should_stop() || tinfo->queued_sum > 0) {
 		LIST_HEAD(tmp_list);
 		unsigned long flags;
 		int i;
@@ -579,7 +525,7 @@ int aio_sync_thread(void *data)
 #endif
 	}
 
-	MARS_INF("kthread has stopped.\n");
+	MARS_INF("sync thread has stopped.\n");
 	tinfo->terminated = true;
 	wake_up_interruptible_all(&tinfo->terminate_event);
 	return 0;
@@ -592,7 +538,7 @@ static int aio_event_thread(void *data)
 	struct aio_threadinfo *other = &output->tinfo[2];
 	int err = -ENOMEM;
 	
-	MARS_INF("kthread has started.\n");
+	MARS_INF("event thread has started.\n");
 	//set_user_nice(current, -20);
 
 	use_fake_mm();
@@ -603,7 +549,7 @@ static int aio_event_thread(void *data)
 	if (unlikely(err < 0))
 		goto err;
 
-	while (!kthread_should_stop() || tinfo->queued_sum > 0) {
+	while (!brick_thread_should_stop() || tinfo->queued_sum > 0) {
 		mm_segment_t oldfs;
 		int count;
 		int i;
@@ -656,7 +602,7 @@ static int aio_event_thread(void *data)
 	err = 0;
 
  err:
-	MARS_INF("kthread has stopped, err = %d\n", err);
+	MARS_INF("event thread has stopped, err = %d\n", err);
 
 	aio_stop_thread(output, 2, false);
 
@@ -751,7 +697,7 @@ static int aio_submit_thread(void *data)
 	output->fd = err;
 	fd_install(err, file);
 
-	MARS_INF("kthread has started.\n");
+	MARS_INF("submit thread has started.\n");
 	//set_user_nice(current, -20);
 
 	use_fake_mm();
@@ -771,7 +717,7 @@ static int aio_submit_thread(void *data)
 	if (unlikely(err < 0))
 		goto cleanup_ctxp;
 
-	while (!kthread_should_stop() || atomic_read(&output->read_count) + atomic_read(&output->write_count) + tinfo->queued_sum > 0) {
+	while (!brick_thread_should_stop() || atomic_read(&output->read_count) + atomic_read(&output->write_count) + tinfo->queued_sum > 0) {
 		struct aio_mref_aspect *mref_a;
 		struct mref_object *mref;
 		int sleeptime;
@@ -858,7 +804,7 @@ static int aio_submit_thread(void *data)
 		}
 	}
 
-	MARS_INF("kthread has stopped.\n");
+	MARS_INF("submit thread has stopped.\n");
 
 	aio_stop_thread(output, 1, true);
 

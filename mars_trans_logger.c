@@ -27,7 +27,6 @@
 #include <linux/module.h>
 #include <linux/string.h>
 #include <linux/bio.h>
-#include <linux/kthread.h>
 
 #include "mars.h"
 #include "lib_rank.h"
@@ -2274,7 +2273,7 @@ void trans_logger_log(struct trans_logger_brick *brick)
 
 	mars_power_led_on((void*)brick, true);
 
-	while (!kthread_should_stop() || _congested(brick)) {
+	while (!brick_thread_should_stop() || _congested(brick)) {
 		int winner;
 		int nr;
 
@@ -2526,7 +2525,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		int len = 0;
 
 		finished_pos = input->logst.log_pos + input->logst.offset;
-		if (kthread_should_stop() ||
+		if (brick_thread_should_stop() ||
 		   (!brick->continuous_replay_mode && finished_pos >= brick->replay_end_pos)) {
 			status = 0; // treat as EOF
 			break;
@@ -2553,7 +2552,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		MARS_RPL("read  %lld %lld\n", finished_pos, new_finished_pos);
 		
 		if ((!status && len <= 0) ||
-		   new_finished_pos > brick->replay_end_pos) { // EOF -> wait until kthread_should_stop()
+		   new_finished_pos > brick->replay_end_pos) { // EOF -> wait until brick_thread_should_stop()
 			MARS_DBG("EOF at %lld (old = %lld, end_pos = %lld)\n", new_finished_pos, finished_pos, brick->replay_end_pos);
 			if (!brick->continuous_replay_mode) {
 				// notice: finished_pos remains at old value here!
@@ -2615,7 +2614,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 
 	mars_trigger();
 
-	while (!kthread_should_stop()) {
+	while (!brick_thread_should_stop()) {
 		brick_msleep(500);
 	}
 }
@@ -2652,23 +2651,17 @@ int trans_logger_switch(struct trans_logger_brick *brick)
 		if (!brick->thread && brick->power.led_off) {
 			mars_power_led_off((void*)brick, false);
 
-			brick->thread = kthread_create(trans_logger_thread, output, "mars_logger%d", index++);
-			if (IS_ERR(brick->thread)) {
-				int error = PTR_ERR(brick->thread);
-				MARS_ERR("cannot create thread, status=%d\n", error);
-				brick->thread = NULL;
-				return error;
+			brick->thread = brick_thread_create(trans_logger_thread, output, "mars_logger%d", index++);
+			if (unlikely(!brick->thread)) {
+				MARS_ERR("cannot create logger thread\n");
+				return -ENOENT;
 			}
-			get_task_struct(brick->thread);
-			wake_up_process(brick->thread);
 		}
 	} else {
 		mars_power_led_on((void*)brick, false);
 		if (brick->thread) {
 			MARS_INF("stopping thread...\n");
-			kthread_stop(brick->thread);
-			put_task_struct(brick->thread);
-			brick->thread = NULL;
+			brick_thread_stop(brick->thread);
 		}
 	}
 	return 0;

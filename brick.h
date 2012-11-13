@@ -5,6 +5,7 @@
 #include <linux/list.h>
 #include <linux/sched.h>
 #include <linux/wait.h>
+#include <linux/kthread.h>
 
 #include <asm/atomic.h>
 
@@ -598,22 +599,30 @@ extern int set_recursive_button(struct generic_brick *brick, brick_switch_t mode
 			BRICK_ERR("cannot create thread '%s', status = %d\n", _fmt, _err); \
 			_thr = NULL;					\
 		} else {						\
+			struct say_channel *ch = get_binding(current);	\
+			if (ch)						\
+				bind_to_channel(ch, _thr);		\
 			get_task_struct(_thr);				\
 			wake_up_process(_thr);				\
 		}							\
 		_thr;							\
 	})
 
+extern void brick_thread_stop_nowait(struct task_struct *k);
+
 #define brick_thread_stop(_thread)					\
 	do {								\
 		if (likely(_thread)) {					\
 			BRICK_INF("stopping thread '%s'\n", (_thread)->comm); \
 			kthread_stop(_thread);				\
+			BRICK_INF("thread '%s' finished.\n", (_thread)->comm); \
 			remove_binding(_thread);			\
 			put_task_struct(_thread);			\
 			_thread = NULL;					\
 		}							\
 	} while (0)
+
+#define brick_thread_should_stop kthread_should_stop
 
 /////////////////////////////////////////////////////////////////////////
 

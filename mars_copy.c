@@ -9,7 +9,6 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/string.h>
-#include <linux/kthread.h>
 
 #include "mars.h"
 #include "lib_limiter.h"
@@ -582,7 +581,7 @@ int _run_copy(struct copy_brick *brick)
 static
 bool _is_done(struct copy_brick *brick)
 {
-	if (kthread_should_stop())
+	if (brick_thread_should_stop())
 		brick->is_aborting = true;
 	return brick->is_aborting &&
 		atomic_read(&brick->copy_flight) <= 0;
@@ -684,11 +683,9 @@ static int copy_switch(struct copy_brick *brick)
 		brick->is_aborting = false;
 		if (!brick->thread) {
 			brick->copy_last = brick->copy_start;
-			brick->thread = kthread_create(_copy_thread, brick, "mars_copy%d", version++);
+			brick->thread = brick_thread_create(_copy_thread, brick, "mars_copy%d", version++);
 			if (brick->thread) {
-				get_task_struct(brick->thread);
 				brick->trigger = true;
-				wake_up_process(brick->thread);
 			} else {
 				mars_power_led_off((void*)brick, true);
 				MARS_ERR("could not start copy thread\n");
@@ -698,9 +695,7 @@ static int copy_switch(struct copy_brick *brick)
 		mars_power_led_on((void*)brick, false);
 		if (brick->thread) {
 			MARS_INF("stopping thread...\n");
-			kthread_stop(brick->thread);
-			put_task_struct(brick->thread);
-			brick->thread = NULL;
+			brick_thread_stop(brick->thread);
 			wake_up_interruptible(&brick->event);
 		}
 	}
