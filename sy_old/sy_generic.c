@@ -264,6 +264,44 @@ EXPORT_SYMBOL_GPL(mars_remaining_space);
 
 //////////////////////////////////////////////////////////////
 
+// thread binding
+
+void bind_to_dent(struct mars_dent *dent, struct say_channel **ch)
+{
+	if (!dent) {
+		if (*ch) {
+			remove_binding_from(*ch, current);
+			*ch = NULL;
+		}
+		return;
+	}
+	// Memoize the channel. This is executed only once for each dent.
+	if (unlikely(!dent->d_say_channel)) {
+		struct mars_dent *test = dent->d_parent;
+		for (;;) {
+			if (!test) {
+				dent->d_say_channel = default_channel;
+				break;
+			}
+			if (test->d_use_channel && test->d_path) {
+				dent->d_say_channel = make_channel(test->d_path);
+				break;
+			}
+			test = test->d_parent;
+		}
+	}
+	if (dent->d_say_channel != *ch) {
+		if (*ch)
+			remove_binding_from(*ch, current);
+		*ch = dent->d_say_channel;
+		if (*ch)
+			bind_to_channel(*ch, current);
+	}
+}
+EXPORT_SYMBOL_GPL(bind_to_dent);
+
+//////////////////////////////////////////////////////////////
+
 // infrastructure
 
 struct mars_global *mars_global = NULL;
@@ -423,6 +461,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	int pathlen;
 	int class;
 	int serial = 0;
+	bool use_channel = false;
 
 	MARS_IO("ino = %llu len = %d offset = %lld type = %u\n", ino, namlen, offset, d_type);
 
@@ -430,7 +469,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 		return 0;
 	}
 
-	class = cookie->checker(cookie->parent, name, namlen, d_type, &prefix, &serial);
+	class = cookie->checker(cookie->parent, name, namlen, d_type, &prefix, &serial, &use_channel);
 	if (class < 0)
 		return 0;
 
@@ -504,6 +543,7 @@ found:
 	dent->d_depth = cookie->depth;
 	dent->d_global = global;
 	dent->d_killme = false;
+	dent->d_use_channel = use_channel;
 	brick_string_free(newpath);
 	return 0;
 
@@ -554,6 +594,7 @@ int mars_dent_work(struct mars_global *global, char *dirname, int allocsize, mar
 		.allocsize = allocsize,
 		.depth = 0,
 	};
+	struct say_channel *say_channel = NULL;
 	struct list_head *tmp;
 	struct list_head *next;
 	int rounds = 0;
@@ -590,6 +631,8 @@ restart:
 			continue;
 		dent->d_version = version;
 
+		bind_to_dent(dent, &say_channel);
+
 		//MARS_IO("reading inode '%s'\n", dent->d_path);
 		status = get_inode(dent->d_path, dent);
 		total_status |= status;
@@ -613,6 +656,7 @@ restart:
 			}
 		}
 	}
+	bind_to_dent(NULL, &say_channel);
 
 	if (found_dir && ++rounds < 10) {
 		schedule();
@@ -629,6 +673,8 @@ restart:
 
 		schedule();
 
+		bind_to_dent(dent, &say_channel);
+
 		//MARS_IO("forward prepare '%s'\n", dent->d_path);
 		status = worker(buf, dent, true, false);
 		if (status) {
@@ -636,6 +682,7 @@ restart:
 		}
 		total_status |= status;
 	}
+	bind_to_dent(NULL, &say_channel);
 
 	/* Remove all dents marked for removal.
 	 */
@@ -644,10 +691,14 @@ restart:
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
 		if (!dent->d_killme)
 			continue;
+
+		bind_to_dent(dent, &say_channel);
+
 		MARS_DBG("killing dent '%s'\n", dent->d_path);
 		list_del_init(tmp);
 		mars_free_dent(dent);
 	}
+	bind_to_dent(NULL, &say_channel);
 
 	up_write(&global->dent_mutex);
 
@@ -661,6 +712,8 @@ restart:
 
 		schedule();
 
+		bind_to_dent(dent, &say_channel);
+
 		//MARS_IO("forward treat '%s'\n", dent->d_path);
 		status = worker(buf, dent, false, false);
 		if (status) {
@@ -669,6 +722,7 @@ restart:
 		down_read(&global->dent_mutex);
 		total_status |= status;
 	}
+	bind_to_dent(NULL, &say_channel);
 
 	/* Backward pass.
 	*/
@@ -678,6 +732,8 @@ restart:
 		up_read(&global->dent_mutex);
 
 		schedule();
+
+		bind_to_dent(dent, &say_channel);
 
 		//MARS_IO("backward treat '%s'\n", dent->d_path);
 		status = worker(buf, dent, false, true);
@@ -691,6 +747,7 @@ restart:
 		}
 	}
 	up_read(&global->dent_mutex);
+	bind_to_dent(NULL, &say_channel);
 
 done:
 	MARS_IO("total_status = %d\n", total_status);

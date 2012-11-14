@@ -60,6 +60,7 @@ struct light_class {
 	char   cl_type;
 	bool   cl_hostcontext;
 	bool   cl_serial;
+	bool   cl_use_channel;
 	int    cl_father;
 	light_worker_fn cl_prepare;
 	light_worker_fn cl_forward;
@@ -3306,6 +3307,7 @@ static const struct light_class light_classes[] = {
 		.cl_name = "resource-",
 		.cl_len = 9,
 		.cl_type = 'd',
+		.cl_use_channel = true,
 		.cl_father = CL_ROOT,
 	},
 
@@ -3570,7 +3572,7 @@ static const struct light_class light_classes[] = {
 
 /* Helper routine to pre-determine the relevance of a name from the filesystem.
  */
-static int light_checker(struct mars_dent *parent, const char *_name, int namlen, unsigned int d_type, int *prefix, int *serial)
+static int light_checker(struct mars_dent *parent, const char *_name, int namlen, unsigned int d_type, int *prefix, int *serial, bool *use_channel)
 {
 	int class;
 	int status = -2;
@@ -3636,6 +3638,7 @@ static int light_checker(struct mars_dent *parent, const char *_name, int namlen
 
 		// all ok
 		status = class;
+		*use_channel = test->cl_use_channel;
 	}
 
 #ifdef MARS_DEBUGGING
@@ -3902,7 +3905,7 @@ static int light_thread(void *data)
 		status = mars_kill_brick_when_possible(&_global, &_global.server_anchor, false, (void*)&sio_brick_type, false);
 		MARS_DBG("kill server sio bricks (when possible) = %d\n", status);
 
-		rollover_channel(default_channel);
+		rollover_all();
 
 		_show_status_all(&_global);
 #ifdef STAT_DEBUGGING

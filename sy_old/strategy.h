@@ -25,6 +25,7 @@ extern char *my_id(void);
 	char *d_name; /* current path component */			\
 	char *d_rest; /* some "meaningful" rest of d_name*/		\
 	char *d_path; /* full absolute path */				\
+	struct say_channel *d_say_channel; /* for messages */		\
 	int   d_namelen;						\
 	int   d_pathlen;						\
 	int   d_depth;							\
@@ -34,6 +35,7 @@ extern char *my_id(void);
 	int   d_version;  /* dynamic programming per call of mars_ent_work() */ \
 	char d_once_error;						\
 	bool d_killme;							\
+	bool d_use_channel;						\
 	struct kstat new_stat;						\
 	struct kstat old_stat;						\
 	char *new_link;							\
@@ -66,7 +68,9 @@ struct mars_global {
 	bool jammed;
 };
 
-typedef int (*mars_dent_checker_fn)(struct mars_dent *parent, const char *name, int namlen, unsigned int d_type, int *prefix, int *serial);
+extern void bind_to_dent(struct mars_dent *dent, struct say_channel **ch);
+
+typedef int (*mars_dent_checker_fn)(struct mars_dent *parent, const char *name, int namlen, unsigned int d_type, int *prefix, int *serial, bool *use_channel);
 typedef int (*mars_dent_worker_fn)(struct mars_global *global, struct mars_dent *dent, bool prepare, bool direction);
 
 extern int mars_dent_work(struct mars_global *global, char *dirname, int allocsize, mars_dent_checker_fn checker, mars_dent_worker_fn worker, void *buf, int maxdepth);
