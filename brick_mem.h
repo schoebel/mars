@@ -9,6 +9,7 @@
 
 extern long long brick_global_memavail;
 extern long long brick_global_memlimit;
+extern atomic64_t brick_global_block_used;
 
 /////////////////////////////////////////////////////////////////////////
 

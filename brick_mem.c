@@ -51,6 +51,8 @@ long long brick_global_memavail = 0;
 EXPORT_SYMBOL_GPL(brick_global_memavail);
 long long brick_global_memlimit = 0;
 EXPORT_SYMBOL_GPL(brick_global_memlimit);
+atomic64_t brick_global_block_used = ATOMIC64_INIT(0);
+EXPORT_SYMBOL_GPL(brick_global_block_used);
 
 void get_total_ram(void)
 {
@@ -328,6 +330,9 @@ void *__brick_block_alloc(gfp_t gfp, int order)
 		msleep(1000);
 	}
 #endif
+
+	atomic64_add((PAGE_SIZE/1024) << order, &brick_global_block_used);
+
 	return res;
 }
 
@@ -342,6 +347,7 @@ void __brick_block_free(void *data, int order)
 #ifdef BRICK_DEBUG_MEM
 	atomic_dec(&raw_count[order]);
 #endif
+	atomic64_sub((PAGE_SIZE/1024) << order, &brick_global_block_used);
 }
 
 bool brick_allow_freelist = true;
