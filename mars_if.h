@@ -80,6 +80,7 @@ struct if_brick {
 	// inspectable
 	// private
 	struct semaphore switch_sem;
+	struct say_channel *say_channel;
 };
 
 MARS_TYPES(if);

@@ -274,6 +274,8 @@ if_make_request(struct request_queue *q, struct bio *bio)
 	int total_len = bio->bi_size;
         int error = -ENOSYS;
 
+	bind_to_channel(brick->say_channel, current);
+
 	MARS_IO("bio %p "
 		"size = %d "
 		"rw = %d "
@@ -576,6 +578,8 @@ err:
 #endif
 
 done:
+	remove_binding_from(brick->say_channel, current);
+
 #ifdef BIO_CPU_AFFINE
 	return error;
 #else
@@ -661,6 +665,8 @@ static int if_switch(struct if_brick *brick)
 
 	if (brick->power.button && brick->power.led_off) {
 		mars_power_led_off((void*)brick,  false);
+		brick->say_channel = get_binding(current);
+
 		capacity = compute_capacity(brick);
 		status = -ENOMEM;
 		q = blk_alloc_queue(GFP_MARS);

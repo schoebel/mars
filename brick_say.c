@@ -29,7 +29,7 @@
 #define SAY_ORDER 0
 #define SAY_BUFMAX (PAGE_SIZE << SAY_ORDER)
 #define MAX_FILELEN 16
-#define MAX_IDS 64
+#define MAX_IDS 1000
 
 char *say_class[MAX_SAY_CLASS] = {
 	[SAY_DEBUG] = "debug",
