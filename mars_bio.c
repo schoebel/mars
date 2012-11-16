@@ -394,6 +394,7 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref, bool cork)
 err:
 	MARS_ERR("IO error %d\n", status);
 	CHECKED_CALLBACK(mref, status, done);
+	atomic_dec(&mars_global_io_flying);
 
 done: ;
 }
@@ -401,6 +402,7 @@ done: ;
 static
 void bio_ref_io(struct bio_output *output, struct mref_object *mref)
 {
+	atomic_inc(&mars_global_io_flying);
 	if (mref->ref_prio == MARS_PRIO_LOW ||
 	    (mref->ref_prio == MARS_PRIO_NORMAL && mref->ref_rw)) {
 		struct bio_mref_aspect *mref_a = bio_mref_get_aspect(output->brick, mref);
@@ -525,6 +527,8 @@ int bio_response_thread(void *data)
 				bio_put(mref_a->bio);
 			}
 			bio_ref_put(mref_a->output, mref);
+
+			atomic_dec(&mars_global_io_flying);
 		}
 
 		/* Try to detect slow requests as early as possible,

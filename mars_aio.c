@@ -232,6 +232,7 @@ done:
 	}
 
 	aio_ref_put(output, mref);
+	atomic_dec(&mars_global_io_flying);
 	return;
 
 err_found:
@@ -257,6 +258,7 @@ static void aio_ref_io(struct aio_output *output, struct mref_object *mref)
 	int err = -EINVAL;
 
 	atomic_inc(&mref->ref_count);
+	atomic_inc(&mars_global_io_flying);
 
 	// statistics
 	if (mref->ref_rw) {

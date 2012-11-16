@@ -211,6 +211,7 @@ static void client_ref_io(struct client_output *output, struct mref_object *mref
 #endif
 	}
 
+	atomic_inc(&mars_global_io_flying);
 	atomic_inc(&output->fly_count);
 	atomic_inc(&mref->ref_count);
 
@@ -311,9 +312,12 @@ int receiver_thread(void *data)
 			list_del_init(&mref_a->io_head);
 			traced_unlock(&output->lock, flags);
 
-			atomic_dec(&output->fly_count);
 			SIMPLE_CALLBACK(mref, 0);
+
 			client_ref_put(output, mref);
+
+			atomic_dec(&output->fly_count);
+			atomic_dec(&mars_global_io_flying);
 			break;
 		}
 		case CMD_GETINFO:
@@ -407,8 +411,11 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, bool fo
 		traced_unlock(&output->lock, flags);
 	
 		SIMPLE_CALLBACK(mref, -ENOTCONN);
+
 		client_ref_put(output, mref);
+
 		atomic_dec(&output->fly_count);
+		atomic_dec(&mars_global_io_flying);
 	}
 }
 

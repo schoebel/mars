@@ -340,6 +340,8 @@ done:
 	}
 #endif
 	sio_ref_put(output, mref);
+
+	atomic_dec(&mars_global_io_flying);
 	return;
 
 err_found:
@@ -356,6 +358,8 @@ void _sio_ref_io(struct sio_threadinfo *tinfo, struct mref_object *mref)
 	bool barrier = false;
 	int status;
 
+	atomic_inc(&tinfo->fly_count);
+
 	if (unlikely(!output->filp)) {
 		status = -EINVAL;
 		goto done;
@@ -366,8 +370,6 @@ void _sio_ref_io(struct sio_threadinfo *tinfo, struct mref_object *mref)
 		sync_file(output);
 	}
 
-	atomic_inc(&tinfo->fly_count);
-
 	if (mref->ref_rw == READ) {
 		status = read_aops(output, mref);
 	} else {
@@ -376,10 +378,11 @@ void _sio_ref_io(struct sio_threadinfo *tinfo, struct mref_object *mref)
 			sync_file(output);
 	}
 
-	atomic_dec(&tinfo->fly_count);
 
 done:
 	_complete(output, mref, status);
+
+	atomic_dec(&tinfo->fly_count);
 }
 
 /* This is called from outside
@@ -399,6 +402,7 @@ void sio_ref_io(struct sio_output *output, struct mref_object *mref)
 		return;
 	}
 
+	atomic_inc(&mars_global_io_flying);
 	atomic_inc(&mref->ref_count);
 
 	index = 0;

@@ -264,6 +264,8 @@ extern void (*_mars_remote_trigger)(void);
 
 extern struct banning mars_global_ban;
 
+extern atomic_t mars_global_io_flying;
+
 /////////////////////////////////////////////////////////////////////////
 
 /* Some special brick types for avoidance of cyclic references.

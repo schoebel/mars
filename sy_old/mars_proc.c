@@ -150,6 +150,7 @@ ctl_table mars_table[] = {
 	INT_ENTRY("percent_mem_limit_kb", mars_mem_percent,       0600),
 	INT_ENTRY("logger_mem_used_kb",   trans_logger_mem_usage, 0400),
 	INT_ENTRY("raw_mem_used_kb",      brick_global_block_used,0400),
+	INT_ENTRY("io_flying",            mars_global_io_flying,  0400),
 	INT_ENTRY("logrot_auto_gb",       global_logrot_auto,     0600),
 	INT_ENTRY("logdel_auto_gb",       global_logdel_auto,     0600),
 	INT_ENTRY("free_space_mb",        global_free_space,      0600),

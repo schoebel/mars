@@ -1153,6 +1153,29 @@ void __mars_remote_trigger(void)
 	wake_up_interruptible_all(&remote_event);
 }
 
+static
+bool is_shutdown(void)
+{
+	bool res = false;
+	int used;
+	if ((used = atomic_read(&global_mshadow_count)) > 0) {
+		MARS_INF("global shutdown delayed: there are %d buffers in use, occupying %ld bytes\n", used, atomic64_read(&global_mshadow_used));
+	} else {
+		int rounds = 3;
+		while ((used = atomic_read(&mars_global_io_flying)) <= 0) {
+			if (--rounds <= 0) {
+				res = true;
+				break;
+			}
+			brick_msleep(30);
+		}
+		if (!res) {
+			MARS_INF("global shutdown delayed: there are %d IO requests flying\n", used);
+		}
+	}
+	return res;
+}
+
 ///////////////////////////////////////////////////////////////////////
 
 // helpers for worker functions
@@ -1265,7 +1288,7 @@ int kill_any(void *buf, struct mars_dent *dent)
 	struct mars_global *global = buf;
 	struct list_head *tmp;
 
-	if (global->global_power.button) {
+	if (global->global_power.button || !is_shutdown()) {
 		return 0;
 	}
 
@@ -1288,7 +1311,7 @@ int kill_log(void *buf, struct mars_dent *dent)
 	struct mars_global *global = buf;
 	struct mars_rotate *rot = dent->d_private;
 
-	if (global->global_power.button) {
+	if (global->global_power.button || !is_shutdown()) {
 		return 0;
 	}
 
@@ -3874,14 +3897,10 @@ static int light_thread(void *data)
 		rest_space = _global.remaining_space - EXHAUSTED_LIMIT(_global.total_space);
 		_make_alivelink("rest-space", rest_space);
 
-		if (!_global.global_power.button) {
-			int used = atomic_read(&global_mshadow_count);
-			if (used > 0) {
-				MARS_INF("global shutdown delayed: there are %d buffers in use, occupying %ld bytes\n", used, atomic64_read(&global_mshadow_used));
-			} else {
-				MARS_INF("global shutdown of all bricks...\n");
-				mars_kill_brick_all(&_global, &_global.server_anchor, false);
-			}
+		if (!_global.global_power.button && is_shutdown()) {
+			MARS_INF("global shutdown of all bricks...\n");
+			brick_msleep(500);
+			mars_kill_brick_all(&_global, &_global.server_anchor, false);
 		}
 
 		MARS_DBG("-------- start worker ---------\n");
