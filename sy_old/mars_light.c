@@ -3846,6 +3846,7 @@ static struct mars_global _global = {
 
 static int light_thread(void *data)
 {
+	long long last_rollover = jiffies;
 	char *id = my_id();
 	int status = 0;
 	mars_global = &_global;
@@ -3924,7 +3925,10 @@ static int light_thread(void *data)
 		status = mars_kill_brick_when_possible(&_global, &_global.server_anchor, false, (void*)&sio_brick_type, false);
 		MARS_DBG("kill server sio bricks (when possible) = %d\n", status);
 
-		rollover_all();
+		if ((long long)jiffies + rollover_time * HZ >= last_rollover) {
+			last_rollover = jiffies;
+			rollover_all();
+		}
 
 		_show_status_all(&_global);
 #ifdef STAT_DEBUGGING
