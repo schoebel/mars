@@ -92,9 +92,16 @@ extern int mars_kill_brick_when_possible(struct mars_global *global, struct list
 
 // mid-level brick instantiation (identity is based on path strings)
 
-extern char *vpath_make(const char *fmt, va_list *args);
-extern char *path_make(const char *fmt, ...);
-extern char *backskip_replace(const char *path, char delim, bool insert, const char *fmt, ...);
+extern char *_vpath_make(int line, const char *fmt, va_list *args);
+extern char *_path_make(int line, const char *fmt, ...);
+extern char *_backskip_replace(int line, const char *path, char delim, bool insert, const char *fmt, ...);
+
+#define vpath_make(_fmt, _args)			\
+	_vpath_make(__LINE__, _fmt, _args)
+#define path_make(_fmt, _args...)		\
+	_path_make(__LINE__, _fmt, ##_args)
+#define backskip_replace(_path, _delim, _insert, _fmt, _args...)	\
+	_backskip_replace(__LINE__, _path, _delim, _insert, _fmt, ##_args)
 
 extern struct mars_brick *path_find_brick(struct mars_global *global, const void *brick_type, const char *fmt, ...);
 

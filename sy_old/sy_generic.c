@@ -1208,33 +1208,33 @@ EXPORT_SYMBOL_GPL(mars_kill_brick_when_possible);
 
 // mid-level brick instantiation (identity is based on path strings)
 
-char *vpath_make(const char *fmt, va_list *args)
+char *_vpath_make(int line, const char *fmt, va_list *args)
 {
-	char *res = brick_string_alloc(MARS_PATH_MAX);
+	char *res = _brick_string_alloc(MARS_PATH_MAX, line);
 
 	if (likely(res)) {
 		vsnprintf(res, MARS_PATH_MAX, fmt, *args);
 	}
 	return res;
 }
-EXPORT_SYMBOL_GPL(vpath_make);
+EXPORT_SYMBOL_GPL(_vpath_make);
 
-char *path_make(const char *fmt, ...)
+char *_path_make(int line, const char *fmt, ...)
 {
 	va_list args;
 	char *res;
 	va_start(args, fmt);
-	res = vpath_make(fmt, &args);
+	res = _vpath_make(line, fmt, &args);
 	va_end(args);
 	return res;
 }
-EXPORT_SYMBOL_GPL(path_make);
+EXPORT_SYMBOL_GPL(_path_make);
 
-char *backskip_replace(const char *path, char delim, bool insert, const char *fmt, ...)
+char *_backskip_replace(int line, const char *path, char delim, bool insert, const char *fmt, ...)
 {
 	int path_len = strlen(path);
 	int total_len = strlen(fmt) + path_len + MARS_PATH_MAX;
-	char *res = brick_string_alloc(total_len + 1);
+	char *res = _brick_string_alloc(total_len + 1, line);
 	if (likely(res)) {
 		va_list args;
 		int pos = path_len;
@@ -1260,7 +1260,7 @@ char *backskip_replace(const char *path, char delim, bool insert, const char *fm
 	}
 	return res;
 }
-EXPORT_SYMBOL_GPL(backskip_replace);
+EXPORT_SYMBOL_GPL(_backskip_replace);
 
 struct mars_brick *path_find_brick(struct mars_global *global, const void *brick_type, const char *fmt, ...)
 {
