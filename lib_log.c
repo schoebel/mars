@@ -358,9 +358,11 @@ err:
 }
 EXPORT_SYMBOL_GPL(log_finalize);
 
+#define SCAN_TXT "at file_pos = %lld file_offset = %d scan_offset = %d (%lld) test_offset = %d (%lld) restlen = %d: "
+#define SCAN_PAR file_pos, file_offset, offset, file_pos + file_offset + offset, i, file_pos + file_offset + i, restlen
 
 static
-int log_scan(void *buf, int len, struct log_header *lh, void **payload, int *payload_len)
+int log_scan(void *buf, int len, loff_t file_pos, int file_offset, struct log_header *lh, void **payload, int *payload_len)
 {
 	bool dirty = false;
 	int offset;
@@ -390,24 +392,24 @@ int log_scan(void *buf, int len, struct log_header *lh, void **payload, int *pay
 
 		restlen = len - i;
 		if (restlen < START_OVERHEAD) {
-			MARS_WRN("magic found at offset %d, but restlen %d is too small\n", i, restlen);
+			MARS_ERR(SCAN_TXT "magic found, but restlen is too small\n", SCAN_PAR);
 			return -EBADMSG;
 		}
 
 		DATA_GET(buf, offset, format_version);
 		if (format_version != FORMAT_VERSION) {
-			MARS_WRN("found unknown data format %d at offset %d\n", (int)format_version, i);
-			continue;
+			MARS_ERR(SCAN_TXT "found unknown data format %d\n", SCAN_PAR, (int)format_version);
+			return -EBADMSG;
 		}
 		DATA_GET(buf, offset, valid_flag);
 		if (!valid_flag) {
-			MARS_WRN("data at offset %d is marked invalid (was there a short write?)\n", i);
+			MARS_WRN(SCAN_TXT "data is marked invalid (was there a short write?)\n", SCAN_PAR);
 			continue;
 		}
 		DATA_GET(buf, offset, total_len);
 		if (total_len > restlen) {
-			MARS_WRN("data at offset %d is longer than expected, total_len = %d restlen = %d\n", i, total_len, restlen);
-			return -EAGAIN;
+			MARS_ERR(SCAN_TXT "data is longer than expected, total_len = %d restlen = %d\n", SCAN_PAR, total_len, restlen);
+			return -EBADMSG;
 		}
 
 		memset(lh, 0, sizeof(struct log_header));
@@ -425,19 +427,19 @@ int log_scan(void *buf, int len, struct log_header *lh, void **payload, int *pay
 
 		restlen = len - offset;
 		if (restlen < END_OVERHEAD) {
-			MARS_WRN("magic found at offset %d, but restlen %d is too small\n", i, restlen);
+			MARS_WRN(SCAN_TXT "magic found, but restlen %d is too small\n", SCAN_PAR, restlen);
 			continue;
 		}
 
 		DATA_GET(buf, offset, end_magic);
 		if (end_magic != END_MAGIC) {
-			MARS_WRN("bad end_magic 0x%llx\n", end_magic);
+			MARS_WRN(SCAN_TXT "bad end_magic 0x%llx\n", SCAN_PAR, end_magic);
 			continue;
 		}
 		DATA_GET(buf, offset, lh->l_crc);
 		DATA_GET(buf, offset, valid_copy);
 		if (valid_copy != 1) {
-			MARS_WRN("found uncompleted / invalid data at %d len = %d (valid_flag = %d)\n", i, lh->l_len, (int)valid_copy);
+			MARS_WRN(SCAN_TXT "found uncompleted / invalid data, len = %d, valid_flag = %d\n", SCAN_PAR, lh->l_len, (int)valid_copy);
 			continue;
 		}
 		// skip spares
@@ -447,7 +449,7 @@ int log_scan(void *buf, int len, struct log_header *lh, void **payload, int *pay
 
 		// last check
 		if (total_len != offset - i) {
-			MARS_WRN("size mismatch at offset %d: %d != %d\n", i, total_len, offset - i);
+			MARS_WRN(SCAN_TXT "size mismatch: %d != %d\n", SCAN_PAR, total_len, offset - i);
 			// just warn, but no consequences: better use the data, it has been checked by lots of magics
 		}
 
@@ -485,6 +487,7 @@ err:
 int log_read(struct log_status *logst, struct log_header *lh, void **payload, int *payload_len)
 {
 	struct mref_object *mref;
+	int old_offset;
 	int status;
 
 restart:
@@ -539,13 +542,19 @@ restart:
 		logst->read_mref = mref;
 	}
 
-	status = log_scan(mref->ref_data + logst->offset, mref->ref_len - logst->offset, lh, payload, payload_len);
+	status = log_scan(mref->ref_data + logst->offset,
+			  mref->ref_len - logst->offset,
+			  mref->ref_pos,
+			  logst->offset,
+			  lh,
+			  payload,
+			  payload_len);
+
 	if (unlikely(status == 0)) {
 		MARS_ERR("bad logfile scan\n");
 		status = -EINVAL;
 	}
 	if (unlikely(status < 0)) {
-		MARS_IO("ref_len = %d offset = %d status = %d\n", mref->ref_len, logst->offset, status);
 		goto done_put;
 	}
 
@@ -562,13 +571,14 @@ done:
 	return status;
 
 done_put:
+	old_offset = logst->offset;
 	if (mref) {
 		logst->log_pos += logst->offset;
 		GENERIC_INPUT_CALL(logst->input, mref_put, mref);
 		logst->read_mref = NULL;
 		logst->offset = 0;
 	}
-	if (status == -EAGAIN && logst->offset > 0) {
+	if (status == -EAGAIN && old_offset > 0) {
 		goto restart;
 	}
 	goto done;
