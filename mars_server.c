@@ -524,8 +524,6 @@ static int server_switch(struct server_brick *brick)
 			brick_thread_stop(thread);
 			if (sock->s_socket)
 				mars_put_socket(sock);
-		} else {
-			MARS_WRN("handler thread does not exist\n");
 		}
 		mars_power_led_off((void*)brick, true);
 	}
