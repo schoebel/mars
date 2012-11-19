@@ -1305,26 +1305,6 @@ int kill_any(void *buf, struct mars_dent *dent)
 	return 1;
 }
 
-static
-int kill_log(void *buf, struct mars_dent *dent)
-{
-	struct mars_global *global = buf;
-	struct mars_rotate *rot = dent->d_private;
-
-	if (global->global_power.button || !is_shutdown()) {
-		return 0;
-	}
-
-	if (likely(rot)) {
-		brick_string_free(rot->copy_path);
-		brick_string_free(rot->parent_path);
-		rot->copy_path = NULL;
-		rot->parent_path = NULL;
-	}
-
-	return kill_any(buf, dent);
-}
-
 ///////////////////////////////////////////////////////////////////////
 
 // handlers / helpers for logfile rotation
@@ -1683,6 +1663,18 @@ out:
 	return status;
 }
 
+static
+void rot_destruct(void *_rot)
+{
+	struct mars_rotate *rot = _rot;
+	if (likely(rot)) {
+		brick_string_free(rot->copy_path);
+		brick_string_free(rot->parent_path);
+		rot->copy_path = NULL;
+		rot->parent_path = NULL;
+	}
+}
+
 /* This must be called once at every round of logfile checking.
  */
 static
@@ -1728,6 +1720,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 		rot->copy_path = copy_path;
 		rot->global = global;
 		parent->d_private = rot;
+		parent->d_private_destruct = rot_destruct;
 	}
 
 	rot->replay_link = NULL;
@@ -3453,7 +3446,7 @@ static const struct light_class light_classes[] = {
 #ifdef RUN_LOGINIT
 		.cl_forward = make_log_init,
 #endif
-		.cl_backward = kill_log,
+		.cl_backward = kill_any,
 	},
 	/* Dito for each individual size
 	 */

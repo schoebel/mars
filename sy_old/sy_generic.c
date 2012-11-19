@@ -849,6 +849,9 @@ void mars_free_dent(struct mars_dent *dent)
 	brick_string_free(dent->d_path);
 	brick_string_free(dent->old_link);
 	brick_string_free(dent->new_link);
+	if (dent->d_private_destruct) {
+		dent->d_private_destruct(dent->d_private);
+	}
 	brick_mem_free(dent->d_private);
 	brick_mem_free(dent);
 }
