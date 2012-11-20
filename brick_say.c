@@ -28,6 +28,7 @@
 
 #define SAY_ORDER 0
 #define SAY_BUFMAX (PAGE_SIZE << SAY_ORDER)
+#define SAY_BUF_LIMIT (SAY_BUFMAX - 1500)
 #define MAX_FILELEN 16
 #define MAX_IDS 1000
 
@@ -44,6 +45,13 @@ int brick_say_syslog_min = 1;
 EXPORT_SYMBOL_GPL(brick_say_syslog_min);
 int brick_say_syslog_max = -1;
 EXPORT_SYMBOL_GPL(brick_say_syslog_max);
+int delay_say_on_overflow =
+#ifdef CONFIG_MARS_DEBUG
+	1;
+#else
+	0;
+#endif
+EXPORT_SYMBOL_GPL(delay_say_on_overflow);
 
 
 struct say_channel {
@@ -59,6 +67,7 @@ struct say_channel {
 	int ch_status_written;
 	int ch_id_max;
 	void *ch_ids[MAX_IDS];
+	wait_queue_head_t ch_progress;
 };
 
 struct say_channel *default_channel = NULL;
@@ -73,6 +82,19 @@ static struct task_struct *say_thread = NULL;
 static DECLARE_WAIT_QUEUE_HEAD(say_event);
 
 bool say_dirty = false;
+
+static
+void wait_channel(struct say_channel *ch, int class)
+{
+	if (delay_say_on_overflow && ch->ch_index[class] > SAY_BUF_LIMIT) {
+		bool use_atomic = (preempt_count() & (SOFTIRQ_MASK | HARDIRQ_MASK | NMI_MASK)) != 0 || in_atomic() || irqs_disabled();
+		if (!use_atomic) {
+			say_dirty = true;
+			wake_up_interruptible(&say_event);
+			wait_event_interruptible_timeout(ch->ch_progress, ch->ch_index[class] < SAY_BUF_LIMIT, HZ / 10);
+		}
+	}
+}
 
 static
 struct say_channel *find_channel(const void *id)
@@ -265,6 +287,7 @@ struct say_channel *_make_channel(const char *name)
 	if (unlikely(!res)) {
 		goto done;
 	}
+	init_waitqueue_head(&res->ch_progress);
 	res->ch_name = kstrdup(name, mode);
 	if (unlikely(!res->ch_name)) {
 		kfree(res);
@@ -335,14 +358,16 @@ static
 void _say(struct say_channel *ch, int class, va_list args, bool use_args, const char *fmt, ...)
 {
 	char *start;
+	int offset;
 	int rest;
 	int written;
 
 	if (!ch)
 		return;
 
-	start = ch->ch_buf[class][0] + ch->ch_index[class];
-	rest = SAY_BUFMAX - 1 - ch->ch_index[class];
+	offset = ch->ch_index[class];
+	start = ch->ch_buf[class][0] + offset;
+	rest = SAY_BUFMAX - 1 - offset;
 	if (unlikely(rest <= 0)) {
 		ch->ch_overflow[class]++;
 		return;
@@ -379,6 +404,7 @@ void say_to(struct say_channel *ch, int class, const char *fmt, ...)
 
 	if (likely(ch)) {
 		if (likely(class >= 0 && class < MAX_SAY_CLASS)) {
+			wait_channel(ch, class);
 			spin_lock_irqsave(&ch->ch_lock[class], flags);
 
 			va_start(args, fmt);
@@ -392,6 +418,7 @@ void say_to(struct say_channel *ch, int class, const char *fmt, ...)
 	ch = default_channel;
 	if (likely(ch)) {
 		class = SAY_TOTAL;
+		wait_channel(ch, class);
 		spin_lock_irqsave(&ch->ch_lock[class], flags);
 		
 		va_start(args, fmt);
@@ -425,6 +452,7 @@ void brick_say_to(struct say_channel *ch, int class, bool dump, const char *pref
 	if (likely(ch)) {
 		channel_name = ch->ch_name;
 		if (likely(class >= 0 && class < MAX_SAY_CLASS)) {
+			wait_channel(ch, class);
 			spin_lock_irqsave(&ch->ch_lock[class], flags);
 			
 			_say(ch, class, NULL, true,
@@ -445,6 +473,7 @@ void brick_say_to(struct say_channel *ch, int class, bool dump, const char *pref
 
 	ch = default_channel;
 	if (likely(ch)) {
+		wait_channel(ch, SAY_TOTAL);
 		spin_lock_irqsave(&ch->ch_lock[SAY_TOTAL], flags);
 
 		_say(ch, SAY_TOTAL, NULL, true,
@@ -564,16 +593,6 @@ void treat_channel(struct say_channel *ch, int class)
 	char *tmp;
 	unsigned long flags;
 
-	for (transact = 0; transact < 2; transact++) {
-		if (unlikely(!ch->ch_filp[class][transact])) {
-			char *filename = _make_filename(ch, class, transact, transact);
-			if (likely(filename)) {
-				try_open_file(&ch->ch_filp[class][transact], filename, transact);
-				kfree(filename);
-			}
-		}
-	}
-	
 	spin_lock_irqsave(&ch->ch_lock[class], flags);
 
 	buf = ch->ch_buf[class][0];
@@ -587,15 +606,24 @@ void treat_channel(struct say_channel *ch, int class)
 
 	spin_unlock_irqrestore(&ch->ch_lock[class], flags);
 
+	wake_up_interruptible(&ch->ch_progress);
+
 	ch->ch_status_written += len;
 	out_to_syslog(class, buf, len);
 	for (transact = 0; transact < 2; transact++) {
+		if (unlikely(!ch->ch_filp[class][transact])) {
+			char *filename = _make_filename(ch, class, transact, transact);
+			if (likely(filename)) {
+				try_open_file(&ch->ch_filp[class][transact], filename, transact);
+				kfree(filename);
+			}
+		}
 		out_to_file(ch->ch_filp[class][transact], buf, len);
 	}
 
 	if (unlikely(overflow > 0)) {
 		struct timespec now = CURRENT_TIME;
-		len = snprintf(buf, SAY_BUFMAX, "%ld.%09ld OVERFLOW %d times\n", now.tv_sec, now.tv_nsec, overflow);
+		len = snprintf(buf, SAY_BUFMAX, "%ld.%09ld %s %d OVERFLOW %d times\n", now.tv_sec, now.tv_nsec, ch->ch_name, class, overflow);
 		ch->ch_status_written += len;
 		out_to_syslog(class, buf, len);
 		for (transact = 0; transact < 2; transact++) {

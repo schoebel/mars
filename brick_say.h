@@ -6,6 +6,7 @@
 
 extern int brick_say_syslog_min;
 extern int brick_say_syslog_max;
+extern int delay_say_on_overflow;
 
 // printk() replacements
 
