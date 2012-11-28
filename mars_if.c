@@ -31,6 +31,7 @@
 #include <linux/module.h>
 #include <linux/string.h>
 
+#include <linux/bio.h>
 #include <linux/major.h>
 #include <linux/genhd.h>
 #include <linux/blkdev.h>
@@ -234,7 +235,7 @@ if_make_request(struct request_queue *q, struct bio *bio)
 	 */
 	const int  rw      = bio_data_dir(bio);
 	const int  sectors = bio_sectors(bio);
-#ifdef BIO_RW_RQ_MASK
+#if defined(BIO_RW_RQ_MASK) || defined(BIO_FLUSH)
 	const bool ahead   = bio_rw_flagged(bio, BIO_RW_AHEAD) && rw == READ;
 	const bool barrier = bio_rw_flagged(bio, BIO_RW_BARRIER);
 	const bool syncio  = bio_rw_flagged(bio, BIO_RW_SYNCIO);
