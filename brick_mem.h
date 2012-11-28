@@ -65,6 +65,11 @@ extern int brick_mem_reserve(struct mem_reservation *r);
 
 // init
 
+#ifdef CONFIG_MARS_HAVE_BIGMODULE
+#undef __exit
+#define __exit /*empty*/
+#endif
+
 extern int init_brick_mem(void);
 extern void exit_brick_mem(void);
 
