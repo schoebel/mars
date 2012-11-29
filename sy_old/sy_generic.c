@@ -152,6 +152,7 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct timespec
 		memcpy(&times[0], &new_stamp, sizeof(struct timespec));
 		memcpy(&times[1], &new_stamp, sizeof(struct timespec));
 		status = do_utimes(AT_FDCWD, tmp, times, AT_SYMLINK_NOFOLLOW);
+		set_lamport(&new_stamp);
 	}
 
 	if (status >= 0) {

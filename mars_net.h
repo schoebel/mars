@@ -10,13 +10,31 @@
 
 extern bool mars_net_is_alive;
 
+#define MAX_FIELD_LEN   32
+#define MAX_DESC_CACHE  16
+
+struct mars_desc_cache {
+	u64   cache_sender_cookie;
+	u64   cache_recver_cookie;
+	s32   cache_items;
+};
+
+struct mars_desc_item {
+	char  field_name[MAX_FIELD_LEN];
+	s32   field_type;
+	s32   field_size;
+	s32   field_sender_offset;
+	s32   field_recver_offset;
+};
+
 /* The original struct socket has no refcount. This leads to problems
  * during long-lasting system calls when racing with socket shutdown.
  *
- * The original idea of struct mars_docket was just a small wrapper
+ * The original idea of struct mars_socket was just a small wrapper
  * adding a refcount and some debugging aid.
- * Nowadays, some buffering was added in order to take advantage of
+ * Later, some buffering was added in order to take advantage of
  * kernel_sendpage().
+ * Caching of meta description has also been added.
  */
 struct mars_socket {
 	struct socket *s_socket;
@@ -26,6 +44,8 @@ struct mars_socket {
 	int s_debug_nr;
 	bool s_dead;
 	bool s_shutdown_on_err;
+	struct mars_desc_cache *s_desc_send[MAX_DESC_CACHE];
+	struct mars_desc_cache *s_desc_recv[MAX_DESC_CACHE];
 };
 
 struct mars_tcp_params {
@@ -78,18 +98,17 @@ extern void mars_put_socket(struct mars_socket *msock);
 extern void mars_shutdown_socket(struct mars_socket *msock);
 extern bool mars_socket_is_alive(struct mars_socket *msock);
 
-extern int mars_send_raw(struct mars_socket *msock, void *buf, int len, bool cork);
+extern int mars_send_raw(struct mars_socket *msock, const void *buf, int len, bool cork);
 extern int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen);
 
 /* Mid-level generic field data exchange
  */
-extern int mars_send_struct(struct mars_socket *msock, void *data, const struct meta *meta);
+extern int mars_send_struct(struct mars_socket *msock, const void *data, const struct meta *meta);
 #define mars_recv_struct(_sock_,_data_,_meta_)				\
 	({								\
-		int seq = 0;						\
-		_mars_recv_struct(_sock_, _data_, _meta_, &seq, __LINE__); \
+		_mars_recv_struct(_sock_, _data_, _meta_, __LINE__); \
 	})
-extern int _mars_recv_struct(struct mars_socket *msock, void *data, const struct meta *meta, int *seq, int line);
+extern int _mars_recv_struct(struct mars_socket *msock, void *data, const struct meta *meta, int line);
 
 /* High-level transport of mars structures
  */
