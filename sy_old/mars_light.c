@@ -1107,6 +1107,7 @@ int peer_thread(void *data)
 		if (unlikely(status < 0)) {
 			MARS_WRN("communication error on receive, status = %d\n", status);
 			_peer_cleanup(peer);
+			mars_free_dent_all(NULL, &tmp_list);
 			brick_msleep(5000);
 			continue;
 		}

@@ -1109,6 +1109,8 @@ EXPORT_SYMBOL_GPL(mars_kill_brick);
 int mars_kill_brick_all(struct mars_global *global, struct list_head *anchor, bool use_dent_link)
 {
 	int status = 0;
+	if (!anchor || !anchor->next)
+		goto done;
 	if (global) {
 		down_write(&global->brick_mutex);
 	}
@@ -1132,6 +1134,7 @@ int mars_kill_brick_all(struct mars_global *global, struct list_head *anchor, bo
 	if (global) {
 		up_write(&global->brick_mutex);
 	}
+done:
 	return status;
 }
 EXPORT_SYMBOL_GPL(mars_kill_brick_all);

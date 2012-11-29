@@ -28,7 +28,7 @@ do {									\
 
 #define CHECK_HEAD_EMPTY(head)						\
 do {									\
-	if (BRICK_CHECKING && unlikely(!list_empty(head))) {	        \
+	if (BRICK_CHECKING && unlikely(!list_empty(head) && (head)->next)) { \
 		list_del_init(head);					\
 		BRICK_ERR("%d: list_head " #head " (%p) not empty\n", __LINE__, head); \
 	}								\
