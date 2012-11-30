@@ -241,7 +241,7 @@ EXPORT_SYMBOL_GPL(mars_accept_socket);
 
 bool mars_get_socket(struct mars_socket *msock)
 {
-	MARS_LOW("#%d get socket %p s_dead = %d s_count=%d\n", msock->s_debug_nr, msock->s_socket, msock->s_dead, atomic_read(&msock->s_count));
+	MARS_LOW("#%d get socket %p s_count=%d\n", msock->s_debug_nr, msock->s_socket, atomic_read(&msock->s_count));
 	if (unlikely(atomic_read(&msock->s_count) <= 0)) {
 		MARS_ERR("#%d bad nesting on msock = %p\n", msock->s_debug_nr, msock);
 		return false;
@@ -249,7 +249,7 @@ bool mars_get_socket(struct mars_socket *msock)
 
 	atomic_inc(&msock->s_count);
 
-	if (unlikely(!msock->s_socket || msock->s_dead)) {
+	if (unlikely(!msock->s_socket)) {
 		mars_put_socket(msock);
 		return false;
 	}
@@ -260,7 +260,7 @@ EXPORT_SYMBOL_GPL(mars_get_socket);
 
 void mars_put_socket(struct mars_socket *msock)
 {
-	MARS_LOW("#%d put socket %p s_dead = %d s_count=%d\n", msock->s_debug_nr, msock->s_socket, msock->s_dead, atomic_read(&msock->s_count));
+	MARS_LOW("#%d put socket %p s_count=%d\n", msock->s_debug_nr, msock->s_socket, atomic_read(&msock->s_count));
 	if (unlikely(atomic_read(&msock->s_count) <= 0)) {
 		MARS_ERR("#%d bad nesting on msock = %p sock = %p\n", msock->s_debug_nr, msock, msock->s_socket);
 	} else if (atomic_dec_and_test(&msock->s_count)) {
@@ -269,8 +269,13 @@ void mars_put_socket(struct mars_socket *msock)
 
 		MARS_DBG("#%d closing socket %p\n", msock->s_debug_nr, sock);
 		if (likely(sock)) {
+			msock->s_socket = NULL;
 			kernel_sock_shutdown(sock, SHUT_WR);
-			sock_release(sock);
+			msock->s_release_socket = sock;
+		}
+		if (likely(msock->s_release_socket)) {
+			MARS_DBG("#%d releasing socket %p\n", msock->s_debug_nr, msock->s_release_socket);
+			sock_release(msock->s_release_socket);
 		}
 		for (i = 0; i < MAX_DESC_CACHE; i++) {
 			if (msock->s_desc_send[i])
@@ -286,21 +291,21 @@ EXPORT_SYMBOL_GPL(mars_put_socket);
 
 void mars_shutdown_socket(struct mars_socket *msock)
 {
-	bool ok;
+	MARS_IO("#%d shutdown socket %p s_count=%d\n", msock->s_debug_nr, msock->s_socket, atomic_read(&msock->s_count));
 
-	MARS_IO("#%d shutdown socket %p s_dead = %d s_count=%d\n", msock->s_debug_nr, msock->s_socket, msock->s_dead, atomic_read(&msock->s_count));
-
-	ok = mars_get_socket(msock);
-	if (likely(ok)) {
-		struct socket *sock = msock->s_socket;
-		if (likely(sock)) {
-			if (!msock->s_dead) {
-				msock->s_dead = true;
-				MARS_DBG("shutdown socket #%d %p\n", msock->s_debug_nr, sock);
+	if (msock->s_socket) {
+		bool ok = mars_get_socket(msock);
+		if (likely(ok)) {
+			struct socket *sock = msock->s_socket;
+			if (likely(sock)) {
+				msock->s_socket = NULL;
+				MARS_DBG("#%d shutdown socket %p\n", msock->s_debug_nr, sock);
 				kernel_sock_shutdown(sock, SHUT_WR);
+				// delay sock_release() until the last reference has gone
+				msock->s_release_socket = sock;
 			}
+			mars_put_socket(msock);
 		}
-		mars_put_socket(msock);
 	}
 }
 EXPORT_SYMBOL_GPL(mars_shutdown_socket);
@@ -314,11 +319,9 @@ bool mars_socket_is_alive(struct mars_socket *msock)
 		MARS_ERR("#%d bad nesting on msock = %p sock = %p\n", msock->s_debug_nr, msock, msock->s_socket);
 		goto done;
 	}
-	if (msock->s_dead)
-		goto done;
 	res = true;
 done:
-	MARS_LOW("#%d %p s_count = %d s_dead = %d\n", msock->s_debug_nr, msock->s_socket, atomic_read(&msock->s_count), msock->s_dead);
+	MARS_LOW("#%d %p s_count = %d\n", msock->s_debug_nr, msock->s_socket, atomic_read(&msock->s_count));
 	return res;
 }
 EXPORT_SYMBOL_GPL(mars_socket_is_alive);
@@ -514,7 +517,7 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 #endif
 		};
 
-		if (unlikely(msock->s_dead)) {
+		if (unlikely(!msock->s_socket)) {
 			MARS_WRN("#%d socket has disappeared\n", msock->s_debug_nr);
 			status = -EIDRM;
 			goto err;

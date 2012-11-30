@@ -1008,12 +1008,11 @@ static
 void _peer_cleanup(struct mars_peerinfo *peer)
 {
 	MARS_DBG("cleanup\n");
-	if (peer->socket.s_socket) {
+	if (mars_socket_is_alive(&peer->socket)) {
 		MARS_DBG("really shutdown socket\n");
 		mars_shutdown_socket(&peer->socket);
-		mars_put_socket(&peer->socket);
 	}
-
+	mars_put_socket(&peer->socket);
 }
 
 static DECLARE_WAIT_QUEUE_HEAD(remote_event);
@@ -1027,6 +1026,7 @@ int peer_thread(void *data)
 	char *real_peer;
 	struct sockaddr_storage sockaddr = {};
 	int pause_time = 0;
+	bool do_kill = false;
 	bool flip = false;
 	int status;
 
@@ -1055,7 +1055,8 @@ int peer_thread(void *data)
 		};
 
 		if (!mars_socket_is_alive(&peer->socket)) {
-			if (peer->socket.s_socket) {
+			if (do_kill) {
+				do_kill = false;
 				_peer_cleanup(peer);
 				brick_msleep(5000);
 				continue;
@@ -1071,6 +1072,7 @@ int peer_thread(void *data)
 				brick_msleep(5000);
 				continue;
 			}
+			do_kill = true;
 			peer->socket.s_shutdown_on_err = true;
 			MARS_DBG("successfully opened socket to '%s'\n", real_peer);
 			brick_msleep(100);
@@ -1091,7 +1093,10 @@ int peer_thread(void *data)
 		status = mars_send_struct(&peer->socket, &cmd, mars_cmd_meta);
 		if (unlikely(status < 0)) {
 			MARS_WRN("communication error on send, status = %d\n", status);
-			_peer_cleanup(peer);
+			if (do_kill) {
+				do_kill = false;
+				_peer_cleanup(peer);
+			}
 			brick_msleep(2000);
 			continue;
 		}
@@ -1106,7 +1111,10 @@ int peer_thread(void *data)
 		status = mars_recv_dent_list(&peer->socket, &tmp_list);
 		if (unlikely(status < 0)) {
 			MARS_WRN("communication error on receive, status = %d\n", status);
-			_peer_cleanup(peer);
+			if (do_kill) {
+				do_kill = false;
+				_peer_cleanup(peer);
+			}
 			mars_free_dent_all(NULL, &tmp_list);
 			brick_msleep(5000);
 			continue;
@@ -1138,7 +1146,9 @@ int peer_thread(void *data)
 
 	MARS_INF("-------- peer thread terminating\n");
 
-	_peer_cleanup(peer);
+	if (do_kill) {
+		_peer_cleanup(peer);
+	}
 
 done:
 	atomic_dec(&peer_thread_count);

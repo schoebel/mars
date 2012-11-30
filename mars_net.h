@@ -38,11 +38,11 @@ struct mars_desc_item {
  */
 struct mars_socket {
 	struct socket *s_socket;
+	struct socket *s_release_socket;
 	void *s_buffer;
 	atomic_t s_count;
 	int s_pos;
 	int s_debug_nr;
-	bool s_dead;
 	bool s_shutdown_on_err;
 	struct mars_desc_cache *s_desc_send[MAX_DESC_CACHE];
 	struct mars_desc_cache *s_desc_recv[MAX_DESC_CACHE];
