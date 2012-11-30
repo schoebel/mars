@@ -1099,8 +1099,7 @@ int mars_kill_brick(struct mars_brick *brick)
 	}
 
 	// start shutdown
-	//status = set_recursive_button((void*)brick, BR_FREE_ALL, 10 * HZ);
-	status = set_recursive_button((void*)brick, BR_FREE_ONE, 10 * HZ);
+	status = set_recursive_button((void*)brick, BR_FREE_ONE, 0);
 
 done:
 	return status;
