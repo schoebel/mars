@@ -285,28 +285,33 @@ int handler_thread(void *data)
 	struct server_brick *brick = data;
 	struct mars_socket *sock = &brick->handler_socket;
 	struct task_struct *cb_thread = brick->cb_thread;
+	int debug_nr;
 	int status = 0;
 
 	brick->cb_thread = NULL;
 	brick->self_shutdown = true;
 	wake_up_interruptible(&brick->startup_event);
 
-	MARS_DBG("--------------- handler_thread starting on socket %p\n", sock);
-        while (brick->cb_running && !sock->s_dead && !brick_thread_should_stop()) {
+	MARS_DBG("#%d --------------- handler_thread starting on socket %p\n", sock->s_debug_nr, sock);
+        while (brick->cb_running && !brick_thread_should_stop() && mars_socket_is_alive(sock)) {
 		struct mars_cmd cmd = {};
 
 		status = mars_recv_struct(sock, &cmd, mars_cmd_meta);
-		if (unlikely(status < 0 || sock->s_dead)) {
-			MARS_WRN("dead = %d recv cmd status = %d\n", sock->s_dead, status);
+		if (unlikely(status < 0)) {
+			MARS_WRN("#%d recv cmd status = %d\n", sock->s_debug_nr, status);
+			break;
+		}
+		if (unlikely(!mars_socket_is_alive(sock))) {
+			MARS_WRN("#%d is dead\n", sock->s_debug_nr);
 			break;
 		}
 
-		MARS_IO("cmd = %d\n", cmd.cmd_code);
+		MARS_IO("#%d cmd = %d\n", sock->s_debug_nr, cmd.cmd_code);
 
 		status = -EPROTO;
 		switch (cmd.cmd_code & CMD_FLAG_MASK) {
 		case CMD_NOP:
-			MARS_DBG("got NOP operation\n");
+			MARS_DBG("#%d got NOP operation\n", sock->s_debug_nr);
 			status = 0;
 			break;
 		case CMD_NOTIFY:
@@ -341,7 +346,7 @@ int handler_thread(void *data)
 			up(&brick->socket_sem);
 
 			if (status < 0) {
-				MARS_WRN("could not send dentry information, status = %d\n", status);
+				MARS_WRN("#%d could not send dentry information, status = %d\n", sock->s_debug_nr, status);
 			}
 			break;
 		}
@@ -356,7 +361,7 @@ int handler_thread(void *data)
 			CHECK_PTR_NULL(_bio_brick_type, err);
 
 			if (!mars_global->global_power.button) {
-				MARS_WRN("system is not alive\n");
+				MARS_WRN("#%d system is not alive\n", sock->s_debug_nr);
 				goto err;
 			}
 
@@ -378,7 +383,7 @@ int handler_thread(void *data)
 			if (likely(prev)) {
 				status = generic_connect((void*)brick->inputs[0], (void*)prev->outputs[0]);
 			} else {
-				MARS_ERR("cannot find brick '%s'\n", path);
+				MARS_ERR("#%d cannot find brick '%s'\n", sock->s_debug_nr, path);
 			}
 			
 		err:
@@ -393,7 +398,7 @@ int handler_thread(void *data)
 #ifdef CONFIG_MARS_LOADAVG_LIMIT // quirk
 			int my_load = (avenrun[0] + FIXED_1/200) >> FSHIFT;
 			if (mars_max_loadavg && my_load >= mars_max_loadavg) {
-				MARS_WRN("loadavg %d too high (%d), aborting data traffic\n", my_load, mars_max_loadavg);
+				MARS_WRN("#%d loadavg %d too high (%d), aborting data traffic\n", sock->s_debug_nr, my_load, mars_max_loadavg);
 				status = -EBUSY;
 				break;
 			}
@@ -402,10 +407,10 @@ int handler_thread(void *data)
 			break;
 		}
 		case CMD_CB:
-			MARS_ERR("oops, as a server I should never get CMD_CB; something is wrong here - attack attempt??\n");
+			MARS_ERR("#%d oops, as a server I should never get CMD_CB; something is wrong here - attack attempt??\n", sock->s_debug_nr);
 			break;
 		default:
-			MARS_ERR("unknown command %d\n", cmd.cmd_code);
+			MARS_ERR("#%d unknown command %d\n", sock->s_debug_nr, cmd.cmd_code);
 		}
 		brick_string_free(cmd.cmd_str1);
 		if (status < 0)
@@ -414,14 +419,16 @@ int handler_thread(void *data)
 
 	mars_shutdown_socket(sock);
 
-	MARS_DBG("handler_thread terminating, status = %d\n", status);
+	MARS_DBG("#%d handler_thread terminating, status = %d\n", sock->s_debug_nr, status);
 	if (cb_thread) {
-		MARS_INF("stopping cb thread...\n");
+		MARS_INF("#%d stopping cb thread...\n", sock->s_debug_nr);
 		brick_thread_stop(cb_thread);
 	}
 
 	_clean_list(brick, &brick->cb_read_list);
 	_clean_list(brick, &brick->cb_write_list);
+
+	debug_nr = sock->s_debug_nr;
 
 	/* Normally, the brick should be shut down from outside.
 	 * In case the handler thread stops abnormally (e.g.
@@ -433,21 +440,21 @@ int handler_thread(void *data)
 	 */
 	if (brick->self_shutdown) {
 		struct task_struct *h_thread;
-		MARS_DBG("self-shutdown\n");
+		MARS_DBG("#%d self-shutdown\n", debug_nr);
 		h_thread = _grab_handler(brick);
 		mars_put_socket(sock);
 		if (h_thread) {
 			int status;
-			MARS_DBG("self cleanup...\n");
+			MARS_DBG("#%d self cleanup...\n", debug_nr);
 			status = mars_kill_brick((void*)brick);
 			if (status < 0) {
-				MARS_ERR("kill status = %d, giving up\n", status);
+				MARS_ERR("#%d kill status = %d, giving up\n", debug_nr, status);
 			}
 			put_task_struct(h_thread);
 		}
 	}
 	
-	MARS_DBG("done.\n");
+	MARS_DBG("#%d done.\n", debug_nr);
 	return status;
 }
 
