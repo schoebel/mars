@@ -2250,10 +2250,9 @@ void _exit_inputs(struct trans_logger_brick *brick, bool force)
 	for (i = TL_INPUT_LOG1; i <= TL_INPUT_LOG2; i++) {
 		struct trans_logger_input *input = brick->inputs[i];
 		struct log_status *logst = &input->logst;
-		if (force ||
-		    (!input->connect &&
-		     input->is_operating &&
-		     input->is_deletable)) {
+		if (!input->connect &&
+		    input->is_operating &&
+		    (input->is_deletable || force)) {
 			MARS_DBG("cleaning up input %d (log = %d old = %d)\n", i, brick->log_input_nr, brick->old_input_nr);
 			exit_logst(logst);
 			input->is_operating = false;
@@ -2268,6 +2267,7 @@ static noinline
 void trans_logger_log(struct trans_logger_brick *brick)
 {
 	struct rank_data rkd[LOGGER_QUEUES] = {};
+	int nr_flying;
 
 	_init_inputs(brick);
 
@@ -2323,7 +2323,12 @@ void trans_logger_log(struct trans_logger_brick *brick)
 
 		_exit_inputs(brick, false);
 	}
-	_exit_inputs(brick, true);
+
+	while ((nr_flying = _nr_flying_inputs(brick))) {
+		MARS_INF("%d inputs have flying IO\n", nr_flying);
+		_exit_inputs(brick, true);
+		brick_msleep(1000);
+	}
 }
 
 ////////////////////////////// log replay //////////////////////////////
@@ -2500,6 +2505,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 	loff_t start_pos;
 	loff_t finished_pos;
 	long long old_jiffies = jiffies;
+	int nr_flying;
 	int backoff = 0;
 	int status = 0;
 
@@ -2610,7 +2616,11 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		brick->replay_code = 2;
 	}
 
-	_exit_inputs(brick, true);
+	while ((nr_flying = _nr_flying_inputs(brick))) {
+		MARS_INF("%d inputs have flying IO\n", nr_flying);
+		_exit_inputs(brick, true);
+		brick_msleep(1000);
+	}
 
 	mars_trigger();
 
