@@ -138,6 +138,7 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct timespec
 		if (status >= 0 &&
 		    !stat.mtime.tv_nsec &&
 		    new_stamp.tv_sec <= stat.mtime.tv_sec) {
+			MARS_DBG("workaround timestamp tv_sec=%ld\n", stat.mtime.tv_sec);
 			new_stamp.tv_sec = stat.mtime.tv_sec + 1;
 		}
 	}

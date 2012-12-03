@@ -86,6 +86,53 @@ done:
 	return res;
 }
 
+static
+int lamport_sysctl_handler(
+	ctl_table *table,
+	int write, 
+	void __user *buffer,
+	size_t *length,
+	loff_t *ppos)
+{
+	ssize_t res = 0;
+	size_t len = *length;
+
+	MARS_DBG("write = %d len = %ld pos = %lld\n", write, len, *ppos);
+
+	if (!len || *ppos > 0) {
+		goto done;
+	}
+
+	if (write) {
+		return -EINVAL;
+	} else {
+		char *tmp = brick_string_alloc(len);
+		struct timespec now = CURRENT_TIME;
+		
+		res = snprintf(tmp, len,
+			       "CURRENT_TIME=%ld.%09ld\n"
+			       "lamport_now=%ld.%09ld\n",
+			       now.tv_sec, now.tv_nsec,
+			       lamport_now.tv_sec, lamport_now.tv_nsec
+			);
+
+		if (copy_to_user(buffer, tmp, res)) {
+			MARS_ERR("write %ld bytes at %p failed\n", res, buffer);
+			res = -EFAULT;
+		}
+		brick_string_free(tmp);
+	}
+
+done:
+	MARS_DBG("res = %ld\n", res);
+	*length = res;
+	if (res >= 0) {
+	        *ppos += res;
+		return 0;
+	}
+	return res;
+}
+
 #ifdef CONFIG_MARS_LOADAVG_LIMIT
 int mars_max_loadavg = 0;
 EXPORT_SYMBOL_GPL(mars_max_loadavg);
@@ -144,6 +191,12 @@ ctl_table mars_table[] = {
 		.procname	= "trigger",
 		.mode		= 0200,
 		.proc_handler	= &trigger_sysctl_handler,
+	},
+	{
+		_CTL_NAME
+		.procname	= "lamport_clock",
+		.mode		= 0400,
+		.proc_handler	= &lamport_sysctl_handler,
 	},
 	INT_ENTRY("syslog_min_class",     brick_say_syslog_min,   0600),
 	INT_ENTRY("syslog_max_class",     brick_say_syslog_max,   0600),

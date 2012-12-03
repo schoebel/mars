@@ -543,6 +543,8 @@ INLINE struct BRITYPE##_##OBJTYPE##_aspect *BRITYPE##_##OBJTYPE##_get_aspect(str
 
 // some general helpers
 
+extern struct timespec lamport_now;
+
 extern void get_lamport(struct timespec *now);
 extern void set_lamport(struct timespec *old);
 
