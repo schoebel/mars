@@ -1916,6 +1916,8 @@ int make_log_step(void *buf, struct mars_dent *dent)
 
 	CHECK_PTR(parent, err);
 	rot = parent->d_private;
+	if (!rot)
+		goto err;
 	CHECK_PTR(rot, err);
 
 	status = 0;
@@ -2493,6 +2495,8 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 
 	CHECK_PTR(parent, err);
 	rot = parent->d_private;
+	if (!rot)
+		goto err;
 	CHECK_PTR(rot, err);
 	trans_brick = rot->trans_brick;
 	status = 0;
@@ -2624,6 +2628,8 @@ int make_primary(void *buf, struct mars_dent *dent)
 	parent = dent->d_parent;
 	CHECK_PTR(parent, done);
 	rot = parent->d_private;
+	if (!rot)
+		goto done;
 	CHECK_PTR(rot, done);
 
 	rot->todo_primary =
