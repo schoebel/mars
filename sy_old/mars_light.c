@@ -3756,7 +3756,24 @@ void _show_one(struct mars_brick *test, int *brick_count)
 	if (*brick_count) {
 		MARS_STAT("---------\n");
 	}
-	MARS_STAT("BRICK type = %s path = '%s' name = '%s' button = %d off = %d on = %d\n", SAFE_STR(test->type->type_name), SAFE_STR(test->brick_path), SAFE_STR(test->brick_name), test->power.button, test->power.led_off, test->power.led_on);
+	MARS_STAT("BRICK type = %s path = '%s' name = '%s' "
+		  "size_hint=%d "
+		  "mrefs_alloc = %d "
+		  "mrefs_apsect_alloc = %d "
+		  "total_mrefs_alloc = %d "
+		  "total_mrefs_aspects = %d "
+		  "button = %d off = %d on = %d\n",
+		  SAFE_STR(test->type->type_name),
+		  SAFE_STR(test->brick_path),
+		  SAFE_STR(test->brick_name),
+		  test->mref_object_layout.size_hint,
+		  atomic_read(&test->mref_object_layout.alloc_count),
+		  atomic_read(&test->mref_object_layout.aspect_count),
+		  atomic_read(&test->mref_object_layout.total_alloc_count),
+		  atomic_read(&test->mref_object_layout.total_aspect_count),
+		  test->power.button,
+		  test->power.led_off,
+		  test->power.led_on);
 	(*brick_count)++;
 	if (test->ops && test->ops->brick_statistics) {
 		char *info = test->ops->brick_statistics(test, 0);

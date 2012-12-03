@@ -84,7 +84,9 @@ struct generic_object_type {
 #define GENERIC_OBJECT_LAYOUT(OBJTYPE)					\
 	int size_hint;							\
 	atomic_t alloc_count;						\
+	atomic_t aspect_count;						\
 	atomic_t total_alloc_count;					\
+	atomic_t total_aspect_count;					\
 
 struct generic_object_layout {
 	GENERIC_OBJECT_LAYOUT(generic);

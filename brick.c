@@ -498,6 +498,7 @@ void generic_free(struct generic_object *object)
 		if (aspect->shortcut)
 			continue;
 		brick_mem_free(aspect);
+		atomic_dec(&object_layout->aspect_count);
 	}
 	if (object_type->exit_fn) {
 		object_type->exit_fn(object);
@@ -534,16 +535,15 @@ struct generic_aspect *_new_aspect(struct generic_brick *brick, struct generic_o
 		obj->free_offset += size;
 		res->shortcut = true;
 	} else {
+		struct generic_object_layout *object_layout = obj->object_layout;
+		CHECK_PTR(object_layout, done);
 		/* Maintain the size hint.
 		 * In future, only small aspects should be integrated into
 		 * the same memory block, and the hint should not grow larger
 		 * than PAGE_SIZE if it was smaller before.
 		 */
 		if (size < PAGE_SIZE / 2) {
-			struct generic_object_layout *object_layout = obj->object_layout;
 			int max;
-
-			CHECK_PTR(object_layout, done);
 			max = obj->free_offset + size;
 			/* This is racy, but races won't do any harm because
 			 * it is just a hint, not essential.
@@ -557,6 +557,8 @@ struct generic_aspect *_new_aspect(struct generic_brick *brick, struct generic_o
 		if (unlikely(!res)) {
 			goto done;
 		}
+		atomic_inc(&object_layout->aspect_count);
+		atomic_inc(&object_layout->total_aspect_count);
 	}
 	res->object = obj;
 	res->aspect_type = aspect_type;
