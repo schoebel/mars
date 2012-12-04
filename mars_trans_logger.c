@@ -2064,6 +2064,7 @@ struct rank_info *fly_ranks[2][LOGGER_QUEUES] = {
 static noinline
 int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 {
+	int res;
 	int i;
 	int floating_mode;
 	bool delay_callers;
@@ -2164,7 +2165,15 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 	// finalize it
 	ranking_stop(rkd, LOGGER_QUEUES);
 
-	return ranking_select(rkd, LOGGER_QUEUES);
+	res = ranking_select(rkd, LOGGER_QUEUES);
+
+#ifdef IO_DEBUGGING
+	for (i = 0; i < LOGGER_QUEUES; i++) {
+		MARS_IO("rkd[%d]: points = %d tmp = %d got = %d\n", i, rkd[i].rkd_current_points, rkd[i].rkd_tmp, rkd[i].rkd_got);
+	}
+	MARS_IO("res = %d\n", res);
+#endif
+	return res;
 }
 
 static
