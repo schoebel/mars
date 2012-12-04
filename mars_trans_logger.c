@@ -2269,6 +2269,8 @@ void trans_logger_log(struct trans_logger_brick *brick)
 	struct rank_data rkd[LOGGER_QUEUES] = {};
 	int nr_flying;
 
+	brick->replay_code = 0; // indicates "running"
+
 	_init_inputs(brick);
 
 	mars_power_led_on((void*)brick, true);

@@ -796,10 +796,13 @@ static int if_switch(struct if_brick *brick)
 			goto done; // don't indicate "off" status
 		}
 		if (input->bdev) {
+			MARS_DBG("calling bdput()\n");
 			bdput(input->bdev);
 			input->bdev = NULL;
 		}
+		MARS_DBG("calling del_gendisk()\n");
 		del_gendisk(input->disk);
+		MARS_DBG("calling put_disk()\n");
 		put_disk(input->disk);
 		input->disk = NULL;
 		status = 0;
@@ -816,9 +819,35 @@ done:
 
 static int if_open(struct block_device *bdev, fmode_t mode)
 {
-	struct if_input *input = bdev->bd_disk->private_data;
+	struct if_input *input;
+	struct if_brick *brick;
+
+	if (unlikely(!bdev || !bdev->bd_disk)) {
+		MARS_ERR("----------------------- INVAL ------------------------------\n");
+		return -EINVAL;
+	}
+
+	input = bdev->bd_disk->private_data;
+
+	if (unlikely(!input || !input->brick)) {
+		MARS_ERR("----------------------- BAD IF SETUP ------------------------------\n");
+		return -EINVAL;
+	}
+	brick = input->brick;
+
+	down(&brick->switch_sem);
+
+	if (unlikely(!brick->power.led_on)) {
+		MARS_INF("----------------------- BUSY %d ------------------------------\n", atomic_read(&input->open_count));
+		up(&brick->switch_sem);
+		return -EBUSY;
+	}
+
 	atomic_inc(&input->open_count);
+
 	MARS_INF("----------------------- OPEN %d ------------------------------\n", atomic_read(&input->open_count));
+
+	up(&brick->switch_sem);
 	return 0;
 }
 
@@ -829,14 +858,16 @@ static int if_release(struct gendisk *gd, fmode_t mode)
 
 	MARS_INF("----------------------- CLOSE %d ------------------------------\n", atomic_read(&input->open_count));
 
-	while ((nr = atomic_read(&input->flying_count)) > 0) {
-		MARS_INF("%d IO requests not yet completed\n", nr);
-		brick_msleep(3000);
-	}
-
 	if (atomic_dec_and_test(&input->open_count)) {
-		struct if_brick *brick = input->brick;
-		if_switch(brick);
+		struct if_brick *brick;
+		brick = input->brick;
+
+		while ((nr = atomic_read(&input->flying_count)) > 0) {
+			MARS_INF("%d IO requests not yet completed\n", nr);
+			brick_msleep(1000);
+		}
+
+		MARS_DBG("status button=%d led_on=%d led_off=%d\n", brick->power.button, brick->power.led_on, brick->power.led_off);
 		mars_trigger();
 	}
 	return 0;

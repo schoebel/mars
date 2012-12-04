@@ -2554,7 +2554,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 			do_stop = !rot->is_primary;
 		}
 
-		MARS_DBG("replay_code = %d do_stop = %d\n", trans_brick->replay_code, (int)do_stop);
+		MARS_DBG("replay_mode = %d replay_code = %d is_primary = %d do_stop = %d\n", trans_brick->replay_mode, trans_brick->replay_code, rot->is_primary, (int)do_stop);
 
 		if (do_stop) {
 			status = _stop_trans(rot, parent->d_path);
