@@ -16,10 +16,10 @@ struct rank_info {
 
 struct rank_data {
 	// public readonly
-	int rkd_current_points;
+	long long rkd_current_points;
 	// private
-	int rkd_tmp;
-	int rkd_got;
+	long long rkd_tmp;
+	long long rkd_got;
 };
 
 /* Ranking phase.

@@ -48,14 +48,14 @@ EXPORT_SYMBOL_GPL(ranking_compute);
 int ranking_select(struct rank_data rkd[], int rkd_count)
 {
 	int res = -1;
-	int max = INT_MIN / 2;
+	long long max = LLONG_MIN / 2;
 	int i;
 
 	MARS_IO("rkd_count = %d\n", rkd_count);
 
 	for (i = 0; i < rkd_count; i++) {
 		struct rank_data *tmp = &rkd[i];
-		int rest = tmp->rkd_current_points;
+		long long rest = tmp->rkd_current_points;
 		if (rest <= 0)
 			continue;
 		//rest -= tmp->rkd_got;

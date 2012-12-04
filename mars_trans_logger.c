@@ -2169,7 +2169,7 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 
 #ifdef IO_DEBUGGING
 	for (i = 0; i < LOGGER_QUEUES; i++) {
-		MARS_IO("rkd[%d]: points = %d tmp = %d got = %d\n", i, rkd[i].rkd_current_points, rkd[i].rkd_tmp, rkd[i].rkd_got);
+		MARS_IO("rkd[%d]: points = %lld tmp = %lld got = %lld\n", i, rkd[i].rkd_current_points, rkd[i].rkd_tmp, rkd[i].rkd_got);
 	}
 	MARS_IO("res = %d\n", res);
 #endif
