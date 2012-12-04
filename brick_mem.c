@@ -216,7 +216,7 @@ char *_brick_string_alloc(int len, int line)
 #ifdef CONFIG_MARS_DEBUG
 		res = kzalloc(len + 1024, GFP_BRICK);
 #else
-		res = kzalloc(len, GFP_BRICK);
+		res = kzalloc(len + 1, GFP_BRICK);
 #endif
 #ifdef CONFIG_MARS_MEM_RETRY
 		if (likely(res))

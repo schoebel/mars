@@ -282,25 +282,28 @@ struct say_channel *_make_channel(const char *name)
 		say(SAY_ERROR, "cannot create channel '%s'\n", name);
 		goto done;
 	}
-	
+restart:
 	res = kzalloc(sizeof(struct say_channel), mode);
 	if (unlikely(!res)) {
-		goto done;
+		schedule();
+		goto restart;
 	}
 	init_waitqueue_head(&res->ch_progress);
+restart2:
 	res->ch_name = kstrdup(name, mode);
 	if (unlikely(!res->ch_name)) {
-		kfree(res);
-		goto done;
+		schedule();
+		goto restart2;
 	}
 	for (i = 0; i < MAX_SAY_CLASS; i++) {
 		spin_lock_init(&res->ch_lock[i]);
 		for (j = 0; j < 2; j++) {
-			char *buf = (void*)__get_free_pages(mode, SAY_ORDER);
+			char *buf;
+		restart3:
+			buf = (void*)__get_free_pages(mode, SAY_ORDER);
 			if (unlikely(!buf)) {
-				del_channel(res);
-				res = NULL;
-				goto done;
+				schedule();
+				goto restart3;
 			}
 			res->ch_buf[i][j] = buf;
 		}
@@ -540,10 +543,15 @@ void out_to_syslog(int class, char *buf, int len)
 static inline
 char *_make_filename(struct say_channel *ch, int class, int transact, int add_tmp)
 {
-	char *filename = kmalloc(1024, GFP_KERNEL);
-	if (likely(filename)) {
-		snprintf(filename, 1023, "%s/%d.%s.%s%s", ch->ch_name, class, say_class[class], transact ? "status" : "log", add_tmp ? ".tmp" : "");
+	char *filename;
+
+restart:
+	filename = kmalloc(1024, GFP_KERNEL);
+	if (unlikely(!filename)) {
+		schedule();
+		goto restart;
 	}
+	snprintf(filename, 1023, "%s/%d.%s.%s%s", ch->ch_name, class, say_class[class], transact ? "status" : "log", add_tmp ? ".tmp" : "");
 	return filename;
 }
 
