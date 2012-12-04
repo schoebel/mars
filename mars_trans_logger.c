@@ -2133,22 +2133,35 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 			continue;
 
 		if (i == 1 && !floating_mode) {
+			struct trans_logger_brick *leader;
 			int lim;
 
 			if (atomic_read(&brick->q_phase[0].q_queued) + atomic_read(&brick->q_phase[0].q_flying) > 0) {
+				MARS_IO("BAILOUT phase_[0]queued = %d phase_[0]flying = %d\n", atomic_read(&brick->q_phase[0].q_queued), atomic_read(&brick->q_phase[0].q_flying));
 				break;
 			}
 
-			if (elect_leader(&global_writeback) != brick) {
+			if ((leader = elect_leader(&global_writeback)) != brick) {
+				MARS_IO("BAILOUT leader=%p brick=%p\n", leader, brick);				
 				break;
 			}
 
 			if (banning_is_hit(&mars_global_ban)) {
+#ifdef IO_DEBUGGING
+				unsigned long long now = cpu_clock(raw_smp_processor_id());
+				MARS_IO("BAILOUT via banning now = %lld last_hit = %lld diff = %lld renew_count = %d count = %d\n",
+					now,
+					now - mars_global_ban.ban_last_hit,
+					mars_global_ban.ban_last_hit,
+					mars_global_ban.ban_renew_count,
+					mars_global_ban.ban_count);
+#endif
 				break;
 			}
 
 			lim = mars_limit(&global_writeback.limiter, 0);
 			if (lim > 0) {
+				MARS_IO("BAILOUT via limiter %d\n", lim);
 				break;
 			}
 		}

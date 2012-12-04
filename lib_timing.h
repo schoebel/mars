@@ -92,18 +92,18 @@ extern int report_timing(struct timing_stats *tim, char *str, int maxlen);
  * with locking by yourself.
  */
 struct banning {
-	unsigned long long ban_last_hit;
+	long long ban_last_hit;
 	// statistical
 	int ban_renew_count;
 	int ban_count;
 };
 
 extern inline
-bool banning_hit(struct banning *ban, unsigned long long duration)
+bool banning_hit(struct banning *ban, long long duration)
 {
-	unsigned long long now = cpu_clock(raw_smp_processor_id());
+	long long now = cpu_clock(raw_smp_processor_id());
 	bool hit = ban->ban_last_hit >= now;
-	unsigned long long new_hit = now + duration;
+	long long new_hit = now + duration;
 	ban->ban_renew_count++;
 	if (!ban->ban_last_hit || ban->ban_last_hit < new_hit) {
 		ban->ban_last_hit = new_hit;
@@ -115,7 +115,7 @@ bool banning_hit(struct banning *ban, unsigned long long duration)
 extern inline
 bool banning_is_hit(struct banning *ban)
 {
-	unsigned long long now = cpu_clock(raw_smp_processor_id());
+	long long now = cpu_clock(raw_smp_processor_id());
 	return (ban->ban_last_hit && ban->ban_last_hit >= now);
 }
 
@@ -125,19 +125,19 @@ bool banning_is_hit(struct banning *ban)
 struct threshold {
 	struct banning *thr_ban;
 	// tunables
-	unsigned int  thr_limit;   // in us
-	unsigned int  thr_factor;  // in %
-	unsigned int  thr_plus;    // in us
+	int  thr_limit;   // in us
+	int  thr_factor;  // in %
+	int  thr_plus;    // in us
 	// statistical
 	int thr_triggered;
 	int thr_true_hit;
 };
 
 extern inline
-void threshold_check(struct threshold *thr, unsigned long long latency)
+void threshold_check(struct threshold *thr, long long latency)
 {
 	if (thr->thr_limit &&
-	    latency > (unsigned long long)thr->thr_limit * 1000) {
+	    latency > (long long)thr->thr_limit * 1000) {
 		thr->thr_triggered++;
 		if (!banning_hit(thr->thr_ban, latency * thr->thr_factor / 100 + thr->thr_plus * 1000))
 			thr->thr_true_hit++;
