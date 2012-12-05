@@ -159,18 +159,18 @@ EXPORT_SYMBOL_GPL(mars_max_loadavg);
 
 #define LIMITER_ENTRIES(VAR, PREFIX, SUFFIX)				\
 	INT_ENTRY(PREFIX "_limit_" SUFFIX, (VAR)->lim_max_rate, 0600),	\
-	INT_ENTRY(PREFIX "_rate_"  SUFFIX, (VAR)->lim_rate,     0600)	\
+	INT_ENTRY(PREFIX "_rate_"  SUFFIX, (VAR)->lim_rate,     0400)	\
 
 #define THRESHOLD_ENTRIES(VAR, PREFIX)					\
 	INT_ENTRY(PREFIX "_threshold_us",   (VAR)->thr_limit,    0600),	\
 	INT_ENTRY(PREFIX "_factor_percent", (VAR)->thr_factor,   0600),	\
 	INT_ENTRY(PREFIX "_plus_us",        (VAR)->thr_plus,     0600),	\
-	INT_ENTRY(PREFIX "_triggered",      (VAR)->thr_triggered, 0600), \
-	INT_ENTRY(PREFIX "_true_hit",       (VAR)->thr_true_hit, 0600)	\
+	INT_ENTRY(PREFIX "_triggered",      (VAR)->thr_triggered,0400), \
+	INT_ENTRY(PREFIX "_true_hit",       (VAR)->thr_true_hit, 0400)	\
 
 static
 ctl_table tuning_table[] = {
-	LIMITER_ENTRIES(&client_limiter,           "network_traffic", "kb"),
+	LIMITER_ENTRIES(&client_limiter,           "traffic",         "kb"),
 	LIMITER_ENTRIES(&server_limiter,           "server_io",       "kb"),
 	LIMITER_ENTRIES(&global_writeback.limiter, "writeback",       "kb"),
 	INT_ENTRY("writeback_until_percent", global_writeback.until_percent, 0600),
@@ -201,11 +201,11 @@ ctl_table mars_table[] = {
 	INT_ENTRY("syslog_min_class",     brick_say_syslog_min,   0600),
 	INT_ENTRY("syslog_max_class",     brick_say_syslog_max,   0600),
 	INT_ENTRY("delay_say_on_overflow",delay_say_on_overflow,  0600),
-	INT_ENTRY("percent_mem_limit_kb", mars_mem_percent,       0600),
+	INT_ENTRY("mem_limit_percent",    mars_mem_percent,       0600),
 	INT_ENTRY("logger_mem_used_kb",   trans_logger_mem_usage, 0400),
-	INT_ENTRY("raw_mem_used_kb",      brick_global_block_used,0400),
-	INT_ENTRY("io_flying",            mars_global_io_flying,  0400),
-	INT_ENTRY("statusfiles_rollover", rollover_time,          0600),
+	INT_ENTRY("mem_used_raw_kb",      brick_global_block_used,0400),
+	INT_ENTRY("io_flying_count",      mars_global_io_flying,  0400),
+	INT_ENTRY("statusfiles_rollover_sec", rollover_time,      0600),
 	INT_ENTRY("logrot_auto_gb",       global_logrot_auto,     0600),
 	INT_ENTRY("logdel_auto_gb",       global_logdel_auto,     0600),
 	INT_ENTRY("free_space_mb",        global_free_space,      0600),
