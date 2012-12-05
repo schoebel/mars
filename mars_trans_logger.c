@@ -599,9 +599,18 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 	struct trans_logger_brick *brick = output->brick;
 	struct mref_object *mref = mref_a->object;
 	void *data;
-
 #ifdef KEEP_UNIQUE
 	struct trans_logger_mref_aspect *mshadow_a;
+#endif
+
+#ifdef CONFIG_MARS_DEBUG
+	if (unlikely(mref->ref_len <= 0)) {
+		MARS_ERR("oops, ref_len = %d\n", mref->ref_len);
+		return -EINVAL;
+	}
+#endif
+
+#ifdef KEEP_UNIQUE
 	mshadow_a = hash_find(brick, mref->ref_pos, &mref->ref_len);
 	if (mshadow_a) {
 		return _make_sshadow(output, mref_a, mshadow_a);
@@ -610,7 +619,10 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 
 #ifdef DELAY_CALLERS
 	// delay in case of too many master shadows / memory shortage
-	wait_event_interruptible_timeout(brick->caller_event, !brick->delay_callers, HZ / 2);
+	wait_event_interruptible_timeout(brick->caller_event,
+					 !brick->delay_callers &&
+					 (brick_global_memlimit < 1024 || atomic64_read(&global_mshadow_used) / 1024 < brick_global_memlimit),
+					 HZ / 2);
 #endif
 
 	// create a new master shadow
@@ -632,13 +644,6 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 	mref_a->my_brick = brick;
 	mref->ref_flags = 0;
 	mref_a->shadow_ref = mref_a; // cyclic self-reference => indicates master shadow
-
-#if 1
-	if (unlikely(mref->ref_len <= 0)) {
-		MARS_ERR("oops, len = %d\n", mref->ref_len);
-		return -EINVAL;
-	}
-#endif
 
 	atomic_inc(&mref->ref_count); // must be paired with __trans_logger_ref_put()
 	atomic_inc(&brick->inner_balance_count);
@@ -2113,8 +2118,9 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 			brick->delay_callers = true;
 			atomic_inc(&brick->total_delay_count);
 		}
-	} else {
+	} else if (brick->delay_callers) {
 		brick->delay_callers = false;
+		wake_up_interruptible(&brick->caller_event);
 	}
 
 	// obey the basic rules...
