@@ -1380,6 +1380,11 @@ int _update_replaylink(struct mars_global *global, const char *parent_path, cons
 		goto out;
 	}
 
+#ifdef CONFIG_MARS_DEBUG
+	if (unlikely(start_pos > end_pos)) {
+		MARS_ERR("old='%s' new='%s' start_pos = %lld end_pos = %lld\n", old, new, start_pos, end_pos);
+	}
+#endif
 	/* Check whether something really has changed (avoid
 	 * useless/disturbing timestamp updates)
 	 */
