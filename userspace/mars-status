@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 # (c) 2012 Joerg Mann / 1&1 Internet AG
 #
-# $Id: 68e1b49d98800e0343dac1d6512db8bebd6a7581 $
+# $Id: db6ba25ebdda4979edefc2cc1db65b566fe344c1 $
 # last update at now ...
 
 # TODO:
@@ -10,10 +10,17 @@
 # check monitoring -> redesign statuscodes
 
 # 20121201 - redesign debug-files and -messages
+<<<<<<< HEAD
 # 20121204 - add display todo counter
 # 20121205 - add/update system entrys
 # 20121206 - upgrade LogDelay/LogSpeed
 # 20121210 - optimize same code
+=======
+# 20120204 - add display todo counter
+# 20120205 - add/update system entrys
+
+
+>>>>>>> 20ce3e7... 20121201 - redesign debug-files and -messages
 
 
 ###
@@ -27,8 +34,13 @@ use POSIX qw(strftime);
 use File::Basename;
 
 ### defaults
+<<<<<<< HEAD
 my $version        = "0.070-20";
 my $alife_timeout  = "30";	# sec
+=======
+my $version        = "0.070-12";
+my $alife_timeout  = "99";	# sec
+>>>>>>> 20ce3e7... 20121201 - redesign debug-files and -messages
 my $is_tty 	   = 0;
 my $mars_dir       = '/mars';
 my $himself        = `uname -n` or die "cannot determine my network node name\n";
@@ -43,7 +55,7 @@ chomp $himself;
 ### ARGV
 # Optionen in Hash-Ref parsen
 my $params = {};
-GetOptions( $params, 'help', 'h', 'version', 'v', 'monitor', 'role', 'cstate', 'dstate', 'resource=s', 'system', 'interval=i', 'history', 'debug' );
+GetOptions( $params, 'help', 'h', 'version', 'v', 'monitor', 'role', 'cstate', 'dstate', 'resource=s', 'system', 'interval=i', 'history', 'debug=s' );
 
 ### small help
 sub display_help {
@@ -52,7 +64,11 @@ sub display_help {
     print "Usage: mars-status [--help]\n";
     print "Usage: mars-status [--version]\n";
     print "Usage: mars-status (without specification of parameters, an abstract of all the informations spent)\n";
+<<<<<<< HEAD
     print "Usage: mars-status [--resource <RESNAME>] [--interval <seconds>] | [--history] | [--debug ] | [--system]\n";
+=======
+    print "Usage: mars-status [--resource <RESNAME>] [--interval <seconds>] | [[--history] | [--debug <level>] | [--system]]\n";
+>>>>>>> 20ce3e7... 20121201 - redesign debug-files and -messages
     print "Usage: mars-status [--resource <RESNAME>] --monitor \n";
     print "Usage: mars-status --resource <RESNAME> [--role | --cstate | --dstate]\n";
     print "       --resource : limits the display to the specified resource\n";
@@ -61,7 +77,11 @@ sub display_help {
     print "       --system   : display mars-system informations\n";
     print "       --monitor  : indicator to use for monitoring on all state (by local node only !)\n";
     print "       --role|--cstate|--dstate single state on lokal node\n";
+<<<<<<< HEAD
     print "       --debug    : additional display debug messages\n";
+=======
+    print "       --debug    : additional display debug messages by level (level: debug,info,warn,error,fatal,total)\n";
+>>>>>>> 20ce3e7... 20121201 - redesign debug-files and -messages
     print "\nAdvanced information are also available here: http://http://wiki.intranet.1and1.com/bin/view/PO/woauchimmer\n";
     exit;
 }
@@ -581,12 +601,17 @@ sub check_ressource {
 
         ### check resources debug
         if ($params->{'debug'}) {
+<<<<<<< HEAD
             print_screen "   -> $res-Debug:\n", 'red'; 
             my $debug_res;
             ### TODO: small hack, read 3 files ...
             $debug_res = check_debugfile("$res", "2.warn");  print_screen "$debug_res" if ( $debug_res );
             $debug_res = check_debugfile("$res", "3.error"); print_screen "$debug_res" if ( $debug_res );
             $debug_res = check_debugfile("$res", "4.fatal"); print_screen "$debug_res" if ( $debug_res );
+=======
+            my $debug_res = check_debugfile("$res", $params->{'debug'});
+            print_screen "   -> Debug:\n", 'red'; print_screen "$debug_res" if ( $debug_res );
+>>>>>>> 20ce3e7... 20121201 - redesign debug-files and -messages
         }
 
     } # end foreach
@@ -739,7 +764,10 @@ sub check_disk_is_full {
 #########################################################################################
 ### check debug-files
 sub check_debugfile {
+<<<<<<< HEAD
     ### TODO: Fix Level
+=======
+>>>>>>> 20ce3e7... 20121201 - redesign debug-files and -messages
     ### 0.debug,1.info,2.warn,3.error,4.fatal,5.total
     my $debug_dir   = shift;
     my $debug_level = shift;
@@ -823,12 +851,20 @@ sub check_jammed {
 #########################################################################################
 ### limit's auslesen ...
 sub check_limit {
+<<<<<<< HEAD
     my $LimitText    = shift; 		# sol-text
     my $LimitSolVar  = shift; 		# sol-filename
     my $LimitSolEin  = shift; 		# sol-einheit
     my $LimitIstVar  = shift; 		# ist-filename
     my $LimitIstEin  = shift; 		# ist-einheit
     ### for better ...    
+=======
+    my $LimitText    = shift; # sol-text
+    my $LimitSolVar  = shift; # sol-filename
+    my $LimitSolEin  = shift; # sol-einheit
+    my $LimitIstVar  = shift;  # ist-filename
+    my $LimitIstEin  = shift;  # ist-einheit
+>>>>>>> 20ce3e7... 20121201 - redesign debug-files and -messages
     $LimitSolVar = "" if (!$LimitSolVar); 
     $LimitIstVar = "" if (!$LimitIstVar); 
     $LimitSolEin = "" if (!$LimitSolEin);
@@ -857,7 +893,11 @@ sub check_limit {
     ### presently results
     print_screen "-> $LimitText: ", 'bold';    
     if ( ($LimitSolVar) && !($LimitIstVar) ) {
+<<<<<<< HEAD
         ### only sol & lamport_clock
+=======
+        # only sol & lamport_clock
+>>>>>>> 20ce3e7... 20121201 - redesign debug-files and -messages
         if ( $LimitSolVar eq "lamport_clock" ) {
             my $C_Time = $mars_limit_sol;
             $C_Time    =~ s/CURRENT_TIME=//;
@@ -866,7 +906,11 @@ sub check_limit {
             $L_Time    =~ s/.*lamport_now=//; 
             $mars_limit_sol = sprintf("%.2f", $C_Time - $L_Time);
             print_screen "$mars_limit_sol $LimitSolEin\n";
+<<<<<<< HEAD
         ### only sol
+=======
+        # only sol
+>>>>>>> 20ce3e7... 20121201 - redesign debug-files and -messages
         } elsif ( $mars_limit_sol < 1 ) {
             print_screen "is now unsed\n";
         } else {
@@ -874,7 +918,11 @@ sub check_limit {
             print_screen "$mars_limit_sol $LimitSolEin\n", 'red';
         }
     } elsif ( !($LimitSolVar) && ($LimitIstVar) ) {
+<<<<<<< HEAD
         ### only ist
+=======
+        # only ist
+>>>>>>> 20ce3e7... 20121201 - redesign debug-files and -messages
         if ( $mars_limit_ist < 1 ) {
             print_screen "is actualy null\n";
         } else {
@@ -882,10 +930,17 @@ sub check_limit {
             print_screen "$mars_limit_ist $LimitIstEin\n", 'red';
         }
     } elsif ( ($LimitSolVar) && ($LimitIstVar) && ($mars_limit_sol < 1) ) {    
+<<<<<<< HEAD
         ### sol & ist = 0
         print_screen "is actualy unused\n";
     } else {
         ### sol & ist / rest ...
+=======
+        # sol & ist = 0
+        print_screen "is actualy unused\n";
+    } else {
+        # sol & ist
+>>>>>>> 20ce3e7... 20121201 - redesign debug-files and -messages
         print_screen "is set to ";
         print_screen "$mars_limit_sol $LimitSolEin", 'red';
         print_screen ", actualy used ";
@@ -911,7 +966,10 @@ while(1) {
     print $clearscreen;
 ### check !
 #    print "\nNOTE !!!\n********\nThe author does not guarantee this development-test-alpha-pre-beta-version, it is untested and certainly not fully functional. Use at your own risk ;)\n\n";
+<<<<<<< HEAD
 
+=======
+>>>>>>> 20ce3e7... 20121201 - redesign debug-files and -messages
 
     ##########################################################################
     ### check and set monitor
@@ -920,7 +978,11 @@ while(1) {
     if ( $params->{'monitor'} || $params->{'cstate'} || $params->{'dstate'} || $params->{'role'} ) {
         $params->{'system'} = 1;
         $params->{'history'} = 1;
+<<<<<<< HEAD
         ### TODO: check!
+=======
+### check!
+>>>>>>> 20ce3e7... 20121201 - redesign debug-files and -messages
         $params->{'debug'} = 0;
         $params->{'monitor'} = 1;
     }
@@ -937,25 +999,52 @@ while(1) {
     ##########################################################################
     ### check system limits
     if ( $params->{'system'} ) {
+<<<<<<< HEAD
         ### text / sol-file / sol-einheit / ist-file / ist-einheit
+=======
+        # check system limits
+        # text / sol-file / sol-einheit / ist-file / ist-einheit
+>>>>>>> 20ce3e7... 20121201 - redesign debug-files and -messages
         my $mars_disk_space = `df '$mars_dir' | grep '$mars_dir'| awk '{print \$2}'`;
         $mars_disk_space = sprintf("%01.2f", $mars_disk_space / 1024);
 
         check_limit "AVG-Limit",		"loadavg_limit",		"loadavg";
         check_limit "Memory-Limit",		"mem_limit_percent", 		"%",		"mem_used_raw_kb", 		"kb";        
         check_limit "Network-IO-Timeout",	"network_io_timeout",		"sec";
+<<<<<<< HEAD
         check_limit "Traffic Limit", 		"tuning/traffic_limit_kb", 	"kb/s", 	"tuning/traffic_rate_kb", 	"kb/s";
         check_limit "Server-IO Limit", 		"tuning/server_io_limit_kb", 	"kb/s", 	"tuning/server_io_rate_kb", 	"kb/s";
         check_limit "Delay say Overflow",	"",				"",		"delay_say_on_overflow",	"(on/off)";
         check_limit "Statusfile Rollover",	"",				"",		"statusfiles_rollover_sec",	"sec";
         check_limit "Flying IO Count",		"",				"",		"io_flying_count";
+=======
+
+        check_limit "Traffic Limit", 		"tuning/traffic_limit_kb", 	"kb/s", 	"tuning/traffic_rate_kb", 	"kb/s";
+        check_limit "Server-IO Limit", 		"tuning/server_io_limit_kb", 	"kb/s", 	"tuning/server_io_rate_kb", 	"kb/s";
+
+        check_limit "Delay say Overflow",	"",				"",		"delay_say_on_overflow",	"(on/off)";
+        check_limit "Statusfile Rollover",	"",				"",		"statusfiles_rollover_sec",	"sec";
+        check_limit "Flying IO Count",		"",				"",		"io_flying_count";
+
+>>>>>>> 20ce3e7... 20121201 - redesign debug-files and -messages
         check_limit "LoggerMemory",		"",				"",		"logger_mem_used_kb",		"kb";
         check_limit "FreeSpaceLimit on /mars",	"free_space_mb",		"mb", 		"", 				"$mars_disk_space";
         check_limit "FreeSpaceLimit LogDelete",	"logdel_auto_gb",		"gb";
         check_limit "FreeSpaceLimit LogRotate",	"logrot_auto_gb",		"gb";
+<<<<<<< HEAD
         check_limit "LamportClockDifferenz",	"lamport_clock",		"sec";
      
         ### check system params
+=======
+
+        check_limit "LamportClockDifferenz",	"lamport_clock",		"sec";
+        # /proc/sys/mars/syslog*
+        # /proc/sys/mars/tuning/aio*
+        # /proc/sys/mars/tuning/bio*
+        # /proc/sys/mars/tuning/wirteback*
+     
+        # check system params
+>>>>>>> 20ce3e7... 20121201 - redesign debug-files and -messages
         check_jammed;
         check_disk_is_full;
     }
@@ -966,6 +1055,7 @@ while(1) {
     check_ressource;
 	
 	
+<<<<<<< HEAD
     ##########################################################################
      ### check global debug
         if ($params->{'debug'}) {
@@ -976,6 +1066,13 @@ while(1) {
             $debug_res = check_debugfile("", "4.fatal"); print_screen "$debug_res" if ( $debug_res );
         }
 
+=======
+     ### check global debug
+        if ($params->{'debug'}) {
+            my $debug_res = check_debugfile("", $params->{'debug'});
+            print_screen "-> Main-Debug:\n", 'red'; print_screen "$debug_res" if ( $debug_res );
+        }
+>>>>>>> 20ce3e7... 20121201 - redesign debug-files and -messages
 
     ##########################################################################
     ### end, exit for monitor
