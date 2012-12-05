@@ -1,15 +1,20 @@
 #!/usr/bin/perl -w
 # (c) 2012 Joerg Mann / 1&1 Internet AG
 #
-# $Id: 3eb9888419079c49d2a5ac752eb49954a185e26e $
+# $Id: 38d2a6826ed99f22cf5ca709ae31e925c8dde7d3 $
 # last update at now ...
 
 # TODO:
 # check todo-global delete-logfiles
-# check nachtaegliches join (log-v-4 ...)
-# check resize
-# check delay
+# check nachtaegliches join (log-v-4 ...), resize, delay, statusvalues
 # check monitoring -> redesign statuscodes
+
+# 20121201 - redesign debug-files and -messages
+# 20120204 - add display todo counter
+# 20120205 - add/update system entrys
+
+
+
 
 ###
 use warnings;
@@ -22,7 +27,7 @@ use POSIX qw(strftime);
 use File::Basename;
 
 ### defaults
-my $version        = "0.069";
+my $version        = "0.070-12";
 my $alife_timeout  = "99";	# sec
 my $is_tty 	   = 0;
 my $mars_dir       = '/mars';
@@ -38,7 +43,7 @@ chomp $himself;
 ### ARGV
 # Optionen in Hash-Ref parsen
 my $params = {};
-GetOptions( $params, 'help', 'h', 'version', 'v', 'monitor', 'role', 'cstate', 'dstate', 'resource=s', 'system', 'interval=i', 'history', 'debug' );
+GetOptions( $params, 'help', 'h', 'version', 'v', 'monitor', 'role', 'cstate', 'dstate', 'resource=s', 'system', 'interval=i', 'history', 'debug=s' );
 
 ### small help
 sub display_help {
@@ -47,7 +52,7 @@ sub display_help {
     print "Usage: mars-status [--help]\n";
     print "Usage: mars-status [--version]\n";
     print "Usage: mars-status (without specification of parameters, an abstract of all the informations spent)\n";
-    print "Usage: mars-status [--resource <RESNAME>] [--interval <seconds>] [[--history] [--debug] [--system]]\n";
+    print "Usage: mars-status [--resource <RESNAME>] [--interval <seconds>] | [[--history] | [--debug <level>] | [--system]]\n";
     print "Usage: mars-status [--resource <RESNAME>] --monitor \n";
     print "Usage: mars-status --resource <RESNAME> [--role | --cstate | --dstate]\n";
     print "       --resource : limits the display to the specified resource\n";
@@ -56,7 +61,7 @@ sub display_help {
     print "       --system   : display mars-system informations\n";
     print "       --monitor  : indicator to use for monitoring on all state\n";
     print "       --role|--cstate|--dstate single state on lokal node\n";
-    print "       --debug    : additional display error messages and warnings to internal\n";
+    print "       --debug    : additional display debug messages by level (level: debug,info,warn,error,fatal,total)\n";
     print "\nAdvanced information are also available here: http://http://wiki.intranet.1and1.com/bin/view/PO/woauchimmer\n";
     exit;
 }
@@ -384,6 +389,18 @@ sub display_partner {
         monitoring '', "replaying";
     }
 
+   ### replay - hints
+   if ($PLogFile[2] != 0) {
+       print_screen "\t\t---> HINT: Replay-Todo is actualy $PLogFile[2], ", 'blue';
+       if ( $PLogFile[2] < 0 ) {
+           print_screen "replaying backwards ??? Check this !!!\n", 'red';
+       } elsif ( $PLogFile[2] > 0 ) {
+           print_screen "mars it's working ...\n";
+       } else {
+           print_screen "replaying working unknown ... Check this !!!\n", 'red';
+       }
+    }
+
 
     ### actual
     my $ActStatus  = check_link "$mars_dir/$PRes/actual-$PName/is-primary";
@@ -536,6 +553,12 @@ sub check_ressource {
         }
 
 
+        ### check resources debug
+        if ($params->{'debug'}) {
+            my $debug_res = check_debugfile("$res", $params->{'debug'});
+            print_screen "   -> Debug:\n", 'red'; print_screen "$debug_res" if ( $debug_res );
+        }
+
     } # end foreach
 
 }
@@ -685,42 +708,27 @@ sub check_disk_is_full {
 }
 
 #########################################################################################
-### check /proc/sys/mars/warnings
-sub check_mars_warn {
-    if ( open  (MARS_WARN, "< /mars/2.warn.status") ) {
-        my $mars_warn = "";
-        while ( <MARS_WARN> ) {
+### check debug-files
+sub check_debugfile {
+    ### 0.debug,1.info,2.warn,3.error,4.fatal,5.total
+    my $debug_dir   = shift;
+    my $debug_level = shift;
+    my $debug_file  = "$mars_dir/$debug_dir/$debug_level.status";
+    if ( open  (MARS_DEBUG, "< $debug_file") ) {
+        my $mars_debug = "";
+        while ( <MARS_DEBUG> ) {
             if ( m/^(\d+\.\d+)/ ) {
                 s/^(\d+\.\d+)/strftime("%a %b %e %H:%M:%S %Y:", localtime($1))/e;
             } else {
                 $_ = localtime(0) . ': ' . $_;
             }
-            s/MARS_WARN\s+//;
-            $mars_warn = "$mars_warn\t$_";
+            s/MARS_DEBUG\s+//;
+            $mars_debug = "$mars_debug\t$_";
         }
-        close MARS_WARN;
-        if ( $mars_warn ne "" ) { print_screen "-> MARS WARNINGS:\n", 'red'; print_screen "$mars_warn" }
+        close MARS_DEBUG;
+        return "$mars_debug"  if ( $mars_debug ne "");
     } 
 }       
-
-#########################################################################################
-### check /proc/sys/mars/errors
-sub check_mars_error {
-    if ( open (MARS_ERROR, "< /mars/3.error.status") ) {
-        my $mars_error = "";
-        while ( <MARS_ERROR> ) {
-            if ( m/^(\d+\.\d+)/ ) {
-                s/^(\d+\.\d+)/strftime("%a %b %e %H:%M:%S %Y:", localtime($1))/e;
-            } else {
-                $_ = localtime(0) . ': ' . $_;
-            }
-            s/MARS_ERROR\s+//;
-            $mars_error = "$mars_error\t$_";
-        }
-        close MARS_ERROR;
-        if ( $mars_error ne "" ) { print_screen "-> MARS ERRORS:\n", 'red'; print_screen "$mars_error" }
-    }
-}
 
 #########################################################################################
 ### info version
@@ -785,55 +793,74 @@ sub check_jammed {
 #########################################################################################
 ### limit's auslesen ...
 sub check_limit {
+    my $LimitText    = shift; # sol-text
+    my $LimitSolVar  = shift; # sol-filename
+    my $LimitSolEin  = shift; # sol-einheit
+    my $LimitIstVar  = shift;  # ist-filename
+    my $LimitIstEin  = shift;  # ist-einheit
+    $LimitSolVar = "" if (!$LimitSolVar); 
+    $LimitIstVar = "" if (!$LimitIstVar); 
+    $LimitSolEin = "" if (!$LimitSolEin);
+    $LimitIstEin = "" if (!$LimitIstEin);
+
     ### soll
-    my $LimitSollVar = shift;
-    my $LimitSollTxt = shift;
-    my $LimitSollEin = shift;
-    my $mars_limit_soll;
-    if ( open (MARS_LIMIT, "< /proc/sys/mars/$LimitSollVar") ) {
+    my $mars_limit_sol;
+    if ( open (MARS_LIMIT, "< /proc/sys/mars/$LimitSolVar") ) {
         while (<MARS_LIMIT>) {
-            $mars_limit_soll = $_;
-            $mars_limit_soll =~ s/[\n\t]//g;
+            $mars_limit_sol .= $_;
+            $mars_limit_sol =~ s/[\n\t]//g;
         }
         close MARS_LIMIT;
     }
 
     ### ist
-    my $LimitIstVar = shift;
-    my $LimitIstEin = shift;
-    my $mars_limit_ist = 0;
-    if ( $LimitIstVar ) {
-        if ( $LimitIstVar eq "unset" ) {
-            $mars_limit_ist = $LimitIstEin;
-            $LimitIstEin = "mb";
-        } else {
-            if ( open (MARS_LIMIT, "< /proc/sys/mars/$LimitIstVar") ) {
-                while (<MARS_LIMIT>) {
-                    $mars_limit_ist = $_;
-                    $mars_limit_ist =~ s/[\n\t]//g;
-                    }
-                close MARS_LIMIT;
-            }
+    my $mars_limit_ist;
+    if ( open (MARS_LIMIT, "< /proc/sys/mars/$LimitIstVar") ) {
+        while (<MARS_LIMIT>) {
+            $mars_limit_ist .= $_;
+            $mars_limit_ist =~ s/[\n\t]//g;
         }
-
-    }
+        close MARS_LIMIT;
+     }
     
     ### presently results
-    print_screen "-> $LimitSollTxt: ", 'bold';    
-    ### unset
-    if (( !$mars_limit_soll ) || ( $mars_limit_soll < "1" )) {
-        if ( ( $LimitIstEin ) && (( $mars_limit_ist ) || ( ! $mars_limit_ist eq 0 ))) {
-            print_screen "is unset, used full speed, current $mars_limit_ist $LimitIstEin\n", '';
+    print_screen "-> $LimitText: ", 'bold';    
+    if ( ($LimitSolVar) && !($LimitIstVar) ) {
+        # only sol & lamport_clock
+        if ( $LimitSolVar eq "lamport_clock" ) {
+            my $C_Time = $mars_limit_sol;
+            $C_Time    =~ s/CURRENT_TIME=//;
+            $C_Time    =~ s/lamport_now=.*//;
+            my $L_Time = $mars_limit_sol;        
+            $L_Time    =~ s/.*lamport_now=//; 
+            $mars_limit_sol = sprintf("%.2f", $C_Time - $L_Time);
+            print_screen "$mars_limit_sol $LimitSolEin\n";
+        # only sol
+        } elsif ( $mars_limit_sol < 1 ) {
+            print_screen "is now unsed\n";
         } else {
-            print_screen "is unset, used full speed\n", '';
+            print_screen "is set to ";
+            print_screen "$mars_limit_sol $LimitSolEin\n", 'red';
         }
-    } else { 
-        if ( ( $LimitIstEin ) && (( $mars_limit_ist ) || ( ! $mars_limit_ist eq 0 ))) {
-            print_screen "is set to $mars_limit_soll $LimitSollEin, current $mars_limit_ist $LimitIstEin\n", 'red';
+    } elsif ( !($LimitSolVar) && ($LimitIstVar) ) {
+        # only ist
+        if ( $mars_limit_ist < 1 ) {
+            print_screen "is actualy null\n";
         } else {
-            print_screen "is set to $mars_limit_soll $LimitSollEin\n", 'red';
+            print_screen "is actualy ";
+            print_screen "$mars_limit_ist $LimitIstEin\n", 'red';
         }
+    } elsif ( ($LimitSolVar) && ($LimitIstVar) && ($mars_limit_sol < 1) ) {    
+        # sol & ist = 0
+        print_screen "is actualy unused\n";
+    } else {
+        # sol & ist
+        print_screen "is set to ";
+        print_screen "$mars_limit_sol $LimitSolEin", 'red';
+        print_screen ", actualy used ";
+        print_screen "$mars_limit_ist $LimitIstEin\n", 'red';
     }
+        
 }
 
 #########################################################################################
@@ -851,12 +878,14 @@ while(1) {
     ### main run
 
     print $clearscreen;
-    print "\nNOTE !!!\n********\nThe author does not guarantee this development-test-alpha-pre-beta-version, it is untested and certainly not fully functional. Use at your own risk ;)\n\n";
+### check !
+#    print "\nNOTE !!!\n********\nThe author does not guarantee this development-test-alpha-pre-beta-version, it is untested and certainly not fully functional. Use at your own risk ;)\n\n";
 
     ### check and set monitoring default's
     if ( $params->{'monitor'} || $params->{'cstate'} || $params->{'dstate'} || $params->{'role'} ) {
         $params->{'system'} = 1;
         $params->{'history'} = 1;
+### check!
         $params->{'debug'} = 0;
         $params->{'monitor'} = 1;
     }
@@ -871,17 +900,32 @@ while(1) {
 
     if ( $params->{'system'} ) {
         # check system limits
-        check_limit "loadavg_limit", "AVG-Limit", "";
-
-        check_limit "network_traffic_limit_kb", "Network-Traffic-Limit", "kb/s", "network_traffic_rate_kb", "kb/s";
-        check_limit "percent_mem_limit_kb", "Memory-Limit", "%", "mem_used_kb", "kb" ;
-        check_limit "server_io_limit_mb", "Server-IO-Limit", "mb/s", "server_io_rate_mb", "mb/s"; 
+        # text / sol-file / sol-einheit / ist-file / ist-einheit
         my $mars_disk_space = `df '$mars_dir' | grep '$mars_dir'| awk '{print \$2}'`;
         $mars_disk_space = sprintf("%01.2f", $mars_disk_space / 1024);
-        check_limit "free_space_mb", "Free-Space-Limit on /mars", "mb", "unset", "$mars_disk_space";
-        check_limit "logdel_auto_gb", "Free-Space-Limit for Auto-Log-Delete", 'gb';
-        check_limit "logrot_auto_gb", "Free-Space-Limit for Auto-Log-Rotate", 'gb';
 
+        check_limit "AVG-Limit",		"loadavg_limit",		"loadavg";
+        check_limit "Memory-Limit",		"mem_limit_percent", 		"%",		"mem_used_raw_kb", 		"kb";        
+        check_limit "Network-IO-Timeout",	"network_io_timeout",		"sec";
+
+        check_limit "Traffic Limit", 		"tuning/traffic_limit_kb", 	"kb/s", 	"tuning/traffic_rate_kb", 	"kb/s";
+        check_limit "Server-IO Limit", 		"tuning/server_io_limit_kb", 	"kb/s", 	"tuning/server_io_rate_kb", 	"kb/s";
+
+        check_limit "Delay say Overflow",	"",				"",		"delay_say_on_overflow",	"(on/off)";
+        check_limit "Statusfile Rollover",	"",				"",		"statusfiles_rollover_sec",	"sec";
+        check_limit "Flying IO Count",		"",				"",		"io_flying_count";
+
+        check_limit "LoggerMemory",		"",				"",		"logger_mem_used_kb",		"kb";
+        check_limit "FreeSpaceLimit on /mars",	"free_space_mb",		"mb", 		"", 				"$mars_disk_space";
+        check_limit "FreeSpaceLimit LogDelete",	"logdel_auto_gb",		"gb";
+        check_limit "FreeSpaceLimit LogRotate",	"logrot_auto_gb",		"gb";
+
+        check_limit "LamportClockDifferenz",	"lamport_clock",		"sec";
+        # /proc/sys/mars/syslog*
+        # /proc/sys/mars/tuning/aio*
+        # /proc/sys/mars/tuning/bio*
+        # /proc/sys/mars/tuning/wirteback*
+     
         # check system params
         check_jammed;
         check_disk_is_full;
@@ -892,12 +936,11 @@ while(1) {
     check_ressource;
 	
 	
-    ### debug output
-    if ( $params->{'debug'} ){ 
-        check_mars_warn;
-        check_mars_error;
-    }
-
+     ### check global debug
+        if ($params->{'debug'}) {
+            my $debug_res = check_debugfile("", $params->{'debug'});
+            print_screen "-> Main-Debug:\n", 'red'; print_screen "$debug_res" if ( $debug_res );
+        }
 
     ### end, exit for monitor
     if ( $params->{'monitor'} ) {
