@@ -8,7 +8,7 @@
 int mars_limit(struct mars_limiter *lim, int amount)
 {
 	int delay = 0;
-	unsigned long long now;
+	long long now;
 
 	now = cpu_clock(raw_smp_processor_id());
 
@@ -23,7 +23,8 @@ int mars_limit(struct mars_limiter *lim, int amount)
 			/* Races are possible, but taken into account.
 			 * There is no real harm from rarely lost updates.
 			 */
-			lim->lim_accu += amount;
+			if (likely(amount >= 0))
+				lim->lim_accu += amount;
 			
 			rate = (long long)lim->lim_accu * LIMITER_TIME_RESOLUTION / elapsed;
 			lim->lim_rate = rate;
@@ -44,6 +45,8 @@ int mars_limit(struct mars_limiter *lim, int amount)
 				}
 			}
 		} else {
+			if (unlikely(amount < 0))
+				amount = 0;
 			lim->lim_accu = amount;
 			lim->lim_stamp = now;
 			lim->lim_rate = 0;
