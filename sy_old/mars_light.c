@@ -2036,6 +2036,8 @@ int _check_logging_status(struct mars_rotate *rot, long long *oldpos_start, long
 			*oldpos_start = 0;
 	}
 
+	*newpos = rot->aio_info.current_size;
+
 	if (unlikely(rot->aio_info.current_size < *oldpos_start)) {
 		MARS_ERR("oops, bad replay position attempted at logfile '%s' (file length %lld should never be smaller than requested position %lld, is your filesystem corrupted?) => please repair this by hand\n", rot->aio_dent->d_path, rot->aio_info.current_size, *oldpos_start);
 		status = -EBADF;
@@ -2045,16 +2047,13 @@ int _check_logging_status(struct mars_rotate *rot, long long *oldpos_start, long
 	status = 0;
 	if (rot->aio_info.current_size > *oldpos_start) {
 		MARS_DBG("transaction log replay is necessary on '%s' from %lld to %lld (dirty region ends at %lld)\n", rot->aio_dent->d_path, *oldpos_start, rot->aio_info.current_size, *oldpos_end);
-		*newpos = rot->aio_info.current_size;
 		status = 2;
 	} else if (rot->next_relevant_log) {
 		MARS_DBG("transaction log '%s' is already applied, and the next one is available for switching\n", rot->aio_dent->d_path);
-		*newpos = rot->aio_info.current_size;
 		status = 1;
 	} else if (rot->todo_primary) {
 		if (rot->aio_info.current_size > 0 || strcmp(dent->d_rest, my_id()) != 0) {
 			MARS_DBG("transaction log '%s' is already applied (would be usable for appending at position %lld, but a fresh logfile will be used for safety reasons)\n", rot->aio_dent->d_path, *oldpos_end);
-			*newpos = rot->aio_info.current_size;
 			status = 1;
 		} else {
 			MARS_DBG("empty transaction log '%s' is usable for me as a primary node\n", rot->aio_dent->d_path);
@@ -2103,6 +2102,9 @@ int _make_logging_status(struct mars_rotate *rot)
 	status = _check_logging_status(rot, &start_pos, &dirty_pos, &end_pos);
 	if (status < 0) {
 		goto done;
+	}
+	if (unlikely(start_pos < 0 || dirty_pos < start_pos || end_pos < dirty_pos)) {
+		MARS_ERR("implausible values: start_pos = %lld dirty_pos = %lld end_pos = %lld\n", start_pos, dirty_pos, end_pos);
 	}
 	/* Relevant or not?
 	 */
