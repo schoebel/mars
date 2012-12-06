@@ -2030,6 +2030,10 @@ int _check_logging_status(struct mars_rotate *rot, long long *oldpos_start, long
 	*oldpos_end += *oldpos_start;
 	if (unlikely(*oldpos_end < *oldpos_start)) {
 		MARS_ERR("end_pos %lld < start_pos %lld\n", *oldpos_end, *oldpos_start);
+		// safety: use the smaller value, it does not hurt
+		*oldpos_start = *oldpos_end;
+		if (unlikely(*oldpos_start < 0))
+			*oldpos_start = 0;
 	}
 
 	if (unlikely(rot->aio_info.current_size < *oldpos_start)) {
@@ -2039,7 +2043,7 @@ int _check_logging_status(struct mars_rotate *rot, long long *oldpos_start, long
 	}
 
 	status = 0;
-	if (rot->aio_info.current_size > *oldpos_start || rot->aio_info.current_size < *oldpos_end) {
+	if (rot->aio_info.current_size > *oldpos_start) {
 		MARS_DBG("transaction log replay is necessary on '%s' from %lld to %lld (dirty region ends at %lld)\n", rot->aio_dent->d_path, *oldpos_start, rot->aio_info.current_size, *oldpos_end);
 		*newpos = rot->aio_info.current_size;
 		status = 2;
