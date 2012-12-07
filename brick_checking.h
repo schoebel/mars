@@ -60,6 +60,14 @@ do {									\
 	}								\
 } while (0)
 
+#define CHECK_ASPECT(a_ptr, o_ptr,label)				\
+  do {								        \
+	  if (BRICK_CHECKING && unlikely((a_ptr)->object != o_ptr)) {	\
+		  BRICK_FAT("%d: aspect pointer '" #a_ptr "' (%p) belongs to object %p, not to " #o_ptr " (%p)\n", __LINE__, a_ptr, (a_ptr)->object, o_ptr); \
+		  goto label;						\
+	  }								\
+} while (0)
+
 #define _CHECK(ptr,label)						\
 do {									\
 	if (BRICK_CHECKING && unlikely(!(ptr))) {			\
