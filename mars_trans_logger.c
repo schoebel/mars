@@ -808,6 +808,7 @@ void _trans_logger_ref_put(struct trans_logger_output *output, struct mref_objec
 
 	mref_a = trans_logger_mref_get_aspect(output->brick, mref);
 	CHECK_PTR(mref_a, err);
+	CHECK_ASPECT(mref_a, mref, err);
 
 	__trans_logger_ref_put(output->brick, mref_a);
 	return;
@@ -862,6 +863,7 @@ void trans_logger_ref_io(struct trans_logger_output *output, struct mref_object 
 
 	mref_a = trans_logger_mref_get_aspect(brick, mref);
 	CHECK_PTR(mref_a, err);
+	CHECK_ASPECT(mref_a, mref, err);
 
 	MARS_IO("pos = %lld len = %d\n", mref->ref_pos, mref->ref_len);
 
@@ -1133,6 +1135,7 @@ struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t p
 
 			sub_mref_a = trans_logger_mref_get_aspect(brick, sub_mref);
 			CHECK_PTR(sub_mref_a, err);
+			CHECK_ASPECT(sub_mref_a, sub_mref, err);
 
 			sub_mref_a->my_input = read_input;
 			sub_mref_a->log_input = log_input;
@@ -1206,6 +1209,7 @@ struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t p
 
 		sub_mref_a = trans_logger_mref_get_aspect(brick, sub_mref);
 		CHECK_PTR(sub_mref_a, err);
+		CHECK_ASPECT(sub_mref_a, sub_mref, err);
 
 		sub_mref_a->orig_mref_a = orig_mref_a;
 		sub_mref_a->my_input = write_input;
@@ -2474,6 +2478,7 @@ int apply_data(struct trans_logger_brick *brick, loff_t pos, void *buf, int len)
 		}
 		mref_a = trans_logger_mref_get_aspect(brick, mref);
 		CHECK_PTR(mref_a, done);
+		CHECK_ASPECT(mref_a, mref, done);
 		
 		mref->ref_pos = pos;
 		mref->ref_data = NULL;
