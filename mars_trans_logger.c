@@ -159,8 +159,7 @@ static inline
 void qq_mref_insert(struct logger_queue *q, struct trans_logger_mref_aspect *mref_a)
 {
 	struct mref_object *mref = mref_a->object;
-	CHECK_ATOMIC(&mref->ref_count, 1);
-	atomic_inc(&mref->ref_count); // must be paired with __trans_logger_ref_put()
+	_mref_get(mref); // must be paired with __trans_logger_ref_put()
 	atomic_inc(&q->q_brick->inner_balance_count);
 
 	mars_trace(mref, q->q_insert_info);
@@ -177,7 +176,7 @@ void qq_wb_insert(struct logger_queue *q, struct writeback_info *wb)
 static inline
 void qq_mref_pushback(struct logger_queue *q, struct trans_logger_mref_aspect *mref_a)
 {
-	CHECK_ATOMIC(&mref_a->object->ref_count, 1);
+	_mref_check(mref_a->object);
 
 	mars_trace(mref_a->object, q->q_pushback_info);
 
@@ -200,7 +199,7 @@ struct trans_logger_mref_aspect *qq_mref_fetch(struct logger_queue *q)
 
 	if (test) {
 		mref_a = container_of(test, struct trans_logger_mref_aspect, lh);
-		CHECK_ATOMIC(&mref_a->object->ref_count, 1);
+		_mref_check(mref_a->object);
 		mars_trace(mref_a->object, q->q_fetch_info);
 	}
 	return mref_a;
@@ -266,7 +265,7 @@ struct trans_logger_mref_aspect *_hash_find(struct list_head *start, loff_t pos,
 		}
 		test = test_a->object;
 		
-		CHECK_ATOMIC(&test->ref_count, 1);
+		_mref_check(test);
 
 		// timestamp handling
 		if (elder && timespec_compare(&test_a->stamp, elder) > 0) {
@@ -325,7 +324,7 @@ void hash_insert(struct trans_logger_brick *brick, struct trans_logger_mref_aspe
 
 #if 1
 	CHECK_HEAD_EMPTY(&elem_a->hash_head);
-	CHECK_ATOMIC(&elem_a->object->ref_count, 1);
+	_mref_check(elem_a->object);
 #endif
 
 	// only for statistics:
@@ -379,7 +378,7 @@ void hash_extend(struct trans_logger_brick *brick, loff_t *_pos, int *_len, stru
 			test_a = container_of(tmp, struct trans_logger_mref_aspect, hash_head);
 			test = test_a->object;
 			
-			CHECK_ATOMIC(&test->ref_count, 1);
+			_mref_check(test);
 
 			// timestamp handling
 			if (elder && timespec_compare(&test_a->stamp, elder) > 0) {
@@ -445,7 +444,7 @@ void hash_extend(struct trans_logger_brick *brick, loff_t *_pos, int *_len, stru
 		// collect
 		CHECK_HEAD_EMPTY(&test_a->collect_head);
 		test_a->is_collected = true;
-		CHECK_ATOMIC(&test->ref_count, 1);
+		_mref_check(test);
 		list_add_tail(&test_a->collect_head, collect_list);
 	}
 
@@ -471,7 +470,7 @@ void hash_put_all(struct trans_logger_brick *brick, struct list_head *list)
 		elem_a = container_of(tmp, struct trans_logger_mref_aspect, collect_head);
 		elem = elem_a->object;
 		CHECK_PTR(elem, err);
-		CHECK_ATOMIC(&elem->ref_count, 1);
+		_mref_check(elem);
 
 		hash = hash_fn(elem->ref_pos);
 		if (!start) {
@@ -553,13 +552,13 @@ int _make_sshadow(struct trans_logger_output *output, struct trans_logger_mref_a
 
 	/* Get an ordinary internal reference
 	 */
-	atomic_inc(&mref->ref_count); // must be paired with __trans_logger_ref_put()
+	_mref_get_first(mref); // must be paired with __trans_logger_ref_put()
 	atomic_inc(&brick->inner_balance_count);
 
 	/* Get an additional internal reference from slave to master,
 	 * such that the master cannot go away before the slave.
 	 */
-	atomic_inc(&mshadow->ref_count);  // is compensated by master transition in __trans_logger_ref_put()
+	_mref_get(mshadow);  // is compensated by master transition in __trans_logger_ref_put()
 	atomic_inc(&brick->inner_balance_count);
 
 	atomic_inc(&brick->sshadow_count);
@@ -645,13 +644,13 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 	mref->ref_flags = 0;
 	mref_a->shadow_ref = mref_a; // cyclic self-reference => indicates master shadow
 
-	atomic_inc(&mref->ref_count); // must be paired with __trans_logger_ref_put()
-	atomic_inc(&brick->inner_balance_count);
-
 	atomic_inc(&brick->mshadow_count);
 	atomic_inc(&brick->total_mshadow_count);
 	atomic_inc(&global_mshadow_count);
 	atomic64_add(mref->ref_len, &global_mshadow_used);
+
+	atomic_inc(&brick->inner_balance_count);
+	_mref_get_first(mref); // must be paired with __trans_logger_ref_put()
 
 	return mref->ref_len;
 }
@@ -676,10 +675,10 @@ int trans_logger_ref_get(struct trans_logger_output *output, struct mref_object 
 
 	atomic_inc(&brick->outer_balance_count);
 
-	if (mref_a->stamp.tv_sec) { // setup already performed
-		MARS_IO("again %d\n", atomic_read(&mref->ref_count));
-		CHECK_ATOMIC(&mref->ref_count, 1);
-		atomic_inc(&mref->ref_count); // must be paired with __trans_logger_ref_put()
+	if (mref->ref_initialized) { // setup already performed
+		MARS_IO("again %d\n", atomic_read(&mref->ref_count.ta_atomic));
+		_mref_check(mref);
+		_mref_get(mref); // must be paired with __trans_logger_ref_put()
 		return mref->ref_len;
 	}
 
@@ -727,7 +726,7 @@ restart:
 
 	MARS_IO("pos = %lld len = %d\n", mref->ref_pos, mref->ref_len);
 
-	CHECK_ATOMIC(&mref->ref_count, 1);
+	_mref_check(mref);
 
 	// are we a shadow (whether master or slave)?
 	shadow_a = mref_a->shadow_ref;
@@ -735,9 +734,10 @@ restart:
 		bool finished;
 
 		CHECK_PTR(shadow_a, err);
-		CHECK_ATOMIC(&mref->ref_count, 1);
+		CHECK_PTR(shadow_a->object, err);
+		_mref_check(shadow_a->object);
 
-		finished = atomic_dec_and_test(&mref->ref_count);
+		finished = _mref_put(mref);
 		atomic_dec(&brick->inner_balance_count);
 		if (unlikely(finished && mref_a->is_hashed)) {
 			   MARS_ERR("trying to put a hashed mref, pos = %lld len = %d\n", mref->ref_pos, mref->ref_len);
@@ -863,7 +863,7 @@ void trans_logger_ref_io(struct trans_logger_output *output, struct mref_object 
 	struct trans_logger_mref_aspect *shadow_a;
 	struct trans_logger_input *input;
 
-	CHECK_ATOMIC(&mref->ref_count, 1);
+	_mref_check(mref);
 
 	mref_a = trans_logger_mref_get_aspect(brick, mref);
 	CHECK_PTR(mref_a, err);
@@ -886,7 +886,7 @@ void trans_logger_ref_io(struct trans_logger_output *output, struct mref_object 
 		CHECK_HEAD_EMPTY(&mref_a->hash_head);
 		CHECK_HEAD_EMPTY(&mref_a->pos_head);
 #endif
-		atomic_inc(&mref->ref_count); // must be paired with __trans_logger_ref_put()
+		_mref_get(mref); // must be paired with __trans_logger_ref_put()
 		atomic_inc(&brick->inner_balance_count);
 
 		qq_mref_insert(&brick->q_phase[0], mref_a);
@@ -983,7 +983,7 @@ void free_writeback(struct writeback_info *wb)
 		orig_mref_a = container_of(tmp, struct trans_logger_mref_aspect, collect_head);
 		orig_mref = orig_mref_a->object;
 		
-		CHECK_ATOMIC(&orig_mref->ref_count, 1);
+		_mref_check(orig_mref);
 		if (unlikely(!orig_mref_a->is_collected)) {
 			MARS_ERR("request %lld (len = %d) was not collected\n", orig_mref->ref_pos, orig_mref->ref_len);
 		}
@@ -1359,15 +1359,16 @@ void phase0_preio(void *private)
 
 	orig_mref_a = private;
 	CHECK_PTR(orig_mref_a, err);
+	CHECK_PTR(orig_mref_a->object, err);
 	brick = orig_mref_a->my_brick;
 	CHECK_PTR(brick, err);
 
 	// signal completion to the upper layer
 	// FIXME: immediate error signalling is impossible here, but some delayed signalling should be possible as a workaround. Think!
-	CHECK_ATOMIC(&orig_mref_a->object->ref_count, 1);
+	_mref_check(orig_mref_a->object);
 #ifdef EARLY_COMPLETION
 	_complete(brick, orig_mref_a, 0, true);
-	CHECK_ATOMIC(&orig_mref_a->object->ref_count, 1);
+	_mref_check(orig_mref_a->object);
 #endif
 	return;
 err: 
@@ -1393,9 +1394,8 @@ void phase0_endio(void *private, int error)
 	/* Pin mref->ref_count so it can't go away
 	 * after _complete().
 	 */
-	CHECK_ATOMIC(&orig_mref->ref_count, 1);
 	_CHECK(orig_mref_a->shadow_ref, err);
-	atomic_inc(&orig_mref->ref_count); // must be paired with __trans_logger_ref_put()
+	_mref_get(orig_mref); // must be paired with __trans_logger_ref_put()
 	atomic_inc(&brick->inner_balance_count);
 
 #ifndef LATE_COMPLETE

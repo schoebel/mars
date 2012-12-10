@@ -30,8 +30,9 @@ static int sio_ref_get(struct sio_output *output, struct mref_object *mref)
 {
 	struct file *file;
 
-	if (atomic_read(&mref->ref_count) > 0) {
-		goto done;
+	if (mref->ref_initialized) {
+		_mref_get(mref);
+		return mref->ref_len;
 	}
 
 	file = output->filp;
@@ -81,8 +82,7 @@ static int sio_ref_get(struct sio_output *output, struct mref_object *mref)
 		//atomic_inc(&output->alloc_count);
 	}
 
-done:
-	atomic_inc(&mref->ref_count);
+	_mref_get_first(mref);
 	return mref->ref_len;
 }
 
@@ -91,8 +91,7 @@ static void sio_ref_put(struct sio_output *output, struct mref_object *mref)
 	struct file *file;
 	struct sio_mref_aspect *mref_a;
 
-	CHECK_ATOMIC(&mref->ref_count, 1);
-	if (!atomic_dec_and_test(&mref->ref_count))
+	if (!_mref_put(mref))
 		return;
 
 	file = output->filp;
@@ -320,6 +319,8 @@ static void sync_file(struct sio_output *output)
 static
 void _complete(struct sio_output *output, struct mref_object *mref, int err)
 {
+	_mref_check(mref);
+
 	mars_trace(mref, "sio_endio");
 
 	if (err < 0) {
@@ -358,6 +359,8 @@ void _sio_ref_io(struct sio_threadinfo *tinfo, struct mref_object *mref)
 	bool barrier = false;
 	int status;
 
+	_mref_check(mref);
+
 	atomic_inc(&tinfo->fly_count);
 
 	if (unlikely(!output->filp)) {
@@ -395,6 +398,8 @@ void sio_ref_io(struct sio_output *output, struct mref_object *mref)
 	struct sio_mref_aspect *mref_a;
 	unsigned long flags;
 
+	_mref_check(mref);
+
 	mref_a = sio_mref_get_aspect(output->brick, mref);
 	if (unlikely(!mref_a)) {
 		MARS_FAT("cannot get aspect\n");
@@ -403,7 +408,7 @@ void sio_ref_io(struct sio_output *output, struct mref_object *mref)
 	}
 
 	atomic_inc(&mars_global_io_flying);
-	atomic_inc(&mref->ref_count);
+	_mref_get(mref);
 
 	index = 0;
 	if (mref->ref_rw == READ) {

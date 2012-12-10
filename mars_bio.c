@@ -234,18 +234,22 @@ done:
 
 static int bio_ref_get(struct bio_output *output, struct mref_object *mref)
 {
-	struct bio_mref_aspect *mref_a = bio_mref_get_aspect(output->brick, mref);
+	struct bio_mref_aspect *mref_a;
 	int status = -EINVAL;
 
-	CHECK_PTR(mref_a, done);
+	CHECK_PTR(output, done);
 	CHECK_PTR(output->brick, done);
-	_CHECK_ATOMIC(&mref->ref_count, !=,  0);
 
-	if (mref_a->output)
-		goto ok;
+	if (mref->ref_initialized) {
+		_mref_get(mref);
+		return mref->ref_len;
+	}
 
+	mref_a = bio_mref_get_aspect(output->brick, mref);
+	CHECK_PTR(mref_a, done);
 	mref_a->output = output;
 	mref_a->bio = NULL;
+
 
 	if (!mref->ref_data) { // buffered IO.
 		status = -ENOMEM;
@@ -270,8 +274,7 @@ static int bio_ref_get(struct bio_output *output, struct mref_object *mref)
 	MARS_IO("len = %d status = %d prio = %d fly = %d\n", mref->ref_len, status, mref->ref_prio, atomic_read(&output->brick->fly_count[PRIO_INDEX(mref)]));
 
 	mref->ref_len = status;
-ok:
-	atomic_inc(&mref->ref_count);
+	_mref_get_first(mref);
 	status = 0;
 
 done:
@@ -283,8 +286,7 @@ void bio_ref_put(struct bio_output *output, struct mref_object *mref)
 {
 	struct bio_mref_aspect *mref_a;
 
-	CHECK_ATOMIC(&mref->ref_count, 1);
-	if (!atomic_dec_and_test(&mref->ref_count)) {
+	if (!_mref_put(mref)) {
 		goto done;
 	}
 
@@ -334,8 +336,7 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref, bool cork)
 	bio = mref_a->bio;
 	CHECK_PTR(bio, err);
 
-	CHECK_ATOMIC(&mref->ref_count, 1);
-	atomic_inc(&mref->ref_count);
+	_mref_get(mref);
 	atomic_inc(&brick->fly_count[PRIO_INDEX(mref)]);
 
 	bio_get(bio);
@@ -409,7 +410,7 @@ void bio_ref_io(struct bio_output *output, struct mref_object *mref)
 		struct bio_brick *brick = output->brick;
 		unsigned long flags;
 
-		atomic_inc(&mref->ref_count);
+		_mref_get(mref);
 
 		spin_lock_irqsave(&brick->lock, flags);
 		list_add_tail(&mref_a->io_head, &brick->queue_list[PRIO_INDEX(mref)]);

@@ -93,19 +93,11 @@ static void _usebuf_endio(struct generic_callback *cb)
 #endif
 	CHECKED_CALLBACK(mref, cb->cb_error, done);
 
-	CHECK_ATOMIC(&mref->ref_count, 1);
-	if (!atomic_dec_and_test(&mref->ref_count))
+	if (!_mref_put(mref))
 		return;
 
 #if 1
-	CHECK_ATOMIC(&sub_mref->ref_count, 2);
-	atomic_dec(&sub_mref->ref_count);
-	{
-		int test = atomic_read(&sub_mref->ref_count);
-		if (test > 1) {
-			MARS_INF("ref_count = %d\n", test);
-		}
-	}
+	_mref_put(sub_mref);
 #endif
 
 	usebuf_free_mref(mref);
@@ -173,7 +165,7 @@ static int usebuf_ref_get(struct usebuf_output *output, struct mref_object *mref
 		MARS_INF("uiiiiiiiiiii\n");
 		mref->ref_data = sub_mref->ref_data;
 	}
-	atomic_inc(&mref->ref_count);
+	_mref_get(mref);
 
 	return status;
 }
@@ -203,8 +195,7 @@ static void usebuf_ref_put(struct usebuf_output *output, struct mref_object *mre
 		return;
 	}
 
-	CHECK_ATOMIC(&mref->ref_count, 1);
-	if (!atomic_dec_and_test(&mref->ref_count))
+	if (!_mref_put(mref))
 		return;
 
 	GENERIC_INPUT_CALL(input, mref_put, sub_mref);
@@ -220,6 +211,8 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mref_object *mref
 	int error = -EILSEQ;
 
 	might_sleep();
+
+	_mref_check(mref);
 
 	mref_a = usebuf_mref_get_aspect(output->brick, mref);
 	if (unlikely(!mref_a)) {
@@ -244,7 +237,7 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mref_object *mref
 		goto err;
 	}
 
-	atomic_inc(&mref->ref_count);
+	_mref_get(mref);
 
 	sub_mref->ref_rw = mref->ref_rw;
 	sub_mref->ref_len = mref->ref_len;

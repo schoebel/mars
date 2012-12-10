@@ -148,18 +148,24 @@ static int client_get_info(struct client_output *output, struct mars_info *info)
 
 static int client_ref_get(struct client_output *output, struct mref_object *mref)
 {
+	int maxlen;
+
+	if (mref->ref_initialized) {
+		_mref_get(mref);
+		return mref->ref_len;
+	}
+
 #if 1
 	/* Limit transfers to page boundaries.
 	 * Currently, this is more restrictive than necessary.
 	 * TODO: improve performance by doing better when possible.
 	 * This needs help from the server in some efficient way.
 	 */
-	int maxlen = PAGE_SIZE - (mref->ref_pos & (PAGE_SIZE-1));
+	maxlen = PAGE_SIZE - (mref->ref_pos & (PAGE_SIZE-1));
 	if (mref->ref_len > maxlen)
 		mref->ref_len = maxlen;
 #endif
 
-	_CHECK_ATOMIC(&mref->ref_count, !=,  0);
 	if (!mref->ref_data) { // buffered IO
 		struct client_mref_aspect *mref_a = client_mref_get_aspect(output->brick, mref);
 		if (!mref_a)
@@ -173,15 +179,14 @@ static int client_ref_get(struct client_output *output, struct mref_object *mref
 		mref->ref_flags = 0;
 	}
 
-	atomic_inc(&mref->ref_count);
+	_mref_get_first(mref);
 	return 0;
 }
 
 static void client_ref_put(struct client_output *output, struct mref_object *mref)
 {
 	struct client_mref_aspect *mref_a;
-	CHECK_ATOMIC(&mref->ref_count, 1);
-	if (!atomic_dec_and_test(&mref->ref_count))
+	if (!_mref_put(mref))
 		return;
 	mref_a = client_mref_get_aspect(output->brick, mref);
 	if (mref_a && mref_a->do_dealloc) {
@@ -213,7 +218,7 @@ static void client_ref_io(struct client_output *output, struct mref_object *mref
 
 	atomic_inc(&mars_global_io_flying);
 	atomic_inc(&output->fly_count);
-	atomic_inc(&mref->ref_count);
+	_mref_get(mref);
 
 	traced_lock(&output->lock, flags);
 	mref_a->submit_jiffies = jiffies;

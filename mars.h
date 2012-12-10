@@ -16,6 +16,7 @@
 
 #include "brick.h"
 #include "brick_mem.h"
+#include "brick_atomic.h"
 #include "lib_timing.h"
 
 #define GFP_MARS GFP_BRICK
@@ -112,13 +113,45 @@ extern void mars_log_trace(struct mref_object *mref);
 	bool   ref_skip_sync; /* skip sync for this particular mref */	\
 	/* maintained by the ref implementation, incrementable for	\
 	 * callers (but not decrementable! use ref_put()) */		\
-	atomic_t ref_count;						\
+	bool   ref_initialized; /* internally used for checking */	\
+	tatomic_t ref_count;						\
 	/* internal */							\
+	atomic_trace_t ref_at;						\
 	TRACING_INFO;
 
 struct mref_object {
 	MREF_OBJECT(mref);
 };
+
+#define _mref_check(mref)						\
+	({								\
+		if (unlikely(BRICK_CHECKING && !(mref)->ref_initialized)) { \
+			MARS_ERR("mref %p is not initialized\n", (mref)); \
+		}							\
+		CHECK_TATOMIC(&(mref)->ref_at, &(mref)->ref_count, 1);	\
+	})
+
+#define _mref_get_first(mref)						\
+	({								\
+		if (unlikely(BRICK_CHECKING && (mref)->ref_initialized)) { \
+			MARS_ERR("mref %p is already initialized\n", (mref)); \
+		}							\
+		_CHECK_TATOMIC(&(mref)->ref_at, &(mref)->ref_count, !=, 0); \
+		(mref)->ref_initialized = true;				\
+		tatomic_inc(&(mref)->ref_at, &(mref)->ref_count);	\
+	})
+
+#define _mref_get(mref)							\
+	({								\
+		_mref_check(mref);					\
+		tatomic_inc(&(mref)->ref_at, &(mref)->ref_count);	\
+	})
+
+#define _mref_put(mref)							\
+	({								\
+		_mref_check(mref);					\
+		tatomic_dec_and_test(&(mref)->ref_at, &(mref)->ref_count); \
+	})
 
 // internal helper structs
 

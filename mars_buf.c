@@ -424,8 +424,7 @@ static int buf_ref_get(struct buf_output *output, struct mref_object *mref)
 #endif
 	/* Grab reference.
 	 */
-	_CHECK_ATOMIC(&mref->ref_count, !=, 0);
-	atomic_inc(&mref->ref_count);
+	_mref_get(mref);
 
 	/* shortcut in case of unbuffered IO
 	 */
@@ -535,7 +534,7 @@ again:
 	mref->ref_flags = bf->bf_flags;
 	mref->ref_data = bf->bf_data + base_offset;
 
-	CHECK_ATOMIC(&mref->ref_count, 1);
+	_mref_check(mref);
 	CHECK_ATOMIC(&bf->bf_hash_count, 1);
 	CHECK_ATOMIC(&bf->bf_mref_count, 1);
 
@@ -559,9 +558,7 @@ static void _buf_ref_put(struct buf_output *output, struct buf_mref_aspect *mref
 		return;
 	}
 
-	CHECK_ATOMIC(&mref->ref_count, 1);
-
-	if (!atomic_dec_and_test(&mref->ref_count))
+	if (!_mref_put(mref))
 		return;
 
 	MARS_DBG("buf_ref_put() mref=%p mref_a=%p bf=%p flags=%d\n", mref, mref_a, bf, bf->bf_flags);
@@ -802,7 +799,7 @@ static void _buf_endio(struct generic_callback *cb)
 			MARS_ERR("endless loop 2\n");
 		}
 #endif
-		CHECK_ATOMIC(&mref->ref_count, 1);
+		_mref_check(mref);
 		/* It should be safe to do this without locking, because
 		 * tmp is on the stack, so there is no concurrency.
 		 */
@@ -863,8 +860,7 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 	 * This will be released later in _bf_endio() after
 	 * calling the callbacks.
 	 */
-	CHECK_ATOMIC(&mref->ref_count, 1);
-	atomic_inc(&mref->ref_count);
+	_mref_get(mref);
 	CHECK_ATOMIC(&bf->bf_hash_count, 1);
 
 	MARS_DBG("IO mref=%p rw=%d bf=%p flags=%d\n", mref, mref->ref_rw, bf, bf->bf_flags);

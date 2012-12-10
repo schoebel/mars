@@ -132,11 +132,11 @@ static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
 {
 	struct file *file = output->filp;
 
-	if (atomic_read(&mref->ref_count) > 0) {
-		atomic_inc(&mref->ref_count);
+	if (mref->ref_initialized) {
+		_mref_get(mref);
 		return mref->ref_len;
 	}
-	
+
 	if (file) {
 		loff_t total_size = i_size_read(file->f_mapping->host);
 		mref->ref_total_size = total_size;
@@ -183,7 +183,7 @@ static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
 		atomic_inc(&output->alloc_count);
 	}
 
-	atomic_inc(&mref->ref_count);
+	_mref_get_first(mref);
 	return mref->ref_len;
 }
 
@@ -192,8 +192,7 @@ static void aio_ref_put(struct aio_output *output, struct mref_object *mref)
 	struct file *file = output->filp;
 	struct aio_mref_aspect *mref_a;
 
-	CHECK_ATOMIC(&mref->ref_count, 1);
-	if (!atomic_dec_and_test(&mref->ref_count)) {
+	if (!_mref_put(mref)) {
 		goto done;
 	}
 
@@ -213,6 +212,8 @@ static void aio_ref_put(struct aio_output *output, struct mref_object *mref)
 static
 void _complete(struct aio_output *output, struct mref_object *mref, int err)
 {
+	_mref_check(mref);
+
 	mars_trace(mref, "aio_endio");
 
 	if (err < 0) {
@@ -257,7 +258,7 @@ static void aio_ref_io(struct aio_output *output, struct mref_object *mref)
 	struct aio_mref_aspect *mref_a;
 	int err = -EINVAL;
 
-	atomic_inc(&mref->ref_count);
+	_mref_get(mref);
 	atomic_inc(&mars_global_io_flying);
 
 	// statistics
