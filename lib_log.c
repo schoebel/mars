@@ -8,6 +8,8 @@
 //#define MARS_DEBUGGING
 //#define IO_DEBUGGING
 
+#define MAX_RESERVE PAGE_SIZE
+
 #include "lib_log.h"
 
 void exit_logst(struct log_status *logst)
@@ -177,6 +179,11 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 	short total_len = lh->l_len + OVERHEAD;
 	int offset;
 	int status;
+
+	if (unlikely(lh->l_len <= 0 || lh->l_len > MAX_RESERVE)) {
+		MARS_ERR("trying to write %d bytes, max allowed = %d\n", lh->l_len, (int)PAGE_SIZE);
+		goto err;
+	}
 
 	MARS_IO("reserving %d bytes at %lld\n", lh->l_len, logst->log_pos);
 
