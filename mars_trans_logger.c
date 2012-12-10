@@ -310,6 +310,11 @@ struct trans_logger_mref_aspect *hash_find(struct trans_logger_brick *brick, lof
 
 	res = _hash_find(&start->hash_anchor, pos, max_len, NULL, false);
 
+	/* Ensure the found mref can't go away...
+	 */
+	if (res && res->object)
+		_mref_get(res->object);
+	
 	up_read(&start->hash_mutex);
 
 	return res;
@@ -555,10 +560,11 @@ int _make_sshadow(struct trans_logger_output *output, struct trans_logger_mref_a
 	_mref_get_first(mref); // must be paired with __trans_logger_ref_put()
 	atomic_inc(&brick->inner_balance_count);
 
-	/* Get an additional internal reference from slave to master,
+	/* The internal reference from slave to master is already
+	 * present due to hash_find(),
 	 * such that the master cannot go away before the slave.
+	 * It is compensated by master transition in __trans_logger_ref_put()
 	 */
-	_mref_get(mshadow);  // is compensated by master transition in __trans_logger_ref_put()
 	atomic_inc(&brick->inner_balance_count);
 
 	atomic_inc(&brick->sshadow_count);
