@@ -15,7 +15,7 @@
 
 #define BRICK_DEBUG_MEM 10000
 #define USE_KERNEL_PAGES // currently mandatory (vmalloc does not work)
-#define ALLOW_DYNAMIC_RAISE 512
+#define ALLOW_DYNAMIC_RAISE 4096
 
 #ifndef CONFIG_MARS_DEBUG
 #undef BRICK_DEBUG_MEM
