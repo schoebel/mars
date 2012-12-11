@@ -393,7 +393,7 @@ int get_inode(char *newpath, struct mars_dent *dent)
 
 	status = vfs_lstat(newpath, &tmp);
 	if (status < 0) {
-		MARS_ERR("cannot stat '%s', status = %d\n", newpath, status);
+		MARS_WRN("cannot stat '%s', status = %d\n", newpath, status);
 		goto done;
 	}
 
