@@ -1996,8 +1996,11 @@ struct rank_info float_queue_rank_io[] = {
 static
 struct rank_info float_fly_rank_log[] = {
 	{     0,    0 },
+	{     1,    1 },
 	{    32,   10 },
-	{ 10000,   10 },
+	{   512,   10 },
+	{   600, -200 },
+	{ 99999, -500 },
 	{ RKI_DUMMY }
 };
 
@@ -2029,14 +2032,7 @@ struct rank_info nofloat_queue_rank_io[] = {
 	{ RKI_DUMMY }
 };
 
-static
-struct rank_info nofloat_fly_rank_log[] = {
-	{     0,    0 },
-	{     1,    1 },
-	{    32,   10 },
-	{ 10000,    1 },
-	{ RKI_DUMMY }
-};
+#define nofloat_fly_rank_log float_fly_rank_log
 
 static
 struct rank_info nofloat_fly_rank_io[] = {
@@ -2078,6 +2074,16 @@ struct rank_info *fly_ranks[2][LOGGER_QUEUES] = {
 		[2] = nofloat_fly_rank_io,
 		[3] = nofloat_fly_rank_io,
 	},
+};
+
+static
+struct rank_info extra_rank_mref_flying[] = {
+	{     0,    0 },
+	{     1,   10 },
+	{    16,   10 },
+	{    17,  -30 },
+	{ 10000, -200 },
+	{ RKI_DUMMY }
 };
 
 static noinline
@@ -2152,7 +2158,15 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 		if (queued <= 0)
 			continue;
 
-		if (i == 1 && !floating_mode) {
+		if (i == 0) {
+			// limit mref IO parallelism on transaction log
+			int mref_flying = 0;
+			for (i = TL_INPUT_LOG1; i <= TL_INPUT_LOG2; i++) {
+				struct trans_logger_input *input = brick->inputs[i];
+				mref_flying += atomic_read(&input->logst.mref_flying);
+			}
+			ranking_compute(&rkd[0], extra_rank_mref_flying, mref_flying);
+		} else if (i == 1 && !floating_mode) {
 			struct trans_logger_brick *leader;
 			int lim;
 
