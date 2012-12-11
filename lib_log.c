@@ -107,7 +107,6 @@ void log_write_endio(struct generic_callback *cb)
 
 	logst = cb_info->logst;
 	CHECK_PTR(logst, done);
-	atomic_dec(&logst->mref_flying);
 
 	MARS_IO("nr_cb = %d\n", cb_info->nr_cb);
 
@@ -115,6 +114,7 @@ void log_write_endio(struct generic_callback *cb)
 
  done:
 	put_log_cb_info(cb_info);
+	atomic_dec(&logst->mref_flying);
 	return;
 
 err:
