@@ -2790,6 +2790,8 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 "pos_count=%d "
 		 "balance=%d/%d/%d/%d "
 		 "fly=%d "
+		 "mref_flying1=%d "
+		 "mref_flying2=%d "
 		 "phase0=%d+%d "
 		 "phase1=%d+%d "
 		 "phase2=%d+%d "
@@ -2848,6 +2850,8 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 atomic_read(&brick->outer_balance_count),
 		 atomic_read(&brick->wb_balance_count),
 		 atomic_read(&brick->fly_count),
+		 atomic_read(&brick->inputs[TL_INPUT_LOG1]->logst.mref_flying),
+		 atomic_read(&brick->inputs[TL_INPUT_LOG2]->logst.mref_flying),
 		 atomic_read(&brick->q_phase[0].q_queued),
 		 atomic_read(&brick->q_phase[0].q_flying),
 		 atomic_read(&brick->q_phase[1].q_queued),
