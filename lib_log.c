@@ -115,6 +115,9 @@ void log_write_endio(struct generic_callback *cb)
  done:
 	put_log_cb_info(cb_info);
 	atomic_dec(&logst->mref_flying);
+	if (logst->signal_event)
+		wake_up_interruptible(logst->signal_event);
+
 	return;
 
 err:

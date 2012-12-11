@@ -88,6 +88,8 @@ struct log_header_v1 {
 /* Bookkeeping status between calls
  */
 struct log_status {
+	// interfacing
+	wait_queue_head_t *signal_event;
 	// tunables
 	int align_size;   // alignment between requests
 	int chunk_size;   // must be at least 8K (better 64k)

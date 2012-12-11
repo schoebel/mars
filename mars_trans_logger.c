@@ -2224,6 +2224,7 @@ void _init_input(struct trans_logger_input *input)
 	loff_t start_pos = input->log_start_pos;
 
 	init_logst(logst, (void*)input, 0);
+	logst->signal_event = &brick->worker_event;
 	logst->align_size = brick->align_size;
 	logst->chunk_size = brick->chunk_size;
 	
