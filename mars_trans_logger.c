@@ -2083,6 +2083,7 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 	int res;
 	int i;
 	int floating_mode;
+	int mref_flying;
 	bool delay_callers;
 
 	ranking_start(rkd, LOGGER_QUEUES);
@@ -2134,6 +2135,12 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 		wake_up_interruptible(&brick->caller_event);
 	}
 
+	mref_flying = 0;
+	for (i = TL_INPUT_LOG1; i <= TL_INPUT_LOG2; i++) {
+		struct trans_logger_input *input = brick->inputs[i];
+		mref_flying += atomic_read(&input->logst.mref_flying);
+	}
+
 	// obey the basic rules...
 	for (i = 0; i < LOGGER_QUEUES; i++) {
 		int queued = atomic_read(&brick->q_phase[i].q_queued);
@@ -2151,18 +2158,12 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 
 		if (i == 0) {
 			// limit mref IO parallelism on transaction log
-			int mref_flying = 0;
-			int j;
-			for (j = TL_INPUT_LOG1; j <= TL_INPUT_LOG2; j++) {
-				struct trans_logger_input *input = brick->inputs[j];
-				mref_flying += atomic_read(&input->logst.mref_flying);
-			}
 			ranking_compute(&rkd[0], extra_rank_mref_flying, mref_flying);
 		} else if (i == 1 && !floating_mode) {
 			struct trans_logger_brick *leader;
 			int lim;
 
-			if (atomic_read(&brick->q_phase[0].q_queued) + atomic_read(&brick->q_phase[0].q_flying) > 0) {
+			if (!mref_flying && atomic_read(&brick->q_phase[0].q_queued) > 0) {
 				MARS_IO("BAILOUT phase_[0]queued = %d phase_[0]flying = %d\n", atomic_read(&brick->q_phase[0].q_queued), atomic_read(&brick->q_phase[0].q_flying));
 				break;
 			}
