@@ -13,25 +13,28 @@
 
 void ranking_compute(struct rank_data *rkd, const struct rank_info rki[], int x)
 {
+	int points = 0;
 	int i;
-
+	
 	for (i = 0; ; i++) {
-		int x0 = rki[i].rki_x;
+		int x0;
 		int x1;
 		int y0;
 		int y1;
-		int points;
 		
-		if (x0 == RKI_DUMMY)
-			break;
-
+		x0 = rki[i].rki_x;
 		if (x < x0)
-			continue;
+			break;
 
 		x1 = rki[i+1].rki_x;
 
-		if (x1 == RKI_DUMMY)
+		if (unlikely(x1 == RKI_DUMMY)) {
+			points = rki[i].rki_y;
 			break;
+		}
+
+		if (x > x1)
+			continue;
 		
 		y0 = rki[i].rki_y;
 		y1 = rki[i+1].rki_y;
@@ -39,9 +42,9 @@ void ranking_compute(struct rank_data *rkd, const struct rank_info rki[], int x)
 		// linear interpolation
 		points = ((long long)(x - x0) * (long long)(y1 - y0)) / (x1 - x0) + y0;
 		MARS_IO("i = %d x0 = %d x1 = %d y0 = %d y1 = %d points = %d\n", i, x0, x1, y0, y1, points);
-		rkd->rkd_tmp += points;
 		break;
 	}
+	rkd->rkd_tmp += points;
 }
 EXPORT_SYMBOL_GPL(ranking_compute);
 
