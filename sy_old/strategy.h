@@ -137,6 +137,7 @@ extern int mars_stat(const char *path, struct kstat *stat, bool use_lstat);
 extern int mars_mkdir(const char *path);
 extern int mars_unlink(const char *path);
 extern int mars_symlink(const char *oldpath, const char *newpath, const struct timespec *stamp, uid_t uid);
+extern char *mars_readlink(const char *newpath);
 extern int mars_rename(const char *oldpath, const char *newpath);
 extern int mars_chmod(const char *path, mode_t mode);
 extern int mars_lchown(const char *path, uid_t uid);

@@ -167,6 +167,51 @@ done:
 }
 EXPORT_SYMBOL_GPL(mars_symlink);
 
+char *mars_readlink(const char *newpath)
+{
+	char *res = brick_string_alloc(1024);
+	struct path path = {};
+	mm_segment_t oldfs;
+	struct inode *inode;
+	int status;
+
+	if (unlikely(!res))
+		goto done;
+
+	oldfs = get_fs();
+	set_fs(get_ds());
+
+	status = user_path_at(AT_FDCWD, newpath, 0, &path);
+	if (unlikely(status < 0)) {
+		MARS_DBG("link '%s' does not exist, status = %d\n", newpath, status);
+		goto err;
+	}
+
+	inode = path.dentry->d_inode;
+	if (unlikely(!inode)) {
+		MARS_ERR("link '%s' has invalid inode\n", newpath);
+		goto err;
+	}
+
+	status = inode->i_op->readlink(path.dentry, res, 1024);
+	if (unlikely(status < 0)) {
+		MARS_ERR("cannot read link '%s', status = %d\n", newpath, status);
+		goto err;
+	}
+
+	set_fs(oldfs);
+
+done:
+	return res;
+
+err:
+	set_fs(oldfs);
+	brick_string_free(res);
+	res = NULL;
+	goto done;
+}
+EXPORT_SYMBOL_GPL(mars_readlink);
+
 int mars_rename(const char *oldpath, const char *newpath)
 {
 	mm_segment_t oldfs;
