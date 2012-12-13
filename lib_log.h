@@ -98,7 +98,9 @@ struct log_status {
 	atomic_t mref_flying;
 	int count;
 	loff_t log_pos;
+	struct timespec log_pos_stamp;
 	// internal
+	struct timespec tmp_pos_stamp;
 	struct mars_input *input;
 	struct mars_brick *brick;
 	struct mars_info info;

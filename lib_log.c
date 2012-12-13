@@ -152,6 +152,7 @@ void log_flush(struct log_status *logst)
 	}
 	mref->ref_len = logst->offset;
 	logst->log_pos += logst->offset;
+	memcpy(&logst->log_pos_stamp, &logst->tmp_pos_stamp, sizeof(logst->log_pos_stamp));
 
 	cb_info = logst->private;
 	logst->private = NULL;
@@ -271,6 +272,9 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 	DATA_PUT(data, offset, lh->l_extra_len);
 	DATA_PUT(data, offset, lh->l_code);
 	DATA_PUT(data, offset, lh->l_extra);
+
+	// remember the last timestamp
+	memcpy(&logst->tmp_pos_stamp, &lh->l_stamp, sizeof(logst->tmp_pos_stamp));
 
 	logst->payload_offset = offset;
 	logst->payload_len = lh->l_len;
