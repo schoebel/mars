@@ -132,6 +132,11 @@ static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
 {
 	struct file *file = output->filp;
 
+	if (unlikely(mref->ref_len <= 0)) {
+		MARS_ERR("bad ref_len=%d\n", mref->ref_len);
+		return -EILSEQ;
+	}
+
 	if (mref->ref_initialized) {
 		_mref_get(mref);
 		return mref->ref_len;
@@ -164,14 +169,16 @@ static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
 	 */
 	if (!mref->ref_data) {
 		struct aio_mref_aspect *mref_a = aio_mref_get_aspect(output->brick, mref);
-		if (!mref_a)
+		if (unlikely(!mref_a)) {
+			MARS_ERR("bad mref_a\n");
 			return -EILSEQ;
-		if (mref->ref_len <= 0) {
+		}
+		if (unlikely(mref->ref_len <= 0)) {
 			MARS_ERR("bad ref_len = %d\n", mref->ref_len);
 			return -ENOMEM;
 		}
 		mref->ref_data = brick_block_alloc(mref->ref_pos, (mref_a->alloc_len = mref->ref_len));
-		if (!mref->ref_data) {
+		if (unlikely(!mref->ref_data)) {
 			MARS_ERR("ENOMEM %d bytes\n", mref->ref_len);
 			return -ENOMEM;
 		}
