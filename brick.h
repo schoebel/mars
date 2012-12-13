@@ -268,7 +268,7 @@ struct generic_output {
 		(void)LOCK_CHECK(OP),					\
 		(INPUT) && (INPUT)->connect ?				\
 		GENERIC_OUTPUT_CALL((INPUT)->connect, OP, ##ARGS) :	\
-		-ECONNREFUSED						\
+		-ENOTCONN						\
 	)
 
 #define GENERIC_BRICK_OPS(BRITYPE)					\
