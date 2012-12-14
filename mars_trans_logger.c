@@ -2329,9 +2329,6 @@ void trans_logger_log(struct trans_logger_brick *brick)
 		int winner;
 		int nr;
 
-#if 1
-		schedule(); // yield
-#endif
 		wait_event_interruptible_timeout(
 			brick->worker_event,
 			(winner = _do_ranking(brick, rkd)) >= 0,

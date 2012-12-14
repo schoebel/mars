@@ -608,7 +608,6 @@ static int _copy_thread(void *data)
 			progress = _run_copy(brick);
 			if (!progress || ++rounds > 1000) {
 				rounds = 0;
-				schedule(); // yield
 			}
 		}
 

@@ -17,6 +17,14 @@
 #define brick_msleep(msecs) _brick_msleep(msecs, false)
 extern int _brick_msleep(int msecs, bool shorten);
 
+#define brick_yield()				\
+	({					\
+		flush_signals(current);		\
+		schedule();			\
+	})
+
+
+
 /////////////////////////////////////////////////////////////////////////
 
 // printk() replacements
@@ -627,7 +635,11 @@ extern void brick_thread_stop_nowait(struct task_struct *k);
 		}							\
 	} while (0)
 
-#define brick_thread_should_stop kthread_should_stop
+#define brick_thread_should_stop()		\
+	({					\
+		brick_yield();			\
+		kthread_should_stop();		\
+	})
 
 /////////////////////////////////////////////////////////////////////////
 

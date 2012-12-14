@@ -706,7 +706,7 @@ restart:
 	bind_to_dent(NULL, &say_channel);
 
 	if (found_dir && ++rounds < 10) {
-		schedule();
+		brick_yield();
 		goto restart;
 	}
 
@@ -718,7 +718,7 @@ restart:
 	for (tmp = global->dent_anchor.next, next = tmp->next; tmp != &global->dent_anchor; tmp = next, next = next->next) {
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
 
-		schedule();
+		brick_yield();
 
 		bind_to_dent(dent, &say_channel);
 
@@ -757,7 +757,7 @@ restart:
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
 		up_read(&global->dent_mutex);
 
-		schedule();
+		brick_yield();
 
 		bind_to_dent(dent, &say_channel);
 
@@ -778,7 +778,7 @@ restart:
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
 		up_read(&global->dent_mutex);
 
-		schedule();
+		brick_yield();
 
 		bind_to_dent(dent, &say_channel);
 
