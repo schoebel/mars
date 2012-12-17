@@ -173,7 +173,7 @@ char *mars_readlink(const char *newpath)
 	struct path path = {};
 	mm_segment_t oldfs;
 	struct inode *inode;
-	int status;
+	int status = -ENOMEM;
 
 	if (unlikely(!res))
 		goto done;
@@ -184,31 +184,32 @@ char *mars_readlink(const char *newpath)
 	status = user_path_at(AT_FDCWD, newpath, 0, &path);
 	if (unlikely(status < 0)) {
 		MARS_DBG("link '%s' does not exist, status = %d\n", newpath, status);
-		goto err;
+		goto done_fs;
 	}
 
 	inode = path.dentry->d_inode;
 	if (unlikely(!inode)) {
 		MARS_ERR("link '%s' has invalid inode\n", newpath);
-		goto err;
+		status = -EINVAL;
+		goto done_put;
 	}
 
 	status = inode->i_op->readlink(path.dentry, res, 1024);
 	if (unlikely(status < 0)) {
 		MARS_ERR("cannot read link '%s', status = %d\n", newpath, status);
-		goto err;
 	}
 
+done_put:
+	path_put(&path);
+	
+done_fs:
 	set_fs(oldfs);
-
 done:
+	if (unlikely(status < 0)) {
+		brick_string_free(res);
+		res = NULL;
+	}
 	return res;
-
-err:
-	set_fs(oldfs);
-	brick_string_free(res);
-	res = NULL;
-	goto done;
 }
 EXPORT_SYMBOL_GPL(mars_readlink);
 
