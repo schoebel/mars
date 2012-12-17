@@ -198,26 +198,40 @@ struct trans_logger_output {
 	MARS_OUTPUT(trans_logger);
 };
 
+struct trans_logger_info {
+	// to be maintained from outside
+	void (*inf_callback)(struct trans_logger_info *inf);
+	void  *inf_private;
+	char  *inf_host;
+	int    inf_sequence;     // logfile sequence number
+
+	// maintained by trans_logger
+	loff_t inf_min_pos;  // current replay position (both in replay mode and in logging mode)
+	loff_t inf_max_pos;  // dito, indicating the "dirty" area which could be potentially "inconsistent"
+	loff_t inf_log_pos; // position of transaction logging (may be ahead of replay position)
+	struct timespec inf_min_pos_stamp; // when the data has been _successfully_ overwritten
+	struct timespec inf_max_pos_stamp; // when the data has _started_ overwrite (maybe "trashed" in case of errors / aborts)
+	struct timespec inf_log_pos_stamp; // stamp from transaction log
+	bool inf_is_writeback;
+	bool inf_is_applying;
+	bool inf_is_logging;
+};
+
 struct trans_logger_input {
 	MARS_INPUT(trans_logger);
 	// parameters
 	loff_t log_start_pos; // where to start logging
 	// informational
-	char *inf_host;
-	int inf_sequence;     // logfile sequence number
-	bool is_prepared;
-	bool is_deletable;
+	struct trans_logger_info inf;
 	// readonly from outside
 	bool is_operating;
 	long long last_jiffies;
-	loff_t replay_min_pos;  // current replay position (both in replay mode and in logging mode)
-	loff_t replay_max_pos;  // dito, indicating the "dirty" area which could be potentially "inconsistent"
-	struct timespec last_stamp;
 
 	// private
 	struct log_status logst;
 	spinlock_t pos_lock;
 	struct list_head pos_list;
+	long long inf_last_jiffies;
 };
 
 MARS_TYPES(trans_logger);

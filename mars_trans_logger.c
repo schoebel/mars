@@ -501,6 +501,25 @@ err:
 	}
 }
 
+static
+void _inf_callback(struct trans_logger_input *input, bool force)
+{
+	if (!force &&
+	    input->inf_last_jiffies &&
+	    input->inf_last_jiffies + 4 * HZ > (long long)jiffies)
+		return;
+	
+	if (input->inf.inf_callback && input->is_operating) {
+		input->inf_last_jiffies = jiffies;
+
+		input->inf.inf_callback(&input->inf);
+
+		input->inf_last_jiffies = jiffies;
+	} else {
+		MARS_DBG("%p skipped callback, callback = %p is_operating = %d\n", input, input->inf.inf_callback, input->is_operating);
+	}
+}
+
 ////////////////// own brick / input / output operations //////////////////
 
 atomic_t   global_mshadow_count =   ATOMIC_INIT(0);
@@ -928,9 +947,12 @@ void pos_complete(struct trans_logger_mref_aspect *orig_mref_a)
 {
 	struct trans_logger_brick *brick = orig_mref_a->my_brick;
 	struct trans_logger_input *log_input = orig_mref_a->log_input;
+	loff_t finished;
 	struct list_head *tmp;
 	unsigned long flags;
+	bool do_callback = false;
 
+	CHECK_PTR(brick, err);
 	CHECK_PTR(log_input, err);
 
 	atomic_inc(&brick->total_writeback_count);
@@ -938,34 +960,36 @@ void pos_complete(struct trans_logger_mref_aspect *orig_mref_a)
 	tmp = &orig_mref_a->pos_head;
 
 	traced_lock(&log_input->pos_lock, flags);
+
+	finished = orig_mref_a->log_pos;
 	// am I the first member? (means "youngest" list entry)
 	if (tmp == log_input->pos_list.next) {
-		if (unlikely(!log_input)) {
-			MARS_ERR("cannot tell what input I am operating on\n");
-		} else {
-			loff_t finished = orig_mref_a->log_pos;
-			MARS_IO("finished = %lld\n", finished);
-			if (finished <= log_input->replay_min_pos) {
-				MARS_ERR("backskip in log replay: %lld -> %lld\n", log_input->replay_min_pos, orig_mref_a->log_pos);
-			}
-			log_input->replay_min_pos = finished;
-			memcpy(&log_input->last_stamp, &orig_mref_a->stamp, sizeof(log_input->last_stamp));
+		MARS_IO("first_finished = %lld\n", finished);
+		if (finished <= log_input->inf.inf_min_pos) {
+			MARS_ERR("backskip in log writeback: %lld -> %lld\n", log_input->inf.inf_min_pos, finished);
 		}
+		log_input->inf.inf_min_pos = finished;
+		get_lamport(&log_input->inf.inf_min_pos_stamp);
+		do_callback = true;
 	} else {
 		struct trans_logger_mref_aspect *prev_mref_a;
 		prev_mref_a = container_of(tmp->prev, struct trans_logger_mref_aspect, pos_head);
-		if (orig_mref_a->log_pos <= prev_mref_a->log_pos) {
-			MARS_ERR("backskip: %lld -> %lld\n", orig_mref_a->log_pos, prev_mref_a->log_pos);
+		if (unlikely(finished <= prev_mref_a->log_pos)) {
+			MARS_ERR("backskip: %lld -> %lld\n", finished, prev_mref_a->log_pos);
 		} else {
 			/* Transitively transfer log_pos to the predecessor
 			 * to correctly reflect the committed region.
 			 */
-			prev_mref_a->log_pos = orig_mref_a->log_pos;
+			prev_mref_a->log_pos = finished;
 		}
 	}
 	list_del_init(tmp);
 	atomic_dec(&brick->pos_count);
 	traced_unlock(&log_input->pos_lock, flags);
+
+	if (do_callback) {
+		_inf_callback(log_input, false);
+	}
 err:;
 }
 
@@ -1285,8 +1309,10 @@ void _fire_one(struct list_head *tmp, bool do_update)
 			MARS_ERR("internal problem\n");
 		} else {
 			loff_t max_pos = orig_mref_a->log_pos;
-			if (log_input->replay_max_pos < max_pos) {
-				log_input->replay_max_pos = max_pos;
+			if (log_input->inf.inf_max_pos < max_pos) {
+				log_input->inf.inf_max_pos = max_pos;
+				get_lamport(&log_input->inf.inf_max_pos_stamp);
+				_inf_callback(log_input, false);
 			}
 		}
 	}
@@ -1430,6 +1456,7 @@ bool phase0_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	struct trans_logger_brick *brick;
 	struct trans_logger_input *input;
 	struct log_status *logst;
+	loff_t log_pos;
 	void *data;
 	unsigned long flags;
 	bool ok;
@@ -1463,10 +1490,16 @@ bool phase0_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	if (unlikely(!ok)) {
 		goto err;
 	}
-	orig_mref_a->log_pos = logst->log_pos + logst->offset;
+	log_pos = logst->log_pos + logst->offset;
+	orig_mref_a->log_pos = log_pos;
+
+	// update new log_pos in the symlinks
+	input->inf.inf_log_pos = log_pos;
+	memcpy(&input->inf.inf_log_pos_stamp, &logst->log_pos_stamp, sizeof(input->inf.inf_log_pos_stamp));
+	_inf_callback(input, false);
 
 	traced_lock(&input->pos_lock, flags);
-#if 1
+#ifdef CONFIG_MARS_DEBUG
 	if (!list_empty(&input->pos_list)) {
 		struct trans_logger_mref_aspect *last_mref_a;
 		last_mref_a = container_of(input->pos_list.prev, struct trans_logger_mref_aspect, pos_head);
@@ -2228,20 +2261,24 @@ void _init_input(struct trans_logger_input *input)
 	logst->align_size = brick->align_size;
 	logst->chunk_size = brick->chunk_size;
 	
-	input->replay_min_pos = start_pos;
-	input->replay_max_pos = start_pos; // FIXME: Theoretically, this could be wrong when starting on an interrupted replay / inconsistent system. However, we normally never start ordinary logging in such a case (possibly except some desperate emergency cases when there really is no other chance, such as physical loss of transaction logs). Nevertheless, better use old consistenty information from the FS here.
+	input->inf.inf_min_pos = start_pos;
+	input->inf.inf_max_pos = start_pos; // ATTENTION: this remains correct as far as our replay code _never_ kicks off any requests in parallel (which is current state of the "art", relying on BBU caching for performance). WHENEVER YOU CHANGE THIS some day, you MUST maintain the correct end_pos here!
+	get_lamport(&input->inf.inf_max_pos_stamp);
+	memcpy(&input->inf.inf_min_pos_stamp, &input->inf.inf_max_pos_stamp, sizeof(input->inf.inf_min_pos_stamp));
+
 	logst->log_pos = start_pos;
-	memset(&input->last_stamp, 0, sizeof(input->last_stamp));
+	input->inf.inf_log_pos = start_pos;
+
 	input->is_operating = true;
 }
 
 static
-void _init_inputs(struct trans_logger_brick *brick)
+void _init_inputs(struct trans_logger_brick *brick, bool is_first)
 {
 	struct trans_logger_input *input;
 	int nr = brick->new_input_nr;
 
-	if (brick->log_input_nr != brick->old_input_nr) {
+	if (!is_first && brick->log_input_nr != brick->old_input_nr) {
 		MARS_IO("nothing to do, new_input_nr = %d log_input_nr = %d old_input_nr = %d\n", brick->new_input_nr, brick->log_input_nr, brick->old_input_nr);
 		goto done;
 	}
@@ -2259,8 +2296,13 @@ void _init_inputs(struct trans_logger_brick *brick)
 	}
 
 	_init_input(input);
+	input->inf.inf_is_writeback = is_first;
+	input->inf.inf_is_applying = false;
+	input->inf.inf_is_logging = is_first;
+
 	brick->log_input_nr = nr;
 	MARS_INF("switching over to new logfile %d (old = %d) startpos = %lld\n", nr, brick->old_input_nr, input->log_start_pos);
+	_inf_callback(input, true);
 done: ;
 }
 
@@ -2300,15 +2342,29 @@ void _exit_inputs(struct trans_logger_brick *brick, bool force)
 	for (i = TL_INPUT_LOG1; i <= TL_INPUT_LOG2; i++) {
 		struct trans_logger_input *input = brick->inputs[i];
 		struct log_status *logst = &input->logst;
-		if (!input->connect &&
-		    input->is_operating &&
-		    (input->is_deletable || force)) {
-			MARS_DBG("cleaning up input %d (log = %d old = %d)\n", i, brick->log_input_nr, brick->old_input_nr);
+		if (input->is_operating &&
+		    (force || !input->connect)) {
+			bool old_writeback = input->inf.inf_is_writeback;
+			bool old_applying  = input->inf.inf_is_applying;
+			bool old_logging   = input->inf.inf_is_logging;
+
+			MARS_DBG("cleaning up input %d (log = %d old = %d), old_writeback = %d old_applying = %d old_logging = %d\n", i, brick->log_input_nr, brick->old_input_nr, old_writeback, old_applying, old_writeback);
 			exit_logst(logst);
+			_inf_callback(input, true);
+			brick_string_free(input->inf.inf_host);
+			input->inf.inf_host = NULL;
+			input->inf.inf_is_writeback = false;
+			input->inf.inf_is_applying = false;
+			input->inf.inf_is_logging = false;
 			input->is_operating = false;
-			input->is_deletable = false;
-			if (i == brick->old_input_nr)
+			if (i == brick->old_input_nr && i != brick->log_input_nr) {
+				struct trans_logger_input *other_input = brick->inputs[brick->log_input_nr];
 				brick->old_input_nr = brick->log_input_nr;
+				other_input->inf.inf_is_writeback = old_writeback;
+				other_input->inf.inf_is_applying  = old_applying;
+				other_input->inf.inf_is_logging   = old_logging;
+				_inf_callback(other_input, true);
+			}
 		}
 	}
 }
@@ -2317,11 +2373,12 @@ static noinline
 void trans_logger_log(struct trans_logger_brick *brick)
 {
 	struct rank_data rkd[LOGGER_QUEUES] = {};
+	long long old_jiffies = jiffies;
 	int nr_flying;
 
 	brick->replay_code = 0; // indicates "running"
 
-	_init_inputs(brick);
+	_init_inputs(brick, true);
 
 	mars_power_led_on((void*)brick, true);
 
@@ -2338,7 +2395,7 @@ void trans_logger_log(struct trans_logger_brick *brick)
 
 		atomic_inc(&brick->total_round_count);
 
-		_init_inputs(brick);
+		_init_inputs(brick, false);
 
 		switch (winner) {
 		case 0:
@@ -2370,12 +2427,26 @@ void trans_logger_log(struct trans_logger_brick *brick)
 			_flush_inputs(brick);
 		}
 
+		/* Update symlinks even during pauses.
+		 */
+		if (winner < 0 && ((long long)jiffies) - old_jiffies >= HZ) {
+			int i;
+			old_jiffies = jiffies;
+			for (i = TL_INPUT_LOG1; i <= TL_INPUT_LOG2; i++) {
+				struct trans_logger_input *input = brick->inputs[i];
+				_inf_callback(input, false);
+			}
+		}
+
 		_exit_inputs(brick, false);
 	}
 
-	while ((nr_flying = _nr_flying_inputs(brick))) {
-		MARS_INF("%d inputs have flying IO\n", nr_flying);
+	for (;;) {
 		_exit_inputs(brick, true);
+		nr_flying = _nr_flying_inputs(brick);
+		if (nr_flying <= 0)
+			break;
+		MARS_INF("%d inputs are operating\n", nr_flying);
 		brick_msleep(1000);
 	}
 }
@@ -2552,6 +2623,7 @@ static noinline
 void trans_logger_replay(struct trans_logger_brick *brick)
 {
 	struct trans_logger_input *input = brick->inputs[brick->log_input_nr];
+	struct log_header lh = {};
 	loff_t start_pos;
 	loff_t finished_pos;
 	long long old_jiffies = jiffies;
@@ -2561,22 +2633,23 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 
 	brick->replay_code = 0; // indicates "running"
 
+	_init_input(input);
+
 	start_pos = brick->replay_start_pos;
-	init_logst(&input->logst, (void*)input, start_pos);
-	input->logst.align_size = brick->align_size;
-	input->logst.chunk_size = brick->chunk_size;
+
+	input->inf.inf_min_pos = start_pos;
+	input->inf.inf_max_pos = brick->replay_end_pos;
+	input->inf.inf_log_pos = brick->replay_end_pos;
+	input->inf.inf_is_writeback = false;
+	input->inf.inf_is_applying = true;
+	input->inf.inf_is_logging = false;
 
 	MARS_INF("starting replay from %lld to %lld\n", start_pos, brick->replay_end_pos);
 	
-	input->replay_min_pos = start_pos;
-	input->replay_max_pos = start_pos; // FIXME: this is wrong.
-	memset(&input->last_stamp, 0, sizeof(input->last_stamp));
-
 	mars_power_led_on((void*)brick, true);
 
 	for (;;) {
 		loff_t new_finished_pos;
-		struct log_header lh = {};
 		void *buf = NULL;
 		int len = 0;
 
@@ -2636,11 +2709,12 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		}
 
 		// do this _after_ any opportunities for errors...
-		if (atomic_read(&brick->replay_count) <= 0 || ((long long)jiffies) - old_jiffies >= HZ * 5) {
-			input->replay_min_pos = finished_pos;
-			input->replay_max_pos = finished_pos; // FIXME
-			memcpy(&input->last_stamp, &lh.l_stamp, sizeof(input->last_stamp));
+		if (atomic_read(&brick->replay_count) <= 0 ||
+		    ((long long)jiffies) - old_jiffies >= HZ) {
+			input->inf.inf_min_pos = finished_pos;
+			get_lamport(&input->inf.inf_min_pos_stamp);
 			old_jiffies = jiffies;
+			_inf_callback(input, false);
 		}
 		_exit_inputs(brick, false);
 	}
@@ -2654,8 +2728,8 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		finished_pos = brick->replay_end_pos;
 	}
 	if (status >= 0) {
-		input->replay_min_pos = finished_pos;
-		input->replay_max_pos = finished_pos; // FIXME
+		input->inf.inf_min_pos = finished_pos;
+		get_lamport(&input->inf.inf_min_pos_stamp);
 	}
 
 	if (status >= 0 && finished_pos == brick->replay_end_pos) {
@@ -2666,9 +2740,12 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		brick->replay_code = 2;
 	}
 
-	while ((nr_flying = _nr_flying_inputs(brick))) {
-		MARS_INF("%d inputs have flying IO\n", nr_flying);
+	for (;;) {
 		_exit_inputs(brick, true);
+		nr_flying = _nr_flying_inputs(brick);
+		if (nr_flying <= 0)
+			break;
+		MARS_INF("%d inputs are operating\n", nr_flying);
 		brick_msleep(1000);
 	}
 
@@ -2746,10 +2823,10 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 "new_input_nr = %d "
 		 "log_input_nr = %d "
 		 "(old = %d) "
-		 "replay_min_pos1 = %lld "
-		 "replay_max_pos1 = %lld "
-		 "replay_min_pos2 = %lld "
-		 "replay_max_pos2 = %lld | "
+		 "inf_min_pos1 = %lld "
+		 "inf_max_pos1 = %lld "
+		 "inf_min_pos2 = %lld "
+		 "inf_max_pos2 = %lld | "
 		 "total hash_insert=%d "
 		 "hash_find=%d "
 		 "hash_extend=%d "
@@ -2796,10 +2873,10 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 brick->new_input_nr,
 		 brick->log_input_nr,
 		 brick->old_input_nr,
-		 brick->inputs[TL_INPUT_LOG1]->replay_min_pos,
-		 brick->inputs[TL_INPUT_LOG1]->replay_max_pos, 
-		 brick->inputs[TL_INPUT_LOG2]->replay_min_pos,
-		 brick->inputs[TL_INPUT_LOG2]->replay_max_pos, 
+		 brick->inputs[TL_INPUT_LOG1]->inf.inf_min_pos,
+		 brick->inputs[TL_INPUT_LOG1]->inf.inf_max_pos, 
+		 brick->inputs[TL_INPUT_LOG2]->inf.inf_min_pos,
+		 brick->inputs[TL_INPUT_LOG2]->inf.inf_max_pos, 
 		 atomic_read(&brick->total_hash_insert_count),
 		 atomic_read(&brick->total_hash_find_count),
 		 atomic_read(&brick->total_hash_extend_count),
@@ -2982,8 +3059,8 @@ static noinline
 int trans_logger_input_destruct(struct trans_logger_input *input)
 {
 	CHECK_HEAD_EMPTY(&input->pos_list);
-	brick_string_free(input->inf_host);
-	input->inf_host = NULL;
+	brick_string_free(input->inf.inf_host);
+	input->inf.inf_host = NULL;
 	return 0;
 }
 
