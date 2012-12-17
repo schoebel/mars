@@ -410,15 +410,14 @@ done:
 #define MARS_DELIM ','
 
 static
-char *_parse_versionlink(const char *str, loff_t *start_pos, loff_t *end_pos)
+char *_parse_versionlink(const char *str, loff_t *pos)
 {
 	char *res = NULL;
 	const char *tmp;
 	int count;
 	int status;
 
-	*start_pos = 0;
-	*end_pos = 0;
+	*pos = 0;
 
 	while (*str && *str++ != MARS_DELIM) {
 		// empty
@@ -439,8 +438,8 @@ char *_parse_versionlink(const char *str, loff_t *start_pos, loff_t *end_pos)
 	strncpy(res, str, count);
 	res[count] = '\0';
 
-	status = sscanf(tmp, ",%lld,%lld", start_pos, end_pos);
-	if (unlikely(status != 2)) {
+	status = sscanf(tmp, ",%lld", pos);
+	if (unlikely(status != 1)) {
 		MARS_DBG("status = %d\n", status);
 		brick_string_free(res);
 		res = NULL;
@@ -585,6 +584,7 @@ void _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf
 	char *prev = NULL;
 	char *check = NULL;
 	char *prev_link = NULL;
+	char *prev_digest;
 	int len;
 	int i;
 	int status;
@@ -620,8 +620,26 @@ void _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf
 		}
 	}
 
-	len = sprintf(data, "%s,%d,%lld,%lld,%s", inf->inf_host, inf->inf_sequence, inf->inf_min_pos, inf->inf_max_pos, rot->inf_prev_version ? rot->inf_prev_version : "");
+	if (likely(rot->inf_prev_version)) {
+		char *tmp;
+		prev_digest = brick_strdup(rot->inf_prev_version);
+		if (unlikely(!prev_digest)) {
+			MARS_ERR("no MEM\n");
+			goto out;
+		}
+		// just take the hash part out of it
+		for (tmp = prev_digest; *tmp; tmp++)
+			if (*tmp == ',')
+				break;
+		*tmp = '\0';
+	} else {
+		prev_digest = "";
+	}
 
+	len = sprintf(data, "%s,%d,%lld,%s", inf->inf_host, inf->inf_sequence, inf->inf_log_pos, prev_digest);
+	if (prev_digest[0])
+		brick_string_free(prev_digest);
+	
 	MARS_DBG("data = '%s' len = %d\n", data, len);
 
 	mars_digest(digest, data, len);
@@ -630,7 +648,26 @@ void _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf
 	for (i = 0; i < mars_digest_size; i++) {
 		len += sprintf(old + len, "%02x", digest[i]);
 	}
-	len += sprintf(old + len, ",%s,%lld,%lld", inf->inf_host, inf->inf_min_pos, inf->inf_max_pos - inf->inf_min_pos);
+
+	if (likely(rot->inf_prev_version)) {
+		char *tmp;
+		prev_digest = brick_strdup(rot->inf_prev_version);
+		if (unlikely(!prev_digest)) {
+			MARS_ERR("no MEM\n");
+			goto out;
+		}
+		// take the part before ';'
+		for (tmp = prev_digest; *tmp; tmp++)
+			if (*tmp == ';')
+				break;
+		*tmp = '\0';
+	} else {
+		prev_digest = "";
+	}
+
+	len += sprintf(old + len, ",%s,%lld,%d;%s", inf->inf_host, inf->inf_log_pos, inf->inf_sequence, prev_digest);
+	if (prev_digest[0])
+		brick_string_free(prev_digest);
 
 	new = path_make("%s/version-%09d-%s", rot->parent_path, inf->inf_sequence, my_id());
 	if (!new) {
@@ -1553,8 +1590,7 @@ int _check_versionlink(struct mars_global *global, const char *parent_path, int 
 	char *other_version = NULL;
 	char *other_version_link = NULL;
 	char *from_host = NULL;
-	loff_t start_pos;
-	loff_t end_pos;
+	loff_t pos = 0;
 	int status = -ENOMEM;
 
 	my_version = path_make("%s/version-%09d-%s", parent_path, sequence, my_id());
@@ -1570,7 +1606,7 @@ int _check_versionlink(struct mars_global *global, const char *parent_path, int 
 		goto out;
 	}
 
-	from_host = _parse_versionlink(my_version_link, &start_pos, &end_pos);
+	from_host = _parse_versionlink(my_version_link, &pos);
 	if (!from_host) {
 		MARS_WRN("cannot parse '%s'\n", my_version_link);
 		goto out;
@@ -1579,8 +1615,8 @@ int _check_versionlink(struct mars_global *global, const char *parent_path, int 
 	if (!strcmp(from_host, my_id())) {
 		MARS_DBG("found version stemming from myself, no check of other version necessary.\n");
 		status = 1;
-		if (unlikely(start_pos != target_end_pos || end_pos != 0)) {
-			MARS_WRN("start_pos = %lld != target_end_pos = %lld || end_pos = %lld != 0\n", start_pos, target_end_pos, end_pos);
+		if (unlikely(pos != target_end_pos)) {
+			MARS_WRN("pos = %lld != target_end_pos = %lld\n", pos, target_end_pos);
 			status = 0;
 		}
 		goto out;
