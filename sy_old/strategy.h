@@ -160,6 +160,8 @@ extern int mars_max_loadavg;
 
 extern int mars_mem_percent;
 
+extern int light_checker(struct mars_dent *parent, const char *_name, int namlen, unsigned int d_type, int *prefix, int *serial, bool *use_channel);
+
 /////////////////////////////////////////////////////////////////////////
 
 // init

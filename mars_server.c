@@ -280,6 +280,12 @@ struct task_struct *_grab_handler(struct server_brick *brick)
 }
 
 static
+int dummy_worker(struct mars_global *global, struct mars_dent *dent, bool prepare, bool direction)
+{
+	return 0;
+}
+
+static
 int handler_thread(void *data)
 {
 	struct server_brick *brick = data;
@@ -335,19 +341,34 @@ int handler_thread(void *data)
 		}
 		case CMD_GETENTS:
 		{
+			struct mars_global local = {
+				.dent_anchor = LIST_HEAD_INIT(local.dent_anchor),
+				.brick_anchor = LIST_HEAD_INIT(local.brick_anchor),
+				.server_anchor = LIST_HEAD_INIT(local.server_anchor),
+				.global_power = {
+					.button = true,
+				},
+				.main_event = __WAIT_QUEUE_HEAD_INITIALIZER(local.main_event),
+			};
+
 			status = -EINVAL;
-			if (unlikely(!cmd.cmd_str1 || !mars_global))
+			if (unlikely(!cmd.cmd_str1))
 				break;
 
+			init_rwsem(&local.dent_mutex);
+			init_rwsem(&local.brick_mutex);
+
+			status = mars_dent_work(&local, "/mars", sizeof(struct mars_dent), light_checker, dummy_worker, &local, 3);
+
 			down(&brick->socket_sem);
-			down_read(&mars_global->dent_mutex);
-			status = mars_send_dent_list(sock, &mars_global->dent_anchor);
-			up_read(&mars_global->dent_mutex);
+			status = mars_send_dent_list(sock, &local.dent_anchor);
 			up(&brick->socket_sem);
 
 			if (status < 0) {
 				MARS_WRN("#%d could not send dentry information, status = %d\n", sock->s_debug_nr, status);
 			}
+
+			mars_free_dent_all(&local, &local.dent_anchor);
 			break;
 		}
 		case CMD_CONNECT:
