@@ -2125,12 +2125,6 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 	delay_callers = false;
 	floating_mode = 1;
 	if (brick_global_memlimit >= 1024) {
-		struct rank_info full_punish_global[] = {
-			{ 0,                                    0 },
-			{ brick_global_memlimit * 3 / 4,        0 },
-			{ brick_global_memlimit,            -1000 },
-			{ RKI_DUMMY }
-		};
 		int global_mem_used  = atomic64_read(&global_mshadow_used) / 1024;
 		trans_logger_mem_usage = global_mem_used;
 
@@ -2140,14 +2134,7 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 			delay_callers = true;
 
 		MARS_IO("global_mem_used = %d\n", global_mem_used);
-		ranking_compute(&rkd[0], full_punish_global, global_mem_used);
 	} else if (brick->shadow_mem_limit >= 8) {
-		struct rank_info full_punish_local[] = {
-			{ 0,                                    0 },
-			{ brick->shadow_mem_limit * 3 / 4,      0 },
-			{ brick->shadow_mem_limit,          -1000 },
-			{ RKI_DUMMY }
-		};
 		int local_mem_used   = atomic64_read(&brick->shadow_mem_used) / 1024;
 
 		floating_mode = (local_mem_used < brick->shadow_mem_limit / 2) ? 0 : 1;
@@ -2156,7 +2143,6 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 			delay_callers = true;
 
 		MARS_IO("local_mem_used = %d\n", local_mem_used);
-		ranking_compute(&rkd[0], full_punish_local,  local_mem_used);
 	}
 	if (delay_callers) {
 		if (!brick->delay_callers) {
