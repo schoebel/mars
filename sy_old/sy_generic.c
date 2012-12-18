@@ -116,15 +116,17 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct timespec
 	char *tmp = backskip_replace(newpath, '/', true, "/.tmp-"); 
 	mm_segment_t oldfs;
 	struct kstat stat = {};
-	struct timespec new_stamp = {};
+	struct timespec times[2];
 	int status = -ENOMEM;
 	
 	if (unlikely(!tmp))
 		goto done;
 
 	if (stamp)
-		memcpy(&new_stamp, stamp, sizeof(new_stamp));
-
+		memcpy(&times[0], stamp, sizeof(times[0]));
+	else
+		get_lamport(&times[0]);
+	
 	oldfs = get_fs();
 	set_fs(get_ds());
 	/* Some filesystems have only full second resolution.
@@ -133,30 +135,28 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct timespec
 	 * This is a _workaround_, to be replaced by a better
 	 * method somewhen.
 	 */
-	if (stamp) {
-		status = vfs_lstat((char*)newpath, &stat);
-		if (status >= 0 &&
-		    !stat.mtime.tv_nsec &&
-		    new_stamp.tv_sec <= stat.mtime.tv_sec) {
-			MARS_DBG("workaround timestamp tv_sec=%ld\n", stat.mtime.tv_sec);
-			new_stamp.tv_sec = stat.mtime.tv_sec + 1;
-		}
+	status = vfs_lstat((char*)newpath, &stat);
+	if (status >= 0 &&
+	    !stamp &&
+	    !stat.mtime.tv_nsec &&
+	    times[0].tv_sec == stat.mtime.tv_sec) {
+		MARS_DBG("workaround timestamp tv_sec=%ld\n", stat.mtime.tv_sec);
+		times[0].tv_sec = stat.mtime.tv_sec + 1;
+		times[0].tv_nsec = 0;
 	}
 
 	(void)sys_unlink(tmp);
 
 	status = sys_symlink(oldpath, tmp);
 
-	if (stamp) {
-		struct timespec times[2];
+	if (status >= 0) {
 		sys_lchown(tmp, uid, 0);
-		memcpy(&times[0], &new_stamp, sizeof(struct timespec));
-		memcpy(&times[1], &new_stamp, sizeof(struct timespec));
+		memcpy(&times[1], &times[0], sizeof(struct timespec));
 		status = do_utimes(AT_FDCWD, tmp, times, AT_SYMLINK_NOFOLLOW);
-		set_lamport(&new_stamp);
 	}
 
 	if (status >= 0) {
+		set_lamport(&times[0]);
 		status = mars_rename(tmp, newpath);
 	}
 	set_fs(oldfs);
@@ -197,6 +197,8 @@ char *mars_readlink(const char *newpath)
 	status = inode->i_op->readlink(path.dentry, res, 1024);
 	if (unlikely(status < 0)) {
 		MARS_ERR("cannot read link '%s', status = %d\n", newpath, status);
+	} else {
+		set_lamport(&inode->i_mtime);
 	}
 
 done_put:
