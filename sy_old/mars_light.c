@@ -535,7 +535,6 @@ done:
 static
 void _update_replay_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 {
-	struct timespec now = {};
 	char *check = NULL;
 	char *old = NULL;
 	char *new = NULL;
@@ -559,8 +558,7 @@ void _update_replay_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 		goto out;
 	}
 
-	get_lamport(&now);
-	status = mars_symlink(old, new, &now, 0);
+	status = mars_symlink(old, new, NULL, 0);
 	if (status < 0) {
 		MARS_ERR("cannot create symlink '%s' -> '%s' status = %d\n", old, new, status);
 	} else {
@@ -576,7 +574,6 @@ out:
 static
 void _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 {
-	struct timespec now = {};
 	char *data = brick_string_alloc(0);
 	char *old = brick_string_alloc(0);
 	char *new = NULL;
@@ -686,8 +683,7 @@ void _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf
 		}
 	}
 
-	get_lamport(&now);
-	status = mars_symlink(old, new, &now, 0);
+	status = mars_symlink(old, new, NULL, 0);
 	if (unlikely(status < 0)) {
 		MARS_ERR("cannot create symlink '%s' -> '%s' status = %d\n", old, new, status);
 	} else {
