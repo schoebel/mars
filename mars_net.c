@@ -213,7 +213,12 @@ int mars_accept_socket(struct mars_socket *new_msock, struct mars_socket *old_ms
 
 	ok = mars_get_socket(old_msock);
 	if (likely(ok)) {
-		status = kernel_accept(old_msock->s_socket, &new_socket, O_NONBLOCK);
+		struct socket *sock = old_msock->s_socket;
+		if (unlikely(!sock)) {
+			goto err;
+		}
+
+		status = kernel_accept(sock, &new_socket, O_NONBLOCK);
 		if (unlikely(status < 0)) {
 			goto err;
 		}
@@ -335,8 +340,9 @@ int _mars_send_raw(struct mars_socket *msock, const void *buf, int len)
 
 	while (len > 0) {
 		int this_len = len;
+		struct socket *sock = msock->s_socket;
 
-		if (!mars_net_is_alive || brick_thread_should_stop()) {
+		if (unlikely(!sock || !mars_net_is_alive || brick_thread_should_stop())) {
 			MARS_WRN("interrupting, sent = %d\n", sent);
 			status = -EIDRM;
 			break;
@@ -357,7 +363,7 @@ int _mars_send_raw(struct mars_socket *msock, const void *buf, int len)
 			if (this_len < len)
 				flags |= MSG_MORE;
 			
-			status = kernel_sendpage(msock->s_socket, page, page_offset, this_len, flags);
+			status = kernel_sendpage(sock, page, page_offset, this_len, flags);
 			if (status > 0 && status != this_len) {
 				MARS_WRN("#%d status = %d this_len = %d\n", msock->s_debug_nr, status, this_len);
 			}
@@ -372,7 +378,7 @@ int _mars_send_raw(struct mars_socket *msock, const void *buf, int len)
 				.msg_iov = (struct iovec*)&iov,
 				.msg_flags = 0 | MSG_NOSIGNAL,
 			};
-			status = kernel_sendmsg(msock->s_socket, &msg, &iov, 1, this_len);
+			status = kernel_sendmsg(sock, &msg, &iov, 1, this_len);
 		}
 #endif
 
@@ -516,8 +522,9 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 			.msg_flags = 0 | MSG_DONTWAIT | MSG_NOSIGNAL,
 #endif
 		};
+		struct socket *sock = msock->s_socket;
 
-		if (unlikely(!msock->s_socket)) {
+		if (unlikely(!sock)) {
 			MARS_WRN("#%d socket has disappeared\n", msock->s_debug_nr);
 			status = -EIDRM;
 			goto err;
@@ -532,7 +539,7 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 
 		MARS_LOW("#%d done %d, fetching %d bytes\n", msock->s_debug_nr, done, maxlen-done);
 
-		status = kernel_recvmsg(msock->s_socket, &msg, &iov, 1, maxlen-done, msg.msg_flags);
+		status = kernel_recvmsg(sock, &msg, &iov, 1, maxlen-done, msg.msg_flags);
 
 		MARS_LOW("#%d status = %d\n", msock->s_debug_nr, status);
 
