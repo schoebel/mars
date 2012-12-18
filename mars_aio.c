@@ -321,8 +321,11 @@ static int aio_submit(struct aio_output *output, struct aio_mref_aspect *mref_a,
 
 	threshold_check(&aio_submit_threshold, latency);
 
-	if (res < 0 && res != -EAGAIN)
+	if (likely(res >= 0)) {
+		atomic_inc(&output->submit_count);
+	} else if (unlikely(res != -EAGAIN)) {
 		MARS_ERR("error = %d\n", res);
+	}
 
 	return res;
 }
@@ -342,6 +345,9 @@ static int aio_submit_dummy(struct aio_output *output)
 	res = sys_io_submit(output->ctxp, 1, &iocbp);
 	set_fs(oldfs);
 
+	if (likely(res >= 0)) {
+		atomic_inc(&output->submit_count);
+	}
 	return res;
 }
 
@@ -576,6 +582,10 @@ static int aio_event_thread(void *data)
 		count = sys_io_getevents(output->ctxp, 1, MARS_MAX_AIO_READ, events, &timeout);
 		set_fs(oldfs);
 
+		if (likely(count > 0)) {
+			atomic_sub(count, &output->submit_count);
+		}
+
 		//MARS_INF("count = %d\n", count);
 		for (i = 0; i < count; i++) {
 			struct aio_mref_aspect *mref_a = (void*)events[i].data;
@@ -731,7 +741,7 @@ static int aio_submit_thread(void *data)
 		struct aio_mref_aspect *mref_a;
 		struct mref_object *mref;
 		int sleeptime;
-		int err;
+		int status;
 
 		_mapfree_pages(output, false);
 
@@ -746,8 +756,8 @@ static int aio_submit_thread(void *data)
 		}
 
 		mref = mref_a->object;
-		err = -EINVAL;
-		CHECK_PTR(mref, err);
+		status = -EINVAL;
+		CHECK_PTR(mref, error);
 
 		if (!output->min_pos || mref->ref_pos < output->min_pos)
 			output->min_pos = mref->ref_pos;
@@ -797,9 +807,9 @@ static int aio_submit_thread(void *data)
 
 			/* Now really do the work
 			 */
-			err = aio_submit(output, mref_a, false);
+			status = aio_submit(output, mref_a, false);
 
-			if (likely(err != -EAGAIN)) {
+			if (likely(status != -EAGAIN)) {
 				break;
 			}
 			atomic_inc(&output->total_delay_count);
@@ -808,9 +818,10 @@ static int aio_submit_thread(void *data)
 				sleeptime++;
 			}
 		}
-	err:
-		if (unlikely(err < 0)) {
-			_complete(output, mref, err);
+	error:
+		if (unlikely(status < 0)) {
+			MARS_IO("submit_count = %d status = %d\n", atomic_read(&output->submit_count), status);
+			_complete(output, mref, status);
 		}
 	}
 
@@ -887,6 +898,7 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 		 "flying reads = %d "
 		 "writes = %d "
 		 "allocs = %d "
+		 "submits = %d "
 		 "q0 = %d "
 		 "q1 = %d "
 		 "q2 = %d "
@@ -909,6 +921,7 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 		 atomic_read(&output->read_count),
 		 atomic_read(&output->write_count),
 		 atomic_read(&output->alloc_count),
+		 atomic_read(&output->submit_count),
 		 output->tinfo[0].queued_sum,
 		 output->tinfo[1].queued_sum,
 		 output->tinfo[2].queued_sum,

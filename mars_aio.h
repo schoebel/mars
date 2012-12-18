@@ -92,6 +92,7 @@ struct aio_output {
 	atomic_t read_count;
 	atomic_t write_count;
 	atomic_t alloc_count;
+	atomic_t submit_count;
 };
 
 MARS_TYPES(aio);
