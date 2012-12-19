@@ -14,6 +14,7 @@ struct client_mref_aspect {
 	GENERIC_ASPECT(mref);
 	struct list_head io_head;
 	struct list_head hash_head;
+	struct list_head tmp_head;
 	unsigned long submit_jiffies;
 	int alloc_len;
 	bool do_dealloc;
@@ -56,7 +57,6 @@ struct client_output {
 	wait_queue_head_t info_event;
 	bool get_info;
 	bool got_info;
-	spinlock_t hash_lock[CLIENT_HASH_MAX];
 	struct list_head hash_table[CLIENT_HASH_MAX];
 };
 
