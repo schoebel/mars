@@ -85,7 +85,7 @@ void _enqueue(struct aio_threadinfo *tinfo, struct aio_mref_aspect *mref_a, int 
 		list_add(&mref_a->io_head, &tinfo->mref_list[prio]);
 	}
 	tinfo->queued[prio]++;
-	tinfo->queued_sum++;
+	atomic_inc(&tinfo->queued_sum);
 
 	traced_unlock(&tinfo->lock, flags);
 
@@ -109,7 +109,7 @@ struct aio_mref_aspect *_dequeue(struct aio_threadinfo *tinfo)
 		if (tmp != start) {
 			list_del_init(tmp);
 			tinfo->queued[prio]--;
-			tinfo->queued_sum--;
+			atomic_dec(&tinfo->queued_sum);
 			mref_a = container_of(tmp, struct aio_mref_aspect, io_head);
 			goto done;
 		}
@@ -503,7 +503,7 @@ int aio_sync_thread(void *data)
 	MARS_INF("sync thread has started on '%s'.\n", output->brick->brick_path);
 	//set_user_nice(current, -20);
 
-	while (!brick_thread_should_stop() || tinfo->queued_sum > 0) {
+	while (!brick_thread_should_stop() || atomic_read(&tinfo->queued_sum) > 0) {
 		LIST_HEAD(tmp_list);
 		unsigned long flags;
 		int i;
@@ -513,7 +513,7 @@ int aio_sync_thread(void *data)
 
 		wait_event_interruptible_timeout(
 			tinfo->event,
-			tinfo->queued_sum > 0,
+			atomic_read(&tinfo->queued_sum) > 0,
 			HZ / 4);
 
 		traced_lock(&tinfo->lock, flags);
@@ -522,7 +522,7 @@ int aio_sync_thread(void *data)
 			if (!list_empty(start)) {
 				// move over the whole list
 				list_replace_init(start, &tmp_list);
-				tinfo->queued_sum -= tinfo->queued[i];
+				atomic_sub(tinfo->queued[i], &tinfo->queued_sum);
 				tinfo->queued[i] = 0;
 				break;
 			}
@@ -565,7 +565,7 @@ static int aio_event_thread(void *data)
 	if (unlikely(err < 0))
 		goto err;
 
-	while (!brick_thread_should_stop() || tinfo->queued_sum > 0) {
+	while (!brick_thread_should_stop() || atomic_read(&tinfo->queued_sum) > 0) {
 		mm_segment_t oldfs;
 		int count;
 		int i;
@@ -737,7 +737,7 @@ static int aio_submit_thread(void *data)
 	if (unlikely(err < 0))
 		goto cleanup_ctxp;
 
-	while (!brick_thread_should_stop() || atomic_read(&output->read_count) + atomic_read(&output->write_count) + tinfo->queued_sum > 0) {
+	while (!brick_thread_should_stop() || atomic_read(&output->read_count) + atomic_read(&output->write_count) + atomic_read(&tinfo->queued_sum) > 0) {
 		struct aio_mref_aspect *mref_a;
 		struct mref_object *mref;
 		int sleeptime;
@@ -747,7 +747,7 @@ static int aio_submit_thread(void *data)
 
 		wait_event_interruptible_timeout(
 			tinfo->event,
-			tinfo->queued_sum > 0,
+			atomic_read(&tinfo->queued_sum) > 0,
 			HZ / 4);
 
 		mref_a = _dequeue(tinfo);
@@ -776,7 +776,7 @@ static int aio_submit_thread(void *data)
 					mref_a->start_jiffies = jiffies;
 				}
 				if ((long long)jiffies - mref_a->start_jiffies <= mref->ref_timeout) {
-					if (!tinfo->queued_sum) {
+					if (atomic_read(&tinfo->queued_sum) <= 0) {
 						atomic_inc(&output->total_msleep_count);
 						brick_msleep(1000 * 4 / HZ);
 					}
@@ -922,9 +922,9 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 		 atomic_read(&output->write_count),
 		 atomic_read(&output->alloc_count),
 		 atomic_read(&output->submit_count),
-		 output->tinfo[0].queued_sum,
-		 output->tinfo[1].queued_sum,
-		 output->tinfo[2].queued_sum,
+		 atomic_read(&output->tinfo[0].queued_sum),
+		 atomic_read(&output->tinfo[1].queued_sum),
+		 atomic_read(&output->tinfo[2].queued_sum),
 		 atomic_read(&output->tinfo[0].total_enqueue_count),
 		 atomic_read(&output->tinfo[1].total_enqueue_count),
 		 atomic_read(&output->tinfo[2].total_enqueue_count),
