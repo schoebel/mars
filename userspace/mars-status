@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 # (c) 2012 Joerg Mann / 1&1 Internet AG
 #
-# $Id: 68e1b49d98800e0343dac1d6512db8bebd6a7581 $
+# $Id: 219590ee4375f5c41f13f0b277146c9bf0ff94bf $
 # last update at now ...
 
 # TODO:
@@ -14,7 +14,8 @@
 # 20121205 - add/update system entrys
 # 20121206 - upgrade LogDelay/LogSpeed
 # 20121210 - optimize same code
-
+# 20121217 - resign versionlink, remove delay
+# 20121219 - small fixes and layout
 
 ###
 use warnings;
@@ -27,8 +28,8 @@ use POSIX qw(strftime);
 use File::Basename;
 
 ### defaults
-my $version        = "0.070-20";
-my $alife_timeout  = "30";	# sec
+my $version        = "0.070-27";
+my $alife_timeout  = "30";	# sec for remote-nodes timeout
 my $is_tty 	   = 0;
 my $mars_dir       = '/mars';
 my $himself        = `uname -n` or die "cannot determine my network node name\n";
@@ -39,6 +40,8 @@ my $NodeStatusCode = 'UpToDate';
 my @NodeStatusText = ();
 chomp $himself;
 
+my $Color_blue     = 'yellow';
+my $Color_green	   = 'green';
 
 ### ARGV
 # Optionen in Hash-Ref parsen
@@ -61,8 +64,12 @@ sub display_help {
     print "       --system   : display mars-system informations\n";
     print "       --monitor  : indicator to use for monitoring on all state (by local node only !)\n";
     print "       --role|--cstate|--dstate single state on lokal node\n";
-    print "       --debug    : additional display debug messages\n";
-    print "\nAdvanced information are also available here: http://http://wiki.intranet.1and1.com/bin/view/PO/woauchimmer\n";
+    print "       --debug    : additional display debug messages\n\n";
+    print "Usage small include rotate  : mars-status --interval 2\n";
+    print "Usage monitoring            : mars-status --monitor\n";
+    print "Usage monitoring drbd-linke : mars-status --cstate (or --dstate or --role)\n";
+    print "Usage full, include debug   : mars-status --system --history --debug\n\n";
+    print "Advanced information are also available here: http://http://wiki.intranet.1and1.com/ ->ProjektTEC1603 ->TECITO.1735 -> MARS\n";
     exit;
 }
 
@@ -144,7 +151,7 @@ sub convert_link {
     if (( !$link ) || ( $link eq 0 )) {
         print_screen "off", 'red';
     } else {
-	print_screen "on", 'green';
+	print_screen "on", "$Color_green";
     }
     return $link;
 }
@@ -197,7 +204,7 @@ sub display_partner {
     ##########################################################################
     ### check status
     if ( $PStatus eq $PName ) {   
-        print_screen "Primary",'blue';
+        print_screen "Primary", "$Color_blue";
         print_screen "Primary  [$PRes on $PName]",'', 'Rmonitor';
         monitoring '', "joined";        
     } else {
@@ -208,7 +215,7 @@ sub display_partner {
             monitoring   "unknown", "not joined";        
             return; 
         } else {
-            print_screen "Secondary",'blue';
+            print_screen "Secondary", "$Color_blue";
             print_screen "Secondary [$PRes on $PName]",'', 'Rmonitor';
             monitoring   "", "joined";        
         }
@@ -225,7 +232,7 @@ sub display_partner {
         print_screen " unknown (last message before $PAlive sec) !!!\n", 'red';
         monitoring   "Failed", "not alive"
     } else {
-        print_screen " alive\n",'green'; 
+        print_screen " alive\n", "$Color_green"; 
         monitoring   "", "alive";
     }
 
@@ -251,12 +258,12 @@ sub display_partner {
            $PUDevice = ( grep { /^$PUDevice / } <$fh> )[0];
            if ( $PUDevice ) {
                $PUDevice = ( split / /, $PUDevice )[1];
-               print_screen " and mountet as $PUDevice\n",'blue';
+               print_screen " and mountet as $PUDevice\n", "$Color_blue";
            } else {
-               print_screen "\n\t\t---> TODO: enable to mount\n",'green';
+               print_screen "\n\t\t---> TODO: enable to mount\n", "$Color_green";
            }
        } else {
-           print_screen "\n\t\t---> HINT: unable to mount, Device is Secondary or mars is starting\n",'blue';
+           print_screen "\n\t\t---> HINT: unable to mount, Device is Secondary or mars is starting\n", "$Color_blue";
        }
     } else {
        print_screen "\n";
@@ -286,7 +293,7 @@ sub display_partner {
         print_screen "\t\t---> WORK: Sync in progress = ($SStatus% < 100.00%)\n", 'red';
         monitoring   "InvaliDate", "not in sync ($SStatus%)";
     } else {
-        print_screen "$SStatus$SSpeed\n", 'green';
+        print_screen "$SStatus$SSpeed\n", "$Color_green";
         monitoring   "", "synced";
     }
 
@@ -311,26 +318,26 @@ sub display_partner {
     my $LogSpeed = check_link "$mars_dir/$PRes/actual-$PName/file_rate";
     $LogSpeed    = sprintf ("%.2f", $LogSpeed / 1024 / 1024);
 
-    ### logfile - delaytime
-    my $LogDelay     = "0.000000000";
-    my $NewLogDelay  = "0.000000000";
-    my @LogDelayLink = lstat ("$mars_dir/$PRes/actual-$PName/timestamp");
-    my @LogDelayTime = split (',', check_link "$mars_dir/$PRes/actual-$PName/timestamp");
+#    ### logfile - delaytime
+#    my $LogDelay     = "0.000000000";
+#    my $NewLogDelay  = "0.000000000";
+#    my @LogDelayLink = lstat ("$mars_dir/$PRes/actual-$PName/timestamp");
+#    my @LogDelayTime = split (',', check_link "$mars_dir/$PRes/actual-$PName/timestamp");
     
-    ### offset replay
-    if (( $LogDelayTime[4] ) && ( $LogDelayTime[4] ne '0.000000000' )) {
-        $LogDelay = $LogDelayLink[9] - $LogDelayTime[4];
-    }
+#    ### offset replay
+#    if (( $LogDelayTime[4] ) && ( $LogDelayTime[4] ne '0.000000000' )) {
+#        $LogDelay = $LogDelayLink[9] - $LogDelayTime[4];
+#    }
 
-    ### offset newer logfile
-    if ( ( $ref_AULogfile ) && !($PLogName eq $ref_AULogfile) ) {        
-        my @NewLogDelay = `ls $mars_dir/$PRes/$ref_AULogfile*`;
-        $NewLogDelay[0] =~ s/\n//;
-        @NewLogDelay    = stat ("$NewLogDelay[0]");
-#$NewLogDelay = $NewLogDelay[9];
-        $LogDelay       = $LogDelayLink[9] - $NewLogDelay[9];
-    }
-    $LogDelay =  strftime("%H:%M:%S", gmtime($LogDelay));
+#    ### offset newer logfile
+#    if ( ( $ref_AULogfile ) && !($PLogName eq $ref_AULogfile) ) {        
+#        my @NewLogDelay = `ls $mars_dir/$PRes/$ref_AULogfile*`;
+#        $NewLogDelay[0] =~ s/\n//;
+#        @NewLogDelay    = stat ("$NewLogDelay[0]");
+#        #$NewLogDelay = $NewLogDelay[9];
+#        $LogDelay       = $LogDelayLink[9] - $NewLogDelay[9];
+#    }
+#    $LogDelay =  strftime("%H:%M:%S", gmtime($LogDelay));
 
 #print "*ld  $LogDelay\n";
 #print "#dl9 lstat - $LogDelayLink[9] - ".gmtime($LogDelayLink[9])."\n";
@@ -339,25 +346,25 @@ sub display_partner {
 #print "#dt          @LogDelayTime\n";
 #print "#nl  $NewLogDelay\n";
 
-    ### log delay monitoring
-    my $LogDelayMonitor = $LogDelay;
-    my ($h,$m,$s)       = split /:/, $LogDelayMonitor;
-    $LogDelayMonitor    = (($h*3600) + ($m*60) + $s);
-    if ( $LogDelayMonitor eq 0 ) {					# 0
-        monitoring "UpToDate", "Delay $LogDelayMonitor sec";
-    } elsif ( $LogDelayMonitor < 60 ) { 				# unter 1 min
-        monitoring "UpDateIng", "Delay $LogDelayMonitor sec";
-    } else {								# rest
-        monitoring "OutDate", "Delay $LogDelayMonitor sec";
-    }
+#    ### log delay monitoring
+#    my $LogDelayMonitor = $LogDelay;
+#    my ($h,$m,$s)       = split /:/, $LogDelayMonitor;
+#    $LogDelayMonitor    = (($h*3600) + ($m*60) + $s);
+#    if ( $LogDelayMonitor eq 0 ) {					# 0
+#        monitoring "UpToDate", "Delay $LogDelayMonitor sec";
+#    } elsif ( $LogDelayMonitor < 60 ) { 				# unter 1 min
+#        monitoring "UpDateIng", "Delay $LogDelayMonitor sec";
+#    } else {								# rest
+#        monitoring "OutDate", "Delay $LogDelayMonitor sec";
+#    }
 
 
     ### logfile - results
     print_screen (sprintf "\tLogfile : %s bytes (%.3fGB) in ", $PLogSize, ( $PLogSize/1024/1024/1024 ));
-    print_screen "$PLogName", 'green';
+    print_screen "$PLogName", "$Color_green";
     print_screen " active";
     print_screen ", received with $LogSpeed mb/s" if ( $LogSpeed ne "0.00" );
-    print_screen ", Delay roughly $LogDelay - but not really sure ;)" if ( $LogDelay ne "00:00:00" );
+#    print_screen ", Delay roughly $LogDelay - but not really sure ;)" if ( $LogDelay ne "00:00:00" );
     print_screen "\n";
     if ( $Ljoined eq "0" || $PLogSize eq "0.0001" ) {
         print_screen "\t\t---> WORK: Logfile empty = (Size: $PLogSize)\n", 'red';
@@ -377,8 +384,8 @@ sub display_partner {
         $PLogFile[1], ( $PLogFile[1]/1024/1024/1024 ), $PLogFile[2], ( $PLogFile[2]/1024/1024/1024 ));
         
     ### replay - speed
-    my $RSpeed = check_link "$mars_dir/$PRes/actual-$PName/replay_rate";
-    $RSpeed   = sprintf ("%.2f", $RSpeed / 1024 / 1024);
+    my $RSpeed  = check_link "$mars_dir/$PRes/actual-$PName/replay_rate";
+    $RSpeed     = sprintf ("%.2f", $RSpeed / 1024 / 1024);
     if ( $RSpeed eq "0.00" ) {
         $RSpeed = "%";
     } else {
@@ -403,17 +410,17 @@ sub display_partner {
 
     } elsif ( $PLogSize = 0.0001 ) {
         $RStatus = "100.00";
-        print_screen "$RStatus$RSpeed\n", 'green';
+        print_screen "$RStatus$RSpeed\n", "$Color_green";
         monitoring '', "replay wait";
 
     } else {
-        print_screen "$RStatus% $RSpeed\n", 'green';
+        print_screen "$RStatus% $RSpeed\n", "$Color_green";
         monitoring '', "replaying";
     }
 
    ### replay - hints
    if ($PLogFile[2] != 0) {
-       print_screen "\t\t---> HINT: Replay-Todo is actualy $PLogFile[2], ", 'blue';
+       print_screen "\t\t---> HINT: Replay-Todo is actualy $PLogFile[2], ", "$Color_blue";
        if ( $PLogFile[2] < 0 ) {
            print_screen "replaying backwards ??? Check this !!!\n", 'red';
        } elsif ( $PLogFile[2] > 0 ) {
@@ -444,7 +451,7 @@ sub display_partner {
     my $SWStatus;
     print_screen "\tSwitches: Attach="; 
     if ( readlink "$mars_dir/$PRes/todo-$PName/attach" eq 1 ) {
-        print_screen "on", 'green';
+        print_screen "on", "$Color_green";
         monitoring   "", "attached";
     } else {
         print_screen "off", 'red';
@@ -453,7 +460,7 @@ sub display_partner {
     print_screen " [masked:" if ( $ActStatus eq 1 );
     print_screen " Connect="; 
     if ( readlink "$mars_dir/$PRes/todo-$PName/connect" eq 1 ) {
-        print_screen "on", 'green';
+        print_screen "on", "$Color_green";
         monitoring   "", "connected";
     } else {
         print_screen "off", 'red';
@@ -461,7 +468,7 @@ sub display_partner {
     }
     print_screen " Sync=";
     if ( readlink "$mars_dir/$PRes/todo-$PName/sync" eq 1 ) {
-        print_screen "on", 'green';
+        print_screen "on", "$Color_green";
         monitoring   "", "synced";
     } else {
         print_screen "off", 'red';
@@ -469,7 +476,7 @@ sub display_partner {
     }
     print_screen " AllowReplay=" ;
     if ( readlink "$mars_dir/$PRes/todo-$PName/allow-replay" eq 1 ) {
-        print_screen "on", 'green';
+        print_screen "on", "$Color_green";
         monitoring   "", "replayed";
     } else {
         print_screen "off", 'red';
@@ -486,7 +493,7 @@ sub display_partner {
           $NodeStatusText = "$NodeStatusText($_)";
     }
     ### normal-modus
-    print_screen "\tStatus  : $NodeStatusCode = $NodeStatusText\n", '';
+#    print_screen "\tStatus  : $NodeStatusCode = $NodeStatusText\n", '';
     ### monitor-modus
     print_screen "$NodeStatusCode [$NodeStatusText]", '', 'Dmonitor';
     if ( $NodeStatusCode eq 'SwitchOff' ) {
@@ -581,7 +588,7 @@ sub check_ressource {
 
         ### check resources debug
         if ($params->{'debug'}) {
-            print_screen "   -> $res-Debug:\n", 'red'; 
+            print_screen "   -> $res-Debug:\n", "$Color_blue"; 
             my $debug_res;
             ### TODO: small hack, read 3 files ...
             $debug_res = check_debugfile("$res", "2.warn");  print_screen "$debug_res" if ( $debug_res );
@@ -598,63 +605,86 @@ sub check_logfile {
     my $LResource 	= shift;
     my $LPartner  	= shift;
     my $oldEqual 	= 0;
+    my $LogFailed	= 0;
     my $LogCount	= 0;
     my $LogCountSum	= 0;
     my $LogCountNow	= 1;
-    my $LogFailed	= 0;
     my @logfile 	= <$mars_dir/$LResource/log*>;
     ### mal fix zaehlen ...
     foreach (@logfile) {
         $LogCountSum++;
     }
 
-    print_screen "   -> History Replay/Status\n",'blue';
+    print_screen "   -> History Replay/Status\n", "$Color_blue";
+    ### search all logfiles
     foreach my $logfile (@logfile) {
         my $LVersion    = $logfile;
         $LVersion       =~ s/^.*log-([0-9]+)-.*$/$1/;
         my $LogStatus   = check_link "$logfile";
-        my $allEqual    = 1;
+        my $allEqual    = 1;	### logfiles gleich
+        my $OldCheck;		### checksum from versionfile
+        my $OldSize;		### size from versionfile
         if ( $LogStatus eq 0 ) { 
             ### found logfile
-            my $OldCheck;
-            my $OldSize;
             my $LogSize = -s "$logfile";
             if ( !$LogSize ) { $LogSize=0; }
-            print_screen "\tLogfile Version: $LVersion - Size: $LogSize\n";
+            ### logfile stat-values
+            my @LogStat  = stat ( $logfile );
+            $LogStat[10] = gmtime($LogStat[10]);
+            ### quickfix ...
+            if ($LogStat[9] > $LogStat[8]) {
+                $LogStat[9] = $LogStat[9] - $LogStat[8];
+            } else {
+                $LogStat[9] = $LogStat[8] - $LogStat[9];
+            }
+            print_screen (sprintf "\tLogfile Version: $LVersion Size: $LogSize bytes (%.3fGB) from %s, include hypothetically %s sec\n", 
+                ($LogSize /1024/1024/1024),  $LogStat[10], $LogStat[9]);
 
-            ### check other ...
+
+            ### search all logfile version 
             my @LVersion = <$mars_dir/$LResource/version-$LVersion*>;
             foreach my $LVersion (@LVersion) {
-                my @LogDetail = split (',', check_link "$LVersion" );
-                my $LogServer = $LVersion;
-                $LogServer    =~ s/.*[0-9]-//;
+                ### search version
+                my @LogDetail  = split (',', check_link "$LVersion" );
+                my $LogServer  = $LVersion;
+                ### search size of logfile
+                my $ActLogSize = $LogSize -  $LogDetail[2];
+                ### search name of source
+                $LogServer     =~ s/.*[0-9]-//;
                 $LogCount++;
-                print_screen "\t\tSource: $LogServer, Check: $LogDetail[0], ReplayPosition: $LogDetail[2], Todo: $LogDetail[3] blocks\n";
-                # Initial Values
+                ### output
+                print_screen (sprintf "\t\tSource: $LogServer \tCheck: $LogDetail[0] \tTodo: %.3fGB \tReplayPosition: $LogDetail[2]\n", $ActLogSize/1024/1024/1024);
+                
+                my @dummy = split (',', check_link "$mars_dir/$LResource/replay-$LogServer" );
+                @dummy    = split ('-', $dummy[0]);
+                $dummy[0] = '$dummy[0]-$dummy[1]';
+#                print "* $mars_dir/$LResource/replay-$LogServer\n";
+#                print "* $dummy[0]\n";
+
+                ### new versionfile
                 if ( !defined $OldCheck ) {
-                      # new
-                      $OldCheck = $LogDetail[0];
-                      $OldSize  = $LogDetail[2];
-                      $allEqual = 1; 
-                } elsif (!(( $LogDetail[0] eq $OldCheck ) and ( $LogDetail[2] eq $OldSize ))) { 
-                      # not same
-                      $allEqual = 0;
-                      if ( !($LogDetail[0] eq $OldCheck) && ($LogDetail[2] eq $OldSize) ) {
-                            print_screen "\t\t---> TODO: Logfiles has not equal Checksums and same size, check for SPLIT-BRAIN\n",'red';
-                            $LogFailed = 1;
-                      } elsif ( $LogFailed eq 0 )  { 
-                            $LogFailed = 1;
-                      }
+                      $OldCheck  = $LogDetail[0];
+                      $OldSize   = $LogDetail[2];
+                      $LogFailed = 0;
+                      $allEqual  = 1; 
+
+                ### checksum different
+                } elsif (  ($LogDetail[0] ne $OldCheck) and ( $LogDetail[2] eq $OldSize ) and ( $LogDetail[2] ne 0) ) {
+                      print_screen "\t\t---> TODO: Logfiles has not equal Checksums and same size, check for SPLIT-BRAIN\n",'red';
+                      $LogFailed = 1;
+                      $allEqual  = 0;
+
+                ### value different
+                } elsif ( ($LogDetail[0] ne $OldCheck ) or ( $LogDetail[2] ne $OldSize ) ) { 
+                      $LogFailed = 1;
+                      $allEqual  = 0;
+
+                ### eishokey
                 } else {
-                      # same
-                      $allEqual = 1;
+                      $LogFailed = 0;
+                      $allEqual  = 1;
                 }
 
-                # check bad values
-                if ( $LogDetail[3] < 0 ) {
-                        print_screen "\t\t---> TODO: Found bad values = ($LogDetail[3])it's ok ???\n", 'red';
-                        $LogFailed = 1;
-                }
             } # end foreach
 
             if ( $allEqual eq 1 ) {
@@ -662,22 +692,40 @@ sub check_logfile {
             } else {
                 $oldEqual = 0;
             }
-            
+           
+
+
+#            ### check relay active
+#            my @ReplayLogfile = `ls -l $mars_dir/$LResource/replay-* | grep $LVersion`;
+#            print "*** @ReplayLogfile\n";
+#lrwxrwxrwx 1 root root 51 Dec 19 14:36 /mars/resource-Device-BS6/replay-istore-test-bap6 -> log-000007974-istore-test-bs6,1486362576,1806027520
+#lrwxrwxrwx 1 root root 33 Dec 19 14:29 /mars/resource-Device-BS6/replay-istore-test-bs6 -> log-000007978-istore-test-bs6,0,0
+#lrwxrwxrwx 1 root root 129 Dec 19 14:15 /mars/resource-Device-BS6/version-000007968-istore-test-bap6 -> fd6610adc6a0df858aac6d9eb81b571d,istore-test-bs6,3292390012,7968;3ce4b3f0610405fe65eec10eccbf5c54,istore-test-bs6,3292390600,7967
+#lrwxrwxrwx 1 root root 129 Dec 19 14:14 /mars/resource-Device-BS6/version-000007968-istore-test-bs6 -> fd6610adc6a0df858aac6d9eb81b571d,istore-test-bs6,3292390012,7968;3ce4b3f0610405fe65eec10eccbf5c54,istore-test-bs6,3292390600,7967
+
 
             ### check Count Logfiles
             if ( !($LogCount eq $LPartner) ) {
                 print_screen "\t\t---> TODO: Count of Logfiles different = (have:$LPartner found:$LogCount)\n", 'red';
                 $LogFailed = 1;
                 $oldEqual = 0;
+
+            } elsif ( `ls -l $mars_dir/$LResource/replay-* | grep $LVersion` ) {
+                print_screen "\t\t---> WORK: Logfiles are actual and used, Replay in progess...\n", 'red';
+ 
             } elsif ( $LogFailed eq 1 )  { 
-                print_screen "\t\t---> WORK: Logfiles has not equal Checksums and different size, Replay in progress ...\n", 'red';
-            } elsif (( $LogCountSum eq $LogCountNow ) && ( $LogFailed eq 0 )) {
-                print_screen "\t\t---> WORK: logfiles are actual and unused.\n",'green';
-            } elsif (( $oldEqual eq 1 ) && ( $LogFailed eq 0 ) && ( $OldSize eq 0 )) {
-                print_screen "\t\t---> WORK: Logfiles are actual and unused.\n",'green';
-            } elsif (( $oldEqual eq 1 ) && ( $LogFailed eq 0 )) { 
-                print_screen "\t\t---> WORK: Logfiles has all equal Sizes and Checksums, can be deleted ...\n",'green';
-            } elsif (( $oldEqual eq 1 ) && ( $LogFailed ne 0 )) {
+                print_screen "\t\t---> WORK: Logfiles has not equal Checksums and different size, Reception in progress ...\n", 'red';
+
+            } elsif ( $LogCountSum eq $LogCountNow ) {
+                print_screen "\t\t---> WORK: Logfiles are actual and unused(1).\n", "$Color_green";
+
+            } elsif (( $oldEqual eq 1 ) && ( $OldSize eq 0 )) {
+                print_screen "\t\t---> WORK: Logfiles are actual and unused(2).\n", "$Color_green";
+
+            } elsif ( $oldEqual eq 1 ) { 
+                print_screen "\t\t---> WORK: Logfiles has all equal Sizes and Checksums, can be deleted ...\n", "$Color_green";
+
+            } else {
                 print_screen "\t\t---> TODO: Logfiles has same other errors - Please check History of Logfiles\n",'red';
             }
 
@@ -692,7 +740,7 @@ sub check_logfile {
                     $DeleteFiles = basename (readlink $DeleteFiles);
                 }
                 if ( $DeleteFiles eq $DelLogfile ) {
-                    print_screen "\t\t---> HINT: LogFile ist marked for delete ($DeleteFiles).\n",'green';
+                    print_screen "\t\t---> HINT: LogFile ist marked for delete ($DeleteFiles).\n", "$Color_green";
                 }
             }
             
@@ -732,7 +780,7 @@ sub check_disk_is_full {
     }
     ### TODO: /0
     if ( !$diskfull_mars ) {
-        print_screen " ok\n", 'green';
+        print_screen " ok\n", "$Color_green";
     }
 }
 
@@ -785,23 +833,23 @@ sub info_version {
     }
     
     ### status
-    print_screen "MARS Status - $himself, $version",'blue';
-    if ( $params->{'resource'}  ) { print_screen ", Ressource: $params->{'resource'}",'blue'; }
+    print_screen "MARS Status - $himself, $version", "$Color_blue";
+    if ( $params->{'resource'}  ) { print_screen ", Ressource: $params->{'resource'}", "$Color_blue"; }
     print_screen "\n";
     
     ### marsadm
     my $MAVersion = qx"marsadm version";
-    print_screen "MARS Admin  - $MAVersion",'blue';
+    print_screen "MARS Admin  - $MAVersion", "$Color_blue";
     
     ### module
-    print_screen "MARS Module - $mars_info{version}\n",'blue';
+    print_screen "MARS Module - $mars_info{version}\n", "$Color_blue";
 
     ### kernel
     my $KVersion = '/proc/version';
     open my $Kfh, '<', "$KVersion" or die $!;
     $KVersion = ( grep { /^Linux/ } <$Kfh> )[0];
     $KVersion = ( split / /, $KVersion )[2];
-    print_screen "MARS Kernel - $KVersion\n",'blue';
+    print_screen "MARS Kernel - $KVersion\n", "$Color_blue";
     
     print_screen "-------------------------------------------------------------------------------\n";
 }
@@ -813,7 +861,7 @@ sub check_jammed {
     my $jammed = check_link "$mars_dir/jammed-$himself";
     print_screen "-> Mars-Transaktion ", 'bold';
     if (( !$jammed ) || ( $jammed ne 0 )) {
-        print_screen "running normaly\n", 'green';
+        print_screen "running normaly\n", "$Color_green";
     } else {
         print_screen "and Replication not runnunig !!!\n", 'red';
         monitoring 'Failed', 'System: Replikation not running';
