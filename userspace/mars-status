@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 # (c) 2012 Joerg Mann / 1&1 Internet AG
 #
-# $Id: 810ee4caf272499f907e306d8f65c48cb8e8f254 $
+# $Id: a4e4e506b549c83b43a7e94b7f9fc475fe977e37 $
 # last update at now ...
 
 # TODO:
@@ -9,13 +9,6 @@
 # check nachtaegliches join (log-v-4 ...), resize, delay, statusvalues
 # check monitoring -> redesign statuscodes
 
-# 20121201 - redesign debug-files and -messages
-# 20121204 - add display todo counter
-# 20121205 - add/update system entrys
-# 20121206 - upgrade LogDelay/LogSpeed
-# 20121210 - optimize same code
-# 20121217 - resign versionlink, remove delay
-# 20121219 - small fixes and layout
 
 ###
 use warnings;
