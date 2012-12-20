@@ -24,9 +24,11 @@ int _brick_msleep(int msecs, bool shorten)
 
 	timeout = schedule_timeout_interruptible(timeout);
 
-	if (!shorten)
-		while (timeout)
+	if (!shorten) {
+		while ((long)timeout > 0) {
 			timeout = schedule_timeout_uninterruptible(timeout);
+		}
+	}
 
 	return jiffies_to_msecs(timeout);
 }
