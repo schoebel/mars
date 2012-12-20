@@ -291,7 +291,6 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 	char state;
 	char next_state;
 	bool do_restart;
-	int cs_mode;
 	int progress = 0;
 	int status;
 
@@ -305,7 +304,18 @@ restart:
 	MARS_IO("index = %d state = %d pos = %lld table[0]=%p table[1]=%p\n", index, state, pos, st->table[0], st->table[1]);
 
 	switch (state) {
+	case COPY_STATE_RESET:
+		/* This state is only entered after errors or
+		 * in restarting situations.
+		 */
+		_clear_mref(brick, index, 1);
+		_clear_mref(brick, index, 0);
+		next_state = COPY_STATE_START;
+		/* fallthrough */
 	case COPY_STATE_START:
+		/* This is the relgular starting state.
+		 * It must be zero, automatically entered via memset()
+		 */
 		if (st->table[0] || st->table[1]) {
 			MARS_ERR("index %d not startable\n", index);
 			progress = -EPROTO;
@@ -316,17 +326,14 @@ restart:
 		st->active[1] = false;
 		st->writeout = false;
 		st->error = 0;
-		if (brick->is_aborting)
-			goto idle;
 
 		_clear_mref(brick, index, 1);
 		_clear_mref(brick, index, 0);
 
-		cs_mode = 0;
-		if (brick->verify_mode)
-			cs_mode = 2;
+		if (brick->is_aborting)
+			goto idle;
 
-		status = _make_mref(brick, index, 0, NULL, pos, brick->copy_end, READ, cs_mode);
+		status = _make_mref(brick, index, 0, NULL, pos, brick->copy_end, READ, brick->verify_mode ? 2 : 0);
 		if (unlikely(status < 0)) {
 			MARS_WRN("status = %d\n", status);
 			progress = status;
@@ -338,20 +345,23 @@ restart:
 			break;
 		}
 
-		next_state = COPY_STATE_READ2;
-		status = _make_mref(brick, index, 1, NULL, pos, brick->copy_end, READ, cs_mode);
+		next_state = COPY_STATE_START2;
+		/* fallthrough */
+	case COPY_STATE_START2:
+		status = _make_mref(brick, index, 1, NULL, pos, brick->copy_end, READ, 2);
 		if (unlikely(status < 0)) {
 			MARS_WRN("status = %d\n", status);
 			progress = status;
 			break;
 		}
-		break;
+		next_state = COPY_STATE_READ2;
+		/* fallthrough */
 	case COPY_STATE_READ2:
 		mref1 = st->table[1];
 		if (!mref1) { // idempotence: wait by unchanged state
 			goto idle;
 		}
-		/* fallthrough */
+		/* fallthrough => wait for both mrefs to appear */
 	case COPY_STATE_READ1:
 	case COPY_STATE_READ3:
 		mref0 = st->table[0];
@@ -399,11 +409,11 @@ restart:
 
 		if (mref0->ref_cs_mode > 1) { // re-read, this time with data
 			_clear_mref(brick, index, 0);
-			next_state = COPY_STATE_START;
 			status = _make_mref(brick, index, 0, NULL, pos, brick->copy_end, READ, 0);
 			if (unlikely(status < 0)) {
 				MARS_WRN("status = %d\n", status);
 				progress = status;
+				next_state = COPY_STATE_RESET;
 				break;
 			}
 			next_state = COPY_STATE_READ3;
@@ -432,9 +442,7 @@ restart:
 			break;
 		}
 		if (unlikely(brick->is_aborting)) {
-			_clear_mref(brick, index, 1);
-			_clear_mref(brick, index, 0);
-			next_state = COPY_STATE_START;
+			progress = -EINTR;
 			break;
 		}
 		/* start writeout */
@@ -442,6 +450,7 @@ restart:
 		if (unlikely(status < 0)) {
 			MARS_WRN("status = %d\n", status);
 			progress = status;
+			next_state = COPY_STATE_RESET;
 			break;
 		}
 		st->writeout = true;
@@ -453,11 +462,13 @@ restart:
 			MARS_IO("irrelevant\n");
 			goto idle;
 		}
-		// rechecking means to start over again
+		/* rechecking means to start over again.
+		 * ATTENTIION! this may lead to infinite request
+		 * submission loops, intentionally.
+		 * TODO: implement some timeout means.
+		 */
 		if (brick->recheck_mode && brick->repair_mode) {
-			_clear_mref(brick, index, 1);
-			_clear_mref(brick, index, 0);
-			next_state = COPY_STATE_START;
+			next_state = COPY_STATE_RESET;
 			break;
 		}
 		next_state = COPY_STATE_CLEANUP;
@@ -552,7 +563,6 @@ int _run_copy(struct copy_brick *brick)
 			if (st->state != COPY_STATE_FINISHED) {
 				break;
 			}
-			st->state = COPY_STATE_START;
 			if (unlikely(st->error < 0)) {
 				if (!brick->copy_error) {
 					brick->copy_error = st->error;
@@ -563,6 +573,8 @@ int _run_copy(struct copy_brick *brick)
 				}
 				break;
 			}
+			// rollover
+			st->state = COPY_STATE_START;
 			count += st->len;
 			// check contiguity
 			if (unlikely(GET_OFFSET(pos) + st->len != COPY_CHUNK)) {

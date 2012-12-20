@@ -15,7 +15,9 @@
 #define MAX_COPY_PARA   (16 * 1024 * 1024 / COPY_CHUNK)
 
 enum {
-	COPY_STATE_START    = 0,
+	COPY_STATE_RESET    = -1,
+	COPY_STATE_START    = 0, // don't change this, it _must_ be zero
+	COPY_STATE_START2,
 	COPY_STATE_READ1,
 	COPY_STATE_READ2,
 	COPY_STATE_READ3,
