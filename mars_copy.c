@@ -113,8 +113,13 @@ void __clear_mref(struct copy_brick *brick, struct mref_object *mref, int queue)
 static
 void _clear_mref(struct copy_brick *brick, int index, int queue)
 {
-	struct mref_object *mref = brick->st[index].table[queue];
+	struct copy_state *st = &brick->st[index];
+	struct mref_object *mref = st->table[queue];
 	if (mref) {
+		if (unlikely(st->active[queue])) {
+			MARS_ERR("clearing active mref, index = %d queue = %d\n", index, queue);
+			st->active[queue] = false;
+		}
 		__clear_mref(brick, mref, queue);
 		brick->st[index].table[queue] = NULL;
 	}
@@ -159,6 +164,7 @@ void copy_endio(struct generic_callback *cb)
 		error = -EINVAL;
 		goto exit;
 	}
+	st->active[queue] = false;
 	if (unlikely(st->table[queue])) {
 		MARS_ERR("table corruption at %d %d (%p => %p)\n", index, queue, st->table[queue], mref);
 		error = -EEXIST;
@@ -186,7 +192,6 @@ exit:
 		st->error = error;
 		_clash(brick);
 	}
-	st->active[queue] = false;
 	atomic_dec(&brick->copy_flight);
 	brick->trigger = true;
 	wake_up_interruptible(&brick->event);
@@ -323,13 +328,10 @@ restart:
 			goto idle;
 		}
 
-		st->active[0] = false;
-		st->active[1] = false;
-		st->writeout = false;
-		st->error = 0;
-
 		_clear_mref(brick, index, 1);
 		_clear_mref(brick, index, 0);
+		st->writeout = false;
+		st->error = 0;
 
 		if (brick->is_aborting)
 			goto idle;
