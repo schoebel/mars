@@ -321,6 +321,8 @@ static int aio_submit(struct aio_output *output, struct aio_mref_aspect *mref_a,
 
 	threshold_check(&aio_submit_threshold, latency);
 
+	atomic_inc(&output->total_submit_count);
+
 	if (likely(res >= 0)) {
 		atomic_inc(&output->submit_count);
 	} else if (unlikely(res != -EAGAIN)) {
@@ -887,6 +889,7 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 		 "reads = %d "
 		 "writes = %d "
 		 "allocs = %d "
+		 "submits = %d "
 		 "delays = %d "
 		 "msleeps = %d "
 		 "fdsyncs = %d "
@@ -910,6 +913,7 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 		 atomic_read(&output->total_read_count),
 		 atomic_read(&output->total_write_count),
 		 atomic_read(&output->total_alloc_count),
+		 atomic_read(&output->total_submit_count),
 		 atomic_read(&output->total_delay_count),
 		 atomic_read(&output->total_msleep_count),
 		 atomic_read(&output->total_fdsync_count),
@@ -944,6 +948,7 @@ void aio_reset_statistics(struct aio_brick *brick)
 	atomic_set(&output->total_read_count, 0);
 	atomic_set(&output->total_write_count, 0);
 	atomic_set(&output->total_alloc_count, 0);
+	atomic_set(&output->total_submit_count, 0);
 	atomic_set(&output->total_delay_count, 0);
 	atomic_set(&output->total_msleep_count, 0);
 	atomic_set(&output->total_fdsync_count, 0);
