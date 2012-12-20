@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 # (c) 2012 Joerg Mann / 1&1 Internet AG
 #
-# $Id: 219590ee4375f5c41f13f0b277146c9bf0ff94bf $
+# $Id: 810ee4caf272499f907e306d8f65c48cb8e8f254 $
 # last update at now ...
 
 # TODO:
@@ -28,7 +28,7 @@ use POSIX qw(strftime);
 use File::Basename;
 
 ### defaults
-my $version        = "0.070-27";
+my $version        = "0.071";
 my $alife_timeout  = "30";	# sec for remote-nodes timeout
 my $is_tty 	   = 0;
 my $mars_dir       = '/mars';
@@ -300,7 +300,6 @@ sub display_partner {
 
     ##########################################################################
     ### TODO: work by resize ...
-    #print "\n$PSize\n$PSyncsize\n$PName";
 
 
     ##########################################################################
@@ -318,53 +317,14 @@ sub display_partner {
     my $LogSpeed = check_link "$mars_dir/$PRes/actual-$PName/file_rate";
     $LogSpeed    = sprintf ("%.2f", $LogSpeed / 1024 / 1024);
 
-#    ### logfile - delaytime
-#    my $LogDelay     = "0.000000000";
-#    my $NewLogDelay  = "0.000000000";
-#    my @LogDelayLink = lstat ("$mars_dir/$PRes/actual-$PName/timestamp");
-#    my @LogDelayTime = split (',', check_link "$mars_dir/$PRes/actual-$PName/timestamp");
-    
-#    ### offset replay
-#    if (( $LogDelayTime[4] ) && ( $LogDelayTime[4] ne '0.000000000' )) {
-#        $LogDelay = $LogDelayLink[9] - $LogDelayTime[4];
-#    }
-
-#    ### offset newer logfile
-#    if ( ( $ref_AULogfile ) && !($PLogName eq $ref_AULogfile) ) {        
-#        my @NewLogDelay = `ls $mars_dir/$PRes/$ref_AULogfile*`;
-#        $NewLogDelay[0] =~ s/\n//;
-#        @NewLogDelay    = stat ("$NewLogDelay[0]");
-#        #$NewLogDelay = $NewLogDelay[9];
-#        $LogDelay       = $LogDelayLink[9] - $NewLogDelay[9];
-#    }
-#    $LogDelay =  strftime("%H:%M:%S", gmtime($LogDelay));
-
-#print "*ld  $LogDelay\n";
-#print "#dl9 lstat - $LogDelayLink[9] - ".gmtime($LogDelayLink[9])."\n";
-#print "#dl          @LogDelayLink\n";
-#print "#dt4 link  - $LogDelayTime[4] - ".gmtime($LogDelayTime[4])."\n";
-#print "#dt          @LogDelayTime\n";
-#print "#nl  $NewLogDelay\n";
-
-#    ### log delay monitoring
-#    my $LogDelayMonitor = $LogDelay;
-#    my ($h,$m,$s)       = split /:/, $LogDelayMonitor;
-#    $LogDelayMonitor    = (($h*3600) + ($m*60) + $s);
-#    if ( $LogDelayMonitor eq 0 ) {					# 0
-#        monitoring "UpToDate", "Delay $LogDelayMonitor sec";
-#    } elsif ( $LogDelayMonitor < 60 ) { 				# unter 1 min
-#        monitoring "UpDateIng", "Delay $LogDelayMonitor sec";
-#    } else {								# rest
-#        monitoring "OutDate", "Delay $LogDelayMonitor sec";
-#    }
-
+    ### TODO:
+    ### logfile - delay
 
     ### logfile - results
     print_screen (sprintf "\tLogfile : %s bytes (%.3fGB) in ", $PLogSize, ( $PLogSize/1024/1024/1024 ));
     print_screen "$PLogName", "$Color_green";
     print_screen " active";
     print_screen ", received with $LogSpeed mb/s" if ( $LogSpeed ne "0.00" );
-#    print_screen ", Delay roughly $LogDelay - but not really sure ;)" if ( $LogDelay ne "00:00:00" );
     print_screen "\n";
     if ( $Ljoined eq "0" || $PLogSize eq "0.0001" ) {
         print_screen "\t\t---> WORK: Logfile empty = (Size: $PLogSize)\n", 'red';
@@ -493,7 +453,7 @@ sub display_partner {
           $NodeStatusText = "$NodeStatusText($_)";
     }
     ### normal-modus
-#    print_screen "\tStatus  : $NodeStatusCode = $NodeStatusText\n", '';
+    print_screen "\tStatus  : $NodeStatusCode = $NodeStatusText\n", '';
     ### monitor-modus
     print_screen "$NodeStatusCode [$NodeStatusText]", '', 'Dmonitor';
     if ( $NodeStatusCode eq 'SwitchOff' ) {
@@ -655,12 +615,6 @@ sub check_logfile {
                 ### output
                 print_screen (sprintf "\t\tSource: $LogServer \tCheck: $LogDetail[0] \tTodo: %.3fGB \tReplayPosition: $LogDetail[2]\n", $ActLogSize/1024/1024/1024);
                 
-                my @dummy = split (',', check_link "$mars_dir/$LResource/replay-$LogServer" );
-                @dummy    = split ('-', $dummy[0]);
-                $dummy[0] = '$dummy[0]-$dummy[1]';
-#                print "* $mars_dir/$LResource/replay-$LogServer\n";
-#                print "* $dummy[0]\n";
-
                 ### new versionfile
                 if ( !defined $OldCheck ) {
                       $OldCheck  = $LogDetail[0];
@@ -693,16 +647,6 @@ sub check_logfile {
                 $oldEqual = 0;
             }
            
-
-
-#            ### check relay active
-#            my @ReplayLogfile = `ls -l $mars_dir/$LResource/replay-* | grep $LVersion`;
-#            print "*** @ReplayLogfile\n";
-#lrwxrwxrwx 1 root root 51 Dec 19 14:36 /mars/resource-Device-BS6/replay-istore-test-bap6 -> log-000007974-istore-test-bs6,1486362576,1806027520
-#lrwxrwxrwx 1 root root 33 Dec 19 14:29 /mars/resource-Device-BS6/replay-istore-test-bs6 -> log-000007978-istore-test-bs6,0,0
-#lrwxrwxrwx 1 root root 129 Dec 19 14:15 /mars/resource-Device-BS6/version-000007968-istore-test-bap6 -> fd6610adc6a0df858aac6d9eb81b571d,istore-test-bs6,3292390012,7968;3ce4b3f0610405fe65eec10eccbf5c54,istore-test-bs6,3292390600,7967
-#lrwxrwxrwx 1 root root 129 Dec 19 14:14 /mars/resource-Device-BS6/version-000007968-istore-test-bs6 -> fd6610adc6a0df858aac6d9eb81b571d,istore-test-bs6,3292390012,7968;3ce4b3f0610405fe65eec10eccbf5c54,istore-test-bs6,3292390600,7967
-
 
             ### check Count Logfiles
             if ( !($LogCount eq $LPartner) ) {
@@ -787,8 +731,7 @@ sub check_disk_is_full {
 #########################################################################################
 ### check debug-files
 sub check_debugfile {
-    ### TODO: Fix Level
-    ### 0.debug,1.info,2.warn,3.error,4.fatal,5.total
+    ### TODO: Fix Level / diaplying
     my $debug_dir   = shift;
     my $debug_level = shift;
     my $debug_file  = "$mars_dir/$debug_dir/$debug_level.status";
@@ -957,8 +900,7 @@ while(1) {
     ### main run
 
     print $clearscreen;
-### check !
-#    print "\nNOTE !!!\n********\nThe author does not guarantee this development-test-alpha-pre-beta-version, it is untested and certainly not fully functional. Use at your own risk ;)\n\n";
+    print "\nNOTE !!!\n********\nThe author does not guarantee this development-test-alpha-pre-beta-version, it is untested and certainly not fully functional. Use at your own risk ;)\n\n";
 
 
     ##########################################################################
