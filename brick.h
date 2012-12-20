@@ -16,14 +16,7 @@
 
 #define brick_msleep(msecs) _brick_msleep(msecs, false)
 extern int _brick_msleep(int msecs, bool shorten);
-
-#define brick_yield()				\
-	({					\
-		flush_signals(current);		\
-		schedule();			\
-	})
-
-
+#define brick_yield() brick_msleep(0)
 
 /////////////////////////////////////////////////////////////////////////
 
