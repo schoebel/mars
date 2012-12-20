@@ -67,6 +67,7 @@ struct copy_brick {
 	// internal
 	bool trigger;
 	unsigned long clash;
+	atomic_t total_clash_count;
 	atomic_t io_flight;
 	atomic_t copy_flight;
 	long long last_jiffies;

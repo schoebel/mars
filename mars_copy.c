@@ -37,6 +37,7 @@ void _clash(struct copy_brick *brick)
 {
 	brick->trigger = true;
 	set_bit(0, &brick->clash);
+	atomic_inc(&brick->total_clash_count);
 	wake_up_interruptible(&brick->event);
 }
 
@@ -735,6 +736,7 @@ char *copy_statistics(struct copy_brick *brick, int verbose)
 		 "low_dirty = %d "
 		 "is_aborting = %d "
 		 "clash = %lu | "
+		 "total clash_count = %d | "
 		 "io_flight = %d "
 		 "copy_flight = %d\n",
 		 brick->copy_start,
@@ -747,6 +749,7 @@ char *copy_statistics(struct copy_brick *brick, int verbose)
 		 brick->low_dirty,
 		 brick->is_aborting,
 		 brick->clash,
+		 atomic_read(&brick->total_clash_count),
 		 atomic_read(&brick->io_flight),
 		 atomic_read(&brick->copy_flight));
 
@@ -756,6 +759,7 @@ char *copy_statistics(struct copy_brick *brick, int verbose)
 static
 void copy_reset_statistics(struct copy_brick *brick)
 {
+	atomic_set(&brick->total_clash_count, 0);
 }
 
 //////////////// object / aspect constructors / destructors ///////////////
