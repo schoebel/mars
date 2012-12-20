@@ -708,7 +708,6 @@ static int copy_switch(struct copy_brick *brick)
 		if (brick->thread) {
 			MARS_INF("stopping thread...\n");
 			brick_thread_stop(brick->thread);
-			wake_up_interruptible(&brick->event);
 		}
 	}
 	_update_percent(brick);
