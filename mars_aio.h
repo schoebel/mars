@@ -85,6 +85,7 @@ struct aio_output {
 	atomic_t total_write_count;
 	atomic_t total_alloc_count;
 	atomic_t total_submit_count;
+	atomic_t total_again_count;
 	atomic_t total_delay_count;
 	atomic_t total_msleep_count;
 	atomic_t total_fdsync_count;
