@@ -36,7 +36,6 @@ struct client_threadinfo {
 	struct task_struct *thread;
 	wait_queue_head_t run_event;
 	int restart_count;
-	bool terminated;
 };
 
 struct client_output {
@@ -48,6 +47,7 @@ struct client_output {
 	struct list_head wait_list;
 	wait_queue_head_t event;
 	int  last_id;
+	int recv_error;
 	struct mars_socket socket;
 	char *host;
 	char *path;

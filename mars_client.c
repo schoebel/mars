@@ -20,10 +20,12 @@
 
 static int thread_count = 0;
 
-static void _kill_thread(struct client_threadinfo *ti)
+static void _kill_thread(struct client_threadinfo *ti, const char *name)
 {
 	if (ti->thread) {
+		MARS_DBG("stopping %s thread\n", name);
 		brick_thread_stop(ti->thread);
+		ti->thread = NULL;
 	}
 }
 
@@ -33,7 +35,8 @@ static void _kill_socket(struct client_output *output)
 		MARS_DBG("shutdown socket\n");
 		mars_shutdown_socket(&output->socket);
 	}
-	_kill_thread(&output->receiver);
+	_kill_thread(&output->receiver, "receiver");
+	output->recv_error = 0;
 	MARS_DBG("close socket\n");
 	mars_put_socket(&output->socket);
 }
@@ -78,6 +81,11 @@ static int _connect(struct client_output *output, const char *str)
 		*output->host++ = '\0';
 	}
 
+	if (unlikely(output->receiver.thread)) {
+		MARS_WRN("receiver thread unexpectedly not dead\n");
+		_kill_thread(&output->receiver, "receiver");
+	}
+
 	status = mars_create_sockaddr(&sockaddr, output->host);
 	if (unlikely(status < 0)) {
 		MARS_DBG("no sockaddr, status = %d\n", status);
@@ -95,7 +103,6 @@ static int _connect(struct client_output *output, const char *str)
 	if (unlikely(!output->receiver.thread)) {
 		MARS_ERR("cannot start receiver thread, status = %d\n", status);
 		status = -ENOENT;
-		output->receiver.terminated = true;
 		goto done;
 	}
 
@@ -256,7 +263,7 @@ int receiver_thread(void *data)
 	struct client_output *output = data;
 	int status = 0;
 
-        while (status >= 0 && mars_socket_is_alive(&output->socket) && !brick_thread_should_stop()) {
+        while (!brick_thread_should_stop()) {
 		struct mars_cmd cmd = {};
 		struct list_head *tmp;
 		struct client_mref_aspect *mref_a = NULL;
@@ -343,14 +350,21 @@ int receiver_thread(void *data)
 		}
 	done:
 		brick_string_free(cmd.cmd_str1);
+		if (unlikely(status < 0)) {
+			if (!output->recv_error) {
+				MARS_DBG("signalling status = %d\n", status);
+				output->recv_error = status;
+			}
+			wake_up_interruptible(&output->event);
+			brick_msleep(100);
+		}
 	}
 
 	if (status < 0) {
-		MARS_WRN("receiver thread terminated with status = %d\n", status);
+		MARS_WRN("receiver thread terminated with status = %d, recv_error = %d\n", status, output->recv_error);
 	}
 
 	mars_shutdown_socket(&output->socket);
-	output->receiver.terminated = true;
 	wake_up_interruptible(&output->receiver.run_event);
 	return status;
 }
@@ -455,7 +469,8 @@ static int sender_thread(void *data)
 		struct client_mref_aspect *mref_a;
 		struct mref_object *mref;
 
-		if (unlikely(!mars_socket_is_alive(&output->socket))) {
+		if (unlikely(output->recv_error != 0 || !mars_socket_is_alive(&output->socket))) {
+			MARS_DBG("recv_error = %d do_kill = %d\n", output->recv_error, do_kill);
 			if (do_kill) {
 				do_kill = false;
 				_kill_socket(output);
@@ -477,7 +492,18 @@ static int sender_thread(void *data)
 			_do_resubmit(output);
 		}
 		
-		wait_event_interruptible_timeout(output->event, !list_empty(&output->mref_list) || output->get_info || brick_thread_should_stop(), 1 * HZ);
+		wait_event_interruptible_timeout(output->event,
+						 !list_empty(&output->mref_list) ||
+						 output->get_info ||
+						 output->recv_error != 0 ||
+						 brick_thread_should_stop(),
+						 1 * HZ);
+
+		if (unlikely(output->recv_error != 0)) {
+			MARS_DBG("recv_error = %d\n", output->recv_error);
+			brick_msleep(1000);
+			continue;
+		}
 		
 		if (output->get_info) {
 			status = _request_info(output);
@@ -545,7 +571,6 @@ static int sender_thread(void *data)
 	_do_timeout(output, &output->wait_list, true);
 	_do_timeout(output, &output->mref_list, true);
 
-	output->sender.terminated = true;
 	wake_up_interruptible(&output->sender.run_event);
 	MARS_DBG("sender terminated\n");
 	return status;
@@ -558,24 +583,21 @@ static int client_switch(struct client_brick *brick)
 
 	if (brick->power.button) {
 		mars_power_led_off((void*)brick, false);
-		if (output->sender.terminated) {
-			output->sender.terminated = false;
+		if (!output->sender.thread) {
 			output->sender.thread = brick_thread_create(sender_thread, output, "mars_sender%d", thread_count++);
 			if (unlikely(!output->sender.thread)) {
 				MARS_ERR("cannot start sender thread\n");
-				output->sender.terminated = true;
 				status = -ENOENT;
 				goto done;
 			}
 		}
-		if (!output->sender.terminated) {
+		if (output->sender.thread) {
 			mars_power_led_on((void*)brick, true);
 		}
 	} else {
 		mars_power_led_on((void*)brick, false);
-		_kill_thread(&output->sender);
-		wait_event_interruptible_timeout(output->sender.run_event, output->sender.terminated, 10 * HZ);
-		if (output->sender.terminated) {
+		_kill_thread(&output->sender, "sender");
+		if (!output->sender.thread) {
 			mars_power_led_off((void*)brick, !output->sender.thread);
 		}
 	}
@@ -656,8 +678,6 @@ static int client_output_construct(struct client_output *output)
 	init_waitqueue_head(&output->sender.run_event);
 	init_waitqueue_head(&output->receiver.run_event);
 	init_waitqueue_head(&output->info_event);
-	output->sender.terminated = true;
-	output->receiver.terminated = true;
 	return 0;
 }
 
