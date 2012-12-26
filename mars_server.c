@@ -235,8 +235,7 @@ int _set_server_aio_params(struct mars_brick *_brick, void *private)
 		MARS_ERR("bad brick type\n");
 		return -EINVAL;
 	}
-	aio_brick->readahead = 1;
-	aio_brick->linear_cache_size = CONFIG_MARS_LINEAR_CACHE_SIZE;
+	aio_brick->o_creat = false;
 	aio_brick->o_direct = false;
 	aio_brick->o_fdsync = false;
 	aio_brick->wait_during_fdsync = false;

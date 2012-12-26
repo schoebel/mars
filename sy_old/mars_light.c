@@ -156,7 +156,6 @@ EXPORT_SYMBOL_GPL(mars_mem_percent);
 #define BIO_SYNC true
 #define BIO_UNPLUG true
 
-#define AIO_READAHEAD 1
 #define AIO_WAIT_DURING_FDSYNC false
 
 #define COPY_APPEND_MODE 0
@@ -212,6 +211,7 @@ int _set_trans_params(struct mars_brick *_brick, void *private)
 
 struct client_cookie {
 	bool limit_mode;
+	bool create_mode;
 };
 
 static
@@ -246,6 +246,7 @@ static
 int _set_aio_params(struct mars_brick *_brick, void *private)
 {
 	struct aio_brick *aio_brick = (void*)_brick;
+	struct client_cookie *clc = private;
 	if (_brick->type == (void*)&client_brick_type) {
 		return _set_client_params(_brick, private);
 	}
@@ -256,24 +257,12 @@ int _set_aio_params(struct mars_brick *_brick, void *private)
 		MARS_ERR("bad brick type\n");
 		return -EINVAL;
 	}
-	aio_brick->readahead = AIO_READAHEAD;
+	aio_brick->o_creat = clc && clc->create_mode;
 	aio_brick->o_direct = false; // important!
 	aio_brick->o_fdsync = true;
 	aio_brick->wait_during_fdsync = AIO_WAIT_DURING_FDSYNC;
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 	return 1;
-}
-
-static
-int _set_aio_params_nocache(struct mars_brick *_brick, void *private)
-{
-	int res;
-	res = _set_aio_params(_brick, private);
-	if (_brick->type == (void*)&aio_brick_type) {
-		struct aio_brick *aio_brick = (void*)_brick;
-		aio_brick->linear_cache_size = CONFIG_MARS_LINEAR_CACHE_SIZE;
-	}
-	return res;
 }
 
 static
@@ -301,17 +290,6 @@ int _set_bio_params(struct mars_brick *_brick, void *private)
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 	return 1;
 }
-
-
-static
-int _set_bio_params_nocache(struct mars_brick *_brick, void *private)
-{
-	if (_brick->type == (void*)&aio_brick_type) {
-		return _set_aio_params_nocache(_brick, private);
-	}
-	return _set_bio_params(_brick, private);
-}
-
 
 static
 int _set_if_params(struct mars_brick *_brick, void *private)
@@ -876,8 +854,14 @@ int __make_copy(
 	struct mars_brick *copy;
 	struct copy_brick *_copy;
 	struct copy_cookie cc = {};
-	struct client_cookie clc = {
-		.limit_mode = limit_mode,
+	struct client_cookie clc[2] = {
+		{
+			.limit_mode = limit_mode,
+		},
+		{
+			.limit_mode = limit_mode,
+			.create_mode = true,
+		},
 	};
 	int i;
 	int status = -EINVAL;
@@ -910,8 +894,8 @@ int __make_copy(
 			make_brick_all(global,
 				       NULL,
 				       false,
-				       _set_bio_params_nocache,
-				       &clc,
+				       _set_bio_params,
+				       &clc[i],
 				       10 * HZ,
 				       NULL,
 				       (const struct generic_brick_type*)&bio_brick_type,
@@ -1792,7 +1776,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 		make_brick_all(global,
 			       aio_dent,
 			       false,
-			       _set_aio_params_nocache,
+			       _set_aio_params,
 			       NULL,
 			       10 * HZ,
 			       aio_path,
@@ -2226,7 +2210,7 @@ void _rotate_trans(struct mars_rotate *rot)
 			make_brick_all(rot->global,
 				       rot->next_relevant_log,
 				       false,
-				       _set_aio_params_nocache,
+				       _set_aio_params,
 				       NULL,
 				       10 * HZ,
 				       rot->next_relevant_log->d_path,
@@ -2344,7 +2328,7 @@ int _start_trans(struct mars_rotate *rot)
 		make_brick_all(rot->global,
 			       rot->relevant_log,
 			       false,
-			       _set_aio_params_nocache,
+			       _set_aio_params,
 			       NULL,
 			       10 * HZ,
 			       rot->relevant_log->d_path,

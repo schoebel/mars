@@ -14,6 +14,8 @@ extern struct threshold aio_submit_threshold;
 extern struct threshold aio_io_threshold[2];
 extern struct threshold aio_sync_threshold;
 
+extern int mapfree_period_sec;
+
 //#define USE_CLEVER_SYNC // TODO: NYI (should result in better write performance)
 #ifdef USE_CLEVER_SYNC
 
@@ -43,9 +45,7 @@ struct aio_mref_aspect {
 struct aio_brick {
 	MARS_BRICK(aio);
 	// parameters
-	int readahead;
-	int linear_cache_size; // in MB
-	int linear_cache_rounds;
+	bool o_creat;
 	bool o_direct;
 	bool o_fdsync;
 	bool wait_during_fdsync;
@@ -71,10 +71,8 @@ struct aio_threadinfo {
 struct aio_output {
 	MARS_OUTPUT(aio);
         // private
-	struct file *filp;
+	struct mapfree_info *mf;
 	int fd; // FIXME: remove this!
-	int rounds;
-	loff_t min_pos;
 	struct aio_threadinfo tinfo[3];
 	aio_context_t ctxp;
 	wait_queue_head_t fdsync_event;

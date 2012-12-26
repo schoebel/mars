@@ -138,23 +138,6 @@ config MARS_LOADAVG_LIMIT
 	---help---
 	Normally ON.
 
-config MARS_LINEAR_CACHE_SIZE
-	int "cache size for linear scans of logfiles (in MB)"
-	depends on MARS
-	default 64
-	---help---
-	Setting this to high numbers (or disabling by setting to 0)
-	may disturb the application performance, because MARS will
-	pollute the page cache with pages from the MARS logfiles.
-	Setting this to low numbers will prevent such a pollution,
-	at the cost of (sometimes) more IO operations.
-	EXCEPTION: when you run MARS on a standalone storage server
-	(e.g. exporting devices via iSCSI), you should use high numbers
-	here or even disable this feature. THEN (and ONLY THEN)
-	you want MARS to use all the memory for its own caching,
-	since there is no other application competing for main memory.
-	In unsure, take the default of 64.
-
 #config MARS_HUNG
 #	bool "hangup on kernel stacktrace (EXPERIMENTAL!!!)"
 #	depends on MARS && MARS_BIGMODULE!=m

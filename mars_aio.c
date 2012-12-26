@@ -126,11 +126,272 @@ done:
 	return mref_a;
 }
 
+////////////////// mapfree_pages() infrastructure //////////////////
+
+int mapfree_period_sec = 10;
+EXPORT_SYMBOL_GPL(mapfree_period_sec);
+
+static
+DECLARE_RWSEM(mapfree_mutex);
+
+static
+LIST_HEAD(mapfree_list);
+
+struct mapfree_info {
+	struct list_head mf_head;
+	char *mf_name;
+	struct file *mf_filp;
+	int mf_flags;
+	atomic_t mf_count;
+	spinlock_t mf_lock;
+	loff_t mf_min[2];
+	loff_t mf_last;
+	long long mf_jiffies;
+};
+
+static
+void mapfree_pages(struct mapfree_info *mf, bool force)
+{
+	struct address_space *mapping;
+	pgoff_t start;
+	pgoff_t end;
+
+	if (unlikely(!mf->mf_filp || !(mapping = mf->mf_filp->f_mapping)))
+		goto done;
+
+	if (force) {
+		start = 0;
+		end = -1;
+	} else {
+		unsigned long flags;
+		loff_t tmp;
+		loff_t min;
+		
+		traced_lock(&mf->mf_lock, flags);
+
+		min = tmp = mf->mf_min[0];
+		if (likely(mf->mf_min[1] < min))
+			min = mf->mf_min[1];
+		if (tmp) {
+			mf->mf_min[1] = tmp;
+			mf->mf_min[0] = 0;
+		}
+
+		traced_unlock(&mf->mf_lock, flags);
+
+		if (min || mf->mf_last) {
+			start = mf->mf_last / PAGE_SIZE;
+			mf->mf_last = min;
+			end   = min / PAGE_SIZE;
+		} else  { // there was no progress for at least 2 rounds
+			start = 0;
+			end = -1;
+		}
+
+		MARS_DBG("file = '%s' start = %lu end = %lu\n", SAFE_STR(mf->mf_name), start, end);
+	}
+
+	if (end >= start || end == -1) {
+		invalidate_mapping_pages(mapping, start, end);
+	}
+
+done:;
+}
+
+
+static
+void _mapfree_put(struct mapfree_info *mf)
+{
+	if (atomic_dec_and_test(&mf->mf_count)) {
+		MARS_DBG("closing file '%s' filp = %p\n", mf->mf_name, mf->mf_filp);
+		list_del_init(&mf->mf_head);
+		if (likely(mf->mf_filp)) {
+			mapfree_pages(mf, true);
+			filp_close(mf->mf_filp, NULL);
+		}
+		brick_string_free(mf->mf_name);
+		brick_mem_free(mf);
+	}
+}
+
+static
+void mapfree_put(struct mapfree_info *mf)
+{
+	down_write(&mapfree_mutex);
+	_mapfree_put(mf);
+	up_write(&mapfree_mutex);
+}
+
+static
+struct mapfree_info *mapfree_get(const char *name, int flags)
+{
+	struct mapfree_info *mf = NULL;
+	struct list_head *tmp;
+
+	if (!(flags & O_DIRECT)) {
+		down_read(&mapfree_mutex);
+		for (tmp = mapfree_list.next; tmp != &mapfree_list; tmp = tmp->next) {
+			struct mapfree_info *_mf = container_of(tmp, struct mapfree_info, mf_head);
+			if (_mf->mf_flags == flags && !strcmp(_mf->mf_name, name)) {
+				mf = _mf;
+				atomic_inc(&mf->mf_count);
+				break;
+			}
+		}
+		up_read(&mapfree_mutex);
+	
+		if (mf)
+			goto done;
+	}
+
+	for (;;) {
+		struct address_space *mapping;
+		struct inode *inode;
+		int ra = 1;
+		int prot = 0600;
+		mm_segment_t oldfs;
+
+		mf = brick_zmem_alloc(sizeof(struct mapfree_info));
+		if (unlikely(!mf)) {
+			MARS_ERR("no mem, name = '%s'\n", name);
+			continue;
+		}
+
+		mf->mf_name = brick_strdup(name);
+		if (unlikely(!mf->mf_name)) {
+			MARS_ERR("no mem, name = '%s'\n", name);
+			brick_mem_free(mf);
+			continue;
+		}
+
+		mf->mf_flags = flags;
+		INIT_LIST_HEAD(&mf->mf_head);
+		atomic_set(&mf->mf_count, 1);
+		spin_lock_init(&mf->mf_lock);
+
+		oldfs = get_fs();
+		set_fs(get_ds());
+		mf->mf_filp = filp_open(name, flags, prot);
+		set_fs(oldfs);
+
+		MARS_DBG("file '%s' flags = %d prot = %d filp = %p\n", name, flags, prot, mf->mf_filp);
+
+		if (unlikely(!mf->mf_filp || IS_ERR(mf->mf_filp))) {
+			int err = PTR_ERR(mf->mf_filp);
+			MARS_ERR("can't open file '%s' status=%d\n", name, err);
+			mf->mf_filp = NULL;
+			_mapfree_put(mf);
+			mf = NULL;
+			break;
+		}
+
+		if (unlikely(!(mapping = mf->mf_filp->f_mapping) ||
+			     !(inode = mapping->host))) {
+			MARS_ERR("file '%s' has no mapping\n", name);
+			mf->mf_filp = NULL;
+			_mapfree_put(mf);
+			mf = NULL;
+			break;
+		}
+
+		mapping_set_gfp_mask(mapping, mapping_gfp_mask(mapping) & ~(__GFP_IO | __GFP_FS));
+
+		if (S_ISBLK(inode->i_mode)) {
+			MARS_INF("changing blkdev readahead from %lu to %d\n", inode->i_bdev->bd_disk->queue->backing_dev_info.ra_pages, ra);
+			inode->i_bdev->bd_disk->queue->backing_dev_info.ra_pages = ra;
+		}
+
+		if (flags & O_DIRECT) {	// never share them
+			break;
+		}
+
+		// maintain global list of all open files
+		down_write(&mapfree_mutex);
+		for (tmp = mapfree_list.next; tmp != &mapfree_list; tmp = tmp->next) {
+			struct mapfree_info *_mf = container_of(tmp, struct mapfree_info, mf_head);
+			if (unlikely(_mf->mf_flags == flags && !strcmp(_mf->mf_name, name))) {
+				MARS_WRN("race on creation of '%s' detected\n", name);
+				_mapfree_put(mf);
+				mf = _mf;
+				goto leave;
+			}
+		}
+		list_add_tail(&mf->mf_head, &mapfree_list);
+	leave:
+		up_write(&mapfree_mutex);
+		break;
+	}
+ done:
+	return mf;
+}
+
+static
+void mapfree_set(struct mapfree_info *mf, loff_t min)
+{
+	unsigned long flags;
+
+	traced_lock(&mf->mf_lock, flags);
+	if (!mf->mf_min[0] || mf->mf_min[0] > min)
+		mf->mf_min[0] = min;
+	traced_unlock(&mf->mf_lock, flags);
+}
+
+static
+int mapfree_thread(void *data)
+{
+	while (!brick_thread_should_stop()) {
+		struct mapfree_info *mf = NULL;
+		struct list_head *tmp;
+		long long eldest = 0;
+
+		brick_msleep(500);
+
+		if (mapfree_period_sec <= 0)
+			continue;
+		
+		down_read(&mapfree_mutex);
+
+		for (tmp = mapfree_list.next; tmp != &mapfree_list; tmp = tmp->next) {
+			struct mapfree_info *_mf = container_of(tmp, struct mapfree_info, mf_head);
+			if (unlikely(!_mf->mf_jiffies)) {
+				_mf->mf_jiffies = jiffies;
+				continue;
+			}
+			if ((long long)jiffies - _mf->mf_jiffies > mapfree_period_sec * HZ &&
+			    (!mf || _mf->mf_jiffies < eldest)) {
+				mf = _mf;
+				eldest = _mf->mf_jiffies;
+			}
+		}
+		if (mf)
+			atomic_inc(&mf->mf_count);
+
+		up_read(&mapfree_mutex);
+
+		if (!mf) {
+			continue;
+		}
+
+		mapfree_pages(mf, false);
+
+		mf->mf_jiffies = jiffies;
+		mapfree_put(mf);
+	}
+	return 0;
+}
+
 ////////////////// own brick / input / output operations //////////////////
 
 static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
 {
-	struct file *file = output->filp;
+	struct file *file;
+	struct inode *inode;
+	loff_t total_size;
+
+	if (unlikely(!output->mf)) {
+		MARS_ERR("brick is not switched on\n");
+		return -EILSEQ;
+	}
 
 	if (unlikely(mref->ref_len <= 0)) {
 		MARS_ERR("bad ref_len=%d\n", mref->ref_len);
@@ -142,26 +403,39 @@ static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
 		return mref->ref_len;
 	}
 
-	if (file) {
-		loff_t total_size = i_size_read(file->f_mapping->host);
-		mref->ref_total_size = total_size;
-		/* Only check reads.
-		 * Writes behind EOF are always allowed (sparse files)
-		 */
-		if (!mref->ref_may_write) {
-			loff_t len = total_size - mref->ref_pos;
-			if (unlikely(len <= 0)) {
-				/* Special case: allow reads starting _exactly_ at EOF when a timeout is specified.
-				 */
-				if (len < 0 || mref->ref_timeout <= 0) {
-					MARS_DBG("ENODATA %lld\n", len);
-					return -ENODATA;
-				}
+	file = output->mf->mf_filp;
+	if (unlikely(!file)) {
+		MARS_ERR("file is not open\n");
+		return -EILSEQ;
+	}
+	if (unlikely(!file->f_mapping)) {
+		MARS_ERR("file %p has no mapping\n", file);
+		return -EILSEQ;
+	}
+	inode = file->f_mapping->host;
+	if (unlikely(!inode)) {
+		MARS_ERR("file %p has no inode\n", file);
+		return -EILSEQ;
+	}
+	
+	total_size = i_size_read(inode);
+	mref->ref_total_size = total_size;
+	/* Only check reads.
+	 * Writes behind EOF are always allowed (sparse files)
+	 */
+	if (!mref->ref_may_write) {
+		loff_t len = total_size - mref->ref_pos;
+		if (unlikely(len <= 0)) {
+			/* Special case: allow reads starting _exactly_ at EOF when a timeout is specified.
+			 */
+			if (len < 0 || mref->ref_timeout <= 0) {
+				MARS_DBG("ENODATA %lld\n", len);
+				return -ENODATA;
 			}
-			// Shorten below EOF, but allow special case
-			if (mref->ref_len > len && len > 0) {
-				mref->ref_len = len;
-			}
+		}
+		// Shorten below EOF, but allow special case
+		if (mref->ref_len > len && len > 0) {
+			mref->ref_len = len;
 		}
 	}
 
@@ -196,14 +470,14 @@ static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
 
 static void aio_ref_put(struct aio_output *output, struct mref_object *mref)
 {
-	struct file *file = output->filp;
+	struct file *file;
 	struct aio_mref_aspect *mref_a;
 
 	if (!_mref_put(mref)) {
 		goto done;
 	}
 
-	if (file) {
+	if (output->mf && (file = output->mf->mf_filp) && file->f_mapping && file->f_mapping->host) {
 		mref->ref_total_size = i_size_read(file->f_mapping->host);
 	}
 
@@ -277,9 +551,11 @@ static void aio_ref_io(struct aio_output *output, struct mref_object *mref)
 		atomic_inc(&output->read_count);
 	}
 
-	if (unlikely(!output->filp)) {
+	if (unlikely(!output->mf || !output->mf->mf_filp)) {
 		goto done;
 	}
+
+	mapfree_set(output->mf, mref->ref_pos);
 
 	MARS_IO("AIO rw=%d pos=%lld len=%d data=%p\n", mref->ref_rw, mref->ref_pos, mref->ref_len, mref->ref_data);
 
@@ -430,7 +706,7 @@ void aio_sync_all(struct aio_output *output, struct list_head *tmp_list)
 	
 	latency = TIME_STATS(
 		&timings[2],
-		err = aio_sync(output->filp)
+		err = aio_sync(output->mf->mf_filp)
 		);
 	
 	threshold_check(&aio_sync_threshold, latency);
@@ -609,7 +885,10 @@ static int aio_event_thread(void *data)
 			   && !mref->ref_skip_sync
 			   && !mref_a->resubmit++) {
 				// workaround for non-implemented AIO FSYNC operation
-				if (!output->filp->f_op->aio_fsync) {
+				if (output->mf &&
+				    output->mf->mf_filp &&
+				    output->mf->mf_filp->f_op &&
+				    !output->mf->mf_filp->f_op->aio_fsync) {
 					mars_trace(mref, "aio_fsync");
 					_enqueue(other, mref_a, mref->ref_prio, true);
 					continue;
@@ -654,58 +933,17 @@ void fd_uninstall(unsigned int fd)
 EXPORT_SYMBOL(fd_uninstall);
 #endif
 
-static
-void _mapfree_pages(struct aio_output *output, bool force)
-{
-	struct aio_brick *brick = output->brick;
-	struct address_space *mapping;
-	pgoff_t start;
-	pgoff_t end;
-	pgoff_t gap;
-
-	if (brick->linear_cache_size <= 0)
-		goto done;
-
-	if (!force && ++output->rounds < brick->linear_cache_rounds)
-		goto done;
-
-	if (unlikely(!output->filp || !(mapping = output->filp->f_mapping)))
-		goto done;
-
-	if (unlikely(brick->linear_cache_rounds <= 0))
-		brick->linear_cache_rounds = 1024;
-
-	if (force) {
-		start = 0;
-		end = -1;
-	} else {
-		gap = brick->linear_cache_size * (1024 * 1024 / PAGE_SIZE);
-		end = output->min_pos / PAGE_SIZE - gap;
-		output->min_pos = 0;
-		if (end <= 0)
-			goto done;
-
-		start = end - gap * 4;
-		if (start < 0)
-			start = 0;
-	}
-
-	output->rounds = 0;
-	atomic_inc(&output->total_mapfree_count);
-
-	invalidate_mapping_pages(mapping, start, end);
-
-done:;
-}
-
 static int aio_submit_thread(void *data)
 {
 	struct aio_threadinfo *tinfo = data;
 	struct aio_output *output = tinfo->output;
-	struct file *file = output->filp;
+	struct file *file;
 	mm_segment_t oldfs;
 	int err = -EINVAL;
 
+	CHECK_PTR_NULL(output, done);
+	CHECK_PTR_NULL(output->mf, done);
+	file = output->mf->mf_filp;
 	CHECK_PTR_NULL(file, done);
 
 	/* TODO: this is provisionary. We only need it for sys_io_submit()
@@ -747,8 +985,6 @@ static int aio_submit_thread(void *data)
 		int sleeptime;
 		int status;
 
-		_mapfree_pages(output, false);
-
 		wait_event_interruptible_timeout(
 			tinfo->event,
 			atomic_read(&tinfo->queued_sum) > 0,
@@ -763,8 +999,7 @@ static int aio_submit_thread(void *data)
 		status = -EINVAL;
 		CHECK_PTR(mref, error);
 
-		if (!output->min_pos || mref->ref_pos < output->min_pos)
-			output->min_pos = mref->ref_pos;
+		mapfree_set(output->mf, mref->ref_pos);
 
 		// check for reads exactly at EOF (special case)
 		if (mref->ref_pos == mref->ref_total_size &&
@@ -860,8 +1095,12 @@ done:
 
 static int aio_get_info(struct aio_output *output, struct mars_info *info)
 {
-	struct file *file = output->filp;
-	if (unlikely(!file || !file->f_mapping || !file->f_mapping->host))
+	struct file *file;
+	if (unlikely(!output ||
+		     !output->mf ||
+		     !(file = output->mf->mf_filp) ||
+		     !file->f_mapping ||
+		     !file->f_mapping->host))
 		return -EINVAL;
 
 	info->current_size = i_size_read(file->f_mapping->host);
@@ -898,9 +1137,6 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 		 "fdsyncs = %d "
 		 "fdsync_waits = %d "
 		 "map_free = %d | "
-		 "linear_cache_size = %d "
-		 "linear_cache_rounds = %d "
-		 "min_pos = %lld | "
 		 "flying reads = %d "
 		 "writes = %d "
 		 "allocs = %d "
@@ -923,9 +1159,6 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 		 atomic_read(&output->total_fdsync_count),
 		 atomic_read(&output->total_fdsync_wait_count),
 		 atomic_read(&output->total_mapfree_count),
-		 brick->linear_cache_size,
-		 brick->linear_cache_rounds,
-		 output->min_pos,
 		 atomic_read(&output->read_count),
 		 atomic_read(&output->write_count),
 		 atomic_read(&output->alloc_count),
@@ -995,54 +1228,41 @@ static int aio_switch(struct aio_brick *brick)
 	static int index;
 	struct aio_output *output = brick->outputs[0];
 	const char *path = output->brick->brick_path;
-	int flags = O_CREAT | O_RDWR | O_LARGEFILE;
-	int prot = 0600;
-	mm_segment_t oldfs;
-	int err = 0;
+	int flags = O_RDWR | O_LARGEFILE;
+	int status = 0;
 
 	MARS_DBG("power.button = %d\n", brick->power.button);
 	if (!brick->power.button)
 		goto cleanup;
 
-	if (brick->power.led_on || output->filp)
+	if (brick->power.led_on || output->mf)
 		goto done;
 
 	mars_power_led_off((void*)brick, false);
 
+	if (brick->o_creat) {
+		flags |= O_CREAT;
+		MARS_INF("using O_CREAT on %s\n", path);
+	}
 	if (brick->o_direct) {
 		flags |= O_DIRECT;
 		MARS_INF("using O_DIRECT on %s\n", path);
 	}
 
-	oldfs = get_fs();
-	set_fs(get_ds());
-	output->filp = filp_open(path, flags, prot);
-	set_fs(oldfs);
-	
-	MARS_DBG("opened file '%s' flags = %d prot = %d filp = %p\n", path, flags, prot, output->filp);
-
-	if (unlikely(!output->filp || IS_ERR(output->filp))) {
-		err = PTR_ERR(output->filp);
-		MARS_ERR("can't open file '%s' status=%d\n", path, err);
-		output->filp = NULL;
-		if (err >= 0)
-			err = -ENOENT;
-		return err;
-	}
-#if 1
-	{
-		struct inode *inode = output->filp->f_mapping->host;
-		if (S_ISBLK(inode->i_mode)) {
-			MARS_INF("changing readahead from %lu to %d\n", inode->i_bdev->bd_disk->queue->backing_dev_info.ra_pages, brick->readahead);
-			inode->i_bdev->bd_disk->queue->backing_dev_info.ra_pages = brick->readahead;
-		}
-	}
-#endif
+	output->mf = mapfree_get(path, flags);
+	if (unlikely(!output->mf)) {
+		status = -ENOENT;
+		goto err;
+	} 
 
 	output->index = ++index;
-	err = aio_start_thread(output, &output->tinfo[0], aio_submit_thread, 's');
-	if (err < 0)
+	status = aio_start_thread(output, &output->tinfo[0], aio_submit_thread, 's');
+	if (unlikely(status < 0)) {
+		MARS_ERR("could not start theads, status = %d\n", status);
+		mapfree_put(output->mf);
+		output->mf = NULL;
 		goto err;
+	}
 
 	MARS_INF("opened file '%s'\n", path);
 	mars_power_led_on((void*)brick, true);
@@ -1051,7 +1271,7 @@ done:
 	return 0;
 
 err:
-	MARS_ERR("status = %d\n", err);
+	MARS_ERR("status = %d\n", status);
 cleanup:
 	if (brick->power.led_off) {
 		goto done;
@@ -1067,14 +1287,13 @@ cleanup:
 			   output->tinfo[2].thread == NULL));
 
 	if (brick->power.led_off) {
-		if (output->filp) {
-			_mapfree_pages(output, true);
-			filp_close(output->filp, NULL);
-			output->filp = NULL;
+		if (output->mf) {
+			mapfree_put(output->mf);
+			output->mf = NULL;
 		}
 	}
-	MARS_DBG("switch off status = %d\n", err);
-	return err;
+	MARS_DBG("switch off status = %d\n", status);
+	return status;
 }
 
 static int aio_output_construct(struct aio_output *output)
@@ -1139,9 +1358,17 @@ EXPORT_SYMBOL_GPL(aio_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 
+static
+struct task_struct *mf_thread = NULL;
+
 int __init init_mars_aio(void)
 {
 	MARS_INF("init_aio()\n");
+	mf_thread = brick_thread_create(mapfree_thread, NULL, "mars_mapfree");
+	if (unlikely(!mf_thread)) {
+		MARS_ERR("could not create mapfree thread\n");
+		return -ENOMEM;
+	}
 	_aio_brick_type = (void*)&aio_brick_type;
 	return aio_register_brick_type();
 }
@@ -1149,6 +1376,10 @@ int __init init_mars_aio(void)
 void __exit exit_mars_aio(void)
 {
 	MARS_INF("exit_aio()\n");
+	if (likely(mf_thread)) {
+		brick_thread_stop(mf_thread);
+		mf_thread = NULL;
+	}
 	aio_unregister_brick_type();
 }
 
