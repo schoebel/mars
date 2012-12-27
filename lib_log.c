@@ -307,6 +307,7 @@ bool log_finalize(struct log_status *logst, int len, void (*preio)(void *private
 	int offset;
 	int restlen;
 	int nr_cb;
+	int crc;
 	bool ok = false;
 
 	CHECK_PTR(mref, err);
@@ -327,6 +328,13 @@ bool log_finalize(struct log_status *logst, int len, void (*preio)(void *private
 
 	data = mref->ref_data;
 
+	crc = 0;
+	if (logst->do_crc) {
+		unsigned char checksum[mars_digest_size];
+		mars_digest(checksum, data + logst->payload_offset, len);
+		crc = *(int*)checksum;
+	}
+
 	/* Correct the length in the header.
 	 */
 	offset = logst->reallen_offset;
@@ -336,7 +344,7 @@ bool log_finalize(struct log_status *logst, int len, void (*preio)(void *private
 	 */
 	offset = logst->payload_offset + len;
 	DATA_PUT(data, offset, END_MAGIC);
-	DATA_PUT(data, offset, (int)0);   // crc
+	DATA_PUT(data, offset, crc);
 	DATA_PUT(data, offset, (char)1);  // valid_flag copy
 	DATA_PUT(data, offset, (char)0);  // spare
 	DATA_PUT(data, offset, (short)0); // spare
@@ -460,6 +468,15 @@ int log_scan(void *buf, int len, loff_t file_pos, int file_offset, struct log_he
 		offset += 3 + 4;
 		DATA_GET(buf, offset, lh->l_written.tv_sec);
 		DATA_GET(buf, offset, lh->l_written.tv_nsec);
+
+		if (lh->l_crc) {
+			unsigned char checksum[mars_digest_size];
+			mars_digest(checksum, buf + found_offset, lh->l_len);
+			if (unlikely(*(int*)checksum != lh->l_crc)) {
+				MARS_ERR("data checksumming mismatch, length = %d\n", lh->l_len);
+				return -EBADMSG;
+			}
+		}
 
 		// last check
 		if (total_len != offset - i) {

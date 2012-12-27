@@ -17,6 +17,7 @@
 
 ///////////////////////// global tuning ////////////////////////
 
+extern int trans_logger_do_crc;
 extern int trans_logger_mem_usage; // in KB
 extern atomic_t   global_mshadow_count;
 extern atomic64_t global_mshadow_used;

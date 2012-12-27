@@ -46,6 +46,14 @@
 
 ///////////////////////// global tuning ////////////////////////
 
+int trans_logger_do_crc =
+#ifdef CONFIG_MARS_DEBUG
+	true;
+#else
+	false;
+#endif
+EXPORT_SYMBOL_GPL(trans_logger_do_crc);
+
 int trans_logger_mem_usage; // in KB
 EXPORT_SYMBOL_GPL(trans_logger_mem_usage);
 
@@ -1470,6 +1478,7 @@ bool phase0_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	CHECK_PTR(input, err);
 	orig_mref_a->log_input = input;
 	logst = &input->logst;
+	logst->do_crc = trans_logger_do_crc;
 
 	{
 		struct log_header l = {
@@ -1783,6 +1792,7 @@ bool _phase2_startio(struct trans_logger_mref_aspect *sub_mref_a)
 	input = sub_mref_a->log_input;
 	CHECK_PTR(input, err);
 	logst = &input->logst;
+	logst->do_crc = trans_logger_do_crc;
 
 	{
 		struct log_header l = {

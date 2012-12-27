@@ -198,6 +198,7 @@ ctl_table mars_table[] = {
 		.mode		= 0400,
 		.proc_handler	= &lamport_sysctl_handler,
 	},
+	INT_ENTRY("logger_do_crc",        trans_logger_do_crc,    0600),
 	INT_ENTRY("syslog_min_class",     brick_say_syslog_min,   0600),
 	INT_ENTRY("syslog_max_class",     brick_say_syslog_max,   0600),
 	INT_ENTRY("delay_say_on_overflow",delay_say_on_overflow,  0600),

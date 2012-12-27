@@ -29,7 +29,7 @@ struct log_header_v1 {
 	int    l_extra_len;
 	short  l_code;
 	short  l_extra;
-	int    l_crc; // NYI
+	int    l_crc;
 };
 
 #define FORMAT_VERSION   1 // version of disk format, currently there is no other one
@@ -94,6 +94,7 @@ struct log_status {
 	int align_size;   // alignment between requests
 	int chunk_size;   // must be at least 8K (better 64k)
 	int io_prio;
+	bool do_crc;
 	// informational
 	atomic_t mref_flying;
 	int count;
