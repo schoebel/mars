@@ -617,9 +617,12 @@ int mars_congested(void *data, int bdi_bits)
 	struct if_input *input = data;
 	int ret = 0;
 	if (bdi_bits & (1 << BDI_sync_congested) &&
-	   atomic_read(&input->flying_count) > 0) {
+	    atomic_read(&input->read_flying_count) > 0) {
 		ret |= (1 << BDI_sync_congested);
-		
+	}
+	if (bdi_bits & (1 << BDI_async_congested) &&
+	    atomic_read(&input->write_flying_count) > 0) {
+		ret |= (1 << BDI_async_congested);
 	}
 	return ret;
 }
