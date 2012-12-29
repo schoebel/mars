@@ -2114,9 +2114,17 @@ static
 struct rank_info extra_rank_mref_flying[] = {
 	{     0,    0 },
 	{     1,   10 },
-	{    16,   10 },
-	{    17,  -30 },
-	{ 10000, -200 },
+	{    16,   30 },
+	{    31,    0 },
+	{    32, -200 },
+	{ RKI_DUMMY }
+};
+
+static
+struct rank_info global_rank_mref_flying[] = {
+	{     0,    0 },
+	{    63,    0 },
+	{    64, -200 },
 	{ RKI_DUMMY }
 };
 
@@ -2164,6 +2172,10 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 		wake_up_interruptible(&brick->caller_event);
 	}
 
+	// global limit for flying mrefs
+	ranking_compute(&rkd[0], global_rank_mref_flying, atomic_read(&global_mref_flying));
+
+	// local limit for flying mrefs
 	mref_flying = 0;
 	for (i = TL_INPUT_LOG1; i <= TL_INPUT_LOG2; i++) {
 		struct trans_logger_input *input = brick->inputs[i];

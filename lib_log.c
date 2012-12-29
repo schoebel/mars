@@ -12,6 +12,9 @@
 
 #include "lib_log.h"
 
+atomic_t global_mref_flying = ATOMIC_INIT(0);
+EXPORT_SYMBOL_GPL(global_mref_flying);
+
 void exit_logst(struct log_status *logst)
 {
 	int count = 0;
@@ -115,6 +118,7 @@ void log_write_endio(struct generic_callback *cb)
  done:
 	put_log_cb_info(cb_info);
 	atomic_dec(&logst->mref_flying);
+	atomic_dec(&global_mref_flying);
 	if (logst->signal_event)
 		wake_up_interruptible(logst->signal_event);
 
@@ -163,7 +167,10 @@ void log_flush(struct log_status *logst)
 	mars_trace(mref, "log_flush");
 
 	atomic_inc(&logst->mref_flying);
+	atomic_inc(&global_mref_flying);
+
 	_do_callbacks(cb_info, 0, false);
+
 	GENERIC_INPUT_CALL(logst->input, mref_io, mref);
 	GENERIC_INPUT_CALL(logst->input, mref_put, mref);
 

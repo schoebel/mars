@@ -12,6 +12,8 @@
 
 #include "mars.h"
 
+extern atomic_t global_mref_flying;
+
 /* The following structure is memory-only.
  * Transfers to disk are indirectly via the
  * format conversion functions below.
