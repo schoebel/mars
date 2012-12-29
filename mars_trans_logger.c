@@ -187,6 +187,7 @@ void qq_mref_pushback(struct logger_queue *q, struct trans_logger_mref_aspect *m
 	_mref_check(mref_a->object);
 
 	mars_trace(mref_a->object, q->q_pushback_info);
+	q->pushback_count++;
 
 	q_logger_pushback(q, &mref_a->lh);
 }
@@ -194,6 +195,7 @@ void qq_mref_pushback(struct logger_queue *q, struct trans_logger_mref_aspect *m
 static inline
 void qq_wb_pushback(struct logger_queue *q, struct writeback_info *wb)
 {
+	q->pushback_count++;
 	q_logger_pushback(q, &wb->w_lh);
 }
 
@@ -2418,6 +2420,13 @@ void trans_logger_log(struct trans_logger_brick *brick)
 		case 3:
 			nr = run_wb_queue(&brick->q_phase[3], phase3_startio, brick->q_phase[3].q_batchlen);
 		done:
+			if (unlikely(nr <= 0)) {
+				/* This should not happen!
+				 * However, in error situations, the ranking
+				 * algorithm cannot foresee anything.
+				 */
+				brick->q_phase[winner].no_progress_count++;
+			}
 			ranking_select_done(rkd, winner, nr);
 			break;
 
@@ -2868,10 +2877,10 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 "fly=%d "
 		 "mref_flying1=%d "
 		 "mref_flying2=%d "
-		 "phase0=%d+%d "
-		 "phase1=%d+%d "
-		 "phase2=%d+%d "
-		 "phase3=%d+%d\n",
+		 "phase0=%d+%d <%d/%d> "
+		 "phase1=%d+%d <%d/%d> "
+		 "phase2=%d+%d <%d/%d> "
+		 "phase3=%d+%d <%d/%d>\n",
 		 brick->replay_mode,
 		 brick->continuous_replay_mode,
 		 brick->replay_code,
@@ -2930,12 +2939,20 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 atomic_read(&brick->inputs[TL_INPUT_LOG2]->logst.mref_flying),
 		 atomic_read(&brick->q_phase[0].q_queued),
 		 atomic_read(&brick->q_phase[0].q_flying),
+		 brick->q_phase[0].pushback_count,
+		 brick->q_phase[0].no_progress_count,
 		 atomic_read(&brick->q_phase[1].q_queued),
 		 atomic_read(&brick->q_phase[1].q_flying),
+		 brick->q_phase[1].pushback_count,
+		 brick->q_phase[1].no_progress_count,
 		 atomic_read(&brick->q_phase[2].q_queued),
 		 atomic_read(&brick->q_phase[2].q_flying),
+		 brick->q_phase[2].pushback_count,
+		 brick->q_phase[2].no_progress_count,
 		 atomic_read(&brick->q_phase[3].q_queued),
-		 atomic_read(&brick->q_phase[3].q_flying));
+		 atomic_read(&brick->q_phase[3].q_flying),
+		 brick->q_phase[3].pushback_count,
+		 brick->q_phase[3].no_progress_count);
 	return res;
 }
 

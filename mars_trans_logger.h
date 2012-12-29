@@ -44,7 +44,8 @@ struct logger_queue {
 	const char *q_insert_info;
 	const char *q_pushback_info;
 	const char *q_fetch_info;
-
+	int no_progress_count;
+	int pushback_count;
 };
 
 struct logger_head {
