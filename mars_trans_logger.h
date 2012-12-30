@@ -208,7 +208,7 @@ struct trans_logger_output {
 };
 
 struct trans_logger_info {
-	// to be maintained from outside
+	// to be maintained / initialized from outside
 	void (*inf_callback)(struct trans_logger_info *inf);
 	void  *inf_private;
 	char  *inf_host;
@@ -238,9 +238,9 @@ struct trans_logger_input {
 
 	// private
 	struct log_status logst;
-	spinlock_t pos_lock;
 	struct list_head pos_list;
 	long long inf_last_jiffies;
+	struct semaphore inf_mutex;
 };
 
 MARS_TYPES(trans_logger);
