@@ -12,10 +12,6 @@
 // variants
 #define KEEP_UNIQUE
 #define DELAY_CALLERS // this is _needed_ for production systems
-//#define WB_COPY // unnecessary (only costs performance)
-//#define LATE_COMPLETE // unnecessary (only costs performance)
-//#define EARLY_COMPLETION
-//#define OLD_POSCOMPLETE
 #define SHORTCUT_1_to_3 // when possible, queue 1 executes phase3_startio() directly without intermediate queueing into queue 3 => may be irritating, but has better performance. NOTICE: when some day the IO scheduling should be different between queue 1 and 3, you MUST disable this in order to distinguish between them!
 
 // commenting this out is dangerous for data integrity! use only for testing!
@@ -794,11 +790,9 @@ restart:
 		CHECK_HEAD_EMPTY(&mref_a->sub_list);
 		CHECK_HEAD_EMPTY(&mref_a->sub_head);
 
-#ifndef OLD_POSCOMPLETE
 		if (mref_a->is_collected && likely(mref_a->wb_error >= 0)) {
 			pos_complete(mref_a);
 		}
-#endif
 
 		CHECK_HEAD_EMPTY(&mref_a->pos_head);
 
@@ -1031,21 +1025,9 @@ void free_writeback(struct writeback_info *wb)
 		if (unlikely(!orig_mref_a->is_collected)) {
 			MARS_ERR("request %lld (len = %d) was not collected\n", orig_mref->ref_pos, orig_mref->ref_len);
 		}
-#ifdef LATE_COMPLETE
-		while (!orig_mref_a->is_completed) {
-			MARS_ERR("request %lld (len = %d) was not completed\n", orig_mref->ref_pos, orig_mref->ref_len);
-			brick_msleep(3000);
-		}
-#endif
-#ifdef OLD_POSCOMPLETE
-		if (likely(wb->w_error >= 0)) {
-			pos_complete(orig_mref_a);
-		}
-#else
 		if (unlikely(wb->w_error < 0)) {
 			orig_mref_a->wb_error = wb->w_error;
 		}
-#endif
 
 		__trans_logger_ref_put(orig_mref_a->my_brick, orig_mref_a);
 	}
@@ -1249,11 +1231,7 @@ struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t p
 		sub_mref->ref_len = this_len;
 		sub_mref->ref_may_write = WRITE;
 		sub_mref->ref_rw = WRITE;
-#ifdef WB_COPY
-		sub_mref->ref_data = NULL;
-#else
 		sub_mref->ref_data = data;
-#endif
 
 		sub_mref_a = trans_logger_mref_get_aspect(brick, sub_mref);
 		CHECK_PTR(sub_mref_a, err);
@@ -1271,9 +1249,6 @@ struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t p
 			MARS_FAT("cannot get sub_ref, status = %d\n", status);
 			goto err;
 		}
-#ifdef WB_COPY
-		memcpy(sub_mref->ref_data, data, sub_mref->ref_len);
-#endif
 		
 		list_add_tail(&sub_mref_a->sub_head, &wb->w_sub_write_list);
 		atomic_inc(&wb->w_sub_write_count);
@@ -1414,10 +1389,8 @@ void phase0_preio(void *private)
 	// signal completion to the upper layer
 	// FIXME: immediate error signalling is impossible here, but some delayed signalling should be possible as a workaround. Think!
 	_mref_check(orig_mref_a->object);
-#ifdef EARLY_COMPLETION
 	_complete(brick, orig_mref_a, 0, true);
 	_mref_check(orig_mref_a->object);
-#endif
 	return;
 err: 
 	MARS_ERR("giving up...\n");
@@ -1446,10 +1419,8 @@ void phase0_endio(void *private, int error)
 	_mref_get(orig_mref); // must be paired with __trans_logger_ref_put()
 	atomic_inc(&brick->inner_balance_count);
 
-#ifndef LATE_COMPLETE
 	// signal completion to the upper layer
 	_complete(brick, orig_mref_a, error, false);
-#endif
 
 	/* Queue up for the next phase.
 	 */
@@ -1690,11 +1661,6 @@ bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 		MARS_ERR("no mem\n");
 		goto err;
 	}
-
-#ifdef LATE_COMPLETE
-	// signal completion to the upper layer
-	_complete(brick, orig_mref_a, 0, false);
-#endif
 
 	if (unlikely(list_empty(&wb->w_collect_list))) {
 		MARS_ERR("collection list is empty, orig pos = %lld len = %d (collected=%d), extended pos = %lld len = %d\n", orig_mref->ref_pos, orig_mref->ref_len, (int)orig_mref_a->is_collected, wb->w_pos, wb->w_len);
