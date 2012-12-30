@@ -14,6 +14,7 @@
 #include "lib_log.h"
 #include "lib_pairing_heap.h"
 #include "lib_queue.h"
+#include "lib_timing.h"
 
 ///////////////////////// global tuning ////////////////////////
 
@@ -44,6 +45,7 @@ struct logger_queue {
 	const char *q_insert_info;
 	const char *q_pushback_info;
 	const char *q_fetch_info;
+	struct banning q_banning;
 	int no_progress_count;
 	int pushback_count;
 };

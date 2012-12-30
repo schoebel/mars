@@ -2199,6 +2199,20 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 		if (queued <= 0)
 			continue;
 
+		if (banning_is_hit(&brick->q_phase[i].q_banning)) {
+#ifdef IO_DEBUGGING
+			unsigned long long now = cpu_clock(raw_smp_processor_id());
+			MARS_IO("BAILOUT queue = %d via banning now = %lld last_hit = %lld diff = %lld renew_count = %d count = %d\n",
+				i,
+				now,
+				now - brick->q_phase[i].q_banning.ban_last_hit,
+				brick->q_phase[i].q_banning.ban_last_hit,
+				brick->q_phase[i].q_banning.ban_renew_count,
+				brick->q_phase[i].q_banning.ban_count);
+#endif
+			break;
+		}
+
 		if (i == 0) {
 			// limit mref IO parallelism on transaction log
 			ranking_compute(&rkd[0], extra_rank_mref_flying, mref_flying);
@@ -2426,6 +2440,7 @@ void trans_logger_log(struct trans_logger_brick *brick)
 				 * algorithm cannot foresee anything.
 				 */
 				brick->q_phase[winner].no_progress_count++;
+				banning_hit(&brick->q_phase[winner].q_banning, 1000000);
 			}
 			ranking_select_done(rkd, winner, nr);
 			break;
