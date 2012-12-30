@@ -57,6 +57,9 @@ EXPORT_SYMBOL_GPL(trans_logger_do_crc);
 int trans_logger_mem_usage; // in KB
 EXPORT_SYMBOL_GPL(trans_logger_mem_usage);
 
+int trans_logger_max_depth = 128;
+EXPORT_SYMBOL_GPL(trans_logger_max_depth);
+
 struct writeback_group global_writeback = {
 	.lock = __RW_LOCK_UNLOCKED(global_writeback.lock),
 	.group_anchor = LIST_HEAD_INIT(global_writeback.group_anchor),
@@ -655,7 +658,8 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 	// delay in case of too many master shadows / memory shortage
 	wait_event_interruptible_timeout(brick->caller_event,
 					 !brick->delay_callers &&
-					 (brick_global_memlimit < 1024 || atomic64_read(&global_mshadow_used) / 1024 < brick_global_memlimit),
+					 (brick_global_memlimit < 1024 || atomic64_read(&global_mshadow_used) / 1024 < brick_global_memlimit) &&
+					 (trans_logger_max_depth <= 0 || atomic_read(&brick->q_phase[0].q_queued) < trans_logger_max_depth),
 					 HZ / 2);
 #endif
 

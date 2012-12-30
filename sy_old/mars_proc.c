@@ -203,6 +203,7 @@ ctl_table mars_table[] = {
 	INT_ENTRY("syslog_max_class",     brick_say_syslog_max,   0600),
 	INT_ENTRY("delay_say_on_overflow",delay_say_on_overflow,  0600),
 	INT_ENTRY("mapfree_period_sec",   mapfree_period_sec,     0600),
+	INT_ENTRY("logger_max_depth",     trans_logger_max_depth, 0600),
 	INT_ENTRY("mem_limit_percent",    mars_mem_percent,       0600),
 	INT_ENTRY("logger_mem_used_kb",   trans_logger_mem_usage, 0400),
 	INT_ENTRY("mem_used_raw_kb",      brick_global_block_used,0400),
