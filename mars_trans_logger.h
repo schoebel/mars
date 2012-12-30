@@ -18,6 +18,11 @@
 
 ///////////////////////// global tuning ////////////////////////
 
+/* 0 = early completion of all writes
+ * 1 = early completion of non-sync
+ * 2 = late completion
+ */
+extern int trans_logger_completion_semantics;
 extern int trans_logger_do_crc;
 extern int trans_logger_mem_usage; // in KB
 extern int trans_logger_max_depth;
@@ -141,7 +146,6 @@ struct trans_logger_brick {
 	int max_mref_size;// shorten mrefs to this maxlen
 	int align_size;   // alignment between requests
 	int chunk_size;   // must be at least 8K (better 64k)
-	int completion_semantics; // 0 = early completion of all writes, 1 = early completion of non-sync, 2 = late completion
 	bool replay_mode;   // mode of operation
 	bool continuous_replay_mode;   // mode of operation
 	bool log_reads;   // additionally log pre-images

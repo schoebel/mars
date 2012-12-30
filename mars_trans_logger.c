@@ -42,6 +42,9 @@
 
 ///////////////////////// global tuning ////////////////////////
 
+int trans_logger_completion_semantics = 1;
+EXPORT_SYMBOL_GPL(trans_logger_completion_semantics);
+
 int trans_logger_do_crc =
 #ifdef CONFIG_MARS_DEBUG
 	true;
@@ -1351,9 +1354,9 @@ void _complete(struct trans_logger_brick *brick, struct trans_logger_mref_aspect
 	CHECK_PTR(orig_mref, err);
 
 	if (orig_mref_a->is_completed || 
-	   (pre_io &&
-	    (brick->completion_semantics >= 2 ||
-	     (brick->completion_semantics >= 1 && !orig_mref->ref_skip_sync)))) {
+	    (pre_io &&
+	     (trans_logger_completion_semantics >= 2 ||
+	      (trans_logger_completion_semantics >= 1 && !orig_mref->ref_skip_sync)))) {
 		goto done;
 	}
 

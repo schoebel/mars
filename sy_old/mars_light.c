@@ -138,8 +138,6 @@ EXPORT_SYMBOL_GPL(mars_mem_percent);
 #define CONF_TRANS_PRIO   MARS_PRIO_HIGH
 #define CONF_TRANS_LOG_READS false
 //#define CONF_TRANS_LOG_READS true
-//#define CONF_TRANS_COMPLETION_SEMANTICS 2
-#define CONF_TRANS_COMPLETION_SEMANTICS 0
 
 #define CONF_ALL_BATCHLEN 1
 #define CONF_ALL_PRIO   MARS_PRIO_NORMAL
@@ -196,7 +194,7 @@ int _set_trans_params(struct mars_brick *_brick, void *private)
 
 		trans_brick->shadow_mem_limit = CONF_TRANS_SHADOW_LIMIT;
 		trans_brick->log_reads = CONF_TRANS_LOG_READS;
-		trans_brick->completion_semantics = CONF_TRANS_COMPLETION_SEMANTICS;
+
 #ifdef TRANS_FAKE
 		trans_brick->debug_shortcut = true;
 #endif
