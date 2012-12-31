@@ -132,19 +132,21 @@ void log_flush(struct log_status *logst)
 {
 	struct mref_object *mref = logst->log_mref;
 	struct log_cb_info *cb_info;
+	int align_size;
 	int gap;
 
 	if (!mref || !logst->count)
 		return;
 
 	gap = 0;
-	if (logst->align_size > 0) {
+	align_size = (logst->align_size / PAGE_SIZE) * PAGE_SIZE;
+	if (align_size > 0) {
 		// round up to next alignment border
-		int align_offset = logst->offset & (logst->align_size-1);
+		int align_offset = logst->offset & (align_size-1);
 		if (align_offset > 0) {
 			int restlen = mref->ref_len - logst->offset;
-			gap = logst->align_size - align_offset;
-			if (gap > restlen) {
+			gap = align_size - align_offset;
+			if (unlikely(gap > restlen)) {
 				gap = restlen;
 			}
 		}
@@ -227,19 +229,9 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 		cb_info->mref = mref;
 
 		mref->ref_pos = logst->log_pos;
-		mref->ref_len = total_len;
+		mref->ref_len = logst->chunk_size ? logst->chunk_size : total_len;
 		mref->ref_may_write = WRITE;
 		mref->ref_prio = logst->io_prio;
-		if (logst->chunk_size > 0) {
-			int chunk_offset;
-			int chunk_rest;
-			chunk_offset = logst->log_pos & (loff_t)(logst->chunk_size - 1);
-			chunk_rest = logst->chunk_size - chunk_offset;
-			while (chunk_rest < total_len) {
-				chunk_rest += logst->chunk_size;
-			}
-			mref->ref_len = chunk_rest;
-		}
 
 		for (;;) {
 			status = GENERIC_INPUT_CALL(logst->input, mref_get, mref);
