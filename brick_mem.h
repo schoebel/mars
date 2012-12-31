@@ -4,6 +4,12 @@
 
 #include <linux/mm_types.h>
 
+#define BRICK_DEBUG_MEM 4096
+
+#ifndef CONFIG_MARS_DEBUG
+#undef BRICK_DEBUG_MEM
+#endif
+
 #define GFP_BRICK GFP_NOIO
 //#define GFP_BRICK GFP_KERNEL // can lead to deadlocks!
 
