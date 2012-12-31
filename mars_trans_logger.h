@@ -233,6 +233,7 @@ struct trans_logger_input {
 	// informational
 	struct trans_logger_info inf;
 	// readonly from outside
+	atomic_t log_ref_count;
 	bool is_operating;
 	long long last_jiffies;
 

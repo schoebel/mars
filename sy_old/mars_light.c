@@ -2175,11 +2175,15 @@ void _rotate_trans(struct mars_rotate *rot)
 	// try to cleanup old log
 	if (log_nr != old_nr) {
 		struct trans_logger_input *trans_input = trans_brick->inputs[old_nr];
+		struct trans_logger_input *new_input = trans_brick->inputs[log_nr];
 		if (!trans_input->connect) {
-			MARS_DBG("ignoring unused input %d\n", old_nr);
+			MARS_DBG("ignoring unused old input %d\n", old_nr);
+		} else if (!new_input->is_operating) {
+			MARS_DBG("ignoring uninitialized new input %d\n", log_nr);
 		} else if (trans_input->is_operating &&
 			   trans_input->inf.inf_min_pos == trans_input->inf.inf_max_pos &&
-			   list_empty(&trans_input->pos_list)) {
+			   list_empty(&trans_input->pos_list) &&
+			   atomic_read(&trans_input->log_ref_count) <= 0) {
 			int status;
 			MARS_INF("cleanup old transaction log (%d -> %d)\n", old_nr, log_nr);
 			status = generic_disconnect((void*)trans_input);
