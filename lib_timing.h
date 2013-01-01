@@ -119,6 +119,12 @@ bool banning_is_hit(struct banning *ban)
 	return (ban->ban_last_hit && ban->ban_last_hit >= now);
 }
 
+extern inline
+void banning_reset(struct banning *ban)
+{
+	ban->ban_last_hit = 0;
+}
+
 /* Threshold: trigger a banning whenever some latency threshold
  * is exceeded.
  */

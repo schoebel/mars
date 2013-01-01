@@ -1481,6 +1481,8 @@ void phase0_endio(void *private, int error)
 	 */
 	__trans_logger_ref_put(brick, orig_mref_a);
 
+	banning_reset(&brick->q_phase[0].q_banning);
+
 	wake_up_interruptible_all(&brick->worker_event);
 	return;
 err: 
@@ -1675,6 +1677,8 @@ void phase1_endio(struct generic_callback *cb)
 
 	qq_dec_flying(&brick->q_phase[1]);
 
+	banning_reset(&brick->q_phase[1].q_banning);
+
 	// queue up for the next phase
 	qq_wb_insert(&brick->q_phase[2], wb);
 	wake_up_interruptible_all(&brick->worker_event);
@@ -1787,6 +1791,7 @@ void phase2_endio(void *private, int error)
 
 	CHECK_ATOMIC(&wb->w_sub_log_count, 1);
 	if (atomic_dec_and_test(&wb->w_sub_log_count)) {
+		banning_reset(&brick->q_phase[2].q_banning);
 		_phase2_endio(wb);
 	}
 	return;
@@ -1915,6 +1920,8 @@ void phase3_endio(struct generic_callback *cb)
 	atomic_inc(&brick->total_writeback_cluster_count);
 
 	free_writeback(wb);
+
+	banning_reset(&brick->q_phase[3].q_banning);
 
 	wake_up_interruptible_all(&brick->worker_event);
 
