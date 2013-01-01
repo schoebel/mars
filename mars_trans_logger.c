@@ -244,7 +244,7 @@ int hash_fn(loff_t pos)
 }
 
 static inline
-struct trans_logger_mref_aspect *_hash_find(struct list_head *start, loff_t pos, int *max_len, struct timespec *elder, bool use_collect_head, bool find_unstable)
+struct trans_logger_mref_aspect *_hash_find(struct list_head *start, loff_t pos, int *max_len, bool use_collect_head, bool find_unstable)
 {
 	struct list_head *tmp;
 	struct trans_logger_mref_aspect *res = NULL;
@@ -278,11 +278,6 @@ struct trans_logger_mref_aspect *_hash_find(struct list_head *start, loff_t pos,
 		test = test_a->object;
 		
 		_mref_check(test);
-
-		// timestamp handling
-		if (elder && timespec_compare(&test_a->stamp, elder) > 0) {
-			continue; // not relevant
-		}
 
 		// are the regions overlapping?
 		if (pos >= test->ref_pos + test->ref_len || pos + len <= test->ref_pos) {
@@ -324,7 +319,7 @@ struct trans_logger_mref_aspect *hash_find(struct trans_logger_brick *brick, lof
 
 	down_read(&start->hash_mutex);
 
-	res = _hash_find(&start->hash_anchor, pos, max_len, NULL, false, find_unstable);
+	res = _hash_find(&start->hash_anchor, pos, max_len, false, find_unstable);
 
 	/* Ensure the found mref can't go away...
 	 */
@@ -364,7 +359,7 @@ void hash_insert(struct trans_logger_brick *brick, struct trans_logger_mref_aspe
  * and collect them into a list.
  */
 static noinline
-void hash_extend(struct trans_logger_brick *brick, loff_t *_pos, int *_len, struct timespec *elder, struct list_head *collect_list)
+void hash_extend(struct trans_logger_brick *brick, loff_t *_pos, int *_len, struct list_head *collect_list)
 {
 	loff_t pos = *_pos;
 	int len = *_len;
@@ -400,11 +395,6 @@ void hash_extend(struct trans_logger_brick *brick, loff_t *_pos, int *_len, stru
 			test = test_a->object;
 			
 			_mref_check(test);
-
-			// timestamp handling
-			if (elder && timespec_compare(&test_a->stamp, elder) > 0) {
-				continue; // not relevant
-			}
 
 			// are the regions overlapping?
 			if (pos >= test->ref_pos + test->ref_len || pos + len <= test->ref_pos) {
@@ -456,11 +446,6 @@ void hash_extend(struct trans_logger_brick *brick, loff_t *_pos, int *_len, stru
 		test_a = container_of(tmp, struct trans_logger_mref_aspect, hash_head);
 		test = test_a->object;
 		
-		// timestamp handling
-		if (elder && timespec_compare(&test_a->stamp, elder) > 0) {
-			continue; // not relevant
-		}
-
 		// are the regions overlapping?
 		if (pos >= test->ref_pos + test->ref_len || pos + len <= test->ref_pos) {
 			continue; // not relevant
@@ -1125,7 +1110,7 @@ err:
  * point in time.
  */
 static noinline
-struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t pos, int len, struct timespec *elder)
+struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t pos, int len)
 {
 	struct writeback_info *wb;
 	struct trans_logger_input *read_input;
@@ -1154,7 +1139,7 @@ struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t p
 	/* Atomically fetch transitive closure on all requests
 	 * overlapping with the current search region.
 	 */
-	hash_extend(brick, &wb->w_pos, &wb->w_len, elder, &wb->w_collect_list);
+	hash_extend(brick, &wb->w_pos, &wb->w_len, &wb->w_collect_list);
 
 	if (list_empty(&wb->w_collect_list)) {
 		goto collision;
@@ -1246,7 +1231,7 @@ struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t p
 
 		atomic_inc(&brick->total_hash_find_count);
 
-		orig_mref_a = _hash_find(&wb->w_collect_list, pos, &this_len, elder, true, false);
+		orig_mref_a = _hash_find(&wb->w_collect_list, pos, &this_len, true, false);
 		if (unlikely(!orig_mref_a)) {
 			MARS_FAT("could not find data\n");
 			goto err;
@@ -1715,7 +1700,7 @@ bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 		goto done;
 	}
 
-	wb = make_writeback(brick, orig_mref->ref_pos, orig_mref->ref_len, &orig_mref_a->stamp);
+	wb = make_writeback(brick, orig_mref->ref_pos, orig_mref->ref_len);
 	if (unlikely(!wb)) {
 		goto collision;
 	}
