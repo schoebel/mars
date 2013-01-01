@@ -123,6 +123,7 @@ struct trans_logger_mref_aspect {
 	bool   do_dealloc;
 	bool   do_buffered;
 	bool   is_hashed;
+	bool   is_stable;
 	bool   is_dirty;
 	bool   is_collected;
 	bool   is_fired;

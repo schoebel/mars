@@ -244,7 +244,7 @@ int hash_fn(loff_t pos)
 }
 
 static inline
-struct trans_logger_mref_aspect *_hash_find(struct list_head *start, loff_t pos, int *max_len, struct timespec *elder, bool use_collect_head)
+struct trans_logger_mref_aspect *_hash_find(struct list_head *start, loff_t pos, int *max_len, struct timespec *elder, bool use_collect_head, bool find_unstable)
 {
 	struct list_head *tmp;
 	struct trans_logger_mref_aspect *res = NULL;
@@ -289,6 +289,10 @@ struct trans_logger_mref_aspect *_hash_find(struct list_head *start, loff_t pos,
 			continue; // not relevant
 		}
 		
+		// searching for unstable elements (only in special cases)
+		if (find_unstable && test_a->is_stable)
+			break;
+		
 		diff = test->ref_pos - pos;
 		if (diff <= 0) {
 			int restlen = test->ref_len + diff;
@@ -308,7 +312,7 @@ struct trans_logger_mref_aspect *_hash_find(struct list_head *start, loff_t pos,
 }
 
 static noinline
-struct trans_logger_mref_aspect *hash_find(struct trans_logger_brick *brick, loff_t pos, int *max_len)
+struct trans_logger_mref_aspect *hash_find(struct trans_logger_brick *brick, loff_t pos, int *max_len, bool find_unstable)
 {
 	
 	int hash = hash_fn(pos);
@@ -320,7 +324,7 @@ struct trans_logger_mref_aspect *hash_find(struct trans_logger_brick *brick, lof
 
 	down_read(&start->hash_mutex);
 
-	res = _hash_find(&start->hash_anchor, pos, max_len, NULL, false);
+	res = _hash_find(&start->hash_anchor, pos, max_len, NULL, false, find_unstable);
 
 	/* Ensure the found mref can't go away...
 	 */
@@ -513,6 +517,22 @@ err:
 	}
 }
 
+static inline
+void hash_ensure_stableness(struct trans_logger_brick *brick, struct trans_logger_mref_aspect *mref_a)
+{
+	if (!mref_a->is_stable) {
+		struct mref_object *mref = mref_a->object;
+		int hash = hash_fn(mref->ref_pos);
+		struct hash_anchor *start = &brick->hash_table[hash];
+
+		down_write(&start->hash_mutex);
+
+		mref_a->is_stable = true;
+
+		up_write(&start->hash_mutex);
+	}
+}
+
 static
 void _inf_callback(struct trans_logger_input *input, bool force)
 {
@@ -621,7 +641,7 @@ int _read_ref_get(struct trans_logger_output *output, struct trans_logger_mref_a
 	 * the old one.
 	 * When a shadow is found, use it as buffer for the mref.
 	 */
-	mshadow_a = hash_find(brick, mref->ref_pos, &mref->ref_len);
+	mshadow_a = hash_find(brick, mref->ref_pos, &mref->ref_len, false);
 	if (!mshadow_a) {
 		return GENERIC_INPUT_CALL(input, mref_get, mref);
 	}
@@ -647,7 +667,7 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 #endif
 
 #ifdef KEEP_UNIQUE
-	mshadow_a = hash_find(brick, mref->ref_pos, &mref->ref_len);
+	mshadow_a = hash_find(brick, mref->ref_pos, &mref->ref_len, true);
 	if (mshadow_a) {
 		return _make_sshadow(output, mref_a, mshadow_a);
 	}
@@ -1214,7 +1234,7 @@ struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t p
 
 		atomic_inc(&brick->total_hash_find_count);
 
-		orig_mref_a = _hash_find(&wb->w_collect_list, pos, &this_len, elder, true);
+		orig_mref_a = _hash_find(&wb->w_collect_list, pos, &this_len, elder, true, false);
 		if (unlikely(!orig_mref_a)) {
 			MARS_FAT("could not find data\n");
 			goto err;
@@ -1487,6 +1507,8 @@ bool phase0_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	if (unlikely(!data)) {
 		goto err;
 	}
+
+	hash_ensure_stableness(brick, orig_mref_a);
 
 	memcpy(data, orig_mref_a->shadow_data, orig_mref->ref_len);
 
