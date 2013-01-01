@@ -407,10 +407,14 @@ void hash_extend(struct trans_logger_brick *brick, loff_t *_pos, int *_len, stru
 			}
 
 			// are the regions overlapping?
-			if (test_a->is_collected || pos >= test->ref_pos + test->ref_len || pos + len <= test->ref_pos) {
+			if (pos >= test->ref_pos + test->ref_len || pos + len <= test->ref_pos) {
 				continue; // not relevant
 			}
 
+			// collision detection
+			if (test_a->is_collected)
+				goto collision;
+			
 			// extend the search region when necessary
 			diff = pos - test->ref_pos;
 			if (diff > 0) {
@@ -458,17 +462,21 @@ void hash_extend(struct trans_logger_brick *brick, loff_t *_pos, int *_len, stru
 		}
 
 		// are the regions overlapping?
-		if (test_a->is_collected || pos >= test->ref_pos + test->ref_len || pos + len <= test->ref_pos) {
+		if (pos >= test->ref_pos + test->ref_len || pos + len <= test->ref_pos) {
 			continue; // not relevant
 		}
 		
 		// collect
 		CHECK_HEAD_EMPTY(&test_a->collect_head);
+		if (unlikely(test_a->is_collected)) {
+			MARS_ERR("collision detection did not work\n");
+		}
 		test_a->is_collected = true;
 		_mref_check(test);
 		list_add_tail(&test_a->collect_head, collect_list);
 	}
 
+ collision:
 	up_read(&start->hash_mutex);
 }
 
@@ -1148,6 +1156,10 @@ struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t p
 	 */
 	hash_extend(brick, &wb->w_pos, &wb->w_len, elder, &wb->w_collect_list);
 
+	if (list_empty(&wb->w_collect_list)) {
+		goto collision;
+	}
+
 	pos = wb->w_pos;
 	len = wb->w_len;
 
@@ -1276,6 +1288,7 @@ struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t p
 		status = GENERIC_INPUT_CALL(write_input, mref_get, sub_mref);
 		if (unlikely(status < 0)) {
 			MARS_FAT("cannot get sub_ref, status = %d\n", status);
+			wb->w_error = status;
 			goto err;
 		}
 		
@@ -1292,8 +1305,8 @@ struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t p
 
  err:
 	MARS_ERR("cleaning up...\n");
+ collision:
 	if (wb) {
-		wb->w_error = -EINVAL;
 		free_writeback(wb);
 	}
 	return NULL;
@@ -1700,16 +1713,11 @@ bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 
 	wb = make_writeback(brick, orig_mref->ref_pos, orig_mref->ref_len, &orig_mref_a->stamp);
 	if (unlikely(!wb)) {
-		MARS_ERR("no mem\n");
-		goto err;
+		goto collision;
 	}
 
-	if (unlikely(list_empty(&wb->w_collect_list))) {
-		MARS_ERR("collection list is empty, orig pos = %lld len = %d (collected=%d), extended pos = %lld len = %d\n", orig_mref->ref_pos, orig_mref->ref_len, (int)orig_mref_a->is_collected, wb->w_pos, wb->w_len);
-		goto err;
-	}
 	if (unlikely(list_empty(&wb->w_sub_write_list))) {
-		MARS_ERR("hmmm.... this should not happen\n");
+		MARS_ERR("sub_write_list is empty, orig pos = %lld len = %d (collected=%d), extended pos = %lld len = %d\n", orig_mref->ref_pos, orig_mref->ref_len, (int)orig_mref_a->is_collected, wb->w_pos, wb->w_len);
 		goto err;
 	}
 
@@ -1734,9 +1742,9 @@ bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	
  err:
 	if (wb) {
-		wb->w_error = -EINVAL;
 		free_writeback(wb);
 	}
+ collision:
 	return false;
 }
 
