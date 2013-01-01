@@ -405,6 +405,10 @@ void hash_extend(struct trans_logger_brick *brick, loff_t *_pos, int *_len, stru
 			if (test_a->is_collected)
 				goto collision;
 			
+			// no writeback of non-persistent data
+			if (!test_a->is_persistent)
+				goto collision;
+			
 			// extend the search region when necessary
 			diff = pos - test->ref_pos;
 			if (diff > 0) {
@@ -1446,6 +1450,7 @@ void phase0_endio(void *private, int error)
 	orig_mref = orig_mref_a->object;
 	CHECK_PTR(orig_mref, err);
 
+	orig_mref_a->is_persistent = true;
 	qq_dec_flying(&brick->q_phase[0]);
 
 	/* Pin mref->ref_count so it can't go away
