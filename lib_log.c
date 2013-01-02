@@ -157,7 +157,6 @@ void log_flush(struct log_status *logst)
 		logst->offset += gap;
 	}
 	mref->ref_len = logst->offset;
-	logst->log_pos += logst->offset;
 	memcpy(&logst->log_pos_stamp, &logst->tmp_pos_stamp, sizeof(logst->log_pos_stamp));
 
 	cb_info = logst->private;
@@ -176,6 +175,7 @@ void log_flush(struct log_status *logst)
 	GENERIC_INPUT_CALL(logst->input, mref_io, mref);
 	GENERIC_INPUT_CALL(logst->input, mref_put, mref);
 
+	logst->log_pos += logst->offset;
 	logst->offset = 0;
 	logst->count = 0;
 	logst->log_mref = NULL;
@@ -528,9 +528,9 @@ restart:
 		int chunk_rest;
 
 		if (mref) {
-			logst->log_pos += logst->offset;
 			GENERIC_INPUT_CALL(logst->input, mref_put, mref);
 			logst->read_mref = NULL;
+			logst->log_pos += logst->offset;
 			logst->offset = 0;
 		}
 
@@ -603,9 +603,9 @@ done:
 done_put:
 	old_offset = logst->offset;
 	if (mref) {
-		logst->log_pos += logst->offset;
 		GENERIC_INPUT_CALL(logst->input, mref_put, mref);
 		logst->read_mref = NULL;
+		logst->log_pos += logst->offset;
 		logst->offset = 0;
 	}
 	if (status == -EAGAIN && old_offset > 0) {
