@@ -174,7 +174,6 @@ struct trans_logger_brick {
 	atomic_t any_fly_count;
 	atomic_t log_fly_count;
 	atomic_t hash_count;
-	atomic_t pos_count;
 	atomic_t mshadow_count;
 	atomic_t sshadow_count;
 	atomic_t outer_balance_count;
@@ -237,6 +236,7 @@ struct trans_logger_input {
 	struct trans_logger_info inf;
 	// readonly from outside
 	atomic_t log_ref_count;
+	atomic_t pos_count;
 	bool is_operating;
 	long long last_jiffies;
 

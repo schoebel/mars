@@ -1014,7 +1014,7 @@ void pos_complete(struct trans_logger_mref_aspect *orig_mref_a)
 	}
 
 	list_del_init(tmp);
-	atomic_dec(&brick->pos_count);
+	atomic_dec(&log_input->pos_count);
 
 	up(&log_input->inf_mutex);
 err:;
@@ -1545,7 +1545,7 @@ bool phase0_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	}
 #endif
 	list_add_tail(&orig_mref_a->pos_head, &input->pos_list);
-	atomic_inc(&brick->pos_count);
+	atomic_inc(&input->pos_count);
 	up(&input->inf_mutex);
 
 	qq_inc_flying(&brick->q_phase[0]);
@@ -2922,8 +2922,9 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 "mshadow=%d/%d "
 		 "sshadow=%d "
 		 "hash_count=%d "
-		 "pos_count=%d "
 		 "balance=%d/%d/%d/%d "
+		 "pos_count1=%d "
+		 "pos_count2=%d "
 		 "log_refs1=%d "
 		 "log_refs2=%d "
 		 "any_fly=%d "
@@ -2982,11 +2983,12 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 brick->shadow_mem_limit,
 		 atomic_read(&brick->sshadow_count),
 		 atomic_read(&brick->hash_count),
-		 atomic_read(&brick->pos_count),
 		 atomic_read(&brick->sub_balance_count),
 		 atomic_read(&brick->inner_balance_count),
 		 atomic_read(&brick->outer_balance_count),
 		 atomic_read(&brick->wb_balance_count),
+		 atomic_read(&brick->inputs[TL_INPUT_LOG1]->pos_count),
+		 atomic_read(&brick->inputs[TL_INPUT_LOG2]->pos_count),
 		 atomic_read(&brick->inputs[TL_INPUT_LOG1]->log_ref_count),
 		 atomic_read(&brick->inputs[TL_INPUT_LOG2]->log_ref_count),
 		 atomic_read(&brick->any_fly_count),
