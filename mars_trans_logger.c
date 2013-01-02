@@ -899,7 +899,7 @@ void _trans_logger_endio(struct generic_callback *cb)
 
 	NEXT_CHECKED_CALLBACK(cb, err);
 
-	atomic_dec(&brick->fly_count);
+	atomic_dec(&brick->any_fly_count);
 	atomic_inc(&brick->total_cb_count);
 	wake_up_interruptible_all(&brick->worker_event);
 	return;
@@ -952,7 +952,7 @@ void trans_logger_ref_io(struct trans_logger_output *output, struct mref_object 
 		MARS_FAT("bad operation %d on non-shadow\n", mref->ref_rw);
 	}
 
-	atomic_inc(&brick->fly_count);
+	atomic_inc(&brick->any_fly_count);
 
 	mref_a->my_brick = brick;
 
@@ -1400,6 +1400,8 @@ void _complete(struct trans_logger_brick *brick, struct trans_logger_mref_aspect
 	if (cmpxchg(&orig_mref_a->is_completed, false, true))
 		goto done;
 
+	atomic_dec(&brick->log_fly_count);
+
 	if (likely(error >= 0)) {
 		mref_checksum(orig_mref);
 		orig_mref->ref_flags &= ~MREF_WRITING;
@@ -1517,8 +1519,11 @@ bool phase0_startio(struct trans_logger_mref_aspect *orig_mref_a)
 
 	memcpy(data, orig_mref_a->shadow_data, orig_mref->ref_len);
 
+	atomic_inc(&brick->log_fly_count);
+
 	ok = log_finalize(logst, orig_mref->ref_len, phase0_preio, phase0_endio, orig_mref_a);
 	if (unlikely(!ok)) {
+		atomic_dec(&brick->log_fly_count);
 		goto err;
 	}
 	log_pos = logst->log_pos + logst->offset;
@@ -2921,7 +2926,8 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 "balance=%d/%d/%d/%d "
 		 "log_refs1=%d "
 		 "log_refs2=%d "
-		 "fly=%d "
+		 "any_fly=%d "
+		 "log_fly=%d "
 		 "mref_flying1=%d "
 		 "mref_flying2=%d "
 		 "phase0=%d+%d <%d/%d> "
@@ -2983,7 +2989,8 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 atomic_read(&brick->wb_balance_count),
 		 atomic_read(&brick->inputs[TL_INPUT_LOG1]->log_ref_count),
 		 atomic_read(&brick->inputs[TL_INPUT_LOG2]->log_ref_count),
-		 atomic_read(&brick->fly_count),
+		 atomic_read(&brick->any_fly_count),
+		 atomic_read(&brick->log_fly_count),
 		 atomic_read(&brick->inputs[TL_INPUT_LOG1]->logst.mref_flying),
 		 atomic_read(&brick->inputs[TL_INPUT_LOG2]->logst.mref_flying),
 		 atomic_read(&brick->q_phase[0].q_queued),

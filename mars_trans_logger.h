@@ -171,7 +171,8 @@ struct trans_logger_brick {
 	// statistics
 	atomic64_t shadow_mem_used;
 	atomic_t replay_count;
-	atomic_t fly_count;
+	atomic_t any_fly_count;
+	atomic_t log_fly_count;
 	atomic_t hash_count;
 	atomic_t pos_count;
 	atomic_t mshadow_count;
