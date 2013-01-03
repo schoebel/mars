@@ -2494,18 +2494,25 @@ void trans_logger_log(struct trans_logger_brick *brick)
 			ranking_select_done(rkd, winner, nr);
 			break;
 
-		default: ;
-		}
-
-		/* Calling log_flush() too often may result in
-		 * increased overhead (and thus in lower throughput).
-		 * OTOH, calling it too seldom may hold back
-		 * IO completion for the end user for some time.
-		 */
-		if (atomic_read(&brick->q_phase[0].q_flying) > 0 &&
-		    (atomic_read(&brick->q_phase[0].q_queued) <= 0 ||
-		     (winner != 0 && _nr_flying_inputs(brick) == 0))) {
-			_flush_inputs(brick);
+		default:
+			/* Performance-critical:
+			 * Calling log_flush() too often may result in
+			 * increased overhead (and thus in lower throughput).
+			 * Call it only when the IO scheduler need no do anything else.
+			 * OTOH, calling it too seldom may hold back
+			 * IO completion for the end user for too long time.
+			 * Be careful to flush any leftovers in the log buffer.
+			 */
+			if (
+				// there is nothing to append any more
+				atomic_read(&brick->q_phase[0].q_queued) <= 0 &&
+				// and the user is waiting for an answer
+				(atomic_read(&brick->log_fly_count) > 0 ||
+				 // else flush any leftovers in background, when there is no other activity
+				 (atomic_read(&brick->q_phase[0].q_flying) + atomic_read(&brick->q_phase[2].q_flying) > 0 &&
+				  atomic_read(&brick->q_phase[1].q_flying) + atomic_read(&brick->q_phase[3].q_flying) <= 0))) {
+				_flush_inputs(brick);
+			}
 		}
 
 		/* Update symlinks even during pauses.
