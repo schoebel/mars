@@ -1319,31 +1319,6 @@ void _fire_one(struct list_head *tmp, bool do_update)
 
 	SETUP_CALLBACK(sub_mref, wb_endio, sub_mref_a);
 
-	if (do_update) {
-		struct trans_logger_mref_aspect *orig_mref_a = sub_mref_a->orig_mref_a;
-		if (unlikely(!orig_mref_a)) {
-			MARS_ERR("internal problem\n");
-		} else {
-			loff_t max_pos = orig_mref_a->log_pos;
-			struct trans_logger_input *log_input;
-			log_input = orig_mref_a->log_input;
-			if (unlikely(!log_input)) {
-				MARS_ERR("internal problem\n");
-			} else {
-				down(&log_input->inf_mutex);
-				if (unlikely(max_pos < log_input->inf.inf_min_pos)) {
-					MARS_ERR("new max_pos < min_pos: %lld < %lld\n", max_pos, log_input->inf.inf_min_pos);
-				}
-				if (log_input->inf.inf_max_pos < max_pos) {
-					log_input->inf.inf_max_pos = max_pos;
-					get_lamport(&log_input->inf.inf_max_pos_stamp);
-					_inf_callback(log_input, false);
-				}
-				up(&log_input->inf_mutex);
-			}
-		}
-	}
-
 	sub_input = sub_mref_a->my_input;
 
 #ifdef DO_WRITEBACK
@@ -1373,6 +1348,44 @@ void fire_writeback(struct list_head *start, bool do_update)
 		list_del_init(tmp);
 		_fire_one(tmp, do_update);
 		tmp = next;
+	}
+}
+
+static inline
+void update_max_pos(struct trans_logger_mref_aspect *orig_mref_a)
+{
+	loff_t max_pos = orig_mref_a->log_pos;
+	struct trans_logger_input *log_input = orig_mref_a->log_input;
+	CHECK_PTR(log_input, done);
+
+	down(&log_input->inf_mutex);
+
+	if (unlikely(max_pos < log_input->inf.inf_min_pos)) {
+		MARS_ERR("new max_pos < min_pos: %lld < %lld\n", max_pos, log_input->inf.inf_min_pos);
+	}
+	if (log_input->inf.inf_max_pos < max_pos) {
+		log_input->inf.inf_max_pos = max_pos;
+		get_lamport(&log_input->inf.inf_max_pos_stamp);
+		_inf_callback(log_input, false);
+	}
+
+	up(&log_input->inf_mutex);
+ done:;
+}
+
+static inline
+void update_writeback_info(struct writeback_info * wb)
+{
+	struct list_head *start = &wb->w_collect_list;
+	struct list_head *tmp;
+
+	/* Notice: in case of log rotation, each list member
+	 * may belong to a different log_input.
+	 */
+	for (tmp = start->next; tmp != start; tmp = tmp->next) {
+		struct trans_logger_mref_aspect *orig_mref_a;
+		orig_mref_a = container_of(tmp, struct trans_logger_mref_aspect, collect_head);
+		update_max_pos(orig_mref_a);
 	}
 }
 
@@ -1948,6 +1961,8 @@ bool phase3_startio(struct writeback_info *wb)
 
 		GENERIC_INPUT_CALL(sub_input, mref_put, sub_mref);
 	}
+
+	update_writeback_info(wb);
 
 	/* Start writeback IO
 	 */
