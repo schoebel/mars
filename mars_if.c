@@ -188,11 +188,14 @@ void _if_unplug(struct if_input *input)
 		mars_trace(mref, "if_unplug");
 
 		atomic_inc(&input->flying_count);
+		atomic_inc(&input->total_fire_count);
 		if (mref->ref_rw) {
 			atomic_inc(&input->write_flying_count);
 		} else {
 			atomic_inc(&input->read_flying_count);
 		}
+		if (mref->ref_skip_sync)
+			atomic_inc(&input->total_skip_sync_count);
 
 		GENERIC_INPUT_CALL(input, mref_io, mref);
 		GENERIC_INPUT_CALL(input, mref_put, mref);
@@ -913,7 +916,10 @@ char *if_statistics(struct if_brick *brick, int verbose)
 		 "mref_reads = %d (%d%%) "
 		 "writes = %d "
 		 "mref_writes = %d (%d%%) "
-		 "empty = %d | "
+		 "empty = %d "
+		 "fired = %d "
+		 "skip_sync = %d "
+		 "| "
 		 "plugged = %d "
 		 "flying = %d "
 		 "(reads = %d writes = %d)\n",
@@ -925,6 +931,8 @@ char *if_statistics(struct if_brick *brick, int verbose)
 		 tmp4,
 		 tmp3 ? tmp4 * 100 / tmp3 : 0,
 		 atomic_read(&input->total_empty_count),
+		 atomic_read(&input->total_fire_count),
+		 atomic_read(&input->total_skip_sync_count),
 		 atomic_read(&input->plugged_count),
 		 atomic_read(&input->flying_count),
 		 atomic_read(&input->read_flying_count),
@@ -939,6 +947,8 @@ void if_reset_statistics(struct if_brick *brick)
 	atomic_set(&input->total_read_count, 0);
 	atomic_set(&input->total_write_count, 0);
 	atomic_set(&input->total_empty_count, 0);
+	atomic_set(&input->total_fire_count, 0);
+	atomic_set(&input->total_skip_sync_count, 0);
 	atomic_set(&input->total_mref_read_count, 0);
 	atomic_set(&input->total_mref_write_count, 0);
 }
