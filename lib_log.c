@@ -58,7 +58,6 @@ struct log_cb_info {
 	struct semaphore mutex;
 	atomic_t refcount;
 	int nr_cb;
-	void (*preios[MARS_LOG_CB_MAX])(void *private);
 	void (*endios[MARS_LOG_CB_MAX])(void *private, int error);
 	void *privates[MARS_LOG_CB_MAX];
 };
@@ -72,20 +71,12 @@ void put_log_cb_info(struct log_cb_info *cb_info)
 }
 
 static
-void _do_callbacks(struct log_cb_info *cb_info, int error, bool both)
+void _do_callbacks(struct log_cb_info *cb_info, int error)
 {
 	int i;
 	down(&cb_info->mutex);
 	for (i = 0; i < cb_info->nr_cb; i++) {
-		void (*pre_fn)(void *private);
 		void (*end_fn)(void *private, int error);
-		pre_fn = cb_info->preios[i];
-		cb_info->preios[i] = NULL;
-		if (pre_fn) {
-			pre_fn(cb_info->privates[i]);
-		}
-		if (!both)
-			continue;
 		end_fn = cb_info->endios[i];
 		cb_info->endios[i] = NULL;
 		if (end_fn) {
@@ -113,7 +104,7 @@ void log_write_endio(struct generic_callback *cb)
 
 	MARS_IO("nr_cb = %d\n", cb_info->nr_cb);
 
-	_do_callbacks(cb_info, cb->cb_error, true);
+	_do_callbacks(cb_info, cb->cb_error);
 
  done:
 	put_log_cb_info(cb_info);
@@ -169,8 +160,6 @@ void log_flush(struct log_status *logst)
 
 	atomic_inc(&logst->mref_flying);
 	atomic_inc(&global_mref_flying);
-
-	_do_callbacks(cb_info, 0, false);
 
 	GENERIC_INPUT_CALL(logst->input, mref_io, mref);
 	GENERIC_INPUT_CALL(logst->input, mref_put, mref);
@@ -297,7 +286,7 @@ err:
 }
 EXPORT_SYMBOL_GPL(log_reserve);
 
-bool log_finalize(struct log_status *logst, int len, void (*preio)(void *private), void (*endio)(void *private, int error), void *private)
+bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private, int error), void *private)
 {
 	struct mref_object *mref = logst->log_mref;
 	struct log_cb_info *cb_info = logst->private;
@@ -367,7 +356,6 @@ bool log_finalize(struct log_status *logst, int len, void (*preio)(void *private
 	DATA_PUT(data, offset, (char)1);
 
 	nr_cb = cb_info->nr_cb++;
-	cb_info->preios[nr_cb] = preio;
 	cb_info->endios[nr_cb] = endio;
 	cb_info->privates[nr_cb] = private;
 

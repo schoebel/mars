@@ -128,7 +128,7 @@ void log_flush(struct log_status *logst);
 
 void *log_reserve(struct log_status *logst, struct log_header *lh);
 
-bool log_finalize(struct log_status *logst, int len, void (*preio)(void *private), void (*endio)(void *private, int error), void *private);
+bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private, int error), void *private);
 
 int log_read(struct log_status *logst, struct log_header *lh, void **payload, int *payload_len);
 

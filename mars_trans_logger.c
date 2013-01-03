@@ -1534,7 +1534,7 @@ bool phase0_startio(struct trans_logger_mref_aspect *orig_mref_a)
 
 	atomic_inc(&brick->log_fly_count);
 
-	ok = log_finalize(logst, orig_mref->ref_len, phase0_preio, phase0_endio, orig_mref_a);
+	ok = log_finalize(logst, orig_mref->ref_len, phase0_endio, orig_mref_a);
 	if (unlikely(!ok)) {
 		atomic_dec(&brick->log_fly_count);
 		goto err;
@@ -1562,6 +1562,9 @@ bool phase0_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	up(&input->inf_mutex);
 
 	qq_inc_flying(&brick->q_phase[0]);
+
+	phase0_preio(orig_mref_a);
+
 	return true;
 
 err:
@@ -1847,7 +1850,7 @@ bool _phase2_startio(struct trans_logger_mref_aspect *sub_mref_a)
 
 	memcpy(data, sub_mref->ref_data, sub_mref->ref_len);
 
-	ok = log_finalize(logst, sub_mref->ref_len, NULL, phase2_endio, sub_mref_a);
+	ok = log_finalize(logst, sub_mref->ref_len, phase2_endio, sub_mref_a);
 	if (unlikely(!ok)) {
 		goto err;
 	}
