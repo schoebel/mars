@@ -2322,13 +2322,12 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 }
 
 static
-void _init_input(struct trans_logger_input *input)
+void _init_input(struct trans_logger_input *input, loff_t start_pos)
 {
 	struct trans_logger_brick *brick = input->brick;
 	struct log_status *logst = &input->logst;
-	loff_t start_pos = input->log_start_pos;
 
-	init_logst(logst, (void*)input, 0);
+	init_logst(logst, (void*)input, start_pos);
 	logst->signal_event = &brick->worker_event;
 	logst->align_size = CONF_TRANS_ALIGN;
 	logst->chunk_size = CONF_TRANS_CHUNKSIZE;
@@ -2376,14 +2375,14 @@ void _init_inputs(struct trans_logger_brick *brick, bool is_first)
 
 	down(&input->inf_mutex);
 
-	_init_input(input);
+	_init_input(input, 0);
 	input->inf.inf_is_writeback = is_first;
 	input->inf.inf_is_applying = false;
 	input->inf.inf_is_logging = is_first;
 
 	// from now on, new requests should go to the new input
 	brick->log_input_nr = new_nr;
-	MARS_INF("switched over to new logfile %d (old = %d) startpos = %lld\n", new_nr, old_nr, input->log_start_pos);
+	MARS_INF("switched over to new logfile %d (old = %d)\n", new_nr, old_nr);
 
 	/* Flush the old log buffer and update its symlinks.
 	 * Notice: for some short time, _both_ logfiles may grow
@@ -2751,9 +2750,9 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 
 	brick->replay_code = 0; // indicates "running"
 
-	_init_input(input);
-
 	start_pos = brick->replay_start_pos;
+
+	_init_input(input, start_pos);
 
 	input->inf.inf_min_pos = start_pos;
 	input->inf.inf_max_pos = brick->replay_end_pos;

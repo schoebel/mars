@@ -228,7 +228,6 @@ struct trans_logger_info {
 struct trans_logger_input {
 	MARS_INPUT(trans_logger);
 	// parameters
-	loff_t log_start_pos; // where to start logging
 	// informational
 	struct trans_logger_info inf;
 	// readonly from outside
