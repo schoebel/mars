@@ -334,14 +334,13 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	DATA_PUT(data, offset, (char)1);  // valid_flag copy
 	DATA_PUT(data, offset, (char)0);  // spare
 	DATA_PUT(data, offset, (short)0); // spare
-	logst->seq_nr++;
-	DATA_PUT(data, offset, logst->seq_nr);
+	DATA_PUT(data, offset, logst->seq_nr + 1);
 	get_lamport(&now);    // when the log entry was ready.
 	DATA_PUT(data, offset, now.tv_sec);  
 	DATA_PUT(data, offset, now.tv_nsec);
 
 	if (unlikely(offset > mref->ref_len)) {
-		MARS_ERR("length calculation was wrong: %d > %d\n", offset, mref->ref_len);
+		MARS_FAT("length calculation was wrong: %d > %d\n", offset, mref->ref_len);
 		goto err;
 	}
 	logst->offset = offset;
@@ -358,6 +357,8 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	cb_info->endios[nr_cb] = endio;
 	cb_info->privates[nr_cb] = private;
 
+	// report success
+	logst->seq_nr++;
 	logst->count++;
 	ok = true;
 
