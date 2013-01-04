@@ -336,7 +336,8 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	DATA_PUT(data, offset, (char)1);  // valid_flag copy
 	DATA_PUT(data, offset, (char)0);  // spare
 	DATA_PUT(data, offset, (short)0); // spare
-	DATA_PUT(data, offset, (int)0);   // spare
+	logst->seq_nr++;
+	DATA_PUT(data, offset, logst->seq_nr);
 	get_lamport(&now);    // when the log entry was ready.
 	DATA_PUT(data, offset, now.tv_sec);  
 	DATA_PUT(data, offset, now.tv_nsec);
@@ -371,7 +372,7 @@ EXPORT_SYMBOL_GPL(log_finalize);
 #define SCAN_PAR file_pos, file_offset, offset, file_pos + file_offset + offset, i, file_pos + file_offset + i, restlen
 
 static
-int log_scan(void *buf, int len, loff_t file_pos, int file_offset, struct log_header *lh, void **payload, int *payload_len)
+int log_scan(void *buf, int len, loff_t file_pos, int file_offset, struct log_header *lh, void **payload, int *payload_len, unsigned int *seq_nr)
 {
 	bool dirty = false;
 	int offset;
@@ -451,10 +452,19 @@ int log_scan(void *buf, int len, loff_t file_pos, int file_offset, struct log_he
 			MARS_WRN(SCAN_TXT "found uncompleted / invalid data, len = %d, valid_flag = %d\n", SCAN_PAR, lh->l_len, (int)valid_copy);
 			continue;
 		}
+
 		// skip spares
-		offset += 3 + 4;
+		offset += 3;
+
+		DATA_GET(buf, offset, lh->l_seq_nr);
 		DATA_GET(buf, offset, lh->l_written.tv_sec);
 		DATA_GET(buf, offset, lh->l_written.tv_nsec);
+
+		if (unlikely(lh->l_seq_nr != *seq_nr + 1 && lh->l_seq_nr && *seq_nr)) {
+			MARS_ERR("log sequence number %u mismatch, expected was %u\n", lh->l_seq_nr, *seq_nr + 1);
+			return -EBADMSG;
+		}
+		*seq_nr = lh->l_seq_nr;
 
 		if (lh->l_crc) {
 			unsigned char checksum[mars_digest_size];
@@ -566,7 +576,8 @@ restart:
 			  logst->offset,
 			  lh,
 			  payload,
-			  payload_len);
+			  payload_len,
+			  &logst->seq_nr);
 
 	if (unlikely(status == 0)) {
 		MARS_ERR("bad logfile scan\n");

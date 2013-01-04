@@ -31,6 +31,7 @@ struct log_header_v1 {
 	int    l_extra_len;
 	short  l_code;
 	short  l_extra;
+	unsigned int l_seq_nr;
 	int    l_crc;
 };
 
@@ -112,6 +113,7 @@ struct log_status {
 	int reallen_offset;
 	int payload_offset;
 	int payload_len;
+	unsigned int seq_nr;
 	struct mref_object *log_mref;
 	struct mref_object *read_mref;
 	wait_queue_head_t event;
