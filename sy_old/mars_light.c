@@ -2515,7 +2515,9 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	if (trans_brick->power.button && trans_brick->power.led_on && !trans_brick->power.led_off) {
 		bool do_stop = true;
 		if (trans_brick->replay_mode) {
-			do_stop = trans_brick->replay_code != 0 || !_check_allow(global, parent, "allow-replay");
+			do_stop = trans_brick->replay_code != 0 ||
+				!global->global_power.button ||
+				!_check_allow(global, parent, "allow-replay");
 		} else {
 			do_stop = !rot->is_primary;
 		}
