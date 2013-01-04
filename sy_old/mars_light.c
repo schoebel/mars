@@ -107,6 +107,7 @@ struct mars_rotate {
 	loff_t end_pos;
 	int max_sequence;
 	int copy_serial;
+	int copy_next_is_available;
 	int relevant_serial;
 	bool has_error;
 	bool allow_update;
@@ -1072,6 +1073,8 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 			// treat copy brick instance underway
 			status = _update_file(rot, switch_path, rot->copy_path, remote_dent->d_path, peer, src_size);
 			MARS_DBG("re-update '%s' from peer '%s' status = %d\n", remote_dent->d_path, peer, status);
+		} else if (remote_dent->d_serial == rot->copy_serial + 1) {
+			rot->copy_next_is_available++;
 		}
 	} else if (!rot->copy_serial && rot->allow_update &&
 		   (dst_size < src_size || !local_dent)) {		
@@ -1079,6 +1082,7 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 		status = _update_file(rot, switch_path, rot->copy_path, remote_dent->d_path, peer, src_size);
 		MARS_DBG("update '%s' from peer '%s' status = %d\n", remote_dent->d_path, peer, status);
 		rot->copy_serial = remote_dent->d_serial;
+		rot->copy_next_is_available = 0;
 	}
 
 done:
@@ -2475,7 +2479,11 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	// check whether some copy has finished
 	copy_brick = (struct copy_brick*)mars_find_brick(global, &copy_brick_type, rot->copy_path);
 	MARS_DBG("copy_path = '%s' copy_brick = %p\n", rot->copy_path, copy_brick);
-	if (copy_brick && (copy_brick->copy_last == copy_brick->copy_end || copy_brick->power.led_off)) {
+	if (copy_brick &&
+	    (copy_brick->power.led_off ||
+	     !global->global_power.button ||
+	     (copy_brick->copy_last == copy_brick->copy_end &&
+	      rot->copy_next_is_available > 1))) {
 		status = mars_kill_brick((void*)copy_brick);
 		if (status < 0) {
 			MARS_ERR("could not kill copy_brick, status = %d\n", status);
@@ -2484,8 +2492,10 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		copy_brick = NULL;
 	}
 	rot->copy_brick = copy_brick;
-	if (!copy_brick)
+	if (!copy_brick) {
 		rot->copy_serial = 0;
+		rot->copy_next_is_available = 0;
+	}
 
 #if defined(CONFIG_MARS_LOGDELETE_AUTO)
 #define LIMIT1 ((loff_t)EXHAUSTED_LIMIT(rot->total_space))
