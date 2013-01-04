@@ -381,7 +381,7 @@ int log_scan(void *buf, int len, loff_t file_pos, int file_offset, struct log_he
 	*payload = NULL;
 	*payload_len = 0;
 
-	for (i = 0; i < len; i += sizeof(long)) {
+	for (i = 0; i < len && i <= len - OVERHEAD; i += sizeof(long)) {
 		long long start_magic;
 		char format_version;
 		char valid_flag;
@@ -394,32 +394,32 @@ int log_scan(void *buf, int len, loff_t file_pos, int file_offset, struct log_he
 
 		offset = i;
 		DATA_GET(buf, offset, start_magic);
-		if (start_magic != START_MAGIC) {
+		if (unlikely(start_magic != START_MAGIC)) {
 			if (start_magic != 0)
 				dirty = true;
 			continue;
 		}
 
 		restlen = len - i;
-		if (restlen < START_OVERHEAD) {
-			MARS_ERR(SCAN_TXT "magic found, but restlen is too small\n", SCAN_PAR);
-			return -EBADMSG;
+		if (unlikely(restlen < START_OVERHEAD)) {
+			MARS_WRN(SCAN_TXT "magic found, but restlen is too small\n", SCAN_PAR);
+			return -EAGAIN;
 		}
 
 		DATA_GET(buf, offset, format_version);
-		if (format_version != FORMAT_VERSION) {
+		if (unlikely(format_version != FORMAT_VERSION)) {
 			MARS_ERR(SCAN_TXT "found unknown data format %d\n", SCAN_PAR, (int)format_version);
 			return -EBADMSG;
 		}
 		DATA_GET(buf, offset, valid_flag);
-		if (!valid_flag) {
-			MARS_WRN(SCAN_TXT "data is marked invalid (was there a short write?)\n", SCAN_PAR);
+		if (unlikely(!valid_flag)) {
+			MARS_WRN(SCAN_TXT "data is explicitly marked invalid (was there a short write?)\n", SCAN_PAR);
 			continue;
 		}
 		DATA_GET(buf, offset, total_len);
-		if (total_len > restlen) {
-			MARS_ERR(SCAN_TXT "data is longer than expected, total_len = %d restlen = %d\n", SCAN_PAR, total_len, restlen);
-			return -EBADMSG;
+		if (unlikely(total_len > restlen)) {
+			MARS_WRN(SCAN_TXT "total_len = %d but available data restlen = %d. Was the logfile truncated?\n", SCAN_PAR, total_len, restlen);
+			return -EAGAIN;
 		}
 
 		memset(lh, 0, sizeof(struct log_header));
@@ -436,21 +436,22 @@ int log_scan(void *buf, int len, loff_t file_pos, int file_offset, struct log_he
 		offset += lh->l_len;
 
 		restlen = len - offset;
-		if (restlen < END_OVERHEAD) {
-			MARS_WRN(SCAN_TXT "magic found, but restlen %d is too small\n", SCAN_PAR, restlen);
-			continue;
+		if (unlikely(restlen < END_OVERHEAD)) {
+			MARS_WRN(SCAN_TXT "restlen %d is too small\n", SCAN_PAR, restlen);
+			return -EAGAIN;
 		}
 
 		DATA_GET(buf, offset, end_magic);
-		if (end_magic != END_MAGIC) {
-			MARS_WRN(SCAN_TXT "bad end_magic 0x%llx\n", SCAN_PAR, end_magic);
-			continue;
+		if (unlikely(end_magic != END_MAGIC)) {
+			MARS_WRN(SCAN_TXT "bad end_magic 0x%llx, is the logfile truncated?\n", SCAN_PAR, end_magic);
+			return -EBADMSG;
 		}
 		DATA_GET(buf, offset, lh->l_crc);
 		DATA_GET(buf, offset, valid_copy);
-		if (valid_copy != 1) {
-			MARS_WRN(SCAN_TXT "found uncompleted / invalid data, len = %d, valid_flag = %d\n", SCAN_PAR, lh->l_len, (int)valid_copy);
-			continue;
+
+		if (unlikely(valid_copy != 1)) {
+			MARS_WRN(SCAN_TXT "found data marked as uncompleted / invalid, len = %d, valid_flag = %d\n", SCAN_PAR, lh->l_len, (int)valid_copy);
+			return -EBADMSG;
 		}
 
 		// skip spares
@@ -461,7 +462,7 @@ int log_scan(void *buf, int len, loff_t file_pos, int file_offset, struct log_he
 		DATA_GET(buf, offset, lh->l_written.tv_nsec);
 
 		if (unlikely(lh->l_seq_nr != *seq_nr + 1 && lh->l_seq_nr && *seq_nr)) {
-			MARS_ERR("log sequence number %u mismatch, expected was %u\n", lh->l_seq_nr, *seq_nr + 1);
+			MARS_ERR(SCAN_TXT "log sequence number %u mismatch, expected was %u\n", SCAN_PAR, lh->l_seq_nr, *seq_nr + 1);
 			return -EBADMSG;
 		}
 		*seq_nr = lh->l_seq_nr;
@@ -470,30 +471,31 @@ int log_scan(void *buf, int len, loff_t file_pos, int file_offset, struct log_he
 			unsigned char checksum[mars_digest_size];
 			mars_digest(checksum, buf + found_offset, lh->l_len);
 			if (unlikely(*(int*)checksum != lh->l_crc)) {
-				MARS_ERR("data checksumming mismatch, length = %d\n", lh->l_len);
+				MARS_ERR(SCAN_TXT "data checksumming mismatch, length = %d\n", SCAN_PAR, lh->l_len);
 				return -EBADMSG;
 			}
 		}
 
 		// last check
-		if (total_len != offset - i) {
-			MARS_WRN(SCAN_TXT "size mismatch: %d != %d\n", SCAN_PAR, total_len, offset - i);
-			// just warn, but no consequences: better use the data, it has been checked by lots of magics
+		if (unlikely(total_len != offset - i)) {
+			MARS_ERR(SCAN_TXT "internal size mismatch: %d != %d\n", SCAN_PAR, total_len, offset - i);
+			return -EBADMSG;
 		}
 
 		// Success...
 		*payload = buf + found_offset;
 		*payload_len = lh->l_len;
-		goto done;
-	}
-	offset = i;
 
-done:
-	// don't cry when nullbytes have been skipped
-	if (i > 0 && dirty) {
-		MARS_WRN("skipped %d dirty bytes at offset %d to find valid data\n", i, offset);
+		// don't cry when nullbytes have been skipped
+		if (i > 0 && dirty) {
+			MARS_WRN(SCAN_TXT "skipped %d dirty bytes to find valid data\n", SCAN_PAR, i);
+		}
+
+		return offset;
 	}
-	return offset;
+
+	MARS_ERR("could not find any useful data within len=%d bytes\n", len);
+	return -EAGAIN;
 }
 
 static
@@ -551,6 +553,10 @@ restart:
 			}
 			goto done_free;
 		}
+		if (unlikely(mref->ref_len <= OVERHEAD)) { // EOF
+			status = 0;
+			goto done_put;
+		}
 
 		SETUP_CALLBACK(mref, log_read_endio, logst);
 		mref->ref_rw = READ;
@@ -587,9 +593,9 @@ restart:
 		goto done_put;
 	}
 
-	// memorize success
+	// memoize success
 	logst->offset += status;
-	if (logst->offset > mref->ref_len - logst->chunk_size) {
+	if (logst->offset + (logst->max_size + OVERHEAD) * 2 >= mref->ref_len) {
 		logst->do_free = true;
 	}
 
