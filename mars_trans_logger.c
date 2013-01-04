@@ -2334,6 +2334,7 @@ void _init_input(struct trans_logger_input *input)
 
 	logst->log_pos = start_pos;
 	input->inf.inf_log_pos = start_pos;
+	input->inf_last_jiffies = jiffies;
 
 	input->is_operating = true;
 }
@@ -2342,18 +2343,22 @@ static
 void _init_inputs(struct trans_logger_brick *brick, bool is_first)
 {
 	struct trans_logger_input *input;
-	int nr = brick->new_input_nr;
-
-	if (!is_first && brick->log_input_nr != brick->old_input_nr) {
-		MARS_IO("nothing to do, new_input_nr = %d log_input_nr = %d old_input_nr = %d\n", brick->new_input_nr, brick->log_input_nr, brick->old_input_nr);
+	int old_nr = brick->old_input_nr;
+	int log_nr = brick->log_input_nr;
+	int new_nr = brick->new_input_nr;
+	
+	if (!is_first &&
+	    (new_nr == log_nr ||
+	     log_nr != old_nr)) {
+		MARS_IO("nothing to do, new_input_nr = %d log_input_nr = %d old_input_nr = %d\n", new_nr, log_nr, old_nr);
 		goto done;
 	}
-	if (unlikely(nr < TL_INPUT_LOG1 || nr > TL_INPUT_LOG2)) {
-		MARS_ERR("bad new_input_nr = %d\n", nr);
+	if (unlikely(new_nr < TL_INPUT_LOG1 || new_nr > TL_INPUT_LOG2)) {
+		MARS_ERR("bad new_input_nr = %d\n", new_nr);
 		goto done;
 	}
 
-	input = brick->inputs[nr];
+	input = brick->inputs[new_nr];
 	CHECK_PTR(input, done);
 
 	if (input->is_operating || !input->connect) {
@@ -2368,8 +2373,22 @@ void _init_inputs(struct trans_logger_brick *brick, bool is_first)
 	input->inf.inf_is_applying = false;
 	input->inf.inf_is_logging = is_first;
 
-	brick->log_input_nr = nr;
-	MARS_INF("switching over to new logfile %d (old = %d) startpos = %lld\n", nr, brick->old_input_nr, input->log_start_pos);
+	// from now on, new requests should go to the new input
+	brick->log_input_nr = new_nr;
+	MARS_INF("switched over to new logfile %d (old = %d) startpos = %lld\n", new_nr, old_nr, input->log_start_pos);
+
+	/* Flush the old log buffer and update its symlinks.
+	 * Notice: for some short time, _both_ logfiles may grow
+	 * due to (harmless) races with log_flush().
+	 */
+	if (likely(!is_first)) {
+		struct trans_logger_input *other_input = brick->inputs[old_nr];
+		down(&other_input->inf_mutex);
+		log_flush(&other_input->logst);
+		_inf_callback(other_input, true);
+		up(&other_input->inf_mutex);
+	}
+
 	_inf_callback(input, true);
 
 	up(&input->inf_mutex);
@@ -2422,6 +2441,7 @@ void _exit_inputs(struct trans_logger_brick *brick, bool force)
 			exit_logst(logst);
 			// no locking here: we should be the only thread doing this.
 			_inf_callback(input, true);
+			input->inf_last_jiffies = 0;
 			brick_string_free(input->inf.inf_host);
 			input->inf.inf_host = NULL;
 			input->inf.inf_is_writeback = false;
