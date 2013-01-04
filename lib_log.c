@@ -8,8 +8,6 @@
 //#define MARS_DEBUGGING
 //#define IO_DEBUGGING
 
-#define MAX_RESERVE PAGE_SIZE
-
 #include "lib_log.h"
 
 atomic_t global_mref_flying = ATOMIC_INIT(0);
@@ -182,8 +180,8 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 	int offset;
 	int status;
 
-	if (unlikely(lh->l_len <= 0 || lh->l_len > MAX_RESERVE)) {
-		MARS_ERR("trying to write %d bytes, max allowed = %d\n", lh->l_len, (int)PAGE_SIZE);
+	if (unlikely(lh->l_len <= 0 || lh->l_len > logst->max_size)) {
+		MARS_ERR("trying to write %d bytes, max allowed = %d\n", lh->l_len, logst->max_size);
 		goto err;
 	}
 
@@ -524,9 +522,6 @@ restart:
 	status = 0;
 	mref = logst->read_mref;
 	if (!mref || logst->do_free) {
-		int chunk_offset;
-		int chunk_rest;
-
 		if (mref) {
 			GENERIC_INPUT_CALL(logst->input, mref_put, mref);
 			logst->read_mref = NULL;
@@ -540,10 +535,7 @@ restart:
 			goto done;
 		}
 		mref->ref_pos = logst->log_pos;
-		chunk_offset = logst->log_pos & (loff_t)(logst->chunk_size - 1);
-		chunk_rest = logst->chunk_size - chunk_offset;
-		mref->ref_len = chunk_rest + logst->chunk_size * 4;
-		MARS_IO("log_pos = %lld chunk_offset = %d chunk_rest = %d ref_len = %d\n", logst->log_pos, chunk_offset, chunk_rest, mref->ref_len);
+		mref->ref_len = logst->chunk_size;
 		mref->ref_prio = logst->io_prio;
 
 		status = GENERIC_INPUT_CALL(logst->input, mref_get, mref);

@@ -19,6 +19,12 @@
 #define DO_WRITEBACK // otherwise FAKE IO
 #define APPLY_DATA
 
+// tuning
+#define CONF_TRANS_CHUNKSIZE  (128 * 1024)
+#define CONF_TRANS_MAX_MREF_SIZE PAGE_SIZE
+//#define CONF_TRANS_ALIGN      PAGE_SIZE // FIXME: does not work
+#define CONF_TRANS_ALIGN      0
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/string.h>
@@ -739,8 +745,8 @@ int trans_logger_ref_get(struct trans_logger_output *output, struct mref_object 
 
 	get_lamport(&mref_a->stamp);
 
-	if (mref->ref_len > brick->max_mref_size && brick->max_mref_size > 0)
-		mref->ref_len = brick->max_mref_size;
+	if (mref->ref_len > CONF_TRANS_MAX_MREF_SIZE && CONF_TRANS_MAX_MREF_SIZE > 0)
+		mref->ref_len = CONF_TRANS_MAX_MREF_SIZE;
 
 	// ensure that REGION_SIZE boundaries are obeyed by hashing
 	base_offset = mref->ref_pos & (loff_t)(REGION_SIZE - 1);
@@ -2324,8 +2330,10 @@ void _init_input(struct trans_logger_input *input)
 
 	init_logst(logst, (void*)input, 0);
 	logst->signal_event = &brick->worker_event;
-	logst->align_size = brick->align_size;
-	logst->chunk_size = brick->chunk_size;
+	logst->align_size = CONF_TRANS_ALIGN;
+	logst->chunk_size = CONF_TRANS_CHUNKSIZE;
+	logst->max_size = CONF_TRANS_MAX_MREF_SIZE;
+
 	
 	input->inf.inf_min_pos = start_pos;
 	input->inf.inf_max_pos = start_pos; // ATTENTION: this remains correct as far as our replay code _never_ kicks off any requests in parallel (which is current state of the "art", relying on BBU caching for performance). WHENEVER YOU CHANGE THIS some day, you MUST maintain the correct end_pos here!

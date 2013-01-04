@@ -96,6 +96,7 @@ struct log_status {
 	// tunables
 	int align_size;   // alignment between requests
 	int chunk_size;   // must be at least 8K (better 64k)
+	int max_size;     // max payload length
 	int io_prio;
 	bool do_crc;
 	// informational

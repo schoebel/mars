@@ -145,9 +145,6 @@ struct trans_logger_brick {
 	// parameters
 	struct mars_limiter *replay_limiter;
 	int shadow_mem_limit; // max # master shadows
-	int max_mref_size;// shorten mrefs to this maxlen
-	int align_size;   // alignment between requests
-	int chunk_size;   // must be at least 8K (better 64k)
 	bool replay_mode;   // mode of operation
 	bool continuous_replay_mode;   // mode of operation
 	bool log_reads;   // additionally log pre-images

@@ -128,10 +128,6 @@ int mars_mem_percent = 20;
 EXPORT_SYMBOL_GPL(mars_mem_percent);
 
 #define CONF_TRANS_SHADOW_LIMIT (1024 * 128) // don't fill the hashtable too much
-#define CONF_TRANS_CHUNKSIZE  (128 * 1024)
-#define CONF_TRANS_MAX_MREF_SIZE PAGE_SIZE
-//#define CONF_TRANS_ALIGN      512
-#define CONF_TRANS_ALIGN      0
 
 //#define TRANS_FAKE
 
@@ -200,9 +196,6 @@ int _set_trans_params(struct mars_brick *_brick, void *private)
 		trans_brick->debug_shortcut = true;
 #endif
 
-		trans_brick->max_mref_size = CONF_TRANS_MAX_MREF_SIZE;
-		trans_brick->align_size = CONF_TRANS_ALIGN;
-		trans_brick->chunk_size = CONF_TRANS_CHUNKSIZE;
 	}
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 	return 1;
