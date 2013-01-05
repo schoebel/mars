@@ -3073,9 +3073,16 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	struct mars_dent *target;
 	struct mars_dent *response;
 	const char *response_path = NULL;
+	struct mars_brick *brick;
 	int max_serial = 0;
 
 	if (!global || !dent || !dent->new_link || !dent->d_path) {
+		goto done;
+	}
+
+	brick = mars_find_brick(global, NULL, dent->new_link);
+	if (brick && unlikely(brick->nr_outputs > 0 && brick->outputs[0] && brick->outputs[0]->nr_connected)) {
+		MARS_WRN("target '%s' cannot be deleted, its brick '%s' in use\n", dent->new_link, SAFE_STR(brick->brick_name));
 		goto done;
 	}
 
