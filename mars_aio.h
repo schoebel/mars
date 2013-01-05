@@ -48,7 +48,6 @@ struct aio_brick {
 	bool o_creat;
 	bool o_direct;
 	bool o_fdsync;
-	bool wait_during_fdsync;
 };
 
 struct aio_input {

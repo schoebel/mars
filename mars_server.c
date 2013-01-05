@@ -238,7 +238,6 @@ int _set_server_aio_params(struct mars_brick *_brick, void *private)
 	aio_brick->o_creat = false;
 	aio_brick->o_direct = false;
 	aio_brick->o_fdsync = false;
-	aio_brick->wait_during_fdsync = false;
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 	return 1;
 }

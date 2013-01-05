@@ -151,8 +151,6 @@ EXPORT_SYMBOL_GPL(mars_mem_percent);
 #define BIO_SYNC true
 #define BIO_UNPLUG true
 
-#define AIO_WAIT_DURING_FDSYNC false
-
 #define COPY_APPEND_MODE 0
 //#define COPY_APPEND_MODE 1 // FIXME: does not work yet
 #define COPY_PRIO MARS_PRIO_LOW
@@ -252,7 +250,6 @@ int _set_aio_params(struct mars_brick *_brick, void *private)
 	aio_brick->o_creat = clc && clc->create_mode;
 	aio_brick->o_direct = false; // important!
 	aio_brick->o_fdsync = true;
-	aio_brick->wait_during_fdsync = AIO_WAIT_DURING_FDSYNC;
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 	return 1;
 }

@@ -1030,22 +1030,6 @@ static int aio_submit_thread(void *data)
 
 		sleeptime = 1;
 		for (;;) {
-			/* This is just a test. Don't enable it for performance reasons.
-			 */
-			if (output->brick->wait_during_fdsync && mref->ref_rw != READ) {
-				if (output->fdsync_active) {
-					long long delay = 60 * HZ;
-					atomic_inc(&output->total_fdsync_wait_count);
-					__wait_event_interruptible_timeout(
-						output->fdsync_event,
-						!output->fdsync_active,
-						delay);
-				}
-
-			}
-
-			/* Now really do the work
-			 */
 			status = aio_submit(output, mref_a, false);
 
 			if (likely(status != -EAGAIN)) {
