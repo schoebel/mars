@@ -2342,6 +2342,8 @@ void _init_input(struct trans_logger_input *input, loff_t start_pos)
 	logst->log_pos = start_pos;
 	input->inf.inf_log_pos = start_pos;
 	input->inf_last_jiffies = jiffies;
+	input->inf.inf_is_applying = false;
+	input->inf.inf_is_logging = false;
 
 	input->is_operating = true;
 }
@@ -2376,8 +2378,6 @@ void _init_inputs(struct trans_logger_brick *brick, bool is_first)
 	down(&input->inf_mutex);
 
 	_init_input(input, 0);
-	input->inf.inf_is_writeback = is_first;
-	input->inf.inf_is_applying = false;
 	input->inf.inf_is_logging = is_first;
 
 	// from now on, new requests should go to the new input
@@ -2440,18 +2440,16 @@ void _exit_inputs(struct trans_logger_brick *brick, bool force)
 		struct log_status *logst = &input->logst;
 		if (input->is_operating &&
 		    (force || !input->connect)) {
-			bool old_writeback = input->inf.inf_is_writeback;
 			bool old_applying  = input->inf.inf_is_applying;
 			bool old_logging   = input->inf.inf_is_logging;
 
-			MARS_DBG("cleaning up input %d (log = %d old = %d), old_writeback = %d old_applying = %d old_logging = %d\n", i, brick->log_input_nr, brick->old_input_nr, old_writeback, old_applying, old_writeback);
+			MARS_DBG("cleaning up input %d (log = %d old = %d), old_applying = %d old_logging = %d\n", i, brick->log_input_nr, brick->old_input_nr, old_applying, old_logging);
 			exit_logst(logst);
 			// no locking here: we should be the only thread doing this.
 			_inf_callback(input, true);
 			input->inf_last_jiffies = 0;
 			brick_string_free(input->inf.inf_host);
 			input->inf.inf_host = NULL;
-			input->inf.inf_is_writeback = false;
 			input->inf.inf_is_applying = false;
 			input->inf.inf_is_logging = false;
 			input->is_operating = false;
@@ -2459,7 +2457,6 @@ void _exit_inputs(struct trans_logger_brick *brick, bool force)
 				struct trans_logger_input *other_input = brick->inputs[brick->log_input_nr];
 				down(&other_input->inf_mutex);
 				brick->old_input_nr = brick->log_input_nr;
-				other_input->inf.inf_is_writeback = old_writeback;
 				other_input->inf.inf_is_applying  = old_applying;
 				other_input->inf.inf_is_logging   = old_logging;
 				_inf_callback(other_input, true);
@@ -2556,6 +2553,12 @@ void trans_logger_log(struct trans_logger_brick *brick)
 		}
 
 		_exit_inputs(brick, false);
+	}
+
+	while (brick->inputs[TL_INPUT_LOG1]->is_operating && brick->inputs[TL_INPUT_LOG2]->is_operating) {
+		MARS_DBG("stopped while 2 inputs were active\n");
+		_exit_inputs(brick, false);
+		brick_msleep(1000);
 	}
 
 	for (;;) {
@@ -2757,7 +2760,6 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 	input->inf.inf_min_pos = start_pos;
 	input->inf.inf_max_pos = brick->replay_end_pos;
 	input->inf.inf_log_pos = brick->replay_end_pos;
-	input->inf.inf_is_writeback = false;
 	input->inf.inf_is_applying = true;
 	input->inf.inf_is_logging = false;
 

@@ -96,7 +96,6 @@ struct mars_rotate {
 	struct mars_limiter sync_limiter;
 	struct mars_limiter file_limiter;
 	struct semaphore inf_mutex;
-	const char *inf_prev_version;
 	int inf_prev_sequence;
 	long long switchover_timeout;
 	long long flip_start;
@@ -548,7 +547,7 @@ void _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf
 	char *prev = NULL;
 	char *check = NULL;
 	char *prev_link = NULL;
-	char *prev_digest;
+	char *prev_digest = NULL;
 	int len;
 	int i;
 	int status;
@@ -559,50 +558,26 @@ void _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf
 	}
 
 	if (likely(inf->inf_sequence > 1)) {
-		if (unlikely(inf->inf_sequence < rot->inf_prev_sequence && rot->inf_prev_version)) {
-			MARS_ERR("BACKSKIP in sequence numbers detected: %d < %d\n", inf->inf_sequence, rot->inf_prev_sequence);
+		if (unlikely((inf->inf_sequence < rot->inf_prev_sequence ||
+			      inf->inf_sequence > rot->inf_prev_sequence + 1) &&
+			     rot->inf_prev_sequence != 0)) {
+			MARS_ERR("SKIP in sequence numbers detected: %d != %d + 1\n", inf->inf_sequence, rot->inf_prev_sequence);
 			goto out;
 		}
-		if (unlikely(!rot->inf_prev_version || inf->inf_sequence != rot->inf_prev_sequence + 1)) {
-			prev = path_make("%s/version-%09d-%s", rot->parent_path, inf->inf_sequence - 1, my_id());
-			if (unlikely(!prev)) {
-				MARS_ERR("no MEM\n");
-				goto out;
-			}
-			prev_link = mars_readlink(prev);
-			if (unlikely(!prev_link)) {
-				MARS_ERR("cannot find previous version symlink '%s'\n", SAFE_STR(prev));
-				goto out;
-			}
-			brick_string_free(rot->inf_prev_version);
-			rot->inf_prev_version = brick_strdup(prev_link);
-			if (unlikely(!rot->inf_prev_version)) {
-				MARS_ERR("no MEM\n");
-				goto out;
-			}
-			rot->inf_prev_sequence = inf->inf_sequence - 1;
-		}
-	}
-
-	if (likely(rot->inf_prev_version)) {
-		char *tmp;
-		prev_digest = brick_strdup(rot->inf_prev_version);
-		if (unlikely(!prev_digest)) {
+		prev = path_make("%s/version-%09d-%s", rot->parent_path, inf->inf_sequence - 1, my_id());
+		if (unlikely(!prev)) {
 			MARS_ERR("no MEM\n");
 			goto out;
 		}
-		// just take the hash part out of it
-		for (tmp = prev_digest; *tmp; tmp++)
-			if (*tmp == ',')
-				break;
-		*tmp = '\0';
-	} else {
-		prev_digest = "";
+		prev_link = mars_readlink(prev);
+		if (unlikely(!prev_link)) {
+			MARS_ERR("cannot find previous version symlink '%s'\n", SAFE_STR(prev));
+			goto out;
+		}
+		rot->inf_prev_sequence = inf->inf_sequence;
 	}
 
-	len = sprintf(data, "%s,%d,%lld,%s", inf->inf_host, inf->inf_sequence, inf->inf_log_pos, prev_digest);
-	if (prev_digest[0])
-		brick_string_free(prev_digest);
+	len = sprintf(data, "%d,%s,%lld;%s", inf->inf_sequence, inf->inf_host, inf->inf_log_pos, prev_link ? prev_link : "");
 	
 	MARS_DBG("data = '%s' len = %d\n", data, len);
 
@@ -613,9 +588,9 @@ void _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf
 		len += sprintf(old + len, "%02x", digest[i]);
 	}
 
-	if (likely(rot->inf_prev_version)) {
+	if (likely(prev_link)) {
 		char *tmp;
-		prev_digest = brick_strdup(rot->inf_prev_version);
+		prev_digest = brick_strdup(prev_link);
 		if (unlikely(!prev_digest)) {
 			MARS_ERR("no MEM\n");
 			goto out;
@@ -625,13 +600,9 @@ void _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf
 			if (*tmp == ';')
 				break;
 		*tmp = '\0';
-	} else {
-		prev_digest = "";
 	}
 
-	len += sprintf(old + len, ",%s,%lld,%d;%s", inf->inf_host, inf->inf_log_pos, inf->inf_sequence, prev_digest);
-	if (prev_digest[0])
-		brick_string_free(prev_digest);
+	len += sprintf(old + len, ",%s,%lld,%d;%s", inf->inf_host, inf->inf_log_pos, inf->inf_sequence, prev_digest ? prev_digest : "");
 
 	new = path_make("%s/version-%09d-%s", rot->parent_path, inf->inf_sequence, my_id());
 	if (!new) {
@@ -665,6 +636,7 @@ out:
 	brick_string_free(old);
 	brick_string_free(check);
 	brick_string_free(prev_link);
+	brick_string_free(prev_digest);
 }
 
 static
@@ -678,18 +650,17 @@ void _update_info(struct trans_logger_info *inf)
 
 	down(&rot->inf_mutex);
 
-	MARS_DBG("inf = %p '%s' seq = %d min_pos = %lld max_pos = %lld log_pos = %lld is_writeback = %d is_applying = %d is_logging = %d\n",
+	MARS_DBG("inf = %p '%s' seq = %d min_pos = %lld max_pos = %lld log_pos = %lld is_applying = %d is_logging = %d\n",
 		 inf,
 		 SAFE_STR(inf->inf_host),
 		 inf->inf_sequence,
 		 inf->inf_min_pos,
 		 inf->inf_max_pos,
 		 inf->inf_log_pos,
-		 inf->inf_is_writeback,
 		 inf->inf_is_applying,
 		 inf->inf_is_logging);
 
-	if (inf->inf_is_writeback || inf->inf_is_applying) {
+	if (inf->inf_is_logging || inf->inf_is_applying) {
 		_update_replay_link(rot, inf);
 	}
 	if (inf->inf_is_logging || inf->inf_is_applying) {
@@ -1632,10 +1603,8 @@ void rot_destruct(void *_rot)
 	if (likely(rot)) {
 		brick_string_free(rot->copy_path);
 		brick_string_free(rot->parent_path);
-		brick_string_free(rot->inf_prev_version);
 		rot->copy_path = NULL;
 		rot->parent_path = NULL;
-		rot->inf_prev_version = NULL;
 	}
 }
 
