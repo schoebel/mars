@@ -1131,6 +1131,11 @@ int mars_kill_brick(struct mars_brick *brick)
 
 	MARS_DBG("===> killing brick %s path = '%s' name = '%s'\n", brick->type ? SAFE_STR(brick->type->type_name) : "undef", SAFE_STR(brick->brick_path), SAFE_STR(brick->brick_name));
 
+	if (unlikely(brick->nr_outputs > 0 && brick->outputs[0] && brick->outputs[0]->nr_connected)) {
+		MARS_ERR("sorry, output is in use '%s'\n", SAFE_STR(brick->brick_path));
+		goto done;
+	}
+
 	if (global) {
 		down_write(&global->brick_mutex);
 		list_del_init(&brick->global_brick_link);
@@ -1140,11 +1145,6 @@ int mars_kill_brick(struct mars_brick *brick)
 
 	if (brick->show_status) {
 		brick->show_status(brick, true);
-	}
-
-	if (unlikely(brick->nr_outputs > 0 && brick->outputs[0] && brick->outputs[0]->nr_connected)) {
-		MARS_ERR("sorry, output is in use '%s'\n", SAFE_STR(brick->brick_path));
-		goto done;
 	}
 
 	// start shutdown
