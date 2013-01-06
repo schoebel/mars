@@ -97,7 +97,6 @@ struct mars_rotate {
 	struct mars_limiter file_limiter;
 	struct semaphore inf_mutex;
 	int inf_prev_sequence;
-	long long switchover_timeout;
 	long long flip_start;
 	loff_t dev_size;
 	loff_t total_space;
@@ -374,45 +373,6 @@ done:
 // internal helpers
 
 #define MARS_DELIM ','
-
-static
-char *_parse_versionlink(const char *str, loff_t *pos)
-{
-	char *res = NULL;
-	const char *tmp;
-	int count;
-	int status;
-
-	*pos = 0;
-
-	while (*str && *str++ != MARS_DELIM) {
-		// empty
-	}
-
-	tmp = str;
-	count = 0;
-	while (*tmp && *tmp != MARS_DELIM) {
-		tmp++;
-		count++;
-	}
-	res = brick_string_alloc(count + 1);
-	if (unlikely(!res)) {
-		MARS_DBG("bad alloc\n");
-		goto done;
-	}
-
-	strncpy(res, str, count);
-	res[count] = '\0';
-
-	status = sscanf(tmp, ",%lld", pos);
-	if (unlikely(status != 1)) {
-		MARS_DBG("status = %d\n", status);
-		brick_string_free(res);
-		res = NULL;
-	}
-done:
-	return res;
-}
 
 static int _parse_args(struct mars_dent *dent, char *str, int count)
 {
@@ -1525,75 +1485,206 @@ void _create_new_logfile(const char *path)
 	}
 }
 
-static
-int _check_versionlink(struct mars_global *global, const char *parent_path, int sequence, loff_t target_end_pos)
+#define skip_part(s) _skip_part(s, ',', ';')
+#define skip_sect(s) _skip_part(s, ';', 0)
+static inline
+int _skip_part(const char *str, const char del1, const char del2)
 {
-	char *my_version = NULL;
-	char *my_version_link = NULL;
-	char *other_version = NULL;
-	char *other_version_link = NULL;
-	char *from_host = NULL;
-	loff_t pos = 0;
-	int status = -ENOMEM;
+	int len = 0;
+	while (str[len] && str[len] != del1 && (!del2 || str[len] != del2))
+		len++;
+	return len;
+}
 
-	my_version = path_make("%s/version-%09d-%s", parent_path, sequence, my_id());
-	if (!my_version) {
-		MARS_WRN("out of memory");
-		goto out;
+static inline
+int skip_dir(const char *str)
+{
+	int len = 0;
+	int res = 0;
+	for (len = 0; str[len]; len++)
+		if (str[len] == '/')
+			res = len + 1;
+	return res;
+}
+
+static
+int parse_logfile_name(const char *str, int *seq, const char **host)
+{
+	char *_host;
+	int count;
+	int len = 0;
+	int len_host;
+
+	*seq = 0;
+	*host = NULL;
+
+	count = sscanf(str, "log-%d-%n", seq, &len);
+	if (unlikely(count != 1)) {
+		MARS_ERR("bad logfile name '%s', count=%d, len=%d\n", str, count, len);
+		return 0;
 	}
 
-	status = -ENOENT;
-	my_version_link = mars_readlink(my_version);
-	if (!my_version_link) {
-		MARS_WRN("cannot find my own version symlink '%s'\n", my_version);
-		goto out;
+	_host = brick_strdup(str + len);
+	if (unlikely(!_host)) {
+		MARS_ERR("no MEM\n");
+		return 0;
 	}
 
-	from_host = _parse_versionlink(my_version_link, &pos);
-	if (!from_host) {
-		MARS_WRN("cannot parse '%s'\n", my_version_link);
-		goto out;
+	len_host = skip_part(_host);
+	_host[len_host] = '\0';
+	*host = _host;
+	len += len_host;
+
+	return len;
+}
+
+static
+const char *get_replaylink(const char *parent_path, const char *host, const char **linkpath)
+{
+	const char * _linkpath = path_make("%s/replay-%s", parent_path, host);
+	*linkpath = _linkpath;
+	if (unlikely(!_linkpath)) {
+		MARS_ERR("no MEM\n");
+		return NULL;
+	}
+	return mars_readlink(_linkpath);
+}
+
+static
+const char *get_versionlink(const char *parent_path, int seq, const char *host, const char **linkpath)
+{
+	const char * _linkpath = path_make("%s/version-%09d-%s", parent_path, seq, host);
+	*linkpath = _linkpath;
+	if (unlikely(!_linkpath)) {
+		MARS_ERR("no MEM\n");
+		return NULL;
+	}
+	return mars_readlink(_linkpath);
+}
+
+static
+bool is_switchover_possible(const char *parent_path, const char *old_log_path, const char *new_log_path)
+{
+	const char *old_log_name = old_log_path + skip_dir(old_log_path);
+	const char *new_log_name = new_log_path + skip_dir(new_log_path);
+	const char *old_host = NULL;
+	const char *new_host = NULL;
+	const char *own_versionlink_path = NULL;
+	const char *old_versionlink_path = NULL;
+	const char *new_versionlink_path = NULL;
+	const char *own_versionlink = NULL;
+	const char *old_versionlink = NULL;
+	const char *new_versionlink = NULL;
+	const char *own_replaylink_path = NULL;
+	const char *own_replaylink = NULL;
+	int old_log_seq;
+	int new_log_seq;
+	int own_r_offset;
+	int own_v_offset;
+	int own_r_len;
+	int own_v_len;
+	int len1;
+	int len2;
+	int offs2;
+
+	bool res = false;
+
+	if (unlikely(!parse_logfile_name(old_log_name, &old_log_seq, &old_host)))
+		goto done;
+	if (unlikely(!parse_logfile_name(new_log_name, &new_log_seq, &new_host)))
+		goto done;
+
+	// check: are the sequence numbers contiguous?
+	if (unlikely(new_log_seq != old_log_seq + 1)) {
+		MARS_INF("sequence numbers are not contiguous (%d != %d + 1), old_log_path='%s' new_log_path='%s'\n", new_log_seq, old_log_seq, old_log_path, new_log_path);
+		goto done;
 	}
 
-	if (!strcmp(from_host, my_id())) {
-		MARS_DBG("found version stemming from myself, no check of other version necessary.\n");
-		status = 1;
-		if (unlikely(pos != target_end_pos)) {
-			MARS_WRN("pos = %lld != target_end_pos = %lld\n", pos, target_end_pos);
-			status = 0;
-		}
-		goto out;
+	// fetch all the versionlinks and test for their existence.
+	own_versionlink = get_versionlink(parent_path, old_log_seq, my_id(), &own_versionlink_path);
+	if (unlikely(!own_versionlink)) {
+		MARS_INF("cannot read my own versionlink '%s'\n", SAFE_STR(own_versionlink_path));
+		goto done;
+	}
+	old_versionlink = get_versionlink(parent_path, old_log_seq, old_host, &old_versionlink_path);
+	if (unlikely(!old_versionlink)) {
+		MARS_INF("cannot read old versionlink '%s'\n", SAFE_STR(old_versionlink_path));
+		goto done;
+	}
+	new_versionlink = get_versionlink(parent_path, new_log_seq, new_host, &new_versionlink_path);
+	if (unlikely(!new_versionlink)) {
+		MARS_INF("new versionlink '%s' does not yet exist, we must wait for it.\n", SAFE_STR(new_versionlink_path));
+		goto done;
 	}
 
-	status = -ENOMEM;
-	other_version = path_make("%s/version-%09d-%s", parent_path, sequence, from_host);
-	if (!other_version) {
-		MARS_WRN("out of memory");
-		goto out;
+	// check: are the versionlinks correct?
+	if (unlikely(strcmp(own_versionlink, old_versionlink))) {
+		MARS_INF("old logfile is not yet completeley transferred, own_versionlink '%s' -> '%s' != old_versionlink '%s' -> '%s'\n", own_versionlink_path, own_versionlink, old_versionlink_path, old_versionlink);
+		goto done;
 	}
 
-	status = -ENOENT;
-	other_version_link = mars_readlink(other_version);
-	if (!other_version_link) {
-		MARS_WRN("cannot find other version symlink '%s'\n", other_version);
-		goto out;
+	// check: did I fully apply my old logfile data?
+	own_replaylink = get_replaylink(parent_path, my_id(), &own_replaylink_path);
+	if (unlikely(!own_replaylink)) {
+		MARS_ERR("cannot read my own replaylink '%s'\n", SAFE_STR(own_replaylink_path));
+		goto done;
+	}
+	own_r_len    = skip_part(own_replaylink);
+	own_v_offset = skip_part(own_versionlink);
+	if (unlikely(!own_versionlink[own_v_offset++])) {
+		MARS_ERR("own version link '%s' -> '%s' is malformed\n", own_versionlink_path, own_versionlink);
+		goto done;
+	}
+	own_v_len    = skip_part(own_versionlink + own_v_offset);
+	if (unlikely(own_r_len != own_v_len ||
+		     strncmp(own_replaylink, own_versionlink + own_v_offset, own_r_len))) {
+		MARS_ERR("internal problem: logfile name mismatch between '%s' and '%s'\n", own_replaylink, own_versionlink);
+		goto done;
+	}
+	if (unlikely(!own_replaylink[own_r_len])) {
+		MARS_ERR("own replay link '%s' -> '%s' is malformed\n", own_replaylink_path, own_replaylink);
+		goto done;
+	}
+	own_r_offset = own_r_len + 1;
+	if (unlikely(!own_versionlink[own_v_len])) {
+		MARS_ERR("own version link '%s' -> '%s' is malformed\n", own_versionlink_path, own_versionlink);
+		goto done;
+	}
+	own_v_offset += own_r_len + 1;
+	own_r_len    = skip_part(own_replaylink  + own_r_offset);
+	own_v_len    = skip_part(own_versionlink + own_v_offset);
+	if (unlikely(own_r_len != own_v_len ||
+		     strncmp(own_replaylink + own_r_offset, own_versionlink + own_v_offset, own_r_len))) {
+		MARS_INF("log replay is not yet finished: '%s' and '%s' are reporting different positions.\n", own_replaylink, own_versionlink);
+		goto done;
 	}
 
-	if (!strcmp(my_version_link, other_version_link)) {
-		MARS_DBG("VERSION OK '%s'\n", my_version_link);
-		status = 1;
-	} else {
-		MARS_WRN("VERSION MISMATCH '%s' != '%s' => check for SPLIT BRAIN!\n", my_version_link, other_version_link);
-		status = 0;
+	// last check: is the new versionlink based on the old one?
+	len1  = skip_sect(own_versionlink);
+	offs2 = skip_sect(new_versionlink) + 1;
+	len2  = skip_sect(new_versionlink + offs2);
+	if (unlikely(len1 != len2 ||
+		     strncmp(own_versionlink, new_versionlink + offs2, len1))) {
+		MARS_WRN("VERSION MISMATCH old '%s' -> '%s' new '%s' -> '%s' ==(%d,%d) ===> check for SPLIT BRAIN!\n", own_versionlink_path, own_versionlink, new_versionlink_path, new_versionlink, len1, len2);
+		goto done;
 	}
 
-out:
-	brick_string_free(my_version);
-	brick_string_free(my_version_link);
-	brick_string_free(other_version);
-	brick_string_free(other_version_link);
-	brick_string_free(from_host);
-	return status;
+	// report success
+	res = true;
+	MARS_DBG("VERSION OK '%s' -> '%s'\n", own_versionlink_path, own_versionlink);
+
+ done:
+	brick_string_free(old_host);
+	brick_string_free(new_host);
+	brick_string_free(own_versionlink_path);
+	brick_string_free(old_versionlink_path);
+	brick_string_free(new_versionlink_path);
+	brick_string_free(own_versionlink);
+	brick_string_free(old_versionlink);
+	brick_string_free(new_versionlink);
+	brick_string_free(own_replaylink_path);
+	brick_string_free(own_replaylink);
+	return res;
 }
 
 static
@@ -2035,17 +2126,11 @@ int _make_logging_status(struct mars_rotate *rot)
 		 */
 		if (!trans_brick->power.button && !trans_brick->power.led_on && trans_brick->power.led_off) {
 			if (rot->next_relevant_log) {
-				MARS_DBG("check switchover from '%s' to '%s' (size = %lld, next_next = %p, allow_replay = %d)\n", dent->d_path, rot->next_relevant_log->d_path, rot->next_relevant_log->new_stat.size, rot->next_next_relevant_log, rot->allow_replay);
-				if ((rot->next_relevant_log->new_stat.size > 0 || rot->next_next_relevant_log || (long long)jiffies > rot->switchover_timeout + 30 * HZ) &&
-				    rot->allow_replay &&
-				    _check_versionlink(global, parent->d_path, dent->d_serial, end_pos) > 0) {
-					rot->switchover_timeout = 0;
+				MARS_DBG("check switchover from '%s' to '%s' (size = %lld, next_next = %p)\n", dent->d_path, rot->next_relevant_log->d_path, rot->next_relevant_log->new_stat.size, rot->next_next_relevant_log);
+				if (rot->allow_replay &&
+				    is_switchover_possible(parent->d_path, dent->d_path, rot->next_relevant_log->d_path)) {
 					MARS_DBG("switching over from '%s' to next relevant transaction log '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
 					_make_new_replaylink(rot, rot->next_relevant_log->d_rest, rot->next_relevant_log->d_serial, rot->next_relevant_log->new_stat.size);
-				} else {
-					MARS_DBG("waiting for logfile to become stable\n");
-					if (!rot->switchover_timeout)
-						rot->switchover_timeout = jiffies;
 				}
 			} else if (rot->todo_primary) {
 				MARS_DBG("preparing new transaction log '%s' from version %d to %d\n", dent->d_path, dent->d_serial, dent->d_serial + 1);
