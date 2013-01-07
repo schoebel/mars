@@ -2448,8 +2448,6 @@ void _exit_inputs(struct trans_logger_brick *brick, bool force)
 			// no locking here: we should be the only thread doing this.
 			_inf_callback(input, true);
 			input->inf_last_jiffies = 0;
-			brick_string_free(input->inf.inf_host);
-			input->inf.inf_host = NULL;
 			input->inf.inf_is_applying = false;
 			input->inf.inf_is_logging = false;
 			input->is_operating = false;
@@ -3199,8 +3197,6 @@ static noinline
 int trans_logger_input_destruct(struct trans_logger_input *input)
 {
 	CHECK_HEAD_EMPTY(&input->pos_list);
-	brick_string_free(input->inf.inf_host);
-	input->inf.inf_host = NULL;
 	return 0;
 }
 

@@ -206,11 +206,13 @@ struct trans_logger_output {
 	MARS_OUTPUT(trans_logger);
 };
 
+#define MAX_HOST_LEN 32
+
 struct trans_logger_info {
 	// to be maintained / initialized from outside
 	void (*inf_callback)(struct trans_logger_info *inf);
 	void  *inf_private;
-	char  *inf_host;
+	char   inf_host[MAX_HOST_LEN];
 	int    inf_sequence;     // logfile sequence number
 
 	// maintained by trans_logger
