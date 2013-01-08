@@ -1,0 +1,13 @@
+modules.*
+*raid*
+*~
+*.mod.c
+*.cmd
+*.o
+*.ko
+\#*
+.#*
+buildtag.h
+*.orig
+*.rej
+
