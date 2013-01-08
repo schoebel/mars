@@ -462,7 +462,7 @@ int get_inode(char *newpath, struct mars_dent *dent)
 
 		status = user_path_at(AT_FDCWD, newpath, 0, &path);
 		if (unlikely(status < 0)) {
-			MARS_ERR("cannot read link '%s'\n", newpath);
+			MARS_WRN("cannot read link '%s'\n", newpath);
 			goto done;
 		}
 
