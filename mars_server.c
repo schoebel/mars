@@ -25,6 +25,9 @@ static struct task_struct *server_thread = NULL;
 static LIST_HEAD(server_list);
 static spinlock_t server_lock = __SPIN_LOCK_UNLOCKED(server_lock);
 
+atomic_t server_handler_count = ATOMIC_INIT(0);
+EXPORT_SYMBOL_GPL(server_handler_count);
+
 ///////////////////////// own helper functions ////////////////////////
 
 
@@ -300,6 +303,11 @@ int handler_thread(void *data)
         while (brick->cb_running && !brick_thread_should_stop() && mars_socket_is_alive(sock)) {
 		struct mars_cmd cmd = {};
 
+		if (unlikely(!mars_global || !mars_global->global_power.button)) {
+			MARS_DBG("system is not alive\n");
+			break;
+		}
+
 		status = mars_recv_struct(sock, &cmd, mars_cmd_meta);
 		if (unlikely(status < 0)) {
 			MARS_WRN("#%d recv cmd status = %d\n", sock->s_debug_nr, status);
@@ -474,6 +482,7 @@ int handler_thread(void *data)
 	}
 	
 	MARS_DBG("#%d done.\n", debug_nr);
+	atomic_dec(&server_handler_count);
 	return status;
 }
 
@@ -709,11 +718,13 @@ static int _server_thread(void *data)
 
 		MARS_DBG("got new connection #%d\n", brick->handler_socket.s_debug_nr);
 
+		atomic_inc(&server_handler_count);
+
 		/* TODO: check authorization.
 		 */
 
 		if (!mars_global || !mars_global->global_power.button || brick_thread_should_stop()) {
-			MARS_WRN("system is not alive\n");
+			MARS_DBG("system is not alive\n");
 			goto err;
 		}
 
@@ -736,6 +747,7 @@ static int _server_thread(void *data)
 				BRICK_ERR("kill status = %d, giving up\n", status);
 			}
 			brick = NULL;
+			atomic_dec(&server_handler_count);
 		}
 		brick_msleep(3000);
 	}

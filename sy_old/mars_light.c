@@ -3969,13 +3969,13 @@ static int light_thread(void *data)
 
 	MARS_INF("-------- starting as host '%s' ----------\n", id);
 
-        while (_global.global_power.button || !list_empty(&_global.brick_anchor)) {
+        while (_global.global_power.button || !list_empty(&_global.brick_anchor) || atomic_read(&server_handler_count) > 0) {
 		int status;
 		loff_t rest_space;
 		bool exhausted;
 		bool jammed;
 
-		MARS_DBG("-------- NEW ROUND ---------\n");
+		MARS_DBG("-------- NEW ROUND %d ---------\n", atomic_read(&server_handler_count));
 
 		if (mars_mem_percent < 0)
 			mars_mem_percent = 0;
