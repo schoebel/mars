@@ -15,6 +15,7 @@
 #include "mars_proc.h"
 #include "../mars_bio.h"
 #include "../mars_aio.h"
+#include "../mars_copy.h"
 #include "../mars_client.h"
 #include "../mars_server.h"
 #include "../mars_trans_logger.h"
@@ -209,6 +210,7 @@ ctl_table mars_table[] = {
 	INT_ENTRY("logger_mem_used_kb",   trans_logger_mem_usage, 0400),
 	INT_ENTRY("mem_used_raw_kb",      brick_global_block_used,0400),
 	INT_ENTRY("io_flying_count",      mars_global_io_flying,  0400),
+	INT_ENTRY("copy_overlap",         mars_copy_overlap,      0600),
 	INT_ENTRY("statusfiles_rollover_sec", rollover_time,      0600),
 	INT_ENTRY("logrot_auto_gb",       global_logrot_auto,     0600),
 	INT_ENTRY("logdel_auto_gb",       global_logdel_auto,     0600),

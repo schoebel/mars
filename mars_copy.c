@@ -22,6 +22,9 @@
 
 #include "mars_copy.h"
 
+int mars_copy_overlap = 0;
+EXPORT_SYMBOL_GPL(mars_copy_overlap);
+
 ///////////////////////// own helper functions ////////////////////////
 
 /* TODO:
@@ -456,7 +459,13 @@ restart:
 			next_state = COPY_STATE_RESET;
 			break;
 		}
-		st->writeout = true;
+		/* Attention! overlapped IO behind EOF could
+		 * lead to temporary inconsistent state of the
+		 * file, because the write order may be different from
+		 * strict O_APPEND behaviour.
+		 */
+		if (mars_copy_overlap)
+			st->writeout = true;
 		next_state = COPY_STATE_WRITTEN;
 		/* fallthrough */
 	case COPY_STATE_WRITTEN:
@@ -465,6 +474,7 @@ restart:
 			MARS_IO("irrelevant\n");
 			goto idle;
 		}
+		st->writeout = true;
 		/* rechecking means to start over again.
 		 * ATTENTIION! this may lead to infinite request
 		 * submission loops, intentionally.
