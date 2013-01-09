@@ -9,6 +9,17 @@
 //#define STAT_DEBUGGING // here means: display full statistics
 //#define HASH_DEBUGGING
 
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/string.h>
+#include <linux/bio.h>
+
+#include "mars.h"
+#include "lib_rank.h"
+#include "lib_limiter.h"
+
+#include "mars_trans_logger.h"
+
 // variants
 #define KEEP_UNIQUE
 #define DELAY_CALLERS // this is _needed_ for production systems
@@ -20,21 +31,14 @@
 #define APPLY_DATA
 
 // tuning
-#define CONF_TRANS_CHUNKSIZE  (128 * 1024)
+#ifdef BRICK_DEBUG_MEM
+#define CONF_TRANS_CHUNKSIZE    (128 * 1024 - PAGE_SIZE * 2)
+#else
+#define CONF_TRANS_CHUNKSIZE    (128 * 1024)
+#endif
 #define CONF_TRANS_MAX_MREF_SIZE PAGE_SIZE
 //#define CONF_TRANS_ALIGN      PAGE_SIZE // FIXME: does not work
 #define CONF_TRANS_ALIGN      0
-
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/string.h>
-#include <linux/bio.h>
-
-#include "mars.h"
-#include "lib_rank.h"
-#include "lib_limiter.h"
-
-#include "mars_trans_logger.h"
 
 #ifdef REPLAY_DEBUGGING
 #define MARS_RPL(_fmt, _args...)  _MARS_MSG(false, "REPLAY ", _fmt, ##_args)
