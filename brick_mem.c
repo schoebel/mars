@@ -63,6 +63,8 @@ void get_total_ram(void)
 // small memory allocation (use this only for len < PAGE_SIZE)
 
 #ifdef BRICK_DEBUG_MEM
+static atomic_t phys_mem_alloc = ATOMIC_INIT(0);
+static atomic_t mem_redirect_alloc = ATOMIC_INIT(0);
 static atomic_t mem_count[BRICK_DEBUG_MEM] = {};
 static atomic_t mem_free[BRICK_DEBUG_MEM] = {};
 static int  mem_len[BRICK_DEBUG_MEM] = {};
@@ -76,6 +78,9 @@ void *__brick_mem_alloc(int len)
 {
 	void *res;
 	if (len >= PAGE_SIZE) {
+#ifdef BRICK_DEBUG_MEM
+		atomic_inc(&mem_redirect_alloc);
+#endif
 		res = _brick_block_alloc(0, len, 0);
 	} else {
 #ifdef CONFIG_MARS_MEM_RETRY
@@ -85,8 +90,15 @@ void *__brick_mem_alloc(int len)
 				break;
 			msleep(1000);
 		}
+#ifdef BRICK_DEBUG_MEM
+		atomic_inc(&phys_mem_alloc);
+#endif
 #else
 		res = kmalloc(len, GFP_BRICK);
+#ifdef BRICK_DEBUG_MEM
+		if (res)
+			atomic_inc(&phys_mem_alloc);
+#endif
 #endif
 	}
 	return res;
@@ -97,8 +109,14 @@ void __brick_mem_free(void *data, int len)
 {
 	if (len >= PAGE_SIZE) {
 		_brick_block_free(data, len, 0);
+#ifdef BRICK_DEBUG_MEM
+		atomic_dec(&mem_redirect_alloc);
+#endif
 	} else {
 		kfree(data);
+#ifdef BRICK_DEBUG_MEM
+		atomic_dec(&phys_mem_alloc);
+#endif
 	}
 }
 
@@ -185,6 +203,7 @@ EXPORT_SYMBOL_GPL(_brick_mem_free);
 // string memory allocation
 
 #ifdef BRICK_DEBUG_MEM
+static atomic_t phys_string_alloc = ATOMIC_INIT(0);
 static atomic_t string_count[BRICK_DEBUG_MEM] = {};
 static atomic_t string_free[BRICK_DEBUG_MEM] = {};
 #endif
@@ -222,6 +241,7 @@ char *_brick_string_alloc(int len, int line)
 
 #ifdef BRICK_DEBUG_MEM
 	if (likely(res)) {
+		atomic_inc(&phys_string_alloc);
 		if (unlikely(line < 0))
 			line = 0;
 		else if (unlikely(line >= BRICK_DEBUG_MEM))
@@ -266,6 +286,7 @@ void _brick_string_free(const char *data, int cline)
 		INT_ACCESS(data, len - sizeof(int)) = 0xffffffff;
 		atomic_dec(&string_count[line]);
 		atomic_inc(&string_free[line]);
+		atomic_dec(&phys_string_alloc);
 #endif
 		kfree(data);
 	}
@@ -292,6 +313,7 @@ int len2order(int len)
 }
 
 #ifdef BRICK_DEBUG_MEM
+static atomic_t phys_block_alloc = ATOMIC_INIT(0);
 // indexed by line
 static atomic_t block_count[BRICK_DEBUG_MEM] = {};
 static atomic_t block_free[BRICK_DEBUG_MEM] = {};
@@ -302,15 +324,13 @@ static atomic_t raw_count[BRICK_MAX_ORDER+1] = {};
 static atomic_t alloc_count[BRICK_MAX_ORDER+1] = {};
 static int alloc_max[BRICK_MAX_ORDER+1] = {};
 static int alloc_line[BRICK_MAX_ORDER+1] = {};
+static int alloc_len[BRICK_MAX_ORDER+1] = {};
 #endif
 
 static inline
 void *__brick_block_alloc(gfp_t gfp, int order)
 {
 	void *res;
-#ifdef BRICK_DEBUG_MEM
-	atomic_inc(&raw_count[order]);
-#endif
 #ifdef CONFIG_MARS_MEM_RETRY
 	for (;;) {
 #endif
@@ -326,7 +346,13 @@ void *__brick_block_alloc(gfp_t gfp, int order)
 	}
 #endif
 
-	atomic64_add((PAGE_SIZE/1024) << order, &brick_global_block_used);
+	if (likely(res)) {
+#ifdef BRICK_DEBUG_MEM
+		atomic_inc(&phys_block_alloc);
+		atomic_inc(&raw_count[order]);
+#endif
+		atomic64_add((PAGE_SIZE/1024) << order, &brick_global_block_used);
+	}
 
 	return res;
 }
@@ -340,6 +366,7 @@ void __brick_block_free(void *data, int order)
 	vfree(data);
 #endif
 #ifdef BRICK_DEBUG_MEM
+	atomic_dec(&phys_block_alloc);
 	atomic_dec(&raw_count[order]);
 #endif
 	atomic64_sub((PAGE_SIZE/1024) << order, &brick_global_block_used);
@@ -483,6 +510,7 @@ void *_brick_block_alloc(loff_t pos, int len, int line)
 	count = atomic_read(&alloc_count[order]);
 	// statistics
 	alloc_line[order] = line;
+	alloc_len[order] = len;
 	if (count > alloc_max[order])
 		alloc_max[order] = count;
 
@@ -614,6 +642,7 @@ void brick_mem_statistics(void)
 			  "freelist_count = %4d / %3d "
 			  "raw_count = %5d "
 			  "alloc_count = %5d "
+			  "alloc_len = %5d "
 			  "line = %5d "
 			  "max_count = %5d\n",
 			  i,
@@ -622,7 +651,9 @@ void brick_mem_statistics(void)
 			  freelist_max[i],
 			  atomic_read(&raw_count[i]),
 			  atomic_read(&alloc_count[i]),
-			  alloc_line[i], alloc_max[i]);
+			  alloc_len[i],
+			  alloc_line[i],
+			  alloc_max[i]);
 	}
 #endif
 	for (i = 0; i < BRICK_DEBUG_MEM; i++) {
@@ -639,7 +670,7 @@ void brick_mem_statistics(void)
 				  atomic_read(&block_free[i]));
 		}
 	}
-	BRICK_INF("======== %d block allocations in %d places\n", count, places);
+	BRICK_INF("======== %d block allocations in %d places (phys=%d)\n", count, places, atomic_read(&phys_block_alloc));
 	count = places = 0;
 	for (i = 0; i < BRICK_DEBUG_MEM; i++) {
 		int val = atomic_read(&mem_count[i]);
@@ -655,7 +686,8 @@ void brick_mem_statistics(void)
 				  atomic_read(&mem_free[i]));
 		}
 	}
-	BRICK_INF("======== %d memory allocations in %d places\n", count, places);
+	BRICK_INF("======== %d memory allocations in %d places (phys=%d,redirect=%d)\n",
+		  count, places, atomic_read(&phys_mem_alloc), atomic_read(&mem_redirect_alloc));
 	count = places = 0;
 	for (i = 0; i < BRICK_DEBUG_MEM; i++) {
 		int val = atomic_read(&string_count[i]);
@@ -670,7 +702,7 @@ void brick_mem_statistics(void)
 				  atomic_read(&string_free[i]));
 		}
 	}
-	BRICK_INF("======== %d string allocations in %d places\n", count, places);
+	BRICK_INF("======== %d string allocations in %d places (phys=%d)\n", count, places, atomic_read(&phys_string_alloc));
 #endif
 }
 EXPORT_SYMBOL_GPL(brick_mem_statistics);
