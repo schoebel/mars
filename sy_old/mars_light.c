@@ -2598,6 +2598,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 			goto done;
 		}
 		copy_brick = NULL;
+		mars_trigger();
 	}
 	rot->copy_brick = copy_brick;
 	if (!copy_brick) {
