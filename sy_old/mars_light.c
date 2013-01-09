@@ -463,12 +463,13 @@ done:
 // status display
 
 static
-void _update_replay_link(struct mars_rotate *rot, struct trans_logger_info *inf)
+int _update_replay_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 {
 	char *check = NULL;
 	char *old = NULL;
 	char *new = NULL;
 	int status;
+	int res = 0;
 
 	old = path_make("log-%09d-%s,%lld,%lld", inf->inf_sequence, inf->inf_host, inf->inf_min_pos, inf->inf_max_pos - inf->inf_min_pos);
 	if (!old) {
@@ -492,6 +493,7 @@ void _update_replay_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 	if (status < 0) {
 		MARS_ERR("cannot create symlink '%s' -> '%s' status = %d\n", old, new, status);
 	} else {
+		res = 1;
 		MARS_DBG("made replay symlink '%s' -> '%s' status = %d\n", old, new, status);
 	}
 
@@ -499,10 +501,11 @@ out:
 	brick_string_free(new);
 	brick_string_free(old);
 	brick_string_free(check);
+	return res;
 }
 
 static
-void _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf)
+int _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 {
 	char *data = brick_string_alloc(0);
 	char *old = brick_string_alloc(0);
@@ -515,6 +518,7 @@ void _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf
 	int len;
 	int i;
 	int status;
+	int res = 0;
 
 	if (unlikely(!data || !digest || !old)) {
 		MARS_ERR("no MEM\n");
@@ -589,6 +593,7 @@ void _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf
 	if (unlikely(status < 0)) {
 		MARS_ERR("cannot create symlink '%s' -> '%s' status = %d\n", old, new, status);
 	} else {
+		res = 1;
 		MARS_DBG("make version symlink '%s' -> '%s' status = %d\n", old, new, status);
 	}
 
@@ -601,6 +606,7 @@ out:
 	brick_string_free(check);
 	brick_string_free(prev_link);
 	brick_string_free(prev_digest);
+	return res;
 }
 
 static
@@ -682,12 +688,10 @@ void write_info_links(struct mars_rotate *rot)
 			 inf.inf_is_logging);
 		
 		if (inf.inf_is_logging || inf.inf_is_applying) {
-			_update_replay_link(rot, &inf);
-			count++;
+			count += _update_replay_link(rot, &inf);
 		}
 		if (inf.inf_is_logging || inf.inf_is_applying) {
-			_update_version_link(rot, &inf);
-			count++;
+			count += _update_version_link(rot, &inf);
 		}
 	}
 	if (count)
