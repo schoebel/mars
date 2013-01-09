@@ -53,6 +53,9 @@ int delay_say_on_overflow =
 #endif
 EXPORT_SYMBOL_GPL(delay_say_on_overflow);
 
+static atomic_t say_alloc_channels = ATOMIC_INIT(0);
+static atomic_t say_alloc_names = ATOMIC_INIT(0);
+static atomic_t say_alloc_pages = ATOMIC_INIT(0);
 
 struct say_channel {
 	char *ch_name;
@@ -254,12 +257,18 @@ void del_channel(struct say_channel *ch)
 		}
 		for (j = 0; j < 2; j++) {
 			char *buf = ch->ch_buf[i][j];
-			if (buf)
+			if (buf) {
 				__free_pages(virt_to_page((unsigned long)buf), SAY_ORDER);
+				atomic_dec(&say_alloc_pages);
+			}
 		}
 	}
-	kfree(ch->ch_name);
+	if (ch->ch_name) {
+		kfree(ch->ch_name);
+		atomic_dec(&say_alloc_names);
+	}
 	kfree(ch);
+	atomic_dec(&say_alloc_channels);
 }
 
 static
@@ -288,6 +297,7 @@ restart:
 		schedule();
 		goto restart;
 	}
+	atomic_inc(&say_alloc_channels);
 	init_waitqueue_head(&res->ch_progress);
 restart2:
 	res->ch_name = kstrdup(name, mode);
@@ -295,6 +305,7 @@ restart2:
 		schedule();
 		goto restart2;
 	}
+	atomic_inc(&say_alloc_names);
 	for (i = 0; i < MAX_SAY_CLASS; i++) {
 		spin_lock_init(&res->ch_lock[i]);
 		for (j = 0; j < 2; j++) {
@@ -305,6 +316,7 @@ restart2:
 				schedule();
 				goto restart3;
 			}
+			atomic_inc(&say_alloc_pages);
 			res->ch_buf[i][j] = buf;
 		}
 	}
@@ -551,6 +563,7 @@ restart:
 		schedule();
 		goto restart;
 	}
+	atomic_inc(&say_alloc_names);
 	snprintf(filename, 1023, "%s/%d.%s.%s%s", ch->ch_name, class, say_class[class], transact ? "status" : "log", add_tmp ? ".tmp" : "");
 	return filename;
 }
@@ -584,10 +597,14 @@ void _rollover_channel(struct say_channel *ch)
 			set_fs(oldfs);
 		}
 		
-		if (old)
+		if (likely(old)) {
 			kfree(old);
-		if (new)
+			atomic_dec(&say_alloc_names);
+		}
+		if (likely(new)) {
 			kfree(new);
+			atomic_dec(&say_alloc_names);
+		}
 	}
 }
 
@@ -624,6 +641,7 @@ void treat_channel(struct say_channel *ch, int class)
 			if (likely(filename)) {
 				try_open_file(&ch->ch_filp[class][transact], filename, transact);
 				kfree(filename);
+				atomic_dec(&say_alloc_names);
 			}
 		}
 		out_to_file(ch->ch_filp[class][transact], buf, len);
@@ -694,6 +712,10 @@ EXPORT_SYMBOL_GPL(init_say);
 
 void exit_say(void)
 {
+	int memleak_channels;
+	int memleak_names;
+	int memleak_pages;
+
 	if (say_thread) {
 		kthread_stop(say_thread);
 		put_task_struct(say_thread);
@@ -703,6 +725,13 @@ void exit_say(void)
 	default_channel = NULL;
 	while (channel_list) {
 		del_channel(channel_list);
+	}
+
+	memleak_channels = atomic_read(&say_alloc_channels);
+	memleak_names = atomic_read(&say_alloc_names);
+	memleak_pages = atomic_read(&say_alloc_pages);
+	if (unlikely(memleak_channels || memleak_names || memleak_pages)) {
+		printk("MEMLEAK: channels=%d names=%d pages=%d\n", memleak_channels, memleak_names, memleak_pages);
 	}
 }
 EXPORT_SYMBOL_GPL(exit_say);
