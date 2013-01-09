@@ -4129,8 +4129,14 @@ EXPORT_SYMBOL_GPL(global_free_space);
 
 static int __init init_light(void)
 {
+	extern int min_free_kbytes;
+	int new_limit = 4096;
 	int status = 0;
 
+	// bump the min_free limit
+	if (min_free_kbytes < new_limit)
+		min_free_kbytes = new_limit;
+	
 	init_say(); // this must come first
 
 #ifdef CONFIG_MARS_HAVE_BIGMODULE
