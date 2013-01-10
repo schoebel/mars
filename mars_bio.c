@@ -651,7 +651,7 @@ static int bio_switch(struct bio_brick *brick)
 		if (!brick->bdev) {
 			static int index = 0;
 			const char *path = brick->brick_path;
-			int flags = O_RDWR | O_LARGEFILE;
+			int flags = O_RDWR | O_EXCL | O_LARGEFILE;
 			int prot = 0600;
 			struct inode *inode;
 			struct request_queue *q;
@@ -668,57 +668,62 @@ static int bio_switch(struct bio_brick *brick)
 				goto done;
 			}
 			
-			status = -EINVAL;
-			CHECK_PTR(brick->filp->f_mapping, done);
-			inode = brick->filp->f_mapping->host;
-			CHECK_PTR(inode, done);
-			if (!S_ISBLK(inode->i_mode)) {
+			if (unlikely(!brick->filp->f_mapping ||
+				     !(inode = brick->filp->f_mapping->host))) {
+				MARS_ERR("internal problem with '%s'\n", path);
+				status = -EINVAL;
+				goto done;
+			}
+			if (unlikely(!S_ISBLK(inode->i_mode) || !inode->i_bdev)) {
 				MARS_ERR("sorry, '%s' is not a block device\n", path);
+				status = -ENODEV;
 				goto done;
 			}
 
 			q = bdev_get_queue(inode->i_bdev);
-			CHECK_PTR(q, done);
+			if (unlikely(!q)) {
+				MARS_ERR("internal queue '%s' does not exist\n", path);
+				status = -EINVAL;
+				goto done;
+			}
 
-#if 1
-			MARS_INF("ra_pages OLD=%lu NEW=%d\n", q->backing_dev_info.ra_pages, brick->ra_pages);
+			MARS_INF("'%s' ra_pages OLD=%lu NEW=%d\n", path, q->backing_dev_info.ra_pages, brick->ra_pages);
 			q->backing_dev_info.ra_pages = brick->ra_pages;
-#endif
+
 			brick->bvec_max = queue_max_hw_sectors(q) >> (PAGE_SHIFT - 9);
 			brick->total_size = inode->i_size;
 
 			brick->response_thread = brick_thread_create(bio_response_thread, brick, "mars_bio_r%d", index);
 			brick->submit_thread = brick_thread_create(bio_submit_thread, brick, "mars_bio_s%d", index);
-			index++;
+			status = -ENOMEM;
 			if (likely(brick->submit_thread && brick->response_thread)) {
 				brick->bdev = inode->i_bdev;
+				index++;
 				status = 0;
 			}
 		}
-		if (brick->bdev) {
-			mars_power_led_on((void*)brick, true);
-		}
-	} else {
-		mars_power_led_on((void*)brick, false);
-
-		// TODO: wait for IO completion
-
+	}
+	
+	mars_power_led_on((void*)brick, brick->power.button && brick->bdev != NULL);
+	
+ done:
+	if (status < 0 || !brick->power.button) {
 		if (brick->filp) {
 			filp_close(brick->filp, NULL);
 			brick->filp = NULL;
 		}
-		brick_thread_stop(brick->submit_thread);
-		brick_thread_stop(brick->response_thread);
+		if (brick->submit_thread) {
+			brick_thread_stop(brick->submit_thread);
+			brick->submit_thread = NULL;
+		}
+		if (brick->response_thread) {
+			brick_thread_stop(brick->response_thread);
+		}
 		brick->bdev = NULL;
-		brick->total_size = 0;
-
-		mars_power_led_off((void*)brick, true);
-	}
-
-done:
-	if (status < 0 && brick->filp) {
-		filp_close(brick->filp, NULL);
-		brick->filp = NULL;
+		if (!brick->power.button) {
+			mars_power_led_off((void*)brick, true);
+			brick->total_size = 0;
+		}
 	}
 	return status;
 }
