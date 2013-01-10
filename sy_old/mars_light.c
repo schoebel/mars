@@ -458,6 +458,142 @@ done:
 	return res;
 }
 
+#define skip_part(s) _skip_part(s, ',', ';')
+#define skip_sect(s) _skip_part(s, ';', 0)
+static inline
+int _skip_part(const char *str, const char del1, const char del2)
+{
+	int len = 0;
+	while (str[len] && str[len] != del1 && (!del2 || str[len] != del2))
+		len++;
+	return len;
+}
+
+static inline
+int skip_dir(const char *str)
+{
+	int len = 0;
+	int res = 0;
+	for (len = 0; str[len]; len++)
+		if (str[len] == '/')
+			res = len + 1;
+	return res;
+}
+
+static
+int parse_logfile_name(const char *str, int *seq, const char **host)
+{
+	char *_host;
+	int count;
+	int len = 0;
+	int len_host;
+
+	*seq = 0;
+	*host = NULL;
+
+	count = sscanf(str, "log-%d-%n", seq, &len);
+	if (unlikely(count != 1)) {
+		MARS_ERR("bad logfile name '%s', count=%d, len=%d\n", str, count, len);
+		return 0;
+	}
+
+	_host = brick_strdup(str + len);
+	if (unlikely(!_host)) {
+		MARS_ERR("no MEM\n");
+		return 0;
+	}
+
+	len_host = skip_part(_host);
+	_host[len_host] = '\0';
+	*host = _host;
+	len += len_host;
+
+	return len;
+}
+
+static
+int compare_replaylinks(const char *parent_path, const char *hosta, const char *hostb)
+{
+	const char *linka = path_make("%s/replay-%s", parent_path, hosta);
+	const char *linkb = path_make("%s/replay-%s", parent_path, hostb);
+	const char *a = NULL;
+	const char *b = NULL;
+	int seqa;
+	int seqb;
+	int posa;
+	int posb;
+	loff_t offa;
+	loff_t offb;
+	int count;
+	int res = -2;
+
+	if (unlikely(!linka || !linkb)) {
+		MARS_ERR("nen MEM");
+		goto done;
+	}
+
+	a = mars_readlink(linka);
+	if (unlikely(!a)) {
+		MARS_ERR("cannot read replaylink '%s'\n", linka);
+		goto done;
+	}
+	b = mars_readlink(linkb);
+	if (unlikely(!b)) {
+		MARS_ERR("cannot read replaylink '%s'\n", linkb);
+		goto done;
+	}
+
+	count = sscanf(a, "log-%d-%n", &seqa, &posa);
+	if (unlikely(count != 1)) {
+		MARS_ERR("replay link '%s' -> '%s' is malformed\n", linka, a);
+	}
+	count = sscanf(b, "log-%d-%n", &seqb, &posb);
+	if (unlikely(count != 1)) {
+		MARS_ERR("replay link '%s' -> '%s' is malformed\n", linkb, b);
+	}
+
+	if (seqa < seqb) {
+		res = -1;
+		goto done;
+	} else if (seqa > seqb) {
+		res = 1;
+		goto done;
+	}
+
+	posa += skip_part(a + posa);
+	posb += skip_part(b + posb);
+	if (unlikely(!a[posa++])) {
+		MARS_ERR("replay link '%s' -> '%s' is malformed\n", linka, a);
+	}
+	if (unlikely(!b[posb++])) {
+		MARS_ERR("replay link '%s' -> '%s' is malformed\n", linkb, b);
+	}
+
+	count = sscanf(a + posa, "%lld", &offa);
+	if (unlikely(count != 1)) {
+		MARS_ERR("replay link '%s' -> '%s' is malformed\n", linka, a);
+	}
+	count = sscanf(b + posb, "%lld", &offb);
+	if (unlikely(count != 1)) {
+		MARS_ERR("replay link '%s' -> '%s' is malformed\n", linkb, b);
+	}
+
+	if (posa < posb) {
+		res = -1;
+	} else if (posa > posb) {
+		res = 1;
+	} else {
+		res = 0;
+	}
+
+ done:
+	brick_string_free(a);
+	brick_string_free(b);
+	brick_string_free(linka);
+	brick_string_free(linkb);
+	return res;
+}
+
 ///////////////////////////////////////////////////////////////////////
 
 // status display
@@ -1545,59 +1681,6 @@ void _create_new_logfile(const char *path)
 		filp_close(f, NULL);
 		mars_trigger();
 	}
-}
-
-#define skip_part(s) _skip_part(s, ',', ';')
-#define skip_sect(s) _skip_part(s, ';', 0)
-static inline
-int _skip_part(const char *str, const char del1, const char del2)
-{
-	int len = 0;
-	while (str[len] && str[len] != del1 && (!del2 || str[len] != del2))
-		len++;
-	return len;
-}
-
-static inline
-int skip_dir(const char *str)
-{
-	int len = 0;
-	int res = 0;
-	for (len = 0; str[len]; len++)
-		if (str[len] == '/')
-			res = len + 1;
-	return res;
-}
-
-static
-int parse_logfile_name(const char *str, int *seq, const char **host)
-{
-	char *_host;
-	int count;
-	int len = 0;
-	int len_host;
-
-	*seq = 0;
-	*host = NULL;
-
-	count = sscanf(str, "log-%d-%n", seq, &len);
-	if (unlikely(count != 1)) {
-		MARS_ERR("bad logfile name '%s', count=%d, len=%d\n", str, count, len);
-		return 0;
-	}
-
-	_host = brick_strdup(str + len);
-	if (unlikely(!_host)) {
-		MARS_ERR("no MEM\n");
-		return 0;
-	}
-
-	len_host = skip_part(_host);
-	_host[len_host] = '\0';
-	*host = _host;
-	len += len_host;
-
-	return len;
 }
 
 static
@@ -3102,7 +3185,14 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	/* Disallow contemporary sync & logfile_apply
 	 */
 	if (do_start && !rot->allow_sync) {
-		MARS_WRN("cannot start sync because logfile application is running!\n");
+		MARS_INF("cannot start sync because logfile application is running!\n");
+		do_start = false;
+	}
+
+	/* Disallow overwrite of newer data
+	 */
+	if (do_start && compare_replaylinks(dent->d_parent->d_path, peer, my_id()) < 0) {
+		MARS_INF("cannot start sync because my data is newer than the remote one at '%s'!\n", peer);
 		do_start = false;
 	}
 
