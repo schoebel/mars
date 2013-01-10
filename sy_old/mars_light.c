@@ -110,8 +110,7 @@ struct mars_rotate {
 	int relevant_serial;
 	bool has_error;
 	bool allow_update;
-	bool allow_sync;
-	bool allow_replay;
+	bool forbid_replay;
 	bool replay_mode;
 	bool todo_primary;
 	bool is_primary;
@@ -2275,8 +2274,7 @@ int _make_logging_status(struct mars_rotate *rot)
 		if (!trans_brick->power.button && !trans_brick->power.led_on && trans_brick->power.led_off) {
 			if (rot->next_relevant_log) {
 				MARS_DBG("check switchover from '%s' to '%s' (size = %lld, next_next = %p)\n", dent->d_path, rot->next_relevant_log->d_path, rot->next_relevant_log->new_stat.size, rot->next_next_relevant_log);
-				if (rot->allow_replay &&
-				    is_switchover_possible(parent->d_path, dent->d_path, rot->next_relevant_log->d_path)) {
+				if (is_switchover_possible(parent->d_path, dent->d_path, rot->next_relevant_log->d_path)) {
 					MARS_DBG("switching over from '%s' to next relevant transaction log '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
 					_make_new_replaylink(rot, rot->next_relevant_log->d_rest, rot->next_relevant_log->d_serial, rot->next_relevant_log->new_stat.size);
 				}
@@ -2745,10 +2743,19 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 
 		do_start = (!rot->replay_mode ||
 			    (rot->start_pos != rot->end_pos &&
-			     rot->allow_replay &&
 			     _check_allow(global, parent, "allow-replay")));
 
-		MARS_DBG("rot->replay_mode = %d rot->start_pos = %lld rot->end_pos = %lld rot->allow_replay = %d | do_start = %d\n", rot->replay_mode, rot->start_pos, rot->end_pos, rot->allow_replay, do_start);
+		if (do_start && rot->forbid_replay) {
+			MARS_INF("cannot start replay because sync wants to start\n");
+			do_start = false;
+		}
+
+		if (do_start && rot->sync_brick && !rot->sync_brick->power.led_off) {
+			MARS_INF("cannot start replay because sync is running\n");
+			do_start = false;
+		}
+
+		MARS_DBG("rot->replay_mode = %d rot->start_pos = %lld rot->end_pos = %lld | do_start = %d\n", rot->replay_mode, rot->start_pos, rot->end_pos, do_start);
 
 		if (do_start) {
 			status = _start_trans(rot);
@@ -2756,7 +2763,6 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	}
 
 done:
-	rot->allow_sync = (!rot->trans_brick || rot->trans_brick->power.led_off);
 	if (rot->trans_brick)
 		_show_rate(rot, &rot->replay_limiter, rot->trans_brick->power.led_on, "replay_rate");
 	if (rot->copy_brick)
@@ -3139,6 +3145,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 
 	rot = dent->d_parent->d_private;
 	if (rot) {
+		rot->forbid_replay = false;
 		rot->allow_update = true;
 		rot->syncstatus_dent = dent;
 	}
@@ -3176,7 +3183,6 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	connect_dent = (void*)mars_find_dent(global, tmp);
 	if (!connect_dent || !connect_dent->new_link) {
 		MARS_WRN("cannot determine peer, symlink '%s' is missing => assuming that I am STANDALONE\n", tmp);
-		rot->allow_replay = true;
 		status = 0;
 		goto done;
 	}
@@ -3184,8 +3190,9 @@ static int make_sync(void *buf, struct mars_dent *dent)
 
 	/* Disallow contemporary sync & logfile_apply
 	 */
-	if (do_start && !rot->allow_sync) {
-		MARS_INF("cannot start sync because logfile application is running!\n");
+	if (do_start &&
+	    (!rot->trans_brick || !rot->trans_brick->power.led_off)) {
+		MARS_INF("cannot start sync because logger is working\n");
 		do_start = false;
 	}
 
@@ -3194,6 +3201,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	if (do_start && compare_replaylinks(dent->d_parent->d_path, peer, my_id()) < 0) {
 		MARS_INF("cannot start sync because my data is newer than the remote one at '%s'!\n", peer);
 		do_start = false;
+		rot->forbid_replay = true;
 	}
 
 #if defined(CONFIG_MARS_SYNC_FLIP_INTERVAL) && CONFIG_MARS_SYNC_FLIP_INTERVAL > 0
@@ -3224,7 +3232,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	if (unlikely(!src || !dst || !copy_path || !switch_path))
 		goto done;
 
-	MARS_DBG("initial sync '%s' => '%s' rot->allow_sync = %d do_start = %d\n", src, dst, rot->allow_sync, do_start);
+	MARS_DBG("initial sync '%s' => '%s' do_start = %d\n", src, dst, do_start);
 
 	{
 		const char *argv[2] = { src, dst };
@@ -3237,7 +3245,6 @@ static int make_sync(void *buf, struct mars_dent *dent)
 		if (copy)
 			copy->copy_limiter = &rot->sync_limiter;
 		rot->sync_brick = copy;
-		rot->allow_replay = (!copy || copy->power.led_off);
 	}
 
 	/* Update syncstatus symlink
