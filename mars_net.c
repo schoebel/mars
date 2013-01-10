@@ -163,17 +163,18 @@ int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *addr,
 		MARS_ERR("#%d socket already open\n", msock->s_debug_nr);
 		goto final;
 	}
+	atomic_set(&msock->s_count, 1);
 
 	status = sock_create_kern(AF_INET, SOCK_STREAM, IPPROTO_TCP, &msock->s_socket);
-	if (unlikely(status < 0)) {
+	if (unlikely(status < 0 || !msock->s_socket)) {
 		msock->s_socket = NULL;
 		MARS_WRN("cannot create socket, status = %d\n", status);
 		goto final;
 	}
-	atomic_set(&msock->s_count, 1);
 	msock->s_debug_nr = ++current_debug_nr;
 	sock = msock->s_socket;
 	CHECK_PTR(sock, done);
+	msock->s_alive = true;
 
 	_set_socketopts(sock);
 
@@ -234,6 +235,7 @@ int mars_accept_socket(struct mars_socket *new_msock, struct mars_socket *old_ms
 		memset(new_msock, 0, sizeof(struct mars_socket));
 		new_msock->s_socket = new_socket;
 		atomic_set(&new_msock->s_count, 1);
+		new_msock->s_alive = true;
 		new_msock->s_debug_nr = ++current_debug_nr;
 		MARS_DBG("#%d successfully accepted socket #%d\n", old_msock->s_debug_nr, new_msock->s_debug_nr);
 		status = 0;
@@ -254,7 +256,7 @@ bool mars_get_socket(struct mars_socket *msock)
 
 	atomic_inc(&msock->s_count);
 
-	if (unlikely(!msock->s_socket)) {
+	if (unlikely(!msock->s_socket || !msock->s_alive)) {
 		mars_put_socket(msock);
 		return false;
 	}
@@ -273,14 +275,12 @@ void mars_put_socket(struct mars_socket *msock)
 		int i;
 
 		MARS_DBG("#%d closing socket %p\n", msock->s_debug_nr, sock);
-		if (likely(sock)) {
-			msock->s_socket = NULL;
+		if (likely(sock && cmpxchg(&msock->s_alive, true, false))) {
 			kernel_sock_shutdown(sock, SHUT_WR);
-			msock->s_release_socket = sock;
 		}
-		if (likely(msock->s_release_socket)) {
-			MARS_DBG("#%d releasing socket %p\n", msock->s_debug_nr, msock->s_release_socket);
-			sock_release(msock->s_release_socket);
+		if (likely(sock && !msock->s_alive)) {
+			MARS_DBG("#%d releasing socket %p\n", msock->s_debug_nr, sock);
+			sock_release(sock);
 		}
 		for (i = 0; i < MAX_DESC_CACHE; i++) {
 			if (msock->s_desc_send[i])
@@ -302,12 +302,9 @@ void mars_shutdown_socket(struct mars_socket *msock)
 		bool ok = mars_get_socket(msock);
 		if (likely(ok)) {
 			struct socket *sock = msock->s_socket;
-			if (likely(sock)) {
-				msock->s_socket = NULL;
+			if (likely(sock && cmpxchg(&msock->s_alive, true, false))) {
 				MARS_DBG("#%d shutdown socket %p\n", msock->s_debug_nr, sock);
 				kernel_sock_shutdown(sock, SHUT_WR);
-				// delay sock_release() until the last reference has gone
-				msock->s_release_socket = sock;
 			}
 			mars_put_socket(msock);
 		}
@@ -318,7 +315,7 @@ EXPORT_SYMBOL_GPL(mars_shutdown_socket);
 bool mars_socket_is_alive(struct mars_socket *msock)
 {
 	bool res = false;
-	if (!msock->s_socket)
+	if (!msock->s_socket || !msock->s_alive)
 		goto done;
 	if (unlikely(atomic_read(&msock->s_count) <= 0)) {
 		MARS_ERR("#%d bad nesting on msock = %p sock = %p\n", msock->s_debug_nr, msock, msock->s_socket);
