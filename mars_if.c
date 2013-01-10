@@ -89,7 +89,7 @@ void if_endio(struct generic_callback *cb)
 		bio = biow->bio;
 		CHECK_PTR_NULL(bio, err);
 
-#if 0
+#if 1
 		if (mref_a->is_kmapped) {
 			struct bio_vec *bvec;
 			int i;
