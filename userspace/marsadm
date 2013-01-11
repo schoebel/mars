@@ -681,7 +681,7 @@ sub logdelete_res {
   foreach my $versionlink (glob("$mars/resource-$res/version-*")) {
     my $nrv = $versionlink;
     $nrv =~ s/^.*\/version-([0-9]+)-.+$/$1/;
-    next unless $nrv < $nr - 1;
+    next unless $nrv < $max - 1;
     _create_delete($versionlink);
   }
 }
