@@ -705,7 +705,7 @@ int _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 		*tmp = '\0';
 	}
 
-	len += sprintf(old + len, ",%s,%lld,%d;%s", inf->inf_host, inf->inf_log_pos, inf->inf_sequence, prev_digest ? prev_digest : "");
+	len += sprintf(old + len, ",log-%09d-%s,%lld;%s", inf->inf_sequence, inf->inf_host, inf->inf_log_pos, prev_digest ? prev_digest : "");
 
 	new = path_make("%s/version-%09d-%s", rot->parent_path, inf->inf_sequence, my_id());
 	if (!new) {
