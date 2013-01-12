@@ -1707,7 +1707,7 @@ const char *get_versionlink(const char *parent_path, int seq, const char *host, 
 }
 
 static
-bool is_switchover_possible(const char *parent_path, const char *old_log_path, const char *new_log_path)
+bool is_switchover_possible(const char *parent_path, const char *old_log_path, const char *new_log_path, bool skip_new)
 {
 	const char *old_log_name = old_log_path + skip_dir(old_log_path);
 	const char *new_log_name = new_log_path + skip_dir(new_log_path);
@@ -1755,10 +1755,12 @@ bool is_switchover_possible(const char *parent_path, const char *old_log_path, c
 		MARS_INF("cannot read old versionlink '%s'\n", SAFE_STR(old_versionlink_path));
 		goto done;
 	}
-	new_versionlink = get_versionlink(parent_path, new_log_seq, new_host, &new_versionlink_path);
-	if (unlikely(!new_versionlink)) {
-		MARS_INF("new versionlink '%s' does not yet exist, we must wait for it.\n", SAFE_STR(new_versionlink_path));
-		goto done;
+	if (!skip_new) {
+		new_versionlink = get_versionlink(parent_path, new_log_seq, new_host, &new_versionlink_path);
+		if (unlikely(!new_versionlink)) {
+			MARS_INF("new versionlink '%s' does not yet exist, we must wait for it.\n", SAFE_STR(new_versionlink_path));
+			goto done;
+		}
 	}
 
 	// check: are the versionlinks correct?
@@ -1804,13 +1806,19 @@ bool is_switchover_possible(const char *parent_path, const char *old_log_path, c
 	}
 
 	// last check: is the new versionlink based on the old one?
-	len1  = skip_sect(own_versionlink);
-	offs2 = skip_sect(new_versionlink) + 1;
-	len2  = skip_sect(new_versionlink + offs2);
-	if (unlikely(len1 != len2 ||
-		     strncmp(own_versionlink, new_versionlink + offs2, len1))) {
-		MARS_WRN("VERSION MISMATCH old '%s' -> '%s' new '%s' -> '%s' ==(%d,%d) ===> check for SPLIT BRAIN!\n", own_versionlink_path, own_versionlink, new_versionlink_path, new_versionlink, len1, len2);
-		goto done;
+	if (!skip_new) {
+		len1  = skip_sect(own_versionlink);
+		offs2 = skip_sect(new_versionlink);
+		if (unlikely(!new_versionlink[offs2++])) {
+			MARS_ERR("new version link '%s' -> '%s' is malformed\n", new_versionlink_path, new_versionlink);
+			goto done;
+		}
+		len2  = skip_sect(new_versionlink + offs2);
+		if (unlikely(len1 != len2 ||
+			     strncmp(own_versionlink, new_versionlink + offs2, len1))) {
+			MARS_WRN("VERSION MISMATCH old '%s' -> '%s' new '%s' -> '%s' ==(%d,%d) ===> check for SPLIT BRAIN!\n", own_versionlink_path, own_versionlink, new_versionlink_path, new_versionlink, len1, len2);
+			goto done;
+		}
 	}
 
 	// report success
@@ -2273,8 +2281,9 @@ int _make_logging_status(struct mars_rotate *rot)
 		 */
 		if (!trans_brick->power.button && !trans_brick->power.led_on && trans_brick->power.led_off) {
 			if (rot->next_relevant_log) {
-				MARS_DBG("check switchover from '%s' to '%s' (size = %lld, next_next = %p)\n", dent->d_path, rot->next_relevant_log->d_path, rot->next_relevant_log->new_stat.size, rot->next_next_relevant_log);
-				if (is_switchover_possible(parent->d_path, dent->d_path, rot->next_relevant_log->d_path)) {
+				bool skip_new = !rot->next_next_relevant_log && rot->todo_primary;
+				MARS_DBG("check switchover from '%s' to '%s' (size = %lld, next_next = %p, skip_new = %d)\n", dent->d_path, rot->next_relevant_log->d_path, rot->next_relevant_log->new_stat.size, rot->next_next_relevant_log, skip_new);
+				if (is_switchover_possible(parent->d_path, dent->d_path, rot->next_relevant_log->d_path, skip_new)) {
 					MARS_DBG("switching over from '%s' to next relevant transaction log '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
 					_make_new_replaylink(rot, rot->next_relevant_log->d_rest, rot->next_relevant_log->d_serial, rot->next_relevant_log->new_stat.size);
 				}
