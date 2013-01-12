@@ -950,12 +950,13 @@ static int aio_submit_thread(void *data)
 	 * which uses userspace concepts like file handles.
 	 * This should be accompanied by a future kernelsapce vfs_submit() or
 	 * do_submit() which currently does not exist :(
-	 * FIXME: corresponding cleanup NYI
 	 */
 	err = get_unused_fd();
 	MARS_INF("fd = %d\n", err);
-	if (unlikely(err < 0))
+	if (unlikely(err < 0)) {
+		MARS_ERR("cannot get fd, err=%d\n", err);
 		goto done;
+	}
 	output->fd = err;
 	fd_install(err, file);
 
@@ -965,19 +966,25 @@ static int aio_submit_thread(void *data)
 	use_fake_mm();
 
 	err = -ENOMEM;
-	if (unlikely(!current->mm))
+	if (unlikely(!current->mm)) {
+		MARS_ERR("cannot fake mm\n");
 		goto cleanup_fd;
+	}
 
 	oldfs = get_fs();
 	set_fs(get_ds());
 	err = sys_io_setup(MARS_MAX_AIO, &output->ctxp);
 	set_fs(oldfs);
-	if (unlikely(err < 0))
+	if (unlikely(err < 0)) {
+		MARS_ERR("io_setup failed, err=%d\n", err);
 		goto cleanup_mm;
+	}
 	
 	err = aio_start_thread(output, &output->tinfo[1], aio_event_thread, 'e');
-	if (unlikely(err < 0))
+	if (unlikely(err < 0)) {
+		MARS_ERR("could not start event thread\n");
 		goto cleanup_ctxp;
+	}
 
 	while (!brick_thread_should_stop() || atomic_read(&output->read_count) + atomic_read(&output->write_count) + atomic_read(&tinfo->queued_sum) > 0) {
 		struct aio_mref_aspect *mref_a;
