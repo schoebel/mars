@@ -287,6 +287,9 @@ EXPORT_SYMBOL_GPL(_mars_trigger);
 
 struct mm_struct *mm_fake = NULL;
 EXPORT_SYMBOL_GPL(mm_fake);
+struct task_struct *mm_fake_task = NULL;
+atomic_t mm_fake_count = ATOMIC_INIT(0);
+EXPORT_SYMBOL_GPL(mm_fake_count);
 
 int __init init_mars(void)
 {

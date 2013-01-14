@@ -328,34 +328,43 @@ extern const struct generic_brick_type *_sio_brick_type;
 #include <linux/mmu_context.h>
 
 extern struct mm_struct *mm_fake;
+extern struct task_struct *mm_fake_task;
+extern atomic_t mm_fake_count;
 
 static inline void set_fake(void)
 {
         mm_fake = current->mm;
         if (mm_fake) {
-		MARS_INF("\n");
-                atomic_inc(&current->usage);
-                atomic_inc(&mm_fake->mm_count);
-                atomic_inc(&mm_fake->mm_users);
+		MARS_DBG("initialized fake\n");
+		mm_fake_task = current;
+		get_task_struct(current); // paired with put_task_struct()
+                atomic_inc(&mm_fake->mm_count); // paired with mmdrop()
+                atomic_inc(&mm_fake->mm_users); // paired with mmput()
         }
 }
 
 static inline void put_fake(void)
 {
-#if 0
-        if (mm_fake) {
-		MARS_INF("\n");
-                atomic_dec(&mm_fake->mm_users);
-                mmput(mm_fake);
-                mm_fake = NULL;
+        if (mm_fake && mm_fake_task) {
+		int remain = atomic_read(&mm_fake_count);
+		if (unlikely(remain != 0)) {
+			MARS_ERR("cannot cleanup fake, remain = %d\n", remain);
+		} else {
+			MARS_DBG("cleaning up fake\n");
+			mmput(mm_fake);
+			mmdrop(mm_fake);
+			mm_fake = NULL;
+			put_task_struct(mm_fake_task);
+			mm_fake_task = NULL;
+		}
         }
-#endif
 }
 
 static inline void use_fake_mm(void)
 {
 	if (!current->mm && mm_fake) {
-		MARS_INF("\n");
+		atomic_inc(&mm_fake_count);
+		MARS_DBG("using fake, count=%d\n", atomic_read(&mm_fake_count));
 		use_mm(mm_fake);
 	}
 }
@@ -365,9 +374,10 @@ static inline void use_fake_mm(void)
 static inline void unuse_fake_mm(void)
 {
 	if (current->mm == mm_fake && mm_fake) {
-		MARS_INF("\n");
+		MARS_DBG("unusing fake, count=%d\n", atomic_read(&mm_fake_count));
+		atomic_dec(&mm_fake_count);
 		unuse_mm(mm_fake);
-		//current->mm = NULL;
+		current->mm = NULL;
 	}
 }
 
