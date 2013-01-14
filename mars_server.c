@@ -338,10 +338,9 @@ int handler_thread(void *data)
 			}
 			down(&brick->socket_sem);
 			status = mars_send_struct(sock, &cmd, mars_cmd_meta);
-			if (status < 0) {
-				break;
+			if (status >= 0) {
+				status = mars_send_struct(sock, &info, mars_info_meta);
 			}
-			status = mars_send_struct(sock, &info, mars_info_meta);
 			up(&brick->socket_sem);
 			break;
 		}
