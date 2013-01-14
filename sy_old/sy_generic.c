@@ -79,6 +79,10 @@ int mars_stat(const char *path, struct kstat *stat, bool use_lstat)
 	}
 	set_fs(oldfs);
 
+	if (likely(status >= 0)) {
+		set_lamport(&stat->mtime);
+	}
+
 	return status;
 }
 EXPORT_SYMBOL_GPL(mars_stat);
