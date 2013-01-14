@@ -829,8 +829,11 @@ void write_info_links(struct mars_rotate *rot)
 			count += _update_version_link(rot, &inf);
 		}
 	}
-	if (count)
+	if (count) {
+		if (inf.inf_min_pos == inf.inf_max_pos)
+			mars_trigger();
 		mars_remote_trigger();
+	}
 }
 
 static
