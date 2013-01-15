@@ -668,7 +668,11 @@ void aio_stop_thread(struct aio_output *output, int i, bool do_submit_dummy)
 		// workaround for waking up the receiver thread. TODO: check whether signal handlong could do better.
 		if (do_submit_dummy) {
 			MARS_INF("submitting dummy for wakeup %d...\n", i);
+			use_fake_mm();
 			aio_submit_dummy(output);
+			if (likely(current->mm)) {
+				unuse_fake_mm();
+			}
 		}
 
 		// wait for termination
@@ -933,10 +937,43 @@ void fd_uninstall(unsigned int fd)
 EXPORT_SYMBOL(fd_uninstall);
 #endif
 
-static int aio_submit_thread(void *data)
+static
+void _destroy_ioctx(struct aio_output *output)
 {
-	struct aio_threadinfo *tinfo = data;
-	struct aio_output *output = tinfo->output;
+	if (unlikely(!output))
+		goto done;
+
+	aio_stop_thread(output, 1, true);
+
+	use_fake_mm();
+
+	if (likely(output->ctxp)) {
+		mm_segment_t oldfs;
+
+		MARS_DBG("destroying ioctx.....\n");
+		oldfs = get_fs();
+		set_fs(get_ds());
+		sys_io_destroy(output->ctxp);
+		set_fs(oldfs);
+		output->ctxp = 0;
+	}
+
+	if (likely(output->fd >= 0)) {
+		MARS_DBG("destroying fd %d\n", output->fd);
+		fd_uninstall(output->fd);
+		put_unused_fd(output->fd);
+		output->fd = -1;
+	}
+
+ done:
+	if (likely(current->mm)) {
+		unuse_fake_mm();
+	}
+}
+
+static
+int _create_ioctx(struct aio_output *output)
+{
 	struct file *file;
 	mm_segment_t oldfs;
 	int err = -EINVAL;
@@ -961,14 +998,13 @@ static int aio_submit_thread(void *data)
 	fd_install(err, file);
 
 	MARS_INF("submit thread has started.\n");
-	//set_user_nice(current, -20);
 
 	use_fake_mm();
 
 	err = -ENOMEM;
 	if (unlikely(!current->mm)) {
 		MARS_ERR("cannot fake mm\n");
-		goto cleanup_fd;
+		goto done;
 	}
 
 	oldfs = get_fs();
@@ -977,14 +1013,32 @@ static int aio_submit_thread(void *data)
 	set_fs(oldfs);
 	if (unlikely(err < 0)) {
 		MARS_ERR("io_setup failed, err=%d\n", err);
-		goto cleanup_mm;
+		goto done;
 	}
 	
 	err = aio_start_thread(output, &output->tinfo[1], aio_event_thread, 'e');
 	if (unlikely(err < 0)) {
 		MARS_ERR("could not start event thread\n");
-		goto cleanup_ctxp;
+		goto done;
 	}
+
+ done:
+	if (likely(current->mm)) {
+		unuse_fake_mm();
+	}
+	return err;
+}
+
+static int aio_submit_thread(void *data)
+{
+	struct aio_threadinfo *tinfo = data;
+	struct aio_output *output = tinfo->output;
+	struct file *file;
+	int err = -EINVAL;
+
+	file = output->mf->mf_filp;
+
+	use_fake_mm();
 
 	while (!brick_thread_should_stop() || atomic_read(&output->read_count) + atomic_read(&output->write_count) + atomic_read(&tinfo->queued_sum) > 0) {
 		struct aio_mref_aspect *mref_a;
@@ -1055,30 +1109,12 @@ static int aio_submit_thread(void *data)
 		}
 	}
 
-	MARS_INF("submit thread has stopped.\n");
+	MARS_DBG("submit thread has stopped, status = %d.\n", err);
 
-	aio_stop_thread(output, 1, true);
+	if (likely(current->mm)) {
+		unuse_fake_mm();
+	}
 
-cleanup_ctxp:
-	MARS_DBG("destroying ioctx.....\n");
-	oldfs = get_fs();
-	set_fs(get_ds());
-	sys_io_destroy(output->ctxp);
-	set_fs(oldfs);
-	output->ctxp = 0;
-
-cleanup_mm:
-	unuse_fake_mm();
-
-cleanup_fd:
-	MARS_DBG("destroying fd %d\n", output->fd);
-	fd_uninstall(output->fd);
-	put_unused_fd(output->fd);
-
-	err = 0;
-
-done:
-	MARS_DBG("status = %d\n", err);
 	tinfo->terminated = true;
 	wake_up_interruptible_all(&tinfo->terminate_event);
 	return err;
@@ -1246,6 +1282,11 @@ static int aio_switch(struct aio_brick *brick)
 		goto err;
 	} 
 
+	status = _create_ioctx(output);
+	if (unlikely(status < 0)) {
+		goto err;
+	}
+
 	output->index = ++index;
 	status = aio_start_thread(output, &output->tinfo[0], aio_submit_thread, 's');
 	if (unlikely(status < 0)) {
@@ -1271,6 +1312,8 @@ cleanup:
 	mars_power_led_on((void*)brick, false);
 
 	aio_stop_thread(output, 0, false);
+
+	_destroy_ioctx(output);
 
 	mars_power_led_off((void*)brick,
 			  (output->tinfo[0].thread == NULL &&
