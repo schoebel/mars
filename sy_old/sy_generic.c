@@ -9,6 +9,7 @@
 #include <linux/string.h>
 #include <linux/uaccess.h>
 #include <linux/file.h>
+#include <linux/blkdev.h>
 #include <linux/fs.h>
 #include <linux/utsname.h>
 
@@ -614,6 +615,7 @@ err_mem0:
 static int _mars_readdir(struct mars_cookie *cookie)
 {
 	struct file *f;
+	struct address_space *mapping;
         mm_segment_t oldfs;
 	int status = 0;
 
@@ -623,6 +625,9 @@ static int _mars_readdir(struct mars_cookie *cookie)
         set_fs(oldfs);
 	if (unlikely(IS_ERR(f))) {
 		return PTR_ERR(f);
+	}
+	if ((mapping = f->f_mapping)) {
+		mapping_set_gfp_mask(mapping, mapping_gfp_mask(mapping) & ~(__GFP_IO | __GFP_FS));
 	}
 
 	for (;;) {

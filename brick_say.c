@@ -12,6 +12,8 @@
 // messaging
 
 #include <linux/fs.h>
+#include <linux/blkdev.h>
+#include <linux/file.h>
 #include <linux/sched.h>
 #include <linux/preempt.h>
 #include <linux/hardirq.h>
@@ -518,6 +520,7 @@ EXPORT_SYMBOL_GPL(brick_say_to);
 static
 void try_open_file(struct file **file, char *filename, bool creat)
 {
+	struct address_space *mapping;
 	int flags = O_APPEND | O_WRONLY | O_LARGEFILE;
 	int prot = 0600;
 
@@ -527,6 +530,8 @@ void try_open_file(struct file **file, char *filename, bool creat)
 	*file = filp_open(filename, flags, prot);
 	if (unlikely(IS_ERR(*file))) {
 		*file = NULL;
+	} else if ((mapping = (*file)->f_mapping)) {
+		mapping_set_gfp_mask(mapping, mapping_gfp_mask(mapping) & ~(__GFP_IO | __GFP_FS));
 	}
 }
 

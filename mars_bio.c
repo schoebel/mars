@@ -653,6 +653,7 @@ static int bio_switch(struct bio_brick *brick)
 			const char *path = brick->brick_path;
 			int flags = O_RDWR | O_EXCL | O_LARGEFILE;
 			int prot = 0600;
+			struct address_space *mapping;
 			struct inode *inode;
 			struct request_queue *q;
 			mm_segment_t oldfs;
@@ -668,7 +669,7 @@ static int bio_switch(struct bio_brick *brick)
 				goto done;
 			}
 			
-			if (unlikely(!brick->filp->f_mapping ||
+			if (unlikely(!(mapping = brick->filp->f_mapping) ||
 				     !(inode = brick->filp->f_mapping->host))) {
 				MARS_ERR("internal problem with '%s'\n", path);
 				status = -EINVAL;
@@ -679,6 +680,8 @@ static int bio_switch(struct bio_brick *brick)
 				status = -ENODEV;
 				goto done;
 			}
+
+			mapping_set_gfp_mask(mapping, mapping_gfp_mask(mapping) & ~(__GFP_IO | __GFP_FS));
 
 			q = bdev_get_queue(inode->i_bdev);
 			if (unlikely(!q)) {

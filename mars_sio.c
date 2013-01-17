@@ -572,6 +572,7 @@ static int sio_switch(struct sio_brick *brick)
 		MARS_INF("using O_DIRECT on %s\n", path);
 	}
 	if (brick->power.button) {
+		struct address_space *mapping;
 		int index;
 
 		mars_power_led_off((void*)brick, false);
@@ -589,13 +590,11 @@ static int sio_switch(struct sio_brick *brick)
 			output->filp = NULL;
 			return err;
 		}
-#if 0
-		{
-			struct address_space *mapping = output->filp->f_mapping;
-			int old_gfp_mask = mapping_gfp_mask(mapping);
-			mapping_set_gfp_mask(mapping, old_gfp_mask & ~(__GFP_IO|__GFP_FS));
+
+		if ((mapping = output->filp->f_mapping)) {
+			mapping_set_gfp_mask(mapping, mapping_gfp_mask(mapping) & ~(__GFP_IO | __GFP_FS));
 		}
-#endif
+
 		MARS_INF("opened file '%s' as %p\n", path, output->filp);
 
 		output->index = 0;
