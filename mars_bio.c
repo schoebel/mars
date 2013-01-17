@@ -663,9 +663,10 @@ static int bio_switch(struct bio_brick *brick)
 			brick->filp = filp_open(path, flags, prot);
 			set_fs(oldfs);
 
-			if (!brick->filp) {
-				MARS_ERR("cannot open '%s'\n", path);
-				status = -ENOENT;
+			if (unlikely(!brick->filp || IS_ERR(brick->filp))) {
+				status = PTR_ERR(brick->filp);
+				brick->filp = NULL;
+				MARS_ERR("cannot open '%s', status = %d\n", path, status);
 				goto done;
 			}
 			
