@@ -620,6 +620,16 @@ static int server_brick_construct(struct server_brick *brick)
 	return 0;
 }
 
+static int server_brick_destruct(struct server_brick *brick)
+{
+	spin_lock(&server_lock);
+	list_del_init(&brick->server_link);
+	spin_unlock(&server_lock);
+	CHECK_HEAD_EMPTY(&brick->cb_read_list);
+	CHECK_HEAD_EMPTY(&brick->cb_write_list);
+	return 0;
+}
+
 static int server_output_construct(struct server_output *output)
 {
 	return 0;
@@ -670,6 +680,7 @@ const struct server_brick_type server_brick_type = {
 	.default_input_types = server_input_types,
 	.default_output_types = server_output_types,
 	.brick_construct = &server_brick_construct,
+	.brick_destruct = &server_brick_destruct,
 };
 EXPORT_SYMBOL_GPL(server_brick_type);
 
