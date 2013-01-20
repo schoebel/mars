@@ -16,6 +16,13 @@ config MARS_DEBUG
 	---help---
 	OFF for production systems. ON for testing!
 
+config MARS_DEBUG_DEFAULT
+	bool "turn on debug messages by default (may flood the logfiles)"
+	depends on MARS_DEBUG
+	default n
+	---help---
+	normally OFF
+
 config MARS_BIGMODULE
 	tristate "compile all MARS modules into a single kernel module"
 	depends on MARS

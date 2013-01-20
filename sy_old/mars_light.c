@@ -1,9 +1,9 @@
 // (c) 2011 Thomas Schoebel-Theuer / 1&1 Internet AG
 
 //#define BRICK_DEBUGGING
-//#define MARS_DEBUGGING
+#define MARS_DEBUGGING
 //#define IO_DEBUGGING
-//#define STAT_DEBUGGING // here means: display full statistics
+#define STAT_DEBUGGING // here means: display full statistics
 
 // disable this only for debugging!
 #define RUN_PEERS

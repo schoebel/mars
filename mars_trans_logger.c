@@ -3,10 +3,10 @@
 // Trans_Logger brick
 
 //#define BRICK_DEBUGGING
-//#define MARS_DEBUGGING
+#define MARS_DEBUGGING
 //#define IO_DEBUGGING
 //#define REPLAY_DEBUGGING
-//#define STAT_DEBUGGING // here means: display full statistics
+#define STAT_DEBUGGING // here means: display full statistics
 //#define HASH_DEBUGGING
 
 #include <linux/kernel.h>

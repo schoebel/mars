@@ -43,6 +43,13 @@ char *say_class[MAX_SAY_CLASS] = {
 	[SAY_TOTAL] = "total",
 };
 
+int brick_say_debug =
+#ifdef CONFIG_MARS_DEBUG_DEFAULT
+	1;
+#else
+	0;
+#endif
+EXPORT_SYMBOL_GPL(brick_say_debug);
 int brick_say_syslog_min = 1;
 EXPORT_SYMBOL_GPL(brick_say_syslog_min);
 int brick_say_syslog_max = -1;
@@ -415,6 +422,9 @@ void say_to(struct say_channel *ch, int class, const char *fmt, ...)
 	va_list args;
 	unsigned long flags;
 
+	if (!class && !brick_say_debug)
+		return;
+
 	if (!ch) {
 		ch = find_channel(current);
 	}
@@ -456,6 +466,9 @@ void brick_say_to(struct say_channel *ch, int class, bool dump, const char *pref
 	int filelen;
 	va_list args;
 	unsigned long flags;
+
+	if (!class && !brick_say_debug)
+		return;
 
 	if (!ch) {
 		ch = find_channel(current);

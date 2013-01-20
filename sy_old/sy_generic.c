@@ -1,7 +1,7 @@
 // (c) 2010 Thomas Schoebel-Theuer / 1&1 Internet AG
 
 //#define BRICK_DEBUGGING
-//#define MARS_DEBUGGING
+#define MARS_DEBUGGING
 //#define IO_DEBUGGING
 
 #include <linux/kernel.h>
