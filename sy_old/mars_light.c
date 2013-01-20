@@ -457,8 +457,8 @@ done:
 	return res;
 }
 
-#define skip_part(s) _skip_part(s, ',', ';')
-#define skip_sect(s) _skip_part(s, ';', 0)
+#define skip_part(s) _skip_part(s, ',', ':')
+#define skip_sect(s) _skip_part(s, ':', 0)
 static inline
 int _skip_part(const char *str, const char del1, const char del2)
 {
@@ -680,7 +680,7 @@ int _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 		rot->inf_prev_sequence = inf->inf_sequence;
 	}
 
-	len = sprintf(data, "%d,%s,%lld;%s", inf->inf_sequence, inf->inf_host, inf->inf_log_pos, prev_link ? prev_link : "");
+	len = sprintf(data, "%d,%s,%lld:%s", inf->inf_sequence, inf->inf_host, inf->inf_log_pos, prev_link ? prev_link : "");
 	
 	MARS_DBG("data = '%s' len = %d\n", data, len);
 
@@ -698,14 +698,14 @@ int _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 			MARS_ERR("no MEM\n");
 			goto out;
 		}
-		// take the part before ';'
+		// take the part before ':'
 		for (tmp = prev_digest; *tmp; tmp++)
-			if (*tmp == ';')
+			if (*tmp == ':')
 				break;
 		*tmp = '\0';
 	}
 
-	len += sprintf(old + len, ",log-%09d-%s,%lld;%s", inf->inf_sequence, inf->inf_host, inf->inf_log_pos, prev_digest ? prev_digest : "");
+	len += sprintf(old + len, ",log-%09d-%s,%lld:%s", inf->inf_sequence, inf->inf_host, inf->inf_log_pos, prev_digest ? prev_digest : "");
 
 	new = path_make("%s/version-%09d-%s", rot->parent_path, inf->inf_sequence, my_id());
 	if (!new) {
