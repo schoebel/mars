@@ -495,7 +495,12 @@ void *_brick_block_alloc(loff_t pos, int len, int line)
 	void *data;
 #ifdef BRICK_DEBUG_MEM
 	int count;
-	const int plus = len <= PAGE_SIZE ? 0 : PAGE_SIZE * 2;
+#ifdef BRICK_DEBUG_ORDER0
+	const int plus0 = PAGE_SIZE;
+#else
+	const int plus0 = 0;
+#endif
+	const int plus = len <= PAGE_SIZE ? plus0 : PAGE_SIZE * 2;
 #else
 	const int plus = 0;
 #endif
@@ -544,11 +549,18 @@ void *_brick_block_alloc(loff_t pos, int len, int line)
 			line = BRICK_DEBUG_MEM - 1;
 		atomic_inc(&block_count[line]);
 		block_len[line] = len;
-		INT_ACCESS(data, 0) = MAGIC_BLOCK;
-		INT_ACCESS(data, sizeof(int)) = line;
-		INT_ACCESS(data, sizeof(int) * 2) = len;
-		data += PAGE_SIZE;
-		INT_ACCESS(data, len) = MAGIC_BEND;
+		if (order > 1) {
+			INT_ACCESS(data, 0 * sizeof(int)) = MAGIC_BLOCK;
+			INT_ACCESS(data, 1 * sizeof(int)) = line;
+			INT_ACCESS(data, 2 * sizeof(int)) = len;
+			data += PAGE_SIZE;
+			INT_ACCESS(data, -1 * sizeof(int)) = MAGIC_BLOCK;
+			INT_ACCESS(data, len) = MAGIC_BEND;
+		} else if (order == 1) {
+			INT_ACCESS(data, PAGE_SIZE + 0 * sizeof(int)) = MAGIC_BLOCK;
+			INT_ACCESS(data, PAGE_SIZE + 1 * sizeof(int)) = line;
+			INT_ACCESS(data, PAGE_SIZE + 2 * sizeof(int)) = len;
+		}
 	}
 #endif
 	return data;
@@ -559,22 +571,33 @@ void _brick_block_free(void *data, int len, int cline)
 {
 	int order;
 #ifdef BRICK_DEBUG_MEM
-	const int plus = len <= PAGE_SIZE ? 0 : PAGE_SIZE * 2;
+#ifdef BRICK_DEBUG_ORDER0
+	const int plus0 = PAGE_SIZE;
+#else
+	const int plus0 = 0;
+#endif
+	const int plus = len <= PAGE_SIZE ? plus0 : PAGE_SIZE * 2;
 #else
 	const int plus = 0;
 #endif
+
 	if (!data) {
 		return;
 	}
 	order = len2order(len + plus);
 #ifdef BRICK_DEBUG_MEM
-	if (order > 0) {
+	if (order > 1) {
 		void *test = data - PAGE_SIZE;
 		int magic = INT_ACCESS(test, 0);
 		int line = INT_ACCESS(test, sizeof(int));
 		int oldlen = INT_ACCESS(test, sizeof(int)*2);
+		int magic1 = INT_ACCESS(data, -1 * sizeof(int));
 		int magic2;
 
+		if (unlikely(magic1 != MAGIC_BLOCK)) {
+			BRICK_ERR("line %d memory corruption: magix1 %08x != %08x\n", cline, magic1, MAGIC_BLOCK);
+			return;
+		}
 		if (unlikely(magic != MAGIC_BLOCK)) {
 			BRICK_ERR("line %d memory corruption: magix %08x != %08x\n", cline, magic, MAGIC_BLOCK);
 			return;
@@ -594,9 +617,29 @@ void _brick_block_free(void *data, int len, int cline)
 		}
 		INT_ACCESS(test, 0) = 0xffffffff;
 		INT_ACCESS(data, len) = 0xffffffff;
+		data = test;
 		atomic_dec(&block_count[line]);
 		atomic_inc(&block_free[line]);
-		data = test;
+	} else if (order == 1) {
+		void *test = data + PAGE_SIZE;
+		int magic  = INT_ACCESS(test, 0 * sizeof(int));
+		int line   = INT_ACCESS(test, 1 * sizeof(int));
+		int oldlen = INT_ACCESS(test, 2 * sizeof(int));
+
+		if (unlikely(magic != MAGIC_BLOCK)) {
+			BRICK_ERR("line %d memory corruption: magix %08x != %08x\n", cline, magic, MAGIC_BLOCK);
+			return;
+		}
+		if (unlikely(line < 0 || line >= BRICK_DEBUG_MEM)) {
+			BRICK_ERR("line %d memory corruption: alloc line = %d\n", cline, line);
+			return;
+		}
+		if (unlikely(oldlen != len)) {
+			BRICK_ERR("line %d memory corruption: len != oldlen (%d != %d)\n", cline, len, oldlen);
+			return;
+		}
+		atomic_dec(&block_count[line]);
+		atomic_inc(&block_free[line]);
 	}
 #endif
 #ifdef CONFIG_MARS_MEM_PREALLOC

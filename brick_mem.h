@@ -9,6 +9,9 @@
 #ifndef CONFIG_MARS_DEBUG_MEM
 #undef BRICK_DEBUG_MEM
 #endif
+#ifdef CONFIG_MARS_DEBUG_ORDER0
+#define BRICK_DEBUG_ORDER0
+#endif
 
 #define GFP_BRICK GFP_NOIO
 //#define GFP_BRICK GFP_KERNEL // can lead to deadlocks!

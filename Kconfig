@@ -32,6 +32,17 @@ config MARS_DEBUG_MEM
 	many errors (including some that are not caught by kmemleak).
 	Use only for development and thorough testing!
 
+config MARS_DEBUG_ORDER0
+	bool "also debug order0 operations"
+	depends on MARS_DEBUG_MEM
+	default n
+	---help---
+	Turn even order 0 allocations into order 1 ones and provoke
+	heavy memory fragmentation problems from the buddy allocator,
+	but catch some additional memory problems.
+	Use only if you know what you are doing!
+	Normally OFF.
+
 config MARS_BIGMODULE
 	tristate "compile all MARS modules into a single kernel module"
 	depends on MARS
