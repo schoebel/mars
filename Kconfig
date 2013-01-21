@@ -23,6 +23,15 @@ config MARS_DEBUG_DEFAULT
 	---help---
 	normally OFF
 
+config MARS_DEBUG_MEM
+	bool "debug memory operations"
+	depends on MARS_DEBUG
+	default n
+	---help---
+	This adds considerable space and time overhead, but catches
+	many errors (including some that are not caught by kmemleak).
+	Use only for development and thorough testing!
+
 config MARS_BIGMODULE
 	tristate "compile all MARS modules into a single kernel module"
 	depends on MARS

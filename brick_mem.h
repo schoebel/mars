@@ -6,7 +6,7 @@
 
 #define BRICK_DEBUG_MEM 4096
 
-#ifndef CONFIG_MARS_DEBUG
+#ifndef CONFIG_MARS_DEBUG_MEM
 #undef BRICK_DEBUG_MEM
 #endif
 
