@@ -396,12 +396,14 @@ void *_get_free(int order)
 	if (likely(data)) {
 		void *next = *(void**)data;
 #ifdef BRICK_DEBUG_MEM // check for corruptions
-		void *copy = *(((void**)data)+1);
-		if (unlikely(next != copy)) { // found a corruption
+		long pattern = *(((long*)data)+1);
+		void *copy = *(((void**)data)+2);
+		if (unlikely(pattern != 0xf0f0f0f0f0f0f0f0 || next != copy)) { // found a corruption
 			// prevent further trouble by leaving a memleak
 			brick_freelist[order] = NULL;
 			traced_unlock(&freelist_lock[order], flags);
-			BRICK_ERR("freelist corruption at %p (next %p != %p, murdered = %d), order = %d\n", data, next, copy, atomic_read(&freelist_count[order]), order);
+			BRICK_ERR("freelist corruption at %p (pattern = %lx next %p != %p, murdered = %d), order = %d\n",
+				  data, pattern, next, copy, atomic_read(&freelist_count[order]), order);
 			return NULL;
 		}
 #endif
@@ -418,11 +420,15 @@ void _put_free(void *data, int order)
 	void *next;
 	unsigned long flags;
 
+#ifdef BRICK_DEBUG_MEM // fill with pattern
+	memset(data, 0xf0, PAGE_SIZE << order);
+#endif
+
 	traced_lock(&freelist_lock[order], flags);
 	next = brick_freelist[order];
 	*(void**)data = next;
 #ifdef BRICK_DEBUG_MEM // insert redundant copy for checking
-	*(((void**)data)+1) = next;
+	*(((void**)data)+2) = next;
 #endif
 	brick_freelist[order] = data;
 	traced_unlock(&freelist_lock[order], flags);
