@@ -152,6 +152,14 @@ extern int  mars_power_button_recursive(struct mars_brick *brick, bool val, bool
 
 /////////////////////////////////////////////////////////////////////////
 
+// statistics
+
+extern int global_show_statist;
+
+void show_statistics(struct mars_global *global, const char *class);
+
+/////////////////////////////////////////////////////////////////////////
+
 // quirk
 
 #ifdef CONFIG_MARS_LOADAVG_LIMIT

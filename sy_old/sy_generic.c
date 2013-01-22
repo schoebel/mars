@@ -3,6 +3,7 @@
 //#define BRICK_DEBUGGING
 #define MARS_DEBUGGING
 //#define IO_DEBUGGING
+#define STAT_DEBUGGING
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -1560,6 +1561,108 @@ done:
 	return brick;
 }
 EXPORT_SYMBOL_GPL(make_brick_all);
+
+/////////////////////////////////////////////////////////////////////////
+
+// statistics
+
+int global_show_statist =
+#ifdef CONFIG_MARS_DEBUG_DEFAULT
+	1;
+#else
+	0;
+#endif
+EXPORT_SYMBOL_GPL(global_show_statist);
+
+static
+void _show_one(struct mars_brick *test, int *brick_count)
+{
+	int i;
+	if (*brick_count) {
+		MARS_STAT("---------\n");
+	}
+	MARS_STAT("BRICK type = %s path = '%s' name = '%s' "
+		  "size_hint=%d "
+		  "mrefs_alloc = %d "
+		  "mrefs_apsect_alloc = %d "
+		  "total_mrefs_alloc = %d "
+		  "total_mrefs_aspects = %d "
+		  "button = %d off = %d on = %d\n",
+		  SAFE_STR(test->type->type_name),
+		  SAFE_STR(test->brick_path),
+		  SAFE_STR(test->brick_name),
+		  test->mref_object_layout.size_hint,
+		  atomic_read(&test->mref_object_layout.alloc_count),
+		  atomic_read(&test->mref_object_layout.aspect_count),
+		  atomic_read(&test->mref_object_layout.total_alloc_count),
+		  atomic_read(&test->mref_object_layout.total_aspect_count),
+		  test->power.button,
+		  test->power.led_off,
+		  test->power.led_on);
+	(*brick_count)++;
+	if (test->ops && test->ops->brick_statistics) {
+		char *info = test->ops->brick_statistics(test, 0);
+		if (info) {
+			MARS_STAT("  %s", info);
+			brick_string_free(info);
+		}
+	}
+	for (i = 0; i < test->type->max_inputs; i++) {
+		struct mars_input *input = test->inputs[i];
+		struct mars_output *output = input ? input->connect : NULL;
+		if (output) {
+			MARS_STAT("    input %d connected with %s path = '%s' name = '%s'\n", i, SAFE_STR(output->brick->type->type_name), SAFE_STR(output->brick->brick_path), SAFE_STR(output->brick->brick_name));
+		} else {
+			MARS_STAT("    input %d not connected\n", i);
+		}
+	}
+	for (i = 0; i < test->type->max_outputs; i++) {
+		struct mars_output *output = test->outputs[i];
+		if (output) {
+			MARS_STAT("    output %d nr_connected = %d\n", i, output->nr_connected);
+		}
+	}
+}
+
+void show_statistics(struct mars_global *global, const char *class)
+{
+	struct list_head *tmp;
+	int dent_count = 0;
+	int brick_count = 0;
+
+	if (!global_show_statist)
+		return; // silently
+	
+	brick_mem_statistics();
+
+	down_read(&global->brick_mutex);
+	MARS_STAT("================================== %s bricks:\n", class);
+	for (tmp = global->brick_anchor.next; tmp != &global->brick_anchor; tmp = tmp->next) {
+		struct mars_brick *test;
+		test = container_of(tmp, struct mars_brick, global_brick_link);
+		_show_one(test, &brick_count);
+	}
+	up_read(&global->brick_mutex);
+	
+	MARS_STAT("================================== %s dents:\n", class);
+	down_read(&global->dent_mutex);
+	for (tmp = global->dent_anchor.next; tmp != &global->dent_anchor; tmp = tmp->next) {
+		struct mars_dent *dent;
+		struct list_head *sub;
+		dent = container_of(tmp, struct mars_dent, dent_link);
+		MARS_STAT("dent %d '%s' '%s' stamp=%ld.%09ld\n", dent->d_class, SAFE_STR(dent->d_path), SAFE_STR(dent->new_link), dent->new_stat.mtime.tv_sec, dent->new_stat.mtime.tv_nsec);
+		dent_count++;
+		for (sub = dent->brick_list.next; sub != &dent->brick_list; sub = sub->next) {
+			struct mars_brick *test;
+			test = container_of(sub, struct mars_brick, dent_brick_link);
+			MARS_STAT("  owner of brick '%s'\n", SAFE_STR(test->brick_path));
+		}
+	}
+	up_read(&global->dent_mutex);
+
+	MARS_STAT("==================== %s STATISTICS: %d dents, %d bricks, %lld KB free\n", class, dent_count, brick_count, global->remaining_space);
+}
+EXPORT_SYMBOL_GPL(show_statistics);
 
 /////////////////////////////////////////////////////////////////////
 
