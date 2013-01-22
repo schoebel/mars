@@ -57,7 +57,6 @@ struct mars_global {
 	struct generic_switch global_power;
 	struct list_head dent_anchor;
 	struct list_head brick_anchor;
-	struct list_head server_anchor;
 	wait_queue_head_t main_event;
 	loff_t total_space;
 	loff_t remaining_space;

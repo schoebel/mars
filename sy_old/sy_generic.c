@@ -1109,13 +1109,9 @@ struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent 
 	 * Switching on / etc must be done separately.
 	 */
 	down_write(&global->brick_mutex);
-	if (!is_server) {
-		list_add(&res->global_brick_link, &global->brick_anchor);
-		if (belongs) {
-			list_add_tail(&res->dent_brick_link, &belongs->brick_list);
-		}
-	} else {
-		list_add_tail(&res->global_brick_link, &global->server_anchor);
+	list_add(&res->global_brick_link, &global->brick_anchor);
+	if (belongs) {
+		list_add_tail(&res->dent_brick_link, &belongs->brick_list);
 	}
 	up_write(&global->brick_mutex);
 

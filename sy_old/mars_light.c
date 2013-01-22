@@ -3964,7 +3964,6 @@ err:
 static struct mars_global _global = {
 	.dent_anchor = LIST_HEAD_INIT(_global.dent_anchor),
 	.brick_anchor = LIST_HEAD_INIT(_global.brick_anchor),
-	.server_anchor = LIST_HEAD_INIT(_global.server_anchor),
 	.global_power = {
 		.button = true,
 	},
@@ -3988,7 +3987,7 @@ static int light_thread(void *data)
 
 	MARS_INF("-------- starting as host '%s' ----------\n", id);
 
-        while (_global.global_power.button || !list_empty(&_global.brick_anchor) || atomic_read(&server_handler_count) > 0) {
+        while (_global.global_power.button || !list_empty(&_global.brick_anchor)) {
 		int status;
 		loff_t rest_space;
 		bool exhausted;
@@ -4027,12 +4026,6 @@ static int light_thread(void *data)
 		rest_space = _global.remaining_space - EXHAUSTED_LIMIT(_global.total_space);
 		_make_alivelink("rest-space", rest_space);
 
-		if (!_global.global_power.button && is_shutdown()) {
-			MARS_INF("global shutdown of all bricks...\n");
-			brick_msleep(500);
-			mars_kill_brick_all(&_global, &_global.server_anchor, false);
-		}
-
 		MARS_DBG("-------- start worker ---------\n");
 		_global.deleted_min = 0;
 		status = mars_dent_work(&_global, "/mars", sizeof(struct mars_dent), light_checker, light_worker, &_global, 3);
@@ -4049,10 +4042,6 @@ static int light_thread(void *data)
 		MARS_DBG("kill aio    bricks (when possible) = %d\n", status);
 		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&sio_brick_type, false);
 		MARS_DBG("kill sio    bricks (when possible) = %d\n", status);
-		status = mars_kill_brick_when_possible(&_global, &_global.server_anchor, false, (void*)&aio_brick_type, false);
-		MARS_DBG("kill server aio bricks (when possible) = %d\n", status);
-		status = mars_kill_brick_when_possible(&_global, &_global.server_anchor, false, (void*)&sio_brick_type, false);
-		MARS_DBG("kill server sio bricks (when possible) = %d\n", status);
 
 		if ((long long)jiffies + rollover_time * HZ >= last_rollover) {
 			last_rollover = jiffies;
@@ -4075,7 +4064,6 @@ done:
 	mars_remote_trigger();
 	brick_msleep(2000);
 
-	mars_kill_brick_all(&_global, &_global.server_anchor, false);
 	mars_free_dent_all(&_global, &_global.dent_anchor);
 	mars_kill_brick_all(&_global, &_global.brick_anchor, false);
 

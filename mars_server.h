@@ -23,7 +23,6 @@ struct server_output {
 
 struct server_brick {
 	MARS_BRICK(server);
-	struct list_head server_link;
 	atomic_t in_flight;
 	struct semaphore socket_sem;
 	struct mars_socket handler_socket;
@@ -35,7 +34,7 @@ struct server_brick {
 	struct list_head cb_read_list;
 	struct list_head cb_write_list;
 	bool cb_running;
-	bool self_shutdown;
+	bool handler_running;
 };
 
 struct server_input {
