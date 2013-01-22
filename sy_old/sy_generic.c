@@ -1220,7 +1220,7 @@ restart:
 			continue;
 		}
 		// only kill unconnected bricks
-		if (brick->outputs[0] && brick->outputs[0]->nr_connected > 0) {
+		if (brick->nr_outputs > 0 && brick->outputs[0] && brick->outputs[0]->nr_connected > 0) {
 			continue;
 		}
 		if (only_off) {
