@@ -211,6 +211,7 @@ int _set_client_params(struct mars_brick *_brick, void *private)
 	struct client_cookie *clc = private;
 	client_brick->io_timeout = 0;
 	client_brick->limit_mode = clc ? clc->limit_mode : false;
+	client_brick->killme = true;
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 	return 1;
 }
@@ -228,6 +229,7 @@ int _set_sio_params(struct mars_brick *_brick, void *private)
 	}
 	sio_brick->o_direct = false; // important!
 	sio_brick->o_fdsync = true;
+	sio_brick->killme = true;
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 	return 1;
 }
@@ -250,6 +252,7 @@ int _set_aio_params(struct mars_brick *_brick, void *private)
 	aio_brick->o_creat = clc && clc->create_mode;
 	aio_brick->o_direct = false; // important!
 	aio_brick->o_fdsync = true;
+	aio_brick->killme = true;
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 	return 1;
 }
@@ -276,6 +279,7 @@ int _set_bio_params(struct mars_brick *_brick, void *private)
 	bio_brick->do_noidle = BIO_NOIDLE;
 	bio_brick->do_sync = BIO_SYNC;
 	bio_brick->do_unplug = BIO_UNPLUG;
+	bio_brick->killme = true;
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 	return 1;
 }
@@ -325,6 +329,7 @@ int _set_copy_params(struct mars_brick *_brick, void *private)
 	copy_brick->io_prio = COPY_PRIO;
 	copy_brick->verify_mode = cc->verify_mode;
 	copy_brick->repair_mode = true;
+	copy_brick->killme = true;
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 
 	/* Determine the copy area, switch on/off when necessary

@@ -408,6 +408,10 @@ int handler_thread(void *data)
 				0);
 			if (likely(prev)) {
 				status = generic_connect((void*)brick->inputs[0], (void*)prev->outputs[0]);
+				if (unlikely(status < 0)) {
+					MARS_ERR("#%d cannot connect to '%s'\n", sock->s_debug_nr, path);
+				}
+				prev->killme = true;
 			} else {
 				MARS_ERR("#%d cannot find brick '%s'\n", sock->s_debug_nr, path);
 			}

@@ -176,6 +176,7 @@ struct mars_info {
 	const char *brick_path;						\
 	struct mars_global *global;					\
 	int brick_version;						\
+	bool killme;							\
 	void (*show_status)(struct mars_brick *brick, bool shutdown);	\
 
 struct mars_brick {

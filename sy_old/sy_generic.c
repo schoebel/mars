@@ -1216,7 +1216,11 @@ restart:
 			brick = container_of(tmp, struct mars_brick, global_brick_link);
 		}
 		// only kill the right brick types
-		if (brick->type != type) {
+		if (type && brick->type != type) {
+			continue;
+		}
+		// only kill marked bricks
+		if (!brick->killme) {
 			continue;
 		}
 		// only kill unconnected bricks
