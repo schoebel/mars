@@ -28,6 +28,8 @@
 
 #include <linux/wait.h>
 
+#include "../lib_mapfree.h"
+
 // used brick types
 #include "../mars_server.h"
 #include "../mars_client.h"
@@ -4153,6 +4155,7 @@ static int __init init_light(void)
 	DO_INIT(brick_mem);
 	DO_INIT(brick);
 	DO_INIT(mars);
+	DO_INIT(mars_mapfree);
 #ifdef CONFIG_MARS_DEBUG // otherwise currently unused
 	DO_INIT(mars_dummy);
 	DO_INIT(mars_check);

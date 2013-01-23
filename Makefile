@@ -11,6 +11,7 @@ mars-objs :=				\
 	lib_rank.o			\
 	lib_limiter.o			\
 	lib_timing.o			\
+	lib_mapfree.o			\
 	mars_net.o			\
 	mars_server.o			\
 	mars_client.o			\

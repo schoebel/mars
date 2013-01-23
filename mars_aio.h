@@ -14,8 +14,6 @@ extern struct threshold aio_submit_threshold;
 extern struct threshold aio_io_threshold[2];
 extern struct threshold aio_sync_threshold;
 
-extern int mapfree_period_sec;
-
 //#define USE_CLEVER_SYNC // TODO: NYI (should result in better write performance)
 #ifdef USE_CLEVER_SYNC
 

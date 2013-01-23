@@ -13,6 +13,7 @@
 
 #include "strategy.h"
 #include "mars_proc.h"
+#include "../lib_mapfree.h"
 #include "../mars_bio.h"
 #include "../mars_aio.h"
 #include "../mars_copy.h"
