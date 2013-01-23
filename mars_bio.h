@@ -45,7 +45,7 @@ struct bio_brick {
 	struct list_head completed_list;
 	wait_queue_head_t submit_event;
 	wait_queue_head_t response_event;
-	struct file *filp;
+	struct mapfree_info *mf;
 	struct block_device *bdev;
 	brick_thread_t *submit_thread;
 	brick_thread_t *response_thread;

@@ -17,6 +17,7 @@
 
 #include "mars.h"
 #include "lib_timing.h"
+#include "lib_mapfree.h"
 
 #include "mars_bio.h"
 
@@ -218,16 +219,17 @@ static int bio_get_info(struct bio_output *output, struct mars_info *info)
 	struct inode *inode;
 	int status = 0;
 
-	if (unlikely(!brick->filp ||
-		     !brick->filp->f_mapping ||
-		     !(inode = brick->filp->f_mapping->host))) {
+	if (unlikely(!brick->mf ||
+		     !brick->mf->mf_filp ||
+		     !brick->mf->mf_filp->f_mapping ||
+		     !(inode = brick->mf->mf_filp->f_mapping->host))) {
 		status = -ENOENT;
 		goto done;
 	}
 	brick->total_size = inode->i_size;
 	info->current_size = brick->total_size;
 	MARS_DBG("determined device size = %lld\n", info->current_size);
-	info->backing_file = brick->filp;
+	info->backing_file = brick->mf->mf_filp;
 done:
 	return status;
 }
@@ -652,26 +654,19 @@ static int bio_switch(struct bio_brick *brick)
 			static int index = 0;
 			const char *path = brick->brick_path;
 			int flags = O_RDWR | O_EXCL | O_LARGEFILE;
-			int prot = 0600;
 			struct address_space *mapping;
 			struct inode *inode;
 			struct request_queue *q;
-			mm_segment_t oldfs;
 
-			oldfs = get_fs();
-			set_fs(get_ds());
-			brick->filp = filp_open(path, flags, prot);
-			set_fs(oldfs);
-
-			if (unlikely(!brick->filp || IS_ERR(brick->filp))) {
-				status = PTR_ERR(brick->filp);
-				brick->filp = NULL;
-				MARS_ERR("cannot open '%s', status = %d\n", path, status);
+			brick->mf = mapfree_get(path, flags);
+			if (unlikely(!brick->mf)) {
+				status = -ENOENT;
+				MARS_ERR("cannot open file '%s'\n", path);
 				goto done;
 			}
 			
-			if (unlikely(!(mapping = brick->filp->f_mapping) ||
-				     !(inode = brick->filp->f_mapping->host))) {
+			if (unlikely(!(mapping = brick->mf->mf_filp->f_mapping) ||
+				     !(inode = mapping->host))) {
 				MARS_ERR("internal problem with '%s'\n", path);
 				status = -EINVAL;
 				goto done;
@@ -712,9 +707,9 @@ static int bio_switch(struct bio_brick *brick)
 	
  done:
 	if (status < 0 || !brick->power.button) {
-		if (brick->filp) {
-			filp_close(brick->filp, NULL);
-			brick->filp = NULL;
+		if (brick->mf) {
+			mapfree_put(brick->mf);
+			brick->mf = NULL;
 		}
 		if (brick->submit_thread) {
 			brick_thread_stop(brick->submit_thread);
