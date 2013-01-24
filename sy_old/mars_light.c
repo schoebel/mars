@@ -2804,11 +2804,6 @@ int make_primary(void *buf, struct mars_dent *dent)
 	struct mars_rotate *rot;
 	int status = -EINVAL;
 
-	if (!global->global_power.button) {
-		status = 0;
-		goto done;
-	}
-
 	parent = dent->d_parent;
 	CHECK_PTR(parent, done);
 	rot = parent->d_private;
@@ -2820,6 +2815,7 @@ int make_primary(void *buf, struct mars_dent *dent)
 		global->global_power.button && dent->new_link && !strcmp(dent->new_link, my_id());
 	rot->is_primary =
 		rot->if_brick && !rot->if_brick->power.led_off;
+	MARS_DBG("todo_primary = %d is_primary = %d\n", rot->todo_primary, rot->is_primary);
 	status = 0;
 
 done:
