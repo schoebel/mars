@@ -1,0 +1,68 @@
+GPLed software AS IS, sponsored by 1&1 Internet AG (www.1und1.de).
+
+MARS Light is almost a drop-in replacement for DRBD
+(that is, block-level storage replication).
+
+In contrast to plain DRBD, it works _asynchronously_ and over
+arbitrary distances.
+
+WARNING! Current stage is BETA. Don't put productive data on it!
+
+Documentation: currently very rudimentary, some even in German.
+This will be fixed soon.
+
+Concepts:
+
+There is a 2-years old concept paper in German which is so much outdated,
+that I don't want to publish it. Please be patient until I write a
+comprehensive paper at the concept level in English.
+
+For the meantime, please look at my presentation about MARS at LCA2013
+(linux.conf.au).
+
+History:
+
+As you can see in the git log, it evolved from a very experimental
+concept study, starting in the Summer of 2010.
+At this time, I was working on it in my spare time.
+
+In Summer 2011, an "official" internal 1&1 project started, which aimed
+to deliver a proof of concept.
+In February 2012, a pilot system was rolled out to an internal statistics
+server, which collects statistics data from thousands of other servers,
+and thus produces a very heavy random-access write load, formerly
+replicated with DRBD (which led to performance problems due to massive
+randomness). After switching to MARS, the performance was provably
+better.
+This server was selected because potential loss of statistics data
+would be not be that critical as with other productive data, but
+nevertheless it operates on productive data and loads.
+
+After curing some small infancy problems, this server runs until today
+(end of January 2013) without problems. Our sysadmins even switched the
+primary side a few times, without informing me, so I could
+sleep better at night without knowing what they did ;)
+
+In Summer 2012, the next "official" internal 1&1 project started. Its goal
+is to reach enterprise grade, and therefore to rollout MARS Light on
+~10 productive servers, starting with less critical systems like ones
+for test webspaces etc. This project will continue until Summer 2013.
+
+Hopefully, there will be a followup project for mass rollout to some
+thousands of servers.
+
+In December 2012 (shortly before Christmas), I got the official permission
+from our CTO Henning Kettler to publish MARS under GPL on github.
+
+Many thanks to him!
+
+Before that point, I was bound to my working contract which keeps internal
+software as secret by default (when there is no explicit permission).
+
+Now there is a chance to build up an opensource
+community for MARS, partially outside of 1&1.
+
+Please contribute! I will be open.
+
+I also try to respect the guidelines from Linus, but probably this
+will need more work. Help is always welcome!

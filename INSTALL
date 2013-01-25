@@ -1,0 +1,84 @@
+Go to your linux source tree, and apply one of the pre-patches for MARS.
+You can find them in the subdirectory pre-patches/ of the MARS sources.
+
+These pre-patches are almost trivial, they contain only a few
+EXPORT_SYMBOL() statements. Porting to other kernel versions should
+be trivial. If not, please report a bug :)
+
+One of the pre-patches has been ported to an openvz kernel
+even by one of our sysadmins, who usually does no C programming.
+So this should be no major hurdle.
+
+Because of the need for some small pre-patches, there is currently
+no infrastructure for builing MARS seaparately as standalone kernel module.
+Currently, you have to compile it inplace in your kernel source tree.
+
+Go to ${your_kernel_source}/block/ and clone the MARS git repository there.
+
+Then build your kernel as usual.
+
+In Kconfig, you will find lots of additional options for MARS. Most
+of them should be left at their default. It suffices just to switch
+on MARS as a whole, and let it build as a single kernel module.
+
+Finally, copy userspace/marsadm to some appropriate location in
+your $PATH.
+
+Do the following at both your primary and secondary node:
+
+After booting your pre-patched kernel, don't modprobe mars. Before
+that, create an empty filesystem with at least 100GB (currently
+ext3 recommended; there seem to remain some recursion deadlock problems
+with xfs which will be hopefully fixed in the next time)
+and mount it to /mars/ .
+
+Additionally, you need an empty block device having exactly the same
+size at both nodes. In the following, they are called /dev/vg-x/myspace .
+
+On the primary:
+	marsadm create-cluster
+
+On the secondary:
+	marsadm join-cluster ${hostname_of_primary}
+
+Only after that, do on both nodes:
+	modprobe mars
+
+On the primary:
+	marsadm create-resource myspace /dev/vg-x/myspace
+
+Wait a few seconds until the state information about the new resource has
+spread over the whole cluster.
+
+On the secondary:
+	marsadm join-resource myspace /dev/vg-x/myspace
+
+Shortly after that, the initial full sync should start automatically.
+On the primary, a device /dev/mars/myspace should appear, having exactly
+the same size as /dev/vg-x/myspace .
+
+Now you can use /dev/mars/myspace on the primary for creating a filesystem,
+mounting, or exporting via iSCSI, etc.
+
+From time to time, you should execute the following commands on one of
+your nodes:
+	marsadm log-rotate all
+	sleep 10
+	marsadm log-delete-all all
+... in order to prevent your /mars/ filesystem from running full.
+
+hint: use cron jobs for automation.
+
+Most marsadm commands are very similar to drbdadm. A better documentation
+should appear in the next months. The sourcecode of marsadm is a very
+simple and stupid perl script, which intentionally does not use any
+perl module and no OO. The source code will tell you almost anything
+about the symlinks present in /mars/ until there is better documentation.
+
+If you are curious about how MARS replicates its state information
+over the network, just do the following on both nodes:
+	watch ls -l /mars/resource-myspace/
+
+Alternatively / additionally, you may try Joerg's script mars-status.pl
+which will deliver colorful state reports from the practical viewpoint
+of an experienced sysadmin.
