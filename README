@@ -1,10 +1,27 @@
 GPLed software AS IS, sponsored by 1&1 Internet AG (www.1und1.de).
 
+Contact: tst@1und1.de
+
+--------------------------------
+
+Abstract:
+
 MARS Light is almost a drop-in replacement for DRBD
 (that is, block-level storage replication).
 
 In contrast to plain DRBD, it works _asynchronously_ and over
-arbitrary distances.
+arbitrary distances. It uses very different technology under the
+hood, similar to transaction logging of database systems.
+
+Anytime consistency: on a secondary node, its version of the
+block device is always consistent in itself, but may be outdated
+(represent a former state from the primary side). Thanks to
+incremental replication of the transaction logfiles, usually the
+lag-behind will be only a few seconds, or parts of a second.
+
+Application and replication are completely decoupled.
+Networking problems (e.g. packet loss) have no
+impact onto your application at the primary side.
 
 WARNING! Current stage is BETA. Don't put productive data on it!
 
