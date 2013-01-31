@@ -10,8 +10,13 @@ MARS Light is almost a drop-in replacement for DRBD
 (that is, block-level storage replication).
 
 In contrast to plain DRBD, it works _asynchronously_ and over
-arbitrary distances. It uses very different technology under the
+arbitrary distances. My regular testing runs between datacenters
+in the US and Europe. MARS uses very different technology under the
 hood, similar to transaction logging of database systems.
+
+Reliability: application and replication are completely decoupled.
+Networking problems (e.g. packet loss, bottlenecks) have no
+impact onto your application at the primary side.
 
 Anytime consistency: on a secondary node, its version of the
 block device is always consistent in itself, but may be outdated
@@ -19,9 +24,10 @@ block device is always consistent in itself, but may be outdated
 incremental replication of the transaction logfiles, usually the
 lag-behind will be only a few seconds, or parts of a second.
 
-Application and replication are completely decoupled.
-Networking problems (e.g. packet loss) have no
-impact onto your application at the primary side.
+Synchronous or near-synchronous operating modes are planned for
+the future, but are expected to _reliably_ work only over short 
+distances (less than 50km), due to fundamental properties
+of the network.
 
 WARNING! Current stage is BETA. Don't put productive data on it!
 
