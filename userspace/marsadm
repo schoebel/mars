@@ -878,6 +878,46 @@ sub role_cmd {
   }
 }
 
+sub mars_state_cmd {
+  my ($cmd, $res) = @_;
+  my $pri = "$mars/resource-$res/primary";
+  my $primary = readlink($pri) or ldie "cannot determine current primary\n";
+  if ($primary eq $host) {
+    my $is_primary = readlink("$mars/resource-$res/actual-$host/is-primary");
+    if ($is_primary) {
+      lprint "is_primary\n";
+    } else {
+      lprint "becoming_primary\n";
+    }
+    return;
+  }
+  my $size = readlink("$mars/resource-$res/size") or ldie "cannot read size link";
+  my $syncstatus = readlink("$mars/resource-$res/syncstatus-$host") or ldie "cannot read syncstatus link";
+  if ($syncstatus != $size) {
+    lprint "secondary inconsistent ($syncstatus bytes of $size)\n";
+    return;
+  }
+  if ($primary eq "(none)") {
+    my $min = 0;
+    foreach my $path (glob("$mars/resource-$res/log-*")) {
+      my $nr = $path;
+      $nr =~ s:^.*[a-z]+-([0-9]+)(-[^/]*)?$:$1:;
+      if ($nr > $min) {
+	$primary = $path;
+	$primary =~ s:^.*/[a-z]+-[0-9]+-([^/]*)$:$1:;
+	$min = $nr;
+      }
+    }
+  }
+  my $primary_replay = readlink("$mars/resource-$res/replay-$primary") or ldie "cannot read replay symlink of primary $primary";
+  my $host_replay = readlink("$mars/resource-$res/replay-$host") or ldie "cannot read my own replay symlink";
+  if ($primary_replay eq $host_replay) {
+    lprint "secondary uptodate\n";
+    return;
+  }
+  lprint "secondary outdated ($host_replay instead of $primary_replay)\n";
+}
+
 sub helplist {
   my $temp;
   $temp = shift;
@@ -926,6 +966,7 @@ my %cmd_table =
    "log-delete"        => \&logdelete_res,
    "log-delete-all"    => \&logdelete_res,
    "fake-sync"         => \&fake_local_res,
+   "mars-state"        => \&mars_state_cmd,
 
    # compatible keywords
    "attach"            => \&attach_res,
@@ -952,6 +993,7 @@ my %cmd_table =
    "role"              => \&role_cmd,
    "state"             => \&role_cmd,
    "cstate"            => \&nyi_cmd,
+   "dstate"            => \&nyi_cmd,
    "status"            => \&nyi_cmd,
    "dump"              => \&senseless_cmd,
    "verify"            => \&nyi_cmd,
@@ -964,7 +1006,6 @@ my %cmd_table =
    "pause-replay-local"  => \&pause_replay_local_res,
    "resume-replay-local" => \&pause_replay_local_res,
    "new-current-uuid"  => \&senseless_cmd,
-   "dstate"            => \&nyi_cmd,
    "hidden-commands"   => \&ignore_cmd,
   );
 
