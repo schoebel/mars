@@ -783,7 +783,7 @@ sub primary_res {
   my $pri = "$mars/resource-$res/primary";
   my $old = readlink($pri) or ldie "cannot determine current primary\n";
   if($sec) {
-    ldie "for safety reasons, switching to secondary is only allowed when I ($host) am primary\n" if($old ne $host);
+    ldie "for safety reasons, switching to secondary is only allowed when I ($host) am primary\n" if ($old ne $host) && !$force;
     $host = "(none)";
   } elsif($old eq $host) {
     lprint "I am already primary.\n";
