@@ -46,7 +46,24 @@ my $mars = "/mars";
 my $host = `uname -n` or ldie "cannot determine my network node name\n";
 chomp $host;
 my $force = 0;
+my $timeout = -1;
 my $ip = _get_ip() or ldie "cannot determine my IP address\n";
+
+##################################################################
+
+# timeout handling
+
+sub sleep_timeout {
+  if ($timeout < 0) {
+    sleep(5);
+    return;
+  }
+  ldie "Timeout reached. You may retry with --timeout=-1 to ensure waiting until progress is possible.\n" if !$timeout;
+  my $rest = $timeout;
+  $rest = 5 if $rest > 5;
+  sleep($rest);
+  $timeout -= $rest;
+}
 
 ##################################################################
 
@@ -136,7 +153,7 @@ sub check_primary_gone {
     }
     last if !$found;
     lprint "waiting for $found other primary host(s) to disappear....\n";
-    sleep(5);
+    sleep_timeout();
   }
 }
 
@@ -148,7 +165,7 @@ sub check_todo {
     last if $link == $val;
     ldie "$path must have value $val\n" if $wait;
     lprint "waiting until $key reaches the value $val....\n";
-    sleep(5);
+    sleep_timeout();
   }
 }
 
@@ -160,7 +177,7 @@ sub check_status {
     last if $link == $val;
     ldie "$path must have value $val\n" if $wait;
     lprint "waiting until $key reaches the value $val....\n";
-    sleep(5);
+    sleep_timeout();
   }
 }
 
@@ -236,7 +253,7 @@ sub check_splitbrain {
     sleep(5);
     while(!_check_all_mtimes("$mars/resource-$res/{log,version,replay}-*", 60)) {
       lprint "resource directory $res not stable, waiting....\n";
-      sleep(5);
+      sleep_timeout();
     }
     while(1) {
       my ($min_log, $max_log) = get_minmax_logfiles($res);
@@ -244,7 +261,7 @@ sub check_splitbrain {
       my ($min_rep, $max_rep) = get_minmax_replays($res);
       if($min_ver > $min_log || $max_ver < $max_log) {
 	lprint "some version links are missing...\n";
-	sleep(10);
+	sleep_timeout();
 	next;
       }
       if($max_log >= $max_rep) {
@@ -252,7 +269,7 @@ sub check_splitbrain {
 	last;
       }
       lprint "resource $res: logfile $max_log is not yet transferred (need $max_rep), waiting....\n";
-      sleep(10);
+      sleep_timeout();
     }
   } # $sequence < 0
 
@@ -1014,6 +1031,9 @@ my @args;
 foreach my $arg (@ARGV) {
   if($arg eq "--force") {
     $force++;
+    next;
+  } elsif ($arg =~ s/--timeout\s*=\s*([0-9]+)/$1/) {
+    $timeout = $arg;
     next;
   }
   if($arg =~ s/^force-//) {
