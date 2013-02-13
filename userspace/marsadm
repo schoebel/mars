@@ -940,7 +940,13 @@ sub helplist {
   $temp = shift;
   lprint "ERROR: $temp" if ($temp);
   lprint "
-marsadm <command> [<resource>] [<option>]
+marsadm [<global_option>] <command> [<resource>] [<option>]
+
+<global_option> =
+  --force             : skip safety checks
+                        use only when you know what you are doing!
+  --timeout=<seconds> : leave safety checks after timeout with an error
+                        instead of waiting forever
 
 <command> =
   cluster    : create-cluster join-cluster leave-cluster
