@@ -295,7 +295,7 @@ sub check_splitbrain {
 
     my $version = readlink($link) or ldie  "cannot read symlink '$link'\n";
     my $otherhost = $version;
-    $otherhost =~ s:^[^,]*?,log-[0-9]*?-([^,]*?),.*$:$1:;
+    $otherhost =~ s/^[^,]*?,(?:log-[0-9]*?-|)([^,]*?),.*$/$1/;
     my $otherlink = sprintf("$mars/resource-$res/version-%09d-$otherhost", $nr);
     my $otherversion = readlink($otherlink) or ldie  "cannot read symlink '$otherlink'\n";
 
