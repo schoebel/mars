@@ -4122,6 +4122,7 @@ static void __exit exit_light(void)
 #endif
 	MARS_DBG("====================== stopped everything.\n");
 	exit_say();
+	printk(KERN_INFO "stopped MARS\n");
 }
 
 int global_logrot_auto = CONFIG_MARS_LOGROT_AUTO;
@@ -4143,6 +4144,8 @@ static int __init init_light(void)
 	if (min_free_kbytes < new_limit)
 		min_free_kbytes = new_limit;
 	
+	printk(KERN_INFO "loading MARS, BUILDTAG=%s BUILDHOST=%s BUILDDATE=%s\n", BUILDTAG, BUILDHOST, BUILDDATE);
+
 	init_say(); // this must come first
 
 #ifdef CONFIG_MARS_HAVE_BIGMODULE
