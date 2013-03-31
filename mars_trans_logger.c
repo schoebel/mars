@@ -2375,7 +2375,7 @@ void _init_inputs(struct trans_logger_brick *brick, bool is_first)
 	CHECK_PTR(input, done);
 
 	if (input->is_operating || !input->connect) {
-		MARS_IO("cannot yet switch over to %d (is_operating = %d connect = %p)\n", nr, input->is_operating, input->connect);
+		MARS_IO("cannot yet switch over to %d (is_operating = %d connect = %p)\n", new_nr, input->is_operating, input->connect);
 		goto done;
 	}
 
