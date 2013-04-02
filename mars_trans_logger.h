@@ -25,7 +25,6 @@
 extern int trans_logger_completion_semantics;
 extern int trans_logger_do_crc;
 extern int trans_logger_mem_usage; // in KB
-extern int trans_logger_max_depth;
 extern atomic_t   global_mshadow_count;
 extern atomic64_t global_mshadow_used;
 
