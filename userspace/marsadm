@@ -131,14 +131,14 @@ sub check_sync_finished {
 sub check_primary {
   my ($cmd, $res) = @_;
   my $pri = "$mars/resource-$res/primary";
-  my $old = readlink($pri) or ldie "cannot determine current primary\n";
+  my $old = readlink($pri) or ldie "cannot determine primary\n";
   ldie "for operation '$cmd' I need to be primary\n" unless $old eq $host;
 }
 
 sub check_not_primary {
   my ($cmd, $res) = @_;
   my $pri = "$mars/resource-$res/primary";
-  my $old = readlink($pri) or ldie "cannot determine current primary\n";
+  my $old = readlink($pri) or ldie "cannot determine primary\n";
   ldie "operation '$cmd' cannot be executed on primary\n" if $old eq $host;
 }
 
@@ -247,7 +247,7 @@ sub check_splitbrain {
   my ($res, $host, $sequence) = @_;
   if ($sequence < 0) {
     my $pri = "$mars/resource-$res/primary";
-    my $old = readlink($pri) or ldie "cannot determine current primary\n";
+    my $old = readlink($pri) or ldie "cannot determine primary\n";
     _primary_res($res, "(none)", $pri, $old) unless $old eq "(none)";
     _trigger();
     sleep(5);
@@ -798,7 +798,7 @@ sub primary_res {
   my ($cmd, $res) = @_;
   my $sec = ($cmd eq "secondary");
   my $pri = "$mars/resource-$res/primary";
-  my $old = readlink($pri) or ldie "cannot determine current primary\n";
+  my $old = readlink($pri) or ldie "cannot determine primary\n";
   if ($sec) {
     ldie "for safety reasons, switching to secondary is only allowed when I ($host) am primary\n" if ($old ne $host) && !$force;
     $host = "(none)";
@@ -891,18 +891,25 @@ sub resize_res {
 sub role_cmd {
   my ($cmd, $res) = @_;
   my $pri = "$mars/resource-$res/primary";
-  my $old = readlink($pri) or ldie "cannot determine current primary\n";
+  my $old = readlink($pri) or ldie "cannot determine primary\n";
+  my $is_primary = readlink("$mars/resource-$res/actual-$host/is-primary");
   if ($old eq $host) {
-    lprint "primary\n";
+    if ($is_primary) {
+      lprint "I am actually primary\n";
+    } else {
+      lprint "I am actually secondary although I should be primary\n";
+    }
+  } elsif ($is_primary) {
+    lprint "I am actually primary although the primary should be $old\n";
   } else {
-    lprint "secondary\n";
+    lprint "I am actually secondary\n";
   }
 }
 
 sub mars_state_cmd {
   my ($cmd, $res) = @_;
   my $pri = "$mars/resource-$res/primary";
-  my $primary = readlink($pri) or ldie "cannot determine current primary\n";
+  my $primary = readlink($pri) or ldie "cannot determine primary\n";
   if ($primary eq $host) {
     my $is_primary = readlink("$mars/resource-$res/actual-$host/is-primary");
     if ($is_primary) {
