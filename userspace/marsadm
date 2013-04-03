@@ -130,16 +130,23 @@ sub check_sync_finished {
 
 sub check_primary {
   my ($cmd, $res) = @_;
-  my $pri = "$mars/resource-$res/primary";
-  my $old = readlink($pri) or ldie "cannot determine primary\n";
-  ldie "for operation '$cmd' I need to be primary\n" unless $old eq $host;
+  my $lnk = "$mars/resource-$res/actual-$host/is-primary";
+  my $is_primary = readlink($lnk);
+  ldie "for operation '$cmd' I need to be primary\n" unless $is_primary;
 }
 
 sub check_not_primary {
   my ($cmd, $res) = @_;
-  my $pri = "$mars/resource-$res/primary";
-  my $old = readlink($pri) or ldie "cannot determine primary\n";
-  ldie "operation '$cmd' cannot be executed on primary\n" if $old eq $host;
+  my $lnk = "$mars/resource-$res/actual-$host/is-primary";
+  my $is_primary = readlink($lnk);
+  if ($is_primary) {
+      ldie "operation '$cmd' cannot be executed on primary\n";
+  }
+  else {  # also check whether we intend to become primary
+      $lnk = "$mars/resource-$res/primary";
+      my $primary =  readlink($lnk) or ldie "cannot determine primary\n";
+      ldie "operation '$cmd' cannot be executed on designated primary\n";
+  }
 }
 
 sub check_primary_gone {
