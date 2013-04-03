@@ -807,6 +807,10 @@ sub primary_res {
     exit(0);
   } elsif($force) {
     lprint "FORCING myself ($host) to primary...\n";
+  } elsif (! -d "/proc/sys/mars") {
+    ldie "cannot switch to primary: mars kernel module is not loaded\n";
+  } elsif (readlink("$mars/resource-$res/actual-$host/is-primary")) {
+    lwarn "I am actually primary: skipping check to set me back.\n";
   } else { # try to switch myself to primary
     lprint "trying to switch $host to primary...\n";
     check_sync_finished($res, $host);
