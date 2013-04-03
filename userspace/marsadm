@@ -939,6 +939,19 @@ sub mars_state_cmd {
   lprint "secondary outdated ($host_replay instead of $primary_replay)\n";
 }
 
+sub show_cmd {
+  my ($cmd, $res) = @_;
+  $res = "*" if !$res || $res eq "all";
+  my $glob = "$mars/{ips/ip-$host,alive-$host,exhausted-$host,jammed-$host,rest-space-$host,resource-$res/{device,primary,size,actsize-$host,syncstatus-$host,replay-$host,actual-$host/*,todo-$host/*}}";
+  foreach my $link (glob($glob)) {
+    next unless -l $link;
+    my $res = readlink($link);
+    my $short = $link;
+    $short =~ s:^$mars/::;
+    lprint "$short=$res\n";
+  }
+}
+
 sub helplist {
   my $temp;
   $temp = shift;
@@ -1022,6 +1035,7 @@ my %cmd_table =
    "cstate"            => \&nyi_cmd,
    "dstate"            => \&nyi_cmd,
    "status"            => \&nyi_cmd,
+   "show"              => \&show_cmd,
    "dump"              => \&senseless_cmd,
    "verify"            => \&nyi_cmd,
    "pause-sync"        => \&pause_sync_res,
@@ -1068,7 +1082,9 @@ ldie "only root may use this tool\n" if $< != 0; # getpid() seems to be missing 
 helplist "unknown command $cmd\n" if !exists $cmd_table{$cmd};
 
 my $res = "";
-unless($cmd =~ m/^(create|leave)-cluster$/) {
+if ($cmd eq "show") {
+  $res = shift @args;
+} elsif (!($cmd =~ m/^(create|leave)-cluster$/)) {
   $res = shift @args || helplist "resource argument is missing\n";
   check_id($res);
 }
@@ -1080,14 +1096,14 @@ sub do_res {
   my $cmd = shift;
   my $res = shift;
 
-  $res = check_res($res) unless $cmd =~ m/^(join|create|leave)-cluster|create-resource$/;
-  check_res_member($res) unless $cmd =~ m/^(join|create)-(cluster|resource)|leave-cluster$/;
+  $res = check_res($res) unless $cmd =~ m/^(join|create|leave)-cluster|create-resource|show$/;
+  check_res_member($res) unless $cmd =~ m/^(join|create)-(cluster|resource)|leave-cluster|show$/;
 
   my $func = $cmd_table{$cmd};
   &{$func}($cmd, $res, @_);
 }
 
-if ($res eq "all") {
+if ($res eq "all" && $cmd ne "show") {
   foreach $res (glob("$mars/resource-*")) {
     next unless -e "$res/data-$host";
     $res =~ s/^.*\/resource-(.*)$/$1/;
