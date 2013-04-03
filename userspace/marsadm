@@ -81,24 +81,24 @@ sub check_id {
 
 sub check_res {
   my $res = shift;
-  if(not -d "$mars/resource-$res") {
+  if (not -d "$mars/resource-$res") {
     # DO WHAT I MEAN: try to substitute a device name for a badly given resource name if it is unique
     my $count = 0;
     my $found;
     my @tests = glob("$mars/resource-*/device-$host");
     foreach my $test (@tests) {
       my $target = readlink($test);
-      if($target eq $res) {
+      if ($target eq $res) {
 	$found = $test;
 	$count++;
       }
     }
-    if(!$count) {
+    if (!$count) {
       @tests = glob("$mars/resource-*/_direct-*-$host");
       foreach my $test (@tests) {
 	my $target = readlink($test);
 	$target =~ s/^.*,//;
-	if($target eq $res) {
+	if ($target eq $res) {
 	  $found = $test;
 	  $count++;
 	}
@@ -120,7 +120,7 @@ sub check_res_member {
 sub check_sync_finished {
   my ($res, $host) = @_;
   my $lnk = "$mars/resource-$res/syncstatus-$host";
-  if(lstat($lnk)) {
+  if (lstat($lnk)) {
     my $syncstatus = readlink($lnk);
     my $size = readlink("$mars/resource-$res/size") or ldie "cannot read size\n";
     ldie "sync has not yet finished, only $syncstatus / $size bytes transferred\n" unless $syncstatus >= $size;
@@ -144,7 +144,7 @@ sub check_not_primary {
 
 sub check_primary_gone {
   my ($res) = @_;
-  for(;;) {
+  for (;;) {
     my @links = glob("$mars/resource-$res/actual-*/is-primary");
     my $found = 0;
     foreach my $link (@links) {
@@ -159,7 +159,7 @@ sub check_primary_gone {
 
 sub check_todo {
   my ($res, $key, $val, $wait) = @_;
-  for(;;) {
+  for (;;) {
     my $path = "$mars/resource-$res/todo-$host/$key";
     my $link = readlink($path) or ldie "cannot read symlink '$path'\n";
     last if $link == $val;
@@ -171,7 +171,7 @@ sub check_todo {
 
 sub check_status {
   my ($res, $key, $val, $wait) = @_;
-  for(;;) {
+  for (;;) {
     my $path = "$mars/resource-$res/actual-$host/$key";
     my $link = readlink($path) or ldie "cannot read symlink '$path'\n";
     last if $link == $val;
@@ -184,7 +184,7 @@ sub check_status {
 sub _check_mtime {
   my ($path, $age) = @_;
   my $mt = (lstat($path))[9];
-  if(!$mt) {
+  if (!$mt) {
     return 0;
   }
   my $res = ($mt < time() - $age);
@@ -197,7 +197,7 @@ sub _check_all_mtimes {
   my @list = glob($path);
   my $res = 1;
   foreach my $p (@list) {
-    if(!_check_mtime($p, $age)) {
+    if (!_check_mtime($p, $age)) {
       $res = 0;
     }
   }
@@ -211,7 +211,7 @@ sub _get_minmax {
   my @paths = glob($glob) or ldie "cannot find '$glob'\n";
   foreach my $path (@paths) {
     my $nr = $path;
-    if($take_symlink) {
+    if ($take_symlink) {
       $nr = readlink($path) or ldie "cannot read symlink '$path'\n";
     }
     $nr =~ s:^.*[a-z]+-([0-9]+)(-[^/]*)?$:$1:;
@@ -245,26 +245,26 @@ sub check_splitbrain {
   # check only the chain of $host (or all hosts if unset)
   # check up to $sequence (or for all if < 0)
   my ($res, $host, $sequence) = @_;
-  if($sequence < 0) {
+  if ($sequence < 0) {
     my $pri = "$mars/resource-$res/primary";
     my $old = readlink($pri) or ldie "cannot determine current primary\n";
     _primary_res($res, "(none)", $pri, $old) unless $old eq "(none)";
     _trigger();
     sleep(5);
-    while(!_check_all_mtimes("$mars/resource-$res/{log,version,replay}-*", 60)) {
+    while (!_check_all_mtimes("$mars/resource-$res/{log,version,replay}-*", 60)) {
       lprint "resource directory $res not stable, waiting....\n";
       sleep_timeout();
     }
-    while(1) {
+    while (1) {
       my ($min_log, $max_log) = get_minmax_logfiles($res);
       my ($min_ver, $max_ver) = get_minmax_versions($res);
       my ($min_rep, $max_rep) = get_minmax_replays($res);
-      if($min_ver > $min_log || $max_ver < $max_log) {
+      if ($min_ver > $min_log || $max_ver < $max_log) {
 	lprint "some version links are missing...\n";
 	sleep_timeout();
 	next;
       }
-      if($max_log >= $max_rep) {
+      if ($max_log >= $max_rep) {
 	lprint "resource $res: logfile $max_log is present.\n";
 	last;
       }
@@ -275,7 +275,7 @@ sub check_splitbrain {
 
   my $glob = "$mars/resource-$res/version-[0-9]*";
   my @links = glob($glob);
-  if(!@links) {
+  if (!@links) {
     @links = glob("$mars/resource-$res/version-[0-9]*-*");
     ldie "no version information available\n" unless @links;
     lprint "assuming that I am primary for the first time\n";
@@ -300,7 +300,7 @@ sub check_splitbrain {
     my $otherversion = readlink($otherlink) or ldie  "cannot read symlink '$otherlink'\n";
 
     # ignore foreign mismatches
-    if($host) {
+    if ($host) {
       next if $fromhost ne $host;
     }
 
@@ -348,7 +348,7 @@ sub _switch {
   my $src = $on ? "1" : "0";
 
   my $old = readlink($path);
-  if($old && $old eq $src) {
+  if ($old && $old eq $src) {
     lprint "${cmd} on resource $res is already activated\n" if $cmd;
     return;
   }
@@ -380,7 +380,7 @@ sub _fake_versionlink {
   my ($basedir, $prev, $primary) = @_;
   $prev =~ s/^log-([0-9]+)-.*$/$1/;
   $prev--;
-  if($prev > 0) {
+  if ($prev > 0) {
     my $prevversion = sprintf("$basedir/version-%09d-$primary", $prev);
     my $prevlink = readlink($prevversion);
     if (!$prevlink) { # try any one else
@@ -475,7 +475,7 @@ sub create_cluster {
 
 sub join_cluster {
   my ($cmd, $peer) = @_;
-  if(glob("$mars/resource-*") or glob("$mars/ips/*")) {
+  if (glob("$mars/resource-*") or glob("$mars/ips/*")) {
     ldie "Sorry, some resources already exist!\nThis is dangerous!\nIf you are sure that no resource clash is possible, re-invoke this command with '--force' option\n" unless $force;
   }
   ldie "mars module is loaded, please unload first\n" if is_module_loaded();
@@ -503,7 +503,7 @@ sub create_res {
   $appear = $res if !$appear;
   check_id($appear) if $appear;
 
-  if($create) {
+  if ($create) {
     ldie "resource '$res' already exists\n" if -d "$mars/resource-$res";
     lprint "creating new resource '$res'\n";
   } else {
@@ -512,7 +512,7 @@ sub create_res {
   }
 
   my $size = get_size($dev);
-  if($size > 0) {
+  if ($size > 0) {
     $dev = "";
   } else {
     ldie "block device '$dev' does not exist\n" unless -b $dev;
@@ -528,7 +528,7 @@ sub create_res {
   my $tmp = "$mars/.tmp.$res";
   my $primary;
   my $replay;
-  if($create) {
+  if ($create) {
     _create_cluster(@_);
     system("rm -rf $tmp");
     system("mkdir $tmp") == 0 or ldie "could not create resource '$res'\n";
@@ -537,7 +537,7 @@ sub create_res {
     $tmp = "$mars/resource-$res";
     ldie "resource '$res' does not exist\n" unless -d $tmp;
     $primary = readlink("$tmp/primary") or ldie "cannot determine primary\n";
-    if($primary eq "(none)") {
+    if ($primary eq "(none)") {
       my @list = glob("$tmp/replay-*") or ldie "cannot find any candidate for primary\n";
       my $first = pop @list or ldie "bad glob list\n";
       $primary = readlink($first) or ldie "cannot determine peer\n";
@@ -547,7 +547,7 @@ sub create_res {
     ldie "resource '$res' is already joined\n" if -e "$tmp/data-$host";
     ldie "my ip '$ip' is not registered -- please run 'join-cluster' first\n" unless -l "$mars/ips/ip-$host";
     my $oldsize = readlink("$tmp/size") or ldie "cannot determine old size\n";
-    if($size < $oldsize) {
+    if ($size < $oldsize) {
       lprint "adjusting size to $oldsize\n";
       $size = $oldsize;
     }
@@ -557,7 +557,7 @@ sub create_res {
   }
 
   my $file = "$tmp/data-$host";
-  if(!$dev) {
+  if (!$dev) {
     lprint "creating sparse file '$file' with size $size\n";
     open(OUT, ">$file") or ldie "could not open '$file'\n";
     use Fcntl 'SEEK_SET';
@@ -568,7 +568,7 @@ sub create_res {
     lprint "using existing device '$dev'\n";
     symlink($dev, $file) or ldie "cannot create device symlink\n";
   }
-  if($appear) {
+  if ($appear) {
     # TODO: check for uniqeness of $appear
     lprint "resource '$res' will appear as local device '/dev/mars/$appear'\n";
     system("rm -f $tmp/device-$host");
@@ -587,7 +587,7 @@ sub create_res {
   symlink("1", "$todo/allow-replay");
   system("rm -f $tmp/syncstatus-$host");
 
-  if($create) {
+  if ($create) {
     symlink($host, "$tmp/primary") or ldie "cannot create primary symlink\n";
     symlink($size, "$tmp/syncstatus-$host") or ldie "cannot create primary syncstatus\n";
     symlink("log-000000001-$host,0,0", "$tmp/replay-$host") or ldie "cannot create replay status\n";
@@ -637,7 +637,7 @@ sub logrotate_res {
   my @paths = glob("$mars/resource-$res/log-*-$host") or ldie "cannot find any logfiles\n";
   @paths = sort(@paths);
   my $last = pop(@paths);
-  if(-z $last) {
+  if (-z $last) {
     lprint "an empty logfile '$last' already exists, nothing to do.\n";
     return;
   }
@@ -666,7 +666,7 @@ sub _create_delete {
   my ($target) = @_;
   my $nr = 0;
   my @paths = glob("$mars/todo-global/delete-*");
-  if(@paths) {
+  if (@paths) {
     my $last = pop(@paths);
     $nr = $last;
     $nr =~ s/^.*delete-([0-9]+)$/$1/;
@@ -761,7 +761,7 @@ sub pause_replay_local_res {
 sub up_res {
   my ($cmd, $res) = @_;
   my $down = ($cmd eq "down");
-  if($down) {
+  if ($down) {
     pause_replay_res("pause-replay", $res);
     pause_sync_res("pause-sync", $res);
     connect_res("disconnect", $res);
@@ -799,13 +799,13 @@ sub primary_res {
   my $sec = ($cmd eq "secondary");
   my $pri = "$mars/resource-$res/primary";
   my $old = readlink($pri) or ldie "cannot determine current primary\n";
-  if($sec) {
+  if ($sec) {
     ldie "for safety reasons, switching to secondary is only allowed when I ($host) am primary\n" if ($old ne $host) && !$force;
     $host = "(none)";
-  } elsif($old eq $host) {
+  } elsif ($old eq $host) {
     lprint "I am already primary.\n";
     exit(0);
-  } elsif($force) {
+  } elsif ($force) {
     lprint "FORCING myself ($host) to primary...\n";
   } elsif (! -d "/proc/sys/mars") {
     ldie "cannot switch to primary: mars kernel module is not loaded\n";
@@ -892,7 +892,7 @@ sub role_cmd {
   my ($cmd, $res) = @_;
   my $pri = "$mars/resource-$res/primary";
   my $old = readlink($pri) or ldie "cannot determine current primary\n";
-  if($old eq $host) {
+  if ($old eq $host) {
     lprint "primary\n";
   } else {
     lprint "secondary\n";
@@ -1039,14 +1039,14 @@ my %cmd_table =
 my @args;
 
 foreach my $arg (@ARGV) {
-  if($arg eq "--force") {
+  if ($arg eq "--force") {
     $force++;
     next;
   } elsif ($arg =~ s/--timeout\s*=\s*([0-9]+)/$1/) {
     $timeout = $arg;
     next;
   }
-  if($arg =~ s/^force-//) {
+  if ($arg =~ s/^force-//) {
     $force++;
   }
   push @args, $arg;
@@ -1056,11 +1056,11 @@ my $cmd = shift @args || helplist "command argument is missing\n";
 
 $notify = "(cmd: $cmd)" unless $cmd eq "version";
 
-if($cmd =~ m/^help$/ || $cmd =~ m/^h$/) {
+if ($cmd =~ m/^help$/ || $cmd =~ m/^h$/) {
   helplist;
 }
 
-if($cmd =~ m/^version$/ || $cmd =~ m/^v$/) {      
+if ($cmd =~ m/^version$/ || $cmd =~ m/^v$/) {      
   version;
 }
 
@@ -1087,7 +1087,7 @@ sub do_res {
   &{$func}($cmd, $res, @_);
 }
 
-if($res eq "all") {
+if ($res eq "all") {
   foreach $res (glob("$mars/resource-*")) {
     next unless -e "$res/data-$host";
     $res =~ s/^.*\/resource-(.*)$/$1/;
