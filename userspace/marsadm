@@ -949,7 +949,7 @@ sub mars_state_cmd {
 sub show_cmd {
   my ($cmd, $res) = @_;
   $res = "*" if !$res || $res eq "all";
-  my $glob = "$mars/{ips/ip-$host,alive-$host,exhausted-$host,jammed-$host,rest-space-$host,resource-$res/{device,primary,size,actsize-$host,syncstatus-$host,replay-$host,actual-$host/*,todo-$host/*}}";
+  my $glob = "$mars/{ips/ip-$host,alive-$host,emergency-$host,rest-space-$host,resource-$res/{device,primary,size,actsize-$host,syncstatus-$host,replay-$host,actual-$host/*,todo-$host/*}}";
   foreach my $link (glob($glob)) {
     next unless -l $link;
     my $res = readlink($link);

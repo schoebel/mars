@@ -10,17 +10,23 @@
 #define MARS_ARGV_MAX 4
 #define MARS_PATH_MAX 256
 
+extern loff_t global_total_space;
+extern loff_t global_remaining_space;
+
 extern int global_logrot_auto;
-extern int global_logdel_auto;
-extern int global_free_space_base;
-extern int global_free_space_percent;
+extern int global_free_space_0;
+extern int global_free_space_1;
+extern int global_free_space_2;
+extern int global_free_space_3;
+extern int global_free_space_4;
 extern int mars_rollover_interval;
 extern int mars_scan_interval;
 extern int mars_propagate_interval;
 extern int mars_sync_flip_interval;
+extern int mars_emergency_mode;
+extern int mars_reset_emergency;
 
 extern int mars_fast_fullsync;
-
 
 extern char *my_id(void);
 
@@ -66,14 +72,10 @@ struct mars_global {
 	struct list_head dent_anchor;
 	struct list_head brick_anchor;
 	wait_queue_head_t main_event;
-	loff_t total_space;
-	loff_t remaining_space;
 	int global_version;
 	int deleted_border;
 	int deleted_min;
 	bool main_trigger;
-	bool exhausted;
-	bool jammed;
 };
 
 extern void bind_to_dent(struct mars_dent *dent, struct say_channel **ch);

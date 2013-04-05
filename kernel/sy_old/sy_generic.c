@@ -1667,7 +1667,7 @@ void show_statistics(struct mars_global *global, const char *class)
 	}
 	up_read(&global->dent_mutex);
 
-	MARS_STAT("==================== %s STATISTICS: %d dents, %d bricks, %lld KB free\n", class, dent_count, brick_count, global->remaining_space);
+	MARS_STAT("==================== %s STATISTICS: %d dents, %d bricks, %lld KB free\n", class, dent_count, brick_count, global_remaining_space);
 }
 EXPORT_SYMBOL_GPL(show_statistics);
 

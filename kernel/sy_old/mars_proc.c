@@ -222,9 +222,13 @@ ctl_table mars_table[] = {
 	INT_ENTRY("sync_flip_interval_sec", mars_sync_flip_interval, 0600),
 	INT_ENTRY("do_fast_fullsync",     mars_fast_fullsync,     0600),
 	INT_ENTRY("logrot_auto_gb",       global_logrot_auto,     0600),
-	INT_ENTRY("logdel_auto_gb",       global_logdel_auto,     0600),
-	INT_ENTRY("required_free_space_mb", global_free_space_base, 0600),
-	INT_ENTRY("required_free_space_percent", global_free_space_percent, 0600),
+	INT_ENTRY("required_total_space_0_gb", global_free_space_0, 0600),
+	INT_ENTRY("required_free_space_1_gb", global_free_space_1, 0600),
+	INT_ENTRY("required_free_space_2_gb", global_free_space_2, 0600),
+	INT_ENTRY("required_free_space_3_gb", global_free_space_3, 0600),
+	INT_ENTRY("required_free_space_4_gb", global_free_space_4, 0600),
+	INT_ENTRY("mars_emergency_mode",  mars_emergency_mode,    0600),
+	INT_ENTRY("mars_reset_emergency", mars_reset_emergency,   0600),
 #ifdef CONFIG_MARS_LOADAVG_LIMIT
 	INT_ENTRY("loadavg_limit",        mars_max_loadavg,       0600),
 #endif

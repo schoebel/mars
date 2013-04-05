@@ -51,17 +51,30 @@
 #define inline __attribute__((__noinline__))
 #endif
 
+loff_t global_total_space = 0;
+EXPORT_SYMBOL_GPL(global_total_space);
+
+loff_t global_remaining_space = 0;
+EXPORT_SYMBOL_GPL(global_remaining_space);
+
+
 int global_logrot_auto = CONFIG_MARS_LOGROT_AUTO;
 EXPORT_SYMBOL_GPL(global_logrot_auto);
 
-int global_logdel_auto = CONFIG_MARS_LOGDELETE_AUTO;
-EXPORT_SYMBOL_GPL(global_logdel_auto);
+int global_free_space_0 = CONFIG_MARS_MIN_SPACE_0;
+EXPORT_SYMBOL_GPL(global_free_space_0);
 
-int global_free_space_base = CONFIG_MARS_MIN_SPACE_BASE;
-EXPORT_SYMBOL_GPL(global_free_space_base);
+int global_free_space_1 = CONFIG_MARS_MIN_SPACE_1;
+EXPORT_SYMBOL_GPL(global_free_space_1);
 
-int global_free_space_percent = CONFIG_MARS_MIN_SPACE_PERCENT;
-EXPORT_SYMBOL_GPL(global_free_space_percent);
+int global_free_space_2 = CONFIG_MARS_MIN_SPACE_2;
+EXPORT_SYMBOL_GPL(global_free_space_2);
+
+int global_free_space_3 = CONFIG_MARS_MIN_SPACE_3;
+EXPORT_SYMBOL_GPL(global_free_space_3);
+
+int global_free_space_4 = CONFIG_MARS_MIN_SPACE_4;
+EXPORT_SYMBOL_GPL(global_free_space_4);
 
 int mars_rollover_interval = CONFIG_MARS_ROLLOVER_INTERVAL;
 EXPORT_SYMBOL_GPL(mars_rollover_interval);
@@ -83,6 +96,78 @@ int mars_fast_fullsync =
 #endif
 	;
 EXPORT_SYMBOL_GPL(mars_fast_fullsync);
+
+int mars_emergency_mode = 0;
+EXPORT_SYMBOL_GPL(mars_emergency_mode);
+
+int mars_reset_emergency = 1;
+EXPORT_SYMBOL_GPL(mars_reset_emergency);
+
+#define IS_EXHAUSTED()             (mars_emergency_mode > 0)
+#define IS_EMERGENCY_SECONDARY()   (mars_emergency_mode > 1)
+#define IS_EMERGENCY_PRIMARY()     (mars_emergency_mode > 2)
+#define IS_JAMMED()                (mars_emergency_mode > 3)
+
+static
+void _make_alivelink(const char *name, loff_t val)
+{
+	char *src = path_make("%lld", val);
+	char *dst = path_make("/mars/%s-%s", name, my_id());
+	if (!src || !dst) {
+		MARS_ERR("cannot make alivelink paths\n");
+		goto err;
+	}
+	MARS_DBG("'%s' -> '%s'\n", src, dst);
+	mars_symlink(src, dst, NULL, 0);
+err:
+	brick_string_free(dst);
+	brick_string_free(src);
+}
+
+static
+int compute_emergency_mode(void)
+{
+	loff_t rest = 0;
+	loff_t limit = 0;
+	int mode = 4;
+
+	mars_remaining_space("/mars", &global_total_space, &rest);
+
+#define CHECK_LIMIT(LIMIT_VAR)					\
+	if (LIMIT_VAR > 0)					\
+		limit += (loff_t)LIMIT_VAR * 1024 * 1024;	\
+	if (rest < limit) {					\
+		mars_emergency_mode = mode;			\
+		goto done;					\
+	}							\
+	mode--;							\
+
+	CHECK_LIMIT(global_free_space_4);
+	CHECK_LIMIT(global_free_space_3);
+	CHECK_LIMIT(global_free_space_2);
+	CHECK_LIMIT(global_free_space_1);
+
+	/* No limit has hit.
+	 * Decrease the emergeny mode only in single steps.
+	 */
+	if (mars_reset_emergency && mars_emergency_mode > 0) {
+		mars_emergency_mode--;
+	}
+
+done:
+	_make_alivelink("emergency", mars_emergency_mode);
+
+	global_remaining_space = rest - limit;
+	_make_alivelink("rest-space", global_remaining_space / (1024 * 1024));
+
+	limit += global_free_space_0;
+	if (unlikely(global_total_space < limit)) {
+		return -ENOMEM;
+	}
+	return 0;
+}
+
+///////////////////////////////////////////////////////////////////
 
 static struct task_struct *main_thread = NULL;
 
@@ -189,11 +274,6 @@ EXPORT_SYMBOL_GPL(mars_mem_percent);
 #define COPY_APPEND_MODE 0
 //#define COPY_APPEND_MODE 1 // FIXME: does not work yet
 #define COPY_PRIO MARS_PRIO_LOW
-
-#define EXHAUSTED_LIMIT(max) ((long long)(max) * global_free_space_percent / 100 + (long long)global_free_space_base * 1024 * 1024)
-#define EXHAUSTED(x,max) ((x) <= EXHAUSTED_LIMIT(max))
-
-#define JAMMED(x) ((x) <= 1024 * 1024)
 
 static
 int _set_trans_params(struct mars_brick *_brick, void *private)
@@ -1081,7 +1161,7 @@ int __make_copy(
 			       (const struct generic_brick_type*)&copy_brick_type,
 			       (const struct generic_brick_type*[]){NULL,NULL,NULL,NULL},
 			       "%s",
-			       (global->exhausted || !switch_path[0]) ? -1 : 0,
+			       (!switch_path[0] || IS_EXHAUSTED()) ? -1 : 0,
 			       "%s",
 			       (const char *[]){"%s", "%s", "%s", "%s"},
 			       4,
@@ -2696,9 +2776,11 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 
 	/* Handle jamming (a very exceptional state)
 	 */
-	if (global->jammed) {
-		if (rot->todo_primary || rot->is_primary)
+	if (IS_JAMMED()) {
+		brick_say_logging = 0;
+		if (rot->todo_primary || rot->is_primary) {
 			trans_brick->cease_logging = true;
+		}
 	} else if (!rot->todo_primary && !rot->is_primary) {
 		trans_brick->cease_logging = false;
 	}
@@ -2727,14 +2809,13 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		rot->copy_next_is_available = 0;
 	}
 
-#define LIMIT1 ((loff_t)EXHAUSTED_LIMIT(rot->total_space))
-#define LIMIT2 ((loff_t)global_logdel_auto * 1024 * 1024)
-	if (rot->remaining_space <= LIMIT1 + LIMIT2) {
-		MARS_WRN("filesystem space = %lld kiB is lower than %lld + %lld = %lld\n", rot->remaining_space, LIMIT1, LIMIT2, LIMIT1 + LIMIT2);
+	if (IS_EMERGENCY_PRIMARY() || (!rot->todo_primary && IS_EMERGENCY_SECONDARY())) {
 		if (rot->first_log && rot->first_log != rot->relevant_log) {
-			MARS_DBG("freeing old logfile '%s'\n", rot->first_log->d_path);
+			MARS_WRN("freeing old logfile '%s'\n", rot->first_log->d_path);
 			mars_unlink(rot->first_log->d_path);
 			rot->first_log->d_killme = true;
+			// give it a chance to cease deleting next time
+			compute_emergency_mode();
 		}
 	}
 
@@ -2974,7 +3055,7 @@ int make_dev(void *buf, struct mars_dent *dent)
 		(rot->todo_primary &&
 		 !rot->trans_brick->replay_mode &&
 		 rot->trans_brick->power.led_on);
-	if (!global->global_power.button || global->exhausted) {
+	if (!global->global_power.button) {
 		switch_on = false;
 	}
 
@@ -3404,8 +3485,7 @@ enum {
 	CL_IPS,
 	CL_PEERS,
 	CL_ALIVE,
-	CL_EXHAUSTED,
-	CL_JAMMED,
+	CL_EMERGENCY,
 	CL_REST_SPACE,
 	// resource definitions
 	CL_RESOURCE,
@@ -3519,8 +3599,8 @@ static const struct light_class light_classes[] = {
 	},
 	/* Indicate whether filesystem is full
 	 */
-	[CL_EXHAUSTED] = {
-		.cl_name = "exhausted-",
+	[CL_EMERGENCY] = {
+		.cl_name = "emergency-",
 		.cl_len = 10,
 		.cl_type = 'l',
 		.cl_father = CL_ROOT,
@@ -3530,12 +3610,6 @@ static const struct light_class light_classes[] = {
 	[CL_REST_SPACE] = {
 		.cl_name = "rest-space-",
 		.cl_len = 11,
-		.cl_type = 'l',
-		.cl_father = CL_ROOT,
-	},
-	[CL_JAMMED] = {
-		.cl_name = "jammed-",
-		.cl_len = 7,
 		.cl_type = 'l',
 		.cl_father = CL_ROOT,
 	},
@@ -3954,22 +4028,6 @@ static int light_worker(struct mars_global *global, struct mars_dent *dent, bool
 	return 0;
 }
 
-static
-void _make_alivelink(const char *name, loff_t val)
-{
-	char *src = path_make("%lld", val);
-	char *dst = path_make("/mars/%s-%s", name, my_id());
-	if (!src || !dst) {
-		MARS_ERR("cannot make symlink paths\n");
-		goto err;
-	}
-	MARS_DBG("'%s' -> '%s'\n", src, dst);
-	mars_symlink(src, dst, NULL, 0);
-err:
-	brick_string_free(dst);
-	brick_string_free(src);
-}
-
 static struct mars_global _global = {
 	.dent_anchor = LIST_HEAD_INIT(_global.dent_anchor),
 	.brick_anchor = LIST_HEAD_INIT(_global.brick_anchor),
@@ -3998,9 +4056,6 @@ static int light_thread(void *data)
 
         while (_global.global_power.button || !list_empty(&_global.brick_anchor)) {
 		int status;
-		loff_t rest_space;
-		bool exhausted;
-		bool jammed;
 
 		MARS_DBG("-------- NEW ROUND %d ---------\n", atomic_read(&server_handler_count));
 
@@ -4018,22 +4073,7 @@ static int light_thread(void *data)
 		}
 		_make_alivelink("alive", _global.global_power.button ? 1 : 0);
 
-		mars_remaining_space("/mars", &_global.total_space, &_global.remaining_space);
-
-		exhausted = EXHAUSTED(_global.remaining_space, _global.total_space);
-		_global.exhausted = exhausted;
-		_make_alivelink("exhausted", exhausted ? 1 : 0);
-		if (exhausted)
-			MARS_WRN("EXHAUSTED filesystem space = %lld\n", _global.remaining_space);
-
-		jammed = JAMMED(_global.remaining_space);
-		_global.jammed = jammed;
-		_make_alivelink("jammed", jammed ? 1 : 0);
-		if (jammed)
-			MARS_WRN("JAMMED filesystem space = %lld, STOPPING TRANSACTION LOGGING\n", _global.remaining_space);
-
-		rest_space = _global.remaining_space - EXHAUSTED_LIMIT(_global.total_space);
-		_make_alivelink("rest-space", rest_space);
+		compute_emergency_mode();
 
 		MARS_DBG("-------- start worker ---------\n");
 		_global.deleted_min = 0;
@@ -4181,6 +4221,12 @@ static int __init init_light(void)
 #endif
 
 	brick_mem_reserve(&global_reserve);
+
+	status = compute_emergency_mode();
+	if (unlikely(status < 0)) {
+		MARS_ERR("Sorry, your /mars/ filesystem is too small!\n");
+		goto done;
+	}
 
 	main_thread = brick_thread_create(light_thread, NULL, "mars_light");
 	if (unlikely(!main_thread)) {

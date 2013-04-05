@@ -794,9 +794,9 @@ sub info_version {
 #########################################################################################
 ### avg_limit
 sub check_jammed {
-    my $jammed = check_link "$mars_dir/jammed-$himself";
+    my $jammed = check_link "$mars_dir/emergency-$himself";
     print_screen "-> Mars-Transaktion ", 'bold';
-    if (( !$jammed ) || ( $jammed ne 0 )) {
+    if (!$jammed) {
         print_screen "running normaly\n", "$Color_green";
     } else {
         print_screen "and Replication not runnunig !!!\n", 'red';

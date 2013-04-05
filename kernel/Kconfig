@@ -186,53 +186,151 @@ config MARS_LOGROT
 	---help---
 	Normally ON. Switch off only for EXPERIMENTS!
 
+config MARS_MIN_SPACE_4
+	int "absolutely necessary free space in /mars/ (hard limit in GB)"
+	depends on MARS
+	default 2
+	---help---
+	HARDEST EMERGENCY LIMIT
+
+	When free space in /mars/ drops under this limit,
+	transaction logging to /mars/ will stop at all,
+	even at all primary resources. All IO will directly go to the
+	underlying raw devices. The transaction logfile sequence numbers
+	will be disrupted, deliberately leaving holes in the sequence.
+
+	This is a last-resort desperate action of the kernel.
+
+	As a consequence, all secodaries will have no chance to
+	replay at that gap, even if they got the logfiles.
+	The secondaries will stop at the gap, left in an outdated,
+	but logically consistent state.
+
+	After the problem has been fixed, the secondaries must
+	start a full-sync in order to continue replication at the
+	recent state.
+
+	This is the hardest measure the kernel can take in order
+	to TRY to continue undisrupted operation at the primary side.
+
+	In general, you should avoid such situations at the admin level.
+
+	Please implement your own monitoring at	the admin level, which warns
+	you and/or takes appropriate countermeasures much earlier.
+	Never rely on this emergency feature!
+
+config MARS_MIN_SPACE_3
+	int "free space in /mars/ for primary logfiles (additional limit in GB)"
+	depends on MARS
+	default 2
+	---help---
+	MEDIUM EMERGENCY LIMIT
+
+	When free space in /mars/ drops under
+	MARS_MIN_SPACE_4 + MARS_MIN_SPACE_3,
+	elder transaction logfiles will be deleted at primary resources.
+
+	As a consequence, the secondaries may no longer be able to
+	get a consecute series of copies of logfiles.
+	As a result, they may get stuck somewhere inbetween at an
+	outdated, but logically consistent state.
+
+	This is a desperate action of the kernel.
+
+	After the problem has been fixed, some secondaries may need to
+	start a full-sync in order to continue replication at the
+	recent state.
+
+	In general, you should avoid such situations at the admin level.
+
+	Please implement your own monitoring at	the admin level, which warns
+	you and/or takes appropriate countermeasures much earlier.
+	Never rely on this emergency feature!
+
+config MARS_MIN_SPACE_2
+	int "free space in /mars/ for secondary logfiles (additional limit in GB)"
+	depends on MARS
+	default 2
+	---help---
+	MEDIUM EMERGENCY LIMIT
+
+	When free space in /mars/ drops under
+	MARS_MIN_SPACE_4 + MARS_MIN_SPACE_3 + MARS_MIN_SPACE_2,
+	elder transaction logfiles will be deleted at secondary resources.
+
+	As a consequence, some local secondary resources
+	may get stuck somewhere inbetween at an
+	outdated, but logically consistent state.
+
+	This is a desperate action of the kernel.
+
+	After the problem has been fixed and the free space becomes
+	larger than MARS_MIN_SPACE_4 + MARS_MIN_SPACE_3 + MARS_MIN_SPACE_2
+	+ MARS_MIN_SPACE_2, the secondary tries to fetch the missing
+	logfiles from the primary again.
+
+	However, if the necessary logfiles have been deleted at the
+	primary side in the meantime, this may fail.
+
+	In general, you should avoid such situations at the admin level.
+
+	Please implement your own monitoring at	the admin level, which warns
+	you and/or takes appropriate countermeasures much earlier.
+	Never rely on this emergency feature!
+
+config MARS_MIN_SPACE_1
+	int "free space in /mars/ for replication (additional limit in GB)"
+	depends on MARS
+	default 2
+	---help---
+	LOWEST EMERGENCY LIMIT
+
+	When free space in /mars/ drops under MARS_MIN_SPACE_4
+	+ MARS_MIN_SPACE_3 + MARS_MIN_SPACE_2 + MARS_MIN_SPACE_1,
+	fetching of transaction logfiles will stop at local secondary
+	resources.
+
+	As a consequence, some local secondary resources
+	may get stuck somewhere inbetween at an
+	outdated, but logically consistent state.
+
+	This is a desperate action of the kernel.
+
+	After the problem has been fixed and the free space becomes
+	larger than MARS_MIN_SPACE_4 + MARS_MIN_SPACE_3 + MARS_MIN_SPACE_2
+	+ MARS_MIN_SPACE_2, the secondary will continue fetching its
+	copy of logfiles from the primary side.
+
+	In general, you should avoid such situations at the admin level.
+
+	Please implement your own monitoring at	the admin level, which warns
+	you and/or takes appropriate countermeasures much earlier.
+	Never rely on this emergency feature!
+
+config MARS_MIN_SPACE_0
+	int "total space needed in /mars/ for (additional limit in GB)"
+	depends on MARS
+	default 12
+	---help---
+	Operational pre-requirement.
+
+	In order to use MARS, the total space available in /mars/ must
+	be  at least MARS_MIN_SPACE_4 + MARS_MIN_SPACE_3 + MARS_MIN_SPACE_2
+	+ MARS_MIN_SPACE_1 + MARS_MIN_SPACE_0.
+
+	If you cannot afford that amount of storage space, please use
+	DRBD in place of MARS.
+
 config MARS_LOGROT_AUTO
 	int "automatic logrotate when logfile exceeds size (in GB)"
 	depends on MARS_LOGROT
 	default 32
 	---help---
 	You could switch this off by setting to 0. However, deletion
-	of really huge logfile can take several minutes, or even substantial
+	of really huge logfiles can take several minutes, or even substantial
 	fractions of hours (depending on the underlying filesystem).
 	Thus it is highly recommended to limit the logfile size to some
 	reasonable maximum size. Switch only off for experiments!
-
-config MARS_MIN_SPACE_BASE
-	int "free space in /mars/ (hard limit in gigabytes)"
-	depends on MARS
-	default 8
-	---help---
-	when this limit is exceeded, transaction logging to /mars/
-	will stop. This affects not only write IO to /dev/mars/*,
-	but also logfile transfers etc. As a consequence, writes
-	on the primary will directly go to the device, and the secondaries
-	will be outdated.
-	In order to retain full operations, you _need_ to implement
-	your own monitoring which _must_ warn you long before this
-	hard limit catches you. If it already has caught you, it
-	will be too late: you have to recover by hand, e.g. by
-	starting a full sync.
-
-config MARS_MIN_SPACE_PERCENT
-	int "free space in /mars/ (hard limit in percent)"
-	depends on MARS
-	default 0
-	---help---
-	this limit is in addition to CONFIG_MARS_MIN_SPACE_BASE.
-
-config MARS_LOGDELETE_AUTO
-	int "automatic log-delete when space in /mars/ gets short (in GB)"
-	depends on MARS
-	default 8
-	---help---
-	This limit is in addition to CONFIG_MARS_MIN_SPACE_BASE
-	and CONFIG_MARS_MIN_SPACE_PERCENT.
-	You can switch this off by setting to 0.
-	When the limit is hit, MARS tries to delete the eldest logfile,
-	when possible, in order to free some space.
-	Notice: deleting logfiles on a primary which have not yet
-	been transferred to some secondary is possible, but as a
-	consequence the secondary may need a full-sync afterwards.
 
 config MARS_PREFER_SIO
 	bool "prefer sio bricks instead of aio"
