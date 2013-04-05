@@ -215,10 +215,15 @@ ctl_table mars_table[] = {
 	INT_ENTRY("mem_used_raw_kb",      brick_global_block_used,0400),
 	INT_ENTRY("io_flying_count",      mars_global_io_flying,  0400),
 	INT_ENTRY("copy_overlap",         mars_copy_overlap,      0600),
-	INT_ENTRY("statusfiles_rollover_sec", rollover_time,      0600),
+	INT_ENTRY("statusfiles_rollover_sec", mars_rollover_interval, 0600),
+	INT_ENTRY("scan_interval_sec",    mars_scan_interval,     0600),
+	INT_ENTRY("propagate_interval_sec", mars_propagate_interval, 0600),
+	INT_ENTRY("sync_flip_interval_sec", mars_sync_flip_interval, 0600),
+	INT_ENTRY("do_fast_fullsync",     mars_fast_fullsync,     0600),
 	INT_ENTRY("logrot_auto_gb",       global_logrot_auto,     0600),
 	INT_ENTRY("logdel_auto_gb",       global_logdel_auto,     0600),
-	INT_ENTRY("free_space_mb",        global_free_space,      0600),
+	INT_ENTRY("required_free_space_mb", global_free_space_base, 0600),
+	INT_ENTRY("required_free_space_percent", global_free_space_percent, 0600),
 #ifdef CONFIG_MARS_LOADAVG_LIMIT
 	INT_ENTRY("loadavg_limit",        mars_max_loadavg,       0600),
 #endif

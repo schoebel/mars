@@ -89,6 +89,13 @@ config MARS_LOGDIR
 	by .status, and they are created automatically. Their content
 	is however limited to a few seconds or minutes.
 
+config MARS_ROLLOVER_INTERVAL
+	int "rollover time of logging status files (in seconds)"
+	depends on MARS
+	default 3
+	---help---
+	May influence the system load; dont use too low nubmers.
+
 config MARS_SCAN_INTERVAL
 	int "re-scanning of symlinks in /mars/ (in seconds)"
 	depends on MARS
@@ -190,16 +197,9 @@ config MARS_LOGROT_AUTO
 	Thus it is highly recommended to limit the logfile size to some
 	reasonable maximum size. Switch only off for experiments!
 
-config MARS_MIN_SPACE
-	bool "check for filesystem overflow in /mars"
-	depends on MARS
-	default y
-	---help---
-	Normally ON. Switch off only for EXPERIMENTS!
-
 config MARS_MIN_SPACE_BASE
 	int "free space in /mars/ (hard limit in gigabytes)"
-	depends on MARS_MIN_SPACE
+	depends on MARS
 	default 8
 	---help---
 	when this limit is exceeded, transaction logging to /mars/
@@ -215,14 +215,14 @@ config MARS_MIN_SPACE_BASE
 
 config MARS_MIN_SPACE_PERCENT
 	int "free space in /mars/ (hard limit in percent)"
-	depends on MARS_MIN_SPACE
+	depends on MARS
 	default 0
 	---help---
 	this limit is in addition to CONFIG_MARS_MIN_SPACE_BASE.
 
 config MARS_LOGDELETE_AUTO
 	int "automatic log-delete when space in /mars/ gets short (in GB)"
-	depends on MARS_MIN_SPACE
+	depends on MARS
 	default 8
 	---help---
 	This limit is in addition to CONFIG_MARS_MIN_SPACE_BASE

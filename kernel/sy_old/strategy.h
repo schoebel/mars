@@ -12,7 +12,15 @@
 
 extern int global_logrot_auto;
 extern int global_logdel_auto;
-extern int global_free_space;
+extern int global_free_space_base;
+extern int global_free_space_percent;
+extern int mars_rollover_interval;
+extern int mars_scan_interval;
+extern int mars_propagate_interval;
+extern int mars_sync_flip_interval;
+
+extern int mars_fast_fullsync;
+
 
 extern char *my_id(void);
 

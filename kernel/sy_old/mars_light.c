@@ -51,6 +51,39 @@
 #define inline __attribute__((__noinline__))
 #endif
 
+int global_logrot_auto = CONFIG_MARS_LOGROT_AUTO;
+EXPORT_SYMBOL_GPL(global_logrot_auto);
+
+int global_logdel_auto = CONFIG_MARS_LOGDELETE_AUTO;
+EXPORT_SYMBOL_GPL(global_logdel_auto);
+
+int global_free_space_base = CONFIG_MARS_MIN_SPACE_BASE;
+EXPORT_SYMBOL_GPL(global_free_space_base);
+
+int global_free_space_percent = CONFIG_MARS_MIN_SPACE_PERCENT;
+EXPORT_SYMBOL_GPL(global_free_space_percent);
+
+int mars_rollover_interval = CONFIG_MARS_ROLLOVER_INTERVAL;
+EXPORT_SYMBOL_GPL(mars_rollover_interval);
+
+int mars_scan_interval = CONFIG_MARS_SCAN_INTERVAL;
+EXPORT_SYMBOL_GPL(mars_scan_interval);
+
+int mars_propagate_interval = CONFIG_MARS_PROPAGATE_INTERVAL;
+EXPORT_SYMBOL_GPL(mars_propagate_interval);
+
+int mars_sync_flip_interval = CONFIG_MARS_SYNC_FLIP_INTERVAL;
+EXPORT_SYMBOL_GPL(mars_sync_flip_interval);
+
+int mars_fast_fullsync =
+#ifdef CONFIG_MARS_FAST_FULLSYNC
+	1
+#else
+	0
+#endif
+	;
+EXPORT_SYMBOL_GPL(mars_fast_fullsync);
+
 static struct task_struct *main_thread = NULL;
 
 typedef int (*light_worker_fn)(void *buf, struct mars_dent *dent);
@@ -157,13 +190,8 @@ EXPORT_SYMBOL_GPL(mars_mem_percent);
 //#define COPY_APPEND_MODE 1 // FIXME: does not work yet
 #define COPY_PRIO MARS_PRIO_LOW
 
-#ifdef CONFIG_MARS_MIN_SPACE
-#define EXHAUSTED_LIMIT(max) ((max) / 100 * CONFIG_MARS_MIN_SPACE_PERCENT + global_free_space * 1024 * 1024)
+#define EXHAUSTED_LIMIT(max) ((long long)(max) * global_free_space_percent / 100 + (long long)global_free_space_base * 1024 * 1024)
 #define EXHAUSTED(x,max) ((x) <= EXHAUSTED_LIMIT(max))
-#else
-#define EXHAUSTED_LIMIT(max) 0
-#define EXHAUSTED(x,max) (false)
-#endif
 
 #define JAMMED(x) ((x) <= 1024 * 1024)
 
@@ -1287,12 +1315,10 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 			struct mars_dent *local_dent = mars_find_dent(peer->global, remote_dent->d_path);
 			if (unlikely(!parent)) {
 				MARS_IO("ignoring non-existing local resource '%s'\n", parent_path);
-#if defined(CONFIG_MARS_LOGDELETE_AUTO)
 			// don't copy old / outdated logfiles
 			} else if (parent->d_private &&
 				   ((struct mars_rotate *)parent->d_private)->relevant_serial > remote_dent->d_serial) {
 				MARS_IO("ignoring outdated remote logfile '%s'\n", remote_dent->d_path);
-#endif
 			} else {
 				status = check_logfile(peer->peer, remote_dent, local_dent, parent, local_stat.size);
 			}
@@ -1480,7 +1506,7 @@ int peer_thread(void *data)
 
 		brick_msleep(1000);
 		if (!brick_thread_should_stop()) {
-			if (pause_time < CONFIG_MARS_PROPAGATE_INTERVAL)
+			if (pause_time < mars_propagate_interval)
 				pause_time++;
 			wait_event_interruptible_timeout(remote_event,
 							 atomic_read(&remote_trigger_count) > 0 ||
@@ -2021,9 +2047,9 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	}
 	MARS_DBG("logfile '%s' size = %lld\n", aio_path, rot->aio_info.current_size);
 
-#if defined(CONFIG_MARS_LOGROT_AUTO) && CONFIG_MARS_LOGROT_AUTO > 0
 	if (rot->is_primary &&
-	    unlikely(rot->aio_info.current_size >= (loff_t)CONFIG_MARS_LOGROT_AUTO * 1024 * 1024 * 1024)) {
+	    global_logrot_auto > 0 &&
+	    unlikely(rot->aio_info.current_size >= (loff_t)global_logrot_auto * 1024 * 1024 * 1024)) {
 		char *new_path = path_make("%s/log-%09d-%s", parent_path, aio_dent->d_serial + 1, my_id());
 		if (likely(new_path && !mars_find_dent(global, new_path))) {
 			MARS_INF("old logfile size = %lld, creating new logfile '%s'\n", rot->aio_info.current_size, new_path);
@@ -2031,7 +2057,6 @@ int make_log_init(void *buf, struct mars_dent *dent)
 		}
 		brick_string_free(new_path);
 	}
-#endif
 
 	// check whether attach is allowed
 	switch_path = path_make("%s/todo-%s/attach", parent_path, my_id());
@@ -2354,7 +2379,6 @@ void _init_trans_input(struct trans_logger_input *trans_input, struct mars_dent 
 	MARS_DBG("initialized '%s' %d\n", trans_input->inf.inf_host, trans_input->inf.inf_sequence);
 }
 
-#ifdef CONFIG_MARS_LOGROT
 static
 int _get_free_input(struct trans_logger_brick *trans_brick)
 {
@@ -2457,7 +2481,6 @@ void _rotate_trans(struct mars_rotate *rot)
 	}
 done: ;
 }
-#endif
 
 static
 void _change_trans(struct mars_rotate *rot)
@@ -2470,9 +2493,7 @@ void _change_trans(struct mars_rotate *rot)
 		trans_brick->replay_start_pos = rot->start_pos;
 		trans_brick->replay_end_pos = rot->end_pos;
 	} else {
-#ifdef CONFIG_MARS_LOGROT
 		_rotate_trans(rot);
-#endif
 	}
 }
 
@@ -2706,7 +2727,6 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		rot->copy_next_is_available = 0;
 	}
 
-#if defined(CONFIG_MARS_LOGDELETE_AUTO)
 #define LIMIT1 ((loff_t)EXHAUSTED_LIMIT(rot->total_space))
 #define LIMIT2 ((loff_t)global_logdel_auto * 1024 * 1024)
 	if (rot->remaining_space <= LIMIT1 + LIMIT2) {
@@ -2717,7 +2737,6 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 			rot->first_log->d_killme = true;
 		}
 	}
-#endif
 
 	/* Stopping is also possible in case of errors
 	 */
@@ -2735,10 +2754,8 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 
 		if (do_stop) {
 			status = _stop_trans(rot, parent->d_path);
-#ifdef CONFIG_MARS_LOGROT
 		} else {
 			_change_trans(rot);
-#endif
 		}
 		goto done;
 	}
@@ -3219,20 +3236,19 @@ static int make_sync(void *buf, struct mars_dent *dent)
 		rot->forbid_replay = true;
 	}
 
-#if defined(CONFIG_MARS_SYNC_FLIP_INTERVAL) && CONFIG_MARS_SYNC_FLIP_INTERVAL > 0
 	/* Flip between replay and sync
 	 */
-	if (do_start && rot->replay_mode && rot->end_pos > rot->start_pos) {
+	if (do_start && rot->replay_mode && rot->end_pos > rot->start_pos &&
+	    mars_sync_flip_interval >= 8) {
 		if (!rot->flip_start) {
 			rot->flip_start = jiffies;
 		} else if ((long long)jiffies - rot->flip_start > CONFIG_MARS_SYNC_FLIP_INTERVAL * HZ) {
 			do_start = false;
-			rot->flip_start = jiffies + CONFIG_MARS_SYNC_FLIP_INTERVAL * HZ;
+			rot->flip_start = jiffies + mars_sync_flip_interval * HZ;
 		}
 	} else {
 		rot->flip_start = 0;
 	}
-#endif
 
 	/* Start copy
 	 */
@@ -3251,12 +3267,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 
 	{
 		const char *argv[2] = { src, dst };
-#ifdef CONFIG_MARS_FAST_FULLSYNC
-# define VERIFY_MODE true
-#else
-# define VERIFY_MODE false
-#endif
-		status = __make_copy(global, dent, do_start ? switch_path : "", copy_path, dent->d_parent->d_path, argv, start_pos, VERIFY_MODE, true, &copy);
+		status = __make_copy(global, dent, do_start ? switch_path : "", copy_path, dent->d_parent->d_path, argv, start_pos, mars_fast_fullsync > 0, true, &copy);
 		if (copy)
 			copy->copy_limiter = &rot->sync_limiter;
 		rot->sync_brick = copy;
@@ -4041,7 +4052,7 @@ static int light_thread(void *data)
 		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&sio_brick_type, false);
 		MARS_DBG("kill sio    bricks (when possible) = %d\n", status);
 
-		if ((long long)jiffies + rollover_time * HZ >= last_rollover) {
+		if ((long long)jiffies + mars_rollover_interval * HZ >= last_rollover) {
 			last_rollover = jiffies;
 			rollover_all();
 		}
@@ -4053,7 +4064,8 @@ static int light_thread(void *data)
 
 		brick_msleep(500);
 
-		wait_event_interruptible_timeout(_global.main_event, _global.main_trigger, CONFIG_MARS_SCAN_INTERVAL * HZ);
+		wait_event_interruptible_timeout(_global.main_event, _global.main_trigger, mars_scan_interval * HZ);
+
 		_global.main_trigger = false;
 	}
 
@@ -4124,15 +4136,6 @@ static void __exit exit_light(void)
 	exit_say();
 	printk(KERN_INFO "stopped MARS\n");
 }
-
-int global_logrot_auto = CONFIG_MARS_LOGROT_AUTO;
-EXPORT_SYMBOL_GPL(global_logrot_auto);
-
-int global_logdel_auto = CONFIG_MARS_LOGDELETE_AUTO;
-EXPORT_SYMBOL_GPL(global_logdel_auto);
-
-int global_free_space = CONFIG_MARS_MIN_SPACE_BASE;
-EXPORT_SYMBOL_GPL(global_free_space);
 
 static int __init init_light(void)
 {

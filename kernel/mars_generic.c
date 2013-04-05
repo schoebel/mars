@@ -22,8 +22,6 @@ struct banning mars_global_ban = {};
 EXPORT_SYMBOL_GPL(mars_global_ban);
 atomic_t mars_global_io_flying = ATOMIC_INIT(0);
 EXPORT_SYMBOL_GPL(mars_global_io_flying);
-int rollover_time = 3;
-EXPORT_SYMBOL_GPL(rollover_time);
 
 static char *id = NULL;
 
