@@ -43,6 +43,8 @@ char *say_class[MAX_SAY_CLASS] = {
 	[SAY_TOTAL] = "total",
 };
 
+int brick_say_logging = 1;
+EXPORT_SYMBOL_GPL(brick_say_logging);
 int brick_say_debug =
 #ifdef CONFIG_MARS_DEBUG_DEFAULT
 	1;
@@ -632,6 +634,7 @@ void treat_channel(struct say_channel *ch, int class)
 	int len;
 	int overflow;
 	int transact;
+	int start;
 	char *buf;
 	char *tmp;
 	unsigned long flags;
@@ -653,7 +656,10 @@ void treat_channel(struct say_channel *ch, int class)
 
 	ch->ch_status_written += len;
 	out_to_syslog(class, buf, len);
-	for (transact = 0; transact < 2; transact++) {
+	start = 0;
+	if (!brick_say_logging)
+		start++;
+	for (transact = start; transact < 2; transact++) {
 		if (unlikely(!ch->ch_filp[class][transact])) {
 			char *filename = _make_filename(ch, class, transact, transact);
 			if (likely(filename)) {
