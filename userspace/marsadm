@@ -946,6 +946,12 @@ sub mars_state_cmd {
   lprint "secondary outdated ($host_replay instead of $primary_replay)\n";
 }
 
+sub mars_info_cmd {
+  my ($cmd, $res) = @_;
+  my $info = "$mars/resource-$res/logstatus-$host.status";
+  system("cat $info");
+}
+
 sub show_cmd {
   my ($cmd, $res) = @_;
   $res = "*" if !$res || $res eq "all";
@@ -1014,6 +1020,7 @@ my %cmd_table =
    "log-delete-all"    => \&logdelete_res,
    "fake-sync"         => \&fake_local_res,
    "mars-state"        => \&mars_state_cmd,
+   "mars-info"         => \&mars_info_cmd,
 
    # compatible keywords
    "attach"            => \&attach_res,
