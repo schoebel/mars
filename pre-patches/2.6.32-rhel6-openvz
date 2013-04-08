@@ -5,7 +5,7 @@ diff -urpN source.rhel6//block/Kconfig source/block/Kconfig
  
  	See Documentation/cgroups/blkio-controller.txt for more information.
  
-+source block/mars/Kconfig
++source block/mars/kernel/Kconfig
 +
  endif # BLOCK
  
@@ -18,7 +18,7 @@ diff -urpN source.rhel6//block/Makefile source/block/Makefile
  obj-$(CONFIG_BLOCK_COMPAT)	+= compat_ioctl.o
  obj-$(CONFIG_BLK_DEV_INTEGRITY)	+= blk-integrity.o
 +
-+obj-$(CONFIG_MARS)             += mars/
++obj-$(CONFIG_MARS)             += mars/kernel/
 +
 diff -urpN source.rhel6//fs/aio.c source/fs/aio.c
 --- source.rhel6//fs/aio.c	2012-11-21 12:24:35.721563886 +0100

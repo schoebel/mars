@@ -5,7 +5,7 @@ diff -uri linux-2.6.32.14.orig/block/Kconfig linux-2.6.32.14.new.00/block/Kconfi
  	T10/SCSI Data Integrity Field or the T13/ATA External Path
  	Protection.  If in doubt, say N.
  
-+source block/mars/Kconfig
++source block/mars/kernel/Kconfig
 +
  config BLK_CGROUP
  	bool
@@ -18,7 +18,7 @@ diff -uri linux-2.6.32.14.orig/block/Makefile linux-2.6.32.14.new.00/block/Makef
  obj-$(CONFIG_BLOCK_COMPAT)	+= compat_ioctl.o
  obj-$(CONFIG_BLK_DEV_INTEGRITY)	+= blk-integrity.o
 +
-+obj-$(CONFIG_MARS)		+= mars/
++obj-$(CONFIG_MARS)		+= mars/kernel/
 \ No newline at end of file
 --- linux-2.6.32.14.orig/fs/aio.c	2010-05-31 14:09:40.000000000 +0200
 +++ linux-2.6.32.14.new.00/fs/aio.c	2011-01-26 16:02:44.000000000 +0100

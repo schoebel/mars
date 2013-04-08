@@ -14,7 +14,7 @@ index e97934e..9e9201a 100644
  
  	See Documentation/cgroups/blkio-controller.txt for more information.
  
-+source block/mars/Kconfig
++source block/mars/kernel/Kconfig
 +
  endif # BLOCK
  
@@ -28,7 +28,7 @@ index 514c6e4..97dbbd4 100644
  obj-$(CONFIG_BLOCK_COMPAT)	+= compat_ioctl.o
  obj-$(CONFIG_BLK_DEV_INTEGRITY)	+= blk-integrity.o
 +
-+obj-$(CONFIG_MARS)		+= mars/
++obj-$(CONFIG_MARS)		+= mars/kernel/
 diff --git a/fs/aio.c b/fs/aio.c
 index 3b65ee7..de4ff1f 100644
 --- a/fs/aio.c

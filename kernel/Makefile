@@ -65,8 +65,8 @@ mars-objs += 				\
 
 endif
 
-.PHONY FORCE: block/mars/buildtag.h
-block/mars/buildtag.h:
+.PHONY FORCE: block/mars/kernel/buildtag.h
+block/mars/kernel/buildtag.h:
 	set -e; exec > $@;\
 	cd block/mars;\
 	/bin/echo -e "/* Automatically generated -- DO NOT EDIT! */";\

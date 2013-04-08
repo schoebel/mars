@@ -28,7 +28,7 @@ index 9be0b56..80cd020 100644
  	T10/SCSI Data Integrity Field or the T13/ATA External Path
  	Protection.  If in doubt, say N.
  
-+source block/mars/Kconfig
++source block/mars/kernel/Kconfig
 +
  endif # BLOCK
  
@@ -42,7 +42,7 @@ index ba74ca6..d547b2c 100644
  obj-$(CONFIG_BLOCK_COMPAT)	+= compat_ioctl.o
  obj-$(CONFIG_BLK_DEV_INTEGRITY)	+= blk-integrity.o
 +
-+obj-$(CONFIG_MARS)		+= mars/
++obj-$(CONFIG_MARS)		+= mars/kernel/
 \ No newline at end of file
 diff --git a/fs/aio.c b/fs/aio.c
 index 22a19ad..466a59f 100644
