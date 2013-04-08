@@ -285,13 +285,20 @@ void mars_remaining_space(const char *fspath, loff_t *total, loff_t *remaining)
 {
 	struct path path = {};
 	struct kstatfs kstatfs = {};
+	mm_segment_t oldfs;
 	int res;
 
 	*total = *remaining = 0;
 
+	oldfs = get_fs();
+	set_fs(get_ds());
+
 	res = user_path_at(AT_FDCWD, fspath, 0, &path);
+
+	set_fs(oldfs);
+
 	if (unlikely(res < 0)) {
-		MARS_ERR("cannot get fspath '%s'\n", fspath);
+		MARS_ERR("cannot get fspath '%s', err = %d\n\n", fspath, res);
 		goto err;
 	}
 	if (unlikely(!path.dentry)) {
