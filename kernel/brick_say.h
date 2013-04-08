@@ -28,6 +28,8 @@ extern struct say_channel *default_channel;
 
 extern struct say_channel *make_channel(const char *name);
 
+extern void del_channel(struct say_channel *ch);
+
 extern void bind_to_channel(struct say_channel *ch, struct task_struct *whom);
 
 #define bind_me(_name)					\

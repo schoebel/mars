@@ -244,12 +244,14 @@ void rollover_all(void)
 }
 EXPORT_SYMBOL_GPL(rollover_all);
 
-static
 void del_channel(struct say_channel *ch)
 {
 	struct say_channel *tmp;
 	struct say_channel **_tmp;
 	int i, j;
+
+	if (!ch)
+		return;
 
 	write_lock(&say_lock);
 	for (_tmp = &channel_list; (tmp = *_tmp) != NULL; _tmp = &tmp->ch_next) {
@@ -281,6 +283,7 @@ void del_channel(struct say_channel *ch)
 	kfree(ch);
 	atomic_dec(&say_alloc_channels);
 }
+EXPORT_SYMBOL_GPL(del_channel);
 
 static
 struct say_channel *_make_channel(const char *name)
