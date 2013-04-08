@@ -34,7 +34,7 @@
 #define MAX_FILELEN 16
 #define MAX_IDS 1000
 
-char *say_class[MAX_SAY_CLASS] = {
+const char *say_class[MAX_SAY_CLASS] = {
 	[SAY_DEBUG] = "debug",
 	[SAY_INFO] = "info",
 	[SAY_WARN] = "warn",
@@ -42,6 +42,7 @@ char *say_class[MAX_SAY_CLASS] = {
 	[SAY_FATAL] = "fatal",
 	[SAY_TOTAL] = "total",
 };
+EXPORT_SYMBOL_GPL(say_class);
 
 int brick_say_logging = 1;
 EXPORT_SYMBOL_GPL(brick_say_logging);
@@ -78,6 +79,8 @@ struct say_channel {
 	int ch_overflow[MAX_SAY_CLASS];
 	bool ch_written[MAX_SAY_CLASS];
 	bool ch_rollover;
+	bool ch_must_exist;
+	bool ch_is_dir;
 	int ch_status_written;
 	int ch_id_max;
 	void *ch_ids[MAX_IDS];
@@ -286,7 +289,7 @@ void del_channel(struct say_channel *ch)
 EXPORT_SYMBOL_GPL(del_channel);
 
 static
-struct say_channel *_make_channel(const char *name)
+struct say_channel *_make_channel(const char *name, bool must_exist)
 {
 	struct say_channel *res = NULL;
 	struct kstat kstat = {};
@@ -294,17 +297,23 @@ struct say_channel *_make_channel(const char *name)
 	bool use_atomic = (preempt_count() & (SOFTIRQ_MASK | HARDIRQ_MASK | NMI_MASK)) != 0 || in_atomic() || irqs_disabled();
 	unsigned long mode = use_atomic ? GFP_ATOMIC : GFP_BRICK;
 	mm_segment_t oldfs;
+	bool is_dir = false;
 	int status;
 
-        oldfs = get_fs();
-        set_fs(get_ds());
+	oldfs = get_fs();
+	set_fs(get_ds());
 	status = vfs_stat((char*)name, &kstat);
-        set_fs(oldfs);
+	set_fs(oldfs);
 
-	if (unlikely(status < 0 || !S_ISDIR(kstat.mode))) {
-		say(SAY_ERROR, "cannot create channel '%s'\n", name);
-		goto done;
+	if (unlikely(status < 0)) {
+		if (must_exist) {
+			say(SAY_ERROR, "cannot create channel '%s', status = %d\n", name, status);
+			goto done;
+		}
+	} else {
+		is_dir = S_ISDIR(kstat.mode);
 	}
+
 restart:
 	res = kzalloc(sizeof(struct say_channel), mode);
 	if (unlikely(!res)) {
@@ -312,6 +321,8 @@ restart:
 		goto restart;
 	}
 	atomic_inc(&say_alloc_channels);
+	res->ch_must_exist = must_exist;
+	res->ch_is_dir = is_dir;
 	init_waitqueue_head(&res->ch_progress);
 restart2:
 	res->ch_name = kstrdup(name, mode);
@@ -338,7 +349,7 @@ done:
 	return res;
 }
 
-struct say_channel *make_channel(const char *name)
+struct say_channel *make_channel(const char *name, bool must_exist)
 {
 	struct say_channel *res = NULL;
 	struct say_channel *ch;
@@ -353,7 +364,7 @@ struct say_channel *make_channel(const char *name)
 	read_unlock(&say_lock);
 
 	if (unlikely(!res)) {
-		res = _make_channel(name);
+		res = _make_channel(name, must_exist);
 		if (unlikely(!res))
 			goto done;
 
@@ -435,6 +446,8 @@ void say_to(struct say_channel *ch, int class, const char *fmt, ...)
 	}
 
 	if (likely(ch)) {
+		if (!ch->ch_is_dir)
+			class = SAY_TOTAL;
 		if (likely(class >= 0 && class < MAX_SAY_CLASS)) {
 			wait_channel(ch, class);
 			spin_lock_irqsave(&ch->ch_lock[class], flags);
@@ -469,6 +482,7 @@ void brick_say_to(struct say_channel *ch, int class, bool dump, const char *pref
 	const char *channel_name = "-";
 	struct timespec now = CURRENT_TIME;
 	int filelen;
+	int orig_class;
 	va_list args;
 	unsigned long flags;
 
@@ -479,6 +493,8 @@ void brick_say_to(struct say_channel *ch, int class, bool dump, const char *pref
 		ch = find_channel(current);
 	}
 
+	orig_class = class;
+
 	// limit the filename
 	filelen = strlen(file);
 	if (filelen > MAX_FILELEN)
@@ -486,6 +502,8 @@ void brick_say_to(struct say_channel *ch, int class, bool dump, const char *pref
 	
 	if (likely(ch)) {
 		channel_name = ch->ch_name;
+		if (!ch->ch_is_dir)
+			class = SAY_TOTAL;
 		if (likely(class >= 0 && class < MAX_SAY_CLASS)) {
 			wait_channel(ch, class);
 			spin_lock_irqsave(&ch->ch_lock[class], flags);
@@ -514,7 +532,7 @@ void brick_say_to(struct say_channel *ch, int class, bool dump, const char *pref
 		_say(ch, SAY_TOTAL, NULL, true,
 		     "%ld.%09ld %s_%-5s %s %s[%d] %s:%d %s(): ",
 		     now.tv_sec, now.tv_nsec,
-		     prefix, say_class[class],
+		     prefix, say_class[orig_class],
 		     channel_name,
 		     current->comm, (int)smp_processor_id(),
 		     file, line,
@@ -543,7 +561,7 @@ void try_open_file(struct file **file, char *filename, bool creat)
 	int prot = 0600;
 
 	if (creat)
-		flags |= O_CREAT | O_TRUNC;
+		flags |= O_CREAT;
 
 	*file = filp_open(filename, flags, prot);
 	if (unlikely(IS_ERR(*file))) {
@@ -587,19 +605,27 @@ restart:
 		goto restart;
 	}
 	atomic_inc(&say_alloc_names);
-	snprintf(filename, 1023, "%s/%d.%s.%s%s", ch->ch_name, class, say_class[class], transact ? "status" : "log", add_tmp ? ".tmp" : "");
+	if (ch->ch_is_dir) {
+		snprintf(filename, 1023, "%s/%d.%s.%s%s", ch->ch_name, class, say_class[class], transact ? "status" : "log", add_tmp ? ".tmp" : "");
+	} else {
+		snprintf(filename, 1023, "%s.%s%s", ch->ch_name, transact ? "status" : "log", add_tmp ? ".tmp" : "");
+	}
 	return filename;
 }
 
 static
 void _rollover_channel(struct say_channel *ch)
 {
+	int start = 0;
 	int class;
 
 	ch->ch_rollover = false;
 	ch->ch_status_written = 0;
-			
-	for (class = 0; class < MAX_SAY_CLASS; class++) {
+
+	if (!ch->ch_is_dir)
+		start = SAY_TOTAL;
+
+	for (class = start; class < MAX_SAY_CLASS; class++) {
 		char *old = _make_filename(ch, class, 1, 1);
 		char *new = _make_filename(ch, class, 1, 0);
 		
@@ -709,7 +735,10 @@ int _say_thread(void *data)
 	restart:
 		read_lock(&say_lock);
 		for (ch = channel_list; ch; ch = ch->ch_next) {
-			for (i = 0; i < MAX_SAY_CLASS; i++) {
+			int start = 0;
+			if (!ch->ch_is_dir)
+				start = SAY_TOTAL;
+			for (i = start; i < MAX_SAY_CLASS; i++) {
 				if (ch->ch_index[i] > 0) {
 					read_unlock(&say_lock);
 					treat_channel(ch, i);
@@ -725,7 +754,7 @@ int _say_thread(void *data)
 
 void init_say(void)
 {
-	default_channel = make_channel(CONFIG_MARS_LOGDIR);
+	default_channel = make_channel(CONFIG_MARS_LOGDIR, true);
 	say_thread = kthread_create(_say_thread, NULL, "brick_say");
 	if (IS_ERR(say_thread)) {
 		say_thread = NULL;

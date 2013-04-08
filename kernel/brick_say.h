@@ -22,11 +22,13 @@ enum {
 	MAX_SAY_CLASS
 };
 
+extern const char *say_class[MAX_SAY_CLASS];
+
 struct say_channel;
 
 extern struct say_channel *default_channel;
 
-extern struct say_channel *make_channel(const char *name);
+extern struct say_channel *make_channel(const char *name, bool must_exit);
 
 extern void del_channel(struct say_channel *ch);
 
