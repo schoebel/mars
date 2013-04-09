@@ -9,6 +9,9 @@
 
 #include <asm/atomic.h>
 
+// include default config
+#include "mars_config.h"
+
 #include "brick_locks.h"
 #include "meta.h"
 

@@ -7,6 +7,9 @@
 
 //#define MARS_TRACING // write runtime trace data to /mars/trace.csv
 
+// include default config
+#include "mars_config.h"
+
 /////////////////////////////////////////////////////////////////////////
 
 // include the generic brick infrastructure

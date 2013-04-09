@@ -2,6 +2,9 @@
 #ifndef BRICK_SAY_H
 #define BRICK_SAY_H
 
+// include default config
+#include "mars_config.h"
+
 /////////////////////////////////////////////////////////////////////////
 
 extern int brick_say_logging;
