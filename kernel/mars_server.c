@@ -20,8 +20,10 @@
 
 #include "mars_server.h"
 
-static struct mars_socket server_socket = {};
-static struct task_struct *server_thread = NULL;
+#define NR_SOCKETS 3
+
+static struct mars_socket server_socket[NR_SOCKETS] = {};
+static struct task_struct *server_thread[NR_SOCKETS] = {};
 
 atomic_t server_handler_count = ATOMIC_INIT(0);
 EXPORT_SYMBOL_GPL(server_handler_count);
@@ -672,6 +674,7 @@ static int _server_thread(void *data)
 		},
 		.main_event = __WAIT_QUEUE_HEAD_INITIALIZER(server_global.main_event),
 	};
+	struct mars_socket *my_socket = data;
 	char *id = my_id();
 	int status = 0;
 
@@ -710,7 +713,7 @@ static int _server_thread(void *data)
 			continue;
 		}
 
-		status = mars_accept_socket(&handler_socket, &server_socket);
+		status = mars_accept_socket(&handler_socket, my_socket);
 		if (unlikely(status < 0 || !mars_socket_is_alive(&handler_socket))) {
 			brick_msleep(500);
 			if (status == -EAGAIN)
@@ -786,41 +789,57 @@ struct mars_limiter server_limiter = {
 };
 EXPORT_SYMBOL_GPL(server_limiter);
 
+void __exit exit_mars_server(void)
+{
+	int i;
+
+	MARS_INF("exit_server()\n");
+	server_unregister_brick_type();
+
+	for (i = 0; i < NR_SOCKETS; i++) {
+		if (server_thread[i]) {
+			MARS_INF("stopping server thread %d...\n", i);
+			brick_thread_stop(server_thread[i]);
+		}
+		MARS_INF("closing server socket %d...\n", i);
+		mars_put_socket(&server_socket[i]);
+	}
+}
+
 int __init init_mars_server(void)
 {
-	struct sockaddr_storage sockaddr = {};
-	int status;
+	int i;
 
 	MARS_INF("init_server()\n");
 
-	status = mars_create_sockaddr(&sockaddr, "");
-	if (status < 0)
-		return status;
+	for (i = 0; i < NR_SOCKETS; i++) {
+		struct sockaddr_storage sockaddr = {};
+		char tmp[16];
+		int status;
 
-	status = mars_create_socket(&server_socket, &sockaddr, true);
-	if (unlikely(status < 0)) {
-		MARS_ERR("could not create server socket, status = %d\n", status);
-		return status;
-	}
+		sprintf(tmp, ":%d", mars_net_default_port + i);
+		status = mars_create_sockaddr(&sockaddr, tmp);
+		if (unlikely(status < 0)) {
+			exit_mars_server();
+			return status;
+		}
 
-	server_thread = brick_thread_create(_server_thread, NULL, "mars_server");
-	if (unlikely(!server_thread)) {
-		mars_put_socket(&server_socket);
-		return -ENOENT;
+		status = mars_create_socket(&server_socket[i], &sockaddr, true);
+		if (unlikely(status < 0)) {
+			MARS_ERR("could not create server socket %d, status = %d\n", i, status);
+			exit_mars_server();
+			return status;
+		}
+
+		server_thread[i] = brick_thread_create(_server_thread, &server_socket[i], "mars_server_%d", i);
+		if (unlikely(!server_thread[i] || IS_ERR(server_thread[i]))) {
+			MARS_ERR("could not create server thread %d\n", i);
+			exit_mars_server();
+			return -ENOENT;
+		}
 	}
 
 	return server_register_brick_type();
-}
-
-void __exit exit_mars_server(void)
-{
-	MARS_INF("exit_server()\n");
-	server_unregister_brick_type();
-	if (server_thread) {
-		MARS_INF("stopping server thread...\n");
-		brick_thread_stop(server_thread);
-		mars_put_socket(&server_socket);
-	}
 }
 
 #ifndef CONFIG_MARS_HAVE_BIGMODULE

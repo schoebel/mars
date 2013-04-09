@@ -60,6 +60,29 @@ config MARS_DEFAULT_PORT
 	in a cluster. Therefore, this is a compiletime constant.
 	You may override this at insmod time via the mars_port= parameter.
 
+config MARS_SEPARATE_PORTS
+	bool "use separate port numbers for traffic shaping"
+	depends on MARS
+	default n
+	---help---
+	When enabled, the following port assignments will be used:
+
+	  CONFIG_MARS_DEFAULT_PORT     : updates of symlinks
+	  CONFIG_MARS_DEFAULT_PORT + 1 : replication of logfiles
+	  CONFIG_MARS_DEFAULT_PORT + 2 : (initial) sync traffic
+
+	As a consequence, external traffic shaping may be used to
+	individually control the network speed for different types
+	of traffic.
+
+	Please don't hinder the symlink updates in any way -- they are
+	most vital, and they produce no mass traffic at all
+	(it's only some kind of  meta-information traffic).
+
+	Say Y if you have a big datacenter.
+	If unsure, say N.
+
+
 config MARS_MEM_RETRY
 	bool "make MARS memory allocation more robust"
 	depends on MARS
