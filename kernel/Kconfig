@@ -57,7 +57,8 @@ config MARS_DEFAULT_PORT
 	default 7777
 	---help---
 	Best practice is to uniformly use the same port number
-	in a cluster. Therefore, this is compiletime constant.
+	in a cluster. Therefore, this is a compiletime constant.
+	You may override this at insmod time via the mars_port= parameter.
 
 config MARS_MEM_RETRY
 	bool "make MARS memory allocation more robust"

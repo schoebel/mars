@@ -14,6 +14,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/string.h>
+#include <linux/moduleparam.h>
 
 #include "mars.h"
 #include "mars_net.h"
@@ -23,6 +24,10 @@
 
 /* Low-level network traffic
  */
+
+int mars_net_default_port = CONFIG_MARS_DEFAULT_PORT;
+EXPORT_SYMBOL_GPL(mars_net_default_port);
+module_param_named(mars_port, mars_net_default_port, int, 0);
 
 /* TODO: allow binding to specific source addresses instead of catch-all.
  * TODO: make all the socket options configurable.
@@ -58,7 +63,7 @@ int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec)
 
 	memset(addr, 0, sizeof(*addr));
 	sockaddr->sin_family = AF_INET;
-	sockaddr->sin_port = htons(CONFIG_MARS_DEFAULT_PORT);
+	sockaddr->sin_port = htons(mars_net_default_port);
 
 	/* Try to translate hostnames to IPs if possible.
 	 */

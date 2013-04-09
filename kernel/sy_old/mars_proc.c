@@ -232,6 +232,8 @@ ctl_table mars_table[] = {
 #ifdef CONFIG_MARS_LOADAVG_LIMIT
 	INT_ENTRY("loadavg_limit",        mars_max_loadavg,       0600),
 #endif
+	// changing makes no sense because the server will immediately start upon modprobe
+	INT_ENTRY("mars_port",            mars_net_default_port,  0400),
 	INT_ENTRY("network_io_timeout",   global_net_io_timeout,  0600),
 	{
 		_CTL_NAME

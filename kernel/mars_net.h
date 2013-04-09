@@ -8,6 +8,7 @@
 
 #include "brick.h"
 
+extern int mars_net_default_port;
 extern bool mars_net_is_alive;
 
 #define MAX_FIELD_LEN   32
