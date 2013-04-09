@@ -1,0 +1,60 @@
+#
+# Makefile to generate release tarballs and other administrative tasks
+#
+
+#
+# Generation of a release tarball:
+#   - all directories in DISTDIRS are included
+#   - all files in DISTFILES are included
+#   - all files in KERNELFILES are included as copies in the kernel/
+#     subdirectory
+#   - a file DISTVERSION is included containing the release version
+#
+# The generated tarball gets a version determined by DISTVERSION,
+# which is either specified as a command line parameter
+#      $ make -f Makefile.dist DISTVERSION=1.2.3
+# or is set to a "reasonable" default (e.g. 0.0.0.X, see below).
+# A file DISTVERSION is generated containing that version.
+#
+# Note: The DISTVERSION file is also included in KERNELFILES so that it
+#       gets copied into the kernel/ subdirectory
+#
+
+KERNELFILES := DISTVERSION
+DISTDIRS := kernel userspace docu pre-patches
+DISTFILES := AUTHORS ChangeLog COPYING INSTALL NEWS README DISTVERSION
+DISTVERSION := 0.0.0.$(shell date +%Y%m%d)
+DISTTMPDIR := disttmp
+
+TARBALL := mars-$(DISTVERSION).tar.bz2
+GENFILES := DISTVERSION
+
+
+default: dist
+
+clean:
+	@echo "Cleaning up (clean)"
+	@rm -f *~ $(GENFILES)
+
+distclean: clean
+	@echo "Cleaning up (distclean)"
+	@rm -rf $(DISTTMPDIR)/
+	@rm -f mars-*.tar.bz2
+
+# Copy files to subdir $(DISTTMPDIR)/ and create a distribution tarball
+dist: distclean $(GENFILES)
+	@echo "Copying files and creating tarball"
+	@set -e; \
+	mkdir -p $(DISTTMPDIR)/kernel; \
+	cp -a $(DISTFILES) $(DISTTMPDIR)/; \
+	cp -a $(DISTDIRS) $(DISTTMPDIR)/; \
+	cp -a $(KERNELFILES) $(DISTTMPDIR)/kernel/; \
+	tar --owner=0 --group=0 --transform='s#^$(DISTTMPDIR)#mars-$(DISTVERSION)#' \
+	    -cjf $(TARBALL) $(DISTTMPDIR)/
+
+DISTVERSION:
+	@echo "Generating $@ ($(DISTVERSION))"
+	/bin/echo "$(DISTVERSION)" > $@
+
+
+.PHONY: default clean distclean dist DISTVERSION
