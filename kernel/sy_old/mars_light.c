@@ -3327,7 +3327,8 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	/* Disallow contemporary sync & logfile_apply
 	 */
 	if (do_start &&
-	    (!rot->trans_brick || !rot->trans_brick->power.led_off)) {
+	    rot->trans_brick &&
+	    !rot->trans_brick->power.led_off) {
 		MARS_INF("cannot start sync because logger is working\n");
 		do_start = false;
 	}
