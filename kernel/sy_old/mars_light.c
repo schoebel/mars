@@ -1317,6 +1317,11 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 		goto done;
 	}
 
+	// bookkeeping for serialization of logfile updates
+	if (remote_dent->d_serial == rot->copy_serial + 1) {
+		rot->copy_next_is_available++;
+	}
+
 	// check whether connection is allowed
 	switch_path = path_make("%s/todo-%s/connect", parent->d_path, my_id());
 
@@ -1328,8 +1333,6 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 			// treat copy brick instance underway
 			status = _update_file(rot, switch_path, rot->copy_path, remote_dent->d_path, peer, src_size);
 			MARS_DBG("re-update '%s' from peer '%s' status = %d\n", remote_dent->d_path, peer, status);
-		} else if (remote_dent->d_serial == rot->copy_serial + 1) {
-			rot->copy_next_is_available++;
 		}
 	} else if (!rot->copy_serial && rot->allow_update &&
 		   (dst_size < src_size || !local_dent)) {		
@@ -2049,6 +2052,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	rot->prev_log = NULL;
 	rot->next_log = NULL;
 	rot->max_sequence = 0;
+	rot->copy_next_is_available = 0;
 	rot->has_error = false;
 
 	if (dent->new_link)
@@ -2814,7 +2818,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	    (copy_brick->power.led_off ||
 	     !global->global_power.button ||
 	     (copy_brick->copy_last == copy_brick->copy_end &&
-	      rot->copy_next_is_available > 1))) {
+	      rot->copy_next_is_available > 0))) {
 		status = mars_kill_brick((void*)copy_brick);
 		if (status < 0) {
 			MARS_ERR("could not kill copy_brick, status = %d\n", status);
@@ -2826,7 +2830,6 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	rot->copy_brick = copy_brick;
 	if (!copy_brick) {
 		rot->copy_serial = 0;
-		rot->copy_next_is_available = 0;
 	}
 
 	if (IS_EMERGENCY_PRIMARY() || (!rot->todo_primary && IS_EMERGENCY_SECONDARY())) {
