@@ -154,26 +154,21 @@ sub check_not_primary {
   my $lnk = "$mars/resource-$res/actual-$host/is-primary";
   my $is_primary = readlink($lnk);
   if ($is_primary) {
-      ldie "operation '$cmd' cannot be executed on primary\n";
+    ldie "operation '$cmd' cannot be executed on primary\n";
   }
   else {  # also check whether we intend to become primary
-      $lnk = "$mars/resource-$res/primary";
-      my $primary =  readlink($lnk) or ldie "cannot determine primary\n";
-      ldie "operation '$cmd' cannot be executed on designated primary\n";
+    $lnk = "$mars/resource-$res/primary";
+    my $primary =  readlink($lnk) or ldie "cannot determine primary\n";
+    ldie "operation '$cmd' cannot be executed on designated primary\n";
   }
 }
 
 sub check_primary_gone {
   my ($res) = @_;
   for (;;) {
-    my @links = glob("$mars/resource-$res/actual-*/is-primary");
-    my $found = 0;
-    foreach my $link (@links) {
-      my $val = readlink($link);
-      $found++ if $val;
-    }
-    last if !$found;
-    lprint "waiting for $found other primary host(s) to disappear....\n";
+    my $pri = _get_actual_primary($res);
+    last if !$pri;
+    lprint "waiting for other primary host ($pri) to disappear....\n";
     sleep_timeout();
   }
 }
@@ -289,9 +284,8 @@ sub check_splitbrain {
   # check up to $sequence (or for all if < 0)
   my ($res, $host, $sequence) = @_;
   if ($sequence < 0) {
-    my $pri = "$mars/resource-$res/primary";
-    my $old = readlink($pri) or ldie "cannot determine primary\n";
-    _primary_res($res, "(none)", $pri, $old) unless $old eq "(none)";
+    my $old = _get_actual_primary($res) || "(none)";
+    _primary_res($res, "(none)", $old) unless $old eq "(none)";
     _trigger();
     sleep(5);
     while (!_check_files_modified_any_of("$mars/resource-$res/{log,version,replay}-*", 60)) {
@@ -370,6 +364,24 @@ sub get_size {
     /p/i and $arg *= 1024 * 1024 * 1024 * 1024 * 1024, last SWITCH;
   }
   return $arg;
+}
+
+#
+# Get actual primary node from links below actual-*/ subdirs
+#
+sub _get_actual_primary {
+  my ($res) = @_;
+  my @primary_links = glob("$mars/resource-$res/actual-*/is-primary");
+  my $primary;
+  foreach my $link (@primary_links) {
+    if (my $val = readlink($link)) {
+      $primary = ($link =~ qr%.*actual-([^/]+)/is-primary%)[0];
+      last;
+      # Note: if there are more than one 'is-primary' links (an insane state anyway),
+      # the first 'is-primary' link is selected. Other links are ignored.
+    }
+  }
+  return $primary;
 }
 
 sub get_peers {
@@ -830,19 +842,19 @@ sub fake_local_res {
 }
 
 sub _primary_res {
-  my ($res, $host, $pri, $old) = @_;
+  my ($res, $host, $old) = @_;
   my $tmp = "$mars/resource-$res/.tmp.primary";
+  my $pri = "$mars/resource-$res/primary";
   system("rm -f $tmp");
   symlink($host, $tmp) or ldie "cannot create new primary symlink\n";
   rename($tmp, $pri) or ldie "cannot install new primary symlink\n";
-  lprint "primary changed from '$old' to '$host'\n";
+  lprint "primary will change from '$old' to '$host'\n";
 }
 
 sub primary_res {
   my ($cmd, $res) = @_;
   my $sec = ($cmd eq "secondary");
-  my $pri = "$mars/resource-$res/primary";
-  my $old = readlink($pri) or ldie "cannot determine primary\n";
+  my $old = _get_actual_primary($res) || '(none)';
   if ($sec) {
     ldie "for safety reasons, switching to secondary is only allowed when I ($host) am primary\n" if ($old ne $host) && !$force;
     $host = "(none)";
@@ -859,11 +871,11 @@ sub primary_res {
     lprint "trying to switch $host to primary...\n";
     check_sync_finished($res, $host);
     check_todo($res, "connect", 1, 1);
-    _primary_res($res, "(none)", $pri, $old) unless $old eq "(none)";
+    _primary_res($res, "(none)", $old) unless $old eq "(none)";
     check_primary_gone($res);
     check_splitbrain($res, $host, -1);
   }
-  _primary_res($res, $host, $pri, $old);
+  _primary_res($res, $host, $old);
 }
 
 sub invalidate_res {
@@ -934,41 +946,43 @@ sub resize_res {
 
 sub role_cmd {
   my ($cmd, $res) = @_;
-  my $pri = "$mars/resource-$res/primary";
-  my $old = readlink($pri) or ldie "cannot determine primary\n";
-  my $is_primary = readlink("$mars/resource-$res/actual-$host/is-primary");
-  if ($old eq $host) {
-    if ($is_primary) {
-      lprint "I am actually primary\n";
-    } else {
-      lprint "I am actually secondary although I should be primary\n";
-    }
-  } elsif ($is_primary) {
-    lprint "I am actually primary although the primary should be $old\n";
-  } else {
-    lprint "I am actually secondary\n";
+  my $primary = _get_actual_primary($res) || '(none)';
+  my $todo_primary = readlink("$mars/resource-$res/primary") or ldie "cannot determine primary\n";
+  my $msg = "I am actually ";
+  $msg .= ($primary eq $host) ? "primary" : "secondary";
+  if ($primary eq $todo_primary) {
+    $msg .= " and $primary is primary" if ($primary ne $host);
   }
+  elsif ($primary ne $todo_primary) {
+    $todo_primary = "I" if ($todo_primary eq $host);
+    $msg .= " and $todo_primary should be primary";
+  }
+  lprint $msg . "\n";
 }
 
 sub mars_state_cmd {
   my ($cmd, $res) = @_;
-  my $pri = "$mars/resource-$res/primary";
-  my $primary = readlink($pri) or ldie "cannot determine primary\n";
+  my $primary = _get_actual_primary($res) || '(none)';
+  my $todo_primary = readlink("$mars/resource-$res/primary") or ldie "cannot determine primary\n";
+
   if ($primary eq $host) {
-    my $is_primary = readlink("$mars/resource-$res/actual-$host/is-primary");
-    if ($is_primary) {
-      lprint "is_primary\n";
-    } else {
-      lprint "becoming_primary\n";
-    }
+    lprint "is_primary\n";
     return;
   }
+  elsif ($todo_primary eq $host) {
+    lprint "becoming_primary\n";
+    return;
+  }
+
+  # secondary without ambitions to become primary
+
   my $size = readlink("$mars/resource-$res/size") or ldie "cannot read size link";
   my $syncstatus = readlink("$mars/resource-$res/syncstatus-$host") or ldie "cannot read syncstatus link";
   if ($syncstatus != $size) {
     lprint "secondary inconsistent ($syncstatus bytes of $size)\n";
     return;
   }
+
   if ($primary eq "(none)") {
     my $min = 0;
     foreach my $path (glob("$mars/resource-$res/log-*")) {
