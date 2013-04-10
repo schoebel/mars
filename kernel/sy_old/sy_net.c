@@ -15,14 +15,22 @@ static
 char *_mars_translate_hostname(const char *name)
 {
 	struct mars_global *global = mars_global;
-	const char *res = name;
+	char *res = brick_strdup(name);
 	struct mars_dent *test;
 	char *tmp;
 
 	if (unlikely(!global)) {
 		goto done;
 	}
-	tmp = path_make("/mars/ips/ip-%s", name);
+
+	for (tmp = res; *tmp; tmp++) {
+		if (*tmp == ':') {
+			*tmp = '\0';
+			break;
+		}
+	}
+
+	tmp = path_make("/mars/ips/ip-%s", res);
 	if (unlikely(!tmp)) {
 		goto done;
 	}
@@ -30,12 +38,15 @@ char *_mars_translate_hostname(const char *name)
 	test = mars_find_dent(global, tmp);
 	if (test && test->new_link) {
 		MARS_DBG("'%s' => '%s'\n", tmp, test->new_link);
-		res = test->new_link;
+		brick_string_free(res);
+		res = brick_strdup(test->new_link);
+	} else {
+		MARS_DBG("no translation for '%s'\n", tmp);
 	}
 	brick_string_free(tmp);
 
 done:
-	return brick_strdup(res);
+	return res;
 }
 
 int mars_send_dent_list(struct mars_socket *sock, struct list_head *anchor)

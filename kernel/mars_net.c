@@ -57,8 +57,8 @@ void _check(int status)
 int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec)
 {
 	struct sockaddr_in *sockaddr = (void*)addr;
-	char *new_spec;
-	char *tmp_spec;
+	const char *new_spec;
+	const char *tmp_spec;
 	int status = 0;
 
 	memset(addr, 0, sizeof(*addr));
@@ -83,20 +83,26 @@ int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec)
 		unsigned char u0 = 0, u1 = 0, u2 = 0, u3 = 0;
 		status = sscanf(tmp_spec, "%hhu.%hhu.%hhu.%hhu", &u0, &u1, &u2, &u3);
 		if (status != 4) {
+			MARS_ERR("invalid sockaddr IP syntax '%s', status = %d\n", tmp_spec, status);
 			status = -EINVAL;
 			goto done;
 		}
+		MARS_DBG("decoded IP = %u.%u.%u.%u\n", u0, u1, u2, u3);
 		sockaddr->sin_addr.s_addr = (__be32)u0 | (__be32)u1 << 8 | (__be32)u2 << 16 | (__be32)u3 << 24;
 	}
+	// deocde port number (when present)
+	tmp_spec = spec;
 	while (*tmp_spec && *tmp_spec++ != ':')
 		/*empty*/;
 	if (*tmp_spec) {
 		int port = 0;
 		status = sscanf(tmp_spec, "%d", &port);
 		if (status != 1) {
+			MARS_ERR("invalid sockaddr PORT syntax '%s', status = %d\n", tmp_spec, status);
 			status = -EINVAL;
 			goto done;
 		}
+		MARS_DBG("decoded PORT = %d\n", port);
 		sockaddr->sin_port = htons(port);
 	}
 	status = 0;
