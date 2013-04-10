@@ -53,6 +53,20 @@ my $ip = _get_ip() or ldie "cannot determine my IP address\n";
 
 # timeout handling
 
+#
+# return the lamport clock time in nanosecond resolution
+# fallback to system time()
+#
+sub mars_time {
+  open(my $lamport_clock, "<", "/proc/sys/mars/lamport_clock");
+  my $lamport_time;
+  while (<$lamport_clock>) {
+    $lamport_time = $1 if /^lamport_now=(.*)/;
+  }
+  close($lamport_clock);
+  return $lamport_time || time() . '0' x 9;
+}
+
 sub sleep_timeout {
   if ($timeout < 0) {
     sleep(5);
@@ -188,23 +202,45 @@ sub check_status {
   }
 }
 
-sub _check_mtime {
+#
+# Check if modification time of file or symlink is older than age
+#
+# Returns 1 if modification time is not $age seconds older than a
+# reference time, either lamport clock for symlinks or system
+# time for regular files. Return value 0 means "file is new enough".
+#
+# Returns 2 if modification time or reference time cannot be determined
+#
+# Note: symlinks are created/updated with lamport clock timestamps
+#       while normal files get timestamps from system time
+#
+sub _check_file_aged {
   my ($path, $age) = @_;
-  my $mt = (lstat($path))[9];
-  if (!$mt) {
-    return 0;
+  my $mtime;
+  my $reftime; # reference time ("now")
+  if (-l $path) {
+    $mtime = (lstat($path))[9];
+    $reftime = int(mars_time());  # discards sub-second resolution
   }
-  my $res = ($mt < time() - $age);
-  #lprint "XXX '$path' $res\n";
+  elsif (-f $path) {
+    $mtime = (stat($path))[9];
+    $reftime = time();
+  }
+  return 2 if (!$mtime or !$reftime);  # error -> file is aged
+  my $res = ($mtime < $reftime - $age) ? 1 : 0;
+  lprint sprintf("%s: %s <=> %s ==> %s\n", $path, scalar(gmtime($mtime)), scalar(gmtime($reftime)), $res);
   return $res;
 }
 
-sub _check_all_mtimes {
+#
+# Check if any file below $path was modified in the last $age seconds
+#
+sub _check_files_modified_any_of {
   my ($path, $age) = @_;
   my @list = glob($path);
   my $res = 1;
   foreach my $p (@list) {
-    if (!_check_mtime($p, $age)) {
+    if (!_check_file_aged($p, $age)) {
       $res = 0;
     }
   }
@@ -258,7 +294,7 @@ sub check_splitbrain {
     _primary_res($res, "(none)", $pri, $old) unless $old eq "(none)";
     _trigger();
     sleep(5);
-    while (!_check_all_mtimes("$mars/resource-$res/{log,version,replay}-*", 60)) {
+    while (!_check_files_modified_any_of("$mars/resource-$res/{log,version,replay}-*", 60)) {
       lprint "resource directory $res not stable, waiting....\n";
       sleep_timeout();
     }
