@@ -77,9 +77,11 @@ int cb_thread(void *data)
 		status = -EINVAL;
 		CHECK_PTR(mref, err);
 
-		down(&brick->socket_sem);
-		status = mars_send_cb(sock, mref);
-		up(&brick->socket_sem);
+		if (!aborted) {
+			down(&brick->socket_sem);
+			status = mars_send_cb(sock, mref);
+			up(&brick->socket_sem);
+		}
 
 	err:
 		if (unlikely(status < 0) && !aborted) {
