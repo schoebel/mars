@@ -4,6 +4,16 @@
 #define MARS_DEBUGGING
 //#define IO_DEBUGGING
 
+/* This MUST be updated whenever INCOMPATIBLE changes are made to the
+ * symlink tree in /mars/ .
+ *
+ * Just adding a new symlink is usually not "incompatible", if
+ * other tools like marsadm just ignore it.
+ *
+ * "incompatible" means that something may BREAK.
+ */
+#define SYMLINK_TREE_VERSION "0.1"
+
 // disable this only for debugging!
 #define RUN_PEERS
 #define RUN_DATA
@@ -128,9 +138,8 @@ EXPORT_SYMBOL_GPL(mars_reset_emergency);
 #define IS_JAMMED()                (mars_emergency_mode > 3)
 
 static
-void _make_alivelink(const char *name, loff_t val)
+void _make_alivelink_str(const char *name, const char *src)
 {
-	char *src = path_make("%lld", val);
 	char *dst = path_make("/mars/%s-%s", name, my_id());
 	if (!src || !dst) {
 		MARS_ERR("cannot make alivelink paths\n");
@@ -140,6 +149,13 @@ void _make_alivelink(const char *name, loff_t val)
 	mars_symlink(src, dst, NULL, 0);
 err:
 	brick_string_free(dst);
+}
+
+static
+void _make_alivelink(const char *name, loff_t val)
+{
+	char *src = path_make("%lld", val);
+	_make_alivelink_str(name, src);
 	brick_string_free(src);
 }
 
@@ -3516,6 +3532,7 @@ enum {
 	CL_IPS,
 	CL_PEERS,
 	CL_ALIVE,
+	CL_TREE,
 	CL_EMERGENCY,
 	CL_REST_SPACE,
 	// resource definitions
@@ -3625,6 +3642,14 @@ static const struct light_class light_classes[] = {
 	[CL_ALIVE] = {
 		.cl_name = "alive-",
 		.cl_len = 6,
+		.cl_type = 'l',
+		.cl_father = CL_ROOT,
+	},
+	/* Show version indication for symlink tree.
+	 */
+	[CL_TREE] = {
+		.cl_name = "tree-",
+		.cl_len = 5,
 		.cl_type = 'l',
 		.cl_father = CL_ROOT,
 	},
@@ -4102,7 +4127,9 @@ static int light_thread(void *data)
 			_global.global_power.button = false;
 			mars_net_is_alive = false;
 		}
+
 		_make_alivelink("alive", _global.global_power.button ? 1 : 0);
+		_make_alivelink_str("tree", SYMLINK_TREE_VERSION);
 
 		compute_emergency_mode();
 
