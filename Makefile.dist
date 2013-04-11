@@ -21,7 +21,7 @@
 #
 
 KERNELFILES := DISTVERSION
-DISTDIRS := kernel userspace docu pre-patches
+DISTDIRS := kernel userspace scripts docu pre-patches
 DISTFILES := AUTHORS ChangeLog COPYING INSTALL NEWS README DISTVERSION
 DISTVERSION := 0.0.0.$(shell date +%Y%m%d)
 GITHEAD := $( git rev-parse --short HEAD )
