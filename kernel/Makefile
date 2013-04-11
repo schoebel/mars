@@ -100,11 +100,12 @@ $(obj)/buildtag.h: $(patsubst $(obj)/buildtag.h,,$(wildcard $(obj)/*.[ch])) $(ob
 # In-tree builds should not be disturbed due to #ifndef safeguarding.
 #
 extra-y	+= mars_config.h
-$(obj)/mars_config.h: $(src)/Kconfig $(src)/../gen_config.pl
+GEN_CONFIG_SCRIPT := $(src)/../scripts/gen_config.pl
+$(obj)/mars_config.h: $(src)/Kconfig $(GEN_CONFIG_SCRIPT)
 	$(Q)$(kecho) "MARS: Generating $@"
 	$(Q)set -e; \
-	if [ ! -x $(src)/../gen_config.pl ]; then \
-	    $(kecho) "MARS: cannot execute script $(src)/../gen_config.pl"; \
+	if [ ! -x $(GEN_CONFIG_SCRIPT) ]; then \
+	    $(kecho) "MARS: cannot execute script $(GEN_CONFIG_SCRIPT)"; \
 	    /bin/false; \
 	fi; \
-	cat $< | $(src)/../gen_config.pl > $@;
+	cat $< | $(GEN_CONFIG_SCRIPT) > $@;
