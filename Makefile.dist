@@ -24,6 +24,7 @@ KERNELFILES := DISTVERSION
 DISTDIRS := kernel userspace docu pre-patches
 DISTFILES := AUTHORS ChangeLog COPYING INSTALL NEWS README DISTVERSION
 DISTVERSION := 0.0.0.$(shell date +%Y%m%d)
+GITHEAD := $( git rev-parse --short HEAD )
 DISTTMPDIR := disttmp
 
 TARBALL := mars-$(DISTVERSION).tar.bz2
@@ -54,7 +55,7 @@ dist: distclean $(GENFILES)
 
 DISTVERSION:
 	@echo "Generating $@ ($(DISTVERSION))"
-	/bin/echo "$(DISTVERSION)" > $@
+	/bin/echo "$(DISTVERSION)-$(GITHEAD)" > $@
 
 
 .PHONY: default clean distclean dist DISTVERSION
