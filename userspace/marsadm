@@ -633,6 +633,7 @@ sub create_res {
   mkdir("$tmp/userspace") unless -d "$tmp/userspace";
   mkdir("$tmp/defaults") unless -d "$tmp/defaults";
   mkdir("$tmp/defaults-$host");
+  mkdir("$tmp/local-$host");
   mkdir("$tmp/actual-$host");
   my $todo = "$tmp/todo-$host";
   mkdir($todo);

@@ -196,6 +196,32 @@ config MARS_LOADAVG_LIMIT
 	---help---
 	Normally ON.
 
+config MARS_SHOW_CONNECTIONS
+	bool "show connection status symlinks"
+	depends on MARS
+	default n
+	---help---
+	Normally OFF.
+
+	When enabled, the status of all current network connections is
+	written to /mars/resource-$resource/local-$host/connect-*
+	showing the current status of all network connections by
+	the following encoding:
+
+	  -1 = connection is closed (not intended to start)
+	   0 = connection is interrupted / not established
+	   1 = connection is established at TCP level
+
+	Warning! the symlinks are not deleted by the kernel. You have
+	to cleanup old symlinks by yourself in userspace.
+
+	When you forget the cleanup in regular intervals, you may
+	end up with thoundands of symlinks accumulating in the
+	/mars/resource-$resource/local-$host/ directory over a
+	longer time.
+
+	If unsure, say N here.
+
 #config MARS_HUNG
 #	bool "hangup on kernel stacktrace (EXPERIMENTAL!!!)"
 #	depends on MARS && MARS_BIGMODULE!=m

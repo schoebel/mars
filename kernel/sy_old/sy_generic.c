@@ -1571,6 +1571,25 @@ EXPORT_SYMBOL_GPL(make_brick_all);
 
 /////////////////////////////////////////////////////////////////////////
 
+// generic symlink updates
+
+void update_client_links(struct client_brick *brick)
+{
+	char val[8];
+	const char *name;
+
+	name = backskip_replace(brick->brick_path, '/', true, "/local-%s/connection-", my_id());
+	if (unlikely(!name))
+		return; // silently
+
+	sprintf(val, "%d", brick->connection_state - 1);
+	mars_symlink(val, name, NULL, 0);
+
+	brick_string_free(name);
+}
+
+/////////////////////////////////////////////////////////////////////////
+
 // statistics
 
 int global_show_statist =
@@ -1580,6 +1599,14 @@ int global_show_statist =
 	0;
 #endif
 EXPORT_SYMBOL_GPL(global_show_statist);
+
+int global_show_connections =
+#ifdef CONFIG_MARS_SHOW_CONNECTIONS
+	1;
+#else
+	0;
+#endif
+EXPORT_SYMBOL_GPL(global_show_connections);
 
 static
 void _show_one(struct mars_brick *test, int *brick_count)
@@ -1636,6 +1663,19 @@ void show_statistics(struct mars_global *global, const char *class)
 	struct list_head *tmp;
 	int dent_count = 0;
 	int brick_count = 0;
+
+	// update all connection state symlinks
+	if (global_show_connections) {
+		down_read(&global->brick_mutex);
+		for (tmp = global->brick_anchor.next; tmp != &global->brick_anchor; tmp = tmp->next) {
+			struct mars_brick *test;
+			test = container_of(tmp, struct mars_brick, global_brick_link);
+			if (test->type == (void*)&client_brick_type) {
+				update_client_links((void*)test);
+			}
+		}
+		up_read(&global->brick_mutex);
+	}
 
 	if (!global_show_statist)
 		return; // silently

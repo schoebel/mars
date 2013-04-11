@@ -164,6 +164,7 @@ extern int  mars_power_button_recursive(struct mars_brick *brick, bool val, bool
 // statistics
 
 extern int global_show_statist;
+extern int global_show_connections;
 
 void show_statistics(struct mars_global *global, const char *class);
 

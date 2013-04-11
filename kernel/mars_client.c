@@ -31,6 +31,7 @@ static void _kill_thread(struct client_threadinfo *ti, const char *name)
 
 static void _kill_socket(struct client_output *output)
 {
+	output->brick->connection_state = 1;
 	if (mars_socket_is_alive(&output->socket)) {
 		MARS_DBG("shutdown socket\n");
 		mars_shutdown_socket(&output->socket);
@@ -485,6 +486,7 @@ static int sender_thread(void *data)
 				_do_timeout(output, &output->mref_list, false);
 				continue;
 			}
+			brick->connection_state = 2;
 			do_kill = true;
 			/* Re-Submit any waiting requests
 			 */
@@ -584,6 +586,7 @@ static int client_switch(struct client_brick *brick)
 	if (brick->power.button) {
 		mars_power_led_off((void*)brick, false);
 		if (!output->sender.thread) {
+			brick->connection_state = 1;
 			output->sender.thread = brick_thread_create(sender_thread, output, "mars_sender%d", thread_count++);
 			if (unlikely(!output->sender.thread)) {
 				MARS_ERR("cannot start sender thread\n");
@@ -597,6 +600,7 @@ static int client_switch(struct client_brick *brick)
 	} else {
 		mars_power_led_on((void*)brick, false);
 		_kill_thread(&output->sender, "sender");
+		brick->connection_state = 0;
 		if (!output->sender.thread) {
 			mars_power_led_off((void*)brick, !output->sender.thread);
 		}
