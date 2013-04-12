@@ -666,6 +666,9 @@ EXPORT_SYMBOL_GPL(server_brick_type);
 
 // strategy layer
 
+int server_show_statist = 0;
+EXPORT_SYMBOL_GPL(server_show_statist);
+
 static int _server_thread(void *data)
 {
 	struct mars_global server_global = {
@@ -699,7 +702,8 @@ static int _server_thread(void *data)
 
 		server_global.global_version++;
 
-		show_statistics(&server_global, "server");
+		if (server_show_statist)
+			show_statistics(&server_global, "server");
 
 		status = mars_kill_brick_when_possible(&server_global, &server_global.brick_anchor, false, (void*)&server_brick_type, false);
 		MARS_DBG("kill server     bricks (when possible) = %d\n", status);

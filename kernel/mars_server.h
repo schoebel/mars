@@ -7,6 +7,8 @@
 #include "mars_net.h"
 #include "lib_limiter.h"
 
+extern int server_show_statist;
+
 extern struct mars_limiter server_limiter;
 
 extern atomic_t server_handler_count;
