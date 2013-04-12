@@ -143,7 +143,7 @@ struct mref_object {
 		if (unlikely(BRICK_CHECKING && (mref)->ref_initialized)) { \
 			MARS_ERR("mref %p is already initialized\n", (mref)); \
 		}							\
-		_CHECK_TATOMIC(&(mref)->ref_at, &(mref)->ref_count, !=, 0); \
+		_CHECK_TATOMIC(&(mref)->ref_at, &(mref)->ref_count, !=, 0, 0); \
 		(mref)->ref_initialized = true;				\
 		tatomic_inc(&(mref)->ref_at, &(mref)->ref_count);	\
 	})
