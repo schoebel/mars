@@ -16,6 +16,8 @@
 
 #include "mars_client.h"
 
+#define CLIENT_HASH_MAX (PAGE_SIZE / sizeof(struct list_head))
+
 ///////////////////////// own helper functions ////////////////////////
 
 static int thread_count = 0;
@@ -672,6 +674,13 @@ static int client_brick_construct(struct client_brick *brick)
 static int client_output_construct(struct client_output *output)
 {
 	int i;
+
+	output->hash_table = brick_block_alloc(0, PAGE_SIZE);
+	if (unlikely(!output->hash_table)) {
+		MARS_ERR("cannot allocate hash table\n");
+		return -ENOMEM;
+	}
+
 	for (i = 0; i < CLIENT_HASH_MAX; i++) {
 		INIT_LIST_HEAD(&output->hash_table[i]);
 	}
@@ -691,6 +700,7 @@ static int client_output_destruct(struct client_output *output)
 		brick_string_free(output->path);
 		output->path = NULL;
 	}
+	brick_block_free(output->hash_table, PAGE_SIZE);
 	return 0;
 }
 

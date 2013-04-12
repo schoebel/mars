@@ -8,8 +8,6 @@
 extern struct mars_limiter client_limiter;
 extern int global_net_io_timeout;
 
-#define CLIENT_HASH_MAX 256
-
 struct client_mref_aspect {
 	GENERIC_ASPECT(mref);
 	struct list_head io_head;
@@ -59,7 +57,7 @@ struct client_output {
 	wait_queue_head_t info_event;
 	bool get_info;
 	bool got_info;
-	struct list_head hash_table[CLIENT_HASH_MAX];
+	struct list_head *hash_table;
 };
 
 MARS_TYPES(client);
