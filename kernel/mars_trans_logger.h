@@ -4,8 +4,6 @@
 
 #define REGION_SIZE_BITS      (PAGE_SHIFT + 4)
 #define REGION_SIZE           (1 << REGION_SIZE_BITS)
-#define TRANS_HASH_MAX        8192
-//#define TRANS_HASH_MAX        16384
 #define LOGGER_QUEUES         4
 
 #include <linux/time.h>
@@ -81,11 +79,6 @@ struct logger_head {
 
 #endif
 
-struct hash_anchor {
-	struct rw_semaphore hash_mutex;
-	struct list_head hash_anchor;
-};
-
 struct writeback_info {
 	struct trans_logger_brick *w_brick;
 	struct logger_head w_lh;
@@ -139,6 +132,8 @@ struct trans_logger_mref_aspect {
 	atomic_t current_sub_count;
 };
 
+struct trans_logger_hash_anchor;
+
 struct trans_logger_brick {
 	MARS_BRICK(trans_logger);
 	// parameters
@@ -157,6 +152,7 @@ struct trans_logger_brick {
 	int old_input_nr;   // where old IO requests may be on the fly
 	int replay_code;    // replay errors (if any)
 	// private
+	struct trans_logger_hash_anchor **hash_table;
 	struct list_head group_head;
 	loff_t old_margin;
 	spinlock_t replay_lock;
@@ -198,7 +194,6 @@ struct trans_logger_brick {
 	// queues
 	struct logger_queue q_phase[LOGGER_QUEUES];
 	bool   delay_callers;
-	struct hash_anchor hash_table[TRANS_HASH_MAX];
 };
 
 struct trans_logger_output {

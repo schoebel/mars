@@ -50,6 +50,17 @@
 #define inline noinline
 #endif
 
+struct trans_logger_hash_anchor {
+	struct rw_semaphore hash_mutex;
+	struct list_head hash_anchor;
+};
+
+#define NR_HASH_PAGES       64
+
+#define MAX_HASH_PAGES      (PAGE_SIZE / sizeof(struct trans_logger_hash_anchor*))
+#define HASH_PER_PAGE       (PAGE_SIZE / sizeof(struct trans_logger_hash_anchor))
+#define HASH_TOTAL          (NR_HASH_PAGES * HASH_PER_PAGE)
+
 ///////////////////////// global tuning ////////////////////////
 
 int trans_logger_completion_semantics = 1;
@@ -245,9 +256,9 @@ static inline
 int hash_fn(loff_t pos)
 {
 	// simple and stupid
-	long base_index = (long)pos >> REGION_SIZE_BITS;
-	base_index += base_index / TRANS_HASH_MAX / 7;
-	return base_index % TRANS_HASH_MAX;
+	long base_index = pos >> REGION_SIZE_BITS;
+	base_index += base_index / HASH_TOTAL / 7;
+	return base_index % HASH_TOTAL;
 }
 
 static inline
@@ -318,7 +329,8 @@ struct trans_logger_mref_aspect *hash_find(struct trans_logger_brick *brick, lof
 {
 	
 	int hash = hash_fn(pos);
-	struct hash_anchor *start = &brick->hash_table[hash];
+	struct trans_logger_hash_anchor *sub_table = brick->hash_table[hash / HASH_PER_PAGE];
+	struct trans_logger_hash_anchor *start = &sub_table[hash % HASH_PER_PAGE];
 	struct trans_logger_mref_aspect *res;
 	//unsigned int flags;
 
@@ -342,7 +354,8 @@ static noinline
 void hash_insert(struct trans_logger_brick *brick, struct trans_logger_mref_aspect *elem_a)
 {
         int hash = hash_fn(elem_a->object->ref_pos);
-        struct hash_anchor *start = &brick->hash_table[hash];
+	struct trans_logger_hash_anchor *sub_table = brick->hash_table[hash / HASH_PER_PAGE];
+	struct trans_logger_hash_anchor *start = &sub_table[hash % HASH_PER_PAGE];
         //unsigned int flags;
 
 #if 1
@@ -371,7 +384,8 @@ void hash_extend(struct trans_logger_brick *brick, loff_t *_pos, int *_len, stru
 	loff_t pos = *_pos;
 	int len = *_len;
         int hash = hash_fn(pos);
-        struct hash_anchor *start = &brick->hash_table[hash];
+	struct trans_logger_hash_anchor *sub_table = brick->hash_table[hash / HASH_PER_PAGE];
+	struct trans_logger_hash_anchor *start = &sub_table[hash % HASH_PER_PAGE];
 	struct list_head *tmp;
 	bool extended;
         //unsigned int flags;
@@ -483,7 +497,7 @@ static inline
 void hash_put_all(struct trans_logger_brick *brick, struct list_head *list)
 {
 	struct list_head *tmp;
-	struct hash_anchor *start = NULL;
+	struct trans_logger_hash_anchor *start = NULL;
 	int first_hash = -1;
 	//unsigned int flags;
 
@@ -499,8 +513,9 @@ void hash_put_all(struct trans_logger_brick *brick, struct list_head *list)
 
 		hash = hash_fn(elem->ref_pos);
 		if (!start) {
+			struct trans_logger_hash_anchor *sub_table = brick->hash_table[hash / HASH_PER_PAGE];
+			start = &sub_table[hash % HASH_PER_PAGE];
 			first_hash = hash;
-			start = &brick->hash_table[hash];
 			down_write(&start->hash_mutex);
 		} else if (unlikely(hash != first_hash)) {
 			MARS_ERR("oops, different hashes: %d != %d\n", hash, first_hash);
@@ -527,7 +542,8 @@ void hash_ensure_stableness(struct trans_logger_brick *brick, struct trans_logge
 	if (!mref_a->is_stable) {
 		struct mref_object *mref = mref_a->object;
 		int hash = hash_fn(mref->ref_pos);
-		struct hash_anchor *start = &brick->hash_table[hash];
+		struct trans_logger_hash_anchor *sub_table = brick->hash_table[hash / HASH_PER_PAGE];
+		struct trans_logger_hash_anchor *start = &sub_table[hash % HASH_PER_PAGE];
 
 		down_write(&start->hash_mutex);
 
@@ -3128,15 +3144,65 @@ MARS_MAKE_STATICS(trans_logger);
 
 ////////////////////// brick constructors / destructors ////////////////////
 
+static
+void _free_pages(struct trans_logger_brick *brick)
+{
+	int i;
+	for (i = 0; i < NR_HASH_PAGES; i++) {
+		struct trans_logger_hash_anchor *sub_table = brick->hash_table[i];
+		int j;
+
+		if (!sub_table) {
+			continue;
+		}
+		for (j = 0; j < HASH_PER_PAGE; j++) {
+			struct trans_logger_hash_anchor *start = &sub_table[j];
+			CHECK_HEAD_EMPTY(&start->hash_anchor);
+		}
+		brick_block_free(sub_table, PAGE_SIZE);
+	}
+	brick_block_free(brick->hash_table, PAGE_SIZE);
+}
+
 static noinline
 int trans_logger_brick_construct(struct trans_logger_brick *brick)
 {
 	int i;
-	for (i = 0; i < TRANS_HASH_MAX; i++) {
-		struct hash_anchor *start = &brick->hash_table[i];
-		init_rwsem(&start->hash_mutex);
-		INIT_LIST_HEAD(&start->hash_anchor);
+
+	brick->hash_table = brick_block_alloc(0, PAGE_SIZE);
+	if (unlikely(!brick->hash_table)) {
+		MARS_ERR("cannot allocate hash directory table.\n");
+		return -ENOMEM;
 	}
+	memset(brick->hash_table, 0, PAGE_SIZE);
+
+	for (i = 0; i < NR_HASH_PAGES; i++) {
+		struct trans_logger_hash_anchor *sub_table;
+		int j;
+
+		// this should be usually optimized away as dead code
+		if (unlikely(i >= MAX_HASH_PAGES)) {
+			MARS_ERR("sorry, subtable index %d is too large.\n", i);
+			_free_pages(brick);
+			return -EINVAL;
+		}
+
+		sub_table = brick_block_alloc(0, PAGE_SIZE);
+		brick->hash_table[i] = sub_table;
+		if (unlikely(!sub_table)) {
+			MARS_ERR("cannot allocate hash subtable %d.\n", i);
+			_free_pages(brick);
+			return -ENOMEM;
+		}
+
+		memset(sub_table, 0, PAGE_SIZE);
+		for (j = 0; j < HASH_PER_PAGE; j++) {
+			struct trans_logger_hash_anchor *start = &sub_table[j];
+			init_rwsem(&start->hash_mutex);
+			INIT_LIST_HEAD(&start->hash_anchor);
+		}
+	}
+
 	atomic_set(&brick->hash_count, 0);
 	spin_lock_init(&brick->replay_lock);
 	INIT_LIST_HEAD(&brick->replay_list);
@@ -3169,11 +3235,7 @@ int trans_logger_brick_construct(struct trans_logger_brick *brick)
 static noinline
 int trans_logger_brick_destruct(struct trans_logger_brick *brick)
 {
-	int i;
-	for (i = 0; i < TRANS_HASH_MAX; i++) {
-		struct hash_anchor *start = &brick->hash_table[i];
-		CHECK_HEAD_EMPTY(&start->hash_anchor);
-	}
+	_free_pages(brick);
 	CHECK_HEAD_EMPTY(&brick->replay_list);
 	remove_from_group(&global_writeback, brick);
 	return 0;
