@@ -42,6 +42,14 @@
 
 #include "mars_if.h"
 
+#define IF_HASH_MAX   (PAGE_SIZE / sizeof(struct if_hash_anchor))
+#define IF_HASH_CHUNK (PAGE_SIZE * 32)
+
+struct if_hash_anchor {
+	spinlock_t hash_lock;
+	struct list_head hash_anchor;
+};
+
 ///////////////////////// own static definitions ////////////////////////
 
 // TODO: check bounds, ensure that free minor numbers are recycled
@@ -174,9 +182,9 @@ void _if_unplug(struct if_input *input)
 		list_del_init(&mref_a->plug_head);
 
 		hash_index = mref_a->hash_index;
-		traced_lock(&input->hash_lock[hash_index], flags);
+		traced_lock(&input->hash_table[hash_index].hash_lock, flags);
 		list_del_init(&mref_a->hash_head);
-		traced_unlock(&input->hash_lock[hash_index], flags);
+		traced_unlock(&input->hash_table[hash_index].hash_lock, flags);
 
                 mref = mref_a->object;
 
@@ -393,8 +401,8 @@ if_make_request(struct request_queue *q, struct bio *bio)
 			hash_index = (pos / IF_HASH_CHUNK) % IF_HASH_MAX;
 
 #ifdef REQUEST_MERGING
-			traced_lock(&input->hash_lock[hash_index], flags);
-			for (tmp = input->hash_table[hash_index].next; tmp != &input->hash_table[hash_index]; tmp = tmp->next) {
+			traced_lock(&input->hash_table[hash_index].hash_lock, flags);
+			for (tmp = input->hash_table[hash_index].hash_anchor.next; tmp != &input->hash_table[hash_index].hash_anchor; tmp = tmp->next) {
 				struct if_mref_aspect *tmp_a;
 				struct mref_object *tmp_mref;
 				int i;
@@ -441,7 +449,7 @@ if_make_request(struct request_queue *q, struct bio *bio)
 			} // foreach hash collision list member
 
 		unlock:
-			traced_unlock(&input->hash_lock[hash_index], flags);
+			traced_unlock(&input->hash_table[hash_index].hash_lock, flags);
 #endif
 			if (!mref) {
 				int prefetch_len;
@@ -519,9 +527,9 @@ if_make_request(struct request_queue *q, struct bio *bio)
 				atomic_inc(&input->plugged_count);
 
 				mref_a->hash_index = hash_index;
-				traced_lock(&input->hash_lock[hash_index], flags);
-				list_add_tail(&mref_a->hash_head, &input->hash_table[hash_index]);
-				traced_unlock(&input->hash_lock[hash_index], flags);
+				traced_lock(&input->hash_table[hash_index].hash_lock, flags);
+				list_add_tail(&mref_a->hash_head, &input->hash_table[hash_index].hash_anchor);
+				traced_unlock(&input->hash_table[hash_index].hash_lock, flags);
 
 				traced_lock(&input->req_lock, flags);
 				list_add_tail(&mref_a->plug_head, &input->plug_anchor);
@@ -992,9 +1000,15 @@ static int if_brick_destruct(struct if_brick *brick)
 static int if_input_construct(struct if_input *input)
 {
 	int i;
+
+	input->hash_table = brick_block_alloc(0, PAGE_SIZE);
+	if (unlikely(!input->hash_table)) {
+		MARS_ERR("cannot allocate hash table\n");
+		return -ENOMEM;
+	}
 	for (i = 0; i < IF_HASH_MAX; i++) {
-		spin_lock_init(&input->hash_lock[i]);
-		INIT_LIST_HEAD(&input->hash_table[i]);
+		spin_lock_init(&input->hash_table[i].hash_lock);
+		INIT_LIST_HEAD(&input->hash_table[i].hash_anchor);
 	}
 	INIT_LIST_HEAD(&input->plug_anchor);
 	sema_init(&input->kick_sem, 1);
@@ -1012,6 +1026,12 @@ static int if_input_construct(struct if_input *input)
 
 static int if_input_destruct(struct if_input *input)
 {
+	int i;
+	for (i = 0; i < IF_HASH_MAX; i++) {
+		CHECK_HEAD_EMPTY(&input->hash_table[i].hash_anchor);
+	}
+	CHECK_HEAD_EMPTY(&input->plug_anchor);
+	brick_block_free(input->hash_table, PAGE_SIZE);
 	return 0;
 }
 

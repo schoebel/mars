@@ -9,9 +9,6 @@
 
 #define MAX_BIO 32
 
-#define IF_HASH_MAX   2048
-#define IF_HASH_CHUNK (PAGE_SIZE * 32)
-
 //#define USE_TIMER (HZ/10) // use this ONLY for debugging
 
 /* I don't want to enhance / intrude into struct bio for compatibility reasons
@@ -36,6 +33,8 @@ struct if_mref_aspect {
 	struct bio_wrapper *orig_biow[MAX_BIO];
 	struct if_input *input;
 };
+
+struct if_hash_anchor;
 
 struct if_input {
 	MARS_INPUT(if);
@@ -64,8 +63,7 @@ struct if_input {
 	atomic_t total_mref_write_count;
 	spinlock_t req_lock;
 	struct semaphore kick_sem;
-	spinlock_t hash_lock[IF_HASH_MAX];
-	struct list_head hash_table[IF_HASH_MAX];
+	struct if_hash_anchor *hash_table;
 };
 
 struct if_output {
