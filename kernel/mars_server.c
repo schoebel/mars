@@ -448,9 +448,6 @@ int handler_thread(void *data)
  done:
 	MARS_DBG("#%d handler_thread terminating, status = %d\n", sock->s_debug_nr, status);
 
-	_clean_list(brick, &brick->cb_read_list);
-	_clean_list(brick, &brick->cb_write_list);
-
 	debug_nr = sock->s_debug_nr;
 	
 	MARS_DBG("#%d done.\n", debug_nr);
@@ -521,7 +518,9 @@ static int server_switch(struct server_brick *brick)
 	} else if (brick->power.led_on) {
 		struct task_struct *thread;
 		mars_power_led_on((void*)brick, false);
+
 		mars_shutdown_socket(sock);
+
 		thread = brick->handler_thread;
 		if (thread) {
 			brick->handler_thread = NULL;
@@ -536,8 +535,14 @@ static int server_switch(struct server_brick *brick)
 			MARS_DBG("#%d stopping callback thread....\n", sock->s_debug_nr);
 			brick_thread_stop(thread);
 		}
+
 		mars_put_socket(sock);
 		MARS_DBG("#%d socket s_count = %d\n", sock->s_debug_nr, atomic_read(&sock->s_count));
+
+		// do this only after _both_ threads have stopped...
+		_clean_list(brick, &brick->cb_read_list);
+		_clean_list(brick, &brick->cb_write_list);
+
 		mars_power_led_off((void*)brick, true);
 	}
  err:
