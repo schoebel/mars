@@ -14,7 +14,7 @@
 #undef  ATOMIC_DEBUGGING
 #endif
 
-#define ATOMIC_MAXTRACE 64
+#define ATOMIC_MAXTRACE 32
 
 /* Trivial wrapper to force type checking.
  */
@@ -26,6 +26,7 @@ typedef struct atomic_trace {
 #ifdef ATOMIC_DEBUGGING
 	atomic_t    at_count;
 	short       at_lines[ATOMIC_MAXTRACE];
+	pid_t       at_pids[ATOMIC_MAXTRACE];
 	const char *at_sources[ATOMIC_MAXTRACE];
 #endif
 } atomic_trace_t;
@@ -37,6 +38,7 @@ typedef struct atomic_trace {
 		int _index = atomic_add_return(1, &(_at)->at_count) - 1; \
 		if (likely(_index >= 0 && _index < ATOMIC_MAXTRACE)) {	\
 			(_at)->at_lines[_index] = __LINE__;		\
+			(_at)->at_pids[_index] = current->pid;		\
 			(_at)->at_sources[_index] = __BASE_FILE__;	\
 		}							\
 		_cmd;							\
@@ -50,7 +52,7 @@ typedef struct atomic_trace {
 		if (unlikely(__max > ATOMIC_MAXTRACE))			\
 			__max = ATOMIC_MAXTRACE;			\
 		for (__i = 0; __i < __max; __i++) {			\
-			_MSG("%2d %s:%d\n", __i, (_at)->at_sources[__i], (_at)->at_lines[__i]);	\
+			_MSG("%2d pid=%d %s:%d\n", __i, (_at)->at_pids[__i], (_at)->at_sources[__i], (_at)->at_lines[__i]);	\
 		}							\
 	})
 
