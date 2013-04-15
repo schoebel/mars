@@ -1029,12 +1029,13 @@ static int aio_switch(struct aio_brick *brick)
 		goto err;
 	} 
 
+	output->index = ++index;
+
 	status = _create_ioctx(output);
 	if (unlikely(status < 0)) {
 		goto err;
 	}
 
-	output->index = ++index;
 	status = aio_start_thread(output, &output->tinfo[0], aio_submit_thread, 's');
 	if (unlikely(status < 0)) {
 		MARS_ERR("could not start theads, status = %d\n", status);
