@@ -12,10 +12,6 @@
 
 extern int mars_copy_overlap;
 
-//#define COPY_CHUNK      (64 * 1024)
-#define COPY_CHUNK      (PAGE_SIZE)
-#define MAX_COPY_PARA   (16 * 1024 * 1024 / COPY_CHUNK)
-
 enum {
 	COPY_STATE_RESET    = -1,
 	COPY_STATE_START    = 0, // don't change this, it _must_ be zero
@@ -76,7 +72,7 @@ struct copy_brick {
 	wait_queue_head_t event;
 	struct semaphore mutex;
 	struct task_struct *thread;
-	struct copy_state st[MAX_COPY_PARA];
+	struct copy_state **st;
 };
 
 struct copy_input {

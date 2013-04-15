@@ -18,6 +18,16 @@
 #define WRITE 1
 #endif
 
+#define COPY_CHUNK         (PAGE_SIZE)
+#define NR_COPY_REQUESTS   (32 * 1024 * 1024 / COPY_CHUNK)
+
+#define STATES_PER_PAGE    (PAGE_SIZE / sizeof(struct copy_state))
+#define MAX_SUB_TABLES     (NR_COPY_REQUESTS / STATES_PER_PAGE + (NR_COPY_REQUESTS % STATES_PER_PAGE ? 1 : 0))
+#define MAX_COPY_REQUESTS  (PAGE_SIZE / sizeof(struct copy_state*) * STATES_PER_PAGE)
+
+#define GET_STATE(brick,index)						\
+	((brick)->st[(index) / STATES_PER_PAGE][(index) % STATES_PER_PAGE])
+
 ///////////////////////// own type definitions ////////////////////////
 
 #include "mars_copy.h"
@@ -102,7 +112,7 @@ int _determine_input(struct copy_brick *brick, struct mref_object *mref)
 	return INPUT_A_IO;
 }
 
-#define GET_INDEX(pos)    (((pos) / COPY_CHUNK) % MAX_COPY_PARA)
+#define GET_INDEX(pos)    (((pos) / COPY_CHUNK) % NR_COPY_REQUESTS)
 #define GET_OFFSET(pos)   ((pos) % COPY_CHUNK)
 
 static
@@ -116,7 +126,7 @@ void __clear_mref(struct copy_brick *brick, struct mref_object *mref, int queue)
 static
 void _clear_mref(struct copy_brick *brick, int index, int queue)
 {
-	struct copy_state *st = &brick->st[index];
+	struct copy_state *st = &GET_STATE(brick, index);
 	struct mref_object *mref = st->table[queue];
 	if (mref) {
 		if (unlikely(st->active[queue])) {
@@ -124,7 +134,7 @@ void _clear_mref(struct copy_brick *brick, int index, int queue)
 			st->active[queue] = false;
 		}
 		__clear_mref(brick, mref, queue);
-		brick->st[index].table[queue] = NULL;
+		st->table[queue] = NULL;
 	}
 }
 
@@ -132,10 +142,20 @@ static
 void _clear_all_mref(struct copy_brick *brick)
 {
 	int i;
-	for (i = 0; i < MAX_COPY_PARA; i++) {
-		brick->st[i].state = COPY_STATE_START;
+	for (i = 0; i < NR_COPY_REQUESTS; i++) {
+		GET_STATE(brick, i).state = COPY_STATE_START;
 		_clear_mref(brick, i, 0);
 		_clear_mref(brick, i, 1);
+	}
+}
+
+static
+void _clear_state_table(struct copy_brick *brick)
+{
+	int i;
+	for (i = 0; i < MAX_SUB_TABLES; i++) {
+		struct copy_state *sub_table = brick->st[i];
+		memset(sub_table, 0, PAGE_SIZE);
 	}
 }
 
@@ -159,7 +179,7 @@ void copy_endio(struct generic_callback *cb)
 
 	queue = mref_a->queue;
 	index = GET_INDEX(mref->ref_pos);
-	st = &brick->st[index];
+	st = &GET_STATE(brick, index);
 
 	MARS_IO("queue = %d index = %d pos = %lld status = %d\n", queue, index, mref->ref_pos, cb->cb_error);
 	if (unlikely(queue < 0 || queue >= 2)) {
@@ -256,16 +276,16 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 		MARS_DBG("shorten len %d < %d\n", mref->ref_len, len);
 	}
 	if (queue == 0) {
-		brick->st[index].len = mref->ref_len;
-	} else if (unlikely(mref->ref_len < brick->st[index].len)) {
+		GET_STATE(brick, index).len = mref->ref_len;
+	} else if (unlikely(mref->ref_len < GET_STATE(brick, index).len)) {
 		MARS_DBG("shorten len %d < %d\n", mref->ref_len, brick->st[index].len);
-		brick->st[index].len = mref->ref_len;
+		GET_STATE(brick, index).len = mref->ref_len;
 	}
 
 	//MARS_IO("queue = %d index = %d pos = %lld len = %d rw = %d\n", queue, index, mref->ref_pos, mref->ref_len, rw);
 
 	atomic_inc(&brick->copy_flight);
-	brick->st[index].active[queue] = true;
+	GET_STATE(brick, index).active[queue] = true;
 	GENERIC_INPUT_CALL(input, mref_io, mref);
 
 done:
@@ -285,6 +305,7 @@ void _update_percent(struct copy_brick *brick)
 	}
 }
 
+
 /* The heart of this brick.
  * State transition function of the finite automaton.
  * In case no progress is possible (e.g. preconditions not
@@ -303,7 +324,7 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 	int progress = 0;
 	int status;
 
-	st = &brick->st[index];
+	st = &GET_STATE(brick, index);
 	next_state = st->state;
 
 restart:
@@ -438,7 +459,7 @@ restart:
 		 * Currenty, bio and aio are obeying this. Be careful when
 		 * implementing new IO bricks!
 		 */
-		if (st->prev >= 0 && !brick->st[st->prev].writeout) {
+		if (st->prev >= 0 && !GET_STATE(brick, st->prev).writeout) {
 			goto idle;
 		}
 		mref0 = st->table[0];
@@ -542,19 +563,19 @@ int _run_copy(struct copy_brick *brick)
 			return 0;
 		}
 		_clear_all_mref(brick);
-		memset(brick->st, 0, sizeof(brick->st));
+		_clear_state_table(brick);
 	}
 
 	/* Do at most max iterations in the below loop
 	 */
-	max = MAX_COPY_PARA - atomic_read(&brick->io_flight) * 2;
+	max = NR_COPY_REQUESTS - atomic_read(&brick->io_flight) * 2;
 	MARS_IO("max = %d\n", max);
 
 	prev = -1;
 	progress = 0;
 	for (pos = brick->copy_last; pos < brick->copy_end || brick->append_mode > 1; pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
 		int index = GET_INDEX(pos);
-		struct copy_state *st = &brick->st[index];
+		struct copy_state *st = &GET_STATE(brick, index);
 		if (max-- <= 0) {
 			break;
 		}
@@ -572,7 +593,7 @@ int _run_copy(struct copy_brick *brick)
 		int count = 0;
 		for (pos = brick->copy_last; pos <= limit; pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
 			int index = GET_INDEX(pos);
-			struct copy_state *st = &brick->st[index];
+			struct copy_state *st = &GET_STATE(brick, index);
 			if (st->state != COPY_STATE_FINISHED) {
 				break;
 			}
@@ -792,8 +813,53 @@ MARS_MAKE_STATICS(copy);
 
 ////////////////////// brick constructors / destructors ////////////////////
 
+static
+void _free_pages(struct copy_brick *brick)
+{
+	int i;
+	for (i = 0; i < MAX_SUB_TABLES; i++) {
+		struct copy_state *sub_table = brick->st[i];
+
+		if (!sub_table) {
+			continue;
+		}
+
+		brick_block_free(sub_table, PAGE_SIZE);
+	}
+	brick_block_free(brick->st, PAGE_SIZE);
+}
+
 static int copy_brick_construct(struct copy_brick *brick)
 {
+	int i;
+
+	brick->st = brick_block_alloc(0, PAGE_SIZE);
+	if (unlikely(!brick->st)) {
+		MARS_ERR("cannot allocate state directory table.\n");
+		return -ENOMEM;
+	}
+	memset(brick->st, 0, PAGE_SIZE);
+
+	for (i = 0; i < MAX_SUB_TABLES; i++) {
+		struct copy_state *sub_table;
+
+		// this should be usually optimized away as dead code
+		if (unlikely(i >= MAX_SUB_TABLES)) {
+			MARS_ERR("sorry, subtable index %d is too large.\n", i);
+			_free_pages(brick);
+			return -EINVAL;
+		}
+
+		sub_table = brick_block_alloc(0, PAGE_SIZE);
+		brick->st[i] = sub_table;
+		if (unlikely(!sub_table)) {
+			MARS_ERR("cannot allocate state subtable %d.\n", i);
+			_free_pages(brick);
+			return -ENOMEM;
+		}
+		memset(sub_table, 0, PAGE_SIZE);
+	}
+
 	init_waitqueue_head(&brick->event);
 	sema_init(&brick->mutex, 1);
 	return 0;
@@ -801,6 +867,7 @@ static int copy_brick_construct(struct copy_brick *brick)
 
 static int copy_brick_destruct(struct copy_brick *brick)
 {
+	_free_pages(brick);
 	return 0;
 }
 
