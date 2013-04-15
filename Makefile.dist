@@ -24,7 +24,7 @@ KERNELFILES := DISTVERSION
 DISTDIRS := kernel userspace scripts docu pre-patches
 DISTFILES := AUTHORS ChangeLog COPYING INSTALL NEWS README DISTVERSION
 DISTVERSION := 0.0.0.$(shell date +%Y%m%d)
-GITHEAD := $( git rev-parse --short HEAD )
+GITHEAD := $(shell git rev-parse --short HEAD )
 DISTTMPDIR := disttmp
 
 TARBALL := mars-$(DISTVERSION).tar.bz2
