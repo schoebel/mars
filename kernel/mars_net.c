@@ -421,7 +421,7 @@ int _mars_send_raw(struct mars_socket *msock, const void *buf, int len)
 		sleeptime = 1000 / HZ;
 	}
 
-	if (sent > 0)
+	if (status >= 0)
 		status = sent;
 
 	return status;
