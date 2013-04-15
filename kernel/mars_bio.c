@@ -49,8 +49,6 @@ EXPORT_SYMBOL_GPL(bio_io_threshold);
 
 ///////////////////////// own type definitions ////////////////////////
 
-static void bio_ref_put(struct bio_output *output, struct mref_object *mref);
-
 ///////////////////////// own helper functions ////////////////////////
 
 /* This is called from the kernel bio layer.
@@ -284,13 +282,9 @@ done:
 }
 
 static
-void bio_ref_put(struct bio_output *output, struct mref_object *mref)
+void _bio_ref_put(struct bio_output *output, struct mref_object *mref)
 {
 	struct bio_mref_aspect *mref_a;
-
-	if (!_mref_put(mref)) {
-		goto done;
-	}
 
 	MARS_IO("deallocating\n");
 
@@ -316,11 +310,23 @@ void bio_ref_put(struct bio_output *output, struct mref_object *mref)
 	}
 	bio_free_mref(mref);
 
-done:
 	return;
 
 err:
 	MARS_FAT("cannot work\n");
+}
+
+#define BIO_REF_PUT(output,mref)					\
+	({								\
+		if (_mref_put(mref)) {					\
+			_bio_ref_put(output, mref);			\
+		}							\
+	})
+
+static
+void bio_ref_put(struct bio_output *output, struct mref_object *mref)
+{
+	BIO_REF_PUT(output, mref);
 }
 
 static
@@ -529,7 +535,7 @@ int bio_response_thread(void *data)
 			if (likely(mref_a->bio)) {
 				bio_put(mref_a->bio);
 			}
-			bio_ref_put(mref_a->output, mref);
+			BIO_REF_PUT(mref_a->output, mref);
 
 			atomic_dec(&mars_global_io_flying);
 		}
@@ -635,7 +641,7 @@ int bio_submit_thread(void *data)
 				
 				_bio_ref_io(mref_a->output, mref, cork);
 
-				bio_ref_put(mref_a->output, mref);
+				BIO_REF_PUT(mref_a->output, mref);
 			}
 		}
 	}
