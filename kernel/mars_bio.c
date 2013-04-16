@@ -227,7 +227,7 @@ static int bio_get_info(struct bio_output *output, struct mars_info *info)
 	brick->total_size = inode->i_size;
 	info->current_size = brick->total_size;
 	MARS_DBG("determined device size = %lld\n", info->current_size);
-	info->backing_file = brick->mf->mf_filp;
+
 done:
 	return status;
 }

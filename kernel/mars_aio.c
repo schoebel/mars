@@ -894,7 +894,6 @@ static int aio_get_info(struct aio_output *output, struct mars_info *info)
 		MARS_DBG("correcting file length from %lld to %lld\n", info->current_size, output->mf->mf_max);
 		info->current_size = output->mf->mf_max;
 	}
-	info->backing_file = file;
 	return 0;
 }
 

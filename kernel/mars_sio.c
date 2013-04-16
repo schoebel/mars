@@ -482,7 +482,6 @@ static int sio_get_info(struct sio_output *output, struct mars_info *info)
 
 	info->current_size = i_size_read(file->f_mapping->host);
 	MARS_DBG("determined file size = %lld\n", info->current_size);
-	info->backing_file = file;
 	return 0;
 }
 

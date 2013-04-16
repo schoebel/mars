@@ -166,7 +166,6 @@ struct mars_info {
 	loff_t current_size;
 	int transfer_order;
 	int transfer_size;
-	struct file *backing_file;
 };
 
 // brick stuff
