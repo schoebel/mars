@@ -2861,6 +2861,14 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		MARS_WRN_TO(rot->log_say, "EMERGENCY: the space on /mars/ is becoming low. Stopping all fetches of logfiles for secondary resources.\n");
 	}
 
+	if (trans_brick->replay_mode) {
+		if (trans_brick->replay_code > 0) {
+			MARS_INF_TO(rot->log_say, "logfile apply ended successfully\n");
+		} else if (trans_brick->replay_code < 0) {
+			MARS_ERR_TO(rot->log_say, "logfile apply stopped with error = %d\n", trans_brick->replay_code);
+		}
+	}
+
 	/* Stopping is also possible in case of errors
 	 */
 	if (trans_brick->power.button && trans_brick->power.led_on && !trans_brick->power.led_off) {
