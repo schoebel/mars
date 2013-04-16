@@ -630,6 +630,8 @@ static int aio_event_thread(void *data)
 
 			MARS_IO("AIO done %p pos = %lld len = %d rw = %d\n", mref, mref->ref_pos, mref->ref_len, mref->ref_rw);
 
+			mapfree_set(output->mf, mref->ref_pos, mref->ref_pos + mref->ref_len);
+
 			if (output->brick->o_fdsync
 			   && err >= 0 
 			   && mref->ref_rw != READ
@@ -879,6 +881,19 @@ static int aio_get_info(struct aio_output *output, struct mars_info *info)
 
 	info->current_size = i_size_read(file->f_mapping->host);
 	MARS_DBG("determined file size = %lld\n", info->current_size);
+
+	/* Workaround for races in the page cache.
+	 *
+	 * It appears that concurrent reads and writes seem to
+	 * result in inconsistent reads in some very rare cases, due to
+	 * races. Sometimes, the inode claims that the file has been already
+	 * appended by a write operation, but the data has not actually hit
+	 * the page cache, such that a concurrent read gets NULL blocks.
+	 */
+	if (output->mf->mf_max >= 0 && output->mf->mf_max < info->current_size) {
+		MARS_DBG("correcting file length from %lld to %lld\n", info->current_size, output->mf->mf_max);
+		info->current_size = output->mf->mf_max;
+	}
 	info->backing_file = file;
 	return 0;
 }
