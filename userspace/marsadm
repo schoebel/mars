@@ -79,13 +79,14 @@ sub mars_time {
 }
 
 sub sleep_timeout {
+  my $sleeptime = shift || 5;
   if ($timeout < 0) {
-    sleep(5);
+    sleep($sleeptime);
     return;
   }
   ldie "Timeout reached. You may retry with --timeout=-1 to ensure waiting until progress is possible.\n" if !$timeout;
   my $rest = $timeout;
-  $rest = 5 if $rest > 5;
+  $rest = $sleeptime if $rest > $sleeptime;
   sleep($rest);
   $timeout -= $rest;
 }
@@ -184,6 +185,17 @@ sub check_primary_gone {
   }
 }
 
+sub check_primary_settled {
+    my ($res) = @_;
+    my $target_primary = readlink("$mars/resource-$res/primary");
+    for (;;) {
+      my $actual_primary = _get_actual_primary($res) || '(none)';
+      last if ($target_primary eq $actual_primary);
+      lprint "waiting for primary $target_primary to be settled\n";
+      sleep_timeout(2);
+    }
+}
+
 sub check_todo {
   my ($res, $key, $val, $wait) = @_;
   for (;;) {
@@ -233,9 +245,7 @@ sub _check_file_aged {
     $reftime = time();
   }
   return 2 if (!$mtime or !$reftime);  # error -> file is aged
-  my $res = ($mtime < $reftime - $age) ? 1 : 0;
-  lprint sprintf("%s: %s <=> %s ==> %s\n", $path, scalar(gmtime($mtime)), scalar(gmtime($reftime)), $res);
-  return $res;
+  return ($mtime < $reftime - $age) ? 1 : 0;
 }
 
 #
@@ -854,40 +864,47 @@ sub fake_local_res {
 }
 
 sub _primary_res {
-  my ($res, $host, $old) = @_;
+  my ($res, $new, $old) = @_;
   my $tmp = "$mars/resource-$res/.tmp.primary";
   my $pri = "$mars/resource-$res/primary";
   system("rm -f $tmp");
-  symlink($host, $tmp) or ldie "cannot create new primary symlink\n";
+  symlink($new, $tmp) or ldie "cannot create new primary symlink\n";
   rename($tmp, $pri) or ldie "cannot install new primary symlink\n";
-  lprint "primary will change from '$old' to '$host'\n";
+  lprint "target primary changed from '$old' to '$new'\n";
 }
 
 sub primary_res {
   my ($cmd, $res) = @_;
   my $sec = ($cmd eq "secondary");
   my $old = _get_actual_primary($res) || '(none)';
+  my $new = $host;
   if ($sec) {
+    if ($old eq '(none)') {
+      lprint "resource is already secondary\n";
+      exit(0);
+    }
     ldie "for safety reasons, switching to secondary is only allowed when I ($host) am primary\n" if ($old ne $host) && !$force;
-    $host = "(none)";
-  } elsif ($old eq $host) {
+    $new = "(none)";
+  } elsif ($old eq $new) {
     lprint "I am already primary.\n";
     exit(0);
   } elsif ($force) {
     lprint "FORCING myself ($host) to primary...\n";
   } elsif (! -d "/proc/sys/mars") {
     ldie "cannot switch to primary: mars kernel module is not loaded\n";
-  } elsif (readlink("$mars/resource-$res/actual-$host/is-primary")) {
-    lwarn "I am actually primary: skipping check to set me back.\n";
   } else { # try to switch myself to primary
-    lprint "trying to switch $host to primary...\n";
-    check_sync_finished($res, $host);
+    lprint "trying to switch $new to primary...\n";
+    check_sync_finished($res, $new);
     check_todo($res, "connect", 1, 1);
     _primary_res($res, "(none)", $old) unless $old eq "(none)";
+    _trigger();
     check_primary_gone($res);
-    check_splitbrain($res, $host, -1);
+    check_splitbrain($res, $new, -1);
   }
-  _primary_res($res, $host, $old);
+  _primary_res($res, $new, $old);
+  _trigger();
+  check_primary_settled($res);
+  lprint "primary successfully changed to $new\n";
 }
 
 sub invalidate_res {
