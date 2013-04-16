@@ -68,8 +68,8 @@ EXPORT_SYMBOL_GPL(mref_type);
 
 const struct meta mars_info_meta[] = {
 	META_INI(current_size,    struct mars_info, FIELD_INT),
-	META_INI(transfer_order,  struct mars_info, FIELD_INT),
-	META_INI(transfer_size,   struct mars_info, FIELD_INT),
+	META_INI(tf_align,        struct mars_info, FIELD_INT),
+	META_INI(tf_min_size,     struct mars_info, FIELD_INT),
 	{}
 };
 EXPORT_SYMBOL_GPL(mars_info_meta);

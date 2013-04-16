@@ -224,6 +224,9 @@ static int bio_get_info(struct bio_output *output, struct mars_info *info)
 		status = -ENOENT;
 		goto done;
 	}
+
+	info->tf_align = 512;
+	info->tf_min_size = 512;
 	brick->total_size = inode->i_size;
 	info->current_size = brick->total_size;
 	MARS_DBG("determined device size = %lld\n", info->current_size);

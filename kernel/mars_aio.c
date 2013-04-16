@@ -879,6 +879,8 @@ static int aio_get_info(struct aio_output *output, struct mars_info *info)
 		     !file->f_mapping->host))
 		return -EINVAL;
 
+	info->tf_align = 1;
+	info->tf_min_size = 1;
 	info->current_size = i_size_read(file->f_mapping->host);
 	MARS_DBG("determined file size = %lld\n", info->current_size);
 

@@ -164,8 +164,8 @@ struct mref_object {
 
 struct mars_info {
 	loff_t current_size;
-	int transfer_order;
-	int transfer_size;
+	int tf_align;    // transfer alignment constraint
+	int tf_min_size; // transfer is only possible in multiples of this
 };
 
 // brick stuff

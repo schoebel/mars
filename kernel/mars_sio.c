@@ -480,6 +480,8 @@ static int sio_get_info(struct sio_output *output, struct mars_info *info)
 	if (unlikely(!file || !file->f_mapping || !file->f_mapping->host))
 		return -EINVAL;
 
+	info->tf_align = 1;
+	info->tf_min_size = 1;
 	info->current_size = i_size_read(file->f_mapping->host);
 	MARS_DBG("determined file size = %lld\n", info->current_size);
 	return 0;
