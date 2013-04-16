@@ -2569,12 +2569,6 @@ void trans_logger_log(struct trans_logger_brick *brick)
 		_exit_inputs(brick, false);
 	}
 
-	while (brick->inputs[TL_INPUT_LOG1]->is_operating && brick->inputs[TL_INPUT_LOG2]->is_operating) {
-		MARS_DBG("stopped while 2 inputs were active\n");
-		_exit_inputs(brick, false);
-		brick_msleep(1000);
-	}
-
 	for (;;) {
 		_exit_inputs(brick, true);
 		nr_flying = _nr_flying_inputs(brick);
