@@ -31,6 +31,7 @@ struct mapfree_info {
 	spinlock_t       mf_lock;
 	loff_t           mf_min[2];
 	loff_t           mf_last;
+	loff_t           mf_max;
 	long long        mf_jiffies;
 };
 
@@ -38,7 +39,7 @@ struct mapfree_info *mapfree_get(const char *filename, int flags);
 
 void mapfree_put(struct mapfree_info *mf);
 
-void mapfree_set(struct mapfree_info *mf, loff_t min);
+void mapfree_set(struct mapfree_info *mf, loff_t min, loff_t max);
 
 ////////////////// module init stuff /////////////////////////
 

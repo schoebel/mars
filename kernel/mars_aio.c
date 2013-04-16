@@ -302,7 +302,7 @@ static void aio_ref_io(struct aio_output *output, struct mref_object *mref)
 		goto done;
 	}
 
-	mapfree_set(output->mf, mref->ref_pos);
+	mapfree_set(output->mf, mref->ref_pos, -1);
 
 	MARS_IO("AIO rw=%d pos=%lld len=%d data=%p\n", mref->ref_rw, mref->ref_pos, mref->ref_len, mref->ref_data);
 
@@ -807,7 +807,7 @@ static int aio_submit_thread(void *data)
 		status = -EINVAL;
 		CHECK_PTR(mref, error);
 
-		mapfree_set(output->mf, mref->ref_pos);
+		mapfree_set(output->mf, mref->ref_pos, -1);
 
 		// check for reads exactly at EOF (special case)
 		if (mref->ref_pos == mref->ref_total_size &&

@@ -138,6 +138,7 @@ struct mapfree_info *mapfree_get(const char *name, int flags)
 		INIT_LIST_HEAD(&mf->mf_head);
 		atomic_set(&mf->mf_count, 1);
 		spin_lock_init(&mf->mf_lock);
+		mf->mf_max = -1;
 
 		oldfs = get_fs();
 		set_fs(get_ds());
@@ -196,13 +197,15 @@ struct mapfree_info *mapfree_get(const char *name, int flags)
 }
 EXPORT_SYMBOL_GPL(mapfree_get);
 
-void mapfree_set(struct mapfree_info *mf, loff_t min)
+void mapfree_set(struct mapfree_info *mf, loff_t min, loff_t max)
 {
 	unsigned long flags;
 
 	traced_lock(&mf->mf_lock, flags);
 	if (!mf->mf_min[0] || mf->mf_min[0] > min)
 		mf->mf_min[0] = min;
+	if (max >= 0 && mf->mf_max < max)
+		mf->mf_max = max;
 	traced_unlock(&mf->mf_lock, flags);
 }
 EXPORT_SYMBOL_GPL(mapfree_set);
