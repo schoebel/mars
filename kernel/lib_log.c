@@ -461,7 +461,7 @@ int log_scan(void *buf, int len, loff_t file_pos, int file_offset, struct log_he
 		DATA_GET(buf, offset, lh->l_written.tv_nsec);
 
 		if (unlikely(lh->l_seq_nr != *seq_nr + 1 && lh->l_seq_nr && *seq_nr)) {
-			MARS_ERR(SCAN_TXT "log sequence number %u mismatch, expected was %u\n", SCAN_PAR, lh->l_seq_nr, *seq_nr + 1);
+			MARS_ERR(SCAN_TXT "record sequence number %u mismatch, expected was %u\n", SCAN_PAR, lh->l_seq_nr, *seq_nr + 1);
 			return -EBADMSG;
 		}
 		*seq_nr = lh->l_seq_nr;
