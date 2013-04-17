@@ -211,13 +211,13 @@ sub check_primary_settled {
 }
 
 sub check_todo {
-  my ($res, $key, $val, $wait) = @_;
+  my ($cmd, $res, $key, $val, $wait) = @_;
   for (;;) {
     my $path = "$mars/resource-$res/todo-$host/$key";
     my $link = get_link($path);
     last if $link == $val;
-    ldie "$path must have value $val\n" if $wait;
-    lprint "waiting until $key reaches the value $val....\n";
+    ldie "cannot execute $cmd: switch '$key' must have value $val\n" if !$wait;
+    lprint "waiting until switch '$key' reaches the value $val....\n";
     sleep_timeout();
   }
 }
@@ -915,7 +915,7 @@ sub primary_res {
   } else { # try to switch myself to primary
     lprint "trying to switch $new to primary...\n";
     check_sync_finished($res, $new);
-    check_todo($res, "connect", 1, 1);
+    check_todo($cmd, $res, "connect", 1, 0);
     _primary_res($res, "(none)", $old) unless $old eq "(none)";
     _trigger();
     check_primary_gone($res);
