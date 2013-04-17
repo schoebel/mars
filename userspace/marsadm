@@ -39,15 +39,26 @@ sub lwarn {
 
 ##################################################################
 
-# global variables
+# global variables and checks
 
-my $Id = '$Id$';
+my $Id = '$Id$ ';
+my $user_version = 0.1;
 my $mars = "/mars";
 my $host = `uname -n` or ldie "cannot determine my network node name\n";
 chomp $host;
 my $force = 0;
 my $timeout = -1;
 my $ip = _get_ip() or ldie "cannot determine my IP address\n";
+
+if (! -d $mars) {
+  ldie "The $mars directory does not exist.\n";
+}
+if (! $1 =~ /cluster/) {
+  my $kernel_version = readlink("$mars/tree-$host");
+  if ($kernel_version && $user_version < $kernel_version) {
+    ldie "Sorry, your MARS kernel module uses version $kernel_version, but my $0 userspace version is only $user_version. That cannot work. Please upgrade your userspace scripts!\n";
+  }
+}
 
 ##################################################################
 
