@@ -1188,6 +1188,7 @@ sub do_res {
 }
 
 if ($res eq "all" && $cmd ne "show") {
+  ldie "For safty reasons, --force is only allowed on explicitly named resources. Combination of 'all' with --force is disallowed!\n" if $force;
   foreach $res (glob("$mars/resource-*")) {
     next unless -e "$res/data-$host";
     $res =~ s/^.*\/resource-(.*)$/$1/;
