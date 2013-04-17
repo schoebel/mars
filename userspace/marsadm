@@ -1091,8 +1091,13 @@ my %cmd_table =
    "fake-sync"         => \&fake_local_res,
    "mars-state"        => \&mars_state_cmd,
    "mars-info"         => \&mars_info_cmd,
+   "show"              => \&show_cmd,
+   "pause-replay"        => \&pause_replay_res,
+   "resume-replay"       => \&pause_replay_res,
+   "pause-replay-local"  => \&pause_replay_local_res,
+   "resume-replay-local" => \&pause_replay_local_res,
 
-   # compatible keywords
+   # compatible keywords (or their derivatives)
    "attach"            => \&attach_res,
    "detach"            => \&attach_res,
    "connect"           => \&connect_res,
@@ -1119,17 +1124,12 @@ my %cmd_table =
    "cstate"            => \&nyi_cmd,
    "dstate"            => \&nyi_cmd,
    "status"            => \&nyi_cmd,
-   "show"              => \&show_cmd,
    "dump"              => \&senseless_cmd,
    "verify"            => \&nyi_cmd,
    "pause-sync"        => \&pause_sync_res,
    "resume-sync"       => \&pause_sync_res,
    "pause-sync-local"  => \&pause_sync_local_res,
    "resume-sync-local" => \&pause_sync_local_res,
-   "pause-replay"        => \&pause_replay_res,
-   "resume-replay"       => \&pause_replay_res,
-   "pause-replay-local"  => \&pause_replay_local_res,
-   "resume-replay-local" => \&pause_replay_local_res,
    "new-current-uuid"  => \&senseless_cmd,
    "hidden-commands"   => \&ignore_cmd,
   );
