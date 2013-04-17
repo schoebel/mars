@@ -6,6 +6,8 @@ ifneq ($(KBUILD_EXTMOD),)
   CONFIG_MARS_BIGMODULE := m
 endif
 
+KBUILD_CFLAGS += -fdelete-null-pointer-checks
+
 mars-objs :=				\
 	brick_say.o			\
 	brick_mem.o			\
