@@ -77,6 +77,9 @@ EXPORT_SYMBOL_GPL(trans_logger_do_crc);
 int trans_logger_mem_usage; // in KB
 EXPORT_SYMBOL_GPL(trans_logger_mem_usage);
 
+int trans_logger_max_interleave = -1;
+EXPORT_SYMBOL_GPL(trans_logger_max_interleave);
+
 struct writeback_group global_writeback = {
 	.lock = __RW_LOCK_UNLOCKED(global_writeback.lock),
 	.group_anchor = LIST_HEAD_INIT(global_writeback.group_anchor),
@@ -2480,11 +2483,53 @@ void _exit_inputs(struct trans_logger_brick *brick, bool force)
 	}
 }
 
+/* Performance-critical:
+ * Calling log_flush() too often may result in
+ * increased overhead (and thus in lower throughput).
+ * Call it only when the IO scheduler need not do anything else.
+ * OTOH, calling it too seldom may hold back
+ * IO completion for the end user for too long time.
+ *
+ * Be careful to flush any leftovers in the log buffer, at least after
+ * some short delay.
+ *
+ * Description of flush_mode:
+ *  0 = flush unconditionally
+ *  1 = flush only when nothing can be appended to the transaction log
+ *  2 = see 1 && flush only when the user is waiting for an answer
+ *  3 = see 1 && not 2 && flush only when there is no other activity (background mode)
+ * Notice: 3 makes only sense for leftovers where the user is _not_ waiting for
+ */
+static inline
+void flush_inputs(struct trans_logger_brick *brick, int flush_mode)
+{
+	if (flush_mode < 1 ||
+	    // there is nothing to append any more
+	    (atomic_read(&brick->q_phase[0].q_queued) <= 0 &&
+	     // and the user is waiting for an answer
+	     (flush_mode < 2 ||
+	      atomic_read(&brick->log_fly_count) > 0 ||
+	     // else flush any leftovers in background, when there is no writeback activity
+	      (flush_mode == 3 &&
+	       atomic_read(&brick->q_phase[1].q_flying) + atomic_read(&brick->q_phase[3].q_flying) <= 0)))) {
+		MARS_IO("log_fly_count 0 %d q0 = %d q0 = %d q0 = %d q0 = %d\n",
+			atomic_read(&brick->log_fly_count),
+			atomic_read(&brick->q_phase[0].q_flying),
+			atomic_read(&brick->q_phase[1].q_flying),
+			atomic_read(&brick->q_phase[2].q_flying),
+			atomic_read(&brick->q_phase[3].q_flying)
+			);
+		_flush_inputs(brick);
+	}
+}
+
 static noinline
 void trans_logger_log(struct trans_logger_brick *brick)
 {
 	struct rank_data rkd[LOGGER_QUEUES] = {};
 	long long old_jiffies = jiffies;
+	long long work_jiffies = jiffies;
+	int interleave = 0;
 	int nr_flying;
 
 	brick->replay_code = 0; // indicates "running"
@@ -2499,10 +2544,19 @@ void trans_logger_log(struct trans_logger_brick *brick)
 
 		wait_event_interruptible_timeout(
 			brick->worker_event,
-			(winner = _do_ranking(brick, rkd)) >= 0,
-			1 * HZ);
-
-		MARS_IO("winner = %d\n", winner);
+			({
+				winner = _do_ranking(brick, rkd);
+				MARS_IO("winner = %d\n", winner);
+				if (winner < 0) { // no more work to do
+					int flush_mode = 2 - ((int)(jiffies - work_jiffies)) / (HZ * 2);
+					flush_inputs(brick, flush_mode);
+					interleave = 0;
+				} else { // reset the timer whenever something is to do
+					work_jiffies = jiffies;
+				}
+				winner >= 0;
+			}),
+			HZ / 10);
 
 		atomic_inc(&brick->total_round_count);
 
@@ -2510,16 +2564,28 @@ void trans_logger_log(struct trans_logger_brick *brick)
 
 		switch (winner) {
 		case 0:
+			interleave = 0;
 			nr = run_mref_queue(&brick->q_phase[0], prep_phase_startio, brick->q_phase[0].q_batchlen, true);
 			goto done;
 		case 1:
+			if (interleave >= trans_logger_max_interleave && trans_logger_max_interleave >= 0) {
+				interleave = 0;
+				flush_inputs(brick, 3);
+			}
 			nr = run_mref_queue(&brick->q_phase[1], phase1_startio, brick->q_phase[1].q_batchlen, true);
+			interleave += nr;
 			goto done;
 		case 2:
+			interleave = 0;
 			nr = run_wb_queue(&brick->q_phase[2], phase2_startio, brick->q_phase[2].q_batchlen);
 			goto done;
 		case 3:
+			if (interleave >= trans_logger_max_interleave && trans_logger_max_interleave >= 0) {
+				interleave = 0;
+				flush_inputs(brick, 3);
+			}
 			nr = run_wb_queue(&brick->q_phase[3], phase3_startio, brick->q_phase[3].q_batchlen);
+			interleave += nr;
 		done:
 			if (unlikely(nr <= 0)) {
 				/* This should not happen!
@@ -2527,30 +2593,14 @@ void trans_logger_log(struct trans_logger_brick *brick)
 				 * algorithm cannot foresee anything.
 				 */
 				brick->q_phase[winner].no_progress_count++;
-				banning_hit(&brick->q_phase[winner].q_banning, 1000000);
+				banning_hit(&brick->q_phase[winner].q_banning, 10000);
+				flush_inputs(brick, 0);
 			}
 			ranking_select_done(rkd, winner, nr);
 			break;
 
 		default:
-			/* Performance-critical:
-			 * Calling log_flush() too often may result in
-			 * increased overhead (and thus in lower throughput).
-			 * Call it only when the IO scheduler need no do anything else.
-			 * OTOH, calling it too seldom may hold back
-			 * IO completion for the end user for too long time.
-			 * Be careful to flush any leftovers in the log buffer.
-			 */
-			if (
-				// there is nothing to append any more
-				atomic_read(&brick->q_phase[0].q_queued) <= 0 &&
-				// and the user is waiting for an answer
-				(atomic_read(&brick->log_fly_count) > 0 ||
-				 // else flush any leftovers in background, when there is no other activity
-				 (atomic_read(&brick->q_phase[0].q_flying) + atomic_read(&brick->q_phase[2].q_flying) > 0 &&
-				  atomic_read(&brick->q_phase[1].q_flying) + atomic_read(&brick->q_phase[3].q_flying) <= 0))) {
-				_flush_inputs(brick);
-			}
+			;
 		}
 
 		/* Update symlinks even during pauses.
