@@ -815,8 +815,23 @@ int _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 		if (unlikely((inf->inf_sequence < rot->inf_prev_sequence ||
 			      inf->inf_sequence > rot->inf_prev_sequence + 1) &&
 			     rot->inf_prev_sequence != 0)) {
-			MARS_ERR_TO(rot->log_say, "SKIP in sequence numbers detected: %d != %d + 1\n", inf->inf_sequence, rot->inf_prev_sequence);
-			goto out;
+			char *skip_path = path_make("%s/skip-check-%s", rot->parent_path, my_id());
+			char *skip_link = mars_readlink(skip_path);
+			int skip_nr = -1;
+			if (skip_link) {
+				(void)sscanf(skip_link, "%d", &skip_nr);
+				brick_string_free(skip_link);
+			}
+			brick_string_free(skip_path);
+			if (likely(skip_nr != inf->inf_sequence)) {
+				MARS_ERR_TO(rot->log_say, "SKIP in sequence numbers detected: %d != %d + 1\n", inf->inf_sequence, rot->inf_prev_sequence);
+				goto out;
+			}
+			MARS_WRN_TO(rot->log_say,
+				    "you explicitly requested to SKIP sequence numbers from %d to %d"
+				    "-- THIS IS EXTREMELY RISKY"
+				    "-- any inconsistencies are on your own!\n",
+				    rot->inf_prev_sequence, inf->inf_sequence);
 		}
 		prev = path_make("%s/version-%09d-%s", rot->parent_path, inf->inf_sequence - 1, my_id());
 		if (unlikely(!prev)) {

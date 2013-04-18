@@ -929,6 +929,26 @@ sub up_res {
   }
 }
 
+sub set_replay_res {
+  my ($cmd, $res, $new_nr) = @_;
+  if (!$new_nr || $new_nr <= 0) {
+    ldie "you must supply a numeric logfile number as third argument.\n";
+  }
+  check_not_primary(@_);
+  check_todo($cmd, $res, "allow-replay", 0, 0);
+  my $replaylink = "$mars/resource-$res/replay-$host";
+  my $old_val = get_link($replaylink);
+  my $old_nr = $old_val;
+  $old_nr =~ s/log-([0-9]+)-.*/$1/;
+  ldie "old log number '$old_nr' is wrong\n" unless $old_nr > 0;
+  if ($new_nr > $old_nr) {
+    lwarn "you try to skip logfile numbers from $old_nr to $new_nr, are you sure?\n";
+    ldie "you would need --force if you really know what you are doing.\n" unless $force;
+  }
+  _set_replaylink("$mars/resource-$res", $new_nr, "");
+  symlink("$new_nr", "$mars/resource-$res/skip-check-$host");
+}
+
 sub fake_local_res {
   my ($cmd, $res) = @_;
   my $path = "$mars/resource-$res/todo-$host/sync";
@@ -1193,6 +1213,7 @@ my %cmd_table =
    "resume-replay"       => \&pause_replay_res,
    "pause-replay-local"  => \&pause_replay_local_res,
    "resume-replay-local" => \&pause_replay_local_res,
+   "set-replay"          => \&set_replay_res,
 
    # compatible keywords (or their derivatives)
    "attach"            => \&attach_res,
