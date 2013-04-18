@@ -519,9 +519,14 @@ if_make_request(struct request_queue *q, struct bio *bio)
 				mref_a->orig_biow[0] = biow;
 				mref_a->bio_count = 1;
 				assigned = true;
-				
-				if (do_skip_sync) {
-					mref->ref_skip_sync = true;
+
+				/* When a bio with multiple biovecs is split into
+				 * multiple mrefs, only the last one should be
+				 * working in synchronous writethrough mode.
+				 */
+				mref->ref_skip_sync = true;
+				if (!do_skip_sync && i + 1 >= bio->bi_vcnt) {
+					mref->ref_skip_sync = false;
 				}
 
 				atomic_inc(&input->plugged_count);
