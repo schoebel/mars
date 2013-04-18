@@ -471,49 +471,105 @@ sub _get_ip {
   return undef;
 }
 
+# Which primary was active in the past when logfile number $log_nr was created?
+# In general, this may be even a node which doesn't exist anymore.
+# $supposed_primary should be normally empty, but may be used
+# to give a hint and check for consistency of ancient knowledge.
+
+sub _get_former_primary {
+  my ($basedir, $log_nr, $supposed_primary) = @_;
+  my $primary = $supposed_primary;
+  foreach my $type ("log", "version") {
+    my $base_path = sprintf("$basedir/$type-%09d-", $log_nr);
+    my $pri_path = "$base_path$supposed_primary";
+    my $log_path = "$base_path*";
+    my @names = glob($log_path);
+    if (!@names) {
+      if ($type eq "log" and !$supposed_primary) {
+	next;
+      }
+      ldie "Sorry, there exist no names '$log_path'\n" unless $supposed_primary;
+    } elsif (scalar(@names) == 1) {
+      my $found = $names[0];
+      if ($supposed_primary) {
+	ldie "Sorry, '$pri_path' does not exist, although '$found' would exist.\n" unless $pri_path eq $found;
+      } else { # assume that the found name is the right one.
+	$pri_path = $found;
+	lprint "found '$pri_path'\n";
+	ldie "found name is malformed\n" unless $pri_path =~ m:^$base_path(.*):;
+	$primary = $1;
+      }
+    } else { # multiple exist...
+      lprint "There are multiple names with number $log_nr.\n";
+      my $present = 0;
+      foreach my $file (@names) {
+	lprint "    $file\n";
+	$present++ if $file eq $pri_path;
+      }
+      if ($type eq "log") {
+	lwarn "Usually, this is an indication for split-brain.\n";
+	lwarn "Be careful!\n";
+      }
+      ldie "Cannot select between them -- no primary preference given.\n" unless $supposed_primary;
+      ldie "Sorry, '$pri_path' is not among them.\n" unless $present;
+      lprint "=> using '$pri_path' out of them\n";
+    } 
+    return $primary;
+  }
+  ldie "could not determine old primary site for logfile version number $log_nr\n";
+}
+
 sub _fake_versionlink {
-  my ($basedir, $prev, $primary) = @_;
-  $prev =~ s/^log-([0-9]+)-.*$/$1/;
-  $prev--;
-  if ($prev > 0) {
-    my $prevversion = sprintf("$basedir/version-%09d-$primary", $prev);
-    my $prevlink = get_link($prevversion);
-    if (!$prevlink) { # try any one else
-      $prevversion = sprintf("$basedir/version-%09d-*", $prev);
-      my @test = glob($prevversion);
-      $prevlink = shift @test;
+  my ($basedir, $log_nr, $primary) = @_;
+  $primary = _get_former_primary(@_) unless $primary;
+  my $new_version = sprintf("$basedir/version-%09d-$host", $log_nr);
+  my $pri_version = sprintf("$basedir/version-%09d-$primary", $log_nr);
+  if ($primary eq $host) {
+    lwarn "it makes no sense to fake my own version link '$new_version'\n";
+    return;
+  }
+  my $pri_link = get_link($pri_version);
+  if (!$pri_link) { # try any one else
+    lwarn "cannot read symlink '$pri_version' -- trying a neighbor link instead\n";
+    my $try_version = sprintf("$basedir/version-%09d-*", $log_nr);
+    my @test = glob($try_version);
+    my $test_version = shift @test;
+    if ($test_version) {
+      lwarn "trying substitute symlink '$test_version'\n";
+      my $test_link = get_link($test_version);
+      if ($test_link) {
+	$pri_link = $test_link;
+	lwarn "got value '$pri_link', hopefully this is right\n" if $pri_link;
+      }
     }
-    if ($prevlink) {
-      lprint "creating faked version symlink...\n";
-      my $myversion = sprintf("$basedir/version-%09d-$host", $prev);
-      system("rm -f $myversion.tmp");
-      symlink($prevlink, "$myversion.tmp") or ldie "cannot create faked version symlink '$myversion'\n";
-      system("mv $myversion.tmp $myversion");
-    } else {
-      lwarn "cannot read symlink '$prevversion' -- cannot create fake\n";
-    }
+  }
+  if ($pri_link) {
+    lprint "creating new version symlink '$new_version' -> '$pri_link'\n";
+    system("rm -f $new_version.tmp");
+    symlink($pri_link, "$new_version.tmp") or ldie "cannot create faked version symlink '$new_version'\n";
+    system("mv $new_version.tmp $new_version");
+  } else {
+    lwarn "cannot read symlink '$pri_version' -- cannot create faked versionlink '$pri_version'\n";
   }
 }
 
 sub _set_replaylink {
-  my ($basedir, $replay, $primary) = @_;
-  my $replaylink = "$basedir/replay-$host";
-  my $oldreplay = get_link($replaylink);
-  # fake old version symlink when necessary
-  if ($oldreplay) {
-    my $oldbase = $oldreplay;
-    my $base = $replay;
-    $oldbase =~ s/^([^,]+).*/$1/;
-    $base =~ s/^([^,]+).*/$1/;
-    if ($base ne $oldbase) {
-      _fake_versionlink($basedir, $oldreplay, $primary);
-    }
+  my ($basedir, $log_nr) = @_;
+  my $primary = _get_former_primary(@_);
+  my $rep_path = "$basedir/replay-$host";
+  my $rep_val  = sprintf("log-%09d-$primary,0,0", $log_nr);
+  lprint "creating new replaylink '$rep_path' -> '$rep_val'\n";
+  system("rm -f $rep_path.tmp");
+  symlink($rep_val, "$rep_path.tmp") or ldie "cannot create symlink '$rep_path'\n";
+  system("mv $rep_path.tmp $rep_path");
+
+  if ($log_nr > 1) {
+    my $old_primary = "";
+    my $vers_link  = sprintf("$basedir/version-%09d-$primary", $log_nr);
+    my $vers_val = get_link($vers_link);
+    $old_primary = $1 if $vers_val =~ m/:.*,log-[0-9]+-([^,]+),/;
+    _fake_versionlink($basedir, $log_nr - 1, $old_primary);
   }
-  # copy pervious version symlink
-  _fake_versionlink($basedir, $replay, $primary);
-  # create replay symlink
-  symlink($replay, "$replaylink.tmp") or ldie "cannot create replay status\n";
-  system("mv $replaylink.tmp $replaylink");
 }
 
 ##################################################################
@@ -622,7 +678,7 @@ sub create_res {
 
   my $tmp = "$mars/.tmp.$res";
   my $primary;
-  my $replay;
+  my $replay_nr = -1;
   if ($create) {
     _create_cluster(@_);
     system("rm -rf $tmp");
@@ -647,8 +703,12 @@ sub create_res {
       $size = $oldsize;
     }
     ldie "sizes differ: real size = $oldsize, but requested size = $size\n" unless $oldsize == $size;
-    $replay = get_link("$tmp/replay-$primary");
-    $replay =~ s/,[0-9]+,[0-9]+$/,0,0/;
+    my $replay = get_link("$tmp/replay-$primary");
+    if ($replay =~ m/^log-([0-9]+)-/) {
+      $replay_nr = $1;
+    } else {
+      ldie "cannot determine current logfile number.\n";
+    }
   }
 
   my $file = "$tmp/data-$host";
@@ -691,7 +751,7 @@ sub create_res {
     rename($tmp, "$mars/resource-$res") or ldie "cannot finalize resource '$res'\n";
     lprint "successfully created resource '$res'\n";
   } else {
-    _set_replaylink($tmp, $replay, $primary);
+    _set_replaylink($tmp, $replay_nr, $primary);
     symlink("0", "$tmp/syncstatus-$host") or ldie "cannot start initial sync\n";
     system("rm -f $tmp/connect-$host");
     symlink($primary, "$tmp/connect-$host") or ldie "cannot create peer connect symlink\n";
@@ -945,8 +1005,9 @@ sub invalidate_res {
   symlink("0", $dst) or ldie "cannot create invalidation symlink '$dst'\n";
   my $primary = _get_designated_primary($res);
   my $replay = get_link("$mars/resource-$res/replay-$primary");
-  $replay =~ s/,[0-9]+,[0-9]+$/,0,0/;
-  _set_replaylink("$mars/resource-$res", $replay, $primary);
+  $replay =~ m/^log-([0-9]+)-/ or ldie "replay link '$replay' is not parsable\n";
+  my $replay_nr = $1;
+  _set_replaylink("$mars/resource-$res", $replay_nr, $primary);
   if ($was_on) {
     _trigger();
     lprint "waiting...\n";
