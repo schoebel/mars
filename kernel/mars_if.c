@@ -246,6 +246,7 @@ if_make_request(struct request_queue *q, struct bio *bio)
 	 */
 	const int  rw      = bio_data_dir(bio);
 	const int  sectors = bio_sectors(bio);
+// adapt to different kernel versions (TBD: improve)
 #if defined(BIO_RW_RQ_MASK) || defined(BIO_FLUSH)
 	const bool ahead   = bio_rw_flagged(bio, BIO_RW_AHEAD) && rw == READ;
 	const bool barrier = bio_rw_flagged(bio, BIO_RW_BARRIER);
@@ -254,14 +255,17 @@ if_make_request(struct request_queue *q, struct bio *bio)
 	const bool meta    = bio_rw_flagged(bio, BIO_RW_META);
 	const bool discard = bio_rw_flagged(bio, BIO_RW_DISCARD);
 	const bool noidle  = bio_rw_flagged(bio, BIO_RW_NOIDLE);
-#else
-	const bool ahead   = bio_flagged(bio, __REQ_RAHEAD) && rw == READ;
-	const bool barrier = bio_flagged(bio, __REQ_FLUSH);
-	const bool syncio  = bio_flagged(bio, __REQ_SYNC);
+#elif defined(REQ_FLUSH) && defined(REQ_SYNC)
+#define _flagged(x) (bio->bi_rw & (x))
+	const bool ahead   = _flagged(REQ_RAHEAD) && rw == READ;
+	const bool barrier = _flagged(REQ_FLUSH);
+	const bool syncio  = _flagged(REQ_SYNC);
 	const bool unplug  = false;
-	const bool meta    = bio_flagged(bio, __REQ_META);
-	const bool discard = bio_flagged(bio, __REQ_DISCARD);
-	const bool noidle  = bio_flagged(bio, __REQ_THROTTLED);
+	const bool meta    = _flagged(REQ_META);
+	const bool discard = _flagged(REQ_DISCARD);
+	const bool noidle  = _flagged(REQ_THROTTLED);
+#else
+#error Cannot decode the bio flags
 #endif
 	const int  prio    = bio_prio(bio);
 

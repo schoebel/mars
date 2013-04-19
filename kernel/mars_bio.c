@@ -353,21 +353,32 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref, bool cork)
 	bio_get(bio);
 
 	rw = mref->ref_rw & 1;
-#ifdef BIO_RW_NOIDLE
 	if (brick->do_noidle && !cork) {
+// adapt to different kernel versions (TBD: improve)
+#if defined(BIO_RW_RQ_MASK) || defined(BIO_FLUSH)
 		rw |= (1 << BIO_RW_NOIDLE);
+#elif defined(REQ_NOIDLE)
+		rw |= REQ_NOIDLE;
+#else
+#warning Cannot control the NOIDLE flag
+#endif
 	}
-#endif
 	if (!mref->ref_skip_sync) {
-#ifdef BIO_RW_SYNCIO
 		if (brick->do_sync) {
+#if defined(BIO_RW_RQ_MASK) || defined(BIO_FLUSH)
 			rw |= (1 << BIO_RW_SYNCIO);
-		}
+#elif defined(REQ_SYNC)
+			rw |= REQ_SYNC;
+#else
+#warning Cannot control the SYNC flag
 #endif
-#ifdef BIO_RW_UNPLUG
+		}
+#if defined(BIO_RW_RQ_MASK) || defined(BIO_FLUSH)
 		if (brick->do_unplug && !cork) {
 			rw |= (1 << BIO_RW_UNPLUG);
 		}
+#else
+		// there is no substitute, but the above NOIDLE should do the job (CHECK!)
 #endif
 	}
 
