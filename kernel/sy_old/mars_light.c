@@ -271,6 +271,7 @@ struct mars_rotate {
 	bool is_primary;
 	bool old_is_primary;
 	bool copy_is_done;
+	bool created_hole;
 	spinlock_t inf_lock;
 	bool infs_is_dirty[MAX_INFOS];
 	struct trans_logger_info infs[MAX_INFOS];
@@ -2805,14 +2806,21 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	 */
 	if (IS_JAMMED()) {
 		//brick_say_logging = 0;
+		MARS_ERR_TO(rot->log_say, "DISK SPACE IS EXTREMELY LOW on %s\n", rot->parent_path);
 		if (rot->todo_primary || rot->is_primary) {
 			trans_brick->cease_logging = true;
 			rot->inf_prev_sequence = 0; // disable checking
 		}
-	} else if (!rot->todo_primary && !rot->is_primary) {
-		trans_brick->cease_logging = false;
+	} else if ((trans_brick->cease_logging | trans_brick->stopped_logging) && rot->created_hole && !IS_EXHAUSTED()) {
+		if (!trans_logger_resume) {
+			MARS_INF_TO(rot->log_say, "emergency mode on %s could be turned off now, but /proc/sys/mars/logger_resume inhibits it.\n", rot->parent_path);
+		} else {
+			trans_brick->cease_logging = false;
+			rot->created_hole = false;
+			MARS_INF_TO(rot->log_say, "emergency mode on %s will be turned off again\n", rot->parent_path);
+		}
 	}
-	if (trans_brick->cease_logging) {
+	if (trans_brick->cease_logging | trans_brick->stopped_logging) {
 		MARS_ERR_TO(rot->log_say, "EMERGENCY MODE on %s: stopped transaction logging, and created a hole in the logfile sequence nubers.\n", rot->parent_path);
 		/* Create a hole in the sequence of logfile numbers.
 		 * The secondaries will later stumble over it.
@@ -2822,6 +2830,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 			if (likely(new_path && !mars_find_dent(global, new_path))) {
 				MARS_INF_TO(rot->log_say, "EMERGENCY: creating new logfile '%s'\n", new_path);
 				_create_new_logfile(new_path);
+				rot->created_hole = true;
 			}
 			brick_string_free(new_path);
 		}

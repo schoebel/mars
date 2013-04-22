@@ -80,6 +80,9 @@ EXPORT_SYMBOL_GPL(trans_logger_mem_usage);
 int trans_logger_max_interleave = -1;
 EXPORT_SYMBOL_GPL(trans_logger_max_interleave);
 
+int trans_logger_resume = 0;
+EXPORT_SYMBOL_GPL(trans_logger_resume);
+
 struct writeback_group global_writeback = {
 	.lock = __RW_LOCK_UNLOCKED(global_writeback.lock),
 	.group_anchor = LIST_HEAD_INIT(global_writeback.group_anchor),
@@ -575,6 +578,19 @@ void _inf_callback(struct trans_logger_input *input, bool force)
 	}
 }
 
+static inline 
+int _congested(struct trans_logger_brick *brick)
+{
+	return atomic_read(&brick->q_phase[0].q_queued)
+		|| atomic_read(&brick->q_phase[0].q_flying)
+		|| atomic_read(&brick->q_phase[1].q_queued)
+		|| atomic_read(&brick->q_phase[1].q_flying)
+		|| atomic_read(&brick->q_phase[2].q_queued)
+		|| atomic_read(&brick->q_phase[2].q_flying)
+		|| atomic_read(&brick->q_phase[3].q_queued)
+		|| atomic_read(&brick->q_phase[3].q_flying);
+}
+
 ////////////////// own brick / input / output operations //////////////////
 
 atomic_t   global_mshadow_count =   ATOMIC_INIT(0);
@@ -773,7 +789,19 @@ int trans_logger_ref_get(struct trans_logger_output *output, struct mref_object 
 		mref->ref_len = REGION_SIZE - base_offset;
 	}
 
-	if (mref->ref_may_write == READ || unlikely(brick->cease_logging)) {
+	if (mref->ref_may_write == READ) {
+		return _read_ref_get(output, mref_a);
+	}
+
+	if (unlikely(brick->stopped_logging)) { // only in EMERGENCY mode
+		/* Wait until writeback has finished.
+		 * We have to this because writeback is out-of-order.
+		 * Otherwise consistency could be violated for some time.
+		 */
+		while (_congested(brick)) {
+			// in case of emergency, busy-wait should be acceptable
+			brick_msleep(HZ / 10);
+		}
 		return _read_ref_get(output, mref_a);
 	}
 
@@ -973,7 +1001,7 @@ void trans_logger_ref_io(struct trans_logger_output *output, struct mref_object 
 	}
 
 	// only READ is allowed on non-shadow buffers
-	if (unlikely(mref->ref_rw != READ && !brick->cease_logging)) {
+	if (unlikely(mref->ref_rw != READ)) {
 		MARS_FAT("bad operation %d on non-shadow\n", mref->ref_rw);
 	}
 
@@ -2074,19 +2102,6 @@ done:
 	return res;
 }
 
-static inline 
-int _congested(struct trans_logger_brick *brick)
-{
-	return atomic_read(&brick->q_phase[0].q_queued)
-		|| atomic_read(&brick->q_phase[0].q_flying)
-		|| atomic_read(&brick->q_phase[1].q_queued)
-		|| atomic_read(&brick->q_phase[1].q_flying)
-		|| atomic_read(&brick->q_phase[2].q_queued)
-		|| atomic_read(&brick->q_phase[2].q_flying)
-		|| atomic_read(&brick->q_phase[3].q_queued)
-		|| atomic_read(&brick->q_phase[3].q_flying);
-}
-
 /* Ranking tables.
  */
 static
@@ -2559,6 +2574,12 @@ void trans_logger_log(struct trans_logger_brick *brick)
 			HZ / 10);
 
 		atomic_inc(&brick->total_round_count);
+
+		if (brick->cease_logging) {
+			brick->stopped_logging = true;
+		} else if (brick->stopped_logging && !_congested(brick)) {
+			brick->stopped_logging = false;
+		}
 
 		_init_inputs(brick, false);
 
