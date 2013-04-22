@@ -742,55 +742,66 @@ sub create_res {
   $appear = $res if !$appear;
   check_id($appear) if $appear;
 
+  my $resdir = "$mars/resource-$res";
   if ($create) {
-    ldie "resource '$res' already exists\n" if -d "$mars/resource-$res";
+    ldie "resource '$res' already exists\n" if -d $resdir;
     lprint "creating new resource '$res'\n";
   } else {
-    ldie "resource '$res' has been already joined -- this is dangerous!\n" if -e "$mars/resource-$res/connect-$host";
-    lprint "joining to existing resource '$res'\n";
+    if ( -e "$resdir/connect-$host" || -e "$resdir/data-$host") {
+      lwarn "resource '$res' has been already joined -- this is dangerous!\n";
+      ldie "refusing dangerous operation\n" unless $force;
+    } else {
+      lprint "joining to existing resource '$res'\n";
+    }
   }
 
-  my $size = get_size($dev);
-  if ($size > 0) {
-    $dev = "";
-  } else {
-    ldie "block device '$dev' does not exist\n" unless -b $dev;
+  my $size = 0;
+  if (-b $dev) {
     ldie "block device '$dev' must be an absolute path starting with '/'\n" unless $dev =~ m/^\//;
     use Fcntl 'SEEK_END';
     open(TEST, "<$dev") or ldie "cannot open device for reading\n";
     $size = sysseek(TEST, 0, SEEK_END);
     close(TEST);
-    lprint "device size = $size bytes\n";
-    ldie "implausible size $size" unless $size > 0;
+    lprint "block device '$dev': determined size = $size bytes\n";
+  } else {
+    $size = get_size($dev);
+    if ($size > 0) {
+      $dev = "";
+    } else {
+      ldie "bad parameter '$dev': must be either a block device name, or size followed by k or m or g or t\n";
+    }
   }
 
-  my $tmp = "$mars/resource-$res";
+  ldie "implausible size $size" unless $size > 4096 * 16; # smaller floppies should not exist ;)
+
   my $primary;
   my $replay_nr = -1;
   if ($create) {
     _create_cluster(@_);
-    mkdir($tmp);
-    ldie "could not create resource '$res'\n" unless -d $tmp;
-    set_link($size, "$tmp/size");
-  } else {
-    ldie "resource '$res' does not exist\n" unless -d $tmp;
+    mkdir($resdir);
+    ldie "could not create resource '$res'\n" unless -d $resdir;
+    set_link($size, "$resdir/size");
+  } else { # join
+    ldie "resource '$res' does not exist\n" unless -d $resdir;
+    my $res_size = get_link("$mars/resource-$res/size");
+    if ($size < $res_size) {
+      lwarn "size of new device is only $size, but should be $res_size\n";
+      ldie "refusing to join due to bad size\n" unless $force;
+    } elsif ($size > $res_size) {
+      lprint "Your physical device has size $size, which is larger than the logical resource size $res_size.\n";
+      lprint "This does no harm, but you are wasting some space.\n";
+    }
     $primary = _get_designated_primary($res);
+    ldie "implausible state: I ($host) am already designated primary of resource '$res' which I just wanted to join\n" if $primary eq $host;
     if ($primary eq "(none)") {
-      my @list = glob("$tmp/replay-*") or ldie "cannot find any candidate for primary\n";
+      my @list = glob("$resdir/replay-*") or ldie "cannot find any candidate for primary\n";
       my $first = pop @list or ldie "bad glob list\n";
       $primary = get_link($first);
       $primary =~ s/^log-[0-9]+-(.*),.*,.*$/$1/;
       lprint "using '$primary' as primary\n";
     }
-    ldie "resource '$res' is already joined\n" if -e "$tmp/data-$host";
     ldie "my ip '$ip' is not registered -- please run 'join-cluster' first\n" unless -l "$mars/ips/ip-$host";
-    my $oldsize = get_link("$tmp/size");
-    if ($size < $oldsize) {
-      lprint "adjusting size to $oldsize\n";
-      $size = $oldsize;
-    }
-    ldie "sizes differ: real size = $oldsize, but requested size = $size\n" unless $oldsize == $size;
-    my $replay = get_link("$tmp/replay-$primary");
+    my $replay = get_link("$resdir/replay-$primary");
     if ($replay =~ m/^log-([0-9]+)-/) {
       $replay_nr = $1;
     } else {
@@ -798,49 +809,76 @@ sub create_res {
     }
   }
 
-  my $file = "$tmp/data-$host";
+  # check for uniqeness of $appear
+  if ($appear) {
+    foreach my $old_dev (glob("$mars/resource-*/device-$host")) {
+      $old_dev =~ m:/resource-([^/]+)/:;
+      next unless defined($1);
+      my $old_res = $1;
+      next if $old_res eq $res;
+      my $old_name = get_link($old_dev);
+      if ($old_name eq $appear) {
+	if ( -e "$mars/resource-$old_res/data-$host") {
+	  ldie "device '/dev/mars/$old_name' is already present in joined resource '$old_res'\n";
+	} else {
+	  lwarn "device '/dev/mars/$old_name' is already present in another unjoined resource '$old_res' -- this does no harm, but may be confusing.\n";
+	}
+      }
+    }
+    # warn if devices are named differently throughout the cluster
+    foreach my $old_dev (glob("$resdir/device-*")) {
+      my $old_name = get_link($old_dev);
+      if ($old_name ne $appear) {
+	$old_dev =~ m:/device-(.+)$:;
+	my $old_host = $1;
+	lwarn "your name '/dev/mars/$appear' differs from '/dev/mars/$old_name' on host '$old_host'.";
+	lwarn "this does no harm, but may be confusing.";
+      }
+    }
+  }
+
+  my $file = "$resdir/data-$host";
   if (!$dev) {
-    lprint "creating sparse file '$file' with size $size\n";
-    open(OUT, ">$file") or ldie "could not open '$file'\n";
-    use Fcntl 'SEEK_SET';
-    sysseek(OUT, $size-1, SEEK_SET) == $size-1 or ldie "could not seek\n";
-    syswrite(OUT, '\0', 1) == 1 or ldie "cannot init sparse file\n";
+    lwarn "file '$file' already exists - reusing\n" if -e $file;
+    lprint "setup sparse file '$file' with size $size\n";
+    open(OUT, ">>", $file) or ldie "could not open '$file'\n";
+    truncate(OUT, $size) or ldie "truncate to size $size failed\n";
     close OUT;
   } else {
     lprint "using existing device '$dev'\n";
     set_link($dev, $file);
   }
+
   if ($appear) {
-    # TODO: check for uniqeness of $appear
     lprint "resource '$res' will appear as local device '/dev/mars/$appear'\n";
-    set_link($appear, "$tmp/device-$host");
+    set_link($appear, "$resdir/device-$host");
   }
 
-  mkdir("$tmp/userspace") unless -d "$tmp/userspace";
-  mkdir("$tmp/defaults") unless -d "$tmp/defaults";
-  mkdir("$tmp/defaults-$host");
-  mkdir("$tmp/local-$host");
-  mkdir("$tmp/actual-$host");
-  my $todo = "$tmp/todo-$host";
+  mkdir("$resdir/userspace") unless -d "$resdir/userspace";
+  mkdir("$resdir/defaults") unless -d "$resdir/defaults";
+  mkdir("$resdir/defaults-$host");
+  mkdir("$resdir/local-$host");
+  mkdir("$resdir/actual-$host");
+  my $todo = "$resdir/todo-$host";
   mkdir($todo);
   set_link("1", "$todo/attach");
   set_link("1", "$todo/connect");
   set_link("1", "$todo/sync");
   set_link("1", "$todo/allow-replay");
-  unlink("$tmp/syncstatus-$host");
+  unlink("$resdir/syncstatus-$host");
 
   if ($create) {
-    set_link($host, "$tmp/primary");
-    set_link($size, "$tmp/syncstatus-$host");
-    set_link("log-000000001-$host,0,0", "$tmp/replay-$host");
-    system("touch $tmp/log-000000001-$host");
+    set_link($host, "$resdir/primary");
+    set_link($size, "$resdir/syncstatus-$host");
+    set_link("log-000000001-$host,0,0", "$resdir/replay-$host");
+    system("touch $resdir/log-000000001-$host");
     finish_links();
     lprint "successfully created resource '$res'\n";
   } else {
-    _set_replaylink($tmp, $replay_nr, $primary);
-    set_link("0", "$tmp/syncstatus-$host");
-    set_link($primary, "$tmp/connect-$host");
-    set_link($host, "$tmp/connect-$primary") unless -l "$tmp/connect-$primary";
+    _set_replaylink($resdir, $replay_nr, $primary);
+    set_link("0", "$resdir/syncstatus-$host");
+    set_link($primary, "$resdir/connect-$host");
+    set_link($host, "$resdir/connect-$primary") unless -l "$resdir/connect-$primary";
     finish_links();
     lprint "successfully joined resource '$res'\n";
   }
