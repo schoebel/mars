@@ -173,8 +173,7 @@ sub check_primary {
   my $lnk = "$mars/resource-$res/actual-$host/is-primary";
   my $is_primary = get_link($lnk);
   ldie "for operation '$cmd' I need to be primary\n" unless $is_primary;
-  $lnk = "$mars/resource-$res/primary";
-  my $primary =  get_link($lnk);
+  my $primary = _get_designated_primary($res);
   ldie "for operation '$cmd', I also must be the designated primary\n" unless $primary eq $host;
 }
 
@@ -186,8 +185,7 @@ sub check_not_primary {
     ldie "operation '$cmd' cannot be executed on primary\n";
   }
   # also check whether we intend to become primary
-  $lnk = "$mars/resource-$res/primary";
-  my $primary =  get_link($lnk);
+  my $primary = _get_designated_primary($res);
   ldie "operation '$cmd' cannot be executed on designated primary\n" if $primary eq $host;
 }
 
@@ -203,7 +201,7 @@ sub check_primary_gone {
 
 sub check_primary_settled {
     my ($res) = @_;
-    my $target_primary = get_link("$mars/resource-$res/primary");
+    my $target_primary = _get_designated_primary($res);
     for (;;) {
       my $actual_primary = _get_actual_primary($res) || '(none)';
       last if ($target_primary eq $actual_primary);
@@ -421,6 +419,11 @@ sub _get_actual_primary {
   return $primary;
 }
 
+sub _get_designated_primary {
+  my ($res) = @_;
+  return get_link("$mars/resource-$res/primary");
+}
+
 sub get_peers {
   my ($res) = @_;
   my @list = glob("$mars/resource-$res/connect-*");
@@ -628,7 +631,7 @@ sub create_res {
   } else {
     $tmp = "$mars/resource-$res";
     ldie "resource '$res' does not exist\n" unless -d $tmp;
-    $primary = get_link("$tmp/primary");
+    $primary = _get_designated_primary($res);
     if ($primary eq "(none)") {
       my @list = glob("$tmp/replay-*") or ldie "cannot find any candidate for primary\n";
       my $first = pop @list or ldie "bad glob list\n";
@@ -884,26 +887,29 @@ sub _primary_res {
   system("rm -f $tmp");
   symlink($new, $tmp) or ldie "cannot create new primary symlink\n";
   rename($tmp, $pri) or ldie "cannot install new primary symlink\n";
-  lprint "target primary changed from '$old' to '$new'\n";
+  lprint "designated primary changed from '$old' to '$new'\n";
 }
 
 sub primary_res {
   my ($cmd, $res) = @_;
   my $sec = ($cmd eq "secondary");
-  my $old = _get_actual_primary($res) || '(none)';
+  # we _must_ take the designated primary here, because the actual primary is a _runtime_ condition
+  my $old = _get_designated_primary($res);
   my $new = $host;
   if ($sec) {
     if ($old eq '(none)') {
-      lprint "resource is already secondary\n";
+      lprint "resource '$res' is already designated as secondary everywhere\n";
       exit(0);
     }
-    ldie "for safety reasons, switching to secondary is only allowed when I ($host) am primary\n" if ($old ne $host) && !$force;
+    if (($old ne $host) && !$force && (_get_actual_primary($res) ne $host)) {
+      ldie "for safety reasons, switching to secondary is only allowed when I ($host) am designated primary or actually primary for resource '$res'\n";
+    }
     $new = "(none)";
   } elsif ($old eq $new) {
-    lprint "I am already primary.\n";
+    lprint "I am already designated primary on resource '$res'.\n";
     exit(0);
   } elsif ($force) {
-    lprint "FORCING myself ($host) to primary...\n";
+    lprint "FORCING myself ($host) to be the designated primary...\n";
   } elsif (! -d "/proc/sys/mars") {
     ldie "cannot switch to primary: mars kernel module is not loaded\n";
   } else { # try to switch myself to primary
@@ -918,7 +924,7 @@ sub primary_res {
   _primary_res($res, $new, $old);
   _trigger();
   check_primary_settled($res);
-  lprint "primary successfully changed to $new\n";
+  lprint "resource '$res': designated primary successfully changed from $old to $new\n";
 }
 
 sub invalidate_res {
@@ -937,7 +943,7 @@ sub invalidate_res {
   my $dst = "$mars/resource-$res/syncstatus-$host";
   system("rm -f $dst");
   symlink("0", $dst) or ldie "cannot create invalidation symlink '$dst'\n";
-  my $primary = get_link("$mars/resource-$res/primary");
+  my $primary = _get_designated_primary($res);
   my $replay = get_link("$mars/resource-$res/replay-$primary");
   $replay =~ s/,[0-9]+,[0-9]+$/,0,0/;
   _set_replaylink("$mars/resource-$res", $replay, $primary);
@@ -989,7 +995,7 @@ sub resize_res {
 sub role_cmd {
   my ($cmd, $res) = @_;
   my $primary = _get_actual_primary($res) || '(none)';
-  my $todo_primary = get_link("$mars/resource-$res/primary");
+  my $todo_primary = _get_designated_primary($res);
   my $msg = "I am actually ";
   $msg .= ($primary eq $host) ? "primary" : "secondary";
   if ($primary eq $todo_primary) {
@@ -1005,7 +1011,7 @@ sub role_cmd {
 sub mars_state_cmd {
   my ($cmd, $res) = @_;
   my $primary = _get_actual_primary($res) || '(none)';
-  my $todo_primary = get_link("$mars/resource-$res/primary");
+  my $todo_primary = _get_designated_primary($res);
 
   if ($primary eq $host) {
     lprint "is_primary\n";
