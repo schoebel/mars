@@ -386,7 +386,9 @@ sub check_splitbrain {
 
 sub get_size {
   my $arg = shift;
-  return -1 unless $arg =~ m/^[0-9.]+[kmgtp]?$/i;
+  if (!$arg =~ m/^[0-9.]+[kmgtp]?$/i) {
+    ldie "size argument '$arg' must be a number, optionally followed by suffix k or m or g or t or p\n";
+  }
   my $mod = $arg;
   $arg =~ s/[^0-9]+$//;
   $mod =~ s/^[0-9]+//;
@@ -1037,7 +1039,13 @@ sub invalidate_res {
 }
 
 sub resize_res {
-  my ($cmd, $res) = @_;
+  my ($cmd, $res, $size_arg) = @_;
+  my $new_size = 0;
+  if ($size_arg) {
+    $new_size = get_size($size_arg);
+    ldie "optional size argument '$new_size' must be numeric and positive\n" unless scalar($new_size) > 0;
+    lprint "new size: $new_size bytes\n";
+  }
   check_primary(@_);
   my @actsizes = glob("$mars/resource-$res/actsize-*");
   ldie "resource $res has no actsize-* symlinks\n" unless @actsizes;
@@ -1051,8 +1059,11 @@ sub resize_res {
     }
   }
   lprint "old_size=$old_size\n";
-  lprint "new_size=$min_size\n";
-  ldie "only increases of the size are possible\n" if $min_size <= $old_size && !$force;
+  lprint "min_size=$min_size\n";
+  $new_size = $min_size if !$new_size;
+  lprint "new_size=$new_size\n";
+  ldie "new size $new_size is higher than the minimum size of all volumes $min_size" if $new_size > $min_size; # no override with --force possible
+  ldie "only increases of the size are possible without --force\n" if $new_size <= $old_size && !$force;
   foreach my $switch (glob("$mars/resource-$res/todo-*/sync")) {
     my $this_switch = get_link($switch);
     ldie "sync on '$switch' is switched on -- use marsadm pause-sync to stop\n" unless !$this_switch;
@@ -1065,11 +1076,11 @@ sub resize_res {
   foreach my $syncsize (@syncsizes) {
     my $this_size = get_link($syncsize);
     unlink("$syncsize.new");
-    symlink($min_size, "$syncsize.new") or ldie "cannot create size symlink '$syncsize.new'\n";
+    symlink($new_size, "$syncsize.new") or ldie "cannot create size symlink '$syncsize.new'\n";
     rename("$syncsize.new", $syncsize) or ldie "cannot create size symlink '$syncsize'\n";;
   }
   unlink("$lnk.new");
-  symlink($min_size, "$lnk.new") or ldie "cannot create size symlink '$lnk.new'\n";
+  symlink($new_size, "$lnk.new") or ldie "cannot create size symlink '$lnk.new'\n";
   rename("$lnk.new", $lnk) or ldie "cannot create size symlink '$lnk'\n";;
 }
 
