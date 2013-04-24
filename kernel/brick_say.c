@@ -81,6 +81,7 @@ struct say_channel {
 	bool ch_rollover;
 	bool ch_must_exist;
 	bool ch_is_dir;
+	bool ch_delete;
 	int ch_status_written;
 	int ch_id_max;
 	void *ch_ids[MAX_IDS];
@@ -249,6 +250,20 @@ EXPORT_SYMBOL_GPL(rollover_all);
 
 void del_channel(struct say_channel *ch)
 {
+	if (unlikely(!ch))
+		return;
+	if (unlikely(ch == default_channel)) {
+		say_to(default_channel, SAY_ERROR, "thread '%s' tried to delete the default channel\n", current->comm);
+		return;
+	}
+	
+	ch->ch_delete = true;
+}
+EXPORT_SYMBOL_GPL(del_channel);
+
+static
+void _del_channel(struct say_channel *ch)
+{
 	struct say_channel *tmp;
 	struct say_channel **_tmp;
 	int i, j;
@@ -269,6 +284,7 @@ void del_channel(struct say_channel *ch)
 		for (j = 0; j < 2; j++) {
 			if (ch->ch_filp[i][j]) {
 				filp_close(ch->ch_filp[i][j], NULL);
+				ch->ch_filp[i][j] = NULL;
 			}
 		}
 		for (j = 0; j < 2; j++) {
@@ -286,7 +302,6 @@ void del_channel(struct say_channel *ch)
 	kfree(ch);
 	atomic_dec(&say_alloc_channels);
 }
-EXPORT_SYMBOL_GPL(del_channel);
 
 static
 struct say_channel *_make_channel(const char *name, bool must_exist)
@@ -372,7 +387,7 @@ struct say_channel *make_channel(const char *name, bool must_exist)
 
 		for (ch = channel_list; ch; ch = ch->ch_next) {
 			if (ch != res && unlikely(!strcmp(ch->ch_name, name))) {
-				del_channel(res);
+				_del_channel(res);
 				res = ch;
 				goto race_found;
 			}
@@ -402,8 +417,12 @@ void _say(struct say_channel *ch, int class, va_list args, bool use_args, const 
 	int rest;
 	int written;
 
-	if (!ch)
+	if (unlikely(!ch))
 		return;
+	if (unlikely(ch->ch_delete && ch != default_channel)) {
+		say_to(default_channel, SAY_ERROR, "thread '%s' tried to write on deleted channel\n", current->comm);
+		return;
+	}
 
 	offset = ch->ch_index[class];
 	start = ch->ch_buf[class][0] + offset;
@@ -745,6 +764,11 @@ int _say_thread(void *data)
 					goto restart;
 				}
 			}
+			if (ch->ch_delete) {
+				read_unlock(&say_lock);
+				_del_channel(ch);
+				goto restart;
+			}
 		}
 		read_unlock(&say_lock);
 	}
@@ -780,7 +804,7 @@ void exit_say(void)
 
 	default_channel = NULL;
 	while (channel_list) {
-		del_channel(channel_list);
+		_del_channel(channel_list);
 	}
 
 	memleak_channels = atomic_read(&say_alloc_channels);
