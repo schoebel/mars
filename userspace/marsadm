@@ -385,13 +385,12 @@ sub check_splitbrain {
 }
 
 sub get_size {
-  my $arg = shift;
-  if (!$arg =~ m/^[0-9.]+[kmgtp]?$/i) {
+  my $arg = shift || "";
+  if (!($arg =~ m/^([0-9]+(?:\.[0-9]*)?)([kmgtp]?)$/i)) {
     ldie "size argument '$arg' must be a number, optionally followed by suffix k or m or g or t or p\n";
   }
-  my $mod = $arg;
-  $arg =~ s/[^0-9]+$//;
-  $mod =~ s/^[0-9]+//;
+  my $mod = $2 || "";
+  $arg = $1;
   $_ = $mod;
  SWITCH: {
     /k/i and $arg *= 1024, last SWITCH;
@@ -400,6 +399,7 @@ sub get_size {
     /t/i and $arg *= 1024 * 1024 * 1024 * 1024, last SWITCH;
     /p/i and $arg *= 1024 * 1024 * 1024 * 1024 * 1024, last SWITCH;
   }
+  ldie "size '$arg' is not a multiple of 4k\n" if ($arg % 4096) != 0;
   return $arg;
 }
 
