@@ -167,6 +167,8 @@ struct mapfree_info *mapfree_get(const char *name, int flags)
 
 		mapping_set_gfp_mask(mapping, mapping_gfp_mask(mapping) & ~(__GFP_IO | __GFP_FS));
 
+		mf->mf_max = i_size_read(inode);
+
 		if (S_ISBLK(inode->i_mode)) {
 			MARS_INF("changing blkdev readahead from %lu to %d\n", inode->i_bdev->bd_disk->queue->backing_dev_info.ra_pages, ra);
 			inode->i_bdev->bd_disk->queue->backing_dev_info.ra_pages = ra;
