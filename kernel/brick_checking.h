@@ -6,7 +6,7 @@
 
 // checking
 
-#ifdef CONFIG_MARS_DEBUG
+#if defined(CONFIG_MARS_DEBUG) || defined(CONFIG_MARS_CHECKS)
 #define BRICK_CHECKING true
 #else
 #define BRICK_CHECKING false
@@ -16,7 +16,7 @@
 do {									\
 	if (BRICK_CHECKING) {						\
 		int __test = atomic_read(atom);				\
-		if (__test OP (minval)) {				\
+		if (unlikely(__test OP (minval))) {			\
 			atomic_set(atom, minval);			\
 			BRICK_ERR("%d: atomic " #atom " " #OP " " #minval " (%d)\n", __LINE__, __test); \
 		}							\
@@ -34,6 +34,7 @@ do {									\
 	}								\
 } while (0)
 
+#ifdef CONFIG_MARS_DEBUG_MEM
 #define CHECK_PTR_DEAD(ptr,label)					\
 do {									\
 	if (BRICK_CHECKING && unlikely((ptr) == (void*)0x5a5a5a5a5a5a5a5a)) { \
@@ -41,6 +42,9 @@ do {									\
 		goto label;						\
 	}								\
 } while (0)
+#else
+#define CHECK_PTR_DEAD(ptr,label) /*empty*/
+#endif
 
 #define CHECK_PTR_NULL(ptr,label)					\
 do {									\
@@ -51,6 +55,7 @@ do {									\
 	}								\
 } while (0)
 
+#ifdef CONFIG_MARS_DEBUG
 #define CHECK_PTR(ptr,label)						\
 do {									\
 	CHECK_PTR_NULL(ptr, label);					\
@@ -59,6 +64,9 @@ do {									\
 		goto label;						\
 	}								\
 } while (0)
+#else
+#define CHECK_PTR(ptr,label) CHECK_PTR_NULL(ptr,label)
+#endif
 
 #define CHECK_ASPECT(a_ptr, o_ptr,label)				\
   do {								        \

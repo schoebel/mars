@@ -9,11 +9,27 @@ config MARS
 	---help---
 	Experimental storage System. Only compile as a module!
 
+config MARS_CHECKS
+	bool "enable simple runtime checks in MARS"
+	depends on MARS
+	default y
+	---help---
+	These checks should be rather lightweight. Use them
+	for beta testing and for production systems where
+	safety is more important than performance.
+	In case of bugs in the reference counting, an automatic	repair
+	is attempted, which lowers the risk of memory corruptions.
+	Disable only if you need the absolutely last grain of
+	performance.
+	If unsure, say Y here.
+
 config MARS_DEBUG
-	bool "enable runtime checks in MARS"
+	bool "enable full runtime checks and some tracing in MARS"
 	depends on MARS
 	default n
 	---help---
+	Some of these checks and some additional error tracing may
+	consume noticable amounts of memory.
 	OFF for production systems. ON for testing!
 
 config MARS_DEBUG_DEFAULT
