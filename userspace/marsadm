@@ -11,30 +11,27 @@ umask 0077;
 
 # messaging
 
-my $warn = "";
+my $error_count = 0;
 my $notify = "";
 
 sub lprint {
   my ($text) = @_;
-  print "$warn$text";
+  print $text;
   if ($notify) {
-    system("/usr/bin/logger -t marsadm \"$warn$notify $text\"");
+    system("/usr/bin/logger -t marsadm \"$notify $text\"");
   }
 }
 
 sub ldie {
   my ($text) = @_;
-  $warn = "DYING: ";
-  lprint $text;
-  exit -1;
+  $error_count++;
+  lprint "DYING: $text";
+  die "\n";
 }
 
 sub lwarn {
   my ($text) = @_;
-  my $oldwarn = $warn;
-  $warn = "WARNING: ";
-  lprint $text;
-  $warn = $oldwarn;
+  lprint "WARNING: $text";
 }
 
 ##################################################################
@@ -667,23 +664,21 @@ sub _set_replaylink {
 sub ignore_cmd {
   my ($cmd, $res) = @_;
   lprint "ignoring command '$cmd' on resource '$res'\n";
-  exit(0);
 }
 
 sub senseless_cmd {
   my ($cmd, $res) = @_;
-  lprint "command '$cmd' makes no sense with MARS (ignoring)\n";
-  exit(0);
+  lprint "command '$cmd' makes no sense with MARS (ignoring on resource '$res')\n";
 }
 
 sub forbidden_cmd {
   my ($cmd, $res) = @_;
-  ldie "command '$cmd' cannot be used with MARS (it is impossible to carry out uniquely and could therefore lead to a disaster)\n";
+  ldie "command '$cmd' on resource '$res' cannot be used with MARS (migth affect too many hosts, lead to undesired consequences)\n";
 }
 
 sub nyi_cmd {
   my ($cmd, $res) = @_;
-  ldie "command '$cmd' is not yet implemented\n";
+  ldie "command '$cmd'  on resource '$res' is not yet implemented\n";
 }
 
 sub is_module_loaded {
@@ -1126,7 +1121,7 @@ sub primary_res {
   if ($sec) {
     if ($old eq '(none)') {
       lprint "resource '$res' is already designated as secondary everywhere\n";
-      exit(0);
+      return;
     }
     if (($old ne $host) && !$force && (_get_actual_primary($res) ne $host)) {
       ldie "for safety reasons, switching to secondary is only allowed when I ($host) am designated primary or actually primary for resource '$res'\n";
@@ -1134,7 +1129,7 @@ sub primary_res {
     $new = "(none)";
   } elsif ($old eq $new) {
     lprint "I am already designated primary on resource '$res'.\n";
-    exit(0);
+    return;
   } elsif ($force) {
     lprint "FORCING myself ($host) to be the designated primary...\n";
   } elsif (! -d "/proc/sys/mars") {
@@ -1452,27 +1447,70 @@ if ($cmd eq "show") {
 
 lprint "using FORCE option -- hopefully you know what you do!\n" if $force;
 
-sub do_res {
-  my $cmd = shift;
-  my $res = shift;
+sub do_one_res {
+  my $func = shift;
+  my ($cmd, $res) = @_;
 
   $res = check_res($res) unless $cmd =~ m/^(join|create|leave)-cluster|create-resource|show$/;
   check_res_member($res) unless $cmd =~ m/^(join|create)-(cluster|resource)|leave-cluster|show$/;
 
-  my $func = $cmd_table{$cmd};
-  &{$func}($cmd, $res, @_);
+  &{$func}(@_);
 }
 
-if ($res eq "all" && $cmd ne "show") {
-  ldie "For safty reasons, --force is only allowed on explicitly named resources. Combination of 'all' with --force is disallowed!\n" if $force;
-  foreach $res (glob("$mars/resource-*")) {
-    next unless -e "$res/data-$host";
-    $res =~ s/^.*\/resource-(.*)$/$1/;
-    lprint "--------- resource $res\n";
-    do_res($cmd, $res, @args);
+my %skip_res;
+
+sub do_all_res {
+  my $func = shift;
+  my $cmd = shift;
+  my $res = shift || "all";
+  if ($res eq "all" && $cmd !~ m/show|cluster/) {
+    ldie "For safety reasons, --force is only allowed on explicitly named resources. Combination of 'all' with --force is disallowed!\n" if $force;
+    ldie "Cannot combine command '$cmd' with 'all' existing resources - you must explicitly name a single new resource\n" if $cmd =~ m/create|join/;
+    my $any_success = 0;
+    my $any_member = 0;
+    foreach $res (glob("$mars/resource-*")) {
+      next unless -e "$res/data-$host";
+      $any_member++;
+      $res =~ s/^.*\/resource-(.*)$/$1/;
+      next if defined($skip_res{$res});
+      lprint "--------- resource $res\n";
+      eval {
+	do_one_res($func, $cmd, $res, @_);
+	1;
+      } and $any_success = 1 or $skip_res{$res} = 1;
+    }
+    if (!$any_success) {
+      if (!$any_member) {
+	lprint "I am not member of any resource\n";
+	return 1;
+      }
+      ldie "all resources have errors\n";
+    }
+    return !$any_success;
+  } else {
+    return do_one_res($func, $cmd, $res, @_);
   }
+}
+
+my $func = $cmd_table{$cmd};
+ldie "unknown command '$cmd'\n" unless $func;
+
+if (ref($func) eq "ARRAY") {
+  my @list = @$func;
+  while (@list) {
+    my $headline = shift @list;
+    my $memb_func = shift @list;
+    lprint "---------------------------- $headline:\n";
+    my $status = do_all_res($memb_func, $cmd, $res, @args);
+    last if (defined($status) && $status);
+    finish_links();
+  }
+} elsif (ref($func) eq "CODE") {
+  do_all_res($func, $cmd, $res, @args);
 } else {
-  do_res($cmd, $res, @args);
+  ldie "internal error: command table is wrong for '$cmd'";
 }
 
 finish_links();
+
+exit($error_count);
