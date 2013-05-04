@@ -3124,7 +3124,7 @@ int make_dev(void *buf, struct mars_dent *dent)
 	}
 
 	switch_on =
-		(rot->if_brick && atomic_read(&rot->if_brick->inputs[0]->open_count) > 0) ||
+		(rot->if_brick && atomic_read(&rot->if_brick->open_count) > 0) ||
 		(rot->todo_primary &&
 		 !rot->trans_brick->replay_mode &&
 		 rot->trans_brick->power.led_on);
@@ -3157,6 +3157,7 @@ int make_dev(void *buf, struct mars_dent *dent)
 	}
 	dev_brick->show_status = _show_brick_status;
 	_dev_brick = (void*)dev_brick;
+	__show_actual(rot->parent_path, "open-count", atomic_read(&_dev_brick->open_count));
 #if 0
 	if (_dev_brick->has_closed) {
 		_dev_brick->has_closed = false;

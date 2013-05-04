@@ -47,7 +47,6 @@ struct if_input {
 	struct timer_list timer;
 #endif
 	unsigned long capacity;
-	atomic_t open_count;
 	atomic_t plugged_count;
 	atomic_t flying_count;
 	// only for statistics
@@ -78,6 +77,7 @@ struct if_brick {
 	int readahead;
 	bool skip_sync;
 	// inspectable
+	atomic_t open_count;
 	// private
 	struct semaphore switch_sem;
 	struct say_channel *say_channel;

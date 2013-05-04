@@ -267,20 +267,10 @@ sub check_primary_gone {
   for (;;) {
     my $pri = _get_actual_primary($res);
     last if !$pri;
+    last if $pri eq $host;
     lprint "waiting for other primary host ($pri) to disappear....\n";
     sleep_timeout();
   }
-}
-
-sub check_primary_settled {
-    my ($res) = @_;
-    my $target_primary = _get_designated_primary($res);
-    for (;;) {
-      my $actual_primary = _get_actual_primary($res) || '(none)';
-      last if ($target_primary eq $actual_primary);
-      lprint "waiting for primary $target_primary to be settled\n";
-      sleep_timeout(2);
-    }
 }
 
 sub check_todo {
@@ -405,74 +395,8 @@ sub get_minmax_replays {
   return _get_minmax($res, "$mars/resource-$res/replay-*", 1);
 }
 
-sub check_splitbrain {
-  # check only the chain of $host (or all hosts if unset)
-  # check up to $sequence (or for all if < 0)
-  my ($res, $host, $sequence) = @_;
-  if ($sequence < 0) {
-    my $old = _get_actual_primary($res) || "(none)";
-    _primary_res($res, "(none)", $old) unless $old eq "(none)";
-    finish_links();
-    sleep(5);
-    while (!_check_files_modified_any_of("$mars/resource-$res/{log,version,replay}-*", 60)) {
-      lprint "resource directory $res not stable, waiting....\n";
-      sleep_timeout();
-    }
-    while (1) {
-      my ($min_log, $max_log) = get_minmax_logfiles($res);
-      my ($min_ver, $max_ver) = get_minmax_versions($res);
-      my ($min_rep, $max_rep) = get_minmax_replays($res);
-      if ($min_ver > $min_log || $max_ver < $max_log) {
-	lprint "some version links are missing...\n";
-	sleep_timeout();
-	next;
-      }
-      if ($max_log >= $max_rep) {
-	lprint "resource $res: logfile $max_log is present.\n";
-	last;
-      }
-      lprint "resource $res: logfile $max_log is not yet transferred (need $max_rep), waiting....\n";
-      sleep_timeout();
-    }
-  } # $sequence < 0
-
-  my $glob = "$mars/resource-$res/version-[0-9]*";
-  my @links = glob($glob);
-  if (!@links) {
-    @links = glob("$mars/resource-$res/version-[0-9]*-*");
-    ldie "no version information available\n" unless @links;
-    lprint "assuming that I am primary for the first time\n";
-    return;
-  }
-
-  @links = sort(@links);
-  foreach my $link (@links) {
-    my $nr = $link;
-    $nr =~ s:^.*[a-z]+-([0-9]+)(-[^/]*)?$:$1:;
-    $nr = int($nr);
-
-    next if ($sequence >= 0 && $nr > $sequence);
-
-    my $fromhost = $link;
-    $fromhost =~ s:^.*version-[0-9]*-(.*)$:$1:;
-
-    my $version = get_link($link);
-    my $otherhost = $version;
-    $otherhost =~ s/^[^,]*?,(?:log-[0-9]*?-|)([^,]*?),.*$/$1/;
-    my $otherlink = sprintf("$mars/resource-$res/version-%09d-$otherhost", $nr);
-    my $otherversion = get_link($otherlink);
-
-    # ignore foreign mismatches
-    if ($host) {
-      next if $fromhost ne $host;
-    }
-
-    # by defintion, the originator of a logfile is always "right"
-    next if $otherhost eq $fromhost;
-
-    # final check
-    ldie "splitbrain at sequence $nr detected\n" unless $version eq $otherversion;
-  }
+sub try_to_avoid_splitbrain {
+  # NYI
 }
 
 sub get_size {
@@ -1112,41 +1036,71 @@ sub _primary_res {
   lprint "designated primary changed from '$old' to '$new'\n";
 }
 
-sub primary_res {
+# check whether primary/secondary switching is possible at all
+sub primary_phase0 {
   my ($cmd, $res) = @_;
-  my $sec = ($cmd eq "secondary");
-  # we _must_ take the designated primary here, because the actual primary is a _runtime_ condition
+  ldie "cannot switch primary: mars kernel module is not loaded\n" unless ($cmd eq "secondary" || -d "/proc/sys/mars");
+  if ($cmd eq "primary" and !$force) {
+    check_sync_finished($res, $host);
+    check_todo($cmd, $res, "attach", 1, 0);
+    check_todo($cmd, $res, "connect", 1, 0);
+    check_todo($cmd, $res, "allow-replay", 1, 0);
+    #check_status($cmd, $res, "replay_rate", 0, 0, 1);
+  }
+  my $old = _get_designated_primary($res);
+  return if ($old eq $host and $cmd eq "primary");
+  return if $old eq "(none)";
+  my $device_in_use = get_link("$mars/resource-$res/actual-$old/open-count", 1);
+  if ($device_in_use) {
+    my $name = get_link("$mars/resource-$res/device-$old", 1) || "unknown";
+    lwarn "device '/dev/mars/$name' for resource '$res' is $device_in_use times in use on primary host '$old'\n";
+    ldie "first you must umount/close the device (on host '$old')\n" unless $force;
+  }
+  lprint "all preconditions OK for resource '$res'\n";
+}
+
+# when necessary, switch to secondary (intermediately)
+sub primary_phase1 {
+  my ($cmd, $res) = @_;
+  return if ($force and $cmd eq "primary");
+  my $old = _get_designated_primary($res);
+  return if ($old eq $host and $cmd eq "primary");
+  my $new = "(none)";
+  return if $old eq $new;
+  _primary_res($res, $new, $old);
+}
+
+# when necessary, wait
+sub primary_phase2 {
+  my ($cmd, $res) = @_;
+  return if $force;
+  return unless $cmd eq "primary";
+  check_primary_gone($res);
+  try_to_avoid_splitbrain(@_);
+}
+
+# when necessary, switch to primary
+sub primary_phase3 {
+  my ($cmd, $res) = @_;
+  return unless $cmd eq "primary";
   my $old = _get_designated_primary($res);
   my $new = $host;
-  if ($sec) {
-    if ($old eq '(none)') {
-      lprint "resource '$res' is already designated as secondary everywhere\n";
-      return;
-    }
-    if (($old ne $host) && !$force && (_get_actual_primary($res) ne $host)) {
-      ldie "for safety reasons, switching to secondary is only allowed when I ($host) am designated primary or actually primary for resource '$res'\n";
-    }
-    $new = "(none)";
-  } elsif ($old eq $new) {
-    lprint "I am already designated primary on resource '$res'.\n";
-    return;
-  } elsif ($force) {
-    lprint "FORCING myself ($host) to be the designated primary...\n";
-  } elsif (! -d "/proc/sys/mars") {
-    ldie "cannot switch to primary: mars kernel module is not loaded\n";
-  } else { # try to switch myself to primary
-    lprint "trying to switch $new to primary...\n";
-    check_sync_finished($res, $new);
-    check_todo($cmd, $res, "connect", 1, 0);
-    _primary_res($res, "(none)", $old) unless $old eq "(none)";
-    finish_links();
-    check_primary_gone($res);
-    check_splitbrain($res, $new, -1);
-  }
+  return if $old eq $new;
   _primary_res($res, $new, $old);
-  finish_links();
-  check_primary_settled($res);
-  lprint "resource '$res': designated primary successfully changed from $old to $new\n";
+}
+
+# wait for device to appear
+sub primary_phase4 {
+  my ($cmd, $res) = @_;
+  return unless $cmd eq "primary";
+  return if $force;
+  my $name = get_link("$mars/resource-$res/device-$host");
+  my $dev = "/dev/mars/$name";
+  while (! -e $dev) {
+    lprint "device '$dev' not yet present\n";
+    sleep_timeout(1);
+  }
+  lprint "device '$dev' is present\n" if -b $dev;
 }
 
 sub invalidate_res {
@@ -1375,8 +1329,17 @@ my %cmd_table =
    "syncer"            => \&ignore_cmd,
    "up"                => \&up_res,
    "down"              => \&up_res,
-   "primary"           => \&primary_res,
-   "secondary"         => \&primary_res,
+   "primary"           => [
+			   "check preconditions", \&primary_phase0,
+			   "leave primary state", \&primary_phase1,
+			   "wait when necessary", \&primary_phase2,
+			   "switch to primary",   \&primary_phase3,
+			   "wait for device",     \&primary_phase4,
+			  ],
+   "secondary"         => [
+			   "check preconditions", \&primary_phase0,
+			   "leave primary state", \&primary_phase1,
+			  ],
    "invalidate"        => \&invalidate_res,
    "invalidate-remote" => \&forbidden_cmd,
    "resize"            => \&resize_res,

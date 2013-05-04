@@ -813,8 +813,8 @@ static int if_switch(struct if_brick *brick)
 			input->q = NULL;
 		}
 #endif
-		if (atomic_read(&input->open_count) > 0) {
-			MARS_INF("device '%s' is open %d times, cannot shutdown\n", disk->disk_name, atomic_read(&input->open_count));
+		if (atomic_read(&brick->open_count) > 0) {
+			MARS_INF("device '%s' is open %d times, cannot shutdown\n", disk->disk_name, atomic_read(&brick->open_count));
 			status = -EBUSY;
 			goto done; // don't indicate "off" status
 		}
@@ -861,14 +861,14 @@ static int if_open(struct block_device *bdev, fmode_t mode)
 	down(&brick->switch_sem);
 
 	if (unlikely(!brick->power.led_on)) {
-		MARS_INF("----------------------- BUSY %d ------------------------------\n", atomic_read(&input->open_count));
+		MARS_INF("----------------------- BUSY %d ------------------------------\n", atomic_read(&brick->open_count));
 		up(&brick->switch_sem);
 		return -EBUSY;
 	}
 
-	atomic_inc(&input->open_count);
+	atomic_inc(&brick->open_count);
 
-	MARS_INF("----------------------- OPEN %d ------------------------------\n", atomic_read(&input->open_count));
+	MARS_INF("----------------------- OPEN %d ------------------------------\n", atomic_read(&brick->open_count));
 
 	up(&brick->switch_sem);
 	return 0;
@@ -877,14 +877,12 @@ static int if_open(struct block_device *bdev, fmode_t mode)
 static int if_release(struct gendisk *gd, fmode_t mode)
 {
 	struct if_input *input = gd->private_data;
+	struct if_brick *brick = input->brick;
 	int nr;
 
-	MARS_INF("----------------------- CLOSE %d ------------------------------\n", atomic_read(&input->open_count));
+	MARS_INF("----------------------- CLOSE %d ------------------------------\n", atomic_read(&brick->open_count));
 
-	if (atomic_dec_and_test(&input->open_count)) {
-		struct if_brick *brick;
-		brick = input->brick;
-
+	if (atomic_dec_and_test(&brick->open_count)) {
 		while ((nr = atomic_read(&input->flying_count)) > 0) {
 			MARS_INF("%d IO requests not yet completed\n", nr);
 			brick_msleep(1000);
@@ -998,6 +996,7 @@ MARS_MAKE_STATICS(if);
 static int if_brick_construct(struct if_brick *brick)
 {
 	sema_init(&brick->switch_sem, 1);
+	atomic_set(&brick->open_count, 0);
 	return 0;
 }
 
@@ -1022,7 +1021,6 @@ static int if_input_construct(struct if_input *input)
 	INIT_LIST_HEAD(&input->plug_anchor);
 	sema_init(&input->kick_sem, 1);
 	spin_lock_init(&input->req_lock);
-	atomic_set(&input->open_count, 0);
 	atomic_set(&input->flying_count, 0);
 	atomic_set(&input->read_flying_count, 0);
 	atomic_set(&input->write_flying_count, 0);
