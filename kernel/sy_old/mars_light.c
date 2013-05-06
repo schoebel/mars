@@ -3487,7 +3487,7 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 		MARS_DBG("target '%s' deleted and marked for removal\n", dent->new_link);
 	} else {
 		MARS_DBG("target '%s' does no longer exist\n", dent->new_link);
-		if (dent->d_serial < global->deleted_border) {
+		if (dent->d_serial <= global->deleted_border) {
 			MARS_DBG("removing deletion symlink '%s'\n", dent->d_path);
 			dent->d_killme = true;
 			mars_unlink(dent->d_path);

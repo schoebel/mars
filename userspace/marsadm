@@ -860,10 +860,19 @@ sub _create_delete {
   my ($target) = @_;
   my $nr = 0;
   my @paths = glob("$mars/todo-global/delete-*");
-  if (@paths) {
-    my $last = pop(@paths);
-    $nr = $last;
-    $nr =~ s/^.*delete-([0-9]+)$/$1/;
+  foreach my $path (@paths) {
+    $path =~ m/-([0-9]+)/;
+    if (defined($1) && $1 > $nr) {
+      $nr = $1;
+    }
+  }
+  my @paths2 = glob("$mars/todo-global/deleted-*");
+  foreach my $path (@paths2) {
+    my $link = get_link($path, 1);
+    $link =~ m/([0-9]+)/;
+    if (defined($1) && $1 > $nr) {
+      $nr = $1;
+    }
   }
   my $new = sprintf("$mars/todo-global/delete-%09d", $nr + 1);
   lprint "create symlink $new -> $target\n";
