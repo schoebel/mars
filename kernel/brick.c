@@ -612,7 +612,6 @@ EXPORT_SYMBOL_GPL(generic_get_aspect);
 
 struct semaphore lamport_sem = __SEMAPHORE_INITIALIZER(lamport_sem, 1); // TODO: replace with spinlock if possible (first check)
 struct timespec lamport_now = {};
-EXPORT_SYMBOL_GPL(lamport_now);
 
 void get_lamport(struct timespec *now)
 {
