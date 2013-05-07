@@ -152,13 +152,24 @@ sub check_res {
   return $res;
 }
 
+sub check_sizes {
+  my ($res, $host) = @_;
+  my $logical_size = get_link("$mars/resource-$res/size");
+  my $physical_size = get_link("$mars/resource-$res/actsize-$host", 1);
+  if (defined($physical_size) && $physical_size < $logical_size) {
+    ldie "physical device on host '$host' has size $physical_size, which is smaller than the logical resource size $logical_size\n";
+  }
+}
+
 sub check_res_member {
   my $res = shift;
   ldie "sorry, I have not yet joined to resource '$res'\n" unless -e "$mars/resource-$res/data-$host";
+  check_sizes($res, $host);
 }
 
 sub check_sync_finished {
   my ($res, $host) = @_;
+  check_sizes(@_);
   my $lnk = "$mars/resource-$res/syncstatus-$host";
   if (lstat($lnk)) {
     my $syncstatus = get_link($lnk, 1);
@@ -1063,6 +1074,8 @@ sub resize_res {
   $new_size = $min_size if !$new_size;
   lprint "new_size=$new_size\n";
   ldie "new size $new_size is higher than the minimum size of all volumes $min_size" if $new_size > $min_size; # no override with --force possible
+  # for now, disallow decreasing until some bugs are fixed
+  ldie "only increases of the size are possible!\n" if $new_size < $old_size;
   ldie "only increases of the size are possible without --force\n" if $new_size <= $old_size && !$force;
   foreach my $switch (glob("$mars/resource-$res/todo-*/sync")) {
     my $this_switch = get_link($switch);
