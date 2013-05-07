@@ -222,27 +222,45 @@ sub check_primary_settled {
 }
 
 sub check_todo {
-  my ($cmd, $res, $key, $val, $wait) = @_;
+  my ($cmd, $res, $key, $val, $wait, $unchecked, $inv) = @_;
+  my $path = "$mars/resource-$res/todo-$host/$key";
+  my $link;
   for (;;) {
-    my $path = "$mars/resource-$res/todo-$host/$key";
-    my $link = get_link($path);
-    last if $link == $val;
-    ldie "cannot execute $cmd: switch '$key' must have value $val\n" if !$wait;
-    lprint "waiting until switch '$key' reaches the value $val....\n";
+    $link = get_link($path, $unchecked);
+    return unless defined($link);
+    if (defined($inv) && $inv) {
+      last if $link != $val;
+      ldie "cannot execute $cmd: switch '$key' must not have value '$val'\n" if !$wait;
+      lprint "waiting until switch '$key' leaves the value '$val'....\n";
+    } else {
+      last if $link == $val;
+      ldie "cannot execute $cmd: switch '$key' must have value '$val', but actually has value '$link'\n" if !$wait;
+      lprint "waiting until switch '$key' reaches the value '$val'....\n";
+    }
     sleep_timeout();
   }
+  lprint "OK, '$path' has acceptable value '$link'\n";
 }
 
 sub check_status {
-  my ($res, $key, $val, $wait) = @_;
+  my ($cmd, $res, $key, $val, $wait, $unchecked, $inv) = @_;
+  my $path = "$mars/resource-$res/actual-$host/$key";
+  my $link;
   for (;;) {
-    my $path = "$mars/resource-$res/actual-$host/$key";
-    my $link = get_link($path);
-    last if $link == $val;
-    ldie "$path must have value $val\n" if $wait;
-    lprint "waiting until $key reaches the value $val....\n";
+    $link = get_link($path, $unchecked);
+    return unless defined($link);
+    if (defined($inv) && $inv) {
+      last if $link != $val;
+      ldie "cannot execute $cmd: '$path' must not have value '$val'\n" if !$wait;
+      lprint "waiting until '$key' leaves the value '$val'...\n";
+    } else {
+      last if $link == $val;
+      ldie "cannot execute $cmd: '$path' must have value '$val'\n" if !$wait;
+      lprint "waiting until '$key' reaches the value '$val'...\n";
+    }
     sleep_timeout();
   }
+  lprint "OK, '$path' has acceptable value '$link'\n";
 }
 
 #
