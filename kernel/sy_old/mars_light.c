@@ -197,7 +197,7 @@ done:
 
 	limit += global_free_space_0;
 	if (unlikely(global_total_space < limit)) {
-		return -ENOMEM;
+		return -ENOSPC;
 	}
 	return 0;
 }
