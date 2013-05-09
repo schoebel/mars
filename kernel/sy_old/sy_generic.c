@@ -472,29 +472,6 @@ int mars_power_button(struct mars_brick *brick, bool val, bool force_off)
 }
 EXPORT_SYMBOL_GPL(mars_power_button);
 
-int mars_power_button_recursive(struct mars_brick *brick, bool val, bool force_off, int timeout)
-{
-	int status = 0;
-	bool oldval = brick->power.button;
-
-	if (force_off && !val)
-		brick->power.force_off = true;
-
-	if (brick->power.force_off)
-		val = false;
-
-	if (val != oldval) {
-		brick_switch_t mode;
-		mode = (val ? BR_ON_ALL : (force_off ? BR_FREE_ALL : BR_OFF_ALL));
-
-		MARS_DBG("brick '%s' type '%s' power button %d -> %d (mode = %d)\n", brick->brick_path, brick->type->type_name, oldval, val, mode);
-
-		status = set_recursive_button((void*)brick, mode, timeout);
-	}
-	return status;
-}
-EXPORT_SYMBOL_GPL(mars_power_button_recursive);
-
 /////////////////////////////////////////////////////////////////////
 
 // strategy layer
@@ -1229,7 +1206,44 @@ int mars_kill_brick(struct mars_brick *brick)
 	}
 
 	// start shutdown
-	status = set_recursive_button((void*)brick, BR_FREE_ONE, 0);
+	set_button_wait((void*)brick, false, true, 0);
+
+	if (likely(brick->power.led_off)) {
+		int max_inputs = 0;
+		int i;
+
+		if (likely(brick->type)) {
+			max_inputs = brick->type->max_inputs;
+		} else {
+			MARS_ERR("uninitialized brick '%s' '%s'\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
+		}
+
+		MARS_DBG("---> freeing '%s' '%s'\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
+
+		for (i = 0; i < max_inputs; i++) {
+			struct generic_input *input = (void*)brick->inputs[i];
+			if (!input)
+				continue;
+			status = generic_disconnect(input);
+			if (unlikely(status < 0)) {
+				MARS_ERR("brick '%s' '%s' disconnect %d failed, status = %d\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path), i, status);
+				goto done;
+			}
+		}
+		if (likely(brick->free)) {
+			status = brick->free(brick);
+			if (unlikely(status < 0)) {
+				MARS_ERR("freeing '%s' '%s' failed, status = %d\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path), status);
+				goto done;
+			}
+		} else {
+			MARS_ERR("brick '%s' '%s' has no destructor\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
+		}
+		status = 0;
+	} else {
+		MARS_ERR("brick '%s' '%s' is not off\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
+		status = -EIO;
+	}
 
 done:
 	return status;
@@ -1608,11 +1622,7 @@ do_switch:
 	}
 
 	// switch on/off (may fail silently, but responsibility is at the workers)
-	if (switch_state) {
-		status = mars_power_button_recursive((void*)brick, switch_state, false, 10 * HZ);
-	} else {
-		status = mars_power_button((void*)brick, switch_state, false);
-	}
+	status = mars_power_button((void*)brick, switch_state, false);
 	MARS_DBG("switch '%s' to %d status = %d\n", new_path, switch_state, status);
 	goto done;
 

@@ -159,7 +159,6 @@ extern bool mars_check_inputs(struct mars_brick *brick);
 extern bool mars_check_outputs(struct mars_brick *brick);
 
 extern int  mars_power_button(struct mars_brick *brick, bool val, bool force_off);
-extern int  mars_power_button_recursive(struct mars_brick *brick, bool val, bool force_off, int timeout);
 
 /////////////////////////////////////////////////////////////////////////
 

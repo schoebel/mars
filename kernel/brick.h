@@ -586,8 +586,6 @@ typedef enum {
 	BR_FREE_ALL,
 } brick_switch_t;
 
-extern int set_recursive_button(struct generic_brick *brick, brick_switch_t mode, int timeout);
-
 /////////////////////////////////////////////////////////////////////////
 
 // threads
