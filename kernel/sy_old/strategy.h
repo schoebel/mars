@@ -124,7 +124,6 @@ extern struct mars_brick *make_brick_all(
 	bool is_server,
 	int (*setup_fn)(struct mars_brick *brick, void *private),
 	void *private,
-	int timeout,
 	const char *new_name,
 	const struct generic_brick_type *new_brick_type,
 	const struct generic_brick_type *prev_brick_type[],

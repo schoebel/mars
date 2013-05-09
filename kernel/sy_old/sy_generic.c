@@ -1369,7 +1369,6 @@ struct mars_brick *make_brick_all(
 	bool is_server,
 	int (*setup_fn)(struct mars_brick *brick, void *private),
 	void *private,
-	int timeout,
 	const char *new_name,
 	const struct generic_brick_type *new_brick_type,
 	const struct generic_brick_type *prev_brick_type[],
@@ -1390,6 +1389,7 @@ struct mars_brick *make_brick_all(
 	struct mars_brick *prev[prev_count];
 	int switch_state = true;
 	int i;
+	int status;
 
 	// treat variable arguments
 	va_start(args, prev_count);
@@ -1532,21 +1532,12 @@ do_switch:
 	}
 
 	// switch on/off (may fail silently, but responsibility is at the workers)
-	if (timeout > 0 || !switch_state) {
-		int status;
-		if (switch_state) {
-			status = mars_power_button_recursive((void*)brick, switch_state, false, timeout);
-		} else {
-			status = mars_power_button((void*)brick, switch_state, false);
-		}
-		MARS_DBG("switch '%s' timeout=%d to %d status = %d\n", new_path, timeout, switch_state, status);
-#if 0 // TODO: need cleanup_fn() here FIXME: interferes with logic needing the switched-off brick!
-		if (!switch_state && status >= 0 && !brick->power.button && brick->power.led_off) {
-			mars_kill_brick(brick);
-			brick = NULL;
-		}
-#endif
+	if (switch_state) {
+		status = mars_power_button_recursive((void*)brick, switch_state, false, 10 * HZ);
+	} else {
+		status = mars_power_button((void*)brick, switch_state, false);
 	}
+	MARS_DBG("switch '%s' to %d status = %d\n", new_path, switch_state, status);
 	goto done;
 
 err:
