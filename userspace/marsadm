@@ -853,6 +853,7 @@ sub leave_res {
     my $status = get_link($tmp);
     ldie "switch '$tmp' is not off\n" if $status;
   }
+  check_status($cmd, $res, "is-attached", 0, 0, 1);
   foreach my $tmp (glob("$mars/resource-$res/actual-$host/*")) {
     my $status = get_link($tmp);
     ldie "running status '$tmp' is not off\n" if $status;

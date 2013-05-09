@@ -2798,6 +2798,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	struct mars_rotate *rot;
 	struct trans_logger_brick *trans_brick;
 	struct copy_brick *copy_brick;
+	bool is_attached;
 	int status = -EINVAL;
 
 	CHECK_PTR(parent, err);
@@ -2949,6 +2950,9 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	}
 
 done:
+	is_attached = !!rot->trans_brick;
+	_show_actual(rot->parent_path, "is-attached", is_attached);
+
 	if (rot->trans_brick)
 		_show_rate(rot, &rot->replay_limiter, rot->trans_brick->power.led_on, "replay_rate");
 	if (rot->copy_brick)
