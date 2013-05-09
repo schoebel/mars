@@ -1090,7 +1090,7 @@ done:
 }
 EXPORT_SYMBOL_GPL(mars_free_brick);
 
-struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent *belongs, bool is_server, const void *_brick_type, const char *path, const char *_name)
+struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent *belongs, const void *_brick_type, const char *path, const char *_name)
 {
 	const char *name = brick_strdup(_name);
 	const char *names[] = { name, NULL };
@@ -1448,7 +1448,6 @@ EXPORT_SYMBOL_GPL(_sio_brick_type);
 struct mars_brick *make_brick_all(
 	struct mars_global *global,
 	struct mars_dent *belongs,
-	bool is_server,
 	int (*setup_fn)(struct mars_brick *brick, void *private),
 	void *private,
 	const char *new_name,
@@ -1565,7 +1564,7 @@ struct mars_brick *make_brick_all(
 			remote++;
 			MARS_DBG("substitute by remote brick '%s' on peer '%s'\n", new_name, remote);
 			
-			brick = mars_make_brick(global, belongs, is_server, _client_brick_type, new_path, new_name);
+			brick = mars_make_brick(global, belongs, _client_brick_type, new_path, new_name);
 			if (brick) {
 				struct client_brick *_brick = (void*)brick;
 				_brick->max_flying = 10000;
@@ -1589,7 +1588,7 @@ struct mars_brick *make_brick_all(
 
 	// create it...
 	if (!brick)
-		brick = mars_make_brick(global, belongs, is_server, new_brick_type, new_path, new_name);
+		brick = mars_make_brick(global, belongs, new_brick_type, new_path, new_name);
 	if (unlikely(!brick)) {
 		MARS_ERR("creation failed '%s' '%s'\n", new_path, new_name);
 		goto err;

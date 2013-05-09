@@ -94,7 +94,7 @@ extern void mars_free_dent_all(struct mars_global *global, struct list_head *anc
 // low-level brick instantiation
 
 extern struct mars_brick *mars_find_brick(struct mars_global *global, const void *brick_type, const char *path);
-extern struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent *belongs, bool is_server, const void *_brick_type, const char *path, const char *name);
+extern struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent *belongs, const void *_brick_type, const char *path, const char *name);
 extern int mars_free_brick(struct mars_brick *brick);
 extern int mars_kill_brick(struct mars_brick *brick);
 extern int mars_kill_brick_all(struct mars_global *global, struct list_head *anchor, bool use_dent_link);
@@ -121,7 +121,6 @@ extern struct mars_brick *path_find_brick(struct mars_global *global, const void
 extern struct mars_brick *make_brick_all(
 	struct mars_global *global,
 	struct mars_dent *belongs,
-	bool is_server,
 	int (*setup_fn)(struct mars_brick *brick, void *private),
 	void *private,
 	const char *new_name,

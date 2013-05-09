@@ -1168,7 +1168,6 @@ int __make_copy(
 		aio =
 			make_brick_all(global,
 				       NULL,
-				       false,
 				       _set_bio_params,
 				       &clc[i],
 				       NULL,
@@ -1193,7 +1192,6 @@ int __make_copy(
 	copy =
 		make_brick_all(global,
 			       belongs,
-			       false,
 			       _set_copy_params,
 			       &cc,
 			       cc.fullpath[1],
@@ -2220,7 +2218,6 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	aio_brick =
 		make_brick_all(global,
 			       aio_dent,
-			       false,
 			       _set_aio_params,
 			       NULL,
 			       aio_path,
@@ -2271,7 +2268,6 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	trans_brick =
 		make_brick_all(global,
 			       dent,
-			       false,
 			       _set_trans_params,
 			       NULL,
 			       aio_path,
@@ -2659,7 +2655,6 @@ void _rotate_trans(struct mars_rotate *rot)
 		rot->next_relevant_brick =
 			make_brick_all(rot->global,
 				       rot->next_relevant_log,
-				       false,
 				       _set_aio_params,
 				       NULL,
 				       rot->next_relevant_log->d_path,
@@ -2773,7 +2768,6 @@ int _start_trans(struct mars_rotate *rot)
 	rot->relevant_brick =
 		make_brick_all(rot->global,
 			       rot->relevant_log,
-			       false,
 			       _set_aio_params,
 			       NULL,
 			       rot->relevant_log->d_path,
@@ -3068,7 +3062,6 @@ int make_bio(void *buf, struct mars_dent *dent)
 	brick =
 		make_brick_all(global,
 			       dent,
-			       false,
 			       _set_bio_params,
 			       NULL,
 			       dent->d_path,
@@ -3192,7 +3185,6 @@ int make_dev(void *buf, struct mars_dent *dent)
 	dev_brick =
 		make_brick_all(global,
 			       dent,
-			       false,
 			       _set_if_params,
 			       rot,
 			       dent->d_argv[0],
@@ -3271,7 +3263,6 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 	brick = 
 		make_brick_all(global,
 			       dent,
-			       false,
 			       _set_bio_params,
 			       NULL,
 			       src_path,
@@ -3292,7 +3283,6 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 	brick = 
 		make_brick_all(global,
 			       dent,
-			       false,
 			       _set_if_params,
 			       NULL,
 			       dent->d_argv[1],

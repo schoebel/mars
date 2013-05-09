@@ -389,7 +389,6 @@ int handler_thread(void *data)
 			prev = make_brick_all(
 				brick->global,
 				NULL,
-				true,
 				_set_server_bio_params,
 				NULL,
 				path,
@@ -738,7 +737,7 @@ static int _server_thread(void *data)
 
 		MARS_DBG("got new connection #%d\n", handler_socket.s_debug_nr);
 
-		brick = (void*)mars_make_brick(&server_global, NULL, true, &server_brick_type, "handler", "handler");
+		brick = (void*)mars_make_brick(&server_global, NULL, &server_brick_type, "handler", "handler");
 		if (!brick) {
 			MARS_ERR("cannot create server instance\n");
 			mars_shutdown_socket(&handler_socket);
