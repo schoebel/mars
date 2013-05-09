@@ -1323,11 +1323,14 @@ restart:
 			status = mars_power_button(brick, false, false);
 			goto success;
 		}
-		/* optimization:
+		/* Workaround FIXME:
 		 * only kill bricks which have not been touched during the current mars_dent_work() round.
+		 * some bricks like aio seem to have races between startup and termination of threads.
 		 * disable this for stress-testing the allocation/deallocation logic.
+		 * OTOH, frequently doing useless starts/stops is no good idea.
+		 * CHECK: how to avoid too frequent switching by other means?
 		 */
-		if (global && global->global_version == brick->brick_version) {
+		if (brick->kill_round++ < 1) {
 			continue;
 		}
 
@@ -1609,9 +1612,6 @@ struct mars_brick *make_brick_all(
 	}
 
 do_switch:
-	if (global) {
-		brick->brick_version = global->global_version;
-	}
 	// call setup function
 	if (setup_fn) {
 		int setup_status = setup_fn(brick, private);
