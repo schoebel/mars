@@ -1487,10 +1487,12 @@ struct mars_brick *make_brick_all(
 			sscanf(test->new_link, "%d", &switch_state);
 		}
 	}
+	// override?
 	if (switch_override > 0)
 		switch_state = true;
 	else if (switch_override < 0)
 		switch_state = false;
+	// even higher override
 	if (global && !global->global_power.button) {
 		switch_state = false;
 	}
@@ -1500,6 +1502,12 @@ struct mars_brick *make_brick_all(
 	if (brick) {
 		// just switch the power state
 		MARS_DBG("found existing brick '%s'\n", new_path);
+		// highest general override
+		if (mars_check_outputs(brick)) {
+			if (!switch_state)
+				MARS_DBG("brick '%s' override 0 -> 1\n", new_path);
+			switch_state = true;
+		}
 		goto do_switch;
 	}
 	if (!switch_state) { // don't start => also don't create
