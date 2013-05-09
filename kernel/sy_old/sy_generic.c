@@ -1283,7 +1283,7 @@ done:
 }
 EXPORT_SYMBOL_GPL(mars_kill_brick_all);
 
-int mars_kill_brick_when_possible(struct mars_global *global, struct list_head *anchor, bool use_dent_link, const struct mars_brick_type *type, bool only_off)
+int mars_kill_brick_when_possible(struct mars_global *global, struct list_head *anchor, bool use_dent_link, const struct mars_brick_type *type, bool even_on)
 {
 	int return_status = 0;
 	struct list_head *tmp;
@@ -1312,16 +1312,8 @@ restart:
 		if (brick->nr_outputs > 0 && brick->outputs[0] && brick->outputs[0]->nr_connected > 0) {
 			continue;
 		}
-		if (only_off) {
-			if (brick->power.led_off) { // already off
-				continue;
-			}
-			if (global) {
-				up_write(&global->brick_mutex);
-			}
-			MARS_DBG("POWER OFF '%s'\n", brick->brick_name);
-			status = mars_power_button(brick, false, false);
-			goto success;
+		if (!even_on && (brick->power.button || !brick->power.led_off)) {
+			continue;
 		}
 		/* Workaround FIXME:
 		 * only kill bricks which have not been touched during the current mars_dent_work() round.
@@ -1342,7 +1334,6 @@ restart:
 		MARS_DBG("KILLING '%s'\n", brick->brick_name);
 		status = mars_kill_brick(brick);
 
-	success:
 		if (status >= 0) {
 			return_status++;
 		} else {
@@ -1526,7 +1517,7 @@ struct mars_brick *make_brick_all(
 		}
 		goto do_switch;
 	}
-	if (!switch_state) { // don't start => also don't create
+	if (!switch_state && switch_override > -99) { // don't start => also don't create
 		MARS_DBG("no need for brick '%s'\n", new_path);
 		goto done;
 	}

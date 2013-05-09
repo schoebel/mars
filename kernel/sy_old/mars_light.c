@@ -1127,7 +1127,6 @@ int __make_copy(
 		struct copy_brick **__copy)
 {
 	struct mars_brick *copy;
-	struct copy_brick *_copy;
 	struct copy_cookie cc = {};
 	struct client_cookie clc[2] = {
 		{
@@ -1139,6 +1138,7 @@ int __make_copy(
 		},
 	};
 	int i;
+	bool switch_copy;
 	int status = -EINVAL;
 
 	if (!switch_path || !global) {
@@ -1146,8 +1146,9 @@ int __make_copy(
 	}
 
 	// don't generate empty aio files if copy does not yet exist
+	switch_copy = _check_switch(global, switch_path);
 	copy = mars_find_brick(global, &copy_brick_type, copy_path);
-	if (!copy && !_check_switch(global, switch_path))
+	if (!copy && !switch_copy)
 		goto done;
 
 	// create/find predecessor aio bricks
@@ -1174,7 +1175,7 @@ int __make_copy(
 				       (const struct generic_brick_type*)&bio_brick_type,
 				       (const struct generic_brick_type*[]){},
 				       NULL,
-				       1, // start always
+				       switch_copy ? 1 : -1,
 				       cc.fullpath[i],
 				       (const char *[]){},
 				       0);
@@ -1197,25 +1198,21 @@ int __make_copy(
 			       cc.fullpath[1],
 			       (const struct generic_brick_type*)&copy_brick_type,
 			       (const struct generic_brick_type*[]){NULL,NULL,NULL,NULL},
-			       "%s",
-			       (!switch_path[0] || IS_EXHAUSTED()) ? -1 : 0,
+			       NULL,
+			       (!switch_copy || IS_EXHAUSTED()) ? -1 : 0,
 			       "%s",
 			       (const char *[]){"%s", "%s", "%s", "%s"},
 			       4,
-			       switch_path,
 			       copy_path,
 			       cc.fullpath[0],
 			       cc.fullpath[0],
 			       cc.fullpath[1],
 			       cc.fullpath[1]);
-	if (!copy) {
-		MARS_DBG("creation of copy brick '%s' failed\n", copy_path);
-		goto done;
+	if (copy) {
+		copy->show_status = _show_brick_status;
 	}
-	copy->show_status = _show_brick_status;
-	_copy = (void*)copy;
 	if (__copy)
-		*__copy = _copy;
+		*__copy = (void*)copy;
 
 	status = 0;
 
@@ -2095,7 +2092,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	const char *parent_path;
 	const char *replay_path = NULL;
 	const char *aio_path = NULL;
-	const char *switch_path = NULL;
+	bool switch_on;
 	int status = 0;
 
 	if (!global->global_power.button) {
@@ -2213,6 +2210,9 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	}
 	rot->aio_dent = aio_dent;
 
+	// check whether attach is allowed
+	switch_on = _check_allow(global, parent, "attach");
+
 	/* Fetch / make the AIO brick instance
 	 */
 	aio_brick =
@@ -2224,17 +2224,16 @@ int make_log_init(void *buf, struct mars_dent *dent)
 			       (const struct generic_brick_type*)&aio_brick_type,
 			       (const struct generic_brick_type*[]){},
 			       NULL,
-			       1, // start always
+			       rot->trans_brick || switch_on ? 1 : -1, // disallow detach when trans_logger is present
 			       "%s",
 			       (const char *[]){},
 			       0,
 			       aio_path);
-	if (!aio_brick) {
-		MARS_ERR("cannot access '%s'\n", aio_path);
-		status = -EIO;
-		goto done;
-	}
 	rot->aio_brick = (void*)aio_brick;
+	status = 0;
+	if (unlikely(!aio_brick || !aio_brick->power.led_on)) {
+		goto done; // this may happen in case of detach
+	}
 
 	/* Fetch the actual logfile size
 	 */
@@ -2257,9 +2256,6 @@ int make_log_init(void *buf, struct mars_dent *dent)
 		brick_string_free(new_path);
 	}
 
-	// check whether attach is allowed
-	switch_path = path_make("%s/todo-%s/attach", parent_path, my_id());
-
 	/* Fetch / make the transaction logger.
 	 * We deliberately "forget" to connect the log input here.
 	 * Will be carried out later in make_log_step().
@@ -2273,19 +2269,19 @@ int make_log_init(void *buf, struct mars_dent *dent)
 			       aio_path,
 			       (const struct generic_brick_type*)&trans_logger_brick_type,
 			       (const struct generic_brick_type*[]){NULL},
-			       switch_path,
-			       0, // let switch decide
+			       NULL,
+			       rot->trans_brick && rot->trans_brick->power.led_on ? 1 : switch_on ? -100 : -1, // keep old state, create always if attach
 			       "%s/logger", 
 			       (const char *[]){"%s/data-%s"},
 			       1,
 			       parent_path,
 			       parent_path,
 			       my_id());
+	rot->trans_brick = (void*)trans_brick;
 	status = -ENOENT;
 	if (!trans_brick) {
 		goto done;
 	}
-	rot->trans_brick = (void*)trans_brick;
 	rot->trans_brick->replay_limiter = &rot->replay_limiter;
 	/* For safety, default is to try an (unnecessary) replay in case
 	 * something goes wrong later.
@@ -2297,7 +2293,6 @@ int make_log_init(void *buf, struct mars_dent *dent)
 done:
 	brick_string_free(aio_path);
 	brick_string_free(replay_path);
-	brick_string_free(switch_path);
 	return status;
 }
 
@@ -2948,9 +2943,14 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		if (trans_brick->replay_mode) {
 			do_stop = trans_brick->replay_code != 0 ||
 				!global->global_power.button ||
-				!_check_allow(global, parent, "allow-replay");
+				!_check_allow(global, parent, "allow-replay") ||
+				!_check_allow(global, parent, "attach") ;
 		} else {
-			do_stop = !rot->is_primary;
+			do_stop =
+				!rot->if_brick &&
+				!rot->is_primary &&
+				(!rot->todo_primary ||
+				 !_check_allow(global, parent, "attach"));
 		}
 
 		MARS_DBG("replay_mode = %d replay_code = %d is_primary = %d do_stop = %d\n", trans_brick->replay_mode, trans_brick->replay_code, rot->is_primary, (int)do_stop);
@@ -3002,8 +3002,18 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	}
 
 done:
+	// remove trans_logger (when possible) upon detach
 	is_attached = !!rot->trans_brick;
 	_show_actual(rot->parent_path, "is-attached", is_attached);
+
+	if (rot->trans_brick && rot->trans_brick->power.led_off && !rot->trans_brick->outputs[0]->nr_connected) {
+		bool do_attach = _check_allow(global, parent, "attach");
+		MARS_DBG("do_attach = %d\n", do_attach);
+		if (!do_attach) {
+			rot->trans_brick->killme = true;
+			rot->trans_brick = NULL;
+		}
+	}
 
 	if (rot->trans_brick)
 		_show_rate(rot, &rot->replay_limiter, rot->trans_brick->power.led_on, "replay_rate");
@@ -3050,15 +3060,15 @@ int make_bio(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
 	struct mars_brick *brick;
+	bool switch_on;
 	int status = 0;
 
-	if (!global->global_power.button) {
+	if (!global || !global->global_power.button || !dent->d_parent) {
 		goto done;
 	}
-	brick = mars_find_brick(global, NULL, dent->d_path);
-	if (brick) {
-		goto check;
-	}
+
+	switch_on = _check_allow(global, dent->d_parent, "attach");
+
 	brick =
 		make_brick_all(global,
 			       dent,
@@ -3068,7 +3078,7 @@ int make_bio(void *buf, struct mars_dent *dent)
 			       (const struct generic_brick_type*)&bio_brick_type,
 			       (const struct generic_brick_type*[]){},
 			       NULL,
-			       1, // start always
+			       switch_on ? 1 : -1,
 			       dent->d_path,
 			       (const char *[]){},
 			       0);
@@ -3077,17 +3087,11 @@ int make_bio(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 	brick->outputs[0]->output_name = dent->d_path;
-	status = mars_power_button((void*)brick, true, false);
-	if (status < 0) {
-		kill_any(buf, dent);
-		goto done;
-	}
 
-check:
 	/* Report the actual size of the device.
 	 * It may be larger than the global size.
 	 */
-	if (brick && brick->power.led_on && dent->d_parent) {
+	if (brick && brick->power.led_on) {
 		struct mars_info info = {};
 		struct mars_output *output;
 		char *src = NULL;
@@ -3177,7 +3181,8 @@ int make_dev(void *buf, struct mars_dent *dent)
 		(rot->if_brick && atomic_read(&rot->if_brick->open_count) > 0) ||
 		(rot->todo_primary &&
 		 !rot->trans_brick->replay_mode &&
-		 rot->trans_brick->power.led_on);
+		 rot->trans_brick->power.led_on &&
+		 _check_allow(global, dent->d_parent, "attach"));
 	if (!global->global_power.button) {
 		switch_on = false;
 	}
@@ -3202,6 +3207,10 @@ int make_dev(void *buf, struct mars_dent *dent)
 	if (!dev_brick) {
 		MARS_DBG("device not shown\n");
 		goto done;
+	}
+	if (!switch_on) {
+		MARS_DBG("setting killme on if_brick\n");
+		dev_brick->killme = true;
 	}
 	dev_brick->show_status = _show_brick_status;
 	_dev_brick = (void*)dev_brick;
@@ -3240,6 +3249,7 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 	struct mars_brick *brick;
 	char *src_path = NULL;
 	int status;
+	bool switch_on;
 	bool do_dealloc = false;
 
 	if (!global->global_power.button || !dent->d_parent || !dent->new_link) {
@@ -3260,6 +3270,9 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 		}
 		do_dealloc = true;
 	}
+
+	switch_on = _check_allow(global, dent->d_parent, "attach");
+
 	brick = 
 		make_brick_all(global,
 			       dent,
@@ -3269,7 +3282,7 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 			       (const struct generic_brick_type*)&bio_brick_type,
 			       (const struct generic_brick_type*[]){},
 			       NULL,
-			       0,
+			       switch_on ? 1 : -1,
 			       "%s",
 			       (const char *[]){},
 			       0,
@@ -3289,7 +3302,7 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 			       (const struct generic_brick_type*)&if_brick_type,
 			       (const struct generic_brick_type*[]){NULL},
 			       NULL,
-			       0,
+			       switch_on ? 1 : -1,
 			       "%s/directdevice-%s",
 			       (const char *[]){ "%s" },
 			       1,
@@ -3358,12 +3371,14 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	const char *copy_path = NULL;
 	const char *src = NULL;
 	const char *dst = NULL;
-	bool do_start = true;
+	bool do_start;
 	int status;
 
 	if (!global->global_power.button || !dent->d_parent || !dent->new_link) {
 		return 0;
 	}
+
+	do_start = _check_allow(global, dent->d_parent, "attach");
 
 	/* Analyze replay position
 	 */
@@ -4222,15 +4237,21 @@ static int light_thread(void *data)
 		MARS_DBG("-------- worker deleted_min = %d status = %d\n", _global.deleted_min, status);
 
 		if (!_global.global_power.button) {
-			status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&copy_brick_type, false);
+			status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&copy_brick_type, true);
 			MARS_DBG("kill copy bricks (when possible) = %d\n", status);
 		}
-		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&client_brick_type, false);
+
+		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, NULL, false);
+		MARS_DBG("kill main bricks (when possible) = %d\n", status);
+
+		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&client_brick_type, true);
 		MARS_DBG("kill client bricks (when possible) = %d\n", status);
-		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&aio_brick_type, false);
+		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&aio_brick_type, true);
 		MARS_DBG("kill aio    bricks (when possible) = %d\n", status);
-		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&sio_brick_type, false);
+		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&sio_brick_type, true);
 		MARS_DBG("kill sio    bricks (when possible) = %d\n", status);
+		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&bio_brick_type, true);
+		MARS_DBG("kill bio    bricks (when possible) = %d\n", status);
 
 		if ((long long)jiffies + mars_rollover_interval * HZ >= last_rollover) {
 			last_rollover = jiffies;

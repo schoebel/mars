@@ -710,14 +710,8 @@ static int _server_thread(void *data)
 		if (server_show_statist)
 			show_statistics(&server_global, "server");
 
-		status = mars_kill_brick_when_possible(&server_global, &server_global.brick_anchor, false, (void*)&server_brick_type, false);
-		MARS_DBG("kill server     bricks (when possible) = %d\n", status);
-		status = mars_kill_brick_when_possible(&server_global, &server_global.brick_anchor, false, (void*)&bio_brick_type, false);
-		MARS_DBG("kill server bio bricks (when possible) = %d\n", status);
-		status = mars_kill_brick_when_possible(&server_global, &server_global.brick_anchor, false, (void*)&aio_brick_type, false);
-		MARS_DBG("kill server aio bricks (when possible) = %d\n", status);
-		status = mars_kill_brick_when_possible(&server_global, &server_global.brick_anchor, false, (void*)&sio_brick_type, false);
-		MARS_DBG("kill server sio bricks (when possible) = %d\n", status);
+		status = mars_kill_brick_when_possible(&server_global, &server_global.brick_anchor, false, NULL, true);
+		MARS_DBG("kill server bricks (when possible) = %d\n", status);
 
 		if (!mars_global || !mars_global->global_power.button) {
 			brick_msleep(1000);
