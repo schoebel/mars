@@ -1368,6 +1368,8 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 		MARS_DBG("update '%s' from peer '%s' status = %d\n", remote_dent->d_path, peer, status);
 		rot->copy_serial = remote_dent->d_serial;
 		rot->copy_next_is_available = 0;
+	} else {
+		MARS_DBG("allow_update = %d src_size = %lld dst_size = %lld local_dent = %p\n", rot->allow_update, src_size, dst_size, local_dent);
 	}
 
 done:
@@ -2894,27 +2896,6 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		}
 	}
 
-	// check whether some copy has finished
-	copy_brick = (struct copy_brick*)mars_find_brick(global, &copy_brick_type, rot->copy_path);
-	MARS_DBG("copy_path = '%s' copy_brick = %p\n", rot->copy_path, copy_brick);
-	if (copy_brick &&
-	    (copy_brick->power.led_off ||
-	     !global->global_power.button ||
-	     (copy_brick->copy_last == copy_brick->copy_end &&
-	      rot->copy_next_is_available > 0))) {
-		status = mars_kill_brick((void*)copy_brick);
-		if (status < 0) {
-			MARS_ERR("could not kill copy_brick, status = %d\n", status);
-			goto done;
-		}
-		copy_brick = NULL;
-		mars_trigger();
-	}
-	rot->copy_brick = copy_brick;
-	if (!copy_brick) {
-		rot->copy_serial = 0;
-	}
-
 	if (IS_EMERGENCY_PRIMARY() || (!rot->todo_primary && IS_EMERGENCY_SECONDARY())) {
 		MARS_WRN_TO(rot->log_say, "EMERGENCY: the space on /mars/ is very low. Expect some problems!\n");
 		if (rot->first_log && rot->first_log != rot->relevant_log) {
@@ -3002,6 +2983,27 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	}
 
 done:
+	// check whether some copy has finished
+	copy_brick = (struct copy_brick*)mars_find_brick(global, &copy_brick_type, rot->copy_path);
+	MARS_DBG("copy_path = '%s' copy_brick = %p\n", rot->copy_path, copy_brick);
+	if (copy_brick &&
+	    (copy_brick->power.led_off ||
+	     !global->global_power.button ||
+	     (copy_brick->copy_last == copy_brick->copy_end &&
+	      rot->copy_next_is_available > 0))) {
+		status = mars_kill_brick((void*)copy_brick);
+		if (status < 0) {
+			MARS_ERR("could not kill copy_brick, status = %d\n", status);
+			goto done;
+		}
+		copy_brick = NULL;
+		mars_trigger();
+	}
+	rot->copy_brick = copy_brick;
+	if (!copy_brick) {
+		rot->copy_serial = 0;
+	}
+
 	// remove trans_logger (when possible) upon detach
 	is_attached = !!rot->trans_brick;
 	_show_actual(rot->parent_path, "is-attached", is_attached);
