@@ -1,7 +1,7 @@
 // (c) 2010 Thomas Schoebel-Theuer / 1&1 Internet AG
 
 //#define BRICK_DEBUGGING
-//#define MARS_DEBUGGING
+#define MARS_DEBUGGING
 //#define IO_DEBUGGING
 
 #include <linux/kernel.h>
@@ -409,12 +409,12 @@ void aio_stop_thread(struct aio_output *output, int i, bool do_submit_dummy)
 	struct aio_threadinfo *tinfo = &output->tinfo[i];
 
 	if (tinfo->thread) {
-		MARS_INF("stopping thread %d ...\n", i);
+		MARS_DBG("stopping thread %d ...\n", i);
 		brick_thread_stop_nowait(tinfo->thread);
 
 		// workaround for waking up the receiver thread. TODO: check whether signal handlong could do better.
 		if (do_submit_dummy) {
-			MARS_INF("submitting dummy for wakeup %d...\n", i);
+			MARS_DBG("submitting dummy for wakeup %d...\n", i);
 			use_fake_mm();
 			aio_submit_dummy(output);
 			if (likely(current->mm)) {
@@ -423,7 +423,7 @@ void aio_stop_thread(struct aio_output *output, int i, bool do_submit_dummy)
 		}
 
 		// wait for termination
-		MARS_INF("waiting for thread %d ...\n", i);
+		MARS_DBG("waiting for thread %d ...\n", i);
 		wait_event_interruptible_timeout(
 			tinfo->terminate_event,
 			tinfo->terminated,
@@ -531,7 +531,7 @@ int aio_sync_thread(void *data)
 	struct q_sync q_sync = {};
 #endif
 	
-	MARS_INF("sync thread has started on '%s'.\n", output->brick->brick_path);
+	MARS_DBG("sync thread has started on '%s'.\n", output->brick->brick_path);
 	//set_user_nice(current, -20);
 
 	while (!brick_thread_should_stop() || atomic_read(&tinfo->queued_sum) > 0) {
@@ -572,7 +572,7 @@ int aio_sync_thread(void *data)
 #endif
 	}
 
-	MARS_INF("sync thread has stopped.\n");
+	MARS_DBG("sync thread has stopped.\n");
 	tinfo->terminated = true;
 	wake_up_interruptible_all(&tinfo->terminate_event);
 	return 0;
@@ -585,7 +585,7 @@ static int aio_event_thread(void *data)
 	struct aio_threadinfo *other = &output->tinfo[2];
 	int err = -ENOMEM;
 	
-	MARS_INF("event thread has started.\n");
+	MARS_DBG("event thread has started.\n");
 	//set_user_nice(current, -20);
 
 	use_fake_mm();
@@ -617,7 +617,6 @@ static int aio_event_thread(void *data)
 			atomic_sub(count, &output->submit_count);
 		}
 
-		//MARS_INF("count = %d\n", count);
 		for (i = 0; i < count; i++) {
 			struct aio_mref_aspect *mref_a = (void*)events[i].data;
 			struct mref_object *mref;
@@ -658,7 +657,7 @@ static int aio_event_thread(void *data)
 	err = 0;
 
  err:
-	MARS_INF("event thread has stopped, err = %d\n", err);
+	MARS_DBG("event thread has stopped, err = %d\n", err);
 
 	aio_stop_thread(output, 2, false);
 
@@ -677,7 +676,7 @@ void fd_uninstall(unsigned int fd)
 {
 	struct files_struct *files = current->files;
 	struct fdtable *fdt;
-	MARS_INF("fd = %d\n", fd);
+	MARS_DBG("fd = %d\n", fd);
 	spin_lock(&files->file_lock);
 	fdt = files_fdtable(files);
 	rcu_assign_pointer(fdt->fd[fd], NULL);
@@ -738,7 +737,7 @@ int _create_ioctx(struct aio_output *output)
 	 * do_submit() which currently does not exist :(
 	 */
 	err = get_unused_fd();
-	MARS_INF("fd = %d\n", err);
+	MARS_DBG("fd = %d\n", err);
 	if (unlikely(err < 0)) {
 		MARS_ERR("cannot get fd, err=%d\n", err);
 		goto done;
@@ -746,7 +745,7 @@ int _create_ioctx(struct aio_output *output)
 	output->fd = err;
 	fd_install(err, file);
 
-	MARS_INF("submit thread has started.\n");
+	MARS_DBG("file handle = %d\n", err);
 
 	use_fake_mm();
 
@@ -784,6 +783,8 @@ static int aio_submit_thread(void *data)
 	struct aio_output *output = tinfo->output;
 	struct file *file;
 	int err = -EINVAL;
+
+	MARS_DBG("submit thread has started.\n");
 
 	file = output->mf->mf_filp;
 
@@ -1032,11 +1033,11 @@ static int aio_switch(struct aio_brick *brick)
 
 	if (brick->o_creat) {
 		flags |= O_CREAT;
-		MARS_INF("using O_CREAT on %s\n", path);
+		MARS_DBG("using O_CREAT on %s\n", path);
 	}
 	if (brick->o_direct) {
 		flags |= O_DIRECT;
-		MARS_INF("using O_DIRECT on %s\n", path);
+		MARS_DBG("using O_DIRECT on %s\n", path);
 	}
 
 	output->mf = mapfree_get(path, flags);
@@ -1060,9 +1061,9 @@ static int aio_switch(struct aio_brick *brick)
 		goto err;
 	}
 
-	MARS_INF("opened file '%s'\n", path);
+	MARS_DBG("opened file '%s'\n", path);
 	mars_power_led_on((void*)brick, true);
-	MARS_DBG("successfully switched on.\n");
+
 done:
 	return 0;
 
@@ -1158,14 +1159,14 @@ EXPORT_SYMBOL_GPL(aio_brick_type);
 
 int __init init_mars_aio(void)
 {
-	MARS_INF("init_aio()\n");
+	MARS_DBG("init_aio()\n");
 	_aio_brick_type = (void*)&aio_brick_type;
 	return aio_register_brick_type();
 }
 
 void __exit exit_mars_aio(void)
 {
-	MARS_INF("exit_aio()\n");
+	MARS_DBG("exit_aio()\n");
 	aio_unregister_brick_type();
 }
 
