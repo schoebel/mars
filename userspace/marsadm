@@ -1108,6 +1108,20 @@ sub primary_phase4 {
   lprint "device '$dev' is present\n" if -b $dev;
 }
 
+sub wait_umount_res {
+  my ($cmd, $res) = @_;
+  while (1) {
+    my $sum = 0;
+    foreach my $path (glob("$mars/resource-$res/actual-*/open-count")) {
+      $sum += get_link($path);
+    }
+    last if !$sum;
+    lprint "device for resource '$res' is $sum times in use somewhere\n";
+    sleep_timeout(3);
+  }
+  lprint "OK, device for resource '$res' is not in use.\n";
+}
+
 sub invalidate_res {
   my ($cmd, $res) = @_;
   check_not_primary(@_);
@@ -1323,6 +1337,7 @@ my %cmd_table =
    "pause-replay-local"  => \&pause_replay_local_res,
    "resume-replay-local" => \&pause_replay_local_res,
    "set-replay"          => \&set_replay_res,
+   "wait-umount"         => \&wait_umount_res,
 
    # compatible keywords (or their derivatives)
    "attach"            => \&attach_res,
