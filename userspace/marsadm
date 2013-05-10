@@ -245,6 +245,11 @@ sub check_primary {
   my ($cmd, $res) = @_;
   my $lnk = "$mars/resource-$res/actual-$host/is-primary";
   my $is_primary = get_link($lnk);
+  if (!$is_primary) { # give it a second chance
+    my $name = get_link("$mars/resource-$res/device-$host");
+    my $dev = "/dev/mars/$name";
+    $is_primary = 1 if -b $dev;
+  }
   ldie "for operation '$cmd' I need to be primary\n" unless $is_primary;
   my $primary = _get_designated_primary($res);
   ldie "for operation '$cmd', I also must be the designated primary\n" unless $primary eq $host;
