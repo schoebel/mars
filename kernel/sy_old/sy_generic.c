@@ -1447,8 +1447,7 @@ struct mars_brick *make_brick_all(
 	const char *new_name,
 	const struct generic_brick_type *new_brick_type,
 	const struct generic_brick_type *prev_brick_type[],
-	const char *switch_fmt,
-	int switch_override, // -1 = off, +1 = on, 0 = let switch decide
+	int switch_override, // -1 = off, 0 = leave in current state, +1 = create when necessary, +2 = create + switch on
 	const char *new_fmt,
 	const char *prev_fmt[],
 	int prev_count,
@@ -1456,24 +1455,17 @@ struct mars_brick *make_brick_all(
 	)
 {
 	va_list args;
-	char *switch_path = NULL;
 	const char *new_path;
 	char *_new_path = NULL;
 	struct mars_brick *brick = NULL;
 	char *paths[prev_count];
 	struct mars_brick *prev[prev_count];
-	int switch_state = true;
+	bool switch_state;
 	int i;
 	int status;
 
 	// treat variable arguments
 	va_start(args, prev_count);
-	if (switch_fmt) {
-		switch_state = false;
-		if (switch_fmt[0] && global && global->global_power.button) {
-			switch_path = vpath_make(switch_fmt, &args);
-		}
-	}
 	if (new_fmt) {
 		new_path = _new_path = vpath_make(new_fmt, &args);
 	} else {
@@ -1488,14 +1480,15 @@ struct mars_brick *make_brick_all(
 		MARS_ERR("could not create new path\n");
 		goto err;
 	}
-	if (switch_path) {
-		struct mars_dent *test = mars_find_dent(global, switch_path);
-		if (test && test->new_link) {
-			sscanf(test->new_link, "%d", &switch_state);
-		}
+
+	// get old switch state
+	brick = mars_find_brick(global, NULL, new_path);
+	switch_state = false;
+	if (brick) {
+		switch_state = brick->power.button;
 	}
 	// override?
-	if (switch_override > 0)
+	if (switch_override > 1)
 		switch_state = true;
 	else if (switch_override < 0)
 		switch_state = false;
@@ -1505,7 +1498,6 @@ struct mars_brick *make_brick_all(
 	}
 
 	// brick already existing?
-	brick = mars_find_brick(global, NULL, new_path);
 	if (brick) {
 		// just switch the power state
 		MARS_DBG("found existing brick '%s'\n", new_path);
@@ -1517,7 +1509,9 @@ struct mars_brick *make_brick_all(
 		}
 		goto do_switch;
 	}
-	if (!switch_state && switch_override > -99) { // don't start => also don't create
+
+	// brick not existing => check whether to create it
+	if (switch_override < 1) { // don't create
 		MARS_DBG("no need for brick '%s'\n", new_path);
 		goto done;
 	}
@@ -1629,8 +1623,6 @@ done:
 	}
 	if (_new_path)
 		brick_string_free(_new_path);
-	if (switch_path)
-		brick_string_free(switch_path);
 
 	return brick;
 }

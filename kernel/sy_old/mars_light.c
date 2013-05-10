@@ -1174,8 +1174,7 @@ int __make_copy(
 				       NULL,
 				       (const struct generic_brick_type*)&bio_brick_type,
 				       (const struct generic_brick_type*[]){},
-				       NULL,
-				       switch_copy ? 1 : -1,
+				       switch_copy ? 2 : -1,
 				       cc.fullpath[i],
 				       (const char *[]){},
 				       0);
@@ -1198,8 +1197,7 @@ int __make_copy(
 			       cc.fullpath[1],
 			       (const struct generic_brick_type*)&copy_brick_type,
 			       (const struct generic_brick_type*[]){NULL,NULL,NULL,NULL},
-			       NULL,
-			       (!switch_copy || IS_EXHAUSTED()) ? -1 : 0,
+			       (!switch_copy || IS_EXHAUSTED()) ? -1 : 2,
 			       "%s",
 			       (const char *[]){"%s", "%s", "%s", "%s"},
 			       4,
@@ -2225,8 +2223,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 			       aio_path,
 			       (const struct generic_brick_type*)&aio_brick_type,
 			       (const struct generic_brick_type*[]){},
-			       NULL,
-			       rot->trans_brick || switch_on ? 1 : -1, // disallow detach when trans_logger is present
+			       rot->trans_brick || switch_on ? 2 : -1, // disallow detach when trans_logger is present
 			       "%s",
 			       (const char *[]){},
 			       0,
@@ -2271,8 +2268,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 			       aio_path,
 			       (const struct generic_brick_type*)&trans_logger_brick_type,
 			       (const struct generic_brick_type*[]){NULL},
-			       NULL,
-			       rot->trans_brick && rot->trans_brick->power.led_on ? 1 : switch_on ? -100 : -1, // keep old state, create always if attach
+			       1, // create when necessary, but leave in current state otherwise
 			       "%s/logger", 
 			       (const char *[]){"%s/data-%s"},
 			       1,
@@ -2657,8 +2653,7 @@ void _rotate_trans(struct mars_rotate *rot)
 				       rot->next_relevant_log->d_path,
 				       (const struct generic_brick_type*)&aio_brick_type,
 				       (const struct generic_brick_type*[]){},
-				       NULL,
-				       0, // let switch decide
+				       2, // create + activate
 				       rot->next_relevant_log->d_path,
 				       (const char *[]){},
 				       0);
@@ -2770,8 +2765,7 @@ int _start_trans(struct mars_rotate *rot)
 			       rot->relevant_log->d_path,
 			       (const struct generic_brick_type*)&aio_brick_type,
 			       (const struct generic_brick_type*[]){},
-			       NULL,
-			       1, // start always
+			       2, // start always
 			       rot->relevant_log->d_path,
 			       (const char *[]){},
 			       0);
@@ -3079,8 +3073,7 @@ int make_bio(void *buf, struct mars_dent *dent)
 			       dent->d_path,
 			       (const struct generic_brick_type*)&bio_brick_type,
 			       (const struct generic_brick_type*[]){},
-			       NULL,
-			       switch_on ? 1 : -1,
+			       switch_on ? 2 : -1,
 			       dent->d_path,
 			       (const char *[]){},
 			       0);
@@ -3197,8 +3190,7 @@ int make_dev(void *buf, struct mars_dent *dent)
 			       dent->d_argv[0],
 			       (const struct generic_brick_type*)&if_brick_type,
 			       (const struct generic_brick_type*[]){(const struct generic_brick_type*)&trans_logger_brick_type},
-			       NULL,
-			       switch_on ? 1 : -1,
+			       switch_on ? 2 : -1,
 			       "%s/device-%s", 
 			       (const char *[]){"%s/logger"},
 			       1,
@@ -3283,8 +3275,7 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 			       src_path,
 			       (const struct generic_brick_type*)&bio_brick_type,
 			       (const struct generic_brick_type*[]){},
-			       NULL,
-			       switch_on ? 1 : -1,
+			       switch_on ? 2 : -1,
 			       "%s",
 			       (const char *[]){},
 			       0,
@@ -3303,8 +3294,7 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 			       dent->d_argv[1],
 			       (const struct generic_brick_type*)&if_brick_type,
 			       (const struct generic_brick_type*[]){NULL},
-			       NULL,
-			       switch_on ? 1 : -1,
+			       switch_on ? 2 : -1,
 			       "%s/directdevice-%s",
 			       (const char *[]){ "%s" },
 			       1,
