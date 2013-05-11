@@ -50,8 +50,10 @@ int trigger_sysctl_handler(
 			len = 7;
 		if (!copy_from_user(tmp, buffer, len)) {
 			sscanf(tmp, "%d", &code);
-			if (code) {
+			if (code > 0) {
 				mars_trigger();
+			}
+			if (code > 1) {
 				mars_remote_trigger();
 			}
 		}

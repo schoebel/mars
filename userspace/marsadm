@@ -136,6 +136,29 @@ unless ($ARGV[0] =~ m/cluster/) {
   }
 }
 
+sub get_alive_links {
+  my $res = shift || "all";
+  my $alive = shift || "alive";
+  my $glob = "$mars/$alive-*";
+  if ($res ne "all") {
+    $glob = "$mars/$alive-{";
+    my $count = 0;
+    foreach my $peer (glob("$mars/resource-$res/connect-*")) {
+      $peer =~ m:/connect-(.+):;
+      $glob .= "," if $count++;
+      $glob .= $1;
+    }
+    $glob .= "}";
+  }
+  my %links;
+  foreach my $path (glob($glob)) {
+    $path =~ m:/$alive-(.+):;
+    my $peer = $1;
+    $links{$peer} = get_link($path);
+  }
+  return %links;
+}
+
 ##################################################################
 
 # timeout handling
@@ -165,6 +188,42 @@ sub sleep_timeout {
   $rest = $sleeptime if $rest > $sleeptime;
   sleep($rest);
   $timeout -= $rest;
+}
+
+# wait until some communication has occurred
+sub wait_cluster {
+  my $cmd = shift;
+  my $res = shift || "all";
+  my $start_time = mars_time();
+  _trigger();
+  my $delta = $timeout > 0 ? $timeout : 30;
+  while (1) {
+    my $dead_count = 0;
+    my $alive_count = 0;
+    my $unknown_count = 0;
+    my %status = get_alive_links($res, "time");
+    my $now = mars_time();
+    foreach my $peer (keys(%status)) {
+      next if $peer eq $host;
+      if ($status{$peer} >= $start_time) {
+	$alive_count++;
+      } elsif ($status{$peer} + $delta < $now) {
+	$dead_count++;
+      } else {
+	$unknown_count++;
+      }
+    }
+    if (!$dead_count && !$unknown_count) {
+      lprint "all $alive_count peer(s) seem to be alive\n";
+      last;
+    }
+    if (!$unknown_count) {
+      lwarn "$alive_count peer(s) seem to be alive, and $dead_count peer(s) seem to be dead / not reachable\n";
+      ldie "--force not given\n" unless $force;
+      last;
+    }
+    sleep(1);
+  }
 }
 
 ##################################################################
@@ -457,7 +516,7 @@ sub get_peers {
 # helpers
 
 sub _trigger {
-  system("(echo 1 > /proc/sys/mars/trigger) >/dev/null 2>&1");
+  system("(echo 2 > /proc/sys/mars/trigger) >/dev/null 2>&1");
 }
 
 sub _switch {
@@ -1338,6 +1397,8 @@ my %cmd_table =
    "resume-replay-local" => \&pause_replay_local_res,
    "set-replay"          => \&set_replay_res,
    "wait-umount"         => \&wait_umount_res,
+   "wait-cluster"        => \&wait_cluster,
+   "wait-resource"       => \&wait_cluster,
 
    # compatible keywords (or their derivatives)
    "attach"            => \&attach_res,
@@ -1422,7 +1483,7 @@ helplist "unknown command $cmd\n" if !exists $cmd_table{$cmd};
 my $res = "";
 if ($cmd eq "show") {
   $res = shift @args;
-} elsif (!($cmd =~ m/^(create|leave)-cluster$/)) {
+} elsif (!($cmd =~ m/^(create|leave|wait)-cluster$/)) {
   $res = shift @args || helplist "resource argument is missing\n";
   check_id($res);
 }
@@ -1434,8 +1495,8 @@ sub do_one_res {
   my $func = shift;
   my ($cmd, $res) = @_;
 
-  $res = check_res($res) unless $cmd =~ m/^(join|create|leave)-cluster|create-resource|show$/;
-  check_res_member($res) unless $cmd =~ m/^(join|create)-(cluster|resource)|leave-cluster|show$/;
+  $res = check_res($res) unless $cmd =~ m/^(join|create|leave|wait)-cluster|create-resource|show$/;
+  check_res_member($res) unless $cmd =~ m/^(join|create)-(cluster|resource)|(leave|wait)-cluster|show$/;
 
   &{$func}(@_);
 }

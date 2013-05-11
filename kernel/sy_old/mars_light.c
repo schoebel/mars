@@ -3564,6 +3564,7 @@ enum {
 	CL_IPS,
 	CL_PEERS,
 	CL_ALIVE,
+	CL_TIME,
 	CL_TREE,
 	CL_EMERGENCY,
 	CL_REST_SPACE,
@@ -3674,6 +3675,12 @@ static const struct light_class light_classes[] = {
 	[CL_ALIVE] = {
 		.cl_name = "alive-",
 		.cl_len = 6,
+		.cl_type = 'l',
+		.cl_father = CL_ROOT,
+	},
+	[CL_TIME] = {
+		.cl_name = "time-",
+		.cl_len = 5,
 		.cl_type = 'l',
 		.cl_father = CL_ROOT,
 	},
@@ -4143,6 +4150,8 @@ static int light_thread(void *data)
 	MARS_INF("-------- starting as host '%s' ----------\n", id);
 
         while (_global.global_power.button || !list_empty(&_global.brick_anchor)) {
+		struct timespec now;
+		char *tmp;
 		int status;
 
 		MARS_DBG("-------- NEW ROUND %d ---------\n", atomic_read(&server_handler_count));
@@ -4160,6 +4169,12 @@ static int light_thread(void *data)
 			mars_net_is_alive = false;
 		}
 
+		get_lamport(&now);
+		tmp = path_make("%ld.%09ld", now.tv_sec, now.tv_nsec);
+		if (likely(tmp)) {
+			_make_alivelink_str("time", tmp);
+			brick_string_free(tmp);
+		}
 		_make_alivelink("alive", _global.global_power.button ? 1 : 0);
 		_make_alivelink_str("tree", SYMLINK_TREE_VERSION);
 
