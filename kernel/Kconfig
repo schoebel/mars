@@ -165,13 +165,6 @@ config MARS_SYNC_FLIP_INTERVAL
 	the time interval to increase throughput in favour
 	of latency.
 
-config MARS_FAST_TRIGGER
-	bool "fast internal triggering"
-	depends on MARS
-	default y
-	---help---
-	Normally ON. Switch off in case of endless trigger loops
-
 config MARS_NETIO_TIMEOUT
 	int "timeout for remote IO operations (in seconds)"
 	depends on MARS

@@ -1011,10 +1011,8 @@ void _make_new_replaylink(struct mars_rotate *rot, char *new_host, int new_seque
 	_update_replay_link(rot, &inf);
 	_update_version_link(rot, &inf);
 
-#ifdef CONFIG_MARS_FAST_TRIGGER
 	mars_trigger();
 	mars_remote_trigger();
-#endif
 }
 
 static
@@ -1238,6 +1236,12 @@ done:
 
 // remote workers
 
+static
+DEFINE_SPINLOCK(peer_lock);
+
+static
+struct list_head peer_anchor = LIST_HEAD_INIT(peer_anchor);
+
 struct mars_peerinfo {
 	struct mars_global *global;
 	char *peer;
@@ -1245,8 +1249,11 @@ struct mars_peerinfo {
 	struct mars_socket socket;
 	struct task_struct *peer_thread;
 	spinlock_t lock;
+	struct list_head peer_head;
 	struct list_head remote_dent_list;
 	int maxdepth;
+	bool to_remote_trigger;
+	bool from_remote_trigger;
 };
 
 static
@@ -1492,12 +1499,12 @@ int run_bones(struct mars_peerinfo *peer)
 			run_trigger = true;
 		//MARS_DBG("path = '%s' worker status = %d\n", remote_dent->d_path, status);
 	}
+
 	mars_free_dent_all(NULL, &tmp_list);
-#ifdef CONFIG_MARS_FAST_TRIGGER
+
 	if (run_trigger) {
 		mars_trigger();
 	}
-#endif
 	return status;
 }
 
@@ -1517,8 +1524,6 @@ void _peer_cleanup(struct mars_peerinfo *peer)
 }
 
 static DECLARE_WAIT_QUEUE_HEAD(remote_event);
-static atomic_t remote_trigger_count = ATOMIC_INIT(0);
-static atomic_t peer_thread_count = ATOMIC_INIT(0);
 
 static
 int peer_thread(void *data)
@@ -1528,7 +1533,6 @@ int peer_thread(void *data)
 	struct sockaddr_storage sockaddr = {};
 	int pause_time = 0;
 	bool do_kill = false;
-	bool flip = false;
 	int status;
 
 	if (!peer)
@@ -1543,14 +1547,11 @@ int peer_thread(void *data)
 		goto done;
 	}
 
-	atomic_inc(&peer_thread_count);
-
         while (!brick_thread_should_stop()) {
 		LIST_HEAD(tmp_list);
 		LIST_HEAD(old_list);
 		unsigned long flags;
 		struct mars_cmd cmd = {
-			.cmd_code = CMD_GETENTS,
 			.cmd_str1 = peer->path,
 			.cmd_int1 = peer->maxdepth,
 		};
@@ -1559,7 +1560,7 @@ int peer_thread(void *data)
 			if (do_kill) {
 				do_kill = false;
 				_peer_cleanup(peer);
-				brick_msleep(5000);
+				brick_msleep(1000);
 				continue;
 			}
 			if (!mars_net_is_alive) {
@@ -1570,7 +1571,7 @@ int peer_thread(void *data)
 			status = mars_create_socket(&peer->socket, &sockaddr, false);
 			if (unlikely(status < 0)) {
 				MARS_INF("no connection to '%s'\n", real_peer);
-				brick_msleep(5000);
+				brick_msleep(2000);
 				continue;
 			}
 			do_kill = true;
@@ -1580,30 +1581,31 @@ int peer_thread(void *data)
 			continue;
 		}
 
-		/* This is not completely race-free, but does no harm.
-		 * In worst case, network propagation will just take
-		 * a litte longer (see CONFIG_MARS_PROPAGATE_INTERVAL).
-		 */
-		if (!flip && atomic_read(&remote_trigger_count) > 0) {
-			MARS_DBG("sending notify ... remote_tiogger_count = %d\n", atomic_read(&remote_trigger_count));
-			atomic_dec(&remote_trigger_count);
-			cmd.cmd_code = CMD_NOTIFY;
-			flip = true;
+		if (peer->from_remote_trigger) {
+			pause_time = 0;
+			peer->from_remote_trigger = false;
+			MARS_DBG("got notify from peer.\n");
 		}
 
-		status = mars_send_struct(&peer->socket, &cmd, mars_cmd_meta);
+		status = 0;
+		if (peer->to_remote_trigger) {
+			pause_time = 0;
+			peer->to_remote_trigger = false;
+			MARS_DBG("sending notify to peer...\n");
+			cmd.cmd_code = CMD_NOTIFY;
+			status = mars_send_struct(&peer->socket, &cmd, mars_cmd_meta);
+		}
+
+		if (likely(status >= 0)) {
+			cmd.cmd_code = CMD_GETENTS;
+			status = mars_send_struct(&peer->socket, &cmd, mars_cmd_meta);
+		}
 		if (unlikely(status < 0)) {
 			MARS_WRN("communication error on send, status = %d\n", status);
 			if (do_kill) {
 				do_kill = false;
 				_peer_cleanup(peer);
 			}
-			brick_msleep(2000);
-			continue;
-		}
-		if (cmd.cmd_code == CMD_NOTIFY) {
-			flip = false;
-			pause_time = 0;
 			brick_msleep(1000);
 			continue;
 		}
@@ -1617,7 +1619,7 @@ int peer_thread(void *data)
 				_peer_cleanup(peer);
 			}
 			mars_free_dent_all(NULL, &tmp_list);
-			brick_msleep(5000);
+			brick_msleep(2000);
 			continue;
 		}
 
@@ -1631,15 +1633,17 @@ int peer_thread(void *data)
 
 			traced_unlock(&peer->lock, flags);
 
+			mars_trigger();
+
 			mars_free_dent_all(NULL, &old_list);
 		}
 
-		brick_msleep(1000);
+		brick_msleep(100);
 		if (!brick_thread_should_stop()) {
 			if (pause_time < mars_propagate_interval)
 				pause_time++;
 			wait_event_interruptible_timeout(remote_event,
-							 atomic_read(&remote_trigger_count) > 0 ||
+							 (peer->to_remote_trigger | peer->from_remote_trigger) ||
 							 (mars_global && mars_global->main_trigger),
 							 pause_time * HZ);
 		}
@@ -1652,16 +1656,65 @@ int peer_thread(void *data)
 	}
 
 done:
-	atomic_dec(&peer_thread_count);
 	brick_string_free(real_peer);
 	return 0;
 }
 
 static
+void _make_alive(void)
+{
+	struct timespec now;
+	char *tmp;
+
+	get_lamport(&now);
+	tmp = path_make("%ld.%09ld", now.tv_sec, now.tv_nsec);
+	if (likely(tmp)) {
+		_make_alivelink_str("time", tmp);
+		brick_string_free(tmp);
+	}
+	_make_alivelink("alive", mars_global && mars_global->global_power.button ? 1 : 0);
+	_make_alivelink_str("tree", SYMLINK_TREE_VERSION);
+}
+
+void from_remote_trigger(void)
+{
+	struct list_head *tmp;
+	int count = 0;
+	unsigned long flags;
+
+	_make_alive();
+
+	// TODO: replace peer_lock with rw_lock
+	traced_lock(&peer_lock, flags);
+	for (tmp = peer_anchor.next; tmp != &peer_anchor; tmp = tmp->next) {
+		struct mars_peerinfo *peer = container_of(tmp, struct mars_peerinfo, peer_head);
+		peer->from_remote_trigger = true;
+		count++;
+	}
+	traced_unlock(&peer_lock, flags);
+
+	MARS_DBG("got trigger for %d peers\n", count);
+	wake_up_interruptible_all(&remote_event);
+}
+EXPORT_SYMBOL_GPL(from_remote_trigger);
+
+static
 void __mars_remote_trigger(void)
 {
-	int count = atomic_read(&peer_thread_count);
-	atomic_add(count, &remote_trigger_count);
+	struct list_head *tmp;
+	int count = 0;
+	unsigned long flags;
+
+	// TODO: replace peer_lock with rw_lock
+	traced_lock(&peer_lock, flags);
+	for (tmp = peer_anchor.next; tmp != &peer_anchor; tmp = tmp->next) {
+		struct mars_peerinfo *peer = container_of(tmp, struct mars_peerinfo, peer_head);
+		peer->to_remote_trigger = true;
+		count++;
+	}
+	traced_unlock(&peer_lock, flags);
+
+	MARS_DBG("triggered %d peers\n", count);
 	wake_up_interruptible_all(&remote_event);
 }
 
@@ -1706,6 +1759,10 @@ static int _kill_peer(void *buf, struct mars_dent *dent)
 		return 0;
 	}
 
+	traced_lock(&peer_lock, flags);
+	list_del_init(&peer->peer_head);
+	traced_unlock(&peer_lock, flags);
+
 	MARS_INF("stopping peer thread...\n");
 	if (peer->peer_thread) {
 		brick_thread_stop(peer->peer_thread);
@@ -1743,6 +1800,8 @@ static int _make_peer(struct mars_global *global, struct mars_dent *dent, char *
 
 	MARS_DBG("peer '%s'\n", mypeer);
 	if (!dent->d_private) {
+		unsigned long flags;
+
 		dent->d_private = brick_zmem_alloc(sizeof(struct mars_peerinfo));
 		if (!dent->d_private) {
 			MARS_ERR("no memory for peer structure\n");
@@ -1755,7 +1814,12 @@ static int _make_peer(struct mars_global *global, struct mars_dent *dent, char *
 		peer->path = brick_strdup(path);
 		peer->maxdepth = 2;
 		spin_lock_init(&peer->lock);
+		INIT_LIST_HEAD(&peer->peer_head);
 		INIT_LIST_HEAD(&peer->remote_dent_list);
+
+		traced_lock(&peer_lock, flags);
+		list_add_tail(&peer->peer_head, &peer_anchor);
+		traced_unlock(&peer_lock, flags);
 	}
 
 	peer = dent->d_private;
@@ -4150,8 +4214,6 @@ static int light_thread(void *data)
 	MARS_INF("-------- starting as host '%s' ----------\n", id);
 
         while (_global.global_power.button || !list_empty(&_global.brick_anchor)) {
-		struct timespec now;
-		char *tmp;
 		int status;
 
 		MARS_DBG("-------- NEW ROUND %d ---------\n", atomic_read(&server_handler_count));
@@ -4169,14 +4231,7 @@ static int light_thread(void *data)
 			mars_net_is_alive = false;
 		}
 
-		get_lamport(&now);
-		tmp = path_make("%ld.%09ld", now.tv_sec, now.tv_nsec);
-		if (likely(tmp)) {
-			_make_alivelink_str("time", tmp);
-			brick_string_free(tmp);
-		}
-		_make_alivelink("alive", _global.global_power.button ? 1 : 0);
-		_make_alivelink_str("tree", SYMLINK_TREE_VERSION);
+		_make_alive();
 
 		compute_emergency_mode();
 
@@ -4217,7 +4272,7 @@ static int light_thread(void *data)
 done:
 	MARS_INF("-------- cleaning up ----------\n");
 	mars_remote_trigger();
-	brick_msleep(2000);
+	brick_msleep(1000);
 
 	mars_free_dent_all(&_global, &_global.dent_anchor);
 	mars_kill_brick_all(&_global, &_global.brick_anchor, false);

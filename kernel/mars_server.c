@@ -319,11 +319,12 @@ int handler_thread(void *data)
 		status = -EPROTO;
 		switch (cmd.cmd_code & CMD_FLAG_MASK) {
 		case CMD_NOP:
-			MARS_DBG("#%d got NOP operation\n", sock->s_debug_nr);
 			status = 0;
+			MARS_DBG("#%d got NOP operation\n", sock->s_debug_nr);
 			break;
 		case CMD_NOTIFY:
-			mars_trigger();
+			status = 0;
+			from_remote_trigger();
 			break;
 		case CMD_GETINFO:
 		{
@@ -721,7 +722,7 @@ static int _server_thread(void *data)
 		MARS_DBG("kill server sio bricks (when possible) = %d\n", status);
 
 		if (!mars_global || !mars_global->global_power.button) {
-			brick_msleep(2000);
+			brick_msleep(1000);
 			continue;
 		}
 
@@ -731,7 +732,7 @@ static int _server_thread(void *data)
 			if (status == -EAGAIN)
 				continue; // without error message
 			MARS_WRN("accept status = %d\n", status);
-			brick_msleep(2000);
+			brick_msleep(1000);
 			continue;
 		}
 		handler_socket.s_shutdown_on_err = true;
@@ -781,7 +782,7 @@ static int _server_thread(void *data)
 			brick = NULL;
 			atomic_dec(&server_handler_count);
 		}
-		brick_msleep(3000);
+		brick_msleep(2000);
 	}
 
 	MARS_INF("-------- cleaning up ----------\n");
