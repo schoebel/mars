@@ -992,11 +992,40 @@ sub logdelete_res {
   }
 }
 
-sub attach_res {
+sub attach_res_phase0 {
+  my ($cmd, $res) = @_;
+  return if $force;
+  my $detach = ($cmd eq "detach");
+  if ($detach) {
+    my $device_in_use = get_link("$mars/resource-$res/actual-$host/open-count", 1);
+    if ($device_in_use) {
+      my $name = get_link("$mars/resource-$res/device-$host");
+      my $dev = "/dev/mars/$name";
+      ldie "device '$dev' is in use\n";
+    }
+  }
+}
+
+sub attach_res_phase1 {
   my ($cmd, $res) = @_;
   my $detach = ($cmd eq "detach");
   my $path = "$mars/resource-$res/todo-$host/attach";
   _switch($cmd, $res, $path, !$detach);
+}
+
+sub attach_res_phase2 {
+  my ($cmd, $res) = @_;
+  my $detach = ($cmd eq "detach");
+  check_status($cmd, $res, "is-attached", $detach ? 0 : 1, 1);
+  if ($detach) {
+    my $name = get_link("$mars/resource-$res/device-$host");
+    my $dev = "/dev/mars/$name";
+    while (-e $dev) {
+      lprint "device '$dev' not yet disappeared\n";
+      sleep_timeout(3);
+    }
+    lprint "OK, device '$dev' ist not present\n";
+  }
 }
 
 sub connect_res {
@@ -1047,19 +1076,38 @@ sub pause_replay_local_res {
   _switch($cmd, $res, $path, !$pause);
 }
 
-sub up_res {
+sub up_res_phase0 {
   my ($cmd, $res) = @_;
   my $down = ($cmd eq "down");
   if ($down) {
-    pause_replay_res("pause-replay", $res);
-    pause_sync_res("pause-sync", $res);
-    connect_res("disconnect", $res);
-    attach_res("detach", $res);
+    attach_res_phase0("detach", $res);
   } else {
-    attach_res("attach", $res);
+    attach_res_phase0("attach", $res);
+  }
+}
+
+sub up_res_phase1 {
+  my ($cmd, $res) = @_;
+  my $down = ($cmd eq "down");
+  if ($down) {
+    pause_replay_local_res("pause-replay-local", $res);
+    pause_sync_local_res("pause-sync-local", $res);
+    attach_res_phase1("detach", $res);
+  } else {
+    attach_res_phase1("attach", $res);
     connect_res("connect", $res);
-    pause_sync_res("resume-sync", $res);
-    pause_replay_res("resume-replay", $res);
+    pause_sync_local_res("resume-sync-local", $res);
+    pause_replay_local_res("resume-replay-local", $res);
+  }
+}
+
+sub up_res_phase2 {
+  my ($cmd, $res) = @_;
+  my $down = ($cmd eq "down");
+  if ($down) {
+    attach_res_phase2("detach", $res);
+  } else {
+    attach_res_phase2("attach", $res);
   }
 }
 
@@ -1401,15 +1449,31 @@ my %cmd_table =
    "wait-resource"       => \&wait_cluster,
 
    # compatible keywords (or their derivatives)
-   "attach"            => \&attach_res,
-   "detach"            => \&attach_res,
+   "attach"            => [
+			   "check preconditions", \&attach_res_phase0,
+			   "switch state",        \&attach_res_phase1,
+			   "wait for effect",     \&attach_res_phase2,
+			  ],
+   "detach"            => [
+			   "check preconditions", \&attach_res_phase0,
+			   "switch state",        \&attach_res_phase1,
+			   "wait for effect",     \&attach_res_phase2,
+			  ],
    "connect"           => \&connect_res,
    "disconnect"        => \&connect_res,
    "connect-local"     => \&connect_local_res,
    "disconnect-local"  => \&connect_local_res,
    "syncer"            => \&ignore_cmd,
-   "up"                => \&up_res,
-   "down"              => \&up_res,
+   "up"                => [
+			   "check preconditions", \&up_res_phase0,
+			   "switch state",        \&up_res_phase1,
+			   "wait for effect",     \&up_res_phase2,
+			  ],
+   "down"              => [
+			   "check preconditions", \&up_res_phase0,
+			   "switch state",        \&up_res_phase1,
+			   "wait for effect",     \&up_res_phase2,
+			  ],
    "primary"           => [
 			   "check preconditions", \&primary_phase0,
 			   "leave primary state", \&primary_phase1,
