@@ -833,18 +833,27 @@ sub logrotate_res {
   system("touch $next");
 }
 
-sub _min_nondeletable_logfile {
+sub _get_deletable_logfiles {
   my ($cmd, $res) = @_;
   my $min = -1;
+  my $max = -1;
+  my @log_paths = glob("$mars/resource-$res/log-*") or ldie "cannot find any logfiles\n";
+  foreach my $path (@log_paths) {
+    $path =~ m/\/log-([0-9]+)-/;
+    my $nr = $1;
+    $min = $nr if ($nr < $min || $min < 0);
+    $max = $nr if ($nr > $max || $max < 0);
+  }
   my @paths = glob("$mars/resource-$res/replay-*") or ldie "cannot find any replay symlinks\n";
   foreach my $path (@paths) {
     my $target = get_link($path);
-    my $nr = $target;
-    $nr =~ s/^log-([0-9]+)-.*$/$1/;
-    $min = $nr if ($nr < $min || $min < 0);
+    $target =~ m/^log-([0-9]+)/;
+    my $nr = $1;
+    $max = $nr if ($nr < $max || $max < 0);
   }
-  lprint "min non-deletable logfile number: $min\n";
-  return $min;
+  lprint "min     deletable logfile number: $min\n";
+  lprint "max non-deletable logfile number: $max\n";
+  return ($min, $max);
 }
 
 sub _create_delete {
@@ -865,7 +874,14 @@ sub logdelete_res {
   my ($cmd, $res) = @_;
   my @paths = glob("$mars/resource-$res/log-*") or ldie "cannot find any logfiles\n";
   @paths = sort(@paths);
-  my $max_deletable = _min_nondeletable_logfile(@_) - 1;
+  my ($min_deletable, $max_deletable) = _get_deletable_logfiles(@_);
+  if ($min_deletable >= $max_deletable) {
+    lprint "no logfiles are deletable.\n";
+    return;
+  }
+  if ($cmd ne "log-delete-all") {
+    $max_deletable = $min_deletable + 1; # delete only the first one
+  }
 
   my $nr = 0;
   for (;;) {
@@ -873,7 +889,7 @@ sub logdelete_res {
     last unless $first;
     $nr = $first;
     $nr =~ s/^.*log-([0-9]+)-.+$/$1/;
-    next unless $nr <= $max_deletable;
+    next unless $nr < $max_deletable;
 
     lprint "chosen '$first' for deletion\n";
 
@@ -884,7 +900,7 @@ sub logdelete_res {
     my $nrv = $versionlink;
     $nrv =~ s/^.*\/version-([0-9]+)-.+$/$1/;
     # we need at least one more version link than logfiles for consistency checks
-    next unless $nrv <= $max_deletable - 1;
+    next unless $nrv < $max_deletable - 1;
     _create_delete($versionlink);
   }
 }
