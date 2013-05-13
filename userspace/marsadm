@@ -921,6 +921,7 @@ sub leave_res_phase1 {
   _create_delete("$mars/resource-$res/data-$host");
   _create_delete("$mars/resource-$res/syncstatus-$host");
   _create_delete("$mars/resource-$res/device-$host");
+  cleanup_res($cmd, $res, 9999999999);
 }
 
 sub logrotate_res {
@@ -1261,32 +1262,44 @@ sub wait_umount_res {
   lprint "OK, device for resource '$res' is not in use.\n";
 }
 
-sub invalidate_res {
+sub cleanup_res {
+  my ($cmd, $res, $replay_nr) = @_;
+  my @logfiles = glob("$mars/resource-$res/log-*-$host");
+  my @versions = glob("$mars/resource-$res/version-*-$host");
+  foreach my $path (@logfiles) {
+    $path =~ m:/log-([0-9]+)-: or next;
+    my $nr = $1;
+    next if $nr >= $replay_nr;
+    _create_delete($path);
+  }
+  foreach my $path (@logfiles, @versions) {
+    $path =~ m:/version-([0-9]+)-: or next;
+    my $nr = $1;
+    next if $nr >= $replay_nr - 1;
+    _create_delete($path);
+  }
+}
+
+sub invalidate_res_phase0 {
   my ($cmd, $res) = @_;
   check_not_primary(@_);
-  my $old_replay = get_link("$mars/resource-$res/replay-$host");
-  $old_replay =~ s/^([^,]+),.*/$1/;
-  my $repl = "$mars/resource-$res/todo-$host/allow-replay";
-  my $was_on = get_link($repl);
-  if ($was_on) {
-    _switch("pause-replay-local", $res, $repl, 0);
-    finish_links();
-    lprint "waiting...\n";
-    sleep(15);
+  if (!$force) {
+    check_todo($cmd, $res, "attach", 0, 0);
+    check_status($cmd, $res, "is-attached", 0, 0, 1);
   }
+}
+
+sub invalidate_res_phase1 {
+  my ($cmd, $res) = @_;
   my $dst = "$mars/resource-$res/syncstatus-$host";
-  set_link("0", $dst);
   my $primary = _get_designated_primary($res);
   my $replay = get_link("$mars/resource-$res/replay-$primary");
   $replay =~ m/^log-([0-9]+)-/ or ldie "replay link '$replay' is not parsable\n";
   my $replay_nr = $1;
+  set_link("0", $dst);
+  finish_links(); # opportunity for errors => don't continue
   _set_replaylink("$mars/resource-$res", $replay_nr, $primary);
-  if ($was_on) {
-    finish_links();
-    lprint "waiting...\n";
-    sleep(15);
-    _switch("resume-replay-local", $res, $repl, 1);
-  }
+  cleanup_res($cmd, $res, $replay_nr);
 }
 
 sub resize_res {
@@ -1542,7 +1555,10 @@ my %cmd_table =
 			   "check preconditions", \&primary_phase0,
 			   "leave primary state", \&primary_phase1,
 			  ],
-   "invalidate"        => \&invalidate_res,
+   "invalidate"        => [
+			   "check preconditions", \&invalidate_res_phase0,
+			   "force symlinks",      \&invalidate_res_phase1,
+			  ],
    "invalidate-remote" => \&forbidden_cmd,
    "resize"            => \&resize_res,
    "create-md"         => \&senseless_cmd,
