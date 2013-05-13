@@ -733,7 +733,7 @@ sub leave_cluster {
 }
 
 sub create_res {
-  my ($cmd, $res, $dev, $appear) = @_;
+  my ($cmd, $res, $dev, $appear, $size_arg) = @_;
   my $create = ($cmd eq "create-resource");
 
   ldie "undefined device or size argument\n" unless $dev;
@@ -761,6 +761,12 @@ sub create_res {
     $size = sysseek(TEST, 0, SEEK_END);
     close(TEST);
     lprint "block device '$dev': determined size = $size bytes\n";
+    if ($size_arg) {
+      my $new_size = get_size($size_arg);
+      ldie "size argument '$size_arg' is smaller than device size '$size'\n" unless $new_size <= $size;
+      lprint "reducing size from $size to $new_size\n";
+      $size = $new_size;
+    }
   } else {
     $size = get_size($dev);
     if ($size > 0) {
