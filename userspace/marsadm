@@ -123,7 +123,7 @@ if (! -d $mars) {
   ldie "The $mars directory does not exist.\n";
 }
 my $kernel_version = 0;
-unless ($ARGV[0] =~ m/cluster/) {
+unless ($ARGV[0] =~ m/cluster|cat/) {
   $kernel_version = get_link("$mars/tree-$host", 1);
   if ($kernel_version && $user_version != $kernel_version) {
     lwarn "kernel_version=$kernel_version user_version=$user_version\n";
@@ -470,6 +470,46 @@ sub get_peers {
   my ($res) = @_;
   my @list = glob("$mars/resource-$res/connect-*");
   return map { $_ =~ s:$mars/resource-$res/connect-::; $_ } @list;
+}
+
+sub __conv_tv {
+  my ($tv_sec, $tv_nsec) = @_;
+  my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime($tv_sec);
+  return sprintf("%04d-%02d-%02d %02d:%02d:%02d.%s", $year+1900, $mon + 1, $mday, $hour, $min, $sec, $tv_nsec);
+}
+
+sub _replace_timestamps {
+  my ($txt) = @_;
+  $txt =~ s:([0-9]{9,99})\.([0-9]{9}):__conv_tv($1,$2):ge;
+  return $txt;
+}
+
+sub _get_text {
+  my ($path, $regex, $do_print) = @_;
+  open(IN, "<", $path) or return "";
+  my $text = "";
+  my $count = 0;
+  while (my $line = <IN>) {
+    # use regex e.g. for fetching only errors and warnings
+    if (!$regex || $line =~ $regex) {
+      $line = _replace_timestamps($line);
+      $count++;
+      if ($do_print) {
+	print $line;
+      } else {
+	$text .= $line;
+      }
+    }
+  }
+  close(IN);
+  return $count if $do_print;
+  return $text;
+}
+
+sub get_error_text {
+  my ($cmd, $res) = @_;
+  my $text = _get_text("$mars/resource-$res/logstatus-$host.status", "m/^(err|warn)/i", 0);
+  return $text;
 }
 
 ##################################################################
@@ -1324,10 +1364,17 @@ sub mars_state_cmd {
   lprint "secondary outdated ($host_replay instead of $primary_replay)\n";
 }
 
+sub cat_cmd {
+  my $cmd = shift;
+  foreach my $path (@_) {
+    _get_text($path, undef, 1);
+  }
+}
+
 sub mars_info_cmd {
   my ($cmd, $res) = @_;
   my $info = "$mars/resource-$res/logstatus-$host.status";
-  system("cat $info");
+  cat_cmd($cmd, $info);
 }
 
 sub show_cmd {
@@ -1340,6 +1387,17 @@ sub show_cmd {
     my $short = $link;
     $short =~ s:^$mars/::;
     lprint "$short=$res\n";
+  }
+}
+
+sub show_errors_cmd {
+  my ($cmd, $res) = @_;
+  my $text = get_error_text(@_);
+  if ($text) {
+    lprint $text;
+    ldie "resource $res has some (old) problems.\n";
+  } else {
+    lprint "no errors/warnings are reported.\n";
   }
 }
 
@@ -1397,9 +1455,13 @@ my %cmd_table =
    "log-delete"        => \&logdelete_res,
    "log-delete-all"    => \&logdelete_res,
    "fake-sync"         => \&fake_local_res,
-   "mars-state"        => \&mars_state_cmd,
-   "mars-info"         => \&mars_info_cmd,
+   "cat"               => \&cat_cmd,
    "show"              => \&show_cmd,
+   "show-errors"       => \&show_errors_cmd,
+   "show-state"        => \&mars_state_cmd,
+   "mars-state"        => \&mars_state_cmd, # deprecated
+   "show-info"         => \&mars_info_cmd,
+   "mars-info"         => \&mars_info_cmd, # deprecated
    "pause-replay"        => \&pause_replay_res,
    "resume-replay"       => \&pause_replay_res,
    "pause-replay-local"  => \&pause_replay_local_res,
@@ -1502,13 +1564,13 @@ if ($cmd =~ m/^version$/ || $cmd =~ m/^v$/) {
   version;
 }
 
-ldie "only root may use this tool\n" if $< != 0; # getpid() seems to be missing in perlfunc
+ldie "only root may use this tool\n" if $< != 0 && $cmd !~ m/^cat$/; # getpid() seems to be missing in perlfunc
 helplist "unknown command $cmd\n" if !exists $cmd_table{$cmd};
 
 my $res = "";
 if ($cmd eq "show") {
   $res = shift @args;
-} elsif (!($cmd =~ m/^(create|leave|wait)-cluster$/)) {
+} elsif (!($cmd =~ m/^(create|leave|wait)-cluster|cat$/)) {
   $res = shift @args || helplist "resource argument is missing\n";
   check_id($res);
 }
@@ -1520,8 +1582,8 @@ sub do_one_res {
   my $func = shift;
   my ($cmd, $res) = @_;
 
-  $res = check_res($res) unless $cmd =~ m/^(join|create|leave|wait)-cluster|create-resource|show$/;
-  check_res_member($res) unless $cmd =~ m/^(join|create)-(cluster|resource)|(leave|wait)-cluster|show$/;
+  $res = check_res($res) unless $cmd =~ m/^(join|create|leave|wait)-cluster|create-resource|show|cat$/;
+  check_res_member($res) unless $cmd =~ m/^(join|create)-(cluster|resource)|(leave|wait)-cluster|show|cat$/;
 
   &{$func}(@_);
 }
@@ -1532,7 +1594,7 @@ sub do_all_res {
   my $func = shift;
   my $cmd = shift;
   my $res = shift || "all";
-  if ($res eq "all" && $cmd !~ m/show|cluster/) {
+  if ($res eq "all" && $cmd !~ m/show|cat|cluster/) {
     ldie "For safety reasons, --force is only allowed on explicitly named resources. Combination of 'all' with --force is disallowed!\n" if $force;
     ldie "Cannot combine command '$cmd' with 'all' existing resources - you must explicitly name a single new resource\n" if $cmd =~ m/create|join/;
     my $any_success = 0;
