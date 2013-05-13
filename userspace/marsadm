@@ -379,48 +379,9 @@ sub check_status {
   lprint "OK, '$path' has acceptable value '$link'\n";
 }
 
-#
-# Check if modification time of file or symlink is older than age
-#
-# Returns 1 if modification time is not $age seconds older than a
-# reference time, either lamport clock for symlinks or system
-# time for regular files. Return value 0 means "file is new enough".
-#
-# Returns 2 if modification time or reference time cannot be determined
-#
-# Note: symlinks are created/updated with lamport clock timestamps
-#       while normal files get timestamps from system time
-#
-sub _check_file_aged {
-  my ($path, $age) = @_;
-  my $mtime;
-  my $reftime; # reference time ("now")
-  if (-l $path) {
-    $mtime = (lstat($path))[9];
-    $reftime = int(mars_time());  # discards sub-second resolution
-  }
-  elsif (-f $path) {
-    $mtime = (stat($path))[9];
-    $reftime = time();
-  }
-  return 2 if (!$mtime or !$reftime);  # error -> file is aged
-  return ($mtime < $reftime - $age) ? 1 : 0;
-}
+##################################################################
 
-#
-# Check if any file below $path was modified in the last $age seconds
-#
-sub _check_files_modified_any_of {
-  my ($path, $age) = @_;
-  my @list = glob($path);
-  my $res = 1;
-  foreach my $p (@list) {
-    if (!_check_file_aged($p, $age)) {
-      $res = 0;
-    }
-  }
-  return $res;
-}
+# state inspection routines
 
 sub _get_minmax {
   my ($res, $glob, $take_symlink) = @_;
