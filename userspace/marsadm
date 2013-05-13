@@ -881,7 +881,7 @@ sub create_res {
   }
 }
 
-sub leave_res {
+sub leave_res_phase0 {
   my ($cmd, $res) = @_;
   check_not_primary(@_);
   foreach my $tmp (glob("$mars/resource-$res/todo-$host/*")) {
@@ -889,12 +889,18 @@ sub leave_res {
     ldie "switch '$tmp' is not off\n" if $status;
   }
   check_status($cmd, $res, "is-attached", 0, 0, 1);
-  foreach my $tmp (glob("$mars/resource-$res/actual-$host/*")) {
-    my $status = get_link($tmp);
-    ldie "running status '$tmp' is not off\n" if $status;
+  if (!$force) {
+    foreach my $tmp (glob("$mars/resource-$res/actual-$host/{is-,logfile-}*")) {
+      my $status = get_link($tmp);
+      ldie "running status '$tmp' is not off\n" if $status;
+    }
   }
+}
+
+sub leave_res_phase1 {
+  my ($cmd, $res) = @_;
   my $peerlink = "$mars/resource-$res/connect-$host";
-  my $peer = get_link($peerlink);
+  my $peer = get_link($peerlink, 1);
   foreach my $tmp (glob("$mars/resource-$res/connect-*")) {
     next if $tmp eq $peerlink;
     my $target = get_link($tmp);
@@ -902,7 +908,12 @@ sub leave_res {
     lprint "changing '$tmp' from '$host' to '$peer'\n";
     set_link($peer, $tmp);
   }
-  unlink($peerlink);
+  _create_delete($peerlink);
+  finish_links(); # opportunity for errors => don't continue
+  _create_delete("$mars/resource-$res/replay-$host");
+  _create_delete("$mars/resource-$res/data-$host");
+  _create_delete("$mars/resource-$res/syncstatus-$host");
+  _create_delete("$mars/resource-$res/device-$host");
 }
 
 sub logrotate_res {
@@ -1463,7 +1474,10 @@ my %cmd_table =
    "leave-cluster"      => \&leave_cluster,
    "create-resource"   => \&create_res,
    "join-resource"     => \&create_res,
-   "leave-resource"    => \&leave_res,
+   "leave-resource"    => [
+			   "check preconditions", \&leave_res_phase0,
+			   "switch state",        \&leave_res_phase1,
+			  ],
    "log-rotate"        => \&logrotate_res,
    "log-delete"        => \&logdelete_res,
    "log-delete-all"    => \&logdelete_res,
