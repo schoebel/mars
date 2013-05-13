@@ -4291,6 +4291,66 @@ done:
 	return status;
 }
 
+static
+char *_mars_info(void)
+{
+	int max = PAGE_SIZE - 64;
+	char *txt = brick_string_alloc(max);
+	struct list_head *tmp;
+	int dent_count = 0;
+	int brick_count = 0;
+	int pos = 0;
+
+	if (unlikely(!txt || !mars_global)) {
+		brick_string_free(txt);
+		return NULL;
+	}
+
+	txt[--max] = '\0'; // safeguard
+
+	down_read(&mars_global->brick_mutex);
+	for (tmp = mars_global->brick_anchor.next; tmp != &mars_global->brick_anchor; tmp = tmp->next) {
+		struct mars_brick *test;
+		brick_count++;
+		test = container_of(tmp, struct mars_brick, global_brick_link);
+		pos += snprintf(
+			txt + pos, max - pos,
+			"brick button=%d off=%d on=%d path='%s'\n",
+			test->power.button,
+			test->power.led_off,
+			test->power.led_on,
+			test->brick_path
+			);
+	}
+	up_read(&mars_global->brick_mutex);
+
+	down_read(&mars_global->dent_mutex);
+	for (tmp = mars_global->dent_anchor.next; tmp != &mars_global->dent_anchor; tmp = tmp->next) {
+		struct mars_dent *dent;
+		dent_count++;
+		dent = container_of(tmp, struct mars_dent, dent_link);
+#if 0 // usually there is not enough space in PAGE_SIZE
+		pos += snprintf(
+			txt + pos, max - pos,
+			"dent stamp=%ld.%09ld path='%s' value='%s'\n",
+			dent->new_stat.mtime.tv_sec, dent->new_stat.mtime.tv_nsec,
+			SAFE_STR(dent->d_path),
+			SAFE_STR(dent->new_link)
+			);
+#endif
+	}
+	up_read(&mars_global->dent_mutex);
+
+	pos += snprintf(
+		txt + pos, max - pos,
+		"SUMMARY: brick_count=%d dent_count=%d\n",
+		brick_count,
+		dent_count
+		);
+
+	return txt;
+}
+
 static struct mem_reservation global_reserve = {
 	.amount = {
 		[5] = 64,
@@ -4327,6 +4387,7 @@ static void __exit exit_light(void)
 		brick_thread_stop(main_thread);
 	}
 
+	mars_info = NULL;
 	_mars_remote_trigger = NULL;
 	brick_allow_freelist = false;
 
@@ -4404,6 +4465,7 @@ done:
 		exit_light();
 	}
 	_mars_remote_trigger = __mars_remote_trigger;
+	mars_info = _mars_info;
 	return status;
 }
 

@@ -58,7 +58,7 @@ int trigger_sysctl_handler(
 			}
 		}
 	} else {
-		char *answer = "MARS module not loaded\n";
+		char *answer = "MARS module not operational\n";
 		char *tmp = NULL;
 		int mylen;
 
@@ -197,6 +197,12 @@ ctl_table mars_table[] = {
 		_CTL_NAME
 		.procname	= "trigger",
 		.mode		= 0200,
+		.proc_handler	= &trigger_sysctl_handler,
+	},
+	{
+		_CTL_NAME
+		.procname	= "info",
+		.mode		= 0400,
 		.proc_handler	= &trigger_sysctl_handler,
 	},
 	{
