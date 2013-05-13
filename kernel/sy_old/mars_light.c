@@ -3604,6 +3604,8 @@ static int check_deleted(void *buf, struct mars_dent *dent)
 enum {
 	// root element: this must have index 0
 	CL_ROOT,
+	// global ID
+	CL_UUID,
 	// global userspace
 	CL_GLOBAL_USERSPACE,
 	CL_GLOBAL_USERSPACE_ITEMS,
@@ -3653,6 +3655,15 @@ static const struct light_class light_classes[] = {
 	/* Placeholder for root node /mars/
 	 */
 	[CL_ROOT] = {
+	},
+
+	/* UUID, indentifying the whole cluster.
+	 */
+	[CL_UUID] = {
+		.cl_name = "uuid",
+		.cl_len = 4,
+		.cl_type = 'l',
+		.cl_father = CL_ROOT,
 	},
 
 	/* Subdirectory for global userspace items...

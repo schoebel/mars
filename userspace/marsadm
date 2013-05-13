@@ -680,6 +680,19 @@ sub is_module_loaded {
 sub _create_cluster {
   my ($cmd) = @_;
   system("mkdir $mars") unless -d $mars;
+  my $old_uuid = get_link("$mars/uuid", 2);
+  if ($cmd eq "create-cluster") {
+    ldie "cluster was already created with uuid='$old_uuid'\n" if $old_uuid && !$force;
+    my $uuid = `echo -n \$(hostname) \$(date)`;
+    set_link($uuid, "$mars/uuid");
+    finish_links(); # opportunity for errors => don't continue
+  } elsif (!$old_uuid && !$force) {
+    if ($user_version == 0.1) {
+      my $uuid = `echo -n \$(hostname) \$(date)`;
+      set_link($uuid, "$mars/uuid");
+    }
+    ldie "cluster has no uuid\n" if $user_version > 0.1;
+  }
   system("mkdir $mars/ips") unless -d "$mars/ips";
   system("mkdir $mars/userspace") unless -d "$mars/userspace";
   system("mkdir $mars/defaults") unless -d "$mars/defaults";
