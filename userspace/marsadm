@@ -718,8 +718,9 @@ sub join_cluster {
   lprint "joining cluster via rsync (peer='$peer')\n";
   # check connection
   system("ssh $peer uname -a") == 0 or ldie "oops, no connection to $peer ...\n";
+  mkdir($mars) unless -d $mars;
+  system("rsync --recursive --links --max-size=1 -v $peer:$mars/ $mars/") == 0 or ldie "cannot get remote symlink tree via rsync\n";
   _create_cluster(@_);
-  system("rsync --recursive --links -v $peer:$mars/ips/ $mars/ips/") == 0 or ldie "oops\n";
   finish_links();
   system("rsync --recursive --links -v $mars/ips/ $peer:$mars/ips/") == 0 or ldie "oops\n";
 }
@@ -1049,7 +1050,7 @@ sub attach_res_phase2 {
       lprint "device '$dev' not yet disappeared\n";
       sleep_timeout(3);
     }
-    lprint "OK, device '$dev' ist not present\n";
+    lprint "OK, device '$dev' is not present\n";
   }
 }
 
