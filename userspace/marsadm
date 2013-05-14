@@ -1628,6 +1628,15 @@ foreach my $arg (@ARGV) {
   } elsif ($arg =~ s/--timeout\s*=\s*([0-9]+)/$1/) {
     $timeout = $arg;
     next;
+  } elsif ($arg =~ s/--host\s*=\s*([-_A-Za-z0-9]+)/$1/) {
+    ldie "host '$arg' does not exist in /mars/ips/ip-*\n" unless -l "/mars/ips/ip-$arg";
+    if ($arg ne $host) {
+      lprint "ATTENTION: acting as if I were host '$arg'\n";
+      lwarn "some commands require local knowledge not available here.\n";
+      lwarn "thus something may fail or go wrong - use this at your risk!\n";
+      $host = $arg;
+    }
+    next;
   }
   if ($arg =~ s/^force-//) {
     $force++;
