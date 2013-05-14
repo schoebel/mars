@@ -187,8 +187,38 @@ sub sleep_timeout {
   $timeout -= $rest;
 }
 
+# wait for some condition
+sub wait_cond {
+  my ($cmd, $res, $specific) = @_;
+  my $is_actual = ($specific =~ s/^is-//);
+  my $is_on = !($specific =~ s/-off$//);
+  $specific =~ s/-on$//;
+  if ($is_actual) {
+    my %table =
+      (
+       "attach" => "is-attached",
+       "primary" => "is-primary",
+       "device" => "device-$res",
+      );
+    my $name = $table{$specific};
+    ldie "actual indicator '$specific' does not exist\n" unless exists($table{$specific});
+    check_status($cmd, $res, $name, $is_on ? 1 : 0, 1);
+  } else {
+    my %table =
+      (
+       "attach" => "attach",
+       "connect" => "connect",
+       "replay" => "allow-replay",
+       "sync" => "sync",
+      );
+    my $name = $table{$specific};
+    ldie "button '$specific' does not exist\n" unless exists($table{$specific});
+    check_todo($cmd, $res, $name, $is_on ? 1 : 0, 1);
+  }
+}
 # wait until some communication has occurred
 sub wait_cluster {
+  return wait_cond(@_) if int(@_) >= 3;
   my $cmd = shift;
   my $res = shift || "all";
   my $start_time = mars_time();
