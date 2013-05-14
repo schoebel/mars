@@ -119,9 +119,6 @@ my $force = 0;
 my $timeout = -1;
 my $ip = _get_ip() or ldie "cannot determine my IP address\n";
 
-if (! -d $mars) {
-  ldie "The $mars directory does not exist.\n";
-}
 my $kernel_version = 0;
 unless ($ARGV[0] =~ m/cluster|cat/) {
   $kernel_version = get_link("$mars/tree-$host", 1);
@@ -1619,6 +1616,9 @@ if ($cmd =~ m/^version$/ || $cmd =~ m/^v$/) {
 
 ldie "only root may use this tool\n" if $< != 0 && $cmd !~ m/^cat$/; # getpid() seems to be missing in perlfunc
 helplist "unknown command $cmd\n" if !exists $cmd_table{$cmd};
+if (!(-d $mars) && $cmd !~ m/(create|join)-cluster|cat/) {
+  ldie "The $mars directory does not exist.\n";
+}
 
 my $res = "";
 if ($cmd eq "show") {
