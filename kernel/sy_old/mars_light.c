@@ -231,6 +231,7 @@ struct mars_rotate {
 	struct mars_global *global;
 	struct copy_brick *sync_brick;
 	struct mars_dent *replay_link;
+	struct mars_brick *bio_brick;
 	struct mars_dent *aio_dent;
 	struct aio_brick *aio_brick;
 	struct mars_info aio_info;
@@ -2083,6 +2084,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
 	struct mars_dent *parent = dent->d_parent;
+	struct mars_brick *bio_brick;
 	struct mars_brick *aio_brick;
 	struct mars_brick *trans_brick;
 	struct mars_rotate *rot = parent->d_private;
@@ -2231,6 +2233,10 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	rot->aio_brick = (void*)aio_brick;
 	status = 0;
 	if (unlikely(!aio_brick || !aio_brick->power.led_on)) {
+		goto done; // this may happen in case of detach
+	}
+	bio_brick = rot->bio_brick;
+	if (unlikely(!bio_brick || !bio_brick->power.led_on)) {
 		goto done; // this may happen in case of detach
 	}
 
@@ -3055,6 +3061,7 @@ static
 int make_bio(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
+	struct mars_rotate *rot;
 	struct mars_brick *brick;
 	bool switch_on;
 	int status = 0;
@@ -3062,6 +3069,9 @@ int make_bio(void *buf, struct mars_dent *dent)
 	if (!global || !global->global_power.button || !dent->d_parent) {
 		goto done;
 	}
+	rot = dent->d_parent->d_private;
+	if (!rot)
+		goto done;
 
 	switch_on = _check_allow(global, dent->d_parent, "attach");
 
@@ -3077,6 +3087,7 @@ int make_bio(void *buf, struct mars_dent *dent)
 			       dent->d_path,
 			       (const char *[]){},
 			       0);
+	rot->bio_brick = brick;
 	if (unlikely(!brick)) {
 		status = -ENXIO;
 		goto done;
