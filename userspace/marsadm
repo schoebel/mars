@@ -1078,9 +1078,9 @@ sub attach_res_phase2 {
   }
 }
 
-sub connect_res {
+sub connect_global_res {
   my ($cmd, $res) = @_;
-  my $disconnect = ($cmd eq "disconnect");
+  my $disconnect = ($cmd =~ m/disconnect/);
   my @paths = glob("$mars/resource-$res/todo-*/");
   for my $path (@paths) {
     _switch($cmd, $res, "$path/connect", !$disconnect);
@@ -1089,14 +1089,14 @@ sub connect_res {
 
 sub connect_local_res {
   my ($cmd, $res) = @_;
-  my $disconnect = ($cmd eq "disconnect-local");
+  my $disconnect = ($cmd =~ m/disconnect/);
   my $path = "$mars/resource-$res/todo-$host/connect";
   _switch($cmd, $res, $path, !$disconnect);
 }
 
-sub pause_sync_res {
+sub pause_sync_global_res {
   my ($cmd, $res) = @_;
-  my $pause = ($cmd eq "pause-sync");
+  my $pause = ($cmd =~ m/pause/);
   my @paths = glob("$mars/resource-$res/todo-*/");
   for my $path (@paths) {
     _switch($cmd, $res, "$path/sync", !$pause);
@@ -1105,14 +1105,14 @@ sub pause_sync_res {
 
 sub pause_sync_local_res {
   my ($cmd, $res) = @_;
-  my $pause = ($cmd eq "pause-sync-local");
+  my $pause = ($cmd =~ m/pause/);
   my $path = "$mars/resource-$res/todo-$host/sync";
   _switch($cmd, $res, $path, !$pause);
 }
 
-sub pause_replay_res {
+sub pause_replay_global_res {
   my ($cmd, $res) = @_;
-  my $pause = ($cmd eq "pause-replay");
+  my $pause = ($cmd =~ m/pause/);
   my @paths = glob("$mars/resource-$res/todo-*/");
   for my $path (@paths) {
     _switch($cmd, $res, "$path/allow-replay", !$pause);
@@ -1121,7 +1121,7 @@ sub pause_replay_res {
 
 sub pause_replay_local_res {
   my ($cmd, $res) = @_;
-  my $pause = ($cmd eq "pause-replay-local");
+  my $pause = ($cmd =~ m/pause/);
   my $path = "$mars/resource-$res/todo-$host/allow-replay";
   _switch($cmd, $res, $path, !$pause);
 }
@@ -1145,7 +1145,7 @@ sub up_res_phase1 {
     attach_res_phase1("detach", $res);
   } else {
     attach_res_phase1("attach", $res);
-    connect_res("connect", $res);
+    connect_local_res("connect", $res);
     pause_sync_local_res("resume-sync-local", $res);
     pause_replay_local_res("resume-replay-local", $res);
   }
@@ -1536,10 +1536,12 @@ my %cmd_table =
    "mars-state"        => \&mars_state_cmd, # deprecated
    "show-info"         => \&mars_info_cmd,
    "mars-info"         => \&mars_info_cmd, # deprecated
-   "pause-replay"        => \&pause_replay_res,
-   "resume-replay"       => \&pause_replay_res,
    "pause-replay-local"  => \&pause_replay_local_res,
+   "pause-replay-global" => \&pause_replay_global_res,
+   "pause-replay"        => \&pause_replay_local_res,
    "resume-replay-local" => \&pause_replay_local_res,
+   "resume-replay-global"=> \&pause_replay_global_res,
+   "resume-replay"       => \&pause_replay_local_res,
    "set-replay"          => \&set_replay_res,
    "wait-umount"         => \&wait_umount_res,
    "wait-cluster"        => \&wait_cluster,
@@ -1556,10 +1558,12 @@ my %cmd_table =
 			   "switch state",        \&attach_res_phase1,
 			   "wait for effect",     \&attach_res_phase2,
 			  ],
-   "connect"           => \&connect_res,
-   "disconnect"        => \&connect_res,
    "connect-local"     => \&connect_local_res,
+   "connect-global"    => \&connect_global_res,
+   "connect"           => \&connect_local_res,
    "disconnect-local"  => \&connect_local_res,
+   "disconnect-global" => \&connect_global_res,
+   "disconnect"        => \&connect_local_res,
    "syncer"            => \&ignore_cmd,
    "up"                => [
 			   "check preconditions", \&up_res_phase0,
@@ -1602,10 +1606,12 @@ my %cmd_table =
    "status"            => \&nyi_cmd,
    "dump"              => \&senseless_cmd,
    "verify"            => \&nyi_cmd,
-   "pause-sync"        => \&pause_sync_res,
-   "resume-sync"       => \&pause_sync_res,
    "pause-sync-local"  => \&pause_sync_local_res,
+   "pause-sync-global" => \&pause_sync_global_res,
+   "pause-sync"        => \&pause_sync_local_res,
    "resume-sync-local" => \&pause_sync_local_res,
+   "resume-sync-global"=> \&pause_sync_global_res,
+   "resume-sync"       => \&pause_sync_local_res,
    "new-current-uuid"  => \&senseless_cmd,
    "hidden-commands"   => \&ignore_cmd,
   );
