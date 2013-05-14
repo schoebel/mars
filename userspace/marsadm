@@ -376,6 +376,14 @@ sub check_status {
   lprint "OK, '$path' has acceptable value '$link'\n";
 }
 
+sub check_userspace {
+  my ($dst) = @_;
+  if ($dst !~ m:/userspace/:) {
+    ldie "your path '$dst' must be inside $mars/userspace/ or $mars/resource-*/userspace/\n" unless $force;
+    lwarn "your path '$dst' is outside $mars/userspace/ or $mars/resource-*/userspace/ and you gave --force, hopefully YOU KNOW WHAT YOU ARE DOING\n";
+  }
+}
+
 ##################################################################
 
 # state inspection routines
@@ -968,6 +976,7 @@ my $delete_nr = -1;
 
 sub _create_delete {
   my ($target) = @_;
+  ldie "cannot delete: '$target' is no absolute path\n" unless $target =~ m:^/:;
   if ($delete_nr < 0) { # compute only upon first call
     my @paths = glob("$mars/todo-global/delete-*");
     foreach my $path (@paths) {
@@ -988,6 +997,14 @@ sub _create_delete {
   my $new = sprintf("$mars/todo-global/delete-%09d", ++$delete_nr);
   lprint "create symlink $new -> $target\n";
   set_link($target, $new);
+}
+
+sub delete_file_cmd {
+  my $cmd = shift;
+  foreach my $path (@_) {
+    check_userspace($path);
+    _create_delete($path);
+  }
 }
 
 sub logdelete_res {
@@ -1511,6 +1528,7 @@ my %cmd_table =
    "log-delete"        => \&logdelete_res,
    "log-delete-all"    => \&logdelete_res,
    "fake-sync"         => \&fake_local_res,
+   "delete-file"       => \&delete_file_cmd,
    "cat"               => \&cat_cmd,
    "show"              => \&show_cmd,
    "show-errors"       => \&show_errors_cmd,
@@ -1632,7 +1650,7 @@ if (!(-d $mars) && $cmd !~ m/(create|join)-cluster|cat/) {
 my $res = "";
 if ($cmd eq "show") {
   $res = shift @args;
-} elsif (!($cmd =~ m/^(create|leave|wait)-cluster|cat$/)) {
+} elsif (!($cmd =~ m/^(create|leave|wait)-cluster|cat|[a-z]+-file$/)) {
   $res = shift @args || helplist "resource argument is missing\n";
   check_id($res);
 }
@@ -1644,8 +1662,8 @@ sub do_one_res {
   my $func = shift;
   my ($cmd, $res) = @_;
 
-  $res = check_res($res) unless $cmd =~ m/^(join|create|leave|wait)-cluster|create-resource|show|cat$/;
-  check_res_member($res) unless $cmd =~ m/^(join|create)-(cluster|resource)|(leave|wait)-cluster|show|cat$/;
+  $res = check_res($res) unless $cmd =~ m/^(join|create|leave|wait)-cluster|create-resource|show|cat|[a-z]+-file$/;
+  check_res_member($res) unless $cmd =~ m/^(join|create)-(cluster|resource)|(leave|wait)-cluster|show|cat|[a-z]+-file$/;
 
   &{$func}(@_);
 }
