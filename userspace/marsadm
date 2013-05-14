@@ -1241,9 +1241,18 @@ sub primary_phase4 {
   return if $force;
   my $name = get_link("$mars/resource-$res/device-$host");
   my $dev = "/dev/mars/$name";
+  my $backoff = 1;
+  my $round = 0;
   while (! -e $dev) {
+    my $text = get_error_text($cmd, $res);
+    lprint $text if $text;
     lprint "device '$dev' not yet present\n";
-    sleep_timeout(1);
+    sleep_timeout($backoff);
+    # very slowly increasing backoff
+    if ($backoff < 10 && $round++ > 5) {
+      $round = 0;
+      $backoff++;
+    }
   }
   lprint "device '$dev' is present\n" if -b $dev;
 }
