@@ -1293,6 +1293,7 @@ sub primary_phase4 {
   while (! -e $dev) {
     my $text = get_error_text($cmd, $res);
     lprint $text if $text;
+    ldie "aborting due to errors\n" if $text =~ m/error/mi;
     lprint "device '$dev' not yet present\n";
     sleep_timeout($backoff);
     # very slowly increasing backoff
