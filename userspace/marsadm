@@ -715,6 +715,20 @@ sub is_module_loaded {
   return $res;
 }
 
+sub set_link_cmd {
+  my $cmd = shift;
+  for (;;) {
+    my $src = shift || last;
+    my $dst = shift || ldie "you did not supply a symlink destination for source '$src'\n";
+    ldie "symlink target '$dst' is not an absolute path\n" unless $dst =~ m:^/:;
+    check_userspace($dst);
+    my $dir = `dirname "$dst"` or ldie "path '$dst' has no dirname\n";
+    chomp $dir;
+    ldie "directory '$dir' does not exist\n" unless -d $dir;
+    set_link($src, $dst);
+  }
+}
+
 sub _create_cluster {
   my ($cmd) = @_;
   system("mkdir $mars") unless -d $mars;
@@ -1559,6 +1573,7 @@ my %cmd_table =
    "log-delete"        => \&logdelete_res,
    "log-delete-all"    => \&logdelete_res,
    "fake-sync"         => \&fake_local_res,
+   "set-link"          => \&set_link_cmd,
    "delete-file"       => \&delete_file_cmd,
    "cat"               => \&cat_cmd,
    "show"              => \&show_cmd,
@@ -1708,8 +1723,8 @@ sub do_one_res {
   my $func = shift;
   my ($cmd, $res) = @_;
 
-  $res = check_res($res) unless $cmd =~ m/^(join|create|leave|wait)-cluster|create-resource|show|cat|[a-z]+-file$/;
-  check_res_member($res) unless $cmd =~ m/^(join|create)-(cluster|resource)|(leave|wait)-cluster|show|cat|[a-z]+-file$/;
+  $res = check_res($res) unless $cmd =~ m/^(join|create|leave|wait)-cluster|create-resource|show|cat|[a-z]+-file|set-link$/;
+  check_res_member($res) unless $cmd =~ m/^(join|create)-(cluster|resource)|(leave|wait)-cluster|show|cat|[a-z]+-file|set-link$/;
 
   &{$func}(@_);
 }
