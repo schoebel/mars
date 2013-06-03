@@ -71,6 +71,7 @@ struct aio_output {
 	struct mapfree_info *mf;
 	int fd; // FIXME: remove this!
 	struct aio_threadinfo tinfo[3];
+	loff_t old_size;
 	aio_context_t ctxp;
 	wait_queue_head_t fdsync_event;
 	bool fdsync_active;

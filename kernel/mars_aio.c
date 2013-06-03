@@ -255,7 +255,11 @@ void _complete(struct aio_output *output, struct mref_object *mref, int err)
 
 done:
 	if (mref->ref_rw) {
-		atomic_dec(&output->write_count);
+		struct file *file = output->mf->mf_filp;
+		loff_t new_size = i_size_read(file->f_mapping->host);
+		if (atomic_dec_and_test(&output->write_count)) {
+			output->old_size = new_size;
+		}
 	} else {
 		atomic_dec(&output->read_count);
 	}
@@ -882,8 +886,6 @@ static int aio_get_info(struct aio_output *output, struct mars_info *info)
 
 	info->tf_align = 1;
 	info->tf_min_size = 1;
-	info->current_size = i_size_read(file->f_mapping->host);
-	MARS_DBG("determined file size = %lld\n", info->current_size);
 
 	/* Workaround for races in the page cache.
 	 *
@@ -893,10 +895,16 @@ static int aio_get_info(struct aio_output *output, struct mars_info *info)
 	 * appended by a write operation, but the data has not actually hit
 	 * the page cache, such that a concurrent read gets NULL blocks.
 	 */
-	if (output->mf->mf_max >= 0 && output->mf->mf_max < info->current_size) {
-		MARS_DBG("correcting file length from %lld to %lld\n", info->current_size, output->mf->mf_max);
-		info->current_size = output->mf->mf_max;
+	if (atomic_read(&output->write_count) > 0 && output->old_size > 0) {
+		info->current_size = output->old_size;
+		MARS_DBG("using old file size = %lld\n", info->current_size);
+		return 0;
 	}
+
+	info->current_size = i_size_read(file->f_mapping->host);
+	MARS_DBG("determined file size = %lld\n", info->current_size);
+
+	output->old_size = info->current_size;
 	return 0;
 }
 
