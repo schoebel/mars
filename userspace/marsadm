@@ -679,7 +679,12 @@ sub _set_replaylink {
     $old_primary = $1 if $vers_val =~ m/:.*,log-[0-9]+-([^,]+),/;
     _fake_versionlink($basedir, $log_nr - 1, $old_primary);
   } else {
-    my $initial = get_link("$basedir/version-000000001-$primary");
+    my $initial;
+    for (;;) {
+      $initial = get_link("$basedir/version-000000001-$primary", 1);
+      last if $initial;
+      sleep_timeout();
+    }
     set_link($initial, "$basedir/version-000000001-$host");
   }
 }
