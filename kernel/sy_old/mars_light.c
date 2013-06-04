@@ -3048,8 +3048,6 @@ int make_primary(void *buf, struct mars_dent *dent)
 
 	rot->todo_primary =
 		global->global_power.button && dent->new_link && !strcmp(dent->new_link, my_id());
-	rot->is_primary =
-		rot->if_brick && !rot->if_brick->power.led_off;
 	MARS_DBG("todo_primary = %d is_primary = %d\n", rot->todo_primary, rot->is_primary);
 	status = 0;
 
@@ -3152,6 +3150,7 @@ int make_dev(void *buf, struct mars_dent *dent)
 	struct mars_brick *dev_brick;
 	struct if_brick *_dev_brick;
 	bool switch_on;
+	int open_count = 0;
 	int status = 0;
 
 	if (!parent || !dent->new_link) {
@@ -3159,9 +3158,9 @@ int make_dev(void *buf, struct mars_dent *dent)
 		return -EINVAL;
 	}
 	rot = parent->d_private;
-	if (!rot) {
+	if (!rot || !rot->parent_path) {
 		MARS_DBG("nothing to do\n");
-		goto done;
+		goto err;
 	}
 	if (!rot->trans_brick) {
 		MARS_DBG("transaction logger does not exist\n");
@@ -3219,7 +3218,7 @@ int make_dev(void *buf, struct mars_dent *dent)
 	}
 	dev_brick->show_status = _show_brick_status;
 	_dev_brick = (void*)dev_brick;
-	__show_actual(rot->parent_path, "open-count", atomic_read(&_dev_brick->open_count));
+	open_count = atomic_read(&_dev_brick->open_count);
 #if 0
 	if (_dev_brick->has_closed) {
 		_dev_brick->has_closed = false;
@@ -3230,7 +3229,12 @@ int make_dev(void *buf, struct mars_dent *dent)
 #endif
 
 done:
+	__show_actual(rot->parent_path, "open-count", open_count);
+	rot->is_primary =
+		rot->if_brick && !rot->if_brick->power.led_off;	
 	_show_primary(rot, parent);
+
+err:
 	return status;
 }
 
