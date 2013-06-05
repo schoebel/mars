@@ -933,6 +933,7 @@ sub create_res {
     set_link($size, "$resdir/syncstatus-$host");
     set_link("log-000000001-$host,0,0", "$resdir/replay-$host");
     system("touch $resdir/log-000000001-$host");
+    set_link("00000000000000000000000000000000,log-000000001-$host,0:", "$resdir/version-000000001-$host");
     finish_links();
     lprint "successfully created resource '$res'\n";
   } else {
