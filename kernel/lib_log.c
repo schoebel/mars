@@ -371,7 +371,7 @@ EXPORT_SYMBOL_GPL(log_finalize);
 #define SCAN_PAR file_pos, file_offset, offset, file_pos + file_offset + offset, i, file_pos + file_offset + i, restlen
 
 static
-int log_scan(void *buf, int len, loff_t file_pos, int file_offset, struct log_header *lh, void **payload, int *payload_len, unsigned int *seq_nr)
+int log_scan(void *buf, int len, loff_t file_pos, int file_offset, bool sloppy, struct log_header *lh, void **payload, int *payload_len, unsigned int *seq_nr)
 {
 	bool dirty = false;
 	int offset;
@@ -388,10 +388,15 @@ int log_scan(void *buf, int len, loff_t file_pos, int file_offset, struct log_he
 		long long end_magic;
 		char valid_copy;
 
-		int restlen;
+		int restlen = 0;
 		int found_offset;
 
 		offset = i;
+		if (unlikely(i > 0 && !sloppy)) {
+			MARS_ERR(SCAN_TXT "detected a hole / bad data\n", SCAN_PAR);
+			return -EBADMSG;
+		}
+
 		DATA_GET(buf, offset, start_magic);
 		if (unlikely(start_magic != START_MAGIC)) {
 			if (start_magic != 0)
@@ -513,7 +518,7 @@ err:
 }
 
 
-int log_read(struct log_status *logst, struct log_header *lh, void **payload, int *payload_len)
+int log_read(struct log_status *logst, bool sloppy, struct log_header *lh, void **payload, int *payload_len)
 {
 	struct mref_object *mref;
 	int old_offset;
@@ -573,6 +578,7 @@ restart:
 			  mref->ref_len - logst->offset,
 			  mref->ref_pos,
 			  logst->offset,
+			  sloppy,
 			  lh,
 			  payload,
 			  payload_len,

@@ -2858,7 +2858,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 			break;
 		}
 
-		status = log_read(&input->logst, &lh, &buf, &len);
+		status = log_read(&input->logst, false, &lh, &buf, &len);
 		if (status == -EAGAIN) {
 			MARS_DBG("got -EAGAIN\n");
 			brick_msleep(backoff);
