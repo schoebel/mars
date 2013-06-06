@@ -1300,15 +1300,27 @@ sub primary_phase3 {
   _primary_res($res, $new, $old);
 }
 
-# wait for device to appear
+# wait for device to appear / disappear
 sub primary_phase4 {
   my ($cmd, $res) = @_;
-  return unless $cmd eq "primary";
   return if $force;
   my $name = get_link("$mars/resource-$res/device-$host");
   my $dev = "/dev/mars/$name";
   my $backoff = 1;
   my $round = 0;
+  if($cmd eq "secondary") {
+    while (-b $dev) {
+      lwarn "device '$dev' has not yet disappeared\n";
+      sleep_timeout($backoff);
+      # very slowly increasing backoff
+      if ($backoff < 10 && $round++ > 5) {
+	$round = 0;
+	$backoff++;
+      }
+    }
+    lprint "device '$dev' is no longer present\n" unless -b $dev;
+    return;
+  }
   while (! -e $dev) {
     my $text = get_error_text($cmd, $res);
     lprint $text if $text;
