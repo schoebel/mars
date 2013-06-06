@@ -838,7 +838,6 @@ sub create_res {
   my $primary;
   my $replay_nr = -1;
   if ($create) {
-    _create_cluster(@_);
     mkdir($resdir);
     ldie "could not create resource '$res'\n" unless -d $resdir;
     set_link($size, "$resdir/size");
