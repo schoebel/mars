@@ -813,8 +813,8 @@ sub create_res {
   my $size = 0;
   if (-b $dev) {
     ldie "block device '$dev' must be an absolute path starting with '/'\n" unless $dev =~ m/^\//;
-    use Fcntl 'SEEK_END';
-    open(TEST, "<$dev") or ldie "cannot open device for reading\n";
+    use Fcntl 'SEEK_END', 'O_RDWR', 'O_EXCL';
+    sysopen(TEST, $dev, O_RDWR|O_EXCL) or ldie "cannot open device '$dev' for exclusive rw access\n";
     $size = sysseek(TEST, 0, SEEK_END);
     close(TEST);
     lprint "block device '$dev': determined size = $size bytes\n";
