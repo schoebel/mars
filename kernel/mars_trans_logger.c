@@ -2908,6 +2908,9 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		if ((atomic_read(&brick->replay_count) <= 0 ||
 		     ((long long)jiffies) - old_jiffies >= HZ * 3) &&
 		    finished_pos >= 0) {
+			// for safety, wait until the IO queue has drained.
+			wait_event_interruptible_timeout(brick->worker_event, atomic_read(&brick->replay_count) <= 0, 1 * HZ);
+
 			down(&input->inf_mutex);
 			input->inf.inf_min_pos = finished_pos;
 			get_lamport(&input->inf.inf_min_pos_stamp);
