@@ -2824,7 +2824,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 	struct trans_logger_input *input = brick->inputs[brick->log_input_nr];
 	struct log_header lh = {};
 	loff_t start_pos;
-	loff_t finished_pos;
+	loff_t finished_pos = -1;
 	long long old_jiffies = jiffies;
 	int nr_flying;
 	int backoff = 0;
@@ -2851,7 +2851,6 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		void *buf = NULL;
 		int len = 0;
 
-		finished_pos = input->logst.log_pos + input->logst.offset;
 		if (brick_thread_should_stop() ||
 		   (!brick->continuous_replay_mode && finished_pos >= brick->replay_end_pos)) {
 			status = 0; // treat as EOF
@@ -2907,8 +2906,9 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		}
 
 		// do this _after_ any opportunities for errors...
-		if (atomic_read(&brick->replay_count) <= 0 ||
-		    ((long long)jiffies) - old_jiffies >= HZ) {
+		if ((atomic_read(&brick->replay_count) <= 0 ||
+		     ((long long)jiffies) - old_jiffies >= HZ * 3) &&
+		    finished_pos >= 0) {
 			down(&input->inf_mutex);
 			input->inf.inf_min_pos = finished_pos;
 			get_lamport(&input->inf.inf_min_pos_stamp);
@@ -2925,12 +2925,13 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 
 	if (unlikely(finished_pos > brick->replay_end_pos)) {
 		MARS_ERR("finished_pos too large: %lld + %d = %lld > %lld\n", input->logst.log_pos, input->logst.offset, finished_pos, brick->replay_end_pos);
-		finished_pos = brick->replay_end_pos;
 	}
-	if (status >= 0) {
+
+	if (finished_pos >= 0) {
 		input->inf.inf_min_pos = finished_pos;
-		get_lamport(&input->inf.inf_min_pos_stamp);
 	}
+
+	get_lamport(&input->inf.inf_min_pos_stamp);
 
 	if (status >= 0 && finished_pos == brick->replay_end_pos) {
 		MARS_INF("replay finished at %lld\n", finished_pos);
