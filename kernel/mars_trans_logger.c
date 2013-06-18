@@ -2882,7 +2882,6 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 			MARS_DBG("EOF at %lld (old = %lld, end_pos = %lld)\n", new_finished_pos, finished_pos, brick->replay_end_pos);
 			if (!brick->continuous_replay_mode) {
 				// notice: finished_pos remains at old value here!
-				brick->replay_end_pos = finished_pos;
 				break;
 			}
 			brick_msleep(1000);
