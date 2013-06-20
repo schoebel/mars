@@ -9,6 +9,7 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/version.h>
 #include <linux/string.h>
 #include <linux/list.h>
 #include <linux/types.h>
@@ -305,7 +306,7 @@ static void sync_file(struct sio_output *output)
 {
 	struct file *file = output->filp;
 	int ret;
-#ifdef S_BIAS
+#if defined(S_BIAS) || (defined(RHEL_MAJOR) && (RHEL_MAJOR < 7))
 	ret = vfs_fsync(file, file->f_path.dentry, 1);
 #else
 	ret = vfs_fsync(file, 1);
