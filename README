@@ -10,7 +10,7 @@ MARS Light is almost a drop-in replacement for DRBD
 (that is, block-level storage replication).
 
 In contrast to plain DRBD, it works _asynchronously_ and over
-arbitrary distances. My regular testing runs between datacenters
+arbitrary distances. Our internal 1&1 testing runs between datacenters
 in the US and Europe. MARS uses very different technology under the
 hood, similar to transaction logging of database systems.
 
@@ -18,8 +18,8 @@ Reliability: application and replication are completely decoupled.
 Networking problems (e.g. packet loss, bottlenecks) have no
 impact onto your application at the primary side.
 
-Anytime consistency: on a secondary node, its version of the
-block device is always consistent in itself, but may be outdated
+Anytime Consistency: on a secondary node, its version of the underlying
+disk device is always consistent in itself, but may be outdated
 (represent a former state from the primary side). Thanks to
 incremental replication of the transaction logfiles, usually the
 lag-behind will be only a few seconds, or parts of a second.
@@ -27,21 +27,44 @@ lag-behind will be only a few seconds, or parts of a second.
 Synchronous or near-synchronous operating modes are planned for
 the future, but are expected to _reliably_ work only over short 
 distances (less than 50km), due to fundamental properties
-of the network.
+of distributed systems.
+
+Although many people ask for synchronous modes and although they
+would be very easy to implement (basically just add some additional
+wait conditions to turn asynchronous IO into synchronous one), I don't
+want to implement them for now.
+
+One reason is DRBD which already does a good job for that ("RAID-1 over
+network" which works extremely well on crossover cables).
+MARS is no RAID. The transaction logging of MARS is fundamentally
+different from that.
+
+The other reason is that I personally am not convinced by our experiences
+with synchronous replication in the presence of network bottlenecks.
+Even relatively short bundled 10Gbit lines between datacenters form
+a bottleneck where suddenly some unexpected jitter / packet loss may occur,
+leading to effects similar to "traffic jam".
+
+MARS has simply another application area which is different from DRBD.
 
 WARNING! Current stage is BETA. Don't put productive data on it!
 
-Documentation: currently very rudimentary, some even in German.
-This will be fixed soon.
+Documentation: currently under construction, see docu/mars-manual.pdf
 
 Concepts:
 
-There is a 2-years old concept paper in German which is so much outdated,
-that I don't want to publish it. Please be patient until I write a
-comprehensive paper at the concept level in English.
+See later chapters in docu/mars-manual.pdf .
 
-For the meantime, please look at my presentation about MARS at LCA2013
-(linux.conf.au or look into ./docu/).
+For a very short intro, see my LCA2013 presentation docu/MARS_LCA2013.pdf .
+
+There is also an internal 2-years old concept paper which is so much outdated,
+that I don't want to publish it. 
+
+The fundamental construction principle of the planned MARS Full
+is called Instance Oriented Programming (IOP) and is described in
+the following paper:
+
+http://athomux.net/papers/paper_inst2.pdf
 
 History:
 
@@ -51,36 +74,35 @@ At this time, I was working on it in my spare time.
 
 In Summer 2011, an "official" internal 1&1 project started, which aimed
 to deliver a proof of concept.
+
 In February 2012, a pilot system was rolled out to an internal statistics
 server, which collects statistics data from thousands of other servers,
 and thus produces a very heavy random-access write load, formerly
 replicated with DRBD (which led to performance problems due to massive
 randomness). After switching to MARS, the performance was provably
 better.
-This server was selected because potential loss of statistics data
+That server was selected because potential loss of statistics data
 would be not be that critical as with other productive data, but
 nevertheless it operates on productive data and loads.
 
-After curing some small infancy problems, this server runs until today
-(end of January 2013) without problems. Our sysadmins even switched the
+After curing some small infancy problems, that server runs until today
+without problems. It was upgraded to newer versions of MARS several
+times (indicated by some of the git tags). Our sysadmins switched the
 primary side a few times, without informing me, so I could
 sleep better at night without knowing what they did ;)
 
 In Summer 2012, the next "official" internal 1&1 project started. Its goal
 is to reach enterprise grade, and therefore to rollout MARS Light on
-~10 productive servers, starting with less critical systems like ones
+~15 productive servers, starting with less critical systems like ones
 for test webspaces etc. This project will continue until Summer 2013.
-
-Hopefully, there will be a followup project for mass rollout to some
-thousands of servers.
 
 In December 2012 (shortly before Christmas), I got the official permission
 from our CTO Henning Kettler to publish MARS under GPL on github.
 
 Many thanks to him!
 
-Before that point, I was bound to my working contract which keeps internal
-software as secret by default (when there is no explicit permission).
+Before that point, I was bound to my working contract which kept internal
+software as secret by default (when there was no explicit permission).
 
 Now there is a chance to build up an opensource
 community for MARS, partially outside of 1&1.
@@ -88,4 +110,13 @@ community for MARS, partially outside of 1&1.
 Please contribute! I will be open.
 
 I also try to respect the guidelines from Linus, but probably this
-will need more work. Help is always welcome!
+will need more work. I am already planning to invest some time into
+community revision of the sourcecode, but there is not yet any schedule.
+
+In May 2013, I got help by my new collegue Frank Liepold. He currently
+creates a fully automatic test suite which automates regression tests
+(goal: rolling releases). That test suite is based on the internal
+test suite of blkreplay and will also be published soon.
+
+Hopefully, there will be an iternal 1&1 followup project for
+mass rollout to some thousands of servers.
