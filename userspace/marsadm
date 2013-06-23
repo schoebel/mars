@@ -1648,6 +1648,7 @@ my %cmd_table =
    "secondary"         => [
 			   "check preconditions", \&primary_phase0,
 			   "leave primary state", \&primary_phase1,
+                           "wait for effect", \&primary_phase4,
 			  ],
    "invalidate"        => [
 			   "check preconditions", \&invalidate_res_phase0,
