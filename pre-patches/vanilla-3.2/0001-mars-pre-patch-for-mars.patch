@@ -1,39 +1,25 @@
-commit ef30fa053dc9f9593b464271878e5e08ab897ef8
-Author: Thomas Schoebel-Theuer <tst@1und1.de>
-Date:   Mon Feb 13 08:55:36 2012 +0100
+From d30316ed68259450315665ac3d63c6ea7af4f1b3 Mon Sep 17 00:00:00 2001
+From: Thomas Schoebel-Theuer <schoebel@bell.site>
+Date: Wed, 26 Jun 2013 14:45:07 +0200
+Subject: [PATCH] mars: pre-patch for mars
 
-    pre-patch for mars
-    
-    mostly introduces missint EXPORT_SYMBOL()
+Mostly introduces missing EXPORT_SYMBOL().
+Should have exactly zero impact onto the kernel.
+---
+ fs/aio.c              | 5 +++++
+ fs/namei.c            | 5 +++++
+ fs/open.c             | 2 ++
+ fs/utimes.c           | 2 ++
+ include/linux/major.h | 1 +
+ mm/page_alloc.c       | 2 ++
+ mm/swap_state.c       | 1 +
+ 7 files changed, 18 insertions(+)
 
-diff --git a/block/Kconfig b/block/Kconfig
-index e97934e..9e9201a 100644
---- a/block/Kconfig
-+++ b/block/Kconfig
-@@ -99,6 +99,8 @@ config BLK_DEV_THROTTLING
- 
- 	See Documentation/cgroups/blkio-controller.txt for more information.
- 
-+source block/mars/kernel/Kconfig
-+
- endif # BLOCK
- 
- config BLOCK_COMPAT
-diff --git a/block/Makefile b/block/Makefile
-index 514c6e4..97dbbd4 100644
---- a/block/Makefile
-+++ b/block/Makefile
-@@ -17,3 +17,5 @@ obj-$(CONFIG_IOSCHED_CFQ)	+= cfq-iosched.o
- 
- obj-$(CONFIG_BLOCK_COMPAT)	+= compat_ioctl.o
- obj-$(CONFIG_BLK_DEV_INTEGRITY)	+= blk-integrity.o
-+
-+obj-$(CONFIG_MARS)		+= mars/kernel/
 diff --git a/fs/aio.c b/fs/aio.c
-index 3b65ee7..de4ff1f 100644
+index 78c514c..bbe4cce 100644
 --- a/fs/aio.c
 +++ b/fs/aio.c
-@@ -1346,6 +1346,7 @@ SYSCALL_DEFINE2(io_setup, unsigned, nr_events, aio_context_t __user *, ctxp)
+@@ -1339,6 +1339,7 @@ SYSCALL_DEFINE2(io_setup, unsigned, nr_events, aio_context_t __user *, ctxp)
  out:
  	return ret;
  }
@@ -41,7 +27,7 @@ index 3b65ee7..de4ff1f 100644
  
  /* sys_io_destroy:
   *	Destroy the aio_context specified.  May cancel any outstanding 
-@@ -1363,6 +1364,7 @@ SYSCALL_DEFINE1(io_destroy, aio_context_t, ctx)
+@@ -1356,6 +1357,7 @@ SYSCALL_DEFINE1(io_destroy, aio_context_t, ctx)
  	pr_debug("EINVAL: io_destroy: invalid context id\n");
  	return -EINVAL;
  }
@@ -49,7 +35,7 @@ index 3b65ee7..de4ff1f 100644
  
  static void aio_advance_iovec(struct kiocb *iocb, ssize_t ret)
  {
-@@ -1751,6 +1753,7 @@ long do_io_submit(aio_context_t ctx_id, long nr,
+@@ -1746,6 +1748,7 @@ long do_io_submit(aio_context_t ctx_id, long nr,
  	put_ioctx(ctx);
  	return i ? i : ret;
  }
@@ -57,7 +43,7 @@ index 3b65ee7..de4ff1f 100644
  
  /* sys_io_submit:
   *	Queue the nr iocbs pointed to by iocbpp for processing.  Returns
-@@ -1848,6 +1851,7 @@ SYSCALL_DEFINE3(io_cancel, aio_context_t, ctx_id, struct iocb __user *, iocb,
+@@ -1843,6 +1846,7 @@ SYSCALL_DEFINE3(io_cancel, aio_context_t, ctx_id, struct iocb __user *, iocb,
  
  	return ret;
  }
@@ -65,16 +51,16 @@ index 3b65ee7..de4ff1f 100644
  
  /* io_getevents:
   *	Attempts to read at least min_nr events and up to nr events from
-@@ -1880,3 +1884,4 @@ SYSCALL_DEFINE5(io_getevents, aio_context_t, ctx_id,
+@@ -1875,3 +1879,4 @@ SYSCALL_DEFINE5(io_getevents, aio_context_t, ctx_id,
  	asmlinkage_protect(5, ret, ctx_id, min_nr, nr, events, timeout);
  	return ret;
  }
 +EXPORT_SYMBOL(sys_io_getevents);
 diff --git a/fs/namei.c b/fs/namei.c
-index 9680cef..ff29db5 100644
+index 5008f01..90d2b81 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
-@@ -3399,12 +3399,16 @@ EXPORT_SYMBOL(vfs_create);
+@@ -3397,12 +3397,17 @@ EXPORT_SYMBOL(vfs_create);
  EXPORT_SYMBOL(vfs_follow_link);
  EXPORT_SYMBOL(vfs_link);
  EXPORT_SYMBOL(vfs_mkdir);
@@ -85,6 +71,7 @@ index 9680cef..ff29db5 100644
  EXPORT_SYMBOL(vfs_rename);
 +EXPORT_SYMBOL(sys_rename);
  EXPORT_SYMBOL(vfs_rmdir);
++EXPORT_SYMBOL(sys_rmdir);
  EXPORT_SYMBOL(vfs_symlink);
 +EXPORT_SYMBOL(sys_symlink);
  EXPORT_SYMBOL(vfs_unlink);
@@ -92,7 +79,7 @@ index 9680cef..ff29db5 100644
  EXPORT_SYMBOL(dentry_unhash);
  EXPORT_SYMBOL(generic_readlink);
 diff --git a/fs/open.c b/fs/open.c
-index e2b5d51..4e22bad 100644
+index 22c41b5..e5e14c0 100644
 --- a/fs/open.c
 +++ b/fs/open.c
 @@ -545,6 +545,7 @@ out_release:
@@ -140,43 +127,8 @@ index 6a8ca98..faf6692 100644
  #define RTF_MAJOR		150
  #define RAW_MAJOR		162
  
-diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 1e86bb4..4b6ab71 100644
---- a/include/linux/sched.h
-+++ b/include/linux/sched.h
-@@ -1433,6 +1433,9 @@ struct task_struct {
- 	/* mutex deadlock detection */
- 	struct mutex_waiter *blocked_on;
- #endif
-+#ifdef CONFIG_DEBUG_SPINLOCK
-+	atomic_t lock_count;
-+#endif
- #ifdef CONFIG_TRACE_IRQFLAGS
- 	unsigned int irq_events;
- 	unsigned long hardirq_enable_ip;
-diff --git a/lib/debug_locks.c b/lib/debug_locks.c
-index b1c1773..1d312c0 100644
---- a/lib/debug_locks.c
-+++ b/lib/debug_locks.c
-@@ -44,3 +44,4 @@ int debug_locks_off(void)
- 	}
- 	return 0;
- }
-+EXPORT_SYMBOL(debug_locks_off);
-diff --git a/mm/mmu_context.c b/mm/mmu_context.c
-index cf332bc..19cd576 100644
---- a/mm/mmu_context.c
-+++ b/mm/mmu_context.c
-@@ -7,6 +7,7 @@
- #include <linux/mmu_context.h>
- #include <linux/export.h>
- #include <linux/sched.h>
-+#include <linux/module.h>
- 
- #include <asm/mmu_context.h>
- 
 diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index 6e51bf0..671c322 100644
+index 2b8ba3a..2ba0c27 100644
 --- a/mm/page_alloc.c
 +++ b/mm/page_alloc.c
 @@ -176,6 +176,7 @@ static char * const zone_names[MAX_NR_ZONES] = {
@@ -187,7 +139,7 @@ index 6e51bf0..671c322 100644
  
  static unsigned long __meminitdata nr_kernel_pages;
  static unsigned long __meminitdata nr_all_pages;
-@@ -5230,6 +5231,7 @@ void setup_per_zone_wmarks(void)
+@@ -5187,6 +5188,7 @@ void setup_per_zone_wmarks(void)
  	/* update totalreserve_pages */
  	calculate_totalreserve_pages();
  }
@@ -196,7 +148,7 @@ index 6e51bf0..671c322 100644
  /*
   * The inactive anon list should be small enough that the VM never has to
 diff --git a/mm/swap_state.c b/mm/swap_state.c
-index 7704d9c..16a989b 100644
+index 78cc4d1..36e4ee4 100644
 --- a/mm/swap_state.c
 +++ b/mm/swap_state.c
 @@ -43,6 +43,7 @@ struct address_space swapper_space = {
@@ -207,3 +159,6 @@ index 7704d9c..16a989b 100644
  
  #define INC_CACHE_INFO(x)	do { swap_cache_info.x++; } while (0)
  
+-- 
+1.8.1.4
+

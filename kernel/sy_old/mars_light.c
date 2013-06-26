@@ -27,7 +27,6 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/string.h>
-#include <linux/debug_locks.h>
 
 #include <linux/major.h>
 #include <linux/genhd.h>

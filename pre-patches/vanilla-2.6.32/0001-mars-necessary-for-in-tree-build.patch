@@ -1,0 +1,43 @@
+From 4ee63a106bd45d77babad896cac80195218921ae Mon Sep 17 00:00:00 2001
+From: Thomas Schoebel-Theuer <schoebel@bell.site>
+Date: Wed, 26 Jun 2013 14:46:41 +0200
+Subject: [PATCH] mars: necessary for in-tree build
+
+This patch should not go upstream (as long as the MARS source is
+out-of-tree), because the kernel will no longer build without
+MARS sources present in block/mars/ .
+
+Use this for in-tree builds of the out-of-tree MARS sourcecode,
+i.e. cd block/ && git clone https://github.com/schoebel/mars
+---
+ block/Kconfig  | 2 ++
+ block/Makefile | 2 ++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/block/Kconfig b/block/Kconfig
+index 9be0b56..d046af5 100644
+--- a/block/Kconfig
++++ b/block/Kconfig
+@@ -77,6 +77,8 @@ config BLK_DEV_INTEGRITY
+ 	T10/SCSI Data Integrity Field or the T13/ATA External Path
+ 	Protection.  If in doubt, say N.
+ 
++source block/mars/kernel/Kconfig
++
+ endif # BLOCK
+ 
+ config BLOCK_COMPAT
+diff --git a/block/Makefile b/block/Makefile
+index ba74ca6..71cdf53 100644
+--- a/block/Makefile
++++ b/block/Makefile
+@@ -15,3 +15,5 @@ obj-$(CONFIG_IOSCHED_CFQ)	+= cfq-iosched.o
+ 
+ obj-$(CONFIG_BLOCK_COMPAT)	+= compat_ioctl.o
+ obj-$(CONFIG_BLK_DEV_INTEGRITY)	+= blk-integrity.o
++
++obj-$(CONFIG_MARS)		+= mars/kernel/
+\ No newline at end of file
+-- 
+1.8.1.4
+

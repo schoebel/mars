@@ -1,51 +1,23 @@
-From 2aac8eddf264fa96a67de5672dd4efdbec59c59c Mon Sep 17 00:00:00 2001
-From: Thomas Schoebel-Theuer <tst@1und1.de>
-Date: Mon, 13 Feb 2012 08:55:36 +0100
-Subject: [PATCH] pre-patch for mars
+From 3bbda9eb6457de0629527ced0f276f31ab820d24 Mon Sep 17 00:00:00 2001
+From: Thomas Schoebel-Theuer <schoebel@bell.site>
+Date: Wed, 26 Jun 2013 14:45:07 +0200
+Subject: [PATCH] mars: pre-patch for mars
 
-mostly introduces missint EXPORT_SYMBOL()
+Mostly introduces missing EXPORT_SYMBOL().
+Should have exactly zero impact onto the kernel.
 ---
- block/Kconfig         |    2 ++
- block/Makefile        |    2 ++
- fs/aio.c              |    5 +++++
- fs/namei.c            |    4 ++++
- fs/open.c             |    2 ++
- fs/utimes.c           |    2 ++
- include/linux/major.h |    1 +
- include/linux/sched.h |    3 +++
- kernel/fork.c         |    1 +
- lib/debug_locks.c     |    1 +
- mm/mmu_context.c      |    3 +++
- mm/page_alloc.c       |    2 ++
- mm/swap_state.c       |    1 +
- 13 files changed, 29 insertions(+), 0 deletions(-)
+ fs/aio.c              | 5 +++++
+ fs/namei.c            | 5 +++++
+ fs/open.c             | 2 ++
+ fs/utimes.c           | 2 ++
+ include/linux/major.h | 1 +
+ mm/mmu_context.c      | 3 +++
+ mm/page_alloc.c       | 2 ++
+ mm/swap_state.c       | 1 +
+ 8 files changed, 21 insertions(+)
 
-diff --git a/block/Kconfig b/block/Kconfig
-index 9be0b56..80cd020 100644
---- a/block/Kconfig
-+++ b/block/Kconfig
-@@ -77,6 +77,8 @@ config BLK_DEV_INTEGRITY
- 	T10/SCSI Data Integrity Field or the T13/ATA External Path
- 	Protection.  If in doubt, say N.
- 
-+source block/mars/kernel/Kconfig
-+
- endif # BLOCK
- 
- config BLOCK_COMPAT
-diff --git a/block/Makefile b/block/Makefile
-index ba74ca6..d547b2c 100644
---- a/block/Makefile
-+++ b/block/Makefile
-@@ -15,3 +15,5 @@ obj-$(CONFIG_IOSCHED_CFQ)	+= cfq-iosched.o
- 
- obj-$(CONFIG_BLOCK_COMPAT)	+= compat_ioctl.o
- obj-$(CONFIG_BLK_DEV_INTEGRITY)	+= blk-integrity.o
-+
-+obj-$(CONFIG_MARS)		+= mars/kernel/
-\ No newline at end of file
 diff --git a/fs/aio.c b/fs/aio.c
-index 22a19ad..466a59f 100644
+index 02a2c93..3a0d018 100644
 --- a/fs/aio.c
 +++ b/fs/aio.c
 @@ -1267,6 +1267,7 @@ SYSCALL_DEFINE2(io_setup, unsigned, nr_events, aio_context_t __user *, ctxp)
@@ -64,7 +36,7 @@ index 22a19ad..466a59f 100644
  
  static void aio_advance_iovec(struct kiocb *iocb, ssize_t ret)
  {
-@@ -1677,6 +1679,7 @@ SYSCALL_DEFINE3(io_submit, aio_context_t, ctx_id, long, nr,
+@@ -1674,6 +1676,7 @@ SYSCALL_DEFINE3(io_submit, aio_context_t, ctx_id, long, nr,
  	put_ioctx(ctx);
  	return i ? i : ret;
  }
@@ -72,7 +44,7 @@ index 22a19ad..466a59f 100644
  
  /* lookup_kiocb
   *	Finds a given iocb for cancellation.
-@@ -1756,6 +1759,7 @@ SYSCALL_DEFINE3(io_cancel, aio_context_t, ctx_id, struct iocb __user *, iocb,
+@@ -1753,6 +1756,7 @@ SYSCALL_DEFINE3(io_cancel, aio_context_t, ctx_id, struct iocb __user *, iocb,
  
  	return ret;
  }
@@ -80,16 +52,16 @@ index 22a19ad..466a59f 100644
  
  /* io_getevents:
   *	Attempts to read at least min_nr events and up to nr events from
-@@ -1787,3 +1791,4 @@ SYSCALL_DEFINE5(io_getevents, aio_context_t, ctx_id,
+@@ -1784,3 +1788,4 @@ SYSCALL_DEFINE5(io_getevents, aio_context_t, ctx_id,
  	asmlinkage_protect(5, ret, ctx_id, min_nr, nr, events, timeout);
  	return ret;
  }
 +EXPORT_SYMBOL(sys_io_getevents);
 diff --git a/fs/namei.c b/fs/namei.c
-index b0afbd4..174571e 100644
+index d11f404..e5b472d 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
-@@ -2956,12 +2956,16 @@ EXPORT_SYMBOL(vfs_create);
+@@ -2945,12 +2945,17 @@ EXPORT_SYMBOL(vfs_create);
  EXPORT_SYMBOL(vfs_follow_link);
  EXPORT_SYMBOL(vfs_link);
  EXPORT_SYMBOL(vfs_mkdir);
@@ -100,6 +72,7 @@ index b0afbd4..174571e 100644
  EXPORT_SYMBOL(vfs_rename);
 +EXPORT_SYMBOL(sys_rename);
  EXPORT_SYMBOL(vfs_rmdir);
++EXPORT_SYMBOL(sys_rmdir);
  EXPORT_SYMBOL(vfs_symlink);
 +EXPORT_SYMBOL(sys_symlink);
  EXPORT_SYMBOL(vfs_unlink);
@@ -155,41 +128,6 @@ index 6a8ca98..faf6692 100644
  #define RTF_MAJOR		150
  #define RAW_MAJOR		162
  
-diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 71849bf..570444e 100644
---- a/include/linux/sched.h
-+++ b/include/linux/sched.h
-@@ -1421,6 +1421,9 @@ struct task_struct {
- 	/* mutex deadlock detection */
- 	struct mutex_waiter *blocked_on;
- #endif
-+#ifdef CONFIG_DEBUG_SPINLOCK
-+	atomic_t lock_count;
-+#endif
- #ifdef CONFIG_TRACE_IRQFLAGS
- 	unsigned int irq_events;
- 	int hardirqs_enabled;
-diff --git a/kernel/fork.c b/kernel/fork.c
-index 4bde56f..ff87740 100644
---- a/kernel/fork.c
-+++ b/kernel/fork.c
-@@ -168,6 +168,7 @@ void __put_task_struct(struct task_struct *tsk)
- 	if (!profile_handoff_task(tsk))
- 		free_task(tsk);
- }
-+EXPORT_SYMBOL(__put_task_struct);
- 
- /*
-  * macro override instead of weak attribute alias, to workaround
-diff --git a/lib/debug_locks.c b/lib/debug_locks.c
-index bc3b117..35d6084 100644
---- a/lib/debug_locks.c
-+++ b/lib/debug_locks.c
-@@ -45,3 +45,4 @@ int debug_locks_off(void)
- 	}
- 	return 0;
- }
-+EXPORT_SYMBOL(debug_locks_off);
 diff --git a/mm/mmu_context.c b/mm/mmu_context.c
 index ded9081..addb2e3 100644
 --- a/mm/mmu_context.c
@@ -216,7 +154,7 @@ index ded9081..addb2e3 100644
  }
 +EXPORT_SYMBOL(unuse_mm);
 diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index 3ecab7e..9774425 100644
+index 2bc2ac6..31e3a3f 100644
 --- a/mm/page_alloc.c
 +++ b/mm/page_alloc.c
 @@ -122,6 +122,7 @@ static char * const zone_names[MAX_NR_ZONES] = {
@@ -227,7 +165,7 @@ index 3ecab7e..9774425 100644
  
  static unsigned long __meminitdata nr_kernel_pages;
  static unsigned long __meminitdata nr_all_pages;
-@@ -4645,6 +4646,7 @@ void setup_per_zone_wmarks(void)
+@@ -4631,6 +4632,7 @@ void setup_per_zone_wmarks(void)
  	/* update totalreserve_pages */
  	calculate_totalreserve_pages();
  }
@@ -248,5 +186,5 @@ index 6d1daeb..8f2038a 100644
  #define INC_CACHE_INFO(x)	do { swap_cache_info.x++; } while (0)
  
 -- 
-1.7.8.3
+1.8.1.4
 
