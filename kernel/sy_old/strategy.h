@@ -141,6 +141,7 @@ extern struct mars_brick *make_brick_all(
  */
 extern int mars_stat(const char *path, struct kstat *stat, bool use_lstat);
 extern int mars_mkdir(const char *path);
+extern int mars_rmdir(const char *path);
 extern int mars_unlink(const char *path);
 extern int mars_symlink(const char *oldpath, const char *newpath, const struct timespec *stamp, uid_t uid);
 extern char *mars_readlink(const char *newpath);

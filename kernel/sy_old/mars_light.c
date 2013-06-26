@@ -3533,12 +3533,14 @@ done:
 
 static int prepare_delete(void *buf, struct mars_dent *dent)
 {
+	struct kstat stat;
 	struct mars_global *global = buf;
 	struct mars_dent *target;
 	struct mars_dent *response;
 	const char *response_path = NULL;
 	struct mars_brick *brick;
 	int max_serial = 0;
+	int status;
 
 	if (!global || !dent || !dent->new_link || !dent->d_path) {
 		goto done;
@@ -3550,12 +3552,22 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 
+	status = -EAGAIN;
 	target = _mars_find_dent(global, dent->new_link);
 	if (target) {
-		mars_unlink(dent->new_link);
+		status = mars_unlink(dent->new_link);
 		target->d_killme = true;
-		MARS_DBG("target '%s' deleted and marked for removal\n", dent->new_link);
-	} else {
+		MARS_DBG("target '%s' deleted (status = %d) and marked for removal\n", dent->new_link, status);
+	} else if (mars_stat(dent->new_link, &stat, true) >= 0) {
+		if (S_ISDIR(stat.mode)) {
+			status = mars_rmdir(dent->new_link);
+			MARS_DBG("rmdir '%s', status = %d\n", dent->new_link, status);
+		} else {
+			status = mars_unlink(dent->new_link);
+			MARS_DBG("unlink '%s', status = %d\n", dent->new_link, status);
+		}
+	}
+	if (status < 0) {
 		MARS_DBG("target '%s' does no longer exist\n", dent->new_link);
 		if (dent->d_serial <= global->deleted_border) {
 			MARS_DBG("removing deletion symlink '%s'\n", dent->d_path);
