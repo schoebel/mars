@@ -1427,11 +1427,9 @@ sub resize_res {
     my $this_size = get_link($syncsize);
     ldie "sync on $syncsize has not yet finished: $this_size != $old_size (DANGEROUS FIX: if you know what you are doing, marsadm fake-sync can 'fix' it -- but this may need a full-sync afterwards)\n" unless $this_size == $old_size;
   }
-  if (0) {
-    foreach my $syncsize (@syncsizes) {
-      my $this_size = get_link($syncsize);
-      set_link($new_size, $syncsize);
-    }
+  foreach my $syncsize (@syncsizes) {
+    my $this_size = get_link($syncsize);
+    set_link($new_size, $syncsize);
   }
   set_link($new_size, $lnk);
 }
