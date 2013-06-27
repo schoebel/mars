@@ -4415,6 +4415,14 @@ static void __exit exit_light(void)
 	MARS_DBG("====================== stopped everything.\n");
 	exit_say();
 	printk(KERN_INFO "stopped MARS\n");
+	/* Workaround for nasty race: some kernel threads have not yet
+	 * really finished even _after_ kthread_stop() and may execute
+	 * some code which will disappear right after return from this
+	 * function.
+	 * A correct solution would probably need the help of the kernel
+	 * scheduler.
+	 */
+	brick_msleep(1000);
 }
 
 static int __init init_light(void)
