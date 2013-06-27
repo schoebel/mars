@@ -453,6 +453,7 @@ struct copy_cookie {
 	const char *argv[2];
 	const char *copy_path;
 	loff_t start_pos;
+	loff_t end_pos;
 	bool verify_mode;
 
  	const char *fullpath[2];
@@ -503,6 +504,19 @@ int _set_copy_params(struct mars_brick *_brick, void *private)
 		}
 		MARS_DBG("copy_start = %lld\n", copy_brick->copy_start);
 		copy_brick->copy_end = cc->info[0].current_size;
+		if (cc->end_pos != -1) {
+			if (unlikely(cc->end_pos > copy_brick->copy_end)) {
+				MARS_ERR("target size %lld is larger than actual size %lld on source\n", cc->end_pos, copy_brick->copy_end);
+				status = -EINVAL;
+				goto done;
+			}
+			copy_brick->copy_end = cc->end_pos;
+			if (unlikely(cc->end_pos > cc->info[1].current_size)) {
+				MARS_ERR("bad end position %lld is larger than actual size %lld on target\n", cc->end_pos, cc->info[1].current_size);
+				status = -EINVAL;
+				goto done;
+			}
+		}
 		MARS_DBG("copy_end = %lld\n", copy_brick->copy_end);
 		if (copy_brick->copy_start < copy_brick->copy_end) {
 			status = 1;
@@ -1121,7 +1135,8 @@ int __make_copy(
 		const char *copy_path,
 		const char *parent,
 		const char *argv[],
-		loff_t start_pos, // -1 means at EOF
+		loff_t start_pos, // -1 means at EOF of source
+		loff_t end_pos,   // -1 means at EOF of target
 		bool verify_mode,
 		bool limit_mode,
 		struct copy_brick **__copy)
@@ -1187,6 +1202,7 @@ int __make_copy(
 
 	cc.copy_path = copy_path;
 	cc.start_pos = start_pos;
+	cc.end_pos = end_pos;
 	cc.verify_mode = verify_mode;
 
 	copy =
@@ -1298,7 +1314,7 @@ int _update_file(struct mars_rotate *rot, const char *switch_path, const char *c
 		goto done;
 
 	MARS_DBG("src = '%s' dst = '%s'\n", tmp, file);
-	status = __make_copy(global, NULL, switch_path, copy_path, NULL, argv, -1, false, false, &copy);
+	status = __make_copy(global, NULL, switch_path, copy_path, NULL, argv, -1, -1, false, false, &copy);
 	if (status >= 0 && copy) {
 		copy->copy_limiter = &rot->file_limiter;
 		if ((!copy->append_mode || copy->power.led_off) &&
@@ -3351,7 +3367,7 @@ static int _make_copy(void *buf, struct mars_dent *dent)
 	// check whether connection is allowed
 	switch_path = path_make("%s/todo-%s/connect", dent->d_parent->d_path, my_id());
 
-	status = __make_copy(global, dent, switch_path, copy_path, dent->d_parent->d_path, (const char**)dent->d_argv, -1, false, true, NULL);
+	status = __make_copy(global, dent, switch_path, copy_path, dent->d_parent->d_path, (const char**)dent->d_argv, -1, -1, false, true, NULL);
 
 done:
 	MARS_DBG("status = %d\n", status);
@@ -3420,7 +3436,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 		status = -EINVAL;
 		goto done;
 	}
-	if (start_pos == end_pos) {
+	if (start_pos >= end_pos) {
 		MARS_DBG("no data sync necessary, size = %lld\n", start_pos);
 		do_start = false;
 	}
@@ -3492,7 +3508,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 
 	{
 		const char *argv[2] = { src, dst };
-		status = __make_copy(global, dent, do_start ? switch_path : "", copy_path, dent->d_parent->d_path, argv, start_pos, mars_fast_fullsync > 0, true, &copy);
+		status = __make_copy(global, dent, do_start ? switch_path : "", copy_path, dent->d_parent->d_path, argv, start_pos, end_pos, mars_fast_fullsync > 0, true, &copy);
 		if (copy)
 			copy->copy_limiter = &rot->sync_limiter;
 		rot->sync_brick = copy;
