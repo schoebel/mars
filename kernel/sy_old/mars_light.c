@@ -56,6 +56,8 @@
 #include "../mars_usebuf.h"
 #endif
 
+#define REPLAY_TOLERANCE (PAGE_SIZE + OVERHEAD)
+
 #if 0
 #define inline __attribute__((__noinline__))
 #endif
@@ -1971,6 +1973,8 @@ bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, c
 	const char *new_versionlink = NULL;
 	const char *own_replaylink_path = NULL;
 	const char *own_replaylink = NULL;
+	loff_t own_r_val;
+	loff_t own_v_val;
 	int old_log_seq;
 	int new_log_seq;
 	int own_r_offset;
@@ -2049,8 +2053,16 @@ bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, c
 	own_v_offset += own_r_len + 1;
 	own_r_len    = skip_part(own_replaylink  + own_r_offset);
 	own_v_len    = skip_part(own_versionlink + own_v_offset);
-	if (unlikely(own_r_len != own_v_len ||
-		     strncmp(own_replaylink + own_r_offset, own_versionlink + own_v_offset, own_r_len))) {
+	own_r_val = own_v_val = 0;
+	if (sscanf(own_replaylink + own_r_offset, "%lld", &own_r_val) != 1) {
+		MARS_ERR_TO(rot->log_say, "own replay link '%s' -> '%s' is malformed\n", own_replaylink_path, own_replaylink);
+		goto done;
+	}
+	if (sscanf(own_versionlink + own_v_offset, "%lld", &own_v_val) != 1) {
+		MARS_ERR_TO(rot->log_say, "own version link '%s' -> '%s' is malformed\n", own_versionlink_path, own_versionlink);
+		goto done;
+	}
+	if (unlikely(own_r_len > own_v_len || own_r_len + REPLAY_TOLERANCE < own_v_len)) {
 		MARS_INF_TO(rot->log_say, "log replay is not yet finished: '%s' and '%s' are reporting different positions.\n", own_replaylink, own_versionlink);
 		goto done;
 	}
@@ -2475,8 +2487,13 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 
 	status = 0;
 	if (rot->aio_info.current_size > *oldpos_start) {
-		MARS_INF_TO(rot->log_say, "transaction log replay is necessary on '%s' from %lld to %lld (dirty region ends at %lld)\n", rot->aio_dent->d_path, *oldpos_start, rot->aio_info.current_size, *oldpos_end);
-		status = 2;
+		if (rot->aio_info.current_size - *oldpos_start < REPLAY_TOLERANCE) {
+			MARS_INF_TO(rot->log_say, "TOLERANCE: transaction log '%s' is treated as fully applied\n", rot->aio_dent->d_path);
+			status = 1;
+		} else {
+			MARS_INF_TO(rot->log_say, "transaction log replay is necessary on '%s' from %lld to %lld (dirty region ends at %lld)\n", rot->aio_dent->d_path, *oldpos_start, rot->aio_info.current_size, *oldpos_end);
+			status = 2;
+		}
 	} else if (rot->next_relevant_log) {
 		MARS_INF_TO(rot->log_say, "transaction log '%s' is already applied, and the next one is available for switching\n", rot->aio_dent->d_path);
 		status = 1;
@@ -2812,7 +2829,7 @@ int _start_trans(struct mars_rotate *rot)
 	trans_brick->replay_mode = rot->replay_mode;
 	trans_brick->replay_tolerance = 0;
 	if (rot->todo_primary)
-		trans_brick->replay_tolerance = PAGE_SIZE * 2;
+		trans_brick->replay_tolerance = REPLAY_TOLERANCE;
 	_init_trans_input(trans_input, rot->relevant_log, rot);
 
 	/* Connect to new transaction log
