@@ -1396,6 +1396,7 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 {
 	int status = 0;
 	struct kstat local_stat = {};
+	const char *marker_path = NULL;
 	bool stat_ok;
 	bool update_mtime = true;
 	bool update_ctime = true;
@@ -1404,7 +1405,17 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 	if (!strncmp(remote_dent->d_name, ".tmp", 4)) {
 		goto done;
 	}
+	if (!strncmp(remote_dent->d_name, ".deleted-", 9)) {
+		goto done;
+	}
 	if (!strncmp(remote_dent->d_name, "ignore", 6)) {
+		goto done;
+	}
+
+	// check marker preventing concurrent updates from remote hosts when deletes are in progress
+	marker_path = backskip_replace(remote_dent->d_path, '/', true, "/.deleted-");
+	if (mars_stat(marker_path, &local_stat, true) >= 0) {
+		MARS_IO("marker '%s' exists, ignoring '%s'\n", marker_path, remote_dent->d_path);
 		goto done;
 	}
 
@@ -1475,6 +1486,7 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 	}
 
  done:
+	brick_string_free(marker_path);
 	if (status >= 0) {
 		status = run_trigger ? 1 : 0;
 	}
@@ -3553,6 +3565,7 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	struct mars_global *global = buf;
 	struct mars_dent *target;
 	struct mars_dent *response;
+	const char *marker_path = NULL;
 	const char *response_path = NULL;
 	struct mars_brick *brick;
 	int max_serial = 0;
@@ -3562,6 +3575,14 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 
+	// create a marker which prevents concurrent updates from remote hosts
+	marker_path = backskip_replace(dent->new_link, '/', true, "/.deleted-");
+	if (unlikely(!marker_path))
+		goto done;
+	if (mars_stat(marker_path, &stat, true) < 0) {
+		mars_symlink("1", marker_path, NULL, 0);
+	}
+	
 	brick = mars_find_brick(global, NULL, dent->new_link);
 	if (brick && unlikely(brick->nr_outputs > 0 && brick->outputs[0] && brick->outputs[0]->nr_connected)) {
 		MARS_WRN("target '%s' cannot be deleted, its brick '%s' in use\n", dent->new_link, SAFE_STR(brick->brick_name));
@@ -3586,6 +3607,7 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	if (status < 0) {
 		MARS_DBG("target '%s' does no longer exist\n", dent->new_link);
 		if (dent->d_serial <= global->deleted_border) {
+			mars_unlink(marker_path);
 			MARS_DBG("removing deletion symlink '%s'\n", dent->d_path);
 			dent->d_killme = true;
 			mars_unlink(dent->d_path);
@@ -3609,6 +3631,7 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	}
 
  done:
+	brick_string_free(marker_path);
 	brick_string_free(response_path);
 	return 0;
 }
