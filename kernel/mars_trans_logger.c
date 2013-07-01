@@ -2858,13 +2858,33 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		}
 
 		status = log_read(&input->logst, false, &lh, &buf, &len);
+
+		new_finished_pos = input->logst.log_pos + input->logst.offset;
+		MARS_RPL("read  %lld %lld\n", finished_pos, new_finished_pos);
+		
 		if (status == -EAGAIN) {
-			MARS_DBG("got -EAGAIN\n");
+			loff_t remaining = brick->replay_end_pos - new_finished_pos;
+			MARS_DBG("got -EAGAIN, remaining = %lld\n", remaining);
+			if (brick->replay_tolerance > 0 && remaining < brick->replay_tolerance) {
+				MARS_WRN("logfile is truncated at position %lld (end_pos = %lld, remaining = %lld, tolerance = %d)\n",
+					 new_finished_pos,
+					 brick->replay_end_pos,
+					 remaining,
+					 brick->replay_tolerance);
+				finished_pos = new_finished_pos;
+				brick->replay_code = status;
+				break;
+			}
 			brick_msleep(backoff);
 			if (backoff < 3000) {
 				backoff += 100;
 			} else {
-				MARS_WRN("logfile replay not possible at position %lld (end_pos = %lld, remaining = %lld), please check/repair your logfile in userspace by some tool!\n", finished_pos, brick->replay_end_pos, brick->replay_end_pos - finished_pos);
+				MARS_WRN("logfile replay not possible at position %lld (end_pos = %lld, remaining = %lld), please check/repair your logfile in userspace by some tool!\n",
+					 new_finished_pos,
+					 brick->replay_end_pos,
+					 remaining);
+				brick->replay_code = status;
+				break;
 			}
 			continue;
 		}
@@ -2874,9 +2894,6 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 			break;
 		}
 
-		new_finished_pos = input->logst.log_pos + input->logst.offset;
-		MARS_RPL("read  %lld %lld\n", finished_pos, new_finished_pos);
-		
 		if ((!status && len <= 0) ||
 		   new_finished_pos > brick->replay_end_pos) { // EOF -> wait until brick_thread_should_stop()
 			MARS_DBG("EOF at %lld (old = %lld, end_pos = %lld)\n", new_finished_pos, finished_pos, brick->replay_end_pos);

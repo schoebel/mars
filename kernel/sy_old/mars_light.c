@@ -2810,6 +2810,9 @@ int _start_trans(struct mars_rotate *rot)
 	/* Supply all relevant parameters
 	 */
 	trans_brick->replay_mode = rot->replay_mode;
+	trans_brick->replay_tolerance = 0;
+	if (rot->todo_primary)
+		trans_brick->replay_tolerance = PAGE_SIZE * 2;
 	_init_trans_input(trans_input, rot->relevant_log, rot);
 
 	/* Connect to new transaction log
