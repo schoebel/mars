@@ -1319,9 +1319,11 @@ int _update_file(struct mars_rotate *rot, const char *switch_path, const char *c
 	status = __make_copy(global, NULL, switch_path, copy_path, NULL, argv, -1, -1, false, false, &copy);
 	if (status >= 0 && copy) {
 		copy->copy_limiter = &rot->file_limiter;
-		if ((!copy->append_mode || copy->power.led_off) &&
+		// FIXME: code is dead
+		if (copy->append_mode && copy->power.led_on &&
 		    end_pos > copy->copy_end) {
 			MARS_DBG("appending to '%s' %lld => %lld\n", copy_path, copy->copy_end, end_pos);
+			// FIXME: use corrected length from mars_get_info() / see _set_copy_params()
 			copy->copy_end = end_pos;
 		}
 	}
