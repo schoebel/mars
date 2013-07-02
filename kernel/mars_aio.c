@@ -6,6 +6,7 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/version.h>
 #include <linux/string.h>
 #include <linux/list.h>
 #include <linux/types.h>
@@ -56,6 +57,9 @@ struct threshold aio_sync_threshold = {
 	.thr_plus = 0,
 };
 EXPORT_SYMBOL_GPL(aio_sync_threshold);
+
+int aio_sync_mode = 1;
+EXPORT_SYMBOL_GPL(aio_sync_mode);
 
 ///////////////////////// own type definitions ////////////////////////
 
@@ -445,7 +449,24 @@ int aio_sync(struct file *file)
 {
 	int err;
 
-	err = filemap_write_and_wait_range(file->f_mapping, 0, LLONG_MAX);
+	switch (aio_sync_mode) {
+	case 1:
+#if defined(S_BIAS) || (defined(RHEL_MAJOR) && (RHEL_MAJOR < 7))
+		err = vfs_fsync_range(file, file->f_path.dentry, 0, LLONG_MAX, 1);
+#else
+		err = vfs_fsync_range(file, 0, LLONG_MAX, 1);
+#endif
+		break;
+	case 2:
+#if defined(S_BIAS) || (defined(RHEL_MAJOR) && (RHEL_MAJOR < 7))
+		err = vfs_fsync_range(file, file->f_path.dentry, 0, LLONG_MAX, 0);
+#else
+		err = vfs_fsync_range(file, 0, LLONG_MAX, 0);
+#endif
+		break;
+	default:
+		err = filemap_write_and_wait_range(file->f_mapping, 0, LLONG_MAX);
+	}
 
 	return err;
 }

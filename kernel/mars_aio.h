@@ -14,6 +14,13 @@ extern struct threshold aio_submit_threshold;
 extern struct threshold aio_io_threshold[2];
 extern struct threshold aio_sync_threshold;
 
+/* aio_sync_mode:
+ *  0 = filemap_write_and_wait_range()
+ *  1 = fdatasync()
+ *  2 = fsync()
+ */
+extern int aio_sync_mode;
+
 //#define USE_CLEVER_SYNC // TODO: NYI (should result in better write performance)
 #ifdef USE_CLEVER_SYNC
 
