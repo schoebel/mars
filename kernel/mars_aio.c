@@ -499,52 +499,6 @@ void aio_sync_all(struct aio_output *output, struct list_head *tmp_list)
 	_complete_all(tmp_list, output, err);
 }
 
-#ifdef USE_CLEVER_SYNC
-static
-int sync_cmp(struct pairing_heap_sync *_a, struct pairing_heap_sync *_b)
-{
-	struct aio_mref_aspect *a = container_of(_a, struct aio_mref_aspect, heap_head);
-	struct aio_mref_aspect *b = container_of(_b, struct aio_mref_aspect, heap_head);
-	struct mref_object *ao = a->object;
-	struct mref_object *bo = b->object;
-	if (unlikely(!ao || !bo)) {
-		MARS_ERR("bad object pointers\n");
-		return 0;
-	}
-	if (ao->ref_pos < bo->ref_pos)
-		return -1;
-	if (ao->ref_pos > bo->ref_pos)
-		return 1;
-	return 0;
-}
-
-_PAIRING_HEAP_FUNCTIONS(static,sync,sync_cmp);
-
-static
-void aio_clever_move(struct list_head *tmp_list, int prio, struct q_sync *q_sync)
-{
-	while (!list_empty(tmp_list)) {
-		struct list_head *tmp = tmp_list->next;
-		struct aio_mref_aspect *mref_a = container_of(tmp, struct aio_mref_aspect, io_head);
-		list_del_init(tmp);
-		ph_insert_sync(&q_sync->heap[prio], &mref_a->heap_head);
-	}
-}
-
-static
-void aio_clever_sync(struct aio_output *output, struct q_sync *q_sync)
-{
-	int i;
-	int max = 64;
-	for (i = 0; i < MARS_PRIO_NR; i++) {
-		struct pairing_heap_sync **heap = &q_sync->heap[i];
-		if (*heap) {
-			return;
-		}
-	}
-}
-#endif
-
 /* Workaround for non-implemented aio_fsync()
  */
 static
@@ -552,9 +506,6 @@ int aio_sync_thread(void *data)
 {
 	struct aio_threadinfo *tinfo = data;
 	struct aio_output *output = tinfo->output;
-#ifdef USE_CLEVER_SYNC
-	struct q_sync q_sync = {};
-#endif
 	
 	MARS_DBG("sync thread has started on '%s'.\n", output->brick->brick_path);
 	//set_user_nice(current, -20);
@@ -586,15 +537,8 @@ int aio_sync_thread(void *data)
 		traced_unlock(&tinfo->lock, flags);
 
 		if (!list_empty(&tmp_list)) {
-#ifdef USE_CLEVER_SYNC
-			aio_clever_move(&tmp_list, i, &q_sync);
-#else
 			aio_sync_all(output, &tmp_list);
-#endif
 		}
-#ifdef USE_CLEVER_SYNC
-		aio_clever_sync(output, &q_sync);
-#endif
 	}
 
 	MARS_DBG("sync thread has stopped.\n");
