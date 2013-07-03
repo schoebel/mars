@@ -190,15 +190,19 @@ sub sleep_timeout {
 # wait for some condition
 sub wait_cond {
   my ($cmd, $res, $specific) = @_;
-  my $is_actual = ($specific =~ s/^is-//);
+  my $is_actual = ($specific =~ s/^(is|has)-//);
   my $is_on = !($specific =~ s/-off$//);
   $specific =~ s/-on$//;
   if ($is_actual) {
+    if ($specific eq "device") {
+      check_mars_device($cmd, $res, 1, !$is_on);
+      return;
+    }
     my %table =
       (
        "attach" => "is-attached",
+       "attached" => "is-attached",
        "primary" => "is-primary",
-       "device" => "device-$res",
       );
     my $name = $table{$specific};
     ldie "actual indicator '$specific' does not exist\n" unless exists($table{$specific});
@@ -207,6 +211,7 @@ sub wait_cond {
     my %table =
       (
        "attach" => "attach",
+       "attached" => "attach",
        "connect" => "connect",
        "replay" => "allow-replay",
        "sync" => "sync",
@@ -216,6 +221,7 @@ sub wait_cond {
     check_todo($cmd, $res, $name, $is_on ? 1 : 0, 1);
   }
 }
+
 # wait until some communication has occurred
 sub wait_cluster {
   return wait_cond(@_) if int(@_) >= 3;
@@ -404,6 +410,43 @@ sub check_status {
     sleep_timeout();
   }
   lprint "OK, '$path' has acceptable value '$link'\n";
+}
+
+sub check_mars_device {
+  my ($cmd, $res, $wait, $inv) = @_;
+  my $name = get_link("$mars/resource-$res/device-$host");
+  my $dev = "/dev/mars/$name";
+  my $backoff = 1;
+  my $round = 0;
+  if ($inv) {
+    while (-b $dev) {
+      ldie "cannot execute $cmd: device '$dev' has not yet disappeared\n" if !$wait;
+      lwarn "device '$dev' has not yet disappeared\n";
+      sleep_timeout($backoff);
+      # very slowly increasing backoff
+      if ($backoff < 10 && $round++ > 5) {
+	$round = 0;
+	$backoff++;
+      }
+    }
+    lprint "device '$dev' is no longer present\n" unless -b $dev;
+    return;
+  }
+  # !$inv
+  while (! -e $dev) {
+    my $text = get_error_text($cmd, $res);
+    lprint $text if $text;
+    ldie "aborting due to errors\n" if $text =~ m/error/mi;
+    ldie "cannot execute $cmd: device '$dev' not yet present\n" if !$wait;
+    lprint "device '$dev' not yet present\n";
+    sleep_timeout($backoff);
+    # very slowly increasing backoff
+    if ($backoff < 10 && $round++ > 5) {
+      $round = 0;
+      $backoff++;
+    }
+  }
+  lprint "device '$dev' is present\n" if -b $dev;
 }
 
 sub check_userspace {
@@ -1125,13 +1168,7 @@ sub attach_res_phase2 {
   my $detach = ($cmd eq "detach");
   check_status($cmd, $res, "is-attached", $detach ? 0 : 1, 1);
   if ($detach) {
-    my $name = get_link("$mars/resource-$res/device-$host");
-    my $dev = "/dev/mars/$name";
-    while (-e $dev) {
-      lprint "device '$dev' not yet disappeared\n";
-      sleep_timeout(3);
-    }
-    lprint "OK, device '$dev' is not present\n";
+    check_mars_device($cmd, $res, 1, 1);
   }
 }
 
@@ -1312,36 +1349,11 @@ sub primary_phase3 {
 sub primary_phase4 {
   my ($cmd, $res) = @_;
   return if $force;
-  my $name = get_link("$mars/resource-$res/device-$host");
-  my $dev = "/dev/mars/$name";
-  my $backoff = 1;
-  my $round = 0;
   if($cmd eq "secondary") {
-    while (-b $dev) {
-      lwarn "device '$dev' has not yet disappeared\n";
-      sleep_timeout($backoff);
-      # very slowly increasing backoff
-      if ($backoff < 10 && $round++ > 5) {
-	$round = 0;
-	$backoff++;
-      }
-    }
-    lprint "device '$dev' is no longer present\n" unless -b $dev;
+    check_mars_device($cmd, $res, 1, 1);
     return;
   }
-  while (! -e $dev) {
-    my $text = get_error_text($cmd, $res);
-    lprint $text if $text;
-    ldie "aborting due to errors\n" if $text =~ m/error/mi;
-    lprint "device '$dev' not yet present\n";
-    sleep_timeout($backoff);
-    # very slowly increasing backoff
-    if ($backoff < 10 && $round++ > 5) {
-      $round = 0;
-      $backoff++;
-    }
-  }
-  lprint "device '$dev' is present\n" if -b $dev;
+  check_mars_device($cmd, $res, 1, 0);
 }
 
 sub wait_umount_res {
