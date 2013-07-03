@@ -32,6 +32,7 @@ void mapfree_pages(struct mapfree_info *mf, bool force)
 		goto done;
 
 	if (force) {
+		mf->mf_grace_free = 0;
 		start = 0;
 		end = -1;
 	} else {
@@ -53,6 +54,9 @@ void mapfree_pages(struct mapfree_info *mf, bool force)
 
 		if (min || mf->mf_last) {
 			start = mf->mf_last / PAGE_SIZE;
+			// add some grace overlapping
+			if (likely(start > 0))
+				start--;
 			mf->mf_last = min;
 			end   = min / PAGE_SIZE;
 		} else  { // there was no progress for at least 2 rounds
@@ -248,7 +252,7 @@ int mapfree_thread(void *data)
 			continue;
 		}
 
-		mapfree_pages(mf, false);
+		mapfree_pages(mf, mf->mf_grace_free > 1000);
 
 		mf->mf_jiffies = jiffies;
 		mapfree_put(mf);
