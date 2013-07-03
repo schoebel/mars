@@ -436,7 +436,7 @@ void hash_extend(struct trans_logger_brick *brick, loff_t *_pos, int *_len, stru
 				goto collision;
 			
 			// no writeback of non-persistent data
-			if (!test_a->is_persistent)
+			if (!(test_a->is_persistent & test_a->is_completed))
 				goto collision;
 			
 			// extend the search region when necessary
