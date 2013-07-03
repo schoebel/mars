@@ -83,6 +83,9 @@ EXPORT_SYMBOL_GPL(trans_logger_max_interleave);
 int trans_logger_resume = 0;
 EXPORT_SYMBOL_GPL(trans_logger_resume);
 
+int trans_logger_replay_timeout = 1; // in s
+EXPORT_SYMBOL_GPL(trans_logger_replay_timeout);
+
 struct writeback_group global_writeback = {
 	.lock = __RW_LOCK_UNLOCKED(global_writeback.lock),
 	.group_anchor = LIST_HEAD_INIT(global_writeback.group_anchor),
@@ -2876,7 +2879,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 				break;
 			}
 			brick_msleep(backoff);
-			if (backoff < 3000) {
+			if (backoff < trans_logger_replay_timeout * 1000) {
 				backoff += 100;
 			} else {
 				MARS_WRN("logfile replay not possible at position %lld (end_pos = %lld, remaining = %lld), please check/repair your logfile in userspace by some tool!\n",
