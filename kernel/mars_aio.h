@@ -24,6 +24,7 @@ extern int aio_sync_mode;
 struct aio_mref_aspect {
 	GENERIC_ASPECT(mref);
 	struct list_head io_head;
+	struct list_head dirty_head;
 	unsigned long long enqueue_stamp;
 	long long start_jiffies;
 	int resubmit;
@@ -37,6 +38,7 @@ struct aio_brick {
 	bool o_creat;
 	bool o_direct;
 	bool o_fdsync;
+	bool is_static_device;
 };
 
 struct aio_input {
@@ -59,10 +61,11 @@ struct aio_threadinfo {
 struct aio_output {
 	MARS_OUTPUT(aio);
         // private
+	struct list_head dirty_anchor;
+	spinlock_t dirty_lock;
 	struct mapfree_info *mf;
 	int fd; // FIXME: remove this!
 	struct aio_threadinfo tinfo[3];
-	loff_t old_size;
 	aio_context_t ctxp;
 	wait_queue_head_t fdsync_event;
 	bool fdsync_active;

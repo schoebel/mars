@@ -131,6 +131,51 @@ done:
 	return mref_a;
 }
 
+////////////////// dirty IOs on the fly  //////////////////
+
+static inline
+void insert_dirty(struct aio_output *output, struct aio_mref_aspect *mref_a)
+{
+	unsigned long flags = 0;
+
+	traced_lock(&output->dirty_lock, flags);
+	list_del(&mref_a->dirty_head);
+	list_add(&mref_a->dirty_head, &output->dirty_anchor);
+	traced_unlock(&output->dirty_lock, flags);
+}
+
+static inline
+void remove_dirty(struct aio_output *output, struct aio_mref_aspect *mref_a)
+{
+	if (!list_empty(&mref_a->dirty_head)) {
+		unsigned long flags = 0;
+
+		traced_lock(&output->dirty_lock, flags);
+		list_del_init(&mref_a->dirty_head);
+		traced_unlock(&output->dirty_lock, flags);
+	}
+}
+
+static inline
+void get_dirty(struct aio_output *output, loff_t *min, loff_t *max)
+{
+	struct list_head *tmp;
+	unsigned long flags = 0;
+
+	traced_lock(&output->dirty_lock, flags);
+	for (tmp = output->dirty_anchor.next; tmp != &output->dirty_anchor; tmp = tmp->next) {
+		struct aio_mref_aspect *mref_a = container_of(tmp, struct aio_mref_aspect, dirty_head);
+		struct mref_object *mref = mref_a->object;
+		if (mref->ref_pos < *min) {
+			*min = mref->ref_pos;
+		}
+		if (mref->ref_pos + mref->ref_len > *max) {
+			*max = mref->ref_pos + mref->ref_len;
+		}
+	}
+	traced_unlock(&output->dirty_lock, flags);
+}
+
 ////////////////// own brick / input / output operations //////////////////
 
 static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
@@ -259,11 +304,7 @@ void _complete(struct aio_output *output, struct mref_object *mref, int err)
 
 done:
 	if (mref->ref_rw) {
-		struct file *file = output->mf->mf_filp;
-		loff_t new_size = i_size_read(file->f_mapping->host);
-		if (atomic_dec_and_test(&output->write_count)) {
-			output->old_size = new_size;
-		}
+		atomic_dec(&output->write_count);
 	} else {
 		atomic_dec(&output->read_count);
 	}
@@ -284,6 +325,7 @@ void _complete_all(struct list_head *tmp_list, struct aio_output *output, int er
 		struct list_head *tmp = tmp_list->next;
 		struct aio_mref_aspect *mref_a = container_of(tmp, struct aio_mref_aspect, io_head);
 		list_del_init(tmp);
+		remove_dirty(output, mref_a);
 		_complete(output, mref_a->object, err);
 	}
 }
@@ -781,6 +823,10 @@ static int aio_submit_thread(void *data)
 
 		mapfree_set(output->mf, mref->ref_pos, -1);
 
+		if (mref->ref_rw) {
+			insert_dirty(output, mref_a);
+		}
+
 		// check for reads exactly at EOF (special case)
 		if (mref->ref_pos == mref->ref_total_size &&
 		   !mref->ref_rw &&
@@ -842,6 +888,9 @@ static int aio_submit_thread(void *data)
 static int aio_get_info(struct aio_output *output, struct mars_info *info)
 {
 	struct file *file;
+	loff_t min;
+	loff_t max;
+
 	if (unlikely(!output ||
 		     !output->mf ||
 		     !(file = output->mf->mf_filp) ||
@@ -860,16 +909,16 @@ static int aio_get_info(struct aio_output *output, struct mars_info *info)
 	 * appended by a write operation, but the data has not actually hit
 	 * the page cache, such that a concurrent read gets NULL blocks.
 	 */
-	if (atomic_read(&output->write_count) > 0 && output->old_size > 0) {
-		info->current_size = output->old_size;
-		MARS_DBG("using old file size = %lld\n", info->current_size);
-		return 0;
+	min = i_size_read(file->f_mapping->host);
+	max = 0;
+
+	if (!output->brick->is_static_device) {
+		get_dirty(output, &min, &max);
 	}
 
-	info->current_size = i_size_read(file->f_mapping->host);
+	info->current_size = min;
 	MARS_DBG("determined file size = %lld\n", info->current_size);
 
-	output->old_size = info->current_size;
 	return 0;
 }
 
@@ -969,13 +1018,15 @@ static int aio_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
 	struct aio_mref_aspect *ini = (void*)_ini;
 	INIT_LIST_HEAD(&ini->io_head);
+	INIT_LIST_HEAD(&ini->dirty_head);
 	return 0;
 }
 
 static void aio_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
 	struct aio_mref_aspect *ini = (void*)_ini;
-	(void)ini;
+	CHECK_HEAD_EMPTY(&ini->dirty_head);
+	CHECK_HEAD_EMPTY(&ini->io_head);
 }
 
 MARS_MAKE_STATICS(aio);
@@ -1070,12 +1121,15 @@ cleanup:
 
 static int aio_output_construct(struct aio_output *output)
 {
+	INIT_LIST_HEAD(&output->dirty_anchor);
+	spin_lock_init(&output->dirty_lock);
 	init_waitqueue_head(&output->fdsync_event);
 	return 0;
 }
 
 static int aio_output_destruct(struct aio_output *output)
 {
+	CHECK_HEAD_EMPTY(&output->dirty_anchor);
 	return 0;
 }
 
