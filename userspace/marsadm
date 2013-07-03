@@ -843,7 +843,7 @@ sub create_res {
   my $resdir = "$mars/resource-$res";
   if ($create) {
     ldie "resource directory '$res' already exists; you may override this via --force\n" if (!$force && -d $resdir);
-    ldie "resource directory '$res' has some contents -- remove by hand if you are sure that you really know what you are doing.\n" if glob("$resdir/*.status");
+    ldie "resource directory '$res' has some contents -- remove by hand if you are sure that you really know what you are doing, or give --force.\n" if (!$force && glob("$resdir/*.status"));
     lprint "creating new resource '$res'\n";
   } else {
     if ( -e "$resdir/connect-$host" || -e "$resdir/data-$host") {
