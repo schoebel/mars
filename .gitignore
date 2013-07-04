@@ -11,4 +11,4 @@ kernel/buildtag.h
 kernel/mars_config.h
 *.orig
 *.rej
-
+*.bak
