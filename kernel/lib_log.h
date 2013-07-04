@@ -10,9 +10,11 @@
 #ifndef LIB_LOG_H
 #define LIB_LOG_H
 
+#ifdef __KERNEL__
 #include "mars.h"
 
 extern atomic_t global_mref_flying;
+#endif
 
 /* The following structure is memory-only.
  * Transfers to disk are indirectly via the
@@ -27,10 +29,8 @@ struct log_header_v1 {
 	struct timespec l_stamp;
 	struct timespec l_written;
 	loff_t l_pos;
-	int    l_len;
-	int    l_extra_len;
+	short  l_len;
 	short  l_code;
-	short  l_extra;
 	unsigned int l_seq_nr;
 	int    l_crc;
 };
@@ -149,9 +149,10 @@ int log_scan(void *buf, int len, loff_t file_pos, int file_offset, bool sloppy, 
 		DATA_GET(buf, offset, lh->l_stamp.tv_nsec);
 		DATA_GET(buf, offset, lh->l_pos);
 		DATA_GET(buf, offset, lh->l_len);
-		DATA_GET(buf, offset, lh->l_extra_len);
+		offset += 2; // skip spare
+		offset += 4; // skip spare
 		DATA_GET(buf, offset, lh->l_code);
-		DATA_GET(buf, offset, lh->l_extra);
+		offset += 2; // skip spare
 
 		found_offset = offset;
 		offset += lh->l_len;

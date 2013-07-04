@@ -255,9 +255,10 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 	DATA_PUT(data, offset, lh->l_pos);
 	logst->reallen_offset = offset;
 	DATA_PUT(data, offset, lh->l_len);
-	DATA_PUT(data, offset, lh->l_extra_len);
+	DATA_PUT(data, offset, (short)0); // spare
+	DATA_PUT(data, offset, (int)0); // spare
 	DATA_PUT(data, offset, lh->l_code);
-	DATA_PUT(data, offset, lh->l_extra);
+	DATA_PUT(data, offset, (short)0); // spare
 
 	// remember the last timestamp
 	memcpy(&logst->tmp_pos_stamp, &lh->l_stamp, sizeof(logst->tmp_pos_stamp));
@@ -324,7 +325,7 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	/* Correct the length in the header.
 	 */
 	offset = logst->reallen_offset;
-	DATA_PUT(data, offset, len);
+	DATA_PUT(data, offset, (short)len);
 
 	/* Write the trailer.
 	 */
