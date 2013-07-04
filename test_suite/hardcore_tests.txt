@@ -1,0 +1,6 @@
+---------------------------------------------------------------------------------------------------------------------
+category id  testname      description           testcase and steps                              to check
+=====================================================================================================================
+hardcore H99 last_block    write data file on    H1.1  - pause-apply on secondary                inspect last block
+                           data device                                                           of written data
+                           call halt
