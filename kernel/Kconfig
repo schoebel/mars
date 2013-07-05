@@ -79,7 +79,7 @@ config MARS_DEFAULT_PORT
 config MARS_SEPARATE_PORTS
 	bool "use separate port numbers for traffic shaping"
 	depends on MARS
-	default n
+	default y
 	---help---
 	When enabled, the following port assignments will be used:
 
@@ -96,7 +96,8 @@ config MARS_SEPARATE_PORTS
 	(it's only some kind of  meta-information traffic).
 
 	Say Y if you have a big datacenter.
-	If unsure, say N.
+	Say N if you cannot afford a bigger hole in your firefall.
+	If unsure, say Y.
 
 
 config MARS_MEM_RETRY
