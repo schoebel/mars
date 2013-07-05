@@ -1961,7 +1961,7 @@ const char *get_versionlink(const char *parent_path, int seq, const char *host, 
 }
 
 static
-bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, const char *new_log_path, bool skip_new)
+bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, const char *new_log_path, int replay_tolerance, bool skip_new)
 {
 	const char *old_log_name = old_log_path + skip_dir(old_log_path);
 	const char *new_log_name = new_log_path + skip_dir(new_log_path);
@@ -2064,7 +2064,7 @@ bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, c
 		MARS_ERR_TO(rot->log_say, "own version link '%s' -> '%s' is malformed\n", own_versionlink_path, own_versionlink);
 		goto done;
 	}
-	if (unlikely(own_r_len > own_v_len || own_r_len + REPLAY_TOLERANCE < own_v_len)) {
+	if (unlikely(own_r_len > own_v_len || own_r_len + replay_tolerance < own_v_len)) {
 		MARS_INF_TO(rot->log_say, "log replay is not yet finished: '%s' and '%s' are reporting different positions.\n", own_replaylink, own_versionlink);
 		goto done;
 	}
@@ -2565,9 +2565,10 @@ int _make_logging_status(struct mars_rotate *rot)
 		 */
 		if (!trans_brick->power.button && !trans_brick->power.led_on && trans_brick->power.led_off) {
 			if (rot->next_relevant_log) {
+				int replay_tolerance = REPLAY_TOLERANCE;
 				bool skip_new = !rot->next_next_relevant_log && rot->todo_primary;
 				MARS_DBG("check switchover from '%s' to '%s' (size = %lld, next_next = %p, skip_new = %d)\n", dent->d_path, rot->next_relevant_log->d_path, rot->next_relevant_log->new_stat.size, rot->next_next_relevant_log, skip_new);
-				if (is_switchover_possible(rot, dent->d_path, rot->next_relevant_log->d_path, skip_new)) {
+				if (is_switchover_possible(rot, dent->d_path, rot->next_relevant_log->d_path, replay_tolerance, skip_new)) {
 					MARS_INF_TO(rot->log_say, "start switchover from transaction log '%s' to '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
 					_make_new_replaylink(rot, rot->next_relevant_log->d_rest, rot->next_relevant_log->d_serial, rot->next_relevant_log->new_stat.size);
 				}
