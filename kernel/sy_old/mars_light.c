@@ -761,12 +761,40 @@ int compare_replaylinks(struct mars_rotate *rot, const char *hosta, const char *
 // status display
 
 static
-int _update_replay_link(struct mars_rotate *rot, struct trans_logger_info *inf)
+int _update_link_when_necessary(struct mars_rotate *rot, const char *type, const char *old, const char *new)
 {
 	char *check = NULL;
+	int status = -EIO;
+	bool res = false;
+
+	/* Check whether something really has changed (avoid
+	 * useless/disturbing timestamp updates)
+	 */
+	check = mars_readlink(new);
+	if (check && !strcmp(check, old)) {
+		MARS_DBG("%s symlink '%s' -> '%s' has not changed\n", type, old, new);
+		res = 0;
+		goto out;
+	}
+
+	status = mars_symlink(old, new, NULL, 0);
+	if (unlikely(status < 0)) {
+		MARS_ERR_TO(rot->log_say, "cannot create %s symlink '%s' -> '%s' status = %d\n", type, old, new, status);
+	} else {
+		res = 1;
+		MARS_DBG("made %s symlink '%s' -> '%s' status = %d\n", type, old, new, status);
+	}
+
+out:
+	brick_string_free(check);
+	return res;
+}
+
+static
+int _update_replay_link(struct mars_rotate *rot, struct trans_logger_info *inf)
+{
 	char *old = NULL;
 	char *new = NULL;
-	int status;
 	int res = 0;
 
 	old = path_make("log-%09d-%s,%lld,%lld", inf->inf_sequence, inf->inf_host, inf->inf_min_pos, inf->inf_max_pos - inf->inf_min_pos);
@@ -778,27 +806,11 @@ int _update_replay_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 		goto out;
 	}
 
-	/* Check whether something really has changed (avoid
-	 * useless/disturbing timestamp updates)
-	 */
-	check = mars_readlink(new);
-	if (check && !strcmp(check, old)) {
-		MARS_DBG("replay symlink '%s' -> '%s' has not changed\n", old, new);
-		goto out;
-	}
-
-	status = mars_symlink(old, new, NULL, 0);
-	if (unlikely(status < 0)) {
-		MARS_ERR_TO(rot->log_say, "cannot create replay symlink '%s' -> '%s' status = %d\n", old, new, status);
-	} else {
-		res = 1;
-		MARS_DBG("made replay symlink '%s' -> '%s' status = %d\n", old, new, status);
-	}
+	res = _update_link_when_necessary(rot, "replay", old, new);
 
 out:
 	brick_string_free(new);
 	brick_string_free(old);
-	brick_string_free(check);
 	return res;
 }
 
@@ -810,12 +822,10 @@ int _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 	char *new = NULL;
 	unsigned char *digest = brick_string_alloc(0);
 	char *prev = NULL;
-	char *check = NULL;
 	char *prev_link = NULL;
 	char *prev_digest = NULL;
 	int len;
 	int i;
-	int status;
 	int res = 0;
 
 	if (unlikely(!data || !digest || !old)) {
@@ -887,24 +897,7 @@ int _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 		goto out;
 	}
 
-	/* Check whether something really has changed (avoid
-	 * useless/disturbing timestamp updates)
-	 */
-	check = mars_readlink(new);
-	if (likely(check)) {
-		if (!strcmp(check, old)) {
-			MARS_DBG("version symlink '%s' -> '%s' has not changed\n", old, new);
-			goto out;
-		}
-	}
-
-	status = mars_symlink(old, new, NULL, 0);
-	if (unlikely(status < 0)) {
-		MARS_ERR_TO(rot->log_say, "cannot create symlink '%s' -> '%s' status = %d\n", old, new, status);
-	} else {
-		res = 1;
-		MARS_DBG("make version symlink '%s' -> '%s' status = %d\n", old, new, status);
-	}
+	res = _update_link_when_necessary(rot , "version", old, new);
 
 out:
 	brick_string_free(new);
@@ -912,7 +905,6 @@ out:
 	brick_string_free(data);
 	brick_string_free(digest);
 	brick_string_free(old);
-	brick_string_free(check);
 	brick_string_free(prev_link);
 	brick_string_free(prev_digest);
 	return res;
@@ -3431,6 +3423,58 @@ done:
 	return status;
 }
 
+static
+int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *peer)
+{
+	const char *src = NULL;
+	const char *dst = NULL;
+	int status = -ENOMEM;
+
+	src = path_make("%lld", copy->copy_last);
+	dst = path_make("%s/syncstatus-%s", rot->parent_path, my_id());
+	if (unlikely(!src || !dst))
+		goto done;
+
+	status = _update_link_when_necessary(rot, "syncstatus", src, dst);
+
+	brick_string_free(src);
+	brick_string_free(dst);
+	src = path_make("%lld,%lld", copy->verify_ok_count, copy->verify_error_count);
+	dst = path_make("%s/verifystatus-%s", rot->parent_path, my_id());
+	if (unlikely(!src || !dst))
+		goto done;
+
+	(void)_update_link_when_necessary(rot, "verifystatus", src, dst);
+
+	if (copy->copy_last == copy->copy_end && status >= 0) { // create syncpos symlink
+		const char *syncpos_path = path_make("%s/syncpos-%s", rot->parent_path, my_id());
+		const char *peer_replay_path = path_make("%s/replay-%s", rot->parent_path, peer);
+		char *peer_replay_link = NULL;
+		struct kstat syncpos_stat = {};
+		struct kstat syncstatus_stat = {};
+		struct kstat peer_replay_stat = {};
+
+		if (syncpos_path &&
+		    peer_replay_path &&
+		    mars_stat(dst,              &syncstatus_stat,  true) >= 0 &&
+		    mars_stat(peer_replay_path, &peer_replay_stat, true) >= 0 &&
+		    timespec_compare(&syncstatus_stat.mtime, &peer_replay_stat.mtime) <= 0 &&
+		    (peer_replay_link = mars_readlink(peer_replay_path)) &&
+		    (mars_stat(syncpos_path,     &syncpos_stat, true) < 0 ||
+		     timespec_compare(&syncpos_stat.mtime, &syncstatus_stat.mtime) < 0)) {
+			_update_link_when_necessary(rot, "syncpos", peer_replay_link, syncpos_path);
+		}
+		brick_string_free(peer_replay_link);
+		brick_string_free(peer_replay_path);
+		brick_string_free(syncpos_path);
+	}
+	
+done:
+	brick_string_free(src);
+	brick_string_free(dst);
+	return status;
+}
+
 static int make_sync(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
@@ -3572,22 +3616,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	if (status >= 0 && copy &&
 	   ((copy->power.button && copy->power.led_on) ||
 	    (copy->copy_last == copy->copy_end && copy->copy_end > 0))) {
-		brick_string_free(src);
-		brick_string_free(dst);
-		src = path_make("%lld", copy->copy_last);
-		dst = path_make("%s/syncstatus-%s", dent->d_parent->d_path, my_id());
-		status = -ENOMEM;
-		if (unlikely(!src || !dst))
-			goto done;
-		status = mars_symlink(src, dst, NULL, 0);
-		brick_string_free(src);
-		brick_string_free(dst);
-		src = path_make("%lld,%lld", copy->verify_ok_count, copy->verify_error_count);
-		dst = path_make("%s/verifystatus-%s", dent->d_parent->d_path, my_id());
-		status = -ENOMEM;
-		if (unlikely(!src || !dst))
-			goto done;
-		status = mars_symlink(src, dst, NULL, 0);
+		status = _update_syncstatus(rot, copy, peer);
 	}
 
 done:
@@ -3747,6 +3776,7 @@ enum {
 	CL__FILE,
 	CL_SYNC,
 	CL_VERIF,
+	CL_SYNCPOS,
 	CL__COPY,
 	CL__DIRECT,
 	CL_VERSION,
@@ -4062,6 +4092,18 @@ static const struct light_class light_classes[] = {
 	[CL_VERIF] = {
 		.cl_name = "verifystatus-",
 		.cl_len = 13,
+		.cl_type = 'l',
+		.cl_hostcontext = true,
+		.cl_father = CL_RESOURCE,
+	},
+	/* informational symlink: after sync has finished,
+	 * keep a copy of the replay symlink from the primary.
+	 * when comparing the own replay symlink against this,
+	 * we can determine whether we are consistent.
+	 */
+	[CL_SYNCPOS] = {
+		.cl_name = "syncpos-",
+		.cl_len = 8,
 		.cl_type = 'l',
 		.cl_hostcontext = true,
 		.cl_father = CL_RESOURCE,
