@@ -152,6 +152,7 @@ struct trans_logger_brick {
 	int new_input_nr;   // whereto we should switchover ASAP
 	int replay_tolerance; // how many bytes to ignore at truncated logfiles
 	// readonly from outside
+	loff_t replay_current_pos;   // end of replay
 	int log_input_nr;   // where we are currently logging to
 	int old_input_nr;   // where old IO requests may be on the fly
 	int replay_code;    // replay errors (if any)

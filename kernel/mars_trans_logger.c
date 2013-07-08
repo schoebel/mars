@@ -2951,6 +2951,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 
 	if (finished_pos >= 0) {
 		input->inf.inf_min_pos = finished_pos;
+		brick->replay_current_pos = finished_pos;
 	}
 
 	get_lamport(&input->inf.inf_min_pos_stamp);
@@ -2958,6 +2959,9 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 	if (status >= 0 && finished_pos == brick->replay_end_pos) {
 		MARS_INF("replay finished at %lld\n", finished_pos);
 		brick->replay_code = 1;
+	} else if (status == -EAGAIN && finished_pos + brick->replay_tolerance > brick->replay_end_pos) {
+		MARS_INF("TOLERANCE: logfile is DAMAGED at %lld (of %lld)\n", finished_pos, brick->replay_end_pos);
+		brick->replay_code = status;
 	} else {
 		MARS_INF("replay stopped prematurely at %lld (of %lld)\n", finished_pos, brick->replay_end_pos);
 		brick->replay_code = 2;
