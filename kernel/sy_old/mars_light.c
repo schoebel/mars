@@ -2490,10 +2490,10 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 	status = 0;
 	if (rot->aio_info.current_size > *oldpos_start) {
 		if (rot->aio_info.current_size - *oldpos_start < REPLAY_TOLERANCE &&
-		    rot->relevant_log &&
-		    rot->next_relevant_log &&
 		    (rot->todo_primary ||
-		     is_switchover_possible(rot, rot->relevant_log->d_path, rot->next_relevant_log->d_path, REPLAY_TOLERANCE, false))) {
+		        (rot->relevant_log &&
+		         rot->next_relevant_log &&
+		         is_switchover_possible(rot, rot->relevant_log->d_path, rot->next_relevant_log->d_path, REPLAY_TOLERANCE, false)))) {
 			MARS_INF_TO(rot->log_say, "TOLERANCE: transaction log '%s' is treated as fully applied\n", rot->aio_dent->d_path);
 			status = 1;
 		} else {
