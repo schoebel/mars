@@ -190,6 +190,7 @@ struct mapfree_info *mapfree_get(const char *name, int flags)
 				MARS_WRN("race on creation of '%s' detected\n", name);
 				_mapfree_put(mf);
 				mf = _mf;
+				atomic_inc(&mf->mf_count);
 				goto leave;
 			}
 		}
