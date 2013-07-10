@@ -697,6 +697,9 @@ EXPORT_SYMBOL(fd_uninstall);
 #endif
 
 static
+atomic_t ioctx_count = ATOMIC_INIT(0);
+
+static
 void _destroy_ioctx(struct aio_output *output)
 {
 	if (unlikely(!output))
@@ -708,12 +711,15 @@ void _destroy_ioctx(struct aio_output *output)
 
 	if (likely(output->ctxp)) {
 		mm_segment_t oldfs;
+		int err;
 
-		MARS_DBG("destroying ioctx.....\n");
+		MARS_DBG("ioctx count = %d destroying %p\n", atomic_read(&ioctx_count), (void*)output->ctxp);
 		oldfs = get_fs();
 		set_fs(get_ds());
-		sys_io_destroy(output->ctxp);
+		err = sys_io_destroy(output->ctxp);
 		set_fs(oldfs);
+		atomic_dec(&ioctx_count);
+		MARS_DBG("ioctx count = %d status = %d\n", atomic_read(&ioctx_count), err);
 		output->ctxp = 0;
 	}
 
@@ -748,15 +754,13 @@ int _create_ioctx(struct aio_output *output)
 	 * do_submit() which currently does not exist :(
 	 */
 	err = get_unused_fd();
-	MARS_DBG("fd = %d\n", err);
+	MARS_DBG("file %p '%s' new fd = %d\n", file, output->mf->mf_name, err);
 	if (unlikely(err < 0)) {
 		MARS_ERR("cannot get fd, err=%d\n", err);
 		goto done;
 	}
 	output->fd = err;
 	fd_install(err, file);
-
-	MARS_DBG("file handle = %d\n", err);
 
 	use_fake_mm();
 
@@ -766,10 +770,15 @@ int _create_ioctx(struct aio_output *output)
 		goto done;
 	}
 
+	MARS_DBG("ioctx count = %d old = %p\n", atomic_read(&ioctx_count), (void*)output->ctxp);
+
 	oldfs = get_fs();
 	set_fs(get_ds());
 	err = sys_io_setup(MARS_MAX_AIO, &output->ctxp);
 	set_fs(oldfs);
+	if (likely(output->ctxp))
+		atomic_inc(&ioctx_count);
+	MARS_DBG("ioctx count = %d new = %p status = %d\n", atomic_read(&ioctx_count), (void*)output->ctxp, err);
 	if (unlikely(err < 0)) {
 		MARS_ERR("io_setup failed, err=%d\n", err);
 		goto done;
@@ -1066,6 +1075,7 @@ static int aio_switch(struct aio_brick *brick)
 
 	output->mf = mapfree_get(path, flags);
 	if (unlikely(!output->mf)) {
+		MARS_ERR("could not open file = '%s' flags = %d\n", path, flags);
 		status = -ENOENT;
 		goto err;
 	} 
@@ -1074,6 +1084,7 @@ static int aio_switch(struct aio_brick *brick)
 
 	status = _create_ioctx(output);
 	if (unlikely(status < 0)) {
+		MARS_ERR("could not create ioctx, status = %d\n", status);
 		goto err;
 	}
 
@@ -1109,13 +1120,14 @@ cleanup:
 			   output->tinfo[1].thread == NULL &&
 			   output->tinfo[2].thread == NULL));
 
+	MARS_DBG("switch off led_off = %d status = %d\n", brick->power.led_off, status);
 	if (brick->power.led_off) {
 		if (output->mf) {
+			MARS_DBG("closing file = '%s'\n", output->mf->mf_name);
 			mapfree_put(output->mf);
 			output->mf = NULL;
 		}
 	}
-	MARS_DBG("switch off status = %d\n", status);
 	return status;
 }
 
@@ -1130,6 +1142,9 @@ static int aio_output_construct(struct aio_output *output)
 static int aio_output_destruct(struct aio_output *output)
 {
 	CHECK_HEAD_EMPTY(&output->dirty_anchor);
+	if (unlikely(output->fd >= 0)) {
+		MARS_ERR("active fd = %d detected\n", output->fd);
+	}
 	return 0;
 }
 
