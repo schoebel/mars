@@ -387,6 +387,12 @@ static int aio_submit(struct aio_output *output, struct aio_mref_aspect *mref_a,
 
 	mars_trace(mref, "aio_submit");
 
+	if (unlikely(output->fd < 0)) {
+		MARS_ERR("bad fd = %d\n", output->fd);
+		res = -EBADF;
+		goto done;
+	}
+
 	oldfs = get_fs();
 	set_fs(get_ds());
 	latency = TIME_STATS(&timings[mref->ref_rw & 1], res = sys_io_submit(output->ctxp, 1, &iocbp));
@@ -404,6 +410,7 @@ static int aio_submit(struct aio_output *output, struct aio_mref_aspect *mref_a,
 		MARS_ERR("error = %d\n", res);
 	}
 
+done:
 	return res;
 }
 
@@ -688,6 +695,10 @@ void fd_uninstall(unsigned int fd)
 	struct files_struct *files = current->files;
 	struct fdtable *fdt;
 	MARS_DBG("fd = %d\n", fd);
+	if (unlikely(fd < 0)) {
+		MARS_ERR("bad fd = %d\n", fd);
+		return;
+	}
 	spin_lock(&files->file_lock);
 	fdt = files_fdtable(files);
 	rcu_assign_pointer(fdt->fd[fd], NULL);
@@ -771,6 +782,7 @@ int _create_ioctx(struct aio_output *output)
 	}
 
 	MARS_DBG("ioctx count = %d old = %p\n", atomic_read(&ioctx_count), (void*)output->ctxp);
+	output->ctxp = 0;
 
 	oldfs = get_fs();
 	set_fs(get_ds());
@@ -1091,8 +1103,6 @@ static int aio_switch(struct aio_brick *brick)
 	status = aio_start_thread(output, &output->tinfo[0], aio_submit_thread, 's');
 	if (unlikely(status < 0)) {
 		MARS_ERR("could not start theads, status = %d\n", status);
-		mapfree_put(output->mf);
-		output->mf = NULL;
 		goto err;
 	}
 
@@ -1136,6 +1146,7 @@ static int aio_output_construct(struct aio_output *output)
 	INIT_LIST_HEAD(&output->dirty_anchor);
 	spin_lock_init(&output->dirty_lock);
 	init_waitqueue_head(&output->fdsync_event);
+	output->fd = -1;
 	return 0;
 }
 
