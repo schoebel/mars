@@ -9,8 +9,10 @@
 
 #include <asm/atomic.h>
 
-// include default config
+#ifndef CONFIG_MARS_MODULE
+// when unsure, include faked config file
 #include "mars_config.h"
+#endif
 
 #include "brick_locks.h"
 #include "meta.h"

@@ -2,8 +2,10 @@
 #ifndef BRICK_SAY_H
 #define BRICK_SAY_H
 
-// include default config
+#ifndef CONFIG_MARS_MODULE
+// when unsure, include faked config file
 #include "mars_config.h"
+#endif
 
 /////////////////////////////////////////////////////////////////////////
 

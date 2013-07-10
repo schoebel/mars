@@ -7,8 +7,25 @@
 
 //#define MARS_TRACING // write runtime trace data to /mars/trace.csv
 
-// include default config
+// check the Kconfig environment
+
+#ifndef CONFIG_MARS_MODULE
+// when unsure, include faked config file
 #include "mars_config.h"
+#endif
+
+#ifndef CONFIG_64BIT
+#error MARS is only tested under 64bit
+#endif
+#ifndef CONFIG_BLOCK
+#error CONFIG_BLOCK must be set
+#endif
+#ifndef CONFIG_PROC_SYSCTL
+#error CONFIG_PROC_SYSCTL must be set
+#endif
+#ifndef CONFIG_HIGH_RES_TIMERS
+#error CONFIG_HIGH_RES_TIMERS must be set
+#endif
 
 /////////////////////////////////////////////////////////////////////////
 
