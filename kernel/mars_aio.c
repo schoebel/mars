@@ -287,9 +287,13 @@ static void aio_ref_put(struct aio_output *output, struct mref_object *mref)
 }
 
 static
-void _complete(struct aio_output *output, struct mref_object *mref, int err)
+void _complete(struct aio_output *output, struct aio_mref_aspect *mref_a, int err)
 {
-	_mref_check(mref);
+	struct mref_object *mref;
+
+	CHECK_PTR(mref_a, fatal);
+	mref = mref_a->object;
+	CHECK_PTR(mref, fatal);
 
 	mars_trace(mref, "aio_endio");
 
@@ -309,6 +313,8 @@ done:
 		atomic_dec(&output->read_count);
 	}
 
+	remove_dirty(output, mref_a);
+
 	aio_ref_put(output, mref);
 	atomic_dec(&mars_global_io_flying);
 	return;
@@ -316,6 +322,23 @@ done:
 err_found:
 	MARS_FAT("giving up...\n");
 	goto done;
+
+fatal:
+	MARS_FAT("bad pointer, giving up...\n");
+}
+
+static
+void _complete_mref(struct aio_output *output, struct mref_object *mref, int err)
+{
+	struct aio_mref_aspect *mref_a;
+	_mref_check(mref);
+	mref_a = aio_mref_get_aspect(output->brick, mref);
+	CHECK_PTR(mref_a, fatal);
+	_complete(output, mref_a, err);
+	return;
+
+fatal:
+	MARS_FAT("bad pointer, giving up...\n");
 }
 
 static
@@ -325,8 +348,7 @@ void _complete_all(struct list_head *tmp_list, struct aio_output *output, int er
 		struct list_head *tmp = tmp_list->next;
 		struct aio_mref_aspect *mref_a = container_of(tmp, struct aio_mref_aspect, io_head);
 		list_del_init(tmp);
-		remove_dirty(output, mref_a);
-		_complete(output, mref_a->object, err);
+		_complete(output, mref_a, err);
 	}
 }
 
@@ -365,7 +387,7 @@ static void aio_ref_io(struct aio_output *output, struct mref_object *mref)
 	return;
 
 done:
-	_complete(output, mref, err);
+	_complete_mref(output, mref, err);
 }
 
 static int aio_submit(struct aio_output *output, struct aio_mref_aspect *mref_a, bool use_fdsync)
@@ -668,7 +690,7 @@ static int aio_event_thread(void *data)
 					continue;
 			}
 
-			_complete(output, mref, err);
+			_complete(output, mref_a, err);
 
 		}
 	}
@@ -870,7 +892,7 @@ static int aio_submit_thread(void *data)
 					continue;
 				}
 				MARS_DBG("ENODATA %lld\n", len);
-				_complete(output, mref, -ENODATA);
+				_complete(output, mref_a, -ENODATA);
 				continue;
 			}
 		}
@@ -891,7 +913,7 @@ static int aio_submit_thread(void *data)
 	error:
 		if (unlikely(status < 0)) {
 			MARS_IO("submit_count = %d status = %d\n", atomic_read(&output->submit_count), status);
-			_complete(output, mref, status);
+			_complete_mref(output, mref, status);
 		}
 	}
 
