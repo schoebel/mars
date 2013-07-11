@@ -16,11 +16,14 @@ my $DEBUG = 0;
 my $option;
 my $type;
 my @default;
+my %setByEnv;
 
 while (my $line = <STDIN>) {
     if ($line =~ /^config\s+(\w+)\W*$/) {
         $option = $1;
+        $setByEnv{$option} = $ENV{$option}  if exists $ENV{$option};
         printf STDERR "OPTION: %s\n", $option if $DEBUG;
+        printf STDERR "ENV: %s='%s'\n", $option, $setByEnv{$option} if $DEBUG && exists $ENV{$option};
     }
     elsif ($line =~ /^\s+(tristate|bool|int|string)\s+.*$/) {
         $type = $1;
@@ -78,6 +81,12 @@ foreach my $opt (@default) {
 
     my $optname = $opt->{option};
     my $optval = $opt->{value};
+
+    if (exists $setByEnv{$optname}) {
+        print qq%
+/* CONFIG_$optname overridden by ENVIRONMENT */%;
+        $optval = $setByEnv{$optname};
+    }
 
     if (!defined($optname) || !defined($optval)) {
         printf(STDERR "SKIPPED option due to missing parameters: optname=%s optval=%s\n",
