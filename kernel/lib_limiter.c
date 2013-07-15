@@ -16,8 +16,17 @@ int mars_limit(struct mars_limiter *lim, int amount)
 	 * down to the root of the hierarchy tree.
 	 */
 	while (lim != NULL) {
-		if (likely(lim->lim_stamp)) {
-			long long elapsed = now - lim->lim_stamp;
+		long long elapsed = now - lim->lim_stamp;
+		/* Sometimes, raw CPU clocks may do weired things...
+		 */
+		if (unlikely(elapsed <= 0))
+			elapsed = 1;
+
+		/* Only use incremental accumulation at repeated calls, but
+		 * never after longer pauses.
+		 */
+		if (likely(lim->lim_stamp && elapsed < LIMITER_TIME_RESOLUTION * 8)) {
+			long long rate_raw;
 			int rate;
 			
 			/* Races are possible, but taken into account.
@@ -26,7 +35,11 @@ int mars_limit(struct mars_limiter *lim, int amount)
 			if (likely(amount > 0))
 				lim->lim_accu += amount;
 			
-			rate = (long long)lim->lim_accu * LIMITER_TIME_RESOLUTION / elapsed;
+			rate_raw = lim->lim_accu * LIMITER_TIME_RESOLUTION / elapsed;
+			rate = rate_raw;
+			if (unlikely(rate_raw > INT_MAX)) {
+				rate = INT_MAX;
+			}
 			lim->lim_rate = rate;
 			
 			// limit exceeded?
@@ -40,8 +53,9 @@ int mars_limit(struct mars_limiter *lim, int amount)
 			elapsed -= LIMITER_TIME_RESOLUTION * 2;
 			if (elapsed > LIMITER_TIME_RESOLUTION) {
 				lim->lim_stamp += elapsed;
-				if (lim->lim_accu > 0) {
-					lim->lim_accu -= (long long)lim->lim_max_rate * elapsed / LIMITER_TIME_RESOLUTION;
+				lim->lim_accu -= (unsigned long long)lim->lim_rate * (unsigned long long)elapsed / LIMITER_TIME_RESOLUTION;
+				if (lim->lim_accu < 0) {
+					lim->lim_accu = 0;
 				}
 			}
 		} else {

@@ -17,7 +17,7 @@ struct mars_limiter {
 	int lim_rate;
 	long long lim_stamp;
 	/* internal */
-	int lim_accu;
+	long long lim_accu;
 };
 
 extern int mars_limit(struct mars_limiter *lim, int amount);
