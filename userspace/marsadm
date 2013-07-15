@@ -202,6 +202,12 @@ sub wait_cond {
       (
        "attach" => "is-attached",
        "attached" => "is-attached",
+       "replay"   => "is-replaying",
+       "replaying"=> "is-replaying",
+       "copy"     => "is-copying",
+       "copying"  => "is-copying",
+       "sync"     => "is-syncing",
+       "syncing"  => "is-syncing",
        "primary" => "is-primary",
       );
     my $name = $table{$specific};
@@ -1391,13 +1397,23 @@ sub cleanup_res {
 sub invalidate_res_phase0 {
   my ($cmd, $res) = @_;
   check_not_primary(@_);
-  if (!$force) {
-    check_todo($cmd, $res, "attach", 0, 0);
-    check_status($cmd, $res, "is-attached", 0, 0, 1);
-  }
 }
 
 sub invalidate_res_phase1 {
+  my ($cmd, $res) = @_;
+  _switch($cmd, $res, "$mars/resource-$res/todo-$host/sync", 0);
+  _switch($cmd, $res, "$mars/resource-$res/todo-$host/allow-replay", 0);
+}
+
+sub invalidate_res_phase2 {
+  my ($cmd, $res) = @_;
+  if (!$force) {
+    check_status($cmd, $res, "is-syncing", 0, 1);
+    check_status($cmd, $res, "is-replaying", 0, 1);
+  }
+}
+
+sub invalidate_res_phase3 {
   my ($cmd, $res) = @_;
   my $dst = "$mars/resource-$res/syncstatus-$host";
   my $primary = _get_designated_primary($res);
@@ -1406,8 +1422,10 @@ sub invalidate_res_phase1 {
   my $replay_nr = $1;
   set_link("0", $dst);
   finish_links(); # opportunity for errors => don't continue
-  _set_replaylink("$mars/resource-$res", $replay_nr, $primary);
+  set_link($replay, "$mars/resource-$res/replay-$host");
   cleanup_res($cmd, $res, $replay_nr);
+  _switch($cmd, $res, "$mars/resource-$res/todo-$host/allow-replay", 1);
+  _switch($cmd, $res, "$mars/resource-$res/todo-$host/sync", 1);
 }
 
 sub resize_res {
@@ -1670,7 +1688,9 @@ my %cmd_table =
 			  ],
    "invalidate"        => [
 			   "check preconditions", \&invalidate_res_phase0,
-			   "force symlinks",      \&invalidate_res_phase1,
+			   "stop old replay",     \&invalidate_res_phase1,
+			   "wait for replay off", \&invalidate_res_phase2,
+			   "force symlinks",      \&invalidate_res_phase3,
 			  ],
    "invalidate-remote" => \&forbidden_cmd,
    "resize"            => \&resize_res,

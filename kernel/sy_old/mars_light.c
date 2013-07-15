@@ -3077,10 +3077,13 @@ done:
 		}
 	}
 
+	_show_actual(rot->parent_path, "is-replaying", rot->trans_brick && rot->trans_brick->replay_mode && !rot->trans_brick->power.led_off);
 	if (rot->trans_brick)
 		_show_rate(rot, &rot->replay_limiter, rot->trans_brick->power.led_on, "replay_rate");
+	_show_actual(rot->parent_path, "is-copying", rot->copy_brick && !rot->copy_brick->power.led_off);
 	if (rot->copy_brick)
 		_show_rate(rot, &rot->file_limiter, rot->copy_brick->power.led_on, "file_rate");
+	_show_actual(rot->parent_path, "is-syncing", rot->sync_brick && !rot->sync_brick->power.led_off);
 	if (rot->sync_brick)
 		_show_rate(rot, &rot->sync_limiter, rot->sync_brick->power.led_on, "sync_rate");
 err:
