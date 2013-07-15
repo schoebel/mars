@@ -395,8 +395,10 @@ restart:
 		if (!mref0) { // idempotence: wait by unchanged state
 			goto idle;
 		}
-		if (brick->copy_limiter)
-			mars_limit_sleep(brick->copy_limiter, mref0->ref_len);
+		if (brick->copy_limiter) {
+			int amount = (mref0->ref_len - 1) / 1024 + 1;
+			mars_limit_sleep(brick->copy_limiter, amount);
+		}
 		// on append mode: increase the end pointer dynamically
 		if (brick->append_mode > 0 && mref0->ref_total_size && mref0->ref_total_size > brick->copy_end) {
 			brick->copy_end = mref0->ref_total_size;
