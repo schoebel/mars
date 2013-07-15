@@ -2912,7 +2912,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 			MARS_IO("ignoring pos = %lld len = %d code = %d\n", lh.l_pos, lh.l_len, lh.l_code);
 		} else if (likely(buf && len)) {
 			if (brick->replay_limiter)
-				mars_limit_sleep(brick->replay_limiter, len);
+				mars_limit_sleep(brick->replay_limiter, (len - 1) / 1024 + 1);
 			status = apply_data(brick, lh.l_pos, buf, len);
 			MARS_RPL("apply %lld %lld (pos=%lld status=%d)\n", finished_pos, new_finished_pos, lh.l_pos, status);
 			if (unlikely(status < 0)) {
