@@ -1588,7 +1588,7 @@ int peer_thread(void *data)
 
 			status = mars_create_socket(&peer->socket, &sockaddr, false);
 			if (unlikely(status < 0)) {
-				MARS_INF("no connection to '%s'\n", real_peer);
+				MARS_INF("no connection to mars module on '%s'\n", real_peer);
 				brick_msleep(2000);
 				continue;
 			}
