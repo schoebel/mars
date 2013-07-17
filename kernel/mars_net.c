@@ -44,6 +44,22 @@
 #undef USE_SENDPAGE // FIXME: does not work, leads to data corruption (probably due to races with asynchrous sending)
 #define USE_BUFFERING
 
+#define MAX_FIELD_LEN   32
+
+struct mars_desc_cache {
+	u64   cache_sender_cookie;
+	u64   cache_recver_cookie;
+	s32   cache_items;
+};
+
+struct mars_desc_item {
+	char  field_name[MAX_FIELD_LEN];
+	s32   field_type;
+	s32   field_size;
+	s32   field_sender_offset;
+	s32   field_recver_offset;
+};
+
 /* Low-level network traffic
  */
 

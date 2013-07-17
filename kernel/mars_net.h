@@ -33,22 +33,7 @@
 extern int mars_net_default_port;
 extern bool mars_net_is_alive;
 
-#define MAX_FIELD_LEN   32
 #define MAX_DESC_CACHE  16
-
-struct mars_desc_cache {
-	u64   cache_sender_cookie;
-	u64   cache_recver_cookie;
-	s32   cache_items;
-};
-
-struct mars_desc_item {
-	char  field_name[MAX_FIELD_LEN];
-	s32   field_type;
-	s32   field_size;
-	s32   field_sender_offset;
-	s32   field_recver_offset;
-};
 
 /* The original struct socket has no refcount. This leads to problems
  * during long-lasting system calls when racing with socket shutdown.
