@@ -9,6 +9,7 @@ endif
 KBUILD_CFLAGS += -fdelete-null-pointer-checks
 
 mars-objs :=				\
+	lamport.o			\
 	brick_say.o			\
 	brick_mem.o			\
 	brick.o				\

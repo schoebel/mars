@@ -6,6 +6,7 @@
 
 
 #include "brick_say.h"
+#include "lamport.h"
 
 /////////////////////////////////////////////////////////////////////
 
@@ -499,7 +500,8 @@ EXPORT_SYMBOL_GPL(say_to);
 void brick_say_to(struct say_channel *ch, int class, bool dump, const char *prefix, const char *file, int line, const char *func, const char *fmt, ...) 
 {
 	const char *channel_name = "-";
-	struct timespec now = CURRENT_TIME;
+	struct timespec s_now;
+	struct timespec l_now;
 	int filelen;
 	int orig_class;
 	va_list args;
@@ -507,6 +509,9 @@ void brick_say_to(struct say_channel *ch, int class, bool dump, const char *pref
 
 	if (!class && !brick_say_debug)
 		return;
+
+	s_now = CURRENT_TIME;
+	get_lamport(&l_now);
 
 	if (!ch) {
 		ch = find_channel(current);
@@ -528,8 +533,9 @@ void brick_say_to(struct say_channel *ch, int class, bool dump, const char *pref
 			spin_lock_irqsave(&ch->ch_lock[class], flags);
 			
 			_say(ch, class, NULL, true,
-			     "%ld.%09ld %s %s[%d] %s:%d %s(): ",
-			     now.tv_sec, now.tv_nsec,
+			     "%ld.%09ld %ld.%09ld %s %s[%d] %s:%d %s(): ",
+			     s_now.tv_sec, s_now.tv_nsec,
+			     l_now.tv_sec, l_now.tv_nsec,
 			     prefix,
 			     current->comm, (int)smp_processor_id(),
 			     file, line,
@@ -549,8 +555,9 @@ void brick_say_to(struct say_channel *ch, int class, bool dump, const char *pref
 		spin_lock_irqsave(&ch->ch_lock[SAY_TOTAL], flags);
 
 		_say(ch, SAY_TOTAL, NULL, true,
-		     "%ld.%09ld %s_%-5s %s %s[%d] %s:%d %s(): ",
-		     now.tv_sec, now.tv_nsec,
+		     "%ld.%09ld %ld.%09ld %s_%-5s %s %s[%d] %s:%d %s(): ",
+		     s_now.tv_sec, s_now.tv_nsec,
+		     l_now.tv_sec, l_now.tv_nsec,
 		     prefix, say_class[orig_class],
 		     channel_name,
 		     current->comm, (int)smp_processor_id(),
@@ -720,8 +727,17 @@ void treat_channel(struct say_channel *ch, int class)
 	}
 
 	if (unlikely(overflow > 0)) {
-		struct timespec now = CURRENT_TIME;
-		len = snprintf(buf, SAY_BUFMAX, "%ld.%09ld %s %d OVERFLOW %d times\n", now.tv_sec, now.tv_nsec, ch->ch_name, class, overflow);
+		struct timespec s_now = CURRENT_TIME;
+		struct timespec l_now;
+		get_lamport(&l_now);
+		len = snprintf(buf,
+			       SAY_BUFMAX,
+			       "%ld.%09ld %ld.%09ld %s %d OVERFLOW %d times\n",
+			       s_now.tv_sec, s_now.tv_nsec,
+			       l_now.tv_sec, l_now.tv_nsec,
+			       ch->ch_name,
+			       class,
+			       overflow);
 		ch->ch_status_written += len;
 		out_to_syslog(class, buf, len);
 		for (transact = 0; transact < 2; transact++) {

@@ -12,6 +12,7 @@
 #include "brick_mem.h"
 #include "brick_say.h"
 #include "brick_locks.h"
+#include "lamport.h"
 
 #define USE_KERNEL_PAGES // currently mandatory (vmalloc does not work)
 #define ALLOW_DYNAMIC_RAISE 4096
@@ -27,10 +28,22 @@
 
 #define INT_ACCESS(ptr,offset) (*(int*)(((char*)(ptr)) + (offset)))
 
-#define _BRICK_FMT(_fmt) "%ld.%09ld MEM %s %d %s(): " _fmt, _now.tv_sec, _now.tv_nsec, __BASE_FILE__, __LINE__, __FUNCTION__
+#define _BRICK_FMT(_fmt)						\
+	"%ld.%09ld %ld.%09ld MEM %s %d %s(): "				\
+	_fmt,								\
+		_s_now.tv_sec, _s_now.tv_nsec,				\
+		_l_now.tv_sec, _l_now.tv_nsec,				\
+		__BASE_FILE__,						\
+		__LINE__,						\
+		__FUNCTION__
 
 #define _BRICK_MSG(_class, _dump, _fmt, _args...)			\
-	do { struct timespec _now = CURRENT_TIME; say(_class, _BRICK_FMT(_fmt), ##_args); if (_dump) dump_stack(); } while (0)
+	do {								\
+		struct timespec _s_now = CURRENT_TIME;			\
+		struct timespec _l_now;					\
+		get_lamport(&_l_now);					\
+		say(_class, _BRICK_FMT(_fmt), ##_args); if (_dump) dump_stack(); \
+	} while (0)
 
 #define BRICK_ERR(_fmt, _args...) _BRICK_MSG(SAY_ERROR, true,  _fmt, ##_args)
 #define BRICK_WRN(_fmt, _args...) _BRICK_MSG(SAY_WARN,  false, _fmt, ##_args)

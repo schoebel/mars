@@ -37,6 +37,7 @@
 #include "brick.h"
 #include "brick_mem.h"
 #include "brick_atomic.h"
+#include "lamport.h"
 #include "lib_timing.h"
 
 #define GFP_MARS GFP_BRICK

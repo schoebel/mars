@@ -552,9 +552,6 @@ INLINE struct BRITYPE##_##OBJTYPE##_aspect *BRITYPE##_##OBJTYPE##_get_aspect(str
 
 // some general helpers
 
-extern void get_lamport(struct timespec *now);
-extern void set_lamport(struct timespec *old);
-
 /* Generic interface to simple brick status changes.
  */
 extern void set_button(struct generic_switch *sw, bool val, bool force);
