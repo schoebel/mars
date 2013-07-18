@@ -35,6 +35,12 @@
 int mars_copy_overlap = 0;
 EXPORT_SYMBOL_GPL(mars_copy_overlap);
 
+int mars_copy_read_prio = MARS_PRIO_NORMAL;
+EXPORT_SYMBOL_GPL(mars_copy_read_prio);
+
+int mars_copy_write_prio = MARS_PRIO_NORMAL;
+EXPORT_SYMBOL_GPL(mars_copy_write_prio);
+
 ///////////////////////// own helper functions ////////////////////////
 
 /* TODO:
@@ -261,7 +267,11 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 		len = end_pos - pos;
 	}
 	mref->ref_len = len;
-	mref->ref_prio = brick->io_prio;
+	mref->ref_prio = rw ?
+		mars_copy_write_prio :
+		mars_copy_read_prio;
+	if (mref->ref_prio < MARS_PRIO_HIGH || mref->ref_prio > MARS_PRIO_LOW)
+		mref->ref_prio = brick->io_prio;
 
 	SETUP_CALLBACK(mref, copy_endio, mref_a);
 	

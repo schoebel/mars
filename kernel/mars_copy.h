@@ -11,6 +11,8 @@
 #define INPUT_B_COPY 3
 
 extern int mars_copy_overlap;
+extern int mars_copy_read_prio;
+extern int mars_copy_write_prio;
 
 enum {
 	COPY_STATE_RESET    = -1,
