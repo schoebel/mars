@@ -581,8 +581,10 @@ void get_lamport(struct timespec *now)
 	//*now = current_kernel_time();
 	*now = CURRENT_TIME;
 	diff = timespec_compare(now, &lamport_now);
-	if (diff > 0) {
+	if (diff >= 0) {
+		timespec_add_ns(now, 1);
 		memcpy(&lamport_now, now, sizeof(lamport_now));
+		timespec_add_ns(&lamport_now, 1);
 	} else {
 		timespec_add_ns(&lamport_now, 1);
 		memcpy(now, &lamport_now, sizeof(*now));
@@ -600,8 +602,9 @@ void set_lamport(struct timespec *old)
 	down(&lamport_sem);
 
 	diff = timespec_compare(old, &lamport_now);
-	if (diff > 0) {
+	if (diff >= 0) {
 		memcpy(&lamport_now, old, sizeof(lamport_now));
+		timespec_add_ns(&lamport_now, 1);
 	}
 
 	up(&lamport_sem);
