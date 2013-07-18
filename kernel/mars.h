@@ -127,6 +127,8 @@
 
 extern const struct generic_object_type mref_type;
 
+#define MARS_CHECKSUM_SIZE 16
+
 #ifdef MARS_TRACING
 
 extern unsigned long long start_trace_clock;
@@ -163,7 +165,7 @@ extern void mars_log_trace(struct mref_object *mref);
 	int    ref_cs_mode; /* 0 = off, 1 = checksum + data, 2 = checksum only */	\
 	/* maintained by the ref implementation, readable for callers */ \
 	loff_t ref_total_size; /* just for info, need not be implemented */ \
-	unsigned char ref_checksum[16];					\
+	unsigned char ref_checksum[MARS_CHECKSUM_SIZE];			\
 	int    ref_flags;						\
 	int    ref_rw;							\
 	int    ref_id; /* not mandatory; may be used for identification */ \

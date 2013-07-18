@@ -43,21 +43,117 @@
 
 #define USE_BUFFERING
 
-#define MAX_FIELD_LEN   32
+////////////////////////////////////////////////////////////////////
+
+/* Internal data structures for low-level transfer of C structures
+ * described by struct meta.
+ * Only these low-level fields need to have a fixed size like s64.
+ * The size and bytesex of the higher-level C structures is converted
+ * automatically; therefore classical "int" or "long long" etc is viable.
+ */
+
+#define MAX_FIELD_LEN   (32 + 16)
 
 struct mars_desc_cache {
 	u64   cache_sender_cookie;
 	u64   cache_recver_cookie;
-	s32   cache_items;
+	s16   cache_items;
+	s8    cache_is_bigendian;
+	s8    cache_spare1;
+	s32   cache_spare2;
+	u64   cache_spare3;
 };
 
 struct mars_desc_item {
 	char  field_name[MAX_FIELD_LEN];
-	s32   field_type;
-	s32   field_size;
-	s32   field_sender_offset;
-	s32   field_recver_offset;
+	s16   field_type;
+	s16   field_data_size;
+	s16   field_sender_size;
+	s16   field_sender_offset;
+	s16   field_recver_size;
+	s16   field_recver_offset;
+	s32   field_spare;
 };
+
+/* This must not be mirror symmetric between big and little endian
+ */
+#define MARS_DESC_MAGIC 0x73D0A2EC6148F48Ell
+
+struct mars_desc_header {
+	u64 h_magic;
+	u64 h_cookie;
+	s16 h_meta_len;
+	s16 h_index;
+	u32 h_spare1;
+	u64 h_spare2;
+};
+
+#define MAX_INT_TRANSFER 16
+
+////////////////////////////////////////////////////////////////////
+
+/* Bytesex conversion / sign extension
+ */
+
+#ifdef __LITTLE_ENDIAN
+static const bool myself_is_bigendian = false;
+#endif
+#ifdef __BIG_ENDIAN
+static const bool myself_is_bigendian = true;
+#endif
+
+extern inline
+void swap_bytes(void *data, int len)
+{
+	char *a = data;
+	char *b = data + len - 1;
+
+	while (a < b) {
+		char tmp = *a;
+		*a = *b;
+		*b = tmp;
+		a++;
+		b--;
+	}
+}
+
+#define SWAP_FIELD(x) swap_bytes(&(x), sizeof(x))
+
+extern inline
+void swap_mc(struct mars_desc_cache *mc, int len)
+{
+	struct mars_desc_item *mi;
+
+	SWAP_FIELD(mc->cache_sender_cookie);
+	SWAP_FIELD(mc->cache_recver_cookie);
+	SWAP_FIELD(mc->cache_items);
+
+	len -= sizeof(*mc);
+
+	for (mi = (void*)(mc + 1); len > 0; mi++, len -= sizeof(*mi)) {
+		SWAP_FIELD(mi->field_type);
+		SWAP_FIELD(mi->field_data_size);
+		SWAP_FIELD(mi->field_sender_size);
+		SWAP_FIELD(mi->field_sender_offset);
+		SWAP_FIELD(mi->field_recver_size);
+		SWAP_FIELD(mi->field_recver_offset);
+	}
+}
+
+extern inline
+char get_sign(const void *data, int len, bool is_bigendian, bool is_signed)
+{
+	if (is_signed) {
+		char x = is_bigendian ?
+			((const char*)data)[0] :
+			((const char*)data)[len - 1];
+		if (x < 0)
+			return -1;
+	}
+	return 0;
+}
+
+////////////////////////////////////////////////////////////////////
 
 /* Low-level network traffic
  */
@@ -673,9 +769,10 @@ void dump_meta(const struct meta *meta)
 {
 	int count = 0;
 	for (; meta->field_name != NULL; meta++) {
-		MARS_ERR("%2d %4d %4d %p '%s'\n",
+		MARS_ERR("%2d %4d %4d %4d %p '%s'\n",
 			 meta->field_type,
-			 meta->field_size,
+			 meta->field_data_size,
+			 meta->field_transfer_size,
 			 meta->field_offset,
 			 meta->field_ref,
 			 meta->field_name);
@@ -692,6 +789,7 @@ int _add_fields(struct mars_desc_item *mi, const struct meta *meta, int offset, 
 		const char *new_prefix;
 		int new_offset;
 		int len;
+		short this_size;
 
 		new_prefix = mi->field_name;
 		new_offset = offset + meta->field_offset;
@@ -711,7 +809,13 @@ int _add_fields(struct mars_desc_item *mi, const struct meta *meta, int offset, 
 			goto done;
 		}
 		mi->field_type = meta->field_type;
-		mi->field_size = meta->field_size;
+		this_size = meta->field_data_size;
+		mi->field_data_size = this_size;
+		mi->field_sender_size = this_size;
+		this_size = meta->field_transfer_size;
+		if (this_size > 0) {
+			mi->field_sender_size = this_size;
+		}
 		mi->field_sender_offset = new_offset;
 		mi->field_recver_offset = -1;
 
@@ -778,6 +882,7 @@ struct mars_desc_cache *make_sender_cache(struct mars_socket *msock, const struc
 
 	if (likely(status > 0)) {
 		mc->cache_items = status;
+		mc->cache_is_bigendian = myself_is_bigendian;
 		msock->s_desc_send[i] = mc;
 		*cache_index = i;
 	} else {
@@ -802,6 +907,7 @@ int _make_recver_cache(struct mars_desc_cache *mc, const struct meta *meta, int 
 			struct mars_desc_item *mi = ((struct mars_desc_item*)(mc + 1)) + i;
 			if (meta->field_type == mi->field_type &&
 			    !strcmp(tmp, mi->field_name)) {
+				mi->field_recver_size = meta->field_data_size;
 				mi->field_recver_offset = offset + meta->field_offset;
 				if (meta->field_type == FIELD_SUB) {
 					int sub_count = _make_recver_cache(mc, meta->field_ref, mi->field_recver_offset, tmp);
@@ -843,44 +949,142 @@ int make_recver_cache(struct mars_desc_cache *mc, const struct meta *meta)
 	return count;
 }
 
+#define _CHECK_STATUS(_txt_)					\
+	if (unlikely(status < 0)) {				\
+		MARS_DBG("%s status = %d\n", _txt_, status);	\
+		goto err;					\
+	}
+
 static
 int _desc_send_item(struct mars_socket *msock, const void *data, const struct mars_desc_cache *mc, int index, bool cork)
 {
 	struct mars_desc_item *mi = ((struct mars_desc_item*)(mc + 1)) + index;
 	const void *item = data + mi->field_sender_offset;
-	int len = mi->field_size;
+	s16 data_len = mi->field_data_size;
+	s16 transfer_len = mi->field_sender_size;
 	int status;
+	bool is_signed = false;
 	int res = -1;
 
 	MARS_IO("#%d cork=%d mc=%p field_name='%s' field_type=%d\n", msock->s_debug_nr, cork, mc, mi->field_name, mi->field_type);
 
 	switch (mi->field_type) {
 	case FIELD_REF:
-		MARS_ERR("NYI\n");
-		goto done;
+		MARS_ERR("field '%s' NYI type = %d\n", mi->field_name, mi->field_type);
+		goto err;
 	case FIELD_SUB:
 		/* skip this */
 		res = 0;
 		break;
+	case FIELD_INT:
+		is_signed = true;
+		/* fallthrough */
+	case FIELD_UINT:
+		if (unlikely(data_len <= 0 || data_len > MAX_INT_TRANSFER)) {
+			MARS_ERR("field '%s' bad data_len = %d\n", mi->field_name, data_len);
+			goto err;
+		}
+		if (unlikely(transfer_len > MAX_INT_TRANSFER)) {
+			MARS_ERR("field '%s' bad transfer_len = %d\n", mi->field_name, transfer_len);
+			goto err;
+		}
+
+		if (likely(data_len == transfer_len))
+			goto raw;
+
+		if (transfer_len > data_len) {
+			int diff = transfer_len - data_len;
+			char empty[diff];
+			char sign;
+			
+			sign = get_sign(item, data_len, myself_is_bigendian, is_signed);
+			memset(empty, sign, diff);
+
+			if (myself_is_bigendian) {
+				status = mars_send_raw(msock, empty, diff, true);
+				_CHECK_STATUS("send_diff");
+				status = mars_send_raw(msock, item, data_len, cork);
+				_CHECK_STATUS("send_item");
+
+			} else {
+				status = mars_send_raw(msock, item, data_len, true);
+				_CHECK_STATUS("send_item");
+				status = mars_send_raw(msock, empty, diff, cork);
+				_CHECK_STATUS("send_diff");
+			}
+
+			res = data_len;
+			break;
+		} else if (unlikely(transfer_len <= 0)) {
+			MARS_ERR("bad transfer_len = %d\n", transfer_len);
+			goto err;
+		} else { // transfer_len < data_len
+			char check = get_sign(item, data_len, myself_is_bigendian, is_signed);
+			int start;
+			int end;
+			int i;
+
+			if (is_signed &&
+			    unlikely(get_sign(item, transfer_len, myself_is_bigendian, true) != check)) {
+				MARS_ERR("cannot sign-reduce signed integer from %d to %d bytes, byte %d !~ %d\n",
+					 data_len,
+					 transfer_len,
+					 ((char*)item)[transfer_len - 1],
+					 check);
+				goto err;
+			}
+
+			if (myself_is_bigendian) {
+				start = 0;
+				end = data_len - transfer_len;
+			} else {
+				start = transfer_len;
+				end = data_len;
+			}
+
+			for (i = start; i < end; i++) {
+				if (unlikely(((char*)item)[i] != check)) {
+					MARS_ERR("cannot sign-reduce %ssigned integer from %d to %d bytes at pos %d, byte %d != %d\n",
+						 is_signed ? "" : "un",
+						 data_len,
+						 transfer_len,
+						 i,
+						 ((char*)item)[i],
+						 check);
+					goto err;
+				}
+			}
+
+			// just omit the higher/lower bytes
+			data_len = transfer_len;
+			if (myself_is_bigendian) {
+				item += end;
+			}
+			goto raw;
+		}		
 	case FIELD_STRING:
 		item = *(void**)item;
-		len = 0;
+		data_len = 0;
 		if (item)
-			len = strlen(item) + 1;
+			data_len = strlen(item) + 1;
 
-		status = mars_send_raw(msock, &len, sizeof(len), cork || len > 0);
-		if (unlikely(status < 0))
-			goto done;
+		status = mars_send_raw(msock, &data_len, sizeof(data_len), true);
+		_CHECK_STATUS("send_string_len");
 		/* fallthrough */
-	default:
-		if (likely(len > 0)) {
-			status = mars_send_raw(msock, item, len, cork);
-			if (unlikely(status < 0))
-				goto done;
+	case FIELD_RAW:
+	raw:
+		if (unlikely(data_len < 0)) {
+			MARS_ERR("field '%s' bad data_len = %d\n", mi->field_name, data_len);
+			goto err;
 		}
-		res = len;
+		status = mars_send_raw(msock, item, data_len, cork);
+		_CHECK_STATUS("send_raw");
+		res = data_len;
+		break;
+	default:
+		MARS_ERR("field '%s' unknown type = %d\n", mi->field_name, mi->field_type);
 	}
-done:
+err:
 	return res;
 }
 
@@ -889,59 +1093,161 @@ int _desc_recv_item(struct mars_socket *msock, void *data, const struct mars_des
 {
 	struct mars_desc_item *mi = ((struct mars_desc_item*)(mc + 1)) + index;
 	void *item = NULL;
-	int len = mi->field_size;
+	s16 data_len = mi->field_recver_size;
+	s16 transfer_len = mi->field_sender_size;
 	int status;
+	bool is_signed = false;
 	int res = -1;
 
-	if (likely(data && mi->field_recver_offset >= 0)) {
+	if (likely(data && data_len > 0 && mi->field_recver_offset >= 0)) {
 		item = data + mi->field_recver_offset;
 	}
 
 	switch (mi->field_type) {
 	case FIELD_REF:
-		MARS_ERR("NYI\n");
-		goto done;
+		MARS_ERR("field '%s' NYI type = %d\n", mi->field_name, mi->field_type);
+		goto err;
 	case FIELD_SUB:
 		/* skip this */
 		res = 0;
 		break;
-	case FIELD_STRING:
-		len = 0;
-		status = mars_recv_raw(msock, &len, sizeof(len), sizeof(len));
-		if (unlikely(status < 0))
-			goto done;
+	case FIELD_INT:
+		is_signed = true;
+		/* fallthrough */
+	case FIELD_UINT:
+		if (unlikely(data_len <= 0 || data_len > MAX_INT_TRANSFER)) {
+			MARS_ERR("field '%s' bad data_len = %d\n", mi->field_name, data_len);
+			goto err;
+		}
+		if (unlikely(transfer_len > MAX_INT_TRANSFER)) {
+			MARS_ERR("field '%s' bad transfer_len = %d\n", mi->field_name, transfer_len);
+			goto err;
+		}
 
-		if (len > 0 && item) {
-			char *str = _brick_string_alloc(len, line);
-			if (unlikely(!str)) {
-				MARS_ERR("#%d string alloc error\n", msock->s_debug_nr);
-				goto done;
+		if (likely(data_len == transfer_len))
+			goto raw;
+
+		if (transfer_len > data_len) {
+			int diff = transfer_len - data_len;
+			char empty[diff];
+			char check;
+
+			memset(empty, 0, diff);
+
+			if (myself_is_bigendian) {
+				status = mars_recv_raw(msock, empty, diff, diff);
+				_CHECK_STATUS("recv_diff");
 			}
+
+			status = mars_recv_raw(msock, item, data_len, data_len);
+			_CHECK_STATUS("recv_item");
+			if (unlikely(mc->cache_is_bigendian != myself_is_bigendian && item)) {
+				swap_bytes(item, data_len);
+			}
+
+			if (!myself_is_bigendian) {
+				status = mars_recv_raw(msock, empty, diff, diff);
+				_CHECK_STATUS("recv_diff");
+			}
+
+			// check that sign extension did no harm
+			check = get_sign(empty, diff, mc->cache_is_bigendian, is_signed);
+			while (--diff >= 0) {
+				if (unlikely(empty[diff] != check)) {
+					MARS_ERR("field '%s' %sSIGNED INTEGER OVERFLOW on size reduction from %d to %d, byte %d != %d\n",
+						 mi->field_name, 
+						 is_signed ? "" : "UN",
+						 transfer_len,
+						 data_len,
+						 empty[diff],
+						 check);
+					goto err;
+				}
+			}
+			if (is_signed && item &&
+			    unlikely(get_sign(item, data_len, myself_is_bigendian, true) != check)) {
+				MARS_ERR("field '%s' SIGNED INTEGER OVERLOW on reduction from size %d to %d, byte %d !~ %d\n",
+					 mi->field_name, 
+					 transfer_len,
+					 data_len,
+					 ((char*)item)[data_len - 1],
+					 check);
+				goto err;
+			}
+
+			res = data_len;
+			break;
+		} else if (unlikely(transfer_len <= 0)) {
+			MARS_ERR("field '%s' bad transfer_len = %d\n", mi->field_name, transfer_len);
+			goto err;
+		} else if (unlikely(!item)) { // shortcut without checks
+			data_len = transfer_len;
+			goto raw;
+		} else { // transfer_len < data_len
+			int diff = data_len - transfer_len;
+			char *transfer_ptr = item;
+			char sign;
+
+			if (myself_is_bigendian) {
+				transfer_ptr += diff;
+			}
+
+			status = mars_recv_raw(msock, transfer_ptr, transfer_len, transfer_len);
+			_CHECK_STATUS("recv_transfer");
+			if (unlikely(mc->cache_is_bigendian != myself_is_bigendian)) {
+				swap_bytes(transfer_ptr, transfer_len);
+			}
+
+			// sign-extend from transfer_len to data_len
+			sign = get_sign(transfer_ptr, transfer_len, myself_is_bigendian, is_signed);
+			if (myself_is_bigendian) {
+				memset(item, sign, diff);
+			} else {
+				memset(item + transfer_len, sign, diff);
+			}
+			
+			res = data_len;
+			break;
+		}		
+	case FIELD_STRING:
+		data_len = 0;
+		status = mars_recv_raw(msock, &data_len, sizeof(data_len), sizeof(data_len));
+		_CHECK_STATUS("recv_string_len");
+
+		if (unlikely(mc->cache_is_bigendian != myself_is_bigendian)) {
+			swap_bytes(&data_len, sizeof(data_len));
+		}
+
+		if (data_len > 0 && item) {
+			char *str = _brick_string_alloc(data_len, line);
 			*(void**)item = str;
 			item = str;
 		}
 
+		transfer_len = data_len;
 		/* fallthrough */
-	default:
-		if (likely(len > 0)) {
-			status = mars_recv_raw(msock, item, len, len);
-			if (unlikely(status < 0))
-				goto done;
+	case FIELD_RAW:
+	raw:
+		if (unlikely(data_len < 0)) {
+			MARS_ERR("field = '%s' implausible data_len = %d\n", mi->field_name, data_len);
+			goto err;
 		}
-		res = len;
+		if (likely(data_len > 0)) {
+			if (unlikely(transfer_len != data_len)) {
+				MARS_ERR("cannot handle generic mismatch in transfer sizes, field = '%s', %d != %d\n", mi->field_name, transfer_len, data_len);
+				goto err;
+			}
+			status = mars_recv_raw(msock, item, data_len, data_len);
+			_CHECK_STATUS("recv_raw");
+		}
+		res = data_len;
+		break;
+	default:
+		MARS_ERR("field '%s' unknown type = %d\n", mi->field_name, mi->field_type);
 	}
-done:
+err:
 	return res;
 }
-
-#define MARS_DESC_MAGIC 0x73f0A2ec6148f48dll
-
-struct mars_desc_header {
-	u64 h_magic;
-	u64 h_cookie;
-	s16 h_meta_len;
-	s16 h_index;
-};
 
 static inline
 int _desc_send_struct(struct mars_socket *msock, int cache_index, const void *data, int h_meta_len, bool cork)
@@ -960,21 +1266,17 @@ int _desc_send_struct(struct mars_socket *msock, int cache_index, const void *da
 	MARS_IO("#%d cork=%d mc=%p h_meta_len=%d\n", msock->s_debug_nr, cork, mc, h_meta_len);
 
 	status = mars_send_raw(msock, &header, sizeof(header), cork || data);
-	if (unlikely(status < 0))
-		goto err;
+	_CHECK_STATUS("send_header");
 
 	if (unlikely(h_meta_len > 0)) {
 		status = mars_send_raw(msock, mc, h_meta_len, true);
-		MARS_IO("#%d sent mc=%p h_meta_len=%d status=%d\n", msock->s_debug_nr, mc, h_meta_len, status);
-		if (unlikely(status < 0))
-			goto err;
+		_CHECK_STATUS("send_meta");
 	}
 
 	if (likely(data)) {
 		for (index = 0; index < mc->cache_items; index++) {
 			status = _desc_send_item(msock, data, mc, index, cork || index < mc->cache_items-1);
-			if (unlikely(status < 0))
-				goto err;
+			_CHECK_STATUS("send_cache_item");
 			count++;
 		}
 	}
@@ -1023,15 +1325,22 @@ int desc_recv_struct(struct mars_socket *msock, void *data, const struct meta *m
 	int index;
 	int count = 0;
 	int status = 0;
+	bool need_swap = false;
 
 	status = mars_recv_raw(msock, &header, sizeof(header), sizeof(header));
-	if (unlikely(status < 0))
-		goto err;
+	_CHECK_STATUS("recv_header");
 
 	if (unlikely(header.h_magic != MARS_DESC_MAGIC)) {
-		MARS_WRN("#%d called from line %d bad packet header magic = %llx\n", msock->s_debug_nr, line, header.h_magic);
-		status = -ENOMSG;
-		goto err;
+		need_swap = true;
+		SWAP_FIELD(header.h_magic);
+		if (unlikely(header.h_magic != MARS_DESC_MAGIC)) {
+			MARS_WRN("#%d called from line %d bad packet header magic = %llx\n", msock->s_debug_nr, line, header.h_magic);
+			status = -ENOMSG;
+			goto err;
+		}
+		SWAP_FIELD(header.h_cookie);
+		SWAP_FIELD(header.h_meta_len);
+		SWAP_FIELD(header.h_index);
 	}
 
 	cache_index = header.h_index;
@@ -1063,7 +1372,11 @@ int desc_recv_struct(struct mars_socket *msock, void *data, const struct meta *m
 		MARS_IO("#%d got mc=%p h_meta_len=%d status=%d\n", msock->s_debug_nr, mc, header.h_meta_len, status);
 		if (unlikely(status < 0)) {
 			brick_block_free(mc, PAGE_SIZE);
-			goto err;
+		}
+		_CHECK_STATUS("recv_meta");
+
+		if (unlikely(need_swap)) {
+			swap_mc(mc, header.h_meta_len);
 		}
 
 		status = make_recver_cache(mc, meta);
@@ -1086,8 +1399,7 @@ int desc_recv_struct(struct mars_socket *msock, void *data, const struct meta *m
 
 	for (index = 0; index < mc->cache_items; index++) {
 		status = _desc_recv_item(msock, data, mc, index, line);
-		if (unlikely(status < 0))
-			goto err;
+		_CHECK_STATUS("recv_cache_item");
 		count++;
 	}
 

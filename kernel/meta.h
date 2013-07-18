@@ -48,7 +48,6 @@
  * You may increase the size of integers, for example from 32bit to 64bit
  * or even higher; sign extension will be automatically carried out
  * when necessary.
- * [TODO; NYI]
  * Also, you may change the order of fields, because the metadata interpreter
  * will check each field individually; field offsets are automatically
  * maintained.
@@ -69,24 +68,30 @@ enum field_type {
 struct meta {
 	//char  field_name[MAX_FIELD_LEN];
 	char *field_name;
-	int   field_type;
-	int   field_size;
+	short field_type;
+	short field_data_size;
+	short field_transfer_size;
 	int   field_offset;
 	const struct meta *field_ref;
 };
 
-#define _META_INI(NAME,STRUCT,TYPE)					\
+#define _META_INI(NAME,STRUCT,TYPE,TSIZE)				\
 	.field_name = #NAME,						\
 	.field_type = TYPE,					        \
-	.field_size = sizeof(((STRUCT*)NULL)->NAME),		        \
+	.field_data_size = sizeof(((STRUCT*)NULL)->NAME),	        \
+	.field_transfer_size = (TSIZE),					\
 	.field_offset = offsetof(STRUCT, NAME)			        \
 
-#define META_INI(NAME,STRUCT,TYPE) { _META_INI(NAME,STRUCT,TYPE) }
+#define META_INI_TRANSFER(NAME,STRUCT,TYPE,TSIZE)	\
+	{ _META_INI(NAME,STRUCT,TYPE,TSIZE) }
+
+#define META_INI(NAME,STRUCT,TYPE)		\
+	{ _META_INI(NAME,STRUCT,TYPE,0) }
 
 #define _META_INI_REF(NAME,STRUCT,REF)					\
 	.field_name = #NAME,						\
 	.field_type = FIELD_REF,				        \
-	.field_size = sizeof(*(((STRUCT*)NULL)->NAME)),		        \
+	.field_data_size = sizeof(*(((STRUCT*)NULL)->NAME)),	        \
 	.field_offset = offsetof(STRUCT, NAME),			        \
 	.field_ref = REF
 
@@ -95,7 +100,7 @@ struct meta {
 #define _META_INI_SUB(NAME,STRUCT,SUB)					\
 	.field_name = #NAME,						\
 	.field_type = FIELD_SUB,				        \
-	.field_size = sizeof(((STRUCT*)NULL)->NAME),		        \
+	.field_data_size = sizeof(((STRUCT*)NULL)->NAME),	        \
 	.field_offset = offsetof(STRUCT, NAME),			        \
 	.field_ref = SUB
 

@@ -105,7 +105,7 @@ const struct meta mars_mref_meta[] = {
 	META_INI(ref_cs_mode,      struct mref_object, FIELD_INT),
 	META_INI(ref_timeout,      struct mref_object, FIELD_INT),
 	META_INI(ref_total_size,   struct mref_object, FIELD_INT),
-	META_INI(ref_checksum,     struct mref_object, FIELD_INT),
+	META_INI(ref_checksum,     struct mref_object, FIELD_RAW),
 	META_INI(ref_flags,        struct mref_object, FIELD_INT),
 	META_INI(ref_rw,           struct mref_object, FIELD_INT),
 	META_INI(ref_id,           struct mref_object, FIELD_INT),
@@ -115,8 +115,8 @@ const struct meta mars_mref_meta[] = {
 EXPORT_SYMBOL_GPL(mars_mref_meta);
 
 const struct meta mars_timespec_meta[] = {
-	META_INI(tv_sec, struct timespec, FIELD_INT),
-	META_INI(tv_nsec, struct timespec, FIELD_INT),
+	META_INI_TRANSFER(tv_sec,  struct timespec, FIELD_UINT, 8),
+	META_INI_TRANSFER(tv_nsec, struct timespec, FIELD_UINT, 4),
 	{}
 };
 EXPORT_SYMBOL_GPL(mars_timespec_meta);

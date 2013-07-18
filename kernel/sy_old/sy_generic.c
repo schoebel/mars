@@ -64,13 +64,13 @@
 // meta descriptions
 
 const struct meta mars_kstat_meta[] = {
-	META_INI(ino, struct kstat, FIELD_INT),
-	META_INI(mode, struct kstat, FIELD_INT),
+	META_INI(ino, struct kstat, FIELD_UINT),
+	META_INI(mode, struct kstat, FIELD_UINT),
 	META_INI(size, struct kstat, FIELD_INT),
 	META_INI_SUB(atime, struct kstat, mars_timespec_meta),
 	META_INI_SUB(mtime, struct kstat, mars_timespec_meta),
 	META_INI_SUB(ctime, struct kstat, mars_timespec_meta),
-	META_INI(blksize, struct kstat, FIELD_INT),
+	META_INI_TRANSFER(blksize, struct kstat, FIELD_UINT, 4),
 	{}
 };
 EXPORT_SYMBOL_GPL(mars_kstat_meta);
@@ -79,7 +79,7 @@ const struct meta mars_dent_meta[] = {
 	META_INI(d_name,    struct mars_dent, FIELD_STRING),
 	META_INI(d_rest,    struct mars_dent, FIELD_STRING),
 	META_INI(d_path,    struct mars_dent, FIELD_STRING),
-	META_INI(d_type,    struct mars_dent, FIELD_INT),
+	META_INI(d_type,    struct mars_dent, FIELD_UINT),
 	META_INI(d_class,   struct mars_dent, FIELD_INT),
 	META_INI(d_serial,  struct mars_dent, FIELD_INT),
 	META_INI(d_corr_A,  struct mars_dent, FIELD_INT),
