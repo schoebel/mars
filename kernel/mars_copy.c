@@ -41,6 +41,18 @@ EXPORT_SYMBOL_GPL(mars_copy_read_prio);
 int mars_copy_write_prio = MARS_PRIO_NORMAL;
 EXPORT_SYMBOL_GPL(mars_copy_write_prio);
 
+int mars_copy_read_max_fly = 0;
+EXPORT_SYMBOL_GPL(mars_copy_read_max_fly);
+
+int mars_copy_write_max_fly = 0;
+EXPORT_SYMBOL_GPL(mars_copy_write_max_fly);
+
+#define is_read_limited(brick)						\
+	(mars_copy_read_max_fly > 0 && atomic_read(&(brick)->copy_read_flight) >= mars_copy_read_max_fly)
+
+#define is_write_limited(brick)						\
+	(mars_copy_write_max_fly > 0 && atomic_read(&(brick)->copy_write_flight) >= mars_copy_write_max_fly)
+
 ///////////////////////// own helper functions ////////////////////////
 
 /* TODO:
@@ -221,7 +233,11 @@ exit:
 		st->error = error;
 		_clash(brick);
 	}
-	atomic_dec(&brick->copy_flight);
+	if (mref->ref_rw) {
+		atomic_dec(&brick->copy_write_flight);
+	} else {
+		atomic_dec(&brick->copy_read_flight);
+	}
 	brick->trigger = true;
 	wake_up_interruptible(&brick->event);
 	return;
@@ -294,8 +310,13 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 
 	//MARS_IO("queue = %d index = %d pos = %lld len = %d rw = %d\n", queue, index, mref->ref_pos, mref->ref_len, rw);
 
-	atomic_inc(&brick->copy_flight);
 	GET_STATE(brick, index).active[queue] = true;
+	if (rw) {
+		atomic_inc(&brick->copy_write_flight);
+	} else {
+		atomic_inc(&brick->copy_read_flight);
+	}
+
 	GENERIC_INPUT_CALL(input, mref_io, mref);
 
 done:
@@ -367,7 +388,8 @@ restart:
 		st->writeout = false;
 		st->error = 0;
 
-		if (brick->is_aborting)
+		if (brick->is_aborting ||
+		    is_read_limited(brick))
 			goto idle;
 
 		status = _make_mref(brick, index, 0, NULL, pos, brick->copy_end, READ, brick->verify_mode ? 2 : 0);
@@ -461,6 +483,8 @@ restart:
 		next_state = COPY_STATE_WRITE;
 		/* fallthrough */
 	case COPY_STATE_WRITE:
+		if (is_write_limited(brick))
+			goto idle;
 		/* Obey ordering to get a strict "append" behaviour.
 		 * We assume that we don't need to wait for completion
 		 * of the previous write to avoid a sparse result file
@@ -566,7 +590,7 @@ int _run_copy(struct copy_brick *brick)
 
 	if (unlikely(_clear_clash(brick))) {
 		MARS_DBG("clash\n");
-		if (atomic_read(&brick->copy_flight) > 0) {
+		if (atomic_read(&brick->copy_read_flight) + atomic_read(&brick->copy_write_flight) > 0) {
 			/* wait until all pending copy IO has finished
 			 */
 			_clash(brick);
@@ -642,7 +666,7 @@ bool _is_done(struct copy_brick *brick)
 	if (brick_thread_should_stop())
 		brick->is_aborting = true;
 	return brick->is_aborting &&
-		atomic_read(&brick->copy_flight) <= 0;
+		atomic_read(&brick->copy_read_flight) + atomic_read(&brick->copy_write_flight) <= 0;
 }
 
 static int _copy_thread(void *data)
@@ -679,7 +703,12 @@ static int _copy_thread(void *data)
 		brick->trigger = false;
 	}
 
-	MARS_DBG("--------------- copy_thread terminating (%d requests flying, copy_start = %lld copy_end = %lld)\n", atomic_read(&brick->copy_flight), brick->copy_start, brick->copy_end);
+	MARS_DBG("--------------- copy_thread terminating (%d read requests / %d write requests flying, copy_start = %lld copy_end = %lld)\n",
+		 atomic_read(&brick->copy_read_flight),
+		 atomic_read(&brick->copy_write_flight),
+		 brick->copy_start,
+		 brick->copy_end);
+
 	_clear_all_mref(brick);
 	mars_power_led_off((void*)brick, true);
 	MARS_DBG("--------------- copy_thread done.\n");
@@ -782,7 +811,8 @@ char *copy_statistics(struct copy_brick *brick, int verbose)
 		 "clash = %lu | "
 		 "total clash_count = %d | "
 		 "io_flight = %d "
-		 "copy_flight = %d\n",
+		 "copy_read_flight = %d "
+		 "copy_write_flight = %d\n",
 		 brick->copy_start,
 		 brick->copy_last,
 		 brick->copy_end,
@@ -795,7 +825,8 @@ char *copy_statistics(struct copy_brick *brick, int verbose)
 		 brick->clash,
 		 atomic_read(&brick->total_clash_count),
 		 atomic_read(&brick->io_flight),
-		 atomic_read(&brick->copy_flight));
+		 atomic_read(&brick->copy_read_flight),
+		 atomic_read(&brick->copy_write_flight));
 
         return res;
 }

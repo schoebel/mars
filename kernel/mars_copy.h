@@ -13,6 +13,8 @@
 extern int mars_copy_overlap;
 extern int mars_copy_read_prio;
 extern int mars_copy_write_prio;
+extern int mars_copy_read_max_fly;
+extern int mars_copy_write_max_fly;
 
 enum {
 	COPY_STATE_RESET    = -1,
@@ -69,7 +71,8 @@ struct copy_brick {
 	unsigned long clash;
 	atomic_t total_clash_count;
 	atomic_t io_flight;
-	atomic_t copy_flight;
+	atomic_t copy_read_flight;
+	atomic_t copy_write_flight;
 	long long last_jiffies;
 	wait_queue_head_t event;
 	struct semaphore mutex;

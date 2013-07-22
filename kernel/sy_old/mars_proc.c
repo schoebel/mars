@@ -233,6 +233,8 @@ ctl_table mars_table[] = {
 	INT_ENTRY("copy_overlap",         mars_copy_overlap,      0600),
 	INT_ENTRY("copy_read_prio",       mars_copy_read_prio,    0600),
 	INT_ENTRY("copy_write_prio",      mars_copy_write_prio,   0600),
+	INT_ENTRY("copy_read_max_fly",    mars_copy_read_max_fly, 0600),
+	INT_ENTRY("copy_write_max_fly",   mars_copy_write_max_fly,0600),
 	INT_ENTRY("statusfiles_rollover_sec", mars_rollover_interval, 0600),
 	INT_ENTRY("scan_interval_sec",    mars_scan_interval,     0600),
 	INT_ENTRY("propagate_interval_sec", mars_propagate_interval, 0600),
