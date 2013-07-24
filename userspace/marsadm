@@ -96,7 +96,7 @@ sub finish_links {
   }
   while (my $link = shift @link_list) {
     my $link_tmp = to_tmp($link);
-    utime($timestamp, $timestamp, $link_tmp);
+    system("touch -h -d \"\@$timestamp\" $link_tmp") == 0 or ldie "cannot set mtime on symlink '$link_tmp'\n";
     rename($link_tmp, $link) or ldie "cannot finalize symlink '$link'\n";
     if ($verbose) {
       my $target = readlink($link);
