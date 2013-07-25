@@ -865,7 +865,7 @@ sub create_res {
     ldie "block device '$dev' must be an absolute path starting with '/'\n" unless $dev =~ m/^\//;
     use Fcntl 'SEEK_END', 'O_RDONLY', 'O_RDWR', 'O_EXCL';
     my $flags = O_RDWR | O_EXCL;
-    if (!$force) {
+    if ($force) {
       $flags = O_RDONLY;
     }
     sysopen(TEST, $dev, $flags) or ldie "cannot open device '$dev' for exclusive rw access\n";
