@@ -1246,6 +1246,7 @@ sub up_res_phase1 {
   if ($down) {
     pause_replay_local_res("pause-replay-local", $res);
     pause_sync_local_res("pause-sync-local", $res);
+    connect_local_res("disconnect", $res);
     attach_res_phase1("detach", $res);
   } else {
     attach_res_phase1("attach", $res);
