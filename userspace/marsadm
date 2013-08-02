@@ -1603,8 +1603,6 @@ marsadm [<global_option>] <command> [<resource>] [<option>]
 <resource> = name of resource or \"all\" for all resources
 
 <option>   = special by command
-
-Advanced information are also available here: http://http://wiki.intranet.1and1.com/bin/view/PO/ProjektTEC1603 
   \n";
   exit 0;
 }

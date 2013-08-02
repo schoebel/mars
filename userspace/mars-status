@@ -62,7 +62,6 @@ sub display_help {
     print "Usage monitoring            : mars-status --monitor\n";
     print "Usage monitoring drbd-linke : mars-status --cstate (or --dstate or --role)\n";
     print "Usage full, include debug   : mars-status --system --history --debug\n\n";
-    print "Advanced information are also available here: http://http://wiki.intranet.1and1.com/ ->ProjektTEC1603 ->TECITO.1735 -> MARS\n";
     exit;
 }
 
