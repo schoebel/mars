@@ -31,9 +31,10 @@ function mount_umount
 
 function mount_mount
 {
-    local host=$1 dev="$2" mount_point=$3
+    [ $# -eq 4 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    local host=$1 dev="$2" mount_point=$3 fs_type=$4
     lib_vmsg "  mounting dev $dev on $mount_point on $host"
-    lib_remote_idfile $host mount -t ext3 $dev $mount_point
+    lib_remote_idfile $host mount -t $fs_type $dev $mount_point
     return $?
 }
 
@@ -57,10 +58,23 @@ function mount_is_dir_mountpoint
 
 function mount_mount_data_device
 {
+    local res_no=${1:-0}
+    local res=${resource_name_list[$res_no]}
     local host=${main_host_list[0]} 
-    local dev=$(resource_get_name_data_device\
-                    $(lv_config_get_lv_name ${resource_device_size_list[0]}))
-    local mount_point=$mount_test_mount_point
+    local dev=$(resource_get_name_data_device $res)
+    local mount_point=${resource_mount_point_list[$res]}
     lib_rw_mount_data_device $host $dev $mount_point
+}
+
+function mount_umount_data_device
+{
+    local res_no=${1:-0}
+    local res=${resource_name_list[$res_no]}
+    local host=${main_host_list[0]} 
+    local dev=$(resource_get_name_data_device $res)
+    local mount_point=${resource_mount_point_list[$res]}
+    if mount_is_dir_mountpoint $host $mount_point; then
+        mount_umount $host $dev $mount_point
+    fi
 }
 

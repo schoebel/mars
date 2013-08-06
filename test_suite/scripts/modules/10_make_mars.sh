@@ -120,18 +120,18 @@ function make_mars_check_kconfig_file
 function make_mars_check_and_build_link
 {
     local mars_dir=$1 kernel_dir=$2 
-    local link_name=$kernel_dir/$3
+    local link=$kernel_dir/$3
     local link_target
-    if [ ! -L $link_name ];then
-        echo "  missing link $link_name will be created"
-        ln -s $mars_dir $link_name || lib_exit 1
+    if [ ! -L $link ];then
+        echo "  missing link $link will be created"
+        ln -s $mars_dir $link || lib_exit 1
     fi
-    link_target=$(readlink $link_name)
+    link_target=$(readlink $link)
     if [ -z "$link_target" ];then
-        lib_exit 1 "cannot read link $link_name"
+        lib_exit 1 "cannot read link $link"
     fi
     if [ "$link_target" != "$mars_dir" ];then
-        lib_exit 1 "link $link_name points to $link_target instead of $mars_dir"
+        lib_exit 1 "link $link points to $link_target instead of $mars_dir"
     fi
 }
 

@@ -18,9 +18,11 @@ function cluster_run
 function cluster_umount_data_device_all
 {
     local host
+    local res=${resource_name_list[0]}
     for host in "${main_host_list[@]}"; do
-        if mount_is_dir_mountpoint $host $mount_test_mount_point; then
-            mount_umount $host "device_does_not_matter" $mount_test_mount_point
+        if mount_is_dir_mountpoint $host ${resource_mount_point_list[$res]}
+        then
+            mount_umount $host "device_does_not_matter" ${resource_mount_point_list[$res]}
         fi
     done
 }
@@ -28,10 +30,17 @@ function cluster_umount_data_device_all
 function cluster_rmmod_mars_all
 {
     local host
+    mount_umount_data_device
     for host in "${main_host_list[@]}"; do
-        lib_vmsg "  rmmod mars on host $host"
-        lib_remote_idfile $host "if grep -w mars /proc/modules; then rmmod mars; fi" || lib_exit 1
+        cluster_rmmod_mars $host
     done
+}
+
+function cluster_rmmod_mars
+{
+    local host=$1
+    lib_vmsg "  rmmod mars on host $host"
+    lib_remote_idfile $host "if grep -w mars /proc/modules; then rmmod mars; fi" || lib_exit 1
 }
 
 function cluster_clear_mars_dir_all
@@ -43,18 +52,38 @@ function cluster_clear_mars_dir_all
     done
 }
 
+function cluster_insert_mars_module_all
+{
+    local host
+    for host in "${main_host_list[@]}"; do
+        cluster_insert_mars_module $host
+    done
+}
+
+function cluster_insert_mars_module
+{
+    local host=$1
+    cluster_create_debugfiles $host
+    lib_vmsg "  inserting mars module on $host"
+    lib_remote_idfile $host 'grep -w "^mars" /proc/modules || modprobe mars' || lib_exit 1
+}
+
+function cluster_mount_mars_dir
+{
+    local host=$1 dev=$2
+    if mount_is_dir_mountpoint $host $main_mars_directory
+    then
+        mount_umount $host "device_does_not_matter" $main_mars_directory
+    fi
+    mount_mount $host $dev $main_mars_directory $main_mars_fs_type || lib_exit 1
+}
 
 function cluster_mount_mars_dir_all
 {
-    local i host dev
-    for i in "${!main_host_list[@]}"; do
-        host="${main_host_list[$i]}"
-        dev="$(lv_config_get_lv_device ${cluster_mars_dir_device_size_list[$i]})"
-        if mount_is_dir_mountpoint $host $main_mars_directory
-        then
-            continue
-        fi
-        mount_mount $host $dev $main_mars_directory || lib_exit 1
+    local host dev
+    for host in "${main_host_list[@]}"; do
+        dev="$(lv_config_get_lv_device ${cluster_mars_dir_lv_name_list[$host]})"
+        cluster_mount_mars_dir $host $dev
     done
 }
 
@@ -71,12 +100,12 @@ function cluster_get_ip_linkvalue_pattern
 
 function cluster_exists
 {
-    local host=$1 link_name link_value_expected link_status
+    local host=$1 link link_value_expected link_status
 
-    link_name=$(cluster_get_ip_linkname $host)
+    link=$(cluster_get_ip_linkname $host)
     link_value_expected="$(cluster_get_ip_linkvalue_pattern)"
 
-    lib_linktree_check_link $host "$link_name" "$link_value_expected"
+    lib_linktree_check_link $host "$link" "$link_value_expected"
     link_status=$?
     if [ $link_status -eq ${main_link_status["link_ok"]} ]; then
         lib_vmsg "  cluster on $host already exists"
@@ -111,58 +140,57 @@ function cluster_join
 function cluster_check_links_after_join_cluster
 {
     local host=$1 primary_host=$2
-    local link_name_list=("$(cluster_get_ip_linkname $primary_host)" \
+    local link_list=("$(cluster_get_ip_linkname $primary_host)" \
                           "$(cluster_get_ip_linkname $host)")
     local link_value_expected_list=("$(cluster_get_ip_linkvalue_pattern)" \
                                     "$(cluster_get_ip_linkvalue_pattern)")
-    cluster_check_ok_link_list ${#link_name_list[@]} "${link_name_list[@]}" \
+    cluster_check_ok_link_list ${#link_list[@]} "${link_list[@]}" \
                                                   "${link_value_expected_list[@]}"
 }
 
 # arguments: list_length list_of_link_names list_of_link_values
 function cluster_check_ok_link_list
 {
-    local list_count=$1 list_name link_name_list link_value_expected_list i
+    local list_count=$1 list_name link_list link_value_expected_list i
     shift
     # filling local arrays with arguments
-    for list_name in "link_name" "link_value_expected"; do
+    for list_name in "link" "link_value_expected"; do
         for i in $(seq 1 1 $list_count); do
             eval ${list_name}_list[$i]="$1"
             shift
         done
     done
 
-    local i link_name link_value_expected link_status
-    for i in ${!link_name_list[*]}; do
-        link_name="${link_name_list[$i]}"
+    local i link link_value_expected link_status
+    for i in ${!link_list[*]}; do
+        link="${link_list[$i]}"
         link_value_expected="${link_value_expected_list[$i]}"
-        lib_linktree_check_link $host "$link_name" "$link_value_expected"
+        lib_linktree_check_link $host "$link" "$link_value_expected"
         link_status=$?
         if [ $link_status -ne ${main_link_status["link_ok"]} ]; then
             local str=$(lib_linktree_status_to_string $link_status)
-            lib_exit 1 "link $host:$link_name has state $str"
+            lib_exit 1 "link $host:$link has state $str"
         fi
     done
 }
 
 function cluster_check_links_after_create_cluster
 {
-    local host=$1 link_name link_value_expected link_status
+    local host=$1 link link_value_expected link_status
 
-    local link_name_list=("$(cluster_get_ip_linkname $host)")
+    local link_list=("$(cluster_get_ip_linkname $host)")
     local link_value_expected_list=("$(cluster_get_ip_linkvalue_pattern)")
 
-    cluster_check_ok_link_list ${#link_name_list[@]} "${link_name_list[@]}" \
+    cluster_check_ok_link_list ${#link_list[@]} "${link_list[@]}" \
                                                   "${link_value_expected_list[@]}"
 }
 
 function cluster_check_devices_all
 {
-    local i dev host blkid_out rc
-    for i in "${!main_host_list[@]}"; do
-        host="${main_host_list[$i]}"
-        dev="$(lv_config_get_lv_device ${cluster_mars_dir_device_size_list[$i]})"
-        lib_remote_check_device_fs_idfile $host $dev
+    local dev host blkid_out rc
+    for host in "${main_host_list[@]}"; do
+        dev="$(lv_config_get_lv_device ${cluster_mars_dir_lv_name_list[$host]})"
+        lib_remote_check_device_fs $host $dev $main_mars_fs_type
     done
 }
 
@@ -185,10 +213,17 @@ function cluster_check_variables
     if [ ${#main_host_list[*]} -eq 0 ]; then
         lib_exit 1 "no cluster hosts given"
     fi
-    if [ ${#main_host_list[*]} -ne ${#cluster_mars_dir_device_size_list[*]} ]
+    if [ ${#main_host_list[*]} -ne ${#cluster_mars_dir_lv_name_list[*]} ]
     then
-        lib_exit 1 "number of hosts = ${#main_host_list[*]} != ${#cluster_mars_dir_device_size_list[*]} = number of devices"
+        lib_exit 1 "number of hosts = ${#main_host_list[*]} != ${#cluster_mars_dir_lv_name_list[*]} = number of devices"
     fi
+    local lv_name
+    for lv_name in ${cluster_mars_dir_lv_name_list[@]}; do
+        if ! expr "(${lv_config_name_list[*]})" : ".*[( ]$lv_name[ )]" >/dev/null
+        then
+            lib_exit 1 "lv $lv_name from cluster_mars_dir_lv_name_list = (${cluster_mars_dir_lv_name_list[*]}) not found in lv_config_name_list = (${lv_config_name_list[*]})"
+        fi
+    done
 }
 
 function cluster_create_mars_dir_all

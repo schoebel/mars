@@ -25,8 +25,10 @@ function checkout_mars_run
 
     declare -A checkout_dirs
     declare -A checkout_branches
+    declare -A checkout_tags
 
     checkout_branches["$checkout_mars_src_directory"]="$checkout_mars_git_branch"
+    checkout_tags["$checkout_mars_src_directory"]="$checkout_mars_git_tag"
     checkout_branches["$checkout_mars_kernel_src_directory"]="$checkout_mars_kernel_git_branch"
     checkout_branches["$checkout_mars_contrib_src_directory"]="$checkout_mars_contrib_git_branch"
  
@@ -41,9 +43,10 @@ function checkout_mars_run
         echo "  $BASH_SOURCE:$LINENO: git fetch not implemented yet" >&2
         exit 1
     fi
-    local pwd=$(pwd) br
+    local pwd=$(pwd) br tag
     for dir in ${!checkout_branches[@]}; do
         br=${checkout_branches["$dir"]}
+        tag=${checkout_tags["$dir"]}
         lib_vmsg "  checking out branch $br in $dir"
         cd $dir || lib_exit 1
         pwd
@@ -55,6 +58,9 @@ function checkout_mars_run
         git fetch origin || lib_exit 1
         git checkout $br || lib_exit 1
         git rebase remotes/origin/$br || lib_exit 1
+        if [ -n "$tag" ]; then
+            git checkout $tag || lib_exit 1
+        fi
     done
 }
 

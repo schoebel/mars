@@ -19,40 +19,38 @@
 
 #####################################################################
 
-function file_destroy_prepare
-{
-    local secondary_host="${main_host_list[1]}"
-    local res=$(lv_config_get_lv_name ${resource_device_size_list[0]})
-
-    lib_wait_until_action_stops "syncstatus" $secondary_host $res \
-                                  $file_destroy_maxtime_sync \
-                                  $file_destroy_time_constant_sync
-
-    # after sync disk state must be Outdated || Uptodate
-    marsview_check $secondary_host $res "disk" ".*date.*" || lib_exit 1
-}
-
 function file_destroy_run
 {
 
     local primary_host="${main_host_list[0]}"
     local secondary_host="${main_host_list[1]}"
-    local res=$(lv_config_get_lv_name ${resource_device_size_list[0]})
-    local logfile length_logfile writer_pid writer_script
+    local res=${resource_name_list[0]}
+    local logfile length_logfile writer_pid writer_script write_count 
+    local time_waited
+
+    lib_wait_for_initial_end_of_sync $secondary_host $res \
+                                     $resource_maxtime_initial_sync \
+                                     $resource_time_constant_initial_sync \
+                                     "time_waited"
+    lib_vmsg "  ${FUNCNAME[0]}: sync time: $time_waited"
+
 
     mount_mount_data_device
 
 
-    lib_rw_start_writing_data_device "writer_pid" "writer_script"
+    lib_rw_start_writing_data_device "writer_pid" "writer_script" 0 2 $res
 
     file_destroy_down_secondary $secondary_host $res
+    marsadm_do_cmd $secondary_host "connect" $res || lib_exit 1
 
     file_destroy_sleep $file_destroy_duration_of_writer_after_secondary_down
 
-    lib_rw_stop_writing_data_device $writer_script 
+    lib_rw_stop_writing_data_device $writer_script "write_count"
 
     lib_wait_until_fetch_stops "file_destroy" $secondary_host $primary_host \
-                               $res "logfile" "length_logfile"
+                               $res "logfile" "length_logfile" "time_waited"
+    lib_vmsg "  ${FUNCNAME[0]}: fetch time: $time_waited"
+
 
     file_handling_check_equality_of_file_lengths $logfile $primary_host \
                                                 $secondary_host $length_logfile
@@ -63,7 +61,10 @@ function file_destroy_run
 
     lib_wait_until_action_stops "replay" $secondary_host $res \
                                   $file_destroy_maxtime_apply \
-                                  $file_destroy_time_constant_apply
+                                  $file_destroy_time_constant_apply \
+                                  "time_waited"
+    lib_vmsg "  ${FUNCNAME[0]}: apply time: $time_waited"
+
     marsview_check $secondary_host $res "disk" "Outdated\[.*A.*\]" || lib_exit 1
     marsview_check $secondary_host $res "repl" "-SFA-" || lib_exit 1
 
@@ -77,7 +78,6 @@ function file_destroy_repair_logfile
     local secondary_host=$1 logfile=$2
     
     marsadm_do_cmd $secondary_host "down" $res || lib_exit 1
-    marsadm_do_cmd $secondary_host "disconnect" $res || lib_exit 1
     lib_remote_idfile $secondary_host \
                       "truncate -s -$file_destroy_patch_length $logfile" || \
                                                                     lib_exit 1

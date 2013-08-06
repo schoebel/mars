@@ -44,7 +44,6 @@ function lib_callstack
         local j args=
         argc=${BASH_ARGC[$i]}
         if [ ${argc:-0} -gt 0 ]; then
-            local args
             for j in $(seq 1 1 $argc); do
                 args='"'"${BASH_ARGV[$argv_index]}"'" '"$args"
                 let argv_index+=1
@@ -91,7 +90,7 @@ function lib_exit
 function lib_vmsg
 {
     if (( verbose_script )); then
-        echo "$*"
+        echo "$(date +'%Y-%m-%d %H:%M:%S') ${BASH_SOURCE[1]}:${BASH_LINENO[0]}: $*"
     fi
 }
 
@@ -244,23 +243,32 @@ function lib_start_script_remote_bg
 #####################################################################
 
 # helper for device handling
-function lib_remote_check_device_fs_idfile
+function lib_remote_check_device_fs
 {
-    local host=$1 dev=$2
+    [ $# -eq 3 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    local host=$1 dev=$2 fs_type=$3
     lib_vmsg "  checking device $dev on host $host"
     lib_remote_idfile $host "lvdisplay -C --noheadings -o lv_name $dev" \
                                                                 || lib_exit 1
-    # check wether it's a ext3 filesystem
+    lib_vmsg "  checking whether $host:$dev contains a filesystem"
     blkid_out=$(lib_remote_idfile $host "blkid  -p -u filesystem $dev")
     rc=$?
     if [ $rc -eq 0 ]; then
-        if ! expr "$blkid_out" : '.*\(TYPE="ext3"\)'; then
+        if ! expr "$blkid_out" : '.*\(TYPE="'"$fs_type"'"\)'; then
             rc=1
         fi
     fi
     if [ $rc -ne 0 ]; then
-        lib_vmsg "  creating ext3 filesystem on $dev"
-        lib_remote_idfile $host "mkfs.ext3 $dev" || lib_exit 1
+        if mount_is_dir_mountpoint $host $main_mars_directory; then
+            mount_umount $host "device_does_not_matter" $main_mars_directory
+        fi
+        lib_vmsg "  creating $fs_type filesystem on $dev"
+        lib_remote_idfile $host "mkfs.$fs_type ${lv_config_mkfs_option_list[$fs_type]} $dev" || lib_exit 1
+        if [ -n "${lv_config_fs_type_tune_cmd_list[$fs_type]}" ];then
+            local cmd=${lv_config_fs_type_tune_cmd_list[$fs_type]/<dev>/$dev}
+            lib_vmsg "  tuning $dev on $host: $cmd"
+            lib_remote_idfile $host "$cmd" || lib_exit 1
+        fi
     fi
 }
 

@@ -22,55 +22,53 @@
 ## this module provides functions to test independency of fetch and apply
 
 #####################################################################
-function apply_fetch_prepare
-{
-    local secondary_host="${main_host_list[1]}"
-    local res=$(lv_config_get_lv_name ${resource_device_size_list[0]})
-
-    lib_wait_until_action_stops "syncstatus" $secondary_host $res \
-                                  $apply_fetch_maxtime_sync \
-                                  $apply_fetch_time_constant_sync
-
-    # after sync disk state must be Outdated || Uptodate
-    marsview_check $secondary_host $res "disk" ".*date.*" || lib_exit 1
-}
-
 function apply_fetch_run
 {
     local primary_host=${main_host_list[0]}
     local secondary_host=${main_host_list[1]}
-    local res=$(lv_config_get_lv_name ${resource_device_size_list[0]})
-    local writer_pid writer_script
-    local logfile length_logfile
+    local res=${resource_name_list[0]}
+    local writer_pid writer_script write_count
+    local logfile length_logfile time_waited
+
+    lib_wait_for_initial_end_of_sync $secondary_host $res \
+                                  $resource_maxtime_initial_sync \
+                                  $resource_time_constant_initial_sync \
+                                  "time_waited"
+    lib_vmsg "  ${FUNCNAME[0]}: sync time: $time_waited"
 
     mount_mount_data_device
 
-    lib_rw_start_writing_data_device "writer_pid" "writer_script"
+    lib_rw_start_writing_data_device "writer_pid" "writer_script"  2 2 $res
 
     marsadm_pause_cmd "apply" $secondary_host $res
 
     lib_wait_until_action_stops "replay" $secondary_host $res \
                                   $apply_fetch_maxtime_apply \
-                                  $apply_fetch_time_constant_apply
+                                  $apply_fetch_time_constant_apply "time_waited"
+    lib_vmsg "  ${FUNCNAME[0]}: apply time: $time_waited"
+
     marsview_check $secondary_host $res "disk" "Outdated\[.*A.*\]" \
     marsview_check $secondary_host $res "repl" '-SF--' || lib_exit 1
-
-    apply_fetch_sleep $apply_fetch_time_writer_between_pause_replay_and_pause_fetch
 
     marsadm_pause_cmd "fetch" $secondary_host $res
 
     lib_wait_until_fetch_stops "apply_fetch" $secondary_host $primary_host \
-                               $res "logfile" "length_logfile"
+                               $res "logfile" "length_logfile" "time_waited"
+    lib_vmsg "  ${FUNCNAME[0]}: fetch time: $time_waited"
 
-    lib_rw_stop_writing_data_device $writer_script 
+
+    lib_rw_stop_writing_data_device $writer_script "write_count"
 
     case $apply_fetch_running_action in #(((
         apply)
             marsadm_do_cmd $secondary_host "resume-replay" $res || lib_exit 1
 
             lib_wait_until_action_stops "replay" $secondary_host $res \
-                              $apply_fetch_maxtime_apply_after_disconnect \
-                              $apply_fetch_time_constant_apply_after_disconnect
+                          $apply_fetch_maxtime_apply_after_disconnect \
+                          $apply_fetch_time_constant_apply_after_disconnect \
+                          "time_waited"
+            lib_vmsg "  ${FUNCNAME[0]}: apply time: $time_waited"
+
             marsadm_check_warn_file_and_disk_state $secondary_host $res \
                                                "apply_stopped_after_disconnect"
             marsview_check $secondary_host $res "repl" "-S-A-" || lib_exit 1
@@ -81,7 +79,9 @@ function apply_fetch_run
 
             lib_wait_until_fetch_stops "apply_fetch" $secondary_host \
                                        $primary_host $res "logfile" \
-                                       "length_logfile"
+                                       "length_logfile" "time_waited"
+            lib_vmsg "  ${FUNCNAME[0]}: fetch time: $time_waited"
+
             file_handling_check_equality_of_file_lengths $logfile \
                                                          $primary_host \
                                                          $secondary_host \
@@ -99,13 +99,6 @@ function apply_fetch_run
                             $apply_fetch_maxtime_state_constant || lib_exit 1
     marsview_wait_for_state $secondary_host $res "repl" "-SFA-" \
                             $apply_fetch_maxtime_state_constant || lib_exit 1
-}
-
-function apply_fetch_sleep
-{
-    local time=$1
-    lib_vmsg "  let writer run for $time seconds"
-    sleep $time
 }
 
 # - start mars_dev_writer                    apply must run

@@ -23,9 +23,9 @@ function file_handling_get_file_length
 {
     local host=$1 logfile=$2
     local length
-    length=$(lib_remote_idfile $host "ls -l $logfile") || lib_exit 1
-    # geting length out of ls -l output (e.g.:
-    # -rw-rw-r-- 1 fl fl 11 Jun 11 17:06 /home/fl/tmp/f1
+    length=$(lib_remote_idfile $host "ls -l --full-time $logfile") || lib_exit 1
+    # geting length out of ls  output (e.g.:
+    # -rw-rw-r-- 1 fl fl 11 Jun 11 17:06.123 /home/fl/tmp/f1
     # )
     length=${length#* * * * }
     length=${length%% *}

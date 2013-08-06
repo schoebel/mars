@@ -2,10 +2,9 @@
 
 function lv_config_name_matches_our_list
 {
-    local lv_name=$1 size our_lv_name
-    for size in ${lv_config_lv_size_list[@]}; do
-        our_lv_name=$(lv_config_get_lv_name $size) || lib_exit 1
-        if [ "$our_lv_name" = "$lv_name" ]; then
+    local lv_name=$1 res
+    for res in ${lv_config_name_list[@]}; do
+        if [ "$res" = "$lv_name" ]; then
             lib_vmsg "  lv $lv_name found in list"
             return 0
         fi
@@ -59,18 +58,15 @@ function lv_config_check_volume_group_existence_and_size
 
 function lv_config_check_variables
 {
-    if [ $lv_config_count -eq 0 ]; then
+    if [ $resource_count -eq 0 ]; then
         lib_exit 1 "number of logical volumes to be created = 0"
     fi
-    if [ ${#lv_config_lv_size_list[*]} -ne $lv_config_count ];then
-        lib_exit 1 "list lv_config_lv_size_list has ${#lv_config_lv_size_list[*]} elements != $lv_config_count = lv_config_count"
-    fi
-    local n sum
-    for n in ${lv_config_lv_size_list[@]}; do
-        let sum=$(($sum + $n))
+    local lv_name sum
+    for lv_name in ${lv_config_name_list[@]}; do
+        let sum=$(($sum + $(lv_config_get_lv_size $lv_name)))
     done
     if [ $sum -gt $lv_config_min_lvg_size ];then
-        lib_exit 1 "sum of sizes in lv_config_lv_size_list = $sum exceeds $lv_config_min_lvg_size"
+        lib_exit 1 "sum of sizes in lv_config_name_list = $sum exceeds $lv_config_min_lvg_size"
     fi
 
     lib_check_access_to_remote_hosts "$main_ssh_idfile_opt" \
@@ -113,15 +109,14 @@ function lv_config_get_size_logical_volume
 
 function lv_config_recreate_logical_volumes
 {
-    local i host lv_name lv_size lv_dev lv_size_act rc lv_must_be_recreated
+    local host lv_name lv_size lv_dev lv_size_act rc lv_must_be_recreated
     local lv_size_tolerance lv_size_diff
     for host in "${main_host_list[@]}"; do
-        for i in "${!lv_config_lv_size_list[@]}"; do
+        for lv_name in "${lv_config_name_list[@]}"; do
             lv_must_be_recreated=0
-            lv_size=${lv_config_lv_size_list[$i]}
-            lv_name=$(lv_config_get_lv_name $lv_size)
+            lv_size=$(lv_config_get_lv_size $lv_name)
             lv_size_tolerance=$((lv_size / 10)) # 10 percent
-            lv_dev=$(lv_config_get_lv_device $lv_size)
+            lv_dev=$(lv_config_get_lv_device $lv_name)
             lib_vmsg "  checking lv $lv_dev on $host"
             lv_size_act=$(lv_config_get_size_logical_volume $host $lv_dev)
             rc=$?
@@ -146,17 +141,16 @@ function lv_config_recreate_logical_volumes
     done
 }
 
-function lv_config_get_lv_name
+function lv_config_get_lv_size
 {
-    local size=$1 name
-    name="${main_lv_name_prefix}$size"
-    echo $name
+    local lv_name=$1
+    echo ${lv_name##*-}
 }
 
 function lv_config_get_lv_device
 {
-    local size=$1
-    local dev="/dev/$main_lvg_name/$(lv_config_get_lv_name $size)"
+    local lv_name=$1
+    local dev="/dev/$main_lvg_name/$lv_name"
     echo $dev
 }
 

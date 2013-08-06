@@ -21,6 +21,8 @@
 
 # New modularized version May 2012
 
+shopt -s extdebug
+
 # Make many measurements in subtrees of current working directory.
 # Use directory names as basis for configuration variants
 

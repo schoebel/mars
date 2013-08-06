@@ -31,17 +31,19 @@ function marsview_wait_for_state
 {
     local host=$1 res=$2 obj=$3 state_req=$4 maxtime_state_constant=$5
     local waited=0
+    lib_vmsg "  waiting for $obj to become $state_req on $host"
     while [ $waited -lt $maxtime_state_constant ]; do
         if marsview_check $host $res "$obj" "$state_req" ; then
             break
         fi
-        lib_vmsg "  waited $waited for $obj to become $state_req"
+        lib_vmsg "  waited $waited for $obj to become $state_req on $host"
         sleep 1
         let waited+=1
         continue
     done
     if [ $waited -ge $maxtime_state_constant ]; then
-        lib_vmsg "  stopped waiting for $obj to become $state_req after $maxtime_state_constant"
+        lib_vmsg "  stopped waiting for $obj to become $state_req on $host after $maxtime_state_constant"
+        lib_linktree_print_linktree $host
         return 1
     fi
     return 0

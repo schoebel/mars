@@ -94,13 +94,12 @@ function install_mars_run
 
 function install_mars_update_bootloader_on_target_hosts
 {
-    local i host boot_loader
+    local host boot_loader
     local label_name
-    for i in "${!main_host_list[@]}"; do
-        host="${main_host_list[$i]}"
-        boot_loader="${main_host_bootloader_list[$i]}"
+    for host in "${main_host_list[@]}"; do
+        boot_loader="${main_host_bootloader_list[$host]}"
         case "$boot_loader" in # ((
-           lilo) label_name="${main_host_bootloader_label_list[$i]}"
+           lilo) label_name="${main_host_bootloader_label_list[$host]}"
                 lib_vmsg "checking label $label_name on host $host"
                 lib_remote_idfile $host lilo -I $label_name || lib_exit 1
                 lib_vmsg "  calling lilo on $host"

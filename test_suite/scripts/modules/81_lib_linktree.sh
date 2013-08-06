@@ -20,19 +20,13 @@
 function lib_linktree_get_primary_linkname
 {
     local resource_name=$1
-    echo $(lib_linktree_get_resource_dir $resource_name)/primary
-}
-
-function lib_linktree_get_resource_dir
-{
-    local resource_name=$1
-    echo $main_mars_directory/resource-$resource_name
+    echo ${resource_dir_list[$res]}/primary
 }
 
 function lib_linktree_get_res_host_linkname
 {
     local host=$1 resource_name=$2 action=$3
-    echo $(lib_linktree_get_resource_dir $resource_name)/$action-$host
+    echo ${resource_dir_list[$res]}/$action-$host
 }
 
 function lib_linktree_print_linktree
@@ -41,22 +35,22 @@ function lib_linktree_print_linktree
     lib_vmsg "lamport clock on $host:"
     lib_remote_idfile $host 'cat /proc/sys/mars/lamport_clock'
     lib_vmsg "printing link tree on $host"
-    lib_remote_idfile $host 'ls -l $(find /'"$main_mars_directory"' \! -type d | sort)'
+    lib_remote_idfile $host 'ls -l --full-time $(find /'"$main_mars_directory"' \! -type d | sort)'
 }
 
 function lib_linktree_check_link_int_value
 {
     [ $# -eq 5 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
-    local host=$1 res=$2 link_name=$3 link_value_req=$4 value_unit=$5
+    local host=$1 res=$2 link=$3 link_value_req=$4 value_unit=$5
     local link link_value_act waited=0
     link_value_req=$(lv_config_extract_int_from_lv_size $link_value_req)
-    case $link_name in #((
-        size) link="$(lib_linktree_get_resource_dir $res)/$link_name"
+    case $link in #((
+        size) link="${resource_dir_list[$res]}/$link"
           ;;
-        sync) link="$(lib_linktree_get_resource_dir $res)/todo-$host/$link_name"
+        sync) link="${resource_dir_list[$res]}/todo-$host/$link"
           ;;
            *) link="$(lib_linktree_get_res_host_linkname $host $res \
-                                                              $link_name)"
+                                                              $link)"
           ;;
     esac
     while true; do
@@ -75,8 +69,9 @@ function lib_linktree_check_link_int_value
                 lib_exit 1 "  max. wait time $lib_linktree_maxtime_to_wait_for_link_value exceeded"
             else
                 sleep 1
-                lib_vmsg "  waited $waited for $link to take $link_value_req"
                 let waited+=1
+                lib_vmsg "  waited $waited for $link to take $link_value_req"
+                continue
             fi
         else
             break
@@ -88,20 +83,34 @@ function lib_linktree_check_link_int_value
 # link_value_expected may be a expr pattern
 function lib_linktree_check_link
 {
-    local host=$1 link_name=$2 link_value_expected=$3
+    local host=$1 link=$2 link_value_expected=$3
     local link_value rc link_readable=0 link_values_equal=0
-    lib_vmsg "  checking link $link_name (value expected = $link_value_expected) on $host"
-    link_value=$(lib_remote_idfile $host "readlink $link_name")
-    rc=$?
-    echo "  link $host:$link_name -> $link_value"
-    if [ $rc -eq 0 ]; then
-        if ! expr "$link_value" : "\($link_value_expected\)"; then
-            return ${main_link_status["link_has_wrong_value"]}
+    local waited=0
+    while true; do
+        lib_vmsg "  checking link $link (value expected = $link_value_expected) on $host"
+        link_value=$(lib_remote_idfile $host "readlink $link")
+        rc=$?
+        echo "  link $host:$link -> $link_value"
+        if [ $rc -eq 0 ]; then
+            if ! expr "$link_value" : "\($link_value_expected\)"; then
+                if [ $waited -ge $lib_linktree_maxtime_to_wait_for_link_value ]
+                then
+                    lib_vmsg "  max. wait time $lib_linktree_maxtime_to_wait_for_link_value exceeded"
+                    return ${main_link_status["link_has_wrong_value"]}
+                else
+                    sleep 1
+                    let waited+=1
+                    lib_vmsg "  waited $waited for $link to take $link_value_expected"
+                    continue
+                fi
+            else
+                return ${main_link_status["link_ok"]}
+            fi
         else
-            return ${main_link_status["link_ok"]}
+            return ${main_link_status["link_does_not_exist"]}
         fi
-    fi
-    return ${main_link_status["link_does_not_exist"]}
+    done
+    lib_exit 1 "this code should not be reached"
 }
 
 function lib_linktree_status_to_string

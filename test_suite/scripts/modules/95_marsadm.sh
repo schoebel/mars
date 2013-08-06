@@ -15,7 +15,8 @@ function marsadm_do_cmd
     post_condition_check=${post_condition_check%% *}
     post_condition_check=marsadm_check_post_condition_${post_condition_check}
     case "$cmd" in # ((
-        resize*|pause-sync*|primary*) $post_condition_check $host "$cmd_args"
+        resize*|pause-sync*|primary*|secondary*) \
+             $post_condition_check $host "$cmd_args"
              ;;
         *) :
         ;;
@@ -31,13 +32,81 @@ function marsadm_get_role
 
 function marsadm_check_post_condition_primary
 {
-    local host=$1 cmd_args=("$2")
-    local res=${cmd_args[0]}
-    local role
-    role=$(marsadm_get_role $host $res) || lib_exit 1
-    if [ "$role" != "primary" ]; then
-        lib_exit 1 "role expected = primary != $role = role found"
+    marsadm_check_post_condition_role_switch "primary" "$@"
+}
+
+function marsadm_check_post_condition_secondary
+{
+    marsadm_check_post_condition_role_switch "secondary" "$@"
+}
+
+function marsadm_get_highest_to_delete_nr
+{
+    local host=$1
+    local ret
+    ret=$(lib_remote_idfile $host \
+          "ls -1 $main_mars_directory/todo-global/delete-* | sed 's/.*-\([0-9][0-9]*\)/\1/' | sort -n | tail -1")
+    if [ -z "$ret" ]; then
+        ret=0
     fi
+    if ! expr "$ret" : '^[0-9][0-9]*$' >/dev/null; then
+        lib_exit 1 "cannot determine number of $main_mars_directory/todo-global/.delete-* files on $host"
+    fi
+    echo $ret
+}
+
+function marsadm_get_deleted_link_value
+{
+    local host=$1
+    local ret
+    local link=$main_mars_directory/todo-global/deleted-$host
+    ret=$(lib_remote_idfile $host "readlink $link")
+    if [ -z "$ret" ]; then
+        ret=0
+    fi
+    if ! expr "$ret" : '^[0-9][0-9]*$' >/dev/null; then
+        lib_exit 1 "link value $ret of $host:$link is not a number"
+    fi
+    echo $ret
+}
+
+function marsadm_get_number_of_hidden_delete_symlinks
+{
+    local host=$1 res=$2
+    local resdir ret
+    resdir="${resource_dir_list[$res]}"
+    ret=$(lib_remote_idfile $host "ls -1 $resdir/.delete-* | wc -l") || \
+                                                                    lib_exit 1
+    if ! expr "$ret" : '^[0-9][0-9]*$' >/dev/null; then
+        lib_exit 1 "cannot determine number of $resdir/.delete-* files on $host"
+    fi
+    echo $ret
+}
+
+function marsadm_check_post_condition_role_switch
+{
+    local role_req=$1 host=$2 cmd_args=("$3")
+    local res=${cmd_args[0]}
+    local role_act rc
+    role_act=$(marsadm_get_role $host $res) || lib_exit 1
+    if [ "$role_act" != "$role_req" ]; then
+        lib_exit 1 "role expected = $role_req != $role_act = role found"
+    fi
+    lib_vmsg "  role = $role_act, trying ls $(resource_get_name_data_device $res) on $host"
+    lib_remote_idfile $host "ls -l --full-time $(resource_get_name_data_device $res)"
+    rc=$?
+    case $role_act in # (((
+        primary) if [ $rc -ne 0 ]; then
+                    lib_exit 1
+                 fi
+               ;;
+        secondary) if [ $rc -eq 0 ]; then
+                    lib_exit 1
+                   fi
+               ;;
+               *) lib_exit 1 "invalid role $role_act"
+               ;;
+    esac
 }
 
 function marsadm_check_post_condition_pause_sync
@@ -61,8 +130,7 @@ function marsadm_check_post_condition_resize
 function marsadm_get_logfilename_prefix
 {
     local res=$1
-    local resource_dir=$(lib_linktree_get_resource_dir $res)
-    echo "$resource_dir/log-"
+    echo "${resource_dir_list[$res]}/log-"
 }
 
 function marsadm_get_logfilename_postfix
@@ -118,7 +186,7 @@ function marsadm_check_warn_file_and_disk_state
     case $situation in # ((
         apply_stopped_after_disconnect)
             local link_value not_applied restlen_in_warn_file
-            local warn_file="$(lib_linktree_get_resource_dir $res)/2.warn.status"
+            local warn_file="${resource_dir_list[$res]}/2.warn.status"
             local link=$(lib_linktree_get_res_host_linkname $host $res "replay")
             link_value=$(lib_remote_idfile $host "readlink $link") || lib_exit 1
 
@@ -129,7 +197,7 @@ function marsadm_check_warn_file_and_disk_state
             fi
             lib_vmsg "  number of bytes not applied: $not_applied"
             if [ $not_applied -eq 0 ];then
-                marsview_check $host $res "disk" "Uptodate" || lib_exit 1
+                marsview_check $host $res "disk" "Outdated\[F\]" || lib_exit 1
                 return 0
             fi
             lib_vmsg "  checking file $warn_file on $host"
@@ -157,6 +225,9 @@ function marsadm_get_number_bytes_unreadable_logend
     restlen=${grep_out##*available data restlen = }
     restlen=${restlen%%.*}
     if ! expr "$restlen" : '^[0-9][0-9]*$' >/dev/null; then
+        echo "  cannot determine restlen in $grep_out" >&2
+        echo "  file $warn_file:" >&2
+        lib_remote_idfile $host "cat $warn_file | sed 's/^/    /'" >&2
         lib_exit 1 "cannot determine restlen in $grep_out"
     fi
     echo $restlen

@@ -24,15 +24,16 @@ function crash_run
 {
     local primary_host=${main_host_list[0]}
     local secondary_host=${main_host_list[1]}
-    local lilo_label_name="${main_host_bootloader_label_list[0]}"
-    local dev=$(lv_config_get_lv_device ${resource_device_size_list[0]})
-    local res=$(lv_config_get_lv_name ${resource_device_size_list[0]})
-    local writer_pid writer_script logfile length_logfile
+    local mars_dev=$(lv_config_get_lv_device ${cluster_mars_dir_lv_name_list[$primary_host]})
+    local lilo_label_name="${main_host_bootloader_label_list[$primary_host]}"
+    local res=${resource_name_list[0]}
+    local dev=$(lv_config_get_lv_device $res)
+    local writer_pid writer_script logfile length_logfile time_waited
     local waited=0 error_ocurred=0
 
     mount_mount_data_device
 
-    lib_rw_start_writing_data_device "writer_pid" "writer_script"
+    lib_rw_start_writing_data_device "writer_pid" "writer_script" 0 0 $res
 
     lib_vmsg "  sleep $crash_time_from_write_start_to_reboot seconds"
     sleep $crash_time_from_write_start_to_reboot
@@ -43,32 +44,36 @@ function crash_run
     marsadm_set_proc_sys_mars_parameter $primary_host \
                                         "aio_sync_mode" \
                                         $crash_aio_sync_mode
-    crash_reboot $primary_host $secondary_host $crash_maxtime_reboot \
+    crash_reboot $primary_host $secondary_host $mars_dev $crash_maxtime_reboot \
                  $crash_maxtime_to_become_unreachable \
-                 $lilo_label_name $res
-
-    cluster_mount_mars_dir_all
+                 $lilo_label_name
 
     lib_linktree_print_linktree $primary_host
 
-    resource_insert_mars_module $primary_host
+    cluster_insert_mars_module $primary_host
 
     marsview_wait_for_state $primary_host $res "disk" "Uptodate" \
-                            $crash_maxtime_state_constant
+                                                $crash_maxtime_state_constant
+    lib_linktree_print_linktree $primary_host
+
     marsview_wait_for_state $primary_host $res "repl" "-SFA-" \
-                            $crash_maxtime_state_constant
+                                                $crash_maxtime_state_constant
     lib_wait_until_action_stops "syncstatus" $secondary_host $res \
                                   $crash_maxtime_sync \
-                                  $crash_time_constant_sync
+                                  $crash_time_constant_sync "time_waited"
+    lib_vmsg "  ${FUNCNAME[0]}: sync time: $time_waited"
+
 
     lib_wait_until_fetch_stops "crash" $secondary_host $primary_host $res \
-                               "logfile" "length_logfile"
+                               "logfile" "length_logfile" "time_waited"
+    lib_vmsg "  ${FUNCNAME[0]}: fetch time: $time_waited"
+
 
     marsview_check $secondary_host $res "disk" "Uptodate*" || \
                                                         let error_occured+=1
     marsview_check $secondary_host $res "repl" "-SFA-" || let error_occured+=1
 
-    lib_rw_compare_checksums $primary_host $secondary_host $dev
+    lib_rw_compare_checksums $primary_host $secondary_host $dev 0 "" ""
 
     if [ $error_ocurred -gt 0 ]; then
         echo "error_ocurred = $error_ocurred" >&2
@@ -86,64 +91,82 @@ function crash_run
 function crash_write_data_device_and_calculate_checksums
 {
     local primary_host=$1 secondary_host=$2 res=$3 dev=$4
-    local writer_pid writer_script waited
+    local writer_pid writer_script write_count time_waited
     mount_mount_data_device
-    lib_rw_start_writing_data_device "writer_pid" "writer_script"
-    lib_rw_stop_writing_data_device $writer_script 
+    lib_rw_start_writing_data_device "writer_pid" "writer_script" 0 0 $res
+    lib_rw_stop_writing_data_device $writer_script "write_count"
     lib_wait_until_action_stops "replay" $secondary_host $res \
-                                  $resize_maxtime_sync \
-                                  $resize_time_constant_sync
+                                  $crash_maxtime_sync \
+                                  $crash_time_constant_sync "time_waited"
+    lib_vmsg "  ${FUNCNAME[0]}: apply time: $time_waited"
+
 
     marsview_wait_for_state $secondary_host $res "disk" "Uptodate" \
-                            $crash_maxtime_state_constant
+                                                $crash_maxtime_state_constant
     marsview_wait_for_state $secondary_host $res "repl" "-SFA-" \
-                            $crash_maxtime_state_constant
-    lib_rw_compare_checksums $primary_host $secondary_host $dev
+                                                $crash_maxtime_state_constant
+    lib_rw_compare_checksums $primary_host $secondary_host $dev 0 "" ""
 }
 
 function crash_reboot
 {
     [ $# -eq 6 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
-    local primary_host=$1 secondary_host=$2 maxtime_to_reboot=$3 \
-    local maxtime_to_become_unreachable=$4
-    local lilo_label_name=$5 res=$6
+    local primary_host=$1 secondary_host=$2 mars_dev=$3 maxtime_to_reboot=$4
+    local maxtime_to_become_unreachable=$5
+    local lilo_label_name=$6
     local pids_to_kill host
-    local reboot_cmd="reboot -n -f"
 
+    if [ -z "$crash_print_linktree_during_reboot" ]; then
+        lib_exit 1 "variable crash_print_linktree_during_reboot not set"
+    fi
+    if [ $crash_print_linktree_during_reboot -eq 1 -a -z "$secondary_host" ]
+    then
+        lib_exit 1 "to print symlink trees secondary_host must be given"
+    fi
     install_mars_activate_kernel_to_boot_with_lilo $primary_host \
                                                    $lilo_label_name
 
-    main_error_recovery_functions["lib_rw_stop_script"]=
+    main_error_recovery_functions["lib_rw_stop_scripts"]=
     
-    for host in $primary_host $secondary_host; do
-        lib_linktree_print_linktree $host
-    done
+    if [ $crash_print_linktree_during_reboot -eq 1 ]; then
+        for host in $primary_host $secondary_host; do
+            lib_linktree_print_linktree $host
+        done
+    fi
 
-    lib_vmsg "  reboot of $primary_host"
-    lib_remote_idfile $primary_host "$reboot_cmd" &
+    crash_reboot_host $primary_host
+
     # pstree -lp writes s.th. like
     # init(1)---xterm(345)
     pids_to_kill=$(pstree -lp $! | sed 's/[^(][^(]*(\([0-9][0-9]*\))/\1 /g')
 
-    lib_linktree_print_linktree $secondary_host
+    if [ $crash_print_linktree_during_reboot -eq 1 ]; then
+        lib_linktree_print_linktree $secondary_host
+    fi
 
     crash_wait_to_become_unreachable $primary_host "$pids_to_kill"
 
-    lib_linktree_print_linktree $secondary_host
+    if [ $crash_print_linktree_during_reboot -eq 1 ]; then
+        lib_linktree_print_linktree $secondary_host
+    fi
 
-#     marsadm_do_cmd $secondary_host "disconnect" $res || lib_exit 1
-# 
-#     sleep 180
-# 
-#     lib_linktree_print_linktree $secondary_host
-#     
-#     marsadm_do_cmd $secondary_host "connect" $res || lib_exit 1
-# 
     crash_wait_to_become_reachable $primary_host
 
-    for host in $primary_host $secondary_host; do
-        lib_linktree_print_linktree $host
-    done
+    cluster_mount_mars_dir $primary_host $mars_dev
+
+    if [ $crash_print_linktree_during_reboot -eq 1 ]; then
+        for host in $primary_host $secondary_host; do
+            lib_linktree_print_linktree $host
+        done
+    fi
+}
+
+function crash_reboot_host
+{
+    local host=$1
+    local reboot_cmd="reboot -n -f"
+    lib_vmsg "  reboot of $host"
+    lib_remote_idfile $host "$reboot_cmd" &
 }
 
 function crash_wait_to_become_reachable
