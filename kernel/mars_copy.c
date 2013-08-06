@@ -304,7 +304,7 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 	if (queue == 0) {
 		GET_STATE(brick, index).len = mref->ref_len;
 	} else if (unlikely(mref->ref_len < GET_STATE(brick, index).len)) {
-		MARS_DBG("shorten len %d < %d\n", mref->ref_len, brick->st[index].len);
+		MARS_DBG("shorten len %d < %d at index %d\n", mref->ref_len, GET_STATE(brick, index).len, index);
 		GET_STATE(brick, index).len = mref->ref_len;
 	}
 
@@ -351,7 +351,7 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 	struct copy_state *st;
 	char state;
 	char next_state;
-	bool do_restart;
+	bool do_restart = false;
 	int progress = 0;
 	int status;
 
@@ -360,9 +360,22 @@ int _next_state(struct copy_brick *brick, int index, loff_t pos)
 
 restart:
 	state = next_state;
-	do_restart = false;
 
-	MARS_IO("index = %d state = %d pos = %lld table[0]=%p table[1]=%p\n", index, state, pos, st->table[0], st->table[1]);
+	MARS_IO("ENTER index=%d state=%d pos=%lld table[0]=%p table[1]=%p active[0]=%d active[1]=%d writeout=%d prev=%d len=%d error=%d do_restart=%d\n",
+		index,
+		state,
+		pos,
+		st->table[0],
+		st->table[1],
+		st->active[0],
+		st->active[1],
+		st->writeout,
+		st->prev,
+		st->len,
+		st->error,
+		do_restart);
+
+	do_restart = false;
 
 	switch (state) {
 	case COPY_STATE_RESET:
@@ -562,8 +575,6 @@ restart:
 	do_restart = (state != next_state);
 
 idle:
-	MARS_IO("index = %d next_state = %d pos = %lld table[0]=%p table[1]=%p\n", index, next_state, pos, st->table[0], st->table[1]);
-
 	if (unlikely(progress < 0)) {
 		st->error = progress;
 		MARS_WRN("progress = %d\n", progress);
@@ -574,6 +585,21 @@ idle:
 	} else if (st->state != next_state) {
 		progress++;
 	}
+
+	MARS_IO("LEAVE index=%d state=%d next_state=%d table[0]=%p table[1]=%p active[0]=%d active[1]=%d writeout=%d prev=%d len=%d error=%d progress=%d\n",
+		index,
+		st->state,
+		next_state,
+		st->table[0],
+		st->table[1],
+		st->active[0],
+		st->active[1],
+		st->writeout,
+		st->prev,
+		st->len,
+		st->error,
+		progress);
+
 	// save the resulting state
 	st->state = next_state;
 	return progress;
