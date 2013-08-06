@@ -32,7 +32,7 @@
 
 #include "mars_copy.h"
 
-int mars_copy_overlap = 0;
+int mars_copy_overlap = 1;
 EXPORT_SYMBOL_GPL(mars_copy_overlap);
 
 int mars_copy_read_prio = MARS_PRIO_NORMAL;
