@@ -162,7 +162,11 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct timespec
 	    times[0].tv_sec == stat.mtime.tv_sec) {
 		MARS_DBG("workaround timestamp tv_sec=%ld\n", stat.mtime.tv_sec);
 		times[0].tv_sec = stat.mtime.tv_sec + 1;
-		times[0].tv_nsec = 0;
+		/* Setting tv_nsec to 1 prevents from unnecessarily reentering
+		 * this workaround again if accidentally the original tv_nsec
+		 * had been 0 or if the workaround had been triggered.
+		 */
+		times[0].tv_nsec = 1;
 	}
 
 	(void)sys_unlink(tmp);
