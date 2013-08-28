@@ -767,6 +767,9 @@ int _update_link_when_necessary(struct mars_rotate *rot, const char *type, const
 	int status = -EIO;
 	bool res = false;
 
+	if (unlikely(!old || !new))
+		goto out;
+	
 	/* Check whether something really has changed (avoid
 	 * useless/disturbing timestamp updates)
 	 */
@@ -1311,6 +1314,23 @@ int _update_file(struct mars_rotate *rot, const char *switch_path, const char *c
 	MARS_DBG("src = '%s' dst = '%s'\n", tmp, file);
 	status = __make_copy(global, NULL, switch_path, copy_path, NULL, argv, -1, -1, false, false, &copy);
 	if (status >= 0 && copy) {
+		char *src = path_make("%d,%s,%lld,%lld,%d,%d",
+				      copy->power.led_on,
+				      file,
+				      copy->copy_start,
+				      copy->copy_last,
+				      copy->copy_end,
+				      copy->copy_error,
+				      copy->copy_error_count);
+		char *dst = path_make("%s/transferstatus-%s",
+				      rot->parent_path,
+				      my_id());
+
+		(void)_update_link_when_necessary(rot, "transferstatus", src, dst);
+		
+		brick_string_free(src);
+		brick_string_free(dst);
+
 		copy->copy_limiter = &rot->file_limiter;
 		// FIXME: code is dead
 		if (copy->append_mode && copy->power.led_on &&
@@ -3777,6 +3797,7 @@ enum {
 	CL_ACTSIZE,
 	CL_PRIMARY,
 	CL__FILE,
+	CL_TRANSFER,
 	CL_SYNC,
 	CL_VERIF,
 	CL_SYNCPOS,
@@ -4074,6 +4095,16 @@ static const struct light_class light_classes[] = {
 		.cl_father = CL_RESOURCE,
 		.cl_forward = make_bio,
 		.cl_backward = kill_any,
+	},
+	/* informational symlink indicating the current
+	 * status / start / pos / end of logfile transfers.
+	 */
+	[CL_TRANSFER] = {
+		.cl_name = "transferstatus-",
+		.cl_len = 15,
+		.cl_type = 'l',
+		.cl_hostcontext = true,
+		.cl_father = CL_RESOURCE,
 	},
 	/* symlink indicating the current status / end
 	 * of initial data sync.
