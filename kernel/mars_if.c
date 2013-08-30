@@ -801,6 +801,8 @@ static int if_switch(struct if_brick *brick)
 		mars_power_led_on((void*)brick, true);
 		status = 0;
 	} else if (!brick->power.led_off) {
+		int flying;
+
 		mars_power_led_on((void*)brick, false);
 		disk = input->disk;
 		if (!disk)
@@ -815,6 +817,12 @@ static int if_switch(struct if_brick *brick)
 #endif
 		if (atomic_read(&brick->open_count) > 0) {
 			MARS_INF("device '%s' is open %d times, cannot shutdown\n", disk->disk_name, atomic_read(&brick->open_count));
+			status = -EBUSY;
+			goto done; // don't indicate "off" status
+		}
+		flying = atomic_read(&input->flying_count);
+		if (flying > 0) {
+			MARS_INF("device '%s' has %d flying requests, cannot shutdown\n", disk->disk_name, flying);
 			status = -EBUSY;
 			goto done; // don't indicate "off" status
 		}
