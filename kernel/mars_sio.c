@@ -113,13 +113,14 @@ static void sio_ref_put(struct sio_output *output, struct mref_object *mref)
 
 static int transfer_none(int cmd,
 			 struct page *raw_page, unsigned raw_off,
-			 //struct page *loop_page, unsigned loop_off,
 			 void *loop_buf,
 			 int size)
 {
-#if 1
+#ifdef KM_USER0
 	void *raw_buf = kmap_atomic(raw_page, KM_USER0) + raw_off;
-	//void *loop_buf = kmap_atomic(loop_page, KM_USER1) + loop_off;
+#else
+	void *raw_buf = kmap_atomic(raw_page) + raw_off;
+#endif
 
 	if (unlikely(!raw_buf || !loop_buf)) {
 		MARS_ERR("transfer NULL: %p %p\n", raw_buf, loop_buf);
@@ -131,10 +132,12 @@ static int transfer_none(int cmd,
 	else
 		memcpy(raw_buf, loop_buf, size);
 
+#ifdef KM_USER0
 	kunmap_atomic(raw_buf, KM_USER0);
-	//kunmap_atomic(loop_buf, KM_USER1);
-	cond_resched();
+#else
+	kunmap_atomic(raw_buf);
 #endif
+	cond_resched();
 	return 0;
 }
 
