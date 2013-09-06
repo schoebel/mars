@@ -37,7 +37,7 @@ fixltx2e
 \paperfontsize 10
 \spacing single
 \use_hyperref true
-\pdf_title "blkreplay"
+\pdf_title "MARS Manual"
 \pdf_author "Thomas Schöbel-Theuer"
 \pdf_bookmarks true
 \pdf_bookmarksnumbered false
@@ -131,7 +131,7 @@ tst@1und1.de
 \end_layout
 
 \begin_layout Date
-Version 0.7 (incomplete)
+Version 0.8 (incomplete)
 \end_layout
 
 \begin_layout Lowertitleback
@@ -196,11 +196,21 @@ sloppy
 
  MARS
 \family default
- Light is a block-level storage replication system for long distances under
- GPL.
+ Light is a block-level storage replication system for long distances /
+ flaky networks under GPL.
  It runs as a Linux kernel module.
- The sysadmin interface is similar to DRBD, but its internal engine is completel
-y different from DRBD: it works with 
+ The sysadmin interface is similar to DRBD
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Registered trademarks are the property of their respective owner.
+\end_layout
+
+\end_inset
+
+, but its internal engine is completely different from DRBD: it works with
+ 
 \series bold
 transaction logging
 \series default
@@ -212,7 +222,8 @@ Therefore, MARS Light can provide stronger
 \series bold
 consistency guarantees
 \series default
-: in case of network bottlenecks / problems / failures, the secondaries
+.
+ Even in case of network bottlenecks / problems / failures, the secondaries
  may become outdated (reflect an elder state), but never become inconsistent.
  In contrast to DRBD, MARS Light preserves the 
 \series bold
@@ -226,13 +237,15 @@ Anytime Consistency
 \end_layout
 
 \begin_layout Abstract
-By default, MARS Light works 
+The current version of MARS Light works 
 \series bold
 asynchronously
 \series default
 .
  Therefore, application performance is completely decoupled from any network
  problems.
+ Future versions are planned to also support synchronous or near-synchronous
+ modes.
 \end_layout
 
 \begin_layout Abstract
@@ -289,6 +302,1259 @@ LatexCommand tableofcontents
 \end_inset
 
 
+\end_layout
+
+\begin_layout Chapter
+Use Cases for MARS vs DRBD
+\end_layout
+
+\begin_layout Standard
+DRBD has a long history of successfully providing HA features to many users
+ of Linux.
+ With the advent of MARS, many people are wondering what the difference
+ is.
+ They ask for recommendations.
+ In which use cases should DRBD be recommended, and in which other cases
+ is MARS the better choice?
+\end_layout
+
+\begin_layout Standard
+There exist 
+\emph on
+some
+\emph default
+ cases where DRBD is better than MARS.
+ 1&1 has a long history of experiences with DRBD where it works very fine,
+ in particular coupling Linux devices rack-to-rack via crossover cables.
+ DRBD is just 
+\emph on
+constructed
+\emph default
+ for that use case (RAID-1 over network).
+\end_layout
+
+\begin_layout Standard
+On the other hand, there exist other cases where DRBD did not work as expected,
+ leading to incidents and other operational problems.
+ We analyzed them for those use cases, and found that they could only be
+ resolved by fundamental changes in the overall architecture of DRBD.
+ Therefore, we started the development of MARS.
+\end_layout
+
+\begin_layout Standard
+MARS and DRBD simply have 
+\series bold
+different application areas
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+In the following, we will discuss the pros and cons of each system in particular
+ situations and contexts, and we shed some light at their conceptual and
+ operational differences.
+\end_layout
+
+\begin_layout Section
+Network Bottlenecks
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Network-Bottlenecks"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Behaviour of DRBD
+\begin_inset CommandInset label
+LatexCommand label
+name "sub:Behaviour-of-DRBD"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In order to describe the most important problem we found when DRBD was used
+ to couple whole datacenters (each encompassing thousands of servers) over
+ metro distances, we strip down that complicated real-life scenario to a
+ simplified laboratory scenario in order to demonstrate the effect with
+ minimal means.
+ The following picture illustrates an effect which is not only observable
+ in practice, but is also reproducible by the MARS test suite
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+The effect has been demonstrated with DRBD version 8.3.13.
+ By construction, is is independent from any of the DRBD series 8.3.x, 8.4.x,
+ or 9.0.x.
+\end_layout
+
+\end_inset
+
+:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename network-bottleneck-drbd.fig
+	width 80col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+The simplified scenario is the following:
+\end_layout
+
+\begin_layout Enumerate
+DRBD is loaded with a low to medium, but constant rate of write operations
+ for the sake of simplicity of the scenario.
+\end_layout
+
+\begin_layout Enumerate
+The network has some throughput bottleneck, depicted as a red line.
+ For the sake of simplicity, we just linearly decrease it over time, starting
+ from full throughput, down to zero.
+ The decrease is very slowly over time (some minutes, or even hours).
+\end_layout
+
+\begin_layout Standard
+What will happen in this scenario?
+\end_layout
+
+\begin_layout Standard
+As long as the actual DRBD write throughput is lower than the network bandwidth
+ (left part of the horizontal blue line), DRBD works as expected.
+\end_layout
+
+\begin_layout Standard
+Once the maximum network throughput (red line) starts to fall short of the
+ required application throughput (first blue dotted line), we get into trouble.
+ By its very nature, DRBD works 
+\series bold
+synchronously
+\series default
+.
+ Therefore, it 
+\emph on
+must
+\emph default
+ transfer all your application writes through the bottleneck, but now it
+ is impossible
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+This is independent from the DRBD protocols A through C, because it just
+ depends on an information-theoretic argument independently from any protocol.
+ We have a fundamental conflict between network capabilities and application
+ demands here, which cannot be circumvented due to the 
+\series bold
+synchronous
+\series default
+ nature of DRBD.
+\end_layout
+
+\end_inset
+
+ due to the bottleneck.
+ As a consequence, the application running on top of DRBD will see increasingly
+ higher IO latencies and/or stalls / hangs.
+ We found practical cases (at least with former versions of DRBD) where
+ IO latencies exceeded practical monitoring limits such as 
+\begin_inset Formula $5$
+\end_inset
+
+ s by far, up to the range of 
+\emph on
+minutes
+\emph default
+.
+ As an experienced sysadmin, you know what happens next: your application
+ will run into an incident, and your customers will be dissatisfied.
+\end_layout
+
+\begin_layout Standard
+In order to deal with such situations, DRBD has lots of tuning parameters.
+ In particular, the 
+\family typewriter
+timeout
+\family default
+ parameter and/or the 
+\family typewriter
+ping-timeout
+\family default
+ parameter will determine when DRBD will give up in such a situation and
+ simply drop the network connection as an emergency measure.
+ Dropping the network connection is roughly equivalent to an automatic 
+\family typewriter
+disconnect
+\family default
+, followed by an automatic re-connect attempt after 
+\family typewriter
+connect-int
+\family default
+ seconds.
+ During the dropped connection, the incident will appear as being resolved,
+ but at some hidden cost
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+By appropriately tuning various DRBD parameters, such as 
+\family typewriter
+timeout
+\family default
+ and/or 
+\family typewriter
+ping-timeout
+\family default
+, you can keep the impact of the incident below some viable limit.
+ However, the automatic disconnect will then happen earlier and more often
+ in practice.
+ Flaky or overloaded networks may easily lead to an enormous number of automatic
+ disconnects.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+What happens next in our scenario? During the 
+\family typewriter
+disconnect
+\family default
+, DRBD will record all positions of writes in its bitmap and/or in its activity
+ log.
+ As soon as the automatic re-connect succeeds after 
+\family typewriter
+connect-int
+\family default
+ seconds, DRBD has to do a partial re-sync of those blocks which were marked
+ dirty in the meantime.
+ This leads to an 
+\emph on
+additional
+\emph default
+ bandwidth demand
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+DRBD parameters 
+\family typewriter
+sync-rate
+\family default
+ resp 
+\family typewriter
+resync-rate
+\family default
+ may be used to tune the height of the additional demand.
+ In addition, the newer parameters 
+\family typewriter
+c-plan-ahead
+\family default
+, 
+\family typewriter
+c-fill-target
+\family default
+, 
+\family typewriter
+c-delay-target
+\family default
+, 
+\family typewriter
+c-min-rate
+\family default
+, 
+\family typewriter
+c-max-rate
+\family default
+ and friends may be used to dynamically adapt to 
+\emph on
+some
+\emph default
+ situations where the application throughput 
+\emph on
+could
+\emph default
+ fit through the bottleneck.
+ These newer parameters were developed in a cooperation between 1&1 and
+ Linbit, the maker of DRBD.
+\end_layout
+
+\begin_layout Plain Layout
+Please note that lowering / dynamically adapting the resync rates may help
+ in lowering the 
+\emph on
+probability
+\emph default
+ of occurrences of the above problems in practical scenarios where the bottlenec
+k would recover to viable limits after some time.
+ However, lowering the rates will also increase the 
+\emph on
+duration
+\emph default
+ of re-sync operations accordingly.
+ The 
+\emph on
+total amount of re-sync data
+\emph default
+ simply does not decrease when lowering 
+\family typewriter
+resync-rate
+\family default
+; it even tends to increase over time when new requests arrive.
+ Therefore, the 
+\emph on
+expectancy value
+\emph default
+ of problems caused by 
+\emph on
+strong
+\emph default
+ network bottlenecks (i.e.
+ when not even the ordinary application rate is fitting through) is 
+\emph on
+not
+\emph default
+ improved by lowering or adapting 
+\family typewriter
+resync-rate
+\family default
+, but rather the expectancy value mostly depends on the 
+\emph on
+relation
+\emph default
+ between the amount of holdback data versus the amount of application write
+ data, both measured for the duration of some given strong bottleneck.
+\end_layout
+
+\end_inset
+
+ as indicated by the upper dotted blue box.
+\end_layout
+
+\begin_layout Standard
+Of course, there is 
+\emph on
+absolutely no chance
+\emph default
+ to get the increased amount of data through our bottleneck, since not even
+ the ordinary application load (lower dotted lines) could be transferred.
+\end_layout
+
+\begin_layout Standard
+Therefore, you run at a 
+\series bold
+very high risk
+\series default
+ that the re-sync cannot finish before the next 
+\family typewriter
+timeout
+\family default
+ / 
+\family typewriter
+ping-timeout
+\family default
+ cycle will drop the network connection again.
+\end_layout
+
+\begin_layout Standard
+What will be the final result when that risk becomes true? Simply, your
+ secondary site will be in state 
+\family typewriter
+inconsistent
+\family default
+.
+ This means, you have lost your redundancy.
+ In our scenario, there is no chance at all to become consistent again,
+ because the network bottleneck declines more and more, slowly.
+ It is simply 
+\emph on
+hopeless
+\emph default
+, by construction.
+\end_layout
+
+\begin_layout Standard
+In case you lose your primary site now, you are lost at all.
+\end_layout
+
+\begin_layout Standard
+Some people may argue that the probability for a similar scenario were low.
+ We don't agree on such an argumentation.
+ Not only because it really happens in pratice, and it may even last some
+ days until problems are fixed.
+ In case of 
+\series bold
+rolling disasters
+\series default
+, the network is very likely to become flaky and/or overloaded shortly before
+ the final damage.
+ Even in other cases, you can easily end up with inconsistent secondaries.
+ It occurs not only in the lab, but also in practice if you operate some
+ hundreds or even thousands of DRBD instances.
+\end_layout
+
+\begin_layout Standard
+The point is that you can produce an ill behaviour 
+\emph on
+systematically
+\emph default
+ just by overloading the network a bit for some sufficient duration.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ When coupling whole datacenters via some thousands of DRBD connections,
+ any (short) network loss will almost certainly increase the re-sync network
+ load each time the outage appears to be over.
+ As a consequence, overload may be 
+\emph on
+provoked
+\emph default
+ by the re-sync repair attempts.
+ This may easily lead to self-amplifying 
+\series bold
+throughput storms
+\series default
+ in some resonance frequency (similar to self-destruction of a bridge when
+ an army is marching over it in lockstep).
+\end_layout
+
+\begin_layout Standard
+The only way for reliable prevention of loss of secondaries is to start
+ any re-connect 
+\emph on
+only
+\emph default
+ in such situations where you can 
+\emph on
+predict in advance
+\emph default
+ that the re-sync is 
+\emph on
+guaranteed
+\emph default
+ to finish before any network bottleneck / loss will cause an automatic
+ disconnect again.
+ We don't know of any method which can reliably predict the future behaviour
+ of a complex network.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Conclusion: in the presence of network bottlenecks, you run a considerable
+ risk that your DRBD mirrors get destroyed just in that moment when you
+ desperately need them.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Notice that crossover cables usually never show a behaviour like depicted
+ by the red line.
+ Crossover cables are 
+\emph on
+passive components
+\emph default
+ which normally
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Exceptions might be mechanical jiggling of plugs, or electro-magnetical
+ interferences.
+ We never noticed any of them.
+\end_layout
+
+\end_inset
+
+ either work, or not.
+ The binary connect / disconnect behaviour of DRBD has no problems to cope
+ with that.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+or 
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Linbit recommends a 
+\series bold
+workaround
+\series default
+ for the inconsistencies during re-sync: LVM snapshots.
+ We tried it, but found a 
+\emph on
+performance penalty
+\emph default
+ which made it prohibitive for our concrete application.
+ A problem seems to be the cost of destroying snapshots.
+ LVM uses by default a BOW strategy (Backup On Write, which is the counterpart
+ of COW = Copy On Write).
+ BOW increases IO latencies during ordinary operation.
+ Retaining snapshots is cheap, but reverting them may be very costly, depending
+ on workload.
+ We didn't fully investigate that effect, and our experience is a few years
+ old.
+ You might come to a different conclusion for a different workload, for
+ newer versions of system software, or for a different strategy if you carefully
+ investigate the field.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ DRBD problems usually arise 
+\emph on
+only
+\emph default
+ when the network throughput shows some 
+\begin_inset Quotes eld
+\end_inset
+
+awkward
+\begin_inset Quotes erd
+\end_inset
+
+ analog behaviour, such as overload, or as occasionally produced by various
+ switches / routers / transmitters, or other potential sources of packet
+ loss.
+\end_layout
+
+\begin_layout Subsection
+Behaviour of MARS
+\begin_inset CommandInset label
+LatexCommand label
+name "sub:Behaviour-of-MARS"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The behaviour of MARS in the above scenario:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename network-bottleneck-mars.fig
+	width 80col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+When the network is restrained, an asynchronous system like MARS will continue
+ to serve the user IO requests (dotted green line) without any impact /
+ incident while the actual network throughput (solid green line) follows
+ the red line.
+ In the meantime, all changes to the block device are recorded at the transactio
+n logfiles.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Here is one point in favour of DRBD: MARS stores its transaction logs on
+ the filesystem 
+\family typewriter
+/mars/
+\family default
+.
+ When the network bottleneck is lasting very long (some days or even some
+ weeks), the filesystem will eventually run out of space some day.
+ Section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Defending-Overflow"
+
+\end_inset
+
+ discusses countermeasures against that in detail.
+ In contrast to MARS, DRBD allocates its bitmap 
+\emph on
+statically
+\emph default
+ at resource creation time.
+ It uses up less space, and you don't have to monitor it for (potential)
+ overflows.
+ The space for transaction logs is the price you have to pay if you want
+ or need anytime consistency, or asynchronous replication in general.
+\end_layout
+
+\begin_layout Standard
+In order to really grasp the 
+\emph on
+heart
+\emph default
+ of the difference between synchronous and asynchronous replication, we
+ look at the following modified scenario:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename network-flaky-mars.fig
+	width 80col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+This time, the network throughput (red line) is varying
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In real life, many long-distance lines or even some heavily used metro lines
+ usually show fluctuations of their network bandwidth by an order of magnitude,
+ or even higher.
+ We have measured them.
+ The overall behaviour can be characterized as 
+\begin_inset Quotes eld
+\end_inset
+
+
+\series bold
+chaotic
+\series default
+
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+ in some unpredictable way.
+ As before, the application throughput served by MARS is assumed to be constant
+ (dotted green line, often superseded by the solid green line).
+ The actual replication network throughput is depicted by the solid green
+ line.
+\end_layout
+
+\begin_layout Standard
+As you can see, a network dropdown undershooting the application demand
+ has no impact on the application throughput, but only on the replication
+ network throughput.
+ Whenever the network throughput is held back due to the flaky network,
+ it simply catches up as soon as possible by overshooting the application
+ throughput.
+ The amount of lag-behind is visualized as shaded area: downward shading
+ (below the application throughput) means an increase of the lag-behind,
+ while the upwards shaded areas (beyond the application throughput) indicate
+ a decrease of the lag-behind (catch-up).
+ Once the lag-behind has been fully caught up, the network throughput suddenly
+ jumps back to the application throughput (here visible in two cases).
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Note that the existence of lag-behind areas is roughly corresponding to
+ DRBD disconnect states, and in turn to DRBD inconsistent states of the
+ secondary as long as the lag-behind has not been fully cought up.
+ The very rough
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Of course, this visualization is not exact.
+ On one hand, the DRBD inconsistency phase may start later as depicted here,
+ because it only starts 
+\emph on
+after
+\emph default
+ the first automatic disconnect, upon the first automatic re-connect.
+ In addition, the amount of resync data may be smaller than the amount of
+ corresponding MARS transaction logfile data, because the DRBD bitmap will
+ coalesce multiple writes to the same block into one single transfer.
+ On the other hand, DRBD will transfer no data at all during its disconnected
+ state, while MARS continues its best.
+ This leads to a prolongation of the DRBD inconsistent phase.
+ Depending on properties of the workload and of the network, the real duration
+ of the inconsistency phase may be both shorter or longer.
+\end_layout
+
+\end_inset
+
+ duration of the corresponding DRBD inconsistency phase is visualized as
+ magenta line at the time scale.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+MARS utilizes the existing network bandwidth as best as possible in order
+ to pipe through as much data as possible, provided that there exists some
+ data requiring expedition.
+ Conceptually, there exists no better way due to information theoretic limits
+ (besides data compression).
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+In case of lag-behind, the version of the data replicated to the secondary
+ site corresponds to some time in the past.
+ Since the data is always transferred in the same order as originally submitted
+ at the primary site, the secondary never gets inconsistent.
+ Your mirror always remains usable.
+ Your only potential problem could be the outdated state, corresponding
+ to some state in the past.
+ However, the 
+\begin_inset Quotes eld
+\end_inset
+
+as-best-as-possible
+\begin_inset Quotes erd
+\end_inset
+
+ approach to the network transfer ensures that your version is always 
+\emph on
+as up-to-date as possible
+\emph default
+ even under ill-behaving network bottlenecks.
+ 
+\series bold
+There is simply no better way to do it.
+
+\series default
+ In presence of network bottlenecks, there exists no better method than
+ prescribed by the information theoretic limit (red line, neglecting data
+ compression).
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+MARS' property of never sacrificing local data consistency (at the possible
+ cost of actuality) is called 
+\series bold
+Anytime Consistency
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Conclusion: you can even use 
+\series bold
+traffic shaping
+\series default
+ on MARS' TCP connections in order to globally balance your network throughput
+ (of course at the cost of actuality, but without sacrificing local data
+ consistency).
+ If you would try to do the same with DRBD, you could easily provoke a disaster.
+ MARS simply tolerates any network problems, provided that there is enough
+ disk space for transaction logfiles.
+ Even in case of completely filling up your disk with transaction logfiles
+ after some days or weeks, you will not lose local consistency anywhere
+ (see section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Defending-Overflow"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Standard
+Finally, here is yet another scenario where MARS can cope with the situation:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename network-constant-mars.fig
+	width 80col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+This time, the network throughput limit (solid red line) is assumed to be
+ constant.
+ However, the application workload (dotted green line) shows some heavy
+ peaks.
+ We know from our 1&1 datacenters that such an application behaviour is
+ very common.
+\end_layout
+
+\begin_layout Standard
+When the peaks are exceeding the network capabilities for some time, the
+ replication network throughput (solid green line) will be limited for a
+ short time, stay a little bit longer at the limit, and finally drop down
+ again to the normal workload.
+ In other words, you get a flexible buffering behaviour, coping with the
+ peaks.
+\end_layout
+
+\begin_layout Standard
+Similar scenarios (where both the application workload has peaks and the
+ network is flaky to some degree) are rather common.
+ If you would use DRBD there, you were likely to run into regular application
+ performance problems and/or frequent automatic disconnect cycles, depending
+ on the height and on the duration of the peaks, and on network resources.
+\end_layout
+
+\begin_layout Section
+Long Distances / High Latencies
+\end_layout
+
+\begin_layout Standard
+In general and in some theories, latencies are conceptually independent
+ from throughput, at least to some degree.
+ There exist all 4 possible combinations:
+\end_layout
+
+\begin_layout Enumerate
+There exist lines with high latencies but also high throughput.
+ Examples are raw fibre cables at the ground of the Atlantic.
+\end_layout
+
+\begin_layout Enumerate
+High latencies on low-throughput lines is very easy to achieve.
+ If you never saw it, you never ran interactive 
+\family typewriter
+vi
+\family default
+ over 
+\family typewriter
+ssh
+\family default
+ in parallel to downloads on your old-fashioned modem line.
+\end_layout
+
+\begin_layout Enumerate
+Low latencies need not be incompatible with high throughput.
+ See Myrinet, InfiniBand or high-speed point-to-point interconnects, such
+ as modern memory busses.
+\end_layout
+
+\begin_layout Enumerate
+Low latency combined with low throughput is also possible: in an ATM system
+ (or another pre-reservation system for bandwidth), just increase the multiplex
+ factor on low-capacity but short lines, which is only possible at the cost
+ of assigned bandwidth.
+\end_layout
+
+\begin_layout Standard
+In the 
+\emph on
+internet
+\emph default
+ practice, however, it is very likely that high latencies will also lead
+ to worse throughput, because of the 
+\emph on
+congestion control algorithms
+\emph default
+ running all over the world.
+\end_layout
+
+\begin_layout Standard
+We have experimented with extremely large TCP send/receive buffers plus
+ various window sizes and congestion control algorithms over long-distance
+ lines between the USA and Europe.
+ Yes, it is possible to improve the behaviour to some degree.
+ But magic does not happen.
+ Natural laws will always hold.
+ You simply cannot travel faster than the speed of light.
+\end_layout
+
+\begin_layout Standard
+Our experience leads to the following rule of thumb, not formally proven
+ by anything, but just observed in practice:
+\end_layout
+
+\begin_layout Quotation
+In general, synchronous data replication (not limited to applications of
+ DRBD) works reliably only over distances 
+\begin_inset Formula $<50$
+\end_inset
+
+ km.
+\end_layout
+
+\begin_layout Standard
+There may be some exceptions, at least when dealing with low-end workstation
+ loads.
+ But when you are responsible for a whole datacenter and/or some centralized
+ storage units, don't waste your time by trying (almost) impossible things.
+ We recommend to use MARS in such use cases.
+\end_layout
+
+\begin_layout Section
+Higher Consistency Guarantees vs Actuality
+\end_layout
+
+\begin_layout Standard
+We already saw in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Network-Bottlenecks"
+
+\end_inset
+
+ that certain types of network bottlenecks can easily (and reproducibly)
+ destroy the consistency of your DRBD secondary, while MARS will preserve
+ local consistency at the cost of actuality (
+\series bold
+anytime consistency
+\series default
+).
+\end_layout
+
+\begin_layout Standard
+Some people, often located at database operations, are obtrusively arguing
+ that actuality is such a high good that it must not be sacrificed under
+ any circumstances.
+\end_layout
+
+\begin_layout Standard
+Anyone arguing this way has at least the following choices (list may be
+ incomplete):
+\end_layout
+
+\begin_layout Enumerate
+None of the above use cases for MARS apply.
+ For instance, short distance replication over crossover cables is sufficient
+ (which occurs very often), or the network is reliable enough such that
+ bottlenecks can never occur (e.g.
+ because the total load is extremely low, or conversely the network is extremely
+ overengineered / expensive), or the occurrence of bottlenecks can 
+\emph on
+provably
+\emph default
+ be taken into account.
+ In such cases, DRBD is clearly the better solution than MARS, because it
+ provides better actuality than the current version of MARS, and it uses
+ up less disk resources.
+\end_layout
+
+\begin_layout Enumerate
+In the presence of network bottlenecks, people didn't notice and/or didn't
+ understand and/or did under-estimate the risk of accidental invalidation
+ of their DRBD secondaries.
+ They should carefully check that risk.
+ They should convince themselves that the risk is 
+\emph on
+really
+\emph default
+ bearable.
+ Once they are hit by a systematic chain of events which 
+\emph on
+reproducibly
+\emph default
+ provoke the bad effect, it is too late
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Some people seem to need a bad experience before they get the difference
+ between risk caused by reproducible effects and inverted luck.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Enumerate
+In the presence of network bottlenecks, people found a solution such that
+ DRBD does not automatically re-connect after the connection has been dropped
+ due to network problems (c.f.
+ 
+\family typewriter
+ko-count
+\family default
+ parameter).
+ So the risk of inconsistency 
+\emph on
+appears
+\emph default
+ to have vanished.
+ In some cases, people did not notice that the risk has 
+\emph on
+not completely
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Hint: what's the 
+\emph on
+conceptual
+\emph default
+ difference beween an automatic and a manual re-connect? Yes, you can try
+ to 
+\emph on
+lower
+\emph default
+ the risk in some cases by transferring risks to human analysis and human
+ decisions, but did you take into account the possibility of human errors?
+\end_layout
+
+\end_inset
+
+
+\emph default
+ vanished, and/or they did not notice that now the actuality produced by
+ DRBD is even drastically worse than that of MARS (in the same situation).
+ It is true that DRBD provides better actuality in 
+\family typewriter
+connected
+\family default
+ state, but for a full picture the actuality in 
+\family typewriter
+disconnected
+\family default
+ state should not be neglected
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Hint: a potential hurdle may be the fact that the current format of 
+\family typewriter
+/proc/drbd
+\family default
+ does neither display the timestamp of the first 
+\emph on
+relevant
+\emph default
+ network drop nor the total amount of lag-behind user data (which is 
+\emph on
+not
+\emph default
+ the same as the number of dirty bits in the bitmap), while 
+\family typewriter
+marsadm view
+\family default
+ can display it.
+ So it is difficult to judge the risks.
+ Possibly a chance is inspection of DRBD messages in the syslog, but quantificat
+ion could remain hard.
+\end_layout
+
+\end_inset
+
+.
+ So they didn't notice that their argumentation on the importance of actuality
+ may be fundamentally wrong.
+ A possible way to overcome that may be re-reading section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Behaviour-of-MARS"
+
+\end_inset
+
+ and comparing its outcome with the corresponding outcome of DRBD in the
+ same situation.
+\end_layout
+
+\begin_layout Enumerate
+People are stuck in contradictive requirements because the current version
+ of MARS Light does not yet support synchronous or pseudo-synchronous operation
+ modes.
+ This should be resolved some day.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+A common misunderstanding is about the actuality guarantees provided by
+ filesystems.
+ The buffer cache / page cache uses by default a 
+\series bold
+writeback strategy
+\series default
+ for performance reasons.
+ Even modern journalling filesystems will (by default) provide only consistency
+ guarantees, but no strong actuality guarantee.
+ In case of power loss, some transactions may be even 
+\emph on
+rolled back
+\emph default
+ in order to restore consistency.
+ According to POSIX
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+The above argumentation also applies to Windows filesystems in analogous
+ way.
+\end_layout
+
+\end_inset
+
+ and other standards, the only 
+\emph on
+reliable
+\emph default
+ way to achieve actuality is usage of system calls like 
+\family typewriter
+sync()
+\family default
+, 
+\family typewriter
+fsync()
+\family default
+, 
+\family typewriter
+fdatasync()
+\family default
+, flags like 
+\family typewriter
+O_DIRECT
+\family default
+, or similar.
+ For performance reasons, the 
+\emph on
+vast majority of applications
+\emph default
+ don't use them at all, or use them only sparingly!
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ It makes no sense to require strong actuality guarantees from any block
+ layer replication (whether DRBD or future versions of MARS) while higher
+ layers such as filesystems or even applications are already sacrificing
+ them!
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+In summary, the 
+\series bold
+anytime consistency
+\series default
+ provided by MARS is an argument you should consider, even if you need an
+ extra hard disk for transaction logfiles.
 \end_layout
 
 \begin_layout Chapter
@@ -462,13 +1728,14 @@ hardware BBU
 \begin_layout Standard
 If you are concerned about reliability, use two disks switched together
  as a relatively small RAID-1 set.
+ For extremely high performance demands, you may consider (and check) RAID-10.
 \end_layout
 
 \begin_layout Standard
 Since the transaction logfiles are highly sequential in their access pattern,
  a cheap but high-capacity SATA disk (or nearline-SAS disk) is usually sufficien
 t.
- At the time of this writing, SSDs have shown to be 
+ At the time of this writing, standard SATA SSDs have shown to be 
 \emph on
 not
 \emph default
@@ -483,10 +1750,6 @@ not
 \begin_layout Standard
 Use 
 \family typewriter
-ext3
-\family default
- or 
-\family typewriter
 ext4
 \family default
  for 
@@ -494,7 +1757,11 @@ ext4
 /mars/
 \family default
 .
- Don't use 
+ Avoid 
+\family typewriter
+ext3
+\family default
+, and don't use 
 \family typewriter
 xfs
 \family default
@@ -521,7 +1788,7 @@ extremely
 
 \end_inset
 
-.
+ at all.
 \end_layout
 
 \begin_layout Section
@@ -672,10 +1939,6 @@ On each of A and B, create the
 
 \begin_layout Enumerate
 On each node, create an 
-\family typewriter
-ext3
-\family default
- or 
 \family typewriter
 ext4
 \family default
@@ -1917,6 +3180,7 @@ healed
 \end_layout
 
 \begin_layout Standard
+\noindent
 \begin_inset Graphics
 	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -2036,6 +3300,7 @@ MARS Think(tm)
 \end_layout
 
 \begin_layout Standard
+\noindent
 \begin_inset Graphics
 	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -2117,6 +3382,7 @@ fast-forward
 \end_layout
 
 \begin_layout Standard
+\noindent
 \begin_inset Graphics
 	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -2313,6 +3579,7 @@ marsadm
 \end_layout
 
 \begin_layout Standard
+\noindent
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
 	lyxscale 50
@@ -2342,6 +3609,7 @@ ls
 \end_layout
 
 \begin_layout Standard
+\noindent
 \begin_inset Graphics
 	filename images/MatieresToxiques.png
 	lyxscale 50
@@ -2368,6 +3636,7 @@ ntp
 \end_layout
 
 \begin_layout Standard
+\noindent
 \begin_inset Graphics
 	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -2402,7 +3671,8 @@ The
 \family default
  filesystem contains not only transaction logfiles, but also acts as a generic
  storage for (persistent) state information.
- Information is stored in symlinks.
+ Both configuration information and runtime state information are stored
+ in symlinks.
  Symlinks are 
 \begin_inset Quotes eld
 \end_inset
@@ -2430,11 +3700,69 @@ key -> value
 \end_layout
 
 \begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Therefrom results a fundamentally different behaviour than DRBD.
+ When your DRBD primary crashed before and now comes up again, you have
+ to setup DRBD again by a sequence of commands like 
+\family typewriter
+modprobe drbd; drbdadm up all; drbdadm primary all
+\family default
+ or similar.
+ In contrast, MARS needs only 
+\family typewriter
+modprobe mars
+\family default
+ (after 
+\family typewriter
+/mars/
+\family default
+ has been mounted by 
+\family typewriter
+/etc/fstab
+\family default
+).
+ The 
+\emph on
+persistence
+\emph default
+ of the symlinks residing in 
+\family typewriter
+/mars/
+\family default
+ will automatically remember your previous state, even if some your resources
+ were primary while others were secondary (mixed operations).
+ You don't need to do any actions in order to 
+\begin_inset Quotes eld
+\end_inset
+
+restore
+\begin_inset Quotes erd
+\end_inset
+
+ a previous state, no matter how 
+\begin_inset Quotes eld
+\end_inset
+
+complex
+\begin_inset Quotes erd
+\end_inset
+
+ it was.
+\end_layout
+
+\begin_layout Standard
 (Almost) all symlinks appearing in the 
 \family typewriter
 /mars/
 \family default
- directory tree are replicated thoughout the whole cluster.
+ directory tree are automatically replicated thoughout the whole cluster.
  Thus the 
 \family typewriter
 /mars/
@@ -2447,7 +3775,7 @@ global namespace
 \end_layout
 
 \begin_layout Standard
-You may use the 
+Since the symlink replication works generically, you may use the 
 \family typewriter
 /mars/userspace/
 \family default
@@ -2481,6 +3809,7 @@ something
 \end_layout
 
 \begin_layout Standard
+\noindent
 \begin_inset Graphics
 	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -3067,11 +4396,7 @@ marsadm leave-resource $res
 \end_layout
 
 \begin_layout Enumerate
-First-level kernelspace action, automatic
-\family typewriter
-/mars/
-\family default
-ally executed when 
+First-level kernelspace action, automatically executed when 
 \family typewriter
 
 \begin_inset Flex URL
@@ -3316,6 +4641,7 @@ total size
 \end_layout
 
 \begin_layout Standard
+\noindent
 \begin_inset Graphics
 	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
 	lyxscale 12
