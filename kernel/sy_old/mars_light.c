@@ -4668,5 +4668,17 @@ MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@1und1.de>");
 MODULE_VERSION(BUILDTAG " (" BUILDHOST " " BUILDDATE ")");
 MODULE_LICENSE("GPL");
 
+#ifndef CONFIG_MARS_DEBUG
+MODULE_INFO(debug, "production");
+#else
+MODULE_INFO(debug, "DEBUG");
+#endif
+#ifdef CONFIG_MARS_DEBUG_MEM
+MODULE_INFO(io, "BAD_PERFORMANCE");
+#endif
+#ifdef CONFIG_MARS_DEBUG_ORDER0
+MODULE_INFO(memory, "EVIL_PERFORMANCE");
+#endif
+
 module_init(init_light);
 module_exit(exit_light);
