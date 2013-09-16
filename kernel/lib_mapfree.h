@@ -21,13 +21,13 @@
 #include "mars.h"
 
 extern int mapfree_period_sec;
+extern int mapfree_grace_keep_mb;
 
 struct mapfree_info {
 	struct list_head mf_head;
 	char            *mf_name;
 	struct file     *mf_filp;
 	int              mf_flags;
-	int              mf_grace_free;
 	atomic_t         mf_count;
 	spinlock_t       mf_lock;
 	loff_t           mf_min[2];

@@ -12,8 +12,13 @@
 #include <linux/wait.h>
 #include <linux/file.h>
 
+// time to wait between background mapfree operations
 int mapfree_period_sec = 10;
 EXPORT_SYMBOL_GPL(mapfree_period_sec);
+
+// some grace space where no regular cleanup should occur
+int mapfree_grace_keep_mb = 16;
+EXPORT_SYMBOL_GPL(mapfree_grace_keep_mb);
 
 static
 DECLARE_RWSEM(mapfree_mutex);
@@ -22,7 +27,7 @@ static
 LIST_HEAD(mapfree_list);
 
 static
-void mapfree_pages(struct mapfree_info *mf, bool force)
+void mapfree_pages(struct mapfree_info *mf, int grace_keep)
 {
 	struct address_space *mapping;
 	pgoff_t start;
@@ -31,8 +36,7 @@ void mapfree_pages(struct mapfree_info *mf, bool force)
 	if (unlikely(!mf->mf_filp || !(mapping = mf->mf_filp->f_mapping)))
 		goto done;
 
-	if (force) {
-		mf->mf_grace_free = 0;
+	if (grace_keep < 0) { // force full flush
 		start = 0;
 		end = -1;
 	} else {
@@ -52,7 +56,10 @@ void mapfree_pages(struct mapfree_info *mf, bool force)
 
 		traced_unlock(&mf->mf_lock, flags);
 
-		if (min || mf->mf_last) {
+		min -= (loff_t)grace_keep * (1024 * 1024); // megabytes
+		end = 0;
+
+		if (min > 0 || mf->mf_last) {
 			start = mf->mf_last / PAGE_SIZE;
 			// add some grace overlapping
 			if (likely(start > 0))
@@ -61,13 +68,14 @@ void mapfree_pages(struct mapfree_info *mf, bool force)
 			end   = min / PAGE_SIZE;
 		} else  { // there was no progress for at least 2 rounds
 			start = 0;
-			end = -1;
+			if (!grace_keep) // also flush thoroughly
+				end = -1;
 		}
 
 		MARS_DBG("file = '%s' start = %lu end = %lu\n", SAFE_STR(mf->mf_name), start, end);
 	}
 
-	if (end >= start || end == -1) {
+	if (end > start || end == -1) {
 		invalidate_mapping_pages(mapping, start, end);
 	}
 
@@ -81,7 +89,7 @@ void _mapfree_put(struct mapfree_info *mf)
 		MARS_DBG("closing file '%s' filp = %p\n", mf->mf_name, mf->mf_filp);
 		list_del_init(&mf->mf_head);
 		if (likely(mf->mf_filp)) {
-			mapfree_pages(mf, true);
+			mapfree_pages(mf, -1);
 			filp_close(mf->mf_filp, NULL);
 		}
 		brick_string_free(mf->mf_name);
@@ -253,7 +261,7 @@ int mapfree_thread(void *data)
 			continue;
 		}
 
-		mapfree_pages(mf, mf->mf_grace_free > 1000);
+		mapfree_pages(mf, mapfree_grace_keep_mb);
 
 		mf->mf_jiffies = jiffies;
 		mapfree_put(mf);
