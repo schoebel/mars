@@ -1044,6 +1044,8 @@ int mars_free_brick(struct mars_brick *brick)
 	int i;
 	int count;
 	int status;
+	int sleeptime;
+	int maxsleep;
 
 	if (!brick) {
 		MARS_ERR("bad brick parameter\n");
@@ -1067,9 +1069,22 @@ int mars_free_brick(struct mars_brick *brick)
 		}
 	}
 
-	count = atomic_read(&brick->mref_object_layout.alloc_count);
-	if (count > 0) {
-		MARS_ERR("MEMLEAK: brick '%s' has %d mrefs allocated (total = %d)\n", brick->brick_path, count, atomic_read(&brick->mref_object_layout.total_alloc_count));
+	// Should not happen, but workaround: wait until flying IO has vanished
+	maxsleep = 20000;
+	sleeptime = 1000;
+	for (;;) {
+		count = atomic_read(&brick->mref_object_layout.alloc_count);
+		if (likely(!count)) {
+			break;
+		}
+		if (maxsleep > 0) {
+			MARS_WRN("MEMLEAK: brick '%s' has %d mrefs allocated (total = %d, maxsleep = %d)\n", brick->brick_path, count, atomic_read(&brick->mref_object_layout.total_alloc_count), maxsleep);
+		} else {
+			MARS_ERR("MEMLEAK: brick '%s' has %d mrefs allocated (total = %d)\n", brick->brick_path, count, atomic_read(&brick->mref_object_layout.total_alloc_count));
+			break;
+		}
+		brick_msleep(sleeptime);
+		maxsleep -= sleeptime;
 	}
 
 	MARS_DBG("===> freeing brick name = '%s' path = '%s'\n", brick->brick_name, brick->brick_path);
