@@ -110,7 +110,8 @@ function lib_rw_start_writing_data_device
     local res=$5
     lib_rw_write_and_delete_loop ${main_host_list[0]} \
                  ${resource_mount_point_list[$res]}/$lib_rw_file_to_write \
-                 $(lv_config_get_lv_size ${resource_name_list[0]}) 4 \
+                 $(lv_config_get_lv_size ${resource_name_list[0]}) \
+                 $lib_rw_part_of_device_size_written_per_loop \
                  $varname_pid $varname_script $no_of_loops $sleeptime
 }
 
@@ -183,9 +184,15 @@ function lib_rw_mount_data_device
 {
     local host=$1 dev=$2 mount_point=$3
     local res=${resource_name_list[0]}
-    if ! mount_is_device_mounted $host $dev; then
+    local mount_point
+    if ! mount_is_device_mounted $host $dev "mount_point"; then
         mount_mount $host $dev $mount_point ${resource_fs_type_list[$res]} || \
                                                                     lib_exit 1
     fi
 }
 
+function lib_wait_until_replay_has_exceeded
+{
+    local secondary_host=$1 logfile_primary=$2 logfile_length_primary=$3 maxwait=$4
+
+}

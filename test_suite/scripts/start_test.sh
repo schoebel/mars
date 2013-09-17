@@ -158,7 +158,7 @@ while (( resume )); do
                 eval "$to_start" || { echo "Replay failure $?"; exit -1; }
             fi
             echo "==> $(date) Finished."
-        ) || { echo "Failure $?"; exit -1; }
+        ) || { rc=$?; echo "Failure $rc"; exit -1; }
         echo "==============================================================="
         echo ""
 # 	    (( resume++ ))

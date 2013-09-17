@@ -106,7 +106,7 @@ function install_mars_update_bootloader_on_target_hosts
                 lib_remote_idfile $host lilo || lib_exit 1
                 install_mars_activate_kernel_to_boot_with_lilo $host $label_name
                 ;;
-              *) lib_exit 1 "bootloader $boot_loader not supported"
+              *) echo "hint: for bootloader $boot_loader on $host no action defined"
                 ;;
         esac
     done

@@ -92,8 +92,8 @@ function marsadm_check_post_condition_role_switch
     if [ "$role_act" != "$role_req" ]; then
         lib_exit 1 "role expected = $role_req != $role_act = role found"
     fi
-    lib_vmsg "  role = $role_act, trying ls $(resource_get_name_data_device $res) on $host"
-    lib_remote_idfile $host "ls -l --full-time $(resource_get_name_data_device $res)"
+    lib_vmsg "  role = $role_act, trying ls $(resource_get_data_device $res) on $host"
+    lib_remote_idfile $host "ls -l --full-time $(resource_get_data_device $res)"
     rc=$?
     case $role_act in # (((
         primary) if [ $rc -ne 0 ]; then
@@ -180,13 +180,15 @@ function marsadm_set_proc_sys_mars_parameter
     lib_remote_idfile $host "echo $param_value >$dir/$param" || lib_exit 1
 }
 
-function marsadm_check_warn_file_and_disk_state
+function marsadm_check_warnings_and_disk_state
 {
     local host=$1 res=$2 situation="$3"
+    # wait a little for the files required
+    sleep 2
     case $situation in # ((
         apply_stopped_after_disconnect)
             local link_value not_applied restlen_in_warn_file
-            local warn_file="${resource_dir_list[$res]}/2.warn.status"
+            local warn_file="$cluster_debugfile"
             local link=$(lib_linktree_get_res_host_linkname $host $res "replay")
             link_value=$(lib_remote_idfile $host "readlink $link") || lib_exit 1
 

@@ -1,0 +1,35 @@
+read performance
+
+/tests/small_file/low_load
+/tests/small_file/high_load
+/tests/big_file/low_load
+/tests/big_file/high_load
+
+/modules/build_env.sh
+    function create_big_file
+
+/default-build_env.conf
+    testfile=/tmp/bigfile
+
+/modules/read_perf.sh
+    function run_readperf
+    function ...
+
+/default-read_perf.conf
+    filesize=20
+    no_threads=5
+
+/tests/small_file.conf
+    filesize=10
+
+/tests/big_file.conf
+    filesize=10000
+    
+/tests/low_load.conf
+    no_threads=40
+    run_list="run_readperf"
+
+/tests/big_file/high_load/small_buf
+/tests/small_buf.conf
+    bufsize=4
+

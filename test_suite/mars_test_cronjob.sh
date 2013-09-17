@@ -24,11 +24,29 @@ function execute_tests
         fi
     done
 
+    local error_ocurred=0
+    local msg
+    local grep_cmd='grep PERFORMANCE-FAILURE '$logfile
     if [ ${#failed_tests[*]} -ne 0 ];then
-        local to msg
-        msg="tests failed on $(hostname) (Script $0):
-    ${failed_tests[@]}
-for details see $logfile on $(hostname)"
+        error_ocurred=1
+        local msg
+        msg="tests failed on $(hostname) (Script $0):"$'\n'
+        msg+=$(echo ${failed_tests[@]} | tr " " $'\n')$'\n'
+    fi
+    if $grep_cmd >/dev/null; then
+        error_ocurred=1
+        msg+=$'\n'"Performance-Failures:"$'\n'
+        msg+="$($grep_cmd)"$'\n'
+    fi
+    grep_cmd='grep ERROR-FILE '$logfile
+    if $grep_cmd >/dev/null; then
+        error_ocurred=1
+        msg+=$'\n'"Error-Files:"$'\n'
+        msg+="$($grep_cmd)"$'\n'
+    fi
+    if [ $error_ocurred -eq 1 ]; then
+        local to
+        msg+="for details see $logfile on $(hostname)"
         for to in "${mail_to[@]}"; do
                 sendEmail -m "$msg" -f $mail_from -t $to -u "failed mars tests" -s $mail_server
         done
@@ -68,7 +86,7 @@ done
 
 # main
 echo Start $(basename $0) at $(date)
-logfile="/home/fl/tmp/cronjob_mars"
+logfile="/home/fl/tmp/cronjob_mars.log"
 
 eval $(ssh-agent)
 ~/tools/sx
@@ -95,6 +113,7 @@ test_cases/destroy_secondary_logfile \
 test_cases/admin/resizing \
 test_cases/admin/logrotate \
 test_cases/admin/logdelete \
+test_cases/bugs/memleak \
 test_cases/perf \
 test_cases/admin/switch2primary \
 test_cases/admin/datadev_full \
@@ -105,7 +124,7 @@ test_cases/stabil/crash/crash_primary \
 test_cases/stabil/crash/crash_primary_logger_comletion_semantics__aio_sync_mode \
 test_cases/stabil/crash/crash_primary_logger_completion_semantics \
 test_cases/stabil/crash/crash_primary_aio_sync_mode \
-test_cases/hardcore/aio_filehandle \
+test_cases/bugs/aio_filehandle \
 build_test_environment/resource/leave_resource \
 )
 

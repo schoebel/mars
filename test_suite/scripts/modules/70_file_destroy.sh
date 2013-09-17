@@ -26,7 +26,7 @@ function file_destroy_run
     local secondary_host="${main_host_list[1]}"
     local res=${resource_name_list[0]}
     local logfile length_logfile writer_pid writer_script write_count 
-    local time_waited
+    local time_waited net_throughput
 
     lib_wait_for_initial_end_of_sync $secondary_host $res \
                                      $resource_maxtime_initial_sync \
@@ -48,7 +48,8 @@ function file_destroy_run
     lib_rw_stop_writing_data_device $writer_script "write_count"
 
     lib_wait_until_fetch_stops "file_destroy" $secondary_host $primary_host \
-                               $res "logfile" "length_logfile" "time_waited"
+                               $res "logfile" "length_logfile" "time_waited" 0 \
+                               "net_throughput"
     lib_vmsg "  ${FUNCNAME[0]}: fetch time: $time_waited"
 
 
@@ -62,7 +63,7 @@ function file_destroy_run
     lib_wait_until_action_stops "replay" $secondary_host $res \
                                   $file_destroy_maxtime_apply \
                                   $file_destroy_time_constant_apply \
-                                  "time_waited"
+                                  "time_waited" 0 "net_throughput"
     lib_vmsg "  ${FUNCNAME[0]}: apply time: $time_waited"
 
     marsview_check $secondary_host $res "disk" "Outdated\[.*A.*\]" || lib_exit 1

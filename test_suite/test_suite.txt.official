@@ -1,0 +1,194 @@
+# test_suite.txt.official Version 0.01
+#
+# description of the tests to execute before a mars release
+#
+# author: Frank Liepold frank.liepold@1und1.de
+#
+# Can be printed with a2ps -R --rows=1 --columns=1 -l 130 -L101 test_suite.txt
+
+
+abbreviations:
+    data_dev_writer : process writing to data device on primary and producing a protocoll containing statistics
+                      about runtime and written data.
+    device cksum    : checking that cksum primary = cksum secondary
+
+recovery procedures : Some testcases cause more or less serious crashes or standstills (e.g. A4.1 below). If
+                      there are documented repair strategies they will be tested, too.
+
+category id Prio testname      description           testcase and steps                              to check
+done(%)
+=========================================================================================================================
+basic    B   3   marsadm       testing of pre and    the scope of tests is specified by the
+50%                            post conditions of    documents resource_states.txt and
+                               all marsadm cmds      states_and_actions.txt and comprises at the
+                                                     moment about 20 tests of the most important
+                                                     marsadm commands by checking their pre and
+                                                     post conditions
+
+-------------------------------------------------------------------------------------------------------------------------
+basic    B1  2   wait_role     marsadm secondary     B1.1  - marsadm secondary                      marsadm ROLE must 
+100%                           resp. primary               - marsadm ROLE                           return secondary 
+                               may only return             - ls /dev/mars/...                       ls must fail
+                               with success after
+                               the device has        B1.2  - marsadm primary                        marsadm ROLE must 
+                               disappeared resp.           - marsadm ROLE                           return primary 
+                               appeared                    - ls /dev/mars/...                       ls must succeed
+-------------------------------------------------------------------------------------------------------------------------
+admin    A1  1   growing       growing the data      A1.1  - start data_dev_writer                  - device cksum
+100%                           device in a running         - lvresize on primary and secondary      
+                               mars connection             - pause-sync on primary and secondary    
+                                                           - marsadm resize on primary                
+                                                           - resume-sync on primary and secondary     
+                                                           - wait for sync end
+                                                           - stop data_dev_writer
+                                                           - wait for fetch and apply end
+------------------------------------------------------------------------------------------------------------------------
+admin    A2  2   secon2prima   host a: primary       A2.1  - start data_dev_writer                  - device cksum
+100%                           host b: secondary           - marsadm primary on host b (must fail)
+                               switch secondary ->         - stop data_dev_writer
+                                 primary on host b         - umount data device
+                                                           - marsadm primary on host b
+------------------------------------------------------------------------------------------------------------------------
+admin    A3  2   apply_fetch   indepedency of apply  A3.1  - start data_dev_writer                  apply must run to
+100%                           and fetch                   - pause-apply on secondary               (nearly) end of
+                                                           - pause-fetch on secondary               fetched logfile
+                                                           - resume-apply on secondary
+
+                                                     A3.2  - start data_dev_writer                  the whole logfile
+                                                           - pause-apply on secondary               must be fetched
+                                                           - pause-fetch on secondary
+                                                           - stop data_dev_writer
+                                                           - resume-fetch on secondary
+-----------------------------------------------------------------------------------------------------------------------
+hardcore H2  2   mars_dir_full /mars full            H2.1 running full because of logfiles          device cksum
+100%                           is regarded as an          generated by data_dev_writer
+                               admin error                - start data_dev_writer              
+                                                            until /mars full                   
+                                                          - rmmod mars on all cluster hosts    
+                                                          - resize /mars                       
+                                                          - modprobe mars on all cluster hosts 
+                                                          - start second data_dev_writer       
+                                                          - stop all data_dev_writers          
+                                                     H2.2 running full because another process
+                                                          is filling /mars
+                                                          
+-----------------------------------------------------------------------------------------------------------------------
+admin    A5  3   datadev_full  data device full      A5.1  - start data_dev_writer                  device cksum
+100%                                                       - wait for data device full
+                                                           see A1.1
+-----------------------------------------------------------------------------------------------------------------------
+admin    A6  2   logrotate     looping logrotate     A6.1  - start data_dev_writer                  - device cksum
+100%                                                       - endless loop logrotate                 - impact of logfile
+                                                           - stop loop after n minutes                sizes on write
+                                                           - stop data_dev_writer                     performance
+                                                           - wait for fetch and apply end           - impact of
+                                                                                                      logrotate
+                                                                                                      frequency on write
+                                                                                                      performance
+-----------------------------------------------------------------------------------------------------------------------
+admin    A7  2   logdelete     looping logrotate     A7.1  - start data_dev_writer                  see A6.1
+100%                           and logdelete               - endless loop logrotate
+                                                                and logdelete
+                                                           - stop loop after n minutes
+                                                           - stop data_dev_writer
+                                                           - wait for fetch and apply end
+-----------------------------------------------------------------------------------------------------------------------
+admin    A8  3   compatibel    compatibility of      these testcases are to be implemented, when
+0%                             mars versions         there are different versions in production
+                               userspace versions
+                               kernel versions
+-----------------------------------------------------------------------------------------------------------------------
+admin    A9  3   standstill    recognizing,          The most important part is done by marsview 
+80%                            indicating and        
+                               repair of             A9.1 - logfile damage on secondary              - error indicator
+                               exceptional                                                            (still to specify)
+                               standstills                                                           - repair (if
+                                                                                                       automatable)
+                                                                                                     - device cksum
+-----------------------------------------------------------------------------------------------------------------------
+admin    A10 3   mult_device   multiple data         A10.* run several tests parallel                - given by the single
+0%                             devices (resources)         on multiple mars connections where          tests
+                               per host                    the data devices are in some cases        - impact on write
+                                                           located on the same host                    performance
+                                                           still to specify
+                                                     A10.1 - for i in 1 2 3; do
+                                                                 start data_dev_writer on $i resources
+                                                                 stop  data_dev_writer on resources
+                                                                 take write rate of each resource
+                                                     A10.2 - like A10.1 but with regular log-rotate
+                                                             and log-delete
+
+------------------------------------------------------------------------------------------------------------------------
+admin    A11  3  small_sec_dev secondary data        At the moment the two devices must have the 
+0%                            device smaller at cmd  same size 
+                              marsadm join-resource  
+                              see mail uli 06/23/13  A11.1 - primary create resource (100 MB)        - device cksum
+                                                           - secondary join resource (80 MB)
+                                                           - start data_dev_writer
+                                                           - stop data_dev_writer
+                                                           - switch primary -> secondary 
+                                                           - wait for fetch and apply end
+                                                             on secondary
+-----------------------------------------------------------------------------------------------------------------------
+admin    A12  3  casc_resize  cascades of resize     A12.1 to specify                                amount of synced
+0%                            operations                                                             data
+-----------------------------------------------------------------------------------------------------------------------
+admin    A13  3  sync_pos     testing new symlink    A13.1 to specify
+0%                            syncpos
+------------------------------------------------------------------------------------------------------------------------
+admin    A14  3  filesys      all tests on different
+0%                            filesystems
+-----------------------------------------------------------------------------------------------------------------------
+perf     P1   1  fullsync      performance           P1.1  - data on both data devices nearly        - device cksum
+100%                                                         matching (= secondary data device       - sync time
+                                                             patched with some bytes at some         - transfer rate
+                                                             offsets)                                
+                                                           - default mars sync (fast fullsync)       
+                                                           - 2 GB data device
+                                                           - secondary down
+                                                           - secondary invalidate
+                                                           - secondary up
+                                                           - wait for sync end
+                                                     P1.2  - similar to P1.1 but:
+                                                           - "slow" mars sync
+                                                     P1.3  - similar to P1.1 but:
+                                                           - data on both with strong differences
+                                                     P1.4  - similar to P1.1 but:
+                                                           - data on both with strong differences
+                                                           - "slow" mars sync
+                                                     P1.11 equal to P1.1 - P1.4 but with             - see P1.1
+                                                      ...  data_dev_writer                           - impact of sync
+                                                     P1.14                                             on write
+                                                                                                       performance
+------------------------------------------------------------------------------------------------------------------------
+stabil   S1   2  net_failure   network broken        S1.1  - start data_dev_writer                   - device cksum
+S1.1: 100%                                                 - manipulation=total cut of connection    - impact on write
+S1.2ff: 0%                                                 - restore network connection                performance
+                                                           - stop data_dev_writer
+                                                     S1.2ff similar to S1.1 but with different
+                                                            network connection manipulations
+                                                            still to specify
+------------------------------------------------------------------------------------------------------------------------
+stabil   S2   1  crash_prim    reboot of primary     S2.1  - start data_dev_writer                    device cksum
+100%                           while writing               - reboot primary (ipmitool)
+------------------------------------------------------------------------------------------------------------------------
+stabil   S3   3  crash_sec     reboot of secondary   S3.1  - start data_dev_writer                    device cksum
+0%                             while applying and          - reboot secondary
+                               fetching
+------------------------------------------------------------------------------------------------------------------------
+hardcore H1   3  gap_in_log    create and repair     H1.1  - pause-apply on secondary
+H1.1: 100%                     gap in logfile              - start data_dev_writer
+H1.2: 0%                                                   - stop data_dev_writer after n minutes
+                                                           - wait until fetch complete
+                                                           - create gap at the end of last logfile
+                                                           - resume-apply
+                                                           - wait until apply stops                   apply must stop
+                                                                                                      at gap
+                                                           - repair gap (apply must continue)         device cksum
+                                                     H1.2  - similar to H1.1 but gap in the middle
+                                                             of the logfiles
+-------------------------------------------------------------------------------------------------------------------------
+hardcore H3   3  late_log_comp belatedly completed   H3.1  to specify
+0%                             logfile after new
+                               logfile has already
+                               arrived

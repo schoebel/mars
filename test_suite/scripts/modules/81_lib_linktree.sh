@@ -100,7 +100,7 @@ function lib_linktree_check_link
                 else
                     sleep 1
                     let waited+=1
-                    lib_vmsg "  waited $waited for $link to take $link_value_expected"
+                    lib_vmsg "  waited $waited for $link to become $link_value_expected"
                     continue
                 fi
             else

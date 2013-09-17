@@ -22,7 +22,9 @@ Dateien
 Doku:
 - Alle globalen Variablen in .conf - Dateien
 - Die Reihenfolge der default-*.conf - Dateien ist u.U. wichtig, wenn die
-  gegenseitig Variable referenziert werden!!
+  gegenseitig Variable referenziert werden!! Daher sollte hier eine
+  entsprechende <modul>_set_globals Funktion definiert sein (siehe z.B.
+  resource_set_globals)
 - Alle globalen Variablen und alle Funktionen mit Modulname als Präfix
 - Globale Arrays muessen mit declare -g deklariert werden, da die Variablen via
   source innerhalb einer Funktion bekannt gemacht werden

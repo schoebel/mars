@@ -116,6 +116,17 @@ check_installed "$check_always_list"
 
 #####################################################################
 
+# miscellanous
+
+## rounds to GiB
+function lib_round_to_gb
+{
+    local number=$1
+    echo $((($number + (512 * 1024 * 1024)) / (1024 * 1024 * 1024)))
+}
+
+#####################################################################
+
 # helper for sourcing other config files (may reside in parents of cwd)
 
 function source_config
@@ -247,28 +258,27 @@ function lib_remote_check_device_fs
 {
     [ $# -eq 3 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local host=$1 dev=$2 fs_type=$3
-    lib_vmsg "  checking device $dev on host $host"
-    lib_remote_idfile $host "lvdisplay -C --noheadings -o lv_name $dev" \
-                                                                || lib_exit 1
-    lib_vmsg "  checking whether $host:$dev contains a filesystem"
-    blkid_out=$(lib_remote_idfile $host "blkid  -p -u filesystem $dev")
+    local tmp_dir=/mnt/mars_tmp_mountpoint
+    lib_vmsg "  checking existence of directory $host:$tmp_dir"
+    lib_remote_idfile $host "if test ! -d $tmp_dir; then mkdir $tmp_dir;fi" \
+								|| lib_exit 1
+    lib_vmsg "  checking whether $host:$dev is mountable as $fs_type filesystem on $tmp_dir"
+    lib_remote_idfile $host mount -t $fs_type $dev $tmp_dir
     rc=$?
     if [ $rc -eq 0 ]; then
-        if ! expr "$blkid_out" : '.*\(TYPE="'"$fs_type"'"\)'; then
-            rc=1
-        fi
+	mount_umount $host $dev $tmp_dir || lib_exit 1
+	return
     fi
-    if [ $rc -ne 0 ]; then
-        if mount_is_dir_mountpoint $host $main_mars_directory; then
-            mount_umount $host "device_does_not_matter" $main_mars_directory
-        fi
-        lib_vmsg "  creating $fs_type filesystem on $dev"
-        lib_remote_idfile $host "mkfs.$fs_type ${lv_config_mkfs_option_list[$fs_type]} $dev" || lib_exit 1
-        if [ -n "${lv_config_fs_type_tune_cmd_list[$fs_type]}" ];then
-            local cmd=${lv_config_fs_type_tune_cmd_list[$fs_type]/<dev>/$dev}
-            lib_vmsg "  tuning $dev on $host: $cmd"
-            lib_remote_idfile $host "$cmd" || lib_exit 1
-        fi
+    local mount_point
+    if mount_is_device_mounted $host $dev "mount_point"; then
+	mount_umount $host $dev $mount_point 
+    fi
+    lib_vmsg "  creating $fs_type filesystem on $dev"
+    lib_remote_idfile $host "mkfs.$fs_type ${lv_config_mkfs_option_list[$fs_type]} $dev" || lib_exit 1
+    if [ -n "${lv_config_fs_type_tune_cmd_list[$fs_type]}" ];then
+	local cmd=${lv_config_fs_type_tune_cmd_list[$fs_type]/<dev>/$dev}
+	lib_vmsg "  tuning $dev on $host: $cmd"
+	lib_remote_idfile $host "$cmd" || lib_exit 1
     fi
 }
 

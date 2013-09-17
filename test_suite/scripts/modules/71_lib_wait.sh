@@ -17,12 +17,58 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-function lib_wait_until_fetch_stops
+function lib_wait_until_logfile_has_length
 {
     [ $# -eq 7 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    local host=$1 logfile=$2 length_logfile=$3
+    local varname_time_waited=$4 maxwait=$5 check_net_throughput=$6 varname_net_throughput=$7
+    local act_length
+    local waited=0 start_time=$(date +'%s') end_time
+    local my_net_throughput=0 net_throughput_sum=0 net_check_count=0
+
+    lib_vmsg "  waiting for $host:$logfile to grow to $length_logfile"
+
+    while true; do
+        lib_vmsg "  get length of $host:$logfile"
+        act_length=$(file_handling_get_file_length $secondary_host $logfile) \
+                                                                || lib_exit 1
+        if [ $act_length -ge $length_logfile ]; then
+            end_time=$(date +'%s')
+            break
+        fi
+        sleep 1
+        let waited+=1
+        lib_vmsg "  waited $waited for $logfile act = $act_length, req = $length_logfile"
+        if [ $waited -eq $maxwait ]; then
+            lib_exit 1 "maxwait $maxwait exceeded"
+        fi
+        if [ $check_net_throughput -eq 1 ]; then
+            if [ $(( $waited % $perftest_check_net_throughput_intervall )) -eq 0 ]; then
+                perftest_check_tcp_connection $primary_host $secondary_host \
+                                              "my_net_throughput"
+                let net_throughput_sum+=$my_net_throughput
+                let net_check_count+=1
+            fi
+        fi
+    done
+    eval $varname_time_waited=$(($end_time - $start_time))
+    if [ $check_net_throughput -eq 1 ]; then
+        local rate
+        if [ $net_check_count -eq 0 ]; then
+            rate=0
+        else
+            rate=$(($net_throughput_sum / $net_check_count))
+        fi
+        eval $varname_net_throughput=$rate
+    fi
+}
+
+function lib_wait_until_fetch_stops
+{
+    [ $# -eq 9 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local module=$1 secondary_host=$2 primary_host=$3 res=$4
     local varname_logfile=$5 varname_length_logfile=$6
-    local varname_time_waited=$7
+    local varname_time_waited=$7 check_net_throughput=$8 varname_net_throughput=$9
     local maxtime_fetch time_constant_fetch var v
 
     for var in maxtime_fetch time_constant_fetch; do
@@ -37,17 +83,20 @@ function lib_wait_until_fetch_stops
                                 $maxtime_fetch \
                                 $time_constant_fetch \
                                 $varname_logfile $varname_length_logfile \
-                                $varname_time_waited
+                                $varname_time_waited \
+                                $check_net_throughput $varname_net_throughput
 }
 
 function lib_wait_internal_until_fetch_stops
 {
-    [ $# -eq 8 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    [ $# -eq 10 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local secondary_host=$1 res=$2 primary_host=$3 maxwait=$4 inactive_wait=$5
     local varname_logfile=$6 varname_logfile_length=$7 varname_time_waited=$8
+    local check_net_throughput=$9 varname_net_throughput=${10}
     local inactive_waited=0 msg
     local my_logfile length file_and_length file_and_length_old="x"
     local waited=0 msg start_time=$(date +'%s') end_time
+    local my_net_throughput=0 net_throughput_sum=0 net_check_count=0
     while [ $waited -lt $maxwait ]; do
         my_logfile=$(marsadm_get_last_logfile $secondary_host $res \
                      $primary_host) || lib_exit 1
@@ -70,10 +119,28 @@ function lib_wait_internal_until_fetch_stops
         let waited+=1
         msg="  waited $waited for $my_logfile act = $file_and_length, old = $file_and_length_old"
         lib_vmsg "$msg"
+        if [ $check_net_throughput -eq 1 ]; then
+            if [ $(( $waited % $perftest_check_net_throughput_intervall )) -eq 0 ]; then
+                perftest_check_tcp_connection $primary_host $secondary_host \
+                                              "my_net_throughput"
+                let net_throughput_sum+=$my_net_throughput
+                let net_check_count+=1
+            fi
+        fi
+
         file_and_length_old="$file_and_length"
     done
     if [ $waited -eq $maxwait ]; then
         lib_exit 1 "$msg"
+    fi
+    if [ $check_net_throughput -eq 1 ]; then
+        local rate
+        if [ $net_check_count -eq 0 ]; then
+            rate=0
+        else
+            rate=$(($net_throughput_sum / $net_check_count))
+        fi
+        eval $varname_net_throughput=$rate
     fi
     eval $varname_logfile_length=$length
     eval $varname_logfile=$my_logfile
@@ -85,12 +152,14 @@ function lib_wait_internal_until_fetch_stops
 # the time waited is returned in the variable, whichs name is given by $6
 function lib_wait_until_action_stops
 {
-    [ $# -eq 6 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    [ $# -eq 8 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local action=$1 host=$2 res=$3 maxwait=$4 inactive_wait=$5
-    local varname_time_waited=$6
+    local varname_time_waited=$6 check_net_throughput=$7
+    local varname_net_throughput=$8
     local waited=0 link_value link_value_old="x"
     local inactive_waited=0 msg start_time=$(date +'%s') end_time
     local link=$(lib_linktree_get_res_host_linkname $host $res $action)
+    local my_net_throughput=0 net_throughput_sum=0 net_check_count=0
     while [ $waited -lt $maxwait ]; do
         link_value=$(lib_remote_idfile $host readlink $link) || \
                                         lib_exit 1 "cannot read link $link"
@@ -109,12 +178,29 @@ function lib_wait_until_action_stops
         let waited+=1
         msg="  waited $waited for $action to stop. old = $link_value_old, act = $link_value"
         lib_vmsg "$msg"
+        if [ $check_net_throughput -eq 1 ]; then
+            if [ $(( $waited % $check_net_throughput )) -eq 0 ]; then
+                perftest_check_tcp_connection $primary_host $secondary_host \
+                                              "my_net_throughput"
+                let net_throughput_sum+=$my_net_throughput
+                let net_check_count+=1
+            fi
+        fi
         link_value_old="$link_value"
     done
     if [ $waited -eq $maxwait ]; then
         lib_exit 1 "$msg"
     fi
     eval $varname_time_waited=$(($end_time - $start_time))
+    if [ $check_net_throughput -eq 1 ]; then
+        local rate
+        if [ $net_check_count -eq 0 ]; then
+            rate=0
+        else
+            rate=$(($net_throughput_sum / $net_check_count))
+        fi
+        eval $varname_net_throughput=$rate
+    fi
 }
 
 function lib_wait_for_initial_end_of_sync
@@ -122,8 +208,10 @@ function lib_wait_for_initial_end_of_sync
     [ $# -eq 5 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local secondary_host=$1 res=$2 maxwait=$3 inactive_wait=$4
     local varname_time_waited=$5
+    local net_throughput
     lib_wait_until_action_stops "syncstatus" $secondary_host $res $maxwait \
-                                  $inactive_wait $varname_time_waited
+                                $inactive_wait $varname_time_waited 0 \
+                                "net_throughput"
     # after sync disk state must be Outdated || Uptodate
     marsview_check $secondary_host $res "disk" ".*date.*" || lib_exit 1
 }
@@ -134,6 +222,7 @@ function lib_wait_for_secondary_to_become_uptodate
     local module_name=$1 secondary_host=$2 primary_host=$3 res=$4
     local dev=$5 dev_size_to_compare=$6
     local host role logfile length_logfile time_waited write_count
+    local net_throughput mount_point
 
     local maxtime_apply time_constant_apply str var
     for str in "maxtime" "time_constant"; do
@@ -145,15 +234,17 @@ function lib_wait_for_secondary_to_become_uptodate
     done
 
     lib_wait_until_fetch_stops $module_name $secondary_host $primary_host $res \
-                               "logfile" "length_logfile" "time_waited"
+                               "logfile" "length_logfile" "time_waited" 0 \
+                               "net_throughput"
     lib_vmsg "  ${FUNCNAME[0]} called from ${FUNCNAME[1]}: fetch time: $time_waited"
 
     file_handling_check_equality_of_file_lengths $logfile $primary_host \
                                                  $secondary_host $length_logfile
 
     lib_wait_until_action_stops "replay" $secondary_host $res \
-                                  $maxtime_apply \
-                                  $time_constant_apply "time_waited"
+                                $maxtime_apply \
+                                $time_constant_apply "time_waited" 0 \
+                                "net_throughput"
     lib_vmsg "  ${FUNCNAME[0]} called from ${FUNCNAME[1]}: apply time: $time_waited"
 
 
@@ -163,10 +254,38 @@ function lib_wait_for_secondary_to_become_uptodate
         marsview_check $host $res "repl" "-SFA-" || lib_exit 1
     done
 
-    if mount_is_device_mounted $primary_host $dev; then
-        mount_umount $primary_host $dev ${resource_mount_point_list[$res]}
+    if mount_is_device_mounted $primary_host $dev "mount_point"; then
+        mount_umount $primary_host $dev $mount_point
     fi
 
     lib_rw_compare_checksums $primary_host $secondary_host $dev \
                              $dev_size_to_compare "" ""
 }
+
+function lib_wait_until_apply_has_reached_length
+{
+    [ $# -eq 5 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    local secondary_host=$1 res=$2 logfile=$3 req_applied_length=$4 maxwait=$5
+    local link=$(lib_linktree_get_res_host_linkname $secondary_host $res "replay")
+    local link_value waited=0 act_applied_length
+    while true; do
+        lib_vmsg "  get applied length of $secondary_host:$logfile"
+        link_value=$(lib_remote_idfile $secondary_host readlink $link) \
+                                                                || lib_exit 1 "cannot read link $link"
+        link_value=(${link_value//,/ })
+        act_applied_length=${link_value[1]}
+        if ! expr "$act_applied_length" : '^[0-9][0-9]*$' >/dev/null; then
+            lib_exit 1 "cannot determine applied length from link_value ${link[@]}"
+        fi
+        if [ $act_applied_length -ge $req_applied_length ]; then
+            break
+        fi
+        sleep 1
+        let waited+=1
+        lib_vmsg "  waited $waited for apply of $logfile act = $act_applied_length, req = $req_applied_length"
+        if [ $waited -eq $maxwait ]; then
+            lib_exit 1 "maxwait $maxwait exceeded"
+        fi
+    done
+}
+

@@ -97,7 +97,7 @@ function resize_do_resize
     [ $# -eq 6 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local primary_host=$1 secondary_host=$2 res=$3 dev=$4 data_dev_size_new=$5
     local mars_data_dev_size_new=$6
-    local host time_waited
+    local host time_waited net_throughput
 
     for host in $primary_host $secondary_host; do
         lv_config_resize_device $host $dev $data_dev_size_new
@@ -120,7 +120,8 @@ function resize_do_resize
 
     lib_wait_until_action_stops "syncstatus" $secondary_host $res \
                                   $resize_maxtime_sync \
-                                  $resize_time_constant_sync "time_waited"
+                                  $resize_time_constant_sync "time_waited" 0 \
+                                  "net_throughput"
     lib_vmsg "  ${FUNCNAME[0]}: sync time: $time_waited"
 }
 
@@ -132,6 +133,7 @@ function resize_resize_to_orig_size
     resource_leave_all
     for host in $primary_host $secondary_host; do
         lv_config_resize_device $host $dev $data_dev_size_orig
+        lib_remote_check_device_fs $host $dev ${resource_fs_type_list[$res]}
     done
 }
 

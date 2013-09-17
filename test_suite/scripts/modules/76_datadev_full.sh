@@ -25,7 +25,7 @@ function datadev_full_run
     local secondary_host=${main_host_list[1]}
     local res=${resource_name_list[0]}
     local dev=$(lv_config_get_lv_device $res)
-    local data_dev=$(resource_get_name_data_device $res)
+    local data_dev=$(resource_get_data_device $res)
     local data_dev_size_orig=$(lv_config_get_lv_size $res)
     local data_dev_size_new=$(($data_dev_size_orig + $resize_size_to_add))
     local mars_data_dev_size_new=$((data_dev_size_new \

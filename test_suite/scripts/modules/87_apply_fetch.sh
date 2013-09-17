@@ -28,7 +28,7 @@ function apply_fetch_run
     local secondary_host=${main_host_list[1]}
     local res=${resource_name_list[0]}
     local writer_pid writer_script write_count
-    local logfile length_logfile time_waited
+    local logfile length_logfile time_waited net_throughput
 
     lib_wait_for_initial_end_of_sync $secondary_host $res \
                                   $resource_maxtime_initial_sync \
@@ -44,7 +44,8 @@ function apply_fetch_run
 
     lib_wait_until_action_stops "replay" $secondary_host $res \
                                   $apply_fetch_maxtime_apply \
-                                  $apply_fetch_time_constant_apply "time_waited"
+                                  $apply_fetch_time_constant_apply \
+                                  "time_waited" 0 "net_throughput"
     lib_vmsg "  ${FUNCNAME[0]}: apply time: $time_waited"
 
     marsview_check $secondary_host $res "disk" "Outdated\[.*A.*\]" \
@@ -53,7 +54,8 @@ function apply_fetch_run
     marsadm_pause_cmd "fetch" $secondary_host $res
 
     lib_wait_until_fetch_stops "apply_fetch" $secondary_host $primary_host \
-                               $res "logfile" "length_logfile" "time_waited"
+                               $res "logfile" "length_logfile" "time_waited" 0 \
+                               "net_throughput"
     lib_vmsg "  ${FUNCNAME[0]}: fetch time: $time_waited"
 
 
@@ -66,10 +68,10 @@ function apply_fetch_run
             lib_wait_until_action_stops "replay" $secondary_host $res \
                           $apply_fetch_maxtime_apply_after_disconnect \
                           $apply_fetch_time_constant_apply_after_disconnect \
-                          "time_waited"
+                          "time_waited" 0 "net_throughput"
             lib_vmsg "  ${FUNCNAME[0]}: apply time: $time_waited"
 
-            marsadm_check_warn_file_and_disk_state $secondary_host $res \
+            marsadm_check_warnings_and_disk_state $secondary_host $res \
                                                "apply_stopped_after_disconnect"
             marsview_check $secondary_host $res "repl" "-S-A-" || lib_exit 1
             marsadm_do_cmd $secondary_host "connect" $res || lib_exit 1
@@ -79,7 +81,8 @@ function apply_fetch_run
 
             lib_wait_until_fetch_stops "apply_fetch" $secondary_host \
                                        $primary_host $res "logfile" \
-                                       "length_logfile" "time_waited"
+                                       "length_logfile" "time_waited" 0 \
+                                       "net_throughput"
             lib_vmsg "  ${FUNCNAME[0]}: fetch time: $time_waited"
 
             file_handling_check_equality_of_file_lengths $logfile \

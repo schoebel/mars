@@ -25,10 +25,11 @@ function crash_run
     local primary_host=${main_host_list[0]}
     local secondary_host=${main_host_list[1]}
     local mars_dev=$(lv_config_get_lv_device ${cluster_mars_dir_lv_name_list[$primary_host]})
-    local lilo_label_name="${main_host_bootloader_label_list[$primary_host]}"
+    local boot_label_name="${main_host_bootloader_label_list[$primary_host]}"
     local res=${resource_name_list[0]}
     local dev=$(lv_config_get_lv_device $res)
     local writer_pid writer_script logfile length_logfile time_waited
+    local net_throughput
     local waited=0 error_ocurred=0
 
     mount_mount_data_device
@@ -46,7 +47,7 @@ function crash_run
                                         $crash_aio_sync_mode
     crash_reboot $primary_host $secondary_host $mars_dev $crash_maxtime_reboot \
                  $crash_maxtime_to_become_unreachable \
-                 $lilo_label_name
+                 $boot_label_name
 
     lib_linktree_print_linktree $primary_host
 
@@ -60,12 +61,14 @@ function crash_run
                                                 $crash_maxtime_state_constant
     lib_wait_until_action_stops "syncstatus" $secondary_host $res \
                                   $crash_maxtime_sync \
-                                  $crash_time_constant_sync "time_waited"
+                                  $crash_time_constant_sync "time_waited" 0 \
+                                  "net_throughput"
     lib_vmsg "  ${FUNCNAME[0]}: sync time: $time_waited"
 
 
     lib_wait_until_fetch_stops "crash" $secondary_host $primary_host $res \
-                               "logfile" "length_logfile" "time_waited"
+                               "logfile" "length_logfile" "time_waited" 0 \
+                               "net_throughput"
     lib_vmsg "  ${FUNCNAME[0]}: fetch time: $time_waited"
 
 
@@ -91,13 +94,14 @@ function crash_run
 function crash_write_data_device_and_calculate_checksums
 {
     local primary_host=$1 secondary_host=$2 res=$3 dev=$4
-    local writer_pid writer_script write_count time_waited
+    local writer_pid writer_script write_count time_waited net_throughput
     mount_mount_data_device
     lib_rw_start_writing_data_device "writer_pid" "writer_script" 0 0 $res
     lib_rw_stop_writing_data_device $writer_script "write_count"
     lib_wait_until_action_stops "replay" $secondary_host $res \
-                                  $crash_maxtime_sync \
-                                  $crash_time_constant_sync "time_waited"
+                                  $crash_maxtime_apply \
+                                  $crash_time_constant_apply "time_waited" 0 \
+                                  "net_throughput"
     lib_vmsg "  ${FUNCNAME[0]}: apply time: $time_waited"
 
 
@@ -113,7 +117,7 @@ function crash_reboot
     [ $# -eq 6 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local primary_host=$1 secondary_host=$2 mars_dev=$3 maxtime_to_reboot=$4
     local maxtime_to_become_unreachable=$5
-    local lilo_label_name=$6
+    local boot_label_name=$6
     local pids_to_kill host
 
     if [ -z "$crash_print_linktree_during_reboot" ]; then
@@ -123,8 +127,10 @@ function crash_reboot
     then
         lib_exit 1 "to print symlink trees secondary_host must be given"
     fi
-    install_mars_activate_kernel_to_boot_with_lilo $primary_host \
-                                                   $lilo_label_name
+    if [ "${main_host_bootloader_list[$primary_host]}" = "lilo" ]; then
+	install_mars_activate_kernel_to_boot_with_lilo $primary_host \
+						       $boot_label_name
+    fi
 
     main_error_recovery_functions["lib_rw_stop_scripts"]=
     

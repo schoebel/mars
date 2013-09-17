@@ -62,11 +62,11 @@ function remote_dev_run
 
     lib_rw_stop_writing_data_device $writer_script "write_count"
 
-    local lilo_label_name="${main_host_bootloader_label_list[$secondary_host]}"
+    local boot_label_name="${main_host_bootloader_label_list[$secondary_host]}"
     local mars_dev=$(lv_config_get_lv_device ${cluster_mars_dir_lv_name_list[$secondary_host]})
     crash_reboot $secondary_host "" $mars_dev $crash_maxtime_reboot \
                  $crash_maxtime_to_become_unreachable \
-                 $lilo_label_name
+                 $boot_label_name
     remote_dev_remove_magic_links $primary_host $secondary_host
 }
 
@@ -75,7 +75,7 @@ function remote_dev_remove_magic_links
     local hosts="$@" host
 
     # to guarantee persistence of removal on all hosts
-    mount_umount_data_device
+    mount_umount_data_device_all
     cluster_rmmod_mars_all
 
     for host in $hosts; do

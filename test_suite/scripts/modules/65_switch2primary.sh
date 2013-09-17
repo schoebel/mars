@@ -52,7 +52,7 @@ function switch2primary_run
 
     count=0
     while true; do
-        mount_umount_data_device
+        mount_umount_data_device_all
         rc=$?
         if [ $rc -ne 0 ]; then
             let count+=1

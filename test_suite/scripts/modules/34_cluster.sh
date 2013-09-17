@@ -30,7 +30,7 @@ function cluster_umount_data_device_all
 function cluster_rmmod_mars_all
 {
     local host
-    mount_umount_data_device
+    mount_umount_data_device_all
     for host in "${main_host_list[@]}"; do
         cluster_rmmod_mars $host
     done
@@ -46,6 +46,9 @@ function cluster_rmmod_mars
 function cluster_clear_mars_dir_all
 {
     local host
+    if [ -z "$main_mars_directory" ]; then
+	lib_exit 1 "  variable main_mars_directory empty"
+    fi
     for host in "${main_host_list[@]}"; do
         lib_vmsg "  clearing directory $host:$main_mars_directory"
         lib_remote_idfile $host "rm -rf $main_mars_directory/*" || lib_exit 1
@@ -63,27 +66,48 @@ function cluster_insert_mars_module_all
 function cluster_insert_mars_module
 {
     local host=$1
+    cluster_mount_mars_dir $host
     cluster_create_debugfiles $host
     lib_vmsg "  inserting mars module on $host"
     lib_remote_idfile $host 'grep -w "^mars" /proc/modules || modprobe mars' || lib_exit 1
 }
 
+function cluster_umount_mars_dir_all
+{
+    local host
+    for host in "${main_host_list[@]}"; do
+	if mount_is_dir_mountpoint $host $main_mars_directory; then
+	    mount_umount $host "device_does_not_matter" $main_mars_directory
+	fi
+    done
+}
+
 function cluster_mount_mars_dir
 {
-    local host=$1 dev=$2
-    if mount_is_dir_mountpoint $host $main_mars_directory
-    then
-        mount_umount $host "device_does_not_matter" $main_mars_directory
+    local host=$1
+    local dev="$(lv_config_get_lv_device ${cluster_mars_dir_lv_name_list[$host]})"
+    local already_mounted_correctly=0
+    if mount_is_dir_mountpoint $host $main_mars_directory; then
+        local mount_point
+        if      mount_is_device_mounted $host $dev "mount_point" \
+            &&  [ "$mount_point" == "$main_mars_directory" ]
+        then
+            already_mounted_correctly=1
+        else
+            mount_umount $host "device_does_not_matter" $main_mars_directory
+        fi
     fi
-    mount_mount $host $dev $main_mars_directory $main_mars_fs_type || lib_exit 1
+    if [ $already_mounted_correctly -eq 0 ];then
+        lib_remote_check_device_fs $host $dev $main_mars_fs_type
+        mount_mount $host $dev $main_mars_directory $main_mars_fs_type || lib_exit 1
+    fi
 }
 
 function cluster_mount_mars_dir_all
 {
     local host dev
     for host in "${main_host_list[@]}"; do
-        dev="$(lv_config_get_lv_device ${cluster_mars_dir_lv_name_list[$host]})"
-        cluster_mount_mars_dir $host $dev
+        cluster_mount_mars_dir $host
     done
 }
 
@@ -197,15 +221,15 @@ function cluster_check_devices_all
 function cluster_create_debugfiles
 {
     local host=$1
-    lib_vmsg "  creating debugfiles ${cluster_debugfiles[@]}"
-    lib_remote_idfile $host "touch ${cluster_debugfiles[@]}" || lib_exit 1
+    lib_vmsg "  creating debugfile $cluster_debugfile"
+    lib_remote_idfile $host "touch $cluster_debugfile" || lib_exit 1
 }
 
 function cluster_remove_debugfiles
 {
     local host=$1
-    lib_vmsg "  removing debugfiles ${cluster_debugfiles[@]}"
-    lib_remote_idfile $host "rm -f ${cluster_debugfiles[@]}" || lib_exit 1
+    lib_vmsg "  removing debugfiles $cluster_debugfile"
+    lib_remote_idfile $host "rm -f $cluster_debugfile" || lib_exit 1
 }
 
 function cluster_check_variables

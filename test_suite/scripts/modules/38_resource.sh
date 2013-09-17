@@ -29,8 +29,8 @@ function resource_prepare
 
 function resource_check_variables
 {
-    if ! expr "${lv_config_name_list[*]}" : "${resource_name_list[*]}" \
-                                                                    >/dev/null
+    if ! expr "${lv_config_name_list[*]}" \
+	      : "\(\(.* \)*${resource_name_list[*]}\( .*\)*\$\)" >/dev/null
     then
         lib_exit 1 "resource_name_list = '${resource_name_list[*]}' is no substring of '${lv_config_name_list[*]}' = lv_config_name_list"
     fi
@@ -68,7 +68,7 @@ function resource_leave
 {
     local host=$1 res=$2
     if resource_is_data_device_mounted $host $res; then
-        local dev=$(resource_get_name_data_device $res)
+        local dev=$(resource_get_data_device $res)
         mount_umount $host $dev ${resource_mount_point_list[$res]} || lib_exit 1
     fi
 
@@ -80,7 +80,7 @@ function resource_leave
         done
         resource_do_after_leave_loops $host $res
     fi
-    resource_rm_resource_dir $res
+    resource_rm_resource_dir_all $res
 }
 
 function resource_do_after_leave_loops
@@ -180,13 +180,13 @@ function resource_multi_res_run
     :
 }
 
-function resource_fill_data_device
+function resource_fill_mars_dir
 {
     local primary_host=${main_host_list[0]}
     local secondary_host=${main_host_list[1]}
     local res=${resource_name_list[0]}
     local dev=$(lv_config_get_lv_device $res)
-    local data_dev=$(resource_get_name_data_device $res)
+    local data_dev=$(resource_get_data_device $res)
     local data_dev_size=$(lv_config_get_lv_size $res)
     local mars_lv_name=${cluster_mars_dir_lv_name_list[$primary_host]}
     local mars_dev=$(lv_config_get_lv_device $mars_lv_name)
@@ -214,11 +214,18 @@ function resource_fill_data_device
         lib_remote_idfile $primary_host "rm -f $resource_big_file" || lib_exit 1
     fi
 
-    resource_recreate_all
+    resource_check_proc_sys_mars_emergency_file $primary_host
+
+    resource_resize_mars_dir $primary_host $mars_dev $(($mars_dev_size + 10))
+    cluster_insert_mars_module $primary_host
+echo TODO; return
+    marsadm_do_cmd $host "down" $res
+    marsadm_do_cmd $host "invalidate" $res
     lib_wait_for_initial_end_of_sync $secondary_host $res \
                                   $resource_maxtime_initial_sync \
                                   $resource_time_constant_initial_sync \
                                   "time_waited"
+    # TODO bischen was schreiben
     lib_rw_compare_checksums $primary_host $secondary_host $dev 0 \
                              "primary_cksum" "secondary_cksum"
     if [ $resource_use_data_dev_writes_to_fill_mars_dir -eq 1 ]; then
@@ -226,6 +233,27 @@ function resource_fill_data_device
                                            $data_dev_size $resource_big_file \
                                            "$primary_cksum"
         lib_remote_idfile $primary_host "rm -f $resource_big_file" || lib_exit 1
+    fi
+}
+
+function resource_resize_mars_dir
+{
+    local host=$1 mars_dev=$2 new_size=$3
+    lib_vmsg "  resizing $host:$mars_dev to $new_size GB"
+
+    cluster_rmmod_mars $host
+    lv_config_resize_device $host $mars_dev $new_size
+    lib_remote_idfile $host "resize2fs $mars_dev" || lib_exit 1
+}
+
+function resource_check_proc_sys_mars_emergency_file
+{
+    local host=$1 value
+    lib_vmsg "  checking value in $host:$resource_proc_sys_mars_reset_emergency_file"
+    value=$(lib_remote_idfile $host \
+              "cat $resource_proc_sys_mars_reset_emergency_file")  || lib_exit 1
+    if [ $value -ne 1 ];then
+        lib_exit 1 "wrong value $value (!= 1) in $host:$resource_proc_sys_mars_reset_emergency_file"
     fi
 }
 
@@ -307,16 +335,26 @@ function resource_up
     return $rc
 }
 
-function resource_rm_resource_dir
+function resource_rm_resource_dir_all
 {
     local res=$1 host
     local res_dir=${resource_dir_list[$res]}
 
+    if [ -z "$res_dir" ];then
+	lib_exit 1 "  to resource $res no resource dir found in resource_dir_list"
+    fi
     cluster_rmmod_mars_all
 
     for host in "${main_host_list[@]}"; do
-        lib_vmsg "  removing $host:$res_dir/*"
-        lib_remote_idfile $host "rm -rf $res_dir/*" || lib_exit 1
+	local mars_lv=${cluster_mars_dir_lv_name_list[$host]}
+	local mars_dev=$(lv_config_get_lv_device $mars_lv)
+	lib_vmsg "  check whether mars device $host:$mars_dev exists"
+	if lib_remote_idfile $host "ls -l $mars_dev"; then
+	    cluster_mount_mars_dir $host
+	    lib_vmsg "  removing $host:$res_dir"
+	    lib_remote_idfile $host "rm -rf $res_dir" || lib_exit 1
+	    lib_remote_idfile $host "mkdir $res_dir" || lib_exit 1
+	fi
     done
 }
 
@@ -372,7 +410,7 @@ function resource_check_data_link
     lib_linktree_check_link $host "$link" $dev
 }
 
-function resource_get_name_data_device
+function resource_get_data_device
 {
     local res=$1
     echo /dev/mars/$res 
@@ -381,14 +419,15 @@ function resource_get_name_data_device
 function resource_is_data_device_mounted
 {
     local host=$1 res=$2 rc
-    local dev=$(resource_get_name_data_device $res)
-    mount_is_device_mounted $host $dev
+    local dev=$(resource_get_data_device $res)
+    local mount_point
+    mount_is_device_mounted $host $dev "mount_point"
 }
 
 function resource_check_data_device_after_create
 {
     local host=$1 res=$2
-    local dev=$(resource_get_name_data_device $res)
+    local dev=$(resource_get_data_device $res)
     local waited=0 rc
     while true; do
         lib_vmsg "  checking existence of device $dev on $host"
@@ -409,12 +448,13 @@ function resource_check_data_device_after_create
 function resource_check_mount_and_rmmod_possibilities
 {
     local host=$1 res=$2
-    local data_dev=$(resource_get_name_data_device $res)
+    local data_dev=$(resource_get_data_device $res)
+    local mount_point
     resource_check_mount_point_directories $host
-    if ! mount_is_device_mounted $host $data_dev ${resource_mount_point_list[$res]}
+    if ! mount_is_device_mounted $host $data_dev "mount_point"
     then
         mount_mount $host $data_dev ${resource_mount_point_list[$res]} \
-                                    ${resource_fs_type_list[$res]}
+                                    ${resource_fs_type_list[$res]} || lib_exit 1
     fi
     resource_check_whether_rmmod_mars_fails $host $data_dev
     mount_umount $host $data_dev ${resource_mount_point_list[$res]} || \

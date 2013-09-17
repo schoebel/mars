@@ -188,3 +188,25 @@ hardcore H1  gap_in_log    create and repair     H1.1  - pause-apply on secondar
 hardcore H3  late_log_comp belatedly completed   H3.1  - pause-apply on secondary
                            logfile after new
                            logfile has already
+---------------------------------------------------------------------------------------------------------------------
+perf     P2  perf_general  fetch only            P2.1  - pause-replay                             - time + rate
+                           apply only            P2.2  - disconnect                                   " 
+                           sync                  P2.3  - invalidate                                   " 
+                           fetch & apply         P2.4  - = normal mode                            - time + rate  
+                                                                                                  - time + rate 
+                                                                                                    per action
+                           write                 P2.5  - writing data device                      - write rate
+                                                 P2.6  equal to P2.1 to P2.4                      as P2.1 to P2.4
+                                                 ...   with parallel writing                      write rate
+                                                 P2.9 
+                           with n devices              P2.1 to P2.9 with
+                                                       2 4 8 devices
+
+
+
+
+
+
+
+
+                        

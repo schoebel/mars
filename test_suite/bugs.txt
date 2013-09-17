@@ -43,3 +43,18 @@
            
                - 'size' link is actual state
                    - no target state
+
+*5. memleak: marsadm secondary produces memleaks if executed during "flying writes"
+   (test /home/fl/mars/test_suite/test_cases/bugs/memleak)
+   Fixed:
+   commit 281fa300b27d574b2c11066bf2c4f6114ade1325
+   Author: Frank Liepold <frank.liepold@1und1.de>  2013-09-16 12:53:22
+   Branch: master
+   Follows: light0.1beta0.12
+   Precedes: 
+
+    light: workaround flying IO before reporting memory leaks
+
+
+6. marsadm invalidate does not repair secondary after mars dir full
+  (test /home/fl/mars/test_suite/test_cases/hardcore/mars_dir_full)
