@@ -153,16 +153,19 @@ EXPORT_SYMBOL_GPL(mars_max_loadavg);
 #define _CTL_STRATEGY(handler)	/*empty*/
 #endif
 
-#define INT_ENTRY(NAME,VAR,MODE)			\
+#define VEC_ENTRY(NAME,VAR,MODE,COUNT)			\
 	{						\
 		_CTL_NAME				\
 		.procname	= NAME,			\
 		.data           = &(VAR),		\
-		.maxlen         = sizeof(int),		\
+		.maxlen         = sizeof(int) * (COUNT),\
 		.mode		= MODE,			\
 		.proc_handler	= &proc_dointvec,	\
 		_CTL_STRATEGY(sysctl_intvec)		\
 	}
+
+#define INT_ENTRY(NAME,VAR,MODE)			\
+	VEC_ENTRY(NAME, VAR, MODE, 1)
 
 #define LIMITER_ENTRIES(VAR, PREFIX, SUFFIX)				\
 	INT_ENTRY(PREFIX "_limit_" SUFFIX, (VAR)->lim_max_rate, 0600),	\
@@ -230,6 +233,12 @@ ctl_table mars_table[] = {
 	INT_ENTRY("mem_limit_percent",    mars_mem_percent,       0600),
 	INT_ENTRY("logger_mem_used_kb",   trans_logger_mem_usage, 0400),
 	INT_ENTRY("mem_used_raw_kb",      brick_global_block_used,0400),
+#ifdef CONFIG_MARS_MEM_PREALLOC
+	INT_ENTRY("mem_allow_freelist",   brick_allow_freelist,   0600),
+	VEC_ENTRY("mem_freelist_max",     brick_mem_freelist_max,  0600, BRICK_MAX_ORDER+1),
+	VEC_ENTRY("mem_alloc_count",      brick_mem_alloc_count,  0400, BRICK_MAX_ORDER+1),
+	VEC_ENTRY("mem_alloc_max",        brick_mem_alloc_count,  0600, BRICK_MAX_ORDER+1),
+#endif
 	INT_ENTRY("io_flying_count",      mars_global_io_flying,  0400),
 	INT_ENTRY("copy_overlap",         mars_copy_overlap,      0600),
 	INT_ENTRY("copy_read_prio",       mars_copy_read_prio,    0600),

@@ -183,13 +183,17 @@ extern void _brick_block_free(void *data, int len, int cline);
 
 #define BRICK_MAX_ORDER 11
 
-extern bool brick_allow_freelist;
+#ifdef CONFIG_MARS_MEM_PREALLOC
+extern int brick_allow_freelist;
 
-struct mem_reservation {
-	int amount[BRICK_MAX_ORDER+1];
-};
+extern int brick_pre_reserve[BRICK_MAX_ORDER+1];
+extern int brick_mem_freelist_max[BRICK_MAX_ORDER+1];
+extern int brick_mem_alloc_count[BRICK_MAX_ORDER+1];
+extern int brick_mem_alloc_max[BRICK_MAX_ORDER+1];
 
-extern int brick_mem_reserve(struct mem_reservation *r);
+extern int brick_mem_reserve(void);
+
+#endif
 
 extern void brick_mem_statistics(void);
 

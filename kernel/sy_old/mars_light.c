@@ -4533,12 +4533,6 @@ char *_mars_info(void)
 	return txt;
 }
 
-static struct mem_reservation global_reserve = {
-	.amount = {
-		[5] = 64,
-	},
-};
-
 #ifdef CONFIG_MARS_HAVE_BIGMODULE
 #define INIT_MAX 32
 static char *exit_names[INIT_MAX] = {};
@@ -4571,7 +4565,6 @@ static void __exit exit_light(void)
 
 	mars_info = NULL;
 	_mars_remote_trigger = NULL;
-	brick_allow_freelist = false;
 
 #ifdef CONFIG_MARS_HAVE_BIGMODULE
 	while (exit_fn_nr > 0) {
@@ -4635,7 +4628,10 @@ static int __init init_light(void)
 	DO_INIT(mars_proc);
 #endif
 
-	brick_mem_reserve(&global_reserve);
+#ifdef CONFIG_MARS_MEM_PREALLOC
+	brick_pre_reserve[5] = 64;
+	brick_mem_reserve();
+#endif
 
 	status = compute_emergency_mode();
 	if (unlikely(status < 0)) {
