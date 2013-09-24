@@ -687,6 +687,17 @@ static int if_switch(struct if_brick *brick)
 
 	down(&brick->switch_sem);
 
+	// brick is in operation
+	if (brick->power.button && brick->power.led_on) {
+		capacity = compute_capacity(brick);
+		if (capacity > 0 && capacity != input->capacity) {
+			MARS_INF("changing capacity from %lld to %lld\n", (long long)input->capacity * 2, (long long)capacity * 2);
+			input->capacity = capacity;
+			set_capacity(input->disk, capacity);
+		}
+	}
+
+	// brick should be switched on
 	if (brick->power.button && brick->power.led_off) {
 		mars_power_led_off((void*)brick,  false);
 		brick->say_channel = get_binding(current);
@@ -795,12 +806,14 @@ static int if_switch(struct if_brick *brick)
 #else
 		set_device_ro(input->bdev, 0); // TODO: implement modes
 #endif
-		status = 0;
-	}
-	if (brick->power.button) {
+
+		// report success
 		mars_power_led_on((void*)brick, true);
 		status = 0;
-	} else if (!brick->power.led_off) {
+	}
+
+	// brick should be switched off
+	if (!brick->power.button && !brick->power.led_off) {
 		int flying;
 
 		mars_power_led_on((void*)brick, false);
@@ -922,15 +935,6 @@ char *if_statistics(struct if_brick *brick, int verbose)
 	int tmp3 = atomic_read(&input->total_write_count); 
 	int tmp4 = atomic_read(&input->total_mref_write_count);
 
-#if 1 // HACK!
-	unsigned long capacity;
-	capacity = compute_capacity(brick);
-	if (capacity > 0 && capacity != input->capacity) {
-		MARS_INF("changing capacity from %lld to %lld\n", (long long)input->capacity * 2, (long long)capacity * 2);
-		input->capacity = capacity;
-		set_capacity(input->disk, capacity);
-	}
-#endif
 	if (!res)
 		return NULL;
 	snprintf(res, 512,

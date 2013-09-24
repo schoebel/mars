@@ -476,15 +476,25 @@ int mars_power_button(struct mars_brick *brick, bool val, bool force_off)
 		MARS_DBG("brick '%s' '%s' type '%s' power button %d -> %d\n", brick->brick_name, brick->brick_path, brick->type->type_name, oldval, val);
 
 		set_button(&brick->power, val, false);
+	}
 
-		if (likely(brick->ops)) {
-			status = brick->ops->brick_switch(brick);
-		} else {
-			MARS_ERR("brick '%s' '%s' has no brick_switch() method\n", brick->brick_name, brick->brick_path);
-		}
+	if (unlikely(!brick->ops)) {
+		MARS_ERR("brick '%s' '%s' has no brick_switch() method\n", brick->brick_name, brick->brick_path);
+		status = -EINVAL;
+		goto done;
+	}
 
+	/* Always call the switch function, even if nothing changes.
+	 * The implementations must be idempotent.
+	 * They may exploit the regular calls for some maintenance operations
+	 * (e.g. changing disk capacity etc).
+	 */
+	status = brick->ops->brick_switch(brick);
+
+	if (val != oldval) {
 		mars_trigger();
 	}
+
  done:
 	return status;
 }
