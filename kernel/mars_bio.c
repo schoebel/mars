@@ -227,7 +227,7 @@ static int bio_get_info(struct bio_output *output, struct mars_info *info)
 
 	info->tf_align = 512;
 	info->tf_min_size = 512;
-	brick->total_size = inode->i_size;
+	brick->total_size = i_size_read(inode);
 	info->current_size = brick->total_size;
 	MARS_DBG("determined device size = %lld\n", info->current_size);
 
@@ -710,7 +710,7 @@ static int bio_switch(struct bio_brick *brick)
 			q->backing_dev_info.ra_pages = brick->ra_pages;
 
 			brick->bvec_max = queue_max_hw_sectors(q) >> (PAGE_SHIFT - 9);
-			brick->total_size = inode->i_size;
+			brick->total_size = i_size_read(inode);
 
 			brick->response_thread = brick_thread_create(bio_response_thread, brick, "mars_bio_r%d", index);
 			brick->submit_thread = brick_thread_create(bio_submit_thread, brick, "mars_bio_s%d", index);
