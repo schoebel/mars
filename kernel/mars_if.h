@@ -46,7 +46,7 @@ struct if_input {
 #ifdef USE_TIMER
 	struct timer_list timer;
 #endif
-	unsigned long capacity;
+	loff_t capacity;
 	atomic_t plugged_count;
 	atomic_t flying_count;
 	// only for statistics

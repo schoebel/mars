@@ -658,20 +658,41 @@ int mars_merge_bvec(struct request_queue *q, struct bvec_merge_data *bvm, struct
 }
 
 static
-unsigned long compute_capacity(struct if_brick *brick)
+loff_t if_get_capacity(struct if_brick *brick)
 {
+	/* Don't read always, read only when unknown.
+	 * brick->dev_size may be different from underlying sizes,
+	 * e.g. when the size symlink indicates a logically smaller
+	 * device than physically.
+	 */
 	if (brick->dev_size <= 0) {
 		struct mars_info info = {};
 		struct if_input *input = brick->inputs[0];
 		int status;
+
 		status = GENERIC_INPUT_CALL(input, mars_get_info, &info);
-		if (status < 0) {
+		if (unlikely(status < 0)) {
 			MARS_ERR("cannot get device info, status=%d\n", status);
 			return 0;
 		}
+		MARS_INF("determined default capacity: %lld bytes\n", info.current_size);
 		brick->dev_size = info.current_size;
 	}
-	return brick->dev_size >> 9; // TODO: make this dynamic
+	return brick->dev_size;
+}
+
+static
+void if_set_capacity(struct if_input *input, loff_t capacity)
+{
+	CHECK_PTR(input->disk, done);
+	CHECK_PTR(input->disk->disk_name, done);
+	MARS_INF("new capacity of '%s': %lld bytes\n", input->disk->disk_name, capacity);
+	input->capacity = capacity;
+	set_capacity(input->disk, capacity >> 9);
+	if (likely(input->bdev && input->bdev->bd_inode)) {
+		i_size_write(input->bdev->bd_inode, capacity);
+	}
+done:;
 }
 
 static const struct block_device_operations if_blkdev_ops;
@@ -682,27 +703,27 @@ static int if_switch(struct if_brick *brick)
 	struct request_queue *q;
 	struct gendisk *disk;
 	int minor;
-	unsigned long capacity;
 	int status = 0;
 
 	down(&brick->switch_sem);
 
 	// brick is in operation
 	if (brick->power.button && brick->power.led_on) {
-		capacity = compute_capacity(brick);
+		loff_t capacity;
+		capacity = if_get_capacity(brick);
 		if (capacity > 0 && capacity != input->capacity) {
-			MARS_INF("changing capacity from %lld to %lld\n", (long long)input->capacity * 2, (long long)capacity * 2);
-			input->capacity = capacity;
-			set_capacity(input->disk, capacity);
+			MARS_INF("changing capacity from %lld to %lld\n", (long long)input->capacity, (long long)capacity);
+			if_set_capacity(input, capacity);
 		}
 	}
 
 	// brick should be switched on
 	if (brick->power.button && brick->power.led_off) {
+		loff_t capacity;
+
 		mars_power_led_off((void*)brick,  false);
 		brick->say_channel = get_binding(current);
 
-		capacity = compute_capacity(brick);
 		status = -ENOMEM;
 		q = blk_alloc_queue(GFP_MARS);
 		if (!q) {
@@ -726,10 +747,11 @@ static int if_switch(struct if_brick *brick)
 		disk->first_minor = minor;
 		disk->fops = &if_blkdev_ops;
 		snprintf(disk->disk_name, sizeof(disk->disk_name),  "mars/%s", brick->brick_name);
-		MARS_DBG("created device name %s, capacity=%lu\n", disk->disk_name, capacity);
 		disk->private_data = input;
-		input->capacity = capacity;
-		set_capacity(disk, capacity);
+		input->disk = disk;
+		capacity = if_get_capacity(brick);
+		MARS_DBG("created device name %s, capacity=%lld\n", disk->disk_name, capacity);
+		if_set_capacity(input, capacity);
 		
 		blk_queue_make_request(q, if_make_request);
 #ifdef USE_MAX_SECTORS
@@ -800,7 +822,6 @@ static int if_switch(struct if_brick *brick)
 		// point of no return
 		MARS_DBG("add_disk()\n");
 		add_disk(disk);
-		input->disk = disk;
 #if 1
 		set_disk_ro(disk, false);
 #else
