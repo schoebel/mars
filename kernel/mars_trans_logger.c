@@ -3026,6 +3026,7 @@ int trans_logger_switch(struct trans_logger_brick *brick)
 		if (brick->thread) {
 			MARS_INF("stopping thread...\n");
 			brick_thread_stop(brick->thread);
+			brick->thread = NULL;
 		}
 	}
 	return 0;

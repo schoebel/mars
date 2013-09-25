@@ -487,8 +487,12 @@ static int server_switch(struct server_brick *brick)
 
 	if (brick->power.button) {
 		static int version = 0;
-		bool ok = mars_get_socket(sock);
+		bool ok;
 
+		if (brick->power.led_on)
+			goto err;
+
+		ok = mars_get_socket(sock);
 		if (unlikely(!ok)) {
 			status = -ENOENT;
 			goto err;
@@ -513,7 +517,7 @@ static int server_switch(struct server_brick *brick)
 		}
 
 		mars_power_led_on((void*)brick, true);
-	} else if (brick->power.led_on) {
+	} else if (!brick->power.led_off) {
 		struct task_struct *thread;
 		mars_power_led_on((void*)brick, false);
 

@@ -668,6 +668,9 @@ static int bio_switch(struct bio_brick *brick)
 {
 	int status = 0;
 	if (brick->power.button) {
+		if (brick->power.led_on)
+			goto done;
+		
 		mars_power_led_off((void*)brick, false);
 		
 		if (!brick->bdev) {

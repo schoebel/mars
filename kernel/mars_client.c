@@ -586,6 +586,8 @@ static int client_switch(struct client_brick *brick)
 	int status = 0;
 
 	if (brick->power.button) {
+		if (brick->power.led_on)
+			goto done;
 		mars_power_led_off((void*)brick, false);
 		if (!output->sender.thread) {
 			brick->connection_state = 1;
@@ -600,6 +602,8 @@ static int client_switch(struct client_brick *brick)
 			mars_power_led_on((void*)brick, true);
 		}
 	} else {
+		if (brick->power.led_off)
+			goto done;
 		mars_power_led_on((void*)brick, false);
 		_kill_thread(&output->sender, "sender");
 		brick->connection_state = 0;

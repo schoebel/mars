@@ -53,14 +53,27 @@ static
 int dummy_switch(struct dummy_brick *brick)
 {
 	if (brick->power.button) {
+		bool success = false;
+		if (brick->power.led_on)
+			goto done;
 		mars_power_led_off((void*)brick, false);
 		//...
-		mars_power_led_on((void*)brick, true);
+		success = true;
+		if (success) {
+			mars_power_led_on((void*)brick, true);
+		}
 	} else {
+		bool success = false;
+		if (brick->power.led_off)
+			goto done;
 		mars_power_led_on((void*)brick, false);
 		//...
-		mars_power_led_off((void*)brick, true);
+		success = true;
+		if (success) {
+			mars_power_led_off((void*)brick, true);
+		}
 	}
+done:
 	return 0;
 }
 

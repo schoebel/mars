@@ -791,6 +791,8 @@ static int copy_switch(struct copy_brick *brick)
 
 	MARS_DBG("power.button = %d\n", brick->power.button);
 	if (brick->power.button) {
+		if (brick->power.led_on)
+			goto done;
 		mars_power_led_off((void*)brick, false);
 		brick->is_aborting = false;
 		if (!brick->thread) {
@@ -804,6 +806,8 @@ static int copy_switch(struct copy_brick *brick)
 			}
 		}
 	} else {
+		if (brick->power.led_off)
+			goto done;
 		mars_power_led_on((void*)brick, false);
 		if (brick->thread) {
 			MARS_INF("stopping thread...\n");
@@ -811,6 +815,7 @@ static int copy_switch(struct copy_brick *brick)
 		}
 	}
 	_update_percent(brick);
+done:
 	return 0;
 }
 

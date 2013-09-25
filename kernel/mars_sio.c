@@ -568,21 +568,26 @@ static int sio_switch(struct sio_brick *brick)
 	static int sio_nr = 0;
 	struct sio_output *output = brick->outputs[0];
 	const char *path = output->brick->brick_path;
-	int flags = O_CREAT | O_RDWR | O_LARGEFILE;
 	int prot = 0600;
 	mm_segment_t oldfs;
+	int status = 0;
 
-	if (brick->o_direct) {
-		flags |= O_DIRECT;
-		MARS_INF("using O_DIRECT on %s\n", path);
-	}
 	if (brick->power.button) {
+		int flags = O_CREAT | O_RDWR | O_LARGEFILE;
 		struct address_space *mapping;
 		int index;
 
-		mars_power_led_off((void*)brick, false);
 		if (brick->power.led_on)
 			goto done;
+
+		if (brick->o_direct) {
+			flags |= O_DIRECT;
+			MARS_INF("using O_DIRECT on %s\n", path);
+		}
+
+		mars_power_led_off((void*)brick, false);
+
+		// TODO: convert to mapfree infrastructure
 
 		oldfs = get_fs();
 		set_fs(get_ds());
@@ -590,10 +595,10 @@ static int sio_switch(struct sio_brick *brick)
 		set_fs(oldfs);
 		
 		if (unlikely(IS_ERR(output->filp))) {
-			int err = PTR_ERR(output->filp);
-			MARS_ERR("can't open file '%s' status=%d\n", path, err);
+			status = PTR_ERR(output->filp);
+			MARS_ERR("can't open file '%s' status=%d\n", path, status);
 			output->filp = NULL;
-			return err;
+			goto done;
 		}
 
 		if ((mapping = output->filp->f_mapping)) {
@@ -610,27 +615,32 @@ static int sio_switch(struct sio_brick *brick)
 			tinfo->thread = brick_thread_create(sio_thread, tinfo, "mars_sio%d", sio_nr++);
 			if (unlikely(!tinfo->thread)) {
 				MARS_ERR("cannot create thread\n");
-				return -ENOENT;
+				status = -ENOENT;
+				goto done;
 			}
 		}
 		mars_power_led_on((void*)brick, true);
-	} else {
+	}
+done:
+	if (unlikely(status < 0) || !brick->power.button) {
+		int index;
 		mars_power_led_on((void*)brick, false);
+		for (index = 0; index <= WITH_THREAD; index++) {
+			struct sio_threadinfo *tinfo = &output->tinfo[index];
+			if (!tinfo->thread)
+				continue;
+			MARS_DBG("stopping thread %d\n", index);
+			brick_thread_stop(tinfo->thread);
+			tinfo->thread = NULL;
+		}
 		if (output->filp) {
-			int index;
-			for (index = 0; index <= WITH_THREAD; index++) {
-				struct sio_threadinfo *tinfo = &output->tinfo[index];
-				MARS_DBG("stopping thread %d\n", index);
-				brick_thread_stop(tinfo->thread);
-			}
 			MARS_DBG("closing file\n");
 			filp_close(output->filp, NULL);
 			output->filp = NULL;
 		}
 		mars_power_led_off((void*)brick, true);
 	}
-done:
-	return 0;
+	return status;
 }
 
 static int sio_output_construct(struct sio_output *output)
