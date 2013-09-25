@@ -490,7 +490,7 @@ static int server_switch(struct server_brick *brick)
 		bool ok;
 
 		if (brick->power.led_on)
-			goto err;
+			goto done;
 
 		ok = mars_get_socket(sock);
 		if (unlikely(!ok)) {
@@ -550,7 +550,10 @@ static int server_switch(struct server_brick *brick)
  err:
 	if (unlikely(status < 0)) {
 		mars_power_led_off((void*)brick, true);
+		mars_shutdown_socket(sock);
+		mars_put_socket(sock);
 	}
+done:
 	return status;
 }
 
