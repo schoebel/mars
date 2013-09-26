@@ -127,6 +127,12 @@ int mars_fast_fullsync =
 	;
 EXPORT_SYMBOL_GPL(mars_fast_fullsync);
 
+int mars_throttle_start = 0;
+EXPORT_SYMBOL_GPL(mars_throttle_start);
+
+int mars_throttle_end = 99;
+EXPORT_SYMBOL_GPL(mars_throttle_end);
+
 int mars_emergency_mode = 0;
 EXPORT_SYMBOL_GPL(mars_emergency_mode);
 
@@ -168,6 +174,19 @@ int compute_emergency_mode(void)
 	int mode = 4;
 
 	mars_remaining_space("/mars", &global_total_space, &rest);
+
+	if (mars_throttle_start > 0 &&
+	    mars_throttle_end > mars_throttle_start &&
+	    global_total_space > 0) {
+		loff_t percent = rest * 100 / global_total_space;
+		if (percent < mars_throttle_start) {
+			if_throttle_start_size = 0;
+		} else if (percent >= mars_throttle_end) {
+			if_throttle_start_size = 1;
+		} else {
+			if_throttle_start_size = (mars_throttle_end - percent) * 1024 / (mars_throttle_end - mars_throttle_start) + 1;
+		}
+	}
 
 #define CHECK_LIMIT(LIMIT_VAR)					\
 	if (LIMIT_VAR > 0)					\

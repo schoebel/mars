@@ -16,6 +16,7 @@
 #include "../lib_mapfree.h"
 #include "../mars_bio.h"
 #include "../mars_aio.h"
+#include "../mars_if.h"
 #include "../mars_copy.h"
 #include "../mars_client.h"
 #include "../mars_server.h"
@@ -258,6 +259,10 @@ ctl_table mars_table[] = {
 	INT_ENTRY("required_free_space_4_gb", global_free_space_4, 0600),
 	INT_ENTRY("mars_emergency_mode",  mars_emergency_mode,    0600),
 	INT_ENTRY("mars_reset_emergency", mars_reset_emergency,   0600),
+	INT_ENTRY("write_throttle_start", mars_throttle_start,    0600),
+	INT_ENTRY("write_throttle_end",   mars_throttle_end,      0600),
+	INT_ENTRY("write_throttle_size_limit", if_throttle_start_size, 0400),
+	LIMITER_ENTRIES(&if_throttle,     "write_throttle",       "kb"),
 #ifdef CONFIG_MARS_LOADAVG_LIMIT
 	INT_ENTRY("loadavg_limit",        mars_max_loadavg,       0600),
 #endif

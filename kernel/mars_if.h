@@ -11,6 +11,13 @@
 
 //#define USE_TIMER (HZ/10) // use this ONLY for debugging
 
+///////////////////////// global tuning ////////////////////////
+
+extern int if_throttle_start_size; // in kb
+extern struct mars_limiter if_throttle;
+
+/////////////////////////////////////////////////
+
 /* I don't want to enhance / intrude into struct bio for compatibility reasons
  * (support for a variety of kernel versions).
  * The following is just a silly workaround which could be removed again.

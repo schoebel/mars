@@ -324,6 +324,9 @@ extern struct banning mars_global_ban;
 
 extern atomic_t mars_global_io_flying;
 
+extern int mars_throttle_start;
+extern int mars_throttle_end;
+
 /////////////////////////////////////////////////////////////////////////
 
 /* Some special brick types for avoidance of cyclic references.

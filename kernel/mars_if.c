@@ -37,6 +37,17 @@
 #include <linux/blkdev.h>
 
 #include "mars.h"
+#include "lib_limiter.h"
+
+///////////////////////// global tuning ////////////////////////
+
+int if_throttle_start_size = 0; // in kb
+EXPORT_SYMBOL_GPL(if_throttle_start_size);
+
+struct mars_limiter if_throttle = {
+	.lim_max_rate = 10000,
+};
+EXPORT_SYMBOL_GPL(if_throttle);
 
 ///////////////////////// own type definitions ////////////////////////
 
@@ -371,6 +382,11 @@ if_make_request(struct request_queue *q, struct bio *bio)
 		bio_endio(bio, 0);
 		error = 0;
 		goto done;
+	}
+
+	// throttling of too big write requests
+	if (rw && if_throttle_start_size > 0 && total_len / 1024 >= if_throttle_start_size) {
+		mars_limit_sleep(&if_throttle, total_len / 1024);
 	}
 
 #ifdef DENY_READA // provisinary -- we should introduce an equivalent of READA also to the MARS infrastructure
