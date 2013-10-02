@@ -1078,7 +1078,7 @@ sub _get_deletable_logfiles {
     $max = $nr if ($nr < $max || $max < 0);
   }
   lprint "min     deletable logfile number: $min\n";
-  lprint "max non-deletable logfile number: $max\n";
+  lprint "min non-deletable logfile number: $max\n";
   return ($min, $max);
 }
 
