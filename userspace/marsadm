@@ -1039,7 +1039,7 @@ sub leave_res_phase1 {
     }
     _create_delete($dir);
   }
-  cleanup_res($cmd, $res, 9999999999);
+  cleanup_res($cmd, $res, 0);
 }
 
 sub logrotate_res {
