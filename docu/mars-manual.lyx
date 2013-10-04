@@ -403,7 +403,7 @@ The effect has been demonstrated with DRBD version 8.3.13.
 \noindent
 \align center
 \begin_inset Graphics
-	filename network-bottleneck-drbd.fig
+	filename images/network-bottleneck-drbd.fig
 	width 80col%
 
 \end_inset
@@ -893,7 +893,7 @@ The behaviour of MARS in the above scenario:
 \noindent
 \align center
 \begin_inset Graphics
-	filename network-bottleneck-mars.fig
+	filename images/network-bottleneck-mars.fig
 	width 80col%
 
 \end_inset
@@ -960,7 +960,7 @@ heart
 \noindent
 \align center
 \begin_inset Graphics
-	filename network-flaky-mars.fig
+	filename images/network-flaky-mars.fig
 	width 80col%
 
 \end_inset
@@ -1169,7 +1169,7 @@ Finally, here is yet another scenario where MARS can cope with the situation:
 \noindent
 \align center
 \begin_inset Graphics
-	filename network-constant-mars.fig
+	filename images/network-constant-mars.fig
 	width 80col%
 
 \end_inset
@@ -2976,7 +2976,7 @@ name "sec:The-Transaction-Logger"
 
 \begin_layout Standard
 \begin_inset Graphics
-	filename mars_principle.ps
+	filename images/mars_principle.ps
 	lyxscale 60
 	width 100text%
 
@@ -13247,7 +13247,7 @@ MARS Light Architecture
 \noindent
 \align center
 \begin_inset Graphics
-	filename mars-light-architecture.fig
+	filename images/mars-light-architecture.fig
 	width 40col%
 
 \end_inset
@@ -13263,7 +13263,7 @@ MARS Full Architecture (planned)
 \noindent
 \align center
 \begin_inset Graphics
-	filename mars-full-architecture.fig
+	filename images/mars-full-architecture.fig
 	width 80col%
 
 \end_inset
