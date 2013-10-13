@@ -91,7 +91,6 @@
 
 #include "brick.h"
 #include "brick_mem.h"
-#include "brick_atomic.h"
 #include "lamport.h"
 #include "lib_timing.h"
 
@@ -172,9 +171,7 @@ extern const struct generic_object_type mref_type;
 	/* maintained by the ref implementation, incrementable for	\
 	 * callers (but not decrementable! use ref_put()) */		\
 	bool   ref_initialized; /* internally used for checking */	\
-	tatomic_t ref_count;						\
-	/* internal */							\
-	atomic_trace_t ref_at;						\
+	atomic_t ref_count;						\
 
 struct mref_object {
 	MREF_OBJECT(mref);
@@ -185,7 +182,7 @@ struct mref_object {
 		if (unlikely(BRICK_CHECKING && !(mref)->ref_initialized)) { \
 			MARS_ERR("mref %p is not initialized\n", (mref)); \
 		}							\
-		CHECK_TATOMIC(&(mref)->ref_at, &(mref)->ref_count, 1);	\
+		CHECK_ATOMIC(&(mref)->ref_count, 1);			\
 	})
 
 #define _mref_get_first(mref)						\
@@ -193,21 +190,21 @@ struct mref_object {
 		if (unlikely(BRICK_CHECKING && (mref)->ref_initialized)) { \
 			MARS_ERR("mref %p is already initialized\n", (mref)); \
 		}							\
-		_CHECK_TATOMIC(&(mref)->ref_at, &(mref)->ref_count, !=, 0, 0); \
+		_CHECK_ATOMIC(&(mref)->ref_count, !=, 0);		\
 		(mref)->ref_initialized = true;				\
-		tatomic_inc(&(mref)->ref_at, &(mref)->ref_count);	\
+		atomic_inc(&(mref)->ref_count);				\
 	})
 
 #define _mref_get(mref)							\
 	({								\
 		_mref_check(mref);					\
-		tatomic_inc(&(mref)->ref_at, &(mref)->ref_count);	\
+		atomic_inc(&(mref)->ref_count);				\
 	})
 
 #define _mref_put(mref)							\
 	({								\
 		_mref_check(mref);					\
-		tatomic_dec_and_test(&(mref)->ref_at, &(mref)->ref_count); \
+		atomic_dec_and_test(&(mref)->ref_count);		\
 	})
 
 // internal helper structs
