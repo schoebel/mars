@@ -67,7 +67,7 @@ void mapfree_pages(struct mapfree_info *mf, int grace_keep)
 		loff_t tmp;
 		loff_t min;
 		
-		traced_lock(&mf->mf_lock, flags);
+		spin_lock_irqsave(&mf->mf_lock, flags);
 
 		min = tmp = mf->mf_min[0];
 		if (likely(mf->mf_min[1] < min))
@@ -77,7 +77,7 @@ void mapfree_pages(struct mapfree_info *mf, int grace_keep)
 			mf->mf_min[0] = 0;
 		}
 
-		traced_unlock(&mf->mf_lock, flags);
+		spin_unlock_irqrestore(&mf->mf_lock, flags);
 
 		min -= (loff_t)grace_keep * (1024 * 1024); // megabytes
 		end = 0;
@@ -244,12 +244,12 @@ void mapfree_set(struct mapfree_info *mf, loff_t min, loff_t max)
 	unsigned long flags;
 
 	if (likely(mf)) {
-		traced_lock(&mf->mf_lock, flags);
+		spin_lock_irqsave(&mf->mf_lock, flags);
 		if (!mf->mf_min[0] || mf->mf_min[0] > min)
 			mf->mf_min[0] = min;
 		if (max >= 0 && mf->mf_max < max)
 			mf->mf_max = max;
-		traced_unlock(&mf->mf_lock, flags);
+		spin_unlock_irqrestore(&mf->mf_lock, flags);
 	}
 }
 EXPORT_SYMBOL_GPL(mapfree_set);
@@ -302,38 +302,39 @@ int mapfree_thread(void *data)
 
 void mf_insert_dirty(struct mapfree_info *mf, struct dirty_info *di)
 {
-	if (likely(di->dirty_mref && mf)) {
-		unsigned long flags = 0;
+	unsigned long flags;
 
-		traced_lock(&mf->mf_lock, flags);
+	if (likely(di->dirty_mref && mf)) {
+		spin_lock_irqsave(&mf->mf_lock, flags);
 		list_del(&di->dirty_head);
 		list_add(&di->dirty_head, &mf->mf_dirty_anchor);
-		traced_unlock(&mf->mf_lock, flags);
+		spin_unlock_irqrestore(&mf->mf_lock, flags);
 	}
 }
 EXPORT_SYMBOL_GPL(mf_insert_dirty);
 
 void mf_remove_dirty(struct mapfree_info *mf, struct dirty_info *di)
 {
-	if (!list_empty(&di->dirty_head) && mf) {
-		unsigned long flags = 0;
+	unsigned long flags;
 
-		traced_lock(&mf->mf_lock, flags);
+	if (!list_empty(&di->dirty_head) && mf) {
+		spin_lock_irqsave(&mf->mf_lock, flags);
 		list_del_init(&di->dirty_head);
-		traced_unlock(&mf->mf_lock, flags);
+		spin_unlock_irqrestore(&mf->mf_lock, flags);
 	}
 }
 EXPORT_SYMBOL_GPL(mf_remove_dirty);
 
 void mf_get_dirty(struct mapfree_info *mf, loff_t *min, loff_t *max, int min_stage, int max_stage)
 {
+	unsigned long flags;
+
 	struct list_head *tmp;
-	unsigned long flags = 0;
 
 	if (unlikely(!mf))
 	    goto done;
 
-	traced_lock(&mf->mf_lock, flags);
+	spin_lock_irqsave(&mf->mf_lock, flags);
 	for (tmp = mf->mf_dirty_anchor.next; tmp != &mf->mf_dirty_anchor; tmp = tmp->next) {
 		struct dirty_info *di = container_of(tmp, struct dirty_info, dirty_head);
 		struct mref_object *mref = di->dirty_mref;
@@ -350,7 +351,7 @@ void mf_get_dirty(struct mapfree_info *mf, loff_t *min, loff_t *max, int min_sta
 			*max = mref->ref_pos + mref->ref_len;
 		}
 	}
-	traced_unlock(&mf->mf_lock, flags);
+	spin_unlock_irqrestore(&mf->mf_lock, flags);
 done:;
 }
 EXPORT_SYMBOL_GPL(mf_get_dirty);

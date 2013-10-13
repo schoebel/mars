@@ -79,7 +79,7 @@ struct buf_head *_hash_find_insert(struct buf_brick *brick, loff_t base_index, s
 	int count = 0;
 	unsigned long flags;
 
-	traced_lock(lock, flags);
+	spin_lock_irqsave(lock, flags);
 
 	for (tmp = start->next; tmp != start; tmp = tmp->next) {
 		struct buf_head *res;
@@ -87,7 +87,7 @@ struct buf_head *_hash_find_insert(struct buf_brick *brick, loff_t base_index, s
 		if (!tmp) {
 			MARS_ERR("tmp is NULL! brick = %p base_index = %lld hash = %d new = %p\n", brick, base_index, hash, new);
 			//dump_stack();
-			traced_unlock(lock, flags);
+			spin_unlock_irqrestore(lock, flags);
 			return NULL;
 		}
 #endif
@@ -107,7 +107,7 @@ struct buf_head *_hash_find_insert(struct buf_brick *brick, loff_t base_index, s
 			/* This must be paired with _bf_put()
 			 */
 			atomic_inc(&res->bf_hash_count);
-			traced_unlock(lock, flags);
+			spin_unlock_irqrestore(lock, flags);
 			return res;
 		}
 	}
@@ -120,7 +120,7 @@ struct buf_head *_hash_find_insert(struct buf_brick *brick, loff_t base_index, s
 		list_add(&new->bf_hash_head, start);
 	}
 
-	traced_unlock(lock, flags);
+	spin_unlock_irqrestore(lock, flags);
 
 	return NULL;
 }
@@ -139,7 +139,7 @@ bool _remove_hash(struct buf_brick *brick, struct buf_head *bf)
 	hash = buf_hash_fn(bf->bf_base_index);
 	lock = &brick->cache_anchors[hash].hash_lock;
 
-	traced_lock(lock, flags);
+	spin_lock_irqsave(lock, flags);
 
 	if (likely(!atomic_read(&bf->bf_hash_count) && !atomic_read(&bf->bf_mref_count) && !atomic_read(&bf->bf_io_count))) {
 		success = true;
@@ -149,7 +149,7 @@ bool _remove_hash(struct buf_brick *brick, struct buf_head *bf)
 		}
 	}
 
-	traced_unlock(lock, flags);
+	spin_unlock_irqrestore(lock, flags);
 
 	return success;
 }
@@ -165,7 +165,7 @@ void _add_bf_list(struct buf_brick *brick, struct buf_head *bf, int nr, bool at_
 		MARS_FAT("bad nr %d\n", nr);
 #endif
 
-	traced_lock(&brick->brick_lock, flags);
+	spin_lock_irqsave(&brick->brick_lock, flags);
 
 	atomic_inc(&brick->list_count[nr]);
 	if (!list_empty(&bf->bf_list_head)) {
@@ -180,7 +180,7 @@ void _add_bf_list(struct buf_brick *brick, struct buf_head *bf, int nr, bool at_
 	bf->bf_member = nr;
 	bf->bf_jiffies = jiffies;
 
-	traced_unlock(&brick->brick_lock, flags);
+	spin_unlock_irqrestore(&brick->brick_lock, flags);
 }
 
 static inline
@@ -194,13 +194,13 @@ struct buf_head *_fetch_bf_list(struct buf_brick *brick, int nr, unsigned long a
 		MARS_FAT("bad nr %d\n", nr);
 #endif
 
-	traced_lock(&brick->brick_lock, flags);
+	spin_lock_irqsave(&brick->brick_lock, flags);
 
 	if (!list_empty(&brick->list_anchor[nr])) {
 		bf = container_of(brick->list_anchor[nr].prev, struct buf_head, bf_list_head);
 #if 1
 		if (age != 0 && jiffies - bf->bf_jiffies < age) {
-			traced_unlock(&brick->brick_lock, flags);
+			spin_unlock(&brick->brick_lock);
 			return NULL;
 		}
 #endif
@@ -208,7 +208,7 @@ struct buf_head *_fetch_bf_list(struct buf_brick *brick, int nr, unsigned long a
 		list_del_init(&bf->bf_list_head);
 	}
 
-	traced_unlock(&brick->brick_lock, flags);
+	spin_unlock_irqrestore(&brick->brick_lock, flags);
 
 	return bf;
 }
@@ -222,14 +222,14 @@ void _remove_bf_list(struct buf_brick *brick, struct buf_head *bf)
 	if (bf->bf_member < 0 || bf->bf_member >= LIST_MAX)
 		MARS_FAT("bad nr %d\n", bf->bf_member);
 #endif
-	traced_lock(&brick->brick_lock, flags);
+	spin_lock_irqsave(&brick->brick_lock, flags);
 
 	if (!list_empty(&bf->bf_list_head)) {
 		list_del_init(&bf->bf_list_head);
 		atomic_dec(&brick->list_count[bf->bf_member]);
 	}
 
-	traced_unlock(&brick->brick_lock, flags);
+	spin_unlock_irqrestore(&brick->brick_lock, flags);
 }
 
 static inline
@@ -734,7 +734,7 @@ static void _buf_endio(struct generic_callback *cb)
 	CHECK_ATOMIC(&bf->bf_hash_count, 1);
 	atomic_inc(&bf->bf_hash_count);
 
-	traced_lock(&bf->bf_lock, flags);
+	spin_lock_irqsave(&bf->bf_lock, flags);
 
 	// update flags. this must be done before the callbacks.
 	old_flags = bf->bf_flags;
@@ -804,7 +804,7 @@ static void _buf_endio(struct generic_callback *cb)
 		}
 	}
 
-	traced_unlock(&bf->bf_lock, flags);
+	spin_unlock_irqrestore(&bf->bf_lock, flags);
 
 	/* Signal success by calling all callbacks.
 	 * Thanks to the tmp list, we can do this outside the spinlock.
@@ -913,7 +913,7 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 	}
 #endif
 
-	traced_lock(&bf->bf_lock, flags);
+	spin_lock_irqsave(&bf->bf_lock, flags);
 
 	if (!list_empty(&mref_a->rfa_pending_head)) {
 		MARS_ERR("trying to start IO on an already started mref\n");
@@ -984,7 +984,7 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 			atomic_inc(&brick->write_count);
 	}
 
-	traced_unlock(&bf->bf_lock, flags);
+	spin_unlock_irqrestore(&bf->bf_lock, flags);
 
 	if (!start_len) {
 		// nothing to start, IO is already started.
@@ -1006,7 +1006,7 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 already_done:
 	status = bf->bf_error;
 
-	traced_unlock(&bf->bf_lock, flags);
+	spin_unlock_irqrestore(&bf->bf_lock, flags);
 
 callback:
 	mref->ref_flags = bf->bf_flags;

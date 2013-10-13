@@ -171,6 +171,7 @@ static inline
 void _enqueue(struct aio_threadinfo *tinfo, struct aio_mref_aspect *mref_a, int prio, bool at_end)
 {
 	unsigned long flags;
+
 #if 1
 	prio++;
 	if (unlikely(prio < 0)) {
@@ -184,7 +185,7 @@ void _enqueue(struct aio_threadinfo *tinfo, struct aio_mref_aspect *mref_a, int 
 
 	mref_a->enqueue_stamp = cpu_clock(raw_smp_processor_id());
 
-	traced_lock(&tinfo->lock, flags);
+	spin_lock_irqsave(&tinfo->lock, flags);
 
 	if (at_end) {
 		list_add_tail(&mref_a->io_head, &tinfo->mref_list[prio]);
@@ -194,7 +195,7 @@ void _enqueue(struct aio_threadinfo *tinfo, struct aio_mref_aspect *mref_a, int 
 	tinfo->queued[prio]++;
 	atomic_inc(&tinfo->queued_sum);
 
-	traced_unlock(&tinfo->lock, flags);
+	spin_unlock_irqrestore(&tinfo->lock, flags);
 
 	atomic_inc(&tinfo->total_enqueue_count);
 
@@ -206,9 +207,9 @@ struct aio_mref_aspect *_dequeue(struct aio_threadinfo *tinfo)
 {
 	struct aio_mref_aspect *mref_a = NULL;
 	int prio;
-	unsigned long flags = 0;
+	unsigned long flags;
 
-	traced_lock(&tinfo->lock, flags);
+	spin_lock_irqsave(&tinfo->lock, flags);
 
 	for (prio = 0; prio < MARS_PRIO_NR; prio++) {
 		struct list_head *start = &tinfo->mref_list[prio];
@@ -223,7 +224,7 @@ struct aio_mref_aspect *_dequeue(struct aio_threadinfo *tinfo)
 	}
 
 done:
-	traced_unlock(&tinfo->lock, flags);
+	spin_unlock_irqrestore(&tinfo->lock, flags);
 
 	if (likely(mref_a && mref_a->object)) {
 		unsigned long long latency;
@@ -669,7 +670,7 @@ int aio_sync_thread(void *data)
 			atomic_read(&tinfo->queued_sum) > 0,
 			HZ / 4);
 
-		traced_lock(&tinfo->lock, flags);
+		spin_lock_irqsave(&tinfo->lock, flags);
 		for (i = 0; i < MARS_PRIO_NR; i++) {
 			struct list_head *start = &tinfo->mref_list[i];
 			if (!list_empty(start)) {
@@ -680,7 +681,7 @@ int aio_sync_thread(void *data)
 				break;
 			}
 		}
-		traced_unlock(&tinfo->lock, flags);
+		spin_unlock_irqrestore(&tinfo->lock, flags);
 
 		if (!list_empty(&tmp_list)) {
 			aio_sync_all(output, &tmp_list);
@@ -793,24 +794,25 @@ static int aio_event_thread(void *data)
 }
 
 #if 1
-/* This should go to fs/open.c (as long as vfs_submit() is not implemented)
+/* Workaround
  */
 #include <linux/fdtable.h>
 void fd_uninstall(unsigned int fd)
 {
 	struct files_struct *files = current->files;
 	struct fdtable *fdt;
+	unsigned long flags;
+
 	MARS_DBG("fd = %d\n", fd);
 	if (unlikely(fd < 0)) {
 		MARS_ERR("bad fd = %d\n", fd);
 		return;
 	}
-	spin_lock(&files->file_lock);
+	spin_lock_irqsave(&files->file_lock, flags);
 	fdt = files_fdtable(files);
 	rcu_assign_pointer(fdt->fd[fd], NULL);
-	spin_unlock(&files->file_lock);
+	spin_unlock_irqrestore(&files->file_lock, flags);
 }
-EXPORT_SYMBOL(fd_uninstall);
 #endif
 
 static

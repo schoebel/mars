@@ -56,8 +56,9 @@ static
 void _do_resubmit(struct client_channel *ch)
 {
 	struct client_output *output = ch->output;
+	unsigned long flags;
 
-	spin_lock(&output->lock);
+	spin_lock_irqsave(&output->lock, flags);
 	if (!list_empty(&ch->wait_list)) {
 		struct list_head *first = ch->wait_list.next;
 		struct list_head *last = ch->wait_list.prev;
@@ -67,7 +68,7 @@ void _do_resubmit(struct client_channel *ch)
 		list_connect(last, old_start);
 		INIT_LIST_HEAD(&ch->wait_list);
 	}
-	spin_unlock(&output->lock);
+	spin_unlock_irqrestore(&output->lock, flags);
 }
 
 static
@@ -447,14 +448,14 @@ void _hash_insert(struct client_output *output, struct client_mref_aspect *mref_
 	unsigned long flags;
 	int hash_index;
 
-	traced_lock(&output->lock, flags);
+	spin_lock_irqsave(&output->lock, flags);
 	list_del(&mref_a->io_head);
 	list_add_tail(&mref_a->io_head, &output->mref_list);
 	list_del(&mref_a->hash_head);
 	mref->ref_id = ++output->last_id;
 	hash_index = mref->ref_id % CLIENT_HASH_MAX;
 	list_add_tail(&mref_a->hash_head, &output->hash_table[hash_index]);
-	traced_unlock(&output->lock, flags);
+	spin_unlock_irqrestore(&output->lock, flags);
 }
 
 static void client_ref_io(struct client_output *output, struct mref_object *mref)
@@ -552,7 +553,7 @@ int receiver_thread(void *data)
 		{
 			int hash_index = cmd.cmd_int1 % CLIENT_HASH_MAX;
 
-			traced_lock(&output->lock, flags);
+			spin_lock_irqsave(&output->lock, flags);
 			for (tmp = output->hash_table[hash_index].next; tmp != &output->hash_table[hash_index]; tmp = tmp->next) {
 				struct mref_object *tmp_mref;
 				mref_a = container_of(tmp, struct client_mref_aspect, hash_head);
@@ -566,11 +567,11 @@ int receiver_thread(void *data)
 				break;
 
 			err:
-				traced_unlock(&output->lock, flags);
+				spin_unlock_irqrestore(&output->lock, flags);
 				status = -EBADR;
 				goto done;
 			}
-			traced_unlock(&output->lock, flags);
+			spin_unlock_irqrestore(&output->lock, flags);
 
 			if (unlikely(!mref)) {
 				MARS_WRN("got unknown callback id %d on '%s' @%s\n",
@@ -676,7 +677,7 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 	
 	io_timeout *= HZ;
 	
-	traced_lock(&output->lock, flags);
+	spin_lock_irqsave(&output->lock, flags);
 	for (tmp = anchor->next, next = tmp->next; tmp != anchor; tmp = next, next = tmp->next) {
 		struct client_mref_aspect *mref_a;
 
@@ -691,7 +692,7 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 		list_del_init(&mref_a->io_head);
 		list_add_tail(&mref_a->tmp_head, &tmp_list);
 	}
-	traced_unlock(&output->lock, flags);
+	spin_unlock_irqrestore(&output->lock, flags);
 
 	while (!list_empty(&tmp_list)) {
 		struct client_mref_aspect *mref_a;
@@ -797,17 +798,17 @@ static int sender_thread(void *data)
 
 		/* Grab the next mref from the queue
 		 */
-		traced_lock(&output->lock, flags);
+		spin_lock_irqsave(&output->lock, flags);
 		tmp = output->mref_list.next;
 		if (tmp == &output->mref_list) {
-			traced_unlock(&output->lock, flags);
+			spin_unlock_irqrestore(&output->lock, flags);
 			MARS_DBG("empty %d %d\n", output->get_info, brick_thread_should_stop());
 			do_timeout = true;
 			continue;
 		}
 		list_del_init(tmp);
 		// notice: hash_head remains in its list!
-		traced_unlock(&output->lock, flags);
+		spin_unlock_irqrestore(&output->lock, flags);
 
 		mref_a = container_of(tmp, struct client_mref_aspect, io_head);
 		mref = mref_a->object;
@@ -847,10 +848,10 @@ static int sender_thread(void *data)
 				ch_skip = max_client_bulk;
 		}
 
-		spin_lock(&output->lock);
+		spin_lock_irqsave(&output->lock, flags);
 		list_add(tmp, &ch->wait_list);
 		// notice: hash_head is already there!
-		spin_unlock(&output->lock);
+		spin_unlock_irqrestore(&output->lock, flags);
 
 		status = mars_send_mref(&ch->socket, mref);
 		if (unlikely(status < 0)) {

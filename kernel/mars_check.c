@@ -96,16 +96,14 @@ static void check_endio(struct generic_callback *cb)
 	}
 
 #ifdef CHECK_LOCK
-	traced_lock(&output->check_lock, flags);
+	spin_lock_irqsave(&output->check_lock, flags);
 
 	if (list_empty(&mref_a->mref_head)) {
 		CHECK_ERR(output, "list entry missing on %p\n", mref);
 	}
 	list_del_init(&mref_a->mref_head);
 
-	traced_unlock(&output->check_lock, flags);
-#else
-	(void)flags;
+	spin_unlock_irqrestore(&output->check_lock, flags);
 #endif
 
 	mref_a->last_jiffies = jiffies;
@@ -155,7 +153,7 @@ static int check_watchdog(void *data)
 
 		brick_msleep(5000);
 
-		traced_lock(&output->check_lock, flags);
+		spin_lock_irqsave(&output->check_lock, flags);
 
 		now = jiffies;
 		for (h = output->mref_anchor.next; h != &output->mref_anchor; h = h->next) {
@@ -179,7 +177,7 @@ static int check_watchdog(void *data)
 			}
 		}
 
-		traced_unlock(&output->check_lock, flags);
+		spin_unlock_irqrestore(&output->check_lock, flags);
 	}
 	return 0;
 }
@@ -220,7 +218,7 @@ static void check_ref_io(struct check_output *output, struct mref_object *mref)
 	atomic_set(&mref_a->callback_count, 2);
 
 #ifdef CHECK_LOCK
-	traced_lock(&output->check_lock, flags);
+	spin_lock_irqsave(&output->check_lock, flags);
 
 	if (!list_empty(&mref_a->mref_head)) {
 		CHECK_ERR(output, "list head not empty on %p\n", mref);
@@ -228,7 +226,7 @@ static void check_ref_io(struct check_output *output, struct mref_object *mref)
 	}
 	list_add_tail(&mref_a->mref_head, &output->mref_anchor);
 
-	traced_unlock(&output->check_lock, flags);
+	spin_unlock_irqrestore(&output->check_lock, flags);
 #else
 	(void)flags;
 #endif

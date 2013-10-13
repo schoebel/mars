@@ -1275,10 +1275,10 @@ void _update_info(struct trans_logger_info *inf)
 		}
 	}
 
-	traced_lock(&rot->inf_lock, flags);
+	spin_lock_irqsave(&rot->inf_lock, flags);
 	memcpy(&rot->infs[hash], inf, sizeof(struct trans_logger_info));
 	rot->infs_is_dirty[hash] = true;
-	traced_unlock(&rot->inf_lock, flags);
+	spin_unlock_irqrestore(&rot->inf_lock, flags);
 
 	mars_trigger();
 done:;
@@ -1289,13 +1289,14 @@ void write_info_links(struct mars_rotate *rot)
 {
 	struct trans_logger_info inf;
 	int count = 0;
+
 	for (;;) {
 		unsigned long flags;
 		int hash = -1;
 		int min = 0;
 		int i;
 
-		traced_lock(&rot->inf_lock, flags);
+		spin_lock_irqsave(&rot->inf_lock, flags);
 		for (i = 0; i < MAX_INFOS; i++) {
 			if (!rot->infs_is_dirty[i])
 				continue;
@@ -1306,13 +1307,13 @@ void write_info_links(struct mars_rotate *rot)
 		}
 
 		if (hash < 0) {
-			traced_unlock(&rot->inf_lock, flags);
+			spin_unlock_irqrestore(&rot->inf_lock, flags);
 			break;
 		}
 
 		rot->infs_is_dirty[hash] = false;
 		memcpy(&inf, &rot->infs[hash], sizeof(struct trans_logger_info));
-		traced_unlock(&rot->inf_lock, flags);
+		spin_unlock_irqrestore(&rot->inf_lock, flags);
 		
 		MARS_DBG("seq = %d min_pos = %lld max_pos = %lld log_pos = %lld is_replaying = %d is_logging = %d\n",
 			 inf.inf_sequence,
@@ -1625,8 +1626,9 @@ struct mars_peerinfo *find_peer(const char *peer_name)
 {
 	struct list_head *tmp;
 	struct mars_peerinfo *res = NULL;
+	unsigned long flags;
 
-	read_lock(&peer_lock);
+	read_lock_irqsave(&peer_lock, flags);
 	for (tmp = peer_anchor.next; tmp != &peer_anchor; tmp = tmp->next) {
 		struct mars_peerinfo *peer = container_of(tmp, struct mars_peerinfo, peer_head);
 		if (!strcmp(peer->peer, peer_name)) {
@@ -1634,7 +1636,7 @@ struct mars_peerinfo *find_peer(const char *peer_name)
 			break;
 		}
 	}
-	read_unlock(&peer_lock);
+	read_unlock_irqrestore(&peer_lock, flags);
 
 	return res;
 }
@@ -1949,9 +1951,9 @@ int run_bones(struct mars_peerinfo *peer)
 	bool run_trigger = false;
 	int status = 0;
 
-	traced_lock(&peer->lock, flags);
+	spin_lock_irqsave(&peer->lock, flags);
 	list_replace_init(&peer->remote_dent_list, &tmp_list);
-	traced_unlock(&peer->lock, flags);
+	spin_unlock_irqrestore(&peer->lock, flags);
 
 	MARS_DBG("remote_dent_list list_empty = %d\n", list_empty(&tmp_list));
 
@@ -2155,12 +2157,12 @@ int peer_thread(void *data)
 
 			make_msg(peer_pairs, "CONNECTED %s(%s)", peer->peer, real_peer);
 
-			traced_lock(&peer->lock, flags);
+			spin_lock_irqsave(&peer->lock, flags);
 
 			list_replace_init(&peer->remote_dent_list, &old_list);
 			list_replace_init(&tmp_global.dent_anchor, &peer->remote_dent_list);
 
-			traced_unlock(&peer->lock, flags);
+			spin_unlock_irqrestore(&peer->lock, flags);
 
 			peer->last_remote_jiffies = jiffies;
 
@@ -2221,16 +2223,17 @@ void from_remote_trigger(void)
 {
 	struct list_head *tmp;
 	int count = 0;
+	unsigned long flags;
 
 	_make_alive();
 
-	read_lock(&peer_lock);
+	read_lock_irqsave(&peer_lock, flags);
 	for (tmp = peer_anchor.next; tmp != &peer_anchor; tmp = tmp->next) {
 		struct mars_peerinfo *peer = container_of(tmp, struct mars_peerinfo, peer_head);
 		peer->from_remote_trigger = true;
 		count++;
 	}
-	read_unlock(&peer_lock);
+	read_unlock_irqrestore(&peer_lock, flags);
 
 	MARS_DBG("got trigger for %d peers\n", count);
 	wake_up_interruptible_all(&remote_event);
@@ -2242,14 +2245,15 @@ void __mars_remote_trigger(void)
 {
 	struct list_head *tmp;
 	int count = 0;
+	unsigned long flags;
 
-	read_lock(&peer_lock);
+	read_lock_irqsave(&peer_lock, flags);
 	for (tmp = peer_anchor.next; tmp != &peer_anchor; tmp = tmp->next) {
 		struct mars_peerinfo *peer = container_of(tmp, struct mars_peerinfo, peer_head);
 		peer->to_remote_trigger = true;
 		count++;
 	}
-	read_unlock(&peer_lock);
+	read_unlock_irqrestore(&peer_lock, flags);
 
 	MARS_DBG("triggered %d peers\n", count);
 	wake_up_interruptible_all(&remote_event);
@@ -2291,18 +2295,18 @@ static int _kill_peer(struct mars_global *global, struct mars_peerinfo *peer)
 		return 0;
 	}
 
-	write_lock(&peer_lock);
+	write_lock_irqsave(&peer_lock, flags);
 	list_del_init(&peer->peer_head);
-	write_unlock(&peer_lock);
+	write_unlock_irqrestore(&peer_lock, flags);
 
 	MARS_INF("stopping peer thread...\n");
 	if (peer->peer_thread) {
 		brick_thread_stop(peer->peer_thread);
 		peer->peer_thread = NULL;
 	}
-	traced_lock(&peer->lock, flags);
+	spin_lock_irqsave(&peer->lock, flags);
 	list_replace_init(&peer->remote_dent_list, &tmp_list);
-	traced_unlock(&peer->lock, flags);
+	spin_unlock_irqrestore(&peer->lock, flags);
 	mars_free_dent_all(NULL, &tmp_list);
 	brick_string_free(peer->peer);
 	brick_string_free(peer->path);
@@ -2339,6 +2343,7 @@ static int _make_peer(struct mars_global *global, struct mars_dent *dent, char *
 
 	MARS_DBG("peer '%s'\n", mypeer);
 	if (!dent->d_private) {
+		unsigned long flags;
 
 		dent->d_private = brick_zmem_alloc(sizeof(struct mars_peerinfo));
 		if (!dent->d_private) {
@@ -2356,9 +2361,9 @@ static int _make_peer(struct mars_global *global, struct mars_dent *dent, char *
 		INIT_LIST_HEAD(&peer->peer_head);
 		INIT_LIST_HEAD(&peer->remote_dent_list);
 
-		write_lock(&peer_lock);
+		write_lock_irqsave(&peer_lock, flags);
 		list_add_tail(&peer->peer_head, &peer_anchor);
-		write_unlock(&peer_lock);
+		write_unlock_irqrestore(&peer_lock, flags);
 	}
 
 	peer = dent->d_private;

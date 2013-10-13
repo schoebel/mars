@@ -440,9 +440,9 @@ void sio_ref_io(struct sio_output *output, struct mref_object *mref)
 
 	index = 0;
 	if (mref->ref_rw == READ) {
-		traced_lock(&output->g_lock, flags);
+		spin_lock_irqsave(&output->g_lock, flags);
 		index = output->index++;
-		traced_unlock(&output->g_lock, flags);
+		spin_unlock_irqrestore(&output->g_lock, flags);
 		index = (index % WITH_THREAD) + 1;
 	}
 
@@ -452,9 +452,9 @@ void sio_ref_io(struct sio_output *output, struct mref_object *mref)
 	atomic_inc(&tinfo->total_count);
 	atomic_inc(&tinfo->queue_count);
 
-	traced_lock(&tinfo->lock, flags);
+	spin_lock_irqsave(&tinfo->lock, flags);
 	list_add_tail(&mref_a->io_head, &tinfo->mref_list);
-	traced_unlock(&tinfo->lock, flags);
+	spin_unlock_irqrestore(&tinfo->lock, flags);
 
 	wake_up_interruptible(&tinfo->event);
 }
@@ -479,7 +479,7 @@ static int sio_thread(void *data)
 
 		tinfo->last_jiffies = jiffies;
 
-		traced_lock(&tinfo->lock, flags);
+		spin_lock_irqsave(&tinfo->lock, flags);
 		
 		if (!list_empty(&tinfo->mref_list)) {
 			tmp = tinfo->mref_list.next;
@@ -487,7 +487,7 @@ static int sio_thread(void *data)
 			atomic_dec(&tinfo->queue_count);
 		}
 
-		traced_unlock(&tinfo->lock, flags);
+		spin_unlock_irqrestore(&tinfo->lock, flags);
 
 		if (!tmp)
 			continue;
