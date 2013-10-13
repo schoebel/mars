@@ -221,8 +221,6 @@ void qq_mref_insert(struct logger_queue *q, struct trans_logger_mref_aspect *mre
 	_mref_get(mref); // must be paired with __trans_logger_ref_put()
 	atomic_inc(&q->q_brick->inner_balance_count);
 
-	mars_trace(mref, q->q_insert_info);
-
 	q_logger_insert(q, &mref_a->lh);
 }
 
@@ -237,7 +235,6 @@ void qq_mref_pushback(struct logger_queue *q, struct trans_logger_mref_aspect *m
 {
 	_mref_check(mref_a->object);
 
-	mars_trace(mref_a->object, q->q_pushback_info);
 	q->pushback_count++;
 
 	q_logger_pushback(q, &mref_a->lh);
@@ -261,7 +258,6 @@ struct trans_logger_mref_aspect *qq_mref_fetch(struct logger_queue *q)
 	if (test) {
 		mref_a = container_of(test, struct trans_logger_mref_aspect, lh);
 		_mref_check(mref_a->object);
-		mars_trace(mref_a->object, q->q_fetch_info);
 	}
 	return mref_a;
 }
@@ -1976,8 +1972,6 @@ bool phase2_startio(struct writeback_info *wb)
 			sub_mref_a = container_of(tmp, struct trans_logger_mref_aspect, sub_head);
 			sub_mref = sub_mref_a->object;
 
-			mars_trace(sub_mref, "sub_log");
-
 			if (!_phase2_startio(sub_mref_a)) {
 				ok = false;
 			}
@@ -2842,11 +2836,7 @@ int replay_data(struct trans_logger_brick *brick, loff_t pos, void *buf, int len
 			goto done;
 		}
 		
-		mars_trace(mref, "replay_start");
-
 		wait_replay(brick, mref_a);
-
-		mars_trace(mref, "replay_io");
 
 		memcpy(mref->ref_data, buf, mref->ref_len);
 

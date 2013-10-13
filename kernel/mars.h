@@ -28,8 +28,6 @@
 #include <linux/rwsem.h>
 #include <linux/major.h>
 
-//#define MARS_TRACING // write runtime trace data to /mars/trace.csv
-
 // check the Kconfig environment
 
 #ifndef CONFIG_MARS_MODULE
@@ -154,30 +152,6 @@ extern const struct generic_object_type mref_type;
 
 #define MARS_CHECKSUM_SIZE 16
 
-#ifdef MARS_TRACING
-
-extern unsigned long long start_trace_clock;
-
-#define MAX_TRACES 16
-
-#define TRACING_INFO							\
-	int ref_traces;							\
-	unsigned long long   ref_trace_stamp[MAX_TRACES];		\
-	const char          *ref_trace_info[MAX_TRACES];
-
-extern void _mars_log(char *buf, int len);
-extern void mars_log(const char *fmt, ...);
-extern void mars_trace(struct mref_object *mref, const char *info);
-extern void mars_log_trace(struct mref_object *mref);
-
-#else
-#define TRACING_INFO /*empty*/
-#define _mars_log(buf,len) /*empty*/
-#define mars_log(fmt...) /*empty*/
-#define mars_trace(mref,info) /*empty*/
-#define mars_log_trace(mref) /*empty*/
-#endif
-
 #define MREF_OBJECT(OBJTYPE)						\
 	CALLBACK_OBJECT(OBJTYPE);					\
 	/* supplied by caller */					\
@@ -201,7 +175,6 @@ extern void mars_log_trace(struct mref_object *mref);
 	tatomic_t ref_count;						\
 	/* internal */							\
 	atomic_trace_t ref_at;						\
-	TRACING_INFO;
 
 struct mref_object {
 	MREF_OBJECT(mref);

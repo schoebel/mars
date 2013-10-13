@@ -428,7 +428,6 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref, bool cork)
 	}
 
 	MARS_IO("starting IO rw = %d prio 0 %d fly = %d\n", rw, mref->ref_prio, atomic_read(&brick->fly_count[PRIO_INDEX(mref)]));
-	mars_trace(mref, "bio_submit");
 
 	mref_a->start_stamp = cpu_clock(raw_smp_processor_id());
 	spin_lock_irqsave(&brick->lock, flags);
@@ -585,8 +584,6 @@ int bio_response_thread(void *data)
 			MARS_IO("%d completed , status = %d\n", round, code);
 #endif
 		
-			mars_trace(mref, "bio_endio");
-
 			if (code < 0) {
 				MARS_ERR("IO error %d\n", code);
 			} else {

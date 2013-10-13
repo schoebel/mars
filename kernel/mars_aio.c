@@ -362,8 +362,6 @@ void _complete(struct aio_output *output, struct aio_mref_aspect *mref_a, int er
 	mref = mref_a->object;
 	CHECK_PTR(mref, fatal);
 
-	mars_trace(mref, "aio_endio");
-
 	if (err < 0) {
 		MARS_ERR("IO error %d at pos=%lld len=%d (mref=%p ref_data=%p)\n", err, mref->ref_pos, mref->ref_len, mref, mref->ref_data);
 	} else {
@@ -483,8 +481,6 @@ static int aio_submit(struct aio_output *output, struct aio_mref_aspect *mref_a,
 	};
 	struct iocb *iocbp = &iocb;
 	unsigned long long latency;
-
-	mars_trace(mref, "aio_submit");
 
 	if (unlikely(output->fd < 0)) {
 		MARS_ERR("bad fd = %d\n", output->fd);
@@ -768,7 +764,6 @@ static int aio_event_thread(void *data)
 				    output->mf->mf_filp &&
 				    output->mf->mf_filp->f_op &&
 				    !output->mf->mf_filp->f_op->aio_fsync) {
-					mars_trace(mref, "aio_fsync");
 					_enqueue(other, mref_a, mref->ref_prio, true);
 					continue;
 				}

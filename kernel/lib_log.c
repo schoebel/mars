@@ -117,11 +117,6 @@ void log_write_endio(struct generic_callback *cb)
 	LAST_CALLBACK(cb);
 	CHECK_PTR(cb_info, err);
 
-	if (cb_info->mref) {
-		mars_trace(cb_info->mref, "log_endio");
-		mars_log_trace(cb_info->mref);
-	}
-
 	logst = cb_info->logst;
 	CHECK_PTR(logst, done);
 
@@ -178,8 +173,6 @@ void log_flush(struct log_status *logst)
 	SETUP_CALLBACK(mref, log_write_endio, cb_info);
 	cb_info->logst = logst;
 	mref->ref_rw = 1;
-
-	mars_trace(mref, "log_flush");
 
 	atomic_inc(&logst->mref_flying);
 	atomic_inc(&global_mref_flying);
@@ -256,8 +249,6 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 			}
 			brick_msleep(100);
 		}
-
-		mars_trace(mref, "log_start");
 
 		if (unlikely(mref->ref_len < total_len)) {
 			MARS_ERR("ref_len = %d total_len = %d\n", mref->ref_len, total_len);

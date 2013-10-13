@@ -169,9 +169,6 @@ void if_endio(struct generic_callback *cb)
 	input = mref_a->input;
 	CHECK_PTR(input, err);
 
-	mars_trace(mref_a->object, "if_endio");
-	mars_log_trace(mref_a->object);
-
 	rw = mref_a->object->ref_rw;
 	MARS_IO("rw = %d bio_count = %d\n", rw, mref_a->bio_count);
 
@@ -291,8 +288,6 @@ void _if_unplug(struct if_input *input)
 			MARS_ERR("request len %d > %d\n", mref_a->current_len, mref_a->max_len);
 		}
 		mref->ref_len = mref_a->current_len;
-
-		mars_trace(mref, "if_unplug");
 
 		atomic_inc(&input->flying_count);
 		atomic_inc(&input->total_fire_count);
@@ -635,8 +630,6 @@ if_make_request(struct request_queue *q, struct bio *bio)
 					goto err;
 				}
 				
-				mars_trace(mref, "if_start");
-
 				this_len = mref->ref_len; // now may be shorter than originally requested.
 				mref_a->max_len = this_len;
 				if (this_len > bv_len) {

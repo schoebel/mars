@@ -341,8 +341,6 @@ void _complete(struct sio_output *output, struct mref_object *mref, int err)
 {
 	_mref_check(mref);
 
-	mars_trace(mref, "sio_endio");
-
 	if (err < 0) {
 		MARS_ERR("IO error %d at pos=%lld len=%d (mref=%p ref_data=%p)\n", err, mref->ref_pos, mref->ref_len, mref, mref->ref_data);
 	} else {

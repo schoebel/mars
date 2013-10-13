@@ -149,105 +149,6 @@ EXPORT_SYMBOL_GPL(mref_checksum);
 
 /////////////////////////////////////////////////////////////////////
 
-// tracing
-
-#ifdef MARS_TRACING
-
-unsigned long long start_trace_clock = 0;
-EXPORT_SYMBOL_GPL(start_trace_clock);
-
-struct file *mars_log_file = NULL;
-loff_t mars_log_pos = 0;
-
-void _mars_log(char *buf, int len)
-{
-	static DECLARE_MUTEX(trace_lock);
-	mm_segment_t oldfs;
-	
-
-	oldfs = get_fs();
-	set_fs(get_ds());
-	down(&trace_lock);
-
-	vfs_write(mars_log_file, buf, len, &mars_log_pos);
-
-	up(&trace_lock);
-	set_fs(oldfs);
-}
-EXPORT_SYMBOL_GPL(_mars_log);
-
-void mars_log(const char *fmt, ...)
-{
-	char *buf = brick_string_alloc(0);
-	va_list args;
-	int len;
-	if (!buf)
-		return;
-
-	va_start(args, fmt);
-	len = vscnprintf(buf, PAGE_SIZE, fmt, args);
-	va_end(args);
-
-	_mars_log(buf, len);
-
-	brick_string_free(buf);
-}
-EXPORT_SYMBOL_GPL(mars_log);
-
-void mars_trace(struct mref_object *mref, const char *info)
-{
-	int index = mref->ref_traces;
-	if (likely(index < MAX_TRACES)) {
-		mref->ref_trace_stamp[index] = cpu_clock(raw_smp_processor_id());
-		mref->ref_trace_info[index] = info;
-		mref->ref_traces++;
-	}
-}
-EXPORT_SYMBOL_GPL(mars_trace);
-
-void mars_log_trace(struct mref_object *mref)
-{
-	char *buf = brick_string_alloc(0);
-	unsigned long long old;
-	unsigned long long diff;
-	int i;
-	int len;
-
-	if (!buf) {
-		return;
-	}
-	if (!mars_log_file || !mref->ref_traces) {
-		goto done;
-	}
-	if (!start_trace_clock) {
-		start_trace_clock = mref->ref_trace_stamp[0];
-	}
-
-	diff = mref->ref_trace_stamp[mref->ref_traces-1] - mref->ref_trace_stamp[0];
-
-	len = scnprintf(buf, PAGE_SIZE, "%c ;%12lld ;%6d;%10llu", mref->ref_rw ? 'W' : 'R', mref->ref_pos, mref->ref_len, diff / 1000);
-
-	old = start_trace_clock;
-	for (i = 0; i < mref->ref_traces; i++) {
-		diff = mref->ref_trace_stamp[i] - old;
-		
-		len += scnprintf(buf + len, PAGE_SIZE - len, " ; %s ;%10llu", mref->ref_trace_info[i], diff / 1000);
-		old = mref->ref_trace_stamp[i];
-	}
-	len +=scnprintf(buf + len, PAGE_SIZE - len, "\n");
-
-	_mars_log(buf, len);
-
- done:
-	brick_string_free(buf);
-	mref->ref_traces = 0;
-}
-EXPORT_SYMBOL_GPL(mars_log_trace);
-
-#endif // MARS_TRACING
-
-/////////////////////////////////////////////////////////////////////
-
 // power led handling
 
 void mars_power_led_on(struct mars_brick *brick, bool val)
@@ -286,22 +187,6 @@ int __init init_mars(void)
 
 	sema_init(&tfm_sem, 1);
 
-#ifdef MARS_TRACING
-	{
-		int flags = O_CREAT | O_TRUNC | O_RDWR | O_LARGEFILE;
-		int prot = 0600;
-		mm_segment_t oldfs;
-		oldfs = get_fs();
-		set_fs(get_ds());
-		mars_log_file = filp_open("/mars/trace.csv", flags, prot);
-		set_fs(oldfs);
-		if (IS_ERR(mars_log_file)) {
-			MARS_ERR("cannot create trace logfile, status = %ld\n", PTR_ERR(mars_log_file));
-			mars_log_file = NULL;
-		}
-	}
-#endif
-
 	mars_tfm = crypto_alloc_hash("md5", 0, CRYPTO_ALG_ASYNC);
 	if (!mars_tfm) {
 		MARS_ERR("cannot alloc crypto hash\n");
@@ -330,11 +215,4 @@ void exit_mars(void)
 	if (mars_tfm) {
 		crypto_free_hash(mars_tfm);
 	}
-
-#ifdef MARS_TRACING
-	if (mars_log_file) {
-		filp_close(mars_log_file, NULL);
-		mars_log_file = NULL;
-	}
-#endif
 }
