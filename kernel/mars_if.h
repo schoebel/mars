@@ -36,7 +36,6 @@ struct if_mref_aspect {
 	int bio_count;
 	int current_len;
 	int max_len;
-	bool is_kmapped;
 	struct page *orig_page;
 	struct bio_wrapper *orig_biow[MAX_BIO];
 	struct if_input *input;

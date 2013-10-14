@@ -145,17 +145,6 @@ void if_endio(struct generic_callback *cb)
 		bio = biow->bio;
 		CHECK_PTR_NULL(bio, err);
 
-#if 1
-		if (mref_a->is_kmapped) {
-			struct bio_vec *bvec;
-			int i;
-			bio_for_each_segment(bvec, bio, i) {
-				MARS_IO("kunmap %p\n", bvec->bv_page);
-				kunmap(bvec->bv_page);
-			}
-		}
-#endif
-
 		_if_end_io_acct(input, biow);
 
 		error = CALLBACK_ERROR(mref_a->object);
@@ -437,7 +426,10 @@ if_make_request(struct request_queue *q, struct bio *bio)
 		int offset = bvec->bv_offset;
 		void *data;
 
-		data = kmap(page);
+#ifdef ARCH_HAS_KMAP
+#error FIXME: the current infrastructure cannot deal with HIGHMEM / kmap()
+#endif
+		data = page_address(page);
 		MARS_IO("page = %p data = %p\n", page, data);
 		error = -EINVAL;
 		if (unlikely(!data))
@@ -550,7 +542,6 @@ if_make_request(struct request_queue *q, struct bio *bio)
 				mref->ref_data = data; // direct IO
 				mref->ref_prio = ref_prio;
 				mref_a->orig_page = page;
-				mref_a->is_kmapped = true;
 
 				error = GENERIC_INPUT_CALL(input, mref_get, mref);
 				if (unlikely(error < 0)) {
