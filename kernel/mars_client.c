@@ -759,7 +759,6 @@ static int sender_thread(void *data)
 						 output->get_info,
 						 2 * HZ);
 
-
 		if (output->get_info) {
 			ch = _get_channel(bundle, 0, 1);
 			if (unlikely(!ch)) {
