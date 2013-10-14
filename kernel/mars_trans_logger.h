@@ -115,7 +115,6 @@ struct trans_logger_mref_aspect {
 	struct trans_logger_input *log_input;
 	struct logger_head lh;
 	struct list_head hash_head;
-	//struct list_head q_head;
 	struct list_head pos_head;
 	struct list_head replay_head;
 	struct list_head collect_head;

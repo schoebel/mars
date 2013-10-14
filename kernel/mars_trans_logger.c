@@ -68,10 +68,6 @@
 #define MARS_RPL(_args...) /*empty*/
 #endif
 
-#if 0
-#define inline noinline
-#endif
-
 struct trans_logger_hash_anchor {
 	struct rw_semaphore hash_mutex;
 	struct list_head hash_anchor;
@@ -364,7 +360,6 @@ struct trans_logger_mref_aspect *hash_find(struct trans_logger_brick *brick, lof
 	struct trans_logger_hash_anchor *sub_table = brick->hash_table[hash / HASH_PER_PAGE];
 	struct trans_logger_hash_anchor *start = &sub_table[hash % HASH_PER_PAGE];
 	struct trans_logger_mref_aspect *res;
-	//unsigned int flags;
 
 	atomic_inc(&brick->total_hash_find_count);
 
@@ -388,12 +383,9 @@ void hash_insert(struct trans_logger_brick *brick, struct trans_logger_mref_aspe
         int hash = hash_fn(elem_a->object->ref_pos);
 	struct trans_logger_hash_anchor *sub_table = brick->hash_table[hash / HASH_PER_PAGE];
 	struct trans_logger_hash_anchor *start = &sub_table[hash % HASH_PER_PAGE];
-        //unsigned int flags;
 
-#if 1
 	CHECK_HEAD_EMPTY(&elem_a->hash_head);
 	_mref_check(elem_a->object);
-#endif
 
 	// only for statistics:
 	atomic_inc(&brick->hash_count);
@@ -420,7 +412,6 @@ void hash_extend(struct trans_logger_brick *brick, loff_t *_pos, int *_len, stru
 	struct trans_logger_hash_anchor *start = &sub_table[hash % HASH_PER_PAGE];
 	struct list_head *tmp;
 	bool extended;
-        //unsigned int flags;
 #ifdef HASH_DEBUGGING
 	int count = 0;
 	static int max = 0;
@@ -531,7 +522,6 @@ void hash_put_all(struct trans_logger_brick *brick, struct list_head *list)
 	struct list_head *tmp;
 	struct trans_logger_hash_anchor *start = NULL;
 	int first_hash = -1;
-	//unsigned int flags;
 
 	for (tmp = list->next; tmp != list; tmp = tmp->next) {
 		struct trans_logger_mref_aspect *elem_a;
@@ -640,7 +630,6 @@ int _make_sshadow(struct trans_logger_output *output, struct trans_logger_mref_a
 	int diff;
 
 	mshadow = mshadow_a->object;
-#if 1
 	if (unlikely(mref->ref_len > mshadow->ref_len)) {
 		MARS_ERR("oops %d -> %d\n", mref->ref_len, mshadow->ref_len);
 		mref->ref_len = mshadow->ref_len;
@@ -649,15 +638,13 @@ int _make_sshadow(struct trans_logger_output *output, struct trans_logger_mref_a
 		MARS_ERR("oops %p == %p\n", mshadow_a, mref_a);
 		return -EINVAL;
 	}
-#endif
 
 	diff = mref->ref_pos - mshadow->ref_pos;
-#if 1
 	if (unlikely(diff < 0)) {
 		MARS_ERR("oops diff = %d\n", diff);
 		return -EINVAL;
 	}
-#endif
+
 	/* Attach mref to the existing shadow ("slave shadow").
 	 */
 	mref_a->shadow_data = mshadow_a->shadow_data + diff;
@@ -685,12 +672,12 @@ int _make_sshadow(struct trans_logger_output *output, struct trans_logger_mref_a
 
 	atomic_inc(&brick->sshadow_count);
 	atomic_inc(&brick->total_sshadow_count);
-#if 1
+
 	if (unlikely(mref->ref_len <= 0)) {
 		MARS_ERR("oops, len = %d\n", mref->ref_len);
 		return -EINVAL;
 	}
-#endif
+
 	return mref->ref_len;
 }
 
@@ -926,7 +913,6 @@ restart:
 	}
 
 	// no shadow => call through
-
 	input = brick->inputs[TL_INPUT_READ];
 	CHECK_PTR(input, err);
 
@@ -1011,11 +997,10 @@ void trans_logger_ref_io(struct trans_logger_output *output, struct mref_object 
 	// is this a shadow buffer?
 	shadow_a = mref_a->shadow_ref;
 	if (shadow_a) {
-#if 1
 		CHECK_HEAD_EMPTY(&mref_a->lh.lh_head);
 		CHECK_HEAD_EMPTY(&mref_a->hash_head);
 		CHECK_HEAD_EMPTY(&mref_a->pos_head);
-#endif
+
 		_mref_get(mref); // must be paired with __trans_logger_ref_put()
 		atomic_inc(&brick->inner_balance_count);
 
@@ -1687,13 +1672,11 @@ bool prep_phase_startio(struct trans_logger_mref_aspect *mref_a)
 		return true;
 	} 
 	// else WRITE
-#if 1
 	CHECK_HEAD_EMPTY(&mref_a->lh.lh_head);
 	CHECK_HEAD_EMPTY(&mref_a->hash_head);
 	if (unlikely(mref->ref_flags & (MREF_READING | MREF_WRITING))) {
 		MARS_ERR("bad flags %d\n", mref->ref_flags);
 	}
-#endif
 	/* In case of non-buffered IO, the buffer is
 	 * under control of the user. In particular, he
 	 * may change it without telling us.

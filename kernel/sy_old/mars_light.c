@@ -85,10 +85,6 @@
 
 #define REPLAY_TOLERANCE (PAGE_SIZE + OVERHEAD)
 
-#if 0
-#define inline __attribute__((__noinline__))
-#endif
-
 // TODO: add human-readable timestamps
 #define MARS_INF_TO(channel, fmt, args...)				\
 	({								\
@@ -3991,14 +3987,6 @@ int make_dev(void *buf, struct mars_dent *dent)
 	dev_brick->show_status = _show_brick_status;
 	_dev_brick = (void*)dev_brick;
 	open_count = atomic_read(&_dev_brick->open_count);
-#if 0
-	if (_dev_brick->has_closed) {
-		_dev_brick->has_closed = false;
-		MARS_INF("rotating logfile for '%s'\n", parent->d_name);
-		status = mars_power_button((void*)rot->trans_brick, false);
-		rot->relevant_log = NULL;
-	}
-#endif
 
 done:
 	__show_actual(rot->parent_path, "open-count", open_count);
@@ -5552,23 +5540,6 @@ char *_mars_info(void)
 			);
 	}
 	up_read(&mars_global->brick_mutex);
-
-	down_read(&mars_global->dent_mutex);
-	for (tmp = mars_global->dent_anchor.next; tmp != &mars_global->dent_anchor; tmp = tmp->next) {
-		struct mars_dent *dent;
-		dent_count++;
-		dent = container_of(tmp, struct mars_dent, dent_link);
-#if 0 // usually there is not enough space in PAGE_SIZE
-		pos += scnprintf(
-			txt + pos, max - pos,
-			"dent stamp=%ld.%09ld path='%s' value='%s'\n",
-			dent->new_stat.mtime.tv_sec, dent->new_stat.mtime.tv_nsec,
-			SAFE_STR(dent->d_path),
-			SAFE_STR(dent->new_link)
-			);
-#endif
-	}
-	up_read(&mars_global->dent_mutex);
 
 	pos += scnprintf(
 		txt + pos, max - pos,

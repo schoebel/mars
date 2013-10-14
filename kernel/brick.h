@@ -619,29 +619,6 @@ extern void set_led_off(struct generic_switch *sw, bool val);
  */
 extern void set_button_wait(struct generic_brick *brick, bool val, bool force, int timeout);
 
-/* Operations on networks of bricks (wiring graphs).
- *
- * Switch on => first switch on all predecessors in the wiring graph
- * Switch off => first switch off all successors in the wiring graph
- *
- * Operations on brick networks by multiple threads in parallel are dangerous,
- * because the buttons may start flipping.
- * There is one exception: when @force is set, only the direction to
- * "off" remains possible. This is useful for emergency shutdowns.
- */
-typedef enum {
-	// only one brick instance
-	BR_ON_ONE,   // switch on one brick instance
-	BR_OFF_ONE,  // just switch off (may be switched on again)
-	BR_KILL_ONE, // forced switch off => may be never switched on again
-	BR_FREE_ONE, // forced switch off + deallocation (when possible)
-	// dito, but operating on the whole graph
-	BR_ON_ALL,
-	BR_OFF_ALL, 
-	BR_KILL_ALL,
-	BR_FREE_ALL,
-} brick_switch_t;
-
 /////////////////////////////////////////////////////////////////////////
 
 // threads

@@ -166,12 +166,6 @@ int __init init_mars(void)
 		MARS_ERR("alloc crypto hash failed, status = %d\n", (int)PTR_ERR(mars_tfm));
 		return PTR_ERR(mars_tfm);
 	}
-#if 0
-	if (crypto_tfm_alg_type(crypto_hash_tfm(mars_tfm)) != CRYPTO_ALG_TYPE_DIGEST) {
-		MARS_ERR("bad crypto hash type\n");
-		return -EINVAL;
-	}
-#endif
 	mars_digest_size = crypto_hash_digestsize(mars_tfm);
 	MARS_INF("digest_size = %d\n", mars_digest_size);
 

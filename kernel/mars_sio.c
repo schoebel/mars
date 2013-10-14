@@ -96,9 +96,6 @@ static int sio_ref_get(struct sio_output *output, struct mref_object *mref)
 			return -ENOMEM;
 		}
 		mref->ref_data = brick_block_alloc(mref->ref_pos, (mref_a->alloc_len = mref->ref_len));
-#if 0 // ???
-		mref->ref_flags = 0;
-#endif
 		mref_a->do_dealloc = true;
 		//atomic_inc(&output->total_alloc_count);
 		//atomic_inc(&output->alloc_count);
@@ -232,9 +229,7 @@ int write_aops(struct sio_output *output, struct mref_object *mref)
 fail:
 	mutex_unlock(&mapping->host->i_mutex);
 
-#if 1
 	blk_run_address_space(mapping);
-#endif
 #endif
 	return ret;
 }
@@ -347,13 +342,6 @@ void _complete(struct sio_output *output, struct mref_object *mref, int err)
 	CHECKED_CALLBACK(mref, err, err_found);
 
 done:
-#if 0
-	if (mref->ref_rw) {
-		atomic_dec(&output->write_count);
-	} else {
-		atomic_dec(&output->read_count);
-	}
-#endif
 	sio_ref_put(output, mref);
 
 	atomic_dec(&output->work_count);
@@ -567,9 +555,7 @@ static void sio_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
 	struct sio_mref_aspect *ini = (void*)_ini;
 	(void)ini;
-#if 1
 	CHECK_HEAD_EMPTY(&ini->io_head);
-#endif
 }
 
 MARS_MAKE_STATICS(sio);

@@ -401,7 +401,6 @@ static int client_ref_get(struct client_output *output, struct mref_object *mref
 		return mref->ref_len;
 	}
 
-#if 1
 	/* Limit transfers to page boundaries.
 	 * Currently, this is more restrictive than necessary.
 	 * TODO: improve performance by doing better when possible.
@@ -410,7 +409,6 @@ static int client_ref_get(struct client_output *output, struct mref_object *mref
 	maxlen = PAGE_SIZE - (mref->ref_pos & (PAGE_SIZE-1));
 	if (mref->ref_len > maxlen)
 		mref->ref_len = maxlen;
-#endif
 
 	if (!mref->ref_data) { // buffered IO
 		struct client_mref_aspect *mref_a = client_mref_get_aspect(output->brick, mref);

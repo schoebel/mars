@@ -592,12 +592,10 @@ if_make_request(struct request_queue *q, struct bio *bio)
 
 #ifdef PREFETCH_LEN
 				prefetch_len = PREFETCH_LEN - offset;
-#if 1
 				// TODO: this restriction is too strong to be useful for performance boosts. Do better.
 				if (prefetch_len > total_len) {
 					prefetch_len = total_len;
 				}
-#endif
 				if (pos + prefetch_len > brick->dev_size) {
 					prefetch_len = brick->dev_size - pos;
 				}
@@ -743,13 +741,10 @@ void if_unplug(struct request_queue *q)
 {
 	struct if_input *input = q->queuedata;
 	int was_plugged = 1;
-#if 1
+
 	spin_lock_irq(q->queue_lock);
 	was_plugged = blk_remove_plug(q);
 	spin_unlock_irq(q->queue_lock);
-#else
-	queue_flag_clear_unlocked(QUEUE_FLAG_PLUGGED, q);
-#endif
 
 	was_plugged += atomic_read(&input->plugged_count);
 
