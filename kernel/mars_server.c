@@ -203,9 +203,6 @@ int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_
 
 	mref = server_alloc_mref(brick);
 	status = -ENOMEM;
-	if (!mref)
-		goto done;
-
 	mref_a = server_mref_get_aspect(brick, mref);
 	if (unlikely(!mref_a)) {
 		mars_free_mref(mref);
@@ -643,8 +640,6 @@ static
 char *server_statistics(struct server_brick *brick, int verbose)
 {
 	char *res = brick_string_alloc(1024);
-        if (!res)
-                return NULL;
 	
 	snprintf(res, 1024,
 		 "cb_running = %d "

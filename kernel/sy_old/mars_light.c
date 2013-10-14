@@ -870,10 +870,6 @@ static int _parse_args(struct mars_dent *dent, char *str, int count)
 		goto done;
 	if (!dent->d_args) {
 		dent->d_args = brick_strdup(str);
-		if (!dent->d_args) {
-			status = -ENOMEM;
-			goto done;
-		}
 	}
 	for (i = 0; i < count; i++) {
 		char *tmp;
@@ -888,12 +884,8 @@ static int _parse_args(struct mars_dent *dent, char *str, int count)
 				goto done;
 			len = (tmp - str);
 		}
-		tmp = brick_string_alloc(len + 1);
-		if (!tmp) {
-			status = -ENOMEM;
-			goto done;
-		}
 		brick_string_free(dent->d_argv[i]);
+		tmp = brick_string_alloc(len + 1);
 		dent->d_argv[i] = tmp;
 		strncpy(dent->d_argv[i], str, len);
 		dent->d_argv[i][len] = '\0';
@@ -987,10 +979,6 @@ int parse_logfile_name(const char *str, int *seq, const char **host)
 	}
 
 	_host = brick_strdup(str + len);
-	if (unlikely(!_host)) {
-		MARS_ERR("no MEM\n");
-		return 0;
-	}
 
 	len_host = skip_part(_host);
 	_host[len_host] = '\0';
@@ -1158,11 +1146,6 @@ int _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 	int i;
 	int res = 0;
 
-	if (unlikely(!data || !digest || !old)) {
-		MARS_ERR("no MEM\n");
-		goto out;
-	}
-
 	if (likely(inf->inf_sequence > 1)) {
 		if (unlikely((inf->inf_sequence < rot->inf_prev_sequence ||
 			      inf->inf_sequence > rot->inf_prev_sequence + 1) &&
@@ -1211,10 +1194,6 @@ int _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 	if (likely(prev_link && prev_link[0])) {
 		char *tmp;
 		prev_digest = brick_strdup(prev_link);
-		if (unlikely(!prev_digest)) {
-			MARS_ERR("no MEM\n");
-			goto out;
-		}
 		// take the part before ':'
 		for (tmp = prev_digest; *tmp; tmp++)
 			if (*tmp == ':')
@@ -2346,11 +2325,6 @@ static int _make_peer(struct mars_global *global, struct mars_dent *dent, char *
 		unsigned long flags;
 
 		dent->d_private = brick_zmem_alloc(sizeof(struct mars_peerinfo));
-		if (!dent->d_private) {
-			MARS_ERR("no memory for peer structure\n");
-			status = -ENOMEM;
-			goto done;
-		}
 		dent->d_private_destruct = peer_destruct;
 		peer = dent->d_private;
 		peer->global = global;
@@ -2725,11 +2699,6 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	if (!rot) {
 		const char *fetch_path;
 		rot = brick_zmem_alloc(sizeof(struct mars_rotate));
-		if (unlikely(!rot)) {
-			MARS_ERR("cannot allocate rot structure\n");
-			status = -ENOMEM;
-			goto done;
-		}
 		spin_lock_init(&rot->inf_lock);		
 		fetch_path = path_make("%s/logfile-update", parent_path);
 		if (unlikely(!fetch_path)) {
@@ -5303,8 +5272,6 @@ int light_checker(struct mars_dent *parent, const char *_name, int namlen, unsig
 	int status = -2;
 #ifdef MARS_DEBUGGING
 	const char *name = brick_strndup(_name, namlen);
-	if (!name)
-		return -ENOMEM;
 #else
 	const char *name = _name;
 #endif
@@ -5556,16 +5523,17 @@ static
 char *_mars_info(void)
 {
 	int max = PAGE_SIZE - 64;
-	char *txt = brick_string_alloc(max);
+	char *txt;
 	struct list_head *tmp;
 	int dent_count = 0;
 	int brick_count = 0;
 	int pos = 0;
 
-	if (unlikely(!txt || !mars_global)) {
-		brick_string_free(txt);
+	if (unlikely(!mars_global)) {
 		return NULL;
 	}
+
+	txt = brick_string_alloc(max);
 
 	txt[--max] = '\0'; // safeguard
 

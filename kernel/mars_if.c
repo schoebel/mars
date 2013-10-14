@@ -465,7 +465,6 @@ if_make_request(struct request_queue *q, struct bio *bio)
 	}
 
 	biow = brick_mem_alloc(sizeof(struct bio_wrapper));
-	CHECK_PTR(biow, err);
 	biow->bio = bio;
 	atomic_set(&biow->bi_comp_cnt, 0);
 
@@ -585,10 +584,6 @@ if_make_request(struct request_queue *q, struct bio *bio)
 				int prefetch_len;
 				error = -ENOMEM;
 				mref = if_alloc_mref(brick);
-				if (unlikely(!mref)) {
-					up(&input->kick_sem);
-					goto err;
-				}
 				mref_a = if_mref_get_aspect(brick, mref);
 				if (unlikely(!mref_a)) {
 					up(&input->kick_sem);
@@ -1128,8 +1123,6 @@ char *if_statistics(struct if_brick *brick, int verbose)
 	int tmp3 = atomic_read(&input->total_write_count); 
 	int tmp4 = atomic_read(&input->total_mref_write_count);
 
-	if (!res)
-		return NULL;
 	snprintf(res, 512,
 		 "total reada = %d "
 		 "reads = %d "
@@ -1215,10 +1208,6 @@ static int if_input_construct(struct if_input *input)
 	int i;
 
 	input->hash_table = brick_block_alloc(0, PAGE_SIZE);
-	if (unlikely(!input->hash_table)) {
-		MARS_ERR("cannot allocate hash table\n");
-		return -ENOMEM;
-	}
 	for (i = 0; i < IF_HASH_MAX; i++) {
 		spin_lock_init(&input->hash_table[i].hash_lock);
 		INIT_LIST_HEAD(&input->hash_table[i].hash_anchor);

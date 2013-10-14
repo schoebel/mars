@@ -96,10 +96,6 @@ static int sio_ref_get(struct sio_output *output, struct mref_object *mref)
 			return -ENOMEM;
 		}
 		mref->ref_data = brick_block_alloc(mref->ref_pos, (mref_a->alloc_len = mref->ref_len));
-		if (unlikely(!mref->ref_data)) {
-			MARS_ERR("ENOMEM %d bytes\n", mref->ref_len);
-			return -ENOMEM;
-		}
 #if 0 // ???
 		mref->ref_flags = 0;
 #endif
@@ -526,8 +522,6 @@ char *sio_statistics(struct sio_brick *brick, int verbose)
 	int fly_sum   = 0;
 	int total_sum = 0;
 	int i;
-	if (!res)
-		return NULL;
 
 	for (i = 1; i <= WITH_THREAD; i++) {
 		struct sio_threadinfo *tinfo = &output->tinfo[i];

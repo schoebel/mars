@@ -160,17 +160,8 @@ struct mapfree_info *mapfree_get(const char *name, int flags)
 		mm_segment_t oldfs;
 
 		mf = brick_zmem_alloc(sizeof(struct mapfree_info));
-		if (unlikely(!mf)) {
-			MARS_ERR("no mem, name = '%s'\n", name);
-			continue;
-		}
 
 		mf->mf_name = brick_strdup(name);
-		if (unlikely(!mf->mf_name)) {
-			MARS_ERR("no mem, name = '%s'\n", name);
-			brick_mem_free(mf);
-			continue;
-		}
 
 		mf->mf_flags = flags;
 		INIT_LIST_HEAD(&mf->mf_head);

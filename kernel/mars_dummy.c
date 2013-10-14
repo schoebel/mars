@@ -106,8 +106,6 @@ static
 char *dummy_statistics(struct dummy_brick *brick, int verbose)
 {
 	char *res = brick_string_alloc(1024);
-	if (!res)
-		return NULL;
 
 	snprintf(res, 1023,
 		 "nothing has happened.\n"

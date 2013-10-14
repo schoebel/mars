@@ -236,23 +236,15 @@ static inline
 struct buf_head *_alloc_bf(struct buf_brick *brick)
 {
 	struct buf_head *bf = brick_zmem_alloc(sizeof(struct buf_head));
-	if (unlikely(!bf))
-		goto done;
 
 #ifdef USE_VMALLOC
 	bf->bf_data = vmalloc(brick->backing_size);
 #else
 	bf->bf_data = (void*)__get_free_pages(GFP_BRICK, brick->backing_order);
 #endif
-	if (unlikely(!bf->bf_data)) {
-		brick_mem_free(bf);
-		bf = NULL;
-		goto done;
-	}
 
 	atomic_inc(&brick->alloc_count);
 
-done:
 	return bf;
 }
 
@@ -333,8 +325,6 @@ void __pre_alloc_bf(struct buf_brick *brick, int max)
 {
 	while (max-- > 0) {
 		struct buf_head *bf = _alloc_bf(brick);
-		if (unlikely(!bf))
-			break;
 		INIT_LIST_HEAD(&bf->bf_list_head);
 		_add_bf_list(brick, bf, LIST_FREE, true);
 	}
@@ -641,8 +631,6 @@ static int _buf_make_io(struct buf_brick *brick, struct buf_head *bf, void *star
 		int len;
 
 		mref = buf_alloc_mref(brick);
-		if (unlikely(!mref))
-			break;
 
 		mref_a = buf_mref_get_aspect(brick, mref);
 		if (unlikely(!mref_a)) {

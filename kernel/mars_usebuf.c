@@ -146,10 +146,6 @@ static int usebuf_ref_get(struct usebuf_output *output, struct mref_object *mref
 	sub_mref_a = mref_a->sub_mref_a;
 	if (!sub_mref_a) {
 		sub_mref = usebuf_alloc_mref(output->brick);
-		if (unlikely(!sub_mref)) {
-			MARS_FAT("cannot get sub_mref\n");
-			return -ENOMEM;
-		}
 
 		sub_mref_a = usebuf_mref_get_aspect(output->brick, sub_mref);
 		if (unlikely(!sub_mref_a)) {

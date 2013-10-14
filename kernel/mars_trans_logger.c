@@ -748,9 +748,6 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 
 	// create a new master shadow
 	data = brick_block_alloc(mref->ref_pos, (mref_a->alloc_len = mref->ref_len));
-	if (unlikely(!data)) {
-		return -ENOMEM;
-	}
 	atomic64_add(mref->ref_len, &brick->shadow_mem_used);
 #ifdef CONFIG_MARS_DEBUG
 	memset(data, 0x11, mref->ref_len);
@@ -1205,9 +1202,6 @@ struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t p
 	/* Allocate structure representing a bunch of adjacent writebacks
 	 */
 	wb = brick_zmem_alloc(sizeof(struct writeback_info));
-	if (!wb) {
-		goto err;
-	}
 	if (unlikely(len < 0)) {
 		MARS_ERR("len = %d\n", len);
 	}
@@ -1258,10 +1252,6 @@ struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t p
 			int status;
 
 			sub_mref = trans_logger_alloc_mref(brick);
-			if (unlikely(!sub_mref)) {
-				MARS_FAT("cannot alloc sub_mref\n");
-				goto err;
-			}
 
 			sub_mref->ref_pos = pos;
 			sub_mref->ref_len = len;
@@ -1331,10 +1321,6 @@ struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t p
 		data = orig_mref_a->shadow_data + diff;
 
 		sub_mref = trans_logger_alloc_mref(brick);
-		if (unlikely(!sub_mref)) {
-			MARS_FAT("cannot alloc sub_mref\n");
-			goto err;
-		}
 
 		sub_mref->ref_pos = pos;
 		sub_mref->ref_len = this_len;
@@ -2811,10 +2797,6 @@ int replay_data(struct trans_logger_brick *brick, loff_t pos, void *buf, int len
 		
 		status = -ENOMEM;
 		mref = trans_logger_alloc_mref(brick);
-		if (unlikely(!mref)) {
-			MARS_ERR("no memory\n");
-			goto done;
-		}
 		mref_a = trans_logger_mref_get_aspect(brick, mref);
 		CHECK_PTR(mref_a, done);
 		CHECK_ASPECT(mref_a, mref, done);
@@ -3111,8 +3093,6 @@ static noinline
 char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 {
 	char *res = brick_string_alloc(1024);
-	if (!res)
-		return NULL;
 
 	snprintf(res, 1023,
 		 "mode replay=%d "
@@ -3344,10 +3324,6 @@ int trans_logger_brick_construct(struct trans_logger_brick *brick)
 	int i;
 
 	brick->hash_table = brick_block_alloc(0, PAGE_SIZE);
-	if (unlikely(!brick->hash_table)) {
-		MARS_ERR("cannot allocate hash directory table.\n");
-		return -ENOMEM;
-	}
 	memset(brick->hash_table, 0, PAGE_SIZE);
 
 	for (i = 0; i < NR_HASH_PAGES; i++) {
@@ -3363,11 +3339,6 @@ int trans_logger_brick_construct(struct trans_logger_brick *brick)
 
 		sub_table = brick_block_alloc(0, PAGE_SIZE);
 		brick->hash_table[i] = sub_table;
-		if (unlikely(!sub_table)) {
-			MARS_ERR("cannot allocate hash subtable %d.\n", i);
-			_free_pages(brick);
-			return -ENOMEM;
-		}
 
 		memset(sub_table, 0, PAGE_SIZE);
 		for (j = 0; j < HASH_PER_PAGE; j++) {

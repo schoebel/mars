@@ -123,9 +123,6 @@ static void dump_mem(void *data, int len)
 	char *tmp;
 	char *buf = brick_string_alloc(0);
 
-	if (!buf)
-		return;
-
 	for (i = 0, tmp = buf; i < len; i++) {
 		unsigned char byte = ((unsigned char*)data)[i];
 		if (!(i % 8)) {

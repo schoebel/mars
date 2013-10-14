@@ -418,8 +418,6 @@ static int client_ref_get(struct client_output *output, struct mref_object *mref
 			return -EILSEQ;
 
 		mref->ref_data = brick_block_alloc(mref->ref_pos, (mref_a->alloc_len = mref->ref_len));
-		if (!mref->ref_data)
-			return -ENOMEM;
 
 		mref_a->do_dealloc = true;
 		mref->ref_flags = 0;
@@ -926,8 +924,6 @@ char *client_statistics(struct client_brick *brick, int verbose)
 {
 	struct client_output *output = brick->outputs[0];
 	char *res = brick_string_alloc(1024);
-        if (!res)
-                return NULL;
 
 	snprintf(res, 1024,
 		 "max_flying = %d "
@@ -981,10 +977,6 @@ static int client_output_construct(struct client_output *output)
 	int i;
 
 	output->hash_table = brick_block_alloc(0, PAGE_SIZE);
-	if (unlikely(!output->hash_table)) {
-		MARS_ERR("cannot allocate hash table\n");
-		return -ENOMEM;
-	}
 
 	for (i = 0; i < CLIENT_HASH_MAX; i++) {
 		INIT_LIST_HEAD(&output->hash_table[i]);
