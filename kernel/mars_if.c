@@ -871,7 +871,7 @@ static int if_switch(struct if_brick *brick)
 		brick->say_channel = get_binding(current);
 
 		status = -ENOMEM;
-		q = blk_alloc_queue(GFP_MARS);
+		q = blk_alloc_queue(GFP_BRICK);
 		if (!q) {
 			MARS_ERR("cannot allocate device request queue\n");
 			goto is_down;

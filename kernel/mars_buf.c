@@ -242,7 +242,7 @@ struct buf_head *_alloc_bf(struct buf_brick *brick)
 #ifdef USE_VMALLOC
 	bf->bf_data = vmalloc(brick->backing_size);
 #else
-	bf->bf_data = (void*)__get_free_pages(GFP_MARS, brick->backing_order);
+	bf->bf_data = (void*)__get_free_pages(GFP_BRICK, brick->backing_order);
 #endif
 	if (unlikely(!bf->bf_data)) {
 		brick_mem_free(bf);
