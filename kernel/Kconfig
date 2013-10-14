@@ -216,13 +216,6 @@ config MARS_FAST_FULLSYNC
 #	---help---
 #	Normally OFF. Switch on only for EXPERIMENTS!
 
-config MARS_LOGROT
-	bool "allow logrotate during operation"
-	depends on MARS
-	default y
-	---help---
-	Normally ON. Switch off only for EXPERIMENTS!
-
 config MARS_MIN_SPACE_4
 	int "absolutely necessary free space in /mars/ (hard limit in GB)"
 	depends on MARS
@@ -360,7 +353,7 @@ config MARS_MIN_SPACE_0
 
 config MARS_LOGROT_AUTO
 	int "automatic logrotate when logfile exceeds size (in GB)"
-	depends on MARS_LOGROT
+	depends on MARS
 	default 32
 	---help---
 	You could switch this off by setting to 0. However, deletion

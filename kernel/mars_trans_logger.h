@@ -86,23 +86,11 @@ struct logger_head {
 
 ////////////////////////////////////////////////////////////////////
 
-#ifdef CONFIG_MARS_LOGROT
-
 #define TL_INPUT_READ         0
 #define TL_INPUT_WRITEBACK    0
 #define TL_INPUT_LOG1         1
 #define TL_INPUT_LOG2         2
 #define TL_INPUT_NR           3
-
-#else
-
-#define TL_INPUT_READ         0
-#define TL_INPUT_WRITEBACK    0
-#define TL_INPUT_LOG1         1
-#define TL_INPUT_LOG2         1
-#define TL_INPUT_NR           2
-
-#endif
 
 struct writeback_info {
 	struct trans_logger_brick *w_brick;
