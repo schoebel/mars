@@ -149,37 +149,7 @@ EXPORT_SYMBOL_GPL(mref_checksum);
 
 /////////////////////////////////////////////////////////////////////
 
-// power led handling
-
-void mars_power_led_on(struct mars_brick *brick, bool val)
-{
-	bool oldval = brick->power.led_on;
-	if (val != oldval) {
-		//MARS_DBG("brick '%s' type '%s' led_on %d -> %d\n", brick->brick_path, brick->type->type_name, oldval, val);
-		set_led_on(&brick->power, val);
-		mars_trigger();
-	}
-}
-EXPORT_SYMBOL_GPL(mars_power_led_on);
-
-void mars_power_led_off(struct mars_brick *brick, bool val)
-{
-	bool oldval = brick->power.led_off;
-	if (val != oldval) {
-		//MARS_DBG("brick '%s' type '%s' led_off %d -> %d\n", brick->brick_path, brick->type->type_name, oldval, val);
-		set_led_off(&brick->power, val);
-		mars_trigger();
-	}
-}
-EXPORT_SYMBOL_GPL(mars_power_led_off);
-
-
-/////////////////////////////////////////////////////////////////////
-
 // init stuff
-
-void (*_mars_trigger)(void) = NULL;
-EXPORT_SYMBOL_GPL(_mars_trigger);
 
 int __init init_mars(void)
 {
