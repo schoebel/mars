@@ -28,7 +28,6 @@
 
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
-//#define IO_DEBUGGING
 
 #define REQUEST_MERGING
 //#define ALWAYS_UNPLUG false // FIXME: does not work! single requests left over!
@@ -170,7 +169,6 @@ void if_endio(struct generic_callback *cb)
 	CHECK_PTR(input, err);
 
 	rw = mref_a->object->ref_rw;
-	MARS_IO("rw = %d bio_count = %d\n", rw, mref_a->bio_count);
 
 	for (k = 0; k < mref_a->bio_count; k++) {
 		struct bio_wrapper *biow;
@@ -214,7 +212,6 @@ void if_endio(struct generic_callback *cb)
 #endif
 //      end_remove_this
 		}
-		MARS_IO("calling end_io() rw = %d error = %d\n", rw, error);
 		bio_endio(bio, error);
 		bio_put(bio);
 		brick_mem_free(biow);
@@ -225,15 +222,6 @@ void if_endio(struct generic_callback *cb)
 	} else {
 		atomic_dec(&input->read_flying_count);
 	}
-#ifdef IO_DEBUGGING
-		{
-			struct if_brick *brick = input->brick;
-			char *txt = brick->ops->brick_statistics(brick, false);
-			MARS_IO("%s", txt);
-			brick_string_free(txt);
-		}
-#endif
-	MARS_IO("finished.\n");
 	return;
 
 err:
@@ -252,8 +240,6 @@ void _if_unplug(struct if_input *input)
 #ifdef CONFIG_MARS_DEBUG
 	might_sleep();
 #endif
-
-	MARS_IO("plugged_count = %d\n", atomic_read(&input->plugged_count));
 
 	down(&input->kick_sem);
 	spin_lock_irqsave(&input->req_lock, flags);
@@ -301,14 +287,6 @@ void _if_unplug(struct if_input *input)
 		GENERIC_INPUT_CALL(input, mref_io, mref);
 		GENERIC_INPUT_CALL(input, mref_put, mref);
 	}
-#ifdef IO_DEBUGGING
-	{
-		struct if_brick *brick = input->brick;
-		char *txt = brick->ops->brick_statistics(brick, false);
-		MARS_IO("%s", txt);
-		brick_string_free(txt);
-	}
-#endif
 }
 
 #ifndef BLK_MAX_REQUEST_COUNT
@@ -316,7 +294,6 @@ void _if_unplug(struct if_input *input)
 static
 void if_timer(unsigned long data)
 {
-	MARS_IO("\n");
 	_if_unplug((void*)data);
 }
 #endif
@@ -395,35 +372,6 @@ if_make_request(struct request_queue *q, struct bio *bio)
         int error = -EINVAL;
 
 	bind_to_channel(brick->say_channel, current);
-
-	MARS_IO("bio %p "
-		"size = %d "
-		"rw = %d "
-		"sectors = %d "
-		"ahead = %d "
-		"barrier = %d "
-		"syncio = %d "
-		"unplug = %d "
-		"meta = %d "
-		"discard = %d "
-		"noidle = %d "
-		"prio = %d "
-		"pos = %lldd "
-		"total_len = %d\n",
-		bio,
-		bio->bi_size,
-		rw,
-		sectors,
-		ahead,
-		barrier,
-		syncio,
-		unplug,
-		meta,
-		discard,
-		noidle,
-		prio,
-		pos,
-		total_len);
 
 	might_sleep();
 
@@ -509,7 +457,6 @@ if_make_request(struct request_queue *q, struct bio *bio)
 #error FIXME: the current infrastructure cannot deal with HIGHMEM / kmap()
 #endif
 		data = page_address(page);
-		MARS_IO("page = %p data = %p\n", page, data);
 		error = -EINVAL;
 		if (unlikely(!data))
 			break;
@@ -524,8 +471,6 @@ if_make_request(struct request_queue *q, struct bio *bio)
 
 			mref = NULL;
 			mref_a = NULL;
-
-			MARS_IO("rw = %d i = %d pos = %lld  bv_page = %p bv_offset = %d data = %p bv_len = %d\n", rw, i, pos, bvec->bv_page, bvec->bv_offset, data, bv_len);
 
 			hash_index = (pos / IF_HASH_CHUNK) % IF_HASH_MAX;
 
@@ -687,15 +632,6 @@ if_make_request(struct request_queue *q, struct bio *bio)
 	}
 
 err:
-
-#ifdef IO_DEBUGGING
-	{
-		char *txt = brick->ops->brick_statistics(brick, false);
-		MARS_IO("%s", txt);
-		brick_string_free(txt);
-	}
-#endif
-
 	if (error < 0) {
 		MARS_ERR("cannot submit request from bio, status=%d\n", error);
 		if (assigned) {
@@ -748,7 +684,6 @@ void if_unplug(struct request_queue *q)
 
 	was_plugged += atomic_read(&input->plugged_count);
 
-	MARS_IO("block layer called UNPLUG was_plugged = %d\n", was_plugged);
 	if (ALWAYS_UNPLUG_FROM_EXTERNAL || was_plugged) {
 		_if_unplug(input);
 	}

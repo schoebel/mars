@@ -25,7 +25,6 @@
 
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
-//#define IO_DEBUGGING
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -63,7 +62,6 @@ void ranking_compute(struct rank_data *rkd, const struct rank_info rki[], int x)
 
 		// linear interpolation
 		points = ((long long)(x - x0) * (long long)(y1 - y0)) / (x1 - x0) + y0;
-		MARS_IO("i = %d x0 = %d x1 = %d y0 = %d y1 = %d points = %d\n", i, x0, x1, y0, y1, points);
 		break;
 	}
 	rkd->rkd_tmp += points;
@@ -75,8 +73,6 @@ int ranking_select(struct rank_data rkd[], int rkd_count)
 	int res = -1;
 	long long max = LLONG_MIN / 2;
 	int i;
-
-	MARS_IO("rkd_count = %d\n", rkd_count);
 
 	for (i = 0; i < rkd_count; i++) {
 		struct rank_data *tmp = &rkd[i];
@@ -97,7 +93,6 @@ int ranking_select(struct rank_data rkd[], int rkd_count)
 		for (i = 0; i < rkd_count; i++)
 			rkd[i].rkd_got += max;
 	}
-	MARS_IO("res = %d\n", res);
 	return res;
 }
 EXPORT_SYMBOL_GPL(ranking_select);

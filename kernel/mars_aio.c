@@ -23,7 +23,6 @@
 
 //#define BRICK_DEBUGGING
 #define MARS_DEBUGGING
-//#define IO_DEBUGGING
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -441,8 +440,6 @@ static void aio_ref_io(struct aio_output *output, struct mref_object *mref)
 
 	mapfree_set(output->mf, mref->ref_pos, -1);
 
-	MARS_IO("AIO rw=%d pos=%lld len=%d data=%p\n", mref->ref_rw, mref->ref_pos, mref->ref_len, mref->ref_data);
-
 	mref_a = aio_mref_get_aspect(output->brick, mref);
 	if (unlikely(!mref_a)) {
 		goto done;
@@ -739,8 +736,6 @@ static int aio_event_thread(void *data)
 			mref_a->di.dirty_stage = 2;
 			mref = mref_a->object;
 
-			MARS_IO("AIO done %p pos = %lld len = %d rw = %d\n", mref, mref->ref_pos, mref->ref_len, mref->ref_rw);
-
 			mapfree_set(output->mf, mref->ref_pos, mref->ref_pos + mref->ref_len);
 
 			if (output->brick->o_fdsync
@@ -991,7 +986,6 @@ static int aio_submit_thread(void *data)
 
 	error:
 		if (unlikely(status < 0)) {
-			MARS_IO("submit_count = %d status = %d\n", atomic_read(&output->submit_count), status);
 			_complete_mref(output, mref, status);
 		}
 	}

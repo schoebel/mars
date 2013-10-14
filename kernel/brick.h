@@ -65,12 +65,6 @@ extern int _brick_msleep(int msecs, bool shorten);
 #define BRICK_DBG(_args...) /**/
 #endif
 
-#ifdef IO_DEBUGGING
-#define BRICK_IO(_fmt, _args...)  _BRICK_MSG(SAY_DEBUG, false, _fmt, ##_args)
-#else
-#define BRICK_IO(_args...) /*empty*/
-#endif
-
 #include "brick_checking.h"
 
 /////////////////////////////////////////////////////////////////////////

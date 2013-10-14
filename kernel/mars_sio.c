@@ -24,7 +24,6 @@
 
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
-//#define IO_DEBUGGING
 
 #define USE_VFS_READ
 #define USE_VFS_WRITE
@@ -431,7 +430,6 @@ void sio_ref_io(struct sio_output *output, struct mref_object *mref)
 	}
 
 	tinfo = &output->tinfo[index];
-	MARS_IO("queueing %p on %d\n", mref, index);
 
 	atomic_inc(&tinfo->total_count);
 	atomic_inc(&tinfo->queue_count);
@@ -478,7 +476,6 @@ static int sio_thread(void *data)
 
 		mref_a = container_of(tmp, struct sio_mref_aspect, io_head);
 		mref = mref_a->object;
-		MARS_IO("got %p %p\n", mref_a, mref);
 		_sio_ref_io(tinfo, mref);
 	}
 

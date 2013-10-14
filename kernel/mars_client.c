@@ -24,7 +24,6 @@
 
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
-//#define IO_DEBUGGING
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -465,12 +464,7 @@ static void client_ref_io(struct client_output *output, struct mref_object *mref
 	}
 
 	while (output->brick->max_flying > 0 && atomic_read(&output->fly_count) > output->brick->max_flying) {
-		MARS_IO("sleeping request pos = %lld len = %d rw = %d (flying = %d)\n", mref->ref_pos, mref->ref_len, mref->ref_rw, atomic_read(&output->fly_count));
-#ifdef IO_DEBUGGING
-		brick_msleep(3000);
-#else
 		brick_msleep(1000 * 2 / HZ);
-#endif
 	}
 
 	if (!output->brick->power.led_on) {
@@ -483,8 +477,6 @@ static void client_ref_io(struct client_output *output, struct mref_object *mref
 
 	mref_a->submit_jiffies = jiffies;
 	_hash_insert(output, mref_a);
-
-	MARS_IO("added request id = %d pos = %lld len = %d rw = %d (flying = %d)\n", mref->ref_id, mref->ref_pos, mref->ref_len, mref->ref_rw, atomic_read(&output->fly_count));
 
 	wake_up_interruptible_all(&output->bundle.sender_event);
 
@@ -521,7 +513,6 @@ int receiver_thread(void *data)
 		}
 
 		status = mars_recv_struct(&ch->socket, &cmd, mars_cmd_meta);
-		MARS_IO("got cmd = %d status = %d\n", cmd.cmd_code, status);
 		if (status <= 0) {
 			if (!mars_socket_is_alive(&ch->socket)) {
 				MARS_DBG("socket is dead\n");
@@ -581,10 +572,7 @@ int receiver_thread(void *data)
 				goto done;
 			}
 
-			MARS_IO("got callback id = %d, old pos = %lld len = %d rw = %d\n", mref->ref_id, mref->ref_pos, mref->ref_len, mref->ref_rw);
-
 			status = mars_recv_cb(&ch->socket, mref, &cmd);
-			MARS_IO("new status = %d, pos = %lld len = %d rw = %d\n", status, mref->ref_pos, mref->ref_len, mref->ref_rw);
 			if (unlikely(status < 0)) {
 				MARS_WRN("interrupted data transfer during callback on '%s' @%s, status = %d\n",
 					 output->bundle.path,

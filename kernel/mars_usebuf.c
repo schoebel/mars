@@ -30,7 +30,6 @@
 
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
-//#define IO_DEBUGGING
 //#define STAT_DEBUGGING
 
 //#define FAKE_ALL // only for testing
@@ -62,7 +61,6 @@ static int usebuf_get_info(struct usebuf_output *output, struct mars_info *info)
 static inline
 void _usebuf_copy(struct mref_object *mref, struct mref_object *sub_mref, int rw)
 {
-	MARS_IO("memcpy rw = %d %p %p %d\n", rw, mref->ref_data, sub_mref->ref_data, mref->ref_len);
 #ifndef FAKE_ALL
 	if (rw == 0) {
 		memcpy(mref->ref_data, sub_mref->ref_data, mref->ref_len);
@@ -98,7 +96,6 @@ static void _usebuf_endio(struct generic_callback *cb)
 			}
 #ifndef FAKE_ALL
 		} else if (sub_mref->ref_rw == 0) {
-			MARS_IO("re-kick %p\n", sub_mref);
 			sub_mref->ref_rw = 1;
 			_usebuf_copy(mref, sub_mref, 1);
 			mref->ref_flags |= MREF_UPTODATE;
@@ -274,7 +271,6 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mref_object *mref
 		}
 #endif
 	} else if (sub_mref->ref_flags & MREF_UPTODATE) {
-		MARS_IO("direct _usebuf_endio\n");
 		_usebuf_endio(sub_mref->object_cb);
 		return;
 	}

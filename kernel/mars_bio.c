@@ -27,7 +27,6 @@
 
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
-//#define IO_DEBUGGING
 
 //#define FAKE_IO
 
@@ -166,8 +165,6 @@ int make_bio(struct bio_brick *brick, void *data, int len, loff_t pos, struct bi
 		bvec_count = 1;
 	}
 
-	MARS_IO("sector_offset = %d data = %p pos = %lld rest_len = %d page_offset = %d page_len = %d bvec_count = %d\n", sector_offset, data, pos, rest_len, page_offset, page_len, bvec_count);
-
 	bio = bio_alloc(GFP_BRICK, bvec_count);
 	status = -ENOMEM;
 
@@ -194,8 +191,6 @@ int make_bio(struct bio_brick *brick, void *data, int len, loff_t pos, struct bi
 			goto out;
 		}
 
-		MARS_IO("  i = %d page = %p bv_len = %d bv_offset = %d\n", i, page, this_len, page_offset);
-
 		bio->bi_io_vec[i].bv_page = page;
 		bio->bi_io_vec[i].bv_len = this_len;
 		bio->bi_io_vec[i].bv_offset = page_offset;
@@ -204,7 +199,6 @@ int make_bio(struct bio_brick *brick, void *data, int len, loff_t pos, struct bi
 		rest_len -= this_len;
 		result_len += this_len;
 		page_offset = 0;
-		//MARS_IO("page_offset=%d this_len=%d (new len=%d, new status=%d)\n", page_offset, this_len, rest_len, status);
 	}
 
 	if (unlikely(rest_len != 0)) {
@@ -313,8 +307,6 @@ static int bio_ref_get(struct bio_output *output, struct mref_object *mref)
 	else if (unlikely(mref->ref_prio > MARS_PRIO_LOW))
 		mref->ref_prio = MARS_PRIO_LOW;
 
-	MARS_IO("len = %d status = %d prio = %d fly = %d\n", mref->ref_len, status, mref->ref_prio, atomic_read(&output->brick->fly_count[PRIO_INDEX(mref)]));
-
 	mref->ref_len = status;
 	_mref_get_first(mref);
 	status = 0;
@@ -327,8 +319,6 @@ static
 void _bio_ref_put(struct bio_output *output, struct mref_object *mref)
 {
 	struct bio_mref_aspect *mref_a;
-
-	MARS_IO("deallocating\n");
 
 	mref->ref_total_size = output->brick->total_size;
 
@@ -346,7 +336,6 @@ void _bio_ref_put(struct bio_output *output, struct mref_object *mref)
 		mref_a->bio = NULL;
 	}
 	if (mref_a->do_dealloc) {
-		MARS_IO("free page\n");
 		brick_block_free(mref->ref_data, mref_a->alloc_len);
 		mref->ref_data = NULL;
 	}
@@ -421,8 +410,6 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref, bool cork)
 #endif
 	}
 
-	MARS_IO("starting IO rw = %d prio 0 %d fly = %d\n", rw, mref->ref_prio, atomic_read(&brick->fly_count[PRIO_INDEX(mref)]));
-
 	mref_a->start_stamp = cpu_clock(raw_smp_processor_id());
 	spin_lock_irqsave(&brick->lock, flags);
 	list_add_tail(&mref_a->io_head, &brick->submitted_list[rw & 1]);
@@ -445,8 +432,6 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref, bool cork)
 	if (unlikely(bio_flagged(bio, BIO_EOPNOTSUPP)))
 		status = -EOPNOTSUPP;
 #endif
-
-	MARS_IO("submitted\n");
 
 	if (likely(status >= 0))
 		goto done;
@@ -499,9 +484,6 @@ static
 int bio_response_thread(void *data)
 {
 	struct bio_brick *brick = data;
-#ifdef IO_DEBUGGING
-	int round = 0;
-#endif
 
 	MARS_INF("bio response thread has started on '%s'.\n", brick->brick_path);
 
@@ -524,21 +506,10 @@ int bio_response_thread(void *data)
 				sleeptime = 2;
 		}
 
-#ifdef IO_DEBUGGING
-		round++;
-		MARS_IO("%d sleeping %d...\n", round, sleeptime);
-#endif
 		wait_event_interruptible_timeout(
 			brick->response_event,
 			atomic_read(&brick->completed_count) > 0,
 			sleeptime);
-
-		MARS_IO("%d woken up, completed_count = %d fly_count[0] = %d fly_count[1] = %d fly_count[2] = %d\n",
-			round,
-			atomic_read(&brick->completed_count),
-			atomic_read(&brick->fly_count[0]),
-			atomic_read(&brick->fly_count[1]),
-			atomic_read(&brick->fly_count[2]));
 
 		spin_lock_irqsave(&brick->lock, flags);
 		list_replace_init(&brick->completed_list, &tmp_list);
@@ -573,10 +544,6 @@ int bio_response_thread(void *data)
 			threshold_check(&bio_io_threshold[mref->ref_rw & 1], latency);
 
 			code = mref_a->status_code;
-#ifdef IO_DEBUGGING
-			round++;
-			MARS_IO("%d completed , status = %d\n", round, code);
-#endif
 		
 			if (code < 0) {
 				MARS_ERR("IO error %d\n", code);
@@ -587,13 +554,9 @@ int bio_response_thread(void *data)
 
 			SIMPLE_CALLBACK(mref, code);
 
-			MARS_IO("%d callback done.\n", round);
-			
 			atomic_dec(&brick->fly_count[PRIO_INDEX(mref)]);
 			atomic_inc(&brick->total_completed_count[PRIO_INDEX(mref)]);
 			count++;
-
-			MARS_IO("%d completed_count = %d fly_count = %d\n", round, atomic_read(&brick->completed_count), atomic_read(&brick->fly_count[PRIO_INDEX(mref)]));
 
 			if (likely(mref_a->bio)) {
 				bio_put(mref_a->bio);
@@ -644,31 +607,18 @@ static
 int bio_submit_thread(void *data)
 {
 	struct bio_brick *brick = data;
-#ifdef IO_DEBUGGING
-	int round = 0;
-#endif
 
 	MARS_INF("bio submit thread has started on '%s'.\n", brick->brick_path);
 
 	while (!brick_thread_should_stop()) {
 		int prio;
-#ifdef IO_DEBUGGING
-		round++;
-		MARS_IO("%d sleeping...\n", round);
-#endif
+
 		wait_event_interruptible_timeout(
 			brick->submit_event,
 			brick->submitted,
 			HZ / 2);
 
 		brick->submitted = false;
-
-		MARS_IO("%d woken up, completed_count = %d fly_count[0] = %d fly_count[1] = %d fly_count[2] = %d\n",
-			round,
-			atomic_read(&brick->completed_count),
-			atomic_read(&brick->fly_count[0]),
-			atomic_read(&brick->fly_count[1]),
-			atomic_read(&brick->fly_count[2]));
 
 		for (prio = 0; prio < MARS_PRIO_NR; prio++) {
 			LIST_HEAD(tmp_list);
@@ -677,8 +627,6 @@ int bio_submit_thread(void *data)
 			if (prio == MARS_PRIO_NR-1 && !_bg_should_run(brick)) {
 				break;
 			}
-
-			MARS_IO("%d pushing prio %d to foreground, completed_count = %d\n", round, prio, atomic_read(&brick->completed_count));
 
 			spin_lock_irqsave(&brick->lock, flags);
 			list_replace_init(&brick->queue_list[prio], &tmp_list);

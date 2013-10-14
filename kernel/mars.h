@@ -112,12 +112,6 @@
 #define MARS_DBG(_args...) /**/
 #endif
 
-#ifdef IO_DEBUGGING
-#define MARS_IO(_fmt, _args...)  _MARS_MSG(SAY_DEBUG, false, _fmt, ##_args)
-#else
-#define MARS_IO(_args...) /*empty*/
-#endif
-
 #ifdef STAT_DEBUGGING
 #ifdef MARS_DEBUGGING
 # define MARS_STAT MARS_DBG

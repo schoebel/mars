@@ -26,7 +26,6 @@
 
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
-//#define IO_DEBUGGING
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -412,8 +411,6 @@ int handler_thread(void *data)
 			MARS_WRN("#%d recv cmd status = %d\n", sock->s_debug_nr, status);
 			goto clean;
 		}
-
-		MARS_IO("#%d cmd = %d\n", sock->s_debug_nr, cmd.cmd_code);
 
 		if (unlikely(!brick->global || !mars_global || !mars_global->global_power.button)) {
 			MARS_WRN("#%d system is not alive\n", sock->s_debug_nr);

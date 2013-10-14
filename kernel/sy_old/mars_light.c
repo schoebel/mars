@@ -24,7 +24,6 @@
 
 //#define BRICK_DEBUGGING
 #define MARS_DEBUGGING
-//#define IO_DEBUGGING
 
 /* This MUST be updated whenever INCOMPATIBLE changes are made to the
  * symlink tree in /mars/ .
@@ -1938,7 +1937,6 @@ int run_bones(struct mars_peerinfo *peer)
 			MARS_DBG("NULL\n");
 			continue;
 		}
-		MARS_IO("path = '%s'\n", remote_dent->d_path);
 		status = run_bone(peer, remote_dent);
 		if (status > 0)
 			run_trigger = true;

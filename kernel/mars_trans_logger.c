@@ -26,7 +26,6 @@
 
 //#define BRICK_DEBUGGING
 #define MARS_DEBUGGING
-//#define IO_DEBUGGING
 //#define REPLAY_DEBUGGING
 #define STAT_DEBUGGING // here means: display full statistics
 //#define HASH_DEBUGGING
@@ -773,8 +772,6 @@ int trans_logger_ref_get(struct trans_logger_output *output, struct mref_object 
 	CHECK_PTR(brick, err);
 	CHECK_PTR(mref, err);
 
-	MARS_IO("pos = %lld len = %d\n", mref->ref_pos, mref->ref_len);
-
 	mref_a = trans_logger_mref_get_aspect(brick, mref);
 	CHECK_PTR(mref_a, err);
 	CHECK_ASPECT(mref_a, mref, err);
@@ -782,7 +779,6 @@ int trans_logger_ref_get(struct trans_logger_output *output, struct mref_object 
 	atomic_inc(&brick->outer_balance_count);
 
 	if (mref->ref_initialized) { // setup already performed
-		MARS_IO("again %d\n", atomic_read(&mref->ref_count.ta_atomic));
 		_mref_check(mref);
 		_mref_get(mref); // must be paired with __trans_logger_ref_put()
 		return mref->ref_len;
@@ -842,8 +838,6 @@ restart:
 	CHECK_PTR(mref_a, err);
 	mref = mref_a->object;
 	CHECK_PTR(mref, err);
-
-	MARS_IO("pos = %lld len = %d\n", mref->ref_pos, mref->ref_len);
 
 	_mref_check(mref);
 
@@ -985,8 +979,6 @@ void trans_logger_ref_io(struct trans_logger_output *output, struct mref_object 
 	CHECK_PTR(mref_a, err);
 	CHECK_ASPECT(mref_a, mref, err);
 
-	MARS_IO("pos = %lld len = %d\n", mref->ref_pos, mref->ref_len);
-
 	// statistics
 	if (mref->ref_rw) {
 		atomic_inc(&brick->total_write_count);
@@ -1052,7 +1044,6 @@ void pos_complete(struct trans_logger_mref_aspect *orig_mref_a)
 	finished = orig_mref_a->log_pos;
 	// am I the first member? (means "youngest" list entry)
 	if (tmp == log_input->pos_list.next) {
-		MARS_IO("first_finished = %lld\n", finished);
 		if (unlikely(finished <= log_input->inf.inf_min_pos)) {
 			MARS_ERR("backskip in log writeback: %lld -> %lld\n", log_input->inf.inf_min_pos, finished);
 		}
@@ -1646,8 +1637,6 @@ bool prep_phase_startio(struct trans_logger_mref_aspect *mref_a)
 	brick = mref_a->my_brick;
 	CHECK_PTR(brick, err);
 
-	MARS_IO("pos = %lld len = %d rw = %d\n", mref->ref_pos, mref->ref_len, mref->ref_rw);
-
 	if (mref->ref_rw == READ) {
 		// nothing to do: directly signal success.
 		struct mref_object *shadow = shadow_a->object;
@@ -1659,7 +1648,6 @@ bool prep_phase_startio(struct trans_logger_mref_aspect *mref_a)
 			if (unlikely(mref->ref_len <= 0 || mref->ref_len > PAGE_SIZE)) {
 				MARS_ERR("implausible ref_len = %d\n", mref->ref_len);
 			}
-			MARS_IO("read memcpy to = %p from = %p len = %d\n", mref->ref_data, mref_a->shadow_data, mref->ref_len);
 			memcpy(mref->ref_data, mref_a->shadow_data, mref->ref_len);
 		}
 #endif
@@ -1688,7 +1676,6 @@ bool prep_phase_startio(struct trans_logger_mref_aspect *mref_a)
 		if (unlikely(mref->ref_len <= 0 || mref->ref_len > PAGE_SIZE)) {
 			MARS_ERR("implausible ref_len = %d\n", mref->ref_len);
 		}
-		MARS_IO("write memcpy to = %p from = %p len = %d\n", mref_a->shadow_data, mref->ref_data, mref->ref_len);
 		memcpy(mref_a->shadow_data, mref->ref_data, mref->ref_len);
 	}
 #endif
@@ -1702,7 +1689,6 @@ bool prep_phase_startio(struct trans_logger_mref_aspect *mref_a)
 	if (likely(!mref_a->is_hashed)) {
 		struct trans_logger_input *log_input;
 		log_input = brick->inputs[brick->log_input_nr];
-		MARS_IO("hashing %d at %lld\n", mref->ref_len, mref->ref_pos);
 		mref_a->log_input = log_input;
 		atomic_inc(&log_input->log_ref_count);
 		hash_insert(brick, mref_a);
@@ -1778,11 +1764,9 @@ bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	CHECK_PTR(brick, err);
 
 	if (orig_mref_a->is_collected) {
-		MARS_IO("already collected, pos = %lld len = %d\n", orig_mref->ref_pos, orig_mref->ref_len);
 		goto done;
 	}
 	if (!orig_mref_a->is_hashed) {
-		MARS_IO("AHA not hashed, pos = %lld len = %d\n", orig_mref->ref_pos, orig_mref->ref_len);
 		goto done;
 	}
 
@@ -2240,7 +2224,6 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 		if (global_mem_used >= brick_global_memlimit)
 			delay_callers = true;
 
-		MARS_IO("global_mem_used = %d\n", global_mem_used);
 	} else if (brick->shadow_mem_limit >= 8) {
 		int local_mem_used   = atomic64_read(&brick->shadow_mem_used) / 1024;
 
@@ -2248,8 +2231,6 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 
 		if (local_mem_used >= brick->shadow_mem_limit)
 			delay_callers = true;
-
-		MARS_IO("local_mem_used = %d\n", local_mem_used);
 	}
 	if (delay_callers) {
 		if (!brick->delay_callers) {
@@ -2276,8 +2257,6 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 		int queued = atomic_read(&brick->q_phase[i].q_queued);
 		int flying;
 
-		MARS_IO("i = %d queued = %d\n", i, queued);
-
 		/* This must come first.
 		 * When a queue is empty, you must not credit any positive points.
 		 * Otherwise, (almost) infinite selection of untreatable
@@ -2287,16 +2266,6 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 			continue;
 
 		if (banning_is_hit(&brick->q_phase[i].q_banning)) {
-#ifdef IO_DEBUGGING
-			unsigned long long now = cpu_clock(raw_smp_processor_id());
-			MARS_IO("BAILOUT queue = %d via banning now = %lld last_hit = %lld diff = %lld renew_count = %d count = %d\n",
-				i,
-				now,
-				now - brick->q_phase[i].q_banning.ban_last_hit,
-				brick->q_phase[i].q_banning.ban_last_hit,
-				brick->q_phase[i].q_banning.ban_renew_count,
-				brick->q_phase[i].q_banning.ban_count);
-#endif
 			break;
 		}
 
@@ -2308,31 +2277,19 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 			int lim;
 
 			if (!mref_flying && atomic_read(&brick->q_phase[0].q_queued) > 0) {
-				MARS_IO("BAILOUT phase_[0]queued = %d phase_[0]flying = %d\n", atomic_read(&brick->q_phase[0].q_queued), atomic_read(&brick->q_phase[0].q_flying));
 				break;
 			}
 
 			if ((leader = elect_leader(&global_writeback)) != brick) {
-				MARS_IO("BAILOUT leader=%p brick=%p\n", leader, brick);				
 				break;
 			}
 
 			if (banning_is_hit(&mars_global_ban)) {
-#ifdef IO_DEBUGGING
-				unsigned long long now = cpu_clock(raw_smp_processor_id());
-				MARS_IO("BAILOUT via banning now = %lld last_hit = %lld diff = %lld renew_count = %d count = %d\n",
-					now,
-					now - mars_global_ban.ban_last_hit,
-					mars_global_ban.ban_last_hit,
-					mars_global_ban.ban_renew_count,
-					mars_global_ban.ban_count);
-#endif
 				break;
 			}
 
 			lim = mars_limit(&global_writeback.limiter, 0);
 			if (lim > 0) {
-				MARS_IO("BAILOUT via limiter %d\n", lim);
 				break;
 			}
 		}
@@ -2340,8 +2297,6 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 		ranking_compute(&rkd[i], queue_ranks[floating_mode][i], queued);
 
 		flying = atomic_read(&brick->q_phase[i].q_flying);
-
-		MARS_IO("i = %d queued = %d flying = %d\n", i, queued, flying);
 
 		ranking_compute(&rkd[i], fly_ranks[floating_mode][i], flying);
 	}
@@ -2351,12 +2306,6 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 
 	res = ranking_select(rkd, LOGGER_QUEUES);
 
-#ifdef IO_DEBUGGING
-	for (i = 0; i < LOGGER_QUEUES; i++) {
-		MARS_IO("rkd[%d]: points = %lld tmp = %lld got = %lld\n", i, rkd[i].rkd_current_points, rkd[i].rkd_tmp, rkd[i].rkd_got);
-	}
-	MARS_IO("res = %d\n", res);
-#endif
 	return res;
 }
 
@@ -2398,7 +2347,6 @@ void _init_inputs(struct trans_logger_brick *brick, bool is_first)
 	if (!is_first &&
 	    (new_nr == log_nr ||
 	     log_nr != old_nr)) {
-		MARS_IO("nothing to do, new_input_nr = %d log_input_nr = %d old_input_nr = %d\n", new_nr, log_nr, old_nr);
 		goto done;
 	}
 	if (unlikely(new_nr < TL_INPUT_LOG1 || new_nr > TL_INPUT_LOG2)) {
@@ -2410,7 +2358,6 @@ void _init_inputs(struct trans_logger_brick *brick, bool is_first)
 	CHECK_PTR(input, done);
 
 	if (input->is_operating || !input->connect) {
-		MARS_IO("cannot yet switch over to %d (is_operating = %d connect = %p)\n", new_nr, input->is_operating, input->connect);
 		goto done;
 	}
 
@@ -2532,13 +2479,6 @@ void flush_inputs(struct trans_logger_brick *brick, int flush_mode)
 	     // else flush any leftovers in background, when there is no writeback activity
 	      (flush_mode == 3 &&
 	       atomic_read(&brick->q_phase[1].q_flying) + atomic_read(&brick->q_phase[3].q_flying) <= 0)))) {
-		MARS_IO("log_fly_count 0 %d q0 = %d q0 = %d q0 = %d q0 = %d\n",
-			atomic_read(&brick->log_fly_count),
-			atomic_read(&brick->q_phase[0].q_flying),
-			atomic_read(&brick->q_phase[1].q_flying),
-			atomic_read(&brick->q_phase[2].q_flying),
-			atomic_read(&brick->q_phase[3].q_flying)
-			);
 		_flush_inputs(brick);
 	}
 }
@@ -2567,7 +2507,6 @@ void trans_logger_log(struct trans_logger_brick *brick)
 			brick->worker_event,
 			({
 				winner = _do_ranking(brick, rkd);
-				MARS_IO("winner = %d\n", winner);
 				if (winner < 0) { // no more work to do
 					int flush_mode = 2 - ((int)(jiffies - work_jiffies)) / (HZ * 2);
 					flush_inputs(brick, flush_mode);
@@ -2760,8 +2699,6 @@ int replay_data(struct trans_logger_brick *brick, loff_t pos, void *buf, int len
 	struct trans_logger_input *input = brick->inputs[TL_INPUT_WRITEBACK];
 	int status;
 
-	MARS_IO("got data, pos = %lld, len = %d\n", pos, len);
-
 	if (!input->connect) {
 		input = brick->inputs[TL_INPUT_READ];
 	}
@@ -2925,7 +2862,6 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		}
 
 		if (lh.l_code != CODE_WRITE_NEW) {
-			MARS_IO("ignoring pos = %lld len = %d code = %d\n", lh.l_pos, lh.l_len, lh.l_code);
 		} else if (unlikely(brick->disk_io_error)) {
 			status = brick->disk_io_error;
 			brick->replay_code = status;
