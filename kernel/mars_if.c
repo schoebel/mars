@@ -32,7 +32,6 @@
 #define REQUEST_MERGING
 //#define ALWAYS_UNPLUG false // FIXME: does not work! single requests left over!
 #define ALWAYS_UNPLUG true
-#define ALWAYS_UNPLUG_FROM_EXTERNAL true
 #define PREFETCH_LEN PAGE_SIZE
 //#define FRONT_MERGE // FIXME: this does not work.
 //#define MODIFY_READAHEAD // don't use it, otherwise sequential IO will suffer
@@ -648,17 +647,12 @@ done:
 void if_unplug(struct request_queue *q)
 {
 	struct if_input *input = q->queuedata;
-	int was_plugged = 1;
 
 	spin_lock_irq(q->queue_lock);
 	was_plugged = blk_remove_plug(q);
 	spin_unlock_irq(q->queue_lock);
 
-	was_plugged += atomic_read(&input->plugged_count);
-
-	if (ALWAYS_UNPLUG_FROM_EXTERNAL || was_plugged) {
-		_if_unplug(input);
-	}
+	_if_unplug(input);
 }
 #endif
 
