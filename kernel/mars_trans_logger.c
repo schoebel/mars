@@ -28,7 +28,6 @@
 #define MARS_DEBUGGING
 //#define REPLAY_DEBUGGING
 #define STAT_DEBUGGING // here means: display full statistics
-//#define HASH_DEBUGGING
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -294,9 +293,6 @@ struct trans_logger_mref_aspect *_hash_find(struct list_head *start, loff_t pos,
 	struct list_head *tmp;
 	struct trans_logger_mref_aspect *res = NULL;
 	int len = *max_len;
-#ifdef HASH_DEBUGGING
-	int count = 0;
-#endif
 	
 	/* The lists are always sorted according to age (newest first).
 	 * Caution: there may be duplicates in the list, some of them
@@ -306,15 +302,7 @@ struct trans_logger_mref_aspect *_hash_find(struct list_head *start, loff_t pos,
 		struct trans_logger_mref_aspect *test_a;
 		struct mref_object *test;
 		int diff;
-#ifdef HASH_DEBUGGING
-		static int max = 0;
-		if (++count > max) {
-			max = count;
-			if (!(max % 100)) {
-				MARS_INF("hash max=%d hash=%d (pos=%lld)\n", max, hash_fn(pos), pos);
-			}
-		}
-#endif
+
 		if (use_collect_head) {
 			test_a = container_of(tmp, struct trans_logger_mref_aspect, collect_head);
 		} else {
@@ -411,10 +399,7 @@ void hash_extend(struct trans_logger_brick *brick, loff_t *_pos, int *_len, stru
 	struct trans_logger_hash_anchor *start = &sub_table[hash % HASH_PER_PAGE];
 	struct list_head *tmp;
 	bool extended;
-#ifdef HASH_DEBUGGING
-	int count = 0;
-	static int max = 0;
-#endif
+
 	if (collect_list) {
 		CHECK_HEAD_EMPTY(collect_list);
 	}
@@ -430,9 +415,6 @@ void hash_extend(struct trans_logger_brick *brick, loff_t *_pos, int *_len, stru
 			struct trans_logger_mref_aspect *test_a;
 			struct mref_object *test;
 			loff_t diff;
-#ifdef HASH_DEBUGGING
-			count++;
-#endif
 			
 			test_a = container_of(tmp, struct trans_logger_mref_aspect, hash_head);
 			test = test_a->object;
@@ -469,22 +451,6 @@ void hash_extend(struct trans_logger_brick *brick, loff_t *_pos, int *_len, stru
 
 	*_pos = pos;
 	*_len = len;
-
-#ifdef HASH_DEBUGGING
-	if (count > max + 100) {
-		int i = 0;
-		max = count;
-		MARS_INF("iterations max=%d hash=%d (pos=%lld len=%d)\n", max, hash, pos, len);
-		for (tmp = start->hash_anchor.next; tmp != &start->hash_anchor; tmp = tmp->next) {
-			struct trans_logger_mref_aspect *test_a;
-			struct mref_object *test;
-			test_a = container_of(tmp, struct trans_logger_mref_aspect, hash_head);
-			test = test_a->object;
-			MARS_INF("%03d   pos = %lld len = %d collected = %d\n", i++, test->ref_pos, test->ref_len, test_a->is_collected);
-		}
-		MARS_INF("----------------\n");
-	}
-#endif
 
 	for (tmp = start->hash_anchor.next; tmp != &start->hash_anchor; tmp = tmp->next) {
 		struct trans_logger_mref_aspect *test_a;
