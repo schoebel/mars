@@ -33,6 +33,158 @@
 #include "brick.h"
 #include "brick_mem.h"
 
+//////////////////////////////////////////////////////////////
+
+// init / exit functions
+
+void _generic_output_init(struct generic_brick *brick, const struct generic_output_type *type, struct generic_output *output, const char *output_name)
+{
+	output->output_name = output_name;
+	output->brick = brick;
+	output->type = type;
+	output->ops = type->master_ops;
+	output->nr_connected = 0;
+	INIT_LIST_HEAD(&output->output_head);
+}
+EXPORT_SYMBOL_GPL(_generic_output_init);
+
+void _generic_output_exit(struct generic_output *output)
+{
+	list_del_init(&output->output_head);
+	output->output_name = NULL;
+	output->brick = NULL;
+	output->type = NULL;
+	output->ops = NULL;
+	output->nr_connected = 0;
+}
+EXPORT_SYMBOL_GPL(_generic_output_exit);
+
+int generic_brick_init(const struct generic_brick_type *type, struct generic_brick *brick, const char *brick_name)
+{
+	brick->brick_index = get_nr();
+	brick->brick_name = brick_name;
+	brick->type = type;
+	brick->ops = type->master_ops;
+	brick->nr_inputs = 0;
+	brick->nr_outputs = 0;
+	brick->power.led_off = true;
+	init_waitqueue_head(&brick->power.event);
+	INIT_LIST_HEAD(&brick->tmp_head);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(generic_brick_init);
+
+void generic_brick_exit(struct generic_brick *brick)
+{
+	list_del_init(&brick->tmp_head);
+	brick->brick_name = NULL;
+	brick->type = NULL;
+	brick->ops = NULL;
+	brick->nr_inputs = 0;
+	brick->nr_outputs = 0;
+	put_nr(brick->brick_index);
+}
+EXPORT_SYMBOL_GPL(generic_brick_exit);
+
+int generic_input_init(struct generic_brick *brick, int index, const struct generic_input_type *type, struct generic_input *input, const char *input_name)
+{
+	if (index < 0 || index >= brick->type->max_inputs)
+		return -EINVAL;
+	if (brick->inputs[index])
+		return -EEXIST;
+	input->input_name = input_name;
+	input->brick = brick;
+	input->type = type;
+	input->connect = NULL;
+	INIT_LIST_HEAD(&input->input_head);
+	brick->inputs[index] = input;
+	brick->nr_inputs++;
+	return 0;
+}
+EXPORT_SYMBOL_GPL(generic_input_init);
+
+void generic_input_exit(struct generic_input *input)
+{
+	list_del_init(&input->input_head);
+	input->input_name = NULL;
+	input->brick = NULL;
+	input->type = NULL;
+	input->connect = NULL;
+}
+EXPORT_SYMBOL_GPL(generic_input_exit);
+
+int generic_output_init(struct generic_brick *brick, int index, const struct generic_output_type *type, struct generic_output *output, const char *output_name)
+{
+	if (index < 0 || index >= brick->type->max_outputs)
+		return -ENOMEM;
+	if (brick->outputs[index])
+		return -EEXIST;
+	_generic_output_init(brick, type, output, output_name);
+	brick->outputs[index] = output;
+	brick->nr_outputs++;
+	return 0;
+}
+EXPORT_SYMBOL_GPL(generic_output_init);
+
+int generic_size(const struct generic_brick_type *brick_type)
+{
+	int size = brick_type->brick_size;
+	int i;
+	size += brick_type->max_inputs * sizeof(void*);
+	for (i = 0; i < brick_type->max_inputs; i++) {
+		size += brick_type->default_input_types[i]->input_size;
+	}
+	size += brick_type->max_outputs * sizeof(void*);
+	for (i = 0; i < brick_type->max_outputs; i++) {
+		size += brick_type->default_output_types[i]->output_size;
+	}
+	return size;
+}
+EXPORT_SYMBOL_GPL(generic_size);
+
+int generic_connect(struct generic_input *input, struct generic_output *output)
+{
+	BRICK_DBG("generic_connect(input=%p, output=%p)\n", input, output);
+	if (unlikely(!input || !output))
+		return -EINVAL;
+	if (unlikely(input->connect))
+		return -EEXIST;
+	if (unlikely(!list_empty(&input->input_head)))
+		return -EINVAL;
+	// helps only against the most common errors
+	if (unlikely(input->brick == output->brick))
+		return -EDEADLK;
+
+	input->connect = output;
+	output->nr_connected++;
+	list_add(&input->input_head, &output->output_head);
+	BRICK_DBG("now nr_connected=%d\n", output->nr_connected);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(generic_connect);
+
+int generic_disconnect(struct generic_input *input)
+{
+	struct generic_output *connect;
+	BRICK_DBG("generic_disconnect(input=%p)\n", input);
+	if (!input)
+		return -EINVAL;
+	connect = input->connect;
+	if (connect) {
+		connect->nr_connected--;
+		BRICK_DBG("now nr_connected=%d\n", connect->nr_connected);
+		input->connect = NULL;
+		list_del_init(&input->input_head);
+	}
+	return 0;
+}
+EXPORT_SYMBOL_GPL(generic_disconnect);
+
+
+//////////////////////////////////////////////////////////////
+
+// general
+
 int _brick_msleep(int msecs, bool shorten)
 {
 	unsigned long timeout;

@@ -387,105 +387,28 @@ struct generic_output_type {
 int generic_register_brick_type(const struct generic_brick_type *new_type);
 int generic_unregister_brick_type(const struct generic_brick_type *old_type);
 
-INLINE void _generic_output_init(struct generic_brick *brick, const struct generic_output_type *type, struct generic_output *output, const char *output_name)
-{
-	output->output_name = output_name;
-	output->brick = brick;
-	output->type = type;
-	output->ops = type->master_ops;
-	output->nr_connected = 0;
-	INIT_LIST_HEAD(&output->output_head);
-}
+extern void _generic_output_init(struct generic_brick *brick, const struct generic_output_type *type, struct generic_output *output, const char *output_name);
 
-INLINE void _generic_output_exit(struct generic_output *output)
-{
-	list_del_init(&output->output_head);
-	output->output_name = NULL;
-	output->brick = NULL;
-	output->type = NULL;
-	output->ops = NULL;
-	output->nr_connected = 0;
-}
+extern void _generic_output_exit(struct generic_output *output);
 
 #ifdef _STRATEGY // call this only in strategy bricks, never in ordinary bricks
 
 // you need this only if you circumvent generic_brick_init_full()
-INLINE int generic_brick_init(const struct generic_brick_type *type, struct generic_brick *brick, const char *brick_name)
-{
-	brick->brick_index = get_nr();
-	brick->brick_name = brick_name;
-	brick->type = type;
-	brick->ops = type->master_ops;
-	brick->nr_inputs = 0;
-	brick->nr_outputs = 0;
-	brick->power.led_off = true;
-	init_waitqueue_head(&brick->power.event);
-	INIT_LIST_HEAD(&brick->tmp_head);
-	return 0;
-}
+extern int generic_brick_init(const struct generic_brick_type *type, struct generic_brick *brick, const char *brick_name);
 
-INLINE void generic_brick_exit(struct generic_brick *brick)
-{
-	list_del_init(&brick->tmp_head);
-	brick->brick_name = NULL;
-	brick->type = NULL;
-	brick->ops = NULL;
-	brick->nr_inputs = 0;
-	brick->nr_outputs = 0;
-	put_nr(brick->brick_index);
-}
+extern void generic_brick_exit(struct generic_brick *brick);
 
-INLINE int generic_input_init(struct generic_brick *brick, int index, const struct generic_input_type *type, struct generic_input *input, const char *input_name)
-{
-	if (index < 0 || index >= brick->type->max_inputs)
-		return -EINVAL;
-	if (brick->inputs[index])
-		return -EEXIST;
-	input->input_name = input_name;
-	input->brick = brick;
-	input->type = type;
-	input->connect = NULL;
-	INIT_LIST_HEAD(&input->input_head);
-	brick->inputs[index] = input;
-	brick->nr_inputs++;
-	return 0;
-}
+extern int generic_input_init(struct generic_brick *brick, int index, const struct generic_input_type *type, struct generic_input *input, const char *input_name);
 
-INLINE void generic_input_exit(struct generic_input *input)
-{
-	list_del_init(&input->input_head);
-	input->input_name = NULL;
-	input->brick = NULL;
-	input->type = NULL;
-	input->connect = NULL;
-}
+extern void generic_input_exit(struct generic_input *input);
 
-INLINE int generic_output_init(struct generic_brick *brick, int index, const struct generic_output_type *type, struct generic_output *output, const char *output_name)
-{
-	if (index < 0 || index >= brick->type->max_outputs)
-		return -ENOMEM;
-	if (brick->outputs[index])
-		return -EEXIST;
-	_generic_output_init(brick, type, output, output_name);
-	brick->outputs[index] = output;
-	brick->nr_outputs++;
-	return 0;
-}
+extern int generic_output_init(struct generic_brick *brick, int index, const struct generic_output_type *type, struct generic_output *output, const char *output_name);
 
-INLINE int generic_size(const struct generic_brick_type *brick_type)
-{
-	int size = brick_type->brick_size;
-	int i;
-	size += brick_type->max_inputs * sizeof(void*);
-	for (i = 0; i < brick_type->max_inputs; i++) {
-		size += brick_type->default_input_types[i]->input_size;
-	}
-	size += brick_type->max_outputs * sizeof(void*);
-	for (i = 0; i < brick_type->max_outputs; i++) {
-		size += brick_type->default_output_types[i]->output_size;
-	}
-	return size;
-}
+extern int generic_size(const struct generic_brick_type *brick_type);
+
+extern int generic_connect(struct generic_input *input, struct generic_output *output);
+
+extern int generic_disconnect(struct generic_input *input);
 
 /* If possible, use this instead of generic_*_init().
  * input_types and output_types may be NULL => use default_*_types
@@ -501,51 +424,16 @@ int generic_brick_init_full(
 int generic_brick_exit_full(
 	struct generic_brick *brick);
 
-INLINE int generic_connect(struct generic_input *input, struct generic_output *output)
-{
-	BRICK_DBG("generic_connect(input=%p, output=%p)\n", input, output);
-	if (unlikely(!input || !output))
-		return -EINVAL;
-	if (unlikely(input->connect))
-		return -EEXIST;
-	if (unlikely(!list_empty(&input->input_head)))
-		return -EINVAL;
-	// helps only against the most common errors
-	if (unlikely(input->brick == output->brick))
-		return -EDEADLK;
-
-	input->connect = output;
-	output->nr_connected++;
-	list_add(&input->input_head, &output->output_head);
-	BRICK_DBG("now nr_connected=%d\n", output->nr_connected);
-	return 0;
-}
-
-INLINE int generic_disconnect(struct generic_input *input)
-{
-	struct generic_output *connect;
-	BRICK_DBG("generic_disconnect(input=%p)\n", input);
-	if (!input)
-		return -EINVAL;
-	connect = input->connect;
-	if (connect) {
-		connect->nr_connected--;
-		BRICK_DBG("now nr_connected=%d\n", connect->nr_connected);
-		input->connect = NULL;
-		list_del_init(&input->input_head);
-	}
-	return 0;
-}
-
 #endif // _STRATEGY
 
 // simple wrappers for type safety
+
 #define DECLARE_BRICK_FUNCTIONS(BRITYPE)				\
-static inline int BRITYPE##_register_brick_type(void)		        \
+extern inline int BRITYPE##_register_brick_type(void)		        \
 {									\
 	extern const struct BRITYPE##_brick_type BRITYPE##_brick_type;	\
 	extern int BRITYPE##_brick_nr;					\
-	if (BRITYPE##_brick_nr >= 0) {					\
+	if (unlikely(BRITYPE##_brick_nr >= 0)) {			\
 		BRICK_ERR("brick type " #BRITYPE " is already registered.\n"); \
 		return -EEXIST;						\
 	}								\
@@ -553,7 +441,7 @@ static inline int BRITYPE##_register_brick_type(void)		        \
 	return BRITYPE##_brick_nr < 0 ? BRITYPE##_brick_nr : 0;		\
 }									\
 									\
-static inline int BRITYPE##_unregister_brick_type(void)		        \
+extern inline int BRITYPE##_unregister_brick_type(void)		        \
 {									\
 	extern const struct BRITYPE##_brick_type BRITYPE##_brick_type;	\
 	return generic_unregister_brick_type((const struct generic_brick_type*)&BRITYPE##_brick_type); \
@@ -573,17 +461,17 @@ extern struct generic_aspect *generic_get_aspect(struct generic_brick *brick, st
 
 #define DECLARE_ASPECT_FUNCTIONS(BRITYPE,OBJTYPE)			\
 									\
-INLINE struct OBJTYPE##_object *BRITYPE##_alloc_##OBJTYPE(struct BRITYPE##_brick *brick) \
+extern inline struct OBJTYPE##_object *BRITYPE##_alloc_##OBJTYPE(struct BRITYPE##_brick *brick) \
 {									\
         return (void*)generic_alloc((struct generic_brick*)brick, &brick->OBJTYPE##_object_layout, &OBJTYPE##_type); \
 }									\
 									\
-INLINE void BRITYPE##_free_##OBJTYPE(struct OBJTYPE##_object *object)   \
+extern inline void BRITYPE##_free_##OBJTYPE(struct OBJTYPE##_object *object)   \
 {									\
 	generic_free((struct generic_object*)object);			\
 }									\
 									\
-INLINE struct BRITYPE##_##OBJTYPE##_aspect *BRITYPE##_##OBJTYPE##_get_aspect(struct BRITYPE##_brick *brick, struct OBJTYPE##_object *obj) \
+extern inline struct BRITYPE##_##OBJTYPE##_aspect *BRITYPE##_##OBJTYPE##_get_aspect(struct BRITYPE##_brick *brick, struct OBJTYPE##_object *obj) \
 {									\
         return (void*)generic_get_aspect((struct generic_brick*)brick, (struct generic_object*)obj); \
 }									\
