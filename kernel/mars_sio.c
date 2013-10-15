@@ -116,27 +116,20 @@ static int transfer_none(int cmd,
 			 void *loop_buf,
 			 int size)
 {
-#ifdef KM_USER0
-	void *raw_buf = kmap_atomic(raw_page, KM_USER0) + raw_off;
-#else
-	void *raw_buf = kmap_atomic(raw_page) + raw_off;
-#endif
+	void *raw_buf;
 
-	if (unlikely(!raw_buf || !loop_buf)) {
+	if (unlikely(!raw_page || !loop_buf)) {
 		MARS_ERR("transfer NULL: %p %p\n", raw_buf, loop_buf);
 		return -EFAULT;
 	}
+
+	raw_buf = page_address(raw_page) + raw_off;
 
 	if (cmd == READ)
 		memcpy(loop_buf, raw_buf, size);
 	else
 		memcpy(raw_buf, loop_buf, size);
 
-#ifdef KM_USER0
-	kunmap_atomic(raw_buf, KM_USER0);
-#else
-	kunmap_atomic(raw_buf);
-#endif
 	cond_resched();
 	return 0;
 }
