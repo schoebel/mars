@@ -31,8 +31,6 @@
 
 #define MAX_BIO 32
 
-//#define USE_TIMER (HZ/10) // use this ONLY for debugging
-
 ///////////////////////// global tuning ////////////////////////
 
 extern int if_throttle_start_size; // in kb
@@ -72,9 +70,6 @@ struct if_input {
 	struct request_queue *q;
 	struct gendisk *disk;
 	struct block_device *bdev;
-#ifdef USE_TIMER
-	struct timer_list timer;
-#endif
 	loff_t capacity;
 	atomic_t plugged_count;
 	atomic_t flying_count;

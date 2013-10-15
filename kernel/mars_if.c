@@ -243,9 +243,6 @@ void _if_unplug(struct if_input *input)
 
 	down(&input->kick_sem);
 	spin_lock_irqsave(&input->req_lock, flags);
-#ifdef USE_TIMER
-	del_timer(&input->timer);
-#endif
 	if (!list_empty(&input->plug_anchor)) {
 		// move over the whole list
 		list_replace_init(&input->plug_anchor, &tmp_list);
@@ -288,16 +285,6 @@ void _if_unplug(struct if_input *input)
 		GENERIC_INPUT_CALL(input, mref_put, mref);
 	}
 }
-
-#ifndef BLK_MAX_REQUEST_COUNT
-#ifdef USE_TIMER
-static
-void if_timer(unsigned long data)
-{
-	_if_unplug((void*)data);
-}
-#endif
-#endif // BLK_MAX_REQUEST_COUNT
 
 /* accept a linux bio, convert to mref and call buf_io() on it.
  */
@@ -645,21 +632,6 @@ err:
 	   (brick && brick->max_plugged > 0 && atomic_read(&input->plugged_count) > brick->max_plugged)) {
 		_if_unplug(input);
 	}
-#ifdef USE_TIMER
-	else {
-		unsigned long flags;
-
-		spin_lock_irqsave(&input->req_lock, flags);
-		if (timer_pending(&input->timer)) {
-			del_timer(&input->timer);
-		}
-		input->timer.function = if_timer;
-		input->timer.data = (unsigned long)input;
-		input->timer.expires = jiffies + USE_TIMER;
-		add_timer(&input->timer);
-		spin_unlock_irqrestore(&input->req_lock, flags);
-	}
-#endif
 
 done:
 	remove_binding_from(brick->say_channel, current);
@@ -1145,9 +1117,6 @@ static int if_input_construct(struct if_input *input)
 	atomic_set(&input->read_flying_count, 0);
 	atomic_set(&input->write_flying_count, 0);
 	atomic_set(&input->plugged_count, 0);
-#ifdef USE_TIMER
-	init_timer(&input->timer);
-#endif
 	return 0;
 }
 
