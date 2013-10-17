@@ -2211,7 +2211,6 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	rot->prev_log = NULL;
 	rot->next_log = NULL;
 	rot->max_sequence = 0;
-	rot->copy_next_is_available = 0;
 	rot->has_error = false;
 
 	if (dent->new_link)
@@ -3090,6 +3089,7 @@ done:
 		copy_brick = NULL;
 		mars_trigger();
 	}
+	rot->copy_next_is_available = 0;
 	rot->copy_brick = copy_brick;
 	if (!copy_brick) {
 		rot->copy_serial = 0;
