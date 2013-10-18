@@ -2403,11 +2403,6 @@ int make_log_step(void *buf, struct mars_dent *dent)
 	prev_log = rot->next_log;
 	if (prev_log && prev_log->d_serial + 1 != dent->d_serial) {
 		MARS_WRN_TO(rot->log_say, "transaction logs are not consecutive at '%s' (%d ~> %d)\n", dent->d_path, prev_log->d_serial, dent->d_serial);
-		// allow the primary to create a hole in the logfile sequence numbers
-		if (!rot->todo_primary || prev_log->d_serial + 2 != dent->d_serial) {
-			status = -EINVAL;
-			goto done;
-		}
 	}
 
 	if (dent->d_serial > rot->max_sequence) {
