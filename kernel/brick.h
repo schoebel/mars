@@ -120,6 +120,9 @@ struct generic_object_layout {
 };
 
 #define GENERIC_OBJECT(OBJTYPE)						\
+	/* maintenance, access by macros */				\
+	atomic_t ref_count;       /* reference counter */		\
+	bool     ref_initialized; /* internally used for checking */	\
 	/* readonly from outside */					\
 	const struct generic_object_type *object_type;			\
 	/* private */							\
@@ -144,6 +147,36 @@ struct generic_object {
 struct generic_aspect {
 	GENERIC_ASPECT(generic);
 };
+
+#define _mref_check(mref)						\
+	({								\
+		if (unlikely(BRICK_CHECKING && !(mref)->ref_initialized)) { \
+			MARS_ERR("mref %p is not initialized\n", (mref)); \
+		}							\
+		CHECK_ATOMIC(&(mref)->ref_count, 1);			\
+	})
+
+#define _mref_get_first(mref)						\
+	({								\
+		if (unlikely(BRICK_CHECKING && (mref)->ref_initialized)) { \
+			MARS_ERR("mref %p is already initialized\n", (mref)); \
+		}							\
+		_CHECK_ATOMIC(&(mref)->ref_count, !=, 0);		\
+		(mref)->ref_initialized = true;				\
+		atomic_inc(&(mref)->ref_count);				\
+	})
+
+#define _mref_get(mref)							\
+	({								\
+		_mref_check(mref);					\
+		atomic_inc(&(mref)->ref_count);				\
+	})
+
+#define _mref_put(mref)							\
+	({								\
+		_mref_check(mref);					\
+		atomic_dec_and_test(&(mref)->ref_count);		\
+	})
 
 /////////////////////////////////////////////////////////////////////////
 

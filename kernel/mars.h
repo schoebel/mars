@@ -150,44 +150,10 @@ extern const struct generic_object_type mref_type;
 	int    ref_rw;							\
 	int    ref_id; /* not mandatory; may be used for identification */ \
 	bool   ref_skip_sync; /* skip sync for this particular mref */	\
-	/* maintained by the ref implementation, incrementable for	\
-	 * callers (but not decrementable! use ref_put()) */		\
-	bool   ref_initialized; /* internally used for checking */	\
-	atomic_t ref_count;						\
 
 struct mref_object {
 	MREF_OBJECT(mref);
 };
-
-#define _mref_check(mref)						\
-	({								\
-		if (unlikely(BRICK_CHECKING && !(mref)->ref_initialized)) { \
-			MARS_ERR("mref %p is not initialized\n", (mref)); \
-		}							\
-		CHECK_ATOMIC(&(mref)->ref_count, 1);			\
-	})
-
-#define _mref_get_first(mref)						\
-	({								\
-		if (unlikely(BRICK_CHECKING && (mref)->ref_initialized)) { \
-			MARS_ERR("mref %p is already initialized\n", (mref)); \
-		}							\
-		_CHECK_ATOMIC(&(mref)->ref_count, !=, 0);		\
-		(mref)->ref_initialized = true;				\
-		atomic_inc(&(mref)->ref_count);				\
-	})
-
-#define _mref_get(mref)							\
-	({								\
-		_mref_check(mref);					\
-		atomic_inc(&(mref)->ref_count);				\
-	})
-
-#define _mref_put(mref)							\
-	({								\
-		_mref_check(mref);					\
-		atomic_dec_and_test(&(mref)->ref_count);		\
-	})
 
 // internal helper structs
 
