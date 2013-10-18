@@ -522,15 +522,21 @@ extern const struct BRITYPE##_output_type BRITYPE##_output_type;        \
 
 // default operations on objects / aspects
 
-extern struct generic_object *generic_alloc(struct generic_brick *brick, struct generic_object_layout *object_layout, const struct generic_object_type *object_type);
+extern struct generic_object *generic_alloc(struct generic_object_layout *object_layout, const struct generic_object_type *object_type);
 extern void generic_free(struct generic_object *object);
 extern struct generic_aspect *generic_get_aspect(struct generic_brick *brick, struct generic_object *obj);
+
+#define DECLARE_OBJECT_FUNCTIONS(OBJTYPE)				\
+extern inline struct OBJTYPE##_object *alloc_##OBJTYPE(struct generic_object_layout *layout) \
+{									\
+        return (void*)generic_alloc(layout, &OBJTYPE##_type);		\
+}
 
 #define DECLARE_ASPECT_FUNCTIONS(BRITYPE,OBJTYPE)			\
 									\
 extern inline struct OBJTYPE##_object *BRITYPE##_alloc_##OBJTYPE(struct BRITYPE##_brick *brick) \
 {									\
-        return (void*)generic_alloc((struct generic_brick*)brick, &brick->OBJTYPE##_object_layout, &OBJTYPE##_type); \
+        return alloc_##OBJTYPE(&brick->OBJTYPE##_object_layout);	\
 }									\
 									\
 extern inline struct BRITYPE##_##OBJTYPE##_aspect *BRITYPE##_##OBJTYPE##_get_aspect(struct BRITYPE##_brick *brick, struct OBJTYPE##_object *obj) \

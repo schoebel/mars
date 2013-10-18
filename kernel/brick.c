@@ -498,7 +498,7 @@ EXPORT_SYMBOL_GPL(generic_brick_exit_full);
 
 // default implementations
 
-struct generic_object *generic_alloc(struct generic_brick *brick, struct generic_object_layout *object_layout, const struct generic_object_type *object_type)
+struct generic_object *generic_alloc(struct generic_object_layout *object_layout, const struct generic_object_type *object_type)
 {
 	struct generic_object *object;
 	void *data;

@@ -249,8 +249,9 @@ extern int init_mars_##BRITYPE(void);					\
 extern void exit_mars_##BRITYPE(void);
 
 
-// instantiate a pseudo base-class "mars"
+// instantiate pseudo base-classes
 
+DECLARE_OBJECT_FUNCTIONS(mref);
 _MARS_TYPES(mars);
 DECLARE_ASPECT_FUNCTIONS(mars,mref);
 
