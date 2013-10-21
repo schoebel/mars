@@ -1387,7 +1387,7 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 	}
 
 	// bookkeeping for serialization of logfile updates
-	if (remote_dent->d_serial == rot->copy_serial + 1) {
+	if (remote_dent->d_serial > rot->copy_serial) {
 		rot->copy_next_is_available++;
 	}
 
