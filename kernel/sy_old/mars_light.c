@@ -3833,7 +3833,6 @@ int make_bio(void *buf, struct mars_dent *dent)
 		status = -ENXIO;
 		goto done;
 	}
-	brick->outputs[0]->output_name = dent->d_path;
 
 	/* Report the actual size of the device.
 	 * It may be larger than the global size.

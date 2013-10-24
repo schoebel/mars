@@ -1588,10 +1588,8 @@ done:
 }
 EXPORT_SYMBOL_GPL(mars_free_brick);
 
-struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent *belongs, const void *_brick_type, const char *path, const char *_name)
+struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent *belongs, const void *_brick_type, const char *path, const char *name)
 {
-	const char *name = brick_strdup(_name);
-	const char *names[] = { name, NULL };
 	const struct generic_brick_type *brick_type = _brick_type;
 	const struct generic_input_type **input_types;
 	const struct generic_output_type **output_types;
@@ -1632,9 +1630,10 @@ struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent 
 	res = brick_zmem_alloc(size);
 	res->global = global;
 	INIT_LIST_HEAD(&res->dent_brick_link);
+	res->brick_name = brick_strdup(name);
 	res->brick_path = brick_strdup(path);
 
-	status = generic_brick_init_full(res, size, brick_type, NULL, NULL, names);
+	status = generic_brick_init_full(res, size, brick_type, NULL, NULL);
 	MARS_DBG("brick '%s' init '%s' '%s' (status=%d)\n", brick_type->type_name, path, name, status);
 	if (status < 0) {
 		MARS_ERR("cannot init brick %s\n", brick_type->type_name);
@@ -1655,10 +1654,10 @@ struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent 
 	return res;
 
 err_path:
+	brick_string_free(res->brick_name);
 	brick_string_free(res->brick_path);
 	brick_mem_free(res);
 err_name:
-	brick_string_free(name);
 	return NULL;
 }
 EXPORT_SYMBOL_GPL(mars_make_brick);

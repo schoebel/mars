@@ -332,7 +332,6 @@ struct generic_switch {
 	/* accessible */						\
 	struct generic_switch power;					\
 	/* set by strategy layer, readonly from worker layer */		\
-	const char *brick_name;						\
 	const struct BRITYPE##_brick_type *type;			\
 	int nr_inputs;							\
 	int nr_outputs;							\
@@ -350,7 +349,6 @@ struct generic_brick {
 
 #define GENERIC_INPUT(BRITYPE)						\
 	/* set by strategy layer, readonly from worker layer */		\
-	const char *input_name;						\
 	struct BRITYPE##_brick *brick;					\
 	const struct BRITYPE##_input_type *type;			\
 	/* private (for any layer) */					\
@@ -363,7 +361,6 @@ struct generic_input {
 
 #define GENERIC_OUTPUT(BRITYPE)						\
 	/* set by strategy layer, readonly from worker layer */		\
-	const char *output_name;					\
 	struct BRITYPE##_brick *brick;					\
 	const struct BRITYPE##_output_type *type;			\
 	/* private (for any layer) */					\
@@ -454,22 +451,22 @@ struct generic_output_type {
 int generic_register_brick_type(const struct generic_brick_type *new_type);
 int generic_unregister_brick_type(const struct generic_brick_type *old_type);
 
-extern void _generic_output_init(struct generic_brick *brick, const struct generic_output_type *type, struct generic_output *output, const char *output_name);
+extern void _generic_output_init(struct generic_brick *brick, const struct generic_output_type *type, struct generic_output *output);
 
 extern void _generic_output_exit(struct generic_output *output);
 
 #ifdef _STRATEGY // call this only in strategy bricks, never in ordinary bricks
 
 // you need this only if you circumvent generic_brick_init_full()
-extern int generic_brick_init(const struct generic_brick_type *type, struct generic_brick *brick, const char *brick_name);
+extern int generic_brick_init(const struct generic_brick_type *type, struct generic_brick *brick);
 
 extern void generic_brick_exit(struct generic_brick *brick);
 
-extern int generic_input_init(struct generic_brick *brick, int index, const struct generic_input_type *type, struct generic_input *input, const char *input_name);
+extern int generic_input_init(struct generic_brick *brick, int index, const struct generic_input_type *type, struct generic_input *input);
 
 extern void generic_input_exit(struct generic_input *input);
 
-extern int generic_output_init(struct generic_brick *brick, int index, const struct generic_output_type *type, struct generic_output *output, const char *output_name);
+extern int generic_output_init(struct generic_brick *brick, int index, const struct generic_output_type *type, struct generic_output *output);
 
 extern int generic_size(const struct generic_brick_type *brick_type);
 
@@ -485,8 +482,7 @@ int generic_brick_init_full(
 	int size, 
 	const struct generic_brick_type *brick_type,
 	const struct generic_input_type **input_types,
-	const struct generic_output_type **output_types,
-	const char **names);
+	const struct generic_output_type **output_types);
 
 int generic_brick_exit_full(
 	struct generic_brick *brick);

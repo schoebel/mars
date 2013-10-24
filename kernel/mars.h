@@ -170,6 +170,7 @@ struct mars_info {
 	struct generic_object_layout mref_object_layout;		\
 	struct list_head global_brick_link;				\
 	struct list_head dent_brick_link;				\
+	const char *brick_name;						\
 	const char *brick_path;						\
 	struct mars_global *global;					\
 	void **kill_ptr;						\

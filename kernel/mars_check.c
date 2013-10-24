@@ -55,10 +55,9 @@
 		struct check_input *input = (output)->brick->inputs[0];	\
 		struct generic_output *other = (void*)input->connect;	\
 		if (other) {						\
-			MARS_ERR("instance %d/%s/%s: " fmt,		\
+			MARS_ERR("instance %d/%s: " fmt,		\
 				 (output)->instance_nr,			\
 				 other->type->type_name,		\
-				 other->output_name,			\
 				 ##args);				\
 		} else {						\
 			MARS_ERR("instance %d: " fmt,			\
