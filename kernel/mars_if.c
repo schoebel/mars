@@ -787,7 +787,7 @@ static int if_switch(struct if_brick *brick)
 		disk->major = XIO_MAJOR; //TODO: make this dynamic for >256 devices
 		disk->first_minor = minor;
 		disk->fops = &if_blkdev_ops;
-		snprintf(disk->disk_name, sizeof(disk->disk_name),  "mars/%s", brick->brick_name);
+		snprintf(disk->disk_name, sizeof(disk->disk_name),  "%s", brick->brick_name);
 		disk->private_data = input;
 		input->disk = disk;
 		capacity = if_get_capacity(brick);
