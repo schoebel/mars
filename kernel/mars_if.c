@@ -59,6 +59,41 @@ static int device_minor = 0;
 
 ///////////////////////// linux operations ////////////////////////
 
+#ifdef part_stat_lock
+static
+void _if_start_io_acct(struct if_input *input, struct bio_wrapper *biow)
+{
+	struct bio *bio = biow->bio;
+	const int rw = bio_data_dir(bio);
+	const int cpu = part_stat_lock();
+	(void)cpu;
+	part_round_stats(cpu, &input->disk->part0);
+	part_stat_inc(cpu, &input->disk->part0, ios[rw]);
+	part_stat_add(cpu, &input->disk->part0, sectors[rw], bio->bi_size >> 9);
+	part_inc_in_flight(&input->disk->part0, rw);
+	part_stat_unlock();
+	biow->start_time = jiffies;
+}
+
+static
+void _if_end_io_acct(struct if_input *input, struct bio_wrapper *biow)
+{
+	unsigned long duration = jiffies - biow->start_time;
+	struct bio *bio = biow->bio;
+	const int rw = bio_data_dir(bio);
+	const int cpu = part_stat_lock();
+	(void)cpu;
+	part_stat_add(cpu, &input->disk->part0, ticks[rw], duration);
+	part_round_stats(cpu, &input->disk->part0);
+	part_dec_in_flight(&input->disk->part0, rw);
+	part_stat_unlock();
+}
+
+#else // part_stat_lock
+#define _if_start_io_acct(...) do {} while (0)
+#define _if_end_io_acct(...)   do {} while (0)
+#endif
+
 /* callback
  */
 static
@@ -74,6 +109,8 @@ void if_endio(struct generic_callback *cb)
 		MARS_FAT("mref_a = %p mref = %p, something is very wrong here!\n", mref_a, mref_a->object);
 		return;
 	}
+	input = mref_a->input;
+	CHECK_PTR(input, err);
 
 	mars_trace(mref_a->object, "if_endio");
 	mars_log_trace(mref_a->object);
@@ -108,6 +145,8 @@ void if_endio(struct generic_callback *cb)
 		}
 #endif
 
+		_if_end_io_acct(input, biow);
+
 		error = CALLBACK_ERROR(mref_a->object);
 		if (unlikely(error < 0)) {
 			MARS_ERR("NYI: error=%d RETRY LOGIC %u\n", error, bio->bi_size);
@@ -120,14 +159,12 @@ void if_endio(struct generic_callback *cb)
 		bio_put(bio);
 		brick_mem_free(biow);
 	}
-	input = mref_a->input;
-	if (input) {
-		atomic_dec(&input->flying_count);
-		if (rw) {
-			atomic_dec(&input->write_flying_count);
-		} else {
-			atomic_dec(&input->read_flying_count);
-		}
+	atomic_dec(&input->flying_count);
+	if (rw) {
+		atomic_dec(&input->write_flying_count);
+	} else {
+		atomic_dec(&input->read_flying_count);
+	}
 #ifdef IO_DEBUGGING
 		{
 			struct if_brick *brick = input->brick;
@@ -136,7 +173,6 @@ void if_endio(struct generic_callback *cb)
 			brick_string_free(txt);
 		}
 #endif
-	}
 	MARS_IO("finished.\n");
 	return;
 
@@ -363,6 +399,8 @@ if_make_request(struct request_queue *q, struct bio *bio)
 	} else {
 		atomic_inc(&input->total_read_count);
 	}
+
+	_if_start_io_acct(input, biow);
 
 	/* Get a reference to the bio.
 	 * Will be released after bio_endio().

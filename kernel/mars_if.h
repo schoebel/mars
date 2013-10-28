@@ -18,6 +18,7 @@
 struct bio_wrapper {
 	struct bio *bio;
 	atomic_t bi_comp_cnt;
+	unsigned long start_time;
 };
 
 struct if_mref_aspect {
