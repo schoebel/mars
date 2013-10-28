@@ -43,6 +43,11 @@
 
 #define USE_BUFFERING
 
+#define SEND_PROTO_VERSION   1
+
+const u16 net_global_flags = 0
+	;
+
 ////////////////////////////////////////////////////////////////////
 
 /* Internal data structures for low-level transfer of C structures
@@ -54,25 +59,36 @@
 
 #define MAX_FIELD_LEN   (32 + 16)
 
+/* Please keep this at a size of 64 bytes by
+ * reuse of *spare* fields.
+ */
 struct mars_desc_cache {
+	u8    cache_sender_proto;
+	u8    cache_recver_proto;
+	s8    cache_is_bigendian;
+	u8    cache_spare0;
+	s16   cache_items;
+	u16   cache_spare1;
+	u32   cache_spare2;
+	u32   cache_spare3;
+	u64   cache_spare4[4];
 	u64   cache_sender_cookie;
 	u64   cache_recver_cookie;
-	s16   cache_items;
-	s8    cache_is_bigendian;
-	s8    cache_spare1;
-	s32   cache_spare2;
-	u64   cache_spare3;
 };
 
+/* Please keep this also at a size of 64 bytes by
+ * reuse of *spare* fields.
+ */
 struct mars_desc_item {
-	char  field_name[MAX_FIELD_LEN];
-	s16   field_type;
+	s8    field_type;
+	s8    field_spare0;
 	s16   field_data_size;
 	s16   field_sender_size;
 	s16   field_sender_offset;
 	s16   field_recver_size;
 	s16   field_recver_offset;
 	s32   field_spare;
+	char  field_name[MAX_FIELD_LEN];
 };
 
 /* This must not be mirror symmetric between big and little endian
@@ -131,7 +147,6 @@ void swap_mc(struct mars_desc_cache *mc, int len)
 	len -= sizeof(*mc);
 
 	for (mi = (void*)(mc + 1); len > 0; mi++, len -= sizeof(*mi)) {
-		SWAP_FIELD(mi->field_type);
 		SWAP_FIELD(mi->field_data_size);
 		SWAP_FIELD(mi->field_sender_size);
 		SWAP_FIELD(mi->field_sender_offset);
@@ -279,6 +294,69 @@ void _set_socketopts(struct socket *sock)
 	}
 }
 
+static
+int _mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen, int flags);
+
+static
+void mars_proto_check(struct mars_socket *msock)
+{
+	u8 service_version = 0;
+	u16 service_flags = 0;
+	int status;
+
+	status = _mars_recv_raw(msock, &service_version, 1, 1, 0);
+	if (unlikely(status < 0)) {
+		MARS_DBG("#%d protocol exchange failed at receiving, status = %d\n",
+			 msock->s_debug_nr,
+			 status);
+		return;
+	}
+
+	// take the the minimum of both protocol versions
+	if (service_version > msock->s_send_proto)
+		service_version = msock->s_send_proto;
+	msock->s_send_proto = service_version;
+
+	status = _mars_recv_raw(msock, &service_flags, 2, 2, 0);
+	if (unlikely(status < 0)) {
+		MARS_DBG("#%d protocol exchange failed at receiving, status = %d\n",
+			 msock->s_debug_nr,
+			 status);
+		return;
+	}
+
+	msock->s_recv_flags = service_flags;
+}
+
+static
+int mars_proto_exchange(struct mars_socket *msock, const char *msg)
+{
+	int status;
+
+	msock->s_send_proto = SEND_PROTO_VERSION;
+	status = mars_send_raw(msock, &msock->s_send_proto, 1, false);
+	if (unlikely(status < 0)) {
+		MARS_DBG("#%d protocol exchange on %s failed at sending, status = %d\n",
+			 msock->s_debug_nr,
+			 msg,
+			 status);
+		goto done;
+	}
+
+	msock->s_send_flags = net_global_flags;
+	status = mars_send_raw(msock, &msock->s_send_flags, 2, false);
+	if (unlikely(status < 0)) {
+		MARS_DBG("#%d flags exchange on %s failed at sending, status = %d\n",
+			 msock->s_debug_nr,
+			 msg,
+			 status);
+		goto done;
+	}
+
+done:
+	return status;
+}
+
 int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *addr, bool is_server)
 {
 	struct socket *sock;
@@ -327,9 +405,11 @@ int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *addr,
 			MARS_DBG("#%d connect in progress\n", msock->s_debug_nr);
 			status = 0;
 		}
-		if (status < 0) {
+		if (unlikely(status < 0)) {
 			MARS_DBG("#%d connect failed, status = %d\n", msock->s_debug_nr, status);
+			goto done;
 		}
+		status = mars_proto_exchange(msock, "connect");
 	}
 
 done:
@@ -375,7 +455,8 @@ int mars_accept_socket(struct mars_socket *new_msock, struct mars_socket *old_ms
 		new_msock->s_alive = true;
 		new_msock->s_debug_nr = ++current_debug_nr;
 		MARS_DBG("#%d successfully accepted socket #%d\n", old_msock->s_debug_nr, new_msock->s_debug_nr);
-		status = 0;
+
+		status = mars_proto_exchange(new_msock, "accept");
 err:
 		mars_put_socket(old_msock);
 	}
@@ -755,6 +836,20 @@ final:
 
 int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 {
+	/* Check the very first received byte for higher-level protocol
+	 * information. This safes one ping-pong cycle at
+	 * mars_proto_exchange() because the sender can immediately
+	 * start sending bulk data without need to wait there.
+	 * This is important for latency, thus we exceptionally break
+	 * the layering hierarchy here. Also, we start sending at
+	 * the lowest possible protocol version and may increase
+	 * the protocol capabilities dynamically at runtime,
+	 * somewhen later. This bears some slight nondeterminism,
+	 * but we take it into account for performance reasons.
+	 */
+	if (unlikely(!msock->s_recv_bytes))
+		mars_proto_check(msock);
+
 	return _mars_recv_raw(msock, buf, minlen, maxlen, 0);
 }
 EXPORT_SYMBOL_GPL(mars_recv_raw);
@@ -874,6 +969,9 @@ struct mars_desc_cache *make_sender_cache(struct mars_socket *msock, const struc
 
 	memset(mc, 0, maxlen);
 	mc->cache_sender_cookie = (u64)meta;
+	// further bits may be used in future
+	mc->cache_sender_proto = msock->s_send_proto;
+	mc->cache_recver_proto = msock->s_recv_proto;
 
 	maxlen -= sizeof(struct mars_desc_cache);
 	mi = (void*)(mc + 1);
