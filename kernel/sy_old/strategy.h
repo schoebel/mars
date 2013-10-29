@@ -84,9 +84,7 @@ extern int mars_fast_fullsync;
 	bool d_killme;							\
 	bool d_use_channel;						\
 	struct kstat new_stat;						\
-	struct kstat old_stat;						\
 	char *new_link;							\
-	char *old_link;							\
 	struct mars_global *d_global;					\
 	void (*d_private_destruct)(void *private);			\
 	void *d_private;

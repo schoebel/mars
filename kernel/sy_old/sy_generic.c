@@ -98,9 +98,7 @@ const struct meta mars_dent_meta[] = {
 	META_INI(d_corr_A,  struct mars_dent, FIELD_INT),
 	META_INI(d_corr_B,  struct mars_dent, FIELD_INT),
 	META_INI_SUB(new_stat,struct mars_dent, mars_kstat_meta),
-	META_INI_SUB(old_stat,struct mars_dent, mars_kstat_meta),
 	META_INI(new_link,    struct mars_dent, FIELD_STRING),
-	META_INI(old_link,    struct mars_dent, FIELD_STRING),
 	META_INI(d_args,    struct mars_dent, FIELD_STRING),
 	META_INI(d_argv[0], struct mars_dent, FIELD_STRING),
 	META_INI(d_argv[1], struct mars_dent, FIELD_STRING),
@@ -952,7 +950,6 @@ int get_inode(char *newpath, struct mars_dent *dent)
 		goto done;
 	}
 
-	memcpy(&dent->old_stat, &dent->new_stat, sizeof(dent->old_stat)); 
 	memcpy(&dent->new_stat, &tmp, sizeof(dent->new_stat));
 
 	if (S_ISLNK(dent->new_stat.mode)) {
@@ -984,8 +981,7 @@ int get_inode(char *newpath, struct mars_dent *dent)
 		    (dent->new_link && !strncmp(dent->new_link, link, len))) {
 			brick_string_free(link);
 		} else {
-			brick_string_free(dent->old_link);
-			dent->old_link = dent->new_link;
+			brick_string_free(dent->new_link);
 			dent->new_link = link;
 		}
 		path_put(&path);
@@ -1446,7 +1442,6 @@ void mars_free_dent(struct mars_dent *dent)
 	brick_string_free(dent->d_name);
 	brick_string_free(dent->d_rest);
 	brick_string_free(dent->d_path);
-	brick_string_free(dent->old_link);
 	brick_string_free(dent->new_link);
 	if (likely(dent->d_parent)) {
 		dent->d_parent->d_child_count--;
