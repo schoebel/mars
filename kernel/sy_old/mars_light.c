@@ -481,14 +481,11 @@ enum {
 	CL_SIZE,
 	CL_ACTSIZE,
 	CL_PRIMARY,
-	CL__FILE,
 	CL_CONNECT,
 	CL_TRANSFER,
 	CL_SYNC,
 	CL_VERIF,
 	CL_SYNCPOS,
-	CL__COPY,
-	CL__DIRECT,
 	CL_VERSION,
 	CL_LOG,
 	CL_REPLAYSTATUS,
@@ -3992,117 +3989,6 @@ int kill_dev(void *buf, struct mars_dent *dent)
 	return status;
 }
 
-static int _make_direct(void *buf, struct mars_dent *dent)
-{
-	struct mars_global *global = buf;
-	struct mars_brick *brick;
-	char *src_path = NULL;
-	int status;
-	bool switch_on;
-	bool do_dealloc = false;
-
-	if (!dent->d_parent || !dent->new_link) {
-		return 0;
-	}
-	status = _parse_args(dent, dent->new_link, 2);
-	if (status < 0) {
-		MARS_DBG("parse status = %d\n", status);
-		goto done;
-	}
-	src_path = dent->d_argv[0];
-	if (src_path[0] != '/') {
-		src_path = path_make("%s/%s", dent->d_parent->d_path, dent->d_argv[0]);
-		if (!src_path) {
-			MARS_DBG("fail\n");
-			status = -ENOMEM;
-			goto done;
-		}
-		do_dealloc = true;
-	}
-
-	switch_on = _check_allow(global, dent->d_parent, "attach");
-
-	brick = 
-		make_brick_all(global,
-			       dent,
-			       _set_bio_params,
-			       NULL,
-			       src_path,
-			       (const struct generic_brick_type*)&bio_brick_type,
-			       (const struct generic_brick_type*[]){},
-			       switch_on ? 2 : -1,
-			       "%s",
-			       (const char *[]){},
-			       0,
-			       src_path);
-	status = -1;
-	if (!brick) {
-		MARS_DBG("fail\n");
-		goto done;
-	}
-
-	brick = 
-		make_brick_all(global,
-			       dent,
-			       _set_if_params,
-			       NULL,
-			       dent->d_argv[1],
-			       (const struct generic_brick_type*)&if_brick_type,
-			       (const struct generic_brick_type*[]){NULL},
-			       switch_on ? 2 : -1,
-			       "%s/directdevice-%s",
-			       (const char *[]){ "%s" },
-			       1,
-			       dent->d_parent->d_path,
-			       dent->d_argv[1],
-			       src_path);
-	status = -1;
-	if (!brick) {
-		MARS_DBG("fail\n");
-		goto done;
-	}
-
-	status = 0;
-done:
-	MARS_DBG("status = %d\n", status);
-	if (do_dealloc && src_path)
-		brick_string_free(src_path);
-	return status;
-}
-
-static int _make_copy(void *buf, struct mars_dent *dent)
-{
-	struct mars_global *global = buf;
-	const char *switch_path = NULL;
-	const char *copy_path = NULL;
-	int status;
-
-	if (!dent->d_parent || !dent->new_link) {
-		return 0;
-	}
-	status = _parse_args(dent, dent->new_link, 2);
-	if (status < 0) {
-		goto done;
-	}
-	copy_path = backskip_replace(dent->d_path, '/', true, "/copy-");
-	if (unlikely(!copy_path)) {
-		status = -ENOMEM;
-		goto done;
-	}
-	// check whether connection is allowed
-	switch_path = path_make("%s/todo-%s/connect", dent->d_parent->d_path, my_id());
-
-	status = __make_copy(global, dent, switch_path, copy_path, dent->d_parent->d_path, (const char**)dent->d_argv, NULL, -1, -1, false, false, true, true, NULL);
-
-done:
-	MARS_DBG("status = %d\n", status);
-	if (copy_path)
-		brick_string_free(copy_path);
-	if (switch_path)
-		brick_string_free(switch_path);
-	return status;
-}
-
 static
 int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *peer)
 {
@@ -5061,18 +4947,6 @@ static const struct light_class light_classes[] = {
 		.cl_forward = make_primary,
 		.cl_backward = NULL,
 	},
-	/* Only for testing: open local file
-	 */
-	[CL__FILE] = {
-		.cl_name = "_file-",
-		.cl_len = 6,
-		.cl_type = 'F',
-		.cl_serial = true,
-		.cl_hostcontext = true,
-		.cl_father = CL_RESOURCE,
-		.cl_forward = make_bio,
-		.cl_backward = kill_any,
-	},
 	/* Symlink for connection preferences
 	 */
 	[CL_CONNECT] = {
@@ -5127,31 +5001,6 @@ static const struct light_class light_classes[] = {
 		.cl_hostcontext = true,
 		.cl_father = CL_RESOURCE,
 	},
-	/* Only for testing: make a copy instance
-	 */
-	[CL__COPY] = {
-		.cl_name = "_copy-",
-		.cl_len = 6,
-		.cl_type = 'l',
-		.cl_serial = true,
-		.cl_hostcontext = true,
-		.cl_father = CL_RESOURCE,
-		.cl_forward = _make_copy,
-		.cl_backward = kill_any,
-	},
-	/* Only for testing: access local data
-	 */
-	[CL__DIRECT] = {
-		.cl_name = "_direct-",
-		.cl_len = 8,
-		.cl_type = 'l',
-		.cl_serial = true,
-		.cl_hostcontext = true,
-		.cl_father = CL_RESOURCE,
-		.cl_forward = _make_direct,
-		.cl_backward = kill_any,
-	},
-
 	/* Passive symlink indicating the split-brain crypto hash
 	 */
 	[CL_VERSION] = {
