@@ -25,9 +25,6 @@
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
 
-#define USE_VFS_READ
-#define USE_VFS_WRITE
-
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/version.h>
@@ -38,7 +35,6 @@
 #include <linux/highmem.h>
 #include <linux/spinlock.h>
 #include <linux/wait.h>
-#include <linux/splice.h>
 
 #include "mars.h"
 
@@ -124,31 +120,6 @@ static void sio_ref_put(struct sio_output *output, struct mref_object *mref)
 	sio_free_mref(mref);
 }
 
-// some code borrowed from the loopback driver
-
-static int transfer_none(int cmd,
-			 struct page *raw_page, unsigned raw_off,
-			 void *loop_buf,
-			 int size)
-{
-	void *raw_buf;
-
-	if (unlikely(!raw_page || !loop_buf)) {
-		MARS_ERR("transfer NULL: %p %p\n", raw_buf, loop_buf);
-		return -EFAULT;
-	}
-
-	raw_buf = page_address(raw_page) + raw_off;
-
-	if (cmd == READ)
-		memcpy(loop_buf, raw_buf, size);
-	else
-		memcpy(raw_buf, loop_buf, size);
-
-	cond_resched();
-	return 0;
-}
-
 static
 int write_aops(struct sio_output *output, struct mref_object *mref)
 {
@@ -157,121 +128,13 @@ int write_aops(struct sio_output *output, struct mref_object *mref)
 	void *data = mref->ref_data;
 	int  len = mref->ref_len;
 	int ret = 0;
-
-
-#ifdef USE_VFS_WRITE
 	mm_segment_t oldfs;
 
 	oldfs = get_fs();
 	set_fs(get_ds());
 	ret = vfs_write(file, data, len, &pos);
 	set_fs(oldfs);
-#else
-	unsigned offset;
-	struct address_space *mapping;
-
-	if (unlikely(!file)) {
-		MARS_FAT("No FILE\n");
-		return -ENXIO;
-	}
-	mapping = file->f_mapping;
-
-	mutex_lock(&mapping->host->i_mutex);
-		
-	offset = pos & ((pgoff_t)PAGE_CACHE_SIZE - 1);
-	
-	while (len > 0) {
-		int transfer_result;
-		unsigned size, copied;
-		struct page *page = NULL;
-		void *fsdata;
-
-		size = PAGE_CACHE_SIZE - offset;
-		if (size > len)
-			size = len;
-
-		ret = pagecache_write_begin(file, mapping, pos, size, 0,
-					    &page, &fsdata);
-		if (ret) {
-			MARS_ERR("cannot start pagecache_write_begin() error=%d\n", ret);
-			if (ret >= 0)
-				ret = -EINVAL;
-			goto fail;
-		}
-
-		//file_update_time(file);
-
-		transfer_result = transfer_none(WRITE, page, offset, data, size);
-
-		copied = size;
-		if (transfer_result) {
-			MARS_ERR("transfer error %d\n", transfer_result);
-			copied = 0;
-		}
-
-		ret = pagecache_write_end(file, mapping, pos, size, copied,
-					  page, fsdata);
-		if (ret < 0 || ret != copied || transfer_result) {
-			MARS_ERR("write error %d\n", ret);
-			if (ret >= 0)
-				ret = -EINVAL;
-			goto fail;
-		}
-		
-		len -= copied;
-		offset = 0;
-		pos += copied;
-		data += copied;
-	}
-	ret = 0;
-	
-fail:
-	mutex_unlock(&mapping->host->i_mutex);
-
-	blk_run_address_space(mapping);
-#endif
 	return ret;
-}
-
-struct cookie_data {
-	struct sio_output *output;
-	struct mref_object *mref;
-};
-
-static int
-sio_splice_actor(struct pipe_inode_info *pipe,
-			struct pipe_buffer *buf,
-			struct splice_desc *sd)
-{
-	struct cookie_data *cookie = sd->u.data;
-	struct mref_object *mref = cookie->mref;
-	struct page *page = buf->page;
-	void *data;
-	int size, ret;
-
-	ret = buf->ops->confirm(pipe, buf);
-	if (unlikely(ret))
-		return ret;
-
-	size = sd->len;
-	if (size > mref->ref_len)
-		size = mref->ref_len;
-
-	data = mref->ref_data;
-	if (transfer_none(READ, page, buf->offset, data, size)) {
-		MARS_ERR("transfer error\n");
-		size = -EINVAL;
-	}
-
-	//flush_dcache_page(p->bvec->bv_page);
-
-	return size;
-}
-
-static int
-sio_direct_splice_actor(struct pipe_inode_info *pipe, struct splice_desc *sd)
-{
-	return __splice_from_pipe(pipe, sd, sio_splice_actor);
 }
 
 static 
@@ -280,30 +143,12 @@ int read_aops(struct sio_output *output, struct mref_object *mref)
 	loff_t pos = mref->ref_pos;
 	int len = mref->ref_len;
 	int ret;
-
-#ifdef USE_VFS_READ
 	mm_segment_t oldfs;
-	(void) sio_direct_splice_actor; // shut up gcc
 
 	oldfs = get_fs();
 	set_fs(get_ds());
 	ret = vfs_read(output->mf->mf_filp, mref->ref_data, len, &pos);
 	set_fs(oldfs);
-#else
-	struct cookie_data cookie = {
-		.output = output,
-		.mref = mref,
-	};
-	struct splice_desc sd = {
-		.len = 0,
-		.total_len = len,
-		.flags = 0,
-		.pos = pos,
-		.u.data = &cookie,
-	};
-
-	ret = splice_direct_to_actor(output->mf->mf_filp, &sd, sio_direct_splice_actor);
-#endif
 
 	if (unlikely(ret < 0)) {
 		MARS_ERR("%p %p status=%d\n", output, mref, ret);
