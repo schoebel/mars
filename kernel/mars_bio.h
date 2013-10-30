@@ -69,8 +69,8 @@ struct bio_brick {
 	wait_queue_head_t response_event;
 	struct mapfree_info *mf;
 	struct block_device *bdev;
-	brick_thread_t *submit_thread;
-	brick_thread_t *response_thread;
+	struct task_struct *submit_thread;
+	struct task_struct *response_thread;
 	int bvec_max;
 	bool submitted;
 };

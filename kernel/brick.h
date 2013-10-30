@@ -606,24 +606,18 @@ extern void set_button_wait(struct generic_brick *brick, bool val, bool force, i
 
 /////////////////////////////////////////////////////////////////////////
 
-// threads
-
-/* Please do not directly use kthreads any more in future.
- * Use these thin abstractions instead.
- */
-
-#define brick_thread_t struct task_struct
+// thread automation (avoid code duplication)
 
 #define brick_thread_create(_thread_fn, _data, _fmt, _args...)		\
 	({								\
-		brick_thread_t *_thr = kthread_create(_thread_fn, _data, _fmt, ##_args);	\
+		struct task_struct *_thr = kthread_create(_thread_fn, _data, _fmt, ##_args);	\
 		if (unlikely(IS_ERR(_thr))) {				\
 			int _err = PTR_ERR(_thr);			\
 			BRICK_ERR("cannot create thread '%s', status = %d\n", _fmt, _err); \
 			_thr = NULL;					\
 		} else {						\
 			struct say_channel *ch = get_binding(current);	\
-			if (ch)						\
+			if (likely(ch))					\
 				bind_to_channel(ch, _thr);		\
 			get_task_struct(_thr);				\
 			wake_up_process(_thr);				\
@@ -635,9 +629,9 @@ extern void set_button_wait(struct generic_brick *brick, bool val, bool force, i
 	do {								\
 		struct task_struct *__thread__ = (_thread);		\
 		if (likely(__thread__)) {				\
-			BRICK_INF("stopping thread '%s'\n", __thread__->comm); \
+			BRICK_DBG("stopping thread '%s'\n", __thread__->comm); \
 			kthread_stop(__thread__);			\
-			BRICK_INF("thread '%s' finished.\n", __thread__->comm); \
+			BRICK_DBG("thread '%s' finished.\n", __thread__->comm); \
 			remove_binding(__thread__);			\
 			put_task_struct(__thread__);			\
 			_thread = NULL;					\
