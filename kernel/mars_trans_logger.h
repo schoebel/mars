@@ -157,7 +157,6 @@ struct trans_logger_brick {
 	bool continuous_replay_mode;   // mode of operation
 	bool log_reads;   // additionally log pre-images
 	bool cease_logging; // direct IO without logging (only in case of EMERGENCY)
-	bool debug_shortcut; // only for testing! never use in production!
 	loff_t replay_start_pos; // where to start replay
 	loff_t replay_end_pos;   // end of replay
 	int new_input_nr;   // whereto we should switchover ASAP

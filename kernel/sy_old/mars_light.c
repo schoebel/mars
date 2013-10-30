@@ -579,8 +579,6 @@ EXPORT_SYMBOL_GPL(mars_mem_percent);
 
 #define CONF_TRANS_SHADOW_LIMIT (1024 * 128) // don't fill the hashtable too much
 
-//#define TRANS_FAKE
-
 #define CONF_TRANS_BATCHLEN 64
 #define CONF_TRANS_PRIO   MARS_PRIO_HIGH
 #define CONF_TRANS_LOG_READS false
@@ -629,11 +627,6 @@ int _set_trans_params(struct mars_brick *_brick, void *private)
 
 		trans_brick->shadow_mem_limit = CONF_TRANS_SHADOW_LIMIT;
 		trans_brick->log_reads = CONF_TRANS_LOG_READS;
-
-#ifdef TRANS_FAKE
-		trans_brick->debug_shortcut = true;
-#endif
-
 	}
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 	return 1;
