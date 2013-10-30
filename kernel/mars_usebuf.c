@@ -30,7 +30,6 @@
 
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
-//#define STAT_DEBUGGING
 
 //#define FAKE_ALL // only for testing
 //#define DIRECT_IO // shortcut solely for testing: do direct IO

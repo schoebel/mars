@@ -27,7 +27,6 @@
 //#define BRICK_DEBUGGING
 #define MARS_DEBUGGING
 //#define REPLAY_DEBUGGING
-#define STAT_DEBUGGING // here means: display full statistics
 
 #include <linux/kernel.h>
 #include <linux/module.h>

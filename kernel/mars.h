@@ -112,16 +112,6 @@
 #define MARS_DBG(_args...) /**/
 #endif
 
-#ifdef STAT_DEBUGGING
-#ifdef MARS_DEBUGGING
-# define MARS_STAT MARS_DBG
-#else
-# define MARS_STAT MARS_INF
-#endif
-#else
-#define MARS_STAT(_args...) /*empty*/
-#endif
-
 /////////////////////////////////////////////////////////////////////////
 
 // MARS-specific definitions
