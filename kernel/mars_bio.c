@@ -28,8 +28,6 @@
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
 
-//#define FAKE_IO
-
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/string.h>
@@ -415,15 +413,11 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref, bool cork)
 	list_add_tail(&mref_a->io_head, &brick->submitted_list[rw & 1]);
 	spin_unlock_irqrestore(&brick->lock, flags);
 
-#ifdef FAKE_IO
-	bio->bi_end_io(bio, 0);
-#else
 	bio->bi_rw = rw;
 	latency = TIME_STATS(
 		&timings[rw & 1],
 		submit_bio(rw, bio)
 		);
-#endif
 
 	threshold_check(&bio_submit_threshold, latency);
 
