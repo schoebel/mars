@@ -40,8 +40,6 @@
 
 #include "mars.h"
 
-//#define USE_VMALLOC
-
 //#define FAKE_IO // only for testing
 //#define FAKE_READS // only for testing
 //#define FAKE_WRITES // only for testing
@@ -236,11 +234,7 @@ struct buf_head *_alloc_bf(struct buf_brick *brick)
 {
 	struct buf_head *bf = brick_zmem_alloc(sizeof(struct buf_head));
 
-#ifdef USE_VMALLOC
-	bf->bf_data = vmalloc(brick->backing_size);
-#else
 	bf->bf_data = (void*)__get_free_pages(GFP_BRICK, brick->backing_order);
-#endif
 
 	atomic_inc(&brick->alloc_count);
 
@@ -258,11 +252,7 @@ void _dealloc_bf(struct buf_brick *brick, struct buf_head *bf)
 	CHECK_HEAD_EMPTY(&bf->bf_hash_head);
 	CHECK_HEAD_EMPTY(&bf->bf_io_pending_anchor);
 	CHECK_HEAD_EMPTY(&bf->bf_postpone_anchor);
-#ifdef USE_VMALLOC
-	vfree(bf->bf_data);
-#else
 	free_pages((unsigned long)bf->bf_data, brick->backing_order);
-#endif
 	brick_mem_free(bf);
 	atomic_dec(&brick->alloc_count);
 }
