@@ -893,11 +893,7 @@ static int if_switch(struct if_brick *brick)
 		// point of no return
 		MARS_DBG("add_disk()\n");
 		add_disk(disk);
-#if 1
 		set_disk_ro(disk, false);
-#else
-		set_device_ro(input->bdev, 0); // TODO: implement modes
-#endif
 
 		// report success
 		mars_power_led_on((void*)brick, true);

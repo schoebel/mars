@@ -590,31 +590,6 @@ const struct meta *find_meta(const struct meta *meta, const char *field_name)
 }
 EXPORT_SYMBOL_GPL(find_meta);
 
-#if 0 // currently not needed, but this may change
-void free_meta(void *data, const struct meta *meta)
-{
-	for (; meta->field_name[0]; meta++) {
-		void *item;
-		switch (meta->field_type) {
-		case FIELD_SUB:
-			if (meta->field_ref) {
-				item = data + meta->field_offset;
-				free_meta(item, meta->field_ref);
-			}
-			break;
-		case FIELD_REF:
-		case FIELD_STRING:
-			item = data + meta->field_offset;
-			item = *(void**)item;
-			if (meta->field_ref)
-				free_meta(item, meta->field_ref);
-			brick_mem_free(item);
-		}
-	}
-}
-EXPORT_SYMBOL_GPL(free_meta);
-#endif
-
 /////////////////////////////////////////////////////////////////////////
 
 // module init stuff
