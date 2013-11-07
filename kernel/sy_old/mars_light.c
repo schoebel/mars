@@ -3558,7 +3558,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	loff_t start_pos = 0;
 	loff_t end_pos = 0;
 	struct mars_dent *size_dent;
-	struct mars_dent *connect_dent;
+	struct mars_dent *primary_dent;
 	char *peer;
 	struct copy_brick *copy = NULL;
 	char *tmp = NULL;
@@ -3617,17 +3617,22 @@ static int make_sync(void *buf, struct mars_dent *dent)
 
 	/* Determine peer
 	 */
-	tmp = path_make("%s/connect-%s", dent->d_parent->d_path, my_id());
+	tmp = path_make("%s/primary", dent->d_parent->d_path);
 	status = -ENOMEM;
 	if (unlikely(!tmp))
 		goto done;
-	connect_dent = (void*)mars_find_dent(global, tmp);
-	if (!connect_dent || !connect_dent->new_link) {
-		MARS_WRN("cannot determine peer, symlink '%s' is missing => assuming that I am STANDALONE\n", tmp);
+	primary_dent = (void*)mars_find_dent(global, tmp);
+	if (!primary_dent || !primary_dent->new_link) {
+		MARS_ERR("cannot determine primary, symlink '%s'\n", tmp);
 		status = 0;
 		goto done;
 	}
-	peer = connect_dent->new_link;
+	peer = primary_dent->new_link;
+	if (!strcmp(peer, "(none)")) {
+		MARS_INF("cannot start sync, no primary is designated\n");
+		status = 0;
+		goto done;
+	}
 
 	/* Disallow contemporary sync & logfile_apply
 	 */
