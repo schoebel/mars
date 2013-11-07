@@ -21,13 +21,10 @@
 
 function multires_prepare
 {
-    cluster_umount_mars_dir_all
+    cluster_clear_and_umount_mars_dir_all
     lv_config_prepare
     lv_config_run
-    cluster_mount_mars_dir_all
-    resource_rm_resource_dir_all
-    cluster_create
-    cluster_join
+    cluster_clear_and_mount_mars_dir_all
     cluster_insert_mars_module_all
     multires_create_resources_all
 }
@@ -37,7 +34,7 @@ function multires_create_resources_all
     local primary_host=${main_host_list[0]}
     local secondary_host=${main_host_list[1]}
     local res lv_dev count=0 maxwait=20
-    for res in ${lv_config_name_list[@]}; do
+    for res in ${lv_config_lv_name_list[@]}; do
     	local lv_dev=$(lv_config_get_lv_device $res)
         marsadm_do_cmd $primary_host "create-resource --force" "$res $lv_dev"
         marsadm_do_cmd $primary_host "wait-resource" "$res is-device"

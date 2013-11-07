@@ -8,6 +8,7 @@ finish_list=""
 function main
 {
     ok=1
+    main_start_time=$(date +'%Y%m%d%H%M%S')
     for script in $prepare_list; do
 	if (( ok )); then
 	    (( verbose_script )) && echo "calling $script"
@@ -35,4 +36,9 @@ function main
 	$script
     done
     return $(( !ok ))
+}
+
+function main_test_no_longer_in_use
+{
+    echo "This test is kept only for historical reasons and does not run anymore"
 }

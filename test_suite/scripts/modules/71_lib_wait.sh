@@ -79,6 +79,7 @@ function lib_wait_until_fetch_stops
         fi
     done
 
+    lib_vmsg "  ${FUNCNAME[0]}: module=$module, maxtime_fetch=$maxtime_fetch, time_constant_fetch=$time_constant_fetch"
     lib_wait_internal_until_fetch_stops $secondary_host $res $primary_host \
                                 $maxtime_fetch \
                                 $time_constant_fetch \
@@ -205,18 +206,29 @@ function lib_wait_until_action_stops
 
 function lib_wait_for_initial_end_of_sync
 {
-    [ $# -eq 5 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
-    local secondary_host=$1 res=$2 maxwait=$3 inactive_wait=$4
-    local varname_time_waited=$5
+    [ $# -eq 6 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    local primary_host=$1 secondary_host=$2 res=$3 maxwait=$4 inactive_wait=$5
+    local varname_time_waited=$6
     local net_throughput
     lib_wait_until_action_stops "syncstatus" $secondary_host $res $maxwait \
                                 $inactive_wait $varname_time_waited 0 \
                                 "net_throughput"
+    # we use deliberately the same times to wait as we did for the sync
+    # above. After the sync the replays should not last more than some
+    # seconds
+    local time_waited
+    lib_wait_until_action_stops "replay" $primary_host $res \
+                                $maxwait $inactive_wait "time_waited" 0 \
+                                "net_throughput"
+    lib_wait_until_action_stops "replay" $secondary_host $res \
+                                $maxwait $inactive_wait "time_waited" 0 \
+                                "net_throughput"
     # after sync disk state must be Outdated || Uptodate
-    marsview_check $secondary_host $res "disk" ".*date.*" || lib_exit 1
+    marsview_wait_for_state $secondary_host $res "disk" ".*date.*" \
+                            $marsview_wait_for_state_time || lib_exit 1
 }
 
-function lib_wait_for_secondary_to_become_uptodate
+function lib_wait_for_secondary_to_become_uptodate_and_cmp_cksums
 {
     [ $# -eq 6 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local module_name=$1 secondary_host=$2 primary_host=$3 res=$4
@@ -245,21 +257,20 @@ function lib_wait_for_secondary_to_become_uptodate
                                 $maxtime_apply \
                                 $time_constant_apply "time_waited" 0 \
                                 "net_throughput"
+    lib_wait_until_action_stops "replay" $primary_host $res \
+                                $maxtime_apply \
+                                $time_constant_apply "time_waited" 0 \
+                                "net_throughput"
     lib_vmsg "  ${FUNCNAME[0]} called from ${FUNCNAME[1]}: apply time: $time_waited"
 
 
     for role in "primary" "secondary"; do
         eval host='$'${role}_host
-        marsview_check $host $res "disk" "Uptodate" || lib_exit 1
-        marsview_check $host $res "repl" "-SFA-" || lib_exit 1
+        marsview_wait_for_state $host $res "disk" "Uptodate" $marsview_wait_for_state_time || lib_exit 1
+        marsview_wait_for_state $host $res "repl" "-SFA-" $marsview_wait_for_state_time || lib_exit 1
     done
 
-    if mount_is_device_mounted $primary_host $dev "mount_point"; then
-        mount_umount $primary_host $dev $mount_point
-    fi
-
-    lib_rw_compare_checksums $primary_host $secondary_host $dev \
-                             $dev_size_to_compare "" ""
+    lib_rw_compare_checksums $primary_host $secondary_host $res $dev_size_to_compare "" ""
 }
 
 function lib_wait_until_apply_has_reached_length

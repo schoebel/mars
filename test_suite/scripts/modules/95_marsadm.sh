@@ -43,14 +43,31 @@ function marsadm_check_post_condition_secondary
 function marsadm_get_highest_to_delete_nr
 {
     local host=$1
-    local ret
-    ret=$(lib_remote_idfile $host \
-          "ls -1 $main_mars_directory/todo-global/delete-* | sed 's/.*-\([0-9][0-9]*\)/\1/' | sort -n | tail -1")
-    if [ -z "$ret" ]; then
-        ret=0
-    fi
+    local ret rc
+    local ls_out_old="x" ls_out_act maxcount=10 count=0
+    # wait until ls output is stable
+    while true; do
+        ls_out_act="$(lib_remote_idfile $host 'ls -1 $main_mars_directory/todo-global/delete-[0-9]*[0-9]')"
+        rc=$?
+        if [ -z "$ls_out_act" -o $rc -ne 0 ]; then
+            echo 0
+            return
+        fi
+        if [ "$ls_out_act" -eq "$ls_out_old" ]; then
+            break
+        fi
+        let count+=1
+        sleep 1
+        lib_vmsg "  $count retries: ls_out_old="$'\n'"$ls_out_old"$'\n'"ls_out_act="$'\n'"$ls_out_act"
+        if [ $count -eq $maxcount ]; then
+            lib_exit 1 "max number of loops exceeded"
+        fi
+        ls_out_old="$ls_out_act"
+        continue
+    done
+    ret=$(echo "$ls_out_act" | sed 's/.*-//' | sort -n | tail -1)
     if ! expr "$ret" : '^[0-9][0-9]*$' >/dev/null; then
-        lib_exit 1 "cannot determine number of $main_mars_directory/todo-global/.delete-* files on $host"
+        lib_exit 1 "cannot determine number of $main_mars_directory/todo-global/delete-* files on $host (ret=$ret)"
     fi
     echo $ret
 }
@@ -87,26 +104,44 @@ function marsadm_check_post_condition_role_switch
 {
     local role_req=$1 host=$2 cmd_args=("$3")
     local res=${cmd_args[0]}
-    local role_act rc
-    role_act=$(marsadm_get_role $host $res) || lib_exit 1
-    if [ "$role_act" != "$role_req" ]; then
-        lib_exit 1 "role expected = $role_req != $role_act = role found"
-    fi
-    lib_vmsg "  role = $role_act, trying ls $(resource_get_data_device $res) on $host"
-    lib_remote_idfile $host "ls -l --full-time $(resource_get_data_device $res)"
-    rc=$?
-    case $role_act in # (((
-        primary) if [ $rc -ne 0 ]; then
-                    lib_exit 1
-                 fi
-               ;;
-        secondary) if [ $rc -eq 0 ]; then
-                    lib_exit 1
-                   fi
-               ;;
-               *) lib_exit 1 "invalid role $role_act"
-               ;;
+    local role_act ls_returncode_req ls_returncode_act maxcount=5 count=0
+    case $role_req in # (((
+        primary) marsadm_do_cmd $host "wait-resource" "$res is-device-on" || lib_exit 1
+                 ls_returncode_req=0
+              ;;
+        secondary) marsadm_do_cmd $host "wait-resource" "$res is-device-off" || lib_exit 1
+                 ls_returncode_req=2
+              ;;
+              *) lib_exit 1 "invalid role $role_act"
+              ;;
     esac
+    while true; do
+        role_act=$(marsadm_get_role $host $res) || lib_exit 1
+        if [ "$role_act" = "$role_req" ]; then
+            break;
+        fi
+        let count+=1
+        sleep 1
+        lib_vmsg "  waited $count for role expected = $role_req (actual role = $role_act)"
+        if [ $count -eq $maxcount ]; then
+            lib_exit 1 "maxwait $maxcount exceeded"
+        fi
+    done
+    count=0
+    while true; do
+        lib_vmsg "  role = $role_act, trying ls $(resource_get_data_device $res) on $host"
+        lib_remote_idfile $host "ls -l --full-time $(resource_get_data_device $res)"
+        ls_returncode_act=$?
+        if [ $ls_returncode_req -eq $ls_returncode_act ]; then
+            break;
+        fi
+        let count+=1
+        sleep 1
+        lib_vmsg "  waited $count for ls returncode expected = $ls_returncode_req (actual rc = $ls_returncode_act)"
+        if [ $count -eq $maxcount ]; then
+            lib_exit 1 "maxwait $maxcount exceeded"
+        fi
+    done
 }
 
 function marsadm_check_post_condition_pause_sync
@@ -169,7 +204,8 @@ function marsadm_pause_cmd
     esac
 
     marsadm_do_cmd $host "$marsadm_cmd" $res || lib_exit 1
-    marsview_check $host $res "repl" "$repl_state" || lib_exit 1
+    marsview_wait_for_state $host $res "repl" "$repl_state" \
+                            $marsview_wait_for_state_time || lib_exit 1
 }
 
 function marsadm_set_proc_sys_mars_parameter
@@ -199,7 +235,8 @@ function marsadm_check_warnings_and_disk_state
             fi
             lib_vmsg "  number of bytes not applied: $not_applied"
             if [ $not_applied -eq 0 ];then
-                marsview_check $host $res "disk" "Outdated\[F\]" || lib_exit 1
+                marsview_wait_for_state $host $res "disk" "Outdated\[F\]" \
+                                    $marsview_wait_for_state_time || lib_exit 1
                 return 0
             fi
             lib_vmsg "  checking file $warn_file on $host"
@@ -208,7 +245,8 @@ function marsadm_check_warnings_and_disk_state
             if [ $restlen_in_warn_file -ne $not_applied ]; then
                 lib_exit 1 "not applied = $not_applied != $restlen_in_warn_file = restlen in $warn_file"
             fi
-            marsview_check $host $res "disk" "Outdated\[FA\]" || lib_exit 1
+            marsview_wait_for_state $host $res "disk" "Outdated\[FA\]" \
+                                    $marsview_wait_for_state_time || lib_exit 1
             ;;
         *) lib_exit 1 "invalid situation $situation"
             ;;
@@ -221,7 +259,7 @@ function marsadm_get_number_bytes_unreadable_logend
     local restlen grep_out
     lib_remote_idfile $host "test -f $warn_file" || lib_exit 1
     grep_out=$(lib_remote_idfile $host \
-              "grep 'mars_logger.*restlen =.*truncated' $warn_file | tail -1")\
+              "egrep '(mars|xio)_logger.*restlen =.*truncated' $warn_file | tail -1")\
                                                             || lib_exit 1
     # grep_out = ... but available data restlen = 2564. Was the ...
     restlen=${grep_out##*available data restlen = }

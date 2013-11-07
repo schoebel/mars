@@ -53,7 +53,7 @@ function make_mars_run
         fi
     done
 
-    make_mars_check_and_build_link ${src_dirs["mars"]} ${src_dirs["kernel"]} \
+    make_mars_build_link ${src_dirs["mars"]} ${src_dirs["kernel"]} \
                                    $make_mars_build_link
 
     make_mars_check_kconfig_file ${src_dirs["kernel"]}/$make_mars_kconfig_file
@@ -62,8 +62,9 @@ function make_mars_run
 
     lib_vmsg "  call to make in ${src_dirs["kernel"]}"
     cd ${src_dirs["kernel"]} || lib_exit 1
-    make oldconfig || lib_exit 1
-    make || lib_exit 1
+    # accept all default values
+    yes ""$'\n'"" | make oldconfig || lib_exit 1
+    make -j8 || lib_exit 1
     main_error_recovery_functions["grub_restore_boot_configuration"]=1
     sudo make install modules_install || lib_exit 1
 
@@ -117,15 +118,17 @@ function make_mars_check_kconfig_file
     mv $kconfig_file{.new,}
 }
 
-function make_mars_check_and_build_link
+function make_mars_build_link
 {
     local mars_dir=$1 kernel_dir=$2 
     local link=$kernel_dir/$3
     local link_target
-    if [ ! -L $link ];then
-        echo "  missing link $link will be created"
-        ln -s $mars_dir $link || lib_exit 1
+    if [ -L $link ];then
+        lib_vmsg "  removing link $link"
+        rm $link || lib_exit 1
     fi
+    lib_vmsg "  creating link $link -> $mars_dir"
+    ln -s $mars_dir $link || lib_exit 1
     link_target=$(readlink $link)
     if [ -z "$link_target" ];then
         lib_exit 1 "cannot read link $link"

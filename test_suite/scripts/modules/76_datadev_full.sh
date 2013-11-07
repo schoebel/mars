@@ -26,7 +26,7 @@ function datadev_full_run
     local res=${resource_name_list[0]}
     local dev=$(lv_config_get_lv_device $res)
     local data_dev=$(resource_get_data_device $res)
-    local data_dev_size_orig=$(lv_config_get_lv_size $res)
+    local data_dev_size_orig=$(lv_config_get_lv_size_from_name $res)
     local data_dev_size_new=$(($data_dev_size_orig + $resize_size_to_add))
     local mars_data_dev_size_new=$((data_dev_size_new \
                                     - $resize_diff_to_phsyical))
@@ -40,16 +40,14 @@ function datadev_full_run
                      $data_dev_size_new $mars_data_dev_size_new
 
     resize_check_resize_post_conditions $primary_host $secondary_host \
-                                        $res $dev $data_dev_size_new \
-                                        $mars_data_dev_size_new \
-                                        ""
+                                        $res $dev $mars_data_dev_size_new ""
 
     resize_resize_to_orig_size $primary_host $secondary_host $dev \
                                $data_dev_size_orig
 
 
     for host in $primary_host $secondary_host; do
-        lib_remote_check_device_fs $host $dev ${resource_fs_type_list[$res]}
+        lib_rw_remote_check_device_fs $host $dev ${resource_fs_type_list[$res]}
     done
 }
 
@@ -74,7 +72,7 @@ function datadev_full_dd_on_device
         fi
     else
         if [ $rc -ne 0 ]; then
-            lib_exit 1 "dd ended with rc=$rc, ${$dd_out[@]}"
+            lib_exit 1 "dd ended with rc=$rc, ${dd_out[@]}"
         fi
     fi
 }

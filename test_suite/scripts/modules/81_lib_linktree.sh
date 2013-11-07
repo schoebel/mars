@@ -92,7 +92,7 @@ function lib_linktree_check_link
         rc=$?
         echo "  link $host:$link -> $link_value"
         if [ $rc -eq 0 ]; then
-            if ! expr "$link_value" : "\($link_value_expected\)"; then
+            if ! expr "$link_value" : "$link_value_expected" >/dev/null; then
                 if [ $waited -ge $lib_linktree_maxtime_to_wait_for_link_value ]
                 then
                     lib_vmsg "  max. wait time $lib_linktree_maxtime_to_wait_for_link_value exceeded"

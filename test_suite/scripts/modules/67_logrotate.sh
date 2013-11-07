@@ -26,6 +26,7 @@ function logrotate_run
     local logfile length_logfile writer_pid writer_script write_count
 
     mount_mount_data_device
+    resource_clear_data_device $primary_host $res
 
 
     lib_rw_start_writing_data_device "writer_pid" "writer_script" 0 0 $res
@@ -34,6 +35,7 @@ function logrotate_run
                    $logrotate_sleep_time_between_rotates
 
     lib_rw_stop_writing_data_device $writer_script "write_count"
+    main_error_recovery_functions["lib_rw_stop_scripts"]=
 
     logrotate_wait_for_umount_data_device $primary_host $dev \
                                           ${resource_mount_point_list[$res]} \
@@ -45,7 +47,7 @@ function logrotate_run
     marsview_wait_for_state $secondary_host $res "repl" "-SFA-" \
                             $logrotate_maxtime_state_constant || lib_exit 1
 
-    lib_rw_compare_checksums $primary_host $secondary_host $dev 0 "" ""
+    lib_rw_compare_checksums $primary_host $secondary_host $res 0 "" ""
 }
 
 function logrotate_wait_for_umount_data_device
@@ -61,6 +63,10 @@ function logrotate_wait_for_umount_data_device
         sleep 1
         let waited+=1
         lib_vmsg "  waited $waited for unmount $mount_point ($dev) on $host"
+        if [ $(($waited % 5)) -eq 0 ]; then
+            lib_vmsg "  printing link tree on $host"
+            lib_linktree_print_linktree $host
+        fi
         if [ $waited -ge $maxwait ]; then
             lib_exit 1 "maxtime $maxwait exceeded"
         fi

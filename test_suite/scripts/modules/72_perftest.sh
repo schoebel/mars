@@ -65,16 +65,20 @@ function perftest_finish
 function perftest_stop_nttcp
 {
     local secondary_host=$1
+    local nttcp_pid rc
     for i in "kill" "check"; do
-        if lib_remote_idfile $secondary_host \
-                             'pgrep -f "'"$perftest_nttcp_start_cmd"'"'
-        then
+        lib_vmsg "  searching nttcp pid on $secondary_host"
+        nttcp_pid=$(lib_remote_idfile $secondary_host \
+                             'pgrep -f "'"$perftest_nttcp_start_cmd"'"')
+        rc=$?
+        if [ $rc -eq 0 ]; then
+            lib_vmsg "  found pid = $nttcp_pid"
             if [ "$i" = "kill" ]; then
-                lib_vmsg "  trying to kill nttcp on $secondary_host"
-                lib_remote_idfile $secondary_host \
-                         'kill -1 $(pgrep -f "'"$perftest_nttcp_start_cmd"'")'
+                lib_vmsg "  trying to kill nttcp $nttcp_pid on $secondary_host"
+                lib_remote_idfile $secondary_host "kill -9 $nttcp_pid"
+                sleep 1
             else
-                lib_vmsg "  could not kill nttcp on $secondary_host"
+                lib_vmsg "  could not kill nttcp $nttcp_pid on $secondary_host"
                 break
             fi
         else
@@ -82,7 +86,7 @@ function perftest_stop_nttcp
                 lib_vmsg "  no process $perftest_nttcp_start_cmd running"
                 break
             else
-                lib_vmsg "  killed process $perftest_nttcp_start_cmd"
+                lib_vmsg "  killed process (pid=$nttcp_pid) $perftest_nttcp_start_cmd"
             fi
         fi
         sleep 1
@@ -124,6 +128,7 @@ function perftest_start_and_check_nttcp
         fi
         sleep 1
     done
+    main_error_recovery_functions["perftest_stop_nttcp"]="$secondary_host"
     perftest_check_tcp_connection $primary_host $secondary_host "net_throughput"
 }
 
@@ -174,6 +179,7 @@ function perftest_do_write
     lib_vmsg "  sleep $perftest_write_time"
     sleep $perftest_write_time
     lib_rw_stop_writing_data_device $writer_script "write_count"
+    main_error_recovery_functions["lib_rw_stop_scripts"]=
     writer_rate=$(perftest_get_rate_per_minute $writer_start $(date +'%s') \
                                                $write_count)
     main_error_recovery_functions["lib_rw_stop_scripts"]=
@@ -232,6 +238,7 @@ function perftest_finish_parallel_writer
     local caller="${BASH_SOURCE[1]}:${FUNCNAME[1]}:${BASH_LINENO[0]}"
 
     lib_rw_stop_writing_data_device $writer_script "write_count"
+    main_error_recovery_functions["lib_rw_stop_scripts"]=
     writer_rate=$(perftest_get_rate_per_minute $writer_start $(date +'%s') \
                                                $write_count)
     main_error_recovery_functions["lib_rw_stop_scripts"]=
@@ -277,7 +284,7 @@ function perftest_via_mars_sync
         resource_recreate_all
         
     else
-        lib_rw_compare_checksums $primary_host $secondary_host $dev 0 "" ""
+        lib_rw_compare_checksums $primary_host $secondary_host $res 0 "" ""
     fi
 }
 
@@ -334,10 +341,10 @@ function perftest_prepare_sync
     lib_vmsg "  executing ${FUNCNAME[0]}"
     local primary_host=$1 secondary_host=$2 res=$3
     local dev=$(lv_config_get_lv_device $res)
-    local dev_size=$(lv_config_get_lv_size $res)
+    local dev_size=$(lv_config_get_lv_size_from_name $res)
     local time_waited
 
-    lib_wait_for_initial_end_of_sync $secondary_host $res \
+    lib_wait_for_initial_end_of_sync $primary_host $secondary_host $res \
                                      $resource_maxtime_initial_sync \
                                      $resource_time_constant_initial_sync \
                                      "time_waited"
@@ -376,9 +383,9 @@ function perftest_prepare_apply
                                "logfile" "length_logfile" "time_waited" 0 \
                                "net_throughput"
     lib_vmsg "  ${FUNCNAME[0]}: fetch time: $time_waited"
-    if [ $(lib_round_to_gb $length_logfile) -ne $$perftest_logfile_size_in_gb ]
+    if [ $(lib_rw_round_to_gb $length_logfile) -ne $$perftest_logfile_size_in_gb ]
     then
-        lib_exit 1 "req. logfile length = $$perftest_logfile_size_in_gb != $(lib_round_to_gb $length_logfile) = act. logfile length"
+        lib_exit 1 "req. logfile length = $$perftest_logfile_size_in_gb != $(lib_rw_round_to_gb $length_logfile) = act. logfile length"
     fi
     marsadm_do_cmd $secondary_host "disconnect" $res || lib_exit 1
 
@@ -420,8 +427,8 @@ function perftest_do_apply
 function perftest_prepare_resource
 {
     local res=$1 secondary_host=$2
-    resource_rm_resource_dir_all $res
-    resource_run
+    resource_mount_mars_and_rm_resource_dir_all $res
+    resource_run_first
     marsview_wait_for_state $secondary_host $res "disk" "Uptodate" \
                             $perftest_maxtime_state_constant || lib_exit 1
 }
@@ -489,8 +496,8 @@ function perftest_check_length_last_logfile
                                       
     length_logfile=$(perftest_get_length_last_logfile $host $res $primary_host)
 
-    if [ $(lib_round_to_gb $length_logfile) -ne $logfile_size_in_gb_req ]; then
-        lib_exit 1 "req. logfile length = $logfile_size_in_gb_req != $(lib_round_to_gb $length_logfile) = act. logfile length"
+    if [ $(lib_rw_round_to_gb $length_logfile) -ne $logfile_size_in_gb_req ]; then
+        lib_exit 1 "req. logfile length = $logfile_size_in_gb_req != $(lib_rw_round_to_gb $length_logfile) = act. logfile length"
     fi
 }
 
@@ -634,7 +641,7 @@ function perftest_do_sync
     local primary_host=$1 secondary_host=$2 res=$3
     local parallel_writer=$4 result_type=$5 no_resources=$6
     local dev=$(lv_config_get_lv_device $res)
-    local dev_size=$(lv_config_get_lv_size $res)
+    local dev_size=$(lv_config_get_lv_size_from_name $res)
     local i patch_length_in_kb no_of_patches
     local dev_to_patch
 
@@ -683,7 +690,7 @@ function perftest_do_sync
 function perftest_get_write_subcase_id
 {
     local subcase_id
-    subcase_id="$perftest_write_time:$(lv_config_get_lv_size ${resource_name_list[0]}):$lib_rw_part_of_device_size_written_per_loop"
+    subcase_id="$perftest_write_time:$(lv_config_get_lv_size_from_name ${resource_name_list[0]}):$lib_rw_part_of_device_size_written_per_loop"
     if [ $perftest_division_mars_device_data_device -eq 1 ]; then
         subcase_id+=":$perftest_device_division"
     fi
@@ -711,6 +718,7 @@ function perftest_prepare_write
 
     perftest_prepare_resource $res $secondary_host
     mount_mount_data_device
+    resource_clear_data_device $primary_host $res
     if [ $perftest_division_mars_device_data_device -eq 1 ]; then
         perftest_switch_bbu_cache $primary_host
     fi

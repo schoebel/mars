@@ -29,6 +29,7 @@ function remote_dev_run
     local log_delete_pid log_delete_script action
 
     mount_mount_data_device
+    resource_clear_data_device $primary_host $res
 
     cluster_remove_debugfiles $primary_host
     cluster_create_debugfiles $primary_host
@@ -61,27 +62,30 @@ function remote_dev_run
     lib_rw_stop_scripts $primary_host $log_rotate_script
 
     lib_rw_stop_writing_data_device $writer_script "write_count"
+    main_error_recovery_functions["lib_rw_stop_scripts"]=
 
     local boot_label_name="${main_host_bootloader_label_list[$secondary_host]}"
     local mars_dev=$(lv_config_get_lv_device ${cluster_mars_dir_lv_name_list[$secondary_host]})
     crash_reboot $secondary_host "" $mars_dev $crash_maxtime_reboot \
                  $crash_maxtime_to_become_unreachable \
                  $boot_label_name
-    remote_dev_remove_magic_links $primary_host $secondary_host
+    remote_dev_remove_magic_links $secondary_host
 }
 
 function remote_dev_remove_magic_links
 {
-    local hosts="$@" host
+    local secondary_host=$1
+    local host
 
     # to guarantee persistence of removal on all hosts
+    resource_kill_all_scripts
     mount_umount_data_device_all
     cluster_rmmod_mars_all
 
-    for host in $hosts; do
-        local magic_link_pattern="$main_mars_directory/resource-*/$(remote_dev_get_magic_link_name $host)"
+    for host in "${main_host_list[@]}"; do
+        local magic_link_pattern="$main_mars_directory/resource-*/$(remote_dev_get_magic_link_name $secondary_host)"
         lib_vmsg "  removing $magic_link_pattern on $host"
-        lib_remote_idfile $host "rm -f $magic_link_pattern" || lib_exit 1
+        lib_remote_idfile $host "rm $magic_link_pattern"
     done
 
     cluster_insert_mars_module_all
@@ -106,6 +110,6 @@ function remote_dev_create_local_link_for_remote_device
     lib_remote_idfile $local_host "rm -f $link" || lib_exit 1
     lib_vmsg "  creating link $link -> $link_value on $local_host"
     lib_remote_idfile $local_host "ln -s $link_value $link" || lib_exit 1
-    main_error_recovery_functions["remote_dev_remove_magic_links"]="$local_host $remote_host"
+    main_error_recovery_functions["remote_dev_remove_magic_links"]="$secondary_host"
 }
 

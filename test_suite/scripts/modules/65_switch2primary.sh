@@ -27,8 +27,9 @@ function switch2primary_run
     local dev=$(lv_config_get_lv_device $res)
     local writer_pid writer_script write_count
     local time_waited rc count=0
+    local host
 
-    lib_wait_for_initial_end_of_sync $secondary_host $res \
+    lib_wait_for_initial_end_of_sync $primary_host $secondary_host $res \
                                   $resource_maxtime_initial_sync \
                                   $resource_time_constant_initial_sync \
                                   "time_waited"
@@ -37,6 +38,7 @@ function switch2primary_run
     marsadm_do_cmd $primary_host "primary" "$res" || lib_exit 1
 
     mount_mount_data_device
+    resource_clear_data_device $primary_host $res
 
     lib_rw_start_writing_data_device "writer_pid" "writer_script" 0 0 $res
 
@@ -49,6 +51,7 @@ function switch2primary_run
 
     lib_rw_stop_writing_data_device $writer_script "write_count"
     lib_vmsg "  ${FUNCNAME[0]}: write_count: $write_count"
+    main_error_recovery_functions["lib_rw_stop_scripts"]=
 
     count=0
     while true; do
@@ -86,9 +89,12 @@ function switch2primary_run
         break
     done
 
-    marsview_wait_for_state $secondary_host $res "disk" "Uptodate" \
-                            $switch2primary_maxtime_state_constant || lib_exit 1
-    lib_rw_compare_checksums $primary_host $secondary_host $dev 0 "" ""
+    for host in $primary_host $secondary_host; do
+        marsview_wait_for_state $host $res "disk" "Uptodate" \
+                                $switch2primary_maxtime_state_constant || \
+                                                                    lib_exit 1
+    done
+    lib_rw_compare_checksums $primary_host $secondary_host $res 0 "" ""
 
     marsadm_do_cmd $secondary_host "secondary" "$res" || lib_exit 1
 }

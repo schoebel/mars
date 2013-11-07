@@ -77,7 +77,7 @@ function mount_mount_data_device
     local dev=$(resource_get_data_device $res)
     local mount_point=${resource_mount_point_list[$res]}
 
-    lib_remote_check_device_fs $host $dev ${resource_fs_type_list[$res]}
+    lib_rw_remote_check_device_fs $host $dev ${resource_fs_type_list[$res]}
     lib_rw_mount_data_device $host $dev $mount_point
 }
 
@@ -86,25 +86,32 @@ function mount_umount_data_device_all
     local res_no=${1:-0}
     local host
     local res=${resource_name_list[$res_no]}
-    local dev=$(resource_get_data_device $res)
-    local mount_point=${resource_mount_point_list[$res]}
     for host in ${main_host_list[@]}; do 
-        if mount_is_dir_mountpoint $host $mount_point; then
-            local maxwait=5 waited=0 rc
-            while true;do
-                mount_umount $host $dev $mount_point
-                rc=$?
-                if [ $rc -eq 0 ];then
-                    break
-                fi
-                sleep 1
-                let waited+=1
-                lib_vmsg "  waited $waited for unmounting $host:$mount_point"
-                if [ $waited -eq $maxwait ]; then
-                    lib_exit 1 "maxwait $maxwait exceeded"
-                fi
-            done
-        fi
+        mount_umount_data_device $host $res
     done
 }
 
+function mount_umount_data_device
+{
+    local host=$1 res=$2
+    local dev=$(resource_get_data_device $res)
+    local mount_point=${resource_mount_point_list[$res]}
+    if mount_is_dir_mountpoint $host $mount_point; then
+        local maxwait=60 waited=0 rc
+        while true;do
+            mount_umount $host $dev $mount_point
+            rc=$?
+            if [ $rc -eq 0 ];then
+                break
+            fi
+            sleep 1
+            let waited+=1
+            lib_vmsg "  waited $waited for unmounting $host:$mount_point"
+            lib_vmsg "  printing linktree on $host"
+            lib_linktree_print_linktree $host
+            if [ $waited -eq $maxwait ]; then
+                lib_exit 1 "maxwait $maxwait exceeded"
+            fi
+        done
+    fi
+}

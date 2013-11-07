@@ -7,4 +7,143 @@ The test suite is work in progress.
 
 At the moment it is not in the state to be usable outside of the development
 team.
+Event this file is not complete!
+
+
+=============================================================================
+
+Contents
+--------
+1. Running a test
+2. Naming conventions
+3. Error handling
+4. Signal handling
+5. Configuration of the build environment
+6. Installing the software on the hosts on which the tests are running
+    attention for grub!
+7. Basic configuration of logical volumes
+8. Starting the whole test suite via cronjob
+9. Concurrent test runs
+
+1. Running a test
+-----------------
+
+Tests are executed by a call to scripts/start_test.sh from a subdirectory
+of one of the both directories build_test_environment and test_cases.
+
+The scope and configuration of a test is completely described by this
+subdirectory (we call it start directory) as follows:
+
+- all leaf subdirectories of the start directory define one test case
+- for each leaf subdirectory xyz there exists a configuration file named
+  xyz.conf which contains (among others) in the variables prepare_list,
+  setup_list, run_list, cleanup_list and finish_list names of shell 
+  functions defined in scripts/modules/*.sh.
+  These functions are called in the order they appear in the mentioned
+  *list variables.
+  The file xyz.conf may reside in the leaf directory or any of it's parent
+  directories (up to 20 levels higher in the directory tree).
+- the configuration of the test case belonging to a leaf directory is defined
+  by a set of *.conf files which are included by start_test.sh in the
+  following order:
+  -- default-*.conf: These are the configuration files belonging to the
+                     scripts scripts/modules/*.sh which are also included
+                     bei start_test.sh and which define all functions executed
+                     by the various tests.
+  -- user_modules.conf
+  -- <subdirname>.conf where subdirname runs bottom up through the parent
+     directories starting with the leaf directory up to the immediate
+     subdirectory of the start directory.
+     If the start directory is a leaf directory the <leaf directory name>.conf
+     is included.
+     For example: 
+
+        start directory = test_cases/perf
+        leaf directory  = test_cases/perf/apply/no_parallel_writer
+
+        leads to including of apply.conf and no_parallel_writer.conf (in this
+        order!) which must reside as mentioned above in the leaf directory
+        or any of it's parent directories (up to 20 levels).
+
+        start directory = test_cases/perf/apply/no_parallel_writer
+        leaf directory  = test_cases/perf/apply/no_parallel_writer
+
+        leads to including of no_parallel_writer.conf
+
+        
+2. Naming conventions
+---------------------
+
+- All functions defined in scripts/modules/*.sh have the script's name as
+  name prefix (e.g. resource_check_variables)
+- All variables used in *.conf files should be "defined" (the shell has no
+  explicit definition) and explained in a default-*.conf file. If a variable is
+  "defined" in default-xyz.conf it's name is prefixed by xyz.
+
+
+3. Error handling
+-----------------
+
+WIP
+
+4. Signal handling
+------------------
+
+WIP
+
+5. Configuration of the build environment
+-----------------------------------------
+To build the mars module and userspace tools you need:
+
+- a directory containing a git repository which contains the kernel sources
+                       variable : checkout_mars_kernel_src_directory
+    to be specified in file     : default-checkout_mars.conf
+
+- the branch from which to take the kernel sources
+                       variable : checkout_mars_kernel_git_branch
+    to be specified in file     : default-checkout_mars.conf
+
+- a directory containing the kernel sources against which the mars module
+  should be built (may be the same as checkout_mars_kernel_src_directory)
+                       variable : make_mars_kernel_src_directory
+    to be specified in file     : default-make_mars.conf
+
+- a directory containing a git repository which contains the mars sources
+                       variable : checkout_mars_src_directory
+    to be specified in file     : default-checkout_mars.conf
+
+- the branch from which to take the mars sources
+                       variable : checkout_mars_git_branch
+    to be specified in file     : default-checkout_mars.conf
+
+- a directory containing the mars sources which is linked in to the
+  kernel source directory make_mars_kernel_src_directory for making the mars
+  module.
+  May coincide with checkout_mars_src_directory
+                       variable : make_mars_src_dir
+    to be specified in file     : default-make_mars.conf
+
+- a directory containing a git repository which contains the userspace tool
+  marsview
+                       variable : checkout_mars_contrib_src_directory
+    to be specified in file     : default-checkout_mars.conf
+
+- the branch from which to take marsview
+                       variable : checkout_mars_contrib_git_branch
+    to be specified in file     : default-checkout_mars.conf
+
+
+6. Configuration of the hosts on which the tests are running
+------------------------------------------------------------
+
+
+
+
+
+1. The cron script mars_test_cronjob.sh
+
+
+
+
+Configuration
 

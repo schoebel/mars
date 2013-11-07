@@ -30,13 +30,14 @@ function apply_fetch_run
     local writer_pid writer_script write_count
     local logfile length_logfile time_waited net_throughput
 
-    lib_wait_for_initial_end_of_sync $secondary_host $res \
+    lib_wait_for_initial_end_of_sync $primary_host $secondary_host $res \
                                   $resource_maxtime_initial_sync \
                                   $resource_time_constant_initial_sync \
                                   "time_waited"
     lib_vmsg "  ${FUNCNAME[0]}: sync time: $time_waited"
 
     mount_mount_data_device
+    resource_clear_data_device $primary_host $res
 
     lib_rw_start_writing_data_device "writer_pid" "writer_script"  2 2 $res
 
@@ -48,8 +49,10 @@ function apply_fetch_run
                                   "time_waited" 0 "net_throughput"
     lib_vmsg "  ${FUNCNAME[0]}: apply time: $time_waited"
 
-    marsview_check $secondary_host $res "disk" "Outdated\[.*A.*\]" \
-    marsview_check $secondary_host $res "repl" '-SF--' || lib_exit 1
+    marsview_wait_for_state $secondary_host $res "disk" "Outdated\[.*A.*\]" \
+                            $marsview_wait_for_state_time
+    marsview_wait_for_state $secondary_host $res "repl" '-SF--' \
+                            $marsview_wait_for_state_time || lib_exit 1
 
     marsadm_pause_cmd "fetch" $secondary_host $res
 
@@ -60,6 +63,7 @@ function apply_fetch_run
 
 
     lib_rw_stop_writing_data_device $writer_script "write_count"
+    main_error_recovery_functions["lib_rw_stop_scripts"]=
 
     case $apply_fetch_running_action in #(((
         apply)
@@ -73,7 +77,8 @@ function apply_fetch_run
 
             marsadm_check_warnings_and_disk_state $secondary_host $res \
                                                "apply_stopped_after_disconnect"
-            marsview_check $secondary_host $res "repl" "-S-A-" || lib_exit 1
+            marsview_wait_for_state $secondary_host $res "repl" "-S-A-" \
+                                    $marsview_wait_for_state_time || lib_exit 1
             marsadm_do_cmd $secondary_host "connect" $res || lib_exit 1
             ;;
         fetch)
@@ -90,9 +95,11 @@ function apply_fetch_run
                                                          $secondary_host \
                                                          $length_logfile
 
-            marsview_check $secondary_host $res "disk" "Outdated\[.*A.*\]"
-            marsview_check $secondary_host $res "repl" "-SF--" \
-                                                                || lib_exit 1
+            marsview_wait_for_state $secondary_host $res "disk" \
+                                    "Outdated\[.*A.*\]" \
+                                    $marsview_wait_for_state_time
+            marsview_wait_for_state $secondary_host $res "repl" "-SF--" \
+                                    $marsview_wait_for_state_time || lib_exit 1
             marsadm_do_cmd $secondary_host "resume-replay" $res || lib_exit 1
             ;;
             *) lib_exit 1 "invalid action $apply_fetch_running_action"

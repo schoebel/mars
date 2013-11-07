@@ -33,6 +33,7 @@ function crash_run
     local waited=0 error_ocurred=0
 
     mount_mount_data_device
+    resource_clear_data_device $primary_host $res
 
     lib_rw_start_writing_data_device "writer_pid" "writer_script" 0 0 $res
 
@@ -72,11 +73,12 @@ function crash_run
     lib_vmsg "  ${FUNCNAME[0]}: fetch time: $time_waited"
 
 
-    marsview_check $secondary_host $res "disk" "Uptodate*" || \
-                                                        let error_occured+=1
-    marsview_check $secondary_host $res "repl" "-SFA-" || let error_occured+=1
+    marsview_wait_for_state $secondary_host $res "disk" "Uptodate*" \
+                        $marsview_wait_for_state_time || let error_occured+=1
+    marsview_wait_for_state $secondary_host $res "repl" "-SFA-" \
+                        $marsview_wait_for_state_time || let error_occured+=1
 
-    lib_rw_compare_checksums $primary_host $secondary_host $dev 0 "" ""
+    lib_rw_compare_checksums $primary_host $secondary_host $res 0 "" ""
 
     if [ $error_ocurred -gt 0 ]; then
         echo "error_ocurred = $error_ocurred" >&2
@@ -96,8 +98,10 @@ function crash_write_data_device_and_calculate_checksums
     local primary_host=$1 secondary_host=$2 res=$3 dev=$4
     local writer_pid writer_script write_count time_waited net_throughput
     mount_mount_data_device
+    resource_clear_data_device $primary_host $res
     lib_rw_start_writing_data_device "writer_pid" "writer_script" 0 0 $res
     lib_rw_stop_writing_data_device $writer_script "write_count"
+    main_error_recovery_functions["lib_rw_stop_scripts"]=
     lib_wait_until_action_stops "replay" $secondary_host $res \
                                   $crash_maxtime_apply \
                                   $crash_time_constant_apply "time_waited" 0 \
@@ -109,7 +113,8 @@ function crash_write_data_device_and_calculate_checksums
                                                 $crash_maxtime_state_constant
     marsview_wait_for_state $secondary_host $res "repl" "-SFA-" \
                                                 $crash_maxtime_state_constant
-    lib_rw_compare_checksums $primary_host $secondary_host $dev 0 "" ""
+    mount_umount_data_device $primary_host $res
+    lib_rw_compare_checksums $primary_host $secondary_host $res 0 "" ""
 }
 
 function crash_reboot

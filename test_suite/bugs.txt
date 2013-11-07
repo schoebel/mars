@@ -56,5 +56,7 @@
     light: workaround flying IO before reporting memory leaks
 
 
-6. marsadm invalidate does not repair secondary after mars dir full
+*6. marsadm invalidate does not repair secondary after mars dir full
   (test /home/fl/mars/test_suite/test_cases/hardcore/mars_dir_full)
+  Fixed:
+  light0.1beta0.14

@@ -9,7 +9,7 @@ function cluster_run
     cluster_umount_data_device_all
     cluster_rmmod_mars_all
     cluster_create_mars_dir_all
-    cluster_mount_mars_dir_all
+    cluster_clear_and_mount_mars_dir_all
     cluster_clear_mars_dir_all
     cluster_create
     cluster_join
@@ -47,11 +47,10 @@ function cluster_clear_mars_dir_all
 {
     local host
     if [ -z "$main_mars_directory" ]; then
-	lib_exit 1 "  variable main_mars_directory empty"
+        lib_exit 1 "  variable main_mars_directory empty"
     fi
     for host in "${main_host_list[@]}"; do
-        lib_vmsg "  clearing directory $host:$main_mars_directory"
-        lib_remote_idfile $host "rm -rf $main_mars_directory/*" || lib_exit 1
+        cluster_clear_mars_dir $host
     done
 }
 
@@ -72,13 +71,24 @@ function cluster_insert_mars_module
     lib_remote_idfile $host 'grep -w "^mars" /proc/modules || modprobe mars' || lib_exit 1
 }
 
-function cluster_umount_mars_dir_all
+function cluster_clear_mars_dir
+{
+    local host=$1
+    if [ -z "$main_mars_directory" ]; then
+        lib_exit 1 "variable main_mars_directory empty"
+    fi
+    lib_vmsg "  removing $host:$main_mars_directory/*"
+    lib_remote_idfile $host "rm -rf $main_mars_directory/*" || lib_exit 1
+}
+
+function cluster_clear_and_umount_mars_dir_all
 {
     local host
     for host in "${main_host_list[@]}"; do
-	if mount_is_dir_mountpoint $host $main_mars_directory; then
-	    mount_umount $host "device_does_not_matter" $main_mars_directory
-	fi
+        cluster_clear_mars_dir $host
+        if mount_is_dir_mountpoint $host $main_mars_directory; then
+            mount_umount $host "device_does_not_matter" $main_mars_directory
+        fi
     done
 }
 
@@ -98,16 +108,23 @@ function cluster_mount_mars_dir
         fi
     fi
     if [ $already_mounted_correctly -eq 0 ];then
-        lib_remote_check_device_fs $host $dev $main_mars_fs_type
+        lib_rw_remote_check_device_fs $host $dev $main_mars_fs_type
         mount_mount $host $dev $main_mars_directory $main_mars_fs_type || lib_exit 1
     fi
 }
 
-function cluster_mount_mars_dir_all
+function cluster_clear_and_mount_mars_dir_all
 {
     local host dev
+    local primary_host_to_join
+    local cluster_action="create-cluster"
     for host in "${main_host_list[@]}"; do
         cluster_mount_mars_dir $host
+        cluster_clear_mars_dir $host
+        marsadm_do_cmd $host "$cluster_action --force" $primary_host_to_join || lib_exit 1
+        cluster_action="join-cluster"
+        # the first is the primary
+        primary_host_to_join=${primary_host_to_join:-$host}
     done
 }
 
@@ -214,7 +231,7 @@ function cluster_check_devices_all
     local dev host blkid_out rc
     for host in "${main_host_list[@]}"; do
         dev="$(lv_config_get_lv_device ${cluster_mars_dir_lv_name_list[$host]})"
-        lib_remote_check_device_fs $host $dev $main_mars_fs_type
+        lib_rw_remote_check_device_fs $host $dev $main_mars_fs_type
     done
 }
 
@@ -243,9 +260,9 @@ function cluster_check_variables
     fi
     local lv_name
     for lv_name in ${cluster_mars_dir_lv_name_list[@]}; do
-        if ! expr "(${lv_config_name_list[*]})" : ".*[( ]$lv_name[ )]" >/dev/null
+        if ! expr "(${lv_config_lv_name_list[*]})" : ".*[( ]$lv_name[ )]" >/dev/null
         then
-            lib_exit 1 "lv $lv_name from cluster_mars_dir_lv_name_list = (${cluster_mars_dir_lv_name_list[*]}) not found in lv_config_name_list = (${lv_config_name_list[*]})"
+            lib_exit 1 "lv $lv_name from cluster_mars_dir_lv_name_list = (${cluster_mars_dir_lv_name_list[*]}) not found in lv_config_lv_name_list = (${lv_config_lv_name_list[*]})"
         fi
     done
 }

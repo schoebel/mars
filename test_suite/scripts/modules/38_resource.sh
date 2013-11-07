@@ -20,19 +20,20 @@
 function resource_prepare
 {
     resource_check_variables
+    resource_kill_all_scripts
     cluster_rmmod_mars_all
-    cluster_mount_mars_dir_all
-    cluster_insert_mars_module_all
-    resource_leave_all
+    cluster_clear_and_umount_mars_dir_all
+    lv_config_recreate_logical_volumes 0
+    cluster_clear_and_mount_mars_dir_all
     cluster_insert_mars_module_all
 }
 
 function resource_check_variables
 {
-    if ! expr "${lv_config_name_list[*]}" \
-	      : "\(\(.* \)*${resource_name_list[*]}\( .*\)*\$\)" >/dev/null
+    if ! expr "${lv_config_lv_name_list[*]}" \
+          : "\(\(.* \)*${resource_name_list[*]}\( .*\)*\$\)" >/dev/null
     then
-        lib_exit 1 "resource_name_list = '${resource_name_list[*]}' is no substring of '${lv_config_name_list[*]}' = lv_config_name_list"
+        lib_exit 1 "resource_name_list = '${resource_name_list[*]}' is no substring of '${lv_config_lv_name_list[*]}' = lv_config_lv_name_list"
     fi
 }
 
@@ -69,7 +70,8 @@ function resource_leave
     local host=$1 res=$2
     if resource_is_data_device_mounted $host $res; then
         local dev=$(resource_get_data_device $res)
-        mount_umount $host $dev ${resource_mount_point_list[$res]} || lib_exit 1
+        resource_clear_data_device $host $res
+        mount_umount_data_device $host $res
     fi
 
     if resource_joined $host $res; then
@@ -80,13 +82,14 @@ function resource_leave
         done
         resource_do_after_leave_loops $host $res
     fi
-    resource_rm_resource_dir_all $res
+    resource_mount_mars_and_rm_resource_dir_all $res
 }
 
 function resource_do_after_leave_loops
 {
     local host=$1 res=$2
     local count=0 act_deleted_nr max_to_delete_nr
+    lib_vmsg "  checking whether there is s.th. to delete on $host"
     max_to_delete_nr=$(marsadm_get_highest_to_delete_nr $host) || \
                                                             lib_exit 1
     lib_vmsg "  max_to_delete_nr on $host: $max_to_delete_nr"
@@ -165,14 +168,30 @@ function resource_joined
 }
 
 
+function resource_run_first
+{
+    resource_run ${resource_name_list[0]}
+}
+
+function resource_run_all
+{
+    local res
+    for res in ${resource_name_list[@]}; do
+        resource_run $res
+    done
+}
+
 function resource_run
 {
-    resource_create ${main_host_list[0]} ${resource_name_list[0]}
-    if [ ${#main_host_list[@]} -gt 1 ]; then
-        resource_join ${main_host_list[1]} \
-                      ${resource_name_list[0]} \
-                      ${main_host_list[0]}
-    fi
+    local res=$1 host i
+    for i in ${!main_host_list[*]}; do
+        host=${main_host_list[$i]}
+        if [ $i -eq 0 ]; then
+            resource_create $host $res
+        else
+            resource_join $host $res ${main_host_list[0]}
+        fi
+    done
 }
 
 function resource_multi_res_run
@@ -187,18 +206,19 @@ function resource_fill_mars_dir
     local res=${resource_name_list[0]}
     local dev=$(lv_config_get_lv_device $res)
     local data_dev=$(resource_get_data_device $res)
-    local data_dev_size=$(lv_config_get_lv_size $res)
+    local data_dev_size=$(lv_config_get_lv_size_from_name $res)
     local mars_lv_name=${cluster_mars_dir_lv_name_list[$primary_host]}
     local mars_dev=$(lv_config_get_lv_device $mars_lv_name)
-    local mars_dev_size=$(lv_config_get_lv_size $mars_lv_name)
+    local mars_dev_size=$(lv_config_get_lv_size_from_name $mars_lv_name)
     local time_waited writer_pid writer_script write_count control_nr
     local primary_cksum secondary_cksum
 
     if [ $resource_use_data_dev_writes_to_fill_mars_dir -eq 1 ]; then
-        resource_dd_until_mars_dir_full $primary_host $main_mars_directory \
+        resource_dd_until_mars_dir_full $primary_host $res \
+                                        $main_mars_directory \
                                         $data_dev $mars_dev_size \
                                         $data_dev_size "control_nr"
-        resource_check_emergency_mode $primary_host $res
+        resource_check_low_space_error $primary_host $res "sequence_hole"
     else
         lib_rw_start_writing_data_device "writer_pid" "writer_script" \
                                           0 2 $res
@@ -210,6 +230,7 @@ function resource_fill_mars_dir
 
     if [ $resource_use_data_dev_writes_to_fill_mars_dir -eq 0 ]; then
         lib_rw_stop_writing_data_device $writer_script "write_count"
+        main_error_recovery_functions["lib_rw_stop_scripts"]=
         lib_vmsg "  removing $primary_host:$resource_big_file"
         lib_remote_idfile $primary_host "rm -f $resource_big_file" || lib_exit 1
     fi
@@ -217,23 +238,28 @@ function resource_fill_mars_dir
     resource_check_proc_sys_mars_emergency_file $primary_host
 
     resource_resize_mars_dir $primary_host $mars_dev $(($mars_dev_size + 10))
-    cluster_insert_mars_module $primary_host
-echo TODO; return
-    marsadm_do_cmd $host "down" $res
-    marsadm_do_cmd $host "invalidate" $res
-    lib_wait_for_initial_end_of_sync $secondary_host $res \
+
+    lib_rw_start_writing_data_device "writer_pid" "writer_script"  0 3 $res
+
+    local procfile=/proc/sys/mars/logger_resume
+    lib_vmsg "  setting $primary_host:$procfile to 1"
+    lib_remote_idfile $primary_host "echo 1 >$procfile" || lib_exit 1
+
+    marsadm_do_cmd $secondary_host "invalidate" $res
+#    marsadm_do_cmd $secondary_host "log-delete-all" $res
+    lib_wait_for_initial_end_of_sync $primary_host $secondary_host $res \
                                   $resource_maxtime_initial_sync \
                                   $resource_time_constant_initial_sync \
                                   "time_waited"
-    # TODO bischen was schreiben
-    lib_rw_compare_checksums $primary_host $secondary_host $dev 0 \
+
+    lib_rw_stop_writing_data_device $writer_script "write_count"
+    main_error_recovery_functions["lib_rw_stop_scripts"]=
+
+    marsview_wait_for_state $secondary_host $res "disk" "Uptodate" \
+                            $resource_maxtime_state_constant || lib_exit 1
+
+    lib_rw_compare_checksums $primary_host $secondary_host $res 0 \
                              "primary_cksum" "secondary_cksum"
-    if [ $resource_use_data_dev_writes_to_fill_mars_dir -eq 1 ]; then
-        resource_check_data_on_data_device $primary_host $data_dev $control_nr \
-                                           $data_dev_size $resource_big_file \
-                                           "$primary_cksum"
-        lib_remote_idfile $primary_host "rm -f $resource_big_file" || lib_exit 1
-    fi
 }
 
 function resource_resize_mars_dir
@@ -241,7 +267,6 @@ function resource_resize_mars_dir
     local host=$1 mars_dev=$2 new_size=$3
     lib_vmsg "  resizing $host:$mars_dev to $new_size GB"
 
-    cluster_rmmod_mars $host
     lv_config_resize_device $host $mars_dev $new_size
     lib_remote_idfile $host "resize2fs $mars_dev" || lib_exit 1
 }
@@ -255,24 +280,6 @@ function resource_check_proc_sys_mars_emergency_file
     if [ $value -ne 1 ];then
         lib_exit 1 "wrong value $value (!= 1) in $host:$resource_proc_sys_mars_reset_emergency_file"
     fi
-}
-
-# compare actual data on data device with data written in
-# resource_dd_until_mars_dir_full
-function resource_check_data_on_data_device
-{
-    [ $# -eq 6 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
-    local host=$1 data_dev=$2 control_nr=$3 data_dev_size=$4 dummy_file=$5
-    local data_dev_cksum=($6) cksum_out
-
-    lib_vmsg "  writing dummy file $host:$dummy_file with control_nr=$control_nr"
-    datadev_full_dd_on_device $host $dummy_file $data_dev_size $control_nr 0 
-    lib_remote_idfile $host "ls -l $dummy_file"
-    lib_rw_cksum $host $dummy_file "cksum_out"
-    if [ "${data_dev_cksum[*]}" != "${cksum_out[*]}" ]; then
-        lib_exit 1 "cksum data dev: '${data_dev_cksum[*]}' != '${cksum_out[*]}' = cksum $dummy_file"
-    fi
-
 }
 
 function resource_write_file_until_mars_dir_full
@@ -294,37 +301,50 @@ function resource_write_file_until_mars_dir_full
     fi
 }
 
-function resource_check_emergency_mode
+function resource_check_low_space_error
 {
-    local host=$1 res=$2 msgtype patternlist msgpattern
-    for msgtype in err warn; do
-        msgfile=${resource_dir_list[$res]}/${resource_msgfile_list[$msgtype]}
-        eval patternlist='("${resource_mars_dir_full_'$msgtype'_pattern_list[@]}")'
-        for msgpattern in "${patternlist[@]}"; do
-            lib_err_wait_for_error_messages $host $msgfile \
-                                        "$msgpattern" 1 1
-        done
-    done
+    local host=$1 res=$2 err_type="$3" msgtype patternlist msgpattern
+    local msgtype="err"
+    msgfile=${resource_dir_list[$res]}/${resource_msgfile_list["$msgtype"]}
+    eval msgpattern='"${resource_mars_dir_full_'$msgtype'_pattern_list[$err_type]}"'
+    if [ -z "$msgpattern" ]; then
+        lib_exit 1 "pattern resource_mars_dir_full_${msgtype}_pattern_list[$err_type] not found"
+    fi
+    lib_err_wait_for_error_messages $host $msgfile "$msgpattern" 1 1
 }
 
 function resource_dd_until_mars_dir_full
 {
-    [ $# -eq 6 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
-    local primary_host=$1 mars_dir=$2 data_dev=$3 mars_dev_size=$4
-    local data_dev_size=$5 varname_control_nr=$6
-    local written=0 count=1000
+    [ $# -eq 7 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    local primary_host=$1 res=$2 mars_dir=$3 data_dev=$4 mars_dev_size=$5
+    local data_dev_size=$6 varname_control_nr=$7
+    local written=0 control_nr=1000
+    local warning_threshold=$((2 * 1<<30))
+    local write_per_loop=1 # G
+    local jammed_warning_found=0
 
     while true;do
-        datadev_full_dd_on_device $primary_host $data_dev $data_dev_size \
-                                  $count 0
-        let written+=$data_dev_size
-        let count+=1
-        lib_remote_idfile $primary_host "df -B1 $mars_dir" || lib_exit 1
+        local free df_out
+        datadev_full_dd_on_device $primary_host $data_dev $write_per_loop \
+                                  $control_nr 0
+        let written+=$write_per_loop
+        let control_nr+=1
+        df_out=($(lib_remote_idfile $primary_host "df -B1 $mars_dir | \
+                                                   tail -1")) || lib_exit 1
+        free=${df_out[2]}
+        if ! expr "$free" : '^[0-9][0-9]*$' >/dev/null; then
+            lib_exit 1 "cannot determine free space from ${df_out[@]} (free=$free)"
+        fi
+        lib_vmsg "  free on $primary_host:$mars_dir: $free"
+        if [ $free -le $warning_threshold -a $jammed_warning_found -eq 0 ]; then
+            resource_check_low_space_error $primary_host $res "jammed"
+            jammed_warning_found=1
+        fi
         if [ $written -ge $(($mars_dev_size + 1)) ]; then
             break
         fi
     done
-    eval $varname_control_nr=$(($count - 1))
+    eval $varname_control_nr=$(($control_nr - 1))
 }
 
 function resource_up
@@ -335,26 +355,25 @@ function resource_up
     return $rc
 }
 
-function resource_rm_resource_dir_all
+function resource_mount_mars_and_rm_resource_dir_all
 {
     local res=$1 host
     local res_dir=${resource_dir_list[$res]}
 
     if [ -z "$res_dir" ];then
-	lib_exit 1 "  to resource $res no resource dir found in resource_dir_list"
+        lib_exit 1 "  to resource $res no resource dir found in resource_dir_list"
     fi
     cluster_rmmod_mars_all
 
     for host in "${main_host_list[@]}"; do
-	local mars_lv=${cluster_mars_dir_lv_name_list[$host]}
-	local mars_dev=$(lv_config_get_lv_device $mars_lv)
-	lib_vmsg "  check whether mars device $host:$mars_dev exists"
-	if lib_remote_idfile $host "ls -l $mars_dev"; then
-	    cluster_mount_mars_dir $host
-	    lib_vmsg "  removing $host:$res_dir"
-	    lib_remote_idfile $host "rm -rf $res_dir" || lib_exit 1
-	    lib_remote_idfile $host "mkdir $res_dir" || lib_exit 1
-	fi
+    local mars_lv=${cluster_mars_dir_lv_name_list[$host]}
+    local mars_dev=$(lv_config_get_lv_device $mars_lv)
+    lib_vmsg "  check whether mars device $host:$mars_dev exists"
+    if lib_remote_idfile $host "ls -l $mars_dev"; then
+        cluster_mount_mars_dir $host
+        lib_vmsg "  removing $host:$res_dir"
+        lib_remote_idfile $host "rm -rf $res_dir" || lib_exit 1
+    fi
     done
 }
 
@@ -363,8 +382,8 @@ function resource_create
     local host=$1 res=$2
 
     local dev="$(lv_config_get_lv_device $res)"
-    if [ $resource_recreate_fs_on_data_device_required -eq 1 ]; then
-        lib_remote_check_device_fs $host $dev ${resource_fs_type_list[$res]}
+    if [ $resource_fs_on_data_device_necessary -eq 1 ]; then
+        lib_rw_remote_check_device_fs $host $dev ${resource_fs_type_list[$res]}
     fi
     if ! resource_up $host $res; then
         local count=0 rc 
@@ -396,10 +415,10 @@ function resource_create
     fi
     resource_check_links_after_create $host $res
     resource_check_data_device_after_create $host $res
-    if [ $resource_recreate_fs_on_data_device_required -eq 1 ]; then
+    if [ $resource_fs_on_data_device_necessary -eq 1 ]; then
         resource_check_mount_and_rmmod_possibilities $host $res
     fi
-    resource_underlying_device_is_not_mountable $host $dev || lib_exit 1
+    resource_underlying_device_is_not_mountable $host $dev $res || lib_exit 1
     cluster_create_debugfiles $host
 }
 
@@ -483,10 +502,43 @@ function resource_check_mount_point_directories
     done
 }
 
+function resource_write_and_check
+{
+    local primary_host=${main_host_list[0]}
+    eval local secondary_hosts=('"${main_host_list["{1..'${#main_host_list[*]}'}"]}"')
+    local host
+    local res=${resource_name_list[0]}
+    local writer_pid writer_script write_count
+    local dev=$(lv_config_get_lv_device $res)
+    local time_waited
+
+    resource_prepare
+    resource_run_all
+    for host in ${secondary_hosts[@]}; do
+        lib_wait_for_initial_end_of_sync $primary_host $host $res \
+                                         $resource_maxtime_initial_sync \
+                                         $resource_time_constant_initial_sync \
+                                         "time_waited"
+    done
+    mount_mount_data_device
+    resource_clear_data_device $primary_host $res
+
+    lib_rw_start_writing_data_device "writer_pid" "writer_script" 0 1 $res
+    sleep 15
+    lib_rw_stop_writing_data_device $writer_script "write_count"
+    main_error_recovery_functions["lib_rw_stop_scripts"]=
+    sleep 5
+    mount_umount_data_device $primary_host $res
+    for host in ${secondary_hosts[@]}; do
+        lib_wait_for_secondary_to_become_uptodate_and_cmp_cksums "resource" \
+                                                $host $primary_host \
+                                                $res $dev 0
+    done
+}
+
 function resource_underlying_device_is_not_mountable
 {
-    local host=$1 dev=$2 rc
-    local res=${resource_name_list[0]}
+    local host=$1 dev=$2 res=$3 rc
     resource_check_mount_point_directories $host
     lib_vmsg "  checking whether mounting $dev on ${resource_mount_point_list[$res]} on $host fails"
     mount_mount $host $dev ${resource_mount_point_list[$res]} \
@@ -503,9 +555,6 @@ function resource_join
     local host=$1 res=$2 primary_host=$3
 
     local dev="$(lv_config_get_lv_device $res)"
-    if [ $resource_recreate_fs_on_data_device_required -eq 1 ]; then
-        lib_remote_check_device_fs $host $dev ${resource_fs_type_list[$res]}
-    fi
     local count=0 rc
     while true; do
         if ! resource_up $host $res; then
@@ -528,7 +577,7 @@ function resource_join
     resource_check_data_link $host $res $dev
     resource_check_links_after_join $host $res $primary_host
 
-    resource_underlying_device_is_not_mountable $host $dev || lib_exit 1
+    resource_underlying_device_is_not_mountable $host $dev $res || lib_exit 1
 }
 
 function resource_check_links_after_join
@@ -559,3 +608,25 @@ function resource_check_links_after_create
     fi
 }
 
+function resource_clear_data_device
+{
+    local host=$1 res=$2
+    local mount_point=${resource_mount_point_list[$res]}
+    local str="test"
+    if [ -z "$mount_point" ]; then
+        lib_exit 1 "cannot determine mount_point for resource $res"
+    fi
+    if ! expr "$mount_point" : ".*$str.*" >/dev/null; then
+        lib_exit 1 "mount_point $mount_point does not contain string $str"
+    fi
+    lib_vmsg "  clearing $host:$mount_point"
+    lib_remote_idfile $host "if cd $mount_point; then rm -rf *;fi"
+}
+
+function resource_kill_all_scripts
+{
+    local host
+    for host in "${main_host_list[@]}"; do
+        lib_remote_idfile $host 'for p in $(pgrep -f '"$main_prefix_scripts"'); do if [ $p -ne $$ ] && ps -p $p >/dev/null; then echo killing:; ps -fp $p; kill -9 $p; fi; done'
+    done
+}

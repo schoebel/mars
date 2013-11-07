@@ -48,6 +48,7 @@ sleeptime='$sleeptime'
 count=1
 while true; do
     if [ $no_of_loops -ne 0 -a $count -gt $no_of_loops ]; then
+        # we do nothing more than waiting for to be killed
         sleep 1
         continue
     fi
@@ -71,8 +72,8 @@ function lib_rw_stop_scripts
         shift 2
         lib_rw_stop_one_script $host $script "write_count"
         rc=$?
+        main_error_recovery_functions["lib_rw_stop_scripts"]=
         if [ $rc -ne 0 ]; then
-            main_error_recovery_functions["lib_rw_stop_scripts"]=
             lib_exit 1
         fi
     done
@@ -110,7 +111,7 @@ function lib_rw_start_writing_data_device
     local res=$5
     lib_rw_write_and_delete_loop ${main_host_list[0]} \
                  ${resource_mount_point_list[$res]}/$lib_rw_file_to_write \
-                 $(lv_config_get_lv_size ${resource_name_list[0]}) \
+                 $(lv_config_get_lv_size_from_name ${resource_name_list[0]}) \
                  $lib_rw_part_of_device_size_written_per_loop \
                  $varname_pid $varname_script $no_of_loops $sleeptime
 }
@@ -133,13 +134,15 @@ function lib_rw_cksum
 function lib_rw_compare_checksums
 {
     [ $# -eq 6 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
-    local primary_host=$1 secondary_host=$2 dev=$3 cmp_size=$4
+    local primary_host=$1 secondary_host=$2 res=$3 cmp_size=$4
     local varname_cksum_primary=$5 varname_cksum_secondary=$6
+    local dev=$(lv_config_get_lv_device $res)
     local host role primary_cksum_out secondary_cksum_out cksum_out
     local cksum_dev=$dev
                                             
     for role in "primary" "secondary"; do
         eval host='$'${role}_host
+        marsadm_do_cmd $host "down" $res || lib_exit 1
         if [ $cmp_size -ne 0 ]; then
             local dummy_file=$main_mars_directory/dummy-$host
             lib_vmsg "  dumping $cmp_size G of $dev to $dummy_file"
@@ -153,6 +156,7 @@ function lib_rw_compare_checksums
         if [ $cmp_size -ne 0 ]; then
             lib_remote_idfile $host "rm -f $dummy_file" || lib_exit 1
         fi
+        marsadm_do_cmd $host "up" $res || lib_exit 1
     done
     if [ "$primary_cksum_out" != "$secondary_cksum_out" ]; then
         lib_exit 1 "cksum primary: '$primary_cksum_out' != '$secondary_cksum_out' = cksum secondary"
@@ -162,22 +166,6 @@ function lib_rw_compare_checksums
             eval eval '$varname_cksum_'$role='\"\$${role}_cksum_out\"'
         done
     fi
-}
-
-## under construction! Not needed up to now
-function lib_rw_debug
-{
-    printf '#!/bin/bash\nsleep 10\n' >/tmp/f1
-    lib_start_script_remote_bg istore-test-bs7 /tmp/f1 gix gox
-    echo gix=$gix gox=$gox
-
-    printf '#!/bin/bash\nwuerg\nsleep 10\n' >/tmp/f1
-    lib_start_script_remote_bg istore-test-bs7 /tmp/f1 hix hox
-    echo hix=$hix hox=$hox
-    
-    printf '#!/bin/bash\nwuzzl' >/tmp/f2
-    lib_start_script_remote_bg istore-test-bs7 /tmp/f2 hux hax
-    echo hux=$hux hax=$hax
 }
 
 function lib_rw_mount_data_device
@@ -196,3 +184,39 @@ function lib_wait_until_replay_has_exceeded
     local secondary_host=$1 logfile_primary=$2 logfile_length_primary=$3 maxwait=$4
 
 }
+
+function lib_rw_round_to_gb
+{
+    local number=$1
+    echo $((($number + (512 * 1024 * 1024)) / (1024 * 1024 * 1024)))
+}
+
+
+function lib_rw_remote_check_device_fs
+{
+    [ $# -eq 3 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    local host=$1 dev=$2 fs_type=$3
+    local tmp_dir=/mnt/mars_tmp_mountpoint
+    lib_vmsg "  checking existence of directory $host:$tmp_dir"
+    lib_remote_idfile $host "if test ! -d $tmp_dir; then mkdir $tmp_dir;fi" \
+								|| lib_exit 1
+    lib_vmsg "  checking whether $host:$dev is mountable as $fs_type filesystem on $tmp_dir"
+    lib_remote_idfile $host mount -t $fs_type $dev $tmp_dir
+    rc=$?
+    if [ $rc -eq 0 ]; then
+	mount_umount $host $dev $tmp_dir || lib_exit 1
+	return
+    fi
+    local mount_point
+    if mount_is_device_mounted $host $dev "mount_point"; then
+	mount_umount $host $dev $mount_point 
+    fi
+    lib_vmsg "  creating $fs_type filesystem on $dev"
+    lib_remote_idfile $host "mkfs.$fs_type ${lv_config_mkfs_option_list[$fs_type]} $dev" || lib_exit 1
+    if [ -n "${lv_config_fs_type_tune_cmd_list[$fs_type]}" ];then
+	local cmd=${lv_config_fs_type_tune_cmd_list[$fs_type]/<dev>/$dev}
+	lib_vmsg "  tuning $dev on $host: $cmd"
+	lib_remote_idfile $host "$cmd" || lib_exit 1
+    fi
+}
+

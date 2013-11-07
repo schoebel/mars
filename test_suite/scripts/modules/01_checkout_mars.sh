@@ -55,9 +55,9 @@ function checkout_mars_run
             lib_vmsg "  saving to stash $stash_name"
             git stash save $stash_name
         fi
-        git fetch origin || lib_exit 1
+#        git fetch origin || lib_exit 1
         git checkout $br || lib_exit 1
-        git rebase remotes/origin/$br || lib_exit 1
+#       git rebase remotes/origin/$br || lib_exit 1
         if [ -n "$tag" ]; then
             git checkout $tag || lib_exit 1
         fi
