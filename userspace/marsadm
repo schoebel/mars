@@ -297,6 +297,11 @@ sub check_id {
   ldie "identifier '$str' is too long (only 16 chars allowed)" if length($str) > 16;
 }
 
+sub check_id_list {
+  my $str = shift;
+  ldie "comma-separated list '$str' has disallowed characters" unless $str =~ m/^[A-Za-z_][-A-Za-z0-9_,]*$/;
+}
+
 ##################################################################
 
 # semantic checks
@@ -925,6 +930,19 @@ sub is_module_loaded {
   my $res = <TEST>;
   close TEST;
   return $res;
+}
+
+sub set_connect_pref_list {
+  my ($cmd, $res, $list) = @_;
+  check_res_member($res);
+  my $dst = "$mars/resource-$res/connect-$host";
+  if ($cmd =~ m/^get-/) {
+    my $value = get_link($dst);
+    lprint "$value\n";
+    return;
+  }
+  check_id_list($list);
+  set_link($list, $dst);
 }
 
 sub set_link_cmd {
@@ -1855,6 +1873,8 @@ my %cmd_table =
 			   "wait for deletions",  \&leave_res_phase2,
 			  ],
    "delete-resource"   => \&delete_res,
+   "set-connect-pref-list"=> \&set_connect_pref_list,
+   "get-connect-pref-list"=> \&set_connect_pref_list,
    "log-rotate"        => \&logrotate_res,
    "log-delete"        => \&logdelete_res,
    "log-delete-all"    => \&logdelete_res,
