@@ -1503,10 +1503,12 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 		// start copy brick instance
 		status = _update_file(rot, switch_path, rot->fetch_path, remote_dent->d_path, peer, src_size);
 		MARS_DBG("update '%s' from peer '%s' status = %d\n", remote_dent->d_path, peer, status);
-		rot->fetch_serial = remote_dent->d_serial;
-		rot->fetch_next_is_available = 0;
-		brick_string_free(rot->fetch_peer);
-		rot->fetch_peer = brick_strdup(peer);
+		if (likely(status >= 0)) {
+			rot->fetch_serial = remote_dent->d_serial;
+			rot->fetch_next_is_available = 0;
+			brick_string_free(rot->fetch_peer);
+			rot->fetch_peer = brick_strdup(peer);
+		}
 	} else {
 		MARS_DBG("allow_update = %d src_size = %lld dst_size = %lld local_dent = %p\n", rot->allow_update, src_size, dst_size, local_dent);
 	}
@@ -1619,7 +1621,6 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 		const char *parent_path = backskip_replace(remote_dent->d_path, '/', false, "");
 		if (likely(parent_path)) {
 			struct mars_dent *parent = mars_find_dent(peer->global, parent_path);
-			struct mars_dent *local_dent = mars_find_dent(peer->global, remote_dent->d_path);
 			struct mars_rotate *rot;
 			if (unlikely(!parent)) {
 				MARS_DBG("ignoring non-existing local resource '%s'\n", parent_path);
@@ -1628,6 +1629,7 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 				   rot->relevant_serial > remote_dent->d_serial) {
 				MARS_DBG("ignoring outdated remote logfile '%s' (behind %d)\n", remote_dent->d_path, rot->relevant_serial);
 			} else {
+				struct mars_dent *local_dent = mars_find_dent(peer->global, remote_dent->d_path);
 				status = check_logfile(peer->peer, remote_dent, local_dent, parent, local_stat.size);
 			}
 			brick_string_free(parent_path);
@@ -2273,6 +2275,7 @@ void rot_destruct(void *_rot)
 		brick_string_free(rot->parent_path);
 		brick_string_free(rot->fetch_next_origin);
 		rot->fetch_path = NULL;
+		rot->fetch_peer = NULL;
 		rot->parent_path = NULL;
 		rot->fetch_next_origin = NULL;
 	}
