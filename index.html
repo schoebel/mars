@@ -144,6 +144,8 @@ on a fully automatic test suite which automates regression tests
 (goal: rolling releases). That test suite is based on the internal
 test suite of blkreplay and can be found in the test_suite/ subdirectory.</p>
 
+<p>More than 15 pilot clusters serving real customers are running for several months since Summer 2013. Some of there are known "performance pigs". There were no issues worth mentioning (besides collecting operational experiences, HOWTO do things the right way, finding the best monitoring strategies, etc).</p>
+
 <p>In November 2013, internal 1&amp;1 projects started for mass rollout to several thousands of servers.</p>
 
 <p>Although the software continues to be labelled "beta" for the next future, it has reached enterprise grade due to our internal rating process.</p>
@@ -153,7 +155,7 @@ test suite of blkreplay and can be found in the test_suite/ subdirectory.</p>
 
 <p>Smaller Reworks: in Winter 2013/2014, some smaller changes to the symlink tree are planned, in order to make it more readable for humans and to prepare for future enhancements. They will only change the syntax, not the semantics. There will be an upgrade plan, i.e. the old symlink tree remains usable; only newly created clusters will use the new structure.</p>
 
-<p>In parallel, the software will be internally divided into three parts:</p>
+<p>In parallel, the software will be internally divided into three parts (mostly syntactical renames automated by a script):</p>
 
 <ol>
 <li>Generic brick framework</li>
@@ -166,7 +168,7 @@ test suite of blkreplay and can be found in the test_suite/ subdirectory.</p>
 <ol>
 <li>MARS FULL infrastructure, IOP replacement for the ad-hoc Light instantiation logic, functionally equivalent (regression testing with Frank's test suite).</li>
 <li>Remote device. <code>/dev/mars/mydata</code> can appear anywhere in a cluster, independently from primary switching. Estimated release date: end of 2014.</li>
-<li>Virtual point-in-time restore. Creates a read-only snapshot on-the-fly, for any unplanned time in the past, with second resolution. Estimated release date: end of 2015.</li>
+<li>Virtual point-in-time restore. Creates a read-only snapshot on-the-fly, for any unplanned time in the past (provided that transaction logs have not yet been deleted), with second resolution. Estimated release date: end of 2015.</li>
 </ol><p>Further MARS FULL features are possible, but there is no schedule yet.</p>
       </section>
     </div>
