@@ -1,3 +1,8 @@
+You need the kernel sources for at least 2.6.32. Some elder versions
+may work, but we have not tested it.
+
+Currently, MARS Light builds only with 64bit kernels.
+
 Go to your linux source tree, and apply one of the pre-patches for MARS.
 You can find them in the subdirectory pre-patches/ of the MARS sources.
 
@@ -9,13 +14,24 @@ One of the pre-patches has been ported to an openvz kernel
 even by one of our sysadmins, who usually does no C programming.
 So this should be no major hurdle.
 
-Because of the need for some small pre-patches, there is currently
-no infrastructure for builing MARS seaparately as standalone kernel module.
-Currently, you have to compile it inplace in your kernel source tree.
+Because of the need for some small pre-patches, we recommend to build
+MARS inside the kernel source tree.
+
+If you are an experience sysdamin and want to build MARS as an external
+kernel module, you may try the Debian based scripts provided by our
+sysadmins. Be warned that you have to check yourself for source
+compatibility, the right compiler flags, etc; very nasty errors may
+appear if you fail to do so!
+
+Therefore, try the simple way first.
 
 Go to ${your_kernel_source}/block/ and clone the MARS git repository there.
 
-Then build your kernel as usual.
+Then build your kernel as usual. You need to use 64bit. In addition, you
+need to enable the following options before MARS shows up at all:
+
+PROC_SYSCTL
+HIGH_RES_TIMERS
 
 In Kconfig, you will find lots of additional options for MARS. Most
 of them should be left at their default. It suffices just to switch
@@ -27,8 +43,8 @@ your $PATH.
 Do the following at both your primary and secondary node:
 
 After booting your pre-patched kernel, don't modprobe mars. Before
-that, create an empty filesystem with at least 100GB (currently
-ext3 recommended; there seem to remain some recursion deadlock problems
+that, create an empty filesystem with at least 100GB (ext4 is highly
+recommended; there seem to remain some recursion deadlock problems
 with xfs which will be hopefully fixed in the next time)
 and mount it to /mars/ .
 
@@ -69,11 +85,11 @@ your nodes:
 
 hint: use cron jobs for automation.
 
-Most marsadm commands are very similar to drbdadm. A better documentation
-should appear in the next months. The sourcecode of marsadm is a very
+Most marsadm commands are very similar to drbdadm. Details can be
+found in docu/mars-manual.pdf. The sourcecode of marsadm is a very
 simple and stupid perl script, which intentionally does not use any
 perl module and no OO. The source code will tell you almost anything
-about the symlinks present in /mars/ until there is better documentation.
+about the symlinks present in /mars/.
 
 If you are curious about how MARS replicates its state information
 over the network, just do the following on both nodes:
