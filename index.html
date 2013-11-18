@@ -4,11 +4,11 @@
   <head>
     <meta charset='utf-8' />
     <meta http-equiv="X-UA-Compatible" content="chrome=1" />
-    <meta name="description" content="Mars : Asynchronous Block-Level Storage Replication" />
+    <meta name="description" content="MARS : Asynchronous Block-Level Storage Replication" />
 
     <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
 
-    <title>Mars</title>
+    <title>MARS</title>
   </head>
 
   <body>
@@ -18,7 +18,7 @@
         <header class="inner">
           <a id="forkme_banner" href="https://github.com/schoebel/mars">View on GitHub</a>
 
-          <h1 id="project_title">Mars</h1>
+          <h1 id="project_title">MARS</h1>
           <h2 id="project_tagline">Asynchronous Block-Level Storage Replication</h2>
 
             <section id="downloads">
@@ -35,6 +35,10 @@
 <a name="mars--multiversion-asynchronous-replicated-storage" class="anchor" href="#mars--multiversion-asynchronous-replicated-storage"><span class="octicon octicon-link"></span></a>MARS = Multiversion Asynchronous Replicated Storage</h1>
 
 <p><img src="docu/images/earth-mars-transfer.jpg" alt="MARS Logo"></p>
+
+<p><code>git clone git@github.com:schoebel/mars.git</code></p>
+
+<p>or <a href="https://github.com/schoebel/mars">https://github.com/schoebel/mars</a></p>
 
 <p>GPLed software AS IS, sponsored by 1&amp;1 Internet AG (<a href="http://www.1und1.de">www.1und1.de</a>). Contact: <a href="mailto:tst@1und1.de">tst@1und1.de</a></p>
 
@@ -67,7 +71,7 @@ incremental replication of the transaction logfiles, usually the
 lag-behind will be only a few seconds, or parts of a second.</p>
 
 <p>Synchronous or near-synchronous operating modes are planned for
-the future, but are expected to <em>reliably</em> work only over short 
+the future, but are expected to work <em>reliably</em> only over short 
 distances (less than 50km), due to fundamental properties
 of distributed systems.</p>
 
@@ -77,6 +81,8 @@ of distributed systems.</p>
 <a name="documentation--manual" class="anchor" href="#documentation--manual"><span class="octicon octicon-link"></span></a>Documentation / Manual</h2>
 
 <p>See <a href="https://github.com/schoebel/mars/blob/master/docu/mars-manual.pdf">https://github.com/schoebel/mars/blob/master/docu/mars-manual.pdf</a></p>
+
+<p>Intro: the use cases MARS vs DRBD can be found in chapter 1.</p>
 
 <h2>
 <a name="concepts" class="anchor" href="#concepts"><span class="octicon octicon-link"></span></a>Concepts</h2>
@@ -97,7 +103,7 @@ the following paper:</p>
 
 <p>As you can see in the git log, it evolved from a very experimental
 concept study, starting in the Summer of 2010.
-At this time, I was working on it in my spare time.</p>
+At that time, I was working on it in my spare time.</p>
 
 <p>In Summer 2011, an "official" internal 1&amp;1 project started, which aimed
 to deliver a proof of concept.</p>
@@ -107,10 +113,7 @@ server, which collects statistics data from thousands of other servers,
 and thus produces a very heavy random-access write load, formerly
 replicated with DRBD (which led to performance problems due to massive
 randomness). After switching to MARS, the performance was provably
-better.
-That server was selected because potential loss of statistics data
-would be not be that critical as with other productive data, but
-nevertheless it operates on productive data and loads.</p>
+better.</p>
 
 <p>After curing some small infancy problems, that server runs until today
 without problems. It was upgraded to newer versions of MARS several
@@ -124,9 +127,7 @@ was to reach enterprise grade, and therefore to rollout MARS Light on
 for test webspaces etc.</p>
 
 <p>In December 2012 (shortly before Christmas), I got the official permission
-from our CTO Henning Kettler to publish MARS under GPL on github.</p>
-
-<p>Many thanks to him!</p>
+from our CTO Henning Kettler to publish MARS under GPL on github. Many thanks to him!</p>
 
 <p>Before that point, I was bound to my working contract which kept internal
 software as secret by default (when there was no explicit permission).</p>
@@ -134,9 +135,7 @@ software as secret by default (when there was no explicit permission).</p>
 <p>Now there is a chance to build up an opensource
 community for MARS, partially outside of 1&amp;1.</p>
 
-<p>Please contribute! I will be open.</p>
-
-<p>I also try to respect the guidelines from Linus, but probably this
+<p>I will also try to respect the guidelines from Linus, but probably this
 will need more work. I am already planning to invest some time into
 community revision of the sourcecode, but there is not yet any schedule.</p>
 
@@ -150,9 +149,9 @@ test suite of blkreplay and can be found in the test_suite/ subdirectory.</p>
 <p>Although the software continues to be labelled "beta" for the next future, it has reached enterprise grade due to our internal rating process.</p>
 
 <h2>
-<a name="future-plans" class="anchor" href="#future-plans"><span class="octicon octicon-link"></span></a>Future Plans</h2>
+<a name="future-plans--roadmap" class="anchor" href="#future-plans--roadmap"><span class="octicon octicon-link"></span></a>Future Plans / Roadmap</h2>
 
-<p>Smaller Reworks: in Winter 2013/2014, some smaller changes to the symlink tree are planned, in order to make it more readable for humans and to prepare for future enhancements. They will only change the syntax, not the semantics. There will be an uprade plan, i.e. the old symlink tree remains usable; only newly created clusters will use the new structure.</p>
+<p>Smaller Reworks: in Winter 2013/2014, some smaller changes to the symlink tree are planned, in order to make it more readable for humans and to prepare for future enhancements. They will only change the syntax, not the semantics. There will be an upgrade plan, i.e. the old symlink tree remains usable; only newly created clusters will use the new structure.</p>
 
 <p>In parallel, the software will be internally divided into three parts:</p>
 
@@ -160,14 +159,22 @@ test suite of blkreplay and can be found in the test_suite/ subdirectory.</p>
 <li>Generic brick framework</li>
 <li>AIO personality with XIO bricks</li>
 <li>MARS Light application</li>
-</ol><p>I hope this will make MARS more attractive for the mainline Linux kernel community.</p>
+</ol><p>I hope this will make MARS more attractive for the mainline Linux kernel community. When everything runs fine, the upstream code revision could start in Spring 2014.</p>
+
+<p>MARS FULL is planned in the following steps:</p>
+
+<ol>
+<li>MARS FULL infrastructure, IOP replacement for the ad-hoc Light instantiation logic, functionally equivalent (regression testing with Frank's test suite).</li>
+<li>Remote device. <code>/dev/mars/mydata</code> can appear anywhere in a cluster, independently from primary switching. Estimated release date: end of 2014.</li>
+<li>Virtual point-in-time restore. Creates a read-only snapshot on-the-fly, for any unplanned time in the past, with second resolution. Estimated release date: end of 2015.</li>
+</ol><p>Further MARS FULL features are possible, but there is no schedule yet.</p>
       </section>
     </div>
 
     <!-- FOOTER  -->
     <div id="footer_wrap" class="outer">
       <footer class="inner">
-        <p class="copyright">Mars maintained by <a href="https://github.com/schoebel">schoebel</a></p>
+        <p class="copyright">MARS maintained by <a href="https://github.com/schoebel">schoebel</a></p>
         <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
       </footer>
     </div>
