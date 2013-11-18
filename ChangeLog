@@ -1,1 +1,18 @@
-See git history in https://github.com/schoebel/mars/commits/master
+A full-featured ChanceLog will appear only after the 1.0 revision of the symlink tree has been released.
+
+New releases are simply announced by appearance of git tags.
+	
+The git tags have the following meaning:
+
+	full* for future use.
+
+	light1.0 The first number indicates the main symlink tree revision, the second number indicates the sub revision. The main symlink tree revision is only updated upon (potentially) incompatible changes. Upgrades of main revisions will always be possible, but downgrades are not automatically supported. The sub revision will indicate new releases, and they may also indicate symlink tree extersions which are both forwards and backwards compatible. It may just happen that new features are not available with elder releases :)
+	Example: 1.0 ff will indicate the future main production revision.
+	Extensions: suffixes like pre1 indicate pre-releases. Other suffixes like testing2 are reserved for future use.
+	Hint: you may automatically convert the MARS git tags into Debian release tags by a regex inserting a ~ after any transition from a digit to an alpha character. We just omitted the ~ because git treats it as an invalid character. The corresponding Debian tags _should_ result in the correct ordering according to the Debian guidelines. Please report a bug if not :)
+
+	light0.1beta* Internal 1&1 releases during the pilot phase. May be used by the public, but you should know that the 1.0 symlink tree revision will appear soon.
+
+	light0.0alpha* Very old prototypes; never use them. Vital feature were missing. Only for historic inspection.
+
+For full details, look at the commit history.
