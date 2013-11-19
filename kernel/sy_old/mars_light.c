@@ -178,13 +178,13 @@ int compute_emergency_mode(void)
 	if (mars_throttle_start > 0 &&
 	    mars_throttle_end > mars_throttle_start &&
 	    global_total_space > 0) {
-		loff_t percent = rest * 100 / global_total_space;
-		if (percent < mars_throttle_start) {
+		loff_t percent_used = 100 - (rest * 100 / global_total_space);
+		if (percent_used < mars_throttle_start) {
 			if_throttle_start_size = 0;
-		} else if (percent >= mars_throttle_end) {
+		} else if (percent_used >= mars_throttle_end) {
 			if_throttle_start_size = 1;
 		} else {
-			if_throttle_start_size = (mars_throttle_end - percent) * 1024 / (mars_throttle_end - mars_throttle_start) + 1;
+			if_throttle_start_size = (mars_throttle_end - percent_used) * 1024 / (mars_throttle_end - mars_throttle_start) + 1;
 		}
 	}
 
