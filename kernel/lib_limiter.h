@@ -15,6 +15,7 @@ struct mars_limiter {
 	int lim_max_rate;
 	/* readable */
 	int lim_rate;
+	int lim_cumul;
 	long long lim_stamp;
 	/* internal */
 	long long lim_accu;

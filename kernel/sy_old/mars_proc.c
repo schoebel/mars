@@ -170,6 +170,7 @@ EXPORT_SYMBOL_GPL(mars_max_loadavg);
 
 #define LIMITER_ENTRIES(VAR, PREFIX, SUFFIX)				\
 	INT_ENTRY(PREFIX "_limit_" SUFFIX, (VAR)->lim_max_rate, 0600),	\
+	INT_ENTRY(PREFIX "_cumul_" SUFFIX, (VAR)->lim_cumul,    0600),	\
 	INT_ENTRY(PREFIX "_rate_"  SUFFIX, (VAR)->lim_rate,     0400)	\
 
 #define THRESHOLD_ENTRIES(VAR, PREFIX)					\

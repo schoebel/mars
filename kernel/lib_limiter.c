@@ -32,8 +32,10 @@ int mars_limit(struct mars_limiter *lim, int amount)
 			/* Races are possible, but taken into account.
 			 * There is no real harm from rarely lost updates.
 			 */
-			if (likely(amount > 0))
+			if (likely(amount > 0)) {
 				lim->lim_accu += amount;
+				lim->lim_cumul += amount;
+			}
 			
 			rate_raw = lim->lim_accu * LIMITER_TIME_RESOLUTION / elapsed;
 			rate = rate_raw;
