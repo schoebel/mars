@@ -55,9 +55,9 @@ int mars_limit(struct mars_limiter *lim, int amount)
 			
 			// limit exceeded?
 			if (lim->lim_max_rate > 0 && rate > lim->lim_max_rate) {
-				int this_delay = 1000 - (long long)lim->lim_max_rate * 1000 / rate;
+				int this_delay = (window * rate / lim->lim_max_rate - window) / (LIMITER_TIME_RESOLUTION / 1000);
 				// compute maximum
-				if (this_delay > delay)
+				if (this_delay > delay && this_delay > 0)
 					delay = this_delay;
 			}
 
