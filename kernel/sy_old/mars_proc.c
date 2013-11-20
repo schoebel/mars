@@ -174,6 +174,7 @@ EXPORT_SYMBOL_GPL(mars_max_loadavg);
 	INT_ENTRY(PREFIX "_minwindow_ms",  (VAR)->lim_min_window,0600),	\
 	INT_ENTRY(PREFIX "_maxwindow_ms",  (VAR)->lim_max_window,0600),	\
 	INT_ENTRY(PREFIX "_cumul_" SUFFIX, (VAR)->lim_cumul,    0600),	\
+	INT_ENTRY(PREFIX "_count_ops",     (VAR)->lim_count,    0600),	\
 	INT_ENTRY(PREFIX "_rate_"  SUFFIX, (VAR)->lim_rate,     0400)	\
 
 #define THRESHOLD_ENTRIES(VAR, PREFIX)					\

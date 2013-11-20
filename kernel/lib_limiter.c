@@ -43,6 +43,7 @@ int mars_limit(struct mars_limiter *lim, int amount)
 			if (likely(amount > 0)) {
 				lim->lim_accu += amount;
 				lim->lim_cumul += amount;
+				lim->lim_count++;
 			}
 			
 			rate_raw = lim->lim_accu * LIMITER_TIME_RESOLUTION / window;
