@@ -170,7 +170,7 @@ function lv_config_recreate_logical_volumes
             if [ ${lv_config_vg_recreatable_list[$host]} -eq 0 ]; then
                 lib_vmsg "  skipping recreation of vg $lv_config_lvg_name on $host"
             else
-                lv_config_create_vg
+                lv_config_create_vg $host
             fi
         fi
         for lv_name in "${lv_config_lv_name_list[@]}"; do

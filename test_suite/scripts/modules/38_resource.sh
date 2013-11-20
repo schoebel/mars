@@ -366,14 +366,16 @@ function resource_mount_mars_and_rm_resource_dir_all
     cluster_rmmod_mars_all
 
     for host in "${main_host_list[@]}"; do
-    local mars_lv=${cluster_mars_dir_lv_name_list[$host]}
-    local mars_dev=$(lv_config_get_lv_device $mars_lv)
-    lib_vmsg "  check whether mars device $host:$mars_dev exists"
-    if lib_remote_idfile $host "ls -l $mars_dev"; then
-        cluster_mount_mars_dir $host
-        lib_vmsg "  removing $host:$res_dir"
+        local mars_lv=${cluster_mars_dir_lv_name_list[$host]}
+        local mars_dev=$(lv_config_get_lv_device $mars_lv)
+        lib_vmsg "  removing $host:$res_dir whether mounted or not"
         lib_remote_idfile $host "rm -rf $res_dir" || lib_exit 1
-    fi
+        lib_vmsg "  check whether mars device $host:$mars_dev exists"
+        if lib_remote_idfile $host "ls -l $mars_dev"; then
+            cluster_mount_mars_dir $host
+            lib_vmsg "  removing $host:$res_dir"
+            lib_remote_idfile $host "rm -rf $res_dir" || lib_exit 1
+        fi
     done
 }
 

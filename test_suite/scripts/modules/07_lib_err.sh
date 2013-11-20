@@ -44,7 +44,9 @@ function lib_check_for_kernel_oops_after_start_time
 {
     local host last_stack_line kern_log=/var/log/kern.log
     if [ -z "$main_start_time" ];then
-        lib_exit 1 "  variable main_start_time not set"
+        echo "  variable main_start_time not set" >&2
+        echo "  cannot look for recent kernel oops" >&2
+        return
     fi
     for host in "${main_host_list[@]}"; do
         last_stack_line="$(lib_remote_idfile $host "grep -w Stack $kern_log | tail -1")"
