@@ -169,7 +169,7 @@ EXPORT_SYMBOL_GPL(mars_max_loadavg);
 	VEC_ENTRY(NAME, VAR, MODE, 1)
 
 #define LIMITER_ENTRIES(VAR, PREFIX, SUFFIX)				\
-	INT_ENTRY(PREFIX "_limit_" SUFFIX, (VAR)->lim_max_rate, 0600),	\
+	INT_ENTRY(PREFIX "_ratelimit_" SUFFIX, (VAR)->lim_max_rate, 0600), \
 	INT_ENTRY(PREFIX "_cumul_" SUFFIX, (VAR)->lim_cumul,    0600),	\
 	INT_ENTRY(PREFIX "_rate_"  SUFFIX, (VAR)->lim_rate,     0400)	\
 
@@ -260,9 +260,9 @@ ctl_table mars_table[] = {
 	INT_ENTRY("required_free_space_4_gb", global_free_space_4, 0600),
 	INT_ENTRY("mars_emergency_mode",  mars_emergency_mode,    0600),
 	INT_ENTRY("mars_reset_emergency", mars_reset_emergency,   0600),
-	INT_ENTRY("write_throttle_start", mars_throttle_start,    0600),
-	INT_ENTRY("write_throttle_end",   mars_throttle_end,      0600),
-	INT_ENTRY("write_throttle_size_limit", if_throttle_start_size, 0400),
+	INT_ENTRY("write_throttle_start_percent", mars_throttle_start,    0600),
+	INT_ENTRY("write_throttle_end_percent",   mars_throttle_end,      0600),
+	INT_ENTRY("write_throttle_size_threshold_kb", if_throttle_start_size, 0400),
 	LIMITER_ENTRIES(&if_throttle,     "write_throttle",       "kb"),
 #ifdef CONFIG_MARS_LOADAVG_LIMIT
 	INT_ENTRY("loadavg_limit",        mars_max_loadavg,       0600),

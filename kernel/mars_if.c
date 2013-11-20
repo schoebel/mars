@@ -45,7 +45,7 @@ int if_throttle_start_size = 0; // in kb
 EXPORT_SYMBOL_GPL(if_throttle_start_size);
 
 struct mars_limiter if_throttle = {
-	.lim_max_rate = 10000,
+	.lim_max_rate = 5000,
 };
 EXPORT_SYMBOL_GPL(if_throttle);
 
