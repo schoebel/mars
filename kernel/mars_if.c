@@ -374,8 +374,10 @@ if_make_request(struct request_queue *q, struct bio *bio)
 	}
 
 	// throttling of too big write requests
-	if (rw && if_throttle_start_size > 0 && total_len / 1024 >= if_throttle_start_size) {
-		mars_limit_sleep(&if_throttle, total_len / 1024);
+	if (rw && if_throttle_start_size > 0) {
+		int kb = (total_len + 512) / 1024;
+		if (kb >= if_throttle_start_size)
+			mars_limit_sleep(&if_throttle, kb);
 	}
 
 #ifdef DENY_READA // provisinary -- we should introduce an equivalent of READA also to the MARS infrastructure
