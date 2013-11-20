@@ -18,16 +18,17 @@ int mars_limit(struct mars_limiter *lim, int amount)
 	 * down to the root of the hierarchy tree.
 	 */
 	while (lim != NULL) {
-		long long elapsed = now - lim->lim_stamp;
+		long long window = now - lim->lim_stamp;
 		/* Sometimes, raw CPU clocks may do weired things...
+		 * Smaller windows in the denominator than 1s could fake unrealistic rates.
 		 */
-		if (unlikely(elapsed <= 0))
-			elapsed = 1;
+		if (unlikely(window < LIMITER_TIME_RESOLUTION))
+			window = LIMITER_TIME_RESOLUTION;
 
 		/* Only use incremental accumulation at repeated calls, but
 		 * never after longer pauses.
 		 */
-		if (likely(lim->lim_stamp && elapsed < LIMITER_TIME_RESOLUTION * 8)) {
+		if (likely(lim->lim_stamp && window < LIMITER_TIME_RESOLUTION * 8)) {
 			long long rate_raw;
 			int rate;
 			
@@ -39,7 +40,7 @@ int mars_limit(struct mars_limiter *lim, int amount)
 				lim->lim_cumul += amount;
 			}
 			
-			rate_raw = lim->lim_accu * LIMITER_TIME_RESOLUTION / elapsed;
+			rate_raw = lim->lim_accu * LIMITER_TIME_RESOLUTION / window;
 			rate = rate_raw;
 			if (unlikely(rate_raw > INT_MAX)) {
 				rate = INT_MAX;
@@ -53,20 +54,21 @@ int mars_limit(struct mars_limiter *lim, int amount)
 				if (this_delay > delay)
 					delay = this_delay;
 			}
-			
-			elapsed -= LIMITER_TIME_RESOLUTION * 2;
-			if (elapsed > LIMITER_TIME_RESOLUTION) {
-				lim->lim_stamp += elapsed;
-				lim->lim_accu -= (unsigned long long)lim->lim_rate * (unsigned long long)elapsed / LIMITER_TIME_RESOLUTION;
-				if (lim->lim_accu < 0) {
+
+			/* Try to keep the next window below 2s
+			 */
+			window -= LIMITER_TIME_RESOLUTION;
+			if (window > LIMITER_TIME_RESOLUTION) {
+				lim->lim_stamp += window;
+				lim->lim_accu -= (unsigned long long)lim->lim_rate * (unsigned long long)window / LIMITER_TIME_RESOLUTION;
+				if (unlikely(lim->lim_accu < 0))
 					lim->lim_accu = 0;
-				}
 			}
-		} else {
+		} else { // reset, start over with new measurement cycle
 			if (unlikely(amount < 0))
 				amount = 0;
 			lim->lim_accu = amount;
-			lim->lim_stamp = now;
+			lim->lim_stamp = now - LIMITER_TIME_RESOLUTION;
 			lim->lim_rate = 0;
 		}
 		lim = lim->lim_father;
