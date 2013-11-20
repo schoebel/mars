@@ -6,13 +6,12 @@
 
 #include <linux/utsname.h>
 
-#define LIMITER_TIME_RESOLUTION NSEC_PER_SEC
-
 struct mars_limiter {
 	/* hierarchy tree */
 	struct mars_limiter *lim_father;
 	/* tunables */
 	int lim_max_rate;
+	int lim_max_delay;
 	/* readable */
 	int lim_rate;
 	int lim_cumul;
@@ -23,15 +22,6 @@ struct mars_limiter {
 
 extern int mars_limit(struct mars_limiter *lim, int amount);
 
-extern inline
-void mars_limit_sleep(struct mars_limiter *lim, int amount)
-{
-	int sleep = mars_limit(lim, amount);
-	if (sleep > 0) {
-		if (sleep > 1000)
-			sleep = 1000;
-		brick_msleep(sleep);
-	}
-}
+extern void mars_limit_sleep(struct mars_limiter *lim, int amount);
 
 #endif

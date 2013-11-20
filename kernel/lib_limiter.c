@@ -5,6 +5,8 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 
+#define LIMITER_TIME_RESOLUTION NSEC_PER_SEC
+
 int mars_limit(struct mars_limiter *lim, int amount)
 {
 	int delay = 0;
@@ -72,3 +74,16 @@ int mars_limit(struct mars_limiter *lim, int amount)
 	return delay;
 }
 EXPORT_SYMBOL_GPL(mars_limit);
+
+void mars_limit_sleep(struct mars_limiter *lim, int amount)
+{
+	int sleep = mars_limit(lim, amount);
+	if (sleep > 0) {
+		if (unlikely(lim->lim_max_delay <= 0))
+			lim->lim_max_delay = 1000;
+		if (sleep > lim->lim_max_delay)
+			sleep = lim->lim_max_delay;
+		brick_msleep(sleep);
+	}
+}
+EXPORT_SYMBOL_GPL(mars_limit_sleep);
