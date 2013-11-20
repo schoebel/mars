@@ -12,6 +12,8 @@ struct mars_limiter {
 	/* tunables */
 	int lim_max_rate;
 	int lim_max_delay;
+	int lim_min_window;
+	int lim_max_window;
 	/* readable */
 	int lim_rate;
 	int lim_cumul;

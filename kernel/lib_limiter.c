@@ -22,13 +22,18 @@ int mars_limit(struct mars_limiter *lim, int amount)
 		/* Sometimes, raw CPU clocks may do weired things...
 		 * Smaller windows in the denominator than 1s could fake unrealistic rates.
 		 */
-		if (unlikely(window < LIMITER_TIME_RESOLUTION))
-			window = LIMITER_TIME_RESOLUTION;
+		if (unlikely(lim->lim_min_window <= 0))
+			lim->lim_min_window = 1000;
+		if (unlikely(lim->lim_max_window <= lim->lim_min_window))
+			lim->lim_max_window = lim->lim_min_window + 8000;
+		if (unlikely(window < (long long)lim->lim_min_window * (LIMITER_TIME_RESOLUTION / 1000)))
+			window = (long long)lim->lim_min_window * (LIMITER_TIME_RESOLUTION / 1000);
 
 		/* Only use incremental accumulation at repeated calls, but
 		 * never after longer pauses.
 		 */
-		if (likely(lim->lim_stamp && window < LIMITER_TIME_RESOLUTION * 8)) {
+		if (likely(lim->lim_stamp &&
+			   window < (long long)lim->lim_max_window * (LIMITER_TIME_RESOLUTION / 1000))) {
 			long long rate_raw;
 			int rate;
 			
@@ -55,20 +60,23 @@ int mars_limit(struct mars_limiter *lim, int amount)
 					delay = this_delay;
 			}
 
-			/* Try to keep the next window below 2s
+			/* Try to keep the next window below min_window
 			 */
-			window -= LIMITER_TIME_RESOLUTION;
-			if (window > LIMITER_TIME_RESOLUTION) {
-				lim->lim_stamp += window;
-				lim->lim_accu -= (unsigned long long)lim->lim_rate * (unsigned long long)window / LIMITER_TIME_RESOLUTION;
-				if (unlikely(lim->lim_accu < 0))
-					lim->lim_accu = 0;
+			window -= lim->lim_min_window * (LIMITER_TIME_RESOLUTION / 1000);
+			if (window > 0) {
+				long long used_up = (long long)lim->lim_rate * window / LIMITER_TIME_RESOLUTION;
+				if (used_up > 0) {
+					lim->lim_stamp += window;
+					lim->lim_accu -= used_up;
+					if (unlikely(lim->lim_accu < 0))
+						lim->lim_accu = 0;
+				}
 			}
 		} else { // reset, start over with new measurement cycle
 			if (unlikely(amount < 0))
 				amount = 0;
 			lim->lim_accu = amount;
-			lim->lim_stamp = now - LIMITER_TIME_RESOLUTION;
+			lim->lim_stamp = now - lim->lim_min_window * (LIMITER_TIME_RESOLUTION / 1000);
 			lim->lim_rate = 0;
 		}
 		lim = lim->lim_father;
