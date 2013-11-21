@@ -131,7 +131,7 @@ tst@1und1.de
 \end_layout
 
 \begin_layout Date
-Version 0.8 (incomplete)
+Version 0.9 (incomplete)
 \end_layout
 
 \begin_layout Lowertitleback
@@ -306,6 +306,13 @@ LatexCommand tableofcontents
 
 \begin_layout Chapter
 Use Cases for MARS vs DRBD
+\begin_inset CommandInset label
+LatexCommand label
+name "chap:Use-Cases-for"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -4138,6 +4145,19 @@ cost
 Countermeasures
 \end_layout
 
+\begin_layout Subsubsection
+Dimensioning of 
+\family typewriter
+/mars/
+\begin_inset CommandInset label
+LatexCommand label
+name "sub:Dimensioning-of-/mars/"
+
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
 The first (and most important) measure against overflow of 
 \family typewriter
@@ -4165,6 +4185,10 @@ safety margin
 \series default
 .
  Keep it high enough!
+\end_layout
+
+\begin_layout Subsubsection
+Monitoring
 \end_layout
 
 \begin_layout Standard
@@ -4665,6 +4689,310 @@ status collapsed
 
 
 \family default
+.
+\end_layout
+
+\begin_layout Subsubsection
+Throttling
+\end_layout
+
+\begin_layout Standard
+The last measure for defense of overflow is 
+\series bold
+throttling your performance pigs
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+Motivation: in rare cases, some users with 
+\family typewriter
+ssh
+\family default
+ access can do 
+\emph on
+very
+\emph default
+ silly things.
+ For example, some of them are creating their own backups via user-cron
+ jobs, and they do it every 5 minutes.
+ Some example guy created a zip archive (almost 1GB) by regularly copying
+ his old zip archive into a new one, then appending deltas to the new one,
+ and finally deleting the old archive.
+ Every 5 minutes.
+ Yes, every 5 minutes, although almost never any new files were added to
+ the archive.
+ Essentially, he copied over his archive, for nothing.
+ This led to massive bulk write requests, for ridiculous reasons.
+\end_layout
+
+\begin_layout Standard
+In general, your hard disks (or even RAID systems) allow much higher write
+ IO rates than you can ever transport over a standard TCP network from your
+ primary site to your secondary, at least over longer distances (see use
+ cases for MARS in chapter 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "chap:Use-Cases-for"
+
+\end_inset
+
+).
+ Therefore, it is easy to create a such a high write load that it will be
+ 
+\emph on
+impossible
+\emph default
+ to replicate it over the network, 
+\emph on
+by construction
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+Therefore, we 
+\emph on
+need
+\emph default
+ some mechanism for throttling bulk writers whenever the network is weaker
+ than your IO subsystem.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Notice that DRBD will 
+\emph on
+always
+\emph default
+ throttle your writes whenever the network forms a bottleneck, due to its
+ synchronous operation mode.
+ In contrast, MARS allows for buffering of performance peaks in the transaction
+ logfiles.
+ 
+\emph on
+Only when
+\emph default
+ your buffer in 
+\family typewriter
+/mars/
+\family default
+ runs short (cf subsection 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Dimensioning-of-/mars/"
+
+\end_inset
+
+), MARS will start to throttle your application writes.
+\end_layout
+
+\begin_layout Standard
+There are a lot of screws named 
+\family typewriter
+/proc/sys/mars/write_throttle_*
+\family default
+ with the following meaning:
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+write_throttle_start_percent
+\family default
+ Whenever the used space in 
+\family typewriter
+/mars/
+\family default
+ is below this threshold, no throttling will occur at all.
+ Only when this threshold is exceeded, throttling will start 
+\emph on
+slowly
+\emph default
+.
+ Typical values for this are 60%.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+write_throttle_end_percent
+\family default
+ Maximum throttling will occur once this space threshold is reached, i.e.
+ the throttling is now at its maximum effect.
+ Typical values for this are 90%.
+ When the actual space in 
+\family typewriter
+/mars/
+\family default
+ lies between 
+\family typewriter
+write_throttle_start_percent
+\family default
+ and 
+\family typewriter
+write_throttle_end_percent
+\family default
+, the strength of throttling will be interpolated linearly between the extremes.
+ In practice, this should lead to an equilibrum between new input flow into
+ 
+\family typewriter
+/mars/
+\family default
+ and output flow over the network to secondaries.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+write_throttle_size_threshold_kb
+\family default
+ (readonly) This parameter shows the internal strength calculation of the
+ throttling.
+ Only write
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Read requests are never throttled at all.
+\end_layout
+
+\end_inset
+
+ requests exceeding this size (in KB) are throttled at all.
+ Typically, this will hurt the bulk performance pigs first, while leaving
+ ordinary users (issuing small requests) unaffected.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+write_throttle_ratelimit_kb
+\family default
+ Set the global IO rate in KB/s for those write requests which are throttled.
+ In case of strongest
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In case of lighter throttling, the input flow into 
+\family typewriter
+/mars/
+\family default
+ may be higher because small requests are not throttled.
+\end_layout
+
+\end_inset
+
+ throttling, this parameters determines the input flow into 
+\family typewriter
+/mars/
+\family default
+.
+ The default value is 5.000 KB/s.
+ Please adjust this value to your application needs and to your environment.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+write_throttle_rate_kb
+\family default
+ (readonly) Shows the current rate of exactly those requests which are actually
+ throttled (in contrast to 
+\emph on
+all
+\emph default
+ requests).
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+write_throttle_cumul_kb
+\family default
+ (logically readonly) Same as before, but the cumulative sum of all throttled
+ requests since startup / reset.
+ This value can be reset from userspace in order to prevent integer overflow.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+write_throttle_count_ops
+\family default
+ (logically readonly) Shows the cumulative number of throttled requests.
+ This value can be reset from userspace in order to prevent integer overflow.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+write_throttle_maxdelay_ms
+\family default
+ Each request is delayed at most for this timespan.
+ Smaller values will improve the responsiveness of your userspace application,
+ but at the cost of potentially retarding the requests not sufficiently.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+write_throttle_minwindow_ms
+\family default
+ Set the minimum length of the measuring window.
+ The measuring window is the timespan for which the average (throughput)
+ rate is computed (see 
+\family typewriter
+write_throttle_rate_kb
+\family default
+).
+ Lower values can increase the responsiveness of the controller algorithm,
+ but at the cost of accuracy.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+write_throttle_maxwindow_ms
+\family default
+ This parameter must be set sufficiently much greater than 
+\family typewriter
+write_throttle_minwindow_ms
+\family default
+.
+ In case the flow of throttled operations pauses for some natural reason
+ (e.g.
+ switched off, low load, etc), this parameter determines when a completely
+ new rate calculation should be started over
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Motivation: if requests would pause for one hour, the measuring window could
+ become also an hour.
+ Of course, that would lead to completely meaningless results.
+ Two requests in one hour is 
+\begin_inset Quotes eld
+\end_inset
+
+incorrect
+\begin_inset Quotes erd
+\end_inset
+
+ from a human point of view: we just have to ensure that averages are computed
+ with respect to a reasonable maximum time window in the magnitude of 10s.
+\end_layout
+
+\end_inset
+
 .
 \end_layout
 
