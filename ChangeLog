@@ -1,6 +1,22 @@
-A full-featured ChanceLog will appear only after the 1.0 revision of the symlink tree has been released.
+light0.1beta0.15
+--------
+	
+	 * Introduce write throttling of bulk writers.
+	 * Update test suite.
 
-New releases are simply announced by appearance of git tags.
+light0.1beta0.14 and earlier
+--------
+	
+	There was no dedicated ChangeLog. For details, look at the
+	commit history.
+	
+Release Policy / Software Lifecycle
+-----------------------------------
+
+	New source releases are simply announced by appearance of git tags.
+
+Conventions
+-----------
 	
 The git tags have the following meaning:
 
@@ -14,5 +30,3 @@ The git tags have the following meaning:
 	light0.1beta* Internal 1&1 releases during the pilot phase. May be used by the public, but you should know that the 1.0 symlink tree revision will appear soon.
 
 	light0.0alpha* Very old prototypes; never use them. Vital feature were missing. Only for historic inspection.
-
-For full details, look at the commit history.
