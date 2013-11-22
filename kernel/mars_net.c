@@ -354,6 +354,27 @@ done:
 }
 EXPORT_SYMBOL_GPL(mars_socket_is_alive);
 
+long mars_socket_send_space_available(struct mars_socket *msock)
+{
+	struct socket *raw_sock = msock->s_socket;
+	long res = 0;
+	if (!msock->s_alive || !raw_sock || !raw_sock->sk)
+		goto done;
+	if (unlikely(atomic_read(&msock->s_count) <= 0)) {
+		MARS_ERR("#%d bad nesting on msock = %p sock = %p\n", msock->s_debug_nr, msock, msock->s_socket);
+		goto done;
+	}
+
+	res = raw_sock->sk->sk_sndbuf - raw_sock->sk->sk_wmem_queued;
+	if (res < 0)
+		res = 0;
+	res += msock->s_pos;
+	
+done:
+	return res;
+}
+EXPORT_SYMBOL_GPL(mars_socket_send_space_available);
+
 static
 int _mars_send_raw(struct mars_socket *msock, const void *buf, int len)
 {
