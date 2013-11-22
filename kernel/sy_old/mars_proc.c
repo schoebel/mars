@@ -201,9 +201,13 @@ EXPORT_SYMBOL_GPL(mars_max_loadavg);
 	INT_ENTRY(PREFIX "_true_hit",       (VAR)->thr_true_hit, 0400)	\
 
 static
-ctl_table tuning_table[] = {
-	LIMITER_ENTRIES(&client_limiter,           "traffic",         "kb"),
-	LIMITER_ENTRIES(&server_limiter,           "server_io",       "kb"),
+ctl_table traffic_tuning_table[] = {
+	LIMITER_ENTRIES(&client_limiter,    "client_role_traffic",    "kb"),
+	LIMITER_ENTRIES(&server_limiter,    "server_role_traffic",    "kb"),
+};
+
+static
+ctl_table io_tuning_table[] = {
 	LIMITER_ENTRIES(&global_writeback.limiter, "writeback",       "kb"),
 	INT_ENTRY("writeback_until_percent", global_writeback.until_percent, 0600),
 	THRESHOLD_ENTRIES(&bio_submit_threshold, "bio_submit"),
@@ -213,6 +217,18 @@ ctl_table tuning_table[] = {
 	THRESHOLD_ENTRIES(&aio_io_threshold[0],  "aio_io_r"),
 	THRESHOLD_ENTRIES(&aio_io_threshold[1],  "aio_io_w"),
 	THRESHOLD_ENTRIES(&aio_sync_threshold,   "aio_sync"),
+	{}
+};
+
+static
+ctl_table tcp_tuning_table[] = {
+	INT_ENTRY("ip_tos",          default_tcp_params.ip_tos,          0600),
+	INT_ENTRY("tcp_window_size", default_tcp_params.tcp_window_size, 0600),
+	INT_ENTRY("tcp_nodelay",     default_tcp_params.tcp_nodelay,     0600),
+	INT_ENTRY("tcp_timeout",     default_tcp_params.tcp_timeout,     0600),
+	INT_ENTRY("tcp_keepcnt",     default_tcp_params.tcp_keepcnt,     0600),
+	INT_ENTRY("tcp_keepintvl",   default_tcp_params.tcp_keepintvl,   0600),
+	INT_ENTRY("tcp_keepidle",    default_tcp_params.tcp_keepidle,    0600),
 	{}
 };
 
@@ -300,9 +316,21 @@ ctl_table mars_table[] = {
 	INT_ENTRY("network_io_timeout",   global_net_io_timeout,  0600),
 	{
 		_CTL_NAME
-		.procname	= "tuning",
+		.procname	= "traffic_tuning",
 		.mode		= 0500,
-		.child = tuning_table,
+		.child = traffic_tuning_table,
+	},
+	{
+		_CTL_NAME
+		.procname	= "io_tuning",
+		.mode		= 0500,
+		.child = io_tuning_table,
+	},
+	{
+		_CTL_NAME
+		.procname	= "tcp_tuning",
+		.mode		= 0500,
+		.child = tcp_tuning_table,
 	},
 	{}
 };

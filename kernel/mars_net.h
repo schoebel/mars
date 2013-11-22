@@ -50,12 +50,13 @@ struct mars_socket {
 };
 
 struct mars_tcp_params {
+	int ip_tos;
+	int tcp_window_size;
+	int tcp_nodelay;
 	int tcp_timeout;
-	int window_size;
 	int tcp_keepcnt;
 	int tcp_keepintvl;
 	int tcp_keepidle;
-	char tos;
 };
 
 extern struct mars_tcp_params default_tcp_params;

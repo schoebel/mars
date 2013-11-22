@@ -37,22 +37,27 @@ module_param_named(mars_port, mars_net_default_port, int, 0);
  */
 
 struct mars_tcp_params default_tcp_params = {
-	.window_size = 8 * 1024 * 1024, // for long distance replications
+	.ip_tos = IPTOS_LOWDELAY,
+	.tcp_window_size = 8 * 1024 * 1024, // for long distance replications
+	.tcp_nodelay = 0,
 	.tcp_timeout = 20,
 	.tcp_keepcnt = 3,
 	.tcp_keepintvl = 10, // keepalive ping time
 	.tcp_keepidle = 10,
-	.tos = IPTOS_LOWDELAY,
 };
 EXPORT_SYMBOL(default_tcp_params);
 
 static
-void _check(int status)
+void __setsockopt(struct socket *sock, int level, int optname, char *optval, int optsize)
 {
+	int status = kernel_setsockopt(sock, level, optname, optval, optsize);
 	if (status < 0) {
-		MARS_WRN("cannot set socket option, status = %d\n", status);
+		MARS_WRN("cannot set %d socket option %d to value %d, status = %d\n",
+			 level, optname, *(int*)optval, status);
 	}
 }
+
+#define _setsockopt(sock,level,optname,val) __setsockopt(sock, level, optname, (char*)&(val), sizeof(val))
 
 int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec)
 {
@@ -117,47 +122,28 @@ static int current_debug_nr = 0; // no locking, just for debugging
 static
 void _set_socketopts(struct socket *sock)
 {
+	struct timeval t = {
+		.tv_sec = default_tcp_params.tcp_timeout,
+	};
 	int x_true = 1;
-	int status;
 	/* TODO: improve this by a table-driven approach
 	 */
 	sock->sk->sk_rcvtimeo = sock->sk->sk_sndtimeo = default_tcp_params.tcp_timeout * HZ;
 	sock->sk->sk_reuse = 1;
-	status = kernel_setsockopt(sock, SOL_SOCKET, SO_SNDBUF, (char*)&default_tcp_params.window_size, sizeof(default_tcp_params.window_size));
-	_check(status);
-	status = kernel_setsockopt(sock, SOL_SOCKET, SO_RCVBUF, (char*)&default_tcp_params.window_size, sizeof(default_tcp_params.window_size));
-	_check(status);
-	status = kernel_setsockopt(sock, SOL_IP, SO_PRIORITY, (char*)&default_tcp_params.tos, sizeof(default_tcp_params.tos));
-	_check(status);
-#if 0
-	status = kernel_setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (char*)&x_true, sizeof(x_true));
-#endif
-	_check(status);
-	status = kernel_setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, (char*)&x_true, sizeof(x_true));
-	_check(status);
-	status = kernel_setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, (char*)&default_tcp_params.tcp_keepcnt, sizeof(default_tcp_params.tcp_keepcnt));
-	_check(status);
-	status = kernel_setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, (char*)&default_tcp_params.tcp_keepintvl, sizeof(default_tcp_params.tcp_keepintvl));
-	_check(status);
-	status = kernel_setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, (char*)&default_tcp_params.tcp_keepidle, sizeof(default_tcp_params.tcp_keepidle));
-	_check(status);
+	_setsockopt(sock, SOL_SOCKET, SO_SNDBUFFORCE, default_tcp_params.tcp_window_size);
+	_setsockopt(sock, SOL_SOCKET, SO_RCVBUFFORCE, default_tcp_params.tcp_window_size);
+	_setsockopt(sock, SOL_IP, SO_PRIORITY, default_tcp_params.ip_tos);
+	_setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, default_tcp_params.tcp_nodelay);
+	_setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, x_true);
+	_setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, default_tcp_params.tcp_keepcnt);
+	_setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, default_tcp_params.tcp_keepintvl);
+	_setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, default_tcp_params.tcp_keepidle);
+	_setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, t);
+	_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, t);
 
-#if 1
-	{
-		struct timeval t = {
-			.tv_sec = default_tcp_params.tcp_timeout,
-		};
-		status = kernel_setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (char*)&t, sizeof(t));
-		status = kernel_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char*)&t, sizeof(t));
-		_check(status);
-	}
-#endif
-
-#if 1
 	if (sock->file) { // switch back to blocking mode
 		sock->file->f_flags &= ~O_NONBLOCK;
 	}
-#endif
 }
 
 int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *addr, bool is_server)
