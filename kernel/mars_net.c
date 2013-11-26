@@ -510,11 +510,7 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 		struct msghdr msg = {
 			.msg_iovlen = 1,
 			.msg_iov = (struct iovec*)&iov,
-#if 0 // There seems to be a race in the kernel: sometimes kernel_recvmsg() blocks forever on a shutdown socket even when sk->sk_rcvtimeo is set. Workaround by using noblocking IO (although it is conceptually broken and may lead to unnecessary throughput degradation)
-			.msg_flags = 0 | MSG_WAITALL | MSG_NOSIGNAL,
-#else
-			.msg_flags = 0 | MSG_DONTWAIT | MSG_NOSIGNAL,
-#endif
+			.msg_flags = MSG_NOSIGNAL,
 		};
 		struct socket *sock = msock->s_socket;
 
