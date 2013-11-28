@@ -51,9 +51,6 @@
 static struct mars_socket server_socket[NR_SOCKETS] = {};
 static struct task_struct *server_thread[NR_SOCKETS] = {};
 
-atomic_t server_handler_count = ATOMIC_INIT(0);
-EXPORT_SYMBOL_GPL(server_handler_count);
-
 ///////////////////////// own helper functions ////////////////////////
 
 
@@ -538,7 +535,6 @@ int handler_thread(void *data)
 	debug_nr = sock->s_debug_nr;
 	
 	MARS_DBG("#%d done.\n", debug_nr);
-	atomic_dec(&server_handler_count);
 	brick->killme = true;
 	return status;
 }
@@ -819,8 +815,6 @@ static int _server_thread(void *data)
 		}
 		memcpy(&brick->handler_socket, &handler_socket, sizeof(struct mars_socket));
 
-		atomic_inc(&server_handler_count);
-
 		/* TODO: check authorization.
 		 */
 
@@ -850,7 +844,6 @@ static int _server_thread(void *data)
 				BRICK_ERR("kill status = %d, giving up\n", status);
 			}
 			brick = NULL;
-			atomic_dec(&server_handler_count);
 		}
 		brick_msleep(2000);
 	}

@@ -5391,7 +5391,7 @@ static int light_thread(void *data)
         while (_global.global_power.button || !list_empty(&_global.brick_anchor)) {
 		int status;
 
-		MARS_DBG("-------- NEW ROUND %d ---------\n", atomic_read(&server_handler_count));
+		MARS_DBG("-------- NEW ROUND ---------\n");
 
 		if (mars_mem_percent < 0)
 			mars_mem_percent = 0;
