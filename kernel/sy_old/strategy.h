@@ -209,10 +209,6 @@ void show_statistics(struct mars_global *global, const char *class);
 
 // quirk
 
-#ifdef CONFIG_MARS_LOADAVG_LIMIT
-extern int mars_max_loadavg;
-#endif
-
 extern int mars_mem_percent;
 
 extern int light_checker(struct mars_dent *parent, const char *_name, int namlen, unsigned int d_type, int *prefix, int *serial, bool *use_channel);

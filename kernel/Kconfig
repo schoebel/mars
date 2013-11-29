@@ -209,13 +209,6 @@ config MARS_FAST_FULLSYNC
 	for some time. In case of buffered aio reads from filesystems,
 	the data is cached by the kernel anyway.
 
-config MARS_LOADAVG_LIMIT
-	bool "stall copy traffic when loadavg gets too high"
-	depends on MARS
-	default y
-	---help---
-	Normally ON.
-
 config MARS_SHOW_CONNECTIONS
 	bool "show connection status symlinks"
 	depends on MARS
