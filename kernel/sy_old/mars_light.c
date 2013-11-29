@@ -5334,31 +5334,31 @@ static int light_worker(struct mars_global *global, struct mars_dent *dent, bool
 	int class = dent->d_class;
 
 	if (class < 0 || class >= sizeof(light_classes)/sizeof(struct light_class)) {
-		MARS_ERR_ONCE(dent, "bad internal class %d of '%s'\n", class, dent->d_path);
+		MARS_ERR("bad internal class %d of '%s'\n", class, dent->d_path);
 		return -EINVAL;
 	}
 	switch (light_classes[class].cl_type) {
 	case 'd':
 		if (!S_ISDIR(dent->new_stat.mode)) {
-			MARS_ERR_ONCE(dent, "'%s' should be a directory, but is something else\n", dent->d_path);
+			MARS_ERR("'%s' should be a directory, but is something else\n", dent->d_path);
 			return -EINVAL;
 		}
 		break;
 	case 'f':
 		if (!S_ISREG(dent->new_stat.mode)) {
-			MARS_ERR_ONCE(dent, "'%s' should be a regular file, but is something else\n", dent->d_path);
+			MARS_ERR("'%s' should be a regular file, but is something else\n", dent->d_path);
 			return -EINVAL;
 		}
 		break;
 	case 'F':
 		if (!S_ISREG(dent->new_stat.mode) && !S_ISLNK(dent->new_stat.mode)) {
-			MARS_ERR_ONCE(dent, "'%s' should be a regular file or a symlink, but is something else\n", dent->d_path);
+			MARS_ERR("'%s' should be a regular file or a symlink, but is something else\n", dent->d_path);
 			return -EINVAL;
 		}
 		break;
 	case 'l':
 		if (!S_ISLNK(dent->new_stat.mode)) {
-			MARS_ERR_ONCE(dent, "'%s' should be a symlink, but is something else\n", dent->d_path);
+			MARS_ERR("'%s' should be a symlink, but is something else\n", dent->d_path);
 			return -EINVAL;
 		}
 		break;
@@ -5367,11 +5367,11 @@ static int light_worker(struct mars_global *global, struct mars_dent *dent, bool
 		int father = light_classes[class].cl_father;
 		if (father == CL_ROOT) {
 			if (unlikely(dent->d_parent)) {
-				MARS_ERR_ONCE(dent, "'%s' class %d is not at the root of the hierarchy\n", dent->d_path, class);
+				MARS_ERR("'%s' class %d is not at the root of the hierarchy\n", dent->d_path, class);
 				return -EINVAL;
 			}
 		} else if (unlikely(!dent->d_parent || dent->d_parent->d_class != father)) {
-			MARS_ERR_ONCE(dent, "last component '%s' from '%s' is at the wrong position in the hierarchy (class = %d, parent_class = %d, parent = '%s')\n", dent->d_name, dent->d_path, father, dent->d_parent ? dent->d_parent->d_class : -9999, dent->d_parent ? dent->d_parent->d_path : "");
+			MARS_ERR("last component '%s' from '%s' is at the wrong position in the hierarchy (class = %d, parent_class = %d, parent = '%s')\n", dent->d_name, dent->d_path, father, dent->d_parent ? dent->d_parent->d_class : -9999, dent->d_parent ? dent->d_parent->d_path : "");
 			return -EINVAL;
 		}
 	}
