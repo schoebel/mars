@@ -225,10 +225,6 @@ void show_statistics(struct mars_global *global, const char *class);
 
 // quirk
 
-#ifdef CONFIG_MARS_LOADAVG_LIMIT
-extern int mars_max_loadavg;
-#endif
-
 extern int mars_mem_percent;
 extern int mars_mem_gb;
 

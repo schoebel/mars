@@ -215,11 +215,6 @@ done:
 	return res;
 }
 
-#ifdef CONFIG_MARS_LOADAVG_LIMIT
-int mars_max_loadavg = 0;
-EXPORT_SYMBOL_GPL(mars_max_loadavg);
-#endif
-
 #ifdef CTL_UNNUMBERED
 #define _CTL_NAME 		.ctl_name       = CTL_UNNUMBERED,
 #define _CTL_STRATEGY(handler)	.strategy       = &handler,
@@ -407,9 +402,6 @@ struct ctl_table mars_table[] = {
 	INT_ENTRY("write_throttle_end_percent",   mars_throttle_end,      0600),
 	INT_ENTRY("write_throttle_size_threshold_kb", if_throttle_start_size, 0400),
 	LIMITER_ENTRIES(&if_throttle,     "write_throttle",       "kb"),
-#ifdef CONFIG_MARS_LOADAVG_LIMIT
-	INT_ENTRY("loadavg_limit",        mars_max_loadavg,       0600),
-#endif
 	// changing makes no sense because the server will immediately start upon modprobe
 	INT_ENTRY("mars_port",            mars_net_default_port,  0400),
 	INT_ENTRY("network_io_timeout",   global_net_io_timeout,  0600),
