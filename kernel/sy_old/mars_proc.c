@@ -285,7 +285,6 @@ ctl_table mars_table[] = {
 	INT_ENTRY("show_debug_messages",  brick_say_debug,        0600),
 	INT_ENTRY("show_statistics_global", global_show_statist,  0600),
 	INT_ENTRY("show_statistics_server", server_show_statist,  0600),
-	INT_ENTRY("show_connections",     global_show_connections, 0600),
 	INT_ENTRY("aio_sync_mode",        aio_sync_mode,          0600),
 	INT_ENTRY("logger_completion_semantics", trans_logger_completion_semantics, 0600),
 	INT_ENTRY("logger_do_crc",        trans_logger_do_crc,    0600),
