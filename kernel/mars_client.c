@@ -334,7 +334,7 @@ int receiver_thread(void *data)
 				goto done;
 			}
 
-			SIMPLE_CALLBACK(mref, 0);
+			SIMPLE_CALLBACK(mref, mref->_object_cb.cb_error);
 
 			client_ref_put(output, mref);
 
