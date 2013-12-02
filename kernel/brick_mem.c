@@ -27,11 +27,13 @@
 
 #define INT_ACCESS(ptr,offset) (*(int*)(((char*)(ptr)) + (offset)))
 
-#define _BRICK_FMT(_fmt)						\
-	"%ld.%09ld %ld.%09ld MEM %s %d %s(): "				\
-	_fmt,								\
+#define _BRICK_FMT(_fmt,_class)						\
+	"%ld.%09ld %ld.%09ld MEM_%-5s %s[%d] %s:%d %s(): "		\
+		_fmt,							\
 		_s_now.tv_sec, _s_now.tv_nsec,				\
 		_l_now.tv_sec, _l_now.tv_nsec,				\
+		say_class[_class],					\
+		current->comm, (int)smp_processor_id(),			\
 		__BASE_FILE__,						\
 		__LINE__,						\
 		__FUNCTION__
@@ -41,7 +43,7 @@
 		struct timespec _s_now = CURRENT_TIME;			\
 		struct timespec _l_now;					\
 		get_lamport(&_l_now);					\
-		say(_class, _BRICK_FMT(_fmt), ##_args); if (_dump) dump_stack(); \
+		say(_class, _BRICK_FMT(_fmt, _class), ##_args); if (_dump) dump_stack(); \
 	} while (0)
 
 #define BRICK_ERR(_fmt, _args...) _BRICK_MSG(SAY_ERROR, true,  _fmt, ##_args)
