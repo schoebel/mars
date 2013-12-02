@@ -48,6 +48,16 @@ config MARS_DEBUG_MEM
 	many errors (including some that are not caught by kmemleak).
 	Use only for development and thorough testing!
 
+config MARS_DEBUG_MEM_STRONG
+	bool "intensified debugging of memory operations"
+	depends on MARS_DEBUG_MEM
+	default y
+	---help---
+	Trace all block allocations, find more errors.
+	Adds some overhead.
+	Use for debugging of new bricks or for intensified
+	regression testing.
+
 config MARS_DEBUG_ORDER0
 	bool "also debug order0 operations"
 	depends on MARS_DEBUG_MEM

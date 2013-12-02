@@ -13,6 +13,7 @@
 #include "brick_say.h"
 #include "brick_locks.h"
 #include "lamport.h"
+#include "buildtag.h"
 
 #define USE_KERNEL_PAGES // currently mandatory (vmalloc does not work)
 
@@ -214,6 +215,32 @@ EXPORT_SYMBOL_GPL(_brick_mem_free);
 
 // string memory allocation
 
+#ifdef CONFIG_MARS_DEBUG_MEM_STRONG
+# define STRING_CANARY							\
+	"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"	\
+	"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"	\
+	"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"	\
+	"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"	\
+	"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"	\
+	"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"	\
+	"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"	\
+	"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"	\
+	"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"	\
+	" BUILDTAG = "  BUILDTAG					\
+	" BUILDHOST = " BUILDHOST					\
+	" BUILDDATE = " BUILDDATE					\
+	" FILE = "      __FILE__					\
+	" DATE = "      __DATE__					\
+	" TIME = "      __TIME__					\
+	" VERSION = "   __VERSION__					\
+	" xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx STRING_error xxx\n"
+# define STRING_PLUS (sizeof(int) * 3 + sizeof(STRING_CANARY))
+#elif defined(BRICK_DEBUG_MEM)
+# define STRING_PLUS (sizeof(int) * 4)
+#else
+# define STRING_PLUS 0
+#endif
+
 #ifdef BRICK_DEBUG_MEM
 static atomic_t phys_string_alloc = ATOMIC_INIT(0);
 static atomic_t string_count[BRICK_DEBUG_MEM] = {};
@@ -226,24 +253,18 @@ char *_brick_string_alloc(int len, int line)
 
 #ifdef CONFIG_MARS_DEBUG
 	might_sleep();
+	if (unlikely(len > PAGE_SIZE)) {
+		BRICK_WRN("line = %d string too long: len = %d\n", line, len);
+	}
 #endif
-
 	if (len <= 0) {
 		len = BRICK_STRING_LEN;
 	}
 
-#ifdef BRICK_DEBUG_MEM
-	len += sizeof(int) * 4;
-#endif
-
 #ifdef CONFIG_MARS_MEM_RETRY
 	for (;;) {
 #endif
-#ifdef CONFIG_MARS_DEBUG
-		res = kzalloc(len + 1024, GFP_BRICK);
-#else
-		res = kzalloc(len + 1, GFP_BRICK);
-#endif
+		res = kzalloc(len + STRING_PLUS, GFP_BRICK);
 #ifdef CONFIG_MARS_MEM_RETRY
 		if (likely(res))
 			break;
@@ -253,6 +274,9 @@ char *_brick_string_alloc(int len, int line)
 
 #ifdef BRICK_DEBUG_MEM
 	if (likely(res)) {
+#ifdef CONFIG_MARS_DEBUG_MEM_STRONG
+		memset(res + 1, '?', len - 1);
+#endif
 		atomic_inc(&phys_string_alloc);
 		if (unlikely(line < 0))
 			line = 0;
@@ -261,9 +285,13 @@ char *_brick_string_alloc(int len, int line)
 		INT_ACCESS(res, 0) = MAGIC_STR;
 		INT_ACCESS(res, sizeof(int)) = len;
 		INT_ACCESS(res, sizeof(int) * 2) = line;
-		INT_ACCESS(res, len - sizeof(int)) = MAGIC_SEND;
-		atomic_inc(&string_count[line]);
 		res += sizeof(int) * 3;
+#ifdef CONFIG_MARS_DEBUG_MEM_STRONG
+		strcpy(res + len, STRING_CANARY);
+#else
+		INT_ACCESS(res, len) = MAGIC_SEND;
+#endif
+		atomic_inc(&string_count[line]);
 	}
 #endif
 	return res;
@@ -276,6 +304,7 @@ void _brick_string_free(const char *data, int cline)
 	int magic;
 	int len;
 	int line;
+	char *orig = (void*)data;
 	
 	data -= sizeof(int) * 3;
 	magic = INT_ACCESS(data, 0);
@@ -285,16 +314,34 @@ void _brick_string_free(const char *data, int cline)
 	}
 	len =  INT_ACCESS(data, sizeof(int));
 	line = INT_ACCESS(data, sizeof(int) * 2);
+	if (unlikely(len <= 0)) {
+		BRICK_ERR("cline %d stringmem corruption: line = %d len = %d\n", cline, line, len);
+		return;
+	}
+	if (unlikely(len > PAGE_SIZE)) {
+		BRICK_ERR("cline %d string too long: line = %d len = %d string='%s'\n", cline, line, len, orig);
+	}
 	if (unlikely(line < 0 || line >= BRICK_DEBUG_MEM)) {
 		BRICK_ERR("cline %d stringmem corruption: line = %d (len = %d)\n", cline, line, len);
 		return;
 	}
-	magic = INT_ACCESS(data, len - sizeof(int));
-	if (unlikely(magic != MAGIC_SEND)) {
-		BRICK_ERR("cline %d stringmem corruption: end_magix %08x != %08x, line = %d len = %d\n", cline, magic, MAGIC_SEND, len, line);
+#ifdef CONFIG_MARS_DEBUG_MEM_STRONG
+	if (unlikely(strcmp(orig + len, STRING_CANARY))) {
+		BRICK_ERR("cline %d stringmem corruption: bad canary '%s', line = %d len = %d\n",
+			  cline, STRING_CANARY, line, len);
 		return;
 	}
-	INT_ACCESS(data, len - sizeof(int)) = 0xffffffff;
+	orig[len]--;
+	memset(orig, '!', len);
+#else
+	magic = INT_ACCESS(orig, len);
+	if (unlikely(magic != MAGIC_SEND)) {
+		BRICK_ERR("cline %d stringmem corruption: end_magix %08x != %08x, line = %d len = %d\n",
+			  cline, magic, MAGIC_SEND, line, len);
+		return;
+	}
+	INT_ACCESS(orig, len) = 0xffffffff;
+#endif
 	atomic_dec(&string_count[line]);
 	atomic_inc(&string_free[line]);
 	atomic_dec(&phys_string_alloc);
@@ -345,8 +392,78 @@ static int alloc_line[BRICK_MAX_ORDER+1] = {};
 static int alloc_len[BRICK_MAX_ORDER+1] = {};
 #endif
 
+#ifdef CONFIG_MARS_DEBUG_MEM_STRONG
+
+#define MAX_INFO_LISTS 1024
+
+#define INFO_LIST_HASH(addr) ((unsigned long)(addr) / (PAGE_SIZE * 2) % MAX_INFO_LISTS)
+
+struct mem_block_info {
+	struct list_head inf_head;
+	void *inf_data;
+	int inf_len;
+	int inf_line;
+	bool inf_used;
+};
+
+static struct list_head inf_anchor[MAX_INFO_LISTS];
+static rwlock_t inf_lock[MAX_INFO_LISTS];
+
+static
+void _new_block_info(void *data, int len, int cline)
+{
+	struct mem_block_info *inf;
+	int hash;
+
+	for (;;) {
+		inf = kmalloc(sizeof(struct mem_block_info), GFP_BRICK);
+		if (likely(inf))
+			break;
+		msleep(1000);
+	}
+	inf->inf_data = data;
+	inf->inf_len = len;
+	inf->inf_line = cline;
+	inf->inf_used = true;
+
+	hash = INFO_LIST_HASH(data);
+
+	write_lock(&inf_lock[hash]);
+	list_add(&inf->inf_head, &inf_anchor[hash]);
+	write_unlock(&inf_lock[hash]);
+}
+
+static
+struct mem_block_info *_find_block_info(void *data, bool remove)
+{
+	struct mem_block_info *res = NULL;
+	struct list_head *tmp;
+	int hash = INFO_LIST_HASH(data);
+
+	if (remove)
+		write_lock(&inf_lock[hash]);
+	else
+		read_lock(&inf_lock[hash]);
+	for (tmp = inf_anchor[hash].next; tmp != &inf_anchor[hash]; tmp = tmp->next) {
+		struct mem_block_info *inf = container_of(tmp, struct mem_block_info, inf_head);
+		if (inf->inf_data != data)
+			continue;
+		if (remove)
+			list_del_init(tmp);
+		res = inf;
+		break;
+	}
+	if (remove)
+		write_unlock(&inf_lock[hash]);
+	else
+		read_unlock(&inf_lock[hash]);
+	return res;
+}
+
+#endif // CONFIG_MARS_DEBUG_MEM_STRONG
+
 static inline
-void *__brick_block_alloc(gfp_t gfp, int order)
+void *__brick_block_alloc(gfp_t gfp, int order, int cline)
 {
 	void *res;
 #ifdef CONFIG_MARS_MEM_RETRY
@@ -365,6 +482,9 @@ void *__brick_block_alloc(gfp_t gfp, int order)
 #endif
 
 	if (likely(res)) {
+#ifdef CONFIG_MARS_DEBUG_MEM_STRONG
+		_new_block_info(res, PAGE_SIZE << order, cline);
+#endif
 #ifdef BRICK_DEBUG_MEM
 		atomic_inc(&phys_block_alloc);
 		atomic_inc(&raw_count[order]);
@@ -376,12 +496,30 @@ void *__brick_block_alloc(gfp_t gfp, int order)
 }
 
 static inline
-void __brick_block_free(void *data, int order)
+void __brick_block_free(void *data, int order, int cline)
 {
+#ifdef CONFIG_MARS_DEBUG_MEM_STRONG
+	struct mem_block_info *inf = _find_block_info(data, true);
+	if (likely(inf)) {
+		int inf_len = inf->inf_len;
+		int inf_line = inf->inf_line;
+		kfree(inf);
+		if (unlikely(inf_len != (PAGE_SIZE << order))) {
+			BRICK_ERR("line %d: address %p: bad freeing size %d (correct should be %d, previous line = %d)\n", cline, data, (int)(PAGE_SIZE << order), inf_len, inf_line);
+			goto err;
+		}
+	} else {
+		BRICK_ERR("line %d: trying to free non-existent address %p (order = %d)\n", cline, data, order);
+		goto err;
+	}
+#endif
 #ifdef USE_KERNEL_PAGES
 	__free_pages(virt_to_page((unsigned long)data), order);
 #else
 	vfree(data);
+#endif
+#ifdef CONFIG_MARS_DEBUG_MEM_STRONG
+ err:
 #endif
 #ifdef BRICK_DEBUG_MEM
 	atomic_dec(&phys_block_alloc);
@@ -406,7 +544,7 @@ static void *brick_freelist[BRICK_MAX_ORDER+1] = {};
 static atomic_t freelist_count[BRICK_MAX_ORDER+1] = {};
 
 static
-void *_get_free(int order)
+void *_get_free(int order, int cline)
 {
 	void *data;
 	unsigned long flags;
@@ -422,8 +560,8 @@ void *_get_free(int order)
 			// prevent further trouble by leaving a memleak
 			brick_freelist[order] = NULL;
 			traced_unlock(&freelist_lock[order], flags);
-			BRICK_ERR("freelist corruption at %p (pattern = %lx next %p != %p, murdered = %d), order = %d\n",
-				  data, pattern, next, copy, atomic_read(&freelist_count[order]), order);
+			BRICK_ERR("line %d:freelist corruption at %p (pattern = %lx next %p != %p, murdered = %d), order = %d\n",
+				  cline, data, pattern, next, copy, atomic_read(&freelist_count[order]), order);
 			return NULL;
 		}
 #endif
@@ -431,6 +569,21 @@ void *_get_free(int order)
 		atomic_dec(&freelist_count[order]);
 	}
 	traced_unlock(&freelist_lock[order], flags);
+#ifdef CONFIG_MARS_DEBUG_MEM_STRONG
+	if (data) {
+		struct mem_block_info *inf = _find_block_info(data, false);
+		if (likely(inf)) {
+			if (unlikely(inf->inf_len != (PAGE_SIZE << order))) {
+				BRICK_ERR("line %d: address %p: bad freelist size %d (correct should be %d, previous line = %d)\n",
+					  cline, data, (int)(PAGE_SIZE << order), inf->inf_len, inf->inf_line);
+			}
+			inf->inf_line = cline;
+			inf->inf_used = true;
+		} else {
+			BRICK_ERR("line %d: freelist address %p is invalid (order = %d)\n", cline, data, order);
+		}
+	}
+#endif
 	return data;
 }
 
@@ -461,10 +614,10 @@ void _free_all(void)
 	int order;
 	for (order = BRICK_MAX_ORDER; order >= 0; order--) {
 		for (;;) {
-			void *data = _get_free(order);
+			void *data = _get_free(order, __LINE__);
 			if (!data)
 				break;
-			__brick_block_free(data, order);
+			__brick_block_free(data, order, __LINE__);
 		}
 	}
 }
@@ -483,7 +636,7 @@ int brick_mem_reserve(void)
 		max = brick_mem_freelist_max[order] - atomic_read(&freelist_count[order]);
 		if (max >= 0) {
 			for (i = 0; i < max; i++) {
-				void *data = __brick_block_alloc(GFP_KERNEL, order);
+				void *data = __brick_block_alloc(GFP_KERNEL, order, __LINE__);
 				if (likely(data)) {
 					_put_free(data, order);
 				} else {
@@ -492,9 +645,9 @@ int brick_mem_reserve(void)
 			}
 		} else {
 			for (i = 0; i < -max; i++) {
-				void *data = _get_free(order);
+				void *data = _get_free(order, __LINE__);
 				if (likely(data)) {
-					__brick_block_free(data, order);
+					__brick_block_free(data, order, __LINE__);
 				}
 			}
 		}
@@ -559,11 +712,11 @@ void *_brick_block_alloc(loff_t pos, int len, int line)
 #endif
 
 #ifdef CONFIG_MARS_MEM_PREALLOC
-	data = _get_free(order);
+	data = _get_free(order, line);
 	if (!data)
 #endif
-		data = __brick_block_alloc(GFP_BRICK, order);
-
+		data = __brick_block_alloc(GFP_BRICK, order, line);
+	
 #ifdef BRICK_DEBUG_MEM
 	if (likely(data) && order > 0) {
 		if (unlikely(line < 0))
@@ -593,7 +746,12 @@ EXPORT_SYMBOL_GPL(_brick_block_alloc);
 void _brick_block_free(void *data, int len, int cline)
 {
 	int order;
+#ifdef CONFIG_MARS_DEBUG_MEM_STRONG
+	struct mem_block_info *inf;
+	char *real_data;
+#endif
 #ifdef BRICK_DEBUG_MEM
+	int prev_line = 0;
 #ifdef BRICK_DEBUG_ORDER0
 	const int plus0 = PAGE_SIZE;
 #else
@@ -605,6 +763,29 @@ void _brick_block_free(void *data, int len, int cline)
 #endif
 
 	order = len2order(len + plus);
+#ifdef CONFIG_MARS_DEBUG_MEM_STRONG
+	real_data = data;
+	if (order > 1)
+		real_data -= PAGE_SIZE;
+	inf = _find_block_info(real_data, false);
+	if (likely(inf)) {
+		prev_line = inf->inf_line;
+		if (unlikely(inf->inf_len != (PAGE_SIZE << order))) {
+			BRICK_ERR("line %d: address %p: bad freeing size %d (correct should be %d, previous line = %d)\n",
+				  cline, data, (int)(PAGE_SIZE << order), inf->inf_len, prev_line);
+			return;
+		}
+		if (unlikely(!inf->inf_used)) {
+			BRICK_ERR("line %d: address %p: double freeing (previous line = %d)\n", cline, data, prev_line);
+			return;
+		}
+		inf->inf_line = cline;
+		inf->inf_used = false;
+	} else {
+		BRICK_ERR("line %d: trying to free non-existent address %p (order = %d)\n", cline, data, order);
+		return;
+	}
+#endif
 #ifdef BRICK_DEBUG_MEM
 	if (order > 1) {
 		void *test = data - PAGE_SIZE;
@@ -615,24 +796,24 @@ void _brick_block_free(void *data, int len, int cline)
 		int magic2;
 
 		if (unlikely(magic1 != MAGIC_BLOCK)) {
-			BRICK_ERR("line %d memory corruption: magix1 %08x != %08x\n", cline, magic1, MAGIC_BLOCK);
+			BRICK_ERR("line %d memory corruption: %p magix1 %08x != %08x (previous line = %d)\n", cline, data, magic1, MAGIC_BLOCK, prev_line);
 			return;
 		}
 		if (unlikely(magic != MAGIC_BLOCK)) {
-			BRICK_ERR("line %d memory corruption: magix %08x != %08x\n", cline, magic, MAGIC_BLOCK);
+			BRICK_ERR("line %d memory corruption: %p magix %08x != %08x (previous line = %d)\n", cline, data, magic, MAGIC_BLOCK, prev_line);
 			return;
 		}
 		if (unlikely(line < 0 || line >= BRICK_DEBUG_MEM)) {
-			BRICK_ERR("line %d memory corruption: alloc line = %d\n", cline, line);
+			BRICK_ERR("line %d memory corruption %p: alloc line = %d (previous line = %d)\n", cline, data, line, prev_line);
 			return;
 		}
 		if (unlikely(oldlen != len)) {
-			BRICK_ERR("line %d memory corruption: len != oldlen (%d != %d)\n", cline, len, oldlen);
+			BRICK_ERR("line %d memory corruption %p: len != oldlen (%d != %d, previous line = %d))\n", cline, data, len, oldlen, prev_line);
 			return;
 		}
 		magic2 = INT_ACCESS(data, len);
 		if (unlikely(magic2 != MAGIC_BEND)) {
-			BRICK_ERR("line %d memory corruption: magix %08x != %08x\n", cline, magic, MAGIC_BEND);
+			BRICK_ERR("line %d memory corruption %p: magix %08x != %08x (previous line = %d)\n", cline, data, magic, MAGIC_BEND, prev_line);
 			return;
 		}
 		INT_ACCESS(test, 0) = 0xffffffff;
@@ -647,15 +828,15 @@ void _brick_block_free(void *data, int len, int cline)
 		int oldlen = INT_ACCESS(test, 2 * sizeof(int));
 
 		if (unlikely(magic != MAGIC_BLOCK)) {
-			BRICK_ERR("line %d memory corruption: magix %08x != %08x\n", cline, magic, MAGIC_BLOCK);
+			BRICK_ERR("line %d memory corruption %p: magix %08x != %08x (previous line = %d)\n", cline, data, magic, MAGIC_BLOCK, prev_line);
 			return;
 		}
 		if (unlikely(line < 0 || line >= BRICK_DEBUG_MEM)) {
-			BRICK_ERR("line %d memory corruption: alloc line = %d\n", cline, line);
+			BRICK_ERR("line %d memory corruption %p: alloc line = %d (previous line = %d)\n", cline, data, line, prev_line);
 			return;
 		}
 		if (unlikely(oldlen != len)) {
-			BRICK_ERR("line %d memory corruption: len != oldlen (%d != %d)\n", cline, len, oldlen);
+			BRICK_ERR("line %d memory corruption %p: len != oldlen (%d != %d, previous line = %d))\n", cline, data, len, oldlen, prev_line);
 			return;
 		}
 		atomic_dec(&block_count[line]);
@@ -667,8 +848,8 @@ void _brick_block_free(void *data, int len, int cline)
 		_put_free(data, order);
 	} else
 #endif
-		__brick_block_free(data, order);
-
+		__brick_block_free(data, order, cline);
+	
 #ifdef CONFIG_MARS_MEM_PREALLOC
 	brick_mem_alloc_count[order] = atomic_dec_return(&_alloc_count[order]);
 #endif
@@ -799,11 +980,19 @@ EXPORT_SYMBOL_GPL(brick_mem_statistics);
 
 int __init init_brick_mem(void)
 {
-#ifdef CONFIG_MARS_MEM_PREALLOC
 	int i;
+#ifdef CONFIG_MARS_MEM_PREALLOC
 	for (i = BRICK_MAX_ORDER; i >= 0; i--) {
 		spin_lock_init(&freelist_lock[i]);
 	}
+#endif
+#ifdef CONFIG_MARS_DEBUG_MEM_STRONG
+	for (i = 0; i < MAX_INFO_LISTS; i++) {
+		INIT_LIST_HEAD(&inf_anchor[i]);
+		rwlock_init(&inf_lock[i]);
+	}
+#else
+	(void)i;
 #endif
 
 	get_total_ram();
