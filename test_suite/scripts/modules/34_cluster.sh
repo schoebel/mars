@@ -87,7 +87,7 @@ function cluster_clear_and_umount_mars_dir_all
     for host in "${main_host_list[@]}"; do
         cluster_clear_mars_dir $host
         if mount_is_dir_mountpoint $host $main_mars_directory; then
-            mount_umount $host "device_does_not_matter" $main_mars_directory
+            mount_umount $host "device_does_not_matter" $main_mars_directory || lib_exit 1
         fi
     done
 }
