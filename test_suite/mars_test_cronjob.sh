@@ -114,7 +114,7 @@ start_script=$test_suite_dir/scripts/start_test.sh
 
 tests_to_execute=(\
 build_test_environment/checkout \
-build_test_environment/make \
+build_test_environment/make/make_mars/grub \
 build_test_environment/install_mars \
 build_test_environment/lv_config \
 build_test_environment/cluster \
@@ -131,6 +131,7 @@ test_cases/admin/datadev_full \
 test_cases/hardcore/mars_dir_full/write_other_file \
 test_cases/hardcore/mars_dir_full/write_data_dev \
 test_cases/stabil/net_failure/connection_cut \
+test_cases/admin/three_nodes \
 test_cases/stabil/crash/crash_primary \
 test_cases/stabil/crash/crash_primary_logger_comletion_semantics__aio_sync_mode \
 test_cases/stabil/crash/crash_primary_logger_completion_semantics \

@@ -184,7 +184,7 @@ function resize_extend_fs
     fi
     lib_vmsg "  extending $host:$dev (type $fs_type)"
     lib_remote_idfile $primary_host \
-                      ${lv_config_fs_type_extension_cmd_list[$fs_type]} $dev \
+                      ${lv_config_fs_type_grow_cmd_list[$fs_type]} $dev \
                                                                 || lib_exit 1
 }
 
