@@ -1,5 +1,6 @@
 #!/usr/bin/perl -w
 # (c) 2012/2013 Joerg Mann / 1&1 Internet AG
+# released under GPL
 #
 # last update at now ...
 
@@ -20,7 +21,7 @@ use File::Basename;
 binmode STDOUT, ":utf8";
 
 ### defaults
-my $version        = "0.072k";
+my $version        = "0.072m";
 my $alife_timeout  = "30";	# sec for remote-nodes timeout
 my $is_tty 	   = 0;
 my $mars_dir       = '/mars';
@@ -533,7 +534,7 @@ sub check_ressource {
             foreach my $partner (@servers) {
                 $partner  =~ s/^data-//;
                 if ( $partner eq $himself ) { next; }
-                $himselfip = check_link "$mars_dir/ips/ip-$himself";
+                $himselfip = check_link "$mars_dir/ips/ip-$partner";
                 print_screen "   -> remote Node ($partner [$himselfip]) as ", 'bold';
                 display_partner(
                     ressource		=> $res,
@@ -666,11 +667,11 @@ sub check_logfile {
                 }
 
             } else {
-                # secondary
+               # secondary
                 if ( $VersionFileCount eq $LPartner ) {
                     print_screen "\t$Gls$Gfr$Gls$Gfr$Gfr$Gfr      $Gao$Gab", "$Color_red";
                 } elsif ( $VersionFileCount > 1 ) {
-                    print_screen "\t$Gls$Gfr$Gls$Gfr$Gfr$Gfr      $Gkr$Gab", "$Color_red";
+                    print_screen "\t$Gls$Gfr$Gls$Gfr$Gfr     $Gls$Gfr$Gkr$Gab", "$Color_red";
                 } else {
                     print_screen "\t$Gls$Gfr$Gls$Gfr$Gfr     $Gls$Gfr$Gau$Gab", "$Color_red";
                 }
@@ -900,6 +901,7 @@ sub check_limit {
         }
         close MARS_LIMIT;
     }
+    $mars_limit_sol = 0 if ( !$mars_limit_sol);
 
     ### ist
     my $mars_limit_ist;
@@ -910,6 +912,7 @@ sub check_limit {
         }
         close MARS_LIMIT;
      }
+     $mars_limit_ist = 0 if ( !$mars_limit_ist);
     
     ### presently results
     print_screen "$LimitText ", 'bold';    

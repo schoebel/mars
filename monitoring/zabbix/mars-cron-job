@@ -1,0 +1,91 @@
+#!/bin/bash
+#
+# Copyright 2013 Joerg Mann / 1&1 Internet AG                 
+#
+# Copying and distribution of this file, with or without modification,
+# are permitted in any medium without royalty provided the copyright
+# notice and this notice are preserved. This file is offered as-is,
+# without any warranty.
+#####################################################################
+#
+# use for mars relase 2013/11/19
+#
+
+LOG="/tmp/zabbix.mars"
+MDIR="/proc/sys/mars"
+echo "Date: `date`" >$LOG 
+
+
+work() {
+	if [ -f $MDIR/$FN ]; then
+		echo "$MDIR/$FN `cat $MDIR/$FN`" >>$LOG
+	else
+		echo "$MDIR/$FN 0" >>$LOG
+	fi
+}
+
+FN="copy_read_max_fly"; work
+FN="copy_write_max_fly"; work
+FN="io_flying_count"; work
+FN="logger_mem_used_kb"; work
+FN="logger_replay_timeout_sec"; work
+FN="mapfree_period_sec"; work
+FN="mem_used_raw_kb"; work
+FN="propagate_interval_sec"; work
+FN="scan_interval_sec"; work
+FN="statusfiles_rollover_sec"; work
+FN="sync_flip_interval_sec"; work
+FN="tuning/aio_io_r_true_hit"; work
+FN="tuning/aio_io_r_factor_percent"; work
+FN="tuning/aio_io_w_true_hit"; work
+FN="tuning/aio_io_w_factor_percent"; work
+FN="tuning/aio_sync_true_hit"; work
+FN="tuning/aio_submit_factor_percent"; work
+FN="tuning/aio_submit_true_hit"; work
+FN="tuning/aio_sync_factor_percent"; work
+FN="tuning/bio_io_r_true_hit"; work
+FN="tuning/bio_io_r_factor_percent"; work
+FN="tuning/bio_io_w_true_hit"; work
+FN="tuning/bio_io_w_factor_percent"; work
+FN="tuning/bio_submit_factor_percent"; work
+FN="tuning/bio_submit_true_hit"; work
+FN="tuning/server_io_rate_kb"; work
+FN="tuning/traffic_rate_kb"; work
+FN="tuning/writeback_rate_kb"; work
+FN="tuning/writeback_until_percent"; work
+FN="fimem_alloc_count"; work
+FN="mem_alloc_max"; work
+FN="mem_allow_freelist"; work
+FN="tuning/write_throttle_count_ops"; work
+FN="tuning/write_throttle_cumul_kb"; work
+FN="tuning/write_throttle_end_percent"; work
+FN="tuning/write_throttle_maxdelay_ms"; work
+FN="tuning/write_throttle_maxwindow_ms"; work
+FN="tuning/write_throttle_minwindow_ms"; work
+FN="tuning/write_throttle_rate_kb"; work
+FN="tuning/write_throttle_ratelimit_kb"; work
+FN="tuning/write_throttle_size_threshold_kb"; work
+FN="tuning/write_throttle_start_percent"; work
+FN="tuning/writeback_count_ops"; work
+FN="tuning/writeback_cumul_kb"; work
+FN="tuning/writeback_maxdelay_ms"; work
+FN="tuning/writeback_maxwindow_ms"; work
+FN="tuning/writeback_minwindow_ms"; work
+FN="tuning/traffic_count_ops"; work
+FN="tuning/traffic_cumul_kb"; work
+FN="tuning/traffic_maxdelay_ms"; work
+FN="tuning/traffic_maxwindow_ms"; work
+FN="tuning/traffic_minwindow_ms"; work
+FN="tuning/server_io_count_ops"; work
+FN="tuning/server_io_cumul_kb"; work
+FN="tuning/server_io_maxdelay_ms"; work
+FN="tuning/server_io_maxwindow_ms"; work
+FN="tuning/server_io_minwindow_ms"; work
+
+HOSTNAME="`/bin/hostname`"
+ls -ld /mars/resource-*|awk '{print $9}'|sed -e 's!.*resource-!!g' | \
+while read RESNAME; do
+	#echo "-> $HOSTNAME - $RESNAME"
+	ls -ld /mars/resource-$RESNAME/actual-$HOSTNAME/* | sed -e 's!.*/actual-.*/!!g' | awk '{print "status '$RESNAME' " $1 " " $3}' >>$LOG
+	ls -ld /mars/resource-$RESNAME/todo-$HOSTNAME/*   | sed -e 's!.*/todo-.*/!!g' | awk '{print "status '$RESNAME' " $1 " " $3}' >>$LOG
+done
