@@ -2984,7 +2984,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		/* Create a hole in the sequence of logfile numbers.
 		 * The secondaries will later stumble over it.
 		 */
-		if (trans_brick->inputs[trans_brick->log_input_nr]->inf.inf_max_pos > 0) {
+		if (!rot->created_hole) {
 			char *new_path = path_make("%s/log-%09d-%s", rot->parent_path, rot->max_sequence + 2, my_id());
 			if (likely(new_path && !mars_find_dent(global, new_path))) {
 				MARS_INF_TO(rot->log_say, "EMERGENCY: creating new logfile '%s'\n", new_path);
