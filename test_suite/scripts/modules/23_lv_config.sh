@@ -25,7 +25,6 @@ function lv_config_prepare
 {
     lv_config_check_variables
     resource_leave_all
-    cluster_rmmod_mars_all
     cluster_clear_and_umount_mars_dir_all
     lv_config_delete_vg
 }
@@ -105,8 +104,8 @@ function lv_config_check_variables
     for lv_name in ${lv_config_lv_name_list[@]}; do
         let sum=$(($sum + $(lv_config_get_lv_size_from_name $lv_name)))
     done
-    if [ $sum -gt $lv_config_min_lvg_size ];then
-        lib_exit 1 "sum of sizes in lv_config_lv_name_list = $sum greater than $lv_config_min_lvg_size"
+    if [ $sum -le $lv_config_min_lvg_size ];then
+        lib_exit 1 "sum of sizes in lv_config_lv_name_list = $sum smaller than $lv_config_min_lvg_size"
     fi
 
     local host
@@ -212,9 +211,9 @@ function lv_config_create_lv
 {
     local host=$1 lv_name=$2
     local size=$(lv_config_get_lv_size_from_name $lv_name)
-    local partition_count=$(echo ${lv_config_partition_list[$host]} | wc -w)
-    if [ -z "$partition_count" -o "$partition_count" = "0" ]; then
-        lib_exit 1 "missing value in lv_config_partition_list for host $host"
+    local partition_count=${lv_config_partition_count_list[$host]}
+    if [ -z "$partition_count" ]; then
+        lib_exit 1 "missing value in lv_config_partition_count_list for host $host"
     fi
     lib_vmsg "  creating lv $lv_name (size $size G) on $host"
     lib_remote_idfile $host \

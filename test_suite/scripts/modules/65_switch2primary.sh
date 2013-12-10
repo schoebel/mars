@@ -42,15 +42,11 @@ function switch2primary_run
 
     lib_rw_start_writing_data_device "writer_pid" "writer_script" 0 0 $res
 
-    if [ $switch2primary_force -eq 1 ]; then
-        switch2primary_force $primary_host $secondary_host $res
-    else
-        lib_vmsg "  marsadm primary on $secondary_host must fail"
-        marsadm_do_cmd $secondary_host "primary" "$res"
-        rc=$?
-        if [ $rc -eq 0 ]; then
-            lib_exit 1 "$secondary_host must not become primary"
-        fi
+    lib_vmsg "  marsadm primary on $secondary_host must fail"
+    marsadm_do_cmd $secondary_host "primary" "$res"
+    rc=$?
+    if [ $rc -eq 0 ]; then
+        lib_exit 1 "$secondary_host must not become primary"
     fi
 
     lib_rw_stop_writing_data_device $writer_script "write_count"
@@ -102,26 +98,4 @@ function switch2primary_run
 
     marsadm_do_cmd $secondary_host "secondary" "$res" || lib_exit 1
 }
-
-function switch2primary_force
-{
-    local primary_host=$1 secondary_host=$2 res=$3
-    # replace string remote_host with $secondary_host
-    declare -A impact_cmd
-    eval impact_cmd=(\
-          $(for x in ${!net_impact_cmd[@]};do
-              printf "[$x]='${net_impact_cmd[$x]//remote_host/$primary_host}' ";
-            done)\
-         )
-    lib_vmsg "sleep 10"
-    sleep 10
-    net_do_impact_cmd $host "impact_cmd" "off"
-    marsadm_do_cmd $secondary_host "--force primary" "$res"
-    # stop script primary
-    # network on
-    # marsadm invalidate on primary
-    # checks
-    lib_exit 0
-}
-
 

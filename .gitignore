@@ -12,3 +12,5 @@ kernel/mars_config.h
 *.orig
 *.rej
 *.bak
+*alternate*.conf
+*internal*.conf

@@ -12,7 +12,7 @@ function check_config_variables
 {
     local config_file=$1 varname
 
-    source $(pwd)/$config_file || lib_exit 1
+    source $config_file || lib_exit 1
 
     for varname in "${!config_variables[@]}"; do
         local val
