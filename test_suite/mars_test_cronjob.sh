@@ -1,5 +1,27 @@
 #!/bin/bash
+# Copyright 2010-2013 Frank Liepold /  1&1 Internet AG
+#
+# Email: frank.liepold@1und1.de
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+#####################################################################
+
+## The scripts starts all tests included in the variable tests_to_execute.
+## If you want to see all existing tests, you have to find the leaf directories
+## below the directories build_test_environment and test_cases.
 
 function myexit
 {
@@ -44,12 +66,14 @@ function execute_tests
             kernel_stack_msg+="$t: $($kernel_stack_grep_cmd)"$'\n'
             send_msg=1
         fi
+        if [ $rc -ne 0 -a $continue_after_failed_test -eq 0 ];then
+            break
+        fi
     done
     rm $tmp_file
     if [ $send_msg -eq 1 ]; then
         local to
         local msg="$fail_msg$perf_msg$errorfile_msg$kernel_stack_msg"$'\n'
-        msg+="for details see logfile on $(hostname)"
         for to in "${mail_to[@]}"; do
                 sendEmail -m "$msg" -f $mail_from -t $to -u "failed mars tests" -s $mail_server
         done
@@ -68,24 +92,21 @@ function set_env
 
 function usage
 {
-    echo "usage: $my_name [-c] test_suite_dir" >&2
-    echo "          -c: without cleanup after all tests have passed" >&2
-    echo "          -b: checkout, install, build resource" >&2
+    echo "usage: $my_name [-e] test_suite_dir" >&2
+    echo "          -e: dont't continue if a test fails" >&2
     exit 1
 }
 
 # main
 my_name=$(basename $0)
 
-OPTSTR="bc"
+OPTSTR="e"
 
-with_cleanup=0
-only_checkout_install_build_resource=0
+continue_after_failed_test=1
 
 while getopts "$OPTSTR" opt; do
     case $opt in # (
-        c) with_cleanup=0;;
-        b) only_checkout_install_build_resource=1;;
+        e) continue_after_failed_test=0;;
         *) usage;;
     esac
 done
@@ -97,7 +118,6 @@ test_suite_dir=$1
 # main
 
 echo Start $(basename $0) at $(date)
-logfile="/home/fl/tmp/cronjob_mars.log"
 
 eval $(ssh-agent)
 ~/tools/sx
@@ -114,7 +134,7 @@ start_script=$test_suite_dir/scripts/start_test.sh
 
 tests_to_execute=(\
 build_test_environment/checkout \
-build_test_environment/make \
+build_test_environment/make/make_mars/grub \
 build_test_environment/install_mars \
 build_test_environment/lv_config \
 build_test_environment/cluster \
@@ -131,6 +151,8 @@ test_cases/admin/datadev_full \
 test_cases/hardcore/mars_dir_full/write_other_file \
 test_cases/hardcore/mars_dir_full/write_data_dev \
 test_cases/stabil/net_failure/connection_cut \
+test_cases/admin/three_nodes \
+test_cases/admin/switch2primary_force \
 test_cases/stabil/crash/crash_primary \
 test_cases/stabil/crash/crash_primary_logger_comletion_semantics__aio_sync_mode \
 test_cases/stabil/crash/crash_primary_logger_completion_semantics \
@@ -140,27 +162,10 @@ build_test_environment/resource/leave_resource \
 test_cases/perf \
 )
 
-if [ $only_checkout_install_build_resource -eq 1 ]; then
-    tests_to_execute=(\
-        build_test_environment/checkout \
-        build_test_environment/make \
-        build_test_environment/install_mars \
-        build_test_environment/lv_config \
-        build_test_environment/cluster \
-        build_test_environment/resource/create_resource \
-    )
-fi
-
 set_env
 
 execute_tests
 
 rc=$?
-
-if [ $rc -eq 0 -a $with_cleanup -eq 1 ];then
-    tests_to_execute=(build_test_environment/resource/cleanup_resource)
-    execute_tests
-fi
-
 
 echo End $(basename $0) at $(date)

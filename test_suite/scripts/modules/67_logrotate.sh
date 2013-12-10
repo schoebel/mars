@@ -23,18 +23,19 @@ function logrotate_run
     local secondary_host="${main_host_list[1]}"
     local res=${resource_name_list[0]}
     local dev=$(lv_config_get_lv_device $res)
-    local logfile length_logfile writer_pid writer_script write_count
+    local writer_pid writer_script write_count
 
     mount_mount_data_device
     resource_clear_data_device $primary_host $res
 
 
-    lib_rw_start_writing_data_device "writer_pid" "writer_script" 0 0 $res
+    lib_rw_start_writing_data_device $primary_host "writer_pid" \
+                                     "writer_script" 0 0 $res
 
     logrotate_loop $primary_host $res $logrotate_number_of_rotate_loops \
                    $logrotate_sleep_time_between_rotates
 
-    lib_rw_stop_writing_data_device $writer_script "write_count"
+    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
     main_error_recovery_functions["lib_rw_stop_scripts"]=
 
     logrotate_wait_for_umount_data_device $primary_host $dev \

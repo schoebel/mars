@@ -39,7 +39,8 @@ function apply_fetch_run
     mount_mount_data_device
     resource_clear_data_device $primary_host $res
 
-    lib_rw_start_writing_data_device "writer_pid" "writer_script"  2 2 $res
+    lib_rw_start_writing_data_device $primary_host "writer_pid" \
+                                     "writer_script"  2 2 $res
 
     marsadm_pause_cmd "apply" $secondary_host $res
 
@@ -62,7 +63,7 @@ function apply_fetch_run
     lib_vmsg "  ${FUNCNAME[0]}: fetch time: $time_waited"
 
 
-    lib_rw_stop_writing_data_device $writer_script "write_count"
+    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
     main_error_recovery_functions["lib_rw_stop_scripts"]=
 
     case $apply_fetch_running_action in #(((

@@ -55,8 +55,9 @@ function lib_check_for_kernel_oops_after_start_time
             local stack_date=$(date -d "$(echo $last_stack_line | \
                                         awk '{print $1,$2,$3}')" +'%Y%m%d%H%M%S')
             if [ $stack_date -gt $main_start_time ]; then
-                lib_remote_idfile $host "cp -f $kern_log $kern_log.$main_start_time"
-                echo "KERNEL-STACK on $host at $stack_date. Saved in $kern_log.$main_start_time"
+                local local_file=$(lib_err_create_local_filename $kern_log)
+                lib_cp_remote_file $host $kern_log $local_file
+                echo "KERNEL-STACK on $host at $stack_date. Saved in $local_file"
             fi
         fi
     done
@@ -65,7 +66,7 @@ function lib_check_for_kernel_oops_after_start_time
 
 function lib_general_checks_after_every_test
 {
-	lib_err_check_and_move_global_err_files_all
+	lib_err_check_and_copy_global_err_files_all
 	lib_check_proc_sys_mars_variables
     lib_check_for_kernel_oops_after_start_time
 }
@@ -80,22 +81,47 @@ function lib_check_proc_sys_mars_variables
     done
 }
 
-function lib_err_check_and_move_global_err_files_all
+function lib_err_create_local_filename
+{
+    local file=$1
+    echo $(pwd)/$(basename $file.$(date +'%Y%m%d%H%M%S'))
+}
+
+function lib_err_check_and_copy_global_err_files_all
 {
     local host rc
+    local log_err=$lib_err_total_err_file.err
+    local total_log_fetched=0
     for host in "${main_host_list[@]}"; do
         lib_remote_idfile $host "test -s $lib_err_total_err_file"
         rc=$?
         if [ $rc -eq 0 ]; then
-            local err_sav=$lib_err_total_err_file.$(date +'%Y%m%d%H%M%S')
-            local log_sav=$lib_err_total_log_file$(date +'%Y%m%d%H%M%S')
-            echo "ERROR-FILE $host:$lib_err_total_err_file (marsadm cat):" >&2
-            lib_remote_idfile $host "marsadm cat $lib_err_total_err_file"
-            lib_vmsg "  moving $lib_err_total_err_file to $err_sav"
-            lib_remote_idfile $host "mv $lib_err_total_err_file $err_sav"
-            lib_vmsg "  marsadm cat $lib_err_total_log_file > $log_sav"
-            lib_remote_idfile $host \
-                            "marsadm cat $lib_err_total_log_file > $log_sav"
+            local err_sav log_sav f
+            for f in "err" "log"; do
+                local remote_file local_file
+                eval remote_file='$lib_err_total_'$f'_file'
+                local_file=$(lib_err_create_local_filename $remote_file)
+                # the error file is small so we can include it in our
+                # output
+                if [ "$f" = "err" ]; then
+                    echo "ERROR-FILE $host:$lib_err_total_err_file (marsadm cat):" >&2
+                    lib_remote_idfile $host "marsadm cat $remote_file" >&2
+                fi
+                lib_cp_remote_file $host $remote_file $local_file
+            done
+            total_log_fetched=1
+        fi
+        # may be that there are some errors only in the log file
+        lib_vmsg "  checking for errors in $host:$lib_err_total_log_file"
+        lib_remote_idfile $host \
+                "egrep '$main_errors_only_in_total_log_pattern' $lib_err_total_log_file >$log_err"
+        rc=$?
+        if [ $rc -eq 0 ];then
+            echo "ERROR-IN-LOGFILE $host:$lib_err_total_log_file:" >&2
+            lib_remote_idfile $host "marsadm cat $log_err" >&2
+            if [ $total_log_fetched -eq 0 ]; then
+                lib_cp_remote_file $host $lib_err_total_log_file $(lib_err_create_local_filename $lib_err_total_log_file)
+            fi
         fi
     done
 }

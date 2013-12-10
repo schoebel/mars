@@ -18,12 +18,14 @@ Contents
 2. Naming conventions
 3. Error handling
 4. Signal handling
-5. Configuration of the build environment
-6. Installing the software on the hosts on which the tests are running
-    attention for grub!
-7. Basic configuration of logical volumes
-8. Starting the whole test suite via cronjob
-9. Concurrent test runs
+5. Configuration of the local build environment
+6. Configuration of the test hosts on which the tests are running
+6.1. Access requirements
+6.2. Installation kernel and mars module on the test hosts
+7. Configuration of logical volumes
+8. Resources
+9. Starting the whole test suite via cronjob
+10. Concurrent test runs
 
 1. Running a test
 -----------------
@@ -34,8 +36,13 @@ of one of the both directories build_test_environment and test_cases.
 The scope and configuration of a test is completely described by this
 subdirectory (we call it start directory) as follows:
 
-- all leaf subdirectories of the start directory define one test case
-- for each leaf subdirectory xyz there exists a configuration file named
+- All leaf subdirectories of the start directory define one test case.
+  If the test specified by one leaf subdirectory fails the tests belonging to
+  other leaf subdirectories of the start directory will not be executed.
+  Though only tests which are likely not to fail should be executed by only
+  one call to start_test.sh. The simple and recommended way is to call
+  start_test.sh for each leaf directory once.
+- For each leaf subdirectory xyz there exists a configuration file named
   xyz.conf which contains (among others) in the variables prepare_list,
   setup_list, run_list, cleanup_list and finish_list names of shell 
   functions defined in scripts/modules/*.sh.
@@ -43,7 +50,7 @@ subdirectory (we call it start directory) as follows:
   *list variables.
   The file xyz.conf may reside in the leaf directory or any of it's parent
   directories (up to 20 levels higher in the directory tree).
-- the configuration of the test case belonging to a leaf directory is defined
+- The configuration of the test case belonging to a leaf directory is defined
   by a set of *.conf files which are included by start_test.sh in the
   following order:
   -- default-*.conf: These are the configuration files belonging to the
@@ -79,6 +86,7 @@ subdirectory (we call it start directory) as follows:
 - All variables used in *.conf files should be "defined" (the shell has no
   explicit definition) and explained in a default-*.conf file. If a variable is
   "defined" in default-xyz.conf it's name is prefixed by xyz.
+- WIP
 
 
 3. Error handling
@@ -91,8 +99,8 @@ WIP
 
 WIP
 
-5. Configuration of the build environment
------------------------------------------
+5. Configuration of the local build environment
+-----------------------------------------------
 To build the mars module and userspace tools you need:
 
 - a directory containing a git repository which contains the kernel sources
@@ -133,17 +141,84 @@ To build the mars module and userspace tools you need:
     to be specified in file     : default-checkout_mars.conf
 
 
-6. Configuration of the hosts on which the tests are running
+6. Configuration of the test hosts on which the tests are running
 ------------------------------------------------------------
 
+The test hosts are given in main_host_list (default-main.conf).
+
+6.1. Access requirements
+------------------------
+The tests are executed by ssh commands from your work station to the
+test hosts. These commands must not prompt for a password. Though a
+id file (for ssh -i <id-file>) with null password must be specified in
+main_ssh_idfile_opt (default-main.conf)
+
+All test hosts must have ssh access to each other without prompt for passwords
+(this is required by marsadm join-cluster).
+
+
+On your work station you must have sudo permissions for "make install", "cp".
+
+And root of your work station must have ssh access (as root) without prompt for
+password to all test hosts (this is required, because local files belonging to
+root must be copied to the test hosts).
+
+
+6.2. Installation kernel and mars module on the test hosts
+----------------------------------------------------------
+This is done by executing the tests
+
+build_test_environment/checkout
+build_test_environment/make/make_mars/grub
+build_test_environment/install_mars
+
+It's a must to read default-checkout_mars.conf, default-make_mars.conf,
+default-install_mars.conf and the *.conf files in the directories above
+otherwise you risk damage of the boot information on your work station and/or the test hosts.
+
+After these three tests (which you should call one after the other!) you can
+reboot the test hosts with the new kernel.
+
+7. Configuration of logical volumes
+-----------------------------------
+This is done by the test
+
+build_test_environment/lv_config
+
+The configuration options are contained in default-lv_config.conf
+
+
+8. Resources
+------------
+Cluster and Resources are created by
+
+build_test_environment/cluster
+build_test_environment/resource/create_resource
+
+Initially the first host in main_host_list is the primary, the following hosts
+secondaries.
+If you do not change any configuration variables after the
+build_test_environment/resource/create_resource Test you will have created one
+resource lv-1-2 on all hosts with underlying data devices /dev/vg-mars/lv-1-2.
+/mars will be mounted on /dev/vg-mars/lv-6-100.
+
+For further information please read default-cluster.conf and
+default-resource.conf.
+
+
+9. Starting the whole test suite via cronjob
+--------------------------------------------
+This can be done mars_test_cronjob.sh. The variable tests_to_execute contains
+all tests to be executed.
+
+10. Concurrent test runs
+------------------------
+To avoid concurrent run of tests on the same host each run creates temporary
+files (/tmp/test-suite_on.<host>, see main_lock_file_list) and deletes them
+afterwards.
 
 
 
 
-1. The cron script mars_test_cronjob.sh
 
-
-
-
-Configuration
 

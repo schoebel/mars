@@ -247,6 +247,16 @@ function lib_start_script_remote_bg
     eval $varname_script=$remote_filename
 }
 
+## copy a file from a remote host to a local target
+function lib_cp_remote_file
+{
+    local host=$1 remote_filename=$2 local_filename=$3
+    local ssh_opt="$main_ssh_idfile_opt"
+    lib_vmsg "  cp $host:$remote_filename -> $local_filename"
+    scp $ssh_opt root@$host:$remote_filename $local_filename || lib_exit 1
+}
+
+
 
 #####################################################################
 

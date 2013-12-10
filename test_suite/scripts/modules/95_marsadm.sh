@@ -224,7 +224,7 @@ function marsadm_check_warnings_and_disk_state
     case $situation in # ((
         apply_stopped_after_disconnect)
             local link_value not_applied restlen_in_warn_file
-            local warn_file="$cluster_debugfile"
+            local warn_file="$lib_err_total_log_file"
             local link=$(lib_linktree_get_res_host_linkname $host $res "replay")
             link_value=$(lib_remote_idfile $host "readlink $link") || lib_exit 1
 

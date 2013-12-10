@@ -82,7 +82,8 @@ function resize_run
     mount_mount_data_device
     resource_clear_data_device $primary_host $res
 
-    lib_rw_start_writing_data_device "writer_pid" "writer_script" 0 1 $res
+    lib_rw_start_writing_data_device $primary_host "writer_pid" \
+                                     "writer_script" 0 1 $res
 
     resize_do_resize $primary_host $secondary_host $res $dev \
                      $data_lv_size_new $mars_data_dev_size_new
@@ -109,7 +110,8 @@ function resize_check_resize_post_conditions
                             $marsview_wait_for_state_time || lib_exit 1
 
     if [ -n "$writer_script" ]; then
-        lib_rw_stop_writing_data_device $writer_script "write_count"
+        lib_rw_stop_writing_data_device $primary_host $writer_script \
+                                        "write_count"
         main_error_recovery_functions["lib_rw_stop_scripts"]=
     fi
 
@@ -184,7 +186,7 @@ function resize_extend_fs
     fi
     lib_vmsg "  extending $host:$dev (type $fs_type)"
     lib_remote_idfile $primary_host \
-                      ${lv_config_fs_type_extension_cmd_list[$fs_type]} $dev \
+                      ${lv_config_fs_type_grow_cmd_list[$fs_type]} $dev \
                                                                 || lib_exit 1
 }
 

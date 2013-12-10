@@ -175,10 +175,11 @@ function perftest_do_write
     local  writer_pid writer_script write_count writer_start
     local  writer_rate
     writer_start=$(date +'%s')
-    lib_rw_start_writing_data_device "writer_pid" "writer_script" 0 0 $res
+    lib_rw_start_writing_data_device $primary_host "writer_pid" \
+                                     "writer_script" 0 0 $res
     lib_vmsg "  sleep $perftest_write_time"
     sleep $perftest_write_time
-    lib_rw_stop_writing_data_device $writer_script "write_count"
+    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
     main_error_recovery_functions["lib_rw_stop_scripts"]=
     writer_rate=$(perftest_get_rate_per_minute $writer_start $(date +'%s') \
                                                $write_count)
@@ -220,12 +221,12 @@ function perftest_do_rsync
 
 function perftest_start_parallel_writer
 {
-    [ $# -eq 4 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
-    local varname_writer_start=$1 varname_writer_pid=$2 varname_writer_script=$3
-    local res=$4
+    [ $# -eq 5 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    local host=$1 varname_writer_start=$2 varname_writer_pid=$3
+    local varname_writer_script=$4 res=$5
     mount_mount_data_device
     eval $varname_writer_start=$(date +'%s')
-    lib_rw_start_writing_data_device $varname_writer_pid \
+    lib_rw_start_writing_data_device $host $varname_writer_pid \
                                      $varname_writer_script 0 0 $res
 }
 
@@ -237,7 +238,7 @@ function perftest_finish_parallel_writer
     local write_count writer_rate
     local caller="${BASH_SOURCE[1]}:${FUNCNAME[1]}:${BASH_LINENO[0]}"
 
-    lib_rw_stop_writing_data_device $writer_script "write_count"
+    lib_rw_stop_writing_data_device $host $writer_script "write_count"
     main_error_recovery_functions["lib_rw_stop_scripts"]=
     writer_rate=$(perftest_get_rate_per_minute $writer_start $(date +'%s') \
                                                $write_count)
@@ -262,8 +263,8 @@ function perftest_via_mars_sync
     
     if [ $parallel_writer -eq 1 ]; then
         writer_start=$(date +'%s')
-        perftest_start_parallel_writer "writer_start" "writer_pid" \
-                                       "writer_script" $res
+        perftest_start_parallel_writer $primary_host "writer_start" \
+                                       "writer_pid" "writer_script" $res
     fi
 
     marsadm_do_cmd $secondary_host "up" $res || lib_exit 1
@@ -402,8 +403,8 @@ function perftest_do_apply
 
     if [ $parallel_writer -eq 1 ]; then
         writer_start=$(date +'%s')
-        perftest_start_parallel_writer "writer_start" "writer_pid" \
-                                       "writer_script" $res
+        perftest_start_parallel_writer $primary_host "writer_start" \
+                                       "writer_pid" "writer_script" $res
     fi
 
     marsadm_do_cmd $secondary_host "resume-replay" $res || lib_exit 1
@@ -522,8 +523,8 @@ function perftest_do_fetch_or_fetch_and_apply
         lib_vmsg "  last logfile $primary_host:$last_logfile_primary has length $last_logfile_length_primary"
 
         writer_start=$(date +'%s')
-        perftest_start_parallel_writer "writer_start" "writer_pid" \
-                                       "writer_script" $res
+        perftest_start_parallel_writer $primary_host "writer_start" \
+                                       "writer_pid" "writer_script" $res
     fi
 
     marsadm_do_cmd $secondary_host "connect" $res || lib_exit 1

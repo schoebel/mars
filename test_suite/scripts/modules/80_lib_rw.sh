@@ -106,10 +106,10 @@ function lib_rw_stop_one_script
 
 function lib_rw_start_writing_data_device
 {
-    [ $# -eq 5 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
-    local varname_pid=$1 varname_script=$2 no_of_loops=$3 sleeptime=$4
-    local res=$5
-    lib_rw_write_and_delete_loop ${main_host_list[0]} \
+    [ $# -eq 6 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    local host=$1 varname_pid=$2 varname_script=$3 no_of_loops=$4 sleeptime=$5
+    local res=$6
+    lib_rw_write_and_delete_loop $host \
                  ${resource_mount_point_list[$res]}/$lib_rw_file_to_write \
                  $(lv_config_get_lv_size_from_name ${resource_name_list[0]}) \
                  $lib_rw_part_of_device_size_written_per_loop \
@@ -118,8 +118,8 @@ function lib_rw_start_writing_data_device
 
 function lib_rw_stop_writing_data_device
 {
-    local script=$1 varname_write_count=$2
-    lib_rw_stop_one_script ${main_host_list[0]} $script $varname_write_count
+    local host=$1 script=$2 varname_write_count=$3
+    lib_rw_stop_one_script $host $script $varname_write_count
 }
 
 function lib_rw_cksum
@@ -131,8 +131,6 @@ function lib_rw_cksum
     eval $varname_cksum='('${my_cksum_out[0]}' '${my_cksum_out[1]}')'
 }
 
-# if the size to compare equals 0 we take the mars size of the
-# data devices
 function lib_rw_compare_checksums
 {
     [ $# -eq 6 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
@@ -141,39 +139,23 @@ function lib_rw_compare_checksums
     local dev=$(lv_config_get_lv_device $res)
     local host role primary_cksum_out secondary_cksum_out cksum_out
     local cksum_dev=$dev
-    local dd_bsize=4096 dd_count
                                             
     for role in "primary" "secondary"; do
-        local dummy_file
         eval host='$'${role}_host
-        dummy_file=$main_mars_directory/dummy-$host
         marsadm_do_cmd $host "down" $res || lib_exit 1
-        if [ $cmp_size -eq 0 ]; then
-            local link_value
-            local link="${resource_dir_list[$res]}/size"
-            lib_vmsg "  reading link $host:$link"
-            link_value=$(lib_remote_idfile $primary_host "readlink $link") || \
-                                                                    lib_exit 1
-            if ! expr "$link_value" : '^[0-9][0-9]*$' >/dev/null; then
-                lib_exit 1 "  $link_value is not a numeric value"
-            fi
-            if [ $((($link_value / $dd_bsize) * $dd_bsize)) -ne $link_value ]
-            then
-                lib_exit 1 "value $link_value not divsible by $dd_bsize"
-            fi
-            dd_count=$(($link_value / $dd_bsize))
-        else
-            dd_count=$((($cmp_size * 1024 * 1024 * 1024) / $dd_bsize))
+        if [ $cmp_size -ne 0 ]; then
+            local dummy_file=$main_mars_directory/dummy-$host
+            lib_vmsg "  dumping $cmp_size G of $dev to $dummy_file"
+            lib_remote_idfile $host \
+                "dd if=$dev of=$dummy_file bs=1024 count=$(($cmp_size * 1024 * 1024))" || lib_exit 1
+            lib_remote_idfile $host "ls -l $dummy_file"
+            cksum_dev=$dummy_file
         fi
-        lib_vmsg "  dumping $(($dd_count * $dd_bsize)) bytes of $dev to $dummy_file"
-        lib_remote_idfile $host \
-            "dd if=$dev of=$dummy_file bs=$dd_bsize count=$dd_count" || \
-                                                                    lib_exit 1
-        lib_remote_idfile $host "ls -l $dummy_file"
-        cksum_dev=$dummy_file
         lib_rw_cksum $host $cksum_dev "cksum_out"
         eval ${role}_cksum_out='"${cksum_out[*]}"'
-        lib_remote_idfile $host "rm -f $dummy_file" || lib_exit 1
+        if [ $cmp_size -ne 0 ]; then
+            lib_remote_idfile $host "rm -f $dummy_file" || lib_exit 1
+        fi
         marsadm_do_cmd $host "up" $res || lib_exit 1
     done
     if [ "$primary_cksum_out" != "$secondary_cksum_out" ]; then

@@ -40,16 +40,22 @@ function switch2primary_run
     mount_mount_data_device
     resource_clear_data_device $primary_host $res
 
-    lib_rw_start_writing_data_device "writer_pid" "writer_script" 0 0 $res
+    lib_rw_start_writing_data_device $primary_host "writer_pid" \
+                                     "writer_script" 0 0 $res
 
-    lib_vmsg "  marsadm primary on $secondary_host must fail"
-    marsadm_do_cmd $secondary_host "primary" "$res"
-    rc=$?
-    if [ $rc -eq 0 ]; then
-        lib_exit 1 "$secondary_host must not become primary"
+    if [ $switch2primary_force -eq 1 ]; then
+        switch2primary_force $primary_host $secondary_host $res $writer_script
+        return
+    else
+        lib_vmsg "  marsadm primary on $secondary_host must fail"
+        marsadm_do_cmd $secondary_host "primary" "$res"
+        rc=$?
+        if [ $rc -eq 0 ]; then
+            lib_exit 1 "$secondary_host must not become primary"
+        fi
     fi
 
-    lib_rw_stop_writing_data_device $writer_script "write_count"
+    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
     lib_vmsg "  ${FUNCNAME[0]}: write_count: $write_count"
     main_error_recovery_functions["lib_rw_stop_scripts"]=
 
@@ -98,4 +104,65 @@ function switch2primary_run
 
     marsadm_do_cmd $secondary_host "secondary" "$res" || lib_exit 1
 }
+
+function switch2primary_force
+{
+    [ $# -eq 4 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    local primary_host=$1 secondary_host=$2 res=$3 writer_script=$4
+    local write_count time_waited host logfile length_logfile net_throughput
+    local dev=$(resource_get_data_device $res)
+#     # replace string remote_host with $secondary_host
+#     declare -A impact_cmd
+#     eval impact_cmd=(\
+#           $(for x in ${!net_impact_cmd[@]};do
+#               printf "[$x]='${net_impact_cmd[$x]//remote_host/$primary_host}' ";
+#             done)\
+#          )
+#     lib_vmsg "sleep 10"
+#     sleep 10
+#     net_do_impact_cmd $host "impact_cmd" "off"
+    marsadm_do_cmd $secondary_host "--force primary" "$res" || lib_exit 1
+    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
+    lib_vmsg "  ${FUNCNAME[0]}: write_count: $write_count"
+    main_error_recovery_functions["lib_rw_stop_scripts"]=
+    lib_wait_until_fetch_stops "switch2primary" $secondary_host $primary_host \
+                                $res "logfile" "length_logfile" "time_waited" \
+                                0 "net_throughput"
+    lib_vmsg "  ${FUNCNAME[0]}: fetch time: $time_waited"
+    # waiting for empty logfile on secondary_host
+    local maxwait=60 waited=0
+    while true;do
+        local last_logfile=$(marsadm_get_last_logfile $secondary_host $res $secondary_host)
+        if [ -n "$last_logfile" ]; then
+            lib_vmsg "  found logfile $last_logfile on $secondary_host"
+            break
+        fi
+        let waited+=1
+        lib_vmsg "  waited $waited for logfile to appear on $secondary_host"
+        if [ $waited -ge $maxwait ]; then
+            lib_exit 1 "maxwait $maxwait exceeded"
+        fi
+    done
+    for host in $primary_host $secondary_host; do
+        local length_logfile length_logfile_old
+        length_logfile_old=$(perftest_get_length_last_logfile $host $res $host)
+        lib_vmsg " length last logfile on $host: $length_logfile_old"
+        lib_remote_idfile $host \
+                          "yes | dd oflag=direct bs=4096 count=1 of=$dev" || \
+                                                                lib_exit 1
+        length_logfile=$(perftest_get_length_last_logfile $host $res $host)
+        lib_vmsg " length last logfile on $host: $length_logfile"
+        if [ $length_logfile -eq $length_logfile_old ]; then
+            lib_exit 1 "nothing written to logfiles on $host"
+        fi
+    done
+
+#     marsadm_do_cmd $primary_host "secondary" "$res" || lib_exit 1
+#     marsadm_do_cmd $primary_host "invalidate" "$res" || lib_exit 1
+#     lib_wait_for_initial_end_of_sync $secondary_host $primary_host $res \
+#                                   $resource_maxtime_initial_sync \
+#                                   $resource_time_constant_initial_sync \
+#                                   "time_waited"
+}
+
 

@@ -220,8 +220,8 @@ function resource_fill_mars_dir
                                         $data_dev_size "control_nr"
         resource_check_low_space_error $primary_host $res "sequence_hole"
     else
-        lib_rw_start_writing_data_device "writer_pid" "writer_script" \
-                                          0 2 $res
+        lib_rw_start_writing_data_device $primary_host "writer_pid" \
+                                         "writer_script" 0 2 $res
         resource_write_file_until_mars_dir_full $primary_host \
                                                 $main_mars_directory \
                                                 $mars_dev_size \
@@ -229,7 +229,8 @@ function resource_fill_mars_dir
     fi
 
     if [ $resource_use_data_dev_writes_to_fill_mars_dir -eq 0 ]; then
-        lib_rw_stop_writing_data_device $writer_script "write_count"
+        lib_rw_stop_writing_data_device $primary_host $writer_script \
+                                        "write_count"
         main_error_recovery_functions["lib_rw_stop_scripts"]=
         lib_vmsg "  removing $primary_host:$resource_big_file"
         lib_remote_idfile $primary_host "rm -f $resource_big_file" || lib_exit 1
@@ -239,7 +240,8 @@ function resource_fill_mars_dir
 
     resource_resize_mars_dir $primary_host $mars_dev $(($mars_dev_size + 10))
 
-    lib_rw_start_writing_data_device "writer_pid" "writer_script"  0 3 $res
+    lib_rw_start_writing_data_device $primary_host "writer_pid" \
+                                     "writer_script"  0 3 $res
 
     local procfile=/proc/sys/mars/logger_resume
     lib_vmsg "  setting $primary_host:$procfile to 1"
@@ -252,7 +254,7 @@ function resource_fill_mars_dir
                                   $resource_time_constant_initial_sync \
                                   "time_waited"
 
-    lib_rw_stop_writing_data_device $writer_script "write_count"
+    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
     main_error_recovery_functions["lib_rw_stop_scripts"]=
 
     marsview_wait_for_state $secondary_host $res "disk" "Uptodate" \
@@ -384,6 +386,7 @@ function resource_create
     local host=$1 res=$2
 
     local dev="$(lv_config_get_lv_device $res)"
+    local size="$(lv_config_get_lv_size_from_name $res)"
     if [ $resource_fs_on_data_device_necessary -eq 1 ]; then
         lib_rw_remote_check_device_fs $host $dev ${resource_fs_type_list[$res]}
     fi
@@ -392,7 +395,7 @@ function resource_create
         while true; do
             cluster_insert_mars_module_all
             marsadm_do_cmd $host "create-resource $resource_create_flag" \
-                                 "$res $dev"
+                                 "$res $dev $res ${size}G"
             marsadm_do_cmd $host "wait-resource" "$res is-device-on"
             rc=$?
             if [ $rc -ne 0 ]; then
@@ -525,9 +528,10 @@ function resource_write_and_check
     mount_mount_data_device
     resource_clear_data_device $primary_host $res
 
-    lib_rw_start_writing_data_device "writer_pid" "writer_script" 0 1 $res
+    lib_rw_start_writing_data_device $primary_host "writer_pid" \
+                                     "writer_script" 0 1 $res
     sleep 15
-    lib_rw_stop_writing_data_device $writer_script "write_count"
+    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
     main_error_recovery_functions["lib_rw_stop_scripts"]=
     sleep 5
     mount_umount_data_device $primary_host $res

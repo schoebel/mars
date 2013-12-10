@@ -39,14 +39,15 @@ function file_destroy_run
     resource_clear_data_device $primary_host $res
 
 
-    lib_rw_start_writing_data_device "writer_pid" "writer_script" 0 2 $res
+    lib_rw_start_writing_data_device $primary_host "writer_pid" \
+                                     "writer_script" 0 2 $res
 
     file_destroy_down_secondary $secondary_host $res
     marsadm_do_cmd $secondary_host "connect" $res || lib_exit 1
 
     file_destroy_sleep $file_destroy_duration_of_writer_after_secondary_down
 
-    lib_rw_stop_writing_data_device $writer_script "write_count"
+    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
     main_error_recovery_functions["lib_rw_stop_scripts"]=
 
     lib_wait_until_fetch_stops "file_destroy" $secondary_host $primary_host \

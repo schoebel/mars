@@ -34,7 +34,8 @@ function remote_dev_run
     cluster_remove_debugfiles $primary_host
     cluster_create_debugfiles $primary_host
 
-    lib_rw_start_writing_data_device "writer_pid" "writer_script" 0 0 $res
+    lib_rw_start_writing_data_device $primary_host "writer_pid" \
+                                     "writer_script" 0 0 $res
 
     for action in "rotate" "delete"; do
         local sleep_time pid_varname script_varname
@@ -61,7 +62,7 @@ function remote_dev_run
 
     lib_rw_stop_scripts $primary_host $log_rotate_script
 
-    lib_rw_stop_writing_data_device $writer_script "write_count"
+    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
     main_error_recovery_functions["lib_rw_stop_scripts"]=
 
     local boot_label_name="${main_host_bootloader_label_list[$secondary_host]}"
