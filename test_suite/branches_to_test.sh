@@ -96,7 +96,7 @@ config_file=$1
 
 [ -r $config_file ] || lib_exit 1 "echo file $config_file does not exist or is not readable"
 
-src_origin=/home/fl/mars/test_suite
+src_origin=/home/fl/mars/mars-git-hub/test_suite
 
 # index = name of config variable, value = prompt:file, where file is the default-*.conf where the
 # value of the config variable is defined
