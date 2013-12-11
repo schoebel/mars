@@ -90,13 +90,14 @@ function lib_err_create_local_filename
 function lib_err_check_and_copy_global_err_files_all
 {
     local host rc
-    local log_err=$lib_err_total_err_file.err
+    local log_err=$lib_err_total_log_file.err
     local total_log_fetched=0
     for host in "${main_host_list[@]}"; do
-        lib_remote_idfile $host "test -s $lib_err_total_err_file"
+        lib_vmsg "  checking whether $host:$lib_err_total_err_file exists"
+        lib_remote_idfile $host "ls -l $lib_err_total_err_file && test -s $lib_err_total_err_file"
         rc=$?
         if [ $rc -eq 0 ]; then
-            local err_sav log_sav f
+            local f
             for f in "err" "log"; do
                 local remote_file local_file
                 eval remote_file='$lib_err_total_'$f'_file'
