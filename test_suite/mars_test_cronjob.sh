@@ -147,6 +147,7 @@ test_cases/admin/logrotate \
 test_cases/admin/logdelete \
 test_cases/bugs/memleak \
 test_cases/admin/switch2primary \
+test_cases/admin/switch2primary_force \
 test_cases/admin/datadev_full \
 test_cases/hardcore/mars_dir_full/write_other_file \
 test_cases/hardcore/mars_dir_full/write_data_dev \
