@@ -36,6 +36,11 @@ to_check="${to_check:-}"
 to_start="${to_start:-main}"
 
 dry_run_script=0
+start_dir=$(pwd)
+# all directories between config_root_dir and the actual test directory will be
+# considered as "configuration options". That means that a <dirname>.conf file must
+# be provided for all these directories
+config_root_dir=$start_dir
 verbose_script=0
 
 # check some preconditions
@@ -113,12 +118,23 @@ while [ $# -ge 1 ]; do
         eval $1
         shift
         ;;
+        --config_root_dir)
+        config_root_dir="$val"
+        shift
+        ;;
         *)
         break
         ;;
     esac
 done
 
+if ! cd $config_root_dir ; then
+    echo "cannot cd $config_root_dir" >&2
+    exit 1
+else
+    config_root_dir=$(pwd) # we need the absolute path
+    cd $start_dir
+fi
 ignore_cmd="grep -v '[/.]old' | grep -v 'ignore'"
 sort_cmd="while read i; do if [ -e \"\$i\"/prio-[0-9]* ]; then echo \"\$(cd \$i; ls prio-[0-9]*):\$i\"; else echo \"z:\$i\"; fi; done | sort | sed 's/^[^:]*://'"
 
@@ -165,9 +181,14 @@ for test_dir in $(find . -type d | eval "$ignore_cmd" | eval "$sort_cmd"); do
         done
 
         # source all individual config files (for overrides)
+        # between $config_root_dir (exclusive) and $(pwd) (inclusive)
         shopt -s nullglob
-        components=$(echo $test_dir | sed 's/\// /g')
-        [ "$test_dir" = "." ] && components=$(basename $(pwd))
+        if [ "$test_dir" = "." ]; then
+            components=$(basename $(pwd))
+        else
+            t=$(pwd) # absolute path
+            components=$(echo ${t#$config_root_dir/} | sed 's/\// /g')
+        fi
         for i in $components; do
             [ "$i" = "." ] && continue
             if ! source_config "$i"; then
