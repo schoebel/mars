@@ -58,24 +58,32 @@ subdirectory (we call it start directory) as follows:
                      bei start_test.sh and which define all functions executed
                      by the various tests.
   -- user_modules.conf
-  -- <subdirname>.conf where subdirname runs bottom up through the parent
-     directories starting with the leaf directory up to the immediate
-     subdirectory of the start directory.
+  -- <subdirname>.conf where subdirname runs top down through the parent
+     directories starting with the immediate subdirectory of the start directory
+     (or the immediate subdirectory directory given by optione --config_root_dir)
+     to the leaf directory.
+
      If the start directory is a leaf directory the <leaf directory name>.conf
      is included.
      For example: 
 
-        start directory = test_cases/perf
-        leaf directory  = test_cases/perf/apply/no_parallel_writer
+         1. start directory = test_cases/perf
+            leaf directory  = test_cases/perf/apply/no_parallel_writer
 
-        leads to including of apply.conf and no_parallel_writer.conf (in this
-        order!) which must reside as mentioned above in the leaf directory
-        or any of it's parent directories (up to 20 levels).
+            leads to including of apply.conf and no_parallel_writer.conf (in this
+            order!) which must reside as mentioned above in the leaf directory
+            or any of it's parent directories (up to 20 levels).
 
-        start directory = test_cases/perf/apply/no_parallel_writer
-        leaf directory  = test_cases/perf/apply/no_parallel_writer
+         2. start directory = test_cases/perf/apply/no_parallel_writer
+                              --config_root_dir=.../test_cases/perf
+            leaf directory  = test_cases/perf/apply/no_parallel_writer
 
-        leads to including of no_parallel_writer.conf
+            leads to including the same *.conf files as above.
+
+         3. start directory = test_cases/perf/apply/no_parallel_writer
+            leaf directory  = test_cases/perf/apply/no_parallel_writer
+
+            leads to including of no_parallel_writer.conf
 
         
 2. Naming conventions
