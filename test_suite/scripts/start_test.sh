@@ -183,10 +183,10 @@ for test_dir in $(find . -type d | eval "$ignore_cmd" | eval "$sort_cmd"); do
         # source all individual config files (for overrides)
         # between $config_root_dir (exclusive) and $(pwd) (inclusive)
         shopt -s nullglob
-        if [ "$test_dir" = "." ]; then
+        t=$(pwd) # absolute path
+        if [ "$t" = "$config_root_dir" ]; then
             components=$(basename $(pwd))
         else
-            t=$(pwd) # absolute path
             components=$(echo ${t#$config_root_dir/} | sed 's/\// /g')
         fi
         for i in $components; do
