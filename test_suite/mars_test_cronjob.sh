@@ -45,10 +45,12 @@ function execute_tests
     local errorfile_grep_cmd='grep ERROR-FILE '$tmp_file
     local kernel_stack_grep_cmd='grep KERNEL-STACK '$tmp_file
 
-    for t in "${tests_to_execute[@]}"; do
+    for t in "${!tests_to_execute[@]}"; do
+        local config_root_dir=${tests_to_execute[$t]}
+        local config_root_dir_opt=${config_root_dir:+"--config_root_dir=$test_suite_dir/$config_root_dir"}
         echo executing test $t
         cd $test_suite_dir/$t || myexit 1
-        $start_script 2>&1 |  tee $tmp_file
+        $start_script $config_root_dir_opt 2>&1 |  tee $tmp_file
         rc=${PIPESTATUS[0]}
         if [ $rc -ne 0 ];then
             fail_msg+="$t"$'\n'
@@ -130,39 +132,45 @@ mail_to=("frank.liepold@1und1.de")
 
 start_script=$test_suite_dir/scripts/start_test.sh
 
-# test entries *must* start at begin of lines
+# key = test directory, value = directory serving as parameter for option
+# --config_root_dir of start_test.sh
+# all directory paths are given relative to test_suite_dir
 
+declare -A tests_to_execute
 tests_to_execute=(\
-build_test_environment/checkout \
-build_test_environment/make/make_mars/grub \
-build_test_environment/install_mars \
-build_test_environment/lv_config \
-build_test_environment/cluster \
-build_test_environment/resource/create_resource \
-test_cases/admin/apply_fetch/apply \
-test_cases/admin/apply_fetch/fetch \
-test_cases/destroy_secondary_logfile \
-test_cases/admin/resizing \
-test_cases/admin/logrotate \
-test_cases/admin/logdelete \
-test_cases/bugs/memleak \
-test_cases/admin/switch2primary \
-test_cases/admin/switch2primary_force \
-test_cases/admin/datadev_full \
-test_cases/hardcore/mars_dir_full/write_other_file \
-test_cases/hardcore/mars_dir_full/write_data_dev \
-test_cases/stabil/net_failure/connection_cut \
-test_cases/admin/three_nodes \
-test_cases/admin/switch2primary_force \
-test_cases/stabil/crash/crash_primary \
-test_cases/stabil/crash/crash_primary_logger_comletion_semantics__aio_sync_mode \
-test_cases/stabil/crash/crash_primary_logger_completion_semantics \
-test_cases/stabil/crash/crash_primary_aio_sync_mode \
-test_cases/bugs/aio_filehandle \
-build_test_environment/resource/leave_resource \
-test_cases/perf \
+["build_test_environment/checkout"]="build_test_environment" \
+["build_test_environment/make/make_mars/grub"]="build_test_environment" \
+["build_test_environment/install_mars"]="build_test_environment" \
+["build_test_environment/lv_config"]="build_test_environment" \
+["build_test_environment/cluster"]="build_test_environment" \
+["build_test_environment/resource/create_resource"]="build_test_environment" \
+["test_cases/admin/apply_fetch/apply"]="test_cases/admin" \
+["test_cases/admin/apply_fetch/fetch"]="test_cases/admin" \
+["test_cases/hardcore/destroy_secondary_logfile"]="test_cases/hardcore" \
+["test_cases/admin/resizing"]="test_cases/admin" \
+["test_cases/admin/logrotate"]="test_cases/admin" \
+["test_cases/admin/logdelete"]="test_cases/admin" \
+["test_cases/bugs/memleak"]="test_cases/bugs" \
+["test_cases/admin/switch2primary"]="test_cases/admin" \
+["test_cases/admin/switch2primary_force"]="test_cases/admin" \
+["test_cases/admin/datadev_full"]="test_cases/admin" \
+["test_cases/hardcore/mars_dir_full/write_other_file"]="test_cases/hardcore" \
+["test_cases/hardcore/mars_dir_full/write_data_dev"]="test_cases/hardcore" \
+["test_cases/stabil/net_failure/connection_cut"]="test_cases/stabil" \
+["test_cases/admin/three_nodes"]="test_cases/admin" \
+["test_cases/admin/switch2primary_force"]="test_cases/admin" \
+["test_cases/stabil/crash/crash_primary"]="test_cases/stabil" \
+["test_cases/stabil/crash/crash_primary_logger_comletion_semantics__aio_sync_mode"]="test_cases/stabil" \
+["test_cases/stabil/crash/crash_primary_logger_completion_semantics"]="test_cases/stabil" \
+["test_cases/stabil/crash/crash_primary_aio_sync_mode"]="test_cases/stabil" \
+["test_cases/bugs/aio_filehandle"]="test_cases/bugs" \
+["build_test_environment/resource/leave_resource"]="test_cases/admin" \
+["test_cases/perf"]="" \
 )
 
+tests_to_execute=(\
+["build_test_environment/resource/create_resource"]="build_test_environment" \
+)
 set_env
 
 execute_tests
