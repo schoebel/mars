@@ -41,7 +41,7 @@ start_dir=$(pwd)
 # considered as "configuration options". That means that a <dirname>.conf file must
 # be provided for all these directories
 config_root_dir=$start_dir
-verbose_script=0
+verbose_script=1
 
 # check some preconditions
 
