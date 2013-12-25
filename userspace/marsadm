@@ -1400,7 +1400,6 @@ sub primary_phase3 {
 # wait for device to appear / disappear
 sub primary_phase4 {
   my ($cmd, $res) = @_;
-  return if $force;
   if($cmd eq "secondary") {
     check_mars_device($cmd, $res, 1, 1);
     return;
