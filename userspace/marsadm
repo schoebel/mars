@@ -506,6 +506,25 @@ sub get_minmax_replays {
   return _get_minmax($res, "$mars/resource-$res/replay-*", 1);
 }
 
+sub detect_splitbrain {
+  my ($res, $do_report) = @_;
+  my $ok = 1;
+  my %from;
+  foreach my $vers_path (glob("$mars/resource-$res/version-*")) {
+    $vers_path =~ m:/version-(0-9+)-:;
+    my $nr = $1;
+    my $vers = get_link($vers_path, 1);
+    $vers =~ m/,log-[0-9]+-([^,]+),/;
+    my $origin = $1;
+    if (defined($from{$nr}) && $from{$nr} ne $origin) {
+      $ok = 0;
+      lwarn "SPLIT BRAIN at logfile $nr detected: hostA = '${from{$nr}}', hostB = '$origin'\n" if $do_report;
+    }
+    $from{$nr} = $origin;
+  }
+  return $ok;
+}
+
 sub try_to_avoid_splitbrain {
   # NYI
 }
@@ -1791,10 +1810,10 @@ my %checked_res;
 sub do_one_res {
   my $func = shift;
   my ($cmd, $res) = @_;
-
   if (!$checked_res{"$cmd$res"}) {
     $res = check_res($res) unless $cmd =~ m/^(join|create|leave|wait)-cluster|create-resource|show|cat|[a-z]+-file|set-link$/;
     check_res_member($res) unless $cmd =~ m/^(join|create)-(cluster|resource)|(leave|wait)-cluster|show|cat|[a-z]+-file|set-link$/;
+    detect_splitbrain($res);
     $checked_res{"$cmd$res"} = 1;
   }
   &{$func}(@_);
