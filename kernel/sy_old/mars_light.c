@@ -268,6 +268,7 @@ struct mars_rotate {
 	struct if_brick *if_brick;
 	const char *copy_path;
 	const char *parent_path;
+	const char *copy_next_origin;
 	struct say_channel *log_say;
 	struct copy_brick *copy_brick;
 	struct mars_limiter replay_limiter;
@@ -282,6 +283,9 @@ struct mars_rotate {
 	loff_t end_pos;
 	int max_sequence;
 	int copy_serial;
+	int copy_next_serial;
+	int split_brain_serial;
+	int split_brain_round;
 	int copy_next_is_available;
 	int relevant_serial;
 	bool has_error;
@@ -1408,6 +1412,15 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 	// bookkeeping for serialization of logfile updates
 	if (remote_dent->d_serial > rot->copy_serial) {
 		rot->copy_next_is_available++;
+		if (!rot->copy_next_serial || !rot->copy_next_origin) {
+			rot->copy_next_serial = remote_dent->d_serial;
+			rot->copy_next_origin = brick_strdup(remote_dent->d_rest);
+		} else if (rot->copy_next_serial == remote_dent->d_serial && strcmp(rot->copy_next_origin, remote_dent->d_rest)) {
+			rot->split_brain_round = 0;
+			rot->split_brain_serial = remote_dent->d_serial;
+			MARS_WRN("SPLIT BRAIN (logfiles from '%s' and '%s' with same serial number %d) detected!\n",
+				 rot->copy_next_origin, remote_dent->d_rest, rot->split_brain_serial);
+		}
 	}
 
 	// check whether connection is allowed
@@ -1423,6 +1436,8 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 			MARS_DBG("re-update '%s' from peer '%s' status = %d\n", remote_dent->d_path, peer, status);
 		}
 	} else if (!rot->copy_serial && rot->allow_update &&
+		   !rot->is_primary && !rot->old_is_primary &&
+		   (!rot->split_brain_serial || remote_dent->d_serial < rot->split_brain_serial) &&
 		   (dst_size < src_size || !local_dent)) {		
 		// start copy brick instance
 		status = _update_file(rot, switch_path, rot->copy_path, remote_dent->d_path, peer, src_size);
@@ -2165,8 +2180,10 @@ void rot_destruct(void *_rot)
 		rot->log_say = NULL;
 		brick_string_free(rot->copy_path);
 		brick_string_free(rot->parent_path);
+		brick_string_free(rot->copy_next_origin);
 		rot->copy_path = NULL;
 		rot->parent_path = NULL;
+		rot->copy_next_origin = NULL;
 	}
 }
 
@@ -2231,7 +2248,13 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	rot->next_next_relevant_log = NULL;
 	rot->prev_log = NULL;
 	rot->next_log = NULL;
+	brick_string_free(rot->copy_next_origin);
+	rot->copy_next_origin = NULL;
 	rot->max_sequence = 0;
+	// reset the split brain detector only when conflicts have gone for a number of rounds
+	if (rot->split_brain_serial && rot->split_brain_round++ > 3)
+		rot->split_brain_serial = 0;
+	rot->copy_next_serial = 0;
 	rot->has_error = false;
 
 	if (dent->new_link)
