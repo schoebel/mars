@@ -92,22 +92,20 @@ sub set_link {
 
 sub finish_links {
   return unless @link_list;
-  my $timestamp = time();
-  undef $/;
-  my $lamport = "";
-  if (open(my $fh, "<", "/proc/sys/mars/lamport_clock")) {
-    $lamport = <$fh>;
-  }
-  if ($lamport =~ m/lamport_now=([0-9.]+)/) {
-    $timestamp = $1;
-    lprint "using lamport timestamp $timestamp\n" if $verbose;
-  }
+  my $timestamp = mars_time();
+  lprint "using lamport timestamp $timestamp\n" if $verbose;
   while (my $link = shift @link_list) {
     my $link_tmp = to_tmp($link);
-    system("touch -h -d \"\@$timestamp\" $link_tmp") == 0 or ldie "cannot set mtime on symlink '$link_tmp'\n";
+    my $target = readlink($link_tmp);
+    my $this_timestamp = $timestamp;
+    # allow overriding of secondaries in partitioned clusters by use of small timestamps
+    if ($target eq "(none)") {
+      my @stat = lstat($link);
+      $this_timestamp = $stat[9] + 1 if @stat;
+    }
+    system("touch -h -d \"\@$this_timestamp\" $link_tmp") == 0 or ldie "cannot set mtime on symlink '$link_tmp'\n";
     rename($link_tmp, $link) or ldie "cannot finalize symlink '$link'\n";
     if ($verbose) {
-      my $target = readlink($link);
       lprint "created symlink '$link' -> '$target'\n";
     }
   }
