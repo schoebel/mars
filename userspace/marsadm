@@ -52,6 +52,14 @@ sub get_link {
   return $result;
 }
 
+sub is_link_recent {
+  my ($path) = @_;
+  my @stat = lstat($path);
+  return 0 if (!@stat);
+  return 1 if $stat[9] + 15 >= mars_time();
+  return 0;
+}
+
 sub to_tmp {
   my $path = shift;
   $path =~ s:^(.*)/:$1/.tmp.:;
@@ -1331,21 +1339,31 @@ sub _primary_res {
 sub primary_phase0 {
   my ($cmd, $res) = @_;
   ldie "cannot switch primary: mars kernel module is not loaded\n" unless ($cmd eq "secondary" || -d "/proc/sys/mars");
-  if ($cmd eq "primary" and !$force) {
+  if ($force) {
+    lwarn "You can do a '$cmd --force' only in DISCONNECTED state.\n";
+    check_todo($cmd, $res, "connect", 0, 0);
+  }
+  if ($cmd eq "primary") {
     check_sync_finished($res, $host);
     check_todo($cmd, $res, "attach", 1, 0);
-    check_todo($cmd, $res, "connect", 1, 0);
+    check_todo($cmd, $res, "connect", 1, 0) if !$force;
     check_todo($cmd, $res, "allow-replay", 1, 0);
-    #check_status($cmd, $res, "replay_rate", 0, 0, 1);
   }
   my $old = _get_designated_primary($res);
   return if ($old eq $host and $cmd eq "primary");
   return if $old eq "(none)";
-  my $device_in_use = get_link("$mars/resource-$res/actual-$old/open-count", 1);
+  my $open_count_path = "$mars/resource-$res/actual-$old/open-count";
+  my $device_in_use = get_link($open_count_path, 1);
   if ($device_in_use) {
     my $name = get_link("$mars/resource-$res/device-$old", 1) || "unknown";
     lwarn "device '/dev/mars/$name' for resource '$res' is $device_in_use times in use on primary host '$old'\n";
     ldie "first you must umount/close the device (on host '$old')\n" unless $force;
+    lwarn "First you SHOULD umount/close the device (on host '$old'), but you ignore this recommendation by giving the --force option.\n";
+    if (is_link_recent($open_count_path)) {
+      lwarn "You are forcing a SPLIT BRAIN via --force right now. Do you know that this is an ERRONEOUS state? Do you really know what you are doing?\n";
+    } else {
+      lwarn "You may produce a SPLIT BRAIN via --force because the peer host '$old' is currently not reachable.\n";
+    }
   }
   lprint "all preconditions OK for resource '$res'\n";
 }
