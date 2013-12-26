@@ -681,7 +681,11 @@ ping-timeout
 
 \begin_layout Standard
 What will be the final result when that risk becomes true? Simply, your
- secondary site will be in state 
+ secondary site will be 
+\emph on
+permanently
+\emph default
+ in state 
 \family typewriter
 inconsistent
 \family default
@@ -23859,26 +23863,24 @@ This chapter is organized strictly top-down.
 \begin_layout Standard
 If you are a sysadmin and want to inform yourself about internals (useful
  for debugging), the relevant information is at the beginning, and you don't
- need to dive into all technical details at the end (e.g., you may stop after
- reading the documentation on symlink trees or even use that documentation
- like an encyclopedia).
+ need to dive into all technical details at the end.
 \end_layout
 
 \begin_layout Standard
-If you are a kernel developer and want to contribute code to the MARS community,
- please read it (almost) all.
+If you are a kernel developer and want to contribute code to the emerging
+ MARS community, please read it (almost) all.
  Due to the top-down organization, sometimes you will need to follow some
  forward references in order to understand details.
  Therefore I recommend reading this chapter twice in two different reading
  modes: in the first reading pass, you just get a raw network of principles
  and structures in your brain (you don't want to grasp details, therefore
  don't strive for a full understanding).
- In the second pass, you exploit your knowlegde from the first pass for
- a deeper understanding of the details.
+ In the second pass, you will exploit your knowlegde from the first pass
+ for a deeper understanding of the details.
 \end_layout
 
 \begin_layout Standard
-Alternatively, you may first read the first section about general architecture,
+Alternatively, you may first read the sections about general architecture,
  and then start a bottom-up scan by first reading the last section about
  generic objects and aspects, and working in reverse 
 \emph on
@@ -23893,7 +23895,585 @@ sections in-order) until you finally reach the kernel interfaces / symlink
 \end_layout
 
 \begin_layout Section
-General Architecture
+Motivation / Politics
+\end_layout
+
+\begin_layout Standard
+MARS is not yet upstream in the Linux kernel.
+ This section tries to clear up some potential doubts.
+ Some people have asked why MARS uses its own internal framework instead
+ of 
+\emph on
+directly
+\emph default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Notice that 
+\emph on
+indirect
+\emph default
+ use of pre-existing Linux infrastructure is not only possible, but actually
+ implemented, by usinig it 
+\emph on
+internally
+\emph default
+ in brick 
+\emph on
+implementations
+\emph default
+ (black-box principle).
+ However, such bricks are not portable to other environments like userspace.
+\end_layout
+
+\end_inset
+
+ being based on some already existing Linux kernel infrastructures like
+ the device mapper.
+ Here is a list of technical reasons:
+\end_layout
+
+\begin_layout Enumerate
+The existing device mapper infrastructure is based on 
+\family typewriter
+struct bio
+\family default
+.
+ In contrast, the new XIO personality of the generic brick infrastructure
+ is based on the concept of AIO (Asynchronous IO), which is a 
+\series bold
+true superset
+\series default
+ of block IO.
+\end_layout
+
+\begin_layout Enumerate
+In particular, 
+\family typewriter
+struct bio
+\family default
+ is firmly referencing to 
+\family typewriter
+struct page
+\family default
+ (via intermediate 
+\family typewriter
+struct bio_vec
+\family default
+), using types like 
+\family typewriter
+sector_t
+\family default
+ in the field 
+\family typewriter
+bi_sector
+\family default
+.
+ Basic transfer units are blocks, or sectors, or pages, or the like.
+ In contrast, 
+\family typewriter
+struct aio_object
+\family default
+ used by the XIO personality can address 
+\series bold
+arbitrary granularity
+\series default
+ memory with byte resolution even at odd
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Some brick 
+\emph on
+implementations
+\emph default
+ (as opposed to the capabilities of the 
+\emph on
+interface
+\emph default
+) may be (and, in fact, 
+\emph on
+are
+\emph default
+) restricted to 
+\family typewriter
+PAGE_SIZE
+\family default
+ operations or the like.
+ This is no general problem, because IOP can automatically insert some translato
+r bricks extending the capabilities to universal granularity (of course
+ at some performance costs).
+\end_layout
+
+\end_inset
+
+ positions in (virtual) files / devices, similar to classical Unix file
+ IO, but 
+\emph on
+asynchronously
+\emph default
+.
+ Practical experience shows that even non-functional properties like performance
+ of many datacenter workloads are profiting from that
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+The current transaction logger uses variable-sized headers at 
+\begin_inset Quotes eld
+\end_inset
+
+odd
+\begin_inset Quotes erd
+\end_inset
+
+ addresses.
+ Although this increases 
+\family typewriter
+memcpy()
+\family default
+ load due to 
+\begin_inset Quotes eld
+\end_inset
+
+misalignment
+\begin_inset Quotes erd
+\end_inset
+
+, the 
+\emph on
+overall performance
+\emph default
+ was provably better than in variants where sector / page alignment was
+ strictly obeyed, but space was wasted for alignments.
+ Such functionality is only possible if the XIO infrastructure 
+\emph on
+allows
+\emph default
+ 
+\emph on
+for
+\emph default
+ (but doesn't force) 
+\begin_inset Quotes eld
+\end_inset
+
+mis-aligned
+\begin_inset Quotes erd
+\end_inset
+
+ IO operations.
+ In future, many different transaction logfile formats showing different
+ runtime behaviour (e.g.
+ optimized for high-throughput SSD loads) may co-exist in parallel.
+ Note that properly aligned XIO operations bear no noticeable overhead compared
+ to classical block IO, at least in typical datacenter RAID scenarios.
+\end_layout
+
+\end_inset
+
+.
+ The AIO/XIO abstraction contains no fixed link to kernel abstractions and
+ should be 
+\series bold
+easily portable
+\series default
+ to other environments.
+ In summary, the new personality provides a uniform abstraction which abstracts
+ away from multiple different kernel interfaces; it is designed to be useful
+ even in userspace.
+\end_layout
+
+\begin_layout Enumerate
+Kernel infrastructures for the concept of 
+\emph on
+direct IO
+\emph default
+ are different from those for 
+\emph on
+buffered IO
+\emph default
+.
+ The XIO personality used by MARS subsumes both concepts as use case 
+\emph on
+variants
+\emph default
+.
+ 
+\series bold
+Buffering
+\series default
+ is an optional internal property of XIO bricks (almost non-functional property
+ with support for consistency guarantees).
+\end_layout
+
+\begin_layout Enumerate
+The AIO/XIO personality is generically designed for remote operations over
+ networks, at arbitrary places in the IO stack, with (almost
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+By default, automatic network connection re-establishment and infinite network
+ retries are already implemented in the 
+\family typewriter
+xio_client
+\family default
+ and 
+\family typewriter
+xio_server
+\family default
+ bricks to provide fully transparent semantics.
+ However, this may be undesirable in case of fatal crashes.
+ Therefore, abort operations are also configurable, as well as network timeouts
+ which are then mapped to classical IO errors.
+\end_layout
+
+\end_inset
+
+) no semantic differences to local operations (built-in
+\series bold
+ network transparency
+\series default
+).
+ There are universal provisions for mixed operation of different versions
+ (
+\series bold
+rolling software updates
+\series default
+ in clusters / grids).
+\end_layout
+
+\begin_layout Enumerate
+The generic brick infrastructure (as well as its personalities like XIO
+ or any other future personality) supports 
+\series bold
+dynamic re-wiring / re-configuration
+\series default
+ 
+\emph on
+during
+\emph default
+ operation (even while parallel IO requests are flying, some of them taking
+ different paths in the IO stack in parallel).
+ This is absolutely needed for MARS Light logfile rotation.
+ In the long term, this would be useful for many advanced new features and
+ products, not limited to multipathing.
+\end_layout
+
+\begin_layout Enumerate
+The generic brick infrastructure (and in turn all personalities) provide
+ 
+\series bold
+additional comfort
+\series default
+ to the programmer while enabling 
+\series bold
+increased functionality
+\series default
+: by use of a generalization of 
+\series bold
+aspect orientation
+\series default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Similar to AOP, insertion of IOP bricks for checking / debugging etc is
+ one of the key advantages of the generic brick infrastructure.
+ In contrast to AOP where debugging is usually {en,dis}abled statically
+ at compile time, IOP allows for 
+\emph on
+dynamic
+\emph default
+ (re-)configuration of debugging bricks, automatic repair, and many more
+ features promoted by 
+\emph on
+organic computing
+\emph default
+.
+\end_layout
+
+\end_inset
+
+, the programmer need no longer worry about dynamic memory allocations for
+ 
+\emph on
+local state
+\emph default
+ in a brick instance.
+ MARS is 
+\series bold
+automating local state
+\series default
+ even when dynamically instantiating new bricks (possibly having the same
+ brick type) at runtime.
+ Specifially, XIO is automating 
+\series bold
+request stacking
+\series default
+ at the completion path this way, even while dynamically reconfiguring the
+ IO stack
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+The generic aspect orientation approach leads to better 
+\series bold
+separation of concerns
+\series default
+: local state needed by brick implementations is not visible from outside
+ by default.
+ In other words, local state is also 
+\series bold
+private state
+\series default
+.
+ Accidental hampering of internal operations is impeded.
+\end_layout
+
+\begin_layout Plain Layout
+Example from the kernel: in 
+\family typewriter
+include/linux/blkdev.h
+\family default
+ the definition of 
+\family typewriter
+struct request
+\family default
+ contains the following comment: 
+\family typewriter
+/* the following two fields are internal, NEVER access directly */
+\family default
+.
+ It appears that 
+\family typewriter
+struct request
+\family default
+ contains not only fields relevant for the caller, but also 
+\series bold
+internal fields
+\series default
+ needed only in 
+\emph on
+some
+\emph default
+ 
+\emph on
+specific
+\emph default
+ callees.
+ For example, 
+\family typewriter
+rb_node
+\family default
+ is documented to be used only in IO schedulers.
+\end_layout
+
+\begin_layout Plain Layout
+XIO goes one step further: there need not exist exactly one IO scheduler
+ instance in the IO stack for a single device.
+ Future 
+\family typewriter
+xio_scheduler_{deadline,cfq,...}
+\family default
+ brick types could be each instantiated many times, and in arbitrary places,
+ even for the same (logical) device.
+ The equivalent of 
+\family typewriter
+rb_node
+\family default
+ would then be automatically instantiated multiple times for the same IO
+ request, by automatically instantiating the right local aspect instances.
+\end_layout
+
+\end_inset
+
+.
+ A similar automation
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+DM can achieve stacking and dynamic routing by a workaround called 
+\emph on
+request cloning
+\emph default
+, potentially leading to mass creation of temporary / intermediate object
+ instances.
+\end_layout
+
+\end_inset
+
+ does not exist in the rest of the Linux kernel.
+\end_layout
+
+\begin_layout Enumerate
+The generic brick infrastructure, together with personalities like XIO,
+ enables 
+\series bold
+new long-term functional and non-functional opportunities
+\series default
+ by use of concepts from instance-oriented programming (IOP
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+See 
+\begin_inset Flex URL
+status collapsed
+
+\begin_layout Plain Layout
+
+http://athomux.net/papers/paper_inst2.pdf
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+).
+ The application area is 
+\series bold
+not limited to device drivers
+\series default
+.
+ For example, a new personality for 
+\emph on
+stackable filesystems
+\emph default
+ could be developed in future.
+\end_layout
+
+\begin_layout Standard
+In summary, anyone who would insist that MARS Light should be 
+\emph on
+directly
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Notice that kernel-specific structures like 
+\family typewriter
+struct bio
+\family default
+ are of course used by MARS, but only 
+\emph on
+inside
+\emph default
+ the blackbox implementation of bricks like 
+\family typewriter
+mars_bio
+\family default
+ or 
+\family typewriter
+mars_if
+\family default
+ which act as 
+\series bold
+adaptors
+\series default
+ to/from that structure.
+ It is possible to write further adaptors, e.g.
+ for direct interfacing to the device mapper infrastructure.
+\end_layout
+
+\end_inset
+
+
+\emph default
+ based on pre-existing kernel structures / frameworks instead of contributing
+ a new framework would cause a 
+\emph on
+massive regression of functionality
+\emph default
+.
+\end_layout
+
+\begin_layout Itemize
+On one hand, all code contributed by the MARS project is 
+\series bold
+non-intrusive
+\series default
+ into the rest of the Linux kernel.
+ From the viewpoint of other parts of the kernel, the whole addition 
+\emph on
+behaves
+\emph default
+ 
+\emph on
+like
+\emph default
+ a driver (although its infrastructure is much more than a driver).
+\end_layout
+
+\begin_layout Itemize
+On the other hand, if people are interested, the contributed infrastructure
+ 
+\emph on
+may
+\emph default
+ be used to 
+\emph on
+add
+\emph default
+ to the power of the Linux kernel.
+ It is designed to be 
+\series bold
+open for contributions
+\series default
+.
+\end_layout
+
+\begin_layout Itemize
+A 
+\emph on
+possible
+\emph default
+ (but not the only possible) way to do this is giving the generic brick
+ framework / the XIO personality as well as future personalities / the MARS
+ Light application the status of a 
+\emph on
+subsystem
+\emph default
+ inside the kernel (in the long term), similar to the SCSI subsystem or
+ the network subsystem.
+ Noone is forced to use it, but anybody may use it if he/she likes.
+\end_layout
+
+\begin_layout Itemize
+Politically, the author is a FOSS advocate willing to collaborate and to
+ support anyone interested in contributions.
+ The author's personal interest is long-term and is open for both in-tree
+ and out-of-tree extensions of both the framework and MARS by any other
+ party obeying the GPL and not hazarding FOSS by patents (instead supporting
+ organizations like the Open Invention Network).
+ The author is open to closer relationships with the Linux Foundation and
+ other parts of the Linux ecosystem.
+\end_layout
+
+\begin_layout Section
+Architecture Overview
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/MARS_Framework_Architecture.pdf
+	width 100col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Some Architectural Details
 \end_layout
 
 \begin_layout Standard
@@ -23907,7 +24487,7 @@ zones of responsibility
 
 , not necessarily a strict hierarchy (although Dijkstra's famous layering
  rules from THE are tried to be respected as much as possible).
- The construction principles follow the concepts of 
+ The construction principle follows the concept of 
 \series bold
 Instance Oriented Programming
 \series default
@@ -23923,7 +24503,11 @@ http://athomux.net/papers/paper_inst2.pdf
 \end_inset
 
 .
- Please note that MARS Light is only instance-based
+ Please note that MARS Light is only instance-
+\emph on
+based
+\emph default
+
 \begin_inset Foot
 status open
 
@@ -23966,7 +24550,11 @@ worker
 
 \end_inset
 
-, while MARS Full is planned to be fully instance-oriented.
+, while MARS Full is planned to be fully instance-
+\emph on
+oriented
+\emph default
+.
 \end_layout
 
 \begin_layout Subsection
@@ -24145,15 +24733,19 @@ Documentation of the MARS Light Symlink Tree
 \end_layout
 
 \begin_layout Section
-MARS Worker Bricks
+XIO Worker Bricks
 \end_layout
 
 \begin_layout Section
-MARS Strategy Bricks
+StrategY Worker Bricks
+\end_layout
+
+\begin_layout Standard
+NYI
 \end_layout
 
 \begin_layout Section
-The MARS Brick Infrastructure Layer
+The XIO Brick Personality
 \end_layout
 
 \begin_layout Section
