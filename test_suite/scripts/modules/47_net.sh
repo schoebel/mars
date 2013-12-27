@@ -29,7 +29,7 @@ function net_run
 
     net_check_variables
 
-    net_do_impact_cmd $primary_host "check_off" "remote_host:$secondary_host"
+    net_do_impact_cmd $primary_host "check_off" "remote_host=$secondary_host"
 
     mount_mount_data_device
     resource_clear_data_device $primary_host $res
@@ -39,11 +39,11 @@ function net_run
 
     sleep $net_time_data_dev_writer
 
-    net_do_impact_cmd $primary_host "on" "remote_host:$secondary_host"
+    net_do_impact_cmd $primary_host "on" "remote_host=$secondary_host"
 
     sleep $net_time_data_dev_writer
 
-    net_do_impact_cmd $primary_host "off" "remote_host:$secondary_host"
+    net_do_impact_cmd $primary_host "off" "remote_host=$secondary_host"
 
     lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
     main_error_recovery_functions["lib_rw_stop_scripts"]=
@@ -57,7 +57,7 @@ function net_do_impact_cmd
 {
     local host=$1 array_index="$2" replace_expression="$3"
     local cmd="${net_impact_cmd[$array_index]}"
-    local pattern="${replace_expression%:*}" replace="${replace_expression#*:}"
+    local pattern="${replace_expression%=*}" replace="${replace_expression#*=}"
     local rc_req=0 check_array_index var
 
     if [ -z "$cmd" ]; then
