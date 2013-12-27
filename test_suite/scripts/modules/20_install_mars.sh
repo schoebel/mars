@@ -23,6 +23,8 @@ function install_mars_prepare
 {
     install_mars_check_variables
 
+    install_mars_fill_userspace_target_dir_list
+    
     install_mars_check_access_to_remote_hosts \
         "${main_host_list[@]}" "$install_mars_source_host"
 
@@ -43,6 +45,17 @@ function install_mars_prepare
         *) lib_exit 1 "undefined method $install_mars_method"
     esac
 }
+
+function install_mars_fill_userspace_target_dir_list
+{
+    install_mars_userspace_target_dir_list=( \
+        ["$checkout_mars_src_directory/userspace/marsadm"]="/usr/bin" \
+        ["$install_mars_contrib_src_directory/bin/marsview"]="/usr/bin" \
+        ["$install_mars_contrib_src_directory/lib/MARS/Resource.pm"]="/usr/share/perl5/MARS" \
+        ["$install_mars_contrib_src_directory/lib/MARS.pm"]="/usr/share/perl5" \
+                                           )
+}
+
 
 function install_mars_complete_filename_with_kernel_release
 {
@@ -194,6 +207,11 @@ function install_mars_check_variables
         lib_exit 1 "no source host given"
     fi
     
+    if [ -z "$checkout_mars_src_directory" ]; then
+        lib_exit 1 "variable checkout_mars_src_directory empty"
+    else if [ ! -d "$checkout_mars_src_directory" ]; then
+        lib_exit 1 "directory checkout_mars_src_directory=$checkout_mars_src_directory does not exist"
+    fi
     # check method specific variables
     case $install_mars_method in # ((
         kernel_and_modules_via_sync_from_host_to_host)
@@ -204,9 +222,15 @@ function install_mars_check_variables
                     lib_exit 1 "variable $varname not set"
                 fi
             done
-            if [ ${#install_mars_userspace_target_dir_list[*]} -eq 0 ]; then
-                lib_exit 1 "variable install_mars_userspace_target_dir_list not set"
+            local declare_string
+            if ! declare_string="$(declare -p install_mars_userspace_target_dir_list)"
+            then
+                lib_exit 1 "array install_mars_userspace_target_dir_list not declared"
             fi
+            if [ "${declare_string#* -A }" = "$declare_string" ]; then
+                lib_exit 1 "install_mars_userspace_target_dir_list not declared as associative array"
+            fi
+
             ;;
         *) lib_exit 1 "undefined method $install_mars_method"
     esac
