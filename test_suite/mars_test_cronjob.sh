@@ -45,27 +45,28 @@ function execute_tests
     local errorfile_grep_cmd='grep ERROR-FILE '$tmp_file
     local kernel_stack_grep_cmd='grep KERNEL-STACK '$tmp_file
 
-    for t in "${!tests_to_execute[@]}"; do
-        local config_root_dir=${tests_to_execute[$t]}
+    for t in "${tests_to_execute[@]}"; do
+        local test_dir="${t%:*}"
+        local config_root_dir=${t#*:}
         local config_root_dir_opt=${config_root_dir:+"--config_root_dir=$test_suite_dir/$config_root_dir"}
-        echo executing test $t
-        cd $test_suite_dir/$t || myexit 1
+        echo executing test $test_dir
+        cd $test_suite_dir/$test_dir || myexit 1
         $start_script $config_root_dir_opt 2>&1 |  tee $tmp_file
         rc=${PIPESTATUS[0]}
         if [ $rc -ne 0 ];then
-            fail_msg+="$t"$'\n'
+            fail_msg+="$test_dir"$'\n'
             send_msg=1
         fi
         if $perf_grep_cmd >/dev/null; then
-            perf_msg+="$t: $($perf_grep_cmd)"$'\n'
+            perf_msg+="$test_dir: $($perf_grep_cmd)"$'\n'
             send_msg=1
         fi
         if $errorfile_grep_cmd >/dev/null; then
-            errorfile_msg+="$t: $($errorfile_grep_cmd)"$'\n'
+            errorfile_msg+="$test_dir: $($errorfile_grep_cmd)"$'\n'
             send_msg=1
         fi
         if $kernel_stack_grep_cmd >/dev/null; then
-            kernel_stack_msg+="$t: $($kernel_stack_grep_cmd)"$'\n'
+            kernel_stack_msg+="$test_dir: $($kernel_stack_grep_cmd)"$'\n'
             send_msg=1
         fi
         if [ $rc -ne 0 -a $continue_after_failed_test -eq 0 ];then
@@ -77,7 +78,7 @@ function execute_tests
         local to
         local msg="$fail_msg$perf_msg$errorfile_msg$kernel_stack_msg"$'\n'
         for to in "${mail_to[@]}"; do
-                sendEmail -m "$msg" -f $mail_from -t $to -u "failed mars tests" -s $mail_server
+                sendEmail -m "$msg" -f $mail_from -test_dir $to -u "failed mars tests" -s $mail_server
         done
         echo "$msg"
         return 1
@@ -132,45 +133,41 @@ mail_to=("frank.liepold@1und1.de")
 
 start_script=$test_suite_dir/scripts/start_test.sh
 
-# key = test directory, value = directory serving as parameter for option
-# --config_root_dir of start_test.sh
+# value = <test directory>:<directory serving as parameter for option
+# --config_root_dir of start_test.sh>
 # all directory paths are given relative to test_suite_dir
 
-declare -A tests_to_execute
 tests_to_execute=(\
-["build_test_environment/checkout"]="build_test_environment" \
-["build_test_environment/make/make_mars/grub"]="build_test_environment" \
-["build_test_environment/install_mars"]="build_test_environment" \
-["build_test_environment/lv_config"]="build_test_environment" \
-["build_test_environment/cluster"]="build_test_environment" \
-["build_test_environment/resource/create_resource"]="build_test_environment" \
-["test_cases/admin/apply_fetch/apply"]="test_cases/admin" \
-["test_cases/admin/apply_fetch/fetch"]="test_cases/admin" \
-["test_cases/hardcore/destroy_secondary_logfile"]="test_cases/hardcore" \
-["test_cases/admin/resizing"]="test_cases/admin" \
-["test_cases/admin/logrotate"]="test_cases/admin" \
-["test_cases/admin/logdelete"]="test_cases/admin" \
-["test_cases/bugs/memleak"]="test_cases/bugs" \
-["test_cases/admin/switch2primary"]="test_cases/admin" \
-["test_cases/admin/switch2primary_force"]="test_cases/admin" \
-["test_cases/admin/datadev_full"]="test_cases/admin" \
-["test_cases/hardcore/mars_dir_full/write_other_file"]="test_cases/hardcore" \
-["test_cases/hardcore/mars_dir_full/write_data_dev"]="test_cases/hardcore" \
-["test_cases/stabil/net_failure/connection_cut"]="test_cases/stabil" \
-["test_cases/admin/three_nodes"]="test_cases/admin" \
-["test_cases/admin/switch2primary_force"]="test_cases/admin" \
-["test_cases/stabil/crash/crash_primary"]="test_cases/stabil" \
-["test_cases/stabil/crash/crash_primary_logger_comletion_semantics__aio_sync_mode"]="test_cases/stabil" \
-["test_cases/stabil/crash/crash_primary_logger_completion_semantics"]="test_cases/stabil" \
-["test_cases/stabil/crash/crash_primary_aio_sync_mode"]="test_cases/stabil" \
-["test_cases/bugs/aio_filehandle"]="test_cases/bugs" \
-["build_test_environment/resource/leave_resource"]="test_cases/admin" \
-["test_cases/perf"]="" \
+    "build_test_environment/checkout:build_test_environment"
+    "build_test_environment/make/make_mars/grub:build_test_environment"
+    "build_test_environment/install_mars:build_test_environment"
+    "build_test_environment/lv_config:build_test_environment"
+    "build_test_environment/cluster:build_test_environment"
+    "build_test_environment/resource/create_resource:build_test_environment"
+    "test_cases/admin/apply_fetch/apply:test_cases/admin"
+    "test_cases/admin/apply_fetch/fetch:test_cases/admin"
+    "test_cases/hardcore/destroy_secondary_logfile:test_cases/hardcore"
+    "test_cases/admin/resizing:test_cases/admin"
+    "test_cases/admin/logrotate:test_cases/admin"
+    "test_cases/admin/logdelete:test_cases/admin"
+    "test_cases/bugs/memleak:test_cases/bugs"
+    "test_cases/admin/switch2primary:test_cases/admin"
+    "test_cases/admin/switch2primary_force:test_cases/admin"
+    "test_cases/admin/datadev_full:test_cases/admin"
+    "test_cases/hardcore/mars_dir_full/write_other_file:test_cases/hardcore"
+    "test_cases/hardcore/mars_dir_full/write_data_dev:test_cases/hardcore"
+    "test_cases/stabil/net_failure/connection_cut:test_cases/stabil"
+    "test_cases/admin/three_nodes:test_cases/admin"
+    "test_cases/admin/switch2primary_force:test_cases/admin"
+    "test_cases/stabil/crash/crash_primary:test_cases/stabil"
+    "test_cases/stabil/crash/crash_primary_logger_comletion_semantics__aio_sync_mode:test_cases/stabil"
+    "test_cases/stabil/crash/crash_primary_logger_completion_semantics:test_cases/stabil"
+    "test_cases/stabil/crash/crash_primary_aio_sync_mode:test_cases/stabil"
+    "test_cases/bugs/aio_filehandle:test_cases/bugs"
+    "build_test_environment/resource/leave_resource:test_cases/admin"
+    "test_cases/perf:"
 )
 
-tests_to_execute=(\
-["build_test_environment/resource/create_resource"]="build_test_environment" \
-)
 set_env
 
 execute_tests
