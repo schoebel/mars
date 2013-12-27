@@ -209,20 +209,19 @@ function install_mars_check_variables
     
     if [ -z "$checkout_mars_src_directory" ]; then
         lib_exit 1 "variable checkout_mars_src_directory empty"
-    else if [ ! -d "$checkout_mars_src_directory" ]; then
+    elif [ ! -d "$checkout_mars_src_directory" ]; then
         lib_exit 1 "directory checkout_mars_src_directory=$checkout_mars_src_directory does not exist"
     fi
     # check method specific variables
     case $install_mars_method in # ((
         kernel_and_modules_via_sync_from_host_to_host)
-            local varname var
+            local varname var declare_string
             for varname in source_host kernel_release files_to_sync_list; do
                 eval var='$install_mars_'$varname
                 if [ -z "$var" ];then
                     lib_exit 1 "variable $varname not set"
                 fi
             done
-            local declare_string
             if ! declare_string="$(declare -p install_mars_userspace_target_dir_list)"
             then
                 lib_exit 1 "array install_mars_userspace_target_dir_list not declared"
