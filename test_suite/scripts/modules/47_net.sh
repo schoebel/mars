@@ -31,26 +31,26 @@ function net_run
 
     net_do_impact_cmd $primary_host "check_off" "remote_host:$secondary_host"
 
-###    mount_mount_data_device
-###    resource_clear_data_device $primary_host $res
-### 
-###    lib_rw_start_writing_data_device $primary_host "writer_pid" \
-###                                     "writer_script"  0 1 $res
-###
-###    sleep $net_time_data_dev_writer
+    mount_mount_data_device
+    resource_clear_data_device $primary_host $res
+ 
+    lib_rw_start_writing_data_device $primary_host "writer_pid" \
+                                     "writer_script"  0 1 $res
+
+    sleep $net_time_data_dev_writer
 
     net_do_impact_cmd $primary_host "on" "remote_host:$secondary_host"
 
-###    sleep $net_time_data_dev_writer
+    sleep $net_time_data_dev_writer
 
     net_do_impact_cmd $primary_host "off" "remote_host:$secondary_host"
 
-###    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
-###    main_error_recovery_functions["lib_rw_stop_scripts"]=
-###
-###    mount_umount_data_device $primary_host $res
-###    lib_wait_for_secondary_to_become_uptodate_and_cmp_cksums "net" \
-###                                    $secondary_host $primary_host $res $dev 0
+    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
+    main_error_recovery_functions["lib_rw_stop_scripts"]=
+
+    mount_umount_data_device $primary_host $res
+    lib_wait_for_secondary_to_become_uptodate_and_cmp_cksums "net" \
+                                    $secondary_host $primary_host $res $dev 0
 }
 
 function net_do_impact_cmd
