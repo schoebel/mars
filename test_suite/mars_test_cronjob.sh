@@ -122,9 +122,6 @@ test_suite_dir=$1
 
 echo Start $(basename $0) at $(date)
 
-eval $(ssh-agent)
-~/tools/sx
-
 mail_server=mxintern.schlund.de:587
 
 mail_from="$0@$(hostname)"
