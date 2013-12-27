@@ -136,7 +136,7 @@ To build the mars module and userspace tools you need:
   kernel source directory make_mars_kernel_src_directory for making the mars
   module.
   May coincide with checkout_mars_src_directory
-                       variable : make_mars_src_dir
+                       variable : make_mars_src_directory
     to be specified in file     : default-make_mars.conf
 
 - a directory containing a git repository which contains the userspace tool
