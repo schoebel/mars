@@ -180,7 +180,7 @@ ignore_cmd="grep -v '[/.]old' | grep -v 'ignore'"
 sort_cmd="while read i; do if [ -e \"\$i\"/prio-[0-9]* ]; then echo \"\$(cd \$i; ls prio-[0-9]*):\$i\"; else echo \"z:\$i\"; fi; done | sort | sed 's/^[^:]*://'"
 
 # find directories
-echo "================= Sourcing config files between $config_root_dir and $(pwd)t ==="
+echo "================= Sourcing config files between $config_root_dir and $(pwd) ==="
 for test_dir in $(find . -type d | eval "$ignore_cmd" | eval "$sort_cmd"); do
     (( dry_run_script )) || rm -f $test_dir/dry-run.$to_produce
     if [ -e "$test_dir/skip" ]; then
