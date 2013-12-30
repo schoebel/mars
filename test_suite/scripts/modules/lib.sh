@@ -97,7 +97,12 @@ function lib_exit
 function lib_vmsg
 {
     if (( verbose_script )); then
-        echo "$(date +'%Y-%m-%d %H:%M:%S') ${BASH_SOURCE[1]}:${BASH_LINENO[0]}: $*"
+        echo "$(date +'%Y-%m-%d %H:%M:%S') ${BASH_SOURCE[1]}:${BASH_LINENO[0]}: $* [[$(
+        for i in $(seq $((${#BASH_SOURCE[@]} - $main_min_stack_level)) -1 1); do
+            printf '%s' $prefix$(basename ${BASH_SOURCE[$i]}):${BASH_LINENO[$(($i - 1))]}
+            prefix='->'
+        done
+      )]]"
     fi
 }
 
