@@ -117,7 +117,8 @@ The output fo start_test.sh consists of the following sections:
     - Line titled "Failure <return code> <date and time>" (to stderr) in case
       of failure, "Finished <date and time>" (to stdout) otherwise
 
-- Line titled "Finished pwd=<test directory>"
+- If all tests in all leaf directories of the start directory terminated 
+  successfully: Line titled "Finished pwd=<start directory>"
 
         
 2. Naming conventions
