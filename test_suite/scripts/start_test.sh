@@ -23,13 +23,14 @@
 
 shopt -s extdebug
 
-# Make many measurements in subtrees of current working directory.
 # Use directory names as basis for configuration variants
 
 script_dir="$(cd "$(dirname "$(which "$0")")"; pwd)"
+echo "========================== Sourcing modules and default configuration =========="
 for lib in $script_dir/modules/lib*.sh; do
     source "$lib" || exit $?
 done
+echo "========================== End sourcing modules and default configuration ======"
 
 to_produce="${to_produce:-replay.gz}"
 to_check="${to_check:-}"
@@ -62,6 +63,7 @@ function set_host_locks
         lib_vmsg "  warning: main_host_list empty"
         return
     fi
+    echo "========================== Creating lock files ================================="
     for host in "${main_host_list[@]}"; do
         local lock_file=${main_lock_file_list[$host]}
         if [ -z "$lock_file" ]; then
@@ -74,15 +76,18 @@ function set_host_locks
         date > $lock_file || lib_exit 1
         lib_vmsg "  created lockfile $lock_file on $host"
     done
+    echo "========================== End creating lock files ============================="
 }
 
 function release_host_locks
 {
+    echo "========================== Deleting lock files ================================="
     for host in "${main_host_list[@]}"; do
         local lock_file=${main_lock_file_list[$host]}
         rm -f $lock_file || lib_exit 1
         lib_vmsg "  deleted lockfile $lock_file on $host"
     done
+    echo "========================== End deleting lock files ============================="
 }
 
 function source_module
@@ -97,6 +102,42 @@ function source_module
         exit -1
     fi
 }
+
+function save_environment
+{
+    # we cannot use lib_exit because the libs are not yet sourced in
+    environ_save=/tmp/environ.sav.$$
+    rm -f $environ_save || lib_exit 1 "cannot remove $environ_save"
+    set >$environ_save || lib_exit 1 "cannot create $environ_save"
+}
+
+# prints all shell variables which are set via sourcing the *.conf files
+function print_config_environment
+{
+    local f
+    local environ_actual=/tmp/environ.act.$$
+    [ -n "$environ_save" ] || lib_exit 1 "variable environ_save not set"
+    [ -r "$environ_save" ] || lib_exit 1 "file $environ_save not readable"
+    rm -f $environ_actual || lib_exit 1 "cannot remove $environ_actual"
+    set >$environ_actual || lib_exit 1 "cannot create $environ_actual"
+    # delete function definitions and sort
+    for f in $environ_save $environ_actual; do
+        sed -i -e '/^.* () *$/d;/^{ *$/,/^} *$/d' $f || lib_exit 1
+        sort -o $f $f || lib_exit 1
+    done
+
+    echo "========================== Configuration variables ============================="
+    # print lines uniq to $environ_actual and remove some not interesting
+    # variables
+    comm -2 -3 $environ_actual $environ_save | \
+        egrep -v '^(BASH_LINENO|FUNCNAME|OLDPWD|_)='
+    rm -f $environ_actual $environ_save
+    echo "========================== End configuration variables ========================="
+    
+}
+
+
+save_environment # for later use in print_config_environment
 
 shopt -s nullglob
 for module in $module_dir/[0-9]*.sh; do
@@ -139,7 +180,7 @@ ignore_cmd="grep -v '[/.]old' | grep -v 'ignore'"
 sort_cmd="while read i; do if [ -e \"\$i\"/prio-[0-9]* ]; then echo \"\$(cd \$i; ls prio-[0-9]*):\$i\"; else echo \"z:\$i\"; fi; done | sort | sed 's/^[^:]*://'"
 
 # find directories
-echo "Scanning directory structure starting from $(pwd)"
+echo "================= Sourcing config files between $config_root_dir and $(pwd)t ==="
 for test_dir in $(find . -type d | eval "$ignore_cmd" | eval "$sort_cmd"); do
     (( dry_run_script )) || rm -f $test_dir/dry-run.$to_produce
     if [ -e "$test_dir/skip" ]; then
@@ -196,6 +237,8 @@ for test_dir in $(find . -type d | eval "$ignore_cmd" | eval "$sort_cmd"); do
                 exit -1
             fi
         done
+        echo "================= End sourcing config files between $config_root_dir and $(pwd)t"
+        print_config_environment
         shopt -u nullglob
 
         export sub_prefix=$(echo $test_dir | sed 's/\//./g' | sed 's/\.\././g')
@@ -204,18 +247,17 @@ for test_dir in $(find . -type d | eval "$ignore_cmd" | eval "$sort_cmd"); do
             touch dry-run.$to_produce
         else
             set_host_locks
-            echo "==> $(date) Starting $sub_prefix"
+            echo "========================== $(date) Starting $sub_prefix ========================"
             eval "$to_start" # must call exit in case of failure
             release_host_locks
         fi
     )
     rc=$?
     if [ $rc -ne 0 ]; then
-        echo "Failure $rc $(date)."
+        echo "========================== Failure $rc $(date) =================================" >&2
     else
-        echo "Finished $(date)."
+        echo "========================== Finished $(date) ===================================="
     fi
-    echo "==============================================================="
     [ $rc -ne 0 ] && exit $rc
 done
 
@@ -224,5 +266,5 @@ if (( dry_run_script )); then
     rm -f $(find . -name "dry-run.$to_produce")
 fi
 
-echo "======== Finished pwd=$(pwd)"
+echo "========================== Finished pwd=$(pwd) ================================="
 exit 0

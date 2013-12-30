@@ -39,6 +39,7 @@ mkdir -p "$download_dir" || exit -1
 # general error exit function
 function lib_callstack
 {
+    echo "========================== Callstack ==========================================="
     local argv_index=0 i
     for i in ${!FUNCNAME[*]}; do
         local j args=
@@ -51,6 +52,7 @@ function lib_callstack
         fi
         echo ${BASH_SOURCE[(($i + 1))]:-"stdin"}:${BASH_LINENO[$i]} ${FUNCNAME[$i]} $args
     done
+    echo "========================== End callstack ======================================="
 }
 
 function lib_exit
@@ -60,11 +62,9 @@ function lib_exit
         echo "  $msg" >&2
     fi
     if [ $rc -ne 0 ]; then
-        printf "\nstack:\n" >&2
         lib_callstack >&2
     fi
     if [ $rc -ne $main_prevent_remove_lock_files_code ]; then
-        echo "lib_exit: releasing locks" >&2
         release_host_locks
     fi
     # to avoid recursion
@@ -75,7 +75,6 @@ function lib_exit
         exit $rc
     fi
     export lib_exit_recursion=1
-    echo "lib_exit: general after test checkings:" >&2
     lib_general_checks_after_every_test
     if [ ${#main_error_recovery_functions[*]} -ge 0 ]; then
         local func args

@@ -66,9 +66,11 @@ function lib_check_for_kernel_oops_after_start_time
 
 function lib_general_checks_after_every_test
 {
+    echo "========================== General checks of error and log files ==============="
 	lib_err_check_and_copy_global_err_files_all
 	lib_check_proc_sys_mars_variables
     lib_check_for_kernel_oops_after_start_time
+    echo "========================== End general checks of error and log files ==========="
 }
 
 function lib_check_proc_sys_mars_variables

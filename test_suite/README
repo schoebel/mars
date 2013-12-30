@@ -15,6 +15,7 @@ Event this file is not complete!
 Contents
 --------
 1. Running a test
+1.1. Test output
 2. Naming conventions
 3. Error handling
 4. Signal handling
@@ -60,7 +61,7 @@ subdirectory (we call it start directory) as follows:
   -- user_modules.conf
   -- <subdirname>.conf where subdirname runs top down through the parent
      directories starting with the immediate subdirectory of the start directory
-     (or the immediate subdirectory directory given by optione --config_root_dir)
+     (or the immediate subdirectory directory given by option --config_root_dir)
      to the leaf directory.
 
      If the start directory is a leaf directory the <leaf directory name>.conf
@@ -70,9 +71,9 @@ subdirectory (we call it start directory) as follows:
          1. start directory = test_cases/perf
             leaf directory  = test_cases/perf/apply/no_parallel_writer
 
-            leads to including of apply.conf and no_parallel_writer.conf (in this
-            order!) which must reside as mentioned above in the leaf directory
-            or any of it's parent directories (up to 20 levels).
+            leads to including of apply.conf and no_parallel_writer.conf (in
+            this order!) which must reside as mentioned above in the leaf
+            directory or any of it's parent directories (up to 20 levels).
 
          2. start directory = test_cases/perf/apply/no_parallel_writer
                               --config_root_dir=.../test_cases/perf
@@ -84,6 +85,39 @@ subdirectory (we call it start directory) as follows:
             leaf directory  = test_cases/perf/apply/no_parallel_writer
 
             leads to including of no_parallel_writer.conf
+
+1.1 Test output
+---------------
+
+The output fo start_test.sh consists of the following sections:
+
+- List titled "Sourcing modules and default configuration" of included scripts
+  from scripts/modules/*.sh and corresponding included default-*.conf files.
+
+- Per leaf directory:
+    - List  titled "Sourcing config files between <config_root_dir> and
+      <leaf directory>" of included *.conf files corresponding to the directory
+      structure.
+
+    - List titled "Configuration variables" of all configuration variables set
+      via all included *.conf file
+
+    - Section titled "Creating lock files"
+
+    - Section titled "<date and time> Starting <leaf directory>"
+      In this section lines starting with "calling ..." mark the call to one of
+      the functions listed in the aforementioned variables prepare_list,
+      setup_list, run_list, cleanup_list and finish_list
+
+      - In case of an error: Subsection titled "Callstack" (to stderr)
+
+      - Subsection titled "Deleting lock files"
+
+      - Subsection titled "General checks of error and log files"
+    - Line titled "Failure <return code> <date and time>" (to stderr) in case
+      of failure, "Finished <date and time>" (to stdout) otherwise
+
+- Line titled "Finished pwd=<test directory>"
 
         
 2. Naming conventions
