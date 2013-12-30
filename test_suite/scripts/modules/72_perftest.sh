@@ -224,7 +224,7 @@ function perftest_start_parallel_writer
     [ $# -eq 5 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local host=$1 varname_writer_start=$2 varname_writer_pid=$3
     local varname_writer_script=$4 res=$5
-    mount_mount_data_device
+    mount_mount_data_device $host $res
     eval $varname_writer_start=$(date +'%s')
     lib_rw_start_writing_data_device $host $varname_writer_pid \
                                      $varname_writer_script 0 0 $res
@@ -718,7 +718,7 @@ function perftest_prepare_write
                                                                 || lib_exit 1
 
     perftest_prepare_resource $res $secondary_host
-    mount_mount_data_device
+    mount_mount_data_device $primary_host $res
     resource_clear_data_device $primary_host $res
     if [ $perftest_division_mars_device_data_device -eq 1 ]; then
         perftest_switch_bbu_cache $primary_host

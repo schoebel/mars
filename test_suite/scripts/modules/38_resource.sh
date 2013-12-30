@@ -525,7 +525,7 @@ function resource_write_and_check
                                          $resource_time_constant_initial_sync \
                                          "time_waited"
     done
-    mount_mount_data_device
+    mount_mount_data_device $primary_host $res
     resource_clear_data_device $primary_host $res
 
     lib_rw_start_writing_data_device $primary_host "writer_pid" \

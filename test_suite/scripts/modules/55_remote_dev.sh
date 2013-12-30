@@ -28,7 +28,7 @@ function remote_dev_run
     local log_rotate_pid log_rotate_script
     local log_delete_pid log_delete_script action
 
-    mount_mount_data_device
+    mount_mount_data_device $primary_host $res
     resource_clear_data_device $primary_host $res
 
     cluster_remove_debugfiles $primary_host

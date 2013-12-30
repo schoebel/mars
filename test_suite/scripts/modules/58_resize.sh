@@ -79,7 +79,7 @@ function resize_run
     local dev=$(lv_config_get_lv_device $res)
     local writer_pid writer_script
 
-    mount_mount_data_device
+    mount_mount_data_device $primary_host $res
     resource_clear_data_device $primary_host $res
 
     lib_rw_start_writing_data_device $primary_host "writer_pid" \

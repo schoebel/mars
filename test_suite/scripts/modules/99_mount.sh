@@ -71,9 +71,8 @@ function mount_is_dir_mountpoint
 
 function mount_mount_data_device
 {
-    local res_no=${1:-0}
-    local res=${resource_name_list[$res_no]}
-    local host=${main_host_list[0]} 
+    [ $# -eq 2 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    local host=$1 res=$2
     local dev=$(resource_get_data_device $res)
     local mount_point=${resource_mount_point_list[$res]}
 

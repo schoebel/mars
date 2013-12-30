@@ -32,7 +32,7 @@ function crash_run
     local net_throughput
     local waited=0 error_ocurred=0
 
-    mount_mount_data_device
+    mount_mount_data_device $primary_host $res
     resource_clear_data_device $primary_host $res
 
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
@@ -98,7 +98,7 @@ function crash_write_data_device_and_calculate_checksums
 {
     local primary_host=$1 secondary_host=$2 res=$3 dev=$4
     local writer_pid writer_script write_count time_waited net_throughput
-    mount_mount_data_device
+    mount_mount_data_device $primary_host $res
     resource_clear_data_device $primary_host $res
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
                                      "writer_script" 0 0 $res

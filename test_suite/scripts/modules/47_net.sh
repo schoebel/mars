@@ -31,7 +31,7 @@ function net_run
 
     net_do_impact_cmd $primary_host "check_off" "remote_host=$secondary_host"
 
-    mount_mount_data_device
+    mount_mount_data_device $primary_host $res
     resource_clear_data_device $primary_host $res
  
     lib_rw_start_writing_data_device $primary_host "writer_pid" \

@@ -25,7 +25,7 @@ function logrotate_run
     local dev=$(lv_config_get_lv_device $res)
     local writer_pid writer_script write_count
 
-    mount_mount_data_device
+    mount_mount_data_device $primary_host $res
     resource_clear_data_device $primary_host $res
 
 

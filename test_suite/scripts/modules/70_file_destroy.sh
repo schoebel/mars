@@ -35,7 +35,7 @@ function file_destroy_run
     lib_vmsg "  ${FUNCNAME[0]}: sync time: $time_waited"
 
 
-    mount_mount_data_device
+    mount_mount_data_device $primary_host $res
     resource_clear_data_device $primary_host $res
 
 
