@@ -131,7 +131,7 @@ tst@1und1.de
 \end_layout
 
 \begin_layout Date
-Version 0.9 (incomplete)
+Version 0.10 (incomplete)
 \end_layout
 
 \begin_layout Lowertitleback
@@ -2526,7 +2526,7 @@ Switch Primary / Secondary Roles
 \end_layout
 
 \begin_layout Standard
-MARS Light distinguishes betwenn 
+In contrast to DRBD, MARS Light distinguishes between 
 \emph on
 intended
 \emph default
@@ -2536,8 +2536,8 @@ emergency
 \emph default
  switching.
  This distinction is necessary due to subtle differences in the communication
- architecture (synchronous communication vs synchronous communication, see
- sections 
+ architecture (asynchronous communication vs synchronous communication,
+ see sections 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "sec:The-Lamport-Clock"
@@ -2556,6 +2556,13 @@ reference "sec:The-Symlink-Tree"
 
 \begin_layout Subsubsection
 Intended Switching
+\begin_inset CommandInset label
+LatexCommand label
+name "sub:Intended-Switching"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -2570,12 +2577,13 @@ marsadm primary mydata
 
 \begin_layout Standard
 on your formerly secondary node.
- Precondition is that the old primary must not use its 
+ Precondition is that you are in connected state, and that the old primary
+ does not use its 
 \family typewriter
 /dev/mars/mydata
 \family default
  device any longer.
- If that precondition is violated, 
+ If the preconditions are violated, 
 \family typewriter
 marsadm primary
 \family default
@@ -2583,8 +2591,9 @@ marsadm primary
 \end_layout
 
 \begin_layout Standard
-The reason for this check is that we want to avoid split brain situation
- as well as we can.
+The preconditions try to protect you from doing silly things, such as accidental
+ly provoking a split brain error state.
+ We want to avoid split brain as well as we can.
  Therefore, we distinguish between 
 \emph on
 intended
@@ -2602,9 +2611,14 @@ Notice that the usage check for
 \family typewriter
 /dev/mars/mydata
 \family default
- is based on the open count transferred from another cluster node.
+ is based on the 
+\emph on
+open count
+\emph default
+ transferred from another cluster node.
  Since MARS is operating asynchronously (in contrast to DRBD), it may take
- some time our node knows that the device is no longer used at another node.
+ some time until our node knows that the device is no longer used at another
+ node.
  This can lead to a race condition if you automate an intended takeover
  with a script like 
 \family typewriter
@@ -2671,11 +2685,18 @@ marsadm wait-umount mydata && marsadm primary mydata
 
 \begin_layout Subsubsection
 Emergency Switching
+\begin_inset CommandInset label
+LatexCommand label
+name "sub:Emergency-Switching"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
-In case the connection to the old primary is lost, we just don't know anything
- about its 
+In case the connection to the old primary is lost for whatever reason, we
+ just don't know anything about its 
 \emph on
 current
 \emph default
@@ -2684,8 +2705,14 @@ current
 last known
 \emph default
  state).
- The following variant will skip almost all checks and tell your node to
- become primary forcefully:
+ The following variant will skip many checks and tell your node to become
+ primary forcefully:
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+marsadm disconnect mydata
 \end_layout
 
 \begin_layout Itemize
@@ -2694,14 +2721,91 @@ last known
 marsadm primary mydata --force
 \end_layout
 
+\begin_layout Itemize
+
+\family typewriter
+marsadm connect mydata
+\end_layout
+
 \begin_layout Standard
-This may lead to split brain if the old primary continues to operate on
- its local 
+The 
+\family typewriter
+disconnect
+\family default
+ is a precondition analogously to DRBD.
+ It tries to prevent you from accidental creation of a split brain error
+ state.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ 
+\series bold
+Split brain
+\series default
+ is always an 
+\series bold
+erroneous state
+\series default
+ which should be never entered deliberately! Once you have entered it accidental
+ly, you 
+\series bold
+must
+\series default
+ resolve it ASAP (see section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Split-Brain-Resolution"
+
+\end_inset
+
+), otherwise you cannot operate your resource any longer.
+\end_layout
+
+\begin_layout Standard
+While 
+\family typewriter
+marsadm primary
+\family default
+ without 
+\family typewriter
+--force
+\family default
+ tries to prevent split brain as best as it can (even in 
+\family typewriter
+disconnected
+\family default
+ mode, which is a major difference to DRBD's behaviour), any use of the
+ 
+\family typewriter
+--force
+\family default
+ option will almost 
+\emph on
+certainly
+\emph default
+ provoke a split brain if the old primary continues to operate on its local
+ 
 \family typewriter
 /dev/mars/mydata
 \family default
  device.
- Therefore, you should do this only after
+ Therefore, you are 
+\series bold
+strongly advised
+\series default
+ to do this 
+\series bold
+only
+\series default
+ after
 \end_layout
 
 \begin_layout Enumerate
@@ -2713,20 +2817,52 @@ marsadm primary
 \family typewriter
 --force
 \family default
- has failed, and
+ has failed 
+\emph on
+for no good reason
+\emph default
+, and
 \end_layout
 
 \begin_layout Enumerate
-you are sure you really want to switch even when that leads to a split brain.
- Notice that in case of connection loss you might not be able to reliably
+You are sure you really want to switch, even when that eventually leads
+ to a split brain.
+ You also declare that you are also willing to do 
+\emph on
+manual
+\emph default
+ split-brain resolution as described in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Split-Brain-Resolution"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Notice: in case of 
+\emph on
+connection loss
+\emph default
+ (e.g.
+ networking problems / network partitions) you might not be able to reliably
  detect whether a split brain will actually result, or not.
 \end_layout
 
 \begin_layout Standard
 In contrast to DRBD, split brain situations are handled differently by MARS
  Light.
- When two primaries are active at the same time, each of them writes into
- different logfiles 
+ When two primaries are accidentally active at the same time, each of them
+ writes into different logfiles 
 \family typewriter
 /mars/resource-mydata/log-000000001-A
 \family default
@@ -2741,16 +2877,22 @@ origin
  host is always recorded in the filename.
  Therefore, both nodes 
 \emph on
-can
+can theoretically
 \emph default
- run in primary mode indepently from each other, at least for some time.
- They may even 
+ run in primary mode independently from each other, at least for some time.
+ They might even 
 \family typewriter
 log-rotate
 \family default
  independently from each other.
- However, any other secondary node gets into some problems then: it simply
- does not not know whom it should follow.
+ However, the replication will certainly get stuck, and your 
+\family typewriter
+/mars/
+\family default
+ filesystem will eventually run out of space.
+ Any other secondary node will certainly get into serious problems: it simply
+ does not not know which split-brain version it should follow.
+ Therefore, you will certainly loose your redundancy.
 \end_layout
 
 \begin_layout Standard
@@ -2760,30 +2902,82 @@ passively
 \emph default
  by secondaries.
  Whenever a secondary detects that somewhere a split brain has happend,
- it just refuses to to apply any logfiles behind the split point.
- This means that its local disk state will remain consistet, but outdated
+ it just refuses to fetch and to apply any logfiles behind the split point.
+ This means that its local disk state will remain consistent, but outdated
  which respect to any of the split brain versions.
 \end_layout
 
 \begin_layout Subsection
 Split Brain Resolution
+\begin_inset CommandInset label
+LatexCommand label
+name "sub:Split-Brain-Resolution"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
-Whenever split brain occurs, you have two choices for resolution: either
- destroy one of your versions, or keep it under a different resource name.
+Split brain can naturally occur during a long-lasting network outage (aka
+ network partition) when you (forcefully) switch primaries inbetween, or
+ due to final loss of your old primary node (fatal node crash) when not
+ all logfile data had been transferred immediately before the final crash.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Remember that split brain is always an 
+\series bold
+erroneous state
+\series default
+ which must be resolved as soon as possible!
 \end_layout
 
 \begin_layout Subsubsection
-Destroying a Split Brain Version
+Final Destruction of a Damaged Node
+\begin_inset CommandInset label
+LatexCommand label
+name "sub:Final-Destroy-of"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
-Do the following steps:
+When a node has eventually died, do the following steps ASAP:
 \end_layout
 
 \begin_layout Enumerate
-Manually check which version is the 
+
+\emph on
+Physically
+\emph default
+ remove the dead node from your network.
+ Unplug all network cables! Failing to do so might provoke a disaster in
+ case it somehow resurrects in an uncontrolled manner, such as a partly-damaged
+ 
+\family typewriter
+/mars/
+\family default
+ filesystem, or whatever.
+ Don't risk any such unpredictable behaviour!
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Manually
+\series default
+ check which of the surviving versions will be the 
 \begin_inset Quotes eld
 \end_inset
 
@@ -2792,6 +2986,236 @@ right
 \end_inset
 
  one.
+ Any error is up to you: resurrecting an unnecessarily old / outdated version
+ and destroying the newest / best version is 
+\emph on
+your
+\emph default
+ fault, not the fault of MARS.
+\end_layout
+
+\begin_layout Enumerate
+On the surviving new designated primary, give the following commands:
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+
+\family typewriter
+marsadm --host=your-damaged-host disconnect mydata
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+marsadm --host=your-damaged-host leave-resource mydata
+\end_layout
+
+\end_deeper
+\begin_layout Enumerate
+In case any of the previous commands should fail (which is rather likely),
+ repeat it with an additional 
+\family typewriter
+--force
+\family default
+ option.
+ Don't use 
+\family typewriter
+--force
+\family default
+ in the first place, alway try first without it!
+\end_layout
+
+\begin_layout Enumerate
+Repeat the same with 
+\emph on
+all
+\emph default
+ resources which were formerly present at 
+\family typewriter
+your-damaged-host
+\family default
+.
+\end_layout
+
+\begin_layout Enumerate
+Finally, say 
+\family typewriter
+marsadm --host=your-damaged-host leave-cluster
+\family default
+ (optionally augmented with 
+\family typewriter
+--force
+\family default
+).
+\end_layout
+
+\begin_layout Standard
+Now your surviving nodes should 
+\emph on
+believe
+\emph default
+ that the old node 
+\family typewriter
+your-damaged-host
+\family default
+ does no longer exist, and that it does no longer participate in any resource.
+\end_layout
+
+\begin_layout Standard
+If you did not already switch your primary as described in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Emergency-Switching"
+
+\end_inset
+
+, do it now.
+\end_layout
+
+\begin_layout Standard
+In any case, 
+\series bold
+manually check
+\series default
+ whether a split brain is reported for any resource on any of your surviving
+ cluster nodes.
+ If you find one (and only then), please continue with the following recipe
+ as if you just had had a temporary failure of the surviving nodes:
+\end_layout
+
+\begin_layout Subsubsection
+Split Brain Resolution after a Temporary Failure
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Please remember that split brain is always an 
+\series bold
+erroneous state
+\series default
+ which must be resolved as soon as possible!
+\end_layout
+
+\begin_layout Standard
+Whenever split brain occurs for whatever reason, you have two choices for
+ resolution: either destroy one of your versions, or retain it under a different
+ resource name.
+\end_layout
+
+\begin_layout Standard
+In any of both cases, do the following steps ASAP:
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Manually
+\series default
+ check which (surviving) version is the 
+\begin_inset Quotes eld
+\end_inset
+
+right
+\begin_inset Quotes erd
+\end_inset
+
+ one.
+ Any error is up to you: destroying the wrong version is 
+\emph on
+your
+\emph default
+ fault, not the fault of MARS.
+\end_layout
+
+\begin_layout Enumerate
+On each non-right version (which you don't want to retain) which had been
+ primary before, umount your 
+\family typewriter
+/dev/mars/mydata
+\family default
+ or otherwise stop using it (e.g.
+ stop iSCSI or other users of the device).
+ Wait until each of them has actually left primary state and until their
+ local logfile(s) have been fully written back to the underlying disk.
+\end_layout
+
+\begin_layout Enumerate
+Wait until the network works again.
+ All your (surviving) cluster nodes 
+\emph on
+must
+\emph default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+If you are a MARS expert and you really know what you are doing (in particular,
+ you can anticipate the effects of the Lamport clock and of the symlink
+ update protocol including the 
+\begin_inset Quotes eld
+\end_inset
+
+eventually consistent
+\begin_inset Quotes erd
+\end_inset
+
+ behaviour including the not-yet-consistent intermediate states, see sections
+ 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:The-Lamport-Clock"
+
+\end_inset
+
+ and 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:The-Symlink-Tree"
+
+\end_inset
+
+), you may deviate from this requirement.
+\end_layout
+
+\end_inset
+
+ be able to communicate with each other.
+ If that is not possible, or if it takes too long, use the method described
+ in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Final-Destroy-of"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Enumerate
+If any of your (surviving) cluster nodes has already the 
+\begin_inset Quotes eld
+\end_inset
+
+right
+\begin_inset Quotes erd
+\end_inset
+
+ version and was not in a primary role when the split brain happened, you
+ don't need to do the following steps for it, of course.
+ The following applies only to those nodes which 
+\emph on
+deviate
+\emph default
+ from the correct version:
 \end_layout
 
 \begin_layout Enumerate
@@ -2803,34 +3227,118 @@ right
 \begin_inset Quotes erd
 \end_inset
 
- version is not the version which is currently designated as primary for
- the whole cluster.
- In this case (or if you want to ensure nothing can go wrong), say 
+ version you want to retain is 
+\emph on
+not
+\emph default
+ the version which is currently designated as primary for the whole cluster.
+ Only in such a case, switch the primary role as described in sections 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Intended-Switching"
+
+\end_inset
+
+ or 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Emergency-Switching"
+
+\end_inset
+
+.
+ Here is a repetition of the necessary steps:
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+First try 
 \family typewriter
-marsadm primary mydata --force
+marsadm primary mydata
 \family default
- on the node you want to become the surviving 
-\begin_inset Quotes eld
-\end_inset
-
-right
-\begin_inset Quotes erd
-\end_inset
-
- version.
- This should always work, even it is already the 
-\begin_inset Quotes eld
-\end_inset
-
-right
-\begin_inset Quotes erd
-\end_inset
-
- primary.
+ on the new designated primary host.
+ Don't mix up your shell windows!
 \end_layout
 
 \begin_layout Enumerate
-On each other (non-
+Only if that refuses working 
+\emph on
+for no good reason
+\emph default
+, do the following steps:
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+
+\family typewriter
+marsadm disconnect mydata
+\family default
+.
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+marsadm primary mydata --force
+\family default
+.
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+marsadm connect mydata
+\family default
+.
+\end_layout
+
+\end_deeper
+\end_deeper
+\begin_layout Standard
+The next steps are different for different use cases:
+\end_layout
+
+\begin_layout Paragraph
+Destroying a Wrong Split Brain Version
+\end_layout
+
+\begin_layout Standard
+Continue with the following step on the right cluster node(s):
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{enumerate}
+\backslash
+setcounter{enumi}{5}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+item 
+\end_layout
+
+\end_inset
+
+On each node with a non-
 \begin_inset Quotes erd
 \end_inset
 
@@ -2838,86 +3346,86 @@ right
 \begin_inset Quotes erd
 \end_inset
 
-) version, say 
+ version, say 
 \family typewriter
 marsadm invalidate mydata
 \family default
 .
- Do this only when split brain has actually occurred at that node; otherwise
- an unnecessary full sync will start which was not really needed.
 \end_layout
 
-\begin_layout Subsubsection
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{enumerate}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Paragraph
 Keeping a Split Brain Version
 \end_layout
 
 \begin_layout Standard
-Do the following steps:
+Continue with the following steps on the right cluster node(s):
 \end_layout
 
-\begin_layout Enumerate
-Manually check which version is the 
-\begin_inset Quotes eld
-\end_inset
+\begin_layout Standard
+\begin_inset ERT
+status open
 
-right
-\begin_inset Quotes erd
-\end_inset
+\begin_layout Plain Layout
 
- one.
+
+\backslash
+begin{enumerate}
+\backslash
+setcounter{enumi}{5}
 \end_layout
 
-\begin_layout Enumerate
-It may happen that the 
-\begin_inset Quotes eld
 \end_inset
 
-right
-\begin_inset Quotes erd
-\end_inset
 
- version is not the version which is currently designated as primary for
- the whole cluster.
- In this case (or if you want to ensure nothing can go wrong), say 
-\family typewriter
-marsadm primary mydata --force
-\family default
- on 
-\emph on
-exactly that
-\emph default
- node which you want to become the surviving 
-\begin_inset Quotes eld
-\end_inset
-
-right
-\begin_inset Quotes erd
-\end_inset
-
- version.
 \end_layout
 
-\begin_layout Enumerate
-On the non-right version which you want to retain, umount your 
-\family typewriter
-/dev/mars/mydata
-\family default
-.
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+item 
 \end_layout
 
-\begin_layout Enumerate
-Wait until it reaches secondary state and its local logfile has been fully
- applied.
- This should happen because of step 2.
-\end_layout
+\end_inset
 
-\begin_layout Enumerate
 
 \family typewriter
 marsadm leave-resource mydata
 \end_layout
 
-\begin_layout Enumerate
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+item 
+\end_layout
+
+\end_inset
+
 Check that the underlying disk 
 \family typewriter
 /dev/lv-x/mydata
@@ -2928,7 +3436,19 @@ Check that the underlying disk
  step.
 \end_layout
 
-\begin_layout Enumerate
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+item 
+\end_layout
+
+\end_inset
+
 Create a completely new MARS resource out of the underlying disk 
 \family typewriter
 /dev/lv-x/mydata
@@ -2945,6 +3465,103 @@ reference "sec:Creating-and-Maintaining"
 \end_inset
 
 ).
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{enumerate}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Paragraph
+Keeping a Good Version
+\end_layout
+
+\begin_layout Standard
+When you had a secondary which did not participate in the split brain, but
+ just got confused and therefore stopped applying logfiles immediately after
+ the split-brain point, it may very well happen
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In general, such a 
+\begin_inset Quotes eld
+\end_inset
+
+good
+\begin_inset Quotes erd
+\end_inset
+
+ behaviour cannot be guaranteed for all secondaries.
+ Race conditions in complex networks may asynchronously transfer 
+\begin_inset Quotes eld
+\end_inset
+
+wrong
+\begin_inset Quotes erd
+\end_inset
+
+ logfile data to a secondary much earlier than conflicting 
+\begin_inset Quotes eld
+\end_inset
+
+good
+\begin_inset Quotes erd
+\end_inset
+
+ logfile data which will be marked 
+\begin_inset Quotes eld
+\end_inset
+
+good
+\begin_inset Quotes erd
+\end_inset
+
+ only in the 
+\emph on
+future.
+
+\emph default
+ It is impossible to predict this in advance.
+\end_layout
+
+\end_inset
+
+ that you don't need to do any action for it.
+ When all wrong versions have disappeared from the cluster (either by 
+\family typewriter
+invalidate
+\family default
+ or by 
+\family typewriter
+leave-resource
+\family default
+), the confusion should be over, and the secondary should automatically
+ resume tracking of the new unique version.
+\end_layout
+
+\begin_layout Standard
+Please check that 
+\emph on
+all
+\emph default
+ of your secondaries are no longer stuck.
+ You need to execute split brain resolution only for 
+\emph on
+stuck
+\emph default
+ nodes.
 \end_layout
 
 \begin_layout Chapter
@@ -2986,7 +3603,7 @@ name "sec:The-Transaction-Logger"
 \align center
 \begin_inset Graphics
 	filename images/MARS_Data_Flow.pdf
-	lyxscale 65
+	lyxscale 60
 	width 100text%
 
 \end_inset
@@ -3462,7 +4079,643 @@ Eventually Consistent
 \end_layout
 
 \begin_layout Standard
-In order to implement that consistency model, MARS uses a so-called Lamport
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ The asynchronous communication protocol of MARS leads to a different behaviour
+ from DRBD in case of 
+\series bold
+network partitions
+\series default
+ (temporary interruption of communication between some cluster nodes), because
+ MARS 
+\emph on
+remembers
+\emph default
+ the old state of remote nodes over long periods of time, while DRBD knows
+ absolutely nothing about its peers in disconnected state.
+ Sysadmins familiar with DRBD might find the following behaviour unusual:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+
+\size tiny
+\begin_inset Tabular
+<lyxtabular version="3" rows="6" columns="3">
+<features tabularvalignment="middle">
+<column alignment="left" valignment="top" width="0pt">
+<column alignment="left" valignment="top" width="0pt">
+<column alignment="left" valignment="top" width="0pt">
+<row>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+Event
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+DRBD Behaviour
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+MARS Behaviour
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row endhead="true">
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+1.
+ the network partitions
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+automatic disconnect
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+nothing happens, but replication lags behind
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+2.
+ on A: 
+\family typewriter
+umount $device
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+works
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+works
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+3.
+ on A: 
+\family typewriter
+{drbd,mars}adm secondary
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+works
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+works
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+4.
+ on B: 
+\family typewriter
+{drbd,mars}adm primary
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+works, split brain happens
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\series bold
+\size tiny
+refused
+\series default
+ because B believes that A is primary
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+5.
+ the network resumes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+automatic connect attempt fails
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+communication automatically resumes
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+If you intentionally want to switch over (and to produce a split brain as
+ a side effect), the following variant must be used with MARS:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+
+\size tiny
+\begin_inset Tabular
+<lyxtabular version="3" rows="9" columns="3">
+<features tabularvalignment="middle">
+<column alignment="left" valignment="top" width="0pt">
+<column alignment="left" valignment="top" width="0pt">
+<column alignment="left" valignment="top" width="0pt">
+<row>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+Event
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+DRBD Behaviour
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+MARS Behaviour
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row endhead="true">
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+1.
+ the network partitions
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+automatic disconnect
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+nothing happens, but replication lags behind
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+2.
+ on A: 
+\family typewriter
+umount $device
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+works
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+works
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+3.
+ on A: 
+\family typewriter
+{drbd,mars}adm secondary
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+works
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+works
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+4.
+ on B: 
+\family typewriter
+{drbd,mars}adm primary
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+split brain, but nobody knows
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\series bold
+\size tiny
+refused
+\series default
+ because B believes that A is primary
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+5.
+ on B: 
+\family typewriter
+marsadm disconnect
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+-
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+works, nothing happens
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+6.
+ on B: 
+\family typewriter
+marsadm primary --force
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+-
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+works, split brain happens on B, but A doesn't know
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+7.
+ on B: 
+\family typewriter
+marsadm connect
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+-
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+works, nothing happens
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+8.
+ the network resumes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+automatic connect attempt fails
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+communication resumes, A now detects the split brain
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+In order to implement the consistency model 
+\begin_inset Quotes eld
+\end_inset
+
+eventually consistent
+\begin_inset Quotes erd
+\end_inset
+
+, MARS uses a so-called Lamport
 \begin_inset Foot
 status open
 
@@ -5392,7 +6645,11 @@ Use it only as a last resort if the same command without
 \family typewriter
 --force
 \family default
- has failed!
+ has failed 
+\emph on
+for no good reason
+\emph default
+!
 \end_layout
 
 \end_inset
@@ -5574,10 +6831,39 @@ status open
 \size scriptsize
 The command acts as if the command were executed on another host $host.
  This option should not be used regularly, because the local information
- in the symlink tree may be outdated or even wrong, and some local information
- like sizes of physical devices (e.g.
- disks) is not present in the symlink tree.
- Use at your own risk!
+ in the symlink tree may be outdated or even wrong.
+ Additionally, some local information like remote sizes of physical devices
+ (e.g.
+ remote disks) is not present in the symlink tree at all, or is wrong (reflectin
+g only the 
+\emph on
+local
+\emph default
+ state).
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ THIS OPTION IS DANGEROUS!
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Use it only for final destruction of dead cluster nodes, see section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Final-Destroy-of"
+
+\end_inset
+
+.
 \end_layout
 
 \end_inset
