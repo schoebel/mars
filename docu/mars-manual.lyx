@@ -2982,9 +2982,11 @@ name "sec:The-Transaction-Logger"
 \end_layout
 
 \begin_layout Standard
+\noindent
+\align center
 \begin_inset Graphics
-	filename images/mars_principle.ps
-	lyxscale 60
+	filename images/MARS_Data_Flow.pdf
+	lyxscale 65
 	width 100text%
 
 \end_inset

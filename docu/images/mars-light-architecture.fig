@@ -31,12 +31,12 @@ Single
 	 900 2250 5850 2250 5850 2925 900 2925 900 2250
 2 1 1 1 0 7 50 -1 -1 4.000 0 0 -1 0 0 2
 	 225 1800 6525 1800
-4 1 0 50 -1 2 14 0.0000 4 225 3525 3375 2655 MARS Light ad-hoc strategy layer\001
-4 1 0 50 -1 2 14 0.0000 4 165 2805 3375 4455 MARS brick infrastructure\001
+4 1 0 50 -1 2 14 0.0000 4 210 1650 3375 4455 XIO personality\001
 4 1 0 50 -1 2 14 0.0000 4 225 2895 3330 6255 generic object infrastructure\001
-4 1 0 50 -1 2 14 0.0000 4 225 4950 3375 3555 MARS worker bricks: {a,b,s}io,if,trans_logger,...\001
-4 1 0 50 -1 2 14 0.0000 4 225 2820 3330 5805 generic brick infrastructure\001
-4 1 0 50 -1 2 14 0.0000 4 225 2910 3375 5400 generic aspect infrastructure\001
+4 1 0 50 -1 2 14 0.0000 4 225 3885 3375 3555 XIO bricks: {a,b,s}io,if,trans_logger,...\001
 4 1 0 50 -1 2 12 0.0000 4 180 2505 3375 1980 interface: /mars/ symlink tree\001
-4 1 0 50 -1 2 14 0.0000 4 210 2445 3375 1305 userspace tool marsadm\001
+4 1 0 50 -1 2 14 0.0000 4 210 3060 3375 1305 userspace tool marsadm (perl)\001
 4 1 0 50 -1 2 12 0.0000 4 180 5940 3375 540 interface: marsadm parameters, exit code, stdout (similar to drbdadm)\001
+4 1 0 50 -1 2 14 0.0000 4 225 3525 3375 2655 MARS Light ad-hoc strategy layer\001
+4 1 0 50 -1 2 14 0.0000 4 225 2910 3330 5940 generic aspect infrastructure\001
+4 1 0 50 -1 2 14 0.0000 4 225 2820 3330 5445 generic brick infrastructure\001
