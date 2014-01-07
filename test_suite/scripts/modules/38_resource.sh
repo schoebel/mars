@@ -49,8 +49,6 @@ function resource_quick_prepare_first_resource
     resource_check_data_device_after_create $primary_host $res
     lib_rw_remote_check_device_fs $primary_host $data_dev "xfs"
     marsadm_do_cmd $secondary_host "join-resource" "$res $dev" || lib_exit 1
-    lib_wait_for_initial_end_of_sync $primary_host $secondary_host $res \
-                                     60 3 "waited"
 }
 
 function resource_check_variables
