@@ -28,6 +28,31 @@ function resource_prepare
     cluster_insert_mars_module_all
 }
 
+# assumes the following:
+# - all logical volumes exist and have their correct sizes
+# - /mars is mounted
+# - exactly one resource
+function resource_quick_prepare_first_resource
+{
+    local primary_host=${main_host_list[0]}
+    local secondary_host=${main_host_list[1]}
+    local res=${resource_name_list[0]}
+    local dev="$(lv_config_get_lv_device $res)"
+    local data_dev=$(resource_get_data_device $res)
+    local waited
+    cluster_rmmod_mars_all
+    cluster_clear_and_mount_mars_dir_all
+    cluster_insert_mars_module_all
+    marsadm_do_cmd $primary_host "create-resource" "$res $dev" || lib_exit 1
+    marsadm_do_cmd $primary_host "wait-resource" "$res is-device-on" || \
+                                                                  lib_exit 1
+    resource_check_data_device_after_create $primary_host $res
+    lib_rw_remote_check_device_fs $primary_host $data_dev "xfs"
+    marsadm_do_cmd $secondary_host "join-resource" "$res $dev" || lib_exit 1
+    lib_wait_for_initial_end_of_sync $primary_host $secondary_host $res \
+                                     60 3 "waited"
+}
+
 function resource_check_variables
 {
     if ! expr "${lv_config_lv_name_list[*]}" \
