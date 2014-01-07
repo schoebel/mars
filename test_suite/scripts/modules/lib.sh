@@ -222,7 +222,8 @@ function lib_check_access_to_remote_hosts
 # stdout resp. stderr are kept in files named <script>.out resp. <script>.err on the remote host.
 function lib_start_script_remote_bg
 {
-    local host=$1 script=$2 varname_pid=$3 varname_script=$4
+    [ $# -eq 5 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    local host=$1 script=$2 varname_pid=$3 varname_script=$4 rm_opt=$5
     local ssh_opt="$main_ssh_idfile_opt"
     if [ ! -f $script ]; then
         lib_exit 1 "script file $script not found"
@@ -233,7 +234,9 @@ function lib_start_script_remote_bg
     lib_vmsg "  copying script $script to $host:$remote_filename"
     scp $ssh_opt $script root@$host:$remote_filename || lib_exit 1
 
-    rm -f $script || lib_exit 1
+    if [ $rm_opt = "rm" ]; then
+        rm -f $script || lib_exit 1
+    fi
 
     local remote_pid
     local cmd="/bin/bash $remote_filename >$remote_filename.out 2>$remote_filename.err"

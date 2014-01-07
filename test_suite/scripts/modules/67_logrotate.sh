@@ -113,7 +113,7 @@ while true; do
     sleep '"$sleep_time"'
 done' >$script
     lib_start_script_remote_bg $host $script $varname_pid \
-                                         $varname_script
+                                         $varname_script "rm"
     main_error_recovery_functions["lib_rw_stop_scripts"]+="$host $script "
 }
 
