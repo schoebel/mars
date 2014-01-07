@@ -90,7 +90,7 @@ function logrotate_loop
         then
             marsadm_do_cmd $host "log-delete-all" $res || lib_exit 1
         fi
-        sleep $logrotate_sleep_time_between_rotates
+        sleep $sleep_time_between_rotates
         let count+=1
     done
 }
