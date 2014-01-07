@@ -217,24 +217,24 @@ function lib_rw_remote_check_device_fs
     local tmp_dir=/mnt/mars_tmp_mountpoint
     lib_vmsg "  checking existence of directory $host:$tmp_dir"
     lib_remote_idfile $host "if test ! -d $tmp_dir; then mkdir $tmp_dir;fi" \
-								|| lib_exit 1
+                                || lib_exit 1
     lib_vmsg "  checking whether $host:$dev is mountable as $fs_type filesystem on $tmp_dir"
     lib_remote_idfile $host mount -t $fs_type $dev $tmp_dir
     rc=$?
     if [ $rc -eq 0 ]; then
-	mount_umount $host $dev $tmp_dir || lib_exit 1
-	return
+        mount_umount $host $dev $tmp_dir || lib_exit 1
+        return
     fi
     local mount_point
     if mount_is_device_mounted $host $dev "mount_point"; then
-	mount_umount $host $dev $mount_point 
+        mount_umount $host $dev $mount_point 
     fi
     lib_vmsg "  creating $fs_type filesystem on $dev"
     lib_remote_idfile $host "mkfs.$fs_type ${lv_config_mkfs_option_list[$fs_type]} $dev" || lib_exit 1
     if [ -n "${lv_config_fs_type_tune_cmd_list[$fs_type]}" ];then
-	local cmd=${lv_config_fs_type_tune_cmd_list[$fs_type]/<dev>/$dev}
-	lib_vmsg "  tuning $dev on $host: $cmd"
-	lib_remote_idfile $host "$cmd" || lib_exit 1
+        local cmd=${lv_config_fs_type_tune_cmd_list[$fs_type]/<dev>/$dev}
+        lib_vmsg "  tuning $dev on $host: $cmd"
+        lib_remote_idfile $host "$cmd" || lib_exit 1
     fi
 }
 
