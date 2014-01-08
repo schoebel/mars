@@ -26,11 +26,13 @@ shopt -s extdebug
 # Use directory names as basis for configuration variants
 
 script_dir="$(cd "$(dirname "$(which "$0")")"; pwd)"
-echo "========================== Sourcing modules and default configuration =========="
-for lib in $script_dir/modules/lib*.sh; do
+lib_dir=$script_dir/modules
+echo "========================== Sourcing libraries in $lib_dir ======================"
+for lib in $lib_dir/lib*.sh; do
+    echo "Sourcing $lib"
     source "$lib" || exit $?
 done
-echo "========================== End sourcing modules and default configuration ======"
+echo "========================== End sourcing libraries =============================="
 
 to_produce="${to_produce:-replay.gz}"
 to_check="${to_check:-}"
@@ -140,9 +142,11 @@ function print_config_environment
 save_environment # for later use in print_config_environment
 
 shopt -s nullglob
+echo "========================== Sourcing modules and default configuration =========="
 for module in $module_dir/[0-9]*.sh; do
     source_module "$module"
 done
+echo "========================== End sourcing modules and default configuration ======"
 
 # parse options.
 while [ $# -ge 1 ]; do
@@ -180,7 +184,7 @@ ignore_cmd="grep -v '[/.]old' | grep -v 'ignore'"
 sort_cmd="while read i; do if [ -e \"\$i\"/prio-[0-9]* ]; then echo \"\$(cd \$i; ls prio-[0-9]*):\$i\"; else echo \"z:\$i\"; fi; done | sort | sed 's/^[^:]*://'"
 
 # find directories
-echo "================= Sourcing config files between $config_root_dir and $(pwd) ==="
+echo "================= Scanning subdirectories of $(pwd) ============================"
 for test_dir in $(find . -type d | eval "$ignore_cmd" | eval "$sort_cmd"); do
     (( dry_run_script )) || rm -f $test_dir/dry-run.$to_produce
     if [ -e "$test_dir/skip" ]; then
@@ -201,8 +205,7 @@ for test_dir in $(find . -type d | eval "$ignore_cmd" | eval "$sort_cmd"); do
         continue
     fi
     echo ""
-    echo "==============================================================="
-    echo "======== $test_dir"
+    echo "================= Testdirectory $test_dir ======================================"
     if [ -e "$test_dir/stop" ] || [ -e "./stop" ]; then
         echo "would start $test_dir"
         echo "echo stopping due to stop file."
@@ -210,6 +213,7 @@ for test_dir in $(find . -type d | eval "$ignore_cmd" | eval "$sort_cmd"); do
     fi
     (
         cd $test_dir
+        echo "================= Sourcing config files between $config_root_dir and $(pwd) ===="
         
         # to be able to call error recovery functions in case of signals
         trap 'lib_exit 1 "caught signal"' SIGHUP SIGINT

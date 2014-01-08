@@ -17,10 +17,6 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-if (( !noecho )); then
-    echo "Sourcing lib.sh"
-fi
-
 # this may be later overridden by distros / install scripts / etc
 
 # $sript_dir is assumed to be already set by the caller

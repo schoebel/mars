@@ -91,10 +91,18 @@ subdirectory (we call it start directory) as follows:
 
 The output fo start_test.sh consists of the following sections:
 
+- List titled "Sourcing libraries in <library directory>" of included scripts
+  from <libraries directory>/lib*.sh
+
 - List titled "Sourcing modules and default configuration" of included scripts
-  from scripts/modules/*.sh and corresponding included default-*.conf files.
+  from scripts/modules/[0-9]*.sh and corresponding included default-*.conf
+  files.
+
+- Line titled "Scanning subdirectories of <start directory>" followed by a
+  list of ignored or skipped subdirectories
 
 - Per leaf directory:
+    - Line titled "Testdirectory <leaf directory>"
     - List  titled "Sourcing config files between <config_root_dir> and
       <leaf directory>" of included *.conf files corresponding to the directory
       structure.
