@@ -38,12 +38,13 @@ function lib_linktree_print_linktree
     lib_remote_idfile $host 'ls -l --full-time $(find /'"$main_mars_directory"' \! -type d | sort)'
 }
 
+# the required link value may be specified with an unit (e.g. 3G)
 function lib_linktree_check_link_int_value
 {
     [ $# -eq 5 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local host=$1 res=$2 link=$3 link_value_req=$4 value_unit=$5
     local link link_value_act waited=0
-    link_value_req=$(lv_config_extract_int_from_lv_size $link_value_req)
+    link_value_req=$(lv_config_extract_int_from_lv_size_with_unit $link_value_req)
     case $link in #((
         size) link="${resource_dir_list[$res]}/$link"
           ;;

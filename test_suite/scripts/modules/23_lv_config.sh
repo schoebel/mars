@@ -70,26 +70,29 @@ function lv_config_lvremove
     lib_remote_idfile $host lvremove -f $logical_volume_path || lib_exit 1
 }
     
-function lv_config_extract_int_from_lv_size
+# removes trailing unit letters (e.g. 9G -> 9)
+function lv_config_extract_int_from_lv_size_with_unit
 {
-    local lv_size=$1
-    expr "$lv_size" : "^ *\([0-9][0-9]*\)"
+    local lv_size_with_unit=$1
+    expr "$lv_size_with_unit" : "^ *\([0-9][0-9]*\)"
 }
 
 function lv_config_check_volume_group_existence_and_size
 {
-    local host lvg_size rc
+    local host lvg_size_with_unit rc
     for host in  "${main_host_list[@]}"; do
         lib_vmsg "  checking volume group $lv_config_lvg_name on $host"
-        lvg_size=$(lib_remote_idfile $host vgs --noheadings \
-                   --units G -o vg_size $lv_config_lvg_name)
+        lvg_size_with_unit=$(lib_remote_idfile $host vgs --noheadings \
+                             --units G -o vg_size $lv_config_lvg_name)
         rc=$?
         if [ $rc -ne 0 ];then
             lib_vmsg "  vg $host:$lv_config_lvg_name will be created"
             return
-    fi
+        fi
         # 11.1G -> 11
-        lvg_size=$(lv_config_extract_int_from_lv_size $lvg_size)
+        local lvg_size
+        lvg_size=$(lv_config_extract_int_from_lv_size_with_unit \
+                             $lvg_size_with_unit)
         [ "$lvg_size" -ge $lv_config_min_lvg_size ] || \
             lib_exit 1 "size $lvg_size of volume group $lv_config_lvg_name not >= $lv_config_min_lvg_size"
     done
@@ -151,14 +154,14 @@ function lv_config_get_lv_name
 function lv_config_get_size_logical_volume
 {
     local host=$1 lv_dev=$2
-    local lv_size rc
-    lv_size=$(lib_remote_idfile $host lvdisplay --units G --noheadings \
-              -C $lv_dev -o lv_size)
+    local lv_size_with_unit rc lv_size
+    lv_size_with_unit=$(lib_remote_idfile $host lvdisplay --units G \
+                        --noheadings -C $lv_dev -o lv_size)
     rc=$?
     if [ $rc -ne 0 ]; then
         return $rc
     fi
-    lv_size=$(lv_config_extract_int_from_lv_size $lv_size)
+    lv_size=$(lv_config_extract_int_from_lv_size_with_unit $lv_size_unit)
     echo $lv_size
 }
 
