@@ -125,7 +125,7 @@ function switch2primary_run
 #      switch2primary_orig_prim_equal_new_prim = 0
 # ---- the replication should work now with original roles if 
 #      switch2primary_orig_prim_equal_new_prim = 0 and after 
-#      marsadm primary --force on orig_primary
+#      marsadm primary on orig_primary
 # Otherwise we should have a real split brain and should be able to write on
 # both data devices. The process flow continues:
 #
@@ -170,9 +170,8 @@ function switch2primary_force
     lib_vmsg "  ${FUNCNAME[0]}: write_count: $write_count"
 
     if [ $switch2primary_orig_primary_alive -eq 1 ]; then
-# TODO: remove superfluous test cases
         if [ $switch2primary_orig_prim_equal_new_prim -eq 1 ]; then
-            marsadm_do_cmd $new_primary "--force primary" "$res" || lib_exit 1
+            marsadm_do_cmd $new_primary "primary" "$res" || lib_exit 1
         fi
         switch2primary_check_replication $new_primary $new_secondary $res
         return
