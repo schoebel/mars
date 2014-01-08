@@ -1,7 +1,7 @@
-#!/usr/bin/env bash
-# Copyright 2010-2012 Thomas Schoebel-Theuer /  1&1 Internet AG
+#!/bin/bash
+# Copyright 2010-2014 Frank Liepold /  1&1 Internet AG
 #
-# Email: tst@1und1.de
+# Email: frank.liepold@1und1.de
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -19,7 +19,12 @@
 
 #####################################################################
 
-# New modularized version May 2012
+# wrapper for the exit builtin to be able to remove temporary files
+function start_test_exit
+{
+    rm -f $environ_save
+    exit $1
+}
 
 shopt -s extdebug
 
@@ -30,7 +35,7 @@ lib_dir=$script_dir/modules
 echo "========================== Sourcing libraries in $lib_dir ======================"
 for lib in $lib_dir/lib*.sh; do
     echo "Sourcing $lib"
-    source "$lib" || exit $?
+    source "$lib" || start_test_exit $?
 done
 echo "========================== End sourcing libraries =============================="
 
@@ -98,10 +103,10 @@ function source_module
     modname="$(basename $module | sed 's/^[0-9]*_\([^.]*\)\..*/\1/')"
     if source_config default-$modname; then
         echo "Sourcing module $modname"
-        source $module || exit $?
+        source $module || start_test_exit $?
     elif [ "$modname" = "main" ]; then
         echo "Cannot use main module. Please provide some config file 'default-$modname.conf' in $(pwd) or in some parent directory."
-        exit -1
+        start_test_exit -1
     fi
 }
 
@@ -133,7 +138,7 @@ function print_config_environment
     # variables
     comm -2 -3 $environ_actual $environ_save | \
         egrep -v '^(BASH_LINENO|FUNCNAME|OLDPWD|_)='
-    rm -f $environ_actual $environ_save
+    rm -f $environ_actual
     echo "========================== End configuration variables ========================="
     
 }
@@ -175,7 +180,7 @@ done
 
 if ! cd $config_root_dir ; then
     echo "cannot cd $config_root_dir" >&2
-    exit 1
+    start_test_exit 1
 else
     config_root_dir=$(pwd) # we need the absolute path
     cd $start_dir
@@ -238,7 +243,7 @@ for test_dir in $(find . -type d | eval "$ignore_cmd" | eval "$sort_cmd"); do
             [ "$i" = "." ] && continue
             if ! source_config "$i"; then
                 echo "Cannot source config file '$i.conf' -- please provide one."
-                exit -1
+                start_test_exit -1
             fi
         done
         echo "================= End sourcing config files between $config_root_dir and $(pwd)t"
@@ -262,7 +267,7 @@ for test_dir in $(find . -type d | eval "$ignore_cmd" | eval "$sort_cmd"); do
     else
         echo "========================== Finished $(date) ===================================="
     fi
-    [ $rc -ne 0 ] && exit $rc
+    [ $rc -ne 0 ] && start_test_exit $rc
 done
 
 if (( dry_run_script )); then
@@ -271,4 +276,4 @@ if (( dry_run_script )); then
 fi
 
 echo "========================== Finished pwd=$(pwd) ================================="
-exit 0
+start_test_exit 0
