@@ -19,13 +19,19 @@
 
 function lib_linktree_get_designated_primary_linkname
 {
-    local resource_name=$1
+    local res=$1
     echo ${resource_dir_list[$res]}/primary
+}
+
+function lib_linktree_get_primary_linkname
+{
+    local host=$1 res=$2
+    echo ${resource_dir_list[$res]}/actual-$host/is-primary
 }
 
 function lib_linktree_get_res_host_linkname
 {
-    local host=$1 resource_name=$2 action=$3
+    local host=$1 res=$2 action=$3
     echo ${resource_dir_list[$res]}/$action-$host
 }
 

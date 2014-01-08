@@ -272,3 +272,29 @@ function marsadm_get_number_bytes_unreadable_logend
     fi
     echo $restlen
 }
+
+function marsadm_host_is_primary
+{
+    local host=$1 res=$2
+    local link link_status
+    local link="$(lib_linktree_get_primary_linkname $host $res)"
+    lib_linktree_check_link $host "$link" 1
+    link_status=$?
+    if [ $link_status -ne ${main_link_status["link_ok"]} ]; then
+        return 0
+    fi
+    return 1
+}
+
+function marsadm_host_is_designated_primary
+{
+    local host=$1 res=$2
+    local link link_status
+    local link="$(lib_linktree_get_designated_primary_linkname $res)"
+    lib_linktree_check_link $host "$link" $host
+    link_status=$?
+    if [ $link_status -ne ${main_link_status["link_ok"]} ]; then
+        return 0
+    fi
+    return 1
+}

@@ -77,15 +77,26 @@ function logrotate_wait_for_umount_data_device
 function logrotate_loop
 {
     local host=$1 res=$2 number_of_rotate_loops=$3 sleep_time_between_rotates=$4
-    local count=0 logfile logfile_old="x"
-    lib_vmsg "starting rotate loop on $host"
+    local logrotate_rc_req=0 logrotate_msg="succeed"
+    local count=0 logfile
+    local logrotate_rc_act rc_prim rc_desig_prim
+    marsadm_host_is_primary $host $res; rc_prim=$?
+    marsadm_host_is_designated_primary $host $res; rc_desig_prim=$?
+    if [ $rc_prim -ne 1 -o $rc_desig_prim -ne 1 ]; then
+        logrotate_rc_req=1
+        logrotate_msg="fail"
+    fi
+    lib_vmsg "starting rotate loop on $host (primary=$rc_prim, desig.prim=$rc_desig_prim, logrotate must $logrotate_msg)"
     while [ $count -lt $number_of_rotate_loops ]; do
-        marsadm_do_cmd $host "log-rotate" $res || lib_exit 1
-        logfile=$(marsadm_get_last_logfile $host $res $host) || lib_exit 1
-        if [ "$logfile" != "$logfile_old" ]; then
-            lib_vmsg "  new logfile $host:$logfile"
+        marsadm_do_cmd $host "log-rotate" $res
+        logrotate_rc_act=$?
+        if [ \( $logrotate_rc_act -ne 0 -a $logrotate_rc_req -eq 0 \) \
+             -o \( $logrotate_rc_act -eq 0 -a $logrotate_rc_req -ne 0 \) ]
+        then
+            lib_exit 1 "required rc = $logrotate_rc_req != $logrotate_rc_act = act. rc"
         fi
-        logfile_old="$logfile"
+        logfile=$(marsadm_get_last_logfile $host $res $host) || lib_exit 1
+        lib_vmsg "  last logfile $host:$logfile"
         if [ $(($count % $logrotate_number_of_rotates_before_delete)) -eq 0 ]
         then
             marsadm_do_cmd $host "log-delete-all" $res || lib_exit 1
