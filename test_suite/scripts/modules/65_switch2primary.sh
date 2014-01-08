@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2010-2013 Frank Liepold /  1&1 Internet AG
+# Copyright 2010-2014 Frank Liepold /  1&1 Internet AG
 #
 # Email: frank.liepold@1und1.de
 #
@@ -106,16 +106,28 @@ function switch2primary_run
 # we assume that the script writer_script is running on the primary_host
 # the process flow in switch2primary_force is as follows:
 # 
-# - start writing data dev orig_primary (already done, when we are here)
-# - logrotate and logdelete on orig_primary (if switch2primary_logrotate_orig_primary == 1)
-# - stop writing data dev orig_primary (if switch2primary_data_dev_in_use == 0)
+# - start writing mounted data dev orig_primary (already started, when we enter
+#   this function)
+# - logrotate and logdelete on orig_primary (if 
+#   switch2primary_logrotate_orig_primary == 1)
+# - stop writing and unmount data dev orig_primary (if
+#   switch2primary_data_dev_in_use == 0)
 # - cut network connection (if switch2primary_orig_primary_alive == 0)
 # - marsadm --force primary on orig_secondary
-# - logrotate and logdelete on orig_primary (if switch2primary_logrotate_orig_primary == 1 and switch2primary_data_dev_in_use == 1)
-# - stop writing data device primary (if switch2primary_data_dev_in_use == 1)
+# - logrotate and logdelete on orig_primary (if 
+#   switch2primary_logrotate_orig_primary == 1 and
+#   switch2primary_data_dev_in_use == 1)
+# - stop writing and unmount data device primary (if
+#   switch2primary_data_dev_in_use == 1)
 #
-# Now we should have a real split brain and should be able to write on both
-# data devices. The process flow continues:
+# If the network connection works
+# ---- the replication should work now with interchanged roles if 
+#      switch2primary_orig_prim_equal_new_prim = 0
+# ---- the replication should work now with original roles if 
+#      switch2primary_orig_prim_equal_new_prim = 0 and after 
+#      marsadm primary --force on orig_primary
+# Otherwise we should have a real split brain and should be able to write on
+# both data devices. The process flow continues:
 #
 # - start writing both data devices
 # - logrotate and logdelete on orig_primary (if switch2primary_logrotate_split_brain_orig_primary == 1)
@@ -127,44 +139,53 @@ function switch2primary_run
 function switch2primary_force
 {
     [ $# -eq 4 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
-    local primary_host=$1 secondary_host=$2 res=$3 writer_script=$4
+    local orig_primary=$1 orig_secondary=$2 res=$3 writer_script=$4
     local write_count time_waited host logfile length_logfile net_throughput
+    local new_primary new_secondary
+    if [ $switch2primary_orig_prim_equal_new_prim -ne 0 ]; then
+        new_primary=$orig_primary
+        new_secondary=$orig_secondary
+    else
+        new_primary=$orig_secondary
+        new_secondary=$orig_primary
+    fi
     if [ $switch2primary_logrotate_orig_primary -eq 1 ]; then
-        logrotate_loop $primary_host $res 3 4
+        logrotate_loop $orig_primary $res 3 4
     fi
     if [ $switch2primary_data_dev_in_use -eq 0 ]; then
-        switch2primary_stop_write_and_umount_data_device $primary_host \
+        switch2primary_stop_write_and_umount_data_device $orig_primary \
                                         $writer_script "write_count"
     fi
     if [ $switch2primary_orig_primary_alive -eq 0 ]; then
-        net_do_impact_cmd $secondary_host "on" "remote_host=$primary_host"
+        net_do_impact_cmd $orig_secondary "on" "remote_host=$orig_primary"
     fi
-    marsadm_do_cmd $secondary_host "--force primary" "$res" || lib_exit 1
+    marsadm_do_cmd $orig_secondary "--force primary" "$res" || lib_exit 1
     if [ $switch2primary_logrotate_orig_primary -eq 1 ]; then
-        logrotate_loop $primary_host $res 3 4
+        logrotate_loop $orig_primary $res 3 4
     fi
     if [ $switch2primary_data_dev_in_use -ne 0 ]; then
-        switch2primary_stop_write_and_umount_data_device $primary_host \
+        switch2primary_stop_write_and_umount_data_device $orig_primary \
                                         $writer_script "write_count"
     fi
     lib_vmsg "  ${FUNCNAME[0]}: write_count: $write_count"
 
-    # TODO:rm:   lib_wait_until_fetch_stops "switch2primary" $secondary_host \
-    # TODO:rm:                               $primary_host $res "logfile" \
-    # TODO:rm:                               "length_logfile" "time_waited" \
-    # TODO:rm:                               0 "net_throughput"
-    # TODO:rm:   lib_vmsg "  ${FUNCNAME[0]}: fetch time: $time_waited"
-
-    # TODO:rm:   switch2primary_wait_for_first_own_logfile_on_new_primary \
-    # TODO:rm:                                         $secondary_host $res
-
-    switch2primary_write_both_data_devices $primary_host $secondary_host $res
-
-    if [ $switch2primary_orig_primary_alive -eq 0 ]; then
-        net_do_impact_cmd $secondary_host "off" "remote_host=$primary_host"
+    if [ $switch2primary_orig_primary_alive -eq 1 ]; then
+# TODO: remove superfluous test cases
+        if [ $switch2primary_orig_prim_equal_new_prim -eq 1 ]; then
+            marsadm_do_cmd $new_primary "--force primary" "$res" || lib_exit 1
+        fi
+        switch2primary_check_replication $new_primary $new_secondary $res
+        return
     fi
 
-    switch2primary_correct_split_brain $primary_host $secondary_host $res
+    switch2primary_write_both_data_devices $orig_primary $orig_secondary $res
+
+    if [ $switch2primary_orig_primary_alive -eq 0 ]; then
+        net_do_impact_cmd $orig_secondary "off" "remote_host=$orig_primary"
+    fi
+
+    switch2primary_correct_split_brain $orig_primary $orig_secondary \
+                                       $new_primary $new_secondary $res
 
 }
 
@@ -250,17 +271,11 @@ done' >$script
 
 function switch2primary_correct_split_brain
 {
-    local orig_primary=$1 orig_secondary=$2 res=$3
-    local new_primary new_secondary
-    local dev=$(resource_get_data_device $res)
+    [ $# -eq 5 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    local orig_primary=$1 orig_secondary=$2 new_primary=$3 new_secondary=$4
+    local res=$5
+    local data_dev=$(resource_get_data_device $res)
     local time_waited
-    if [ $switch2primary_orig_prim_equal_new_prim -ne 0 ]; then
-        new_primary=$orig_primary
-        new_secondary=$orig_secondary
-    else
-        new_primary=$orig_secondary
-        new_secondary=$orig_primary
-    fi
     marsadm_do_cmd $new_secondary "secondary" "$res" || lib_exit 1
     if [ $switch2primary_activate_secondary_hardcore -eq 0 ]; then
         marsadm_do_cmd $new_secondary "invalidate" "$res" || lib_exit 1
@@ -275,18 +290,28 @@ function switch2primary_correct_split_brain
                                      $resource_maxtime_initial_sync \
                                      $resource_time_constant_initial_sync \
                                      "time_waited"
-    lib_vmsg "  write some data to $new_primary:$dev"
+    switch2primary_check_replication $new_primary $new_secondary $res
+}
+
+function switch2primary_check_replication
+{
+    local primary_host=$1 secondary_host=$2 res=$3
+    local data_dev=$(resource_get_data_device $res)
+    lib_vmsg  "  check replication, primary=$primary_host, secondary=$secondary_host"
+    marsadm_do_cmd $primary_host "wait-resource" "$res is-device-on" || \
+                                                                    lib_exit 1
+    lib_vmsg "  write some data to $primary_host:$data_dev"
     local count=0 maxcount=3
     while true; do
-        lib_remote_idfile $new_primary \
-                          "yes | dd oflag=direct bs=4096 count=1 of=$dev" || \
-                                                                lib_exit 1
+        lib_remote_idfile $primary_host \
+                          "yes | dd oflag=direct bs=4096 count=1 of=$data_dev" \
+                                                            || lib_exit 1
         if [ $switch2primary_logrotate_new_primary -eq 0 ]; then
             break
         fi
-        marsadm_do_cmd $new_primary "log-rotate" $res || lib_exit 1
+        marsadm_do_cmd $primary_host "log-rotate" $res || lib_exit 1
         if [ $(($count % 2 )) -eq 0 ]; then
-            marsadm_do_cmd $new_primary "log-delete" $res || lib_exit 1
+            marsadm_do_cmd $primary_host "log-delete" $res || lib_exit 1
         fi
         let count+=1
         if [ $count -eq $maxcount ]; then
@@ -294,6 +319,6 @@ function switch2primary_correct_split_brain
         fi
     done
     lib_wait_for_secondary_to_become_uptodate_and_cmp_cksums "resource" \
-                                            $new_secondary $new_primary \
-                                            $res $dev 0
+                                            $new_secondary $primary_host \
+                                            $res $data_dev 0
 }
