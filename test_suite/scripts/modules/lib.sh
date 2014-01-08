@@ -244,7 +244,7 @@ function lib_start_script_remote_bg
     ssh -n $ssh_opt root@$host ps -fp $remote_pid || lib_exit 1 "$error_hint"
 
     lib_vmsg "  checking whether process $remote_pid has errors in $remote_filename.err"
-    ssh -n $ssh_opt root@$host "if [ -s $remote_filename.err ]; then cmd='kill -1 $remote_pid'; echo \$cmd; \$cmd; cat $remote_filename.err; exit 1; fi"  || lib_exit 1
+    ssh -n $ssh_opt root@$host "if [ -s $remote_filename.err ]; then cat $remote_filename.err; echo killing $remote_pid; kill -1 $remote_pid; exit 1; fi"  || lib_exit 1
 
     eval $varname_pid=$remote_pid
     eval $varname_script=$remote_filename
