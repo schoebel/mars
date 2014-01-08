@@ -615,7 +615,7 @@ function resource_check_links_after_join
 
     local reslink_name link_value_expected link_status
 
-    local link="$(lib_linktree_get_primary_linkname $res)"
+    local link="$(lib_linktree_get_designated_primary_linkname $res)"
     local link_value_expected="$primary_host"
     lib_linktree_check_link $host "$link" "$link_value_expected"
     link_status=$?
@@ -628,7 +628,7 @@ function resource_check_links_after_create
 {
     local host=$1 res=$2 reslink_name link_value_expected link_status
 
-    local link="$(lib_linktree_get_primary_linkname $res)"
+    local link="$(lib_linktree_get_designated_primary_linkname $res)"
     local link_value_expected="$host"
     lib_linktree_check_link $host "$link" "$link_value_expected"
     link_status=$?

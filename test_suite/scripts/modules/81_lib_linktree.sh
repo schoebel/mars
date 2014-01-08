@@ -17,7 +17,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-function lib_linktree_get_primary_linkname
+function lib_linktree_get_designated_primary_linkname
 {
     local resource_name=$1
     echo ${resource_dir_list[$res]}/primary
