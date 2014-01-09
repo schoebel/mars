@@ -86,8 +86,8 @@ subdirectory (we call it start directory) as follows:
 
             leads to including of no_parallel_writer.conf
 
-1.1 Test output
----------------
+1.1. Test output
+----------------
 
 The output fo start_test.sh consists of the following sections:
 
@@ -102,7 +102,7 @@ The output fo start_test.sh consists of the following sections:
   list of ignored or skipped subdirectories
 
 - Per leaf directory:
-    - Line titled "Testdirectory <leaf directory>"
+    - Line titled "Test directory <leaf directory> <date and time>"
     - List  titled "Sourcing config files between <config_root_dir> and
       <leaf directory>" of included *.conf files corresponding to the directory
       structure.
@@ -112,7 +112,7 @@ The output fo start_test.sh consists of the following sections:
 
     - Section titled "Creating lock files"
 
-    - Section titled "<date and time> Starting <leaf directory>"
+    - Section titled "Starting <leaf directory> <date and time>"
       In this section lines starting with "calling ..." mark the call to one of
       the functions listed in the aforementioned variables prepare_list,
       setup_list, run_list, cleanup_list and finish_list.
@@ -125,11 +125,12 @@ The output fo start_test.sh consists of the following sections:
       - Subsection titled "Deleting lock files"
 
       - Subsection titled "General checks of error and log files"
-    - Line titled "Failure <return code> <date and time>" (to stderr) in case
-      of failure, "Finished <date and time>" (to stdout) otherwise
+    - Line titled "Failure <return code> <leaf directory> <date and time>" 
+      (to stderr) in case of failure,
+      "Finished <leaf directory> <date and time>" (to stdout) otherwise
 
 - If all tests in all leaf directories of the start directory terminated 
-  successfully: Line titled "Finished pwd=<start directory>"
+  successfully: Line titled "Finished start directory <start directory>"
 
         
 2. Naming conventions

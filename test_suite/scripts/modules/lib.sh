@@ -35,7 +35,7 @@ mkdir -p "$download_dir" || exit -1
 # general error exit function
 function lib_callstack
 {
-    echo "========================== Callstack ==========================================="
+    echo "================= Callstack ===================================================="
     local argv_index=0 i
     for i in ${!FUNCNAME[*]}; do
         local j args=
@@ -48,7 +48,7 @@ function lib_callstack
         fi
         echo ${BASH_SOURCE[(($i + 1))]:-"stdin"}:${BASH_LINENO[$i]} ${FUNCNAME[$i]} $args
     done
-    echo "========================== End callstack ======================================="
+    echo "================= End callstack ================================================"
 }
 
 function lib_exit
