@@ -262,9 +262,9 @@ for test_dir in $(find . -type d | eval "$ignore_cmd" | eval "$sort_cmd"); do
     )
     rc=$?
     if [ $rc -ne 0 ]; then
-        echo "========================== Failure $rc $test_dir $date =========================" >&2
+        echo "========================== Failure $rc $(cd $test_dir; pwd) $date ==============" >&2
     else
-        echo "========================== Finished $test_dir $(date) =========================="
+        echo "========================== Finished $(cd $test_dir; pwd) $(date) ==============="
     fi
     [ $rc -ne 0 ] && start_test_exit $rc
 done
