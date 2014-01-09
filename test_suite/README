@@ -119,6 +119,8 @@ The output fo start_test.sh consists of the following sections:
       The main part of this section consists of output lines of the function
       lib_vmsg. These lines have the following format:
    <date time> <file:line_no of the call to lib_vmsg> <message> [[<callstack>]]
+       The level from which the bash call stack is printed in <callstack> is
+       configurable via variable main_min_stack_level.
 
       - In case of an error: Subsection titled "Callstack" (to stderr)
 
