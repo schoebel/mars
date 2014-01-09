@@ -57,7 +57,7 @@ function lib_exit
     if [ -n "$msg" ];then
         echo "  $msg" >&2
     fi
-    if [ $rc -ne 0 ]; then
+    if [ $rc -ne 0 -a -z "$lib_exit_recursion" ]; then
         lib_callstack >&2
     fi
     if [ $rc -ne $main_prevent_remove_lock_files_code ]; then
