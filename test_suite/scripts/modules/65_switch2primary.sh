@@ -280,6 +280,7 @@ function switch2primary_correct_split_brain
         marsadm_do_cmd $new_secondary "invalidate" "$res" || lib_exit 1
     else
         local lv_dev=$(lv_config_get_lv_device $res)
+        marsadm_do_cmd $new_secondary "down" "$res" || lib_exit 1
         marsadm_do_cmd $new_secondary "--force leave-resource" "$res" || \
                                                                     lib_exit 1
         marsadm_do_cmd $new_secondary "--force join-resource" "$res $lv_dev" \
