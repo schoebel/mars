@@ -112,7 +112,7 @@ function switch2primary_run
 #   switch2primary_logrotate_orig_primary == 1)
 # - stop writing and unmount data dev orig_primary (if
 #   switch2primary_data_dev_in_use == 0)
-# - cut network connection (if switch2primary_orig_primary_alive == 0)
+# - cut network connection (if switch2primary_connected == 0)
 # - marsadm --force primary on orig_secondary
 # - logrotate and logdelete on orig_primary (if 
 #   switch2primary_logrotate_orig_primary == 1 and
@@ -133,7 +133,7 @@ function switch2primary_run
 # - logrotate and logdelete on orig_primary (if switch2primary_logrotate_split_brain_orig_primary == 1)
 # - logrotate and logdelete on orig_secondary (if switch2primary_logrotate_split_brain_orig_secondary == 1)
 # - stop writing both data devices
-# - recreate network connection (if switch2primary_orig_primary_alive == 0)
+# - recreate network connection (if switch2primary_connected == 0)
 #
 # Now we try to solve the split brain. See switch2primary_correct_split_brain.
 function switch2primary_force
@@ -156,7 +156,7 @@ function switch2primary_force
         switch2primary_stop_write_and_umount_data_device $orig_primary \
                                         $writer_script "write_count"
     fi
-    if [ $switch2primary_orig_primary_alive -eq 0 ]; then
+    if [ $switch2primary_connected -eq 0 ]; then
         net_do_impact_cmd $orig_secondary "on" "remote_host=$orig_primary"
     fi
     marsadm_do_cmd $orig_secondary "--force primary" "$res" || lib_exit 1
@@ -169,7 +169,7 @@ function switch2primary_force
     fi
     lib_vmsg "  ${FUNCNAME[0]}: write_count: $write_count"
 
-    if [ $switch2primary_orig_primary_alive -eq 1 ]; then
+    if [ $switch2primary_connected -eq 1 ]; then
         if [ $switch2primary_orig_prim_equal_new_prim -eq 1 ]; then
             marsadm_do_cmd $new_primary "primary" "$res" || lib_exit 1
         fi
@@ -179,7 +179,7 @@ function switch2primary_force
 
     switch2primary_write_both_data_devices $orig_primary $orig_secondary $res
 
-    if [ $switch2primary_orig_primary_alive -eq 0 ]; then
+    if [ $switch2primary_connected -eq 0 ]; then
         net_do_impact_cmd $orig_secondary "off" "remote_host=$orig_primary"
     fi
 
