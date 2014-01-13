@@ -59,6 +59,8 @@ function lib_check_for_kernel_oops_after_start_time
                 lib_cp_remote_file $host $kern_log $local_file
                 echo "KERNEL-STACK on $host at $stack_date. Saved in $local_file"
             fi
+        else
+            lib_vmsg "  no kernel stacks found in $host:$kern_log"
         fi
     done
 }
