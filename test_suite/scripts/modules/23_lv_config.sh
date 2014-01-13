@@ -70,7 +70,7 @@ function lv_config_lvremove
     lib_remote_idfile $host lvremove -f $logical_volume_path || lib_exit 1
 }
     
-# removes trailing unit letters (e.g. 9G -> 9)
+# removes decimal places and trailing unit letters (e.g. 9G -> 9)
 function lv_config_extract_int_from_lv_size_with_unit
 {
     local lv_size_with_unit=$1
