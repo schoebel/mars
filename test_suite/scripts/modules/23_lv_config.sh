@@ -161,7 +161,7 @@ function lv_config_get_size_logical_volume
     if [ $rc -ne 0 ]; then
         return $rc
     fi
-    lv_size=$(lv_config_extract_int_from_lv_size_with_unit $lv_size_unit)
+    lv_size=$(lv_config_extract_int_from_lv_size_with_unit $lv_size_with_unit)
     echo $lv_size
 }
 
