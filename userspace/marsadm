@@ -1027,6 +1027,13 @@ sub leave_res_phase1 {
     _create_delete($dir);
   }
   cleanup_res($cmd, $res, 0);
+  finish_links();
+}
+
+# wait for deletions (avoid races with following commands)
+sub leave_res_phase2 {
+  my ($cmd, $res) = @_;
+  _wait_delete();
 }
 
 sub logrotate_res {
@@ -1094,6 +1101,15 @@ sub _create_delete {
   my $new = sprintf("$mars/todo-global/delete-%09d-$host", ++$delete_nr);
   lprint "create symlink $new -> $target\n";
   set_link($target, $new);
+}
+
+sub _wait_delete {
+  for (;;) {
+    my $deleted = get_link("$mars/todo-global/deleted-$host");
+    last if $deleted >= $delete_nr;
+    lprint "waiting for deletions to apply locally....\n";
+    sleep_timeout();
+  }
 }
 
 sub delete_file_cmd {
@@ -1611,6 +1627,7 @@ my %cmd_table =
    "leave-resource"    => [
 			   "check preconditions", \&leave_res_phase0,
 			   "switch state",        \&leave_res_phase1,
+			   "wait for deletions",  \&leave_res_phase2,
 			  ],
    "log-rotate"        => \&logrotate_res,
    "log-delete"        => \&logdelete_res,
