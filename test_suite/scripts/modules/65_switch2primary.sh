@@ -115,8 +115,7 @@ function switch2primary_run
 # - cut network connection (if switch2primary_connected == 0)
 # - marsadm --force primary on orig_secondary
 # - logrotate and logdelete on orig_primary (if 
-#   switch2primary_logrotate_orig_primary == 1 and
-#   switch2primary_data_dev_in_use == 1)
+#   switch2primary_logrotate_orig_primary == 1)
 # - stop writing and unmount data device primary (if
 #   switch2primary_data_dev_in_use == 1)
 #
