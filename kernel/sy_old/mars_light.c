@@ -3918,6 +3918,7 @@ static const struct light_class light_classes[] = {
 		.cl_len = 7,
 		.cl_type = 'l',
 		.cl_serial = true,
+		.cl_hostcontext = false, // ignore context, although present
 		.cl_father = CL_GLOBAL_TODO,
 		.cl_prepare = prepare_delete,
 	},

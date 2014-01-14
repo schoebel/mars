@@ -1091,7 +1091,7 @@ sub _create_delete {
       }
     }
   }
-  my $new = sprintf("$mars/todo-global/delete-%09d", ++$delete_nr);
+  my $new = sprintf("$mars/todo-global/delete-%09d-$host", ++$delete_nr);
   lprint "create symlink $new -> $target\n";
   set_link($target, $new);
 }
