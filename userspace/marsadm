@@ -1406,6 +1406,8 @@ sub cleanup_res {
 sub invalidate_res_phase0 {
   my ($cmd, $res) = @_;
   check_not_primary(@_);
+  my $primary = _get_designated_primary($res);
+  ldie "for operation '$cmd', some other designated primary must exist (currently there is none)\n" if $primary eq "(none)";
 }
 
 sub invalidate_res_phase1 {
