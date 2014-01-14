@@ -18,6 +18,8 @@ function marsadm_do_cmd
         resize*|pause-sync*|primary*|secondary*) \
              $post_condition_check $host "$cmd_args"
              ;;
+        _*) lib_exit 1 "invalid command starting with - or _"
+             ;;
         *) :
         ;;
     esac

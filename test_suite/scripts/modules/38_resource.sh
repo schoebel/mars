@@ -100,7 +100,7 @@ function resource_leave
     if resource_joined $host $res; then
         resource_secondary $host $res
         local cmd
-        for cmd in "down" "--force leave-resource"; do
+        for cmd in "down" "leave-resource --force"; do
             marsadm_do_cmd $host "$cmd" $res || lib_exit 1
         done
         resource_do_after_leave_loops $host $res
