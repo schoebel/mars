@@ -3745,10 +3745,18 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	status = -EAGAIN;
 	target = _mars_find_dent(global, dent->new_link);
 	if (target) {
+		if (timespec_compare(&target->new_stat.mtime, &dent->new_stat.mtime) > 0) {
+			MARS_WRN("target '%s' has newer timestamp than deletion link, ignoring\n", dent->new_link);
+			goto ok;
+		}
 		status = mars_unlink(dent->new_link);
 		target->d_killme = true;
 		MARS_DBG("target '%s' deleted (status = %d) and marked for removal\n", dent->new_link, status);
 	} else if (mars_stat(dent->new_link, &stat, true) >= 0) {
+		if (timespec_compare(&stat.mtime, &dent->new_stat.mtime) > 0) {
+			MARS_WRN("target '%s' has newer timestamp than deletion link, ignoring\n", dent->new_link);
+			goto ok;
+		}
 		if (S_ISDIR(stat.mode)) {
 			status = mars_rmdir(dent->new_link);
 			MARS_DBG("rmdir '%s', status = %d\n", dent->new_link, status);
@@ -3766,7 +3774,8 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 			mars_unlink(dent->d_path);
 		}
 	}
-	
+
+ ok:	
 	response_path = path_make("/mars/todo-global/deleted-%s", my_id());
 	if (!response_path) {
 		MARS_ERR("cannot build response path for '%s'\n", dent->new_link);
