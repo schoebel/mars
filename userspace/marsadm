@@ -1047,7 +1047,6 @@ sub leave_res_phase1 {
     }
     _create_delete($dir);
   }
-  cleanup_res($cmd, $res, 0);
   finish_links();
 }
 
@@ -1055,6 +1054,7 @@ sub leave_res_phase1 {
 sub leave_res_phase2 {
   my ($cmd, $res) = @_;
   _wait_delete();
+  log_purge_res(@_);
 }
 
 sub logrotate_res {
@@ -1413,24 +1413,6 @@ sub wait_umount_res {
     sleep_timeout(3);
   }
   lprint "OK, device for resource '$res' is not in use.\n";
-}
-
-sub cleanup_res {
-  my ($cmd, $res, $replay_nr) = @_;
-  my @logfiles = glob("$mars/resource-$res/log-*-$host");
-  my @versions = glob("$mars/resource-$res/version-*-$host");
-  foreach my $path (@logfiles) {
-    $path =~ m:/log-([0-9]+)-: or next;
-    my $nr = $1;
-    next if $nr >= $replay_nr;
-    _create_delete($path);
-  }
-  foreach my $path (@logfiles, @versions) {
-    $path =~ m:/version-([0-9]+)-: or next;
-    my $nr = $1;
-    next if $nr >= $replay_nr - 1;
-    _create_delete($path);
-  }
 }
 
 sub invalidate_res_phase0 {
