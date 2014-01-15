@@ -439,6 +439,8 @@ sub check_mars_device {
     return;
   }
   # !$inv
+  my $primary = _get_designated_primary($res);
+  ldie "for operation '$cmd', I should be the designated primary\n" unless $primary eq $host;
   while (! -e $dev) {
     my $text = get_error_text($cmd, $res);
     lprint $text if $text;
