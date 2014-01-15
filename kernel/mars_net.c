@@ -332,6 +332,7 @@ int _mars_send_raw(struct mars_socket *msock, const void *buf, int len)
 	int sent = 0;
 	int status = 0;
 
+	msock->s_send_cnt = 0;
 	while (len > 0) {
 		int this_len = len;
 		struct socket *sock = msock->s_socket;
@@ -377,6 +378,11 @@ int _mars_send_raw(struct mars_socket *msock, const void *buf, int len)
 #endif
 
 		if (status == -EAGAIN) {
+			if (msock->s_send_abort > 0 && ++msock->s_send_cnt > msock->s_send_abort) {
+				MARS_WRN("#%d reached send abort %d\n", msock->s_debug_nr, msock->s_send_abort);
+				status = -EINTR;
+				break;
+			}
 			brick_msleep(sleeptime);
 			// linearly increasing backoff
 			if (sleeptime < 100) {
@@ -384,6 +390,7 @@ int _mars_send_raw(struct mars_socket *msock, const void *buf, int len)
 			}
 			continue;
 		}
+		msock->s_send_cnt = 0;
 		if (unlikely(status == -EINTR)) { // ignore it
 			flush_signals(current);
 			MARS_IO("#%d got signal\n", msock->s_debug_nr);
@@ -502,6 +509,7 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 
 	MARS_IO("#%d receiving len=%d/%d bytes\n", msock->s_debug_nr, minlen, maxlen);
 
+	msock->s_recv_cnt = 0;
 	while (done < minlen) {
 		struct kvec iov = {
 			.iov_base = buf + done,
@@ -541,6 +549,11 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 		}
 
 		if (status == -EAGAIN) {
+			if (msock->s_recv_abort > 0 && ++msock->s_recv_cnt > msock->s_recv_abort) {
+				MARS_WRN("#%d reached recv abort %d\n", msock->s_debug_nr, msock->s_recv_abort);
+				status = -EINTR;
+				goto err;
+			}
 			brick_msleep(sleeptime);
 			// linearly increasing backoff
 			if (sleeptime < 100) {
@@ -548,6 +561,7 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 			}
 			continue;
 		}
+		msock->s_recv_cnt = 0;
 		if (!status) { // EOF
 			MARS_WRN("#%d got EOF from socket (done=%d, req_size=%d)\n", msock->s_debug_nr, done, maxlen - done);
 			status = -EPIPE;

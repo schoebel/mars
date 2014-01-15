@@ -43,6 +43,10 @@ struct mars_socket {
 	atomic_t s_count;
 	int s_pos;
 	int s_debug_nr;
+	int s_send_abort;
+	int s_recv_abort;
+	int s_send_cnt;
+	int s_recv_cnt;
 	bool s_shutdown_on_err;
 	bool s_alive;
 	struct mars_desc_cache *s_desc_send[MAX_DESC_CACHE];
