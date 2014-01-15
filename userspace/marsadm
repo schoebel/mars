@@ -1784,13 +1784,17 @@ if ($cmd eq "show") {
 
 lprint "using FORCE option -- hopefully you know what you do!\n" if $force;
 
+my %checked_res;
+
 sub do_one_res {
   my $func = shift;
   my ($cmd, $res) = @_;
 
-  $res = check_res($res) unless $cmd =~ m/^(join|create|leave|wait)-cluster|create-resource|show|cat|[a-z]+-file|set-link$/;
-  check_res_member($res) unless $cmd =~ m/^(join|create)-(cluster|resource)|(leave|wait)-cluster|show|cat|[a-z]+-file|set-link$/;
-
+  if (!$checked_res{"$cmd$res"}) {
+    $res = check_res($res) unless $cmd =~ m/^(join|create|leave|wait)-cluster|create-resource|show|cat|[a-z]+-file|set-link$/;
+    check_res_member($res) unless $cmd =~ m/^(join|create)-(cluster|resource)|(leave|wait)-cluster|show|cat|[a-z]+-file|set-link$/;
+    $checked_res{"$cmd$res"} = 1;
+  }
   &{$func}(@_);
 }
 
