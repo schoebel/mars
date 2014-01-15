@@ -295,6 +295,7 @@ ctl_table mars_table[] = {
 	INT_ENTRY("scan_interval_sec",    mars_scan_interval,     0600),
 	INT_ENTRY("propagate_interval_sec", mars_propagate_interval, 0600),
 	INT_ENTRY("sync_flip_interval_sec", mars_sync_flip_interval, 0600),
+	INT_ENTRY("peer_abort",           mars_peer_abort,        0600),
 	INT_ENTRY("do_fast_fullsync",     mars_fast_fullsync,     0600),
 	INT_ENTRY("logrot_auto_gb",       global_logrot_auto,     0600),
 	INT_ENTRY("required_total_space_0_gb", global_free_space_0, 0600),

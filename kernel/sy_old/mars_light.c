@@ -118,6 +118,9 @@ EXPORT_SYMBOL_GPL(mars_propagate_interval);
 int mars_sync_flip_interval = CONFIG_MARS_SYNC_FLIP_INTERVAL;
 EXPORT_SYMBOL_GPL(mars_sync_flip_interval);
 
+int mars_peer_abort = 7;
+EXPORT_SYMBOL_GPL(mars_peer_abort);
+
 int mars_fast_fullsync =
 #ifdef CONFIG_MARS_FAST_FULLSYNC
 	1
@@ -1661,6 +1664,8 @@ int peer_thread(void *data)
 			}
 			do_kill = true;
 			peer->socket.s_shutdown_on_err = true;
+			peer->socket.s_send_abort = mars_peer_abort;
+			peer->socket.s_recv_abort = mars_peer_abort;
 			MARS_DBG("successfully opened socket to '%s'\n", real_peer);
 			brick_msleep(100);
 			continue;
