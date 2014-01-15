@@ -1,7 +1,7 @@
 This directory contains files for the status of mars indicate to monitors, and monitor.
 
 mars-status				- mars status overview
-mars-status.8				- man page fpr mars-status
+mars-status.8				- man page for mars-status
 /zabbix/mars.conf			- zabbix config file for mars
 /zabbix/mars-cron-job			- zabbix cron-job for mars
 /zabbix/zabbix_mars_template.xml	- zabbix template for mars
@@ -10,7 +10,7 @@ TODO on mars-status:
 --------------------
 1) write file to disk
 
-2) run mars-status with --help for more informations
+2) run mars-status with --help for more information
 
 
 TODO on mars to zabbix:
@@ -22,4 +22,3 @@ a file '/tmp/zabbix.mars' with all the important value from mars.
 so it can be loaded from zabbix-agent. then start the agent again.
 
 3) load the template in zabbix and associate it with the mars servers.
-
