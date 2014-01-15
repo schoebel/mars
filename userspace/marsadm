@@ -933,14 +933,8 @@ sub create_res {
       lprint "This does no harm, but you are wasting some space.\n";
     }
     $primary = _get_designated_primary($res);
+    ldie "Sorry, joining is only possible if a designated primary exists.\n" if $primary eq "(none)";
     ldie "implausible state: I ($host) am already designated primary of resource '$res' which I just wanted to join\n" if $primary eq $host;
-    if ($primary eq "(none)") {
-      my @list = glob("$resdir/replay-*") or ldie "cannot find any candidate for primary\n";
-      my $first = pop @list or ldie "bad glob list\n";
-      $primary = get_link($first);
-      $primary =~ s/^log-[0-9]+-(.*),.*,.*$/$1/;
-      lprint "using '$primary' as primary\n";
-    }
     ldie "my ip '$ip' is not registered -- please run 'join-cluster' first\n" unless -l "$mars/ips/ip-$host";
     my $replay = get_link("$resdir/replay-$primary");
     if ($replay =~ m/^log-([0-9]+)-/) {
