@@ -140,8 +140,8 @@ sub get_alive_links {
   if ($res ne "all") {
     $glob = "$mars/$alive-{";
     my $count = 0;
-    foreach my $peer (glob("$mars/resource-$res/connect-*")) {
-      $peer =~ m:/connect-(.+):;
+    foreach my $peer (glob("$mars/resource-$res/data-*")) {
+      $peer =~ m:/data-(.+):;
       $glob .= "," if $count++;
       $glob .= $1;
     }
@@ -552,8 +552,8 @@ sub _get_designated_primary {
 
 sub get_peers {
   my ($res) = @_;
-  my @list = glob("$mars/resource-$res/connect-*");
-  return map { $_ =~ s:$mars/resource-$res/connect-::; $_ } @list;
+  my @list = glob("$mars/resource-$res/data-*");
+  return map { $_ =~ s:$mars/resource-$res/data-::; $_ } @list;
 }
 
 sub __conv_tv {
@@ -852,7 +852,7 @@ sub create_res {
     ldie "resource directory '$res' has some contents -- remove by hand if you are sure that you really know what you are doing, or give --force.\n" if (!$force && glob("$resdir/*.status"));
     lprint "creating new resource '$res'\n";
   } else {
-    if ( -e "$resdir/connect-$host" || -e "$resdir/data-$host") {
+    if ( -e "$resdir/data-$host") {
       lwarn "resource '$res' has been already joined -- this is dangerous!\n";
       ldie "refusing dangerous operation\n" unless $force;
     } else {
@@ -992,8 +992,6 @@ sub create_res {
   } else {
     _set_replaylink($resdir, $replay_nr, $primary);
     set_link("0", "$resdir/syncstatus-$host");
-    set_link($primary, "$resdir/connect-$host");
-    set_link($host, "$resdir/connect-$primary") unless -l "$resdir/connect-$primary";
     finish_links();
     lprint "successfully joined resource '$res'\n";
   }
@@ -1017,17 +1015,6 @@ sub leave_res_phase0 {
 
 sub leave_res_phase1 {
   my ($cmd, $res) = @_;
-  my $peerlink = "$mars/resource-$res/connect-$host";
-  my $peer = get_link($peerlink, 1);
-  foreach my $tmp (glob("$mars/resource-$res/connect-*")) {
-    next if $tmp eq $peerlink;
-    my $target = get_link($tmp);
-    next unless $target eq $host;
-    lprint "changing '$tmp' from '$host' to '$peer'\n";
-    set_link($peer, $tmp);
-  }
-  _create_delete($peerlink);
-  finish_links(); # opportunity for errors => don't continue
   _create_delete("$mars/resource-$res/replay-$host");
   _create_delete("$mars/resource-$res/data-$host");
   _create_delete("$mars/resource-$res/syncstatus-$host");
