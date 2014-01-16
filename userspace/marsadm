@@ -691,7 +691,8 @@ sub _fake_versionlink {
 }
 
 sub _set_replaylink {
-  my ($basedir, $log_nr, $primary) = @_;
+  my ($basedir, $log_nr, $primary, $msg) = @_;
+  $msg = " -- THIS IS EXTREMELY RISKY -- any inconsistencies are on your own!" unless defined($msg);
   ldie "no designated primary defined\n" unless ($primary && $primary ne "(none)");
   my $rep_path = "$basedir/replay-$host";
   my $rep_val  = sprintf("log-%09d-$primary,0,0", $log_nr);
@@ -709,7 +710,7 @@ sub _set_replaylink {
     }
     set_link($initial, "$basedir/version-000000001-$host");
   }
-  set_link("$log_nr", "$basedir/skip-check-$host");
+  set_link("$log_nr$msg", "$basedir/skip-check-$host");
 }
 
 ##################################################################
@@ -958,7 +959,7 @@ sub create_res {
     finish_links();
     lprint "successfully created resource '$res'\n";
   } else {
-    _set_replaylink($resdir, $replay_nr, $primary);
+    _set_replaylink($resdir, $replay_nr, $primary, "");
     set_link("0", "$resdir/syncstatus-$host");
     finish_links();
     lprint "successfully joined resource '$res'\n";
@@ -1392,7 +1393,7 @@ sub invalidate_res_phase3 {
   my $replay_nr = $1;
   set_link("0", $dst);
   finish_links(); # opportunity for errors => don't continue
-  _set_replaylink("$mars/resource-$res", $replay_nr, $primary);
+  _set_replaylink("$mars/resource-$res", $replay_nr, $primary, "");
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/allow-replay", 1);
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/sync", 1);
 }
