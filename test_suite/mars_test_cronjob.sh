@@ -141,6 +141,7 @@ tests_to_execute=(\
 "build_test_environment/lv_config:build_test_environment"
 "build_test_environment/cluster:build_test_environment"
 "build_test_environment/resource/create_resource:build_test_environment"
+"test_cases/admin/leave_and_recreate_resource:test_cases/admin"
 "test_cases/admin/apply_fetch/apply:test_cases/admin"
 "test_cases/admin/apply_fetch/fetch:test_cases/admin"
 "test_cases/hardcore/destroy_secondary_logfile:test_cases/hardcore"
@@ -231,7 +232,6 @@ tests_to_execute=(\
 "test_cases/stabil/crash/crash_primary_logger_completion_semantics:test_cases/stabil"
 "test_cases/stabil/crash/crash_primary_aio_sync_mode:test_cases/stabil"
 "test_cases/bugs/aio_filehandle:test_cases/bugs"
-"build_test_environment/resource/leave_resource:test_cases/admin"
 "test_cases/perf:"
 )
 
