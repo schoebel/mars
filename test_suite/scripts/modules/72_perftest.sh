@@ -309,11 +309,15 @@ function perftest_generate_data_file
 
 function perftest_sysctrl_sync_modus
 {
+    local sync_mode="$1"
+    shift
     local hosts="$@" host
-    local mars_fast_sync_mode=0
-    if [ "$perftest_sync_mode" = "fast_sync" ]; then
-        mars_fast_sync_mode=1
-    fi
+    local mars_fast_sync_mode
+    case "$sync_mode" in # (((
+        fast_sync) mars_fast_sync_mode=1;;
+        rsync|no_fast_sync) mars_fast_sync_mode=0;;
+        *) lib_exit 1 "invalid sync_mode $sync_mode";;
+    esac
     for host in $hosts; do
         lib_vmsg "  setting fast sync mode to $mars_fast_sync_mode on $host"
         lib_remote_idfile $host \
@@ -353,7 +357,8 @@ function perftest_prepare_sync
 
 
     if [ "$perftest_sync_mode" != "rsync"  ]; then
-        perftest_sysctrl_sync_modus $primary_host $secondary_host
+        perftest_sysctrl_sync_modus $perftest_sync_mode $primary_host \
+                                    $secondary_host
     else
         perftest_generate_data_file $primary_host $secondary_host $dev \
                                         $dev_size $perftest_data_file
