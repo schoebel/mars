@@ -714,8 +714,7 @@ sub _fake_versionlink {
   my $new_version = sprintf("$basedir/version-%09d-$host", $log_nr);
   my $pri_version = sprintf("$basedir/version-%09d-$primary", $log_nr);
   if ($primary eq $host) {
-    lwarn "it makes no sense to fake my own version link '$new_version'\n";
-    return;
+    ldie "Cannot fake my own version link '$new_version'\n";
   }
   my $pri_link = get_link($pri_version);
   if (!$pri_link) { # try any one else
@@ -749,11 +748,7 @@ sub _set_replaylink {
   set_link($rep_val, $rep_path);
 
   if ($log_nr > 1) {
-    my $old_primary = "";
-    my $vers_link  = sprintf("$basedir/version-%09d-$primary", $log_nr);
-    my $vers_val = get_link($vers_link);
-    $old_primary = $1 if $vers_val =~ m/:.*,log-[0-9]+-([^,]+),/;
-    _fake_versionlink($basedir, $log_nr - 1, $old_primary);
+    _fake_versionlink($basedir, $log_nr - 1, $primary);
   } else {
     my $initial;
     for (;;) {
