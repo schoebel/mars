@@ -1441,7 +1441,7 @@ sub invalidate_res_phase3 {
   my $replay_nr = $1;
   set_link("0", $dst);
   finish_links(); # opportunity for errors => don't continue
-  set_link($replay, "$mars/resource-$res/replay-$host");
+  _set_replaylink("$mars/resource-$res", $replay_nr, $primary);
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/allow-replay", 1);
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/sync", 1);
 }
