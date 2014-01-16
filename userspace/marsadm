@@ -758,6 +758,7 @@ sub _set_replaylink {
     }
     set_link($initial, "$basedir/version-000000001-$host");
   }
+  set_link("$log_nr", "$basedir/skip-check-$host");
 }
 
 ##################################################################
@@ -1302,7 +1303,6 @@ sub set_replay_res {
     ldie "you would need --force if you really know what you are doing.\n" unless $force;
   }
   _set_replaylink("$mars/resource-$res", $new_nr, "");
-  set_link("$new_nr", "$mars/resource-$res/skip-check-$host");
 }
 
 sub fake_local_res {
