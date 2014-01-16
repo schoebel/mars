@@ -1382,7 +1382,6 @@ sub primary_phase3 {
   return unless $cmd eq "primary";
   my $old = _get_designated_primary($res);
   my $new = $host;
-  return if $old eq $new;
   _primary_res($res, $new, $old);
 }
 
