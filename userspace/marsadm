@@ -660,57 +660,8 @@ sub _get_ip {
   return undef;
 }
 
-# Which primary was active in the past when logfile number $log_nr was created?
-# In general, this may be even a node which doesn't exist anymore.
-# $supposed_primary should be normally empty, but may be used
-# to give a hint and check for consistency of ancient knowledge.
-
-sub _get_former_primary {
-  my ($basedir, $log_nr, $supposed_primary) = @_;
-  my $primary = $supposed_primary;
-  foreach my $type ("log", "version") {
-    my $base_path = sprintf("$basedir/$type-%09d-", $log_nr);
-    my $pri_path = "$base_path$supposed_primary";
-    my $log_path = "$base_path*";
-    my @names = glob($log_path);
-    if (!@names) {
-      if ($type eq "log" and !$supposed_primary) {
-	next;
-      }
-      ldie "Sorry, there exist no names '$log_path'\n" unless $supposed_primary;
-    } elsif (scalar(@names) == 1) {
-      my $found = $names[0];
-      if ($supposed_primary) {
-	ldie "Sorry, '$pri_path' does not exist, although '$found' would exist.\n" unless $pri_path eq $found;
-      } else { # assume that the found name is the right one.
-	$pri_path = $found;
-	lprint "found '$pri_path'\n";
-	ldie "found name is malformed\n" unless $pri_path =~ m:^$base_path(.*):;
-	$primary = $1;
-      }
-    } else { # multiple exist...
-      lprint "There are multiple names with number $log_nr.\n";
-      my $present = 0;
-      foreach my $file (@names) {
-	lprint "    $file\n";
-	$present++ if $file eq $pri_path;
-      }
-      if ($type eq "log") {
-	lwarn "Usually, this is an indication for split-brain.\n";
-	lwarn "Be careful!\n";
-      }
-      ldie "Cannot select between them -- no primary preference given.\n" unless $supposed_primary;
-      ldie "Sorry, '$pri_path' is not among them.\n" unless $present;
-      lprint "=> using '$pri_path' out of them\n";
-    } 
-    return $primary;
-  }
-  ldie "could not determine old primary site for logfile version number $log_nr\n";
-}
-
 sub _fake_versionlink {
   my ($basedir, $log_nr, $primary) = @_;
-  $primary = _get_former_primary(@_) unless $primary;
   my $new_version = sprintf("$basedir/version-%09d-$host", $log_nr);
   my $pri_version = sprintf("$basedir/version-%09d-$primary", $log_nr);
   if ($primary eq $host) {
@@ -740,8 +691,8 @@ sub _fake_versionlink {
 }
 
 sub _set_replaylink {
-  my ($basedir, $log_nr) = @_;
-  my $primary = _get_former_primary(@_);
+  my ($basedir, $log_nr, $primary) = @_;
+  ldie "no designated primary defined\n" unless ($primary && $primary ne "(none)");
   my $rep_path = "$basedir/replay-$host";
   my $rep_val  = sprintf("log-%09d-$primary,0,0", $log_nr);
   lprint "creating new replaylink '$rep_path' -> '$rep_val'\n";
@@ -1302,7 +1253,8 @@ sub set_replay_res {
     lwarn "you try to skip logfile numbers from $old_nr to $new_nr, are you sure?\n";
     ldie "you would need --force if you really know what you are doing.\n" unless $force;
   }
-  _set_replaylink("$mars/resource-$res", $new_nr, "");
+  my $primary = _get_designated_primary($res);
+  _set_replaylink("$mars/resource-$res", $new_nr, $primary);
 }
 
 sub fake_local_res {
