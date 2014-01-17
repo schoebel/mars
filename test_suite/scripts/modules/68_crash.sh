@@ -49,7 +49,7 @@ function crash_run
                                         $crash_aio_sync_mode
     crash_reboot $primary_host $secondary_host $mars_dev $crash_maxtime_reboot \
                  $crash_maxtime_to_become_unreachable \
-                 $boot_label_name
+                 "$boot_label_name"
 
     lib_linktree_print_linktree $primary_host
 
@@ -124,7 +124,7 @@ function crash_reboot
     [ $# -eq 6 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local primary_host=$1 secondary_host=$2 mars_dev=$3 maxtime_to_reboot=$4
     local maxtime_to_become_unreachable=$5
-    local boot_label_name=$6
+    local boot_label_name="$6"
     local pids_to_kill host
 
     if [ -z "$crash_print_linktree_during_reboot" ]; then
@@ -136,7 +136,7 @@ function crash_reboot
     fi
     if [ "${main_host_bootloader_list[$primary_host]}" = "lilo" ]; then
 	install_mars_activate_kernel_to_boot_with_lilo $primary_host \
-						       $boot_label_name
+						       "$boot_label_name"
     fi
 
     main_error_recovery_functions["lib_rw_stop_scripts"]=

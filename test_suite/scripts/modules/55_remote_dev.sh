@@ -69,7 +69,7 @@ function remote_dev_run
     local mars_dev=$(lv_config_get_lv_device ${cluster_mars_dir_lv_name_list[$secondary_host]})
     crash_reboot $secondary_host "" $mars_dev $crash_maxtime_reboot \
                  $crash_maxtime_to_become_unreachable \
-                 $boot_label_name
+                 "$boot_label_name"
     remote_dev_remove_magic_links $secondary_host
 }
 

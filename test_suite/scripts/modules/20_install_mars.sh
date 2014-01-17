@@ -114,10 +114,11 @@ function install_mars_update_bootloader_on_target_hosts
         case "$boot_loader" in # ((
            lilo) label_name="${main_host_bootloader_label_list[$host]}"
                 lib_vmsg "checking label $label_name on host $host"
-                lib_remote_idfile $host lilo -I $label_name || lib_exit 1
+                lib_remote_idfile $host lilo -I "$label_name" || lib_exit 1
                 lib_vmsg "  calling lilo on $host"
                 lib_remote_idfile $host lilo || lib_exit 1
-                install_mars_activate_kernel_to_boot_with_lilo $host $label_name
+                install_mars_activate_kernel_to_boot_with_lilo $host \
+                                                               "$label_name"
                 ;;
               *) echo "hint: for bootloader $boot_loader on $host no action defined"
                 ;;
@@ -127,9 +128,9 @@ function install_mars_update_bootloader_on_target_hosts
 
 function install_mars_activate_kernel_to_boot_with_lilo
 {
-    local host=$1 label_name=$2
+    local host=$1 label_name="$2"
     lib_vmsg "  calling lilo -R $label_name on $host"
-    lib_remote_idfile $host lilo -R $label_name || lib_exit 1
+    lib_remote_idfile $host lilo -R "$label_name" || lib_exit 1
 }
 
 function install_mars_finish
