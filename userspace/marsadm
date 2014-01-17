@@ -1406,6 +1406,15 @@ sub primary_phase4 {
     check_mars_device($cmd, $res, 1, 1);
     return;
   }
+  my $ok = detect_splitbrain($res, 1);
+  if (!$ok) {
+    lwarn "Sorry, in split brain situations I can only set the _designated_\n";
+    lwarn "primary, but I cannot _guarantee_ that becoming the\n";
+    lwarn "the actual primary is possible.\n";
+    lwarn "You SHOULD resolve the split brain ASAP (e.g. by leave-resource\n";
+    lwarn "or invalidate etc).\n";
+    return;
+  }
   check_mars_device($cmd, $res, 1, 0);
 }
 
