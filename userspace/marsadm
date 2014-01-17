@@ -585,7 +585,8 @@ sub get_peers {
 
 sub __conv_tv {
   my ($tv_sec, $tv_nsec) = @_;
-  my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime($tv_sec);
+  my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(int($tv_sec));
+  return "$tv_sec.$tv_nsec" unless defined($sec);
   return sprintf("%04d-%02d-%02d %02d:%02d:%02d.%s", $year+1900, $mon + 1, $mday, $hour, $min, $sec, $tv_nsec);
 }
 
