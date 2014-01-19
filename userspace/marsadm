@@ -512,21 +512,81 @@ sub get_minmax_replays {
   return _get_minmax($res, "$mars/resource-$res/replay-*", 1);
 }
 
+sub _parse_pos {
+  my ($pos) = @_;
+  $pos =~ m/(log-([0-9]+)-([^,]+),([0-9]+))/;
+  return ($1, int($2), $3, int($4));
+}
+
+sub _get_prev_pos {
+  my ($basedir, $nr, $host) = @_;
+  my $path = sprintf("$basedir/version-%09d-$host", $nr);
+  my $vers = get_link($path, 1);
+  $vers =~ s/^.*://;
+  return $vers;
+}
+
+sub _get_common_ancestor {
+  # TODO: recursive formulation, improve efficiency
+  my ($basedir, $pos1, $host1, $dep1, $pos2, $host2, $dep2) = @_;
+  my ($p1, $nr1, $from1, $len1) = _parse_pos($pos1);
+  my ($p2, $nr2, $from2, $len2) = _parse_pos($pos2);
+  if ($p1 eq $p2) {
+    # usually no split brain here (only if both path depths are non-zero)
+    return ($p1, ($dep1 && $dep2));
+  } elsif ($nr1 > $nr2) {
+    # just flip arguments
+    return _get_common_ancestor($basedir, $pos2, $host2, $dep2, $pos1, $host1, $dep1);
+  } elsif ($nr1 < $nr2) {
+    # recursively advance path depth
+    my $vers2 = _get_prev_pos($basedir, $nr2, $host2);
+    return ("", -1) if !$vers2;
+    return _get_common_ancestor($basedir, $pos1, $host1, $dep1, $vers2, $host2, $dep2 + 1);
+  } elsif ($from1 ne $from2) {
+    # split brain is sure now, but continue computing the common split point
+    my $vers1 = _get_prev_pos($basedir, $nr1, $host1);
+    return ("", 1) if !$vers1;
+    my $vers2 = _get_prev_pos($basedir, $nr2, $host2);
+    return ("", 1) if !$vers2;
+    my ($res, $split) = _get_common_ancestor($basedir, $vers1, $host1, $dep1 + 1, $vers2, $host2, $dep2 + 1);
+    return ($res, 1);
+  } elsif ($len1 < $len2) {
+    # there may be no split brain (just incomplete replay) depending on path depth
+    return ($p1, $dep1);
+  } elsif ($len2 < $len1) {
+    # dto symmetric
+    return ($p2, $dep2);
+  }
+  lwarn "error in algorithm: $p1, $nr1, $from1, $len1 : $p2, $nr2, $from2, $len2\n";
+  return ("", -1);
+}
+
+sub get_common_ancestor {
+  my ($basedir, $host1, $host2) = @_;
+  my $repl1 = get_link("$basedir/replay-$host1", 1);
+  my $repl2 = get_link("$basedir/replay-$host2", 1);
+  return _get_common_ancestor($basedir, $repl1, $host1, 0, $repl2, $host2, 0);
+}
+
 sub detect_splitbrain {
   my ($res, $do_report) = @_;
+  my $basedir = "$mars/resource-$res";
   my $ok = 1;
-  my %from;
-  foreach my $vers_path (glob("$mars/resource-$res/version-*")) {
-    $vers_path =~ m:/version-(0-9+)-:;
-    my $nr = $1;
-    my $vers = get_link($vers_path, 1);
-    $vers =~ m/,log-[0-9]+-([^,]+),/;
-    my $origin = $1;
-    if (defined($from{$nr}) && $from{$nr} ne $origin) {
-      $ok = 0;
-      lwarn "SPLIT BRAIN at logfile $nr detected: hostA = '${from{$nr}}', hostB = '$origin'\n" if $do_report;
+  my @list = glob("$mars/resource-$res/replay-*");
+  my @hosts = map { $_ =~ s:.*/replay-::; $_ } @list;
+  foreach my $host1 (@hosts) {
+    foreach my $host2 (@hosts) {
+      next if $host1 ge $host2;
+      my ($res, $split) = get_common_ancestor($basedir, $host1, $host2);
+      if ($split) {
+	$ok = 0;
+	if ($do_report) {
+	  lwarn "SPLIT BRAIN at '$res' detected: hostA = '$host1', hostB = '$host2'\n";
+	} else {
+	  return $ok;
+	}
+      }
     }
-    $from{$nr} = $origin;
   }
   return $ok;
 }
@@ -1753,7 +1813,7 @@ sub do_one_res {
   if (!$checked_res{"$cmd$res"}) {
     $res = check_res($res) unless $cmd =~ m/^(join|create|leave|wait)-cluster|create-resource|show|cat|[a-z]+-file|set-link$/;
     check_res_member($res) unless $cmd =~ m/^(join|create)-(cluster|resource)|(leave|wait)-cluster|show|cat|[a-z]+-file|set-link$/;
-    detect_splitbrain($res);
+    detect_splitbrain($res, 1);
     $checked_res{"$cmd$res"} = 1;
   }
   &{$func}(@_);
