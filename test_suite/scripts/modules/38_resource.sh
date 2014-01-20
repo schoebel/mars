@@ -659,3 +659,33 @@ function resource_kill_all_scripts
         lib_remote_idfile $host 'for p in $(pgrep -f '"$main_prefix_scripts"'); do if [ $p -ne $$ ] && ps -p $p >/dev/null; then echo killing:; ps -fp $p; kill -9 $p; fi; done'
     done
 }
+
+function resource_check_replication
+{
+    local primary_host=$1 secondary_host=$2 res=$3
+    local data_dev=$(resource_get_data_device $res)
+    lib_vmsg  "  check replication, primary=$primary_host, secondary=$secondary_host"
+    marsadm_do_cmd $primary_host "wait-resource" "$res is-device-on" || \
+                                                                    lib_exit 1
+    lib_vmsg "  write some data to $primary_host:$data_dev"
+    local count=0 maxcount=3
+    while true; do
+        lib_remote_idfile $primary_host \
+                          "yes | dd oflag=direct bs=4096 count=1 of=$data_dev" \
+                                                            || lib_exit 1
+        if [ $switch2primary_logrotate_new_primary -eq 0 ]; then
+            break
+        fi
+        marsadm_do_cmd $primary_host "log-rotate" $res || lib_exit 1
+        if [ $(($count % 2 )) -eq 0 ]; then
+            marsadm_do_cmd $primary_host "log-delete" $res || lib_exit 1
+        fi
+        let count+=1
+        if [ $count -eq $maxcount ]; then
+            break
+        fi
+    done
+    lib_wait_for_secondary_to_become_uptodate_and_cmp_cksums "resource" \
+                                            $new_secondary $primary_host \
+                                            $res $data_dev 0
+}
