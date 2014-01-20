@@ -180,6 +180,7 @@ function switch2primary_force
 
     if [ $switch2primary_connected -eq 0 ]; then
         net_do_impact_cmd $orig_secondary "off" "remote_host=$orig_primary"
+        lib_wait_for_connection $orig_secondary $res
     fi
 
     switch2primary_correct_split_brain $orig_primary $orig_secondary \

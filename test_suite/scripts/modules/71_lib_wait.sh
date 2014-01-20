@@ -300,3 +300,20 @@ function lib_wait_until_apply_has_reached_length
     done
 }
 
+function lib_wait_for_connection
+{
+    local host=$1 res=$2
+    local waited=0
+    while true; do
+        if marsadm_do_cmd $host "wait-connect" $res; then
+            break
+        fi
+        sleep 1
+        let waited+=1
+        lib_vmsg "  waited $waited for connection for res $res on $host"
+        if [ $waited -eq $lib_wait_for_cluster_connection_max_wait ]; then
+            lib_exit 1 \
+                    "maxwait $lib_wait_for_cluster_connection_max_wait exceeded"
+        fi
+    done
+}
