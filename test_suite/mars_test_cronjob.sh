@@ -149,6 +149,8 @@ tests_to_execute=(\
 "test_cases/admin/logrotate:test_cases/admin"
 "test_cases/admin/logdelete:test_cases/admin"
 "test_cases/bugs/memleak:test_cases/bugs"
+"test_cases/admin/leave_resource_while_sync/cut_network_connection_while_sync:test_cases/admin"
+"test_cases/admin/leave_resource_while_sync/dont_cut_network_connection_while_sync:test_cases/admin"
 "test_cases/admin/switch2primary:test_cases/admin"
 "test_cases/admin/switch2primary_force/not_connected/data_dev_in_use/orig_prim_becomes_prim/hardcore_method:test_cases/admin"
 "test_cases/admin/switch2primary_force/not_connected/data_dev_in_use/orig_prim_becomes_prim/usual_method:test_cases/admin"
@@ -235,7 +237,6 @@ tests_to_execute=(\
 "test_cases/perf:"
 )
 
-tests_to_execute=
 set_env
 
 execute_tests

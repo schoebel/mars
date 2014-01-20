@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2010-2013 Frank Liepold /  1&1 Internet AG
+# Copyright 2010-2014 Frank Liepold /  1&1 Internet AG
 #
 # Email: frank.liepold@1und1.de
 #
@@ -686,6 +686,71 @@ function resource_check_replication
         fi
     done
     lib_wait_for_secondary_to_become_uptodate_and_cmp_cksums "resource" \
-                                            $new_secondary $primary_host \
+                                            $secondary_host $primary_host \
                                             $res $data_dev 0
+}
+
+function resource_leave_while_sync
+{
+    local primary_host=${main_host_list[0]}
+    local secondary_host=${main_host_list[1]}
+    local res=${resource_name_list[0]}
+    local dev="$(lv_config_get_lv_device $res)"
+    local time_waited
+
+    lib_wait_for_initial_end_of_sync $primary_host $secondary_host $res \
+                                  $resource_maxtime_initial_sync \
+                                  $switch2primary_time_constant_initial_sync \
+                                  "time_waited"
+    lib_vmsg "  ${FUNCNAME[0]}: sync time: $time_waited"
+
+    # prevent too fast sync 
+    perftest_sysctrl_sync_modus "no_fast_sync" $secondary_host
+    marsadm_do_cmd $secondary_host "invalidate" $res || lib_exit 1
+    sleep 2
+
+    resource_check_sync $secondary_host $primary_host $res "running"
+
+    if [ $resource_cut_network_connection_while_sync -eq 1 ]; then
+        net_do_impact_cmd $secondary_host "on" "remote_host=$primary_host"
+    fi
+    perftest_sysctrl_sync_modus "fast_sync" $secondary_host
+
+    marsadm_do_cmd $secondary_host "down" $res || lib_exit 1
+    marsadm_do_cmd $secondary_host "leave-resource" $res || lib_exit 1
+
+    if [ $resource_cut_network_connection_while_sync -eq 1 ]; then
+        net_do_impact_cmd $secondary_host "off" "remote_host=$primary_host"
+    fi
+    marsadm_do_cmd $secondary_host "join-resource" "$res $dev" || lib_exit 1
+
+    lib_wait_for_initial_end_of_sync $primary_host $secondary_host $res \
+                                     $resource_maxtime_initial_sync \
+                                     $resource_time_constant_initial_sync \
+                                     "time_waited"
+    resource_check_replication $primary_host $secondary_host $res
+}
+
+function resource_check_sync
+{
+    [ $# -eq 4 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    local secondary_host=$1 primary_host=$2 res=$3 mode_req="$4"
+    lib_vmsg "  check whether sync has mode $mode_req on $secondary_host"
+    case "$mode_req" in # ((
+        running) 
+            local i host link_primary link_secondary
+            local link_val_primary link_val_secondary
+            for i in "primary" "secondary"; do
+                eval host='$'$i'_host'
+                eval link_$i="$(lib_linktree_get_res_host_linkname $host $res \
+                                                                 syncstatus)"
+                eval link_val_$i='$(lib_remote_idfile $host "readlink $link'_$i'")' || lib_exit 1
+            done
+            if [ "$link_val_primary" = "$link_val_secondary" ]; then
+                lib_exit 1 "no sync running. Links $link_primary and $link_secondary has same value $link_val_primary"
+            fi
+            ;;
+        *) lib_exit 1 "wrong mode $mode_req"
+        ;;
+    esac
 }

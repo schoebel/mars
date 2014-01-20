@@ -256,7 +256,6 @@ for test_dir in $(find . -type d | eval "$ignore_cmd" | eval "$sort_cmd"); do
         else
             set_host_locks
             echo "================= Starting $(pwd) $(date) ======================================"
-            local test_rc
             eval "$to_start"
             test_rc=$?
             release_host_locks
