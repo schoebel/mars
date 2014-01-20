@@ -158,6 +158,7 @@ function switch2primary_force
     if [ $switch2primary_connected -eq 0 ]; then
         net_do_impact_cmd $orig_secondary "on" "remote_host=$orig_primary"
     fi
+    marsadm_do_cmd $orig_secondary "disconnect" "$res" || lib_exit 1
     marsadm_do_cmd $orig_secondary "primary --force" "$res" || lib_exit 1
     if [ $switch2primary_logrotate_orig_primary -eq 1 ]; then
         logrotate_loop $orig_primary $res 3 4
@@ -275,9 +276,11 @@ function switch2primary_correct_split_brain
     local res=$5
     local data_dev=$(resource_get_data_device $res)
     local time_waited
-    marsadm_do_cmd $new_secondary "secondary" "$res" || lib_exit 1
+    marsadm_do_cmd $new_primary "connect" "$res" || lib_exit 1
+    marsadm_do_cmd $new_primary "primary" "$res" || lib_exit 1
     if [ $switch2primary_activate_secondary_hardcore -eq 0 ]; then
         marsadm_do_cmd $new_secondary "invalidate" "$res" || lib_exit 1
+        marsadm_do_cmd $new_secondary "connect" "$res" || lib_exit 1
     else
         local lv_dev=$(lv_config_get_lv_device $res)
         marsadm_do_cmd $new_secondary "down" "$res" || lib_exit 1
