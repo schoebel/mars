@@ -59,6 +59,7 @@ function net_do_impact_cmd
     local cmd="${net_impact_cmd[$array_index]}"
     local pattern="${replace_expression%=*}" replace="${replace_expression#*=}"
     local rc_req=0 check_array_index var
+    local rc
 
     if [ -z "$cmd" ]; then
         lib_exit 1 "no value to index $array_index in array net_impact_cmd"
