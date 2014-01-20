@@ -22,16 +22,24 @@ sub lprint {
   }
 }
 
+sub lprint_stderr {
+  my ($text) = @_;
+  print STDERR $text;
+  if ($notify) {
+    system("/usr/bin/logger -t marsadm \"$notify $text\"");
+  }
+}
+
 sub ldie {
   my ($text) = @_;
   $error_count++;
-  lprint "DYING: $text";
+  lprint_stderr "DYING: $text";
   die "\n";
 }
 
 sub lwarn {
   my ($text) = @_;
-  lprint "WARNING: $text";
+  lprint_stderr "WARNING: $text";
 }
 
 ##################################################################
