@@ -110,6 +110,9 @@ function switch2primary_run
 #   this function)
 # - logrotate and logdelete on orig_primary (if 
 #   switch2primary_logrotate_orig_primary == 1)
+# - destroy logs behind replay link (if
+#      switch2primary_full_apply_not_possible == 1 and
+#      switch2primary_orig_prim_equal_new_prim == 0)
 # - stop writing and unmount data dev orig_primary (if
 #   switch2primary_data_dev_in_use == 0)
 # - cut network connection (if switch2primary_connected == 0)
@@ -151,6 +154,11 @@ function switch2primary_force
     fi
     if [ $switch2primary_logrotate_orig_primary -eq 1 ]; then
         logrotate_loop $orig_primary $res 3 4
+    fi
+    if [ $switch2primary_full_apply_not_possible -eq 1 \
+         -a $switch2primary_orig_prim_equal_new_prim -eq 0 ]
+    then
+        switch2primary_destroy_log_after_replay_link $new_primary $res
     fi
     if [ $switch2primary_data_dev_in_use -eq 0 ]; then
         switch2primary_stop_write_and_umount_data_device $orig_primary \
@@ -338,4 +346,27 @@ function switch2primary_correct_split_brain
                                      $resource_time_constant_initial_sync \
                                      "time_waited"
     resource_check_replication $new_primary $new_secondary $res
+}
+
+function switch2primary_destroy_log_after_replay_link
+{
+    local host=$1 res=$2 link link_val replay_offset
+    local logfile length_logfile 
+    lib_vmsg "  destroying log after replay link on $host"
+    marsadm_do_cmd $host "pause-replay" "$res" || lib_exit 1
+    link="$(lib_linktree_get_res_host_linkname $host $res replay replay)" || \
+                                                                    lib_exit 1
+    link_val="$(lib_remote_idfile $host "readlink $link")" || lib_exit 1
+    logfile=${resource_dir_list[$res]}/${link_val%%,*}
+    length_logfile=$(file_handling_get_file_length $host $logfile) || lib_exit 1
+    replay_offset=$(expr "$link_val" : '.*,\(.*\),.*')
+    if [ -z "$replay_offset" ]; then
+        lib_exit 1 "cannot determine replay offset from replay link value $link_val on host $host"
+    fi
+    if [ $replay_offset -ge $length_logfile ]; then
+        lib_exit 1 "logfile $logfile already fully applied on host $host"
+    fi
+    lib_vmsg "  destroy logfile $host:$logfile at offset $replay_offset"
+    lib_remote_idfile $host "yes | dd bs=1 conv=notrunc seek=$replay_offset of=$logfile count=10000" || lib_exit 1
+    marsadm_do_cmd $host "resume-replay" "$res" || lib_exit 1
 }
