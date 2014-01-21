@@ -29,7 +29,7 @@ function marsadm_get_role
 {
     local host=$1 res=$2 output
     output=$(lib_remote_idfile $host "marsadm role $res") || lib_exit 1
-    expr "$output" : 'I am actually \([^ ][^ ]*\).*'
+    expr "$output" : '.*I am actually \([^ ][^ ]*\).*'
 }
 
 function marsadm_check_post_condition_primary
