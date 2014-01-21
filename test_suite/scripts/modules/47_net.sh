@@ -116,3 +116,11 @@ function net_check_variables
     done
 }
 
+function net_clear_iptables_all
+{
+    local host
+    for host in "${main_host_list[@]}"; do
+        lib_vmsg "  flushing iptables on $host"
+        lib_remote_idfile $host "iptables -F" || lib_exit 1
+    done
+}

@@ -20,6 +20,9 @@
 function resource_prepare
 {
     resource_check_variables
+    if [ $net_clear_iptables_in_prepare_phase -eq 1 ]; then
+        net_clear_iptables_all
+    fi
     resource_kill_all_scripts
     cluster_rmmod_mars_all
     cluster_clear_and_umount_mars_dir_all
@@ -40,6 +43,9 @@ function resource_quick_prepare_first_resource
     local dev="$(lv_config_get_lv_device $res)"
     local data_dev=$(resource_get_data_device $res)
     local waited
+    if [ $net_clear_iptables_in_prepare_phase -eq 1 ]; then
+        net_clear_iptables_all
+    fi
     cluster_rmmod_mars_all
     cluster_clear_and_mount_mars_dir_all
     cluster_insert_mars_module_all

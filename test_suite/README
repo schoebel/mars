@@ -27,6 +27,7 @@ Contents
 8. Resources
 9. Starting the whole test suite via cronjob
 10. Concurrent test runs
+11. Firewalls
 
 1. Running a test
 -----------------
@@ -274,6 +275,14 @@ To avoid concurrent run of tests on the same host each run creates temporary
 files (/tmp/test-suite_on.<host>, see main_lock_file_list) and deletes them
 afterwards.
 
+11. Firewalls
+-------------
+Certain tests cut temporarily network connections by defining firewall rules.
+Normally even in case of failure these connections are restored. To be sure
+that no firewall rules prevent tests from running the flag
+net_clear_iptables_in_prepare_phase is set to 1 in default-net.conf.
+This flag leads to deletion of *all* iptable chains on the test hosts.
+If you do not want this behaviour set net_clear_iptables_in_prepare_phase=0.
 
 
 
