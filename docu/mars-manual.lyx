@@ -131,7 +131,7 @@ tst@1und1.de
 \end_layout
 
 \begin_layout Date
-Version 0.10 (incomplete)
+Version 0.11 (incomplete)
 \end_layout
 
 \begin_layout Lowertitleback
@@ -2593,7 +2593,7 @@ marsadm primary
 \begin_layout Standard
 The preconditions try to protect you from doing silly things, such as accidental
 ly provoking a split brain error state.
- We want to avoid split brain as well as we can.
+ We try to avoid split brain as best as we can.
  Therefore, we distinguish between 
 \emph on
 intended
@@ -2603,7 +2603,53 @@ intended
 emergeny
 \emph default
  switching.
- Intended switching will try to avoid split brain as best as it can.
+ Intended switching will try to avoid split brain 
+\emph on
+as best as it can
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Don't 
+\emph on
+rely
+\emph default
+ on split brain avoidance, in particular when scripting any higher-level
+ applications such as cluster managers.
+ 
+\family typewriter
+marsadm
+\family default
+ does its best, but at least in case of (unnoticed) network outages / partitions
+ (or even 
+\emph on
+very
+\emph default
+ slow / overloaded networks), an attempt to become up-to-date is likely
+ to fail.
+ If you want to 
+\emph on
+ensure
+\emph default
+ that no split brain can result from intended primary switching, please
+ give the 
+\family typewriter
+primary
+\family default
+ command only after your secondary is 
+\emph on
+known
+\emph default
+ to be up-to-date.
 \end_layout
 
 \begin_layout Standard

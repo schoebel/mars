@@ -600,7 +600,25 @@ sub detect_splitbrain {
 }
 
 sub try_to_avoid_splitbrain {
-  # NYI
+  my ($cmd, $res) = @_;
+  my ($min, $max) = get_minmax_versions($res);
+  my @host_list = glob("$mars/resource-$res/replay-*");
+  return if scalar(@host_list) < 2;
+  my $vers_glob = sprintf("$mars/resource-$res/version-%09d-*", $max);
+  for (;;) {
+    my $ok = 1;
+    my @versions = glob($vers_glob);
+    my $first = get_link(shift @versions);
+    while (@versions) {
+      my $next = get_link(shift @versions);
+      if ($next ne $first) {
+	$ok = 0;
+      }
+    }
+    last if $ok;
+    lprint "trying to avoid split brain: logfile update not yet completed.\n";
+    sleep_timeout();
+  }
 }
 
 sub get_size {
@@ -1395,7 +1413,8 @@ sub primary_phase2 {
   return if $force;
   return unless $cmd eq "primary";
   check_primary_gone($res);
-  try_to_avoid_splitbrain(@_);
+  my $ok = detect_splitbrain($res);
+  try_to_avoid_splitbrain(@_) if $ok;
 }
 
 # when necessary, switch to primary
