@@ -185,7 +185,7 @@ sub mars_time {
     $lamport_time = $1 if /^lamport_now=(.*)/;
   }
   close($lamport_clock);
-  return $lamport_time || time() . '0' x 9;
+  return $lamport_time || time() . "." . '0' x 9;
 }
 
 sub sleep_timeout {
