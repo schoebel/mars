@@ -18,6 +18,9 @@
 
 #define CLIENT_HASH_MAX (PAGE_SIZE / sizeof(struct list_head))
 
+int mars_client_abort = 10;
+EXPORT_SYMBOL_GPL(mars_client_abort);
+
 ///////////////////////// own helper functions ////////////////////////
 
 static int thread_count = 0;
@@ -101,6 +104,8 @@ static int _connect(struct client_output *output, const char *str)
 		goto really_done;
 	}
 	output->socket.s_shutdown_on_err = true;
+	output->socket.s_send_abort = mars_client_abort;
+	output->socket.s_recv_abort = mars_client_abort;
 
 	output->receiver.thread = brick_thread_create(receiver_thread, output, "mars_receiver%d", thread_count++);
 	if (unlikely(!output->receiver.thread)) {

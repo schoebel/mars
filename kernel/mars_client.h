@@ -7,6 +7,7 @@
 
 extern struct mars_limiter client_limiter;
 extern int global_net_io_timeout;
+extern int mars_client_abort;
 
 struct client_mref_aspect {
 	GENERIC_ASPECT(mref);
