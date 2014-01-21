@@ -1839,7 +1839,7 @@ if ($cmd eq "show") {
 }
 
 
-lprint "using FORCE option -- hopefully you know what you do!\n" if $force;
+lwarn "Using FORCE option -- hopefully you know what you are doing!\n" if $force;
 
 my %checked_res;
 
