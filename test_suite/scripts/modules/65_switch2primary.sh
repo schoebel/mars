@@ -132,7 +132,8 @@ function switch2primary_run
 # - logrotate and logdelete on orig_primary (if switch2primary_logrotate_split_brain_orig_primary == 1)
 # - logrotate and logdelete on orig_secondary (if switch2primary_logrotate_split_brain_orig_secondary == 1)
 # - stop writing both data devices
-# - recreate network connection (if switch2primary_connected == 0)
+# - recreate network connection (if switch2primary_connected == 0 and
+#            switch2primary_reconnect_before_primary_cmd_on_new_primary = 1)
 #
 # Now we try to solve the split brain. See switch2primary_correct_split_brain.
 function switch2primary_force
@@ -177,11 +178,16 @@ function switch2primary_force
         return
     fi
 
-    switch2primary_write_both_data_devices $orig_primary $orig_secondary $res
+    switch2primary_write_data_devices $res $orig_primary \
+                            $switch2primary_logrotate_split_brain_orig_primary \
+                            $orig_secondary \
+                            $switch2primary_logrotate_split_brain_orig_secondary
 
-    if [ $switch2primary_connected -eq 0 ]; then
-        net_do_impact_cmd $orig_secondary "off" "remote_host=$orig_primary"
-        lib_wait_for_connection $orig_secondary $res
+    if [ $switch2primary_connected -eq 0 \
+         -a $switch2primary_reconnect_before_primary_cmd_on_new_primary -eq 1 ]
+    then
+        switch2primary_restore_resource_connection $orig_secondary \
+                                                   $orig_primary $res
     fi
 
     switch2primary_correct_split_brain $orig_primary $orig_secondary \
@@ -189,6 +195,13 @@ function switch2primary_force
 
 }
 
+function switch2primary_restore_resource_connection
+{
+    local local_host=$1 remote_host=$2 res=$3
+    net_do_impact_cmd $local_host "off" "remote_host=$remote_host"
+    lib_wait_for_connection $local_host $res
+}
+ 
 function switch2primary_stop_write_and_umount_data_device
 {
     local host=$1 writer_script=$2 varname_write_count=$3
@@ -216,13 +229,27 @@ function switch2primary_wait_for_first_own_logfile_on_new_primary
 }
 
 # check whether write access to the data device causes writes to the logfiles
-function switch2primary_write_both_data_devices
+# parameters: <resource> <host_1> <logrotate_flag_1> 
+#                        <host_2> <logrotate_flag_2> ...
+function switch2primary_write_data_devices
 {
-    local primary_host=$1 secondary_host=$2 res=$3
+    local res=$1 host
+    declare -A logrotate_flags # hostname indexed array of flags whether a
+                               # log-rotate should be done on the host
+    shift
+    while [ -n "$1" ]; do
+        if [ -z "$2" ]; then
+            lib_exit 1 "no logrotate flag given for host $1"
+        fi
+        if [ "$2" != "0" -a "$2" != "1" ]; then
+            lib_exit 1 "invalid logrotate flag $2 for host $1"
+        fi
+        logrotate_flags[$1]=$2
+        shift; shift
+    done
     local data_dev=$(resource_get_data_device $res)
     local script=$switch2primary_write_script_prefix.$$
     local writer_script writer_pid write_count host
-    local rm_opt="no_rm"
     declare -A last_logfile_old
     declare -A length_last_logfile_old
     # this script will be started
@@ -232,8 +259,8 @@ while true; do
     yes xyz | dd oflag=direct bs=4096 count=1000 of='$data_dev' status=noxfer 3>&2 2>&1 >&3 | grep -v records 3>&2 2>&1 >&3
     sleep 1
 done' >$script
-    for host in $primary_host $secondary_host; do
-        # both hosts must have a least one logfile
+    for host in ${!logrotate_flags[*]}; do
+        # all hosts must have a least one logfile
         last_logfile_old[$host]=$(marsadm_get_last_logfile $host $res $host) \
                                                                 || lib_exit 1
         length_last_logfile_old[$host]=$(file_handling_get_file_length \
@@ -241,21 +268,20 @@ done' >$script
                                                                 || lib_exit 1
         lib_vmsg "  last logfile:length on $host: ${last_logfile_old[$host]}:${length_last_logfile_old[$host]}"
         lib_start_script_remote_bg $host $script "writer_pid" "writer_script" \
-                                   $rm_opt
+                                   "no_rm"
         main_error_recovery_functions["lib_rw_stop_scripts"]+="$host $script "
-        rm_opt="rm"
     done
-    if [ $switch2primary_logrotate_split_brain_orig_primary -eq 1 ]; then
-        logrotate_loop $primary_host $res 3 2
-    fi
-    if [ $switch2primary_logrotate_split_brain_orig_secondary -eq 1 ]; then
-        logrotate_loop $secondary_host $res 3 2
-    fi
-    for host in $primary_host $secondary_host; do
+    rm -f $script || lib_exit 1
+    for host in ${!logrotate_flags[*]}; do
+        if [ ${logrotate_flags[$host]} -eq 1 ]; then
+            logrotate_loop $host $res 3 2
+        fi
+    done
+    for host in ${!logrotate_flags[*]}; do
         lib_rw_stop_one_script $host $script "write_count"
     done
     main_error_recovery_functions["lib_rw_stop_scripts"]=
-    for host in $primary_host $secondary_host; do
+    for host in ${!logrotate_flags[*]}; do
         local last_logfile length_logfile
         last_logfile=$(marsadm_get_last_logfile $host $res $host) || lib_exit 1
         length_last_logfile=$(file_handling_get_file_length \
@@ -269,6 +295,15 @@ done' >$script
     done
 }
 
+function switch2primary_check_standalone_primary
+{
+    local primary_host=$1 res=$2
+    lib_vmsg "  checking $primary_host as standalone primary"
+    switch2primary_write_data_devices $res $primary_host 1
+    marsview_wait_for_state $primary_host $res "disk" "Uptodate" \
+                            $marsview_wait_for_state_time || lib_exit 1
+}
+
 function switch2primary_correct_split_brain
 {
     [ $# -eq 5 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
@@ -278,6 +313,15 @@ function switch2primary_correct_split_brain
     local time_waited
     marsadm_do_cmd $new_primary "connect" "$res" || lib_exit 1
     marsadm_do_cmd $new_primary "primary" "$res" || lib_exit 1
+    switch2primary_check_standalone_primary $new_primary $res
+    if [ $switch2primary_connected -eq 0 \
+         -a $switch2primary_reconnect_before_primary_cmd_on_new_primary -eq 0 ]
+    then
+        switch2primary_restore_resource_connection $orig_secondary \
+                                                   $orig_primary $res
+        switch2primary_check_standalone_primary $new_primary $res
+    fi
+
     if [ $switch2primary_activate_secondary_hardcore -eq 0 ]; then
         marsadm_do_cmd $new_secondary "invalidate" "$res" || lib_exit 1
         marsadm_do_cmd $new_secondary "connect" "$res" || lib_exit 1
