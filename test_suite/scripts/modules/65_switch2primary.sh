@@ -117,6 +117,9 @@ function switch2primary_run
 #   switch2primary_data_dev_in_use == 0)
 # - cut network connection (if switch2primary_connected == 0)
 # - marsadm --force primary on orig_secondary
+#       this must fail if switch2primary_full_apply_not_possible == 1
+#       in this case we leave and create the resource and should be primary
+#       afterwards (see switch2primary_recreate_resource)
 # - logrotate and logdelete on orig_primary (if 
 #   switch2primary_logrotate_orig_primary == 1)
 # - stop writing and unmount data device primary (if
@@ -144,7 +147,8 @@ function switch2primary_force
     [ $# -eq 4 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local orig_primary=$1 orig_secondary=$2 res=$3 writer_script=$4
     local write_count time_waited host logfile length_logfile net_throughput
-    local new_primary new_secondary
+    local new_primary new_secondary rc
+    local timeout_opt
     if [ $switch2primary_orig_prim_equal_new_prim -ne 0 ]; then
         new_primary=$orig_primary
         new_secondary=$orig_secondary
@@ -159,6 +163,8 @@ function switch2primary_force
          -a $switch2primary_orig_prim_equal_new_prim -eq 0 ]
     then
         switch2primary_destroy_log_after_replay_link $new_primary $res
+        timeout_opt='--timeout=40' # we don't want to wait too long
+                                   # for the failure of --force primary
     fi
     if [ $switch2primary_data_dev_in_use -eq 0 ]; then
         switch2primary_stop_write_and_umount_data_device $orig_primary \
@@ -168,7 +174,17 @@ function switch2primary_force
         net_do_impact_cmd $orig_secondary "on" "remote_host=$orig_primary"
     fi
     marsadm_do_cmd $orig_secondary "disconnect" "$res" || lib_exit 1
-    marsadm_do_cmd $orig_secondary "primary --force" "$res" || lib_exit 1
+    marsadm_do_cmd $orig_secondary "primary --force" "$res $timeout_opt"
+    rc=$?
+    if [ $switch2primary_full_apply_not_possible -eq 0 -a $rc -ne 0 ]; then
+        lib_exit 1 "marsadm primary --force failed unexpectedly"
+    fi
+    if [ $switch2primary_full_apply_not_possible -eq 1 ]; then
+        if [ $rc -eq 0 ]; then
+            lib_exit 1 "marsadm primary --force succeeded unexpectedly"
+        fi
+        switch2primary_recreate_resource $orig_secondary $res
+    fi
     if [ $switch2primary_logrotate_orig_primary -eq 1 ]; then
         logrotate_loop $orig_primary $res 3 4
     fi
@@ -369,4 +385,17 @@ function switch2primary_destroy_log_after_replay_link
     lib_vmsg "  destroy logfile $host:$logfile at offset $replay_offset"
     lib_remote_idfile $host "yes | dd bs=1 conv=notrunc seek=$replay_offset of=$logfile count=10000" || lib_exit 1
     marsadm_do_cmd $host "resume-replay" "$res" || lib_exit 1
+}
+
+function switch2primary_recreate_resource
+{
+    local host=$1 res=$2
+    local res_dir=${resource_dir_list[$res]}
+    local dev=$(lv_config_get_lv_device $res)
+    lib_vmsg "  recreating resource $res on $host"
+    marsadm_do_cmd $host "secondary" "$res" || lib_exit 1
+    marsadm_do_cmd $host "down" "$res" || lib_exit 1
+    marsadm_do_cmd $host "leave-resource" "$res" || lib_exit 1
+    lib_remote_idfile $host "rm -rf $res_dir" || lib_exit 1
+    marsadm_do_cmd $host "create-resource --force" "$res $dev" || lib_exit 1
 }
