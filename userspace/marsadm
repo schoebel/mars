@@ -179,12 +179,13 @@ sub get_alive_links {
 # fallback to system time()
 #
 sub mars_time {
-  open(my $lamport_clock, "<", "/proc/sys/mars/lamport_clock");
   my $lamport_time;
-  while (<$lamport_clock>) {
-    $lamport_time = $1 if /^lamport_now=(.*)/;
+  if (open(my $lamport_clock, "<", "/proc/sys/mars/lamport_clock")) {
+    while (<$lamport_clock>) {
+      $lamport_time = $1 if /^lamport_now=(.*)/;
+    }
+    close($lamport_clock);
   }
-  close($lamport_clock);
   return $lamport_time || time() . "." . '0' x 9;
 }
 
