@@ -267,7 +267,7 @@ default-resource.conf.
 9. Starting the whole test suite via cronjob
 --------------------------------------------
 This can be done mars_test_cronjob.sh. The variable tests_to_execute contains
-all tests to be executed.
+all tests to be executed. See the documentation in the header.
 
 10. Concurrent test runs
 ------------------------

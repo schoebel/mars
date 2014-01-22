@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2010-2013 Frank Liepold /  1&1 Internet AG
+# Copyright 2010-2014 Frank Liepold /  1&1 Internet AG
 #
 # Email: frank.liepold@1und1.de
 #
@@ -19,9 +19,21 @@
 
 #####################################################################
 
-## The scripts starts all tests included in the variable tests_to_execute.
-## If you want to see all existing tests, you have to find the leaf directories
-## below the directories build_test_environment and test_cases.
+## The scripts starts all tests included in the array tests_to_execute.
+## The values in this array consist of two directories separated by a colon:
+##
+## directory-1:directory-2
+##
+## directory-1 is the directory from where start_test.sh is called (the
+## "start directory" mentioned in README).
+## You can use a * at the end of the name of directory-1 which causes that
+## all leaf subdirectories in the directory tree starting at directory-1 
+## which contain a file named i_am_a_testdirectory define a start directory
+## from which start_test.sh is called.
+## 
+## directory-2 serves as parameter for option --config_root_dir of start_test.sh
+##
+# All directory paths are given relative to test_suite_dir
 
 function myexit
 {
@@ -46,39 +58,61 @@ function execute_tests
     local kernel_stack_grep_cmd='grep KERNEL-STACK '$tmp_file
 
     for t in "${tests_to_execute[@]}"; do
-        local test_dir="${t%:*}"
+        local test_dir="${t%:*}" start_dirs s
         local config_root_dir=${t#*:}
         local config_root_dir_opt=${config_root_dir:+"--config_root_dir=$test_suite_dir/$config_root_dir"}
-        echo executing test $test_dir
-        cd $test_suite_dir/$test_dir || myexit 1
-        $start_script $config_root_dir_opt 2>&1 |  tee $tmp_file
-        rc=${PIPESTATUS[0]}
-        if [ $rc -ne 0 ];then
-            fail_msg+="$test_dir"$'\n'
-            send_msg=1
-        fi
-        if $perf_grep_cmd >/dev/null; then
-            perf_msg+="$test_dir: $($perf_grep_cmd)"$'\n'
-            send_msg=1
-        fi
-        if $errorfile_grep_cmd >/dev/null; then
-            errorfile_msg+="$test_dir: $($errorfile_grep_cmd)"$'\n'
-            send_msg=1
-        fi
-        if $kernel_stack_grep_cmd >/dev/null; then
-            kernel_stack_msg+="$test_dir: $($kernel_stack_grep_cmd)"$'\n'
-            send_msg=1
-        fi
-        if [ $rc -ne 0 -a $continue_after_failed_test -eq 0 ];then
-            break
-        fi
+        case "$test_dir" in # ((
+            *\*) test_dir=${test_dir%\*}
+                 start_dirs=($(find $test_suite_dir/$test_dir -type f \
+                                    -name i_am_a_testdirectory -exec \
+                                    dirname {} \;)
+                            )
+                 local s
+                 for s in "${start_dirs[@]}"; do
+                     if [ $(find $s -mindepth 1 -type d | wc -l) -ne 0 ]; then
+                         echo "subdirectory $s of $test_dir is not a leaf directory" >&2
+                         exit 1
+                     fi
+                 done
+                 ;;
+               *) start_dirs=($test_suite_dir/$test_dir)
+                 ;;
+        esac
+        for s in "${start_dirs[@]}"; do
+            echo executing test $s
+            if [ $dry_run -eq 1 ]; then
+                continue
+            fi
+            cd $s || myexit 1
+            $start_script $config_root_dir_opt 2>&1 |  tee $tmp_file
+            rc=${PIPESTATUS[0]}
+            if [ $rc -ne 0 ];then
+                fail_msg+="$s"$'\n'
+                send_msg=1
+            fi
+            if $perf_grep_cmd >/dev/null; then
+                perf_msg+="$s: $($perf_grep_cmd)"$'\n'
+                send_msg=1
+            fi
+            if $errorfile_grep_cmd >/dev/null; then
+                errorfile_msg+="$s: $($errorfile_grep_cmd)"$'\n'
+                send_msg=1
+            fi
+            if $kernel_stack_grep_cmd >/dev/null; then
+                kernel_stack_msg+="$s: $($kernel_stack_grep_cmd)"$'\n'
+                send_msg=1
+            fi
+            if [ $rc -ne 0 -a $continue_after_failed_test -eq 0 ];then
+                break
+            fi
+        done
     done
-    rm $tmp_file
+    rm -f $tmp_file
     if [ $send_msg -eq 1 ]; then
         local to
         local msg="$fail_msg$perf_msg$errorfile_msg$kernel_stack_msg"$'\n'
         for to in "${mail_to[@]}"; do
-                sendEmail -m "$msg" -f $mail_from -test_dir $to -u "failed mars tests" -s $mail_server
+                sendEmail -m "$msg" -f $mail_from -t $to -u "failed mars tests" -s $mail_server
         done
         echo "$msg"
         return 1
@@ -95,24 +129,29 @@ function set_env
 
 function usage
 {
-    echo "usage: $my_name [-e] test_suite_dir" >&2
+    echo "usage: $my_name [-e] [-l] test_suite_dir" >&2
     echo "          -e: dont't continue if a test fails" >&2
+    echo "          -l: list all tests which will be executed but don't execute them" >&2
     exit 1
 }
 
 # main
 my_name=$(basename $0)
 
-OPTSTR="e"
+OPTSTR="el"
 
 continue_after_failed_test=1
+dry_run=0
 
 while getopts "$OPTSTR" opt; do
     case $opt in # (
         e) continue_after_failed_test=0;;
+        l) dry_run=1;;
         *) usage;;
     esac
 done
+
+shift $(($OPTIND - 1))
 
 [ $# -ne 1 ] && usage
 
@@ -120,7 +159,7 @@ test_suite_dir=$1
 
 # main
 
-echo Start $(basename $0) at $(date)
+echo Start $(basename $0) $test_suite_dir at $(date)
 
 mail_server=mxintern.schlund.de:587
 
@@ -130,16 +169,13 @@ mail_to=("frank.liepold@1und1.de")
 
 start_script=$test_suite_dir/scripts/start_test.sh
 
-# value = <test directory>:<directory serving as parameter for option
-# --config_root_dir of start_test.sh>
-# all directory paths are given relative to test_suite_dir
-
+# For documentation see header of this file
 tests_to_execute=(\
-"build_test_environment/checkout:build_test_environment"
+"build_test_environment/checkout/checkout_mars_from_git:build_test_environment"
 "build_test_environment/make/make_mars/grub:build_test_environment"
-"build_test_environment/install_mars:build_test_environment"
-"build_test_environment/lv_config:build_test_environment"
-"build_test_environment/cluster:build_test_environment"
+"build_test_environment/install_mars/install_via_rsync:build_test_environment"
+"build_test_environment/lv_config/lv_recreate:build_test_environment"
+"build_test_environment/cluster/create_cluster:build_test_environment"
 "build_test_environment/resource/create_resource:build_test_environment"
 "test_cases/admin/leave_and_recreate_resource:test_cases/admin"
 "test_cases/admin/apply_fetch/apply:test_cases/admin"
@@ -149,81 +185,9 @@ tests_to_execute=(\
 "test_cases/admin/logrotate:test_cases/admin"
 "test_cases/admin/logdelete:test_cases/admin"
 "test_cases/bugs/memleak:test_cases/bugs"
-"test_cases/admin/leave_resource_while_sync/cut_network_connection_while_sync:test_cases/admin"
-"test_cases/admin/leave_resource_while_sync/dont_cut_network_connection_while_sync:test_cases/admin"
+"test_cases/admin/leave_resource_while_sync*:test_cases/admin"
 "test_cases/admin/switch2primary:test_cases/admin"
-"test_cases/admin/switch2primary_force/not_connected/data_dev_in_use/orig_prim_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/not_connected/data_dev_in_use/orig_prim_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/not_connected/data_dev_in_use/secon_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/not_connected/data_dev_in_use/secon_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/not_connected/data_dev_not_in_use/orig_prim_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/not_connected/data_dev_not_in_use/orig_prim_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/not_connected/data_dev_not_in_use/secon_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/not_connected/data_dev_not_in_use/secon_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_prim/not_connected/data_dev_in_use/orig_prim_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_prim/not_connected/data_dev_in_use/orig_prim_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_prim/not_connected/data_dev_in_use/secon_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_prim/not_connected/data_dev_in_use/secon_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_prim/not_connected/data_dev_not_in_use/orig_prim_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_prim/not_connected/data_dev_not_in_use/orig_prim_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_prim/not_connected/data_dev_not_in_use/secon_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_prim/not_connected/data_dev_not_in_use/secon_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_prim/logrot_orig_prim/not_connected/data_dev_in_use/orig_prim_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_prim/logrot_orig_prim/not_connected/data_dev_in_use/orig_prim_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_prim/logrot_orig_prim/not_connected/data_dev_in_use/secon_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_prim/logrot_orig_prim/not_connected/data_dev_in_use/secon_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_prim/logrot_orig_prim/not_connected/data_dev_not_in_use/orig_prim_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_prim/logrot_orig_prim/not_connected/data_dev_not_in_use/orig_prim_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_prim/logrot_orig_prim/not_connected/data_dev_not_in_use/secon_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_prim/logrot_orig_prim/not_connected/data_dev_not_in_use/secon_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_orig_prim/not_connected/data_dev_in_use/orig_prim_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_orig_prim/not_connected/data_dev_in_use/orig_prim_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_orig_prim/not_connected/data_dev_in_use/secon_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_orig_prim/not_connected/data_dev_in_use/secon_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_orig_prim/not_connected/data_dev_not_in_use/orig_prim_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_orig_prim/not_connected/data_dev_not_in_use/orig_prim_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_orig_prim/not_connected/data_dev_not_in_use/secon_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_orig_prim/not_connected/data_dev_not_in_use/secon_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_orig_prim/connected/data_dev_in_use/orig_prim_becomes_prim:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_orig_prim/connected/data_dev_in_use/secon_becomes_prim:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_orig_prim/connected/data_dev_not_in_use/orig_prim_becomes_prim:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_orig_prim/connected/data_dev_not_in_use/secon_becomes_prim:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/not_connected/data_dev_in_use/orig_prim_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/not_connected/data_dev_in_use/orig_prim_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/not_connected/data_dev_in_use/secon_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/not_connected/data_dev_in_use/secon_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/not_connected/data_dev_not_in_use/orig_prim_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/not_connected/data_dev_not_in_use/orig_prim_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/not_connected/data_dev_not_in_use/secon_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/not_connected/data_dev_not_in_use/secon_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/logrot_spl_brain_orig_prim/not_connected/data_dev_in_use/orig_prim_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/logrot_spl_brain_orig_prim/not_connected/data_dev_in_use/orig_prim_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/logrot_spl_brain_orig_prim/not_connected/data_dev_in_use/secon_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/logrot_spl_brain_orig_prim/not_connected/data_dev_in_use/secon_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/logrot_spl_brain_orig_prim/not_connected/data_dev_not_in_use/orig_prim_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/logrot_spl_brain_orig_prim/not_connected/data_dev_not_in_use/orig_prim_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/logrot_spl_brain_orig_prim/not_connected/data_dev_not_in_use/secon_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/logrot_spl_brain_orig_prim/not_connected/data_dev_not_in_use/secon_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/logrot_spl_brain_orig_prim/logrot_orig_prim/not_connected/data_dev_in_use/orig_prim_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/logrot_spl_brain_orig_prim/logrot_orig_prim/not_connected/data_dev_in_use/orig_prim_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/logrot_spl_brain_orig_prim/logrot_orig_prim/not_connected/data_dev_in_use/secon_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/logrot_spl_brain_orig_prim/logrot_orig_prim/not_connected/data_dev_in_use/secon_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/logrot_spl_brain_orig_prim/logrot_orig_prim/not_connected/data_dev_not_in_use/orig_prim_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/logrot_spl_brain_orig_prim/logrot_orig_prim/not_connected/data_dev_not_in_use/orig_prim_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/logrot_spl_brain_orig_prim/logrot_orig_prim/not_connected/data_dev_not_in_use/secon_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/logrot_spl_brain_orig_prim/logrot_orig_prim/not_connected/data_dev_not_in_use/secon_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/logrot_orig_prim/not_connected/data_dev_in_use/orig_prim_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/logrot_orig_prim/not_connected/data_dev_in_use/orig_prim_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/logrot_orig_prim/not_connected/data_dev_in_use/secon_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/logrot_orig_prim/not_connected/data_dev_in_use/secon_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/logrot_orig_prim/not_connected/data_dev_not_in_use/orig_prim_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/logrot_orig_prim/not_connected/data_dev_not_in_use/orig_prim_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/logrot_orig_prim/not_connected/data_dev_not_in_use/secon_becomes_prim/hardcore_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/logrot_spl_brain_orig_secon/logrot_orig_prim/not_connected/data_dev_not_in_use/secon_becomes_prim/usual_method:test_cases/admin"
-"test_cases/admin/switch2primary_force/connected/data_dev_in_use/orig_prim_becomes_prim:test_cases/admin"
-"test_cases/admin/switch2primary_force/connected/data_dev_in_use/secon_becomes_prim:test_cases/admin"
-"test_cases/admin/switch2primary_force/connected/data_dev_not_in_use/orig_prim_becomes_prim:test_cases/admin"
-"test_cases/admin/switch2primary_force/connected/data_dev_not_in_use/secon_becomes_prim:test_cases/admin"
+"test_cases/admin/switch2primary_force*:test_cases/admin"
 "test_cases/admin/datadev_full:test_cases/admin"
 "test_cases/hardcore/mars_dir_full/write_other_file:test_cases/hardcore"
 "test_cases/hardcore/mars_dir_full/write_data_dev:test_cases/hardcore"
