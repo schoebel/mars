@@ -2225,6 +2225,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	rot->aio_brick = NULL;
 	rot->first_log = NULL;
 	rot->relevant_log = NULL;
+	rot->relevant_serial = 0;
 	rot->relevant_brick = NULL;
 	rot->next_relevant_log = NULL;
 	rot->next_next_relevant_log = NULL;
