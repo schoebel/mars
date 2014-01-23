@@ -542,7 +542,15 @@ sub _get_common_ancestor {
   my ($p2, $nr2, $from2, $len2) = _parse_pos($pos2);
   if ($p1 eq $p2) {
     # usually no split brain here (only if both path depths are non-zero)
-    return ($p1, ($dep1 && $dep2));
+    my $split = ($dep1 && $dep2);
+    if (!$split) { # additionally check the corresponding version links
+      my $path1 = sprintf("$basedir/version-%09d-$from1", $nr1);
+      my $path2 = sprintf("$basedir/version-%09d-$from2", $nr2);
+      if (my $vers1 = get_link($path1) and my $vers2 = get_link($path2)) {
+	$split = 1 if $vers1 ne $vers2;
+      }
+    }
+    return ($p1, $split);
   } elsif ($nr1 > $nr2) {
     # just flip arguments
     return _get_common_ancestor($basedir, $pos2, $host2, $dep2, $pos1, $host1, $dep1);
