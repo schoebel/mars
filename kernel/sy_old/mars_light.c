@@ -1462,7 +1462,7 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 	// check marker preventing concurrent updates from remote hosts when deletes are in progress
 	marker_path = backskip_replace(remote_dent->d_path, '/', true, "/.deleted-");
 	if (mars_stat(marker_path, &local_stat, true) >= 0) {
-		MARS_IO("marker '%s' exists, ignoring '%s'\n", marker_path, remote_dent->d_path);
+		MARS_DBG("marker '%s' exists, ignoring '%s'\n", marker_path, remote_dent->d_path);
 		goto done;
 	}
 
@@ -1479,7 +1479,7 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 		   (local_stat.mode & S_IRWXU) &&
 		   update_ctime) {
 			mode_t newmode = local_stat.mode;
-			MARS_IO("chmod '%s' 0x%xd -> 0x%xd\n", remote_dent->d_path, newmode & S_IRWXU, remote_dent->new_stat.mode & S_IRWXU);
+			MARS_DBG("chmod '%s' 0x%xd -> 0x%xd\n", remote_dent->d_path, newmode & S_IRWXU, remote_dent->new_stat.mode & S_IRWXU);
 			newmode &= ~S_IRWXU;
 			newmode |= (remote_dent->new_stat.mode & S_IRWXU);
 			mars_chmod(remote_dent->d_path, newmode);
@@ -1487,7 +1487,7 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 		}
 
 		if (remote_dent->new_stat.uid != local_stat.uid && update_ctime) {
-			MARS_IO("lchown '%s' %d -> %d\n", remote_dent->d_path, local_stat.uid, remote_dent->new_stat.uid);
+			MARS_DBG("lchown '%s' %d -> %d\n", remote_dent->d_path, local_stat.uid, remote_dent->new_stat.uid);
 			mars_lchown(remote_dent->d_path, remote_dent->new_stat.uid);
 			run_trigger = true;
 		}
@@ -1495,12 +1495,12 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 
 	if (S_ISDIR(remote_dent->new_stat.mode)) {
 		if (!_is_usable_dir(remote_dent->d_name)) {
-			MARS_IO("ignoring directory '%s'\n", remote_dent->d_path);
+			MARS_DBG("ignoring directory '%s'\n", remote_dent->d_path);
 			goto done;
 		}
 		if (!stat_ok) {
 			status = mars_mkdir(remote_dent->d_path);
-			MARS_IO("create directory '%s' status = %d\n", remote_dent->d_path, status);
+			MARS_DBG("create directory '%s' status = %d\n", remote_dent->d_path, status);
 			if (status >= 0) {
 				mars_chmod(remote_dent->d_path, remote_dent->new_stat.mode);
 				mars_lchown(remote_dent->d_path, remote_dent->new_stat.uid);
@@ -1509,7 +1509,7 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 	} else if (S_ISLNK(remote_dent->new_stat.mode) && remote_dent->new_link) {
 		if (!stat_ok || update_mtime) {
 			status = mars_symlink(remote_dent->new_link, remote_dent->d_path, &remote_dent->new_stat.mtime, remote_dent->new_stat.uid);
-			MARS_IO("create symlink '%s' -> '%s' status = %d\n", remote_dent->d_path, remote_dent->new_link, status);
+			MARS_DBG("create symlink '%s' -> '%s' status = %d\n", remote_dent->d_path, remote_dent->new_link, status);
 			run_trigger = true;
 		}
 	} else if (S_ISREG(remote_dent->new_stat.mode) && _is_peer_logfile(remote_dent->d_name, my_id())) {
@@ -1517,19 +1517,20 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 		if (likely(parent_path)) {
 			struct mars_dent *parent = mars_find_dent(peer->global, parent_path);
 			struct mars_dent *local_dent = mars_find_dent(peer->global, remote_dent->d_path);
+			struct mars_rotate *rot;
 			if (unlikely(!parent)) {
-				MARS_IO("ignoring non-existing local resource '%s'\n", parent_path);
+				MARS_DBG("ignoring non-existing local resource '%s'\n", parent_path);
 			// don't copy old / outdated logfiles
-			} else if (parent->d_private &&
-				   ((struct mars_rotate *)parent->d_private)->relevant_serial > remote_dent->d_serial) {
-				MARS_IO("ignoring outdated remote logfile '%s'\n", remote_dent->d_path);
+			} else if ((rot = parent->d_private) &&
+				   rot->relevant_serial > remote_dent->d_serial) {
+				MARS_DBG("ignoring outdated remote logfile '%s' (behind %d)\n", remote_dent->d_path, rot->relevant_serial);
 			} else {
 				status = check_logfile(peer->peer, remote_dent, local_dent, parent, local_stat.size);
 			}
 			brick_string_free(parent_path);
 		}
 	} else {
-		MARS_IO("ignoring '%s'\n", remote_dent->d_path);
+		MARS_DBG("ignoring '%s'\n", remote_dent->d_path);
 	}
 
  done:
