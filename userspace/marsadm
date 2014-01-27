@@ -527,10 +527,20 @@ sub get_minmax_replays {
   return _get_minmax($res, "$mars/resource-$res/replay-*", 1);
 }
 
+##################################################################
+
+# versionlink path handling routines
+
+my %visited_pos;
+
 sub _parse_pos {
-  my ($pos) = @_;
-  $pos =~ m/(log-([0-9]+)-([^,]+),([0-9]+))/;
-  return ($1, int($2), $3, int($4));
+  my ($pos, $do_remember) = @_;
+  $pos =~ m/((?:log|version)-([0-9]+)-([^,]+)(?:,([0-9]+))?)/ or ldie "cannot parse '$pos'\n";
+  if ($do_remember) {
+    my $visit = "$2,$3";
+    $visited_pos{$visit} = 1;
+  }
+  return ($1, int($2), $3, defined($4) ? int($4) : -1);
 }
 
 sub _get_prev_pos {
@@ -544,8 +554,8 @@ sub _get_prev_pos {
 sub _get_common_ancestor {
   # TODO: recursive formulation, improve efficiency
   my ($basedir, $pos1, $host1, $dep1, $pos2, $host2, $dep2) = @_;
-  my ($p1, $nr1, $from1, $len1) = _parse_pos($pos1);
-  my ($p2, $nr2, $from2, $len2) = _parse_pos($pos2);
+  my ($p1, $nr1, $from1, $len1) = _parse_pos($pos1, 0);
+  my ($p2, $nr2, $from2, $len2) = _parse_pos($pos2, 0);
   if ($p1 eq $p2) {
     # usually no split brain here (only if both path depths are non-zero)
     my $split = ($dep1 && $dep2);
@@ -612,6 +622,61 @@ sub detect_splitbrain {
     }
   }
   return $ok;
+}
+
+sub _mark_path_backward {
+  my ($basedir, $pos) = @_;
+  for (;;) {
+    my ($p, $nr, $from, $len) = _parse_pos($pos, 1);
+    $pos = _get_prev_pos($basedir, $nr, $from);
+    last if !$pos;
+  }
+}
+
+sub _mark_path_forward {
+  my ($basedir, $pos) = @_;
+  my @list = ($pos);
+  while (@list) {
+    my %next_list;
+    foreach $pos (@list) {
+      my ($p, $nr, $from, $len) = _parse_pos($pos, 1);
+      my $next = sprintf("$basedir/version-%09d-*", $nr + 1);
+      my @candidates = glob($next);
+      foreach my $cand (@candidates) {
+	my $vers = get_link($cand, 1);
+	$vers =~ s/^.*://;
+	my ($cp, $cnr, $cfrom, $clen) = _parse_pos($vers, 0);
+	if (int($cnr) == int($nr) && $cfrom eq $from && $clen == $len) {
+	  $next_list{$cand} = 1;
+	}
+      }
+    }
+    @list = keys(%next_list);
+  }
+}
+
+sub _mark_path_transitive {
+  _mark_path_forward(@_);
+  _mark_path_backward(@_);
+}
+
+sub log_purge_res {
+  my ($cmd, $res) = @_;
+  my $basedir = "$mars/resource-$res";
+  my @files = glob("$basedir/{log,version}-*");
+  foreach my $replay (glob("$basedir/replay-*")) {
+    my $target = get_link($replay, 1);
+    _mark_path_transitive($basedir, $target);
+  }
+  foreach my $file (@files) {
+    $file =~ m:/((log|version)-([0-9]+)-([^,]+)): or ldie "bad path '$file'\n";
+    my $visit = "$3,$4";
+    lprint "checking '$1'\n";
+    next if $visited_pos{$visit};
+    _create_delete($file);
+  }
+  finish_links();
+  _wait_delete();
 }
 
 sub try_to_avoid_splitbrain {
@@ -1709,6 +1774,7 @@ my %cmd_table =
    "log-rotate"        => \&logrotate_res,
    "log-delete"        => \&logdelete_res,
    "log-delete-all"    => \&logdelete_res,
+   "log-purge-all"     => \&log_purge_res,
    "fake-sync"         => \&fake_local_res,
    "set-link"          => \&set_link_cmd,
    "delete-file"       => \&delete_file_cmd,
