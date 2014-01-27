@@ -49,6 +49,7 @@ sub lwarn {
 my @link_list = ();
 my %link_hash;
 my $verbose = 0;
+my $dry_run = 0;
 
 sub get_link {
   my ($path, $unchecked) = @_;
@@ -112,6 +113,11 @@ sub finish_links {
       $this_timestamp = $stat[9] + 1 if @stat;
     }
     system("touch -h -d \"\@$this_timestamp\" $link_tmp") == 0 or ldie "cannot set mtime on symlink '$link_tmp'\n";
+    if ($dry_run) {
+      lprint "DRY_RUN: would create symlink '$link' -> '$target'\n";
+      unlink($link_tmp);
+      next;
+    }
     rename($link_tmp, $link) or ldie "cannot finalize symlink '$link'\n";
     if ($verbose) {
       lprint "created symlink '$link' -> '$target'\n";
@@ -1169,6 +1175,7 @@ sub _create_delete {
 }
 
 sub _wait_delete {
+  return if $dry_run;
   for (;;) {
     my $deleted = get_link("$mars/todo-global/deleted-$host");
     last if $deleted >= $delete_nr;
@@ -1800,6 +1807,9 @@ my @args;
 foreach my $arg (@ARGV) {
   if ($arg eq "--force" || $arg eq "-f") {
     $force++;
+    next;
+  } elsif ($arg eq "--dry-run" || $arg eq "-d") {
+    $dry_run++;
     next;
   } elsif ($arg eq "--verbose" || $arg eq "-v") {
     $verbose++;
