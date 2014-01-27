@@ -198,6 +198,8 @@ function switch2primary_force
         if [ $switch2primary_orig_prim_equal_new_prim -eq 1 ]; then
             marsadm_do_cmd $new_primary "primary" "$res" || lib_exit 1
         fi
+        switch2primary_correct_split_brain $orig_primary $orig_secondary \
+                                            $new_primary $new_secondary $res
         resource_check_replication $new_primary $new_secondary $res
         return
     fi
@@ -334,8 +336,12 @@ function switch2primary_correct_split_brain
     local orig_primary=$1 orig_secondary=$2 new_primary=$3 new_secondary=$4
     local res=$5
     local data_dev=$(resource_get_data_device $res)
+    local lv_dev=$(lv_config_get_lv_device $res)
     local time_waited
     marsadm_do_cmd $new_primary "connect" "$res" || lib_exit 1
+    marsadm_do_cmd $new_primary "secondary" "$res" || lib_exit 1
+    marsadm_do_cmd $new_secondary "down" "$res" || lib_exit 1
+    marsadm_do_cmd $new_secondary "leave-resource --force" "$res" || lib_exit 1
     marsadm_do_cmd $new_primary "primary" "$res" || lib_exit 1
     switch2primary_check_standalone_primary $new_primary $res
     if [ $switch2primary_connected -eq 0 \
@@ -346,17 +352,8 @@ function switch2primary_correct_split_brain
         switch2primary_check_standalone_primary $new_primary $res
     fi
 
-    if [ $switch2primary_activate_secondary_hardcore -eq 0 ]; then
-        marsadm_do_cmd $new_secondary "invalidate" "$res" || lib_exit 1
-        marsadm_do_cmd $new_secondary "connect" "$res" || lib_exit 1
-    else
-        local lv_dev=$(lv_config_get_lv_device $res)
-        marsadm_do_cmd $new_secondary "down" "$res" || lib_exit 1
-        marsadm_do_cmd $new_secondary "leave-resource --force" "$res" || \
-                                                                    lib_exit 1
-        marsadm_do_cmd $new_secondary "join-resource --force" "$res $lv_dev" \
-                                                                || lib_exit 1
-    fi
+    marsadm_do_cmd $new_secondary "join-resource --force" "$res $lv_dev" \
+                                                            || lib_exit 1
     lib_wait_for_initial_end_of_sync $new_primary $new_secondary $res \
                                      $resource_maxtime_initial_sync \
                                      $resource_time_constant_initial_sync \
