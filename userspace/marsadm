@@ -1413,7 +1413,6 @@ sub primary_phase1 {
   return if ($force and $cmd eq "primary");
   my $old = _get_designated_primary($res);
   return if ($old eq $host and $cmd eq "primary");
-  return if ($old ne $host and $cmd eq "secondary");
   my $new = "(none)";
   return if $old eq $new;
   _primary_res($res, $new, $old);
