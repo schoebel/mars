@@ -59,6 +59,7 @@ function net_do_impact_cmd
     local cmd="${net_impact_cmd[$array_index]}"
     local pattern="${replace_expression%=*}" replace="${replace_expression#*=}"
     local rc_req=0 check_array_index var
+    local maxtime_retries=1 waited=0
     local rc
 
     if [ -z "$cmd" ]; then
@@ -77,6 +78,7 @@ function net_do_impact_cmd
 
     case $array_index in #(((
         check*) rc_req=${net_impact_cmd[${array_index}_rc]}
+                maxtime_retries=$net_maxtime_check_retries
               ;;
         on|off) check_array_index=check_$array_index
                 if [ $array_index = "on" ]; then
@@ -90,14 +92,22 @@ function net_do_impact_cmd
               ;;
     esac
 
-    lib_vmsg "  executing on $host $cmd. Req. return code = $rc_req"
-    lib_remote_idfile $host "$cmd"
-    rc=$?
-    if [ \( $rc -eq 0 -a $rc_req -ne 0  \) \
-         -o \( $rc -ne 0 -a $rc_req -eq 0  \) ]
-    then
-        lib_exit 1 "command $cmd on $host returned unexpectedly $rc"
-    fi
+    while true; do
+        lib_vmsg "  executing on $host $cmd. Req. return code = $rc_req"
+        lib_remote_idfile $host "$cmd"
+        rc=$?
+        if [ \( $rc -eq 0 -a $rc_req -eq 0  \) \
+             -o \( $rc -ne 0 -a $rc_req -ne 0  \) ]
+        then
+            break
+        fi
+        lib_vmsg "  command $cmd on $host returned unexpectedly $rc (waited=$waited)"
+        sleep 1
+        let waited+=1
+        if [ $waited -ge $maxtime_retries ]; then
+            lib_exit 1 "maxwait $maxtime_retries exceeded"
+        fi
+    done
     if [ -n "$check_array_index" ];then
         net_do_impact_cmd $host $check_array_index "$replace_expression"
     fi
