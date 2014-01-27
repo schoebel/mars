@@ -829,31 +829,21 @@ sub _get_ip {
 
 sub _fake_versionlink {
   my ($basedir, $log_nr, $primary) = @_;
-  my $new_version = sprintf("$basedir/version-%09d-$host", $log_nr);
-  my $pri_version = sprintf("$basedir/version-%09d-$primary", $log_nr);
-  if ($primary eq $host) {
-    ldie "Cannot fake my own version link '$new_version'\n";
-  }
-  my $pri_link = get_link($pri_version);
-  if (!$pri_link) { # try any one else
-    lwarn "cannot read symlink '$pri_version' -- trying a neighbor link instead\n";
-    my $try_version = sprintf("$basedir/version-%09d-*", $log_nr);
-    my @test = glob($try_version);
-    my $test_version = shift @test;
-    if ($test_version) {
-      lwarn "trying substitute symlink '$test_version'\n";
-      my $test_link = get_link($test_version);
-      if ($test_link) {
-	$pri_link = $test_link;
-	lwarn "got value '$pri_link', hopefully this is right\n" if $pri_link;
-      }
+  for (my $rounds = 2; $rounds > 0; $rounds--) {
+    my $new_version = sprintf("$basedir/version-%09d-$host", $log_nr);
+    my $pri_version = sprintf("$basedir/version-%09d-$primary", $log_nr);
+    if ($primary eq $host) {
+      ldie "Cannot fake my own version link '$new_version'\n";
     }
-  }
-  if ($pri_link) {
+    my $pri_link = get_link($pri_version, 1);
+    if (!$pri_link) {
+      lwarn "cannot read symlink '$pri_version' -- cannot create faked versionlink '$pri_version'\n";
+      $log_nr++;
+      next;
+    }
     lprint "creating new version symlink '$new_version' -> '$pri_link'\n";
     set_link($pri_link, $new_version);
-  } else {
-    lwarn "cannot read symlink '$pri_version' -- cannot create faked versionlink '$pri_version'\n";
+    last;
   }
 }
 
