@@ -3665,6 +3665,11 @@ static int make_sync(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 
+	/* Don't try syncing detached resources
+	 */
+	if (do_start && !_check_allow(global, dent->d_parent, "attach"))
+		do_start = false;
+	
 	/* Disallow contemporary sync & logfile_apply
 	 */
 	if (do_start &&

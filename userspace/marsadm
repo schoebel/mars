@@ -1248,6 +1248,8 @@ sub attach_res_phase2 {
   check_status($cmd, $res, "is-attached", $detach ? 0 : 1, 1);
   if ($detach) {
     check_mars_device($cmd, $res, 1, 1);
+    check_status($cmd, $res, "is-replaying", 0, 1);
+    check_status($cmd, $res, "is-syncing", 0, 1);
   }
 }
 
