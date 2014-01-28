@@ -13,6 +13,9 @@ extern int brick_say_logging;
 extern int brick_say_debug;
 extern int brick_say_syslog_min;
 extern int brick_say_syslog_max;
+extern int brick_say_syslog_flood_class;
+extern int brick_say_syslog_flood_limit;
+extern int brick_say_syslog_flood_recovery;
 extern int delay_say_on_overflow;
 
 // printk() replacements

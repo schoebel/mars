@@ -58,6 +58,12 @@ int brick_say_syslog_min = 1;
 EXPORT_SYMBOL_GPL(brick_say_syslog_min);
 int brick_say_syslog_max = -1;
 EXPORT_SYMBOL_GPL(brick_say_syslog_max);
+int brick_say_syslog_flood_class = 3;
+EXPORT_SYMBOL_GPL(brick_say_syslog_flood_class);
+int brick_say_syslog_flood_limit = 20;
+EXPORT_SYMBOL_GPL(brick_say_syslog_flood_limit);
+int brick_say_syslog_flood_recovery = 300;
+EXPORT_SYMBOL_GPL(brick_say_syslog_flood_recovery);
 int delay_say_on_overflow =
 #ifdef CONFIG_MARS_DEBUG
 	1;
@@ -69,6 +75,9 @@ EXPORT_SYMBOL_GPL(delay_say_on_overflow);
 static atomic_t say_alloc_channels = ATOMIC_INIT(0);
 static atomic_t say_alloc_names = ATOMIC_INIT(0);
 static atomic_t say_alloc_pages = ATOMIC_INIT(0);
+
+static unsigned long flood_start_jiffies = 0;
+static int flood_count = 0;
 
 struct say_channel {
 	char *ch_name;
@@ -611,11 +620,29 @@ void out_to_file(struct file *file, char *buf, int len)
 	}
 }
 
+static inline
+void reset_flood(void)
+{
+	if (flood_start_jiffies &&
+	    (long)jiffies >= (long)(flood_start_jiffies + brick_say_syslog_flood_recovery * HZ)) {
+		flood_start_jiffies = 0;
+		flood_count = 0;
+	}
+}
+
 static
 void out_to_syslog(int class, char *buf, int len)
 {
+	reset_flood();
 	if (class >= brick_say_syslog_min && class <= brick_say_syslog_max) {
+		buf[len] = '\0';
 		printk("%s", buf);
+	} else if (class >= brick_say_syslog_flood_class && brick_say_syslog_flood_class >= 0 && class != SAY_TOTAL) {
+		flood_start_jiffies = jiffies;
+		if (++flood_count <= brick_say_syslog_flood_limit) {
+			buf[len] = '\0';
+			printk("%s", buf);
+		}
 	}
 }
 
