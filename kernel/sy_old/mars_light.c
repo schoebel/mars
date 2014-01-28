@@ -3812,7 +3812,6 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	if (status < 0) {
 		MARS_DBG("target '%s' does no longer exist\n", dent->new_link);
 		if (dent->d_serial <= global->deleted_border) {
-			mars_unlink(marker_path);
 			MARS_DBG("removing deletion symlink '%s'\n", dent->d_path);
 			dent->d_killme = true;
 			mars_unlink(dent->d_path);
@@ -3820,6 +3819,7 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	}
 
  ok:	
+	mars_unlink(marker_path);
 	response_path = path_make("/mars/todo-global/deleted-%s", my_id());
 	if (!response_path) {
 		MARS_ERR("cannot build response path for '%s'\n", dent->new_link);
