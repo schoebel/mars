@@ -655,7 +655,7 @@ function resource_clear_data_device
         lib_exit 1 "mount_point $mount_point does not contain string $str"
     fi
     lib_vmsg "  clearing $host:$mount_point"
-    lib_remote_idfile $host "if cd $mount_point; then rm -rf *;fi"
+    lib_remote_idfile $host "if cd $mount_point; then shopt -s dotglob && rm -rf *;fi"
 }
 
 function resource_kill_all_scripts

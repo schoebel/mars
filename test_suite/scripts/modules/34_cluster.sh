@@ -78,7 +78,7 @@ function cluster_clear_mars_dir
         lib_exit 1 "variable main_mars_directory empty"
     fi
     lib_vmsg "  removing $host:$main_mars_directory/*"
-    lib_remote_idfile $host "rm -rf $main_mars_directory/*" || lib_exit 1
+    lib_remote_idfile $host "shopt -s dotglob && rm -rf $main_mars_directory/*" || lib_exit 1
 }
 
 function cluster_clear_and_umount_mars_dir_all
