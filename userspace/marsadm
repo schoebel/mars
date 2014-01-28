@@ -1162,6 +1162,29 @@ sub leave_res_phase2 {
   log_purge_res(@_);
 }
 
+sub delete_res {
+  my ($cmd, $res) = @_;
+  my $basedir = "$mars/resource-$res";
+  # preconditions
+  if (! -d $basedir) {
+    lprint "resource directory '' does no longer exist,\n";
+    return;
+  }
+  my @host_list = glob("$basedir/replay-*");
+  my $cnt = scalar(@host_list);
+  if ($cnt > 0) {
+    my $h_list = join(',', map({ $_ =~ s:.*/replay-::;} (@host_list)));
+    ldie "resource '$res' is not empty: first remove the hosts '$h_list' via leave-resource\n" unless $force;
+    lwarn "BRUTE FORCE resource destruction: '$res' has $cnt members ($h_list) THESE ARE FINALLY TRASHED right now -- you are RESPONSIBLE for any subsequent problems.\n";
+  }
+  for my $path (`find $basedir | sort -r`) {
+    chomp $path;
+    _create_delete($path);
+  }
+  finish_links();
+  _wait_delete();
+}
+
 sub logrotate_res {
   my ($cmd, $res) = @_;
   check_primary(@_);
@@ -1761,6 +1784,7 @@ my %cmd_table =
 			   "switch state",        \&leave_res_phase1,
 			   "wait for deletions",  \&leave_res_phase2,
 			  ],
+   "delete-resource"   => \&delete_res,
    "log-rotate"        => \&logrotate_res,
    "log-delete"        => \&logdelete_res,
    "log-delete-all"    => \&logdelete_res,
@@ -1925,7 +1949,7 @@ sub do_one_res {
   my ($cmd, $res) = @_;
   if (!$checked_res{"$cmd$res"}) {
     $res = check_res($res) unless $cmd =~ m/^(join|create|leave|wait)-cluster|create-resource|show|cat|[a-z]+-file|set-link$/;
-    check_res_member($res) unless $cmd =~ m/^(join|create)-(cluster|resource)|(leave|wait)-cluster|show|cat|[a-z]+-file|set-link$/;
+    check_res_member($res) unless $cmd =~ m/^(join|create|delete)-(cluster|resource)|(leave|wait)-cluster|show|cat|[a-z]+-file|set-link$/;
     detect_splitbrain($res, 1);
     $checked_res{"$cmd$res"} = 1;
   }
