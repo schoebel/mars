@@ -286,6 +286,7 @@ struct mars_rotate {
 	loff_t start_pos;
 	loff_t end_pos;
 	int max_sequence;
+	int copy_round;
 	int copy_serial;
 	int copy_next_serial;
 	int split_brain_serial;
@@ -1349,6 +1350,8 @@ int _update_file(struct mars_rotate *rot, const char *switch_path, const char *c
 
 	if (unlikely(!tmp || !global))
 		goto done;
+
+	rot->copy_round = 0;
 
 	MARS_DBG("src = '%s' dst = '%s'\n", tmp, file);
 	status = __make_copy(global, NULL, switch_path, copy_path, NULL, argv, -1, -1, false, false, &copy);
@@ -3157,7 +3160,8 @@ done:
 	    (copy_brick->power.led_off ||
 	     !global->global_power.button ||
 	     (copy_brick->copy_last == copy_brick->copy_end &&
-	      rot->copy_next_is_available > 0))) {
+	      (rot->copy_next_is_available > 0 ||
+	       rot->copy_round++ > 3)))) {
 		status = mars_kill_brick((void*)copy_brick);
 		if (status < 0) {
 			MARS_ERR("could not kill copy_brick, status = %d\n", status);
