@@ -270,6 +270,7 @@ struct mars_rotate {
 	struct mars_dent *syncstatus_dent;
 	struct if_brick *if_brick;
 	const char *copy_path;
+	const char *copy_peer;
 	const char *parent_path;
 	const char *copy_next_origin;
 	struct say_channel *log_say;
@@ -1434,7 +1435,7 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 	copy_brick = rot->copy_brick;
 	MARS_DBG("copy_brick = %p (remote '%s' %d) copy_serial = %d\n", copy_brick, remote_dent->d_path, remote_dent->d_serial, rot->copy_serial);
 	if (copy_brick) {
-		if (remote_dent->d_serial == rot->copy_serial) {
+		if (remote_dent->d_serial == rot->copy_serial && rot->copy_peer && !strcmp(peer, rot->copy_peer)) {
 			// treat copy brick instance underway
 			status = _update_file(rot, switch_path, rot->copy_path, remote_dent->d_path, peer, src_size);
 			MARS_DBG("re-update '%s' from peer '%s' status = %d\n", remote_dent->d_path, peer, status);
@@ -1448,6 +1449,8 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 		MARS_DBG("update '%s' from peer '%s' status = %d\n", remote_dent->d_path, peer, status);
 		rot->copy_serial = remote_dent->d_serial;
 		rot->copy_next_is_available = 0;
+		brick_string_free(rot->copy_peer);
+		rot->copy_peer = brick_strdup(peer);
 	} else {
 		MARS_DBG("allow_update = %d src_size = %lld dst_size = %lld local_dent = %p\n", rot->allow_update, src_size, dst_size, local_dent);
 	}
@@ -2185,6 +2188,7 @@ void rot_destruct(void *_rot)
 		del_channel(rot->log_say);
 		rot->log_say = NULL;
 		brick_string_free(rot->copy_path);
+		brick_string_free(rot->copy_peer);
 		brick_string_free(rot->parent_path);
 		brick_string_free(rot->copy_next_origin);
 		rot->copy_path = NULL;
