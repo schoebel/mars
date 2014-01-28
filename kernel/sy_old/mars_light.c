@@ -3159,6 +3159,8 @@ done:
 	if (copy_brick &&
 	    (copy_brick->power.led_off ||
 	     !global->global_power.button ||
+	     !_check_allow(global, parent, "connect") ||
+	     !_check_allow(global, parent, "attach") ||
 	     (copy_brick->copy_last == copy_brick->copy_end &&
 	      (rot->copy_next_is_available > 0 ||
 	       rot->copy_round++ > 3)))) {
