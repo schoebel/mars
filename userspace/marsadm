@@ -1066,6 +1066,19 @@ sub set_connect_pref_list {
   set_link($list, $dst);
 }
 
+sub emergency_limit_res {
+  my ($cmd, $res, $value) = @_;
+  my $dst = "$mars/resource-$res/todo-$host/emergency-limit";
+  if ($cmd =~ m/^get-/) {
+    my $value = get_link($dst);
+    lprint "$value\n";
+    return;
+  }
+  ldie "percent argument '$value' isn't numeric\n" unless $value =~ m/^[0-9]+$/;
+  ldie "percent argument '$value' isn't between 0 and 100%\n" unless ($value >= 0 && $value <= 100);
+  set_link($value, $dst);
+}
+
 sub set_link_cmd {
   my $cmd = shift;
   for (;;) {
@@ -2008,6 +2021,9 @@ my %cmd_table =
    "fake-sync"         => \&fake_local_res,
    "set-link"          => \&set_link_cmd,
    "delete-file"       => \&delete_file_cmd,
+   "set-emergency-limit" => \&emergency_limit_res,
+   "get-emergency-limit" => \&emergency_limit_res,
+   "emergency-limit"   => \&emergency_limit_res,
    "cat"               => \&cat_cmd,
    "show"              => \&show_cmd,
    "show-errors"       => \&show_errors_cmd,
@@ -2158,7 +2174,7 @@ if (!(-d $mars) && $cmd !~ m/(create|join)-cluster|cat/) {
 my $res = "";
 if ($cmd eq "show") {
   $res = shift @args;
-} elsif (!($cmd =~ m/^(create|leave|wait)-cluster|cat|[a-z]+-file|set-[a-z]+$/)) {
+} elsif (!($cmd =~ m/^(create|leave|wait)-cluster|cat|[a-z]+-file|^[sg]et-/)) {
   $res = shift @args || helplist "resource argument is missing\n";
   check_id($res);
 }

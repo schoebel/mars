@@ -689,9 +689,9 @@ done:
 }
 
 static
-bool _check_switch(struct mars_global *global, const char *path)
+int _check_switch(struct mars_global *global, const char *path)
 {
-	int res = false;
+	int res = 0;
 	struct mars_dent *allow_dent;
 
 	allow_dent = mars_find_dent(global, path);
@@ -705,9 +705,9 @@ done:
 }
 
 static
-bool _check_allow(struct mars_global *global, struct mars_dent *parent, const char *name)
+int _check_allow(struct mars_global *global, struct mars_dent *parent, const char *name)
 {
-	int res = false;
+	int res = 0;
 	char *path = path_make("%s/todo-%s/%s", parent->d_path, my_id(), name);
 
 	if (!path)
@@ -3146,6 +3146,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	struct trans_logger_brick *trans_brick;
 	struct copy_brick *fetch_brick;
 	bool is_attached;
+	bool is_stopped;
 	int status = -EINVAL;
 
 	CHECK_PTR(parent, err);
@@ -3189,7 +3190,9 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 			MARS_INF_TO(rot->log_say, "emergency mode on %s will be turned off again\n", rot->parent_path);
 		}
 	}
-	if (trans_brick->cease_logging | trans_brick->stopped_logging) {
+	is_stopped = trans_brick->cease_logging | trans_brick->stopped_logging;
+	_show_actual(parent->d_path, "is-emergency", is_stopped);
+	if (is_stopped) {
 		MARS_ERR_TO(rot->log_say, "EMERGENCY MODE on %s: stopped transaction logging, and created a hole in the logfile sequence nubers.\n", rot->parent_path);
 		/* Create a hole in the sequence of logfile numbers.
 		 * The secondaries will later stumble over it.
