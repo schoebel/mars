@@ -213,7 +213,7 @@ function switch2primary_force
          -a $switch2primary_reconnect_before_primary_cmd_on_new_primary -eq 1 ]
     then
         switch2primary_restore_resource_connection $orig_secondary \
-                                                   $orig_primary $res
+                                                   $orig_primary $res 1
     fi
 
     switch2primary_correct_split_brain $orig_primary $orig_secondary \
@@ -223,9 +223,11 @@ function switch2primary_force
 
 function switch2primary_restore_resource_connection
 {
-    local local_host=$1 remote_host=$2 res=$3
+    local local_host=$1 remote_host=$2 res=$3 resource_joined=$4
     net_do_impact_cmd $local_host "off" "remote_host=$remote_host"
-    lib_wait_for_connection $local_host $res
+    if [ $resource_joined -eq 1 ]; then
+        lib_wait_for_connection $local_host $res
+    fi
 }
  
 function switch2primary_stop_write_and_umount_data_device
@@ -338,17 +340,21 @@ function switch2primary_correct_split_brain
     local data_dev=$(resource_get_data_device $res)
     local lv_dev=$(lv_config_get_lv_device $res)
     local time_waited
+    local network_cut=0
+    if [ $switch2primary_connected -eq 0 \
+         -a $switch2primary_reconnect_before_primary_cmd_on_new_primary -eq 0 ]
+    then
+        network_cut=1
+    fi
     marsadm_do_cmd $new_primary "connect" "$res" || lib_exit 1
     marsadm_do_cmd $new_primary "secondary" "$res" || lib_exit 1
     marsadm_do_cmd $new_secondary "down" "$res" || lib_exit 1
     marsadm_do_cmd $new_secondary "leave-resource --force" "$res" || lib_exit 1
     marsadm_do_cmd $new_primary "primary" "$res" || lib_exit 1
     switch2primary_check_standalone_primary $new_primary $res
-    if [ $switch2primary_connected -eq 0 \
-         -a $switch2primary_reconnect_before_primary_cmd_on_new_primary -eq 0 ]
-    then
+    if [ $network_cut -eq 1 ]; then
         switch2primary_restore_resource_connection $orig_secondary \
-                                                   $orig_primary $res
+                                                   $orig_primary $res 0
         switch2primary_check_standalone_primary $new_primary $res
     fi
 
