@@ -27,7 +27,7 @@
 ## directory-1 is the directory from where start_test.sh is called (the
 ## "start directory" mentioned in README).
 ## You can use a * at the end of the name of directory-1 which causes that
-## all leaf subdirectories in the directory tree starting at directory-1 
+## all subdirectories in the directory tree starting at directory-1 
 ## which contain a file named i_am_a_testdirectory define a start directory
 ## from which start_test.sh is called.
 ## 
@@ -67,13 +67,6 @@ function execute_tests
                                     -name i_am_a_testdirectory -exec \
                                     dirname {} \;)
                             )
-                 local s
-                 for s in "${start_dirs[@]}"; do
-                     if [ $(find $s -mindepth 1 -type d | wc -l) -ne 0 ]; then
-                         echo "subdirectory $s of $test_dir is not a leaf directory" >&2
-                         exit 1
-                     fi
-                 done
                  ;;
                *) start_dirs=($test_suite_dir/$test_dir)
                  ;;
