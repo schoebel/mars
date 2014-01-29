@@ -19,49 +19,7 @@
 
 #####################################################################
 
-# wrapper for the exit builtin to be able to remove temporary files
-function start_test_exit
-{
-    rm -f $environ_save
-    exit $1
-}
-
-shopt -s extdebug
-
-# Use directory names as basis for configuration variants
-
-script_dir="$(cd "$(dirname "$(which "$0")")"; pwd)"
-lib_dir=$script_dir/modules
-echo "================= Sourcing libraries in $lib_dir ==============================="
-for lib in $lib_dir/lib*.sh; do
-    echo "Sourcing $lib"
-    source "$lib" || start_test_exit $?
-done
-echo "================= End sourcing libraries ======================================="
-
-to_produce="${to_produce:-replay.gz}"
-to_check="${to_check:-}"
-to_start="${to_start:-main}"
-
-dry_run_script=0
-start_dir=$(pwd)
-# all directories between config_root_dir and the actual test directory will be
-# considered as "configuration options". That means that a <dirname>.conf file must
-# be provided for all these directories
-config_root_dir=$start_dir
-verbose_script=1
-
-# check some preconditions
-
-check_list="grep sed gawk head tail cut nice date gzip gunzip zcat buffer"
-check_installed "$check_list"
-
-# include modules
-prepare_list=""
-setup_list=""
-run_list=""
-cleanup_list=""
-finish_list=""
+## For a general documentation please refer to README, section "Running a test"
 
 function set_host_locks
 {
@@ -143,37 +101,42 @@ function print_config_environment
     
 }
 
+function usage
+{
+    echo "usage: $(basename $0) [--dry-run] [--config_root_dir=<my_dir>]" >&2
+    echo "          Option --dry-run:" >&2
+    echo "               Print all configuration variables and the name " >&2
+    echo "               of the test. Don't execute it." >&2
+    echo "          Option --config_root_dir:" >&2
+    echo "               Include all *.conf files belonging to subdirectories " >&2
+    echo "               between my_dir and test directory." >&2
+    echo "               Default: my_dir = working directory" >&2
+    exit 1
+}
 
-save_environment # for later use in print_config_environment
-
-shopt -s nullglob
-echo "================= Sourcing modules and default configuration ==================="
-for module in $module_dir/[0-9]*.sh; do
-    source_module "$module"
-done
-echo "================= End sourcing modules and default configuration ==============="
+dry_run_script=0
+start_dir=$(pwd)
+# all directories between config_root_dir and the actual test directory will be
+# considered as "configuration options". That means that a <dirname>.conf file
+# must be provided for all these directories
+config_root_dir=$start_dir
+verbose_script=1
 
 # parse options.
 while [ $# -ge 1 ]; do
     key="$(echo "$1" | cut -d= -f1)"
     val="$(echo "$1" | cut -d= -f2-)"
     case "$key" in
-        --test | --dry-run)
-        dry_run_script="$val"
-        shift
-        ;;
-        --override)
-        shift
-        echo "=> Overriding $1"
-        eval $1
-        shift
-        ;;
+        --dry-run)
+                    dry_run_script="$val"
+                    shift
+                    ;;
         --config_root_dir)
-        config_root_dir="$val"
-        shift
-        ;;
+                    config_root_dir="$val"
+                    shift
+                    ;;
         *)
-        break
+                    usage
         ;;
     esac
 done
@@ -185,36 +148,56 @@ else
     config_root_dir=$(pwd) # we need the absolute path
     cd $start_dir
 fi
-ignore_cmd="grep -v '[/.]old' | grep -v 'ignore'"
-sort_cmd="while read i; do if [ -e \"\$i\"/prio-[0-9]* ]; then echo \"\$(cd \$i; ls prio-[0-9]*):\$i\"; else echo \"z:\$i\"; fi; done | sort | sed 's/^[^:]*://'"
+
+# wrapper for the exit builtin to be able to remove temporary files
+function start_test_exit
+{
+    rm -f $environ_save
+    exit $1
+}
+
+shopt -s extdebug
+
+# Use directory names as basis for configuration variants
+
+script_dir="$(cd "$(dirname "$(which "$0")")"; pwd)"
+lib_dir=$script_dir/modules
+echo "================= Sourcing libraries in $lib_dir ==============================="
+for lib in $lib_dir/lib*.sh; do
+    echo "Sourcing $lib"
+    source "$lib" || start_test_exit $?
+done
+echo "================= End sourcing libraries ======================================="
+
+to_start="${to_start:-main}"
+marker_file="i_am_a_testdirectory"
+
+# check some preconditions
+
+check_list="grep sed gawk head tail cut nice date gzip gunzip zcat buffer"
+check_installed "$check_list"
+
+# include modules
+prepare_list=""
+setup_list=""
+run_list=""
+cleanup_list=""
+finish_list=""
+
+save_environment # for later use in print_config_environment
+
+shopt -s nullglob
+echo "================= Sourcing modules and default configuration ==================="
+for module in $module_dir/[0-9]*.sh; do
+    source_module "$module"
+done
+echo "================= End sourcing modules and default configuration ==============="
 
 # find directories
 echo "================= Scanning subdirectories of $start_dir ========================"
-for test_dir in $(find . -type d | eval "$ignore_cmd" | eval "$sort_cmd"); do
-    (( dry_run_script )) || rm -f $test_dir/dry-run.$to_produce
-    if [ -e "$test_dir/skip" ]; then
-        echo "Skipping directory $test_dir"
-        continue
-    fi
-    if [ $(find $test_dir -type d | eval "$ignore_cmd" | wc -l) -gt 1 ]; then
-        echo "Ignoring inner directory $test_dir"
-        continue
-    fi
+for marker in $(find . -type f -name "$marker_file"); do
+    test_dir=$(dirname $marker)
     shopt -u nullglob
-    if ls $test_dir/*.$to_produce > /dev/null 2>&1; then
-        echo "Already finished $test_dir"
-        continue
-    fi
-    if [ -n "$to_check" ] && ! ls $test_dir/*.$to_check > /dev/null 2>&1; then
-        echo "No *.$to_check files exist in $test_dir"
-        continue
-    fi
-    echo ""
-    if [ -e "$test_dir/stop" ] || [ -e "./stop" ]; then
-        echo "would start $test_dir"
-        echo "echo stopping due to stop file."
-        break
-    fi
     (
         cd $test_dir
         echo "================= Test directory $(pwd) $date =================================="
@@ -251,8 +234,8 @@ for test_dir in $(find . -type d | eval "$ignore_cmd" | eval "$sort_cmd"); do
         shopt -u nullglob
 
         if (( dry_run_script )); then
-            echo "==> Dry Run ..."
-            touch dry-run.$to_produce
+            echo "would start $(pwd)"
+            exit 0
         else
             set_host_locks
             echo "================= Starting $(pwd) $(date) ======================================"
@@ -270,11 +253,6 @@ for test_dir in $(find . -type d | eval "$ignore_cmd" | eval "$sort_cmd"); do
     fi
     [ $rc -ne 0 ] && start_test_exit $rc
 done
-
-if (( dry_run_script )); then
-    echo "removing dry-run.$to_produce everywhere..."
-    rm -f $(find . -name "dry-run.$to_produce")
-fi
 
 echo "========================== Finished start directory $start_dir ================="
 start_test_exit 0

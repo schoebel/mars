@@ -7,7 +7,7 @@ The test suite is work in progress.
 
 At the moment it is not in the state to be usable outside of the development
 team.
-Event this file is not complete!
+Even this file is not complete!
 
 
 =============================================================================
@@ -38,54 +38,70 @@ of one of the both directories build_test_environment and test_cases.
 The scope and configuration of a test is completely described by this
 subdirectory (we call it start directory) as follows:
 
-- All leaf subdirectories of the start directory define one test case.
-  If the test specified by one leaf subdirectory fails the tests belonging to
-  other leaf subdirectories of the start directory will not be executed.
+- All subdirectories of the start directory containing a (usually empty)
+  file named i_am_a_testdirectory define one test case. In the following
+  we call such a subdirectory a test directory.
+  If a test for one test directory below the start directory fails, the tests
+  belonging to the other test directories of the start directory will not be
+  executed.
   Though only tests which are likely not to fail should be executed by only
   one call to start_test.sh. The simple and recommended way is to call
-  start_test.sh for each leaf directory once.
-- For each leaf subdirectory xyz there exists a configuration file named
-  xyz.conf which contains (among others) in the variables prepare_list,
-  setup_list, run_list, cleanup_list and finish_list names of shell 
-  functions defined in scripts/modules/*.sh.
-  These functions are called in the order they appear in the mentioned
-  *list variables.
-  The file xyz.conf may reside in the leaf directory or any of it's parent
-  directories (up to 20 levels higher in the directory tree).
-- The configuration of the test case belonging to a leaf directory is defined
-  by a set of *.conf files which are included by start_test.sh in the
-  following order:
+  start_test.sh for each test directory once (which means that the
+  start directory consists of only one test directory and coincides with it.
+
+- The configuration of the test case is defined by a set of *.conf files which
+  are included by start_test.sh in the following order:
+
   -- default-*.conf: These are the configuration files belonging to the
                      scripts scripts/modules/*.sh which are also included
-                     bei start_test.sh and which define all functions executed
-                     by the various tests.
-  -- user_modules.conf
-  -- <subdirname>.conf where subdirname runs top down through the parent
-     directories starting with the immediate subdirectory of the start directory
-     (or the immediate subdirectory directory given by option --config_root_dir)
-     to the leaf directory.
+                     bei start_test.sh and which define all functions which may
+                     be used by the various tests.
 
-     If the start directory is a leaf directory the <leaf directory name>.conf
-     is included.
-     For example: 
+  -- user_modules.conf
+
+  -- <subdirname>.conf where subdirname runs top down through the parent
+     directories starting with the first subdirectory of a directory called
+     root config directory to the test directory.
+     This config root directory is set to the start directory (on the directory
+     branch start directory -> test directory) by default. It may be changed by
+     the option --config_root_dir=<my dir>.
+     If the start directory coincides with the test directory the file 
+     <test directory name>.conf is included for conveniance (in the strict
+     sense there are no true subdirectories of the start directory residing
+     above the test directory).
+     The <subdirnam>.conf files may reside in the test directory or any of
+     it's parent directories (up to 20 levels).
+
+
+     Examples: 
 
          1. start directory = test_cases/perf
-            leaf directory  = test_cases/perf/apply/no_parallel_writer
+            test directory  = test_cases/perf/apply/no_parallel_writer
+            Option --config_root_dir not given
 
             leads to including of apply.conf and no_parallel_writer.conf (in
             this order!) which must reside as mentioned above in the leaf
             directory or any of it's parent directories (up to 20 levels).
 
          2. start directory = test_cases/perf/apply/no_parallel_writer
-                              --config_root_dir=.../test_cases/perf
             leaf directory  = test_cases/perf/apply/no_parallel_writer
+            Option --config_root_dir=test_cases/perf
 
             leads to including the same *.conf files as above.
 
          3. start directory = test_cases/perf/apply/no_parallel_writer
             leaf directory  = test_cases/perf/apply/no_parallel_writer
+            Option --config_root_dir given or not
 
             leads to including of no_parallel_writer.conf
+
+- In one of the included <subdirnam>.conf files of a test one of the variables 
+  prepare_list, setup_list, run_list, cleanup_list or finish_list must be set.
+  Each of these variables may be empty or contain a list of shell function
+  names of functions defined in scripts/modules/*.sh.
+  These functions are called by start_test.sh in the order they appear in the
+  mentioned *list variables. The *list variables are evaluated in the order
+  prepare_list, setup_list, run_list, cleanup_list, finish_list.
 
 1.1. Test output
 ----------------
