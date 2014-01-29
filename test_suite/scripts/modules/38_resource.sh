@@ -46,6 +46,7 @@ function resource_quick_prepare_first_resource
     if [ $net_clear_iptables_in_prepare_phase -eq 1 ]; then
         net_clear_iptables_all
     fi
+    resource_kill_all_scripts
     cluster_rmmod_mars_all
     cluster_clear_and_mount_mars_dir_all
     cluster_insert_mars_module_all
@@ -662,6 +663,7 @@ function resource_kill_all_scripts
 {
     local host
     for host in "${main_host_list[@]}"; do
+        lib_vmsg "  killing all $main_prefix_scripts scripts on $host"
         lib_remote_idfile $host 'for p in $(pgrep -f '"$main_prefix_scripts"'); do if [ $p -ne $$ ] && ps -p $p >/dev/null; then echo killing:; ps -fp $p; kill -9 $p; fi; done'
     done
 }
