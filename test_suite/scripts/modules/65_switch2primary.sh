@@ -372,20 +372,22 @@ function switch2primary_correct_split_brain
 function switch2primary_destroy_log_after_replay_link
 {
     local host=$1 res=$2 link link_val replay_offset
-    local logfile length_logfile 
+    local logfile length_logfile  time_waited
     lib_vmsg "  destroying log after replay link on $host"
     marsadm_do_cmd $host "pause-replay" "$res" || lib_exit 1
-    link="$(lib_linktree_get_res_host_linkname $host $res replay replay)" || \
-                                                                    lib_exit 1
-    link_val="$(lib_remote_idfile $host "readlink $link")" || lib_exit 1
-    logfile=${resource_dir_list[$res]}/${link_val%%,*}
+    lib_wait_until_action_stops "replay" $host $res \
+                                  $switch2primary_maxtime_apply \
+                                  $switch2primary_time_constant_apply \
+                                  "time_waited" 0 ""
+    logfile=$(lib_linktree_get_partial_value_from_replay_link \
+               $host $res "logfilename") || lib_exit 1
     length_logfile=$(file_handling_get_file_length $host $logfile) || lib_exit 1
-    replay_offset=$(expr "$link_val" : '.*,\(.*\),.*')
-    if [ -z "$replay_offset" ]; then
-        lib_exit 1 "cannot determine replay offset from replay link value $link_val on host $host"
-    fi
+    replay_offset=$(lib_linktree_get_partial_value_from_replay_link \
+               $host $res "replay_offset") || lib_exit 1
     if [ $replay_offset -ge $length_logfile ]; then
-        lib_exit 1 "logfile $logfile already fully applied on host $host"
+        lib_vmsg  "  logfile $logfile already fully applied on host $host"
+        logfile=$(lib_linktree_get_next_logfile $logfile) || lib_exit 1
+        replay_offset=0
     fi
     lib_vmsg "  destroy logfile $host:$logfile at offset $replay_offset"
     lib_remote_idfile $host "yes | dd bs=1 conv=notrunc seek=$replay_offset of=$logfile count=10000" || lib_exit 1

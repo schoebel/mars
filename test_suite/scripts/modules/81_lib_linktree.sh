@@ -132,7 +132,50 @@ function lib_linktree_status_to_string
     lib_exit 1 "undefined link_status $link_status"
 }
 
+function lib_linktree_get_partial_value_from_replay_link
+{
+    local host=$1 res=$2 value="$3"
+    local link link_val retval
+    link="$(lib_linktree_get_res_host_linkname $host $res "replay")" || \
+                                                                    lib_exit 1
+    link_val="$(lib_remote_idfile $host "readlink $link")" || lib_exit 1
+    case "$value" in # (((
+        logfilename) retval=${resource_dir_list[$res]}/${link_val%%,*}
+                   ;;
+        replay_offset) retval=$(expr "$link_val" : '.*,\(.*\),.*')
+                   ;;
+                   *) lib_exit 1 "invalid partial value name $value"
+                   ;;
+    esac
+    if [ -z "$retval" ]; then
+        lib_exit 1 "cannot determine partial value $value from replay link value $link_val on host $host"
+    fi
+    echo "$retval"
+}
 
+function lib_linktree_get_nr_of_logfile
+{
+    local path="$1" leading_zeroes=$2 retval
+    if [ $leading_zeroes -eq 0 ]; then
+        retval=$(expr "$path" : '.*/log-0*\([1-9][0-9]*\)')
+    else
+        retval=$(expr "$path" : '.*/log-\(0*[1-9][0-9]*\)')
+    fi
+    if [ -z "$retval" ]; then
+        lib_exit 1 "cannot determine number of logfile $path"
+    fi
+    echo $retval
+}
 
+function lib_linktree_get_next_logfile
+{
+    local path="$1" retval nr_with_leading_zeroes next_nr
+    nr_with_leading_zeroes=$(lib_linktree_get_nr_of_logfile $path 1) || \
+                                                                    lib_exit 1
+    let next_nr=$(($nr_with_leading_zeroes + 1))
+    next_nr=$(printf "%0.${#nr_with_leading_zeroes}d" $next_nr)
+    retval=${path/-${nr_with_leading_zeroes}-/-${next_nr}-}
+    echo "$retval"
+}
 
 
