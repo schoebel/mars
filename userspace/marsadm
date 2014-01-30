@@ -980,8 +980,15 @@ sub create_res {
 
   my $resdir = "$mars/resource-$res";
   if ($create) {
-    ldie "resource directory '$res' already exists; you may override this via --force\n" if (!$force && -d $resdir);
-    ldie "resource directory '$res' has some contents -- remove by hand if you are sure that you really know what you are doing, or give --force.\n" if (!$force && glob("$resdir/*.status"));
+    if (-d $resdir) {
+      lwarn "resource directory '$res' already exists\n";
+      my @host_list = glob("$resdir/replay-*");
+      if (@host_list) {
+	my $h_list = join(',', map({ $_ =~ s:.*/replay-::;} (@host_list)));
+	lwarn "DANGER: hosts '$h_list' are already member of resource '$res'.\n";
+	ldie "REFUSING to trash your resource!\n" unless $force;
+      }
+    }
     lprint "creating new resource '$res'\n";
   } else {
     if ( -e "$resdir/data-$host") {
@@ -1167,7 +1174,7 @@ sub delete_res {
   my $basedir = "$mars/resource-$res";
   # preconditions
   if (! -d $basedir) {
-    lprint "resource directory '' does no longer exist,\n";
+    lprint "resource directory '$basedir' does no longer exist.\n";
     return;
   }
   my @host_list = glob("$basedir/replay-*");
