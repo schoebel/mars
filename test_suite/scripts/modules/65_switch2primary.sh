@@ -348,8 +348,10 @@ function switch2primary_correct_split_brain
     fi
     marsadm_do_cmd $new_primary "connect" "$res" || lib_exit 1
     marsadm_do_cmd $new_primary "secondary" "$res" || lib_exit 1
+    marsadm_do_cmd $new_secondary "secondary" "$res" || lib_exit 1
     marsadm_do_cmd $new_secondary "down" "$res" || lib_exit 1
     marsadm_do_cmd $new_secondary "leave-resource --force" "$res" || lib_exit 1
+    marsadm_do_cmd $new_primary "log-purge-all" "$res" || lib_exit 1
     marsadm_do_cmd $new_primary "primary" "$res" || lib_exit 1
     switch2primary_check_standalone_primary $new_primary $res
     if [ $network_cut -eq 1 ]; then
@@ -399,6 +401,7 @@ function switch2primary_recreate_resource
     marsadm_do_cmd $host "secondary" "$res" || lib_exit 1
     marsadm_do_cmd $host "down" "$res" || lib_exit 1
     marsadm_do_cmd $host "leave-resource" "$res" || lib_exit 1
-    lib_remote_idfile $host "rm -rf $res_dir" || lib_exit 1
+    sleep 15
+    marsadm_do_cmd $host "delete-resource --force" "$res" || lib_exit 1
     marsadm_do_cmd $host "create-resource --force" "$res $dev" || lib_exit 1
 }
