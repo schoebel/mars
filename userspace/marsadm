@@ -365,7 +365,7 @@ sub check_primary {
   my $lnk = "$mars/resource-$res/actual-$host/is-primary";
   my $is_primary = get_link($lnk);
   if (!$is_primary) { # give it a second chance
-    my $name = get_link("$mars/resource-$res/device-$host");
+    my $name = get_link("$mars/resource-$res/device-$host", 1);
     my $dev = "/dev/mars/$name";
     $is_primary = 1 if -b $dev;
   }
@@ -441,7 +441,7 @@ sub check_status {
 
 sub check_mars_device {
   my ($cmd, $res, $wait, $inv) = @_;
-  my $name = get_link("$mars/resource-$res/device-$host");
+  my $name = get_link("$mars/resource-$res/device-$host", $inv);
   my $dev = "/dev/mars/$name";
   my $backoff = 1;
   my $round = 0;
