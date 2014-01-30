@@ -1117,9 +1117,17 @@ sub create_res {
   if ($create) {
     set_link($host, "$resdir/primary");
     set_link($size, "$resdir/syncstatus-$host");
-    set_link("log-000000001-$host,0,0", "$resdir/replay-$host");
-    system("touch $resdir/log-000000001-$host");
-    set_link("00000000000000000000000000000000,log-000000001-$host,0:", "$resdir/version-000000001-$host");
+    my $startnr = get_link("$resdir/maxnr", 2);
+    if (defined($startnr) && $startnr > 0) {
+      $startnr += 1000;
+    } else {
+      $startnr = 1;
+    }
+    my $fmt = sprintf("%09d", $startnr);
+    set_link("log-$fmt-$host,0,0", "$resdir/replay-$host");
+    system("touch $resdir/log-$fmt-$host");
+    set_link("00000000000000000000000000000000,log-$fmt-$host,0:", "$resdir/version-$fmt-$host");
+    set_link("$startnr", "$resdir/maxnr");
     finish_links();
     lprint "successfully created resource '$res'\n";
   } else {
@@ -1184,8 +1192,9 @@ sub delete_res {
     ldie "resource '$res' is not empty: first remove the hosts '$h_list' via leave-resource\n" unless $force;
     lwarn "BRUTE FORCE resource destruction: '$res' has $cnt members ($h_list) THESE ARE FINALLY TRASHED right now -- you are RESPONSIBLE for any subsequent problems.\n";
   }
-  for my $path (`find $basedir | sort -r`) {
+  for my $path (`find $basedir/* | sort -r`) {
     chomp $path;
+    next if $path =~ m:/maxnr$:;
     _create_delete($path);
   }
   finish_links();
@@ -1207,6 +1216,9 @@ sub logrotate_res {
   my $next = sprintf("$mars/resource-$res/log-%09d-$host", $nr + 1);
   ldie "logfile '$next' already exists\n" if -e $next;
   system("touch $next");
+  my $startnr = get_link("$mars/resource-$res/maxnr", 1);
+  $startnr = $nr + 1 if ($nr >= $startnr);
+  set_link("$startnr", "$mars/resource-$res/maxnr");
 }
 
 sub _get_deletable_logfiles {
