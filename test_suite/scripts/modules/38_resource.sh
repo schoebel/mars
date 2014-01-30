@@ -762,3 +762,36 @@ function resource_check_sync
         ;;
     esac
 }
+
+function resource_recreate_standalone
+{
+    local primary_host=${main_host_list[0]}
+    local secondary_host=${main_host_list[1]}
+    local res=${resource_name_list[0]}
+    local dev="$(lv_config_get_lv_device $res)"
+    local time_waited
+
+    lib_wait_for_initial_end_of_sync $primary_host $secondary_host $res \
+                                  $resource_maxtime_initial_sync \
+                                  $switch2primary_time_constant_initial_sync \
+                                  "time_waited"
+    lib_vmsg "  ${FUNCNAME[0]}: sync time: $time_waited"
+
+    net_do_impact_cmd $primary_host "on" "remote_host=$secondary_host"
+    marsadm_do_cmd $primary_host "secondary" "$res" || lib_exit 1
+    marsadm_do_cmd $primary_host "down" "$res" || lib_exit 1
+    marsadm_do_cmd $primary_host "leave-resource" "$res" || lib_exit 1
+    marsadm_do_cmd $primary_host "create-resource --force" "$res $dev" || \
+                                                                    lib_exit 1
+    switch2primary_check_standalone_primary $primary_host $res
+    net_do_impact_cmd $primary_host "off" "remote_host=$secondary_host"
+    marsadm_do_cmd $secondary_host "down" "$res" || lib_exit 1
+    marsadm_do_cmd $secondary_host "leave-resource" "$res" || lib_exit 1
+    marsadm_do_cmd $secondary_host "join-resource" "$res $dev" || lib_exit 1
+    lib_wait_for_initial_end_of_sync $primary_host $secondary_host $res \
+                                  $resource_maxtime_initial_sync \
+                                  $switch2primary_time_constant_initial_sync \
+                                  "time_waited"
+    lib_vmsg "  ${FUNCNAME[0]}: sync time: $time_waited"
+    lib_rw_compare_checksums $primary_host $secondary_host $res 0 "" ""
+}
