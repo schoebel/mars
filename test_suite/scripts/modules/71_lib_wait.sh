@@ -263,6 +263,8 @@ function lib_wait_for_secondary_to_become_uptodate_and_cmp_cksums
                                 "net_throughput"
     lib_vmsg "  ${FUNCNAME[0]} called from ${FUNCNAME[1]}: apply time: $time_waited"
 
+    lib_linktree_check_equality_and_correctness_of_replay_links $primary_host \
+                                                    $secondary_host $res
 
     for role in "primary" "secondary"; do
         eval host='$'${role}_host

@@ -179,3 +179,25 @@ function lib_linktree_get_next_logfile
 }
 
 
+function lib_linktree_check_equality_and_correctness_of_replay_links
+{
+    [ $# -eq 3 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    local primary_host=$1 secondary_host=$2 res=$3
+    local host link link_val link_val_primary link_val_secondary h
+    lib_vmsg "  checking equality of replay links"
+    for h in primary secondary; do
+        eval host='$'$h'_host'
+        link="$(lib_linktree_get_res_host_linkname $host $res "replay")" || lib_exit 1
+        link_val="$(lib_remote_idfile $host "readlink $link")" || lib_exit 1
+        if [ -z "$link_val" ]; then
+            lib_exit 1 "  value of replay link $link on $host is empty"
+        fi
+        if ! expr "$link_val" : ".*-$primary_host,.*" >/dev/null; then
+            lib_exit 1 "  value of replay link $link on $host does not contain primary_host $primary_host"
+        fi
+        eval link_val_$h="$link_val"
+    done
+    if [ "$link_val_primary" != "$link_val_secondary" ]; then
+        lib_exit 1 "different replay link values: $primary_host: $link_val_primary, $secondary_host: $link_val_secondary"
+    fi
+}
