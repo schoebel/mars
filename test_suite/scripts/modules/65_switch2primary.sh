@@ -393,7 +393,7 @@ function switch2primary_correct_split_brain
 
     marsadm_do_cmd $new_secondary "join-resource --force" "$res $lv_dev" \
                                                             || lib_exit 1
-    lib_vmsg "  $switch2primary_flow_msg_prefix: wait for new secondary $new_secondary to become uptodate"
+    lib_vmsg "  $switch2primary_flow_msg_prefix: wait for end of sync on new secondary $new_secondary"
     lib_wait_for_initial_end_of_sync $new_primary $new_secondary $res \
                                      $resource_maxtime_initial_sync \
                                      $resource_time_constant_initial_sync \
