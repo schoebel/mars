@@ -177,7 +177,7 @@ function lib_wait_until_action_stops
         fi
         sleep 1
         let waited+=1
-        msg="  waited $waited for $action to stop. old = $link_value_old, act = $link_value"
+        msg="  waited $waited for $action to stop on $host. old = $link_value_old, act = $link_value"
         lib_vmsg "$msg"
         if [ $check_net_throughput -eq 1 ]; then
             if [ $(( $waited % $check_net_throughput )) -eq 0 ]; then
