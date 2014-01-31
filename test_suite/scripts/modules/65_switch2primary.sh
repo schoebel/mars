@@ -149,6 +149,7 @@ function switch2primary_force
     local write_count time_waited host logfile length_logfile net_throughput
     local new_primary new_secondary rc
     local timeout_opt
+    local destroy_logfile=0
     if [ $switch2primary_orig_prim_equal_new_prim -ne 0 ]; then
         new_primary=$orig_primary
         new_secondary=$orig_secondary
@@ -156,39 +157,52 @@ function switch2primary_force
         new_primary=$orig_secondary
         new_secondary=$orig_primary
     fi
-    if [ $switch2primary_logrotate_orig_primary -eq 1 ]; then
-        logrotate_loop $orig_primary $res 3 4
-    fi
     if [ $switch2primary_full_apply_not_possible -eq 1 \
          -a $switch2primary_orig_prim_equal_new_prim -eq 0 ]
     then
+        destroy_logfile=1
+    fi
+    lib_vmsg "  $switch2primary_flow_msg_prefix: initial situation: primary=$orig_primary, secondary=$orig_secondary, data device mounted and writing process running"
+    lib_vmsg "  $switch2primary_flow_msg_prefix: target state: new_primary=$new_primary, new_secondary=$new_secondary"
+    if [ $switch2primary_logrotate_orig_primary -eq 1 ]; then
+        logrotate_loop $orig_primary $res 3 4
+        lib_vmsg "  $switch2primary_flow_msg_prefix: log-rotate/log-delete on $orig_primary"
+    fi
+    if [ $destroy_logfile -eq 1 ]; then
+        lib_vmsg "  $switch2primary_flow_msg_prefix: destroy logfile on $new_primary"
         switch2primary_destroy_log_after_replay_link $new_primary $res
         timeout_opt='--timeout=40' # we don't want to wait too long
                                    # for the failure of --force primary
     fi
     if [ $switch2primary_data_dev_in_use -eq 0 ]; then
+        lib_vmsg "  $switch2primary_flow_msg_prefix: stop writing on $orig_primary and umount data device"
         switch2primary_stop_write_and_umount_data_device $orig_primary \
                                         $writer_script "write_count"
     fi
     if [ $switch2primary_connected -eq 0 ]; then
+        lib_vmsg "  $switch2primary_flow_msg_prefix: cut network"
         net_do_impact_cmd $orig_secondary "on" "remote_host=$orig_primary"
     fi
+    lib_vmsg "  $switch2primary_flow_msg_prefix: generating split brain"
     marsadm_do_cmd $orig_secondary "disconnect" "$res" || lib_exit 1
     marsadm_do_cmd $orig_secondary "primary --force" "$res $timeout_opt"
     rc=$?
-    if [ $switch2primary_full_apply_not_possible -eq 0 -a $rc -ne 0 ]; then
+    if [ $destroy_logfile -eq 0 -a $rc -ne 0 ]; then
         lib_exit 1 "marsadm primary --force failed unexpectedly"
     fi
-    if [ $switch2primary_full_apply_not_possible -eq 1 ]; then
+    if [ $destroy_logfile -eq 1 ]; then
         if [ $rc -eq 0 ]; then
             lib_exit 1 "marsadm primary --force succeeded unexpectedly"
         fi
+        lib_vmsg "  $switch2primary_flow_msg_prefix: recreating resource on $orig_secondary"
         switch2primary_recreate_resource $orig_secondary $res
     fi
     if [ $switch2primary_logrotate_orig_primary -eq 1 ]; then
+        lib_vmsg "  $switch2primary_flow_msg_prefix: log-rotate/log-delete on $orig_primary"
         logrotate_loop $orig_primary $res 3 4
     fi
     if [ $switch2primary_data_dev_in_use -ne 0 ]; then
+        lib_vmsg "  $switch2primary_flow_msg_prefix: stop writing on $orig_primary and umount data device"
         switch2primary_stop_write_and_umount_data_device $orig_primary \
                                         $writer_script "write_count"
     fi
@@ -200,10 +214,10 @@ function switch2primary_force
         fi
         switch2primary_correct_split_brain $orig_primary $orig_secondary \
                                             $new_primary $new_secondary $res
-        resource_check_replication $new_primary $new_secondary $res
         return
     fi
 
+    lib_vmsg "  $switch2primary_flow_msg_prefix: check that both data devices can be written"
     switch2primary_write_data_devices $res $orig_primary \
                             $switch2primary_logrotate_split_brain_orig_primary \
                             $orig_secondary \
@@ -212,6 +226,7 @@ function switch2primary_force
     if [ $switch2primary_connected -eq 0 \
          -a $switch2primary_reconnect_before_primary_cmd_on_new_primary -eq 1 ]
     then
+        lib_vmsg "  $switch2primary_flow_msg_prefix: restore network"
         switch2primary_restore_resource_connection $orig_secondary \
                                                    $orig_primary $res 1
     fi
@@ -346,26 +361,44 @@ function switch2primary_correct_split_brain
     then
         network_cut=1
     fi
+    lib_vmsg "  $switch2primary_flow_msg_prefix: starting split brain correction, network_cut=$network_cut"
     marsadm_do_cmd $new_primary "connect" "$res" || lib_exit 1
     marsadm_do_cmd $new_primary "secondary" "$res" || lib_exit 1
-    marsadm_do_cmd $new_secondary "secondary" "$res" || lib_exit 1
-    marsadm_do_cmd $new_secondary "down" "$res" || lib_exit 1
-    marsadm_do_cmd $new_secondary "leave-resource --force" "$res" || lib_exit 1
-    marsadm_do_cmd $new_primary "log-purge-all" "$res" || lib_exit 1
-    marsadm_do_cmd $new_primary "primary" "$res" || lib_exit 1
+    # if the new_primary was recreated, the delete-resource in
+    # switch2primary_recreate_resource destroys the resource on the
+    # new_secondary. Thus two branches to restore the replication are needed
+    if [ $switch2primary_full_apply_not_possible -eq 0 ]; then
+        marsadm_do_cmd $new_secondary "secondary" "$res" || lib_exit 1
+        marsadm_do_cmd $new_secondary "down" "$res" || lib_exit 1
+        marsadm_do_cmd $new_secondary "leave-resource --force" "$res" || \
+                                                                    lib_exit 1
+        marsadm_do_cmd $new_primary "log-purge-all" "$res" || lib_exit 1
+        marsadm_do_cmd $new_primary "primary" "$res" || lib_exit 1
+    else
+        # we need primary --force, because the deleted resource on the
+        # new_secondary does not switch from primary to secondary
+        marsadm_do_cmd $new_primary "disconnect" "$res" || lib_exit 1
+        marsadm_do_cmd $new_primary "primary --force" "$res" || lib_exit 1
+        marsadm_do_cmd $new_primary "connect" "$res" || lib_exit 1
+    fi
+    lib_vmsg "  $switch2primary_flow_msg_prefix: check whether new primary $new_primary works standalone"
     switch2primary_check_standalone_primary $new_primary $res
     if [ $network_cut -eq 1 ]; then
+        lib_vmsg "  $switch2primary_flow_msg_prefix: restore network"
         switch2primary_restore_resource_connection $orig_secondary \
                                                    $orig_primary $res 0
+        lib_vmsg "  $switch2primary_flow_msg_prefix: check whether new primary $new_primary works standalone"
         switch2primary_check_standalone_primary $new_primary $res
     fi
 
     marsadm_do_cmd $new_secondary "join-resource --force" "$res $lv_dev" \
                                                             || lib_exit 1
+    lib_vmsg "  $switch2primary_flow_msg_prefix: wait for new secondary $new_secondary to become uptodate"
     lib_wait_for_initial_end_of_sync $new_primary $new_secondary $res \
                                      $resource_maxtime_initial_sync \
                                      $resource_time_constant_initial_sync \
                                      "time_waited"
+    lib_vmsg "  $switch2primary_flow_msg_prefix: starting replication check"
     resource_check_replication $new_primary $new_secondary $res
 }
 
