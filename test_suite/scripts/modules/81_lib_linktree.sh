@@ -193,7 +193,7 @@ function lib_linktree_check_equality_and_correctness_of_replay_links
             lib_exit 1 "  value of replay link $link on $host is empty"
         fi
         if ! expr "$link_val" : ".*-$primary_host,.*" >/dev/null; then
-            lib_exit 1 "  value of replay link $link on $host does not contain primary_host $primary_host"
+            lib_exit 1 "  value $link_val of replay link $link on $host does not contain primary_host $primary_host"
         fi
         eval link_val_$h="$link_val"
     done

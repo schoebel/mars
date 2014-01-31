@@ -670,12 +670,13 @@ function resource_kill_all_scripts
 
 function resource_check_replication
 {
-    local primary_host=$1 secondary_host=$2 res=$3
+    [ $# -eq 4 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    local primary_host=$1 secondary_host=$2 res=$3 debug_msg_prefix="$4"
     local data_dev=$(resource_get_data_device $res)
-    lib_vmsg  "  check replication, primary=$primary_host, secondary=$secondary_host"
+    lib_vmsg  " ${debug_msg_prefix}check replication, primary=$primary_host, secondary=$secondary_host"
     marsadm_do_cmd $primary_host "wait-resource" "$res is-device-on" || \
                                                                     lib_exit 1
-    lib_vmsg "  write some data to $primary_host:$data_dev"
+    lib_vmsg "  ${debug_msg_prefix}write to $primary_host:$data_dev and log-rotate/delete"
     local count=0 maxcount=3
     while true; do
         lib_remote_idfile $primary_host \
@@ -693,6 +694,7 @@ function resource_check_replication
             break
         fi
     done
+    lib_vmsg  " ${debug_msg_prefix}wait for secondary $secondary to become uptodate and calculate checksums"
     lib_wait_for_secondary_to_become_uptodate_and_cmp_cksums "resource" \
                                             $secondary_host $primary_host \
                                             $res $data_dev 0
@@ -736,7 +738,7 @@ function resource_leave_while_sync
                                      $resource_maxtime_initial_sync \
                                      $resource_time_constant_initial_sync \
                                      "time_waited"
-    resource_check_replication $primary_host $secondary_host $res
+    resource_check_replication $primary_host $secondary_host $res ""
 }
 
 function resource_check_sync

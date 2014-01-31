@@ -398,8 +398,11 @@ function switch2primary_correct_split_brain
                                      $resource_maxtime_initial_sync \
                                      $resource_time_constant_initial_sync \
                                      "time_waited"
-    lib_vmsg "  $switch2primary_flow_msg_prefix: starting replication check"
-    resource_check_replication $new_primary $new_secondary $res
+    lib_vmsg  " $switch2primary_flow_msg_prefix: check equality of replay links"
+    lib_linktree_check_equality_and_correctness_of_replay_links $new_primary \
+                                                $new_secondary $res
+    resource_check_replication $new_primary $new_secondary $res \
+                               "$switch2primary_flow_msg_prefix: "
 }
 
 function switch2primary_destroy_log_after_replay_link
