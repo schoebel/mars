@@ -269,15 +269,15 @@ struct mars_rotate {
 	struct mars_dent *next_log;
 	struct mars_dent *syncstatus_dent;
 	struct if_brick *if_brick;
-	const char *copy_path;
-	const char *copy_peer;
+	const char *fetch_path;
+	const char *fetch_peer;
 	const char *parent_path;
-	const char *copy_next_origin;
+	const char *fetch_next_origin;
 	struct say_channel *log_say;
-	struct copy_brick *copy_brick;
+	struct copy_brick *fetch_brick;
 	struct mars_limiter replay_limiter;
 	struct mars_limiter sync_limiter;
-	struct mars_limiter file_limiter;
+	struct mars_limiter fetch_limiter;
 	int inf_prev_sequence;
 	long long flip_start;
 	loff_t dev_size;
@@ -286,12 +286,12 @@ struct mars_rotate {
 	loff_t start_pos;
 	loff_t end_pos;
 	int max_sequence;
-	int copy_round;
-	int copy_serial;
-	int copy_next_serial;
+	int fetch_round;
+	int fetch_serial;
+	int fetch_next_serial;
 	int split_brain_serial;
 	int split_brain_round;
-	int copy_next_is_available;
+	int fetch_next_is_available;
 	int relevant_serial;
 	bool has_symlinks;
 	bool res_shutdown;
@@ -302,7 +302,6 @@ struct mars_rotate {
 	bool todo_primary;
 	bool is_primary;
 	bool old_is_primary;
-	bool copy_is_done;
 	bool created_hole;
 	bool is_log_damaged;
 	spinlock_t inf_lock;
@@ -1353,7 +1352,7 @@ int _update_file(struct mars_rotate *rot, const char *switch_path, const char *c
 	if (unlikely(!tmp || !global))
 		goto done;
 
-	rot->copy_round = 0;
+	rot->fetch_round = 0;
 
 	MARS_DBG("src = '%s' dst = '%s'\n", tmp, file);
 	status = __make_copy(global, NULL, switch_path, copy_path, NULL, argv, -1, -1, false, false, &copy);
@@ -1375,7 +1374,7 @@ int _update_file(struct mars_rotate *rot, const char *switch_path, const char *c
 		brick_string_free(src);
 		brick_string_free(dst);
 
-		copy->copy_limiter = &rot->file_limiter;
+		copy->copy_limiter = &rot->fetch_limiter;
 		// FIXME: code is dead
 		if (copy->append_mode && copy->power.led_on &&
 		    end_pos > copy->copy_end) {
@@ -1396,7 +1395,7 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 	loff_t src_size = remote_dent->new_stat.size;
 	struct mars_rotate *rot;
 	const char *switch_path = NULL;
-	struct copy_brick *copy_brick;
+	struct copy_brick *fetch_brick;
 	int status = 0;
 
 	// plausibility checks
@@ -1413,23 +1412,23 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 		status = -EINVAL;
 		goto done;
 	}
-	if (!rot->copy_path) {
-		MARS_WRN("parent has no copy_path\n");
+	if (!rot->fetch_path) {
+		MARS_WRN("parent has no fetch_path\n");
 		status = -EINVAL;
 		goto done;
 	}
 
 	// bookkeeping for serialization of logfile updates
-	if (remote_dent->d_serial > rot->copy_serial) {
-		rot->copy_next_is_available++;
-		if (!rot->copy_next_serial || !rot->copy_next_origin) {
-			rot->copy_next_serial = remote_dent->d_serial;
-			rot->copy_next_origin = brick_strdup(remote_dent->d_rest);
-		} else if (rot->copy_next_serial == remote_dent->d_serial && strcmp(rot->copy_next_origin, remote_dent->d_rest)) {
+	if (remote_dent->d_serial > rot->fetch_serial) {
+		rot->fetch_next_is_available++;
+		if (!rot->fetch_next_serial || !rot->fetch_next_origin) {
+			rot->fetch_next_serial = remote_dent->d_serial;
+			rot->fetch_next_origin = brick_strdup(remote_dent->d_rest);
+		} else if (rot->fetch_next_serial == remote_dent->d_serial && strcmp(rot->fetch_next_origin, remote_dent->d_rest)) {
 			rot->split_brain_round = 0;
 			rot->split_brain_serial = remote_dent->d_serial;
 			MARS_WRN("SPLIT BRAIN (logfiles from '%s' and '%s' with same serial number %d) detected!\n",
-				 rot->copy_next_origin, remote_dent->d_rest, rot->split_brain_serial);
+				 rot->fetch_next_origin, remote_dent->d_rest, rot->split_brain_serial);
 		}
 	}
 
@@ -1437,25 +1436,25 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 	switch_path = path_make("%s/todo-%s/connect", parent->d_path, my_id());
 
 	// check whether copy is necessary
-	copy_brick = rot->copy_brick;
-	MARS_DBG("copy_brick = %p (remote '%s' %d) copy_serial = %d\n", copy_brick, remote_dent->d_path, remote_dent->d_serial, rot->copy_serial);
-	if (copy_brick) {
-		if (remote_dent->d_serial == rot->copy_serial && rot->copy_peer && !strcmp(peer, rot->copy_peer)) {
+	fetch_brick = rot->fetch_brick;
+	MARS_DBG("fetch_brick = %p (remote '%s' %d) fetch_serial = %d\n", fetch_brick, remote_dent->d_path, remote_dent->d_serial, rot->fetch_serial);
+	if (fetch_brick) {
+		if (remote_dent->d_serial == rot->fetch_serial && rot->fetch_peer && !strcmp(peer, rot->fetch_peer)) {
 			// treat copy brick instance underway
-			status = _update_file(rot, switch_path, rot->copy_path, remote_dent->d_path, peer, src_size);
+			status = _update_file(rot, switch_path, rot->fetch_path, remote_dent->d_path, peer, src_size);
 			MARS_DBG("re-update '%s' from peer '%s' status = %d\n", remote_dent->d_path, peer, status);
 		}
-	} else if (!rot->copy_serial && rot->allow_update &&
+	} else if (!rot->fetch_serial && rot->allow_update &&
 		   !rot->is_primary && !rot->old_is_primary &&
 		   (!rot->split_brain_serial || remote_dent->d_serial < rot->split_brain_serial) &&
 		   (dst_size < src_size || !local_dent)) {		
 		// start copy brick instance
-		status = _update_file(rot, switch_path, rot->copy_path, remote_dent->d_path, peer, src_size);
+		status = _update_file(rot, switch_path, rot->fetch_path, remote_dent->d_path, peer, src_size);
 		MARS_DBG("update '%s' from peer '%s' status = %d\n", remote_dent->d_path, peer, status);
-		rot->copy_serial = remote_dent->d_serial;
-		rot->copy_next_is_available = 0;
-		brick_string_free(rot->copy_peer);
-		rot->copy_peer = brick_strdup(peer);
+		rot->fetch_serial = remote_dent->d_serial;
+		rot->fetch_next_is_available = 0;
+		brick_string_free(rot->fetch_peer);
+		rot->fetch_peer = brick_strdup(peer);
 	} else {
 		MARS_DBG("allow_update = %d src_size = %lld dst_size = %lld local_dent = %p\n", rot->allow_update, src_size, dst_size, local_dent);
 	}
@@ -2192,13 +2191,13 @@ void rot_destruct(void *_rot)
 		write_info_links(rot);
 		del_channel(rot->log_say);
 		rot->log_say = NULL;
-		brick_string_free(rot->copy_path);
-		brick_string_free(rot->copy_peer);
+		brick_string_free(rot->fetch_path);
+		brick_string_free(rot->fetch_peer);
 		brick_string_free(rot->parent_path);
-		brick_string_free(rot->copy_next_origin);
-		rot->copy_path = NULL;
+		brick_string_free(rot->fetch_next_origin);
+		rot->fetch_path = NULL;
 		rot->parent_path = NULL;
-		rot->copy_next_origin = NULL;
+		rot->fetch_next_origin = NULL;
 	}
 }
 
@@ -2231,7 +2230,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	CHECK_PTR(parent_path, done);
 
 	if (!rot) {
-		const char *copy_path;
+		const char *fetch_path;
 		rot = brick_zmem_alloc(sizeof(struct mars_rotate));
 		if (unlikely(!rot)) {
 			MARS_ERR("cannot allocate rot structure\n");
@@ -2239,14 +2238,14 @@ int make_log_init(void *buf, struct mars_dent *dent)
 			goto done;
 		}
 		spin_lock_init(&rot->inf_lock);		
-		copy_path = path_make("%s/logfile-update", parent_path);
-		if (unlikely(!copy_path)) {
-			MARS_ERR("cannot create copy_path\n");
+		fetch_path = path_make("%s/logfile-update", parent_path);
+		if (unlikely(!fetch_path)) {
+			MARS_ERR("cannot create fetch_path\n");
 			brick_mem_free(rot);
 			status = -ENOMEM;
 			goto done;
 		}
-		rot->copy_path = copy_path;
+		rot->fetch_path = fetch_path;
 		rot->global = global;
 		parent->d_private = rot;
 		parent->d_private_destruct = rot_destruct;
@@ -2263,13 +2262,13 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	rot->next_next_relevant_log = NULL;
 	rot->prev_log = NULL;
 	rot->next_log = NULL;
-	brick_string_free(rot->copy_next_origin);
-	rot->copy_next_origin = NULL;
+	brick_string_free(rot->fetch_next_origin);
+	rot->fetch_next_origin = NULL;
 	rot->max_sequence = 0;
 	// reset the split brain detector only when conflicts have gone for a number of rounds
 	if (rot->split_brain_serial && rot->split_brain_round++ > 3)
 		rot->split_brain_serial = 0;
-	rot->copy_next_serial = 0;
+	rot->fetch_next_serial = 0;
 	rot->has_error = false;
 	rot->has_symlinks = true;
 
@@ -3020,7 +3019,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	struct mars_dent *parent = dent->d_parent;
 	struct mars_rotate *rot;
 	struct trans_logger_brick *trans_brick;
-	struct copy_brick *copy_brick;
+	struct copy_brick *fetch_brick;
 	bool is_attached;
 	int status = -EINVAL;
 
@@ -3164,30 +3163,30 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 
 done:
 	// check whether some copy has finished
-	copy_brick = (struct copy_brick*)mars_find_brick(global, &copy_brick_type, rot->copy_path);
-	MARS_DBG("copy_path = '%s' copy_brick = %p\n", rot->copy_path, copy_brick);
-	if (copy_brick &&
-	    (copy_brick->power.led_off ||
+	fetch_brick = (struct copy_brick*)mars_find_brick(global, &copy_brick_type, rot->fetch_path);
+	MARS_DBG("fetch_path = '%s' fetch_brick = %p\n", rot->fetch_path, fetch_brick);
+	if (fetch_brick &&
+	    (fetch_brick->power.led_off ||
 	     !global->global_power.button ||
 	     !_check_allow(global, parent, "connect") ||
 	     !_check_allow(global, parent, "attach") ||
-	     (copy_brick->copy_last == copy_brick->copy_end &&
-	      (rot->copy_next_is_available > 0 ||
-	       rot->copy_round++ > 3)))) {
-		status = mars_kill_brick((void*)copy_brick);
+	     (fetch_brick->copy_last == fetch_brick->copy_end &&
+	      (rot->fetch_next_is_available > 0 ||
+	       rot->fetch_round++ > 3)))) {
+		status = mars_kill_brick((void*)fetch_brick);
 		if (status < 0) {
-			MARS_ERR("could not kill copy_brick, status = %d\n", status);
+			MARS_ERR("could not kill fetch_brick, status = %d\n", status);
 			goto done;
 		}
-		copy_brick = NULL;
+		fetch_brick = NULL;
 		mars_trigger();
 	}
-	rot->copy_next_is_available = 0;
-	rot->copy_brick = copy_brick;
-	if (copy_brick) {
-		copy_brick->kill_ptr = (void**)&rot->copy_brick;
+	rot->fetch_next_is_available = 0;
+	rot->fetch_brick = fetch_brick;
+	if (fetch_brick) {
+		fetch_brick->kill_ptr = (void**)&rot->fetch_brick;
 	} else {
-		rot->copy_serial = 0;
+		rot->fetch_serial = 0;
 	}
 
 	// remove trans_logger (when possible) upon detach
@@ -3206,9 +3205,9 @@ done:
 	_show_actual(rot->parent_path, "is-replaying", rot->trans_brick && rot->trans_brick->replay_mode && !rot->trans_brick->power.led_off);
 	if (rot->trans_brick)
 		_show_rate(rot, &rot->replay_limiter, rot->trans_brick->power.led_on, "replay_rate");
-	_show_actual(rot->parent_path, "is-copying", rot->copy_brick && !rot->copy_brick->power.led_off);
-	if (rot->copy_brick)
-		_show_rate(rot, &rot->file_limiter, rot->copy_brick->power.led_on, "file_rate");
+	_show_actual(rot->parent_path, "is-copying", rot->fetch_brick && !rot->fetch_brick->power.led_off);
+	if (rot->fetch_brick)
+		_show_rate(rot, &rot->fetch_limiter, rot->fetch_brick->power.led_on, "file_rate");
 	_show_actual(rot->parent_path, "is-syncing", rot->sync_brick && !rot->sync_brick->power.led_off);
 	if (rot->sync_brick)
 		_show_rate(rot, &rot->sync_limiter, rot->sync_brick->power.led_on, "sync_rate");
@@ -3932,7 +3931,7 @@ int kill_res(void *buf, struct mars_dent *dent)
 	}
 
 	// this code is only executed in case of forced deletion of symlinks
-	if (rot->if_brick || rot->sync_brick || rot->copy_brick || rot->trans_brick) {
+	if (rot->if_brick || rot->sync_brick || rot->fetch_brick || rot->trans_brick) {
 		rot->res_shutdown = true;
 		MARS_WRN("resource '%s' has no symlinks, shutting down.\n", rot->parent_path);
 	}
@@ -3957,10 +3956,10 @@ int kill_res(void *buf, struct mars_dent *dent)
 			MARS_INF("switching off resource '%s', sync status = %d\n", rot->parent_path, status);
 		}
 	}
-	if (rot->copy_brick) {
-		rot->copy_brick->killme = true;
-		if (!rot->copy_brick->power.led_off) {
-			int status = mars_power_button((void*)rot->copy_brick, false, false);
+	if (rot->fetch_brick) {
+		rot->fetch_brick->killme = true;
+		if (!rot->fetch_brick->power.led_off) {
+			int status = mars_power_button((void*)rot->fetch_brick, false, false);
 			MARS_INF("switching off resource '%s', fetch status = %d\n", rot->parent_path, status);
 		}
 	}
@@ -3976,7 +3975,7 @@ int kill_res(void *buf, struct mars_dent *dent)
 			MARS_INF("switching off resource '%s', logger status = %d\n", rot->parent_path, status);
 		}
 	}
-	if (!rot->if_brick && !rot->sync_brick && !rot->copy_brick && !rot->trans_brick) {
+	if (!rot->if_brick && !rot->sync_brick && !rot->fetch_brick && !rot->trans_brick) {
 		rot->res_shutdown = false;
 	}
 
