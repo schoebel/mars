@@ -293,6 +293,7 @@ struct mars_rotate {
 	int split_brain_round;
 	int copy_next_is_available;
 	int relevant_serial;
+	bool has_symlinks;
 	bool has_error;
 	bool allow_update;
 	bool forbid_replay;
@@ -2269,6 +2270,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 		rot->split_brain_serial = 0;
 	rot->copy_next_serial = 0;
 	rot->has_error = false;
+	rot->has_symlinks = true;
 
 	if (dent->new_link)
 		sscanf(dent->new_link, "%lld", &rot->dev_size);
@@ -2415,6 +2417,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	if (!trans_brick) {
 		goto done;
 	}
+	rot->trans_brick->kill_ptr = (void**)&rot->trans_brick;
 	rot->trans_brick->replay_limiter = &rot->replay_limiter;
 	/* For safety, default is to try an (unnecessary) replay in case
 	 * something goes wrong later.
@@ -3020,6 +3023,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	if (!rot)
 		goto err;
 	CHECK_PTR(rot, err);
+	rot->has_symlinks = true;
 	trans_brick = rot->trans_brick;
 	status = 0;
 	if (!trans_brick) {
@@ -3174,7 +3178,9 @@ done:
 	}
 	rot->copy_next_is_available = 0;
 	rot->copy_brick = copy_brick;
-	if (!copy_brick) {
+	if (copy_brick) {
+		copy_brick->kill_ptr = (void**)&rot->copy_brick;
+	} else {
 		rot->copy_serial = 0;
 	}
 
@@ -3223,6 +3229,8 @@ int make_primary(void *buf, struct mars_dent *dent)
 		goto done;
 	CHECK_PTR(rot, done);
 
+	rot->has_symlinks = true;
+
 	rot->todo_primary =
 		global->global_power.button && dent->new_link && !strcmp(dent->new_link, my_id());
 	MARS_DBG("todo_primary = %d is_primary = %d\n", rot->todo_primary, rot->is_primary);
@@ -3247,6 +3255,8 @@ int make_bio(void *buf, struct mars_dent *dent)
 	rot = dent->d_parent->d_private;
 	if (!rot)
 		goto done;
+
+	rot->has_symlinks = true;
 
 	switch_on = _check_allow(global, dent->d_parent, "attach");
 
@@ -3339,6 +3349,7 @@ int make_dev(void *buf, struct mars_dent *dent)
 		MARS_DBG("nothing to do\n");
 		goto err;
 	}
+	rot->has_symlinks = true;
 	if (!rot->trans_brick) {
 		MARS_DBG("transaction logger does not exist\n");
 		goto done;
@@ -3393,6 +3404,7 @@ int make_dev(void *buf, struct mars_dent *dent)
 		MARS_DBG("setting killme on if_brick\n");
 		dev_brick->killme = true;
 	}
+	dev_brick->kill_ptr = (void**)&rot->if_brick;
 	dev_brick->show_status = _show_brick_status;
 	_dev_brick = (void*)dev_brick;
 	open_count = atomic_read(&_dev_brick->open_count);
@@ -3628,6 +3640,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	rot = dent->d_parent->d_private;
 	if (rot) {
 		rot->forbid_replay = false;
+		rot->has_symlinks = true;
 		rot->allow_update = true;
 		rot->syncstatus_dent = dent;
 	}
@@ -3733,8 +3746,10 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	{
 		const char *argv[2] = { src, dst };
 		status = __make_copy(global, dent, do_start ? switch_path : "", copy_path, dent->d_parent->d_path, argv, start_pos, end_pos, mars_fast_fullsync > 0, true, &copy);
-		if (copy)
+		if (copy) {
+			copy->kill_ptr = (void**)&rot->sync_brick;
 			copy->copy_limiter = &rot->sync_limiter;
+		}
 		rot->sync_brick = copy;
 	}
 
@@ -3865,6 +3880,83 @@ static int check_deleted(void *buf, struct mars_dent *dent)
 		global->deleted_min = serial;
 
 	
+ done:
+	return 0;
+}
+
+static
+int make_res(void *buf, struct mars_dent *dent)
+{
+	struct mars_rotate *rot = dent->d_private;
+
+	if (!rot) {
+		MARS_DBG("nothing to do\n");
+		goto done;
+	}
+
+	rot->has_symlinks = false;
+
+ done:
+	return 0;
+}
+
+static
+int kill_res(void *buf, struct mars_dent *dent)
+{
+	struct mars_rotate *rot = dent->d_private;
+
+	if (!rot || !rot->parent_path || !rot->global || !rot->global->global_power.button) {
+		MARS_DBG("nothing to do\n");
+		goto done;
+	}
+	if (rot->has_symlinks) {
+		MARS_DBG("symlinks were present, nothing to kill.\n");
+		goto done;
+	}
+	// this code is only executed in case of forced deletion of symlinks
+
+	if (rot->if_brick) {
+		if (atomic_read(&rot->if_brick->open_count) > 0) {
+			MARS_ERR("cannot destroy resource '%s': device is is use!\n", rot->parent_path);
+			goto done;
+		}
+		rot->if_brick->killme = true;
+		if (!rot->if_brick->power.led_off) {
+			int status = mars_power_button((void*)rot->if_brick, false, false);
+			MARS_INF("switching off resource '%s', device status = %d\n", rot->parent_path, status);
+		} else {
+			mars_kill_brick((void*)rot->if_brick);
+			rot->if_brick = NULL;
+		}
+	}
+	if (rot->sync_brick) {
+		rot->sync_brick->killme = true;
+		if (!rot->sync_brick->power.led_off) {
+			int status = mars_power_button((void*)rot->sync_brick, false, false);
+			MARS_INF("switching off resource '%s', sync status = %d\n", rot->parent_path, status);
+		}
+	}
+	if (rot->copy_brick) {
+		rot->copy_brick->killme = true;
+		if (!rot->copy_brick->power.led_off) {
+			int status = mars_power_button((void*)rot->copy_brick, false, false);
+			MARS_INF("switching off resource '%s', fetch status = %d\n", rot->parent_path, status);
+		}
+	}
+	if (rot->trans_brick) {
+		struct trans_logger_output *output = rot->trans_brick->outputs[0];
+		if (!output || output->nr_connected) {
+			MARS_ERR("cannot destroy resource '%s': trans_logger is is use!\n", rot->parent_path);
+			goto done;
+		}
+		rot->trans_brick->killme = true;
+		if (!rot->trans_brick->power.led_off) {
+			int status = mars_power_button((void*)rot->trans_brick, false, false);
+			MARS_INF("switching off resource '%s', logger status = %d\n", rot->parent_path, status);
+		}
+	}
+
+
  done:
 	return 0;
 }
@@ -4053,6 +4145,8 @@ static const struct light_class light_classes[] = {
 		.cl_type = 'd',
 		.cl_use_channel = true,
 		.cl_father = CL_ROOT,
+		.cl_forward = make_res,
+		.cl_backward = kill_res,
 	},
 
 	/* Subdirectory for resource-specific userspace items...

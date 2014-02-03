@@ -1263,6 +1263,9 @@ int mars_kill_brick(struct mars_brick *brick)
 
 		MARS_DBG("---> freeing '%s' '%s'\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
 
+		if (brick->kill_ptr)
+			*brick->kill_ptr = NULL;
+		
 		for (i = 0; i < max_inputs; i++) {
 			struct generic_input *input = (void*)brick->inputs[i];
 			if (!input)
