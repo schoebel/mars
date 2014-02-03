@@ -2399,7 +2399,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	 */
 	trans_brick =
 		make_brick_all(global,
-			       dent,
+			       replay_link,
 			       _set_trans_params,
 			       NULL,
 			       aio_path,
@@ -3394,7 +3394,7 @@ int make_dev(void *buf, struct mars_dent *dent)
 			       (const char *[]){"%s/replay-%s"},
 			       1,
 			       parent->d_path,
-			       dent->d_argv[0],
+			       my_id(),
 			       parent->d_path,
 			       my_id());
 	rot->if_brick = (void*)dev_brick;
