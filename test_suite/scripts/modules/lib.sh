@@ -71,7 +71,7 @@ function lib_exit
         exit $rc
     fi
     export lib_exit_recursion=1
-    lib_general_checks_after_every_test
+    eval $lib_general_checks_after_every_test_function
     if [ ${#main_error_recovery_functions[*]} -ge 0 ]; then
         local func args
         for func in "${!main_error_recovery_functions[@]}"; do

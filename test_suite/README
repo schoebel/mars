@@ -28,6 +28,7 @@ Contents
 9. Starting the whole test suite via cronjob
 10. Concurrent test runs
 11. Firewalls
+12. Programming hints and conventions
 
 1. Running a test
 -----------------
@@ -248,7 +249,8 @@ build_test_environment/install_mars
 
 It's a must to read default-checkout_mars.conf, default-make_mars.conf,
 default-install_mars.conf and the *.conf files in the directories above
-otherwise you risk damage of the boot information on your work station and/or the test hosts.
+otherwise you risk damage of the boot information on your work station and/or
+the test hosts.
 
 After these three tests (which you should call one after the other!) you can
 reboot the test hosts with the new kernel.
@@ -301,6 +303,19 @@ This flag leads to deletion of *all* iptable chains on the test hosts.
 If you do not want this behaviour set net_clear_iptables_in_prepare_phase=0.
 
 
+12. Programming hints and conventions
+-------------------------------------
 
+- all global variables should be defined and explained in a
+   default-<module_name>.conf file
+- the names of all global variables resp. all functions should have as prefix the
+  module name of the default-*.conf file resp. of the <module>.sh file which they
+  are defined in.
+ 
+- in case of an error certain cleanup functions may be called (e.g. if
+  a network connection is cut during a test case it should be restored).
+  The associotive array main_error_recovery_functions has function names as
+  index an function parameters as values. In lib_exit each function contained
+  in main_error_recovery_functions is called with it's corresponding arguments.
 
 

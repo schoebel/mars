@@ -66,7 +66,7 @@ function lib_check_for_kernel_oops_after_start_time
 }
 
 
-function lib_general_checks_after_every_test
+function lib_general_mars_checks_after_every_test
 {
     echo "================= General checks of error and log files ========================"
 	lib_err_check_and_copy_global_err_files_all
