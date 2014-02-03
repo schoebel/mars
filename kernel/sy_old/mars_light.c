@@ -2406,10 +2406,11 @@ int make_log_init(void *buf, struct mars_dent *dent)
 			       (const struct generic_brick_type*)&trans_logger_brick_type,
 			       (const struct generic_brick_type*[]){NULL},
 			       1, // create when necessary, but leave in current state otherwise
-			       "%s/logger", 
+			       "%s/replay-%s", 
 			       (const char *[]){"%s/data-%s"},
 			       1,
 			       parent_path,
+			       my_id(),
 			       parent_path,
 			       my_id());
 	rot->trans_brick = (void*)trans_brick;
@@ -3390,11 +3391,12 @@ int make_dev(void *buf, struct mars_dent *dent)
 			       (const struct generic_brick_type*[]){(const struct generic_brick_type*)&trans_logger_brick_type},
 			       switch_on ? 2 : -1,
 			       "%s/device-%s", 
-			       (const char *[]){"%s/logger"},
+			       (const char *[]){"%s/replay-%s"},
 			       1,
 			       parent->d_path,
 			       dent->d_argv[0],
-			       parent->d_path);
+			       parent->d_path,
+			       my_id());
 	rot->if_brick = (void*)dev_brick;
 	if (!dev_brick) {
 		MARS_DBG("device not shown\n");
