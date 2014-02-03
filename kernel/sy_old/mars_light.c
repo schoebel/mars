@@ -294,6 +294,7 @@ struct mars_rotate {
 	int copy_next_is_available;
 	int relevant_serial;
 	bool has_symlinks;
+	bool res_shutdown;
 	bool has_error;
 	bool allow_update;
 	bool forbid_replay;
@@ -2345,6 +2346,10 @@ int make_log_init(void *buf, struct mars_dent *dent)
 
 	// check whether attach is allowed
 	switch_on = _check_allow(global, parent, "attach");
+	if (switch_on && rot->res_shutdown) {
+		MARS_ERR("cannot start transaction logger: resource shutdown mode is currently active\n");
+		switch_on = false;
+	}
 
 	/* Fetch / make the AIO brick instance
 	 */
@@ -3260,6 +3265,10 @@ int make_bio(void *buf, struct mars_dent *dent)
 	rot->has_symlinks = true;
 
 	switch_on = _check_allow(global, dent->d_parent, "attach");
+	if (switch_on && rot->res_shutdown) {
+		MARS_ERR("cannot access disk: resource shutdown mode is currently active\n");
+		switch_on = false;
+	}
 
 	brick =
 		make_brick_all(global,
@@ -3378,6 +3387,10 @@ int make_dev(void *buf, struct mars_dent *dent)
 		 rot->trans_brick->power.led_on &&
 		 _check_allow(global, dent->d_parent, "attach"));
 	if (!global->global_power.button) {
+		switch_on = false;
+	}
+	if (switch_on && rot->res_shutdown) {
+		MARS_ERR("cannot create device: resource shutdown mode is currently active\n");
 		switch_on = false;
 	}
 
@@ -3917,8 +3930,12 @@ int kill_res(void *buf, struct mars_dent *dent)
 		MARS_DBG("symlinks were present, nothing to kill.\n");
 		goto done;
 	}
-	// this code is only executed in case of forced deletion of symlinks
 
+	// this code is only executed in case of forced deletion of symlinks
+	if (rot->if_brick || rot->sync_brick || rot->copy_brick || rot->trans_brick) {
+		rot->res_shutdown = true;
+		MARS_WRN("resource '%s' has no symlinks, shutting down.\n", rot->parent_path);
+	}
 	if (rot->if_brick) {
 		if (atomic_read(&rot->if_brick->open_count) > 0) {
 			MARS_ERR("cannot destroy resource '%s': device is is use!\n", rot->parent_path);
@@ -3959,7 +3976,9 @@ int kill_res(void *buf, struct mars_dent *dent)
 			MARS_INF("switching off resource '%s', logger status = %d\n", rot->parent_path, status);
 		}
 	}
-
+	if (!rot->if_brick && !rot->sync_brick && !rot->copy_brick && !rot->trans_brick) {
+		rot->res_shutdown = false;
+	}
 
  done:
 	return 0;
