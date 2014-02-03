@@ -3798,7 +3798,9 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	}
 	
 	brick = mars_find_brick(global, NULL, dent->new_link);
-	if (brick && unlikely(brick->nr_outputs > 0 && brick->outputs[0] && brick->outputs[0]->nr_connected)) {
+	if (brick &&
+	    unlikely((brick->nr_outputs > 0 && brick->outputs[0] && brick->outputs[0]->nr_connected) ||
+		     (brick->type == (void*)&if_brick_type && !brick->power.led_off))) {
 		MARS_WRN("target '%s' cannot be deleted, its brick '%s' in use\n", dent->new_link, SAFE_STR(brick->brick_name));
 		goto done;
 	}
