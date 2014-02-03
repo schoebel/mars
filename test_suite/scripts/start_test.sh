@@ -36,7 +36,7 @@ function set_host_locks
         fi
         if [ -f $lock_file ]; then
             echo "Failure lockfile $lock_file for host $host exists!" >&2
-            lib_exit $main_prevent_remove_lock_files_code
+            lib_exit $main_prevent_remove_lock_files_exit_code
         fi
         date > $lock_file || lib_exit 1
         lib_vmsg "  created lockfile $lock_file on $host"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright 2010-2012 Thomas Schoebel-Theuer /  1&1 Internet AG
+# Copyright 2010-2014 Thomas Schoebel-Theuer /  1&1 Internet AG
 #
 # Email: tst@1und1.de 
 #
@@ -60,7 +60,7 @@ function lib_exit
     if [ $rc -ne 0 -a -z "$lib_exit_recursion" ]; then
         lib_callstack >&2
     fi
-    if [ $rc -ne $main_prevent_remove_lock_files_code ]; then
+    if [ $rc -ne $main_prevent_remove_lock_files_exit_code ]; then
         release_host_locks
     fi
     # to avoid recursion
