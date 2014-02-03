@@ -373,13 +373,15 @@ function switch2primary_correct_split_brain
         marsadm_do_cmd $new_secondary "leave-resource --force" "$res" || \
                                                                     lib_exit 1
         marsadm_do_cmd $new_primary "log-purge-all" "$res" || lib_exit 1
-        marsadm_do_cmd $new_primary "primary" "$res" || lib_exit 1
+        if [ $network_cut -eq 0 ]; then
+            marsadm_do_cmd $new_primary "primary" "$res" || lib_exit 1
+        else
+            marsadm_primary_force $new_primary $res
+        fi
     else
         # we need primary --force, because the deleted resource on the
         # new_secondary does not switch from primary to secondary
-        marsadm_do_cmd $new_primary "disconnect" "$res" || lib_exit 1
-        marsadm_do_cmd $new_primary "primary --force" "$res" || lib_exit 1
-        marsadm_do_cmd $new_primary "connect" "$res" || lib_exit 1
+        marsadm_primary_force $new_primary $res
     fi
     lib_vmsg "  $switch2primary_flow_msg_prefix: check whether new primary $new_primary works standalone"
     switch2primary_check_standalone_primary $new_primary $res

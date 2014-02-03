@@ -300,3 +300,11 @@ function marsadm_host_is_designated_primary
     fi
     return 1
 }
+
+function marsadm_primary_force
+{
+    local host=$1 res=$2
+    marsadm_do_cmd $host "disconnect" "$res" || lib_exit 1
+    marsadm_do_cmd $host "primary --force" "$res" || lib_exit 1
+    marsadm_do_cmd $host "connect" "$res" || lib_exit 1
+}
