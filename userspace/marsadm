@@ -957,10 +957,14 @@ sub join_cluster {
   # check connection
   system("ssh $peer uname -a") == 0 or ldie "oops, no connection to $peer ...\n";
   mkdir($mars) unless -d $mars;
-  system("rsync --recursive --links --max-size=1 -v $peer:$mars/ $mars/") == 0 or ldie "cannot get remote symlink tree via rsync\n";
+  unless ($dry_run) {
+    system("rsync --recursive --links --max-size=1 -v $peer:$mars/ $mars/") == 0 or ldie "cannot get remote symlink tree via rsync\n";
+  }
   _create_cluster(@_);
   finish_links();
-  system("rsync --recursive --links -v $mars/ips/ $peer:$mars/ips/") == 0 or ldie "oops\n";
+  unless ($dry_run) {
+    system("rsync --recursive --links -v $mars/ips/ $peer:$mars/ips/") == 0 or ldie "oops\n";
+  }
 }
 
 sub leave_cluster {
@@ -1125,7 +1129,7 @@ sub create_res {
     }
     my $fmt = sprintf("%09d", $startnr);
     set_link("log-$fmt-$host,0,0", "$resdir/replay-$host");
-    system("touch $resdir/log-$fmt-$host");
+    system("touch $resdir/log-$fmt-$host") unless $dry_run;
     set_link("00000000000000000000000000000000,log-$fmt-$host,0:", "$resdir/version-$fmt-$host");
     set_link("$startnr", "$resdir/maxnr");
     finish_links();
@@ -1215,7 +1219,7 @@ sub logrotate_res {
   $nr =~ s/^.*log-([0-9]+)-.+$/$1/;
   my $next = sprintf("$mars/resource-$res/log-%09d-$host", $nr + 1);
   ldie "logfile '$next' already exists\n" if -e $next;
-  system("touch $next");
+  system("touch $next") unless $dry_run;
   my $startnr = get_link("$mars/resource-$res/maxnr", 1);
   $startnr = $nr + 1 if ($nr >= $startnr);
   set_link("$startnr", "$mars/resource-$res/maxnr");
