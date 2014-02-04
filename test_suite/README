@@ -5,36 +5,58 @@ Contact frank.liepold@1und1.de
 
 The test suite is work in progress.
 
-At the moment it is not in the state to be usable outside of the development
-team.
-Even this file is not complete!
-
 
 =============================================================================
 
 Contents
 --------
-1. Running a test
-1.1. Test output
-2. Naming conventions
-3. Error handling
-4. Signal handling
-5. Configuration of the local build environment
-6. Configuration of the test hosts on which the tests are running
-6.1. Access requirements
-6.2. Installation kernel and mars module on the test hosts
-7. Configuration of logical volumes
-8. Resources
-9. Starting the whole test suite via cronjob
-10. Concurrent test runs
-11. Firewalls
-12. Programming hints and conventions
+1. Framework
+1.1. Global settings
+1.2. Running a test
+1.2.1. Test output
+1.3. Programming hints and conventions
+1.4. Error handling
+1.5. Signal handling and unexpected termination
+1.6. Example
+2. mars specific settings
+2.1. Configuration of the local build environment
+2.2. Configuration of the test hosts on which the tests are running
+2.2.1. Access requirements
+2.2.2. Installation kernel and mars module on the test hosts
+2.3. Configuration of logical volumes
+2.4. Resources
+2.5. Starting the whole test suite via cronjob
+2.6. Concurrent test runs
+2.7. Firewalls
 
-1. Running a test
------------------
+1. Framework
+------------
 
-Tests are executed by a call to scripts/start_test.sh from a subdirectory
-of one of the both directories build_test_environment and test_cases.
+1.1. Global settings
+------------------
+The directory where this README resides (normally <git-repo>/test_suite) is
+called base directory in the following. If relativ paths are given they refer to
+this base directory.
+
+The frame work of the test suite consists of the files README,
+default-main.conf and the subdirectory scripts.
+
+You specify your use case of the test suite by creating a subdirectory
+- e.g. my_use_case_dir - of the base directory.
+
+In this subdirectory a file global.conf must be created, containing at lease
+the following two variables:
+global_user_dir must be set to .../test_suite/my_use_case_dir
+global_user_module_dir must be set to a subdirectory of global_user_dir.
+In global_user_module_dir the use case specific shell scripts (called modules)
+are to be located.
+We recommend global_user_module_dir=$global_user_dir/modules.
+
+1.2. Running a test
+-------------------
+
+Tests are executed by a call to scripts/start_test.sh from a subdirectory of
+$global_user_dir.
 
 The scope and configuration of a test is completely described by this
 subdirectory (we call it start directory) as follows:
@@ -48,17 +70,31 @@ subdirectory (we call it start directory) as follows:
   Though only tests which are likely not to fail should be executed by only
   one call to start_test.sh. The simple and recommended way is to call
   start_test.sh for each test directory once (which means that the
-  start directory consists of only one test directory and coincides with it.
+  start directory consists of only one test directory and coincides with it).
+
+- The function set usable is defined in the following set of shell scripts:
+  -- scripts/lib/lib*.sh
+  -- scripts/modules/*.sh
+  -- $global_user_module_dir/*.sh
 
 - The configuration of the test case is defined by a set of *.conf files which
   are included by start_test.sh in the following order:
 
-  -- default-*.conf: These are the configuration files belonging to the
-                     scripts scripts/modules/*.sh which are also included
-                     bei start_test.sh and which define all functions which may
-                     be used by the various tests.
+  -- default-*.conf:
+        These are the configuration files belonging to the scripts
+        scripts/modules/*.sh which are also included bei start_test.sh and
+        which define some library functions which are independent of the
+        specific use case.
 
-  -- user_modules.conf
+  -- $global_user_dir/global.conf:
+        Configuration file for use case specific global variables which cannot be
+        assigned to a certain user module.
+
+  -- $global_user_dir/default-*.conf:
+        These are the configuration files belonging to the scripts
+        $global_user_module_dir/*.sh which are also included bei start_test.sh and
+        which define all functions necessary for your use case.
+
 
   -- <subdirname>.conf where subdirname runs top down through the parent
      directories starting with the first subdirectory of a directory called
@@ -96,25 +132,29 @@ subdirectory (we call it start directory) as follows:
 
             leads to including of no_parallel_writer.conf
 
-- In one of the included <subdirnam>.conf files of a test one of the variables 
-  prepare_list, setup_list, run_list, cleanup_list or finish_list must be set.
+- In at least one of the included <subdirname>.conf files of a test you must
+  set one of the variables prepare_list, setup_list, run_list, cleanup_list or
+  finish_list.
   Each of these variables may be empty or contain a list of shell function
-  names of functions defined in scripts/modules/*.sh.
+  names of functions defined in one of the set of shell scripts mentioned
+  above.
   These functions are called by start_test.sh in the order they appear in the
   mentioned *list variables. The *list variables are evaluated in the order
   prepare_list, setup_list, run_list, cleanup_list, finish_list.
 
-1.1. Test output
-----------------
+1.2.1. Test output
+------------------
 
-The output fo start_test.sh consists of the following sections:
+The output of start_test.sh is very verbose to ease the research in case of any
+errors. You are encouraged to use grep & Co. to shrink it as desired.
+The output consists of the following sections:
 
 - List titled "Sourcing libraries in <library directory>" of included scripts
   from <libraries directory>/lib*.sh
 
 - List titled "Sourcing modules and default configuration" of included scripts
-  from scripts/modules/[0-9]*.sh and corresponding included default-*.conf
-  files.
+  (= the set of shell scripts mentioned above)  and corresponding included
+  default-*.conf files.
 
 - Line titled "Scanning subdirectories of <start directory>" followed by a
   list of ignored or skipped subdirectories
@@ -136,7 +176,7 @@ The output fo start_test.sh consists of the following sections:
       setup_list, run_list, cleanup_list and finish_list.
       The main part of this section consists of output lines of the function
       lib_vmsg. These lines have the following format:
-   <date time> [[<callstack>]] <message>
+      <date time> [[<callstack>]] <message>
        The stack level which the bash call stack is printed from (<callstack>)
        is configurable via variable main_min_stack_level.
 
@@ -153,29 +193,102 @@ The output fo start_test.sh consists of the following sections:
   successfully: Line titled "Finished start directory <start directory>"
 
         
-2. Naming conventions
----------------------
+1.3. Programming hints and conventions
+--------------------------------------
 
-- All functions defined in scripts/modules/*.sh have the script's name as
-  name prefix (e.g. resource_check_variables)
-- All variables used in *.conf files should be "defined" (the shell has no
-  explicit definition) and explained in a default-*.conf file. If a variable is
-  "defined" in default-xyz.conf it's name is prefixed by xyz.
-- WIP
+- all global variables should be defined and explained in a
+   default-<module_name>.conf file
+
+- the names of all global variables resp. all functions should have as prefix the
+  module name of the default-*.conf file resp. of the *.sh file which they are
+  defined in.
+ 
+- in case of an error certain cleanup functions may be called (e.g. if
+  a network connection is cut during a test case it should be restored).
+  The associative array main_error_recovery_functions has function names as
+  index and function parameters as values. In lib_exit each function contained
+  in main_error_recovery_functions is called with it's corresponding arguments.
 
 
-3. Error handling
------------------
+1.4. Error handling
+-------------------
 
-WIP
+Instead of directly calling exit you should use lib_exit from lib/lib.sh, which
+prints a call stack and does further checks.
+If the variable lib_general_checks_after_every_test_function is set in
+global_user_dir/global.conf to a shell function contained in the use case
+specific modules, this function is called by lib_exit.
 
-4. Signal handling
-------------------
-
-WIP
-
-5. Configuration of the local build environment
+1.5. Signal handling and unexpected termination
 -----------------------------------------------
+
+Normally signals given to start_test.sh should terminate all child processes but
+this can not be guaranteed. Thus you have to kill left over child processes
+manually. 
+Thus we recommend that all scripts and programs you are starting within a test
+case should have a significant part of name - e.g. in the use case mars we used 
+the string MARS as part of all script names.
+
+1.6. Example
+------------
+
+In the base directory's subdirectory example you find a simple use case. The
+directory tree looks as follows:
+
+example/blue.conf
+example/color_tests.conf
+example/default-colors.conf
+example/default-lib_err.conf
+example/global.conf
+example/green.conf
+example/red.conf
+example/color_tests
+example/color_tests/blue
+example/color_tests/blue/i_am_a_testdirectory
+example/color_tests/green
+example/color_tests/green/i_am_a_testdirectory
+example/color_tests/red
+example/color_tests/red/i_am_a_testdirectory
+example/modules
+example/modules/colors.sh
+example/modules/lib_err.sh
+
+Three test case are defined because there are three files i_am_a_testdirectory.
+The used shell functions are defined in the scripts colors.sh and lib_err.sh
+with corresponding *.conf files default-colors.conf resp. default-lib_err.conf.
+The test case configurations are given via the directory tree and the *.conf 
+files red.conf, green.conf and blue.conf.
+In global.conf we defined global_user_dir, global_user_module_dir,
+main_min_stack_level and lib_general_checks_after_every_test_function.
+
+To start all three tests do:
+
+cd base directory/example
+../scripts/start_test.sh 2>&1 | tee /tmp/test_all.out
+
+Thoroughly studying the output file /tmp/my_test.out will clarify the working of
+the test frame work.
+The third test (red) is of special interest because it fails.
+Thus in this case you can study the call stack, the call to
+lib_general_checks_after_every_test_function (in our example set to
+lib_err_general_checks_after_every_test_case) and the use of
+main_error_recovery_functions (used in colors.sh).
+
+To start only the test case red do:
+
+cd base directory/example/colors/red
+../../../scripts/start_test.sh --config_root_dir=../.. 2>&1 | tee /tmp/test_red.out
+
+Note that the option --config_root_dir is important in this case because it
+tells start_test.sh up to which level it should regard parent directories and
+the corresponding *.conf files (see section 1.2).
+
+
+2. mars specific settings
+-------------------------
+
+2.1. Configuration of the local build environment
+-------------------------------------------------
 To build the mars module and userspace tools you need:
 
 - a directory containing a git repository which contains the kernel sources
@@ -216,13 +329,13 @@ To build the mars module and userspace tools you need:
     to be specified in file     : default-checkout_mars.conf
 
 
-6. Configuration of the test hosts on which the tests are running
-------------------------------------------------------------
+2.2. Configuration of the test hosts on which the tests are running
+-------------------------------------------------------------------
 
-The test hosts are given in main_host_list (default-main.conf).
+The test hosts are given in global_host_list (global.conf).
 
-6.1. Access requirements
-------------------------
+2.2.1. Access requirements
+--------------------------
 The tests are executed by ssh commands from your work station to the
 test hosts. These commands must not prompt for a password. Though a
 id file (for ssh -i <id-file>) with null password must be specified in
@@ -239,8 +352,8 @@ password to all test hosts (this is required, because local files belonging to
 root must be copied to the test hosts).
 
 
-6.2. Installation kernel and mars module on the test hosts
-----------------------------------------------------------
+2.2.2. Installation kernel and mars module on the test hosts
+------------------------------------------------------------
 This is done by executing the tests
 
 build_test_environment/checkout
@@ -255,8 +368,8 @@ the test hosts.
 After these three tests (which you should call one after the other!) you can
 reboot the test hosts with the new kernel.
 
-7. Configuration of logical volumes
------------------------------------
+2.3. Configuration of logical volumes
+-------------------------------------
 This is done by the test
 
 build_test_environment/lv_config
@@ -264,14 +377,14 @@ build_test_environment/lv_config
 The configuration options are contained in default-lv_config.conf
 
 
-8. Resources
-------------
+2.4. Resources
+--------------
 Cluster and Resources are created by
 
 build_test_environment/cluster
 build_test_environment/resource/create_resource
 
-Initially the first host in main_host_list is the primary, the following hosts
+Initially the first host in global_host_list is the primary, the following hosts
 secondaries.
 If you do not change any configuration variables after the
 build_test_environment/resource/create_resource Test you will have created one
@@ -282,40 +395,24 @@ For further information please read default-cluster.conf and
 default-resource.conf.
 
 
-9. Starting the whole test suite via cronjob
---------------------------------------------
+2.5. Starting the whole test suite via cronjob
+----------------------------------------------
 This can be done mars_test_cronjob.sh. The variable tests_to_execute contains
 all tests to be executed. See the documentation in the header.
 
-10. Concurrent test runs
-------------------------
+2.6. Concurrent test runs
+-------------------------
 To avoid concurrent run of tests on the same host each run creates temporary
-files (/tmp/test-suite_on.<host>, see main_lock_file_list) and deletes them
-afterwards.
+files (/tmp/test-suite_on.<host>, see main_lock_file_list in global.conf) and
+deletes them afterwards. It may happen that these files are left over
+unintentionally in some cases of unexpected termination. Then you must remove
+them manually before starting the next test run.
 
-11. Firewalls
--------------
+2.7. Firewalls
+--------------
 Certain tests cut temporarily network connections by defining firewall rules.
 Normally even in case of failure these connections are restored. To be sure
 that no firewall rules prevent tests from running the flag
 net_clear_iptables_in_prepare_phase is set to 1 in default-net.conf.
 This flag leads to deletion of *all* iptable chains on the test hosts.
 If you do not want this behaviour set net_clear_iptables_in_prepare_phase=0.
-
-
-12. Programming hints and conventions
--------------------------------------
-
-- all global variables should be defined and explained in a
-   default-<module_name>.conf file
-- the names of all global variables resp. all functions should have as prefix the
-  module name of the default-*.conf file resp. of the <module>.sh file which they
-  are defined in.
- 
-- in case of an error certain cleanup functions may be called (e.g. if
-  a network connection is cut during a test case it should be restored).
-  The associotive array main_error_recovery_functions has function names as
-  index an function parameters as values. In lib_exit each function contained
-  in main_error_recovery_functions is called with it's corresponding arguments.
-
-

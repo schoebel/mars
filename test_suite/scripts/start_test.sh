@@ -24,12 +24,12 @@
 function set_host_locks
 {
     local host
-    if [ ${#main_host_list[*]} -eq 0 ]; then
-        lib_vmsg "  warning: main_host_list empty"
+    echo "================= Creating lock files =========================================="
+    if [ ${#global_host_list[*]} -eq 0 ]; then
+        lib_vmsg "  global_host_list empty, no lock files necessary"
         return
     fi
-    echo "================= Creating lock files =========================================="
-    for host in "${main_host_list[@]}"; do
+    for host in "${global_host_list[@]}"; do
         local lock_file=${main_lock_file_list[$host]}
         if [ -z "$lock_file" ]; then
             lib_exit 1 "no entry in main_lock_file_list for host $host"
@@ -47,7 +47,7 @@ function set_host_locks
 function release_host_locks
 {
     echo "================= Deleting lock files =========================================="
-    for host in "${main_host_list[@]}"; do
+    for host in "${global_host_list[@]}"; do
         local lock_file=${main_lock_file_list[$host]}
         rm -f $lock_file || lib_exit 1
         lib_vmsg "  deleted lockfile $lock_file on $host"
@@ -57,14 +57,13 @@ function release_host_locks
 
 function source_module
 {
-    module="$1"
-    modname="$(basename $module | sed 's/^[0-9]*_\([^.]*\)\..*/\1/')"
+    local module="$1"
+    local modname="$(basename $module .sh)"
     if source_config default-$modname; then
         echo "Sourcing module $modname"
         source $module || start_test_exit $?
-    elif [ "$modname" = "main" ]; then
-        echo "Cannot use main module. Please provide some config file 'default-$modname.conf' in $(pwd) or in some parent directory."
-        start_test_exit -1
+    else
+        start_test_exit 1
     fi
 }
 
@@ -101,6 +100,13 @@ function print_config_environment
     
 }
 
+# wrapper for the exit builtin to be able to remove temporary files
+function start_test_exit
+{
+    rm -f $environ_save
+    exit $1
+}
+
 function usage
 {
     echo "usage: $(basename $0) [--dry-run] [--config_root_dir=<my_dir>]" >&2
@@ -120,7 +126,6 @@ start_dir=$(pwd)
 # considered as "configuration options". That means that a <dirname>.conf file
 # must be provided for all these directories
 config_root_dir=$start_dir
-verbose_script=1
 
 # parse options.
 while [ $# -ge 1 ]; do
@@ -149,19 +154,12 @@ else
     cd $start_dir
 fi
 
-# wrapper for the exit builtin to be able to remove temporary files
-function start_test_exit
-{
-    rm -f $environ_save
-    exit $1
-}
-
 shopt -s extdebug
 
 # Use directory names as basis for configuration variants
 
 script_dir="$(cd "$(dirname "$(which "$0")")"; pwd)"
-lib_dir=$script_dir/modules
+lib_dir=$script_dir/lib
 echo "================= Sourcing libraries in $lib_dir ==============================="
 for lib in $lib_dir/lib*.sh; do
     echo "Sourcing $lib"
@@ -188,14 +186,25 @@ save_environment # for later use in print_config_environment
 
 shopt -s nullglob
 echo "================= Sourcing modules and default configuration ==================="
-for module in $module_dir/[0-9]*.sh; do
+module_dir=$script_dir/modules
+[ -d "$module_dir" ] || \
+    lib_exit 1 "directory module_dir=$module_dir not found"
+for module in $script_dir/modules/*.sh; do
     source_module "$module"
 done
+source_config global || lib_exit 1
+[ -n "$global_user_module_dir" ] || lib_exit 1 "global_user_module_dir not set"
+[ -d "$global_user_module_dir" ] || \
+    lib_exit 1 "directory global_user_module_dir=$global_user_module_dir not found"
+for module in $global_user_module_dir/*.sh; do
+    source_module "$module"
+done
+
 echo "================= End sourcing modules and default configuration ==============="
 
 # find directories
 echo "================= Scanning subdirectories of $start_dir ========================"
-for marker in $(find . -type f -name "$marker_file"); do
+for marker in $(find . -type f -name "$marker_file" | sort); do
     test_dir=$(dirname $marker)
     shopt -u nullglob
     (
@@ -205,13 +214,6 @@ for marker in $(find . -type f -name "$marker_file"); do
         
         # to be able to call error recovery functions in case of signals
         trap 'lib_exit 1 "caught signal"' SIGHUP SIGINT
-
-        # source additional user modules (if available)
-        source_config "user_modules" || echo "(ignored)"
-        shopt -s nullglob
-        for module in $user_module_dir/[0-9]*.sh; do
-            source_module "$module"
-        done
 
         # source all individual config files (for overrides)
         # between $config_root_dir (exclusive) and $(pwd) (inclusive)
