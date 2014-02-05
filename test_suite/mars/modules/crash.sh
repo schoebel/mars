@@ -119,6 +119,11 @@ function crash_write_data_device_and_calculate_checksums
     lib_rw_compare_checksums $primary_host $secondary_host $res 0 "" ""
 }
 
+function xx
+{
+    crash_reboot istore-test-bs7 istore-test-bap7 $(lv_config_get_lv_device ${cluster_mars_dir_lv_name_list[$primary_host]}) $crash_maxtime_reboot $crash_maxtime_to_become_unreachable ""
+}
+
 function crash_reboot
 {
     [ $# -eq 6 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
@@ -126,7 +131,6 @@ function crash_reboot
     local maxtime_to_become_unreachable=$5
     local boot_label_name="$6"
     local pids_to_kill host
-
     if [ -z "$crash_print_linktree_during_reboot" ]; then
         lib_exit 1 "variable crash_print_linktree_during_reboot not set"
     fi
@@ -149,6 +153,8 @@ function crash_reboot
 
     crash_reboot_host $primary_host
 
+    # the reboot cmd must be given in the background and the corresponding
+    # ssh process manually killed.
     # pstree -lp writes s.th. like
     # init(1)---xterm(345)
     pids_to_kill=$(pstree -lp $! | sed 's/[^(][^(]*(\([0-9][0-9]*\))/\1 /g')
@@ -157,13 +163,14 @@ function crash_reboot
         lib_linktree_print_linktree $secondary_host
     fi
 
-    crash_wait_to_become_unreachable $primary_host "$pids_to_kill"
+    crash_wait_to_become_unreachable $primary_host "$pids_to_kill" \
+                                     $maxtime_to_become_unreachable
 
     if [ $crash_print_linktree_during_reboot -eq 1 ]; then
         lib_linktree_print_linktree $secondary_host
     fi
 
-    crash_wait_to_become_reachable $primary_host
+    crash_wait_to_become_reachable $primary_host $maxtime_to_reboot
 
     cluster_mount_mars_dir $primary_host $mars_dev
 
@@ -184,36 +191,30 @@ function crash_reboot_host
 
 function crash_wait_to_become_reachable
 {
-    local host=$1
-    local ssh_pid waited=0
-    while [ $waited -lt $maxtime_to_reboot ]; do
-        if [ -z "$ssh_pid" ]; then
-            if ping -c1 -W10 $host; then
-                lib_vmsg "  trying a ssh command on $host"
-                lib_remote_idfile $host date &
-                ssh_pid=$!
+    local host=$1 maxtime_to_reboot=$2
+    local waited=0
+    while true; do
+        if ping -c1 -W10 $host; then
+            lib_vmsg "  trying a ssh command on $host"
+            if lib_remote_idfile $host date; then
+                break
             else
-                lib_vmsg "  waited $waited for $host to become reachable (ping does not succeed)"
-                sleep $crash_sleep_between_control_cmds
+                lib_vmsg "  waited (total wait time (ping and ssh) = $waited) for $host to accept a ssh connection"
             fi
         else
-            if ps -fp $ssh_pid; then
-                lib_vmsg "  waited $waited for $host to become reachable (ssh active(pid=$ssh_pid)"
-                sleep $crash_sleep_between_control_cmds
-            else
-                break
-            fi
+            lib_vmsg "  waited $waited for $host to become reachable (ping does not succeed)"
         fi
         let waited+=$crash_sleep_between_control_cmds
+        if [ $waited -ge $maxtime_to_reboot ]; then
+            lib_exit 1 "  maxtime $maxtime_to_reboot exceeded"
+        fi
     done
-    if [ $waited -ge $maxtime_to_reboot ]; then
-        lib_exit 1 "  duration $maxtime_to_reboot to become reachable exceeded"
-    fi
 }
 
 function crash_wait_to_become_unreachable
 {
-    local host=$1 pids_to_kill="$2" pid
+    [ $# -eq 3 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    local host=$1 pids_to_kill="$2" maxtime_to_become_unreachable=$3
     local waited=0
     while [ $waited -lt $maxtime_to_become_unreachable ]; do
         if ping -c1 -W10 $host; then
@@ -224,16 +225,20 @@ function crash_wait_to_become_unreachable
         fi
         let waited+=$crash_sleep_between_control_cmds
     done
+    lib_vmsg "  killing background processes $pids_to_kill on local host"
     for pid in $pids_to_kill; do
         if ps -fp $pid; then
+            lib_vmsg "  kill -1 $pid on local host"
             kill -1 $pid
             sleep 1
+            lib_vmsg "  checking whether $pid has been killed"
             if ps -fp $pid; then
                 kill -9 $pid
+                lib_vmsg "  kill -9 $pid on local host"
             fi
         fi
     done
     if [ $waited -ge $maxtime_to_become_unreachable ]; then
-        lib_exit 1 "  duration $maxtime_to_become_unreachable to become unreachable exceeded"
+        lib_exit 1 "  maxwait $maxtime_to_become_unreachable to become unreachable exceeded"
     fi
 }
