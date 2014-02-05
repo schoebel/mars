@@ -1,6 +1,5 @@
 #!/usr/bin/perl -w
 # (c) 2012/2013 Joerg Mann / 1&1 Internet AG
-# released under GPL
 #
 # last update at now ...
 
@@ -21,7 +20,7 @@ use File::Basename;
 binmode STDOUT, ":utf8";
 
 ### defaults
-my $version        = "0.072m";
+my $version        = "0.072q";
 my $alife_timeout  = "30";	# sec for remote-nodes timeout
 my $is_tty 	   = 0;
 my $mars_dir       = '/mars';
@@ -275,7 +274,7 @@ sub display_partner {
            $PUDevice = ( grep { /^$PUDevice / } <$fh> )[0];
            if ( $PUDevice ) {
                $PUDevice = ( split / /, $PUDevice )[1];
-               print_screen " and mountet as $PUDevice\n", "$Color_blue";
+               print_screen " and mounted as $PUDevice\n", "$Color_blue";
            } else {
                print_screen "\n\t\t---> TODO: enable to mount\n", "$Color_green";
            }
@@ -292,16 +291,18 @@ sub display_partner {
     ### check sync
     ### sync - status
     my $PSyncsize = check_link "$mars_dir/$PRes/syncstatus-$PName";
-    my $SStatus   = sprintf("%.2f", ($PSyncsize / $PSize * 100));
+    my $SStatus   = sprintf ("%.2f", ($PSyncsize / $PSize * 100));
     print_screen (sprintf "\tSync    : %s bytes (%.3fTB) synced = ", $PSyncsize, ( $PSyncsize/1024/1024/1024/1024));
 
     ### sync - speed
     my $SSpeed    = check_link "$mars_dir/$PRes/actual-$PName/sync_rate";
     $SSpeed       = sprintf ("%.2f", $SSpeed / 1024 / 1024);
+    my $SEndTime  = ($PSize - $PSyncsize ) / 1024 / 1024 / 1024;
     if ( $SSpeed eq "0.00" ) {
         $SSpeed = "%";
     } else {
-        $SSpeed = "%, by $SSpeed mb/s";
+        $SEndTime = sprintf ("%.2f", $SEndTime / $SSpeed / 60);
+        $SSpeed   = "%, by $SSpeed gb/s (hypothetically ends in $SEndTime min)";
     }
 
     ### sync - results
@@ -340,7 +341,7 @@ sub display_partner {
     print_screen (sprintf "\tLogfile : %s bytes (%.3fGB) in ", $PLogSize, ( $PLogSize/1024/1024/1024 ));
     print_screen "$PLogName", "$Color_green";
     print_screen " active";
-    print_screen ", received with $LogSpeed mb/s" if ( $LogSpeed ne "0.00" );
+    print_screen ", received with $LogSpeed gb/s" if ( $LogSpeed ne "0.00" );
     print_screen "\n";
     if ( $Ljoined eq "0" || $PLogSize eq "0.0001" ) {
         print_screen "\t\t---> WORK: Logfile wait for starting ...\n", "$Color_red";
@@ -365,7 +366,7 @@ sub display_partner {
     if ( $RSpeed eq "0.00" ) {
         $RSpeed = "%";
     } else {
-        $RSpeed = "%, by $RSpeed mb/s";
+        $RSpeed = "%, by $RSpeed gb/s";
     }
 
     ### replay - results
@@ -426,7 +427,7 @@ sub display_partner {
     ### check switches
     my $SWStatus;
     print_screen "\tSwitches: Attach="; 
-    if ( readlink "$mars_dir/$PRes/todo-$PName/attach" eq 1 ) {
+    if ( readlink "$mars_dir/$PRes/todo-$PName/attach" eq 1 ) {		### Use of uninitialized value in string
         print_screen "on", "$Color_green";
         monitoring   "", "attached";
     } else {
@@ -435,7 +436,7 @@ sub display_partner {
     }
     print_screen " [masked:" if ( $ActStatus eq 1 );
     print_screen " Connect="; 
-    if ( readlink "$mars_dir/$PRes/todo-$PName/connect" eq 1 ) {
+    if ( readlink "$mars_dir/$PRes/todo-$PName/connect" eq 1 ) {	### Use of uninitialized value in string
         print_screen "on", "$Color_green";
         monitoring   "", "connected";
     } else {
@@ -443,7 +444,7 @@ sub display_partner {
         monitoring   "SwitchOff", "connect off";
     }
     print_screen " Sync=";
-    if ( readlink "$mars_dir/$PRes/todo-$PName/sync" eq 1 ) {
+    if ( readlink "$mars_dir/$PRes/todo-$PName/sync" eq 1 ) {		### Use of uninitialized value in string
         print_screen "on", "$Color_green";
         monitoring   "", "synced";
     } else {
@@ -451,7 +452,7 @@ sub display_partner {
         monitoring   "SwitchOff", "sync off";
     }
     print_screen " AllowReplay=" ;
-    if ( readlink "$mars_dir/$PRes/todo-$PName/allow-replay" eq 1 ) {
+    if ( readlink "$mars_dir/$PRes/todo-$PName/allow-replay" eq 1 ) {	### Use of uninitialized value in string
         print_screen "on", "$Color_green";
         monitoring   "", "replayed";
     } else {
@@ -971,42 +972,45 @@ sub check_systemstatus {
     print_screen "---> Systemdata <---\n", "$Color_blue bold";
 
     ### text / sol-file / sol-einheit / ist-file / ist-einheit
-    check_limit "-> AVG Limit",			"loadavg_limit",		"loadavg";
+    check_limit "-> AVG Limit",			"loadavg_limit",					"loadavg";
     print "\n";
-    check_limit "-> Memory Limit",		"mem_limit_percent", 		"%",		"mem_used_raw_kb", 		"kb";
+    check_limit "-> Memory Limit",		"mem_limit_percent", 					"%",	"mem_used_raw_kb", 				"kb";
     print "\n";
-    check_limit "-> Traffic Limit", 		"tuning/traffic_limit_kb", 	"kb/s",		"tuning/traffic_rate_kb", 	"kb/s";
+    check_limit "-> Traffic Limit Client",	"traffic_tuning/client_role_traffic_ratelimit_kb",      "kb/s",	"traffic_tuning/client_role_traffic_rate_kb",	"kb/s";
     print "\n";
-    check_limit "-> Writeback Limit", 		"tuning/writeback_limit_kb", 	"kb/s",		"tuning/writeback_rate_kb", 	"kb/s";
-    check_limit "",				"",				"",		"tuning/writeback_until_percent",	"%";
+    check_limit "-> Traffic Limit Server",	"traffic_tuning/server_role_traffic_ratelimit_kb",      "kb/s",	"traffic_tuning/server_role_traffic_rate_kb",	"kb/s";
     print "\n";
-    check_limit "-> Server-IO Limit", 		"tuning/server_io_limit_kb", 	"kb/s",		"tuning/server_io_rate_kb", 	"kb/s";
-    check_limit " Flying IO",			"",				"",		"io_flying_count";
+    check_limit "-> Traffic Writeback", 	"traffic_tuning/writeback_ratelimit_kb", 		"kb/s",	"traffic_tuning/writeback_rate_kb", 		"kb/s";
     print "\n";
-    check_limit "-> Copy Read: Prio",		"copy_read_prio",		"";
-    check_limit " Flying IO",			"",				"",		"copy_read_max_fly",		"";
+    check_limit "-> I/O Writeback", 		"io_tuning/writeback_ratelimit_kb", 			"kb/s",	"io_tuning/writeback_rate_kb", 			"kb/s";
     print "\n";
-    check_limit "-> Copy Write: Prio",		"copy_write_prio",		"";
-    check_limit " Flying IO",			"",				"",		"copy_write_max_fly",		"";
+    check_limit "-> Server-IO Limit", 		"tuning/server_io_limit_kb", 				"kb/s", "tuning/server_io_rate_kb", 			"kb/s";
+    check_limit " Flying IO",			"",							"",	"io_flying_count";
     print "\n";
-    check_limit "-> LoggerMemory",		"",				"",		"logger_mem_used_kb",		"kb";
+    check_limit "-> Copy Read: Prio",		"copy_read_prio",					"";
+    check_limit " Flying IO",			"",							"",	"copy_read_max_fly";
+    print "\n";	
+    check_limit "-> Copy Write: Prio",		"copy_write_prio",					"";
+    check_limit " Flying IO",			"",							"",	"copy_write_max_fly";
     print "\n";
-    check_limit "-> FreeSpaceLimit LogRotate",	"logrot_auto_gb",		"gb";
+    check_limit "-> LoggerMemory",		"",							"",	"logger_mem_used_kb",				"kb";
     print "\n";
-    check_limit "-> Network-IO-Timeout",	"network_io_timeout",		"sec";
+    check_limit "-> FreeSpaceLimit LogRotate",	"logrot_auto_gb",					"gb";
     print "\n";
-    check_limit "-> Clear Page Cache",      	"",                             "",             "mapfree_period_sec",		"sec";
+    check_limit "-> Network-IO-Timeout",	"network_io_timeout",					"sec";
     print "\n";
-    check_limit "-> Statusfile Rollover",	"",				"",		"statusfiles_rollover_sec",	"sec";
+    check_limit "-> Clear Page Cache",      	"",                             			"",     "mapfree_period_sec",				"sec";
     print "\n";
-    check_limit "-> Modus: Fast Full Sync", 	"",                             "",             "do_fast_fullsync",		"on/off";
-    check_limit " AIO Sync",       		"",                             "",             "aio_sync_mode",		"on/off";
-    check_limit " Delay say Overflow",		"",				"",		"delay_say_on_overflow",	"on/off";
-    check_limit " Emergency",       	"",                             	"",             "mars_emergency_mode",		"on/off";
-    check_limit " Logger Resume",       	"",                             "",             "logger_resume",		"on/off";
+    check_limit "-> Statusfile Rollover",	"",							"",	"statusfiles_rollover_sec",			"sec";
     print "\n";
-    check_limit "-> LamportClockDifferenz",	"lamport_clock",		"sec";
-    check_limit " Mars Port",       		"mars_port",                    ""; 
+    check_limit "-> Modus: Fast Full Sync", 	"",                             			"",     "do_fast_fullsync",				"on/off";
+    check_limit " AIO Sync",       		"",                             			"",     "aio_sync_mode",				"on/off";
+    check_limit " Delay say Overflow",		"",							"",	"delay_say_on_overflow",			"on/off";
+    check_limit " Emergency",       	"",                             				"",     "mars_emergency_mode",				"on/off";
+    check_limit " Logger Resume",       	"",                             			"",     "logger_resume",				"on/off";
+    print "\n";
+    check_limit "-> LamportClockDifferenz",	"lamport_clock",					"sec";
+    check_limit " Mars Port",       		"mars_port",                    			""; 
     print "\n";
 
     my $mars_disk_space = `df '$mars_dir' | grep '$mars_dir'| awk '{print \$2}'`;
@@ -1071,13 +1075,14 @@ while(1) {
     if ( $params->{'system'} ) {
         check_systemstatus;
         
-        ### check system params
-        check_disk_is_full;
-        check_jammed;
     }
     
     
     ##########################################################################
+    ### check system params
+    check_disk_is_full;
+    check_jammed;
+
     ### check resources
     print_screen "---> Resources <---\n", "$Color_blue bold";
     check_ressource;
