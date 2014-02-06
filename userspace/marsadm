@@ -135,6 +135,7 @@ my $user_version = 0.1;
 my $mars = "/mars";
 my $host = `uname -n` or ldie "cannot determine my network node name\n";
 chomp $host;
+my $real_host = $host;
 my $force = 0;
 my $timeout = -1;
 my $ip = "";
@@ -377,9 +378,10 @@ sub check_primary {
 sub check_not_primary {
   my ($cmd, $res) = @_;
   my $lnk = "$mars/resource-$res/actual-$host/is-primary";
-  my $is_primary = get_link($lnk);
+  my $is_primary = get_link($lnk, 1);
   if ($is_primary) {
-    ldie "operation '$cmd' cannot be executed on primary\n";
+    ldie "operation '$cmd' cannot be executed on primary\n" unless $force;
+    lwarn "operation '$cmd' is forced on actual primary '$host', THIS IS RISKY\n";
   }
   # also check whether we intend to become primary
   my $primary = _get_designated_primary($res);
@@ -1157,16 +1159,24 @@ sub create_res {
 sub leave_res_phase0 {
   my ($cmd, $res) = @_;
   check_not_primary(@_);
+  my $errors = 0;
   foreach my $tmp (glob("$mars/resource-$res/todo-$host/*")) {
     my $status = get_link($tmp, 2);
-    ldie "switch '$tmp' is not off\n" if $status;
+    if ($status) {
+      lwarn "switch '$tmp' is not off\n";
+      $errors++;
+    }
   }
-  check_status($cmd, $res, "is-attached", 0, 0, 1);
   if (!$force) {
     foreach my $tmp (glob("$mars/resource-$res/actual-$host/{is-,logfile-}*")) {
       my $status = get_link($tmp);
-      ldie "running status '$tmp' is not off\n" if $status;
+      if ($status) {
+	lwarn "running status '$tmp' is not off\n";
+	$errors++;
+      }
     }
+    check_status($cmd, $res, "is-attached", 0, 0, 1);
+    ldie "there were $errors errors.\n" if $errors;
   }
 }
 
@@ -1290,7 +1300,7 @@ sub _create_delete {
 sub _wait_delete {
   return if $dry_run;
   for (;;) {
-    my $deleted = get_link("$mars/todo-global/deleted-$host");
+    my $deleted = get_link("$mars/todo-global/deleted-$real_host");
     last if $deleted >= $delete_nr;
     lprint "waiting for deletions to apply locally....\n";
     sleep_timeout();
