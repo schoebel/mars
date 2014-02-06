@@ -144,6 +144,161 @@ EXPORT_SYMBOL_GPL(mars_emergency_mode);
 int mars_reset_emergency = 1;
 EXPORT_SYMBOL_GPL(mars_reset_emergency);
 
+int mars_keep_msg = 10;
+EXPORT_SYMBOL_GPL(mars_keep_msg);
+
+struct key_value_pair {
+        const char *key;
+        char *val;
+        char *old_val;
+	unsigned long last_jiffies;
+	struct timespec system_stamp;
+	struct timespec lamport_stamp;
+};
+
+static inline
+void clear_vals(struct key_value_pair *start)
+{
+	while (start->key) {
+		brick_string_free(start->val);
+		start->val = NULL;
+		brick_string_free(start->old_val);
+		start->old_val = NULL;
+		start++;
+	}
+}
+
+static
+void show_vals(struct key_value_pair *start, const char *path, const char *add)
+{
+	while (start->key) {
+		char *dst = path_make("%s/actual-%s/msg-%s%s", path, my_id(), add, start->key);
+		// show the old message for some keep_time if no new one is available
+		if (!start->val && start->old_val &&
+		    (long long)start->last_jiffies  + mars_keep_msg * HZ <= (long long)jiffies) {
+			start->val = start->old_val;
+			start->old_val = NULL;
+		}
+		if (start->val) {
+			char *src = path_make("%ld.%09ld %ld.%09ld %s",
+					      start->system_stamp.tv_sec, start->system_stamp.tv_nsec, 
+					      start->lamport_stamp.tv_sec, start->lamport_stamp.tv_nsec, 
+					      start->val);
+			mars_symlink(src, dst, NULL, 0);
+			brick_string_free(src);
+			brick_string_free(start->old_val);
+			start->old_val = start->val;
+			start->val = NULL;
+		} else {
+			mars_symlink("OK", dst, NULL, 0);
+			memset(&start->system_stamp, 0, sizeof(start->system_stamp));
+			memset(&start->lamport_stamp, 0, sizeof(start->lamport_stamp));
+			brick_string_free(start->old_val);
+			start->old_val = NULL;
+		}
+		brick_string_free(dst);
+		start++;
+	}
+}
+
+static inline
+void assign_keys(struct key_value_pair *start, const char **keys)
+{
+	while (*keys) {
+		start->key = *keys;
+		start++;
+		keys++;
+	}
+}
+
+static inline
+struct key_value_pair *find_key(struct key_value_pair *start, const char *key)
+{
+	while (start->key) {
+		if (!strcmp(start->key, key)) {
+			return start;
+		}
+		start++;
+	}
+	MARS_ERR("cannot find key '%s'\n", key);
+	return NULL;
+}
+
+static
+void _make_msg(int line, struct key_value_pair *pair, const char *fmt, ...)  __attribute__ ((format (printf, 3, 4)));
+
+static
+void _make_msg(int line, struct key_value_pair *pair, const char *fmt, ...)
+{
+	int len;
+	va_list args;
+
+	if (unlikely(!pair || !pair->key)) {
+		MARS_ERR("bad pointer %p at line %d\n", pair, line);
+		return;
+	}
+	pair->last_jiffies = jiffies;
+	if (!pair->val) {
+		pair->val = brick_string_alloc(MARS_SYMLINK_MAX + 1);
+		len = 0;
+		if (!pair->system_stamp.tv_sec) {
+			pair->system_stamp = CURRENT_TIME;
+			get_lamport(&pair->lamport_stamp);
+		}
+	} else {
+		len = strnlen(pair->val, MARS_SYMLINK_MAX);
+		if (unlikely(len >= MARS_SYMLINK_MAX - 48))
+			return;
+		pair->val[len++] = ',';
+	}
+
+	va_start(args, fmt);
+	vsnprintf(pair->val + len, MARS_SYMLINK_MAX - 1 - len, fmt, args);
+	va_end(args);
+}
+
+#define make_msg(pair, fmt, args...)			\
+	_make_msg(__LINE__, pair, fmt, ##args)
+
+static
+struct key_value_pair gbl_pairs[] = {
+	{ NULL }
+};
+
+#define make_gbl_msg(key, fmt, args...)			\
+	make_msg(find_key(gbl_pairs, key), fmt, ##args)
+
+static
+const char *rot_keys[] = {
+	// from _update_version_link()
+	"err-versionlink-skip",
+	// from _update_info()
+	"err-sequence-trash",
+	// from _is_switchover_possible()
+	"inf-versionlink-not-yet-exist",
+	"inf-versionlink-not-equal",
+	"inf-replay-not-yet-finished",
+	"err-bad-log-name",
+	"err-log-not-contiguous",
+	"err-versionlink-not-readable",
+	"err-replaylink-not-readable",
+	"err-splitbrain-detected",
+	// from make_log_finalize()
+	"inf-replay-start",
+	"wrn-space-low",
+	"err-space-low",
+	"err-emergency",
+	"err-replay-stop",
+	// from _check_logging_status()
+	"inf-replay-tolerance",
+	"err-replay-size",
+	NULL,
+};
+
+#define make_rot_msg(rot, key, fmt, args...)			\
+	make_msg(find_key(&(rot)->msgs[0], key), fmt, ##args)
+
+
 #define IS_EXHAUSTED()             (mars_emergency_mode > 0)
 #define IS_EMERGENCY_SECONDARY()   (mars_emergency_mode > 1)
 #define IS_EMERGENCY_PRIMARY()     (mars_emergency_mode > 2)
@@ -269,6 +424,8 @@ enum {
 	// replacement for DNS in kernelspace
 	CL_IPS,
 	CL_PEERS,
+	CL_GBL_ACTUAL,
+	CL_GBL_ACTUAL_ITEMS,
 	CL_ALIVE,
 	CL_TIME,
 	CL_TREE,
@@ -367,6 +524,7 @@ struct mars_rotate {
 	spinlock_t inf_lock;
 	bool infs_is_dirty[MAX_INFOS];
 	struct trans_logger_info infs[MAX_INFOS];
+	struct key_value_pair msgs[sizeof(rot_keys) / sizeof(char*)];
 };
 
 ///////////////////////////////////////////////////////////////////////
@@ -952,6 +1110,7 @@ int _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 			brick_string_free(skip_path);
 			if (likely(skip_nr != inf->inf_sequence)) {
 				MARS_ERR_TO(rot->log_say, "SKIP in sequence numbers detected: %d != %d + 1\n", inf->inf_sequence, rot->inf_prev_sequence);
+				make_rot_msg(rot, "err-versionlink-skip", "SKIP in sequence numbers detected: %d != %d + 1", inf->inf_sequence, rot->inf_prev_sequence);
 				brick_string_free(skip_link);
 				goto out;
 			}
@@ -1041,6 +1200,7 @@ void _update_info(struct trans_logger_info *inf)
 	if (unlikely(rot->infs_is_dirty[hash])) {
 		if (unlikely(rot->infs[hash].inf_sequence != inf->inf_sequence)) {
 			MARS_ERR_TO(rot->log_say, "buffer %d: sequence trash %d -> %d. is the mar_light thread hanging?\n", hash, rot->infs[hash].inf_sequence, inf->inf_sequence);
+			make_rot_msg(rot, "err-sequence-trash", "buffer %d: sequence trash %d -> %d", hash, rot->infs[hash].inf_sequence, inf->inf_sequence);
 		} else {
 			MARS_DBG("buffer %d is overwritten (sequence=%d)\n", hash, inf->inf_sequence);
 		}
@@ -2181,14 +2341,22 @@ bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, c
 
 	bool res = false;
 
-	if (unlikely(!parse_logfile_name(old_log_name, &old_log_seq, &old_host)))
+	MARS_DBG("old_log = '%s' new_log = '%s' toler = %d skip_new = %d\n",
+		 old_log_path, new_log_path, replay_tolerance, skip_new);
+
+	if (unlikely(!parse_logfile_name(old_log_name, &old_log_seq, &old_host))) {
+		make_rot_msg(rot, "err-bad-log-name", "logfile name '%s' cannot be parsed", old_log_name);
 		goto done;
-	if (unlikely(!parse_logfile_name(new_log_name, &new_log_seq, &new_host)))
+	}
+	if (unlikely(!parse_logfile_name(new_log_name, &new_log_seq, &new_host))) {
+		make_rot_msg(rot, "err-bad-log-name", "logfile name '%s' cannot be parsed", new_log_name);
 		goto done;
+	}
 
 	// check: are the sequence numbers contiguous?
 	if (unlikely(new_log_seq != old_log_seq + 1)) {
 		MARS_ERR_TO(rot->log_say, "logfile sequence numbers are not contiguous (%d != %d + 1), old_log_path='%s' new_log_path='%s'\n", new_log_seq, old_log_seq, old_log_path, new_log_path);
+		make_rot_msg(rot, "err-log-not-contiguous", "logfile sequence numbers are not contiguous (%d != %d + 1) old_log_path='%s' new_log_path='%s'", new_log_seq, old_log_seq, old_log_path, new_log_path);
 		goto done;
 	}
 
@@ -2196,17 +2364,20 @@ bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, c
 	own_versionlink = get_versionlink(rot->parent_path, old_log_seq, my_id(), &own_versionlink_path);
 	if (unlikely(!own_versionlink || !own_versionlink[0])) {
 		MARS_ERR_TO(rot->log_say, "cannot read my own versionlink '%s'\n", SAFE_STR(own_versionlink_path));
+		make_rot_msg(rot, "err-versionlink-not-readable", "cannot read my own versionlink '%s'", SAFE_STR(own_versionlink_path));
 		goto done;
 	}
 	old_versionlink = get_versionlink(rot->parent_path, old_log_seq, old_host, &old_versionlink_path);
 	if (unlikely(!old_versionlink || !old_versionlink[0])) {
 		MARS_ERR_TO(rot->log_say, "cannot read old versionlink '%s'\n", SAFE_STR(old_versionlink_path));
+		make_rot_msg(rot, "err-versionlink-not-readable", "cannot read old versionlink '%s'", SAFE_STR(old_versionlink_path));
 		goto done;
 	}
 	if (!skip_new) {
 		new_versionlink = get_versionlink(rot->parent_path, new_log_seq, new_host, &new_versionlink_path);
 		if (unlikely(!new_versionlink || !new_versionlink[0])) {
 			MARS_INF_TO(rot->log_say, "new versionlink '%s' does not yet exist, we must wait for it.\n", SAFE_STR(new_versionlink_path));
+			make_rot_msg(rot, "inf-versionlink-not-yet-exist", "we must wait for new versionlink '%s'", SAFE_STR(new_versionlink_path));
 			goto done;
 		}
 	}
@@ -2214,6 +2385,7 @@ bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, c
 	// check: are the versionlinks correct?
 	if (unlikely(strcmp(own_versionlink, old_versionlink))) {
 		MARS_INF_TO(rot->log_say, "old logfile is not yet completeley transferred, own_versionlink '%s' -> '%s' != old_versionlink '%s' -> '%s'\n", own_versionlink_path, own_versionlink, old_versionlink_path, old_versionlink);
+		make_rot_msg(rot, "inf-versionlink-not-equal", "old logfile is not yet completeley transferred (own_versionlink '%s' -> '%s' != old_versionlink '%s' -> '%s')", own_versionlink_path, own_versionlink, old_versionlink_path, old_versionlink);
 		goto done;
 	}
 
@@ -2227,21 +2399,25 @@ bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, c
 	own_v_offset = skip_part(own_versionlink);
 	if (unlikely(!own_versionlink[own_v_offset++])) {
 		MARS_ERR_TO(rot->log_say, "own version link '%s' -> '%s' is malformed\n", own_versionlink_path, own_versionlink);
+		make_rot_msg(rot, "err-replaylink-not-readable", "own version link '%s' -> '%s' is malformed", own_versionlink_path, own_versionlink);
 		goto done;
 	}
 	own_v_len    = skip_part(own_versionlink + own_v_offset);
 	if (unlikely(own_r_len != own_v_len ||
 		     strncmp(own_replaylink, own_versionlink + own_v_offset, own_r_len))) {
 		MARS_ERR_TO(rot->log_say, "internal problem: logfile name mismatch between '%s' and '%s'\n", own_replaylink, own_versionlink);
+		make_rot_msg(rot, "err-bad-log-name", "internal problem: logfile name mismatch between '%s' and '%s'", own_replaylink, own_versionlink);
 		goto done;
 	}
 	if (unlikely(!own_replaylink[own_r_len])) {
 		MARS_ERR_TO(rot->log_say, "own replay link '%s' -> '%s' is malformed\n", own_replaylink_path, own_replaylink);
+		make_rot_msg(rot, "err-replaylink-not-readable", "own replay link '%s' -> '%s' is malformed", own_replaylink_path, own_replaylink);
 		goto done;
 	}
 	own_r_offset = own_r_len + 1;
 	if (unlikely(!own_versionlink[own_v_len])) {
 		MARS_ERR_TO(rot->log_say, "own version link '%s' -> '%s' is malformed\n", own_versionlink_path, own_versionlink);
+		make_rot_msg(rot, "err-versionlink-not-readable", "own version link '%s' -> '%s' is malformed", own_versionlink_path, own_versionlink);
 		goto done;
 	}
 	own_v_offset += own_r_len + 1;
@@ -2250,14 +2426,17 @@ bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, c
 	own_r_val = own_v_val = 0;
 	if (sscanf(own_replaylink + own_r_offset, "%lld", &own_r_val) != 1) {
 		MARS_ERR_TO(rot->log_say, "own replay link '%s' -> '%s' is malformed\n", own_replaylink_path, own_replaylink);
+		make_rot_msg(rot, "err-replaylink-not-readable", "own replay link '%s' -> '%s' is malformed", own_replaylink_path, own_replaylink);
 		goto done;
 	}
 	if (sscanf(own_versionlink + own_v_offset, "%lld", &own_v_val) != 1) {
 		MARS_ERR_TO(rot->log_say, "own version link '%s' -> '%s' is malformed\n", own_versionlink_path, own_versionlink);
+		make_rot_msg(rot, "err-versionlink-not-readable", "own version link '%s' -> '%s' is malformed", own_versionlink_path, own_versionlink);
 		goto done;
 	}
 	if (unlikely(own_r_len > own_v_len || own_r_len + replay_tolerance < own_v_len)) {
 		MARS_INF_TO(rot->log_say, "log replay is not yet finished: '%s' and '%s' are reporting different positions.\n", own_replaylink, own_versionlink);
+		make_rot_msg(rot, "inf-replay-not-yet-finished", "log replay is not yet finished: '%s' and '%s' are reporting different positions", own_replaylink, own_versionlink);
 		goto done;
 	}
 
@@ -2267,12 +2446,14 @@ bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, c
 		offs2 = skip_sect(new_versionlink);
 		if (unlikely(!new_versionlink[offs2++])) {
 			MARS_ERR_TO(rot->log_say, "new version link '%s' -> '%s' is malformed\n", new_versionlink_path, new_versionlink);
+			make_rot_msg(rot, "err-versionlink-not-readable", "new version link '%s' -> '%s' is malformed", new_versionlink_path, new_versionlink);
 			goto done;
 		}
 		len2  = skip_sect(new_versionlink + offs2);
 		if (unlikely(len1 != len2 ||
 			     strncmp(own_versionlink, new_versionlink + offs2, len1))) {
 			MARS_WRN_TO(rot->log_say, "VERSION MISMATCH old '%s' -> '%s' new '%s' -> '%s' ==(%d,%d) ===> check for SPLIT BRAIN!\n", own_versionlink_path, own_versionlink, new_versionlink_path, new_versionlink, len1, len2);
+			make_rot_msg(rot, "err-splitbrain-detected", "VERSION MISMATCH old '%s' -> '%s' new '%s' -> '%s' ==(%d,%d) ===> check for SPLIT BRAIN", own_versionlink_path, own_versionlink, new_versionlink_path, new_versionlink, len1, len2);
 			goto done;
 		}
 	}
@@ -2313,6 +2494,7 @@ void rot_destruct(void *_rot)
 		rot->preferred_peer = NULL;
 		rot->parent_path = NULL;
 		rot->fetch_next_origin = NULL;
+		clear_vals(rot->msgs);
 	}
 }
 
@@ -2364,6 +2546,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 		rot->global = global;
 		parent->d_private = rot;
 		parent->d_private_destruct = rot_destruct;
+		assign_keys(rot->msgs, rot_keys);
 	}
 
 	rot->replay_link = NULL;
@@ -2728,6 +2911,7 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 
 	if (unlikely(rot->aio_info.current_size < *oldpos_start)) {
 		MARS_ERR_TO(rot->log_say, "oops, bad replay position attempted at logfile '%s' (file length %lld should never be smaller than requested position %lld, is your filesystem corrupted?) => please repair this by hand\n", rot->aio_dent->d_path, rot->aio_info.current_size, *oldpos_start);
+		make_rot_msg(rot, "err-replay-size", "oops, bad replay position attempted at logfile '%s' (file length %lld should never be smaller than requested position %lld, is your filesystem corrupted?) => please repair this by hand", rot->aio_dent->d_path, rot->aio_info.current_size, *oldpos_start);
 		status = -EBADF;
 		goto done;
 	}
@@ -2740,6 +2924,7 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 		         rot->next_relevant_log &&
 		         is_switchover_possible(rot, rot->relevant_log->d_path, rot->next_relevant_log->d_path, _get_tolerance(rot), false)))) {
 			MARS_INF_TO(rot->log_say, "TOLERANCE: transaction log '%s' is treated as fully applied\n", rot->aio_dent->d_path);
+			make_rot_msg(rot, "inf-replay-tolerance", "TOLERANCE: transaction log '%s' is treated as fully applied", rot->aio_dent->d_path);
 			status = 1;
 		} else {
 			MARS_INF_TO(rot->log_say, "transaction log replay is necessary on '%s' from %lld to %lld (dirty region ends at %lld)\n", rot->aio_dent->d_path, *oldpos_start, rot->aio_info.current_size, *oldpos_end);
@@ -3170,6 +3355,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 #endif
 		rot->has_emergency = true;
 		MARS_ERR_TO(rot->log_say, "DISK SPACE IS EXTREMELY LOW on %s\n", rot->parent_path);
+		make_rot_msg(rot, "err-space-low", "DISK SPACE IS EXTREMELY LOW");
 	} else {
 		int limit = _check_allow(global, parent, "emergency-limit");
 		rot->has_emergency = (limit > 0 && global_remaining_space * 100 / global_total_space < limit);
@@ -3194,6 +3380,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	_show_actual(parent->d_path, "is-emergency", is_stopped);
 	if (is_stopped) {
 		MARS_ERR_TO(rot->log_say, "EMERGENCY MODE on %s: stopped transaction logging, and created a hole in the logfile sequence nubers.\n", rot->parent_path);
+		make_rot_msg(rot, "err-emergency", "EMERGENCY MODE on %s: stopped transaction logging, and created a hole in the logfile sequence nubers.\n", rot->parent_path);
 		/* Create a hole in the sequence of logfile numbers.
 		 * The secondaries will later stumble over it.
 		 */
@@ -3214,13 +3401,17 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		MARS_WRN_TO(rot->log_say, "EMERGENCY: the space on /mars/ is very low. Expect some problems!\n");
 		if (rot->first_log && rot->first_log != rot->relevant_log) {
 			MARS_WRN_TO(rot->log_say, "EMERGENCY: ruthlessly freeing old logfile '%s', don't cry on any ramifications.\n", rot->first_log->d_path);
+			make_rot_msg(rot, "wrn-space-low", "EMERGENCY: ruthlessly freeing old logfile '%s'", rot->first_log->d_path);
 			mars_unlink(rot->first_log->d_path);
 			rot->first_log->d_killme = true;
 			// give it a chance to cease deleting next time
 			compute_emergency_mode();
+		} else {
+			make_rot_msg(rot, "wrn-space-low", "EMERGENCY: the space on /mars/ is very low. Expect some problems!");
 		}
 	} else if (IS_EXHAUSTED()) {
 		MARS_WRN_TO(rot->log_say, "EMERGENCY: the space on /mars/ is becoming low. Stopping all fetches of logfiles for secondary resources.\n");
+		make_rot_msg(rot, "wrn-space-low", "EMERGENCY: the space on /mars/ is becoming low. Stopping all fetches of logfiles for secondary resources.");
 	}
 
 	if (trans_brick->replay_mode) {
@@ -3230,6 +3421,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 			MARS_INF_TO(rot->log_say, "logfile replay stopped intermediately\n");
 		} else if (trans_brick->replay_code < 0) {
 			MARS_ERR_TO(rot->log_say, "logfile replay stopped with error = %d\n", trans_brick->replay_code);
+			make_rot_msg(rot, "err-replay-stop", "logfile replay stopped with error = %d", trans_brick->replay_code);
 		}
 	}
 
@@ -3288,11 +3480,13 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 
 		if (do_start && rot->forbid_replay) {
 			MARS_INF("cannot start replay because sync wants to start\n");
+			make_rot_msg(rot, "inf-replay-start", "cannot start replay because sync wants to star");
 			do_start = false;
 		}
 
 		if (do_start && rot->sync_brick && !rot->sync_brick->power.led_off) {
 			MARS_INF("cannot start replay because sync is running\n");
+			make_rot_msg(rot, "inf-replay-start", "cannot start replay because sync is running");
 			do_start = false;
 		}
 
@@ -4131,7 +4325,14 @@ int kill_res(void *buf, struct mars_dent *dent)
 {
 	struct mars_rotate *rot = dent->d_private;
 
-	if (!rot || !rot->parent_path || !rot->global || !rot->global->global_power.button) {
+	if (unlikely(!rot || !rot->parent_path)) {
+		MARS_DBG("nothing to do\n");
+		goto done;
+	}
+
+	show_vals(rot->msgs, rot->parent_path, "");
+
+	if (unlikely(!rot->global || !rot->global->global_power.button)) {
 		MARS_DBG("nothing to do\n");
 		goto done;
 	}
@@ -4194,7 +4395,6 @@ int kill_res(void *buf, struct mars_dent *dent)
 }
 
 ///////////////////////////////////////////////////////////////////////
-
 
 /* Please keep the order the same as in the enum.
  */
@@ -4278,6 +4478,23 @@ static const struct light_class light_classes[] = {
 		.cl_forward = make_scan,
 #endif
 		.cl_backward = kill_scan,
+	},
+	/* Subdirectory for actual state
+	 */
+	[CL_GBL_ACTUAL] = {
+		.cl_name = "actual-",
+		.cl_len = 7,
+		.cl_type = 'd',
+		.cl_hostcontext = false,
+		.cl_father = CL_ROOT,
+	},
+	/* ... and its contents
+	 */
+	[CL_GBL_ACTUAL_ITEMS] = {
+		.cl_name = "",
+		.cl_len = 0, // catch any
+		.cl_type = 'l',
+		.cl_father = CL_GBL_ACTUAL,
 	},
 	/* Indicate aliveness of all cluster paritcipants
 	 * by the timestamp of this link.
@@ -4835,6 +5052,7 @@ static int light_thread(void *data)
 		}
 
 		_show_status_all(&_global);
+		show_vals(gbl_pairs, "/mars", "");
 		show_statistics(&_global, "main");
 
 		MARS_DBG("ban_count = %d ban_renew_count = %d\n", mars_global_ban.ban_count, mars_global_ban.ban_renew_count);
@@ -4855,6 +5073,7 @@ done:
 	mars_kill_brick_all(&_global, &_global.brick_anchor, false);
 
 	_show_status_all(&_global);
+	show_vals(gbl_pairs, "/mars", "");
 	show_statistics(&_global, "main");
 
 	mars_global = NULL;

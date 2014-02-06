@@ -310,6 +310,7 @@ ctl_table mars_table[] = {
 	INT_ENTRY("required_free_space_4_gb", global_free_space_4, 0600),
 	INT_ENTRY("mars_emergency_mode",  mars_emergency_mode,    0600),
 	INT_ENTRY("mars_reset_emergency", mars_reset_emergency,   0600),
+	INT_ENTRY("mars_keep_msg_s",      mars_keep_msg,          0600),
 	INT_ENTRY("write_throttle_start_percent", mars_throttle_start,    0600),
 	INT_ENTRY("write_throttle_end_percent",   mars_throttle_end,      0600),
 	INT_ENTRY("write_throttle_size_threshold_kb", if_throttle_start_size, 0400),

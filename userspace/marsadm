@@ -1114,6 +1114,7 @@ sub _create_cluster {
   system("mkdir $mars/defaults") unless -d "$mars/defaults";
   system("mkdir $mars/defaults-$host") unless -d "$mars/defaults-$host";
   system("mkdir $mars/todo-global") unless -d "$mars/todo-global";
+  mkdir("$mars/actual-$host") unless -d "$mars/actual-$host";
   set_link($ip, "$mars/ips/ip-$host");
   set_link("1", "$mars/todo-global/deleted-$host");
 }

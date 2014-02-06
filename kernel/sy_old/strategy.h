@@ -27,6 +27,7 @@ extern int mars_sync_flip_interval;
 extern int mars_peer_abort;
 extern int mars_emergency_mode;
 extern int mars_reset_emergency;
+extern int mars_keep_msg;
 
 extern int mars_fast_fullsync;
 
