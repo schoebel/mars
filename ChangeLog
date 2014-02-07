@@ -1,10 +1,69 @@
+light0.1beta0.16
+--------
+	
+	 * Critical bugfix: "marsadm primary --force" was assumed to be given
+	   by sysadmins only in case of emergency, when the network is down.
+	   When given in non-emergency cases where the old primary continues
+	   to run (/dev/mars/* being actively used and written), the
+	   old primary could suddendly do a "logrotate" to the
+	   new split-brain logfile produced by the new (second) primary.
+	   Now two primaries should be able to run concurrently in split-brain
+	   mode without mutually trashing their logfiles.
+	 * primary --force now only works in disconnected mode, in order
+	   to hinder unintended forceful creation of split brain during
+	   normal operation.
+	 * Stop fetching of logfiles behind split brain points (save space
+	   at the target hosts - usually the data will be discarded later).
+	 * Fixed split brain detection in userspace.
+	 * leave-resource now waits for local actions to take place
+	   (remote actions stay asynchronously).
+	 * invalidate / join-resource now work only if a designated primary
+	   exists (otherwise they would not know uniquely from whom
+	   to start initial sync).
+	 * Update docs, clarify scenarios intended <-> emergengy switching.
+	 * Fixed mutual overwrite of deletion symlinks in case of racing
+	   log-deletes spawned in parallel by cron jobs (resilience).
+	 * Fixed races between deletion and re-erection (e.g. fresh
+	   join-resource after leave-resource during network partitions).
+	 * Fixed duration of network timeouts in case the network is down
+	   (replaced non-working TCP_KEEPALIVE by explicit timeouts).
+	 * New option --dry-run which does not really create symlinks.
+	 * New command "delete-resource" (VERY DANGEROUS) for
+	   forcefully destroying a resource, even when it is in use.
+	   Intended only for _emergency_ cases when sysadmins are
+	   desperate. Use only by hand, first run with --dry-run in order
+	   to check what will happen!
+	 * New command "log-purge-all" (potentially DANGEROUS) for
+	   resolving split brain in desperate situations (cleanup of
+	   leftovers). Only use by hand, first run with --dry-run!
+	 * Lots of smaller imprevements / usability / readability etc.
+	 * Update test suite.
+
 light0.1beta0.15
 --------
 	
 	 * Introduce write throttling of bulk writers.
 	 * Update test suite.
 
-light0.1beta0.14 and earlier
+light0.1beta0.14
+--------
+	
+	 * Fix logfile transfer in case of "holes" created by
+	   emergency mode.
+	 * Fix "marsadm invalidate" after emergency mode had been entered.
+	 * Fix "marsadm resize" capacity propagation from underlying LVM.
+	 * Update test suite.
+
+light0.1beta0.13
+--------
+	
+	 * Fix shutdown during operation (flying requests).
+	 * Fix unnecessary Lamport clock propagation storms.
+	 * Improve unnecessary page cache utilisation (mapfree).
+	 * Update test suite.
+
+	
+light0.1beta0.12 and earlier
 --------
 	
 	There was no dedicated ChangeLog. For details, look at the
