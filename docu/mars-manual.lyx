@@ -131,7 +131,7 @@ tst@1und1.de
 \end_layout
 
 \begin_layout Date
-Version 0.11 (incomplete)
+Version 0.12 (incomplete)
 \end_layout
 
 \begin_layout Lowertitleback
@@ -2867,12 +2867,29 @@ marsadm primary
 \emph on
 for no good reason
 \emph default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Most reasons will be displayed by 
+\family typewriter
+marsadm
+\family default
+ when it is rejecting to execute the switchover.
+\end_layout
+
+\end_inset
+
 , and
 \end_layout
 
 \begin_layout Enumerate
-You are sure you really want to switch, even when that eventually leads
- to a split brain.
+You are sure you 
+\emph on
+really
+\emph default
+ want to switch, even when that eventually leads to a split brain.
  You also declare that you are also willing to do 
 \emph on
 manual
@@ -2942,7 +2959,56 @@ log-rotate
 \end_layout
 
 \begin_layout Standard
-Split brains are detected 
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ When one of your multiple split brain nodes has left its actual primary
+ role, e.g.
+ via 
+\family typewriter
+marsadm secondary
+\family default
+ and umounting its 
+\family typewriter
+/dev/mars/mydata
+\family default
+ device while the network is up (again), we cannot guarantee that it is
+ always possible to re-enter primary mode again, even when 
+\family typewriter
+primary --force
+\family default
+ is given.
+ First cleanup the split brain via 
+\family typewriter
+leave-resource
+\family default
+ and friends, or use the method described in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Cleanup-in-case"
+
+\end_inset
+
+.
+ Remember that split brain is an 
+\series bold
+\emph on
+erroneous
+\series default
+\emph default
+ state.
+ Therefore it is 
+\series bold
+generally no good idea to (re-)enter it deliberately!
+\end_layout
+
+\begin_layout Standard
+Split brain situations are detected 
 \emph on
 passively
 \emph default
@@ -3033,11 +3099,23 @@ right
 
  one.
  Any error is up to you: resurrecting an unnecessarily old / outdated version
- and destroying the newest / best version is 
+ and/or destroying the newest / best version is 
 \emph on
 your
 \emph default
  fault, not the fault of MARS.
+\end_layout
+
+\begin_layout Enumerate
+If you did not already switch your primary to the final destination determined
+ in the previous step, do it now (see description in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Emergency-Switching"
+
+\end_inset
+
+).
 \end_layout
 
 \begin_layout Enumerate
@@ -3109,25 +3187,121 @@ your-damaged-host
 \end_layout
 
 \begin_layout Standard
-If you did not already switch your primary as described in section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sub:Emergency-Switching"
-
-\end_inset
-
-, do it now.
+In case 
+\family typewriter
+leave-resource --host=
+\family default
+ does not work, you can try the following alternative:
 \end_layout
 
 \begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{enumerate}
+\backslash
+setcounter{enumi}{3}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+item 
+\end_layout
+
+\end_inset
+
+On the surviving new designated primary, give the following commands
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+marsadm disconnect-all mydata
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+marsadm down mydata
+\end_layout
+
+\begin_layout Enumerate
+Check by hand whether your local disk is consistent, e.g.
+ by test-mounting is, 
+\family typewriter
+fsck
+\family default
+, etc.
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+marsadm delete-resource mydata
+\end_layout
+
+\begin_layout Enumerate
+Check whether the other cluster nodes are dead.
+ If not, STONITH them by hand.
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+marsadm create-resource newmydata ...
+
+\family default
+ and further steps to setup your resource from scratch.
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{enumerate}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
 In any case, 
 \series bold
 manually check
 \series default
- whether a split brain is reported for any resource on any of your surviving
+ whether a split brain is reported for any resource on any of your 
+\emph on
+surviving
+\emph default
  cluster nodes.
  If you find one (and only then), please continue with the following recipe
- as if you just had had a temporary failure of the surviving nodes:
+ as if you just had had a temporary failure of 
+\emph on
+some
+\emph default
+ of the surviving nodes:
 \end_layout
 
 \begin_layout Subsubsection
@@ -3179,6 +3353,18 @@ right
 your
 \emph default
  fault, not the fault of MARS.
+\end_layout
+
+\begin_layout Enumerate
+If you did not already switch your primary to the final destination determined
+ in the previous step, do it now (see description in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Emergency-Switching"
+
+\end_inset
+
+).
 \end_layout
 
 \begin_layout Enumerate
@@ -3346,81 +3532,12 @@ The next steps are different for different use cases:
 \end_layout
 
 \begin_layout Paragraph
-Destroying a Wrong Split Brain Version
-\end_layout
-
-\begin_layout Standard
-Continue with the following step on the right cluster node(s):
-\end_layout
-
-\begin_layout Standard
-\begin_inset ERT
-status open
-
-\begin_layout Plain Layout
-
-
-\backslash
-begin{enumerate}
-\backslash
-setcounter{enumi}{5}
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset ERT
-status open
-
-\begin_layout Plain Layout
-
-
-\backslash
-item 
-\end_layout
-
-\end_inset
-
-On each node with a non-
-\begin_inset Quotes erd
-\end_inset
-
-right
-\begin_inset Quotes erd
-\end_inset
-
- version, say 
-\family typewriter
-marsadm invalidate mydata
-\family default
-.
-\end_layout
-
-\begin_layout Standard
-\begin_inset ERT
-status open
-
-\begin_layout Plain Layout
-
-
-\backslash
-end{enumerate}
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Paragraph
 Keeping a Split Brain Version
 \end_layout
 
 \begin_layout Standard
-Continue with the following steps on the right cluster node(s):
+Continue with the following steps, each on those cluster node(s) you don't
+ want to retain:
 \end_layout
 
 \begin_layout Standard
@@ -3433,7 +3550,7 @@ status open
 \backslash
 begin{enumerate}
 \backslash
-setcounter{enumi}{5}
+setcounter{enumi}{6}
 \end_layout
 
 \end_inset
@@ -3472,12 +3589,87 @@ item
 
 \end_inset
 
-Check that the underlying disk 
+After having done this on 
+\emph on
+all
+\emph default
+ non-right cluster nodes, check that the split brain is gone (e.g.
+ by saying 
+\family typewriter
+marsadm status
+\family default
+).
+ In very rare
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+When your network had partitioned in a very awkward way for a long time,
+ and when your partitioned primaries did several 
+\family typewriter
+log-rotate
+\family default
+ operations indendently from each other, there is a small chance that 
+\family typewriter
+leave-resource
+\family default
+ does not clean up 
+\emph on
+all
+\emph default
+ remains of such an awkward situation.
+ Only in such a case, try 
+\family typewriter
+log-purge-all
+\family default
+.
+\end_layout
+
+\end_inset
+
+ cases, it might happen that he preceding l
+\family typewriter
+eave-resource
+\family default
+ operations were not able to clean up all logfiles produced in parallel
+ by the split brain situation.
+ Only in such rare cases, read the documentation about 
+\family typewriter
+log-purge-all
+\family default
+ (see page 
+\begin_inset CommandInset ref
+LatexCommand pageref
+reference "log-purge-all$res"
+
+\end_inset
+
+) and try it.
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+item 
+\end_layout
+
+\end_inset
+
+Check that each underlying local disk 
 \family typewriter
 /dev/lv-x/mydata
 \family default
- is really usable, e.g.
- by test-mounting it.
+ is really usable afterwards, e.g.
+ by test-mounting it (or 
+\family typewriter
+fsck
+\family default
+ if you can afford it).
  If all is OK, don't forget to umount it before proceeding with the next
  step.
 \end_layout
@@ -3511,6 +3703,104 @@ reference "sec:Creating-and-Maintaining"
 \end_inset
 
 ).
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{enumerate}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Paragraph
+Destroying a Wrong Split Brain Version
+\end_layout
+
+\begin_layout Standard
+As before, do the 
+\family typewriter
+leave-resource
+\family default
+ step on each node and check that the split brain has gone, but omit the
+ re-creation.
+ You may just follow-up a 
+\family typewriter
+join-resource
+\family default
+ to the old resource name instead, in order to restore your redundancy by
+ overwriting your bad split brain version with the correct one.
+\end_layout
+
+\begin_layout Standard
+Alternatively, you may try the following short procedure instead, which
+ is however not guaranteed to resolve all (desperate) split-brain situations
+ (see documentation of 
+\family typewriter
+log-purge-all
+\family default
+ on page 
+\begin_inset CommandInset ref
+LatexCommand pageref
+reference "log-purge-all$res"
+
+\end_inset
+
+):
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{enumerate}
+\backslash
+setcounter{enumi}{6}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+item 
+\end_layout
+
+\end_inset
+
+On each node with a non-
+\begin_inset Quotes erd
+\end_inset
+
+right
+\begin_inset Quotes erd
+\end_inset
+
+ version, say 
+\family typewriter
+marsadm invalidate mydata
+\family default
+.
 \end_layout
 
 \begin_layout Standard
@@ -3608,6 +3898,376 @@ all
 stuck
 \emph default
  nodes.
+\end_layout
+
+\begin_layout Subsubsection
+Cleanup in case of Complicated Cascading Failures
+\begin_inset CommandInset label
+LatexCommand label
+name "sub:Cleanup-in-case"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+MARS Light does its best to recover even from multiple failures (e.g.
+ 
+\series bold
+rolling disasters
+\series default
+).
+ Chances are high that the previous instructions will work even in case
+ of multiple failures, such as a network failure plus local node failure
+ at only 1 node (even if that node is the former primary node).
+\end_layout
+
+\begin_layout Standard
+However, in general (e.g.
+ when more than 1 node is damaged) there is no general guarantee that recovery
+ will 
+\emph on
+always
+\emph default
+ succeed under 
+\emph on
+any
+\emph default
+ (weird) circumstances.
+ That said, your chances for recovery are 
+\emph on
+very
+\emph default
+ high when some disk remains usable at least at one of your surviving secondarie
+s.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+It should be very hard to finally trash a secondary, because the transaction
+ logfiles are containing 
+\family typewriter
+md5
+\family default
+ checksums for all data records.
+ Any attempt to apply currupted logfiles is refused by MARS.
+ In addition, the sequence numbers of log-rotated logfiles are checked for
+ contiguity.
+ Finally, the 
+\emph on
+sequence path
+\emph default
+ of logfile applications (consisting of logfile names plus their respective
+ length) is additionally secured by a 
+\family typewriter
+git
+\family default
+-like incremental checksum over the whole path (so-called 
+\begin_inset Quotes eld
+\end_inset
+
+version links
+\begin_inset Quotes erd
+\end_inset
+
+).
+ This should detect split brains even if logfiles are appended / modified
+ 
+\emph on
+after
+\emph default
+ a (forceful) switchover has already taken place.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ That said, your 
+\begin_inset Quotes eld
+\end_inset
+
+chances
+\begin_inset Quotes erd
+\end_inset
+
+ for final loss of data are very high if you remove the BBU of your hardware
+ RAID system before all hot data has been flushed to the physical disks.
+ Therefore, never try to 
+\begin_inset Quotes eld
+\end_inset
+
+repair
+\begin_inset Quotes erd
+\end_inset
+
+ a seemingly dead node before your replication is up again somewhere else!
+ Only unplug the network cables when advised, but never try to repair the
+ hardware instantly!
+\end_layout
+
+\begin_layout Standard
+In case of desperate situations where none of the previous instructions
+ have succeeded, your last chance is rebuilding your resource from an intact
+ disk as follows:
+\end_layout
+
+\begin_layout Enumerate
+Do 
+\family typewriter
+rmmod mars
+\family default
+ on all your cluster nodes and/or reboot them.
+ Note: if you are less desperate, chances are high that the following will
+ also work when the kernel module remains active and everywhere a 
+\family typewriter
+marsadm down
+\family default
+ is given instead, but for an 
+\emph on
+ultimate
+\emph default
+ instruction you should eliminate 
+\emph on
+potential
+\emph default
+ kernel problems by 
+\family typewriter
+rmmod
+\family default
+ / 
+\family typewriter
+reboot
+\family default
+, at least if you can afford the downtime on concurrently operating resources.
+\end_layout
+
+\begin_layout Enumerate
+For safety, physically remove the storage network cables on 
+\emph on
+all
+\emph default
+ your cluster nodes.
+ Note: the same disclaimer holds.
+ MARS really does its best, even when 
+\family typewriter
+delete-resource
+\family default
+ is given while the network is fully active and multiple split-brain primaries
+ are actively using their local device in parallel (approved by some testcases
+ from the automatic test suite, but note that it is impossible to catch
+ all possible failure scenarios).
+ Don't challenge your fate if you are desperate! Don't 
+\emph on
+rely
+\emph default
+ on this! Nothing is absolutely fail-safe!
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Manually
+\series default
+ check which surviving disk is usable, and which is the 
+\begin_inset Quotes eld
+\end_inset
+
+best
+\begin_inset Quotes erd
+\end_inset
+
+ one for your purpose.
+\end_layout
+
+\begin_layout Enumerate
+Do 
+\family typewriter
+modprobe mars
+\family default
+ 
+\emph on
+only
+\emph default
+ on that node.
+ If that fails, 
+\family typewriter
+rmmod
+\family default
+ and/or reboot again, and start over with a completely fresh 
+\family typewriter
+/mars/
+\family default
+ partition (
+\family typewriter
+mkfs.ext4 /mars/
+\family default
+ or similar), and continue with step 7.
+\end_layout
+
+\begin_layout Enumerate
+If your old 
+\family typewriter
+/mars/
+\family default
+ works, and you did not already (forcefully) switch your designated primary
+ to the final destination, do it now (see description in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Emergency-Switching"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Enumerate
+Say 
+\family typewriter
+marsadm delete-resource mydata --force
+\family default
+.
+\end_layout
+
+\begin_layout Enumerate
+Locally build up the new resource as usual.
+\end_layout
+
+\begin_layout Enumerate
+Check whether the new resource works in standalone mode.
+\end_layout
+
+\begin_layout Enumerate
+When necessary, repeat these steps with other resources.
+\end_layout
+
+\begin_layout Enumerate
+Finally, do all the 
+\family typewriter
+join-resource
+\family default
+s on the respective cluster nodes, according to your new redundancy scenario
+ after the failures (e.g.
+ after activating spare nodes, etc).
+\end_layout
+
+\begin_layout Standard
+Now you can choose how the rebuild your cluster.
+ If you rebuilt 
+\family typewriter
+/mars/
+\family default
+ anywhere, you should do the same on all other (surviving) cluster nodes
+ and start over with a fresh 
+\family typewriter
+join-cluster
+\family default
+ on them.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Never use 
+\family typewriter
+delete-resource
+\family default
+ twice on the same resource name, at least after you have already a working
+ standalone primary
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Of course, when you don't have created the 
+\emph on
+same
+\emph default
+ resource anew, you may repeat 
+\family typewriter
+delete-resource
+\family default
+ on other cluster nodes in order to get rid of local files / symlinks which
+ had not been propagated to other nodes before.
+\end_layout
+
+\end_inset
+
+.
+ You might accidentally destroy your again-working copy!
+\end_layout
+
+\begin_layout Standard
+Before re-connecting any network cable on any non-primary (new secondaries),
+ ensure that all 
+\family typewriter
+/dev/mars/mydata
+\family default
+ devices are no longer in use (e.g.
+ from an old primary role before the incident happened), and that each local
+ disk is detached.
+ Only after that, you should be able to safely re-connect the network.
+ The 
+\family typewriter
+delete-resource
+\family default
+ given at the new primary should propagate now to each of your secondaries,
+ and your local disk should be usable for a re-
+\family typewriter
+join-resource
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+When you did not rebuild your cluster from scratch with fresh 
+\family typewriter
+/mars/
+\family default
+ filesystems, and one of the old cluster nodes is supposed to be removed
+ permanently, use 
+\family typewriter
+leave-resource
+\family default
+ (optionally with 
+\family typewriter
+--host=
+\family default
+ and/or 
+\family typewriter
+--force
+\family default
+) and finally 
+\family typewriter
+leave-cluster
+\family default
+.
 \end_layout
 
 \begin_layout Chapter
@@ -6542,7 +7202,7 @@ The following table documents common options which work with (almost) any
 
 \size scriptsize
 \begin_inset Tabular
-<lyxtabular version="3" rows="5" columns="3">
+<lyxtabular version="3" rows="7" columns="3">
 <features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top" width="0">
@@ -6607,6 +7267,133 @@ status open
 
 \family typewriter
 \size scriptsize
+--dry-run
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Run the command without actually creating symlinks or touching files or
+ executing rsync.
+ This option 
+\emph on
+should
+\emph default
+ be used first at any dangerous command, in order to check what would happen.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+Don't use in scripts! Only use by hand!
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+This option does not change the waiting logic.
+ Many commands are waiting until the desired effect has taken place.
+ However, with 
+\family typewriter
+--dry-run
+\family default
+ the desired effect will never happen, so the command may wait forever (or
+ abort with a timeout).
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+In addition, this option can lead to additional aborts of the commands due
+ to unmet conditions, which cannot be met because the symlinks are not actually
+ created / altered.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Thus this option can give only a 
+\series bold
+rough estimate
+\series default
+ of what would happen later!
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
 --force
 \end_layout
 
@@ -6628,7 +7415,7 @@ almost
 
 \end_inset
 </cell>
-<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
 \begin_inset Text
 
 \begin_layout Plain Layout
@@ -6921,6 +7708,133 @@ reference "sub:Final-Destroy-of"
 </cell>
 </row>
 <row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+--ip=$ip
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+By default, 
+\family typewriter
+marsadm
+\family default
+ always uses the IP for 
+\family typewriter
+$host
+\family default
+ as stored in the symlink tree (directory 
+\family typewriter
+/mars/ips/
+\family default
+).
+ When such an IP entry does not (yet) exist (e.g.
+ 
+\family typewriter
+create-cluster
+\family default
+ or 
+\family typewriter
+join-cluster
+\family default
+), all local network interfaces are automatically scanned for IPv4 adresses,
+ and the first one is taken.
+ This may lead to wrong decisions if you have multiple network interfaces.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+In order to override the automatic IP detection and.to explicitly tell the
+ IP address of your storage network, use this option.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+
+\size scriptsize
+Usually you will need this only at 
+\family typewriter
+{create,join}-cluster
+\family default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
 <cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
 \begin_inset Text
 
@@ -7160,6 +8074,14 @@ This must be called exactly once at the initial primary.
  
 \end_layout
 
+\begin_layout Plain Layout
+Hint: use the 
+\family typewriter
+--ip=
+\family default
+ option if you have multiple interfaces.
+\end_layout
+
 \end_inset
 
 
@@ -7292,7 +8214,14 @@ $host
 
 \size scriptsize
 This must be called exactly once at every initial secondary.
- 
+\end_layout
+
+\begin_layout Plain Layout
+Hint: use the 
+\family typewriter
+--ip=
+\family default
+ option if you have multiple interfaces.
 \end_layout
 
 \end_inset
@@ -7562,7 +8491,7 @@ name "sub:Resource-Creation"
 
 \size scriptsize
 \begin_inset Tabular
-<lyxtabular version="3" rows="5" columns="3">
+<lyxtabular version="3" rows="6" columns="3">
 <features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top" width="0">
@@ -7975,6 +8904,7 @@ $res
 \family default
  must denote an already existing resource in the cluster (i.e.
  its symlink tree information must have been received).
+ The resource must have a designated primary.
  The local node must not be already member of that resource.
  The argument 
 \family typewriter
@@ -8117,7 +9047,7 @@ Precondition: the local node must be a member of the resource
 $res
 \family default
 ; its current role must be secondary.
- Thes disk must be detatched.
+ The disk must be detatched.
 \end_layout
 
 \begin_layout Plain Layout
@@ -8133,7 +9063,7 @@ $res
 \begin_layout Plain Layout
 
 \size scriptsize
-Notice: as a side effect for other noder, their log-delete .may now become
+Notice: as a side effect for other nodes, their log-delete may now become
  possible, since the current node does no longer count as a candidate for
  logfile application.
 \end_layout
@@ -8141,14 +9071,365 @@ Notice: as a side effect for other noder, their log-delete .may now become
 \begin_layout Plain Layout
 
 \size scriptsize
+Also notice that this command 
+\emph on
+may
+\emph default
+ lead to (but does not guarantee) split-brain resolution.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+
+\size scriptsize
+The contents of the disk is not changed by this command.
+ Before issuing this command, check whether the disk is locally consistent!
+ After this command, any symlinks indicating the consistency state are gone,
+ and you will no longer be able to guess consistency properties.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+
+\size scriptsize
+When you are 
+\emph on
+sure
+\emph default
+.that the disk was consistent before (or is now by manually checking it),
+ you may re-create a new resource out of it via 
+\family typewriter
+create-resource
+\family default
+.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
 In case of an eventual node loss (e.g.
- fire, water, ...) this may be used.
- on another node $helper in order to finally remove all the resources $damaged
- from the cluster via the command 
+ fire, water, ...) this command may be used on another node $helper in order
+ to finally remove all the resources $damaged from the cluster via the command
+ 
 \family typewriter
 marsadm leave-resource $res --host=$damaged --force
 \family default
 .
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+delete-resource
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$res
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Precondition: the resource must be empty (i.e.
+ all members must have left via 
+\family typewriter
+leave-resource
+\family default
+).
+ This precondition is overridable by 
+\family typewriter
+--force
+\family default
+, increasing the danger to maximum!
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Postcondition: all cluster members will somewhen be forcefully removed from
+ 
+\family typewriter
+$res
+\family default
+.
+ In case of network interruptions, the forced removal may take place far
+ in the future.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ THIS COMMAND IS 
+\emph on
+VERY
+\emph default
+ DANGEROUS!
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Use this only in desperate situations.
+ You are forcefully using a sledgehammer, even without 
+\family typewriter
+--force
+\family default
+! The danger is that the 
+\emph on
+true
+\emph default
+ state of other cluster nodes need not be known in case of network problems
+ .Even when it were known, it could be compromised by 
+\series bold
+byzantine failures
+\series default
+.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+It is strongly advised to try this command with 
+\family typewriter
+--dry-run
+\family default
+ first.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+When combined with 
+\family typewriter
+--force
+\family default
+, this command will definitely 
+\series bold
+murder
+\series default
+ other cluster nodes, possibly after a long while, and even when they are
+ operating in primary mode / having split brains / etc.
+ However, there is no guarantee that other cluster nodes will be 
+\emph on
+really
+\emph default
+ dead - it is possible that they remain only 
+\emph on
+half
+\emph default
+ 
+\emph on
+dead
+\emph default
+.
+ For example, a half dead node may continue to write data to 
+\family typewriter
+/mars/
+\family default
+ and thus lead to overflow somewhen.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+This command implies a forceful detach, possibly destroying consistency.
+ 
+\size scriptsize
+In particular, when a cluster node was operating in primary mode (
+\family typewriter
+/dev/mars/mydata
+\family default
+ being continuously in use), the forceful detach cannot be carried out until
+ the device is completely unused.
+ In the meantime, the current transaction logfile will be appended to, but
+ the file 
+\emph on
+might
+\emph default
+ be already unlinked (orphan file filling up the disk).
+ After the forceful detach, the underlying disk need not be consistent (although
+ we do our best).
+ Since this command deletes any symlinks which normally would indicate the
+ consistency state, no guarantees about consistency can be given after this
+ 
+\emph on
+in general
+\emph default
+! Always check consistency by hand!
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+When possible / as soon as possible, check the local state on the other
+ nodes in order to 
+\emph on
+really
+\emph default
+ shutdown the resource everywhere (e.g.
+ to 
+\emph on
+really
+\emph default
+ unuse the 
+\family typewriter
+/dev/mars/mydata
+\family default
+ device, etc).
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+After this command, you 
+\emph on
+should
+\emph default
+ rebuild the resource under a different name, in order to avoid any clashes
+ caused by unexpected resurrection of 
+\begin_inset Quotes eld
+\end_inset
+
+dead
+\begin_inset Quotes erd
+\end_inset
+
+ or 
+\begin_inset Quotes eld
+\end_inset
+
+half-dead
+\begin_inset Quotes erd
+\end_inset
+
+ nodes (beware of shapshot / restores on virtual machines!!).
+ MARS Light does its best to avoid problems even in case the new resource
+ name should equal the old one, but there can be 
+\emph on
+no guarantee
+\emph default
+ in all possible failure scenarios / usage scenarios.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+
+\size scriptsize
+When possible, prefer 
+\family typewriter
+leave-resource
+\family default
+ over this!
 \end_layout
 
 \end_inset
@@ -8380,7 +9661,7 @@ all
 
 \size scriptsize
 \begin_inset Tabular
-<lyxtabular version="3" rows="34" columns="3">
+<lyxtabular version="3" rows="35" columns="3">
 <features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top" width="0">
@@ -11441,6 +12722,171 @@ reference "sub:Waiting"
 \begin_inset Text
 
 \begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+log-purge-all
+\begin_inset CommandInset label
+LatexCommand label
+name "log-purge-all$res"
+
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$res
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Precondition: none additionally.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Postcondition: all locally known logfiles and version links are removed,
+ whenever they are not / no longer reachable by any split brain version.
+\end_layout
+
+\begin_layout Plain Layout
+Rationale: remove hindering split-brain / 
+\family typewriter
+leave-resource
+\family default
+ leftovers.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Use this only when split brain does not go away by means of 
+\family typewriter
+leave-resource
+\family default
+ (which should never happen, but could happen in very weird scenarios such
+ as MARS running on virtual machines doing a restore of their snapshots,
+ or otherwise unexpected resurrection of dead or half-dead nodes).
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ THIS IS POTENTIALLY DANGEROUS!
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+This command 
+\emph on
+might
+\emph default
+ destroy some valuable logfiles / other information in case the local informatio
+n is outdated or otherwise incorrect.
+ MARS Light does its best for checking anything, but there is no guarantee.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Hint: use 
+\family typewriter
+--dry-run
+\family default
+ beforehand for checking!
+\end_layout
+
+\end_inset
+
 
 \end_layout
 
