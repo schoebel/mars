@@ -1901,6 +1901,10 @@ int peer_thread(void *data)
 	struct mars_peerinfo *peer = data;
 	char *real_peer;
 	struct sockaddr_storage sockaddr = {};
+	struct key_value_pair peer_pairs[] = {
+		{ peer->peer },
+		{ NULL }
+	};
 	int pause_time = 0;
 	bool do_kill = false;
 	int status;
@@ -1926,7 +1930,19 @@ int peer_thread(void *data)
 			.cmd_int1 = peer->maxdepth,
 		};
 
+		show_vals(peer_pairs, "/mars", "connection-from-");
+
 		if (!mars_socket_is_alive(&peer->socket)) {
+			make_msg(peer_pairs, "connection to '%s' (%s) is dead", peer->peer, real_peer);
+			brick_string_free(real_peer);
+			real_peer = mars_translate_hostname(peer->peer);
+			status = mars_create_sockaddr(&sockaddr, real_peer);
+			if (unlikely(status < 0)) {
+				MARS_ERR("unusable remote address '%s' (%s)\n", real_peer, peer->peer);
+				make_msg(peer_pairs, "unusable remote address '%s' (%s)\n", real_peer, peer->peer);
+				brick_msleep(1000);
+				continue;
+			}
 			if (do_kill) {
 				do_kill = false;
 				_peer_cleanup(peer);
@@ -1940,7 +1956,8 @@ int peer_thread(void *data)
 
 			status = mars_create_socket(&peer->socket, &sockaddr, false);
 			if (unlikely(status < 0)) {
-				MARS_INF("no connection to mars module on '%s'\n", real_peer);
+				MARS_INF("no connection to mars module on '%s' (%s) status = %d\n", peer->peer, real_peer, status);
+				make_msg(peer_pairs, "connection to '%s' (%s) could not be established: status = %d", peer->peer, real_peer, status);
 				brick_msleep(2000);
 				continue;
 			}
@@ -1952,6 +1969,8 @@ int peer_thread(void *data)
 			brick_msleep(100);
 			continue;
 		}
+
+		make_msg(peer_pairs, "CONNECTED %s(%s)", peer->peer, real_peer);
 
 		if (peer->from_remote_trigger) {
 			pause_time = 0;
@@ -2025,11 +2044,15 @@ int peer_thread(void *data)
 
 	MARS_INF("-------- peer thread terminating\n");
 
+	make_msg(peer_pairs, "NOT connected %s(%s)", peer->peer, real_peer);
+	show_vals(peer_pairs, "/mars", "connection-from-");
+
 	if (do_kill) {
 		_peer_cleanup(peer);
 	}
 
 done:
+	clear_vals(peer_pairs);
 	brick_string_free(real_peer);
 	return 0;
 }
