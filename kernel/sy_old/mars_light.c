@@ -283,6 +283,10 @@ const char *rot_keys[] = {
 	"err-versionlink-not-readable",
 	"err-replaylink-not-readable",
 	"err-splitbrain-detected",
+	// from _update_file()
+	"inf-fetch",
+	// from make_sync()
+	"inf-sync",
 	// from make_log_finalize()
 	"inf-replay-start",
 	"wrn-space-low",
@@ -1395,6 +1399,7 @@ int __make_copy(
 		const char *copy_path,
 		const char *parent,
 		const char *argv[],
+		struct key_value_pair *msg_pair,
 		loff_t start_pos, // -1 means at EOF of source
 		loff_t end_pos,   // -1 means at EOF of target
 		bool verify_mode,
@@ -1423,8 +1428,10 @@ int __make_copy(
 	// don't generate empty aio files if copy does not yet exist
 	switch_copy = _check_switch(global, switch_path);
 	copy = mars_find_brick(global, &copy_brick_type, copy_path);
-	if (!copy && !switch_copy)
+	if (!copy && !switch_copy) {
+		make_msg(msg_pair, "not active, no activation");
 		goto done;
+	}
 
 	// create/find predecessor aio bricks
 	for (i = 0; i < 2; i++) {
@@ -1455,6 +1462,7 @@ int __make_copy(
 				       0);
 		if (!aio) {
 			MARS_DBG("cannot instantiate '%s'\n", cc.fullpath[i]);
+			make_msg(msg_pair, "cannot instantiate '%s'", cc.fullpath[i]);
 			goto done;
 		}
 		cc.output[i] = aio->outputs[0];
@@ -1483,7 +1491,25 @@ int __make_copy(
 			       cc.fullpath[1],
 			       cc.fullpath[1]);
 	if (copy) {
+		struct copy_brick *_copy = (void*)copy;
 		copy->show_status = _show_brick_status;
+		make_msg(msg_pair,
+			 "from = '%s' to = '%s'"
+			 " on = %d start_pos = %lld end_pos = %lld"
+			 " actual_pos = %lld actual_stamp = %ld.%09ld"
+			 " rate = %d read_fly = %d write_fly = %d error_code = %d nr_errors = %d",
+			 argv[0],
+			 argv[1],
+			 _copy->power.led_on,
+			 _copy->copy_start,
+			 _copy->copy_end,
+			 _copy->copy_last,
+			 _copy->copy_last_stamp.tv_sec, _copy->copy_last_stamp.tv_nsec,
+			 _copy->copy_limiter ? _copy->copy_limiter->lim_rate : 0,
+			 atomic_read(&_copy->copy_read_flight),
+			 atomic_read(&_copy->copy_write_flight),
+			 _copy->copy_error,
+			 _copy->copy_error_count);
 	}
 	if (__copy)
 		*__copy = (void*)copy;
@@ -1602,25 +1628,8 @@ int _update_file(struct mars_rotate *rot, const char *switch_path, const char *c
 	}
 
 	MARS_DBG("src = '%s' dst = '%s'\n", tmp, file);
-	status = __make_copy(global, NULL, do_start ? switch_path : "", copy_path, NULL, argv, -1, -1, false, false, &copy);
+	status = __make_copy(global, NULL, do_start ? switch_path : "", copy_path, NULL, argv, find_key(rot->msgs, "inf-fetch"), -1, -1, false, false, &copy);
 	if (status >= 0 && copy) {
-		char *src = path_make("%d,%s,%lld,%lld,%d,%d",
-				      copy->power.led_on,
-				      file,
-				      copy->copy_start,
-				      copy->copy_last,
-				      copy->copy_end,
-				      copy->copy_error,
-				      copy->copy_error_count);
-		char *dst = path_make("%s/transferstatus-%s",
-				      rot->parent_path,
-				      my_id());
-
-		(void)_update_link_when_necessary(rot, "transferstatus", src, dst);
-		
-		brick_string_free(src);
-		brick_string_free(dst);
-
 		copy->copy_limiter = &rot->fetch_limiter;
 		// FIXME: code is dead
 		if (copy->append_mode && copy->power.led_on &&
@@ -3914,7 +3923,7 @@ static int _make_copy(void *buf, struct mars_dent *dent)
 	// check whether connection is allowed
 	switch_path = path_make("%s/todo-%s/connect", dent->d_parent->d_path, my_id());
 
-	status = __make_copy(global, dent, switch_path, copy_path, dent->d_parent->d_path, (const char**)dent->d_argv, -1, -1, false, true, NULL);
+	status = __make_copy(global, dent, switch_path, copy_path, dent->d_parent->d_path, (const char**)dent->d_argv, NULL, -1, -1, false, true, NULL);
 
 done:
 	MARS_DBG("status = %d\n", status);
@@ -4118,7 +4127,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 
 	{
 		const char *argv[2] = { src, dst };
-		status = __make_copy(global, dent, do_start ? switch_path : "", copy_path, dent->d_parent->d_path, argv, start_pos, end_pos, mars_fast_fullsync > 0, true, &copy);
+		status = __make_copy(global, dent, do_start ? switch_path : "", copy_path, dent->d_parent->d_path, argv, find_key(rot->msgs, "inf-sync"), start_pos, end_pos, mars_fast_fullsync > 0, true, &copy);
 		if (copy) {
 			copy->kill_ptr = (void**)&rot->sync_brick;
 			copy->copy_limiter = &rot->sync_limiter;
