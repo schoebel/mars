@@ -679,6 +679,7 @@ int _run_copy(struct copy_brick *brick)
 		}
 		if (count > 0) {
 			brick->copy_last += count;
+			get_lamport(&brick->copy_last_stamp);
 			MARS_IO("new copy_last += %d => %lld\n", count, brick->copy_last);
 			_update_percent(brick);
 		}
@@ -797,6 +798,7 @@ static int copy_switch(struct copy_brick *brick)
 		brick->is_aborting = false;
 		if (!brick->thread) {
 			brick->copy_last = brick->copy_start;
+			get_lamport(&brick->copy_last_stamp);
 			brick->thread = brick_thread_create(_copy_thread, brick, "mars_copy%d", version++);
 			if (brick->thread) {
 				brick->trigger = true;

@@ -60,6 +60,7 @@ struct copy_brick {
 	bool abort_mode;  // abort on IO error (default is retry forever)
 	// readonly from outside
 	loff_t copy_last; // current working position
+	struct timespec copy_last_stamp;
 	int copy_error;
 	int copy_error_count;
 	int verify_ok_count;
