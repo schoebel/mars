@@ -244,6 +244,57 @@ struct light_class {
 	light_worker_fn cl_backward;
 };
 
+// the order is important!
+enum {
+	// root element: this must have index 0
+	CL_ROOT,
+	// global ID
+	CL_UUID,
+	// global userspace
+	CL_GLOBAL_USERSPACE,
+	CL_GLOBAL_USERSPACE_ITEMS,
+	// global todos
+	CL_GLOBAL_TODO,
+	CL_GLOBAL_TODO_DELETE,
+	CL_GLOBAL_TODO_DELETED,
+	// replacement for DNS in kernelspace
+	CL_IPS,
+	CL_PEERS,
+	CL_ALIVE,
+	CL_TIME,
+	CL_TREE,
+	CL_EMERGENCY,
+	CL_REST_SPACE,
+	// resource definitions
+	CL_RESOURCE,
+	CL_RESOURCE_USERSPACE,
+	CL_RESOURCE_USERSPACE_ITEMS,
+	CL_DEFAULTS0,
+	CL_DEFAULTS,
+	CL_DEFAULTS_ITEMS0,
+	CL_DEFAULTS_ITEMS,
+	CL_TODO,
+	CL_TODO_ITEMS,
+	CL_ACTUAL,
+	CL_ACTUAL_ITEMS,
+	CL_CONNECT,
+	CL_DATA,
+	CL_SIZE,
+	CL_ACTSIZE,
+	CL_PRIMARY,
+	CL__FILE,
+	CL_TRANSFER,
+	CL_SYNC,
+	CL_VERIF,
+	CL_SYNCPOS,
+	CL__COPY,
+	CL__DIRECT,
+	CL_VERSION,
+	CL_LOG,
+	CL_REPLAYSTATUS,
+	CL_DEVICE,
+};
+
 ///////////////////////////////////////////////////////////////////////
 
 // needed for logfile rotation
@@ -1486,11 +1537,31 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 		goto done;
 	}
 
-	// check marker preventing concurrent updates from remote hosts when deletes are in progress
-	marker_path = backskip_replace(remote_dent->d_path, '/', true, "/.deleted-");
-	if (mars_stat(marker_path, &local_stat, true) >= 0) {
-		MARS_DBG("marker '%s' exists, ignoring '%s'\n", marker_path, remote_dent->d_path);
-		goto done;
+	if (remote_dent->d_class == CL_GLOBAL_TODO_DELETE) {
+		marker_path = backskip_replace(remote_dent->new_link, '/', true, "/.deleted-");
+		if (mars_stat(marker_path, &local_stat, true) < 0 ||
+		    timespec_compare(&remote_dent->new_stat.mtime, &local_stat.mtime) > 0) {
+			MARS_DBG("creating / updating marker '%s' mtime=%lu.%09lu\n",
+				 marker_path, remote_dent->new_stat.mtime.tv_sec, remote_dent->new_stat.mtime.tv_nsec);
+			mars_symlink("1", marker_path, &remote_dent->new_stat.mtime, 0);
+		}
+	} else {
+		// check marker preventing concurrent updates from remote hosts when deletes are in progress
+		marker_path = backskip_replace(remote_dent->d_path, '/', true, "/.deleted-");
+		if (mars_stat(marker_path, &local_stat, true) >= 0) {
+			if (timespec_compare(&remote_dent->new_stat.mtime, &local_stat.mtime) <= 0) {
+				MARS_DBG("marker '%s' exists, ignoring '%s' (new mtime=%lu.%09lu, marker mtime=%lu.%09lu)\n",
+					 marker_path, remote_dent->d_path,
+					 remote_dent->new_stat.mtime.tv_sec, remote_dent->new_stat.mtime.tv_nsec,
+					 local_stat.mtime.tv_sec, local_stat.mtime.tv_nsec);
+				goto done;
+			} else {
+				MARS_DBG("marker '%s' exists, overwriting '%s' (new mtime=%lu.%09lu, marker mtime=%lu.%09lu)\n",
+					 marker_path, remote_dent->d_path,
+					 remote_dent->new_stat.mtime.tv_sec, remote_dent->new_stat.mtime.tv_nsec,
+					 local_stat.mtime.tv_sec, local_stat.mtime.tv_nsec);
+			}
+		}
 	}
 
 	status = mars_stat(remote_dent->d_path, &local_stat, true);
@@ -3819,8 +3890,11 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	marker_path = backskip_replace(dent->new_link, '/', true, "/.deleted-");
 	if (unlikely(!marker_path))
 		goto done;
-	if (mars_stat(marker_path, &stat, true) < 0) {
-		mars_symlink("1", marker_path, NULL, 0);
+	if (mars_stat(marker_path, &stat, true) < 0 ||
+	    timespec_compare(&dent->new_stat.mtime, &stat.mtime) > 0) {
+		MARS_DBG("creating / updating marker '%s' mtime=%lu.%09lu\n",
+			 marker_path, dent->new_stat.mtime.tv_sec, dent->new_stat.mtime.tv_nsec);
+		mars_symlink("1", marker_path, &dent->new_stat.mtime, 0);
 	}
 	
 	brick = mars_find_brick(global, NULL, dent->new_link);
@@ -3866,6 +3940,8 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 			MARS_DBG("unlink '%s', status = %d\n", dent->new_link, status);
 		}
 	}
+
+ ok:	
 	if (status < 0) {
 		MARS_DBG("deletion '%s' to target '%s' is accomplished\n",
 			 dent->d_path, dent->new_link);
@@ -3873,11 +3949,11 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 			MARS_DBG("removing deletion symlink '%s'\n", dent->d_path);
 			dent->d_killme = true;
 			mars_unlink(dent->d_path);
+			MARS_DBG("removing marker '%s'\n", marker_path);
+			mars_unlink(marker_path);
 		}
 	}
 
- ok:	
-	mars_unlink(marker_path);
 	response_path = path_make("/mars/todo-global/deleted-%s", my_id());
 	if (!response_path) {
 		MARS_ERR("cannot build response path for '%s'\n", dent->new_link);
@@ -4012,56 +4088,6 @@ int kill_res(void *buf, struct mars_dent *dent)
 
 ///////////////////////////////////////////////////////////////////////
 
-// the order is important!
-enum {
-	// root element: this must have index 0
-	CL_ROOT,
-	// global ID
-	CL_UUID,
-	// global userspace
-	CL_GLOBAL_USERSPACE,
-	CL_GLOBAL_USERSPACE_ITEMS,
-	// global todos
-	CL_GLOBAL_TODO,
-	CL_GLOBAL_TODO_DELETE,
-	CL_GLOBAL_TODO_DELETED,
-	// replacement for DNS in kernelspace
-	CL_IPS,
-	CL_PEERS,
-	CL_ALIVE,
-	CL_TIME,
-	CL_TREE,
-	CL_EMERGENCY,
-	CL_REST_SPACE,
-	// resource definitions
-	CL_RESOURCE,
-	CL_RESOURCE_USERSPACE,
-	CL_RESOURCE_USERSPACE_ITEMS,
-	CL_DEFAULTS0,
-	CL_DEFAULTS,
-	CL_DEFAULTS_ITEMS0,
-	CL_DEFAULTS_ITEMS,
-	CL_TODO,
-	CL_TODO_ITEMS,
-	CL_ACTUAL,
-	CL_ACTUAL_ITEMS,
-	CL_CONNECT,
-	CL_DATA,
-	CL_SIZE,
-	CL_ACTSIZE,
-	CL_PRIMARY,
-	CL__FILE,
-	CL_TRANSFER,
-	CL_SYNC,
-	CL_VERIF,
-	CL_SYNCPOS,
-	CL__COPY,
-	CL__DIRECT,
-	CL_VERSION,
-	CL_LOG,
-	CL_REPLAYSTATUS,
-	CL_DEVICE,
-};
 
 /* Please keep the order the same as in the enum.
  */

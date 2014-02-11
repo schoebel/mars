@@ -1220,7 +1220,7 @@ sub delete_res {
   }
   for my $path (`find $basedir/* | sort -r`) {
     chomp $path;
-    next if $path =~ m:/maxnr$:;
+    next if $path =~ m:/(maxnr$|\.deleted-):;
     _create_delete($path);
   }
   finish_links();
