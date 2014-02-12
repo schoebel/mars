@@ -59,6 +59,24 @@ my $kernel_version = 0;
 
 ##################################################################
 
+# path correction
+
+sub correct_path {
+  my ($path) = @_;
+  # actual switches
+  $path =~ s:(/is-attach)[a-z]*$:$1ed:;
+  $path =~ s:(/is-)(fetch)[a-z]*$:$1copy:;
+  $path =~ s:(/is-)(apply)[a-z]*$:$1replay:;
+  $path =~ s:(/is-(copy|replay|sync))[a-z]*$:$1ing:;
+  # todo switches
+  $path =~ s:(/fetch)[a-z]*$:/connect:;
+  $path =~ s:(/apply)[a-z]*$:/allow-replay:;
+  $path =~ s:(/replay)[a-z]*$:/allow-replay:;
+  return $path;
+}
+
+##################################################################
+
 # low-level infrastructure
 
 my @link_list = ();
@@ -230,6 +248,8 @@ sub wait_cond {
        "attached" => "is-attached",
        "replay"   => "is-replaying",
        "replaying"=> "is-replaying",
+       "fetch"    => "is-copying",
+       "fetching" => "is-copying",
        "copy"     => "is-copying",
        "copying"  => "is-copying",
        "sync"     => "is-syncing",
@@ -244,8 +264,9 @@ sub wait_cond {
       (
        "attach" => "attach",
        "attached" => "attach",
+       "fetch" => "connect",
        "connect" => "connect",
-       "replay" => "allow-replay",
+       "replay" => "replay",
        "sync" => "sync",
       );
     my $name = $table{$specific};
@@ -421,6 +442,7 @@ sub check_primary_gone {
 sub check_todo {
   my ($cmd, $res, $key, $val, $wait, $unchecked, $inv) = @_;
   my $path = "$mars/resource-$res/todo-$host/$key";
+  $path = correct_path($path);
   my $link;
   for (;;) {
     $link = get_link($path, $unchecked);
@@ -948,7 +970,7 @@ sub _trigger {
 sub _switch {
   my ($cmd, $res, $path, $on) = @_;
   my $src = $on ? "1" : "0";
-
+  $path = correct_path($path);
   my $old = get_link($path);
   if ($old && $old eq $src) {
     lprint "${cmd} on resource $res is already activated\n" if $cmd;
@@ -1599,14 +1621,14 @@ sub pause_replay_global_res {
   my $pause = ($cmd =~ m/pause/);
   my @paths = glob("$mars/resource-$res/todo-*/");
   for my $path (@paths) {
-    _switch($cmd, $res, "$path/allow-replay", !$pause);
+    _switch($cmd, $res, "$path/replay", !$pause);
   }
 }
 
 sub pause_replay_local_res {
   my ($cmd, $res) = @_;
   my $pause = ($cmd =~ m/pause/);
-  my $path = "$mars/resource-$res/todo-$host/allow-replay";
+  my $path = "$mars/resource-$res/todo-$host/replay";
   _switch($cmd, $res, $path, !$pause);
 }
 
@@ -1652,7 +1674,7 @@ sub set_replay_res {
     ldie "you must supply a numeric logfile number as third argument.\n";
   }
   check_not_primary(@_);
-  check_todo($cmd, $res, "allow-replay", 0, 0);
+  check_todo($cmd, $res, "replay", 0, 0);
   my $replaylink = "$mars/resource-$res/replay-$host";
   my $old_val = get_link($replaylink);
   my $old_nr = $old_val;
@@ -1702,7 +1724,7 @@ sub primary_phase0 {
     }
     check_todo($cmd, $res, "attach", 1, 0);
     check_todo($cmd, $res, "connect", 1, 0) if !$force;
-    check_todo($cmd, $res, "allow-replay", 1, 0);
+    check_todo($cmd, $res, "replay", 1, 0);
   }
   return if ($old eq $host and $cmd eq "primary");
   return if $old eq "(none)";
@@ -1802,7 +1824,7 @@ sub invalidate_res_phase0 {
 sub invalidate_res_phase1 {
   my ($cmd, $res) = @_;
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/sync", 0);
-  _switch($cmd, $res, "$mars/resource-$res/todo-$host/allow-replay", 0);
+  _switch($cmd, $res, "$mars/resource-$res/todo-$host/replay", 0);
 }
 
 sub invalidate_res_phase2 {
@@ -1824,7 +1846,7 @@ sub invalidate_res_phase3 {
   set_link("0", $dst);
   finish_links(); # opportunity for errors => don't continue
   _set_replaylink("$mars/resource-$res", $replay_nr, $primary, "");
-  _switch($cmd, $res, "$mars/resource-$res/todo-$host/allow-replay", 1);
+  _switch($cmd, $res, "$mars/resource-$res/todo-$host/replay", 1);
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/sync", 1);
 }
 
