@@ -108,6 +108,16 @@ EXPORT_SYMBOL_GPL(global_free_space_3);
 int global_free_space_4 = CONFIG_MARS_MIN_SPACE_4;
 EXPORT_SYMBOL_GPL(global_free_space_4);
 
+int _global_sync_want = 0;
+int global_sync_want = 0;
+EXPORT_SYMBOL_GPL(global_sync_want);
+
+int global_sync_nr = 0;
+EXPORT_SYMBOL_GPL(global_sync_nr);
+
+int global_sync_limit = 0;
+EXPORT_SYMBOL_GPL(global_sync_limit);
+
 int mars_rollover_interval = CONFIG_MARS_ROLLOVER_INTERVAL;
 EXPORT_SYMBOL_GPL(mars_rollover_interval);
 
@@ -427,6 +437,10 @@ enum {
 	CL_GLOBAL_TODO,
 	CL_GLOBAL_TODO_DELETE,
 	CL_GLOBAL_TODO_DELETED,
+	CL_DEFAULTS0,
+	CL_DEFAULTS,
+	CL_DEFAULTS_ITEMS0,
+	CL_DEFAULTS_ITEMS,
 	// replacement for DNS in kernelspace
 	CL_IPS,
 	CL_PEERS,
@@ -441,10 +455,10 @@ enum {
 	CL_RESOURCE,
 	CL_RESOURCE_USERSPACE,
 	CL_RESOURCE_USERSPACE_ITEMS,
-	CL_DEFAULTS0,
-	CL_DEFAULTS,
-	CL_DEFAULTS_ITEMS0,
-	CL_DEFAULTS_ITEMS,
+	CL_RES_DEFAULTS0,
+	CL_RES_DEFAULTS,
+	CL_RES_DEFAULTS_ITEMS0,
+	CL_RES_DEFAULTS_ITEMS,
 	CL_TODO,
 	CL_TODO_ITEMS,
 	CL_ACTUAL,
@@ -474,6 +488,7 @@ enum {
 #define MAX_INFOS 4
 
 struct mars_rotate {
+	struct list_head rot_head;
 	struct mars_global *global;
 	struct copy_brick *sync_brick;
 	struct mars_dent *replay_link;
@@ -496,6 +511,7 @@ struct mars_rotate {
 	const char *fetch_peer;
 	const char *preferred_peer;
 	const char *parent_path;
+	const char *parent_rest;
 	const char *fetch_next_origin;
 	struct say_channel *log_say;
 	struct copy_brick *fetch_brick;
@@ -527,11 +543,15 @@ struct mars_rotate {
 	bool created_hole;
 	bool is_log_damaged;
 	bool has_emergency;
+	bool wants_sync;
+	bool gets_sync;
 	spinlock_t inf_lock;
 	bool infs_is_dirty[MAX_INFOS];
 	struct trans_logger_info infs[MAX_INFOS];
 	struct key_value_pair msgs[sizeof(rot_keys) / sizeof(char*)];
 };
+
+static LIST_HEAD(rot_anchor);
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -2523,6 +2543,7 @@ void rot_destruct(void *_rot)
 {
 	struct mars_rotate *rot = _rot;
 	if (likely(rot)) {
+		list_del_init(&rot->rot_head);
 		write_info_links(rot);
 		del_channel(rot->log_say);
 		rot->log_say = NULL;
@@ -2530,11 +2551,13 @@ void rot_destruct(void *_rot)
 		brick_string_free(rot->fetch_peer);
 		brick_string_free(rot->preferred_peer);
 		brick_string_free(rot->parent_path);
+		brick_string_free(rot->parent_rest);
 		brick_string_free(rot->fetch_next_origin);
 		rot->fetch_path = NULL;
 		rot->fetch_peer = NULL;
 		rot->preferred_peer = NULL;
 		rot->parent_path = NULL;
+		rot->parent_rest = NULL;
 		rot->fetch_next_origin = NULL;
 		clear_vals(rot->msgs);
 	}
@@ -2588,6 +2611,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 		rot->global = global;
 		parent->d_private = rot;
 		parent->d_private_destruct = rot_destruct;
+		list_add_tail(&rot->rot_head, &rot_anchor);
 		assign_keys(rot->msgs, rot_keys);
 	}
 
@@ -2610,14 +2634,17 @@ int make_log_init(void *buf, struct mars_dent *dent)
 		rot->split_brain_serial = 0;
 	rot->fetch_next_serial = 0;
 	rot->has_error = false;
+	rot->wants_sync = false;
 	rot->has_symlinks = true;
 	brick_string_free(rot->preferred_peer);
 	rot->preferred_peer = NULL;
 
 	if (dent->new_link)
 		sscanf(dent->new_link, "%lld", &rot->dev_size);
-	if (!rot->parent_path)
+	if (!rot->parent_path) {
 		rot->parent_path = brick_strdup(parent_path);
+		rot->parent_rest = brick_strdup(parent->d_rest);
+	}
 
 	if (unlikely(!rot->log_say)) {
 		char *name = path_make("%s/logstatus-%s", parent_path, my_id());
@@ -4031,12 +4058,13 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	}
 
 	rot = dent->d_parent->d_private;
-	if (rot) {
-		rot->forbid_replay = false;
-		rot->has_symlinks = true;
-		rot->allow_update = true;
-		rot->syncstatus_dent = dent;
-	}
+	status = -ENOENT;
+	CHECK_PTR(rot, done);
+
+	rot->forbid_replay = false;
+	rot->has_symlinks = true;
+	rot->allow_update = true;
+	rot->syncstatus_dent = dent;
 
 	/* Sync necessary?
 	 */
@@ -4135,6 +4163,14 @@ static int make_sync(void *buf, struct mars_dent *dent)
 		goto done;
 
 	MARS_DBG("initial sync '%s' => '%s' do_start = %d\n", src, dst, do_start);
+
+	rot->wants_sync = (do_start != 0);
+	if (rot->wants_sync && global_sync_limit > 0) {
+		do_start = rot->gets_sync;
+		if (!rot->gets_sync) {
+			MARS_INF_TO(rot->log_say, "won't start sync because of parallelism limit %d\n", global_sync_limit);
+		}
+	}
 
 	{
 		const char *argv[2] = { src, dst };
@@ -4437,6 +4473,71 @@ int kill_res(void *buf, struct mars_dent *dent)
 	return 0;
 }
 
+static
+int make_defaults(void *buf, struct mars_dent *dent)
+{
+	if (!dent->new_link)
+		goto done;
+
+	MARS_DBG("name = '%s' value = '%s'\n", dent->d_name, dent->new_link);
+
+	if (!strcmp(dent->d_name, "sync-limit")) {
+		sscanf(dent->new_link, "%d", &global_sync_limit);
+	} else if (!strcmp(dent->d_name, "sync-pref-list")) {
+		const char *start;
+		struct list_head *tmp;
+		int len;
+		int want_count = 0;
+		int get_count = 0;
+		
+		for (tmp = rot_anchor.next; tmp != &rot_anchor; tmp = tmp->next) {
+			struct mars_rotate *rot = container_of(tmp, struct mars_rotate, rot_head);
+			if (rot->wants_sync)
+				want_count++;
+			else
+				rot->gets_sync = false;
+			if (rot->sync_brick && rot->sync_brick->power.led_on)
+				get_count++;
+		}
+		global_sync_want = want_count;
+		global_sync_nr   = get_count;
+
+		// prefer mentioned resources in the right order
+		for (start = dent->new_link; *start && get_count < global_sync_limit; start += len) {
+			len = 1;
+			while (start[len] && start[len] != ',')
+				len++;
+			for (tmp = rot_anchor.next; tmp != &rot_anchor; tmp = tmp->next) {
+				struct mars_rotate *rot = container_of(tmp, struct mars_rotate, rot_head);
+				if (rot->wants_sync && rot->parent_rest && !strncmp(start, rot->parent_rest, len)) {
+					rot->gets_sync = true;
+					get_count++;
+					MARS_DBG("new get_count = %d res = '%s' wants_sync = %d gets_sync = %d\n",
+						 get_count, rot->parent_rest, rot->wants_sync, rot->gets_sync);
+					break;
+				}
+			}
+			if (start[len])
+				len++;
+		}
+		// fill up with unmentioned resources
+		for (tmp = rot_anchor.next; tmp != &rot_anchor && get_count < global_sync_limit; tmp = tmp->next) {
+			struct mars_rotate *rot = container_of(tmp, struct mars_rotate, rot_head);
+			if (rot->wants_sync && !rot->gets_sync) {
+				rot->gets_sync = true;
+				get_count++;
+			}
+			MARS_DBG("new get_count = %d res = '%s' wants_sync = %d gets_sync = %d\n",
+				 get_count, rot->parent_rest, rot->wants_sync, rot->gets_sync);
+		}
+		MARS_DBG("final want_count = %d get_count = %d\n", want_count, get_count);
+	} else {
+		MARS_DBG("unimplemented default '%s'\n", dent->d_name);
+	}
+ done:
+	return 0;
+}
+
 ///////////////////////////////////////////////////////////////////////
 
 /* Please keep the order the same as in the enum.
@@ -4470,6 +4571,38 @@ static const struct light_class light_classes[] = {
 		.cl_len = 0, // catch any
 		.cl_type = 'l',
 		.cl_father = CL_GLOBAL_USERSPACE,
+	},
+
+	/* Subdirectory for defaults...
+	 */
+	[CL_DEFAULTS0] = {
+		.cl_name = "defaults",
+		.cl_len = 8,
+		.cl_type = 'd',
+		.cl_hostcontext = false,
+		.cl_father = CL_ROOT,
+	},
+	[CL_DEFAULTS] = {
+		.cl_name = "defaults-",
+		.cl_len = 9,
+		.cl_type = 'd',
+		.cl_hostcontext = true,
+		.cl_father = CL_ROOT,
+	},
+	/* ... and its contents
+	 */
+	[CL_DEFAULTS_ITEMS0] = {
+		.cl_name = "",
+		.cl_len = 0, // catch any
+		.cl_type = 'l',
+		.cl_father = CL_DEFAULTS0,
+	},
+	[CL_DEFAULTS_ITEMS] = {
+		.cl_name = "",
+		.cl_len = 0, // catch any
+		.cl_type = 'l',
+		.cl_father = CL_DEFAULTS,
+		.cl_forward = make_defaults,
 	},
 
 	/* Subdirectory for global controlling items...
@@ -4609,14 +4742,14 @@ static const struct light_class light_classes[] = {
 
 	/* Subdirectory for defaults...
 	 */
-	[CL_DEFAULTS0] = {
+	[CL_RES_DEFAULTS0] = {
 		.cl_name = "defaults",
 		.cl_len = 8,
 		.cl_type = 'd',
 		.cl_hostcontext = false,
 		.cl_father = CL_RESOURCE,
 	},
-	[CL_DEFAULTS] = {
+	[CL_RES_DEFAULTS] = {
 		.cl_name = "defaults-",
 		.cl_len = 9,
 		.cl_type = 'd',
@@ -4625,17 +4758,17 @@ static const struct light_class light_classes[] = {
 	},
 	/* ... and its contents
 	 */
-	[CL_DEFAULTS_ITEMS0] = {
+	[CL_RES_DEFAULTS_ITEMS0] = {
 		.cl_name = "",
 		.cl_len = 0, // catch any
 		.cl_type = 'l',
-		.cl_father = CL_DEFAULTS0,
+		.cl_father = CL_RES_DEFAULTS0,
 	},
-	[CL_DEFAULTS_ITEMS] = {
+	[CL_RES_DEFAULTS_ITEMS] = {
 		.cl_name = "",
 		.cl_len = 0, // catch any
 		.cl_type = 'l',
-		.cl_father = CL_DEFAULTS,
+		.cl_father = CL_RES_DEFAULTS,
 	},
 
 	/* Subdirectory for controlling items...

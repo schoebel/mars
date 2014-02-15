@@ -1124,6 +1124,32 @@ sub set_link_cmd {
   }
 }
 
+sub set_sync_pref_list {
+  my ($cmd, $list) = @_;
+  my $todo_dir = "$mars/defaults-$host";
+  ldie "directory '$todo_dir' does not exist\n" unless -d $todo_dir;
+  my $dst = "$todo_dir/sync-pref-list";
+  if ($cmd =~ m/^get-/) {
+    my $value = get_link($dst);
+    lprint "$value\n";
+    return;
+  }
+  set_link($list, $dst);
+}
+
+sub set_sync_limit_value {
+  my ($cmd, $value) = @_;
+  my $todo_dir = "$mars/defaults-$host";
+  ldie "directory '$todo_dir' does not exist\n" unless -d $todo_dir;
+  my $dst = "$todo_dir/sync-limit";
+  if ($cmd =~ m/^get-/) {
+    my $value = get_link($dst);
+    lprint "$value\n";
+    return;
+  }
+  set_link($value, $dst);
+}
+
 sub _create_cluster {
   my ($cmd) = @_;
   system("mkdir $mars") unless -d $mars;
@@ -1144,6 +1170,8 @@ sub _create_cluster {
   system("mkdir $mars/userspace") unless -d "$mars/userspace";
   system("mkdir $mars/defaults") unless -d "$mars/defaults";
   system("mkdir $mars/defaults-$host") unless -d "$mars/defaults-$host";
+  set_link("0", "$mars/defaults-$host/sync-limit");
+  set_link("(none)", "$mars/defaults-$host/sync-pref-list");
   system("mkdir $mars/todo-global") unless -d "$mars/todo-global";
   mkdir("$mars/actual-$host") unless -d "$mars/actual-$host";
   set_link($ip, "$mars/ips/ip-$host");
@@ -2052,6 +2080,10 @@ my %cmd_table =
    "log-purge-all"     => \&log_purge_res,
    "fake-sync"         => \&fake_local_res,
    "set-link"          => \&set_link_cmd,
+   "set-sync-pref-list"=> \&set_sync_pref_list,
+   "get-sync-pref-list"=> \&set_sync_pref_list,
+   "set-sync-limit-value"=> \&set_sync_limit_value,
+   "get-sync-limit-value"=> \&set_sync_limit_value,
    "delete-file"       => \&delete_file_cmd,
    "set-emergency-limit" => \&emergency_limit_res,
    "get-emergency-limit" => \&emergency_limit_res,
@@ -2204,8 +2236,13 @@ if (!(-d $mars) && $cmd !~ m/(create|join)-cluster|cat/) {
 }
 
 my $res = "";
-if ($cmd eq "show") {
+if ($cmd =~ "show") {
   $res = shift @args;
+} elsif ($cmd =~ m/^set-.*-list$/) {
+  $res = shift @args || helplist "comma-separated list argument is missing\n";
+} elsif ($cmd =~ m/^set-.*-value$/) {
+  $res = shift @args || helplist "numeric argument is missing\n";
+  ldie "argument '$res' isn't numeric\n" unless $res =~ m/^[0-9.]+$/;
 } elsif (!($cmd =~ m/^(create|leave|wait)-cluster|cat|[a-z]+-file|^[sg]et-/)) {
   $res = shift @args || helplist "resource argument is missing\n";
   check_id($res);
@@ -2219,9 +2256,10 @@ my %checked_res;
 sub do_one_res {
   my $func = shift;
   my ($cmd, $res) = @_;
-  if (!$checked_res{"$cmd$res"}) {
-    $res = check_res($res) unless $cmd =~ m/^(join|create|leave|wait)-cluster|create-resource|show|cat|[a-z]+-file|set-link$/;
-    check_res_member($res) unless $cmd =~ m/^(join|create|delete)-(cluster|resource)|(leave|wait)-cluster|show|cat|[a-z]+-file|set-link$/;
+  if ($cmd =~ m/^cat|-file$|-list$|-link$|-value$/) { # no resource argument
+  } elsif (!$checked_res{"$cmd$res"}) {
+    $res = check_res($res) unless (!$res || $cmd =~ m/^(join|create|leave|wait)-cluster|create-resource|show/);
+    check_res_member($res) unless (!$res || $cmd =~ m/^(join|create|delete)-(cluster|resource)|(leave|wait)-cluster|show/);
     detect_splitbrain($res, 1);
     $checked_res{"$cmd$res"} = 1;
   }
