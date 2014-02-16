@@ -81,6 +81,8 @@ sub correct_path {
 
 my @link_list = ();
 my %link_hash;
+my $threshold = 10 * 1024 * 1024;
+my $window = 30;
 my $verbose = 0;
 my $dry_run = 0;
 
@@ -90,6 +92,7 @@ sub get_link {
   if (!defined($result)) {
     ldie  "cannot read symlink '$path'\n" unless $unchecked;
     lwarn "cannot read symlink '$path'\n" if $unchecked == 1;
+    $result = "";
   }
   return $result;
 }
@@ -98,7 +101,7 @@ sub is_link_recent {
   my ($path) = @_;
   my @stat = lstat($path);
   return 0 if (!@stat);
-  return 1 if $stat[9] + 15 >= mars_time();
+  return 1 if $stat[9] + $window >= mars_time();
   return 0;
 }
 
@@ -235,8 +238,9 @@ sub sleep_timeout {
 sub wait_cond {
   my ($cmd, $res, $specific) = @_;
   my $is_actual = ($specific =~ s/^(is|has)-//);
-  my $is_on = !($specific =~ s/-off$//);
-  $specific =~ s/-on$//;
+  $specific =~ s/^todo-//;
+  my $is_on = !($specific =~ s/-(off|0)$//);
+  $specific =~ s/-(on|1)$//;
   if ($is_actual) {
     if ($specific eq "device") {
       check_mars_device($cmd, $res, 1, !$is_on);
@@ -538,11 +542,11 @@ sub _get_minmax {
   my ($res, $glob, $take_symlink) = @_;
   my $min = -1;
   my $max = -1;
-  my @paths = glob($glob) or ldie "cannot find '$glob'\n";
+  my @paths = glob($glob) or lwarn "cannot find '$glob'\n";
   foreach my $path (@paths) {
     my $nr = $path;
     if ($take_symlink) {
-      $nr = get_link($path);
+      $nr = get_link($path, 1);
     }
     $nr =~ s:^.*[a-z]+-([0-9]+)(-[^/]*)?$:$1:;
     $min = $nr if ($nr < $min || $min < 0);
@@ -552,23 +556,27 @@ sub _get_minmax {
 }
 
 sub get_minmax_logfiles {
-  my ($res) = @_;
-  return _get_minmax($res, "$mars/resource-$res/log-*", 0);
+  my ($res, $peer) = @_;
+  $peer = "" unless defined($peer);
+  return _get_minmax($res, "$mars/resource-$res/log-*$peer", 0);
 }
 
 sub get_minmax_versions {
-  my ($res) = @_;
-  return _get_minmax($res, "$mars/resource-$res/version-*", 0);
+  my ($res, $peer) = @_;
+  $peer = "" unless defined($peer);
+  return _get_minmax($res, "$mars/resource-$res/version-*$peer", 0);
 }
 
 sub get_minmax_any {
-  my ($res) = @_;
-  return _get_minmax($res, "$mars/resource-$res/{log,version}-*", 0);
+  my ($res, $peer) = @_;
+  $peer = "" unless defined($peer);
+  return _get_minmax($res, "$mars/resource-$res/{log,version}-*$peer", 0);
 }
 
 sub get_minmax_replays {
-  my ($res) = @_;
-  return _get_minmax($res, "$mars/resource-$res/replay-*", 1);
+  my ($res, $peer) = @_;
+  $peer = "" unless defined($peer);
+  return _get_minmax($res, "$mars/resource-$res/replay-*$peer", 1);
 }
 
 ##################################################################
@@ -706,15 +714,30 @@ sub detect_splitbrain {
 }
 
 sub _mark_path_backward {
-  my ($basedir, $pos, $peer, $skip_last) = @_;
+  my ($basedir, $pos, $peer, $skip, $jump_peer) = @_;
   my $sum = 0;
+  my $base_nr = 0;
   for (;;) {
     my ($p, $nr, $from, $len) = _parse_pos($pos, 1);
+    last if defined($skip) && $nr < $skip;
+    $base_nr = $nr;
     _visit($nr, $peer);
+    # When following chains from foreign hosts (e.g. the designated primary),
+    # we must jump over to our own chain somewhen, because the lengths of
+    # the chains may be different (caused by invalidate & friends).
+    if (defined($jump_peer) && $jump_peer ne $peer) {
+      my $peer_path = sprintf("$basedir/version-%09d-$peer", $nr);
+      my $jump_path = sprintf("$basedir/version-%09d-$jump_peer", $nr);
+      my $peer_version = get_link($peer_path, 2);
+      my $jump_version = get_link($jump_path, 2);
+      if (defined($peer_version) && defined($jump_version) && $peer_version eq $jump_version) {
+	$peer = $jump_peer;
+      }
+    }
     $pos = _get_prev_pos($basedir, $nr, $peer, 1);
     last if !$pos;
     # optionally don't count the last versionlink, pointing into nirvana
-    if (defined($skip_last) && $skip_last && $nr > 1) {
+    if (defined($skip) && $skip && $nr > 1) {
       my ($p, $nr, $from, $len) = _parse_pos($pos, 0);
       last if !$p;
       my $next = _get_prev_pos($basedir, $nr, $peer, 1);
@@ -722,7 +745,7 @@ sub _mark_path_backward {
     }
     $sum += $len;
   }
-  return $sum;
+  return ($sum, $base_nr);
 }
 
 sub _mark_path_forward {
@@ -933,24 +956,26 @@ sub _replace_timestamps {
 }
 
 sub _get_text {
-  my ($path, $regex, $do_print) = @_;
-  open(IN, "<", $path) or return "";
+  my ($glob, $regex, $do_print, $get_count) = @_;
   my $text = "";
   my $count = 0;
-  while (my $line = <IN>) {
-    # use regex e.g. for fetching only errors and warnings
-    if (!$regex || $line =~ $regex) {
-      $line = _replace_timestamps($line);
-      $count++;
-      if ($do_print) {
-	print $line;
-      } else {
-	$text .= $line;
+  foreach my $path (glob($glob)) {
+    open(IN, "<", $path) or next;
+    while (my $line = <IN>) {
+      # use regex e.g. for fetching only errors and warnings
+      if (!$regex || $line =~ $regex) {
+	$line = _replace_timestamps($line);
+	$count++;
+	if ($do_print) {
+	  print $line;
+	} else {
+	  $text .= $line;
+	}
       }
     }
+    close(IN);
   }
-  close(IN);
-  return $count if $do_print;
+  return $count if defined($get_count) && $get_count;
   return $text;
 }
 
@@ -1500,8 +1525,6 @@ sub _get_deletable_logfiles {
     my $nr = $1;
     $max = $nr if ($nr < $max || $max < 0);
   }
-  lprint "min     deletable logfile number: $min\n";
-  lprint "min non-deletable logfile number: $max\n";
   return ($min, $max);
 }
 
@@ -1556,6 +1579,8 @@ sub logdelete_res {
   my @paths = glob("$mars/resource-$res/log-*") or ldie "cannot find any logfiles\n";
   @paths = sort(@paths);
   my ($min_deletable, $max_deletable) = _get_deletable_logfiles(@_);
+  lprint "min     deletable logfile number: $min_deletable\n";
+  lprint "min non-deletable logfile number: $max_deletable\n";
   if ($min_deletable >= $max_deletable) {
     lprint "no logfiles are deletable.\n";
     return;
@@ -2064,6 +2089,1570 @@ sub version {
 } 
 
 ##################################################################
+
+# pretty printing
+
+sub seconds2human {
+  my $seconds = shift;
+  return "--:--:--" unless (defined($seconds) && $seconds ne "" && $seconds >= 0);
+  return sprintf("%02d:%02d:%02d", $seconds / 3600, ($seconds % 3600) / 60, $seconds % 60);
+}
+
+sub number2human {
+  my ($unit, $number) = @_;
+  my $k = 1024;
+  my $use_float = ($number =~ m/\./);
+  $k = 1024.0 if $use_float;
+  $_ = $unit;
+ SWITCH: {
+    if (/t/i) {
+      $number /= $k * $k * $k * $k;
+      $unit = "TiB";
+      last SWITCH;
+    }
+    if (/g/i) {
+      $number /= $k * $k * $k;
+      $unit = "GiB";
+      last SWITCH;
+    }
+    if (/m/i) {
+      $number /= $k * $k;
+      $unit = "MiB";
+      last SWITCH;
+    }
+    if (/k/i) {
+      $number /= $k;
+      $unit = "KiB";
+      last SWITCH;
+    }
+    $unit = "B";
+  }
+  if ($use_float || ($number =~ m/\./)) {
+    $number = sprintf("%.3f", $number);
+  }
+  return ($unit, $number);
+}
+
+sub progress_bar {
+  my ($length, $min, $mid, $max) = @_;
+  $min = 0 if $min < 0;
+  $mid = $min if $mid < $min;
+  $max = $mid if $max < $mid;
+  $max = 1 if $max < 1;
+  my $pos1 =  $length * $min / $max;
+  my $bar = '=' x ($pos1 - 1);
+  if ($pos1 < $length) {
+    $bar .= ">";
+    $pos1++;
+  }
+  my $pos2 =  $length * $mid / $max;
+  if ($pos1 < $pos2) {
+    $bar .= ':' x ($pos2 - $pos1);
+  }
+  if ($pos2 < $length) {
+    $bar .= '.' x ($length - $pos2);
+  }
+  return "[$bar]";
+}
+
+##################################################################
+
+# macro evaluation
+
+sub make_numeric {
+  my $number = shift;
+  return 0 if (!defined($number) || $number eq "");
+  return $number;
+}
+
+sub set_args {
+  my $outer_env = shift;
+  my $inner_env = shift;
+  $$inner_env{"callstack"} .= "," if $$inner_env{"callstack"};
+  $$inner_env{"callstack"} .= ${_[0]};
+  my $index = 0;
+  while (defined(my $next = shift)) {
+    my $arg = parse_macro($next, $outer_env);
+    $$inner_env{$index++} = $arg;
+  }
+  # clear all other number variables to avoid confusion
+  while (defined($$inner_env{$index})) {
+    undef $$inner_env{$index++};
+  }
+}
+
+# evaluate a primitive macro
+sub eval_fn {
+  my $env = shift;
+  my $fn = shift;
+  # optionally allow primitive macros without prefix primitive- to be substituted
+  if ($fn !~ s/^primitive[-_]?//) {
+    my $macro = get_macro($fn, 1);
+    if ($macro) {
+      set_args($env, $env, $fn, @_);
+      return parse_macro($macro, $env);
+    }
+  }
+  my $arg1 = shift;
+  $_ = $fn;
+ SWITCH: {
+    if (/^$/) { # variable
+      my $varname;
+      # prefix *crement operators
+      if ($arg1 =~ m/^([-+]{2})$/) {
+	my $op = $arg1;
+	$varname = parse_macro(shift, $env);
+	if ($op =~ m/^\+/) {
+	  $$env{$varname}++;
+	} else {
+	  $$env{$varname}--;
+	}
+      } else {
+	$varname = parse_macro($arg1, $env);
+      }
+      my $result = "";
+      if (defined($$env{$varname})) {
+	$result = $$env{$varname};
+      }
+      # postfix *crement operators
+      if (defined(${_[0]}) && ${_[0]} =~ m/^([-+]{2})$/) {
+	my $op = shift;
+	if ($op =~ m/^\+/) {
+	  $$env{$varname}++;
+	} else {
+	  $$env{$varname}--;
+	}
+      }
+      # provisionary light-weight arrays based on CSV format
+      if (defined(my $delim = shift) && defined(my $index = shift)) {
+	$delim = parse_macro($delim, $env);
+	$index = parse_macro($index, $env);
+	my @list = split($delim, $result);
+	# get last element when denoted
+	$index = scalar(@list) - 1 if ($index eq "" || $index eq "*");
+	$result = $list[$index];
+      }
+      return $result;
+    }
+    if (/^let$/) { # assignment
+      my $varname = parse_macro($arg1, $env);
+      my $arg2 = shift;
+      my $value = parse_macro($arg2, $env);
+      $$env{$varname} = $value;
+      return "";
+    }
+    if (/^append$/) { # .=
+      my $varname = parse_macro($arg1, $env);
+      my $arg2 = shift;
+      my $value = parse_macro($arg2, $env);
+      $$env{$varname} .= $value;
+      return "";
+    }
+    if (/^set$/) { # provisionary light-weight arrays based on CSV format
+      my $varname = parse_macro($arg1, $env);
+      my $delim = shift;
+      $delim = parse_macro($delim, $env);
+      my $index = shift;
+      $index = parse_macro($index, $env);
+      my @list = split($delim, $$env{$varname});
+      # append to list when denoted
+      $index = scalar(@list) if ($index eq "" || $index eq "*");
+      my $value = shift;
+      $value = parse_macro($value, $env);
+      $list[$index] = $value;
+      $$env{$varname} = join($delim, @list);
+      return "";
+    }
+    if (/^dump[-_]?vars$/) { # write to stderr
+      foreach my $key (sort(keys(%$env))) {
+	next if $key =~ m/^__.*__$/;
+	my $val = $$env{$key};
+	lprint_stderr "$key='$val'\n";
+      }
+      return "";
+    }
+    if (/^([-+*\/%&|^]|>>|<<|min|max)$/) { # arithmetic / associative operators
+      my $op = $1;
+      my $number = make_numeric(parse_macro($arg1, $env));
+      while (defined(my $next = shift)) {
+	my $operand = make_numeric(parse_macro($next, $env));
+	$_ = $op;
+	if (/^\+$/) { $number += $operand; next; }
+	if (/^-$/)  { $number -= $operand; next; }
+	if (/^\*$/) { $number *= $operand; next; }
+	if (/^\/$/) { $number /= $operand; next; }
+	if (/^%$/)  { $number %= $operand; next; }
+	if (/^&$/)  { $number &= $operand; next; }
+	if (/^\|$/) { $number |= $operand; next; }
+	if (/^\^$/) { $number ^= $operand; next; }
+	if (/^<<$/) { $number <<= $operand; next; }
+	if (/^>>$/) { $number >>= $operand; next; }
+	if (/^min$/) { $number = $operand if $number < $operand; next; }
+	if (/^max$/) { $number = $operand if $number > $operand; next; }
+	ldie "bad arithmetic operator '$op'";
+      }
+      return $number;
+    }
+    if (/^([<>]=?|[!=]=)$/) { # comparisons
+      my $op = $1;
+      $op = "~" if $op eq "match";
+      my $n1 = make_numeric(parse_macro($arg1, $env));
+      my $arg2 = shift;
+      my $n2 = make_numeric(parse_macro($arg2, $env));
+      $_ = $op;
+      if (/^<$/) { return $n1 < $n2; }
+      if (/^>$/) { return $n1 > $n2; }
+      if (/^<=$/) { return $n1 <= $n2; }
+      if (/^>=$/) { return $n1 >= $n2; }
+      if (/^==$/) { return $n1 == $n2; }
+      if (/^!=$/) { return $n1 != $n2; }
+      ldie "bad comparison operator '$op'";
+    }
+    if (/^(lt|gt|le|ge|eq|ne|match)$/) { # binary operators
+      my $op = $1;
+      $op = "~" if $op eq "match";
+      my $n1 = parse_macro($arg1, $env);
+      my $arg2 = shift;
+      my $n2 = parse_macro($arg2, $env);
+      $_ = $op;
+      if (/^lt$/) { return $n1 lt $n2; }
+      if (/^gt$/) { return $n1 gt $n2; }
+      if (/^le$/) { return $n1 le $n2; }
+      if (/^ge$/) { return $n1 ge $n2; }
+      if (/^eq$/) { return $n1 eq $n2; }
+      if (/^ne$/) { return $n1 ne $n2; }
+      if (/^=~$/)  {
+	my $opts = "m";
+	my $arg3 = shift;
+	$opts = parse_macro($arg3, $env) if defined($arg3);
+	# unfortunately standard regex operators don't seem to accept variable options, so we use eval()
+	eval("\$n1 =~ m{$n2}$opts");
+	return $n1;
+      }
+      ldie "bad binary operator '$op'";
+    }
+    if (/^(&&|\|\||and|or)$/) { # shortcut operators
+      my $op = $1;
+      $op = "&&" if $op eq "and";
+      $op = "||" if $op eq "or";
+      my $number = parse_macro($arg1, $env);
+      while (defined(my $next = shift)) {
+	$_ = $op;
+	if (/^&&$/)   { return 0 if !$number; }
+	if (/^\|\|$/) { return 1 if $number;  }
+	my $operand = parse_macro($next, $env);
+	$_ = $op;
+	if (/^&&$/)   { $number &= $operand; next; }
+	if (/^\|\|$/) { $number |= $operand; next; }
+	ldie "bad shortcut operator '$op'";
+      }
+      return $number;
+    }
+    if (/^([~!]|not)$/) { # unary operators
+      my $op = $1;
+      $op = "!" if $op eq "not";
+      my $number = parse_macro($arg1, $env);
+      $_ = $op;
+      if (/^~$/) { return ~$number; }
+      if (/^!$/) { return !$number; }
+      ldie "bad unary operator '$op'";
+    }
+    # string functions
+    if (/^toupper$/) {
+      my $txt = parse_macro($arg1, $env);
+      return uc($txt);
+    }
+    if (/^tolower$/) {
+      my $txt = parse_macro($arg1, $env);
+      return lc($txt);
+    }
+    if (/^length$/) { # string length
+      my $txt = parse_macro($arg1, $env);
+      return length($txt);
+    }
+    if (/^subst$/) { # regex substitution operator
+      my $txt = parse_macro($arg1, $env);
+      my $arg2 = shift;
+      my $regex = parse_macro($arg2, $env);
+      my $arg3 = shift;
+      my $subst = parse_macro($arg3, $env);
+      my $opts = "m";
+      my $arg4 = shift;
+      $opts = parse_macro($arg4, $env) if defined($arg4);
+      # unfortunately standard regex operators don't seem to accept variable options, so we use eval()
+      eval("\$txt =~ s{$regex}{$subst}$opts");
+      return $txt;
+    }
+    if (/s?printf$/) { # sprintf()
+      my $fmt = $arg1; # exception: don't evaluate the format string!
+      my @list = ();
+      while (defined(my $next = shift)) {
+	my $operand = parse_macro($next, $env);
+	push @list, $operand;
+      }
+      return sprintf($fmt, @list);
+    }
+    if (/^human[-_]?numbers?$/) { # convert numbers to readable format
+      my $name = $_;
+      my $unit = parse_macro($arg1, $env);
+      my $arg2 = shift;
+      my $delim_numbers = parse_macro($arg2, $env);
+      $delim_numbers = "/" if $delim_numbers eq "";
+      my $arg3 = shift;
+      my $delim_unit = parse_macro($arg3, $env);
+      $delim_unit = " " if $delim_unit eq "";
+      my $max = 0;
+      my @list = ();
+      while (defined(my $next = shift)) {
+	my $number = make_numeric(parse_macro($next, $env));
+	push @list, $number;
+	$max = $number if $number > $max;
+      }
+      lwarn "macro $name: no number arguments given\n" unless @list;
+      if (!$unit) {
+	if ($max >= 999 * 1024*1024*1024*1024) {
+	  $unit = "T";
+	} elsif ($max >= 999 * 1024*1024*1024) {
+	  $unit = "G";
+	} elsif ($max >= 99 * 1024*1024) {
+	  $unit = "M";
+	} elsif ($max >= 9 * 1024) {
+	  $unit = "K";
+	} else {
+	  $unit = "";
+	}
+      }
+      my @results = ();
+      my $conv_unit = "";
+      foreach my $number (@list) {
+	($conv_unit, my $conv_number) = number2human($unit, $number);
+	push @results, $conv_number;
+      }
+      return join($delim_numbers, @results) . "$delim_unit$conv_unit";
+    }
+    if (/^human[-_]?seconds$/) { # convert numbers to readable format
+      # don't use make_numeric() here in order to allow the result '--:--:--'
+      my $number = parse_macro($arg1, $env);
+      return seconds2human($number);
+    }
+    if (/^progress$/) { # progress bar
+      my $length = make_numeric(parse_macro($arg1, $env));
+      $length = 20 unless ($length && $length > 0);
+      my $arg2 = shift;
+      if (!defined($arg2)) { # use default values
+	my @vector = split(':', eval_fn($env, "summary-vector", ":"));
+	return progress_bar($length, @vector);
+      }
+      my $min = make_numeric(parse_macro($arg2, $env));
+      my $arg3 = shift;
+      my $mid = make_numeric(parse_macro($arg3, $env));
+      my $arg4 = shift;
+      my $max = make_numeric(parse_macro($arg4, $env));
+      return progress_bar($length, $min, $mid, $max);
+    }
+    if (/^get[-_]?log[-_]?status/) {
+      return get_error_text($$env{"cmd"}, $$env{"res"});
+    }
+    if (/^get[-_]?resource[-_]?(fat|err|wrn)([-_]?count)?/) {
+      my $what = $1;
+      my $do_count = $2;
+      my %assoc = ("fat" => 4, "err" => 3, "wrn" => 2);
+      my $glob = $$env{"resdir"} . "/$assoc{$what}.*.status";
+      return _get_text($glob, undef, 0, $do_count);
+    }
+    if (/^warn/) {
+      my $txt = parse_macro($arg1, $env);
+      lwarn $txt;
+      return "";
+    }
+    if (/^die$/) {
+      my $txt = parse_macro($arg1, $env);
+      ldie $txt;
+      return "";
+    }
+    # low-level symlink access
+    if (/^readlink$/) {
+      my $path = parse_macro($arg1, $env);
+      return get_link($path, 1);
+    }
+    if (/^setlink$/) {
+      my $src = parse_macro($arg1, $env);
+      my $arg2 = shift;
+      my $dst = parse_macro($arg2, $env);
+      set_link($src, $dst);
+      return "";
+    }
+    # high-level state access
+    if (/^(get|todo|actual)[-_]?primary$/) {
+      my $op = $1;
+      my $primary;
+      if ($op eq "actual") {
+	$primary = _get_actual_primary($$env{"res"});
+      } else {
+	$primary = _get_designated_primary($$env{"res"});
+      }
+      $primary = "" if (!defined($primary) || $primary eq "(none)");
+      $primary = ($primary eq $$env{"host"}) if $op eq "todo";
+      return $primary;
+    }
+    if (/^todo[-_]?(attach|sync|fetch|replay)?$/) {
+      my $what = $1;
+      $what = parse_macro($arg1, $env) unless defined($what);
+      my $lnk = $$env{"resdir"} . "/todo-" . $$env{"host"} . "/$what";
+      $lnk = correct_path($lnk);
+      return get_link($lnk, 1);
+    }
+    if (/^get[-_]?msg$/) {
+      my $what = parse_macro($arg1, $env);
+      my $lnk = $$env{"resdir"} . "/actual-" . $$env{"host"} . "/msg-$what";
+      return get_link($lnk, 1);
+    }
+    if (/^(all|the)[-_](pretty[-_]?)?(global[-_]?)?((?:err|wrn|inf)[-_])?(msg|count)$/) {
+      my $shorten = ($1 eq "the");
+      my $pretty = $2;
+      my $global = $3;
+      my $specific = $4;
+      my $type = $5;
+      $specific = "" unless defined($specific);
+      my $glob = "$mars";
+      $glob = $$env{"resdir"} if (!defined($global) && $$env{"res"});
+      $glob .= "/actual-" . $$env{"host"} . "/msg-$specific*";
+      my $result = "";
+      my $count = 0;
+      foreach my $msg_path (glob($glob)) {
+	my $val = get_link($msg_path, 1);
+	if ($shorten) {
+	  # skip uninteresting messages
+	  next if $val =~ m/^OK/;
+	  # skip _transient_ error messages
+	  if ($msg_path =~ m/-err-/ && $val =~ m/^([0-9]+\.[0-9]{9})/) {
+	    my $stamp = $1;
+	    if ($stamp) {
+	      my $delta = $timeout > 0 ? $timeout : 30;
+	      next if $stamp + $delta > time();
+	    }
+	  }
+	}
+	$val = _replace_timestamps($val, $shorten) if defined($pretty);
+	my $key = $msg_path;
+	$key =~ s:^.*/msg-::;
+	$result .= "$key: $val\n";
+	$count++;
+      }
+      return $count if $type eq "count";
+      return $result;
+    }
+    if (/^is[-_]?alive$/) {
+      my $peer = parse_macro($arg1, $env);
+      $peer = _get_designated_primary($$env{"res"}) unless $peer;
+      $peer = $$env{"host"} unless $peer;
+      my $lnk = "$mars/alive-$peer";
+      return is_link_recent($lnk);
+    }
+    if (/^is[-_]?(almost[-_]?)?consistent$/) {
+      my $almost = $1;
+      # has sync finished?
+      my $syncrest = make_numeric(eval_fn($env, "sync-rest", ""));
+      return 0 if $syncrest > 0;
+      unless ($almost) {
+	# is the replay link indicating that something is not yet applied / dirty?
+	my $replay = get_link($$env{"resdir"} . "/replay-" . $$env{"host"}, 1);
+	$replay =~ m:,[0-9]+,([0-9]+):;
+	my $rest = $1;
+	return 0 if $rest > 0;
+      }
+      # are all logfiles applied which had accumulated during sync?
+      my $syncpos = make_numeric(eval_fn($env, "syncpos-pos", ""));
+      if ($syncpos) {
+	my $applied = make_numeric(eval_fn($env, "replay-pos", ""));
+	return 0 if $applied < $syncpos;
+      }
+      return 1;
+    }
+    if (/^(present|get)[-_]?(disk|device)$/) {
+      my $op = $1;
+      my $what = $2;
+      $what = "data" if $what eq "disk";
+      my $lnk = $$env{"resdir"} . "/$what-" . $$env{"host"};
+      my $result = get_link($lnk, 1);
+      $result = "" unless defined($result);
+      $result = "/dev/mars/$result" if ($what eq "device" && $result !~ m:^/:);
+      if ($op eq "present" && $result) {
+	$result = -b $result;
+	$result = "" unless defined($result);
+      }
+      return $result;
+    }
+    if (/^is[-_]?split([-_]?brain)?$/) {
+      my $split = detect_splitbrain($$env{"res"}, 0);
+      return $split ? 0 : 1;
+    }
+    if (/^is[-_]?(attach|sync|fetch|replay|primary|emergency)$/) {
+      my $what = $1;
+      my $lnk = $$env{"resdir"} . "/actual-" . $$env{"host"} . "/is-$what";
+      $lnk = correct_path($lnk);
+      return get_link($lnk, 1);
+    }
+    if (/^does$/) {
+      my $what = parse_macro($arg1, $env);
+      my $lnk = $$env{"resdir"} . "/actual-" . $$env{"host"} . "/is-$what";
+      $lnk = correct_path($lnk);
+      return get_link($lnk, 1);
+    }
+    if (/^(tree|rest-space)$/) {
+      my $what = $1;
+      my $lnk = "$mars/$what-$host";
+      $lnk = correct_path($lnk);
+      return get_link($lnk, 1);
+    }
+    if (/^(uuid)$/) {
+      my $what = $1;
+      my $lnk = "$mars/$what";
+      $lnk = correct_path($lnk);
+      return get_link($lnk, 1);
+    }
+    if (/^(sync|fetch|replay|work)[-_]?(rate|remain)$/) {
+      my $what = $1;
+      my $select = $2;
+      if ($what eq "work") {
+	my $val1 = eval_fn($env, "fetch-$select", "");
+	my $val2 = eval_fn($env, "replay-$select", "");
+	return "" if (!defined($val1) || $val1 eq "");
+	return "" if (!defined($val2) || $val2 eq "");
+	$val1 = make_numeric($val1);
+	$val2 = make_numeric($val2);
+	return $val1 + $val2 if $select eq "remain";
+	# take the maximum rate
+	return $val1 if $val1 > $val2;
+	return $val2;
+      }
+      my %names =
+	(
+	 "sync"   => "sync_rate",
+	 "fetch"  => "file_rate",
+	 "replay" => "replay_rate",
+	);
+      my $lnk = $$env{"resdir"} . "/actual-" . $$env{"host"} . "/" . $names{$what};
+      my $rate = get_link($lnk, 2);
+      return "" if !defined($rate) || $rate eq "" || $rate < 0;
+      return $rate * 1024 if $select eq "rate";
+      if ($select eq "remain") {
+	my $rest = make_numeric(eval_fn($env, "$what-rest", ""));
+	return 0 if $rest <= 0;
+	return -1 if ($rate <= 0);
+	return $rest / 1024 / $rate;
+      }
+      ldie "unknown macro $_\n";
+    }
+    if (/^sync[-_]?size$/) {
+      my $lnk = $$env{"resdir"} . "/size";
+      return get_link($lnk, 1);
+    }
+    if (/^sync[-_]?pos$/) {
+      my $lnk = $$env{"resdir"} . "/syncstatus-" . $$env{"host"};
+      return get_link($lnk, 1);
+    }
+    if (/^(fetch|replay|work|syncpos)[-_]?(size|pos|lognr|basenr|_internal_)$/) {
+      my $what = $1;
+      my $op   = $2;
+      my $sum = 0;
+      my $pos;
+      # work-* spans both the replay and fetch ranges
+      if ($what eq "work") {
+	$what = ($op eq "size") ? "fetch" : "replay";
+      }
+      my ($min, $max, $inter_sum) = (0, 0, 0);
+      if ($op eq "size" || ($what eq "fetch" && $op =~ /nr$/)) {
+	if ($what eq "replay") { # same as fetch-pos
+	  return eval_fn($env, "fetch-pos", "");
+	}
+
+	my $primary = _get_designated_primary($$env{"res"});
+	$primary = $host if $primary eq "(none)";
+	my $replay_base_nr = eval_fn($env, "replay-basenr", "");
+
+	my $replay = get_link($$env{"resdir"} . "/replay-$primary", 1);
+	($pos, my $nr, my $from, $sum)  = _parse_pos($replay);
+	my $base_nr = $nr;
+	$pos = _get_prev_pos($$env{"resdir"}, $nr, $primary);
+	if ($pos) {
+	  (my $plus, $base_nr) = _mark_path_backward($$env{"resdir"}, $pos, $primary, $replay_base_nr, $host);
+	  $sum += $plus;
+	}
+	
+	($min, $max) = get_minmax_versions($$env{"res"}, "-$primary");
+	my $check_pos = get_link($$env{"resdir"} . "/version-$max-$primary", 1);
+	$check_pos =~ s{^.*(log-[^:]*):.*$}{$1};
+	my ($test_pos, $test_nr, $test_from, $test_sum)  = _parse_pos($check_pos);
+	$test_pos = _get_prev_pos($$env{"resdir"}, $test_nr, $primary);
+	my $test_base_nr = $base_nr;
+	if ($test_pos) {
+	  (my $test_plus, $test_base_nr) = _mark_path_backward($$env{"resdir"}, $test_pos, $primary, $replay_base_nr, $host);
+	  $test_sum += $test_plus;
+	}
+	if ($test_sum > $sum) { # take the maximum
+	  ($pos, $nr, $from, $sum, $base_nr) = ($test_pos, $test_nr, $test_from, $test_sum, $test_base_nr);
+	}
+	return $nr if $op eq "lognr";
+	return $base_nr if $op eq "basenr";
+	return $sum;
+      } elsif ($what eq "fetch") { # fetch-pos
+	(my $stop_nr, my $stop_sum, $sum) = eval_fn($env, "replay-_internal_", "");
+	$sum -= $stop_sum;
+	$sum = 0 if $sum < 0;
+	# mark all path elements reachable by the designated primary
+	%visited_pos = ();
+	eval_fn($env, "fetch-size", "");
+	foreach my $file (sort(glob($$env{"resdir"} . "/log-*"))) {
+	  $file =~ m:/log-([0-9]+)-(.*): or ldie "bad path '$file'\n";
+	  my $nr = $1;
+	  my $from = $2;
+	  if ($nr < $stop_nr || !_is_visited($nr, $from)) {
+	    next;
+	  }
+	  my @stat = stat($file);
+	  $sum += $stat[7];
+	}
+	return $sum;
+      } elsif ($what =~ m/replay|syncpos/) {
+	my $replay = get_link($$env{"resdir"} . "/$what-" . $$env{"host"}, $what eq "syncpos" ? 2 : 1);
+	return 0 unless $replay;
+	my ($p, $nr, $from, $len)  = _parse_pos($replay, 1);
+	return $nr if $op eq "lognr";
+	$min = $nr;
+	$sum = $len;
+	$inter_sum = $sum;
+	$pos = _get_prev_pos($$env{"resdir"}, $nr, $$env{"host"});
+      } else {
+	ldie "unknown combination '$what' '$op'\n";
+      }
+      if ($pos) {
+	my ($plus, $base_nr) = _mark_path_backward($$env{"resdir"}, $pos, $$env{"host"}, 1);
+	return $base_nr if $op eq "basenr";
+	$sum += $plus;
+      }
+      return $min if $op eq "basenr";
+      return (make_numeric($min), make_numeric($inter_sum), make_numeric($sum)) if $op eq "_internal_";
+      return $sum;
+    }
+    if (/^(sync|fetch|replay|work)[-_]?(rest|(?:almost[-_]?|threshold[-_]?)?reached|percent|permille|vector)$/) {
+      my $what = $1;
+      my $op   = $2;
+      my $size = make_numeric(eval_fn($env, "$what-size", ""));
+      my $pos  = make_numeric(eval_fn($env, "$what-pos",  ""));
+      my $result = 0;
+      if ($op eq "rest") {
+	$result = $size - $pos if $pos < $size;
+      } elsif ($op =~ m/^almost/) {
+	my $limit = make_numeric(parse_macro($arg1, $env)) if $arg1 ne "";
+	$limit = 990 if $limit <= 0;
+	$result = 1 if int($pos / $limit) >= int($size / 1000);
+      } elsif ($op =~ m/^threshold/) {
+	my $my_threshold = make_numeric($$env{"threshold"});
+	$arg1 = parse_macro($arg1, $env);
+	$my_threshold = make_numeric(get_size($arg1)) if $arg1 ne "";
+	$result = 1 if $pos + $my_threshold >= $size;
+      } elsif ($op eq "reached") {
+	$result = 1 if $pos >= $size;
+      } elsif ($op eq "percent") {
+	$result = 100;
+	$result = 100.5 * $pos / $size if $size > 0;
+	$result = 100 if $result >= 100.0;
+      } elsif ($op eq "permille") {
+	$result = 1000;
+	$result = 1000.5 * $pos / $size if $size > 0;
+	$result = 1000 if $result >= 1000.0;
+      } elsif ($op eq "vector") {
+	my $delim = parse_macro($arg1, $env);
+	$delim = ":" unless $delim;
+	$result = "$pos$delim$size";
+      } else {
+	ldie "unknown operation '$op'\n";
+      }
+      return $result;
+    }
+    if (/^summary[-_]?vector$/) {
+      my $pos1 = make_numeric(eval_fn($env, "replay-pos", ""));
+      my $pos2 = make_numeric(eval_fn($env, "fetch-pos",  ""));
+      my $size = make_numeric(eval_fn($env, "fetch-size", ""));
+      my $delim = parse_macro($arg1, $env);
+      $delim = ":" unless $delim;
+      return "$pos1$delim$pos2$delim$size";
+    }
+    if (/^deletable[-_]?size$/) {
+      my ($min, $max) = _get_deletable_logfiles($_, $$env{"res"});
+      my $sum = 0;
+      foreach my $path (glob("$mars/resource-" . $$env{"res"} . "/log-*")) {
+	$path =~ m/\/log-([0-9]+)-/;
+	my $nr = $1;
+	next if $nr < $min or $nr >= $max;
+	my @stat = stat($path);
+	$sum += $stat[7];
+      }
+      return $sum;
+    }
+    if (/^occupied[-_]?size$/) {
+      my $sum = 0;
+      foreach my $path (glob("$mars/resource-" . $$env{"res"} . "/log-*")) {
+	$path =~ m/\/log-([0-9]+)-/;
+	my @stat = stat($path);
+	$sum += $stat[7];
+      }
+      return $sum;
+    }
+    # time handling and pausing
+    if (/^time$/) {
+      return mars_time();
+    }
+    if (/^sleep$/) {
+      my $time = parse_macro($arg1, $env);
+      sleep($time);
+      return "";
+    }
+    if (/^timeout$/) {
+      my $time = parse_macro($arg1, $env);
+      sleep_timeout($time);
+      return "";
+    }
+    if (/^wait[-_]?((?:todo|is)[-_](?:attach|sync|fetch|replay|primary)[-_](?:on|off))$/) {
+      my $specific = $1;
+      $specific =~ s/_/-/g;
+      wait_cond($$env{"cmd"}, $$env{"res"}, $specific);
+      return "";
+    }
+    if (/^wait$/) {
+      my $specific = parse_macro($arg1, $env);
+      wait_cond($$env{"cmd"}, $$env{"res"}, $specific);
+      return "";
+    }
+    if (/^wait[-_]?resource$/) {
+      wait_cluster($$env{"cmd"}, $$env{"res"});
+      return "";
+    }
+    # generic flow control and loops
+    if (/^(get|foreach)[-_]?glob$/) {
+      my $op = $1;
+      my $paths = parse_macro($arg1, $env);
+      my $arg2 = shift;
+      my $varname = parse_macro($arg2, $env);
+      my $arg3 = shift;
+      my @list = glob($paths);
+      my $result = "";
+      if ($op eq "get") {
+	my $delim = parse_macro($arg3, $env);
+	foreach my $path (@list) {
+	  $result .= $delim if $result;
+	  $result .= $path;
+	}
+      } else { # foreach
+	foreach my $path (@list) {
+	  $$env{$varname} = $path;
+	  $result .= parse_macro($arg3, $env);
+	}
+      }
+      return $result;
+    }
+    if (/^(if|unless)$/) {
+      my $op = $1;
+      my $cond = parse_macro($arg1, $env);
+      $cond = !$cond if $op eq "unless";
+      my $arg2 = shift;
+      if ($cond) {
+	ldie "undefined $op-part\n" unless defined($arg2);
+	return parse_macro($arg2, $env);
+      } elsif (defined(my $arg3 = shift)) {
+	return parse_macro($arg3, $env);
+      }
+      return "";
+    }
+    if (/^else?(if|unless)$/) {
+      my $op = $1;
+      unshift @_, $arg1;
+      while (defined(my $arg1 = shift)) {
+	if (defined(my $arg2 = shift)) {
+	  my $cond = parse_macro($arg1, $env);
+	  $cond = !$cond if $op eq "unless";
+	  if ($cond) {
+	    return parse_macro($arg2, $env);
+	  }
+	} else { # odd number of arguments is treated as final "else"
+	  return parse_macro($arg1, $env);
+	}
+      }
+      return "";
+    }
+    if (/^while$/) {
+      my $arg2 = shift;
+      my $result = "";
+      while (parse_macro($arg1, $env)) {
+	$result .= parse_macro($arg2, $env);
+	next if _control_macro($env, "__next__");
+	last if _control_macro($env, "__last__");
+      }
+      return $result;
+    }
+    if (/^until$/) {
+      my $arg2 = shift;
+      my $result = "";
+      until (parse_macro($arg1, $env)) {
+	$result .= parse_macro($arg2, $env);
+	next if _control_macro($env, "__next__");
+	last if _control_macro($env, "__last__");
+      }
+      return $result;
+    }
+    if (/^for$/) {
+      my ($arg2, $arg3, $arg4) = (shift, shift, shift);
+      my $result = "";
+      for (parse_macro($arg1, $env); parse_macro($arg2, $env); parse_macro($arg3, $env)) {
+	$result .= parse_macro($arg4, $env);
+	next if _control_macro($env, "__next__");
+	last if _control_macro($env, "__last__");
+      }
+      return $result;
+    }
+    if (/^foreach$/) {
+      my $varname = parse_macro($arg1, $env);
+      my $arg2 = shift;
+      my $txt     = parse_macro($arg2, $env);
+      my $arg3 = shift;
+      my $delim   = parse_macro($arg3, $env);
+      my $arg4 = shift;
+      my $result = "";
+      foreach my $value (split($delim, $txt)) {
+	$$env{$varname} = $value;
+	$result .= parse_macro($arg4, $env);
+	next if _control_macro($env, "__next__");
+	last if _control_macro($env, "__last__");
+      }
+      return $result;
+    }
+    if (/^protect$/) { # don't evaluate argument, take verbatim
+      return $arg1;
+    }
+    if (/^eval$/) { # evaluate given number of times
+      my $count = parse_macro($arg1, $env);
+      my $arg2 = shift;
+      while ($count-- > 0) {
+	$arg2 = parse_macro($arg2, $env);
+      }
+      return $arg2;
+    }
+    if (/^eval[-_]?down$/) { # evaluate until result is stable
+      for (;;) {
+	my $old = $arg1;
+	$arg1 = parse_macro($arg1, $env);
+	last if $arg1 eq $old;
+      }
+      return $arg1;
+    }
+    if (/^(include|call)$/) {
+      my $op = $1;
+      my $name = parse_macro($arg1, $env);
+      my $txt = get_macro($name);
+      if ($op eq "call") { # run in new sub-scope
+	my %copy_env = %$env;
+	set_args($env, \%copy_env, $name, @_);
+	return parse_macro($txt, \%copy_env);
+      }
+      # 'include' runs in the same scope
+      set_args($env, $env, $name, @_);
+      return parse_macro($txt, $env);
+    }
+    if (/^callstack$/) {
+      return $$env{"callstack"};
+    }
+    if (/^(abort|return|stop-eval)$/) {
+      my $op = $1;
+      $$env{$op} = 1;
+      return "";
+    }
+    if (/^(next|last)$/) {
+      my $op = $1;
+      $$env{$op} = 1;
+      $$env{"__return__"} = 1;
+      return "";
+    }
+    ldie "call to unknown macro '$fn'\n";
+  }
+}
+
+##################################################################
+
+# macro parsing
+
+my $match_comment = "#[^\n]*\n|//[^\n]*\n|/\\*(?:[^*]|\\*[^/])*\\*/|\\\\\n\\s*";
+my $match_nobrace = qr'(?:[^{}\\]|\\.)*'s;
+my $match_inner = $match_nobrace;
+my $match_brace = qr"\{$match_inner\}"s;
+for (my $i = 0; $i < 20; $i++) {
+  $match_inner = qr"$match_nobrace(?:$match_brace$match_nobrace)*"s;
+  $match_brace = qr"\{$match_inner\}"s;
+}
+my $match_fn_head = qr"\%([\w-]*)(?=\{)"s;
+my $match_fn = qr"$match_fn_head(?:\{($match_inner)\})"s;
+
+sub _control_macro {
+  my $env = shift;
+  my $control = shift;
+  my $result = $$env{$control};
+  $$env{$control} = 0;
+  return $result;
+}
+
+sub parse_macro {
+  my ($text, $env) = @_;
+  $text = "" unless defined($text);
+  my $old_callstack = $$env{"callstack"};
+  my $result = "";
+  while ($text =~ m/\\(.)|$match_fn/sp) {
+    my $escape = $1;
+    my $fn = $2;
+    my @args = ($3);
+    my $pre = $PREMATCH;
+    my $post = $POSTMATCH;
+    if (defined($escape)) {
+      $result .= $pre;
+      $text = $post;
+      $_ = $escape;
+      if (/[tnrfbae]/) {
+	eval "\$result .= \"\\$escape\"";
+	next;
+      }
+      if (/[a-zA-Z]/) {
+	lwarn "control sequence '\\$escape' is reserved for future use\n";
+      }
+      $result .= $escape;
+      next;
+    }
+    return "" if _control_macro($env, "__abort__");
+    return $result if _control_macro($env, "__return__");
+    return $result . $text if _control_macro($env, "__stop_eval__");
+    $result .= $pre;
+    $text = $post;
+    while ($text =~ m/\A\{($match_inner)\}/sp ) {
+      push @args, $1;
+      $text = $POSTMATCH;
+    }
+    my $new = eval_fn($env, $fn, (@args));
+    ldie "undefined result from evaluation of primitive macro '$fn'\n" unless defined($new);
+    $$env{"callstack"} = $old_callstack;
+    $result .= $new;
+  }
+  return "" if _control_macro($env, "__abort__");
+  return $result if _control_macro($env, "__return__");
+  return $result . $text if _control_macro($env, "__stop_eval__");
+  return $result . $text;
+}
+
+sub eval_macro {
+  my ($cmd, $res, $text) = (shift, shift, shift);
+  $text =~ s{$match_comment}{}sg;
+  my %start_env =
+    (
+     "cmd"       => $cmd,
+     "res"       => $res,
+     "resdir"    => "$mars/resource-$res",
+     "mars"      => $mars,
+     "host"      => $host,
+     "ip"        => $ip,
+     "timeout"   => $timeout,
+     "threshold" => $threshold,
+     "window"    => $window,
+     "force"     => $force,
+     "dry-run"   => $dry_run,
+     "verbose"   => $verbose,
+     "callstack" => "",
+     # internal, deliberately not documented
+     "__abort__"     => 0,
+     "__return__"    => 0,
+     "__stop_eval__" => 0,
+     "__next__"      => 0,
+     "__last__"      => 0,
+    );
+  set_args(\%start_env, \%start_env, $cmd, @_);
+  return parse_macro($text, \%start_env);
+}
+
+##################################################################
+
+# macro commands
+
+my $macro = "";
+
+my %complex_macros =
+  (
+   "default" =>
+   => "%if{%{res}}{"
+   .    "  %{res} %include{diskstate} %include{replstate} %include{flags} %include{role} %include{primarynode}\n"
+   .    "%if{%and{%is-attach{}}{%not{%sync-reached{}}}}{"
+   .      "%include{syncinfo}"
+   .    "}"
+   .    "%if{%and{%is-attach{}}{%not{%work-threshold-reached{}}}}{"
+   .      "%include{replinfo}"
+   .    "}"
+   .    "%call{resource-errors}"
+   .  "}{"
+   .    "%the-pretty-global-msg{}"
+   .  "}",
+
+   "1and1"
+   => "%if{%{res}}{"
+   .    "  %{res} %include{diskstate-1and1} %include{replstate-1and1} %include{flags-1and1} %include{role-1and1} %include{primarynode-1and1}\n"
+   .    "%if{%and{%is-attach{}}{%not{%sync-reached{}}}}{"
+   .      "%include{syncinfo-1and1}"
+   .    "}"
+   .    "%if{%and{%is-attach{}}{%not{%work-threshold-reached{}}}}{"
+   .      "%include{replinfo-1and1}"
+   .    "}"
+   .    "%call{resource-errors-1and1}"
+   .  "}{"
+   .    "%the-pretty-global-msg{}"
+   .  "}",
+
+   "diskstate"
+   => "%if{%present-disk{}}{"
+   .    "%if{%does{attach}}{"
+   .      "%if{%is-consistent{}}{"
+   .        "%if{%work-threshold-reached{}}{"
+   .          "UpToDate"
+   .        "}{"
+   .          "OutDated[%call{outdated-flags}]"
+   .        "}"
+   .      "}{InConsistent}"
+   .    "}{Detached}"
+   .  "}{NotPresent}",
+
+   "diskstate-1and1"
+   => "%if{%present-disk{}}{"
+   .    "%if{%does{attach}}{"
+   .      "%if{%is-almost-consistent{}}{"
+   .        "%if{%work-reached{}}{"
+   .          "Uptodate"
+   .        "}{"
+   .          "Outdated[%call{outdated-flags-1and1}]"
+   .        "}"
+   .      "}{Inconsistent}"
+   .    "}{Detached}"
+   .  "}{Detached}",
+
+   "outdated-flags"
+   => "%if{%fetch-threshold-reached{}}{}{F}%if{%replay-reached{}}{}{R}",
+
+   "outdated-flags-1and1"
+   => "%if{%fetch-reached{}}{}{F}%if{%replay-reached{}}{}{R}",
+
+   "replstate"
+   => "%if{%present-disk{}}{"
+   .    "%if{%todo-primary{}}{"
+   .      "%if{%is-primary{}}{"
+   .        "Replicating"
+   .      "}{"
+   .        "NotYetPrimary"
+   .      "}"
+   .    "}{"
+   .      "%if{%is-alive{}}{"
+   .        "%if{%and{%sync-rest{}}{%not{%todo{sync}}}}{"
+   .          "PausedSync"
+   .        "}{"
+   .          "%if{%does{sync}}{"
+   .            "Syncing"
+   .          "}{"
+   .            "%unless{%and{%todo{fetch}}{%todo{replay}}}{"
+   .              "PausedReplay"
+   .            "}{Replaying}"
+   .          "}"
+   .        "}"
+   .      "}{PrimaryUnreachable}"
+   .    "}"
+   .  "}{NotJoined}",
+
+   "replstate-1and1"
+   => "%if{%present-disk{}}{"
+   .    "%if{%is-primary{}}{"
+   .      "Replicating"
+   .    "}{"
+   .      "%if{%is-alive{}}{"
+   .        "%if{%and{%not{%sync-reached{}}}{%not{%todo{sync}}}}{"
+   .          "PausedSync"
+   .        "}{"
+   .          "%if{%does{sync}}{"
+   .            "Syncing"
+   .          "}{"
+   .            "%unless{%and{%todo-fetch{}}{%todo-replay{}}}{"
+   .              "PausedReplay"
+   .            "}{Replaying}"
+   .          "}"
+   .        "}"
+   .      "}{PrimaryUnreachable}"
+   .    "}"
+   .  "}{NotJoined}",
+
+   "flags"
+   => "%if{%present-disk{}}{%if{%present-device{}}{D}{d}}{-}"
+   .  "%if{%does{attach}}{%if{%todo{attach}}{A}{a}}{%if{%todo{attach}}{a}{-}}"
+   .  "%if{%sync-reached{}}{S}{%if{%todo{sync}}{s}{-}}"
+   .  "%if{%fetch-almost-reached{}}{F}{%if{%todo{fetch}}{f}{-}}"
+   .  "%if{%replay-almost-reached{}}{R}{%if{%todo{replay}}{r}{-}}",
+
+   "flags-1and1"
+   => "-%if{%todo{sync}}{S}{-}%if{%todo{fetch}}{F}{-}%if{%todo{replay}}{R}{-}-",
+
+   "todo-role"
+   => "%if{%present-disk{}}{"
+   .    "%if{%todo-primary{}}{"
+   .      "Primary"
+   .    "}{"
+   .      "Secondary"
+   .    "}"
+   .  "}{None}",
+
+   "role"
+   => "%if{%present-disk{}}{"
+   .    "%if{%todo-primary{}}{"
+   .      "%if{%is-primary{}}{"
+   .        "Primary"
+   .      "}{"
+   .        "NotYetPrimary"
+   .      "}"
+   .    "}{"
+   .      "%if{%is-primary{}}{"
+   .        "RemainsPrimary"
+   .      "}{"
+   .        "Secondary"
+   .      "}"
+   .    "}"
+   .  "}{None}",
+
+   "role-1and1"
+   => "%if{%present-disk{}}{"
+   .    "%if{%is-primary{}}{"
+   .      "Primary"
+   .    "}{"
+   .      "Secondary"
+   .    "}"
+   .  "}{Secondary}",
+
+   "primarynode"
+   => "%if{%todo-primary{}}{"
+   .    "%{host}"
+   .  "}{"
+   .    "%get-primary{}"
+   .  "}",
+
+   "primarynode-1and1"
+   => "%if{%present-disk{}}{"
+   .    "%if{%is-primary{}}{"
+   .      "%{host}"
+   .    "}{"
+   .      "%if{%actual-primary{}}{"
+   .        "%actual-primary{}"
+   .      "}{-}"
+   .    "}"
+   .  "}{-}",
+
+   "syncinfo"
+   => "%let{amount}{%human-numbers{}{ }{ }{%sync-pos{}}{%sync-size{}}}"
+   .  "%let{rate}{%human-numbers{}{ }{ }{%sync-rate{}}}"
+   .  "%sprintf{     syncing: %s  %.2f%%  (%d/%d)%s  rate: %.2f %s/sec  remaining: %s hrs\n}"
+   .          "{%progress{20}{%sync-pos{}}{0}{%sync-size{}}}"
+   .          "{%sync-percent{}}"
+   .          "{%{amount}{ }{0}}"
+   .          "{%{amount}{ }{1}}"
+   .          "{%{amount}{ }{2}}"
+   .          "{%{rate}{ }{0}}"
+   .          "{%{rate}{ }{1}}"
+   .          "{%human-seconds{%sync-remain{}}}"
+   .  "%call{sync-line}",
+
+   "syncinfo-1and1"
+   => "%let{amount}{%human-numbers{}{ }{ }{%sync-pos{}}{%sync-size{}}}"
+   .  "%let{rate}{%human-numbers{}{ }{ }{%sync-rate{}}}"
+   .  "%sprintf{     syncing: %s  %.2f%%  (%d/%d)%s  rate: %.2f %s/sec  remaining: %s hrs\n}"
+   .          "{%progress{20}{%sync-pos{}}{0}{%sync-size{}}}"
+   .          "{%sync-percent{}}"
+   .          "{%{amount}{ }{0}}"
+   .          "{%{amount}{ }{1}}"
+   .          "{%{amount}{ }{2}}"
+   .          "{%{rate}{ }{0}}"
+   .          "{%{rate}{ }{1}}"
+   .          "{%human-seconds{%sync-remain{}}}"
+   .  "%call{sync-line-1and1}",
+
+   "replinfo"
+   => "%let{amount}{%human-numbers{}{ }{ }{%replay-pos{}}{%fetch-size{}}}"
+   .  "%sprintf{     replaying: %s  %.2f%%  (%d/%d)%s  logs: [%d..%d]\n}"
+   .          "{%progress{20}{%replay-pos{}}{%fetch-pos{}}{%fetch-size{}}}"
+   .          "{%work-percent{}}"
+   .          "{%{amount}{ }{0}}"
+   .          "{%{amount}{ }{1}}"
+   .          "{%{amount}{ }{2}}"
+   .          "{%replay-lognr{}}"
+   .          "{%fetch-lognr{}}"
+   .  "%call{fetch-line}"
+   .  "%call{replay-line}",
+
+   "replinfo-1and1"
+   => "%let{amount}{%human-numbers{}{ }{ }{%replay-pos{}}{%fetch-size{}}}"
+   .  "%sprintf{     replaying: %s  %.2f%%  (%d/%d)%s  logs: [%d..%d]\n}"
+   .          "{%progress{20}{%replay-pos{}}{%fetch-pos{}}{%fetch-size{}}}"
+   .          "{%work-percent{}}"
+   .          "{%{amount}{ }{0}}"
+   .          "{%{amount}{ }{1}}"
+   .          "{%{amount}{ }{2}}"
+   .          "{%replay-lognr{}}"
+   .          "{%fetch-lognr{}}"
+   .  "%call{fetch-line-1and1}"
+   .  "%call{replay-line-1and1}",
+
+   "sync-line"
+   => "%let{amount}{%human-numbers{}{}{}{%sync-pos{}}{%sync-size{}}}"
+   .  "%let{rate}{%human-numbers{}{}{}{%sync-rate{}}}"
+   .  "%let{remain}{%human-seconds{%sync-remain{}}}"
+   .  "       > sync: %{amount} rate: %{rate}/sec  remaining: %{remain} hrs\n",
+
+   "sync-line-1and1"
+   => "%let{amount}{%human-numbers{}{}{}{%sync-pos{}}{%sync-size{}}}"
+   .  "%let{rate}{%human-numbers{}{}{}{%sync-rate{}}}"
+   .  "%let{remain}{%human-seconds{%sync-remain{}}}"
+   .  "       > sync: %{amount} rate: %{rate}/sec  remaining: %{remain} hrs\n",
+
+   "fetch-line"
+   => "%let{amount}{%human-numbers{}{}{}{%fetch-rest{}}}"
+   .  "%let{rate}{%human-numbers{}{}{}{%fetch-rate{}}}"
+   .  "%let{remain}{%human-seconds{%fetch-remain{}}}"
+   .  "       > fetch: %{amount} rate: %{rate}/sec  remaining: %{remain} hrs\n",
+
+   "fetch-line-1and1"
+   => "%let{amount}{%human-numbers{}{}{}{%fetch-rest{}}}"
+   .  "%let{rate}{%human-numbers{}{}{}{%fetch-rate{}}}"
+   .  "%let{remain}{%human-seconds{%fetch-remain{}}}"
+   .  "       > fetch: %{amount} rate: %{rate}/sec  remaining: %{remain} hrs\n",
+
+   "replay-line"
+   => "%let{amount}{%human-numbers{}{}{}{%replay-rest{}}}"
+   .  "%let{rate}{%human-numbers{}{}{}{%replay-rate{}}}"
+   .  "%let{remain}{%human-seconds{%replay-remain{}}}"
+   .  "       > replay: %{amount} rate: %{rate}/sec  remaining: %{remain} hrs\n",
+
+   "replay-line-1and1"
+   => "%let{amount}{%human-numbers{}{}{}{%replay-rest{}}}"
+   .  "%let{rate}{%human-numbers{}{}{}{%replay-rate{}}}"
+   .  "%let{remain}{%human-seconds{%replay-remain{}}}"
+   .  "       > replay: %{amount} rate: %{rate}/sec  remaining: %{remain} hrs\n",
+
+   "resource-errors"
+   => "%let{fat-count}{%get-resource-fat-count{}}"
+   .  "%if{%{fat-count}}{"
+   .    "FATALS   FILE (%{fat-count})"
+   .    "%if{%{verbose}}{"
+   .      ":\n%get-resource-fat{}"
+   .    "}{"
+   .      ": available with --verbose\n"
+   .    "}"
+   .  "}"
+
+   .  "%let{errs}{%the-err-count{}}"
+   .  "%if{%{errs}}{"
+   .    "ERRORS   LNK  (%{errs}):\n"
+   .    "%the-pretty-err-msg{}"
+   .  "}"
+
+   .  "%let{err-count}{%get-resource-err-count{}}"
+   .  "%if{%{err-count}}{"
+   .    "ERRORS   FILE (%{err-count})"
+   .    "%if{%{verbose}}{"
+   .      ":\n%get-resource-err{}"
+   .    "}{"
+   .      ": available with --verbose\n"
+   .    "}"
+   .  "}"
+
+   .  "%let{wrns}{%the-wrn-count{}}"
+   .  "%if{%{wrns}}{"
+   .    "WARNINGS LNK  (%{wrns}):\n"
+   .    "%the-pretty-wrn-msg{}"
+   .  "}"
+
+   .  "%let{wrn-count}{%get-resource-wrn-count{}}"
+   .  "%if{%{wrn-count}}{"
+   .    "WARNINGS FILE (%{wrn-count})"
+   .    "%if{%{verbose}}{"
+   .      ":\n%get-resource-wrn{}"
+   .    "}{"
+   .      ": available with --verbose\n"
+   .    "}"
+   .  "}"
+
+   .  "%let{infs}{%the-inf-count{}}"
+   .  "%if{%and{%{verbose}}{%{infs}}}{"
+   .    "INFOS    LNK  (%{infs}):\n"
+   .    "%the-pretty-inf-msg{}"
+   .  "}"
+
+   .  "%let{status_msg}{%get-log-status-{}}"
+   .  "%if{%and{%{verbose}}{%{status_msg}}}{"
+   .    "STATUS   FILE:\n%{status_msg}"
+   .  "}",
+
+
+   "resource-errors-1and1"
+   => "%let{fat-count}{%get-resource-fat-count{}}"
+   .  "%if{%{fat-count}}{"
+   .    "FATALS   FILE (%{fat-count}):\n"
+   .    "%get-resource-fat{}"
+   .  "}"
+
+   .  "%let{errs}{%the-err-count{}}"
+   .  "%if{%{errs}}{"
+   .    "ERRORS   LNK  (%{errs}):\n"
+   .    "%the-pretty-err-msg{}"
+   .  "}"
+
+   .  "%let{err-count}{%get-resource-err-count{}}"
+   .  "%if{%{err-count}}{"
+   .    "ERRORS   FILE (%{err-count}):\n"
+   .    "%get-resource-err{}"
+   .  "}"
+
+   .  "%let{wrns}{%the-wrn-count{}}"
+   .  "%if{%{wrns}}{"
+   .    "WARNINGS LNK  (%{wrns}):\n"
+   .    "%the-pretty-wrn-msg{}"
+   .  "}"
+
+   .  "%let{wrn-count}{%get-resource-wrn-count{}}"
+   .  "%if{%{wrn-count}}{"
+   .    "WARNINGS FILE (%{wrn-count})"
+   .    "%if{%{verbose}}{"
+   .      ":\n%get-resource-wrn{}"
+   .    "}{"
+   .      ": available with --verbose\n"
+   .    "}"
+   .  "}"
+
+   .  "%let{infs}{%the-inf-count{}}"
+   .  "%if{%and{%{verbose}}{%{infs}}}{"
+   .    "INFOS    LNK  (%{infs}):\n"
+   .    "%the-pretty-inf-msg{}"
+   .  "}"
+
+   .  "%let{status_msg}{%get-log-status-{}}"
+   .  "%if{%and{%{verbose}}{%{status_msg}}}{"
+   .    "STATUS   FILE:\n%{status_msg}"
+   .  "}",
+
+
+   # drbd similar ones
+   "state"
+   => "NYI Please override macro \\%%{0}\\{\\}",
+   "cstate"
+   => "NYI Please override macro \\%%{0}\\{\\}",
+   "dstate"
+   => "NYI Please override macro \\%%{0}\\{\\}",
+   "status"
+   => "NYI Please override macro \\%%{0}\\{\\}",
+  );
+
+my %view_macros = %complex_macros;
+
+# add some trivial macros to the command line interface
+# FIXME: only at most one argument is allowed for now.
+my %trivial_globs =
+  (
+
+   # intended for human use
+   "{all,the}-{pretty-,}{global-,}{{err,wrn,inf}-,}msg"
+   => "",
+   "{is,todo}-{attach,sync,fetch,replay,primary}"
+   => "",
+   "is-{split-brain,consistent,emergency}"
+   => "",
+   "rest-space"
+   => "",
+   "{present,get}-{disk,device}"
+   => "",
+   "get-log-status"
+   => "",
+   "get-resource-{fat,err,wrn}{,-count}"
+   => "",
+
+   # intended for scripting
+   "deletable-size"
+   => "",
+   "occupied-size"
+   => "",
+   "{sync,fetch,replay,work,syncpos}-{size,pos}"
+   => "",
+   "{sync,fetch,replay,work}-{rest,{almost-,threshold-,}reached,percent,permille,vector}"
+   => "",
+   "{sync,fetch,replay}-{rate,remain}"
+   => "",
+   "summary-vector",
+   => "",
+
+
+   "{get,actual}-primary"
+   => "",
+   "is-{alive}"
+   => "",
+   "uuid"
+   => "",
+   "tree"
+   => "",
+
+
+   "wait-{is,todo}-{attach,sync,fetch,replay,primary}-{on,off}"
+   => "",
+  );
+
+my $glob = "";
+foreach my $new_glob (sort(keys(%trivial_globs))) {
+  $glob .= "," if $glob;
+  $glob .= $new_glob;
+}
+foreach my $name (glob("{$glob}")) {
+  $view_macros{$name} = "\%primitive-$name\{\%\{1}}";
+}
+
+sub _get_pre {
+  my ($rest, $add) = @_;
+  $rest =~ s{(\A.*\n)}{}sp;
+  $add = 0 if $1;
+  return length($rest) + $add;
+}
+
+sub _break_line {
+  my ($result, $add, $indent) = @_;
+  my $pre_len = _get_pre($result, $add);
+  if ($pre_len != $indent) {
+    $result .= "\\\n" . ' ' x $indent;
+  }
+  return $result;
+}
+
+sub _pretty_macro {
+  my ($text, $add, $indent) = @_;
+  $text =~ s/\\n/\n/gs;
+  my $result = "";
+  # look for function calls
+  while ($text =~ m/^($match_fn_head(?:{})*)/mp) {
+    $result .= $PREMATCH;
+    my $fn = $1;
+    $text = $POSTMATCH;
+    $result = _break_line($result, $add, $indent);
+    $add = 0;
+    $result .= $fn;
+    while ($text =~ m/\A\{/sp) {
+      # don't break simple / non-recursive / unbreakable arguments
+      if ($text =~ m/\A(\{(?:\s$match_inner|[^%{}]*)\})/sp) {
+	my $shortcut = $1;
+	$text = $POSTMATCH;
+	# make newlines non-verbatim
+	$shortcut =~ s{\n}{\\n}spg;
+	$result .= $shortcut;
+	next;
+      }
+      # break more complex arguments
+      #$result .= "{\\\n" . ' ' x $indent;
+      $result .= "{";
+      if ($text =~ m/\A\{([\s]$match_inner|)\}/sp) {
+	$result .= "$1}";
+	$text = $POSTMATCH;
+      } elsif ($text =~ m/\A\{([^\s]$match_inner)\}/sp ) {
+	my $arg = $1;
+	$text = $POSTMATCH;
+	my $sub_add = _get_pre($result, 0);
+	my $subst = _pretty_macro($arg, $sub_add, $indent + 2);
+	$result .= $subst;
+	$result = _break_line($result, 0, $indent);
+	$result .= "}";
+      } else {
+	ldie "wtf '$text'?\n";
+      }
+    }
+  }
+  $result .= $text;
+  return $result;
+}
+
+sub pretty_macro {
+  my $txt = _pretty_macro(@_);
+  # always add a trailing newline (for vi ;)
+  $txt .= "\\\n" unless $txt =~ m{\n\Z}sp;
+  return $txt;
+}
+
+if (defined($ARGV[0]) && $ARGV[0] =~ m/^dump-(all-)?macros$/) {
+  my %macros = %complex_macros;
+  %macros = %view_macros if defined($1);
+  foreach my $name (keys %macros) {
+    my $txt = $macros{$name};
+    $txt = pretty_macro($txt, 0, 0);
+    my $file = "$name.tpl";
+    if (-r $file) { # backup already existing files
+      for (my $i = 0; ; $i++) {
+	my $file_old = "$file.old$i";
+	unless (-r $file_old) {
+	  rename($file, $file_old);
+	  last;
+	}
+      }
+    }
+    open(OUT, ">", $file) or ldie "cannot create file '$file'\n";
+    print OUT $txt;
+    close(OUT);
+  }
+  exit(0);
+}
+
+sub get_macro {
+  my ($cmd, $tolerate) = @_;
+  if ($macro) {
+    my $orig = $macro;
+    $macro = ""; # consume once
+    return $orig;
+  }
+  foreach my $path (".", "~/.marsadm", "/etc/marsadm") {
+    my $file = "$path/$cmd.tpl";
+    if (-r $file) {
+      lprint_stderr "using macro file '$file'\n" if (defined($view_macros{$cmd}));
+      local $/;  # slurp
+      open(IN, "<", $file) or next;
+      my $tpl = <IN>;
+      close(IN);
+      $tpl =~ s{$match_comment}{}sg;
+      $tpl =~ s{\\n}{\n}sg;
+      return $tpl;
+    }
+  }
+  return $view_macros{$cmd} if (defined($view_macros{$cmd}));
+  ldie "cannot find macro '$cmd'\n" unless defined($tolerate);
+  return "";
+}
+
+sub view_cmd {
+  my ($cmd, $res) = (shift, shift);
+  if ($cmd =~ s/^prettyprint-//) {
+    my $txt = get_macro($cmd);
+    print pretty_macro($txt, 0);
+    return;
+  }
+  $cmd =~ s/^view-?//;
+  $cmd = "default" unless $cmd;
+  my $tpl = get_macro($cmd);
+  my $result = eval_macro($cmd, $res, $tpl, @_);
+  if ($result ne "") { # add trailing newline if none exists
+    chomp $result;
+    $result .= "\n";
+  }
+  print $result;
+}
+
+##################################################################
+
+# command table of all commands
+
 my %cmd_table =
   (
    # new keywords
@@ -2209,6 +3798,12 @@ foreach my $arg (@ARGV) {
   } elsif ($arg =~ s/--timeout\s*=\s*([0-9]+)/$1/) {
     $timeout = $arg;
     next;
+  } elsif ($arg =~ s/--window\s*=\s*([0-9]+)/$1/) {
+    $window = $arg;
+    next;
+  } elsif ($arg =~ s/--threshold\s*=\s*([0-9]+)/$1/) {
+    $threshold = $arg;
+    next;
   } elsif ($arg =~ s/--host\s*=\s*([-_A-Za-z0-9]+)/$1/) {
     ldie "host '$arg' does not exist in /mars/ips/ip-*\n" unless -l "/mars/ips/ip-$arg";
     if ($arg ne $host) {
@@ -2222,6 +3817,10 @@ foreach my $arg (@ARGV) {
     $ip = $arg;
     lprint_stderr "Using IP '$ip' from command line.\n";
     next;
+  } elsif ($arg =~ s/--macro\s*=\s*(.*)/$1/) {
+    $macro = $arg;
+    $macro =~ s/\\n/\n/mg;
+    next;
   }
   if ($arg =~ s/^force-//) {
     $force++;
@@ -2230,10 +3829,6 @@ foreach my $arg (@ARGV) {
 }
 
 my $cmd = shift @args || helplist "command argument is missing\n";
-
-if (!$ip) {
-  $ip = _get_ip() or ldie "cannot determine my IP address\n";
-}
 
 $notify = "(cmd: $cmd)" unless $cmd eq "version";
 
@@ -2245,15 +3840,17 @@ if ($cmd =~ m/^version$/ || $cmd =~ m/^v$/) {
   version;
 }
 
-ldie "only root may use this tool\n" if $< != 0 && $cmd !~ m/^cat$/; # getpid() seems to be missing in perlfunc
-helplist "unknown command $cmd\n" if !exists $cmd_table{$cmd};
-if (!(-d $mars) && $cmd !~ m/(create|join)-cluster|cat/) {
+ldie "only root may use this tool\n" if $< != 0 && $cmd !~ m/^(cat|view.*|pretty.*)$/; # getpid() seems to be missing in perlfunc
+helplist "unknown command $cmd\n" if (!exists $cmd_table{$cmd} && !$cmd =~ m/view/);
+if (!(-d $mars) && $cmd !~ m/(create|join)-cluster|cat|view|pretty/) {
   ldie "The $mars directory does not exist.\n";
 }
 
 my $res = "";
 if ($cmd =~ "show") {
-  $res = shift @args;
+  $res = shift @args || "all";
+} elsif ($cmd =~ m/^(view|pretty)/) {
+  $res = shift @args || "";
 } elsif ($cmd =~ m/^set-.*-list$/) {
   $res = shift @args || helplist "comma-separated list argument is missing\n";
 } elsif ($cmd =~ m/^set-.*-value$/) {
@@ -2275,7 +3872,7 @@ sub do_one_res {
   if ($cmd =~ m/^cat|-file$|-list$|-link$|-value$/) { # no resource argument
   } elsif (!$checked_res{"$cmd$res"}) {
     $res = check_res($res) unless (!$res || $cmd =~ m/^(join|create|leave|wait)-cluster|create-resource|show/);
-    check_res_member($res) unless (!$res || $cmd =~ m/^(join|create|delete)-(cluster|resource)|(leave|wait)-cluster|show/);
+    check_res_member($res) unless (!$res || $cmd =~ m/^(join|create|delete)-(cluster|resource)|^(leave|wait)-cluster|^log-purge|^show|^view/);
     detect_splitbrain($res, 1);
     $checked_res{"$cmd$res"} = 1;
   }
@@ -2287,7 +3884,7 @@ my %skip_res;
 sub do_all_res {
   my $func = shift;
   my $cmd = shift;
-  my $res = shift || "all";
+  my $res = shift;
   if ($res eq "all" && $cmd !~ m/show|cat|cluster|set-link|delete-file/) {
     ldie "For safety reasons, --force is only allowed on explicitly named resources. Combination of 'all' with --force is disallowed!\n" if $force;
     ldie "Cannot combine command '$cmd' with 'all' existing resources - you must explicitly name a single new resource\n" if $cmd =~ m/create|join/;
@@ -2315,6 +3912,16 @@ sub do_all_res {
   } else {
     return do_one_res($func, $cmd, $res, @_);
   }
+}
+
+if ($cmd =~ m/^(view|pretty)/) {
+  do_all_res(\&view_cmd, $cmd, $res, @args);
+  finish_links();
+  exit($error_count);
+}
+
+if (!$ip) {
+  $ip = _get_ip() or ldie "cannot determine my IP address\n";
 }
 
 my $func = $cmd_table{$cmd};
