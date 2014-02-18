@@ -114,7 +114,7 @@ static void dump_mem(void *data, int len)
 			}
 			tmp = buf;
 		}
-		tmp += snprintf(tmp, 1024 - i * 3, " %02x", byte);
+		tmp += scnprintf(tmp, 1024 - i * 3, " %02x", byte);
 	}
 	if (tmp != buf) {
 		say(-1, "%4d: %s\n", i, buf);

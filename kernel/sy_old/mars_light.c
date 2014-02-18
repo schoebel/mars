@@ -4737,7 +4737,7 @@ char *_mars_info(void)
 		struct mars_brick *test;
 		brick_count++;
 		test = container_of(tmp, struct mars_brick, global_brick_link);
-		pos += snprintf(
+		pos += scnprintf(
 			txt + pos, max - pos,
 			"brick button=%d off=%d on=%d path='%s'\n",
 			test->power.button,
@@ -4754,7 +4754,7 @@ char *_mars_info(void)
 		dent_count++;
 		dent = container_of(tmp, struct mars_dent, dent_link);
 #if 0 // usually there is not enough space in PAGE_SIZE
-		pos += snprintf(
+		pos += scnprintf(
 			txt + pos, max - pos,
 			"dent stamp=%ld.%09ld path='%s' value='%s'\n",
 			dent->new_stat.mtime.tv_sec, dent->new_stat.mtime.tv_nsec,
@@ -4765,7 +4765,7 @@ char *_mars_info(void)
 	}
 	up_read(&mars_global->dent_mutex);
 
-	pos += snprintf(
+	pos += scnprintf(
 		txt + pos, max - pos,
 		"SUMMARY: brick_count=%d dent_count=%d\n",
 		brick_count,

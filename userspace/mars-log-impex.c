@@ -141,7 +141,7 @@ int make_dirs(char *out, int out_len, char *out_dirname, int old[], unsigned int
 	
 	nr = seqnr / 1000000000;
 	
-	len = snprintf(out, out_len, "%s/%01u", out_dirname, nr);
+	len = scnprintf(out, out_len, "%s/%01u", out_dirname, nr);
 
 	if (old[0] != nr) {
 		old[0] = nr;
@@ -150,7 +150,7 @@ int make_dirs(char *out, int out_len, char *out_dirname, int old[], unsigned int
 
 	nr = seqnr / 1000000 % 1000;
 
-	len += snprintf(out + len, out_len - len, "/%03u", nr);
+	len += scnprintf(out + len, out_len - len, "/%03u", nr);
 
 	if (old[1] != nr) {
 		old[1] = nr;
@@ -159,7 +159,7 @@ int make_dirs(char *out, int out_len, char *out_dirname, int old[], unsigned int
 
 	nr = seqnr / 1000 % 1000;
 
-	len += snprintf(out + len, out_len - len, "/%03u", nr);
+	len += scnprintf(out + len, out_len - len, "/%03u", nr);
 
 	if (old[2] != nr) {
 		old[2] = nr;

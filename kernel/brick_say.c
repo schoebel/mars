@@ -436,10 +436,10 @@ void _say(struct say_channel *ch, int class, va_list args, bool use_args, const 
 	if (use_args) {
 		va_list args2; 
 		va_start(args2, fmt);
-		written = vsnprintf(start, rest, fmt, args2);
+		written = vscnprintf(start, rest, fmt, args2);
 		va_end(args2);
 	} else {
-		written = vsnprintf(start, rest, fmt, args);
+		written = vscnprintf(start, rest, fmt, args);
 	}
 
 	if (likely(rest > written)) {
@@ -730,7 +730,7 @@ void treat_channel(struct say_channel *ch, int class)
 		struct timespec s_now = CURRENT_TIME;
 		struct timespec l_now;
 		get_lamport(&l_now);
-		len = snprintf(buf,
+		len = scnprintf(buf,
 			       SAY_BUFMAX,
 			       "%ld.%09ld %ld.%09ld %s %d OVERFLOW %d times\n",
 			       s_now.tv_sec, s_now.tv_nsec,

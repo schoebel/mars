@@ -1455,7 +1455,7 @@ char *_backskip_replace(int line, const char *path, char delim, bool insert, con
 		memcpy(res, path, pos);
 
 		va_start(args, fmt);
-		plus = vsnprintf(res + pos, total_len - pos, fmt, args);
+		plus = vscnprintf(res + pos, total_len - pos, fmt, args);
 		va_end(args);
 
 		if (insert) {

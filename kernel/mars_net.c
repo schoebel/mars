@@ -614,7 +614,7 @@ int _add_fields(struct mars_desc_item *mi, const struct meta *meta, int offset, 
 			goto done;
 		}
 		
-		len = snprintf(mi->field_name, MAX_FIELD_LEN, "%s.%s", prefix, meta->field_name);
+		len = scnprintf(mi->field_name, MAX_FIELD_LEN, "%s.%s", prefix, meta->field_name);
 		if (unlikely(len >= MAX_FIELD_LEN)) {
 			MARS_ERR("field len overflow on '%s.%s'\n", prefix, meta->field_name);
 			count = -1;
