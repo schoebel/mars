@@ -45,8 +45,6 @@ const struct meta mars_dent_meta[] = {
 	META_INI(d_name,    struct mars_dent, FIELD_STRING),
 	META_INI(d_rest,    struct mars_dent, FIELD_STRING),
 	META_INI(d_path,    struct mars_dent, FIELD_STRING),
-	META_INI(d_namelen, struct mars_dent, FIELD_INT),
-	META_INI(d_pathlen, struct mars_dent, FIELD_INT),
 	META_INI(d_type,    struct mars_dent, FIELD_INT),
 	META_INI(d_class,   struct mars_dent, FIELD_INT),
 	META_INI(d_serial,  struct mars_dent, FIELD_INT),
@@ -509,7 +507,6 @@ struct mars_cookie {
 	mars_dent_checker_fn checker;
 	char *path;
 	struct mars_dent *parent;
-	int pathlen;
 	int allocsize;
 	int depth;
 };
@@ -608,7 +605,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	if (class < 0)
 		return 0;
 
-	pathlen = cookie->pathlen;
+	pathlen = strlen(cookie->path);
 	newpath = brick_string_alloc(pathlen + namlen + 2);
 	if (unlikely(!newpath))
 		goto err_mem0;
@@ -653,14 +650,12 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 		goto err_mem2;
 	memcpy(dent->d_name, name, namlen);
 	dent->d_name[namlen] = '\0';
-	dent->d_namelen = namlen;
 	dent->d_rest = brick_strdup(dent->d_name + prefix);
 	if (unlikely(!dent->d_rest))
 		goto err_mem3;
 
 	dent->d_path = newpath;
 	newpath = NULL;
-	dent->d_pathlen = pathlen;
 
 	INIT_LIST_HEAD(&dent->brick_list);
 
@@ -732,7 +727,6 @@ int mars_dent_work(struct mars_global *global, char *dirname, int allocsize, mar
 		.global = global,
 		.checker = checker,
 		.path = dirname,
-		.pathlen = strlen(dirname),
 		.parent = NULL,
 		.allocsize = allocsize,
 		.depth = 0,
@@ -786,7 +780,6 @@ restart:
 				.global = global,
 				.checker = checker,
 				.path = dent->d_path,
-				.pathlen = dent->d_pathlen,
 				.allocsize = allocsize,
 				.parent = dent,
 				.depth = dent->d_depth + 1,
