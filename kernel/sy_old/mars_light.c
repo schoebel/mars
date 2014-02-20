@@ -892,6 +892,7 @@ int _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 			brick_string_free(skip_path);
 			if (likely(skip_nr != inf->inf_sequence)) {
 				MARS_ERR_TO(rot->log_say, "SKIP in sequence numbers detected: %d != %d + 1\n", inf->inf_sequence, rot->inf_prev_sequence);
+				brick_string_free(skip_link);
 				goto out;
 			}
 			MARS_WRN_TO(rot->log_say,
