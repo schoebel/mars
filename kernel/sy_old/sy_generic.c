@@ -193,7 +193,7 @@ EXPORT_SYMBOL_GPL(mars_symlink);
 
 char *mars_readlink(const char *newpath)
 {
-	char *res = brick_string_alloc(1024);
+	char *res = brick_string_alloc(MARS_SYMLINK_MAX + 1);
 	struct path path = {};
 	mm_segment_t oldfs;
 	struct inode *inode;
@@ -218,7 +218,7 @@ char *mars_readlink(const char *newpath)
 		goto done_put;
 	}
 
-	status = inode->i_op->readlink(path.dentry, res, 1024);
+	status = inode->i_op->readlink(path.dentry, res, MARS_SYMLINK_MAX);
 	if (unlikely(status < 0)) {
 		MARS_ERR("cannot read link '%s', status = %d\n", newpath, status);
 	} else {
@@ -232,8 +232,7 @@ done_fs:
 	set_fs(oldfs);
 done:
 	if (unlikely(status < 0)) {
-		brick_string_free(res);
-		res = NULL;
+		res[0] = '\0';
 	}
 	return res;
 }
@@ -1414,10 +1413,10 @@ EXPORT_SYMBOL_GPL(mars_kill_brick_when_possible);
 
 char *_vpath_make(int line, const char *fmt, va_list *args)
 {
-	char *res = _brick_string_alloc(MARS_PATH_MAX, line);
+	char *res = _brick_string_alloc(MARS_SYMLINK_MAX, line);
 
 	if (likely(res)) {
-		vsnprintf(res, MARS_PATH_MAX, fmt, *args);
+		vsnprintf(res, MARS_SYMLINK_MAX, fmt, *args);
 	}
 	return res;
 }
@@ -1437,7 +1436,7 @@ EXPORT_SYMBOL_GPL(_path_make);
 char *_backskip_replace(int line, const char *path, char delim, bool insert, const char *fmt, ...)
 {
 	int path_len = strlen(path);
-	int total_len = strlen(fmt) + path_len + MARS_PATH_MAX;
+	int total_len = strlen(fmt) + path_len + MARS_SYMLINK_MAX;
 	char *res = _brick_string_alloc(total_len + 1, line);
 	if (likely(res)) {
 		va_list args;

@@ -735,12 +735,12 @@ int compare_replaylinks(struct mars_rotate *rot, const char *hosta, const char *
 	}
 
 	a = mars_readlink(linka);
-	if (unlikely(!a)) {
+	if (unlikely(!a || !a[0])) {
 		MARS_ERR_TO(rot->log_say, "cannot read replaylink '%s'\n", linka);
 		goto done;
 	}
 	b = mars_readlink(linkb);
-	if (unlikely(!b)) {
+	if (unlikely(!b || !b[0])) {
 		MARS_ERR_TO(rot->log_say, "cannot read replaylink '%s'\n", linkb);
 		goto done;
 	}
@@ -885,7 +885,7 @@ int _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 			char *msg = "";
 			int skip_nr = -1;
 			int nr_char = 0;
-			if (skip_link) {
+			if (likely(skip_link && skip_link[0])) {
 				(void)sscanf(skip_link, "%d%n", &skip_nr, &nr_char);
 				msg = skip_link + nr_char;
 			}
@@ -920,7 +920,7 @@ int _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 		len += sprintf(old + len, "%02x", digest[i]);
 	}
 
-	if (likely(prev_link)) {
+	if (likely(prev_link && prev_link[0])) {
 		char *tmp;
 		prev_digest = brick_strdup(prev_link);
 		if (unlikely(!prev_digest)) {
@@ -2083,18 +2083,18 @@ bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, c
 
 	// fetch all the versionlinks and test for their existence.
 	own_versionlink = get_versionlink(rot->parent_path, old_log_seq, my_id(), &own_versionlink_path);
-	if (unlikely(!own_versionlink)) {
+	if (unlikely(!own_versionlink || !own_versionlink[0])) {
 		MARS_ERR_TO(rot->log_say, "cannot read my own versionlink '%s'\n", SAFE_STR(own_versionlink_path));
 		goto done;
 	}
 	old_versionlink = get_versionlink(rot->parent_path, old_log_seq, old_host, &old_versionlink_path);
-	if (unlikely(!old_versionlink)) {
+	if (unlikely(!old_versionlink || !old_versionlink[0])) {
 		MARS_ERR_TO(rot->log_say, "cannot read old versionlink '%s'\n", SAFE_STR(old_versionlink_path));
 		goto done;
 	}
 	if (!skip_new) {
 		new_versionlink = get_versionlink(rot->parent_path, new_log_seq, new_host, &new_versionlink_path);
-		if (unlikely(!new_versionlink)) {
+		if (unlikely(!new_versionlink || !new_versionlink[0])) {
 			MARS_INF_TO(rot->log_say, "new versionlink '%s' does not yet exist, we must wait for it.\n", SAFE_STR(new_versionlink_path));
 			goto done;
 		}
@@ -2108,7 +2108,7 @@ bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, c
 
 	// check: did I fully apply my old logfile data?
 	own_replaylink = get_replaylink(rot->parent_path, my_id(), &own_replaylink_path);
-	if (unlikely(!own_replaylink)) {
+	if (unlikely(!own_replaylink || !own_replaylink[0])) {
 		MARS_ERR_TO(rot->log_say, "cannot read my own replaylink '%s'\n", SAFE_STR(own_replaylink_path));
 		goto done;
 	}
@@ -3615,7 +3615,7 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 		    mars_stat(dst,              &syncstatus_stat,  true) >= 0 &&
 		    mars_stat(peer_replay_path, &peer_replay_stat, true) >= 0 &&
 		    timespec_compare(&syncstatus_stat.mtime, &peer_replay_stat.mtime) <= 0 &&
-		    (peer_replay_link = mars_readlink(peer_replay_path)) &&
+		    (peer_replay_link = mars_readlink(peer_replay_path)) && peer_replay_link[0] &&
 		    (mars_stat(syncpos_path,     &syncpos_stat, true) < 0 ||
 		     timespec_compare(&syncpos_stat.mtime, &syncstatus_stat.mtime) < 0)) {
 			_update_link_when_necessary(rot, "syncpos", peer_replay_link, syncpos_path);

@@ -9,6 +9,7 @@
 
 #define MARS_ARGV_MAX 4
 #define MARS_PATH_MAX 256
+#define MARS_SYMLINK_MAX 1023
 
 extern loff_t global_total_space;
 extern loff_t global_remaining_space;
