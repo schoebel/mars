@@ -674,7 +674,11 @@ found:
 	dent->d_type = d_type;
 	dent->d_class = class;
 	dent->d_serial = serial;
+	if (dent->d_parent)
+		dent->d_parent->d_child_count--;
 	dent->d_parent = cookie->parent;
+	if (dent->d_parent)
+		dent->d_parent->d_child_count++;
 	dent->d_depth = cookie->depth;
 	dent->d_global = global;
 	dent->d_killme = false;
@@ -998,6 +1002,9 @@ void mars_free_dent(struct mars_dent *dent)
 	brick_string_free(dent->d_path);
 	brick_string_free(dent->old_link);
 	brick_string_free(dent->new_link);
+	if (likely(dent->d_parent)) {
+		dent->d_parent->d_child_count--;
+	}
 	if (dent->d_private_destruct) {
 		dent->d_private_destruct(dent->d_private);
 	}

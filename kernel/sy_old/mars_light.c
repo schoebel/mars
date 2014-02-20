@@ -3837,6 +3837,10 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 			MARS_WRN("target '%s' has newer timestamp than deletion link, ignoring\n", dent->new_link);
 			goto ok;
 		}
+		if (target->d_child_count) {
+			MARS_WRN("target '%s' has %d children, cannot kill\n", dent->new_link, target->d_child_count);
+			goto ok;
+		}
 		status = mars_unlink(dent->new_link);
 		target->d_killme = true;
 		MARS_DBG("target '%s' deleted (status = %d) and marked for removal\n", dent->new_link, status);
