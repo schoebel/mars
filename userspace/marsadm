@@ -70,6 +70,11 @@ sub lwarn {
   llog("WARNING: $text");
 }
 
+sub _deprecated {
+  my ($cmd, $info) = @_;
+  lwarn "command '$cmd' is deprecated$info\n";
+}
+
 ##################################################################
 
 # global variables
@@ -279,10 +284,12 @@ sub sleep_timeout {
 # wait for some condition
 sub wait_cond {
   my ($cmd, $res, $specific) = @_;
+  my $given_specific;
   my $is_actual = ($specific =~ s/^(is|has)-//);
   $specific =~ s/^todo-//;
   my $is_on = !($specific =~ s/-(off|0)$//);
   $specific =~ s/-(on|1)$//;
+  _deprecated($cmd, " when using modifier '$given_specific', please replace substring 'copy'  with 'fetch'") if $specific =~ m/copy/;
   if ($is_actual) {
     if ($specific eq "device") {
       check_mars_device($cmd, $res, 1, !$is_on);
@@ -2314,6 +2321,7 @@ sub resize_phase2 {
 
 sub role_cmd {
   my ($cmd, $res) = @_;
+  _deprecated($cmd, ", use view-role instead");
   my $primary = _get_actual_primary($res) || '(none)';
   my $todo_primary = _get_designated_primary($res);
   my $msg = "I am actually ";
@@ -2330,6 +2338,7 @@ sub role_cmd {
 
 sub mars_state_cmd {
   my ($cmd, $res) = @_;
+  _deprecated($cmd, ", use view-{is-,todo-,}primary instead (or higher level macros like view-flags)");
   my $primary = _get_actual_primary($res) || '(none)';
   my $todo_primary = _get_designated_primary($res);
 
@@ -2381,6 +2390,7 @@ sub cat_cmd {
 
 sub mars_info_cmd {
   my ($cmd, $res) = @_;
+  _deprecated($cmd, ", use show-info instead") if $cmd =~ m/^mars/;
   my $info = "$mars/resource-$res/logstatus-$host.status";
   cat_cmd($cmd, $info);
 }
@@ -4405,14 +4415,24 @@ my %cmd_table =
        "Deprecated old low-level tool. Don't use. Use macros instead.",
        \&mars_state_cmd,
       ],
-   "mars-state"        => \&mars_state_cmd, # deprecated
+   "mars-state"
+   => [
+       "verbose 3",
+       "Deprecated old low-level tool. Don't use. Use macros instead.",
+       \&mars_state_cmd,
+      ],
    "show-info"
    => [
        "verbose 3",
        "Deprecated old low-level tool. Don't use. Use macros instead.",
        \&mars_info_cmd,
       ],
-   "mars-info"         => \&mars_info_cmd, # deprecated
+   "mars-info"
+   => [
+       "verbose 3",
+       "Deprecated old low-level tool. Don't use. Use macros instead.",
+       \&mars_info_cmd,
+      ],
    "pause-replay-local"
    => [
        "Stop replaying transaction logfiles for now.",
