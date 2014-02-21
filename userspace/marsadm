@@ -335,11 +335,12 @@ sub check_res {
 }
 
 sub check_sizes {
-  my ($res, $host) = @_;
+  my ($res, $peer) = @_;
   my $logical_size = get_link("$mars/resource-$res/size");
-  my $physical_size = get_link("$mars/resource-$res/actsize-$host", 1);
+  my $physical_size = get_link("$mars/resource-$res/actsize-$peer", 1) || return;
   if (defined($physical_size) && $physical_size < $logical_size) {
-    ldie "physical device on host '$host' has size $physical_size, which is smaller than the logical resource size $logical_size\n";
+    lwarn "Physical device on host '$peer' has size $physical_size, which is smaller than the logical resource size $logical_size\n";
+    ldie "This is too dangerous. It cannot work. Fix it!\n" unless $force;
   }
 }
 
@@ -350,15 +351,24 @@ sub check_res_member {
 }
 
 sub check_sync_finished {
-  my ($res, $host) = @_;
+  my ($res, $peer) = @_;
   check_sizes(@_);
-  my $lnk = "$mars/resource-$res/syncstatus-$host";
+  my $lnk = "$mars/resource-$res/syncstatus-$peer";
   if (lstat($lnk)) {
     my $syncstatus = get_link($lnk, 1);
     my $size = get_link("$mars/resource-$res/size");
-    ldie "sync has not yet finished, only $syncstatus / $size bytes transferred\n" unless $syncstatus >= $size;
+    unless ($syncstatus >= $size) {
+      lwarn "Sync has not yet finished on host '$peer', only $syncstatus / $size bytes are transferred\n";
+      if ($peer eq $host) {
+	lwarn "Don't try to make inconsistent host '$host' the new primary!\n";
+	lwarn "Please wait until sync has finished and all logfile have been replayed.\n";
+      } else {
+	lwarn "Changing the primary role during sync is dangerous for data consistency on host '$peer'!\n";
+      }
+      ldie "First stop the sync before trying to switch primary!\n" unless $force;
+    }
   }
-  lprint "OK, it seems that sync has finished on $host.\n";
+  lprint "OK, it seems that sync has finished on host '$peer'.\n";
 }
 
 sub check_primary {
@@ -1514,13 +1524,19 @@ sub primary_phase0 {
     lwarn "You can do a '$cmd --force' only in DISCONNECTED state.\n";
     check_todo($cmd, $res, "connect", 0, 0);
   }
+  my $old = _get_designated_primary($res);
   if ($cmd eq "primary") {
     check_sync_finished($res, $host);
+    # also check that other secondaries won't loose their sync primary
+    foreach my $peer (glob("$mars/resource-$res/data-*")) {
+      $peer =~ m:/data-(.+):;
+      next if ($peer eq $old || $peer eq $host);
+      check_sync_finished($res, $peer);
+    }
     check_todo($cmd, $res, "attach", 1, 0);
     check_todo($cmd, $res, "connect", 1, 0) if !$force;
     check_todo($cmd, $res, "allow-replay", 1, 0);
   }
-  my $old = _get_designated_primary($res);
   return if ($old eq $host and $cmd eq "primary");
   return if $old eq "(none)";
   my $open_count_path = "$mars/resource-$res/actual-$old/open-count";
@@ -1578,11 +1594,18 @@ sub primary_phase4 {
   }
   my $ok = detect_splitbrain($res, 1);
   if (!$ok) {
+    lwarn "\n";
     lwarn "Sorry, in split brain situations I can only set the _designated_\n";
     lwarn "primary, but I cannot _guarantee_ that becoming the\n";
-    lwarn "the actual primary is possible.\n";
+    lwarn "_actual_ primary is always possible.\n";
     lwarn "You SHOULD resolve the split brain ASAP (e.g. by leave-resource\n";
     lwarn "or invalidate etc).\n";
+    lwarn "\n";
+    lwarn "If you already tried to resolve the split brain manually, but\n";
+    lwarn "this message does not disappear, the reason could be some\n";
+    lwarn "hindering left-overs/remains from the former split brain.\n";
+    lwarn "ONLY in such a case, try log-purge-all --force.\n";
+    lwarn "\n";
     return;
   }
   check_mars_device($cmd, $res, 1, 0);
