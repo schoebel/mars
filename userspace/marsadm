@@ -264,8 +264,8 @@ sub wait_cond {
       (
        "attach" => "attach",
        "attached" => "attach",
-       "fetch" => "connect",
-       "connect" => "connect",
+       "fetch" => "fetch",
+       "connect" => "fetch",
        "replay" => "replay",
        "sync" => "sync",
       );
@@ -441,6 +441,7 @@ sub check_primary_gone {
 
 sub check_todo {
   my ($cmd, $res, $key, $val, $wait, $unchecked, $inv) = @_;
+  $key =~ s/fetch/connect/;
   my $path = "$mars/resource-$res/todo-$host/$key";
   $path = correct_path($path);
   my $link;
@@ -1617,20 +1618,20 @@ sub attach_res_phase2 {
   }
 }
 
-sub connect_global_res {
+sub fetch_global_res {
   my ($cmd, $res) = @_;
-  my $disconnect = ($cmd =~ m/disconnect/);
+  my $pause = ($cmd =~ m/disconnect|pause/);
   my @paths = glob("$mars/resource-$res/todo-*/");
   for my $path (@paths) {
-    _switch($cmd, $res, "$path/connect", !$disconnect);
+    _switch($cmd, $res, "$path/connect", !$pause);
   }
 }
 
-sub connect_local_res {
+sub fetch_local_res {
   my ($cmd, $res) = @_;
-  my $disconnect = ($cmd =~ m/disconnect/);
+  my $pause = ($cmd =~ m/disconnect|pause/);
   my $path = "$mars/resource-$res/todo-$host/connect";
-  _switch($cmd, $res, $path, !$disconnect);
+  _switch($cmd, $res, $path, !$pause);
 }
 
 sub pause_sync_global_res {
@@ -1681,11 +1682,11 @@ sub up_res_phase1 {
   if ($down) {
     pause_replay_local_res("pause-replay-local", $res);
     pause_sync_local_res("pause-sync-local", $res);
-    connect_local_res("disconnect", $res);
+    fetch_local_res("pause-fetch", $res);
     attach_res_phase1("detach", $res);
   } else {
     attach_res_phase1("attach", $res);
-    connect_local_res("connect", $res);
+    fetch_local_res("resume-fetch-local", $res);
     pause_sync_local_res("resume-sync-local", $res);
     pause_replay_local_res("resume-replay-local", $res);
   }
@@ -1743,8 +1744,8 @@ sub primary_phase0 {
   my ($cmd, $res) = @_;
   ldie "cannot switch primary: mars kernel module is not loaded\n" unless ($cmd eq "secondary" || -d "/proc/sys/mars");
   if ($force) {
-    lwarn "You can do a '$cmd --force' only in DISCONNECTED state.\n";
-    check_todo($cmd, $res, "connect", 0, 0);
+    lwarn "You can do a '$cmd --force' only in PAUSE-FETCH / DISCONNECTED state.\n";
+    check_todo($cmd, $res, "fetch", 0, 0);
   }
   my $old = _get_designated_primary($res);
   if ($cmd eq "primary") {
@@ -1756,7 +1757,7 @@ sub primary_phase0 {
       check_sync_finished($res, $peer);
     }
     check_todo($cmd, $res, "attach", 1, 0);
-    check_todo($cmd, $res, "connect", 1, 0) if !$force;
+    check_todo($cmd, $res, "fetch", 1, 0) if !$force;
     check_todo($cmd, $res, "replay", 1, 0);
   }
   return if ($old eq $host and $cmd eq "primary");
@@ -2123,12 +2124,21 @@ my %cmd_table =
 			   "switch state",        \&attach_res_phase1,
 			   "wait for effect",     \&attach_res_phase2,
 			  ],
-   "connect-local"     => \&connect_local_res,
-   "connect-global"    => \&connect_global_res,
-   "connect"           => \&connect_local_res,
-   "disconnect-local"  => \&connect_local_res,
-   "disconnect-global" => \&connect_global_res,
-   "disconnect"        => \&connect_local_res,
+
+   "resume-fetch-local"  => \&fetch_local_res,
+   "resume-fetch-global" => \&fetch_global_res,
+   "resume-fetch"        => \&fetch_local_res,
+   "pause-fetch-local"   => \&fetch_local_res,
+   "pause-fetch-global"  => \&fetch_global_res,
+   "pause-fetch"         => \&fetch_local_res,
+
+   "connect-local"     => \&fetch_local_res,
+   "connect-global"    => \&fetch_global_res,
+   "connect"           => \&fetch_local_res,
+   "disconnect-local"  => \&fetch_local_res,
+   "disconnect-global" => \&fetch_global_res,
+   "disconnect"        => \&fetch_local_res,
+
    "syncer"            => \&ignore_cmd,
    "up"                => [
 			   "check preconditions", \&up_res_phase0,
