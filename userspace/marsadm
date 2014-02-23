@@ -519,10 +519,19 @@ sub check_not_primary {
 sub check_primary_gone {
   my ($res) = @_;
   for (;;) {
-    my $pri = _get_actual_primary($res);
-    last if !$pri;
-    last if $pri eq $host;
-    lprint "waiting for other primary host ($pri) to disappear....\n";
+    my $on_count = 0;
+    foreach my $path (glob("$mars/resource-$res/actual-*/is-primary")) {
+      $path =~ m:/actual-([^/]*)/:;
+      my $peer = $1;
+      next if $peer eq $host;
+      my $status = get_link($path, 1);
+      if ($status) {
+	lprint "indicator '$path' is not yet off...\n";
+	$on_count++;
+      }
+    }
+    last if !$on_count;
+    lprint "waiting for $on_count other primary host(s) to disappear....\n";
     sleep_timeout();
   }
 }
