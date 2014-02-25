@@ -3188,9 +3188,9 @@ done:
 		status = mars_kill_brick((void*)fetch_brick);
 		if (status < 0) {
 			MARS_ERR("could not kill fetch_brick, status = %d\n", status);
-			goto done;
+		} else {
+			fetch_brick = NULL;
 		}
-		fetch_brick = NULL;
 		mars_trigger();
 	}
 	rot->fetch_next_is_available = 0;
