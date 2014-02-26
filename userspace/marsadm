@@ -618,8 +618,12 @@ sub get_common_ancestor {
   return _get_common_ancestor($basedir, $repl1, $host1, 0, $repl2, $host2, 0);
 }
 
+my %detected_splits = ();
+
 sub detect_splitbrain {
   my ($res, $do_report) = @_;
+  # dynamic programming
+  return $detected_splits{$res} if defined($detected_splits{$res});
   my $basedir = "$mars/resource-$res";
   my $ok = 1;
   my @list = glob("$mars/resource-$res/replay-*");
@@ -638,6 +642,7 @@ sub detect_splitbrain {
       }
     }
   }
+  $detected_splits{$res} = $ok;
   return $ok;
 }
 
@@ -698,6 +703,14 @@ sub log_purge_res {
 
 sub try_to_avoid_splitbrain {
   my ($cmd, $res) = @_;
+  if (!detect_splitbrain($res, 0)) {
+    lwarn "ATTENTION: you are starting a non-forced primary switchover in a split brain situation.\n";
+    lwarn "ATTENTION: that's no good idea.\n";
+    lwarn "ATTENTION: I will continue to do what you want.\n";
+    lwarn "ATTENTION: But you are responsible for the consequences.\n";
+    return;
+  }
+  # now try to prevent producing a _new_ split brain situation....
   my ($min, $max) = get_minmax_versions($res);
   my @host_list = glob("$mars/resource-$res/replay-*");
   return if scalar(@host_list) < 2;
