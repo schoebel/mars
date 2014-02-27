@@ -692,6 +692,7 @@ sub log_purge_res {
   }
   foreach my $file (@files) {
     $file =~ m:/((log|version)-([0-9]+)-([^,]+)): or ldie "bad path '$file'\n";
+    next if (!$force && $4 ne $host);
     my $visit = "$3,$4";
     lprint "checking '$1'\n";
     next if $visited_pos{$visit};
@@ -1201,7 +1202,7 @@ sub create_res {
 
 sub leave_res_phase0 {
   my ($cmd, $res) = @_;
-  check_not_primary(@_);
+  check_not_primary(@_) unless $force;
   my $errors = 0;
   foreach my $tmp (glob("$mars/resource-$res/todo-$host/*")) {
     my $status = get_link($tmp, 2);
@@ -1210,14 +1211,14 @@ sub leave_res_phase0 {
       $errors++;
     }
   }
-  if (!$force) {
-    foreach my $tmp (glob("$mars/resource-$res/actual-$host/{is-,logfile-}*")) {
-      my $status = get_link($tmp);
-      if ($status) {
-	lwarn "running status '$tmp' is not off\n";
-	$errors++;
-      }
+  foreach my $tmp (glob("$mars/resource-$res/actual-$host/{is-,logfile-}*")) {
+    my $status = get_link($tmp);
+    if ($status) {
+      lwarn "running status '$tmp' is not off\n";
+      $errors++;
     }
+  }
+  if (!$force) {
     check_status($cmd, $res, "is-attached", 0, 0, 1);
     ldie "there were $errors errors.\n" if $errors;
   }
@@ -1228,6 +1229,8 @@ sub leave_res_phase1 {
   _create_delete("$mars/resource-$res/replay-$host");
   _create_delete("$mars/resource-$res/data-$host");
   _create_delete("$mars/resource-$res/syncstatus-$host");
+  my $syncpos = "$mars/resource-$res/syncpos-$host";
+  _create_delete($syncpos) if -e $syncpos;
   _create_delete("$mars/resource-$res/device-$host");
   _create_delete("$mars/resource-$res/actsize-$host");
   foreach my $dir (glob("$mars/resource-$res/*-$host/")) {
@@ -1243,7 +1246,10 @@ sub leave_res_phase1 {
 sub leave_res_phase2 {
   my ($cmd, $res) = @_;
   _wait_delete();
+  $force = 0; # this would be too dangerous
   log_purge_res(@_);
+  finish_links();
+  _wait_delete();
 }
 
 sub delete_res {
