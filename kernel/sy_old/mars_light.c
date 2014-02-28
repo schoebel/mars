@@ -1420,6 +1420,7 @@ int _update_file(struct mars_rotate *rot, const char *switch_path, const char *c
 #endif
 	const char *argv[2] = { tmp, file };
 	struct copy_brick *copy = NULL;
+	bool do_start = true;
 	int status = -ENOMEM;
 
 	if (unlikely(!tmp || !global))
@@ -1427,8 +1428,13 @@ int _update_file(struct mars_rotate *rot, const char *switch_path, const char *c
 
 	rot->fetch_round = 0;
 
+	if (rot->todo_primary | rot->is_primary) {
+		MARS_DBG("disallowing fetch, todo_primary=%d is_primary=%d\n", rot->todo_primary, rot->is_primary);
+		do_start = false;
+	}
+
 	MARS_DBG("src = '%s' dst = '%s'\n", tmp, file);
-	status = __make_copy(global, NULL, switch_path, copy_path, NULL, argv, -1, -1, false, false, &copy);
+	status = __make_copy(global, NULL, do_start ? switch_path : "", copy_path, NULL, argv, -1, -1, false, false, &copy);
 	if (status >= 0 && copy) {
 		char *src = path_make("%d,%s,%lld,%lld,%d,%d",
 				      copy->power.led_on,
