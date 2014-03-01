@@ -1283,7 +1283,7 @@ sub create_res {
     set_link($host, "$resdir/primary");
     set_link($size, "$resdir/syncstatus-$host");
     my $startnr = get_link("$resdir/maxnr", 2);
-    if (defined($startnr) && $startnr > 0) {
+    if (defined($startnr) && $startnr ne "" && $startnr > 0) {
       $startnr += 1000;
     } else {
       $startnr = 1;
