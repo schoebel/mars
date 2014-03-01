@@ -222,7 +222,7 @@ struct trans_logger_info {
 	struct timespec inf_min_pos_stamp; // when the data has been _successfully_ overwritten
 	struct timespec inf_max_pos_stamp; // when the data has _started_ overwrite (maybe "trashed" in case of errors / aborts)
 	struct timespec inf_log_pos_stamp; // stamp from transaction log
-	bool inf_is_applying;
+	bool inf_is_replaying;
 	bool inf_is_logging;
 };
 

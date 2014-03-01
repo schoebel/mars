@@ -28,7 +28,7 @@
 // commenting this out is dangerous for data integrity! use only for testing!
 #define USE_MEMCPY
 #define DO_WRITEBACK // otherwise FAKE IO
-#define APPLY_DATA
+#define REPLAY_DATA
 
 // tuning
 #ifdef BRICK_DEBUG_MEM
@@ -2379,7 +2379,7 @@ void _init_input(struct trans_logger_input *input, loff_t start_pos)
 	logst->log_pos = start_pos;
 	input->inf.inf_log_pos = start_pos;
 	input->inf_last_jiffies = jiffies;
-	input->inf.inf_is_applying = false;
+	input->inf.inf_is_replaying = false;
 	input->inf.inf_is_logging = false;
 
 	input->is_operating = true;
@@ -2477,22 +2477,22 @@ void _exit_inputs(struct trans_logger_brick *brick, bool force)
 		struct log_status *logst = &input->logst;
 		if (input->is_operating &&
 		    (force || !input->connect)) {
-			bool old_applying  = input->inf.inf_is_applying;
+			bool old_replaying  = input->inf.inf_is_replaying;
 			bool old_logging   = input->inf.inf_is_logging;
 
-			MARS_DBG("cleaning up input %d (log = %d old = %d), old_applying = %d old_logging = %d\n", i, brick->log_input_nr, brick->old_input_nr, old_applying, old_logging);
+			MARS_DBG("cleaning up input %d (log = %d old = %d), old_replaying = %d old_logging = %d\n", i, brick->log_input_nr, brick->old_input_nr, old_replaying, old_logging);
 			exit_logst(logst);
 			// no locking here: we should be the only thread doing this.
 			_inf_callback(input, true);
 			input->inf_last_jiffies = 0;
-			input->inf.inf_is_applying = false;
+			input->inf.inf_is_replaying = false;
 			input->inf.inf_is_logging = false;
 			input->is_operating = false;
 			if (i == brick->old_input_nr && i != brick->log_input_nr) {
 				struct trans_logger_input *other_input = brick->inputs[brick->log_input_nr];
 				down(&other_input->inf_mutex);
 				brick->old_input_nr = brick->log_input_nr;
-				other_input->inf.inf_is_applying  = old_applying;
+				other_input->inf.inf_is_replaying  = old_replaying;
 				other_input->inf.inf_is_logging   = old_logging;
 				_inf_callback(other_input, true);
 				up(&other_input->inf_mutex);
@@ -2735,7 +2735,7 @@ void wait_replay(struct trans_logger_brick *brick, struct trans_logger_mref_aspe
 }
 
 static noinline
-int apply_data(struct trans_logger_brick *brick, loff_t pos, void *buf, int len)
+int replay_data(struct trans_logger_brick *brick, loff_t pos, void *buf, int len)
 {
 	struct trans_logger_input *input = brick->inputs[TL_INPUT_WRITEBACK];
 	int status;
@@ -2753,7 +2753,7 @@ int apply_data(struct trans_logger_brick *brick, loff_t pos, void *buf, int len)
 	 * The switch infrastructure must be changed before this
 	 * becomes possible.
 	 */
-#ifdef APPLY_DATA
+#ifdef REPLAY_DATA
 	while (len > 0) {
 		struct mref_object *mref;
 		struct trans_logger_mref_aspect *mref_a;
@@ -2842,7 +2842,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 	input->inf.inf_min_pos = start_pos;
 	input->inf.inf_max_pos = brick->replay_end_pos;
 	input->inf.inf_log_pos = brick->replay_end_pos;
-	input->inf.inf_is_applying = true;
+	input->inf.inf_is_replaying = true;
 	input->inf.inf_is_logging = false;
 
 	MARS_INF("starting replay from %lld to %lld\n", start_pos, brick->replay_end_pos);
@@ -2913,11 +2913,11 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		} else if (likely(buf && len)) {
 			if (brick->replay_limiter)
 				mars_limit_sleep(brick->replay_limiter, (len - 1) / 1024 + 1);
-			status = apply_data(brick, lh.l_pos, buf, len);
-			MARS_RPL("apply %lld %lld (pos=%lld status=%d)\n", finished_pos, new_finished_pos, lh.l_pos, status);
+			status = replay_data(brick, lh.l_pos, buf, len);
+			MARS_RPL("replay %lld %lld (pos=%lld status=%d)\n", finished_pos, new_finished_pos, lh.l_pos, status);
 			if (unlikely(status < 0)) {
 				brick->replay_code = status;
-				MARS_ERR("cannot apply data at pos = %lld len = %d, status = %d\n", lh.l_pos, len, status);
+				MARS_ERR("cannot replay data at pos = %lld len = %d, status = %d\n", lh.l_pos, len, status);
 				break;
 			} else {
 				finished_pos = new_finished_pos;

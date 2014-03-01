@@ -1019,14 +1019,14 @@ void _update_info(struct trans_logger_info *inf)
 		goto done;
 	}
 
-	MARS_DBG("inf = %p '%s' seq = %d min_pos = %lld max_pos = %lld log_pos = %lld is_applying = %d is_logging = %d\n",
+	MARS_DBG("inf = %p '%s' seq = %d min_pos = %lld max_pos = %lld log_pos = %lld is_replaying = %d is_logging = %d\n",
 		 inf,
 		 SAFE_STR(inf->inf_host),
 		 inf->inf_sequence,
 		 inf->inf_min_pos,
 		 inf->inf_max_pos,
 		 inf->inf_log_pos,
-		 inf->inf_is_applying,
+		 inf->inf_is_replaying,
 		 inf->inf_is_logging);
 
 	hash = inf->inf_sequence % MAX_INFOS;
@@ -1077,18 +1077,18 @@ void write_info_links(struct mars_rotate *rot)
 		memcpy(&inf, &rot->infs[hash], sizeof(struct trans_logger_info));
 		traced_unlock(&rot->inf_lock, flags);
 		
-		MARS_DBG("seq = %d min_pos = %lld max_pos = %lld log_pos = %lld is_applying = %d is_logging = %d\n",
+		MARS_DBG("seq = %d min_pos = %lld max_pos = %lld log_pos = %lld is_replaying = %d is_logging = %d\n",
 			 inf.inf_sequence,
 			 inf.inf_min_pos,
 			 inf.inf_max_pos,
 			 inf.inf_log_pos,
-			 inf.inf_is_applying,
+			 inf.inf_is_replaying,
 			 inf.inf_is_logging);
 		
-		if (inf.inf_is_logging || inf.inf_is_applying) {
+		if (inf.inf_is_logging || inf.inf_is_replaying) {
 			count += _update_replay_link(rot, &inf);
 		}
-		if (inf.inf_is_logging || inf.inf_is_applying) {
+		if (inf.inf_is_logging || inf.inf_is_replaying) {
 			count += _update_version_link(rot, &inf);
 		}
 	}
@@ -1108,7 +1108,7 @@ void _make_new_replaylink(struct mars_rotate *rot, char *new_host, int new_seque
 		.inf_min_pos = 0,
 		.inf_max_pos = 0,
 		.inf_log_pos = end_pos,
-		.inf_is_applying = true,
+		.inf_is_replaying = true,
 	};
 	strncpy(inf.inf_host, new_host, sizeof(inf.inf_host));
 
@@ -2203,7 +2203,7 @@ bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, c
 		goto done;
 	}
 
-	// check: did I fully apply my old logfile data?
+	// check: did I fully replay my old logfile data?
 	own_replaylink = get_replaylink(rot->parent_path, my_id(), &own_replaylink_path);
 	if (unlikely(!own_replaylink || !own_replaylink[0])) {
 		MARS_ERR_TO(rot->log_say, "cannot read my own replaylink '%s'\n", SAFE_STR(own_replaylink_path));
@@ -3200,9 +3200,9 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 
 	if (trans_brick->replay_mode) {
 		if (trans_brick->replay_code > 0) {
-			MARS_INF_TO(rot->log_say, "logfile apply ended successfully\n");
+			MARS_INF_TO(rot->log_say, "logfile replay ended successfully\n");
 		} else if (trans_brick->replay_code < 0) {
-			MARS_ERR_TO(rot->log_say, "logfile apply stopped with error = %d\n", trans_brick->replay_code);
+			MARS_ERR_TO(rot->log_say, "logfile replay stopped with error = %d\n", trans_brick->replay_code);
 		}
 	}
 
@@ -3822,7 +3822,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	if (do_start && !_check_allow(global, dent->d_parent, "attach"))
 		do_start = false;
 	
-	/* Disallow contemporary sync & logfile_apply
+	/* Disallow contemporary sync & logfile_replay
 	 */
 	if (do_start &&
 	    rot->trans_brick &&
