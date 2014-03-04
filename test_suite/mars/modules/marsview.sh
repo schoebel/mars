@@ -22,7 +22,7 @@ function marsview_get
         lib_vmsg "  check_line : ${check_line[*]}" >&2
         grep -q "SPLIT BRAIN" $tmp_err && break
         [[ "${check_line[*]}" =~ "PrimaryUnreachable" ]] && break
-        sleep 3
+        sleep 2
         if (( max_rounds-- <= 0 )); then
             lib_vmsg "  COMPARE BAD" >&2
             break
