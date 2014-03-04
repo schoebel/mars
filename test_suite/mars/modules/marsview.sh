@@ -1,10 +1,27 @@
 #!/bin/bash
 
+function marsview_get
+{
+    local host=$1 res=$2
+    local result_line check_line
+    local max_rounds=10
+    for (( ; ; )); do
+        result_line=($(lib_remote_idfile $host marsview $res | head -1)) || lib_exit 1
+        lib_vmsg "  result_line: ${result_line[*]}"
+        check_line=($(lib_remote_idfile $host marsadm view-1and1 $res | head -1)) || lib_exit 1
+        [ "${result_line[*]}" = "${check_line[*]}" ] && break
+        lib_vmsg "  check_line : ${check_line[*]}"
+        sleep 3
+        (( max_rounds-- )) || break
+    done
+    echo "${result_line[*]}"
+}
+
 function marsview_check
 {
     local host=$1 res=$2 obj=$3 state_req="$4"
     local result_line field_no
-    result_line=($(lib_remote_idfile $host marsview $res)) || lib_exit 1
+    result_line=($(marsview_get $host $res))
     field_no=$(marsview_obj_to_field $obj) || lib_exit 1
     local obj_state="${result_line[$field_no]}"
     if ! expr "$obj_state" : "\($state_req\)" >/dev/null; then
