@@ -210,7 +210,7 @@ function switch2primary_force
 
     if [ $switch2primary_connected -eq 1 ]; then
         if [ $switch2primary_orig_prim_equal_new_prim -eq 1 ]; then
-            marsadm_do_cmd $new_primary "primary" "$res" || lib_exit 1
+            marsadm_do_cmd $new_primary "primary --force" "$res" || lib_exit 1
         fi
         switch2primary_correct_split_brain $orig_primary $orig_secondary \
                                             $new_primary $new_secondary $res
