@@ -13,7 +13,7 @@ function marsview_get
         lib_vmsg "  result_line: ${result_line[*]}"
         check_line=($(lib_remote_idfile $host marsadm view-1and1 $res \
                     2>$tmp_err | head -1)) || \
-                    { cat $tmp_err > &2; lib_exit 1; }
+                    { cat $tmp_err >&2; lib_exit 1; }
         if [ -s $tmp_err ]; then
             lib_vmsg "   marsadm view-1and1 had errors:"
             cat $tmp_err
