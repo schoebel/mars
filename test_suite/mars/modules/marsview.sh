@@ -20,10 +20,28 @@ function marsview_get
         fi
         [ "${result_line[*]}" = "${check_line[*]}" ] && break
         lib_vmsg "  check_line : ${check_line[*]}" >&2
-        grep -q "SPLIT BRAIN" $tmp_err && break
-        [[ "${check_line[*]}" =~ "PrimaryUnreachable" ]] && break
+        lib_remote_idfile $host "marsadm view-1and1 all; marsadm view-the-msg all; marsadm view-the-global-msg; true"
+        if grep -q "SPLIT BRAIN" $tmp_err; then
+            lib_vmsg "  COMPARE IGNORED"
+            break
+        fi
+        if [[ "${check_line[*]}" =~ "PrimaryUnreachable" ]]; then
+            lib_vmsg "  COMPARE UNREACHABLE"
+            break
+        fi
         sleep 2
         if (( max_rounds-- <= 0 )); then
+            lib_vmsg "  EXCEEDED $(date)" >&2
+            lib_linktree_print_linktree $host >&2
+            lib_vmsg "  SLEEPING $(date)" >&2
+            sleep 60
+            lib_remote_idfile $host "marsadm view-1and1 all; marsadm view-the-msg all; marsadm view-the-global-msg; true" >&2
+            if [[ "${result_line[*]}" =~ "Outdated" \
+                  && "${check_line[*]}" =~ "Uptodate" ]]
+            then
+                lib_vmsg "  COMPARE BUG" >&2
+                break
+            fi
             lib_vmsg "  COMPARE BAD" >&2
             break
         fi
