@@ -209,9 +209,6 @@ function switch2primary_force
     lib_vmsg "  ${FUNCNAME[0]}: write_count: $write_count"
 
     if [ $switch2primary_connected -eq 1 ]; then
-        if [ $switch2primary_orig_prim_equal_new_prim -eq 1 ]; then
-            marsadm_do_cmd $new_primary "primary --force" "$res" || lib_exit 1
-        fi
         switch2primary_correct_split_brain $orig_primary $orig_secondary \
                                             $new_primary $new_secondary $res
         return
@@ -362,6 +359,8 @@ function switch2primary_correct_split_brain
         network_cut=1
     fi
     lib_vmsg "  $switch2primary_flow_msg_prefix: starting split brain correction, network_cut=$network_cut"
+    marsadm_do_cmd $new_primary "disconnect" "$res" || lib_exit 1
+    marsadm_do_cmd $new_primary "primary --force" "$res" || lib_exit 1
     marsadm_do_cmd $new_primary "connect" "$res" || lib_exit 1
     marsadm_do_cmd $new_primary "secondary" "$res" || lib_exit 1
     # if the new_primary was recreated, the delete-resource in
