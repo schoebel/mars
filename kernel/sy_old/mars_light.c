@@ -1537,7 +1537,8 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 		goto done;
 	}
 
-	if (remote_dent->d_class == CL_GLOBAL_TODO_DELETE) {
+	// create / check markers (prevent concurrent updates)
+	if (remote_dent->new_link && !strncmp(remote_dent->d_path, "/mars/todo-global/delete-", 25)) {
 		marker_path = backskip_replace(remote_dent->new_link, '/', true, "/.deleted-");
 		if (mars_stat(marker_path, &local_stat, true) < 0 ||
 		    timespec_compare(&remote_dent->new_stat.mtime, &local_stat.mtime) > 0) {
@@ -1660,7 +1661,7 @@ int run_bones(struct mars_peerinfo *peer)
 
 	for (tmp = tmp_list.next; tmp != &tmp_list; tmp = tmp->next) {
 		struct mars_dent *remote_dent = container_of(tmp, struct mars_dent, dent_link);
-		if (!remote_dent->d_path) {
+		if (!remote_dent->d_path || !remote_dent->d_name) {
 			MARS_DBG("NULL\n");
 			continue;
 		}
