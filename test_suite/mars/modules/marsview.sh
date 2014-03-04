@@ -16,7 +16,7 @@ function marsview_get
                     { cat $tmp_err >&2; lib_exit 1; }
         if [ -s $tmp_err ]; then
             lib_vmsg "   marsadm view-1and1 had errors:"
-            cat $tmp_err
+            cat $tmp_err >&2
         fi
         [ "${result_line[*]}" = "${check_line[*]}" ] && break
         lib_vmsg "  check_line : ${check_line[*]}" >&2
