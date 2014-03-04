@@ -7,6 +7,7 @@ function marsadm_do_cmd
     lib_vmsg "  executing $marscmd on $host"
     lib_remote_idfile $host $marscmd
     rc=$?
+    marsview_get $host lv-1-2 >/dev/null
     if [ $rc -ne 0 ]; then
         return $rc
     fi

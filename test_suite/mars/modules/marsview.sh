@@ -10,8 +10,13 @@ function marsview_get
         lib_vmsg "  result_line: ${result_line[*]}"
         check_line=($(lib_remote_idfile $host marsadm view-1and1 $res | head -1)) || lib_exit 1
         [ "${result_line[*]}" = "${check_line[*]}" ] && break
-        lib_vmsg "  check_line : ${check_line[*]}"
+        lib_vmsg "  check_line : ${check_line[*]}" >&2
+        [[ "${check_line[*]}" =~ "PrimaryUnreachable" ]] && break
         sleep 3
+        if (( max_rounds-- <= 0 )); then
+            lib_vmsg "  COMPARE BAD" >&2
+            break
+        fi
         (( max_rounds-- )) || break
     done
     echo "${result_line[*]}"
