@@ -5,12 +5,22 @@ function marsview_get
     local host=$1 res=$2
     local result_line check_line
     local max_rounds=10
+    local tmp_err=/tmp/xx.$$
+    rm -f $tmp_err || lib_exit 1
     for (( ; ; )); do
-        result_line=($(lib_remote_idfile $host marsview $res | head -1)) || lib_exit 1
+        result_line=($(lib_remote_idfile $host marsview $res | head -1)) || \
+                                                                    lib_exit 1
         lib_vmsg "  result_line: ${result_line[*]}"
-        check_line=($(lib_remote_idfile $host marsadm view-1and1 $res | head -1)) || lib_exit 1
+        check_line=($(lib_remote_idfile $host marsadm view-1and1 $res \
+                    2>$tmp_err | head -1)) || \
+                    { cat $tmp_err > &2; lib_exit 1; }
+        if [ -s $tmp_err ]; then
+            lib_vmsg "   marsadm view-1and1 had errors:"
+            cat $tmp_err
+        fi
         [ "${result_line[*]}" = "${check_line[*]}" ] && break
         lib_vmsg "  check_line : ${check_line[*]}" >&2
+        grep -q "SPLIT BRAIN" $tmp_err && break
         [[ "${check_line[*]}" =~ "PrimaryUnreachable" ]] && break
         sleep 3
         if (( max_rounds-- <= 0 )); then
@@ -19,6 +29,7 @@ function marsview_get
         fi
         (( max_rounds-- )) || break
     done
+    rm -f $tmp_err || lib_exit 1
     echo "${result_line[*]}"
 }
 
