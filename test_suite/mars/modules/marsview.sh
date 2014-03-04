@@ -10,23 +10,24 @@ function marsview_get
     for (( ; ; )); do
         result_line=($(lib_remote_idfile $host marsview $res | head -1)) || \
                                                                     lib_exit 1
-        lib_vmsg "  result_line: ${result_line[*]}"
+        echo "${result_line[*]}"
         check_line=($(lib_remote_idfile $host marsadm view-1and1 $res \
                     2>$tmp_err | head -1)) || \
                     { cat $tmp_err >&2; lib_exit 1; }
         if [ -s $tmp_err ]; then
-            lib_vmsg "   marsadm view-1and1 had errors:"
+            lib_vmsg "   marsadm view-1and1 had errors:" >&2
             cat $tmp_err >&2
         fi
         [ "${result_line[*]}" = "${check_line[*]}" ] && break
+        lib_vmsg "  result_line: ${result_line[*]}" >&2
         lib_vmsg "  check_line : ${check_line[*]}" >&2
         lib_remote_idfile $host "marsadm view-1and1 all; marsadm view-the-msg all; marsadm view-the-global-msg; true"
         if grep -q "SPLIT BRAIN" $tmp_err; then
-            lib_vmsg "  COMPARE IGNORED"
+            lib_vmsg "  COMPARE IGNORED" >&2
             break
         fi
         if [[ "${check_line[*]}" =~ "PrimaryUnreachable" ]]; then
-            lib_vmsg "  COMPARE UNREACHABLE"
+            lib_vmsg "  COMPARE UNREACHABLE" >&2
             break
         fi
         sleep 2
