@@ -362,25 +362,28 @@ function switch2primary_correct_split_brain
     marsadm_do_cmd $new_primary "disconnect" "$res" || lib_exit 1
     marsadm_do_cmd $new_primary "primary --force" "$res" || lib_exit 1
     marsadm_do_cmd $new_primary "connect" "$res" || lib_exit 1
-    marsadm_do_cmd $new_primary "secondary" "$res" || lib_exit 1
+    ##marsadm_do_cmd $new_primary "secondary" "$res" || lib_exit 1
     # if the new_primary was recreated, the delete-resource in
     # switch2primary_recreate_resource destroys the resource on the
     # new_secondary. Thus two branches to restore the replication are needed
     if [ $switch2primary_full_apply_not_possible -eq 0 ]; then
-        marsadm_do_cmd $new_secondary "secondary" "$res" || lib_exit 1
+        ##marsadm_do_cmd $new_secondary "secondary" "$res" || lib_exit 1
         marsadm_do_cmd $new_secondary "down" "$res" || lib_exit 1
         marsadm_do_cmd $new_secondary "leave-resource --force" "$res" || \
                                                                     lib_exit 1
-        marsadm_do_cmd $new_primary "log-purge-all" "$res" || lib_exit 1
+        marsadm_do_cmd $new_primary "log-purge-all --force" "$res" || lib_exit 1
         if [ $network_cut -eq 0 ]; then
-            marsadm_do_cmd $new_primary "primary" "$res" || lib_exit 1
+            echo "Branch A"
+            ##marsadm_do_cmd $new_primary "primary" "$res" || lib_exit 1
         else
-            marsadm_primary_force $new_primary $res
+            echo "Branch B"
+            ##marsadm_primary_force $new_primary $res
         fi
     else
+        echo "Branch C"
         # we need primary --force, because the deleted resource on the
         # new_secondary does not switch from primary to secondary
-        marsadm_primary_force $new_primary $res
+        ##marsadm_primary_force $new_primary $res
     fi
     lib_vmsg "  $switch2primary_flow_msg_prefix: check whether new primary $new_primary works standalone"
     switch2primary_check_standalone_primary $new_primary $res

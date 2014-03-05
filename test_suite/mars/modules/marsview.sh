@@ -4,51 +4,54 @@ function marsview_get
 {
     local host=$1 res=$2
     local result_line check_line
-    local max_rounds=10
+    local max_rounds=20
     local tmp_err=/tmp/xx.$$
-    rm -f $tmp_err || lib_exit 1
     for (( ; ; )); do
-        result_line=($(lib_remote_idfile $host marsview $res | head -1)) || \
-                                                                    lib_exit 1
-        echo "${result_line[*]}"
-        check_line=($(lib_remote_idfile $host marsadm view-1and1 $res \
-                    2>$tmp_err | head -1)) || \
-                    { cat $tmp_err >&2; lib_exit 1; }
-        if [ -s $tmp_err ]; then
-            lib_vmsg "   marsadm view-1and1 had errors:" >&2
-            cat $tmp_err >&2
-        fi
-        [ "${result_line[*]}" = "${check_line[*]}" ] && break
-        lib_vmsg "  result_line: ${result_line[*]}" >&2
-        lib_vmsg "  check_line : ${check_line[*]}" >&2
-        lib_remote_idfile $host "marsadm view-1and1 all; marsadm view-the-msg all; marsadm view-the-global-msg; true"
-        if grep -q "SPLIT BRAIN" $tmp_err; then
-            lib_vmsg "  COMPARE IGNORED" >&2
-            break
-        fi
-        if [[ "${check_line[*]}" =~ "PrimaryUnreachable" ]]; then
-            lib_vmsg "  COMPARE UNREACHABLE" >&2
-            break
-        fi
-        sleep 2
-        if (( max_rounds-- <= 0 )); then
-            lib_vmsg "  EXCEEDED $(date)" >&2
-            lib_linktree_print_linktree $host >&2
-            lib_vmsg "  SLEEPING $(date)" >&2
-            sleep 60
-            lib_remote_idfile $host "marsadm view-1and1 all; marsadm view-the-msg all; marsadm view-the-global-msg; true" >&2
-            if [[ "${result_line[*]}" =~ "Outdated" \
-                  && "${check_line[*]}" =~ "Uptodate" ]]
-            then
-                lib_vmsg "  COMPARE BUG" >&2
-                break
-            fi
-            lib_vmsg "  COMPARE BAD" >&2
-            break
-        fi
-        (( max_rounds-- )) || break
+	result_line=($(lib_remote_idfile $host marsview $res | head -1)) || lib_exit 1
+	echo "result_line: ${result_line[*]}" >> /dev/stderr
+	check_line=($(lib_remote_idfile $host marsadm view-1and1 $res 2> $tmp_err | head -1)) || { cat $tmp_err >> /dev/stderr; lib_exit 1; }
+	cat $tmp_err >> /dev/stderr
+	echo "check_line : ${check_line[*]}" >> /dev/stderr
+	lib_remote_idfile $host "marsadm view-1and1 all; marsadm view-the-msg all; marsadm view-the-global-msg; true" >> /dev/stderr 2>&1 || true
+	local a="$(echo "${result_line[*]}")"
+	local b="$(echo "${check_line[*]}")"
+	echo "a: $a" >> /dev/stderr
+	echo "b: $b" >> /dev/stderr
+	if [ "$a" = "$b" ]; then
+	    echo "COMPARE OK" >> /dev/stderr
+	    break
+	fi
+	if grep -q "SPLIT BRAIN" $tmp_err; then
+	    echo "COMPARE IGNORED" >> /dev/stderr
+	    break
+	fi
+	if [[ "${check_line[*]}" =~ "PrimaryUnreachable" ]]; then
+	    echo "COMPARE UNREACHABLE" >> /dev/stderr
+	    break
+	fi
+	sleep 1
+	if (( max_rounds-- <= 0 )); then
+	    echo "EXCEEDED $(date)" >> /dev/stderr
+	    lib_remote_idfile $host "find /mars -ls; true" >> /dev/stderr 2>&1 || true
+	    echo "SLEEPING $(date)" >> /dev/stderr
+	    sleep 60
+	    lib_remote_idfile $host "marsadm view-1and1 all; marsadm view-the-msg all; marsadm view-the-global-msg; true" >> /dev/stderr 2>&1 || true
+	    local a="$(echo "${result_line[*]}" | sed 's/\[.*\]//')"
+	    local b="$(echo "${check_line[*]}" | sed 's/\[.*\]//')"
+	    if [ "$a" = "$b" ]; then
+		echo "COMPARE OK" >> /dev/stderr
+		echo "COMPARE FLAGS MISMATCH" >> /dev/stderr
+		break
+	    fi
+	    if [[ "$a" =~ "Outdated" && "$b" =~ "Uptodate" ]]; then
+		echo "COMPARE BUG" >> /dev/stderr
+		break
+	    fi
+	    echo "COMPARE BAD" >> /dev/stderr
+	    break
+	fi
     done
-    rm -f $tmp_err || lib_exit 1
+    rm -f $tmp_err
     echo "${result_line[*]}"
 }
 
