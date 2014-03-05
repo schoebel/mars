@@ -360,7 +360,10 @@ function switch2primary_correct_split_brain
     fi
     lib_vmsg "  $switch2primary_flow_msg_prefix: starting split brain correction, network_cut=$network_cut"
     marsadm_do_cmd $new_primary "disconnect" "$res" || lib_exit 1
-    marsadm_do_cmd $new_primary "primary --force" "$res" || lib_exit 1
+    # Only to switch the designated primary. The device may not appear, though we omit the
+    # usual check of post conditions via marsadm_do_cmd.
+    lib_vmsg "  $switch2primary_flow_msg_prefix: special primary --force on $new_primary"
+    lib_remote_idfile $new_primary "marsadm primary --force $res" || lib_exit 1
     marsadm_do_cmd $new_primary "connect" "$res" || lib_exit 1
     ##marsadm_do_cmd $new_primary "secondary" "$res" || lib_exit 1
     # if the new_primary was recreated, the delete-resource in
