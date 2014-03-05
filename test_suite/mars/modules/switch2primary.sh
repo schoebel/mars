@@ -371,6 +371,13 @@ function switch2primary_correct_split_brain
     # new_secondary. Thus two branches to restore the replication are needed
     if [ $switch2primary_full_apply_not_possible -eq 0 ]; then
         ##marsadm_do_cmd $new_secondary "secondary" "$res" || lib_exit 1
+        if [ $network_cut -eq 0 \
+             -a $switch2primary_disconnect_before_leave_resource -eq 1 ]
+        then
+            lib_vmsg "  $switch2primary_flow_msg_prefix: cut network"
+            net_do_impact_cmd $orig_secondary "on" "remote_host=$orig_primary"
+            network_cut=1
+        fi
         marsadm_do_cmd $new_secondary "down" "$res" || lib_exit 1
         marsadm_do_cmd $new_secondary "leave-resource --force" "$res" || \
                                                                     lib_exit 1
