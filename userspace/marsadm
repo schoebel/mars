@@ -657,6 +657,23 @@ sub detect_splitbrain {
       }
     }
   }
+  if ($ok) { # check for duplicate logfiles
+    my @logs = glob("$mars/resource-$res/log-*");
+    my $oldnr = -1;
+    foreach my $path (sort(@logs)) {
+      $path =~ m:/log-([0-9]+):;
+      my $nr = $1;
+      if ($nr == $oldnr) {
+	$ok = 0;
+	lwarn "SPLIT BRAIN at '$res' detected: duplicate logfile number $nr\n";
+	lwarn "hint: first resolve split brain by 'leave-resource' or 'invalidate'\n";
+	lwarn "hint: if this does not help, try cleanup via 'log-purge-all'\n";
+	lwarn "hint: if this does not help, try 'log-purge-all --force'\n";
+	last;
+      }
+      $oldnr = $nr;
+    }
+  }
   $detected_splits{$res} = $ok;
   return $ok;
 }
