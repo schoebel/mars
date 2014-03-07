@@ -363,7 +363,7 @@ function switch2primary_correct_split_brain
     # Only to switch the designated primary. The device may not appear, though
     # we omit the usual check of post conditions via marsadm_do_cmd.
     lib_vmsg "  $switch2primary_flow_msg_prefix: special primary --force on $new_primary"
-    lib_remote_idfile $new_primary "marsadm primary --force $res" || lib_exit 1
+    lib_remote_idfile $new_primary "marsadm primary --timeout=240 --force $res" || lib_exit 1
     marsadm_do_cmd $new_primary "connect" "$res" || lib_exit 1
     ##marsadm_do_cmd $new_primary "secondary" "$res" || lib_exit 1
     # if the new_primary was recreated, the delete-resource in
@@ -379,8 +379,16 @@ function switch2primary_correct_split_brain
             network_cut=1
         fi
         marsadm_do_cmd $new_secondary "down" "$res" || lib_exit 1
-        marsadm_do_cmd $new_secondary "leave-resource --force" "$res" || \
+        local new_method=1
+        if (( new_method )); then
+            marsadm_do_cmd $new_primary "leave-resource --force --host=$new_secondary" "$res" || \
                                                                     lib_exit 1
+        else
+            marsadm_do_cmd $new_secondary "leave-resource --force" "$res" || \
+                                                                    lib_exit 1
+        fi
+        echo "sleeping for propagation...."
+        sleep 15
         marsadm_do_cmd $new_primary "log-purge-all --force" "$res" || lib_exit 1
         if [ $network_cut -eq 0 ]; then
             echo "Branch A"
@@ -405,6 +413,10 @@ function switch2primary_correct_split_brain
         switch2primary_check_standalone_primary $new_primary $res
     fi
 
+    # now do the restore work.....
+    # we assume that the $new_secondary is physically usable again in some way.
+
+    marsadm_do_cmd $new_secondary "log-purge-all --force" "$res" || lib_exit 1
     marsadm_do_cmd $new_secondary "join-resource --force" "$res $lv_dev" \
                                                             || lib_exit 1
     lib_vmsg "  $switch2primary_flow_msg_prefix: wait for end of sync on new secondary $new_secondary"
