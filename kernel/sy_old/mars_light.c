@@ -2576,6 +2576,13 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 	CHECK_PTR_NULL(global, done);
 	CHECK_PTR(rot->replay_link, done);
 	CHECK_PTR(rot->aio_brick, done);
+	CHECK_PTR(rot->aio_dent, done);
+
+	MARS_DBG("    dent = '%s'\n", dent->d_path);
+	MARS_DBG("aio_dent = '%s'\n", rot->aio_dent->d_path);
+	if (unlikely(strcmp(dent->d_path, rot->aio_dent->d_path))) {
+		goto done;
+	}
 
 	if (sscanf(rot->replay_link->d_argv[0], "log-%d", log_nr) != 1) {
 		MARS_ERR_TO(rot->log_say, "replay link has malformed logfile number '%s'\n", rot->replay_link->d_argv[0]);
@@ -2672,6 +2679,7 @@ int _make_logging_status(struct mars_rotate *rot)
 	/* Find current logging status.
 	 */
 	status = _check_logging_status(rot, &log_nr, &start_pos, &dirty_pos, &end_pos);
+	MARS_DBG("case = %d (todo_primary=%d is_primary=%d old_is_primary=%d)\n", status,  rot->todo_primary, rot->is_primary, rot->old_is_primary);
 	if (status < 0) {
 		goto done;
 	}
