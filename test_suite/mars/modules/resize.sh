@@ -123,8 +123,8 @@ function resize_check_resize_post_conditions
     fi
     for test_size in $(($mars_data_dev_size_new - 1)) $mars_data_dev_size_new
     do
-        datadev_full_dd_on_device $primary_host $test_file $test_size 4711 \
-                                  $should_fail
+        datadev_full_dd_on_device $primary_host $test_file \
+                                  $(( 1024 * $test_size )) 4711 $should_fail
         should_fail=1
         lib_remote_idfile $primary_host \
                           "if ls -l $test_file; then rm -f $test_file;fi" \

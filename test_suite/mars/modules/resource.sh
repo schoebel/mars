@@ -318,7 +318,8 @@ function resource_write_file_until_mars_dir_full
     [ $# -eq 4 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local host=$1 mars_dir=$2 mars_dev_size=$3 file_to_fill=$4
     local df_out use_percent rc
-    datadev_full_dd_on_device $host $file_to_fill $(($mars_dev_size + 1)) 4711 1
+    datadev_full_dd_on_device $host $file_to_fill \
+                            $(( 1024 * ($mars_dev_size + 1) )) 4711 1
     lib_remote_idfile $host "ls -l $file_to_fill" || lib_exit 1
     lib_vmsg "  checking space on $host:$mars_dir"
     df_out=($(lib_remote_idfile $host "df -B1 $mars_dir")) || lib_exit 1
@@ -356,8 +357,8 @@ function resource_dd_until_mars_dir_full
 
     while true;do
         local free df_out
-        datadev_full_dd_on_device $primary_host $data_dev $write_per_loop \
-                                  $control_nr 0
+        datadev_full_dd_on_device $primary_host $data_dev \
+                                  $(( 1024 * $write_per_loop )) $control_nr 0
         let written+=$write_per_loop
         let control_nr+=1
         df_out=($(lib_remote_idfile $primary_host "df -B1 $mars_dir | \

@@ -35,7 +35,7 @@ function datadev_full_run
     resize_prepare
 
     datadev_full_dd_on_device $primary_host $data_dev \
-                              $(($data_dev_size_orig + 1)) 123 1 
+                              $(( 1024 * ($data_dev_size_orig + 1) )) 123 1 
     resize_do_resize $primary_host $secondary_host $res $dev \
                      $data_dev_size_new $mars_data_dev_size_new
 
@@ -54,8 +54,8 @@ function datadev_full_run
 function datadev_full_dd_on_device
 {
     [ $# -eq 5 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
-    local host=$1 dev=$2 size=$3 control_nr=$4 should_fail=$5
-    local bs=4096 count=$(($size * 1024 * 1024 / 4)) 
+    local host=$1 dev=$2 size_mb=$3 control_nr=$4 should_fail=$5
+    local bs=4096 count=$(($size_mb * 1024 / 4)) 
     local dd_out rc
     local err_msg='No space left on device'
 
