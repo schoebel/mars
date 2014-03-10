@@ -278,7 +278,6 @@ function resource_fill_mars_dir
     lib_remote_idfile $primary_host "echo 1 >$procfile" || lib_exit 1
 
     marsadm_do_cmd $secondary_host "invalidate" $res
-#    marsadm_do_cmd $secondary_host "log-delete-all" $res
     lib_wait_for_initial_end_of_sync $primary_host $secondary_host $res \
                                   $resource_maxtime_initial_sync \
                                   $resource_time_constant_initial_sync \
