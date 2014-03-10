@@ -54,8 +54,8 @@ function datadev_full_run
 function datadev_full_dd_on_device
 {
     [ $# -eq 5 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
-    local host=$1 dev=$2 dev_size=$3 control_nr=$4 should_fail=$5
-    local bs=4096 count=$(($dev_size * 1024 * 1024 / 4)) 
+    local host=$1 dev=$2 size=$3 control_nr=$4 should_fail=$5
+    local bs=4096 count=$(($size * 1024 * 1024 / 4)) 
     local dd_out rc
     local err_msg='No space left on device'
 
