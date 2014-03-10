@@ -124,6 +124,7 @@ struct trans_logger_mref_aspect {
 	bool   is_fired;
 	bool   is_completed;
 	bool   is_persistent;
+	bool   is_emergency;
 	struct timespec stamp;
 	loff_t log_pos;
 	struct generic_callback cb;

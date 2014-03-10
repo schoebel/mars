@@ -797,6 +797,7 @@ int trans_logger_ref_get(struct trans_logger_output *output, struct mref_object 
 	}
 
 	if (unlikely(brick->stopped_logging)) { // only in EMERGENCY mode
+		mref_a->is_emergency = true;
 		/* Wait until writeback has finished.
 		 * We have to this because writeback is out-of-order.
 		 * Otherwise consistency could be violated for some time.
@@ -900,7 +901,7 @@ restart:
 	}
 
 	// only READ is allowed on non-shadow buffers
-	if (unlikely(mref->ref_rw != READ)) {
+	if (unlikely(mref->ref_rw != READ && !mref_a->is_emergency)) {
 		MARS_FAT("bad operation %d on non-shadow\n", mref->ref_rw);
 	}
 
@@ -1004,7 +1005,7 @@ void trans_logger_ref_io(struct trans_logger_output *output, struct mref_object 
 	}
 
 	// only READ is allowed on non-shadow buffers
-	if (unlikely(mref->ref_rw != READ)) {
+	if (unlikely(mref->ref_rw != READ && !mref_a->is_emergency)) {
 		MARS_FAT("bad operation %d on non-shadow\n", mref->ref_rw);
 	}
 
@@ -3046,6 +3047,9 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 "continuous=%d "
 		 "replay_code=%d "
 		 "log_reads=%d | "
+		 "cease_logging=%d "
+		 "stopped_logging=%d "
+		 "congested=%d | "
 		 "replay_start_pos = %lld "
 		 "replay_end_pos = %lld | "
 		 "new_input_nr = %d "
@@ -3100,6 +3104,9 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 brick->continuous_replay_mode,
 		 brick->replay_code,
 		 brick->log_reads,
+		 brick->cease_logging,
+		 brick->stopped_logging,
+		 _congested(brick),
 		 brick->replay_start_pos,
 		 brick->replay_end_pos,
 		 brick->new_input_nr,
