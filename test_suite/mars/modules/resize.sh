@@ -83,7 +83,7 @@ function resize_run
     resource_clear_data_device $primary_host $res
 
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
-                                     "writer_script" 0 1 $res
+                                     "writer_script" 0 1 $res ""
 
     resize_do_resize $primary_host $secondary_host $res $dev \
                      $data_lv_size_new $mars_data_dev_size_new

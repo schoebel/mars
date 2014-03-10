@@ -36,7 +36,7 @@ function crash_run
     resource_clear_data_device $primary_host $res
 
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
-                                     "writer_script" 0 0 $res
+                                     "writer_script" 0 0 $res ""
 
     lib_vmsg "  sleep $crash_time_from_write_start_to_reboot seconds"
     sleep $crash_time_from_write_start_to_reboot
@@ -101,7 +101,7 @@ function crash_write_data_device_and_calculate_checksums
     mount_mount_data_device $primary_host $res
     resource_clear_data_device $primary_host $res
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
-                                     "writer_script" 0 0 $res
+                                     "writer_script" 0 0 $res ""
     lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
     main_error_recovery_functions["lib_rw_stop_scripts"]=
     lib_wait_until_action_stops "replay" $secondary_host $res \

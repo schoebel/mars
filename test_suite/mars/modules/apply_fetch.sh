@@ -40,7 +40,7 @@ function apply_fetch_run
     resource_clear_data_device $primary_host $res
 
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
-                                     "writer_script"  2 2 $res
+                                     "writer_script"  2 2 $res ""
 
     marsadm_pause_cmd "apply" $secondary_host $res
 

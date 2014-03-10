@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2010-2013 Frank Liepold /  1&1 Internet AG
+# Copyright 2010-2014 Frank Liepold /  1&1 Internet AG
 #
 # Email: frank.liepold@1und1.de
 #
@@ -25,13 +25,14 @@
 # the name of the started script will be returned in the variable named by $5
 function lib_rw_write_and_delete_loop
 {
-    [ $# -eq 8 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    [ $# -eq 9 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local host=$1 target_file=$2 file_size_in_gb=$3 part_of_size_to_write=$4
     local varname_pid=$5 varname_script=$6 no_of_loops=$7 sleeptime=$8
+    local postfix_script_name="$9"
     local bs=1024 
     local dd_count=$(($file_size_in_gb * 1024 * 1024 / $part_of_size_to_write))
     local dir="$(dirname $target_file)"
-    local script=$lib_rw_write_and_delete_script
+    local script=$lib_rw_write_and_delete_script${postfix_script_name:+.$postfix_script_name}
     lib_vmsg "  checking directory of $host:$target_file"
     dir="$(dirname $target_file)"
     lib_remote_idfile $host "test -d $dir " || \
@@ -106,14 +107,15 @@ function lib_rw_stop_one_script
 
 function lib_rw_start_writing_data_device
 {
-    [ $# -eq 6 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    [ $# -eq 7 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local host=$1 varname_pid=$2 varname_script=$3 no_of_loops=$4 sleeptime=$5
-    local res=$6
+    local res=$6 postfix_script_name="$9"
     lib_rw_write_and_delete_loop $host \
                  ${resource_mount_point_list[$res]}/$lib_rw_file_to_write \
                  $(lv_config_get_lv_size_from_name ${resource_name_list[0]}) \
                  $lib_rw_part_of_device_size_written_per_loop \
-                 $varname_pid $varname_script $no_of_loops $sleeptime
+                 $varname_pid $varname_script $no_of_loops $sleeptime \
+                 "$postfix_script_name"
 }
 
 function lib_rw_stop_writing_data_device

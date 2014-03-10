@@ -40,7 +40,7 @@ function file_destroy_run
 
 
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
-                                     "writer_script" 0 2 $res
+                                     "writer_script" 0 2 $res ""
 
     file_destroy_down_secondary $secondary_host $res
     marsadm_do_cmd $secondary_host "connect" $res || lib_exit 1

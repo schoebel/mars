@@ -30,7 +30,7 @@ function logrotate_run
 
 
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
-                                     "writer_script" 0 0 $res
+                                     "writer_script" 0 0 $res ""
 
     logrotate_loop $primary_host $res $logrotate_number_of_rotate_loops \
                    $logrotate_sleep_time_between_rotates

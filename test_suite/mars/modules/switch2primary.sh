@@ -39,7 +39,7 @@ function switch2primary_run
     resource_clear_data_device $primary_host $res
 
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
-                                     "writer_script" 0 0 $res
+                                     "writer_script" 0 0 $res ""
 
     if [ $switch2primary_force -eq 1 ]; then
         switch2primary_force $primary_host $secondary_host $res $writer_script

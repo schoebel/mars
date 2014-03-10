@@ -35,7 +35,7 @@ function remote_dev_run
     cluster_create_debugfiles $primary_host
 
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
-                                     "writer_script" 0 0 $res
+                                     "writer_script" 0 0 $res ""
 
     for action in "rotate" "delete"; do
         local sleep_time pid_varname script_varname

@@ -176,7 +176,7 @@ function perftest_do_write
     local  writer_rate
     writer_start=$(date +'%s')
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
-                                     "writer_script" 0 0 $res
+                                     "writer_script" 0 0 $res ""
     lib_vmsg "  sleep $perftest_write_time"
     sleep $perftest_write_time
     lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
@@ -227,7 +227,7 @@ function perftest_start_parallel_writer
     mount_mount_data_device $host $res
     eval $varname_writer_start=$(date +'%s')
     lib_rw_start_writing_data_device $host $varname_writer_pid \
-                                     $varname_writer_script 0 0 $res
+                                     $varname_writer_script 0 0 $res ""
 }
 
 function perftest_finish_parallel_writer

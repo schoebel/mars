@@ -251,7 +251,7 @@ function resource_fill_mars_dir
         resource_check_low_space_error $primary_host $res "sequence_hole"
     else
         lib_rw_start_writing_data_device $primary_host "writer_pid" \
-                                         "writer_script" 0 2 $res
+                                         "writer_script" 0 2 $res ""
         resource_write_file_until_mars_dir_full $primary_host \
                                                 $global_mars_directory \
                                                 $mars_dev_size \
@@ -271,7 +271,7 @@ function resource_fill_mars_dir
     resource_resize_mars_dir $primary_host $mars_dev $(($mars_dev_size + 10))
 
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
-                                     "writer_script"  0 3 $res
+                                     "writer_script"  0 3 $res ""
 
     local procfile=/proc/sys/mars/logger_resume
     lib_vmsg "  setting $primary_host:$procfile to 1"
@@ -558,7 +558,7 @@ function resource_write_and_check
     resource_clear_data_device $primary_host $res
 
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
-                                     "writer_script" 0 1 $res
+                                     "writer_script" 0 1 $res ""
     sleep 15
     lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
     main_error_recovery_functions["lib_rw_stop_scripts"]=
