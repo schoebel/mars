@@ -66,7 +66,7 @@ function multi_sync_check_and_wait_for_end_of_syncs
     local nr_syncs_running_req nr_syncs_running_act
     local nr_syncs_wanted_req nr_syncs_wanted_act
     local result="${multi_sync_required_result_list[$sync_limit]}"
-    local maxwait=3 waited=0
+    local maxwait=10 waited=0
     local ssh_out i
     local syncing_resources
     if [ -z "$result" ]; then
