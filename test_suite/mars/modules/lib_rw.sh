@@ -109,7 +109,7 @@ function lib_rw_start_writing_data_device
 {
     [ $# -eq 7 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local host=$1 varname_pid=$2 varname_script=$3 no_of_loops=$4 sleeptime=$5
-    local res=$6 postfix_script_name="$9"
+    local res=$6 postfix_script_name="$7"
     lib_rw_write_and_delete_loop $host \
                  ${resource_mount_point_list[$res]}/$lib_rw_file_to_write \
                  $(lv_config_get_lv_size_from_name ${resource_name_list[0]}) \
