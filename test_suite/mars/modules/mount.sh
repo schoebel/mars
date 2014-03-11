@@ -82,9 +82,8 @@ function mount_mount_data_device
 
 function mount_umount_data_device_all
 {
-    local res_no=${1:-0}
+    local res=${1:-${resource_name_list[0]}}
     local host
-    local res=${resource_name_list[$res_no]}
     for host in ${global_host_list[@]}; do 
         mount_umount_data_device $host $res
     done

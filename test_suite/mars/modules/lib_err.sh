@@ -138,15 +138,17 @@ function lib_err_wait_for_error_messages
     local number_errmsg_req=$4 maxwait=$5
     local count waited=0 rc
 
-    lib_vmsg "  checking existence of file $msg_file on $host"
-    lib_remote_idfile $host "ls -l --full-time $msg_file" || lib_exit 1
     while true; do
-        count=$(lib_remote_idfile $host \
-                "egrep '$errmsg_pattern' $msg_file | wc -l") || lib_exit 1
-        lib_vmsg "  found $count messages (pattern = '$errmsg_pattern'), waited $waited"
-        if [ $count -ge $number_errmsg_req ]; then
-            break
+        lib_vmsg "  checking existence of file $msg_file on $host"
+        if lib_remote_idfile $host "ls -l --full-time $msg_file"; then
+            count=$(lib_remote_idfile $host \
+                    "egrep '$errmsg_pattern' $msg_file | wc -l") || lib_exit 1
+            lib_vmsg "  found $count messages (pattern = '$errmsg_pattern'), waited $waited"
+            if [ $count -ge $number_errmsg_req ]; then
+                break
+            fi
         fi
+        lib_vmsg "  waited $waited for $msg_file to exist or $number_errmsg_req to be found in $msg_file"
         let waited+=1
         sleep 1
         if [ $waited -ge $maxwait ]; then

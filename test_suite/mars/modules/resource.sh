@@ -23,6 +23,9 @@ function resource_prepare
     if [ $net_clear_iptables_in_prepare_phase -eq 1 ]; then
         net_clear_iptables_all
     fi
+    for res in ${resource_name_list[@]}; do
+        mount_umount_data_device_all $res
+    done
     resource_kill_all_scripts
     cluster_rmmod_mars_all
     cluster_clear_and_umount_mars_dir_all
@@ -241,7 +244,6 @@ function resource_fill_mars_dir
     local mars_dev=$(lv_config_get_lv_device $mars_lv_name)
     local mars_dev_size=$(lv_config_get_lv_size_from_name $mars_lv_name)
     local time_waited writer_pid writer_script write_count control_nr
-    local primary_cksum secondary_cksum
 
     if [ $resource_use_data_dev_writes_to_fill_mars_dir -eq 1 ]; then
         resource_dd_until_mars_dir_full $primary_host $res \
@@ -273,9 +275,7 @@ function resource_fill_mars_dir
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
                                      "writer_script"  0 3 $res ""
 
-    local procfile=/proc/sys/mars/logger_resume
-    lib_vmsg "  setting $primary_host:$procfile to 1"
-    lib_remote_idfile $primary_host "echo 1 >$procfile" || lib_exit 1
+    resource_logger_resume $primary_host
 
     marsadm_do_cmd $secondary_host "invalidate" $res
     lib_wait_for_initial_end_of_sync $primary_host $secondary_host $res \
@@ -289,8 +289,15 @@ function resource_fill_mars_dir
     marsview_wait_for_state $secondary_host $res "disk" "Uptodate" \
                             $resource_maxtime_state_constant || lib_exit 1
 
-    lib_rw_compare_checksums $primary_host $secondary_host $res 0 \
-                             "primary_cksum" "secondary_cksum"
+    lib_rw_compare_checksums $primary_host $secondary_host $res 0 "" ""
+}
+
+function resource_logger_resume
+{
+    local host=$1
+    local procfile=/proc/sys/mars/logger_resume
+    lib_vmsg "  setting $host:$procfile to 1"
+    lib_remote_idfile $host "echo 1 >$procfile" || lib_exit 1
 }
 
 function resource_resize_mars_dir
@@ -342,7 +349,7 @@ function resource_check_low_space_error
     if [ -z "$msgpattern" ]; then
         lib_exit 1 "pattern resource_mars_dir_full_${msgtype}_pattern_list[$err_type] not found"
     fi
-    lib_err_wait_for_error_messages $host $msgfile "$msgpattern" 1 1
+    lib_err_wait_for_error_messages $host $msgfile "$msgpattern" 1 10
 }
 
 function resource_dd_until_mars_dir_full
@@ -796,4 +803,125 @@ function resource_recreate_standalone
                                   "time_waited"
     lib_vmsg "  ${FUNCNAME[0]}: sync time: $time_waited"
     lib_rw_compare_checksums $primary_host $secondary_host $res 0 "" ""
+}
+
+function resource_per_resource_emergency
+{
+    local primary_host=${global_host_list[0]}
+    local secondary_host=${global_host_list[1]}
+    local mars_lv_name=${cluster_mars_dir_lv_name_list[$primary_host]}
+    local mars_dev_size_mb=$((1024 * \
+                              $(lv_config_get_lv_size_from_name $mars_lv_name)))
+
+    local dev=$(lv_config_get_lv_device $res)
+    local data_dev=$(resource_get_data_device $res)
+    local data_dev_size=$(lv_config_get_lv_size_from_name $res)
+    local mars_dev=$(lv_config_get_lv_device $mars_lv_name)
+    local time_waited writer_pid writer_script write_count control_nr
+    declare -A writer_script_per_resource
+
+    for res in ${resource_name_list[@]}; do
+        mount_mount_data_device $primary_host $res
+        marsadm_do_cmd $primary_host "emergency-limit" "$res 0" || lib_exit 1
+        lib_rw_start_writing_data_device $primary_host "writer_pid" \
+                                         "writer_script" 0 4 $res $res
+        writer_script_per_resource[$res]=$writer_script
+    done
+
+    if [ $resource_put_only_one_to_emergency -eq 1 ]; then
+        resource_test_emergency_on_one_resource $primary_host $secondary_host \
+                        $mars_lv_name $mars_dev_size_mb lv-1-2
+    else
+        resource_test_emergency_on_all_resources $primary_host $secondary_host \
+                        $mars_lv_name $mars_dev_size_mb
+    fi
+    for res in ${resource_name_list[@]}; do
+        marsadm_do_cmd $primary_host "emergency-limit" "$res 0" || lib_exit 1
+    done
+
+}
+
+# when entering this function it's assumed that a process is actually writing
+# on the primary host
+function resource_test_emergency_on_one_resource
+{
+    [ $# -eq 5 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    local primary_host=$1 secondary_host=$2 mars_lv_name=$3 mars_dev_size_mb=$4
+    local res=$5
+    local emergency_percentage=${resource_emergency_percentage[$res]}
+    local fill_size_mb time_waited
+    local marsadm_out host
+    
+    if [ -z "$emergency_percentage" ]; then
+        lib_exit 1 "  missing value in resource_emergency_percentage for resource $res"
+    fi
+
+    fill_size_mb=$(( ($mars_dev_size_mb * $emergency_percentage) / 100 ))
+
+    lib_vmsg "  creating $resource_big_file with $fill_size_mb MB to put $res in emerg. mode on $primary_host"
+
+    datadev_full_dd_on_device $primary_host $resource_big_file $fill_size_mb \
+                              4811 9
+
+    marsadm_do_cmd $primary_host "emergency-limit" \
+                                 "$res $emergency_percentage" || lib_exit 1
+
+    resource_check_low_space_error $primary_host $res "sequence_hole"
+
+    marsadm_out=$(marsadm_do_pur_cmd $primary_host "view-is-emergency" "$res") \
+                                                                || lib_exit 1
+    if [ "$marsadm_out" != "1" ]; then
+        lib_vmsg "  invalid output of marsadm view-is-emergency $res: $marsadm_out" >&2
+        lib_vmsg "  df -h $global_mars_directory on $primary_host:" >&2
+        lib_remote_idfile $primary_host "df -h $global_mars_directory" >&2
+        lib_exit 1 
+    fi
+
+    resource_check_proc_sys_mars_emergency_file $primary_host
+
+    lib_vmsg "  removing $primary_host:$resource_big_file"
+    lib_remote_idfile $primary_host "rm -f $resource_big_file" || lib_exit 1
+
+    resource_logger_resume $primary_host
+
+    marsadm_do_cmd $secondary_host "invalidate" $res
+    lib_wait_for_initial_end_of_sync $primary_host $secondary_host $res \
+                                  $resource_maxtime_initial_sync \
+                                  $resource_time_constant_initial_sync \
+                                  "time_waited"
+    for host in $primary_host $secondary_host; do
+        resource_check_logfile_change $host $res
+    done
+
+    lib_rw_compare_checksums $primary_host $secondary_host $res 0 "" ""
+
+}
+
+function resource_check_logfile_change
+{
+    local host=$1 res=$2
+    local last_logfile last_logfile_old length length_old
+    local waited=0 maxwait=10
+
+    lib_vmsg "  checking whether logfiles are written on $res on $host"
+    last_logfile_old=$(marsadm_get_last_logfile $host $res $host) || lib_exit 1
+    length_old=$(file_handling_get_file_length \
+                                       $host $last_logfile_old) || lib_exit 1
+    lib_vmsg "  start: last logfile:length on $host: $last_logfile_old:$length_old"
+    while true; do
+        last_logfile=$(marsadm_get_last_logfile $host $res $host) || lib_exit 1
+        length=$(file_handling_get_file_length $host $last_logfile) || \
+                                                                    lib_exit 1
+        lib_vmsg "  act.: last logfile:length on $host: $last_logfile:$length"
+        if [ "$last_logfile" != "$last_logfile_old" -o $length -ne $length_old ]
+        then
+            break
+        fi
+        sleep 1
+        let waited+=1
+        lib_vmsg "  waited $waited for logfiles to change for $res on $host"
+        if [ $waited -eq $maxwait ]; then
+            lib_exit 1 "maxwait $maxwait exceeded"
+        fi
+    done
 }
