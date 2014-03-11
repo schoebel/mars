@@ -81,9 +81,11 @@
 		MARS_ERR(fmt, ##args);					\
 	})
 
+loff_t raw_total_space = 0;
 loff_t global_total_space = 0;
 EXPORT_SYMBOL_GPL(global_total_space);
 
+loff_t raw_remaining_space = 0;
 loff_t global_remaining_space = 0;
 EXPORT_SYMBOL_GPL(global_remaining_space);
 
@@ -172,16 +174,51 @@ void _make_alivelink(const char *name, loff_t val)
 static
 int compute_emergency_mode(void)
 {
-	loff_t rest = 0;
+	loff_t rest;
+	loff_t present;
 	loff_t limit = 0;
 	int mode = 4;
+	int this_mode = 0;
 
-	mars_remaining_space("/mars", &global_total_space, &rest);
+	mars_remaining_space("/mars", &raw_total_space, &raw_remaining_space);
+	rest = raw_remaining_space;
+
+#define CHECK_LIMIT(LIMIT_VAR)					\
+	if (LIMIT_VAR > 0)					\
+		limit += (loff_t)LIMIT_VAR * 1024 * 1024;	\
+	if (rest < limit && !this_mode) {			\
+		this_mode = mode;				\
+	}							\
+	mode--;							\
+
+	CHECK_LIMIT(global_free_space_4);
+	CHECK_LIMIT(global_free_space_3);
+	CHECK_LIMIT(global_free_space_2);
+	CHECK_LIMIT(global_free_space_1);
+
+	/* Decrease the emergeny mode only in single steps.
+	 */
+	if (mars_reset_emergency && mars_emergency_mode > 0 && mars_emergency_mode > this_mode) {
+		mars_emergency_mode--;
+	} else {
+		mars_emergency_mode = this_mode;
+	}
+
+	_make_alivelink("emergency", mars_emergency_mode);
+
+	rest -= limit;
+	if (rest < 0)
+		rest = 0;
+	global_remaining_space = rest;
+	_make_alivelink("rest-space", rest / (1024 * 1024));
+
+	present = raw_total_space - limit;
+	global_total_space = present;
 
 	if (mars_throttle_start > 0 &&
 	    mars_throttle_end > mars_throttle_start &&
-	    global_total_space > 0) {
-		loff_t percent_used = 100 - (rest * 100 / global_total_space);
+	    present > 0) {
+		loff_t percent_used = 100 - (rest * 100 / present);
 		if (percent_used < mars_throttle_start) {
 			if_throttle_start_size = 0;
 		} else if (percent_used >= mars_throttle_end) {
@@ -191,35 +228,7 @@ int compute_emergency_mode(void)
 		}
 	}
 
-#define CHECK_LIMIT(LIMIT_VAR)					\
-	if (LIMIT_VAR > 0)					\
-		limit += (loff_t)LIMIT_VAR * 1024 * 1024;	\
-	if (rest < limit) {					\
-		mars_emergency_mode = mode;			\
-		goto done;					\
-	}							\
-	mode--;							\
-
-	CHECK_LIMIT(global_free_space_4);
-	CHECK_LIMIT(global_free_space_3);
-	CHECK_LIMIT(global_free_space_2);
-	CHECK_LIMIT(global_free_space_1);
-
-	/* No limit has hit.
-	 * Decrease the emergeny mode only in single steps.
-	 */
-	if (mars_reset_emergency && mars_emergency_mode > 0) {
-		mars_emergency_mode--;
-	}
-
-done:
-	_make_alivelink("emergency", mars_emergency_mode);
-
-	global_remaining_space = rest - limit;
-	_make_alivelink("rest-space", global_remaining_space / (1024 * 1024));
-
-	limit += global_free_space_0;
-	if (unlikely(global_total_space < limit)) {
+	if (unlikely(present < global_free_space_0)) {
 		return -ENOSPC;
 	}
 	return 0;
@@ -333,8 +342,6 @@ struct mars_rotate {
 	int inf_prev_sequence;
 	long long flip_start;
 	loff_t dev_size;
-	loff_t total_space;
-	loff_t remaining_space;
 	loff_t start_pos;
 	loff_t end_pos;
 	int max_sequence;
@@ -356,6 +363,7 @@ struct mars_rotate {
 	bool old_is_primary;
 	bool created_hole;
 	bool is_log_damaged;
+	bool has_emergency;
 	spinlock_t inf_lock;
 	bool infs_is_dirty[MAX_INFOS];
 	struct trans_logger_info infs[MAX_INFOS];
@@ -2396,8 +2404,6 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	
 	write_info_links(rot);
 
-	mars_remaining_space(parent_path, &rot->total_space, &rot->remaining_space);
-
 	/* Fetch the replay status symlink.
 	 * It must exist, and its value will control everything.
 	 */
@@ -3158,18 +3164,28 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	/* Handle jamming (a very exceptional state)
 	 */
 	if (IS_JAMMED()) {
-		//brick_say_logging = 0;
+#ifndef CONFIG_MARS_DEBUG
+		brick_say_logging = 0;
+#endif
+		rot->has_emergency = true;
 		MARS_ERR_TO(rot->log_say, "DISK SPACE IS EXTREMELY LOW on %s\n", rot->parent_path);
+	} else {
+		int limit = _check_allow(global, parent, "emergency-limit");
+		rot->has_emergency = (limit > 0 && global_remaining_space * 100 / global_total_space < limit);
+		MARS_DBG("has_emergency=%d limit=%d remaining_space=%lld total_space=%lld\n",
+			 rot->has_emergency, limit, global_remaining_space, global_total_space);
+	}
+	_show_actual(parent->d_path, "has-emergency", rot->has_emergency);
+	if (rot->has_emergency) {
 		if (rot->todo_primary || rot->is_primary) {
 			trans_brick->cease_logging = true;
 			rot->inf_prev_sequence = 0; // disable checking
 		}
-	} else if ((trans_brick->cease_logging | trans_brick->stopped_logging) && rot->created_hole && !IS_EXHAUSTED()) {
+	} else {
 		if (!trans_logger_resume) {
 			MARS_INF_TO(rot->log_say, "emergency mode on %s could be turned off now, but /proc/sys/mars/logger_resume inhibits it.\n", rot->parent_path);
 		} else {
 			trans_brick->cease_logging = false;
-			rot->created_hole = false;
 			MARS_INF_TO(rot->log_say, "emergency mode on %s will be turned off again\n", rot->parent_path);
 		}
 	}
@@ -3179,7 +3195,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		 * The secondaries will later stumble over it.
 		 */
 		if (!rot->created_hole) {
-			char *new_path = path_make("%s/log-%09d-%s", rot->parent_path, rot->max_sequence + 2, my_id());
+			char *new_path = path_make("%s/log-%09d-%s", rot->parent_path, rot->max_sequence + 10, my_id());
 			if (likely(new_path && !mars_find_dent(global, new_path))) {
 				MARS_INF_TO(rot->log_say, "EMERGENCY: creating new logfile '%s'\n", new_path);
 				_create_new_logfile(new_path);
@@ -3187,6 +3203,8 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 			}
 			brick_string_free(new_path);
 		}
+	} else {
+		rot->created_hole = false;
 	}
 
 	if (IS_EMERGENCY_PRIMARY() || (!rot->todo_primary && IS_EMERGENCY_SECONDARY())) {

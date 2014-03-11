@@ -332,7 +332,7 @@ void mars_remaining_space(const char *fspath, loff_t *total, loff_t *remaining)
 	}
 
 	*total = _compute_space(&kstatfs, kstatfs.f_blocks);
-	*remaining = _compute_space(&kstatfs, kstatfs.f_bfree);
+	*remaining = _compute_space(&kstatfs, kstatfs.f_bavail);
 	
 done:
 	path_put(&path);

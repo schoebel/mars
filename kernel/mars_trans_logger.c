@@ -80,7 +80,7 @@ EXPORT_SYMBOL_GPL(trans_logger_mem_usage);
 int trans_logger_max_interleave = -1;
 EXPORT_SYMBOL_GPL(trans_logger_max_interleave);
 
-int trans_logger_resume = 0;
+int trans_logger_resume = 1;
 EXPORT_SYMBOL_GPL(trans_logger_resume);
 
 int trans_logger_replay_timeout = 1; // in s
