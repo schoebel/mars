@@ -275,8 +275,6 @@ function resource_fill_mars_dir
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
                                      "writer_script"  0 3 $res ""
 
-    resource_logger_resume $primary_host
-
     marsadm_do_cmd $secondary_host "invalidate" $res
     lib_wait_for_initial_end_of_sync $primary_host $secondary_host $res \
                                   $resource_maxtime_initial_sync \
@@ -290,14 +288,6 @@ function resource_fill_mars_dir
                             $resource_maxtime_state_constant || lib_exit 1
 
     lib_rw_compare_checksums $primary_host $secondary_host $res 0 "" ""
-}
-
-function resource_logger_resume
-{
-    local host=$1
-    local procfile=/proc/sys/mars/logger_resume
-    lib_vmsg "  setting $host:$procfile to 1"
-    lib_remote_idfile $host "echo 1 >$procfile" || lib_exit 1
 }
 
 function resource_resize_mars_dir
@@ -829,87 +819,115 @@ function resource_per_resource_emergency
     done
 
     if [ $resource_put_only_one_to_emergency -eq 1 ]; then
+        local i
+        res=${resource_name_list[0]}
         resource_test_emergency_on_one_resource $primary_host $secondary_host \
-                        $mars_lv_name $mars_dev_size_mb lv-1-2
+                        $mars_lv_name $mars_dev_size_mb $res \
+                        ${writer_script_per_resource[$res]}
+        # check the other resources
+        for i in $(seq 1 1 $(( ${#resource_name_list[*]} - 1 ))); do
+            res=${resource_name_list[$i]}
+            lib_rw_stop_writing_data_device $primary_host \
+                                        ${writer_script_per_resource[$res]} \
+                                        "write_count"
+            resource_check_resource_running $primary_host $secondary_host $res
+        done
     else
         resource_test_emergency_on_all_resources $primary_host $secondary_host \
                         $mars_lv_name $mars_dev_size_mb
     fi
+    main_error_recovery_functions["lib_rw_stop_scripts"]=
     for res in ${resource_name_list[@]}; do
         marsadm_do_cmd $primary_host "emergency-limit" "$res 0" || lib_exit 1
     done
 
 }
 
+# when entering this function it's assumed that on all resources write processes
+# are running.
+function resource_test_emergency_on_all_resources
+{
+    [ $# -eq 4 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    local primary_host=$1 secondary_host=$2 mars_lv_name=$3 mars_dev_size_mb=$4
+    local res
+    local fill_size_mb time_waited
+    local marsadm_out host list_cmd res_list sort_opt=""
+
+    for res in ${resource_name_list[@]}; do
+        local p=${resource_emergency_percentage[$res]}
+        if [ -z "$p" ]; then
+            lib_exit 1 "  missing value in resource_emergency_percentage for resource $res"
+        fi
+        marsadm_do_cmd $primary_host "emergency-limit" "$res $p" || lib_exit 1
+    done
+
+    # the resources must be listed in ascending order of emergency 
+    # percentages
+    list_cmd='for r in ${resource_name_list[@]}; do echo "$r ${resource_emergency_percentage[$r]}"; done | sort -k2,2n$sort_opt | sed "s/ .*//"'
+    eval res_list='($('$list_cmd'))'
+    for res in ${res_list[@]}; do
+        resource_put_resource_to_emergency_mode $primary_host $res \
+                                        $mars_dev_size_mb \
+                                        ${resource_emergency_percentage[$res]}
+    done
+
+    # the resources must be returned to normal operation descending order of 
+    # emergency percentages (by freeing diskspace accordingly)
+    sort_opt="r"
+    eval res_list='($('$list_cmd'))'
+    for res in ${res_list[@]}; do
+    : # TODO
+    done
+
+}
+
 # when entering this function it's assumed that a process is actually writing
-# on the primary host
+# on the resource on the primary host
 function resource_test_emergency_on_one_resource
 {
-    [ $# -eq 5 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    [ $# -eq 6 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local primary_host=$1 secondary_host=$2 mars_lv_name=$3 mars_dev_size_mb=$4
-    local res=$5
+    local res=$5 writer_script=$6
     local emergency_percentage=${resource_emergency_percentage[$res]}
-    local fill_size_mb time_waited
-    local marsadm_out host
+    local time_waited host write_count writer_pid
     
     if [ -z "$emergency_percentage" ]; then
         lib_exit 1 "  missing value in resource_emergency_percentage for resource $res"
     fi
 
-    fill_size_mb=$(( ($mars_dev_size_mb * $emergency_percentage) / 100 ))
-
-    lib_vmsg "  creating $resource_big_file with $fill_size_mb MB to put $res in emerg. mode on $primary_host"
-
-    datadev_full_dd_on_device $primary_host $resource_big_file $fill_size_mb \
-                              4811 9
-
-    marsadm_do_cmd $primary_host "emergency-limit" \
-                                 "$res $emergency_percentage" || lib_exit 1
-
-    resource_check_low_space_error $primary_host $res "sequence_hole"
-
-    marsadm_out=$(marsadm_do_pur_cmd $primary_host "view-is-emergency" "$res") \
-                                                                || lib_exit 1
-    if [ "$marsadm_out" != "1" ]; then
-        lib_vmsg "  invalid output of marsadm view-is-emergency $res: $marsadm_out" >&2
-        lib_vmsg "  df -h $global_mars_directory on $primary_host:" >&2
-        lib_remote_idfile $primary_host "df -h $global_mars_directory" >&2
-        lib_exit 1 
-    fi
-
-    resource_check_proc_sys_mars_emergency_file $primary_host
+    resource_put_resource_to_emergency_mode $primary_host $res \
+                                        $mars_dev_size_mb $emergency_percentage
 
     lib_vmsg "  removing $primary_host:$resource_big_file"
     lib_remote_idfile $primary_host "rm -f $resource_big_file" || lib_exit 1
 
-    resource_logger_resume $primary_host
+    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
 
     marsadm_do_cmd $secondary_host "invalidate" $res
+
     lib_wait_for_initial_end_of_sync $primary_host $secondary_host $res \
                                   $resource_maxtime_initial_sync \
                                   $resource_time_constant_initial_sync \
                                   "time_waited"
-    for host in $primary_host $secondary_host; do
-        resource_check_logfile_change $host $res
-    done
 
-    lib_rw_compare_checksums $primary_host $secondary_host $res 0 "" ""
-
+    resource_check_resource_running $primary_host $secondary_host $res
 }
 
 function resource_check_logfile_change
 {
-    local host=$1 res=$2
+    local host=$1 primary_host=$2 res=$3
     local last_logfile last_logfile_old length length_old
     local waited=0 maxwait=10
 
     lib_vmsg "  checking whether logfiles are written on $res on $host"
-    last_logfile_old=$(marsadm_get_last_logfile $host $res $host) || lib_exit 1
+    last_logfile_old=$(marsadm_get_last_logfile $host $res $primary_host) || \
+                                                                    lib_exit 1
     length_old=$(file_handling_get_file_length \
                                        $host $last_logfile_old) || lib_exit 1
     lib_vmsg "  start: last logfile:length on $host: $last_logfile_old:$length_old"
     while true; do
-        last_logfile=$(marsadm_get_last_logfile $host $res $host) || lib_exit 1
+        last_logfile=$(marsadm_get_last_logfile $host $res $primary_host) || \
+                                                                    lib_exit 1
         length=$(file_handling_get_file_length $host $last_logfile) || \
                                                                     lib_exit 1
         lib_vmsg "  act.: last logfile:length on $host: $last_logfile:$length"
@@ -925,3 +943,57 @@ function resource_check_logfile_change
         fi
     done
 }
+
+function resource_put_resource_to_emergency_mode
+{
+    [ $# -eq 4 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    local host=$1 res=$2 mars_dev_size_mb=$3 emergency_percentage=$4
+    local fill_size_mb marsadm_out
+    fill_size_mb=$(( ($mars_dev_size_mb * $emergency_percentage) / 100 ))
+
+    lib_vmsg "  creating $resource_big_file with $fill_size_mb MB to put $res in emerg. mode on $host"
+
+    datadev_full_dd_on_device $host $resource_big_file $fill_size_mb 4811 0
+
+    marsadm_do_cmd $host "emergency-limit" "$res $emergency_percentage" || \
+                                                                    lib_exit 1
+    resource_check_low_space_error $host $res "sequence_hole"
+
+    marsadm_out=$(marsadm_do_pur_cmd $host "view-is-emergency" "$res") || \
+                                                                    lib_exit 1
+    if [ "$marsadm_out" != "1" ]; then
+        lib_vmsg "  invalid output of marsadm view-is-emergency $res: $marsadm_out" >&2
+        lib_vmsg "  df -h $global_mars_directory on $host:" >&2
+        lib_remote_idfile $host "df -h $global_mars_directory" >&2
+        lib_exit 1 
+    fi
+
+    resource_check_proc_sys_mars_emergency_file $host
+
+}
+
+function resource_check_resource_running
+{
+    local primary_host=$1 secondary_host=$2 res=$3
+    local dev=$(lv_config_get_lv_device $res)
+    local writer_script writer_pid write_count
+
+    marsview_wait_for_state $secondary_host $res "disk" "Uptodate" 3 || \
+                                                                    lib_exit 1
+
+    lib_rw_start_writing_data_device $primary_host "writer_pid" \
+                                     "writer_script" 0 4 $res $res
+
+    for host in $primary_host $secondary_host; do
+        resource_check_logfile_change $host $primary_host $res
+    done
+
+    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
+
+    mount_umount_data_device $primary_host $res
+
+    lib_wait_for_secondary_to_become_uptodate_and_cmp_cksums "resource" \
+                                            $secondary_host $primary_host \
+                                            $res $dev 0
+}
+
