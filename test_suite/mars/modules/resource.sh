@@ -849,9 +849,7 @@ function resource_test_emergency_on_all_resources
 {
     [ $# -eq 4 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local primary_host=$1 secondary_host=$2 mars_lv_name=$3 mars_dev_size_mb=$4
-    local res
-    local fill_size_mb time_waited
-    local marsadm_out host list_cmd res_list sort_opt=""
+    local res list_cmd res_list sort_opt=""
 
     for res in ${resource_name_list[@]}; do
         local p=${resource_emergency_percentage[$res]}
@@ -876,7 +874,15 @@ function resource_test_emergency_on_all_resources
     sort_opt="r"
     eval res_list='($('$list_cmd'))'
     for res in ${res_list[@]}; do
-    : # TODO
+        # TODO
+        local trunc_size_mb=$((($mars_dev_size_mb \
+                                * ${resource_emergency_percentage[$res]}) / 100 ))
+        lib_vmsg "  removing $primary_host:$resource_big_file"
+        lib_remote_idfile $primary_host "rm -f $resource_big_file" || lib_exit 1
+
+        lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
+
+        resource_correct_emergency $primary_host $secondary_host $res
     done
 
 }
@@ -903,14 +909,8 @@ function resource_test_emergency_on_one_resource
 
     lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
 
-    marsadm_do_cmd $secondary_host "invalidate" $res
+    resource_correct_emergency $primary_host $secondary_host $res
 
-    lib_wait_for_initial_end_of_sync $primary_host $secondary_host $res \
-                                  $resource_maxtime_initial_sync \
-                                  $resource_time_constant_initial_sync \
-                                  "time_waited"
-
-    resource_check_resource_running $primary_host $secondary_host $res
 }
 
 function resource_check_logfile_change
@@ -949,6 +949,7 @@ function resource_put_resource_to_emergency_mode
     [ $# -eq 4 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local host=$1 res=$2 mars_dev_size_mb=$3 emergency_percentage=$4
     local fill_size_mb marsadm_out
+
     fill_size_mb=$(( ($mars_dev_size_mb * $emergency_percentage) / 100 ))
 
     lib_vmsg "  creating $resource_big_file with $fill_size_mb MB to put $res in emerg. mode on $host"
@@ -997,3 +998,16 @@ function resource_check_resource_running
                                             $res $dev 0
 }
 
+function resource_correct_emergency
+{
+    local primary_host=$1 secondary_host=$2 res=$3
+
+    marsadm_do_cmd $secondary_host "invalidate" $res
+
+    lib_wait_for_initial_end_of_sync $primary_host $secondary_host $res \
+                                  $resource_maxtime_initial_sync \
+                                  $resource_time_constant_initial_sync \
+                                  "time_waited"
+
+    resource_check_resource_running $primary_host $secondary_host $res
+}
