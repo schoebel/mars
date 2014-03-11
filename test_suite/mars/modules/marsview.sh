@@ -52,7 +52,7 @@ function marsview_get
         fi
     done
     rm -f $tmp_err
-    echo "${result_line[*]}"
+    echo "${check_line[*]}"
 }
 
 function marsview_check
