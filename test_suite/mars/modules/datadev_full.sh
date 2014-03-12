@@ -77,3 +77,29 @@ function datadev_full_dd_on_device
     fi
 }
 
+function datadev_full_get_min_required_free_space_mb
+{
+    local host=$1
+    local f free_space free_space_sum=0
+    for f in ${datadev_required_free_space_files[@]}; do
+        free_space="$(lib_remote_idfile $host "cat $f")" || lib_exit 1
+        if ! expr "$free_space" : '\([0-9][0-9]*\)$' >/dev/null; then
+            lib_exit 1 "invalid content in $host:$f"
+        fi
+        let free_space_sum+=$free_space
+    done
+    echo $(( $free_space_sum * 1024 ))
+}
+
+function datadev_full_get_available_free_space_mb
+{
+    local host=$1
+    local mars_lv_name=${cluster_mars_dir_lv_name_list[$host]}
+    local mars_dev_size_mb=$((1024 * \
+                              $(lv_config_get_lv_size_from_name $mars_lv_name)))
+    local required_free_space_mb
+    required_free_space_mb=$(datadev_full_get_min_required_free_space_mb \
+                             $host) || lib_exit 1
+    echo $(( $mars_dev_size_mb - $required_free_space_mb ))
+}
+
