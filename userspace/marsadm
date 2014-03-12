@@ -44,6 +44,21 @@ sub lwarn {
 
 ##################################################################
 
+# global variables
+
+my $Id = '$Id$ ';
+my $user_version = 0.1;
+my $mars = "/mars";
+my $host = `uname -n` or ldie "cannot determine my network node name\n";
+chomp $host;
+my $real_host = $host;
+my $force = 0;
+my $timeout = -1;
+my $ip = "";
+my $kernel_version = 0;
+
+##################################################################
+
 # low-level infrastructure
 
 my @link_list = ();
@@ -128,19 +143,8 @@ sub finish_links {
 
 ##################################################################
 
-# global variables and checks
+# global checks
 
-my $Id = '$Id$ ';
-my $user_version = 0.1;
-my $mars = "/mars";
-my $host = `uname -n` or ldie "cannot determine my network node name\n";
-chomp $host;
-my $real_host = $host;
-my $force = 0;
-my $timeout = -1;
-my $ip = "";
-
-my $kernel_version = 0;
 unless (defined($ARGV[0]) && $ARGV[0] =~ m/cluster|cat/) {
   $kernel_version = get_link("$mars/tree-$host", 1);
   if ($kernel_version && $user_version != $kernel_version) {
