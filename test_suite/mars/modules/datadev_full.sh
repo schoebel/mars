@@ -61,7 +61,7 @@ function datadev_full_dd_on_device
 
     lib_vmsg "  filling $dev on $host (bs=$bs, count=$count)"
     dd_out=($(lib_remote_idfile $host \
-         "yes $(printf '%0.1024d' $control_nr) | dd of=$dev oflag=direct bs=$bs conv=notrunc count=$count 2>&1"))
+         "yes $(printf '%0.1024d' $control_nr) | dd of=$dev bs=$bs conv=notrunc count=$count 2>&1"))
     rc=$?
     if [ $should_fail -eq 1 ]; then
         if [ $rc -eq 0 ]; then
