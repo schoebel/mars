@@ -112,7 +112,7 @@ function marsadm_get_number_of_hidden_delete_symlinks
 {
     local host=$1 res=$2
     local resdir ret
-    resdir="${resource_dir_list[$res]}"
+    resdir="$(resource_get_resource_dir $res)"
     ret=$(lib_remote_idfile $host "ls -1 $resdir/.delete-* | wc -l") || \
                                                                     lib_exit 1
     if ! expr "$ret" : '^[0-9][0-9]*$' >/dev/null; then
@@ -186,7 +186,7 @@ function marsadm_check_post_condition_resize
 function marsadm_get_logfilename_prefix
 {
     local res=$1
-    echo "${resource_dir_list[$res]}/log-"
+    echo "$(resource_get_resource_dir $res)/log-"
 }
 
 function marsadm_get_logfilename_postfix

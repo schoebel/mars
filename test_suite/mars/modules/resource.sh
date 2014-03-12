@@ -23,10 +23,10 @@ function resource_prepare
     if [ $net_clear_iptables_in_prepare_phase -eq 1 ]; then
         net_clear_iptables_all
     fi
-    for res in ${resource_name_list[@]}; do
+    resource_kill_all_scripts
+    for res in ${lv_config_lv_name_list[@]}; do
         mount_umount_data_device_all $res
     done
-    resource_kill_all_scripts
     cluster_rmmod_mars_all
     cluster_clear_and_umount_mars_dir_all
     lv_config_recreate_logical_volumes 0
@@ -158,7 +158,7 @@ function resource_do_after_leave_loops
     done
     count=0
     while true; do
-        local link="${resource_dir_list[$res]}/actual-$host/open-count"
+        local link="$(resource_get_resource_dir $res)/actual-$host/open-count"
         lib_linktree_check_link $host "$link" "0"
         link_status=$?
         if [ $link_status -ne ${global_link_status["link_ok"]} \
@@ -187,7 +187,7 @@ function resource_secondary
 function resource_joined
 {
     local host=$1 res="$2"
-    local link="${resource_dir_list[$res]}/data-$host"
+    local link="$(resource_get_resource_dir $res)/data-$host"
     local link_value_expected=(".")
     lib_linktree_check_link $host "$link" "$link_value_expected"
     link_status=$?
@@ -334,11 +334,12 @@ function resource_check_low_space_error
 {
     local host=$1 res=$2 err_type="$3" msgtype patternlist msgpattern
     local msgtype="err"
-    msgfile=${resource_dir_list[$res]}/${resource_msgfile_list["$msgtype"]}
+    msgfile=$(resource_get_resource_dir $res)/${resource_msgfile_list["$msgtype"]}
     eval msgpattern='"${resource_mars_dir_full_'$msgtype'_pattern_list[$err_type]}"'
     if [ -z "$msgpattern" ]; then
         lib_exit 1 "pattern resource_mars_dir_full_${msgtype}_pattern_list[$err_type] not found"
     fi
+    msgpattern="${msgpattern//$resource_msg_resource_dir_name_pattern/$(resource_get_resource_dir $res)}"
     lib_err_wait_for_error_messages $host $msgfile "$msgpattern" 1 10
 }
 
@@ -387,11 +388,8 @@ function resource_up
 function resource_mount_mars_and_rm_resource_dir_all
 {
     local res=$1 host
-    local res_dir=${resource_dir_list[$res]}
+    local res_dir=$(resource_get_resource_dir $res)
 
-    if [ -z "$res_dir" ];then
-        lib_exit 1 "  to resource $res no resource dir found in resource_dir_list"
-    fi
     cluster_rmmod_mars_all
 
     for host in "${global_host_list[@]}"; do
@@ -504,12 +502,11 @@ function resource_check_mount_and_rmmod_possibilities
     resource_check_mount_point_directories $host
     if ! mount_is_device_mounted $host $data_dev "mount_point"
     then
-        mount_mount $host $data_dev ${resource_mount_point_list[$res]} \
+        mount_mount $host $data_dev $(resource_get_mountpoint $res) \
                                     ${resource_fs_type_list[$res]} || lib_exit 1
     fi
     resource_check_whether_rmmod_mars_fails $host $data_dev
-    mount_umount $host $data_dev ${resource_mount_point_list[$res]} || \
-                                                                    lib_exit 1
+    mount_umount $host $data_dev $(resource_get_mountpoint $res) || lib_exit 1
 }
 
 function resource_check_whether_rmmod_mars_fails
@@ -526,8 +523,9 @@ function resource_check_whether_rmmod_mars_fails
 
 function resource_check_mount_point_directories
 {
-    local host=$1 dir
-    for dir in ${resource_mount_point_list[@]}; do
+    local host=$1 res
+    for res in ${resource_name_list[@]}; do
+        local dir=$(resource_get_mountpoint $res)
         lib_vmsg "  checking mount point $dir on $host"
         lib_remote_idfile $host "if [ ! -d $dir ]; then mkdir $dir; fi" \
                                                                 || lib_exit 1
@@ -573,8 +571,8 @@ function resource_underlying_device_is_not_mountable
 {
     local host=$1 dev=$2 res=$3 rc
     resource_check_mount_point_directories $host
-    lib_vmsg "  checking whether mounting $dev on ${resource_mount_point_list[$res]} on $host fails"
-    mount_mount $host $dev ${resource_mount_point_list[$res]} \
+    lib_vmsg "  checking whether mounting $dev on $(resource_get_mountpoint $res) on $host fails"
+    mount_mount $host $dev $(resource_get_mountpoint $res) \
                            ${resource_fs_type_list[$res]}
     rc=$?
     if [ $rc -eq 0 ]; then
@@ -644,7 +642,7 @@ function resource_check_links_after_create
 function resource_clear_data_device
 {
     local host=$1 res=$2
-    local mount_point=${resource_mount_point_list[$res]}
+    local mount_point=$(resource_get_mountpoint $res)
     local str="test"
     if [ -z "$mount_point" ]; then
         lib_exit 1 "cannot determine mount_point for resource $res"
@@ -1010,4 +1008,21 @@ function resource_correct_emergency
                                   "time_waited"
 
     resource_check_resource_running $primary_host $secondary_host $res
+}
+
+function resource_get_mountpoint
+{
+    local res=$1 # has the form lv-3-1
+    local res_nr=${res#*-}
+    res_nr=${res_nr%%-*}
+    if ! expr "$res_nr" : '\([0-9][0-9]*\)$' >/dev/null; then
+        lib_exit 1 "invalid resource name $res"
+    fi
+    echo ${resource_mount_point_prefix}$res_nr
+}
+
+function resource_get_resource_dir
+{
+    local res=$1
+    echo ${resource_dir_prefix}$res
 }

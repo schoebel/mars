@@ -117,7 +117,7 @@ function resize_check_resize_post_conditions
 
     local should_fail=0 test_file
     if [ $resource_fs_on_data_device_necessary -eq 1 ]; then
-        test_file=${resource_mount_point_list[$res]}/resize_test
+        test_file=$(resource_get_mountpoint $res)/resize_test
     else
         test_file=$(resource_get_data_device $res)
     fi

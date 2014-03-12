@@ -53,7 +53,7 @@ while true; do
         sleep 1
         continue
     fi
-    yes $(printf "%0.1024d" $count) | dd of='"$target_file"'.$count bs='"$bs"' count='"$dd_count"' conv=fsync status=noxfer 3>&2 2>&1 >&3 | grep -v records 3>&2 2>&1 >&3
+    yes $(printf "%0.1024d" $count) | dd of='"$target_file"'.$count bs='"$bs"' count='"$dd_count"' conv=fsync oflag=direct status=noxfer 3>&2 2>&1 >&3 | grep -v records 3>&2 2>&1 >&3
     rm -f '"$target_file"'.*
     echo count=$count
     sleep $sleeptime
@@ -111,7 +111,7 @@ function lib_rw_start_writing_data_device
     local host=$1 varname_pid=$2 varname_script=$3 no_of_loops=$4 sleeptime=$5
     local res=$6 postfix_script_name="$7"
     lib_rw_write_and_delete_loop $host \
-                 ${resource_mount_point_list[$res]}/$lib_rw_file_to_write \
+                 $(resource_get_mountpoint $res)/$lib_rw_file_to_write \
                  $(lv_config_get_lv_size_from_name ${resource_name_list[0]}) \
                  $lib_rw_part_of_device_size_written_per_loop \
                  $varname_pid $varname_script $no_of_loops $sleeptime \
@@ -152,7 +152,7 @@ function lib_rw_compare_checksums
         marsadm_do_cmd $host "down" $res || lib_exit 1
         if [ $cmp_size -eq 0 ]; then
             local link_value
-            local link="${resource_dir_list[$res]}/size"
+            local link="$(resource_get_resource_dir $res)/size"
             lib_vmsg "  reading link $host:$link"
             link_value=$(lib_remote_idfile $primary_host "readlink $link") || \
                                                                     lib_exit 1

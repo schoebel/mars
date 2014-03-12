@@ -74,7 +74,7 @@ function mount_mount_data_device
     [ $# -eq 2 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local host=$1 res=$2
     local dev=$(resource_get_data_device $res)
-    local mount_point=${resource_mount_point_list[$res]}
+    local mount_point=$(resource_get_mountpoint $res)
 
     lib_rw_remote_check_device_fs $host $dev ${resource_fs_type_list[$res]}
     lib_rw_mount_data_device $host $dev $mount_point
@@ -93,7 +93,7 @@ function mount_umount_data_device
 {
     local host=$1 res=$2
     local dev=$(resource_get_data_device $res)
-    local mount_point=${resource_mount_point_list[$res]}
+    local mount_point=$(resource_get_mountpoint $res)
     if mount_is_dir_mountpoint $host $mount_point; then
         local maxwait=60 waited=0 rc
         while true;do

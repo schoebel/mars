@@ -39,7 +39,7 @@ function logrotate_run
     main_error_recovery_functions["lib_rw_stop_scripts"]=
 
     logrotate_wait_for_umount_data_device $primary_host $dev \
-                                          ${resource_mount_point_list[$res]} \
+                                          $(resource_get_mountpoint $res) \
                                           $logrotate_maxtime_state_constant
 
 
@@ -56,7 +56,7 @@ function logrotate_wait_for_umount_data_device
     local host=$1 dev=$2 mount_point=$3 maxwait=$4
     local waited=0 rc
     while true; do
-        mount_umount $primary_host $dev ${resource_mount_point_list[$res]}
+        mount_umount $primary_host $dev $(resource_get_mountpoint $res)
         rc=$?
         if [ $rc -eq 0 ]; then
             break

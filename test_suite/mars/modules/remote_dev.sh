@@ -102,7 +102,7 @@ function remote_dev_create_local_link_for_remote_device
 {
     [ $# -eq 3 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local local_host=$1 remote_host=$2 res=$3 
-    local res_dir="${resource_dir_list[$res]}"
+    local res_dir="$(resource_get_resource_dir $res)"
     local link="$res_dir/$(remote_dev_get_magic_link_name $local_host)"
 
     local link_value="${remote_dev_non_existant_file}@${remote_host},remote-floppy"

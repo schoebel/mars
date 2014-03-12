@@ -459,7 +459,7 @@ function switch2primary_destroy_log_after_replay_link
 function switch2primary_recreate_resource
 {
     local host=$1 res=$2
-    local res_dir=${resource_dir_list[$res]}
+    local res_dir=$(resource_get_resource_dir $res)
     local dev=$(lv_config_get_lv_device $res)
     lib_vmsg "  recreating resource $res on $host"
     marsadm_do_cmd $host "secondary" "$res" || lib_exit 1

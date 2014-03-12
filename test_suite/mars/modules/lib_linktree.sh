@@ -20,19 +20,19 @@
 function lib_linktree_get_designated_primary_linkname
 {
     local res=$1
-    echo ${resource_dir_list[$res]}/primary
+    echo $(resource_get_resource_dir $res)/primary
 }
 
 function lib_linktree_get_primary_linkname
 {
     local host=$1 res=$2
-    echo ${resource_dir_list[$res]}/actual-$host/is-primary
+    echo $(resource_get_resource_dir $res)/actual-$host/is-primary
 }
 
 function lib_linktree_get_res_host_linkname
 {
     local host=$1 res=$2 action=$3
-    echo ${resource_dir_list[$res]}/$action-$host
+    echo $(resource_get_resource_dir $res)/$action-$host
 }
 
 function lib_linktree_print_linktree
@@ -52,9 +52,9 @@ function lib_linktree_check_link_int_value
     local link link_value_act waited=0
     link_value_req=$(lv_config_extract_int_from_lv_size_with_unit $link_value_req)
     case $link in #((
-        size) link="${resource_dir_list[$res]}/$link"
+        size) link="$(resource_get_resource_dir $res)/$link"
           ;;
-        sync) link="${resource_dir_list[$res]}/todo-$host/$link"
+        sync) link="$(resource_get_resource_dir $res)/todo-$host/$link"
           ;;
            *) link="$(lib_linktree_get_res_host_linkname $host $res \
                                                               $link)"
@@ -140,7 +140,7 @@ function lib_linktree_get_partial_value_from_replay_link
                                                                     lib_exit 1
     link_val="$(lib_remote_idfile $host "readlink $link")" || lib_exit 1
     case "$value" in # (((
-        logfilename) retval=${resource_dir_list[$res]}/${link_val%%,*}
+        logfilename) retval=$(resource_get_resource_dir $res)/${link_val%%,*}
                    ;;
         replay_offset) retval=$(expr "$link_val" : '.*,\(.*\),.*')
                    ;;

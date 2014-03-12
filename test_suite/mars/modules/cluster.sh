@@ -20,9 +20,9 @@ function cluster_umount_data_device_all
     local host
     local res=${resource_name_list[0]}
     for host in "${global_host_list[@]}"; do
-        if mount_is_dir_mountpoint $host ${resource_mount_point_list[$res]}
+        if mount_is_dir_mountpoint $host $(resource_get_mountpoint $res)
         then
-            mount_umount $host "device_does_not_matter" ${resource_mount_point_list[$res]}
+            mount_umount $host "device_does_not_matter" $(resource_get_mountpoint $res)
         fi
     done
 }
