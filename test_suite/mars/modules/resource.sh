@@ -19,6 +19,7 @@
 
 function resource_prepare
 {
+    local res
     resource_check_variables
     if [ $net_clear_iptables_in_prepare_phase -eq 1 ]; then
         net_clear_iptables_all
