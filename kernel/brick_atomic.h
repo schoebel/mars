@@ -63,7 +63,7 @@ do {									\
 		if (unlikely(__test OP (_minval))) {			\
 			atomic_set(&(_atom)->ta_atomic, _fixval);	\
 			BRICK_ERR("%d: tatomic " #_atom " " #OP " " #_minval " (%d)\n", __LINE__, __test); \
-			tatomic_out(_at, BRICK_DMP);			\
+			tatomic_out(_at, BRICK_ERR);			\
 		}							\
 	}								\
 } while (0)
