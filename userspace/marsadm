@@ -1114,6 +1114,11 @@ sub set_link_cmd {
   my $cmd = shift;
   for (;;) {
     my $src = shift || last;
+    if ($cmd =~ m/^get-/) {
+      my $value = get_link($src);
+      lprint "$value\n";
+      next;
+    }
     my $dst = shift || ldie "you did not supply a symlink destination for source '$src'\n";
     ldie "symlink target '$dst' is not an absolute path\n" unless $dst =~ m:^/:;
     check_userspace($dst);
@@ -2080,6 +2085,7 @@ my %cmd_table =
    "log-purge-all"     => \&log_purge_res,
    "fake-sync"         => \&fake_local_res,
    "set-link"          => \&set_link_cmd,
+   "get-link"          => \&set_link_cmd,
    "set-sync-pref-list"=> \&set_sync_pref_list,
    "get-sync-pref-list"=> \&set_sync_pref_list,
    "set-sync-limit-value"=> \&set_sync_limit_value,
