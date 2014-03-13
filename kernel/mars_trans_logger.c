@@ -2961,7 +2961,10 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		MARS_INF("replay finished at %lld\n", finished_pos);
 		brick->replay_code = 1;
 	} else if (status == -EAGAIN && finished_pos + brick->replay_tolerance > brick->replay_end_pos) {
-		MARS_INF("TOLERANCE: logfile is DAMAGED at %lld (of %lld)\n", finished_pos, brick->replay_end_pos);
+		MARS_INF("TOLERANCE: logfile is incomplete at %lld (of %lld)\n", finished_pos, brick->replay_end_pos);
+		brick->replay_code = 2;
+	} else if (status < 0) {
+		MARS_ERR("replay error %d at %lld (of %lld)\n", status, finished_pos, brick->replay_end_pos);
 		brick->replay_code = status;
 	} else {
 		MARS_INF("replay stopped prematurely at %lld (of %lld)\n", finished_pos, brick->replay_end_pos);
