@@ -803,13 +803,18 @@ restart:
 		goto restart;
 	}
 
+	up_write(&global->dent_mutex);
+
 	/* Preparation pass.
 	 * Here is a chance to mark some dents for removal
 	 * (or other types of non-destructive operations)
 	 */
+	down_read(&global->dent_mutex);
 	MARS_IO("prep pass\n");
 	for (tmp = global->dent_anchor.next, next = tmp->next; tmp != &global->dent_anchor; tmp = next, next = next->next) {
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
+
+		up_read(&global->dent_mutex);
 
 		brick_yield();
 
@@ -820,12 +825,16 @@ restart:
 		if (status) {
 			//MARS_IO("forward treat '%s' status = %d\n", dent->d_path, status);
 		}
+		down_read(&global->dent_mutex);
 		total_status |= status;
 	}
+	up_read(&global->dent_mutex);
+
 	bind_to_dent(NULL, &say_channel);
 
 	/* Remove all dents marked for removal.
 	 */
+	down_write(&global->dent_mutex);
 	MARS_IO("removal pass\n");
 	for (tmp = global->dent_anchor.next, next = tmp->next; tmp != &global->dent_anchor; tmp = next, next = next->next) {
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
@@ -838,9 +847,9 @@ restart:
 		list_del_init(tmp);
 		mars_free_dent(dent);
 	}
-	bind_to_dent(NULL, &say_channel);
-
 	up_write(&global->dent_mutex);
+
+	bind_to_dent(NULL, &say_channel);
 
 	/* Forward pass.
 	*/
@@ -866,7 +875,7 @@ restart:
 
 	/* Backward pass.
 	*/
-	MARS_IO("forward pass\n");
+	MARS_IO("backward pass\n");
 	for (tmp = global->dent_anchor.prev, next = tmp->prev; tmp != &global->dent_anchor; tmp = next, next = next->prev) {
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
 		up_read(&global->dent_mutex);
@@ -887,6 +896,7 @@ restart:
 		}
 	}
 	up_read(&global->dent_mutex);
+
 	bind_to_dent(NULL, &say_channel);
 
 done:

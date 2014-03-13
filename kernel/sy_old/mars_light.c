@@ -3830,7 +3830,7 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	}
 
 	status = -EAGAIN;
-	target = _mars_find_dent(global, dent->new_link);
+	target = mars_find_dent(global, dent->new_link);
 	if (target) {
 		if (timespec_compare(&target->new_stat.mtime, &dent->new_stat.mtime) > 0) {
 			MARS_WRN("target '%s' has newer timestamp than deletion link, ignoring\n", dent->new_link);
@@ -3868,7 +3868,7 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 		MARS_ERR("cannot build response path for '%s'\n", dent->new_link);
 		goto done;
 	}
-	response = _mars_find_dent(global, response_path);
+	response = mars_find_dent(global, response_path);
 	if (response && response->new_link) {
 		sscanf(response->new_link, "%d", &max_serial);
 	}
