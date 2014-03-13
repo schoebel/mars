@@ -21,7 +21,7 @@ function lib_wait_until_logfile_has_length
 {
     [ $# -eq 7 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local host=$1 logfile=$2 length_logfile=$3
-    local varname_time_waited=$4 maxwait=$5 check_net_throughput=$6 varname_net_throughput=$7
+    local varname_time_waited=$4 maxwait=$5 check_net_throughput=$6 varname_net_throughput="$7"
     local act_length
     local waited=0 start_time=$(date +'%s') end_time
     local my_net_throughput=0 net_throughput_sum=0 net_check_count=0
@@ -68,7 +68,7 @@ function lib_wait_until_fetch_stops
     [ $# -eq 9 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local module=$1 secondary_host=$2 primary_host=$3 res=$4
     local varname_logfile=$5 varname_length_logfile=$6
-    local varname_time_waited=$7 check_net_throughput=$8 varname_net_throughput=$9
+    local varname_time_waited=$7 check_net_throughput=$8 varname_net_throughput="$9"
     local maxtime_fetch time_constant_fetch var v
 
     for var in maxtime_fetch time_constant_fetch; do
@@ -85,7 +85,7 @@ function lib_wait_until_fetch_stops
                                 $time_constant_fetch \
                                 $varname_logfile $varname_length_logfile \
                                 $varname_time_waited \
-                                $check_net_throughput $varname_net_throughput
+                                $check_net_throughput "$varname_net_throughput"
 }
 
 function lib_wait_internal_until_fetch_stops
@@ -93,7 +93,7 @@ function lib_wait_internal_until_fetch_stops
     [ $# -eq 10 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local secondary_host=$1 res=$2 primary_host=$3 maxwait=$4 inactive_wait=$5
     local varname_logfile=$6 varname_logfile_length=$7 varname_time_waited=$8
-    local check_net_throughput=$9 varname_net_throughput=${10}
+    local check_net_throughput=$9 varname_net_throughput="${10}"
     local inactive_waited=0 msg
     local my_logfile length file_and_length file_and_length_old="x"
     local waited=0 msg start_time=$(date +'%s') end_time
@@ -156,7 +156,7 @@ function lib_wait_until_action_stops
     [ $# -eq 8 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local action=$1 host=$2 res=$3 maxwait=$4 inactive_wait=$5
     local varname_time_waited=$6 check_net_throughput=$7
-    local varname_net_throughput=$8
+    local varname_net_throughput="$8"
     local waited=0 link_value link_value_old="x"
     local inactive_waited=0 msg start_time=$(date +'%s') end_time
     local link=$(lib_linktree_get_res_host_linkname $host $res $action)

@@ -184,6 +184,7 @@ tests_to_execute=(
 "test_cases/admin/resizing:test_cases/admin"
 "test_cases/admin/logrotate:test_cases/admin"
 "test_cases/admin/logdelete:test_cases/admin"
+"test_cases/admin/syslog_messages:test_cases/admin"
 "test_cases/bugs/memleak:test_cases/bugs"
 "test_cases/admin/leave_resource_while_sync*:test_cases/admin"
 "test_cases/admin/switch2primary:test_cases/admin"
