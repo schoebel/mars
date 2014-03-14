@@ -36,6 +36,9 @@ function perftest_run
 
     perftest_check_variables
 
+    cluster_remove_debugfiles $primary_host
+    cluster_create_debugfiles $primary_host
+
     perftest_prepare_${perftest_action} $primary_host $secondary_host $res \
                                         $perftest_parallel_writer \
                                         $perftest_result_type \
@@ -434,6 +437,8 @@ function perftest_prepare_resource
 {
     local res=$1 secondary_host=$2
     resource_mount_mars_and_rm_resource_dir_all $res
+    cluster_remove_debugfiles $secondary_host
+    cluster_create_debugfiles $secondary_host
     resource_run_first
     marsview_wait_for_state $secondary_host $res "disk" "Uptodate" \
                             $perftest_maxtime_state_constant || lib_exit 1
