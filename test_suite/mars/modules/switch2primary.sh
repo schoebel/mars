@@ -165,8 +165,8 @@ function switch2primary_force
     lib_vmsg "  $switch2primary_flow_msg_prefix: initial situation: primary=$orig_primary, secondary=$orig_secondary, data device mounted and writing process running"
     lib_vmsg "  $switch2primary_flow_msg_prefix: target state: new_primary=$new_primary, new_secondary=$new_secondary"
     if [ $switch2primary_logrotate_orig_primary -eq 1 ]; then
-        logrotate_loop $orig_primary $res 3 4
         lib_vmsg "  $switch2primary_flow_msg_prefix: log-rotate/log-delete on $orig_primary"
+        logrotate_loop $orig_primary $res 3 4
     fi
     if [ $destroy_logfile -eq 1 ]; then
         lib_vmsg "  $switch2primary_flow_msg_prefix: destroy logfile on $new_primary"
