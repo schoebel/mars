@@ -84,6 +84,7 @@ function lib_rw_stop_one_script
 {
     local host=$1 script=$2 varname_write_count=$3
     local my_write_count grep_out rc
+    eval $varname_write_count=0 # robustness
     lib_vmsg "  determine pid of script $script on $host"
     pid=$(lib_remote_idfile $host pgrep -f $script)
     rc=$?
