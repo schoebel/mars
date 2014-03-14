@@ -181,6 +181,7 @@ tests_to_execute=(
 "test_cases/admin/apply_fetch/apply:test_cases/admin"
 "test_cases/admin/apply_fetch/fetch:test_cases/admin"
 "test_cases/hardcore/destroy_secondary_logfile:test_cases/hardcore"
+"test_cases/admin/multi_res_sync_sequence:test_cases/admin"
 "test_cases/admin/resizing:test_cases/admin"
 "test_cases/admin/logrotate:test_cases/admin"
 "test_cases/admin/logdelete:test_cases/admin"
