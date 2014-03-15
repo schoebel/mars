@@ -1545,6 +1545,10 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 				 marker_path, remote_dent->new_stat.mtime.tv_sec, remote_dent->new_stat.mtime.tv_nsec);
 			mars_symlink("1", marker_path, &remote_dent->new_stat.mtime, 0);
 		}
+		if (remote_dent->d_serial < peer->global->deleted_my_border) {
+			MARS_DBG("ignoring deletion '%s' at border %d\n", remote_dent->d_path, peer->global->deleted_my_border);
+			goto done;
+		}
 	} else {
 		// check marker preventing concurrent updates from remote hosts when deletes are in progress
 		marker_path = backskip_replace(remote_dent->d_path, '/', true, "/.deleted-");
@@ -3883,13 +3887,11 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	int status;
 
 	if (!global || !dent || !dent->new_link || !dent->d_path) {
-		goto done;
+		goto err;
 	}
 
 	// create a marker which prevents concurrent updates from remote hosts
 	marker_path = backskip_replace(dent->new_link, '/', true, "/.deleted-");
-	if (unlikely(!marker_path))
-		goto done;
 	if (mars_stat(marker_path, &stat, true) < 0 ||
 	    timespec_compare(&dent->new_stat.mtime, &stat.mtime) > 0) {
 		MARS_DBG("creating / updating marker '%s' mtime=%lu.%09lu\n",
@@ -3954,11 +3956,9 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 		}
 	}
 
+ done:
+	// tell the world that we have seen this deletion... (even when not yet accomplished)
 	response_path = path_make("/mars/todo-global/deleted-%s", my_id());
-	if (!response_path) {
-		MARS_ERR("cannot build response path for '%s'\n", dent->new_link);
-		goto done;
-	}
 	response = mars_find_dent(global, response_path);
 	if (response && response->new_link) {
 		sscanf(response->new_link, "%d", &max_serial);
@@ -3966,11 +3966,12 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	if (dent->d_serial > max_serial) {
 		char response_val[16];
 		max_serial = dent->d_serial;
+		global->deleted_my_border = max_serial;
 		snprintf(response_val, sizeof(response_val), "%09d", max_serial);
 		mars_symlink(response_val, response_path, NULL, 0);
 	}
 
- done:
+ err:
 	brick_string_free(marker_path);
 	brick_string_free(response_path);
 	return 0;
@@ -3991,6 +3992,9 @@ static int check_deleted(void *buf, struct mars_dent *dent)
 		MARS_WRN("cannot parse symlink '%s' -> '%s'\n", dent->d_path, dent->new_link);
 		goto done;
 	}
+
+	if (!strcmp(dent->d_rest, my_id()))
+		global->deleted_my_border = serial;
 
 	/* Compute the minimum of the deletion progress among
 	 * the resource members.
