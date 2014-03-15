@@ -3801,6 +3801,7 @@ done:
 static int prepare_delete(void *buf, struct mars_dent *dent)
 {
 	struct kstat stat;
+	struct kstat *to_delete = NULL;
 	struct mars_global *global = buf;
 	struct mars_dent *target;
 	struct mars_dent *response;
@@ -3830,26 +3831,34 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 
-	status = -EAGAIN;
+	status = 0;
 	target = mars_find_dent(global, dent->new_link);
 	if (target) {
 		if (timespec_compare(&target->new_stat.mtime, &dent->new_stat.mtime) > 0) {
 			MARS_WRN("target '%s' has newer timestamp than deletion link, ignoring\n", dent->new_link);
+			status = -EAGAIN;
 			goto ok;
 		}
 		if (target->d_child_count) {
 			MARS_WRN("target '%s' has %d children, cannot kill\n", dent->new_link, target->d_child_count);
-			goto ok;
+			goto done;
 		}
-		status = mars_unlink(dent->new_link);
 		target->d_killme = true;
-		MARS_DBG("target '%s' deleted (status = %d) and marked for removal\n", dent->new_link, status);
+		MARS_DBG("target '%s' marked for removal\n", dent->new_link);
+		to_delete = &target->new_stat;
 	} else if (mars_stat(dent->new_link, &stat, true) >= 0) {
 		if (timespec_compare(&stat.mtime, &dent->new_stat.mtime) > 0) {
 			MARS_WRN("target '%s' has newer timestamp than deletion link, ignoring\n", dent->new_link);
+			status = -EAGAIN;
 			goto ok;
 		}
-		if (S_ISDIR(stat.mode)) {
+		to_delete = &stat;
+	} else {
+		status = -EAGAIN;
+		MARS_DBG("target '%s' does no longer exist\n", dent->new_link);
+	}
+	if (to_delete) {
+		if (S_ISDIR(to_delete->mode)) {
 			status = mars_rmdir(dent->new_link);
 			MARS_DBG("rmdir '%s', status = %d\n", dent->new_link, status);
 		} else {
@@ -3858,7 +3867,8 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 		}
 	}
 	if (status < 0) {
-		MARS_DBG("target '%s' does no longer exist\n", dent->new_link);
+		MARS_DBG("deletion '%s' to target '%s' is accomplished\n",
+			 dent->d_path, dent->new_link);
 		if (dent->d_serial <= global->deleted_border) {
 			MARS_DBG("removing deletion symlink '%s'\n", dent->d_path);
 			dent->d_killme = true;
