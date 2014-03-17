@@ -341,7 +341,7 @@ function resource_check_low_space_error
         lib_exit 1 "pattern resource_mars_dir_full_${msgtype}_pattern_list[$err_type] not found"
     fi
     msgpattern="${msgpattern//$resource_msg_resource_dir_name_pattern/$(resource_get_resource_dir $res)}"
-    lib_err_wait_for_error_messages $host $msgfile "$msgpattern" 1 10
+    lib_err_wait_for_error_messages $host $msgfile "$msgpattern" 1 10 "ge"
 }
 
 function resource_dd_until_mars_dir_full

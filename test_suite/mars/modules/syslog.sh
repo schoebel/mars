@@ -79,13 +79,15 @@ function syslog_run
 
         file_destroy_dd_on_logfile $secondary_host $logfile $length_logfile
 
-        nr_msg_orig=$(syslog_count_or_check_messages $secondary_host \
-                      $syslog_flood_limit 1) || lib_exit 1
+        nr_msg_orig=$(lib_err_count_error_messages $secondary_host \
+                      "$syslog_err_msg_pattern" $syslog_logfile) || lib_exit 1
 
         marsadm_do_cmd $secondary_host "resume-replay" $res || lib_exit 1
 
-        syslog_count_or_check_messages $secondary_host \
-                                     $(( $nr_msg_orig + $syslog_flood_limit )) 0
+        lib_err_wait_for_error_messages $secondary_host $syslog_logfile \
+                                    "$syslog_err_msg_pattern" \
+                                    $(( $nr_msg_orig + $syslog_flood_limit )) \
+                                    $syslog_msg_wait_time "eq"
 
         # stopp generation of new error messages
         marsadm_pause_cmd "apply" $secondary_host $res
@@ -102,12 +104,14 @@ function syslog_run
 
         marsadm_do_cmd $secondary_host "resume-replay" $res || lib_exit 1
 
-        nr_msg_orig=$(syslog_count_or_check_messages $secondary_host \
-                      $syslog_flood_limit 1) || lib_exit 1
+        nr_msg_orig=$(lib_err_count_error_messages $secondary_host \
+                      "$syslog_err_msg_pattern" $syslog_logfile) || lib_exit 1
 
         lib_vmsg "  sleeping syslog_recovery_s = $syslog_recovery_s seconds"
 
-        syslog_count_or_check_messages $secondary_host $nr_msg_orig 0
+        lib_err_wait_for_error_messages $secondary_host $syslog_logfile \
+                                    "$syslog_err_msg_pattern" \
+                                    $nr_msg_orig $syslog_msg_wait_time "eq"
     done
 
 }
@@ -126,35 +130,5 @@ function syslog_set_logging_parameters
         eval file='$'$filename
         lib_remote_idfile $host "ls -l $file" || lib_exit 1
         lib_remote_idfile $host "echo $value > $file" || lib_exit 1
-    done
-}
-
-# we cannot use lib_err_wait_for_error_messages, because we need a grep -v egrep
-# because sometimes all commands are logged in /var/log/syslog ...
-# If only_count==1 then the number of messages found is printed to stdout.
-function syslog_count_or_check_messages
-{
-    [ $# -eq 3 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
-    local host=$1 nr_msg_req=$2 only_count=$3
-    local waited=0 maxwait=$syslog_msg_wait_time
-    while true; do
-        local nr_msg_act
-        nr_msg_act="$(lib_remote_idfile $host \
-                     "egrep '$syslog_err_msg_pattern' $syslog_logfile")" || \
-                                                                    lib_exit 1
-        nr_msg_act=$(echo "$nr_msg_act" | grep -vw egrep | wc -l)
-        if [ $only_count -eq 1 ]; then
-            echo $nr_msg_act
-            return
-        fi
-        if [ $nr_msg_act -eq $nr_msg_req ]; then
-            break
-        fi
-        sleep 1
-        let waited+=1
-        lib_vmsg "  waited $waited for $nr_msg_req (act. found = $nr_msg_act)"
-        if [ $waited -eq $maxwait ]; then 
-            lib_exit 1 "maxwait $maxwait exceeded"
-        fi
     done
 }

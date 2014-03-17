@@ -52,7 +52,7 @@ function remote_dev_run
     lib_err_wait_for_error_messages $primary_host $lib_err_total_log_file \
                                 "$remote_dev_errmsg_pattern" \
                                 $remote_dev_number_errmsg_req \
-                                $remote_dev_maxtime_to_wait_for_errmsg
+                                $remote_dev_maxtime_to_wait_for_errmsg "ge"
                                        
     lib_err_check_nonexistence_of_other_error_messages $primary_host \
                                         $lib_err_total_log_file \
