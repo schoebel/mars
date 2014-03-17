@@ -195,7 +195,7 @@ tests_to_execute=(
 "test_cases/stabil/net_failure/connection_cut:test_cases"
 "test_cases/admin/three_nodes:test_cases"
 "test_cases/stabil/crash/crash_primary:test_cases"
-"test_cases/stabil/crash/crash_primary_logger_comletion_semantics__aio_sync_mode:test_cases"
+"test_cases/stabil/crash/crash_primary_logger_completion_semantics__aio_sync_mode:test_cases"
 "test_cases/stabil/crash/crash_primary_logger_completion_semantics:test_cases"
 "test_cases/stabil/crash/crash_primary_aio_sync_mode:test_cases"
 "test_cases/bugs/aio_filehandle:test_cases"
