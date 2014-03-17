@@ -58,7 +58,7 @@ struct threshold aio_sync_threshold = {
 };
 EXPORT_SYMBOL_GPL(aio_sync_threshold);
 
-int aio_sync_mode = 1;
+int aio_sync_mode = 2;
 EXPORT_SYMBOL_GPL(aio_sync_mode);
 
 ///////////////////////// own type definitions ////////////////////////
