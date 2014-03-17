@@ -101,7 +101,7 @@ function resize_check_resize_post_conditions
     [ $# -eq 6 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local primary_host=$1 secondary_host=$2 res=$3 dev=$4
     local mars_data_dev_size_new=$5 writer_script=$6
-    local write_count test_size
+    local write_count test_size rm_test_file=0
     
     lib_linktree_check_link_int_value $secondary_host $res "syncstatus" \
                                       $mars_data_dev_size_new 1000000000
@@ -118,6 +118,7 @@ function resize_check_resize_post_conditions
     local should_fail=0 test_file
     if [ $resource_fs_on_data_device_necessary -eq 1 ]; then
         test_file=$(resource_get_mountpoint $res)/resize_test
+        rm_test_file=1
     else
         test_file=$(resource_get_data_device $res)
     fi
@@ -126,9 +127,11 @@ function resize_check_resize_post_conditions
         datadev_full_dd_on_device $primary_host $test_file \
                                   $(( 1024 * $test_size )) 4711 $should_fail
         should_fail=1
-        lib_remote_idfile $primary_host \
-                          "if ls -l $test_file; then rm -f $test_file;fi" \
-                                                                || lib_exit 1
+        if [ $rm_test_file -eq 1 ]; then
+            lib_remote_idfile $primary_host \
+                              "if ls -l $test_file; then rm -f $test_file;fi" \
+                                                                    || lib_exit 1
+        fi
     done
 
     mount_umount_data_device $primary_host $res
