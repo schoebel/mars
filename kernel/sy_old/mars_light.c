@@ -1604,8 +1604,9 @@ bool _is_peer_logfile(const char *name, const char *id)
 }
 
 static
-int _update_file(struct mars_rotate *rot, const char *switch_path, const char *copy_path, const char *file, const char *peer, loff_t end_pos)
+int _update_file(struct mars_dent *parent, const char *switch_path, const char *copy_path, const char *file, const char *peer, loff_t end_pos)
 {
+	struct mars_rotate *rot = parent->d_private;
 	struct mars_global *global = rot->global;
 #ifdef CONFIG_MARS_SEPARATE_PORTS
 	const char *tmp = path_make("%s@%s:%d", file, peer, mars_net_default_port + 1);
@@ -1614,6 +1615,7 @@ int _update_file(struct mars_rotate *rot, const char *switch_path, const char *c
 #endif
 	const char *argv[2] = { tmp, file };
 	struct copy_brick *copy = NULL;
+	struct key_value_pair *msg_pair = find_key(rot->msgs, "inf-fetch");
 	bool do_start = true;
 	int status = -ENOMEM;
 
@@ -1624,11 +1626,17 @@ int _update_file(struct mars_rotate *rot, const char *switch_path, const char *c
 
 	if (rot->todo_primary | rot->is_primary) {
 		MARS_DBG("disallowing fetch, todo_primary=%d is_primary=%d\n", rot->todo_primary, rot->is_primary);
+		make_msg(msg_pair, "disallowing fetch (todo_primary=%d is_primary=%d)", rot->todo_primary, rot->is_primary);
+		do_start = false;
+	}
+	if (do_start && !_check_allow(global, parent, "attach")) {
+		MARS_DBG("disabling fetch due to detach\n");
+		make_msg(msg_pair, "disabling fetch due to detach");
 		do_start = false;
 	}
 
 	MARS_DBG("src = '%s' dst = '%s'\n", tmp, file);
-	status = __make_copy(global, NULL, do_start ? switch_path : "", copy_path, NULL, argv, find_key(rot->msgs, "inf-fetch"), -1, -1, false, false, &copy);
+	status = __make_copy(global, NULL, do_start ? switch_path : "", copy_path, NULL, argv, msg_pair, -1, -1, false, false, &copy);
 	if (status >= 0 && copy) {
 		copy->copy_limiter = &rot->fetch_limiter;
 		// FIXME: code is dead
@@ -1697,7 +1705,7 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 	if (fetch_brick) {
 		if (remote_dent->d_serial == rot->fetch_serial && rot->fetch_peer && !strcmp(peer, rot->fetch_peer)) {
 			// treat copy brick instance underway
-			status = _update_file(rot, switch_path, rot->fetch_path, remote_dent->d_path, peer, src_size);
+			status = _update_file(parent, switch_path, rot->fetch_path, remote_dent->d_path, peer, src_size);
 			MARS_DBG("re-update '%s' from peer '%s' status = %d\n", remote_dent->d_path, peer, status);
 		}
 	} else if (!rot->fetch_serial && rot->allow_update &&
@@ -1706,7 +1714,7 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 		   (!rot->split_brain_serial || remote_dent->d_serial < rot->split_brain_serial) &&
 		   (dst_size < src_size || !local_dent)) {		
 		// start copy brick instance
-		status = _update_file(rot, switch_path, rot->fetch_path, remote_dent->d_path, peer, src_size);
+		status = _update_file(parent, switch_path, rot->fetch_path, remote_dent->d_path, peer, src_size);
 		MARS_DBG("update '%s' from peer '%s' status = %d\n", remote_dent->d_path, peer, status);
 		if (likely(status >= 0)) {
 			rot->fetch_serial = remote_dent->d_serial;
