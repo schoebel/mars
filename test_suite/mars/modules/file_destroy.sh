@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2010-2013 Frank Liepold /  1&1 Internet AG
+# Copyright 2010-2014 Frank Liepold /  1&1 Internet AG
 #
 # Email: frank.liepold@1und1.de
 #
@@ -42,8 +42,7 @@ function file_destroy_run
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
                                      "writer_script" 0 2 $res ""
 
-    file_destroy_down_secondary $secondary_host $res
-    marsadm_do_cmd $secondary_host "connect" $res || lib_exit 1
+    marsadm_do_cmd $secondary_host "pause-replay" $res || lib_exit 1
 
     file_destroy_sleep $file_destroy_duration_of_writer_after_secondary_down
 
@@ -61,7 +60,7 @@ function file_destroy_run
 
     file_destroy_dd_on_logfile $secondary_host $logfile $length_logfile
 
-    file_destroy_up_secondary $secondary_host $res
+    marsadm_do_cmd $secondary_host "resume-replay" $res || lib_exit 1
 
     lib_wait_until_action_stops "replay" $secondary_host $res \
                                   $file_destroy_maxtime_apply \
@@ -91,35 +90,6 @@ function file_destroy_repair_logfile
                                                                     lib_exit 1
     marsadm_do_cmd $secondary_host "connect" $res || lib_exit 1
     marsadm_do_cmd $secondary_host "up" $res || lib_exit 1
-}
-
-function file_destroy_up_secondary
-{
-    local secondary_host=$1 res=$2
-    marsadm_do_cmd $secondary_host "up" $res || lib_exit 1
-    # in case of an error get as much info as possible
-    local maxcount=10 count
-    for count in $(seq 1 1 $maxcount); do
-        if ! marsview_check $secondary_host $res "disk" "Outdated\[.*A.*\]"; then
-            lib_linktree_print_linktree $secondary_host
-            continue;
-        fi
-        if ! marsview_check $secondary_host $res "repl" "-SFA-"; then
-            lib_linktree_print_linktree $secondary_host
-            continue;
-        fi
-        break
-    done
-}
-
-
-function file_destroy_down_secondary
-{
-    local secondary_host=$1 res=$2
-
-    marsadm_do_cmd $secondary_host "down" $res || lib_exit 1
-    marsview_wait_for_state $secondary_host $res "disk" "Detached" \
-                            $marsview_wait_for_state_time || lib_exit 1
 }
 
 function file_destroy_sleep
