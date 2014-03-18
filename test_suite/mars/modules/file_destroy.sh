@@ -63,20 +63,22 @@ function file_destroy_run
     marsadm_do_cmd $secondary_host "resume-replay" $res || lib_exit 1
 
     lib_wait_until_action_stops "replay" $secondary_host $res \
-                                  $file_destroy_maxtime_apply \
-                                  $file_destroy_time_constant_apply \
+                                  $file_destroy_maxtime_replay \
+                                  $file_destroy_time_constant_replay \
                                   "time_waited" 0 "net_throughput"
-    lib_vmsg "  ${FUNCNAME[0]}: apply time: $time_waited"
+    lib_vmsg "  ${FUNCNAME[0]}: replay time: $time_waited"
 
-    marsview_wait_for_state $secondary_host $res "disk" "Outdated\[.*A.*\]" \
+    marsview_wait_for_state $secondary_host $res "disk" "Outdated\[.*${marsview_replay_flag}.*\]" \
                             $marsview_wait_for_state_time || lib_exit 1
-    marsview_wait_for_state $secondary_host $res "repl" "-SFA-" \
+    marsview_wait_for_state $secondary_host $res "repl" \
+                            "-SF${marsview_replay_flag}-" \
                             $marsview_wait_for_state_time || lib_exit 1
 
     file_destroy_repair_logfile $secondary_host $logfile
     marsview_wait_for_state $secondary_host $res "disk" "Uptodate" \
                             $marsview_wait_for_state_time
-    marsview_wait_for_state $secondary_host $res "repl" "-SFA-" \
+    marsview_wait_for_state $secondary_host $res "repl" \
+                            "-SF${marsview_replay_flag}-" \
                             $marsview_wait_for_state_time
 }
 

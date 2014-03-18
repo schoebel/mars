@@ -111,13 +111,13 @@ function switch2primary_run
 # - logrotate and logdelete on orig_primary (if 
 #   switch2primary_logrotate_orig_primary == 1)
 # - destroy logs behind replay link (if
-#      switch2primary_full_apply_not_possible == 1 and
+#      switch2primary_full_replay_not_possible == 1 and
 #      switch2primary_orig_prim_equal_new_prim == 0)
 # - stop writing and unmount data dev orig_primary (if
 #   switch2primary_data_dev_in_use == 0)
 # - cut network connection (if switch2primary_connected == 0)
 # - marsadm --force primary on orig_secondary
-#       this must fail if switch2primary_full_apply_not_possible == 1
+#       this must fail if switch2primary_full_replay_not_possible == 1
 #       in this case we leave and create the resource and should be primary
 #       afterwards (see switch2primary_recreate_resource)
 # - logrotate and logdelete on orig_primary (if 
@@ -157,7 +157,7 @@ function switch2primary_force
         new_primary=$orig_secondary
         new_secondary=$orig_primary
     fi
-    if [ $switch2primary_full_apply_not_possible -eq 1 \
+    if [ $switch2primary_full_replay_not_possible -eq 1 \
          -a $switch2primary_orig_prim_equal_new_prim -eq 0 ]
     then
         destroy_logfile=1
@@ -369,7 +369,7 @@ function switch2primary_correct_split_brain
     # if the new_primary was recreated, the delete-resource in
     # switch2primary_recreate_resource destroys the resource on the
     # new_secondary. Thus two branches to restore the replication are needed
-    if [ $switch2primary_full_apply_not_possible -eq 0 ]; then
+    if [ $switch2primary_full_replay_not_possible -eq 0 ]; then
         ##marsadm_do_cmd $new_secondary "secondary" "$res" || lib_exit 1
         if [ $network_cut -eq 0 \
              -a $switch2primary_disconnect_before_leave_resource -eq 1 ]
@@ -438,8 +438,8 @@ function switch2primary_destroy_log_after_replay_link
     lib_vmsg "  destroying log after replay link on $host"
     marsadm_do_cmd $host "pause-replay" "$res" || lib_exit 1
     lib_wait_until_action_stops "replay" $host $res \
-                                  $switch2primary_maxtime_apply \
-                                  $switch2primary_time_constant_apply \
+                                  $switch2primary_maxtime_replay \
+                                  $switch2primary_time_constant_replay \
                                   "time_waited" 0 ""
     logfile=$(lib_linktree_get_partial_value_from_replay_link \
                $host $res "logfilename") || lib_exit 1

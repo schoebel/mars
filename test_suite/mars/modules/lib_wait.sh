@@ -236,13 +236,13 @@ function lib_wait_for_secondary_to_become_uptodate_and_cmp_cksums
     local host role logfile length_logfile time_waited write_count
     local net_throughput mount_point
 
-    local maxtime_apply time_constant_apply str var
+    local maxtime_replay time_constant_replay str var
     for str in "maxtime" "time_constant"; do
-        var=${module_name}_${str}_apply
+        var=${module_name}_${str}_replay
         if [ -z "$var" ]; then
             lib_exit 1 "  variable $var not set"
         fi
-        eval ${str}_apply='$'$var
+        eval ${str}_replay='$'$var
     done
 
     lib_wait_until_fetch_stops $module_name $secondary_host $primary_host $res \
@@ -254,28 +254,31 @@ function lib_wait_for_secondary_to_become_uptodate_and_cmp_cksums
                                                  $secondary_host $length_logfile
 
     lib_wait_until_action_stops "replay" $secondary_host $res \
-                                $maxtime_apply \
-                                $time_constant_apply "time_waited" 0 \
+                                $maxtime_replay \
+                                $time_constant_replay "time_waited" 0 \
                                 "net_throughput"
     lib_wait_until_action_stops "replay" $primary_host $res \
-                                $maxtime_apply \
-                                $time_constant_apply "time_waited" 0 \
+                                $maxtime_replay \
+                                $time_constant_replay "time_waited" 0 \
                                 "net_throughput"
-    lib_vmsg "  ${FUNCNAME[0]} called from ${FUNCNAME[1]}: apply time: $time_waited"
+    lib_vmsg "  ${FUNCNAME[0]} called from ${FUNCNAME[1]}: replay time: $time_waited"
 
     lib_linktree_check_equality_and_correctness_of_replay_links $primary_host \
                                                     $secondary_host $res
 
     for role in "primary" "secondary"; do
         eval host='$'${role}_host
-        marsview_wait_for_state $host $res "disk" "Uptodate" $marsview_wait_for_state_time || lib_exit 1
-        marsview_wait_for_state $host $res "repl" "-SFA-" $marsview_wait_for_state_time || lib_exit 1
+        marsview_wait_for_state $host $res "disk" "Uptodate" \
+                                $marsview_wait_for_state_time || lib_exit 1
+        marsview_wait_for_state $host $res "repl" \
+                                "-SF${marsview_replay_flag}-" \
+                                $marsview_wait_for_state_time || lib_exit 1
     done
 
     lib_rw_compare_checksums $primary_host $secondary_host $res $dev_size_to_compare "" ""
 }
 
-function lib_wait_until_apply_has_reached_length
+function lib_wait_until_replay_has_reached_length
 {
     [ $# -eq 5 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local secondary_host=$1 res=$2 logfile=$3 req_applied_length=$4 maxwait=$5
@@ -295,7 +298,7 @@ function lib_wait_until_apply_has_reached_length
         fi
         sleep 1
         let waited+=1
-        lib_vmsg "  waited $waited for apply of $logfile act = $act_applied_length, req = $req_applied_length"
+        lib_vmsg "  waited $waited for replay of $logfile act = $act_applied_length, req = $req_applied_length"
         if [ $waited -eq $maxwait ]; then
             lib_exit 1 "maxwait $maxwait exceeded"
         fi

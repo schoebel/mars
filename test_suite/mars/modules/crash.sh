@@ -59,8 +59,9 @@ function crash_run
                                                 $crash_maxtime_state_constant
     lib_linktree_print_linktree $primary_host
 
-    marsview_wait_for_state $primary_host $res "repl" "-SFA-" \
-                                                $crash_maxtime_state_constant
+    marsview_wait_for_state $primary_host $res "repl" \
+                            "-SF${marsview_replay_flag}-" \
+                            $crash_maxtime_state_constant
     lib_wait_until_action_stops "syncstatus" $secondary_host $res \
                                   $crash_maxtime_sync \
                                   $crash_time_constant_sync "time_waited" 0 \
@@ -76,7 +77,8 @@ function crash_run
 
     marsview_wait_for_state $secondary_host $res "disk" "Uptodate*" \
                         $marsview_wait_for_state_time || let error_occured+=1
-    marsview_wait_for_state $secondary_host $res "repl" "-SFA-" \
+    marsview_wait_for_state $secondary_host $res "repl" \
+                            "-SF${marsview_replay_flag}-" \
                         $marsview_wait_for_state_time || let error_occured+=1
 
     lib_rw_compare_checksums $primary_host $secondary_host $res 0 "" ""
@@ -105,16 +107,17 @@ function crash_write_data_device_and_calculate_checksums
     lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
     main_error_recovery_functions["lib_rw_stop_scripts"]=
     lib_wait_until_action_stops "replay" $secondary_host $res \
-                                  $crash_maxtime_apply \
-                                  $crash_time_constant_apply "time_waited" 0 \
+                                  $crash_maxtime_replay \
+                                  $crash_time_constant_replay "time_waited" 0 \
                                   "net_throughput"
-    lib_vmsg "  ${FUNCNAME[0]}: apply time: $time_waited"
+    lib_vmsg "  ${FUNCNAME[0]}: replay time: $time_waited"
 
 
     marsview_wait_for_state $secondary_host $res "disk" "Uptodate" \
                                                 $crash_maxtime_state_constant
-    marsview_wait_for_state $secondary_host $res "repl" "-SFA-" \
-                                                $crash_maxtime_state_constant
+    marsview_wait_for_state $secondary_host $res "repl" \
+                            "-SF${marsview_replay_flag}-" \
+                            $crash_maxtime_state_constant
     mount_umount_data_device $primary_host $res
     lib_rw_compare_checksums $primary_host $secondary_host $res 0 "" ""
 }

@@ -21,7 +21,7 @@ function perftest_check_variables
 {
         [ -z "$perftest_action" ] && lib_exit 1 "no action defined"
         case $perftest_action in # ((
-            apply|fetch|write|sync|fetch_and_apply)  :
+            replay|fetch|write|sync|fetch_and_replay)  :
                 ;;
                *) lib_exit 1 "invalid action $perftest_action"
                 ;;
@@ -45,7 +45,7 @@ function perftest_run
                                         ${#resource_name_list[*]}
 
     case $perftest_action in # ((((
-        fetch|sync|fetch_and_apply) perftest_start_and_check_nttcp $primary_host $secondary_host
+        fetch|sync|fetch_and_replay) perftest_start_and_check_nttcp $primary_host $secondary_host
                                   ;;
                                  *) :
                                  ;;
@@ -368,7 +368,7 @@ function perftest_prepare_sync
     fi
 }
 
-function perftest_prepare_apply
+function perftest_prepare_replay
 {
     [ $# -eq 6 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     lib_vmsg "  executing ${FUNCNAME[0]}"
@@ -377,7 +377,7 @@ function perftest_prepare_apply
     local data_dev=$(resource_get_data_device $res)
     local logfile length_logfile time_waited net_throughput
 
-    perftest_check_and_get_required_result $secondary_host "apply" \
+    perftest_check_and_get_required_result $secondary_host "replay" \
                             $parallel_writer $result_type \
                             $no_resources $perftest_logfile_size_in_gb >/dev/null \
                                                                 || lib_exit 1
@@ -400,7 +400,7 @@ function perftest_prepare_apply
 
 }
 
-function perftest_do_apply
+function perftest_do_replay
 {
     [ $# -eq 6 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     lib_vmsg "  executing ${FUNCNAME[0]}"
@@ -418,8 +418,8 @@ function perftest_do_apply
     marsadm_do_cmd $secondary_host "resume-replay" $res || lib_exit 1
 
     lib_wait_until_action_stops "replay" $secondary_host $res \
-                                  $perftest_maxtime_apply \
-                                  $perftest_time_constant_apply "time_waited" \
+                                  $perftest_maxtime_replay \
+                                  $perftest_time_constant_replay "time_waited" \
                                   0 "net_throughput"
     lib_vmsg "  ${FUNCNAME[0]}: do_$perftest_action time: $time_waited"
 
@@ -446,25 +446,25 @@ function perftest_prepare_resource
 
 function perftest_prepare_fetch
 {
-    perftest_prepare_fetch_or_fetch_and_apply "$@"
+    perftest_prepare_fetch_or_fetch_and_replay "$@"
 }
 
-function perftest_prepare_fetch_and_apply
+function perftest_prepare_fetch_and_replay
 {
-    perftest_prepare_fetch_or_fetch_and_apply "$@"
+    perftest_prepare_fetch_or_fetch_and_replay "$@"
 }
 
 function perftest_do_fetch
 {
-    perftest_do_fetch_or_fetch_and_apply "$@"
+    perftest_do_fetch_or_fetch_and_replay "$@"
 }
 
-function perftest_do_fetch_and_apply
+function perftest_do_fetch_and_replay
 {
-    perftest_do_fetch_or_fetch_and_apply "$@"
+    perftest_do_fetch_or_fetch_and_replay "$@"
 }
 
-function perftest_prepare_fetch_or_fetch_and_apply
+function perftest_prepare_fetch_or_fetch_and_replay
 {
     [ $# -eq 6 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     lib_vmsg "  executing ${FUNCNAME[0]}"
@@ -512,7 +512,7 @@ function perftest_check_length_last_logfile
     fi
 }
 
-function perftest_do_fetch_or_fetch_and_apply
+function perftest_do_fetch_or_fetch_and_replay
 {
     [ $# -eq 6 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     lib_vmsg "  executing ${FUNCNAME[0]}"
@@ -538,7 +538,7 @@ function perftest_do_fetch_or_fetch_and_apply
     fi
 
     marsadm_do_cmd $secondary_host "connect" $res || lib_exit 1
-    if [ $perftest_action = "fetch_and_apply" ]; then
+    if [ $perftest_action = "fetch_and_replay" ]; then
         marsadm_do_cmd $secondary_host "resume-replay" $res || lib_exit 1
     fi
 
@@ -557,10 +557,10 @@ function perftest_do_fetch_or_fetch_and_apply
                                           "time_waited" \
                                           $perftest_maxtime_fetch 1 \
                                           "net_throughput"
-        if [ $perftest_action = "fetch_and_apply" ]; then
-            lib_wait_until_apply_has_reached_length $secondary_host $res  $last_logfile_primary \
+        if [ $perftest_action = "fetch_and_replay" ]; then
+            lib_wait_until_replay_has_reached_length $secondary_host $res  $last_logfile_primary \
                                                     $last_logfile_length_primary \
-                                                    $perftest_wait_for_apply_to_stop_after_fetch_end
+                                                    $perftest_wait_for_replay_to_stop_after_fetch_end
         fi
 
     fi

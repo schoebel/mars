@@ -45,7 +45,8 @@ function logrotate_run
 
     marsview_wait_for_state $secondary_host $res "disk" "Uptodate" \
                             $logrotate_maxtime_state_constant || lib_exit 1
-    marsview_wait_for_state $secondary_host $res "repl" "-SFA-" \
+    marsview_wait_for_state $secondary_host $res "repl" \
+                            "-SF${marsview_replay_flag}-" \
                             $logrotate_maxtime_state_constant || lib_exit 1
 
     lib_rw_compare_checksums $primary_host $secondary_host $res 0 "" ""

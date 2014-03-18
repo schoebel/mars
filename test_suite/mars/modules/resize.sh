@@ -161,7 +161,8 @@ function resize_do_resize
         marsadm_do_cmd $host "pause-sync" $res || lib_exit 1
         marsview_wait_for_state $host $res "disk" ".*date.*" \
                                 $marsview_wait_for_state_time || lib_exit 1
-        marsview_wait_for_state $host $res "repl" "--FA-" \
+        marsview_wait_for_state $host $res "repl" \
+                                "--F${marsview_replay_flag}-" \
                                 $marsview_wait_for_state_time || lib_exit 1
     done
 

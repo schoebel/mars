@@ -44,13 +44,13 @@ function syslog_run
         lib_rw_start_writing_data_device $primary_host "writer_pid" \
                                          "writer_script"  2 2 $res ""
 
-        marsadm_pause_cmd "apply" $secondary_host $res
+        marsadm_pause_cmd "replay" $secondary_host $res
 
         lib_wait_until_action_stops "replay" $secondary_host $res \
-                                      $apply_fetch_maxtime_apply \
-                                      $apply_fetch_time_constant_apply \
+                                      $replay_fetch_maxtime_replay \
+                                      $replay_fetch_time_constant_replay \
                                       "time_waited" 0 ""
-        lib_vmsg "  ${FUNCNAME[0]}: apply time: $time_waited"
+        lib_vmsg "  ${FUNCNAME[0]}: replay time: $time_waited"
 
         marsview_wait_for_state $secondary_host $res "disk" "Outdated\[.*A.*\]" \
                                 $marsview_wait_for_state_time
@@ -61,7 +61,7 @@ function syslog_run
                                         "write_count"
         main_error_recovery_functions["lib_rw_stop_scripts"]=
 
-        lib_wait_until_fetch_stops "apply_fetch" $secondary_host $primary_host \
+        lib_wait_until_fetch_stops "replay_fetch" $secondary_host $primary_host \
                                    $res "logfile" "length_logfile" \
                                    "time_waited" 0 ""
         lib_vmsg "  ${FUNCNAME[0]}: fetch time: $time_waited"
@@ -90,11 +90,11 @@ function syslog_run
                                     $syslog_msg_wait_time "eq"
 
         # stopp generation of new error messages
-        marsadm_pause_cmd "apply" $secondary_host $res
+        marsadm_pause_cmd "replay" $secondary_host $res
 
         lib_wait_until_action_stops "replay" $secondary_host $res \
-                                      $apply_fetch_maxtime_apply \
-                                      $apply_fetch_time_constant_apply \
+                                      $replay_fetch_maxtime_replay \
+                                      $replay_fetch_time_constant_replay \
                                       "time_waited" 0 ""
 
         lib_vmsg "  restoring $logfile from $logfile_sav"

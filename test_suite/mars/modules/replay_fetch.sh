@@ -19,10 +19,10 @@
 
 #####################################################################
 
-## this module provides functions to test independency of fetch and apply
+## this module provides functions to test independency of fetch and replay
 
 #####################################################################
-function apply_fetch_run
+function replay_fetch_run
 {
     local primary_host=${global_host_list[0]}
     local secondary_host=${global_host_list[1]}
@@ -42,22 +42,23 @@ function apply_fetch_run
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
                                      "writer_script"  2 2 $res ""
 
-    marsadm_pause_cmd "apply" $secondary_host $res
+    marsadm_pause_cmd "replay" $secondary_host $res
 
     lib_wait_until_action_stops "replay" $secondary_host $res \
-                                  $apply_fetch_maxtime_apply \
-                                  $apply_fetch_time_constant_apply \
+                                  $replay_fetch_maxtime_replay \
+                                  $replay_fetch_time_constant_replay \
                                   "time_waited" 0 "net_throughput"
-    lib_vmsg "  ${FUNCNAME[0]}: apply time: $time_waited"
+    lib_vmsg "  ${FUNCNAME[0]}: replay time: $time_waited"
 
-    marsview_wait_for_state $secondary_host $res "disk" "Outdated\[.*A.*\]" \
+    marsview_wait_for_state $secondary_host $res "disk" \
+                            "Outdated\[.*${marsview_replay_flag}.*\]" \
                             $marsview_wait_for_state_time
     marsview_wait_for_state $secondary_host $res "repl" '-SF--' \
                             $marsview_wait_for_state_time || lib_exit 1
 
     marsadm_pause_cmd "fetch" $secondary_host $res
 
-    lib_wait_until_fetch_stops "apply_fetch" $secondary_host $primary_host \
+    lib_wait_until_fetch_stops "replay_fetch" $secondary_host $primary_host \
                                $res "logfile" "length_logfile" "time_waited" 0 \
                                "net_throughput"
     lib_vmsg "  ${FUNCNAME[0]}: fetch time: $time_waited"
@@ -66,26 +67,27 @@ function apply_fetch_run
     lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
     main_error_recovery_functions["lib_rw_stop_scripts"]=
 
-    case $apply_fetch_running_action in #(((
-        apply)
+    case $replay_fetch_running_action in #(((
+        replay)
             marsadm_do_cmd $secondary_host "resume-replay" $res || lib_exit 1
 
             lib_wait_until_action_stops "replay" $secondary_host $res \
-                          $apply_fetch_maxtime_apply_after_disconnect \
-                          $apply_fetch_time_constant_apply_after_disconnect \
+                          $replay_fetch_maxtime_replay_after_disconnect \
+                          $replay_fetch_time_constant_replay_after_disconnect \
                           "time_waited" 0 "net_throughput"
-            lib_vmsg "  ${FUNCNAME[0]}: apply time: $time_waited"
+            lib_vmsg "  ${FUNCNAME[0]}: replay time: $time_waited"
 
             marsadm_check_warnings_and_disk_state $secondary_host $res \
-                                               "apply_stopped_after_disconnect"
-            marsview_wait_for_state $secondary_host $res "repl" "-S-A-" \
+                                               "replay_stopped_after_disconnect"
+            marsview_wait_for_state $secondary_host $res "repl" \
+                                    "-S-${marsview_replay_flag}-" \
                                     $marsview_wait_for_state_time || lib_exit 1
             marsadm_do_cmd $secondary_host "connect" $res || lib_exit 1
             ;;
         fetch)
             marsadm_do_cmd $secondary_host "connect" $res || lib_exit 1
 
-            lib_wait_until_fetch_stops "apply_fetch" $secondary_host \
+            lib_wait_until_fetch_stops "replay_fetch" $secondary_host \
                                        $primary_host $res "logfile" \
                                        "length_logfile" "time_waited" 0 \
                                        "net_throughput"
@@ -103,22 +105,23 @@ function apply_fetch_run
                                     $marsview_wait_for_state_time || lib_exit 1
             marsadm_do_cmd $secondary_host "resume-replay" $res || lib_exit 1
             ;;
-            *) lib_exit 1 "invalid action $apply_fetch_running_action"
+            *) lib_exit 1 "invalid action $replay_fetch_running_action"
             ;;
     esac
     marsview_wait_for_state $secondary_host $res "disk" "Uptodate" \
-                            $apply_fetch_maxtime_state_constant || lib_exit 1
-    marsview_wait_for_state $secondary_host $res "repl" "-SFA-" \
-                            $apply_fetch_maxtime_state_constant || lib_exit 1
+                            $replay_fetch_maxtime_state_constant || lib_exit 1
+    marsview_wait_for_state $secondary_host $res "repl" \
+                            "-SF${marsview_replay_flag}-" \
+                            $replay_fetch_maxtime_state_constant || lib_exit 1
 }
 
-# - start mars_dev_writer                    apply must run
-# - pause-apply on secondary                 to (nearly) end
+# - start mars_dev_writer                    replay must run
+# - pause-replay on secondary                 to (nearly) end
 # - pause-fetch on secondary                 of fetched
-# - resume-apply on secondary                logfile
+# - resume-replay on secondary                logfile
 # 
 # - start mars_dev_writer                    the whole
-# - pause-apply on secondary                 logfile must be
+# - pause-replay on secondary                 logfile must be
 # - pause-fetch on secondary                 fetched
 # - stop mars_dev_writer
 # - resume-fetch on secondary

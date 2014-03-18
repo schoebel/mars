@@ -214,7 +214,7 @@ function marsadm_pause_cmd
     local cmd=$1 host=$2 res=$3
     local marsadm_cmd repl_state
     case $cmd in
-        apply) marsadm_cmd="pause-replay"
+        replay) marsadm_cmd="pause-replay"
                repl_state='...-.'
                ;;
         fetch) marsadm_cmd="disconnect"
@@ -243,7 +243,7 @@ function marsadm_check_warnings_and_disk_state
     # wait a little for the files required
     sleep 2
     case $situation in # ((
-        apply_stopped_after_disconnect)
+        replay_stopped_after_disconnect)
             local link_value not_applied restlen_in_warn_file
             local warn_file="$lib_err_total_log_file"
             local link=$(lib_linktree_get_res_host_linkname $host $res "replay")
@@ -266,7 +266,8 @@ function marsadm_check_warnings_and_disk_state
             if [ $restlen_in_warn_file -ne $not_applied ]; then
                 lib_exit 1 "not applied = $not_applied != $restlen_in_warn_file = restlen in $warn_file"
             fi
-            marsview_wait_for_state $host $res "disk" "Outdated\[FA\]" \
+            marsview_wait_for_state $host $res "disk" \
+                                    "Outdated\[F${marsview_replay_flag}\]" \
                                     $marsview_wait_for_state_time || lib_exit 1
             ;;
         *) lib_exit 1 "invalid situation $situation"
