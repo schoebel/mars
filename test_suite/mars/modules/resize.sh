@@ -100,11 +100,14 @@ function resize_check_resize_post_conditions
 {
     [ $# -eq 6 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local primary_host=$1 secondary_host=$2 res=$3 dev=$4
-    local mars_data_dev_size_new=$5 writer_script=$6
+    local mars_data_dev_size=$5 writer_script=$6
     local write_count test_size rm_test_file=0
+    # The first size is suitable, the second is not
+    local fill_sizes_mb=($(( 1024 * ($mars_data_dev_size - 1) )) \
+                         $(( 1025 * $mars_data_dev_size )))
     
     lib_linktree_check_link_int_value $secondary_host $res "syncstatus" \
-                                      $mars_data_dev_size_new 1000000000
+                                      $mars_data_dev_size 1000000000
     # after sync disk state must be Outdated || Uptodate
     marsview_wait_for_state $secondary_host $res "disk" ".*date.*" \
                             $marsview_wait_for_state_time || lib_exit 1
@@ -122,10 +125,9 @@ function resize_check_resize_post_conditions
     else
         test_file=$(resource_get_data_device $res)
     fi
-    for test_size in $(($mars_data_dev_size_new - 1)) $mars_data_dev_size_new
-    do
-        datadev_full_dd_on_device $primary_host $test_file \
-                                  $(( 1024 * $test_size )) 4711 $should_fail
+    for test_size in ${fill_sizes_mb[@]}; do
+        datadev_full_dd_on_device $primary_host $test_file $test_size 4711 \
+                                  $should_fail
         should_fail=1
         if [ $rm_test_file -eq 1 ]; then
             lib_remote_idfile $primary_host \
@@ -137,7 +139,7 @@ function resize_check_resize_post_conditions
     mount_umount_data_device $primary_host $res
     lib_wait_for_secondary_to_become_uptodate_and_cmp_cksums "resize" \
                                   $secondary_host $primary_host $res \
-                                  $dev $mars_data_dev_size_new
+                                  $dev $mars_data_dev_size
 }
 
 function resize_do_resize
