@@ -3201,6 +3201,8 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	if (trans_brick->replay_mode) {
 		if (trans_brick->replay_code > 0) {
 			MARS_INF_TO(rot->log_say, "logfile replay ended successfully\n");
+		} else if (trans_brick->replay_code == -EAGAIN) {
+			MARS_INF_TO(rot->log_say, "logfile replay stopped intermediately\n");
 		} else if (trans_brick->replay_code < 0) {
 			MARS_ERR_TO(rot->log_say, "logfile replay stopped with error = %d\n", trans_brick->replay_code);
 		}
