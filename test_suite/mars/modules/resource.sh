@@ -798,15 +798,8 @@ function resource_per_resource_emergency
 {
     local primary_host=${global_host_list[0]}
     local secondary_host=${global_host_list[1]}
-    local mars_dev_size_available_mb
-    local dev=$(lv_config_get_lv_device $res)
-    local data_dev=$(resource_get_data_device $res)
-    local data_dev_size=$(lv_config_get_lv_size_from_name $res)
     local time_waited writer_pid writer_script write_count control_nr
     declare -A writer_script_per_resource
-
-    mars_dev_size_available_mb=$(datadev_full_get_available_free_space_mb \
-                                 $primary_host) || lib_exit 1
 
     for res in ${resource_name_list[@]}; do
         mount_mount_data_device $primary_host $res
@@ -820,7 +813,7 @@ function resource_per_resource_emergency
         local i
         res=${resource_name_list[0]}
         resource_test_emergency_on_one_resource $primary_host $secondary_host \
-                                            $mars_dev_size_available_mb $res \
+                                            $res \
                                             ${writer_script_per_resource[$res]}
         # check the other resources
         for i in $(seq 1 1 $(( ${#resource_name_list[*]} - 1 ))); do
@@ -832,12 +825,12 @@ function resource_per_resource_emergency
         done
     else
         resource_test_emergency_on_all_resources $primary_host $secondary_host \
-                                                 $mars_dev_size_available_mb
+                                                 "writer_script_per_resource"
     fi
-    main_error_recovery_functions["lib_rw_stop_scripts"]=
     for res in ${resource_name_list[@]}; do
         resource_reset_emergency_limit $primary_host $res
     done
+    main_error_recovery_functions["lib_rw_stop_scripts"]=
 
 }
 
@@ -850,17 +843,23 @@ function resource_reset_emergency_limit
 function resource_set_emergency_limit
 {
     local host=$1 res=$2 percentage=$3
-    marsadm_do_cmd $host "emergency-limit" "$res $((100 - $percentage))" || \
-                                                                    lib_exit 1
+    marsadm_do_cmd $host "emergency-limit" "$res $percentage" || lib_exit 1
 }
 
 # when entering this function it's assumed that on all resources write processes
-# are running.
+# are running. The name of the resource name indexed array containing of the
+# scriptnames is given in $3
 function resource_test_emergency_on_all_resources
 {
     [ $# -eq 3 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
-    local primary_host=$1 secondary_host=$2 mars_dev_size_available_mb=$3
-    local res list_cmd res_list sort_opt=""
+    local primary_host=$1 secondary_host=$2 varname_script_name_array=$3
+    local res list_cmd res_list sort_opt="r"
+    # construct a local array from varname_script_name_array
+    declare -A scripts
+    local s=$(declare -p $varname_script_name_array)
+    s=${s/*\'(/(}
+    s=${s/)\'/)}
+    eval scripts=$s
 
     for res in ${resource_name_list[@]}; do
         local p=${resource_emergency_percentage[$res]}
@@ -870,68 +869,66 @@ function resource_test_emergency_on_all_resources
         resource_set_emergency_limit $primary_host $res $p
     done
 
-    # the resources must be listed in ascending order of emergency 
+    # the resources must be listed in descending order of emergency 
     # percentages, because we create additional files to put the resources
     # in emergency mode
     list_cmd='for r in ${resource_name_list[@]}; do echo "$r ${resource_emergency_percentage[$r]}"; done | sort -k2,2n$sort_opt | sed "s/ .*//"'
     eval res_list='($('$list_cmd'))'
-    local percent_used=0
     for res in ${res_list[@]}; do
-        local p=${resource_emergency_percentage[$res]}
-        # we use aditional 10 percent because the removal of the file later
-        # should free enough space to be able to leave emergency mode
-        local percent_to_write=$(( $p - $percent_used + 10 ))
-        local to_write_mb=$(( ($mars_dev_size_available_mb \
-                               * $percent_to_write) / 100 ))
-        resource_put_resource_to_emergency_mode $primary_host $res \
-                                        ${resource_emergency_percentage[$res]} \
-                                        $resource_big_file.$res $to_write_mb
-        let percent_used+=$percent_to_write
+        resource_put_resource_to_emergency_mode $primary_host $res 10 \
+                                                $resource_big_file.$res
     done
 
     # the resources must be returned to normal operation in descending order of 
     # emergency percentages (by freeing diskspace accordingly), because
     # we remove the additional files created above in reverse order
-    sort_opt="r"
+    sort_opt=""
     eval res_list='($('$list_cmd'))'
     for res in ${res_list[@]}; do
         lib_vmsg "  removing $primary_host:$resource_big_file.$res"
         lib_remote_idfile $primary_host "rm -f $resource_big_file.$res" || \
                                                                     lib_exit 1
 
-        lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
-
-        resource_correct_emergency $primary_host $secondary_host $res
+        resource_correct_emergency $primary_host $secondary_host $res \
+                                   ${scripts[$res]}
     done
 
+}
+
+function resource_calc_size_to_reach_emergency_mode_mb
+{
+    local host=$1 mars_dev_size_available_mb=$2 emergency_percentage=$3
+    local additional_percent=$4
+    local remaining_mb
+    remaining_mb=$(datadev_full_get_remaining_space_mb $primary_host) || \
+                                                                    lib_exit 1
+    # we use aditional additional_percent to be sure to reach emergency mode
+    echo $(( $remaining_mb \
+             - ( ( ($emergency_percentage - $additional_percent) \
+                  * $mars_dev_size_available_mb \
+                 ) / 100 \
+                ) \
+          ))
 }
 
 # when entering this function it's assumed that a process is actually writing
 # on the resource on the primary host
 function resource_test_emergency_on_one_resource
 {
-    [ $# -eq 5 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
-    local primary_host=$1 secondary_host=$2 mars_dev_size_available_mb=$3
-    local res=$4 writer_script=$5
-    local emergency_percentage=${resource_emergency_percentage[$res]}
-    local fill_size_mb=$(( ($mars_dev_size_available_mb \
-                            * $emergency_percentage) / 100 ))
-    local time_waited host write_count writer_pid
+    [ $# -eq 4 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    local primary_host=$1 secondary_host=$2 res=$3 writer_script=$4
+    local write_count
+
+    resource_set_emergency_limit $primary_host $res \
+                                 ${resource_emergency_percentage[$res]}
+
+    resource_put_resource_to_emergency_mode $primary_host $res 5 \
+                                            $resource_big_file
     
-    if [ -z "$emergency_percentage" ]; then
-        lib_exit 1 "  missing value in resource_emergency_percentage for resource $res"
-    fi
-
-    resource_put_resource_to_emergency_mode $primary_host $res \
-                                            $emergency_percentage \
-                                            $resource_big_file $fill_size_mb
-
     lib_vmsg "  removing $primary_host:$resource_big_file"
     lib_remote_idfile $primary_host "rm -f $resource_big_file" || lib_exit 1
 
-    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
-
-    resource_correct_emergency $primary_host $secondary_host $res
+    resource_correct_emergency $primary_host $secondary_host $res $writer_script
 
 }
 
@@ -968,15 +965,27 @@ function resource_check_logfile_change
 
 function resource_put_resource_to_emergency_mode
 {
-    [ $# -eq 5 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
-    local host=$1 res=$2 emergency_percentage=$3 big_file=$4 big_file_size_mb=$5
-    local fill_size_mb marsadm_out
+    [ $# -eq 4 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    local host=$1 res=$2 additional_percent=$3 big_file=$4
+    local marsadm_out
+    local p=${resource_emergency_percentage[$res]}
+    local to_write_mb mars_dev_size_available_mb
 
-    resource_set_emergency_limit $primary_host $res $emergency_percentage
+    if [ -z "$p" ]; then
+        lib_exit 1 "missing value in resource_emergency_percentage for resource $res"
+    fi
 
-    lib_vmsg "  creating $big_file with $big_file_size_mb MB to put $res in emerg. mode on $host"
+    mars_dev_size_available_mb=$(datadev_full_get_available_free_space_mb \
+                                 $host) || lib_exit 1
 
-    datadev_full_dd_on_device $host $big_file $big_file_size_mb 4811 0
+
+    to_write_mb=$(resource_calc_size_to_reach_emergency_mode_mb \
+                            $host $mars_dev_size_available_mb \
+                            $p $additional_percent)
+
+    lib_vmsg "  creating $big_file with $to_write_mb MB to put $res in emerg. mode on $host"
+
+    datadev_full_dd_on_device $host $big_file $to_write_mb 4811 0
 
     resource_check_low_space_error $host $res "sequence_hole"
 
@@ -1020,7 +1029,8 @@ function resource_check_resource_running
 
 function resource_correct_emergency
 {
-    local primary_host=$1 secondary_host=$2 res=$3
+    [ $# -eq 4 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    local primary_host=$1 secondary_host=$2 res=$3 writer_script=$4 write_count
 
     marsadm_do_cmd $secondary_host "invalidate" $res
 
@@ -1028,6 +1038,8 @@ function resource_correct_emergency
                                   $resource_maxtime_initial_sync \
                                   $resource_time_constant_initial_sync \
                                   "time_waited"
+
+    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
 
     resource_check_resource_running $primary_host $secondary_host $res
 }

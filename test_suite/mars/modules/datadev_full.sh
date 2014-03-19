@@ -103,3 +103,14 @@ function datadev_full_get_available_free_space_mb
     echo $(( $mars_dev_size_mb - $required_free_space_mb ))
 }
 
+function datadev_full_get_remaining_space_mb
+{
+    local host=$1 remaining
+    remaining="$(lib_remote_idfile $host \
+                 "cat $datadev_remain_free_space_file")" || lib_exit 1
+    if ! expr "$remaining" : '\([0-9][0-9]*\)$' >/dev/null; then
+        lib_exit 1 "invalid content in $host:$datadev_remain_free_space_file"
+    fi
+    echo $(($remaining / 1024))
+}
+
