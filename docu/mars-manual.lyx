@@ -131,7 +131,7 @@ tst@1und1.de
 \end_layout
 
 \begin_layout Date
-Version 0.12 (incomplete)
+Version 0.13 (incomplete)
 \end_layout
 
 \begin_layout Lowertitleback
@@ -2431,7 +2431,7 @@ This determines all logfiles from all resources which are no longer needed
 \emph on
 fully
 \emph default
- applied, on 
+ replayed, on 
 \emph on
 all
 \emph default
@@ -2526,18 +2526,31 @@ Switch Primary / Secondary Roles
 \end_layout
 
 \begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/switching.fig
+	width 90col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
 In contrast to DRBD, MARS Light distinguishes between 
 \emph on
 intended
 \emph default
  and 
 \emph on
-emergency
+forced
 \emph default
  switching.
- This distinction is necessary due to subtle differences in the communication
- architecture (asynchronous communication vs synchronous communication,
- see sections 
+ This distinction is necessary due to differences in the communication architect
+ure (asynchronous communication vs synchronous communication, see sections
+ 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "sec:The-Lamport-Clock"
@@ -2554,8 +2567,25 @@ reference "sec:The-Symlink-Tree"
 ).
 \end_layout
 
+\begin_layout Standard
+Asynchronous communication means that (in worst case) a message may take
+ (almost) arbitrary time in a distorted network to propagate to another
+ node.
+ As a consequence, the risk for accidentally creating an (unintended) split
+ brain is increased (compared to a synchronous system like DRBD).
+\end_layout
+
+\begin_layout Standard
+In order to minimize this risk, MARS has invested a lot of effort into an
+ internal handover protocol when you start an 
+\emph on
+intended
+\emph default
+ primary switch.
+\end_layout
+
 \begin_layout Subsubsection
-Intended Switching
+Intended Switching / Planned Handover
 \begin_inset CommandInset label
 LatexCommand label
 name "sub:Intended-Switching"
@@ -2583,11 +2613,11 @@ on your formerly secondary node.
 /dev/mars/mydata
 \family default
  device any longer.
- If the preconditions are violated, 
+ If on of the preconditions is violated, 
 \family typewriter
 marsadm primary
 \family default
- refuses to run.
+ refuses to start.
 \end_layout
 
 \begin_layout Standard
@@ -2730,10 +2760,10 @@ marsadm wait-umount mydata && marsadm primary mydata
 \end_layout
 
 \begin_layout Subsubsection
-Emergency Switching
+Forced Switching
 \begin_inset CommandInset label
 LatexCommand label
-name "sub:Emergency-Switching"
+name "sub:Forced-Switching"
 
 \end_inset
 
@@ -2751,8 +2781,8 @@ current
 last known
 \emph default
  state).
- The following variant will skip many checks and tell your node to become
- primary forcefully:
+ The following command sequence will skip many checks and tell your node
+ to become primary forcefully:
 \end_layout
 
 \begin_layout Itemize
@@ -2774,13 +2804,28 @@ marsadm connect mydata
 \end_layout
 
 \begin_layout Standard
-The 
+When using 
 \family typewriter
-disconnect
+--force
 \family default
- is a precondition analogously to DRBD.
- It tries to prevent you from accidental creation of a split brain error
- state.
+, not only many precondition checks and other internal checks are skipped,
+ but also the internal handover protocol for split brain avoidance.
+\end_layout
+
+\begin_layout Standard
+Therefore, use of 
+\family typewriter
+--force
+\family default
+ is 
+\emph on
+very likely
+\emph default
+ to 
+\series bold
+provoke a split brain
+\series default
+.
 \end_layout
 
 \begin_layout Standard
@@ -2816,7 +2861,24 @@ reference "sub:Split-Brain-Resolution"
 \end_layout
 
 \begin_layout Standard
-While 
+In order to impede you from giving an accidental 
+\family typewriter
+--force
+\family default
+, the precondition is different: 
+\family typewriter
+--force
+\family default
+ works only in 
+\emph on
+disconnected
+\emph default
+ state.
+ This is analogously to DRBD.
+\end_layout
+
+\begin_layout Standard
+Remember: 
 \family typewriter
 marsadm primary
 \family default
@@ -2824,12 +2886,8 @@ marsadm primary
 \family typewriter
 --force
 \family default
- tries to prevent split brain as best as it can (even in 
-\family typewriter
-disconnected
-\family default
- mode, which is a major difference to DRBD's behaviour), any use of the
- 
+ tries to prevent split brain as best as it can.
+ Use of the 
 \family typewriter
 --force
 \family default
@@ -2837,8 +2895,8 @@ disconnected
 \emph on
 certainly
 \emph default
- provoke a split brain if the old primary continues to operate on its local
- 
+ provoke a split brain, at least if the old primary continues to operate
+ on its local 
 \family typewriter
 /dev/mars/mydata
 \family default
@@ -2890,7 +2948,7 @@ You are sure you
 really
 \emph default
  want to switch, even when that eventually leads to a split brain.
- You also declare that you are also willing to do 
+ You also declare that you are willing to do 
 \emph on
 manual
 \emph default
@@ -2898,6 +2956,14 @@ manual
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "sub:Split-Brain-Resolution"
+
+\end_inset
+
+, or even destruction / reconstruction of a damaged node as described in
+ section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Final-Destroy-of"
 
 \end_inset
 
@@ -2919,6 +2985,10 @@ connection loss
  (e.g.
  networking problems / network partitions) you might not be able to reliably
  detect whether a split brain will actually result, or not.
+\end_layout
+
+\begin_layout Paragraph
+Caveats
 \end_layout
 
 \begin_layout Standard
@@ -2943,7 +3013,11 @@ origin
 can theoretically
 \emph default
  run in primary mode independently from each other, at least for some time.
- They might even 
+ They 
+\emph on
+might
+\emph default
+ even 
 \family typewriter
 log-rotate
 \family default
@@ -3014,7 +3088,7 @@ passively
 \emph default
  by secondaries.
  Whenever a secondary detects that somewhere a split brain has happend,
- it just refuses to fetch and to apply any logfiles behind the split point.
+ it just refuses to fetch and to replay any logfiles behind the split point.
  This means that its local disk state will remain consistent, but outdated
  which respect to any of the split brain versions.
 \end_layout
@@ -3046,278 +3120,7 @@ Split brain can naturally occur during a long-lasting network outage (aka
 
 \end_inset
 
- Remember that split brain is always an 
-\series bold
-erroneous state
-\series default
- which must be resolved as soon as possible!
-\end_layout
-
-\begin_layout Subsubsection
-Final Destruction of a Damaged Node
-\begin_inset CommandInset label
-LatexCommand label
-name "sub:Final-Destroy-of"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-When a node has eventually died, do the following steps ASAP:
-\end_layout
-
-\begin_layout Enumerate
-
-\emph on
-Physically
-\emph default
- remove the dead node from your network.
- Unplug all network cables! Failing to do so might provoke a disaster in
- case it somehow resurrects in an uncontrolled manner, such as a partly-damaged
- 
-\family typewriter
-/mars/
-\family default
- filesystem, or whatever.
- Don't risk any such unpredictable behaviour!
-\end_layout
-
-\begin_layout Enumerate
-
-\series bold
-Manually
-\series default
- check which of the surviving versions will be the 
-\begin_inset Quotes eld
-\end_inset
-
-right
-\begin_inset Quotes erd
-\end_inset
-
- one.
- Any error is up to you: resurrecting an unnecessarily old / outdated version
- and/or destroying the newest / best version is 
-\emph on
-your
-\emph default
- fault, not the fault of MARS.
-\end_layout
-
-\begin_layout Enumerate
-If you did not already switch your primary to the final destination determined
- in the previous step, do it now (see description in section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sub:Emergency-Switching"
-
-\end_inset
-
-).
-\end_layout
-
-\begin_layout Enumerate
-On the surviving new designated primary, give the following commands:
-\end_layout
-
-\begin_deeper
-\begin_layout Enumerate
-
-\family typewriter
-marsadm --host=your-damaged-host disconnect mydata
-\end_layout
-
-\begin_layout Enumerate
-
-\family typewriter
-marsadm --host=your-damaged-host leave-resource mydata
-\end_layout
-
-\end_deeper
-\begin_layout Enumerate
-In case any of the previous commands should fail (which is rather likely),
- repeat it with an additional 
-\family typewriter
---force
-\family default
- option.
- Don't use 
-\family typewriter
---force
-\family default
- in the first place, alway try first without it!
-\end_layout
-
-\begin_layout Enumerate
-Repeat the same with 
-\emph on
-all
-\emph default
- resources which were formerly present at 
-\family typewriter
-your-damaged-host
-\family default
-.
-\end_layout
-
-\begin_layout Enumerate
-Finally, say 
-\family typewriter
-marsadm --host=your-damaged-host leave-cluster
-\family default
- (optionally augmented with 
-\family typewriter
---force
-\family default
-).
-\end_layout
-
-\begin_layout Standard
-Now your surviving nodes should 
-\emph on
-believe
-\emph default
- that the old node 
-\family typewriter
-your-damaged-host
-\family default
- does no longer exist, and that it does no longer participate in any resource.
-\end_layout
-
-\begin_layout Standard
-In case 
-\family typewriter
-leave-resource --host=
-\family default
- does not work, you can try the following alternative:
-\end_layout
-
-\begin_layout Standard
-\begin_inset ERT
-status open
-
-\begin_layout Plain Layout
-
-
-\backslash
-begin{enumerate}
-\backslash
-setcounter{enumi}{3}
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset ERT
-status open
-
-\begin_layout Plain Layout
-
-
-\backslash
-item 
-\end_layout
-
-\end_inset
-
-On the surviving new designated primary, give the following commands
-\end_layout
-
-\begin_layout Enumerate
-
-\family typewriter
-marsadm disconnect-all mydata
-\end_layout
-
-\begin_layout Enumerate
-
-\family typewriter
-marsadm down mydata
-\end_layout
-
-\begin_layout Enumerate
-Check by hand whether your local disk is consistent, e.g.
- by test-mounting is, 
-\family typewriter
-fsck
-\family default
-, etc.
-\end_layout
-
-\begin_layout Enumerate
-
-\family typewriter
-marsadm delete-resource mydata
-\end_layout
-
-\begin_layout Enumerate
-Check whether the other cluster nodes are dead.
- If not, STONITH them by hand.
-\end_layout
-
-\begin_layout Enumerate
-
-\family typewriter
-marsadm create-resource newmydata ...
-
-\family default
- and further steps to setup your resource from scratch.
-\end_layout
-
-\begin_layout Standard
-\begin_inset ERT
-status open
-
-\begin_layout Plain Layout
-
-
-\backslash
-end{enumerate}
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-In any case, 
-\series bold
-manually check
-\series default
- whether a split brain is reported for any resource on any of your 
-\emph on
-surviving
-\emph default
- cluster nodes.
- If you find one (and only then), please continue with the following recipe
- as if you just had had a temporary failure of 
-\emph on
-some
-\emph default
- of the surviving nodes:
-\end_layout
-
-\begin_layout Subsubsection
-Split Brain Resolution after a Temporary Failure
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/MatieresToxiques.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- Please remember that split brain is always an 
+ Remember that split brain is an 
 \series bold
 erroneous state
 \series default
@@ -3360,11 +3163,20 @@ If you did not already switch your primary to the final destination determined
  in the previous step, do it now (see description in section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Emergency-Switching"
+reference "sub:Forced-Switching"
 
 \end_inset
 
 ).
+ Don't use an intermediate 
+\family typewriter
+marsadm secondary
+\family default
+ command (as known from DRBD): 
+\emph on
+directly
+\emph default
+ switch to the new designated primary!
 \end_layout
 
 \begin_layout Enumerate
@@ -3442,7 +3254,7 @@ right
 \end_inset
 
  version and was not in a primary role when the split brain happened, you
- don't need to do the following steps for it, of course.
+ don't need to do the following step for it, of course.
  The following applies only to those nodes which 
 \emph on
 deviate
@@ -3474,7 +3286,7 @@ reference "sub:Intended-Switching"
  or 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Emergency-Switching"
+reference "sub:Forced-Switching"
 
 \end_inset
 
@@ -3627,7 +3439,7 @@ log-purge-all
 
 \end_inset
 
- cases, it might happen that he preceding l
+ cases, it might happen that the preceding l
 \family typewriter
 eave-resource
 \family default
@@ -3730,14 +3542,18 @@ As before, do the
 \family typewriter
 leave-resource
 \family default
- step on each node and check that the split brain has gone, but omit the
- re-creation.
- You may just follow-up a 
+ step on each wrong split-brain node and check that the split brain has
+ gone, but omit the re-creation.
+\end_layout
+
+\begin_layout Standard
+If you want to restore redundancy, you can follow-up a 
 \family typewriter
 join-resource
 \family default
- to the old resource name instead, in order to restore your redundancy by
- overwriting your bad split brain version with the correct one.
+ to the old resource name.
+ This should restore your redundancy by overwriting your bad split brain
+ version with the correct one.
 \end_layout
 
 \begin_layout Standard
@@ -3825,8 +3641,8 @@ Keeping a Good Version
 
 \begin_layout Standard
 When you had a secondary which did not participate in the split brain, but
- just got confused and therefore stopped applying logfiles immediately after
- the split-brain point, it may very well happen
+ just got confused and therefore stopped replaying logfiles immediately
+ after the split-brain point, it may very well happen
 \begin_inset Foot
 status open
 
@@ -3900,7 +3716,276 @@ stuck
  nodes.
 \end_layout
 
-\begin_layout Subsubsection
+\begin_layout Subsection
+Final Destruction of a Damaged Node
+\begin_inset CommandInset label
+LatexCommand label
+name "sub:Final-Destroy-of"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+When a node has eventually died, do the following steps ASAP:
+\end_layout
+
+\begin_layout Enumerate
+
+\emph on
+Physically
+\emph default
+ remove the dead node from your network.
+ Unplug all network cables! Failing to do so might provoke a disaster in
+ case it somehow resurrects in an uncontrolled manner, such as a partly-damaged
+ 
+\family typewriter
+/mars/
+\family default
+ filesystem, or whatever.
+ Don't risk any such unpredictable behaviour!
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Manually
+\series default
+ check which of the surviving versions will be the 
+\begin_inset Quotes eld
+\end_inset
+
+right
+\begin_inset Quotes erd
+\end_inset
+
+ one.
+ Any error is up to you: resurrecting an unnecessarily old / outdated version
+ and/or destroying the newest / best version is 
+\emph on
+your
+\emph default
+ fault, not the fault of MARS.
+\end_layout
+
+\begin_layout Enumerate
+If you did not already switch your primary to the final destination determined
+ in the previous step, do it now (see description in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Forced-Switching"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Enumerate
+On the surviving new designated primary, give the following commands:
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+
+\family typewriter
+marsadm --host=your-damaged-host disconnect mydata
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+marsadm --host=your-damaged-host leave-resource mydata
+\end_layout
+
+\end_deeper
+\begin_layout Enumerate
+In case any of the previous commands should fail (which is rather likely),
+ repeat it with an additional 
+\family typewriter
+--force
+\family default
+ option.
+ Don't use 
+\family typewriter
+--force
+\family default
+ in the first place, alway try first without it!
+\end_layout
+
+\begin_layout Enumerate
+Repeat the same with 
+\emph on
+all
+\emph default
+ resources which were formerly present at 
+\family typewriter
+your-damaged-host
+\family default
+.
+\end_layout
+
+\begin_layout Enumerate
+Finally, say 
+\family typewriter
+marsadm --host=your-damaged-host leave-cluster
+\family default
+ (optionally augmented with 
+\family typewriter
+--force
+\family default
+).
+\end_layout
+
+\begin_layout Standard
+Now your surviving nodes should 
+\emph on
+believe
+\emph default
+ that the old node 
+\family typewriter
+your-damaged-host
+\family default
+ does no longer exist, and that it does no longer participate in any resource.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Even if your node comes to life again in some way: always ensure that the
+ mars kernel modules does not run any more.
+ 
+\emph on
+Never
+\emph default
+ do a 
+\family typewriter
+modprobe mars
+\family default
+ on a node marked as dead this way!
+\end_layout
+
+\begin_layout Standard
+In case 
+\family typewriter
+leave-resource --host=
+\family default
+ does not work, you can try the following alternative:
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{enumerate}
+\backslash
+setcounter{enumi}{3}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+item 
+\end_layout
+
+\end_inset
+
+On the surviving new designated primary, give the following commands
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+marsadm disconnect-all mydata
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+marsadm down mydata
+\end_layout
+
+\begin_layout Enumerate
+Check by hand whether your local disk is consistent, e.g.
+ by test-mounting is, 
+\family typewriter
+fsck
+\family default
+, etc.
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+marsadm delete-resource mydata
+\end_layout
+
+\begin_layout Enumerate
+Check whether the other cluster nodes are dead.
+ If not, STONITH them by hand.
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+marsadm create-resource newmydata ...
+
+\family default
+ and further steps to setup your resource from scratch.
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{enumerate}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+In any case, 
+\series bold
+manually check
+\series default
+ whether a split brain is reported for any resource on any of your 
+\emph on
+surviving
+\emph default
+ cluster nodes.
+ If you find one there (and only then), please (re-)execute the split brain
+ resolution steps on the affected node(s).
+\end_layout
+
+\begin_layout Subsection
 Cleanup in case of Complicated Cascading Failures
 \begin_inset CommandInset label
 LatexCommand label
@@ -3958,7 +4043,7 @@ It should be very hard to finally trash a secondary, because the transaction
 md5
 \family default
  checksums for all data records.
- Any attempt to apply currupted logfiles is refused by MARS.
+ Any attempt to replay currupted logfiles is refused by MARS.
  In addition, the sequence numbers of log-rotated logfiles are checked for
  contiguity.
  Finally, the 
@@ -4004,8 +4089,8 @@ chances
 \begin_inset Quotes erd
 \end_inset
 
- for final loss of data are very high if you remove the BBU of your hardware
- RAID system before all hot data has been flushed to the physical disks.
+ for final loss of data are very high if you remove the BBU from your hardware
+ RAID controller before all hot data has been flushed to the physical disks.
  Therefore, never try to 
 \begin_inset Quotes eld
 \end_inset
@@ -4127,7 +4212,7 @@ If your old
  to the final destination, do it now (see description in section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Emergency-Switching"
+reference "sub:Forced-Switching"
 
 \end_inset
 
@@ -4140,10 +4225,12 @@ Say
 marsadm delete-resource mydata --force
 \family default
 .
+ This will cleanup all internal symlink tree information for the resource,
+ but will leave your disk data intact.
 \end_layout
 
 \begin_layout Enumerate
-Locally build up the new resource as usual.
+Locally build up the new resource as usual, out of the underlying disk.
 \end_layout
 
 \begin_layout Enumerate
@@ -4268,6 +4355,4083 @@ leave-resource
 leave-cluster
 \family default
 .
+\end_layout
+
+\begin_layout Subsection
+Experts only: Special Trick Switching and Rebuild
+\end_layout
+
+\begin_layout Standard
+The following is a further alternative for 
+\series bold
+experts
+\series default
+ who really know what they are doing.
+ The method is very simple and therefore well-suited for coping with mass
+ failures, e.g.
+ 
+\series bold
+power blackout of whole datacenters
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+In case a primary datacenter fails as a whole for whatever reason and you
+ have a backup datacenter, do the following steps in the backup datacenter:
+\end_layout
+
+\begin_layout Enumerate
+Fencing step: by means of firewalling, ensure that the (virtually) damaged
+ datacenter nodes 
+\series bold
+cannot
+\series default
+ be reached over the network.
+ For example, you may place REJECT rules into all of your local iptables
+ firewalls at the backup datacenter.
+ Alternatively, you may block the routes at the appropriate central router(s)
+ in your network.
+\end_layout
+
+\begin_layout Enumerate
+Run the sequence 
+\family typewriter
+marsadm disconnect all; marsadm primary --force all
+\family default
+ on all nodes in the backup datacenter.
+\end_layout
+
+\begin_layout Enumerate
+Restart your services in the back datacenter (as far as necessary).
+ Depending on your network setup, further steps like switching BGP routes
+ etc may be necessary.
+\end_layout
+
+\begin_layout Enumerate
+Check that 
+\emph on
+all
+\emph default
+ your services are 
+\emph on
+really
+\emph default
+ up and running, before you try to repair anything! Failing to do so may
+ result in data loss when you execute the following restore method for 
+\emph on
+experts
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+Now your backup datacenter should continue servicing your clients.
+ The final reconstruction of the originally primary datacenter works as
+ follows:
+\end_layout
+
+\begin_layout Enumerate
+At the damaged primary datacenter, ensure that nowhere the MARS kernel module
+ is running.
+ In case of a power blackout, you shouldn't have executed an automatic 
+\family typewriter
+modprobe mars
+\family default
+ anywhere during reboot, so you should be already done when all your nodes
+ are up again.
+ In case some nodes had no reboot, execute 
+\family typewriter
+rmmod mars
+\family default
+ everywhere.
+ If 
+\family typewriter
+rmmod
+\family default
+ refuses to run, you may need to umount the 
+\family typewriter
+/dev/mars/mydata
+\family default
+ device first.
+ When nothing else helps, you may just reboot your hanging nodes.
+\end_layout
+
+\begin_layout Enumerate
+Do an 
+\family typewriter
+rm -rf /mars/resource-$mydata/
+\family default
+ for all resources which had been primary before the blackout.
+ In order to avoid unnecessary traffic, please do this only as far as really
+ necessary.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Caution! before doing this, check that the corresponding directory exists
+ at the backup datacenter, and that it is 
+\emph on
+really
+\emph default
+ healthy!
+\end_layout
+
+\begin_layout Enumerate
+Un-Fencing: restore your network firewall / routes and check that they work
+ (
+\family typewriter
+ping
+\family default
+ etc).
+\end_layout
+
+\begin_layout Enumerate
+Do 
+\family typewriter
+modprobe mars
+\family default
+ everywhere.
+ All missing directories and their missing symlinks should be automatically
+ fetched from the backup datacenter.
+\end_layout
+
+\begin_layout Enumerate
+Run 
+\family typewriter
+marsadm invalidate all
+\family default
+ everywhere.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+It is 
+\series bold
+crucial
+\series default
+ that the fencing step 
+\series bold
+must
+\series default
+ be executed 
+\emph on
+before
+\emph default
+ any 
+\family typewriter
+primary --force
+\family default
+! This way, no true split brain will occur at the backup datacenter side,
+ because there is simply no chance for transferring different versions over
+ the network.
+ It is also crucial to remove any (potentially diverging) resource directories
+ 
+\emph on
+before
+\emph default
+ the 
+\family typewriter
+modprobe
+\family default
+! This way, the backup datacenter never runs into split brain.
+ This saves you a lot of detail work for split brain resolution when you
+ have to restore bulks of nodes in a short time.
+\end_layout
+
+\begin_layout Section
+Inspecting the State of MARS
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Inspecting-the-State"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The main command for viewing the current state of MARS Light is
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+marsadm view mydata
+\end_layout
+
+\begin_layout Standard
+or its more specialized variants
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+marsadm view-
+\emph on
+macroname
+\emph default
+ mydata
+\end_layout
+
+\begin_layout Standard
+where 
+\family typewriter
+\emph on
+macroname
+\family default
+\emph default
+ is one of the following macros described in the following sections.
+ As always, you may replace the resource name 
+\family typewriter
+mydata
+\family default
+ with the special keyword 
+\family typewriter
+all
+\family default
+ in order to get the state of all locally joined resources.
+\end_layout
+
+\begin_layout Subsection
+Predefined Macros
+\end_layout
+
+\begin_layout Subsubsection
+Predefined Complex and High-Level Macros
+\begin_inset CommandInset label
+LatexCommand label
+name "sub:Predefined-Complex-and"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The following predefined complex macros try to address the information needs
+ of humans.
+ Nevertheless, they can also be used in scripts, but beware that sometimes
+ the output may change its format depending on certain if-conditions.
+\end_layout
+
+\begin_layout Standard
+Notice: the definitions of predefined complex macros may be updated in the
+ course of the MARS project.
+ However, the primitive macros recursively called by the complex ones will
+ be hopefully rather stable in future (with the exception of bugfixes for
+ major bugs).
+ If you want to retain an old / outdated version of a complex macro, just
+ check it out from git, follow the instructions in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Creating-your-own"
+
+\end_inset
+
+, and preferably give it a different name in order to avoid confusion with
+ the newer version.
+ In general, it should be possible to use old macros with newer versions
+ of 
+\family typewriter
+marsadm
+\family default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+You might need to check out also old versions of further macros and adapt
+ their names, whenever complex macros call each other.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+default
+\family default
+ This is equivalent to 
+\family typewriter
+marsadm view mydata
+\family default
+ without 
+\family typewriter
+\emph on
+-maroname
+\family default
+\emph default
+ suffix.
+ It shows a one-line status summary for each resource, optionally augmented
+ with a progress bar whenever a sync or a fetch of logfiles is currently
+ running.
+ The status line has the following fields:
+\end_layout
+
+\begin_deeper
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+%{res}
+\family default
+ resource name.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+%include{diskstate}
+\family default
+ see 
+\family typewriter
+diskstate
+\family default
+ macro below.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+%include{replstate}
+\family default
+ see 
+\family typewriter
+replstate
+\family default
+ macro below.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+%include{flags}
+\family default
+ see 
+\family typewriter
+flags
+\family default
+ macro below.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+%include{role}
+\family default
+ see 
+\family typewriter
+role
+\family default
+ macro below.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+%include{primarynode}
+\family default
+ see 
+\family typewriter
+primarynode
+\family default
+ macro below.
+\end_layout
+
+\end_deeper
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+1and1
+\family default
+ A variant of 
+\family typewriter
+default
+\family default
+ for internal use by 1&1 Internet AG.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+diskstate
+\family default
+ Shows the status of the underlying disk device: 
+\family typewriter
+NotPresent
+\family default
+, 
+\family typewriter
+Detached
+\family default
+, 
+\family typewriter
+Inconsistent
+\family default
+, 
+\family typewriter
+OutDated
+\family default
+, 
+\family typewriter
+UpToDate
+\family default
+.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+diskstate-1and1
+\family default
+ A variant for internal use by 1&1 Internet AG.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+replstate
+\family default
+ Shows the status of the replication: 
+\family typewriter
+NotJoined
+\family default
+, 
+\family typewriter
+PrimaryUnreachable
+\family default
+, 
+\family typewriter
+PausedSync
+\family default
+, 
+\family typewriter
+Syncing
+\family default
+, 
+\family typewriter
+PausedReplay
+\family default
+, 
+\family typewriter
+Replaying
+\family default
+.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+replstate-1and1
+\family default
+ A variant for internal use by 1&1 Internet AG.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+flags
+\family default
+ For each of disk, attach, sync, fetch, and replay, show exactly one character.
+ Each character is either a capital one, or the corresponding lowercase
+ one, or a dash.
+ The meaning is as follows:
+\end_layout
+
+\begin_deeper
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+disk/device: 
+\family typewriter
+D
+\family default
+ = the device 
+\family typewriter
+/dev/mars/mydata
+\family default
+ is present, 
+\family typewriter
+d
+\family default
+ = only the underlying disk 
+\family typewriter
+/dev/lv-x/mydata
+\family default
+ is present, 
+\family typewriter
+-
+\family default
+ = none present.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+attach: 
+\family typewriter
+A
+\family default
+ = attached, 
+\family typewriter
+a
+\family default
+ = currently trying to attach/detach but not yet ready (intermediate state),
+ 
+\family typewriter
+-
+\family default
+ = attach is switched off.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+sync: 
+\family typewriter
+S
+\family default
+ = sync finished, 
+\family typewriter
+s
+\family default
+ = currently syncing, 
+\family typewriter
+-
+\family default
+ = sync is switched off.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+fetch: 
+\family typewriter
+F
+\family default
+ = fetched logfiles are (almost) up-to-date, 
+\family typewriter
+f
+\family default
+ = currently fetching (some parts of) a logfile, 
+\family typewriter
+-
+\family default
+ = fetch is switched off.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+replay: 
+\family typewriter
+R
+\family default
+ = all logfiles are replayed, 
+\family typewriter
+r
+\family default
+ = currently replaying, 
+\family typewriter
+-
+\family default
+ = replay is switched off.
+\end_layout
+
+\end_deeper
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+flags-1and1
+\family default
+ A variant for internal use by 1&1 Internet AG.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+todo-role
+\family default
+ Shows the 
+\emph on
+designated
+\emph default
+ state: 
+\family typewriter
+None
+\family default
+, 
+\family typewriter
+Primary
+\family default
+ or 
+\family typewriter
+Secondary
+\family default
+.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+role
+\family default
+ Shows the 
+\emph on
+actual
+\emph default
+ state: 
+\family typewriter
+None
+\family default
+, 
+\family typewriter
+NotYetPrimary
+\family default
+, 
+\family typewriter
+Primary
+\family default
+, 
+\family typewriter
+RemainsPrimary
+\family default
+, or 
+\family typewriter
+Secondary
+\family default
+.
+ Any differences to the designated state are indicated by a prefix to the
+ keyword 
+\family typewriter
+Primary
+\family default
+: 
+\family typewriter
+NotYet
+\family default
+ means that it 
+\emph on
+should
+\emph default
+ become primary, but actually hasn't.
+ Vice versa, 
+\family typewriter
+Remains
+\family default
+ means that it 
+\emph on
+should
+\emph default
+ leave primary state in order to become secondary, but actually cannot do
+ that because the 
+\family typewriter
+/dev/mars/mydata
+\family default
+ device is currently in use.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+role-1and1
+\family default
+ A variant for internal use by 1&1 Internet AG.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+primarynode
+\family default
+ Display 
+\family typewriter
+(none)
+\family default
+ or the hostname of the designated primary.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+primarynode-1and1
+\family default
+ A variant for internal use by 1&1 Internet AG.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+syncinfo
+\family default
+ Shows an informational progress bar when sync is running.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+syncinfo-1and1
+\family default
+ A variant for internal use by 1&1 Internet AG.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+replinfo
+\family default
+ Shows an informational progress bar when fetch is running.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+replinfo-1and1
+\family default
+ A variant for internal use by 1&1 Internet AG.
+\end_layout
+
+\begin_layout Subsubsection
+Predefined Trivial Macros
+\begin_inset CommandInset label
+LatexCommand label
+name "sub:Predefined-Trivial-Macros"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Paragraph
+Intended for Humans
+\end_layout
+
+\begin_layout Standard
+In the following, shell glob notation 
+\family typewriter
+{a,b}
+\family default
+ is used to document similar variants of similar macros in a single place.
+ When you actually call the macro, you must choose one of the possible variants
+ (excluding the braces).
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+the-err-msg
+\family default
+ Show reported errors for a resource.
+ When the resource argument is missing or empty, show global error information.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+all-err-msg
+\family default
+ Like before, but show all information including those which are 
+\family typewriter
+OK
+\family default
+.
+ This way, you get a list
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+The list may be extended in future versions of MARS.
+\end_layout
+
+\end_inset
+
+ of 
+\emph on
+all
+\emph default
+ potential error information present in the system.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{all,the}-wrn-msg
+\family default
+ Show all / reported warnings in the system.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{all,the}-inf-msg
+\family default
+ Show all / reported informational messages in the system.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{all,the}-msg
+\family default
+ Show all / reported messages regardless of its classification.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{all,the}-global-msg
+\family default
+ Show global messages not associated with any resource (the resource argument
+ of the 
+\family typewriter
+marsadm
+\family default
+ command is ignored in this case).
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{all,the}-global-{inf,wrn,err}-msg
+\family default
+ Dito, but more specific.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{all,the}-pretty-{global-,}{inf-,wrn-,err-,}msg
+\family default
+ Dito, but show numerical timestamps in a human readable form.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{all,the}-{global-,}{inf-,wrn-,err-,}count
+\family default
+ Instead of showing the messages, show their count (number of lines).
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+todo-{attach,sync,fetch,replay,primary}
+\family default
+ Shows a boolean value (0 or 1) indicating the current state of the correspondin
+g todo switch (whether on or off).
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+get-resource-{fat,err,wrn}
+\family default
+ Access to the internal error status files.
+ This is not an official interface and may thus change at any time without
+ notice.
+ Use this only for human inspection, not for scripting!
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+get-resource-{fat,err,wrn}-count
+\family default
+ Dito, but get the number of lines instead of the text.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+is-{attach,sync,fetch,replay,primary}
+\family default
+ Shows a boolean value (0 or 1) indicating the 
+\emph on
+actual
+\emph default
+ state, whether the corresponding action has been actually carried out,
+ or not (yet).
+ Notice that the values indicated by 
+\family typewriter
+is-*
+\family default
+ may differ from the 
+\family typewriter
+todo-*
+\family default
+ values when something is not (yet) working.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+is-split-brain
+\family default
+ Shows whether split brain (see section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Split-Brain-Resolution"
+
+\end_inset
+
+) has been detected, or not.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+is-consistent
+\family default
+ Shows whether the underlying disk is in a consistent state, i.e.
+ whether it 
+\emph on
+could
+\emph default
+ be (potentially) detached and then used for read-only test-mounting.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+is-emergency
+\family default
+ Shows whether emergency mode (see section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Emergency-Mode"
+
+\end_inset
+
+) has been entered for the named resource, or not.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+rest-space
+\family default
+ (global, no resource argument necessary) Shows the 
+\emph on
+logically
+\emph default
+ available space in 
+\family typewriter
+/mars/
+\family default
+, which may deviate from the physically available space as indicated by
+ the 
+\family typewriter
+df
+\family default
+ command.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+present-{disk,device}
+\family default
+ Show (as a boolean value) whether the underlying disk, or the 
+\family typewriter
+/dev/mars/mydata
+\family default
+ device, is available.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+get-{disk,device}
+\family default
+ Show the name of the underlying disk, or of the 
+\family typewriter
+/dev/mars/mydata
+\family default
+ device (if it is available).
+\end_layout
+
+\begin_layout Paragraph
+Intended for Scripting
+\end_layout
+
+\begin_layout Standard
+While complex macros may output a whole bunch of information, the following
+ 
+\begin_inset Quotes eld
+\end_inset
+
+trivial
+\begin_inset Quotes erd
+\end_inset
+
+ macros are outputting exactly one value.
+ They are intended for script use.
+ Of course, curious humans may also try them :)
+\end_layout
+
+\begin_layout Standard
+In the following, shell glob notation 
+\family typewriter
+{a,b}
+\family default
+ is used to document similar variants of similar macros in a single place.
+ When you actually call the macro, you must choose one of the possible variants
+ (excluding the braces).
+\end_layout
+
+\begin_layout Subparagraph
+Amounts of Data Inquiry
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+placement h
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/fetch-replay-total.fig
+	width 80col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption
+
+\begin_layout Plain Layout
+overview on amounts / cursors
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+deletable-size
+\family default
+ Show the total amount of 
+\emph on
+locally present
+\emph default
+ logfile data which 
+\emph on
+could
+\emph default
+ be deleted by 
+\family typewriter
+marsadm log-delete-all mydata
+\family default
+.
+ This differs almost alyaws from 
+\family typewriter
+replay-pos
+\family default
+ due to granularity reasons (only whole logfiles can be deleted).
+ Units are 
+\emph on
+bytes
+\emph default
+, not kilobytes.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+occupied-size
+\family default
+ Show the total amount of 
+\emph on
+locally present
+\emph default
+ logfile data (sum of all file sizes).
+ This should be normally equal to 
+\family typewriter
+fetch-pos
+\family default
+, but it may differ when logfiles are not completely transferred, when some
+ are damaged, during split brain, or when the resource is in emergency mode
+ (see section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Emergency-Mode"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{sync,fetch,replay,work}-size
+\family default
+ Show the total amount of data which is / was to be processed by either
+ sync, fetch, or replay.
+ 
+\family typewriter
+work-size
+\family default
+ is equivalent to 
+\family typewriter
+fetch-size
+\family default
+.
+ 
+\family typewriter
+replay-size
+\family default
+ is equivalent to 
+\family typewriter
+fetch-pos
+\family default
+ (see below).
+ Units are 
+\emph on
+bytes
+\emph default
+, not kilobytes.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{sync,fetch,replay,work}-pos
+\family default
+ Show the total amount of data which is already processed (current 
+\begin_inset Quotes eld
+\end_inset
+
+cursor
+\begin_inset Quotes erd
+\end_inset
+
+ position).
+ 
+\family typewriter
+work-pos
+\family default
+ is equivalent to 
+\family typewriter
+replay-pos
+\family default
+.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{sync,fetch,replay,work}-rest
+\family default
+ Shows the difference between 
+\family typewriter
+*-size
+\family default
+ and 
+\family typewriter
+*-pos
+\family default
+ (amount of work to do).
+ 
+\family typewriter
+work-rest
+\family default
+ is therefore the difference between 
+\family typewriter
+fetch-size
+\family default
+ and 
+\family typewriter
+replay-pos
+\family default
+, which is the 
+\emph on
+total
+\emph default
+ amount of work to do (regardless whether to be fetched and/or to be replayed).
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{sync,fetch,replay,work}-reached
+\family default
+ Boolean value indicating whether 
+\family typewriter
+*-rest
+\family default
+ dropped down to zero.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{fetch,replay,work}-threshold-reached
+\family default
+ Boolean value indicating whether 
+\family typewriter
+*-rest
+\family default
+ dropped down to 
+\family typewriter
+%{threshold}
+\family default
+, which is pre-settable by the 
+\family typewriter
+--threshold=
+\emph on
+size
+\family default
+\emph default
+ command line option (default is 10 MiB).
+ In asynchronous use cases of MARS, this should be preferred over 
+\family typewriter
+*-reached
+\family default
+ for 
+\emph on
+human display
+\emph default
+, because it produces less flickering by the inevitable replication delay.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{fetch,replay,work}-almost-reached
+\family default
+ Boolean value indicating whether 
+\family typewriter
+*-rest
+\family default
+ 
+\emph on
+almost
+\emph default
+ / 
+\emph on
+approximately
+\emph default
+ dropped down to zero.
+ The default is that at lease 990 permille are reached.
+ In asynchronous use cases of MARS, this should be preferred over 
+\family typewriter
+*-reached
+\family default
+ for 
+\emph on
+human display
+\emph default
+, because it produces less flickering by the inevitable replication delay.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{sync,fetch,replay,work}-percent
+\family default
+ The cursor position 
+\family typewriter
+*-pos
+\family default
+ as a percentage of 
+\family typewriter
+*-size
+\family default
+.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{sync,fetch,replay,work}-permille
+\family default
+ The cursor position 
+\family typewriter
+*-pos
+\family default
+ as permille of 
+\family typewriter
+*-size
+\family default
+.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{sync,fetch,replay,work}-rate
+\family default
+ Show the current throughput in bytes
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Notice that the internal granularity reported by the kernel may be coarser,
+ such as KiB.
+ This interfaces abstracts away from kernel internals and thus presents
+ everything in byte units.
+\end_layout
+
+\end_inset
+
+ per second.
+ 
+\family typewriter
+work-rate
+\family default
+ is the 
+\emph on
+maximum
+\emph default
+ of 
+\family typewriter
+fetch-rate
+\family default
+ and 
+\family typewriter
+replay-rate
+\family default
+.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{sync,fetch,replay,work}-remain
+\family default
+ Show the 
+\emph on
+estimated
+\emph default
+ remaining time for completion of the respective operation.
+ This is just a very raw guess.
+ Units are seconds.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+summary-vector
+\family default
+ Show the colon-separated CSV value 
+\family typewriter
+%replay-pos{}:%fetch-pos{}:%fetch-size{}
+\family default
+.
+\end_layout
+
+\begin_layout Subparagraph
+Misc Informational Status
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+get-primary
+\family default
+ Return the name of the current designated primary node.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+actual-primary
+\family default
+ (deprecated) try to determine the name of the node which 
+\emph on
+appears
+\emph default
+ to be the actual primary.
+ This only a 
+\series bold
+\emph on
+guess
+\series default
+\emph default
+, because it is not generally unique in split brain situation! Don't rely
+ on this.
+ Try to a avoid it.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+is-alive
+\family default
+ Boolean value indicating whether all other nodes participating in 
+\family typewriter
+mydata
+\family default
+ are reachable / healthy.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+uuid
+\family default
+ (global) Show a unique identifier originally created at create-cluster.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+tree
+\family default
+ (global) Indicate symlink tree version (see section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:The-Symlink-Tree"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Subparagraph
+Experts Only
+\end_layout
+
+\begin_layout Standard
+The following is for hackers who know what they are doing.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+wait-{is,todo}-{attach,sync,fetch,replay,primary}-{on,off}
+\family default
+ This may be used to program some useful waiting conditions in advanced
+ macro scripts.
+ Use at your own risk!
+\end_layout
+
+\begin_layout Subsection
+Creating your own Macros
+\begin_inset CommandInset label
+LatexCommand label
+name "sub:Creating-your-own"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In order to create your own macros, you could start writing them from scratch
+ with your favorite ASCII text editor.
+ However, it is much easier to take an existing macro and to customize it
+ to your needs.
+ In addition, you can learn something about macro programming by looking
+ at the existing macro code.
+\end_layout
+
+\begin_layout Standard
+Go to a new empty directory and say
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+marsadm dump-macros
+\end_layout
+
+\begin_layout Standard
+in order to get the most interesting complex macros, or say
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+marsadm dump-all-macros
+\end_layout
+
+\begin_layout Standard
+in order to additionally get some primitive macros which could be customized
+ if needed.
+ This will write lots of files 
+\family typewriter
+*.tpl
+\family default
+ into your current working directory.
+\end_layout
+
+\begin_layout Standard
+Any modfied or new macro file should be placed either into the current working
+ directory 
+\family typewriter
+./
+\family default
+ , or into 
+\family typewriter
+$HOME/.marsadm/
+\family default
+ , or into 
+\family typewriter
+/etc/marsadm/
+\family default
+ .
+ They will be searched in this order, and the first match will win.
+ When no macro file is found, the built-in version will be used if it exists.
+ This way, you may override builtin macros.
+\end_layout
+
+\begin_layout Standard
+Example: if you have a file 
+\family typewriter
+./mymacro.tpl
+\family default
+ you just need to say 
+\family typewriter
+marsadm view-mymacro mydata
+\family default
+ in order to invoke it in the resource context 
+\family typewriter
+mydata
+\family default
+.
+\end_layout
+
+\begin_layout Subsubsection
+General Macro Syntax
+\end_layout
+
+\begin_layout Standard
+Macros are simple ASCII text, enriched with calls to other macros.
+\end_layout
+
+\begin_layout Standard
+ASCII text outside of comments are copied to the output verbatim.
+ Comments are skipped.
+ Comments may have one of the following well-known forms:
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+# skipped text until / including next newline character
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+// skipped text until / including next newline character
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+/* skipped text including any newline characters */
+\end_layout
+
+\begin_layout Itemize
+denoted as Perl regex: 
+\family typewriter
+
+\backslash
+
+\backslash
+
+\backslash
+n
+\backslash
+s* 
+\family default
+(single backslash directly followed by a newline character, and eating up
+ any whitespace characters at the beginning of the next line) Hint: this
+ may be fruitfully used to structure macros in a more readable form / indentatio
+n.
+\end_layout
+
+\begin_layout Standard
+Special characters are always initiated by a backslash.
+ The following pre-defined special character sequences are recognized:
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+
+\backslash
+n
+\family default
+ newline
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+
+\backslash
+r
+\family default
+ return (useful for DOS compatibility)
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+
+\backslash
+t
+\family default
+ tab
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+
+\backslash
+f
+\family default
+ formfeed
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+
+\backslash
+b
+\family default
+ backspace
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+
+\backslash
+a
+\family default
+ alarm (bell)
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+
+\backslash
+e
+\family default
+ escape (e.g.
+ for generating ANSI escape sequences)
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+
+\backslash
+
+\family default
+ followed by anything else: assure that the next character is taken verbatim.
+ Although possible, please don't use this for escaping letters, because
+ further escape sequences might be pre-defined in future.
+ Best practice is to use this only for escaping the backslash itself, or
+ for escaping the percent sign when you don't want to call a macro (protect
+ against evaluation), or to escape a brace directly after a macro call (verbatim
+ brace not to be interpreted as a macro parameter).
+\end_layout
+
+\begin_layout Itemize
+All other characters stand for their own.
+ If you like, you should be able to produce XML, HTML, JSON and other ASCII-base
+d output formats this way.
+\end_layout
+
+\begin_layout Standard
+Macro calls have the following syntax:
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%
+\emph on
+macroname
+\emph default
+{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+}{
+\emph on
+argn
+\emph default
+}
+\end_layout
+
+\begin_layout Itemize
+Of course, arguments may be empty, denoted as 
+\family typewriter
+{}
+\end_layout
+
+\begin_layout Itemize
+It is possible to supply more arguments than required.
+ These are simply ignored.
+\end_layout
+
+\begin_layout Itemize
+There must be always at least 1 argument, even for parameterless macros.
+ In such a case, it is good style to leave it empty (even if it is actually
+ ignored).
+ Just write 
+\family typewriter
+%parameterlessmacro{}
+\family default
+ in such a case.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%{
+\emph on
+varname
+\emph default
+}
+\family default
+ syntax: As a special case, the macro name may be empty, but then the first
+ argument must denote a previously defined variable (such as assigned via
+ 
+\family typewriter
+%let{varname}{myvalue}
+\family default
+, or a pre-defined standard variable like 
+\family typewriter
+%{res}
+\family default
+ for the current resource name, see later paragraph 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "par:Predefined-Variables"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Itemize
+Of course, parameter calls may be (almost) arbitrarily nested.
+\end_layout
+
+\begin_layout Itemize
+Of course, the 
+\emph on
+correctness
+\emph default
+ of nesting of braces must be generally obeyed, as usual in any other macro
+ processor language.
+ General rule: for each opening brace, there must be exactly one closing
+ brace somewhere afterwards.
+\end_layout
+
+\begin_layout Standard
+These rules are hopefully simple and intuitive.
+ There are currently no exceptions.
+ In particular, there is no special infix operator syntax for arithmetic
+ expressions, and therefore no operator precedence rules are necessary.
+ You have to write nested arithmetic expressions always in the above prefix
+ syntax, like 
+\family typewriter
+%*{7}{%+{2}{3}}
+\family default
+ (similar to non-inverse polish notation).
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+When deeply nesting macros and their braces, you may easily find yourself
+ in a feeling like in the good old days of Lisp.
+ Use the above backslash-newline syntax to indent your macros in a readable
+ and structured way.
+ Fortunately, modern text editors like (x)emacs or vim have modes for dealing
+ with the correctness of nested braces.
+\end_layout
+
+\begin_layout Subsubsection
+Builtin / Primitive Macros
+\end_layout
+
+\begin_layout Standard
+Primitive macros can be called in two alternate forms:
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%primitive-
+\emph on
+macroname
+\emph default
+{
+\emph on
+something
+\emph default
+}
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%
+\emph on
+macroname
+\emph default
+{
+\emph on
+something
+\emph default
+}
+\end_layout
+
+\begin_layout Standard
+When using the 
+\family typewriter
+%primitive-*{}
+\family default
+ form, you 
+\emph on
+explicitly disallow
+\emph default
+ interception of the call by a 
+\family typewriter
+*.tpl
+\family default
+ file.
+ Otherwise, you may override the standard definition even of primitive macros
+ by your own template files.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Notice that 
+\family typewriter
+%call{}
+\family default
+ conventions are used in such a case.
+ The parameters are passed via 
+\family typewriter
+%{0}
+\family default
+ 
+\begin_inset Formula $\ldots$
+\end_inset
+
+
+\family typewriter
+%{n}
+\family default
+ variables (see description below).
+\end_layout
+
+\begin_layout Paragraph
+Standard MARS State Inspection Macros
+\end_layout
+
+\begin_layout Standard
+These are already described in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Predefined-Trivial-Macros"
+
+\end_inset
+
+.
+ When calling one of them, the call will simply expand to the corresponding
+ value.
+\end_layout
+
+\begin_layout Standard
+Example: 
+\family typewriter
+%get-primary{}
+\family default
+ will expand to the hostname of the current designated primary node.
+\end_layout
+
+\begin_layout Paragraph
+Further MARS State Inspection Macros
+\end_layout
+
+\begin_layout Paragraph
+Variable Access Macros
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%let{
+\emph on
+varname
+\emph default
+}{
+\emph on
+expression
+\emph default
+} 
+\family default
+Evaluates both 
+\family typewriter
+\emph on
+varname
+\family default
+\emph default
+ and the 
+\family typewriter
+\emph on
+expression
+\family default
+\emph default
+.
+ The 
+\family typewriter
+\emph on
+expression
+\family default
+\emph default
+ is then assigned to 
+\family typewriter
+varname
+\family default
+.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%let{
+\emph on
+varname
+\emph default
+}{
+\emph on
+expression
+\emph default
+} 
+\family default
+Evaluates both 
+\family typewriter
+\emph on
+varname
+\family default
+\emph default
+ and the 
+\family typewriter
+\emph on
+expression
+\family default
+\emph default
+.
+ The 
+\family typewriter
+\emph on
+expression
+\family default
+\emph default
+ is then appended to 
+\family typewriter
+varname
+\family default
+ (concatenation).
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%{
+\emph on
+varname
+\emph default
+} 
+\family default
+Evaluates 
+\family typewriter
+\emph on
+varname
+\family default
+\emph default
+, and outputs the value of the corresponding variable.
+ When the variable does not exist, the empty string is returned.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%{++}{
+\emph on
+varname
+\emph default
+} 
+\family default
+or 
+\family typewriter
+%{
+\emph on
+varname
+\emph default
+}{++}
+\family default
+ Has the obvious well-known side effect e.g.
+ from C or Java.
+ You may also use 
+\family typewriter
+--
+\family default
+ instead of 
+\family typewriter
+++
+\family default
+.
+ This is handy for programming loops (see below).
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%dump-vars{} 
+\family default
+Writes all currently defined variables (from the currently active scope)
+ to 
+\family typewriter
+stderr
+\family default
+.
+ This is handy for debugging.
+\end_layout
+
+\begin_layout Paragraph
+CSV Array Macros
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%{
+\emph on
+varname
+\emph default
+}{
+\emph on
+delimiter
+\emph default
+}{
+\emph on
+index
+\emph default
+} 
+\family default
+Evaluates all arguments.
+ The contents of 
+\family typewriter
+\emph on
+varname
+\family default
+\emph default
+ is interpreted as a comma-separated list, delimited by 
+\family typewriter
+\emph on
+delimiter
+\family default
+\emph default
+.
+ The 
+\family typewriter
+\emph on
+index
+\family default
+\emph default
+'th list element is returned.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%set{
+\emph on
+varname
+\emph default
+}{
+\emph on
+delimiter
+\emph default
+}{
+\emph on
+index
+\emph default
+}{
+\emph on
+expression
+\emph default
+} 
+\family default
+Evaluates all arguments.
+ The contents of the old 
+\family typewriter
+\emph on
+varname
+\family default
+\emph default
+ is interpreted as a comma-separated list, delimited by 
+\family typewriter
+\emph on
+delimiter
+\family default
+\emph default
+.
+ The 
+\family typewriter
+\emph on
+index
+\family default
+\emph default
+'th list element is the assigend to, or substituted by, 
+\family typewriter
+\emph on
+expression
+\family default
+\emph default
+.
+\end_layout
+
+\begin_layout Paragraph
+Arithmetic Expression Macros
+\end_layout
+
+\begin_layout Standard
+The following macros can also take more than two arguments, carrying out
+ the corresponding arithmetic operation in sequence (it depends on the operator
+ whether this accords to the associative law).
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%+{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+Evaluates the arguments, inteprets them as numbers, and adds them together.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%-{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+Subtraction.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%*{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+Multiplication.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%/{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+Division.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%%{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+Modulus.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%&{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+Bitwise Binary And.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%|{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+Bitwise Binary Or.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%^{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+Bitwise Binary Exclusive Or.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%<<{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+Binary Shift Left.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%>>{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+Binary Shift Right.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%min{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+Compute the arithmetic minimum of the arguments.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%max{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+Compute the arithmetic maximum of the arguments.
+\end_layout
+
+\begin_layout Paragraph
+Boolean Condition Macros
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%=={
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+Numeral Equality.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%!={
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+Numeral Inequality.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%<{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+Numeral Less Then.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%<={
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+Numeral Less or Equal.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%>{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+Numeral Greater Then.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%>={
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+Numeral Greater or Equal.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%eq{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+
+\begin_inset space ~
+\end_inset
+
+String Equality.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%ne{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+String Inequality.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%lt{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+String Less Then.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%le{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+String Less or Equal.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%gt{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+String Greater Then.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%ge{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+String Greater or Equal.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%=~{
+\emph on
+string
+\emph default
+}{
+\emph on
+regex
+\emph default
+}{
+\emph on
+opts
+\emph default
+} 
+\family default
+Checks whether 
+\family typewriter
+\emph on
+string
+\family default
+\emph default
+ matches the Perl regular expression 
+\family typewriter
+\emph on
+regex
+\family default
+\emph default
+.
+ Modifiers can be given via 
+\family typewriter
+\emph on
+opts
+\family default
+\emph default
+.
+\end_layout
+
+\begin_layout Paragraph
+Shortcut Evaluation Operators
+\end_layout
+
+\begin_layout Standard
+The following operators evaluate their arguments only when needed (like
+ in C).
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%&&{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+Logical And.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%and{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+Alias for 
+\family typewriter
+%&&{}
+\family default
+.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%||{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+Logical Or.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%or{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+} 
+\family default
+Alias for 
+\family typewriter
+%||{}
+\family default
+.
+\end_layout
+
+\begin_layout Paragraph
+Unary Operators
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%!{
+\emph on
+arg
+\emph default
+} 
+\family default
+Logical Not.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%not{
+\emph on
+arg
+\emph default
+} 
+\family default
+Alias for 
+\family typewriter
+%!{}
+\family default
+.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%~{
+\emph on
+arg
+\emph default
+} 
+\family default
+Bitwise Ńegation.
+\end_layout
+
+\begin_layout Paragraph
+String Functions
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%length{
+\emph on
+string
+\emph default
+} 
+\family default
+Return the number of ASCII characters present in 
+\family typewriter
+\emph on
+string
+\family default
+\emph default
+.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%toupper{
+\emph on
+string
+\emph default
+} 
+\family default
+Return all ASCII characters converted to uppercase.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%tolower{
+\emph on
+string
+\emph default
+} 
+\family default
+Return all ASCII characters converted to lowercase.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%append{
+\emph on
+varname
+\emph default
+}{
+\emph on
+string
+\emph default
+} 
+\family default
+Equivalent to 
+\family typewriter
+%let{
+\emph on
+varname
+\emph default
+}{%{
+\emph on
+varname
+\emph default
+}
+\emph on
+string
+\emph default
+}
+\family default
+.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%subst{
+\emph on
+string
+\emph default
+}{
+\emph on
+regex
+\emph default
+}{
+\emph on
+subst
+\emph default
+}{
+\emph on
+opts
+\emph default
+} 
+\family default
+Perl regex substitution.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%sprintf{
+\emph on
+fmt
+\emph default
+}{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+}{
+\emph on
+argn
+\emph default
+} 
+\family default
+Perl 
+\family typewriter
+sprintf()
+\family default
+ operator.
+ Details see Perl manual.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%human-number{
+\emph on
+unit
+\emph default
+}{
+\emph on
+delim
+\emph default
+}{
+\emph on
+unit-sep
+\emph default
+}{
+\emph on
+number
+\emph default
+1}{
+\emph on
+number
+\emph default
+2}
+\begin_inset Formula $\ldots$
+\end_inset
+
+ 
+\family default
+Convert a number or a list of numbers into human-readable 
+\family typewriter
+B
+\family default
+, 
+\family typewriter
+KiB
+\family default
+, 
+\family typewriter
+MiB
+\family default
+, 
+\family typewriter
+GiB
+\family default
+, 
+\family typewriter
+TiB
+\family default
+, as given by 
+\family typewriter
+\emph on
+unit
+\family default
+\emph default
+.
+ When 
+\family typewriter
+\emph on
+unit
+\family default
+\emph default
+ is empty, a reasonable unit will be guessed automatically from the maximum
+ of all given numbers.
+ A single result string is produced, where multiple numbers are separated
+ by 
+\family typewriter
+\emph on
+delim
+\family default
+\emph default
+ when necessary.
+ When 
+\family typewriter
+\emph on
+delim
+\family default
+\emph default
+ is empty, the slash symbol 
+\family typewriter
+/
+\family default
+ is used by default (the most obvious use case is result strings like 
+\family typewriter
+
+\begin_inset Quotes eld
+\end_inset
+
+17/32 KiB
+\begin_inset Quotes erd
+\end_inset
+
+
+\family default
+).
+ The final unit text is separated from the previous number(s) by 
+\family typewriter
+\emph on
+unit-sep
+\family default
+\emph default
+.
+ When 
+\family typewriter
+\emph on
+unit-sep
+\family default
+\emph default
+ is empty, a single blank is used by default.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%human-seconds{
+\emph on
+number
+\emph default
+} 
+\family default
+Convert the given number of seconds into 
+\family typewriter
+hh:mm:ss
+\family default
+ format.
+\end_layout
+
+\begin_layout Paragraph
+Complex Helper Macros
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%progress{20} 
+\family default
+Return a string containing a progress bar showing the values from 
+\family typewriter
+%summary-vector{}
+\family default
+.
+ The default width is 20 characters plus two braces.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%progress{20}{
+\emph on
+minvalue
+\emph default
+}{
+\emph on
+midvalue
+\emph default
+}{
+\emph on
+maxvalue
+\emph default
+} 
+\family default
+Instead of taking the values from 
+\family typewriter
+%summary-vector{}
+\family default
+, use the supplied values.
+ 
+\family typewriter
+minvalue
+\family default
+ and 
+\family typewriter
+midvalue
+\family default
+ indicate two different intermediate points, while 
+\family typewriter
+maxvalue
+\family default
+ will determine the 100% point.
+\end_layout
+
+\begin_layout Paragraph
+Control Flow Macros
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%if{
+\emph on
+expression
+\emph default
+}{
+\emph on
+then-part
+\emph default
+}
+\family default
+ or 
+\family typewriter
+%if{
+\emph on
+expression
+\emph default
+}{
+\emph on
+then-part
+\emph default
+}{
+\emph on
+else-part
+\emph default
+}
+\family default
+ Like in any other macro or programming language, this evaluates the 
+\family typewriter
+expression
+\family default
+ once, not copying its outcome to the output.
+ If the result is non-empty and is not a string denoting the number 
+\family typewriter
+0
+\family default
+, the 
+\family typewriter
+\emph on
+then-part
+\family default
+\emph default
+ is evaluated and copied to the output.
+ Otherwise, the 
+\family typewriter
+else-part
+\family default
+ is evaluated and copied, provided that one exists.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%unless{
+\emph on
+expression
+\emph default
+}{
+\emph on
+then-part
+\emph default
+}
+\family default
+ or 
+\family typewriter
+%unless{
+\emph on
+expression
+\emph default
+}{
+\emph on
+then-part
+\emph default
+}{
+\emph on
+else-part
+\emph default
+}
+\family default
+ Like 
+\family typewriter
+%if{}
+\family default
+, but the expression is logically negated.
+ Essentially, this is a shorthand for 
+\family typewriter
+%if{%not{expression}}{...}
+\family default
+ or similar.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%elsif{
+\emph on
+expr1
+\emph default
+}{
+\emph on
+then1
+\emph default
+}{
+\emph on
+expr2
+\emph default
+}{
+\emph on
+then2
+\emph default
+}
+\family default
+
+\begin_inset Formula $\ldots$
+\end_inset
+
+ or 
+\family typewriter
+%elsif{
+\emph on
+expr1
+\emph default
+}{
+\emph on
+then1
+\emph default
+}{
+\emph on
+expr2
+\emph default
+}{
+\emph on
+then2
+\emph default
+}
+\family default
+
+\begin_inset Formula $\ldots$
+\end_inset
+
+
+\family typewriter
+{
+\emph on
+odd-else-part
+\emph default
+}
+\family default
+ This is for simplification of boring if-else-if chains.
+ The classical if-syntax (as shown above) has the drawback that inner if-parts
+ need to be nested into outer else-parts, so rather deep nestings may occur
+ when you are programming longer chains.
+ This is an alternate syntax for avoidance of deep nesting.
+ When giving an odd number of arguments, the last argument is taken as final
+ else-part.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%elsuntil
+\family default
+
+\begin_inset Formula $\ldots$
+\end_inset
+
+ Like 
+\family typewriter
+%elsif
+\family default
+, but 
+\emph on
+all
+\emph default
+ conditions are negated.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%while{
+\emph on
+expression
+\emph default
+}{
+\emph on
+body
+\emph default
+} 
+\family default
+Evaluates the 
+\family typewriter
+\emph on
+expression
+\family default
+\emph default
+ in a while loop, like in any other macro or programming language.
+ The 
+\family typewriter
+\emph on
+body
+\family default
+\emph default
+ is evaluated exactly as many times as the 
+\family typewriter
+\emph on
+expression
+\family default
+\emph default
+ holds.
+ Notice that endless loops can be only avoided by a calling a non-pure macro
+ inspecting external state information, or by creating (and checking) another
+ side effect somewhere, like assigning to a variable somewhere.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%until{
+\emph on
+expression
+\emph default
+}{
+\emph on
+body
+\emph default
+} 
+\family default
+Like
+\family typewriter
+ %while{
+\emph on
+expression
+\emph default
+}{
+\emph on
+body
+\emph default
+}
+\family default
+, but negate the expression.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%for{
+\emph on
+exp
+\emph default
+r1}{
+\emph on
+exp
+\emph default
+r2}{
+\emph on
+exp
+\emph default
+r3}{
+\emph on
+body
+\emph default
+}
+\family default
+ As you will expect from the corresponding C, Perl, Java, or (add your favorite
+ language) construct.
+ Only the syntactic sugar is a little bit different.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%foreach{
+\emph on
+varname
+\emph default
+}{
+\emph on
+CSV-delimited-string
+\emph default
+}{
+\emph on
+delimiter
+\emph default
+}{
+\emph on
+body
+\emph default
+}
+\family default
+ As you can expect from similar 
+\family typewriter
+foreach
+\family default
+ constructs in other languages like Perl.
+ Currently, the macro processor has no arrays, but can use comma-separated
+ strings as a substitute.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%eval{
+\emph on
+count
+\emph default
+}{
+\emph on
+body
+\emph default
+}
+\family default
+ Evaluates the 
+\family typewriter
+\emph on
+body
+\family default
+\emph default
+ exactly as many times as indicated by the numeric argument 
+\family typewriter
+\emph on
+count
+\family default
+\emph default
+.
+ This may be used to re-evaluate the output of other macros once again.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%protect{
+\emph on
+body
+\emph default
+}
+\family default
+ Equivalent to 
+\family typewriter
+%eval{0}{
+\emph on
+body
+\emph default
+}
+\family default
+, which means that the body is not evaluated at all, but copied to the output
+ verbatim
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+TeX
+\end_layout
+
+\end_inset
+
+
+\begin_inset space ~
+\end_inset
+
+or 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+LaTeX
+\end_layout
+
+\end_inset
+
+
+\begin_inset space ~
+\end_inset
+
+fans usually know what this is good for ;)
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%eval-down{
+\emph on
+body
+\emph default
+}
+\family default
+ Evaluates the 
+\family typewriter
+\emph on
+body
+\family default
+\emph default
+ in a loop until the result does not change any more
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Mathematicians knowing Banach's fixedpoint theorem will know what this is
+ good for ;)
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%call{
+\emph on
+macroname
+\emph default
+}{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+}{
+\emph on
+argn
+\emph default
+}
+\family default
+ Like in many other macro languages, this evaluates the named macro in the
+ a new scope.
+ This means that any side effects produced by the called macro, such as
+ variable assignments, will be reverted after the call, and therefore not
+ influence the old scope.
+ However notice that the arguments 
+\family typewriter
+\emph on
+arg1
+\family default
+\emph default
+ to 
+\family typewriter
+\emph on
+argn
+\family default
+\emph default
+ are evaluted in the 
+\emph on
+old
+\emph default
+ scope before the call actually happens (possibly producing side effects
+ if they contain some), and their result is respectively assigned to 
+\family typewriter
+%{1}
+\family default
+ until 
+\family typewriter
+%{
+\emph on
+n
+\emph default
+}
+\family default
+ in the new scope, analogously to the Shell or to Perl.
+ In addition, the new 
+\family typewriter
+%{0}
+\family default
+ gets the 
+\family typewriter
+\emph on
+macroname
+\family default
+\emph default
+.
+ Notice that the argument evaluation happens non-lazily in the old scope
+ and therefore differs from other macro processors like 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+TeX
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%include{
+\emph on
+macroname
+\emph default
+}{
+\emph on
+arg1
+\emph default
+}{
+\emph on
+arg2
+\emph default
+}{
+\emph on
+argn
+\emph default
+}
+\family default
+ Like 
+\family typewriter
+%call{}
+\family default
+, but evaluates the named macro in the 
+\emph on
+current
+\emph default
+ scope (similar to the 
+\family typewriter
+source
+\family default
+ command of the bourne shell).
+ This means that any side effects produced by the called macro, such as
+ variable assignments, will 
+\emph on
+not
+\emph default
+ be reverted after the call.
+ Even the 
+\family typewriter
+%{0}
+\family default
+ until 
+\family typewriter
+%{
+\emph on
+n
+\emph default
+}
+\family default
+ variables will continue to exist (and may lead to confusion if you aren't
+ aware of that).
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%callstack{}
+\family default
+ Useful for debugging: show the current chain of macro invocations.
+\end_layout
+
+\begin_layout Paragraph
+Time Handling Macros
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%time{}
+\family default
+ Return the current Lamport timestamp (see section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:The-Lamport-Clock"
+
+\end_inset
+
+), in units of seconds since the Unix epoch.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%sleep{
+\emph on
+seconds
+\emph default
+}
+\family default
+ Pause the given number of seconds.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%timeout{
+\emph on
+seconds
+\emph default
+}
+\family default
+ Like 
+\family typewriter
+%sleep{
+\emph on
+seconds
+\emph default
+}
+\family default
+, but abort the 
+\family typewriter
+marsadm
+\family default
+ command after the total waiting time has exceeded the timeout given by
+ the 
+\family typewriter
+--timeout=
+\family default
+ parameter.
+\end_layout
+
+\begin_layout Paragraph
+Misc Macros
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%warn{
+\emph on
+text
+\emph default
+}
+\family default
+ Show a WARNING:
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%die{
+\emph on
+text
+\emph default
+}
+\family default
+ Abort execution with an error message.
+\end_layout
+
+\begin_layout Paragraph
+Experts Only - Risky
+\end_layout
+
+\begin_layout Standard
+The following macros are unstable and may change at any time without notice.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%get-msg{
+\emph on
+name
+\emph default
+}
+\family default
+ Low-level access to system messages.
+ You should not use this, since this is not extensible (you must know the
+ name in advance).
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%readlink{
+\emph on
+path
+\emph default
+}
+\family default
+ Low-level access to symlinks.
+ Don't misuse this for circumvention of the abstraction macros from the
+ symlink tree!
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%setlink{
+\emph on
+value
+\emph default
+}{
+\emph on
+path
+\emph default
+}
+\family default
+ Low-level creation of symlinks.
+ Don't misuse this for circumvention of the abstraction macros for the symlink
+ tree!
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%fetch-info{} 
+\family default
+etc.
+ Low-level access to internal symlink formats.
+ Don't use this in scripts! Only for curious humans.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%fetch-lognr{} 
+\family default
+etc.
+ Get logfile numbers.
+ Only for curious humans - don't use in scripts, don't base any decisions
+ on this.
+ 
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%is-almost-consistent{}
+\family default
+ Whatever you guess what this could mean, don't use it, at least never in
+ place of 
+\family typewriter
+%is-consistent{}
+\family default
+ - it is risky to base decisions on this.
+ 
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%does{
+\emph on
+name
+\emph default
+} 
+\family default
+Equivalent to 
+\family typewriter
+%is-
+\emph on
+name
+\emph default
+{}
+\family default
+ (just more handy for computing the macro name).
+ Use with care!
+\end_layout
+
+\begin_layout Paragraph
+Predefined Variables
+\begin_inset CommandInset label
+LatexCommand label
+name "par:Predefined-Variables"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%{cmd} 
+\family default
+The command argument of the invoked 
+\family typewriter
+marsadm
+\family default
+ command.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%{res} 
+\family default
+The resource name given to the 
+\family typewriter
+marsadm
+\family default
+ command as a command line parameter (or, possibly expanded from 
+\family typewriter
+all
+\family default
+).
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%{resdir} 
+\family default
+The corresponding resource directory.
+ The current version of MARS uses 
+\family typewriter
+/mars/resource-%{res}/
+\family default
+, but this may change in future.
+ Normally, you should not need this, since anything should be already abstracted
+ for you.
+ In case you 
+\emph on
+really
+\emph default
+ need low-level access to something, please prefer this variable over 
+\family typewriter
+%{mars}/resource-%{res}
+\family default
+ because it is a bit more abstracted.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%{mars} 
+\family default
+Currently the fixed string 
+\family typewriter
+/mars
+\family default
+.
+ This may change in future, probably with the advent of MARS Full.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%{host} 
+\family default
+The hostname of the local node.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%{ip} 
+\family default
+The IP address of the local node.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%{timeout} 
+\family default
+The value given by the 
+\family typewriter
+--timeout=
+\family default
+ option, or the corresonding default value.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%{threshold} 
+\family default
+The value given by the 
+\family typewriter
+--threshold=
+\family default
+ option, or the corresonding default value.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%{window} 
+\family default
+The value given by the 
+\family typewriter
+--window=
+\family default
+ option, or the corresonding default value.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%{force} 
+\family default
+The number of times the 
+\family typewriter
+--force
+\family default
+ option has been given.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%{dry-run} 
+\family default
+The number of times the 
+\family typewriter
+--dry-run
+\family default
+ option has been given.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%{verbose} 
+\family default
+The number of times the 
+\family typewriter
+--verbose
+\family default
+ option has been given.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%{callstack} 
+\family default
+Same as the 
+\family typewriter
+%callstack{}
+\family default
+ macro.
+ The latter gives you an opportunity for overriding, while the former is
+ firmly built in.
 \end_layout
 
 \begin_layout Chapter
@@ -4527,7 +8691,7 @@ idempotence
 \series default
 .
  This is a very desirable property: it ensures that nothing goes wrong when
- applying 
+ replaying 
 \begin_inset Quotes eld
 \end_inset
 
@@ -4546,7 +8710,7 @@ too early
 .
  Idempotence is even more beneficial: in case anything should go wrong with
  your data on your disk (e.g.
- IO errors), applying your logfile once more often may
+ IO errors), replaying your logfile once more often may
 \begin_inset Foot
 status open
 
@@ -4579,8 +8743,8 @@ heal
 
 \begin_layout Standard
 The basic idea of the asynchronous replication of MARS is rather simple:
- just transfer the logfiles to your secondary nodes, and apply them to their
- copy of the disk data (also called 
+ just transfer the logfiles to your secondary nodes, and replay them onto
+ their copy of the disk data (also called 
 \emph on
 mirror
 \emph default
@@ -4645,7 +8809,7 @@ As you can see in the picture, the process of transfering the logfiles is
 \emph on
 independent
 \emph default
- from the process which applies the logfiles to the data at some secondary
+ from the process which replays the logfiles onto the data at some secondary
  site.
  Both processes can be switched on / off separately (see commands 
 \family typewriter
@@ -4669,7 +8833,7 @@ exploited
 \emph default
 : for example, you may replicate your logfiles as soon as possible (to protect
  against catastrophic failures), but deliberately wait one hour until it
- is applied (under regular circumstances).
+ is replayed (under regular circumstances).
  If your data inside your filesystem 
 \family typewriter
 /mydata/
@@ -7011,11 +11175,11 @@ new
 
  logfile is left empty, i.e.
  no data ist written to it (for now).
- The hole in the numbering will prevent any secondaries from applying any
+ The hole in the numbering will prevent any secondaries from replaying any
  logfiles behind the hole (should they ever contain some data, e.g.
  because the emergency mode has been left again).
  This works because the secondaries are regularly checking the logfile numbers
- for contiguity, and they will refuse to apply anything which is not contiguous.
+ for contiguity, and they will refuse to replay anything which is not contiguous.
  As a result, the secondaries will be left in a consistent, but outdated
  state.
 \end_layout
@@ -7123,9 +11287,17 @@ marsadm leave-resource $res
 \end_layout
 
 \begin_layout Chapter
-The Sysadmin Interface 
+The Sysadmin Interface (
 \family typewriter
 marsadm
+\family default
+ and 
+\family typewriter
+/proc/sys/mars/
+\family default
+)
+\family typewriter
+ 
 \begin_inset CommandInset label
 LatexCommand label
 name "chap:The-Sysadmin-Interface"
@@ -7202,7 +11374,7 @@ The following table documents common options which work with (almost) any
 
 \size scriptsize
 \begin_inset Tabular
-<lyxtabular version="3" rows="7" columns="3">
+<lyxtabular version="3" rows="10" columns="3">
 <features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top" width="0">
@@ -7494,6 +11666,85 @@ for no good reason
 </cell>
 </row>
 <row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+--verbose
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Some (few) commands will become more speaky.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
 <cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
 \begin_inset Text
 
@@ -7584,6 +11835,173 @@ When $seconds is 0, the command will not wait in case any precondition is
 
 \size scriptsize
 The default timeout is 5s.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+--window=$seconds
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+The time window for checking the aliveness of other nodes in the network.
+ When no symlink updates have occurred during the last window, the node
+ is considered dead.
+ Default is 30s
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+--threshold=$size
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+The macros containing the substring 
+\family typewriter
+-threshold-
+\family default
+ use this as a default value for approximation whether something has been
+ reached.
+ Default is 10MiB.
 \end_layout
 
 \end_inset
@@ -8048,7 +12466,11 @@ Precondition: the
 /mars/
 \family default
  filesystem must be mounted and it must be empty.
- The kernel module must not be loaded.
+ The kernel module must 
+\emph on
+not
+\emph default
+ be loaded.
 \end_layout
 
 \begin_layout Plain Layout
@@ -8213,7 +12635,7 @@ $host
 \begin_layout Plain Layout
 
 \size scriptsize
-This must be called exactly once at every initial secondary.
+This must be called exactly once at every initial secondary node.
 \end_layout
 
 \begin_layout Plain Layout
@@ -8331,14 +12753,14 @@ Postcondition: the local node is removed from the replicated symlink tree
 \family typewriter
 /mars/
 \family default
- filesystem may be finally destroyed.
+ filesystem may be manually destroyed afterwards (if you like).
 \end_layout
 
 \begin_layout Plain Layout
 
 \size scriptsize
 In case of an eventual node loss (e.g.
- fire, water, ...) this may be used.
+ fire, water, ...) this must be used.
  on another node $helper in order to finally remove $damaged from the cluster
  via the command 
 \family typewriter
@@ -8679,12 +13101,13 @@ Precondition: the resource argument
 \family typewriter
 $res
 \family default
- must not denote an already existing resource in the cluster.
+ must not denote an already existing resource name in the cluster.
  The argument 
 \family typewriter
 $disk_dev
 \family default
- must denote a usable local block device, its size must be greater zero.
+ must denote an absolute path to a usable local block device, its size must
+ be greater zero.
  When the optional 
 \family typewriter
 $mars_name
@@ -8910,8 +13333,8 @@ $res
 \family typewriter
 $disk_dev
 \family default
- must denote a usable local block device, its size must be greater or equal
- to the logical size of the resource.
+ must denote an absolute path to a usable local block device, its size must
+ be greater or equal to the logical size of the resource.
  When the optional 
 \family typewriter
 $mars_name
@@ -8943,7 +13366,7 @@ $res
 \begin_layout Plain Layout
 
 \size scriptsize
-Notice: when the size if $disk_dev is strictly greater than the size of
+Notice: when the size of $disk_dev is strictly greater than the size of
  the resource, you will unnecessarily waste some space..
 \end_layout
 
@@ -9047,7 +13470,16 @@ Precondition: the local node must be a member of the resource
 $res
 \family default
 ; its current role must be secondary.
- The disk must be detatched.
+ Sync, fetch and replay must be paused (see commands 
+\family typewriter
+pause-{sync,fetch,replayy}
+\family default
+).
+ The disk must be detatched (see command 
+\family typewriter
+down
+\family default
+).
 \end_layout
 
 \begin_layout Plain Layout
@@ -9063,15 +13495,26 @@ $res
 \begin_layout Plain Layout
 
 \size scriptsize
-Notice: as a side effect for other nodes, their log-delete may now become
- possible, since the current node does no longer count as a candidate for
- logfile application.
+Notice: as a side effect for other nodes, their 
+\family typewriter
+log-delete
+\family default
+ may now become possible, since the current node does no longer count as
+ a candidate for logfile application.
+ In addition, a split brain situation may be (partly) resolved by this.
 \end_layout
 
 \begin_layout Plain Layout
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
 
 \size scriptsize
-Also notice that this command 
+ Please notice that this command 
 \emph on
 may
 \emph default
@@ -9089,9 +13532,14 @@ may
 
 \size scriptsize
 The contents of the disk is not changed by this command.
- Before issuing this command, check whether the disk is locally consistent!
- After this command, any symlinks indicating the consistency state are gone,
- and you will no longer be able to guess consistency properties.
+ Before issuing this command, check whether the disk appears to be locally
+ consistent (see 
+\family typewriter
+view-is-consistent
+\family default
+)! After giving this command, any internal information indicating the consistenc
+y state will be gone, and you will no longer be able to guess consistency
+ properties.
 \end_layout
 
 \begin_layout Plain Layout
@@ -9104,7 +13552,7 @@ The contents of the disk is not changed by this command.
 
 
 \size scriptsize
-When you are 
+ When you are 
 \emph on
 sure
 \emph default
@@ -9268,7 +13716,8 @@ VERY
 \begin_layout Plain Layout
 
 \size scriptsize
-Use this only in desperate situations.
+Use this only in desperate situations, and only manually.
+ Don't call this from scripts.
  You are forcefully using a sledgehammer, even without 
 \family typewriter
 --force
@@ -9312,7 +13761,7 @@ murder
 \emph on
 really
 \emph default
- dead - it is possible that they remain only 
+ dead -- it is (theoretically) possible that they remain only 
 \emph on
 half
 \emph default
@@ -9352,7 +13801,7 @@ might
 \emph default
  be already unlinked (orphan file filling up the disk).
  After the forceful detach, the underlying disk need not be consistent (although
- we do our best).
+ MARS does its best).
  Since this command deletes any symlinks which normally would indicate the
  consistency state, no guarantees about consistency can be given after this
  
@@ -9661,7 +14110,7 @@ all
 
 \size scriptsize
 \begin_inset Tabular
-<lyxtabular version="3" rows="35" columns="3">
+<lyxtabular version="3" rows="42" columns="3">
 <features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top" width="0">
@@ -9789,13 +14238,69 @@ status open
 
 \size scriptsize
 Precondition: the local disk belonging to $res is not in use by anyone else.
+ Its contents has not been altered in the meantime since the last 
+\family typewriter
+detach
+\family default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+
+\size scriptsize
+Mounting 
+\emph on
+read-only
+\emph default
+ is allowed during the detached phase.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+
+\size scriptsize
+However, be careful! If you 
+\emph on
+accidentally
+\emph default
+ forget to give the right readonly-mount flags, use 
+\family typewriter
+fsck
+\family default
+ inbetween, or alter the disk content in any other way (beware of LVM snapshots
+ / restores etc), you will almost certainly produce an 
+\series bold
+unnoticed inconsistency
+\series default
+ (not reported by 
+\family typewriter
+view-is-consistent
+\family default
+)! MARS has 
+\emph on
+no chance
+\emph default
+ to notice suchalike!
 \end_layout
 
 \begin_layout Plain Layout
 
 \size scriptsize
 Postcondition: MARS uses the local disk and is able work with it (e.g.
- apply logfiles to it).
+ replay logfiles on it).
 \end_layout
 
 \begin_layout Plain Layout
@@ -9804,6 +14309,19 @@ Postcondition: MARS uses the local disk and is able work with it (e.g.
 Note: the local disk is opened in exclusive read-write mode.
  This should protect against most common misuse, such as opening the disk
  in parallel to MARS.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+
+\size scriptsize
+However, this does not necessarily protect against non-exclusive openers.
 \end_layout
 
 \end_inset
@@ -9901,21 +14419,43 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Precondition: the local host is in secondary role, 
+Precondition: the local 
 \family typewriter
-pause-sync
+/dev/mars/mydata
 \family default
- and 
-\family typewriter
-pause-replay
-\family default
- have been given..
+ device (when present) is no longer opened by anybody.
 \end_layout
 
 \begin_layout Plain Layout
 
 \size scriptsize
 Postcondition: the local disk belonging to $res is no longer in use.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+
+\size scriptsize
+In contrast to DRBD, you need not explicitly pause syncing, fetching, or
+ replaying.
+ These processes are automatically paused.
+ As another contrast to DRBD, the respective processes should 
+\emph on
+automatically
+\emph default
+ resume after re-attach.
+ This shouild work even over 
+\family typewriter
+rmmod
+\family default
+ or reboot cycles, since the internal symlink tree will automatically persist
+ all switches for you.
 \end_layout
 
 \begin_layout Plain Layout
@@ -10215,7 +14755,7 @@ Precondition: none additionally.
 Postcondition: any sync operation targeting the local disk (when not yet
  completed) is paused after a while.
  When completed, this operation will remember the switch state forever and
- become relevant if a sync is needed again (e.g.
+ automatically become relevant if a sync is needed again (e.g.
  
 \family typewriter
 invalidate
@@ -10711,6 +15251,725 @@ status open
 
 \family typewriter
 \size scriptsize
+pause-fetch
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$res
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+partly
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Equivalent to 
+\family typewriter
+pause-fetch-local
+\family default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+pause-fetch-local
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$res
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+partly
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Precondition: none additionally.
+ The resource 
+\emph on
+should
+\emph default
+ be in secondary role.
+ Otherwise the switch has 
+\emph on
+no
+\emph default
+ 
+\emph on
+immediate
+\emph default
+ effect, but will come (possibly unexpectedly) into effect whenever secondary
+ role is entered later for whatever reason.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Postcondition: any transfer of (parts of) transaction logfiles which are
+ present at another primary host to the local 
+\family typewriter
+/mars/
+\family default
+ storage are paused at their current stage.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+
+\size scriptsize
+This switch works independently from 
+\family typewriter
+{pause,resume}-replay
+\family default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+pause-fetch-global
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$res
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+partly
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Like 
+\family typewriter
+*-local
+\family default
+, but operates on all members of the resource.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+resume-fetch
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$res
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+partly
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Equivalent to 
+\family typewriter
+resume-fetch-local
+\family default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+resume-fetch-local
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$res
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+partly
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Precondition: none additionally.
+ The resource 
+\emph on
+should
+\emph default
+ be in secondary role.
+ Otherwise the switch has 
+\emph on
+no
+\emph default
+ 
+\emph on
+immediate
+\emph default
+ effect, but will come (possibly unexpectedly) into effect whenever secondary
+ role is entered later for whatever reason.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Postcondition: any (parts of) transaction logfiles which are present at
+ another primary host shouldl be transferred to the local 
+\family typewriter
+/mars/
+\family default
+ storage as far as not yet locally present.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+
+\size scriptsize
+This works independently from 
+\family typewriter
+{pause,resume}-replay
+\family default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+resume-fetch-global
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$res
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+partly
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Like 
+\family typewriter
+*-local
+\family default
+, but operates on all members of the resource.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
 pause-replay
 \begin_inset Newline newline
 \end_inset
@@ -10875,13 +16134,28 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Precondition: must be in secondary role.
+Precondition: none additionally.
+ The resource 
+\emph on
+should
+\emph default
+ be in secondary role.
+ Otherwise the switch has 
+\emph on
+no
+\emph default
+ 
+\emph on
+immediate
+\emph default
+ effect, but will come (possibly unexpectedly) into effect whenever secondary
+ role is entered later for whatever reason.
 \end_layout
 
 \begin_layout Plain Layout
 
 \size scriptsize
-Postcondition: any local apply operations of transaction logfiles to the
+Postcondition: any local replay operations of transaction logfiles to the
  local disk are paused at their current stage.
 \end_layout
 
@@ -10896,6 +16170,11 @@ Postcondition: any local apply operations of transaction logfiles to the
 
 \size scriptsize
 This works independently from 
+\family typewriter
+{pause,resume}-fetch
+\family default
+ resp.
+ 
 \family typewriter
 {dis,}connect
 \family default
@@ -11196,7 +16475,7 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
-status open
+status collapsed
 
 \begin_layout Plain Layout
 
@@ -11208,7 +16487,7 @@ Precondition: must be in secondary role.
 
 \size scriptsize
 Postcondition: any (parts of) locally existing transaction logfiles (whether
- replicated from other hosts or produced locally) are started for apply
+ replicated from other hosts or produced locally) are started for replay
  to the local disk, as far as they have not yet been applied.
 \end_layout
 
@@ -11440,7 +16719,7 @@ status open
 \size scriptsize
 Equivalent to 
 \family typewriter
-connect-local
+resume-fetch-local
 \family default
 .
 \end_layout
@@ -11540,33 +16819,9 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Precondition: must be in secondary role.
-\end_layout
-
-\begin_layout Plain Layout
-
-\size scriptsize
-Postcondition: any (parts of) transaction logfiles which are present at
- another primary host will be transferred to the local 
+Equivalent to 
 \family typewriter
-/mars/
-\family default
- storage as far as not yet present locally.
-\end_layout
-
-\begin_layout Plain Layout
-\begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-
-\size scriptsize
-This works independently from 
-\family typewriter
-{pause,resume}-replay
+resume-fetch-local
 \family default
 .
 \end_layout
@@ -11666,11 +16921,11 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Like 
+Equivalent to 
 \family typewriter
-*-local
+resume-fetch-global
 \family default
-, but operates on all members of the resource.
+.
 \end_layout
 
 \end_inset
@@ -11770,7 +17025,7 @@ status open
 \size scriptsize
 Equivalent to 
 \family typewriter
-disconnect-local
+pause-fetch-local
 \family default
 .
 \end_layout
@@ -11870,33 +17125,9 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Precondition: must be in secondary role.
-\end_layout
-
-\begin_layout Plain Layout
-
-\size scriptsize
-Postcondition: any transfer of (parts of) transaction logfiles which are
- present at another primary host to the local 
+Equivalent to 
 \family typewriter
-/mars/
-\family default
- storage are paused at their current stage.
-\end_layout
-
-\begin_layout Plain Layout
-\begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-
-\size scriptsize
-This works independently from 
-\family typewriter
-{pause,resume}-replay
+pause-fetch-local
 \family default
 .
 \end_layout
@@ -11996,11 +17227,11 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Like 
+Equivalent to 
 \family typewriter
-*-local
+pause-fetch-global
 \family default
-, but operates on all members of the resource.
+.
 \end_layout
 
 \end_inset
@@ -12133,7 +17364,7 @@ attach
 \family default
  followed by 
 \family typewriter
-connect
+resume-fetch
 \family default
  followed by 
 \family typewriter
@@ -12247,7 +17478,7 @@ pause-sync
 \family default
  followed by 
 \family typewriter
-disconnect
+pause-fetch
 \family default
  followed by 
 \family typewriter
@@ -12257,6 +17488,35 @@ pause-replay
 \family typewriter
 detach
 \family default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+
+\size scriptsize
+Hint: consider to prefer plain 
+\family typewriter
+detach
+\family default
+ over this, because 
+\family typewriter
+detach
+\family default
+ will remember the last state of all switches, while 
+\family typewriter
+down
+\family default
+ will 
+\emph on
+not
+\emph default
 .
 \end_layout
 
@@ -12387,7 +17647,7 @@ status open
 Precondition: all relevant transaction logfiles must be either already locally
  present, or be fetchable (see 
 \family typewriter
-connect
+resume-fetch
 \family default
  and 
 \family typewriter
@@ -12399,7 +17659,11 @@ resume-replay
 \family typewriter
 marsadm secondary
 \family default
-.
+ (that means, its local 
+\family typewriter
+/dev/mars/mydata
+\family default
+ device must not be in use any more).
 \end_layout
 
 \begin_layout Plain Layout
@@ -12409,38 +17673,222 @@ Postcondition:
 \family typewriter
 /dev/mars/$dev_name
 \family default
- appears and is usable; the current host is in primary role.
+ appears locally and is usable; the current host is in primary role.
 \end_layout
 
 \begin_layout Plain Layout
 
 \size scriptsize
-When another host is currently primary, it is first asked to become secondary,
- and waited for to actually be secondary.
+Switches the 
+\series bold
+designated primary
+\series default
+.
+ When another host is currently primary, it is first asked to become secondary,
+ and it is waited until it actually has become secondary.
  After that, the local host is asked to become primary.
- Before actually becoming primary, all relevant logfiles are applied.
+ Before actually becoming primary, all relevant logfiles are transferred
+ over the network and replayed, in order to avoid accidental creation of
+ split brain as best as possible
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Note that split brain avoidance is 
+\series bold
+best effort
+\series default
+ and cannot be guaranteed in general.
+ For example, it may be impossible to avoid split brain in case of long-lasting
+ network outages.
+\end_layout
+
+\end_inset
+
+.
  Only after that, 
 \family typewriter
 /dev/mars/$dev_name
 \family default
  will appear.
- When netwrk transfers of the symlink tree are very slow (or currently impossibl
-e), this command may take a very long time.
- Therefore 
-\family typewriter
---force
-\family default
- will skip all checks depending on remote state.
+ When network transfers of the symlink tree are very slow (or currently
+ impossible), this command may take a very long time.
 \end_layout
 
 \begin_layout Plain Layout
 
 \size scriptsize
-In case a split brain is detected, the local host will refuse to become
- primary without 
+In case a split brain is already detected at the initial situation, the
+ local host will refuse to switch the designated primary without 
 \family typewriter
 --force
 \family default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+
+\family typewriter
+\size scriptsize
+primary --force
+\family default
+ is a potentially harmful variant, because it will provoke a split brain
+ in most cases, and therefore in turn will usually lead to 
+\series bold
+data loss
+\series default
+ because one your split brain versions must be discarded later in order
+ to resolve the split brain (see section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Split-Brain-Resolution"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+
+\series bold
+\size scriptsize
+Never
+\series default
+ call 
+\family typewriter
+primary --force
+\family default
+ when 
+\family typewriter
+primary
+\family default
+ without 
+\family typewriter
+--force
+\family default
+ is sufficient! If 
+\family typewriter
+primary
+\family default
+ without 
+\family typewriter
+--force
+\family default
+ complains that the device is in use at the former primary side, take it
+ seriously! Don't override with 
+\family typewriter
+--force
+\family default
+, but rather umount the device at the other side!
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+
+\size scriptsize
+Only use 
+\family typewriter
+primary --force
+\family default
+ when something is 
+\emph on
+already broken
+\emph default
+, such as a network outage, or a node crash, etc.
+ During ordinary operations (network OK, nodes OK), you should never need
+ 
+\family typewriter
+primary --force
+\family default
+!
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+
+\family typewriter
+\size scriptsize
+primary --force
+\family default
+ switches only the 
+\emph on
+designated
+\emph default
+ primary, but actually becoming the/an actual primary may be impossible
+ in case you are 
+\emph on
+already
+\emph default
+ in a split brain situation.
+ In such a case, you 
+\emph on
+must
+\emph default
+ resolve the split brain immediately after giving this command (see section
+ 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Split-Brain-Resolution"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+
+\size scriptsize
+Hint: in case of 
+\family typewriter
+primary --force
+\family default
+, the preconditions are different.
+ The fetch must be switched off (see 
+\family typewriter
+pause-fetch
+\family default
+), in order to get stable logfile positions See section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Forced-Switching"
+
+\end_inset
+
 .
 \end_layout
 
@@ -12554,7 +18002,39 @@ Postcondition:
 \family typewriter
 /dev/mars/$dev_name
 \family default
- has disappeared; the current host is in secondary role.
+ has disappeared; at least the current host is in secondary role.
+ In split brain situations (when the network is OK), 
+\emph on
+all
+\emph default
+ hosts will go into secondary role after a while.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+
+\size scriptsize
+Hint: avoid this command.
+ It turns off 
+\emph on
+any
+\emph default
+ primary, 
+\series bold
+globally
+\series default
+.
+ It is much better / easier to 
+\emph on
+directly
+\emph default
+ switch the primary from one node to another.
 \end_layout
 
 \end_inset
@@ -12847,9 +18327,13 @@ Use this only when split brain does not go away by means of
 \family typewriter
 leave-resource
 \family default
- (which should never happen, but could happen in very weird scenarios such
- as MARS running on virtual machines doing a restore of their snapshots,
- or otherwise unexpected resurrection of dead or half-dead nodes).
+ (which 
+\emph on
+could
+\emph default
+ happen in very weird scenarios such as MARS running on virtual machines
+ doing a restore of their snapshots, or otherwise unexpected resurrection
+ of dead or half-dead nodes).
 \end_layout
 
 \begin_layout Plain Layout
@@ -13593,13 +19077,18 @@ Precondition: the local node must be in secondary role at
 $res
 \family default
 .
+ A 
+\emph on
+designated
+\emph default
+ primary must exist.
 \end_layout
 
 \begin_layout Plain Layout
 
 \size scriptsize
 Postcondition: the local disk is marked as inconsistent, and a fast fullsync
- will start after a while.
+ from the designated primary will start after a while.
  Notice that 
 \family typewriter
 marsadm {pause,resume}-sync
@@ -13884,7 +19373,7 @@ Inspection Commands
 
 \size scriptsize
 \begin_inset Tabular
-<lyxtabular version="3" rows="13" columns="3">
+<lyxtabular version="3" rows="14" columns="3">
 <features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top" width="0">
@@ -13949,7 +19438,30 @@ status open
 
 \family typewriter
 \size scriptsize
-role
+view-
+\emph on
+macroname
+\begin_inset Newline newline
+\end_inset
+
+
+\emph default
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$res
 \end_layout
 
 \end_inset
@@ -13974,6 +19486,242 @@ no
 \begin_inset Text
 
 \begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Display the output of a macro evaluation.
+ See section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Inspecting-the-State"
+
+\end_inset
+
+ for a thorough description.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+view
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$res
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Equivalent to 
+\family typewriter
+view-default
+\family default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+role
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$res
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Deprectated.
+ Use 
+\family typewriter
+view-role
+\family default
+ instead.
+\end_layout
+
+\end_inset
+
 
 \end_layout
 
@@ -14006,6 +19754,25 @@ status open
 \family typewriter
 \size scriptsize
 state
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$res
 \end_layout
 
 \end_inset
@@ -14030,6 +19797,34 @@ no
 \begin_inset Text
 
 \begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Deprectated.
+ Use 
+\family typewriter
+view-state
+\family default
+ instead.
+\end_layout
+
+\end_inset
+
 
 \end_layout
 
@@ -14062,6 +19857,25 @@ status open
 \family typewriter
 \size scriptsize
 cstate
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$res
 \end_layout
 
 \end_inset
@@ -14086,7 +19900,35 @@ no
 \begin_inset Text
 
 \begin_layout Plain Layout
-NYI
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Deprectated.
+ Use 
+\family typewriter
+view-cstate
+\family default
+ instead.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \end_inset
@@ -14118,6 +19960,25 @@ status open
 \family typewriter
 \size scriptsize
 dstate
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$res
 \end_layout
 
 \end_inset
@@ -14142,7 +20003,35 @@ no
 \begin_inset Text
 
 \begin_layout Plain Layout
-NYI
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Deprectated.
+ Use 
+\family typewriter
+view-dstate
+\family default
+ instead.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \end_inset
@@ -14174,6 +20063,25 @@ status open
 \family typewriter
 \size scriptsize
 status
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$res
 \end_layout
 
 \end_inset
@@ -14198,7 +20106,35 @@ no
 \begin_inset Text
 
 \begin_layout Plain Layout
-NYI
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Deprectated.
+ Use 
+\family typewriter
+view-status
+\family default
+ instead.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \end_inset
@@ -14261,6 +20197,27 @@ status open
 show-state
 \end_layout
 
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$res
+\end_layout
+
 \end_inset
 
 
@@ -14283,6 +20240,35 @@ no
 \begin_inset Text
 
 \begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Deprectated.
+ Don't use it.
+ Use 
+\family typewriter
+view-state
+\family default
+ instead, or other macros.
+\end_layout
+
+\end_inset
+
 
 \end_layout
 
@@ -14315,6 +20301,25 @@ status open
 \family typewriter
 \size scriptsize
 show-info
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$res
 \end_layout
 
 \end_inset
@@ -14340,18 +20345,6 @@ no
 
 \begin_layout Plain Layout
 
-\end_layout
-
-\end_inset
-</cell>
-</row>
-<row>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\family typewriter
 \size scriptsize
 \begin_inset Box Frameless
 position "t"
@@ -14360,7 +20353,7 @@ has_inner_box 1
 inner_pos "t"
 use_parbox 0
 use_makebox 0
-width "20col%"
+width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
@@ -14368,33 +20361,18 @@ status open
 
 \begin_layout Plain Layout
 
+\size scriptsize
+Deprectated.
+ Don't use it.
+ Use 
 \family typewriter
-\size scriptsize
-dstate
+view-info
+\family default
+ instead, or other macros.
 \end_layout
 
 \end_inset
 
-
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size scriptsize
-no
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
 
 \end_layout
 
@@ -14427,6 +20405,25 @@ status open
 \family typewriter
 \size scriptsize
 show
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$res
 \end_layout
 
 \end_inset
@@ -14451,6 +20448,31 @@ no
 \begin_inset Text
 
 \begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Deprectated.
+ Don't use it.
+ Use or implement some macros instead.
+\end_layout
+
+\end_inset
+
 
 \end_layout
 
@@ -14483,6 +20505,25 @@ status open
 \family typewriter
 \size scriptsize
 show-errors
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$res
 \end_layout
 
 \end_inset
@@ -14507,6 +20548,38 @@ no
 \begin_inset Text
 
 \begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Deprectated.
+ Use 
+\family typewriter
+view-the-err-msg
+\family default
+ or 
+\family typewriter
+view-resource-err
+\family default
+ similar macros.
+\end_layout
+
+\end_inset
+
 
 \end_layout
 
@@ -14539,6 +20612,25 @@ status open
 \family typewriter
 \size scriptsize
 cat
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$file
 \end_layout
 
 \end_inset
@@ -14555,6 +20647,875 @@ cat
 
 \size scriptsize
 no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Write the file content to stdout, but replace all occurences of numeric
+ timestamps converted to a human-readable format.
+ Thus is most useful for inspection of status and log files, e.g.
+ 
+\family typewriter
+marsadm cat /mars/5.total.log
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Setting Parameters
+\begin_inset CommandInset label
+LatexCommand label
+name "sub:Setting-Parameters"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+Per-Resource Parameters
+\end_layout
+
+\begin_layout Standard
+
+\size scriptsize
+\begin_inset Tabular
+<lyxtabular version="3" rows="4" columns="3">
+<features islongtable="true" longtabularalignment="left">
+<column alignment="left" valignment="top" width="0pt">
+<column alignment="center" valignment="top" width="0">
+<column alignment="left" valignment="top" width="0pt">
+<row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Command / Params
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Cmp
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Description
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+set-emergency-limit $res 
+\emph on
+n
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+The argument 
+\emph on
+n
+\emph default
+ must be percentage between 0 and 100 %.
+ When the remaining store space in 
+\family typewriter
+/mars/
+\family default
+ undershoots the given percentage, the resource will go 
+\emph on
+earlier
+\emph default
+ into emergency mode than by the global computation described in section
+ 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Defending-Overflow"
+
+\end_inset
+
+.
+ 0 means unlimited.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+get-emergency-limit $res
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Inquiry of the preceding value.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+Global Parameters
+\end_layout
+
+\begin_layout Standard
+
+\size scriptsize
+\begin_inset Tabular
+<lyxtabular version="3" rows="8" columns="3">
+<features islongtable="true" longtabularalignment="left">
+<column alignment="left" valignment="top" width="0pt">
+<column alignment="center" valignment="top" width="0">
+<column alignment="left" valignment="top" width="0pt">
+<row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Command / Params
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Cmp
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Description
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+set-sync-limit-value 
+\emph on
+n
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Limit the concurrency of sync operations to some maximum number.
+ 0 means unlimited.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+get-sync-limit-value
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Inquiry of the preceding value.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+set-sync-pref-list res1,res2,resn
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Set the order of preferences for syning.
+ The argument must be comma-separated list of resource names.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+get-sync-pref-list
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Inquiry of the preceding value.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+set-connect-pref-list host1,host2,hostn
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Set the order of preferences for connections when there are more than 2
+ hosts participating in a cluster.
+ The argument must be comma-separated list of node names.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+get-connect-pref-list
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Inquiry of the preceding value.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
 \end_layout
 
 \end_inset
@@ -15181,7 +22142,7 @@ Low-Level Helpers
 \end_layout
 
 \begin_layout Standard
-These commands are for advanced sysadmins only.
+These commands are for experts and advanced sysadmins only.
  The interface is not stable, i.e.
  the meaning may change at any time.
 \end_layout
@@ -15190,7 +22151,7 @@ These commands are for advanced sysadmins only.
 
 \size scriptsize
 \begin_inset Tabular
-<lyxtabular version="3" rows="3" columns="3">
+<lyxtabular version="3" rows="4" columns="3">
 <features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top" width="0">
@@ -15281,6 +22242,108 @@ no
 
 \begin_layout Plain Layout
 
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+RTFS.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+get-link
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+RTFS.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \end_inset
@@ -15336,6 +22399,29 @@ no
 \begin_inset Text
 
 \begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+RTFS.
+\end_layout
+
+\end_inset
+
 
 \end_layout
 
@@ -16222,8 +23308,421 @@ marsadm invalidate
 
 \end_layout
 
+\begin_layout Section
+The 
+\family typewriter
+/proc/sys/mars/
+\family default
+ and other Expert Tweaks
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:The-/proc/sys/mars/-Expert"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In general, you shouldn't need to deal with any tweaks in 
+\family typewriter
+/proc/sys/mars/
+\family default
+ because everything should already default to reasonable predefined values.
+ This interface allows access to some internal kernel variables of the 
+\family typewriter
+mars.ko
+\family default
+ kernel module at runtime.
+ Thus it is 
+\emph on
+not
+\emph default
+ a stable interface.
+ It is not only specific for MARS Light, but may also change between releases
+ without notice.
+\end_layout
+
+\begin_layout Standard
+This section describes only those tweaks intended for sysadmins, not those
+ for developers / very deep internals.
+\end_layout
+
 \begin_layout Subsection
-Deprecated Operations
+Syslogging
+\end_layout
+
+\begin_layout Standard
+All internal messages produced by the kernel module belong to one of the
+ following classes:
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+0 debug messages
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+1 info messages
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+2 warnings
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+3 error messages
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+4 fatal error messages
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+5 any message (summary of 0 to 4)
+\end_layout
+
+\begin_layout Subsubsection
+Logging to Files
+\end_layout
+
+\begin_layout Standard
+These classes are used to produce status files 
+\family typewriter
+$class.*.status
+\family default
+ in the 
+\family typewriter
+/mars/
+\family default
+ and/or in the 
+\family typewriter
+/mars/resource-
+\emph on
+mydata
+\emph default
+/
+\family default
+ directory / directories.
+\end_layout
+
+\begin_layout Standard
+When you create a file 
+\family typewriter
+$class.*.log
+\family default
+ in parallel to any 
+\family typewriter
+$class.*.status
+\family default
+, the 
+\family typewriter
+*.log
+\family default
+ file will be appended forever with the same messages as in 
+\family typewriter
+*.status
+\family default
+.
+ The difference is that *.status is regenerated anew from an empty starting
+ point, while *.log can (potentially) increase indefinitely unless you remove
+ it, or rename it to something else.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+Beware, any permamently present 
+\family typewriter
+*.log
+\family default
+ file can easily fill up your 
+\family typewriter
+/mars/
+\family default
+ partition until the problems described in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Defending-Overflow"
+
+\end_inset
+
+ will appear.
+ Use 
+\family typewriter
+*.log
+\family default
+ only for a 
+\series bold
+limited time
+\series default
+, and 
+\series bold
+only for debugging!
+\end_layout
+
+\begin_layout Subsubsection
+Logging to Syslog
+\end_layout
+
+\begin_layout Standard
+The classes also play a role in the following 
+\family typewriter
+/proc/sys/mars/
+\family default
+ tweaks:
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+syslog_min_class
+\family default
+ (rw) The 
+\emph on
+mimimum
+\emph default
+ class number for 
+\emph on
+permanent
+\emph default
+ syslogging.
+ By default, this is set to -1 in order to switch off perment logging completely.
+ Permament logging can easily flood your syslog with such huge amounts of
+ messages (in particular when class=0), that your system as a whole may
+ become unusable (because vital kernel threads may be blocked too long or
+ too often by the userspace syslog daemon).
+ Instead, please use the flood-protected syslogging described below!
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+syslog_max_class
+\family default
+ (rw) The 
+\emph on
+maximum
+\emph default
+ class number for 
+\emph on
+permanent
+\emph default
+ syslogging.
+ Please use the flood-protected version instead.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+syslog_flood_class
+\family default
+ (rw) The mimimum class of flood-protected syslogging.
+ The maximum class is always 4.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+syslog_flood_limit
+\family default
+ (rw) The maxmimum number of messages after which the flood protection will
+ start.
+ This is a hard limit for the the number of messages written to the syslog.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+syslog_flood_recovery_s
+\family default
+ (rw) The number of seconds after which the internal flood counter is reset
+ (after flood protection state has been reached).
+ When no new messages appear after this time, the flood protection will
+ start over at count 0.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+The rationale behind flood protected syslogging: sysadmins are usually only
+ interested in the point in time where some problems / incidents / etc have
+ 
+\emph on
+started
+\emph default
+.
+ They are usually not interested in capturing 
+\emph on
+each
+\emph default
+ and 
+\emph on
+every
+\emph default
+ single error message (in particular when they are flooding the system logs).
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+If you 
+\emph on
+really
+\emph default
+ need complete error information, use the 
+\family typewriter
+*.log
+\family default
+ files described above, compress them and save them to somewhere else 
+\emph on
+regularly
+\emph default
+ by a cron job.
+ This bears much less overhead than filtering via the syslog daemon, or
+ even remote syslogging in real time which will almost surely screw up your
+ system in case of network problems co-inciding with flood messages, such
+ as caused in turn by those problems.
+ Don't rely on real-time concepts, just do it the old-fashioned batch job
+ way.
+\end_layout
+
+\begin_layout Subsubsection
+Tuning Verbosity of Logging
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+show_debug_messages
+\family default
+ Boolean switch, 0 or 1.
+ Mostly useful only for developers.
+ This can easily flood your logs if our are not careful.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+show_log_messages
+\family default
+ Boolean switch, 0 or 1.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+show_connections
+\family default
+ Boolean switch, 0 or 1.
+ Show detailed internal statistics on sockets.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+show_statistics_local
+\begin_inset space ~
+\end_inset
+
+/
+\begin_inset space ~
+\end_inset
+
+show_statistics_global
+\family default
+ Only useful for kernel developers.
+ Shows some internal information on internal brick instances, memory usage,
+ etc.
+\end_layout
+
+\begin_layout Subsection
+Tuning the Sync
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+sync_flip_interval_sec
+\family default
+ (rw) The sync process must not run in parallel to logfile replay, in order
+ to easily guarantee consistency of your disk.
+ If logfile replay would be paused for the full duration of very large or
+ long-lasting syncs (which could take some days over very slow networks),
+ your 
+\family typewriter
+/mars/
+\family default
+ filesystem could overflow because no replay would be possible in the meantime.
+ Therefore, MARS Light regulary flips between actually syncing and actually
+ replaying, if both is enabled.
+ You can set the time interval for flipping here.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+sync_limit
+\family default
+ (rw) When > 0, this limits the maximum number of sync processes actually
+ running parallel.
+ This is useful if you have a large number of resources, and you don't want
+ to overload the network with sync processes.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+sync_nr
+\family default
+ (ro) Passive indicator for the number of sync processes currently running.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+sync_want
+\family default
+ (ro) Passive indicator for the number of sync processes which 
+\emph on
+demand
+\emph default
+ running.
 \end_layout
 
 \begin_layout Chapter
@@ -16544,6 +24043,40 @@ The Generic Object and Aspect Infrastructure
 
 \begin_layout Chapter
 \start_of_appendix
+Technical Data MARS Light
+\end_layout
+
+\begin_layout Standard
+MARS Light has some built-in limitations which should be overcome
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Some internal algorithms are quadratic.
+ The reason is that MARS Light evolved from a lab prototype which wasn't
+ originally intended for enterprise grade usage, but should have been succeeded
+ by the fully instance-oriented MARS Full much earlier.
+\end_layout
+
+\end_inset
+
+ by the future MARS Full.
+ Please don't exceed the following limits:
+\end_layout
+
+\begin_layout Itemize
+maximum 10 nodes per cluster
+\end_layout
+
+\begin_layout Itemize
+maximum 10 resources per cluster
+\end_layout
+
+\begin_layout Itemize
+maximum 100 logfiles per resource
+\end_layout
+
+\begin_layout Chapter
 GNU Free Documentation License
 \begin_inset CommandInset label
 LatexCommand label
