@@ -1034,12 +1034,12 @@ function resource_correct_emergency
 
     marsadm_do_cmd $secondary_host "invalidate" $res
 
+    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
+
     lib_wait_for_initial_end_of_sync $primary_host $secondary_host $res \
                                   $resource_maxtime_initial_sync \
                                   $resource_time_constant_initial_sync \
                                   "time_waited"
-
-    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
 
     resource_check_resource_running $primary_host $secondary_host $res
 }
