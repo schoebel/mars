@@ -178,6 +178,7 @@ tests_to_execute=(
 "build_test_environment/cluster/create_cluster:build_test_environment"
 "build_test_environment/resource/create_resource:build_test_environment"
 "test_cases/admin/leave_and_recreate_resource:test_cases"
+"test_cases/admin/leave_and_create_standalone_resource:test_cases"
 "test_cases/admin/replay_fetch/replay:test_cases"
 "test_cases/admin/replay_fetch/fetch:test_cases"
 "test_cases/hardcore/destroy_secondary_logfile:test_cases"
