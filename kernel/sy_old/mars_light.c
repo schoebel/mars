@@ -287,6 +287,8 @@ const char *rot_keys[] = {
 	"inf-fetch",
 	// from make_sync()
 	"inf-sync",
+	// from make_log_step()
+	"wrn-log-consecutive",
 	// from make_log_finalize()
 	"inf-replay-start",
 	"wrn-space-low",
@@ -2836,6 +2838,7 @@ int make_log_step(void *buf, struct mars_dent *dent)
 	prev_log = rot->next_log;
 	if (prev_log && prev_log->d_serial + 1 != dent->d_serial) {
 		MARS_WRN_TO(rot->log_say, "transaction logs are not consecutive at '%s' (%d ~> %d)\n", dent->d_path, prev_log->d_serial, dent->d_serial);
+		make_rot_msg(rot, "wrn-log-consecutive", "transaction logs are not consecutive at '%s' (%d ~> %d)\n", dent->d_path, prev_log->d_serial, dent->d_serial);
 	}
 
 	if (dent->d_serial > rot->max_sequence) {
