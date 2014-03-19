@@ -1,4 +1,4 @@
-.TH mars-status 8 "December 12, 2012" "" "Mars Admin"
+.TH mars-status 8 "18.03.2014" "" "Mars Status"
 
 .SH NAME
 mars-status \- program to display status information from mars
@@ -12,10 +12,6 @@ mars-status \- program to display status information from mars
 .br
 .B "Usage: mars-status [--resource <RESNAME>] [--interval <seconds>] [[--history] [--debug] [--system]]"
 .br
-.B "Usage: mars-status [--resource <RESNAME>] --monitor "
-.br
-.B "Usage: mars-status --resource <RESNAME> [--role | --cstate | --dstate]"
-.br
 .B "       --resource : limits the display to the specified resource"
 .br
 .B "       --interval : refreshes the display every second xxx"
@@ -23,10 +19,6 @@ mars-status \- program to display status information from mars
 .B "       --history  : shows information about the log files, version numbers and their status"
 .br
 .B "       --system   : display mars-system informations"
-.br
-.B "       --monitor  : indicator to use for monitoring on all state"
-.br
-.B "       --role|--cstate|--dstate single state on lokal node"
 .br
 .B "       --debug    : additional display error messages and warnings to internal"
 .br
@@ -74,22 +66,6 @@ Shows information about the log files, version numbers and their status.
 .BR debug
 Additional display error messages and warnings to internal.
 .TP
-
-.BR monitor
-Indicator to use for monitoring.
-.TP
-.BR cstate
-Indicator to use for monitoring.
-.TP
-
-.BR dstate
-Indicator to use for monitoring.
-.TP
-
-.BR role
-Indicator to use for monitoring.
-.TP
-
 
 
 .SH BUGS

@@ -1,9 +1,10 @@
 #!/bin/bash
-# v 0.02
-# modify by jms at Fri Jan 31 14:11:36 CET 2014
+# v 0.04
+# modify by jms at Mon Feb 17 10:44:28 CET 2014
 # zabbix mars
 
-TEMPFILE="/tmp/zabbix.mars"
+FINALTEMPFILE="/tmp/zabbix.mars"
+TEMPFILE="${FINALTEMPFILE}.tmp"
 echo -n >$TEMPFILE
 
 
@@ -23,6 +24,12 @@ else
                 echo "# todo $RESNAME $HOSTNAME" >>$TEMPFILE
 		ls -ld /mars/resource-$RESNAME/todo-$HOSTNAME/*   | sed -e 's!.*/todo-.*/!!g' | awk '{print "status '$RESNAME' " $1 " " $3}' >>$TEMPFILE
 	done
-
+	
+	# emergency
+	echo -n "emergency-modus " >>$TEMPFILE
+	ls -l /mars/emergency-$HOSTNAME | awk '{print $11}' >>$TEMPFILE
 
 fi
+
+mv $TEMPFILE $FINALTEMPFILE
+

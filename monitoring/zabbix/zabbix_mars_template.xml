@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <zabbix_export>
     <version>2.0</version>
-    <date>2014-02-05T12:30:02Z</date>
+    <date>2014-03-18T14:18:06Z</date>
     <groups>
         <group>
             <name>Templates</name>
@@ -9,8 +9,8 @@
     </groups>
     <templates>
         <template>
-            <template>Template Mars Server</template>
-            <name>Template Mars Server</name>
+            <template>Template App Mars Server</template>
+            <name>Template App Mars Server</name>
             <groups>
                 <group>
                     <name>Templates</name>
@@ -34,7 +34,7 @@
                     <key>system.mars[copy_read_max_fly]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -73,7 +73,7 @@
                     <key>system.mars[copy_write_max_fly]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -112,7 +112,7 @@
                     <key>system.mars[io_flying_count]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -151,7 +151,7 @@
                     <key>system.mars[io_tuning/writeback_rate_kb]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -190,7 +190,7 @@
                     <key>system.mars[io_tuning/writeback_until_percent]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -229,7 +229,7 @@
                     <key>vfs.file.time[/tmp/zabbix.mars,change]</key>
                     <delay>300</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -268,7 +268,7 @@
                     <key>system.mars[logger_mem_used_kb]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -307,7 +307,7 @@
                     <key>system.mars[mapfree_period_sec]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -346,7 +346,7 @@
                     <key>system.modules[mars]</key>
                     <delay>30</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -385,7 +385,7 @@
                     <key>proc.num[mars_light]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -424,7 +424,7 @@
                     <key>system.marsstatus[{$RESNAME},allow-replay]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -463,7 +463,7 @@
                     <key>system.marsstatus[{$RESNAME},attach]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -502,7 +502,46 @@
                     <key>system.marsstatus[{$RESNAME},connect]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
+                    <status>0</status>
+                    <value_type>3</value_type>
+                    <allowed_hosts/>
+                    <units/>
+                    <delta>0</delta>
+                    <snmpv3_securityname/>
+                    <snmpv3_securitylevel>0</snmpv3_securitylevel>
+                    <snmpv3_authpassphrase/>
+                    <snmpv3_privpassphrase/>
+                    <formula>1</formula>
+                    <delay_flex/>
+                    <params/>
+                    <ipmi_sensor/>
+                    <data_type>0</data_type>
+                    <authtype>0</authtype>
+                    <username/>
+                    <password/>
+                    <publickey/>
+                    <privatekey/>
+                    <port/>
+                    <description/>
+                    <inventory_link>0</inventory_link>
+                    <applications>
+                        <application>
+                            <name>Mars Server Status</name>
+                        </application>
+                    </applications>
+                    <valuemap/>
+                </item>
+                <item>
+                    <name>Mars Server Status - emergency</name>
+                    <type>0</type>
+                    <snmp_community/>
+                    <multiplier>0</multiplier>
+                    <snmp_oid/>
+                    <key>system.mars[emergency-modus]</key>
+                    <delay>60</delay>
+                    <history>90</history>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -541,7 +580,7 @@
                     <key>system.marsstatus[{$RESNAME},is-attached]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -580,7 +619,7 @@
                     <key>system.marsstatus[{$RESNAME},is-copying]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -619,7 +658,7 @@
                     <key>system.marsstatus[{$RESNAME},is-primary]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -658,7 +697,7 @@
                     <key>system.marsstatus[{$RESNAME},is-replaying]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -697,7 +736,7 @@
                     <key>system.marsstatus[{$RESNAME},is-syncing]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -736,7 +775,7 @@
                     <key>system.marsstatus[{$RESNAME},open-count]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -775,7 +814,7 @@
                     <key>system.marsstatus[{$RESNAME},replay_rate]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -814,7 +853,7 @@
                     <key>system.marsstatus[{$RESNAME},sync]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -853,7 +892,7 @@
                     <key>system.mars[propagate_interval_sec]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -892,7 +931,7 @@
                     <key>system.mars[scan_interval_sec]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -931,7 +970,7 @@
                     <key>system.mars[statusfiles_rollover_sec]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -970,7 +1009,7 @@
                     <key>system.mars[sync_flip_interval_sec]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -1009,7 +1048,7 @@
                     <key>system.mars[traffic_tuning/client_role_traffic_rate_kb]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -1048,7 +1087,7 @@
                     <key>system.mars[traffic_tuning/server_role_traffic_rate_kb]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -1087,7 +1126,7 @@
                     <key>system.mars[traffic_tuning/writeback_rate_kb]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -1126,7 +1165,7 @@
                     <key>system.mars[traffic_tuning/writeback_until_percent]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -1165,7 +1204,7 @@
                     <key>system.mars[traffic_tunning/client_role_traffic_count_ops]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -1204,7 +1243,7 @@
                     <key>system.mars[traffic_tunning/server_role_traffic_count_ops]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -1243,7 +1282,7 @@
                     <key>system.mars[write_throttle_count_ops]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -1282,7 +1321,7 @@
                     <key>system.mars[write_throttle_rate_kb]</key>
                     <delay>60</delay>
                     <history>90</history>
-                    <trends>365</trends>
+                    <trends>90</trends>
                     <status>0</status>
                     <value_type>3</value_type>
                     <allowed_hosts/>
@@ -1344,7 +1383,7 @@
                             <sort_triggers>0</sort_triggers>
                             <resource>
                                 <name>mars count percent</name>
-                                <host>Template Mars Server</host>
+                                <host>Template App Mars Server</host>
                             </resource>
                         </screen_item>
                         <screen_item>
@@ -1364,7 +1403,7 @@
                             <sort_triggers>0</sort_triggers>
                             <resource>
                                 <name>mars count sec</name>
-                                <host>Template Mars Server</host>
+                                <host>Template App Mars Server</host>
                             </resource>
                         </screen_item>
                         <screen_item>
@@ -1384,7 +1423,7 @@
                             <sort_triggers>0</sort_triggers>
                             <resource>
                                 <name>mars count kb</name>
-                                <host>Template Mars Server</host>
+                                <host>Template App Mars Server</host>
                             </resource>
                         </screen_item>
                         <screen_item>
@@ -1404,7 +1443,7 @@
                             <sort_triggers>0</sort_triggers>
                             <resource>
                                 <name>mars count ops</name>
-                                <host>Template Mars Server</host>
+                                <host>Template App Mars Server</host>
                             </resource>
                         </screen_item>
                         <screen_item>
@@ -1424,7 +1463,7 @@
                             <sort_triggers>0</sort_triggers>
                             <resource>
                                 <name>mars count io fly</name>
-                                <host>Template Mars Server</host>
+                                <host>Template App Mars Server</host>
                             </resource>
                         </screen_item>
                         <screen_item>
@@ -1444,7 +1483,7 @@
                             <sort_triggers>0</sort_triggers>
                             <resource>
                                 <name>mars count copy fly</name>
-                                <host>Template Mars Server</host>
+                                <host>Template App Mars Server</host>
                             </resource>
                         </screen_item>
                     </screen_items>
@@ -1454,7 +1493,7 @@
     </templates>
     <triggers>
         <trigger>
-            <expression>{Template Mars Server:vfs.file.time[/tmp/zabbix.mars,change].fuzzytime(931)}=0</expression>
+            <expression>{Template App Mars Server:vfs.file.time[/tmp/zabbix.mars,change].fuzzytime(931)}=0</expression>
             <name>Mars check not running on {HOST.NAME}</name>
             <url/>
             <status>0</status>
@@ -1464,7 +1503,17 @@
             <dependencies/>
         </trigger>
         <trigger>
-            <expression>{Template Mars Server:system.marsstatus[{$RESNAME},allow-replay].last(0)}=0 &amp; {Template Mars Server:system.modules[mars].last(0)}=1 &amp; {Template Mars Server:proc.num[mars_light].last(0)}=1</expression>
+            <expression>{Template App Mars Server:system.mars[emergency-modus].last(0)}=1</expression>
+            <name>MARS Device on {HOST.NAME} emergency !</name>
+            <url/>
+            <status>0</status>
+            <priority>5</priority>
+            <description/>
+            <type>0</type>
+            <dependencies/>
+        </trigger>
+        <trigger>
+            <expression>{Template App Mars Server:system.marsstatus[{$RESNAME},allow-replay].last(0)}=0 &amp; {Template App Mars Server:system.modules[mars].last(0)}=1 &amp; {Template App Mars Server:proc.num[mars_light].last(0)}=1</expression>
             <name>MARS Device on {HOST.NAME} not allowed replay</name>
             <url/>
             <status>0</status>
@@ -1474,7 +1523,17 @@
             <dependencies/>
         </trigger>
         <trigger>
-            <expression>{Template Mars Server:system.marsstatus[{$RESNAME},attach].last(0)}=0 &amp; {Template Mars Server:system.modules[mars].last(0)}=1 &amp; {Template Mars Server:proc.num[mars_light].last(0)}=1</expression>
+            <expression>{Template App Mars Server:system.marsstatus[{$RESNAME},is-attached].last(0)}=0 &amp; {Template App Mars Server:system.marsstatus[{$RESNAME},attach].last(0)}=1 &amp; {Template App Mars Server:system.modules[mars].last(0)}=1 &amp; {Template App Mars Server:proc.num[mars_light].last(0)}=1</expression>
+            <name>MARS Device on {HOST.NAME} not attached</name>
+            <url/>
+            <status>0</status>
+            <priority>1</priority>
+            <description/>
+            <type>0</type>
+            <dependencies/>
+        </trigger>
+        <trigger>
+            <expression>{Template App Mars Server:system.marsstatus[{$RESNAME},attach].last(#2)}=0 &amp; {Template App Mars Server:system.modules[mars].last(#2)}=1 &amp; {Template App Mars Server:proc.num[mars_light].last(#2)}=1</expression>
             <name>MARS Device on {HOST.NAME} not attached</name>
             <url/>
             <status>0</status>
@@ -1484,7 +1543,17 @@
             <dependencies/>
         </trigger>
         <trigger>
-            <expression>{Template Mars Server:system.marsstatus[{$RESNAME},connect].last(0)}=0 &amp; {Template Mars Server:system.modules[mars].last(0)}=1 &amp; {Template Mars Server:proc.num[mars_light].last(0)}=1</expression>
+            <expression>{Template App Mars Server:system.marsstatus[{$RESNAME},attach].last(#2)}=0</expression>
+            <name>MARS Device on {HOST.NAME} not attached</name>
+            <url/>
+            <status>0</status>
+            <priority>1</priority>
+            <description>{Template App Mars Server:system.marsstatus[{$RESNAME},is-attached].last(0)}=0 &amp; {Template App Mars Server:system.marsstatus[{$RESNAME},attach].last(0)}=1 &amp; {Template App Mars Server:system.modules[mars].last(0)}=1 &amp; {Template App Mars Server:proc.num[mars_light].last(0)}=1</description>
+            <type>0</type>
+            <dependencies/>
+        </trigger>
+        <trigger>
+            <expression>{Template App Mars Server:system.marsstatus[{$RESNAME},connect].last(0)}=0 &amp; {Template App Mars Server:system.modules[mars].last(0)}=1 &amp; {Template App Mars Server:proc.num[mars_light].last(0)}=1</expression>
             <name>MARS Device on {HOST.NAME} not connected</name>
             <url/>
             <status>0</status>
@@ -1494,17 +1563,7 @@
             <dependencies/>
         </trigger>
         <trigger>
-            <expression>{Template Mars Server:system.marsstatus[{$RESNAME},is-attached].last(0)}=0 &amp; {Template Mars Server:system.marsstatus[{$RESNAME},attach].last(0)}=1 &amp; {Template Mars Server:system.modules[mars].last(0)}=1 &amp; {Template Mars Server:proc.num[mars_light].last(0)}=1</expression>
-            <name>MARS Device on {HOST.NAME} not  is-attached</name>
-            <url/>
-            <status>0</status>
-            <priority>1</priority>
-            <description/>
-            <type>0</type>
-            <dependencies/>
-        </trigger>
-        <trigger>
-            <expression>{Template Mars Server:system.marsstatus[{$RESNAME},is-replaying].last(0)}=0  &amp; {Template Mars Server:system.marsstatus[{$RESNAME},allow-replay].last(0)}=1 &amp; {Template Mars Server:system.modules[mars].last(0)}=1 &amp; {Template Mars Server:proc.num[mars_light].last(0)}=1</expression>
+            <expression>{Template App Mars Server:system.marsstatus[{$RESNAME},is-replaying].last(0)}=0  &amp; {Template App Mars Server:system.marsstatus[{$RESNAME},allow-replay].last(0)}=1 &amp; {Template App Mars Server:system.modules[mars].last(0)}=1 &amp; {Template App Mars Server:proc.num[mars_light].last(0)}=1</expression>
             <name>MARS Device on {HOST.NAME} not is-replaying</name>
             <url/>
             <status>1</status>
@@ -1514,7 +1573,7 @@
             <dependencies/>
         </trigger>
         <trigger>
-            <expression>{Template Mars Server:system.marsstatus[{$RESNAME},sync].last(0)}=0 &amp; {Template Mars Server:system.modules[mars].last(0)}=1 &amp; {Template Mars Server:proc.num[mars_light].last(0)}=1</expression>
+            <expression>{Template App Mars Server:system.marsstatus[{$RESNAME},sync].last(0)}=0 &amp; {Template App Mars Server:system.modules[mars].last(0)}=1 &amp; {Template App Mars Server:proc.num[mars_light].last(0)}=1</expression>
             <name>MARS Device on {HOST.NAME} not sync</name>
             <url/>
             <status>0</status>
@@ -1524,7 +1583,7 @@
             <dependencies/>
         </trigger>
         <trigger>
-            <expression>{Template Mars Server:system.modules[mars].last(0)}=0 | {Template Mars Server:proc.num[mars_light].last(0)}=0</expression>
+            <expression>{Template App Mars Server:system.modules[mars].last(0)}=0 | {Template App Mars Server:proc.num[mars_light].last(0)}=0</expression>
             <name>MARS Module on {HOST.NAME} not loaded or running</name>
             <url/>
             <status>0</status>
@@ -1561,7 +1620,7 @@
                     <calc_fnc>2</calc_fnc>
                     <type>0</type>
                     <item>
-                        <host>Template Mars Server</host>
+                        <host>Template App Mars Server</host>
                         <key>system.mars[copy_read_max_fly]</key>
                     </item>
                 </graph_item>
@@ -1573,7 +1632,7 @@
                     <calc_fnc>2</calc_fnc>
                     <type>0</type>
                     <item>
-                        <host>Template Mars Server</host>
+                        <host>Template App Mars Server</host>
                         <key>system.mars[copy_write_max_fly]</key>
                     </item>
                 </graph_item>
@@ -1605,7 +1664,7 @@
                     <calc_fnc>2</calc_fnc>
                     <type>0</type>
                     <item>
-                        <host>Template Mars Server</host>
+                        <host>Template App Mars Server</host>
                         <key>system.mars[io_flying_count]</key>
                     </item>
                 </graph_item>
@@ -1637,7 +1696,7 @@
                     <calc_fnc>2</calc_fnc>
                     <type>0</type>
                     <item>
-                        <host>Template Mars Server</host>
+                        <host>Template App Mars Server</host>
                         <key>system.mars[io_tuning/writeback_rate_kb]</key>
                     </item>
                 </graph_item>
@@ -1649,7 +1708,7 @@
                     <calc_fnc>2</calc_fnc>
                     <type>0</type>
                     <item>
-                        <host>Template Mars Server</host>
+                        <host>Template App Mars Server</host>
                         <key>system.mars[logger_mem_used_kb]</key>
                     </item>
                 </graph_item>
@@ -1661,7 +1720,7 @@
                     <calc_fnc>2</calc_fnc>
                     <type>0</type>
                     <item>
-                        <host>Template Mars Server</host>
+                        <host>Template App Mars Server</host>
                         <key>system.mars[traffic_tuning/client_role_traffic_rate_kb]</key>
                     </item>
                 </graph_item>
@@ -1673,7 +1732,7 @@
                     <calc_fnc>2</calc_fnc>
                     <type>0</type>
                     <item>
-                        <host>Template Mars Server</host>
+                        <host>Template App Mars Server</host>
                         <key>system.mars[traffic_tuning/server_role_traffic_rate_kb]</key>
                     </item>
                 </graph_item>
@@ -1685,7 +1744,7 @@
                     <calc_fnc>2</calc_fnc>
                     <type>0</type>
                     <item>
-                        <host>Template Mars Server</host>
+                        <host>Template App Mars Server</host>
                         <key>system.mars[traffic_tuning/writeback_rate_kb]</key>
                     </item>
                 </graph_item>
@@ -1697,7 +1756,7 @@
                     <calc_fnc>2</calc_fnc>
                     <type>0</type>
                     <item>
-                        <host>Template Mars Server</host>
+                        <host>Template App Mars Server</host>
                         <key>system.mars[write_throttle_rate_kb]</key>
                     </item>
                 </graph_item>
@@ -1729,7 +1788,7 @@
                     <calc_fnc>2</calc_fnc>
                     <type>0</type>
                     <item>
-                        <host>Template Mars Server</host>
+                        <host>Template App Mars Server</host>
                         <key>system.mars[traffic_tunning/client_role_traffic_count_ops]</key>
                     </item>
                 </graph_item>
@@ -1741,7 +1800,7 @@
                     <calc_fnc>2</calc_fnc>
                     <type>0</type>
                     <item>
-                        <host>Template Mars Server</host>
+                        <host>Template App Mars Server</host>
                         <key>system.mars[traffic_tunning/server_role_traffic_count_ops]</key>
                     </item>
                 </graph_item>
@@ -1753,7 +1812,7 @@
                     <calc_fnc>2</calc_fnc>
                     <type>0</type>
                     <item>
-                        <host>Template Mars Server</host>
+                        <host>Template App Mars Server</host>
                         <key>system.mars[write_throttle_count_ops]</key>
                     </item>
                 </graph_item>
@@ -1785,7 +1844,7 @@
                     <calc_fnc>2</calc_fnc>
                     <type>0</type>
                     <item>
-                        <host>Template Mars Server</host>
+                        <host>Template App Mars Server</host>
                         <key>system.mars[io_tuning/writeback_until_percent]</key>
                     </item>
                 </graph_item>
@@ -1817,7 +1876,7 @@
                     <calc_fnc>2</calc_fnc>
                     <type>0</type>
                     <item>
-                        <host>Template Mars Server</host>
+                        <host>Template App Mars Server</host>
                         <key>system.mars[mapfree_period_sec]</key>
                     </item>
                 </graph_item>
@@ -1829,7 +1888,7 @@
                     <calc_fnc>2</calc_fnc>
                     <type>0</type>
                     <item>
-                        <host>Template Mars Server</host>
+                        <host>Template App Mars Server</host>
                         <key>system.mars[propagate_interval_sec]</key>
                     </item>
                 </graph_item>
@@ -1841,7 +1900,7 @@
                     <calc_fnc>2</calc_fnc>
                     <type>0</type>
                     <item>
-                        <host>Template Mars Server</host>
+                        <host>Template App Mars Server</host>
                         <key>system.mars[scan_interval_sec]</key>
                     </item>
                 </graph_item>
@@ -1853,7 +1912,7 @@
                     <calc_fnc>2</calc_fnc>
                     <type>0</type>
                     <item>
-                        <host>Template Mars Server</host>
+                        <host>Template App Mars Server</host>
                         <key>system.mars[statusfiles_rollover_sec]</key>
                     </item>
                 </graph_item>
@@ -1865,7 +1924,7 @@
                     <calc_fnc>2</calc_fnc>
                     <type>0</type>
                     <item>
-                        <host>Template Mars Server</host>
+                        <host>Template App Mars Server</host>
                         <key>system.mars[sync_flip_interval_sec]</key>
                     </item>
                 </graph_item>
