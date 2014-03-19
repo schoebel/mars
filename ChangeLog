@@ -36,6 +36,18 @@ Release Conventions / Branches / Tagnames
 	WIP-* branches are for development and may be rebased onto anything
 	at any time without notice. They will disappear eventually.
 
+light0.1beta0.18 (feature release)
+--------
+	 * New commands marsadm view-$macroname
+	 * New customizable macro processor
+	 * New err/warn/inf reporting via symlinks
+	 * Per-resource emergency mode
+	 * Allow limiting the sync parallelism
+	 * New flood-protected syslogging
+	 * Some smaller improvements
+	 * Update docs
+	 * Update test suite
+
 light0.1beta0.17
 --------
 	 * Major bugfix: race in logfile switchover could sometimes
