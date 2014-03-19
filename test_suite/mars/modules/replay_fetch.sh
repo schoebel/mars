@@ -99,7 +99,7 @@ function replay_fetch_run
                                                          $length_logfile
 
             marsview_wait_for_state $secondary_host $res "disk" \
-                                    "Outdated\[.*A.*\]" \
+                                    "Outdated\[.*${marsview_replay_flag}.*\]" \
                                     $marsview_wait_for_state_time
             marsview_wait_for_state $secondary_host $res "repl" "-SF--" \
                                     $marsview_wait_for_state_time || lib_exit 1

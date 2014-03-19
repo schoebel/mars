@@ -52,7 +52,8 @@ function syslog_run
                                       "time_waited" 0 ""
         lib_vmsg "  ${FUNCNAME[0]}: replay time: $time_waited"
 
-        marsview_wait_for_state $secondary_host $res "disk" "Outdated\[.*A.*\]" \
+        marsview_wait_for_state $secondary_host $res "disk" \
+                                "Outdated\[.*${marsview_replay_flag}.*\]" \
                                 $marsview_wait_for_state_time
         marsview_wait_for_state $secondary_host $res "repl" '-SF--' \
                                 $marsview_wait_for_state_time || lib_exit 1
@@ -61,7 +62,8 @@ function syslog_run
                                         "write_count"
         main_error_recovery_functions["lib_rw_stop_scripts"]=
 
-        lib_wait_until_fetch_stops "replay_fetch" $secondary_host $primary_host \
+        lib_wait_until_fetch_stops "replay_fetch" \
+                                    $secondary_host $primary_host \
                                    $res "logfile" "length_logfile" \
                                    "time_waited" 0 ""
         lib_vmsg "  ${FUNCNAME[0]}: fetch time: $time_waited"
