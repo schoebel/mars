@@ -889,14 +889,23 @@ sub get_peers {
 
 sub __conv_tv {
   my ($tv_sec, $tv_nsec) = @_;
+  if (defined($tv_nsec)) {
+    $tv_nsec = ".$tv_nsec";
+  } else {
+    $tv_nsec = "";
+  }
   my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(int($tv_sec));
-  return "$tv_sec.$tv_nsec" unless defined($sec);
-  return sprintf("%04d-%02d-%02d %02d:%02d:%02d.%s", $year+1900, $mon + 1, $mday, $hour, $min, $sec, $tv_nsec);
+  return "$tv_sec$tv_nsec" unless defined($sec);
+  return sprintf("%04d-%02d-%02d %02d:%02d:%02d%s", $year+1900, $mon + 1, $mday, $hour, $min, $sec, $tv_nsec);
 }
 
 sub _replace_timestamps {
-  my ($txt) = @_;
-  $txt =~ s:([0-9]{9,99})\.([0-9]{9}):__conv_tv($1,$2):ge;
+  my ($txt, $omit_nsec) = @_;
+  if (defined($omit_nsec) && $omit_nsec) {
+    $txt =~ s:([0-9]{9,99})\.([0-9]{9}):__conv_tv($1):ge;
+  } else {
+    $txt =~ s:([0-9]{9,99})\.([0-9]{9}):__conv_tv($1,$2):ge;
+  }
   return $txt;
 }
 
