@@ -21,7 +21,7 @@ function lib_wait_until_logfile_has_length
 {
     [ $# -eq 7 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local host=$1 logfile=$2 length_logfile=$3
-    local varname_time_waited=$4 maxwait=$5 check_net_throughput=$6 varname_net_throughput=$7
+    local varname_time_waited=$4 maxwait=$5 check_net_throughput=$6 varname_net_throughput="$7"
     local act_length
     local waited=0 start_time=$(date +'%s') end_time
     local my_net_throughput=0 net_throughput_sum=0 net_check_count=0
@@ -68,7 +68,7 @@ function lib_wait_until_fetch_stops
     [ $# -eq 9 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local module=$1 secondary_host=$2 primary_host=$3 res=$4
     local varname_logfile=$5 varname_length_logfile=$6
-    local varname_time_waited=$7 check_net_throughput=$8 varname_net_throughput=$9
+    local varname_time_waited=$7 check_net_throughput=$8 varname_net_throughput="$9"
     local maxtime_fetch time_constant_fetch var v
 
     for var in maxtime_fetch time_constant_fetch; do
@@ -85,7 +85,7 @@ function lib_wait_until_fetch_stops
                                 $time_constant_fetch \
                                 $varname_logfile $varname_length_logfile \
                                 $varname_time_waited \
-                                $check_net_throughput $varname_net_throughput
+                                $check_net_throughput "$varname_net_throughput"
 }
 
 function lib_wait_internal_until_fetch_stops
@@ -93,7 +93,7 @@ function lib_wait_internal_until_fetch_stops
     [ $# -eq 10 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local secondary_host=$1 res=$2 primary_host=$3 maxwait=$4 inactive_wait=$5
     local varname_logfile=$6 varname_logfile_length=$7 varname_time_waited=$8
-    local check_net_throughput=$9 varname_net_throughput=${10}
+    local check_net_throughput=$9 varname_net_throughput="${10}"
     local inactive_waited=0 msg
     local my_logfile length file_and_length file_and_length_old="x"
     local waited=0 msg start_time=$(date +'%s') end_time
@@ -156,7 +156,7 @@ function lib_wait_until_action_stops
     [ $# -eq 8 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local action=$1 host=$2 res=$3 maxwait=$4 inactive_wait=$5
     local varname_time_waited=$6 check_net_throughput=$7
-    local varname_net_throughput=$8
+    local varname_net_throughput="$8"
     local waited=0 link_value link_value_old="x"
     local inactive_waited=0 msg start_time=$(date +'%s') end_time
     local link=$(lib_linktree_get_res_host_linkname $host $res $action)
@@ -236,13 +236,13 @@ function lib_wait_for_secondary_to_become_uptodate_and_cmp_cksums
     local host role logfile length_logfile time_waited write_count
     local net_throughput mount_point
 
-    local maxtime_apply time_constant_apply str var
+    local maxtime_replay time_constant_replay str var
     for str in "maxtime" "time_constant"; do
-        var=${module_name}_${str}_apply
+        var=${module_name}_${str}_replay
         if [ -z "$var" ]; then
             lib_exit 1 "  variable $var not set"
         fi
-        eval ${str}_apply='$'$var
+        eval ${str}_replay='$'$var
     done
 
     lib_wait_until_fetch_stops $module_name $secondary_host $primary_host $res \
@@ -254,28 +254,31 @@ function lib_wait_for_secondary_to_become_uptodate_and_cmp_cksums
                                                  $secondary_host $length_logfile
 
     lib_wait_until_action_stops "replay" $secondary_host $res \
-                                $maxtime_apply \
-                                $time_constant_apply "time_waited" 0 \
+                                $maxtime_replay \
+                                $time_constant_replay "time_waited" 0 \
                                 "net_throughput"
     lib_wait_until_action_stops "replay" $primary_host $res \
-                                $maxtime_apply \
-                                $time_constant_apply "time_waited" 0 \
+                                $maxtime_replay \
+                                $time_constant_replay "time_waited" 0 \
                                 "net_throughput"
-    lib_vmsg "  ${FUNCNAME[0]} called from ${FUNCNAME[1]}: apply time: $time_waited"
+    lib_vmsg "  ${FUNCNAME[0]} called from ${FUNCNAME[1]}: replay time: $time_waited"
 
     lib_linktree_check_equality_and_correctness_of_replay_links $primary_host \
                                                     $secondary_host $res
 
     for role in "primary" "secondary"; do
         eval host='$'${role}_host
-        marsview_wait_for_state $host $res "disk" "Uptodate" $marsview_wait_for_state_time || lib_exit 1
-        marsview_wait_for_state $host $res "repl" "-SFA-" $marsview_wait_for_state_time || lib_exit 1
+        marsview_wait_for_state $host $res "disk" "Uptodate" \
+                                $marsview_wait_for_state_time || lib_exit 1
+        marsview_wait_for_state $host $res "repl" \
+                                "-SF${marsview_replay_flag}-" \
+                                $marsview_wait_for_state_time || lib_exit 1
     done
 
     lib_rw_compare_checksums $primary_host $secondary_host $res $dev_size_to_compare "" ""
 }
 
-function lib_wait_until_apply_has_reached_length
+function lib_wait_until_replay_has_reached_length
 {
     [ $# -eq 5 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local secondary_host=$1 res=$2 logfile=$3 req_applied_length=$4 maxwait=$5
@@ -295,7 +298,7 @@ function lib_wait_until_apply_has_reached_length
         fi
         sleep 1
         let waited+=1
-        lib_vmsg "  waited $waited for apply of $logfile act = $act_applied_length, req = $req_applied_length"
+        lib_vmsg "  waited $waited for replay of $logfile act = $act_applied_length, req = $req_applied_length"
         if [ $waited -eq $maxwait ]; then
             lib_exit 1 "maxwait $maxwait exceeded"
         fi

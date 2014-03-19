@@ -35,7 +35,7 @@ function remote_dev_run
     cluster_create_debugfiles $primary_host
 
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
-                                     "writer_script" 0 0 $res
+                                     "writer_script" 0 0 $res ""
 
     for action in "rotate" "delete"; do
         local sleep_time pid_varname script_varname
@@ -52,7 +52,7 @@ function remote_dev_run
     lib_err_wait_for_error_messages $primary_host $lib_err_total_log_file \
                                 "$remote_dev_errmsg_pattern" \
                                 $remote_dev_number_errmsg_req \
-                                $remote_dev_maxtime_to_wait_for_errmsg
+                                $remote_dev_maxtime_to_wait_for_errmsg "ge"
                                        
     lib_err_check_nonexistence_of_other_error_messages $primary_host \
                                         $lib_err_total_log_file \
@@ -102,7 +102,7 @@ function remote_dev_create_local_link_for_remote_device
 {
     [ $# -eq 3 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local local_host=$1 remote_host=$2 res=$3 
-    local res_dir="${resource_dir_list[$res]}"
+    local res_dir="$(resource_get_resource_dir $res)"
     local link="$res_dir/$(remote_dev_get_magic_link_name $local_host)"
 
     local link_value="${remote_dev_non_existant_file}@${remote_host},remote-floppy"

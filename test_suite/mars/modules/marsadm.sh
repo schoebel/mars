@@ -1,4 +1,23 @@
-#!/bin/sh
+#!/bin/bash
+# Copyright 2010-2014 Frank Liepold /  1&1 Internet AG
+#
+# Email: frank.liepold@1und1.de
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+#####################################################################
 
 function marsadm_do_cmd
 {
@@ -93,7 +112,7 @@ function marsadm_get_number_of_hidden_delete_symlinks
 {
     local host=$1 res=$2
     local resdir ret
-    resdir="${resource_dir_list[$res]}"
+    resdir="$(resource_get_resource_dir $res)"
     ret=$(lib_remote_idfile $host "ls -1 $resdir/.delete-* | wc -l") || \
                                                                     lib_exit 1
     if ! expr "$ret" : '^[0-9][0-9]*$' >/dev/null; then
@@ -167,7 +186,7 @@ function marsadm_check_post_condition_resize
 function marsadm_get_logfilename_prefix
 {
     local res=$1
-    echo "${resource_dir_list[$res]}/log-"
+    echo "$(resource_get_resource_dir $res)/log-"
 }
 
 function marsadm_get_logfilename_postfix
@@ -195,7 +214,7 @@ function marsadm_pause_cmd
     local cmd=$1 host=$2 res=$3
     local marsadm_cmd repl_state
     case $cmd in
-        apply) marsadm_cmd="pause-replay"
+        replay) marsadm_cmd="pause-replay"
                repl_state='...-.'
                ;;
         fetch) marsadm_cmd="disconnect"
@@ -224,7 +243,7 @@ function marsadm_check_warnings_and_disk_state
     # wait a little for the files required
     sleep 2
     case $situation in # ((
-        apply_stopped_after_disconnect)
+        replay_stopped_after_disconnect)
             local link_value not_applied restlen_in_warn_file
             local warn_file="$lib_err_total_log_file"
             local link=$(lib_linktree_get_res_host_linkname $host $res "replay")
@@ -247,7 +266,8 @@ function marsadm_check_warnings_and_disk_state
             if [ $restlen_in_warn_file -ne $not_applied ]; then
                 lib_exit 1 "not applied = $not_applied != $restlen_in_warn_file = restlen in $warn_file"
             fi
-            marsview_wait_for_state $host $res "disk" "Outdated\[FA\]" \
+            marsview_wait_for_state $host $res "disk" \
+                                    "Outdated\[F${marsview_replay_flag}\]" \
                                     $marsview_wait_for_state_time || lib_exit 1
             ;;
         *) lib_exit 1 "invalid situation $situation"
@@ -307,4 +327,13 @@ function marsadm_primary_force
     marsadm_do_cmd $host "disconnect" "$res" || lib_exit 1
     marsadm_do_cmd $host "primary --force" "$res" || lib_exit 1
     marsadm_do_cmd $host "connect" "$res" || lib_exit 1
+}
+
+# without checks and debug messages
+function marsadm_do_pur_cmd
+{
+    [ $# -eq 3 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    local host=$1 cmd="$2" cmd_args="$3"
+    lib_remote_idfile $host "marsadm $cmd --timeout=$marsadm_timeout $cmd_args"
+    return $?
 }

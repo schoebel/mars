@@ -4,7 +4,8 @@ function marsview_check
 {
     local host=$1 res=$2 obj=$3 state_req="$4"
     local result_line field_no
-    result_line=($(lib_remote_idfile $host marsview $res)) || lib_exit 1
+    result_line=($(lib_remote_idfile $host marsadm view-1and1 $res)) || \
+                                                                    lib_exit 1
     field_no=$(marsview_obj_to_field $obj) || lib_exit 1
     local obj_state="${result_line[$field_no]}"
     if ! expr "$obj_state" : "\($state_req\)" >/dev/null; then

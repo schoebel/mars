@@ -172,7 +172,7 @@ marker_file="i_am_a_testdirectory"
 
 # check some preconditions
 
-check_list="grep sed gawk head tail cut nice date gzip gunzip zcat buffer"
+check_list="truncate grep sed gawk head tail cut nice date gzip gunzip zcat buffer"
 check_installed "$check_list"
 
 # include modules

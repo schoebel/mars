@@ -35,7 +35,7 @@ function datadev_full_run
     resize_prepare
 
     datadev_full_dd_on_device $primary_host $data_dev \
-                              $(($data_dev_size_orig + 1)) 123 1 
+                              $(( 1024 * ($data_dev_size_orig + 1) )) 123 1 
     resize_do_resize $primary_host $secondary_host $res $dev \
                      $data_dev_size_new $mars_data_dev_size_new
 
@@ -54,14 +54,14 @@ function datadev_full_run
 function datadev_full_dd_on_device
 {
     [ $# -eq 5 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
-    local host=$1 dev=$2 dev_size=$3 control_nr=$4 should_fail=$5
-    local bs=4096 count=$(($dev_size * 1024 * 1024 / 4)) 
+    local host=$1 dev=$2 size_mb=$3 control_nr=$4 should_fail=$5
+    local bs=4096 count=$(($size_mb * 1024 / 4)) 
     local dd_out rc
     local err_msg='No space left on device'
 
     lib_vmsg "  filling $dev on $host (bs=$bs, count=$count)"
     dd_out=($(lib_remote_idfile $host \
-         "yes $(printf '%0.1024d' $control_nr) | dd of=$dev bs=$bs count=$count 2>&1"))
+         "yes $(printf '%0.1024d' $control_nr) | dd of=$dev bs=$bs conv=notrunc count=$count 2>&1"))
     rc=$?
     if [ $should_fail -eq 1 ]; then
         if [ $rc -eq 0 ]; then
@@ -75,5 +75,42 @@ function datadev_full_dd_on_device
             lib_exit 1 "dd ended with rc=$rc, ${dd_out[@]}"
         fi
     fi
+}
+
+function datadev_full_get_min_required_free_space_mb
+{
+    local host=$1
+    local f free_space free_space_sum=0
+    for f in ${datadev_required_free_space_files[@]}; do
+        free_space="$(lib_remote_idfile $host "cat $f")" || lib_exit 1
+        if ! expr "$free_space" : '\([0-9][0-9]*\)$' >/dev/null; then
+            lib_exit 1 "invalid content in $host:$f"
+        fi
+        let free_space_sum+=$free_space
+    done
+    echo $(( $free_space_sum * 1024 ))
+}
+
+function datadev_full_get_available_free_space_mb
+{
+    local host=$1
+    local mars_lv_name=${cluster_mars_dir_lv_name_list[$host]}
+    local mars_dev_size_mb=$((1024 * \
+                              $(lv_config_get_lv_size_from_name $mars_lv_name)))
+    local required_free_space_mb
+    required_free_space_mb=$(datadev_full_get_min_required_free_space_mb \
+                             $host) || lib_exit 1
+    echo $(( $mars_dev_size_mb - $required_free_space_mb ))
+}
+
+function datadev_full_get_remaining_space_mb
+{
+    local host=$1 remaining
+    remaining="$(lib_remote_idfile $host \
+                 "cat $datadev_remain_free_space_file")" || lib_exit 1
+    if ! expr "$remaining" : '\([0-9][0-9]*\)$' >/dev/null; then
+        lib_exit 1 "invalid content in $host:$datadev_remain_free_space_file"
+    fi
+    echo $(($remaining / 1024))
 }
 

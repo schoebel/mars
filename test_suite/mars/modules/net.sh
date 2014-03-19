@@ -35,7 +35,7 @@ function net_run
     resource_clear_data_device $primary_host $res
  
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
-                                     "writer_script"  0 1 $res
+                                     "writer_script"  0 1 $res ""
 
     sleep $net_time_data_dev_writer
 

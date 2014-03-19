@@ -133,20 +133,24 @@ function lib_err_check_and_copy_global_err_files_all
 
 function lib_err_wait_for_error_messages
 {
-    [ $# -eq 5 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    [ $# -eq 6 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local host=$1 msg_file=$2 errmsg_pattern="$3"
-    local number_errmsg_req=$4 maxwait=$5
+    local number_errmsg_req=$4 maxwait=$5 comp_cmd=$6
     local count waited=0 rc
 
-    lib_vmsg "  checking existence of file $msg_file on $host"
-    lib_remote_idfile $host "ls -l --full-time $msg_file" || lib_exit 1
+    case $comp_cmd in # ((
+        eq|le|ge) :;;
+              *) lib_exit 1 "wrong comp_cmd type $comp_cmd" ;;
+    esac
+    lib_vmsg "   waiting for error messages in $msg_file on $host"
     while true; do
-        count=$(lib_remote_idfile $host \
-                "egrep '$errmsg_pattern' $msg_file | wc -l") || lib_exit 1
+        count=$(lib_err_count_error_messages $host "$errmsg_pattern" \
+                                             $msg_file) || lib_exit 1
         lib_vmsg "  found $count messages (pattern = '$errmsg_pattern'), waited $waited"
-        if [ $count -ge $number_errmsg_req ]; then
+        if [ $count -$comp_cmd $number_errmsg_req ]; then
             break
         fi
+        lib_vmsg "  waited $waited for $msg_file to exist or $number_errmsg_req to be found in $msg_file"
         let waited+=1
         sleep 1
         if [ $waited -ge $maxwait ]; then
@@ -155,3 +159,15 @@ function lib_err_wait_for_error_messages
     done
 }
 
+function lib_err_count_error_messages
+{
+    [ $# -eq 3 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    local host=$1 errmsg_pattern="$2" msg_file=$3
+    if lib_remote_idfile $host "ls -l --full-time $msg_file" >/dev/null; then
+        lib_remote_idfile $host \
+                "egrep '$errmsg_pattern' $msg_file | grep -vw egrep | wc -l" \
+                                                                || lib_exit 1
+        return
+    fi
+    echo 0
+}
