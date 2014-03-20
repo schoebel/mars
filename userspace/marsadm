@@ -3375,7 +3375,7 @@ my %complex_macros =
    .  "}"
 
    .  "%let{wrn-count}{%get-resource-wrn-count{}}"
-   .  "%if{%{wrn-count}}{"
+   .  "%if{%and{%{verbose}}{%{wrn-count}}}{"
    .    "WARNINGS FILE (%{wrn-count})"
    .    "%if{%{verbose}}{"
    .      ":\n%get-resource-wrn{}"
@@ -3422,7 +3422,7 @@ my %complex_macros =
    .  "}"
 
    .  "%let{wrn-count}{%get-resource-wrn-count{}}"
-   .  "%if{%{wrn-count}}{"
+   .  "%if{%and{%{verbose}}{%{wrn-count}}}{"
    .    "WARNINGS FILE (%{wrn-count})"
    .    "%if{%{verbose}}{"
    .      ":\n%get-resource-wrn{}"
