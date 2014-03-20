@@ -67,7 +67,7 @@ function net_do_impact_cmd
     fi
     for var in pattern replace; do
         local x
-        eval x='$'$var
+        x=${!var}
         if [ -z "$x" ]; then
             lib_exit 1 "cannot determine $var in replace_expression $replace_expression"
         fi

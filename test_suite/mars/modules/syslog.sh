@@ -124,12 +124,12 @@ function syslog_set_logging_parameters
     for param in class limit recovery_s; do
         varname='syslog_flood_'$param
         lib_vmsg "  setting $varname on $host"
-        eval value='$'$varname
+        value=${!varname}
         if [ -z "$value" ]; then
             lib_exit 1 "no value found for variable $varname"
         fi
         filename='syslog_flood_'$param'_file'
-        eval file='$'$filename
+        file=${!filename}
         lib_remote_idfile $host "ls -l $file" || lib_exit 1
         lib_remote_idfile $host "echo $value > $file" || lib_exit 1
     done
