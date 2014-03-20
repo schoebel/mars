@@ -4,7 +4,7 @@ Release Conventions / Branches / Tagnames
 		 - Asynchronous replication for the internal needs of
 		   shared hosting and other ITOPS departments at 1&1.
 		 - Unstable tagnames: light0.1beta%d.%d
-		 - Stable branch: light0.1.y (planned)
+		 - Stable branch: light0.1.y
 		 - Stable tagnames: light0.1stable%02d (planned)
 
 	light0.2 series (planned):
