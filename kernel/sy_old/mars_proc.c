@@ -127,13 +127,14 @@ int lamport_sysctl_handler(
 	if (write) {
 		return -EINVAL;
 	} else {
-		char *tmp = brick_string_alloc(len);
+		int my_len = 128;
+		char *tmp = brick_string_alloc(my_len);
 		struct timespec know = CURRENT_TIME;
 		struct timespec lnow;
 
 		get_lamport(&lnow);
 		
-		res = scnprintf(tmp, len,
+		res = scnprintf(tmp, my_len,
 			       "CURRENT_TIME=%ld.%09ld\n"
 			       "lamport_now=%ld.%09ld\n",
 			       know.tv_sec, know.tv_nsec,
