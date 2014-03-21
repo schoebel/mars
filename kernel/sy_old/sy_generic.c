@@ -191,14 +191,12 @@ EXPORT_SYMBOL_GPL(mars_symlink);
 
 char *mars_readlink(const char *newpath)
 {
-	char *res = brick_string_alloc(MARS_SYMLINK_MAX + 1);
+	char *res = NULL;
 	struct path path = {};
 	mm_segment_t oldfs;
 	struct inode *inode;
+	int len;
 	int status = -ENOMEM;
-
-	if (unlikely(!res))
-		goto done;
 
 	oldfs = get_fs();
 	set_fs(get_ds());
@@ -210,13 +208,21 @@ char *mars_readlink(const char *newpath)
 	}
 
 	inode = path.dentry->d_inode;
-	if (unlikely(!inode)) {
+	if (unlikely(!inode || !S_ISLNK(inode->i_mode))) {
 		MARS_ERR("link '%s' has invalid inode\n", newpath);
 		status = -EINVAL;
 		goto done_put;
 	}
 
-	status = inode->i_op->readlink(path.dentry, res, MARS_SYMLINK_MAX);
+	len = i_size_read(inode);
+	if (unlikely(len <= 0 || len > PAGE_SIZE)) {
+		MARS_ERR("link '%s' invalid length = %d\n", newpath, len);
+		status = -EINVAL;
+		goto done_put;
+	}
+	res = brick_string_alloc(len + 2);
+
+	status = inode->i_op->readlink(path.dentry, res, len + 1);
 	if (unlikely(status < 0)) {
 		MARS_ERR("cannot read link '%s', status = %d\n", newpath, status);
 	} else {
@@ -228,8 +234,10 @@ done_put:
 	
 done_fs:
 	set_fs(oldfs);
-done:
 	if (unlikely(status < 0)) {
+		if (unlikely(!res)) {
+			res = brick_string_alloc(1);
+		}
 		res[0] = '\0';
 	}
 	return res;
