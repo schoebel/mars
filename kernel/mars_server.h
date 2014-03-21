@@ -17,6 +17,7 @@ struct server_mref_aspect {
 	GENERIC_ASPECT(mref);
 	struct server_brick *brick;
 	struct list_head cb_head;
+	bool do_put;
 };
 
 struct server_output {

@@ -96,8 +96,12 @@ int cb_thread(void *data)
 			mars_shutdown_socket(sock);
 		}
 
-		GENERIC_INPUT_CALL(brick->inputs[0], mref_put, mref);
-		atomic_dec(&brick->in_flight);
+		if (mref_a->do_put) {
+			GENERIC_INPUT_CALL(brick->inputs[0], mref_put, mref);
+			atomic_dec(&brick->in_flight);
+		} else {
+			mars_free_mref(mref);
+		}
 	}
 
 	mars_shutdown_socket(sock);
@@ -145,6 +149,7 @@ err:
 	MARS_FAT("cannot handle callback - giving up\n");
 }
 
+static
 int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_cmd *cmd)
 {
 	struct mref_object *mref;
@@ -187,7 +192,7 @@ int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_
 		status = 0; // continue serving requests
 		goto done;
 	}
-	
+	mref_a->do_put = true;
 	atomic_inc(&brick->in_flight);
 	GENERIC_INPUT_CALL(brick->inputs[0], mref_io, mref);
 
@@ -213,7 +218,12 @@ void _clean_list(struct server_brick *brick, struct list_head *start)
 		if (!mref)
 			continue;
 
-		GENERIC_INPUT_CALL(brick->inputs[0], mref_put, mref);
+		if (mref_a->do_put) {
+			GENERIC_INPUT_CALL(brick->inputs[0], mref_put, mref);
+			atomic_dec(&brick->in_flight);
+		} else {
+			mars_free_mref(mref);
+		}
 	}
 }
 
