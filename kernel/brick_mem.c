@@ -696,7 +696,7 @@ EXPORT_SYMBOL_GPL(brick_iomap);
 
 // module
 
-void brick_mem_statistics(void)
+void brick_mem_statistics(bool final)
 {
 #ifdef BRICK_DEBUG_MEM
 	int i;
@@ -739,7 +739,13 @@ void brick_mem_statistics(void)
 				  atomic_read(&block_free[i]));
 		}
 	}
-	BRICK_INF("======== %d block allocations in %d places (phys=%d)\n", count, places, atomic_read(&phys_block_alloc));
+	if (!final || !count) {
+		BRICK_INF("======== %d block allocations in %d places (phys=%d)\n",
+			  count, places, atomic_read(&phys_block_alloc));
+	} else {
+		BRICK_ERR("======== %d block allocations in %d places (phys=%d)\n",
+			  count, places, atomic_read(&phys_block_alloc));
+	}
 	count = places = 0;
 	for (i = 0; i < BRICK_DEBUG_MEM; i++) {
 		int val = atomic_read(&mem_count[i]);
@@ -755,8 +761,15 @@ void brick_mem_statistics(void)
 				  atomic_read(&mem_free[i]));
 		}
 	}
-	BRICK_INF("======== %d memory allocations in %d places (phys=%d,redirect=%d)\n",
-		  count, places, atomic_read(&phys_mem_alloc), atomic_read(&mem_redirect_alloc));
+	if (!final || !count) {
+		BRICK_INF("======== %d memory allocations in %d places (phys=%d,redirect=%d)\n",
+			  count, places,
+			  atomic_read(&phys_mem_alloc), atomic_read(&mem_redirect_alloc));
+	} else {
+		BRICK_ERR("======== %d memory allocations in %d places (phys=%d,redirect=%d)\n",
+			  count, places,
+			  atomic_read(&phys_mem_alloc), atomic_read(&mem_redirect_alloc));
+	}
 	count = places = 0;
 	for (i = 0; i < BRICK_DEBUG_MEM; i++) {
 		int val = atomic_read(&string_count[i]);
@@ -771,7 +784,13 @@ void brick_mem_statistics(void)
 				  atomic_read(&string_free[i]));
 		}
 	}
-	BRICK_INF("======== %d string allocations in %d places (phys=%d)\n", count, places, atomic_read(&phys_string_alloc));
+	if (!final || !count) {
+		BRICK_INF("======== %d string allocations in %d places (phys=%d)\n",
+			  count, places, atomic_read(&phys_string_alloc));
+	} else {
+		BRICK_ERR("======== %d string allocations in %d places (phys=%d)\n",
+			  count, places, atomic_read(&phys_string_alloc));
+	}
 #endif
 }
 EXPORT_SYMBOL_GPL(brick_mem_statistics);
@@ -799,7 +818,7 @@ void __exit exit_brick_mem(void)
 	_free_all();
 #endif
 
-	brick_mem_statistics();
+	brick_mem_statistics(true);
 }
 
 #ifndef CONFIG_MARS_HAVE_BIGMODULE

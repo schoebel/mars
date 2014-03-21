@@ -1831,7 +1831,7 @@ void show_statistics(struct mars_global *global, const char *class)
 	if (!global_show_statist)
 		return; // silently
 	
-	brick_mem_statistics();
+	brick_mem_statistics(false);
 
 	down_read(&global->brick_mutex);
 	MARS_STAT("================================== %s bricks:\n", class);

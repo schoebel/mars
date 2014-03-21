@@ -195,7 +195,7 @@ extern int brick_mem_reserve(void);
 
 #endif
 
-extern void brick_mem_statistics(void);
+extern void brick_mem_statistics(bool final);
 
 /////////////////////////////////////////////////////////////////////////
 
