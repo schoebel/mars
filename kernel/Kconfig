@@ -110,13 +110,6 @@ config MARS_SEPARATE_PORTS
 	If unsure, say Y.
 
 
-config MARS_MEM_RETRY
-	bool "make MARS memory allocation more robust"
-	depends on MARS
-	default y
-	---help---
-	Normally ON. Switch only off for systems having very low memory.
-
 config MARS_LOGDIR
 	string "absolute path to the logging directory"
 	depends on MARS

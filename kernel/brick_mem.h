@@ -41,11 +41,23 @@
 #endif
 
 #define GFP_BRICK GFP_NOIO
-//#define GFP_BRICK GFP_KERNEL // can lead to deadlocks!
 
 extern long long brick_global_memavail;
 extern long long brick_global_memlimit;
 extern atomic64_t brick_global_block_used;
+
+/* All brick memory allocations are guaranteed to succeed.
+ * In case of low memory, they will just retry (forever).
+ *
+ * We always prefer threads for concurrency.
+ * Therefore, in_interrupt() code does not occur, and we can
+ * always sleep in case of memory pressure.
+ *
+ * Resource deadlocks are avoided by the above memory limits.
+ * When exceeded, new memory is simply not allocated any more
+ * (except for vital memory, such as IO memory for which a
+ * low_mem_reserve must always exist, anyway).
+ */
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -82,26 +94,13 @@ extern atomic64_t brick_global_block_used;
  * (c.f. upstream kernel commit a3ca86aea507904148870946d599e07a340b39bf)
  */
 extern inline
-void *__mark_ptr_nonnull(void *_ptr)
+void *brick_mark_nonnull(void *_ptr)
 {
 	char *ptr = _ptr;
 	// fool gcc to believe that the pointer were dereferenced...
 	asm("" : : "X" (*ptr));
 	return ptr;
 }
-
-/* All the brick memory allocations are guaranteed to succeed when
- * CONFIG_MARS_MEM_RETRY is set. In case of low memory, they will just
- * retry (forever).
- *
- * Allow checking code to be written which works for both cases:
- * CONFIG_MARS_MEM_RETRY is selected, or not.
- */
-#ifdef CONFIG_MARS_MEM_RETRY
-#define brick_mark_nonnull __mark_ptr_nonnull
-#else
-#define brick_mark_nonnull(p) (p)
-#endif
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -117,9 +116,7 @@ void *__mark_ptr_nonnull(void *_ptr)
 	({								\
 		void *_res_ = _brick_mem_alloc(_len_, __LINE__);	\
 		_res_ = brick_mark_nonnull(_res_);			\
-		if (_res_) {						\
-			memset(_res_, 0, _len_);			\
-		}							\
+		memset(_res_, 0, _len_);				\
 		_res_;							\
 	})
 
@@ -151,11 +148,9 @@ extern void _brick_mem_free(void *data, int line);
 	({								\
 		char *_res_ = _brick_string_alloc((_len_) + 1, __LINE__); \
 		_res_ = brick_mark_nonnull(_res_);			\
-		if (_res_) {						\
-			strncpy(_res_, (_orig_), (_len_) + 1);		\
-			/* always null-terminate for safety */		\
-			_res_[_len_] = '\0';				\
-		}							\
+		strncpy(_res_, (_orig_), (_len_) + 1);			\
+		/* always null-terminate for safety */			\
+		_res_[_len_] = '\0';					\
 		(char*)brick_mark_nonnull(_res_);			\
 	})
 
@@ -164,9 +159,7 @@ extern void _brick_mem_free(void *data, int line);
 		int _len_ = strlen(_orig_);				\
 		char *_res_ = _brick_string_alloc((_len_) + 1, __LINE__); \
 		_res_ = brick_mark_nonnull(_res_);			\
-		if (_res_) {						\
-			strncpy(_res_, (_orig_), (_len_) + 1);		\
-		}							\
+		strncpy(_res_, (_orig_), (_len_) + 1);			\
 		(char*)brick_mark_nonnull(_res_);			\
 	})
 

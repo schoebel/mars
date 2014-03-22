@@ -120,7 +120,6 @@ void *__brick_mem_alloc(int len)
 #endif
 		res = _brick_block_alloc(0, len, 0);
 	} else {
-#ifdef CONFIG_MARS_MEM_RETRY
 		for (;;) {
 			res = kmalloc(len, GFP_BRICK);
 			if (likely(res))
@@ -129,13 +128,6 @@ void *__brick_mem_alloc(int len)
 		}
 #ifdef BRICK_DEBUG_MEM
 		atomic_inc(&phys_mem_alloc);
-#endif
-#else
-		res = kmalloc(len, GFP_BRICK);
-#ifdef BRICK_DEBUG_MEM
-		if (res)
-			atomic_inc(&phys_mem_alloc);
-#endif
 #endif
 	}
 	return res;
@@ -166,26 +158,24 @@ void *_brick_mem_alloc(int len, int line)
 
 	res = __brick_mem_alloc(len + PLUS_SIZE);
 
-	if (likely(res)) {
 #ifdef BRICK_DEBUG_MEM
-		if (unlikely(line < 0))
-			line = 0;
-		else if (unlikely(line >= BRICK_DEBUG_MEM))
-			line = BRICK_DEBUG_MEM - 1;
-		INT_ACCESS(res, 0 * sizeof(int)) = MAGIC_MEM1;
-		INT_ACCESS(res, 1 * sizeof(int)) = len;
-		INT_ACCESS(res, 2 * sizeof(int)) = line;
-		INT_ACCESS(res, 3 * sizeof(int)) = MAGIC_MEM2;
-		res += 4 * sizeof(int);
-		INT_ACCESS(res, len + 0 * sizeof(int)) = MAGIC_MEND1;
-		INT_ACCESS(res, len + 1 * sizeof(int)) = MAGIC_MEND2;
-		atomic_inc(&mem_count[line]);
-		mem_len[line] = len;
+	if (unlikely(line < 0))
+		line = 0;
+	else if (unlikely(line >= BRICK_DEBUG_MEM))
+		line = BRICK_DEBUG_MEM - 1;
+	INT_ACCESS(res, 0 * sizeof(int)) = MAGIC_MEM1;
+	INT_ACCESS(res, 1 * sizeof(int)) = len;
+	INT_ACCESS(res, 2 * sizeof(int)) = line;
+	INT_ACCESS(res, 3 * sizeof(int)) = MAGIC_MEM2;
+	res += 4 * sizeof(int);
+	INT_ACCESS(res, len + 0 * sizeof(int)) = MAGIC_MEND1;
+	INT_ACCESS(res, len + 1 * sizeof(int)) = MAGIC_MEND2;
+	atomic_inc(&mem_count[line]);
+	mem_len[line] = len;
 #else
-		INT_ACCESS(res, 0 * sizeof(int)) = len;
-		res += PLUS_SIZE;
+	INT_ACCESS(res, 0 * sizeof(int)) = len;
+	res += PLUS_SIZE;
 #endif
-	}
 	return res;
 }
 EXPORT_SYMBOL_GPL(_brick_mem_alloc);
@@ -283,38 +273,32 @@ char *_brick_string_alloc(int len, int line)
 		len = BRICK_STRING_LEN;
 	}
 
-#ifdef CONFIG_MARS_MEM_RETRY
 	for (;;) {
-#endif
 		res = kzalloc(len + STRING_PLUS, GFP_BRICK);
-#ifdef CONFIG_MARS_MEM_RETRY
 		if (likely(res))
 			break;
 		msleep(1000);
 	}
-#endif
 
 #ifdef BRICK_DEBUG_MEM
-	if (likely(res)) {
 #ifdef CONFIG_MARS_DEBUG_MEM_STRONG
-		memset(res + 1, '?', len - 1);
+	memset(res + 1, '?', len - 1);
 #endif
-		atomic_inc(&phys_string_alloc);
-		if (unlikely(line < 0))
-			line = 0;
-		else if (unlikely(line >= BRICK_DEBUG_MEM))
-			line = BRICK_DEBUG_MEM - 1;
-		INT_ACCESS(res, 0) = MAGIC_STR;
-		INT_ACCESS(res, sizeof(int)) = len;
-		INT_ACCESS(res, sizeof(int) * 2) = line;
-		res += sizeof(int) * 3;
+	atomic_inc(&phys_string_alloc);
+	if (unlikely(line < 0))
+		line = 0;
+	else if (unlikely(line >= BRICK_DEBUG_MEM))
+		line = BRICK_DEBUG_MEM - 1;
+	INT_ACCESS(res, 0) = MAGIC_STR;
+	INT_ACCESS(res, sizeof(int)) = len;
+	INT_ACCESS(res, sizeof(int) * 2) = line;
+	res += sizeof(int) * 3;
 #ifdef CONFIG_MARS_DEBUG_MEM_STRONG
-		strcpy(res + len, STRING_CANARY);
+	strcpy(res + len, STRING_CANARY);
 #else
-		INT_ACCESS(res, len) = MAGIC_SEND;
+	INT_ACCESS(res, len) = MAGIC_SEND;
 #endif
-		atomic_inc(&string_count[line]);
-	}
+	atomic_inc(&string_count[line]);
 #endif
 	return res;
 }
@@ -493,31 +477,26 @@ static inline
 void *__brick_block_alloc(gfp_t gfp, int order, int cline)
 {
 	void *res;
-#ifdef CONFIG_MARS_MEM_RETRY
+
 	for (;;) {
-#endif
 #ifdef USE_KERNEL_PAGES
 		res = (void*)__get_free_pages(gfp, order);
 #else
 		res = __vmalloc(PAGE_SIZE << order, gfp, PAGE_KERNEL_IO);
 #endif
-#ifdef CONFIG_MARS_MEM_RETRY
 		if (likely(res))
 			break;
 		msleep(1000);
 	}
-#endif
 
-	if (likely(res)) {
 #ifdef CONFIG_MARS_DEBUG_MEM_STRONG
-		_new_block_info(res, PAGE_SIZE << order, cline);
+	_new_block_info(res, PAGE_SIZE << order, cline);
 #endif
 #ifdef BRICK_DEBUG_MEM
-		atomic_inc(&phys_block_alloc);
-		atomic_inc(&raw_count[order]);
+	atomic_inc(&phys_block_alloc);
+	atomic_inc(&raw_count[order]);
 #endif
-		atomic64_add((PAGE_SIZE/1024) << order, &brick_global_block_used);
-	}
+	atomic64_add((PAGE_SIZE/1024) << order, &brick_global_block_used);
 
 	return res;
 }
@@ -745,7 +724,7 @@ void *_brick_block_alloc(loff_t pos, int len, int line)
 		data = __brick_block_alloc(GFP_BRICK, order, line);
 	
 #ifdef BRICK_DEBUG_MEM
-	if (likely(data) && order > 0) {
+	if (order > 0) {
 		if (unlikely(line < 0))
 			line = 0;
 		else if (unlikely(line >= BRICK_DEBUG_MEM))
