@@ -145,17 +145,28 @@ struct callback_object {
 
 /* Initial setup of the callback chain
  */
-#define SETUP_CALLBACK(obj,fn,priv)					\
+#define _SETUP_CALLBACK(obj,fn,priv)					\
 	(obj)->_object_cb.cb_fn = (fn);					\
 	(obj)->_object_cb.cb_private = (priv);				\
 	(obj)->_object_cb.cb_error = 0;					\
 	(obj)->_object_cb.cb_next = NULL;				\
 	(obj)->object_cb = &(obj)->_object_cb;				\
 
+#ifdef BRICK_DEBUGGING
+#define SETUP_CALLBACK(obj,fn,priv)					\
+	if (unlikely((obj)->_object_cb.cb_fn)) {			\
+		BRICK_ERR("callback function %p is already installed (new=%p)\n", \
+			  (obj)->_object_cb.cb_fn, (fn));		\
+	}								\
+	_SETUP_CALLBACK(obj,fn,priv)
+#else
+#define SETUP_CALLBACK(obj,fn,priv) _SETUP_CALLBACK(obj,fn,priv)
+#endif
+
 /* Insert a new member into the callback chain
  */
-#define INSERT_CALLBACK(obj,new,fn,priv)				\
-	if (!(new)->cb_fn) {						\
+#define _INSERT_CALLBACK(obj,new,fn,priv)				\
+	if (likely(!(new)->cb_fn)) {					\
 		(new)->cb_fn = (fn);					\
 		(new)->cb_private = (priv);				\
 		(new)->cb_error = 0;					\
@@ -163,15 +174,30 @@ struct callback_object {
 		(obj)->object_cb = (new);				\
 	}
 
+#ifdef BRICK_DEBUGGING
+#define INSERT_CALLBACK(obj,new,fn,priv)				\
+	if (unlikely(!(obj)->_object_cb.cb_fn)) {			\
+		BRICK_ERR("initical callback function is missing\n");	\
+	}								\
+	_INSERT_CALLBACK(obj,new,fn,priv)				\
+	else { BRICK_ERR("new object %p is not pristine\n", (new)->cb_fn); }
+#else
+#define INSERT_CALLBACK(obj,new,fn,priv) _INSERT_CALLBACK(obj,new,fn,priv)
+#endif
+
 /* Call the first callback in the chain.
  */
 #define SIMPLE_CALLBACK(obj,err)					\
-	if (obj) {							\
+	if (likely(obj)) {						\
 		struct generic_callback *__cb = (obj)->object_cb;	\
-		if (__cb) {						\
+		if (likely(__cb)) {					\
 			__cb->cb_error = (err);				\
 			__cb->cb_fn(__cb);				\
+		} else {						\
+			BRICK_ERR("callback object_cb pointer is NULL\n"); \
 		}							\
+	} else {							\
+		BRICK_ERR("callback obj pointer is NULL\n");		\
 	}
 
 #define CHECKED_CALLBACK(obj,err,done)					\
@@ -193,6 +219,17 @@ struct callback_object {
 		CHECK_PTR_NULL(__next_cb, done);			\
 		__next_cb->cb_error = (cb)->cb_error;			\
 		__next_cb->cb_fn(__next_cb);				\
+	}
+
+/* The last callback handler in the chain should call this
+ * for checking whether the end of the chain has been reached
+ */
+#define LAST_CALLBACK(cb)						\
+	{								\
+		struct generic_callback *__next_cb = (cb)->cb_next;	\
+		if (unlikely(__next_cb)) {				\
+			BRICK_ERR("end of callback chain %p has not been reached, rest = %p\n", (cb), __next_cb); \
+		}							\
 	}
 
 /* Query the callback status.
