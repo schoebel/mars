@@ -90,6 +90,7 @@ void log_write_endio(struct generic_callback *cb)
 	struct log_cb_info *cb_info = cb->cb_private;
 	struct log_status *logst;
 
+	LAST_CALLBACK(cb);
 	CHECK_PTR(cb_info, err);
 
 	if (cb_info->mref) {
@@ -373,6 +374,7 @@ void log_read_endio(struct generic_callback *cb)
 {
 	struct log_status *logst = cb->cb_private;
 
+	LAST_CALLBACK(cb);
 	CHECK_PTR(logst, err);
 	logst->error_code = cb->cb_error;
 	logst->got = true;

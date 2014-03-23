@@ -57,6 +57,7 @@ static void _usebuf_endio(struct generic_callback *cb)
 	struct usebuf_mref_aspect *sub_mref_a;
 	struct mref_object *sub_mref;
 
+	LAST_CALLBACK(cb);
 	CHECK_PTR(mref_a, done);
 	mref = mref_a->object;
 	CHECK_PTR(mref, done);

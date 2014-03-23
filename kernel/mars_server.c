@@ -126,9 +126,13 @@ void server_endio(struct generic_callback *cb)
 	CHECK_PTR(mref_a, err);
 	mref = mref_a->object;
 	CHECK_PTR(mref, err);
+	LAST_CALLBACK(cb);
+	if (unlikely(cb != &mref->_object_cb)) {
+		MARS_ERR("bad cb pointer %p != %p\n", cb, &mref->_object_cb);
+	}
 
 	brick = mref_a->brick;
-	if (!brick) {
+	if (unlikely(!brick)) {
 		MARS_WRN("late IO callback -- cannot do anything\n");
 		return;
 	}

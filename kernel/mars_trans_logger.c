@@ -1125,6 +1125,7 @@ void wb_endio(struct generic_callback *cb)
 	void (**_endio)(struct generic_callback *cb);
 	void (*endio)(struct generic_callback *cb);
 
+	LAST_CALLBACK(cb);
 	sub_mref_a = cb->cb_private;
 	CHECK_PTR(sub_mref_a, err);
 	sub_mref = sub_mref_a->object;
@@ -2663,6 +2664,7 @@ void replay_endio(struct generic_callback *cb)
 	struct trans_logger_brick *brick;
 	unsigned long flags;
 
+	LAST_CALLBACK(cb);
 	CHECK_PTR(mref_a, err);
 	brick = mref_a->my_brick;
 	CHECK_PTR(brick, err);

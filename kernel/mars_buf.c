@@ -688,6 +688,7 @@ static void _buf_endio(struct generic_callback *cb)
 	int count = 0;
 #endif
 
+	LAST_CALLBACK(cb);
 	CHECK_PTR(bf_mref_a, err);
 	bf_mref = bf_mref_a->object;
 	CHECK_PTR(bf_mref, err);

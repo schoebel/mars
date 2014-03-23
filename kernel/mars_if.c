@@ -116,6 +116,7 @@ void if_endio(struct generic_callback *cb)
 	int rw;
 	int error;
 
+	LAST_CALLBACK(cb);
 	if (unlikely(!mref_a || !mref_a->object)) {
 		MARS_FAT("mref_a = %p mref = %p, something is very wrong here!\n", mref_a, mref_a->object);
 		return;

@@ -188,6 +188,7 @@ void copy_endio(struct generic_callback *cb)
 	int queue;
 	int error = 0;
 
+	LAST_CALLBACK(cb);
 	mref_a = cb->cb_private;
 	CHECK_PTR(mref_a, err);
 	mref = mref_a->object;
