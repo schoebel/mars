@@ -65,6 +65,20 @@ EXPORT_SYMBOL_GPL(mars_dent_meta);
 
 // some helpers
 
+static inline
+int _length_paranoia(int len, int line)
+{
+	if (unlikely(len < 0)) {
+		MARS_ERR("implausible string length %d (line=%d)\n", len, line);
+		len = PAGE_SIZE - 2;
+	} else if (unlikely(len > PAGE_SIZE - 2)) {
+		MARS_WRN("string length %d will be truncated to %d (line=%d)\n",
+			 len, (int)PAGE_SIZE - 2, line);
+		len = PAGE_SIZE - 2;
+	}
+	return len;
+}
+
 int mars_stat(const char *path, struct kstat *stat, bool use_lstat)
 {
 	mm_segment_t oldfs;
@@ -549,6 +563,7 @@ int get_inode(char *newpath, struct mars_dent *dent)
 			status = -EINVAL;
 			goto done;
 		}
+		len = _length_paranoia(len, __LINE__);
 
 		status = user_path_at(AT_FDCWD, newpath, 0, &path);
 		if (unlikely(status < 0)) {
@@ -559,21 +574,18 @@ int get_inode(char *newpath, struct mars_dent *dent)
                 inode = path.dentry->d_inode;
 
 		status = -ENOMEM;
-		link = brick_string_alloc(0);
-		if (likely(link)) {
-			MARS_IO("len = %d\n", len);
-			status = inode->i_op->readlink(path.dentry, link, len + 1);
-			link[len] = '\0';
-			if (status < 0 ||
-			   (dent->new_link && !strncmp(dent->new_link, link, len))) {
-				//MARS_IO("symlink no change '%s' -> '%s' (%s) status = %d\n", newpath, link, dent->new_link ? dent->new_link : "", status);
-				brick_string_free(link);
-			} else {
-				MARS_IO("symlink '%s' -> '%s' (%s) status = %d\n", newpath, link, dent->new_link ? dent->new_link : "", status);
-				brick_string_free(dent->old_link);
-				dent->old_link = dent->new_link;
-				dent->new_link = link;
-			}
+		link = brick_string_alloc(len + 2);
+		MARS_IO("len = %d\n", len);
+		status = inode->i_op->readlink(path.dentry, link, len + 1);
+		link[len] = '\0';
+		if (status < 0 ||
+		    (dent->new_link && !strncmp(dent->new_link, link, len))) {
+			brick_string_free(link);
+		} else {
+			MARS_IO("symlink '%s' -> '%s' (%s) status = %d\n", newpath, link, dent->new_link ? dent->new_link : "", status);
+			brick_string_free(dent->old_link);
+			dent->old_link = dent->new_link;
+			dent->new_link = link;
 		}
 		path_put(&path);
 	}
@@ -1421,11 +1433,18 @@ EXPORT_SYMBOL_GPL(mars_kill_brick_when_possible);
 
 char *_vpath_make(int line, const char *fmt, va_list *args)
 {
-	char *res = _brick_string_alloc(MARS_SYMLINK_MAX, line);
+	va_list copy_args;
+	char dummy[2];
+	int len;
+	char *res;
 
-	if (likely(res)) {
-		vsnprintf(res, MARS_SYMLINK_MAX, fmt, *args);
-	}
+	memcpy(&copy_args, args, sizeof(copy_args));
+	len = vsnprintf(dummy, sizeof(dummy), fmt, copy_args);
+	len = _length_paranoia(len, line);
+	res = _brick_string_alloc(len + 2, line);
+
+	vsnprintf(res, len + 1, fmt, *args);
+
 	return res;
 }
 EXPORT_SYMBOL_GPL(_vpath_make);
@@ -1444,30 +1463,40 @@ EXPORT_SYMBOL_GPL(_path_make);
 char *_backskip_replace(int line, const char *path, char delim, bool insert, const char *fmt, ...)
 {
 	int path_len = strlen(path);
-	int total_len = strlen(fmt) + path_len + MARS_SYMLINK_MAX;
-	char *res = _brick_string_alloc(total_len + 1, line);
-	if (likely(res)) {
-		va_list args;
-		int pos = path_len;
-		int plus;
+	int fmt_len;
+	int total_len;
+	char *res;
+	va_list args;
+	int pos = path_len;
+	int plus;
+	char dummy[2];
 
-		while (pos > 0 && path[pos] != '/') {
-			pos--;
-		}
-		if (delim != '/') {
-			while (pos < path_len && path[pos] != delim) {
-				pos++;
-			}
-		}
-		memcpy(res, path, pos);
+	va_start(args, fmt);
+	fmt_len = vsnprintf(dummy, sizeof(dummy), fmt, args);
+	va_end(args);
+	fmt_len = _length_paranoia(fmt_len, line);
 
-		va_start(args, fmt);
-		plus = vscnprintf(res + pos, total_len - pos, fmt, args);
-		va_end(args);
+	total_len = fmt_len + path_len;
+	total_len = _length_paranoia(total_len, line);
 
-		if (insert) {
-			strncpy(res + pos + plus, path + pos + 1, total_len - pos - plus);
+	res = _brick_string_alloc(total_len + 2, line);
+
+	while (pos > 0 && path[pos] != '/') {
+		pos--;
+	}
+	if (delim != '/') {
+		while (pos < path_len && path[pos] != delim) {
+			pos++;
 		}
+	}
+	memcpy(res, path, pos);
+
+	va_start(args, fmt);
+	plus = vscnprintf(res + pos, total_len - pos, fmt, args);
+	va_end(args);
+
+	if (insert) {
+		strncpy(res + pos + plus, path + pos + 1, total_len - pos - plus);
 	}
 	return res;
 }

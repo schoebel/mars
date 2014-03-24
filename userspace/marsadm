@@ -51,6 +51,7 @@ my $user_version = 0.1;
 my $mars = "/mars";
 my $host = `uname -n` or ldie "cannot determine my network node name\n";
 chomp $host;
+check_id($host);
 my $real_host = $host;
 my $force = 0;
 my $timeout = -1;
@@ -319,16 +320,25 @@ sub wait_cluster {
 ##################################################################
 
 # syntactic checks
+# (also check for existence)
 
 sub check_id {
-  my $str = shift;
-  ldie "identifier '$str' has disallowed characters" unless $str =~ m/^[A-Za-z_][-A-Za-z0-9_]*$/;
-  ldie "identifier '$str' is too long (only 16 chars allowed)" if length($str) > 16;
+  my ($str, $must_exist) = @_;
+  ldie "identifier '$str' is empty" unless defined($str) && $str;
+  ldie "identifier '$str' has disallowed characters" unless $str =~ m/^[A-Za-z0-9_][-A-Za-z0-9_]*$/;
+  ldie "identifier '$str' is too long (only 63 chars supported according to RFC 1123)" if length($str) > 63;
+  if (defined($must_exist) && $must_exist) {
+    my $ip_path = "$mars/ips/ip-$str";
+    ldie "host '$str' does not exist in $mars/ips/" unless get_link($ip_path, 1);
+  }
 }
 
 sub check_id_list {
-  my $str = shift;
-  ldie "comma-separated list '$str' has disallowed characters" unless $str =~ m/^[A-Za-z_][-A-Za-z0-9_,]*$/;
+  my ($str, $must_exist) = @_;
+  ldie "comma-separated list '$str' has disallowed characters" unless $str =~ m/^[A-Za-z0-9_][-A-Za-z0-9_,]*$/;
+  foreach my $id (split(",", $str)) {
+    check_id($id, $must_exist);
+  }
 }
 
 ##################################################################
@@ -1015,6 +1025,7 @@ sub _writable {
 }
 
 sub _get_ip {
+  check_id($host);
   my $ip_path = "$mars/ips/ip-$host";
   if (my $from_link = get_link($ip_path, 2)) {
     lprint_stderr "Using IP '$from_link' from '$ip_path'\n";
@@ -1119,7 +1130,7 @@ sub set_connect_pref_list {
     lprint "$value\n";
     return;
   }
-  check_id_list($list);
+  check_id_list($list, 1);
   set_link($list, $dst);
 }
 
@@ -3805,6 +3816,7 @@ foreach my $arg (@ARGV) {
     $threshold = $arg;
     next;
   } elsif ($arg =~ s/--host\s*=\s*([-_A-Za-z0-9]+)/$1/) {
+    check_id($arg);
     ldie "host '$arg' does not exist in /mars/ips/ip-*\n" unless -l "/mars/ips/ip-$arg";
     if ($arg ne $host) {
       lprint "ATTENTION: acting as if I were host '$arg'\n";

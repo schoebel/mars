@@ -157,6 +157,8 @@ EXPORT_SYMBOL_GPL(mars_reset_emergency);
 int mars_keep_msg = 10;
 EXPORT_SYMBOL_GPL(mars_keep_msg);
 
+#define MARS_SYMLINK_MAX 1023
+
 struct key_value_pair {
         const char *key;
         char *val;
