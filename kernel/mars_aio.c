@@ -178,26 +178,12 @@ void get_dirty(struct aio_output *output, loff_t *min, loff_t *max)
 
 ////////////////// own brick / input / output operations //////////////////
 
-static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
+static
+loff_t get_total_size(struct aio_output *output)
 {
 	struct file *file;
 	struct inode *inode;
-	loff_t total_size;
-
-	if (unlikely(!output->mf)) {
-		MARS_ERR("brick is not switched on\n");
-		return -EILSEQ;
-	}
-
-	if (unlikely(mref->ref_len <= 0)) {
-		MARS_ERR("bad ref_len=%d\n", mref->ref_len);
-		return -EILSEQ;
-	}
-
-	if (mref->ref_initialized) {
-		_mref_get(mref);
-		return mref->ref_len;
-	}
+	loff_t min;
 
 	file = output->mf->mf_filp;
 	if (unlikely(!file)) {
@@ -213,26 +199,47 @@ static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
 		MARS_ERR("file %p has no inode\n", file);
 		return -EILSEQ;
 	}
-	
-	total_size = i_size_read(inode);
-	mref->ref_total_size = total_size;
-	/* Only check reads.
-	 * Writes behind EOF are always allowed (sparse files)
+
+	min = i_size_read(inode);
+
+	/* Workaround for races in the page cache.
+	 * It appears that concurrent reads and writes seem to
+	 * result in inconsistent reads in some very rare cases, due to
+	 * races. Sometimes, the inode claims that the file has been already
+	 * appended by a write operation, but the data has not actually hit
+	 * the page cache, such that a concurrent read gets NULL blocks.
 	 */
-	if (!mref->ref_may_write) {
-		loff_t len = total_size - mref->ref_pos;
-		if (unlikely(len <= 0)) {
-			/* Special case: allow reads starting _exactly_ at EOF when a timeout is specified.
-			 */
-			if (len < 0 || mref->ref_timeout <= 0) {
-				MARS_DBG("ENODATA %lld\n", len);
-				return -ENODATA;
-			}
-		}
-		// Shorten below EOF, but allow special case
-		if (mref->ref_len > len && len > 0) {
-			mref->ref_len = len;
-		}
+	if (!output->brick->is_static_device) {
+		loff_t max = 0;
+		get_dirty(output, &min, &max);
+	}
+
+	return min;
+}
+
+static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
+{
+	loff_t total_size;
+
+	if (unlikely(!output->mf)) {
+		MARS_ERR("brick is not switched on\n");
+		return -EILSEQ;
+	}
+
+	if (unlikely(mref->ref_len <= 0)) {
+		MARS_ERR("bad ref_len=%d\n", mref->ref_len);
+		return -EILSEQ;
+	}
+
+	total_size = get_total_size(output);
+	if (unlikely(total_size < 0)) {
+		return total_size;
+	}
+	mref->ref_total_size = total_size;
+
+	if (mref->ref_initialized) {
+		_mref_get(mref);
+		return mref->ref_len;
 	}
 
 	/* Buffered IO.
@@ -274,7 +281,7 @@ static void aio_ref_put(struct aio_output *output, struct mref_object *mref)
 	}
 
 	if (output->mf && (file = output->mf->mf_filp) && file->f_mapping && file->f_mapping->host) {
-		mref->ref_total_size = i_size_read(file->f_mapping->host);
+		mref->ref_total_size = get_total_size(output);
 	}
 
 	mref_a = aio_mref_get_aspect(output->brick, mref);
@@ -870,15 +877,16 @@ static int aio_submit_thread(void *data)
 			insert_dirty(output, mref_a);
 		}
 
-		// check for reads exactly at EOF (special case)
-		if (mref->ref_pos == mref->ref_total_size &&
-		   !mref->ref_rw &&
-		   mref->ref_timeout > 0) {
-			loff_t total_size = i_size_read(file->f_mapping->host);
-			loff_t len = total_size - mref->ref_pos;
+		mref->ref_total_size = get_total_size(output);
+
+		// check for reads crossing the EOF boundary (special case)
+		if (mref->ref_timeout > 0 &&
+		    !mref->ref_rw &&
+		    mref->ref_pos + mref->ref_len > mref->ref_total_size) {
+			loff_t len = mref->ref_total_size - mref->ref_pos;
 			if (len > 0) {
-				mref->ref_total_size = total_size;
-				mref->ref_len = len;
+				if (mref->ref_len > len)
+					mref->ref_len = len;
 			} else {
 				if (!mref_a->start_jiffies) {
 					mref_a->start_jiffies = jiffies;
@@ -931,8 +939,6 @@ static int aio_submit_thread(void *data)
 static int aio_get_info(struct aio_output *output, struct mars_info *info)
 {
 	struct file *file;
-	loff_t min;
-	loff_t max;
 
 	if (unlikely(!output ||
 		     !output->mf ||
@@ -943,23 +949,8 @@ static int aio_get_info(struct aio_output *output, struct mars_info *info)
 
 	info->tf_align = 1;
 	info->tf_min_size = 1;
+	info->current_size = get_total_size(output);
 
-	/* Workaround for races in the page cache.
-	 *
-	 * It appears that concurrent reads and writes seem to
-	 * result in inconsistent reads in some very rare cases, due to
-	 * races. Sometimes, the inode claims that the file has been already
-	 * appended by a write operation, but the data has not actually hit
-	 * the page cache, such that a concurrent read gets NULL blocks.
-	 */
-	min = i_size_read(file->f_mapping->host);
-	max = 0;
-
-	if (!output->brick->is_static_device) {
-		get_dirty(output, &min, &max);
-	}
-
-	info->current_size = min;
 	MARS_DBG("determined file size = %lld\n", info->current_size);
 
 	return 0;
