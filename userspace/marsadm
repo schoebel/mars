@@ -1028,7 +1028,7 @@ sub _get_ip {
   check_id($host);
   my $ip_path = "$mars/ips/ip-$host";
   if (my $from_link = get_link($ip_path, 2)) {
-    lprint_stderr "Using IP '$from_link' from '$ip_path'\n";
+    lprint_stderr "Using IP '$from_link' from '$ip_path'\n" if $verbose;
     return $from_link;
   }
   chomp (my @info = `/sbin/ip addr show`);
