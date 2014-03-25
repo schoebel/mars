@@ -1453,7 +1453,6 @@ int __make_copy(
 	switch_copy = _check_switch(global, switch_path);
 	copy = mars_find_brick(global, &copy_brick_type, copy_path);
 	if (!copy && !switch_copy) {
-		make_msg(msg_pair, "not active, no activation");
 		goto done;
 	}
 
