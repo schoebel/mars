@@ -2829,6 +2829,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 	struct log_header lh = {};
 	loff_t start_pos;
 	loff_t finished_pos = -1;
+	loff_t new_finished_pos = -1;
 	long long old_jiffies = jiffies;
 	int nr_flying;
 	int backoff = 0;
@@ -2837,6 +2838,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 	brick->replay_code = 0; // indicates "running"
 
 	start_pos = brick->replay_start_pos;
+	brick->replay_current_pos = start_pos;
 
 	_init_input(input, start_pos);
 
@@ -2851,7 +2853,6 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 	mars_power_led_on((void*)brick, true);
 
 	for (;;) {
-		loff_t new_finished_pos;
 		void *buf = NULL;
 		int len = 0;
 
@@ -2964,7 +2965,13 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		MARS_INF("TOLERANCE: logfile is incomplete at %lld (of %lld)\n", finished_pos, brick->replay_end_pos);
 		brick->replay_code = 2;
 	} else if (status < 0) {
-		MARS_ERR("replay error %d at %lld (of %lld)\n", status, finished_pos, brick->replay_end_pos);
+		if (finished_pos < 0)
+			finished_pos = new_finished_pos;
+		if (finished_pos + brick->replay_tolerance > brick->replay_end_pos) {
+			MARS_INF("TOLERANCE: logfile is incomplete at %lld (of %lld), status = %d\n", finished_pos, brick->replay_end_pos, status);
+		} else {
+			MARS_ERR("replay error %d at %lld (of %lld)\n", status, finished_pos, brick->replay_end_pos);
+		}
 		brick->replay_code = status;
 	} else {
 		MARS_INF("replay stopped prematurely at %lld (of %lld)\n", finished_pos, brick->replay_end_pos);

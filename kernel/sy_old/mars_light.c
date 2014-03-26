@@ -3493,12 +3493,13 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 
 	if (trans_brick->replay_mode) {
 		if (trans_brick->replay_code > 0) {
-			MARS_INF_TO(rot->log_say, "logfile replay ended successfully\n");
-		} else if (trans_brick->replay_code == -EAGAIN) {
-			MARS_INF_TO(rot->log_say, "logfile replay stopped intermediately\n");
+			MARS_INF_TO(rot->log_say, "logfile replay ended successfully at position %lld\n", trans_brick->replay_current_pos);
+		} else if (trans_brick->replay_code == -EAGAIN ||
+			   trans_brick->replay_end_pos - trans_brick->replay_current_pos < trans_brick->replay_tolerance) {
+			MARS_INF_TO(rot->log_say, "logfile replay stopped intermediately at position %lld\n", trans_brick->replay_current_pos);
 		} else if (trans_brick->replay_code < 0) {
-			MARS_ERR_TO(rot->log_say, "logfile replay stopped with error = %d\n", trans_brick->replay_code);
-			make_rot_msg(rot, "err-replay-stop", "logfile replay stopped with error = %d", trans_brick->replay_code);
+			MARS_ERR_TO(rot->log_say, "logfile replay stopped with error = %d at position %lld\n", trans_brick->replay_code, trans_brick->replay_current_pos);
+			make_rot_msg(rot, "err-replay-stop", "logfile replay stopped with error = %d at position %lld", trans_brick->replay_code, trans_brick->replay_current_pos);
 		}
 	}
 
