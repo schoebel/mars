@@ -338,7 +338,7 @@ static void aio_ref_put(struct aio_output *output, struct mref_object *mref)
 		brick_block_free(mref->ref_data, mref_a->alloc_len);
 		atomic_dec(&output->alloc_count);
 	}
-	aio_free_mref(mref);
+	_mref_free(mref);
  done:;
 }
 

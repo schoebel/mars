@@ -133,7 +133,7 @@ int cb_thread(void *data)
 			GENERIC_INPUT_CALL(brick->inputs[0], mref_put, mref);
 			atomic_dec(&brick->in_flight);
 		} else {
-			mars_free_mref(mref);
+			_mref_free(mref);
 		}
 	}
 
@@ -201,13 +201,13 @@ int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_
 	status = -ENOMEM;
 	mref_a = server_mref_get_aspect(brick, mref);
 	if (unlikely(!mref_a)) {
-		mars_free_mref(mref);
+		_mref_free(mref);
 		goto done;
 	}
 
 	status = mars_recv_mref(sock, mref, cmd);
 	if (status < 0) {
-		mars_free_mref(mref);
+		_mref_free(mref);
 		goto done;
 	}
 	

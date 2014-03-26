@@ -560,6 +560,8 @@ void generic_free(struct generic_object *object)
 	CHECK_PTR_NULL(object_type, done);
 	object_layout = object->object_layout;
 	CHECK_PTR(object_layout, done);
+	_CHECK_ATOMIC(&object->ref_count, !=, 0);
+
 	atomic_dec(&object_layout->alloc_count);
 	for (i = 0; i < object->aspect_nr_max; i++) {
 		const struct generic_aspect_type *aspect_type;

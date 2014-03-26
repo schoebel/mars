@@ -178,6 +178,13 @@ struct generic_aspect {
 		atomic_dec_and_test(&(mref)->ref_count);		\
 	})
 
+#define _mref_free(mref)						\
+	({								\
+		if (likely(mref)) {					\
+			generic_free((struct generic_object*)(mref));	\
+		}							\
+	})
+
 /////////////////////////////////////////////////////////////////////////
 
 // definitions for asynchronous callback objects
@@ -524,11 +531,6 @@ extern struct generic_aspect *generic_get_aspect(struct generic_brick *brick, st
 extern inline struct OBJTYPE##_object *BRITYPE##_alloc_##OBJTYPE(struct BRITYPE##_brick *brick) \
 {									\
         return (void*)generic_alloc((struct generic_brick*)brick, &brick->OBJTYPE##_object_layout, &OBJTYPE##_type); \
-}									\
-									\
-extern inline void BRITYPE##_free_##OBJTYPE(struct OBJTYPE##_object *object)   \
-{									\
-	generic_free((struct generic_object*)object);			\
 }									\
 									\
 extern inline struct BRITYPE##_##OBJTYPE##_aspect *BRITYPE##_##OBJTYPE##_get_aspect(struct BRITYPE##_brick *brick, struct OBJTYPE##_object *obj) \

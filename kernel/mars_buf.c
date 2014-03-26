@@ -563,7 +563,7 @@ static void _buf_ref_put(struct buf_output *output, struct buf_mref_aspect *mref
 
 	MARS_DBG("buf_ref_put() mref=%p mref_a=%p bf=%p flags=%d\n", mref, mref_a, bf, bf->bf_flags);
 	_mref_remove(bf, mref_a);
-	buf_free_mref(mref);
+	_mref_free(mref);
 
 	_bf_put(bf); // paired with _hash_find_insert()
 }
@@ -622,7 +622,7 @@ static int _buf_make_io(struct buf_brick *brick, struct buf_head *bf, void *star
 
 		mref_a = buf_mref_get_aspect(brick, mref);
 		if (unlikely(!mref_a)) {
-			buf_free_mref(mref);
+			_mref_free(mref);
 			break;
 		}
 

@@ -843,7 +843,7 @@ restart:
 			//MARS_DBG("slave\n");
 			atomic_dec(&brick->sshadow_count);
 			CHECK_HEAD_EMPTY(&mref_a->hash_head);
-			trans_logger_free_mref(mref);
+			_mref_free(mref);
 			// now put the master shadow
 			mref_a = shadow_a;
 			goto restart;
@@ -862,7 +862,7 @@ restart:
 		atomic_dec(&brick->mshadow_count);
 		atomic_dec(&global_mshadow_count);
 		atomic64_sub(mref->ref_len, &global_mshadow_used);
-		trans_logger_free_mref(mref);
+		_mref_free(mref);
 		return;
 	}
 

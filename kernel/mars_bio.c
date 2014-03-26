@@ -337,7 +337,7 @@ void _bio_ref_put(struct bio_output *output, struct mref_object *mref)
 		brick_block_free(mref->ref_data, mref_a->alloc_len);
 		mref->ref_data = NULL;
 	}
-	bio_free_mref(mref);
+	_mref_free(mref);
 
 	return;
 

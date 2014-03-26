@@ -277,7 +277,7 @@ put:
 	return NULL;
 
 err_free:
-	mars_free_mref(mref);
+	_mref_free(mref);
 	if (logst->private) {
 		// TODO: if callbacks are already registered, call them here with some error code
 		brick_mem_free(logst->private);
@@ -494,9 +494,7 @@ done_put:
 	goto done;
 
 done_free:
-	if (mref) {
-		mars_free_mref(mref);
-	}
+	_mref_free(mref);
 	logst->read_mref = NULL;
 	goto done;
 

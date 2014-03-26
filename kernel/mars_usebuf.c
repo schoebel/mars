@@ -119,7 +119,7 @@ static void _usebuf_endio(struct generic_callback *cb)
 	_mref_put(sub_mref);
 #endif
 
-	usebuf_free_mref(mref);
+	_mref_free(mref);
 done:;
 }
 
@@ -214,7 +214,7 @@ static void usebuf_ref_put(struct usebuf_output *output, struct mref_object *mre
 		return;
 
 	GENERIC_INPUT_CALL(input, mref_put, sub_mref);
-	usebuf_free_mref(mref);
+	_mref_free(mref);
 }
 
 static void usebuf_ref_io(struct usebuf_output *output, struct mref_object *mref)

@@ -314,7 +314,7 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 	status = GENERIC_INPUT_CALL(input, mref_get, mref);
 	if (unlikely(status < 0)) {
 		MARS_ERR("status = %d\n", status);
-		mars_free_mref(mref);
+		_mref_free(mref);
 		goto done;
 	}
 	if (unlikely(mref->ref_len < len)) {

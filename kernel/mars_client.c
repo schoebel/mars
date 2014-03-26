@@ -433,7 +433,7 @@ static void client_ref_put(struct client_output *output, struct mref_object *mre
 	if (mref_a && mref_a->do_dealloc) {
 		brick_block_free(mref->ref_data, mref_a->alloc_len);
 	}
-	client_free_mref(mref);
+	_mref_free(mref);
 }
 
 static
@@ -568,7 +568,7 @@ int receiver_thread(void *data)
 				// try to consume the corresponding payload
 				mref = client_alloc_mref(output->brick);
 				status = mars_recv_cb(&ch->socket, mref, &cmd);
-				client_free_mref(mref);
+				_mref_free(mref);
 				goto done;
 			}
 
