@@ -1,0 +1,20 @@
+--- 91-permissions.rules	2014-03-25 17:18:31.945152708 +0100
++++ 91-permissions.rules.orig	2013-04-29 00:36:42.000000000 +0200
+@@ -90,7 +90,7 @@
+ KERNEL=="pht[0-9]*",				GROUP="tape"
+ 
+ # sound devices
+-SUBSYSTEM=="sound",				GROUP="audio", \
++SUBSYSTEM=="sound",				GROUP="audio",
+ 	OPTIONS+="static_node=snd/seq", OPTIONS+="static_node=snd/timer"
+ 
+ # ieee1394 devices
+@@ -103,7 +103,7 @@
+ KERNEL=="video1394-[0-9]*",			GROUP="video"
+ 
+ # input devices
+-KERNEL=="event[0-9]*", ATTRS{name}=="*dvb*|*DVB*|* IR *", \
++KERNEL=="event[0-9]*", ATTRS{name}=="*dvb*|*DVB*|* IR *" \
+ 				MODE="0664",	GROUP="video"
+ KERNEL=="js[0-9]*",		MODE="0664"
+ KERNEL=="event[0-9]*", ENV{ID_CLASS}=="joystick", \
