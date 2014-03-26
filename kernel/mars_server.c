@@ -237,33 +237,6 @@ done:
 }
 
 static
-void _clean_list(struct server_brick *brick, struct list_head *start)
-{
-	for (;;) {
-		struct server_mref_aspect *mref_a;
-		struct mref_object *mref;
-		struct list_head *tmp = start->next;
-		if (tmp == start)
-			break;
-
-		list_del_init(tmp);
-
-		mref_a = container_of(tmp, struct server_mref_aspect, cb_head);
-		mref_a->brick = NULL;
-		mref = mref_a->object;
-		if (!mref)
-			continue;
-
-		if (mref_a->do_put) {
-			GENERIC_INPUT_CALL(brick->inputs[0], mref_put, mref);
-			atomic_dec(&brick->in_flight);
-		} else {
-			mars_free_mref(mref);
-		}
-	}
-}
-
-static
 int _set_server_sio_params(struct mars_brick *_brick, void *private)
 {
 	struct sio_brick *sio_brick = (void*)_brick;
@@ -610,10 +583,6 @@ static int server_switch(struct server_brick *brick)
 
 		mars_put_socket(sock);
 		MARS_DBG("#%d socket s_count = %d\n", sock->s_debug_nr, atomic_read(&sock->s_count));
-
-		// do this only after _both_ threads have stopped...
-		_clean_list(brick, &brick->cb_read_list);
-		_clean_list(brick, &brick->cb_write_list);
 
 		mars_power_led_off((void*)brick, true);
 	}
