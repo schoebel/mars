@@ -15,7 +15,7 @@ use File::Basename;
 binmode STDOUT, ":utf8";
 
 ### defaults
-my $version        = "0.073";
+my $version        = "0.073b";
 my $alife_timeout  = "30";	# sec for remote-nodes timeout
 my $is_tty 	   = 0;
 my $mars_dir       = '/mars';
@@ -246,10 +246,20 @@ sub display_partner {
         $SSpeed   = "%, at $SSpeed gb/s (done in $SEndTime min)";
     }
 
+    ### sync - connect
+    my $SConnect = check_link "$mars_dir/$PRes/actual-$PName/msg-inf-sync";
+    $SConnect =~ s/.*\@//;
+    $SConnect =~ s/\'.*//;
+
     ### sync - results
     if ( $SStatus < 100) {
         print_screen "$SStatus$SSpeed\n";
-        print_screen "\t\t---> WORK: Sync in progress = ($SStatus% < 100.00%)\n", "$Color_blue";
+        print_screen "\t\t---> WORK: Sync in progress = ($SStatus% < 100.00%)", "$Color_blue";
+        if ( "$SConnect" ne "OK" ){
+            print_screen ", transfered from $SConnect\n", "$Color_blue";
+        } else {
+            print_screen "\n";
+        }
     } else {
         print_screen "$SStatus$SSpeed\n", "$Color_green";
     }
@@ -308,6 +318,11 @@ sub display_partner {
         $RSpeed = "%, at $RSpeed gb/s";
     }
 
+    ### replay - connect
+    my $RConnect = check_link "$mars_dir/$PRes/actual-$PName/msg-inf-fetch";
+    $RConnect =~ s/.*\@//;
+    $RConnect =~ s/\'.*//;
+    
     ### replay - results
     if (( $RStatus < 1 ) && ( $PLogSize != 0.0001 )) {
         print_screen "$RStatus$RSpeed\n";
@@ -315,8 +330,12 @@ sub display_partner {
 
     } elsif (( $RStatus < 100 ) && ( $PLogSize != 0.0001 )) {
         print_screen "$RStatus$RSpeed\n";
-        print_screen "\t\t---> WORK: Replay in progress = ($RStatus% < 100.00%)\n", "$Color_blue";
-
+        print_screen "\t\t---> WORK: Replay in progress = ($RStatus% < 100.00%)", "$Color_blue";
+        if ( "$RConnect" ne "OK" ){
+            print_screen ", transfered from $RConnect\n", "$Color_blue";
+        } else {
+            print_screen "\n";
+        }
     } elsif ( $PLogFile[2] > 0 ) {
         $RStatus = sprintf("%.2f", ($PLogFile[1]-$PLogFile[2])/$PLogFile[1] * 100);
         print_screen "$RStatus$RSpeed\n", "$Color_red";
@@ -328,6 +347,7 @@ sub display_partner {
     } else {
         print_screen "$RStatus% $RSpeed\n", "$Color_green";
     }
+
 
    ### replay - hints
    if ($PLogFile[2] != 0) {
@@ -488,10 +508,12 @@ sub check_ressource {
         if ($params->{'debug'}) {
             print_screen "   -> Debug for $res\n", 'bold'; 
             my $debug_res;
-            ### TODO: small hack, read 3 files ...
-            $debug_res = check_debugfile("$res", "2.warn");  print_screen "$debug_res" if ( $debug_res );
-            $debug_res = check_debugfile("$res", "3.error"); print_screen "$debug_res" if ( $debug_res );
-            $debug_res = check_debugfile("$res", "4.fatal"); print_screen "$debug_res" if ( $debug_res );
+            ### TODO: small hack, read files ...
+            $debug_res = check_debugfile("$res", "1.info");  print_screen "$debug_res" if ( $debug_res );
+            #$debug_res = check_debugfile("$res", "2.warn");  print_screen "$debug_res" if ( $debug_res );
+            #$debug_res = check_debugfile("$res", "3.error"); print_screen "$debug_res" if ( $debug_res );
+            #$debug_res = check_debugfile("$res", "4.fatal"); print_screen "$debug_res" if ( $debug_res );
+            #$debug_res = check_debugfile("$res", "5.total");  print_screen "$debug_res" if ( $debug_res );
         }
 
     } # end foreach
@@ -797,17 +819,6 @@ sub check_jammed {
     }            
 }
 
-#########################################################################################
-### connects
-sub check_connects {
-    my $jammed = check_link "$mars_dir/emergency-$himself";
-    print_screen " Connects:", 'bold';
-    if ( !$jammed ) {
-        print_screen " TODO ", "$Color_green";
-    } else {
-        print_screen " TODO !!!\n", "$Color_red";
-    }            
-}
 
 #########################################################################################
 ### synclimit
@@ -1012,7 +1023,6 @@ while(1) {
     ### check system params
     check_diskfull;
     check_jammed;
-    check_connects;
     check_synclimit;
     
     ### check resources
@@ -1027,9 +1037,11 @@ while(1) {
 
             print_screen "-> Main-Debug:\n", "$Color_red"; 
             my $debug_res;
-            $debug_res = check_debugfile("", "2.warn");  print_screen "$debug_res" if ( $debug_res );
-            $debug_res = check_debugfile("", "3.error"); print_screen "$debug_res" if ( $debug_res );
-            $debug_res = check_debugfile("", "4.fatal"); print_screen "$debug_res" if ( $debug_res );
+            #$debug_res = check_debugfile("", "1.info");  print_screen "$debug_res" if ( $debug_res );
+            #$debug_res = check_debugfile("", "2.warn");  print_screen "$debug_res" if ( $debug_res );
+            #$debug_res = check_debugfile("", "3.error"); print_screen "$debug_res" if ( $debug_res );
+            #$debug_res = check_debugfile("", "4.fatal"); print_screen "$debug_res" if ( $debug_res );
+            $debug_res = check_debugfile("", "5.total");  print_screen "$debug_res" if ( $debug_res );
         }
 
 
