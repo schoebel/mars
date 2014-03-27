@@ -131,7 +131,7 @@ tst@1und1.de
 \end_layout
 
 \begin_layout Date
-Version 0.13 (incomplete)
+Version 0.14
 \end_layout
 
 \begin_layout Lowertitleback
@@ -5493,9 +5493,13 @@ could
 marsadm log-delete-all mydata
 \family default
 .
- This differs almost alyaws from 
+ This differs almost always from both 
 \family typewriter
 replay-pos
+\family default
+ and 
+\family typewriter
+occupied-size
 \family default
  due to granularity reasons (only whole logfiles can be deleted).
  Units are 
@@ -5516,13 +5520,20 @@ occupied-size
 locally present
 \emph default
  logfile data (sum of all file sizes).
- This should be normally equal to 
+ This is often roughly approximate to 
 \family typewriter
 fetch-pos
 \family default
-, but it may differ when logfiles are not completely transferred, when some
- are damaged, during split brain, or when the resource is in emergency mode
- (see section 
+, but it may differ vastly (in both directions) when logfiles are not completely
+ transferred, when some are damaged, during split brain, after a 
+\family typewriter
+join-resource
+\family default
+ / 
+\family typewriter
+invalidate
+\family default
+, or when the resource is in emergency mode (see section 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "sub:Emergency-Mode"
@@ -5538,8 +5549,11 @@ reference "sub:Emergency-Mode"
 \family typewriter
 {sync,fetch,replay,work}-size
 \family default
- Show the total amount of data which is / was to be processed by either
- sync, fetch, or replay.
+ Show the total amount of 
+\emph on
+relevant
+\emph default
+ data which is / was to be processed by either sync, fetch, or replay.
  
 \family typewriter
 work-size
@@ -5571,7 +5585,11 @@ bytes
 \family typewriter
 {sync,fetch,replay,work}-pos
 \family default
- Show the total amount of data which is already processed (current 
+ Show the total amount of 
+\emph on
+relevant
+\emph default
+ data which is already processed (current 
 \begin_inset Quotes eld
 \end_inset
 
@@ -5589,6 +5607,57 @@ work-pos
 replay-pos
 \family default
 .
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+The 
+\begin_inset Quotes eld
+\end_inset
+
+relevant
+\begin_inset Quotes erd
+\end_inset
+
+ 0% point is the 
+\emph on
+locally contiguous
+\emph default
+ amount of data since the last 
+\family typewriter
+create-resource
+\family default
+, 
+\family typewriter
+join-resource
+\family default
+, or 
+\family typewriter
+invalidate
+\family default
+, or since the last emergency mode, but possibly shortened by 
+\family typewriter
+log-delete
+\family default
+s.
+ Notice that the 0% point may be different on different cluster nodes, because
+ their resource history may be different or non-contiguous during split
+ brain, or after a 
+\family typewriter
+join-resource
+\family default
+, or after 
+\family typewriter
+invalidate
+\family default
+, or during / after emergency mode.
 \end_layout
 
 \begin_layout Labeling
