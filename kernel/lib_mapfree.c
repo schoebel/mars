@@ -88,6 +88,7 @@ void _mapfree_put(struct mapfree_info *mf)
 	if (atomic_dec_and_test(&mf->mf_count)) {
 		MARS_DBG("closing file '%s' filp = %p\n", mf->mf_name, mf->mf_filp);
 		list_del_init(&mf->mf_head);
+		CHECK_HEAD_EMPTY(&mf->mf_dirty_anchor);
 		if (likely(mf->mf_filp)) {
 			mapfree_pages(mf, -1);
 			filp_close(mf->mf_filp, NULL);
@@ -148,6 +149,7 @@ struct mapfree_info *mapfree_get(const char *name, int flags)
 
 		mf->mf_flags = flags;
 		INIT_LIST_HEAD(&mf->mf_head);
+		INIT_LIST_HEAD(&mf->mf_dirty_anchor);
 		atomic_set(&mf->mf_count, 1);
 		spin_lock_init(&mf->mf_lock);
 		mf->mf_max = -1;
@@ -268,6 +270,74 @@ int mapfree_thread(void *data)
 	}
 	return 0;
 }
+
+////////////////// dirty IOs on the fly  //////////////////
+
+void mf_insert_dirty(struct mapfree_info *mf, struct dirty_info *di)
+{
+	if (likely(di->dirty_mref)) {
+		unsigned long flags = 0;
+
+		traced_lock(&mf->mf_lock, flags);
+		list_del(&di->dirty_head);
+		list_add(&di->dirty_head, &mf->mf_dirty_anchor);
+		traced_unlock(&mf->mf_lock, flags);
+	}
+}
+EXPORT_SYMBOL_GPL(mf_insert_dirty);
+
+void mf_remove_dirty(struct mapfree_info *mf, struct dirty_info *di)
+{
+	if (!list_empty(&di->dirty_head)) {
+		unsigned long flags = 0;
+
+		traced_lock(&mf->mf_lock, flags);
+		list_del_init(&di->dirty_head);
+		traced_unlock(&mf->mf_lock, flags);
+	}
+}
+EXPORT_SYMBOL_GPL(mf_remove_dirty);
+
+void mf_get_dirty(struct mapfree_info *mf, loff_t *min, loff_t *max, int min_stage, int max_stage)
+{
+	struct list_head *tmp;
+	unsigned long flags = 0;
+
+	traced_lock(&mf->mf_lock, flags);
+	for (tmp = mf->mf_dirty_anchor.next; tmp != &mf->mf_dirty_anchor; tmp = tmp->next) {
+		struct dirty_info *di = container_of(tmp, struct dirty_info, dirty_head);
+		struct mref_object *mref = di->dirty_mref;
+		if (unlikely(!mref)) {
+			continue;
+		}
+		if (di->dirty_stage < min_stage || di->dirty_stage > max_stage) {
+			continue;
+		}
+		if (mref->ref_pos < *min) {
+			*min = mref->ref_pos;
+		}
+		if (mref->ref_pos + mref->ref_len > *max) {
+			*max = mref->ref_pos + mref->ref_len;
+		}
+	}
+	traced_unlock(&mf->mf_lock, flags);
+}
+EXPORT_SYMBOL_GPL(mf_get_dirty);
+
+void mf_get_any_dirty(const char *filename, loff_t *min, loff_t *max, int min_stage, int max_stage)
+{
+	struct list_head *tmp;
+
+	down_read(&mapfree_mutex);
+	for (tmp = mapfree_list.next; tmp != &mapfree_list; tmp = tmp->next) {
+		struct mapfree_info *mf = container_of(tmp, struct mapfree_info, mf_head);
+		if (!strcmp(mf->mf_name, filename)) {
+			mf_get_dirty(mf, min, max, min_stage, max_stage);
+		}
+	}
+	up_read(&mapfree_mutex);
+}
+EXPORT_SYMBOL_GPL(mf_get_any_dirty);
 
 ////////////////// module init stuff /////////////////////////
 

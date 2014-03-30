@@ -131,51 +131,6 @@ done:
 	return mref_a;
 }
 
-////////////////// dirty IOs on the fly  //////////////////
-
-static inline
-void insert_dirty(struct aio_output *output, struct aio_mref_aspect *mref_a)
-{
-	unsigned long flags = 0;
-
-	traced_lock(&output->dirty_lock, flags);
-	list_del(&mref_a->dirty_head);
-	list_add(&mref_a->dirty_head, &output->dirty_anchor);
-	traced_unlock(&output->dirty_lock, flags);
-}
-
-static inline
-void remove_dirty(struct aio_output *output, struct aio_mref_aspect *mref_a)
-{
-	if (!list_empty(&mref_a->dirty_head)) {
-		unsigned long flags = 0;
-
-		traced_lock(&output->dirty_lock, flags);
-		list_del_init(&mref_a->dirty_head);
-		traced_unlock(&output->dirty_lock, flags);
-	}
-}
-
-static inline
-void get_dirty(struct aio_output *output, loff_t *min, loff_t *max)
-{
-	struct list_head *tmp;
-	unsigned long flags = 0;
-
-	traced_lock(&output->dirty_lock, flags);
-	for (tmp = output->dirty_anchor.next; tmp != &output->dirty_anchor; tmp = tmp->next) {
-		struct aio_mref_aspect *mref_a = container_of(tmp, struct aio_mref_aspect, dirty_head);
-		struct mref_object *mref = mref_a->object;
-		if (mref->ref_pos < *min) {
-			*min = mref->ref_pos;
-		}
-		if (mref->ref_pos + mref->ref_len > *max) {
-			*max = mref->ref_pos + mref->ref_len;
-		}
-	}
-	traced_unlock(&output->dirty_lock, flags);
-}
-
 ////////////////// own brick / input / output operations //////////////////
 
 static
@@ -211,7 +166,7 @@ loff_t get_total_size(struct aio_output *output)
 	 */
 	if (!output->brick->is_static_device) {
 		loff_t max = 0;
-		get_dirty(output, &min, &max);
+		mf_get_dirty(output->mf, &min, &max, 0, 99);
 	}
 
 	return min;
@@ -320,7 +275,7 @@ done:
 		atomic_dec(&output->read_count);
 	}
 
-	remove_dirty(output, mref_a);
+	mf_remove_dirty(output->mf, &mref_a->di);
 
 	aio_ref_put(output, mref);
 	atomic_dec(&mars_global_io_flying);
@@ -355,6 +310,7 @@ void _complete_all(struct list_head *tmp_list, struct aio_output *output, int er
 		struct list_head *tmp = tmp_list->next;
 		struct aio_mref_aspect *mref_a = container_of(tmp, struct aio_mref_aspect, io_head);
 		list_del_init(tmp);
+		mref_a->di.dirty_stage = 3;
 		_complete(output, mref_a, err);
 	}
 }
@@ -672,6 +628,7 @@ static int aio_event_thread(void *data)
 			if (!mref_a) {
 				continue; // this was a dummy request
 			}
+			mref_a->di.dirty_stage = 2;
 			mref = mref_a->object;
 
 			MARS_IO("AIO done %p pos = %lld len = %d rw = %d\n", mref, mref->ref_pos, mref->ref_len, mref->ref_rw);
@@ -697,6 +654,7 @@ static int aio_event_thread(void *data)
 					continue;
 			}
 
+			mref_a->di.dirty_stage = 3;
 			_complete(output, mref_a, err);
 
 		}
@@ -873,8 +831,9 @@ static int aio_submit_thread(void *data)
 
 		mapfree_set(output->mf, mref->ref_pos, -1);
 
+		mref_a->di.dirty_stage = 0;
 		if (mref->ref_rw) {
-			insert_dirty(output, mref_a);
+			mf_insert_dirty(output->mf, &mref_a->di);
 		}
 
 		mref->ref_total_size = get_total_size(output);
@@ -910,6 +869,7 @@ static int aio_submit_thread(void *data)
 			status = aio_submit(output, mref_a, false);
 
 			if (likely(status != -EAGAIN)) {
+				mref_a->di.dirty_stage = 1;
 				break;
 			}
 			atomic_inc(&output->total_delay_count);
@@ -1052,14 +1012,15 @@ static int aio_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
 	struct aio_mref_aspect *ini = (void*)_ini;
 	INIT_LIST_HEAD(&ini->io_head);
-	INIT_LIST_HEAD(&ini->dirty_head);
+	INIT_LIST_HEAD(&ini->di.dirty_head);
+	ini->di.dirty_mref = ini->object;
 	return 0;
 }
 
 static void aio_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
 	struct aio_mref_aspect *ini = (void*)_ini;
-	CHECK_HEAD_EMPTY(&ini->dirty_head);
+	CHECK_HEAD_EMPTY(&ini->di.dirty_head);
 	CHECK_HEAD_EMPTY(&ini->io_head);
 }
 
@@ -1156,8 +1117,6 @@ cleanup:
 
 static int aio_output_construct(struct aio_output *output)
 {
-	INIT_LIST_HEAD(&output->dirty_anchor);
-	spin_lock_init(&output->dirty_lock);
 	init_waitqueue_head(&output->fdsync_event);
 	output->fd = -1;
 	return 0;
@@ -1165,7 +1124,6 @@ static int aio_output_construct(struct aio_output *output)
 
 static int aio_output_destruct(struct aio_output *output)
 {
-	CHECK_HEAD_EMPTY(&output->dirty_anchor);
 	if (unlikely(output->fd >= 0)) {
 		MARS_ERR("active fd = %d detected\n", output->fd);
 	}

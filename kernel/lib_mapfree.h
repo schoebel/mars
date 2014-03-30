@@ -25,6 +25,7 @@ extern int mapfree_grace_keep_mb;
 
 struct mapfree_info {
 	struct list_head mf_head;
+	struct list_head mf_dirty_anchor;
 	char            *mf_name;
 	struct file     *mf_filp;
 	int              mf_flags;
@@ -36,11 +37,24 @@ struct mapfree_info {
 	long long        mf_jiffies;
 };
 
+struct dirty_info {
+	struct list_head dirty_head;
+	struct mref_object *dirty_mref;
+	int dirty_stage;
+};
+
 struct mapfree_info *mapfree_get(const char *filename, int flags);
 
 void mapfree_put(struct mapfree_info *mf);
 
 void mapfree_set(struct mapfree_info *mf, loff_t min, loff_t max);
+
+////////////////// dirty IOs on the fly  //////////////////
+
+void mf_insert_dirty(struct mapfree_info *mf, struct dirty_info *di);
+void mf_remove_dirty(struct mapfree_info *mf, struct dirty_info *di);
+void mf_get_dirty(struct mapfree_info *mf, loff_t *min, loff_t *max, int min_stage, int max_stage);
+void mf_get_any_dirty(const char *filename, loff_t *min, loff_t *max, int min_stage, int max_stage);
 
 ////////////////// module init stuff /////////////////////////
 

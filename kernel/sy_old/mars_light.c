@@ -1686,6 +1686,12 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 	struct copy_brick *fetch_brick;
 	int status = 0;
 
+	// correct the remote size when necessary
+	if (remote_dent->d_corr_B > 0 && remote_dent->d_corr_B < src_size) {
+		MARS_DBG("logfile '%s' correcting src_size from %lld to %lld\n", remote_dent->d_path, src_size, remote_dent->d_corr_B);
+		src_size = remote_dent->d_corr_B;
+	}
+
 	// plausibility checks
 	if (unlikely(dst_size > src_size)) {
 		MARS_WRN("my local copy is larger than the remote one, ignoring\n");

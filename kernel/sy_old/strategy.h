@@ -44,6 +44,8 @@ extern char *my_id(void);
 	char *d_rest; /* some "meaningful" rest of d_name*/		\
 	char *d_path; /* full absolute path */				\
 	struct say_channel *d_say_channel; /* for messages */		\
+	loff_t d_corr_A; /* logical size correction */			\
+	loff_t d_corr_B; /* logical size correction */			\
 	int   d_depth;							\
 	unsigned int d_type; /* from readdir() => often DT_UNKNOWN => don't rely on it, use new_stat.mode instead */ \
 	int   d_class;    /* for pre-grouping order */			\

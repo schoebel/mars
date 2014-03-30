@@ -16,6 +16,7 @@
 
 #include "strategy.h"
 
+#include "../lib_mapfree.h"
 #include "../mars_client.h"
 
 #include <linux/syscalls.h>
@@ -48,6 +49,8 @@ const struct meta mars_dent_meta[] = {
 	META_INI(d_type,    struct mars_dent, FIELD_INT),
 	META_INI(d_class,   struct mars_dent, FIELD_INT),
 	META_INI(d_serial,  struct mars_dent, FIELD_INT),
+	META_INI(d_corr_A,  struct mars_dent, FIELD_INT),
+	META_INI(d_corr_B,  struct mars_dent, FIELD_INT),
 	META_INI_SUB(new_stat,struct mars_dent, mars_kstat_meta),
 	META_INI_SUB(old_stat,struct mars_dent, mars_kstat_meta),
 	META_INI(new_link,    struct mars_dent, FIELD_STRING),
@@ -588,6 +591,22 @@ int get_inode(char *newpath, struct mars_dent *dent)
 			dent->new_link = link;
 		}
 		path_put(&path);
+	} else if (S_ISREG(dent->new_stat.mode) && dent->d_name && !strncmp(dent->d_name, "log-", 4)) {
+		loff_t min = dent->new_stat.size;
+		loff_t max = 0;
+
+		dent->d_corr_A = 0;
+		dent->d_corr_B = 0;
+		mf_get_any_dirty(newpath, &min, &max, 0, 2);
+		if (min < dent->new_stat.size) {
+			MARS_DBG("file '%s' A size=%lld min=%lld max=%lld\n", newpath, dent->new_stat.size, min, max);
+			dent->d_corr_A = min;
+		}
+		mf_get_any_dirty(newpath, &min, &max, 0, 3);
+		if (min < dent->new_stat.size) {
+			MARS_DBG("file '%s' B size=%lld min=%lld max=%lld\n", newpath, dent->new_stat.size, min, max);
+			dent->d_corr_B = min;
+		}
 	}
 
 	if (dent->new_link)

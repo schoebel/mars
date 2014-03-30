@@ -5,6 +5,8 @@
 #include <linux/aio.h>
 #include <linux/syscalls.h>
 
+#include "lib_mapfree.h"
+
 #define AIO_SUBMIT_MAX_LATENCY    1000 //   1 ms
 #define AIO_IO_R_MAX_LATENCY     50000 //  50 ms
 #define AIO_IO_W_MAX_LATENCY    150000 // 150 ms
@@ -24,7 +26,7 @@ extern int aio_sync_mode;
 struct aio_mref_aspect {
 	GENERIC_ASPECT(mref);
 	struct list_head io_head;
-	struct list_head dirty_head;
+	struct dirty_info di;
 	unsigned long long enqueue_stamp;
 	long long start_jiffies;
 	int resubmit;
@@ -61,8 +63,6 @@ struct aio_threadinfo {
 struct aio_output {
 	MARS_OUTPUT(aio);
         // private
-	struct list_head dirty_anchor;
-	spinlock_t dirty_lock;
 	struct mapfree_info *mf;
 	int fd; // FIXME: remove this!
 	struct aio_threadinfo tinfo[3];
