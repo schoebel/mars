@@ -1,11 +1,11 @@
 Release Conventions / Branches / Tagnames
 
-	light0.1 series:
+	light0.1 series (now stable):
 		 - Asynchronous replication for the internal needs of
 		   shared hosting and other ITOPS departments at 1&1.
 		 - Unstable tagnames: light0.1beta%d.%d
 		 - Stable branch: light0.1.y
-		 - Stable tagnames: light0.1stable%02d (planned)
+		 - Stable tagnames: light0.1stable%02d
 
 	light0.2 series (planned):
 		 - Improve network throughput by parallel TCP connections
@@ -35,6 +35,23 @@ Release Conventions / Branches / Tagnames
 
 	WIP-* branches are for development and may be rebased onto anything
 	at any time without notice. They will disappear eventually.
+
+light0.1stable01
+--------
+	 * Fix parallelism of logfile propagation: sometimes a secondary
+	   could get a more recent version than the primary had on stable
+	   storage after its crash, eventually leading to an (annoying)
+	   split brain. Some people might take this as a feature instead
+	   of a bug, but now the logfile transfer starts only after the
+	   primary _knows_ that the data is successfully committed to
+	   stable storage.
+	 * Fix memory leaks in error path.
+	 * Fix error propagation between client and server.
+	 * Make string allocation fully dynamic (remove limitation).
+	 * Fix some annoying messages.
+	 * Fix usage output of marsadm.
+	 * Userspace: contributed bugfix for Debian udev rules by Jörg Mann.
+	 * Improved debugging (only for testing).
 
 light0.1beta0.18 (feature release)
 --------
