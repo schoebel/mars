@@ -384,6 +384,8 @@ function switch2primary_correct_split_brain
         sleep 15
         marsadm_do_cmd $new_primary "log-purge-all --force" "$res" || lib_exit 1
     fi
+    marsadm_do_cmd $new_primary "wait-resource" "$res is-device-on" || \
+                                                                    lib_exit 1
     lib_vmsg "  $switch2primary_flow_msg_prefix: check whether new primary $new_primary works standalone"
     switch2primary_check_standalone_primary $new_primary $res
     if [ $network_cut -eq 1 ]; then
