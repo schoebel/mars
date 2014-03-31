@@ -174,6 +174,9 @@ start_script=$test_suite_dir/scripts/start_test.sh
 
 # For documentation see header of this file
 tests_to_execute=(
+"build_test_environment/checkout/checkout_mars_from_git:build_test_environment"
+"build_test_environment/make/make_mars/grub:build_test_environment"
+"build_test_environment/install_mars/install_via_rsync:build_test_environment"
 "build_test_environment/lv_config/lv_recreate:build_test_environment"
 "build_test_environment/cluster/create_cluster:build_test_environment"
 "build_test_environment/resource/create_resource:build_test_environment"
