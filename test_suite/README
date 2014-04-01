@@ -14,6 +14,7 @@ Contents
 1.1. Global settings
 1.2. Running a test
 1.2.1. Test output
+1.2.2. Help to understand a test
 1.3. Programming hints and conventions
 1.4. Error handling
 1.5. Signal handling and unexpected termination
@@ -117,17 +118,17 @@ subdirectory (we call it start directory) as follows:
             Option --config_root_dir not given
 
             leads to including of apply.conf and no_parallel_writer.conf (in
-            this order!) which must reside as mentioned above in the leaf
+            this order!) which must reside as mentioned above in the test
             directory or any of it's parent directories (up to 20 levels).
 
          2. start directory = test_cases/perf/apply/no_parallel_writer
-            leaf directory  = test_cases/perf/apply/no_parallel_writer
+            test directory  = test_cases/perf/apply/no_parallel_writer
             Option --config_root_dir=test_cases/perf
 
             leads to including the same *.conf files as above.
 
          3. start directory = test_cases/perf/apply/no_parallel_writer
-            leaf directory  = test_cases/perf/apply/no_parallel_writer
+            test directory  = test_cases/perf/apply/no_parallel_writer
             Option --config_root_dir given or not
 
             leads to including of no_parallel_writer.conf
@@ -159,10 +160,10 @@ The output consists of the following sections:
 - Line titled "Scanning subdirectories of <start directory>" followed by a
   list of ignored or skipped subdirectories
 
-- Per leaf directory:
-    - Line titled "Test directory <leaf directory> <date and time>"
+- Per test directory:
+    - Line titled "Test directory <test directory> <date and time>"
     - List  titled "Sourcing config files between <config_root_dir> and
-      <leaf directory>" of included *.conf files corresponding to the directory
+      <test directory>" of included *.conf files corresponding to the directory
       structure.
 
     - List titled "Configuration variables" of all configuration variables set
@@ -170,7 +171,7 @@ The output consists of the following sections:
 
     - Section titled "Creating lock files"
 
-    - Section titled "Starting <leaf directory> <date and time>"
+    - Section titled "Starting <test directory> <date and time>"
       In this section lines starting with "calling ..." mark the call to one of
       the functions listed in the aforementioned variables prepare_list,
       setup_list, run_list, cleanup_list and finish_list.
@@ -185,13 +186,22 @@ The output consists of the following sections:
       - Subsection titled "Deleting lock files"
 
       - Subsection titled "General checks of error and log files"
-    - Line titled "Failure <return code> <leaf directory> <date and time>" 
+    - Line titled "Failure <return code> <test directory> <date and time>" 
       (to stderr) in case of failure,
-      "Finished <leaf directory> <date and time>" (to stdout) otherwise
+      "Finished <test directory> <date and time>" (to stdout) otherwise
 
-- If all tests in all leaf directories of the start directory terminated 
+- If all tests in all test directories of the start directory terminated 
   successfully: Line titled "Finished start directory <start directory>"
 
+1.2.2. Help to understand a test
+--------------------------------------
+Calling start_test.sh --help from a test directory doesn't start a test but
+gives you the output mentioned in 1.2.1 without the sections produced during
+real test excecution.
+In particular the section "Configuration variables" is printed. So you can
+determine which functions are called via the variable run_list. These functions
+should be commented extensively enough to be able to understand the test's 
+purpose.
         
 1.3. Programming hints and conventions
 --------------------------------------
@@ -199,9 +209,9 @@ The output consists of the following sections:
 - all global variables should be defined and explained in a
    default-<module_name>.conf file
 
-- the names of all global variables resp. all functions should have as prefix the
-  module name of the default-*.conf file resp. of the *.sh file which they are
-  defined in.
+- the names of all global variables resp. all functions should have as prefix
+  the module name of the default-*.conf file resp. of the *.sh file which they
+  are defined in.
  
 - in case of an error certain cleanup functions may be called (e.g. if
   a network connection is cut during a test case it should be restored).

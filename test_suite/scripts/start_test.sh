@@ -117,6 +117,9 @@ function usage
     echo "               Include all *.conf files belonging to subdirectories " >&2
     echo "               between my_dir and test directory." >&2
     echo "               Default: my_dir = working directory" >&2
+    echo "          Option --doc:" >&2
+    echo "               Show all config variables for the actual test directory.">&2
+    echo "               The variable run_list contains the functions called in this test." >&2
     exit 1
 }
 
@@ -138,6 +141,10 @@ while [ $# -ge 1 ]; do
                     ;;
         --config_root_dir)
                     config_root_dir="$val"
+                    shift
+                    ;;
+        --doc)
+                    dry_run_script=1
                     shift
                     ;;
         *)

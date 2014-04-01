@@ -392,7 +392,7 @@ function perftest_prepare_replay
                                "logfile" "length_logfile" "time_waited" 0 \
                                "net_throughput"
     lib_vmsg "  ${FUNCNAME[0]}: fetch time: $time_waited"
-    if [ $(lib_rw_round_to_gb $length_logfile) -ne $$perftest_logfile_size_in_gb ]
+    if [ $(lib_rw_round_to_gb $length_logfile) -ne $perftest_logfile_size_in_gb ]
     then
         lib_exit 1 "req. logfile length = $$perftest_logfile_size_in_gb != $(lib_rw_round_to_gb $length_logfile) = act. logfile length"
     fi

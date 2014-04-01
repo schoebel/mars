@@ -73,7 +73,7 @@ function lib_wait_until_fetch_stops
 
     for var in maxtime_fetch time_constant_fetch; do
         eval $var='$'${module}_${var}
-        eval v='$'$var
+        eval v=${!var}
         if [ -z "$v" ]; then
             lib_exit 1 "variable $var not set"
         fi
