@@ -431,7 +431,7 @@ restart:
 
 		status = _make_mref(brick, index, 0, NULL, pos, brick->copy_end, READ, brick->verify_mode ? 2 : 0);
 		if (unlikely(status < 0)) {
-			MARS_WRN("status = %d\n", status);
+			MARS_DBG("status = %d\n", status);
 			progress = status;
 			break;
 		}
@@ -446,7 +446,7 @@ restart:
 	case COPY_STATE_START2:
 		status = _make_mref(brick, index, 1, NULL, pos, brick->copy_end, READ, 2);
 		if (unlikely(status < 0)) {
-			MARS_WRN("status = %d\n", status);
+			MARS_DBG("status = %d\n", status);
 			progress = status;
 			break;
 		}
@@ -509,7 +509,7 @@ restart:
 			_clear_mref(brick, index, 0);
 			status = _make_mref(brick, index, 0, NULL, pos, brick->copy_end, READ, 0);
 			if (unlikely(status < 0)) {
-				MARS_WRN("status = %d\n", status);
+				MARS_DBG("status = %d\n", status);
 				progress = status;
 				next_state = COPY_STATE_RESET;
 				break;
@@ -548,7 +548,7 @@ restart:
 		/* start writeout */
 		status = _make_mref(brick, index, 1, mref0->ref_data, pos, pos + mref0->ref_len, WRITE, 0);
 		if (unlikely(status < 0)) {
-			MARS_WRN("status = %d\n", status);
+			MARS_DBG("status = %d\n", status);
 			progress = status;
 			next_state = COPY_STATE_RESET;
 			break;
@@ -602,7 +602,7 @@ idle:
 	if (unlikely(progress < 0)) {
 		if (st->error >= 0)
 			st->error = progress;
-		MARS_WRN("progress = %d\n", progress);
+		MARS_DBG("progress = %d\n", progress);
 		progress = 0;
 		_clash(brick);
 	} else if (do_restart) {
