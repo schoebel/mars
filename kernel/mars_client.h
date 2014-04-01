@@ -30,6 +30,10 @@
 extern struct mars_limiter client_limiter;
 extern int global_net_io_timeout;
 extern int mars_client_abort;
+extern int max_client_channels;
+extern int max_client_bulk;
+
+#define MAX_CLIENT_CHANNELS 4
 
 struct client_mref_aspect {
 	GENERIC_ASPECT(mref);
@@ -46,6 +50,8 @@ struct client_brick {
 	// tunables
 	int max_flying; // limit on parallelism
 	bool limit_mode;
+	bool allow_permuting_writes;
+	bool separate_reads;
 	// readonly from outside
 	int connection_state; // 0 = switched off, 1 = not connected, 2 = connected
 };
@@ -56,8 +62,29 @@ struct client_input {
 
 struct client_threadinfo {
 	struct task_struct *thread;
-	wait_queue_head_t run_event;
-	int restart_count;
+};
+
+struct client_channel {
+	struct mars_socket socket;
+	struct client_threadinfo receiver;
+	struct list_head wait_list;
+	struct client_output *output;
+	long current_space;
+	int thread_count;
+	int recv_error;
+	int ch_nr;
+	bool is_used;
+	bool is_open;
+	bool is_connected;
+};
+
+struct client_bundle {
+	char *host;
+	char *path;
+	int thread_count;
+	wait_queue_head_t sender_event;
+	struct client_threadinfo sender;
+	struct client_channel channel[MAX_CLIENT_CHANNELS];
 };
 
 struct client_output {
@@ -66,15 +93,8 @@ struct client_output {
 	atomic_t timeout_count;
 	spinlock_t lock;
 	struct list_head mref_list;
-	struct list_head wait_list;
-	wait_queue_head_t event;
 	int  last_id;
-	int recv_error;
-	struct mars_socket socket;
-	char *host;
-	char *path;
-	struct client_threadinfo sender;
-	struct client_threadinfo receiver;
+	struct client_bundle bundle;
 	struct mars_info info;
 	wait_queue_head_t info_event;
 	bool get_info;
