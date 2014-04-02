@@ -31,7 +31,6 @@ function remote_dev_run
     mount_mount_data_device $primary_host $res
     resource_clear_data_device $primary_host $res
 
-    cluster_remove_debugfiles $primary_host
     cluster_create_debugfiles $primary_host
 
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
