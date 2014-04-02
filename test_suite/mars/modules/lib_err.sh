@@ -68,7 +68,13 @@ function lib_check_for_kernel_oops_after_start_time
 
 function lib_general_mars_checks_after_every_test
 {
+    local res
     echo "================= General checks of error and log files ========================"
+    resource_kill_all_scripts
+    for res in ${lv_config_lv_name_list[@]}; do
+        mount_umount_data_device_all $res
+    done
+    cluster_rmmod_mars_all
 	lib_err_check_and_copy_global_err_files_all
 	lib_check_proc_sys_mars_variables
     lib_check_for_kernel_oops_after_start_time
