@@ -578,22 +578,12 @@ done: ;
 }
 EXPORT_SYMBOL_GPL(generic_free);
 
-static
-struct generic_aspect *_new_aspect(struct generic_brick *brick, struct generic_object *obj)
+static inline
+struct generic_aspect *_new_aspect(const struct generic_aspect_type *aspect_type, struct generic_object *obj)
 {
 	struct generic_aspect *res = NULL;
-	const struct generic_brick_type *brick_type = brick->type;
-	const struct generic_object_type *object_type;
-	const struct generic_aspect_type *aspect_type;
-	int object_type_nr;
 	int size;
 	int rest;
-	
-	object_type = obj->object_type;
-	CHECK_PTR_NULL(object_type, done);
-	object_type_nr = object_type->object_type_nr;
-	aspect_type = brick_type->aspect_types[object_type_nr];
-	CHECK_PTR_NULL(aspect_type, done);
 	
 	size = aspect_type->aspect_size;
 	rest = obj->max_offset - obj->free_offset;
@@ -633,7 +623,7 @@ struct generic_aspect *_new_aspect(struct generic_brick *brick, struct generic_o
 	if (aspect_type->init_fn) {
 		int status = aspect_type->init_fn(res);
 		if (unlikely(status < 0)) {
-			BRICK_ERR("aspect init %p %p %p status = %d\n", brick, obj, res, status);
+			BRICK_ERR("aspect init %p %p %p status = %d\n", aspect_type, obj, res, status);
 			goto done;
 		}
 	}
@@ -658,7 +648,19 @@ struct generic_aspect *generic_get_aspect(struct generic_brick *brick, struct ge
 
 	res = obj->aspects[nr];
 	if (!res) {
-		res = _new_aspect(brick, obj);
+		const struct generic_object_type *object_type = obj->object_type;
+		const struct generic_brick_type *brick_type = brick->type;
+		const struct generic_aspect_type *aspect_type;
+		int object_type_nr;
+
+		CHECK_PTR_NULL(object_type, done);
+		CHECK_PTR_NULL(brick_type, done);
+		object_type_nr = object_type->object_type_nr;
+		aspect_type = brick_type->aspect_types[object_type_nr];
+		CHECK_PTR_NULL(aspect_type, done);
+
+		res = _new_aspect(aspect_type, obj);
+
 		obj->aspects[nr] = res;
 	}
 	CHECK_PTR(res, done);
