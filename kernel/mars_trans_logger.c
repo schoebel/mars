@@ -2553,6 +2553,7 @@ void trans_logger_log(struct trans_logger_brick *brick)
 	int nr_flying;
 
 	brick->replay_code = 0; // indicates "running"
+	brick->disk_io_error = 0;
 
 	_init_inputs(brick, true);
 
@@ -2670,8 +2671,8 @@ void replay_endio(struct generic_callback *cb)
 	CHECK_PTR(brick, err);
 
 	if (unlikely(cb->cb_error < 0)) {
+		brick->disk_io_error = cb->cb_error;
 		MARS_ERR("IO error = %d\n", cb->cb_error);
-		goto done;
 	}
 
 	traced_lock(&brick->replay_lock, flags);
@@ -2679,7 +2680,6 @@ void replay_endio(struct generic_callback *cb)
 	traced_unlock(&brick->replay_lock, flags);
 
 	atomic_dec(&brick->replay_count);
- done:
 	wake_up_interruptible_all(&brick->worker_event);
 	return;
  err:
@@ -2838,6 +2838,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 	int status = 0;
 
 	brick->replay_code = 0; // indicates "running"
+	brick->disk_io_error = 0;
 
 	start_pos = brick->replay_start_pos;
 	brick->replay_current_pos = start_pos;
@@ -2914,6 +2915,11 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 
 		if (lh.l_code != CODE_WRITE_NEW) {
 			MARS_IO("ignoring pos = %lld len = %d code = %d\n", lh.l_pos, lh.l_len, lh.l_code);
+		} else if (unlikely(brick->disk_io_error)) {
+			status = brick->disk_io_error;
+			brick->replay_code = status;
+			MARS_ERR("IO error %d\n", status);
+			break;
 		} else if (likely(buf && len)) {
 			if (brick->replay_limiter)
 				mars_limit_sleep(brick->replay_limiter, (len - 1) / 1024 + 1);
@@ -2933,7 +2939,15 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		     ((long long)jiffies) - old_jiffies >= HZ * 3) &&
 		    finished_pos >= 0) {
 			// for safety, wait until the IO queue has drained.
-			wait_event_interruptible_timeout(brick->worker_event, atomic_read(&brick->replay_count) <= 0, 1 * HZ);
+			wait_event_interruptible_timeout(brick->worker_event, atomic_read(&brick->replay_count) <= 0, 30 * HZ);
+
+
+			if (unlikely(brick->disk_io_error)) {
+				status = brick->disk_io_error;
+				brick->replay_code = status;
+				MARS_ERR("IO error %d\n", status);
+				break;
+			}
 
 			down(&input->inf_mutex);
 			input->inf.inf_min_pos = finished_pos;
@@ -2953,7 +2967,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		MARS_ERR("finished_pos too large: %lld + %d = %lld > %lld\n", input->logst.log_pos, input->logst.offset, finished_pos, brick->replay_end_pos);
 	}
 
-	if (finished_pos >= 0) {
+	if (finished_pos >= 0 && !brick->disk_io_error) {
 		input->inf.inf_min_pos = finished_pos;
 		brick->replay_current_pos = finished_pos;
 	}
@@ -3058,6 +3072,7 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 "mode replay=%d "
 		 "continuous=%d "
 		 "replay_code=%d "
+		 "disk_io_error=%d "
 		 "log_reads=%d | "
 		 "cease_logging=%d "
 		 "stopped_logging=%d "
@@ -3115,6 +3130,7 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 brick->replay_mode,
 		 brick->continuous_replay_mode,
 		 brick->replay_code,
+		 brick->disk_io_error,
 		 brick->log_reads,
 		 brick->cease_logging,
 		 brick->stopped_logging,

@@ -159,6 +159,7 @@ struct trans_logger_brick {
 	int replay_code;    // replay errors (if any)
 	bool stopped_logging; // direct IO without logging (only in case of EMERGENCY)
 	// private
+	int disk_io_error;         // replay errors from callbacks
 	struct trans_logger_hash_anchor **hash_table;
 	struct list_head group_head;
 	loff_t old_margin;
