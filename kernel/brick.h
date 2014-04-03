@@ -150,6 +150,14 @@ struct generic_aspect {
 	GENERIC_ASPECT(generic);
 };
 
+#define GENERIC_ASPECT_CONTEXT(OBJTYPE)					\
+	/* private (for any layer) */					\
+	int brick_index; /* globally unique */                          \
+
+struct generic_aspect_context {
+	GENERIC_ASPECT_CONTEXT(generic);
+};
+
 #define _mref_check(mref)						\
 	({								\
 		if (unlikely(BRICK_CHECKING && !(mref)->ref_initialized)) { \
@@ -341,7 +349,7 @@ struct generic_switch {
 	struct BRITYPE##_output **outputs;				\
 	/* private (for any layer) */					\
 	struct BRITYPE##_brick_ops *ops;				\
-	int brick_index; /* globally unique */                          \
+	struct generic_aspect_context aspect_context;			\
 	int (*free)(struct BRITYPE##_brick *del);			\
 	struct list_head tmp_head;					\
 

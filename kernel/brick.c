@@ -59,7 +59,7 @@ EXPORT_SYMBOL_GPL(_generic_output_exit);
 
 int generic_brick_init(const struct generic_brick_type *type, struct generic_brick *brick)
 {
-	brick->brick_index = get_nr();
+	brick->aspect_context.brick_index = get_nr();
 	brick->type = type;
 	brick->ops = type->master_ops;
 	brick->nr_inputs = 0;
@@ -78,7 +78,7 @@ void generic_brick_exit(struct generic_brick *brick)
 	brick->ops = NULL;
 	brick->nr_inputs = 0;
 	brick->nr_outputs = 0;
-	put_nr(brick->brick_index);
+	put_nr(brick->aspect_context.brick_index);
 }
 EXPORT_SYMBOL_GPL(generic_brick_exit);
 
@@ -650,7 +650,7 @@ struct generic_aspect *generic_get_aspect(struct generic_brick *brick, struct ge
 	CHECK_PTR(brick, done);
 	CHECK_PTR(obj, done);
 
-	nr = brick->brick_index;
+	nr = brick->aspect_context.brick_index;
 	if (unlikely(nr <= 0 || nr >= obj->aspect_nr_max)) {
 		BRICK_ERR("bad nr = %d\n", nr);
 		goto done;
