@@ -331,10 +331,6 @@ extern const struct meta mars_timespec_meta[];
 
 /////////////////////////////////////////////////////////////////////////
 
-#ifdef _STRATEGY
-#include "sy_old/strategy.h"
-#endif
-
 extern void mars_power_led_on(struct mars_brick *brick, bool val);
 extern void mars_power_led_off(struct mars_brick *brick, bool val);
 /* this should disappear!

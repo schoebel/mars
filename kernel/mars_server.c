@@ -33,12 +33,15 @@
 #include <linux/string.h>
 
 #define _STRATEGY
+#include "brick.h"
 #include "mars.h"
 #include "mars_bio.h"
 #ifndef __USE_COMPAT
 #include "mars_aio.h"
 #endif
 #include "mars_sio.h"
+
+#include "sy_old/strategy.h"
 
 ///////////////////////// own type definitions ////////////////////////
 
