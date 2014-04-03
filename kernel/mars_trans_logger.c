@@ -2663,6 +2663,7 @@ void replay_endio(struct generic_callback *cb)
 {
 	struct trans_logger_mref_aspect *mref_a = cb->cb_private;
 	struct trans_logger_brick *brick;
+	bool ok;
 	unsigned long flags;
 
 	LAST_CALLBACK(cb);
@@ -2676,10 +2677,16 @@ void replay_endio(struct generic_callback *cb)
 	}
 
 	traced_lock(&brick->replay_lock, flags);
+	ok = !list_empty(&mref_a->replay_head);
 	list_del_init(&mref_a->replay_head);
 	traced_unlock(&brick->replay_lock, flags);
 
-	atomic_dec(&brick->replay_count);
+	if (likely(ok)) {
+		atomic_dec(&brick->replay_count);
+	} else {
+		MARS_ERR("callback with empty replay_head (replay_count=%d)\n", atomic_read(&brick->replay_count));
+	}
+
 	wake_up_interruptible_all(&brick->worker_event);
 	return;
  err:
@@ -2720,6 +2727,7 @@ void wait_replay(struct trans_logger_brick *brick, struct trans_logger_mref_aspe
 	const int max = 512; // limit parallelism somewhat
 	int conflicts = 0;
 	bool ok = false;
+	bool was_empty;
 	unsigned long flags;
 
 	wait_event_interruptible_timeout(brick->worker_event,
@@ -2727,14 +2735,23 @@ void wait_replay(struct trans_logger_brick *brick, struct trans_logger_mref_aspe
 					 && (_has_conflict(brick, mref_a) ? conflicts++ : (ok = true), ok),
 					 60 * HZ);
 
-	atomic_inc(&brick->replay_count);
 	atomic_inc(&brick->total_replay_count);
 	if (conflicts)
 		atomic_inc(&brick->total_replay_conflict_count);
 
 	traced_lock(&brick->replay_lock, flags);
+	was_empty = !!list_empty(&mref_a->replay_head);
+	if (likely(was_empty)) {
+		atomic_inc(&brick->replay_count);
+	} else {
+		list_del(&mref_a->replay_head);
+	}
 	list_add(&mref_a->replay_head, &brick->replay_list);
 	traced_unlock(&brick->replay_lock, flags);
+
+	if (unlikely(!was_empty)) {
+		MARS_ERR("replay_head was already used (ok=%d, conflicts=%d, replay_count=%d)\n", ok, conflicts, atomic_read(&brick->replay_count));
+	}
 }
 
 static noinline
