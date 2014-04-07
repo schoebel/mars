@@ -707,6 +707,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 
 	newpath = NULL;
 
+	INIT_LIST_HEAD(&dent->dent_link);
 	INIT_LIST_HEAD(&dent->brick_list);
 
 	list_add(&dent->dent_link, start);

@@ -77,13 +77,15 @@ int mars_recv_dent_list(struct mars_socket *sock, struct list_head *anchor)
 
 		//MARS_IO("\n");
 
+		INIT_LIST_HEAD(&dent->dent_link);
+		INIT_LIST_HEAD(&dent->brick_list);
+
 		status = mars_recv_struct(sock, dent, mars_dent_meta);
 		if (status <= 0) {
 			mars_free_dent(dent);
 			goto done;
 		}
 		list_add_tail(&dent->dent_link, anchor);
-		INIT_LIST_HEAD(&dent->brick_list);
 	}
 done:
 	return status;
