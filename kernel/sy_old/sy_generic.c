@@ -618,15 +618,33 @@ int get_inode(char *newpath, struct mars_dent *dent)
 }
 
 static
+int dent_compare(struct mars_dent *a, struct mars_dent *b)
+{
+	if (a->d_class < b->d_class) {
+		return -1;
+	}
+	if (a->d_class > b->d_class) {
+		return +1;
+	}
+	if (a->d_serial < b->d_serial) {
+		return -1;
+	}
+	if (a->d_serial > b->d_serial) {
+		return +1;
+	}
+	return strcmp(a->d_path, b->d_path);
+}
+
+static
 int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 		u64 ino, unsigned int d_type)
 {
 	struct mars_cookie *cookie = __buf;
 	struct mars_global *global = cookie->global;
 	struct list_head *anchor = &global->dent_anchor;
+	struct list_head *start = anchor;
 	struct mars_dent *dent;
 	struct list_head *tmp;
-	struct mars_dent *best = NULL;
 	char *newpath;
 	int prefix = 0;
 	int pathlen;
@@ -656,33 +674,27 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 
 	MARS_IO("path = '%s'\n", newpath);
 
-	for (tmp = anchor->next; tmp != anchor; tmp = tmp->next) {
-		int cmp;
-		dent = container_of(tmp, struct mars_dent, dent_link);
-		cmp = strcmp(dent->d_path, newpath);
-		if (!cmp) {
-			goto found;
-		}
-		// keep the list sorted. find the next smallest member.
-		if ((dent->d_class < class ||
-		    (dent->d_class == class &&
-		     (dent->d_serial < serial ||
-		      (dent->d_serial == serial &&
-		       cmp < 0))))
-		   &&
-		   (!best ||
-		    best->d_class < dent->d_class ||
-		    (best->d_class == dent->d_class &&
-		     (best->d_serial < dent->d_serial ||
-		      (best->d_serial == dent->d_serial &&
-		       strcmp(best->d_path, dent->d_path) < 0))))) {
-			best = dent;
-		}
-	}
-
 	dent = brick_zmem_alloc(cookie->allocsize);
 	if (unlikely(!dent))
 		goto err_mem1;
+
+	dent->d_class = class;
+	dent->d_serial = serial;
+	dent->d_path = newpath;
+
+	for (tmp = anchor->next; tmp != anchor; tmp = tmp->next) {
+		struct mars_dent *test = container_of(tmp, struct mars_dent, dent_link);
+		int cmp = dent_compare(test, dent);
+		if (!cmp) {
+			brick_mem_free(dent);
+			dent = test;
+			goto found;
+		}
+		// keep the list sorted. find the next smallest member.
+		if (cmp > 0)
+			break;
+		start = tmp;
+	}
 
 	dent->d_name = brick_string_alloc(namlen + 1);
 	if (unlikely(!dent->d_name))
@@ -693,16 +705,11 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	if (unlikely(!dent->d_rest))
 		goto err_mem3;
 
-	dent->d_path = newpath;
 	newpath = NULL;
 
 	INIT_LIST_HEAD(&dent->brick_list);
 
-	if (best) {
-		list_add(&dent->dent_link, &best->dent_link);
-	} else {
-		list_add_tail(&dent->dent_link, anchor);
-	}
+	list_add(&dent->dent_link, start);
 
 found:
 	dent->d_type = d_type;
