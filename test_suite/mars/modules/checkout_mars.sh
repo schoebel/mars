@@ -30,7 +30,6 @@ function checkout_mars_run
     checkout_branches["$checkout_mars_src_directory"]="$checkout_mars_git_branch"
     checkout_tags["$checkout_mars_src_directory"]="$checkout_mars_git_tag"
     checkout_branches["$checkout_mars_kernel_src_directory"]="$checkout_mars_kernel_git_branch"
-    checkout_branches["$checkout_mars_contrib_src_directory"]="$checkout_mars_contrib_git_branch"
  
     for dir in ${!checkout_branches[@]};do
         if [ ! -d "$dir" ];then

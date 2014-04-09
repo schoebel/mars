@@ -329,15 +329,6 @@ To build the mars module and userspace tools you need:
                        variable : make_mars_src_directory
     to be specified in file     : default-make_mars.conf
 
-- a directory containing a git repository which contains the userspace tool
-  marsview
-                       variable : checkout_mars_contrib_src_directory
-    to be specified in file     : default-checkout_mars.conf
-
-- the branch from which to take marsview
-                       variable : checkout_mars_contrib_git_branch
-    to be specified in file     : default-checkout_mars.conf
-
 
 2.2. Configuration of the test hosts on which the tests are running
 -------------------------------------------------------------------
