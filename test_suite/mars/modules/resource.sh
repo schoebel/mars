@@ -55,7 +55,7 @@ function resource_quick_prepare_first_resource
     cluster_clear_and_mount_mars_dir_all
     cluster_insert_mars_module_all
     marsadm_do_cmd $primary_host "create-resource" "$res $dev" || lib_exit 1
-    marsadm_do_cmd $primary_host "wait-resource" "$res is-device-on" || \
+    marsadm_do_cmd $primary_host "wait-resource" "$res is-device" || \
                                                                   lib_exit 1
     resource_check_data_device_after_create $primary_host $res
     lib_rw_remote_check_device_fs $primary_host $data_dev "xfs"
@@ -422,7 +422,7 @@ function resource_create
             cluster_insert_mars_module_all
             marsadm_do_cmd $host "create-resource $resource_create_flag" \
                                  "$res $dev $res ${size}G"
-            marsadm_do_cmd $host "wait-resource" "$res is-device-on"
+            marsadm_do_cmd $host "wait-resource" "$res is-device"
             rc=$?
             if [ $rc -ne 0 ]; then
                 let count+=1
@@ -670,7 +670,7 @@ function resource_check_replication
     local primary_host=$1 secondary_host=$2 res=$3 debug_msg_prefix="$4"
     local data_dev=$(resource_get_data_device $res)
     lib_vmsg  " ${debug_msg_prefix}check replication, primary=$primary_host, secondary=$secondary_host"
-    marsadm_do_cmd $primary_host "wait-resource" "$res is-device-on" || \
+    marsadm_do_cmd $primary_host "wait-resource" "$res is-device" || \
                                                                     lib_exit 1
     lib_vmsg "  ${debug_msg_prefix}write to $primary_host:$data_dev and log-rotate/delete"
     local count=0 maxcount=3
