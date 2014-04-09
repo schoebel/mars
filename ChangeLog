@@ -36,6 +36,20 @@ Release Conventions / Branches / Tagnames
 	WIP-* branches are for development and may be rebased onto anything
 	at any time without notice. They will disappear eventually.
 
+	*stable* branches mean that only bug fixes and documentation
+	updates / clarifications will be applied. Updates to the test suite /
+	new test cases potentially disguising bugs, and other minor additions
+	of debugging code / paranoia code which may lead to discovery
+	of bugs are also possible. Error messages / warnings and their
+	error class may	also be changed.
+	NO NEW FEATURES, not even minor ones, except when absolutely
+	necessary for a bugfix.
+
+light0.1stable02
+--------
+	 * Fix sorting of internal data structure.
+	 * Fix IO error propagation at replay.
+
 light0.1stable01
 --------
 	 * Fix parallelism of logfile propagation: sometimes a secondary
