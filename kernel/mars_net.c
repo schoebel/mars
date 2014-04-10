@@ -322,7 +322,7 @@ void mars_put_socket(struct mars_socket *msock)
 
 		MARS_DBG("#%d closing socket %p\n", msock->s_debug_nr, sock);
 		if (likely(sock && cmpxchg(&msock->s_alive, true, false))) {
-			kernel_sock_shutdown(sock, SHUT_WR);
+			kernel_sock_shutdown(sock, SHUT_RDWR);
 		}
 		if (likely(sock && !msock->s_alive)) {
 			MARS_DBG("#%d releasing socket %p\n", msock->s_debug_nr, sock);
@@ -350,7 +350,7 @@ void mars_shutdown_socket(struct mars_socket *msock)
 			struct socket *sock = msock->s_socket;
 			if (likely(sock && cmpxchg(&msock->s_alive, true, false))) {
 				MARS_DBG("#%d shutdown socket %p\n", msock->s_debug_nr, sock);
-				kernel_sock_shutdown(sock, SHUT_WR);
+				kernel_sock_shutdown(sock, SHUT_RDWR);
 			}
 			mars_put_socket(msock);
 		}
