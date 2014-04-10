@@ -4,6 +4,11 @@
 
 #include <linux/mm_types.h>
 
+#ifndef CONFIG_MARS_MODULE
+// when unsure, include faked config file
+#include "mars_config.h"
+#endif
+
 #define BRICK_DEBUG_MEM 4096
 
 #ifndef CONFIG_MARS_DEBUG_MEM
