@@ -15,7 +15,7 @@ use File::Basename;
 binmode STDOUT, ":utf8";
 
 ### defaults
-my $version        = "0.073b";
+my $version        = "0.073e";
 my $alife_timeout  = "30";	# sec for remote-nodes timeout
 my $is_tty 	   = 0;
 my $mars_dir       = '/mars';
@@ -27,7 +27,7 @@ chomp $himself;
 ### ARGV
 # Optionen in Hash-Ref parsen
 my $params = {};
-GetOptions( $params, 'help', 'h', 'version', 'v', 'resource=s', 'system', 'interval=i', 'history', 'ascii', 'debug' );
+GetOptions( $params, 'help', 'h', 'version', 'v', 'resource=s', 'system', 'interval=i', 'history', 'status' , 'ascii', 'debug' );
 
 #########################################################################################
 ### terminal settings
@@ -58,10 +58,11 @@ sub display_help {
     print "Usage: mars-status [--help]\n";
     print "Usage: mars-status [--version]\n";
     print "Usage: mars-status (without specification of parameters, an abstract of all the information sent)\n";
-    print "Usage: mars-status [--resource <RESNAME>] [--interval <seconds>] | [--history] | [--debug ] | [--system]\n";
+    print "Usage: mars-status [--resource <RESNAME>] [--interval <seconds>] | [--history] | [--status] | [--debug ] | [--system]\n";
     print "       --resource : limits the display to the specified resource\n";
     print "       --interval : refreshes the display every second xxx\n";
     print "       --history  : shows information about the log files, version numbers and their status\n";
+    print "       --status   : shows graphical status information about sync, resize, fetch and replay\n";
     print "       --ascii    : display history in ascii code letters\n";
     print "       --system   : display mars-system informations\n";
     print "       --debug    : additional display debug messages\n\n";
@@ -287,7 +288,7 @@ sub display_partner {
     ### logfile - delay
 
     ### logfile - results
-    print_screen (sprintf "\tLogfile : %s bytes (%.3fGB) in ", $PLogSize, ( $PLogSize/1024/1024/1024 ));
+    print_screen (sprintf "\tFetch   : %s bytes (%.3fGB) in ", $PLogSize, ( $PLogSize/1024/1024/1024 ));
     print_screen "$PLogName", "$Color_green";
     print_screen " active";
     print_screen ", received with $LogSpeed gb/s" if ( $LogSpeed ne "0.00" );
@@ -306,7 +307,7 @@ sub display_partner {
     my $RStatus = sprintf("%.2f", ( $PLogFile[1] / $PLogSize * 100));
     $RStatus    = 0      if ( $Ljoined eq "0" || $PLogSize eq "1" ); 
     $RStatus    = 99.99  if ((  $PLogFile[1] ne $PLogSize ) && ( $RStatus eq "100.00" ));
-    print_screen sprintf ("\tReplayed: %s bytes (%.3fGB) now replayed, Todo %d, completed ", 
+    print_screen sprintf ("\tReplay  : %s bytes (%.3fGB) now replayed, Todo %d, completed ", 
         $PLogFile[1], ( $PLogFile[1]/1024/1024/1024 ), $PLogFile[2]);
         
     ### replay - speed
@@ -336,6 +337,7 @@ sub display_partner {
         } else {
             print_screen "\n";
         }
+        print_screen "\t\t---> WORK: Replay now $PLogName\n", "$Color_blue";
     } elsif ( $PLogFile[2] > 0 ) {
         $RStatus = sprintf("%.2f", ($PLogFile[1]-$PLogFile[2])/$PLogFile[1] * 100);
         print_screen "$RStatus$RSpeed\n", "$Color_red";
@@ -394,7 +396,7 @@ sub display_partner {
     ##########################################################################
     ### check switches
     my $SWStatus;
-    print_screen "\tSwitches: Attach="; 
+    print_screen "\tSwitch  : Attach="; 
     if ( readlink "$mars_dir/$PRes/todo-$PName/attach" eq 1 ) {		### Use of uninitialized value in string
         print_screen "on", "$Color_green";
     } else {
@@ -502,6 +504,9 @@ sub check_ressource {
         if ( $params->{'history'} ) {
             check_logfile( $res, $ResPartner );
         }
+        if ( $params->{'status'} ) {
+            check_status( $res, $ResPartner );
+        }
 
 
         ### check resources debug
@@ -519,6 +524,176 @@ sub check_ressource {
     } # end foreach
 
 }
+#########################################################################################
+###
+sub check_status {
+    my $LResource 	= shift;
+    print_screen "  -> Cluster Status - Resource $LResource\n", 'bold';
+
+    my $StatusFaktor = 100;
+    my $StatusNode   = "";
+    my $StatusSize   = 0;
+    my $StatusDummy  = 0;
+    my $StatusDevice = 0;
+    
+    # read logfile-size from primary
+    my $StaPrimary = check_link ( "$mars_dir/$LResource/primary" );
+    my @PrimarySize = <$mars_dir/$LResource/version-*$StaPrimary>;
+    foreach my $PrimarySize (@PrimarySize) {
+        my $LogFile = $PrimarySize;
+        $LogFile    =~ s/.*version-//;
+        $LogFile    = -s "$mars_dir/$LResource/log-$LogFile";
+        if ( !$LogFile ) { $LogFile = 0 };
+        $PrimarySize = check_link ( $PrimarySize );
+        $PrimarySize    =~ s/:.*//;
+        $PrimarySize    =~ s/.*,//;
+        if ( $StatusDummy < 1 ) { $StatusDummy = $PrimarySize; }
+        if ( $LogFile > $PrimarySize ) {
+            $StatusSize = $StatusSize + $LogFile;
+        } else {
+            $StatusSize = $StatusSize + $PrimarySize;
+        }
+    }
+
+    ### read master-device-size
+    my @Size = <$mars_dir/$LResource/*size*>;
+    foreach my $Size ( @Size) {
+        $Size = check_link ($Size);
+        if ( $StatusDevice < $Size ) {
+            $StatusDevice = $Size;
+        }
+    }
+    my $StatusLineA = "\tStatus Resize/Sync  |";
+    my $StatusLineB;
+    for (my $i=1; $i<$StatusFaktor; $i+=1) {
+        $StatusLineA = $StatusLineA."#";
+    } 
+    print_screen "$StatusLineA\n", "$Color_blue";
+    
+    ### read device-size by nodes
+    my @NodeSize = <$mars_dir/$LResource/actsize-*>;
+    foreach my $NodeSize (@NodeSize) {
+        $StatusLineA = "";
+        $StatusLineB = "";
+        my @NodeName = split("-",$NodeSize);
+        $StatusNode  = $NodeName[2];
+        my $NodeActs = sprintf("%d", (check_link "$mars_dir/$LResource/actsize-$StatusNode") / $StatusDevice * $StatusFaktor);
+        my $NodeSync = sprintf("%d", (check_link "$mars_dir/$LResource/syncstatus-$StatusNode") / $StatusDevice * $StatusFaktor);
+        for (my $i=2; $i<$NodeActs; $i+=1) {
+            $StatusLineA = $StatusLineA.">";
+        } 
+        $StatusLineA = $StatusLineA."R";
+        for (my $i=2; $i<$NodeSync; $i+=1) {
+            $StatusLineB = $StatusLineB.">";
+        } 
+        $StatusLineB = $StatusLineB."S";
+        ### print out
+        for (my $i=length($StatusNode); $i<20; $i+=1) {
+            $StatusNode = $StatusNode." ";
+            }
+        print "\t$StatusNode|$StatusLineA\n                            |$StatusLineB\n";
+    }
+
+    
+    ### search all versions from primary
+    my $StatusLineC = "\n\tStatus Replay/Fetch ";
+    my $StatusLineD = "\tLogfile-Version     ";
+    my @Version = <$mars_dir/$LResource/version-*$StaPrimary>;
+    foreach my $Version (@Version) {
+        my $VersionNr	= $Version;
+        $VersionNr      =~ s/^.*version-([0-9]+)-.*$/$1/;
+        my @VersionDetail  = split (',', check_link "$Version" );
+        my $VersionLogFile = $VersionDetail[1];
+        my $VersionLogSize = $VersionDetail[2];
+        $VersionLogSize =~ s/:.*//;
+        $VersionLogSize = $VersionLogSize / $StatusSize * $StatusFaktor;
+        $StatusLineC = $StatusLineC."|";
+        for (my $i=2; $i<$VersionLogSize; $i+=1) {
+            $StatusLineC = $StatusLineC."#";
+        } 
+        $StatusLineD = $StatusLineD."|".$VersionNr;
+        for (my $i=11; $i<$VersionLogSize; $i+=1) {
+            $StatusLineD = $StatusLineD." ";
+        }
+    }
+    print_screen "$StatusLineC#\n", "$Color_blue";
+    print "$StatusLineD\n";
+
+    ### search via nodes
+    my @Replay = <$mars_dir/$LResource/replay-*>;
+    foreach my $StatusNode (@Replay) {
+        $StatusLineC   = "";
+        $StatusLineD   = "";
+        my $NodeReplay = 0;
+        my $NodeFetch  = $StatusDummy / $StatusSize * $StatusFaktor; 
+        $StatusNode    =~ s/.*-//;
+        my @Version    = <$mars_dir/$LResource/version-*$StatusNode>;
+        foreach my $Version (@Version) {
+            my $NodeSize = check_link ( $Version );
+            $Version     =~ s/.*version-//;
+            $Version     =~ s/-.*//;
+            
+            ### use replay
+            my @ReplaySize = split(",",check_link ( "$mars_dir/$LResource/replay-$StatusNode" ));
+            my $ReplayLink = $ReplaySize[0];
+            my $ReplayVers = "log-$Version-";
+            if ( $ReplayLink =~ m/$ReplayVers/i ) {
+                $NodeSize    = $ReplaySize[1];
+            } else {
+                $NodeSize    =~ s/:.*//;
+                $NodeSize    =~ s/.*,//;
+            }
+            $NodeSize    = sprintf("%d",$NodeSize / $StatusSize * $StatusFaktor);
+            $NodeReplay  = $NodeSize + $NodeReplay;
+            $StatusLineC = $StatusLineC."|";
+            for ( my $i=1; $i<$NodeSize; $i+=1 ) {
+                $StatusLineC = $StatusLineC.">";
+            } 
+
+            ### use fetch
+            my $LogSize  = 0;
+            my @LogFile  = <$mars_dir/$LResource/log-$Version-*>;
+            foreach my $LogFile (@LogFile) {
+                $LogSize = -s $LogFile;
+            }
+            $LogSize     = sprintf("%d",$LogSize / $StatusSize * $StatusFaktor);
+            $NodeFetch   = $LogSize + $NodeFetch;
+            if ( !$LogSize ) { $LogSize = $NodeSize };
+            $StatusLineD = $StatusLineD."|";
+            for (my $i=1; $i<$LogSize; $i+=1) {
+                $StatusLineD = $StatusLineD.">";
+            } 
+        }
+
+        ## select replay rest
+        if ( $NodeReplay < 100 ) {
+            $NodeReplay  = sprintf("%d",$NodeReplay);
+            $StatusLineC = $StatusLineC."R";
+            for ( my $i=$NodeReplay; $i<99; $i+=1 ) {
+                $StatusLineC = $StatusLineC."!";
+            }
+        } else {
+            $StatusLineC = $StatusLineC."R";
+        }
+        ### select fetch rest
+        if ( $NodeFetch < 100 ) {
+            $NodeFetch   = sprintf("%d",$NodeFetch);
+            $StatusLineD = $StatusLineD."F";
+            for ( my $i=$NodeFetch; $i<99; $i+=1 ) {
+                $StatusLineD = $StatusLineD."!";
+            }
+        } else {
+            $StatusLineD = $StatusLineD."F";
+        }
+
+        ### print out
+        for (my $i=length($StatusNode); $i<20; $i+=1) {
+            $StatusNode = $StatusNode." ";
+        }
+        print "\t$StatusNode$StatusLineC\n\t                    $StatusLineD\n";
+    }
+}
+
 #########################################################################################
 ###
 sub check_logfile {
@@ -565,12 +740,10 @@ sub check_logfile {
                 }
 
                 print_screen " $Gab", "$Color_red";
-#                print_screen "\t$Gls$Gfr$Gkr$Gab", "$Color_red";
                 print_screen sprintf("Logfile Size: $LogSize bytes (%.3fGB) by %s from %s, include hypothetically %s sec\n", ($LogSize /1024/1024/1024), $LogHost, $LogStat[10], $LogStat[9]), "$Color_blue";
         } else {
             ### not found logfile
             print_screen " $Gab", "$Color_red";
-#            print_screen "\t$Gls$Gfr$Gkr$Gab", "$Color_red";
             print_screen "old Version, Logfile is deleted ...\n", "$Color_blue";
         }
                                                                                                                                                                                                    
@@ -1028,7 +1201,6 @@ while(1) {
     ### check resources
     print_screen "\n---> Resources <---\n", "$Color_blue bold";
     check_ressource;
-	
 	
     ##########################################################################
      ### check global debug
