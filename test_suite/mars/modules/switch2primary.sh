@@ -35,9 +35,6 @@ function switch2primary_run
                                   "time_waited"
     lib_vmsg "  ${FUNCNAME[0]}: sync time: $time_waited"
 
-    mount_mount_data_device $primary_host $res
-    resource_clear_data_device $primary_host $res
-
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
                                      "writer_script" 0 0 $res ""
 
@@ -53,27 +50,10 @@ function switch2primary_run
         fi
     fi
 
-    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
+    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count" \
+                                    $res
     lib_vmsg "  ${FUNCNAME[0]}: write_count: $write_count"
     main_error_recovery_functions["lib_rw_stop_scripts"]=
-
-    count=0
-    while true; do
-        mount_umount_data_device_all
-        rc=$?
-        if [ $rc -ne 0 ]; then
-            let count+=1
-            sleep 1
-            lib_vmsg "  umount data device failed $count times"
-            if [ $count -eq \
-                 $lib_rw_number_of_umount_retries_after_stopped_write ]
-            then
-                lib_exit 1 "max tries exceeded"
-            fi
-            continue
-        fi
-        break
-    done
 
     marsadm_do_cmd $primary_host "secondary" "$res" || lib_exit 1
 
@@ -177,7 +157,7 @@ function switch2primary_force
     if [ $switch2primary_data_dev_in_use -eq 0 ]; then
         lib_vmsg "  $switch2primary_flow_msg_prefix: stop writing on $orig_primary and umount data device"
         switch2primary_stop_write_and_umount_data_device $orig_primary \
-                                        $writer_script "write_count"
+                                        $writer_script "write_count" $res
     fi
     if [ $switch2primary_connected -eq 0 ]; then
         lib_vmsg "  $switch2primary_flow_msg_prefix: cut network"
@@ -204,7 +184,7 @@ function switch2primary_force
     if [ $switch2primary_data_dev_in_use -ne 0 ]; then
         lib_vmsg "  $switch2primary_flow_msg_prefix: stop writing on $orig_primary and umount data device"
         switch2primary_stop_write_and_umount_data_device $orig_primary \
-                                        $writer_script "write_count"
+                                        $writer_script "write_count" $res
     fi
     lib_vmsg "  ${FUNCNAME[0]}: write_count: $write_count"
 
@@ -244,10 +224,10 @@ function switch2primary_restore_resource_connection
  
 function switch2primary_stop_write_and_umount_data_device
 {
-    local host=$1 writer_script=$2 varname_write_count=$3
-    lib_rw_stop_writing_data_device $host $writer_script $varname_write_count
+    local host=$1 writer_script=$2 varname_write_count=$3 res=$4
+    lib_rw_stop_writing_data_device $host $writer_script $varname_write_count \
+                                    $res
     main_error_recovery_functions["lib_rw_stop_scripts"]=
-    mount_umount_data_device $host $res
 }
 
 function switch2primary_wait_for_first_own_logfile_on_new_primary

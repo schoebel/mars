@@ -79,9 +79,6 @@ function resize_run
     local dev=$(lv_config_get_lv_device $res)
     local writer_pid writer_script
 
-    mount_mount_data_device $primary_host $res
-    resource_clear_data_device $primary_host $res
-
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
                                      "writer_script" 0 1 $res ""
 
@@ -114,7 +111,7 @@ function resize_check_resize_post_conditions
 
     if [ -n "$writer_script" ]; then
         lib_rw_stop_writing_data_device $primary_host $writer_script \
-                                        "write_count"
+                                        "write_count" $res
         main_error_recovery_functions["lib_rw_stop_scripts"]=
     fi
 
@@ -136,7 +133,6 @@ function resize_check_resize_post_conditions
         fi
     done
 
-    mount_umount_data_device $primary_host $res
     lib_wait_for_secondary_to_become_uptodate_and_cmp_cksums "resize" \
                                   $secondary_host $primary_host $res \
                                   $dev $mars_data_dev_size

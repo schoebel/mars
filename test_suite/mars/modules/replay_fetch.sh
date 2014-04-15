@@ -36,9 +36,6 @@ function replay_fetch_run
                                   "time_waited"
     lib_vmsg "  ${FUNCNAME[0]}: sync time: $time_waited"
 
-    mount_mount_data_device $primary_host $res
-    resource_clear_data_device $primary_host $res
-
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
                                      "writer_script"  0 2 $res ""
 
@@ -64,7 +61,8 @@ function replay_fetch_run
     lib_vmsg "  ${FUNCNAME[0]}: fetch time: $time_waited"
 
 
-    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
+    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count" \
+                                    $res
     main_error_recovery_functions["lib_rw_stop_scripts"]=
 
     case $replay_fetch_running_action in #(((

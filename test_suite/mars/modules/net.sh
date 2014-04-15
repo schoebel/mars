@@ -31,9 +31,6 @@ function net_run
 
     net_do_impact_cmd $primary_host "check_off" "remote_host=$secondary_host"
 
-    mount_mount_data_device $primary_host $res
-    resource_clear_data_device $primary_host $res
- 
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
                                      "writer_script"  0 1 $res ""
 
@@ -45,10 +42,10 @@ function net_run
 
     net_do_impact_cmd $primary_host "off" "remote_host=$secondary_host"
 
-    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
+    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count" \
+                                    $res
     main_error_recovery_functions["lib_rw_stop_scripts"]=
 
-    mount_umount_data_device $primary_host $res
     lib_wait_for_secondary_to_become_uptodate_and_cmp_cksums "net" \
                                     $secondary_host $primary_host $res $dev 0
 }
