@@ -107,6 +107,10 @@ function file_destroy_dd_on_logfile
     local host=$1 logfile=$2 length=$3
     local patch_length=$file_destroy_patch_length
     local offset=$(($length - $patch_length))
+    if [ $offset -lt 0 ]; then
+        offset=0
+        patch_length=$length
+    fi
     lib_vmsg " patching the last $patch_length bytes in $host:$logfile"
     lib_remote_idfile $host "printf '%.${patch_length}d' | dd of=$logfile bs=1 conv=notrunc count=$patch_length seek=$offset" || lib_exit 1
 }
