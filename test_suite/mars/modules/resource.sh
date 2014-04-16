@@ -277,10 +277,10 @@ function resource_fill_mars_dir
                                      "writer_script"  0 3 $res ""
 
     marsadm_do_cmd $secondary_host "invalidate" $res
-    lib_wait_for_initial_end_of_sync $primary_host $secondary_host $res \
-                                  $resource_maxtime_initial_sync \
-                                  $resource_time_constant_initial_sync \
-                                  "time_waited"
+    lib_wait_until_action_stops "syncstatus" $secondary_host $res \
+                                $resource_maxtime_initial_sync \
+                                $resource_time_constant_initial_sync \
+                                "time_waited" 0 ""
 
     lib_rw_stop_writing_data_device $primary_host $writer_script "write_count" \
                                     $res
