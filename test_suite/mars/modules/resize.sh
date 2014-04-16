@@ -117,6 +117,7 @@ function resize_check_resize_post_conditions
 
     local should_fail=0 test_file
     if [ $resource_fs_on_data_device_necessary -eq 1 ]; then
+        mount_mount_data_device $primary_host $res
         test_file=$(resource_get_mountpoint $res)/resize_test
         rm_test_file=1
     else
@@ -132,6 +133,8 @@ function resize_check_resize_post_conditions
                                                                     || lib_exit 1
         fi
     done
+
+    mount_umount_data_device $primary_host $res
 
     lib_wait_for_secondary_to_become_uptodate_and_cmp_cksums "resize" \
                                   $secondary_host $primary_host $res \
