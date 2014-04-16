@@ -555,7 +555,7 @@ function perftest_do_fetch_or_fetch_and_replay
                                           $perftest_maxtime_fetch 1 \
                                           "net_throughput"
         if [ $perftest_action = "fetch_and_replay" ]; then
-            lib_wait_until_replay_has_reached_length $secondary_host $res \ 
+            lib_wait_until_replay_has_reached_length $secondary_host $res \
                             $last_logfile_primary \
                             $last_logfile_length_primary \
                             $perftest_wait_for_replay_to_stop_after_fetch_end
