@@ -425,14 +425,16 @@ done: ;
 static
 void bio_ref_io(struct bio_output *output, struct mref_object *mref)
 {
+	CHECK_PTR(mref, fatal);
+
+	_mref_get(mref);
 	atomic_inc(&mars_global_io_flying);
+
 	if (mref->ref_prio == MARS_PRIO_LOW ||
 	    (mref->ref_prio == MARS_PRIO_NORMAL && mref->ref_rw)) {
 		struct bio_mref_aspect *mref_a = bio_mref_get_aspect(output->brick, mref);
 		struct bio_brick *brick = output->brick;
 		unsigned long flags;
-
-		_mref_get(mref);
 
 		spin_lock_irqsave(&brick->lock, flags);
 		list_add_tail(&mref_a->io_head, &brick->queue_list[PRIO_INDEX(mref)]);
@@ -443,8 +445,14 @@ void bio_ref_io(struct bio_output *output, struct mref_object *mref)
 		wake_up_interruptible(&brick->submit_event);
 		return;
 	}
+
 	// realtime IO: start immediately
 	_bio_ref_io(output, mref, false);
+	BIO_REF_PUT(output, mref);
+	return;
+
+fatal:
+	MARS_FAT("cannot handle mref %p on output %p\n", mref, output);
 }
 
 static
