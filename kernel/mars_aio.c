@@ -866,18 +866,20 @@ static int aio_submit_thread(void *data)
 
 		sleeptime = 1;
 		for (;;) {
+			mref_a->di.dirty_stage = 1;
 			status = aio_submit(output, mref_a, false);
 
 			if (likely(status != -EAGAIN)) {
-				mref_a->di.dirty_stage = 1;
 				break;
 			}
+			mref_a->di.dirty_stage = 0;
 			atomic_inc(&output->total_delay_count);
 			brick_msleep(sleeptime);
 			if (sleeptime < 100) {
 				sleeptime++;
 			}
 		}
+
 	error:
 		if (unlikely(status < 0)) {
 			MARS_IO("submit_count = %d status = %d\n", atomic_read(&output->submit_count), status);
