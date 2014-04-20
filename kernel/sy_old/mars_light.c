@@ -5403,16 +5403,16 @@ static int __init init_light(void)
 	DO_INIT(mars_buf);
 	DO_INIT(mars_usebuf);
 #endif
-	DO_INIT(log_format);
 	DO_INIT(mars_net);
-	DO_INIT(mars_server);
 	DO_INIT(mars_client);
 	DO_INIT(mars_aio);
 	DO_INIT(mars_sio);
 	DO_INIT(mars_bio);
-	DO_INIT(mars_if);
+	DO_INIT(mars_server);
 	DO_INIT(mars_copy);
+	DO_INIT(log_format);
 	DO_INIT(mars_trans_logger);
+	DO_INIT(mars_if);
 
 	DO_INIT(sy);
 	DO_INIT(sy_net);
