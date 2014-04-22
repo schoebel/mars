@@ -359,12 +359,17 @@ int len2order(int len)
 {
 	int order = 0;
 
+	if (unlikely(len <= 0)) {
+		BRICK_ERR("trying to use %d bytes\n", len);
+		return 0;
+	}
+
 	while ((PAGE_SIZE << order) < len)
 		order++;
 
-	if (unlikely(order > BRICK_MAX_ORDER || len <= 0)) {
-		BRICK_ERR("trying to allocate %d bytes (max = %d)\n", len, (int)(PAGE_SIZE << order));
-		return -1;
+	if (unlikely(order > BRICK_MAX_ORDER)) {
+		BRICK_ERR("trying to use %d bytes (oder = %d, max = %d)\n", len, order, BRICK_MAX_ORDER);
+		return BRICK_MAX_ORDER;
 	}
 	return order;
 }
