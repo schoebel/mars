@@ -45,6 +45,15 @@ Release Conventions / Branches / Tagnames
 	NO NEW FEATURES, not even minor ones, except when absolutely
 	necessary for a bugfix.
 
+light0.1stable03
+--------
+	 * Major: fix internal aio race (could lead to memory corruption).
+	 * Fix refcounting in trans_logger.
+	 * Some minor fixes in module code.
+	 * Fix 1&1-internal out-of-tree builds.
+	 * Various minor fixes.
+	 * Update monitoring tools / docs (German, contributed by Jörg Mann).
+
 light0.1stable02
 --------
 	 * Fix sorting of internal data structure.
