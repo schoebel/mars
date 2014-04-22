@@ -173,6 +173,8 @@ mail_to=("frank.liepold@1und1.de")
 start_script=$test_suite_dir/scripts/start_test.sh
 
 # For documentation see header of this file
+
+# These are all tests existing so far.
 tests_to_execute=(
 "build_test_environment/checkout/checkout_mars_from_git:build_test_environment"
 "build_test_environment/make/make_mars/grub:build_test_environment"
@@ -206,6 +208,51 @@ tests_to_execute=(
 "test_cases/perf:"
 )
 
+# Here we omit three test cases:
+#
+# build_test_environment/checkout/checkout_mars_from_git:build_test_environment
+# build_test_environment/make/make_mars/grub:build_test_environment
+# build_test_environment/install_mars/install_via_rsync:build_test_environment
+#
+# because in most cases you will want to test an already installed kernel and
+# mars module
+#
+# The following test cases which try to achieve assertions with respect to
+# performance are omitted, too:
+#
+# test_cases/perf
+#
+# The reason is, that the network throughput of our test environment varies
+# too heavily to get reliable results. In a sufficently stable network
+# environment the tests might be useful
+
+tests_to_execute=(
+"build_test_environment/lv_config/lv_recreate:build_test_environment"
+"build_test_environment/cluster/create_cluster:build_test_environment"
+"build_test_environment/resource/create_resource:build_test_environment"
+"test_cases/admin/leave_and_recreate_resource:test_cases"
+"test_cases/admin/leave_and_create_standalone_resource:test_cases"
+"test_cases/admin/replay_fetch/replay:test_cases"
+"test_cases/admin/replay_fetch/fetch:test_cases"
+"test_cases/hardcore/destroy_secondary_logfile:test_cases"
+"test_cases/admin/multi_res_sync_sequence:test_cases"
+"test_cases/admin/resizing:test_cases"
+"test_cases/admin/logrotate:test_cases"
+"test_cases/admin/logdelete:test_cases"
+"test_cases/admin/syslog_messages:test_cases"
+"test_cases/bugs/memleak:test_cases"
+"test_cases/admin/leave_resource_while_sync*:test_cases"
+"test_cases/admin/switch2primary:test_cases"
+"test_cases/admin/switch2primary_force*:test_cases"
+"test_cases/admin/datadev_full:test_cases"
+"test_cases/hardcore/mars_dir_full*:test_cases"
+"test_cases/stabil/net_failure/connection_cut:test_cases"
+"test_cases/stabil/crash/crash_primary:test_cases"
+"test_cases/stabil/crash/crash_primary_logger_completion_semantics__aio_sync_mode:test_cases"
+"test_cases/stabil/crash/crash_primary_logger_completion_semantics:test_cases"
+"test_cases/stabil/crash/crash_primary_aio_sync_mode:test_cases"
+"test_cases/bugs/aio_filehandle:test_cases"
+)
 set_env
 
 execute_tests
