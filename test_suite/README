@@ -334,6 +334,8 @@ To build the mars module and userspace tools you need:
 -------------------------------------------------------------------
 
 The test hosts are given in global_host_list (global.conf).
+The two values can be overwritten by the environment variables
+MARS_INITIAL_PRIMARY_HOST and MARS_INITIAL_SECONDARY_HOST
 
 2.2.1. Access requirements
 --------------------------
