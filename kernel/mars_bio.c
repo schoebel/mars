@@ -914,7 +914,7 @@ int __init init_mars_bio(void)
 	return bio_register_brick_type();
 }
 
-void __exit exit_mars_bio(void)
+void exit_mars_bio(void)
 {
 	MARS_INF("exit_bio()\n");
 	bio_unregister_brick_type();

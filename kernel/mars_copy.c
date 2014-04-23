@@ -1019,7 +1019,7 @@ int __init init_mars_copy(void)
 	return copy_register_brick_type();
 }
 
-void __exit exit_mars_copy(void)
+void exit_mars_copy(void)
 {
 	MARS_INF("exit_copy()\n");
 	copy_unregister_brick_type();

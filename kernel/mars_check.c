@@ -331,7 +331,7 @@ int __init init_mars_check(void)
 	return check_register_brick_type();
 }
 
-void __exit exit_mars_check(void)
+void exit_mars_check(void)
 {
 	MARS_INF("exit_check()\n");
 	check_unregister_brick_type();

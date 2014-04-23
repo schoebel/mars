@@ -372,7 +372,7 @@ int __init init_mars_proc(void)
 	return 0;
 }
 
-void __exit exit_mars_proc(void)
+void exit_mars_proc(void)
 {
 	MARS_INF("exit_proc()\n");
 	if (header) {

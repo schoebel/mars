@@ -332,7 +332,7 @@ int __init init_mars(void)
 	return 0;
 }
 
-void __exit exit_mars(void)
+void exit_mars(void)
 {
 	MARS_INF("exit_mars()\n");
 

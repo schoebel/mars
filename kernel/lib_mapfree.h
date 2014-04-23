@@ -60,6 +60,6 @@ void mf_get_any_dirty(const char *filename, loff_t *min, loff_t *max, int min_st
 
 int __init init_mars_mapfree(void);
 
-void __exit exit_mars_mapfree(void);
+void exit_mars_mapfree(void);
 
 #endif

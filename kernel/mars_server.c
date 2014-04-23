@@ -814,7 +814,7 @@ struct mars_limiter server_limiter = {
 };
 EXPORT_SYMBOL_GPL(server_limiter);
 
-void __exit exit_mars_server(void)
+void exit_mars_server(void)
 {
 	int i;
 

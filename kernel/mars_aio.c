@@ -1190,7 +1190,7 @@ int __init init_mars_aio(void)
 	return aio_register_brick_type();
 }
 
-void __exit exit_mars_aio(void)
+void exit_mars_aio(void)
 {
 	MARS_DBG("exit_aio()\n");
 	aio_unregister_brick_type();

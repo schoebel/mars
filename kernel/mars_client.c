@@ -779,7 +779,7 @@ int __init init_mars_client(void)
 	return client_register_brick_type();
 }
 
-void __exit exit_mars_client(void)
+void exit_mars_client(void)
 {
 	MARS_INF("exit_client()\n");
 	client_unregister_brick_type();

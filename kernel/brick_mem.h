@@ -206,11 +206,6 @@ extern void brick_mem_statistics(bool final);
 
 // init
 
-#ifdef CONFIG_MARS_HAVE_BIGMODULE
-#undef __exit
-#define __exit /*empty*/
-#endif
-
 extern int init_brick_mem(void);
 extern void exit_brick_mem(void);
 

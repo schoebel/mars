@@ -5343,7 +5343,7 @@ static int exit_fn_nr = 0;
 void (*_mars_remote_trigger)(void);
 EXPORT_SYMBOL_GPL(_mars_remote_trigger);
 
-static void __exit exit_light(void)
+static void exit_light(void)
 {
 	MARS_DBG("====================== stopping everything...\n");
 	// TODO: make this thread-safe.

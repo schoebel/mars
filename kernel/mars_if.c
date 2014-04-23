@@ -1178,7 +1178,7 @@ EXPORT_SYMBOL_GPL(if_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 
-void __exit exit_mars_if(void)
+void exit_mars_if(void)
 {
 	int status;
 	MARS_INF("exit_if()\n");

@@ -670,7 +670,7 @@ int __init init_brick(void)
 	return 0;
 }
 
-void __exit exit_brick(void)
+void exit_brick(void)
 {
 	if (nr_table) {
 		brick_mem_free(nr_table);

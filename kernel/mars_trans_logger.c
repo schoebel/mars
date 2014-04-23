@@ -3471,7 +3471,7 @@ int __init init_mars_trans_logger(void)
 	return trans_logger_register_brick_type();
 }
 
-void __exit exit_mars_trans_logger(void)
+void exit_mars_trans_logger(void)
 {
 	MARS_INF("exit_trans_logger()\n");
 	trans_logger_unregister_brick_type();

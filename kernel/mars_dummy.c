@@ -209,7 +209,7 @@ int __init init_mars_dummy(void)
 	return dummy_register_brick_type();
 }
 
-void __exit exit_mars_dummy(void)
+void exit_mars_dummy(void)
 {
 	MARS_INF("exit_dummy()\n");
 	dummy_unregister_brick_type();

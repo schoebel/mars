@@ -1902,7 +1902,7 @@ int __init init_sy(void)
 	return 0;
 }
 
-void __exit exit_sy(void)
+void exit_sy(void)
 {
 	MARS_INF("exit_sy()\n");
 }

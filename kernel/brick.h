@@ -672,11 +672,6 @@ extern void brick_thread_stop_nowait(struct task_struct *k);
 
 // init
 
-#ifdef CONFIG_MARS_HAVE_BIGMODULE
-#undef __exit
-#define __exit /*empty*/
-#endif
-
 extern int init_brick(void);
 extern void exit_brick(void);
 

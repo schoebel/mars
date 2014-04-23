@@ -1139,7 +1139,7 @@ int __init init_mars_net(void)
 	return 0;
 }
 
-void __exit exit_mars_net(void)
+void exit_mars_net(void)
 {
 	mars_net_is_alive = false;
 	MARS_INF("exit_net()\n");

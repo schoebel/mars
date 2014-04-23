@@ -355,7 +355,7 @@ int __init init_mars_mapfree(void)
 	return 0;
 }
 
-void __exit exit_mars_mapfree(void)
+void exit_mars_mapfree(void)
 {
 	MARS_DBG("exit_mapfree()\n");
 	if (likely(mf_thread)) {

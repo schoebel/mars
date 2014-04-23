@@ -715,7 +715,7 @@ int __init init_mars_sio(void)
 	return sio_register_brick_type();
 }
 
-void __exit exit_mars_sio(void)
+void exit_mars_sio(void)
 {
 	MARS_INF("exit_sio()\n");
 	sio_unregister_brick_type();

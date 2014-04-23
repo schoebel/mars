@@ -504,7 +504,7 @@ int __init init_log_format(void)
 	return 0;
 }
 
-void __exit exit_log_format(void)
+void exit_log_format(void)
 {
 	MARS_INF("exit_log_format()\n");
 }

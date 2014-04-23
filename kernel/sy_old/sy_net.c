@@ -103,7 +103,7 @@ int __init init_sy_net(void)
 	return 0;
 }
 
-void __exit exit_sy_net(void)
+void exit_sy_net(void)
 {
 	MARS_INF("exit_sy_net()\n");
 }

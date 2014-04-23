@@ -362,7 +362,7 @@ int __init init_mars_usebuf(void)
 	return usebuf_register_brick_type();
 }
 
-void __exit exit_mars_usebuf(void)
+void exit_mars_usebuf(void)
 {
 	MARS_INF("exit_usebuf()\n");
 	usebuf_unregister_brick_type();

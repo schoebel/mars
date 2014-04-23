@@ -1005,7 +1005,7 @@ int __init init_brick_mem(void)
 	return 0;
 }
 
-void __exit exit_brick_mem(void)
+void exit_brick_mem(void)
 {
 	BRICK_INF("deallocating memory...\n");
 #ifdef CONFIG_MARS_MEM_PREALLOC
