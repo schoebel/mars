@@ -164,7 +164,7 @@ done
 
 echo Start $(basename $0) $test_suite_dir $use_case_dir at $(date)
 
-mail_server=mxintern.schlund.de:587
+mail_server=${MARS_MAIL_SERVER_AND_PORT:-mxintern.schlund.de:587}
 
 mail_from="$0@$(hostname)"
 mail_to=("frank.liepold@1und1.de")
