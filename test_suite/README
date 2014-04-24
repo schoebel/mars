@@ -342,7 +342,8 @@ MARS_INITIAL_PRIMARY_HOST and MARS_INITIAL_SECONDARY_HOST
 The tests are executed by ssh commands from your work station to the
 test hosts. These commands must not prompt for a password. Though a
 id file (for ssh -i <id-file>) with null password must be specified in
-main_ssh_idfile_opt (default-main.conf)
+main_ssh_idfile_opt (default-main.conf) or given via the environment variable
+MARS_SSH_KEYFILE
 
 All test hosts must have ssh access to each other without prompt for passwords
 (this is required by marsadm join-cluster).
