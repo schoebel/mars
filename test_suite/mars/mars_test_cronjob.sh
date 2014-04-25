@@ -56,11 +56,14 @@ function execute_tests
     local t rc send_msg=0
     local tmp_file=/tmp/$my_name.$$
     local fail_msg="tests failed on $(hostname) (Script $0):"$'\n'
+    local cmd_prefix_list="perf errorfile error_in_logfile kernel_stack"
     local perf_msg="Performance-Failures:"$'\n'
     local errorfile_msg="Error-Files:"$'\n'
+    local error_in_logfile_msg="Errors-In-Logfile:"$'\n'
     local kernel_stack_msg="Kernel-Stacks:"$'\n'
     local perf_grep_cmd="grep '^ *PERFORMANCE-FAILURE' "$tmp_file
     local errorfile_grep_cmd="grep 'ERROR-FILE' "$tmp_file
+    local error_in_logfile_grep_cmd="grep 'ERROR-IN-LOGFILE' "$tmp_file
     local kernel_stack_grep_cmd="grep 'KERNEL-STACK' "$tmp_file
 
     for t in "${tests_to_execute[@]}"; do
@@ -78,6 +81,7 @@ function execute_tests
                  ;;
         esac
         for s in "${start_dirs[@]}"; do
+            local cmd_prefix
             echo executing test $s
             if [ $dry_run -eq 1 ]; then
                 continue
@@ -89,18 +93,14 @@ function execute_tests
                 fail_msg+="$s"$'\n'
                 send_msg=1
             fi
-            if eval $perf_grep_cmd >/dev/null; then
-                perf_msg+="$s: $(eval $perf_grep_cmd)"$'\n'
-                send_msg=1
-            fi
-            if eval $errorfile_grep_cmd >/dev/null; then
-                errorfile_msg+="$s: $(eval $errorfile_grep_cmd)"$'\n'
-                send_msg=1
-            fi
-            if eval $kernel_stack_grep_cmd >/dev/null; then
-                kernel_stack_msg+="$s: $(eval $kernel_stack_grep_cmd)"$'\n'
-                send_msg=1
-            fi
+            for cmd_prefix in $cmd_prefix_list; do
+                cmd=${cmd_prefix}_grep_cmd
+                if eval ${!cmd} >/dev/null; then
+                    local new_msg="$s: $(eval ${!cmd})"$'\n'
+                    eval ${cmd_prefix}'_msg+="$new_msg"'
+                    send_msg=1
+                fi
+            done
             if [ $rc -ne 0 -a $continue_after_failed_test -eq 0 ];then
                 break
             fi
@@ -108,12 +108,15 @@ function execute_tests
     done
     rm -f $tmp_file
     if [ $send_msg -eq 1 ]; then
-        local to
-        local msg="$fail_msg$perf_msg$errorfile_msg$kernel_stack_msg"$'\n'
-        for to in ${mail_to//,/ }; do
-                sendEmail -m "$msg" -f $mail_from -t $to -u "failed mars tests" -s $mail_server
+        local to cmd_prefix msg msg_list
+        for cmd_prefix in $cmd_prefix_list; do
+            msg=${cmd_prefix}_msg
+            msg_list+="${!msg}"$'\n'
         done
-        echo "$msg"
+        for to in ${mail_to//,/ }; do
+                sendEmail -m "$msg_list" -f $mail_from -t $to -u "failed mars tests" -s $mail_server
+        done
+        echo "$msg_list"
         return 1
     else
         echo all tests passed
