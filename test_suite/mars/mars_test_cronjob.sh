@@ -34,6 +34,12 @@
 ## directory-2 serves as parameter for option --config_root_dir of start_test.sh
 ##
 # All directory paths are given relative to use_case_dir
+#
+#
+# Environment variables:
+# MARS_MAIL_SERVER_AND_PORT = host:port used to send mails
+# MARS_MAIL_TO = "name1@host1,name2@host2" comma separated list of mail
+# recipients
 
 function myexit
 {
@@ -104,7 +110,7 @@ function execute_tests
     if [ $send_msg -eq 1 ]; then
         local to
         local msg="$fail_msg$perf_msg$errorfile_msg$kernel_stack_msg"$'\n'
-        for to in "${mail_to[@]}"; do
+        for to in ${mail_to//,/ }; do
                 sendEmail -m "$msg" -f $mail_from -t $to -u "failed mars tests" -s $mail_server
         done
         echo "$msg"
@@ -167,7 +173,7 @@ echo Start $(basename $0) $test_suite_dir $use_case_dir at $(date)
 mail_server=${MARS_MAIL_SERVER_AND_PORT:-mxintern.schlund.de:587}
 
 mail_from="$0@$(hostname)"
-mail_to=("frank.liepold@1und1.de")
+mail_to=${MARS_MAIL_TO:-"frank.liepold@1und1.de"}
 
 
 start_script=$test_suite_dir/scripts/start_test.sh
