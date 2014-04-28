@@ -45,7 +45,7 @@ default-main.conf and the subdirectory scripts.
 You specify your use case of the test suite by creating a subdirectory
 - e.g. my_use_case_dir - of the base directory.
 
-In this subdirectory a file global.conf must be created, containing at lease
+In this subdirectory a file global.conf must be created, containing at least
 the following two variables:
 global_user_dir must be set to .../test_suite/my_use_case_dir
 global_user_module_dir must be set to a subdirectory of global_user_dir.
