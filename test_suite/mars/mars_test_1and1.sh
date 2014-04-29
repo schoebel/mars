@@ -27,6 +27,8 @@
 #
 # - install the mars modules on the MARS_TEST_HOSTS
 #   (function install_module_on_hosts)
+# 
+# - function install_marsadm_on_hosts
 #
 # - run mars test suite from branch GIT_TEST_SUITE_BRANCH of repo GIT_TEST_SUITE
 #   on MARS_TEST_HOSTS (function run_tests)
@@ -408,6 +410,19 @@ function clone_repo
     cd $pwd
 }
 
+function install_marsadm_on_hosts
+{
+    local host target=/usr/bin/marsadm
+    local source=$TMPDIR/$GIT_UPSTREAM_DIR/userspace/marsadm
+    if [ ! -s "$source" ]; then
+        myexit 1 "file $source not found or empty"
+    fi
+    for host in ${MARS_TEST_HOSTS[*]}; do
+        echo "installing $source on $host"
+        scp -i $MARS_SSH_KEYFILE $source $host:$target || myexit 1
+    done
+}
+
 function check_installed_module_version_against_upstream_repo
 {
     echo "${FUNCNAME[0]} $*"
@@ -524,6 +539,7 @@ if [ $build_without_install -eq 1 ]; then
 fi
 install_module_on_hosts
 check_installed_module_version_against_upstream_repo
+install_marsadm_on_hosts
 rm_tmp_dir=0
 run_tests
 
