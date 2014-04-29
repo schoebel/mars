@@ -87,8 +87,8 @@ $(obj)/buildtag.h: $(patsubst $(obj)/buildtag.h,,$(wildcard $(obj)/*.[ch])) $(ob
 	cd $(src); \
 	if [ -e DISTVERSION ]; then \
 		BUILDTAG=$$(cat DISTVERSION); \
-	elif git rev-parse --git-dir >/dev/null 2>&1; then \
-		BUILDTAG="$$(git rev-parse HEAD)"; \
+	elif git describe --tags >/dev/null 2>&1; then \
+		BUILDTAG="$$(git describe --tags)"; \
 	else \
 		BUILDTAG="no-buildtag-available"; \
 	fi; \
