@@ -1,4 +1,8 @@
 %TOC% 
+#ChapterZero
+---++ 0. License
+This document including all attachments is under GNU FDL. 
+
 #ChapterOne
 ---++ 1. Objects and relationships
 
