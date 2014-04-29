@@ -39,6 +39,9 @@
 # Environment variables:
 # MARS_MAIL_SERVER_AND_PORT = host:port used to send mails
 # MARS_MAIL_TO = "name1@host1,name2@host2" comma separated list of mail
+# MARS_TEST_LOGFILE = file where stdout and stderr are written to. Must be
+#                     set by caller. If not empty it will be attached to
+#                     the emails sent in case of errors.
 # recipients
 
 function myexit
@@ -108,13 +111,16 @@ function execute_tests
     done
     rm -f $tmp_file
     if [ $send_msg -eq 1 ]; then
-        local to cmd_prefix msg msg_list
+        local to cmd_prefix msg msg_list attach_opt=""
         for cmd_prefix in $cmd_prefix_list; do
             msg=${cmd_prefix}_msg
             msg_list+="${!msg}"$'\n'
         done
+        if [ -n "$MARS_TEST_LOGFILE" ] && [ -s "$MARS_TEST_LOGFILE" ]; then
+            attach_opt="-a $MARS_TEST_LOGFILE"
+        fi
         for to in ${mail_to//,/ }; do
-                sendEmail -m "$msg_list" -f $mail_from -t $to -u "failed mars tests" -s $mail_server
+            sendEmail -m "$msg_list" -f $mail_from -t $to -u "failed mars tests" -s $mail_server $attach_opt
         done
         echo "$msg_list"
         return 1
