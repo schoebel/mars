@@ -111,7 +111,8 @@ function execute_tests
     done
     rm -f $tmp_file
     if [ $send_msg -eq 1 ]; then
-        local to cmd_prefix msg msg_list attach_opt=""
+        local to cmd_prefix msg attach_opt=""
+        local msg_list="$fail_msg"$'\n'$'\n'
         for cmd_prefix in $cmd_prefix_list; do
             msg=${cmd_prefix}_msg
             msg_list+="${!msg}"$'\n'
