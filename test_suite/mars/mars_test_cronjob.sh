@@ -35,6 +35,14 @@
 ##
 # All directory paths are given relative to use_case_dir
 #
+# Emails:
+# An email is sent, if one of the following applies:
+# - a test case fails
+# - an error message is found in 5.mars.total.log
+# - a kernel stack has been created during the test's run time
+# This checks are done by searching for certain patterns in the test case's 
+# outout (e.g. ERROR-IN-LOGFILE).
+#
 #
 # Environment variables:
 # MARS_MAIL_SERVER_AND_PORT = host:port used to send mails
