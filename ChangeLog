@@ -45,6 +45,12 @@ Release Conventions / Branches / Tagnames
 	NO NEW FEATURES, not even minor ones, except when absolutely
 	necessary for a bugfix.
 
+light0.1stable04
+--------
+	 * Quiet annoying error message.
+	 * Minor readability improvements.
+	 * Minor doc updates.
+
 light0.1stable03
 --------
 	 * Major: fix internal aio race (could lead to memory corruption).
