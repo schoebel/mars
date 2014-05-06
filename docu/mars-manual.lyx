@@ -131,7 +131,7 @@ tst@1und1.de
 \end_layout
 
 \begin_layout Date
-Version 0.14
+Version 0.15
 \end_layout
 
 \begin_layout Lowertitleback
@@ -786,7 +786,7 @@ guaranteed
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -818,7 +818,7 @@ Exceptions might be mechanical jiggling of plugs, or electro-magnetical
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -1068,7 +1068,7 @@ after
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -1084,7 +1084,7 @@ MARS utilizes the existing network bandwidth as best as possible in order
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -1123,7 +1123,7 @@ There is simply no better way to do it.
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -1140,7 +1140,7 @@ Anytime Consistency
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -1473,7 +1473,7 @@ People are stuck in contradictive requirements because the current version
 
 \begin_layout Standard
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -1550,7 +1550,7 @@ vast majority of applications
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -2249,7 +2249,7 @@ contents
 
 
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -2479,7 +2479,7 @@ marsadm disconnect $res
 
 
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -4031,7 +4031,7 @@ s.
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -4327,7 +4327,7 @@ join-resource
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -4506,7 +4506,7 @@ modprobe mars
 \begin_layout Enumerate
 Run 
 \family typewriter
-marsadm invalidate all
+marsadm join-resource $res
 \family default
  everywhere.
 \end_layout
@@ -4514,7 +4514,7 @@ marsadm invalidate all
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -5612,7 +5612,7 @@ replay-pos
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -6307,7 +6307,7 @@ These rules are hopefully simple and intuitive.
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -8747,7 +8747,7 @@ healed
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -8867,7 +8867,7 @@ MARS Think(tm)
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -8949,7 +8949,7 @@ fast-forward
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -9839,7 +9839,7 @@ ntp
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -9903,7 +9903,7 @@ key -> value
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -10012,7 +10012,7 @@ something
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -10464,7 +10464,7 @@ log-delete-all
 
 
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -10503,7 +10503,7 @@ rm -rf $(find /mars/ -name
 
 
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -10540,7 +10540,7 @@ marsadm resume-replay-global all
 
 
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -10576,7 +10576,7 @@ leave-resource
 
 
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -10861,7 +10861,7 @@ total size
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -10956,7 +10956,7 @@ need
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -11329,7 +11329,7 @@ marsadm invalidate $res
 
 
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -12298,7 +12298,7 @@ In order to override the automatic IP detection and.to explicitly tell the
 
 \begin_layout Plain Layout
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -13575,7 +13575,7 @@ log-delete
 
 \begin_layout Plain Layout
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -13613,7 +13613,7 @@ y state will be gone, and you will no longer be able to guess consistency
 
 \begin_layout Plain Layout
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -13935,7 +13935,7 @@ no guarantee
 
 \begin_layout Plain Layout
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -14316,7 +14316,7 @@ detach
 
 \begin_layout Plain Layout
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -14503,7 +14503,7 @@ Postcondition: the local disk belonging to $res is no longer in use.
 
 \begin_layout Plain Layout
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -14566,7 +14566,7 @@ guaranteed
 
 \begin_layout Plain Layout
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -15515,7 +15515,7 @@ Postcondition: any transfer of (parts of) transaction logfiles which are
 
 \begin_layout Plain Layout
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -15860,7 +15860,7 @@ Postcondition: any (parts of) transaction logfiles which are present at
 
 \begin_layout Plain Layout
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -16230,7 +16230,7 @@ Postcondition: any local replay operations of transaction logfiles to the
 
 \begin_layout Plain Layout
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -17562,7 +17562,7 @@ detach
 
 \begin_layout Plain Layout
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -17869,7 +17869,7 @@ primary
 
 \begin_layout Plain Layout
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -17934,7 +17934,7 @@ reference "sub:Split-Brain-Resolution"
 
 \begin_layout Plain Layout
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -18081,7 +18081,7 @@ all
 
 \begin_layout Plain Layout
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -23629,7 +23629,7 @@ syslog_flood_recovery_s
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
@@ -23656,7 +23656,7 @@ every
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
-	filename /usr/share/clipart/openclipart-0.18/electronics/bulb/lightbulb_brightlit_benj_.png
+	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
 
