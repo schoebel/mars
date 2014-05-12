@@ -93,7 +93,7 @@ $(obj)/buildtag.h: $(patsubst $(obj)/buildtag.h,,$(wildcard $(obj)/*.[ch])) $(ob
 		BUILDTAG="no-buildtag-available"; \
 	fi; \
 	/bin/echo -e "#define BUILDTAG  \"$$BUILDTAG\"";\
-	/bin/echo -e "#define BUILDHOST \"$$USER@$$HOSTNAME\"";\
+	/bin/echo -e "#define BUILDHOST \"$$USER@`hostname`\"";\
 	/bin/echo -e "#define BUILDDATE \"$$(date '+%F %T')\""
 
 ifndef CONFIG_MARS
