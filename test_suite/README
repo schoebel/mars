@@ -1,10 +1,25 @@
 GPLed software AS IS, sponsored by 1&1 Internet AG (www.1und1.de).
 
-Contact frank.liepold@1und1.de
-
-
 The test suite is work in progress.
 
+The test suite was developped by Frank Liepold during his stay at 1&1.
+
+The email address frank.liepold@1und1.de will no longer work, since Frank has
+left 1&1 since May 2014.
+
+Currently, there is no dedicated successor for him :(
+
+Also note that Frank developed the test suite on his personal workstation,
+which had a slow network connection to the datacenters where the test hosts
+were running. Thus it happeend that ssh commands were given slowly. When
+you have very fast ssh connections, some races may show up which did not
+occur in the environment where Frank was working.
+
+As a workaround, you may place something like "sleep 3;" in front of any
+ssh command, but this will of course lead to a large slowdown (anyway,
+a near-full run of the testsuite takes almost 24h when started
+on my workstation). This should be fixed when a successor of Frank
+is available.
 
 =============================================================================
 

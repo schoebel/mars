@@ -131,7 +131,7 @@ tst@1und1.de
 \end_layout
 
 \begin_layout Date
-Version 0.15
+Version 0.16
 \end_layout
 
 \begin_layout Lowertitleback
@@ -1796,6 +1796,48 @@ extremely
 \end_inset
 
  at all.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Like DRBD, the current version of MARS has 
+\series bold
+no security
+\series default
+ built in.
+ MARS assumes that it is running in a 
+\series bold
+trusted network
+\series default
+.
+ Anyone who can connect to the MARS ports (default 7777 to 7779) can potentially
+ breach in and become root! Therefore, you 
+\series bold
+must
+\series default
+ protect your network by appropriate means, such as firewalling and/or encrypted
+ VPN.
+\end_layout
+
+\begin_layout Standard
+Currently, MARS provides no shared secret like DRBD, because a simple shared
+ secret is way too weak to provide any real security (potentially misleading
+ people about the real level of security).
+ Future versions of MARS should provide at least 2-factor authorization,
+ and encryption via dynamic session keys.
+ Until that is implemented, use a secured VPN instead! And don't forget
+ to 
+\emph on
+audit
+\emph default
+ it for security holes!
 \end_layout
 
 \begin_layout Section

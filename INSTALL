@@ -8,22 +8,26 @@ You can find them in the subdirectory pre-patches/ of the MARS sources.
 
 These pre-patches are almost trivial, they contain only a few
 EXPORT_SYMBOL() statements. Porting to other kernel versions should
-be trivial. If not, please report a bug :)
+be trivial.
 
 One of the pre-patches has been ported to an openvz kernel
 even by one of our sysadmins, who usually does no C programming.
 So this should be no major hurdle.
 
 Because of the need for some small pre-patches, we recommend to build
-MARS inside the kernel source tree.
+MARS inside the kernel source tree (in-tree).
 
-If you are an experience sysdamin and want to build MARS as an external
+If you are an experience sysadmin and want to build MARS as an external
 kernel module, you may try the Debian based scripts provided by our
 sysadmins. Be warned that you have to check yourself for source
 compatibility, the right compiler flags, etc; very nasty errors may
 appear if you fail to do so!
 
-Therefore, try the simple way first.
+Therefore, try the in-tree method first.
+
+For the in-tree build, you need to also apply one of the patches
+pre-patches/vanilla-*/*necessary-for-in-tree-build.patch
+or similar.
 
 Go to ${your_kernel_source}/block/ and clone the MARS git repository there.
 
@@ -33,9 +37,16 @@ need to enable the following options before MARS shows up at all:
 PROC_SYSCTL
 HIGH_RES_TIMERS
 
+Don't enable CONFIG_DEBUG_SG (this will currently not work until it is fixed).
+
 In Kconfig, you will find lots of additional options for MARS. Most
 of them should be left at their default. It suffices just to switch
 on MARS as a whole, and let it build as a single kernel module.
+
+If no Kconfig options for MARS show up in the in-tree build, you have
+probably forgotten to apply the appropriate
+pre-patches/vanilla-*/*necessary-for-in-tree-build.patch
+or similar.
 
 Finally, copy userspace/marsadm to some appropriate location in
 your $PATH.

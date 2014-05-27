@@ -1,0 +1,3900 @@
+%!PS-Adobe-3.0
+%%Title: tests.txt
+%%For: schoebel
+%%Creator: a2ps version 4.13
+%%CreationDate: Thu Jun 13 09:08:43 2013
+%%BoundingBox: 24 24 588 768
+%%DocumentData: Clean7Bit
+%%Orientation: Landscape
+%%Pages: 4
+%%PageOrder: Ascend
+%%DocumentMedia: letter 612 792 0 () ()
+%%DocumentNeededResources: font Symbol
+%%DocumentProcessColors: Black 
+%%DocumentSuppliedResources: procset a2ps-a2ps-hdr
+%%+ procset a2ps-black+white-Prolog
+%%+ encoding ISO-8859-15Encoding
+%%+ font Courier-Bold-Ogonki
+%%+ font Courier-BoldOblique-Ogonki
+%%+ font Courier-Oblique-Ogonki
+%%+ font Courier-Ogonki
+%%+ font Helvetica-Bold-Ogonki
+%%+ font Helvetica-Ogonki
+%%+ font Times-Bold-Ogonki
+%%+ font Times-Roman-Ogonki
+%%EndComments
+/a2psdict 200 dict def
+a2psdict begin
+%%BeginProlog
+%%Copyright: (c) 1988, 89, 90, 91, 92, 93 Miguel Santana
+%%Copyright: (c) 1995, 96, 97, 98 Akim Demaille, Miguel Santana
+% Check PostScript language level.
+/languagelevel where {
+  pop /gs_languagelevel languagelevel def
+} {
+  /gs_languagelevel 1 def
+} ifelse
+
+% EPSF import as in the Red Book
+/BeginInclude {
+  /b4_Inc_state save def    		% Save state for cleanup
+  /dict_count countdictstack def	% Count objects on dict stack
+  /op_count count 1 sub def		% Count objects on operand stack 
+  userdict begin
+    0 setgray 0 setlinecap
+    1 setlinewidth 0 setlinejoin
+    10 setmiterlimit [ ] 0 setdash newpath
+    gs_languagelevel 1 ne {
+      false setstrokeadjust false setoverprint 
+    } if
+} bind def
+
+/EndInclude {
+  count op_count sub { pos } repeat	% Clean up stacks
+  countdictstack dict_count sub { end } repeat
+  b4_Inc_state restore
+} bind def
+
+/BeginEPSF {
+  BeginInclude
+  /showpage { } def
+} bind def
+
+/EndEPSF {
+  EndInclude
+} bind def
+
+% Page prefeed
+/page_prefeed {         % bool -> -
+  statusdict /prefeed known {
+    statusdict exch /prefeed exch put
+  } {
+    pop
+  } ifelse
+} bind def
+
+/deffont {
+  findfont exch scalefont def
+} bind def
+
+/reencode_font {
+  findfont reencode 2 copy definefont exch pop def
+} bind def
+
+% Function c-show (str => -)
+% centers text only according to x axis.
+/c-show { 
+  dup stringwidth pop
+  2 div neg 0 rmoveto
+  show
+} bind def
+
+% Function l-show (str => -)
+% prints texts so that it ends at currentpoint
+/l-show {
+  dup stringwidth pop neg 
+  0 
+  rmoveto show
+} bind def
+
+% center-fit show (str w => -)
+% show centered, and scale currentfont so that the width is less than w
+/cfshow {
+  exch dup stringwidth pop
+  % If the title is too big, try to make it smaller
+  3 2 roll 2 copy
+  gt
+  { % if, i.e. too big
+    exch div
+    currentfont exch scalefont setfont
+  } { % ifelse
+    pop pop 
+  }
+  ifelse
+  c-show			% center title
+} bind def
+
+% Return the y size of the current font
+% - => fontsize
+/currentfontsize {
+  currentfont /FontMatrix get 3 get 1000 mul
+} bind def
+
+% reencode the font
+% <encoding-vector> <fontdict> -> <newfontdict>
+/reencode { %def
+  dup length 5 add dict begin
+    { %forall
+      1 index /FID ne 
+      { def }{ pop pop } ifelse
+    } forall
+    /Encoding exch def
+
+    % Use the font's bounding box to determine the ascent, descent,
+    % and overall height; don't forget that these values have to be
+    % transformed using the font's matrix.
+    % We use `load' because sometimes BBox is executable, sometimes not.
+    % Since we need 4 numbers an not an array avoid BBox from being executed
+    /FontBBox load aload pop
+    FontMatrix transform /Ascent exch def pop
+    FontMatrix transform /Descent exch def pop
+    /FontHeight Ascent Descent sub def
+
+    % Define these in case they're not in the FontInfo (also, here
+    % they're easier to get to.
+    /UnderlinePosition 1 def
+    /UnderlineThickness 1 def
+    
+    % Get the underline position and thickness if they're defined.
+    currentdict /FontInfo known {
+      FontInfo
+      
+      dup /UnderlinePosition known {
+	dup /UnderlinePosition get
+	0 exch FontMatrix transform exch pop
+	/UnderlinePosition exch def
+      } if
+      
+      dup /UnderlineThickness known {
+	/UnderlineThickness get
+	0 exch FontMatrix transform exch pop
+	/UnderlineThickness exch def
+      } if
+      
+    } if
+    currentdict 
+  end 
+} bind def
+
+% Function print line number (<string> # -)
+/# {
+  gsave
+    sx cw mul neg 2 div 0 rmoveto
+    f# setfont
+    c-show
+  grestore
+} bind def
+
+% -------- Some routines to enlight plain b/w printings ---------
+
+% Underline
+% width --
+/dounderline {
+  currentpoint
+  gsave
+    moveto
+    0 currentfont /Descent get currentfontsize mul rmoveto
+    0 rlineto
+    stroke
+  grestore
+} bind def
+
+% Underline a string
+% string --
+/dounderlinestring {
+  stringwidth pop
+  dounderline
+} bind def
+
+/UL {
+  /ul exch store
+} bind def
+
+% Draw a box of WIDTH wrt current font
+% width --
+/dobox {
+  currentpoint
+  gsave
+    newpath
+    moveto
+    0 currentfont /Descent get currentfontsize mul rmoveto
+    dup 0 rlineto
+    0 currentfont /FontHeight get currentfontsize mul rlineto
+    neg 0 rlineto
+    closepath
+    stroke
+  grestore
+} bind def
+
+/BX {
+  /bx exch store
+} bind def
+
+% Box a string
+% string --
+/doboxstring {
+  stringwidth pop
+  dobox
+} bind def
+
+%
+% ------------- Color routines ---------------
+%
+/FG /setrgbcolor load def
+
+% Draw the background
+% width --
+/dobackground {
+  currentpoint
+  gsave
+    newpath
+    moveto
+    0 currentfont /Descent get currentfontsize mul rmoveto
+    dup 0 rlineto
+    0 currentfont /FontHeight get currentfontsize mul rlineto
+    neg 0 rlineto
+    closepath
+    bgcolor aload pop setrgbcolor
+    fill
+  grestore
+} bind def
+
+% Draw bg for a string
+% string --
+/dobackgroundstring {
+  stringwidth pop
+  dobackground
+} bind def
+
+
+/BG {
+  dup /bg exch store
+  { mark 4 1 roll ] /bgcolor exch store } if
+} bind def
+
+
+/Show {
+  bg { dup dobackgroundstring } if
+  ul { dup dounderlinestring } if
+  bx { dup doboxstring } if
+  show
+} bind def
+
+% Function T(ab), jumps to the n-th tabulation in the current line
+/T {
+  cw mul x0 add
+  bg { dup currentpoint pop sub dobackground } if
+  ul { dup currentpoint pop sub dounderline } if
+  bx { dup currentpoint pop sub dobox } if
+  y0 moveto
+} bind def
+
+% Function n: move to the next line
+/n {
+  /y0 y0 bfs sub store
+  x0 y0 moveto
+} bind def
+
+% Function N: show and move to the next line
+/N {
+  Show
+  /y0 y0 bfs sub store
+  x0 y0 moveto
+} bind def
+
+/S {
+  Show
+} bind def
+
+%%BeginResource: procset a2ps-a2ps-hdr 2.0 2
+%%Copyright: (c) 1988, 89, 90, 91, 92, 93 Miguel Santana
+%%Copyright: (c) 1995, 96, 97, 98 Akim Demaille, Miguel Santana
+% Function title: prints page header.
+% <ct> <rt> <lt> are passed as argument
+/title { 
+  % 1. Draw the background
+  x v get y v get moveto
+  gsave
+    0 th 2 div neg rmoveto 
+    th setlinewidth
+    0.95 setgray
+    pw 0 rlineto stroke
+  grestore
+  % 2. Border it
+  gsave
+    0.7 setlinewidth
+    pw 0 rlineto
+    0 th neg rlineto
+    pw neg 0 rlineto
+    closepath stroke
+  grestore
+  % stk: ct rt lt
+  x v get y v get th sub 1 add moveto
+  fHelvetica fnfs 0.8 mul scalefont setfont
+  % 3. The left title
+  gsave
+    dup stringwidth pop fnfs 0.8 mul add exch % leave space took on stack
+    fnfs 0.8 mul hm rmoveto
+    show			% left title
+  grestore
+  exch
+  % stk: ct ltw rt
+  % 4. the right title
+  gsave
+    dup stringwidth pop fnfs 0.8 mul add exch % leave space took on stack
+    dup
+    pw exch stringwidth pop fnfs 0.8 mul add sub
+    hm
+    rmoveto
+    show			% right title
+  grestore
+  % stk: ct ltw rtw
+  % 5. the center title
+  gsave
+    pw 3 1 roll
+    % stk: ct pw ltw rtw
+    3 copy 
+    % Move to the center of the left room
+    sub add 2 div hm rmoveto
+    % What is the available space in here?
+    add sub fnfs 0.8 mul sub fnfs 0.8 mul sub
+    % stk: ct space_left
+  fHelvetica-Bold fnfs scalefont setfont
+    cfshow
+  grestore
+} bind def
+
+% Function border: prints virtual page border
+/border { %def
+  gsave				% print four sides
+    0 setgray
+    x v get y v get moveto
+    0.7 setlinewidth		% of the square
+    pw 0 rlineto
+    0 ph neg rlineto
+    pw neg 0 rlineto
+    closepath stroke
+  grestore
+} bind def
+
+% Function water: prints a water mark in background
+/water { %def
+  gsave
+    scx scy moveto rotate
+  fTimes-Bold 100 scalefont setfont
+    .97 setgray
+    dup stringwidth pop 2 div neg -50 rmoveto
+    show
+  grestore
+} bind def
+
+% Function rhead: prints the right header
+/rhead {  %def
+  lx ly moveto
+  fHelvetica fnfs 0.8 mul scalefont setfont
+  l-show
+} bind def
+
+% Function footer (cf rf lf -> -)
+/footer {
+  fHelvetica fnfs 0.8 mul scalefont setfont
+  dx dy moveto
+  show
+
+  snx sny moveto
+  l-show
+  
+  fnx fny moveto
+  c-show
+} bind def
+%%EndResource
+%%BeginResource: procset a2ps-black+white-Prolog 2.0 1
+
+% Function T(ab), jumps to the n-th tabulation in the current line
+/T { 
+  cw mul x0 add y0 moveto
+} bind def
+
+% Function n: move to the next line
+/n { %def
+  /y0 y0 bfs sub store
+  x0 y0 moveto
+} bind def
+
+% Function N: show and move to the next line
+/N {
+  Show
+  /y0 y0 bfs sub store
+  x0 y0 moveto
+}  bind def
+
+/S {
+  Show
+} bind def
+
+/p {
+  false UL
+  false BX
+  fCourier bfs scalefont setfont
+  Show
+} bind def
+
+/sy {
+  false UL
+  false BX
+  fSymbol bfs scalefont setfont
+  Show
+} bind def
+
+/k {
+  false UL
+  false BX
+  fCourier-Oblique bfs scalefont setfont
+  Show
+} bind def
+
+/K {
+  false UL
+  false BX
+  fCourier-Bold bfs scalefont setfont
+  Show
+} bind def
+
+/c {
+  false UL
+  false BX
+  fCourier-Oblique bfs scalefont setfont
+  Show
+} bind def
+
+/C {
+  false UL
+  false BX
+  fCourier-BoldOblique bfs scalefont setfont
+  Show 
+} bind def
+
+/l {
+  false UL
+  false BX
+  fHelvetica bfs scalefont setfont
+  Show
+} bind def
+
+/L {
+  false UL
+  false BX
+  fHelvetica-Bold bfs scalefont setfont
+  Show 
+} bind def
+
+/str{
+  false UL
+  false BX
+  fTimes-Roman bfs scalefont setfont
+  Show
+} bind def
+
+/e{
+  false UL
+  true BX
+  fHelvetica-Bold bfs scalefont setfont
+  Show
+} bind def
+
+%%EndResource
+%%EndProlog
+%%BeginSetup
+%%IncludeResource: font Symbol
+%%BeginResource: encoding ISO-8859-15Encoding
+/ISO-8859-15Encoding [
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef 
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef 
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef 
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef 
+/space /exclam /quotedbl /numbersign /dollar /percent /ampersand /quoteright 
+/parenleft /parenright /asterisk /plus /comma /minus /period /slash 
+/zero /one /two /three /four /five /six /seven 
+/eight /nine /colon /semicolon /less /equal /greater /question 
+/at /A /B /C /D /E /F /G 
+/H /I /J /K /L /M /N /O 
+/P /Q /R /S /T /U /V /W 
+/X /Y /Z /bracketleft /backslash /bracketright /asciicircum /underscore 
+/quoteleft /a /b /c /d /e /f /g 
+/h /i /j /k /l /m /n /o 
+/p /q /r /s /t /u /v /w 
+/x /y /z /braceleft /bar /braceright /asciitilde /.notdef 
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef 
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef 
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef 
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef 
+/space /exclamdown /cent /sterling /Euro /yen /Scaron /section 
+/scaron /copyright /ordfeminine /guillemotleft /logicalnot /hyphen /registered /macron 
+/degree /plusminus /twosuperior /threesuperior /Zcaron /mu /paragraph /bullet 
+/zcaron /onesuperior /ordmasculine /guillemotright /OE /oe /Ydieresis /questiondown 
+/Agrave /Aacute /Acircumflex /Atilde /Adieresis /Aring /AE /Ccedilla 
+/Egrave /Eacute /Ecircumflex /Edieresis /Igrave /Iacute /Icircumflex /Idieresis 
+/Eth /Ntilde /Ograve /Oacute /Ocircumflex /Otilde /Odieresis /multiply 
+/Oslash /Ugrave /Uacute /Ucircumflex /Udieresis /Yacute /Thorn /germandbls 
+/agrave /aacute /acircumflex /atilde /adieresis /aring /ae /ccedilla 
+/egrave /eacute /ecircumflex /edieresis /igrave /iacute /icircumflex /idieresis 
+/eth /ntilde /ograve /oacute /ocircumflex /otilde /odieresis /divide 
+/oslash /ugrave /uacute /ucircumflex /udieresis /yacute /thorn /ydieresis 
+] def
+%%EndResource
+%%BeginResource: font Courier-Bold-Ogonki
+%!
+% Automatically generated by the Ogonkify package
+% Do not modify
+% -- code follows this line --
+%%BeginResource: encoding OgonkiEncoding
+/OgonkiEncoding [
+/.notdef /exclamdown /cent /sterling /fraction /yen /florin /quotesingle
+/quotedblleft /guillemotleft /guilsinglleft /guilsinglright /fi /fl /endash /dagger
+/daggerdbl /periodcentered /paragraph /bullet /quotesinglbase /quotedblbase /quotedblright /guillemotright
+/ellipsis /perthousand /questiondown /grave /circumflex /tilde /macron /ring
+/space /exclam /quotedbl /numbersign /dollar /percent /ampersand /quoteright
+/parenleft /parenright /asterisk /plus /comma /minus /period /slash
+/zero /one /two /three /four /five /six /seven
+/eight /nine /colon /semicolon /less /equal /greater /question
+% 100
+/at /A /B /C /D /E /F /G
+/H /I /J /K /L /M /N /O
+/P /Q /R /S /T /U /V /W
+/X /Y /Z /bracketleft /backslash /bracketright /asciicircum /underscore
+/quoteleft /a /b /c /d /e /f /g
+/h /i /j /k /l /m /n /o
+/p /q /r /s /t /u /v /w
+/x /y /z /braceleft /bar /braceright /asciitilde /.notdef
+% 200
+/.notdef /emdash /AE /ordfeminine /Oslash /OE /ordmasculine /ae
+/dotlessi /oslash /oe /threesuperior /thorn /twosuperior /threequarters /Eth
+/trademark /registered /onequarter /Thorn /logicalnot /plusminus /minus /onesuperior
+/copyright /mu /eth /brokenbar /onehalf /dotlessj /Euro /.notdef
+/space /Aogonek /breve /Lslash /currency /Lcaron /Sacute /section
+/dieresis /Scaron /Scedilla /Tcaron /Zacute /hyphen /Zcaron /Zdotaccent
+/degree /aogonek /ogonek /lslash /acute /lcaron /sacute /caron
+/cedilla /scaron /scedilla /tcaron /zacute /hungarumlaut /zcaron /zdotaccent
+% 300
+/Racute /Aacute /Acircumflex /Abreve /Adieresis /Lacute /Cacute /Ccedilla
+/Ccaron /Eacute /Eogonek /Edieresis /Ecaron /Iacute /Icircumflex /Dcaron
+/Eth /Nacute /Ncaron /Oacute /Ocircumflex /Ohungarumlaut /Odieresis /multiply
+/Rcaron /Uring /Uacute /Uhungarumlaut /Udieresis /Yacute /Tcedilla /germandbls
+/racute /aacute /acircumflex /abreve /adieresis /lacute /cacute /ccedilla
+/ccaron /eacute /eogonek /edieresis /ecaron /iacute /icircumflex /dcaron
+/dbar /nacute /ncaron /oacute /ocircumflex /ohungarumlaut /odieresis /divide
+/rcaron /uring /uacute /uhungarumlaut /udieresis /yacute /tcedilla /dotaccent
+] def
+%%EndResource
+%!
+% Automatically generated by the Ogonkify package
+% Do not modify
+% -- code follows this line --
+%%BeginResource: encoding StandardEncoding
+/StandardEncoding [
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/space /exclam /quotedbl /numbersign /dollar /percent /ampersand /quoteright
+/parenleft /parenright /asterisk /plus /comma /hyphen /period /slash
+/zero /one /two /three /four /five /six /seven
+/eight /nine /colon /semicolon /less /equal /greater /question
+% 100
+/at /A /B /C /D /E /F /G
+/H /I /J /K /L /M /N /O
+/P /Q /R /S /T /U /V /W
+/X /Y /Z /bracketleft /backslash /bracketright /asciicircum /underscore
+/quoteleft /a /b /c /d /e /f /g
+/h /i /j /k /l /m /n /o
+/p /q /r /s /t /u /v /w
+/x /y /z /braceleft /bar /braceright /asciitilde /.notdef
+% 200
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /exclamdown /cent /sterling /fraction /yen /florin /section
+/currency /quotesingle /quotedblleft /guillemotleft /guilsinglleft /guilsinglright /fi /fl
+/.notdef /endash /dagger /daggerdbl /periodcentered /.notdef /paragraph /bullet
+/quotesinglbase /quotedblbase /quotedblright /guillemotright /ellipsis /perthousand /.notdef /questiondown
+% 300
+/.notdef /grave /acute /circumflex /tilde /macron /breve /dotaccent
+/dieresis /.notdef /ring /cedilla /.notdef /hungarumlaut /ogonek /caron
+/emdash /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /AE /.notdef /ordfeminine /.notdef /.notdef /.notdef /.notdef
+/Lslash /Oslash /OE /ordmasculine /.notdef /.notdef /.notdef /.notdef
+/.notdef /ae /.notdef /.notdef /.notdef /dotlessi /.notdef /.notdef
+/lslash /oslash /oe /germandbls /.notdef /.notdef /.notdef /.notdef
+] def
+%%EndResource
+%!
+% Add composite (i.e. accented) characters to any font
+% By J. Chroboczek <jec@dcs.ed.ac.uk>
+%
+% -- code follows this line --
+%%BeginResource: procset compose 0.8 1
+% Copyright (c) 1996-1999 by J. Chroboczek
+% This code may be distributed under the terms of the 
+% GNU Public License, either version 2 of the license, or (at your
+% option) any later version.
+/makeCompositeDict 20 dict def
+makeCompositeDict begin
+/nameUnique {                           % name nameUnique namexxxxxx
+  dup length exch 1 index string cvs    % length (name)
+  1 index 12 add string dup             % length (name) (...) (...)
+  3 2 roll 0 exch putinterval           % length (name...)
+  dup 3 2 roll
+  rand 12 string cvs
+  putinterval
+} bind def
+
+/doMakeComposite
+{
+  /compositeChars exch def
+  /targetEncoding exch def
+  /baseEncoding exch def
+  /newfontname exch def
+  /oldfontname exch def
+  /oldfont oldfontname findfont def
+  /newfont 20 dict def
+  /oldFontMatrix oldfont /FontMatrix get def
+  /oldFontBBox oldfont /FontBBox get cvlit def
+  /oldfontcopy oldfont length dict def
+
+  newfont begin
+    /FontType 3 def
+    /PaintType 0 def      % not used
+    /FontMatrix [0.001 0 0 0.001 0 0] def
+    /FontBBox
+    [
+      oldFontBBox 0 get oldFontBBox 1 get
+      oldFontMatrix transform
+      [1000 0 0 1000 0 0] transform
+      oldFontBBox 2 get oldFontBBox 3 get
+      oldFontMatrix transform
+      [1000 0 0 1000 0 0] transform
+    ] cvx def
+
+    /StrokeWidth 0 def                  % not used
+
+    /Encoding targetEncoding def
+
+    /Decoding 256 dict def              % invert base encoding vector
+    Decoding begin
+      0 1 255
+      { dup baseEncoding exch get exch def } bind for
+    end
+
+    newfont /compositeChars compositeChars put
+
+    /FontName newfontname def
+
+% make a copy of the original font, reencoding it
+    oldfont
+    oldfontcopy begin
+      {1 index /FID ne
+        {def}
+        {pop pop} ifelse
+      } bind forall
+    end
+    oldfontcopy /Encoding baseEncoding put
+    oldfontname nameUnique oldfontcopy definefont
+    1000 scalefont /OriginalFont exch def
+
+    /BuildChar                          % newfont n BuildChar -
+    {
+      exch begin                        % n
+        /OriginalFont load setfont
+        /Encoding load exch get         % glyphName
+        /compositeChars load dup
+        2 index known                   % glyphName compositeChars known-p
+        { 1 index get                   % glyphName [ 65 x y 129 ]
+          dup 0 get ( ) dup             % glyphName [...] 65 ( ) ( )
+          0 3 index put                 % glyphName [...] 65 (A)
+          dup stringwidth setcharwidth
+          0 0 moveto
+          show pop                      % glyphName [...]
+          dup 1 get 1 index 2 get       % glyphName [...] x y
+          moveto                        % glyphName [...]
+          3 get ( ) dup 3 2 roll        % glyphName ( ) ( ) 129
+          0 exch put                    % glyphName (')
+          show                          % glyphName
+        }
+        { pop
+          /Decoding load                % glyphName Decoding
+          dup 2 index known             % glyphName Decoding known-p
+          { exch get }
+          { pop pop 0 } ifelse          % n'
+          ( ) dup 0 3 index put dup     % n' (A) (A)
+          stringwidth setcharwidth
+          0 0 moveto
+          show                          % n'
+        } ifelse
+        pop
+      end
+    } bind def
+  end                                   % newfont
+  newfontname newfont definefont pop
+} def                                   % doMakeComposite
+
+/fillEuro {                             % w h --
+  gsave exch 1000 div exch 1000 div scale
+  955.852 232.172 moveto
+  904.495 180.815 lineto
+  829.454 117.848 734.626 83.333 636.667 83.333 curveto
+  406.667 83.333 220 270 220 500 curveto
+  220 730 406.667 916.667 636.667 916.667 curveto
+  759.831 916.667 876.684 862.177 955.852 767.828 curveto
+  988.474 855.291 lineto
+  894.851 947.996 768.422 1000 636.667 1000 curveto
+  360.667 1000 136.667 776 136.667 500 curveto
+  136.667 224 360.667 0 636.667 0 curveto
+  753.23 0 866.13 40.725 955.852 115.135 curveto
+  closepath fill
+  
+  869.037 541.667 moveto
+  901.025 625 lineto
+  31.989 625 lineto
+  0 541.667 lineto
+  closepath fill
+  
+  805.059 375 moveto
+  837.048 458.333 lineto
+  31.989 458.333 lineto
+  0 375 lineto
+  closepath fill
+  grestore
+} bind def
+
+/makeEuroCharstring {                   % w h -- charstring
+  [ /pop cvx                            % w h mark pop
+    3 index 0 0 0                       % w h mark pop w 0 0 0
+    7 index 7 index /setcachedevice cvx 
+                                % w h mark pop w 0 0 0 w h setcachedevice
+    10 index 10 index /fillEuro load /exec cvx ] 
+  cvx bind 3 1 roll pop pop
+} def
+
+/doEurifyFont {                         % oldname newname --
+  exch
+  findfont dup dup                      % newname dict dict dict
+  /FontMatrix get matrix invertmatrix   % newname dict dict m
+  {} forall pop pop [ 5 1 roll 0 0] makefont setfont   % newnamedict
+  0 0 moveto
+  (5) stringwidth pop                     % newname dict w
+  (M) false charpath pathbbox newpath 4 1 roll pop pop pop 
+                                          % newnamedict w h
+  3 2 roll                                % newname w h dict
+  
+  dup length dict dup 3 1 roll begin      % newname w h newdict
+    {1 index /FID ne {def} {pop pop} ifelse} forall
+    CharStrings dup length 1 add dict dup 3 1 roll begin % newnamew h newdict newdict'
+      {def} forall
+      /Euro                               % newname w h newdict newdict' /Euro
+      4 index 4 index makeEuroCharstring def
+    end                                   % newname w h newdict newdict'
+    /CharStrings exch def
+  end
+  3 1 roll pop pop                      % newname dict
+  definefont pop
+} bind def
+
+end                                     % makeCompositeDict
+
+% oldfontname newfontname baseEncoding targetEncoding compositeChars --
+/makeComposite
+{
+  makeCompositeDict begin doMakeComposite end
+} bind def
+
+% oldfontname newfontname
+/eurifyFont
+{
+  makeCompositeDict begin doEurifyFont end
+} bind def
+%%EndResource
+%!
+% Automatically generated by the Ogonkify package
+% Do not modify
+% -- code follows this line --
+%%BeginResource: font Courier-Bold-Ogonki
+/Courier-Bold /Courier-Bold-Ogonki OgonkiEncoding StandardEncoding 111 dict
+dup /Agrave [65 -50 123 27] put
+dup /Aring [65 -10 123 31] put
+dup /Atilde [65 -30 123 29] put
+dup /Ecircumflex [69 0 123 28] put
+dup /Egrave [69 0 123 27] put
+dup /Gcaron [71 10 123 183] put
+dup /Idieresis [73 0 123 168] put
+dup /Igrave [73 0 123 27] put
+dup /Ntilde [78 0 123 29] put
+dup /Ograve [79 0 123 27] put
+dup /Otilde [79 0 123 29] put
+dup /Ucircumflex [85 0 123 28] put
+dup /Ugrave [85 -30 123 27] put
+dup /Ydieresis [89 0 123 168] put
+dup /agrave [97 -30 0 27] put
+dup /aring [97 0 0 31] put
+dup /atilde [97 0 0 29] put
+dup /ecircumflex [101 0 0 28] put
+dup /egrave [101 0 0 27] put
+dup /gcaron [103 -40 0 183] put
+dup /idieresis [136 -40 0 168] put
+dup /igrave [136 0 0 27] put
+dup /ntilde [110 0 0 29] put
+dup /ograve [111 0 0 27] put
+dup /otilde [111 0 0 29] put
+dup /ucircumflex [117 -20 0 28] put
+dup /ugrave [117 -30 0 27] put
+dup /ydieresis [121 10 0 168] put
+dup /abreve [97 0 0 162] put
+dup /Abreve [65 0 130 162] put
+dup /amacron [97 0 0 30] put
+dup /Amacron [65 0 130 30] put
+dup /Aogonek [65 200 0 178] put
+dup /aogonek [97 200 0 178] put
+dup /cacute [99 0 0 180] put
+dup /Cacute [67 0 130 180] put
+dup /ccaron [99 18 0 183] put
+dup /Ccaron [67 18 130 183] put
+dup /ccircumflex [99 18 0 28] put
+dup /Ccircumflex [67 18 130 28] put
+dup /cdotaccent [99 0 0 255] put
+dup /Cdotaccent [67 0 130 255] put
+dup /dbar [100 200 250 173] put
+dup /Dbar [208 0 0 160] put
+dup /Dcaron [68 0 130 183] put
+dup /dcaron [100 30 195 183] put
+dup /ecaron [101 0 0 183] put
+dup /Ecaron [69 0 130 183] put
+dup /edotaccent [101 0 0 255] put
+dup /Edotaccent [69 0 130 255] put
+dup /emacron [101 0 0 30] put
+dup /Emacron [69 0 130 30] put
+dup /Eogonek [69 0 0 178] put
+dup /eogonek [101 0 0 178] put
+dup /gacute [103 0 0 180] put
+dup /gbreve [103 0 0 162] put
+dup /Gbreve [71 18 130 162] put
+dup /gcircumflex [103 0 0 28] put
+dup /Gcircumflex [71 18 130 28] put
+dup /gdotaccent [103 0 0 255] put
+dup /Gdotaccent [71 18 130 255] put
+dup /hcircumflex [104 -20 195 28] put
+dup /Hcircumflex [72 0 130 28] put
+dup /Iogonek [73 20 0 178] put
+dup /iogonek [105 20 0 178] put
+dup /Idotaccent [73 0 130 255] put
+dup /imacron [136 0 0 30] put
+dup /Imacron [73 0 130 30] put
+dup /itilde [136 0 0 29] put
+dup /Itilde [73 0 130 29] put
+dup /Jcircumflex [74 85 130 28] put
+dup /Lacute [76 -100 130 180] put
+dup /lacute [108 -20 195 180] put
+dup /Lcaron [76 -100 130 183] put
+dup /lcaron [108 0 195 183] put
+dup /nacute [110 0 0 180] put
+dup /Nacute [78 0 130 180] put
+dup /ncaron [110 0 0 183] put
+dup /Ncaron [78 0 130 183] put
+dup /ohungarumlaut [111 0 0 189] put
+dup /Ohungarumlaut [79 0 130 189] put
+dup /omacron [111 0 0 30] put
+dup /Omacron [79 0 130 30] put
+dup /racute [114 0 0 180] put
+dup /Racute [82 0 130 180] put
+dup /rcaron [114 0 0 183] put
+dup /Rcaron [82 0 130 183] put
+dup /sacute [115 0 0 180] put
+dup /Sacute [83 0 130 180] put
+dup /scircumflex [115 0 0 28] put
+dup /Scircumflex [83 0 130 28] put
+dup /tcaron [116 0 107 183] put
+dup /Tcaron [84 0 130 183] put
+dup /Tcedilla [84 0 0 184] put
+dup /tcedilla [116 0 0 184] put
+dup /ubreve [117 0 0 162] put
+dup /Ubreve [85 0 130 162] put
+dup /uhungarumlaut [117 0 0 189] put
+dup /Uhungarumlaut [85 0 130 189] put
+dup /umacron [117 0 0 30] put
+dup /Umacron [85 0 130 30] put
+dup /uogonek [117 109 0 178] put
+dup /Uogonek [85 5 23 178] put
+dup /uring [117 0 0 31] put
+dup /Uring [85 0 130 31] put
+dup /utilde [117 0 0 29] put
+dup /Utilde [85 0 130 29] put
+dup /zacute [122 0 0 180] put
+dup /Zacute [90 0 130 180] put
+dup /zdotaccent [122 0 0 255] put
+dup /Zdotaccent [90 0 130 255] put
+makeComposite
+%%EndResource
+
+%%EndResource
+%%BeginResource: font Courier-BoldOblique-Ogonki
+%!
+% Automatically generated by the Ogonkify package
+% Do not modify
+% -- code follows this line --
+%%BeginResource: encoding OgonkiEncoding
+/OgonkiEncoding [
+/.notdef /exclamdown /cent /sterling /fraction /yen /florin /quotesingle
+/quotedblleft /guillemotleft /guilsinglleft /guilsinglright /fi /fl /endash /dagger
+/daggerdbl /periodcentered /paragraph /bullet /quotesinglbase /quotedblbase /quotedblright /guillemotright
+/ellipsis /perthousand /questiondown /grave /circumflex /tilde /macron /ring
+/space /exclam /quotedbl /numbersign /dollar /percent /ampersand /quoteright
+/parenleft /parenright /asterisk /plus /comma /minus /period /slash
+/zero /one /two /three /four /five /six /seven
+/eight /nine /colon /semicolon /less /equal /greater /question
+% 100
+/at /A /B /C /D /E /F /G
+/H /I /J /K /L /M /N /O
+/P /Q /R /S /T /U /V /W
+/X /Y /Z /bracketleft /backslash /bracketright /asciicircum /underscore
+/quoteleft /a /b /c /d /e /f /g
+/h /i /j /k /l /m /n /o
+/p /q /r /s /t /u /v /w
+/x /y /z /braceleft /bar /braceright /asciitilde /.notdef
+% 200
+/.notdef /emdash /AE /ordfeminine /Oslash /OE /ordmasculine /ae
+/dotlessi /oslash /oe /threesuperior /thorn /twosuperior /threequarters /Eth
+/trademark /registered /onequarter /Thorn /logicalnot /plusminus /minus /onesuperior
+/copyright /mu /eth /brokenbar /onehalf /dotlessj /Euro /.notdef
+/space /Aogonek /breve /Lslash /currency /Lcaron /Sacute /section
+/dieresis /Scaron /Scedilla /Tcaron /Zacute /hyphen /Zcaron /Zdotaccent
+/degree /aogonek /ogonek /lslash /acute /lcaron /sacute /caron
+/cedilla /scaron /scedilla /tcaron /zacute /hungarumlaut /zcaron /zdotaccent
+% 300
+/Racute /Aacute /Acircumflex /Abreve /Adieresis /Lacute /Cacute /Ccedilla
+/Ccaron /Eacute /Eogonek /Edieresis /Ecaron /Iacute /Icircumflex /Dcaron
+/Eth /Nacute /Ncaron /Oacute /Ocircumflex /Ohungarumlaut /Odieresis /multiply
+/Rcaron /Uring /Uacute /Uhungarumlaut /Udieresis /Yacute /Tcedilla /germandbls
+/racute /aacute /acircumflex /abreve /adieresis /lacute /cacute /ccedilla
+/ccaron /eacute /eogonek /edieresis /ecaron /iacute /icircumflex /dcaron
+/dbar /nacute /ncaron /oacute /ocircumflex /ohungarumlaut /odieresis /divide
+/rcaron /uring /uacute /uhungarumlaut /udieresis /yacute /tcedilla /dotaccent
+] def
+%%EndResource
+%!
+% Automatically generated by the Ogonkify package
+% Do not modify
+% -- code follows this line --
+%%BeginResource: encoding StandardEncoding
+/StandardEncoding [
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/space /exclam /quotedbl /numbersign /dollar /percent /ampersand /quoteright
+/parenleft /parenright /asterisk /plus /comma /hyphen /period /slash
+/zero /one /two /three /four /five /six /seven
+/eight /nine /colon /semicolon /less /equal /greater /question
+% 100
+/at /A /B /C /D /E /F /G
+/H /I /J /K /L /M /N /O
+/P /Q /R /S /T /U /V /W
+/X /Y /Z /bracketleft /backslash /bracketright /asciicircum /underscore
+/quoteleft /a /b /c /d /e /f /g
+/h /i /j /k /l /m /n /o
+/p /q /r /s /t /u /v /w
+/x /y /z /braceleft /bar /braceright /asciitilde /.notdef
+% 200
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /exclamdown /cent /sterling /fraction /yen /florin /section
+/currency /quotesingle /quotedblleft /guillemotleft /guilsinglleft /guilsinglright /fi /fl
+/.notdef /endash /dagger /daggerdbl /periodcentered /.notdef /paragraph /bullet
+/quotesinglbase /quotedblbase /quotedblright /guillemotright /ellipsis /perthousand /.notdef /questiondown
+% 300
+/.notdef /grave /acute /circumflex /tilde /macron /breve /dotaccent
+/dieresis /.notdef /ring /cedilla /.notdef /hungarumlaut /ogonek /caron
+/emdash /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /AE /.notdef /ordfeminine /.notdef /.notdef /.notdef /.notdef
+/Lslash /Oslash /OE /ordmasculine /.notdef /.notdef /.notdef /.notdef
+/.notdef /ae /.notdef /.notdef /.notdef /dotlessi /.notdef /.notdef
+/lslash /oslash /oe /germandbls /.notdef /.notdef /.notdef /.notdef
+] def
+%%EndResource
+%!
+% Add composite (i.e. accented) characters to any font
+% By J. Chroboczek <jec@dcs.ed.ac.uk>
+%
+% -- code follows this line --
+%%BeginResource: procset compose 0.8 1
+% Copyright (c) 1996-1999 by J. Chroboczek
+% This code may be distributed under the terms of the 
+% GNU Public License, either version 2 of the license, or (at your
+% option) any later version.
+/makeCompositeDict 20 dict def
+makeCompositeDict begin
+/nameUnique {                           % name nameUnique namexxxxxx
+  dup length exch 1 index string cvs    % length (name)
+  1 index 12 add string dup             % length (name) (...) (...)
+  3 2 roll 0 exch putinterval           % length (name...)
+  dup 3 2 roll
+  rand 12 string cvs
+  putinterval
+} bind def
+
+/doMakeComposite
+{
+  /compositeChars exch def
+  /targetEncoding exch def
+  /baseEncoding exch def
+  /newfontname exch def
+  /oldfontname exch def
+  /oldfont oldfontname findfont def
+  /newfont 20 dict def
+  /oldFontMatrix oldfont /FontMatrix get def
+  /oldFontBBox oldfont /FontBBox get cvlit def
+  /oldfontcopy oldfont length dict def
+
+  newfont begin
+    /FontType 3 def
+    /PaintType 0 def      % not used
+    /FontMatrix [0.001 0 0 0.001 0 0] def
+    /FontBBox
+    [
+      oldFontBBox 0 get oldFontBBox 1 get
+      oldFontMatrix transform
+      [1000 0 0 1000 0 0] transform
+      oldFontBBox 2 get oldFontBBox 3 get
+      oldFontMatrix transform
+      [1000 0 0 1000 0 0] transform
+    ] cvx def
+
+    /StrokeWidth 0 def                  % not used
+
+    /Encoding targetEncoding def
+
+    /Decoding 256 dict def              % invert base encoding vector
+    Decoding begin
+      0 1 255
+      { dup baseEncoding exch get exch def } bind for
+    end
+
+    newfont /compositeChars compositeChars put
+
+    /FontName newfontname def
+
+% make a copy of the original font, reencoding it
+    oldfont
+    oldfontcopy begin
+      {1 index /FID ne
+        {def}
+        {pop pop} ifelse
+      } bind forall
+    end
+    oldfontcopy /Encoding baseEncoding put
+    oldfontname nameUnique oldfontcopy definefont
+    1000 scalefont /OriginalFont exch def
+
+    /BuildChar                          % newfont n BuildChar -
+    {
+      exch begin                        % n
+        /OriginalFont load setfont
+        /Encoding load exch get         % glyphName
+        /compositeChars load dup
+        2 index known                   % glyphName compositeChars known-p
+        { 1 index get                   % glyphName [ 65 x y 129 ]
+          dup 0 get ( ) dup             % glyphName [...] 65 ( ) ( )
+          0 3 index put                 % glyphName [...] 65 (A)
+          dup stringwidth setcharwidth
+          0 0 moveto
+          show pop                      % glyphName [...]
+          dup 1 get 1 index 2 get       % glyphName [...] x y
+          moveto                        % glyphName [...]
+          3 get ( ) dup 3 2 roll        % glyphName ( ) ( ) 129
+          0 exch put                    % glyphName (')
+          show                          % glyphName
+        }
+        { pop
+          /Decoding load                % glyphName Decoding
+          dup 2 index known             % glyphName Decoding known-p
+          { exch get }
+          { pop pop 0 } ifelse          % n'
+          ( ) dup 0 3 index put dup     % n' (A) (A)
+          stringwidth setcharwidth
+          0 0 moveto
+          show                          % n'
+        } ifelse
+        pop
+      end
+    } bind def
+  end                                   % newfont
+  newfontname newfont definefont pop
+} def                                   % doMakeComposite
+
+/fillEuro {                             % w h --
+  gsave exch 1000 div exch 1000 div scale
+  955.852 232.172 moveto
+  904.495 180.815 lineto
+  829.454 117.848 734.626 83.333 636.667 83.333 curveto
+  406.667 83.333 220 270 220 500 curveto
+  220 730 406.667 916.667 636.667 916.667 curveto
+  759.831 916.667 876.684 862.177 955.852 767.828 curveto
+  988.474 855.291 lineto
+  894.851 947.996 768.422 1000 636.667 1000 curveto
+  360.667 1000 136.667 776 136.667 500 curveto
+  136.667 224 360.667 0 636.667 0 curveto
+  753.23 0 866.13 40.725 955.852 115.135 curveto
+  closepath fill
+  
+  869.037 541.667 moveto
+  901.025 625 lineto
+  31.989 625 lineto
+  0 541.667 lineto
+  closepath fill
+  
+  805.059 375 moveto
+  837.048 458.333 lineto
+  31.989 458.333 lineto
+  0 375 lineto
+  closepath fill
+  grestore
+} bind def
+
+/makeEuroCharstring {                   % w h -- charstring
+  [ /pop cvx                            % w h mark pop
+    3 index 0 0 0                       % w h mark pop w 0 0 0
+    7 index 7 index /setcachedevice cvx 
+                                % w h mark pop w 0 0 0 w h setcachedevice
+    10 index 10 index /fillEuro load /exec cvx ] 
+  cvx bind 3 1 roll pop pop
+} def
+
+/doEurifyFont {                         % oldname newname --
+  exch
+  findfont dup dup                      % newname dict dict dict
+  /FontMatrix get matrix invertmatrix   % newname dict dict m
+  {} forall pop pop [ 5 1 roll 0 0] makefont setfont   % newnamedict
+  0 0 moveto
+  (5) stringwidth pop                     % newname dict w
+  (M) false charpath pathbbox newpath 4 1 roll pop pop pop 
+                                          % newnamedict w h
+  3 2 roll                                % newname w h dict
+  
+  dup length dict dup 3 1 roll begin      % newname w h newdict
+    {1 index /FID ne {def} {pop pop} ifelse} forall
+    CharStrings dup length 1 add dict dup 3 1 roll begin % newnamew h newdict newdict'
+      {def} forall
+      /Euro                               % newname w h newdict newdict' /Euro
+      4 index 4 index makeEuroCharstring def
+    end                                   % newname w h newdict newdict'
+    /CharStrings exch def
+  end
+  3 1 roll pop pop                      % newname dict
+  definefont pop
+} bind def
+
+end                                     % makeCompositeDict
+
+% oldfontname newfontname baseEncoding targetEncoding compositeChars --
+/makeComposite
+{
+  makeCompositeDict begin doMakeComposite end
+} bind def
+
+% oldfontname newfontname
+/eurifyFont
+{
+  makeCompositeDict begin doEurifyFont end
+} bind def
+%%EndResource
+%!
+% Automatically generated by the Ogonkify package
+% Do not modify
+% -- code follows this line --
+%%BeginResource: font Courier-BoldOblique-Ogonki
+/Courier-BoldOblique /Courier-BoldOblique-Ogonki OgonkiEncoding StandardEncoding 111 dict
+dup /Agrave [65 -24 123 27] put
+dup /Aring [65 16 123 31] put
+dup /Atilde [65 -4 123 29] put
+dup /Ecircumflex [69 26 123 28] put
+dup /Egrave [69 26 123 27] put
+dup /Gcaron [71 36 123 183] put
+dup /Idieresis [73 26 123 168] put
+dup /Igrave [73 26 123 27] put
+dup /Ntilde [78 26 123 29] put
+dup /Ograve [79 26 123 27] put
+dup /Otilde [79 26 123 29] put
+dup /Ucircumflex [85 26 123 28] put
+dup /Ugrave [85 -4 123 27] put
+dup /Ydieresis [89 26 123 168] put
+dup /agrave [97 -30 0 27] put
+dup /aring [97 0 0 31] put
+dup /atilde [97 0 0 29] put
+dup /ecircumflex [101 0 0 28] put
+dup /egrave [101 0 0 27] put
+dup /gcaron [103 -40 0 183] put
+dup /idieresis [136 -40 0 168] put
+dup /igrave [136 0 0 27] put
+dup /ntilde [110 0 0 29] put
+dup /ograve [111 0 0 27] put
+dup /otilde [111 0 0 29] put
+dup /ucircumflex [117 -20 0 28] put
+dup /ugrave [117 -30 0 27] put
+dup /ydieresis [121 10 0 168] put
+dup /Abreve [65 -18 130 162] put
+dup /abreve [97 0 0 162] put
+dup /Amacron [65 -15 130 30] put
+dup /amacron [97 0 0 30] put
+dup /Aogonek [65 200 0 178] put
+dup /aogonek [97 200 0 178] put
+dup /cacute [99 0 0 180] put
+dup /Cacute [67 30 130 180] put
+dup /ccaron [99 0 0 183] put
+dup /Ccaron [67 30 130 183] put
+dup /ccircumflex [99 0 0 28] put
+dup /Ccircumflex [67 30 130 28] put
+dup /cdotaccent [99 0 0 255] put
+dup /Cdotaccent [67 30 130 255] put
+dup /dbar [100 200 250 173] put
+dup /Dbar [208 0 0 160] put
+dup /Dcaron [68 -12 130 183] put
+dup /dcaron [100 35 178 183] put
+dup /ecaron [101 0 0 183] put
+dup /Ecaron [69 30 130 183] put
+dup /edotaccent [101 0 0 255] put
+dup /Edotaccent [69 30 130 255] put
+dup /emacron [101 0 0 30] put
+dup /Emacron [69 30 130 30] put
+dup /Eogonek [69 0 0 178] put
+dup /eogonek [101 0 0 178] put
+dup /gacute [103 0 0 180] put
+dup /gbreve [103 0 0 162] put
+dup /Gbreve [71 30 130 162] put
+dup /gcircumflex [103 0 0 28] put
+dup /Gcircumflex [71 30 130 28] put
+dup /gdotaccent [103 0 0 255] put
+dup /Gdotaccent [71 30 130 255] put
+dup /hcircumflex [104 0 178 28] put
+dup /Hcircumflex [72 30 130 28] put
+dup /Idotaccent [73 30 130 255] put
+dup /imacron [136 0 0 30] put
+dup /Imacron [73 30 130 30] put
+dup /Iogonek [73 20 0 178] put
+dup /iogonek [105 20 0 178] put
+dup /itilde [136 0 0 29] put
+dup /Itilde [73 30 130 29] put
+dup /Jcircumflex [74 95 130 28] put
+dup /Lacute [76 -88 130 180] put
+dup /lacute [108 0 178 180] put
+dup /Lcaron [76 -88 130 183] put
+dup /lcaron [108 0 178 183] put
+dup /nacute [110 0 0 180] put
+dup /Nacute [78 30 130 180] put
+dup /ncaron [110 0 0 183] put
+dup /Ncaron [78 30 130 183] put
+dup /ohungarumlaut [111 0 0 189] put
+dup /Ohungarumlaut [79 30 130 189] put
+dup /omacron [111 0 0 30] put
+dup /Omacron [79 30 130 30] put
+dup /racute [114 0 0 180] put
+dup /Racute [82 30 130 180] put
+dup /rcaron [114 0 0 183] put
+dup /Rcaron [82 30 130 183] put
+dup /sacute [115 0 0 180] put
+dup /Sacute [83 30 130 180] put
+dup /scircumflex [115 0 0 28] put
+dup /Scircumflex [83 30 130 28] put
+dup /tcaron [116 -59 106 183] put
+dup /Tcaron [84 30 130 183] put
+dup /Tcedilla [84 0 0 184] put
+dup /tcedilla [116 0 0 184] put
+dup /ubreve [117 0 0 162] put
+dup /Ubreve [85 30 130 162] put
+dup /uhungarumlaut [117 0 0 189] put
+dup /Uhungarumlaut [85 30 130 189] put
+dup /umacron [117 0 0 30] put
+dup /Umacron [85 30 130 30] put
+dup /Uogonek [85 0 7 178] put
+dup /uogonek [117 108 0 178] put
+dup /uring [117 0 0 31] put
+dup /Uring [85 30 130 31] put
+dup /utilde [117 0 0 29] put
+dup /Utilde [85 30 130 29] put
+dup /zacute [122 0 0 180] put
+dup /Zacute [90 30 130 180] put
+dup /zdotaccent [122 0 0 255] put
+dup /Zdotaccent [90 30 130 255] put
+makeComposite
+%%EndResource
+
+%%EndResource
+%%BeginResource: font Courier-Oblique-Ogonki
+%!
+% Automatically generated by the Ogonkify package
+% Do not modify
+% -- code follows this line --
+%%BeginResource: encoding OgonkiEncoding
+/OgonkiEncoding [
+/.notdef /exclamdown /cent /sterling /fraction /yen /florin /quotesingle
+/quotedblleft /guillemotleft /guilsinglleft /guilsinglright /fi /fl /endash /dagger
+/daggerdbl /periodcentered /paragraph /bullet /quotesinglbase /quotedblbase /quotedblright /guillemotright
+/ellipsis /perthousand /questiondown /grave /circumflex /tilde /macron /ring
+/space /exclam /quotedbl /numbersign /dollar /percent /ampersand /quoteright
+/parenleft /parenright /asterisk /plus /comma /minus /period /slash
+/zero /one /two /three /four /five /six /seven
+/eight /nine /colon /semicolon /less /equal /greater /question
+% 100
+/at /A /B /C /D /E /F /G
+/H /I /J /K /L /M /N /O
+/P /Q /R /S /T /U /V /W
+/X /Y /Z /bracketleft /backslash /bracketright /asciicircum /underscore
+/quoteleft /a /b /c /d /e /f /g
+/h /i /j /k /l /m /n /o
+/p /q /r /s /t /u /v /w
+/x /y /z /braceleft /bar /braceright /asciitilde /.notdef
+% 200
+/.notdef /emdash /AE /ordfeminine /Oslash /OE /ordmasculine /ae
+/dotlessi /oslash /oe /threesuperior /thorn /twosuperior /threequarters /Eth
+/trademark /registered /onequarter /Thorn /logicalnot /plusminus /minus /onesuperior
+/copyright /mu /eth /brokenbar /onehalf /dotlessj /Euro /.notdef
+/space /Aogonek /breve /Lslash /currency /Lcaron /Sacute /section
+/dieresis /Scaron /Scedilla /Tcaron /Zacute /hyphen /Zcaron /Zdotaccent
+/degree /aogonek /ogonek /lslash /acute /lcaron /sacute /caron
+/cedilla /scaron /scedilla /tcaron /zacute /hungarumlaut /zcaron /zdotaccent
+% 300
+/Racute /Aacute /Acircumflex /Abreve /Adieresis /Lacute /Cacute /Ccedilla
+/Ccaron /Eacute /Eogonek /Edieresis /Ecaron /Iacute /Icircumflex /Dcaron
+/Eth /Nacute /Ncaron /Oacute /Ocircumflex /Ohungarumlaut /Odieresis /multiply
+/Rcaron /Uring /Uacute /Uhungarumlaut /Udieresis /Yacute /Tcedilla /germandbls
+/racute /aacute /acircumflex /abreve /adieresis /lacute /cacute /ccedilla
+/ccaron /eacute /eogonek /edieresis /ecaron /iacute /icircumflex /dcaron
+/dbar /nacute /ncaron /oacute /ocircumflex /ohungarumlaut /odieresis /divide
+/rcaron /uring /uacute /uhungarumlaut /udieresis /yacute /tcedilla /dotaccent
+] def
+%%EndResource
+%!
+% Automatically generated by the Ogonkify package
+% Do not modify
+% -- code follows this line --
+%%BeginResource: encoding StandardEncoding
+/StandardEncoding [
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/space /exclam /quotedbl /numbersign /dollar /percent /ampersand /quoteright
+/parenleft /parenright /asterisk /plus /comma /hyphen /period /slash
+/zero /one /two /three /four /five /six /seven
+/eight /nine /colon /semicolon /less /equal /greater /question
+% 100
+/at /A /B /C /D /E /F /G
+/H /I /J /K /L /M /N /O
+/P /Q /R /S /T /U /V /W
+/X /Y /Z /bracketleft /backslash /bracketright /asciicircum /underscore
+/quoteleft /a /b /c /d /e /f /g
+/h /i /j /k /l /m /n /o
+/p /q /r /s /t /u /v /w
+/x /y /z /braceleft /bar /braceright /asciitilde /.notdef
+% 200
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /exclamdown /cent /sterling /fraction /yen /florin /section
+/currency /quotesingle /quotedblleft /guillemotleft /guilsinglleft /guilsinglright /fi /fl
+/.notdef /endash /dagger /daggerdbl /periodcentered /.notdef /paragraph /bullet
+/quotesinglbase /quotedblbase /quotedblright /guillemotright /ellipsis /perthousand /.notdef /questiondown
+% 300
+/.notdef /grave /acute /circumflex /tilde /macron /breve /dotaccent
+/dieresis /.notdef /ring /cedilla /.notdef /hungarumlaut /ogonek /caron
+/emdash /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /AE /.notdef /ordfeminine /.notdef /.notdef /.notdef /.notdef
+/Lslash /Oslash /OE /ordmasculine /.notdef /.notdef /.notdef /.notdef
+/.notdef /ae /.notdef /.notdef /.notdef /dotlessi /.notdef /.notdef
+/lslash /oslash /oe /germandbls /.notdef /.notdef /.notdef /.notdef
+] def
+%%EndResource
+%!
+% Add composite (i.e. accented) characters to any font
+% By J. Chroboczek <jec@dcs.ed.ac.uk>
+%
+% -- code follows this line --
+%%BeginResource: procset compose 0.8 1
+% Copyright (c) 1996-1999 by J. Chroboczek
+% This code may be distributed under the terms of the 
+% GNU Public License, either version 2 of the license, or (at your
+% option) any later version.
+/makeCompositeDict 20 dict def
+makeCompositeDict begin
+/nameUnique {                           % name nameUnique namexxxxxx
+  dup length exch 1 index string cvs    % length (name)
+  1 index 12 add string dup             % length (name) (...) (...)
+  3 2 roll 0 exch putinterval           % length (name...)
+  dup 3 2 roll
+  rand 12 string cvs
+  putinterval
+} bind def
+
+/doMakeComposite
+{
+  /compositeChars exch def
+  /targetEncoding exch def
+  /baseEncoding exch def
+  /newfontname exch def
+  /oldfontname exch def
+  /oldfont oldfontname findfont def
+  /newfont 20 dict def
+  /oldFontMatrix oldfont /FontMatrix get def
+  /oldFontBBox oldfont /FontBBox get cvlit def
+  /oldfontcopy oldfont length dict def
+
+  newfont begin
+    /FontType 3 def
+    /PaintType 0 def      % not used
+    /FontMatrix [0.001 0 0 0.001 0 0] def
+    /FontBBox
+    [
+      oldFontBBox 0 get oldFontBBox 1 get
+      oldFontMatrix transform
+      [1000 0 0 1000 0 0] transform
+      oldFontBBox 2 get oldFontBBox 3 get
+      oldFontMatrix transform
+      [1000 0 0 1000 0 0] transform
+    ] cvx def
+
+    /StrokeWidth 0 def                  % not used
+
+    /Encoding targetEncoding def
+
+    /Decoding 256 dict def              % invert base encoding vector
+    Decoding begin
+      0 1 255
+      { dup baseEncoding exch get exch def } bind for
+    end
+
+    newfont /compositeChars compositeChars put
+
+    /FontName newfontname def
+
+% make a copy of the original font, reencoding it
+    oldfont
+    oldfontcopy begin
+      {1 index /FID ne
+        {def}
+        {pop pop} ifelse
+      } bind forall
+    end
+    oldfontcopy /Encoding baseEncoding put
+    oldfontname nameUnique oldfontcopy definefont
+    1000 scalefont /OriginalFont exch def
+
+    /BuildChar                          % newfont n BuildChar -
+    {
+      exch begin                        % n
+        /OriginalFont load setfont
+        /Encoding load exch get         % glyphName
+        /compositeChars load dup
+        2 index known                   % glyphName compositeChars known-p
+        { 1 index get                   % glyphName [ 65 x y 129 ]
+          dup 0 get ( ) dup             % glyphName [...] 65 ( ) ( )
+          0 3 index put                 % glyphName [...] 65 (A)
+          dup stringwidth setcharwidth
+          0 0 moveto
+          show pop                      % glyphName [...]
+          dup 1 get 1 index 2 get       % glyphName [...] x y
+          moveto                        % glyphName [...]
+          3 get ( ) dup 3 2 roll        % glyphName ( ) ( ) 129
+          0 exch put                    % glyphName (')
+          show                          % glyphName
+        }
+        { pop
+          /Decoding load                % glyphName Decoding
+          dup 2 index known             % glyphName Decoding known-p
+          { exch get }
+          { pop pop 0 } ifelse          % n'
+          ( ) dup 0 3 index put dup     % n' (A) (A)
+          stringwidth setcharwidth
+          0 0 moveto
+          show                          % n'
+        } ifelse
+        pop
+      end
+    } bind def
+  end                                   % newfont
+  newfontname newfont definefont pop
+} def                                   % doMakeComposite
+
+/fillEuro {                             % w h --
+  gsave exch 1000 div exch 1000 div scale
+  955.852 232.172 moveto
+  904.495 180.815 lineto
+  829.454 117.848 734.626 83.333 636.667 83.333 curveto
+  406.667 83.333 220 270 220 500 curveto
+  220 730 406.667 916.667 636.667 916.667 curveto
+  759.831 916.667 876.684 862.177 955.852 767.828 curveto
+  988.474 855.291 lineto
+  894.851 947.996 768.422 1000 636.667 1000 curveto
+  360.667 1000 136.667 776 136.667 500 curveto
+  136.667 224 360.667 0 636.667 0 curveto
+  753.23 0 866.13 40.725 955.852 115.135 curveto
+  closepath fill
+  
+  869.037 541.667 moveto
+  901.025 625 lineto
+  31.989 625 lineto
+  0 541.667 lineto
+  closepath fill
+  
+  805.059 375 moveto
+  837.048 458.333 lineto
+  31.989 458.333 lineto
+  0 375 lineto
+  closepath fill
+  grestore
+} bind def
+
+/makeEuroCharstring {                   % w h -- charstring
+  [ /pop cvx                            % w h mark pop
+    3 index 0 0 0                       % w h mark pop w 0 0 0
+    7 index 7 index /setcachedevice cvx 
+                                % w h mark pop w 0 0 0 w h setcachedevice
+    10 index 10 index /fillEuro load /exec cvx ] 
+  cvx bind 3 1 roll pop pop
+} def
+
+/doEurifyFont {                         % oldname newname --
+  exch
+  findfont dup dup                      % newname dict dict dict
+  /FontMatrix get matrix invertmatrix   % newname dict dict m
+  {} forall pop pop [ 5 1 roll 0 0] makefont setfont   % newnamedict
+  0 0 moveto
+  (5) stringwidth pop                     % newname dict w
+  (M) false charpath pathbbox newpath 4 1 roll pop pop pop 
+                                          % newnamedict w h
+  3 2 roll                                % newname w h dict
+  
+  dup length dict dup 3 1 roll begin      % newname w h newdict
+    {1 index /FID ne {def} {pop pop} ifelse} forall
+    CharStrings dup length 1 add dict dup 3 1 roll begin % newnamew h newdict newdict'
+      {def} forall
+      /Euro                               % newname w h newdict newdict' /Euro
+      4 index 4 index makeEuroCharstring def
+    end                                   % newname w h newdict newdict'
+    /CharStrings exch def
+  end
+  3 1 roll pop pop                      % newname dict
+  definefont pop
+} bind def
+
+end                                     % makeCompositeDict
+
+% oldfontname newfontname baseEncoding targetEncoding compositeChars --
+/makeComposite
+{
+  makeCompositeDict begin doMakeComposite end
+} bind def
+
+% oldfontname newfontname
+/eurifyFont
+{
+  makeCompositeDict begin doEurifyFont end
+} bind def
+%%EndResource
+%!
+% Automatically generated by the Ogonkify package
+% Do not modify
+% -- code follows this line --
+%%BeginResource: font Courier-Oblique-Ogonki
+/Courier-Oblique /Courier-Oblique-Ogonki OgonkiEncoding StandardEncoding 111 dict
+dup /Agrave [65 -4 121 27] put
+dup /Aring [65 12 126 31] put
+dup /Atilde [65 27 126 29] put
+dup /Ecircumflex [69 26 121 28] put
+dup /Egrave [69 26 121 27] put
+dup /Gcaron [71 29 136 183] put
+dup /Idieresis [73 29 136 168] put
+dup /Igrave [73 26 121 27] put
+dup /Ntilde [78 27 126 29] put
+dup /Ograve [79 26 121 27] put
+dup /Otilde [79 27 126 29] put
+dup /Ucircumflex [85 26 121 28] put
+dup /Ugrave [85 -4 121 27] put
+dup /Ydieresis [89 29 136 168] put
+dup /agrave [97 0 0 27] put
+dup /aring [97 0 0 31] put
+dup /atilde [97 0 0 29] put
+dup /ecircumflex [101 0 0 28] put
+dup /egrave [101 0 0 27] put
+dup /gcaron [103 -30 0 183] put
+dup /idieresis [136 -30 0 168] put
+dup /igrave [136 -30 0 27] put
+dup /ntilde [110 0 0 29] put
+dup /ograve [111 0 0 27] put
+dup /otilde [111 0 0 29] put
+dup /ucircumflex [117 -10 0 28] put
+dup /ugrave [117 -30 0 27] put
+dup /ydieresis [121 -10 0 168] put
+dup /abreve [97 0 0 162] put
+dup /Abreve [65 0 133 162] put
+dup /amacron [97 0 0 30] put
+dup /Amacron [65 0 133 30] put
+dup /Aogonek [65 200 0 178] put
+dup /aogonek [97 200 0 178] put
+dup /cacute [99 0 0 180] put
+dup /Cacute [67 53 133 180] put
+dup /ccaron [99 0 0 183] put
+dup /Ccaron [67 53 133 183] put
+dup /ccircumflex [99 0 2 28] put
+dup /Ccircumflex [67 53 133 28] put
+dup /cdotaccent [99 0 0 255] put
+dup /Cdotaccent [67 53 133 255] put
+dup /dbar [100 200 250 173] put
+dup /Dbar [208 0 0 160] put
+dup /dcaron [100 20 182 183] put
+dup /Dcaron [68 33 133 183] put
+dup /ecaron [101 0 0 183] put
+dup /Ecaron [69 53 133 183] put
+dup /edotaccent [101 0 0 255] put
+dup /Edotaccent [69 53 133 255] put
+dup /emacron [101 0 0 30] put
+dup /Emacron [69 53 133 30] put
+dup /Eogonek [69 0 0 178] put
+dup /eogonek [101 0 0 178] put
+dup /gacute [103 -10 0 180] put
+dup /gbreve [103 -10 0 162] put
+dup /Gbreve [71 53 133 162] put
+dup /gcircumflex [103 -10 0 28] put
+dup /Gcircumflex [71 53 133 28] put
+dup /gdotaccent [103 0 0 255] put
+dup /Gdotaccent [71 53 186 255] put
+dup /hcircumflex [104 0 182 28] put
+dup /Hcircumflex [72 30 133 28] put
+dup /Idotaccent [73 30 133 255] put
+dup /imacron [136 0 0 30] put
+dup /Imacron [73 30 133 30] put
+dup /iogonek [105 20 0 178] put
+dup /Iogonek [73 20 0 178] put
+dup /itilde [136 0 0 29] put
+dup /Itilde [73 30 133 29] put
+dup /Jcircumflex [74 98 133 28] put
+dup /Lacute [76 -83 133 180] put
+dup /lacute [108 0 182 180] put
+dup /Lcaron [76 -83 133 183] put
+dup /lcaron [108 0 182 183] put
+dup /nacute [110 0 0 180] put
+dup /Nacute [78 53 133 180] put
+dup /ncaron [110 0 0 183] put
+dup /Ncaron [78 53 133 183] put
+dup /ohungarumlaut [111 0 0 189] put
+dup /Ohungarumlaut [79 53 133 189] put
+dup /omacron [111 0 0 30] put
+dup /Omacron [79 53 133 30] put
+dup /racute [114 0 0 180] put
+dup /Racute [82 53 133 180] put
+dup /rcaron [114 0 0 183] put
+dup /Rcaron [82 40 133 183] put
+dup /sacute [115 0 0 180] put
+dup /Sacute [83 53 133 180] put
+dup /scircumflex [115 0 0 28] put
+dup /Scircumflex [83 53 133 28] put
+dup /tcaron [116 -65 118 183] put
+dup /Tcaron [84 40 133 183] put
+dup /Tcedilla [84 0 0 184] put
+dup /tcedilla [116 0 0 184] put
+dup /ubreve [117 0 0 162] put
+dup /Ubreve [85 53 133 162] put
+dup /uhungarumlaut [117 0 0 189] put
+dup /Uhungarumlaut [85 53 133 189] put
+dup /umacron [117 0 0 30] put
+dup /Umacron [85 53 133 30] put
+dup /uogonek [117 120 0 178] put
+dup /Uogonek [85 5 15 178] put
+dup /uring [117 -30 0 31] put
+dup /Uring [85 53 133 31] put
+dup /utilde [117 0 0 29] put
+dup /Utilde [85 53 133 29] put
+dup /zacute [122 0 0 180] put
+dup /Zacute [90 40 133 180] put
+dup /zdotaccent [122 0 0 255] put
+dup /Zdotaccent [90 40 133 255] put
+makeComposite
+%%EndResource
+
+%%EndResource
+%%BeginResource: font Courier-Ogonki
+%!
+% Automatically generated by the Ogonkify package
+% Do not modify
+% -- code follows this line --
+%%BeginResource: encoding OgonkiEncoding
+/OgonkiEncoding [
+/.notdef /exclamdown /cent /sterling /fraction /yen /florin /quotesingle
+/quotedblleft /guillemotleft /guilsinglleft /guilsinglright /fi /fl /endash /dagger
+/daggerdbl /periodcentered /paragraph /bullet /quotesinglbase /quotedblbase /quotedblright /guillemotright
+/ellipsis /perthousand /questiondown /grave /circumflex /tilde /macron /ring
+/space /exclam /quotedbl /numbersign /dollar /percent /ampersand /quoteright
+/parenleft /parenright /asterisk /plus /comma /minus /period /slash
+/zero /one /two /three /four /five /six /seven
+/eight /nine /colon /semicolon /less /equal /greater /question
+% 100
+/at /A /B /C /D /E /F /G
+/H /I /J /K /L /M /N /O
+/P /Q /R /S /T /U /V /W
+/X /Y /Z /bracketleft /backslash /bracketright /asciicircum /underscore
+/quoteleft /a /b /c /d /e /f /g
+/h /i /j /k /l /m /n /o
+/p /q /r /s /t /u /v /w
+/x /y /z /braceleft /bar /braceright /asciitilde /.notdef
+% 200
+/.notdef /emdash /AE /ordfeminine /Oslash /OE /ordmasculine /ae
+/dotlessi /oslash /oe /threesuperior /thorn /twosuperior /threequarters /Eth
+/trademark /registered /onequarter /Thorn /logicalnot /plusminus /minus /onesuperior
+/copyright /mu /eth /brokenbar /onehalf /dotlessj /Euro /.notdef
+/space /Aogonek /breve /Lslash /currency /Lcaron /Sacute /section
+/dieresis /Scaron /Scedilla /Tcaron /Zacute /hyphen /Zcaron /Zdotaccent
+/degree /aogonek /ogonek /lslash /acute /lcaron /sacute /caron
+/cedilla /scaron /scedilla /tcaron /zacute /hungarumlaut /zcaron /zdotaccent
+% 300
+/Racute /Aacute /Acircumflex /Abreve /Adieresis /Lacute /Cacute /Ccedilla
+/Ccaron /Eacute /Eogonek /Edieresis /Ecaron /Iacute /Icircumflex /Dcaron
+/Eth /Nacute /Ncaron /Oacute /Ocircumflex /Ohungarumlaut /Odieresis /multiply
+/Rcaron /Uring /Uacute /Uhungarumlaut /Udieresis /Yacute /Tcedilla /germandbls
+/racute /aacute /acircumflex /abreve /adieresis /lacute /cacute /ccedilla
+/ccaron /eacute /eogonek /edieresis /ecaron /iacute /icircumflex /dcaron
+/dbar /nacute /ncaron /oacute /ocircumflex /ohungarumlaut /odieresis /divide
+/rcaron /uring /uacute /uhungarumlaut /udieresis /yacute /tcedilla /dotaccent
+] def
+%%EndResource
+%!
+% Automatically generated by the Ogonkify package
+% Do not modify
+% -- code follows this line --
+%%BeginResource: encoding StandardEncoding
+/StandardEncoding [
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/space /exclam /quotedbl /numbersign /dollar /percent /ampersand /quoteright
+/parenleft /parenright /asterisk /plus /comma /hyphen /period /slash
+/zero /one /two /three /four /five /six /seven
+/eight /nine /colon /semicolon /less /equal /greater /question
+% 100
+/at /A /B /C /D /E /F /G
+/H /I /J /K /L /M /N /O
+/P /Q /R /S /T /U /V /W
+/X /Y /Z /bracketleft /backslash /bracketright /asciicircum /underscore
+/quoteleft /a /b /c /d /e /f /g
+/h /i /j /k /l /m /n /o
+/p /q /r /s /t /u /v /w
+/x /y /z /braceleft /bar /braceright /asciitilde /.notdef
+% 200
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /exclamdown /cent /sterling /fraction /yen /florin /section
+/currency /quotesingle /quotedblleft /guillemotleft /guilsinglleft /guilsinglright /fi /fl
+/.notdef /endash /dagger /daggerdbl /periodcentered /.notdef /paragraph /bullet
+/quotesinglbase /quotedblbase /quotedblright /guillemotright /ellipsis /perthousand /.notdef /questiondown
+% 300
+/.notdef /grave /acute /circumflex /tilde /macron /breve /dotaccent
+/dieresis /.notdef /ring /cedilla /.notdef /hungarumlaut /ogonek /caron
+/emdash /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /AE /.notdef /ordfeminine /.notdef /.notdef /.notdef /.notdef
+/Lslash /Oslash /OE /ordmasculine /.notdef /.notdef /.notdef /.notdef
+/.notdef /ae /.notdef /.notdef /.notdef /dotlessi /.notdef /.notdef
+/lslash /oslash /oe /germandbls /.notdef /.notdef /.notdef /.notdef
+] def
+%%EndResource
+%!
+% Add composite (i.e. accented) characters to any font
+% By J. Chroboczek <jec@dcs.ed.ac.uk>
+%
+% -- code follows this line --
+%%BeginResource: procset compose 0.8 1
+% Copyright (c) 1996-1999 by J. Chroboczek
+% This code may be distributed under the terms of the 
+% GNU Public License, either version 2 of the license, or (at your
+% option) any later version.
+/makeCompositeDict 20 dict def
+makeCompositeDict begin
+/nameUnique {                           % name nameUnique namexxxxxx
+  dup length exch 1 index string cvs    % length (name)
+  1 index 12 add string dup             % length (name) (...) (...)
+  3 2 roll 0 exch putinterval           % length (name...)
+  dup 3 2 roll
+  rand 12 string cvs
+  putinterval
+} bind def
+
+/doMakeComposite
+{
+  /compositeChars exch def
+  /targetEncoding exch def
+  /baseEncoding exch def
+  /newfontname exch def
+  /oldfontname exch def
+  /oldfont oldfontname findfont def
+  /newfont 20 dict def
+  /oldFontMatrix oldfont /FontMatrix get def
+  /oldFontBBox oldfont /FontBBox get cvlit def
+  /oldfontcopy oldfont length dict def
+
+  newfont begin
+    /FontType 3 def
+    /PaintType 0 def      % not used
+    /FontMatrix [0.001 0 0 0.001 0 0] def
+    /FontBBox
+    [
+      oldFontBBox 0 get oldFontBBox 1 get
+      oldFontMatrix transform
+      [1000 0 0 1000 0 0] transform
+      oldFontBBox 2 get oldFontBBox 3 get
+      oldFontMatrix transform
+      [1000 0 0 1000 0 0] transform
+    ] cvx def
+
+    /StrokeWidth 0 def                  % not used
+
+    /Encoding targetEncoding def
+
+    /Decoding 256 dict def              % invert base encoding vector
+    Decoding begin
+      0 1 255
+      { dup baseEncoding exch get exch def } bind for
+    end
+
+    newfont /compositeChars compositeChars put
+
+    /FontName newfontname def
+
+% make a copy of the original font, reencoding it
+    oldfont
+    oldfontcopy begin
+      {1 index /FID ne
+        {def}
+        {pop pop} ifelse
+      } bind forall
+    end
+    oldfontcopy /Encoding baseEncoding put
+    oldfontname nameUnique oldfontcopy definefont
+    1000 scalefont /OriginalFont exch def
+
+    /BuildChar                          % newfont n BuildChar -
+    {
+      exch begin                        % n
+        /OriginalFont load setfont
+        /Encoding load exch get         % glyphName
+        /compositeChars load dup
+        2 index known                   % glyphName compositeChars known-p
+        { 1 index get                   % glyphName [ 65 x y 129 ]
+          dup 0 get ( ) dup             % glyphName [...] 65 ( ) ( )
+          0 3 index put                 % glyphName [...] 65 (A)
+          dup stringwidth setcharwidth
+          0 0 moveto
+          show pop                      % glyphName [...]
+          dup 1 get 1 index 2 get       % glyphName [...] x y
+          moveto                        % glyphName [...]
+          3 get ( ) dup 3 2 roll        % glyphName ( ) ( ) 129
+          0 exch put                    % glyphName (')
+          show                          % glyphName
+        }
+        { pop
+          /Decoding load                % glyphName Decoding
+          dup 2 index known             % glyphName Decoding known-p
+          { exch get }
+          { pop pop 0 } ifelse          % n'
+          ( ) dup 0 3 index put dup     % n' (A) (A)
+          stringwidth setcharwidth
+          0 0 moveto
+          show                          % n'
+        } ifelse
+        pop
+      end
+    } bind def
+  end                                   % newfont
+  newfontname newfont definefont pop
+} def                                   % doMakeComposite
+
+/fillEuro {                             % w h --
+  gsave exch 1000 div exch 1000 div scale
+  955.852 232.172 moveto
+  904.495 180.815 lineto
+  829.454 117.848 734.626 83.333 636.667 83.333 curveto
+  406.667 83.333 220 270 220 500 curveto
+  220 730 406.667 916.667 636.667 916.667 curveto
+  759.831 916.667 876.684 862.177 955.852 767.828 curveto
+  988.474 855.291 lineto
+  894.851 947.996 768.422 1000 636.667 1000 curveto
+  360.667 1000 136.667 776 136.667 500 curveto
+  136.667 224 360.667 0 636.667 0 curveto
+  753.23 0 866.13 40.725 955.852 115.135 curveto
+  closepath fill
+  
+  869.037 541.667 moveto
+  901.025 625 lineto
+  31.989 625 lineto
+  0 541.667 lineto
+  closepath fill
+  
+  805.059 375 moveto
+  837.048 458.333 lineto
+  31.989 458.333 lineto
+  0 375 lineto
+  closepath fill
+  grestore
+} bind def
+
+/makeEuroCharstring {                   % w h -- charstring
+  [ /pop cvx                            % w h mark pop
+    3 index 0 0 0                       % w h mark pop w 0 0 0
+    7 index 7 index /setcachedevice cvx 
+                                % w h mark pop w 0 0 0 w h setcachedevice
+    10 index 10 index /fillEuro load /exec cvx ] 
+  cvx bind 3 1 roll pop pop
+} def
+
+/doEurifyFont {                         % oldname newname --
+  exch
+  findfont dup dup                      % newname dict dict dict
+  /FontMatrix get matrix invertmatrix   % newname dict dict m
+  {} forall pop pop [ 5 1 roll 0 0] makefont setfont   % newnamedict
+  0 0 moveto
+  (5) stringwidth pop                     % newname dict w
+  (M) false charpath pathbbox newpath 4 1 roll pop pop pop 
+                                          % newnamedict w h
+  3 2 roll                                % newname w h dict
+  
+  dup length dict dup 3 1 roll begin      % newname w h newdict
+    {1 index /FID ne {def} {pop pop} ifelse} forall
+    CharStrings dup length 1 add dict dup 3 1 roll begin % newnamew h newdict newdict'
+      {def} forall
+      /Euro                               % newname w h newdict newdict' /Euro
+      4 index 4 index makeEuroCharstring def
+    end                                   % newname w h newdict newdict'
+    /CharStrings exch def
+  end
+  3 1 roll pop pop                      % newname dict
+  definefont pop
+} bind def
+
+end                                     % makeCompositeDict
+
+% oldfontname newfontname baseEncoding targetEncoding compositeChars --
+/makeComposite
+{
+  makeCompositeDict begin doMakeComposite end
+} bind def
+
+% oldfontname newfontname
+/eurifyFont
+{
+  makeCompositeDict begin doEurifyFont end
+} bind def
+%%EndResource
+%!
+% Automatically generated by the Ogonkify package
+% Do not modify
+% -- code follows this line --
+%%BeginResource: font Courier-Ogonki
+/Courier /Courier-Ogonki OgonkiEncoding StandardEncoding 111 dict
+dup /Agrave [65 -30 121 27] put
+dup /Aring [65 -15 126 31] put
+dup /Atilde [65 0 126 29] put
+dup /Ecircumflex [69 0 121 28] put
+dup /Egrave [69 0 121 27] put
+dup /Gcaron [71 0 136 183] put
+dup /Idieresis [73 0 136 168] put
+dup /Igrave [73 0 121 27] put
+dup /Ntilde [78 0 126 29] put
+dup /Ograve [79 0 121 27] put
+dup /Otilde [79 0 126 29] put
+dup /Ucircumflex [85 0 121 28] put
+dup /Ugrave [85 -30 121 27] put
+dup /Ydieresis [89 0 136 168] put
+dup /agrave [97 0 0 27] put
+dup /aring [97 0 0 31] put
+dup /atilde [97 0 0 29] put
+dup /ecircumflex [101 0 0 28] put
+dup /egrave [101 0 0 27] put
+dup /gcaron [103 -30 0 183] put
+dup /idieresis [136 -30 0 168] put
+dup /igrave [136 -30 0 27] put
+dup /ntilde [110 0 0 29] put
+dup /ograve [111 0 0 27] put
+dup /otilde [111 0 0 29] put
+dup /ucircumflex [117 -10 0 28] put
+dup /ugrave [117 -30 0 27] put
+dup /ydieresis [121 -10 0 168] put
+dup /abreve [97 0 0 162] put
+dup /Abreve [65 0 133 162] put
+dup /amacron [97 0 0 30] put
+dup /Amacron [65 0 133 30] put
+dup /Aogonek [65 200 0 178] put
+dup /aogonek [97 200 0 178] put
+dup /cacute [99 17 0 180] put
+dup /Cacute [67 30 133 180] put
+dup /ccaron [99 17 0 183] put
+dup /Ccaron [67 30 133 183] put
+dup /ccircumflex [99 17 2 28] put
+dup /Ccircumflex [67 30 133 28] put
+dup /cdotaccent [99 0 0 255] put
+dup /Cdotaccent [67 30 133 255] put
+dup /dbar [100 200 250 173] put
+dup /Dbar [208 0 0 160] put
+dup /Dcaron [68 0 133 183] put
+dup /dcaron [100 17 156 183] put
+dup /ecaron [101 0 0 183] put
+dup /Ecaron [69 0 133 183] put
+dup /edotaccent [101 0 0 255] put
+dup /Edotaccent [69 0 133 255] put
+dup /Emacron [69 0 133 30] put
+dup /emacron [101 17 0 30] put
+dup /Eogonek [69 100 0 178] put
+dup /eogonek [101 100 0 178] put
+dup /gacute [103 0 0 180] put
+dup /gbreve [103 0 0 162] put
+dup /Gbreve [71 30 133 162] put
+dup /gcircumflex [103 0 0 28] put
+dup /Gcircumflex [71 30 133 28] put
+dup /gdotaccent [103 0 0 255] put
+dup /Gdotaccent [71 0 133 255] put
+dup /Hcircumflex [72 0 133 28] put
+dup /hcircumflex [104 0 164 28] put
+dup /Idotaccent [73 0 133 255] put
+dup /imacron [136 0 0 30] put
+dup /Imacron [73 0 133 30] put
+dup /iogonek [105 20 0 178] put
+dup /Iogonek [73 20 0 178] put
+dup /itilde [136 0 0 29] put
+dup /Itilde [73 0 133 29] put
+dup /Jcircumflex [74 100 133 28] put
+dup /Lacute [76 -100 133 180] put
+dup /lacute [108 -12 147 180] put
+dup /Lcaron [76 -100 133 183] put
+dup /lcaron [108 -12 144 183] put
+dup /nacute [110 0 0 180] put
+dup /Nacute [78 0 133 180] put
+dup /ncaron [110 0 0 183] put
+dup /Ncaron [78 0 133 183] put
+dup /ohungarumlaut [111 0 0 189] put
+dup /Ohungarumlaut [79 0 133 189] put
+dup /omacron [111 0 0 30] put
+dup /Omacron [79 0 133 30] put
+dup /racute [114 0 0 180] put
+dup /Racute [82 0 133 180] put
+dup /rcaron [114 0 0 183] put
+dup /Rcaron [82 0 133 183] put
+dup /sacute [115 0 0 180] put
+dup /Sacute [83 0 133 180] put
+dup /scircumflex [115 0 0 28] put
+dup /Scircumflex [83 0 133 28] put
+dup /tcaron [116 -77 92 183] put
+dup /Tcaron [84 0 133 183] put
+dup /Tcedilla [84 0 0 184] put
+dup /tcedilla [116 0 0 184] put
+dup /ubreve [117 0 0 162] put
+dup /Ubreve [85 0 133 162] put
+dup /uhungarumlaut [117 0 0 189] put
+dup /Uhungarumlaut [85 0 133 189] put
+dup /umacron [117 0 0 30] put
+dup /Umacron [85 0 133 30] put
+dup /uogonek [117 120 0 178] put
+dup /Uogonek [85 5 20 178] put
+dup /uring [117 0 0 31] put
+dup /Uring [85 0 133 31] put
+dup /utilde [117 0 0 29] put
+dup /Utilde [85 0 133 29] put
+dup /zacute [122 0 0 180] put
+dup /Zacute [90 0 133 180] put
+dup /zdotaccent [122 0 0 255] put
+dup /Zdotaccent [90 0 133 255] put
+makeComposite
+%%EndResource
+
+%%EndResource
+%%BeginResource: font Helvetica-Bold-Ogonki
+%!
+% Automatically generated by the Ogonkify package
+% Do not modify
+% -- code follows this line --
+%%BeginResource: encoding OgonkiEncoding
+/OgonkiEncoding [
+/.notdef /exclamdown /cent /sterling /fraction /yen /florin /quotesingle
+/quotedblleft /guillemotleft /guilsinglleft /guilsinglright /fi /fl /endash /dagger
+/daggerdbl /periodcentered /paragraph /bullet /quotesinglbase /quotedblbase /quotedblright /guillemotright
+/ellipsis /perthousand /questiondown /grave /circumflex /tilde /macron /ring
+/space /exclam /quotedbl /numbersign /dollar /percent /ampersand /quoteright
+/parenleft /parenright /asterisk /plus /comma /minus /period /slash
+/zero /one /two /three /four /five /six /seven
+/eight /nine /colon /semicolon /less /equal /greater /question
+% 100
+/at /A /B /C /D /E /F /G
+/H /I /J /K /L /M /N /O
+/P /Q /R /S /T /U /V /W
+/X /Y /Z /bracketleft /backslash /bracketright /asciicircum /underscore
+/quoteleft /a /b /c /d /e /f /g
+/h /i /j /k /l /m /n /o
+/p /q /r /s /t /u /v /w
+/x /y /z /braceleft /bar /braceright /asciitilde /.notdef
+% 200
+/.notdef /emdash /AE /ordfeminine /Oslash /OE /ordmasculine /ae
+/dotlessi /oslash /oe /threesuperior /thorn /twosuperior /threequarters /Eth
+/trademark /registered /onequarter /Thorn /logicalnot /plusminus /minus /onesuperior
+/copyright /mu /eth /brokenbar /onehalf /dotlessj /Euro /.notdef
+/space /Aogonek /breve /Lslash /currency /Lcaron /Sacute /section
+/dieresis /Scaron /Scedilla /Tcaron /Zacute /hyphen /Zcaron /Zdotaccent
+/degree /aogonek /ogonek /lslash /acute /lcaron /sacute /caron
+/cedilla /scaron /scedilla /tcaron /zacute /hungarumlaut /zcaron /zdotaccent
+% 300
+/Racute /Aacute /Acircumflex /Abreve /Adieresis /Lacute /Cacute /Ccedilla
+/Ccaron /Eacute /Eogonek /Edieresis /Ecaron /Iacute /Icircumflex /Dcaron
+/Eth /Nacute /Ncaron /Oacute /Ocircumflex /Ohungarumlaut /Odieresis /multiply
+/Rcaron /Uring /Uacute /Uhungarumlaut /Udieresis /Yacute /Tcedilla /germandbls
+/racute /aacute /acircumflex /abreve /adieresis /lacute /cacute /ccedilla
+/ccaron /eacute /eogonek /edieresis /ecaron /iacute /icircumflex /dcaron
+/dbar /nacute /ncaron /oacute /ocircumflex /ohungarumlaut /odieresis /divide
+/rcaron /uring /uacute /uhungarumlaut /udieresis /yacute /tcedilla /dotaccent
+] def
+%%EndResource
+%!
+% Automatically generated by the Ogonkify package
+% Do not modify
+% -- code follows this line --
+%%BeginResource: encoding StandardEncoding
+/StandardEncoding [
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/space /exclam /quotedbl /numbersign /dollar /percent /ampersand /quoteright
+/parenleft /parenright /asterisk /plus /comma /hyphen /period /slash
+/zero /one /two /three /four /five /six /seven
+/eight /nine /colon /semicolon /less /equal /greater /question
+% 100
+/at /A /B /C /D /E /F /G
+/H /I /J /K /L /M /N /O
+/P /Q /R /S /T /U /V /W
+/X /Y /Z /bracketleft /backslash /bracketright /asciicircum /underscore
+/quoteleft /a /b /c /d /e /f /g
+/h /i /j /k /l /m /n /o
+/p /q /r /s /t /u /v /w
+/x /y /z /braceleft /bar /braceright /asciitilde /.notdef
+% 200
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /exclamdown /cent /sterling /fraction /yen /florin /section
+/currency /quotesingle /quotedblleft /guillemotleft /guilsinglleft /guilsinglright /fi /fl
+/.notdef /endash /dagger /daggerdbl /periodcentered /.notdef /paragraph /bullet
+/quotesinglbase /quotedblbase /quotedblright /guillemotright /ellipsis /perthousand /.notdef /questiondown
+% 300
+/.notdef /grave /acute /circumflex /tilde /macron /breve /dotaccent
+/dieresis /.notdef /ring /cedilla /.notdef /hungarumlaut /ogonek /caron
+/emdash /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /AE /.notdef /ordfeminine /.notdef /.notdef /.notdef /.notdef
+/Lslash /Oslash /OE /ordmasculine /.notdef /.notdef /.notdef /.notdef
+/.notdef /ae /.notdef /.notdef /.notdef /dotlessi /.notdef /.notdef
+/lslash /oslash /oe /germandbls /.notdef /.notdef /.notdef /.notdef
+] def
+%%EndResource
+%!
+% Add composite (i.e. accented) characters to any font
+% By J. Chroboczek <jec@dcs.ed.ac.uk>
+%
+% -- code follows this line --
+%%BeginResource: procset compose 0.8 1
+% Copyright (c) 1996-1999 by J. Chroboczek
+% This code may be distributed under the terms of the 
+% GNU Public License, either version 2 of the license, or (at your
+% option) any later version.
+/makeCompositeDict 20 dict def
+makeCompositeDict begin
+/nameUnique {                           % name nameUnique namexxxxxx
+  dup length exch 1 index string cvs    % length (name)
+  1 index 12 add string dup             % length (name) (...) (...)
+  3 2 roll 0 exch putinterval           % length (name...)
+  dup 3 2 roll
+  rand 12 string cvs
+  putinterval
+} bind def
+
+/doMakeComposite
+{
+  /compositeChars exch def
+  /targetEncoding exch def
+  /baseEncoding exch def
+  /newfontname exch def
+  /oldfontname exch def
+  /oldfont oldfontname findfont def
+  /newfont 20 dict def
+  /oldFontMatrix oldfont /FontMatrix get def
+  /oldFontBBox oldfont /FontBBox get cvlit def
+  /oldfontcopy oldfont length dict def
+
+  newfont begin
+    /FontType 3 def
+    /PaintType 0 def      % not used
+    /FontMatrix [0.001 0 0 0.001 0 0] def
+    /FontBBox
+    [
+      oldFontBBox 0 get oldFontBBox 1 get
+      oldFontMatrix transform
+      [1000 0 0 1000 0 0] transform
+      oldFontBBox 2 get oldFontBBox 3 get
+      oldFontMatrix transform
+      [1000 0 0 1000 0 0] transform
+    ] cvx def
+
+    /StrokeWidth 0 def                  % not used
+
+    /Encoding targetEncoding def
+
+    /Decoding 256 dict def              % invert base encoding vector
+    Decoding begin
+      0 1 255
+      { dup baseEncoding exch get exch def } bind for
+    end
+
+    newfont /compositeChars compositeChars put
+
+    /FontName newfontname def
+
+% make a copy of the original font, reencoding it
+    oldfont
+    oldfontcopy begin
+      {1 index /FID ne
+        {def}
+        {pop pop} ifelse
+      } bind forall
+    end
+    oldfontcopy /Encoding baseEncoding put
+    oldfontname nameUnique oldfontcopy definefont
+    1000 scalefont /OriginalFont exch def
+
+    /BuildChar                          % newfont n BuildChar -
+    {
+      exch begin                        % n
+        /OriginalFont load setfont
+        /Encoding load exch get         % glyphName
+        /compositeChars load dup
+        2 index known                   % glyphName compositeChars known-p
+        { 1 index get                   % glyphName [ 65 x y 129 ]
+          dup 0 get ( ) dup             % glyphName [...] 65 ( ) ( )
+          0 3 index put                 % glyphName [...] 65 (A)
+          dup stringwidth setcharwidth
+          0 0 moveto
+          show pop                      % glyphName [...]
+          dup 1 get 1 index 2 get       % glyphName [...] x y
+          moveto                        % glyphName [...]
+          3 get ( ) dup 3 2 roll        % glyphName ( ) ( ) 129
+          0 exch put                    % glyphName (')
+          show                          % glyphName
+        }
+        { pop
+          /Decoding load                % glyphName Decoding
+          dup 2 index known             % glyphName Decoding known-p
+          { exch get }
+          { pop pop 0 } ifelse          % n'
+          ( ) dup 0 3 index put dup     % n' (A) (A)
+          stringwidth setcharwidth
+          0 0 moveto
+          show                          % n'
+        } ifelse
+        pop
+      end
+    } bind def
+  end                                   % newfont
+  newfontname newfont definefont pop
+} def                                   % doMakeComposite
+
+/fillEuro {                             % w h --
+  gsave exch 1000 div exch 1000 div scale
+  955.852 232.172 moveto
+  904.495 180.815 lineto
+  829.454 117.848 734.626 83.333 636.667 83.333 curveto
+  406.667 83.333 220 270 220 500 curveto
+  220 730 406.667 916.667 636.667 916.667 curveto
+  759.831 916.667 876.684 862.177 955.852 767.828 curveto
+  988.474 855.291 lineto
+  894.851 947.996 768.422 1000 636.667 1000 curveto
+  360.667 1000 136.667 776 136.667 500 curveto
+  136.667 224 360.667 0 636.667 0 curveto
+  753.23 0 866.13 40.725 955.852 115.135 curveto
+  closepath fill
+  
+  869.037 541.667 moveto
+  901.025 625 lineto
+  31.989 625 lineto
+  0 541.667 lineto
+  closepath fill
+  
+  805.059 375 moveto
+  837.048 458.333 lineto
+  31.989 458.333 lineto
+  0 375 lineto
+  closepath fill
+  grestore
+} bind def
+
+/makeEuroCharstring {                   % w h -- charstring
+  [ /pop cvx                            % w h mark pop
+    3 index 0 0 0                       % w h mark pop w 0 0 0
+    7 index 7 index /setcachedevice cvx 
+                                % w h mark pop w 0 0 0 w h setcachedevice
+    10 index 10 index /fillEuro load /exec cvx ] 
+  cvx bind 3 1 roll pop pop
+} def
+
+/doEurifyFont {                         % oldname newname --
+  exch
+  findfont dup dup                      % newname dict dict dict
+  /FontMatrix get matrix invertmatrix   % newname dict dict m
+  {} forall pop pop [ 5 1 roll 0 0] makefont setfont   % newnamedict
+  0 0 moveto
+  (5) stringwidth pop                     % newname dict w
+  (M) false charpath pathbbox newpath 4 1 roll pop pop pop 
+                                          % newnamedict w h
+  3 2 roll                                % newname w h dict
+  
+  dup length dict dup 3 1 roll begin      % newname w h newdict
+    {1 index /FID ne {def} {pop pop} ifelse} forall
+    CharStrings dup length 1 add dict dup 3 1 roll begin % newnamew h newdict newdict'
+      {def} forall
+      /Euro                               % newname w h newdict newdict' /Euro
+      4 index 4 index makeEuroCharstring def
+    end                                   % newname w h newdict newdict'
+    /CharStrings exch def
+  end
+  3 1 roll pop pop                      % newname dict
+  definefont pop
+} bind def
+
+end                                     % makeCompositeDict
+
+% oldfontname newfontname baseEncoding targetEncoding compositeChars --
+/makeComposite
+{
+  makeCompositeDict begin doMakeComposite end
+} bind def
+
+% oldfontname newfontname
+/eurifyFont
+{
+  makeCompositeDict begin doEurifyFont end
+} bind def
+%%EndResource
+%!
+% Automatically generated by the Ogonkify package
+% Do not modify
+% -- code follows this line --
+%%BeginResource: font Helvetica-Bold-Ogonki
+/Helvetica-Bold /Helvetica-Bold-Ogonki OgonkiEncoding StandardEncoding 83 dict
+dup /Ydieresis [89 167 191 168] put
+dup /ydieresis [121 111 0 168] put
+dup /Ucircumflex [85 197 191 28] put
+dup /Ugrave [85 197 191 27] put
+dup /ucircumflex [117 139 0 28] put
+dup /ugrave [117 139 0 27] put
+dup /Idieresis [73 -27 191 168] put
+dup /Igrave [73 -27 191 27] put
+dup /idieresis [136 -27 0 168] put
+dup /igrave [136 -27 0 27] put
+dup /Ecircumflex [69 188 191 28] put
+dup /Egrave [69 188 191 27] put
+dup /ecircumflex [101 111 0 28] put
+dup /egrave [101 111 0 27] put
+dup /Agrave [65 197 191 27] put
+dup /agrave [97 111 0 27] put
+dup /Ograve [79 222 191 27] put
+dup /ograve [111 139 0 27] put
+dup /Atilde [65 197 191 29] put
+dup /atilde [97 111 0 29] put
+dup /Ntilde [78 200 191 29] put
+dup /ntilde [110 146 0 29] put
+dup /Otilde [79 222 191 29] put
+dup /otilde [111 139 0 29] put
+dup /Aring [65 197 191 31] put
+dup /aring [97 111 0 31] put
+dup /abreve [97 111 0 162] put
+dup /Abreve [65 194 202 162] put
+dup /aogonek [97 270 0 178] put
+dup /Aogonek [65 444 0 178] put
+dup /cacute [99 111 0 180] put
+dup /Cacute [67 194 193 180] put
+dup /ccaron [99 122 0 183] put
+dup /Ccaron [67 210 191 183] put
+dup /dbar [100 302 298 173] put
+dup /Dbar [208 0 0 160] put
+dup /dcaron [100 493 73 39] put
+dup /Dcaron [68 194 190 183] put
+dup /ecaron [101 111 0 183] put
+dup /Ecaron [69 167 190 183] put
+dup /edotaccent [101 103 0 255] put
+dup /Edotaccent [69 188 191 255] put
+dup /eogonek [101 150 0 178] put
+dup /Eogonek [69 290 0 178] put
+dup /gbreve [103 139 0 162] put
+dup /Gbreve [71 222 191 162] put
+dup /Idotaccent [73 -27 191 255] put
+dup /iogonek [105 -39 0 178] put
+dup /Iogonek [73 -30 0 178] put
+dup /lacute [108 -7 193 180] put
+dup /Lacute [76 139 193 180] put
+dup /lcaron [108 155 73 39] put
+dup /Lcaron [76 161 73 39] put
+dup /nacute [110 159 0 180] put
+dup /Nacute [78 231 193 180] put
+dup /ncaron [110 111 0 183] put
+dup /Ncaron [78 194 215 183] put
+dup /ohungarumlaut [111 139 0 189] put
+dup /Ohungarumlaut [79 222 191 189] put
+dup /racute [114 48 0 180] put
+dup /Racute [82 231 193 180] put
+dup /rcaron [114 28 0 183] put
+dup /Rcaron [82 194 190 183] put
+dup /sacute [115 111 0 180] put
+dup /Sacute [83 167 193 180] put
+dup /scedilla [115 111 0 184] put
+dup /Scedilla [83 167 0 184] put
+dup /tcaron [116 249 0 39] put
+dup /Tcaron [84 139 190 183] put
+dup /tcedilla [116 86 0 184] put
+dup /Tcedilla [84 197 0 184] put
+dup /uhungarumlaut [117 139 0 189] put
+dup /Uhungarumlaut [85 197 191 189] put
+dup /uring [117 139 0 31] put
+dup /Uring [85 194 190 31] put
+dup /umacron [117 139 0 30] put
+dup /Umacron [85 199 191 30] put
+dup /uogonek [117 286 0 178] put
+dup /Uogonek [85 260 0 178] put
+dup /zacute [122 103 0 180] put
+dup /Zacute [90 139 193 180] put
+dup /zdotaccent [122 83 0 255] put
+dup /Zdotaccent [90 139 206 255] put
+makeComposite
+%%EndResource
+
+%%EndResource
+%%BeginResource: font Helvetica-Ogonki
+%!
+% Automatically generated by the Ogonkify package
+% Do not modify
+% -- code follows this line --
+%%BeginResource: encoding OgonkiEncoding
+/OgonkiEncoding [
+/.notdef /exclamdown /cent /sterling /fraction /yen /florin /quotesingle
+/quotedblleft /guillemotleft /guilsinglleft /guilsinglright /fi /fl /endash /dagger
+/daggerdbl /periodcentered /paragraph /bullet /quotesinglbase /quotedblbase /quotedblright /guillemotright
+/ellipsis /perthousand /questiondown /grave /circumflex /tilde /macron /ring
+/space /exclam /quotedbl /numbersign /dollar /percent /ampersand /quoteright
+/parenleft /parenright /asterisk /plus /comma /minus /period /slash
+/zero /one /two /three /four /five /six /seven
+/eight /nine /colon /semicolon /less /equal /greater /question
+% 100
+/at /A /B /C /D /E /F /G
+/H /I /J /K /L /M /N /O
+/P /Q /R /S /T /U /V /W
+/X /Y /Z /bracketleft /backslash /bracketright /asciicircum /underscore
+/quoteleft /a /b /c /d /e /f /g
+/h /i /j /k /l /m /n /o
+/p /q /r /s /t /u /v /w
+/x /y /z /braceleft /bar /braceright /asciitilde /.notdef
+% 200
+/.notdef /emdash /AE /ordfeminine /Oslash /OE /ordmasculine /ae
+/dotlessi /oslash /oe /threesuperior /thorn /twosuperior /threequarters /Eth
+/trademark /registered /onequarter /Thorn /logicalnot /plusminus /minus /onesuperior
+/copyright /mu /eth /brokenbar /onehalf /dotlessj /Euro /.notdef
+/space /Aogonek /breve /Lslash /currency /Lcaron /Sacute /section
+/dieresis /Scaron /Scedilla /Tcaron /Zacute /hyphen /Zcaron /Zdotaccent
+/degree /aogonek /ogonek /lslash /acute /lcaron /sacute /caron
+/cedilla /scaron /scedilla /tcaron /zacute /hungarumlaut /zcaron /zdotaccent
+% 300
+/Racute /Aacute /Acircumflex /Abreve /Adieresis /Lacute /Cacute /Ccedilla
+/Ccaron /Eacute /Eogonek /Edieresis /Ecaron /Iacute /Icircumflex /Dcaron
+/Eth /Nacute /Ncaron /Oacute /Ocircumflex /Ohungarumlaut /Odieresis /multiply
+/Rcaron /Uring /Uacute /Uhungarumlaut /Udieresis /Yacute /Tcedilla /germandbls
+/racute /aacute /acircumflex /abreve /adieresis /lacute /cacute /ccedilla
+/ccaron /eacute /eogonek /edieresis /ecaron /iacute /icircumflex /dcaron
+/dbar /nacute /ncaron /oacute /ocircumflex /ohungarumlaut /odieresis /divide
+/rcaron /uring /uacute /uhungarumlaut /udieresis /yacute /tcedilla /dotaccent
+] def
+%%EndResource
+%!
+% Automatically generated by the Ogonkify package
+% Do not modify
+% -- code follows this line --
+%%BeginResource: encoding StandardEncoding
+/StandardEncoding [
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/space /exclam /quotedbl /numbersign /dollar /percent /ampersand /quoteright
+/parenleft /parenright /asterisk /plus /comma /hyphen /period /slash
+/zero /one /two /three /four /five /six /seven
+/eight /nine /colon /semicolon /less /equal /greater /question
+% 100
+/at /A /B /C /D /E /F /G
+/H /I /J /K /L /M /N /O
+/P /Q /R /S /T /U /V /W
+/X /Y /Z /bracketleft /backslash /bracketright /asciicircum /underscore
+/quoteleft /a /b /c /d /e /f /g
+/h /i /j /k /l /m /n /o
+/p /q /r /s /t /u /v /w
+/x /y /z /braceleft /bar /braceright /asciitilde /.notdef
+% 200
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /exclamdown /cent /sterling /fraction /yen /florin /section
+/currency /quotesingle /quotedblleft /guillemotleft /guilsinglleft /guilsinglright /fi /fl
+/.notdef /endash /dagger /daggerdbl /periodcentered /.notdef /paragraph /bullet
+/quotesinglbase /quotedblbase /quotedblright /guillemotright /ellipsis /perthousand /.notdef /questiondown
+% 300
+/.notdef /grave /acute /circumflex /tilde /macron /breve /dotaccent
+/dieresis /.notdef /ring /cedilla /.notdef /hungarumlaut /ogonek /caron
+/emdash /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /AE /.notdef /ordfeminine /.notdef /.notdef /.notdef /.notdef
+/Lslash /Oslash /OE /ordmasculine /.notdef /.notdef /.notdef /.notdef
+/.notdef /ae /.notdef /.notdef /.notdef /dotlessi /.notdef /.notdef
+/lslash /oslash /oe /germandbls /.notdef /.notdef /.notdef /.notdef
+] def
+%%EndResource
+%!
+% Add composite (i.e. accented) characters to any font
+% By J. Chroboczek <jec@dcs.ed.ac.uk>
+%
+% -- code follows this line --
+%%BeginResource: procset compose 0.8 1
+% Copyright (c) 1996-1999 by J. Chroboczek
+% This code may be distributed under the terms of the 
+% GNU Public License, either version 2 of the license, or (at your
+% option) any later version.
+/makeCompositeDict 20 dict def
+makeCompositeDict begin
+/nameUnique {                           % name nameUnique namexxxxxx
+  dup length exch 1 index string cvs    % length (name)
+  1 index 12 add string dup             % length (name) (...) (...)
+  3 2 roll 0 exch putinterval           % length (name...)
+  dup 3 2 roll
+  rand 12 string cvs
+  putinterval
+} bind def
+
+/doMakeComposite
+{
+  /compositeChars exch def
+  /targetEncoding exch def
+  /baseEncoding exch def
+  /newfontname exch def
+  /oldfontname exch def
+  /oldfont oldfontname findfont def
+  /newfont 20 dict def
+  /oldFontMatrix oldfont /FontMatrix get def
+  /oldFontBBox oldfont /FontBBox get cvlit def
+  /oldfontcopy oldfont length dict def
+
+  newfont begin
+    /FontType 3 def
+    /PaintType 0 def      % not used
+    /FontMatrix [0.001 0 0 0.001 0 0] def
+    /FontBBox
+    [
+      oldFontBBox 0 get oldFontBBox 1 get
+      oldFontMatrix transform
+      [1000 0 0 1000 0 0] transform
+      oldFontBBox 2 get oldFontBBox 3 get
+      oldFontMatrix transform
+      [1000 0 0 1000 0 0] transform
+    ] cvx def
+
+    /StrokeWidth 0 def                  % not used
+
+    /Encoding targetEncoding def
+
+    /Decoding 256 dict def              % invert base encoding vector
+    Decoding begin
+      0 1 255
+      { dup baseEncoding exch get exch def } bind for
+    end
+
+    newfont /compositeChars compositeChars put
+
+    /FontName newfontname def
+
+% make a copy of the original font, reencoding it
+    oldfont
+    oldfontcopy begin
+      {1 index /FID ne
+        {def}
+        {pop pop} ifelse
+      } bind forall
+    end
+    oldfontcopy /Encoding baseEncoding put
+    oldfontname nameUnique oldfontcopy definefont
+    1000 scalefont /OriginalFont exch def
+
+    /BuildChar                          % newfont n BuildChar -
+    {
+      exch begin                        % n
+        /OriginalFont load setfont
+        /Encoding load exch get         % glyphName
+        /compositeChars load dup
+        2 index known                   % glyphName compositeChars known-p
+        { 1 index get                   % glyphName [ 65 x y 129 ]
+          dup 0 get ( ) dup             % glyphName [...] 65 ( ) ( )
+          0 3 index put                 % glyphName [...] 65 (A)
+          dup stringwidth setcharwidth
+          0 0 moveto
+          show pop                      % glyphName [...]
+          dup 1 get 1 index 2 get       % glyphName [...] x y
+          moveto                        % glyphName [...]
+          3 get ( ) dup 3 2 roll        % glyphName ( ) ( ) 129
+          0 exch put                    % glyphName (')
+          show                          % glyphName
+        }
+        { pop
+          /Decoding load                % glyphName Decoding
+          dup 2 index known             % glyphName Decoding known-p
+          { exch get }
+          { pop pop 0 } ifelse          % n'
+          ( ) dup 0 3 index put dup     % n' (A) (A)
+          stringwidth setcharwidth
+          0 0 moveto
+          show                          % n'
+        } ifelse
+        pop
+      end
+    } bind def
+  end                                   % newfont
+  newfontname newfont definefont pop
+} def                                   % doMakeComposite
+
+/fillEuro {                             % w h --
+  gsave exch 1000 div exch 1000 div scale
+  955.852 232.172 moveto
+  904.495 180.815 lineto
+  829.454 117.848 734.626 83.333 636.667 83.333 curveto
+  406.667 83.333 220 270 220 500 curveto
+  220 730 406.667 916.667 636.667 916.667 curveto
+  759.831 916.667 876.684 862.177 955.852 767.828 curveto
+  988.474 855.291 lineto
+  894.851 947.996 768.422 1000 636.667 1000 curveto
+  360.667 1000 136.667 776 136.667 500 curveto
+  136.667 224 360.667 0 636.667 0 curveto
+  753.23 0 866.13 40.725 955.852 115.135 curveto
+  closepath fill
+  
+  869.037 541.667 moveto
+  901.025 625 lineto
+  31.989 625 lineto
+  0 541.667 lineto
+  closepath fill
+  
+  805.059 375 moveto
+  837.048 458.333 lineto
+  31.989 458.333 lineto
+  0 375 lineto
+  closepath fill
+  grestore
+} bind def
+
+/makeEuroCharstring {                   % w h -- charstring
+  [ /pop cvx                            % w h mark pop
+    3 index 0 0 0                       % w h mark pop w 0 0 0
+    7 index 7 index /setcachedevice cvx 
+                                % w h mark pop w 0 0 0 w h setcachedevice
+    10 index 10 index /fillEuro load /exec cvx ] 
+  cvx bind 3 1 roll pop pop
+} def
+
+/doEurifyFont {                         % oldname newname --
+  exch
+  findfont dup dup                      % newname dict dict dict
+  /FontMatrix get matrix invertmatrix   % newname dict dict m
+  {} forall pop pop [ 5 1 roll 0 0] makefont setfont   % newnamedict
+  0 0 moveto
+  (5) stringwidth pop                     % newname dict w
+  (M) false charpath pathbbox newpath 4 1 roll pop pop pop 
+                                          % newnamedict w h
+  3 2 roll                                % newname w h dict
+  
+  dup length dict dup 3 1 roll begin      % newname w h newdict
+    {1 index /FID ne {def} {pop pop} ifelse} forall
+    CharStrings dup length 1 add dict dup 3 1 roll begin % newnamew h newdict newdict'
+      {def} forall
+      /Euro                               % newname w h newdict newdict' /Euro
+      4 index 4 index makeEuroCharstring def
+    end                                   % newname w h newdict newdict'
+    /CharStrings exch def
+  end
+  3 1 roll pop pop                      % newname dict
+  definefont pop
+} bind def
+
+end                                     % makeCompositeDict
+
+% oldfontname newfontname baseEncoding targetEncoding compositeChars --
+/makeComposite
+{
+  makeCompositeDict begin doMakeComposite end
+} bind def
+
+% oldfontname newfontname
+/eurifyFont
+{
+  makeCompositeDict begin doEurifyFont end
+} bind def
+%%EndResource
+%!
+% Automatically generated by the Ogonkify package
+% Do not modify
+% -- code follows this line --
+%%BeginResource: font Helvetica-Ogonki
+/Helvetica /Helvetica-Ogonki OgonkiEncoding StandardEncoding 83 dict
+dup /Ydieresis [89 167 199 168] put
+dup /ydieresis [121 83 0 168] put
+dup /Ucircumflex [85 194 199 28] put
+dup /Ugrave [85 194 199 27] put
+dup /ucircumflex [117 111 0 28] put
+dup /ugrave [117 111 0 27] put
+dup /Idieresis [73 -21 199 168] put
+dup /Igrave [73 -21 199 27] put
+dup /idieresis [136 -27 0 168] put
+dup /igrave [136 -27 0 27] put
+dup /Ecircumflex [69 188 199 28] put
+dup /Egrave [69 188 199 27] put
+dup /ecircumflex [101 117 0 28] put
+dup /egrave [101 117 0 27] put
+dup /Agrave [65 167 199 27] put
+dup /agrave [97 111 0 27] put
+dup /Ograve [79 222 199 27] put
+dup /ograve [111 111 0 27] put
+dup /Atilde [65 167 199 29] put
+dup /atilde [97 111 0 29] put
+dup /Ntilde [78 200 199 29] put
+dup /ntilde [110 117 0 29] put
+dup /Otilde [79 222 199 29] put
+dup /otilde [111 111 0 29] put
+dup /Aring [65 167 199 31] put
+dup /aring [97 111 0 31] put
+dup /abreve [97 96 0 162] put
+dup /Abreve [65 174 195 162] put
+dup /aogonek [97 270 0 178] put
+dup /Aogonek [65 424 0 178] put
+dup /cacute [99 84 0 180] put
+dup /Cacute [67 196 195 180] put
+dup /ccaron [99 84 0 183] put
+dup /Ccaron [67 196 195 183] put
+dup /dbar [100 270 330 173] put
+dup /Dbar [208 0 0 160] put
+dup /dcaron [100 523 0 39] put
+dup /Dcaron [68 102 195 183] put
+dup /ecaron [101 93 0 183] put
+dup /Ecaron [69 102 195 183] put
+dup /edotaccent [101 111 0 255] put
+dup /Edotaccent [69 188 199 255] put
+dup /eogonek [101 150 0 178] put
+dup /Eogonek [69 290 0 178] put
+dup /gbreve [103 111 0 162] put
+dup /Gbreve [71 222 199 162] put
+dup /Idotaccent [73 -21 199 255] put
+dup /iogonek [105 -75 0 178] put
+dup /Iogonek [73 -30 0 178] put
+dup /lacute [108 -27 195 180] put
+dup /Lacute [76 -27 195 180] put
+dup /lcaron [108 169 0 39] put
+dup /Lcaron [76 276 0 39] put
+dup /nacute [110 160 0 180] put
+dup /Nacute [78 220 195 180] put
+dup /ncaron [110 70 0 183] put
+dup /Ncaron [78 160 195 183] put
+dup /ohungarumlaut [111 112 0 189] put
+dup /Ohungarumlaut [79 223 195 189] put
+dup /racute [114 25 0 180] put
+dup /Racute [82 200 195 180] put
+dup /rcaron [114 0 0 183] put
+dup /Rcaron [82 100 195 183] put
+dup /sacute [115 84 0 180] put
+dup /Sacute [83 167 195 180] put
+dup /scedilla [115 83 0 184] put
+dup /Scedilla [83 167 0 184] put
+dup /tcaron [116 291 0 39] put
+dup /Tcaron [84 165 195 183] put
+dup /tcedilla [116 84 0 184] put
+dup /Tcedilla [84 185 0 184] put
+dup /uhungarumlaut [117 112 0 189] put
+dup /Uhungarumlaut [85 195 195 189] put
+dup /umacron [117 111 0 30] put
+dup /Umacron [85 194 199 30] put
+dup /uogonek [117 255 0 178] put
+dup /Uogonek [85 288 5 178] put
+dup /uring [117 112 0 31] put
+dup /Uring [85 195 195 31] put
+dup /zacute [122 84 0 180] put
+dup /Zacute [90 139 195 180] put
+dup /zdotaccent [122 84 0 255] put
+dup /Zdotaccent [90 139 195 255] put
+makeComposite
+%%EndResource
+
+%%EndResource
+%%BeginResource: font Times-Bold-Ogonki
+%!
+% Automatically generated by the Ogonkify package
+% Do not modify
+% -- code follows this line --
+%%BeginResource: encoding OgonkiEncoding
+/OgonkiEncoding [
+/.notdef /exclamdown /cent /sterling /fraction /yen /florin /quotesingle
+/quotedblleft /guillemotleft /guilsinglleft /guilsinglright /fi /fl /endash /dagger
+/daggerdbl /periodcentered /paragraph /bullet /quotesinglbase /quotedblbase /quotedblright /guillemotright
+/ellipsis /perthousand /questiondown /grave /circumflex /tilde /macron /ring
+/space /exclam /quotedbl /numbersign /dollar /percent /ampersand /quoteright
+/parenleft /parenright /asterisk /plus /comma /minus /period /slash
+/zero /one /two /three /four /five /six /seven
+/eight /nine /colon /semicolon /less /equal /greater /question
+% 100
+/at /A /B /C /D /E /F /G
+/H /I /J /K /L /M /N /O
+/P /Q /R /S /T /U /V /W
+/X /Y /Z /bracketleft /backslash /bracketright /asciicircum /underscore
+/quoteleft /a /b /c /d /e /f /g
+/h /i /j /k /l /m /n /o
+/p /q /r /s /t /u /v /w
+/x /y /z /braceleft /bar /braceright /asciitilde /.notdef
+% 200
+/.notdef /emdash /AE /ordfeminine /Oslash /OE /ordmasculine /ae
+/dotlessi /oslash /oe /threesuperior /thorn /twosuperior /threequarters /Eth
+/trademark /registered /onequarter /Thorn /logicalnot /plusminus /minus /onesuperior
+/copyright /mu /eth /brokenbar /onehalf /dotlessj /Euro /.notdef
+/space /Aogonek /breve /Lslash /currency /Lcaron /Sacute /section
+/dieresis /Scaron /Scedilla /Tcaron /Zacute /hyphen /Zcaron /Zdotaccent
+/degree /aogonek /ogonek /lslash /acute /lcaron /sacute /caron
+/cedilla /scaron /scedilla /tcaron /zacute /hungarumlaut /zcaron /zdotaccent
+% 300
+/Racute /Aacute /Acircumflex /Abreve /Adieresis /Lacute /Cacute /Ccedilla
+/Ccaron /Eacute /Eogonek /Edieresis /Ecaron /Iacute /Icircumflex /Dcaron
+/Eth /Nacute /Ncaron /Oacute /Ocircumflex /Ohungarumlaut /Odieresis /multiply
+/Rcaron /Uring /Uacute /Uhungarumlaut /Udieresis /Yacute /Tcedilla /germandbls
+/racute /aacute /acircumflex /abreve /adieresis /lacute /cacute /ccedilla
+/ccaron /eacute /eogonek /edieresis /ecaron /iacute /icircumflex /dcaron
+/dbar /nacute /ncaron /oacute /ocircumflex /ohungarumlaut /odieresis /divide
+/rcaron /uring /uacute /uhungarumlaut /udieresis /yacute /tcedilla /dotaccent
+] def
+%%EndResource
+%!
+% Automatically generated by the Ogonkify package
+% Do not modify
+% -- code follows this line --
+%%BeginResource: encoding StandardEncoding
+/StandardEncoding [
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/space /exclam /quotedbl /numbersign /dollar /percent /ampersand /quoteright
+/parenleft /parenright /asterisk /plus /comma /hyphen /period /slash
+/zero /one /two /three /four /five /six /seven
+/eight /nine /colon /semicolon /less /equal /greater /question
+% 100
+/at /A /B /C /D /E /F /G
+/H /I /J /K /L /M /N /O
+/P /Q /R /S /T /U /V /W
+/X /Y /Z /bracketleft /backslash /bracketright /asciicircum /underscore
+/quoteleft /a /b /c /d /e /f /g
+/h /i /j /k /l /m /n /o
+/p /q /r /s /t /u /v /w
+/x /y /z /braceleft /bar /braceright /asciitilde /.notdef
+% 200
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /exclamdown /cent /sterling /fraction /yen /florin /section
+/currency /quotesingle /quotedblleft /guillemotleft /guilsinglleft /guilsinglright /fi /fl
+/.notdef /endash /dagger /daggerdbl /periodcentered /.notdef /paragraph /bullet
+/quotesinglbase /quotedblbase /quotedblright /guillemotright /ellipsis /perthousand /.notdef /questiondown
+% 300
+/.notdef /grave /acute /circumflex /tilde /macron /breve /dotaccent
+/dieresis /.notdef /ring /cedilla /.notdef /hungarumlaut /ogonek /caron
+/emdash /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /AE /.notdef /ordfeminine /.notdef /.notdef /.notdef /.notdef
+/Lslash /Oslash /OE /ordmasculine /.notdef /.notdef /.notdef /.notdef
+/.notdef /ae /.notdef /.notdef /.notdef /dotlessi /.notdef /.notdef
+/lslash /oslash /oe /germandbls /.notdef /.notdef /.notdef /.notdef
+] def
+%%EndResource
+%!
+% Add composite (i.e. accented) characters to any font
+% By J. Chroboczek <jec@dcs.ed.ac.uk>
+%
+% -- code follows this line --
+%%BeginResource: procset compose 0.8 1
+% Copyright (c) 1996-1999 by J. Chroboczek
+% This code may be distributed under the terms of the 
+% GNU Public License, either version 2 of the license, or (at your
+% option) any later version.
+/makeCompositeDict 20 dict def
+makeCompositeDict begin
+/nameUnique {                           % name nameUnique namexxxxxx
+  dup length exch 1 index string cvs    % length (name)
+  1 index 12 add string dup             % length (name) (...) (...)
+  3 2 roll 0 exch putinterval           % length (name...)
+  dup 3 2 roll
+  rand 12 string cvs
+  putinterval
+} bind def
+
+/doMakeComposite
+{
+  /compositeChars exch def
+  /targetEncoding exch def
+  /baseEncoding exch def
+  /newfontname exch def
+  /oldfontname exch def
+  /oldfont oldfontname findfont def
+  /newfont 20 dict def
+  /oldFontMatrix oldfont /FontMatrix get def
+  /oldFontBBox oldfont /FontBBox get cvlit def
+  /oldfontcopy oldfont length dict def
+
+  newfont begin
+    /FontType 3 def
+    /PaintType 0 def      % not used
+    /FontMatrix [0.001 0 0 0.001 0 0] def
+    /FontBBox
+    [
+      oldFontBBox 0 get oldFontBBox 1 get
+      oldFontMatrix transform
+      [1000 0 0 1000 0 0] transform
+      oldFontBBox 2 get oldFontBBox 3 get
+      oldFontMatrix transform
+      [1000 0 0 1000 0 0] transform
+    ] cvx def
+
+    /StrokeWidth 0 def                  % not used
+
+    /Encoding targetEncoding def
+
+    /Decoding 256 dict def              % invert base encoding vector
+    Decoding begin
+      0 1 255
+      { dup baseEncoding exch get exch def } bind for
+    end
+
+    newfont /compositeChars compositeChars put
+
+    /FontName newfontname def
+
+% make a copy of the original font, reencoding it
+    oldfont
+    oldfontcopy begin
+      {1 index /FID ne
+        {def}
+        {pop pop} ifelse
+      } bind forall
+    end
+    oldfontcopy /Encoding baseEncoding put
+    oldfontname nameUnique oldfontcopy definefont
+    1000 scalefont /OriginalFont exch def
+
+    /BuildChar                          % newfont n BuildChar -
+    {
+      exch begin                        % n
+        /OriginalFont load setfont
+        /Encoding load exch get         % glyphName
+        /compositeChars load dup
+        2 index known                   % glyphName compositeChars known-p
+        { 1 index get                   % glyphName [ 65 x y 129 ]
+          dup 0 get ( ) dup             % glyphName [...] 65 ( ) ( )
+          0 3 index put                 % glyphName [...] 65 (A)
+          dup stringwidth setcharwidth
+          0 0 moveto
+          show pop                      % glyphName [...]
+          dup 1 get 1 index 2 get       % glyphName [...] x y
+          moveto                        % glyphName [...]
+          3 get ( ) dup 3 2 roll        % glyphName ( ) ( ) 129
+          0 exch put                    % glyphName (')
+          show                          % glyphName
+        }
+        { pop
+          /Decoding load                % glyphName Decoding
+          dup 2 index known             % glyphName Decoding known-p
+          { exch get }
+          { pop pop 0 } ifelse          % n'
+          ( ) dup 0 3 index put dup     % n' (A) (A)
+          stringwidth setcharwidth
+          0 0 moveto
+          show                          % n'
+        } ifelse
+        pop
+      end
+    } bind def
+  end                                   % newfont
+  newfontname newfont definefont pop
+} def                                   % doMakeComposite
+
+/fillEuro {                             % w h --
+  gsave exch 1000 div exch 1000 div scale
+  955.852 232.172 moveto
+  904.495 180.815 lineto
+  829.454 117.848 734.626 83.333 636.667 83.333 curveto
+  406.667 83.333 220 270 220 500 curveto
+  220 730 406.667 916.667 636.667 916.667 curveto
+  759.831 916.667 876.684 862.177 955.852 767.828 curveto
+  988.474 855.291 lineto
+  894.851 947.996 768.422 1000 636.667 1000 curveto
+  360.667 1000 136.667 776 136.667 500 curveto
+  136.667 224 360.667 0 636.667 0 curveto
+  753.23 0 866.13 40.725 955.852 115.135 curveto
+  closepath fill
+  
+  869.037 541.667 moveto
+  901.025 625 lineto
+  31.989 625 lineto
+  0 541.667 lineto
+  closepath fill
+  
+  805.059 375 moveto
+  837.048 458.333 lineto
+  31.989 458.333 lineto
+  0 375 lineto
+  closepath fill
+  grestore
+} bind def
+
+/makeEuroCharstring {                   % w h -- charstring
+  [ /pop cvx                            % w h mark pop
+    3 index 0 0 0                       % w h mark pop w 0 0 0
+    7 index 7 index /setcachedevice cvx 
+                                % w h mark pop w 0 0 0 w h setcachedevice
+    10 index 10 index /fillEuro load /exec cvx ] 
+  cvx bind 3 1 roll pop pop
+} def
+
+/doEurifyFont {                         % oldname newname --
+  exch
+  findfont dup dup                      % newname dict dict dict
+  /FontMatrix get matrix invertmatrix   % newname dict dict m
+  {} forall pop pop [ 5 1 roll 0 0] makefont setfont   % newnamedict
+  0 0 moveto
+  (5) stringwidth pop                     % newname dict w
+  (M) false charpath pathbbox newpath 4 1 roll pop pop pop 
+                                          % newnamedict w h
+  3 2 roll                                % newname w h dict
+  
+  dup length dict dup 3 1 roll begin      % newname w h newdict
+    {1 index /FID ne {def} {pop pop} ifelse} forall
+    CharStrings dup length 1 add dict dup 3 1 roll begin % newnamew h newdict newdict'
+      {def} forall
+      /Euro                               % newname w h newdict newdict' /Euro
+      4 index 4 index makeEuroCharstring def
+    end                                   % newname w h newdict newdict'
+    /CharStrings exch def
+  end
+  3 1 roll pop pop                      % newname dict
+  definefont pop
+} bind def
+
+end                                     % makeCompositeDict
+
+% oldfontname newfontname baseEncoding targetEncoding compositeChars --
+/makeComposite
+{
+  makeCompositeDict begin doMakeComposite end
+} bind def
+
+% oldfontname newfontname
+/eurifyFont
+{
+  makeCompositeDict begin doEurifyFont end
+} bind def
+%%EndResource
+%!
+% Automatically generated by the Ogonkify package
+% Do not modify
+% -- code follows this line --
+%%BeginResource: font Times-Bold-Ogonki
+/Times-Bold /Times-Bold-Ogonki OgonkiEncoding StandardEncoding 83 dict
+dup /Ydieresis [89 194 219 168] put
+dup /ydieresis [121 83 0 168] put
+dup /Ucircumflex [85 221 219 28] put
+dup /Ugrave [85 221 219 27] put
+dup /ucircumflex [117 104 0 28] put
+dup /ugrave [117 104 0 27] put
+dup /Idieresis [73 28 219 168] put
+dup /Igrave [73 28 219 27] put
+dup /idieresis [136 -34 0 168] put
+dup /igrave [136 -34 0 27] put
+dup /Ecircumflex [69 174 219 28] put
+dup /Egrave [69 174 219 27] put
+dup /ecircumflex [101 61 0 28] put
+dup /egrave [101 61 0 27] put
+dup /Agrave [65 187 219 27] put
+dup /agrave [97 76 0 27] put
+dup /Ograve [79 222 219 27] put
+dup /ograve [111 83 0 27] put
+dup /Atilde [65 187 219 29] put
+dup /atilde [97 76 0 29] put
+dup /Ntilde [78 194 219 29] put
+dup /ntilde [110 111 0 29] put
+dup /Otilde [79 222 219 29] put
+dup /otilde [111 83 0 29] put
+dup /Aring [65 187 219 31] put
+dup /aring [97 76 0 31] put
+dup /abreve [97 83 0 162] put
+dup /Abreve [65 194 240 162] put
+dup /aogonek [97 175 -30 178] put
+dup /Aogonek [65 384 -30 178] put
+dup /cacute [99 70 0 180] put
+dup /Cacute [67 210 219 180] put
+dup /ccaron [99 84 0 183] put
+dup /Ccaron [67 232 219 183] put
+dup /dbar [100 240 300 173] put
+dup /Dbar [208 0 0 160] put
+dup /dcaron [100 473 53 39] put
+dup /Dcaron [68 194 210 183] put
+dup /ecaron [101 61 0 183] put
+dup /Ecaron [69 174 219 183] put
+dup /edotaccent [101 61 0 255] put
+dup /Edotaccent [69 187 219 255] put
+dup /eogonek [101 114 -30 178] put
+dup /Eogonek [69 295 -30 178] put
+dup /gbreve [103 83 0 162] put
+dup /Gbreve [71 222 219 162] put
+dup /Idotaccent [73 28 219 255] put
+dup /iogonek [105 -50 -30 178] put
+dup /Iogonek [73 63 -30 178] put
+dup /lacute [108 -3 210 180] put
+dup /Lacute [76 167 210 180] put
+dup /lcaron [108 194 53 39] put
+dup /Lcaron [76 309 53 39] put
+dup /nacute [110 90 0 180] put
+dup /Nacute [78 190 219 180] put
+dup /ncaron [110 111 0 183] put
+dup /Ncaron [78 194 210 183] put
+dup /ohungarumlaut [111 83 0 189] put
+dup /Ohungarumlaut [79 222 219 189] put
+dup /racute [114 79 0 180] put
+dup /Racute [82 239 210 180] put
+dup /rcaron [114 55 0 183] put
+dup /Rcaron [82 194 210 183] put
+dup /sacute [115 20 0 180] put
+dup /Sacute [83 100 219 180] put
+dup /scedilla [115 12 0 184] put
+dup /Scedilla [83 94 0 184] put
+dup /tcaron [116 271 0 39] put
+dup /Tcaron [84 167 210 183] put
+dup /tcedilla [116 89 0 184] put
+dup /Tcedilla [84 227 0 184] put
+dup /umacron [117 104 0 30] put
+dup /Umacron [85 215 219 30] put
+dup /uhungarumlaut [117 104 0 189] put
+dup /Uhungarumlaut [85 221 219 189] put
+dup /uogonek [117 236 -25 178] put
+dup /Uogonek [85 299 -25 178] put
+dup /uring [117 111 0 31] put
+dup /Uring [85 194 174 31] put
+dup /zacute [122 80 0 180] put
+dup /Zacute [90 160 219 180] put
+dup /zdotaccent [122 70 0 255] put
+dup /Zdotaccent [90 200 219 255] put
+makeComposite
+%%EndResource
+
+%%EndResource
+%%BeginResource: font Times-Roman-Ogonki
+%!
+% Automatically generated by the Ogonkify package
+% Do not modify
+% -- code follows this line --
+%%BeginResource: encoding OgonkiEncoding
+/OgonkiEncoding [
+/.notdef /exclamdown /cent /sterling /fraction /yen /florin /quotesingle
+/quotedblleft /guillemotleft /guilsinglleft /guilsinglright /fi /fl /endash /dagger
+/daggerdbl /periodcentered /paragraph /bullet /quotesinglbase /quotedblbase /quotedblright /guillemotright
+/ellipsis /perthousand /questiondown /grave /circumflex /tilde /macron /ring
+/space /exclam /quotedbl /numbersign /dollar /percent /ampersand /quoteright
+/parenleft /parenright /asterisk /plus /comma /minus /period /slash
+/zero /one /two /three /four /five /six /seven
+/eight /nine /colon /semicolon /less /equal /greater /question
+% 100
+/at /A /B /C /D /E /F /G
+/H /I /J /K /L /M /N /O
+/P /Q /R /S /T /U /V /W
+/X /Y /Z /bracketleft /backslash /bracketright /asciicircum /underscore
+/quoteleft /a /b /c /d /e /f /g
+/h /i /j /k /l /m /n /o
+/p /q /r /s /t /u /v /w
+/x /y /z /braceleft /bar /braceright /asciitilde /.notdef
+% 200
+/.notdef /emdash /AE /ordfeminine /Oslash /OE /ordmasculine /ae
+/dotlessi /oslash /oe /threesuperior /thorn /twosuperior /threequarters /Eth
+/trademark /registered /onequarter /Thorn /logicalnot /plusminus /minus /onesuperior
+/copyright /mu /eth /brokenbar /onehalf /dotlessj /Euro /.notdef
+/space /Aogonek /breve /Lslash /currency /Lcaron /Sacute /section
+/dieresis /Scaron /Scedilla /Tcaron /Zacute /hyphen /Zcaron /Zdotaccent
+/degree /aogonek /ogonek /lslash /acute /lcaron /sacute /caron
+/cedilla /scaron /scedilla /tcaron /zacute /hungarumlaut /zcaron /zdotaccent
+% 300
+/Racute /Aacute /Acircumflex /Abreve /Adieresis /Lacute /Cacute /Ccedilla
+/Ccaron /Eacute /Eogonek /Edieresis /Ecaron /Iacute /Icircumflex /Dcaron
+/Eth /Nacute /Ncaron /Oacute /Ocircumflex /Ohungarumlaut /Odieresis /multiply
+/Rcaron /Uring /Uacute /Uhungarumlaut /Udieresis /Yacute /Tcedilla /germandbls
+/racute /aacute /acircumflex /abreve /adieresis /lacute /cacute /ccedilla
+/ccaron /eacute /eogonek /edieresis /ecaron /iacute /icircumflex /dcaron
+/dbar /nacute /ncaron /oacute /ocircumflex /ohungarumlaut /odieresis /divide
+/rcaron /uring /uacute /uhungarumlaut /udieresis /yacute /tcedilla /dotaccent
+] def
+%%EndResource
+%!
+% Automatically generated by the Ogonkify package
+% Do not modify
+% -- code follows this line --
+%%BeginResource: encoding StandardEncoding
+/StandardEncoding [
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/space /exclam /quotedbl /numbersign /dollar /percent /ampersand /quoteright
+/parenleft /parenright /asterisk /plus /comma /hyphen /period /slash
+/zero /one /two /three /four /five /six /seven
+/eight /nine /colon /semicolon /less /equal /greater /question
+% 100
+/at /A /B /C /D /E /F /G
+/H /I /J /K /L /M /N /O
+/P /Q /R /S /T /U /V /W
+/X /Y /Z /bracketleft /backslash /bracketright /asciicircum /underscore
+/quoteleft /a /b /c /d /e /f /g
+/h /i /j /k /l /m /n /o
+/p /q /r /s /t /u /v /w
+/x /y /z /braceleft /bar /braceright /asciitilde /.notdef
+% 200
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /exclamdown /cent /sterling /fraction /yen /florin /section
+/currency /quotesingle /quotedblleft /guillemotleft /guilsinglleft /guilsinglright /fi /fl
+/.notdef /endash /dagger /daggerdbl /periodcentered /.notdef /paragraph /bullet
+/quotesinglbase /quotedblbase /quotedblright /guillemotright /ellipsis /perthousand /.notdef /questiondown
+% 300
+/.notdef /grave /acute /circumflex /tilde /macron /breve /dotaccent
+/dieresis /.notdef /ring /cedilla /.notdef /hungarumlaut /ogonek /caron
+/emdash /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /AE /.notdef /ordfeminine /.notdef /.notdef /.notdef /.notdef
+/Lslash /Oslash /OE /ordmasculine /.notdef /.notdef /.notdef /.notdef
+/.notdef /ae /.notdef /.notdef /.notdef /dotlessi /.notdef /.notdef
+/lslash /oslash /oe /germandbls /.notdef /.notdef /.notdef /.notdef
+] def
+%%EndResource
+%!
+% Add composite (i.e. accented) characters to any font
+% By J. Chroboczek <jec@dcs.ed.ac.uk>
+%
+% -- code follows this line --
+%%BeginResource: procset compose 0.8 1
+% Copyright (c) 1996-1999 by J. Chroboczek
+% This code may be distributed under the terms of the 
+% GNU Public License, either version 2 of the license, or (at your
+% option) any later version.
+/makeCompositeDict 20 dict def
+makeCompositeDict begin
+/nameUnique {                           % name nameUnique namexxxxxx
+  dup length exch 1 index string cvs    % length (name)
+  1 index 12 add string dup             % length (name) (...) (...)
+  3 2 roll 0 exch putinterval           % length (name...)
+  dup 3 2 roll
+  rand 12 string cvs
+  putinterval
+} bind def
+
+/doMakeComposite
+{
+  /compositeChars exch def
+  /targetEncoding exch def
+  /baseEncoding exch def
+  /newfontname exch def
+  /oldfontname exch def
+  /oldfont oldfontname findfont def
+  /newfont 20 dict def
+  /oldFontMatrix oldfont /FontMatrix get def
+  /oldFontBBox oldfont /FontBBox get cvlit def
+  /oldfontcopy oldfont length dict def
+
+  newfont begin
+    /FontType 3 def
+    /PaintType 0 def      % not used
+    /FontMatrix [0.001 0 0 0.001 0 0] def
+    /FontBBox
+    [
+      oldFontBBox 0 get oldFontBBox 1 get
+      oldFontMatrix transform
+      [1000 0 0 1000 0 0] transform
+      oldFontBBox 2 get oldFontBBox 3 get
+      oldFontMatrix transform
+      [1000 0 0 1000 0 0] transform
+    ] cvx def
+
+    /StrokeWidth 0 def                  % not used
+
+    /Encoding targetEncoding def
+
+    /Decoding 256 dict def              % invert base encoding vector
+    Decoding begin
+      0 1 255
+      { dup baseEncoding exch get exch def } bind for
+    end
+
+    newfont /compositeChars compositeChars put
+
+    /FontName newfontname def
+
+% make a copy of the original font, reencoding it
+    oldfont
+    oldfontcopy begin
+      {1 index /FID ne
+        {def}
+        {pop pop} ifelse
+      } bind forall
+    end
+    oldfontcopy /Encoding baseEncoding put
+    oldfontname nameUnique oldfontcopy definefont
+    1000 scalefont /OriginalFont exch def
+
+    /BuildChar                          % newfont n BuildChar -
+    {
+      exch begin                        % n
+        /OriginalFont load setfont
+        /Encoding load exch get         % glyphName
+        /compositeChars load dup
+        2 index known                   % glyphName compositeChars known-p
+        { 1 index get                   % glyphName [ 65 x y 129 ]
+          dup 0 get ( ) dup             % glyphName [...] 65 ( ) ( )
+          0 3 index put                 % glyphName [...] 65 (A)
+          dup stringwidth setcharwidth
+          0 0 moveto
+          show pop                      % glyphName [...]
+          dup 1 get 1 index 2 get       % glyphName [...] x y
+          moveto                        % glyphName [...]
+          3 get ( ) dup 3 2 roll        % glyphName ( ) ( ) 129
+          0 exch put                    % glyphName (')
+          show                          % glyphName
+        }
+        { pop
+          /Decoding load                % glyphName Decoding
+          dup 2 index known             % glyphName Decoding known-p
+          { exch get }
+          { pop pop 0 } ifelse          % n'
+          ( ) dup 0 3 index put dup     % n' (A) (A)
+          stringwidth setcharwidth
+          0 0 moveto
+          show                          % n'
+        } ifelse
+        pop
+      end
+    } bind def
+  end                                   % newfont
+  newfontname newfont definefont pop
+} def                                   % doMakeComposite
+
+/fillEuro {                             % w h --
+  gsave exch 1000 div exch 1000 div scale
+  955.852 232.172 moveto
+  904.495 180.815 lineto
+  829.454 117.848 734.626 83.333 636.667 83.333 curveto
+  406.667 83.333 220 270 220 500 curveto
+  220 730 406.667 916.667 636.667 916.667 curveto
+  759.831 916.667 876.684 862.177 955.852 767.828 curveto
+  988.474 855.291 lineto
+  894.851 947.996 768.422 1000 636.667 1000 curveto
+  360.667 1000 136.667 776 136.667 500 curveto
+  136.667 224 360.667 0 636.667 0 curveto
+  753.23 0 866.13 40.725 955.852 115.135 curveto
+  closepath fill
+  
+  869.037 541.667 moveto
+  901.025 625 lineto
+  31.989 625 lineto
+  0 541.667 lineto
+  closepath fill
+  
+  805.059 375 moveto
+  837.048 458.333 lineto
+  31.989 458.333 lineto
+  0 375 lineto
+  closepath fill
+  grestore
+} bind def
+
+/makeEuroCharstring {                   % w h -- charstring
+  [ /pop cvx                            % w h mark pop
+    3 index 0 0 0                       % w h mark pop w 0 0 0
+    7 index 7 index /setcachedevice cvx 
+                                % w h mark pop w 0 0 0 w h setcachedevice
+    10 index 10 index /fillEuro load /exec cvx ] 
+  cvx bind 3 1 roll pop pop
+} def
+
+/doEurifyFont {                         % oldname newname --
+  exch
+  findfont dup dup                      % newname dict dict dict
+  /FontMatrix get matrix invertmatrix   % newname dict dict m
+  {} forall pop pop [ 5 1 roll 0 0] makefont setfont   % newnamedict
+  0 0 moveto
+  (5) stringwidth pop                     % newname dict w
+  (M) false charpath pathbbox newpath 4 1 roll pop pop pop 
+                                          % newnamedict w h
+  3 2 roll                                % newname w h dict
+  
+  dup length dict dup 3 1 roll begin      % newname w h newdict
+    {1 index /FID ne {def} {pop pop} ifelse} forall
+    CharStrings dup length 1 add dict dup 3 1 roll begin % newnamew h newdict newdict'
+      {def} forall
+      /Euro                               % newname w h newdict newdict' /Euro
+      4 index 4 index makeEuroCharstring def
+    end                                   % newname w h newdict newdict'
+    /CharStrings exch def
+  end
+  3 1 roll pop pop                      % newname dict
+  definefont pop
+} bind def
+
+end                                     % makeCompositeDict
+
+% oldfontname newfontname baseEncoding targetEncoding compositeChars --
+/makeComposite
+{
+  makeCompositeDict begin doMakeComposite end
+} bind def
+
+% oldfontname newfontname
+/eurifyFont
+{
+  makeCompositeDict begin doEurifyFont end
+} bind def
+%%EndResource
+%!
+% Automatically generated by the Ogonkify package
+% Do not modify
+% -- code follows this line --
+%%BeginResource: font Times-Roman-Ogonki
+/Times-Roman /Times-Roman-Ogonki OgonkiEncoding StandardEncoding 83 dict
+dup /Agrave [65 195 212 27] put
+dup /Aring [65 185 187 31] put
+dup /Atilde [65 195 212 29] put
+dup /Ecircumflex [69 139 212 28] put
+dup /Egrave [69 139 212 27] put
+dup /Idieresis [73 0 212 168] put
+dup /Igrave [73 0 212 27] put
+dup /Ntilde [78 195 212 29] put
+dup /Ograve [79 195 212 27] put
+dup /Otilde [79 195 212 29] put
+dup /Ucircumflex [85 195 212 28] put
+dup /Ugrave [85 195 212 27] put
+dup /Ydieresis [89 195 212 168] put
+dup /agrave [97 56 0 27] put
+dup /aring [97 56 0 31] put
+dup /atilde [97 56 0 29] put
+dup /ecircumflex [101 56 0 28] put
+dup /egrave [101 56 0 27] put
+dup /idieresis [136 -27 0 168] put
+dup /igrave [136 -27 0 27] put
+dup /ntilde [110 84 0 29] put
+dup /ograve [111 84 0 27] put
+dup /otilde [111 84 0 29] put
+dup /ucircumflex [117 84 0 28] put
+dup /ugrave [117 84 0 27] put
+dup /ydieresis [121 84 0 168] put
+dup /abreve [97 55 0 162] put
+dup /Abreve [65 194 223 162] put
+dup /aogonek [97 209 0 178] put
+dup /Aogonek [65 465 0 178] put
+dup /cacute [99 70 0 180] put
+dup /Cacute [67 212 212 180] put
+dup /ccaron [99 69 0 183] put
+dup /Ccaron [67 196 212 183] put
+dup /dbar [100 200 300 173] put
+dup /Dbar [208 0 0 160] put
+dup /dcaron [100 426 75 39] put
+dup /Dcaron [68 194 216 183] put
+dup /ecaron [101 55 0 183] put
+dup /Ecaron [69 139 214 183] put
+dup /edotaccent [101 61 0 255] put
+dup /Edotaccent [69 154 212 255] put
+dup /eogonek [101 142 9 178] put
+dup /Eogonek [69 320 0 178] put
+dup /gbreve [103 84 0 162] put
+dup /Gbreve [71 195 212 162] put
+dup /Idotaccent [73 0 212 255] put
+dup /iogonek [105 12 0 178] put
+dup /Iogonek [73 67 0 178] put
+dup /lacute [108 -5 216 180] put
+dup /Lacute [76 139 216 180] put
+dup /lcaron [108 192 75 39] put
+dup /Lcaron [76 250 52 39] put
+dup /nacute [110 90 0 180] put
+dup /Nacute [78 190 212 180] put
+dup /ncaron [110 83 0 183] put
+dup /Ncaron [78 194 214 183] put
+dup /ohungarumlaut [111 83 0 189] put
+dup /Ohungarumlaut [79 194 214 189] put
+dup /racute [114 22 0 180] put
+dup /Racute [82 210 216 180] put
+dup /rcaron [114 0 0 183] put
+dup /Rcaron [82 167 216 183] put
+dup /sacute [115 20 0 180] put
+dup /Sacute [83 100 212 180] put
+dup /scedilla [115 28 0 184] put
+dup /Scedilla [83 112 0 184] put
+dup /tcedilla [116 53 0 184] put
+dup /Tcedilla [84 197 0 184] put
+dup /tcaron [116 214 0 39] put
+dup /Tcaron [84 139 216 183] put
+dup /uhungarumlaut [117 83 0 189] put
+dup /Uhungarumlaut [85 194 214 189] put
+dup /umacron [117 81 0 30] put
+dup /Umacron [85 205 212 30] put
+dup /uogonek [117 236 5 178] put
+dup /Uogonek [85 287 5 178] put
+dup /uring [117 83 0 31] put
+dup /Uring [85 194 179 31] put
+dup /zacute [122 60 0 180] put
+dup /Zacute [90 120 212 180] put
+dup /zdotaccent [122 50 0 255] put
+dup /Zdotaccent [90 140 212 255] put
+makeComposite
+%%EndResource
+
+%%EndResource
+% Initialize page description variables.
+/sh 612 def
+/sw 792 def
+/llx 24 def
+/urx 768 def
+/ury 588 def
+/lly 24 def
+/#copies 1 def
+/th 20.000000 def
+/fnfs 15 def
+/bfs 10.385260 def
+/cw 6.231156 def
+
+% Dictionary for ISO-8859-15 support
+/iso15dict 8 dict begin
+  /fCourier ISO-8859-15Encoding /Courier-Ogonki reencode_font
+  /fCourier-Bold ISO-8859-15Encoding /Courier-Bold-Ogonki reencode_font
+  /fCourier-BoldOblique ISO-8859-15Encoding /Courier-BoldOblique-Ogonki reencode_font
+  /fCourier-Oblique ISO-8859-15Encoding /Courier-Oblique-Ogonki reencode_font
+  /fHelvetica ISO-8859-15Encoding /Helvetica-Ogonki reencode_font
+  /fHelvetica-Bold ISO-8859-15Encoding /Helvetica-Bold-Ogonki reencode_font
+  /fTimes-Bold ISO-8859-15Encoding /Times-Bold-Ogonki reencode_font
+  /fTimes-Roman ISO-8859-15Encoding /Times-Roman-Ogonki reencode_font
+currentdict end def
+/bgcolor [ 0 0 0 ] def
+/bg false def
+/ul false def
+/bx false def
+% The font for line numbering
+/f# /Helvetica findfont bfs .6 mul scalefont def
+/fSymbol /Symbol findfont def
+/hm fnfs 0.25 mul def
+/pw
+   cw 119.400000 mul
+def
+/ph
+   516.147404 th add
+def
+/pmw 0 def
+/pmh 0 def
+/v 0 def
+/x [
+  0
+] def
+/y [
+  pmh ph add 0 mul ph add
+] def
+/scx sw 2 div def
+/scy sh 2 div def
+/snx urx def
+/sny lly 2 add def
+/dx llx def
+/dy sny def
+/fnx scx def
+/fny dy def
+/lx snx def
+/ly ury fnfs 0.8 mul sub def
+/sx 0 def
+/tab 8 def
+/x0 0 def
+/y0 0 def
+%%EndSetup
+
+%%Page: (1) 1
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso15dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 4.361809 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(===================================== CLUSTER ======================================================================) p n
+() N
+(action             pre-conditions                                      post-conditions) N
+(================   ==================================================  =============================================) N
+(                  ) N
+(--------------------------------------------------------------------------------------------------------------------) N
+(1. create          no cluster present                                  cluster created) N
+(                   mars module not inserted                            /mars mounted) N
+(                   /mars mounted                                   ) N
+(                  ) N
+(--------------------------------------------------------------------------------------------------------------------) N
+(2. join            \(1.\) on primary host                                cluster joined                        ) N
+(                   cluster not joined                                  /mars mounted) N
+(                   mars module not inserted) N
+(                   /mars mounted) N
+() N
+(--------------------------------------------------------------------------------------------------------------------) N
+(3. leave           \(1.\) or \(2.\)                                        no cluster present) N
+(                   no resources existent) N
+() N
+() N
+(===================================== RESOURCE =====================================================================) N
+() N
+(The state of a resource comprises the states of 3 objects \(role, disk, replication\) taking the following values:) N
+() N
+(role: primary secondary) N
+(----) N
+() N
+(disk: ) N
+(----) N
+(   detached    : underlying device may be used by other applications) N
+(   outdated    :     role = secondary) N
+(                 AND consistent) N
+(                 AND [    not all logfiles have been fetched from the primary) N
+(                       OR primary_unreachable ]) N
+(   uptodate    :     consistent) N
+(                 AND [ role = primary OR [     role = secondary) N
+(                                           AND no logfiles are to be fetched) N
+(                                           AND repl != primary_unreachable] ]) N
+(   inconsistent: none of the three states above \(a sync, restore or similar action is necessary) N
+(                 to reach a consistent state\)) N
+() N
+(repl:) N
+(----) N
+(   notjoined            : role = secondary AND resource exists on the primary only) N
+(   replaying            :     consistent disk) N
+(                          AND [    [ role = primary AND can "send" logfiles ]) N
+(                                OR [ role = secondary AND can receive logfiles ] ]) N
+(   primary_unreachable  : what the name means) N
+(tests.txt) (Page 1/4) (Jun 13, 13 9:04) title
+border
+grestore
+(Printed by schoebel) rhead
+(tests.txt) (1/4) (Thursday June 13, 2013) footer
+end % of iso15dict
+pagesave restore
+showpage
+%%Page: (2) 2
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso15dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 4.361809 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(   paused_sync          : interrupted while syncing) p n
+(   syncing              : what the name means) N
+(   paused_replay        : able to replay, but interrupted) N
+(   disconnected         : not used until now, probably not necessary) N
+() N
+(For data consistence the states of the following objects are important too:) N
+() N
+(device \(the "underlying" device\):) N
+(------) N
+(   locked  : cannot be opened by other applications) N
+(   unlocked: usable as a normal block device by other applications) N
+(   unused  : not used by any application) N
+() N
+(mars_device:) N
+(-----------) N
+(    usable   : can be used in "normal" ways) N
+(    invisible: what the name means) N
+(    undef    : not existent) N
+() N
+(===========) N
+(    Hint: Of course the states are not independent, e.g.:) N
+() N
+(    disk != detached => device = locked) N
+(    repl = synching && role = secondary => disk inconsistent) N
+() N
+(    These action independent rules will not be regarded here and must be guaranteed by tests.) N
+(===========) N
+() N
+(In the following table the states which are of no interest in the specific) N
+(action are omitted or their values are marked with *.) N
+(The disk state "consistent" is an abreviation for outdated || uptodate) N
+() N
+() N
+(action         pre-conditions                                      post-conditions) N
+(=============  ==================================================  =================================================) N
+() N
+(--------------------------------------------------------------------------------------------------------------------) N
+(4. create     ) N
+(              \(1.\)) N
+(              mars module inserted                                role        : primary     ) N
+(              device: unused                                      disk        : uptodate) N
+(                                                                  repl        : replaying) N
+(                                                                  mars_device : usable) N
+(                                                                  device      : locked) N
+(                                                                  ) N
+(--------------------------------------------------------------------------------------------------------------------) N
+(5. join       ) N
+(              \(4.\) on primary host, \(2.\)                          role        : secondary) N
+(              mars module inserted                                disk        : uptodate) N
+(tests.txt) (Page 2/4) (Jun 13, 13 9:04) title
+border
+grestore
+(Printed by schoebel) rhead
+(tests.txt) (2/4) (Thursday June 13, 2013) footer
+end % of iso15dict
+pagesave restore
+showpage
+%%Page: (3) 3
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso15dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 4.361809 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(              repl   : notjoined                                  repl        : replaying) p n
+(              device : unused                                     mars_device : invisible) N
+(                                                                  device      : locked) N
+() N
+(--------------------------------------------------------------------------------------------------------------------) N
+(6. leave      ) N
+(              \(4.\) or \(5.\)                                        disk        : detached) N
+(              disk: uptodate                                      mars_device : undef) N
+(                    outdated                                      device      : unlocked) N
+(                        -> wait | force) N
+(              repl: disconnected) N
+() N
+(--------------------------------------------------------------------------------------------------------------------) N
+(7. switch primary  -> secondary  ) N
+(              \(4.\) or \(5.\)                                        role          : secondary) N
+(              role : primary                                      disk          : uptodate) N
+() N
+(--------------------------------------------------------------------------------------------------------------------) N
+(8. switch secondary -> primary) N
+(              \(4.\) or \(5.\)                                        role: primary) N
+(              no other primary host \(evtl. locking \(two mounts!\)\)) N
+(              role : secondary) N
+(              disk : uptodate) N
+(                     outdated) N
+(                        -> wait | force) N
+() N
+(--------------------------------------------------------------------------------------------------------------------) N
+(9. pause_sync) N
+(             \(4.\) or \(5.\)                                         repl: paused_sync) N
+(             repl: synching) N
+(                   !synching) N
+(                        -> hint) N
+() N
+(--------------------------------------------------------------------------------------------------------------------) N
+(10. pause_replay) N
+(             \(4.\) or \(5.\)                                         repl: paused_replay) N
+(             repl: replaying) N
+(                   !replaying) N
+(                       -> hint) N
+() N
+(--------------------------------------------------------------------------------------------------------------------) N
+(11. invalidate) N
+(             \(4.\) or \(5.\)                                         disk: inconsistent) N
+() N
+(--------------------------------------------------------------------------------------------------------------------) N
+(12. logrotate) N
+(             \(4.\) or \(5.\)                                         log rotated) N
+(               ) N
+(--------------------------------------------------------------------------------------------------------------------) N
+(tests.txt) (Page 3/4) (Jun 13, 13 9:04) title
+border
+grestore
+(Printed by schoebel) rhead
+(tests.txt) (3/4) (Thursday June 13, 2013) footer
+end % of iso15dict
+pagesave restore
+showpage
+%%Page: (4) 4
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso15dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 4.361809 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(13. logdelete) p n
+(             \(4.\) or \(5.\)                                         log deleted) N
+(             logfile closed) N
+(             AND logfile received from all secondaries) N
+() N
+() N
+() N
+(===================================== DEVICES ======================================================================) N
+() N
+(--------------------------------------------------------------------------------------------------------------------) N
+(14. attach) N
+(             \(4.\) or \(5.\)                                         disk: if no "out of mars changes" occured since deta) N
+(ch) N
+(             disk: detached                                                 state = state before detach) N
+(                                                                        else) N
+(                                                                            state = inconsistent) N
+() N
+(--------------------------------------------------------------------------------------------------------------------) N
+(15. detach) N
+(             \(4.\) or \(5.\)                                         disk: detached) N
+() N
+() N
+(--------------------------------------------------------------------------------------------------------------------) N
+() N
+(===================================== FURTHER INFOS NEEDED =========================================================) N
+() N
+(1. all state infos from remote hosts are to be provided with a timestamp indicating their actuality ) N
+() N
+(2. replication states like synching, replaying need a "progress bar") N
+() N
+(3. useless actions \(e.g. primary on a resource beeing already primary\) should be handled as tolerant as possible ) N
+() N
+(tests.txt) (Page 4/4) (Jun 13, 13 9:04) title
+border
+grestore
+(Printed by schoebel) rhead
+(tests.txt) (4/4) (Thursday June 13, 2013) footer
+end % of iso15dict
+pagesave restore
+showpage
+
+%%Trailer
+end
+%%EOF

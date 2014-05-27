@@ -1,0 +1,178 @@
+===================================== CLUSTER ======================================================================
+
+action             pre-conditions                                      post-conditions
+================   ==================================================  =============================================
+                  
+--------------------------------------------------------------------------------------------------------------------
+1. create          no cluster present                                  cluster created
+                   mars module not inserted                            /mars mounted
+                   /mars mounted                                   
+                  
+--------------------------------------------------------------------------------------------------------------------
+2. join            (1.) on primary host                                cluster joined                        
+                   cluster not joined                                  /mars mounted
+                   mars module not inserted
+                   /mars mounted
+
+--------------------------------------------------------------------------------------------------------------------
+3. leave           (1.) or (2.)                                        no cluster present
+                   no resources existent
+
+
+===================================== RESOURCE =====================================================================
+
+The state of a resource comprises the states of 3 objects (role, disk, replication) taking the following values:
+
+role: primary secondary
+----
+
+disk: 
+----
+   detached    : underlying device may be used by other applications
+   outdated    :     role = secondary
+                 AND consistent
+                 AND [    not all logfiles have been fetched from the primary
+                       OR primary_unreachable ]
+   uptodate    :     consistent
+                 AND [ role = primary OR [     role = secondary
+                                           AND no logfiles are to be fetched
+                                           AND repl != primary_unreachable] ]
+   inconsistent: none of the three states above (a sync, restore or similar action is necessary
+                 to reach a consistent state)
+
+repl:
+----
+   notjoined            : role = secondary AND resource exists on the primary only
+   replaying            :     consistent disk
+                          AND [    [ role = primary AND can "send" logfiles ]
+                                OR [ role = secondary AND can receive logfiles ] ]
+   primary_unreachable  : what the name means
+   paused_sync          : interrupted while syncing
+   syncing              : what the name means
+   paused_replay        : able to replay, but interrupted
+   disconnected         : not used until now, probably not necessary
+
+For data consistence the states of the following objects are important too:
+
+device (the "underlying" device):
+------
+   locked  : cannot be opened by other applications
+   unlocked: usable as a normal block device by other applications
+   unused  : not used by any application
+
+mars_device:
+-----------
+    usable   : can be used in "normal" ways
+    invisible: what the name means
+    undef    : not existent
+
+===========
+    Hint: Of course the states are not independent, e.g.:
+
+    disk != detached => device = locked
+    repl = synching && role = secondary => disk inconsistent
+
+    These action independent rules will not be regarded here and must be guaranteed by tests.
+===========
+
+In the following table the states which are of no interest in the specific
+action are omitted or their values are marked with *.
+The disk state "consistent" is an abreviation for outdated || uptodate
+
+
+action         pre-conditions                                      post-conditions
+=============  ==================================================  =================================================
+
+--------------------------------------------------------------------------------------------------------------------
+4. create     
+              (1.)
+              mars module inserted                                role        : primary     
+              device: unused                                      disk        : uptodate
+                                                                  repl        : replaying
+                                                                  mars_device : usable
+                                                                  device      : locked
+                                                                  
+--------------------------------------------------------------------------------------------------------------------
+5. join       
+              (4.) on primary host, (2.)                          role        : secondary
+              mars module inserted                                disk        : uptodate
+              repl   : notjoined                                  repl        : replaying
+              device : unused                                     mars_device : invisible
+                                                                  device      : locked
+
+--------------------------------------------------------------------------------------------------------------------
+6. leave      
+              (4.) or (5.)                                        disk        : detached
+              disk: uptodate                                      mars_device : undef
+                    outdated                                      device      : unlocked
+                        -> wait | force
+              repl: disconnected
+
+--------------------------------------------------------------------------------------------------------------------
+7. switch primary  -> secondary  
+              (4.) or (5.)                                        role          : secondary
+              role : primary                                      disk          : uptodate
+
+--------------------------------------------------------------------------------------------------------------------
+8. switch secondary -> primary
+              (4.) or (5.)                                        role: primary
+              no other primary host (evtl. locking (two mounts!))
+              role : secondary
+              disk : uptodate
+                     outdated
+                        -> wait | force
+
+--------------------------------------------------------------------------------------------------------------------
+9. pause_sync
+             (4.) or (5.)                                         repl: paused_sync
+             repl: synching
+                   !synching
+                        -> hint
+
+--------------------------------------------------------------------------------------------------------------------
+10. pause_replay
+             (4.) or (5.)                                         repl: paused_replay
+             repl: replaying
+                   !replaying
+                       -> hint
+
+--------------------------------------------------------------------------------------------------------------------
+11. invalidate
+             (4.) or (5.)                                         disk: inconsistent
+
+--------------------------------------------------------------------------------------------------------------------
+12. logrotate
+             (4.) or (5.)                                         log rotated
+               
+--------------------------------------------------------------------------------------------------------------------
+13. logdelete
+             (4.) or (5.)                                         log deleted
+             logfile closed
+             AND logfile received from all secondaries
+
+
+
+===================================== DEVICES ======================================================================
+
+--------------------------------------------------------------------------------------------------------------------
+14. attach
+             (4.) or (5.)                                         disk: if no "out of mars changes" occured since detach
+             disk: detached                                                 state = state before detach
+                                                                        else
+                                                                            state = inconsistent
+
+--------------------------------------------------------------------------------------------------------------------
+15. detach
+             (4.) or (5.)                                         disk: detached
+
+
+--------------------------------------------------------------------------------------------------------------------
+
+===================================== FURTHER INFOS NEEDED =========================================================
+
+1. all state infos from remote hosts are to be provided with a timestamp indicating their actuality 
+
+2. replication states like synching, replaying need a "progress bar"
+
+3. useless actions (e.g. primary on a resource beeing already primary) should be handled as tolerant as possible 
+
