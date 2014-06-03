@@ -2361,12 +2361,12 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 }
 
 static
-void _init_input(struct trans_logger_input *input, loff_t start_pos)
+void _init_input(struct trans_logger_input *input, loff_t start_pos, loff_t end_pos)
 {
 	struct trans_logger_brick *brick = input->brick;
 	struct log_status *logst = &input->logst;
 
-	init_logst(logst, (void*)input, start_pos);
+	init_logst(logst, (void*)input, start_pos, end_pos);
 	logst->signal_event = &brick->worker_event;
 	logst->align_size = CONF_TRANS_ALIGN;
 	logst->chunk_size = CONF_TRANS_CHUNKSIZE;
@@ -2374,7 +2374,7 @@ void _init_input(struct trans_logger_input *input, loff_t start_pos)
 
 	
 	input->inf.inf_min_pos = start_pos;
-	input->inf.inf_max_pos = start_pos; // ATTENTION: this remains correct as far as our replay code _never_ kicks off any requests in parallel (which is current state of the "art", relying on BBU caching for performance). WHENEVER YOU CHANGE THIS some day, you MUST maintain the correct end_pos here!
+	input->inf.inf_max_pos = end_pos;
 	get_lamport(&input->inf.inf_max_pos_stamp);
 	memcpy(&input->inf.inf_min_pos_stamp, &input->inf.inf_max_pos_stamp, sizeof(input->inf.inf_min_pos_stamp));
 
@@ -2416,7 +2416,7 @@ void _init_inputs(struct trans_logger_brick *brick, bool is_first)
 
 	down(&input->inf_mutex);
 
-	_init_input(input, 0);
+	_init_input(input, 0, 0);
 	input->inf.inf_is_logging = is_first;
 
 	// from now on, new requests should go to the new input
@@ -2847,6 +2847,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 	struct trans_logger_input *input = brick->inputs[brick->log_input_nr];
 	struct log_header lh = {};
 	loff_t start_pos;
+	loff_t end_pos;
 	loff_t finished_pos = -1;
 	loff_t new_finished_pos = -1;
 	long long old_jiffies = jiffies;
@@ -2858,17 +2859,18 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 	brick->disk_io_error = 0;
 
 	start_pos = brick->replay_start_pos;
+	end_pos = brick->replay_end_pos;
 	brick->replay_current_pos = start_pos;
 
-	_init_input(input, start_pos);
+	_init_input(input, start_pos, end_pos);
 
 	input->inf.inf_min_pos = start_pos;
-	input->inf.inf_max_pos = brick->replay_end_pos;
-	input->inf.inf_log_pos = brick->replay_end_pos;
+	input->inf.inf_max_pos = end_pos;
+	input->inf.inf_log_pos = end_pos;
 	input->inf.inf_is_replaying = true;
 	input->inf.inf_is_logging = false;
 
-	MARS_INF("starting replay from %lld to %lld\n", start_pos, brick->replay_end_pos);
+	MARS_INF("starting replay from %lld to %lld\n", start_pos, end_pos);
 	
 	mars_power_led_on((void*)brick, true);
 

@@ -232,6 +232,8 @@ struct log_status {
 	// interfacing
 	wait_queue_head_t *signal_event;
 	// tunables
+	loff_t start_pos;
+	loff_t end_pos;
 	int align_size;   // alignment between requests
 	int chunk_size;   // must be at least 8K (better 64k)
 	int max_size;     // max payload length
@@ -262,7 +264,7 @@ struct log_status {
 	void *private;
 };
 
-void init_logst(struct log_status *logst, struct mars_input *input, loff_t start_pos);
+void init_logst(struct log_status *logst, struct mars_input *input, loff_t start_pos, loff_t end_pos);
 void exit_logst(struct log_status *logst);
 
 void log_flush(struct log_status *logst);

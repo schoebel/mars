@@ -35,7 +35,7 @@ void exit_logst(struct log_status *logst)
 }
 EXPORT_SYMBOL_GPL(exit_logst);
 
-void init_logst(struct log_status *logst, struct mars_input *input, loff_t start_pos)
+void init_logst(struct log_status *logst, struct mars_input *input, loff_t start_pos, loff_t end_pos)
 {
 	exit_logst(logst);
 
@@ -43,7 +43,9 @@ void init_logst(struct log_status *logst, struct mars_input *input, loff_t start
 
 	logst->input = input;
 	logst->brick = input->brick;
+	logst->start_pos = start_pos;
 	logst->log_pos = start_pos;
+	logst->end_pos = end_pos;
 	init_waitqueue_head(&logst->event);
 }
 EXPORT_SYMBOL_GPL(init_logst);
@@ -396,11 +398,21 @@ restart:
 	status = 0;
 	mref = logst->read_mref;
 	if (!mref || logst->do_free) {
+		loff_t this_len;
 		if (mref) {
 			GENERIC_INPUT_CALL(logst->input, mref_put, mref);
 			logst->read_mref = NULL;
 			logst->log_pos += logst->offset;
 			logst->offset = 0;
+		}
+
+		this_len = logst->end_pos - logst->log_pos;
+		if (this_len > logst->chunk_size) {
+			this_len = logst->chunk_size;
+		} else if (unlikely(this_len <= 0)) {
+			MARS_ERR("tried bad IO len %lld, start_pos = %lld log_pos = %lld end_pos = %lld\n", this_len, logst->start_pos, logst->log_pos, logst->end_pos);
+			status = -EOVERFLOW;
+			goto done;
 		}
 
 		mref = mars_alloc_mref(logst->brick);
@@ -409,7 +421,7 @@ restart:
 			goto done;
 		}
 		mref->ref_pos = logst->log_pos;
-		mref->ref_len = logst->chunk_size;
+		mref->ref_len = this_len;
 		mref->ref_prio = logst->io_prio;
 
 		status = GENERIC_INPUT_CALL(logst->input, mref_get, mref);
