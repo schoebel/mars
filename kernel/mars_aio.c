@@ -586,8 +586,11 @@ static int aio_event_thread(void *data)
 	struct aio_threadinfo *tinfo = data;
 	struct aio_output *output = tinfo->output;
 	struct aio_threadinfo *other = &output->tinfo[2];
+	struct io_event *events;
 	int err = -ENOMEM;
 	
+	events = brick_mem_alloc(sizeof(struct io_event) * MARS_MAX_AIO_READ);
+
 	MARS_DBG("event thread has started.\n");
 	//set_user_nice(current, -20);
 
@@ -606,7 +609,6 @@ static int aio_event_thread(void *data)
 		struct timespec timeout = {
 			.tv_sec = 1,
 		};
-		struct io_event events[MARS_MAX_AIO_READ];
 
 		oldfs = get_fs();
 		set_fs(get_ds());
@@ -670,6 +672,7 @@ static int aio_event_thread(void *data)
 
 	tinfo->terminated = true;
 	wake_up_interruptible_all(&tinfo->terminate_event);
+	brick_mem_free(events);
 	return err;
 }
 

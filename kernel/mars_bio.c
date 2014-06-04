@@ -20,7 +20,12 @@
 #include "lib_mapfree.h"
 
 #include "mars_bio.h"
+//      remove_this
+#ifdef __bvec_iter_bvec
+#define HAS_BVEC_ITER
+#endif
 
+//      end_remove_this
 static struct timing_stats timings[2] = {};
 
 struct threshold bio_submit_threshold = {
@@ -185,9 +190,19 @@ int make_bio(struct bio_brick *brick, void *data, int len, loff_t pos, struct bi
 	}
 
 	bio->bi_vcnt = i;
+//      remove_this
+#ifdef HAS_BVEC_ITER
+//      end_remove_this
+	bio->bi_iter.bi_idx = 0;
+	bio->bi_iter.bi_size = result_len;
+	bio->bi_iter.bi_sector = sector;
+//      remove_this
+#else
 	bio->bi_idx = 0;
 	bio->bi_size = result_len;
 	bio->bi_sector = sector;
+#endif
+//      end_remove_this
 	bio->bi_bdev = bdev;
 	bio->bi_private = private;
 	bio->bi_end_io = bio_callback;

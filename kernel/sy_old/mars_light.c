@@ -1833,9 +1833,9 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 			run_trigger = true;
 		}
 
-		if (remote_dent->new_stat.uid != local_stat.uid && update_ctime) {
-			MARS_DBG("lchown '%s' %d -> %d\n", remote_dent->d_path, local_stat.uid, remote_dent->new_stat.uid);
-			mars_lchown(remote_dent->d_path, remote_dent->new_stat.uid);
+		if (__kuid_val(remote_dent->new_stat.uid) != __kuid_val(local_stat.uid) && update_ctime) {
+			MARS_DBG("lchown '%s' %d -> %d\n", remote_dent->d_path, __kuid_val(local_stat.uid), __kuid_val(remote_dent->new_stat.uid));
+			mars_lchown(remote_dent->d_path, __kuid_val(remote_dent->new_stat.uid));
 			run_trigger = true;
 		}
 	}
@@ -1850,12 +1850,12 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 			MARS_DBG("create directory '%s' status = %d\n", remote_dent->d_path, status);
 			if (status >= 0) {
 				mars_chmod(remote_dent->d_path, remote_dent->new_stat.mode);
-				mars_lchown(remote_dent->d_path, remote_dent->new_stat.uid);
+				mars_lchown(remote_dent->d_path, __kuid_val(remote_dent->new_stat.uid));
 			}
 		}
 	} else if (S_ISLNK(remote_dent->new_stat.mode) && remote_dent->new_link) {
 		if (!stat_ok || update_mtime) {
-			status = mars_symlink(remote_dent->new_link, remote_dent->d_path, &remote_dent->new_stat.mtime, remote_dent->new_stat.uid);
+			status = mars_symlink(remote_dent->new_link, remote_dent->d_path, &remote_dent->new_stat.mtime, __kuid_val(remote_dent->new_stat.uid));
 			MARS_DBG("create symlink '%s' -> '%s' status = %d\n", remote_dent->d_path, remote_dent->new_link, status);
 			run_trigger = true;
 		}
