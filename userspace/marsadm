@@ -1565,7 +1565,7 @@ sub logrotate_res {
   @paths = sort(@paths);
   my $last = pop(@paths);
   if (-z $last) {
-    lprint "an empty logfile '$last' already exists, nothing to do.\n";
+    lprint "an empty logfile '$last' already exists, nothing to do.\n" if $verbose;
     return;
   }
   my $nr = $last;
@@ -1622,7 +1622,7 @@ sub _create_delete {
     }
   }
   my $new = sprintf("$mars/todo-global/delete-%09d-$host", ++$delete_nr);
-  lprint "create symlink $new -> $target\n";
+  lprint "create symlink $new -> $target\n" if $verbose;
   set_link($target, $new);
 }
 
@@ -1651,10 +1651,10 @@ sub logdelete_res {
   my @paths = glob("$mars/resource-$res/log-*") or ldie "cannot find any logfiles\n";
   @paths = sort(@paths);
   my ($min_deletable, $max_deletable) = _get_deletable_logfiles(@_);
-  lprint "min     deletable logfile number: $min_deletable\n";
-  lprint "min non-deletable logfile number: $max_deletable\n";
+  lprint "min     deletable logfile number: $min_deletable\n" if $verbose;
+  lprint "min non-deletable logfile number: $max_deletable\n" if $verbose;
   if ($min_deletable >= $max_deletable) {
-    lprint "no logfiles are deletable.\n";
+    lprint "no logfiles are deletable.\n" if $verbose;
     return;
   }
   if ($cmd ne "log-delete-all") {
@@ -1669,11 +1669,11 @@ sub logdelete_res {
     $nr =~ s/^.*log-([0-9]+)-.+$/$1/;
     next unless $nr < $max_deletable;
 
-    lprint "chosen '$first' for deletion\n";
+    lprint "chosen '$first' for deletion\n" if $verbose;
 
     _create_delete($first);
   }
-  lprint "removing left-over version symlinks...\n";
+  lprint "removing left-over version symlinks...\n" if $verbose;
   foreach my $versionlink (glob("$mars/resource-$res/version-*")) {
     my $nrv = $versionlink;
     $nrv =~ s/^.*\/version-([0-9]+)-.+$/$1/;
@@ -4254,7 +4254,7 @@ sub do_all_res {
       $any_member++;
       $res =~ s/^.*\/resource-(.*)$/$1/;
       next if defined($skip_res{$res});
-      lprint "--------- resource $res\n";
+      lprint "--------- resource $res\n" if ($verbose || $cmd !~ m/^log-/);
       eval {
 	do_one_res($func, $cmd, $res, @_);
 	1;
