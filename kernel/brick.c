@@ -33,13 +33,36 @@ int _brick_msleep(int msecs, bool shorten)
 }
 EXPORT_SYMBOL_GPL(_brick_msleep);
 
+//      remove_this
 #if 1
 /* The following _could_ go to kernel/kthread.c.
  * However, we need it only for a workaround here.
  * This has some conceptual shortcomings, so I will not
  * force that.
  */
-#if 1 // remove this for migration to kernel/kthread.c
+#include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
+#define HAS_NEW_KTHREAD
+#endif
+
+#ifdef HAS_NEW_KTHREAD
+//      end_remove_this
+struct kthread {
+	unsigned long flags;
+	unsigned int cpu;
+	void *data;
+	struct completion parked;
+	struct completion exited;
+};
+
+enum KTHREAD_BITS {
+	KTHREAD_IS_PER_CPU = 0,
+	KTHREAD_SHOULD_STOP,
+	KTHREAD_SHOULD_PARK,
+	KTHREAD_IS_PARKED,
+};
+//      remove_this
+#else // HAS_NEW_KTHREAD
 struct kthread {
         int should_stop;
 #ifdef KTHREAD_WORKER_INIT
@@ -47,9 +70,12 @@ struct kthread {
 #endif
         struct completion exited;
 };
+#endif // HAS_NEW_KTHREAD
+//      end_remove_this
+
 #define to_kthread(tsk) \
 	container_of((tsk)->vfork_done, struct kthread, exited)
-#endif
+
 /**
  * kthread_stop_nowait - like kthread_stop(), but don't wait for termination.
  * @k: thread created by kthread_create().
@@ -60,13 +86,40 @@ struct kthread {
  * Therefore, you must not call this twice (or after kthread_stop()), at least
  * if you don't get_task_struct() yourself.
  */
+//      remove_this
+#ifdef HAS_NEW_KTHREAD
+//      end_remove_this
+static struct kthread *task_get_live_kthread(struct task_struct *k)
+{
+	struct kthread *kthread;
+
+	get_task_struct(k);
+	kthread = to_kthread(k);
+	/* It might have exited */
+	barrier();
+	if (k->vfork_done != NULL)
+		return kthread;
+	return NULL;
+}
+
+void kthread_stop_nowait(struct task_struct *k)
+{
+	struct kthread *kthread = task_get_live_kthread(k);
+
+	if (kthread) {
+		set_bit(KTHREAD_SHOULD_STOP, &kthread->flags);
+		clear_bit(KTHREAD_SHOULD_PARK, &kthread->flags);
+		wake_up_process(k);
+		wait_for_completion(&kthread->exited);
+	}
+
+	put_task_struct(k);
+}
+//      remove_this
+#else
 void kthread_stop_nowait(struct task_struct *k)
 {
        struct kthread *kthread;
-
-#if 0 // enable this after migration to kernel/kthread.c
-       trace_sched_kthread_stop(k);
-#endif
 
        kthread = to_kthread(k);
        barrier(); /* it might have exited */
@@ -75,8 +128,12 @@ void kthread_stop_nowait(struct task_struct *k)
                wake_up_process(k);
        }
 }
-EXPORT_SYMBOL_GPL(kthread_stop_nowait);
 #endif
+//      end_remove_this
+EXPORT_SYMBOL_GPL(kthread_stop_nowait);
+//      remove_this
+#endif
+//      end_remove_this
 
 void brick_thread_stop_nowait(struct task_struct *k)
 {
