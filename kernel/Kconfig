@@ -4,7 +4,7 @@
 
 config MARS
 	tristate "storage system MARS (EXPERIMENTAL)"
-	depends on BLOCK && PROC_SYSCTL && HIGH_RES_TIMERS
+	depends on BLOCK && PROC_SYSCTL && HIGH_RES_TIMERS && !DEBUG_SLAB && !DEBUG_SG
 	default n
 	---help---
 	Experimental storage System. Only compile as a module!
