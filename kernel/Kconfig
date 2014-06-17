@@ -164,13 +164,6 @@ config MARS_NETIO_TIMEOUT
 	when == 0, wait forever (may lead to hanging operations
 	similar to NFS hard mounts)
 
-config MARS_MEM_PREALLOC
-	bool "avoid memory fragmentation by preallocation"
-	depends on MARS
-	default y
-	---help---
-	Normally ON. Switch off only for EXPERIMENTS!
-
 config MARS_FAST_FULLSYNC
 	bool "decrease network traffic at initial sync"
 	depends on MARS

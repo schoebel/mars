@@ -40,6 +40,8 @@
 #define BRICK_DEBUG_ORDER0
 #endif
 
+#define CONFIG_MARS_MEM_PREALLOC /* this is VITAL - disable only for experiments! */
+
 #define GFP_BRICK GFP_NOIO
 
 extern long long brick_global_memavail;
