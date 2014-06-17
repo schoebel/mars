@@ -99,6 +99,7 @@ mars-objs += 				\
 	mars_usebuf.o			\
 
 endif
+## remove_this
 
 #
 # buildtag.h should be regenerated in every build.
@@ -129,3 +130,5 @@ $(obj)/buildtag.h: $(patsubst $(obj)/buildtag.h,,$(wildcard $(obj)/*.[ch])) $(ob
 	/bin/echo -e "#define BUILDHOST \"$$USER@`hostname`\"";\
 	/bin/echo -e "#define BUILDDATE \"$$(date '+%F %T')\""
 	cat $@;
+
+## end_remove_this

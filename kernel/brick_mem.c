@@ -34,7 +34,9 @@
 #include "brick_mem.h"
 #include "brick_say.h"
 #include "lamport.h"
+//      remove_this
 #include "buildtag.h"
+//      end_remove_this
 
 #define USE_KERNEL_PAGES // currently mandatory (vmalloc does not work)
 
@@ -237,9 +239,11 @@ EXPORT_SYMBOL_GPL(_brick_mem_free);
 	"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"	\
 	"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"	\
 	"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"	\
+/*      remove_this */							\
 	" BUILDTAG = "  BUILDTAG					\
 	" BUILDHOST = " BUILDHOST					\
 	" BUILDDATE = " BUILDDATE					\
+/*      end_remove_this */						\
 	" FILE = "      __FILE__					\
 	" DATE = "      __DATE__					\
 	" TIME = "      __TIME__					\
