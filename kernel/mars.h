@@ -12,6 +12,9 @@
 #ifndef CONFIG_MARS_MODULE
 // when unsure, include faked config file
 #include "mars_config.h"
+#ifndef CONFIG_SMP
+#warning CONFIG_SMP is not set -- are you SURE???
+#endif
 #endif
 
 #ifndef CONFIG_64BIT
