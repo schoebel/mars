@@ -69,13 +69,11 @@ EXPORT_SYMBOL_GPL(say_class);
 
 int brick_say_logging = 1;
 EXPORT_SYMBOL_GPL(brick_say_logging);
-int brick_say_debug =
-#ifdef CONFIG_MARS_DEBUG_DEFAULT
-	1;
-#else
-	0;
-#endif
+module_param_named(say_logging, brick_say_logging, int, 0);
+int brick_say_debug = 0;
 EXPORT_SYMBOL_GPL(brick_say_debug);
+module_param_named(say_debug, brick_say_debug, int, 0);
+
 int brick_say_syslog_min = 1;
 EXPORT_SYMBOL_GPL(brick_say_syslog_min);
 int brick_say_syslog_max = -1;

@@ -1830,13 +1830,9 @@ EXPORT_SYMBOL_GPL(make_brick_all);
 
 // statistics
 
-int global_show_statist =
-#ifdef CONFIG_MARS_DEBUG_DEFAULT
-	1;
-#else
-	0;
-#endif
+int global_show_statist = 0;
 EXPORT_SYMBOL_GPL(global_show_statist);
+module_param_named(show_statist, global_show_statist, int, 0);
 
 static
 void _show_one(struct mars_brick *test, int *brick_count)
