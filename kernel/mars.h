@@ -28,6 +28,8 @@
 #include <linux/rwsem.h>
 #include <linux/major.h>
 
+//      remove_this
+
 // check the Kconfig environment
 
 #ifndef CONFIG_MARS_MODULE
@@ -56,7 +58,7 @@
 #ifdef CONFIG_DEBUG_SG
 #error Fixme: CONFIG_DEBUG_SG does not work (fix the bio offset calculation)
 #endif
-
+//      end_remove_this
 #if defined(CONFIG_CRYPTO_LZO) || defined(CONFIG_CRYPTO_LZO_MODULE)
 #define __HAVE_LZO
 #endif

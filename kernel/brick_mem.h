@@ -25,11 +25,13 @@
 #define BRICK_MEM_H
 
 #include <linux/mm_types.h>
+//      remove_this
 
 #ifndef CONFIG_MARS_MODULE
 // when unsure, include faked config file
 #include "mars_config.h"
 #endif
+//      end_remove_this
 
 #define BRICK_DEBUG_MEM 4096
 
