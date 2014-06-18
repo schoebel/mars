@@ -32,9 +32,6 @@ function crash_run
     local net_throughput
     local waited=0 error_ocurred=0
 
-    mount_mount_data_device $primary_host $res
-    resource_clear_data_device $primary_host $res
-
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
                                      "writer_script" 0 0 $res ""
 
@@ -100,11 +97,10 @@ function crash_write_data_device_and_calculate_checksums
 {
     local primary_host=$1 secondary_host=$2 res=$3 dev=$4
     local writer_pid writer_script write_count time_waited net_throughput
-    mount_mount_data_device $primary_host $res
-    resource_clear_data_device $primary_host $res
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
                                      "writer_script" 0 0 $res ""
-    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
+    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count" \
+                                    $res
     main_error_recovery_functions["lib_rw_stop_scripts"]=
     lib_wait_until_action_stops "replay" $secondary_host $res \
                                   $crash_maxtime_replay \
@@ -118,7 +114,6 @@ function crash_write_data_device_and_calculate_checksums
     marsview_wait_for_state $secondary_host $res "repl" \
                             "-SF${marsview_replay_flag}-" \
                             $crash_maxtime_state_constant
-    mount_umount_data_device $primary_host $res
     lib_rw_compare_checksums $primary_host $secondary_host $res 0 "" ""
 }
 

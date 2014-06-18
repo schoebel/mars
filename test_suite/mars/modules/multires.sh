@@ -38,9 +38,9 @@ function multires_create_resources_all
     	local lv_dev=$(lv_config_get_lv_device $res)
         marsadm_do_cmd $primary_host "create-resource --force" "$res $lv_dev"
         marsadm_do_cmd $primary_host "wait-resource" "$res is-device"
-        lib_remote_idfile $primary_host marsview $res
+        lib_remote_idfile $primary_host marsadm view-1and1 $res
         marsadm_do_cmd $secondary_host "join-resource --force" "$res $lv_dev"
-        lib_remote_idfile $secondary_host marsview $res
+        lib_remote_idfile $secondary_host marsadm view-1and1 $res
         while true;do
     	    if marsview_check $secondary_host $res "repl" "-S..-" \
 	       && marsview_check $secondary_host $res "disk" "Inconsistent"

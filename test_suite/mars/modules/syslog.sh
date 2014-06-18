@@ -35,12 +35,8 @@ function syslog_run
                                   "time_waited"
     lib_vmsg "  ${FUNCNAME[0]}: sync time: $time_waited"
 
-    mount_mount_data_device $primary_host $res
-
     # 2 loops to test recovery window
     for i in 1 2; do
-        resource_clear_data_device $primary_host $res
-
         lib_rw_start_writing_data_device $primary_host "writer_pid" \
                                          "writer_script"  0 2 $res ""
 
@@ -59,7 +55,7 @@ function syslog_run
                                 $marsview_wait_for_state_time || lib_exit 1
 
         lib_rw_stop_writing_data_device $primary_host $writer_script \
-                                        "write_count"
+                                        "write_count" $res
         main_error_recovery_functions["lib_rw_stop_scripts"]=
 
         lib_wait_until_fetch_stops "replay_fetch" \

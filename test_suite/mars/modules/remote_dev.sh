@@ -28,10 +28,6 @@ function remote_dev_run
     local log_rotate_pid log_rotate_script
     local log_delete_pid log_delete_script action
 
-    mount_mount_data_device $primary_host $res
-    resource_clear_data_device $primary_host $res
-
-    cluster_remove_debugfiles $primary_host
     cluster_create_debugfiles $primary_host
 
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
@@ -62,7 +58,8 @@ function remote_dev_run
 
     lib_rw_stop_scripts $primary_host $log_rotate_script
 
-    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
+    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count" \
+                                    $res
     main_error_recovery_functions["lib_rw_stop_scripts"]=
 
     local boot_label_name="${global_host_bootloader_label_list[$secondary_host]}"

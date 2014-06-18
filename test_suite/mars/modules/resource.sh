@@ -55,7 +55,7 @@ function resource_quick_prepare_first_resource
     cluster_clear_and_mount_mars_dir_all
     cluster_insert_mars_module_all
     marsadm_do_cmd $primary_host "create-resource" "$res $dev" || lib_exit 1
-    marsadm_do_cmd $primary_host "wait-resource" "$res is-device-on" || \
+    marsadm_do_cmd $primary_host "wait-resource" "$res is-device" || \
                                                                   lib_exit 1
     resource_check_data_device_after_create $primary_host $res
     lib_rw_remote_check_device_fs $primary_host $data_dev "xfs"
@@ -263,7 +263,7 @@ function resource_fill_mars_dir
 
     if [ $resource_use_data_dev_writes_to_fill_mars_dir -eq 0 ]; then
         lib_rw_stop_writing_data_device $primary_host $writer_script \
-                                        "write_count"
+                                        "write_count" $res
         main_error_recovery_functions["lib_rw_stop_scripts"]=
         lib_vmsg "  removing $primary_host:$resource_big_file"
         lib_remote_idfile $primary_host "rm -f $resource_big_file" || lib_exit 1
@@ -277,12 +277,13 @@ function resource_fill_mars_dir
                                      "writer_script"  0 3 $res ""
 
     marsadm_do_cmd $secondary_host "invalidate" $res
-    lib_wait_for_initial_end_of_sync $primary_host $secondary_host $res \
-                                  $resource_maxtime_initial_sync \
-                                  $resource_time_constant_initial_sync \
-                                  "time_waited"
+    lib_wait_until_action_stops "syncstatus" $secondary_host $res \
+                                $resource_maxtime_initial_sync \
+                                $resource_time_constant_initial_sync \
+                                "time_waited" 0 ""
 
-    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
+    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count" \
+                                    $res
     main_error_recovery_functions["lib_rw_stop_scripts"]=
 
     marsview_wait_for_state $secondary_host $res "disk" "Uptodate" \
@@ -422,7 +423,7 @@ function resource_create
             cluster_insert_mars_module_all
             marsadm_do_cmd $host "create-resource $resource_create_flag" \
                                  "$res $dev $res ${size}G"
-            marsadm_do_cmd $host "wait-resource" "$res is-device-on"
+            marsadm_do_cmd $host "wait-resource" "$res is-device"
             rc=$?
             if [ $rc -ne 0 ]; then
                 let count+=1
@@ -551,16 +552,12 @@ function resource_write_and_check
                                          $resource_time_constant_initial_sync \
                                          "time_waited"
     done
-    mount_mount_data_device $primary_host $res
-    resource_clear_data_device $primary_host $res
-
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
                                      "writer_script" 0 1 $res ""
     sleep 15
-    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
+    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count" \
+                                    $res
     main_error_recovery_functions["lib_rw_stop_scripts"]=
-    sleep 5
-    mount_umount_data_device $primary_host $res
     for host in ${secondary_hosts[@]}; do
         lib_wait_for_secondary_to_become_uptodate_and_cmp_cksums "resource" \
                                                 $host $primary_host \
@@ -670,7 +667,7 @@ function resource_check_replication
     local primary_host=$1 secondary_host=$2 res=$3 debug_msg_prefix="$4"
     local data_dev=$(resource_get_data_device $res)
     lib_vmsg  " ${debug_msg_prefix}check replication, primary=$primary_host, secondary=$secondary_host"
-    marsadm_do_cmd $primary_host "wait-resource" "$res is-device-on" || \
+    marsadm_do_cmd $primary_host "wait-resource" "$res is-device" || \
                                                                     lib_exit 1
     lib_vmsg "  ${debug_msg_prefix}write to $primary_host:$data_dev and log-rotate/delete"
     local count=0 maxcount=3
@@ -802,7 +799,6 @@ function resource_per_resource_emergency
     declare -A writer_script_per_resource
 
     for res in ${resource_name_list[@]}; do
-        mount_mount_data_device $primary_host $res
         resource_reset_emergency_limit $primary_host $res
         lib_rw_start_writing_data_device $primary_host "writer_pid" \
                                          "writer_script" 0 4 $res $res
@@ -820,7 +816,7 @@ function resource_per_resource_emergency
             res=${resource_name_list[$i]}
             lib_rw_stop_writing_data_device $primary_host \
                                         ${writer_script_per_resource[$res]} \
-                                        "write_count"
+                                        "write_count" $res
             resource_check_resource_running $primary_host $secondary_host $res
         done
     else
@@ -1018,10 +1014,8 @@ function resource_check_resource_running
         resource_check_logfile_change $host $primary_host $res
     done
 
-    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
-
-    mount_umount_data_device $primary_host $res
-
+    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count" \
+                                    $res
     lib_wait_for_secondary_to_become_uptodate_and_cmp_cksums "resource" \
                                             $secondary_host $primary_host \
                                             $res $dev 0
@@ -1034,7 +1028,8 @@ function resource_correct_emergency
 
     marsadm_do_cmd $secondary_host "invalidate" $res
 
-    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
+    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count" \
+                                    $res
 
     lib_wait_for_initial_end_of_sync $primary_host $secondary_host $res \
                                   $resource_maxtime_initial_sync \

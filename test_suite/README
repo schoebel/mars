@@ -45,7 +45,7 @@ default-main.conf and the subdirectory scripts.
 You specify your use case of the test suite by creating a subdirectory
 - e.g. my_use_case_dir - of the base directory.
 
-In this subdirectory a file global.conf must be created, containing at lease
+In this subdirectory a file global.conf must be created, containing at least
 the following two variables:
 global_user_dir must be set to .../test_suite/my_use_case_dir
 global_user_module_dir must be set to a subdirectory of global_user_dir.
@@ -329,27 +329,21 @@ To build the mars module and userspace tools you need:
                        variable : make_mars_src_directory
     to be specified in file     : default-make_mars.conf
 
-- a directory containing a git repository which contains the userspace tool
-  marsview
-                       variable : checkout_mars_contrib_src_directory
-    to be specified in file     : default-checkout_mars.conf
-
-- the branch from which to take marsview
-                       variable : checkout_mars_contrib_git_branch
-    to be specified in file     : default-checkout_mars.conf
-
 
 2.2. Configuration of the test hosts on which the tests are running
 -------------------------------------------------------------------
 
 The test hosts are given in global_host_list (global.conf).
+The two values can be overwritten by the environment variables
+MARS_INITIAL_PRIMARY_HOST and MARS_INITIAL_SECONDARY_HOST
 
 2.2.1. Access requirements
 --------------------------
 The tests are executed by ssh commands from your work station to the
 test hosts. These commands must not prompt for a password. Though a
 id file (for ssh -i <id-file>) with null password must be specified in
-main_ssh_idfile_opt (default-main.conf)
+main_ssh_idfile_opt (default-main.conf) or given via the environment variable
+MARS_SSH_KEYFILE
 
 All test hosts must have ssh access to each other without prompt for passwords
 (this is required by marsadm join-cluster).

@@ -50,9 +50,6 @@ function install_mars_fill_userspace_target_dir_list
 {
     install_mars_userspace_target_dir_list=( \
         ["$checkout_mars_src_directory/userspace/marsadm"]="/usr/bin" \
-        ["$install_mars_contrib_src_directory/bin/marsview"]="/usr/bin" \
-        ["$install_mars_contrib_src_directory/lib/MARS/Resource.pm"]="/usr/share/perl5/MARS" \
-        ["$install_mars_contrib_src_directory/lib/MARS.pm"]="/usr/share/perl5" \
                                            )
 }
 

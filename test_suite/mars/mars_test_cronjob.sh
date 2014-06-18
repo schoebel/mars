@@ -34,6 +34,23 @@
 ## directory-2 serves as parameter for option --config_root_dir of start_test.sh
 ##
 # All directory paths are given relative to use_case_dir
+#
+# Emails:
+# An email is sent, if one of the following applies:
+# - a test case fails
+# - an error message is found in 5.mars.total.log
+# - a kernel stack has been created during the test's run time
+# This checks are done by searching for certain patterns in the test case's 
+# outout (e.g. ERROR-IN-LOGFILE).
+#
+#
+# Environment variables:
+# MARS_MAIL_SERVER_AND_PORT = host:port used to send mails
+# MARS_MAIL_TO = "name1@host1,name2@host2" comma separated list of mail
+# MARS_TEST_LOGFILE = file where stdout and stderr are written to. Must be
+#                     set by caller. If not empty it will be attached to
+#                     the emails sent in case of errors.
+# recipients
 
 function myexit
 {
@@ -50,11 +67,14 @@ function execute_tests
     local t rc send_msg=0
     local tmp_file=/tmp/$my_name.$$
     local fail_msg="tests failed on $(hostname) (Script $0):"$'\n'
+    local cmd_prefix_list="perf errorfile error_in_logfile kernel_stack"
     local perf_msg="Performance-Failures:"$'\n'
     local errorfile_msg="Error-Files:"$'\n'
+    local error_in_logfile_msg="Errors-In-Logfile:"$'\n'
     local kernel_stack_msg="Kernel-Stacks:"$'\n'
     local perf_grep_cmd="grep '^ *PERFORMANCE-FAILURE' "$tmp_file
     local errorfile_grep_cmd="grep 'ERROR-FILE' "$tmp_file
+    local error_in_logfile_grep_cmd="grep 'ERROR-IN-LOGFILE' "$tmp_file
     local kernel_stack_grep_cmd="grep 'KERNEL-STACK' "$tmp_file
 
     for t in "${tests_to_execute[@]}"; do
@@ -72,6 +92,7 @@ function execute_tests
                  ;;
         esac
         for s in "${start_dirs[@]}"; do
+            local cmd_prefix
             echo executing test $s
             if [ $dry_run -eq 1 ]; then
                 continue
@@ -83,18 +104,14 @@ function execute_tests
                 fail_msg+="$s"$'\n'
                 send_msg=1
             fi
-            if eval $perf_grep_cmd >/dev/null; then
-                perf_msg+="$s: $(eval $perf_grep_cmd)"$'\n'
-                send_msg=1
-            fi
-            if eval $errorfile_grep_cmd >/dev/null; then
-                errorfile_msg+="$s: $(eval $errorfile_grep_cmd)"$'\n'
-                send_msg=1
-            fi
-            if eval $kernel_stack_grep_cmd >/dev/null; then
-                kernel_stack_msg+="$s: $(eval $kernel_stack_grep_cmd)"$'\n'
-                send_msg=1
-            fi
+            for cmd_prefix in $cmd_prefix_list; do
+                cmd=${cmd_prefix}_grep_cmd
+                if eval ${!cmd} >/dev/null; then
+                    local new_msg="$s: $(eval ${!cmd})"$'\n'
+                    eval ${cmd_prefix}'_msg+="$new_msg"'
+                    send_msg=1
+                fi
+            done
             if [ $rc -ne 0 -a $continue_after_failed_test -eq 0 ];then
                 break
             fi
@@ -102,12 +119,19 @@ function execute_tests
     done
     rm -f $tmp_file
     if [ $send_msg -eq 1 ]; then
-        local to
-        local msg="$fail_msg$perf_msg$errorfile_msg$kernel_stack_msg"$'\n'
-        for to in "${mail_to[@]}"; do
-                sendEmail -m "$msg" -f $mail_from -t $to -u "failed mars tests" -s $mail_server
+        local to cmd_prefix msg attach_opt=""
+        local msg_list="$fail_msg"$'\n'$'\n'
+        for cmd_prefix in $cmd_prefix_list; do
+            msg=${cmd_prefix}_msg
+            msg_list+="${!msg}"$'\n'
         done
-        echo "$msg"
+        if [ -n "$MARS_TEST_LOGFILE" ] && [ -s "$MARS_TEST_LOGFILE" ]; then
+            attach_opt="-a $MARS_TEST_LOGFILE"
+        fi
+        for to in ${mail_to//,/ }; do
+            sendEmail -m "$msg_list" -f $mail_from -t $to -u "failed mars tests" -s $mail_server $attach_opt
+        done
+        echo "$msg_list"
         return 1
     else
         echo all tests passed
@@ -164,15 +188,17 @@ done
 
 echo Start $(basename $0) $test_suite_dir $use_case_dir at $(date)
 
-mail_server=mxintern.schlund.de:587
+mail_server=${MARS_MAIL_SERVER_AND_PORT:-mxintern.schlund.de:587}
 
 mail_from="$0@$(hostname)"
-mail_to=("frank.liepold@1und1.de")
+mail_to=${MARS_MAIL_TO:-"frank.liepold@1und1.de"}
 
 
 start_script=$test_suite_dir/scripts/start_test.sh
 
 # For documentation see header of this file
+
+# These are all tests existing so far.
 tests_to_execute=(
 "build_test_environment/checkout/checkout_mars_from_git:build_test_environment"
 "build_test_environment/make/make_mars/grub:build_test_environment"
@@ -206,6 +232,51 @@ tests_to_execute=(
 "test_cases/perf:"
 )
 
+# Here we omit three test cases:
+#
+# build_test_environment/checkout/checkout_mars_from_git:build_test_environment
+# build_test_environment/make/make_mars/grub:build_test_environment
+# build_test_environment/install_mars/install_via_rsync:build_test_environment
+#
+# because in most cases you will want to test an already installed kernel and
+# mars module
+#
+# The following test cases which try to achieve assertions with respect to
+# performance are omitted, too:
+#
+# test_cases/perf
+#
+# The reason is, that the network throughput of our test environment varies
+# too heavily to get reliable results. In a sufficently stable network
+# environment the tests might be useful
+
+tests_to_execute=(
+"build_test_environment/lv_config/lv_recreate:build_test_environment"
+"build_test_environment/cluster/create_cluster:build_test_environment"
+"build_test_environment/resource/create_resource:build_test_environment"
+"test_cases/admin/leave_and_recreate_resource:test_cases"
+"test_cases/admin/leave_and_create_standalone_resource:test_cases"
+"test_cases/admin/replay_fetch/replay:test_cases"
+"test_cases/admin/replay_fetch/fetch:test_cases"
+"test_cases/hardcore/destroy_secondary_logfile:test_cases"
+"test_cases/admin/multi_res_sync_sequence:test_cases"
+"test_cases/admin/resizing:test_cases"
+"test_cases/admin/logrotate:test_cases"
+"test_cases/admin/logdelete:test_cases"
+"test_cases/admin/syslog_messages:test_cases"
+"test_cases/bugs/memleak:test_cases"
+"test_cases/admin/leave_resource_while_sync*:test_cases"
+"test_cases/admin/switch2primary:test_cases"
+"test_cases/admin/switch2primary_force*:test_cases"
+"test_cases/admin/datadev_full:test_cases"
+"test_cases/hardcore/mars_dir_full*:test_cases"
+"test_cases/stabil/net_failure/connection_cut:test_cases"
+"test_cases/stabil/crash/crash_primary:test_cases"
+"test_cases/stabil/crash/crash_primary_logger_completion_semantics__aio_sync_mode:test_cases"
+"test_cases/stabil/crash/crash_primary_logger_completion_semantics:test_cases"
+"test_cases/stabil/crash/crash_primary_aio_sync_mode:test_cases"
+"test_cases/bugs/aio_filehandle:test_cases"
+)
 set_env
 
 execute_tests

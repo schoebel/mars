@@ -127,7 +127,7 @@ function marsadm_check_post_condition_role_switch
     local res=${cmd_args[0]}
     local role_act ls_returncode_req ls_returncode_act maxcount=5 count=0
     case $role_req in # (((
-        primary) marsadm_do_cmd $host "wait-resource" "$res is-device-on" || lib_exit 1
+        primary) marsadm_do_cmd $host "wait-resource" "$res is-device" || lib_exit 1
                  ls_returncode_req=0
               ;;
         secondary) marsadm_do_cmd $host "wait-resource" "$res is-device-off" || lib_exit 1

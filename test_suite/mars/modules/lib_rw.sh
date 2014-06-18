@@ -111,6 +111,8 @@ function lib_rw_start_writing_data_device
     [ $# -eq 7 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local host=$1 varname_pid=$2 varname_script=$3 no_of_loops=$4 sleeptime=$5
     local res=$6 postfix_script_name="$7"
+    mount_mount_data_device $host $res
+    resource_clear_data_device $host $res
     lib_rw_write_and_delete_loop $host \
                  $(resource_get_mountpoint $res)/$lib_rw_file_to_write \
                  $(lv_config_get_lv_size_from_name ${resource_name_list[0]}) \
@@ -121,8 +123,10 @@ function lib_rw_start_writing_data_device
 
 function lib_rw_stop_writing_data_device
 {
-    local host=$1 script=$2 varname_write_count=$3
+    [ $# -eq 4 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    local host=$1 script=$2 varname_write_count=$3 res=$4
     lib_rw_stop_one_script $host $script $varname_write_count
+    mount_umount_data_device $host $res
 }
 
 function lib_rw_cksum

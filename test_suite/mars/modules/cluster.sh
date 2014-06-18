@@ -239,7 +239,7 @@ function cluster_create_debugfiles
 {
     local host=$1
     lib_vmsg "  creating debugfile $lib_err_total_log_file"
-    lib_remote_idfile $host "touch $lib_err_total_log_file" || lib_exit 1
+    lib_remote_idfile $host "> $lib_err_total_log_file" || lib_exit 1
 }
 
 function cluster_remove_debugfiles

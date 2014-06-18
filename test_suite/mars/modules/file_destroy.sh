@@ -35,10 +35,6 @@ function file_destroy_run
     lib_vmsg "  ${FUNCNAME[0]}: sync time: $time_waited"
 
 
-    mount_mount_data_device $primary_host $res
-    resource_clear_data_device $primary_host $res
-
-
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
                                      "writer_script" 0 2 $res ""
 
@@ -46,7 +42,8 @@ function file_destroy_run
 
     file_destroy_sleep $file_destroy_duration_of_writer_after_secondary_down
 
-    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
+    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count" \
+                                    $res
     main_error_recovery_functions["lib_rw_stop_scripts"]=
 
     lib_wait_until_fetch_stops "file_destroy" $secondary_host $primary_host \
@@ -107,6 +104,10 @@ function file_destroy_dd_on_logfile
     local host=$1 logfile=$2 length=$3
     local patch_length=$file_destroy_patch_length
     local offset=$(($length - $patch_length))
+    if [ $offset -lt 0 ]; then
+        offset=0
+        patch_length=$length
+    fi
     lib_vmsg " patching the last $patch_length bytes in $host:$logfile"
     lib_remote_idfile $host "printf '%.${patch_length}d' | dd of=$logfile bs=1 conv=notrunc count=$patch_length seek=$offset" || lib_exit 1
 }

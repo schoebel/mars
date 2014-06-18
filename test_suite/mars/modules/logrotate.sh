@@ -25,23 +25,15 @@ function logrotate_run
     local dev=$(lv_config_get_lv_device $res)
     local writer_pid writer_script write_count
 
-    mount_mount_data_device $primary_host $res
-    resource_clear_data_device $primary_host $res
-
-
     lib_rw_start_writing_data_device $primary_host "writer_pid" \
                                      "writer_script" 0 0 $res ""
 
     logrotate_loop $primary_host $res $logrotate_number_of_rotate_loops \
                    $logrotate_sleep_time_between_rotates
 
-    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
+    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count" \
+                                    $res
     main_error_recovery_functions["lib_rw_stop_scripts"]=
-
-    logrotate_wait_for_umount_data_device $primary_host $dev \
-                                          $(resource_get_mountpoint $res) \
-                                          $logrotate_maxtime_state_constant
-
 
     marsview_wait_for_state $secondary_host $res "disk" "Uptodate" \
                             $logrotate_maxtime_state_constant || lib_exit 1
@@ -50,29 +42,6 @@ function logrotate_run
                             $logrotate_maxtime_state_constant || lib_exit 1
 
     lib_rw_compare_checksums $primary_host $secondary_host $res 0 "" ""
-}
-
-function logrotate_wait_for_umount_data_device
-{
-    local host=$1 dev=$2 mount_point=$3 maxwait=$4
-    local waited=0 rc
-    while true; do
-        mount_umount $primary_host $dev $(resource_get_mountpoint $res)
-        rc=$?
-        if [ $rc -eq 0 ]; then
-            break
-        fi
-        sleep 1
-        let waited+=1
-        lib_vmsg "  waited $waited for unmount $mount_point ($dev) on $host"
-        if [ $(($waited % 5)) -eq 0 ]; then
-            lib_vmsg "  printing link tree on $host"
-            lib_linktree_print_linktree $host
-        fi
-        if [ $waited -ge $maxwait ]; then
-            lib_exit 1 "maxtime $maxwait exceeded"
-        fi
-    done
 }
 
 function logrotate_loop

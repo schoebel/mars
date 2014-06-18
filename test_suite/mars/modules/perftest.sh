@@ -36,7 +36,6 @@ function perftest_run
 
     perftest_check_variables
 
-    cluster_remove_debugfiles $primary_host
     cluster_create_debugfiles $primary_host
 
     perftest_prepare_${perftest_action} $primary_host $secondary_host $res \
@@ -182,12 +181,12 @@ function perftest_do_write
                                      "writer_script" 0 0 $res ""
     lib_vmsg "  sleep $perftest_write_time"
     sleep $perftest_write_time
-    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count"
+    lib_rw_stop_writing_data_device $primary_host $writer_script "write_count" \
+                                    $res
     main_error_recovery_functions["lib_rw_stop_scripts"]=
     writer_rate=$(perftest_get_rate_per_minute $writer_start $(date +'%s') \
                                                $write_count)
     main_error_recovery_functions["lib_rw_stop_scripts"]=
-    mount_umount_data_device_all
     lib_vmsg "  ${FUNCNAME[0]}: do_write rate: $writer_rate"
     perftest_check_result $writer_rate $primary_host "write" $parallel_writer \
                           $result_type $no_resources \
@@ -227,7 +226,6 @@ function perftest_start_parallel_writer
     [ $# -eq 5 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local host=$1 varname_writer_start=$2 varname_writer_pid=$3
     local varname_writer_script=$4 res=$5
-    mount_mount_data_device $host $res
     eval $varname_writer_start=$(date +'%s')
     lib_rw_start_writing_data_device $host $varname_writer_pid \
                                      $varname_writer_script 0 0 $res ""
@@ -235,13 +233,13 @@ function perftest_start_parallel_writer
 
 function perftest_finish_parallel_writer
 {
-    [ $# -eq 6 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
+    [ $# -eq 7 ] || lib_exit 1 "wrong number $# of arguments (args = $*)"
     local host=$1 writer_script=$2 writer_start=$3
-    local action=$4 no_resources=$5 subcase_id="$6"
+    local action=$4 no_resources=$5 subcase_id="$6" res=$7
     local write_count writer_rate
     local caller="${BASH_SOURCE[1]}:${FUNCNAME[1]}:${BASH_LINENO[0]}"
 
-    lib_rw_stop_writing_data_device $host $writer_script "write_count"
+    lib_rw_stop_writing_data_device $host $writer_script "write_count" $res
     main_error_recovery_functions["lib_rw_stop_scripts"]=
     writer_rate=$(perftest_get_rate_per_minute $writer_start $(date +'%s') \
                                                $write_count)
@@ -250,7 +248,6 @@ function perftest_finish_parallel_writer
     perftest_check_result $writer_rate $host write_while_$action 0 \
                           "loops_per_min" $no_resources "$subcase_id" -1
 
-    mount_umount_data_device_all
 }
 
 function perftest_via_mars_sync
@@ -283,7 +280,7 @@ function perftest_via_mars_sync
     if [ $parallel_writer -eq 1 ]; then
         perftest_finish_parallel_writer $primary_host $writer_script \
                                         $writer_start $perftest_action \
-                                        $no_resources "$subcase_id"
+                                        $no_resources "$subcase_id" $res
         lib_vmsg "  recreating all resources"
         resource_recreate_all
         
@@ -429,7 +426,8 @@ function perftest_do_replay
     if [ $parallel_writer -eq 1 ]; then
         perftest_finish_parallel_writer $primary_host $writer_script \
                                         $writer_start $perftest_action \
-                                        $no_resources $perftest_logfile_size_in_gb
+                                        $no_resources \
+                                        $perftest_logfile_size_in_gb $res
     fi
 }
 
@@ -437,7 +435,6 @@ function perftest_prepare_resource
 {
     local res=$1 secondary_host=$2
     resource_mount_mars_and_rm_resource_dir_all $res
-    cluster_remove_debugfiles $secondary_host
     cluster_create_debugfiles $secondary_host
     resource_run_first
     marsview_wait_for_state $secondary_host $res "disk" "Uptodate" \
@@ -558,9 +555,10 @@ function perftest_do_fetch_or_fetch_and_replay
                                           $perftest_maxtime_fetch 1 \
                                           "net_throughput"
         if [ $perftest_action = "fetch_and_replay" ]; then
-            lib_wait_until_replay_has_reached_length $secondary_host $res  $last_logfile_primary \
-                                                    $last_logfile_length_primary \
-                                                    $perftest_wait_for_replay_to_stop_after_fetch_end
+            lib_wait_until_replay_has_reached_length $secondary_host $res \
+                            $last_logfile_primary \
+                            $last_logfile_length_primary \
+                            $perftest_wait_for_replay_to_stop_after_fetch_end
         fi
 
     fi
@@ -574,7 +572,8 @@ function perftest_do_fetch_or_fetch_and_replay
     if [ $parallel_writer -eq 1 ]; then
         perftest_finish_parallel_writer $primary_host $writer_script \
                                         $writer_start $perftest_action \
-                                        $no_resources $perftest_logfile_size_in_gb
+                                        $no_resources \
+                                        $perftest_logfile_size_in_gb $res
     fi
 }
 
@@ -728,8 +727,6 @@ function perftest_prepare_write
                                                                 || lib_exit 1
 
     perftest_prepare_resource $res $secondary_host
-    mount_mount_data_device $primary_host $res
-    resource_clear_data_device $primary_host $res
     if [ $perftest_division_mars_device_data_device -eq 1 ]; then
         perftest_switch_bbu_cache $primary_host
     fi

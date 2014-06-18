@@ -1,0 +1,324 @@
+%TOC% 
+#ChapterZero
+---++ 0. License
+This document including all attachments is under GNU FDL. 
+
+#ChapterOne
+---++ 1. Objects and relationships
+
+%IMAGE{"schulung.png" size="1000"}%
+
+#ChapterTwo
+---++ 2. Establishing a replication
+   * Create a cluster for hosts host_1 and host_2 (mars module must not be loaded)
+      * For all hosts do: 
+         * Create a partition for /mars. Minimum 100 GB. Computation base is the write traffic of *all* resources on the host.%BR%Example: Write traffic per resource: 3GB / 10min, 3 resources on the host => given a size of 108 GB /mars will run out of space after 2 hours if the primary <-> secondary connection is cut and therefore no logfiles can be deleted.
+         * Create an ext4 filesystem on the partition and mount it on /mars 
+      * On host_1: <verbatim>marsadm create-cluster</verbatim> 
+      * On host_2: <verbatim>marsadm join-cluster host_1</verbatim>
+   * For all hosts do: =modprobe mars=
+   * Create and join resources res_1, res_2, res_3:
+      * Start with the primaries:
+         * On host_1: <verbatim>marsadm create-resource res_1 /dev/vg-mars/dev_1</verbatim> <verbatim>marsadm create-resource res_3 /dev/vg-mars/dev_3</verbatim>
+         * On host_2:  <verbatim>marsadm create-resource res_2 /dev/vg-mars/dev_2</verbatim> 
+      * Now the mars devices /dev/mars/<resource-name> appears on the hosts and you can treat them as "ordinary" devices (mkfs, mount, read, write, ...). %BR% The name of a resource's underlying device can be shown by <verbatim>marsadm view-get-disk <resource-name>|all</verbatim> The name of the mars device on a primary can be shown by <verbatim>marsadm view-get-device <resource-name>|all</verbatim> 
+      * Join the secondaries (the underlying devices /dev/vg-mars/dev_1 on host_1 and host_2 may have different sizes, but then you must give a size as argument to marsadm {create,join}-resource, see the [[#ChapterThirteen][mars manual]]):
+         * On host_2: <verbatim>marsadm join-resource res_1 /dev/vg-mars/dev_1</verbatim>   <verbatim>marsadm join-resource res_3 /dev/vg-mars/dev_3</verbatim>
+         * On host_1: <verbatim>marsadm join-resource res_2 /dev/vg-mars/dev_2</verbatim> 
+      * After you have joined a resource, the device on the secondary is synced. You can watch the progress of the sync with the command:<verbatim>marsadm view-1and1 <resource-name>|all</verbatim> on the secondary host or more specific: <verbatim>marsadm view-sync-line-1and1 <resource-name>|all</verbatim> The role of a host with resp. to a resource can be shown with:  <verbatim>marsadm view-role-1and1 <resource-name>|all</verbatim>
+
+#ChapterThree
+---++ 3. Processes
+%IMAGE{"processes.png" size="1000"}%
+
+After the initial synchronzation of the secondary with the primary the data written on the mars device /dev/mars/<resource-name> of a primary is at first written to sequential logfiles (residing in primary's directory /mars/resource-<resource-name>/) and then copied to the primary's underlying device. The secondary fetches the primary's logfiles in it's /mars/resource-<resource-name>/ directory and then copies the data to it's underlying device. %BR%
+We distinguish the following subprocesses of a replication:
+
+   * Sync: Synchronizes the underlying device of the secondary with the data of the underlying device of the primary. Triggered by: <verbatim>marsadm invalidate <resource-name></verbatim> <verbatim>marsadm join-resource <resource-name> /dev/...</verbatim> During sync the data on the secondary's underlying device is inconsistent, i.e. unusable.
+   * Fetch: The process which fetches the logfiles from the primary to the secondary.
+   * Replay: The process which writes the logfile data to the underlying device.
+
+#ChapterFour
+---++ 4. Process state
+Mars works asynchronously. This means that each of the processes mentioned above does it's job without waiting for the others.%BR% Examples:
+   * An application may write on the mars device on the primary (process 1) thereby filling the logfiles (process 2) independent from the process (the replay (process 3)) which writes the logfile data to the underlying device. If there is a gap between the writer and the replay (which occurs very rarely) this can be shown with <verbatim>marsadm view-1and1 <resource-name>|all</verbatim> or more specific <verbatim>marsadm view-replay-line-1and1 <resource-name>|all</verbatim> or if you are interested in numbers given in bytes  <verbatim>marsadm view-replay-rest <resource-name>|all</verbatim>
+   * If the network connection between primary and secondary is slow the fetch process (process 4) lags behind, i.e. there are more logfile data on the primary than on the secondary. Replacing "replay" with "fetch" in the commands given above shows the relevant information for the fetch process.
+   * As you already guessed probably: The sync process can be watched by replacing "replay" with "sync" in the mentioned commands.
+
+#ChapterFive
+---++ 5. Disk and replication state
+   * <verbatim>marsadm view-diskstate-1and1 <resource-name>|all</verbatim> shows the disk state. Possible values:
+      * =Uptodate= , i.e. fetch-rest = replay-rest = 0 (please accept little discrepancies of some Bytes, if all processes (fetch, replay) are currently working)
+      * =Outdated[X]= , where X in {F,R,FR}, i.e. the disk contains valid (consistent) data, but is outdated because fetch-rest > 0 (X = F), replay-rest >0 (X = R), both > 0 (X = FR)
+      * =Inconsistent= , i.e. the disk does not contain valid data - happens after  <verbatim>marsadm join-resource <resource-name></verbatim> and <verbatim>marsadm invalidate <resource-name>|all</verbatim>
+      * =Detached=, i.e. the connection is temporarily interrupted between mars and the underlying device and none of the processes {sync, fetch, replay} is running any more. Happens *before* <verbatim>marsadm create-resource <resource-name></verbatim> or <verbatim>marsadm join-resource <resource-name></verbatim> and *after* <verbatim>marsadm down <resource-name>|all</verbatim>
+   * <verbatim>marsadm view-replstate-1and1 <resource-name>|all</verbatim> shows the replication state. Possible values:
+      * =Replicating= (only on primary), =Replaying= (only on secondary), i.e. the fetch and replay processes are running and working if there is work to do 
+      * =PausedReplay= (only on secondary), i.e. one of the processes fetch or replay has been stopped (e.g. with the command <verbatim>marsadm pause-replay <resource-name>|all</verbatim> )
+      * =Syncing= (only on secondary), i.e. the sync process is running.
+      * =NotJoined= , i.e. the resource exists but there is no underlying device (technically: the directory /mars/resource-<resource-name> exists but there is no connection with a device). Happens after <verbatim>marsadm leave-resource <resource-name>|all</verbatim>
+      * =PrimaryUnreachable= (only on secondary), i.e. there is no connection between the mars modules on the primary and the secondary host (in most cases this should be the result of a network failure)
+   * <verbatim>marsadm view-flags-1and1</verbatim> shows in compacted form which processes are running (i.e. not switched to pause). Possible values:
+      * =-SFR-=, if all three processes (Sync, Fetch, Replay) are running. If e.g. fetch is paused, this leads to the value "--FR-".
+   * <verbatim>marsadm view-role-1and1 <resource-name>|all</verbatim> shows the role of the host on which the command is executed. Possible values: "Primary", "Secondary".
+   * <verbatim>marsadm view-primarynode-1and1 <resource-name>|all</verbatim> shows the hostname of the actual primary.
+   * <verbatim>marsadm view-1and1 <resource-name>|all</verbatim> combines process state information, disk state information and replication information. The process state information, i.e. how much work is to do for {sync,fetch,replay} is only displayed if there is work to do.
+
+#ChapterSix
+---++ 6. marsadm view-1and1 <resource-name>|all
+This tool shows all informations usually needed. Example output of <verbatim>marsadm view-1and1 all</verbatim> for the first resource lv-1-2 on the secondary: 
+<verbatim>
+  lv-1-2 Outdated[FR] Replaying -SFR- Secondary istore-test-bap4
+     replaying: [==============>...]  77.23%  (3328/4330)MiB  logs: [30..33]
+       > fetch: 770 MiB rate: 51628 KiB/sec  remaining: 00:00:15 hrs
+       > replay: 233 MiB rate: 6996 KiB/sec  remaining: 00:00:34 hrs
+</verbatim>
+
+The first line consists of: resource name, diskstate, replication state, state flags, role, hostname of primary %BR%
+The following lines only appear if there is work to do. %BR%
+Second line: 3328 = position of the replay process (replay-pos), 4330 = target of the replay process (fetch-size)%BR%
+Third line: 770 = logfile data not yet fetched from the primary (fetch-rest)%BR%
+Fourth line: 233 = amount of data from replay-pos to end of already fetched data (fetch-pos).
+
+%IMAGE{"size_pos_rest.png" size="800"}%
+
+While syncing two further lines are added to the output of marsadm view-1and1: 
+<verbatim>
+  lv-1-2 Inconsistent Syncing -SFR- Secondary istore-test-bap4
+     syncing: [=>.................]  14.68%  (747/5120)MiB  rate: 105.31 MiB/sec  remaining: 00:00:41 hrs
+       > sync: 747.898/5120 MiB rate: 105.315 MiB/sec  remaining: 00:00:41 hrs
+     replaying: [>:::::::::::::::::::]  0.00%  (0/4330)MiB  logs: [33..33]
+       > fetch: 0 B rate: 52770 KiB/sec  remaining: 00:00:00 hrs
+       > replay: 4330.935 MiB rate: 0 B/sec  remaining: --:--:-- hrs
+</verbatim>
+
+Second line: 747 = already synched (sync-pos), 5120 = amount to sync (sync-size) = size of underlying device (if you did not specify another size within marsadm create-resource)%BR%
+
+For all the processes (sync,fetch,replay) and the fields (size,pos,rest) you can query the values with <verbatim>marsadm view-<process>-<field> <resource-name>|all</verbatim> , e.g. <verbatim>marsadm view-fetch-size lv-1-2</verbatim>
+
+#ChapterSeven
+---++ 7. Administration
+
+#ChapterSevenOne
+---+++ 7.1. Pausing and resuming processes
+Each of the processes (sync,fetch,replay) can be paused and resumed with 
+<verbatim>
+marsadm pause-<process> <resource-name>|all
+marsadm resume-<process> <resource-name>|all 
+</verbatim>
+
+#ChapterSevenTwo
+---+++ 7.2. Switching to new logfiles and removing old logfile data
+Logfiles whose data has been already applied by the secondary can be deleted. Of course a new logfile must have been initialized.%BR%
+   * initializing a new logfile works on primary only, but does not cause any damages if called on a secondary:<verbatim>marsadm log-rotate <resource-name>|all</verbatim> The kernel rotates automatically if the actual logfile's size exceeds 32GB. You can change this temporarily e.g. to 3GB with (but this has to be repeated after every reboot): <verbatim> echo 3 > /proc/sys/mars/logrot_auto_gb </verbatim> or persistent at compile time: <verbatim>CONFIG_MARS_LOGROT_AUTO=3</verbatim>
+   * removes all fully applied logfiles:<verbatim>marsadm log-delete-all <resource-name>|all</verbatim>
+The both commands should be called by a cronjob (log-delete-all on primary *and* secondary, log-rotate only on primary). We recommend, that the single logfiles should not exceed a few GB, in particular if there is more than one resource on a host otherwise you risk /mars running out of space.
+
+#ChapterSevenThree
+---+++ 7.3. Increasing the data device /dev/mars/<resource-name>
+At the moment mars only supports increasing the data device size. This can be done while the replication is running. If you need to shrink the data device size please refer to 7.3.2 below.
+   * increase the underlying devices on primary and secondary (e.g. lvresize ...)
+   * pause the sync process on primary and secondary: <verbatim>marsadm pause-sync <resource-name>|all</verbatim>
+   * increase the logical (= used) size of the data device on the primary (e.g. to 700 GB): <verbatim>marsadm resize <resource-name> 700G</verbatim>
+   * extend the filesystem on the data device /dev/mars/<resource-name> on the primary (e.g. xfs_growfs /dev/mars/res_1)
+   * restart the sync process on primary and secondary: <verbatim>marsadm pause-sync <resource-name>|all</verbatim>
+
+#ChapterSevenFour
+---+++ 7.4. Changing the underlying device
+#ChapterSevenFourOne
+---++++ 7.4.1. Changing the underlying device on the primary
+If possible make the secondary the primary (see [[#ChapterSevenFive][7.5.]]) and proceed with [[#ChapterSevenFourTwo][7.4.2.]]%BR%
+Only if this is not possible continue as follows. We recommend to create a new resource with another name. However it's possible to keep the old name, if you proceed as follows:
+   * on the primary:
+      * umount the data device /dev/mars/<resource-name>
+      * <verbatim>marsadm secondary <resource-name></verbatim>
+   * on the secondary:
+      * to pause all processes (sync,fetch,replay) and sets the diskstate to Detached: <verbatim>marsadm down <resource-name></verbatim> 
+      * to cut phyical and logical connection between the resource and the underlying device: <verbatim>marsadm leave-resource <resource-name></verbatim>
+   * on the primary:
+      * <verbatim>marsadm down <resource-name></verbatim>
+      * <verbatim>marsadm leave-resource <resource-name></verbatim>
+      * <verbatim>marsadm delete-resource <resource-name></verbatim>
+      * <verbatim>marsadm create-resource <resource-name> /dev/<new-device></verbatim>
+   * on the secondary: <verbatim>marsadm join-resource <resource-name> /dev/<...></verbatim>
+#ChapterSevenFourTwo
+---++++ 7.4.2. Changing the underlying device on the secondary
+Just do only the steps done on the secondary in the preceeding case "Changing the underlying device on the primary".
+
+#ChapterSevenFive
+---+++ 7.5. Make a secondary the primary
+   * umount the data device /dev/mars/<resource-name> on the old primary
+   * on the new primary: <verbatim>marsadm primary <resource-name></verbatim>  This command waits until all processes (sync,fetch,replay) are idle, switches the old primary to secondary and the old secondary to primary. The replication is now running in the other direction.
+
+#ChapterSevenSix
+---+++ 7.6. Increasing /mars
+Having enough space on /mars is crucial for the replication, because the logfiles reside in /mars. "Disk full" in /mars means the loss of the backup, but *not* the crash of applications writing and reading from /dev/mars/<resource-name> (see [[#ChapterEight][8.]]). There are two ways to watch the available space in /mars:%BR%
+
+   * In KB: <verbatim> cat /proc/sys/mars/remaining_space_kb</verbatim>
+   * In GB: <verbatim> marsadm view-rest-space</verbatim>
+You should *not* use the "Avail" column of =df /mars= , because this value does not respect certain impacts needed for the free space calulation of mars.
+Increasing /mars can be done by the habitual tools while the replication is running. It's a must to monitor the free space on /mars and to alarm if it's becoming low.
+
+#ChapterEight
+---++ 8. Emergency mode (/mars threatens to run out of space)
+For a extensive description please refer to the [[#ChapterThirteen][mars manual]]. %BR% Emergency mode for a resource means, that no new logfiles are created. A resource is entering emergency mode if the free space on /mars runs below the global limit /proc/sys/mars/required_free_space_1_gb or below a resource specific limit.%BR% Write and read access to the data device /dev/mars/<resource-name> is still possible without any restrictions, but all data written to the data device after having entered emergency mode will not be transfered to the secondary, i.e. the secondary contains old but nevertheless valid and consistent data. %BR% If /mars threatens to run out of space and you cannot increase /mars you have the following possibilities:
+
+   * <verbatim>marsadm log-delete-all all</verbatim>
+   * throtte the write rate to /mars by setting the throttle parameters (see [[#ChapterTenOne][10.1.]]). But be aware that this reduces the write performance of all resources.
+   * put selected resources to emergency mode as follows, where percentage > available free space in percent:
+      * <verbatim>marsadm emergency-limit <resource-name> percentage</verbatim> Example:%BR% Assume /mars has a size of 200G, =cat /proc/sys/mars/remaining_space_kb= gives 150000 (KB!), than you can put a resource to emergency mode with a percentage > 100 * 150/200 = 75.
+   * you can set the emergence mode levels of all resources in advance as follows, where percentage is the required free space on /mars below which the resource enters emergency mode: <verbatim>marsadm emergency-limit <resource-name> percentage</verbatim> This ensures, that not all resources are put to emergency mode on the same time and gives you the chance, that you must invalidate only a few resources (see [[#ChapterEight][8.]]).
+
+#ChapterEightOne
+---+++ 8.1. Leaving emergency mode
+If a resource enters emergency mode and continues running an error message is generated (see also [[#ChapterNineThree][9.3.]]) and all calls to marsadm produce a warning "SPLIT BRAIN ... detected ...". This is the most harmless kind of split brain an can resolved as follows - for a detailed explanation of split brain and it's general resolution see [[#ChapterNine][9.]]. To leave emergency mode you have to do:
+   * free space on /mars. If more free space is available as indicated in /proc/sys/mars/required_free_space_1_gb all resources without specific limits or with small enough specific limits continue normal working, i.e. produce logfiles.
+   * on the secondaries:
+      * <verbatim>marsadm invalidate <resource-name></verbatim>
+      * <verbatim>marsadm log-delete-all <resource-name></verbatim>
+It may happen, that on the primary <verbatim>marsadm view-1and1 <resource-name></verbatim> still indicates an error message "... stopped transaction logging".  But the time stamp of this message should be outdated an you can get rid of the message by removing the file /mars/resource-<resouce-name>/3.error.status. See also [[#ChapterNineThree][9.3.]].
+
+#ChapterNine
+---++ 9. Resolution of split brain and other errors
+Split brain means that there is not any more a "path" of contiguous logfile data from the replay pos of the secondary to the replay pos of the primary, so that the replay process on the secondary cannot achieve uptodate data by replaying the existing logfiles. This may happen due to holes in the logfile sequence (e.g. caused by emergency mode) or forced switches of a secondary to primary. The forced switch (done by <verbatim>marsadm --force primary <resource-name></verbatim> ) might be necessary if the normal method (see [[#ChapterSevenFive][7.5.]]) fails due to any errors.
+Split brain is indicated by a corresponding warning in the output of <verbatim>marsadm view-1and1 <resource-name>|all</verbatim> It can be queried explicitly with <verbatim>marsadm view-is-split-brain <resource-name>|all</verbatim>
+Split brain resolution consists of two steps: Make the new primary (which may be the old one) work and then join the new secondary (which may be the old one, too).
+
+#ChapterNineOne
+---+++ 9.1. Making the new primary work
+After the decision which of the involved hosts should become primary, proceed as follows:
+%IMAGE{"split_brain.png" size="1000"}%
+
+#ChapterNineTwo
+---+++ 9.2. Join the new secondary
+After the following commands executed on the new secondary, the replication should work again:
+   * <verbatim>marsadm --force log-purge-all <resource-name></verbatim>
+   * <verbatim>marsadm --force join-resource <resource-name> /dev/...</verbatim>
+
+#ChapterNineThree
+---+++ 9.3. Last resort
+If a resource cannot be recreated as described under "Recreation of resource" in the picture in section 9.1., you can do the following:
+   *  for all resources where the host is primary and the data device is mounted: <verbatim>unmount /dev/mars/...</verbatim>
+   * (attention: this stops replication on *all* resources on the host): <verbatim>rmmod mars </verbatim>
+   * <verbatim>rm -rf /mars/resource-<resource-name></verbatim>
+   * <verbatim>modprobe mars</verbatim>
+Now you can join or create the resource with marsadm create-resource or join-resource. The already existing resources running before the rmmod restart automatically.
+
+#ChapterNineFour
+---+++ 9.4. Checking for errors
+Every call of marsadm view-1and1 <resource-name>|all prints a message, if there error has ocurred. You can explizitly check for errors with <verbatim> marsadm view-get-resource-err <resource-name>|all </verbatim>
+As already mentioned, the last error remains visible as long as the file /mars/resource-<resource-name>/3.error.status exists. It must be removed manually.%BR%
+In chapter 4.4.1.2. of the [[#ChapterThirteen][mars manual]] you find a extensive description how error, warning and other messages are "syslogged".
+
+#ChapterTen
+---++ 10. Tuning parameters
+#ChapterTenOne
+---+++ 10.1. Throttling write rate to /mars
+This is extensive described in Chapter 3.4.1.3. of the [[#ChapterThirteen][mars manual]]. %BR%
+Throttling is an emergency exit to avoid "/mars full" if there is a longer lasting disbalance between data written on the primary and data transfered to the secondary (e.g. due to a network bottleneck). Here is a short example. Assume the following values in the /proc/sys/mars - files:
+<verbatim>
+/proc/sys/mars/write_throttle_start 70
+/proc/sys/mars/write_throttle_end 95
+/proc/sys/mars/write_throttle_limit_kb 5000
+</verbatim>
+This means: If less than 70% of /mars are occupied, throttling does not occur. Beyond 70% throttling starts by slowing down write requests having sizes >= 1024KB (this value can be watched in /proc/sys/mars/write_throttle_size_threshold_kb). This "throttle size" decreases linearly down to 1KB between 70% and 95%. Beyond 95% all requests >= 1KB are slowed down *and* the write rate to the data device of these requests (requests of < 1KB are in general not the cause of extremly high write rates) is shrinked to a maximum of 5000 KB / sec. So the value 5000 KB should represent the lowest everyday transfer rate from the primary to the secondary. Be aware that throttling concern *all* resources on the host. Think of putting selected resource to emergency mode instead (see [[#ChapterEight][8.]]).
+
+Hint: With cgroups you can achieve throttling, too. I tested it very superficially on a 3.2. kernel with 
+<verbatim>
+echo "148:0 256" > /cgroup/<my_very_very_slow_writer_group>/blkio.throttle.write_bps_device
+</verbatim>
+where 148:0 is major:minor number of /dev/mars/... %BR%
+Before you try this in a production environment you *must* perform serious tests yourself. The advantage in comparison with the mars parameters mentioned above is that you can throttle selected resources but of course you must put the application processes into the respective cgroups yourself.    
+
+#ChapterTenTwo
+---+++ 10.2. Sync priorities of resources
+If you have to invalidate or (re-)join one or more resources mars starts all sync processes parallel. While sync is running, the diskstate is inconsistent, meaning the data is not usable. So in some situations it may be preferable to specify a order in which the resources should be synced and to limit the number of parallel running sync processes. This can be done by <verbatim>marsadm set-sync-pref-list <resource-name-1>,<resource-name-2>,...,<resource-name-3></verbatim> The actual sync order can be queried by <verbatim>marsadm set-sync-pref-list</verbatim> You can limit the number of parallel running syncs with <verbatim>echo <max_nr_of_parallel_running_syncs> > /proc/sys/mars/sync_limit</verbatim> E.g. if you set /proc/sys/mars/sync_limit to 1 one resource after the other will be synced. This may be useful if for example the first resource is the one for which you need redundancy urgently.
+
+#ChapterTenThree
+---+++ 10.3. Keeping logfiles in the page cache
+There are scenarios where it may be useful to increase the duration of keeping logfiles cached. This can be done by <verbatim> echo <time_in_seconds> > /proc/sys/mars/mapfree_period_sec </verbatim> Before you do this it's necessary to understand which data are cached.%BR%
+On the primary the following logfile data are cached:
+
+   * all logfile data lying behind the replay link up to the end of the actually written logfile. %BR% The amount of cached data is limited by /proc/sys/mars/mem_limit_percent, which contains the percentage of main memory which may be used for this cache. %BR% If the size of the data between the replay link and the end of the actually written logfile threatens to exceed this limit writing of new logfile data is slowed down (which means that write access of applications writing to /dev/mars/... is slowed down).
+   * the logfile (at least parts of it), which is actually fetched from the secondary 
+
+On the primary the following inequalities hold:
+
+   * logfile_number(replay link) <= logfile_number(actually written logfile)
+   * logfile_number(act. transfered logfile) <= logfile_number(actually written logfile)
+
+On the secondary the following logfile data are cached:
+
+   *  the logfile (at least parts of it), which is actually fetched from the primary
+   *  the logfile (at least parts of it) which the replay link points to
+
+On the secondary the following inequality holds:
+
+   *  logfile_number(replay link) <= logfile_number(act. fetched logfile)
+
+Hence in the worst case a logfile can be read one time from disk on the primary if it is fetched from the secondary and one time on the secondary if the replay link reaches the logfile.
+
+Reading from disk can be avoided by setting mapfree_period_sec but only if the closed logfiles are not thrown out of the page cache by other processes on the system.
+
+Example 1 (primary):
+<verbatim>
+logfile_number of act. written logfile: 10
+logfile_number of replay link: 7
+logfile_number of act. transfered logfile: 3
+</verbatim>
+Then you could execute:
+<verbatim>
+echo <time to fetch 4 logfiles> > /proc/sys/mars/mapfree_period_sec
+</verbatim>
+Remember that all logfiles between replay link and the end of the act. written logfile are always kept in memory by mars. Hence only the gap between actually fetched logfile and replay link is relevant.
+
+Example 2 (secondary):
+<verbatim>
+logfile_number of act. fetched logfile: 7
+logfile_number of replay link: 3
+</verbatim>
+Then you could execute:
+<verbatim>
+echo <time to replay 4 logfiles> > /proc/sys/mars/mapfree_period_sec
+</verbatim>
+*BUT*: All these recommendations are only valid, if the used gaps (in example 1 between transferred logfile and replay link and in example 2 between replay link and fetched logfile) remain constant or decrease and there's no shortage on free memory on the system.
+
+#ChapterTenFour
+---+++ 10.4. Reduce network traffic
+If you want to reduce the network traffic rate (for whatever reasons) you can do it with the following command, executed on the secondary:
+<verbatim>
+echo <positive integer number> >/proc/sys/mars/copy_read_max_fly
+</verbatim>
+This reduces the total network traffic rate, i.e all sync and fetch processes of all resources. You *must* watch the effect by starting for example <verbatim>dstat -n</verbatim> in another window to get a sense of which number fits for your purpose.
+
+#ChapterEleven
+---++ 11. mars and cluster manager
+#ChapterTwelve
+Here you find the most important cluster manager commands incl. some help for problems MarsTroubleshooting.
+---++ 12. Checklist for admins
+   * cronjobs for log-rotate (if you didn't compile a suitable logfile size into the kernel, see [[#ChapterSevenTwo][7.2]])
+   * cronjob for log-delete
+   * cronjobs to monitor free space on /mars
+   * cronjobs to monitor error messages
+
+#ChapterThirteen
+---++ 13. Link to mars manual
+https://github.com/schoebel/mars/blob/master/docu/mars-manual.pdf
+
+#ChapterFourteen
+---++ 14. Bug reports
+MarsSubmittingBugReports
+
+#ChapterFifteen
+---++ 15. Feature requests
+MarsSubmittingFeatureRequests
+
+#ChapterSixteen
+---++ 16. DTAQ (during trainings asked questions)
+MarsQuestionsDuringTrainings
+
+#ChapterSeventeen
+---++ 17. Sources of this document
+All sources of this document can be found in the mars git repository in the subdirectory docu or one of it's subdirectories:
+   * the *.odg open office files which the *.png files are generated from
+   * mars_training_wiki.txt which contains the plain text which this wiki document is generated from
