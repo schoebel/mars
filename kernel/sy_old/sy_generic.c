@@ -534,6 +534,7 @@ struct mars_cookie {
 	struct mars_dent *parent;
 	int allocsize;
 	int depth;
+	bool hit;
 };
 
 static
@@ -654,6 +655,9 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 
 	MARS_IO("ino = %llu len = %d offset = %lld type = %u\n", ino, namlen, offset, d_type);
 
+
+	cookie->hit = true;
+
 	if (name[0] == '.') {
 		return 0;
 	}
@@ -757,10 +761,15 @@ static int _mars_readdir(struct mars_cookie *cookie)
 	}
 
 	for (;;) {
+		cookie->hit = false;
 		status = vfs_readdir(f, mars_filler, cookie);
 		MARS_IO("vfs_readdir() status = %d\n", status);
-		if (status <= 0)
+		if (!cookie->hit)
 			break;
+		if (unlikely(status < 0)) {
+			MARS_ERR("readdir() on path='%s' status=%d\n", cookie->path, status);
+			break;
+		}
 	}
 
 	filp_close(f, NULL);
