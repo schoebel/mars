@@ -34,7 +34,7 @@ int report_timing(struct timing_stats *tim, char *str, int maxlen)
 	int len = 0;
 	int time = 1;
 	int resol = 1;
-	static const char *units[] = {
+	static const char * const units[] = {
 		"us",
 		"ms",
 		"s",
