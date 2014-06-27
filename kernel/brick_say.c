@@ -133,12 +133,14 @@ static DECLARE_WAIT_QUEUE_HEAD(say_event);
 
 bool say_dirty = false;
 
+#define use_atomic()							\
+	((preempt_count() & (PREEMPT_MASK | SOFTIRQ_MASK | HARDIRQ_MASK | NMI_MASK)) != 0 || irqs_disabled())
+
 static
 void wait_channel(struct say_channel *ch, int class)
 {
 	if (delay_say_on_overflow && ch->ch_index[class] > SAY_BUF_LIMIT) {
-		bool use_atomic = (preempt_count() & (SOFTIRQ_MASK | HARDIRQ_MASK | NMI_MASK)) != 0 || in_atomic() || irqs_disabled();
-		if (!use_atomic) {
+		if (!use_atomic()) {
 			say_dirty = true;
 			wake_up_interruptible(&say_event);
 			wait_event_interruptible_timeout(ch->ch_progress, ch->ch_index[class] < SAY_BUF_LIMIT, HZ / 10);
@@ -341,8 +343,7 @@ struct say_channel *_make_channel(const char *name, bool must_exist)
 	struct say_channel *res = NULL;
 	struct kstat kstat = {};
 	int i, j;
-	bool use_atomic = (preempt_count() & (SOFTIRQ_MASK | HARDIRQ_MASK | NMI_MASK)) != 0 || in_atomic() || irqs_disabled();
-	unsigned long mode = use_atomic ? GFP_ATOMIC : GFP_BRICK;
+	unsigned long mode = use_atomic() ? GFP_ATOMIC : GFP_BRICK;
 	mm_segment_t oldfs;
 	bool is_dir = false;
 	int status;
