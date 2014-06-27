@@ -623,7 +623,10 @@ void try_open_file(struct file **file, char *filename, bool creat)
 	*file = filp_open(filename, flags, prot);
 	if (unlikely(IS_ERR(*file))) {
 		*file = NULL;
-	} else if ((mapping = (*file)->f_mapping)) {
+		return;
+	}
+	mapping = (*file)->f_mapping;
+	if (likely(mapping)) {
 		mapping_set_gfp_mask(mapping, mapping_gfp_mask(mapping) & ~(__GFP_IO | __GFP_FS));
 	}
 }
