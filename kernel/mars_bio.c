@@ -380,25 +380,34 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref, bool cork)
 
 	rw = mref->ref_rw & 1;
 	if (brick->do_noidle && !cork) {
+//      remove_this
 // adapt to different kernel versions (TBD: improve)
 #if defined(BIO_RW_RQ_MASK) || defined(BIO_FLUSH)
 		rw |= (1 << BIO_RW_NOIDLE);
 #elif defined(REQ_NOIDLE)
+//      end_remove_this
 		rw |= REQ_NOIDLE;
+//      remove_this
 #else
 #warning Cannot control the NOIDLE flag
 #endif
+//      end_remove_this
 	}
 	if (!mref->ref_skip_sync) {
 		if (brick->do_sync) {
+//      remove_this
 #if defined(BIO_RW_RQ_MASK) || defined(BIO_FLUSH)
 			rw |= (1 << BIO_RW_SYNCIO);
 #elif defined(REQ_SYNC)
+//      end_remove_this
 			rw |= REQ_SYNC;
+//      remove_this
 #else
 #warning Cannot control the SYNC flag
 #endif
+//      end_remove_this
 		}
+//      remove_this
 #if defined(BIO_RW_RQ_MASK) || defined(BIO_FLUSH)
 		if (brick->do_unplug && !cork) {
 			rw |= (1 << BIO_RW_UNPLUG);
@@ -406,6 +415,7 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref, bool cork)
 #else
 		// there is no substitute, but the above NOIDLE should do the job (CHECK!)
 #endif
+//      end_remove_this
 	}
 
 	mref_a->start_stamp = cpu_clock(raw_smp_processor_id());
