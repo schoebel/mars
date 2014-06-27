@@ -191,7 +191,7 @@ struct generic_aspect_context {
 #define _mref_free(mref)						\
 	({								\
 		if (likely(mref)) {					\
-			generic_free((struct generic_object*)(mref));	\
+			generic_free((struct generic_object *)(mref));	\
 		}							\
 	})
 
@@ -224,19 +224,23 @@ struct callback_object {
 /* Initial setup of the callback chain
  */
 #define _SETUP_CALLBACK(obj,fn,priv)					\
+do {									\
 	(obj)->_object_cb.cb_fn = (fn);					\
 	(obj)->_object_cb.cb_private = (priv);				\
 	(obj)->_object_cb.cb_error = 0;					\
 	(obj)->_object_cb.cb_next = NULL;				\
 	(obj)->object_cb = &(obj)->_object_cb;				\
+} while (0)
 
 #ifdef BRICK_DEBUGGING
 #define SETUP_CALLBACK(obj,fn,priv)					\
+do {									\
 	if (unlikely((obj)->_object_cb.cb_fn)) {			\
 		BRICK_ERR("callback function %p is already installed (new=%p)\n", \
 			  (obj)->_object_cb.cb_fn, (fn));		\
 	}								\
-	_SETUP_CALLBACK(obj,fn,priv)
+	_SETUP_CALLBACK(obj,fn,priv)					\
+} while (0)
 #else
 #define SETUP_CALLBACK(obj,fn,priv) _SETUP_CALLBACK(obj,fn,priv)
 #endif
@@ -244,21 +248,27 @@ struct callback_object {
 /* Insert a new member into the callback chain
  */
 #define _INSERT_CALLBACK(obj,new,fn,priv)				\
+do {									\
 	if (likely(!(new)->cb_fn)) {					\
 		(new)->cb_fn = (fn);					\
 		(new)->cb_private = (priv);				\
 		(new)->cb_error = 0;					\
 		(new)->cb_next = (obj)->object_cb;			\
 		(obj)->object_cb = (new);				\
-	}
+	}								\
+} while (0)
 
 #ifdef BRICK_DEBUGGING
 #define INSERT_CALLBACK(obj,new,fn,priv)				\
+do {									\
 	if (unlikely(!(obj)->_object_cb.cb_fn)) {			\
 		BRICK_ERR("initical callback function is missing\n");	\
 	}								\
-	_INSERT_CALLBACK(obj,new,fn,priv)				\
-	else { BRICK_ERR("new object %p is not pristine\n", (new)->cb_fn); }
+	if (unlikely((new)->cb_fn)) {					\
+		BRICK_ERR("new object %p is not pristine\n", (new)->cb_fn); \
+	}								\
+	_INSERT_CALLBACK(obj,new,fn,priv);				\
+} while (0)
 #else
 #define INSERT_CALLBACK(obj,new,fn,priv) _INSERT_CALLBACK(obj,new,fn,priv)
 #endif
@@ -266,6 +276,7 @@ struct callback_object {
 /* Call the first callback in the chain.
  */
 #define SIMPLE_CALLBACK(obj,err)					\
+do {									\
 	if (likely(obj)) {						\
 		struct generic_callback *__cb = (obj)->object_cb;	\
 		if (likely(__cb)) {					\
@@ -276,39 +287,40 @@ struct callback_object {
 		}							\
 	} else {							\
 		BRICK_ERR("callback obj pointer is NULL\n");		\
-	}
+	}								\
+} while (0)
 
 #define CHECKED_CALLBACK(obj,err,done)					\
-	{								\
-		struct generic_callback *__cb;				\
-		CHECK_PTR(obj, done);					\
-		__cb = (obj)->object_cb;				\
-		CHECK_PTR_NULL(__cb, done);				\
-		__cb->cb_error = (err);					\
-		__cb->cb_fn(__cb);					\
-	}
+do {									\
+	struct generic_callback *__cb;					\
+	CHECK_PTR(obj, done);						\
+	__cb = (obj)->object_cb;					\
+	CHECK_PTR_NULL(__cb, done);					\
+	__cb->cb_error = (err);						\
+	__cb->cb_fn(__cb);						\
+} while (0)
 
 /* An intermediate callback handler must call this
  * to continue the callback chain.
  */
 #define NEXT_CHECKED_CALLBACK(cb,done)					\
-	{								\
-		struct generic_callback *__next_cb = (cb)->cb_next;	\
-		CHECK_PTR_NULL(__next_cb, done);			\
-		__next_cb->cb_error = (cb)->cb_error;			\
-		__next_cb->cb_fn(__next_cb);				\
-	}
+do {									\
+	struct generic_callback *__next_cb = (cb)->cb_next;		\
+	CHECK_PTR_NULL(__next_cb, done);				\
+	__next_cb->cb_error = (cb)->cb_error;				\
+	__next_cb->cb_fn(__next_cb);					\
+} while (0)
 
 /* The last callback handler in the chain should call this
  * for checking whether the end of the chain has been reached
  */
 #define LAST_CALLBACK(cb)						\
-	{								\
-		struct generic_callback *__next_cb = (cb)->cb_next;	\
-		if (unlikely(__next_cb)) {				\
-			BRICK_ERR("end of callback chain %p has not been reached, rest = %p\n", (cb), __next_cb); \
-		}							\
-	}
+do {									\
+	struct generic_callback *__next_cb = (cb)->cb_next;		\
+	if (unlikely(__next_cb)) {					\
+		BRICK_ERR("end of callback chain %p has not been reached, rest = %p\n", (cb), __next_cb); \
+	}								\
+} while (0)
 
 /* Query the callback status.
  * This uses always the first member of the chain!
@@ -510,14 +522,14 @@ extern inline int BRITYPE##_register_brick_type(void)		        \
 		BRICK_ERR("brick type " #BRITYPE " is already registered.\n"); \
 		return -EEXIST;						\
 	}								\
-	BRITYPE##_brick_nr = generic_register_brick_type((const struct generic_brick_type*)&BRITYPE##_brick_type); \
+	BRITYPE##_brick_nr = generic_register_brick_type((const struct generic_brick_type *)&BRITYPE##_brick_type); \
 	return BRITYPE##_brick_nr < 0 ? BRITYPE##_brick_nr : 0;		\
 }									\
 									\
 extern inline int BRITYPE##_unregister_brick_type(void)		        \
 {									\
 	extern const struct BRITYPE##_brick_type BRITYPE##_brick_type;	\
-	return generic_unregister_brick_type((const struct generic_brick_type*)&BRITYPE##_brick_type); \
+	return generic_unregister_brick_type((const struct generic_brick_type *)&BRITYPE##_brick_type); \
 }									\
 									\
 extern const struct BRITYPE##_brick_type BRITYPE##_brick_type;	        \
@@ -535,7 +547,7 @@ extern struct generic_aspect *generic_get_aspect(struct generic_brick *brick, st
 #define DECLARE_OBJECT_FUNCTIONS(OBJTYPE)				\
 extern inline struct OBJTYPE##_object *alloc_##OBJTYPE(struct generic_object_layout *layout) \
 {									\
-        return (void*)generic_alloc(layout, &OBJTYPE##_type);		\
+        return (void *)generic_alloc(layout, &OBJTYPE##_type);		\
 }
 
 #define DECLARE_ASPECT_FUNCTIONS(BRITYPE,OBJTYPE)			\
@@ -547,7 +559,7 @@ extern inline struct OBJTYPE##_object *BRITYPE##_alloc_##OBJTYPE(struct BRITYPE#
 									\
 extern inline struct BRITYPE##_##OBJTYPE##_aspect *BRITYPE##_##OBJTYPE##_get_aspect(struct BRITYPE##_brick *brick, struct OBJTYPE##_object *obj) \
 {									\
-        return (void*)generic_get_aspect((struct generic_brick*)brick, (struct generic_object*)obj); \
+        return (void *)generic_get_aspect((struct generic_brick *)brick, (struct generic_object *)obj); \
 }									\
 									\
 
