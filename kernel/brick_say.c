@@ -656,17 +656,36 @@ void reset_flood(void)
 }
 
 static
+void printk_with_class(int class, char *buf)
+{
+	switch (class) {
+	case SAY_INFO:
+		printk(KERN_INFO "%s", buf);
+		break;
+	case SAY_WARN:
+		printk(KERN_WARNING "%s", buf);
+		break;
+	case SAY_ERROR:
+	case SAY_FATAL:
+		printk(KERN_ERR "%s", buf);
+		break;
+	default:
+		printk(KERN_DEBUG "%s", buf);
+	}
+}
+
+static
 void out_to_syslog(int class, char *buf, int len)
 {
 	reset_flood();
 	if (class >= brick_say_syslog_min && class <= brick_say_syslog_max) {
 		buf[len] = '\0';
-		printk("%s", buf);
+		printk_with_class(class, buf);
 	} else if (class >= brick_say_syslog_flood_class && brick_say_syslog_flood_class >= 0 && class != SAY_TOTAL) {
 		flood_start_jiffies = jiffies;
 		if (++flood_count <= brick_say_syslog_flood_limit) {
 			buf[len] = '\0';
-			printk("%s", buf);
+			printk_with_class(class, buf);
 		}
 	}
 }
