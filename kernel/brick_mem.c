@@ -67,7 +67,9 @@
 		struct timespec _s_now = CURRENT_TIME;			\
 		struct timespec _l_now;					\
 		get_lamport(&_l_now);					\
-		say(_class, _BRICK_FMT(_fmt, _class), ##_args); if (_dump) dump_stack(); \
+		say(_class, _BRICK_FMT(_fmt, _class), ##_args);		\
+		if (_dump)						\
+			dump_stack();					\
 	} while (0)
 
 #define BRICK_ERR(_fmt, _args...) _BRICK_MSG(SAY_ERROR, true,  _fmt, ##_args)
