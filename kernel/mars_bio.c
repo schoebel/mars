@@ -246,13 +246,16 @@ static int bio_get_info(struct bio_output *output, struct mars_info *info)
 {
 	struct bio_brick *brick = output->brick;
 	struct inode *inode;
-	int status = 0;
+	int status = -ENOENT;
+
 
 	if (unlikely(!brick->mf ||
 		     !brick->mf->mf_filp ||
-		     !brick->mf->mf_filp->f_mapping ||
-		     !(inode = brick->mf->mf_filp->f_mapping->host))) {
-		status = -ENOENT;
+		     !brick->mf->mf_filp->f_mapping)) {
+		goto done;
+	}
+	inode = brick->mf->mf_filp->f_mapping->host;
+	if (unlikely(!inode)) {
 		goto done;
 	}
 
@@ -261,6 +264,7 @@ static int bio_get_info(struct bio_output *output, struct mars_info *info)
 	brick->total_size = i_size_read(inode);
 	info->current_size = brick->total_size;
 	MARS_DBG("determined device size = %lld\n", info->current_size);
+	status = 0;
 
 done:
 	return status;
@@ -679,18 +683,20 @@ static int bio_switch(struct bio_brick *brick)
 			const char *path = brick->brick_path;
 			int flags = O_RDWR | O_EXCL | O_LARGEFILE;
 			struct address_space *mapping;
-			struct inode *inode;
+			struct inode *inode = NULL;
 			struct request_queue *q;
 
 			brick->mf = mapfree_get(path, flags);
-			if (unlikely(!brick->mf)) {
+			if (unlikely(!brick->mf || !brick->mf->mf_filp)) {
 				status = -ENOENT;
 				MARS_ERR("cannot open file '%s'\n", path);
 				goto done;
 			}
 			mapfree_pages(brick->mf, -1);
-			if (unlikely(!(mapping = brick->mf->mf_filp->f_mapping) ||
-				     !(inode = mapping->host))) {
+			mapping = brick->mf->mf_filp->f_mapping;
+			if (likely(mapping))
+				inode = mapping->host;
+			if (unlikely(!mapping || !inode)) {
 				MARS_ERR("internal problem with '%s'\n", path);
 				status = -EINVAL;
 				goto done;
