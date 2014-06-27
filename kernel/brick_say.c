@@ -328,8 +328,8 @@ void _del_channel(struct say_channel *ch)
 		}
 	}
 	if (ch->ch_name) {
-		kfree(ch->ch_name);
 		atomic_dec(&say_alloc_names);
+		kfree(ch->ch_name);
 	}
 	kfree(ch);
 	atomic_dec(&say_alloc_channels);
