@@ -182,7 +182,7 @@ EXPORT_SYMBOL_GPL(generic_disconnect);
 int _brick_msleep(int msecs, bool shorten)
 {
 	unsigned long timeout;
-	flush_signals(current);			\
+	flush_signals(current);
 	if (msecs <= 0) {
 		schedule();
 		return 0;
@@ -679,7 +679,8 @@ EXPORT_SYMBOL_GPL(generic_get_aspect);
 void set_button(struct generic_switch *sw, bool val, bool force)
 {
 	bool oldval = sw->button;
-	if ((sw->force_off |= force))
+	sw->force_off |= force;
+	if (sw->force_off)
 		val = false;
 	if (val != oldval) {
 		sw->button = val;
