@@ -39,8 +39,9 @@ void exit_logst(struct log_status *logst)
 	int count = 0;
 	log_flush(logst);
 	while (atomic_read(&logst->mref_flying) > 0) {
-		if (!count++)
+		if (!count++) {
 			MARS_DBG("waiting for IO terminating...");
+		}
 		brick_msleep(500);
 	}
 	if (logst->read_mref) {
@@ -476,7 +477,8 @@ restart:
 
 done:
 	if (status == -ENODATA) {
-		status = 0; // indicates EOF
+		// indicate EOF
+		status = 0;
 	}
 	return status;
 
