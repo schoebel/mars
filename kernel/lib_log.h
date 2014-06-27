@@ -96,13 +96,13 @@ struct log_header_v1 {
 // TODO: make this bytesex-aware.
 #define DATA_PUT(data,offset,val)				\
 	do {							\
-		*((typeof(val)*)((data)+offset)) = val;		\
+		*((typeof(val) *)((data)+offset)) = val;		\
 		offset += sizeof(val);				\
 	} while (0)
 
 #define DATA_GET(data,offset,val)				\
 	do {							\
-		val = *((typeof(val)*)((data)+offset));		\
+		val = *((typeof(val) *)((data)+offset));		\
 		offset += sizeof(val);				\
 	} while (0)
 
@@ -216,7 +216,7 @@ int log_scan(void *buf, int len, loff_t file_pos, int file_offset, bool sloppy, 
 		if (lh->l_crc) {
 			unsigned char checksum[mars_digest_size];
 			mars_digest(checksum, buf + found_offset, lh->l_len);
-			if (unlikely(*(int*)checksum != lh->l_crc)) {
+			if (unlikely(*(int *)checksum != lh->l_crc)) {
 				MARS_ERR(SCAN_TXT "data checksumming mismatch, length = %d\n", SCAN_PAR, lh->l_len);
 				return -EBADMSG;
 			}
