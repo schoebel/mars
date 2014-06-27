@@ -242,8 +242,8 @@ done:
 static
 int _set_server_sio_params(struct mars_brick *_brick, void *private)
 {
-	struct sio_brick *sio_brick = (void*)_brick;
-	if (_brick->type != (void*)_sio_brick_type) {
+	struct sio_brick *sio_brick = (void *)_brick;
+	if (_brick->type != (void *)_sio_brick_type) {
 		MARS_ERR("bad brick type\n");
 		return -EINVAL;
 	}
@@ -258,13 +258,13 @@ int _set_server_sio_params(struct mars_brick *_brick, void *private)
 static
 int _set_server_aio_params(struct mars_brick *_brick, void *private)
 {
-	struct aio_brick *aio_brick = (void*)_brick;
+	struct aio_brick *aio_brick = (void *)_brick;
 //      remove_this
-	if (_brick->type == (void*)_sio_brick_type) {
+	if (_brick->type == (void *)_sio_brick_type) {
 		return _set_server_sio_params(_brick, private);
 	}
 //      end_remove_this
-	if (_brick->type != (void*)_aio_brick_type) {
+	if (_brick->type != (void *)_aio_brick_type) {
 		MARS_ERR("bad brick type\n");
 		return -EINVAL;
 	}
@@ -290,11 +290,11 @@ int _set_server_bio_params(struct mars_brick *_brick, void *private)
 	if (_brick->type == (void *)_sio_brick_type) {
 		return _set_server_sio_params(_brick, private);
 	}
-	if (_brick->type != (void*)_bio_brick_type) {
+	if (_brick->type != (void *)_bio_brick_type) {
 		MARS_ERR("bad brick type\n");
 		return -EINVAL;
 	}
-	bio_brick = (void*)_brick;
+	bio_brick = (void *)_brick;
 	bio_brick->ra_pages = 0;
 	bio_brick->do_noidle = true;
 	bio_brick->do_sync = true;
@@ -455,14 +455,14 @@ int handler_thread(void *data)
 				_set_server_bio_params,
 				NULL,
 				path,
-				(const struct generic_brick_type*)_bio_brick_type,
-				(const struct generic_brick_type*[]){},
+				(const struct generic_brick_type *)_bio_brick_type,
+				(const struct generic_brick_type *[]){},
 				2, // start always
 				path,
 				(const char *[]){},
 				0);
 			if (likely(prev)) {
-				status = generic_connect((void*)brick->inputs[0], (void*)prev->outputs[0]);
+				status = generic_connect((void *)brick->inputs[0], (void *)prev->outputs[0]);
 				if (unlikely(status < 0)) {
 					MARS_ERR("#%d cannot connect to '%s'\n", sock->s_debug_nr, path);
 				}
@@ -564,7 +564,7 @@ static int server_switch(struct server_brick *brick)
 			goto err;
 		}
 
-		mars_power_led_off((void*)brick, false);
+		mars_power_led_off((void *)brick, false);
 
 		brick->version = version++;
 		brick->handler_thread = brick_thread_create(handler_thread, brick, "mars_handler%d", brick->version);
@@ -574,10 +574,10 @@ static int server_switch(struct server_brick *brick)
 			goto err;
 		}
 
-		mars_power_led_on((void*)brick, true);
+		mars_power_led_on((void *)brick, true);
 	} else if (!brick->power.led_off) {
 		struct task_struct *thread;
-		mars_power_led_on((void*)brick, false);
+		mars_power_led_on((void *)brick, false);
 
 		mars_shutdown_socket(sock);
 
@@ -592,11 +592,11 @@ static int server_switch(struct server_brick *brick)
 		mars_put_socket(sock);
 		MARS_DBG("#%d socket s_count = %d\n", sock->s_debug_nr, atomic_read(&sock->s_count));
 
-		mars_power_led_off((void*)brick, true);
+		mars_power_led_off((void *)brick, true);
 	}
  err:
 	if (unlikely(status < 0)) {
-		mars_power_led_off((void*)brick, true);
+		mars_power_led_off((void *)brick, true);
 		mars_shutdown_socket(sock);
 		mars_put_socket(sock);
 	}
@@ -631,14 +631,14 @@ void server_reset_statistics(struct server_brick *brick)
 
 static int server_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
-	struct server_mref_aspect *ini = (void*)_ini;
+	struct server_mref_aspect *ini = (void *)_ini;
 	INIT_LIST_HEAD(&ini->cb_head);
 	return 0;
 }
 
 static void server_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
-	struct server_mref_aspect *ini = (void*)_ini;
+	struct server_mref_aspect *ini = (void *)_ini;
 	CHECK_HEAD_EMPTY(&ini->cb_head);
 }
 
@@ -782,7 +782,7 @@ static int _server_thread(void *data)
 
 		MARS_DBG("got new connection #%d\n", handler_socket.s_debug_nr);
 
-		brick = (void*)mars_make_brick(&server_global, NULL, &server_brick_type, "handler", "handler");
+		brick = (void *)mars_make_brick(&server_global, NULL, &server_brick_type, "handler", "handler");
 		if (!brick) {
 			MARS_ERR("cannot create server instance\n");
 			mars_shutdown_socket(&handler_socket);
@@ -816,7 +816,7 @@ static int _server_thread(void *data)
 		if (brick) {
 			mars_shutdown_socket(&brick->handler_socket);
 			mars_put_socket(&brick->handler_socket);
-			status = mars_kill_brick((void*)brick);
+			status = mars_kill_brick((void *)brick);
 			if (status < 0) {
 				BRICK_ERR("kill status = %d, giving up\n", status);
 			}
