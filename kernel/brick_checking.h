@@ -38,7 +38,7 @@
 do {									\
 	if (BRICK_CHECKING) {						\
 		int __test = atomic_read(atom);				\
-		if (unlikely(__test OP (minval))) {			\
+		if (unlikely(__test OP(minval))) {			\
 			atomic_set(atom, minval);			\
 			BRICK_ERR("%d: atomic " #atom " " #OP " " #minval " (%d)\n", __LINE__, __test); \
 		}							\
@@ -91,11 +91,11 @@ do {									\
 #endif
 
 #define CHECK_ASPECT(a_ptr, o_ptr,label)				\
-  do {								        \
-	  if (BRICK_CHECKING && unlikely((a_ptr)->object != o_ptr)) {	\
-		  BRICK_FAT("%d: aspect pointer '" #a_ptr "' (%p) belongs to object %p, not to " #o_ptr " (%p)\n", __LINE__, a_ptr, (a_ptr)->object, o_ptr); \
-		  goto label;						\
-	  }								\
+do {								        \
+	if (BRICK_CHECKING && unlikely((a_ptr)->object != o_ptr)) {	\
+		BRICK_FAT("%d: aspect pointer '" #a_ptr "' (%p) belongs to object %p, not to " #o_ptr " (%p)\n", __LINE__, a_ptr, (a_ptr)->object, o_ptr); \
+		goto label;						\
+	}								\
 } while (0)
 
 #define _CHECK(ptr,label)						\
