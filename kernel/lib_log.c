@@ -36,8 +36,11 @@ EXPORT_SYMBOL_GPL(global_mref_flying);
 
 void exit_logst(struct log_status *logst)
 {
-	int count = 0;
+	int count;
 	log_flush(logst);
+
+	// TODO: replace by event
+	count = 0;
 	while (atomic_read(&logst->mref_flying) > 0) {
 		if (!count++) {
 			MARS_DBG("waiting for IO terminating...");
