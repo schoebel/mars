@@ -24,12 +24,10 @@
 // (c) 2012 Thomas Schoebel-Theuer
 
 //#define BRICK_DEBUGGING
-//#define MARS_DEBUGGING
 
 #include <linux/kernel.h>
 #include <linux/module.h>
 
-#include "mars.h"
 #include "lib_rank.h"
 
 void ranking_compute(struct rank_data *rkd, const struct rank_info rki[], int x)
