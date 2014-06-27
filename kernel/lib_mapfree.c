@@ -56,7 +56,11 @@ void mapfree_pages(struct mapfree_info *mf, int grace_keep)
 
 	if (unlikely(!mf))
 	    goto done;
-	if (unlikely(!mf->mf_filp || !(mapping = mf->mf_filp->f_mapping)))
+	if (unlikely(!mf->mf_filp))
+		goto done;
+
+	mapping = mf->mf_filp->f_mapping;
+	if (unlikely(!mapping))
 		goto done;
 
 	if (grace_keep < 0) { // force full flush
@@ -154,7 +158,7 @@ struct mapfree_info *mapfree_get(const char *name, int flags)
 
 	for (;;) {
 		struct address_space *mapping;
-		struct inode *inode;
+		struct inode *inode = NULL;
 		int ra = 1;
 		int prot = 0600;
 		mm_segment_t oldfs;
@@ -186,8 +190,10 @@ struct mapfree_info *mapfree_get(const char *name, int flags)
 			break;
 		}
 
-		if (unlikely(!(mapping = mf->mf_filp->f_mapping) ||
-			     !(inode = mapping->host))) {
+		mapping = mf->mf_filp->f_mapping;
+		if (likely(mapping))
+			inode = mapping->host;
+		if (unlikely(!mapping || !inode)) {
 			MARS_ERR("file '%s' has no mapping\n", name);
 			mf->mf_filp = NULL;
 			_mapfree_put(mf);
