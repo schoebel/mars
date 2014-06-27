@@ -1014,13 +1014,13 @@ int dent_compare(struct mars_dent *a, struct mars_dent *b)
 		return -1;
 	}
 	if (a->d_class > b->d_class) {
-		return +1;
+		return 1;
 	}
 	if (a->d_serial < b->d_serial) {
 		return -1;
 	}
 	if (a->d_serial > b->d_serial) {
-		return +1;
+		return 1;
 	}
 	return strcmp(a->d_path, b->d_path);
 }
@@ -1148,7 +1148,8 @@ static int _mars_readdir(struct mars_cookie *cookie)
 	if (unlikely(IS_ERR(f))) {
 		return PTR_ERR(f);
 	}
-	if ((mapping = f->f_mapping)) {
+	mapping = f->f_mapping;
+	if (mapping) {
 		mapping_set_gfp_mask(mapping, mapping_gfp_mask(mapping) & ~(__GFP_IO | __GFP_FS));
 	}
 
