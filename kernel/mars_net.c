@@ -293,8 +293,8 @@ int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec)
 		/*empty*/;
 	if (*tmp_spec) {
 		int port = 0;
-		status = sscanf(tmp_spec, "%d", &port);
-		if (status != 1) {
+		status = kstrtoint(tmp_spec, 10, &port);
+		if (unlikely(status)) {
 			MARS_ERR("invalid sockaddr PORT syntax '%s', status = %d\n", tmp_spec, status);
 			status = -EINVAL;
 			goto done;
