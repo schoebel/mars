@@ -91,7 +91,7 @@ int trigger_sysctl_handler(
 			len = 7;
 		if (!copy_from_user(tmp, buffer, len)) {
 			int code = 0;
-			int status = sscanf(tmp, "%d", &code);
+			int status = kstrtoint(tmp, 10, &code);
 			/* the return value from ssanf() does not matter */
 			(void)status;
 			if (code > 0) {
