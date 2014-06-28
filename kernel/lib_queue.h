@@ -44,6 +44,7 @@
 	long long q_last_insert; /* jiffies */				\
 	KEYTYPE heap_margin;						\
 	KEYTYPE last_pos;						\
+	/* this comment is for keeping TRAILING_SEMICOLON happy */
 
 #define QUEUE_FUNCTIONS(PREFIX,ELEM_TYPE,HEAD,KEYFN,KEYCMP,HEAPTYPE)	\
 									\

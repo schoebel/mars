@@ -91,6 +91,7 @@ struct generic_aspect;
 	int  aspect_size;						\
         int  (*init_fn)(struct OBJTYPE##_aspect *ini);			\
         void (*exit_fn)(struct OBJTYPE##_aspect *ini);			\
+	/* this comment is for keeping TRAILING_SEMICOLON happy */
 
 struct generic_aspect_type {
 	GENERIC_ASPECT_TYPE(generic);
@@ -104,6 +105,7 @@ struct generic_aspect_type {
 	int object_type_nr;						\
         int  (*init_fn)(struct OBJTYPE##_object *ini);			\
         void (*exit_fn)(struct OBJTYPE##_object *ini);			\
+	/* this comment is for keeping TRAILING_SEMICOLON happy */
 
 struct generic_object_type {
 	GENERIC_OBJECT_TYPE(generic);
@@ -116,6 +118,7 @@ struct generic_object_type {
 	atomic_t aspect_count;						\
 	atomic_t total_alloc_count;					\
 	atomic_t total_aspect_count;					\
+	/* this comment is for keeping TRAILING_SEMICOLON happy */
 
 struct generic_object_layout {
 	GENERIC_OBJECT_LAYOUT(generic);
@@ -133,7 +136,7 @@ struct generic_object_layout {
 	int aspect_nr_max;						\
 	int free_offset;						\
 	int max_offset;							\
-	
+	/* this comment is for keeping TRAILING_SEMICOLON happy */
 
 struct generic_object {
 	GENERIC_OBJECT(generic);
@@ -145,6 +148,7 @@ struct generic_object {
 	const struct generic_aspect_type *aspect_type;			\
 	/* private */							\
 	bool shortcut;							\
+	/* this comment is for keeping TRAILING_SEMICOLON happy */
 
 struct generic_aspect {
 	GENERIC_ASPECT(generic);
@@ -153,6 +157,7 @@ struct generic_aspect {
 #define GENERIC_ASPECT_CONTEXT(OBJTYPE)					\
 	/* private (for any layer) */					\
 	int brick_index; /* globally unique */                          \
+	/* this comment is for keeping TRAILING_SEMICOLON happy */
 
 struct generic_aspect_context {
 	GENERIC_ASPECT_CONTEXT(generic);
@@ -206,6 +211,7 @@ struct generic_aspect_context {
 	int    cb_error;						\
 	/* private */							\
 	struct generic_callback *cb_next;				\
+	/* this comment is for keeping TRAILING_SEMICOLON happy */
 
 struct generic_callback {
 	GENERIC_CALLBACK(generic);
@@ -216,6 +222,7 @@ struct generic_callback {
 	/* private, access by macros */					\
 	struct generic_callback *object_cb;				\
 	struct generic_callback _object_cb;				\
+	/* this comment is for keeping TRAILING_SEMICOLON happy */
 
 struct callback_object {
 	CALLBACK_OBJECT(generic);
@@ -364,6 +371,7 @@ struct generic_switch {
 	struct generic_aspect_context aspect_context;			\
 	int (*free)(struct BRITYPE##_brick *del);			\
 	struct list_head tmp_head;					\
+	/* this comment is for keeping TRAILING_SEMICOLON happy */
 
 struct generic_brick {
 	GENERIC_BRICK(generic);
@@ -376,6 +384,7 @@ struct generic_brick {
 	/* private (for any layer) */					\
 	struct BRITYPE##_output *connect;				\
 	struct list_head input_head;					\
+	/* this comment is for keeping TRAILING_SEMICOLON happy */
 	
 struct generic_input {
 	GENERIC_INPUT(generic);
@@ -389,7 +398,8 @@ struct generic_input {
 	struct BRITYPE##_output_ops *ops;				\
 	struct list_head output_head;					\
 	int nr_connected;						\
-	
+	/* this comment is for keeping TRAILING_SEMICOLON happy */
+
 struct generic_output {
 	GENERIC_OUTPUT(generic);
 };
@@ -410,7 +420,8 @@ struct generic_output {
 
 #define GENERIC_BRICK_OPS(BRITYPE)					\
 	int (*brick_switch)(struct BRITYPE##_brick *brick);		\
-	
+	/* this comment is for keeping TRAILING_SEMICOLON happy */
+
 struct generic_brick_ops {
 	GENERIC_BRICK_OPS(generic);
 };
@@ -418,6 +429,7 @@ struct generic_brick_ops {
 #define GENERIC_OUTPUT_OPS(BRITYPE)					\
 	/*int (*output_start)(struct BRITYPE##_output *output);*/	\
 	/*int (*output_stop)(struct BRITYPE##_output *output);*/		\
+	/* this comment is for keeping TRAILING_SEMICOLON happy */
 	
 struct generic_output_ops {
 	GENERIC_OUTPUT_OPS(generic)
@@ -440,6 +452,7 @@ struct generic_output_ops {
 	const struct BRITYPE##_input_types **default_type;		\
 	int (*brick_construct)(struct BRITYPE##_brick *brick);		\
 	int (*brick_destruct)(struct BRITYPE##_brick *brick);		\
+	/* this comment is for keeping TRAILING_SEMICOLON happy */
 
 struct generic_brick_type {
 	GENERIC_BRICK_TYPE(generic);
@@ -452,6 +465,7 @@ struct generic_brick_type {
 	int input_size;							\
 	int (*input_construct)(struct BRITYPE##_input *input);		\
 	int (*input_destruct)(struct BRITYPE##_input *input);		\
+	/* this comment is for keeping TRAILING_SEMICOLON happy */
 
 struct generic_input_type {
 	GENERIC_INPUT_TYPE(generic);
@@ -465,6 +479,7 @@ struct generic_input_type {
 	struct BRITYPE##_output_ops *master_ops;			\
 	int (*output_construct)(struct BRITYPE##_output *output);	\
 	int (*output_destruct)(struct BRITYPE##_output *output);	\
+	/* this comment is for keeping TRAILING_SEMICOLON happy */
 
 struct generic_output_type {
 	GENERIC_OUTPUT_TYPE(generic);
@@ -535,6 +550,7 @@ extern inline int BRITYPE##_unregister_brick_type(void)		        \
 extern const struct BRITYPE##_brick_type BRITYPE##_brick_type;	        \
 extern const struct BRITYPE##_input_type BRITYPE##_input_type;	        \
 extern const struct BRITYPE##_output_type BRITYPE##_output_type;        \
+/* this comment is for keeping TRAILING_SEMICOLON happy */
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -560,9 +576,7 @@ extern inline struct OBJTYPE##_object *BRITYPE##_alloc_##OBJTYPE(struct BRITYPE#
 extern inline struct BRITYPE##_##OBJTYPE##_aspect *BRITYPE##_##OBJTYPE##_get_aspect(struct BRITYPE##_brick *brick, struct OBJTYPE##_object *obj) \
 {									\
         return (void *)generic_get_aspect((struct generic_brick *)brick, (struct generic_object *)obj); \
-}									\
-									\
-
+}
 
 ///////////////////////////////////////////////////////////////////////
 

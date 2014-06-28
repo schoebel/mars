@@ -87,7 +87,8 @@ extern int mars_fast_fullsync;
 	char *new_link;							\
 	struct mars_global *d_global;					\
 	void (*d_private_destruct)(void *private);			\
-	void *d_private;
+	void *d_private;						\
+	/* this comment is for keeping TRAILING_SEMICOLON happy */
 
 struct mars_dent {
 	MARS_DENT(mars_dent);

@@ -40,7 +40,8 @@ struct pairing_heap_##KEYTYPE {			        \
 	KEYDEF						\
 	struct pairing_heap_##KEYTYPE *next;	        \
 	struct pairing_heap_##KEYTYPE *subheaps;	\
-};
+};							\
+/* this comment is for keeping TRAILING_SEMICOLON happy */
 
 /* less generic version: define the key inside.
  */
