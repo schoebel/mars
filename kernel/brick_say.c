@@ -650,7 +650,7 @@ static inline
 void reset_flood(void)
 {
 	if (flood_start_jiffies &&
-	    (long)jiffies >= (long)(flood_start_jiffies + brick_say_syslog_flood_recovery * HZ)) {
+	    time_is_before_jiffies(flood_start_jiffies + brick_say_syslog_flood_recovery * HZ)) {
 		flood_start_jiffies = 0;
 		flood_count = 0;
 	}
