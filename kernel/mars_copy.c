@@ -44,7 +44,7 @@
 
 #define STATES_PER_PAGE    (PAGE_SIZE / sizeof(struct copy_state))
 #define MAX_SUB_TABLES     (NR_COPY_REQUESTS / STATES_PER_PAGE + (NR_COPY_REQUESTS % STATES_PER_PAGE ? 1 : 0))
-#define MAX_COPY_REQUESTS  (PAGE_SIZE / sizeof(struct copy_state*) * STATES_PER_PAGE)
+#define MAX_COPY_REQUESTS  (PAGE_SIZE / sizeof(struct copy_state *) * STATES_PER_PAGE)
 
 #define GET_STATE(brick,index)						\
 	((brick)->st[(index) / STATES_PER_PAGE][(index) % STATES_PER_PAGE])
@@ -703,7 +703,7 @@ static int _copy_thread(void *data)
 
 	_update_percent(brick, true);
 
-	mars_power_led_on((void*)brick, true);
+	mars_power_led_on((void *)brick, true);
 	brick->trigger = true;
 
         while (!_is_done(brick)) {
@@ -743,7 +743,7 @@ static int _copy_thread(void *data)
 		 brick->copy_end);
 
 	_clear_all_mref(brick);
-	mars_power_led_off((void*)brick, true);
+	mars_power_led_off((void *)brick, true);
 	MARS_DBG("--------------- copy_thread done.\n");
 	return 0;
 }
@@ -800,7 +800,7 @@ static int copy_switch(struct copy_brick *brick)
 	if (brick->power.button) {
 		if (brick->power.led_on)
 			goto done;
-		mars_power_led_off((void*)brick, false);
+		mars_power_led_off((void *)brick, false);
 		brick->is_aborting = false;
 		if (!brick->thread) {
 			brick->copy_last = brick->copy_start;
@@ -809,14 +809,14 @@ static int copy_switch(struct copy_brick *brick)
 			if (brick->thread) {
 				brick->trigger = true;
 			} else {
-				mars_power_led_off((void*)brick, true);
+				mars_power_led_off((void *)brick, true);
 				MARS_ERR("could not start copy thread\n");
 			}
 		}
 	} else {
 		if (brick->power.led_off)
 			goto done;
-		mars_power_led_on((void*)brick, false);
+		mars_power_led_on((void *)brick, false);
 		if (brick->thread) {
 			MARS_INF("stopping thread...\n");
 			brick_thread_stop(brick->thread);
@@ -877,14 +877,14 @@ void copy_reset_statistics(struct copy_brick *brick)
 
 static int copy_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
-	struct copy_mref_aspect *ini = (void*)_ini;
+	struct copy_mref_aspect *ini = (void *)_ini;
 	(void)ini;
 	return 0;
 }
 
 static void copy_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
-	struct copy_mref_aspect *ini = (void*)_ini;
+	struct copy_mref_aspect *ini = (void *)_ini;
 	(void)ini;
 }
 
