@@ -897,7 +897,7 @@ int _check_switch(struct mars_global *global, const char *path)
 	allow_dent = mars_find_dent(global, path);
 	if (!allow_dent || !allow_dent->new_link)
 		goto done;
-	status = sscanf(allow_dent->new_link, "%d", &res);
+	status = kstrtoint(allow_dent->new_link, 10, &res);
 	(void)status; // treat errors as if the switch were set to 0
 	MARS_DBG("'%s' -> %d\n", path, res);
 
@@ -981,8 +981,10 @@ int compare_replaylinks(struct mars_rotate *rot, const char *hosta, const char *
 	int seqb;
 	int posa;
 	int posb;
-	loff_t offa;
-	loff_t offb;
+	loff_t offa = 0;
+	loff_t offb = -1;
+	loff_t taila = 0;
+	loff_t tailb = -1;
 	int count;
 	int res = -2;
 
@@ -1028,12 +1030,12 @@ int compare_replaylinks(struct mars_rotate *rot, const char *hosta, const char *
 		MARS_ERR_TO(rot->log_say, "replay link '%s' -> '%s' is malformed\n", linkb, b);
 	}
 
-	count = sscanf(a + posa, "%lld", &offa);
-	if (unlikely(count != 1)) {
+	count = sscanf(a + posa, "%lld,%lld", &offa, &taila);
+	if (unlikely(count != 2)) {
 		MARS_ERR_TO(rot->log_say, "replay link '%s' -> '%s' is malformed\n", linka, a);
 	}
-	count = sscanf(b + posb, "%lld", &offb);
-	if (unlikely(count != 1)) {
+	count = sscanf(b + posb, "%lld,%lld", &offb, &tailb);
+	if (unlikely(count != 2)) {
 		MARS_ERR_TO(rot->log_say, "replay link '%s' -> '%s' is malformed\n", linkb, b);
 	}
 
@@ -2475,6 +2477,7 @@ bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, c
 	const char *own_replaylink = NULL;
 	loff_t own_r_val;
 	loff_t own_v_val;
+	loff_t own_r_tail;
 	int old_log_seq;
 	int new_log_seq;
 	int own_r_offset;
@@ -2484,6 +2487,7 @@ bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, c
 	int len1;
 	int len2;
 	int offs2;
+	char dummy = 0;
 
 	bool res = false;
 
@@ -2578,12 +2582,14 @@ bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, c
 	own_r_len    = skip_part(own_replaylink  + own_r_offset);
 	own_v_len    = skip_part(own_versionlink + own_v_offset);
 	own_r_val = own_v_val = 0;
-	if (sscanf(own_replaylink + own_r_offset, "%lld", &own_r_val) != 1) {
+	own_r_tail = 0;
+	if (sscanf(own_replaylink + own_r_offset, "%lld,%lld", &own_r_val, &own_r_tail) != 2) {
 		MARS_ERR_TO(rot->log_say, "own replay link '%s' -> '%s' is malformed\n", own_replaylink_path, own_replaylink);
 		make_rot_msg(rot, "err-replaylink-not-readable", "own replay link '%s' -> '%s' is malformed", own_replaylink_path, own_replaylink);
 		goto done;
 	}
-	if (sscanf(own_versionlink + own_v_offset, "%lld", &own_v_val) != 1) {
+	/* SSCANF_TO_KSTRTO: kstros64 does not work because of the next char */
+	if (sscanf(own_versionlink + own_v_offset, "%lld%c", &own_v_val, &dummy) != 2) {
 		MARS_ERR_TO(rot->log_say, "own version link '%s' -> '%s' is malformed\n", own_versionlink_path, own_versionlink);
 		make_rot_msg(rot, "err-versionlink-not-readable", "own version link '%s' -> '%s' is malformed", own_versionlink_path, own_versionlink);
 		goto done;
@@ -2726,7 +2732,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	rot->preferred_peer = NULL;
 
 	if (dent->new_link) {
-		int status = sscanf(dent->new_link, "%lld", &rot->dev_size);
+		int status = kstrtos64(dent->new_link, 10, &rot->dev_size);
 		(void)status; /* leave as before in case of errors */
 	}
 	if (!rot->parent_path) {
@@ -3082,11 +3088,11 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 		MARS_ERR_TO(rot->log_say, "replay link has malformed logfile number '%s'\n", rot->replay_link->d_argv[0]);
 		goto done;
 	}
-	if (sscanf(rot->replay_link->d_argv[1], "%lld", oldpos_start) != 1) {
+	if (kstrtos64(rot->replay_link->d_argv[1], 10, oldpos_start)) {
 		MARS_ERR_TO(rot->log_say, "replay link has bad start position argument '%s'\n", rot->replay_link->d_argv[1]);
 		goto done;
 	}
-	if (sscanf(rot->replay_link->d_argv[2], "%lld", oldpos_end) != 1) {
+	if (kstrtos64(rot->replay_link->d_argv[2], 10, oldpos_end)) {
 		MARS_ERR_TO(rot->log_say, "replay link has bad end position argument '%s'\n", rot->replay_link->d_argv[2]);
 		goto done;
 	}
@@ -4142,8 +4148,8 @@ static int make_sync(void *buf, struct mars_dent *dent)
 
 	/* Analyze replay position
 	 */
-	status = sscanf(dent->new_link, "%lld", &start_pos);
-	if (status != 1) {
+	status = kstrtos64(dent->new_link, 10, &start_pos);
+	if (unlikely(status)) {
 		MARS_ERR("bad syncstatus symlink syntax '%s' (%s)\n", dent->new_link, dent->d_path);
 		status = -EINVAL;
 		goto done;
@@ -4171,8 +4177,8 @@ static int make_sync(void *buf, struct mars_dent *dent)
 		status = -ENOENT;
 		goto done;
 	}
-	status = sscanf(size_dent->new_link, "%lld", &end_pos);
-	if (status != 1) {
+	status = kstrtos64(size_dent->new_link, 10, &end_pos);
+	if (unlikely(status)) {
 		MARS_ERR("bad size symlink syntax '%s' (%s)\n", size_dent->new_link, tmp);
 		status = -EINVAL;
 		goto done;
@@ -4456,7 +4462,7 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	response_path = path_make("/mars/todo-global/deleted-%s", my_id());
 	response = mars_find_dent(global, response_path);
 	if (response && response->new_link) {
-		int status = sscanf(response->new_link, "%d", &max_serial);
+		int status = kstrtoint(response->new_link, 10, &max_serial);
 		(void)status; /* leave untouched in case of errors */
 	}
 	if (dent->d_serial > max_serial) {
@@ -4483,8 +4489,8 @@ static int check_deleted(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 
-	status = sscanf(dent->new_link, "%d", &serial);
-	if (status != 1 || serial <= 0) {
+	status = kstrtoint(dent->new_link, 10, &serial);
+	if (unlikely(status || serial <= 0)) {
 		MARS_WRN("cannot parse symlink '%s' -> '%s'\n", dent->d_path, dent->new_link);
 		goto done;
 	}
@@ -4602,7 +4608,7 @@ int make_defaults(void *buf, struct mars_dent *dent)
 	MARS_DBG("name = '%s' value = '%s'\n", dent->d_name, dent->new_link);
 
 	if (!strcmp(dent->d_name, "sync-limit")) {
-		int status = sscanf(dent->new_link, "%d", &global_sync_limit);
+		int status = kstrtoint(dent->new_link, 10, &global_sync_limit);
 		(void)status; /* leave untouched in case of errors */
 	} else if (!strcmp(dent->d_name, "sync-pref-list")) {
 		const char *start;
