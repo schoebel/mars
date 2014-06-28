@@ -66,6 +66,7 @@
 #include "../mars_trans_logger.h"
 #include "../mars_if.h"
 #include "mars_proc.h"
+//      remove_this
 #ifdef CONFIG_MARS_DEBUG
 /* include currently unused bricks, essentially a compile check only */
 #include "../mars_dummy.h"
@@ -73,6 +74,7 @@
 #include "../mars_buf.h"
 #include "../mars_usebuf.h"
 #endif
+//      end_remove_this
 
 #define REPLAY_TOLERANCE (PAGE_SIZE + OVERHEAD)
 
@@ -5432,6 +5434,7 @@ static int __init init_light(void)
 	DO_INIT(brick);
 	DO_INIT(mars);
 	DO_INIT(mars_mapfree);
+//      remove_this
 #ifdef CONFIG_MARS_DEBUG
 	/* essentially a compile check only */
 	DO_INIT(mars_dummy);
@@ -5439,6 +5442,7 @@ static int __init init_light(void)
 	DO_INIT(mars_buf);
 	DO_INIT(mars_usebuf);
 #endif
+//      end_remove_this
 	DO_INIT(mars_net);
 	DO_INIT(mars_client);
 #ifndef __USE_COMPAT
