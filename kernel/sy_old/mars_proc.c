@@ -84,14 +84,16 @@ int trigger_sysctl_handler(
 
 	if (write) {
 		char tmp[8] = {};
-		int code = 0;
 
 		res = len; // fake consumption of all data
 
 		if (len > 7)
 			len = 7;
 		if (!copy_from_user(tmp, buffer, len)) {
-			sscanf(tmp, "%d", &code);
+			int code = 0;
+			int status = sscanf(tmp, "%d", &code);
+			/* the return value from ssanf() does not matter */
+			(void)status;
 			if (code > 0) {
 				mars_trigger();
 			}
@@ -205,6 +207,12 @@ done:
 #define INT_ENTRY(NAME,VAR,MODE)			\
 	VEC_ENTRY(NAME, VAR, MODE, 1)
 
+/* checkpatch.pl: no, these complex values cannot be easily enclosed
+ * in parentheses. If { ... } were used inside the macro body, it would
+ * no longer be possible to add additional fields externally.
+ * I could inject further fields externally via parameters, but
+ * that would make it less understandable.
+ */
 #define LIMITER_ENTRIES(VAR, PREFIX, SUFFIX)				\
 	INT_ENTRY(PREFIX "_total_ops_" SUFFIX, (VAR)->lim_total_ops, 0400), \
 	INT_ENTRY(PREFIX "_total_sum_" SUFFIX, (VAR)->lim_total_sum, 0400), \
