@@ -96,7 +96,7 @@ struct copy_brick {
 	atomic_t io_flight;
 	atomic_t copy_read_flight;
 	atomic_t copy_write_flight;
-	long long last_jiffies;
+	unsigned long last_jiffies;
 	wait_queue_head_t event;
 	struct semaphore mutex;
 	struct task_struct *thread;
