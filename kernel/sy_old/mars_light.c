@@ -373,12 +373,14 @@ int compute_emergency_mode(void)
 	rest = raw_remaining_space;
 
 #define CHECK_LIMIT(LIMIT_VAR)					\
+do {								\
 	if (LIMIT_VAR > 0)					\
 		limit += (loff_t)LIMIT_VAR * 1024 * 1024;	\
 	if (rest < limit && !this_mode) {			\
 		this_mode = mode;				\
 	}							\
 	mode--;							\
+} while (0)
 
 	CHECK_LIMIT(global_free_space_4);
 	CHECK_LIMIT(global_free_space_3);
@@ -408,13 +410,12 @@ int compute_emergency_mode(void)
 	    mars_throttle_end > mars_throttle_start &&
 	    present > 0) {
 		loff_t percent_used = 100 - (rest * 100 / present);
-		if (percent_used < mars_throttle_start) {
+		if (percent_used < mars_throttle_start)
 			if_throttle_start_size = 0;
-		} else if (percent_used >= mars_throttle_end) {
+		else if (percent_used >= mars_throttle_end)
 			if_throttle_start_size = 1;
-		} else {
+		else
 			if_throttle_start_size = (mars_throttle_end - percent_used) * 1024 / (mars_throttle_end - mars_throttle_start) + 1;
-		}
 	}
 
 	if (unlikely(present < global_free_space_0)) {
@@ -566,7 +567,7 @@ struct mars_rotate {
 	spinlock_t inf_lock;
 	bool infs_is_dirty[MAX_INFOS];
 	struct trans_logger_info infs[MAX_INFOS];
-	struct key_value_pair msgs[sizeof(rot_keys) / sizeof(char*)];
+	struct key_value_pair msgs[sizeof(rot_keys) / sizeof(char *)];
 };
 
 static LIST_HEAD(rot_anchor);
@@ -607,8 +608,8 @@ EXPORT_SYMBOL_GPL(mars_mem_percent);
 static
 int _set_trans_params(struct mars_brick *_brick, void *private)
 {
-	struct trans_logger_brick *trans_brick = (void*)_brick;
-	if (_brick->type != (void*)&trans_logger_brick_type) {
+	struct trans_logger_brick *trans_brick = (void *)_brick;
+	if (_brick->type != (void *)&trans_logger_brick_type) {
 		MARS_ERR("bad brick type\n");
 		return -EINVAL;
 	}
@@ -641,7 +642,7 @@ struct client_cookie {
 static
 int _set_client_params(struct mars_brick *_brick, void *private)
 {
-	struct client_brick *client_brick = (void*)_brick;
+	struct client_brick *client_brick = (void *)_brick;
 	struct client_cookie *clc = private;
 	client_brick->limit_mode = clc ? clc->limit_mode : false;
 	client_brick->killme = true;
@@ -652,11 +653,11 @@ int _set_client_params(struct mars_brick *_brick, void *private)
 static
 int _set_sio_params(struct mars_brick *_brick, void *private)
 {
-	struct sio_brick *sio_brick = (void*)_brick;
-	if (_brick->type == (void*)&client_brick_type) {
+	struct sio_brick *sio_brick = (void *)_brick;
+	if (_brick->type == (void *)&client_brick_type) {
 		return _set_client_params(_brick, private);
 	}
-	if (_brick->type != (void*)&sio_brick_type) {
+	if (_brick->type != (void *)&sio_brick_type) {
 		MARS_ERR("bad brick type\n");
 		return -EINVAL;
 	}
@@ -671,9 +672,9 @@ int _set_sio_params(struct mars_brick *_brick, void *private)
 static
 int _set_aio_params(struct mars_brick *_brick, void *private)
 {
-	struct aio_brick *aio_brick = (void*)_brick;
+	struct aio_brick *aio_brick = (void *)_brick;
 	struct client_cookie *clc = private;
-	if (_brick->type == (void*)&client_brick_type) {
+	if (_brick->type == (void *)&client_brick_type) {
 		return _set_client_params(_brick, private);
 	}
 	if (_brick->type == (void*)&sio_brick_type) {
@@ -696,22 +697,22 @@ static
 int _set_bio_params(struct mars_brick *_brick, void *private)
 {
 	struct bio_brick *bio_brick;
-	if (_brick->type == (void*)&client_brick_type) {
+	if (_brick->type == (void *)&client_brick_type) {
 		return _set_client_params(_brick, private);
 	}
 #ifndef __USE_COMPAT
-	if (_brick->type == (void*)&aio_brick_type) {
+	if (_brick->type == (void *)&aio_brick_type) {
 		return _set_aio_params(_brick, private);
 	}
 #endif
-	if (_brick->type == (void*)&sio_brick_type) {
+	if (_brick->type == (void *)&sio_brick_type) {
 		return _set_sio_params(_brick, private);
 	}
-	if (_brick->type != (void*)&bio_brick_type) {
+	if (_brick->type != (void *)&bio_brick_type) {
 		MARS_ERR("bad brick type\n");
 		return -EINVAL;
 	}
-	bio_brick = (void*)_brick;
+	bio_brick = (void *)_brick;
 	bio_brick->ra_pages = BIO_READAHEAD;
 	bio_brick->do_noidle = BIO_NOIDLE;
 	bio_brick->do_sync = BIO_SYNC;
@@ -724,9 +725,9 @@ int _set_bio_params(struct mars_brick *_brick, void *private)
 static
 int _set_if_params(struct mars_brick *_brick, void *private)
 {
-	struct if_brick *if_brick = (void*)_brick;
+	struct if_brick *if_brick = (void *)_brick;
 	struct mars_rotate *rot = private;
-	if (_brick->type != (void*)&if_brick_type) {
+	if (_brick->type != (void *)&if_brick_type) {
 		MARS_ERR("bad brick type\n");
 		return -EINVAL;
 	}
@@ -766,11 +767,11 @@ struct copy_cookie {
 static
 int _set_copy_params(struct mars_brick *_brick, void *private)
 {
-	struct copy_brick *copy_brick = (void*)_brick;
+	struct copy_brick *copy_brick = (void *)_brick;
 	struct copy_cookie *cc = private;
 	int status = 1;
 
-	if (_brick->type != (void*)&copy_brick_type) {
+	if (_brick->type != (void *)&copy_brick_type) {
 		MARS_ERR("bad brick type\n");
 		status = -EINVAL;
 		goto done;
@@ -884,6 +885,7 @@ done:
 static
 int _check_switch(struct mars_global *global, const char *path)
 {
+	int status;
 	int res = 0;
 	struct mars_dent *allow_dent;
 
@@ -895,7 +897,8 @@ int _check_switch(struct mars_global *global, const char *path)
 	allow_dent = mars_find_dent(global, path);
 	if (!allow_dent || !allow_dent->new_link)
 		goto done;
-	sscanf(allow_dent->new_link, "%d", &res);
+	status = sscanf(allow_dent->new_link, "%d", &res);
+	(void)status; // treat errors as if the switch were set to 0
 	MARS_DBG("'%s' -> %d\n", path, res);
 
 done:
@@ -1034,13 +1037,12 @@ int compare_replaylinks(struct mars_rotate *rot, const char *hosta, const char *
 		MARS_ERR_TO(rot->log_say, "replay link '%s' -> '%s' is malformed\n", linkb, b);
 	}
 
-	if (posa < posb) {
+	if (posa < posb)
 		res = -1;
-	} else if (posa > posb) {
+	else if (posa > posb)
 		res = 1;
-	} else {
+	else
 		res = 0;
-	}
 
  done:
 	brick_string_free(a);
@@ -1135,7 +1137,8 @@ int _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 			int skip_nr = -1;
 			int nr_char = 0;
 			if (likely(skip_link && skip_link[0])) {
-				(void)sscanf(skip_link, "%d%n", &skip_nr, &nr_char);
+				int status = sscanf(skip_link, "%d%n", &skip_nr, &nr_char);
+				(void)status; /* keep msg empty in case of errors */
 				msg = skip_link + nr_char;
 			}
 			brick_string_free(skip_path);
@@ -1188,7 +1191,7 @@ int _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 		goto out;
 	}
 
-	res = _update_link_when_necessary(rot , "version", old, new);
+	res = _update_link_when_necessary(rot, "version", old, new);
 
 out:
 	brick_string_free(new);
@@ -1477,7 +1480,7 @@ int __make_copy(
 				       _set_bio_params,
 				       &clc[i],
 				       NULL,
-				       (const struct generic_brick_type*)&bio_brick_type,
+				       (const struct generic_brick_type *)&bio_brick_type,
 				       (const struct generic_brick_type*[]){},
 				       switch_copy || (copy && !copy->power.led_off) ? 2 : -1,
 				       cc.fullpath[i],
@@ -1508,7 +1511,7 @@ int __make_copy(
 			       _set_copy_params,
 			       &cc,
 			       cc.fullpath[1],
-			       (const struct generic_brick_type*)&copy_brick_type,
+			       (const struct generic_brick_type *)&copy_brick_type,
 			       (const struct generic_brick_type*[]){NULL,NULL,NULL,NULL},
 			       (!switch_copy || (IS_EMERGENCY_PRIMARY() && !space_using_mode)) ? -1 : 2,
 			       "%s",
@@ -1520,7 +1523,7 @@ int __make_copy(
 			       cc.fullpath[1],
 			       cc.fullpath[1]);
 	if (copy) {
-		struct copy_brick *_copy = (void*)copy;
+		struct copy_brick *_copy = (void *)copy;
 		copy->show_status = _show_brick_status;
 		make_msg(msg_pair,
 			 "from = '%s' to = '%s'"
@@ -1541,7 +1544,7 @@ int __make_copy(
 			 _copy->copy_error_count);
 	}
 	if (__copy)
-		*__copy = (void*)copy;
+		*__copy = (void *)copy;
 
 	status = 0;
 
@@ -1871,16 +1874,20 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 		const char *parent_path = backskip_replace(remote_dent->d_path, '/', false, "");
 		if (likely(parent_path)) {
 			struct mars_dent *parent = mars_find_dent(peer->global, parent_path);
-			struct mars_rotate *rot;
 			if (unlikely(!parent)) {
 				MARS_DBG("ignoring non-existing local resource '%s'\n", parent_path);
 			// don't copy old / outdated logfiles
-			} else if ((rot = parent->d_private) &&
-				   rot->relevant_serial > remote_dent->d_serial) {
-				MARS_DBG("ignoring outdated remote logfile '%s' (behind %d)\n", remote_dent->d_path, rot->relevant_serial);
 			} else {
-				struct mars_dent *local_dent = mars_find_dent(peer->global, remote_dent->d_path);
-				status = check_logfile(peer->peer, remote_dent, local_dent, parent, local_stat.size);
+				struct mars_rotate *rot;
+				rot = parent->d_private;
+				if (rot && rot->relevant_serial > remote_dent->d_serial) {
+					MARS_DBG("ignoring outdated remote logfile '%s' (behind %d)\n",
+						 remote_dent->d_path, rot->relevant_serial);
+				} else {
+					struct mars_dent *local_dent;
+					local_dent = mars_find_dent(peer->global, remote_dent->d_path);
+					status = check_logfile(peer->peer, remote_dent, local_dent, parent, local_stat.size);
+				}
 			}
 			brick_string_free(parent_path);
 		}
@@ -2216,8 +2223,8 @@ static
 bool is_shutdown(void)
 {
 	bool res = false;
-	int used;
-	if ((used = atomic_read(&global_mshadow_count)) > 0) {
+	int used = atomic_read(&global_mshadow_count);
+	if (used > 0) {
 		MARS_INF("global shutdown delayed: there are %d buffers in use, occupying %ld bytes\n", used, atomic64_read(&global_mshadow_used));
 	} else {
 		int rounds = 3;
@@ -2282,7 +2289,13 @@ static int _make_peer(struct mars_global *global, struct mars_dent *dent, char *
 	char *parent_path;
 	int status = 0;
 
-	if (!global || !dent || !dent->new_link || !dent->d_parent || !(parent_path = dent->d_parent->d_path)) {
+	if (unlikely(!global ||
+		     !dent || !dent->new_link || !dent->d_parent)) {
+		MARS_DBG("cannot work\n");
+		return 0;
+	}
+	parent_path = dent->d_parent->d_path;
+	if (unlikely(!parent_path)) {
 		MARS_DBG("cannot work\n");
 		return 0;
 	}
@@ -2416,7 +2429,7 @@ void _create_new_logfile(const char *path)
 static
 const char *get_replaylink(const char *parent_path, const char *host, const char **linkpath)
 {
-	const char * _linkpath = path_make("%s/replay-%s", parent_path, host);
+	const char *_linkpath = path_make("%s/replay-%s", parent_path, host);
 	*linkpath = _linkpath;
 	if (unlikely(!_linkpath)) {
 		MARS_ERR("no MEM\n");
@@ -2428,7 +2441,7 @@ const char *get_replaylink(const char *parent_path, const char *host, const char
 static
 const char *get_versionlink(const char *parent_path, int seq, const char *host, const char **linkpath)
 {
-	const char * _linkpath = path_make("%s/version-%09d-%s", parent_path, seq, host);
+	const char *_linkpath = path_make("%s/version-%09d-%s", parent_path, seq, host);
 	*linkpath = _linkpath;
 	if (unlikely(!_linkpath)) {
 		MARS_ERR("no MEM\n");
@@ -2712,8 +2725,10 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	brick_string_free(rot->preferred_peer);
 	rot->preferred_peer = NULL;
 
-	if (dent->new_link)
-		sscanf(dent->new_link, "%lld", &rot->dev_size);
+	if (dent->new_link) {
+		int status = sscanf(dent->new_link, "%lld", &rot->dev_size);
+		(void)status; /* leave as before in case of errors */
+	}
 	if (!rot->parent_path) {
 		rot->parent_path = brick_strdup(parent_path);
 		rot->parent_rest = brick_strdup(parent->d_rest);
@@ -2739,7 +2754,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 
-	replay_link = (void*)mars_find_dent(global, replay_path);
+	replay_link = (void *)mars_find_dent(global, replay_path);
 	if (unlikely(!replay_link || !replay_link->new_link)) {
 		MARS_DBG("replay status symlink '%s' does not exist (%p)\n", replay_path, replay_link);
 		rot->allow_update = false;
@@ -2772,7 +2787,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 
-	aio_dent = (void*)mars_find_dent(global, aio_path);
+	aio_dent = (void *)mars_find_dent(global, aio_path);
 	if (unlikely(!aio_dent)) {
 		MARS_DBG("logfile '%s' does not exist\n", aio_path);
 		status = -ENOENT;
@@ -2802,22 +2817,20 @@ int make_log_init(void *buf, struct mars_dent *dent)
 			       _set_aio_params,
 			       NULL,
 			       aio_path,
-			       (const struct generic_brick_type*)&aio_brick_type,
+			       (const struct generic_brick_type *)&aio_brick_type,
 			       (const struct generic_brick_type*[]){},
 			       rot->trans_brick || switch_on ? 2 : -1, // disallow detach when trans_logger is present
 			       "%s",
 			       (const char *[]){},
 			       0,
 			       aio_path);
-	rot->aio_brick = (void*)aio_brick;
+	rot->aio_brick = (void *)aio_brick;
 	status = 0;
-	if (unlikely(!aio_brick || !aio_brick->power.led_on)) {
+	if (unlikely(!aio_brick || !aio_brick->power.led_on))
 		goto done; // this may happen in case of detach
-	}
 	bio_brick = rot->bio_brick;
-	if (unlikely(!bio_brick || !bio_brick->power.led_on)) {
+	if (unlikely(!bio_brick || !bio_brick->power.led_on))
 		goto done; // this may happen in case of detach
-	}
 
 	/* Fetch the actual logfile size
 	 */
@@ -2851,8 +2864,8 @@ int make_log_init(void *buf, struct mars_dent *dent)
 			       _set_trans_params,
 			       NULL,
 			       aio_path,
-			       (const struct generic_brick_type*)&trans_logger_brick_type,
-			       (const struct generic_brick_type*[]){NULL},
+			       (const struct generic_brick_type *)&trans_logger_brick_type,
+			       (const struct generic_brick_type *[]){NULL},
 			       1, // create when necessary, but leave in current state otherwise
 			       "%s/replay-%s", 
 			       (const char *[]){"%s/data-%s"},
@@ -2861,12 +2874,12 @@ int make_log_init(void *buf, struct mars_dent *dent)
 			       my_id(),
 			       parent_path,
 			       my_id());
-	rot->trans_brick = (void*)trans_brick;
+	rot->trans_brick = (void *)trans_brick;
 	status = -ENOENT;
 	if (!trans_brick) {
 		goto done;
 	}
-	rot->trans_brick->kill_ptr = (void**)&rot->trans_brick;
+	rot->trans_brick->kill_ptr = (void **)&rot->trans_brick;
 	rot->trans_brick->replay_limiter = &rot->replay_limiter;
 	/* For safety, default is to try an (unnecessary) replay in case
 	 * something goes wrong later.
@@ -3296,7 +3309,7 @@ void _rotate_trans(struct mars_rotate *rot)
 			   atomic_read(&trans_input->log_ref_count) <= 0) {
 			int status;
 			MARS_INF("cleanup old transaction log (%d -> %d)\n", old_nr, log_nr);
-			status = generic_disconnect((void*)trans_input);
+			status = generic_disconnect((void *)trans_input);
 			if (unlikely(status < 0)) {
 				MARS_ERR("disconnect failed\n");
 			} else {
@@ -3313,11 +3326,16 @@ void _rotate_trans(struct mars_rotate *rot)
 	if (log_nr == trans_brick->new_input_nr &&
 	    rot->next_relevant_log &&
 	    (rot->next_relevant_log->d_serial == trans_brick->inputs[log_nr]->inf.inf_sequence + 1 ||
-	     trans_brick->cease_logging) &&
-	    (next_nr = _get_free_input(trans_brick)) >= 0) {
+	     trans_brick->cease_logging)) {
 		struct trans_logger_input *trans_input;
 		int status;
 		
+		next_nr = _get_free_input(trans_brick);
+		if (unlikely(next_nr < 0)) {
+			MARS_ERR_TO(rot->log_say, "no free input\n");
+			goto done;
+		}
+
 		MARS_DBG("start switchover %d -> %d\n", old_nr, next_nr);
 		
 		rot->next_relevant_brick =
@@ -3326,8 +3344,8 @@ void _rotate_trans(struct mars_rotate *rot)
 				       _set_aio_params,
 				       NULL,
 				       rot->next_relevant_log->d_path,
-				       (const struct generic_brick_type*)&aio_brick_type,
-				       (const struct generic_brick_type*[]){},
+				       (const struct generic_brick_type *)&aio_brick_type,
+				       (const struct generic_brick_type *[]){},
 				       2, // create + activate
 				       rot->next_relevant_log->d_path,
 				       (const char *[]){},
@@ -3344,7 +3362,7 @@ void _rotate_trans(struct mars_rotate *rot)
 
 		_init_trans_input(trans_input, rot->next_relevant_log, rot);
 
-		status = generic_connect((void*)trans_input, (void*)rot->next_relevant_brick->outputs[0]);
+		status = generic_connect((void *)trans_input, (void *)rot->next_relevant_brick->outputs[0]);
 		if (unlikely(status < 0)) {
 			MARS_ERR_TO(rot->log_say, "internal connect failed\n");
 			goto done;
@@ -3438,8 +3456,8 @@ int _start_trans(struct mars_rotate *rot)
 			       _set_aio_params,
 			       NULL,
 			       rot->relevant_log->d_path,
-			       (const struct generic_brick_type*)&aio_brick_type,
-			       (const struct generic_brick_type*[]){},
+			       (const struct generic_brick_type *)&aio_brick_type,
+			       (const struct generic_brick_type *[]){},
 			       2, // start always
 			       rot->relevant_log->d_path,
 			       (const char *[]){},
@@ -3457,7 +3475,7 @@ int _start_trans(struct mars_rotate *rot)
 
 	/* Connect to new transaction log
 	 */
-	status = generic_connect((void*)trans_input, (void*)rot->relevant_brick->outputs[0]);
+	status = generic_connect((void *)trans_input, (void *)rot->relevant_brick->outputs[0]);
 	if (unlikely(status < 0)) {
 		MARS_ERR("initial connect failed\n");
 		goto done;
@@ -3467,7 +3485,7 @@ int _start_trans(struct mars_rotate *rot)
 
 	/* Switch on....
 	 */
-	status = mars_power_button((void*)trans_brick, true, false);
+	status = mars_power_button((void *)trans_brick, true, false);
 	MARS_DBG("status = %d\n", status);
 
 done:
@@ -3486,7 +3504,7 @@ int _stop_trans(struct mars_rotate *rot, const char *parent_path)
 
 	/* Switch off temporarily....
 	 */
-	status = mars_power_button((void*)trans_brick, false, false);
+	status = mars_power_button((void *)trans_brick, false, false);
 	MARS_DBG("status = %d\n", status);
 	if (status < 0) {
 		goto done;
@@ -3501,7 +3519,7 @@ int _stop_trans(struct mars_rotate *rot, const char *parent_path)
 			trans_input = trans_brick->inputs[i];
 			if (trans_input && !trans_input->is_operating) {
 				if (trans_input->connect)
-					(void)generic_disconnect((void*)trans_input);
+					(void)generic_disconnect((void *)trans_input);
 			}
 		}
 	}
@@ -3645,7 +3663,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 			do_stop = trans_brick->replay_code != 0 ||
 				!global->global_power.button ||
 				!_check_allow(global, parent, "allow-replay") ||
-				!_check_allow(global, parent, "attach") ;
+				!_check_allow(global, parent, "attach");
 		} else {
 			do_stop =
 				!rot->if_brick &&
@@ -3708,7 +3726,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 
 done:
 	// check whether some copy has finished
-	fetch_brick = (struct copy_brick*)mars_find_brick(global, &copy_brick_type, rot->fetch_path);
+	fetch_brick = (struct copy_brick *)mars_find_brick(global, &copy_brick_type, rot->fetch_path);
 	MARS_DBG("fetch_path = '%s' fetch_brick = %p\n", rot->fetch_path, fetch_brick);
 	if (fetch_brick &&
 	    (fetch_brick->power.led_off ||
@@ -3724,7 +3742,7 @@ done:
 			if (fetch_brick->inputs[i] && fetch_brick->inputs[i]->brick)
 				fetch_brick->inputs[i]->brick->power.io_timeout = 1;
 		}
-		status = mars_kill_brick((void*)fetch_brick);
+		status = mars_kill_brick((void *)fetch_brick);
 		if (status < 0) {
 			MARS_ERR("could not kill fetch_brick, status = %d\n", status);
 		} else {
@@ -3735,7 +3753,7 @@ done:
 	rot->fetch_next_is_available = 0;
 	rot->fetch_brick = fetch_brick;
 	if (fetch_brick) {
-		fetch_brick->kill_ptr = (void**)&rot->fetch_brick;
+		fetch_brick->kill_ptr = (void **)&rot->fetch_brick;
 	} else {
 		rot->fetch_serial = 0;
 	}
@@ -3823,8 +3841,8 @@ int make_bio(void *buf, struct mars_dent *dent)
 			       _set_bio_params,
 			       NULL,
 			       dent->d_path,
-			       (const struct generic_brick_type*)&bio_brick_type,
-			       (const struct generic_brick_type*[]){},
+			       (const struct generic_brick_type *)&bio_brick_type,
+			       (const struct generic_brick_type *[]){},
 			       switch_on ? 2 : -1,
 			       dent->d_path,
 			       (const char *[]){},
@@ -3944,8 +3962,8 @@ int make_dev(void *buf, struct mars_dent *dent)
 			       _set_if_params,
 			       rot,
 			       dev_name,
-			       (const struct generic_brick_type*)&if_brick_type,
-			       (const struct generic_brick_type*[]){(const struct generic_brick_type*)&trans_logger_brick_type},
+			       (const struct generic_brick_type *)&if_brick_type,
+			       (const struct generic_brick_type *[]){(const struct generic_brick_type *)&trans_logger_brick_type},
 			       switch_on ? 2 : -1,
 			       "%s/device-%s", 
 			       (const char *[]){"%s/replay-%s"},
@@ -3954,7 +3972,7 @@ int make_dev(void *buf, struct mars_dent *dent)
 			       my_id(),
 			       parent->d_path,
 			       my_id());
-	rot->if_brick = (void*)dev_brick;
+	rot->if_brick = (void *)dev_brick;
 	if (!dev_brick) {
 		MARS_DBG("device not shown\n");
 		goto done;
@@ -3963,9 +3981,9 @@ int make_dev(void *buf, struct mars_dent *dent)
 		MARS_DBG("setting killme on if_brick\n");
 		dev_brick->killme = true;
 	}
-	dev_brick->kill_ptr = (void**)&rot->if_brick;
+	dev_brick->kill_ptr = (void **)&rot->if_brick;
 	dev_brick->show_status = _show_brick_status;
-	_dev_brick = (void*)dev_brick;
+	_dev_brick = (void *)dev_brick;
 	open_count = atomic_read(&_dev_brick->open_count);
 
 done:
@@ -4147,7 +4165,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	status = -ENOMEM;
 	if (unlikely(!tmp))
 		goto done;
-	size_dent = (void*)mars_find_dent(global, tmp);
+	size_dent = (void *)mars_find_dent(global, tmp);
 	if (!size_dent || !size_dent->new_link) {
 		MARS_ERR("cannot determine size '%s'\n", tmp);
 		status = -ENOENT;
@@ -4281,7 +4299,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 				     mars_fast_fullsync > 0,
 				     true, false, &copy);
 		if (copy) {
-			copy->kill_ptr = (void**)&rot->sync_brick;
+			copy->kill_ptr = (void **)&rot->sync_brick;
 			copy->copy_limiter = &rot->sync_limiter;
 		}
 		rot->sync_brick = copy;
@@ -4384,7 +4402,7 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	brick = mars_find_brick(global, NULL, dent->new_link);
 	if (brick &&
 	    unlikely((brick->nr_outputs > 0 && brick->outputs[0] && brick->outputs[0]->nr_connected) ||
-		     (brick->type == (void*)&if_brick_type && !brick->power.led_off))) {
+		     (brick->type == (void *)&if_brick_type && !brick->power.led_off))) {
 		MARS_WRN("target '%s' cannot be deleted, its brick '%s' in use\n", dent->new_link, SAFE_STR(brick->brick_name));
 		goto done;
 	}
@@ -4438,7 +4456,8 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	response_path = path_make("/mars/todo-global/deleted-%s", my_id());
 	response = mars_find_dent(global, response_path);
 	if (response && response->new_link) {
-		sscanf(response->new_link, "%d", &max_serial);
+		int status = sscanf(response->new_link, "%d", &max_serial);
+		(void)status; /* leave untouched in case of errors */
 	}
 	if (dent->d_serial > max_serial) {
 		char response_val[16];
@@ -4533,24 +4552,24 @@ int kill_res(void *buf, struct mars_dent *dent)
 		}
 		rot->if_brick->killme = true;
 		if (!rot->if_brick->power.led_off) {
-			int status = mars_power_button((void*)rot->if_brick, false, false);
+			int status = mars_power_button((void *)rot->if_brick, false, false);
 			MARS_INF("switching off resource '%s', device status = %d\n", rot->parent_path, status);
 		} else {
-			mars_kill_brick((void*)rot->if_brick);
+			mars_kill_brick((void *)rot->if_brick);
 			rot->if_brick = NULL;
 		}
 	}
 	if (rot->sync_brick) {
 		rot->sync_brick->killme = true;
 		if (!rot->sync_brick->power.led_off) {
-			int status = mars_power_button((void*)rot->sync_brick, false, false);
+			int status = mars_power_button((void *)rot->sync_brick, false, false);
 			MARS_INF("switching off resource '%s', sync status = %d\n", rot->parent_path, status);
 		}
 	}
 	if (rot->fetch_brick) {
 		rot->fetch_brick->killme = true;
 		if (!rot->fetch_brick->power.led_off) {
-			int status = mars_power_button((void*)rot->fetch_brick, false, false);
+			int status = mars_power_button((void *)rot->fetch_brick, false, false);
 			MARS_INF("switching off resource '%s', fetch status = %d\n", rot->parent_path, status);
 		}
 	}
@@ -4562,7 +4581,7 @@ int kill_res(void *buf, struct mars_dent *dent)
 		}
 		rot->trans_brick->killme = true;
 		if (!rot->trans_brick->power.led_off) {
-			int status = mars_power_button((void*)rot->trans_brick, false, false);
+			int status = mars_power_button((void *)rot->trans_brick, false, false);
 			MARS_INF("switching off resource '%s', logger status = %d\n", rot->parent_path, status);
 		}
 	}
@@ -4583,7 +4602,8 @@ int make_defaults(void *buf, struct mars_dent *dent)
 	MARS_DBG("name = '%s' value = '%s'\n", dent->d_name, dent->new_link);
 
 	if (!strcmp(dent->d_name, "sync-limit")) {
-		sscanf(dent->new_link, "%d", &global_sync_limit);
+		int status = sscanf(dent->new_link, "%d", &global_sync_limit);
+		(void)status; /* leave untouched in case of errors */
 	} else if (!strcmp(dent->d_name, "sync-pref-list")) {
 		const char *start;
 		struct list_head *tmp;
@@ -5190,18 +5210,17 @@ static int light_worker(struct mars_global *global, struct mars_dent *dent, bool
 			return -EINVAL;
 		}
 	}
-	if (prepare) {
+	if (prepare)
 		worker = light_classes[class].cl_prepare;
-	} else if (direction) {
+	else if (direction)
 		worker = light_classes[class].cl_backward;
-	} else {
+	else
 		worker = light_classes[class].cl_forward;
-	}
 	if (worker) {
 		int status;
 		if (!direction)
 			MARS_DBG("--- start working %s on '%s' rest='%s'\n", direction ? "backward" : "forward", dent->d_path, dent->d_rest);
-		status = worker(global, (void*)dent);
+		status = worker(global, (void *)dent);
 		MARS_DBG("--- done, worked %s on '%s', status = %d\n", direction ? "backward" : "forward", dent->d_path, status);
 		return status;
 	}
@@ -5265,22 +5284,22 @@ static int light_thread(void *data)
 		MARS_DBG("-------- worker deleted_min = %d status = %d\n", _global.deleted_min, status);
 
 		if (!_global.global_power.button) {
-			status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&copy_brick_type, true);
+			status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void *)&copy_brick_type, true);
 			MARS_DBG("kill copy bricks (when possible) = %d\n", status);
 		}
 
 		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, NULL, false);
 		MARS_DBG("kill main bricks (when possible) = %d\n", status);
 
-		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&client_brick_type, true);
+		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void *)&client_brick_type, true);
 		MARS_DBG("kill client bricks (when possible) = %d\n", status);
 #ifndef __USE_COMPAT
-		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&aio_brick_type, true);
+		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void *)&aio_brick_type, true);
 		MARS_DBG("kill aio    bricks (when possible) = %d\n", status);
 #endif
-		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&sio_brick_type, true);
+		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void *)&sio_brick_type, true);
 		MARS_DBG("kill sio    bricks (when possible) = %d\n", status);
-		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&bio_brick_type, true);
+		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void *)&bio_brick_type, true);
 		MARS_DBG("kill bio    bricks (when possible) = %d\n", status);
 
 		if ((long long)jiffies + mars_rollover_interval * HZ >= last_rollover) {
@@ -5370,9 +5389,11 @@ static void (*exit_fn[INIT_MAX])(void) = {};
 static int exit_fn_nr = 0;
 
 #define DO_INIT(name)						\
-	MARS_DBG("=== starting module " #name "...\n");		\
 	do {							\
-		if ((status = init_##name()) < 0) goto done;	\
+		MARS_DBG("=== starting module " #name "...\n");	\
+		status = init_##name();				\
+		if (status < 0)					\
+			goto done;				\
 		exit_names[exit_fn_nr] = #name;			\
 		exit_fn[exit_fn_nr++] = exit_##name;		\
 	} while (0)

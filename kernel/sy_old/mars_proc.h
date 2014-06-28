@@ -28,6 +28,8 @@ typedef char * (*mars_info_fn)(void);
 
 extern mars_info_fn mars_info;
 
+extern int min_free_kbytes;
+
 /////////////////////////////////////////////////////////////////////////
 
 // init
