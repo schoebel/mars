@@ -65,7 +65,7 @@ extern struct writeback_group global_writeback;
 
 ////////////////////////////////////////////////////////////////////
 
-_PAIRING_HEAP_TYPEDEF(logger,)
+_PAIRING_HEAP_TYPEDEF(logger, /*empty*/)
 
 struct logger_queue {
 	QUEUE_ANCHOR(logger,loff_t,logger);
