@@ -88,6 +88,7 @@ ifdef CONFIG_MARS_DEBUG
 
 KBUILD_CFLAGS += -fno-inline-functions -fno-inline-small-functions -fno-inline-functions-called-once
 
+## remove_this
 # This is currently not really used.
 # We urge people to maintain it by including it in debug versions
 # (so the compiler may throw any complaints)
@@ -99,7 +100,6 @@ mars-objs += 				\
 	mars_usebuf.o			\
 
 endif
-## remove_this
 
 #
 # buildtag.h should be regenerated in every build.
