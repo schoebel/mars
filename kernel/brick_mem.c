@@ -193,26 +193,26 @@ void _brick_mem_free(void *data, int cline)
 	int magic2= INT_ACCESS(test, 3 * sizeof(int));
 	if (unlikely(magic1 != MAGIC_MEM1)) {
 		BRICK_ERR("line %d memory corruption: magix1 %08x != %08x, len = %d\n", cline, magic1, MAGIC_MEM1, len);
-		return;
+		goto _out_return;
 	}
 	if (unlikely(magic2 != MAGIC_MEM2)) {
 		BRICK_ERR("line %d memory corruption: magix2 %08x != %08x, len = %d\n", cline, magic2, MAGIC_MEM2, len);
-		return;
+		goto _out_return;
 	}
 	if (unlikely(line < 0 || line >= BRICK_DEBUG_MEM)) {
 		BRICK_ERR("line %d memory corruption: alloc line = %d, len = %d\n", cline, line, len);
-		return;
+		goto _out_return;
 	}
 	INT_ACCESS(test, 0) = 0xffffffff;
 	magic1 = INT_ACCESS(data, len + 0 * sizeof(int));
 	if (unlikely(magic1 != MAGIC_MEND1)) {
 		BRICK_ERR("line %d memory corruption: magix1 %08x != %08x, len = %d\n", cline, magic1, MAGIC_MEND1, len);
-		return;
+		goto _out_return;
 	}
 	magic2 = INT_ACCESS(data, len + 1 * sizeof(int));
 	if (unlikely(magic2 != MAGIC_MEND2)) {
 		BRICK_ERR("line %d memory corruption: magix2 %08x != %08x, len = %d\n", cline, magic2, MAGIC_MEND2, len);
-		return;
+		goto _out_return;
 	}
 	INT_ACCESS(data, len) = 0xffffffff;
 	atomic_dec(&mem_count[line]);
@@ -223,6 +223,9 @@ void _brick_mem_free(void *data, int cline)
 #endif
 	data = test;
 	__brick_mem_free(data, len + PLUS_SIZE);
+#ifdef BRICK_DEBUG_MEM
+_out_return:;
+#endif
 }
 EXPORT_SYMBOL_GPL(_brick_mem_free);
 
@@ -321,26 +324,26 @@ void _brick_string_free(const char *data, int cline)
 	magic = INT_ACCESS(data, 0);
 	if (unlikely(magic != MAGIC_STR)) {
 		BRICK_ERR("cline %d stringmem corruption: magix %08x != %08x\n", cline, magic, MAGIC_STR);
-		return;
+		goto _out_return;
 	}
 	len =  INT_ACCESS(data, sizeof(int));
 	line = INT_ACCESS(data, sizeof(int) * 2);
 	if (unlikely(len <= 0)) {
 		BRICK_ERR("cline %d stringmem corruption: line = %d len = %d\n", cline, line, len);
-		return;
+		goto _out_return;
 	}
 	if (unlikely(len > PAGE_SIZE)) {
 		BRICK_ERR("cline %d string too long: line = %d len = %d string='%s'\n", cline, line, len, orig);
 	}
 	if (unlikely(line < 0 || line >= BRICK_DEBUG_MEM)) {
 		BRICK_ERR("cline %d stringmem corruption: line = %d (len = %d)\n", cline, line, len);
-		return;
+		goto _out_return;
 	}
 #ifdef CONFIG_MARS_DEBUG_MEM_STRONG
 	if (unlikely(strcmp(orig + len, STRING_CANARY))) {
 		BRICK_ERR("cline %d stringmem corruption: bad canary '%s', line = %d len = %d\n",
 			  cline, STRING_CANARY, line, len);
-		return;
+		goto _out_return;
 	}
 	orig[len]--;
 	memset(orig, '!', len);
@@ -349,7 +352,7 @@ void _brick_string_free(const char *data, int cline)
 	if (unlikely(magic != MAGIC_SEND)) {
 		BRICK_ERR("cline %d stringmem corruption: end_magix %08x != %08x, line = %d len = %d\n",
 			  cline, magic, MAGIC_SEND, line, len);
-		return;
+		goto _out_return;
 	}
 	INT_ACCESS(orig, len) = 0xffffffff;
 #endif
@@ -358,6 +361,9 @@ void _brick_string_free(const char *data, int cline)
 	atomic_dec(&phys_string_alloc);
 #endif
 	kfree(data);
+#ifdef BRICK_DEBUG_MEM
+_out_return:;
+#endif
 }
 EXPORT_SYMBOL_GPL(_brick_string_free);
 
@@ -784,17 +790,17 @@ void _brick_block_free(void *data, int len, int cline)
 		if (unlikely(inf->inf_len != (PAGE_SIZE << order))) {
 			BRICK_ERR("line %d: address %p: bad freeing size %d (correct should be %d, previous line = %d)\n",
 				  cline, data, (int)(PAGE_SIZE << order), inf->inf_len, prev_line);
-			return;
+			goto _out_return;
 		}
 		if (unlikely(!inf->inf_used)) {
 			BRICK_ERR("line %d: address %p: double freeing (previous line = %d)\n", cline, data, prev_line);
-			return;
+			goto _out_return;
 		}
 		inf->inf_line = cline;
 		inf->inf_used = false;
 	} else {
 		BRICK_ERR("line %d: trying to free non-existent address %p (order = %d)\n", cline, data, order);
-		return;
+		goto _out_return;
 	}
 #endif
 #ifdef BRICK_DEBUG_MEM
@@ -808,24 +814,24 @@ void _brick_block_free(void *data, int len, int cline)
 
 		if (unlikely(magic1 != MAGIC_BLOCK)) {
 			BRICK_ERR("line %d memory corruption: %p magix1 %08x != %08x (previous line = %d)\n", cline, data, magic1, MAGIC_BLOCK, prev_line);
-			return;
+			goto _out_return;
 		}
 		if (unlikely(magic != MAGIC_BLOCK)) {
 			BRICK_ERR("line %d memory corruption: %p magix %08x != %08x (previous line = %d)\n", cline, data, magic, MAGIC_BLOCK, prev_line);
-			return;
+			goto _out_return;
 		}
 		if (unlikely(line < 0 || line >= BRICK_DEBUG_MEM)) {
 			BRICK_ERR("line %d memory corruption %p: alloc line = %d (previous line = %d)\n", cline, data, line, prev_line);
-			return;
+			goto _out_return;
 		}
 		if (unlikely(oldlen != len)) {
 			BRICK_ERR("line %d memory corruption %p: len != oldlen (%d != %d, previous line = %d))\n", cline, data, len, oldlen, prev_line);
-			return;
+			goto _out_return;
 		}
 		magic2 = INT_ACCESS(data, len);
 		if (unlikely(magic2 != MAGIC_BEND)) {
 			BRICK_ERR("line %d memory corruption %p: magix %08x != %08x (previous line = %d)\n", cline, data, magic, MAGIC_BEND, prev_line);
-			return;
+			goto _out_return;
 		}
 		INT_ACCESS(test, 0) = 0xffffffff;
 		INT_ACCESS(data, len) = 0xffffffff;
@@ -840,15 +846,15 @@ void _brick_block_free(void *data, int len, int cline)
 
 		if (unlikely(magic != MAGIC_BLOCK)) {
 			BRICK_ERR("line %d memory corruption %p: magix %08x != %08x (previous line = %d)\n", cline, data, magic, MAGIC_BLOCK, prev_line);
-			return;
+			goto _out_return;
 		}
 		if (unlikely(line < 0 || line >= BRICK_DEBUG_MEM)) {
 			BRICK_ERR("line %d memory corruption %p: alloc line = %d (previous line = %d)\n", cline, data, line, prev_line);
-			return;
+			goto _out_return;
 		}
 		if (unlikely(oldlen != len)) {
 			BRICK_ERR("line %d memory corruption %p: len != oldlen (%d != %d, previous line = %d))\n", cline, data, len, oldlen, prev_line);
-			return;
+			goto _out_return;
 		}
 		atomic_dec(&block_count[line]);
 		atomic_inc(&block_free[line]);
@@ -863,6 +869,9 @@ void _brick_block_free(void *data, int len, int cline)
 	
 #ifdef CONFIG_MARS_MEM_PREALLOC
 	brick_mem_alloc_count[order] = atomic_dec_return(&_alloc_count[order]);
+#endif
+#ifdef BRICK_DEBUG_MEM
+_out_return:;
 #endif
 }
 EXPORT_SYMBOL_GPL(_brick_block_free);
