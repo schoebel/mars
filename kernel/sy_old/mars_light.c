@@ -57,12 +57,14 @@
 #include "../mars_copy.h"
 #include "../mars_bio.h"
 #include "../mars_sio.h"
+//      remove_this
 #ifndef __USE_COMPAT
 #include "../mars_aio.h"
 #else
 #define aio_brick_type sio_brick_type
 #define _set_aio_params _set_sio_params
 #endif
+//      end_remove_this
 #include "../mars_trans_logger.h"
 #include "../mars_if.h"
 #include "mars_proc.h"
@@ -511,7 +513,7 @@ struct mars_rotate {
 	struct mars_dent *replay_link;
 	struct mars_brick *bio_brick;
 	struct mars_dent *aio_dent;
-	struct aio_brick *aio_brick;
+	struct mars_brick *aio_brick;
 	struct mars_info aio_info;
 	struct trans_logger_brick *trans_brick;
 	struct mars_dent *first_log;
@@ -668,6 +670,7 @@ int _set_sio_params(struct mars_brick *_brick, void *private)
 	return 1;
 }
 
+//      remove_this
 #ifndef __USE_COMPAT
 static
 int _set_aio_params(struct mars_brick *_brick, void *private)
@@ -693,6 +696,7 @@ int _set_aio_params(struct mars_brick *_brick, void *private)
 }
 #endif
 
+//      end_remove_this
 static
 int _set_bio_params(struct mars_brick *_brick, void *private)
 {
@@ -700,11 +704,13 @@ int _set_bio_params(struct mars_brick *_brick, void *private)
 	if (_brick->type == (void *)&client_brick_type) {
 		return _set_client_params(_brick, private);
 	}
+//      remove_this
 #ifndef __USE_COMPAT
 	if (_brick->type == (void *)&aio_brick_type) {
 		return _set_aio_params(_brick, private);
 	}
 #endif
+//      end_remove_this
 	if (_brick->type == (void *)&sio_brick_type) {
 		return _set_sio_params(_brick, private);
 	}
@@ -2820,17 +2826,25 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	aio_brick =
 		make_brick_all(global,
 			       aio_dent,
+//      remove_this
 			       _set_aio_params,
+//      else_this
+//			       _set_sio_params,
+//      end_remove_this
 			       NULL,
 			       aio_path,
+//      remove_this
 			       (const struct generic_brick_type *)&aio_brick_type,
+//      else_this
+//			       (const struct generic_brick_type *)&sio_brick_type,
+//      end_remove_this
 			       (const struct generic_brick_type*[]){},
 			       rot->trans_brick || switch_on ? 2 : -1, // disallow detach when trans_logger is present
 			       "%s",
 			       (const char *[]){},
 			       0,
 			       aio_path);
-	rot->aio_brick = (void *)aio_brick;
+	rot->aio_brick = aio_brick;
 	status = 0;
 	if (unlikely(!aio_brick || !aio_brick->power.led_on))
 		goto done; // this may happen in case of detach
@@ -3347,10 +3361,18 @@ void _rotate_trans(struct mars_rotate *rot)
 		rot->next_relevant_brick =
 			make_brick_all(rot->global,
 				       rot->next_relevant_log,
+//      remove_this
 				       _set_aio_params,
+//      else_this
+//				       _set_sio_params,
+//      end_remove_this
 				       NULL,
 				       rot->next_relevant_log->d_path,
+//      remove_this
 				       (const struct generic_brick_type *)&aio_brick_type,
+//      else_this
+//				       (const struct generic_brick_type *)&sio_brick_type,
+//      end_remove_this
 				       (const struct generic_brick_type *[]){},
 				       2, // create + activate
 				       rot->next_relevant_log->d_path,
@@ -3459,10 +3481,18 @@ int _start_trans(struct mars_rotate *rot)
 	rot->relevant_brick =
 		make_brick_all(rot->global,
 			       rot->relevant_log,
+//      remove_this
 			       _set_aio_params,
+//      else_this
+//			       _set_sio_params,
+//      end_remove_this
 			       NULL,
 			       rot->relevant_log->d_path,
+//      remove_this
 			       (const struct generic_brick_type *)&aio_brick_type,
+//      else_this
+//			       (const struct generic_brick_type *)&sio_brick_type,
+//      end_remove_this
 			       (const struct generic_brick_type *[]){},
 			       2, // start always
 			       rot->relevant_log->d_path,
@@ -5299,10 +5329,12 @@ static int light_thread(void *data)
 
 		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void *)&client_brick_type, true);
 		MARS_DBG("kill client bricks (when possible) = %d\n", status);
+//      remove_this
 #ifndef __USE_COMPAT
 		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void *)&aio_brick_type, true);
 		MARS_DBG("kill aio    bricks (when possible) = %d\n", status);
 #endif
+//      end_remove_this
 		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void *)&sio_brick_type, true);
 		MARS_DBG("kill sio    bricks (when possible) = %d\n", status);
 		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void *)&bio_brick_type, true);
@@ -5450,7 +5482,8 @@ static int __init init_light(void)
 
 //      remove_this
 	printk(KERN_INFO "loading MARS, BUILDTAG=%s BUILDHOST=%s BUILDDATE=%s\n", BUILDTAG, BUILDHOST, BUILDDATE);
-//else	printk(KERN_INFO "loading MARS, tree_version=%s\n", SYMLINK_TREE_VERSION);
+//      else_this
+//	printk(KERN_INFO "loading MARS, tree_version=%s\n", SYMLINK_TREE_VERSION);
 //      end_remove_this
 
 	init_say(); // this must come first
@@ -5472,9 +5505,11 @@ static int __init init_light(void)
 //      end_remove_this
 	DO_INIT(mars_net);
 	DO_INIT(mars_client);
+//      remove_this
 #ifndef __USE_COMPAT
 	DO_INIT(mars_aio);
 #endif
+//      end_remove_this
 	DO_INIT(mars_sio);
 	DO_INIT(mars_bio);
 	DO_INIT(mars_copy);
@@ -5523,7 +5558,8 @@ MODULE_DESCRIPTION("MARS Light");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@{schoebel-theuer,1und1}.de>");
 //      remove_this
 MODULE_VERSION(BUILDTAG " (" BUILDHOST " " BUILDDATE ")");
-//elseMODULE_VERSION(SYMLINK_TREE_VERSION);
+//      else_this
+//MODULE_VERSION(SYMLINK_TREE_VERSION);
 //      end_remove_this
 MODULE_LICENSE("GPL");
 
