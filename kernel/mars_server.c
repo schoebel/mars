@@ -237,7 +237,6 @@ int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_
 done:
 	return status;
 }
-//      remove_this
 
 static
 int _set_server_sio_params(struct mars_brick *_brick, void *private)
@@ -252,18 +251,16 @@ int _set_server_sio_params(struct mars_brick *_brick, void *private)
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 	return 1;
 }
-//      end_remove_this
 
+//      remove_this
 #ifndef __USE_COMPAT
 static
 int _set_server_aio_params(struct mars_brick *_brick, void *private)
 {
 	struct aio_brick *aio_brick = (void *)_brick;
-//      remove_this
 	if (_brick->type == (void *)_sio_brick_type) {
 		return _set_server_sio_params(_brick, private);
 	}
-//      end_remove_this
 	if (_brick->type != (void *)_aio_brick_type) {
 		MARS_ERR("bad brick type\n");
 		return -EINVAL;
@@ -276,6 +273,7 @@ int _set_server_aio_params(struct mars_brick *_brick, void *private)
 }
 #endif
 
+//      end_remove_this
 static
 int _set_server_bio_params(struct mars_brick *_brick, void *private)
 {
