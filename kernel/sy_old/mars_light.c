@@ -535,6 +535,7 @@ struct mars_rotate {
 	bool has_symlinks;
 	bool res_shutdown;
 	bool has_error;
+	bool has_double_logfile;
 	bool allow_update;
 	bool forbid_replay;
 	bool replay_mode;
@@ -2412,6 +2413,14 @@ bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, c
 	MARS_DBG("old_log = '%s' new_log = '%s' toler = %d skip_new = %d\n",
 		 old_log_path, new_log_path, replay_tolerance, skip_new);
 
+	// check precondition: is split brain already for sure?
+	if (unlikely(rot->has_double_logfile)) {
+		MARS_WRN_TO(rot->log_say, "SPLIT BRAIN detected: multiple logfiles with sequence number %d exist\n", rot->next_relevant_log->d_serial);
+		make_rot_msg(rot, "err-splitbrain-detected", "SPLIT BRAIN detected: multiple logfiles with sequence number %d exist\n", rot->next_relevant_log->d_serial);
+		goto done;
+	}
+
+	// parse the names
 	if (unlikely(!parse_logfile_name(old_log_name, &old_log_seq, &old_host))) {
 		make_rot_msg(rot, "err-bad-log-name", "logfile name '%s' cannot be parsed", old_log_name);
 		goto done;
@@ -2887,8 +2896,14 @@ int make_log_step(void *buf, struct mars_dent *dent)
 	status = 0;
 	if (rot->relevant_log) {
 		if (!rot->next_relevant_log) {
+			rot->has_double_logfile = false;
 			if (_next_is_acceptable(rot, rot->relevant_log, dent))
 				rot->next_relevant_log = dent;
+		} else { // check for double logfiles => split brain
+			if (unlikely(dent->d_serial == rot->next_relevant_log->d_serial)) {
+				rot->has_double_logfile = true;
+				MARS_ERR("DOUBLE LOGFILES '%s' '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
+			}
 		}
 		MARS_DBG("next_relevant_log = %p\n", rot->next_relevant_log);
 		goto ok;
