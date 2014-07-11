@@ -504,7 +504,6 @@ struct mars_rotate {
 	struct mars_brick *relevant_brick;
 	struct mars_dent *next_relevant_log;
 	struct mars_brick *next_relevant_brick;
-	struct mars_dent *next_next_relevant_log;
 	struct mars_dent *prev_log;
 	struct mars_dent *next_log;
 	struct mars_dent *syncstatus_dent;
@@ -2630,7 +2629,6 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	rot->relevant_serial = 0;
 	rot->relevant_brick = NULL;
 	rot->next_relevant_log = NULL;
-	rot->next_next_relevant_log = NULL;
 	rot->prev_log = NULL;
 	rot->next_log = NULL;
 	brick_string_free(rot->fetch_next_origin);
@@ -2891,11 +2889,8 @@ int make_log_step(void *buf, struct mars_dent *dent)
 		if (!rot->next_relevant_log) {
 			if (_next_is_acceptable(rot, rot->relevant_log, dent))
 				rot->next_relevant_log = dent;
-		} else if (!rot->next_next_relevant_log) {
-			if (_next_is_acceptable(rot, rot->next_relevant_log, dent))
-				rot->next_next_relevant_log = dent;
 		}
-		MARS_DBG("next_relevant_log = %p next_next_relevant_log = %p\n", rot->next_relevant_log, rot->next_next_relevant_log);
+		MARS_DBG("next_relevant_log = %p\n", rot->next_relevant_log);
 		goto ok;
 	}
 
@@ -3078,8 +3073,8 @@ int _make_logging_status(struct mars_rotate *rot)
 		if (!trans_brick->power.button && !trans_brick->power.led_on && trans_brick->power.led_off) {
 			if (rot->next_relevant_log) {
 				int replay_tolerance = _get_tolerance(rot);
-				bool skip_new = !rot->next_next_relevant_log && rot->todo_primary;
-				MARS_DBG("check switchover from '%s' to '%s' (size = %lld, next_next = %p, skip_new = %d, replay_tolerance = %d)\n", dent->d_path, rot->next_relevant_log->d_path, rot->next_relevant_log->new_stat.size, rot->next_next_relevant_log, skip_new, replay_tolerance);
+				bool skip_new = !!rot->todo_primary;
+				MARS_DBG("check switchover from '%s' to '%s' (size = %lld, skip_new = %d, replay_tolerance = %d)\n", dent->d_path, rot->next_relevant_log->d_path, rot->next_relevant_log->new_stat.size, skip_new, replay_tolerance);
 				if (is_switchover_possible(rot, dent->d_path, rot->next_relevant_log->d_path, replay_tolerance, skip_new)) {
 					MARS_INF_TO(rot->log_say, "start switchover from transaction log '%s' to '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
 					_make_new_replaylink(rot, rot->next_relevant_log->d_rest, rot->next_relevant_log->d_serial, rot->next_relevant_log->new_stat.size);
