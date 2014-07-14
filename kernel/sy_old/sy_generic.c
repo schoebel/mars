@@ -28,7 +28,11 @@
 
 //      remove_this
 #include <linux/wait.h>
-#ifndef __WAIT_ATOMIC_T_KEY_INITIALIZER
+#include <linux/version.h>
+/* FIXME: some Redhat/openvz kernels seem to have both (backporting etc).
+ * The folling is an incomplete quickfix / workaround. TBD.
+ */
+#if !defined(__WAIT_ATOMIC_T_KEY_INITIALIZER) || defined(RHEL_RELEASE)
 #define HAS_VFS_READDIR
 #endif
 
