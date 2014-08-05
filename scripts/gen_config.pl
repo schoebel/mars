@@ -100,6 +100,7 @@ foreach my $opt (@default) {
         print qq%
 /* CONFIG_$optname overridden by ENVIRONMENT */%;
         $optval = $setByEnv{$optname};
+	$opt->{value} = $optval;
     }
 
     if (!defined($optname) || !defined($optval)) {
