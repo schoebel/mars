@@ -45,6 +45,13 @@ Release Conventions / Branches / Tagnames
 	NO NEW FEATURES, not even minor ones, except when absolutely
 	necessary for a bugfix.
 
+light0.1stable06
+--------
+	 * Major fix: becoming primary was hanging in scarce situations.
+	 * Minor fix: some split brains were not always detected correctly.
+	 * Minor fix for Redhat openvz kernel builds.
+	 * Several fixes for 1&1 internal Debian builds.
+
 light0.1stable05
 --------
 	 * Major fix: incomplete calls to vfs_readdir()
