@@ -481,6 +481,7 @@ enum {
 	CL_LOG,
 	CL_REPLAYSTATUS,
 	CL_DEVICE,
+	CL_MAXNR,
 };
 
 ///////////////////////////////////////////////////////////////////////
@@ -5017,6 +5018,17 @@ static const struct light_class light_classes[] = {
 		.cl_forward = make_dev,
 #endif
 		.cl_backward = kill_dev,
+	},
+
+	/* Quirk: when dead resources are recreated during a network partition,
+	 * this is used to void version number clashes in the
+	 * partitioned cluster.
+	 */
+	[CL_MAXNR] = {
+		.cl_name = "maxnr",
+		.cl_len = 5,
+		.cl_type = 'l',
+		.cl_father = CL_RESOURCE,
 	},
 	{}
 };
