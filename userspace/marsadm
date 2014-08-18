@@ -1407,10 +1407,14 @@ sub create_res {
     } else {
       $startnr = 1;
     }
+    my $fmt_old = sprintf("%09d", $startnr - 1);
     my $fmt = sprintf("%09d", $startnr);
     set_link("log-$fmt-$host,0,0", "$resdir/replay-$host");
     system("touch $resdir/log-$fmt-$host") unless $dry_run;
-    set_link("00000000000000000000000000000000,log-$fmt-$host,0:", "$resdir/version-$fmt-$host");
+    my $old_fake = "00000000000000000000000000000000,log-$fmt_old-$host,0";
+    set_link("$old_fake:", "$resdir/version-$fmt_old-$host");
+    set_link("00000000000000000000000000000000,log-$fmt-$host,0:$old_fake", "$resdir/version-$fmt-$host");
+    set_link("$startnr", "$resdir/skip-check-$host") if $startnr > 1;
     set_link("$startnr", "$resdir/maxnr");
     finish_links();
     lprint "successfully created resource '$res'\n";
