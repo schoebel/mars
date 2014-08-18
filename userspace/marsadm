@@ -2537,7 +2537,7 @@ sub eval_fn {
       # has sync finished?
       my $syncrest = make_numeric(eval_fn($env, "sync-rest", ""));
       return 0 if $syncrest > 0;
-      unless ($almost) {
+      if (!$almost && eval_fn($env, "is-primary", "")) {
 	# is the replay link indicating that something is not yet applied / dirty?
 	my $replay = get_link($$env{"resdir"} . "/replay-" . $$env{"host"}, 1);
 	$replay =~ m:,[0-9]+,([0-9]+):;
