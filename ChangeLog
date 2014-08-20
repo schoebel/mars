@@ -45,6 +45,11 @@ Release Conventions / Branches / Tagnames
 	NO NEW FEATURES, not even minor ones, except when absolutely
 	necessary for a bugfix.
 
+light0.1stable07
+--------
+	 * Minor fix: re-creation of a completely destroyed resource
+	   did not always work correctly
+
 light0.1stable06
 --------
 	 * Major fix: becoming primary was hanging in scarce situations.
