@@ -1,0 +1,22 @@
+# This file contains the rules to create named MARS devices.
+
+# Although I want to clear the sticky bit explicitly via MODE=, it
+# does not work. This seems to be an undocumented feature; I found
+# only an changelog entry dealing with the sticky bit, which I did
+# not understand. Probably the RUN= can be made simpler.
+
+# The following description is stolen from the DRBD udev rules.
+# The rule itself is very different, not stolen.
+# DO NOT WRAP THIS LINE
+#
+# old udev does not understand some of it,
+# and would end up skipping only some lines, not the full rule.
+# which can cause all sort of trouble with strange-named device nodes
+# for completely unrelated devices,
+# resulting in unusable network lookback, etc.
+#
+# in case this is "accidentally" installed on a system with old udev,
+# having it as one single line avoids those problems.
+#
+# DO NOT WRAP THIS LINE
+SUBSYSTEM=="block", KERNEL=="mars/*", MODE="00600", GROUP="disk", RUN="/bin/chmod -t /dev/$kernel"

@@ -1,0 +1,26 @@
+TST August 2014
+
+On some distros / versions, udev rules for MARS are needed.
+
+Without any udev rules, /dev/mars/mydata is created with the sticky bit set.
+As a result, the device will not vanish when leaving primary state.
+
+In turn, some commands like "marsadm secondary" will complain about that
+by means of timeouts.
+
+On other distros / versions, catch-all rules are present which _would_
+prevent the sticky bit problem. However, some syntax errors prevent this.
+
+This directory contains distro- and version-dependent stuff. I did not have
+the time to fully analyze all distros / distro versions and their udev
+rules.
+
+Since I am not an expert in writing udev rules (and I just needed
+a quickfix for my own work), the files in this directoy should
+be regarded as examples.
+
+For example, the file 65-mars.rules should be copied to /lib/udev/rules.d/
+on some newer Debian distros. OTOH, some elder Debians don't seem to
+need this (but may need debian-udev.patch).
+
+Distro maintainers should improve on this and/or provide better solutions.
