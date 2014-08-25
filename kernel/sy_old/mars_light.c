@@ -3473,12 +3473,19 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		 * The secondaries will later stumble over it.
 		 */
 		if (!rot->created_hole) {
-			char *new_path = path_make("%s/log-%09d-%s", rot->parent_path, rot->max_sequence + 10, my_id());
-			if (likely(new_path && !mars_find_dent(global, new_path))) {
+			int new_sequence = rot->max_sequence + 10;
+			char *new_vers = path_make("%s/version-%09d-%s", rot->parent_path, new_sequence, my_id());
+			char *new_vval = path_make("00000000000000000000000000000000,log-%09d-%s,0:", new_sequence, my_id());
+			char *new_path = path_make("%s/log-%09d-%s", rot->parent_path, new_sequence + 1, my_id());
+			if (likely(new_vers && new_vval && new_path &&
+				   !mars_find_dent(global, new_path))) {
 				MARS_INF_TO(rot->log_say, "EMERGENCY: creating new logfile '%s'\n", new_path);
+				mars_symlink(new_vval, new_vers, NULL, 0);
 				_create_new_logfile(new_path);
 				rot->created_hole = true;
 			}
+			brick_string_free(new_vers);
+			brick_string_free(new_vval);
 			brick_string_free(new_path);
 		}
 	} else {
