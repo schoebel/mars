@@ -3179,6 +3179,7 @@ my %complex_macros =
 
    "flags"
    => "%if{%present-disk{}}{%if{%present-device{}}{D}{d}}{-}"
+   .  "%if{%is-consistent{}}{C}{%if{%present-disk{}}{c}{-}}"
    .  "%if{%does{attach}}{%if{%todo{attach}}{A}{a}}{%if{%todo{attach}}{a}{-}}"
    .  "%if{%sync-reached{}}{S}{%if{%todo{sync}}{s}{-}}"
    .  "%if{%fetch-almost-reached{}}{F}{%if{%todo{fetch}}{f}{-}}"
