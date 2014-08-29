@@ -1878,11 +1878,11 @@ sub wait_umount_res {
   my ($cmd, $res) = @_;
   while (1) {
     my $sum = 0;
-    foreach my $path (glob("$mars/resource-$res/actual-*/open-count")) {
+    foreach my $path (glob("$mars/resource-$res/actual-$host/open-count")) {
       $sum += get_link($path);
     }
     last if !$sum;
-    lprint "device for resource '$res' is $sum times in use somewhere\n";
+    lprint "device for resource '$res' is $sum times in use on $host\n";
     sleep_timeout(3);
   }
   lprint "OK, device for resource '$res' is not in use.\n";
