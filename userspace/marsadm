@@ -478,7 +478,7 @@ sub check_todo {
 
 sub check_status {
   my ($cmd, $res, $key, $val, $wait, $unchecked, $inv) = @_;
-  my $path = "$mars/resource-$res/actual-$host/$key";
+  my $path = correct_path("$mars/resource-$res/actual-$host/$key");
   my $link;
   for (;;) {
     $link = get_link($path, $unchecked);
@@ -1897,7 +1897,9 @@ sub invalidate_res_phase0 {
 
 sub invalidate_res_phase1 {
   my ($cmd, $res) = @_;
+  _switch($cmd, $res, "$mars/resource-$res/todo-$host/attach", 0);
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/sync", 0);
+  _switch($cmd, $res, "$mars/resource-$res/todo-$host/fetch", 0);
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/replay", 0);
 }
 
@@ -1905,7 +1907,9 @@ sub invalidate_res_phase2 {
   my ($cmd, $res) = @_;
   if (!$force) {
     check_status($cmd, $res, "is-syncing", 0, 1);
+    check_status($cmd, $res, "is-fetching", 0, 1);
     check_status($cmd, $res, "is-replaying", 0, 1);
+    check_status($cmd, $res, "is-attached", 0, 1);
   }
 }
 
@@ -1920,6 +1924,8 @@ sub invalidate_res_phase3 {
   set_link("0", $dst);
   finish_links(); # opportunity for errors => don't continue
   _set_replaylink("$mars/resource-$res", $replay_nr, $primary, "");
+  _switch($cmd, $res, "$mars/resource-$res/todo-$host/attach", 1);
+  _switch($cmd, $res, "$mars/resource-$res/todo-$host/fetch", 1);
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/replay", 1);
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/sync", 1);
 }
