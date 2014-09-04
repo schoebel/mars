@@ -131,7 +131,7 @@ tst@1und1.de
 \end_layout
 
 \begin_layout Date
-Version 0.16
+Version 0.17
 \end_layout
 
 \begin_layout Lowertitleback
@@ -4934,6 +4934,18 @@ d
 -
 \family default
  = none present.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+consistency: C = locally consistent, c = maybe inconsistent (no guarantee),
+ - = cannot determine.
+ Notice: like the other flags, this flag is subject to races and therefore
+ should be relied on only in 
+\emph on
+detached
+\emph default
+ state!
 \end_layout
 
 \begin_layout Labeling

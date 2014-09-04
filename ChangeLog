@@ -45,6 +45,29 @@ Release Conventions / Branches / Tagnames
 	NO NEW FEATURES, not even minor ones, except when absolutely
 	necessary for a bugfix.
 
+light0.1stable08
+--------
+	 * Minor fix: after emergency mode, a versionlink was forgotten
+	   to create. This could lead to unnecessary reports of split
+	   brain and/or need for additional re-invalidate.
+	 * Minor fix: the predicate 'view-is-consistent' reported 'false'
+	   in some situations on secondaries when all was ok.
+	 * Minor fix: it was impossible to determine the 'is-consistent'
+	   from 'marsadm view' (without -1and1 suffix). Added a new [Cc-]
+	   flag. This is absolutely needed to determine whether the
+	   underlying disks must have the same checksum (provided that
+	   both disks are detached and the network works and fetch+replay
+	   had completed before the detach).
+	 * Updated docs to reflect this.
+	 * Minor fix: 'invalidate' did not work when the resource was not
+	   completely detached. Now it implicitly does a detach before
+	   starting invalidation.
+	 * Minor fix: wait-umount was waiting for umount of _all_ primaries
+	   during split brain. Now it waits only for umount of the local node.
+	   Notice that having multiple primaries in parallel is an
+	   erroneous state anyway.
+	 * Minor fix: leave-cluster did not work without --force.
+
 light0.1stable07
 --------
 	 * Minor fix: re-creation of a completely destroyed resource
