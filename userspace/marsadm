@@ -1249,7 +1249,7 @@ sub join_cluster {
 
 sub leave_cluster {
   my ($cmd) = @_;
-  my $check = "/mars/resource-*/*-$host";
+  my $check = "/mars/resource-*/data-$host";
   ldie "I am member of some resources\n" if glob($check) && !$force;
   _create_delete("$mars/ips/$host");
 }
