@@ -572,6 +572,7 @@ struct mars_rotate {
 	bool has_emergency;
 	bool wants_sync;
 	bool gets_sync;
+	bool log_is_really_damaged;
 	spinlock_t inf_lock;
 	bool infs_is_dirty[MAX_INFOS];
 	struct trans_logger_info infs[MAX_INFOS];
@@ -3154,7 +3155,9 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 
 	status = 0;
 	if (rot->aio_info.current_size > *oldpos_start) {
-		if (rot->aio_info.current_size - *oldpos_start < REPLAY_TOLERANCE &&
+		if ((rot->aio_info.current_size - *oldpos_start < REPLAY_TOLERANCE ||
+		     (rot->log_is_really_damaged &&
+		      rot->todo_primary)) &&
 		    (rot->todo_primary ||
 		        (rot->relevant_log &&
 		         rot->next_relevant_log &&
@@ -3235,7 +3238,7 @@ int _make_logging_status(struct mars_rotate *rot)
 		 * Allow switching over to a new logfile.
 		 */
 		if (!trans_brick->power.button && !trans_brick->power.led_on && trans_brick->power.led_off) {
-			if (rot->next_relevant_log) {
+			if (rot->next_relevant_log && !rot->log_is_really_damaged) {
 				int replay_tolerance = _get_tolerance(rot);
 				bool skip_new = !!rot->todo_primary;
 				MARS_DBG("check switchover from '%s' to '%s' (size = %lld, skip_new = %d, replay_tolerance = %d)\n", dent->d_path, rot->next_relevant_log->d_path, rot->next_relevant_log->new_stat.size, skip_new, replay_tolerance);
@@ -3678,7 +3681,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		make_rot_msg(rot, "wrn-space-low", "EMERGENCY: the space on /mars/ is becoming low.");
 	}
 
-
+	rot->log_is_really_damaged = false;
 	if (trans_brick->replay_mode) {
 		if (trans_brick->replay_code > 0) {
 			MARS_INF_TO(rot->log_say, "logfile replay ended successfully at position %lld\n", trans_brick->replay_current_pos);
@@ -3688,6 +3691,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		} else if (trans_brick->replay_code < 0) {
 			MARS_ERR_TO(rot->log_say, "logfile replay stopped with error = %d at position %lld\n", trans_brick->replay_code, trans_brick->replay_current_pos);
 			make_rot_msg(rot, "err-replay-stop", "logfile replay stopped with error = %d at position %lld", trans_brick->replay_code, trans_brick->replay_current_pos);
+			rot->log_is_really_damaged = true;
 		}
 	}
 
