@@ -616,17 +616,30 @@ sub _is_visited {
 }
 
 sub _parse_pos {
-  my ($pos, $do_remember) = @_;
+  my ($basedir, $pos) = @_;
+  if ($pos =~ m/log-([0-9]+)-([^,]+)/) {
+    _visit($1, $2);
+  } elsif ($pos =~ m/version-([0-9]+)-([^,]+)/p) {
+    my $vers = get_link("$basedir/$MATCH");
+    my $count_matches = 0;
+    while ($vers =~ m/log-([0-9]+)-([^,]+)/p) {
+      $vers = $POSTMATCH;
+      _visit($1, $2);
+      $count_matches++;
+    }
+    lwarn "cannot parse '$pos' -> '$vers'\n" unless $count_matches;
+  } else {
+    lwarn "cannot parse '$pos'\n";
+  }
   $pos =~ m/((?:log|version)-([0-9]+)-([^,]+)(?:,([0-9]+))?)/ or lwarn "cannot parse position info '$pos'\n";
-  _visit($2, $3) if $do_remember;
   return ($1, int($2), $3, defined($4) ? int($4) : -1);
 }
 
 sub _get_prev_pos {
-  my ($basedir, $nr, $peer, $do_remember) = @_;
-  my $path = sprintf("$basedir/version-%09d-$peer", $nr);
-  my $vers = get_link($path, 2);
-  _parse_pos($path, 1) if $do_remember && defined($vers) && $vers;
+  my ($basedir, $nr, $peer) = @_;
+  my $path = sprintf("version-%09d-$peer", $nr);
+  my $vers = get_link("$basedir/$path", 2);
+  _parse_pos($basedir, $path) if defined($vers) && $vers;
   $vers =~ s/^.*://;
   return $vers;
 }
@@ -634,8 +647,8 @@ sub _get_prev_pos {
 sub _get_common_ancestor {
   for (;;) {
     my ($basedir, $pos1, $host1, $dep1, $pos2, $host2, $dep2) = @_;
-    my ($p1, $nr1, $from1, $len1) = _parse_pos($pos1, 0);
-    my ($p2, $nr2, $from2, $len2) = _parse_pos($pos2, 0);
+    my ($p1, $nr1, $from1, $len1) = _parse_pos($basedir, $pos1);
+    my ($p2, $nr2, $from2, $len2) = _parse_pos($basedir, $pos2);
     if ($p1 eq $p2) {
       # usually no split brain here (only if both path depths are non-zero)
       my $split = ($dep1 && $dep2);
@@ -734,7 +747,7 @@ sub _mark_path_backward {
   my $sum = 0;
   my $base_nr = 0;
   for (;;) {
-    my ($p, $nr, $from, $len) = _parse_pos($pos, 1);
+    my ($p, $nr, $from, $len) = _parse_pos($basedir, $pos);
     last if defined($skip) && $nr < $skip;
     $base_nr = $nr;
     _visit($nr, $peer);
@@ -754,7 +767,7 @@ sub _mark_path_backward {
     last if !$pos;
     # optionally don't count the last versionlink, pointing into nirvana
     if (defined($skip) && $skip && $nr > 1) {
-      my ($p, $nr, $from, $len) = _parse_pos($pos, 0);
+      my ($p, $nr, $from, $len) = _parse_pos($basedir, $pos);
       last if !$p;
       my $next = _get_prev_pos($basedir, $nr, $peer, 1);
       last if !$next;
@@ -770,12 +783,12 @@ sub _mark_path_forward {
   while (@list) {
     my %next_list;
     foreach $pos (@list) {
-      my ($p, $nr, $from, $len) = _parse_pos($pos, 1);
+      my ($p, $nr, $from, $len) = _parse_pos($basedir, $pos);
       my $cand = sprintf("$basedir/version-%09d-$peer", $nr + 1);
       my $vers = get_link($cand, 2);
       next unless defined($vers) && $vers ne "";
       $vers =~ s/^.*://;
-      my ($cp, $cnr, $cfrom, $clen) = _parse_pos($vers, 0);
+      my ($cp, $cnr, $cfrom, $clen) = _parse_pos($basedir, $vers);
       if (int($cnr) == int($nr) && $cfrom eq $from && $clen == $len) {
 	$next_list{$cand} = 1;
       }
@@ -791,7 +804,8 @@ sub _mark_path_transitive {
 
 sub log_purge_res {
   my ($cmd, $res) = @_;
-  lwarn "DANGEROUS OPERATION: $cmd on resource '$res'\n";
+  lwarn "DANGEROUS OPERATION: $cmd --force on resource '$res'\n" if $force;
+  %visited_pos = ();
   my %start_logs;
   my $start_count = 0;
   my $basedir = "$mars/resource-$res";
@@ -820,13 +834,14 @@ sub log_purge_res {
     $vers =~ m/(log-[0-9]+-[^,:]+)/;
     my $log = $1;
     lprint "  corresponding logfile is '$log'\n";
-    $logs{$log}++;
     if (_is_visited($nr, $from)) {
       lprint "  ok '$cand'\n";
+      $logs{$log}++;
       next;
     }
     if (!$force && $from ne $host) {
       lprint "  skipping foreign object '$cand'\n";
+      $logs{$log}++;
       next;
     }
     lwarn "deleting foreign object from peer '$from' because you said --force\n" if $from ne $host;
@@ -1478,7 +1493,11 @@ sub leave_res_phase1 {
   _create_delete("$mars/resource-$res/data-$host");
   _create_delete("$mars/resource-$res/syncstatus-$host");
   my $syncpos = "$mars/resource-$res/syncpos-$host";
-  _create_delete($syncpos) if -e $syncpos;
+  _create_delete($syncpos) if -l $syncpos;
+  my $skip_check = "$mars/resource-$res/skip-check-$host";
+  _create_delete($skip_check) if -l $skip_check;
+  my $vstatus = "$mars/resource-$res/verifystatus-$host";
+  _create_delete($vstatus) if -l $vstatus;
   _create_delete("$mars/resource-$res/device-$host");
   _create_delete("$mars/resource-$res/actsize-$host");
   foreach my $dir (glob("$mars/resource-$res/*-$host/")) {
@@ -1596,6 +1615,7 @@ sub _wait_delete {
   return if $dry_run;
   for (;;) {
     my $deleted = get_link("$mars/todo-global/deleted-$real_host");
+print "deleted: $deleted / $delete_nr\n";
     last if $deleted >= $delete_nr;
     lprint "waiting for deletions to apply locally....\n";
     sleep_timeout();
@@ -1946,7 +1966,17 @@ sub invalidate_res_phase3 {
   my $replay_nr = $1;
   set_link("0", $dst);
   finish_links(); # opportunity for errors => don't continue
+  for my $vers_path (glob("$mars/resource-$res/version-*-$host")) {
+    $vers_path =~ m:/version-([0-9]+):;
+    my $this_nr = $1;
+    _create_delete($vers_path) if $this_nr >= $replay_nr;
+  }
+  finish_links();
+  _wait_delete();
   _set_replaylink("$mars/resource-$res", $replay_nr, $primary, "");
+  finish_links();
+  $force = 0; # this would be too dangerous
+  log_purge_res(@_);
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/attach", 1);
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/fetch", 1);
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/replay", 1);
@@ -2685,7 +2715,7 @@ sub eval_fn {
 	my $replay_base_nr = eval_fn($env, "replay-basenr", "");
 
 	my $replay = get_link($$env{"resdir"} . "/replay-$primary", 1);
-	($pos, my $nr, my $from, $sum)  = _parse_pos($replay);
+	($pos, my $nr, my $from, $sum)  = _parse_pos($$env{"resdir"}, $replay);
 	my $base_nr = $nr;
 	$pos = _get_prev_pos($$env{"resdir"}, $nr, $primary);
 	if ($pos) {
@@ -2696,7 +2726,7 @@ sub eval_fn {
 	($min, $max) = get_minmax_versions($$env{"res"}, "-$primary");
 	my $check_pos = get_link($$env{"resdir"} . "/version-$max-$primary", 1);
 	$check_pos =~ s{^.*(log-[^:]*):.*$}{$1};
-	my ($test_pos, $test_nr, $test_from, $test_sum)  = _parse_pos($check_pos);
+	my ($test_pos, $test_nr, $test_from, $test_sum)  = _parse_pos($$env{"resdir"}, $check_pos);
 	$test_pos = _get_prev_pos($$env{"resdir"}, $test_nr, $primary);
 	my $test_base_nr = $base_nr;
 	if ($test_pos) {
@@ -2730,7 +2760,7 @@ sub eval_fn {
       } elsif ($what =~ m/replay|syncpos/) {
 	my $replay = get_link($$env{"resdir"} . "/$what-" . $$env{"host"}, $what eq "syncpos" ? 2 : 1);
 	return 0 unless $replay;
-	my ($p, $nr, $from, $len)  = _parse_pos($replay, 1);
+	my ($p, $nr, $from, $len)  = _parse_pos($$env{"resdir"}, $replay);
 	return $nr if $op eq "lognr";
 	$min = $nr;
 	$sum = $len;
