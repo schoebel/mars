@@ -902,6 +902,20 @@ sub try_to_avoid_splitbrain {
   my $vers_glob = sprintf("$mars/resource-$res/version-%09d-*", $max);
   for (;;) {
     my $ok = 1;
+    my $replay_err_path = "$mars/resource-$res/actual-$host/msg-err-replay-stop";
+    my $replay_err = get_link($replay_err_path, 1);
+    if ($replay_err && $replay_err ne "OK") {
+      my @stat = lstat($replay_err_path);
+      if ($stat[9] + $window >= mars_time()) {
+	my $msg = _get_text($replay_err);
+	lwarn "cannot guarantee split brain avoidance: $msg\n";
+	last;
+      }
+    }
+    my $own_vers = sprintf("$mars/resource-$res/version-%09d-$host", $max);
+    if (!get_link($own_vers, 2)) {
+	$ok = 0;
+    }
     my @versions = glob($vers_glob);
     my $first = get_link(shift @versions);
     while (@versions) {
@@ -912,6 +926,7 @@ sub try_to_avoid_splitbrain {
     }
     last if $ok;
     lprint "trying to avoid split brain: logfile update not yet completed.\n";
+    view_cmd("replinfo", $res);
     sleep_timeout();
   }
 }
