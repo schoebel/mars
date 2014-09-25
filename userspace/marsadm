@@ -3397,7 +3397,7 @@ my %complex_macros =
    .    "%if{%and{%is-attach{}}{%not{%sync-reached{}}}}{"
    .      "%include{syncinfo}"
    .    "}"
-   .    "%if{%and{%is-attach{}}{%not{%work-threshold-reached{}}}}{"
+   .    "%if{%and{%is-attach{}}{%not{%work-reached{}}}}{"
    .      "%include{replinfo}"
    .    "}"
    .    "%call{resource-errors}"
@@ -3424,7 +3424,7 @@ my %complex_macros =
    => "%if{%present-disk{}}{"
    .    "%if{%does{attach}}{"
    .      "%if{%is-consistent{}}{"
-   .        "%if{%work-threshold-reached{}}{"
+   .        "%if{%work-reached{}}{"
    .          "UpToDate"
    .        "}{"
    .          "OutDated[%call{outdated-flags}]"
@@ -3453,7 +3453,7 @@ my %complex_macros =
    .  "}{Detached}",
 
    "outdated-flags"
-   => "%if{%fetch-threshold-reached{}}{}{F}%if{%replay-reached{}}{}{R}",
+   => "%if{%fetch-reached{}}{}{F}%if{%replay-reached{}}{}{R}",
 
    "outdated-flags-1and1"
    => "%if{%fetch-reached{}}{}{F}%if{%replay-reached{}}{}{R}",
@@ -3467,7 +3467,7 @@ my %complex_macros =
    .        "NotYetPrimary"
    .      "}"
    .    "}{"
-   .      "%if{%is-alive{}}{"
+   .      "%if{%and{%get-primary{}}{%is-alive{}}}{"
    .        "%if{%and{%sync-rest{}}{%not{%todo{sync}}}}{"
    .          "PausedSync"
    .        "}{"
@@ -3509,8 +3509,8 @@ my %complex_macros =
    .  "%if{%is-consistent{}}{C}{%if{%present-disk{}}{c}{-}}"
    .  "%if{%does{attach}}{%if{%todo{attach}}{A}{a}}{%if{%todo{attach}}{a}{-}}"
    .  "%if{%sync-reached{}}{S}{%if{%todo{sync}}{s}{-}}"
-   .  "%if{%fetch-almost-reached{}}{F}{%if{%todo{fetch}}{f}{-}}"
-   .  "%if{%replay-almost-reached{}}{R}{%if{%todo{replay}}{r}{-}}",
+   .  "%if{%fetch-reached{}}{F}{%if{%todo{fetch}}{f}{-}}"
+   .  "%if{%replay-reached{}}{R}{%if{%todo{replay}}{r}{-}}",
 
    "flags-1and1"
    => "-%if{%todo{sync}}{S}{-}%if{%todo{fetch}}{F}{-}%if{%todo{replay}}{R}{-}-",
