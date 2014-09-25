@@ -1791,8 +1791,9 @@ sub primary_phase0 {
   if ($cmd eq "primary") {
     check_sync_finished($res, $host);
     # also check that other secondaries won't loose their sync primary
-    foreach my $peer (glob("$mars/resource-$res/data-*")) {
-      $peer =~ m:/data-(.+):;
+    foreach my $name (glob("$mars/resource-$res/data-*")) {
+      $name =~ m:/data-(.+):;
+      my $peer = $1;
       next if ($peer eq $old || $peer eq $host);
       check_sync_finished($res, $peer);
     }
