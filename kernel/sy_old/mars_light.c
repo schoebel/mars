@@ -1406,12 +1406,10 @@ void _show_status_all(struct mars_global *global)
 }
 
 static
-void _show_rate(struct mars_rotate *rot, struct mars_limiter *limiter, bool running, const char *name)
+void _show_rate(struct mars_rotate *rot, struct mars_limiter *limiter, const char *name)
 {
-	int rate = limiter->lim_rate;
-	__show_actual(rot->parent_path, name, rate);
-	if (!running)
-		mars_limit(limiter, 0);
+	mars_limit(limiter, 0);
+	__show_actual(rot->parent_path, name, limiter->lim_rate);
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -3645,11 +3643,11 @@ done:
 	}
 
 	_show_actual(rot->parent_path, "is-replaying", rot->trans_brick && rot->trans_brick->replay_mode && !rot->trans_brick->power.led_off);
-	_show_rate(rot, &rot->replay_limiter, rot->trans_brick && rot->trans_brick->power.led_on, "replay_rate");
+	_show_rate(rot, &rot->replay_limiter, "replay_rate");
 	_show_actual(rot->parent_path, "is-copying", rot->fetch_brick && !rot->fetch_brick->power.led_off);
-	_show_rate(rot, &rot->fetch_limiter, rot->fetch_brick && rot->fetch_brick->power.led_on, "file_rate");
+	_show_rate(rot, &rot->fetch_limiter, "file_rate");
 	_show_actual(rot->parent_path, "is-syncing", rot->sync_brick && !rot->sync_brick->power.led_off);
-	_show_rate(rot, &rot->sync_limiter, rot->sync_brick && rot->sync_brick->power.led_on, "sync_rate");
+	_show_rate(rot, &rot->sync_limiter, "sync_rate");
 err:
 	return status;
 }
