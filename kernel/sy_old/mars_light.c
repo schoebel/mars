@@ -1653,9 +1653,19 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 		make_msg(msg_pair, "disallowing fetch (todo_primary=%d is_primary=%d)", rot->todo_primary, rot->is_primary);
 		do_start = false;
 	}
+	if (do_start && !global->global_power.button) {
+		MARS_DBG("disabling fetch due to rmmod\n");
+		make_msg(msg_pair, "disabling fetch due to rmmod");
+		do_start = false;
+	}
 	if (do_start && !_check_allow(global, parent, "attach")) {
 		MARS_DBG("disabling fetch due to detach\n");
 		make_msg(msg_pair, "disabling fetch due to detach");
+		do_start = false;
+	}
+	if (do_start && !_check_allow(global, parent, "connect")) {
+		MARS_DBG("disabling fetch due to disconnect\n");
+		make_msg(msg_pair, "disabling fetch due to disconnect");
 		do_start = false;
 	}
 
