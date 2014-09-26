@@ -187,6 +187,13 @@ int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *addr,
 		}
 	} else {
 		status = kernel_connect(sock, sockaddr, sizeof(*sockaddr), 0);
+		/* Treat non-blocking connects as successful.
+		 * Any potential errors will show up later during traffic.
+		 */
+		if (status == -EINPROGRESS) {
+			MARS_DBG("#%d connect in progress\n", msock->s_debug_nr);
+			status = 0;
+		}
 		if (status < 0) {
 			MARS_DBG("#%d connect failed, status = %d\n", msock->s_debug_nr, status);
 		}
