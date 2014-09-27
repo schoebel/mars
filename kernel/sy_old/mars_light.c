@@ -1487,6 +1487,11 @@ int __make_copy(
 			goto done;
 		}
 		cc.output[i] = aio->outputs[0];
+		/* When switching off, use a short timeout for aborting.
+		 * Important on very slow networks (since a large number
+		 * of requests may be pending).
+		 */
+		aio->power.io_timeout = switch_copy ? 0 : 1;
 	}
 
 	cc.copy_path = copy_path;
@@ -3612,6 +3617,12 @@ done:
 	     (fetch_brick->copy_last == fetch_brick->copy_end &&
 	      (rot->fetch_next_is_available > 0 ||
 	       rot->fetch_round++ > 3)))) {
+		int i;
+
+		for (i = 0; i < 4; i++) {
+			if (fetch_brick->inputs[i] && fetch_brick->inputs[i]->brick)
+				fetch_brick->inputs[i]->brick->power.io_timeout = 1;
+		}
 		status = mars_kill_brick((void*)fetch_brick);
 		if (status < 0) {
 			MARS_ERR("could not kill fetch_brick, status = %d\n", status);

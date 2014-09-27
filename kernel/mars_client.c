@@ -477,6 +477,11 @@ static int sender_thread(void *data)
 		struct client_mref_aspect *mref_a;
 		struct mref_object *mref;
 
+		if (brick->power.io_timeout > 0) {
+			_do_timeout(output, &output->wait_list, false);
+			_do_timeout(output, &output->mref_list, false);
+		}
+
 		if (unlikely(output->recv_error != 0 || !mars_socket_is_alive(&output->socket))) {
 			MARS_DBG("recv_error = %d do_kill = %d\n", output->recv_error, do_kill);
 			if (do_kill) {
