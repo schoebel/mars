@@ -1480,7 +1480,7 @@ int __make_copy(
 				       NULL,
 				       (const struct generic_brick_type*)&bio_brick_type,
 				       (const struct generic_brick_type*[]){},
-				       switch_copy ? 2 : -1,
+				       switch_copy || (copy && !copy->power.led_off) ? 2 : -1,
 				       cc.fullpath[i],
 				       (const char *[]){},
 				       0);
