@@ -404,7 +404,7 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, bool fo
 	struct list_head *next;
 	LIST_HEAD(tmp_list);
 	int rounds = 0;
-	long io_timeout = brick->io_timeout;
+	long io_timeout = brick->power.io_timeout;
 	unsigned long flags;
 
 	if (io_timeout <= 0)
@@ -639,7 +639,7 @@ char *client_statistics(struct client_brick *brick, int verbose)
 		 "fly_count = %d\n",
 		 output->socket.s_debug_nr,
 		 brick->max_flying,
-		 brick->io_timeout,
+		 brick->power.io_timeout,
 		 atomic_read(&output->timeout_count),
 		 atomic_read(&output->fly_count));
 	

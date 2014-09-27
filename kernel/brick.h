@@ -249,11 +249,12 @@ struct generic_output_ops;
 struct generic_brick_type;
 
 struct generic_switch {
-	bool button;
-	bool led_on;
-	bool led_off;
-	bool force_off;
-	int  percent_done;
+	bool button;       /* in:  main switch (on/off)                     */
+	bool led_on;       /* out: indicate regular operation               */
+	bool led_off;      /* out: indicate no activity of any kind         */
+	bool force_off;    /* in:  make ready for destruction               */
+	int  io_timeout;   /* in:  report IO errors after timeout (seconds) */
+	int  percent_done; /* out: generic progress indicator               */
 	wait_queue_head_t event;
 };
 

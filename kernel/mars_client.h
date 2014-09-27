@@ -23,7 +23,6 @@ struct client_brick {
 	MARS_BRICK(client);
 	// tunables
 	int max_flying; // limit on parallelism
-	int io_timeout;    // > 0: report IO errors after timeout (in seconds)
 	bool limit_mode;
 	// readonly from outside
 	int connection_state; // 0 = switched off, 1 = not connected, 2 = connected
