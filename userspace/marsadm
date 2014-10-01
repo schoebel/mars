@@ -13,33 +13,39 @@ umask 0077;
 
 my $error_count = 0;
 my $notify = "";
+my $logger = "/usr/bin/logger";
+
+sub llog {
+  my ($text) = @_;
+  if ($notify) {
+    system("$logger -t marsadm \"$notify $text\"");
+  }
+}
 
 sub lprint {
   my ($text) = @_;
   print $text;
-  if ($notify) {
-    system("/usr/bin/logger -t marsadm \"$notify $text\"");
-  }
+  llog($text);
 }
 
 sub lprint_stderr {
   my ($text) = @_;
   print STDERR $text;
-  if ($notify) {
-    system("/usr/bin/logger -t marsadm \"$notify $text\"");
-  }
+  llog($text);
 }
 
 sub ldie {
   my ($text) = @_;
   $error_count++;
   lprint_stderr "DYING: $text";
+  llog("DYING: $text");
   die "\n";
 }
 
 sub lwarn {
   my ($text) = @_;
   lprint_stderr "WARNING: $text";
+  llog("WARNING: $text");
 }
 
 ##################################################################
@@ -978,6 +984,7 @@ sub _get_text {
 	$count++;
 	if ($do_print) {
 	  print $line;
+	  llog($line);
 	} else {
 	  $text .= $line;
 	}
@@ -3995,6 +4002,8 @@ marsadm [<global_options>] view[-<macroname>] <resource>
     Use this before starting potentially harmful actions like delete-resource.
   --verbose
     Increase speakyness of some commands.
+  --logger=/path/to/usr/bin/logger
+    Use an alternative syslog messenger. When empty, disable syslogging.
   --timeout=<seconds>
     Leave safety checks after timeout with an error.
   --window=<seconds>
@@ -4066,6 +4075,9 @@ foreach my $arg (@ARGV) {
   } elsif ($arg eq "--verbose" || $arg eq "-v") {
     $verbose++;
     next;
+  } elsif ($arg =~ s/--logger\s*=\s*(.*)/$1/) {
+    $logger = $arg;
+    next;
   } elsif ($arg =~ s/--timeout\s*=\s*([0-9]+)/$1/) {
     $timeout = $arg;
     next;
@@ -4104,18 +4116,29 @@ foreach my $arg (@ARGV) {
 
 my $cmd = shift @args || helplist "command argument is missing\n";
 
-$notify = "(cmd: $cmd)" unless $cmd eq "version";
-
 if ($cmd =~ m/^help$/ || $cmd =~ m/^h$/) {
   helplist;
 }
 
-if ($cmd =~ m/^version$/ || $cmd =~ m/^v$/) {      
+if ($cmd =~ m/^version$/ || $cmd =~ m/^v$/) {
   version;
 }
 
 ldie "only root may use this tool\n" if $< != 0 && $cmd !~ m/^(cat|view.*|pretty.*)$/; # getpid() seems to be missing in perlfunc
 helplist "unknown command $cmd\n" if (!exists $cmd_table{$cmd} && !$cmd =~ m/view/);
+
+# setup syslogging
+
+if ($cmd !~ m/^(version$|v$|view)/ && -x $logger) {
+  $notify = "(cmd: $cmd)";
+  my $print_id = $Id;
+  $print_id =~ s/\$|Id:| //g;
+  $print_id = substr($print_id, 0, 8);
+  llog "$print_id $host $0 @ARGV\n";
+}
+
+# checks
+
 if (!(-d $mars) && $cmd !~ m/(create|join)-cluster|cat|view|pretty/) {
   ldie "The $mars directory does not exist.\n";
 }
