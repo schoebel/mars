@@ -920,11 +920,26 @@ sub get_size {
   return $arg;
 }
 
+# DEPRECATED
+#
+# TST NOTE: avoid calling this function. As such it is conceptually wrong,
+# because during split-brain situations, there exists a _set_ of non-unique
+# primaries. I want to remove this function, but I currently can't because
+# other internal software at 1&1 is depending on it.
+
 #
 # Get actual primary node from links below actual-*/ subdirs
 #
 sub _get_actual_primary {
   my ($res) = @_;
+  # TST: Presence of local device takes precedence over anything else.
+  # This tries to workaround the most important special case of
+  # split-brain situations, but cannot fix the problem exhaustively.
+  llog "DEPRECATED: you are trying to uniquely identify an actual primary hostname (as seen from host $host resource $res), but this is conceptually wrong because in split-brain situations there may exist multiple ones. Use view-is-primary instead. That would be safe.\n";
+  my $name = get_link("$mars/resource-$res/device-$real_host", 1);
+  my $dev = "/dev/mars/$name";
+  return $real_host if -b $dev;
+  # The following old code is CONCEPTUALLY WRONG for split-brain situations (see NOTE above)
   my @primary_links = glob("$mars/resource-$res/actual-*/is-primary");
   my $primary;
   foreach my $link (@primary_links) {
@@ -2484,6 +2499,7 @@ sub eval_fn {
       my $op = $1;
       my $primary;
       if ($op eq "actual") {
+	lwarn "DEPRECATED: you are trying to uniquely identify an actual primary hostname, but this is conceptually wrong because in split-brain situations there may exist multiple ones. Use view-is-primary instead. That would be safe.\n";
 	$primary = _get_actual_primary($$env{"res"});
       } else {
 	$primary = _get_designated_primary($$env{"res"});
