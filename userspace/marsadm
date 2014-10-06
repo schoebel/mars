@@ -134,10 +134,11 @@ sub get_link_stamp {
 }
 
 sub is_link_recent {
-  my ($path) = @_;
+  my ($path, $wind) = @_;
+  $wind = $window unless defined($wind);
   my @stat = lstat($path);
   return 0 if (!@stat);
-  return 1 if $stat[9] + $window >= mars_time();
+  return 1 if $stat[9] + $wind >= mars_time();
   return 0;
 }
 
@@ -2721,6 +2722,11 @@ sub eval_fn {
       ldie $txt;
       return "";
     }
+    if (/^is-module-loaded$/) {
+      my $path = "/proc/sys/mars";
+      my $result = -d $path;
+      return defined($result) && $result;
+    }
     # low-level symlink access
     if (/^readlink$/) {
       my $path = parse_macro($arg1, $env);
@@ -2799,7 +2805,7 @@ sub eval_fn {
       $peer = _get_designated_primary($$env{"res"}) unless $peer;
       $peer = $$env{"host"} unless $peer;
       my $lnk = "$mars/alive-$peer";
-      return is_link_recent($lnk);
+      return is_link_recent($lnk, $$env{"window"});
     }
     if (/^alive[-_]?timestamp$/) {
       my $peer = parse_macro($arg1, $env);
@@ -3255,6 +3261,11 @@ sub eval_fn {
       }
       return $arg1;
     }
+    if (/^tmp$/) { # evaluate once in a temporary scope
+      my %copy_env = %$env;
+      my $result = parse_macro($arg1, \%copy_env);
+      return $result;
+    }
     if (/^(include|call)$/) {
       my $op = $1;
       my $name = parse_macro($arg1, $env);
@@ -3421,23 +3432,33 @@ my %complex_macros =
    .  "}",
 
    "diskstate"
-   => "%if{%present-disk{}}{"
-   .    "%if{%does{attach}}{"
-   .      "%if{%is-consistent{}}{"
-   .        "%if{%work-reached{}}{"
-   .          "UpToDate"
-   .        "}{"
-   .          "OutDated[%call{outdated-flags}]"
-   .        "}"
-   .      "}{"
-   .        "%if{%todo-primary{}}{"
-   .          "NeedsReplay"
-   .        "}{"
-   .          "InConsistent"
-   .        "}"
-   .      "}"
-   .    "}{Detached}"
-   .  "}{NotPresent}",
+   => "%elsif{%not{%get-disk{}}}{"
+   .    "NotJoined"
+   .  "}{%not{%present-disk{}}}{"
+   .    "NotPresent"
+   .  "}{%not{%todo-attach{}}}{"
+   .    "%if{%is-attach{}}{"
+   .      "Detaching"
+   .    "}{"
+   .      "Detached"
+   .    "}"
+   .  "}{%not{%is-attach{}}}{"
+   .    "NoAttach"
+   .  "}{%not{%is-consistent{}}}{"
+   .    "InConsistent"
+   .  "}{%not{%work-reached{}}}{"
+   .    "%elsif{%not{%todo-primary{}}}{"
+   .      "OutDated[%call{outdated-flags}]"
+   .    "}{%is-primary{}}{"
+   .      "WriteBack"
+   .    "}{"
+   .      "Recovery"
+   .    "}"
+   .  "}{%and{%ne{%get-primary{}}{}}{%tmp{%let{host}{%get-primary{}}%is-emergency{}}}}{"
+   .    "EmergencyMode"
+   .  "}{"
+   .    "UpToDate"
+   .  "}",
 
    "diskstate-1and1"
    => "%if{%present-disk{}}{"
@@ -3459,29 +3480,39 @@ my %complex_macros =
    => "%if{%fetch-reached{}}{}{F}%if{%replay-reached{}}{}{R}",
 
    "replstate"
-   => "%if{%present-disk{}}{"
-   .    "%if{%todo-primary{}}{"
-   .      "%if{%is-primary{}}{"
+   => "%elsif{%not{%is-module-loaded{}}}{"
+   .    "ModuleNotLoaded"
+   .  "}{%not{%is-alive{%{host}}}}{"
+   .    "UnResponsive"
+   .  "}{%not{%get-disk{}}}{"
+   .    "NotJoined"
+   .  "}{%not{%todo-attach{}}}{"
+   .    "NotStarted"
+   .  "}{%todo-primary{}}{"              # I am designated primary
+   .      "%elsif{%is-emergency{}}{"
+   .        "EmergencyMode"
+   .      "}{%is-primary{}}{"
    .        "Replicating"
    .      "}{"
    .        "NotYetPrimary"
    .      "}"
-   .    "}{"
-   .      "%if{%and{%get-primary{}}{%is-alive{}}}{"
-   .        "%if{%and{%sync-rest{}}{%not{%todo{sync}}}}{"
-   .          "PausedSync"
-   .        "}{"
-   .          "%if{%does{sync}}{"
-   .            "Syncing"
-   .          "}{"
-   .            "%unless{%and{%todo{fetch}}{%todo{replay}}}{"
-   .              "PausedReplay"
-   .            "}{Replaying}"
-   .          "}"
-   .        "}"
-   .      "}{PrimaryUnreachable}"
-   .    "}"
-   .  "}{NotJoined}",
+   .  "}{"                               # Secondary
+   .      "%elsif{%and{%sync-rest{}}{%not{%todo{sync}}}}{"
+   .        "PausedSync"
+   .      "}{%is-sync{}}{"
+   .        "Syncing"
+   .      "}{%not{%todo{fetch}}}{"
+   .        "PausedFetch"
+   .      "}{%not{%todo{replay}}}{"
+   .        "PausedReplay"
+   .      "}{%not{%get-primary{}}}{"
+   .        "NoPrimaryDesignated"
+   .      "}{%not{%is-alive{}}}{"
+   .        "PrimaryUnreachable"
+   .      "}{"
+   .        "Replaying"
+   .      "}"
+   .  "}",
 
    "replstate-1and1"
    => "%if{%present-disk{}}{"

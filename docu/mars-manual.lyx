@@ -6772,15 +6772,81 @@ comminfo
 \family typewriter
 diskstate
 \family default
- Shows the status of the underlying disk device: 
+ Shows the status of the underlying disk device, in the following order
+ of precedence
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+When an earlier list item is displayed, no combinations with following items
+ are possible.
+ This kind of 
+\begin_inset Quotes eld
+\end_inset
+
+hiding effect
+\begin_inset Quotes erd
+\end_inset
+
+ can lead to an 
+\emph on
+information loss
+\emph default
+.
+ In order to get a non-lossy picture from the state of your system, please
+ look at the 
+\family typewriter
+flags
+\family default
+ which are able to display cartesian combinations of more detailed internal
+ states.
+\end_layout
+
+\end_inset
+
+:
+\end_layout
+
+\begin_deeper
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+NotJoined
+\family default
+ (cf 
+\family typewriter
+%get-disk{}
+\family default
+) No underlying disk device is configured.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
 \family typewriter
 NotPresent
 \family default
-, 
+ (cf 
+\family typewriter
+%present-disk{}
+\family default
+) The underlying disk device (as configured, see 
+\family typewriter
+marsadm view-get-disk
+\family default
+) does not exist or the device node is not accessible.
+ Therefore MARS cannot work.
+ Check that LVM or other software is properly configured and running.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
 \family typewriter
 Detached
 \family default
-, 
+ (cf 
 \family typewriter
 InConsistent
 \family default
@@ -6790,12 +6856,241 @@ NeedsReplay
 \family default
 , 
 \family typewriter
-OutDated
+%todo-attach{}
 \family default
 , 
 \family typewriter
-UpToDate
+%is-attach{}
 \family default
+) The underlying disk is willingly switched off (see 
+\family typewriter
+marsadm detach
+\family default
+), and it actually is no longer opened by MARS.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+Detaching
+\family default
+ (cf 
+\family typewriter
+%todo-attach{}
+\family default
+ and 
+\family typewriter
+%is-attach{}
+\family default
+) Access to the underlying disk is switched off, but actually not yet 
+\family typewriter
+close()
+\family default
+d by MARS.
+ This can happen for a long time on a primary when other secondaries are
+ accessing the disk remotely for syncing.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+NoAttach
+\family default
+ (cf 
+\family typewriter
+%is-attach{}
+\family default
+) The underlying disk is currently not opened by MARS.
+ Reasons may be that the kernel module is not loaded, or an exclusive 
+\family typewriter
+open()
+\family default
+ is currently not possible because somebody else has already opened it.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+InConsistent
+\family default
+ (cf 
+\family typewriter
+%is-consistent{}
+\family default
+) A logfile replay and/or sync is known to be needed / or to complete (e.g.
+ after 
+\family typewriter
+invalidate
+\family default
+ has started) in order to restore local consistency (for details, look at
+ 
+\family typewriter
+flags
+\family default
+).
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Hint: in the current implementation of MARS, this will never happen on secondari
+es during ordinary replay (but only when either sync has not yet finished,
+ or when the 
+\emph on
+initial
+\emph default
+ logfile replay after the sync has not yet finished), because the ordinary
+ logfile replay always maintains anytime consistency once a consistent state
+ had been reached.
+ On a 
+\emph on
+running
+\emph default
+ primary, this display does not mean that something went wrong.
+ It just means that there exists some 
+\emph on
+writeback
+\emph default
+ in the temporary memory buffer which has to be flushed before consistency
+ of the underlying local disk (as opposed to 
+\family typewriter
+/dev/mars/mydata
+\family default
+ which will 
+\emph on
+always
+\emph default
+ appear as being consistent) will be reached again.
+ Only in case of a primary node crash, and only after attempts have failed
+ to become primary again (e.g.
+ IO errors, etc), this 
+\emph on
+can
+\emph default
+ (but need not) mean that something went wrong.
+ Even in such an extremely unlikely event, chances are high that 
+\family typewriter
+fsck 
+\family default
+can fix any remaining problems (and, of course, you can also switchover
+ to a former secondary).
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+OutDated[FR]
+\family default
+ (cf 
+\family typewriter
+%work-reached{}
+\family default
+) Only at secondaries.
+ Tells whether it is 
+\emph on
+currently known
+\emph default
+ that the disk has any lag-behind when compared to the 
+\emph on
+currently known
+\emph default
+ state of the current designated primary (if there exists one).
+ Only meaningful if a current designated primary exists.
+ Notice that this kind of status display is subject to 
+\emph on
+natural races
+\emph default
+, for example when new logfile data has been produced in parallel, or network
+ propagation is very slow.
+ Additional information is in brackets:
+\end_layout
+
+\begin_deeper
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+[F]
+\family default
+ Fetch is known to be needed.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+[R]
+\family default
+ Replay is known to be needed.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+[FR]
+\family default
+ Both are known to be needed.
+\end_layout
+
+\end_deeper
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+WriteBack
+\family default
+ (cf 
+\family typewriter
+%is-primary{}
+\family default
+) Appears only at actual primaries (whether designated or not), when the
+ writeback from the RAM buffer is active (see section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:The-Transaction-Logger"
+
+\end_inset
+
+)
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+Recovery
+\family default
+ (cf 
+\family typewriter
+%todo-primary{}
+\family default
+) Appears only at the designated primary before it actually has become primary.
+ Similar to database recovery, this indicates the recovery phase after a
+ crash
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In some cases, 
+\family typewriter
+primary --force
+\family default
+ may also trigger this message.
+\end_layout
+
+\end_inset
+
 .
 \end_layout
 
@@ -6803,9 +7098,42 @@ UpToDate
 \labelwidthstring 00.00.0000
 
 \family typewriter
+EmergencyMode
+\family default
+ (cf 
+\family typewriter
+%is-emergency{}
+\family default
+) A current designated primary exists, and it is known that this host has
+ entered emergency mode.
+ See section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Emergency-Mode"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+UpToDate
+\family default
+ Displayed when none of the above has been detected.
+\end_layout
+
+\end_deeper
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
 diskstate-1and1
 \family default
  A variant for internal use by 1&1 Internet AG.
+ See above note.
 \end_layout
 
 \begin_layout Labeling
@@ -6814,29 +7142,60 @@ diskstate-1and1
 \family typewriter
 replstate
 \family default
- Shows the status of the replication: 
+ Shows the status of the replication in the following order of precedence:
+\end_layout
+
+\begin_deeper
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
 \family typewriter
-NotJoined
+ModuleNotLoaded
 \family default
-, 
+ (cf 
 \family typewriter
-PrimaryUnreachable
+%is-module-loaded{}
 \family default
-, 
+) No kernel module is loaded, and as a consequence no 
 \family typewriter
-PausedSync
+/proc/sys/mars/
 \family default
-, 
+ does exist.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
 \family typewriter
-Syncing
+UnResponsive
 \family default
-, 
+ (cf 
 \family typewriter
-PausedReplay
+%is-alive{%{host}}
 \family default
-, 
+) The main thread 
 \family typewriter
-Replaying
+mars_light
+\family default
+ did not do any noticable work for more than 
+\family typewriter
+%{window}
+\family default
+ (default 30) seconds.
+ Notice that this may happen when deleting 
+\emph on
+extremely
+\emph default
+ large logfiles (up to hundreds of gigabytes or terabytes).
+ If this happens for a 
+\emph on
+very
+\emph default
+ long time, you should check whether you might need a reboot in order to
+ fix the hang.
+ The time window may be changed by 
+\family typewriter
+--window=$seconds
 \family default
 .
 \end_layout
@@ -6845,9 +7204,241 @@ Replaying
 \labelwidthstring 00.00.0000
 
 \family typewriter
+NotJoined
+\family default
+ (cf 
+\family typewriter
+%get-disk{}
+\family default
+) No underlying disk device is configured for this resource.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+NotStarted
+\family default
+ (cf 
+\family typewriter
+%todo-attach{}
+\family default
+) Replication has not been started.
+\end_layout
+
+\begin_layout Itemize
+When the current host is designated as a primary, the rest of the precedence
+ list looks as follows:
+\end_layout
+
+\begin_deeper
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+EmergencyMode
+\family default
+ (cf.
+ 
+\family typewriter
+%is-emergency{}
+\family default
+) See section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Emergency-Mode"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+Replicating
+\family default
+ (cf.
+ 
+\family typewriter
+%is-primary{}
+\family default
+) Primary mode has been entered.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+NotYetPrimary 
+\family default
+(catchall) This means the current host 
+\emph on
+should
+\emph default
+ act as a primary (see 
+\family typewriter
+marsadm primary
+\family default
+ or 
+\family typewriter
+marsadm primary --force
+\family default
+), but currently doesn't (yet).
+ This happens during logfile replay, before primary mode is actually entered.
+ Notice that replay of very big logfiles may take a long time.
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+When the current host is 
+\emph on
+not
+\emph default
+ designated as a primary:
+\end_layout
+
+\begin_deeper
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+PausedSync
+\family default
+ (cf.
+ 
+\family typewriter
+%sync-rest{}
+\family default
+ and 
+\family typewriter
+%todo-sync{}
+\family default
+) Some data needs to be synced, but sync is currently switched off.
+ See 
+\family typewriter
+marsadm {pause,resume}-sync
+\family default
+.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+Syncing
+\family default
+ (cf.
+ 
+\family typewriter
+%is-sync{}
+\family default
+) Sync is currently running.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+PausedFetch
+\family default
+ (cf.
+ 
+\family typewriter
+%todo{fetch}
+\family default
+) Fetch is currently switched off.
+ See 
+\family typewriter
+marsadm {pause,resume}-fetch
+\family default
+.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+PausedReplay
+\family default
+ (cf.
+ 
+\family typewriter
+%todo{replay}
+\family default
+) Replay is currently switched off.
+ See 
+\family typewriter
+marsadm {pause,resume}-replay
+\family default
+.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+NoPrimaryDesignated
+\family default
+ (cf.
+ 
+\family typewriter
+%get-primary{}
+\family default
+) A 
+\family typewriter
+secondary
+\family default
+ command has been given somewhere in the cluster.
+ Thus no designated primary exists.
+ All resource members are in state 
+\family typewriter
+Secondary
+\family default
+ or try to approach it.
+ Sync and other operations are not possible.
+ This state is therefore not recommended.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+PrimaryUnreachable
+\family default
+ (cf.
+ 
+\family typewriter
+%is-alive{}
+\family default
+) A current designated primary has been set, but this host has not been
+ remotely updated for more than 30 seconds (see also 
+\family typewriter
+--window=$seconds
+\family default
+).
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+Replaying
+\family default
+ (catchall) None of the previous conditions have triggered.
+\end_layout
+
+\end_deeper
+\end_deeper
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
 replstate-1and1
 \family default
  A variant for internal use by 1&1 Internet AG.
+ See above note.
 \end_layout
 
 \begin_layout Labeling
