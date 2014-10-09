@@ -18148,8 +18148,9 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Precondition: all relevant transaction logfiles must be either already locally
- present, or be fetchable (see 
+Precondition: sync must have been finished.
+ All relevant transaction logfiles must be either already locally present,
+ or be fetchable (see 
 \family typewriter
 resume-fetch
 \family default
