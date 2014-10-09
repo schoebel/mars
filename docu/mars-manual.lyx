@@ -1957,6 +1957,13 @@ marsadm
 
 \begin_layout Subsection
 Setup your Cluster Nodes
+\begin_inset CommandInset label
+LatexCommand label
+name "sub:Setup-your-Cluster"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -1995,8 +2002,11 @@ On each node, create an
 \family typewriter
 ext4
 \family default
- filesystem on your separate disk / RAID set (see description in section
- 
+ filesystem on your separate disk / RAID set via 
+\family typewriter
+mkfs.ext4
+\family default
+ (for requirements on size etc see section 
 \begin_inset CommandInset ref
 LatexCommand nameref
 reference "sec:Preparation:-What-you"
@@ -5984,7 +5994,25 @@ mydata
 \family typewriter
 uuid
 \family default
- (global) Show a unique identifier originally created at create-cluster.
+ (global) Show a unique identifier originally created at 
+\family typewriter
+create-cluster
+\family default
+.
+ Hint: this is immutable, and it is firmly bound to the 
+\family typewriter
+/mars/
+\family default
+ filesystem.
+ It can only be destroyed by deleting the whole filesystem (see section
+ 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "leave-cluster"
+
+\end_inset
+
+).
 \end_layout
 
 \begin_layout Labeling
@@ -12592,7 +12620,18 @@ Precondition: the
 \family typewriter
 /mars/
 \family default
- filesystem must be mounted and it must be empty.
+ filesystem must be mounted and it must be empty (
+\family typewriter
+mkfs.ext4
+\family default
+, see instructions in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Setup-your-Cluster"
+
+\end_inset
+
+).
  The kernel module must 
 \emph on
 not
@@ -12730,14 +12769,29 @@ Precondition: the
 \family typewriter
 /mars/
 \family default
- filesystem must be mounted and it must be empty.
- The kernel module must not be loaded.
+ filesystem must be mounted and it must be empty (
+\family typewriter
+mkfs.ext4
+\family default
+, see instructions in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Setup-your-Cluster"
+
+\end_inset
+
+).
+ The kernel module must 
+\emph on
+not
+\emph default
+ be loaded.
  The cluster must have been already created at another node 
 \family typewriter
 $host
 \family default
 .
- A working ssh connecttion to $host must exit (without password).
+ A working ssh connecttion to $host must exist (without password).
  
 \family typewriter
 rsync
@@ -12807,6 +12861,13 @@ status open
 \family typewriter
 \size scriptsize
 leave-cluster
+\begin_inset CommandInset label
+LatexCommand label
+name "leave-cluster"
+
+\end_inset
+
+
 \end_layout
 
 \end_inset
@@ -12859,12 +12920,13 @@ Precondition: the
 marsadm
 \family default
  commands.
- The kernel module must be loaded.
- The local node must no longe be member of any resource (see 
+ The local node must no longer be member of any resource (see 
 \family typewriter
 marsadm leave-resource
 \family default
 ).
+ The kernel module should be loaded and the network should be operating
+ in order to also propogate the effect to the other nodes.
 \end_layout
 
 \begin_layout Plain Layout
@@ -12876,24 +12938,242 @@ Postcondition: the local node is removed from the replicated symlink tree
 /mars/
 \family default
  such that other nodes will cease to communicate with it after a while.
+ The converse it not true: the local node may continue
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Reason: 
+\family typewriter
+leave-cluster
+\family default
+ removes only its 
+\emph on
+own
+\emph default
+ IP address from 
+\family typewriter
+/mars/ips/
+\family default
+, but does not destroy the usual symmetry of the symlink tree by leaving
+ the other IPs intact.
+ Therefore, the local node will continue fetching updates from all nodes
+ present in 
+\family typewriter
+/mars/ips/
+\family default
+.
+ As an effect, the local node will 
+\emph on
+passively
+\emph default
+ mirror the symlinks of other cluster members, but not vice versa.
+ There is no communication from the local node to the other ones, turning
+ the local node into a 
+\series bold
+whitness
+\series default
+ according to some terminology from Distributed Systems.
+ This is a feature, not a bug.
+ It could be used for porst-mortem analysis, or for monitoring purposes.
+ However, 
+\emph on
+deletions
+\emph default
+ of symlinks are not guaranteed to take place, so your whitness may 
+\emph on
+accumulate
+\emph default
+ thousands of old symlinks over a long time.
+ If you want to eventually stop all communication to the local node, just
+ run 
+\family typewriter
+rmmod
+\family default
+.
+\end_layout
+
+\end_inset
+
+ passivley fetching the symlink tree.
+ In order to really stop all communication, the kernel module should be
+ unloaded afterwards.
  The local 
 \family typewriter
 /mars/
 \family default
- filesystem may be manually destroyed afterwards (if you like).
+ filesystem may be manually destroyed after that (at least if you need to
+ reuse it).
 \end_layout
 
 \begin_layout Plain Layout
 
 \size scriptsize
 In case of an eventual node loss (e.g.
- fire, water, ...) this must be used.
- on another node $helper in order to finally remove $damaged from the cluster
- via the command 
+ fire, water, ...) this command should be used on another node $helper in order
+ to finally remove $damaged from the cluster via the command 
 \family typewriter
 marsadm leave-cluster --host=$damaged --force
 \family default
 .
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+
+\size scriptsize
+In case you cannot use 
+\family typewriter
+leave-resource
+\family default
+ for any reason, you may do the following: just destroy the 
+\family typewriter
+/mars/
+\family default
+ filesystem on the host 
+\family typewriter
+$deadhost
+\family default
+ you want to remove (e.g.
+ by 
+\family typewriter
+mkfs
+\family default
+), or take other measures to 
+\emph on
+ensure
+\emph default
+ that it cannot be accidentally re-used in any way (e.g.
+ physical destruction of the underlying RAID, 
+\family typewriter
+lvremove
+\family default
+, etc).
+ On all other hosts, do 
+\family typewriter
+rmmod mars
+\family default
+, then delete the symlink 
+\family typewriter
+/mars/ips/ip-$deadhost
+\family default
+ everywhere by hand, and finally 
+\family typewriter
+modprobe mars
+\family default
+ again.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+
+\size scriptsize
+Notice that the last 
+\family typewriter
+leave-resource
+\family default
+ operation does not delete the cluster as such.
+ It just creates an 
+\emph on
+empty
+\emph default
+ cluster which has no longer any members.
+ In particular, the cluster ID 
+\family typewriter
+/mars/uuid
+\family default
+ is 
+\emph on
+not
+\emph default
+ removed, deliberately
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+This is a feature, not a bug.
+ The 
+\family typewriter
+uuid
+\family default
+ is created once, but never alterered anywhere.
+ The only way to get rid of it is 
+\emph on
+external
+\emph default
+ deletion (not by 
+\family typewriter
+marsadm
+\family default
+) 
+\emph on
+together(!)
+\emph default
+ with all other contents of 
+\family typewriter
+/mars/
+\family default
+.
+ This prevents you from accidentally merging half-dead remains which could
+ have survived a disaster for any reason, such as snapshotting filesystems
+ / VMs or whatever.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+
+\size scriptsize
+Before you can re-use 
+\emph on
+any
+\emph default
+ left-over 
+\family typewriter
+/mars/
+\family default
+ filesystem for creating / joining a new / different cluster, you 
+\emph on
+must
+\emph default
+ obey the instructions in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Setup-your-Cluster"
+
+\end_inset
+
+ and use 
+\family typewriter
+mkfs.ext4
+\family default
+ accordingly.
 \end_layout
 
 \end_inset
@@ -13599,14 +13879,24 @@ $res
 ; its current role must be secondary.
  Sync, fetch and replay must be paused (see commands 
 \family typewriter
-pause-{sync,fetch,replayy}
+pause-{sync,fetch,replay}
 \family default
-).
- The disk must be detatched (see command 
+ or their abbreviation 
 \family typewriter
 down
 \family default
 ).
+ The disk must be detatched (see commands 
+\family typewriter
+detach
+\family default
+ or 
+\family typewriter
+down
+\family default
+).
+ The kernel module should be loaded and the network should be operating
+ in order to also propogate the effect to the other nodes.
 \end_layout
 
 \begin_layout Plain Layout
