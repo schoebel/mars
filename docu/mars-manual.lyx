@@ -17136,9 +17136,75 @@ status open
 \size scriptsize
 Equivalent to 
 \family typewriter
+connect-local
+\family default
+ and to 
+\family typewriter
 resume-fetch-local
 \family default
 .
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+
+\size scriptsize
+Note: although this sounds similar to DRBD's 
+\family typewriter
+drbdadm connect
+\family default
+, there are subtle differences.
+ DRBD has exactly one connection per resource, which is associated with
+ 
+\emph on
+pairs
+\emph default
+ of nodes.
+ In contrast, MARS may create multiple connections per resource at runtime,
+ and these are associated with the 
+\emph on
+target
+\emph default
+ host (not with 
+\emph on
+pairs
+\emph default
+ of hosts).
+ As a consequence, the fetch may 
+\emph on
+potentially
+\emph default
+ occur from any other other source host which happens to be reachable (although
+ the current implementation prefers the current designated primary, but
+ this may change in future).
+ In addition, 
+\family typewriter
+marsadm disconnect
+\family default
+ does not stop 
+\emph on
+all
+\emph default
+ communication.
+ It only stops fetching logfiles.
+ The symlink update running in background is 
+\emph on
+not
+\emph default
+ stopped, in order to always propagate as much metadata as possible in the
+ cluster.
+ In case of a later incident, chances are higher for a better knowledge
+ of the 
+\emph on
+real
+\emph default
+ state of the cluster.
 \end_layout
 
 \end_inset
@@ -17442,7 +17508,28 @@ status open
 \size scriptsize
 Equivalent to 
 \family typewriter
+disconnect-local
+\family default
+ and to 
+\family typewriter
 pause-fetch-local
+\family default
+.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+
+\size scriptsize
+See above note at 
+\family typewriter
+connect
 \family default
 .
 \end_layout
@@ -18071,8 +18158,31 @@ resume-fetch
 resume-replay
 \family default
 ).
- When another host is currently primary, it must match the preconditions
- of 
+ When some logfile data is locally missing, there must be enough space on
+ 
+\family typewriter
+/mars/
+\family default
+ to fetch it.
+ The current designated primary must be reachable over network.
+ When there is no designated primary (i.e.
+ 
+\family typewriter
+marsadm secondary
+\family default
+ had been executed before, which is explicitly 
+\emph on
+not recommended
+\emph default
+), 
+\emph on
+all
+\emph default
+ other members of the resource must be reachable (since we have no memory
+ who was the old primary before), and then they must also match the same
+ preconditions.
+ When another host is currently primary (whether designated or not), it
+ must match the preconditions of 
 \family typewriter
 marsadm secondary
 \family default
@@ -18081,6 +18191,7 @@ marsadm secondary
 /dev/mars/mydata
 \family default
  device must not be in use any more).
+ A split brain must not already exist.
 \end_layout
 
 \begin_layout Plain Layout
@@ -18101,7 +18212,25 @@ Switches the
 designated primary
 \series default
 .
- When another host is currently primary, it is first asked to become secondary,
+ There are two variants:
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+1) 
+\series bold
+Handover
+\series default
+ when 
+\emph on
+not
+\emph default
+ giving 
+\family typewriter
+--force
+\family default
+: when another host is currently primary, it is first asked to become secondary,
  and it is waited until it actually has become secondary.
  After that, the local host is asked to become primary.
  Before actually becoming primary, all relevant logfiles are transferred
@@ -18146,6 +18275,25 @@ In case a split brain is already detected at the initial situation, the
 \end_layout
 
 \begin_layout Plain Layout
+
+\size scriptsize
+2) 
+\series bold
+Forced switching
+\series default
+: by giving --force while 
+\family typewriter
+pause-fetch
+\family default
+ is active (but not 
+\family typewriter
+pause-replay
+\family default
+), many preconditions are skipped, and MARS does its best to actually become
+ primary even if some logfiles are missing or incomplete.
+\end_layout
+
+\begin_layout Plain Layout
 \begin_inset Graphics
 	filename images/MatieresToxiques.png
 	lyxscale 50
@@ -18163,7 +18311,7 @@ primary --force
 \series bold
 data loss
 \series default
- because one your split brain versions must be discarded later in order
+ because one of your split brain versions must be discarded later in order
  to resolve the split brain (see section 
 \begin_inset CommandInset ref
 LatexCommand ref
@@ -18290,16 +18438,112 @@ reference "sub:Split-Brain-Resolution"
 
 
 \size scriptsize
-Hint: in case of 
+Hint for the case of 
+\begin_inset Formula $k>2$
+\end_inset
+
+ replicas: although 
+\family typewriter
+marsadm invalidate
+\family default
+ could be used to resolve a split brain at other secondaries (which are
+ neither the old nor the new designated primary), it is often better to
+ use the 
+\family typewriter
+leave-resource
+\family default
+ method described in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Split-Brain-Resolution"
+
+\end_inset
+
+, starting with a 
+\family typewriter
+leave-resource
+\family default
+ phase at the old primary, and proceeding to 
+\begin_inset Quotes eld
+\end_inset
+
+unrelated
+\begin_inset Quotes erd
+\end_inset
+
+ secondaries, until the split brain is gone.
+ Don't 
+\family typewriter
+join-resource
+\family default
+ again before the split brain is gone! This way, all these replicas will
+ remain consistent for now, but of course outdated (or potentially a 
+\begin_inset Quotes eld
+\end_inset
+
+wrong
+\begin_inset Quotes erd
+\end_inset
+
+ split-brain version, but 
+\emph on
+usable
+\emph default
+ in case you get under pressure in some way).
+ In the hopefully unlikely case that you should later discover that you
+ accidentally forced the 
+\emph on
+wrong
+\emph default
+ replica via 
+\family typewriter
+primary --force
+\family default
+, you will have a chance to recover by either forcing the 
+\begin_inset Quotes eld
+\end_inset
+
+correct
+\begin_inset Quotes erd
+\end_inset
+
+ host to primary (if it did not already leave the resource), or by creating
+ a completely fresh resource out of the 
+\begin_inset Quotes eld
+\end_inset
+
+correct
+\begin_inset Quotes erd
+\end_inset
+
+ local disk.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+
+\size scriptsize
+Generally: in case of 
 \family typewriter
 primary --force
 \family default
 , the preconditions are different.
- The fetch must be switched off (see 
+ The fetch 
+\emph on
+must
+\emph default
+ be switched off (see 
 \family typewriter
 pause-fetch
 \family default
-), in order to get stable logfile positions See section 
+), in order to get stable logfile positions.
+ See section 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "sub:Forced-Switching"
