@@ -2936,8 +2936,16 @@ int make_log_step(void *buf, struct mars_dent *dent)
 				rot->next_relevant_log = dent;
 		} else { // check for double logfiles => split brain
 			if (unlikely(dent->d_serial == rot->next_relevant_log->d_serial)) {
-				rot->has_double_logfile = true;
-				MARS_ERR("DOUBLE LOGFILES '%s' '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
+				// always prefer the one created by myself
+				if (!strcmp(rot->next_relevant_log->d_rest, my_id())) {
+					MARS_WRN("PREFER LOGFILE '%s' in front of '%s'\n", rot->next_relevant_log->d_path, dent->d_path);
+				} else if (!strcmp(dent->d_rest, my_id())) {
+					MARS_WRN("PREFER LOGFILE '%s' in front of '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
+					rot->next_relevant_log = dent;
+				} else {
+					rot->has_double_logfile = true;
+					MARS_ERR("DOUBLE LOGFILES '%s' '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
+				}
 			}
 		}
 		MARS_DBG("next_relevant_log = %p\n", rot->next_relevant_log);
@@ -3125,9 +3133,17 @@ int _make_logging_status(struct mars_rotate *rot)
 				int replay_tolerance = _get_tolerance(rot);
 				bool skip_new = !!rot->todo_primary;
 				MARS_DBG("check switchover from '%s' to '%s' (size = %lld, skip_new = %d, replay_tolerance = %d)\n", dent->d_path, rot->next_relevant_log->d_path, rot->next_relevant_log->new_stat.size, skip_new, replay_tolerance);
-				if (is_switchover_possible(rot, dent->d_path, rot->next_relevant_log->d_path, replay_tolerance, skip_new)) {
+				if (is_switchover_possible(rot, dent->d_path, rot->next_relevant_log->d_path, replay_tolerance, skip_new) ||
+				    (skip_new && !_check_allow(global, parent, "connect"))) {
 					MARS_INF_TO(rot->log_say, "start switchover from transaction log '%s' to '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
 					_make_new_replaylink(rot, rot->next_relevant_log->d_rest, rot->next_relevant_log->d_serial, rot->next_relevant_log->new_stat.size);
+				} else if (!_check_allow(global, parent, "connect")) {
+					char *new_path = path_make("%s/log-%09d-%s", parent->d_path, log_nr + 1, my_id());
+					if (strcmp(new_path, rot->next_relevant_log->d_path)) {
+						MARS_WRN("FORCING PRIMARY LOGFILE '%s'\n", new_path);
+						_create_new_logfile(new_path);
+					}
+					brick_string_free(new_path);
 				}
 			} else if (rot->todo_primary) {
 				if (dent->d_serial > log_nr)
