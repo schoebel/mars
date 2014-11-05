@@ -652,12 +652,13 @@ extern void brick_thread_stop_nowait(struct task_struct *k);
 
 #define brick_thread_stop(_thread)					\
 	do {								\
-		if (likely(_thread)) {					\
-			BRICK_INF("stopping thread '%s'\n", (_thread)->comm); \
-			kthread_stop(_thread);				\
-			BRICK_INF("thread '%s' finished.\n", (_thread)->comm); \
-			remove_binding(_thread);			\
-			put_task_struct(_thread);			\
+		struct task_struct *__thread__ = (_thread);		\
+		if (likely(__thread__)) {				\
+			BRICK_INF("stopping thread '%s'\n", __thread__->comm); \
+			kthread_stop(__thread__);			\
+			BRICK_INF("thread '%s' finished.\n", __thread__->comm); \
+			remove_binding(__thread__);			\
+			put_task_struct(__thread__);			\
 			_thread = NULL;					\
 		}							\
 	} while (0)
