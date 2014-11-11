@@ -528,7 +528,10 @@ int bio_response_thread(void *data)
 			int code;
 
 			if (list_empty(&tmp_list)) {
-				if (brick_thread_should_stop())
+				if (brick_thread_should_stop() &&
+				    atomic_read(&brick->fly_count[0]) +
+				    atomic_read(&brick->fly_count[1]) +
+				    atomic_read(&brick->fly_count[2]) <= 0)
 					goto done;
 				break;
 			}
@@ -763,6 +766,7 @@ static int bio_switch(struct bio_brick *brick)
 		}
 		if (brick->response_thread) {
 			brick_thread_stop(brick->response_thread);
+			brick->response_thread = NULL;
 		}
 		brick->bdev = NULL;
 		if (!brick->power.button) {
