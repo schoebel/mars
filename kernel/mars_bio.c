@@ -137,6 +137,9 @@ int make_bio(struct bio_brick *brick, void *data, int len, loff_t pos, struct bi
 	bvec_count = (page_len - 1) / PAGE_SIZE + 1;
 	if (bvec_count > brick->bvec_max) {
 		bvec_count = brick->bvec_max;
+	} else if (unlikely(bvec_count <= 0)) {
+		MARS_WRN("bvec_count=%d\n", bvec_count);
+		bvec_count = 1;
 	}
 
 	MARS_IO("sector_offset = %d data = %p pos = %lld rest_len = %d page_offset = %d page_len = %d bvec_count = %d\n", sector_offset, data, pos, rest_len, page_offset, page_len, bvec_count);
@@ -739,7 +742,13 @@ static int bio_switch(struct bio_brick *brick)
 			q->backing_dev_info.ra_pages = brick->ra_pages;
 
 			brick->bvec_max = queue_max_hw_sectors(q) >> (PAGE_SHIFT - 9);
+			if (brick->bvec_max > BIO_MAX_PAGES)
+				brick->bvec_max = BIO_MAX_PAGES;
+			else if (brick->bvec_max <= 1)
+				brick->bvec_max = 1;
 			brick->total_size = i_size_read(inode);
+			MARS_INF("'%s' size=%lld bvec_max=%d\n",
+				 path, brick->total_size, brick->bvec_max);
 
 			brick->response_thread = brick_thread_create(bio_response_thread, brick, "mars_bio_r%d", index);
 			brick->submit_thread = brick_thread_create(bio_submit_thread, brick, "mars_bio_s%d", index);
