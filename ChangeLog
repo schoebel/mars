@@ -1,4 +1,16 @@
+Meaning of stable tagnames
+--------------------------
+
+Example: light0.1stable01:
+              0            = version of on-disk data structures
+                             (only incremented when downgrades are impossible)
+                             (not incremented on backwards-compatible upgrades)
+                1          = version of feature set
+                 stable    = feature set is frozen during this series
+                       01  = bugfix revision
+
 Release Conventions / Branches / Tagnames
+-----------------------------------------
 
 	light0.1 series (now stable):
 		 - Asynchronous replication for the internal needs of
@@ -8,14 +20,20 @@ Release Conventions / Branches / Tagnames
 		 - Stable tagnames: light0.1stable%02d
 
 	light0.2 series (planned):
+		   Mostly for internal needs of 1&1 (but not limited to that).
 		 - Improve network throughput by parallel TCP connections
 		   (in particular under packet loss).
-		   Also for the internal needs of shared hosting at 1&1.
+		 - Transparent data compression over low bandwidth lines.
+		 - (Maybe) future-proof updates in the network protocol:
+		   Mixed operation of 32/64bit and/or {big,low}endian
+		 - (Maybe) new test suite
+		 - (Maybe) old test suite could be retired
 		 - Unstable tagnames: light0.2beta%d.%d (planned)
 		 - Stable branch: light0.2.y (planned)
 		 - Stable tagnames: light0.2stable%02d (planned)
 
 	light0.3 series (planned):
+		   (some might possibly go to 0.2 series instead)
 		 - Improve replication latency.
 		 - New pseudo-synchronous replication modes.
 		   For the internal needs of database folks at 1&1.
@@ -24,7 +42,10 @@ Release Conventions / Branches / Tagnames
 		 - Stable tagnames: light0.3stable%02d (planned)
 
 	light1.0 series (planned):
-		 - New symlink tree structure (future-proof)
+		 - Replace symlink tree by transactional status files
+		   (future-proof)
+		   This is required for upstream merging to the kernel.
+		   It has further advantages, such as better scalability.
 		 - Trying to additionally address public needs.
 		 - Potentially for Linux kernel upstream,
 		 - Unstable tagnames: light1.0beta%d.%d (planned)
@@ -44,6 +65,45 @@ Release Conventions / Branches / Tagnames
 	error class may	also be changed.
 	NO NEW FEATURES, not even minor ones, except when absolutely
 	necessary for a bugfix.
+
+light0.1stable09
+--------
+	* Major fix of scarce race (potentially critical): the bio response
+	  thread could terminate too early, leading to a premature dealloc
+	  of kernel memory. This has only been observed on slow virtual
+	  machines with slow virtual devices, and very high load on k=4
+	  replicas. This could potentially affect the stability of the system.
+	  Although not observed at production machines at 1&1, I recommend
+	  updating production machines to this release ASAP.
+	* Major usability fix: incorrect commandline options of marsadm
+	  were just ignored if they appeared after the resource argument.
+	  Misspellings could cause undesired effects. For instance,
+	  "marsadm delete-resource vital --force --MISSPELLhost=banana"
+	  was accidentally destroying the primary during operation (which
+	  is _possible_ when using --force, and this was even a _required_
+	  sort of "STONITH"-like feature -- however from a human point
+	  of view it was intended to destroy _another_ host, so this was
+	  an unexpected behaviour from a sysadmin point of view).
+	* Major workaround: the concept "actual primary" is wrong, because
+	  during split brain there may exist several primaries. Do not
+	  use the macro view-actual-primary any longer. It is deprecated now.
+	  Use view-is-primary instead, on each host you are interested in.
+	* Minor fix: "marsadm invalidate" did not work in some weired
+	  split brain situations / was not equivalent to
+	  "marsadm leave-resource $res; marsadm join-resource $res".
+	  The latter was the old workaround to fix the situation.
+	  Now it shouldn't be necessary anymore.
+	* Minor fix: pause-fetch could take very long to terminate.
+	* Minor fix: marsadm wait-cluster did not wait for all hosts
+	  particiapting in the resource, but only for one of them.
+	  This is only relevant for k>2 replicas.
+	* Minor fix: the rates displayed by "marsadm view" did not drop down
+	  to 0 when no progress was made.
+	* Minor fix: logging to syslog was incomplete.
+	* Minor usability fix: decrease boring speakyness of "log-rotate"
+	  and "log-delete" for cron jobs.
+	* Minor fixes: several internal awkwardnesses, potentially affecting
+	  performance and/or stability in weired situations.
 
 light0.1stable08
 --------
