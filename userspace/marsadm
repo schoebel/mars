@@ -407,7 +407,7 @@ sub check_res {
 sub check_sizes {
   my ($res, $peer) = @_;
   my $logical_size = get_link("$mars/resource-$res/size");
-  my $physical_size = get_link("$mars/resource-$res/actsize-$peer", 1) || return;
+  my $physical_size = get_link("$mars/resource-$res/actsize-$peer", 2) || return;
   if (defined($physical_size) && $physical_size < $logical_size) {
     lwarn "Physical device on host '$peer' has size $physical_size, which is smaller than the logical resource size $logical_size\n";
     ldie "This is too dangerous. It cannot work. Fix it!\n" unless $force;
