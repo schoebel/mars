@@ -2591,7 +2591,7 @@ sub eval_fn {
       my $op = $1;
       my $primary;
       if ($op eq "actual") {
-	lwarn "DEPRECATED: you are trying to uniquely identify an actual primary hostname, but this is conceptually wrong because in split-brain situations there may exist multiple ones. Use view-is-primary instead. That would be safe.\n";
+	lwarn "DEPRECATED: you are trying to uniquely identify an actual primary hostname, but this is conceptually wrong because in split-brain situations there may exist multiple ones. Use view-is-primary instead. That would be safe.\n" unless $$env{cmd} =~ m/-1and1$/;
 	$primary = _get_actual_primary($$env{"res"});
       } else {
 	$primary = _get_designated_primary($$env{"res"});
