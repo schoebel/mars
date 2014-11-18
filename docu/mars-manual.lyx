@@ -5072,6 +5072,23 @@ primarynode
 default
 \family default
  for internal use by 1&1 Internet AG.
+ Notice that all 
+\family typewriter
+*-1and1
+\family default
+ macros are not officially supported by the developer of MARS, and they
+ may disappear in a future major release.
+ However, they could be useful for your own customization macros.
+ Customization via your own macros (see section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Creating-your-own"
+
+\end_inset
+
+) is explicitly encouraged by the developer.
+ It would be even nice if a vibrant user community would emerge, helping
+ each other by exchange of macros.
 \end_layout
 
 \begin_layout Labeling
@@ -6576,6 +6593,7 @@ Experts Only
 
 \begin_layout Standard
 The following is for hackers who know what they are doing.
+ The following is not officially supported.
 \end_layout
 
 \begin_layout Labeling
