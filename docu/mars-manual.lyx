@@ -5904,6 +5904,11 @@ overview on amounts / cursors
 
 \end_layout
 
+\begin_layout Standard
+\noindent
+The following macros are meaningful for both primary and secondary nodes:
+\end_layout
+
 \begin_layout Labeling
 \labelwidthstring 00.00.0000
 
@@ -5971,6 +5976,54 @@ reference "sub:Emergency-Mode"
 \end_inset
 
 ).
+\end_layout
+
+\begin_layout Standard
+\noindent
+The following macros are only meaningful for secondary nodes.
+ By information theoretic limits, they can only tell what is 
+\emph on
+locally known
+\emph default
+.
+ They 
+\series bold
+cannot
+\series default
+ reflect the 
+\begin_inset Quotes eld
+\end_inset
+
+true (global) state
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Notice that according to Einstein's law, and according to observations by
+ Lamport, the concept of 
+\begin_inset Quotes eld
+\end_inset
+
+true state
+\begin_inset Quotes erd
+\end_inset
+
+ does not exist at all in a distributed system.
+ Anything you can know in a distributed system is always local knowlege,
+ which races with other (remote) knowlege, and may be outdated at 
+\emph on
+any
+\emph default
+ time.
+\end_layout
+
+\end_inset
+
+
+\begin_inset Quotes erd
+\end_inset
+
+ of a cluster, in particular during network partitions.
 \end_layout
 
 \begin_layout Labeling
