@@ -5196,12 +5196,21 @@ d
 \labelwidthstring 00.00.0000
 consistency: C = locally consistent, c = maybe inconsistent (no guarantee),
  - = cannot determine.
+ Notice: this does not tell anything about 
+\emph on
+actuality
+\emph default
+.
  Notice: like the other flags, this flag is subject to races and therefore
  should be relied on only in 
 \emph on
 detached
 \emph default
- state!
+ state! See also description of macro 
+\family typewriter
+is-consistent
+\family default
+ below.
 \end_layout
 
 \begin_layout Labeling
@@ -5660,12 +5669,91 @@ reference "sub:Split-Brain-Resolution"
 \family typewriter
 is-consistent
 \family default
- Shows whether the underlying disk is in a consistent state, i.e.
+ Shows whether the 
+\emph on
+underlying disk
+\emph default
+ is in a locally consistent state, i.e.
  whether it 
 \emph on
 could
 \emph default
- be (potentially) detached and then used for read-only test-mounting.
+ be (potentially) detached and then used for read-only test-mounting
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Notice that the 
+\emph on
+writeback
+\emph default
+ at the primary side is out-of-order by default, for performance reasons.
+ Therefore, the underlying disk is only guaranteed to be consistent when
+ there is no data left to be written back.
+ Notice that this condition is racy by construction.
+ When your primary node crashes during writeback and then comes up again,
+ you must do a 
+\family typewriter
+modprobe mars
+\family default
+ first in order to automatically replay the transaction logfiles, which
+ will automatically heal such temporary inconsistencies.
+\end_layout
+
+\end_inset
+
+.
+ Don't confuse this with the consistency of 
+\family typewriter
+/dev/mars/mydata
+\family default
+, which is by construction 
+\emph on
+always
+\emph default
+ locally consistent once it has appeared
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Exceptions are possible when using 
+\family typewriter
+marsadm fake-sync
+\family default
+.
+ Even in split brain situations, 
+\family typewriter
+marsadm primary --force
+\family default
+ tries to prevent any further potential exception as best as it can, by
+ not letting 
+\family typewriter
+/dev/mars/mydata
+\family default
+ to appear and by insisting on split brain resolution first.
+ In future implementations, this might change if more pressure is put on
+ the developer to sacrifice consistency in preference to not waiting for
+ a full logfile replay.
+\end_layout
+
+\end_inset
+
+.
+ By construction of MARS, the disk of secondaries will 
+\emph on
+always
+\emph default
+ remain in a locally consistent state once the initial sync has finished
+ as well as the initial logfile replay.
+ Notice that local consistency does not necessarily imply actuality (see
+ high-level explanation in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Behaviour-of-MARS"
+
+\end_inset
+
+).
 \end_layout
 
 \begin_layout Labeling
