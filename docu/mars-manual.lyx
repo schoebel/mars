@@ -6049,11 +6049,8 @@ any
 \family typewriter
 {sync,fetch,replay,work}-size
 \family default
- Show the total amount of 
-\emph on
-relevant
-\emph default
- data which is / was to be processed by either sync, fetch, or replay.
+ Show the total amount of data which is / was to be processed by either
+ sync, fetch, or replay.
  
 \family typewriter
 work-size
@@ -6085,11 +6082,7 @@ bytes
 \family typewriter
 {sync,fetch,replay,work}-pos
 \family default
- Show the total amount of 
-\emph on
-relevant
-\emph default
- data which is already processed (current 
+ Show the total amount of data which is already processed (current 
 \begin_inset Quotes eld
 \end_inset
 
@@ -6118,15 +6111,7 @@ replay-pos
 
 \end_inset
 
-The 
-\begin_inset Quotes eld
-\end_inset
-
-relevant
-\begin_inset Quotes erd
-\end_inset
-
- 0% point is the 
+The 0% point is the 
 \emph on
 locally contiguous
 \emph default
