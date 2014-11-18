@@ -6187,7 +6187,111 @@ total
 \family typewriter
 *-rest
 \family default
- dropped down to zero.
+ dropped down to zero
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Recall from chapter 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "chap:Use-Cases-for"
+
+\end_inset
+
+ that MARS Light (in its current stage of development) does only guarantee
+ local consistency, but cannot guarantee actuality in all imaginable situations.
+ Notice that a general notion of 
+\begin_inset Quotes eld
+\end_inset
+
+actuality
+\begin_inset Quotes erd
+\end_inset
+
+ is 
+\emph on
+undefinable
+\emph default
+ in a widely distributed system at all, according to Einstein's laws.
+\end_layout
+
+\begin_layout Plain Layout
+Let's look at an example.
+ In case of a node crash, and after the node is up again, a 
+\family typewriter
+modprobe mars
+\family default
+ has to occur, in order to replay the transaction logs of MARS again.
+ However, at the recovery phase before, the journalling 
+\family typewriter
+ext4
+\family default
+ filesystem 
+\family typewriter
+/mars/
+\family default
+ 
+\emph on
+may
+\emph default
+ have rolled back some internal symlink updates which have occurred immediately
+ before the crash.
+ MARS is relying on the fact that journalling filesystems like 
+\family typewriter
+ext4
+\family default
+ should do their recovery in a consistent way, possibly by sacrifycing actuality
+ a little bit.
+ Therefore, the above macros cannot guarantee to deliver true information
+ about what is persisted at the moment.
+\end_layout
+
+\begin_layout Plain Layout
+Notice that there are further potential caveats.
+\end_layout
+
+\begin_layout Plain Layout
+In case of 
+\family typewriter
+{sync,fetch}-reached
+\family default
+, MARS uses 
+\family typewriter
+bio
+\family default
+ callbacks resp.
+ 
+\family typewriter
+fdatasync()
+\family default
+ by default, thus the underlying storage layer has 
+\emph on
+told
+\emph default
+ us that it 
+\emph on
+believes
+\emph default
+ it has commited the data in a reboot-safe way.
+ Whether this is 
+\emph on
+really
+\emph default
+ true does not depend on MARS, but on the lower layers of the storage hierarchy.
+ There exists hardware where this claim is known to be wrong under certain
+ circumstances, such as certain hard disk drives in certain modes of operation.
+ Please check the hardware for any violations of storage semantics under
+ certain circumstances such as power loss, and check information sources
+ like magazines about the problem area.
+ Please notice that such a problem, if it exists at all, is independent
+ from MARS.
+ It would also exist if you wouldn't use MARS on the same system.
+\end_layout
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Labeling
