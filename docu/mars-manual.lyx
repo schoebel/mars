@@ -15712,9 +15712,16 @@ Precondition: none additionally.
 
 \size scriptsize
 Postcondition: any sync operation targeting the local disk (when not yet
- completed) is paused after a while.
- When completed, this operation will remember the switch state forever and
- automatically become relevant if a sync is needed again (e.g.
+ completed) is paused after a while (cf section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:The-State-of"
+
+\end_inset
+
+).
+ When successfully completed, this operation will remember the switch state
+ forever and automatically become relevant if a sync is needed again (e.g.
  
 \family typewriter
 invalidate
