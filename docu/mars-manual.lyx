@@ -15404,17 +15404,25 @@ Postcondition: the local disk belonging to $res is no longer in use.
 In contrast to DRBD, you need not explicitly pause syncing, fetching, or
  replaying.
  These processes are automatically paused.
- As another contrast to DRBD, the respective processes should 
+ As another contrast to DRBD, the respective processes will usually 
 \emph on
 automatically
 \emph default
- resume after re-attach.
- This shouild work even over 
+ resume after re-attach, as far as possible in the respective new situation.
+ This will usually work even over 
 \family typewriter
 rmmod
 \family default
  or reboot cycles, since the internal symlink tree will automatically persist
- all switches for you.
+ all todo switches for you (c.f.
+ section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:The-State-of"
+
+\end_inset
+
+).
 \end_layout
 
 \begin_layout Plain Layout
