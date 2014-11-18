@@ -2063,7 +2063,11 @@ On node B, you must have a working
 \family typewriter
 ssh
 \family default
- connection to node A.
+ connection to node A (as 
+\family typewriter
+root
+\family default
+).
  Test it by saying 
 \family typewriter
 ssh A w
@@ -2754,7 +2758,7 @@ open count
  This can lead to a race condition if you automate an intended takeover
  with a script like 
 \family typewriter
-ssh A 
+ssh root@A 
 \begin_inset Quotes eld
 \end_inset
 
@@ -2762,7 +2766,7 @@ umount /dev/mars/mydata
 \begin_inset Quotes erd
 \end_inset
 
-; ssh B 
+; ssh root@B 
 \begin_inset Quotes eld
 \end_inset
 
@@ -2794,7 +2798,7 @@ marsadm wait-umount mydata
 on node B before trying to become primary.
  The script should look like 
 \family typewriter
-ssh A 
+ssh root@A 
 \begin_inset Quotes eld
 \end_inset
 
@@ -2802,7 +2806,7 @@ umount /dev/mars/mydata
 \begin_inset Quotes erd
 \end_inset
 
-; ssh B 
+; ssh root@B 
 \begin_inset Quotes eld
 \end_inset
 
@@ -13333,7 +13337,7 @@ not
 $host
 \family default
 .
- A working ssh connecttion to $host must exist (without password).
+ A working ssh connecttion to $host as root must exist (without password).
  
 \family typewriter
 rsync
