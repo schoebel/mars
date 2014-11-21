@@ -1,1 +1,16 @@
+MARS Long Distance Replication Software
+
 See http://schoebel.github.io/mars/
+
+Very detailed documentation / motivation / use cases can be found there.
+Please look into the docu/ subdirectory.
+
+License: GPLv2+ (see file COPYING)
+Documentation is under FDL.
+
+This is intended for the whole project, and is valid for all parts
+from the original author as well as parts from 1&1.
+
+Any further contributors to contrib/ subdirectory are strongly encouraged
+to put their files also under GPL or FDL, or at least a compatible
+license (see newest descriptions at fsf.org).
