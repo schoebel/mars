@@ -584,7 +584,7 @@ sub _get_minmax {
     if ($take_symlink) {
       $nr = get_link($path, 1);
     }
-    $nr =~ s:^.*[a-z]+-([0-9]+)(-[^/]*)?$:$1:;
+    $nr =~ s@^(?:.*/)?[a-z]+-([0-9]+)(-[^/]*)?$@$1@;
     $min = $nr if ($nr < $min || $min < 0);
     $max = $nr if ($nr > $max || $max < 0);
   }
