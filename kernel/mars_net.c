@@ -515,7 +515,20 @@ final:
 }
 EXPORT_SYMBOL_GPL(mars_send_raw);
 
-/* Note: buf may be NULL. In this case, the data is simply consumed,
+/**
+ * mars_recv_raw() - Get [min,max] number of bytes
+ * @msock:	socket to read from
+ * @buf:	buffer to put the data in
+ * @minlen:	minimum number of bytes to read
+ * @maxlen:	maximum number of bytes to read
+ *
+ * Returns a negative error code or a number between [@minlen,@maxlen].
+ * Short reads are mapped to an error.
+ *
+ * Hint: by setting @minlen to 1, you can read any number up to @maxlen.
+ * However, the most important use case is @minlen == @maxlen.
+ *
+ * Note: buf may be NULL. In this case, the data is simply consumed,
  * like /dev/null
  */
 int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
@@ -536,10 +549,20 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 	if (!mars_get_socket(msock))
 		goto final;
 
+	if (minlen < maxlen) {
+		struct socket *sock = msock->s_socket;
+		if (sock && sock->file) {
+			/* Use nonblocking reads to consume as much data
+			 * as possible
+			 */
+			sock->file->f_flags |= O_NONBLOCK;
+		}
+	}
+
 	MARS_IO("#%d receiving len=%d/%d bytes\n", msock->s_debug_nr, minlen, maxlen);
 
 	msock->s_recv_cnt = 0;
-	while (done < minlen) {
+	while (done < minlen || (!minlen && !done)) {
 		struct kvec iov = {
 			.iov_base = buf + done,
 			.iov_len = maxlen - done,
@@ -559,8 +582,7 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 
 		if (!mars_net_is_alive || brick_thread_should_stop()) {
 			MARS_WRN("#%d interrupting, done = %d\n", msock->s_debug_nr, done);
-			if (done > 0)
-				status = -EIDRM;
+			status = -EIDRM;
 			goto err;
 		}
 
@@ -572,8 +594,7 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 
 		if (!mars_net_is_alive || brick_thread_should_stop()) {
 			MARS_WRN("#%d interrupting, done = %d\n", msock->s_debug_nr, done);
-			if (done > 0)
-				status = -EIDRM;
+			status = -EIDRM;
 			goto err;
 		}
 
@@ -584,6 +605,8 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 				goto err;
 			}
 			brick_msleep(sleeptime);
+			if (minlen <= 0)
+				break;
 			// linearly increasing backoff
 			if (sleeptime < 100) {
 				sleeptime += 1000 / HZ;
