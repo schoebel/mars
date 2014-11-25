@@ -300,9 +300,20 @@ int receiver_thread(void *data)
 		struct mref_object *mref = NULL;
 		unsigned long flags;
 
+		if (output->recv_error) {
+			/* The protocol may be out of sync.
+			 * Consume some data to avoid distributed deadlocks.
+			 */
+			(void)mars_recv_raw(&output->socket, &cmd, 0, sizeof(cmd));
+			wake_up_interruptible(&output->event);
+			brick_msleep(100);
+			status = output->recv_error;
+			continue;
+		}
+
 		status = mars_recv_struct(&output->socket, &cmd, mars_cmd_meta);
 		MARS_IO("got cmd = %d status = %d\n", cmd.cmd_code, status);
-		if (status < 0)
+		if (status <= 0)
 			goto done;
 
 		switch (cmd.cmd_code & CMD_FLAG_MASK) {
