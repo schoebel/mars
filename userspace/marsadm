@@ -940,13 +940,27 @@ sub try_to_avoid_splitbrain {
     my $own_vers = sprintf("$mars/resource-$res/version-%09d-$host", $max);
     if (!get_link($own_vers, 2)) {
 	$ok = 0;
-    }
-    my @versions = glob($vers_glob);
-    my $first = get_link(shift @versions);
-    while (@versions) {
-      my $next = get_link(shift @versions);
-      if ($next ne $first) {
-	$ok = 0;
+    } else {
+      my $primary = _get_designated_primary($res);
+      # if the old primary is known, we can ignore all other / unrelated hosts
+      if ($primary && $primary ne $host && $primary ne "(none)") {
+	my $p_path = sprintf("$mars/resource-$res/version-%09d-%s", $max, $primary);
+	my $h_path = sprintf("$mars/resource-$res/version-%09d-%s", $max, $host);
+	my $p_vers = get_link($p_path, 1);
+	my $h_vers = get_link($h_path, 1);
+	if (!$p_vers || !$h_vers || $p_vers ne $h_vers) {
+	  $ok = 0;
+	}
+      } else {
+	# old primary is unkown: we have no chance, other than comparing _all_ versions.
+	my @versions = glob($vers_glob);
+	my $first = get_link(shift @versions);
+	while (@versions) {
+	  my $next = get_link(shift @versions);
+	  if ($next ne $first) {
+	    $ok = 0;
+	  }
+	}
       }
     }
     last if $ok;
@@ -1920,8 +1934,6 @@ sub primary_phase2 {
   return if $force;
   return unless $cmd eq "primary";
   check_primary_gone($res);
-  my $ok = detect_splitbrain($res);
-  try_to_avoid_splitbrain(@_) if $ok;
 }
 
 # when necessary, switch to primary
