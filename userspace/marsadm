@@ -1323,7 +1323,8 @@ sub leave_cluster {
   my ($cmd) = @_;
   my $check = "/mars/resource-*/data-$host";
   ldie "I am member of some resources\n" if glob($check) && !$force;
-  _create_delete("$mars/ips/$host");
+  _create_delete("$mars/ips/ip-$host");
+  finish_links();
 }
 
 sub create_res {

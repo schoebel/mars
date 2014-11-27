@@ -2219,16 +2219,11 @@ bool is_shutdown(void)
 
 // helpers for worker functions
 
-static int _kill_peer(void *buf, struct mars_dent *dent)
+static int _kill_peer(struct mars_global *global, struct mars_peerinfo *peer)
 {
 	LIST_HEAD(tmp_list);
-	struct mars_global *global = buf;
-	struct mars_peerinfo *peer = dent->d_private;
 	unsigned long flags;
 
-	if (global->global_power.button) {
-		return 0;
-	}
 	if (!peer) {
 		return 0;
 	}
@@ -2240,6 +2235,7 @@ static int _kill_peer(void *buf, struct mars_dent *dent)
 	MARS_INF("stopping peer thread...\n");
 	if (peer->peer_thread) {
 		brick_thread_stop(peer->peer_thread);
+		peer->peer_thread = NULL;
 	}
 	traced_lock(&peer->lock, flags);
 	list_replace_init(&peer->remote_dent_list, &tmp_list);
@@ -2247,9 +2243,15 @@ static int _kill_peer(void *buf, struct mars_dent *dent)
 	mars_free_dent_all(NULL, &tmp_list);
 	brick_string_free(peer->peer);
 	brick_string_free(peer->path);
-	dent->d_private = NULL;
-	brick_mem_free(peer);
 	return 0;
+}
+
+static
+void peer_destruct(void *_peer)
+{
+	struct mars_peerinfo *peer = _peer;
+	if (likely(peer))
+		_kill_peer(peer->global, peer);
 }
 
 static int _make_peer(struct mars_global *global, struct mars_dent *dent, char *path)
@@ -2281,6 +2283,7 @@ static int _make_peer(struct mars_global *global, struct mars_dent *dent, char *
 			status = -ENOMEM;
 			goto done;
 		}
+		dent->d_private_destruct = peer_destruct;
 		peer = dent->d_private;
 		peer->global = global;
 		peer->peer = brick_strdup(mypeer);
@@ -2317,7 +2320,17 @@ done:
 
 static int kill_scan(void *buf, struct mars_dent *dent)
 {
-	return _kill_peer(buf, dent);
+	struct mars_global *global = buf;
+	struct mars_peerinfo *peer = dent->d_private;
+	int res;
+
+	if (!global || global->global_power.button || !peer) {
+		return 0;
+	}
+	dent->d_private = NULL;
+	res = _kill_peer(global, peer);
+	brick_mem_free(peer);
+	return res;
 }
 
 static int make_scan(void *buf, struct mars_dent *dent)
