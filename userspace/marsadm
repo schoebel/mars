@@ -209,8 +209,9 @@ unless (defined($ARGV[0]) && $ARGV[0] =~ m/cluster|cat/) {
 sub get_alive_links {
   my $res = shift || "all";
   my $alive = shift || "alive";
-  my $glob = "$mars/$alive-*";
-  if ($res ne "all") {
+  my $hosts = shift || "*";
+  my $glob = "$mars/$alive-$hosts";
+  if ($res ne "all" && $hosts ne "*") {
     $glob = "$mars/$alive-{";
     my $count = 0;
     foreach my $peer (glob("$mars/resource-$res/data-*")) {
@@ -308,9 +309,9 @@ sub wait_cond {
 
 # wait until some communication has occurred
 sub wait_cluster {
-  return wait_cond(@_) if int(@_) >= 3;
   my $cmd = shift;
   my $res = shift || "all";
+  my $hosts = shift || "*";
   my $start_time = mars_time();
   _trigger();
   my $delta = $timeout > 0 ? $timeout : 30;
@@ -318,7 +319,7 @@ sub wait_cluster {
     my $dead_count = 0;
     my $alive_count = 0;
     my $unknown_count = 0;
-    my %status = get_alive_links($res, "time");
+    my %status = get_alive_links($res, "time", $hosts);
     my $now = mars_time();
     foreach my $peer (keys(%status)) {
       next if $peer eq $host;
@@ -907,7 +908,9 @@ sub log_purge_res {
 }
 
 sub try_to_avoid_splitbrain {
-  my ($cmd, $res) = @_;
+  my ($cmd, $res, $old_primary) = @_;
+  $old_primary = "" if $old_primary eq "(none)";
+  wait_cluster($cmd, $res, $old_primary);
   if (!detect_splitbrain($res, 0)) {
     lwarn "ATTENTION: you are starting a non-forced primary switchover in a split brain situation.\n";
     lwarn "ATTENTION: that's no good idea.\n";
@@ -916,11 +919,11 @@ sub try_to_avoid_splitbrain {
     return;
   }
   # now try to prevent producing a _new_ split brain situation....
-  my ($min, $max) = get_minmax_versions($res);
   my @host_list = glob("$mars/resource-$res/replay-*");
   return if scalar(@host_list) < 2;
-  my $vers_glob = sprintf("$mars/resource-$res/version-%09d-*", $max);
   for (;;) {
+    my ($min, $max) = get_minmax_versions($res);
+    my $vers_glob = sprintf("$mars/resource-$res/version-%09d-*", $max);
     my $ok = 1;
     my $replay_err_path = "$mars/resource-$res/actual-$host/msg-err-replay-stop";
     my $replay_err = get_link($replay_err_path, 1);
@@ -1931,8 +1934,8 @@ sub primary_phase1 {
   my $old = _get_designated_primary($res);
   return if ($old eq $host and $cmd eq "primary");
   my $new = "(none)";
+  try_to_avoid_splitbrain($cmd, $res, $old) if (!$force and $cmd eq "primary");
   return if $old eq $new;
-  try_to_avoid_splitbrain(@_) if (!$force and $cmd eq "primary");
   _primary_res($res, $new, $old);
 }
 
@@ -2929,13 +2932,14 @@ sub eval_fn {
       wait_cond($$env{"cmd"}, $$env{"res"}, $specific);
       return "";
     }
-    if (/^wait$/) {
+    if (/^wait(?:[-_]?resource)?$/) {
       my $specific = parse_macro($arg1, $env);
       wait_cond($$env{"cmd"}, $$env{"res"}, $specific);
       return "";
     }
-    if (/^wait[-_]?resource$/) {
-      wait_cluster($$env{"cmd"}, $$env{"res"});
+    if (/^wait[-_]?cluster$/) {
+      my $specific = parse_macro($arg1, $env);
+      wait_cluster($$env{"cmd"}, $$env{"res"}, $specific);
       return "";
     }
     # generic flow control and loops
@@ -3929,7 +3933,7 @@ my %cmd_table =
       ],
    "wait-resource"
    => [
-       \&wait_cluster,
+       \&wait_cond,
       ],
 
    # compatible keywords (or their derivatives)
