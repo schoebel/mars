@@ -317,21 +317,61 @@ int dummy_worker(struct mars_global *global, struct mars_dent *dent, bool prepar
 static
 int handler_thread(void *data)
 {
+	struct mars_global handler_global = {
+		.dent_anchor = LIST_HEAD_INIT(handler_global.dent_anchor),
+		.brick_anchor = LIST_HEAD_INIT(handler_global.brick_anchor),
+		.global_power = {
+			.button = true,
+		},
+		.main_event = __WAIT_QUEUE_HEAD_INITIALIZER(handler_global.main_event),
+	};
+	struct task_struct *thread = NULL;
 	struct server_brick *brick = data;
 	struct mars_socket *sock = &brick->handler_socket;
 	bool ok = mars_get_socket(sock);
+	unsigned long statist_jiffies = jiffies;
 	int debug_nr;
 	int status = -EINVAL;
+
+	init_rwsem(&handler_global.dent_mutex);
+	init_rwsem(&handler_global.brick_mutex);
 
 	MARS_DBG("#%d --------------- handler_thread starting on socket %p\n", sock->s_debug_nr, sock);
 	if (!ok)
 		goto done;
 	
+	thread = brick_thread_create(cb_thread, brick, "mars_cb%d", brick->version);
+	if (unlikely(!thread)) {
+		MARS_ERR("cannot create cb thread\n");
+		status = -ENOENT;
+		goto done;
+	}
+	brick->cb_thread = thread;
+
 	brick->handler_running = true;
 	wake_up_interruptible(&brick->startup_event);
 
-        while (!brick_thread_should_stop() && mars_socket_is_alive(sock)) {
+        while (!list_empty(&handler_global.brick_anchor) ||
+	       mars_socket_is_alive(sock)) {
 		struct mars_cmd cmd = {};
+
+		handler_global.global_version++;
+
+		if (!list_empty(&handler_global.brick_anchor)) {
+			if (server_show_statist && !time_is_before_jiffies(statist_jiffies + 10 * HZ)) {
+				show_statistics(&handler_global, "handler");
+				statist_jiffies = jiffies;
+			}
+			if (!mars_socket_is_alive(sock) &&
+			    atomic_read(&brick->in_flight) <= 0 &&
+			    brick->conn_brick) {
+				if (generic_disconnect((void*)brick->inputs[0]) >= 0)
+					brick->conn_brick = NULL;
+			}
+
+			status = mars_kill_brick_when_possible(&handler_global, &handler_global.brick_anchor, false, NULL, true);
+			MARS_DBG("kill handler bricks (when possible) = %d\n", status);
+		}
 
 		status = -EINTR;
 		if (unlikely(!mars_global || !mars_global->global_power.button)) {
@@ -390,33 +430,21 @@ int handler_thread(void *data)
 		}
 		case CMD_GETENTS:
 		{
-			struct mars_global local = {
-				.dent_anchor = LIST_HEAD_INIT(local.dent_anchor),
-				.brick_anchor = LIST_HEAD_INIT(local.brick_anchor),
-				.global_power = {
-					.button = true,
-				},
-				.main_event = __WAIT_QUEUE_HEAD_INITIALIZER(local.main_event),
-			};
-
 			status = -EINVAL;
 			if (unlikely(!cmd.cmd_str1))
 				break;
 
-			init_rwsem(&local.dent_mutex);
-			init_rwsem(&local.brick_mutex);
-
-			status = mars_dent_work(&local, "/mars", sizeof(struct mars_dent), light_checker, dummy_worker, &local, 3);
+			status = mars_dent_work(&handler_global, "/mars", sizeof(struct mars_dent), light_checker, dummy_worker, &handler_global, 3);
 
 			down(&brick->socket_sem);
-			status = mars_send_dent_list(sock, &local.dent_anchor);
+			status = mars_send_dent_list(sock, &handler_global.dent_anchor);
 			up(&brick->socket_sem);
 
 			if (status < 0) {
 				MARS_WRN("#%d could not send dentry information, status = %d\n", sock->s_debug_nr, status);
 			}
 
-			mars_free_dent_all(&local, &local.dent_anchor);
+			mars_free_dent_all(&handler_global, &handler_global.dent_anchor);
 			break;
 		}
 		case CMD_CONNECT:
@@ -429,7 +457,7 @@ int handler_thread(void *data)
 			CHECK_PTR_NULL(_bio_brick_type, err);
 
 			prev = make_brick_all(
-				brick->global,
+				&handler_global,
 				NULL,
 				_set_server_bio_params,
 				NULL,
@@ -446,6 +474,7 @@ int handler_thread(void *data)
 					MARS_ERR("#%d cannot connect to '%s'\n", sock->s_debug_nr, path);
 				}
 				prev->killme = true;
+				brick->conn_brick = prev;
 			} else {
 				MARS_ERR("#%d cannot find brick '%s'\n", sock->s_debug_nr, path);
 			}
@@ -489,6 +518,15 @@ int handler_thread(void *data)
 
  done:
 	MARS_DBG("#%d handler_thread terminating, status = %d\n", sock->s_debug_nr, status);
+
+	mars_kill_brick_all(&handler_global, &handler_global.brick_anchor, false);
+
+	if (thread) {
+		brick->cb_thread = NULL;
+		brick->cb_running = false;
+		MARS_DBG("#%d stopping callback thread....\n", sock->s_debug_nr);
+		brick_thread_stop(thread);
+	}
 
 	debug_nr = sock->s_debug_nr;
 	
@@ -544,18 +582,10 @@ static int server_switch(struct server_brick *brick)
 
 		mars_power_led_off((void*)brick, false);
 
-		brick->cb_thread = brick_thread_create(cb_thread, brick, "mars_cb%d", version);
-		if (unlikely(!brick->cb_thread)) {
-			MARS_ERR("cannot create cb thread\n");
-			status = -ENOENT;
-			goto err;
-		}
-
-		brick->handler_thread = brick_thread_create(handler_thread, brick, "mars_handler%d", version++);
+		brick->version = version++;
+		brick->handler_thread = brick_thread_create(handler_thread, brick, "mars_handler%d", brick->version);
 		if (unlikely(!brick->handler_thread)) {
 			MARS_ERR("cannot create handler thread\n");
-			brick_thread_stop(brick->cb_thread);
-			brick->cb_thread = NULL;
 			status = -ENOENT;
 			goto err;
 		}
@@ -572,13 +602,6 @@ static int server_switch(struct server_brick *brick)
 			brick->handler_thread = NULL;
 			brick->handler_running = false;
 			MARS_DBG("#%d stopping handler thread....\n", sock->s_debug_nr);
-			brick_thread_stop(thread);
-		}
-		thread = brick->cb_thread;
-		if (thread) {
-			brick->cb_thread = NULL;
-			brick->cb_running = false;
-			MARS_DBG("#%d stopping callback thread....\n", sock->s_debug_nr);
 			brick_thread_stop(thread);
 		}
 

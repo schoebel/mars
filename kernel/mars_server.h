@@ -48,9 +48,9 @@ struct server_output {
 
 struct server_brick {
 	MARS_BRICK(server);
-	atomic_t in_flight;
 	struct semaphore socket_sem;
 	struct mars_socket handler_socket;
+	struct mars_brick *conn_brick;
 	struct task_struct *handler_thread;
 	struct task_struct *cb_thread;
 	wait_queue_head_t startup_event;
@@ -58,6 +58,8 @@ struct server_brick {
 	spinlock_t cb_lock;
 	struct list_head cb_read_list;
 	struct list_head cb_write_list;
+	atomic_t in_flight;
+	int version;
 	bool cb_running;
 	bool handler_running;
 };
