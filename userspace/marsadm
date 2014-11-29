@@ -932,6 +932,11 @@ sub try_to_avoid_splitbrain {
 	last;
       }
     }
+    my $emergency_path = "$mars/resource-$res/actual-$host/has-emergency";
+    my $emergency = get_link($emergency_path, 1);
+    if ($emergency) {
+      ldie "emergency mode $emergency has been entered locally: handover is not possible. Either free some space in $mars/, or use --force to use a potentially outdated version.\n";
+    }
     my $own_vers = sprintf("$mars/resource-$res/version-%09d-$host", $max);
     if (!get_link($own_vers, 2)) {
 	$ok = 0;
