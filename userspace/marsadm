@@ -2701,13 +2701,17 @@ sub eval_fn {
     }
     if (/^is[-_]?(attach|sync|fetch|replay|primary|emergency)$/) {
       my $what = $1;
-      my $lnk = $$env{"resdir"} . "/actual-" . $$env{"host"} . "/is-$what";
+      my $is = "is";
+      $is = "has" if $what eq "emergency";
+      my $lnk = $$env{"resdir"} . "/actual-" . $$env{"host"} . "/$is-$what";
       $lnk = correct_path($lnk);
       return get_link($lnk, 1);
     }
     if (/^does$/) {
       my $what = parse_macro($arg1, $env);
-      my $lnk = $$env{"resdir"} . "/actual-" . $$env{"host"} . "/is-$what";
+      my $is = "is";
+      $is = "has" if $what eq "emergency";
+      my $lnk = $$env{"resdir"} . "/actual-" . $$env{"host"} . "/$is-$what";
       $lnk = correct_path($lnk);
       return get_link($lnk, 1);
     }
