@@ -995,13 +995,17 @@ static int if_switch(struct if_brick *brick)
 			status = -EBUSY;
 			goto done; // don't indicate "off" status
 		}
+		MARS_DBG("calling del_gendisk()\n");
+		del_gendisk(input->disk);
+		/* There might be subtle races */
+		while (atomic_read(&input->flying_count) > 0) {
+			brick_msleep(100);
+		}
 		if (input->bdev) {
 			MARS_DBG("calling bdput()\n");
 			bdput(input->bdev);
 			input->bdev = NULL;
 		}
-		MARS_DBG("calling del_gendisk()\n");
-		del_gendisk(input->disk);
 		MARS_DBG("calling put_disk()\n");
 		put_disk(input->disk);
 		input->disk = NULL;
