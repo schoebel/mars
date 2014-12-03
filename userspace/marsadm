@@ -1998,6 +1998,7 @@ sub invalidate_res_phase0 {
   check_not_primary(@_);
   my $primary = _get_designated_primary($res);
   ldie "for operation '$cmd', some other designated primary must exist (currently there is none)\n" if $primary eq "(none)";
+  ldie "Cannot invalidate the designated primary host '$primary'\n" if $primary eq $host;
 }
 
 sub invalidate_res_phase1 {
@@ -2023,6 +2024,7 @@ sub invalidate_res_phase3 {
   my $dst = "$mars/resource-$res/syncstatus-$host";
   my $primary = _get_designated_primary($res);
   ldie "Cannot execute 'invalidate' because noone is designated as primary.\n" if (!$primary || $primary eq "(none)");
+  ldie "Cannot invalidate the designated primary host '$primary'\n" if $primary eq $host;
   my $replay = get_link("$mars/resource-$res/replay-$primary");
   $replay =~ m/^log-([0-9]+)-/ or ldie "replay link '$replay' is not parsable\n";
   my $replay_nr = $1;
@@ -2039,6 +2041,8 @@ sub invalidate_res_phase3 {
   finish_links();
   $force = 0; # this would be too dangerous
   log_purge_res(@_);
+  finish_links();
+  _wait_delete();
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/attach", 1);
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/fetch", 1);
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/replay", 1);
