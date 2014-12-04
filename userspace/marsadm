@@ -1149,13 +1149,15 @@ sub _fake_versionlink {
       ldie "Cannot fake my own version link '$new_version'\n";
     }
     my $pri_link = get_link($pri_version, 1);
-    if (!$pri_link) {
-      $log_nr++;
-      next;
+    if ($pri_link) {
+      lprint "creating new version symlink '$new_version' -> '$pri_link'\n";
+      set_link($pri_link, $new_version);
+      $make_count++;
+    } elsif ($rounds == 2) {
+      lwarn "cannot create new version symlink '$new_version'\n";
+    } else {
+      lprint "cannot create new version symlink '$new_version'\n";
     }
-    lprint "creating new version symlink '$new_version' -> '$pri_link'\n";
-    set_link($pri_link, $new_version);
-    $make_count++;
     $log_nr--;
   }
   lwarn "cannot create faked versionlink\n" if !$make_count;
