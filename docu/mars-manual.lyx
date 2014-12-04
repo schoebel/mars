@@ -5194,8 +5194,23 @@ d
 
 \begin_layout Labeling
 \labelwidthstring 00.00.0000
-consistency: C = locally consistent, c = maybe inconsistent (no guarantee),
- - = cannot determine.
+consistency: this relates to the 
+\emph on
+underlying disk
+\emph default
+, not to 
+\family typewriter
+/dev/mars/mydata
+\family default
+! 
+\family typewriter
+C
+\family default
+ = locally consistent, 
+\family typewriter
+c
+\family default
+ = maybe inconsistent (no guarantee), - = cannot determine.
  Notice: this does not tell anything about 
 \emph on
 actuality
