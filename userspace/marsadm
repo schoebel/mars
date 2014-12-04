@@ -3249,7 +3249,13 @@ my %complex_macros =
    .        "}{"
    .          "OutDated[%call{outdated-flags}]"
    .        "}"
-   .      "}{InConsistent}"
+   .      "}{"
+   .        "%if{%todo-primary{}}{"
+   .          "NeedsReplay"
+   .        "}{"
+   .          "InConsistent"
+   .        "}"
+   .      "}"
    .    "}{Detached}"
    .  "}{NotPresent}",
 
