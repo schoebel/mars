@@ -676,7 +676,7 @@ sub _get_common_ancestor {
       if (!$split) { # additionally check the corresponding version links
 	my $path1 = sprintf("$basedir/version-%09d-$from1", $nr1);
 	my $path2 = sprintf("$basedir/version-%09d-$from2", $nr2);
-	if (my $vers1 = get_link($path1) and my $vers2 = get_link($path2)) {
+	if (my $vers1 = get_link($path1, 1) and my $vers2 = get_link($path2, 1)) {
 	  $split = 1 if $vers1 ne $vers2;
 	}
       }
