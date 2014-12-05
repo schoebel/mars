@@ -781,6 +781,7 @@ void make_recver_cache(struct mars_desc_cache *mc, const struct meta *meta)
 {
 	int i;
 
+	mc->cache_recver_cookie = (u64)meta;
 	_make_recver_cache(mc, meta, 0, "");
 
 	for (i = 0; i < mc->cache_items; i++) {
@@ -1018,6 +1019,12 @@ int desc_recv_struct(struct mars_socket *msock, void *data, const struct meta *m
 		msock->s_desc_recv[cache_index] = mc;
 	} else if (unlikely(header.h_meta_len > 0)) {
 		MARS_WRN("#%d called from line %d has %d unexpected meta bytes\n", msock->s_debug_nr, line, header.h_meta_len);
+		status = -EMSGSIZE;
+		goto err;
+	} else if (unlikely(mc->cache_recver_cookie != (u64)meta)) {
+		MARS_ERR("#%d protocol error %p != %p\n", msock->s_debug_nr, meta, (void*)mc->cache_recver_cookie);
+		status = -EPROTO;
+		goto err;
 	}
 
 	for (index = 0; index < mc->cache_items; index++) {
