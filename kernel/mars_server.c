@@ -336,7 +336,17 @@ int handler_thread(void *data)
 		status = -EINTR;
 		if (unlikely(!mars_global || !mars_global->global_power.button)) {
 			MARS_DBG("system is not alive\n");
-			break;
+			goto clean;
+		}
+		if (unlikely(brick_thread_should_stop())) {
+			goto clean;
+		}
+		if (unlikely(!mars_socket_is_alive(sock))) {
+			/* Dont read any data anymore, the protocol
+			 * may be screwed up completely.
+			 */
+			MARS_DBG("#%d is dead\n", sock->s_debug_nr);
+			goto clean;
 		}
 
 		status = mars_recv_struct(sock, &cmd, mars_cmd_meta);
@@ -344,13 +354,14 @@ int handler_thread(void *data)
 			MARS_WRN("#%d recv cmd status = %d\n", sock->s_debug_nr, status);
 			goto clean;
 		}
-		if (unlikely(!mars_socket_is_alive(sock))) {
-			MARS_WRN("#%d is dead\n", sock->s_debug_nr);
+
+		MARS_IO("#%d cmd = %d\n", sock->s_debug_nr, cmd.cmd_code);
+
+		if (unlikely(!brick->global || !mars_global || !mars_global->global_power.button)) {
+			MARS_WRN("#%d system is not alive\n", sock->s_debug_nr);
 			status = -EINTR;
 			goto clean;
 		}
-
-		MARS_IO("#%d cmd = %d\n", sock->s_debug_nr, cmd.cmd_code);
 
 		status = -EPROTO;
 		switch (cmd.cmd_code & CMD_FLAG_MASK) {
@@ -417,11 +428,6 @@ int handler_thread(void *data)
 			CHECK_PTR(path, err);
 			CHECK_PTR_NULL(_bio_brick_type, err);
 
-			if (!brick->global || !mars_global || !mars_global->global_power.button) {
-				MARS_WRN("#%d system is not alive\n", sock->s_debug_nr);
-				goto err;
-			}
-
 			prev = make_brick_all(
 				brick->global,
 				NULL,
@@ -472,8 +478,10 @@ int handler_thread(void *data)
 		}
 	clean:
 		brick_string_free(cmd.cmd_str1);
-		if (status < 0)
-			break;
+		if (unlikely(status < 0)) {
+			mars_shutdown_socket(sock);
+			brick_msleep(1000);
+		}
 	}
 
 	mars_shutdown_socket(sock);
