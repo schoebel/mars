@@ -752,12 +752,13 @@ done:
 }
 
 static
-void _make_recver_cache(struct mars_desc_cache *mc, const struct meta *meta, int offset, const char *prefix)
+int _make_recver_cache(struct mars_desc_cache *mc, const struct meta *meta, int offset, const char *prefix)
 {
 	char *tmp = brick_string_alloc(MAX_FIELD_LEN);
+	int count = 0;
 	int i;
 
-	for (; meta->field_name != NULL; meta++) {
+	for (; meta->field_name != NULL; meta++, count++) {
 		snprintf(tmp, MAX_FIELD_LEN, "%s.%s", prefix, meta->field_name);
 		for (i = 0; i < mc->cache_items; i++) {
 			struct mars_desc_item *mi = ((struct mars_desc_item*)(mc + 1)) + i;
@@ -765,24 +766,35 @@ void _make_recver_cache(struct mars_desc_cache *mc, const struct meta *meta, int
 			    !strcmp(tmp, mi->field_name)) {
 				mi->field_recver_offset = offset + meta->field_offset;
 				if (meta->field_type == FIELD_SUB) {
-					_make_recver_cache(mc, meta->field_ref, mi->field_recver_offset, tmp);
+					int sub_count = _make_recver_cache(mc, meta->field_ref, mi->field_recver_offset, tmp);
+					if (unlikely(sub_count <= 0)) {
+						count = 0;
+						goto done;
+					}
 				}
 				goto found;
 			}
 		}
-		MARS_WRN("field '%s' is missing\n", meta->field_name);
+		if (unlikely(!count)) {
+			MARS_ERR("field '%s' is missing\n", meta->field_name);
+			goto done;
+		}
+		MARS_WRN("field %2d '%s' is missing\n", count, meta->field_name);
 	found:;
 	}
+ done:
 	brick_string_free(tmp);
+	return count;
 }
 
 static
-void make_recver_cache(struct mars_desc_cache *mc, const struct meta *meta)
+int make_recver_cache(struct mars_desc_cache *mc, const struct meta *meta)
 {
+	int count;
 	int i;
 
 	mc->cache_recver_cookie = (u64)meta;
-	_make_recver_cache(mc, meta, 0, "");
+	count = _make_recver_cache(mc, meta, 0, "");
 
 	for (i = 0; i < mc->cache_items; i++) {
 		struct mars_desc_item *mi = ((struct mars_desc_item*)(mc + 1)) + i;
@@ -790,6 +802,7 @@ void make_recver_cache(struct mars_desc_cache *mc, const struct meta *meta)
 			MARS_WRN("field '%s' is not transferred\n", mi->field_name);
 		}
 	}
+	return count;
 }
 
 static
@@ -1015,7 +1028,11 @@ int desc_recv_struct(struct mars_socket *msock, void *data, const struct meta *m
 			goto err;
 		}
 
-		make_recver_cache(mc, meta);
+		status = make_recver_cache(mc, meta);
+		if (unlikely(status < 0)) {
+			brick_block_free(mc, PAGE_SIZE);
+			goto err;
+		}
 		msock->s_desc_recv[cache_index] = mc;
 	} else if (unlikely(header.h_meta_len > 0)) {
 		MARS_WRN("#%d called from line %d has %d unexpected meta bytes\n", msock->s_debug_nr, line, header.h_meta_len);
