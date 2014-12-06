@@ -647,6 +647,22 @@ EXPORT_SYMBOL_GPL(mars_recv_raw);
  */
 
 static
+void dump_meta(const struct meta *meta)
+{
+	int count = 0;
+	for (; meta->field_name != NULL; meta++) {
+		MARS_ERR("%2d %4d %4d %p '%s'\n",
+			 meta->field_type,
+			 meta->field_size,
+			 meta->field_offset,
+			 meta->field_ref,
+			 meta->field_name);
+		count++;
+	}
+	MARS_ERR("-------- %d fields.\n", count);
+}
+
+static
 int _add_fields(struct mars_desc_item *mi, const struct meta *meta, int offset, const char *prefix, int maxlen)
 {
 	int count = 0;
@@ -1040,6 +1056,8 @@ int desc_recv_struct(struct mars_socket *msock, void *data, const struct meta *m
 		goto err;
 	} else if (unlikely(mc->cache_recver_cookie != (u64)meta)) {
 		MARS_ERR("#%d protocol error %p != %p\n", msock->s_debug_nr, meta, (void*)mc->cache_recver_cookie);
+		dump_meta((void*)mc->cache_recver_cookie);
+		dump_meta(meta);
 		status = -EPROTO;
 		goto err;
 	}
