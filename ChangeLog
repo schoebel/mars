@@ -66,6 +66,27 @@ Release Conventions / Branches / Tagnames
 	NO NEW FEATURES, not even minor ones, except when absolutely
 	necessary for a bugfix.
 
+light0.1stable10
+--------
+	* Major fixes of internal network protocol errors, leading to
+	  internal shutdown of sockets, which were transparently re-opened.
+	  It could affect network performance. Not sure whether
+	  stability was also affected (probably under extremely high load);
+	  for better safety you should upgrade.
+	* Major fix from Manuel Lausch: regex parsing sometimes went
+	  completely wrong when hostnames followed a similar name scheme
+	  than internal symlinks.
+	* Major, only relevant for k>2 replicas: fix wrong internal sharing
+	  of data structures resulting from parallel data connections.
+	* Minor fix: race in fake-sync.
+	* Minor fix: race in invalidate.
+	* Minor, only for k>2 replicas: fix direct primary handover when
+	  some non-involved hosts are currently unreachable.
+	* Minor: improve becoming primary during split brain.
+	* Minor: improve becoming primary when emergency mode starts.
+	* Minor: silence some annoying stderr messages.
+	* Several internal minor fixes and clarifications.
+
 light0.1stable09
 --------
 	* Major fix of scarce race (potentially critical): the bio response
