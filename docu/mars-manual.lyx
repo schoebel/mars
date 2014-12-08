@@ -4678,7 +4678,35 @@ necessary
 started in parallel
 \series default
 .
- Synchronous concepts are generally not sufficient for that.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Synchronous concepts are generally not sufficient for expressing that.
+ Because of inherent asynchronicity and of dynamic creation / joining of
+ resources, it is neither possible to comprehensively depict a complex distribut
+ed MARS system, nor a comprehensive standalone snippet of MARS, as a finite
+ state transition diagram
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Probably it could be possible to formally model MARS as a Petri net.
+ However, complete Petri nets are tending to become very conplex, and to
+ describe lots of low-level details.
+ Expressing hierarchy, in a top-down fashion, is cumbersome.
+ We find no clue in trying to do so.
+\end_layout
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Standard
@@ -4698,7 +4726,7 @@ marsadm
 \emph on
 internal
 \emph default
- control model is asynchronous.
+ control model is necessarily asynchronous.
  As an experiencend sysadmin, you will be curious how it works in principle.
  When you know something about it, you will no longer be surprised when
  some (detail) behaviour is different from DRBD.
