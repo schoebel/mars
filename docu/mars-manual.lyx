@@ -2760,7 +2760,14 @@ reference "sub:Predefined-Trivial-Macros"
 
 \end_inset
 
-.
+ (see also section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Scripting-HOWTO"
+
+\end_inset
+
+).
  The network should be OK, and the amount of replication delay should be
  as low as possible.
  Otherwise, handover may take a very long time, or it may produce a split
@@ -2902,6 +2909,14 @@ on node
 B
 \family default
  before trying to become primary.
+ See also section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Scripting-HOWTO"
+
+\end_inset
+
+.
 \end_layout
 
 \end_inset
@@ -3203,7 +3218,15 @@ as best as it can
 rely
 \emph default
  on split brain avoidance, in particular when scripting any higher-level
- applications such as cluster managers.
+ applications such as cluster managers (cf.
+ section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Scripting-HOWTO"
+
+\end_inset
+
+).
  
 \family typewriter
 marsadm
@@ -3252,11 +3275,19 @@ local
 
 
 \emph default
- to be really 
+ to be 
+\emph on
+really
+\emph default
+ 
 \family typewriter
 UpToDate
 \family default
  (see 
+\family typewriter
+marsadm wait-cluster
+\family default
+ and 
 \family typewriter
 marsadm view
 \family default
@@ -5780,6 +5811,14 @@ log-delete-all
 
 Even better: train such scenarios in advance, and prepare scripts for mass
  automation.
+ Look into section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Scripting-HOWTO"
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Section
@@ -6108,8 +6147,8 @@ name "sub:Predefined-Complex-and"
 \begin_layout Standard
 The following predefined complex macros try to address the information needs
  of humans.
- Nevertheless, they can also be used in scripts, but beware that sometimes
- the output format may change.
+ Use them only in scripts when you are prepared about the fact that the
+ output format may change during development of MARS.
 \end_layout
 
 \begin_layout Standard
@@ -6894,7 +6933,7 @@ syncinfo
  Shows an informational progress bar when sync is running.
  Intended for humans.
  Scripts should not rely on any details from this.
- Script may use this only as an 
+ Scripts may use this only as an 
 \emph on
 approximate
 \emph default
@@ -7101,6 +7140,25 @@ get-resource-{fat,err,wrn}
  This is not an official interface and may thus change at any time without
  notice.
  Use this only for human inspection, not for scripting!
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ These macros, as well as the error status files, are likely to disappear
+ in future versions of MARS.
+ They should be used for debugging only.
+ At least when merging into the upstream Linux kernel, only the 
+\family typewriter
+*-msg
+\family default
+ macros will likely survive.
 \end_layout
 
 \begin_layout Labeling
@@ -7332,7 +7390,15 @@ trivial
 \end_inset
 
  macros are outputting exactly one value.
- They are intended for script use.
+ They are intended for script use (cf.
+ section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Scripting-HOWTO"
+
+\end_inset
+
+).
  Of course, curious humans may also try them :)
 \end_layout
 
@@ -10614,6 +10680,199 @@ Same as the
  firmly built in.
 \end_layout
 
+\begin_layout Section
+Scripting HOWTO
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Scripting-HOWTO"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Both the 
+\series bold
+asynchronous communication model
+\series default
+ of MARS (cf section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:The-Lamport-Clock"
+
+\end_inset
+
+) including the Lamport clock, and the 
+\series bold
+state model
+\series default
+ (cf section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:The-State-of"
+
+\end_inset
+
+) is something you 
+\emph on
+definitely
+\emph default
+ should have in mind when you want to do some scripting.
+ Here is some further concrete advice:
+\end_layout
+
+\begin_layout Itemize
+Don't access anything on 
+\family typewriter
+/mars/
+\family default
+ directly, except for debugging purposes.
+ Use 
+\family typewriter
+marsadm
+\family default
+.
+\end_layout
+
+\begin_layout Itemize
+Avoid running scripts in parallel, other than for inspection / monitoring
+ purposes.
+ When you give two 
+\family typewriter
+marsadm
+\family default
+ commands in parallel (whether on the same host, or on different hosts belonging
+ to the same cluster), it is very likely to produce a mess.
+ 
+\family typewriter
+marsadm
+\family default
+ has no internal locking.
+ There is no cluster-wide locking at all.
+ Unfortunately, some systems like Pacemaker are violating this in many cases
+ (depending on their configuration).
+ Best is if you have a dedicated / more or less centralized 
+\series bold
+control machine
+\series default
+ which controls masses of your georedundant working servers.
+ This reduces the risk of running interfering actions in parallel.
+ Of course, you need backup machines for your control machines, and in different
+ locations.
+ Not obeying this advice can easily lead to problems such as complex races
+ which are very difficult to solve in long-distance distributed systems,
+ even in general (not limited to MARS).
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+marsadm wait-cluster
+\family default
+ is your friend.
+ Whenever your (near-)central script has to switch between different hosts
+ 
+\family typewriter
+A
+\family default
+ and 
+\family typewriter
+B
+\family default
+ (of the same cluster), use it in the following way:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+ssh A 
+\begin_inset Quotes eld
+\end_inset
+
+marsadm action1
+\begin_inset Quotes erd
+\end_inset
+
+; ssh B 
+\begin_inset Quotes eld
+\end_inset
+
+marsadm wait-cluster; marsadm action2
+\begin_inset Quotes erd
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+
+\family default
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Don't ignore this advice! Interference is almost 
+\emph on
+sure
+\emph default
+! As a rule of thumb, precede almost any action command with some appropriate
+ waiting command!
+\end_layout
+
+\begin_layout Itemize
+Further friends are any 
+\family typewriter
+marsadm wait-*
+\family default
+ commands, such as 
+\family typewriter
+wait-umount
+\family default
+.
+\end_layout
+
+\begin_layout Itemize
+In some places, busy-wait loops might be needed, e.g.
+ for waiting until a specific resource is 
+\family typewriter
+UpToDate
+\family default
+ or matches some other condition.
+ Examples of waiting conditions can be found under 
+\family typewriter
+github.com/schoebel/test-suite
+\family default
+ in subdirectory 
+\family typewriter
+mars/modules/
+\family default
+, specifically 
+\family typewriter
+02_predicates.sh
+\family default
+ or similar.
+\end_layout
+
+\begin_layout Itemize
+In case of network problems, some command may hang (forever), if you don't
+ set the 
+\family typewriter
+--timeout=
+\family default
+ option.
+ Don't forget the check the return state of any failed / timeouted commands,
+ and to take appropriate measures!
+\end_layout
+
+\begin_layout Itemize
+Test your scripts in failure scenarios!
+\end_layout
+
 \begin_layout Chapter
 Basic Working Principle
 \end_layout
@@ -12056,14 +12315,35 @@ name "sec:The-Symlink-Tree"
 \end_layout
 
 \begin_layout Standard
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ The symlink tree as described here will be replaced by another representation
+ in future versions of MARS.
+ Therefore, don't do any scripting by directly accessing symlinks! Use the
+ primitive macros described in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Predefined-Trivial-Macros"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
 The 
 \family typewriter
 /mars/
 \family default
  filesystem contains not only transaction logfiles, but also acts as a generic
  storage for (persistent) state information.
- Both configuration information and runtime state information are stored
- in symlinks.
+ Both configuration information and runtime state information are currently
+ stored in symlinks.
  Symlinks are 
 \begin_inset Quotes eld
 \end_inset
