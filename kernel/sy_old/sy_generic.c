@@ -1423,7 +1423,7 @@ int mars_kill_brick(struct mars_brick *brick)
 		status = 0;
 	} else {
 		MARS_ERR("brick '%s' '%s' is not off\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
-		status = -EIO;
+		status = -EUCLEAN;
 	}
 
 done:

@@ -173,7 +173,7 @@ static int client_get_info(struct client_output *output, struct mars_info *info)
 	wake_up_interruptible(&output->event);
 	
 	wait_event_interruptible_timeout(output->info_event, output->got_info, 60 * HZ);
-	status = -EIO;
+	status = -ETIME;
 	if (output->got_info && info) {
 		memcpy(info, &output->info, sizeof(*info));
 		status = 0;

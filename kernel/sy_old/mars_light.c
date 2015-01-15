@@ -1072,7 +1072,7 @@ static
 int _update_link_when_necessary(struct mars_rotate *rot, const char *type, const char *old, const char *new)
 {
 	char *check = NULL;
-	int status = -EIO;
+	int status = -EINVAL;
 	bool res = false;
 
 	if (unlikely(!old || !new))

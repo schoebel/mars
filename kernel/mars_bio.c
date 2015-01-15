@@ -209,7 +209,7 @@ int make_bio(struct bio_brick *brick, void *data, int len, loff_t pos, struct bi
 
 	if (unlikely(rest_len != 0)) {
 		MARS_ERR("computation of bvec_count %d was wrong, diff=%d\n", bvec_count, rest_len);
-		status = -EIO;
+		status = -EINVAL;
 		goto out;
 	}
 

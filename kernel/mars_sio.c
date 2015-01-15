@@ -202,7 +202,7 @@ int write_aops(struct sio_output *output, struct mref_object *mref)
 		if (ret) {
 			MARS_ERR("cannot start pagecache_write_begin() error=%d\n", ret);
 			if (ret >= 0)
-				ret = -EIO;
+				ret = -EINVAL;
 			goto fail;
 		}
 
@@ -221,7 +221,7 @@ int write_aops(struct sio_output *output, struct mref_object *mref)
 		if (ret < 0 || ret != copied || transfer_result) {
 			MARS_ERR("write error %d\n", ret);
 			if (ret >= 0)
-				ret = -EIO;
+				ret = -EINVAL;
 			goto fail;
 		}
 		
@@ -288,7 +288,7 @@ int read_aops(struct sio_output *output, struct mref_object *mref)
 {
 	loff_t pos = mref->ref_pos;
 	int len = mref->ref_len;
-	int ret = -EIO;
+	int ret;
 
 #ifdef USE_VFS_READ
 	mm_segment_t oldfs;

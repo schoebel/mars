@@ -467,7 +467,7 @@ restart:
 		GENERIC_INPUT_CALL(logst->input, mref_io, mref);
 
 		wait_event_interruptible_timeout(logst->event, logst->got, 60 * HZ);
-		status = -EIO;
+		status = -ETIME;
 		if (!logst->got)
 			goto done_put;
 		status = logst->error_code;
