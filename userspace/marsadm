@@ -1681,6 +1681,7 @@ print "deleted: $deleted / $delete_nr\n";
     lprint "waiting for deletions to apply locally....\n";
     sleep_timeout();
   }
+  sleep(3);
 }
 
 sub delete_file_cmd {
@@ -2052,12 +2053,14 @@ sub invalidate_res_phase3 {
     my $this_nr = $1;
     _create_delete($vers_path) if $this_nr >= $replay_nr;
   }
+  _create_delete("$mars/resource-$res/replay-$host");
+  finish_links();
+  _wait_delete();
+  $force = 0; # this would be too dangerous
+  log_purge_res(@_);
   finish_links();
   _wait_delete();
   _set_replaylink("$mars/resource-$res", $replay_nr, $primary, "");
-  finish_links();
-  $force = 0; # this would be too dangerous
-  log_purge_res(@_);
   finish_links();
   _wait_delete();
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/attach", 1);
