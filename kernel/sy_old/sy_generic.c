@@ -1475,7 +1475,9 @@ restart:
 	}
 	for (tmp = anchor->next; tmp != anchor; tmp = tmp->next) {
 		struct mars_brick *brick;
+		int count;
 		int status;
+
 		if (use_dent_link) {
 			brick = container_of(tmp, struct mars_brick, dent_brick_link);
 		} else {
@@ -1496,6 +1498,10 @@ restart:
 		if (!even_on && (brick->power.button || !brick->power.led_off)) {
 			continue;
 		}
+		// only kill bricks which have no resources allocated
+		count = atomic_read(&brick->mref_object_layout.alloc_count);
+		if (count > 0)
+			continue;
 		/* Workaround FIXME:
 		 * only kill bricks which have not been touched during the current mars_dent_work() round.
 		 * some bricks like aio seem to have races between startup and termination of threads.
