@@ -66,6 +66,14 @@ Release Conventions / Branches / Tagnames
 	NO NEW FEATURES, not even minor ones, except when absolutely
 	necessary for a bugfix.
 
+light0.1stable11
+--------
+	* Major documentation update. mars-manual.pdf increased from
+	  66 to 80 pages. Please read! You probably should know this.
+	* Minor fixes: better cleanup on invalidate / leave-resource.
+	* Minor clarifications: more precise EIO error codes, more verbose
+	  error reporting via "marsadm cat".
+
 light0.1stable10
 --------
 	* Major fixes of internal network protocol errors, leading to
