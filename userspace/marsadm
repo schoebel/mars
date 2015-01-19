@@ -1048,6 +1048,15 @@ sub __conv_tv {
   return sprintf("%04d-%02d-%02d %02d:%02d:%02d%s", $year+1900, $mon + 1, $mday, $hour, $min, $sec, $tv_nsec);
 }
 
+sub __conv_errno {
+  my ($txt, $error) = @_;
+  return "$txt$error" if !defined($error) || ($error <= 0);
+  $! = $error;
+  my $res = "${txt}${error} [$!]";
+  $! = 0;
+  return $res;
+}
+
 sub _replace_timestamps {
   my ($txt, $omit_nsec) = @_;
   if (defined($omit_nsec) && $omit_nsec) {
@@ -1055,6 +1064,7 @@ sub _replace_timestamps {
   } else {
     $txt =~ s:([0-9]{9,99})\.([0-9]{9}):__conv_tv($1,$2):ge;
   }
+  $txt =~ s:((error|status)\s*=?\s*-)([0-9]+):__conv_errno($1,$3):ge;
   return $txt;
 }
 
