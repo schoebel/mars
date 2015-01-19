@@ -1577,6 +1577,7 @@ sub leave_res_phase2 {
   log_purge_res(@_);
   finish_links();
   _wait_delete();
+  system("rm -f $mars/resource-$res/log-*") if $host eq $real_host;
 }
 
 sub delete_res {
