@@ -896,6 +896,10 @@ restart:
 		status = get_inode(dent->d_path, dent);
 		total_status |= status;
 
+		// mark gone dents for removal
+		if (unlikely(status < 0) && list_empty(&dent->brick_list))
+			dent->d_killme = true;
+
 		// recurse into subdirectories by inserting into the flat list
 		if (S_ISDIR(dent->new_stat.mode) && dent->d_depth <= maxdepth) {
 			struct mars_cookie sub_cookie = {
