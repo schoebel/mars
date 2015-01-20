@@ -1,110 +1,33 @@
-.TH marsadm 8 "December 19, 2012" "" "Mars Admin"
+.TH marsadm 8 "January 20, 2015" "" "MARS Admin Tool"
 
 .SH NAME
-marsadm \- program for management of mars resources
+marsadm \- management of MARS resources
 
 .SH SYNOPSIS
-.B "marsadm \-? \-h \-help"
+.B "marsadm \-h \-\-help"
 .br
 .B "marsadm \-v \-\-version "
 .br
-.B "marsadm command ressource [option]"
 .br
-.br
-(See the COMMAND section for alternate option syntax with long option names.)
 
 
 .SH DESCRIPTION
-This manual page explains the
-.B marsadm
-program. This program is for management of mars cluster, resources, logfiles and informations.
+MARS is a kernel-level asynchronous replication system for block devices.
+It is tailored for long-distance replication and through network
+bottlenecks.
+By default, it works asynchronously (in contrast to DRBD).
+.br
+More infomation on concepts and differences to DRDB can be found at
+https://github.com/schoebel/mars/blob/master/docu/MARS_LinuxTag2014.pdf?raw=true
 
-.SH COMMANDS
-.SS "Generic Program Information"
-.TP
-.B \-h ", " \-\^\-help
-Print a usage message briefly summarizing these command-line options and the bug-reporting address, then exit.
-.TP
-.BR \-V ", " \-\^\-version
-Print the version number of
-.B marsadm
-This version number should be included in all bug reports (see below).
+.SH NOTICE
+This manual page is only a placeholder.
+Complete / authoritative documentation can be found in mars-manual.pdf
+which should be also installed at your system.
+.br
+In addition, the newest version can be found at
+https://github.com/schoebel/mars/blob/master/docu/mars-manual.pdf?raw=true
 
-.SS "Cluster Selection"
-.TP
-.BR create-cluster ", " join-cluster
-Information for this command are not currently on disposal.
-.TP
-.BR create-resource ", " join-resource
-Information for this command are not currently on disposal.
-
-
-.SS "Logfile Selection"
-.TP
-.BR log-rotate
-This command can rotate the logfiles to the next version. Note that this command affects all systems, the resource in the cluster are connected.
-.TP
-.BR log-delete ", " log-delete-all
-With this command, the next unneeded logfile is deleted, respectively unneeded logfiles are deleted. Note that this command affects all systems, the resource in the cluster are connected.
-
-
-.SS "Device Selection"
-.TP
-.BR  attach ", " detach 
-Information for this command are not currently on disposal.
-.TP
-.BR  connect ", " disconnect ", " connect-local ", " disconnect-local 
-Information for this command are not currently on disposal.
-.TP
-.BR  up ", " down 
-Information for this command are not currently on disposal.
-.TP
-.BR resize
-Information for this command are not currently on disposal.
-
-
-
-.SS "Resources Selection" 
-.TP
-.BR primary ", " secondary 
-Information for this command are not currently on disposal.
-.TP
-.BR invalidate-remote 
-Information for this command are not currently on disposal.
-
-
-.SS "Sync Selection" 
-.TP
-.BR pause-sync ", " pause-sync-local
-Stop the Sync-Process respectively only of the local system.
-.TP
-.BR resume-sync ", " resume-sync-local 
-Start the Sync-Process respectively only of the local system.
-.TP
-.BR fake-sync
-Information for this command are not currently on disposal.
-
-.SS "Replay Selection"
-.TP
-.BR pause-replay ", " pause-replay-local
-Stop the Replay-Process respectively only of the local system.
-.TP
-.BR resume-replay ", " resume-replay-local
-Start the Replay-Process respectively only of the local system.
-
-.SH RESSOURCE
-.TP
-.B resource = name of resource or [all] for all resources...
- 
-
-.SH OPTION
-.B
-.IP option   = special by command
-
-
-.SH NOTES
-Advanced information are also available here: http://http://wiki.intranet.1and1.com/ ->ProjektTEC1603 ->TECITO.1735 -> MARS
-
-
-.SH BUGS
-Problems and errors in the program are not known ;)
+.br
+A short summary of all available sub-commands and options can be
+retrieved by invoking "marsadm --help".

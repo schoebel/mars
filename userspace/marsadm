@@ -4267,6 +4267,12 @@ foreach my $arg (@ARGV) {
     $macro = $arg;
     $macro =~ s/\\n/\n/mg;
     next;
+  } elsif ($arg =~ m/^--help$/ || $arg =~ m/^-h$/) {
+    helplist;
+    next;
+  } elsif ($arg =~ m/^--version$/ || $arg =~ m/^-v$/) {
+    version;
+    next;
   } elsif ($arg =~ m/^-(.*)/) {
     ldie "unrecognized argument '-$1' (bad syntax)\n";
   }
