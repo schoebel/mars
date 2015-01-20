@@ -4147,6 +4147,10 @@ sub helplist {
   my $msg = shift;
   lprint "ERROR: $msg" if ($msg);
   lprint "
+Thorough documentation is in mars-manual.pdf. Please use the PDF manual
+as authoritative reference! Here is only a short summary of the most
+important sub-commands / options:
+
 marsadm [<global_options>] <command> [<resource> | <args> ]
 marsadm [<global_options>] view[-<macroname>] <resource>
 
