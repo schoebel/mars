@@ -4068,26 +4068,39 @@ my %cmd_table =
    "mars-info"         => \&mars_info_cmd, # deprecated
    "pause-replay-local"
    => [
+       "Stop replaying transaction logfiles for now.",
+       "This is independent from any {pause,resume}-fetch operations.",
+       "This may be used for freezing the state of your replica for some",
+       "time, if you have enough space on /mars/.",
+       "Only useful on a secondary node.",
        \&pause_replay_local_res,
       ],
    "pause-replay-global"
    => [
+       "Like pause-replay, but affects all resource members in the cluster.",
        \&pause_replay_global_res,
       ],
    "pause-replay"
    => [
+       "Equivalent to pause-replay-local.",
        \&pause_replay_local_res,
       ],
    "resume-replay-local"
    => [
+       "Restart replaying transaction logfiles, when there is some data left.",
+       "This is independent from any {pause,resume}-fetch operations.",
+       "This should be used for unfreezing the state of your local replica.",
+       "Only useful on a secondary node.",
        \&pause_replay_local_res,
       ],
    "resume-replay-global"
    => [
+       "Like resume-replay, but affects all resource members in the cluster.",
        \&pause_replay_global_res,
       ],
    "resume-replay"
    => [
+       "See resume-replay-local.",
        \&pause_replay_local_res,
       ],
    "set-replay"
@@ -4100,6 +4113,9 @@ my %cmd_table =
       ],
    "wait-cluster"
    => [
+       "Waits until a ping-pong communication has succeeded in the whole cluster.",
+       "NOTICE: this is extremely useful for avoiding races when scripting",
+       "in a cluster!",
        \&wait_cluster,
       ],
    "wait-resource"
@@ -4110,6 +4126,11 @@ my %cmd_table =
    # compatible keywords (or their derivatives)
    "attach"
    => [
+       "Attaches the local disk (backing block device) to the MARS resource.",
+       "The disk must have been previously configured at {create,join}-resource.",
+       "When designated as a primary, /dev/mars/\$res will also appear.",
+       "This does not change the state of {fetch,replay}.",
+       "For a complete local startup of the resource, use 'marsadm up'.",
        \&attach_res_phase0,
        "check preconditions",
        \&attach_res_phase1,
@@ -4119,6 +4140,10 @@ my %cmd_table =
       ],
    "detach"
    => [
+       "Removes the local disk (backing block device) from the MARS resource.",
+       "When running in primary role, /dev/mars/\$res will also disappear.",
+       "This does not change the state of {fetch,replay}.",
+       "For a complete local shutdown of the resource, use 'marsadm down'.",
        \&attach_res_phase0,
        "check preconditions",
        \&attach_res_phase1,
@@ -4128,38 +4153,58 @@ my %cmd_table =
       ],
    "resume-fetch-local"
    => [
+       "Start fetching transaction logfiles from the current designated primary,",
+       "if there are any.".
+       "This is independent from any {pause,resume}-replay operations.",
+       "Only useful on a secondary node.",
        \&fetch_local_res,
       ],
    "resume-fetch-global"
    => [
+       "Like resume-fetch, but affects all resource members in the cluster.",
        \&fetch_global_res,
       ],
    "resume-fetch"
    => [
+       "See resume-fetch-local.",
+       "Start fetching transaction logfiles from the current designated primary,",
+       "if there are any.".
        \&fetch_local_res,
       ],
    "pause-fetch-local"
    => [
+       "Stop fetching transaction logfiles from the current designated primary.",
+       "This is independent from any {pause,resume}-replay operations.",
+       "Only useful on a secondary node.",
        \&fetch_local_res,
       ],
    "pause-fetch-global"
    => [
+       "Like pause-fetch, but affects all resource members in the cluster.",
        \&fetch_global_res,
       ],
    "pause-fetch"
    => [
+       "Equivalent to pause-fetch-local.",
+       "Only useful on a secondary node.",
        \&fetch_local_res,
       ],
    "connect-local"
    => [
+       "Equivalent to resume-fetch-local.",
+       "Start fetching transaction logfiles from the current designated primary.",
+       "This is independent from any {pause,resume}-replay operations.",
+       "Only useful on a secondary node.",
        \&fetch_local_res,
       ],
    "connect-global"
    => [
+       "Like connect, but affects all resource members in the cluster.",
        \&fetch_global_res,
       ],
    "connect"
    => [
+       "See connect-local.",
        \&fetch_local_res,
       ],
    "disconnect-local"
@@ -4168,15 +4213,18 @@ my %cmd_table =
       ],
    "disconnect-global"
    => [
+       "Like disconnect, but affects all resource members in the cluster.",
        \&fetch_global_res,
       ],
    "disconnect"
    => [
+       "See disconnect-local.",
        \&fetch_local_res,
       ],
    "syncer"            => \&ignore_cmd,
    "up"
    => [
+       "Is a shortcut for attach + resume-sync + resume-fetch + resume-replay.",
        \&up_res_phase0,
        "check preconditions",
        \&up_res_phase1,
@@ -4186,6 +4234,7 @@ my %cmd_table =
       ],
    "down"
    => [
+       "Is a shortcut for detach + pause-sync + pause-fetch + pause-replay.",
        \&up_res_phase0,
        "check preconditions",
        \&up_res_phase1,
@@ -4195,6 +4244,27 @@ my %cmd_table =
       ],
    "primary"
    => [
+       "Promote the resource into primary role, by setting the designated",
+       "primary to the local host.",
+       "This is necessary for /dev/mars/\$res to appear on the local host.",
+       "Notice that by concept there can be only _one_ designated primary in a",
+       "cluster at the same time.",
+       "The role change is automatically distributed to the other nodes in the",
+       "cluster, provided that the network is healthy.",
+       "Thus, when necessary, the old primary node will _automatically_ go",
+       "into secondary role first. This is different from DRBD!",
+       "With MARS, you don't need an intermediate 'secondary' command like with",
+       "DRBD, and it is usually better to _directly_ switch the primary roles",
+       "between both hosts. All other nodes except the new designated primary",
+       "will _automatically_ go to secondary role.",
+       "When --force is not given, a planned handover is started:",
+       "the local host will only become actually primary _after_ the old primary",
+       "is gone.",
+       "When --force is given, no handover is attempted. A a consequence, a",
+       "split brain situation is likely to emerge. Thus, use --force only",
+       "after an ordinary handover attempt has failed, and when you don't",
+       "care about the split brain.",
+       "For more details, please refer to the PDF manual.",
        \&primary_phase0,
        "check preconditions",
        \&primary_phase1,
@@ -4208,6 +4278,18 @@ my %cmd_table =
       ],
    "secondary"
    => [
+       "Give up any primary roles in the cluster, globally.",
+       "In contrast to DRBD, this is not needed as an intermediate step",
+       "for planned handover between an old and a new primary node.",
+       "The only reasonable usage is before the last leave-resource of the",
+       "last cluster member, immediately before leave-cluster is executed",
+       "for final deconstruction of the cluster.",
+       "In all other cases, please prefer 'primary' for direct handover",
+       "between cluster nodes.",
+       "Notice: 'secondary' sets the global designated primary node to '(none)'",
+       "which in turn prevents the execution of 'invalidate' and",
+       "'join-resource' anywhere in the cluster.",
+       "Therefore, don't unnecessarily give 'secondary'!",
        \&primary_phase0,
        "check preconditions",
        \&primary_phase1,
@@ -4217,6 +4299,17 @@ my %cmd_table =
       ],
    "invalidate"
    => [
+       "Only useful on a secondary node.",
+       "Forces MARS to consider the local replica disk as being inconsistent,",
+       "and therefore starting a fast full-sync from the currently designated",
+       "primary node (which must exist; therefore avoid the 'secondary' command).",
+       "This usually needed for resolving emergency mode.",
+       "For k=2 replicas, or when only exactly 1 secondary reports a split brain",
+       "this can be also used for split-brain resolution.",
+       "In all other cases, or when the split-brain is not resolved by this",
+       "command, please use the 'leave-resource' / 'join-resource'",
+       "method as described in the PDF manual (in the right order as",
+       "described there).",
        \&invalidate_res_phase0,
        "check preconditions",
        \&invalidate_res_phase1,
@@ -4229,8 +4322,16 @@ my %cmd_table =
    "invalidate-remote" => \&forbidden_cmd,
    "resize"
    => [
+       "Causes MARS to re-examine all sizing constraints on all members of the",
+       "resource, and increase the global logical size of the resource accordingly.",
+       "Shrinking is currently not yet implemented.",
+       "When successful, any /dev/mars/\$res at a primary will be increased",
+       "in size.",
+       "Prerequisite: all underlying disks (usully /dev/vg/\$res) must have",
+       "been already increased, e.g. at the LVM layer (cf. lvresize).",
        \&resize_res,
       ],
+   "check-resize"      => \&ignore_cmd,
    "create-md"         => \&senseless_cmd,
    "get-gi"            => \&ignore_cmd,
    "show-gi"           => \&ignore_cmd,
@@ -4239,10 +4340,26 @@ my %cmd_table =
    "adjust"            => \&ignore_cmd,
    "wait-connect"
    => [
+       "Equivalent to wait-cluster.",
+       "Waits until a ping-pong communication has succeeded in the whole cluster.",
+       "NOTICE: this is extremely useful for avoiding races when scripting",
+       "in a cluster!",
        \&wait_cluster,
       ],
-   "role"              => \&role_cmd,
-   "state"             => \&role_cmd,
+   "role"
+   => [
+       "Deprecated.",
+       "Please use the macro command 'view-role' instead.",
+       "For even better summary information, use plain 'view'.",
+       \&role_cmd,
+      ],
+   "state"
+   => [
+       "Deprecated.",
+       "Please use the macro command 'view-role' instead.",
+       "For even better summary information, use plain 'view'.",
+       \&role_cmd,
+      ],
    "cstate"            => \&nyi_cmd,
    "dstate"            => \&nyi_cmd,
    "status"            => \&nyi_cmd,
@@ -4250,26 +4367,41 @@ my %cmd_table =
    "verify"            => \&forbidden_cmd,
    "pause-sync-local"
    => [
+       "Pause the initial data sync at current stage.",
+       "This has only an effect if a sync is actually running (i.e. there is",
+       "something to be actually synced).",
+       "Don't pause too long, because the local replica will remain inconsistent",
+       "during the pause. Use this only for limited reduction of system load.".
+       "Only useful on a secondary node.",
        \&pause_sync_local_res,
       ],
    "pause-sync-global"
    => [
+       "Like pause-sync, but affects all resource members in the cluster.",
        \&pause_sync_global_res,
       ],
    "pause-sync"
    => [
+       "Equivalent to pause-sync-local.",
        \&pause_sync_local_res,
       ],
    "resume-sync-local"
    => [
+       "Resume the initial data sync at the stage where it has been interrupted.",
+       "by pause-sync.",
+       "This has only an effect if a sync had been actually running (i.e. there",
+       "is something to be actually synced).",
+       "Only useful on a secondary node.",
        \&pause_sync_local_res,
       ],
    "resume-sync-global"
    => [
+       "Like resume-sync, but affects all resource members in the cluster.",
        \&pause_sync_global_res,
       ],
    "resume-sync"
    => [
+       "See resume-sync-local.",
        \&pause_sync_local_res,
       ],
    "new-current-uuid"  => \&senseless_cmd,
@@ -4321,10 +4453,12 @@ marsadm [<global_options>] view[-<macroname>] <resource>
 
 <command> =
 ";
+  my $item_count = 0;
   foreach my $cmdname (sort(keys(%cmd_table))) {
     my $list = $cmd_table{$cmdname};
     next unless ref($list) eq "ARRAY";
     my @copy = @$list;
+    lprint "\n" if $item_count++;
     lprint "  $cmdname\n";
     while (my $txt = shift @copy) {
       last if ref($txt) eq "CODE";
