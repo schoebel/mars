@@ -4523,8 +4523,8 @@ Thorough documentation is in mars-manual.pdf. Please use the PDF manual
 as authoritative reference! Here is only a short summary of the most
 important sub-commands / options:
 
-marsadm [<global_options>] <command> [<resource> | <args> ]
-marsadm [<global_options>] view[-<macroname>] <resource>
+marsadm [<global_options>] <command> [<resource_name> | <args> ]
+marsadm [<global_options>] view[-<macroname>] <resource_name>
 
 <global_option> =
   --force
@@ -4575,7 +4575,7 @@ marsadm [<global_options>] view[-<macroname>] <resource>
   }
 
   lprint "
-<resource> = name of resource or \"all\" for all resources
+<resource_name> = name of resource or \"all\" for all resources
 ";
 
   lprint "
