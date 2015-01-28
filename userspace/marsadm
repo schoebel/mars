@@ -4455,7 +4455,7 @@ if ($cmd =~ "show") {
 } elsif ($cmd =~ m/^set-.*-value$/) {
   $res = shift @args || helplist "numeric argument is missing\n";
   ldie "argument '$res' isn't numeric\n" unless $res =~ m/^[0-9.]+$/;
-} elsif (!($cmd =~ m/^(create|leave|wait)-cluster|cat|[a-z]+-file|^[sg]et-/)) {
+} elsif (!($cmd =~ m/^(create|leave|wait)-cluster|cat|[a-z]+-file/)) {
   $res = shift @args || helplist "resource argument is missing\n";
   check_id($res);
 }
