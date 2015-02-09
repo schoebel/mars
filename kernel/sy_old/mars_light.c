@@ -2926,6 +2926,7 @@ int make_log_step(void *buf, struct mars_dent *dent)
 	struct mars_rotate *rot;
 	struct trans_logger_brick *trans_brick;
 	struct mars_dent *prev_log;
+	int replay_log_nr = 0;
 	int status = -EINVAL;
 
 	CHECK_PTR(parent, err);
@@ -2944,7 +2945,10 @@ int make_log_step(void *buf, struct mars_dent *dent)
 	/* Check for consecutiveness of logfiles
 	 */
 	prev_log = rot->next_log;
-	if (prev_log && prev_log->d_serial + 1 != dent->d_serial) {
+	if (prev_log && prev_log->d_serial + 1 != dent->d_serial &&
+	    (!rot->replay_link || !rot->replay_link->d_argv[0] ||
+	     sscanf(rot->replay_link->d_argv[0], "log-%d", &replay_log_nr) != 1 ||
+	     dent->d_serial > replay_log_nr)) {
 		MARS_WRN_TO(rot->log_say, "transaction logs are not consecutive at '%s' (%d ~> %d)\n", dent->d_path, prev_log->d_serial, dent->d_serial);
 		make_rot_msg(rot, "wrn-log-consecutive", "transaction logs are not consecutive at '%s' (%d ~> %d)\n", dent->d_path, prev_log->d_serial, dent->d_serial);
 	}
