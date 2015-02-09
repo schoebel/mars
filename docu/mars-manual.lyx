@@ -2479,8 +2479,8 @@ guaranteed
 \family typewriter
 fake-sync
 \family default
-, you may startover the fast full sync at your secondary side at any time
- by saying 
+, you may startover the fast full sync at your secondary side by saying
+ 
 \family typewriter
 marsadm invalidate mydata
 \family default
@@ -16265,8 +16265,9 @@ $res
 \family default
  must denote an already existing resource in the cluster (i.e.
  its symlink tree information must have been received).
- The resource must have a designated primary, and there must not exist a
- split brain.
+ The resource must have a designated primary, and it must no be in emergency
+ mode.
+ There must not exist a split brain in the cluster.
  The local node must not be already member of that resource.
  The argument 
 \family typewriter
@@ -18107,7 +18108,8 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Precondition: none additionally.
+Precondition: additionally, a primary must be designated, and it must not
+ be in emergency mode.
 \end_layout
 
 \begin_layout Plain Layout
@@ -21192,9 +21194,9 @@ reference "sub:Split-Brain-Resolution"
 \family typewriter
 marsadm invalidate
 \family default
- cannot resolve a split brain at other secondaries (which are neither the
- old nor the new designated primary).
- Therefore, use the 
+ cannot always resolve a split brain at other secondaries (which are neither
+ the old nor the new designated primary).
+ Therefore, prefer the 
 \family typewriter
 leave-resource
 \family default
@@ -26782,7 +26784,7 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-This is too dangerous in case you have multiple secondaries.
+This would be too dangerous in case you have multiple secondaries.
  A similar effect can be achieved with the 
 \family typewriter
 --host=

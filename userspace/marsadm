@@ -571,6 +571,19 @@ sub check_userspace {
   }
 }
 
+sub check_sync_startable {
+  my ($cmd, $res) = @_;
+  my $primary = _get_designated_primary($res);
+  ldie "Cannot execute '$cmd' because noone is designated as primary.\n" if (!$primary || $primary eq "(none)");
+  # no danger when switch is turned on at the primary side.
+  return if $primary eq $host;
+  my $emergency_path = "$mars/resource-$res/actual-$primary/has-emergency";
+  my $emergency = get_link($emergency_path, 1);
+  if ($emergency) {
+    ldie "Primary '$primary' is in emergency mode. Cannot start sync.\nFree some space there first.\n";
+  }
+}
+
 ##################################################################
 
 # state inspection routines
@@ -1456,6 +1469,7 @@ sub create_res {
     ldie "Sorry, joining is only possible if a designated primary exists.\n" if $primary eq "(none)";
     ldie "implausible state: I ($host) am already designated primary of resource '$res' which I just wanted to join\n" if $primary eq $host;
     ldie "my ip '$ip' is not registered -- please run 'join-cluster' first\n" unless -l "$mars/ips/ip-$host";
+    check_sync_startable(@_);
     my $replay = get_link("$resdir/replay-$primary");
     if ($replay =~ m/^log-([0-9]+)-/) {
       $replay_nr = $1;
@@ -1808,6 +1822,7 @@ sub fetch_local_res {
 sub pause_sync_global_res {
   my ($cmd, $res) = @_;
   my $pause = ($cmd =~ m/pause/);
+  check_sync_startable(@_) if !$pause;
   my @paths = glob("$mars/resource-$res/todo-*/");
   for my $path (@paths) {
     _switch($cmd, $res, "$path/sync", !$pause);
@@ -1817,6 +1832,7 @@ sub pause_sync_global_res {
 sub pause_sync_local_res {
   my ($cmd, $res) = @_;
   my $pause = ($cmd =~ m/pause/);
+  check_sync_startable(@_) if !$pause;
   my $path = "$mars/resource-$res/todo-$host/sync";
   _switch($cmd, $res, $path, !$pause);
 }
@@ -2093,7 +2109,14 @@ sub invalidate_res_phase3 {
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/attach", 1);
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/fetch", 1);
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/replay", 1);
-  _switch($cmd, $res, "$mars/resource-$res/todo-$host/sync", 1);
+  finish_links();
+  my $emergency_path = "$mars/resource-$res/actual-$primary/has-emergency";
+  my $emergency = get_link($emergency_path, 1);
+  if ($emergency) {
+    lwarn "Primary '$primary' is in emergency mode. Cannot start sync.\n";
+  } else {
+    _switch($cmd, $res, "$mars/resource-$res/todo-$host/sync", 1);
+  }
 }
 
 sub resize_res {
