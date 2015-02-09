@@ -124,6 +124,13 @@ sub get_link {
   return $result;
 }
 
+sub get_link_stamp {
+  my ($path) = @_;
+  my @stat = lstat($path);
+  return 0 if (!@stat);
+  return $stat[9];
+}
+
 sub is_link_recent {
   my ($path) = @_;
   my @stat = lstat($path);
@@ -2750,6 +2757,13 @@ sub eval_fn {
       my $lnk = "$mars/alive-$peer";
       return is_link_recent($lnk);
     }
+    if (/^alive[-_]?timestamp$/) {
+      my $peer = parse_macro($arg1, $env);
+      $peer = _get_designated_primary($$env{"res"}) unless $peer;
+      return -1 if !$peer || $peer eq "(none)";
+      my $lnk = "$mars/alive-$peer";
+      return get_link_stamp($lnk);
+    }
     if (/^is[-_]?(almost[-_]?)?consistent$/) {
       my $almost = $1;
       # has sync finished?
@@ -3010,6 +3024,49 @@ sub eval_fn {
     # time handling and pausing
     if (/^time$/) {
       return mars_time();
+    }
+    if (/^replay[-_]?timestamp$/) {
+      $arg1 = parse_macro($arg1, $env);
+      $arg1 = $$env{"host"} unless $arg1;
+      my $replay = $$env{"resdir"} . "/replay-$arg1";
+      return get_link_stamp($replay);
+    }
+    if (/^fetch[-_]?timestamp$/) {
+      $arg1 = parse_macro($arg1, $env);
+      $arg1 = $$env{"host"} unless $arg1;
+      my $fetch_glob = $$env{"resdir"} . "/version-*-$arg1";
+      my @paths = sort(glob($fetch_glob));
+      return -1 if !@paths;
+      my $fetch = pop(@paths);
+      return get_link_stamp($fetch);
+    }
+    if (/^work[-_]?timestamp$/) {
+      my $time1 = make_numeric(eval_fn($env, "fetch-timestamp", $arg1));
+      my $time2 = make_numeric(eval_fn($env, "replay-timestamp", $arg1));
+      # use the "best" of both...
+      return $time1 if $time1 > $time2;
+      return $time2;
+    }
+    if (/^(fetch|replay|work|alive)[-_]?age$/) {
+      my $what = $1;
+      my $time = make_numeric(eval_fn($env, "$what-timestamp", $arg1));
+      return -1 if $time <= 0;
+      return int(mars_time()) - $time;
+    }
+    if (/^(fetch|replay|work|alive)[-_]?lag$/) {
+      my $what = $1;
+      $arg1 = $$env{"host"} unless $arg1;
+      my $arg2 = shift;
+      my $primary = parse_macro($arg2, $env);
+      if (!$primary) {
+	$primary = _get_designated_primary($$env{"res"});
+      }
+      return -1 if !$primary || $primary eq "(none)";
+      my $time1 = make_numeric(eval_fn($env, "$what-timestamp", $arg1));
+      my $time2 = make_numeric(eval_fn($env, "$what-timestamp", $primary));
+      return -1 if ($time1 <= 0 || $time2 <= 0);
+      return 0 if $time1 < $time2;
+      return $time1 - $time2;
     }
     if (/^sleep$/) {
       my $time = parse_macro($arg1, $env);
@@ -3704,6 +3761,8 @@ my %trivial_globs =
    "{sync,fetch,replay}-{rate,remain}"
    => "",
    "summary-vector",
+   => "",
+   "{alive,fetch,replay,work}-{timestamp,age,lag}"
    => "",
 
 

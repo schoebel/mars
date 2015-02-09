@@ -7992,6 +7992,148 @@ summary-vector
 .
 \end_layout
 
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+alive-timestamp
+\family default
+ Tell the Lamport Unix timestamp (seconds since 1970) of the last metadata
+ communication to the designated primary (or to any other host given by
+ the first argument).
+ Returns 
+\begin_inset Formula $-1$
+\end_inset
+
+ if no such host exists.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{fetch,replay,work}-timestamp
+\family default
+ Tell the Lamport Unix timestamp (seconds since 1970) when the last progress
+ has been made.
+ When no such action exists, 
+\begin_inset Formula $-1$
+\end_inset
+
+ is returned.
+ 
+\family typewriter
+%work-timestamp{
+\emph on
+hostname
+\emph default
+}
+\family default
+ is the maximum of 
+\family typewriter
+%fetch-timestamp{
+\emph on
+hostname
+\emph default
+}
+\family default
+ and 
+\family typewriter
+%replay-timestamp{
+\emph on
+hostname
+\emph default
+}
+\family default
+.
+ When the parameter 
+\family typewriter
+\emph on
+hostname
+\family default
+\emph default
+ is empty, the local host will be reported (default).
+ Example usage: 
+\family typewriter
+marsadm view all --macro=
+\begin_inset Quotes erd
+\end_inset
+
+%replay-timestamp{%todo-primary{}}
+\begin_inset Quotes erd
+\end_inset
+
+
+\family default
+ shows the timestamp of the last reported
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Updates of this information are occurring with lower frequency than actual
+ writebacks, for performance reasons.
+ The metadata network update protocol will add further delays.
+ Therefore, the accuracy is only in the range of minutes.
+\end_layout
+
+\end_inset
+
+ writeback action at the designated primary.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{alive,fetch,replay,work}-age
+\family default
+ Tell the number of seconds since the last respective action, or 
+\begin_inset Formula $-1$
+\end_inset
+
+ if none exists.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{alive,fetch,replay,work}-lag
+\family default
+ Report the time difference (in seconds) between the last 
+\emph on
+known
+\emph default
+ action at the local host and at the designated primary (or between any
+ other hosts when 2 parameters are given).
+ Returns 
+\begin_inset Formula $-1$
+\end_inset
+
+ if no such action exists at any of the two hosts.
+ Attention! This need not reflect the 
+\emph on
+actual
+\emph default
+ state in case of networking problems.
+ Don't draw wrong conclusions from a high 
+\family typewriter
+{fetch,replay}-lag
+\family default
+ value: it could also mean that simply no write operation at all has occurred
+ at the primary side for a long time.
+ Conversely, a low lag value does not imply that the replication is recent:
+ it may refer to 
+\emph on
+different
+\emph default
+ write operations at each of the hosts; therefore it only tells that 
+\emph on
+some
+\emph default
+ progress has been made, but says nothing about the amount of the progress.
+\end_layout
+
 \begin_layout Subparagraph
 Misc Informational Status
 \end_layout
@@ -8473,7 +8615,8 @@ These rules are hopefully simple and intuitive.
 \end_inset
 
 When deeply nesting macros and their braces, you may easily find yourself
- in a feeling like in the good old days of Lisp.
+ in a feeling like in the goodDELL.shared-derived.istore.parallel-08.threads-032.test.
+g000.overview.thrp.png.pdf old days of Lisp.
  Use the above backslash-newline syntax to indent your macros in a readable
  and structured way.
  Fortunately, modern text editors like (x)emacs or vim have modes for dealing
