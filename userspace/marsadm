@@ -3593,7 +3593,9 @@ my %complex_macros =
    => "%let{amount}{%human-numbers{}{}{}{%fetch-rest{}}}"
    .  "%let{rate}{%human-numbers{}{}{}{%fetch-rate{}}}"
    .  "%let{remain}{%human-seconds{%fetch-remain{}}}"
-   .  "       > fetch: %{amount} rate: %{rate}/sec  remaining: %{remain} hrs\n",
+   .  "%let{age}{%if{%and{%fetch-remain{}}{%>={%fetch-age{}}{%{window}}}}{ age: %human-seconds{%fetch-age{}}}}"
+   .  "%let{lag}{%if{%and{%fetch-remain{}}{%>={%fetch-lag{}}{%{window}}}}{ lag: %human-seconds{%fetch-lag{}}}}"
+   .  "       > fetch: %{amount}%{age}%{lag} rate: %{rate}/s remaining: %{remain}\n",
 
    "fetch-line-1and1"
    => "%let{amount}{%human-numbers{}{}{}{%fetch-rest{}}}"
@@ -3605,7 +3607,8 @@ my %complex_macros =
    => "%let{amount}{%human-numbers{}{}{}{%replay-rest{}}}"
    .  "%let{rate}{%human-numbers{}{}{}{%replay-rate{}}}"
    .  "%let{remain}{%human-seconds{%replay-remain{}}}"
-   .  "       > replay: %{amount} rate: %{rate}/sec  remaining: %{remain} hrs\n",
+   .  "%let{age}{%if{%and{%replay-remain{}}{%>={%replay-age{}}{%{window}}}}{ age: %human-seconds{%replay-age{}}}}"
+   .  "       > replay: %{amount}%{age} rate: %{rate}/s remaining: %{remain}\n",
 
    "replay-line-1and1"
    => "%let{amount}{%human-numbers{}{}{}{%replay-rest{}}}"

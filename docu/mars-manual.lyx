@@ -6965,11 +6965,8 @@ syncinfo-1and1
 replinfo
 \family default
  Shows an informational progress bar when fetch is running.
- Use cases are analogously to 
-\family typewriter
-syncinfo
-\family default
-.
+ This should not be used for scripting at all, because it contains realtime
+ information in human-readable form.
 \end_layout
 
 \begin_layout Labeling
@@ -6979,6 +6976,59 @@ syncinfo
 replinfo-1and1
 \family default
  A variant for internal use by 1&1 Internet AG.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+fetch-line
+\family default
+ Additional details, called by 
+\family typewriter
+replinfo
+\family default
+.
+ Shows the amount of data to be fetched, as well as the current transfer
+ rate and a very rough estimation of the future duration.
+ When primitive macros 
+\family typewriter
+%fetch-age{}
+\family default
+ or 
+\family typewriter
+%fetch-lag{}
+\family default
+ exceed 
+\family typewriter
+${window}
+\family default
+, their values are also displayed for human informational purposes.
+ See description of these primitive macros.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+replay-line
+\family default
+ Additional details, called by 
+\family typewriter
+replinfo
+\family default
+.
+ Shows the amount of data to be replayed, as well as the current replay
+ rate and a very rough estimation of the future duration.
+ When primitive macro 
+\family typewriter
+%replay-age{}
+\family default
+ exceeds 
+\family typewriter
+${window}
+\family default
+, it is also displayed for human informational purposes.
 \end_layout
 
 \begin_layout Subsubsection
