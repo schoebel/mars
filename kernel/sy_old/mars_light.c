@@ -1530,7 +1530,7 @@ int __make_copy(
 			       cc.fullpath[1],
 			       (const struct generic_brick_type*)&copy_brick_type,
 			       (const struct generic_brick_type*[]){NULL,NULL,NULL,NULL},
-			       (!switch_copy || (IS_EXHAUSTED() && !space_using_mode) || IS_EMERGENCY_PRIMARY()) ? -1 : 2,
+			       (!switch_copy || (IS_EMERGENCY_PRIMARY() && !space_using_mode)) ? -1 : 2,
 			       "%s",
 			       (const char *[]){"%s", "%s", "%s", "%s"},
 			       4,
@@ -3563,22 +3563,26 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		rot->created_hole = false;
 	}
 
-	if (IS_EMERGENCY_PRIMARY() || (!rot->todo_primary && IS_EMERGENCY_SECONDARY())) {
-		MARS_WRN_TO(rot->log_say, "EMERGENCY: the space on /mars/ is very low. Expect some problems!\n");
-		if (rot->first_log && rot->first_log != rot->relevant_log) {
+	if (IS_EMERGENCY_SECONDARY()) {
+		if (!rot->todo_primary && rot->first_log && rot->first_log != rot->relevant_log) {
 			MARS_WRN_TO(rot->log_say, "EMERGENCY: ruthlessly freeing old logfile '%s', don't cry on any ramifications.\n", rot->first_log->d_path);
 			make_rot_msg(rot, "wrn-space-low", "EMERGENCY: ruthlessly freeing old logfile '%s'", rot->first_log->d_path);
 			mars_unlink(rot->first_log->d_path);
 			rot->first_log->d_killme = true;
 			// give it a chance to cease deleting next time
 			compute_emergency_mode();
+		} else if (IS_EMERGENCY_PRIMARY()) {
+			MARS_WRN_TO(rot->log_say, "EMERGENCY: the space on /mars/ is VERY low.\n");
+			make_rot_msg(rot, "wrn-space-low", "EMERGENCY: the space on /mars/ is VERY low.");
 		} else {
-			make_rot_msg(rot, "wrn-space-low", "EMERGENCY: the space on /mars/ is very low. Expect some problems!");
+			MARS_WRN_TO(rot->log_say, "EMERGENCY: the space on /mars/ is low.\n");
+			make_rot_msg(rot, "wrn-space-low", "EMERGENCY: the space on /mars/ is low.");
 		}
 	} else if (IS_EXHAUSTED()) {
-		MARS_WRN_TO(rot->log_say, "EMERGENCY: the space on /mars/ is becoming low. Stopping all fetches of logfiles for secondary resources.\n");
-		make_rot_msg(rot, "wrn-space-low", "EMERGENCY: the space on /mars/ is becoming low. Stopping all fetches of logfiles for secondary resources.");
+		MARS_WRN_TO(rot->log_say, "EMERGENCY: the space on /mars/ is becoming low.\n");
+		make_rot_msg(rot, "wrn-space-low", "EMERGENCY: the space on /mars/ is becoming low.");
 	}
+
 
 	if (trans_brick->replay_mode) {
 		if (trans_brick->replay_code > 0) {

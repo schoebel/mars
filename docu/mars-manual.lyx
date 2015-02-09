@@ -13148,10 +13148,7 @@ status open
 \begin_inset Newline newline
 \end_inset
 
-all locally secondary resources will stop fetching transaction logfiles.
- As a side effect, other nodes in the cluster may become unable to delete
- their logfiles also.
- This is a desperate action of the kernel module.
+a warning will be issued.
 \end_layout
 
 \begin_layout Enumerate
@@ -13204,9 +13201,9 @@ status open
 \begin_inset Newline newline
 \end_inset
 
-all locally secondary resources will start removing any logfiles which are
- no longer used locally.
- This is a more desperate action of the kernel module.
+all locally secondary resources will delete local copies of transaction
+ logfiles which are no longer needed locally.
+ This is a desperate action of the kernel module.
 \end_layout
 
 \begin_layout Enumerate
@@ -13244,41 +13241,13 @@ status open
 \begin_inset Newline newline
 \end_inset
 
-all locally primary resources are checked for logfiles which are no longer
- needed 
-\emph on
-locally
-\emph default
-.
- Locally unneeded files are deleted even when some secondary needs them.
- As a consequence, some secondaries may get stuck (left in consistent, but
- outdated state).
- In order to get them actual again, they will need a 
-\family typewriter
-marsadm invalidate
-\family default
- later (if there is no split brain; otherwise you might need the 
-\family typewriter
-leave-resource
-\family default
- ; 
-\family typewriter
-join-resource
-\family default
- method from section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sub:Split-Brain-Resolution"
-
-\end_inset
-
-).
- This is an even more desperate action of the kernel module.
+all locally secondary resources will stop fetching transaction logfiles.
+ This is a more desperate action of the kernel module.
  You don't want to get there (except for testing).
 \end_layout
 
 \begin_layout Enumerate
-Last desperate kernelspace action when all other has failed and 
+Last desperate kernelspace action when all else has failed and 
 \family typewriter
 
 \begin_inset Flex URL
