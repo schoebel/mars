@@ -158,6 +158,7 @@ struct threshold {
 	int  thr_factor;  // in %
 	int  thr_plus;    // in us
 	// statistical
+	int thr_max;      // in ms
 	int thr_triggered;
 	int thr_true_hit;
 };
@@ -165,7 +166,10 @@ struct threshold {
 extern inline
 void threshold_check(struct threshold *thr, long long latency)
 {
+	int ms = latency >> 6; // ignore small rounding error
 	while (thr) {
+		if (ms > thr->thr_max)
+			thr->thr_max = ms;
 		if (thr->thr_limit &&
 		    latency > (long long)thr->thr_limit * 1000) {
 			thr->thr_triggered++;

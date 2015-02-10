@@ -220,6 +220,7 @@ EXPORT_SYMBOL_GPL(mars_max_loadavg);
 	INT_ENTRY(PREFIX "_threshold_us",   (VAR)->thr_limit,    0600),	\
 	INT_ENTRY(PREFIX "_factor_percent", (VAR)->thr_factor,   0600),	\
 	INT_ENTRY(PREFIX "_plus_us",        (VAR)->thr_plus,     0600),	\
+	INT_ENTRY(PREFIX "_max_ms",         (VAR)->thr_max,      0600),	\
 	INT_ENTRY(PREFIX "_triggered",      (VAR)->thr_triggered,0400), \
 	INT_ENTRY(PREFIX "_true_hit",       (VAR)->thr_true_hit, 0400)	\
 
