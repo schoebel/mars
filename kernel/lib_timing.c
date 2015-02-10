@@ -63,3 +63,11 @@ int report_timing(struct timing_stats *tim, char *str, int maxlen)
 EXPORT_SYMBOL_GPL(report_timing);
 
 #endif
+
+struct threshold global_io_threshold = {
+	.thr_limit = 30 * 1000000, // 30 seconds
+	.thr_factor = 100,
+	.thr_plus = 0,
+};
+EXPORT_SYMBOL_GPL(global_io_threshold);
+

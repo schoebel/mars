@@ -50,6 +50,7 @@ static struct timing_stats timings[3] = {};
 
 struct threshold aio_submit_threshold = {
 	.thr_ban = &mars_global_ban,
+	.thr_parent = &global_io_threshold,
 	.thr_limit = AIO_SUBMIT_MAX_LATENCY,
 	.thr_factor = 10,
 	.thr_plus = 10000,
@@ -59,12 +60,14 @@ EXPORT_SYMBOL_GPL(aio_submit_threshold);
 struct threshold aio_io_threshold[2] = {
 	[0] = {
 		.thr_ban = &mars_global_ban,
+		.thr_parent = &global_io_threshold,
 		.thr_limit = AIO_IO_R_MAX_LATENCY,
 		.thr_factor = 100,
 		.thr_plus = 0,
 	},
 	[1] = {
 		.thr_ban = &mars_global_ban,
+		.thr_parent = &global_io_threshold,
 		.thr_limit = AIO_IO_W_MAX_LATENCY,
 		.thr_factor = 100,
 		.thr_plus = 0,

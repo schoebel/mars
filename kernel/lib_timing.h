@@ -152,6 +152,7 @@ void banning_reset(struct banning *ban)
  */
 struct threshold {
 	struct banning *thr_ban;
+	struct threshold *thr_parent; /* support hierarchies */
 	// tunables
 	int  thr_limit;   // in us
 	int  thr_factor;  // in %
@@ -164,12 +165,18 @@ struct threshold {
 extern inline
 void threshold_check(struct threshold *thr, long long latency)
 {
-	if (thr->thr_limit &&
-	    latency > (long long)thr->thr_limit * 1000) {
-		thr->thr_triggered++;
-		if (!banning_hit(thr->thr_ban, latency * thr->thr_factor / 100 + thr->thr_plus * 1000))
-			thr->thr_true_hit++;
+	while (thr) {
+		if (thr->thr_limit &&
+		    latency > (long long)thr->thr_limit * 1000) {
+			thr->thr_triggered++;
+			if (thr->thr_ban &&
+			    !banning_hit(thr->thr_ban, latency * thr->thr_factor / 100 + thr->thr_plus * 1000))
+				thr->thr_true_hit++;
+		}
+		thr = thr->thr_parent;
 	}
 }
+
+extern struct threshold global_io_threshold;
 
 #endif
