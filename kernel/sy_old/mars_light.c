@@ -3513,6 +3513,9 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 			*rot->bio_brick->mode_ptr = -EMEDIUMTYPE;
 		MARS_ERR_TO(rot->log_say, "DISK SPACE IS EXTREMELY LOW on %s\n", rot->parent_path);
 		make_rot_msg(rot, "err-space-low", "DISK SPACE IS EXTREMELY LOW");
+	} else if (IS_EXHAUSTED() && rot->has_emergency) {
+		MARS_ERR_TO(rot->log_say, "EMEGENCY MODE HYSTERESIS on %s: you need to free more space for recovery.\n", rot->parent_path);
+		make_rot_msg(rot, "err-space-low", "EMEGENCY MODE HYSTERESIS: you need to free more space for recovery.");
 	} else {
 		int limit = _check_allow(global, parent, "emergency-limit");
 		rot->has_emergency = (limit > 0 && global_remaining_space * 100 / global_total_space < limit);

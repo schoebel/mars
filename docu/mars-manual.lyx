@@ -13764,8 +13764,27 @@ status collapsed
 \family default
  is not set, now it is time to set it.
  Normally, it should be already set.
- In consequence, the primary sides should continue transaction logging automatic
-ally.
+\end_layout
+
+\begin_layout Enumerate
+Notice: as long as not enough space has been freed, a message containing
+ 
+\family typewriter
+
+\begin_inset Quotes eld
+\end_inset
+
+EMEGENCY MODE HYSTERESIS
+\begin_inset Quotes erd
+\end_inset
+
+
+\family default
+ (or similar) will be displayed by 
+\family typewriter
+marsadm view all
+\family default
+.
 \end_layout
 
 \begin_layout Enumerate
@@ -13773,8 +13792,9 @@ On the secondaries, and when there is no split brain, use
 \family typewriter
 marsadm invalidate $res
 \family default
- in order to get your outdated mirrors uptodate.
- In case of split brain, follow the instructions from section 
+ in order to start updating your outdated mirrors.
+ Alternatively, or in case of split brain, follow the instructions from
+ section 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "sub:Split-Brain-Resolution"
@@ -13782,10 +13802,23 @@ reference "sub:Split-Brain-Resolution"
 \end_inset
 
 .
- This will lead to temporarily inconsistent mirrors, so don't do this on
- all secondaries in parallel, but sequentially step by step.
- This way, if you have more than 1 mirror, you will always retain at least
- one consistent, but outdated copy.
+ That means, do 
+\family typewriter
+leave-resource
+\family default
+ now everywhere on all secondaries, but 
+\emph on
+don't
+\emph default
+ start the 
+\family typewriter
+join-resource
+\family default
+ phase 
+\emph on
+for now
+\emph default
+.
 \begin_inset Newline newline
 \end_inset
 
@@ -13797,19 +13830,23 @@ reference "sub:Split-Brain-Resolution"
 
 \end_inset
 
-If you had only 1 mirror per resource before the overflow happened, you
- can now create a new one via 
+If you had only 1 mirror per resource before the overflow happened, and
+ provided that you have enough space on 
+\family typewriter
+/mars/
+\family default
+ such that transaction logging has automatically restarted, you can now
+ start creating a new one via 
 \family typewriter
 marsadm join-resource $res
 \family default
- on a third node (provided that your storage space permits it after the
- cleanup).
+ on a third node.
  After the initial full sync has finished there, do an 
 \family typewriter
 marsadm invalidate $res
 \family default
  on the outdated mirror (if you had no split brain; otherwise follow the
- instructions in section 
+ instructions from section 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "sub:Split-Brain-Resolution"
@@ -13823,6 +13860,105 @@ reference "sub:Split-Brain-Resolution"
 marsadm leave-resource $res
 \family default
  and reclaim the disk space from its underlying disk.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+In contrast, if you already have 
+\begin_inset Formula $k>2$
+\end_inset
+
+ replicas in total, it may be a wise idea to prefer the 
+\family typewriter
+leave-resource ; join-resource
+\family default
+ method in front of 
+\family typewriter
+invalidate
+\family default
+ because it does not invalidate 
+\emph on
+all
+\emph default
+ your replicas at the same time (when handled properly).
+\end_layout
+
+\begin_layout Enumerate
+In case the message 
+\family typewriter
+
+\begin_inset Quotes eld
+\end_inset
+
+EMEGENCY MODE HYSTERESIS
+\begin_inset Quotes erd
+\end_inset
+
+
+\family default
+ did not disappear until now, then issue 
+\family typewriter
+marsadm log-delete-all all
+\family default
+ at the primary side after 
+\emph on
+all
+\emph default
+ your secondaries have started 
+\family typewriter
+invalidate
+\family default
+ or 
+\family typewriter
+leave-resource
+\family default
+.
+ In very rare and complicated cases, you might also need 
+\family typewriter
+marsadm log-delete-all all
+\family default
+ at some of your secondary sites.
+\end_layout
+
+\begin_layout Enumerate
+In case of mixed operations where some resources are primary while others
+ are secondaries at the same site, you may also need to cleanup the other
+ resources before enough space on 
+\family typewriter
+/mars/
+\family default
+ can be freed.
+\end_layout
+
+\begin_layout Enumerate
+As a consequence, the primary side should henceforth have enough space and
+ therefore continue transaction logging automatically (if not earlier).
+ 
+\end_layout
+
+\begin_layout Enumerate
+After that, if you had issued 
+\family typewriter
+leave-resource
+\family default
+ in previous steps, don't do the 
+\family typewriter
+join-resource
+\family default
+ phase everywhere in parallel, but 
+\emph on
+sequentially
+\emph default
+ step by step.
+ This way, you will always retain at least one consistent, but outdated
+ copy.
 \end_layout
 
 \begin_layout Chapter
