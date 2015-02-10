@@ -3506,6 +3506,11 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		brick_say_logging = 0;
 #endif
 		rot->has_emergency = true;
+		/* Report remote errors to clients when they
+		 * try to sync during emergency mode.
+		 */
+		if (rot->bio_brick && rot->bio_brick->mode_ptr)
+			*rot->bio_brick->mode_ptr = -EMEDIUMTYPE;
 		MARS_ERR_TO(rot->log_say, "DISK SPACE IS EXTREMELY LOW on %s\n", rot->parent_path);
 		make_rot_msg(rot, "err-space-low", "DISK SPACE IS EXTREMELY LOW");
 	} else {
@@ -3513,6 +3518,8 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		rot->has_emergency = (limit > 0 && global_remaining_space * 100 / global_total_space < limit);
 		MARS_DBG("has_emergency=%d limit=%d remaining_space=%lld total_space=%lld\n",
 			 rot->has_emergency, limit, global_remaining_space, global_total_space);
+		if (!rot->has_emergency && rot->bio_brick && rot->bio_brick->mode_ptr)
+			*rot->bio_brick->mode_ptr = 0;
 	}
 	_show_actual(parent->d_path, "has-emergency", rot->has_emergency);
 	if (rot->has_emergency) {

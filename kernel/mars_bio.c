@@ -779,6 +779,7 @@ static int bio_switch(struct bio_brick *brick)
 			status = -ENOMEM;
 			if (likely(brick->submit_thread && brick->response_thread)) {
 				brick->bdev = inode->i_bdev;
+				brick->mode_ptr = &brick->mf->mf_mode;
 				index++;
 				status = 0;
 			}
@@ -789,10 +790,6 @@ static int bio_switch(struct bio_brick *brick)
 	
  done:
 	if (status < 0 || !brick->power.button) {
-		if (brick->mf) {
-			mapfree_put(brick->mf);
-			brick->mf = NULL;
-		}
 		if (brick->submit_thread) {
 			brick_thread_stop(brick->submit_thread);
 			brick->submit_thread = NULL;
@@ -801,6 +798,11 @@ static int bio_switch(struct bio_brick *brick)
 			brick_thread_stop(brick->response_thread);
 			brick->response_thread = NULL;
 		}
+		if (brick->mf) {
+			mapfree_put(brick->mf);
+			brick->mf = NULL;
+		}
+		brick->mode_ptr = NULL;
 		brick->bdev = NULL;
 		if (!brick->power.button) {
 			mars_power_led_off((void*)brick, true);

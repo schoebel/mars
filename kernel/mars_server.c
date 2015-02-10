@@ -100,6 +100,12 @@ int cb_thread(void *data)
 		CHECK_PTR(mref, err);
 
 		status = 0;
+		/* Report a remote error when consistency cannot be guaranteed,
+		 * e.g. emergency mode during sync.
+		 */
+		if (brick->conn_brick && brick->conn_brick->mode_ptr && *brick->conn_brick->mode_ptr < 0
+		    && mref->object_cb)
+			mref->object_cb->cb_error = *brick->conn_brick->mode_ptr;
 		if (!aborted) {
 			down(&brick->socket_sem);
 			status = mars_send_cb(sock, mref);

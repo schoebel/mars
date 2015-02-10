@@ -51,6 +51,7 @@ struct mapfree_info {
 	char            *mf_name;
 	struct file     *mf_filp;
 	int              mf_flags;
+	int              mf_mode;
 	atomic_t         mf_count;
 	spinlock_t       mf_lock;
 	loff_t           mf_min[2];
