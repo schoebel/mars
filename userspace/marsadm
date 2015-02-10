@@ -44,12 +44,14 @@ sub llog {
 
 sub lprint {
   my ($text) = @_;
+  $OUTPUT_AUTOFLUSH = 1;
   print $text;
   llog($text);
 }
 
 sub lprint_stderr {
   my ($text) = @_;
+  $OUTPUT_AUTOFLUSH = 1;
   print STDERR $text;
   llog($text);
 }
