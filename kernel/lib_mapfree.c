@@ -55,6 +55,8 @@ void mapfree_pages(struct mapfree_info *mf, int grace_keep)
 	pgoff_t start;
 	pgoff_t end;
 
+	if (unlikely(!mf))
+	    goto done;
 	if (unlikely(!mf->mf_filp || !(mapping = mf->mf_filp->f_mapping)))
 		goto done;
 
@@ -122,9 +124,11 @@ void _mapfree_put(struct mapfree_info *mf)
 
 void mapfree_put(struct mapfree_info *mf)
 {
-	down_write(&mapfree_mutex);
-	_mapfree_put(mf);
-	up_write(&mapfree_mutex);
+	if (likely(mf)) {
+		down_write(&mapfree_mutex);
+		_mapfree_put(mf);
+		up_write(&mapfree_mutex);
+	}
 }
 EXPORT_SYMBOL_GPL(mapfree_put);
 
@@ -240,12 +244,14 @@ void mapfree_set(struct mapfree_info *mf, loff_t min, loff_t max)
 {
 	unsigned long flags;
 
-	traced_lock(&mf->mf_lock, flags);
-	if (!mf->mf_min[0] || mf->mf_min[0] > min)
-		mf->mf_min[0] = min;
-	if (max >= 0 && mf->mf_max < max)
-		mf->mf_max = max;
-	traced_unlock(&mf->mf_lock, flags);
+	if (likely(mf)) {
+		traced_lock(&mf->mf_lock, flags);
+		if (!mf->mf_min[0] || mf->mf_min[0] > min)
+			mf->mf_min[0] = min;
+		if (max >= 0 && mf->mf_max < max)
+			mf->mf_max = max;
+		traced_unlock(&mf->mf_lock, flags);
+	}
 }
 EXPORT_SYMBOL_GPL(mapfree_set);
 
@@ -297,7 +303,7 @@ int mapfree_thread(void *data)
 
 void mf_insert_dirty(struct mapfree_info *mf, struct dirty_info *di)
 {
-	if (likely(di->dirty_mref)) {
+	if (likely(di->dirty_mref && mf)) {
 		unsigned long flags = 0;
 
 		traced_lock(&mf->mf_lock, flags);
@@ -310,7 +316,7 @@ EXPORT_SYMBOL_GPL(mf_insert_dirty);
 
 void mf_remove_dirty(struct mapfree_info *mf, struct dirty_info *di)
 {
-	if (!list_empty(&di->dirty_head)) {
+	if (!list_empty(&di->dirty_head) && mf) {
 		unsigned long flags = 0;
 
 		traced_lock(&mf->mf_lock, flags);
@@ -324,6 +330,9 @@ void mf_get_dirty(struct mapfree_info *mf, loff_t *min, loff_t *max, int min_sta
 {
 	struct list_head *tmp;
 	unsigned long flags = 0;
+
+	if (unlikely(!mf))
+	    goto done;
 
 	traced_lock(&mf->mf_lock, flags);
 	for (tmp = mf->mf_dirty_anchor.next; tmp != &mf->mf_dirty_anchor; tmp = tmp->next) {
@@ -343,6 +352,7 @@ void mf_get_dirty(struct mapfree_info *mf, loff_t *min, loff_t *max, int min_sta
 		}
 	}
 	traced_unlock(&mf->mf_lock, flags);
+done:;
 }
 EXPORT_SYMBOL_GPL(mf_get_dirty);
 
