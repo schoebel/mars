@@ -3175,7 +3175,7 @@ for (my $i = 0; $i < 20; $i++) {
   $match_inner = qr"$match_nobrace(?:$match_brace$match_nobrace)*"s;
   $match_brace = qr"\{$match_inner\}"s;
 }
-my $match_fn_head = qr"\%([\w-]*)(?=\{)"s;
+my $match_fn_head = qr"\%([^\\\s{}()\[\]]*)(?=\{)"s;
 my $match_fn = qr"$match_fn_head(?:\{($match_inner)\})"s;
 
 sub _control_macro {
