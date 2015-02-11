@@ -903,6 +903,11 @@ int _check_switch(struct mars_global *global, const char *path)
 	int res = 0;
 	struct mars_dent *allow_dent;
 
+	/* Upon shutdown, treat all switches as "off"
+	 */
+	if (!global->global_power.button)
+		goto done;
+
 	allow_dent = mars_find_dent(global, path);
 	if (!allow_dent || !allow_dent->new_link)
 		goto done;
@@ -2264,7 +2269,7 @@ static int _make_peer(struct mars_global *global, struct mars_dent *dent, char *
 	char *parent_path;
 	int status = 0;
 
-	if (!global || !global->global_power.button || !dent || !dent->new_link || !dent->d_parent || !(parent_path = dent->d_parent->d_path)) {
+	if (!global || !dent || !dent->new_link || !dent->d_parent || !(parent_path = dent->d_parent->d_path)) {
 		MARS_DBG("cannot work\n");
 		return 0;
 	}
@@ -3789,7 +3794,7 @@ int make_bio(void *buf, struct mars_dent *dent)
 	bool switch_on;
 	int status = 0;
 
-	if (!global || !global->global_power.button || !dent->d_parent) {
+	if (!global || !dent->d_parent) {
 		goto done;
 	}
 	rot = dent->d_parent->d_private;
@@ -3898,11 +3903,6 @@ int make_dev(void *buf, struct mars_dent *dent)
 		MARS_DBG("transaction logger does not exist\n");
 		goto done;
 	}
-	if (!global->global_power.button &&
-	   (!rot->if_brick || rot->if_brick->power.led_off)) {
-		MARS_DBG("nothing to do\n");
-		goto done;
-	}
 	if (rot->dev_size <= 0) {
 		MARS_WRN("trying to create device '%s' with zero size\n", dent->d_path);
 		goto done;
@@ -3999,7 +3999,7 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 	bool switch_on;
 	bool do_dealloc = false;
 
-	if (!global->global_power.button || !dent->d_parent || !dent->new_link) {
+	if (!dent->d_parent || !dent->new_link) {
 		return 0;
 	}
 	status = _parse_args(dent, dent->new_link, 2);
@@ -4075,7 +4075,7 @@ static int _make_copy(void *buf, struct mars_dent *dent)
 	const char *copy_path = NULL;
 	int status;
 
-	if (!global->global_power.button || !dent->d_parent || !dent->new_link) {
+	if (!dent->d_parent || !dent->new_link) {
 		return 0;
 	}
 	status = _parse_args(dent, dent->new_link, 2);
@@ -4191,7 +4191,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	bool do_start;
 	int status;
 
-	if (!global->global_power.button || !dent->d_parent || !dent->new_link) {
+	if (!dent->d_parent || !dent->new_link) {
 		return 0;
 	}
 
@@ -4590,7 +4590,7 @@ int kill_res(void *buf, struct mars_dent *dent)
 
 	show_vals(rot->msgs, rot->parent_path, "");
 
-	if (unlikely(!rot->global || !rot->global->global_power.button)) {
+	if (unlikely(!rot->global)) {
 		MARS_DBG("nothing to do\n");
 		goto done;
 	}
