@@ -7071,7 +7071,7 @@ ${window}
 \end_layout
 
 \begin_layout Subsubsection
-Predefined Trivial Macros
+Predefined Primitive Macros
 \begin_inset CommandInset label
 LatexCommand label
 name "sub:Predefined-Trivial-Macros"
@@ -7470,15 +7470,7 @@ Intended for Scripting
 
 \begin_layout Standard
 While complex macros may output a whole bunch of information, the following
- 
-\begin_inset Quotes eld
-\end_inset
-
-trivial
-\begin_inset Quotes erd
-\end_inset
-
- macros are outputting exactly one value.
+ primitive macros are outputting exactly one value.
  They are intended for script use (cf.
  section 
 \begin_inset CommandInset ref
