@@ -6282,6 +6282,19 @@ primarynode
  macro below.
 \end_layout
 
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+%include{commstate}
+\family default
+ see 
+\family typewriter
+commstate
+\family default
+ macro below.
+\end_layout
+
 \end_deeper
 \begin_layout Labeling
 \labelwidthstring 00.00.0000
@@ -6922,6 +6935,32 @@ primarynode
 primarynode-1and1
 \family default
  A variant for internal use by 1&1 Internet AG.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+commstate
+\family default
+ When the last metadata communication to the designated primary is longer
+ ago than 
+\family typewriter
+${window}
+\family default
+ (see also 
+\family typewriter
+--window=
+\emph on
+seconds
+\family default
+\emph default
+ option), display that age in human readable form.
+ See also primitive macro 
+\family typewriter
+%alive-age{}
+\family default
+.
 \end_layout
 
 \begin_layout Labeling

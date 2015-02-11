@@ -3349,7 +3349,7 @@ my %complex_macros =
   (
    "default" =>
    => "%if{%{res}}{"
-   .    "  %{res} %include{diskstate} %include{replstate} %include{flags} %include{role} %include{primarynode}\n"
+   .    "  %{res} %include{diskstate} %include{replstate} %include{flags} %include{role} %include{primarynode} %include{commstate}\n"
    .    "%if{%and{%is-attach{}}{%not{%sync-reached{}}}}{"
    .      "%include{syncinfo}"
    .    "}"
@@ -3522,6 +3522,12 @@ my %complex_macros =
    .      "}{-}"
    .    "}"
    .  "}{-}",
+
+   "commstate"
+   => "%let{comm}{%alive-age{}}"
+   .  "%if{%>={%{comm}}{%{window}}}{"
+   .    "%human-seconds{%{comm}}"
+   .  "}",
 
    "syncinfo"
    => "%let{amount}{%human-numbers{}{ }{ }{%sync-pos{}}{%sync-size{}}}"
