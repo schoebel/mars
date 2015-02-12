@@ -347,9 +347,10 @@ done:
 }
 
 static
-void _update_percent(struct copy_brick *brick)
+void _update_percent(struct copy_brick *brick, bool force)
 {
-	if (brick->copy_last > brick->copy_start + 8 * 1024 * 1024
+	if (force
+	   || brick->copy_last > brick->copy_start + 8 * 1024 * 1024
 	   || (long long)jiffies > brick->last_jiffies + 5 * HZ
 	   || (brick->copy_last == brick->copy_end && brick->copy_end > 0)) {
 		brick->copy_start = brick->copy_last;
@@ -599,7 +600,8 @@ restart:
 
 idle:
 	if (unlikely(progress < 0)) {
-		st->error = progress;
+		if (st->error >= 0)
+			st->error = progress;
 		MARS_WRN("progress = %d\n", progress);
 		progress = 0;
 		_clash(brick);
@@ -683,6 +685,12 @@ int _run_copy(struct copy_brick *brick)
 				break;
 			}
 			if (unlikely(st->error < 0)) {
+				/* check for fatal consistency errors */
+				if (st->error == -EMEDIUMTYPE) {
+					brick->copy_error = st->error;
+					brick->abort_mode = true;
+					MARS_WRN("Consistency is violated\n");
+				}
 				if (!brick->copy_error) {
 					brick->copy_error = st->error;
 					MARS_WRN("IO error = %d\n", st->error);
@@ -704,7 +712,7 @@ int _run_copy(struct copy_brick *brick)
 			brick->copy_last += count;
 			get_lamport(&brick->copy_last_stamp);
 			MARS_IO("new copy_last += %d => %lld\n", count, brick->copy_last);
-			_update_percent(brick);
+			_update_percent(brick, false);
 		}
 	}
 	return progress;
@@ -729,6 +737,9 @@ static int _copy_thread(void *data)
 	brick->copy_error_count = 0;
 	brick->verify_ok_count = 0;
 	brick->verify_error_count = 0;
+
+	_update_percent(brick, true);
+
 	mars_power_led_on((void*)brick, true);
 	brick->trigger = true;
 
@@ -752,6 +763,15 @@ static int _copy_thread(void *data)
 						 1 * HZ);
 		brick->trigger = false;
 	}
+
+	/* check for fatal consistency errors */
+	if (brick->copy_error == -EMEDIUMTYPE) {
+		/* reset the whole area */
+		brick->copy_start = 0;
+		brick->copy_last = 0;
+		MARS_WRN("resetting the full copy area\n");
+	}
+	_update_percent(brick, true);
 
 	MARS_DBG("--------------- copy_thread terminating (%d read requests / %d write requests flying, copy_start = %lld copy_end = %lld)\n",
 		 atomic_read(&brick->copy_read_flight),
@@ -839,7 +859,6 @@ static int copy_switch(struct copy_brick *brick)
 			brick_thread_stop(brick->thread);
 		}
 	}
-	_update_percent(brick);
 done:
 	return 0;
 }
