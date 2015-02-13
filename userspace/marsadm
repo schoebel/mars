@@ -4514,6 +4514,7 @@ sub do_all_res {
 }
 
 if ($cmd =~ m/^(view|pretty)/) {
+  lwarn "mars kernel module is not loaded\n" unless is_module_loaded();
   do_all_res(\&view_cmd, $cmd, $res, @args);
   finish_links();
   exit($error_count);
