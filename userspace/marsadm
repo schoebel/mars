@@ -1251,10 +1251,7 @@ sub nyi_cmd {
 }
 
 sub is_module_loaded {
-  open TEST, "lsmod | grep mars |";
-  my $res = <TEST>;
-  close TEST;
-  return $res;
+  return -d "/proc/sys/mars";
 }
 
 sub set_connect_pref_list {
