@@ -4139,6 +4139,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	loff_t end_pos = 0;
 	struct mars_dent *size_dent;
 	struct mars_dent *primary_dent;
+	struct mars_dent *syncfrom_dent;
 	char *peer;
 	struct copy_brick *copy = NULL;
 	char *tmp = NULL;
@@ -4200,9 +4201,6 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	/* Determine peer
 	 */
 	tmp = path_make("%s/primary", dent->d_parent->d_path);
-	status = -ENOMEM;
-	if (unlikely(!tmp))
-		goto done;
 	primary_dent = (void*)mars_find_dent(global, tmp);
 	if (!primary_dent || !primary_dent->new_link) {
 		MARS_ERR("cannot determine primary, symlink '%s'\n", tmp);
@@ -4212,8 +4210,23 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	peer = primary_dent->new_link;
 	if (!strcmp(peer, "(none)")) {
 		MARS_INF("cannot start sync, no primary is designated\n");
-		status = 0;
-		goto done;
+		if (do_start)
+			start_pos = 0;
+		do_start = false;
+	}
+
+	/* Check syncfrom link (when existing)
+	 */
+	brick_string_free(tmp);
+	tmp = path_make("%s/syncfrom-%s", dent->d_parent->d_path, my_id());
+	syncfrom_dent = (void*)mars_find_dent(global, tmp);
+	if (do_start && syncfrom_dent && syncfrom_dent->new_link &&
+	    strcmp(syncfrom_dent->new_link, peer)) {
+		MARS_WRN("cannot start sync, primary has changed: '%s' != '%s'\n",
+			 syncfrom_dent->new_link, peer);
+		if (do_start)
+			start_pos = 0;
+		do_start = false;
 	}
 
 	/* Don't try syncing detached resources
@@ -4279,6 +4292,13 @@ static int make_sync(void *buf, struct mars_dent *dent)
 		}
 	}
 
+	/* Informational
+	 */
+	MARS_DBG("start_pos = %lld end_pos = %lld do_start=%d\n",
+		 start_pos, end_pos, do_start);
+
+	/* Now do it....
+	 */
 	{
 		const char *argv[2] = { src, dst };
 		status = __make_copy(global, dent, do_start ? switch_path : "", copy_path, dent->d_parent->d_path, argv, find_key(rot->msgs, "inf-sync"), start_pos, end_pos, mars_fast_fullsync > 0, true, false, &copy);
