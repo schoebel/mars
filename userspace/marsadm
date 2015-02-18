@@ -618,6 +618,23 @@ sub get_minmax_replays {
 
 ##################################################################
 
+# generic comparisons
+
+sub compare_replaylinks {
+  my ($a, $b) = @_;
+  $a =~ m/log-([0-9]+)[^,]*,([0-9]+)/;
+  my ($a_log, $a_pos) = ($1, $2);
+  $b =~ m/log-([0-9]+)[^,]*,([0-9]+)/;
+  my ($b_log, $b_pos) = ($1, $2);
+  return -1 if $a_log < $b_log;
+  return +1 if $a_log > $b_log;
+  return -1 if $a_pos < $b_pos;
+  return +1 if $a_pos > $b_pos;
+  return 0;
+}
+
+##################################################################
+
 # versionlink path handling routines
 
 my %visited_pos;
@@ -2701,10 +2718,12 @@ sub eval_fn {
 	return 0 if $rest > 0;
       }
       # are all logfiles applied which had accumulated during sync?
-      my $syncpos = make_numeric(eval_fn($env, "syncpos-pos", ""));
-      if ($syncpos) {
-	my $applied = make_numeric(eval_fn($env, "replay-pos", ""));
-	return 0 if $applied < $syncpos;
+      my $replay  = get_link($$env{"resdir"} . "/replay-" . $$env{"host"}, 1);
+      return 0 unless $replay;
+      my $syncpos = get_link($$env{"resdir"} . "/syncpos-" . $$env{"host"}, 2);
+      if (defined($syncpos) && $syncpos) {
+	my $cmp = compare_replaylinks($syncpos, $replay);
+	return 0 if $cmp > 0;
       }
       return 1;
     }
