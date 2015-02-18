@@ -4084,12 +4084,52 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 {
 	const char *src = NULL;
 	const char *dst = NULL;
-	int status = -ENOMEM;
+	const char *syncpos_path = NULL;
+	const char *peer_replay_path = NULL;
+	const char *peer_replay_link = NULL;
+	const char *peer_time_path = NULL;
+	int status = -EINVAL;
+
+	/* create syncpos symlink when necessary */
+	if (copy->copy_last == copy->copy_end) {
+		struct kstat syncpos_stat = {};
+		struct kstat peer_time_stat = {};
+
+		peer_time_path = path_make("/mars/tree-%s", peer);
+		status = mars_stat(peer_time_path, &peer_time_stat, true);
+		if (unlikely(status < 0)) {
+			MARS_ERR("cannot stat '%s'\n", peer_time_path);
+			goto done;
+		}
+
+		syncpos_path = path_make("%s/syncpos-%s", rot->parent_path, my_id());
+		peer_replay_path = path_make("%s/replay-%s", rot->parent_path, peer);
+		peer_replay_link = mars_readlink(peer_replay_path);
+		if (unlikely(!peer_replay_link || !peer_replay_link[0])) {
+			MARS_ERR("cannot read peer replay link '%s'\n", peer_replay_path);
+			goto done;
+		}
+		status = _update_link_when_necessary(rot, "syncpos", peer_replay_link, syncpos_path);
+		/* Sync is only marked as finished when the syncpos
+		 * production was successful and timestamps are recent enough.
+		 */
+		if (unlikely(status < 0))
+			goto done;
+
+		status = mars_stat(syncpos_path, &syncpos_stat, true);
+		if (unlikely(status < 0))
+			goto done;
+
+		if (timespec_compare(&syncpos_stat.mtime, &peer_time_stat.mtime) > 0) {
+			MARS_INF("according to '%s', peer replay link '%s' is not recent enough\n",
+				 peer_time_path, peer_replay_path);
+			status = -EAGAIN;
+			goto done;
+		}
+	}
 
 	src = path_make("%lld", copy->copy_last);
 	dst = path_make("%s/syncstatus-%s", rot->parent_path, my_id());
-	if (unlikely(!src || !dst))
-		goto done;
 
 	status = _update_link_when_necessary(rot, "syncstatus", src, dst);
 
@@ -4097,37 +4137,16 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 	brick_string_free(dst);
 	src = path_make("%lld,%lld", copy->verify_ok_count, copy->verify_error_count);
 	dst = path_make("%s/verifystatus-%s", rot->parent_path, my_id());
-	if (unlikely(!src || !dst))
-		goto done;
 
 	(void)_update_link_when_necessary(rot, "verifystatus", src, dst);
 
-	if (copy->copy_last == copy->copy_end && status >= 0) { // create syncpos symlink
-		const char *syncpos_path = path_make("%s/syncpos-%s", rot->parent_path, my_id());
-		const char *peer_replay_path = path_make("%s/replay-%s", rot->parent_path, peer);
-		char *peer_replay_link = NULL;
-		struct kstat syncpos_stat = {};
-		struct kstat syncstatus_stat = {};
-		struct kstat peer_replay_stat = {};
-
-		if (syncpos_path &&
-		    peer_replay_path &&
-		    mars_stat(dst,              &syncstatus_stat,  true) >= 0 &&
-		    mars_stat(peer_replay_path, &peer_replay_stat, true) >= 0 &&
-		    timespec_compare(&syncstatus_stat.mtime, &peer_replay_stat.mtime) <= 0 &&
-		    (peer_replay_link = mars_readlink(peer_replay_path)) && peer_replay_link[0] &&
-		    (mars_stat(syncpos_path,     &syncpos_stat, true) < 0 ||
-		     timespec_compare(&syncpos_stat.mtime, &syncstatus_stat.mtime) < 0)) {
-			_update_link_when_necessary(rot, "syncpos", peer_replay_link, syncpos_path);
-		}
-		brick_string_free(peer_replay_link);
-		brick_string_free(peer_replay_path);
-		brick_string_free(syncpos_path);
-	}
-	
 done:
 	brick_string_free(src);
 	brick_string_free(dst);
+	brick_string_free(peer_replay_link);
+	brick_string_free(peer_replay_path);
+	brick_string_free(syncpos_path);
+	brick_string_free(peer_time_path);
 	return status;
 }
 
@@ -4312,8 +4331,9 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	/* Update syncstatus symlink
 	 */
 	if (status >= 0 && copy &&
-	   ((copy->power.button && copy->power.led_on) ||
-	    (copy->copy_last == copy->copy_end && copy->copy_end > 0))) {
+	    ((copy->power.button && copy->power.led_on) ||
+	     !copy->copy_start ||
+	     (copy->copy_last == copy->copy_end && copy->copy_end > 0))) {
 		status = _update_syncstatus(rot, copy, peer);
 	}
 
