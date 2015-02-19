@@ -13704,7 +13704,7 @@ new
  This works because the secondaries are regularly checking the logfile numbers
  for contiguity, and they will refuse to replay anything which is not contiguous.
  As a result, the secondaries will be left in a consistent, but outdated
- state.
+ state (at least if they already were consistent before that).
 \end_layout
 
 \begin_layout Enumerate
@@ -13726,7 +13726,18 @@ reference "sec:The-Transaction-Logger"
 \begin_layout Enumerate
 After the temporary memory buffer is empty, all local IO requests (whether
  reads or writes) are directly going to the underlying disk.
- This has the same effect as if MARS was not present anymore.
+ This has the same effect as if MARS would not be present anymore.
+ Transaction logging does no longer take place.
+\end_layout
+
+\begin_layout Enumerate
+Any sync from any secondary is stopped ASAP.
+ In case they are resuming their sync somewhen later, they will start over
+ from the beginning (position 
+\begin_inset Formula $0$
+\end_inset
+
+).
 \end_layout
 
 \begin_layout Standard

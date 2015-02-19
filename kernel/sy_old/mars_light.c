@@ -559,6 +559,7 @@ struct mars_rotate {
 	bool res_shutdown;
 	bool has_error;
 	bool has_double_logfile;
+	bool has_hole_logfile;
 	bool allow_update;
 	bool forbid_replay;
 	bool replay_mode;
@@ -2945,9 +2946,25 @@ int make_log_step(void *buf, struct mars_dent *dent)
 	status = 0;
 	if (rot->relevant_log) {
 		if (!rot->next_relevant_log) {
-			rot->has_double_logfile = false;
-			if (_next_is_acceptable(rot, rot->relevant_log, dent))
+			if (unlikely(dent->d_serial == rot->relevant_log->d_serial)) {
+				// always prefer the one created by myself
+				if (!strcmp(rot->relevant_log->d_rest, my_id())) {
+					MARS_WRN("PREFER LOGFILE '%s' in front of '%s'\n",
+						 rot->relevant_log->d_path, dent->d_path);
+				} else if (!strcmp(dent->d_rest, my_id())) {
+					MARS_WRN("PREFER LOGFILE '%s' in front of '%s'\n",
+						 dent->d_path, rot->relevant_log->d_path);
+					rot->relevant_log = dent;
+				} else {
+					rot->has_double_logfile = true;
+					MARS_ERR("DOUBLE LOGFILES '%s' '%s'\n",
+						 dent->d_path, rot->relevant_log->d_path);
+				}
+			} else if (_next_is_acceptable(rot, rot->relevant_log, dent)) {
 				rot->next_relevant_log = dent;
+			} else if (dent->d_serial > rot->relevant_log->d_serial + 5) {
+				rot->has_hole_logfile = true;
+			}
 		} else { // check for double logfiles => split brain
 			if (unlikely(dent->d_serial == rot->next_relevant_log->d_serial)) {
 				// always prefer the one created by myself
@@ -2960,7 +2977,10 @@ int make_log_step(void *buf, struct mars_dent *dent)
 					rot->has_double_logfile = true;
 					MARS_ERR("DOUBLE LOGFILES '%s' '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
 				}
+			} else if (dent->d_serial > rot->next_relevant_log->d_serial + 5) {
+				rot->has_hole_logfile = true;
 			}
+
 		}
 		MARS_DBG("next_relevant_log = %p\n", rot->next_relevant_log);
 		goto ok;
@@ -2975,9 +2995,11 @@ int make_log_step(void *buf, struct mars_dent *dent)
 
 	/* Remember the relevant log.
 	 */
-	if (rot->aio_dent->d_serial == dent->d_serial) {
+	if (!rot->relevant_log && rot->aio_dent->d_serial == dent->d_serial) {
 		rot->relevant_serial = dent->d_serial;
 		rot->relevant_log = dent;
+		rot->has_double_logfile = false;
+		rot->has_hole_logfile = false;
 	}
 
 ok:
@@ -4216,6 +4238,16 @@ static int make_sync(void *buf, struct mars_dent *dent)
 		do_start = false;
 	}
 	brick_string_free(tmp);
+
+	/* Don't sync when logfiles are discontiguous
+	 */
+	if (do_start && (rot->has_double_logfile | rot->has_hole_logfile)) {
+		MARS_WRN("no sync possible due to discontiguous logfiles (%d|%d)\n",
+			 rot->has_double_logfile, rot->has_hole_logfile);
+		if (do_start)
+			start_pos = 0;
+		do_start = false;
+	}
 
 	/* Determine peer
 	 */
