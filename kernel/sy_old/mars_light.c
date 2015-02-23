@@ -1689,11 +1689,23 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 		make_msg(msg_pair, "disabling fetch due to rmmod");
 		do_start = false;
 	}
+#if 0
+	/* Disabled for now. Re-enable this code after a new feature has been
+	 * implemented: when pause-replay is given, /dev/mars/mydata should
+	 * appear in _readonly_ form.
+	 * The idea is to _not_ disable the fetch during this!
+	 * You may draw a backup from the readonly device without losing your
+	 * redundancy, because the transactions logs will contiue to be updated.
+	 * Until the new feature is implemented, use
+	 * "marsadm pause-replay $res; marsadm detach $res; mount -o ro /dev/lv/$res"
+	 * as a workaround.
+	 */
 	if (do_start && !_check_allow(global, parent, "attach")) {
 		MARS_DBG("disabling fetch due to detach\n");
 		make_msg(msg_pair, "disabling fetch due to detach");
 		do_start = false;
 	}
+#endif
 	if (do_start && !_check_allow(global, parent, "connect")) {
 		MARS_DBG("disabling fetch due to disconnect\n");
 		make_msg(msg_pair, "disabling fetch due to disconnect");
