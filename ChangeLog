@@ -66,6 +66,21 @@ Release Conventions / Branches / Tagnames
 	NO NEW FEATURES, not even minor ones, except when absolutely
 	necessary for a bugfix.
 
+light0.1stable12
+--------
+	* Critical (but usually not extremely relevant) fix:
+	  When emergency mode occurs just during a sync, the target could
+	  remain inconsistent without notice. Now noticed.
+	  You always could/should manually invalidate whenever an
+	  emergency mode appeared.
+	  Now this is automatically fixed by restarting any sync from
+	  scratch (if one was actually running before; otherwise consistency
+	  was never violated).
+	* Major documentation update / corrections.
+	* Major (but less relevant) fix: leave-cluster did not really work.
+	* Minor fix (regression): rmmod could hang when sync was running.
+	* Various minor fixes and clarifications.
+
 light0.1stable11
 --------
 	* Major documentation update. mars-manual.pdf increased from
