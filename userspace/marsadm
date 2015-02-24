@@ -1962,13 +1962,17 @@ sub primary_phase0 {
   }
   my $old = _get_designated_primary($res);
   if ($cmd eq "primary") {
-    check_sync_finished($res, $host);
+    check_sync_finished($res, $host) if $host ne $old;
     # also check that other secondaries won't loose their sync primary
-    foreach my $name (glob("$mars/resource-$res/data-*")) {
-      $name =~ m:/data-(.+):;
-      my $peer = $1;
-      next if ($peer eq $old || $peer eq $host);
-      check_sync_finished($res, $peer);
+    my @names = glob("$mars/resource-$res/data-*");
+    # for k <= 2 replicas, the previous check must have been sufficient
+    if (scalar(@names) > 2) {
+      foreach my $name (@names) {
+	$name =~ m:/data-(.+):;
+	my $peer = $1;
+	next if ($peer eq $old || $peer eq $host);
+	check_sync_finished($res, $peer);
+      }
     }
     check_todo($cmd, $res, "attach", 1, 0);
     check_todo($cmd, $res, "fetch", 1, 0) if !$force;
