@@ -1366,6 +1366,9 @@ sub create_cluster {
 
 sub join_cluster {
   my ($cmd, $peer) = @_;
+  ldie "Cannot join myself (peer='$peer', host='$host')\n" if $peer eq $host;
+  ldie "Directory $mars is missing\n" unless -d $mars;
+  ldie "A valid tree signature '$mars/tree-$host' already exists, thus it appears you are already a cluster member!\n" if -l "$mars/tree-$host" && !$force;
   if (glob("$mars/resource-*") or glob("$mars/ips/*")) {
     ldie "Sorry, some resources already exist!\nThis is dangerous!\nIf you are sure that no resource clash is possible, re-invoke this command with '--force' option\n" unless $force;
   }
@@ -1373,7 +1376,6 @@ sub join_cluster {
   lprint "joining cluster via rsync (peer='$peer')\n";
   # check connection
   system("ssh $peer uname -a") == 0 or ldie "oops, no connection to $peer ...\n";
-  mkdir($mars) unless -d $mars;
   unless ($dry_run) {
     system("rsync --recursive --links --max-size=1 -v $peer:$mars/ $mars/") == 0 or ldie "cannot get remote symlink tree via rsync\n";
   }
