@@ -28692,6 +28692,1109 @@ maximum 100 logfiles per resource
 \end_layout
 
 \begin_layout Chapter
+Handout for Midnight Problem Solving
+\end_layout
+
+\begin_layout Standard
+Here are generic instructions for the generic 
+\family typewriter
+marsadm
+\family default
+ and commandline level.
+ Other levels (e.g.
+ different types of cluster managers, PaceMaker, control scripts / 
+\family typewriter
+rc
+\family default
+ scripts / 
+\family typewriter
+upstart
+\family default
+ scripts, etc should be described elsewhere.
+\end_layout
+
+\begin_layout Section
+Inspecting the State of MARS
+\end_layout
+
+\begin_layout Standard
+For manual inspection, please prefer the new 
+\family typewriter
+marsadm view all
+\family default
+ over the old 
+\family typewriter
+marsadm view-1and1 all
+\family default
+.
+ It shows more appropriate / detailed information.
+\end_layout
+
+\begin_layout Standard
+Hint: this might change in future when somebody will program better marcros
+ for the 
+\family typewriter
+view-1and1
+\family default
+ variant, or create even better other macros.
+\end_layout
+
+\begin_layout Quotation
+
+\family typewriter
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+# watch marsadm view all
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Checking the low-level network connections at runtime:
+\end_layout
+
+\begin_layout Quotation
+
+\family typewriter
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+# watch "netstat --tcp | grep 777"
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Meaning of the port numbers (as currently configured into the kernel module,
+ may change in future):
+\end_layout
+
+\begin_layout Itemize
+7777 = metadata / symlink propagation
+\end_layout
+
+\begin_layout Itemize
+7778 = transfer of transaction logfiles
+\end_layout
+
+\begin_layout Itemize
+7779 = transfer of sync traffic
+\end_layout
+
+\begin_layout Standard
+7777 must be always active on a healthy cluster.
+ 7778 and 7779 will appear only on demand, when some data is transferred.
+\end_layout
+
+\begin_layout Standard
+Hint: when one of the columns Send-Q or Recv-Q are constantly at high values,
+ you might have a network bottleneck.
+\end_layout
+
+\begin_layout Section
+Replication is Stuck
+\end_layout
+
+\begin_layout Standard
+Indications for a stuck: 
+\end_layout
+
+\begin_layout Itemize
+One of the flags shown by 
+\family typewriter
+marsadm view all
+\family default
+ or 
+\family typewriter
+marsadm view-flags all
+\family default
+ contain a symbol 
+\family typewriter
+"-"
+\family default
+ (dash).
+ This means that some switch is currently switched off (deliberately).
+ Please check whether there is a valid reason why somebody else switched
+ it off.
+ If the switch-off is just by accident, use the following command to fix
+ the stuck:
+\family typewriter
+
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+# marsadm up all
+\end_layout
+
+\end_inset
+
+
+\family default
+(or replace 
+\family typewriter
+all
+\family default
+ by a particular resource name if you want to start only a specific one).
+\begin_inset Newline newline
+\end_inset
+
+Note: 
+\family typewriter
+up
+\family default
+ is equivalent to the sequence 
+\family typewriter
+attach; resume-fetch; resume-replay; resume-sync
+\family default
+.
+ Instead of switching each individual knob, use 
+\family typewriter
+up
+\family default
+ as a shortcut for switching on anything which is currently off.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+netstat --tcp | grep 7777
+\family default
+ does not show anything.
+ Please check the following:
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Is the kernel module loaded? Check 
+\family typewriter
+lsmod | grep mars
+\family default
+.
+ When necessary, run 
+\family typewriter
+modprobe mars
+\family default
+.
+\end_layout
+
+\begin_layout Itemize
+Is the network interface down? Check 
+\family typewriter
+ifconfig
+\family default
+, and/or 
+\family typewriter
+ethtool
+\family default
+ and friends, and fix it when necessary.
+\end_layout
+
+\begin_layout Itemize
+Is a 
+\family typewriter
+ping <partner-host>
+\family default
+ possible? If not, fix the network / routing / firewall / etc.
+ When fixed, the MARS connections should automatically appear after about
+ 1 minute.
+\end_layout
+
+\begin_layout Itemize
+When 
+\family typewriter
+ping
+\family default
+ is possible, but a MARS connection to port 7777 does not appear after a
+ few minutes, try to connect to remote port 7777 by hand via 
+\family typewriter
+telnet
+\family default
+.
+ But don't type anything, just abort the connection immediately when it
+ works! Typing anything will almost certainly throw a harsh error message
+ at the other server, which could unnecessarily alarm other people.
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+Check whether 
+\family typewriter
+marsadm view all
+\family default
+ shows some progress bars somewhere.
+ Example:
+\family typewriter
+\size scriptsize
+
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+istore-test-bap1:~# marsadm view all
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+--------- resource lv-0
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+ lv-0 OutDated[F] PausedReplay dCAS-R Secondary istore-test-bs1
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+    replaying: [>...................]  1.21%  (12/1020)MiB  logs: [2..3]
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+       > fetch: 1008.198 MiB rate: 0 B/sec  remaining: --:--:-- hrs
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+       > replay: 0 B rate: 0 B/sec  remaining: 00:00:00 hrs 
+\end_layout
+
+\end_inset
+
+
+\family default
+\size default
+At least one of the 
+\family typewriter
+rate:
+\family default
+ values should be greater than 0.
+ When none of the 
+\family typewriter
+rate:
+\family default
+ values indicate any progress for a longer time, try 
+\family typewriter
+marsadm up all
+\family default
+ again.
+ If it doesn't help, check and repair the network.
+ If even this does not help, check the hardware for any IO hangups, or kernel
+ hangups.
+ First, check the RAID controllers.
+ Often (but not certainly), a stuck kernel can be recognized when many processes
+ are 
+\emph on
+permanently
+\emph default
+ in state "D", for a long time: 
+\family typewriter
+ps ax | grep " D" | grep -v grep
+\family default
+ or similar.
+ Please check whether there is just an overload, or 
+\emph on
+really
+\emph default
+ a true kernel problem.
+ Discrimination is not easy, and requires experience (as with any other
+ system; not limited to MARS).
+ A truly stuck kernel can only be resurrected by rebooting.
+ The same holds for any hardware problems.
+\end_layout
+
+\begin_layout Itemize
+Check whether 
+\family typewriter
+marsadm view all
+\family default
+ reports any lines like 
+\family typewriter
+WARNING: SPLIT BRAIN at '' detected
+\family default
+.
+ In such a case, check that there is 
+\emph on
+really
+\emph default
+ a split brain, before obeying the instructions in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Resolution-of-Split"
+
+\end_inset
+
+.
+ Notice that network outages or missing 
+\family typewriter
+marsadm log-delete-all all
+\family default
+ may continue to report an old split brain which has gone in the meantime.
+\end_layout
+
+\begin_layout Itemize
+Check whether 
+\family typewriter
+/mars/
+\family default
+ is too full.
+ For a rough impression, 
+\family typewriter
+df /mars/
+\family default
+ may be used.
+ For getting authoritative values as internally used by the MARS emergency-mode
+ computations, use 
+\family typewriter
+marsadm view-rest-space
+\family default
+ (the unit is GiB).
+ In practice, the differences are only marginal, at least on bigger 
+\family typewriter
+/mars/
+\family default
+ partitions.
+ When there is only few rest space (or none at all), please obey the instruction
+s in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Resolution-of-Emergency"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Section
+Resolution of Emergency Mode
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Resolution-of-Emergency"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Emergency mode occurs when 
+\family typewriter
+/mars/
+\family default
+ runs out of space, such that no new logfile data can be written anymore.
+\end_layout
+
+\begin_layout Standard
+In emergency mode, the primary will write any write requests 
+\emph on
+directly
+\emph default
+ to the underlying disk, as if MARS were not present at all.
+ Thus, your application will continue to run.
+ Only the 
+\emph on
+replication
+\emph default
+ as such is stopped.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Greyedout
+status open
+
+\begin_layout Plain Layout
+Notice: emergency mode means that your secondary nodes are usually in a
+ 
+\emph on
+consistent
+\emph default
+, but 
+\emph on
+outdated
+\emph default
+ state (exception: when a sync was running in parallel to the emergency
+ mode, then the sync will be automatically started over again).
+ You can check consistency via 
+\family typewriter
+marsadm view-flags all
+\family default
+.
+ Only when a local disk shows a lower-case letter 
+\family typewriter
+"d"
+\family default
+ instead of an uppercase 
+\family typewriter
+"D"
+\family default
+, it is known to be inconsistent (e.g.
+ during a sync).
+ When there is a dash instead, it usually means that the disk is detatched
+ or misconfigured or the kernel module is not started.
+ Please fix these problems first before believing that your local disk is
+ unusable.
+ Even if it is really inconsistent (which is very unlikely, typically occurring
+ only as a consequence of hardware failures, or of the above-mentioned exception
+), you have a big chance to recover most of the data via 
+\family typewriter
+fsck
+\family default
+ and friends.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+A currently existing Emergency mode can be detected by 
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+primary:~# marsadm view-is-emergency all
+\end_layout
+
+\begin_layout Plain Layout
+
+secondary:~# marsadm view-is-emergency all
+\end_layout
+
+\end_inset
+
+ Notice: this delivers the current state, telling nothing about the past.
+\end_layout
+
+\begin_layout Standard
+Currently, emergency mode will also show something like 
+\family typewriter
+WARNING: SPLIT BRAIN at '' detected
+\family default
+.
+ This ambiguity will be resolved in a future MARS release.
+ It is however not crucial: the resolution methods for both cases are very
+ similar.
+ If in doubt, start emergency resolution first, and only proceed to split
+ brain resoultion if it did not help.
+\end_layout
+
+\begin_layout Standard
+Preconditions:
+\end_layout
+
+\begin_layout Itemize
+Only current version of MARS: the space at the primary side should have
+ been already released, and the emergency mode should have been already
+ left.
+ Otherwise, you might need the split-brain resolution method from section
+ 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Resolution-of-Split"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Itemize
+The network 
+\series bold
+must
+\series default
+ be working.
+ Check that the following gives an entry for each secondary: 
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+primary:~# netstat --tcp | grep 7777
+\end_layout
+
+\end_inset
+
+When necessary, fix the network first (see instructions above).
+\end_layout
+
+\begin_layout Standard
+Emergency mode should now be resolved via the following instructions: 
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+primary:~# marsadm view-is-emergency all
+\end_layout
+
+\begin_layout Plain Layout
+
+primary:~# du -s /mars/resource-* | sort -n
+\end_layout
+
+\end_inset
+
+Remember the affected resources.
+ Best practice is to do the following, starting with the 
+\emph on
+biggest
+\emph default
+ resource as shown by the 
+\family typewriter
+du | sort
+\family default
+ output in reverse order, but 
+\emph on
+starting
+\emph default
+ the following only with the 
+\emph on
+affected
+\emph default
+ resources in the first place: 
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+secondary1:~# marsadm invalidate <res1>
+\end_layout
+
+\begin_layout Plain Layout
+
+secondary1:~# marsadm log-delete-all all
+\end_layout
+
+\begin_layout Plain Layout
+
+...
+ dito with all resources showing emergency mode
+\end_layout
+
+\begin_layout Plain Layout
+
+...
+ dito on all other secondaries
+\end_layout
+
+\begin_layout Plain Layout
+
+primary:~# marsadm log-delete-all all
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Hint: during the resolution process, some other resources might have gone
+ into emergency mode concurrently.
+ In addition, it is possible that some secondaries are stuck at particular
+ resources while the corresponding primary has 
+\emph on
+not yet
+\emph default
+ entered emergency mode.
+ Please repeat the steps in such a case, and look for emergency modes at
+ secondaries additionally.
+ When necessary, extend your list of 
+\emph on
+affected
+\emph default
+ resources.
+\end_layout
+
+\begin_layout Standard
+Hint: be patient.
+ Deleting large bulks of logfile data may take a long time, at least on
+ highly loaded systems.
+ You should give the cleanup processes at least 5 minutes before concluding
+ that an 
+\family typewriter
+invalidate
+\family default
+ followed by 
+\family typewriter
+log-delete-all
+\family default
+ had no effect! Don't forget to give the 
+\family typewriter
+log-delete-all
+\family default
+ at all cluster nodes, even when seemingly unaffected.
+\end_layout
+
+\begin_layout Standard
+In very complex scenarios, when the primary roles of different resources
+ are spread over diffent hosts (aka mixed operation), you may need to repeat
+ the whole cycle iteratively for a few cycles until the jam is resolved.
+\end_layout
+
+\begin_layout Standard
+If it does not go away, you have another chance by the following split-brain
+ resolution process, which will also cleanup emergency mode as a side effect.
+\end_layout
+
+\begin_layout Section
+Resolution of Split Brain and of Emergency Mode
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Resolution-of-Split"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Hint: in many cases (but not guaranteed), the previous receipe for resolution
+ of emergency mode will also cleanup split brain.
+ Good chances are in case of 
+\begin_inset Formula $k=2$
+\end_inset
+
+ total replicas.
+ Please collect your own experiences which method works better for you!
+\end_layout
+
+\begin_layout Standard
+Precondition: the network must be working.
+ Check that the following gives an entry for each secondary:
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+primary:~# netstat --tcp | grep 7777
+\end_layout
+
+\end_inset
+
+ When necessary, fix the network first (see instructions above).
+\end_layout
+
+\begin_layout Standard
+Inspect the split brain situation: 
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+primary:~# marsadm view all
+\end_layout
+
+\begin_layout Plain Layout
+
+primary:~# du -s /mars/resource-* | sort -n
+\end_layout
+
+\end_inset
+
+Remember those resources where a message like 
+\family typewriter
+WARNING: SPLIT BRAIN at '' detected
+\family default
+ appears.
+ Do the following only for 
+\emph on
+affected
+\emph default
+ resources, starting with the biggest one (before proceeding to the next
+ one).
+\end_layout
+
+\begin_layout Standard
+Do the following with only 
+\emph on
+one
+\emph default
+ resource at a time (before proceeding to the next one), and repeat the
+ actions on that resource at every secondary (if there are multiple secondaries)
+: 
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+secondary1:~# marsadm leave-resource $res1
+\end_layout
+
+\begin_layout Plain Layout
+
+secondary1:~# marsadm log-delete-all all
+\end_layout
+
+\end_inset
+
+Check whether the split brain has vanished everywhere.
+ Startover with other resources at their secondaries when necessary.
+\end_layout
+
+\begin_layout Standard
+Finally, when no split brain is reported at any (former) secondary, do the
+ following on the primary: 
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+primary:~# marsadm log-delete-all all
+\end_layout
+
+\begin_layout Plain Layout
+
+primary:~# sleep 30
+\end_layout
+
+\begin_layout Plain Layout
+
+primary:~# marsadm view all
+\end_layout
+
+\end_inset
+
+ Now, the split brain should be gone even at the primary.
+ If not, repeat this step.
+\end_layout
+
+\begin_layout Standard
+In case even this should fail on some 
+\family typewriter
+$res
+\family default
+ (which is very unlikely), read the PDF manual before using 
+\family typewriter
+marsadm log-purge-all $res
+\family default
+.
+ 
+\end_layout
+
+\begin_layout Standard
+Finally, when the split brain is gone everywhere, rebuild the redundancy
+ at every secondary via 
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+secondary1:~# marsadm join-resource $res1 /dev/<lv-x>/$res1
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+If even this method does not help, setup the whole cluster afresh by 
+\family typewriter
+rmmod mars
+\family default
+ everywhere, and creating a fresh 
+\family typewriter
+/mars/
+\family default
+ filesystem everywhere, followed by the same procedure as installing MARS
+ for the first time (which is outside the scope of this handout).
+\end_layout
+
+\begin_layout Section
+Handover of Primary Role
+\end_layout
+
+\begin_layout Standard
+When there exists a method for primary handover in higher layers such as
+ cluster managers, please prefer that method (e.g.
+ 
+\family typewriter
+cm3
+\family default
+ or other tools).
+\end_layout
+
+\begin_layout Standard
+If suchalike doesn't work, or if you need to handover some ressource 
+\family typewriter
+$res1
+\family default
+ by hand, do the following:
+\end_layout
+
+\begin_layout Itemize
+Stop the load / application corresponding to 
+\family typewriter
+$res1
+\family default
+ on the old primary side.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+umount /dev/mars/$res1
+\family default
+, or otherwise close any openers such as iSCSI.
+\end_layout
+
+\begin_layout Itemize
+At the new primary: 
+\family typewriter
+marsadm primary $res1
+\end_layout
+
+\begin_layout Itemize
+Restart the application at the new site (in reverse order to above).
+ In case you want to switch 
+\emph on
+all
+\emph default
+ resources which are not yet at the new side, you may use 
+\family typewriter
+marsadm primary all
+\family default
+.
+\end_layout
+
+\begin_layout Section
+Emergency Switching of Primary Role
+\end_layout
+
+\begin_layout Standard
+Emergency switching is necessary when your primary is no longer reachable
+ over the network for a 
+\emph on
+longer
+\emph default
+ time, or when the hardware is defective.
+\end_layout
+
+\begin_layout Standard
+Emergency switching will very often lead to a split brain, which requires
+ lots of manual actions to resolve (see above).
+ Therefore, try to avoid emergency switching when possible!
+\end_layout
+
+\begin_layout Standard
+Hint: MARS can automatically recover after a primary crash / reboot, as
+ well as after secondary crashes, just by executing 
+\family typewriter
+modprobe mars
+\family default
+ after 
+\family typewriter
+/mars/
+\family default
+ had been mounted.
+ Please consider to wait until your system comes up again, instead of risking
+ a split brain.
+\end_layout
+
+\begin_layout Standard
+The decision between emergency switching and continuing operation at the
+ same primary side is an operational one.
+ MARS can support your decision by the following information at the potentially
+ new primary side (which was in secondary mode before): 
+\family typewriter
+\size scriptsize
+
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+istore-test-bap1:~# marsadm view all
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+--------- resource lv-0
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+lv-0 InConsistent Syncing dcAsFr Secondary istore-test-bs1
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+syncing: [====>..............] 27.84% (567/2048)MiB rate: 72583.00 KiB/sec remaining: 00:00:20
+ hrs
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+> sync: 567.293/2048 MiB rate: 72583 KiB/sec remaining: 00:00:20 hrs
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+replaying: [>:::::::::::::::::::] 0.00% (0/12902)KiB logs: [1..1]
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+> fetch: 0 B rate: 38 KiB/s remaining: 00:00:00
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+> replay: 12902.047 KiB rate: 0 B/s remaining: --:--:--
+\end_layout
+
+\end_inset
+
+
+\family default
+\size default
+When your target is syncing (like in this example), you cannot switch to
+ it (same as with DRBD).
+ When you had an emergency mode before, you should first resolve that (whenever
+ possible).
+ When a split brain is reported, try to resolve it first (same as with DRBD).
+ Only in case you 
+\emph on
+know
+\emph default
+ that the primary is really damaged, or it is really impossible to the run
+ the application there for some reason, emergency switching is desirable.
+\end_layout
+
+\begin_layout Standard
+Hint: in case the secondary is inconsistent for some reason, e.g.
+ because of an incremental fast full-sync, you have a last chance to recover
+ most data after forceful switching by using a filesystem check or suchalike.
+ This might be even faster than restoring data from the backup.
+ But use it only if you are 
+\emph on
+really
+\emph default
+ desperate!
+\end_layout
+
+\begin_layout Standard
+The amount of data which is 
+\emph on
+known
+\emph default
+ to be missing at your secondary is shown after the 
+\family typewriter
+> fetch:
+\family default
+ in human-readable form.
+ However, in cases of networking problems this information may be outdated.
+ You 
+\emph on
+always
+\emph default
+ need to consider further facts which cannot be known by MARS.
+\end_layout
+
+\begin_layout Standard
+When there exists a method for emergency switching of the primary in higher
+ layers such as cluster managers, please prefer that method in front of
+ the following one.
+\end_layout
+
+\begin_layout Standard
+If suchalike doesn't work, or when a handover attempt has failed several
+ times, or if you 
+\emph on
+really need
+\emph default
+ forceful switching of some ressource 
+\family typewriter
+$res1
+\family default
+ by hand, you can do the following:
+\end_layout
+
+\begin_layout Itemize
+When possible, stop the load / application corresponding to 
+\family typewriter
+$res1
+\family default
+ on the old primary side.
+\end_layout
+
+\begin_layout Itemize
+When possible, 
+\family typewriter
+umount /dev/mars/$res1
+\family default
+, or otherwise close any openers such as iSCSI.
+\end_layout
+
+\begin_layout Itemize
+When possible (if you have some time), wait until as much data has been
+ propagated to the new primary as possible (watch the 
+\family typewriter
+fetch:
+\family default
+ indicator).
+\end_layout
+
+\begin_layout Itemize
+At the new primary: 
+\family typewriter
+marsadm disconnect $res1; marsadm primary --force $res1
+\end_layout
+
+\begin_layout Itemize
+Restart the application at the new site (in reverse order to above).
+\end_layout
+
+\begin_layout Itemize
+After the application is known to run reliably, check for split brains and
+ cleanup them when necessary.
+\end_layout
+
+\begin_layout Chapter
 GNU Free Documentation License
 \begin_inset CommandInset label
 LatexCommand label
