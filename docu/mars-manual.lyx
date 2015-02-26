@@ -309,6 +309,230 @@ LatexCommand tableofcontents
 \end_layout
 
 \begin_layout Chapter
+Why You should Replicate Big Data at Block Layer
+\end_layout
+
+\begin_layout Standard
+Some people think that replication is easily done at filesystem layer.
+ There exist lots of cluster filesystems and other filesystem-layer solutions
+ which claim to be able to replicate your data, sometimes even over long
+ distances.
+\end_layout
+
+\begin_layout Standard
+Trying to replicate several petabytes of data, or some billions of inodes,
+ is however a much bigger challenge than many people can imagine.
+\end_layout
+
+\begin_layout Standard
+Choosing the wrong layer for 
+\series bold
+mass data replication
+\series default
+ may get you into trouble.
+ Here is an explaination why replication at the block layer is more easy
+ and less error prone:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/Layers.pdf
+	width 100col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+The picture shows the main components of a standalone Unix / Linux system.
+ In the late 1970s / early 1980s, a so-called 
+\series bold
+Buffer Cache
+\series default
+ had been introduced into the architecture of Unix.
+ Today's Linux has refined the concept to various internal caches such as
+ the Page Cache and the Dentry Cache.
+\end_layout
+
+\begin_layout Standard
+All these caches serve only one purpose: they are reducing the load onto
+ the storage by exploitation of fast RAM.
+ A well-tuned cache can yield high cache hit ratios, typically 99%.
+ In some cases (as observed in practice) even more than 99.9%.
+\end_layout
+
+\begin_layout Standard
+Now start distributing the system over long distances.
+ There are two potential cut points A and B.
+ Cutting at A means replication at filesystem level.
+ B means replication at block level.
+\end_layout
+
+\begin_layout Standard
+When replicating at A, you will notice that the caches are 
+\emph on
+below
+\emph default
+ your cut point.
+ Thus you will have to re-implement 
+\series bold
+distributed caches
+\series default
+, and you will have to 
+\series bold
+maintain cache coherence
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+When replicating at B, the Linux caches are 
+\emph on
+above
+\emph default
+ your cut point.
+ Thus you will receive much less traffic, typically already reduced by a
+ factor of 100, or even more.
+ This is much more easy to cope with.
+ You will also profit from 
+\series bold
+journalling filesystems
+\series default
+ like 
+\family typewriter
+ext4
+\family default
+ or 
+\family typewriter
+xfs
+\family default
+.
+ In contrast, 
+\emph on
+truly distributed
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In this context, 
+\begin_inset Quotes eld
+\end_inset
+
+truly
+\begin_inset Quotes erd
+\end_inset
+
+ means that the POSIX semantics would be always guaranteed cluster-wide,
+ and even in case of partial failures.
+ In practice, some distributed filesystems like NFS don't even obey the
+ POSIX standard 
+\emph on
+locally
+\emph default
+ on 1 standalone client.
+ We know of projects which have 
+\emph on
+failed
+\emph default
+ right because of this.
+\end_layout
+
+\end_inset
+
+
+\emph default
+ journalling is typically not available with distributed cluster filesystems.
+\end_layout
+
+\begin_layout Standard
+A 
+\emph on
+potential
+\emph default
+ drawback of block layer replication is that you are typically limited to
+ active-passive replication.
+ An active-active operation is not impossible at block layer (see combinations
+ of DRBD with 
+\family typewriter
+ocfs2
+\family default
+), but less common, and less safe to operate.
+\end_layout
+
+\begin_layout Standard
+This limitation isn't necessarily caused by the choice of layer.
+ It is simply caused by the 
+\series bold
+laws of physics
+\series default
+: communication is always limited by the speed of light.
+ A distributed filesystem is nothing else but a logically 
+\series bold
+distributed shared memory
+\series default
+ (DSM).
+\end_layout
+
+\begin_layout Standard
+Some decades of research on DSM have shown that there exist applications
+ / workloads where the DSM model is 
+\emph on
+inferior
+\emph default
+ to the direct communication paradigm.
+ Even in short-distance / cluster scenarios.
+ Long-distance DSM is extremely cumbersome.
+\end_layout
+
+\begin_layout Standard
+Therefore: you simply shouldn't try to solve long-distance communication
+ needs via communication over filesystems.
+ Even simple producer-consumer scenarios (one-way communication) are less
+ performant (e.g.
+ when compared to plain TCP/IP) when it comes to distributed POSIX semantics.
+ There is simply too much 
+\series bold
+synchronisation overhead at metadata level
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+If you have a need for mixed operations at different locations in parallel:
+ just split your data set into disjoint filesystem instances (or database
+ / VM instances, etc).
+ All you need is careful thought about the 
+\emph on
+appropriate
+\emph default
+ 
+\emph on
+granularity
+\emph default
+ of your data sets (such as well-chosen 
+\emph on
+sets
+\emph default
+ of user homedirectory subtrees, or database sets logically belonging together,
+ etc).
+\end_layout
+
+\begin_layout Standard
+Replication at filesystem level is often at single-file granularity.
+ If you have several millions or even billions of inodes, you may easily
+ find yourself in a snakepit.
+\end_layout
+
+\begin_layout Standard
+Conclusion: active-passive operation over long distances (such as between
+ continents) is even an advantage.
+ It keeps you from trying bad / almost impossible things.
+\end_layout
+
+\begin_layout Chapter
 Use Cases for MARS vs DRBD
 \begin_inset CommandInset label
 LatexCommand label
