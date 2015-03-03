@@ -430,7 +430,7 @@ sub check_sizes {
 
 sub check_res_member {
   my $res = shift;
-  ldie "sorry, I have not yet joined to resource '$res'\n" unless -e "$mars/resource-$res/data-$host";
+  ldie "sorry, I have not yet joined to resource '$res'\n" unless ($force || -l "$mars/resource-$res/data-$host");
   check_sizes($res, $host);
 }
 
@@ -1431,7 +1431,7 @@ sub create_res {
     }
     lprint "creating new resource '$res'\n";
   } else {
-    if ( -e "$resdir/data-$host") {
+    if ( -l "$resdir/data-$host") {
       lwarn "resource '$res' has been already joined -- this is dangerous!\n";
       ldie "refusing dangerous operation\n" unless $force;
     } else {
@@ -1506,7 +1506,7 @@ sub create_res {
       next if $old_res eq $res;
       my $old_name = get_link($old_dev);
       if ($old_name eq $appear) {
-	if ( -e "$mars/resource-$old_res/data-$host") {
+	if ( -l "$mars/resource-$old_res/data-$host") {
 	  ldie "device '/dev/mars/$old_name' is already present in joined resource '$old_res'\n";
 	} else {
 	  lwarn "device '/dev/mars/$old_name' is already present in another unjoined resource '$old_res' -- this does no harm, but may be confusing.\n";
@@ -1527,7 +1527,7 @@ sub create_res {
 
   my $file = "$resdir/data-$host";
   if (!$dev) {
-    lwarn "file '$file' already exists - reusing\n" if -e $file;
+    lwarn "file '$file' already exists - reusing\n" if -l $file;
     lprint "setup sparse file '$file' with size $size\n";
     open(OUT, ">>", $file) or ldie "could not open '$file'\n";
     truncate(OUT, $size) or ldie "truncate to size $size failed\n";
