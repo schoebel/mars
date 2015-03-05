@@ -8513,9 +8513,13 @@ mydata
 \family typewriter
 uuid
 \family default
- (global) Show a unique identifier originally created at 
+ (global) Show the unique identifier created by 
 \family typewriter
 create-cluster
+\family default
+ or by 
+\family typewriter
+create-uuid
 \family default
 .
  Hint: this is immutable, and it is firmly bound to the 
@@ -15487,7 +15491,7 @@ name "sec:Cluster-Operations"
 
 \size scriptsize
 \begin_inset Tabular
-<lyxtabular version="3" rows="5" columns="3">
+<lyxtabular version="3" rows="6" columns="3">
 <features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top" width="0">
@@ -16164,7 +16168,7 @@ mkfs.ext4
 </cell>
 </row>
 <row>
-<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
 \begin_inset Text
 
 \begin_layout Plain Layout
@@ -16189,6 +16193,92 @@ status open
 \family typewriter
 \size scriptsize
 wait-cluster
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+See section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Waiting"
+
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+create-uuid
 \end_layout
 
 \end_inset
@@ -16229,16 +16319,46 @@ height_special "totalheight"
 status open
 
 \begin_layout Plain Layout
+Deprecated.
+ Only for compatibility with light0.1beta05 or earlier.
+\end_layout
+
+\begin_layout Plain Layout
 
 \size scriptsize
-See section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sub:Waiting"
+Precondition: the 
+\family typewriter
+/mars/
+\family default
+ filesystem must be mounted.
+ A 
+\family typewriter
+uuid
+\family default
+ (such as automatically created by recent versions of 
+\family typewriter
+marsadm create-cluster
+\family default
+) must not already exist; i.e.
+ you have a very old and outdated symlink tree.
+\end_layout
 
-\end_inset
+\begin_layout Plain Layout
 
-.
+\size scriptsize
+Postcondition: the 
+\family typewriter
+/mars/uuid
+\family default
+ symlink is created for later distribution in the cluster.
+ It uniquely indentifies the cluster in the world.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+This must be called at most once at the current primary.
+ 
 \end_layout
 
 \end_inset
@@ -16277,7 +16397,11 @@ Common precondition for all resource operations is that the
 \family typewriter
 marsadm
 \family default
- commands, that your current node is a member of the cluster, and that the
+ commands (including a unique 
+\family typewriter
+uuid
+\family default
+), that your current node is a valid member of the cluster, and that the
  kernel module is loaded.
  When communication is impossible due to network outages or bad firewall
  rules, most commands will succeed, but other cluster nodes may take a long
@@ -29172,37 +29296,31 @@ status open
 
 \begin_layout Plain Layout
 
-\size scriptsize
 istore-test-bap1:~# marsadm view all
 \end_layout
 
 \begin_layout Plain Layout
 
-\size scriptsize
 --------- resource lv-0
 \end_layout
 
 \begin_layout Plain Layout
 
-\size scriptsize
  lv-0 OutDated[F] PausedReplay dCAS-R Secondary istore-test-bs1
 \end_layout
 
 \begin_layout Plain Layout
 
-\size scriptsize
     replaying: [>...................]  1.21%  (12/1020)MiB  logs: [2..3]
 \end_layout
 
 \begin_layout Plain Layout
 
-\size scriptsize
        > fetch: 1008.198 MiB rate: 0 B/sec  remaining: --:--:-- hrs
 \end_layout
 
 \begin_layout Plain Layout
 
-\size scriptsize
        > replay: 0 B rate: 0 B/sec  remaining: 00:00:00 hrs 
 \end_layout
 
@@ -29864,50 +29982,42 @@ status open
 
 \begin_layout Plain Layout
 
-\size scriptsize
 istore-test-bap1:~# marsadm view all
 \end_layout
 
 \begin_layout Plain Layout
 
-\size scriptsize
 --------- resource lv-0
 \end_layout
 
 \begin_layout Plain Layout
 
-\size scriptsize
 lv-0 InConsistent Syncing dcAsFr Secondary istore-test-bs1
 \end_layout
 
 \begin_layout Plain Layout
 
-\size scriptsize
 syncing: [====>..............] 27.84% (567/2048)MiB rate: 72583.00 KiB/sec remaining: 00:00:20
  hrs
 \end_layout
 
 \begin_layout Plain Layout
 
-\size scriptsize
 > sync: 567.293/2048 MiB rate: 72583 KiB/sec remaining: 00:00:20 hrs
 \end_layout
 
 \begin_layout Plain Layout
 
-\size scriptsize
 replaying: [>:::::::::::::::::::] 0.00% (0/12902)KiB logs: [1..1]
 \end_layout
 
 \begin_layout Plain Layout
 
-\size scriptsize
 > fetch: 0 B rate: 38 KiB/s remaining: 00:00:00
 \end_layout
 
 \begin_layout Plain Layout
 
-\size scriptsize
 > replay: 12902.047 KiB rate: 0 B/s remaining: --:--:--
 \end_layout
 

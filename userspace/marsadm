@@ -1338,22 +1338,21 @@ sub set_sync_limit_value {
   set_link($value, $dst);
 }
 
+sub create_uuid {
+  my ($cmd) = @_;
+  my $old_uuid = get_link("$mars/uuid", 2);
+  ldie "Cluster was already created with uuid='$old_uuid'. " .
+    "For safety reasons, no override is possible at marsadm level.\n" if $old_uuid;
+  my $uuid = `echo -n \$(hostname) \$(date)`;
+  set_link($uuid, "$mars/uuid");
+  finish_links(); # opportunity for errors => don't continue
+  lprint "New cluster UUID is '$uuid'\n";
+}
+
 sub _create_cluster {
   my ($cmd) = @_;
-  system("mkdir $mars") unless -d $mars;
-  my $old_uuid = get_link("$mars/uuid", 2);
-  if ($cmd eq "create-cluster") {
-    ldie "cluster was already created with uuid='$old_uuid'\n" if $old_uuid && !$force;
-    my $uuid = `echo -n \$(hostname) \$(date)`;
-    set_link($uuid, "$mars/uuid");
-    finish_links(); # opportunity for errors => don't continue
-  } elsif (!$old_uuid && !$force) {
-    if ($user_version == 0.1) {
-      my $uuid = `echo -n \$(hostname) \$(date)`;
-      set_link($uuid, "$mars/uuid");
-    }
-    ldie "cluster has no uuid\n" if $user_version > 0.1;
-  }
+  ldie "The $mars directory does not exist.\n" unless -d $mars;
+  create_uuid(@_) if $cmd eq "create-cluster";
   system("mkdir $mars/ips") unless -d "$mars/ips";
   system("mkdir $mars/userspace") unless -d "$mars/userspace";
   system("mkdir $mars/defaults") unless -d "$mars/defaults";
@@ -3942,6 +3941,16 @@ sub view_cmd {
 my %cmd_table =
   (
    # new keywords
+   "create-uuid"
+   => [
+       "verbose 3",
+       "usage: create-uuid (no parameters)",
+       "Deprecated.",
+       "This is only needed if you have a very old $mars/",
+       "directory structure from MARS version light0.1beta05",
+       "or earlier.",
+       \&create_uuid,
+      ],
    "create-cluster"
    => [
        "usage: create-cluster (no parameters)",
@@ -4744,8 +4753,11 @@ if ($cmd !~ m/^(version$|v$|view)/ && -x $logger) {
 
 # checks
 
-if (!(-d $mars) && $cmd !~ m/(create|join)-cluster|cat|view|pretty/) {
-  ldie "The $mars directory does not exist.\n";
+ldie "The $mars directory does not exist.\n" unless -d $mars;
+
+if ($cmd !~ m/(create|join)-cluster|create-uuid|cat|view|pretty/) {
+  my $uuid = get_link("$mars/uuid", 1);
+  ldie "No valid cluster UUID $mars/uuid found. You need {create,join}-cluster first (or create-uuid).\n" unless $uuid;
 }
 
 my $res = "";
@@ -4758,7 +4770,7 @@ if ($cmd =~ "show") {
 } elsif ($cmd =~ m/^set-.*-value$/) {
   $res = shift @args || helplist "numeric argument is missing\n";
   ldie "argument '$res' isn't numeric\n" unless $res =~ m/^[0-9.]+$/;
-} elsif (!($cmd =~ m/^(create|leave|wait)-cluster|cat|[a-z]+-file/)) {
+} elsif (!($cmd =~ m/^(create|leave|wait)-cluster|create-uuid|cat|[a-z]+-file/)) {
   $res = shift @args || helplist "resource argument is missing\n";
   check_id($res);
 }
