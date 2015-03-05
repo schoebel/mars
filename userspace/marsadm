@@ -1822,6 +1822,7 @@ sub attach_res_phase1 {
 sub attach_res_phase2 {
   my ($cmd, $res) = @_;
   my $detach = ($cmd eq "detach");
+  return if $force;
   check_status($cmd, $res, "is-attached", $detach ? 0 : 1, 1);
   if ($detach) {
     check_mars_device($cmd, $res, 1, 1);
