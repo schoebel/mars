@@ -3350,7 +3350,7 @@ my $macro = "";
 
 my %complex_macros =
   (
-   "default" =>
+   "default"
    => "%if{%{res}}{"
    .    "  %{res} %include{diskstate} %include{replstate} %include{flags} %include{role} %include{primarynode} %include{commstate}\n"
    .    "%if{%and{%is-attach{}}{%not{%sync-reached{}}}}{"
@@ -3360,9 +3360,10 @@ my %complex_macros =
    .      "%include{replinfo}"
    .    "}"
    .    "%call{resource-errors}"
-   .  "}{"
-   .    "%the-pretty-global-msg{}"
    .  "}",
+
+   "default-global"
+   => "%call{comminfo}",
 
    "1and1"
    => "%if{%{res}}{"
@@ -3726,6 +3727,13 @@ my %complex_macros =
    .    "STATUS   FILE:\n%{status_msg}"
    .  "}",
 
+   "comminfo"
+   => "%let{txt}{%the-pretty-global-msg{}}"
+   .  "%let{txt}{%subst{%{txt}}{^.*CONNECTED.*\$\n*}{}{mg}}"
+   .  "%if{%{txt}}{"
+   .    "++++++++++++ Global / Communication Status ++++++++++++\n"
+   .    "%{txt}"
+   .  "}",
 
    # drbd similar ones
    "state"
@@ -4832,6 +4840,11 @@ sub do_all_res {
 if ($cmd =~ m/^(view|pretty)/) {
   lwarn "mars kernel module is not loaded\n" unless is_module_loaded();
   do_all_res(\&view_cmd, $cmd, $res, @args);
+  if ($res eq "all" && $cmd =~ m/^view-?(.*)/) {
+    my $global_macro_name = $1 ? "$1-global" : "default-global";
+    my $global_macro = get_macro($global_macro_name, 1);
+    view_cmd($global_macro_name, "", @args) if $global_macro;
+  }
   finish_links();
   exit($error_count);
 }

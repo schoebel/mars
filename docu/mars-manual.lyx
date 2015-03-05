@@ -6309,7 +6309,7 @@ marsadm view mydata
 \end_layout
 
 \begin_layout Standard
-or its more specialized variants
+or its more specialized variant
 \end_layout
 
 \begin_layout Itemize
@@ -6317,7 +6317,7 @@ or its more specialized variants
 \family typewriter
 marsadm view-
 \emph on
-macroname
+$macroname
 \emph default
  mydata
 \end_layout
@@ -6326,12 +6326,15 @@ macroname
 where 
 \family typewriter
 \emph on
-macroname
+$macroname
 \family default
 \emph default
  is one of the following macros described in the following sections, or
  a macro which has been written by yourself.
- As always, you may replace the resource name 
+\end_layout
+
+\begin_layout Standard
+As always, you may replace the resource name 
 \family typewriter
 mydata
 \family default
@@ -6341,6 +6344,71 @@ all
 \family default
  in order to get the state of all locally joined resources, as well as a
  list of all those resources.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+When using the variant 
+\family typewriter
+marsadm view all
+\family default
+, additionally the global communication status will be displayed.
+ This helps humans in diagnosing problems.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+In general, the command 
+\family typewriter
+marsadm view-
+\emph on
+$macroname
+\emph default
+ all
+\family default
+ will first call the macro 
+\family typewriter
+\emph on
+$macroname
+\family default
+\emph default
+ in a loop for 
+\emph on
+all
+\emph default
+ resources we are a 
+\emph on
+member locally
+\emph default
+.
+ Finally, a trailing macro 
+\family typewriter
+\emph on
+$macroname
+\emph default
+-global
+\family default
+ will be called with an empty 
+\family typewriter
+%{res}
+\family default
+ argument, provided that such a macro is defined.
+ This way, you can produce per-resource output followed by global output
+ which does not depend on a particular resource.
 \end_layout
 
 \begin_layout Subsection
@@ -6682,6 +6750,20 @@ yourcompanyname
 no name clashes
 \emph default
  with your reserved sub-namespace will occur in future.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+default-global
+\family default
+ Currently, this just calls 
+\family typewriter
+comminfo
+\family default
+ (see below).
+ May be extended in future.
 \end_layout
 
 \begin_layout Labeling
@@ -7292,6 +7374,16 @@ replinfo
 ${window}
 \family default
 , it is also displayed for human informational purposes.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+comminfo
+\family default
+ When the network communication is in an unusual condition, display it.
+ Otherwise, don't produce any output.
 \end_layout
 
 \begin_layout Subsubsection
