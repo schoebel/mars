@@ -2022,7 +2022,16 @@ int peer_thread(void *data)
 	}
 
         while (!brick_thread_should_stop()) {
-		LIST_HEAD(tmp_list);
+		struct mars_global tmp_global = {
+			.dent_anchor = LIST_HEAD_INIT(tmp_global.dent_anchor),
+			.brick_anchor = LIST_HEAD_INIT(tmp_global.brick_anchor),
+			.global_power = {
+				.button = true,
+			},
+			.dent_mutex = __RWSEM_INITIALIZER(tmp_global.dent_mutex),
+			.brick_mutex = __RWSEM_INITIALIZER(tmp_global.brick_mutex),
+			.main_event = __WAIT_QUEUE_HEAD_INITIALIZER(tmp_global.main_event),
+		};
 		LIST_HEAD(old_list);
 		unsigned long flags;
 		struct mars_cmd cmd = {
@@ -2070,8 +2079,6 @@ int peer_thread(void *data)
 			continue;
 		}
 
-		make_msg(peer_pairs, "CONNECTED %s(%s)", peer->peer, real_peer);
-
 		if (peer->from_remote_trigger) {
 			pause_time = 0;
 			peer->from_remote_trigger = false;
@@ -2102,25 +2109,50 @@ int peer_thread(void *data)
 		}
 
 		MARS_DBG("fetching remote dentry list\n");
-		status = mars_recv_dent_list(&peer->socket, &tmp_list);
+		status = mars_recv_dent_list(&peer->socket, &tmp_global.dent_anchor);
 		if (unlikely(status < 0)) {
 			MARS_WRN("communication error on receive, status = %d\n", status);
 			if (do_kill) {
 				do_kill = false;
 				_peer_cleanup(peer);
 			}
-			mars_free_dent_all(NULL, &tmp_list);
+			goto free_and_restart;
+			mars_free_dent_all(NULL, &tmp_global.dent_anchor);
 			brick_msleep(2000);
 			continue;
 		}
 
-		if (likely(!list_empty(&tmp_list))) {
+		if (likely(!list_empty(&tmp_global.dent_anchor))) {
+			struct mars_dent *peer_uuid;
+			struct mars_dent *my_uuid;
+
 			MARS_DBG("got remote denties\n");
+
+			peer_uuid = mars_find_dent(&tmp_global, "/mars/uuid");
+			if (unlikely(!peer_uuid || !peer_uuid->new_link)) {
+				MARS_ERR("peer %s has no uuid\n", peer->peer);
+				make_msg(peer_pairs, "peer has no UUID");
+				goto free_and_restart;
+			}
+			my_uuid = mars_find_dent(mars_global, "/mars/uuid");
+			if (unlikely(!my_uuid || !my_uuid->new_link)) {
+				MARS_ERR("cannot determine my own uuid for peer %s\n", peer->peer);
+				make_msg(peer_pairs, "cannot determine my own uuid");
+				goto free_and_restart;
+			}
+			if (unlikely(strcmp(peer_uuid->new_link, my_uuid->new_link))) {
+				MARS_ERR("UUID mismatch for peer %s, you are trying to communicate with a foreign cluster!\n", peer->peer);
+				make_msg(peer_pairs, "UUID mismatch, own cluster '%s' is trying to communicate with a foreign cluster '%s'",
+					 my_uuid->new_link, peer_uuid->new_link);
+				goto free_and_restart;
+			}
+
+			make_msg(peer_pairs, "CONNECTED %s(%s)", peer->peer, real_peer);
 
 			traced_lock(&peer->lock, flags);
 
 			list_replace_init(&peer->remote_dent_list, &old_list);
-			list_replace_init(&tmp_list, &peer->remote_dent_list);
+			list_replace_init(&tmp_global.dent_anchor, &peer->remote_dent_list);
 
 			traced_unlock(&peer->lock, flags);
 
@@ -2140,6 +2172,11 @@ int peer_thread(void *data)
 							 (mars_global && mars_global->main_trigger),
 							 pause_time * HZ);
 		}
+		continue;
+
+	free_and_restart:
+		mars_free_dent_all(NULL, &tmp_global.dent_anchor);
+		brick_msleep(2000);
 	}
 
 	MARS_INF("-------- peer thread terminating\n");

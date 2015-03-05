@@ -12885,7 +12885,35 @@ complex
 \family typewriter
 /mars/
 \family default
- directory tree are automatically replicated thoughout the whole cluster.
+ directory tree are automatically replicated thoughout the whole cluster,
+ provided that the cluster 
+\family typewriter
+uuid
+\family default
+s are equal
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+This is protection against accidental 
+\begin_inset Quotes eld
+\end_inset
+
+merging
+\begin_inset Quotes erd
+\end_inset
+
+ of two unrelated clusters which had been created at different times with
+ different 
+\family typewriter
+uuids
+\family default
+.
+\end_layout
+
+\end_inset
+
+ at all sites.
  Thus the 
 \family typewriter
 /mars/
