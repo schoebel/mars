@@ -1,0 +1,65 @@
+# Config file for mars_check.sh
+#
+# This file is part of MARS project: http://schoebel.github.io/mars/
+#
+# Copyright (C) 2015 Thomas Schoebel-Theuer
+# Copyright (C) 2015 1&1 Internet AG
+#
+# Copying and distribution of this file, with or without modification,
+# are permitted in any medium without royalty provided the copyright
+# notice and this notice are preserved.  This file is offered as-is,
+# without any warranty.
+
+
+# For each variable $Var (as documented in "mars_check.sh --help"), the following relatives are always defined:
+#
+# $LastVar           the old value from the last run of mars_check.sh (whenever it was called; recommendation: 5 minutes)
+# $DeltaLastVar      the difference between $Var and $LastVar
+# $RateLastVar       the $DeltaLastVar normalized to the elapsed time (unit: per minutes)
+#
+# $MediumVar         the old value from a medium-term run of mars_check.sh ($window_medium, default 3600s)
+# $DeltaMediumVar    the difference between $Var and $MediumVar
+# $RateMediumVar     the $DeltaMediumVar normalized to the elapsed time (unit: per minutes)
+#
+# $LongtermVar       the old value from a longterm run of mars_check.sh ($window_longterm, default 24h)
+# $DeltaLongtermVar  the difference between $Var and $LongtermVar
+# $RateLongtermVar   the $DeltaLongtermVar normalized to the elapsed time (unit: per minutes)
+
+
+# The first number in each line is the priority class.
+# Lower number = higher priority = takes precence over higher class numbers
+# Exception: 0 means that the check will appear unconditionally (class is irrelevant)
+#
+# Hint: checks can be simply disabled by commenting them out
+
+
+#####################################################################################
+# List of global checks
+
+1 ModuleLoaded <= 0             CRITICAL: mars module is not loaded
+2 Responsive <= 0               CRITICAL: mars_light thread is not responsive / possibly hanging
+5 SpaceRest <= 4                CRITICAL: only $SpaceRest GiB left on /mars/
+6 SpacePercent >= 70            CRITICAL: Used space on /mars/ is $SpacePercent %
+7 SpacePercent >= 30            WARNING: Used space on /mars/ is $SpacePercent %
+
+#####################################################################################
+# List of local checks = per resource. The resource name can be substituted via $res
+
+# all hosts
+10 AliveAge >= 300               CRITICAL: resource $res: primary host ${Designated[$res]} is not reachable for $AliveAge seconds
+11 Alive <= 0                    WARNING: resource $res: primary host ${Designated[$res]} is not reachable
+12 Emergency >= 1                CRITICAL: resource $res is in emergency mode, too less space on /mars/
+13 SplitBrain >= 1               CRITICAL: split brain on $res detected
+
+# only secondaries
+30 Sync <= 0                     WARNING: resource $res sync is switched off
+31 Fetch <= 0                    WARNING: resource $res fetch is switched off
+32 Replay <= 0                   WARNING: resource $res replay is switched off
+
+40 SyncRest >= 999999            WARNING: resource $res SyncRest=${SyncRest[$res]} is too large
+41 FetchRest >= 999999           WARNING: resource $res FetchRest=${FetchRest[$res]} is too large
+42 ReplayRest >= 999999          WARNING: resource $res ReplayRest=${ReplayRest[$res]} is too large
+
+50 DeltaLastSyncRest <= 99999   && SyncRest >= 1     WARNING: resource $res SyncRest=${SyncRest[$res]} sync has stopped
+51 DeltaLastFetchRest <= 99999  && FetchRest >= 1    WARNING: resource $res FetchRest=${FetchRest[$res]} fetch has stopped
+52 DeltaLastReplayRest <= 99999 && ReplayRest >= 1   WARNING: resource $res ReplayRest=${ReplayRest[$res]} replay has stopped
