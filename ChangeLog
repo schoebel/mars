@@ -66,6 +66,18 @@ Release Conventions / Branches / Tagnames
 	NO NEW FEATURES, not even minor ones, except when absolutely
 	necessary for a bugfix.
 
+light0.1stable13
+--------
+	* Critical safeguard for accidental join-cluster with wrong argument:
+	  make UUID mandatory, disallow completely unrelated hosts to
+	  communicate symlink tree updates when their UUIDs mismatch.
+	* Minor fix: leave-resource --host=other did not work when disks
+	  were named differently throughout the cluster.
+	* Minor fix: detach --host=other --force (which is needed as a
+	  precondition) did not work.
+	* Various minor fixes and clarifications. "marsadm view all"
+	  now reports the communication status in the cluster.
+
 light0.1stable12
 --------
 	* Critical (but usually not extremely relevant) fix:
