@@ -493,8 +493,36 @@ sub check_primary_gone {
   }
 }
 
+sub _make_messages {
+  my ($cmd, $res, $key, $val, $wait, $unchecked, $inv) = @_;
+  my %table =
+    (
+     "is-attached"  => "attach",
+     "is-syncing"   => "sync",
+     "is-copying"   => "fetch",
+     "is-replaying" => "replay",
+     "is-primary"   => "primary",
+    );
+  my $key_msg = defined($table{$key}) ? $table{$key} : $key;
+  my $val_msg = $val ? "on" : "off";
+  my $wait_msg = $wait ? "waiting until" : "ensuring that";
+  my $new_val = (defined($inv) && $inv) ? !$val : $val;
+  my $action_msg = ($new_val ? "'resume-" : "'pause-") . $key_msg . "'";
+  if ($key_msg eq "primary") {
+    $action_msg = $new_val ? "'$key_msg'" : "'secondary' (or better 'primary' on another host)";
+  } elsif ($key_msg eq "attach") {
+    $action_msg = $new_val ? "'$key_msg'" : "'detach'";
+  }
+  $action_msg = "Use $action_msg and/or wait until it has really succeeded.";
+  $action_msg .= " Notice that MARS is an ASYNCHRONOUS system, where both execution of actions, as well as propagation over the network may take some time." if $verbose;
+  $action_msg .= " Don't expect magic to happen if the network has some problems, or when the system load is extremely high." if $verbose > 1;
+  $action_msg .= " Please read the PDF manual, and try to understand it." if $verbose > 2;
+  return ($key_msg, $val_msg, $wait_msg, $action_msg);
+}
+
 sub check_todo {
   my ($cmd, $res, $key, $val, $wait, $unchecked, $inv) = @_;
+  my ($key_msg, $val_msg, $wait_msg, $action_msg) = _make_messages(@_);
   $key =~ s/fetch/connect/;
   my $path = "$mars/resource-$res/todo-$host/$key";
   $path = correct_path($path);
@@ -504,12 +532,12 @@ sub check_todo {
     return unless defined($link);
     if (defined($inv) && $inv) {
       last if $link != $val;
-      ldie "cannot execute $cmd: switch '$key' must not have value '$val'\n" if !$wait;
-      lprint "waiting until switch '$key' leaves the value '$val'....\n";
+      lprint "$wait_msg switch '$key' != '$val'....\n";
+      ldie "Cannot execute $cmd on resource $res: todo-switch '$key_msg' must not be $val_msg. $action_msg\n" if !$wait;
     } else {
       last if $link == $val;
-      ldie "cannot execute $cmd: switch '$key' must have value '$val', but actually has value '$link'\n" if !$wait;
-      lprint "waiting until switch '$key' reaches the value '$val'....\n";
+      lprint "$wait_msg switch '$key' == '$val'....\n";
+      ldie "Cannot execute $cmd on resource $res: todo-switch '$key_msg' must be $val_msg, but actually has value '$link'. $action_msg\n" if !$wait;
     }
     sleep_timeout();
   }
@@ -518,6 +546,7 @@ sub check_todo {
 
 sub check_status {
   my ($cmd, $res, $key, $val, $wait, $unchecked, $inv) = @_;
+  my ($key_msg, $val_msg, $wait_msg, $action_msg) = _make_messages(@_);
   my $path = correct_path("$mars/resource-$res/actual-$host/$key");
   my $link;
   for (;;) {
@@ -525,12 +554,12 @@ sub check_status {
     return unless defined($link);
     if (defined($inv) && $inv) {
       last if $link != $val;
-      ldie "cannot execute $cmd: '$path' must not have value '$val'\n" if !$wait;
-      lprint "waiting until '$key' leaves the value '$val'...\n";
+      lprint "$wait_msg actual '$key' != '$val'...\n";
+      ldie "Cannot execute $cmd on resource $res: actual '$key_msg' must not be $val_msg. $action_msg Also ensure that your command _can_ succeed.\n" if !$wait;
     } else {
       last if $link == $val;
-      ldie "cannot execute $cmd: '$path' must have value '$val'\n" if !$wait;
-      lprint "waiting until '$key' reaches the value '$val'...\n";
+      lprint "$wait_msg actual '$key' == '$val'...\n";
+      ldie "Cannot execute $cmd on resource $res: actual '$key_msg' must be $val_msg. $action_msg Also ensure that your command _can_ succeed.\n" if !$wait;
     }
     sleep_timeout();
   }
