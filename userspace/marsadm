@@ -1376,7 +1376,8 @@ sub join_cluster {
   my ($cmd, $peer) = @_;
   ldie "Cannot join myself (peer='$peer', host='$host')\n" if $peer eq $host;
   ldie "Directory $mars is missing\n" unless -d $mars;
-  ldie "A valid tree signature '$mars/tree-$host' already exists, thus it appears you are already a cluster member!\n" if -l "$mars/tree-$host" && !$force;
+  ldie "A valid tree signature '$mars/tree-$host' already exists, thus it appears you are already a cluster member! This cannot be overridden, other by using a freshly created /mars/ filesystem.\n" if -l "$mars/tree-$host";
+  ldie "A cluster UUD '$mars/uuid' already exists, thus it appears you are already a cluster member! This cannot be overridden, other by using a freshly created /mars/ filesystem.\n" if -l "$mars/uuid";
   if (glob("$mars/resource-*") or glob("$mars/ips/*")) {
     ldie "Sorry, some resources already exist!\nThis is dangerous!\nIf you are sure that no resource clash is possible, re-invoke this command with '--force' option\n" unless $force;
   }
