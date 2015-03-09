@@ -1426,13 +1426,22 @@ sub join_cluster {
 
 sub leave_cluster {
   my ($cmd) = @_;
+  ldie "mars kernel module is not loaded. This is needed for communication with some other hosts!\n" if !is_module_loaded();
   my $check = "/mars/resource-*/data-$host";
   ldie "I am member of some resources\n" if glob($check) && !$force;
-  wait_cluster($cmd);
-  _create_delete("$mars/todo-global/deleted-$host");
+  wait_cluster($cmd) unless $force;
+  foreach my $path (glob("$mars/actual-*/*-$host")) {
+    _create_delete($path);
+  }
   _create_delete("$mars/ips/ip-$host");
   finish_links();
-  wait_cluster($cmd);
+  wait_cluster($cmd) unless $force;
+  foreach my $path (glob("$mars/actual-*/*-$host")) {
+    _create_delete($path);
+  }
+  _create_delete("$mars/todo-global/deleted-$host");
+  finish_links();
+  wait_cluster($cmd) unless $force;
   while (-f "$mars/ips/ip-$host" && $timeout >= 0) {
     sleep_timeout(3, 1);
   }
