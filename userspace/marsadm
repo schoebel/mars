@@ -325,6 +325,7 @@ sub wait_cluster {
   my $cmd = shift;
   my $res = shift || "all";
   my $hosts = shift || "*";
+  my $old_timeout = $timeout;
   my $start_time = mars_time();
   _trigger();
   my $delta = $timeout > 0 ? $timeout : 30;
@@ -354,7 +355,9 @@ sub wait_cluster {
       }
     }
     sleep_timeout();
+    last if $timeout <= 0 && !$unknown_count;
   }
+  $timeout = $old_timeout;
 }
 
 ##################################################################
