@@ -2009,7 +2009,6 @@ sub primary_phase0 {
   my ($cmd, $res) = @_;
   ldie "cannot switch primary: mars kernel module is not loaded\n" unless ($cmd eq "secondary" || -d "/proc/sys/mars");
   if ($force) {
-    lwarn "You can do a '$cmd --force' only in PAUSE-FETCH / DISCONNECTED state.\n";
     check_todo($cmd, $res, "fetch", 0, 0);
   }
   my $old = _get_designated_primary($res);
