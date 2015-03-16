@@ -422,6 +422,13 @@ sub check_res {
   return $res;
 }
 
+sub _get_mars_size {
+  my ($cmd, $res) = @_;
+  my $dev_name = get_link("$mars/resource-$res/device-$host");
+  my $info = "/sys/devices/virtual/block/mars!$dev_name/size";
+  return `cat $info` * 512;
+}
+
 sub check_sizes {
   my ($res, $peer) = @_;
   my $logical_size = get_link("$mars/resource-$res/size");
@@ -2192,8 +2199,13 @@ sub invalidate_res_phase3 {
   }
 }
 
-sub resize_res {
+my %resize_device_size;
+my %resize_old_size;
+my %resize_new_size;
+
+sub resize_phase0 {
   my ($cmd, $res, $size_arg) = @_;
+  ldie "mars kernel module is not loaded. This is needed for communication with some other hosts!\n" if !is_module_loaded();
   my $new_size = 0;
   if ($size_arg) {
     $new_size = get_size($size_arg);
@@ -2201,39 +2213,70 @@ sub resize_res {
     lprint "new size: $new_size bytes\n";
   }
   check_primary(@_);
+  my $my_size = get_link("$mars/resource-$res/actsize-$host");
   my @actsizes = glob("$mars/resource-$res/actsize-*");
   ldie "resource $res has no actsize-* symlinks\n" unless @actsizes;
   my $lnk = "$mars/resource-$res/size";
   my $old_size = get_link($lnk);
-  my $min_size = 0;
+  my $possible_size = 0;
   foreach my $actsize (@actsizes) {
     my $this_size = get_link($actsize);
-    if (!$min_size || $this_size < $min_size) {
-      $min_size = $this_size;
+    if (!$possible_size || $this_size < $possible_size) {
+      $possible_size = $this_size;
     }
   }
   lprint "old_size=$old_size\n";
-  lprint "min_size=$min_size\n";
-  $new_size = $min_size if !$new_size;
+  lprint "possible_size=$possible_size\n";
+  $new_size = $possible_size if !$new_size;
   lprint "new_size=$new_size\n";
-  ldie "new size $new_size is higher than the minimum size of all volumes $min_size" if $new_size > $min_size; # no override with --force possible
-  # for now, disallow decreasing until some bugs are fixed
+  ldie "new size $new_size is higher than the possible size (minimum of all volumes) $possible_size" if $new_size > $possible_size; # no override with --force possible
+  # disallow decreasing
   ldie "only increases of the size are possible!\n" if $new_size < $old_size;
-  ldie "only increases of the size are possible without --force\n" if $new_size <= $old_size && !$force;
-  foreach my $switch (glob("$mars/resource-$res/todo-*/sync")) {
-    my $this_switch = get_link($switch);
-    ldie "sync on '$switch' is switched on -- use marsadm pause-sync to stop\n" unless !$this_switch;
-  }
-  my @syncsizes = glob("$mars/resource-$res/syncstatus-$host");
-  foreach my $syncsize (@syncsizes) {
-    my $this_size = get_link($syncsize);
-    ldie "sync on $syncsize has not yet finished: $this_size != $old_size (DANGEROUS FIX: if you know what you are doing, marsadm fake-sync can 'fix' it -- but this may need a full-sync afterwards)\n" unless $this_size == $old_size;
-  }
-  foreach my $syncsize (@syncsizes) {
-    my $this_size = get_link($syncsize);
-    set_link($new_size, $syncsize);
-  }
+  my $waste = $my_size - $new_size;
+  lwarn "You are wasting $waste bytes locally\n" if $my_size > $new_size;
+  # remember values
+  $resize_device_size{$res} = _get_mars_size(@_);
+  $resize_old_size{$res} = $old_size;
+  lwarn "internal mismatch between actual device size and resource size: $resize_device_size{$res} != $resize_old_size{$res}\n" unless $resize_device_size{$res} == $resize_old_size{$res};
+  $resize_new_size{$res} = $new_size;
+  return 0;
+}
+
+sub resize_phase1 {
+  my ($cmd, $res) = @_;
+  my $old_size = $resize_old_size{$res} or ldie "bad internal size value\n";
+  my $new_size = $resize_new_size{$res} or ldie "bad internal size value\n";
+  # for safety, check again
+  ldie "only increases of the size are possible!\n" if $new_size < $old_size;
+  check_primary(@_);
+  # Mark the primary data / its size as authoritative
+  my $act_lnk = "$mars/resource-$res/syncstatus-$host";
+  set_link($new_size, $act_lnk);
+  finish_links(); # Chance for errors to pop up
+  # Now set the new resource size
+  my $lnk = "$mars/resource-$res/size";
   set_link($new_size, $lnk);
+  finish_links();
+}
+
+sub resize_phase2 {
+  my ($cmd, $res) = @_;
+  my $old_size = $resize_old_size{$res} or ldie "bad internal size value\n";
+  my $new_size = $resize_new_size{$res} or ldie "bad internal size value\n";
+  for (;;) {
+    my $new_device_size = _get_mars_size(@_);
+    if ($new_device_size == $resize_new_size{$res}) {
+      lprint "Device size is now $new_device_size.\n";
+      last;
+    }
+    lprint "Device size $new_device_size has not yet reached the new size $resize_new_size{$res}.\n";
+    if ($new_device_size != $resize_device_size{$res}) {
+      lwarn "The size has changed, but did not reach the correct value.";
+      lwarn "Assuming some rounding problems (which may occur at some device types)\n";
+      last;
+    }
+    sleep_timeout();
+  }
 }
 
 sub role_cmd {
@@ -4561,7 +4604,12 @@ my %cmd_table =
        "When successful, /dev/mars/\$res at the primary will be increased",
        "in size. In addition, all secondaries will start an incremental",
        "fast full-sync to get the enlarged parts from the primary.",
-       \&resize_res,
+       \&resize_phase0,
+       "check preconditions",
+       \&resize_phase1,
+       "set new size",
+       \&resize_phase2,
+       "wait for change",
       ],
    "check-resize"      => \&ignore_cmd,
    "create-md"         => \&senseless_cmd,

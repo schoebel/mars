@@ -6045,6 +6045,88 @@ reference "sec:Scripting-HOWTO"
 .
 \end_layout
 
+\begin_layout Subsection
+Online Resizing during Operation
+\end_layout
+
+\begin_layout Standard
+You should have LVM or some other means of increasing the physical size
+ of your disk (e.g.
+ via firmware of some RAID controllers).
+ The network must be healthy.
+ Do the following steps:
+\end_layout
+
+\begin_layout Enumerate
+Increase your local disks (usually 
+\family typewriter
+/dev/vg/mydata
+\family default
+) 
+\emph on
+everywhere
+\emph default
+ in the whole cluster.
+ In order to avoid wasting space, increase them 
+\emph on
+uniformly
+\emph default
+ to the same size (when possible).
+ The 
+\family typewriter
+lvresize
+\family default
+ tool is documented elsewhere.
+\end_layout
+
+\begin_layout Enumerate
+Check that all MARS switches are on.
+ If not, say 
+\family typewriter
+marsadm up mydata
+\family default
+ everywhere.
+\end_layout
+
+\begin_layout Enumerate
+At the primary: 
+\family typewriter
+marsadm resize mydata
+\end_layout
+
+\begin_layout Enumerate
+If you have intermediate layers such as iSCSI, you may need some 
+\family typewriter
+iscsiadm
+\family default
+ update or other command.
+\end_layout
+
+\begin_layout Enumerate
+Now you may increase your filesystem.
+ This is specific for the filesystem type and documented elsewhere.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Hint: the secondaries will start syncing the increased new part of the underlyin
+g primary disk.
+ In many cases, this is not really needed, because the new junk data just
+ does not care.
+ If you are sure and if you know what you are doing, you may use 
+\family typewriter
+marsadm fake-sync mydata
+\family default
+ to abort such unnecessary traffic.
+\end_layout
+
 \begin_layout Section
 The State of MARS
 \begin_inset CommandInset label
@@ -23328,14 +23410,23 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Precondition: all disks in the cluster participating in 
+Precondition: The local host must be primary.
+ All disks in the cluster participating in 
 \family typewriter
 $res
 \family default
- must be physically larger than the logical resource size (e.g.
- by use of 
+ must be physically larger than the logical resource size (e.g, by use of
+ 
 \family typewriter
 lvm
+\family default
+; can be checked by macros 
+\family typewriter
+%disk-size{}
+\family default
+ and 
+\family typewriter
+%resource-size{}
 \family default
 ).
  When the optional 
@@ -23343,13 +23434,13 @@ lvm
 $size
 \family default
  argument is present, it must be smaller than the minimum of all physical
- sizes, but larger than the current logical size.
+ sizes, but larger than the current logical size of the resource.
 \end_layout
 
 \begin_layout Plain Layout
 
 \size scriptsize
-Postcondition: at the (future) primary (if any), the logical size of 
+Postcondition: the logical size of 
 \family typewriter
 /dev/mars/$dev_name
 \family default
