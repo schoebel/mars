@@ -6577,7 +6577,8 @@ marsadm view mydata
 \emph default
  suffix.
  It shows a one-line status summary for each resource, optionally followed
- by progress bars whenever a sync or a fetch of logfiles is currently running.
+ by informational lines such as progress bars whenever a sync or a fetch
+ of logfiles is currently running.
  The status line has the following fields:
 \end_layout
 
@@ -6670,6 +6671,25 @@ commstate
 \end_layout
 
 \end_deeper
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+\begin_inset space ~
+\end_inset
+
+ After that, optional lines such as progress bars are appearing only when
+ something unusual is happening.
+ These lines are subject to future changes.
+ For examples, wasted disk space due to missing 
+\family typewriter
+resize
+\family default
+ is reported when 
+\family typewriter
+%{threshold}
+\family default
+ is exceeded.
+\end_layout
+
 \begin_layout Labeling
 \labelwidthstring 00.00.0000
 
