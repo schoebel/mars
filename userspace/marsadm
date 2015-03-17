@@ -2769,6 +2769,42 @@ sub eval_fn {
       my $result = -d $path;
       return defined($result) && $result;
     }
+    # list objects
+    if (/^cluster[-_]?members$/) {
+      my @peers = glob("$mars/ips/ip-*");
+      my $list = "";
+      foreach my $peer (sort(@peers)) {
+	$peer =~ s:^$mars/ips/ip-::;
+	$list .= "$peer\n";
+      }
+      return $list;
+    }
+    if (/^resource[-_]?members$/) {
+      my @peers = glob($$env{"resdir"} . "/data-*");
+      my $list = "";
+      foreach my $peer (sort(@peers)) {
+	$peer =~ s:^.*/data-::;
+	$list .= "$peer\n";
+      }
+      return $list;
+    }
+    if (/^(my|all)[-_]?resources$/) {
+      my $what = $1;
+      my $peer = "*";
+      if ($what eq "my") {
+	$peer = parse_macro($arg1, $env);
+	$peer = $$env{"host"} unless $peer;
+      }
+      my @list = glob("$mars/resource-*/data-$peer");
+      map { s:^$mars/resource-(.*?)/data-.*:$1:; } @list;
+      my $list = "";
+      my $old = "";
+      foreach my $item (sort(@list)) {
+	$list .= "$item\n" if $item ne $old;
+	$old = $item;
+      }
+      return $list;
+    }
     # low-level symlink access
     if (/^readlink$/) {
       my $path = parse_macro($arg1, $env);
@@ -3903,6 +3939,10 @@ my %trivial_globs =
    => "",
 
    # intended for scripting
+   "{my,all}-resources"
+   => "",
+   "{cluster,resource}-members"
+   => "",
    "{disk,resource,device}-size"
    => "",
    "deletable-size"

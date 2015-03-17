@@ -8503,6 +8503,62 @@ In the following, shell glob notation
 \end_layout
 
 \begin_layout Subparagraph
+Name Querying
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+cluster-members
+\family default
+ Show a newline-separated list of all host names participating in the cluster.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+resource-members
+\family default
+ Show a newline-separated list of all host names participating in the particular
+ resource 
+\family typewriter
+%{res}
+\family default
+.
+ Notice that this may be a subset of 
+\family typewriter
+%cluster-members{}
+\family default
+.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{my,all}-resources
+\family default
+ Show a newline-separated list of either all resource names existing in
+ the cluster, or only those where the current host 
+\family typewriter
+%{host}
+\family default
+ is member.
+ Optionally, you may specify the hostname as a parameter, e.g.
+ 
+\family typewriter
+%my-resources{
+\emph on
+otherhost
+\emph default
+}
+\family default
+.
+\end_layout
+
+\begin_layout Subparagraph
 Amounts of Data Inquiry
 \end_layout
 
