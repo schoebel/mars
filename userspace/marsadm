@@ -3113,6 +3113,20 @@ sub eval_fn {
       }
       return $sum;
     }
+    if (/^(disk|resource|device)[-_]?size$/) {
+      my $what = $1;
+      my $path = "$mars/resource-" . $$env{"res"};
+      if ($what eq "device" && eval_fn($env, "present-device", "")) {
+	return _get_mars_size($$env{"cmd"}, $$env{"res"});
+      } elsif ($what eq "disk"){
+	my $peer = parse_macro($arg1, $env);
+	$peer = $$env{"host"} unless $peer;
+	$path .= "/actsize-$peer";
+      } else {
+	$path .= "/size";
+      }
+      return get_link($path, 1);
+    }
     # time handling and pausing
     if (/^time$/) {
       return mars_time();
@@ -3884,6 +3898,8 @@ my %trivial_globs =
    => "",
 
    # intended for scripting
+   "{disk,resource,device}-size"
+   => "",
    "deletable-size"
    => "",
    "occupied-size"

@@ -8596,6 +8596,47 @@ reference "sub:Emergency-Mode"
 ).
 \end_layout
 
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+disk-size
+\family default
+ Show the size of the underlying local disk in bytes.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+resource-size
+\family default
+ Show the logical size of the resource in bytes.
+ When this value is lower than 
+\family typewriter
+disk-size
+\family default
+, you are wasting space.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+device-size
+\family default
+ At a primary node, this may differ from 
+\family typewriter
+resource-size
+\family default
+ only for a very short time during the 
+\family typewriter
+resize
+\family default
+ operation.
+ At secondaries, there will be no difference.
+\end_layout
+
 \begin_layout Standard
 \noindent
 The following macros are only meaningful for secondary nodes.
