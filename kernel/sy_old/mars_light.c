@@ -5619,7 +5619,13 @@ static int __init init_light(void)
 {
 	extern int min_free_kbytes;
 	int new_limit = 4096;
-	int status = 0;
+	struct kstat dummy;
+	int status = mars_stat("/mars/uuid", &dummy, true);
+
+	if (unlikely(status < 0)) {
+		printk(KERN_ERR "cannot load MARS: cluster UUID is missing. Mount /mars/, and/or use {create,join}-cluster first.\n");
+		return -ENOENT;
+	}
 
 	// bump the min_free limit
 	if (min_free_kbytes < new_limit)
