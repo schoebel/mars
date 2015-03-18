@@ -1057,21 +1057,29 @@ sub try_to_avoid_splitbrain {
 }
 
 sub get_size {
-  my $arg = shift || "";
-  if (!($arg =~ m/^([0-9]+(?:\.[0-9]*)?)([kmgtp]?)$/i)) {
-    ldie "size argument '$arg' must be a number, optionally followed by suffix k or m or g or t or p\n";
+  my $arg = shift;
+  my $orig_arg = $arg;
+  if ($arg !~ m/^([0-9]+(?:\.[0-9]*)?)([kmgtp]?)$/i) {
+    ldie "Size argument '$arg' must be a number, optionally followed by a suffix [kKmMgGtTpP]. Lowercase = multiples of 1000, Uppercase = multiples of 1024.\n";
   }
   my $mod = $2 || "";
   $arg = $1;
   $_ = $mod;
  SWITCH: {
-    /k/i and $arg *= 1024, last SWITCH;
-    /m/i and $arg *= 1024 * 1024, last SWITCH;
-    /g/i and $arg *= 1024 * 1024 * 1024, last SWITCH;
-    /t/i and $arg *= 1024 * 1024 * 1024 * 1024, last SWITCH;
-    /p/i and $arg *= 1024 * 1024 * 1024 * 1024 * 1024, last SWITCH;
+    /^$/ and last SWITCH;
+    /^k$/ and $arg *= 1000, last SWITCH;
+    /^m$/ and $arg *= 1000 * 1000, last SWITCH;
+    /^g$/ and $arg *= 1000 * 1000 * 1000, last SWITCH;
+    /^t$/ and $arg *= 1000 * 1000 * 1000 * 1000, last SWITCH;
+    /^p$/ and $arg *= 1000 * 1000 * 1000 * 1000 * 1000, last SWITCH;
+    /^K$/ and $arg *= 1024, last SWITCH;
+    /^M$/ and $arg *= 1024 * 1024, last SWITCH;
+    /^G$/ and $arg *= 1024 * 1024 * 1024, last SWITCH;
+    /^T$/ and $arg *= 1024 * 1024 * 1024 * 1024, last SWITCH;
+    /^P$/ and $arg *= 1024 * 1024 * 1024 * 1024 * 1024, last SWITCH;
+    ldie "bad unit suffix '$mod'";
   }
-  ldie "size '$arg' is not a multiple of 4k\n" if ($arg % 4096) != 0;
+  ldie "size argument '$orig_arg' evaluating to '$arg' is not a multiple of 4K = 4096\n" if ($arg % 4096) != 0;
   return $arg;
 }
 
