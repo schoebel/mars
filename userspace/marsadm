@@ -4890,7 +4890,7 @@ foreach my $arg (@ARGV) {
     $window = $arg;
     next;
   } elsif ($arg =~ s/--threshold\s*=\s*([0-9]+)/$1/) {
-    $threshold = $arg;
+    $threshold = get_size($arg);
     next;
   } elsif ($arg =~ s/--host\s*=\s*([-_A-Za-z0-9]+)/$1/) {
     check_id($arg);

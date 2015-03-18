@@ -16047,9 +16047,23 @@ The macros containing the substring
 \family typewriter
 -threshold-
 \family default
- use this as a default value for approximation whether something has been
- reached.
+ or 
+\family typewriter
+-almost-
+\family default
+ are using this as a default value for approximation whether something has
+ been approximately reached.
  Default is 10MiB.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+The $size argument may be a number optionally followed by one the lowercase
+ characters k m g t p for indicating kilo mega giga tera or peta bytes as
+ multiples of 1000.
+ When using the corresponding uppercase character, multiples of 1024 are
+ formed instead.
 \end_layout
 
 \end_inset
@@ -17546,7 +17560,8 @@ $res
 \family typewriter
 $size
 \family default
- argument is given, it must be a number, optionally followed by suffix 
+ argument is given, it must be a number, optionally followed by a lowercase
+ suffix 
 \family typewriter
 k
 \family default
@@ -17558,14 +17573,43 @@ m
 \family typewriter
 g
 \family default
-, or 
+, 
 \family typewriter
 t
 \family default
- (denoting size factors in powers of two).
+, or 
+\family typewriter
+p
+\family default
+ (denoting size factors as multiples of 1000), or an uppercase suffix 
+\family typewriter
+K
+\family default
+, 
+\family typewriter
+M
+\family default
+, 
+\family typewriter
+G
+\family default
+, 
+\family typewriter
+T
+\family default
+ or 
+\family typewriter
+P
+\family default
+ (denoting size factors as multiples of 1024).
  The given size must not exceed the actual size of 
 \family typewriter
 $disk_dev
+\family default
+.
+ It will specify the future resource size as shown by 
+\family typewriter
+marsadm view-resource-size $res
 \family default
 .
 \end_layout
@@ -17771,7 +17815,6 @@ $mars_name
 $res
 \family default
 .
- 
 \end_layout
 
 \begin_layout Plain Layout
