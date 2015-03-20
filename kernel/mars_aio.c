@@ -461,6 +461,7 @@ int aio_start_thread(
 	spin_lock_init(&tinfo->lock);
 	init_waitqueue_head(&tinfo->event);
 	init_waitqueue_head(&tinfo->terminate_event);
+	tinfo->should_terminate = false;
 	tinfo->terminated = false;
 	tinfo->thread = brick_thread_create(fn, tinfo, "mars_aio_%c%d", class, output->index);
 	if (unlikely(!tinfo->thread)) {
@@ -474,10 +475,11 @@ static
 void aio_stop_thread(struct aio_output *output, int i, bool do_submit_dummy)
 {
 	struct aio_threadinfo *tinfo = &output->tinfo[i];
+	struct task_struct *thread = tinfo->thread;
 
-	if (tinfo->thread) {
+	if (thread) {
 		MARS_DBG("stopping thread %d ...\n", i);
-		brick_thread_stop_nowait(tinfo->thread);
+		tinfo->should_terminate = true;
 
 		// workaround for waking up the receiver thread. TODO: check whether signal handlong could do better.
 		if (do_submit_dummy) {
@@ -569,7 +571,7 @@ int aio_sync_thread(void *data)
 	MARS_DBG("sync thread has started on '%s'.\n", output->brick->brick_path);
 	//set_user_nice(current, -20);
 
-	while (!brick_thread_should_stop() || atomic_read(&tinfo->queued_sum) > 0) {
+	while (!tinfo->should_terminate || atomic_read(&tinfo->queued_sum) > 0) {
 		LIST_HEAD(tmp_list);
 		unsigned long flags;
 		int i;
@@ -627,7 +629,7 @@ static int aio_event_thread(void *data)
 	if (unlikely(err < 0))
 		goto err;
 
-	while (!brick_thread_should_stop() || atomic_read(&tinfo->queued_sum) > 0) {
+	while (!tinfo->should_terminate || atomic_read(&tinfo->queued_sum) > 0) {
 		mm_segment_t oldfs;
 		int count;
 		int i;
@@ -842,7 +844,7 @@ static int aio_submit_thread(void *data)
 
 	use_fake_mm();
 
-	while (!brick_thread_should_stop() || atomic_read(&output->read_count) + atomic_read(&output->write_count) + atomic_read(&tinfo->queued_sum) > 0) {
+	while (!tinfo->should_terminate || atomic_read(&output->read_count) + atomic_read(&output->write_count) + atomic_read(&tinfo->queued_sum) > 0) {
 		struct aio_mref_aspect *mref_a;
 		struct mref_object *mref;
 		int sleeptime;

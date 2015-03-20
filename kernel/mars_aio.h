@@ -79,6 +79,7 @@ struct aio_threadinfo {
 	int queued[MARS_PRIO_NR];
 	atomic_t queued_sum;
 	atomic_t total_enqueue_count;
+	bool should_terminate;
 	bool terminated;
 };
 
