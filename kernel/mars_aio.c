@@ -635,6 +635,11 @@ static int aio_event_thread(void *data)
 			.tv_sec = 1,
 		};
 
+		if (unlikely(!(void*)output->ctxp)) {
+			MARS_ERR("Oops, context vanished. queued_sum = %d\n", atomic_read(&tinfo->queued_sum));
+			break;
+		}
+
 		oldfs = get_fs();
 		set_fs(get_ds());
 		/* TODO: don't timeout upon termination.
