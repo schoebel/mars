@@ -671,8 +671,6 @@ typedef enum {
 		_thr;							\
 	})
 
-extern void brick_thread_stop_nowait(struct task_struct *k);
-
 #define brick_thread_stop(_thread)					\
 	do {								\
 		struct task_struct *__thread__ = (_thread);		\
