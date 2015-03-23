@@ -66,6 +66,18 @@ Release Conventions / Branches / Tagnames
 	NO NEW FEATURES, not even minor ones, except when absolutely
 	necessary for a bugfix.
 
+light0.1stable14
+--------
+	* Minor safeguard: modprobe mars will refuse to start when the
+	  cluster UUID is missing.
+	* Minor fix: external race in marsadm resize, only relevant
+	  for scripting.
+	* Minor fix: potential race on plugged IO requests.
+	* Clarify output of marsadm view. Many systematical improvements
+	  and hints.
+	* Add some unevitable macros for scripting / automation.
+	* Various tiny improvements.
+
 light0.1stable13
 --------
 	* Critical safeguard for accidental join-cluster with wrong argument:
