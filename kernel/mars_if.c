@@ -970,6 +970,8 @@ static int if_switch(struct if_brick *brick)
 
 	// brick should be switched off
 	if (!brick->power.button && !brick->power.led_off) {
+		int opened;
+		int plugged;
 		int flying;
 
 		mars_power_led_on((void*)brick, false);
@@ -984,13 +986,20 @@ static int if_switch(struct if_brick *brick)
 			input->q = NULL;
 		}
 #endif
-		if (atomic_read(&brick->open_count) > 0) {
-			MARS_INF("device '%s' is open %d times, cannot shutdown\n", disk->disk_name, atomic_read(&brick->open_count));
+		opened = atomic_read(&brick->open_count);
+		if (unlikely(opened > 0)) {
+			MARS_INF("device '%s' is open %d times, cannot shutdown\n", disk->disk_name, opened);
+			status = -EBUSY;
+			goto done; // don't indicate "off" status
+		}
+		plugged = atomic_read(&input->plugged_count);
+		if (unlikely(plugged > 0)) {
+			MARS_INF("device '%s' has %d plugged requests, cannot shutdown\n", disk->disk_name, plugged);
 			status = -EBUSY;
 			goto done; // don't indicate "off" status
 		}
 		flying = atomic_read(&input->flying_count);
-		if (flying > 0) {
+		if (unlikely(flying > 0)) {
 			MARS_INF("device '%s' has %d flying requests, cannot shutdown\n", disk->disk_name, flying);
 			status = -EBUSY;
 			goto done; // don't indicate "off" status
@@ -999,7 +1008,8 @@ static int if_switch(struct if_brick *brick)
 		del_gendisk(input->disk);
 		/* There might be subtle races */
 		while (atomic_read(&input->flying_count) > 0) {
-			brick_msleep(100);
+			MARS_WRN("device '%s' unexpectedly has %d flying requests\n", disk->disk_name, flying);
+			brick_msleep(1000);
 		}
 		if (input->bdev) {
 			MARS_DBG("calling bdput()\n");
