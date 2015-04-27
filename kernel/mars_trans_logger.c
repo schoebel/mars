@@ -1548,12 +1548,7 @@ void phase0_endio(void *private, int error)
 	orig_mref_a->is_persistent = true;
 	qq_dec_flying(&brick->q_phase[0]);
 
-	/* Pin mref->ref_count so it can't go away
-	 * after _complete().
-	 */
 	_CHECK(orig_mref_a->shadow_ref, err);
-	_mref_get(orig_mref); // must be paired with __trans_logger_ref_put()
-	atomic_inc(&brick->inner_balance_count);
 
 	// signal completion to the upper layer
 	_complete(brick, orig_mref_a, error, false);
@@ -1612,6 +1607,12 @@ bool phase0_startio(struct trans_logger_mref_aspect *orig_mref_a)
 
 	memcpy(data, orig_mref_a->shadow_data, orig_mref->ref_len);
 
+	/* Pin mref->ref_count so it can't go away
+	 * after _complete().
+	 * This may happen rather early in phase0_preio().
+	 */
+	_mref_get(orig_mref); // must be paired with __trans_logger_ref_put()
+	atomic_inc(&brick->inner_balance_count);
 	atomic_inc(&brick->log_fly_count);
 
 	ok = log_finalize(logst, orig_mref->ref_len, phase0_endio, orig_mref_a);
