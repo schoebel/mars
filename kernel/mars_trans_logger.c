@@ -1540,6 +1540,15 @@ void phase0_endio(void *private, int error)
 
 	orig_mref_a = private;
 	CHECK_PTR(orig_mref_a, err);
+
+//      remove_this
+	if (unlikely(cmpxchg(&orig_mref_a->is_endio, false, true))) {
+		MARS_ERR("Sigh this should not happen %p %p\n",
+			 orig_mref_a, orig_mref_a->object);
+		return;
+	}
+
+//      end_remove_this
 	brick = orig_mref_a->my_brick;
 	CHECK_PTR(brick, err);
 	orig_mref = orig_mref_a->object;

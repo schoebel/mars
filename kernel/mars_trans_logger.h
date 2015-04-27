@@ -145,6 +145,7 @@ struct trans_logger_mref_aspect {
 	bool   is_collected;
 	bool   is_fired;
 	bool   is_completed;
+	bool   is_endio;
 	bool   is_persistent;
 	bool   is_emergency;
 	struct timespec stamp;
