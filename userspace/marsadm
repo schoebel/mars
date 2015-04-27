@@ -1723,7 +1723,7 @@ sub delete_res {
 
 sub logrotate_res {
   my ($cmd, $res) = @_;
-  check_primary(@_);
+  check_primary(@_) unless $force;
   my @paths = glob("$mars/resource-$res/log-*-$host") or ldie "cannot find any logfiles\n";
   @paths = sort(@paths);
   my $last = pop(@paths);

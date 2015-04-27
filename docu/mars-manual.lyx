@@ -2770,12 +2770,6 @@ extremely
 \emph default
  high load conditions, you might want to log-rotate serveral times an hour,
  in order to keep the size of each logfile under some practical limit.
- At 1&1 datacenters, we have not yet encountered conditions where that was
- really 
-\emph on
-necessary
-\emph default
-.
 \end_layout
 
 \end_inset
@@ -5358,8 +5352,11 @@ md5
 \family default
  checksums for all data records.
  Any attempt to replay currupted logfiles is refused by MARS.
- In addition, the sequence numbers of log-rotated logfiles are checked for
- contiguity.
+ In addition, the sequence numbers of 
+\family typewriter
+log-rotate
+\family default
+d logfiles are checked for contiguity.
  Finally, the 
 \emph on
 sequence path
@@ -23788,6 +23785,30 @@ $new_nr
 $old_nr
 \family default
  + 1.
+ Without 
+\family typewriter
+--force
+\family default
+, this will only carry out actions at the primary side since it makes no
+ sense on secondaries.
+ With 
+\family typewriter
+--force
+\family default
+, secondaries are 
+\emph on
+trying
+\emph default
+ to 
+\emph on
+remotely
+\emph default
+ trigger a log-rotate, but without any guarantee (likely even a split-brain
+ may result instead, so use this only if you are 
+\emph on
+really
+\emph default
+ desperate).
 \end_layout
 
 \end_inset
