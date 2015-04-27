@@ -4997,7 +4997,6 @@ sub do_all_res {
   my $cmd = shift;
   my $res = shift;
   if ($res eq "all" && $cmd !~ m/show|cat|cluster|set-link|delete-file/) {
-    ldie "For safety reasons, --force is only allowed on explicitly named resources. Combination of 'all' with --force is disallowed!\n" if $force;
     ldie "Cannot combine command '$cmd' with 'all' existing resources - you must explicitly name a single new resource\n" if $cmd =~ m/create|join/;
     my $any_success = 0;
     my $any_member = 0;

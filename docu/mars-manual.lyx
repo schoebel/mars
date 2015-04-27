@@ -4015,7 +4015,7 @@ actual
 secondary
 \family default
  command.
- As soon as a local 
+ As soon as the local 
 \family typewriter
 /dev/mars/mydata
 \family default
@@ -4030,7 +4030,8 @@ marsadm secondary
 \family default
  can lead to a situation where noone is actually in primary role, and noone
  is able to re-enter it due to split brain.
- Such a situation can be avoided by 
+ Such a situation can be resolved by split-brain resolution.
+ You should avoid it in advance by always 
 \emph on
 directly
 \emph default
@@ -4039,7 +4040,7 @@ directly
 secondary
 \family default
  command.
- This behaviour is different from DRBD.
+ This is different from DRBD.
 \end_layout
 
 \begin_layout Standard
@@ -17327,6 +17328,28 @@ uuid
  When communication is impossible due to network outages or bad firewall
  rules, most commands will succeed, but other cluster nodes may take a long
  time to notice your changes.
+\end_layout
+
+\begin_layout Standard
+Instead of executing 
+\family typewriter
+marsadm
+\family default
+ commands serveral times for each resource argument, you may give the special
+ resource argument 
+\family typewriter
+all
+\family default
+.
+ This work even when combined with 
+\family typewriter
+--force
+\family default
+, but be cautious when giving dangerous command combinations like 
+\family typewriter
+marsadm delete-resource --force all
+\family default
+.
 \end_layout
 
 \begin_layout Subsection
