@@ -1467,7 +1467,7 @@ sub leave_cluster {
   while (-f "$mars/ips/ip-$host" && $timeout >= 0) {
     sleep_timeout(3, 1);
   }
-  system("rmmod mars");
+  system("rmmod mars") if $host eq $real_host;
 }
 
 sub create_res {
