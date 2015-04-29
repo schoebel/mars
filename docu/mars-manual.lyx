@@ -17352,6 +17352,33 @@ marsadm delete-resource --force all
 .
 \end_layout
 
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+Beware when combining this with 
+\family typewriter
+--host=somebody
+\family default
+.
+ In some very rare cases, like final destruction of a whole datacenter after
+ an earthquake, you might need a combination like 
+\family typewriter
+marsadm --host=defective delete-resource --force all
+\family default
+.
+ Don't use such combinations if you don't need them 
+\emph on
+really
+\emph default
+! You can easily shoot yourself in your head if you are not carefully operating
+ such commands!
+\end_layout
+
 \begin_layout Subsection
 Resource Creation / Deletion / Modification
 \begin_inset CommandInset label
@@ -18177,7 +18204,16 @@ leave-resource
 \family typewriter
 --force
 \family default
-, increasing the danger to maximum!
+, increasing the danger to maximum! It is even possible to combine 
+\family typewriter
+--force
+\family default
+ with an invalid resource argument and an invalid 
+\family typewriter
+--host=somebodyelse
+\family default
+ argument in order to desperately try to destroy remains of incomplete or
+ pysically damaged hardware.
 \end_layout
 
 \begin_layout Plain Layout
@@ -26855,7 +26891,19 @@ Wait until
 all
 \emph default
  nodes in the cluster have sent a message, or until timeout.
- The default timeout is 30 s (exceptionally) and may be changed by
+ The default timeout is 30 s (exceptionally) and
+\size default
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+Be
+\size scriptsize
+ may be changed by
 \family typewriter
  --timeout=$seconds
 \end_layout

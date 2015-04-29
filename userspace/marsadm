@@ -373,7 +373,10 @@ sub check_id {
   ldie "identifier '$str' is too long (only 63 chars supported according to RFC 1123)" if length($str) > 63;
   if (defined($must_exist) && $must_exist) {
     my $ip_path = "$mars/ips/ip-$str";
-    ldie "host '$str' does not exist in $mars/ips/" unless get_link($ip_path, 1);
+    unless (get_link($ip_path, 1)) {
+      ldie "host '$str' does not exist in $mars/ips/\n" if !$force;
+      lwarn "host '$str' does not exist in $mars/ips/ - hopefully you know what you are doing via --force\n";
+    }
   }
 }
 
@@ -4893,8 +4896,7 @@ foreach my $arg (@ARGV) {
     $threshold = get_size($arg);
     next;
   } elsif ($arg =~ s/--host\s*=\s*([-_A-Za-z0-9]+)/$1/) {
-    check_id($arg);
-    ldie "host '$arg' does not exist in /mars/ips/ip-*\n" unless -l "/mars/ips/ip-$arg";
+    check_id($arg, 1);
     if ($arg ne $host) {
       lprint "ATTENTION: acting as if I were host '$arg'\n";
       lwarn "some commands require local knowledge not available here.\n";
