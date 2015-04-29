@@ -1468,6 +1468,12 @@ sub leave_cluster {
     sleep_timeout(3, 1);
   }
   system("rmmod mars") if $host eq $real_host;
+  foreach my $path (glob("$mars/{,resource-*/}{todo,actual}-*/*-$host")) {
+    unlink($path);
+  }
+  foreach my $path (glob("$mars/{,resource-*/}{todo,actual}-$host")) {
+    rmdir($path); # at least try it
+  }
 }
 
 sub create_res {
