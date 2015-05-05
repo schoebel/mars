@@ -66,6 +66,31 @@ Release Conventions / Branches / Tagnames
 	NO NEW FEATURES, not even minor ones, except when absolutely
 	necessary for a bugfix.
 
+light0.1stable15
+--------
+	* NOTICE: MARS succeeded baptism on fire at 04/22/2015 when a whole
+	  co-location had a partial power blackout, followed by breakdown
+	  of air conditioning, followed by mass hardware defects due to
+	  overheating. MARS showed exactly 0 errors when (emergency)
+	  switching to another datacenter was started in masses.
+	* Major fix of race in transaction logger: the primary could hang
+	  when using very fast hardware, typically after ~24000 operation
+	  hours. The problem was noticed 6 times during a grand total of
+	  more than 1,000,000 operation hours on a mixed hardware park,
+	  showing up only on specific hardware classes. Together with 3
+	  other incidents during early beta phase which also had customer
+	  impact, this means that we have reached a reliability of about
+				  ===> 99.999%
+	  After this fix, the reliability should grow even higher.
+	  A workaround for this bug exists:
+	  # echo 2 > /proc/sys/mars/logger_completion_semantics
+	  Update is only mandatory when you cannot use the workaround.
+	* Minor improvement in marsadm: re-allow --force combined with "all".
+	  This is highly appreciated for speeding up operations / handling
+	  during emergency datacenter switchover.
+	* Various smaller improvements.
+	* Contrib (unsupported): example rollout script for mass rollout.
+
 light0.1stable14
 --------
 	* Minor safeguard: modprobe mars will refuse to start when the
