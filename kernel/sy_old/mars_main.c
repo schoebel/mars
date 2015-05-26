@@ -5764,8 +5764,10 @@ static void exit_main(void)
 
 static int __init init_main(void)
 {
+#ifdef HAS_MARS_PREPATCH
 	extern int min_free_kbytes;
 	int new_limit = 4096;
+#endif
 	struct kstat dummy;
 	int status = mars_stat("/mars/uuid", &dummy, true);
 
@@ -5774,10 +5776,12 @@ static int __init init_main(void)
 		return -ENOENT;
 	}
 
+#ifdef HAS_MARS_PREPATCH
 	// bump the min_free limit
 	if (min_free_kbytes < new_limit)
 		min_free_kbytes = new_limit;
-	
+#endif
+
 	printk(KERN_INFO "loading MARS, BUILDTAG=%s BUILDHOST=%s BUILDDATE=%s\n", BUILDTAG, BUILDHOST, BUILDDATE);
 
 	init_say(); // this must come first
