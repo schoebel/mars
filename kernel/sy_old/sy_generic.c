@@ -156,6 +156,54 @@ static int __path_parent(const char *name, struct path *path, unsigned flags)
 #endif
 }
 
+/* code is blindly stolen from symlinkat()
+ * and later adapted to various kernels
+ */
+int _compat_symlink(const char __user *oldname,
+		    const char __user *newname)
+{
+	const int newdfd = AT_FDCWD;
+	int error;
+	char *from;
+	struct dentry *dentry;
+	struct path path;
+	unsigned int lookup_flags = 0;
+
+	from = (char *)oldname;
+
+#ifdef __HAS_RETRY_ESTALE
+retry:
+#endif
+	dentry = user_path_create(newdfd, newname, &path, lookup_flags);
+	error = PTR_ERR(dentry);
+	if (IS_ERR(dentry))
+		goto out_putname;
+
+#ifndef __NEW_PATH_CREATE
+	error = mnt_want_write(path.mnt);
+	if (error)
+		goto out_dput;
+#endif
+	error = vfs_symlink(path.dentry->d_inode, dentry, from);
+#ifdef __NEW_PATH_CREATE
+	done_path_create(&path, dentry);
+#else
+	mnt_drop_write(path.mnt);
+out_dput:
+	dput(dentry);
+	mutex_unlock(&path.dentry->d_inode->i_mutex);
+	path_put(&path);
+#endif
+#ifdef __HAS_RETRY_ESTALE
+	if (retry_estale(error, lookup_flags)) {
+		lookup_flags |= LOOKUP_REVAL;
+		goto retry;
+	}
+#endif
+out_putname:
+	return error;
+}
+
 #endif
 //      end_remove_this
 /////////////////////////////////////////////////////////////////////
@@ -315,7 +363,11 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct timespec
 
 	(void)sys_unlink(tmp);
 
+#ifdef HAS_MARS_PREPATCH
 	status = sys_symlink(oldpath, tmp);
+#else
+	status = _compat_symlink(oldpath, tmp);
+#endif
 
 	if (status >= 0) {
 #ifdef HAS_MARS_PREPATCH

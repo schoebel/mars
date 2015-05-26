@@ -41,6 +41,12 @@
 
 #else /* HAS_MARS_PREPATCH */
 
+#include <linux/compiler.h>
+
+extern int _compat_symlink(
+	const char __user *oldname,
+	const char __user *newname);
+
 #endif /* HAS_MARS_PREPATCH */
 
 #endif /* _MARS_COMPAT */
