@@ -143,6 +143,38 @@ out_putname:
 	return error;
 }
 
+/* code is stolen from mkdirat()
+ */
+int _provisionary_wrapper_to_vfs_mkdir(const char __user *pathname,
+				       int mode)
+{
+	const int dfd = AT_FDCWD;
+	struct dentry *dentry;
+	struct path path;
+	int error;
+
+	dentry = user_path_create(dfd, pathname, &path, 1);
+	if (IS_ERR(dentry))
+		return PTR_ERR(dentry);
+
+	if (!IS_POSIXACL(path.dentry->d_inode))
+		mode &= ~current_umask();
+	error = mnt_want_write(path.mnt);
+	if (error)
+		goto out_dput;
+	error = security_path_mkdir(&path, dentry, mode);
+	if (error)
+		goto out_drop_write;
+	error = vfs_mkdir(path.dentry->d_inode, dentry, mode);
+out_drop_write:
+	mnt_drop_write(path.mnt);
+out_dput:
+	dput(dentry);
+	mutex_unlock(&path.dentry->d_inode->i_mutex);
+	path_put(&path);
+	return error;
+}
+
 //      end_remove_this
 /////////////////////////////////////////////////////////////////////
 
@@ -191,7 +223,7 @@ int mars_mkdir(const char *path)
 	
 	oldfs = get_fs();
 	set_fs(get_ds());
-	status = sys_mkdir(path, 0700);
+	status = _provisionary_wrapper_to_vfs_mkdir(path, 0700);
 	set_fs(oldfs);
 
 	return status;
