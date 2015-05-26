@@ -1885,11 +1885,6 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 		update_mtime = timespec_compare(&remote_dent->new_stat.mtime, &local_stat.mtime) > 0;
 		update_ctime = timespec_compare(&remote_dent->new_stat.ctime, &local_stat.ctime) > 0;
 
-		if (__kuid_val(remote_dent->new_stat.uid) != __kuid_val(local_stat.uid) && update_ctime) {
-			MARS_DBG("lchown '%s' %d -> %d\n", remote_dent->d_path, __kuid_val(local_stat.uid), __kuid_val(remote_dent->new_stat.uid));
-			mars_lchown(remote_dent->d_path, __kuid_val(remote_dent->new_stat.uid));
-			run_trigger = true;
-		}
 	}
 
 	if (S_ISDIR(remote_dent->new_stat.mode)) {
@@ -1900,9 +1895,6 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 		if (!stat_ok) {
 			status = mars_mkdir(remote_dent->d_path);
 			MARS_DBG("create directory '%s' status = %d\n", remote_dent->d_path, status);
-			if (status >= 0) {
-				mars_lchown(remote_dent->d_path, __kuid_val(remote_dent->new_stat.uid));
-			}
 		}
 	} else if (S_ISLNK(remote_dent->new_stat.mode) && remote_dent->new_link) {
 		if (!stat_ok || update_mtime) {

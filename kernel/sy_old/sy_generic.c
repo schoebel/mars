@@ -222,7 +222,6 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct timespec
 	status = sys_symlink(oldpath, tmp);
 
 	if (status >= 0) {
-		sys_lchown(tmp, uid, 0);
 		memcpy(&times[1], &times[0], sizeof(struct timespec));
 		status = do_utimes(AT_FDCWD, tmp, times, AT_SYMLINK_NOFOLLOW);
 	}
@@ -307,20 +306,6 @@ int mars_rename(const char *oldpath, const char *newpath)
 	return status;
 }
 EXPORT_SYMBOL_GPL(mars_rename);
-
-int mars_lchown(const char *path, uid_t uid)
-{
-	mm_segment_t oldfs;
-	int status;
-	
-	oldfs = get_fs();
-	set_fs(get_ds());
-	status = sys_lchown(path, uid, 0);
-	set_fs(oldfs);
-
-	return status;
-}
-EXPORT_SYMBOL_GPL(mars_lchown);
 
 loff_t _compute_space(struct kstatfs *kstatfs, loff_t raw_val)
 {
