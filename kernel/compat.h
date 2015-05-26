@@ -33,6 +33,9 @@
 
 #ifdef __USE_COMPAT
 
+int _compat_symlink(const char __user *oldname,
+		    const char __user *newname);
+
 #else
 #include <linux/syscalls.h>
 #endif
