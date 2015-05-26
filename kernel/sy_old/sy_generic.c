@@ -314,7 +314,9 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct timespec
 	status = sys_symlink(oldpath, tmp);
 
 	if (status >= 0) {
+#ifdef HAS_MARS_PREPATCH
 		sys_lchown(tmp, uid, 0);
+#endif
 		memcpy(&times[1], &times[0], sizeof(struct timespec));
 		status = do_utimes(AT_FDCWD, tmp, times, AT_SYMLINK_NOFOLLOW);
 	}
@@ -402,6 +404,7 @@ EXPORT_SYMBOL_GPL(mars_rename);
 
 int mars_chmod(const char *path, mode_t mode)
 {
+#ifdef HAS_MARS_PREPATCH
 	mm_segment_t oldfs;
 	int status;
 	
@@ -411,11 +414,15 @@ int mars_chmod(const char *path, mode_t mode)
 	set_fs(oldfs);
 
 	return status;
+#else
+	return -ENOSYS;
+#endif
 }
 EXPORT_SYMBOL_GPL(mars_chmod);
 
 int mars_lchown(const char *path, uid_t uid)
 {
+#ifdef HAS_MARS_PREPATCH
 	mm_segment_t oldfs;
 	int status;
 	
@@ -425,6 +432,9 @@ int mars_lchown(const char *path, uid_t uid)
 	set_fs(oldfs);
 
 	return status;
+#else
+	return -ENOSYS;
+#endif
 }
 EXPORT_SYMBOL_GPL(mars_lchown);
 
