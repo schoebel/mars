@@ -204,6 +204,50 @@ out_putname:
 	return error;
 }
 
+/* code is stolen from mkdirat()
+ */
+int _compat_mkdir(const char __user *pathname,
+		  int mode)
+{
+	const int dfd = AT_FDCWD;
+	struct dentry *dentry;
+	struct path path;
+	int error;
+	unsigned int lookup_flags = LOOKUP_DIRECTORY;
+
+#ifdef __HAS_RETRY_ESTALE
+retry:
+#endif
+	dentry = user_path_create(dfd, pathname, &path, lookup_flags);
+	if (IS_ERR(dentry))
+		return PTR_ERR(dentry);
+
+	if (!IS_POSIXACL(path.dentry->d_inode))
+		mode &= ~current_umask();
+#ifndef __NEW_PATH_CREATE
+	error = mnt_want_write(path.mnt);
+	if (error)
+		goto out_dput;
+#endif
+	error = vfs_mkdir(path.dentry->d_inode, dentry, mode);
+#ifdef __NEW_PATH_CREATE
+	done_path_create(&path, dentry);
+#else
+	mnt_drop_write(path.mnt);
+out_dput:
+	dput(dentry);
+	mutex_unlock(&path.dentry->d_inode->i_mutex);
+	path_put(&path);
+#endif
+#ifdef __HAS_RETRY_ESTALE
+	if (retry_estale(error, lookup_flags)) {
+		lookup_flags |= LOOKUP_REVAL;
+		goto retry;
+	}
+#endif
+	return error;
+}
+
 #endif
 //      end_remove_this
 /////////////////////////////////////////////////////////////////////
@@ -279,7 +323,11 @@ int mars_mkdir(const char *path)
 	
 	oldfs = get_fs();
 	set_fs(get_ds());
+#ifdef HAS_MARS_PREPATCH
 	status = sys_mkdir(path, 0700);
+#else
+	status = _compat_mkdir(path, 0700);
+#endif
 	set_fs(oldfs);
 
 	return status;

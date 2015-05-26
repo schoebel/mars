@@ -47,6 +47,10 @@ extern int _compat_symlink(
 	const char __user *oldname,
 	const char __user *newname);
 
+extern int _compat_mkdir(
+	const char __user *pathname,
+	int mode);
+
 #endif /* HAS_MARS_PREPATCH */
 
 #endif /* _MARS_COMPAT */
