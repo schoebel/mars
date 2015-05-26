@@ -308,20 +308,6 @@ int mars_rename(const char *oldpath, const char *newpath)
 }
 EXPORT_SYMBOL_GPL(mars_rename);
 
-int mars_chmod(const char *path, mode_t mode)
-{
-	mm_segment_t oldfs;
-	int status;
-	
-	oldfs = get_fs();
-	set_fs(get_ds());
-	status = sys_chmod(path, mode);
-	set_fs(oldfs);
-
-	return status;
-}
-EXPORT_SYMBOL_GPL(mars_chmod);
-
 int mars_lchown(const char *path, uid_t uid)
 {
 	mm_segment_t oldfs;
