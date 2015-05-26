@@ -5645,8 +5645,6 @@ static void exit_light(void)
 
 static int __init init_light(void)
 {
-	extern int min_free_kbytes;
-	int new_limit = 4096;
 	struct kstat dummy;
 	int status = mars_stat("/mars/uuid", &dummy, true);
 
@@ -5655,10 +5653,6 @@ static int __init init_light(void)
 		return -ENOENT;
 	}
 
-	// bump the min_free limit
-	if (min_free_kbytes < new_limit)
-		min_free_kbytes = new_limit;
-	
 	printk(KERN_INFO "loading MARS, BUILDTAG=%s BUILDHOST=%s BUILDDATE=%s\n", BUILDTAG, BUILDHOST, BUILDDATE);
 
 	init_say(); // this must come first
