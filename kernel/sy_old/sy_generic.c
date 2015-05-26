@@ -240,6 +240,7 @@ EXPORT_SYMBOL_GPL(mars_mkdir);
 
 int mars_rmdir(const char *path)
 {
+#ifdef HAS_MARS_PREPATCH
 	mm_segment_t oldfs;
 	int status;
 	
@@ -249,6 +250,9 @@ int mars_rmdir(const char *path)
 	set_fs(oldfs);
 
 	return status;
+#else
+	return -ENOSYS;
+#endif
 }
 EXPORT_SYMBOL_GPL(mars_rmdir);
 
