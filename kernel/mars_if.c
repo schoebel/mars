@@ -62,6 +62,12 @@
 #include "lib_limiter.h"
 
 //      remove_this
+#ifndef MARS_MAJOR
+#define MARS_MAJOR (DRBD_MAJOR + 1)
+#endif
+
+//      end_remove_this
+//      remove_this
 #ifdef bio_end_sector
 #define HAS_VOID_RELEASE
 #endif
