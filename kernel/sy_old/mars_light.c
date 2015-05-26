@@ -4587,13 +4587,8 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 		MARS_DBG("target '%s' does no longer exist\n", dent->new_link);
 	}
 	if (to_delete) {
-		if (S_ISDIR(to_delete->mode)) {
-			status = mars_rmdir(dent->new_link);
-			MARS_DBG("rmdir '%s', status = %d\n", dent->new_link, status);
-		} else {
-			status = mars_unlink(dent->new_link);
-			MARS_DBG("unlink '%s', status = %d\n", dent->new_link, status);
-		}
+		status = mars_unlink(dent->new_link);
+		MARS_DBG("unlink '%s', status = %d\n", dent->new_link, status);
 	}
 
  ok:	

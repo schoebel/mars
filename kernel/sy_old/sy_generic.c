@@ -230,20 +230,6 @@ int mars_mkdir(const char *path)
 }
 EXPORT_SYMBOL_GPL(mars_mkdir);
 
-int mars_rmdir(const char *path)
-{
-	mm_segment_t oldfs;
-	int status;
-	
-	oldfs = get_fs();
-	set_fs(get_ds());
-	status = sys_rmdir(path);
-	set_fs(oldfs);
-
-	return status;
-}
-EXPORT_SYMBOL_GPL(mars_rmdir);
-
 int mars_unlink(const char *path)
 {
 	mm_segment_t oldfs;
