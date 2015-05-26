@@ -34,6 +34,7 @@
 #include <linux/file.h>
 #include <linux/blkdev.h>
 #include <linux/fs.h>
+#include <linux/mount.h>
 #include <linux/utsname.h>
 
 #include "strategy.h"
@@ -97,6 +98,52 @@ const struct meta mars_dent_meta[] = {
 };
 EXPORT_SYMBOL_GPL(mars_dent_meta);
 
+//      remove_this
+/////////////////////////////////////////////////////////////////////
+
+/* The _provisionary_*() functions will be removed upstreams!
+ * They serve the only purpose for
+ */
+
+/* code is stolen from symlinkat()
+ */
+int _provisionary_wrapper_to_vfs_symlink(const char __user *oldname,
+					 const char __user *newname)
+{
+	const int newdfd = AT_FDCWD;
+	int error;
+	char *from;
+	struct dentry *dentry;
+	struct path path;
+
+	from = getname(oldname);
+	if (IS_ERR(from))
+		return PTR_ERR(from);
+
+	dentry = user_path_create(newdfd, newname, &path, 0);
+	error = PTR_ERR(dentry);
+	if (IS_ERR(dentry))
+		goto out_putname;
+
+	error = mnt_want_write(path.mnt);
+	if (error)
+		goto out_dput;
+	error = security_path_symlink(&path, dentry, from);
+	if (error)
+		goto out_drop_write;
+	error = vfs_symlink(path.dentry->d_inode, dentry, from);
+out_drop_write:
+	mnt_drop_write(path.mnt);
+out_dput:
+	dput(dentry);
+	mutex_unlock(&path.dentry->d_inode->i_mutex);
+	path_put(&path);
+out_putname:
+	putname(from);
+	return error;
+}
+
+//      end_remove_this
 /////////////////////////////////////////////////////////////////////
 
 // some helpers
@@ -219,7 +266,7 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct timespec
 
 	(void)sys_unlink(tmp);
 
-	status = sys_symlink(oldpath, tmp);
+	status = _provisionary_wrapper_to_vfs_symlink(oldpath, tmp);
 
 	if (status >= 0) {
 		memcpy(&times[1], &times[0], sizeof(struct timespec));
