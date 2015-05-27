@@ -110,7 +110,8 @@ EXPORT_SYMBOL_GPL(mars_dent_meta);
 /* code is stolen from symlinkat()
  */
 int _provisionary_wrapper_to_vfs_symlink(const char __user *oldname,
-					 const char __user *newname)
+					 const char __user *newname,
+					 struct timespec *mtime)
 {
 	const int newdfd = AT_FDCWD;
 	int error;
@@ -134,6 +135,16 @@ int _provisionary_wrapper_to_vfs_symlink(const char __user *oldname,
 	if (error)
 		goto out_drop_write;
 	error = vfs_symlink(path.dentry->d_inode, dentry, from);
+	if (error >= 0 && mtime) {
+		struct iattr iattr = {
+			.ia_valid = ATTR_MTIME | ATTR_MTIME_SET,
+			.ia_mtime.tv_sec = mtime->tv_sec,
+			.ia_mtime.tv_nsec = mtime->tv_nsec,
+		};
+
+		error = notify_change(dentry, &iattr);
+	}
+
 out_drop_write:
 	mnt_drop_write(path.mnt);
 out_dput:
@@ -390,12 +401,7 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct timespec
 
 	(void)_provisionary_wrapper_to_vfs_unlink(tmp);
 
-	status = _provisionary_wrapper_to_vfs_symlink(oldpath, tmp);
-
-	if (status >= 0) {
-		memcpy(&times[1], &times[0], sizeof(struct timespec));
-		status = do_utimes(AT_FDCWD, tmp, times, AT_SYMLINK_NOFOLLOW);
-	}
+	status = _provisionary_wrapper_to_vfs_symlink(oldpath, tmp, &times[0]);
 
 	if (status >= 0) {
 		set_lamport(&times[0]);
