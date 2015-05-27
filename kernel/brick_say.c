@@ -47,6 +47,8 @@
 
 #include <asm/uaccess.h>
 
+#include "provisionary_wrapper.h"
+
 #ifndef GFP_BRICK
 #define GFP_BRICK GFP_NOIO
 #endif
@@ -715,7 +717,7 @@ void _rollover_channel(struct say_channel *ch)
 			
 			oldfs = get_fs();
 			set_fs(get_ds());
-			sys_rename(old, new);
+			_provisionary_wrapper_to_vfs_rename(old, new);
 			set_fs(oldfs);
 		}
 		

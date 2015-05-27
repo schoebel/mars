@@ -47,6 +47,8 @@
 #include <linux/kthread.h>
 #include <linux/statfs.h>
 
+#include "../provisionary_wrapper.h"
+
 #define SKIP_BIO false
 
 //      remove_this
@@ -172,6 +174,68 @@ out_dput:
 	dput(dentry);
 	mutex_unlock(&path.dentry->d_inode->i_mutex);
 	path_put(&path);
+	return error;
+}
+
+/* HACK: provisionary wrapper having some restrictions:
+ *  - oldname and newname must reside in the same directory
+ *  - standard case, no mountpoints inbetween
+ *  - no full protection against races with concurrent renames
+ *    (they simply don't occur at all because of single-threadedness)
+ *  - no security checks (we are anyway called from kernel code)
+ *
+ * THIS IS NO FINAL SOLUTION!
+ */
+int _provisionary_wrapper_to_vfs_rename(const char __user *oldname,
+					const char __user *newname)
+{
+	struct path oldpath;
+	struct path newpath;
+	struct dentry *old_dentry;
+	struct dentry *new_dentry;
+	struct dentry *trap;
+	struct mutex *to_unlock = NULL;
+	int error;
+
+	error = kern_path(oldname, 0, &oldpath);
+	if (unlikely(error))
+		goto exit;
+
+	old_dentry = oldpath.dentry;
+
+	new_dentry = kern_path_create(AT_FDCWD, newname, &newpath, 0);
+	error = PTR_ERR(new_dentry);
+	if (unlikely(IS_ERR(new_dentry))) {
+		if (error == -EEXIST) {
+			error = kern_path(newname, 0, &newpath);
+		}
+		if (error)
+			goto exit1;
+		new_dentry = newpath.dentry;
+		dget(new_dentry);
+	} else {
+		to_unlock = &newpath.dentry->d_inode->i_mutex;
+		mutex_unlock(to_unlock);
+	}
+
+	trap = lock_rename(new_dentry->d_parent, old_dentry->d_parent);
+
+	error = mnt_want_write(oldpath.mnt);
+	if (error)
+		goto exit2;
+
+	error = vfs_rename(old_dentry->d_parent->d_inode, old_dentry,
+			   new_dentry->d_parent->d_inode, new_dentry);
+
+	mnt_drop_write(oldpath.mnt);
+
+exit2:
+	unlock_rename(new_dentry->d_parent, old_dentry->d_parent);
+	dput(new_dentry);
+	path_put(&newpath);
+exit1:
+	path_put(&oldpath);
+exit:
 	return error;
 }
 
@@ -365,7 +429,7 @@ int mars_rename(const char *oldpath, const char *newpath)
 	
 	oldfs = get_fs();
 	set_fs(get_ds());
-	status = sys_rename(oldpath, newpath);
+	status = _provisionary_wrapper_to_vfs_rename(oldpath, newpath);
 	set_fs(oldfs);
 
 	return status;
