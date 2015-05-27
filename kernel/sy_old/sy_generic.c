@@ -164,7 +164,8 @@ static int __path_parent(const char *name, struct path *path, unsigned flags)
  * and later adapted to various kernels
  */
 int _compat_symlink(const char __user *oldname,
-		    const char __user *newname)
+		    const char __user *newname,
+		    struct timespec *mtime)
 {
 	const int newdfd = AT_FDCWD;
 	int error;
@@ -189,6 +190,21 @@ retry:
 		goto out_dput;
 #endif
 	error = vfs_symlink(path.dentry->d_inode, dentry, from);
+	if (error >= 0 && mtime) {
+		struct iattr iattr = {
+			.ia_valid = ATTR_MTIME | ATTR_MTIME_SET | ATTR_TIMES_SET,
+			.ia_mtime.tv_sec = mtime->tv_sec,
+			.ia_mtime.tv_nsec = mtime->tv_nsec,
+		};
+
+		mutex_lock(&dentry->d_inode->i_mutex);
+#ifdef FL_DELEG
+		error = notify_change(dentry, &iattr, NULL);
+#else
+		error = notify_change(dentry, &iattr);
+#endif
+		mutex_unlock(&dentry->d_inode->i_mutex);
+	}
 #ifdef __NEW_PATH_CREATE
 	done_path_create(&path, dentry);
 #else
@@ -641,18 +657,15 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct timespec
 #ifdef HAS_MARS_PREPATCH
 	(void)sys_unlink(tmp);
 	status = sys_symlink(oldpath, tmp);
-#else
-	(void)_compat_unlink(tmp);
-	status = _compat_symlink(oldpath, tmp);
-#endif
-
 	if (status >= 0) {
-#ifdef HAS_MARS_PREPATCH
 		sys_lchown(tmp, uid, 0);
-#endif
 		memcpy(&times[1], &times[0], sizeof(struct timespec));
 		status = do_utimes(AT_FDCWD, tmp, times, AT_SYMLINK_NOFOLLOW);
 	}
+#else
+	(void)_compat_unlink(tmp);
+	status = _compat_symlink(oldpath, tmp, &times[0]);
+#endif
 
 	if (status >= 0) {
 		set_lamport(&times[0]);

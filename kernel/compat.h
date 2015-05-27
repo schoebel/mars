@@ -42,10 +42,12 @@
 #else /* HAS_MARS_PREPATCH */
 
 #include <linux/compiler.h>
+#include <linux/time.h>
 
 extern int _compat_symlink(
 	const char __user *oldname,
-	const char __user *newname);
+	const char __user *newname,
+	struct timespec *mtime);
 
 extern int _compat_mkdir(
 	const char __user *pathname,
