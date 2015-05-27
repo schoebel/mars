@@ -397,6 +397,96 @@ exit:
 	return error;
 }
 
+/* This has some restrictions:
+ *  - standard case, no mountpoints inbetween
+ *  - no security checks (we are anyway called from kernel code)
+ */
+int _compat_unlink(const char *pathname)
+{
+	struct path path;
+	struct dentry *parent;
+	struct dentry *dentry;
+	struct inode *inode = NULL;
+	const char *one;
+	const char *tmp;
+	int error;
+	unsigned int lookup_flags = 0;
+
+#ifdef __HAS_RETRY_ESTALE
+retry:
+#endif
+	error = __path_parent(pathname, &path, lookup_flags);
+	if (unlikely(error))
+		goto exit;
+
+	parent = path.dentry;
+	if (unlikely(d_is_negative(parent)))
+		goto exit1;
+
+	one = pathname;
+	for (;;) {
+		for (tmp = one; *tmp && *tmp != '/'; tmp++)
+			/* empty */;
+		if (!*tmp)
+			break;
+		one = tmp + 1;
+	}
+
+#ifdef __NEW_PATH_CREATE
+	error = mnt_want_write(path.mnt);
+	if (error)
+		goto exit1;
+#endif
+	mutex_lock_nested(&parent->d_inode->i_mutex, I_MUTEX_PARENT);
+
+	dentry = lookup_one_len(one, parent, strlen(one));
+	error = PTR_ERR(dentry);
+	if (unlikely(IS_ERR(dentry)))
+		goto exit2;
+	error = -ENOENT;
+	if (unlikely(d_is_negative(dentry)))
+		goto exit3;
+
+	inode = dentry->d_inode;
+	ihold(inode);
+
+#ifndef __NEW_PATH_CREATE
+	error = mnt_want_write(path.mnt);
+	if (error)
+		goto exit3;
+#endif
+
+#ifdef FL_DELEG
+	error = vfs_unlink(parent->d_inode, dentry, NULL);
+#else
+	error = vfs_unlink(parent->d_inode, dentry);
+#endif
+
+#ifndef __NEW_PATH_CREATE
+	mnt_drop_write(path.mnt);
+#endif
+exit3:
+	dput(dentry);
+exit2:
+	mutex_unlock(&parent->d_inode->i_mutex);
+	if (inode)
+		iput(inode);
+#ifdef __NEW_PATH_CREATE
+	mnt_drop_write(path.mnt);
+#endif
+exit1:
+	path_put(&path);
+exit:
+#ifdef __HAS_RETRY_ESTALE
+	if (retry_estale(error, lookup_flags)) {
+		lookup_flags |= LOOKUP_REVAL;
+		inode = NULL;
+		goto retry;
+	}
+#endif
+	return error;
+}
+
 #endif
 //      end_remove_this
 /////////////////////////////////////////////////////////////////////
@@ -464,7 +554,11 @@ int mars_unlink(const char *path)
 	
 	oldfs = get_fs();
 	set_fs(get_ds());
+#ifdef __USE_COMPAT
+	status = _compat_unlink(path);
+#else
 	status = sys_unlink(path);
+#endif
 	set_fs(oldfs);
 
 	return status;
@@ -509,11 +603,11 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct timespec
 		times[0].tv_nsec = 1;
 	}
 
-	(void)sys_unlink(tmp);
-
 #ifdef __USE_COMPAT
+	(void)_compat_unlink(tmp);
 	status = _compat_symlink(oldpath, tmp, &times[0]);
 #else
+	(void)sys_unlink(tmp);
 	status = sys_symlink(oldpath, tmp);
  	if (status >= 0) {
 		memcpy(&times[1], &times[0], sizeof(struct timespec));

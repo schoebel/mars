@@ -43,6 +43,8 @@ int _compat_mkdir(const char __user *pathname,
 int _compat_rename(const char __user *oldname,
 		   const char __user *newname);
 
+int _compat_unlink(const char __user *pathname);
+
 #else
 #include <linux/syscalls.h>
 #endif
