@@ -10,4 +10,6 @@ int _provisionary_wrapper_to_vfs_mkdir(const char __user *pathname,
 int _provisionary_wrapper_to_vfs_rename(const char __user *oldname,
 					const char __user *newname);
 
+int _provisionary_wrapper_to_vfs_unlink(const char __user *pathname);
+
 #endif

@@ -239,6 +239,48 @@ exit:
 	return error;
 }
 
+/* HACK: provisionary wrapper having some restrictions:
+ *  - standard case, no mountpoints inbetween
+ *  - no full protection against races with concurrent operations
+ *    (they simply don't occur at all because of single-threadedness)
+ *  - no security checks (we are anyway called from kernel code)
+ *
+ * THIS IS NO FINAL SOLUTION!
+ */
+int _provisionary_wrapper_to_vfs_unlink(const char __user *pathname)
+{
+	struct path path;
+	struct dentry *parent;
+	struct inode *inode;
+	int error;
+
+	error = kern_path(pathname, 0, &path);
+	if (unlikely(error))
+		goto exit;
+
+	parent = path.dentry->d_parent;
+	mutex_lock_nested(&parent->d_inode->i_mutex, I_MUTEX_PARENT);
+
+	inode = path.dentry->d_inode;
+	ihold(inode);
+
+	error = mnt_want_write(path.mnt);
+	if (error)
+		goto exit1;
+
+	error = vfs_unlink(parent->d_inode, path.dentry);
+
+	mnt_drop_write(path.mnt);
+exit1:
+	mutex_unlock(&parent->d_inode->i_mutex);
+
+	iput(inode);
+
+	path_put(&path);
+exit:
+	return error;
+}
+
 //      end_remove_this
 /////////////////////////////////////////////////////////////////////
 
@@ -301,7 +343,7 @@ int mars_unlink(const char *path)
 	
 	oldfs = get_fs();
 	set_fs(get_ds());
-	status = sys_unlink(path);
+	status = _provisionary_wrapper_to_vfs_unlink(path);
 	set_fs(oldfs);
 
 	return status;
@@ -346,7 +388,7 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct timespec
 		times[0].tv_nsec = 1;
 	}
 
-	(void)sys_unlink(tmp);
+	(void)_provisionary_wrapper_to_vfs_unlink(tmp);
 
 	status = _provisionary_wrapper_to_vfs_symlink(oldpath, tmp);
 
