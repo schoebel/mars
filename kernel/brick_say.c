@@ -717,7 +717,11 @@ void _rollover_channel(struct say_channel *ch)
 			
 			oldfs = get_fs();
 			set_fs(get_ds());
+#ifdef __USE_COMPAT
+			_compat_rename(old, new);
+#else
 			sys_rename(old, new);
+#endif
 			set_fs(oldfs);
 		}
 		

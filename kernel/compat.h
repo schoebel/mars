@@ -39,6 +39,9 @@ int _compat_symlink(const char __user *oldname,
 int _compat_mkdir(const char __user *pathname,
 		  int mode);
 
+int _compat_rename(const char __user *oldname,
+		   const char __user *newname);
+
 #else
 #include <linux/syscalls.h>
 #endif
