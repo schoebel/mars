@@ -51,6 +51,10 @@ extern int _compat_mkdir(
 	const char __user *pathname,
 	int mode);
 
+extern int _compat_rename(
+	const char __user *oldname,
+	const char __user *newname);
+
 #endif /* HAS_MARS_PREPATCH */
 
 #endif /* _MARS_COMPAT */

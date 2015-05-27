@@ -68,6 +68,10 @@
 #define __HAS_NEW_FILLDIR_T
 #endif
 
+#ifdef RENAME_NOREPLACE
+#define __HAS_RENAME2
+#endif
+
 //      end_remove_this
 /////////////////////////////////////////////////////////////////////
 
@@ -245,6 +249,137 @@ out_dput:
 		goto retry;
 	}
 #endif
+	return error;
+}
+
+/* This has some restrictions:
+ *  - oldname and newname must reside in the same directory
+ *  - standard case, no mountpoints inbetween
+ *  - no security checks (we are anyway called from kernel code)
+ */
+int _compat_rename(const char *oldname,
+		   const char *newname)
+{
+	struct path oldpath;
+	struct path newpath;
+	struct dentry *old_dir;
+	struct dentry *new_dir;
+	struct dentry *old_dentry;
+	struct dentry *new_dentry;
+	struct dentry *trap;
+	const char *old_one;
+	const char *new_one;
+	const char *tmp;
+	unsigned int lookup_flags = 0;
+#ifdef __HAS_RETRY_ESTALE
+	bool should_retry = false;
+#endif
+	int error;
+
+#ifdef __HAS_RETRY_ESTALE
+retry:
+#endif
+	error = __path_parent(oldname, &oldpath, lookup_flags);
+	if (unlikely(error))
+		goto exit;
+	old_dir = oldpath.dentry;
+
+	error = __path_parent(newname, &newpath, lookup_flags);
+	if (unlikely(error))
+		goto exit1;
+	new_dir = newpath.dentry;
+
+	old_one = oldname;
+	for (;;) {
+		for (tmp = old_one; *tmp && *tmp != '/'; tmp++)
+			/* empty */;
+		if (!*tmp)
+			break;
+		old_one = tmp + 1;
+	}
+
+	new_one = newname;
+	for (;;) {
+		for (tmp = new_one; *tmp && *tmp != '/'; tmp++)
+			/* empty */;
+		if (!*tmp)
+			break;
+		new_one = tmp + 1;
+	}
+
+#ifdef __NEW_PATH_CREATE
+	error = mnt_want_write(oldpath.mnt);
+	if (unlikely(error))
+		goto exit2;
+#endif
+	trap = lock_rename(new_dir, old_dir);
+
+	old_dentry = lookup_one_len(old_one, old_dir, strlen(old_one));
+	error = PTR_ERR(old_dentry);
+	if (unlikely(IS_ERR(old_dentry)))
+		goto out_unlock_rename;
+	error = -ENOENT;
+	if (unlikely(d_is_negative(old_dentry)))
+		goto out_dput_old;
+	error = -EINVAL;
+	if (unlikely(old_dentry == trap))
+		goto out_dput_old;
+
+	new_dentry = lookup_one_len(new_one, new_dir, strlen(new_one));
+	error = PTR_ERR(new_dentry);
+	if (unlikely(IS_ERR(new_dentry)))
+		goto out_dput_old;
+	error = -ENOTEMPTY;
+	if (unlikely(new_dentry == trap))
+		goto out_dput_new;
+
+#ifndef __NEW_PATH_CREATE
+	error = mnt_want_write(oldpath.mnt);
+	if (unlikely(error))
+		goto out_dput_new;
+#endif
+
+#ifdef __HAS_RENAME2
+	error = vfs_rename(old_dir->d_inode, old_dentry,
+			   new_dir->d_inode, new_dentry, NULL, 0);
+#elif defined(FL_DELEG)
+	error = vfs_rename(old_dir->d_inode, old_dentry,
+			   new_dir->d_inode, new_dentry, NULL);
+#else
+	error = vfs_rename(old_dir->d_inode, old_dentry,
+			   new_dir->d_inode, new_dentry);
+#endif
+
+#ifndef __NEW_PATH_CREATE
+	mnt_drop_write(oldpath.mnt);
+#endif
+
+out_dput_new:
+	dput(new_dentry);
+
+out_dput_old:
+	dput(old_dentry);
+
+out_unlock_rename:
+	unlock_rename(new_dir, old_dir);
+#ifdef __NEW_PATH_CREATE
+	mnt_drop_write(oldpath.mnt);
+exit2:
+#endif
+#ifdef __HAS_RETRY_ESTALE
+	if (retry_estale(error, lookup_flags))
+		should_retry = true;
+#endif
+	path_put(&newpath);
+exit1:
+	path_put(&oldpath);
+#ifdef __HAS_RETRY_ESTALE
+	if (should_retry) {
+		lookup_flags |= LOOKUP_REVAL;
+		goto retry;
+	}
+#endif
+exit:
 	return error;
 }
 
@@ -499,7 +634,11 @@ int mars_rename(const char *oldpath, const char *newpath)
 	
 	oldfs = get_fs();
 	set_fs(get_ds());
+#ifdef HAS_MARS_PREPATCH
 	status = sys_rename(oldpath, newpath);
+#else
+	status = _compat_rename(oldpath, newpath);
+#endif
 	set_fs(oldfs);
 
 	return status;
