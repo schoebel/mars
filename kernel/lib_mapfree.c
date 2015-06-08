@@ -48,7 +48,6 @@ DECLARE_RWSEM(mapfree_mutex);
 static
 LIST_HEAD(mapfree_list);
 
-static
 void mapfree_pages(struct mapfree_info *mf, int grace_keep)
 {
 	struct address_space *mapping;

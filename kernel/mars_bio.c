@@ -743,7 +743,7 @@ static int bio_switch(struct bio_brick *brick)
 				MARS_ERR("cannot open file '%s'\n", path);
 				goto done;
 			}
-			
+			mapfree_pages(brick->mf, -1);
 			if (unlikely(!(mapping = brick->mf->mf_filp->f_mapping) ||
 				     !(inode = mapping->host))) {
 				MARS_ERR("internal problem with '%s'\n", path);

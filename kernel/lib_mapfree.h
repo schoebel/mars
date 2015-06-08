@@ -72,6 +72,8 @@ void mapfree_put(struct mapfree_info *mf);
 
 void mapfree_set(struct mapfree_info *mf, loff_t min, loff_t max);
 
+void mapfree_pages(struct mapfree_info *mf, int grace_keep);
+
 ////////////////// dirty IOs on the fly  //////////////////
 
 void mf_insert_dirty(struct mapfree_info *mf, struct dirty_info *di);
