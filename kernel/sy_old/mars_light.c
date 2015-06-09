@@ -1684,6 +1684,11 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 		make_msg(msg_pair, "disallowing fetch (todo_primary=%d is_primary=%d)", rot->todo_primary, rot->is_primary);
 		do_start = false;
 	}
+	if (do_start && !strcmp(peer, "(none)")) {
+		MARS_DBG("disabling fetch from unspecified peer / no primary designated\n");
+		make_msg(msg_pair, "disabling fetch from unspecified peer / no primary designated");
+		do_start = false;
+	}
 	if (do_start && !global->global_power.button) {
 		MARS_DBG("disabling fetch due to rmmod\n");
 		make_msg(msg_pair, "disabling fetch due to rmmod");
