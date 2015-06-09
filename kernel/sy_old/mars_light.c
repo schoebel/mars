@@ -530,6 +530,7 @@ struct mars_rotate {
 	struct mars_dent *prev_log;
 	struct mars_dent *next_log;
 	struct mars_dent *syncstatus_dent;
+	struct timespec sync_finish_stamp;
 	struct if_brick *if_brick;
 	const char *fetch_path;
 	const char *fetch_peer;
@@ -766,6 +767,7 @@ struct copy_cookie {
 	const char *copy_path;
 	loff_t start_pos;
 	loff_t end_pos;
+	bool keep_running;
 	bool verify_mode;
 
  	const char *fullpath[2];
@@ -834,7 +836,9 @@ int _set_copy_params(struct mars_brick *_brick, void *private)
 			status = 1;
 			MARS_DBG("copy switch on\n");
 		}
-	} else if (copy_brick->power.button && copy_brick->power.led_on && copy_brick->copy_last == copy_brick->copy_end && copy_brick->copy_end > 0) {
+	} else if (copy_brick->power.button && copy_brick->power.led_on &&
+		   !cc->keep_running &&
+		   copy_brick->copy_last == copy_brick->copy_end && copy_brick->copy_end > 0) {
 		status = 0;
 		MARS_DBG("copy switch off\n");
 	}
@@ -1452,6 +1456,7 @@ int __make_copy(
 		struct key_value_pair *msg_pair,
 		loff_t start_pos, // -1 means at EOF of source
 		loff_t end_pos,   // -1 means at EOF of target
+		bool keep_running,
 		bool verify_mode,
 		bool limit_mode,
 		bool space_using_mode,
@@ -1526,6 +1531,7 @@ int __make_copy(
 	cc.copy_path = copy_path;
 	cc.start_pos = start_pos;
 	cc.end_pos = end_pos;
+	cc.keep_running = keep_running;
 	cc.verify_mode = verify_mode;
 
 	copy =
@@ -1718,7 +1724,7 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 	}
 
 	MARS_DBG("src = '%s' dst = '%s'\n", tmp, file);
-	status = __make_copy(global, NULL, do_start ? switch_path : "", copy_path, NULL, argv, msg_pair, -1, -1, false, false, true, &copy);
+	status = __make_copy(global, NULL, do_start ? switch_path : "", copy_path, NULL, argv, msg_pair, -1, -1, false, false, false, true, &copy);
 	if (status >= 0 && copy) {
 		copy->copy_limiter = &rot->fetch_limiter;
 		// FIXME: code is dead
@@ -4149,7 +4155,7 @@ static int _make_copy(void *buf, struct mars_dent *dent)
 	// check whether connection is allowed
 	switch_path = path_make("%s/todo-%s/connect", dent->d_parent->d_path, my_id());
 
-	status = __make_copy(global, dent, switch_path, copy_path, dent->d_parent->d_path, (const char**)dent->d_argv, NULL, -1, -1, false, true, true, NULL);
+	status = __make_copy(global, dent, switch_path, copy_path, dent->d_parent->d_path, (const char**)dent->d_argv, NULL, -1, -1, false, false, true, true, NULL);
 
 done:
 	MARS_DBG("status = %d\n", status);
@@ -4172,8 +4178,18 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 	int status = -EINVAL;
 
 	/* create syncpos symlink when necessary */
-	if (copy->copy_last == copy->copy_end) {
-		struct kstat syncpos_stat = {};
+	if (copy->copy_last == copy->copy_end && !rot->sync_finish_stamp.tv_sec) {
+		get_lamport(&rot->sync_finish_stamp);
+		MARS_DBG("sync finished at timestamp %lu\n",
+			 rot->sync_finish_stamp.tv_sec);
+		/* Give the remote replay position a chance to become
+		 * recent enough.
+		 */
+		mars_remote_trigger();
+		status = -EAGAIN;
+		goto done;
+	}
+	if (rot->sync_finish_stamp.tv_sec) {
 		struct kstat peer_time_stat = {};
 
 		peer_time_path = path_make("/mars/tree-%s", peer);
@@ -4183,6 +4199,18 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 			goto done;
 		}
 
+		/* The syncpos tells us the replay position at the primary
+		 * which was effective at the moment when the local sync was done.
+		 * It is used to guarantee consistency:
+		 * before our underlying disk is _really_ consistent, not only
+		 * the sync must have finished, but additionally the local
+		 * replay must have grown (at least) until the same position
+		 * at which the primary was at that moment.
+		 * Therefore, we have to remember the replay position of
+		 * the primary at that moment.
+		 * And because of the network delays we must ensure
+		 * to get a recent enough remote version.
+		 */
 		syncpos_path = path_make("%s/syncpos-%s", rot->parent_path, my_id());
 		peer_replay_path = path_make("%s/replay-%s", rot->parent_path, peer);
 		peer_replay_link = mars_readlink(peer_replay_path);
@@ -4190,20 +4218,19 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 			MARS_ERR("cannot read peer replay link '%s'\n", peer_replay_path);
 			goto done;
 		}
+
 		status = _update_link_when_necessary(rot, "syncpos", peer_replay_link, syncpos_path);
 		/* Sync is only marked as finished when the syncpos
 		 * production was successful and timestamps are recent enough.
 		 */
 		if (unlikely(status < 0))
 			goto done;
-
-		status = mars_stat(syncpos_path, &syncpos_stat, true);
-		if (unlikely(status < 0))
-			goto done;
-
-		if (timespec_compare(&syncpos_stat.mtime, &peer_time_stat.mtime) > 0) {
-			MARS_INF("according to '%s', peer replay link '%s' is not recent enough\n",
-				 peer_time_path, peer_replay_path);
+		if (timespec_compare(&peer_time_stat.mtime, &rot->sync_finish_stamp) < 0) {
+			MARS_INF("peer replay link '%s' is not recent enough (%lu < %lu)\n",
+				 peer_replay_path,
+				 peer_time_stat.mtime.tv_sec,
+				 rot->sync_finish_stamp.tv_sec);
+			mars_remote_trigger();
 			status = -EAGAIN;
 			goto done;
 		}
@@ -4221,6 +4248,7 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 
 	(void)_update_link_when_necessary(rot, "verifystatus", src, dst);
 
+	memset(&rot->sync_finish_stamp, 0, sizeof(rot->sync_finish_stamp));
 done:
 	brick_string_free(src);
 	brick_string_free(dst);
@@ -4254,6 +4282,17 @@ static int make_sync(void *buf, struct mars_dent *dent)
 		return 0;
 	}
 
+	/* Determine peer
+	 */
+	tmp = path_make("%s/primary", dent->d_parent->d_path);
+	primary_dent = (void*)mars_find_dent(global, tmp);
+	if (!primary_dent || !primary_dent->new_link) {
+		MARS_ERR("cannot determine primary, symlink '%s'\n", tmp);
+		status = 0;
+		goto done;
+	}
+	peer = primary_dent->new_link;
+
 	do_start = _check_allow(global, dent->d_parent, "attach");
 
 	/* Analyze replay position
@@ -4276,6 +4315,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 
 	/* Sync necessary?
 	 */
+	brick_string_free(tmp);
 	tmp = path_make("%s/size", dent->d_parent->d_path);
 	status = -ENOMEM;
 	if (unlikely(!tmp))
@@ -4292,11 +4332,18 @@ static int make_sync(void *buf, struct mars_dent *dent)
 		status = -EINVAL;
 		goto done;
 	}
+
+	/* Is sync necessary at all?
+	 */
 	if (start_pos >= end_pos) {
 		MARS_DBG("no data sync necessary, size = %lld\n", start_pos);
 		do_start = false;
 	}
-	brick_string_free(tmp);
+
+	/* Handle final waiting step when finished
+	 */
+	if (rot->sync_finish_stamp.tv_sec && do_start)
+		goto shortcut;
 
 	/* Don't sync when logfiles are discontiguous
 	 */
@@ -4308,16 +4355,8 @@ static int make_sync(void *buf, struct mars_dent *dent)
 		do_start = false;
 	}
 
-	/* Determine peer
+	/* stop sync when primary is unkown
 	 */
-	tmp = path_make("%s/primary", dent->d_parent->d_path);
-	primary_dent = (void*)mars_find_dent(global, tmp);
-	if (!primary_dent || !primary_dent->new_link) {
-		MARS_ERR("cannot determine primary, symlink '%s'\n", tmp);
-		status = 0;
-		goto done;
-	}
-	peer = primary_dent->new_link;
 	if (!strcmp(peer, "(none)")) {
 		MARS_INF("cannot start sync, no primary is designated\n");
 		if (do_start)
@@ -4339,11 +4378,6 @@ static int make_sync(void *buf, struct mars_dent *dent)
 		do_start = false;
 	}
 
-	/* Don't try syncing detached resources
-	 */
-	if (do_start && !_check_allow(global, dent->d_parent, "attach"))
-		do_start = false;
-	
 	/* Disallow contemporary sync & logfile_replay
 	 */
 	if (do_start &&
@@ -4375,6 +4409,18 @@ static int make_sync(void *buf, struct mars_dent *dent)
 		rot->flip_start = 0;
 	}
 
+	MARS_DBG("initial sync '%s' => '%s' do_start = %d\n", src, dst, do_start);
+	/* Obey global sync limit
+	 */
+	rot->wants_sync = (do_start != 0);
+	if (rot->wants_sync && global_sync_limit > 0) {
+		do_start = rot->gets_sync;
+		if (!rot->gets_sync) {
+			MARS_INF_TO(rot->log_say, "won't start sync because of parallelism limit %d\n", global_sync_limit);
+		}
+	}
+
+ shortcut:
 	/* Start copy
 	 */
 #ifdef CONFIG_MARS_SEPARATE_PORTS
@@ -4392,26 +4438,25 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	if (unlikely(!src || !dst || !copy_path || !switch_path))
 		goto done;
 
-	MARS_DBG("initial sync '%s' => '%s' do_start = %d\n", src, dst, do_start);
-
-	rot->wants_sync = (do_start != 0);
-	if (rot->wants_sync && global_sync_limit > 0) {
-		do_start = rot->gets_sync;
-		if (!rot->gets_sync) {
-			MARS_INF_TO(rot->log_say, "won't start sync because of parallelism limit %d\n", global_sync_limit);
-		}
-	}
-
 	/* Informational
 	 */
-	MARS_DBG("start_pos = %lld end_pos = %lld do_start=%d\n",
-		 start_pos, end_pos, do_start);
+	MARS_DBG("start_pos = %lld end_pos = %lld sync_finish_stamp=%lu do_start=%d\n",
+		 start_pos, end_pos, rot->sync_finish_stamp.tv_sec, do_start);
+
+	if (!do_start)
+		memset(&rot->sync_finish_stamp, 0, sizeof(rot->sync_finish_stamp));
 
 	/* Now do it....
 	 */
 	{
 		const char *argv[2] = { src, dst };
-		status = __make_copy(global, dent, do_start ? switch_path : "", copy_path, dent->d_parent->d_path, argv, find_key(rot->msgs, "inf-sync"), start_pos, end_pos, mars_fast_fullsync > 0, true, false, &copy);
+		status = __make_copy(global, dent,
+				     do_start ? switch_path : "",
+				     copy_path, dent->d_parent->d_path, argv, find_key(rot->msgs, "inf-sync"),
+				     start_pos, end_pos,
+				     rot->sync_finish_stamp.tv_sec != 0,
+				     mars_fast_fullsync > 0,
+				     true, false, &copy);
 		if (copy) {
 			copy->kill_ptr = (void**)&rot->sync_brick;
 			copy->copy_limiter = &rot->sync_limiter;
