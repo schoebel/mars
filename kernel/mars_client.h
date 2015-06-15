@@ -82,6 +82,7 @@ struct client_bundle {
 	char *host;
 	char *path;
 	int thread_count;
+	int old_channel;
 	wait_queue_head_t sender_event;
 	struct client_threadinfo sender;
 	struct client_channel channel[MAX_CLIENT_CHANNELS];

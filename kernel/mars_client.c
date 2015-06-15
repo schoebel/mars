@@ -208,17 +208,40 @@ void _maintain_bundle(struct client_bundle *bundle)
 static
 struct client_channel *_get_channel(struct client_bundle *bundle, int min_channel, int max_channel)
 {
-	struct client_channel *res = NULL;
-	long best_space = -1;
+	struct client_channel *res;
+	long best_space;
+	int best_channel;
 	int i;
-
-	_maintain_bundle(bundle);
 
 	if (unlikely(max_channel <= 0 || max_channel > MAX_CLIENT_CHANNELS))
 		max_channel = MAX_CLIENT_CHANNELS;
-	if (unlikely(min_channel < 0 || min_channel >= max_channel))
+	if (unlikely(min_channel < 0 || min_channel >= max_channel)) {
 		min_channel = max_channel - 1;
+		if (unlikely(min_channel < 0))
+			min_channel = 0;
+	}
 
+	/* Fast path.
+	 * Speculate that the next channel is already usable,
+	 * and that it has enough room.
+	 */
+	best_channel = bundle->old_channel + 1;
+	if (best_channel >= max_channel)
+		best_channel = min_channel;
+	res = &bundle->channel[best_channel];
+	if (res->is_open && res->is_connected && !res->recv_error && mars_socket_is_alive(&res->socket)) {
+		res->current_space = mars_socket_send_space_available(&res->socket);
+		if (res->current_space > (PAGE_SIZE + PAGE_SIZE / 4))
+			goto found;
+	}
+
+	/* Slow path. Do all the teady work.
+	 */
+	_maintain_bundle(bundle);
+
+	res = NULL;
+	best_space = -1;
+	best_channel = -1;
 	for (i = min_channel; i < max_channel; i++) {
 		struct client_channel *ch = &bundle->channel[i];
 		long this_space;
@@ -236,6 +259,7 @@ struct client_channel *_get_channel(struct client_bundle *bundle, int min_channe
 			ch->current_space = this_space;
 			/* Always prefer the newly opened channel */
 			res = ch;
+			best_channel = i;
 			break;
 		}
 
@@ -244,12 +268,16 @@ struct client_channel *_get_channel(struct client_bundle *bundle, int min_channe
 		ch->current_space = this_space;
 		if (this_space > best_space) {
 			best_space = this_space;
+			best_channel = i;
 			res = ch;
 		}
 	}
 
+	if (unlikely(!res))
+		goto done;
+
 	// send initial connect command
-	if (res && !res->is_connected) {
+	if (unlikely(!res->is_connected)) {
 		struct mars_cmd cmd = {
 			.cmd_code = CMD_CONNECT,
 			.cmd_str1 = bundle->path,
@@ -263,6 +291,9 @@ struct client_channel *_get_channel(struct client_bundle *bundle, int min_channe
 		}
 		res->is_connected = true;
 	}
+
+found:
+	bundle->old_channel = best_channel;
 
  done:
 	return res;
