@@ -107,6 +107,18 @@ config MARS_SEPARATE_PORTS
 	  Say N if you cannot afford a bigger hole in your firefall.
 	  If unsure, say Y.
 
+config MARS_NET_COMPAT
+	bool "compatibility to 0.1 series network protocol"
+	depends on MARS
+	default y
+	---help---
+	TRANSITIONAL: this is only needed for _mixed_ operations of the
+	MARS Light 0.1 kernel modules and 0.2 module.
+	Typically, you will need this only during upgrade for minimizig
+	downtime (e.g.	first upgrade secondary side, then handover,
+	and finally upgrade the former primary side).
+	This option will be removed for 0.3 and later stable
+	series, since you will no longer need it.
 
 config MARS_LOGDIR
 	string "absolute path to the logging directory"

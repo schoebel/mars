@@ -31,6 +31,10 @@ mars-objs :=				\
 	sy_old/mars_proc.o		\
 	sy_old/mars_light.o
 
+ifdef CONFIG_MARS_NET_COMPAT
+	mars-objs += mars_net_compat.o
+endif
+
 #### alternatives when building small individual modules
 
 obj-$(CONFIG_MARS_DUMMY)	+= mars_dummy.o

@@ -340,6 +340,9 @@ ctl_table mars_table[] = {
 	LIMITER_ENTRIES(&if_throttle,     "write_throttle",       "kb"),
 	// changing makes no sense because the server will immediately start upon modprobe
 	INT_ENTRY("mars_port",            mars_net_default_port,  0400),
+#ifdef  CONFIG_MARS_NET_COMPAT
+	INT_ENTRY("old_net_proto",        use_old_format,         0600),
+#endif
 	INT_ENTRY("network_io_timeout",   global_net_io_timeout,  0600),
 	INT_ENTRY("parallel_connections", max_client_channels,    0600),
 	INT_ENTRY("parallel_bulk_feed",   max_client_bulk,        0600),

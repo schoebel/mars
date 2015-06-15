@@ -152,6 +152,14 @@ extern int mars_recv_cb(struct mars_socket *msock, struct mref_object *mref, str
 
 /////////////////////////////////////////////////////////////////////////
 
+#ifdef CONFIG_MARS_NET_COMPAT
+extern int use_old_format;
+int desc_send_struct_old(struct mars_socket *msock, const void *data, const struct meta *meta, bool cork);
+int desc_recv_struct_old(struct mars_socket *msock, void *data, const struct meta *meta, int line);
+#endif
+
+/////////////////////////////////////////////////////////////////////////
+
 // init
 
 extern int init_mars_net(void);
