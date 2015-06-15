@@ -391,7 +391,7 @@ done:
 EXPORT_SYMBOL_GPL(mars_socket_send_space_available);
 
 static
-int _mars_send_raw(struct mars_socket *msock, const void *buf, int len)
+int _mars_send_raw(struct mars_socket *msock, const void *buf, int len, int flags)
 {
 	int sleeptime = 1000 / HZ;
 	int sent = 0;
@@ -496,7 +496,7 @@ restart:
 	}
 
 	if (msock->s_pos > 0) {
-		status = _mars_send_raw(msock, msock->s_buffer, msock->s_pos);
+		status = _mars_send_raw(msock, msock->s_buffer, msock->s_pos, 0);
 		MARS_IO("#%d buffer send %d bytes status=%d\n", msock->s_debug_nr, msock->s_pos, status);
 		if (status < 0)
 			goto done;
@@ -507,7 +507,7 @@ restart:
 	}
 
 	if (rest >= PAGE_SIZE) {
-		status = _mars_send_raw(msock, buf, rest);
+		status = _mars_send_raw(msock, buf, rest, 0);
 		MARS_IO("#%d bulk send %d bytes status=%d\n", msock->s_debug_nr, rest, status);
 		goto done;
 	} else if (rest > 0) {
@@ -517,7 +517,7 @@ restart:
 
 done:
 #else
-	status = _mars_send_raw(msock, buf, len);
+	status = _mars_send_raw(msock, buf, len, 0);
 #endif
 	if (status < 0 && msock->s_shutdown_on_err)
 		mars_shutdown_socket(msock);
