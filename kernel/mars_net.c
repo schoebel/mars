@@ -545,7 +545,8 @@ EXPORT_SYMBOL_GPL(mars_send_raw);
  * Note: buf may be NULL. In this case, the data is simply consumed,
  * like /dev/null
  */
-int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
+static
+int _mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen, int flags)
 {
 	void *dummy = NULL;
 	int sleeptime = 1000 / HZ;
@@ -584,7 +585,7 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 		struct msghdr msg = {
 			.msg_iovlen = 1,
 			.msg_iov = (struct iovec*)&iov,
-			.msg_flags = MSG_NOSIGNAL,
+			.msg_flags = flags | MSG_NOSIGNAL,
 		};
 		struct socket *sock = msock->s_socket;
 
@@ -652,6 +653,11 @@ final:
 	if (dummy)
 		brick_block_free(dummy, maxlen);
 	return status;
+}
+
+int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
+{
+	return _mars_recv_raw(msock, buf, minlen, maxlen, 0);
 }
 EXPORT_SYMBOL_GPL(mars_recv_raw);
 
