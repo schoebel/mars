@@ -457,6 +457,7 @@ int _mars_send_raw(struct mars_socket *msock, const void *buf, int len, int flag
 		sleeptime = 1000 / HZ;
 	}
 
+	msock->s_send_bytes += sent;
 	if (status >= 0)
 		status = sent;
 
@@ -642,6 +643,7 @@ int _mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen,
 		sleeptime = 1000 / HZ;
 	}
 	status = done;
+	msock->s_recv_bytes += done;
 
 	MARS_IO("#%d got %d bytes\n", msock->s_debug_nr, done);
 

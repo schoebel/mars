@@ -43,9 +43,21 @@ extern bool mars_net_is_alive;
  * Later, some buffering was added in order to take advantage of
  * kernel_sendpage().
  * Caching of meta description has also been added.
+ *
+ * Notice: we have a slightly restricted parallelism model.
+ * One sender and one receiver thread may work in parallel
+ * on the same socket instance. At low level, there must not exist
+ * multiple readers in parallel to each other, or multiple
+ * writers in parallel to each other. Otherwise, higher level
+ * protocol sequences would be disturbed anyway.
+ * When needed, you may achieve higher parallelism by doing your own
+ * semaphore locking around mars_{send,recv}_struct() or even longer
+ * sequences of subsets of your high-level protocol.
  */
 struct mars_socket {
 	struct socket *s_socket;
+	u64 s_send_bytes;
+	u64 s_recv_bytes;
 	void *s_buffer;
 	atomic_t s_count;
 	int s_pos;
