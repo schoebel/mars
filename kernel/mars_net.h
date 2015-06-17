@@ -31,6 +31,9 @@
 #include "brick.h"
 
 extern int mars_net_default_port;
+extern int mars_net_bind_before_listen;
+extern int mars_net_bind_before_connect;
+
 extern bool mars_net_is_alive;
 
 #define MAX_DESC_CACHE  16
@@ -116,11 +119,13 @@ extern const struct meta mars_cmd_meta[];
 
 extern char *(*mars_translate_hostname)(const char *name);
 
+extern char *my_id(void);
+
 /* Low-level network traffic
  */
 extern int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec);
 
-extern int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *addr, bool is_server);
+extern int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *src_addr, struct sockaddr_storage *dst_addr);
 extern int mars_accept_socket(struct mars_socket *new_msock, struct mars_socket *old_msock);
 extern bool mars_get_socket(struct mars_socket *msock);
 extern void mars_put_socket(struct mars_socket *msock);
