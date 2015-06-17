@@ -63,8 +63,6 @@ extern int mars_keep_msg;
 
 extern int mars_fast_fullsync;
 
-extern char *my_id(void);
-
 #define MARS_DENT(TYPE)							\
 	struct list_head dent_link;					\
 	struct list_head brick_list;					\

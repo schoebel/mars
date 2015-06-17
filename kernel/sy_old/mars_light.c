@@ -2011,7 +2011,8 @@ int peer_thread(void *data)
 {
 	struct mars_peerinfo *peer = data;
 	char *real_peer;
-	struct sockaddr_storage sockaddr = {};
+	struct sockaddr_storage src_sockaddr;
+	struct sockaddr_storage dst_sockaddr;
 	struct key_value_pair peer_pairs[] = {
 		{ peer->peer },
 		{ NULL }
@@ -2026,7 +2027,13 @@ int peer_thread(void *data)
 	real_peer = mars_translate_hostname(peer->peer);
 	MARS_INF("-------- peer thread starting on peer '%s' (%s)\n", peer->peer, real_peer);
 
-	status = mars_create_sockaddr(&sockaddr, real_peer);
+	status = mars_create_sockaddr(&src_sockaddr, my_id());
+	if (unlikely(status < 0)) {
+		MARS_ERR("unusable local address '%s' (%s)\n", real_peer, peer->peer);
+		goto done;
+	}
+
+	status = mars_create_sockaddr(&dst_sockaddr, real_peer);
 	if (unlikely(status < 0)) {
 		MARS_ERR("unusable remote address '%s' (%s)\n", real_peer, peer->peer);
 		goto done;
@@ -2056,7 +2063,7 @@ int peer_thread(void *data)
 			make_msg(peer_pairs, "connection to '%s' (%s) is dead", peer->peer, real_peer);
 			brick_string_free(real_peer);
 			real_peer = mars_translate_hostname(peer->peer);
-			status = mars_create_sockaddr(&sockaddr, real_peer);
+			status = mars_create_sockaddr(&dst_sockaddr, real_peer);
 			if (unlikely(status < 0)) {
 				MARS_ERR("unusable remote address '%s' (%s)\n", real_peer, peer->peer);
 				make_msg(peer_pairs, "unusable remote address '%s' (%s)\n", real_peer, peer->peer);
@@ -2074,7 +2081,7 @@ int peer_thread(void *data)
 				continue;
 			}
 
-			status = mars_create_socket(&peer->socket, &sockaddr, false);
+			status = mars_create_socket(&peer->socket, &src_sockaddr, &dst_sockaddr);
 			if (unlikely(status < 0)) {
 				MARS_INF("no connection to mars module on '%s' (%s) status = %d\n", peer->peer, real_peer, status);
 				make_msg(peer_pairs, "connection to '%s' (%s) could not be established: status = %d", peer->peer, real_peer, status);
@@ -5697,7 +5704,6 @@ static int __init init_light(void)
 	DO_INIT(mars_aio);
 	DO_INIT(mars_sio);
 	DO_INIT(mars_bio);
-	DO_INIT(mars_server);
 	DO_INIT(mars_copy);
 	DO_INIT(log_format);
 	DO_INIT(mars_trans_logger);
@@ -5711,6 +5717,8 @@ static int __init init_light(void)
 	brick_pre_reserve[5] = 64;
 	brick_mem_reserve();
 #endif
+
+	DO_INIT(mars_server);
 
 	status = compute_emergency_mode();
 	if (unlikely(status < 0)) {

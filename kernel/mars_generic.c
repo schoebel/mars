@@ -31,7 +31,6 @@
 #include <linux/uaccess.h>
 #include <linux/file.h>
 #include <linux/fs.h>
-#include <linux/utsname.h>
 
 #include "mars.h"
 #include "mars_client.h"
@@ -44,30 +43,6 @@ struct banning mars_global_ban = {};
 EXPORT_SYMBOL_GPL(mars_global_ban);
 atomic_t mars_global_io_flying = ATOMIC_INIT(0);
 EXPORT_SYMBOL_GPL(mars_global_io_flying);
-
-static char *id = NULL;
-
-/* TODO: better use MAC addresses (or motherboard IDs where available).
- * Or, at least, some checks for MAC addresses should be recorded / added.
- * When the nodename is misconfigured, data might be scrambled.
- * MAC addresses should be more secure.
- * In ideal case, further checks should be added to prohibit accidental
- * name clashes.
- */
-char *my_id(void)
-{
-	struct new_utsname *u;
-	if (!id) {
-		//down_read(&uts_sem); // FIXME: this is currenty not EXPORTed from the kernel!
-		u = utsname();
-		if (u) {
-			id = brick_strdup(u->nodename);
-		}
-		//up_read(&uts_sem);
-	}
-	return id;
-}
-EXPORT_SYMBOL_GPL(my_id);
 
 //////////////////////////////////////////////////////////////
 
@@ -360,8 +335,4 @@ void exit_mars(void)
 		mars_log_file = NULL;
 	}
 #endif
-	if (id) {
-		brick_string_free(id);
-		id = NULL;
-	}
 }

@@ -127,7 +127,8 @@ static
 int _setup_channel(struct client_bundle *bundle, int ch_nr)
 {
 	struct client_channel *ch = &bundle->channel[ch_nr];
-	struct sockaddr_storage sockaddr = {};
+	struct sockaddr_storage src_sockaddr;
+	struct sockaddr_storage dst_sockaddr;
 	int status;
 
 	ch->ch_nr = ch_nr;
@@ -136,13 +137,19 @@ int _setup_channel(struct client_bundle *bundle, int ch_nr)
 		_kill_thread(&ch->receiver, "receiver");
 	}
 
-	status = mars_create_sockaddr(&sockaddr, bundle->host);
+	status = mars_create_sockaddr(&src_sockaddr, my_id());
 	if (unlikely(status < 0)) {
-		MARS_DBG("no sockaddr, status = %d\n", status);
+		MARS_DBG("no src sockaddr, status = %d\n", status);
 		goto done;
 	}
 
-	status = mars_create_socket(&ch->socket, &sockaddr, false);
+	status = mars_create_sockaddr(&dst_sockaddr, bundle->host);
+	if (unlikely(status < 0)) {
+		MARS_DBG("no dst sockaddr, status = %d\n", status);
+		goto done;
+	}
+
+	status = mars_create_socket(&ch->socket, &src_sockaddr, &dst_sockaddr);
 	if (unlikely(status < 0)) {
 		MARS_DBG("no socket, status = %d\n", status);
 		goto really_done;

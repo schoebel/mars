@@ -890,17 +890,21 @@ int __init init_mars_server(void)
 
 	for (i = 0; i < NR_SOCKETS; i++) {
 		struct sockaddr_storage sockaddr = {};
-		char tmp[16];
+		char tmp[64];
 		int status;
 
-		sprintf(tmp, ":%d", mars_net_default_port + i);
+		if (mars_translate_hostname)
+			snprintf(tmp, sizeof(tmp), "%s:%d", my_id(), mars_net_default_port + i);
+		else
+			snprintf(tmp, sizeof(tmp), ":%d", mars_net_default_port + i);
+
 		status = mars_create_sockaddr(&sockaddr, tmp);
 		if (unlikely(status < 0)) {
 			exit_mars_server();
 			return status;
 		}
 
-		status = mars_create_socket(&server_socket[i], &sockaddr, true);
+		status = mars_create_socket(&server_socket[i], &sockaddr, NULL);
 		if (unlikely(status < 0)) {
 			MARS_ERR("could not create server socket %d, status = %d\n", i, status);
 			exit_mars_server();

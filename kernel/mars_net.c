@@ -38,6 +38,7 @@
 #include <linux/string.h>
 #include <linux/moduleparam.h>
 #include <linux/lzo.h>
+#include <linux/utsname.h>
 
 #include "mars.h"
 #include "mars_net.h"
@@ -190,8 +191,14 @@ int mars_net_default_port = CONFIG_MARS_DEFAULT_PORT;
 EXPORT_SYMBOL_GPL(mars_net_default_port);
 module_param_named(mars_port, mars_net_default_port, int, 0);
 
-/* TODO: allow binding to specific source addresses instead of catch-all.
- * TODO: make all the socket options configurable.
+int mars_net_bind_before_listen = 1;
+EXPORT_SYMBOL_GPL(mars_net_bind_before_listen);
+module_param_named(mars_net_bind_before_listen, mars_net_bind_before_listen, int, 0);
+
+int mars_net_bind_before_connect = 1;
+EXPORT_SYMBOL_GPL(mars_net_bind_before_connect);
+
+/* TODO: make all the socket options configurable.
  * TODO: implement signal handling.
  * TODO: add authentication.
  * TODO: add encryption.
@@ -207,6 +214,23 @@ struct mars_tcp_params default_tcp_params = {
 	.tcp_keepidle = 4,
 };
 EXPORT_SYMBOL(default_tcp_params);
+
+static char *id = NULL;
+
+char *my_id(void)
+{
+	struct new_utsname *u;
+	if (!id) {
+		//down_read(&uts_sem); // FIXME: this is currenty not EXPORTed from the kernel!
+		u = utsname();
+		if (u) {
+			id = brick_strdup(u->nodename);
+		}
+		//up_read(&uts_sem);
+	}
+	return id;
+}
+EXPORT_SYMBOL_GPL(my_id);
 
 static
 void __setsockopt(struct socket *sock, int level, int optname, char *optval, int optsize)
@@ -390,10 +414,11 @@ done:
 	return status;
 }
 
-int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *addr, bool is_server)
+int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *src_addr, struct sockaddr_storage *dst_addr)
 {
 	struct socket *sock;
-	struct sockaddr *sockaddr = (void*)addr;
+	struct sockaddr *src_sockaddr = (void*)src_addr;
+	struct sockaddr *dst_sockaddr = (void*)dst_addr;
 	int status = -EEXIST;
 
 	if (unlikely(atomic_read(&msock->s_count))) {
@@ -419,8 +444,20 @@ int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *addr,
 
 	_set_socketopts(sock);
 
-	if (is_server) {
-		status = kernel_bind(sock, sockaddr, sizeof(*sockaddr));
+	if (!dst_sockaddr) { /* we are server */
+		struct sockaddr_in bind_addr;
+
+		if (unlikely(!src_sockaddr)) {
+			MARS_ERR("no srcaddr given for bind()\n");
+			status = -EINVAL;
+			goto done;
+		}
+
+		memcpy(&bind_addr, src_sockaddr, sizeof(bind_addr));
+		if (!mars_net_bind_before_listen)
+			memset(&bind_addr.sin_addr, 0, sizeof(bind_addr.sin_addr));
+
+		status = kernel_bind(sock, (struct sockaddr *)&bind_addr, sizeof(bind_addr));
 		if (unlikely(status < 0)) {
 			MARS_WRN("#%d bind failed, status = %d\n", msock->s_debug_nr, status);
 			goto done;
@@ -430,7 +467,23 @@ int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *addr,
 			MARS_WRN("#%d listen failed, status = %d\n", msock->s_debug_nr, status);
 		}
 	} else {
-		status = kernel_connect(sock, sockaddr, sizeof(*sockaddr), 0);
+		/* When both src and dst are given, explicitly bind local address.
+		 * Needed for multihomed hosts.
+		 */
+		if (src_sockaddr && mars_net_bind_before_connect) {
+			struct sockaddr_in bind_addr;
+
+			memcpy(&bind_addr, src_sockaddr, sizeof(bind_addr));
+			bind_addr.sin_port = 0;
+
+			status = kernel_bind(sock, (struct sockaddr *)&bind_addr, sizeof(struct sockaddr));
+			if (unlikely(status < 0)) {
+				MARS_WRN("#%d bind before connect failed (ignored), status = %d\n",
+					 msock->s_debug_nr, status);
+			}
+		}
+
+		status = kernel_connect(sock, dst_sockaddr, sizeof(*dst_sockaddr), 0);
 		/* Treat non-blocking connects as successful.
 		 * Any potential errors will show up later during traffic.
 		 */
@@ -1842,5 +1895,7 @@ int __init init_mars_net(void)
 void exit_mars_net(void)
 {
 	mars_net_is_alive = false;
+	brick_string_free(id);
+	id = NULL;
 	MARS_INF("exit_net()\n");
 }
