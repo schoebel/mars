@@ -35,7 +35,9 @@
 #define _STRATEGY
 #include "mars.h"
 #include "mars_bio.h"
+#if defined(MARS_MAJOR)
 #include "mars_aio.h"
+#endif
 #include "mars_sio.h"
 
 ///////////////////////// own type definitions ////////////////////////
@@ -273,6 +275,7 @@ int _set_server_sio_params(struct mars_brick *_brick, void *private)
 	return 1;
 }
 
+#if defined(MARS_MAJOR)
 static
 int _set_server_aio_params(struct mars_brick *_brick, void *private)
 {
@@ -290,15 +293,18 @@ int _set_server_aio_params(struct mars_brick *_brick, void *private)
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 	return 1;
 }
+#endif
 
 static
 int _set_server_bio_params(struct mars_brick *_brick, void *private)
 {
 	struct bio_brick *bio_brick;
-	if (_brick->type == (void*)_aio_brick_type) {
+#if defined(MARS_MAJOR)
+	if (_brick->type == (void *)_aio_brick_type) {
 		return _set_server_aio_params(_brick, private);
 	}
-	if (_brick->type == (void*)_sio_brick_type) {
+#endif
+	if (_brick->type == (void *)_sio_brick_type) {
 		return _set_server_sio_params(_brick, private);
 	}
 	if (_brick->type != (void*)_bio_brick_type) {

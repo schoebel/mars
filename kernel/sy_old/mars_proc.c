@@ -37,7 +37,9 @@
 #include "mars_proc.h"
 #include "../lib_mapfree.h"
 #include "../mars_bio.h"
+#if defined(MARS_MAJOR)
 #include "../mars_aio.h"
+#endif
 #include "../mars_if.h"
 #include "../mars_copy.h"
 #include "../mars_client.h"
@@ -234,10 +236,12 @@ ctl_table io_tuning_table[] = {
 	THRESHOLD_ENTRIES(&bio_submit_threshold, "bio_submit"),
 	THRESHOLD_ENTRIES(&bio_io_threshold[0],  "bio_io_r"),
 	THRESHOLD_ENTRIES(&bio_io_threshold[1],  "bio_io_w"),
+#if defined(MARS_MAJOR)
 	THRESHOLD_ENTRIES(&aio_submit_threshold, "aio_submit"),
 	THRESHOLD_ENTRIES(&aio_io_threshold[0],  "aio_io_r"),
 	THRESHOLD_ENTRIES(&aio_io_threshold[1],  "aio_io_w"),
 	THRESHOLD_ENTRIES(&aio_sync_threshold,   "aio_sync"),
+#endif
 	{}
 };
 
@@ -285,7 +289,9 @@ ctl_table mars_table[] = {
 	INT_ENTRY("show_debug_messages",  brick_say_debug,        0600),
 	INT_ENTRY("show_statistics_global", global_show_statist,  0600),
 	INT_ENTRY("show_statistics_server", server_show_statist,  0600),
+#if defined(MARS_MAJOR)
 	INT_ENTRY("aio_sync_mode",        aio_sync_mode,          0600),
+#endif
 	INT_ENTRY("logger_completion_semantics", trans_logger_completion_semantics, 0600),
 	INT_ENTRY("logger_do_crc",        trans_logger_do_crc,    0600),
 	INT_ENTRY("syslog_min_class",     brick_say_syslog_min,   0600),

@@ -50,7 +50,6 @@
 #include <linux/module.h>
 #include <linux/string.h>
 
-#include <linux/major.h>
 #include <linux/genhd.h>
 #include <linux/blkdev.h>
 
@@ -67,11 +66,17 @@
 #include "../mars_copy.h"
 #include "../mars_bio.h"
 #include "../mars_sio.h"
+#if defined(MARS_MAJOR)
 #include "../mars_aio.h"
+#else
+#define aio_brick_type sio_brick_type
+#define _set_aio_params _set_sio_params
+#endif
 #include "../mars_trans_logger.h"
 #include "../mars_if.h"
 #include "mars_proc.h"
-#ifdef CONFIG_MARS_DEBUG // otherwise currently unused
+#ifdef CONFIG_MARS_DEBUG
+/* include currently unused bricks, essentially a compile check only */
 #include "../mars_dummy.h"
 #include "../mars_check.h"
 #include "../mars_buf.h"
@@ -683,6 +688,7 @@ int _set_sio_params(struct mars_brick *_brick, void *private)
 	return 1;
 }
 
+#if defined(MARS_MAJOR)
 static
 int _set_aio_params(struct mars_brick *_brick, void *private)
 {
@@ -705,6 +711,7 @@ int _set_aio_params(struct mars_brick *_brick, void *private)
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
 	return 1;
 }
+#endif
 
 static
 int _set_bio_params(struct mars_brick *_brick, void *private)
@@ -713,9 +720,11 @@ int _set_bio_params(struct mars_brick *_brick, void *private)
 	if (_brick->type == (void*)&client_brick_type) {
 		return _set_client_params(_brick, private);
 	}
+#if defined(MARS_MAJOR)
 	if (_brick->type == (void*)&aio_brick_type) {
 		return _set_aio_params(_brick, private);
 	}
+#endif
 	if (_brick->type == (void*)&sio_brick_type) {
 		return _set_sio_params(_brick, private);
 	}
@@ -5494,8 +5503,10 @@ static int light_thread(void *data)
 
 		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&client_brick_type, true);
 		MARS_DBG("kill client bricks (when possible) = %d\n", status);
+#if !defined(MARS_MAJOR)
 		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&aio_brick_type, true);
 		MARS_DBG("kill aio    bricks (when possible) = %d\n", status);
+#endif
 		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&sio_brick_type, true);
 		MARS_DBG("kill sio    bricks (when possible) = %d\n", status);
 		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&bio_brick_type, true);
@@ -5665,7 +5676,8 @@ static int __init init_light(void)
 	DO_INIT(brick);
 	DO_INIT(mars);
 	DO_INIT(mars_mapfree);
-#ifdef CONFIG_MARS_DEBUG // otherwise currently unused
+#ifdef CONFIG_MARS_DEBUG
+	/* essentially a compile check only */
 	DO_INIT(mars_dummy);
 	DO_INIT(mars_check);
 	DO_INIT(mars_buf);
@@ -5673,7 +5685,9 @@ static int __init init_light(void)
 #endif
 	DO_INIT(mars_net);
 	DO_INIT(mars_client);
+#if defined(MARS_MAJOR)
 	DO_INIT(mars_aio);
+#endif
 	DO_INIT(mars_sio);
 	DO_INIT(mars_bio);
 	DO_INIT(mars_copy);

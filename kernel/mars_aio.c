@@ -21,6 +21,11 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+/* This brick can only be used when the kernel prepatch is in place.
+ * We detect this when MARS_MAJOR is defined.
+ */
+#include <linux/major.h>
+#if defined(MARS_MAJOR)
 
 //#define BRICK_DEBUGGING
 #define MARS_DEBUGGING
@@ -1309,3 +1314,5 @@ void exit_mars_aio(void)
 	put_fake();
 	aio_unregister_brick_type();
 }
+
+#endif

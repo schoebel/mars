@@ -1609,8 +1609,12 @@ const struct generic_brick_type *_client_brick_type = NULL;
 EXPORT_SYMBOL_GPL(_client_brick_type);
 const struct generic_brick_type *_bio_brick_type = NULL;
 EXPORT_SYMBOL_GPL(_bio_brick_type);
+//      remove_this
+#if defined(MARS_MAJOR)
 const struct generic_brick_type *_aio_brick_type = NULL;
 EXPORT_SYMBOL_GPL(_aio_brick_type);
+#endif
+//      end_remove_this
 const struct generic_brick_type *_sio_brick_type = NULL;
 EXPORT_SYMBOL_GPL(_sio_brick_type);
 
@@ -1720,8 +1724,13 @@ struct mars_brick *make_brick_all(
 
 	// some generic brick replacements (better performance / network functionality)
 	brick = NULL;
-	if ((new_brick_type == _bio_brick_type || new_brick_type == _aio_brick_type)
-	   && _client_brick_type != NULL) {
+	if ((new_brick_type == _bio_brick_type
+#if defined(MARS_MAJOR)
+	     || new_brick_type == _aio_brick_type
+#endif
+	     || new_brick_type == _sio_brick_type
+		    )
+	    && _client_brick_type != NULL) {
 		char *remote = strchr(new_name, '@');
 		if (remote) {
 			remote++;
@@ -1734,12 +1743,19 @@ struct mars_brick *make_brick_all(
 			}
 		}
 	}
-	if (!brick && new_brick_type == _bio_brick_type && _aio_brick_type) {
+	if (!brick &&
+	    new_brick_type == _bio_brick_type &&
+	    _sio_brick_type) {
 		struct kstat test = {};
 		int status = mars_stat(new_path, &test, false);
 		if (SKIP_BIO || status < 0 || !S_ISBLK(test.mode)) {
+#if defined(MARS_MAJOR)
 			new_brick_type = _aio_brick_type;
 			MARS_DBG("substitute bio by aio\n");
+#else
+			new_brick_type = _sio_brick_type;
+			MARS_DBG("substitute bio by sio\n");
+#endif
 		}
 	}
 

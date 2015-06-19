@@ -26,6 +26,7 @@
 
 #include <linux/semaphore.h>
 #include <linux/rwsem.h>
+#include <linux/major.h>
 
 //#define MARS_TRACING // write runtime trace data to /mars/trace.csv
 
@@ -373,7 +374,11 @@ extern int mars_throttle_end;
  */
 extern const struct generic_brick_type *_client_brick_type;
 extern const struct generic_brick_type *_bio_brick_type;
+//      remove_this
+#if defined(MARS_MAJOR)
 extern const struct generic_brick_type *_aio_brick_type;
+#endif
+//      end_remove_this
 extern const struct generic_brick_type *_sio_brick_type;
 
 /////////////////////////////////////////////////////////////////////////
