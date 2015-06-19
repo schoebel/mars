@@ -388,7 +388,11 @@ extern int mars_throttle_end;
  */
 extern const struct generic_brick_type *_client_brick_type;
 extern const struct generic_brick_type *_bio_brick_type;
+//      remove_this
+#ifndef __USE_COMPAT
 extern const struct generic_brick_type *_aio_brick_type;
+#endif
+//      end_remove_this
 extern const struct generic_brick_type *_sio_brick_type;
 
 /////////////////////////////////////////////////////////////////////////

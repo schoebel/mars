@@ -56,7 +56,7 @@ obj-$(CONFIG_MARS_LIGHT)	+= sy_old/mars_light.o \
 				   mars_net.o sy_old/sy_net.o \
 				   sy_old/mars_proc.o
 
-ifdef CONFIG_DEBUG_KERNEL
+ifdef CONFIG_MARS_DEBUG
 
 KBUILD_CFLAGS += -fno-inline-functions -fno-inline-small-functions -fno-inline-functions-called-once
 

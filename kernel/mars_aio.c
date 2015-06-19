@@ -21,7 +21,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 //#define BRICK_DEBUGGING
 #define MARS_DEBUGGING
 //#define IO_DEBUGGING
@@ -42,6 +41,10 @@
 #include "lib_mapfree.h"
 
 #include "mars_aio.h"
+
+/* This brick can only be used when the kernel prepatch is in place.
+ */
+#ifndef __USE_COMPAT
 
 #define MARS_MAX_AIO      1024
 #define MARS_MAX_AIO_READ 32
@@ -1329,3 +1332,5 @@ void exit_mars_aio(void)
 	put_fake();
 	aio_unregister_brick_type();
 }
+
+#endif
