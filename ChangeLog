@@ -12,31 +12,52 @@ Example: light0.1stable01:
 Release Conventions / Branches / Tagnames
 -----------------------------------------
 
-	light0.1 series (now stable):
-		 - Asynchronous replication for the internal needs of
-		   shared hosting and other ITOPS departments at 1&1.
-		 - Unstable tagnames: light0.1beta%d.%d
+	light0.1 series (stable):
+		 - Asynchronous replication.
+		   Currently operational at more than 700 storage servers at
+		   1&1, more than 2,000,000 operating hours (end of June 2015)
+		 - Unstable tagnames: light0.1beta%d.%d (obsolete)
 		 - Stable branch: light0.1.y
 		 - Stable tagnames: light0.1stable%02d
 
-	light0.2 series (planned):
+	light0.2 series (currently in alpha stage):
 		   Mostly for internal needs of 1&1 (but not limited to that).
-		 - Improve network throughput by parallel TCP connections
+		 - Getting rid of the kernel prepatch! MARS may be built
+		   as an external kernel module for any supported
+		   kernel version. First prototype is only tested for
+		   unaltered 3.2.x vanilla kernel, but compatibility to
+		   further vanilla kernel versions (maybe even
+		   Redhat-specific ones) will follow during the course of
+		   the MARS light0.2 stable series. The problem is not
+		   compatibility as such, but _testing_ that it really
+		   works. These tests need a lot of time.
+		   => further arguments for getting to kernel upstream ASAP.
+		 - Improved network throughput by parallel TCP connections
 		   (in particular under packet loss).
-		 - Transparent data compression over low bandwidth lines.
-		 - (Maybe) future-proof updates in the network protocol:
+		   Also called "socket bundling".
+		   First benchmarks show an impressive speedup over
+		   highly congested long-distance lines.
+		 - Future-proof updates in the network protocol:
 		   Mixed operation of 32/64bit and/or {big,low}endian
-		 - (Maybe) new test suite
-		 - (Maybe) old test suite could be retired
+		 - Support for multi-homed network interfaces.
+		 - Transparent data compression over low bandwidth lines.
+		   Consumes a lot of CPU, therefore only recommended for
+		   low write loads or for desperate network situations.
+		 - Various smaller features and improvements.
 		 - Unstable tagnames: light0.2beta%d.%d (planned)
 		 - Stable branch: light0.2.y (planned)
 		 - Stable tagnames: light0.2stable%02d (planned)
 
 	light0.3 series (planned):
-		   (some might possibly go to 0.2 series instead)
+		   (some might possibly go to 1.0 series instead)
+		 - Remote device: bypassing iSCSI. In essence,
+		   /dev/mars/mydata can appear at any other cluster member
+		   which doesn't necessarily need any local disks.
 		 - Improve replication latency.
 		 - New pseudo-synchronous replication modes.
 		   For the internal needs of database folks at 1&1.
+		 - (Maybe) old test suite could be retired, a new
+		   one is at github.com/schoebel/test-suite
 		 - Unstable tagnames: light0.3beta%d.%d (planned)
 		 - Stable branch: light0.3.y (planned)
 		 - Stable tagnames: light0.3stable%02d (planned)
@@ -65,6 +86,18 @@ Release Conventions / Branches / Tagnames
 	error class may	also be changed.
 	NO NEW FEATURES, not even minor ones, except when absolutely
 	necessary for a bugfix.
+
+light0.1stable16
+--------
+	* Minor fix: sync could take a long time to complete under high
+	  application load, similarly to a live-lock.
+	* Some smaller minor fixes for annoying messages.
+	* Contrib: added configurable Nagios check.
+	* Contrib: added some example scripts which could be used by
+	  clustermanagers etc.
+	* Doc: important new section on pitfalls when using existing
+	  clustermanagers UNMODIFIED for long distance replication.
+	  PLEASE READ!
 
 light0.1stable15
 --------
