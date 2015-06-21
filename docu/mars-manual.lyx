@@ -28946,6 +28946,2226 @@ Tips and Tricks
 \end_layout
 
 \begin_layout Section
+Avoiding Inappropriate Clustermanager Types for Medium and Long-Distance
+ Replication
+\end_layout
+
+\begin_layout Standard
+This section addresses some wide-spread misconceptions.
+ Its main target audience is developers, but sysadmins will profit from
+ 
+\series bold
+detailed explainations of problems and pitfalls
+\series default
+.
+ When the problems described in this section are solved somewhen in future,
+ this section will be shortened and some relevant parts moved to the appendix.
+\end_layout
+
+\begin_layout Standard
+Doing 
+\series bold
+High Availability (HA)
+\series default
+ wrong at 
+\emph on
+concept level
+\emph default
+ may easily get you into trouble, and may cost you several millions of €
+ or $ in larger installations, or even knock you out of business when disasters
+ are badly dealt with at higher levels such as clustermanagers.
+\end_layout
+
+\begin_layout Subsection
+General Cluster Models
+\end_layout
+
+\begin_layout Standard
+The most commonly known cluster model is called 
+\series bold
+shared-disk
+\series default
+, and typically controlled by clustermanagers like 
+\family typewriter
+PaceMaker
+\family default
+:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/shared-disk-model.fig
+	width 50col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+The most important property of shared-disk is that there exists only a single
+ disk instance.
+ Nowadays, this disk often has some 
+\emph on
+internal
+\emph default
+ redundancy such as RAID.
+ At 
+\emph on
+system
+\emph default
+ architecure layer / network level, there exists no redundant disk at all.
+ Only the application cluster is built redundant.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ It should be immediately clear that shared-disk clusters are only suitable
+ for short-distance operations in the same datacenter.
+ Although running one of the data access lines over short distances between
+ very near-by datacenters (e.g.
+ 1 km) would be theoretically possible, there would be no sufficient protection
+ against failure of a whole datacenter.
+\end_layout
+
+\begin_layout Standard
+Both DRBD and MARS belong to a different architectural model called 
+\series bold
+shared-nothing
+\series default
+:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/shared-nothing-model.fig
+	width 50col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+The characteristic feature of a shared-nothing model is (additional)
+\series bold
+ redundancy at network level
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Shared-nothing 
+\begin_inset Quotes eld
+\end_inset
+
+clusters
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Notice that the term 
+\begin_inset Quotes eld
+\end_inset
+
+cluster computing
+\begin_inset Quotes erd
+\end_inset
+
+ usually refers to short-distance only.
+ Long-distance coupling should be called 
+\begin_inset Quotes eld
+\end_inset
+
+grid computing
+\begin_inset Quotes erd
+\end_inset
+
+ in preference.
+ As known from the scientific literature, grid computing requires different
+ concepts and methods in general.
+ Only for the sake of simplicity, we use 
+\begin_inset Quotes eld
+\end_inset
+
+cluster
+\begin_inset Quotes erd
+\end_inset
+
+ and 
+\begin_inset Quotes eld
+\end_inset
+
+grid
+\begin_inset Quotes erd
+\end_inset
+
+ interchangeably.
+\end_layout
+
+\end_inset
+
+
+\begin_inset Quotes erd
+\end_inset
+
+ could theoretically be built for 
+\emph on
+any
+\emph default
+ distances, from short to medium to long distances.
+ However, concrete technologies of disk coupling such as synchronous operation
+ may pose practical limits on the distances (see chapter 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "chap:Use-Cases-for"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Standard
+In general, clustermanagers must fit to the model.
+ Some clustermanager can be configured to fit to multiple models.
+ If so, this must be done properly, or you may get into serious trouble.
+\end_layout
+
+\begin_layout Standard
+Some people don't know, or they don't believe, that different architectural
+ models like shared-disk or shared-nothing will 
+\emph on
+require
+\emph default
+ an 
+\emph on
+appropriate
+\emph default
+ type of clustermanager and/or a different configuration.
+ Failing to do so, by selection of an inappropriate clustermanager type
+ and/or an inappropriate configuration may be hazardous.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Selection of the right model alone is not sufficient.
+ Some, if not many, clustermanagers have not been designed for long distances.
+ As explained in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Special-Requirements-for"
+
+\end_inset
+
+, long distances have further 
+\series bold
+hard requirements
+\series default
+.
+ Disregarding them may be also hazardous!
+\end_layout
+
+\begin_layout Subsection
+Handover / Failover Reasons and Scenarios
+\end_layout
+
+\begin_layout Standard
+From a sysadmin perspective, there exist a number of different 
+\series bold
+reasons
+\series default
+ why the application workload must be switched from the currently active
+ side A to the currently passive side B:
+\end_layout
+
+\begin_layout Enumerate
+Some 
+\series bold
+defect
+\series default
+ has occurred at cluster side A or at some corresponding part of the network.
+\end_layout
+
+\begin_layout Enumerate
+Some 
+\series bold
+maintenance
+\series default
+ has to be done at side A which would cause a longer downtime (e.g.
+ security kernel update or replacement of core network equipment or maintainance
+ of UPS or of the BBU cache etc - hardware isn't 24/7/365 in practice, although
+ some vendors 
+\emph on
+claim
+\emph default
+ it - it is either not really true, or it becomes 
+\emph on
+extremely
+\emph default
+ expensive).
+\end_layout
+
+\begin_layout Standard
+Both reasons are valid and must be automatically handled in larger installations.
+ In order to deal with all of these reasons, the following basic mechanisms
+ can be used in either model:
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Failover
+\series default
+ (triggered either manually or automatically)
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Handover
+\series default
+ (triggered manually
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Automatic triggering could be feasible for prophylactic treatments.
+\end_layout
+
+\end_inset
+
+)
+\end_layout
+
+\begin_layout Standard
+It is important to not confuse handover with failover at concept level.
+ Not only the reasons / preconditions are very different, but also the 
+\emph on
+requirements
+\emph default
+.
+ Example: precondition for handover is that 
+\emph on
+both
+\emph default
+ cluster sides are healthy, while precondition for failover is that 
+\emph on
+some relevant(!)
+\emph default
+ failure has been 
+\emph on
+detected
+\emph default
+ somewhere (whether this is 
+\emph on
+really
+\emph default
+ true is another matter).
+ Typically, failover must be able to run in masses, while planned handover
+ often has lower scaling requirements.
+\end_layout
+
+\begin_layout Standard
+Not all existing clustermanagers are dealing with all of these cases (or
+ their variants) equally well, and some are not even dealing with some of
+ these cases / variants 
+\emph on
+at all
+\emph default
+.
+ 
+\end_layout
+
+\begin_layout Standard
+Some clustermanagers cannot easily express the concept of 
+\begin_inset Quotes eld
+\end_inset
+
+automatic triggering
+\begin_inset Quotes erd
+\end_inset
+
+ versus 
+\begin_inset Quotes eld
+\end_inset
+
+manual triggering
+\begin_inset Quotes erd
+\end_inset
+
+ of an action.
+ There exists simply no cluster-global switch which selects either 
+\begin_inset Quotes eld
+\end_inset
+
+manual mode
+\begin_inset Quotes erd
+\end_inset
+
+ or 
+\begin_inset Quotes eld
+\end_inset
+
+automatic mode
+\begin_inset Quotes erd
+\end_inset
+
+ (except when you start to hack the code and/or write new plugins; then
+ you might notice that there is almost no architectural layering / sufficient
+ separation between mechanism and strategy).
+ Being forced to permanently use an automatic mode for several hundreds
+ or even thousands of clusters is not only boring, but bears a considerable
+ risk when automatics do a wrong decision at hundreds of instances in parallel.
+\end_layout
+
+\begin_layout Subsection
+Granularity and Layering Hierarchy for Long Distances
+\end_layout
+
+\begin_layout Standard
+Many existing clustermanager solutions are dealing with a single cluster
+ instance, as the term 
+\begin_inset Quotes eld
+\end_inset
+
+
+\emph on
+cluster
+\emph default
+manager
+\begin_inset Quotes erd
+\end_inset
+
+ suggests.
+ However, when running several hundreds or thousands of cluster instances,
+ you likely will not want to manage each of them individually.
+ In addition, failover should 
+\emph on
+not only
+\emph default
+ be 
+\emph on
+triggered
+\emph default
+ (not to be confused with 
+\emph on
+executed
+\emph default
+) individually at cluster level, but likely 
+\emph on
+also
+\emph default
+ at a higher granularity such as a room, or a whole datacenter.
+ Otherwise, some chaos is likely to happen.
+\end_layout
+
+\begin_layout Standard
+Here is what you probably will 
+\series bold
+need
+\series default
+, possibly in difference to what you may find on the market (whether OpenSource
+ or not).
+ For simplicity, the following diagram shows only two levels of granularity,
+ but can be easily extended to multiple layers of granularity, or to some
+ concept of various 
+\emph on
+subsets of clusters
+\emph default
+:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/clustermanager-hierarchy.fig
+	width 70col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Notice that many existing clustermanager solutions are not addressing the
+ datacenter granularity at all.
+ Typically, they use concepts like 
+\series bold
+quorums
+\series default
+ for determining failures 
+\emph on
+at cluster level
+\emph default
+ solely, and then immediately executing failover of the cluster, sometimes
+ without clean architectural distinction between trigger and execution (similar
+ to the 
+\begin_inset Quotes eld
+\end_inset
+
+separation of concerns
+\begin_inset Quotes erd
+\end_inset
+
+ between 
+\series bold
+mechanism
+\series default
+ and 
+\series bold
+strategy
+\series default
+ in Operating Systems).
+ Sometimes there is even no internal software layering / modularization
+ according to this separation of concerns at all.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ When there is no distinction between different levels of granularity, you
+ are hopelessly bound to a non-extensible and thus non-adaptable system
+ when you need to operate masses of clusters.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ A lacking distinction between automatic mode and manual mode, and/or lack
+ of corresponding 
+\series bold
+architectural software layers
+\series default
+ is not only a blatant ignoration of well-established best practices of
+ 
+\series bold
+software engineering
+\series default
+, but will bind you even more firmly to an inflexible system.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Terminology: for practical reasons, we use the general term 
+\begin_inset Quotes eld
+\end_inset
+
+clustermanager
+\begin_inset Quotes erd
+\end_inset
+
+ also for speaking about layers dealing with higher granularity, such as
+ datacenter layers, and also for long-distance replication scenarios, although
+ some terminology from grid computing would be more appropriate in a scientific
+ background.
+\end_layout
+
+\begin_layout Standard
+Please consider the following: when it comes to long-distance HA, the above
+ layering architecture is also motivated by vastly different numbers of
+ instances for each layer.
+ Ideally, the topmost automatics layer should be able to overview several
+ datacenters in parallel, in order to cope with (almost) global network
+ problems such as network partitions.
+ Additionally, it should also detect single cluster failures, or intermediate
+ problems like 
+\begin_inset Quotes eld
+\end_inset
+
+rack failure
+\begin_inset Quotes erd
+\end_inset
+
+ or 
+\begin_inset Quotes eld
+\end_inset
+
+room failure
+\begin_inset Quotes erd
+\end_inset
+
+, as well as various types of (partial / intermediate) (replication) network
+ failures.
+ Incompatible decisions at each of the different granularities would be
+ a no-go in practice.
+ Somewhere and somehow, you need one single
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+If you have 
+\emph on
+logical pairs of datacenters
+\emph default
+ which are firmly bound together, you could also have several topmost automatics
+ instances, e.g.
+ for each 
+\emph on
+pair
+\emph default
+ of datacenters.
+ However, that would be very 
+\series bold
+inflexible
+\series default
+, because then you cannot easily mix locations or migrate your servers between
+ datacenters.
+ Using 
+\begin_inset Formula $k>2$
+\end_inset
+
+ replicas with MARS would also become a nightmare.
+ In your own interest, please don't create any concepts where masses of
+ hardware are firmly bound to fixed constants at some software layers.
+\end_layout
+
+\end_inset
+
+ top-most 
+\emph on
+logical
+\emph default
+ problem detection / ranking instance, which should be 
+\emph on
+internally distributed
+\emph default
+ of course, typically using some 
+\series bold
+distributed consensus protocol
+\series default
+; but in difference to many published distributed consensus algorithms it
+ should be able to work with multiple granularities at the same time.
+\end_layout
+
+\begin_layout Subsection
+Methods and their Appropriateness
+\end_layout
+
+\begin_layout Subsubsection
+Failover Methods
+\begin_inset CommandInset label
+LatexCommand label
+name "sub:Failover-Methods"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Failover methods are only needed in case of an incident.
+ They should not be used for regular handover.
+\end_layout
+
+\begin_layout Paragraph
+STONITH-like Methods
+\end_layout
+
+\begin_layout Standard
+STONITH = Shoot The Other Node In The Head
+\end_layout
+
+\begin_layout Standard
+These methods are widely known, although they have several serious drawbacks.
+ Some people even believe that 
+\emph on
+any
+\emph default
+ clustermanager must 
+\emph on
+always
+\emph default
+ have some STONITH-like functionality.
+ This is wrong.
+ There 
+\emph on
+exist
+\emph default
+ alternatives, as shown in the next paragraph.
+\end_layout
+
+\begin_layout Standard
+The most obvious drawback is that STONITH will always create a 
+\series bold
+damage
+\series default
+, by definition.
+\end_layout
+
+\begin_layout Standard
+Example: a typical contemporary STONITH implementation uses IPMI for automatical
+ly powering off your servers, or at least pushes the (virtual) reset button.
+ This will 
+\emph on
+always
+\emph default
+ create a certain type of damage: the affected systems will definitely not
+ be available, at least for some time until they have (manually) rebooted.
+\end_layout
+
+\begin_layout Standard
+This is a conceptual contradiction: the reason for starting failover is
+ that you want to restore availability as soon as possible, but in order
+ to do so you will first 
+\emph on
+destroy
+\emph default
+ the availability of a particular 
+\emph on
+component
+\emph default
+.
+ This may be counter-productive.
+\end_layout
+
+\begin_layout Standard
+Example: when your hot standby node B does not work as expected, or if it
+ works even 
+\emph on
+worse
+\emph default
+ than A before, you will loose some time until you 
+\emph on
+can
+\emph default
+ become operational again at the old side A.
+\end_layout
+
+\begin_layout Standard
+Here is an example method for handling a failure scenario.
+ The old active side A is assumed to be no longer healthy anymore.
+ The method uses a sequential state transition chain with a STONITH-like
+ step:
+\end_layout
+
+\begin_layout Description
+Phase1 Check whether the hot standby B is currently usable.
+ If this is violated (which may happen during certain types of disasters),
+ abort the failover for any affected resources.
+\end_layout
+
+\begin_layout Description
+Phase2 
+\emph on
+Try
+\emph default
+ to shutdown the damaged side A (in the 
+\emph on
+hope
+\emph default
+ that there is no 
+\emph on
+serious
+\emph default
+ damage).
+\end_layout
+
+\begin_layout Description
+Phase3 In case phase2 did not work during a grace period / after a timeout,
+ assume that A is badly damaged and therefore STONITH it.
+\end_layout
+
+\begin_layout Description
+Phase4 Start the application at the hot standby B.
+\end_layout
+
+\begin_layout Standard
+Notice: any cleanup actions, such as 
+\series bold
+repair
+\series default
+ of defective hard- or software etc, are outside the scope of failover processes.
+ Typically, they are executed much later when restoring redundancy.
+\end_layout
+
+\begin_layout Standard
+Also notice: this method is a 
+\emph on
+heavily
+\emph default
+ distributed one, in the sense that sequential actions are alternated multiple
+ times on different hosts.
+ This is known to be cumbersome in distributed systems, in particular in
+ presence of network problems.
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset label
+LatexCommand label
+name "Phase4-in-more"
+
+\end_inset
+
+Phase4 in more detail for DRBD, augmented with some pseudo code for application
+ control:
+\end_layout
+
+\begin_layout Enumerate
+at side B: 
+\family typewriter
+drbdadm disconnect all
+\end_layout
+
+\begin_layout Enumerate
+at side B: 
+\family typewriter
+drbdadm primary --force all
+\end_layout
+
+\begin_layout Enumerate
+at side B: 
+\family typewriter
+applicationmanager start all
+\end_layout
+
+\begin_layout Standard
+The same phase4 using MARS:
+\end_layout
+
+\begin_layout Enumerate
+at side B: 
+\family typewriter
+marsadm pause-fetch all
+\end_layout
+
+\begin_layout Enumerate
+at side B: 
+\family typewriter
+marsadm primary --force all
+\end_layout
+
+\begin_layout Enumerate
+at side B: 
+\family typewriter
+applicationmanager start all
+\end_layout
+
+\begin_layout Standard
+This sequential 4-phase method is far from optimal, for the following reasons:
+\end_layout
+
+\begin_layout Itemize
+The method tries to handle both failover and handover scenarios with one
+ single sequential receipe.
+ In case of a true failover scenario where it is 
+\emph on
+already known for sure
+\emph default
+ that side A is badly damaged, this method will unnecessarily waste time
+ for phase 2.
+ This could be fixed by introduction of a conceptual distinction between
+ handover and failover, but it would not fix the following problems.
+\end_layout
+
+\begin_layout Itemize
+Before phase4 is started (which will re-establish the service from a user's
+ perspective), a lot of time is wasted by 
+\emph on
+both
+\emph default
+ phases 2 
+\emph on
+and
+\emph default
+ 3.
+ Even if phase 2 would be skipped, phase 3 would unnecessarily cost some
+ time.
+ In the next paragraph, an alternative method is explained which eliminates
+ any unnecessary waiting time at all.
+\end_layout
+
+\begin_layout Itemize
+The above method is adapted to the shared-disk model.
+ It does not take advantage of the shared-nothing model, where further possibili
+ties for better solutions exist.
+\end_layout
+
+\begin_layout Itemize
+In case of long-distance network partitions and/or sysadmin / system management
+ subnetwork outages, you may not even be able to (remotely) start STONITH
+ at at.
+ Thus the above method misses an important failure scenario.
+\end_layout
+
+\begin_layout Standard
+Some people seem to have a 
+\emph on
+binary
+\emph default
+ view at the healthiness of a system: in their view, a system is either
+ operational, or it is damaged.
+ This kind of view is ignoring the fact that some systems may be half-alive,
+ showing only 
+\emph on
+minor
+\emph default
+ problems, or occurring only from time to time.
+\end_layout
+
+\begin_layout Standard
+It is obvious that damaging a healthy system is a bad idea by itself.
+ Even 
+\emph on
+generally
+\emph default
+ damaging a half-alive system in order to 
+\begin_inset Quotes eld
+\end_inset
+
+fix
+\begin_inset Quotes erd
+\end_inset
+
+ problems is not generally a good idea, because it may increase the damage
+ when you don't know the 
+\emph on
+real
+\emph default
+ reason
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Example, occurring in masses: an incorrectly installed bootloader, or a
+ wrong BIOS boot priority order which unexpectedly lead to hangs or infinite
+ reboot cycles once the DHCP or BOOTP servers are not longer available /
+ reachable.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Even worse: in a distributed system
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Notice: the STONITH concept is more or less associated with short-distance
+ scenarios where 
+\series bold
+crossover cables
+\series default
+ or similare equipment are used.
+ The assumption is that crossover cables can't go defective, or at least
+ it would be an extremely unlikely scenario.
+ For long-distance replication, this assumption is simply not true.
+\end_layout
+
+\end_inset
+
+ you sometimes 
+\emph on
+cannot(!)
+\emph default
+ know whether a system is healthy, or to what degree it is healthy.
+ Typical STONITH methods as used in some contemporary clustermanagers are
+ 
+\series bold
+assuming a worst case
+\series default
+, even if that worst case is currently not for real.
+\end_layout
+
+\begin_layout Standard
+Therefore, avoid the following 
+\series bold
+fundamental flaws
+\series default
+ in failover concepts and healthiness models, which apply to implementors
+ / configurators of clustermanagers:
+\end_layout
+
+\begin_layout Itemize
+Don't mix up knowledge with conclusions about a (sub)system, and also don't
+ mix this up with the real state of that (sub)system.
+ In reality, you don't have any knowledge about a complex distributed system.
+ You only may have 
+\emph on
+some
+\emph default
+ knowledge about 
+\emph on
+some
+\emph default
+ parts of the system, but you cannot 
+\begin_inset Quotes eld
+\end_inset
+
+see
+\begin_inset Quotes erd
+\end_inset
+
+ a complex distributed system as a whole.
+ What you think is your knowledge, isn't knowledge in reality: in many cases,
+ it is 
+\emph on
+conclusion
+\emph default
+, not knowledge.
+ Don't mix this up! 
+\end_layout
+
+\begin_layout Itemize
+Some systems are more complex than your model of it.
+ Don't neglect important parts (such as networks, routers, switches, cables,
+ plugs) which may lead you to wrong conclusions!
+\end_layout
+
+\begin_layout Itemize
+Don't restrict your mind to boolean models of healthyness.
+ Doing so can easily create unnecessary damage by construction, and even
+ at concept level.
+ You should know from software engineering that defects in concepts or models
+ are much more serious than simple bugs in implementations.
+ Choosing the wrong model cannot be fixed as easily as a typical bug or
+ a typo.
+\end_layout
+
+\begin_layout Itemize
+Try to deduce the state of a system as 
+\series bold
+reliably
+\series default
+ as possible.
+ If you don't know something for sure, don't generally assume that it has
+ gone wrong.
+ Don't confuse missing knowledge with the conclusion that something is bad.
+ Boolean algebra restricts your mind to either 
+\begin_inset Quotes eld
+\end_inset
+
+good
+\begin_inset Quotes erd
+\end_inset
+
+ or 
+\begin_inset Quotes eld
+\end_inset
+
+bad
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Use at least 
+\series bold
+tri-state algebra
+\series default
+ which has a means for expressing 
+\series bold
+
+\begin_inset Quotes eld
+\end_inset
+
+unknown
+\begin_inset Quotes erd
+\end_inset
+
+
+\series default
+.
+ Even better: attach a probability to anything you (believe to) know.
+ Errare humanum est: nothing is absolutely sure.
+\end_layout
+
+\begin_layout Itemize
+Oversimplification: don't report an 
+\begin_inset Quotes eld
+\end_inset
+
+unknown
+\begin_inset Quotes erd
+\end_inset
+
+ or even a 
+\begin_inset Quotes eld
+\end_inset
+
+broken
+\begin_inset Quotes erd
+\end_inset
+
+ state for a complex system whenever a smaller subsystem exists for which
+ you have some knowledge (or you can conclude something about it with reasonable
+ evidence).
+ Otherwise, your users / sysadmins may draw wrong conclusions, and assume
+ that the whole system is broken, while in reality only some minor part
+ has some minor problem.
+ Users could then likely make wrong decisions, which may then easily lead
+ to bigger damages.
+\end_layout
+
+\begin_layout Itemize
+Murphy's law: 
+\series bold
+never assume that something can't go wrong!
+\series default
+ Doing so is a blatant misconception at topmost level: the 
+\emph on
+purpose
+\emph default
+ of a clustermanager is creating High Availablity (HA) out of more or less
+ 
+\begin_inset Quotes eld
+\end_inset
+
+unreliable
+\begin_inset Quotes erd
+\end_inset
+
+ components.
+ It is the damn duty of both a clustermanager and its configurator to try
+ to compensate 
+\emph on
+any
+\emph default
+ failures, 
+\emph on
+regardless of their probability
+\emph default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Never claim that something has only low probability (and therefore it were
+ not relevant).
+ In the HA area, you simply 
+\series bold
+cannot know
+\series default
+ that, because you typically have 
+\emph on
+sporadic
+\emph default
+ incidents.
+ In extreme cases, the 
+\emph on
+purpose
+\emph default
+ of your HA solution is protection against 1 failure per 10 years.
+ You simply don't have the time to wait for creating an incident statistics
+ about that!
+\end_layout
+
+\end_inset
+
+, as best as possible.
+\end_layout
+
+\begin_layout Itemize
+Never confuse 
+\series bold
+probability
+\series default
+ with
+\series bold
+ expectancy value! 
+\series default
+If you don't know the mathematical term 
+\begin_inset Quotes eld
+\end_inset
+
+expectancy value
+\begin_inset Quotes erd
+\end_inset
+
+, or if you don't know what this means 
+\emph on
+in practice
+\emph default
+, don't take responsibility for millions of € or $.
+\end_layout
+
+\begin_layout Itemize
+When operating masses of hard- and software: never assume that a particular
+ failure can occur only at a low number of instances.
+ There are 
+\series bold
+\emph on
+unknown(!)
+\emph default
+ systematic errors
+\series default
+ which may pop up at the wrong time and in huge masses when you don't expect
+ them.
+\end_layout
+
+\begin_layout Itemize
+Multiple layers of fallback: 
+\emph on
+any
+\emph default
+ action can fail.
+ Be prepared to have a plan B, and even a plan C, and even better a plan
+ D, wherever possible.
+\end_layout
+
+\begin_layout Itemize
+Never increase any damage anywhere, unnecessarily! Always try to 
+\emph on
+miminize
+\emph default
+ any damage! It can be mathematically proven that in deterministic probabilistic
+ systems having finite state, increases of a damage level 
+\emph on
+at the wrong place
+\emph default
+ will 
+\emph on
+introduce
+\emph default
+ an 
+\emph on
+additional
+\emph default
+ 
+\emph on
+risk
+\emph default
+ of getting into an 
+\series bold
+endless loop
+\series default
+.
+ This is also true for nondeterministic systems, as known from formal language
+ theory
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Finite automatons are known to be transformable to deterministic ones, usually
+ by an exponential increase in the number of states.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Itemize
+Use the 
+\series bold
+best effort principle
+\series default
+.
+ You should be aware of the following fact: in general, it is impossible
+ to create an 
+\emph on
+absolutely reliable system
+\emph default
+ out of unreliable components.
+ You can 
+\emph on
+lower
+\emph default
+ the risk of failures to any 
+\begin_inset Formula $\epsilon>0$
+\end_inset
+
+ by investing a lot of resources and of money, but whatever you do: 
+\begin_inset Formula $\epsilon=0$
+\end_inset
+
+ is impossible.
+ Therefore, be careful with boolean algebra.
+ Prefer approximation methods / optimizing methods instead.
+ Always do 
+\emph on
+your
+\emph default
+ best, instead of trying to reach a 
+\emph on
+global
+\emph default
+ optimum which likely does not exist at all (because the 
+\begin_inset Formula $\epsilon$
+\end_inset
+
+ can only 
+\emph on
+converge
+\emph default
+ to an optimum, but will never actually reach it).
+ The best effort principle means the following: if you discover a method
+ for improving your operating state by reduction of a (potential) damage
+ in a reasonable time and with reasonable effort, then 
+\series bold
+simply do it
+\series default
+.
+ Don't argue that a particular step is no 100% solution for all of your
+ problems.
+ 
+\emph on
+Any
+\emph default
+ 
+\emph on
+improvement
+\emph default
+ is valuable.
+ 
+\series bold
+Don't miss any valuable step
+\series default
+ having reasonable costs with respect to your budget.
+ Missing valuable measures which have low costs are certainly a violation
+ of the best effort principle, because you are not doing 
+\emph on
+your
+\emph default
+ best.
+ Keep that in mind.
+\begin_inset Newline newline
+\end_inset
+
+If you have 
+\emph on
+understood
+\emph default
+ this (e.g.
+ deeply think at least one day about it), you will no longer advocate STONITH
+ methods 
+\emph on
+in general
+\emph default
+, when there are alternatives.
+ STONITH methods are only valuable when you 
+\emph on
+know in advance
+\emph default
+ that the final outcome (after reboot) will most likely be better, and that
+ waiting for reboot will most likely 
+\emph on
+pay off
+\emph default
+.
+ In general, this condition is 
+\emph on
+not true
+\emph default
+ if you have a healthy hot standby system.
+ This should be easy to see.
+ But there exist well-known clustermanager solutions / configurations blatantly
+ ignoring
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+For some 
+\emph on
+special(!)
+\emph default
+ cases of the shared-disk model, there exist some justifications for doing
+ STONITH 
+\emph on
+before
+\emph default
+ starting the application at the hot standby.
+ Under certain circumstances, it can happen that system A running amok could
+ destroy the data on your single shared disk (example: a filesystem doubly
+ mounted 
+\emph on
+in parallel
+\emph default
+, which will certainly destroy your data, except you are using 
+\family typewriter
+ocfs2
+\family default
+ or suchalike).
+ This argument is only valid for 
+\emph on
+passive
+\emph default
+ disks which are 
+\emph on
+directly
+\emph default
+ attached to 
+\emph on
+both
+\emph default
+ systems A and B, such that there is no 
+\emph on
+external
+\emph default
+ means for fencing the disk.
+ In case of iSCSI running over ordinary network equipment such as routers
+ or switches, the argument 
+\begin_inset Quotes eld
+\end_inset
+
+fencing the disk is otherwise not possible
+\begin_inset Quotes erd
+\end_inset
+
+ does not apply.
+ You can interrupt iSCSI connection at the network gear, or you can often
+ do it at cluster A or at the iSCSI target.
+ Even commercial storage appliances speaking iSCSI can be remotely controlled
+ for forcefully aborting iSCSI sessions.
+ In modern times, the STONITH method has no longer such a justification.
+ The justification stems from ancient times when a disk was a purely passive
+ mechanical device, and its disk controller was part of the server system.
+\end_layout
+
+\end_inset
+
+ this.
+ Only when the former standby system does not work as expected (this means
+ that 
+\emph on
+all
+\emph default
+ of your redundant systems are not healthy enough for your application),
+ 
+\emph on
+only then
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Notice that STONITH may be needed for (manual or partially automatic) 
+\emph on
+repair
+\emph default
+ in some cases, e.g.
+ when you know that a system has a kernel crash.
+ Don't mix up the repair phase with failover or handover phases.
+ Typically, they are executed at different times.
+ The repair phase is outside the scope of this section.
+\end_layout
+
+\end_inset
+
+
+\emph default
+ STONITH is unevitable as a 
+\emph on
+last resort
+\emph default
+ option.
+\begin_inset Newline newline
+\end_inset
+
+In short: blindly using STONITH without true need during failover is a violation
+ of the best effort principle.
+ You are simply not doing your best.
+\end_layout
+
+\begin_layout Itemize
+When your budget is limited, carefully select those improvements which make
+ your system 
+\series bold
+as reliable as possible
+\series default
+, given your fixed budget.
+\end_layout
+
+\begin_layout Itemize
+Create statistics on the duration of your actions.
+ Based on this, try to get a 
+\emph on
+balanced
+\emph default
+ optimum between time and costs.
+\end_layout
+
+\begin_layout Itemize
+Whatever actions you can 
+\series bold
+start in parallel
+\series default
+ for saving time, do it.
+ Otherwise you are disregarding the best effort principle, and your solution
+ will be sub-optimal.
+ You will require deep knowledge of parallel systems, as well as experience
+ with dealing with problems like (distributed) races.
+ Notice that 
+\emph on
+any
+\emph default
+ distributed system is 
+\emph on
+inherently parallel
+\emph default
+.
+ Don't believe that sequential methods can deliver an optimum solution in
+ such a difficult area.
+\end_layout
+
+\begin_layout Itemize
+If you don't have the 
+\series bold
+necessary skills
+\series default
+ for (a) recognizing already existing parallelism, (b) dealing with parallelism
+ at concept level, (c) programming and/or configuring parallelism race-free
+ and deadlock-free (or if you even don't know what a race condition is and
+ where it may occur in practice), then don't take responsibility for millions
+ of € or $.
+\end_layout
+
+\begin_layout Itemize
+Avoid hard timeouts wherever possible.
+ Use 
+\series bold
+adaptive timeouts
+\series default
+ instead.
+ Reason: depending on hardware or workload, the same action A may take a
+ very short time on cluster 1, but take a very long time on cluster 2.
+ If you need to guard action A from hanging (which is almost always the
+ case because of Murphy's law), don't configure any fixed timeout for it.
+ When having several hundreds of clusters, you would need to use the 
+\emph on
+worst case value
+\emph default
+, which is the longest time occurring somewhere at the very slow clusters
+ / slow parts of the network.
+ This wastes a lot of time in case one of the fast clusters is hanging.
+ Adaptive timeouts work differently: they use a kind of 
+\begin_inset Quotes eld
+\end_inset
+
+progress bar
+\begin_inset Quotes erd
+\end_inset
+
+ to monitor the 
+\emph on
+progress
+\emph default
+ of an action.
+ They will abort only if there is 
+\emph on
+no progress
+\emph default
+ for a certain amount of time.
+ Hint: among others, 
+\family typewriter
+marsadm view-*-rest
+\family default
+ commands or macros are your friend.
+\end_layout
+
+\begin_layout Paragraph
+ITON = Ignore The Other Node
+\end_layout
+
+\begin_layout Standard
+This means 
+\series bold
+fencing from application traffic
+\series default
+, and can be used as an alternative to STONITH when done properly.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/fencing-hierarchy.fig
+	width 60col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Fencing from application traffic is best suited for the shared-nothing model,
+ but can also be adapted to the shared-disk model with some quirks.
+\end_layout
+
+\begin_layout Standard
+The idea is simple: always route your application network traffic to the
+ current (logically) active side, whether it is currently A or B.
+ Just don't route any application requests to the current (logically) passive
+ side at all.
+\end_layout
+
+\begin_layout Standard
+For failover (and 
+\emph on
+only
+\emph default
+ for that), you 
+\emph on
+should not care about
+\emph default
+ any split brain occurring at the low-level generic block device:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/split-brain-history.fig
+	width 50col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Although having a split brain at the generic low-level block device, you
+ now define the 
+\begin_inset Quotes eld
+\end_inset
+
+logically active
+\begin_inset Quotes erd
+\end_inset
+
+ and 
+\begin_inset Quotes eld
+\end_inset
+
+logically passive
+\begin_inset Quotes erd
+\end_inset
+
+ side by yourself by 
+\emph on
+logically ignoring
+\emph default
+ the 
+\begin_inset Quotes eld
+\end_inset
+
+wrong
+\begin_inset Quotes erd
+\end_inset
+
+ side as defined by yourself:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/split-brain-resolved.fig
+	width 50col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+This is possible because the generic block devices provided by DRBD or MARS
+ are completely 
+\series bold
+agnostic
+\series default
+ of the 
+\begin_inset Quotes eld
+\end_inset
+
+meaning
+\begin_inset Quotes erd
+\end_inset
+
+ of either version A or B.
+ Higher levels such as clustermanagers (or humans like sysadmins) can assign
+ them a meaning like 
+\begin_inset Quotes eld
+\end_inset
+
+relevant
+\begin_inset Quotes erd
+\end_inset
+
+ or 
+\begin_inset Quotes eld
+\end_inset
+
+not relevant
+\begin_inset Quotes erd
+\end_inset
+
+, or 
+\begin_inset Quotes eld
+\end_inset
+
+logically active
+\begin_inset Quotes erd
+\end_inset
+
+ or 
+\begin_inset Quotes eld
+\end_inset
+
+logically passive
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+As a result of fencing from application traffic, the 
+\begin_inset Quotes eld
+\end_inset
+
+logically passive
+\begin_inset Quotes erd
+\end_inset
+
+ side will 
+\emph on
+logically
+\emph default
+ cease any actions such as updating user data, even if it is 
+\begin_inset Quotes eld
+\end_inset
+
+physically active
+\begin_inset Quotes erd
+\end_inset
+
+ during split-brain (when two primaries exist in DRBD or MARS sense
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Hint: some clustermanagers and/or some people seem to define the term 
+\begin_inset Quotes eld
+\end_inset
+
+split-brain
+\begin_inset Quotes erd
+\end_inset
+
+ differently from DRBD or MARS.
+ In the context of generic block devices, split brain means that the 
+\emph on
+history
+\emph default
+ of both versions has been split to a Y-like 
+\series bold
+fork
+\series default
+ (for whatever reason), such that re-joining them 
+\emph on
+incrementally
+\emph default
+ by ordinary write operations is no longer guaranteed to be possible.
+ As a slightly simplified definition, you might alternatively use the definition
+ 
+\begin_inset Quotes eld
+\end_inset
+
+two incompatible primaries are existing in parallel
+\begin_inset Quotes erd
+\end_inset
+
+, which means almost the same in practice.
+ Details of formal semantics are not the scope of this treatment.
+\end_layout
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Standard
+If you already have some load balancing, or BGP, or another 
+\emph on
+mechanism
+\emph default
+ for dynamic routing, you already have an important part for the ITON method.
+ Additionally, ensure by an appropriate 
+\emph on
+strategy
+\emph default
+ that your balancer status / BGP announcement etc does always coincide with
+ the 
+\begin_inset Quotes eld
+\end_inset
+
+logically active
+\begin_inset Quotes erd
+\end_inset
+
+ side (recall that even during split-brain 
+\emph on
+you
+\emph default
+ must define 
+\begin_inset Quotes eld
+\end_inset
+
+logically active
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\series bold
+uniquely
+\series default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+A possible strategy is to use a Lamport clock for route changes: the change
+ with the most recent Lamport timestamp will always win over previous changes.
+\end_layout
+
+\end_inset
+
+ by yourself).
+\end_layout
+
+\begin_layout Standard
+Example:
+\end_layout
+
+\begin_layout Description
+Phase1 Check whether the hot standby B is currently usable.
+ If this is violated (which may happen during certain types of disasters),
+ abort the failover for any affected resources.
+\end_layout
+
+\begin_layout Description
+Phase2 Do the following 
+\emph on
+in parallel
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+For database applications where no transactions should get lost, you should
+ slightly modify the order of operations: first fence the old side A, then
+ start the application at standby side B.
+ However, be warned that even this cannot guarantee that no transaction
+ is lost.
+ When the network between A and B is interrupted 
+\emph on
+before
+\emph default
+ the incident happens, DRBD will automatically disconnect, and MARS will
+ show a lagbehind.
+ In order to fully eliminate this possibility, you can either use DRBD and
+ configure it to hang forever during network outages (such that users will
+ be unable to commit any transactions at all), or you can use the shared-disk
+ model instead.
+ But in the latter case, you are introducing a SPOF at the single shared
+ disk.
+ The former case is logically almost equivalent to shared-disk, but avoiding
+ some parts of the physical SPOF.
+ In a truly distributed system, the famous CAP theorem is limiting your
+ possibilities.
+ Therefore, no general solution exists fulfilling all requirements at the
+ same time.
+\end_layout
+
+\end_inset
+
+:
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Start all affected applications at the hot standby B.
+ This can be done with the same DRBD or MARS procedure as described 
+\begin_inset CommandInset ref
+LatexCommand vpageref
+reference "Phase4-in-more"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Itemize
+Fence A by fixedly routing all affected application traffic to B.
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+That's all which has to be done for a shared-nothing model.
+ Of course, this will likely produce a split-brain (even when using DRBD
+ in place of MARS), but that will not matter from a user's perspective,
+ because the users will no longer 
+\begin_inset Quotes eld
+\end_inset
+
+see
+\begin_inset Quotes erd
+\end_inset
+
+ the 
+\begin_inset Quotes eld
+\end_inset
+
+logically passive
+\begin_inset Quotes erd
+\end_inset
+
+ side A through their network.
+ Only during the relatively small time period where application traffic
+ was going to the old side A while not replicated to B due to the incident,
+ a very small number of updates 
+\emph on
+could
+\emph default
+ have gone lost.
+ In fields like webhosting, this is taken into account.
+ Users will usually not complain when some (smaller amount of) data is lost
+ due to split-brain.
+ They will complain when the service is unavailable.
+\end_layout
+
+\begin_layout Standard
+This method is the fastest for restoring availability, because it doesn't
+ try to execute any (remote) action at side A.
+ Only from a sysadmin's perspective, there remain some cleanup tasks to
+ be done during the following repair phase, such as split-brain resolution,
+ which are outside the scope of this treatment.
+\end_layout
+
+\begin_layout Standard
+By running the application fencing step 
+\emph on
+sequentially
+\emph default
+ (including wait for its partial successfulness such that the old side A
+ can no longer be reached by any users) in front of the failover step, you
+ may minimize the amount of lost data, but at the cost of total duration.
+ Your service will take longer to be available again, while the amount of
+ lost data is typically somewhat smaller.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ A few people might clamour when some data is lost.
+ In long-distance replication scenarios with high update traffic, there
+ is 
+\emph on
+simply no way at all
+\emph default
+ for guaranteeing that no data can be lost ever.
+ According to the laws of Einstein and the laws of Distributed Systems like
+ the famous CAP theorem, this isn't the fault of DRBD+proxy or MARS, but
+ simply the 
+\emph on
+consequence
+\emph default
+ of having long distances.
+ If you want to protect against data loss as best as possible, then don't
+ use 
+\begin_inset Formula $k=2$
+\end_inset
+
+ replicas.
+ Use 
+\begin_inset Formula $k\geq4$
+\end_inset
+
+, and spread them over different distances, such as mixed small + medium
+ + long distances.
+ Future versions of MARS will support adaptive pseudo-synchronous modes,
+ which will allow individual adaptation to network latencies / distances.
+\end_layout
+
+\begin_layout Standard
+The ITON method can be adapted to shared-disk by additionally fencing the
+ common disk from the (presumably) failed cluster node A.
+\end_layout
+
+\begin_layout Subsubsection
+Handover Methods
+\end_layout
+
+\begin_layout Standard
+Planned handover is conceptually simpler, because both sides must be (almost)
+ healthy as a 
+\emph on
+precondition
+\emph default
+.
+ There are simply no pre-existing failures to deal with.
+\end_layout
+
+\begin_layout Standard
+Here is an example using DRBD, some application commands denoted as pseudo
+ code:
+\end_layout
+
+\begin_layout Enumerate
+at side A: 
+\family typewriter
+applicationmanager stop all
+\end_layout
+
+\begin_layout Enumerate
+at side A: 
+\family typewriter
+drbdadm secondary all
+\end_layout
+
+\begin_layout Enumerate
+at side B: 
+\family typewriter
+drbdadm primary all
+\end_layout
+
+\begin_layout Enumerate
+at side B: 
+\family typewriter
+applicationmanager start all
+\end_layout
+
+\begin_layout Standard
+MARS already has a conceptual distinction between handover and failover.
+ With MARS, it becomes even simpler, because a generic handover procedure
+ is already built in:
+\end_layout
+
+\begin_layout Enumerate
+at side A: 
+\family typewriter
+applicationmanager stop all
+\end_layout
+
+\begin_layout Enumerate
+at side B: 
+\family typewriter
+marsadm primary all
+\end_layout
+
+\begin_layout Enumerate
+at side B: 
+\family typewriter
+applicationmanager start all
+\end_layout
+
+\begin_layout Subsubsection
+Hybrid Methods
+\end_layout
+
+\begin_layout Standard
+In general, a planned handover may fail at any stage.
+ Notice that such a failure is also a failure, but (partially) caused by
+ the planned handover.
+ You have the following alternatives for automatically dealing with such
+ cases:
+\end_layout
+
+\begin_layout Enumerate
+In case of a failure, switch back to the old side A.
+\end_layout
+
+\begin_layout Enumerate
+Instead, forcefully switch to the new side A, similar to the methods described
+ in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Failover-Methods"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Similar options exist for a failed failover (at least in theory), but chances
+ are lower for actually recovering if you have only 
+\begin_inset Formula $k=2$
+\end_inset
+
+ replicas in total.
+\end_layout
+
+\begin_layout Standard
+Whatever you decide to do in what case in whatever priority order, whether
+ you decide it in advance or during the course of a failing action: it simply
+ means that according to the best effort principle, you should 
+\series bold
+never leave your system in a broken state
+\series default
+ when there exists a chance to recover availability with any method.
+\end_layout
+
+\begin_layout Standard
+Therefore, you should 
+\emph on
+implement
+\emph default
+ neither handover nor failover in their pure forms.
+ Always implement hybrid forms following the best effort principle.
+\end_layout
+
+\begin_layout Subsection
+Special Requirements for Long Distances
+\begin_inset CommandInset label
+LatexCommand label
+name "sub:Special-Requirements-for"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Most contemporary clustermanagers have been constructed for short distance
+ shared-nothing clusters, or even for 
+\emph on
+local
+\emph default
+ shared-nothing clusters (c.f.
+ DRBD over crossover cables), or even for shared-disk clusters (
+\emph on
+originally
+\emph default
+, when their 
+\emph on
+concepts
+\emph default
+ were developed).
+ Blindly using them for long-distance replication without modification /
+ adaptation bears some additional risks.
+\end_layout
+
+\begin_layout Itemize
+Notice that long-distance replication always 
+\emph on
+requires
+\emph default
+ a 
+\series bold
+shared-nothing
+\series default
+ model.
+\end_layout
+
+\begin_layout Itemize
+As a consequence, 
+\series bold
+split brain
+\series default
+ can appear 
+\emph on
+regularly
+\emph default
+ during failover.
+ There is no way for preventing it! This is an 
+\emph on
+inherent property
+\emph default
+ of distributed systems, not limited to MARS (e.g.
+ also ocurring with DRBD if you try to use it over long distances).
+ Therefore, you 
+\emph on
+must
+\emph default
+ deal with occurences of split-brain as a 
+\emph on
+requirement
+\emph default
+.
+\end_layout
+
+\begin_layout Itemize
+The probability of 
+\series bold
+network partitions
+\series default
+ is much higher: although you should have been required by Murphy's law
+ to deal with network partitions already in short-distance scenarios, it
+ now becomes 
+\emph on
+mandatory
+\emph default
+.
+\end_layout
+
+\begin_layout Itemize
+Be prepared that in case of certain types of (more or less global) internet
+ partitions, you may not be able to trigger STONITH actions 
+\emph on
+at all
+\emph default
+.
+ Therefore, 
+\series bold
+fencing of application traffic
+\series default
+ is 
+\emph on
+mandatory
+\emph default
+.
+\end_layout
+
+\begin_layout Section
 Creating Backups via Pseudo Snapshots
 \end_layout
 
@@ -30946,7 +33166,7 @@ cm3
 \end_layout
 
 \begin_layout Standard
-If suchalike doesn't work, or if you need to handover some ressource 
+If suchalike doesn't work, or if you need to handover some resource 
 \family typewriter
 $res1
 \family default
@@ -31135,7 +33355,7 @@ If suchalike doesn't work, or when a handover attempt has failed several
 \emph on
 really need
 \emph default
- forceful switching of some ressource 
+ forceful switching of some resource 
 \family typewriter
 $res1
 \family default

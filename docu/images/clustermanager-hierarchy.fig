@@ -1,0 +1,21 @@
+#FIG 3.2  Produced by xfig version 3.2.5c
+Landscape
+Center
+Metric
+A4      
+100.00
+Single
+-2
+1200 2
+2 2 0 1 0 7 50 -1 -1 0.000 0 0 -1 0 0 5
+	 225 1125 5175 1125 5175 1575 225 1575 225 1125
+2 2 0 1 0 7 50 -1 -1 0.000 0 0 -1 0 0 5
+	 225 1800 5175 1800 5175 2250 225 2250 225 1800
+2 2 0 1 0 7 50 -1 -1 0.000 0 0 -1 0 0 5
+	 225 450 5175 450 5175 900 225 900 225 450
+4 1 0 50 -1 0 12 0.0000 4 180 4740 2700 1395 Mechanics Layer: Handover+Failover of whole Datacenter\001
+4 1 0 50 -1 0 12 0.0000 4 180 4455 2700 2070 Mechanics Layer: Handover+Failover of single Cluster\001
+4 0 0 50 -1 0 10 0.0000 4 135 3015 5355 2070 (several  hundreds / thousands of instances)\001
+4 0 0 50 -1 0 10 0.0000 4 135 1950 5355 1395 (about a dozen of instances)\001
+4 0 0 50 -1 0 10 0.0000 4 150 2370 5355 720 (one globally distributed instance)\001
+4 1 0 50 -1 0 12 0.0000 4 180 4395 2700 720 Automatics Layer: Failover of {Datacenters...Clusters}\001
