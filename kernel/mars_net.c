@@ -37,15 +37,28 @@
 #include <linux/module.h>
 #include <linux/string.h>
 #include <linux/moduleparam.h>
+#include <linux/lzo.h>
 
 #include "mars.h"
 #include "mars_net.h"
 
 #define USE_BUFFERING
 
-#define SEND_PROTO_VERSION   1
+#define SEND_PROTO_VERSION   2
+
+enum COMPRESS_TYPES {
+	COMPRESS_NONE = 0,
+	COMPRESS_LZO = 1,
+	/* insert further methods here */
+};
+
+int mars_net_compress_data = 0;
+EXPORT_SYMBOL_GPL(mars_net_compress_data);
 
 const u16 net_global_flags = 0
+#if __enabled_CONFIG_CRYPTO_LZO || __enabled_CONFIG_CRYPTO_LZO_MODULE
+	| COMPRESS_LZO
+#endif
 	;
 
 ////////////////////////////////////////////////////////////////////
@@ -181,7 +194,7 @@ module_param_named(mars_port, mars_net_default_port, int, 0);
  * TODO: make all the socket options configurable.
  * TODO: implement signal handling.
  * TODO: add authentication.
- * TODO: add compression / encryption.
+ * TODO: add encryption.
  */
 
 struct mars_tcp_params default_tcp_params = {
@@ -873,6 +886,139 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 	return _mars_recv_raw(msock, buf, minlen, maxlen, 0);
 }
 EXPORT_SYMBOL_GPL(mars_recv_raw);
+
+int mars_send_compressed(struct mars_socket *msock, const void *buf, s32 len, int compress, bool cork)
+{
+	void *compr_data = NULL;
+	s16 compr_code = 0;
+	int status;
+
+	switch (compress) {
+	case COMPRESS_LZO:
+#if __enabled_CONFIG_CRYPTO_LZO || __enabled_CONFIG_CRYPTO_LZO_MODULE
+		// tolerate mixes of different proto versions
+		if (msock->s_send_proto >= 2 && (msock->s_recv_flags & COMPRESS_LZO)) {
+			size_t compr_len = 0;
+			int lzo_status;
+			void *wrkmem;
+
+			compr_data = brick_mem_alloc(lzo1x_worst_compress(len));
+			wrkmem = brick_mem_alloc(LZO1X_1_MEM_COMPRESS);
+
+			lzo_status = lzo1x_1_compress(buf, len, compr_data, &compr_len, wrkmem);
+
+			brick_mem_free(wrkmem);
+			if (likely(lzo_status == LZO_E_OK && compr_len < len)) {
+				compr_code = COMPRESS_LZO;
+				buf = compr_data;
+				len = compr_len;
+			}
+		}
+#endif
+		break;
+
+		/* implement further methods here */
+
+	default:
+		/* ignore unknown compress codes */
+		break;
+	}
+
+	// allow mixing of different proto versions
+	if (likely(msock->s_send_proto >= 2)) {
+		status = mars_send_raw(msock, &compr_code, sizeof(compr_code), true);
+		if (unlikely(status < 0))
+			goto done;
+		if (compr_code > 0) {
+			status = mars_send_raw(msock, &len, sizeof(len), true);
+			if (unlikely(status < 0))
+				goto done;
+		}
+	}
+
+	status = mars_send_raw(msock, buf, len, cork);
+
+ done:
+	brick_mem_free(compr_data);
+	return status;
+}
+EXPORT_SYMBOL_GPL(mars_send_compressed);
+
+int mars_recv_compressed(struct mars_socket *msock, void *buf, int minlen, int maxlen)
+{
+	void *compr_data = NULL;
+	s16 compr_code = COMPRESS_NONE;
+	int status;
+
+	// allow mixing of different proto versions
+	if (msock->s_send_proto >= 2) {
+		status = mars_recv_raw(msock, &compr_code, sizeof(compr_code), sizeof(compr_code));
+		if (unlikely(status < 0))
+			goto done;
+	}
+
+	switch (compr_code) {
+	case COMPRESS_NONE:
+		status = mars_recv_raw(msock, buf, minlen, maxlen);
+		break;
+
+	case COMPRESS_LZO:
+#if __enabled_CONFIG_CRYPTO_LZO || __enabled_CONFIG_CRYPTO_LZO_MODULE
+		{
+			s32 compr_len = 0;
+			size_t this_len;
+			int lzo_status;
+
+			status = mars_recv_raw(msock, &compr_len, sizeof(compr_len), sizeof(compr_len));
+			if (unlikely(status < 0))
+				goto done;
+			if (unlikely(compr_len <= 0 || compr_len >= maxlen)) {
+				MARS_ERR("bad comp_len = %d, real minlen = %d maxlen = %d\n",
+					 compr_len, minlen, maxlen);
+				status = -EOVERFLOW;
+				goto done;
+			}
+
+			compr_data = brick_mem_alloc(compr_len);
+
+			status = mars_recv_raw(msock, compr_data, compr_len, compr_len);
+			if (unlikely(status < 0))
+				goto done;
+
+			this_len = maxlen;
+			lzo_status = lzo1x_decompress_safe(compr_data, compr_len, buf, &this_len);
+
+			status = this_len;
+			if (unlikely(lzo_status != LZO_E_OK)) {
+				MARS_ERR("bad decompression, lzo_status = %d\n", lzo_status);
+				status = -EBADE;
+				goto done;
+			}
+			if (unlikely(this_len < minlen || this_len > maxlen)) {
+				MARS_WRN("bad decompression length this_len = %ld, minlen = %d maxlen = %d\n", (long)this_len, minlen, maxlen);
+				status = -EBADMSG;
+				goto done;
+			}
+			break;
+		}
+#else
+		MARS_WRN("cannot LZO decompress\n");
+		status = -EBADMSG;
+		break;
+#endif
+
+	/* implement further methods here */
+
+	default:
+		MARS_WRN("got unknown compr_code = %d\n", compr_code);
+		status = -EBADRQC;
+	}
+
+ done:
+	brick_mem_free(compr_data);
+	return status;
+}
+EXPORT_SYMBOL_GPL(mars_recv_compressed);
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -1589,7 +1735,7 @@ int mars_send_mref(struct mars_socket *msock, struct mref_object *mref)
 		goto done;
 
 	if (cmd.cmd_code & CMD_FLAG_HAS_DATA) {
-		status = mars_send_raw(msock, mref->ref_data, mref->ref_len, false);
+		status = mars_send_compressed(msock, mref->ref_data, mref->ref_len, mars_net_compress_data, false);
 	}
 done:
 	return status;
@@ -1613,8 +1759,8 @@ int mars_recv_mref(struct mars_socket *msock, struct mref_object *mref, struct m
 			status = -ENOMEM;
 			goto done;
 		}
-		status = mars_recv_raw(msock, mref->ref_data, mref->ref_len, mref->ref_len);
-		if (status < 0)
+		status = mars_recv_compressed(msock, mref->ref_data, mref->ref_len, mref->ref_len);
+		if (unlikely(status < 0))
 			MARS_WRN("#%d mref_len = %d, status = %d\n", msock->s_debug_nr, mref->ref_len, status);
 	}
 done:
@@ -1647,7 +1793,7 @@ int mars_send_cb(struct mars_socket *msock, struct mref_object *mref)
 
 	if (cmd.cmd_code & CMD_FLAG_HAS_DATA) {
 		MARS_IO("#%d sending blocklen = %d\n", msock->s_debug_nr, mref->ref_len);
-		status = mars_send_raw(msock, mref->ref_data, mref->ref_len, false);
+		status = mars_send_compressed(msock, mref->ref_data, mref->ref_len, mars_net_compress_data, false);
 	}
 done:
 	return status;
@@ -1671,7 +1817,7 @@ int mars_recv_cb(struct mars_socket *msock, struct mref_object *mref, struct mar
 			goto done;
 		}
 		MARS_IO("#%d receiving blocklen = %d\n", msock->s_debug_nr, mref->ref_len);
-		status = mars_recv_raw(msock, mref->ref_data, mref->ref_len, mref->ref_len);
+		status = mars_recv_compressed(msock, mref->ref_data, mref->ref_len, mref->ref_len);
 	}
 done:
 	return status;

@@ -343,6 +343,9 @@ ctl_table mars_table[] = {
 #ifdef  CONFIG_MARS_NET_COMPAT
 	INT_ENTRY("old_net_proto",        use_old_format,         0600),
 #endif
+#if __enabled_CONFIG_CRYPTO_LZO || __enabled_CONFIG_CRYPTO_LZO_MODULE
+	INT_ENTRY("network_compress_data", mars_net_compress_data, 0600),
+#endif
 	INT_ENTRY("network_io_timeout",   global_net_io_timeout,  0600),
 	INT_ENTRY("parallel_connections", max_client_channels,    0600),
 	INT_ENTRY("parallel_bulk_feed",   max_client_bulk,        0600),
