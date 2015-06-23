@@ -30,6 +30,8 @@
 
 #include "brick.h"
 
+extern int mars_net_compress_data;
+
 extern int mars_net_default_port;
 extern int mars_net_bind_before_listen;
 extern int mars_net_bind_before_connect;
@@ -135,6 +137,9 @@ extern long mars_socket_send_space_available(struct mars_socket *msock);
 
 extern int mars_send_raw(struct mars_socket *msock, const void *buf, int len, bool cork);
 extern int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen);
+
+int mars_send_compressed(struct mars_socket *msock, const void *buf, s32 len, int compress, bool cork);
+int mars_recv_compressed(struct mars_socket *msock, void *buf, int minlen, int maxlen);
 
 /* Mid-level generic field data exchange
  */
