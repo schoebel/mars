@@ -208,6 +208,8 @@ EXPORT_SYMBOL_GPL(mars_max_loadavg);
 	VEC_ENTRY(NAME, VAR, MODE, 1)
 
 #define LIMITER_ENTRIES(VAR, PREFIX, SUFFIX)				\
+	INT_ENTRY(PREFIX "_total_ops_" SUFFIX, (VAR)->lim_total_ops, 0400), \
+	INT_ENTRY(PREFIX "_total_sum_" SUFFIX, (VAR)->lim_total_sum, 0400), \
 	INT_ENTRY(PREFIX "_ratelimit_" SUFFIX, (VAR)->lim_max_rate, 0600), \
 	INT_ENTRY(PREFIX "_maxdelay_ms",   (VAR)->lim_max_delay,0600),	\
 	INT_ENTRY(PREFIX "_minwindow_ms",  (VAR)->lim_min_window,0600),	\
