@@ -51,6 +51,13 @@ int mars_limit(struct mars_limiter *lim, int amount)
 		if (unlikely(window < (long long)lim->lim_min_window * (LIMITER_TIME_RESOLUTION / 1000)))
 			window = (long long)lim->lim_min_window * (LIMITER_TIME_RESOLUTION / 1000);
 
+		/* Update total statistics.
+		 * They will intentionally wrap around.
+		 * Userspace must take care of that.
+		 */
+		lim->lim_total_ops++;
+		lim->lim_total_sum += amount;
+
 		/* Only use incremental accumulation at repeated calls, but
 		 * never after longer pauses.
 		 */
