@@ -86,6 +86,80 @@ EXPORT_SYMBOL_GPL(aio_sync_threshold);
 int aio_sync_mode = 2;
 EXPORT_SYMBOL_GPL(aio_sync_mode);
 
+///////////////////////// mmu faking (provisionary) ////////////////////////
+
+/* Kludge: our kernel threads will have no mm context, but need one
+ * for stuff like ioctx_alloc() / aio_setup_ring() etc
+ * which expect userspace resources.
+ * We fake one.
+ * TODO: factor out the userspace stuff from AIO such that
+ * this fake is no longer necessary.
+ * Even better: replace do_mmap() in AIO stuff by something
+ * more friendly to kernelspace apps.
+ */
+#include <linux/mmu_context.h>
+
+struct mm_struct *mm_fake = NULL;
+struct task_struct *mm_fake_task = NULL;
+atomic_t mm_fake_count = ATOMIC_INIT(0);
+
+static inline void set_fake(void)
+{
+        mm_fake = current->mm;
+        if (mm_fake) {
+		MARS_DBG("initialized fake\n");
+		mm_fake_task = current;
+		get_task_struct(current); // paired with put_task_struct()
+                atomic_inc(&mm_fake->mm_count); // paired with mmdrop()
+                atomic_inc(&mm_fake->mm_users); // paired with mmput()
+        }
+}
+
+static inline void put_fake(void)
+{
+	int count = 0;
+        while (mm_fake && mm_fake_task) {
+		int remain = atomic_read(&mm_fake_count);
+		if (unlikely(remain != 0)) {
+			if (count++ < 10) {
+				MARS_WRN("cannot cleanup fake, remain = %d\n", remain);
+				brick_msleep(1000);
+				continue;
+			}
+			MARS_ERR("cannot cleanup fake, remain = %d\n", remain);
+			break;
+		} else {
+			MARS_DBG("cleaning up fake\n");
+			mmput(mm_fake);
+			mmdrop(mm_fake);
+			mm_fake = NULL;
+			put_task_struct(mm_fake_task);
+			mm_fake_task = NULL;
+		}
+        }
+}
+
+static inline void use_fake_mm(void)
+{
+	if (!current->mm && mm_fake) {
+		atomic_inc(&mm_fake_count);
+		MARS_DBG("using fake, count=%d\n", atomic_read(&mm_fake_count));
+		use_mm(mm_fake);
+	}
+}
+
+/* Cleanup faked mm, otherwise do_exit() will crash
+ */
+static inline void unuse_fake_mm(void)
+{
+	if (current->mm == mm_fake && mm_fake) {
+		MARS_DBG("unusing fake, count=%d\n", atomic_read(&mm_fake_count));
+		atomic_dec(&mm_fake_count);
+		unuse_mm(mm_fake);
+		current->mm = NULL;
+	}
+}
+
 ///////////////////////// own type definitions ////////////////////////
 
 ////////////////// some helpers //////////////////
@@ -1225,12 +1299,14 @@ int __init init_mars_aio(void)
 {
 	MARS_DBG("init_aio()\n");
 	_aio_brick_type = (void*)&aio_brick_type;
+	set_fake();
 	return aio_register_brick_type();
 }
 
 void exit_mars_aio(void)
 {
 	MARS_DBG("exit_aio()\n");
+	put_fake();
 	aio_unregister_brick_type();
 }
 

@@ -305,17 +305,9 @@ EXPORT_SYMBOL_GPL(mars_power_led_off);
 void (*_mars_trigger)(void) = NULL;
 EXPORT_SYMBOL_GPL(_mars_trigger);
 
-struct mm_struct *mm_fake = NULL;
-EXPORT_SYMBOL_GPL(mm_fake);
-struct task_struct *mm_fake_task = NULL;
-atomic_t mm_fake_count = ATOMIC_INIT(0);
-EXPORT_SYMBOL_GPL(mm_fake_count);
-
 int __init init_mars(void)
 {
 	MARS_INF("init_mars()\n");
-
-	set_fake();
 
 #ifdef MARS_TRACING
 	{
@@ -357,8 +349,6 @@ int __init init_mars(void)
 void exit_mars(void)
 {
 	MARS_INF("exit_mars()\n");
-
-	put_fake();
 
 	if (mars_tfm) {
 		crypto_free_hash(mars_tfm);
