@@ -7,92 +7,105 @@ config MARS
 	depends on BLOCK && PROC_SYSCTL && HIGH_RES_TIMERS && !DEBUG_SLAB && !DEBUG_SG
 	default n
 	---help---
-	Experimental storage System. Only compile as a module!
+	  MARS is a long-distance replication of generic block devices.
+	  It works asynchronously and tolerates network bottlenecks.
+	  Please read the full documentation at
+	    https://github.com/schoebel/mars/blob/master/docu/mars-manual.pdf?raw=true
+	  Always compile MARS as a module!
 
 config MARS_CHECKS
 	bool "enable simple runtime checks in MARS"
 	depends on MARS
 	default y
 	---help---
-	These checks should be rather lightweight. Use them
-	for beta testing and for production systems where
-	safety is more important than performance.
-	In case of bugs in the reference counting, an automatic	repair
-	is attempted, which lowers the risk of memory corruptions.
-	Disable only if you need the absolutely last grain of
-	performance.
-	If unsure, say Y here.
+	  These checks should be rather lightweight. Use them
+	  for beta testing and for production systems where
+	  safety is more important than performance.
+	  In case of bugs in the reference counting, an automatic	repair
+	  is attempted, which lowers the risk of memory corruptions.
+	  Disable only if you need the absolutely last grain of
+	  performance.
+	  If unsure, say Y here.
 
 config MARS_DEBUG
 	bool "enable full runtime checks and some tracing in MARS"
 	depends on MARS
 	default n
 	---help---
-	Some of these checks and some additional error tracing may
-	consume noticable amounts of memory.
-	OFF for production systems. ON for testing!
+	  Some of these checks and some additional error tracing may
+	  consume noticable amounts of memory. However, this is extremely
+	  valuable for finding bugs, even in production systems.
+
+	  OFF for production systems. ON for testing!
+
+	  If you encounter bugs in production systems, you
+	  may / should use this also in production if you carefully
+	  monitor your systems.
 
 config MARS_DEBUG_MEM
 	bool "debug memory operations"
 	depends on MARS_DEBUG
 	default n
 	---help---
-	This adds considerable space and time overhead, but catches
-	many errors (including some that are not caught by kmemleak).
-	Use only for development and thorough testing!
+	  This adds considerable space and time overhead, but catches
+	  many errors (including some that are not caught by kmemleak).
+
+	  OFF for production systems. ON for testing!
+	  Use only for development and thorough testing!
 
 config MARS_DEBUG_MEM_STRONG
 	bool "intensified debugging of memory operations"
 	depends on MARS_DEBUG_MEM
 	default y
 	---help---
-	Trace all block allocations, find more errors.
-	Adds some overhead.
-	Use for debugging of new bricks or for intensified
-	regression testing.
+	  Trace all block allocations, find more errors.
+	  Adds some overhead.
+
+	  Use for debugging of new bricks or for intensified
+	  regression testing.
 
 config MARS_DEBUG_ORDER0
 	bool "also debug order0 operations"
 	depends on MARS_DEBUG_MEM
 	default n
 	---help---
-	Turn even order 0 allocations into order 1 ones and provoke
-	heavy memory fragmentation problems from the buddy allocator,
-	but catch some additional memory problems.
-	Use only if you know what you are doing!
-	Normally OFF.
+	  Turn even order 0 allocations into order 1 ones and provoke
+	  heavy memory fragmentation problems from the buddy allocator,
+	  but catch some additional memory problems.
+	  Use only if you know what you are doing!
+	  Normally OFF.
 
 config MARS_DEFAULT_PORT
 	int "port number where MARS is listening"
 	depends on MARS
 	default 7777
 	---help---
-	Best practice is to uniformly use the same port number
-	in a cluster. Therefore, this is a compiletime constant.
-	You may override this at insmod time via the mars_port= parameter.
+	  Best practice is to uniformly use the same port number
+	  in a cluster. Therefore, this is a compiletime constant.
+	  You may override this at insmod time via the mars_port= parameter.
 
 config MARS_SEPARATE_PORTS
 	bool "use separate port numbers for traffic shaping"
 	depends on MARS
 	default y
 	---help---
-	When enabled, the following port assignments will be used:
+	  When enabled, the following port assignments will be used:
 
 	  CONFIG_MARS_DEFAULT_PORT     : updates of symlinks
 	  CONFIG_MARS_DEFAULT_PORT + 1 : replication of logfiles
 	  CONFIG_MARS_DEFAULT_PORT + 2 : (initial) sync traffic
 
-	As a consequence, external traffic shaping may be used to
-	individually control the network speed for different types
-	of traffic.
+	  As a consequence, external traffic shaping may be used to
+	  individually control the network speed for different types
+	  of traffic.
 
-	Please don't hinder the symlink updates in any way -- they are
-	most vital, and they produce no mass traffic at all
-	(it's only some kind of  meta-information traffic).
+	  Please don't hinder the symlink updates in any way -- they are
+	  most vital, and they produce no mass traffic at all
+	  (it's only some kind of  meta-information traffic).
 
-	Say Y if you have a big datacenter.
-	Say N if you cannot afford a bigger hole in your firefall.
-	If unsure, say Y.
+	  Say Y if you have a big datacenter.
+	  Say N if you cannot afford a bigger hole in your firefall.
+	  If unsure, say Y.
 
 
 config MARS_LOGDIR
@@ -100,229 +113,249 @@ config MARS_LOGDIR
 	depends on MARS
 	default "/mars"
 	---help---
-	Path to the directory where all MARS messages will reside.
-	Usually this is equal to the global /mars directory.
+	  Path to the directory where all MARS messages will reside.
+	  Usually this is equal to the global /mars directory.
 
-	Logfiles and status files obey the following naming conventions:
+	  Logfiles and status files obey the following naming conventions:
 		0.debug.log
 		1.info.log
 		2.warn.log
 		3.error.log
 		4.fatal.log
 		5.total.log
-	Logfiles must already exist in order to be appended.
-	Logiles can be rotated by renaming them and creating
-	a new empty file in place of the old one.
+	  Logfiles must already exist in order to be appended.
+	  Logiles can be rotated by renaming them and creating
+	  a new empty file in place of the old one.
 
-	Status files follow the same rules, but .log is replaced
-	by .status, and they are created automatically. Their content
-	is however limited to a few seconds or minutes.
+	  Status files follow the same rules, but .log is replaced
+	  by .status, and they are created automatically. Their content
+	  is however limited to a few seconds or minutes.
+
+	  Leave this at the default unless you know what you are doing.
 
 config MARS_ROLLOVER_INTERVAL
 	int "rollover time of logging status files (in seconds)"
 	depends on MARS
 	default 3
 	---help---
-	May influence the system load; dont use too low nubmers.
+	  This may influence the system load; dont use too low numbers.
+
+	  Leave this at the default unless you know what you are doing.
 
 config MARS_SCAN_INTERVAL
 	int "re-scanning of symlinks in /mars/ (in seconds)"
 	depends on MARS
 	default 5
 	---help---
-	May influence the system load; dont use too low nubmers.
+	  This may influence the system load; dont use too low numbers.
+
+	  Leave this at the default unless you know what you are doing.
 
 config MARS_PROPAGATE_INTERVAL
 	int "network propagation delay of changes in /mars/ (in seconds)"
 	depends on MARS
 	default 5
 	---help---
-	May influence the system load; dont use too low nubmers.
+	  This may influence the system load; dont use too low numbers.
+
+	  Leave this at the default unless you know what you are doing.
 
 config MARS_SYNC_FLIP_INTERVAL
 	int "interrpt sync by logfile update after (seconds)"
 	depends on MARS
 	default 60
 	---help---
-	0 = OFF. Normally ON.
-	When disabled, application of logfiles may wait for
-	a very time, until full sync has finished. As a
-	consequence, your /mars/ filesystem may run out
-	of space. When enabled, the applied logfiles can
-	be deleted, freeing space on /mars/. Therefore,
-	will usually want this. However, you may increase
-	the time interval to increase throughput in favour
-	of latency.
+	  0 = OFF. Normally ON.
+	  When disabled, application of logfiles may wait for
+	  a very time, until full sync has finished. As a
+	  consequence, your /mars/ filesystem may run out
+	  of space. When enabled, the applied logfiles can
+	  be deleted, freeing space on /mars/. Therefore,
+	  will usually want this. However, you may increase
+	  the time interval to increase throughput in favour
+	  of latency.
+
+	  Leave this at the default unless you know what you are doing.
 
 config MARS_NETIO_TIMEOUT
 	int "timeout for remote IO operations (in seconds)"
 	depends on MARS
 	default 30
 	---help---
-	In case of network hangs, don't wait forever, but rather
-	abort with -ENOTCONN
-	when == 0, wait forever (may lead to hanging operations
-	similar to NFS hard mounts)
+	  In case of network hangs, don't wait forever, but rather
+	  abort with -ENOTCONN
+	  when == 0, wait forever (may lead to hanging operations
+	  similar to NFS hard mounts)
+
+	  Leave this at the default unless you know what you are doing.
 
 config MARS_FAST_FULLSYNC
 	bool "decrease network traffic at initial sync"
 	depends on MARS
 	default y
 	---help---
-	Normally ON.
-	When on, both sides will read the data, compute a md5
-	checksum, and compare them. Only in case the checksum
-	mismatches, the data will be actually transferred over
-	the network. This may increase the IO traffic in favour
-	of network traffic. Usually it does no harm to re-read
-	the same data twice (only in case of mismatches) over bio
-	because RAID controllers will usually cache their data
-	for some time. In case of buffered aio reads from filesystems,
-	the data is cached by the kernel anyway.
+	  Normally ON.
+	  When on, both sides will read the data, compute a md5
+	  checksum, and compare them. Only in case the checksum
+	  mismatches, the data will be actually transferred over
+	  the network. This may increase the IO traffic in favour
+	  of network traffic. Usually it does no harm to re-read
+	  the same data twice (only in case of mismatches) over bio
+	  because RAID controllers will usually cache their data
+	  for some time. In case of buffered aio reads from filesystems,
+	  the data is cached by the kernel anyway.
 
 config MARS_MIN_SPACE_4
 	int "absolutely necessary free space in /mars/ (hard limit in GB)"
 	depends on MARS
 	default 2
 	---help---
-	HARDEST EMERGENCY LIMIT
+	  HARDEST EMERGENCY LIMIT
 
-	When free space in /mars/ drops under this limit,
-	transaction logging to /mars/ will stop at all,
-	even at all primary resources. All IO will directly go to the
-	underlying raw devices. The transaction logfile sequence numbers
-	will be disrupted, deliberately leaving holes in the sequence.
+	  When free space in /mars/ drops under this limit,
+	  transaction logging to /mars/ will stop at all,
+	  even at all primary resources. All IO will directly go to the
+	  underlying raw devices. The transaction logfile sequence numbers
+	  will be disrupted, deliberately leaving holes in the sequence.
 
-	This is a last-resort desperate action of the kernel.
+	  This is a last-resort desperate action of the kernel.
 
-	As a consequence, all secodaries will have no chance to
-	replay at that gap, even if they got the logfiles.
-	The secondaries will stop at the gap, left in an outdated,
-	but logically consistent state.
+	  As a consequence, all secodaries will have no chance to
+	  replay at that gap, even if they got the logfiles.
+	  The secondaries will stop at the gap, left in an outdated,
+	  but logically consistent state.
 
-	After the problem has been fixed, the secondaries must
-	start a full-sync in order to continue replication at the
-	recent state.
+	  After the problem has been fixed, the secondaries must
+	  start a full-sync in order to continue replication at the
+	  recent state.
 
-	This is the hardest measure the kernel can take in order
-	to TRY to continue undisrupted operation at the primary side.
+	  This is the hardest measure the kernel can take in order
+	  to TRY to continue undisrupted operation at the primary side.
 
-	In general, you should avoid such situations at the admin level.
+	  In general, you should avoid such situations at the admin level.
 
-	Please implement your own monitoring at	the admin level, which warns
-	you and/or takes appropriate countermeasures much earlier.
-	Never rely on this emergency feature!
+	  Please implement your own monitoring at the admin level,
+	  which warns you and/or takes appropriate countermeasures
+	  much earlier.
+
+	  Never rely on this emergency feature!
 
 config MARS_MIN_SPACE_3
 	int "free space in /mars/ for primary logfiles (additional limit in GB)"
 	depends on MARS
 	default 2
 	---help---
-	MEDIUM EMERGENCY LIMIT
+	  MEDIUM EMERGENCY LIMIT
 
-	When free space in /mars/ drops under
-	MARS_MIN_SPACE_4 + MARS_MIN_SPACE_3,
-	elder transaction logfiles will be deleted at primary resources.
+	  When free space in /mars/ drops under
+	  MARS_MIN_SPACE_4 + MARS_MIN_SPACE_3,
+	  elder transaction logfiles will be deleted at primary resources.
 
-	As a consequence, the secondaries may no longer be able to
-	get a consecute series of copies of logfiles.
-	As a result, they may get stuck somewhere inbetween at an
-	outdated, but logically consistent state.
+	  As a consequence, the secondaries may no longer be able to
+	  get a consecute series of copies of logfiles.
+	  As a result, they may get stuck somewhere inbetween at an
+	  outdated, but logically consistent state.
 
-	This is a desperate action of the kernel.
+	  This is a desperate action of the kernel.
 
-	After the problem has been fixed, some secondaries may need to
-	start a full-sync in order to continue replication at the
-	recent state.
+	  After the problem has been fixed, some secondaries may need to
+	  start a full-sync in order to continue replication at the
+	  recent state.
 
-	In general, you should avoid such situations at the admin level.
+	  In general, you should avoid such situations at the admin level.
 
-	Please implement your own monitoring at	the admin level, which warns
-	you and/or takes appropriate countermeasures much earlier.
-	Never rely on this emergency feature!
+	  Please implement your own monitoring at the admin level,
+	  which warns you and/or takes appropriate countermeasures
+	  much earlier.
+
+	  Never rely on this emergency feature!
 
 config MARS_MIN_SPACE_2
 	int "free space in /mars/ for secondary logfiles (additional limit in GB)"
 	depends on MARS
 	default 2
 	---help---
-	MEDIUM EMERGENCY LIMIT
+	  MEDIUM EMERGENCY LIMIT
 
-	When free space in /mars/ drops under
-	MARS_MIN_SPACE_4 + MARS_MIN_SPACE_3 + MARS_MIN_SPACE_2,
-	elder transaction logfiles will be deleted at secondary resources.
+	  When free space in /mars/ drops under
+	  MARS_MIN_SPACE_4 + MARS_MIN_SPACE_3 + MARS_MIN_SPACE_2,
+	  elder transaction logfiles will be deleted at secondary resources.
 
-	As a consequence, some local secondary resources
-	may get stuck somewhere inbetween at an
-	outdated, but logically consistent state.
+	  As a consequence, some local secondary resources
+	  may get stuck somewhere inbetween at an
+	  outdated, but logically consistent state.
 
-	This is a desperate action of the kernel.
+	  This is a desperate action of the kernel.
 
-	After the problem has been fixed and the free space becomes
-	larger than MARS_MIN_SPACE_4 + MARS_MIN_SPACE_3 + MARS_MIN_SPACE_2
-	+ MARS_MIN_SPACE_2, the secondary tries to fetch the missing
-	logfiles from the primary again.
+	  After the problem has been fixed and the free space becomes
+	  larger than MARS_MIN_SPACE_4 + MARS_MIN_SPACE_3 + MARS_MIN_SPACE_2
+	  + MARS_MIN_SPACE_2, the secondary tries to fetch the missing
+	  logfiles from the primary again.
 
-	However, if the necessary logfiles have been deleted at the
-	primary side in the meantime, this may fail.
+	  However, if the necessary logfiles have been deleted at the
+	  primary side in the meantime, this may fail.
 
-	In general, you should avoid such situations at the admin level.
+	  In general, you should avoid such situations at the admin level.
 
-	Please implement your own monitoring at	the admin level, which warns
-	you and/or takes appropriate countermeasures much earlier.
-	Never rely on this emergency feature!
+	  Please implement your own monitoring at the admin level,
+	  which warns you and/or takes appropriate countermeasures
+	  much earlier.
+
+	  Never rely on this emergency feature!
 
 config MARS_MIN_SPACE_1
 	int "free space in /mars/ for replication (additional limit in GB)"
 	depends on MARS
 	default 2
 	---help---
-	LOWEST EMERGENCY LIMIT
+	  LOWEST EMERGENCY LIMIT
 
-	When free space in /mars/ drops under MARS_MIN_SPACE_4
-	+ MARS_MIN_SPACE_3 + MARS_MIN_SPACE_2 + MARS_MIN_SPACE_1,
-	fetching of transaction logfiles will stop at local secondary
-	resources.
+	  When free space in /mars/ drops under MARS_MIN_SPACE_4
+	  + MARS_MIN_SPACE_3 + MARS_MIN_SPACE_2 + MARS_MIN_SPACE_1,
+	  fetching of transaction logfiles will stop at local secondary
+	  resources.
 
-	As a consequence, some local secondary resources
-	may get stuck somewhere inbetween at an
-	outdated, but logically consistent state.
+	  As a consequence, some local secondary resources
+	  may get stuck somewhere inbetween at an
+	  outdated, but logically consistent state.
 
-	This is a desperate action of the kernel.
+	  This is a desperate action of the kernel.
 
-	After the problem has been fixed and the free space becomes
-	larger than MARS_MIN_SPACE_4 + MARS_MIN_SPACE_3 + MARS_MIN_SPACE_2
-	+ MARS_MIN_SPACE_2, the secondary will continue fetching its
-	copy of logfiles from the primary side.
+	  After the problem has been fixed and the free space becomes
+	  larger than MARS_MIN_SPACE_4 + MARS_MIN_SPACE_3 + MARS_MIN_SPACE_2
+	  + MARS_MIN_SPACE_2, the secondary will continue fetching its
+	  copy of logfiles from the primary side.
 
-	In general, you should avoid such situations at the admin level.
+	  In general, you should avoid such situations at the admin level.
 
-	Please implement your own monitoring at	the admin level, which warns
-	you and/or takes appropriate countermeasures much earlier.
-	Never rely on this emergency feature!
+	  Please implement your own monitoring at the admin level,
+	  which warns you and/or takes appropriate countermeasures
+	  much earlier.
+
+	  Never rely on this emergency feature!
 
 config MARS_MIN_SPACE_0
 	int "total space needed in /mars/ for (additional limit in GB)"
 	depends on MARS
 	default 12
 	---help---
-	Operational pre-requirement.
+	  Operational pre-requirement.
 
-	In order to use MARS, the total space available in /mars/ must
-	be  at least MARS_MIN_SPACE_4 + MARS_MIN_SPACE_3 + MARS_MIN_SPACE_2
-	+ MARS_MIN_SPACE_1 + MARS_MIN_SPACE_0.
+	  In order to use MARS, the total space available in /mars/ must
+	  be  at least MARS_MIN_SPACE_4 + MARS_MIN_SPACE_3 + MARS_MIN_SPACE_2
+	  + MARS_MIN_SPACE_1 + MARS_MIN_SPACE_0.
 
-	If you cannot afford that amount of storage space, please use
-	DRBD in place of MARS.
+	  If you cannot afford that amount of storage space, please use
+	  DRBD in place of MARS.
 
 config MARS_LOGROT_AUTO
 	int "automatic logrotate when logfile exceeds size (in GB)"
 	depends on MARS
 	default 32
 	---help---
-	You could switch this off by setting to 0. However, deletion
-	of really huge logfiles can take several minutes, or even substantial
-	fractions of hours (depending on the underlying filesystem).
-	Thus it is highly recommended to limit the logfile size to some
-	reasonable maximum size. Switch only off for experiments!
+	  You could switch this off by setting to 0. However, deletion
+	  of really huge logfiles can take several minutes, or even substantial
+	  fractions of hours (depending on the underlying filesystem).
+	  Thus it is highly recommended to limit the logfile size to some
+	  reasonable maximum size. Switch only off for experiments!
 
