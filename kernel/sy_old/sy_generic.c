@@ -1771,12 +1771,6 @@ struct mars_brick *make_brick_all(
 			MARS_DBG("substitute bio by aio\n");
 		}
 	}
-#ifdef CONFIG_MARS_PREFER_SIO
-	if (!brick && new_brick_type == _aio_brick_type && _sio_brick_type) {
-		new_brick_type = _sio_brick_type;
-		MARS_DBG("substitute aio by sio\n");
-	}
-#endif
 
 	// create it...
 	if (!brick)

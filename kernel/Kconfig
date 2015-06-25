@@ -355,14 +355,6 @@ config MARS_LOGROT_AUTO
 	Thus it is highly recommended to limit the logfile size to some
 	reasonable maximum size. Switch only off for experiments!
 
-config MARS_PREFER_SIO
-	bool "prefer sio bricks instead of aio"
-	depends on MARS
-	default n
-	---help---
-	Normally OFF for production systems.
-	Only use as alternative for testing.
-
 ##### mostly obsolete
 
 config MARS_DUMMY
