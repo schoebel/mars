@@ -2,9 +2,7 @@
 # Makefile for MARS
 #
 
-ifneq ($(KBUILD_EXTMOD),)
-  CONFIG_MARS_BIGMODULE := m
-endif
+obj-$(CONFIG_MARS)	+= mars.o
 
 KBUILD_CFLAGS += -fdelete-null-pointer-checks
 
@@ -32,8 +30,6 @@ mars-objs :=				\
 	sy_old/sy_net.o			\
 	sy_old/mars_proc.o		\
 	sy_old/mars_light.o
-
-obj-$(CONFIG_MARS_BIGMODULE)	+= mars.o
 
 #### alternatives when building small individual modules
 

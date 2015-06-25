@@ -236,12 +236,3 @@ void exit_mars_dummy(void)
 	MARS_INF("exit_dummy()\n");
 	dummy_unregister_brick_type();
 }
-
-#ifndef CONFIG_MARS_HAVE_BIGMODULE
-MODULE_DESCRIPTION("MARS dummy brick");
-MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@{schoebel-theuer,1und1}.de>");
-MODULE_LICENSE("GPL");
-
-module_init(init_mars_dummy);
-module_exit(exit_mars_dummy);
-#endif

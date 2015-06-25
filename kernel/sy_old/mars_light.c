@@ -5613,7 +5613,6 @@ char *_mars_info(void)
 	return txt;
 }
 
-#ifdef CONFIG_MARS_HAVE_BIGMODULE
 #define INIT_MAX 32
 static char *exit_names[INIT_MAX] = {};
 static void (*exit_fn[INIT_MAX])(void) = {};
@@ -5626,8 +5625,6 @@ static int exit_fn_nr = 0;
 		exit_names[exit_fn_nr] = #name;			\
 		exit_fn[exit_fn_nr++] = exit_##name;		\
 	} while (0)
-
-#endif
 
 void (*_mars_remote_trigger)(void);
 EXPORT_SYMBOL_GPL(_mars_remote_trigger);
@@ -5646,12 +5643,10 @@ static void exit_light(void)
 	mars_info = NULL;
 	_mars_remote_trigger = NULL;
 
-#ifdef CONFIG_MARS_HAVE_BIGMODULE
 	while (exit_fn_nr > 0) {
 		MARS_DBG("=== stopping module %s ...\n", exit_names[exit_fn_nr - 1]);
 		exit_fn[--exit_fn_nr]();
 	}
-#endif
 	MARS_DBG("====================== stopped everything.\n");
 	exit_say();
 	printk(KERN_INFO "stopped MARS\n");
@@ -5685,7 +5680,6 @@ static int __init init_light(void)
 
 	init_say(); // this must come first
 
-#ifdef CONFIG_MARS_HAVE_BIGMODULE
 	/* be careful: order is important!
 	 */
 	DO_INIT(brick_mem);
@@ -5712,7 +5706,6 @@ static int __init init_light(void)
 	DO_INIT(sy);
 	DO_INIT(sy_net);
 	DO_INIT(mars_proc);
-#endif
 
 #ifdef CONFIG_MARS_MEM_PREALLOC
 	brick_pre_reserve[5] = 64;

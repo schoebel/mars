@@ -69,14 +69,6 @@ config MARS_DEBUG_ORDER0
 	Use only if you know what you are doing!
 	Normally OFF.
 
-config MARS_BIGMODULE
-	tristate "compile all MARS modules into a single kernel module"
-	depends on MARS
-	default m
-	select MARS_HAVE_BIGMODULE
-	---help---
-	Normally ON. Switch off only for EXPERIMENTS!
-
 config MARS_DEFAULT_PORT
 	int "port number where MARS is listening"
 	depends on MARS
@@ -347,102 +339,4 @@ config MARS_LOGROT_AUTO
 	fractions of hours (depending on the underlying filesystem).
 	Thus it is highly recommended to limit the logfile size to some
 	reasonable maximum size. Switch only off for experiments!
-
-##### mostly obsolete
-
-config MARS_DUMMY
-	tristate "MARS dummy brick"
-	depends on MARS && MARS_BIGMODULE!=m
-	default m
-	---help---
-	Experimental storage System.
-
-config MARS_CHECK
-	tristate "MARS check brick"
-	depends on MARS && MARS_BIGMODULE!=m
-	default m
-	---help---
-	Experimental storage System.
-
-config MARS_IF
-	tristate "interface to a linux device"
-	depends on MARS && MARS_BIGMODULE!=m
-	default m
-	---help---
-	Experimental storage System.
-
-config MARS_BIO
-	tristate "interface to blkdev via kernel BIO"
-	depends on MARS && MARS_BIGMODULE!=m
-	default m
-	---help---
-	Experimental storage System.
-
-config MARS_AIO
-	tristate "interface to a linux file (Asynchronous IO)"
-	depends on MARS && MARS_BIGMODULE!=m
-	default m
-	---help---
-	Experimental storage System.
-
-config MARS_SIO
-	tristate "interface to a linux file, synchronous (currently unused)"
-	depends on MARS && MARS_BIGMODULE!=m
-	default m
-	---help---
-	Experimental storage System.
-
-config MARS_BUF
-	tristate "buffer brick (currently unused)"
-	depends on MARS && MARS_BIGMODULE!=m
-	default m
-	---help---
-	Experimental storage System.
-
-config MARS_USEBUF
-	tristate "usebuf brick (currently unused)"
-	depends on MARS && MARS_BIGMODULE!=m
-	default m
-	---help---
-	Experimental storage System.
-
-config MARS_TRANS_LOGGER
-	tristate "transaction logger"
-	depends on MARS && MARS_BIGMODULE!=m
-	default m
-	---help---
-	Experimental storage System.
-
-config MARS_SERVER
-	tristate "server brick"
-	depends on MARS && MARS_BIGMODULE!=m
-	default m
-	---help---
-	Experimental storage System.
-
-config MARS_CLIENT
-	tristate "client brick"
-	depends on MARS && MARS_BIGMODULE!=m
-	default m
-	---help---
-	Experimental storage System.
-
-config MARS_COPY
-	tristate "copy brick"
-	depends on MARS && MARS_BIGMODULE!=m
-	default m
-	---help---
-	Experimental storage System.
-
-config MARS_LIGHT
-	tristate "MARS Light main (protoype, will be replaced)"
-	depends on MARS && MARS_BIGMODULE!=m
-	default m
-	---help---
-	Experimental storage System.
-
-# the following is used as an internal proprocessor symbol
-
-config MARS_HAVE_BIGMODULE
-	bool
 

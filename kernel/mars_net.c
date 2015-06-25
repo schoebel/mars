@@ -1238,12 +1238,3 @@ void exit_mars_net(void)
 	mars_net_is_alive = false;
 	MARS_INF("exit_net()\n");
 }
-
-#ifndef CONFIG_MARS_HAVE_BIGMODULE
-MODULE_DESCRIPTION("MARS network infrastructure");
-MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@{schoebel-theuer,1und1}.de>");
-MODULE_LICENSE("GPL");
-
-module_init(init_mars_net);
-module_exit(exit_mars_net);
-#endif

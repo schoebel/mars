@@ -3510,12 +3510,3 @@ void exit_mars_trans_logger(void)
 	MARS_INF("exit_trans_logger()\n");
 	trans_logger_unregister_brick_type();
 }
-
-#ifndef CONFIG_MARS_HAVE_BIGMODULE
-MODULE_DESCRIPTION("MARS trans_logger brick");
-MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@{schoebel-theuer,1und1}.de>");
-MODULE_LICENSE("GPL");
-
-module_init(init_mars_trans_logger);
-module_exit(exit_mars_trans_logger);
-#endif

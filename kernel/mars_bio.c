@@ -976,12 +976,3 @@ void exit_mars_bio(void)
 	MARS_INF("exit_bio()\n");
 	bio_unregister_brick_type();
 }
-
-#ifndef CONFIG_MARS_HAVE_BIGMODULE
-MODULE_DESCRIPTION("MARS bio brick");
-MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@{schoebel-theuer,1und1}.de>");
-MODULE_LICENSE("GPL");
-
-module_init(init_mars_bio);
-module_exit(exit_mars_bio);
-#endif
