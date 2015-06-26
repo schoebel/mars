@@ -2116,29 +2116,22 @@ Kernel and MARS Module
 \end_layout
 
 \begin_layout Standard
-At the time of this writing, a small pre-patch for the Linux kernel is needed.
- It it trivial and consists mostly of 
-\family typewriter
-EXPORT_SYMBOL()
-\family default
- statements.
- The pre-patch must be applied to the kernel source tree before building
- your (custom) kernel.
- Future versions of MARS are planned to require no pre-patch anymore.
+Starting with the 0.2 series of MARS Light, a prepatch for the vanilla kernel
+ is no longer needed.
 \end_layout
 
 \begin_layout Standard
-The MARS kernel module can be built in two different ways:
+The MARS kernel module should be available or can be built via one of the
+ following methods:
 \end_layout
 
 \begin_layout Enumerate
-inplace in the kernel source tree: 
-\family typewriter
-cd block/ && git clone git://github.com/schoebel/mars
+As an external Debian or rpm kernel module, as provided by a package contributor
+ (or hopefully by standard distros in the future).
 \end_layout
 
 \begin_layout Enumerate
-as a separate kernel module, only for experienced
+As a separate kernel module, only for experienced
 \begin_inset Foot
 status open
 
@@ -2165,6 +2158,19 @@ Makefile.dist
 \family default
  (tested with some older versions of Debian; may need some extra work with
  other distros).
+\end_layout
+
+\begin_layout Enumerate
+Build for developers, inplace in the kernel source tree: 
+\family typewriter
+cd block/ && git clone git://github.com/schoebel/mars
+\begin_inset Newline newline
+\end_inset
+
+
+\family default
+You will need a small activation prepatch which touches only Kconfig and
+ Makefile.
 \end_layout
 
 \begin_layout Standard
