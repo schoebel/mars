@@ -20,8 +20,10 @@ Release Conventions / Branches / Tagnames
 		 - Stable branch: light0.1.y
 		 - Stable tagnames: light0.1stable%02d
 
-	light0.2 series (currently in alpha stage):
+	light0.2 series (currently in beta stage):
 		   Mostly for internal needs of 1&1 (but not limited to that).
+		   More detailed ChangeLog descriptions will follow when it
+		   becomes stable.
 		 - Getting rid of the kernel prepatch! MARS may be built
 		   as an external kernel module for any supported
 		   kernel version. First prototype is only tested for
@@ -44,7 +46,7 @@ Release Conventions / Branches / Tagnames
 		   Consumes a lot of CPU, therefore only recommended for
 		   low write loads or for desperate network situations.
 		 - Various smaller features and improvements.
-		 - Unstable tagnames: light0.2beta%d.%d (planned)
+		 - Unstable tagnames: light0.2beta%d.%d (current)
 		 - Stable branch: light0.2.y (planned)
 		 - Stable tagnames: light0.2stable%02d (planned)
 
