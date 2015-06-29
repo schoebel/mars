@@ -30142,7 +30142,7 @@ name "sec:The-/proc/sys/mars/-Expert"
 \end_layout
 
 \begin_layout Standard
-In general, you shouldn't need to deal with any tweaks in 
+In many case, you will not need to deal with tweaks in 
 \family typewriter
 /proc/sys/mars/
 \family default
@@ -30151,8 +30151,26 @@ In general, you shouldn't need to deal with any tweaks in
 \family typewriter
 mars.ko
 \family default
- kernel module at runtime.
- Thus it is 
+ kernel module at 
+\emph on
+runtime
+\emph default
+.
+ This means, the values will be reset to default at 
+\family typewriter
+rmmod mars
+\family default
+ or at reboot.
+ If you need some persistence, implement it by yourself, e.g.
+ at startup scripts.
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+/proc/sys/mars/
+\family default
+ is 
 \emph on
 not
 \emph default
@@ -30164,6 +30182,223 @@ not
 \begin_layout Standard
 This section describes only those tweaks intended for sysadmins, not those
  for developers / very deep internals.
+\end_layout
+
+\begin_layout Subsection
+Tuning Network Performance
+\end_layout
+
+\begin_layout Standard
+Starting with MARS Light series 0.2, a new feature called 
+\begin_inset Quotes eld
+\end_inset
+
+socket bundling
+\begin_inset Quotes erd
+\end_inset
+
+ is available.
+\end_layout
+
+\begin_layout Standard
+It is mostly intendend for lines showing high packet loss.
+ By using multiple TCP sockets in parallel for emulating a single logical
+ connection, throughput can be significantly increased.
+\end_layout
+
+\begin_layout Standard
+Example for setting the socket parallelism to 4:
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+echo 4 > /proc/sys/mars/parallel_connections
+\end_layout
+
+\begin_layout Standard
+The following graphics shows the throughput of a non-fast
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+The fast fullsync algorithm would not saturate the 
+\family typewriter
+eth0
+\family default
+ link with traffic from a single resource.
+\end_layout
+
+\end_inset
+
+ fullsync of a 
+\emph on
+single
+\emph default
+ 100GiB resource over a loaded long-distance line between Europe/Germany
+ and USA/Midwest.
+ In order to compensate highly varying load at the line, all the experiments
+ were repeated more than 10 times and averaged.
+ Each bar shows the throughput for a particular socket parallelism.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/socket-bundling-long-summary.png
+	width 70col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Notice that the uplinks of the two servers are only 1 GBit/s respectively.
+ When the uplink is saturated, about 100 MByte/s is the maximum possible
+ peak throughput in theory.
+ You can easily recognize that the peak throughput is almost reached with
+ a parallelism degree of 2, but using even more sockets appears to be slightly
+ counter-productive.
+ One of the reasons is that more sockets will increase contention on the
+ line, and thus increasing packet loss.
+ Another potential reason is that higher parallelism at sockets will lead
+ to higher parallelism in disk reads, in turn leading to more permutations
+ of disk read positions (more 
+\emph on
+random
+\emph default
+ reads instead of purely sequential reads), which is counter-productive
+ for disk readahead strategies.
+\end_layout
+
+\begin_layout Standard
+The next graphics shows the same, but over a medium distance of about 50km.
+ This line is even more heavily loaded with respect to the number of TCP
+ connections running in parallel (probly some 10,000 or even 100,000 if
+ not more), and there is some kind of 
+\begin_inset Quotes eld
+\end_inset
+
+traffic shaping
+\begin_inset Quotes erd
+\end_inset
+
+ at some intermediate network gear which will 
+\begin_inset Quotes eld
+\end_inset
+
+punish
+\begin_inset Quotes erd
+\end_inset
+
+ those traffic sources disproportionally increasing overall packet loss.
+ This can explain the even higher counter-productive effect of using too
+ much sockets and thus injecting additional packet loss:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/socket-bundling-short-summary.png
+	width 70col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+In general, the optimum value for 
+\family typewriter
+/proc/sys/mars/parallel_connections
+\family default
+ may depend on many runtime factors such as other load running over some
+ (parts of) physical equipment.
+ You will need to determine optimum values yourself.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Notice that socket bundling is conceptually the 
+\begin_inset Quotes eld
+\end_inset
+
+opposite
+\begin_inset Quotes erd
+\end_inset
+
+ of traffic shaping.
+ You are trying to get 
+\emph on
+more
+\emph default
+ bandwidth, at the cost of 
+\emph on
+other
+\emph default
+ traffic competing for the same network resources.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ If you are operating masses of servers, don't set the MARS socket parallelism
+ 
+\series bold
+too high 
+\series default
+everywhere.
+ You might 
+\begin_inset Quotes eld
+\end_inset
+
+steal
+\begin_inset Quotes erd
+\end_inset
+
+ too much bandwidth from other applications when starting masses of syncs
+ in parallel, e.g.
+ after an incident.
+ Best practice is to start with a default value of 1, and to increase it
+ only 
+\emph on
+on demand
+\emph default
+, and/or preferably 
+\emph on
+only
+\emph default
+ at those servers where high load really occurs or where some urgent actions
+ need a 
+\emph on
+temporary
+\emph default
+ boost.
 \end_layout
 
 \begin_layout Subsection
@@ -30210,7 +30445,14 @@ Logging to Files
 \end_layout
 
 \begin_layout Standard
-These classes are used to produce status files 
+This feature will likely disappear when MARS goes to kernel upstream.
+ It was mostly intended for debugging during early beta phases and is no
+ longer needed for stable operation.
+ Developers may use it for spotting potential problems.
+\end_layout
+
+\begin_layout Standard
+The classes may be used to produce status files 
 \family typewriter
 $class.*.status
 \family default
