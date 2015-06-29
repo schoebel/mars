@@ -28806,6 +28806,38 @@ temporary
 \end_layout
 
 \begin_layout Subsection
+Transparent Network Data Compression
+\end_layout
+
+\begin_layout Standard
+This feature uses LZO compression, which tries to minimize CPU usage, but
+ does not compress extremely well.
+ On short-distance lines and when having less compressible user data, it
+ may be counter-productive.
+ Therefore it is off by default.
+ Enable with the following:
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+echo 1 > /proc/sys/mars/network_compress_data
+\end_layout
+
+\begin_layout Standard
+This feature is only available when your kernel has both options 
+\family typewriter
+CONFIG_LZO_COMPRESS
+\family default
+ and 
+\family typewriter
+CONFIG_LZO_DECOMPRESS
+\family default
+ enabled.
+ Otherwise, no compression will be used.
+\end_layout
+
+\begin_layout Subsection
 Syslogging
 \end_layout
 
