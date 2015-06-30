@@ -56,7 +56,7 @@ int mars_net_compress_data = 0;
 EXPORT_SYMBOL_GPL(mars_net_compress_data);
 
 const u16 net_global_flags = 0
-#if __enabled_CONFIG_CRYPTO_LZO || __enabled_CONFIG_CRYPTO_LZO_MODULE
+#ifdef __HAVE_LZO
 	| COMPRESS_LZO
 #endif
 	;
@@ -895,7 +895,7 @@ int mars_send_compressed(struct mars_socket *msock, const void *buf, s32 len, in
 
 	switch (compress) {
 	case COMPRESS_LZO:
-#if __enabled_CONFIG_CRYPTO_LZO || __enabled_CONFIG_CRYPTO_LZO_MODULE
+#ifdef __HAVE_LZO
 		// tolerate mixes of different proto versions
 		if (msock->s_send_proto >= 2 && (msock->s_recv_flags & COMPRESS_LZO)) {
 			size_t compr_len = 0;
@@ -963,7 +963,7 @@ int mars_recv_compressed(struct mars_socket *msock, void *buf, int minlen, int m
 		break;
 
 	case COMPRESS_LZO:
-#if __enabled_CONFIG_CRYPTO_LZO || __enabled_CONFIG_CRYPTO_LZO_MODULE
+#ifdef __HAVE_LZO
 		{
 			s32 compr_len = 0;
 			size_t this_len;

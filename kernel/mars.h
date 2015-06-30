@@ -58,6 +58,21 @@
 #error Fixme: CONFIG_DEBUG_SG does not work (fix the bio offset calculation)
 #endif
 
+#if defined(CONFIG_CRYPTO_LZO) || defined(CONFIG_CRYPTO_LZO_MODULE)
+#define __HAVE_LZO
+#endif
+
+#ifdef __enabled_CONFIG_CRYPTO_LZO
+#if __enabled_CONFIG_CRYPTO_LZO
+#define __HAVE_LZO
+#endif
+#endif
+
+#ifdef __enabled_CONFIG_CRYPTO_LZO_MODULE
+#if __enabled_CONFIG_CRYPTO_LZO_MODULE
+#define __HAVE_LZO
+#endif
+#endif
 
 /////////////////////////////////////////////////////////////////////////
 
