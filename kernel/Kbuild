@@ -109,6 +109,8 @@ ifndef CONFIG_MARS
 # Therefore, it is unsafe. Use at your own risk!
 # It is ONLY used for out-of-tree builds.
 #
+CONFIG_MARS_BIGMODULE := m
+obj-$(CONFIG_MARS_BIGMODULE)	+= mars.o
 extra-y	+= mars_config.h
 GEN_CONFIG_SCRIPT := $(src)/../scripts/gen_config.pl
 $(obj)/mars_config.h: $(obj)/buildtag.h
