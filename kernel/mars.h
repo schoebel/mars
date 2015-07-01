@@ -26,6 +26,7 @@
 
 #include <linux/semaphore.h>
 #include <linux/rwsem.h>
+#include <linux/major.h>
 
 //#define MARS_TRACING // write runtime trace data to /mars/trace.csv
 
@@ -72,6 +73,15 @@
 #if __enabled_CONFIG_CRYPTO_LZO_MODULE
 #define __HAVE_LZO
 #endif
+#endif
+
+/* TRANSITIONAL compatibility to BOTH the old prepatch
+ * and the new wrapper around vfs_*(). Both will be replaced
+ * for kernel upstream.
+ */
+#include "compat.h"
+#ifndef MARS_MAJOR
+#define __USE_COMPAT
 #endif
 
 /////////////////////////////////////////////////////////////////////////
