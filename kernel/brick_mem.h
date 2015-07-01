@@ -24,6 +24,12 @@
 #ifndef BRICK_MEM_H
 #define BRICK_MEM_H
 
+/* TRANSITIONAL compatibility to BOTH the old prepatch
+ * and the new wrapper around vfs_*(). Both will be replaced
+ * for kernel upstream.
+ */
+#include "compat.h"
+
 #include <linux/mm_types.h>
 
 #ifndef CONFIG_MARS_MODULE

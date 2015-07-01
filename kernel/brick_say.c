@@ -47,6 +47,8 @@
 
 #include <asm/uaccess.h>
 
+#include "compat.h"
+
 #ifndef GFP_BRICK
 #define GFP_BRICK GFP_NOIO
 #endif

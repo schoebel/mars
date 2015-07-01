@@ -24,8 +24,15 @@
 #ifndef MARS_H
 #define MARS_H
 
+/* TRANSITIONAL compatibility to BOTH the old prepatch
+ * and the new wrapper around vfs_*(). Both will be replaced
+ * for kernel upstream.
+ */
+#include "compat.h"
+
 #include <linux/semaphore.h>
 #include <linux/rwsem.h>
+#include <linux/major.h>
 
 //#define MARS_TRACING // write runtime trace data to /mars/trace.csv
 
@@ -57,7 +64,6 @@
 #ifdef CONFIG_DEBUG_SG
 #error Fixme: CONFIG_DEBUG_SG does not work (fix the bio offset calculation)
 #endif
-
 
 /////////////////////////////////////////////////////////////////////////
 
