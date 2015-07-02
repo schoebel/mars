@@ -104,7 +104,7 @@ EXPORT_SYMBOL_GPL(mars_timespec_meta);
 #include <linux/crypto.h>
 
 static struct crypto_hash *mars_tfm = NULL;
-static struct semaphore tfm_sem = __SEMAPHORE_INITIALIZER(tfm_sem, 1);
+static struct semaphore tfm_sem;
 int mars_digest_size = 0;
 EXPORT_SYMBOL_GPL(mars_digest_size);
 
@@ -283,6 +283,8 @@ EXPORT_SYMBOL_GPL(_mars_trigger);
 int __init init_mars(void)
 {
 	MARS_INF("init_mars()\n");
+
+	sema_init(&tfm_sem, 1);
 
 #ifdef MARS_TRACING
 	{
