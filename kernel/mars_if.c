@@ -991,13 +991,6 @@ static int if_switch(struct if_brick *brick)
 		if (!disk)
 			goto is_down;
 
-#if 0
-		q = disk->queue;
-		if (q) {
-			blk_cleanup_queue(q);
-			input->q = NULL;
-		}
-#endif
 		opened = atomic_read(&brick->open_count);
 		if (unlikely(opened > 0)) {
 			MARS_INF("device '%s' is open %d times, cannot shutdown\n", disk->disk_name, opened);
@@ -1031,6 +1024,11 @@ static int if_switch(struct if_brick *brick)
 		MARS_DBG("calling put_disk()\n");
 		put_disk(input->disk);
 		input->disk = NULL;
+		q = input->q;
+		if (q) {
+			blk_cleanup_queue(q);
+			input->q = NULL;
+		}
 		status = 0;
 	is_down:
 		mars_power_led_off((void*)brick, true);
