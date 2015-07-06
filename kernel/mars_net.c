@@ -42,6 +42,17 @@
 #include "mars_net.h"
 
 #undef USE_SENDPAGE // FIXME: does not work, leads to data corruption (probably due to races with asynchrous sending)
+
+////////////////////////////////////////////////////////////////////
+
+// provisionary version detection
+
+#ifndef TCP_MAX_REORDERING
+#define __HAS_IOV_ITER
+#endif
+
+////////////////////////////////////////////////////////////////////
+
 #define USE_BUFFERING
 
 /* Low-level network traffic
@@ -399,7 +410,9 @@ int _mars_send_raw(struct mars_socket *msock, const void *buf, int len)
 				.iov_len  = this_len,
 			};
 			struct msghdr msg = {
+#ifndef __HAS_IOV_ITER
 				.msg_iov = (struct iovec*)&iov,
+#endif
 				.msg_flags = 0 | MSG_NOSIGNAL,
 			};
 			status = kernel_sendmsg(sock, &msg, &iov, 1, this_len);
@@ -568,8 +581,10 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 			.iov_len = maxlen - done,
 		};
 		struct msghdr msg = {
+#ifndef __HAS_IOV_ITER
 			.msg_iovlen = 1,
 			.msg_iov = (struct iovec*)&iov,
+#endif
 			.msg_flags = MSG_NOSIGNAL,
 		};
 		struct socket *sock = msock->s_socket;
