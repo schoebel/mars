@@ -56,6 +56,8 @@
  */
 #if !defined(__WAIT_ATOMIC_T_KEY_INITIALIZER) || defined(RHEL_RELEASE)
 #define HAS_VFS_READDIR
+#elif !defined(f_dentry)
+#define __HAS_NEW_FILLDIR_T
 #endif
 
 //      end_remove_this
@@ -680,16 +682,21 @@ struct mars_dir_context {
 #endif
 //      end_remove_this
 
+#ifdef __HAS_NEW_FILLDIR_T
+int mars_filler(struct dir_context *__buf, const char *name, int namlen, loff_t offset,
+		u64 ino, unsigned int d_type)
+#else
 static
 int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 		u64 ino, unsigned int d_type)
+#endif
 {
 //      remove_this
 #ifdef HAS_VFS_READDIR
 	struct mars_cookie *cookie = __buf;
 #else
 //      end_remove_this
-	struct mars_dir_context *buf = __buf;
+	struct mars_dir_context *buf = (void *)__buf;
 	struct mars_cookie *cookie = buf->cookie;
 //      remove_this
 #endif
