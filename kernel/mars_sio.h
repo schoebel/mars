@@ -24,6 +24,8 @@
 #ifndef MARS_SIO_H
 #define MARS_SIO_H
 
+#include "lib_mapfree.h"
+
 #define WITH_THREAD 16
 
 struct sio_mref_aspect {
@@ -59,7 +61,7 @@ struct sio_threadinfo {
 struct sio_output {
 	MARS_OUTPUT(sio);
         // private
-	struct file *filp;
+	struct mapfree_info *mf;
 	struct sio_threadinfo tinfo[WITH_THREAD+1];
 	spinlock_t g_lock;
 	int index;
