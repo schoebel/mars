@@ -64,6 +64,7 @@ struct sio_output {
 	struct mapfree_info *mf;
 	struct sio_threadinfo tinfo[WITH_THREAD+1];
 	spinlock_t g_lock;
+	atomic_t work_count;
 	int index;
 };
 

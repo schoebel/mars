@@ -53,6 +53,9 @@ static int sio_ref_get(struct sio_output *output, struct mref_object *mref)
 {
 	struct file *file;
 
+	if (unlikely(!output->brick->power.led_on))
+		return -EBADFD;
+
 	if (mref->ref_initialized) {
 		_mref_get(mref);
 		return mref->ref_len;
@@ -359,6 +362,7 @@ done:
 #endif
 	sio_ref_put(output, mref);
 
+	atomic_dec(&output->work_count);
 	atomic_dec(&mars_global_io_flying);
 	return;
 
@@ -425,7 +429,13 @@ void sio_ref_io(struct sio_output *output, struct mref_object *mref)
 		return;
 	}
 
+	if (unlikely(!output->brick->power.led_on)) {
+		SIMPLE_CALLBACK(mref, -EBADFD);
+		return;
+	}
+
 	atomic_inc(&mars_global_io_flying);
+	atomic_inc(&output->work_count);
 	_mref_get(mref);
 
 	mapfree_set(output->mf, mref->ref_pos, -1);
@@ -624,7 +634,16 @@ static int sio_switch(struct sio_brick *brick)
 done:
 	if (unlikely(status < 0) || !brick->power.button) {
 		int index;
+		int count;
+
 		mars_power_led_on((void*)brick, false);
+		for (;;) {
+			count = atomic_read(&output->work_count);
+			if (count <= 0)
+				break;
+			MARS_DBG("working on %d requests\n", count);
+			brick_msleep(1000);
+		}
 		for (index = 0; index <= WITH_THREAD; index++) {
 			struct sio_threadinfo *tinfo = &output->tinfo[index];
 			if (!tinfo->thread)
