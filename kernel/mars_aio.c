@@ -786,7 +786,8 @@ int _create_ioctx(struct aio_output *output)
 	 * This should be accompanied by a future kernelsapce vfs_submit() or
 	 * do_submit() which currently does not exist :(
 	 */
-	err = get_unused_fd();
+	//depricated err = get_unused_fd();
+	err = get_unused_fd_flags();
 	MARS_DBG("file %p '%s' new fd = %d\n", file, output->mf->mf_name, err);
 	if (unlikely(err < 0)) {
 		MARS_ERR("cannot get fd, err=%d\n", err);
