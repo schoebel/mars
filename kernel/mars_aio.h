@@ -94,6 +94,7 @@ struct aio_output {
 	bool fdsync_active;
 	// statistics
 	int index;
+	atomic_t work_count;
 	atomic_t total_read_count;
 	atomic_t total_write_count;
 	atomic_t total_alloc_count;
