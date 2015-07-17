@@ -264,15 +264,3 @@ config MARS_MIN_SPACE_0
 
 	  If you cannot afford that amount of storage space, please use
 	  DRBD in place of MARS.
-
-config MARS_LOGROT_AUTO
-	int "automatic logrotate when logfile exceeds size (in GB)"
-	depends on MARS
-	default 32
-	---help---
-	  You could switch this off by setting to 0. However, deletion
-	  of really huge logfiles can take several minutes, or even substantial
-	  fractions of hours (depending on the underlying filesystem).
-	  Thus it is highly recommended to limit the logfile size to some
-	  reasonable maximum size. Switch only off for experiments!
-

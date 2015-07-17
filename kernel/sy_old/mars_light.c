@@ -102,8 +102,9 @@ loff_t global_remaining_space = 0;
 EXPORT_SYMBOL_GPL(global_remaining_space);
 
 
-int global_logrot_auto = CONFIG_MARS_LOGROT_AUTO;
+int global_logrot_auto = 32;
 EXPORT_SYMBOL_GPL(global_logrot_auto);
+module_param_named(logrot_auto, global_logrot_auto, int, 0);
 
 int global_free_space_0 = CONFIG_MARS_MIN_SPACE_0;
 EXPORT_SYMBOL_GPL(global_free_space_0);
