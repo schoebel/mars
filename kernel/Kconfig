@@ -122,22 +122,6 @@ config MARS_LOGDIR
 
 	  Leave this at the default unless you know what you are doing.
 
-config MARS_FAST_FULLSYNC
-	bool "decrease network traffic at initial sync"
-	depends on MARS
-	default y
-	---help---
-	  Normally ON.
-	  When on, both sides will read the data, compute a md5
-	  checksum, and compare them. Only in case the checksum
-	  mismatches, the data will be actually transferred over
-	  the network. This may increase the IO traffic in favour
-	  of network traffic. Usually it does no harm to re-read
-	  the same data twice (only in case of mismatches) over bio
-	  because RAID controllers will usually cache their data
-	  for some time. In case of buffered aio reads from filesystems,
-	  the data is cached by the kernel anyway.
-
 config MARS_MIN_SPACE_4
 	int "absolutely necessary free space in /mars/ (hard limit in GB)"
 	depends on MARS

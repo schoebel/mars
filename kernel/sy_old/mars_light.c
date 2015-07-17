@@ -149,14 +149,9 @@ module_param_named(mars_sync_flip_interval, mars_sync_flip_interval, int, 0);
 int mars_peer_abort = 7;
 EXPORT_SYMBOL_GPL(mars_peer_abort);
 
-int mars_fast_fullsync =
-#ifdef CONFIG_MARS_FAST_FULLSYNC
-	1
-#else
-	0
-#endif
-	;
+int mars_fast_fullsync = 1;
 EXPORT_SYMBOL_GPL(mars_fast_fullsync);
+module_param_named(mars_fast_fullsync, mars_fast_fullsync, int, 0);
 
 int mars_throttle_start = 60;
 EXPORT_SYMBOL_GPL(mars_throttle_start);
