@@ -122,18 +122,6 @@ config MARS_LOGDIR
 
 	  Leave this at the default unless you know what you are doing.
 
-config MARS_NETIO_TIMEOUT
-	int "timeout for remote IO operations (in seconds)"
-	depends on MARS
-	default 30
-	---help---
-	  In case of network hangs, don't wait forever, but rather
-	  abort with -ENOTCONN
-	  when == 0, wait forever (may lead to hanging operations
-	  similar to NFS hard mounts)
-
-	  Leave this at the default unless you know what you are doing.
-
 config MARS_FAST_FULLSYNC
 	bool "decrease network traffic at initial sync"
 	depends on MARS

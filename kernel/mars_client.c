@@ -1045,8 +1045,9 @@ struct mars_limiter client_limiter = {
 };
 EXPORT_SYMBOL_GPL(client_limiter);
 
-int global_net_io_timeout = CONFIG_MARS_NETIO_TIMEOUT;
+int global_net_io_timeout = 30;
 EXPORT_SYMBOL_GPL(global_net_io_timeout);
+module_param_named(net_io_timeout, global_net_io_timeout, int, 0);
 
 int __init init_mars_client(void)
 {
