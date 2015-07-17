@@ -122,15 +122,6 @@ config MARS_LOGDIR
 
 	  Leave this at the default unless you know what you are doing.
 
-config MARS_SCAN_INTERVAL
-	int "re-scanning of symlinks in /mars/ (in seconds)"
-	depends on MARS
-	default 5
-	---help---
-	  This may influence the system load; dont use too low numbers.
-
-	  Leave this at the default unless you know what you are doing.
-
 config MARS_PROPAGATE_INTERVAL
 	int "network propagation delay of changes in /mars/ (in seconds)"
 	depends on MARS
