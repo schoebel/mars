@@ -142,8 +142,9 @@ int mars_propagate_interval = 5;
 EXPORT_SYMBOL_GPL(mars_propagate_interval);
 module_param_named(mars_propagate_interval, mars_propagate_interval, int, 0);
 
-int mars_sync_flip_interval = CONFIG_MARS_SYNC_FLIP_INTERVAL;
+int mars_sync_flip_interval = 60;
 EXPORT_SYMBOL_GPL(mars_sync_flip_interval);
+module_param_named(mars_sync_flip_interval, mars_sync_flip_interval, int, 0);
 
 int mars_peer_abort = 7;
 EXPORT_SYMBOL_GPL(mars_peer_abort);
@@ -4338,7 +4339,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	    mars_sync_flip_interval >= 8) {
 		if (!rot->flip_start) {
 			rot->flip_start = jiffies;
-		} else if ((long long)jiffies - rot->flip_start > CONFIG_MARS_SYNC_FLIP_INTERVAL * HZ) {
+		} else if ((long long)jiffies - rot->flip_start > mars_sync_flip_interval * HZ) {
 			do_start = false;
 			rot->flip_start = jiffies + mars_sync_flip_interval * HZ;
 		}
