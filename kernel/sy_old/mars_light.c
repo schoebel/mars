@@ -1637,11 +1637,7 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 {
 	struct mars_rotate *rot = parent->d_private;
 	struct mars_global *global = rot->global;
-#ifdef CONFIG_MARS_SEPARATE_PORTS
 	const char *tmp = path_make("%s@%s:%d", file, peer, mars_net_default_port + 1);
-#else
-	const char *tmp = path_make("%s@%s", file, peer);
-#endif
 	const char *argv[2] = { tmp, file };
 	struct copy_brick *copy = NULL;
 	struct key_value_pair *msg_pair = find_key(rot->msgs, "inf-fetch");
@@ -4361,11 +4357,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
  shortcut:
 	/* Start copy
 	 */
-#ifdef CONFIG_MARS_SEPARATE_PORTS
 	src = path_make("data-%s@%s:%d", peer, peer, mars_net_default_port + 2);
-#else
-	src = path_make("data-%s@%s", peer, peer);
-#endif
 	dst = path_make("data-%s", my_id());
 	copy_path = backskip_replace(dent->d_path, '/', true, "/copy-");
 
