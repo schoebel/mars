@@ -122,15 +122,6 @@ config MARS_LOGDIR
 
 	  Leave this at the default unless you know what you are doing.
 
-config MARS_ROLLOVER_INTERVAL
-	int "rollover time of logging status files (in seconds)"
-	depends on MARS
-	default 3
-	---help---
-	  This may influence the system load; dont use too low numbers.
-
-	  Leave this at the default unless you know what you are doing.
-
 config MARS_SCAN_INTERVAL
 	int "re-scanning of symlinks in /mars/ (in seconds)"
 	depends on MARS

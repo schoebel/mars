@@ -130,8 +130,9 @@ EXPORT_SYMBOL_GPL(global_sync_nr);
 int global_sync_limit = 0;
 EXPORT_SYMBOL_GPL(global_sync_limit);
 
-int mars_rollover_interval = CONFIG_MARS_ROLLOVER_INTERVAL;
+int mars_rollover_interval = 3;
 EXPORT_SYMBOL_GPL(mars_rollover_interval);
+module_param_named(mars_rollover_interval, mars_rollover_interval, int, 0);
 
 int mars_scan_interval = CONFIG_MARS_SCAN_INTERVAL;
 EXPORT_SYMBOL_GPL(mars_scan_interval);
