@@ -138,8 +138,9 @@ int mars_scan_interval = 5;
 EXPORT_SYMBOL_GPL(mars_scan_interval);
 module_param_named(mars_scan_interval, mars_scan_interval, int, 0);
 
-int mars_propagate_interval = CONFIG_MARS_PROPAGATE_INTERVAL;
+int mars_propagate_interval = 5;
 EXPORT_SYMBOL_GPL(mars_propagate_interval);
+module_param_named(mars_propagate_interval, mars_propagate_interval, int, 0);
 
 int mars_sync_flip_interval = CONFIG_MARS_SYNC_FLIP_INTERVAL;
 EXPORT_SYMBOL_GPL(mars_sync_flip_interval);
