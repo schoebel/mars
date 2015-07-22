@@ -2143,7 +2143,8 @@ sub wait_umount_res {
 sub invalidate_res_phase0 {
   my ($cmd, $res) = @_;
   check_not_primary(@_);
-  my $members = scalar(glob("$mars/resource-$res/data-*"));
+  my @member_list = glob("$mars/resource-$res/data-*");
+  my $members = scalar(@member_list);
   if ($members > 2) {
     if (!detect_splitbrain($res, 0)) {
       lwarn "During split brain, $cmd is not guaranteed to work on k > 2 replicas.\n";
