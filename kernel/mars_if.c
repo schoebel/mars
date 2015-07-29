@@ -59,16 +59,10 @@
 #include "mars.h"
 #include "lib_limiter.h"
 
-#ifndef XIO_MAJOR // remove this later: fallback to old prepatch
-#define XIO_MAJOR MARS_MAJOR
+#ifndef XIO_MAJOR
+#define XIO_MAJOR (DRBD_MAJOR + 1)
 #endif
 
-//      remove_this
-#ifndef MARS_MAJOR
-#define MARS_MAJOR (DRBD_MAJOR + 1)
-#endif
-
-//      end_remove_this
 //      remove_this
 #ifdef bio_end_sector
 #define HAS_VOID_RELEASE
