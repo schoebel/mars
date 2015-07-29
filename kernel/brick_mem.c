@@ -250,8 +250,10 @@ EXPORT_SYMBOL_GPL(_brick_mem_free);
 	" BUILDDATE = " BUILDDATE					\
 /*      end_remove_this */						\
 	" FILE = "      __FILE__					\
+/*      remove_this */							\
 	" DATE = "      __DATE__					\
 	" TIME = "      __TIME__					\
+/*      end_remove_this */						\
 	" VERSION = "   __VERSION__					\
 	" xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx STRING_error xxx\n"
 # define STRING_PLUS (sizeof(int) * 3 + sizeof(STRING_CANARY))
