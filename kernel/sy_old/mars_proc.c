@@ -365,9 +365,11 @@ struct ctl_table mars_table[] = {
 	LIMITER_ENTRIES(&if_throttle,     "write_throttle",       "kb"),
 	// changing makes no sense because the server will immediately start upon modprobe
 	INT_ENTRY("mars_port",            mars_net_default_port,  0400),
+//      remove_this
 #ifdef  CONFIG_MARS_NET_COMPAT
 	INT_ENTRY("old_net_proto",        use_old_format,         0600),
 #endif
+//      end_remove_this
 #ifdef __HAVE_LZO
 	INT_ENTRY("network_compress_data", mars_net_compress_data, 0600),
 #endif
