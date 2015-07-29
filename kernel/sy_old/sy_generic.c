@@ -1036,14 +1036,18 @@ struct mars_dir_context {
 #endif
 //      end_remove_this
 
+//      remove_this
 #ifdef __HAS_NEW_FILLDIR_T
+//      end_remove_this
 int mars_filler(struct dir_context *__buf, const char *name, int namlen, loff_t offset,
 		u64 ino, unsigned int d_type)
+//      remove_this
 #else
 static
 int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 		u64 ino, unsigned int d_type)
 #endif
+//      end_remove_this
 {
 //      remove_this
 #ifdef HAS_VFS_READDIR
