@@ -350,6 +350,7 @@ void mars_proto_check(struct mars_socket *msock)
 	u16 service_flags = 0;
 	int status;
 
+//      remove_this
 #ifdef CONFIG_MARS_NET_COMPAT
 	status = _mars_recv_raw(msock, &service_version, 1, 1, MSG_PEEK);
 	if (unlikely(status < 0)) {
@@ -363,6 +364,7 @@ void mars_proto_check(struct mars_socket *msock)
 		return;
 	}
 #endif
+//      end_remove_this
 	status = _mars_recv_raw(msock, &service_version, 1, 1, 0);
 	if (unlikely(status < 0)) {
 		MARS_DBG("#%d protocol exchange failed at receiving, status = %d\n",
@@ -392,11 +394,13 @@ int mars_proto_exchange(struct mars_socket *msock, const char *msg)
 {
 	int status;
 
+//      remove_this
 #ifdef CONFIG_MARS_NET_COMPAT
 	if (use_old_format)
 		return 0;
 #endif
 	
+//      end_remove_this
 	msock->s_send_proto = SEND_PROTO_VERSION;
 	status = mars_send_raw(msock, &msock->s_send_proto, 1, false);
 	if (unlikely(status < 0)) {
@@ -1587,10 +1591,12 @@ int desc_send_struct(struct mars_socket *msock, const void *data, const struct m
 	int h_meta_len = 0;
 	int status = -EINVAL;
 
+//      remove_this
 #ifdef CONFIG_MARS_NET_COMPAT
 	if (!msock->s_recv_proto)
 		return desc_send_struct_old(msock, data, meta, cork);
 #endif
+//      end_remove_this
 	for (i = 0; i < MAX_DESC_CACHE; i++) {
 		mc = msock->s_desc_send[i];
 		if (!mc)
@@ -1623,10 +1629,12 @@ int desc_recv_struct(struct mars_socket *msock, void *data, const struct meta *m
 	int status = 0;
 	bool need_swap = false;
 
+//      remove_this
 #ifdef CONFIG_MARS_NET_COMPAT
 	if (!msock->s_recv_proto)
 		return desc_recv_struct_old(msock, data, meta, line);
 #endif
+//      end_remove_this
 	status = mars_recv_raw(msock, &header, sizeof(header), sizeof(header));
 	_CHECK_STATUS("recv_header");
 
