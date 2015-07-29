@@ -286,12 +286,15 @@ void _if_unplug(struct if_input *input)
 /* accept a linux bio, convert to mref and call buf_io() on it.
  */
 static
+//      remove_this
 #ifdef BIO_CPU_AFFINE
-int
+int if_make_request(struct request_queue *q, struct bio *bio)
 #else
-void
+//      end_remove_this
+void if_make_request(struct request_queue *q, struct bio *bio)
+//      remove_this
 #endif
-if_make_request(struct request_queue *q, struct bio *bio)
+//      end_remove_this
 {
 	struct if_input *input = q->queuedata;
 	struct if_brick *brick = input->brick;
@@ -300,8 +303,19 @@ if_make_request(struct request_queue *q, struct bio *bio)
 	 */
 	const int  rw      = bio_data_dir(bio);
 	const int  sectors = bio_sectors(bio);
+//      remove_this
 // adapt to different kernel versions (TBD: improve)
-#if defined(BIO_RW_RQ_MASK) || defined(BIO_FLUSH)
+#if defined(bio_flagged)
+//      end_remove_this
+	const bool ahead   = bio_flagged(bio, __REQ_RAHEAD) && rw == READ;
+	const bool barrier = bio_flagged(bio, __REQ_SOFTBARRIER);
+	const bool syncio  = bio_flagged(bio, __REQ_SYNC);
+	const bool unplug  = false;
+	const bool meta    = bio_flagged(bio, __REQ_META);
+	const bool discard = bio_flagged(bio, __REQ_DISCARD);
+	const bool noidle  = bio_flagged(bio, __REQ_NOIDLE);
+//      remove_this
+#elif defined(BIO_RW_RQ_MASK) || defined(BIO_FLUSH)
 	const bool ahead   = bio_rw_flagged(bio, BIO_RW_AHEAD) && rw == READ;
 	const bool barrier = bio_rw_flagged(bio, BIO_RW_BARRIER);
 	const bool syncio  = bio_rw_flagged(bio, BIO_RW_SYNCIO);
@@ -321,6 +335,7 @@ if_make_request(struct request_queue *q, struct bio *bio)
 #else
 #error Cannot decode the bio flags
 #endif
+//      end_remove_this
 	const int  prio    = bio_prio(bio);
 
 	/* Transform into MARS flags
@@ -631,11 +646,15 @@ err:
 done:
 	remove_binding_from(brick->say_channel, current);
 
+//      remove_this
 #ifdef BIO_CPU_AFFINE
 	return error;
 #else
+//      end_remove_this
 	return;
+//      remove_this
 #endif
+//      end_remove_this
 }
 
 #ifndef BLK_MAX_REQUEST_COUNT
