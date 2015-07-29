@@ -160,6 +160,7 @@ extern int mars_recv_mref(struct mars_socket *msock, struct mref_object *mref, s
 extern int mars_send_cb(struct mars_socket *msock, struct mref_object *mref);
 extern int mars_recv_cb(struct mars_socket *msock, struct mref_object *mref, struct mars_cmd *cmd);
 
+//      remove_this
 /////////////////////////////////////////////////////////////////////////
 
 #ifdef CONFIG_MARS_NET_COMPAT
@@ -168,6 +169,7 @@ int desc_send_struct_old(struct mars_socket *msock, const void *data, const stru
 int desc_recv_struct_old(struct mars_socket *msock, void *data, const struct meta *meta, int line);
 #endif
 
+//      end_remove_this
 /////////////////////////////////////////////////////////////////////////
 
 // init
