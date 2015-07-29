@@ -2184,7 +2184,9 @@ void _make_alive(void)
 	}
 	_make_alivelink("alive", mars_global && mars_global->global_power.button ? 1 : 0);
 	_make_alivelink_str("tree", SYMLINK_TREE_VERSION);
+//      remove_this
 	_make_alivelink_str("buildtag", BUILDTAG "(" BUILDDATE ")");
+//      end_remove_this
 }
 
 void from_remote_trigger(void)
