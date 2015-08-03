@@ -1845,10 +1845,16 @@ sub _wait_delete {
   return if $dry_run;
   for (;;) {
     my $deleted = get_link("$mars/todo-global/deleted-$real_host");
-print "deleted: $deleted / $delete_nr\n";
+    lprint "deleted: $deleted / $delete_nr\n";
     last if $deleted >= $delete_nr;
     lprint "waiting for deletions to apply locally....\n";
     sleep_timeout();
+  }
+  if ($host ne $real_host) {
+    lprint "if reachable, give host $host a chance to delete also (not guaranteed)...\n";
+    sleep(16);
+    my $deleted = get_link("$mars/todo-global/deleted-$host");
+    lprint "deleted on $host: $deleted / $delete_nr\n";
   }
   sleep(3);
 }
