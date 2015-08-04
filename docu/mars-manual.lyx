@@ -13798,7 +13798,7 @@ incorrect
 \end_layout
 
 \begin_layout Subsection
-Emergency Mode
+Emergency Mode and its Resolution
 \begin_inset CommandInset label
 LatexCommand label
 name "sub:Emergency-Mode"
@@ -13915,7 +13915,7 @@ If
 \family typewriter
 
 \begin_inset Flex URL
-status collapsed
+status open
 
 \begin_layout Plain Layout
 
@@ -13949,28 +13949,60 @@ EMEGENCY MODE HYSTERESIS
 marsadm view all
 \family default
 .
+ As a consequence, any sync will be automatically halted.
+ This applies to freshly invoked syncs also, for example created by 
+\family typewriter
+invalidate
+\family default
+ or 
+\family typewriter
+join-resource
+\family default
+.
 \end_layout
 
 \begin_layout Enumerate
-On the secondaries, and when there is no split brain, use 
+On the secondaries, use 
 \family typewriter
 marsadm invalidate $res
 \family default
- in order to start updating your outdated mirrors.
- Alternatively, or in case of split brain, follow the instructions from
- section 
+ in order to request updating your outdated mirrors.
+\end_layout
+
+\begin_layout Enumerate
+On the primary: 
+\family typewriter
+marsadm log-delete-all all
+\end_layout
+
+\begin_layout Enumerate
+As soon as emough space has been freed everywhere to leave the 
+\family typewriter
+EMEGENCY MODE HYSTERESIS
+\family default
+, sync should really start.
+ Until that it had been halted.
+\end_layout
+
+\begin_layout Standard
+Alternatively, there is another method by roughly following the instructions
+ from appendix 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Split-Brain-Resolution"
+reference "chap:Alternative-Methods-for"
 
 \end_inset
 
-.
- That means, do 
+, but in a slightly different order.
+ In this case, do 
 \family typewriter
 leave-resource
 \family default
- now everywhere on all secondaries, but 
+ everywhere on 
+\emph on
+all
+\emph default
+ secondaries, but 
 \emph on
 don't
 \emph default
@@ -13983,6 +14015,20 @@ join-resource
 for now
 \emph default
 .
+ Then cleanup all your secondaries via 
+\family typewriter
+log-purge-all
+\family default
+, and finally 
+\family typewriter
+log-delete-all all
+\family default
+ at the primary, and wait until the emergency has vanished everywhere.
+ Only after that, re-
+\family typewriter
+join-resource
+\family default
+ your secondaries.
 \begin_inset Newline newline
 \end_inset
 
@@ -13994,36 +14040,53 @@ for now
 
 \end_inset
 
-If you had only 1 mirror per resource before the overflow happened, and
- provided that you have enough space on 
+Expert advice for 
+\begin_inset Formula $k=2$
+\end_inset
+
+ replicas: this means you had only 1 mirror per resource before the overflow
+ happened.
+ Provided that you have enough space on your LVMs and on 
 \family typewriter
 /mars/
 \family default
- such that transaction logging has automatically restarted, you can now
- start creating a new one via 
+, and provided that transaction logging has automatically restarted after
+ 
+\family typewriter
+leave-resource
+\family default
+ and 
+\family typewriter
+log-purge-all
+\family default
+, you can recover redundancy by creating a 
+\emph on
+new
+\emph default
+ replica via 
 \family typewriter
 marsadm join-resource $res
 \family default
- on a third node.
- After the initial full sync has finished there, do an 
+ on a 
+\emph on
+third
+\emph default
+ node.
+ Only after the initial full sync has finished there, run 
 \family typewriter
-marsadm invalidate $res
+join-resource 
 \family default
- on the outdated mirror (if you had no split brain; otherwise follow the
- instructions from section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sub:Split-Brain-Resolution"
-
-\end_inset
-
-).
- This way, you will always retain at least one consistent mirror somewhere.
+at your original mirror.
+ This way, you will always retain at least one 
+\series bold
+consistent mirror
+\series default
+ somewhere.
  After all is up-to-date, you can delete the superfluous mirror by 
 \family typewriter
 marsadm leave-resource $res
 \family default
- and reclaim the disk space from its underlying disk.
+ and reclaim the disk space from its underlying LVM disk.
 \begin_inset Newline newline
 \end_inset
 
@@ -14035,13 +14098,13 @@ marsadm leave-resource $res
 
 \end_inset
 
-In contrast, if you already have 
+If you already have 
 \begin_inset Formula $k>2$
 \end_inset
 
  replicas in total, it may be a wise idea to prefer the 
 \family typewriter
-leave-resource ; join-resource
+leave-resource ; log-purge-all ; join-resource
 \family default
  method in front of 
 \family typewriter
@@ -14051,78 +14114,7 @@ invalidate
 \emph on
 all
 \emph default
- your replicas at the same time (when handled properly).
-\end_layout
-
-\begin_layout Enumerate
-In case the message 
-\family typewriter
-
-\begin_inset Quotes eld
-\end_inset
-
-EMEGENCY MODE HYSTERESIS
-\begin_inset Quotes erd
-\end_inset
-
-
-\family default
- did not disappear until now, then issue 
-\family typewriter
-marsadm log-delete-all all
-\family default
- at the primary side after 
-\emph on
-all
-\emph default
- your secondaries have started 
-\family typewriter
-invalidate
-\family default
- or 
-\family typewriter
-leave-resource
-\family default
-.
- In very rare and complicated cases, you might also need 
-\family typewriter
-marsadm log-delete-all all
-\family default
- at some of your secondary sites.
-\end_layout
-
-\begin_layout Enumerate
-In case of mixed operations where some resources are primary while others
- are secondaries at the same site, you may also need to cleanup the other
- resources before enough space on 
-\family typewriter
-/mars/
-\family default
- can be freed.
-\end_layout
-
-\begin_layout Enumerate
-As a consequence, the primary side should henceforth have enough space and
- therefore continue transaction logging automatically (if not earlier).
- 
-\end_layout
-
-\begin_layout Enumerate
-After that, if you had issued 
-\family typewriter
-leave-resource
-\family default
- in previous steps, don't do the 
-\family typewriter
-join-resource
-\family default
- phase everywhere in parallel, but 
-\emph on
-sequentially
-\emph default
- step by step.
- This way, you will always retain at least one consistent, but outdated
- copy.
+ your replicas at the same time (when handled properly in the right order).
 \end_layout
 
 \begin_layout Chapter
