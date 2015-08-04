@@ -4238,105 +4238,6 @@ reference "sub:Final-Destroy-of"
 , but do this only as far as necessary.
 \end_layout
 
-\begin_layout Enumerate
-If any of your (surviving) cluster nodes has already the 
-\begin_inset Quotes eld
-\end_inset
-
-right
-\begin_inset Quotes erd
-\end_inset
-
- version and was not in a primary role when the split brain happened, you
- don't need to do the following step for it, of course.
- The following applies only to those nodes which 
-\emph on
-deviate
-\emph default
- from the correct version:
-\end_layout
-
-\begin_layout Enumerate
-It may happen that the 
-\begin_inset Quotes eld
-\end_inset
-
-right
-\begin_inset Quotes erd
-\end_inset
-
- version you want to retain is 
-\emph on
-not
-\emph default
- the version which is currently designated as primary for the whole cluster.
- 
-\series bold
-Only
-\series default
- in such a case, switch the primary role as described in sections 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sub:Intended-Switching"
-
-\end_inset
-
- or 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sub:Forced-Switching"
-
-\end_inset
-
-.
- Here is a repetition of the necessary steps:
-\end_layout
-
-\begin_deeper
-\begin_layout Enumerate
-First try 
-\family typewriter
-marsadm primary mydata
-\family default
- on the new designated primary host.
- Don't mix up your shell windows!
-\end_layout
-
-\begin_layout Enumerate
-Only if that refuses working 
-\emph on
-for no good reason
-\emph default
-, do the following steps:
-\end_layout
-
-\begin_deeper
-\begin_layout Enumerate
-
-\family typewriter
-marsadm pause-fetch mydata
-\family default
-.
-\end_layout
-
-\begin_layout Enumerate
-
-\family typewriter
-marsadm primary mydata --force
-\family default
-.
-\end_layout
-
-\begin_layout Enumerate
-
-\family typewriter
-marsadm resume-fetch mydata
-\family default
-.
-\end_layout
-
-\end_deeper
-\end_deeper
 \begin_layout Standard
 The next steps are different for different use cases:
 \end_layout
@@ -4347,7 +4248,8 @@ Destroying a Wrong Split Brain Version
 
 \begin_layout Standard
 Continue with the following steps, each on those cluster node(s) where you
- cannot retain its split-brain version, but start with the old 
+ do not want to retain its split-brain version.
+ In preference, start with the old 
 \begin_inset Quotes eld
 \end_inset
 
@@ -4368,7 +4270,7 @@ status open
 \backslash
 begin{enumerate}
 \backslash
-setcounter{enumi}{6}
+setcounter{enumi}{4}
 \end_layout
 
 \end_inset
@@ -4389,206 +4291,9 @@ item
 
 \end_inset
 
-
-\family typewriter
-marsadm leave-resource mydata
-\end_layout
-
-\begin_layout Standard
-\begin_inset ERT
-status open
-
-\begin_layout Plain Layout
-
-
-\backslash
-item 
-\end_layout
-
-\end_inset
-
-After having done this on one cluster node, check whether the split brain
- is already gone (e.g.
- by saying 
-\family typewriter
-marsadm view mydata
-\family default
-).
- There are chances that you don't need this on all of your nodes.
- Only in very rare
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-When your network had partitioned in a very awkward way for a long time,
- and when your partitioned primaries did several 
-\family typewriter
-log-rotate
-\family default
- operations indendently from each other, there is a small chance that 
-\family typewriter
-leave-resource
-\family default
- does not clean up 
-\emph on
-all
-\emph default
- remains of such an awkward situation.
- Only in such a case, try 
-\family typewriter
-log-purge-all
-\family default
-.
-\end_layout
-
-\end_inset
-
- cases, it might happen that the preceding l
-\family typewriter
-eave-resource
-\family default
- operations were not able to clean up all logfiles produced in parallel
- by the split brain situation.
- Only in such rare cases, read the documentation about 
-\family typewriter
-log-purge-all
-\family default
- (see page 
-\begin_inset CommandInset ref
-LatexCommand pageref
-reference "log-purge-all$res"
-
-\end_inset
-
-) and try it.
-\end_layout
-
-\begin_layout Standard
-\begin_inset ERT
-status open
-
-\begin_layout Plain Layout
-
-
-\backslash
-end{enumerate}
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-If you want to restore redundancy, you can follow-up a 
-\family typewriter
-join-resource
-\family default
- phase to the old resource name (using the correct device name, double-check
- it!) This should restore your redundancy by overwriting your bad split
- brain version with the correct one.
-\end_layout
-
-\begin_layout Standard
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-It is important to resolve the split brain 
-\emph on
-before
-\emph default
- you can start the 
-\family typewriter
-join-resource
-\family default
- reconstruction phase! In order to keep as many 
-\begin_inset Quotes eld
-\end_inset
-
-good
-\begin_inset Quotes erd
-\end_inset
-
- versions as possible (e.g.
- for emergency cases), don't re-join them all in parallel, but rather start
- with the oldest / most outdated / worst / inconsistent version first.
- It is recommended to start the next one only when the previous one has
- sucessfully finished.
-\end_layout
-
-\begin_layout Standard
-Alternatively, but only if you have only 
-\begin_inset Formula $k=2$
-\end_inset
-
- replicas in total, you may use the following short procedure instead, which
- works in almost all 
-\begin_inset Formula $k=2$
-\end_inset
-
- cases, but cannot resolve all (desperate, very scarce) split-brain situations
- (see documentation of 
-\family typewriter
-log-purge-all
-\family default
- on page 
-\begin_inset CommandInset ref
-LatexCommand pageref
-reference "log-purge-all$res"
-
-\end_inset
-
-):
-\end_layout
-
-\begin_layout Standard
-\begin_inset ERT
-status open
-
-\begin_layout Plain Layout
-
-
-\backslash
-begin{enumerate}
-\backslash
-setcounter{enumi}{6}
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset ERT
-status open
-
-\begin_layout Plain Layout
-
-
-\backslash
-item 
-\end_layout
-
-\end_inset
-
-On the single (new) secondary with a non-
-\begin_inset Quotes erd
-\end_inset
-
-right
-\begin_inset Quotes erd
-\end_inset
-
- version, and only if the split brain has not yet been resolved, say 
+ 
 \family typewriter
 marsadm invalidate mydata
-\family default
-.
 \end_layout
 
 \begin_layout Standard
@@ -4605,6 +4310,32 @@ end{enumerate}
 \end_inset
 
 
+\end_layout
+
+\begin_layout Standard
+\noindent
+When no split brain is reported anymore after that (via 
+\family typewriter
+marsadm view all
+\family default
+), you are done.
+ You need to repeat this on other secondaries only when necessary.
+\end_layout
+
+\begin_layout Standard
+In very rare cases when things are screwed up very heavily (e.g.
+ a partly destroyed 
+\family typewriter
+/mars/
+\family default
+ partition), you may try an alternate method described in appendix 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "chap:Alternative-Methods-for"
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Paragraph
@@ -4612,8 +4343,8 @@ Keeping a Split Brain Version
 \end_layout
 
 \begin_layout Standard
-This case starts indentical as before, but continues differently.
- On each of those cluster node(s) you don't want to retain:
+On those cluster node(s) where you want to retain the version (e.g.
+ for inspection purposes):
 \end_layout
 
 \begin_layout Standard
@@ -4626,7 +4357,7 @@ status open
 \backslash
 begin{enumerate}
 \backslash
-setcounter{enumi}{6}
+setcounter{enumi}{4}
 \end_layout
 
 \end_inset
@@ -4739,7 +4470,7 @@ mynewdata
 \family default
  (see description in section 
 \begin_inset CommandInset ref
-LatexCommand nameref
+LatexCommand vref
 reference "sec:Creating-and-Maintaining"
 
 \end_inset
@@ -4821,6 +4552,10 @@ future.
  that you don't need to do any action for it.
  When all wrong versions have disappeared from the cluster (by 
 \family typewriter
+invalidate
+\family default
+ or 
+\family typewriter
 leave-resource
 \family default
  as described before), the confusion should be over, and the secondary should
@@ -4848,7 +4583,11 @@ stuck
 
 \end_inset
 
- Hint / advice: it is a good idea to start split brain resolution 
+ Hint / advice for 
+\begin_inset Formula $k>2$
+\end_inset
+
+ replicas: it is a good idea to start split brain resolution 
 \emph on
 first
 \emph default
@@ -4860,25 +4599,19 @@ first
 one
 \emph default
  of them.
- Leave the other one intact, by not leaving its primary state at all (if
- it is possible -- notice that if you have enough space on 
-\family typewriter
-/mars/
-\family default
- it may be even possible to not only continue your application during the
- split brain without interruption, just by not umounting 
+ Leave the other one intact, by not umounting 
 \family typewriter
 /dev/mars/mydata
 \family default
- at all, but in addition to avoid invalidations caused by emergency mode,
- see section 
+ at all, and keeping your applications running.
+ Even during emergency mode, see section 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "sub:Emergency-Mode"
 
 \end_inset
 
-).
+.
  
 \emph on
 First
@@ -4893,22 +4626,22 @@ wrong
 
  primary(s) via 
 \family typewriter
+invalidate
+\family default
+ or 
+\family typewriter
 leave-resource
 \family default
 .
  Wait for a short while.
- Then check the rest of your secondaries (if you have 
-\begin_inset Formula $k>2$
-\end_inset
-
- replicas in total), whether they now are already following the new (unique)
- primary, and finally check whether the split brain warning reported by
- 
+ Then check the rest of your secondaries, whether they now are already following
+ the new (unique) primary, and finally check whether the split brain warning
+ reported by 
 \family typewriter
 marsadm view all
 \family default
- is already gone.
- This way, you can often omit unnecessary invalidations of replicas.
+ is gone everywhere.
+ This way, you can often skip unnecessary invalidations of replicas.
 \end_layout
 
 \begin_layout Subsection
@@ -5086,902 +4819,17 @@ modprobe mars
 \end_layout
 
 \begin_layout Standard
-In case 
-\family typewriter
-leave-resource --host=
-\family default
- does not work, you can start over with the following fallback:
-\end_layout
-
-\begin_layout Standard
-\begin_inset ERT
-status open
-
-\begin_layout Plain Layout
-
-
-\backslash
-begin{enumerate}
-\backslash
-setcounter{enumi}{3}
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset ERT
-status open
-
-\begin_layout Plain Layout
-
-
-\backslash
-item 
-\end_layout
-
-\end_inset
-
-On the surviving new designated primary, give the following commands
-\end_layout
-
-\begin_layout Enumerate
-
-\family typewriter
-marsadm disconnect-all mydata
-\end_layout
-
-\begin_layout Enumerate
-
-\family typewriter
-marsadm down mydata
-\end_layout
-
-\begin_layout Enumerate
-Check by hand whether your local disk is consistent, e.g.
- by test-mounting it readonly, 
-\family typewriter
-fsck
-\family default
-, etc.
-\end_layout
-
-\begin_layout Enumerate
-
-\family typewriter
-marsadm delete-resource mydata
-\end_layout
-
-\begin_layout Enumerate
-Check whether the other vital cluster nodes don't report the dead resource
- any more, e.g.
- 
-\family typewriter
-marsadm view all
-\family default
- at 
-\emph on
-each
-\emph default
- of them.
- In case the resource has not disappeared anywhere (which may happen during
- network problems), do the 
-\family typewriter
-down ; delete-resource
-\family default
- steps also there (optionally again with 
-\family typewriter
---force
-\family default
-).
-\end_layout
-
-\begin_layout Enumerate
-Be sure that the resource has disappeared 
-\emph on
-everywhere
-\emph default
-.
-\end_layout
-
-\begin_layout Enumerate
-
-\family typewriter
-marsadm create-resource newmydata ...
-
-\family default
- at the 
-\emph on
-correct
-\emph default
- node using the 
-\emph on
-correct
-\emph default
- disk device containing the 
-\emph on
-correct
-\emph default
- version, and further steps to setup your resource from scratch, preferably
- under a different name to minimize any risk.
-\end_layout
-
-\begin_layout Standard
-\begin_inset ERT
-status open
-
-\begin_layout Plain Layout
-
-
-\backslash
-end{enumerate}
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-In any case, 
-\series bold
-manually check
-\series default
- whether a split brain is reported for any resource on any of your 
-\emph on
-surviving
-\emph default
- cluster nodes.
- If you find one there (and only then), please (re-)execute the split brain
- resolution steps on the affected node(s).
-\end_layout
-
-\begin_layout Subsection
-Cleanup in case of Complicated Cascading Failures
-\begin_inset CommandInset label
-LatexCommand label
-name "sub:Cleanup-in-case"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-MARS Light does its best to recover even from multiple failures (e.g.
- 
-\series bold
-rolling disasters
-\series default
-).
- Chances are high that the previous instructions will work even in case
- of multiple failures, such as a network failure plus local node failure
- at only 1 node (even if that node is the former primary node).
-\end_layout
-
-\begin_layout Standard
-However, in general (e.g.
- when more than 1 node is damaged) there is no general guarantee that recovery
- will 
-\emph on
-always
-\emph default
- succeed under 
-\emph on
-any
-\emph default
- (weird) circumstances.
- That said, your chances for recovery are 
-\emph on
-very
-\emph default
- high when some disk remains usable at least at one of your surviving secondarie
-s.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-It should be very hard to finally trash a secondary, because the transaction
- logfiles are containing 
-\family typewriter
-md5
-\family default
- checksums for all data records.
- Any attempt to replay currupted logfiles is refused by MARS.
- In addition, the sequence numbers of 
-\family typewriter
-log-rotate
-\family default
-d logfiles are checked for contiguity.
- Finally, the 
-\emph on
-sequence path
-\emph default
- of logfile applications (consisting of logfile names plus their respective
- length) is additionally secured by a 
-\family typewriter
-git
-\family default
--like incremental checksum over the whole path history (so-called 
-\begin_inset Quotes eld
-\end_inset
-
-version links
-\begin_inset Quotes erd
-\end_inset
-
-).
- This should detect split brains even if logfiles are appended / modified
- 
-\emph on
-after
-\emph default
- a (forceful) switchover has already taken place.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/MatieresToxiques.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- That said, your 
-\begin_inset Quotes eld
-\end_inset
-
-chances
-\begin_inset Quotes erd
-\end_inset
-
- for final loss of data are very high if you remove the BBU from your hardware
- RAID controller before all hot data has been flushed to the physical disks.
- Therefore, never try to 
-\begin_inset Quotes eld
-\end_inset
-
-repair
-\begin_inset Quotes erd
-\end_inset
-
- a seemingly dead node before your replication is up again somewhere else!
- Only unplug the network cables when advised, but never try to repair the
- hardware instantly!
-\end_layout
-
-\begin_layout Standard
-In case of desperate situations where none of the previous instructions
- have succeeded, your last chance is rebuilding all your resources from
- intact disks as follows:
-\end_layout
-
-\begin_layout Enumerate
-Do 
-\family typewriter
-rmmod mars
-\family default
- on all your cluster nodes and/or reboot them.
- Note: if you are less desperate, chances are high that the following will
- also work when the kernel module remains active and everywhere a 
-\family typewriter
-marsadm down
-\family default
- is given instead, but for an 
-\emph on
-ultimate
-\emph default
- instruction you should eliminate 
-\emph on
-potential
-\emph default
- kernel problems by 
-\family typewriter
-rmmod
-\family default
- / 
-\family typewriter
-reboot
-\family default
-, at least if you can afford the downtime on concurrently operating resources.
-\end_layout
-
-\begin_layout Enumerate
-For safety, physically remove the storage network cables on 
-\emph on
-all
-\emph default
- your cluster nodes.
- Note: the same disclaimer holds.
- MARS really does its best, even when 
-\family typewriter
-delete-resource
-\family default
- is given while the network is fully active and multiple split-brain primaries
- are actively using their local device in parallel (approved by some testcases
- from the automatic test suite, but note that it is impossible to catch
- all possible failure scenarios).
- Don't challenge your fate if you are desperate! Don't 
-\emph on
-rely
-\emph default
- on this! Nothing is absolutely fail-safe!
-\end_layout
-
-\begin_layout Enumerate
-
-\series bold
-Manually
-\series default
- check which surviving disk is usable, and which is the 
-\begin_inset Quotes eld
-\end_inset
-
-best
-\begin_inset Quotes erd
-\end_inset
-
- one for your purpose.
-\end_layout
-
-\begin_layout Enumerate
-Do 
-\family typewriter
-modprobe mars
-\family default
- 
-\emph on
-only
-\emph default
- on that node.
- If that fails, 
-\family typewriter
-rmmod
-\family default
- and/or reboot again, and start over with a completely fresh 
-\family typewriter
-/mars/
-\family default
- partition (
-\family typewriter
-mkfs.ext4 /mars/
-\family default
- or similar) 
-\emph on
-everywhere
-\emph default
- on 
-\emph on
-all
-\emph default
- cluster nodes, and continue with step 7.
-\end_layout
-
-\begin_layout Enumerate
-If your old 
-\family typewriter
-/mars/
-\family default
- works, and you did not already (forcefully) switch your designated primary
- to the final destination, do it now (see description in section 
+Further instructions for complicated cases are in appendix 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Forced-Switching"
+reference "chap:Alternative-De--and"
 
 \end_inset
 
-).
- Wait until any old logfile data has been replayed.
-\end_layout
-
-\begin_layout Enumerate
-Say 
-\family typewriter
-marsadm delete-resource mydata --force
-\family default
-.
- This will cleanup all internal symlink tree information for the resource,
- but will leave your disk data intact.
-\end_layout
-
-\begin_layout Enumerate
-Locally build up the new resource(s>) as usual, out of the underlying disk<8s<9.
-\end_layout
-
-\begin_layout Enumerate
-Check whether the new resource(s) work in standalone mode.
-\end_layout
-
-\begin_layout Enumerate
-When necessary, repeat these steps with other resources.
-\end_layout
-
-\begin_layout Standard
-Now you can choose how the rebuild your cluster.
- If you rebuilt 
-\family typewriter
-/mars/
-\family default
- anywhere, you 
-\emph on
-must
-\emph default
- rebuild it on 
-\emph on
-all
-\emph default
- new cluster nodes and start over with a fresh 
-\family typewriter
-join-cluster
-\family default
- on each of them, from scratch.
- It is not possible to mix the old cluster with the new one.
-\end_layout
-
-\begin_layout Standard
-\begin_inset ERT
-status open
-
-\begin_layout Plain Layout
-
-
-\backslash
-begin{enumerate}
-\backslash
-setcounter{enumi}{10}
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset ERT
-status open
-
-\begin_layout Plain Layout
-
-
-\backslash
-item 
-\end_layout
-
-\end_inset
-
- Finally, do all the necessary 
-\family typewriter
-join-resource
-\family default
-s on the respective cluster nodes, according to your new redundancy scenario
- after the failures (e.g.
- after activating spare nodes, etc).
- If you have 
-\begin_inset Formula $k>2$
-\end_inset
-
- replicas, start 
-\family typewriter
-join-resource
-\family default
- on the worst / most damaged version first, and start the next preferably
- only after the previous sync has successfully completed.
- This way, you will be retaining some very old and outdated, but hopefully
- potentially usable old replicas while a sync is running.
- Don't start too many syncs in parallel.
-\end_layout
-
-\begin_layout Standard
-\begin_inset ERT
-status open
-
-\begin_layout Plain Layout
-
-
-\backslash
-end{enumerate}
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- Never use 
-\family typewriter
-delete-resource
-\family default
- twice on the same resource name, after you have already a working standalone
- primary
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-Of course, when you don't have created the 
-\emph on
-same
-\emph default
- resource anew, you may repeat 
-\family typewriter
-delete-resource
-\family default
- on other cluster nodes in order to get rid of local files / symlinks which
- had not been propagated to other nodes before.
-\end_layout
-
-\end_inset
-
-.
- You might accidentally destroy your again-working copy! You 
-\emph on
-can
-\emph default
- issue 
-\family typewriter
-delete-resource
-\family default
- multiple times on different nodes, e.g.
- when the network has problems, but doing so 
-\emph on
-after
-\emph default
- re-establishment of the initial primary bears some risk.
- Therefore, the safest way is first deleting the resources everywhere, and
- then starting over afresh.
-\end_layout
-
-\begin_layout Standard
-Before re-connecting any network cable on any non-primary (new secondaries),
- ensure that all 
-\family typewriter
-/dev/mars/mydata
-\family default
- devices are no longer in use (e.g.
- from an old primary role before the incident happened), and that each local
- disk is detached.
- Only after that, you should be able to safely re-connect the network.
- The 
-\family typewriter
-delete-resource
-\family default
- given at the new primary should propagate now to each of your secondaries,
- and your local disk should be usable for a re-
-\family typewriter
-join-resource
-\family default
-.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-When you did not rebuild your cluster from scratch with fresh 
-\family typewriter
-/mars/
-\family default
- filesystems, and one of the old cluster nodes is supposed to be removed
- permanently, use 
-\family typewriter
-leave-resource
-\family default
- (optionally with 
-\family typewriter
---host=
-\family default
- and/or 
-\family typewriter
---force
-\family default
-) and finally 
-\family typewriter
-leave-cluster
-\family default
-.
-\end_layout
-
-\begin_layout Subsection
-Experts only: Special Trick Switching and Rebuild
-\end_layout
-
-\begin_layout Standard
-The following is a further alternative for 
-\series bold
-experts
-\series default
- who really know what they are doing.
- The method is very simple and therefore well-suited for coping with mass
- failures, e.g.
- 
-\series bold
-power blackout of whole datacenters
-\series default
-.
-\end_layout
-
-\begin_layout Standard
-In case a primary datacenter fails as a whole for whatever reason and you
- have a backup datacenter, do the following steps in the backup datacenter:
-\end_layout
-
-\begin_layout Enumerate
-Fencing step: by means of firewalling, ensure that the (virtually) damaged
- datacenter nodes 
-\series bold
-cannot
-\series default
- be reached over the network.
- For example, you may place REJECT rules into all of your local iptables
- firewalls at the backup datacenter.
- Alternatively / additionally, you may block the routes at the appropriate
- central router(s) in your network.
-\end_layout
-
-\begin_layout Enumerate
-Run the sequence 
-\family typewriter
-marsadm disconnect all; marsadm primary --force all
-\family default
- on all nodes in the backup datacenter.
-\end_layout
-
-\begin_layout Enumerate
-Restart your services in the backup datacenter (as far as necessary).
- Depending on your network setup, further steps like switching BGP routes
- etc may be necessary.
-\end_layout
-
-\begin_layout Enumerate
-Check that 
-\emph on
-all
-\emph default
- your services are 
-\emph on
-really
-\emph default
- up and running, before you try to repair anything! Failing to do so may
- result in data loss when you execute the following restore method for 
-\emph on
-experts
-\emph default
-.
-\end_layout
-
-\begin_layout Standard
-Now your backup datacenter should continue servicing your clients.
- The final reconstruction of the originally primary datacenter works as
- follows:
-\end_layout
-
-\begin_layout Enumerate
-At the damaged primary datacenter, ensure that nowhere the MARS kernel module
- is running.
- In case of a power blackout, you shouldn't have executed an automatic 
-\family typewriter
-modprobe mars
-\family default
- anywhere during reboot, so you should be already done when all your nodes
- are up again.
- In case some nodes had no reboot, execute 
-\family typewriter
-rmmod mars
-\family default
- everywhere.
- If 
-\family typewriter
-rmmod
-\family default
- refuses to run, you may need to umount the 
-\family typewriter
-/dev/mars/mydata
-\family default
- device first.
- When nothing else helps, you may just reboot your hanging nodes.
-\end_layout
-
-\begin_layout Enumerate
-At the failed side, do 
-\family typewriter
-rm -rf /mars/resource-$mydata/
-\family default
- for all those resources which had been primary before the blackout.
- Do this 
-\emph on
-only
-\emph default
- for those cases, otherwise you will need unnecessary 
-\family typewriter
-leave-resource
-\family default
-s or 
-\family typewriter
-invalidate
-\family default
-s later (e.g.
- when half of your nodes were already running at the surving side).
- In order to avoid unnecessary traffic, please do this only as far as really
- necessary.
- Don't remove any other directories.
- In particular, 
-\family typewriter
-/mars/ips/
-\family default
- 
-\emph on
-must
-\emph default
- remain intact.
- In case you accidentally deleted them, or you had to re-create 
-\family typewriter
-/mars/
-\family default
- from scratch, try 
-\family typewriter
-rsync
-\family default
- with the correct options.
-\begin_inset Newline newline
-\end_inset
-
-
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- Caution! before doing this, check that the corresponding directory exists
- at the backup datacenter, and that it is 
-\emph on
-really
-\emph default
- healthy!
-\end_layout
-
-\begin_layout Enumerate
-Un-Fencing: restore your network firewall / routes and check that they work
- (
-\family typewriter
-ping
-\family default
- etc).
-\end_layout
-
-\begin_layout Enumerate
-Do 
-\family typewriter
-modprobe mars
-\family default
- everywhere.
- All missing directories and their missing symlinks should be automatically
- fetched from the backup datacenter.
-\end_layout
-
-\begin_layout Enumerate
-Run 
-\family typewriter
-marsadm join-resource $res
-\family default
-, but only at those places where the directory was removed previously, while
- using the same disk devices as before.
- This will minimize actual traffic thanks to the fast full sync algorithm.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-It is 
-\series bold
-crucial
-\series default
- that the fencing step 
-\series bold
-must
-\series default
- be executed 
-\emph on
-before
-\emph default
- any 
-\family typewriter
-primary --force
-\family default
-! This way, no split brain will be 
-\emph on
-visible
-\emph default
- at the backup datacenter side, because there is simply no chance for transferri
-ng different versions over the network.
- It is also crucial to remove any (potentially diverging) resource directories
- 
-\emph on
-before
-\emph default
- the 
-\family typewriter
-modprobe
-\family default
-! This way, the backup datacenter never runs into split brain.
- This saves you a lot of detail work for split brain resolution when you
- have to restore bulks of nodes in a short time.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-In case the repair of a full datacenter should take so extremely long that
- some 
-\family typewriter
-/mars/
-\family default
- partitions are about to run out of space at the surviving side, you may
- use the 
-\family typewriter
-leave-resource --host=failed-node
-\family default
- trick described earlier, followed by 
-\family typewriter
-log-delete-all
-\family default
-.
- Best if you have prepared a fully automatic script long before the incident,
- which executes suchalike only as far as necessary in each individual case.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-Even better: train such scenarios in advance, and prepare scripts for mass
- automation.
- Look into section 
+ and 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sec:Scripting-HOWTO"
+reference "sub:Cleanup-in-case"
 
 \end_inset
 
@@ -33345,6 +32193,1054 @@ Restart the application at the new site (in reverse order to above).
 \begin_layout Itemize
 After the application is known to run reliably, check for split brains and
  cleanup them when necessary.
+\end_layout
+
+\begin_layout Chapter
+Alternative Methods for Split Brain Resolution
+\begin_inset CommandInset label
+LatexCommand label
+name "chap:Alternative-Methods-for"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Instead of 
+\family typewriter
+marsadm invalidate
+\family default
+, the following steps may be used.
+ In preference, start with the old 
+\begin_inset Quotes eld
+\end_inset
+
+wrong
+\begin_inset Quotes erd
+\end_inset
+
+ primaries first:
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+marsadm leave-resource mydata
+\end_layout
+
+\begin_layout Enumerate
+After having done this on one cluster node, check whether the split brain
+ is already gone (e.g.
+ by saying 
+\family typewriter
+marsadm view mydata
+\family default
+).
+ There are chances that you don't need this on all of your nodes.
+ Only in very rare
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+When your network had partitioned in a very awkward way for a long time,
+ and when your partitioned primaries did several 
+\family typewriter
+log-rotate
+\family default
+ operations indendently from each other, there is a small chance that 
+\family typewriter
+leave-resource
+\family default
+ does not clean up 
+\emph on
+all
+\emph default
+ remains of such an awkward situation.
+ Only in such a case, try 
+\family typewriter
+log-purge-all
+\family default
+.
+\end_layout
+
+\end_inset
+
+ cases, it might happen that the preceding l
+\family typewriter
+eave-resource
+\family default
+ operations were not able to clean up all logfiles produced in parallel
+ by the split brain situation.
+ 
+\end_layout
+
+\begin_layout Enumerate
+Read the documentation about 
+\family typewriter
+log-purge-all
+\family default
+ (see page 
+\begin_inset CommandInset ref
+LatexCommand pageref
+reference "log-purge-all$res"
+
+\end_inset
+
+) and use it.
+\end_layout
+
+\begin_layout Enumerate
+If you want to restore redundancy, you can follow-up a 
+\family typewriter
+join-resource
+\family default
+ phase to the old resource name (using the correct device name, double-check
+ it!) This will restore your redundancy by overwriting your bad split brain
+ version with the correct one.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+It is important to resolve the split brain 
+\emph on
+before
+\emph default
+ you can start the 
+\family typewriter
+join-resource
+\family default
+ reconstruction phase! In order to keep as many 
+\begin_inset Quotes eld
+\end_inset
+
+good
+\begin_inset Quotes erd
+\end_inset
+
+ versions as possible (e.g.
+ for emergency cases), don't re-join them all in parallel, but rather start
+ with the oldest / most outdated / worst / inconsistent version first.
+ It is recommended to start the next one only when the previous one has
+ sucessfully finished.
+\end_layout
+
+\begin_layout Chapter
+Alternative De- and Reconstruction of a Damaged Resource
+\begin_inset CommandInset label
+LatexCommand label
+name "chap:Alternative-De--and"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In case 
+\family typewriter
+leave-resource --host=
+\family default
+ does not work, you may use the following fallback.
+ On the surviving new designated primary, give the following commands:
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+marsadm disconnect-all mydata
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+marsadm down mydata
+\end_layout
+
+\begin_layout Enumerate
+Check by hand whether your local disk is consistent, e.g.
+ by test-mounting it readonly, 
+\family typewriter
+fsck
+\family default
+, etc.
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+marsadm delete-resource mydata
+\end_layout
+
+\begin_layout Enumerate
+Check whether the other vital cluster nodes don't report the dead resource
+ any more, e.g.
+ 
+\family typewriter
+marsadm view all
+\family default
+ at 
+\emph on
+each
+\emph default
+ of them.
+ In case the resource has not disappeared anywhere (which may happen during
+ network problems), do the 
+\family typewriter
+down ; delete-resource
+\family default
+ steps also there (optionally again with 
+\family typewriter
+--force
+\family default
+).
+\end_layout
+
+\begin_layout Enumerate
+Be sure that the resource has disappeared 
+\emph on
+everywhere
+\emph default
+.
+ When necessary, repeat the 
+\family typewriter
+delete-resource
+\family default
+ with 
+\family typewriter
+--force
+\family default
+.
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+marsadm create-resource newmydata ...
+
+\family default
+ at the 
+\emph on
+correct
+\emph default
+ node using the 
+\emph on
+correct
+\emph default
+ disk device containing the 
+\emph on
+correct
+\emph default
+ version, and further steps to setup your resource from scratch, preferably
+ under a different name to minimize any risk.
+\end_layout
+
+\begin_layout Standard
+\noindent
+In any case, 
+\series bold
+manually check
+\series default
+ whether a split brain is reported for any resource on any of your 
+\emph on
+surviving
+\emph default
+ cluster nodes.
+ If you find one there (and only then), please (re-)execute the split brain
+ resolution steps on the affected node(s).
+\end_layout
+
+\begin_layout Chapter
+Cleanup in case of Complicated Cascading Failures
+\begin_inset CommandInset label
+LatexCommand label
+name "sub:Cleanup-in-case"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+MARS Light does its best to recover even from multiple failures (e.g.
+ 
+\series bold
+rolling disasters
+\series default
+).
+ Chances are high that the instructions from sections 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Split-Brain-Resolution"
+
+\end_inset
+
+ 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Final-Destroy-of"
+
+\end_inset
+
+ or appendix 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "chap:Alternative-Methods-for"
+
+\end_inset
+
+ 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "chap:Alternative-De--and"
+
+\end_inset
+
+ will work even in case of multiple failures, such as a network failure
+ plus local node failure at only 1 node (even if that node is the former
+ primary node).
+\end_layout
+
+\begin_layout Standard
+However, in general (e.g.
+ when more than 1 node is damaged and/or when the filesystem 
+\family typewriter
+/mars/
+\family default
+ is badly damaged) there is no general guarantee that recovery will 
+\emph on
+always
+\emph default
+ succeed under 
+\emph on
+any
+\emph default
+ (weird) circumstances.
+ That said, your chances for recovery are 
+\emph on
+very
+\emph default
+ high when some disk remains usable at least at one of your surviving secondarie
+s.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+It should be very hard to finally trash a secondary, because the transaction
+ logfiles are containing 
+\family typewriter
+md5
+\family default
+ checksums for all data records.
+ Any attempt to replay currupted logfiles is refused by MARS.
+ In addition, the sequence numbers of 
+\family typewriter
+log-rotate
+\family default
+d logfiles are checked for contiguity.
+ Finally, the 
+\emph on
+sequence path
+\emph default
+ of logfile applications (consisting of logfile names plus their respective
+ length) is additionally secured by a 
+\family typewriter
+git
+\family default
+-like incremental checksum over the whole path history (so-called 
+\begin_inset Quotes eld
+\end_inset
+
+version links
+\begin_inset Quotes erd
+\end_inset
+
+).
+ This should detect split brains even if logfiles are appended / modified
+ 
+\emph on
+after
+\emph default
+ a (forceful) switchover has already taken place.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ That said, your risk of final data loss is very high if you remove the
+ 
+\series bold
+BBU
+\series default
+ from your hardware RAID controller before all hot data has been flushed
+ to the physical disks.
+ Therefore, never try to 
+\begin_inset Quotes eld
+\end_inset
+
+repair
+\begin_inset Quotes erd
+\end_inset
+
+ a seemingly dead node before your replication is up again somewhere else!
+ Only unplug the network cables when advised, but never try to repair the
+ hardware instantly!
+\end_layout
+
+\begin_layout Standard
+In case of desperate situations where none of the previous instructions
+ have succeeded, your last chance is rebuilding all your resources from
+ intact disks as follows:
+\end_layout
+
+\begin_layout Enumerate
+Do 
+\family typewriter
+rmmod mars
+\family default
+ on all your cluster nodes and/or reboot them.
+ Note: if you are less desperate, chances are high that the following will
+ also work when the kernel module remains active and everywhere a 
+\family typewriter
+marsadm down
+\family default
+ is given instead, but for an 
+\emph on
+ultimate
+\emph default
+ instruction you should eliminate 
+\emph on
+potential
+\emph default
+ kernel problems by 
+\family typewriter
+rmmod
+\family default
+ / 
+\family typewriter
+reboot
+\family default
+, at least if you can afford the downtime on concurrently operating resources.
+\end_layout
+
+\begin_layout Enumerate
+For safety, physically remove the storage network cables on 
+\emph on
+all
+\emph default
+ your cluster nodes.
+ Note: the same disclaimer holds.
+ MARS really does its best, even when 
+\family typewriter
+delete-resource
+\family default
+ is given while the network is fully active and multiple split-brain primaries
+ are actively using their local device in parallel (approved by some testcases
+ from the automatic test suite, but note that it is impossible to catch
+ all possible failure scenarios).
+ Don't challenge your fate if you are desperate! Don't 
+\emph on
+rely
+\emph default
+ on this! Nothing is absolutely fail-safe!
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Manually
+\series default
+ check which surviving disk is usable, and which is the 
+\begin_inset Quotes eld
+\end_inset
+
+best
+\begin_inset Quotes erd
+\end_inset
+
+ one for your purpose.
+\end_layout
+
+\begin_layout Enumerate
+Do 
+\family typewriter
+modprobe mars
+\family default
+ 
+\emph on
+only
+\emph default
+ on that node.
+ If that fails, 
+\family typewriter
+rmmod
+\family default
+ and/or reboot again, and start over with a completely fresh 
+\family typewriter
+/mars/
+\family default
+ partition (
+\family typewriter
+mkfs.ext4 /mars/
+\family default
+ or similar) 
+\emph on
+everywhere
+\emph default
+ on 
+\emph on
+all
+\emph default
+ cluster nodes, and continue with step 7.
+\end_layout
+
+\begin_layout Enumerate
+If your old 
+\family typewriter
+/mars/
+\family default
+ works, and you did not already (forcefully) switch your designated primary
+ to the final destination, do it now (see description in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Forced-Switching"
+
+\end_inset
+
+).
+ Wait until any old logfile data has been replayed.
+\end_layout
+
+\begin_layout Enumerate
+Say 
+\family typewriter
+marsadm delete-resource mydata --force
+\family default
+.
+ This will cleanup all internal symlink tree information for the resource,
+ but will leave your disk data intact.
+\end_layout
+
+\begin_layout Enumerate
+Locally build up the new resource(s) as usual, out of the underlying disks.
+\end_layout
+
+\begin_layout Enumerate
+Check whether the new resource(s) work in standalone mode.
+\end_layout
+
+\begin_layout Enumerate
+When necessary, repeat these steps with other resources.
+\end_layout
+
+\begin_layout Standard
+Now you can choose how the rebuild your cluster.
+ If you rebuilt 
+\family typewriter
+/mars/
+\family default
+ anywhere, you 
+\emph on
+must
+\emph default
+ rebuild it on 
+\emph on
+all
+\emph default
+ new cluster nodes and start over with a fresh 
+\family typewriter
+join-cluster
+\family default
+ on each of them, from scratch.
+ It is not possible to mix the old cluster with the new one.
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{enumerate}
+\backslash
+setcounter{enumi}{9}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+item 
+\end_layout
+
+\end_inset
+
+ Finally, do all the necessary 
+\family typewriter
+join-resource
+\family default
+s on the respective cluster nodes, according to your new redundancy scenario
+ after the failures (e.g.
+ after activating spare nodes, etc).
+ If you have 
+\begin_inset Formula $k>2$
+\end_inset
+
+ replicas, start 
+\family typewriter
+join-resource
+\family default
+ on the worst / most damaged version first, and start the next preferably
+ only after the previous sync has completed successfully.
+ This way, you will be permanently retaining some (old and outdated, but
+ hopefully potentially usable) replicas while a sync is running.
+ Don't start too many syncs in parallel.
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{enumerate}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Never use 
+\family typewriter
+delete-resource
+\family default
+ twice on the same resource name, after you have already a working standalone
+ primary
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Of course, when you don't have created the 
+\emph on
+same
+\emph default
+ resource anew, you may repeat 
+\family typewriter
+delete-resource
+\family default
+ on other cluster nodes in order to get rid of local files / symlinks which
+ had not been propagated to other nodes before.
+\end_layout
+
+\end_inset
+
+.
+ You might accidentally destroy your again-working copy! You 
+\emph on
+can
+\emph default
+ issue 
+\family typewriter
+delete-resource
+\family default
+ multiple times on different nodes, e.g.
+ when the network has problems, but doing so 
+\emph on
+after
+\emph default
+ re-establishment of the initial primary bears some risk.
+ Therefore, the safest way is first deleting the resources everywhere, and
+ then starting over afresh.
+\end_layout
+
+\begin_layout Standard
+Before re-connecting any network cable on any non-primary (new secondaries),
+ ensure that all 
+\family typewriter
+/dev/mars/mydata
+\family default
+ devices are no longer in use (e.g.
+ from an old primary role before the incident happened), and that each local
+ disk is detached.
+ Only after that, you should be able to safely re-connect the network.
+ The 
+\family typewriter
+delete-resource
+\family default
+ given at the new primary should propagate now to each of your secondaries,
+ and your local disk should be usable for a re-
+\family typewriter
+join-resource
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+When you did not rebuild your cluster from scratch with fresh 
+\family typewriter
+/mars/
+\family default
+ filesystems, and one of the old cluster nodes is supposed to be removed
+ permanently, use 
+\family typewriter
+leave-resource
+\family default
+ (optionally with 
+\family typewriter
+--host=
+\family default
+ and/or 
+\family typewriter
+--force
+\family default
+) and finally 
+\family typewriter
+leave-cluster
+\family default
+.
+\end_layout
+
+\begin_layout Chapter
+Experts only: Special Trick Switching and Rebuild
+\begin_inset CommandInset label
+LatexCommand label
+name "chap:Experts-only:-Special"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The following is a further alternative for 
+\series bold
+experts
+\series default
+ who really know what they are doing.
+ The method is very simple and therefore well-suited for coping with mass
+ failures, e.g.
+ 
+\series bold
+power blackout of whole datacenters
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+In case a primary datacenter fails as a whole for whatever reason and you
+ have a backup datacenter, do the following steps in the backup datacenter:
+\end_layout
+
+\begin_layout Enumerate
+Fencing step: by means of firewalling, 
+\series bold
+ensure
+\series default
+ that the (virtually) damaged datacenter nodes 
+\series bold
+cannot
+\series default
+ be reached over the network.
+ For example, you may place REJECT rules into all of your local iptables
+ firewalls at the backup datacenter.
+ Alternatively / additionally, you may block the routes at the appropriate
+ central router(s) in your network.
+\end_layout
+
+\begin_layout Enumerate
+Run the sequence 
+\family typewriter
+marsadm disconnect all; marsadm primary --force all
+\family default
+ on all nodes in the backup datacenter.
+\end_layout
+
+\begin_layout Enumerate
+Restart your services in the backup datacenter (as far as necessary).
+ Depending on your network setup, further steps like switching BGP routes
+ etc may be necessary.
+\end_layout
+
+\begin_layout Enumerate
+Check that 
+\emph on
+all
+\emph default
+ your services are 
+\emph on
+really
+\emph default
+ up and running, before you try to repair anything! Failing to do so may
+ result in data loss when you execute the following restore method for 
+\emph on
+experts
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+Now your backup datacenter should continue servicing your clients.
+ The final reconstruction of the originally primary datacenter works as
+ follows:
+\end_layout
+
+\begin_layout Enumerate
+At the damaged primary datacenter, ensure that nowhere the MARS kernel module
+ is running.
+ In case of a power blackout, you shouldn't have executed an automatic 
+\family typewriter
+modprobe mars
+\family default
+ anywhere during reboot, so you should be already done when all your nodes
+ are up again.
+ In case some nodes had no reboot, execute 
+\family typewriter
+rmmod mars
+\family default
+ everywhere.
+ If 
+\family typewriter
+rmmod
+\family default
+ refuses to run, you may need to umount the 
+\family typewriter
+/dev/mars/mydata
+\family default
+ device first.
+ When nothing else helps, you may just mass reboot your hanging nodes.
+\end_layout
+
+\begin_layout Enumerate
+At the failed side, do 
+\family typewriter
+rm -rf /mars/resource-$mydata/
+\family default
+ for all those resources which had been primary before the blackout.
+ Do this 
+\emph on
+only
+\emph default
+ for those cases, otherwise you will need unnecessary 
+\family typewriter
+leave-resource
+\family default
+s or 
+\family typewriter
+invalidate
+\family default
+s later (e.g.
+ when half of your nodes were already running at the surving side).
+ In order to avoid unnecessary traffic, please do this only as far as really
+ necessary.
+ Don't remove any other directories.
+ In particular, 
+\family typewriter
+/mars/ips/
+\family default
+ 
+\emph on
+must
+\emph default
+ remain intact.
+ In case you accidentally deleted them, or you had to re-create 
+\family typewriter
+/mars/
+\family default
+ from scratch, try 
+\family typewriter
+rsync
+\family default
+ with the correct options.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Caution! before doing this, check that the corresponding directory exists
+ at the backup datacenter, and that it is 
+\emph on
+really
+\emph default
+ healthy!
+\end_layout
+
+\begin_layout Enumerate
+Un-Fencing: restore your network firewall / routes and check that they work
+ (
+\family typewriter
+ping
+\family default
+ etc).
+\end_layout
+
+\begin_layout Enumerate
+Do 
+\family typewriter
+modprobe mars
+\family default
+ everywhere.
+ All missing directories and their missing symlinks should be automatically
+ fetched from the backup datacenter.
+\end_layout
+
+\begin_layout Enumerate
+Run 
+\family typewriter
+marsadm join-resource $res
+\family default
+, but only at those places where the directory was removed previously, while
+ using the same disk devices as before.
+ This will minimize actual traffic thanks to the fast full sync algorithm.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+It is 
+\series bold
+crucial
+\series default
+ that the fencing step 
+\series bold
+must
+\series default
+ be executed 
+\emph on
+before
+\emph default
+ any 
+\family typewriter
+primary --force
+\family default
+! This way, no split brain will be 
+\emph on
+visible
+\emph default
+ at the backup datacenter side, because there is simply no chance for transferri
+ng different versions over the network.
+ It is also crucial to remove any (potentially diverging) resource directories
+ 
+\emph on
+before
+\emph default
+ the 
+\family typewriter
+modprobe
+\family default
+! This way, the backup datacenter never runs into split brain.
+ This saves you a lot of detail work for split brain resolution when you
+ have to restore bulks of nodes in a short time.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+In case the repair of a full datacenter should take so extremely long that
+ some 
+\family typewriter
+/mars/
+\family default
+ partitions are about to run out of space at the surviving side, you may
+ use the 
+\family typewriter
+leave-resource --host=failed-node
+\family default
+ trick described earlier, followed by 
+\family typewriter
+log-delete-all
+\family default
+.
+ Best if you have prepared a fully automatic script long before the incident,
+ which executes suchalike only as far as necessary in each individual case.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Even better: train such scenarios in advance, and prepare scripts for mass
+ automation.
+ Look into section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Scripting-HOWTO"
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Chapter
