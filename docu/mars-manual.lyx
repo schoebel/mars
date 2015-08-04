@@ -2985,11 +2985,21 @@ reference "sec:Scripting-HOWTO"
 
 \end_inset
 
+; an example can be found in 
+\begin_inset Flex URL
+status collapsed
+
+\begin_layout Plain Layout
+
+contrib/example-scripts/check-mars-switchable.sh
+\end_layout
+
+\end_inset
+
 ).
  The network should be OK, and the amount of replication delay should be
  as low as possible.
- Otherwise, handover may take a very long time, or it may produce a split
- brain, or it may even fail.
+ Otherwise, handover may take a very long time.
 \end_layout
 
 \begin_layout Standard
@@ -3247,11 +3257,11 @@ The most important difference to DRBD: don't use an intermediate
 marsadm secondary mydata
 \family default
  anywhere.
- Although it would be possible, it has 
+ Although it would be possible, it has some 
 \emph on
 disadvantages
 \emph default
-, such as increased risk of producing a split brain.
+.
  Always switch 
 \emph on
 directly
@@ -3711,8 +3721,8 @@ When using
 \family typewriter
 --force
 \family default
-, not only many precondition checks and other internal checks are skipped,
- but also the internal handover protocol for split brain avoidance.
+, many precondition checks and other internal checks are skipped, and in
+ particular the internal handover protocol for split brain avoidance.
 \end_layout
 
 \begin_layout Standard
@@ -3722,7 +3732,7 @@ Therefore, use of
 \family default
  is 
 \emph on
-very likely
+likely
 \emph default
  to 
 \series bold
@@ -3891,7 +3901,7 @@ connection loss
 \end_layout
 
 \begin_layout Paragraph
-Caveats
+Some Background
 \end_layout
 
 \begin_layout Standard
@@ -3949,36 +3959,7 @@ log-rotate
 
 \end_inset
 
- When one of your multiple split brain nodes has left its actual primary
- role, e.g.
- after umounting its local 
-\family typewriter
-/dev/mars/mydata
-\family default
- device, and when the network is up (again), we cannot guarantee
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-In a few cases which are covered by the test suite, it is likely to work.
- Future versions of MARS Light might improve on this.
- It is generally no good idea to try to (forcefully) become primary in a
- split-brain situation starting from being secondary, because the result
- is likely to be 
-\series bold
-undefined at concept level
-\series default
-.
-\end_layout
-
-\end_inset
-
- that it is always possible to re-enter primary mode again, even when 
-\family typewriter
-primary --force
-\family default
- is given.
- Therefore, use 
+ 
 \family typewriter
 marsadm secondary
 \family default
@@ -3997,7 +3978,18 @@ nobody
 All
 \emph default
  nodes should go into secondary mode, globally.
- However, when the device 
+ In the current version of MARS Light, the secondaries will no long fetch
+ any logfiles, since they don't know which version is the 
+\begin_inset Quotes eld
+\end_inset
+
+right
+\begin_inset Quotes erd
+\end_inset
+
+ one.
+ Syncing is also not possible.
+ When the device 
 \family typewriter
 /dev/mars/mydata
 \family default
@@ -4005,16 +3997,7 @@ All
 \emph on
 actual
 \emph default
- primary mode during that time, even if another host is now the designated
- primary, or if 
-\family typewriter
-(none)
-\family default
- is designated as primary as will result from a 
-\family typewriter
-secondary
-\family default
- command.
+ primary mode during that time.
  As soon as the local 
 \family typewriter
 /dev/mars/mydata
@@ -4024,13 +4007,6 @@ secondary
 actually
 \emph default
  go into secondary mode if it is no longer designated as primary.
- Thus, 
-\family typewriter
-marsadm secondary
-\family default
- can lead to a situation where noone is actually in primary role, and noone
- is able to re-enter it due to split brain.
- Such a situation can be resolved by split-brain resolution.
  You should avoid it in advance by always 
 \emph on
 directly
@@ -4051,38 +4027,7 @@ secondary
 
 \end_inset
 
- In case you have accidentally entered such a situation where all nodes
- are refusing to become primary due to split brain, you 
-\emph on
-have to
-\emph default
- cleanup the split brain via 
-\family typewriter
-leave-resource
-\family default
- and friends, or use the method described in section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sub:Cleanup-in-case"
-
-\end_inset
-
-.
- Remember that split brain is an 
-\series bold
-\emph on
-erroneous
-\series default
-\emph default
- state.
- Therefore it is 
-\series bold
-generally no good idea to (re-)enter it deliberately, or to stay in it any
- longer!
-\end_layout
-
-\begin_layout Standard
-Split brain situations are detected 
+ Split brain situations are detected 
 \emph on
 passively
 \emph default
@@ -4138,7 +4083,7 @@ marsadm detach
 \family typewriter
 marsadm down
 \family default
- can do it also, without destroying information about the former designated
+ can do it also, without destroying knowledge about the former designated
  primary.
 \end_layout
 
