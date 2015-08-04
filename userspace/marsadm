@@ -2157,18 +2157,6 @@ sub wait_umount_res {
 sub invalidate_res_phase0 {
   my ($cmd, $res) = @_;
   check_not_primary(@_);
-  my @member_list = glob("$mars/resource-$res/data-*");
-  my $members = scalar(@member_list);
-  if ($members > 2) {
-    if (!detect_splitbrain($res, 0)) {
-      lwarn "During split brain, $cmd is not guaranteed to work on k > 2 replicas.\n";
-      lwarn "You may have luck with $members members, but this is likely to fail.\n";
-      lwarn "Use the leave-resource;create-resource method described in the manual.\n";
-      lwarn "In short: start leave-resource on the former primary, then continue\n";
-      lwarn "with other secondaries until the split brain is gone.\n";
-      lwarn "Start the join-resource phase only after the split brain is gone.\n";
-    }
-  }
   my $primary = _get_designated_primary($res);
   ldie "for operation '$cmd', some other designated primary must exist (currently there is none)\n" if $primary eq "(none)";
   ldie "Cannot invalidate the designated primary host '$primary'\n" if $primary eq $host;
