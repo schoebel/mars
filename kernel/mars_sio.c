@@ -53,12 +53,15 @@ static int sio_ref_get(struct sio_output *output, struct mref_object *mref)
 {
 	struct file *file;
 
+	if (unlikely(!output->brick->power.led_on))
+		return -EBADFD;
+
 	if (mref->ref_initialized) {
 		_mref_get(mref);
 		return mref->ref_len;
 	}
 
-	file = output->filp;
+	file = output->mf->mf_filp;
 	if (file) {
 		loff_t total_size = i_size_read(file->f_mapping->host);
 		mref->ref_total_size = total_size;
@@ -117,10 +120,8 @@ static void sio_ref_put(struct sio_output *output, struct mref_object *mref)
 	if (!_mref_put(mref))
 		return;
 
-	file = output->filp;
-	if (file) {
-		mref->ref_total_size = i_size_read(file->f_mapping->host);
-	}
+	file = output->mf->mf_filp;
+	mref->ref_total_size = i_size_read(file->f_mapping->host);
 
 	mref_a = sio_mref_get_aspect(output->brick, mref);
 	if (mref_a && mref_a->do_dealloc) {
@@ -159,7 +160,7 @@ static int transfer_none(int cmd,
 static
 int write_aops(struct sio_output *output, struct mref_object *mref)
 {
-	struct file *file = output->filp;
+	struct file *file = output->mf->mf_filp;
 	loff_t pos = mref->ref_pos;
 	void *data = mref->ref_data;
 	int  len = mref->ref_len;
@@ -296,7 +297,7 @@ int read_aops(struct sio_output *output, struct mref_object *mref)
 
 	oldfs = get_fs();
 	set_fs(get_ds());
-	ret = vfs_read(output->filp, mref->ref_data, len, &pos);
+	ret = vfs_read(output->mf->mf_filp, mref->ref_data, len, &pos);
 	set_fs(oldfs);
 #else
 	struct cookie_data cookie = {
@@ -311,7 +312,7 @@ int read_aops(struct sio_output *output, struct mref_object *mref)
 		.u.data = &cookie,
 	};
 
-	ret = splice_direct_to_actor(output->filp, &sd, sio_direct_splice_actor);
+	ret = splice_direct_to_actor(output->mf->mf_filp, &sd, sio_direct_splice_actor);
 #endif
 
 	if (unlikely(ret < 0)) {
@@ -322,7 +323,7 @@ int read_aops(struct sio_output *output, struct mref_object *mref)
 
 static void sync_file(struct sio_output *output)
 {
-	struct file *file = output->filp;
+	struct file *file = output->mf->mf_filp;
 	int ret;
 #if defined(S_BIAS) || (defined(RHEL_MAJOR) && (RHEL_MAJOR < 7))
 	ret = vfs_fsync(file, file->f_path.dentry, 1);
@@ -361,6 +362,7 @@ done:
 #endif
 	sio_ref_put(output, mref);
 
+	atomic_dec(&output->work_count);
 	atomic_dec(&mars_global_io_flying);
 	return;
 
@@ -382,7 +384,7 @@ void _sio_ref_io(struct sio_threadinfo *tinfo, struct mref_object *mref)
 
 	atomic_inc(&tinfo->fly_count);
 
-	if (unlikely(!output->filp)) {
+	if (unlikely(!output->mf || !output->mf->mf_filp)) {
 		status = -EINVAL;
 		goto done;
 	}
@@ -400,6 +402,7 @@ void _sio_ref_io(struct sio_threadinfo *tinfo, struct mref_object *mref)
 			sync_file(output);
 	}
 
+	mapfree_set(output->mf, mref->ref_pos, mref->ref_pos + mref->ref_len);
 
 done:
 	_complete(output, mref, status);
@@ -426,8 +429,16 @@ void sio_ref_io(struct sio_output *output, struct mref_object *mref)
 		return;
 	}
 
+	if (unlikely(!output->brick->power.led_on)) {
+		SIMPLE_CALLBACK(mref, -EBADFD);
+		return;
+	}
+
 	atomic_inc(&mars_global_io_flying);
+	atomic_inc(&output->work_count);
 	_mref_get(mref);
+
+	mapfree_set(output->mf, mref->ref_pos, -1);
 
 	index = 0;
 	if (mref->ref_rw == READ) {
@@ -495,7 +506,7 @@ static int sio_thread(void *data)
 
 static int sio_get_info(struct sio_output *output, struct mars_info *info)
 {
-	struct file *file = output->filp;
+	struct file *file = output->mf->mf_filp;
 	if (unlikely(!file || !file->f_mapping || !file->f_mapping->host))
 		return -EINVAL;
 
@@ -583,13 +594,10 @@ static int sio_switch(struct sio_brick *brick)
 	static int sio_nr = 0;
 	struct sio_output *output = brick->outputs[0];
 	const char *path = output->brick->brick_path;
-	int prot = 0600;
-	mm_segment_t oldfs;
 	int status = 0;
 
 	if (brick->power.button) {
 		int flags = O_CREAT | O_RDWR | O_LARGEFILE;
-		struct address_space *mapping;
 		int index;
 
 		if (brick->power.led_on)
@@ -602,25 +610,12 @@ static int sio_switch(struct sio_brick *brick)
 
 		mars_power_led_off((void*)brick, false);
 
-		// TODO: convert to mapfree infrastructure
-
-		oldfs = get_fs();
-		set_fs(get_ds());
-		output->filp = filp_open(path, flags, prot);
-		set_fs(oldfs);
-		
-		if (unlikely(IS_ERR(output->filp))) {
-			status = PTR_ERR(output->filp);
-			MARS_ERR("can't open file '%s' status=%d\n", path, status);
-			output->filp = NULL;
+		output->mf = mapfree_get(path, flags);
+		if (unlikely(IS_ERR(output->mf))) {
+			MARS_ERR("could not open file = '%s' flags = %d\n", path, flags);
+			status = -ENOENT;
 			goto done;
 		}
-
-		if ((mapping = output->filp->f_mapping)) {
-			mapping_set_gfp_mask(mapping, mapping_gfp_mask(mapping) & ~(__GFP_IO | __GFP_FS));
-		}
-
-		MARS_INF("opened file '%s' as %p\n", path, output->filp);
 
 		output->index = 0;
 		for (index = 0; index <= WITH_THREAD; index++) {
@@ -639,7 +634,16 @@ static int sio_switch(struct sio_brick *brick)
 done:
 	if (unlikely(status < 0) || !brick->power.button) {
 		int index;
+		int count;
+
 		mars_power_led_on((void*)brick, false);
+		for (;;) {
+			count = atomic_read(&output->work_count);
+			if (count <= 0)
+				break;
+			MARS_DBG("working on %d requests\n", count);
+			brick_msleep(1000);
+		}
 		for (index = 0; index <= WITH_THREAD; index++) {
 			struct sio_threadinfo *tinfo = &output->tinfo[index];
 			if (!tinfo->thread)
@@ -648,10 +652,10 @@ done:
 			brick_thread_stop(tinfo->thread);
 			tinfo->thread = NULL;
 		}
-		if (output->filp) {
+		if (output->mf) {
 			MARS_DBG("closing file\n");
-			filp_close(output->filp, NULL);
-			output->filp = NULL;
+			mapfree_put(output->mf);
+			output->mf = NULL;
 		}
 		mars_power_led_off((void*)brick, true);
 	}

@@ -275,6 +275,9 @@ static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
 {
 	loff_t total_size;
 
+	if (unlikely(!output->brick->power.led_on))
+		return -EBADFD;
+
 	if (unlikely(!output->mf)) {
 		MARS_ERR("brick is not switched on\n");
 		return -EILSEQ;
@@ -377,6 +380,7 @@ done:
 	mf_remove_dirty(output->mf, &mref_a->di);
 
 	aio_ref_put(output, mref);
+	atomic_dec(&output->work_count);
 	atomic_dec(&mars_global_io_flying);
 	return;
 
@@ -420,8 +424,16 @@ static void aio_ref_io(struct aio_output *output, struct mref_object *mref)
 	struct aio_mref_aspect *mref_a;
 	int err = -EINVAL;
 
+	_mref_check(mref);
+
+	if (unlikely(!output->brick->power.led_on)) {
+		SIMPLE_CALLBACK(mref, -EBADFD);
+		return;
+	}
+
 	_mref_get(mref);
 	atomic_inc(&mars_global_io_flying);
+	atomic_inc(&output->work_count);
 
 	// statistics
 	if (mref->ref_rw) {
@@ -1206,6 +1218,14 @@ cleanup:
 	}
 
 	mars_power_led_on((void*)brick, false);
+
+	for (;;) {
+		int count = atomic_read(&output->work_count);
+		if (count <= 0)
+			break;
+		MARS_DBG("working on %d requests\n", count);
+		brick_msleep(1000);
+	}
 
 	aio_stop_thread(output, 0, false);
 

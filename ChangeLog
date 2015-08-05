@@ -90,6 +90,15 @@ Release Conventions / Branches / Tagnames
 	NO NEW FEATURES, not even minor ones, except when absolutely
 	necessary for a bugfix.
 
+light0.1stable17
+--------
+	* Minor fix: stacktrace / oops in aio callback path due to a
+	  subtle race, observed once during 2.5 millions of operation hours.
+	  In the observed case, the secondary was hanging, without
+	  customer impact. However, the error class could potentially
+	  occur also at the primary side. Probably the bug was triggered
+	  by a hardware problem from the RAID controller.
+
 light0.1stable16
 --------
 	* Minor fix: sync could take a long time to complete under high
