@@ -90,6 +90,23 @@ Release Conventions / Branches / Tagnames
 	NO NEW FEATURES, not even minor ones, except when absolutely
 	necessary for a bugfix.
 
+-----------------------------------
+Changelog for series 0.2:
+
+-----------------------------------
+Changelog for series 0.1:
+
+light0.1stable18
+--------
+	* Minor safeguard: prevent join-resource when previous log-purge-all
+	  has been forgotten. Prevent create-resource also when previous
+	  delete-resource has been forgotten. Anyway, this happens only in
+	  very exotic repair scenarios after very heavy failures.
+	* Doc updates: simplify descriptions of split-brain resolution and
+	  emergency mode resolution. Nowadays 'invalidate' will do everything
+	  in all tested cases; the more complex alternative methods have
+	  been moved to the appendix.
+
 light0.1stable17
 --------
 	* Minor fix: stacktrace / oops in aio callback path due to a
