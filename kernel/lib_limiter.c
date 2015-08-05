@@ -26,6 +26,8 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/jiffies.h>
+#include <linux/sched.h>
 
 #define LIMITER_TIME_RESOLUTION NSEC_PER_SEC
 
@@ -119,11 +121,15 @@ void mars_limit_sleep(struct mars_limiter *lim, int amount)
 {
 	int sleep = mars_limit(lim, amount);
 	if (sleep > 0) {
+		unsigned long timeout;
+
 		if (unlikely(lim->lim_max_delay <= 0))
 			lim->lim_max_delay = 1000;
 		if (sleep > lim->lim_max_delay)
 			sleep = lim->lim_max_delay;
-		brick_msleep(sleep);
+		timeout = msecs_to_jiffies(sleep);
+		while ((long)timeout > 0)
+			timeout = schedule_timeout_uninterruptible(timeout);
 	}
 }
 EXPORT_SYMBOL_GPL(mars_limit_sleep);

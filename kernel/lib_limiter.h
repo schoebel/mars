@@ -24,8 +24,6 @@
 #ifndef MARS_LIB_LIMITER_H
 #define MARS_LIB_LIMITER_H
 
-#include "brick.h"
-
 #include <linux/utsname.h>
 
 struct mars_limiter {
