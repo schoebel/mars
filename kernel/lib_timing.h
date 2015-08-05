@@ -24,8 +24,6 @@
 #ifndef MARS_LIB_TIMING_H
 #define MARS_LIB_TIMING_H
 
-#include "brick.h"
-
 #include <linux/sched.h>
 
 /* Simple infrastructure for timing of arbitrary operations and creation
@@ -35,7 +33,7 @@
 #define TIMING_MAX 24
 
 struct timing_stats {
-#ifdef CONFIG_MARS_DEBUG
+#ifdef CONFIG_DEBUG_KERNEL
 	int tim_count[TIMING_MAX];
 #endif
 };
@@ -59,7 +57,7 @@ struct timing_stats {
 	})
 
 
-#ifdef CONFIG_MARS_DEBUG
+#ifdef CONFIG_DEBUG_KERNEL
 
 #define _TIME_STATS(_timing, _stamp1, _stamp2, _CODE)			\
 	({								\
@@ -88,7 +86,7 @@ struct timing_stats {
 
 extern int report_timing(struct timing_stats *tim, char *str, int maxlen);
 
-#else  // CONFIG_MARS_DEBUG
+#else  // CONFIG_DEBUG_KERNEL
 
 #define _TIME_STATS(_timing, _stamp1, _stamp2, _CODE)			\
 	((void)_timing, (_stamp1) = (_stamp2) = cpu_clock(raw_smp_processor_id()), _CODE, 0)
@@ -98,7 +96,7 @@ extern int report_timing(struct timing_stats *tim, char *str, int maxlen);
 
 #define report_timing(tim,str,maxlen)   ((void)tim, 0)
 
-#endif // CONFIG_MARS_DEBUG
+#endif // CONFIG_DEBUG_KERNEL
 
 /* A banning represents some overloaded resource.
  *

@@ -27,7 +27,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 
-#ifdef CONFIG_MARS_DEBUG
+#ifdef CONFIG_DEBUG_KERNEL
 
 int report_timing(struct timing_stats *tim, char *str, int maxlen)
 {
@@ -62,7 +62,7 @@ int report_timing(struct timing_stats *tim, char *str, int maxlen)
 }
 EXPORT_SYMBOL_GPL(report_timing);
 
-#endif
+#endif // CONFIG_DEBUG_KERNEL
 
 struct threshold global_io_threshold = {
 	.thr_limit = 30 * 1000000, // 30 seconds
