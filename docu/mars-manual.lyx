@@ -2759,22 +2759,8 @@ This starts appending to a new logfile on all of your resources.
  number.
  This will suffice for many centuries even if you would logrotate once a
  minute.
- Practical frequencies for logfile rotation are more like once an hour
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-Under 
-\emph on
-extremely
-\emph default
- high load conditions, you might want to log-rotate serveral times an hour,
- in order to keep the size of each logfile under some practical limit.
-\end_layout
-
-\end_inset
-
-, or once a day (depending on your load).
+ Practical frequencies for logfile rotation are more like once an hour,
+ or every 10 minutes when having highly-loaded storage servers.
 \end_layout
 
 \begin_layout Enumerate
