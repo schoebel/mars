@@ -46,6 +46,7 @@ mars-objs :=				\
 	lib_timing.o			\
 	lib_mapfree.o			\
 	mars_net.o			\
+	mars_server_strategy.o		\
 	mars_server.o			\
 	mars_client.o			\
 	mars_sio.o			\

@@ -29,6 +29,8 @@
 #include "mars_net.h"
 #include "lib_limiter.h"
 
+#define NR_SOCKETS 3
+
 extern int server_show_statist;
 
 extern struct mars_limiter server_limiter;
@@ -69,5 +71,26 @@ struct server_input {
 };
 
 MARS_TYPES(server);
+
+/* Internal interface to specific implementations.
+ * This is used for a rough separation of the strategy layer
+ * from the ordinary XIO layer.
+ * Currently, separation is at linker level.
+ * TODO: implement a dynamic separation later.
+ */
+
+/* Implemented separately, used by generic part */
+
+extern int server_thread(void *data);
+
+extern int handler_thread(void *data);
+
+extern int cb_thread(void *data);
+
+extern int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_cmd *cmd);
+
+/* Implemented by generic part, used by specific part */
+
+extern int server_switch(struct server_brick *brick);
 
 #endif
