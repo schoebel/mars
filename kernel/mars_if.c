@@ -395,7 +395,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 			mars_limit_sleep(&if_throttle, kb);
 	}
 
-#ifdef DENY_READA // provisinary -- we should introduce an equivalent of READA also to the MARS infrastructure
+#ifdef DENY_READA // provisionary
 	if (ahead) {
 		atomic_inc(&input->total_reada_count);
 		bio_endio(bio, -EWOULDBLOCK);
