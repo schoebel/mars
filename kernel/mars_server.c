@@ -388,7 +388,7 @@ int handler_thread(void *data)
 			goto clean;
 		}
 
-		if (unlikely(!brick->global || !mars_global || !mars_global->global_power.button)) {
+		if (unlikely(!brick->private_ptr || !mars_global || !mars_global->global_power.button)) {
 			MARS_WRN("#%d system is not alive\n", sock->s_debug_nr);
 			status = -EINTR;
 			goto clean;

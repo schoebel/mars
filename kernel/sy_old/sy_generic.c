@@ -1559,7 +1559,7 @@ int mars_free_brick(struct mars_brick *brick)
 
 	MARS_DBG("===> freeing brick name = '%s' path = '%s'\n", brick->brick_name, brick->brick_path);
 
-	global = brick->global;
+	global = brick->private_ptr;
 	if (global) {
 		down_write(&global->brick_mutex);
 		list_del_init(&brick->global_brick_link);
@@ -1633,7 +1633,7 @@ struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent 
 	}
 	
 	res = brick_zmem_alloc(size);
-	res->global = global;
+	res->private_ptr = global;
 	INIT_LIST_HEAD(&res->dent_brick_link);
 	res->brick_name = brick_strdup(name);
 	res->brick_path = brick_strdup(path);
@@ -1673,7 +1673,7 @@ int mars_kill_brick(struct mars_brick *brick)
 	int status = -EINVAL;
 
 	CHECK_PTR(brick, done);
-	global = brick->global;
+	global = brick->private_ptr;
 
 	MARS_DBG("===> killing brick %s path = '%s' name = '%s'\n", brick->type ? SAFE_STR(brick->type->type_name) : "undef", SAFE_STR(brick->brick_path), SAFE_STR(brick->brick_name));
 

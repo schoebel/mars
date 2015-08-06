@@ -175,7 +175,7 @@ struct mars_info {
 	struct list_head dent_brick_link;				\
 	const char *brick_name;						\
 	const char *brick_path;						\
-	struct mars_global *global;					\
+	void *private_ptr;						\
 	void **kill_ptr;						\
 	int *mode_ptr;							\
 	int kill_round;							\
