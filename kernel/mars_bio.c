@@ -448,8 +448,10 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref, bool cork)
 	threshold_check(&bio_submit_threshold, latency);
 
 	status = 0;
+#ifdef BIO_EOPNOTSUPP /* missing since b25de9d6da49b1a8760a89672283128aa8c78345 */
 	if (unlikely(bio_flagged(bio, BIO_EOPNOTSUPP)))
 		status = -EOPNOTSUPP;
+#endif
 
 	MARS_IO("submitted\n");
 
