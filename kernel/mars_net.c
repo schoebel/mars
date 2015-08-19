@@ -51,6 +51,11 @@
 #define __HAS_IOV_ITER
 #endif
 
+#ifdef sk_net_refcnt
+/* see eeb1bd5c40edb0e2fd925c8535e2fdebdbc5cef2 */
+#define __HAS_STRUCT_NET
+#endif
+
 ////////////////////////////////////////////////////////////////////
 
 #define USE_BUFFERING
@@ -441,7 +446,11 @@ int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *src_a
 	}
 	atomic_set(&msock->s_count, 1);
 
+#ifdef __HAS_STRUCT_NET
+	status = sock_create_kern(&init_net, AF_INET, SOCK_STREAM, IPPROTO_TCP, &msock->s_socket);
+#else
 	status = sock_create_kern(AF_INET, SOCK_STREAM, IPPROTO_TCP, &msock->s_socket);
+#endif
 	if (unlikely(status < 0 || !msock->s_socket)) {
 		msock->s_socket = NULL;
 		MARS_WRN("cannot create socket, status = %d\n", status);
