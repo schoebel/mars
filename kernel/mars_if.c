@@ -480,7 +480,7 @@ if_make_request(struct request_queue *q, struct bio *bio)
 	/* Get a reference to the bio.
 	 * Will be released after bio_endio().
 	 */
-	atomic_inc(&bio->bi_cnt);
+	bio_get(bio);
 
 	/* FIXME: THIS IS PROVISIONARY (use event instead)
 	 */
