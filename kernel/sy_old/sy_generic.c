@@ -34,6 +34,8 @@
 #include <linux/file.h>
 #include <linux/blkdev.h>
 #include <linux/fs.h>
+#include <linux/namei.h>
+#include <linux/mount.h>
 #include <linux/utsname.h>
 
 #include "strategy.h"
@@ -41,7 +43,7 @@
 #include "../lib_mapfree.h"
 #include "../mars_client.h"
 
-#include <linux/syscalls.h>
+#include "../compat.h"
 #include <linux/namei.h>
 #include <linux/kthread.h>
 #include <linux/statfs.h>
@@ -51,6 +53,12 @@
 //      remove_this
 #include <linux/wait.h>
 #include <linux/version.h>
+
+#ifndef DCACHE_MISS_TYPE /* define accessors compatible to b18825a7c8e37a7cf6abb97a12a6ad71af160de7 */
+#define d_is_negative(dentry)     ((dentry)->d_inode == NULL)
+#define d_backing_inode(dentry)   ((dentry)->d_inode)
+#endif
+
 /* FIXME: some Redhat/openvz kernels seem to have both (backporting etc).
  * The folling is an incomplete quickfix / workaround. TBD.
  */
@@ -99,6 +107,57 @@ const struct meta mars_dent_meta[] = {
 };
 EXPORT_SYMBOL_GPL(mars_dent_meta);
 
+//      remove_this
+#ifdef __USE_COMPAT
+/////////////////////////////////////////////////////////////////////
+
+/* The _compat_*() functions are needed for the out-of-tree version
+ * of MARS for adapdation to different kernel version.
+ */
+
+#ifdef SB_FREEZE_LEVELS
+/* since kernel 3.6 */
+/* see a8104a9fcdeb82e22d7acd55fca20746581067d3 */
+/* locking order changes in c30dabfe5d10c5fd70d882e5afb8f59f2942b194, we need to adapt */
+#define __NEW_PATH_CREATE
+#endif
+
+#ifndef FSCACHE_OP_DEAD
+/* since kernel 3.8 */
+/* see b9d6ba94b875192ef5e2dab92d72beea33b83c3d */
+#define  __HAS_RETRY_ESTALE
+#endif
+
+/* Hack because of 8bcb77fabd7cbabcad49f58750be8683febee92b
+ */
+static int __path_parent(const char *name, struct path *path, unsigned flags)
+{
+#ifdef user_path
+	return kern_path(name, flags | LOOKUP_PARENT | LOOKUP_DIRECTORY | LOOKUP_FOLLOW, path);
+#else
+	char *tmp;
+	int len;
+	int error;
+
+	len = strlen(name);
+	while (len > 0 && name[len] != '/')
+		len--;
+	if (unlikely(!len))
+		return -EINVAL;
+
+	tmp = brick_string_alloc(len + 1);
+	strncpy(tmp, name, len);
+	tmp[len] = '\0';
+
+	error = kern_path(tmp, flags | LOOKUP_DIRECTORY | LOOKUP_FOLLOW, path);
+
+	brick_string_free(tmp);
+	return error;
+#endif
+}
+
+#endif
+//      end_remove_this
 /////////////////////////////////////////////////////////////////////
 
 // some helpers
