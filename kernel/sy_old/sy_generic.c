@@ -109,12 +109,14 @@ EXPORT_SYMBOL_GPL(mars_dent_meta);
 
 //      remove_this
 #ifdef __USE_COMPAT
+//      end_remove_this
 /////////////////////////////////////////////////////////////////////
 
 /* The _compat_*() functions are needed for the out-of-tree version
  * of MARS for adapdation to different kernel version.
  */
 
+//      remove_this
 #ifdef SB_FREEZE_LEVELS
 /* since kernel 3.6 */
 /* see a8104a9fcdeb82e22d7acd55fca20746581067d3 */
@@ -128,14 +130,17 @@ EXPORT_SYMBOL_GPL(mars_dent_meta);
 /* see b9d6ba94b875192ef5e2dab92d72beea33b83c3d */
 #define  __HAS_RETRY_ESTALE
 #endif
+//     end_remove_this
 
 /* Hack because of 8bcb77fabd7cbabcad49f58750be8683febee92b
  */
 static int __path_parent(const char *name, struct path *path, unsigned flags)
 {
+//     remove_this
 #ifdef user_path
 	return kern_path(name, flags | LOOKUP_PARENT | LOOKUP_DIRECTORY | LOOKUP_FOLLOW, path);
 #else
+//     end_remove_this
 	char *tmp;
 	int len;
 	int error;
@@ -154,7 +159,9 @@ static int __path_parent(const char *name, struct path *path, unsigned flags)
 
 	brick_string_free(tmp);
 	return error;
+//     remove_this
 #endif
+//     end_remove_this
 }
 
 /* code is blindly stolen from symlinkat()
@@ -173,19 +180,25 @@ int _compat_symlink(const char __user *oldname,
 
 	from = (char *)oldname;
 
+//      remove_this
 #ifdef __HAS_RETRY_ESTALE
+//      end_remove_this
 retry:
+//      remove_this
 #endif
+//      end_remove_this
 	dentry = user_path_create(newdfd, newname, &path, lookup_flags);
 	error = PTR_ERR(dentry);
 	if (IS_ERR(dentry))
 		goto out_putname;
 
+//      remove_this
 #ifndef __NEW_PATH_CREATE
 	error = mnt_want_write(path.mnt);
 	if (error)
 		goto out_dput;
 #endif
+//      end_remove_this
 	error = vfs_symlink(path.dentry->d_inode, dentry, from);
 	if (error >= 0 && mtime) {
 		struct iattr iattr = {
@@ -202,8 +215,11 @@ retry:
 #endif
 		mutex_unlock(&dentry->d_inode->i_mutex);
 	}
+//      remove_this
 #ifdef __NEW_PATH_CREATE
+//      end_remove_this
 	done_path_create(&path, dentry);
+//      remove_this
 #else
 	mnt_drop_write(path.mnt);
 out_dput:
@@ -212,11 +228,14 @@ out_dput:
 	path_put(&path);
 #endif
 #ifdef __HAS_RETRY_ESTALE
+//      end_remove_this
 	if (retry_estale(error, lookup_flags)) {
 		lookup_flags |= LOOKUP_REVAL;
 		goto retry;
 	}
+//      remove_this
 #endif
+//      end_remove_this
 out_putname:
 	return error;
 }
@@ -232,23 +251,32 @@ int _compat_mkdir(const char __user *pathname,
 	int error;
 	unsigned int lookup_flags = LOOKUP_DIRECTORY;
 
+//      remove_this
 #ifdef __HAS_RETRY_ESTALE
+//      end_remove_this
 retry:
+//      remove_this
 #endif
+//      end_remove_this
 	dentry = user_path_create(dfd, pathname, &path, lookup_flags);
 	if (IS_ERR(dentry))
 		return PTR_ERR(dentry);
 
 	if (!IS_POSIXACL(path.dentry->d_inode))
 		mode &= ~current_umask();
+//      remove_this
 #ifndef __NEW_PATH_CREATE
 	error = mnt_want_write(path.mnt);
 	if (error)
 		goto out_dput;
 #endif
+//      end_remove_this
 	error = vfs_mkdir(path.dentry->d_inode, dentry, mode);
+//      remove_this
 #ifdef __NEW_PATH_CREATE
+//      end_remove_this
 	done_path_create(&path, dentry);
+//      remove_this
 #else
 	mnt_drop_write(path.mnt);
 out_dput:
@@ -257,11 +285,14 @@ out_dput:
 	path_put(&path);
 #endif
 #ifdef __HAS_RETRY_ESTALE
+//      end_remove_this
 	if (retry_estale(error, lookup_flags)) {
 		lookup_flags |= LOOKUP_REVAL;
 		goto retry;
 	}
+//      remove_this
 #endif
+//      end_remove_this
 	return error;
 }
 
@@ -287,9 +318,13 @@ int _compat_rename(const char *oldname,
 	bool should_retry = false;
 	int error;
 
+//      remove_this
 #ifdef __HAS_RETRY_ESTALE
+//      end_remove_this
 retry:
+//      remove_this
 #endif
+//      end_remove_this
 	error = __path_parent(oldname, &oldpath, lookup_flags);
 	if (unlikely(error))
 		goto exit;
@@ -318,11 +353,15 @@ retry:
 		new_one = tmp + 1;
 	}
 
+//      remove_this
 #ifdef __NEW_PATH_CREATE
+//      end_remove_this
 	error = mnt_want_write(oldpath.mnt);
 	if (unlikely(error))
 		goto exit2;
+//      remove_this
 #endif
+//      end_remove_this
 	trap = lock_rename(new_dir, old_dir);
 
 	old_dentry = lookup_one_len(old_one, old_dir, strlen(old_one));
@@ -344,6 +383,7 @@ retry:
 	if (unlikely(new_dentry == trap))
 		goto out_dput_new;
 
+//      remove_this
 #ifndef __NEW_PATH_CREATE
 	error = mnt_want_write(oldpath.mnt);
 	if (unlikely(error))
@@ -351,8 +391,10 @@ retry:
 #endif
 
 #ifdef __HAS_RENAME2
+//      end_remove_this
 	error = vfs_rename(old_dir->d_inode, old_dentry,
 			   new_dir->d_inode, new_dentry, NULL, 0);
+//      remove_this
 #elif defined(FL_DELEG)
 	error = vfs_rename(old_dir->d_inode, old_dentry,
 			   new_dir->d_inode, new_dentry, NULL);
@@ -364,6 +406,7 @@ retry:
 #ifndef __NEW_PATH_CREATE
 	mnt_drop_write(oldpath.mnt);
 #endif
+//      end_remove_this
 
 out_dput_new:
 	dput(new_dentry);
@@ -373,23 +416,33 @@ out_dput_old:
 
 out_unlock_rename:
 	unlock_rename(new_dir, old_dir);
+//      remove_this
 #ifdef __NEW_PATH_CREATE
+//      end_remove_this
 	mnt_drop_write(oldpath.mnt);
 exit2:
+//      remove_this
 #endif
 #ifdef __HAS_RETRY_ESTALE
+//      end_remove_this
 	if (retry_estale(error, lookup_flags))
 		should_retry = true;
+//      remove_this
 #endif
+//      end_remove_this
 	path_put(&newpath);
 exit1:
 	path_put(&oldpath);
+//      remove_this
 #ifdef __HAS_RETRY_ESTALE
+//      end_remove_this
 	if (should_retry) {
 		lookup_flags |= LOOKUP_REVAL;
 		goto retry;
 	}
+//      remove_this
 #endif
+//      end_remove_this
 exit:
 	return error;
 }
@@ -409,9 +462,13 @@ int _compat_unlink(const char *pathname)
 	int error;
 	unsigned int lookup_flags = 0;
 
+//      remove_this
 #ifdef __HAS_RETRY_ESTALE
+//      end_remove_this
 retry:
+//      remove_this
 #endif
+//      end_remove_this
 	error = __path_parent(pathname, &path, lookup_flags);
 	if (unlikely(error))
 		goto exit;
@@ -429,11 +486,15 @@ retry:
 		one = tmp + 1;
 	}
 
+//      remove_this
 #ifdef __NEW_PATH_CREATE
+//      end_remove_this
 	error = mnt_want_write(path.mnt);
 	if (error)
 		goto exit1;
+//      remove_this
 #endif
+//      end_remove_this
 	mutex_lock_nested(&parent->d_inode->i_mutex, I_MUTEX_PARENT);
 
 	dentry = lookup_one_len(one, parent, strlen(one));
@@ -447,11 +508,13 @@ retry:
 	inode = dentry->d_inode;
 	ihold(inode);
 
+//      remove_this
 #ifndef __NEW_PATH_CREATE
 	error = mnt_want_write(path.mnt);
 	if (error)
 		goto exit3;
 #endif
+//      end_remove_this
 
 #ifdef FL_DELEG
 	error = vfs_unlink(parent->d_inode, dentry, NULL);
@@ -459,31 +522,42 @@ retry:
 	error = vfs_unlink(parent->d_inode, dentry);
 #endif
 
+//      remove_this
 #ifndef __NEW_PATH_CREATE
 	mnt_drop_write(path.mnt);
 #endif
+//      end_remove_this
 exit3:
 	dput(dentry);
 exit2:
 	mutex_unlock(&parent->d_inode->i_mutex);
 	if (inode)
 		iput(inode);
+//      remove_this
 #ifdef __NEW_PATH_CREATE
+//      end_remove_this
 	mnt_drop_write(path.mnt);
+//      remove_this
 #endif
+//      end_remove_this
 exit1:
 	path_put(&path);
 exit:
+//      remove_this
 #ifdef __HAS_RETRY_ESTALE
+//      end_remove_this
 	if (retry_estale(error, lookup_flags)) {
 		lookup_flags |= LOOKUP_REVAL;
 		inode = NULL;
 		goto retry;
 	}
+//      remove_this
 #endif
+//      end_remove_this
 	return error;
 }
 
+//      remove_this
 #endif
 //      end_remove_this
 /////////////////////////////////////////////////////////////////////
