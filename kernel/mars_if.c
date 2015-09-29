@@ -44,8 +44,10 @@
 #define USE_SEGMENT_BOUNDARY    (PAGE_SIZE-1)
 
 #define USE_CONGESTED_FN
+//      remove_this
 #define USE_MERGE_BVEC
 //#define DENY_READA
+//      end_remove_this
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -69,6 +71,11 @@
 #endif
 #ifdef __bvec_iter_bvec
 #define HAS_BVEC_ITER
+#endif
+/* adaptation to 4246a0b63bd8f56a1469b12eafeb875b1041a451 and 8ae126660fddbeebb9251a174e6fa45b6ad8f932 */
+#ifndef bio_io_error
+#define HAS_BI_ERROR
+#undef USE_MERGE_BVEC
 #endif
 
 //      end_remove_this
@@ -209,7 +216,16 @@ void if_endio(struct generic_callback *cb)
 #endif
 //      end_remove_this
 		}
+//      remove_this
+#ifdef HAS_BI_ERROR
+//      end_remove_this
+		bio->bi_error = error;
+		bio_endio(bio);
+//      remove_this
+#else
 		bio_endio(bio, error);
+#endif
+//      end_remove_this
 		bio_put(bio);
 		brick_mem_free(biow);
 	}
@@ -383,8 +399,17 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 		 * In case of exceptional semantics, we need to do
 		 * something here. For now, we do just nothing.
 		 */
-		bio_endio(bio, 0);
+//      remove_this
+#ifdef HAS_BI_ERROR
+//      end_remove_this
 		error = 0;
+		bio->bi_error = error;
+		bio_endio(bio);
+//      remove_this
+#else
+		bio_endio(bio, error);
+#endif
+//      end_remove_this
 		goto done;
 	}
 
@@ -398,7 +423,16 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 #ifdef DENY_READA // provisionary
 	if (ahead) {
 		atomic_inc(&input->total_reada_count);
+//      remove_this
+#ifdef HAS_BI_ERROR
+//      end_remove_this
+		bio->bi_error = -EWOULDBLOCK;
+		bio_endio(bio);
+//      remove_this
+#else
 		bio_endio(bio, -EWOULDBLOCK);
+#endif
+//      end_remove_this
 		error = 0;
 		goto done;
 	}
@@ -406,8 +440,17 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 	(void)ahead; // shut up gcc
 #endif
 	if (unlikely(discard)) { // NYI
-		bio_endio(bio, 0);
 		error = 0;
+//      remove_this
+#ifdef HAS_BI_ERROR
+//      end_remove_this
+		bio->bi_error = error;
+		bio_endio(bio);
+//      remove_this
+#else
+		bio_endio(bio, error);
+#endif
+//      end_remove_this
 		goto done;
 	}
 
@@ -634,7 +677,16 @@ err:
 	if (error < 0) {
 		MARS_ERR("cannot submit request from bio, status=%d\n", error);
 		if (!assigned) {
+//      remove_this
+#ifdef HAS_BI_ERROR
+//      end_remove_this
+			bio->bi_error = error;
+			bio_endio(bio);
+//      remove_this
+#else
 			bio_endio(bio, error);
+#endif
+//      end_remove_this
 		}
 	}
 
@@ -699,6 +751,8 @@ int mars_congested(void *data, int bdi_bits)
 	return ret;
 }
 
+//      remove_this
+#ifdef USE_MERGE_BVEC
 static
 int mars_merge_bvec(struct request_queue *q, struct bvec_merge_data *bvm, struct bio_vec *bvec)
 {
@@ -708,7 +762,9 @@ int mars_merge_bvec(struct request_queue *q, struct bvec_merge_data *bvm, struct
 	}
 	return 128;
 }
+#endif
 
+//      end_remove_this
 static
 loff_t if_get_capacity(struct if_brick *brick)
 {
@@ -866,10 +922,12 @@ static int if_switch(struct if_brick *brick)
 		q->backing_dev_info.congested_fn = mars_congested;
 		q->backing_dev_info.congested_data = input;
 #endif
+//      remove_this
 #ifdef USE_MERGE_BVEC
 		MARS_DBG("blk_queue_merge_bvec()\n");
 		blk_queue_merge_bvec(q, mars_merge_bvec);
 #endif
+//      end_remove_this
 
 		// point of no return
 		MARS_DBG("add_disk()\n");
