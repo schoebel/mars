@@ -68,6 +68,11 @@
 #ifdef __bvec_iter_bvec
 #define HAS_BVEC_ITER
 #endif
+/* adaptation to 4246a0b63bd8f56a1469b12eafeb875b1041a451 and 8ae126660fddbeebb9251a174e6fa45b6ad8f932 */
+#ifndef bio_io_error
+#define HAS_BI_ERROR
+#undef USE_MERGE_BVEC
+#endif
 
 //      end_remove_this
 ///////////////////////// global tuning ////////////////////////
@@ -212,7 +217,16 @@ void if_endio(struct generic_callback *cb)
 //      end_remove_this
 		}
 		MARS_IO("calling end_io() rw = %d error = %d\n", rw, error);
+//      remove_this
+#ifdef HAS_BI_ERROR
+//      end_remove_this
+		bio->bi_error = error;
+		bio_endio(bio);
+//      remove_this
+#else
 		bio_endio(bio, error);
+#endif
+//      end_remove_this
 		bio_put(bio);
 		brick_mem_free(biow);
 	}
@@ -436,8 +450,17 @@ if_make_request(struct request_queue *q, struct bio *bio)
 		 * In case of exceptional semantics, we need to do
 		 * something here. For now, we do just nothing.
 		 */
-		bio_endio(bio, 0);
+//      remove_this
+#ifdef HAS_BI_ERROR
+//      end_remove_this
 		error = 0;
+		bio->bi_error = error;
+		bio_endio(bio);
+//      remove_this
+#else
+		bio_endio(bio, error);
+#endif
+//      end_remove_this
 		goto done;
 	}
 
@@ -451,7 +474,16 @@ if_make_request(struct request_queue *q, struct bio *bio)
 #ifdef DENY_READA // provisinary -- we should introduce an equivalent of READA also to the MARS infrastructure
 	if (ahead) {
 		atomic_inc(&input->total_reada_count);
+//      remove_this
+#ifdef HAS_BI_ERROR
+//      end_remove_this
+		bio->bi_error = -EWOULDBLOCK;
+		bio_endio(bio);
+//      remove_this
+#else
 		bio_endio(bio, -EWOULDBLOCK);
+#endif
+//      end_remove_this
 		error = 0;
 		goto done;
 	}
@@ -459,8 +491,17 @@ if_make_request(struct request_queue *q, struct bio *bio)
 	(void)ahead; // shut up gcc
 #endif
 	if (unlikely(discard)) { // NYI
-		bio_endio(bio, 0);
 		error = 0;
+//      remove_this
+#ifdef HAS_BI_ERROR
+//      end_remove_this
+		bio->bi_error = error;
+		bio_endio(bio);
+//      remove_this
+#else
+		bio_endio(bio, error);
+#endif
+//      end_remove_this
 		goto done;
 	}
 
@@ -707,10 +748,17 @@ err:
 
 	if (error < 0) {
 		MARS_ERR("cannot submit request from bio, status=%d\n", error);
-		if (assigned) {
-			//... cleanup the mess NYI
-		} else {
+		if (!assigned) {
+//      remove_this
+#ifdef HAS_BI_ERROR
+//      end_remove_this
+			bio->bi_error = error;
+			bio_endio(bio);
+//      remove_this
+#else
 			bio_endio(bio, error);
+#endif
+//      end_remove_this
 		}
 	}
 
