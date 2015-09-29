@@ -42,6 +42,10 @@
 #ifdef __bvec_iter_bvec
 #define HAS_BVEC_ITER
 #endif
+/* adaptation to 4246a0b63bd8f56a1469b12eafeb875b1041a451 */
+#ifndef bio_io_error
+#define HAS_BI_ERROR
+#endif
 
 //      end_remove_this
 static struct timing_stats timings[2] = {};
@@ -79,8 +83,17 @@ EXPORT_SYMBOL_GPL(bio_io_threshold);
 
 /* This is called from the kernel bio layer.
  */
+//      remove_this
+#ifdef HAS_BI_ERROR
+//      end_remove_this
+static
+void bio_callback(struct bio *bio)
+//      remove_this
+#else
 static
 void bio_callback(struct bio *bio, int code)
+#endif
+//      end_remove_this
 {
 	struct bio_mref_aspect *mref_a = bio->bi_private;
 	struct bio_brick *brick;
@@ -91,7 +104,15 @@ void bio_callback(struct bio *bio, int code)
 	brick = mref_a->output->brick;
 	CHECK_PTR(brick, err);
 
+//      remove_this
+#ifdef HAS_BI_ERROR
+//      end_remove_this
+	mref_a->status_code = bio->bi_error;
+//      remove_this
+#else
 	mref_a->status_code = code;
+#endif
+//      end_remove_this
 
 	spin_lock_irqsave(&brick->lock, flags);
 	list_del(&mref_a->io_head);
