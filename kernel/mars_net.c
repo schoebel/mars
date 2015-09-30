@@ -338,10 +338,8 @@ void _set_socketopts(struct socket *sock)
 	}
 }
 
-static
-int _mars_send_raw(struct mars_socket *msock, const void *buf, int len, int flags);
-static
-int _mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen, int flags);
+static int _mars_send_raw(struct mars_socket *msock, const void *buf, int len, int flags);
+static int _mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen, int flags);
 
 static
 void mars_proto_check(struct mars_socket *msock)
