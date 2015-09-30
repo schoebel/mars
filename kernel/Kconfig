@@ -33,7 +33,7 @@ config MARS_DEBUG
 	default n
 	---help---
 	  Some of these checks and some additional error tracing may
-	  consume noticable amounts of memory. However, this is extremely
+	  consume noticeable amounts of memory. However, this is extremely
 	  valuable for finding bugs, even in production systems.
 
 	  OFF for production systems. ON for testing!
