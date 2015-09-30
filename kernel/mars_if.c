@@ -392,7 +392,7 @@ if_make_request(struct request_queue *q, struct bio *bio)
 #endif
 //      end_remove_this
 	bool assigned = false;
-        int error = -ENOSYS;
+        int error = -EINVAL;
 
 	bind_to_channel(brick->say_channel, current);
 
