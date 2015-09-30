@@ -166,7 +166,7 @@ int make_bio(struct bio_brick *brick, void *data, int len, loff_t pos, struct bi
 		goto out;
 	}
 	if (unlikely(sector_offset != data_offset)) {
-		MARS_ERR("bad alignment: sector_offset %d != data_offet %d\n", sector_offset, data_offset);
+		MARS_ERR("bad alignment: sector_offset %d != data_offset %d\n", sector_offset, data_offset);
 		goto out;
 	}
 	if (unlikely(rest_len & ((1 << 9) - 1))) {
