@@ -4355,7 +4355,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 		do_start = false;
 	}
 
-	/* stop sync when primary is unkown
+	/* stop sync when primary is unknown
 	 */
 	if (!strcmp(peer, "(none)")) {
 		MARS_INF("cannot start sync, no primary is designated\n");
