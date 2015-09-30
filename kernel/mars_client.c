@@ -121,8 +121,7 @@ void _kill_all_channels(struct client_bundle *bundle)
 	}
 }
 
-static
-int receiver_thread(void *data);
+static int receiver_thread(void *data);
 
 static
 int _setup_channel(struct client_bundle *bundle, int ch_nr)
