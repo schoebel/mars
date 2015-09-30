@@ -564,14 +564,14 @@ void _inf_callback(struct trans_logger_input *input, bool force)
 static inline 
 int _congested(struct trans_logger_brick *brick)
 {
-	return atomic_read(&brick->q_phase[0].q_queued)
-		|| atomic_read(&brick->q_phase[0].q_flying)
-		|| atomic_read(&brick->q_phase[1].q_queued)
-		|| atomic_read(&brick->q_phase[1].q_flying)
-		|| atomic_read(&brick->q_phase[2].q_queued)
-		|| atomic_read(&brick->q_phase[2].q_flying)
-		|| atomic_read(&brick->q_phase[3].q_queued)
-		|| atomic_read(&brick->q_phase[3].q_flying);
+	return atomic_read(&brick->q_phase[0].q_queued) ||
+		atomic_read(&brick->q_phase[0].q_flying) ||
+		atomic_read(&brick->q_phase[1].q_queued) ||
+		atomic_read(&brick->q_phase[1].q_flying) ||
+		atomic_read(&brick->q_phase[2].q_queued) ||
+		atomic_read(&brick->q_phase[2].q_flying) ||
+		atomic_read(&brick->q_phase[3].q_queued) ||
+		atomic_read(&brick->q_phase[3].q_flying);
 }
 
 ////////////////// own brick / input / output operations //////////////////
@@ -696,7 +696,8 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 	// delay in case of too many master shadows / memory shortage
 	wait_event_interruptible_timeout(brick->caller_event,
 					 !brick->delay_callers &&
-					 (brick_global_memlimit < 1024 || atomic64_read(&global_mshadow_used) / 1024 < brick_global_memlimit),
+					 (brick_global_memlimit < 1024 ||
+					  atomic64_read(&global_mshadow_used) / 1024 < brick_global_memlimit),
 					 HZ / 2);
 #endif
 
