@@ -85,7 +85,6 @@ struct if_input {
 	atomic_t total_mref_read_count;
 	atomic_t total_mref_write_count;
 	spinlock_t req_lock;
-	struct semaphore kick_sem;
 	struct if_hash_anchor *hash_table;
 };
 

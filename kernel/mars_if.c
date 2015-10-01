@@ -254,7 +254,6 @@ void _if_unplug(struct if_input *input)
 	might_sleep();
 #endif
 
-	down(&input->kick_sem);
 	spin_lock_irqsave(&input->req_lock, flags);
 	if (!list_empty(&input->plug_anchor)) {
 		// move over the whole list
@@ -262,7 +261,6 @@ void _if_unplug(struct if_input *input)
 		atomic_set(&input->plugged_count, 0);
 	}
 	spin_unlock_irqrestore(&input->req_lock, flags);
-	up(&input->kick_sem);
 
 	while (!list_empty(&tmp_list)) {
 		struct if_mref_aspect *mref_a;
@@ -477,8 +475,6 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 		brick_msleep(100);
 	}
 
-	down(&input->kick_sem);
-
 	bio_for_each_segment(bvec, bio, i) {
 //      remove_this
 #ifdef HAS_BVEC_ITER
@@ -573,7 +569,6 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 				mref = if_alloc_mref(brick);
 				mref_a = if_mref_get_aspect(brick, mref);
 				if (unlikely(!mref_a)) {
-					up(&input->kick_sem);
 					goto err;
 				}
 
@@ -605,7 +600,6 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 
 				error = GENERIC_INPUT_CALL(input, mref_get, mref);
 				if (unlikely(error < 0)) {
-					up(&input->kick_sem);
 					goto err;
 				}
 				
@@ -664,8 +658,6 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 			total_len -= this_len;
 		} // while bv_len > 0
 	} // foreach bvec
-
-	up(&input->kick_sem);
 
 	if (likely(!total_len)) {
 		error = 0;
@@ -1178,7 +1170,6 @@ static int if_input_construct(struct if_input *input)
 		INIT_LIST_HEAD(&input->hash_table[i].hash_anchor);
 	}
 	INIT_LIST_HEAD(&input->plug_anchor);
-	sema_init(&input->kick_sem, 1);
 	spin_lock_init(&input->req_lock);
 	atomic_set(&input->flying_count, 0);
 	atomic_set(&input->read_flying_count, 0);
