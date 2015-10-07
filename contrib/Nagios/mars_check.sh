@@ -211,6 +211,7 @@ marsadm=${marsadm:-$(which marsadm)}
 # exit if marsadm is not found
 command -v $marsadm > /dev/null || abort "Command marsadm '$marsadm' is not installed"
 
+gmacro=""
 ########################
 # get Global variables
 
@@ -220,11 +221,15 @@ ElapsedLongterm=$(( $(date +%s) - $(stat --printf="%Y" $status_longterm 2> /dev/
 
 ModuleLoaded="$( [[ -d /prco/sys/mars ]]; echo $? )"
 
-Responsive="$($marsadm --macro="%is-alive{%{host}}" --window=$responsive_window view 2> /dev/null)"
+gmacro+="Responsive=\"%is-alive{%{host}}\"\n"
 
 SpacePercent="$(df $mars_dir | grep -o "[0-9]\%" | tail -1 | sed 's/\%//g' 2> /dev/null)"
 
-SpaceRest="$($marsadm view-rest-space 2> /dev/null)"
+gmacro+="SpaceRest=\"%rest-space{}\"\n"
+
+data="$($marsadm --macro="$gmacro" --window=$responsive_window view)"
+#echo "$data"
+eval "$data"
 
 # get a list of Primary and Secondary resource names
 # don't run the while loop in a subshell, use the main shell
@@ -239,9 +244,12 @@ EOF
 ########################
 # get Resource variables
 
+declare -A macro
 for i in $ListOfAny; do
-    SplitBrain[$i]="$($marsadm view-is-split-brain $i 2> /dev/null)"
-    Emergency[$i]="$($marsadm view-is-emergency $i < /dev/null 2> /dev/null)"
+    #SplitBrain[$i]="$($marsadm view-is-split-brain $i 2> /dev/null)"
+    macro[$i]+="SplitBrain[$i]=\"%is-split-brain{}\"\n"
+    #Emergency[$i]="$($marsadm view-is-emergency $i < /dev/null 2> /dev/null)"
+    macro[$i]+="Emergency[$i]=\"%is-emergency{}\"\n"
 done
 
 for i in $ListOfPrimary; do
@@ -249,17 +257,31 @@ for i in $ListOfPrimary; do
 done
 
 for i in $ListOfSecondary; do
-    Designated[$i]="$($marsadm view-get-primary $i 2> /dev/null)"
-    Alive[$i]="$($marsadm --macro="%is-alive{${Designated[$i]}}" --window=$alive_window view $i 2> /dev/null)"
-    AliveAge[$i]="$($marsadm view-alive-age $i 2> /dev/null)"
-    Sync[$i]="$($marsadm view-todo-sync $i 2> /dev/null)"
-    Fetch[$i]="$($marsadm view-todo-fetch $i 2> /dev/null)"
-    Replay[$i]="$($marsadm view-todo-replay $i 2> /dev/null)"
-    SyncRest[$i]="$($marsadm view-sync-rest $i 2> /dev/null)"
-    FetchRest[$i]="$($marsadm view-fetch-rest $i 2> /dev/null)"
-    ReplayRest[$i]="$($marsadm view-replay-rest $i 2> /dev/null)"
+    #Designated[$i]="$($marsadm view-get-primary $i 2> /dev/null)"
+    macro[$i]+="Designated[$i]=\"%get-primary{}\"\n"
+    #Alive[$i]="$($marsadm --macro="%is-alive{${Designated[$i]}}" --window=$alive_window view $i 2> /dev/null)"
+    macro[$i]+="Alive[$i]=\"%is-alive{${Designated[$i]}}\"\n"
+    #AliveAge[$i]="$($marsadm view-alive-age $i 2> /dev/null)"
+    macro[$i]+="AliveAge[$i]=\"%alive-age{}\"\n"
+    #Sync[$i]="$($marsadm view-todo-sync $i 2> /dev/null)"
+    macro[$i]+="Sync[$i]=\"%todo-sync{}\"\n"
+    #Fetch[$i]="$($marsadm view-todo-fetch $i 2> /dev/null)"
+    macro[$i]+="Fetch[$i]=\"%todo-fetch{}\"\n"
+    #Replay[$i]="$($marsadm view-todo-replay $i 2> /dev/null)"
+    macro[$i]+="Replay[$i]=\"%todo-replay{}\"\n"
+    #SyncRest[$i]="$($marsadm view-sync-rest $i 2> /dev/null)"
+    macro[$i]+="SyncRest[$i]=\"%sync-rest{}\"\n"
+    #FetchRest[$i]="$($marsadm view-fetch-rest $i 2> /dev/null)"
+    macro[$i]+="FetchRest[$i]=\"%fetch-rest{}\"\n"
+    #ReplayRest[$i]="$($marsadm view-replay-rest $i 2> /dev/null)"
+    macro[$i]+="ReplayRest[$i]=\"%replay-rest{}\"\n"
 done
 
+for i in ${!macro[*]}; do
+    data="$($marsadm --macro="${macro[$i]}" --window=$alive_window view $i)"
+    #echo "$data"
+    eval "$data";
+done
 
 ########################
 # compute Delta variables (when possible)
