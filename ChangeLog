@@ -93,6 +93,14 @@ Changelog for series 0.2:
 -----------------------------------
 Changelog for series 0.1:
 
+light0.1stable19
+--------
+	* Minor safeguard: warn when somebody tries leave-resource --host=
+	  for a damaged host, and later the dead host resurrects in an
+	  unreasonable way.
+	* Doc update: describe use cases for DRBD vs MARS more clearly.
+	* Minor spelling fixes.
+
 light0.1stable18
 --------
 	* Minor safeguard: prevent join-resource when previous log-purge-all
