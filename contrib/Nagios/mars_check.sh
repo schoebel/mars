@@ -341,72 +341,6 @@ fi
 
 code_max=0
 
-# this can be called multiple times.
-# it remembers the maximum error level in $code_max
-function do_check
-{
-    local class="$1"
-    local key="$2"
-
-    local file
-    local rule_var
-    local rule_op
-    local rule_val
-    local rule_txt
-    local found_count=0
-    local matches=0
-
-    for file in $file_list; do
-	if [[ -r "$file" ]]; then
-	    while read rule_class rule_var rule_op rule_val rule_txt; do
-		if [[ "$rule_var" = "$key" ]]; then
-		    (( ++found_count ))
-		    (( rule_class != class && class_mode )) && continue
-		    local keys="$(eval echo "\${!$rule_var[@]}")"
-		    if [[ "$keys" != "" ]] && [[ "$keys" != "0" ]]; then
-			local res
-			for res in $keys; do
-			    if [[ "$(eval echo "\${$rule_var[$res]}")" != "" ]]; then
-				while (( $rule_var[$res] $rule_op $rule_val || simulate )); do
-				    (( ++matches ))
-				    if [[ "$rule_txt" =~ "&&" ]]; then
-					read dummy rule_var rule_op rule_val rule_txt <<< "$rule_txt"
-				    else
-					_out_txt "$rule_txt" "$res"
-					break
-				    fi
-				done
-			    else
-				(( warnings )) && echo "Undefined variable '$rule_var[$res]'" >> /dev/stderr
-			    fi
-			done
-		    else
-			if [[ "$(eval echo "\${$rule_var}")" != "" ]]; then
-			    while (( $rule_var $rule_op $rule_val || simulate )); do
-				(( ++matches ))
-				if [[ "$rule_txt" =~ "&&" ]]; then
-				    read dummy rule_var rule_op rule_val rule_txt <<< "$rule_txt"
-				else
-				    _out_txt "$rule_txt" "UNDEF"
-				    break
-				fi
-			    done
-			else
-			    (( warnings )) && echo "Undefined variable '$rule_var'" >> /dev/stderr
-			fi
-		    fi
-		fi
-	    done <<EOF
-$(grep -v '^#' $file | grep -v '^\s*$')
-EOF
-	fi
-    done
-    if (( warnings && !found_count )); then
-	echo "Cannot find key '$key' in $config_file $config_dir/$config_file" >> /dev/stderr
-    fi
-    return 0
-}
-
 function _out_txt
 {
     local txt="$1"
@@ -428,43 +362,80 @@ function _out_txt
     return 0
 }
 
-########################
-# Main program
+declare -g -A Triggered
 
-class_list="$(cat $file_list 2>/dev/null | grep -v '^#' | grep -v '^\s*$' | cut -d" " -f1 | sort -n -u)"
+function eval_rule
+{
+    local rule_var="$1"
+    local rule_op="$2"
+    local rule_val="$3"
+    local rule_txt="$4"
+    local res="$5"
 
-for class in $class_list; do
-    ########################
-    # Global checks
+    local status=0
 
-    do_check "$class" ModuleLoaded
-    do_check "$class" Responsive
-    do_check "$class" SpacePercent
-    do_check "$class" SpaceRest
+    if [[ "$(eval echo "\${$rule_var[$res]}")" != "" ]]; then
+	status=$(( $rule_var[$res] $rule_op $rule_val || simulate ))
+	if (( verbose )); then
+	    echo "$res : $rule_var[$res] $rule_op $rule_val : result $status" >> /dev/stderr
+	fi
+	if [[ "$rule_txt" =~ "&&" ]]; then
+	    read dummy rule_var rule_op rule_val rule_txt <<< "$rule_txt"
+	    eval_rule "$rule_var" "$rule_op" "$rule_val" "$rule_txt" "$res" > /dev/null
+	    status=$(( status && $? ))
+	elif [[ "$rule_txt" =~ "||" ]]; then
+	    read dummy rule_var rule_op rule_val rule_txt <<< "$rule_txt"
+	    eval_rule "$rule_var" "$rule_op" "$rule_val" "$rule_txt" "$res" > /dev/null
+	    status=$(( status || $? ))
+	fi
+    elif (( verbose )); then
+	echo "Variable $rule_var[$res] not found" >> /dev/stderr
+    fi
+    if (( status )); then
+	echo "$rule_txt"
+    fi
+    return $status
+}
 
-    ########################
-    # Resource checks
+function run_rule
+{
+    local rule_var="$1"
+    local rule_op="$2"
+    local rule_val="$3"
+    local rule_txt="$4"
+    local status=0
 
-    do_check "$class" Alive
-    do_check "$class" AliveAge
-    do_check "$class" Emergency
-    do_check "$class" SplitBrain
-    for i in $ListOfSecondary; do
-	do_check "$class" Sync
-	do_check "$class" Fetch
-	do_check "$class" Replay
-	do_check "$class" SyncRest
-	do_check "$class" FetchRest
-	do_check "$class" ReplayRest
-	for age in Last Medium Longterm; do
-	    do_check "$class" Delta${age}SyncRest
-	    do_check "$class" Delta${age}FetchRest
-	    do_check "$class" Delta${age}ReplayRest
-	done
+    declare -g -A Triggered
+    local keys="$(eval echo "\${!$rule_var[@]}")"
+    for res in $keys; do
+	# The first triggered rule will win.
+	# This will be rule with the lowest class.
+	if [[ "${Triggered[$res]}" == "" ]]; then
+	    local txt="$(eval_rule "$rule_var" "$rule_op" "$rule_val" "$rule_txt" "$res")"
+	    if [[ "$txt" != "" ]] ; then
+		#echo "AHA $res $txt"
+		# Remember the result
+		Triggered[$res]="$txt"
+		_out_txt "$txt" "$res"
+	    fi
+	fi 
     done
-    (( !class_mode )) && break
-    (( class > 0 && code_max > 0 )) && break
-done
+}
+
+function run_all_rules
+{
+    local rule_class rule_var rule_op rule_val rule_txt
+    while read rule_class rule_var rule_op rule_val rule_txt; do
+	    run_rule "$rule_var" "$rule_op" "$rule_val" "$rule_txt"
+    done <<EOF
+$(cat $file_list 2>/dev/null |\
+    grep -v '^#' |\
+    grep -v '^\s*$' |\
+    sort -n)
+EOF
+}
+
+run_all_rules
 
 if (( !code_max )); then
     echo "$service OK"
