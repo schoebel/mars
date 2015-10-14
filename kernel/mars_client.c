@@ -228,7 +228,7 @@ struct client_channel *_get_channel(struct client_bundle *bundle, int min_channe
 	if (best_channel >= max_channel)
 		best_channel = min_channel;
 	res = &bundle->channel[best_channel];
-	if (res->is_open && res->is_connected && !res->recv_error && mars_socket_is_alive(&res->socket)) {
+	if (res->is_connected && !res->recv_error && mars_socket_is_alive(&res->socket)) {
 		res->current_space = mars_socket_send_space_available(&res->socket);
 		if (res->current_space > (PAGE_SIZE + PAGE_SIZE / 4))
 			goto found;
@@ -773,7 +773,7 @@ static int sender_thread(void *data)
 	struct client_channel *ch = NULL;
 	bool do_timeout = false;
 	int ch_skip = max_client_bulk;
-	int status = -ENOTCONN;
+	int status = -ESHUTDOWN;
 	unsigned long flags;
 
         while (brick->power.button && !brick_thread_should_stop()) {
