@@ -95,6 +95,7 @@ void _kill_channel(struct client_channel *ch)
 		mars_put_socket(&ch->socket);
 	}
 	ch->recv_error = 0;
+	ch->is_used = false;
 	ch->is_open = false;
 	ch->is_connected = false;
 	/* Re-Submit any waiting requests
@@ -191,7 +192,6 @@ void _maintain_bundle(struct client_bundle *bundle)
 	 */
 	for (i = 0; i < MAX_CLIENT_CHANNELS; i++) {
 		struct client_channel *ch = &bundle->channel[i];
-		int status;
 
 		if (!ch->is_used ||
 		    (!ch->recv_error && mars_socket_is_alive(&ch->socket)))
@@ -199,9 +199,8 @@ void _maintain_bundle(struct client_bundle *bundle)
 
 		MARS_DBG("killing channel %d\n", i);
 		_kill_channel(ch);
-
-		status = _setup_channel(bundle, i);
-		MARS_DBG("setup channel %d status=%d\n", i, status);
+		/* Re-setup including connect optiona is done later.
+		 */
 	}
 }
 
@@ -787,6 +786,7 @@ static int sender_thread(void *data)
 		// timeouting is a rather expensive operation, don't do it too often
 		if (do_timeout) {
 			do_timeout = false;
+			_maintain_bundle(&output->bundle);
 			_do_timeout_all(output, false);
 		}
 
