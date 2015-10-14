@@ -969,14 +969,24 @@ char *client_statistics(struct client_brick *brick, int verbose)
 {
 	struct client_output *output = brick->outputs[0];
 	char *res = brick_string_alloc(1024);
+	int socket_count = 0;
+	int i;
+
         if (!res)
                 return NULL;
 
+	for (i = 0; i < MAX_CLIENT_CHANNELS; i++) {
+		struct client_channel *ch = &output->bundle.channel[i];
+		if (mars_socket_is_alive(&ch->socket))
+			socket_count++;
+	}
 	snprintf(res, 1024,
+		 "socket_count = %d "
 		 "max_flying = %d "
 		 "io_timeout = %d | "
 		 "timeout_count = %d "
 		 "fly_count = %d\n",
+		 socket_count,
 		 brick->max_flying,
 		 brick->power.io_timeout,
 		 atomic_read(&output->timeout_count),
