@@ -303,6 +303,10 @@ bool push_link(const char *peer_name,
 bool push_check(const char *peer_name,
 		const char *peer_ip,
 		const char *path);
+int _check_switch(const char *path);
+int __check_allow(const char *parent_path,
+		  const char *name,
+		  const char *peer);
 
 /* General fs wrappers (for abstraction)
  */
