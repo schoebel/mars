@@ -744,10 +744,18 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 	if (list_empty(anchor))
 		return;
 
-	if (!mars_net_is_alive)
+	/* When io_timeout is 0, use the global default.
+	 * When io_timeout is negative, no timeout will occur.
+	 * Exeception: when the brick is forcefully shutting down.
+	 */
+	if (!io_timeout)
+		io_timeout = global_net_io_timeout;
+
+	if (!mars_net_is_alive || !brick->power.button)
 		force = true;
-	
-	if (!force && io_timeout <= 0) {
+
+	/* logically infinite timeout */
+	if (!force && brick->power.io_timeout <= 0) {
 		for (i = 0; i < MAX_CLIENT_CHANNELS; i++) {
 			struct client_channel *ch = &output->bundle.channel[i];
 
@@ -911,6 +919,7 @@ static int sender_thread(void *data)
 			mutex_unlock(&output->mutex);
 			MARS_DBG("empty %d %d\n", output->get_info, brick_thread_should_stop());
 			do_timeout = true;
+			brick_yield();
 			continue;
 		}
 		list_del_init(tmp);
