@@ -235,7 +235,7 @@ struct client_channel *_get_channel(struct client_bundle *bundle, int min_channe
 	if (best_channel >= max_channel)
 		best_channel = min_channel;
 	res = &bundle->channel[best_channel];
-	if (res->is_open && res->is_connected && !res->recv_error && mars_socket_is_alive(&res->socket)) {
+	if (res->is_connected && !res->recv_error && mars_socket_is_alive(&res->socket)) {
 		res->current_space = mars_socket_send_space_available(&res->socket);
 		if (res->current_space > (PAGE_SIZE + PAGE_SIZE / 4))
 			goto found;
@@ -713,7 +713,7 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 
 		atomic_inc(&output->timeout_count);
 
-		SIMPLE_CALLBACK(mref, -ENOTCONN);
+		SIMPLE_CALLBACK(mref, -ESTALE);
 
 		client_ref_put(output, mref);
 
@@ -752,7 +752,7 @@ static int sender_thread(void *data)
 	struct client_channel *ch = NULL;
 	bool do_timeout = false;
 	int ch_skip = max_client_bulk;
-	int status = -ENOTCONN;
+	int status = -ESHUTDOWN;
 	unsigned long flags;
 
         while (!brick_thread_should_stop()) {
