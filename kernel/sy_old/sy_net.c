@@ -58,6 +58,7 @@ char *_mars_translate_hostname(const char *name)
 		brick_string_free(res);
 		res = test;
 	} else {
+		brick_string_free(test);
 		MARS_WRN("no hostname translation for '%s'\n", tmp);
 	}
 	brick_string_free(tmp);
