@@ -105,6 +105,8 @@ struct if_output {
 struct if_brick {
 	MARS_BRICK(if);
 	// parameters
+	loff_t real_size;
+	loff_t max_size;
 	loff_t dev_size;
 	int max_plugged;
 	int readahead;
@@ -119,6 +121,7 @@ struct if_brick {
 	// private
 	struct semaphore switch_sem;
 	struct say_channel *say_channel;
+	loff_t old_max_size;
 	struct mars_info info;
 };
 

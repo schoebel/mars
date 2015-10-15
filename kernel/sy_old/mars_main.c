@@ -1078,19 +1078,8 @@ int _set_if_params(struct mars_brick *_brick, void *private)
 		MARS_ERR("bad brick type\n");
 		return -EINVAL;
 	}
-	if (!rot) {
-		MARS_ERR("too early\n");
-		return -EINVAL;
-	}
-	if (rot->dev_size <= 0) {
-		MARS_ERR("dev_size = %lld\n", rot->dev_size);
-		return -EINVAL;
-	}
-	if (if_brick->dev_size > 0 && rot->dev_size < if_brick->dev_size) {
-		MARS_ERR("new dev size = %lld < old dev_size = %lld\n", rot->dev_size, if_brick->dev_size);
-		return -EINVAL;
-	}
-	if_brick->dev_size = rot->dev_size;
+	if (likely(rot))
+		if_brick->max_size = rot->dev_size;
 	if_brick->max_plugged = IF_MAX_PLUGGED;
 	if_brick->readahead = IF_READAHEAD;
 	if_brick->skip_sync = IF_SKIP_SYNC;
