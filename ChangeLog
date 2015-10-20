@@ -93,6 +93,22 @@ Changelog for series 0.2:
 -----------------------------------
 Changelog for series 0.1:
 
+light0.1stable20
+--------
+	* Hint: MARS is now running on more than 850 storage servers,
+	  and has collected more than 4.5 millions of operation hours.
+	  There were no new incidents with customer impact since the last
+	  major bugfix (more than 3 millions of operation hours since then).
+	  It is difficult to deduce a reliability from that, but it appears
+	  that at least 99.999%, if not 99.9999% are now real for the
+	  MARS component as a standalone component (not to be confused with
+	  overall system reliability). Our storage hardware is clearly much
+	  less reliable. MARS does compensate these defects all the time.
+
+	* Minor fix: memory leak in networking code, does not occur
+	  at light0.1 operations (but maybe future versions of MARS).
+	* Doc: add presentation slides from Froscon2015.
+
 light0.1stable19
 --------
 	* Minor safeguard: warn when somebody tries leave-resource --host=
