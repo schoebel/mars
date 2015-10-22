@@ -1406,7 +1406,7 @@ void _fire_one(struct list_head *tmp, bool do_update)
 #else
 	SIMPLE_CALLBACK(sub_mref, 0);
 #endif
-	if (do_update) { // CHECK: shouldnt we do this always?
+	if (do_update) { // CHECK: shouldn't we do this always?
 		GENERIC_INPUT_CALL(sub_input, mref_put, sub_mref);
 	}
 }

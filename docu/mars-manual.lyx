@@ -310,6 +310,13 @@ LatexCommand tableofcontents
 
 \begin_layout Chapter
 Why You should Replicate Big Data at Block Layer
+\begin_inset CommandInset label
+LatexCommand label
+name "chap:Why-You-should"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -554,11 +561,174 @@ DRBD has a long history of successfully providing HA features to many users
 \end_layout
 
 \begin_layout Standard
-There exist 
-\emph on
-some
-\emph default
- cases where DRBD is better than MARS.
+The following table is a short guide to the most important cases where the
+ decision is rather clear:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Tabular
+<lyxtabular version="3" rows="6" columns="2">
+<features tabularvalignment="middle">
+<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top" width="0">
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Use Case
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Recommendation
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+server pairs, each directly connected via 
+\series bold
+crossover cables
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+DRBD
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\series bold
+active-active
+\series default
+ / dual-primary, e.g.
+ 
+\family typewriter
+\series bold
+gfs2
+\family default
+\series default
+, 
+\family typewriter
+\series bold
+ocfs2
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+DRBD
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+distance 
+\series bold
+> 50km
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+MARS
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\series bold
+> 100 server pairs
+\series default
+ over a short-distance 
+\series bold
+shared
+\series default
+ line
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+MARS
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+all else / intermediate cases
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+read the following details
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+There exist some use cases where DRBD is clearly better than MARS.
  1&1 has a long history of experiences with DRBD where it works very fine,
  in particular coupling Linux devices rack-to-rack via crossover cables.
  DRBD is just 
@@ -566,12 +736,145 @@ some
 constructed
 \emph default
  for that use case (RAID-1 over network).
+ In such a scenario, DRBD is better than MARS because it uses up less disk
+ space resources.
+ In addition, newer DRBD versions can run over high-speed but short-distance
+ interconnects like Infiniband (via the SDP protocol).
+ Another use case for DRBD is active-active / dual-primary mode, e.g.
+ 
+\family typewriter
+ocfs2
+\family default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Notice that 
+\family typewriter
+ocfs2
+\family default
+ is appearantly not constructed for long distances.
+ 1&1 has some experiences on a specific short distance cluster where the
+ 
+\family typewriter
+ocfs2
+\family default
+ / 
+\family typewriter
+DRBD
+\family default
+ combination scaled a little bit better than 
+\family typewriter
+NFS
+\family default
+, but worse than 
+\family typewriter
+glusterfs
+\family default
+ (using 2 clients in both cases -- notice that 
+\family typewriter
+glusterfs
+\family default
+ showed extremely bad performance when trying to enable active-active 
+\family typewriter
+glusterfs
+\family default
+ replication between 2 server instances, therefore we ended up using active-pass
+ive DRBD replication below a single 
+\family typewriter
+glusterfs
+\family default
+ server).
+ Conclusion: 
+\family typewriter
+NFS
+\family default
+ < 
+\family typewriter
+ocfs2
+\family default
+ < 
+\family typewriter
+glusterfs
+\family default
+ < sharding.
+ We found that 
+\family typewriter
+glusterfs
+\family default
+ on top of active-passive DRBD scalability was about 2 times better than
+ 
+\family typewriter
+NFS
+\family default
+ on top of active-passive DRBD, while 
+\family typewriter
+ocfs2
+\family default
+ on top of 
+\family typewriter
+DRBD
+\family default
+ in active-active mode was somewhere inbetween.
+ All cluster comparisons with an increasing workload over time (measured
+ as number of customers which could be safely operated).
+ Each system was replaced by the next one when the respective scalability
+ was at its respective end, each time leading to operational problems.
+ The ultimate solution was to replace all of these clustering concepts by
+ the general concept of 
+\series bold
+sharding
+\series default
+.
+\end_layout
+
+\end_inset
+
+ over short
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Active-active won't work over long distances at all because of high network
+ latencies (cf chapter 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "chap:Why-You-should"
+
+\end_inset
+
+).
+ Probably, for replication of whole clusters over long distances DRBD and
+ MARS could be stacked: using DRBD on top for MARS for active-active clustering
+ of 
+\family typewriter
+gfs2
+\family default
+ or 
+\family typewriter
+ocfs2
+\family default
+, and a MARS instance 
+\emph on
+below
+\emph default
+ for failover of 
+\emph on
+one
+\emph default
+ of the DRBD replicas over long distances.
+\end_layout
+
+\end_inset
+
+ distances.
 \end_layout
 
 \begin_layout Standard
-On the other hand, there exist other cases where DRBD did not work as expected,
- leading to incidents and other operational problems.
- We analyzed them for those use cases.
+On the other hand, there exist other use cases where DRBD did not work as
+ expected, leading to incidents and other operational problems.
+ We analyzed them for our specific use cases.
  The later author of MARS came to the conclusion that they could only be
  resolved by fundamental changes in the overall architecture of DRBD.
  The development of MARS started at the personal initiative of the author,
@@ -621,13 +924,33 @@ In order to describe the most important problem we found when DRBD was used
  metro distances, we strip down that complicated real-life scenario to a
  simplified laboratory scenario in order to demonstrate the effect with
  minimal means.
- The following picture illustrates an effect which is not only observable
- in practice, but is also reproducible by the MARS test suite
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Notice that the following DRBD effect does not appear at crossover cables.
+ The following scenario covers a non-standard case of DRBD.
+ DRBD works fine when no network bottleneck appears!
+\end_layout
+
+\begin_layout Standard
+The following picture illustrates an effect which has been observed in 1&1
+ datacenters when running masses of DBRD instances through a single network
+ bottleneck.
+ In addition, the effect is also reproducible by an elder version of the
+ MARS test suite
 \begin_inset Foot
 status open
 
 \begin_layout Plain Layout
-The effect has been demonstrated with DRBD version 8.3.13.
+The effect has been demonstrated some years ago with DRBD version 8.3.13.
  By construction, is is independent from any of the DRBD series 8.3.x, 8.4.x,
  or 9.0.x.
 \end_layout

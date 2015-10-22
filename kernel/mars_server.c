@@ -124,6 +124,10 @@ int cb_thread(void *data)
 			mars_shutdown_socket(sock);
 		}
 
+		if (mref_a->data) {
+			brick_block_free(mref_a->data, mref_a->len);
+			mref->ref_data = NULL;
+		}
 		if (mref_a->do_put) {
 			GENERIC_INPUT_CALL(brick->inputs[0], mref_put, mref);
 			atomic_dec(&brick->in_flight);
@@ -210,6 +214,8 @@ int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_
 	}
 	
 	mref_a->brick = brick;
+	mref_a->data = mref->ref_data;
+	mref_a->len = mref->ref_len;
 	SETUP_CALLBACK(mref, server_endio, mref_a);
 
 	amount = 0;

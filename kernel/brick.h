@@ -325,7 +325,7 @@ struct generic_output {
 		(void)LOCK_CHECK(OP),					\
 		(OUTPUT) && (OUTPUT)->ops->OP ?				\
 		(OUTPUT)->ops->OP(OUTPUT, ##ARGS) :			\
-		-ENOSYS							\
+		-ENOTCONN						\
 	)
 		
 #define GENERIC_INPUT_CALL(INPUT,OP,ARGS...)				\

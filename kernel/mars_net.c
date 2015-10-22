@@ -1807,7 +1807,7 @@ int mars_recv_mref(struct mars_socket *msock, struct mref_object *mref, struct m
 
 	if (cmd->cmd_code & CMD_FLAG_HAS_DATA) {
 		if (!mref->ref_data)
-			mref->ref_data = brick_zmem_alloc(mref->ref_len);
+			mref->ref_data = brick_block_alloc(0, mref->ref_len);
 		if (!mref->ref_data) {
 			status = -ENOMEM;
 			goto done;
