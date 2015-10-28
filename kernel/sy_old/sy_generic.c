@@ -126,6 +126,7 @@ EXPORT_SYMBOL_GPL(mars_dent_meta);
 #define __NEW_PATH_CREATE
 #endif
 
+#include <linux/fscache-cache.h>
 #ifndef FSCACHE_OP_DEAD
 /* since kernel 3.8 */
 /* see b9d6ba94b875192ef5e2dab92d72beea33b83c3d */
