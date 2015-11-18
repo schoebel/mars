@@ -339,12 +339,17 @@ void if_timer(unsigned long data)
 /* accept a linux bio, convert to mref and call buf_io() on it.
  */
 static
-#ifdef BIO_CPU_AFFINE
-int
+//      remove_this
+/* see dece16353ef47d8d33f5302bc158072a9d65e26f */
+#ifdef BLK_QC_T_NONE
+//      end_remove_this
+blk_qc_t if_make_request(struct request_queue *q, struct bio *bio)
+//      remove_this
+#elif defined(BIO_CPU_AFFINE)
+int if_make_request(struct request_queue *q, struct bio *bio)
 #else
-void
+void if_make_request(struct request_queue *q, struct bio *bio)
 #endif
-if_make_request(struct request_queue *q, struct bio *bio)
 {
 	struct if_input *input = q->queuedata;
 	struct if_brick *brick = input->brick;
@@ -784,7 +789,13 @@ err:
 done:
 	remove_binding_from(brick->say_channel, current);
 
-#ifdef BIO_CPU_AFFINE
+//      remove_this
+/* see dece16353ef47d8d33f5302bc158072a9d65e26f */
+#ifdef BLK_QC_T_NONE
+//      end_remove_this
+	return BLK_QC_T_NONE;
+//      remove_this
+#elif defined(BIO_CPU_AFFINE)
 	return error;
 #else
 	return;
