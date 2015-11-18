@@ -301,12 +301,15 @@ void _if_unplug(struct if_input *input)
  */
 static
 //      remove_this
-#ifdef BIO_CPU_AFFINE
+/* see dece16353ef47d8d33f5302bc158072a9d65e26f */
+#ifdef BLK_QC_T_NONE
+//      end_remove_this
+blk_qc_t if_make_request(struct request_queue *q, struct bio *bio)
+//      remove_this
+#elif defined(BIO_CPU_AFFINE)
 int if_make_request(struct request_queue *q, struct bio *bio)
 #else
-//      end_remove_this
 void if_make_request(struct request_queue *q, struct bio *bio)
-//      remove_this
 #endif
 //      end_remove_this
 {
@@ -691,12 +694,15 @@ done:
 	remove_binding_from(brick->say_channel, current);
 
 //      remove_this
-#ifdef BIO_CPU_AFFINE
+/* see dece16353ef47d8d33f5302bc158072a9d65e26f */
+#ifdef BLK_QC_T_NONE
+//      end_remove_this
+	return BLK_QC_T_NONE;
+//      remove_this
+#elif defined(BIO_CPU_AFFINE)
 	return error;
 #else
-//      end_remove_this
 	return;
-//      remove_this
 #endif
 //      end_remove_this
 }
