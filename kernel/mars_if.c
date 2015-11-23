@@ -733,7 +733,9 @@ int mars_congested(void *data, int bdi_bits)
 	struct if_input *input = data;
 	int ret = 0;
 
+//      remove_this
 #ifdef WB_STAT_BATCH /* changed by 4452226ea276e74fc3e252c88d9bb7e8f8e44bf0 */
+//      end_remove_this
 	if (bdi_bits & (1 << WB_sync_congested) &&
 	    atomic_read(&input->read_flying_count) > 0) {
 		ret |= (1 << WB_sync_congested);
@@ -742,6 +744,7 @@ int mars_congested(void *data, int bdi_bits)
 	    atomic_read(&input->write_flying_count) > 0) {
 		ret |= (1 << WB_async_congested);
 	}
+//      remove_this
 #else /* old code */
 	if (bdi_bits & (1 << BDI_sync_congested) &&
 	    atomic_read(&input->read_flying_count) > 0) {
@@ -752,6 +755,7 @@ int mars_congested(void *data, int bdi_bits)
 		ret |= (1 << BDI_async_congested);
 	}
 #endif
+//      end_remove_this
 	return ret;
 }
 
