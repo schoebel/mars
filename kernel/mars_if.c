@@ -498,7 +498,8 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 		void *data;
 
 #ifdef ARCH_HAS_KMAP
-#error FIXME: the current infrastructure cannot deal with HIGHMEM / kmap()
+#error FIXME/TODO: the current infrastructure cannot deal with HIGHMEM / kmap()
+#error HINT: MARS is supposed to run on big 64bit (storage) servers.
 #endif
 		data = page_address(page);
 		error = -EINVAL;
