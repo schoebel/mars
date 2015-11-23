@@ -870,13 +870,16 @@ static int if_switch(struct if_brick *brick)
 		if_set_capacity(input, capacity);
 		
 		blk_queue_make_request(q, if_make_request);
+//      remove_this
 #ifdef USE_MAX_SECTORS
 #ifdef MAX_SEGMENT_SIZE
 		MARS_DBG("blk_queue_max_sectors()\n");
 		blk_queue_max_sectors(q, USE_MAX_SECTORS);
 #else
 		MARS_DBG("blk_queue_max_hw_sectors()\n");
+//      end_remove_this
 		blk_queue_max_hw_sectors(q, USE_MAX_SECTORS);
+//      remove_this
 #endif
 #endif
 #ifdef USE_MAX_PHYS_SEGMENTS
@@ -885,7 +888,9 @@ static int if_switch(struct if_brick *brick)
 		blk_queue_max_phys_segments(q, USE_MAX_PHYS_SEGMENTS);
 #else
 		MARS_DBG("blk_queue_max_segments()\n");
+//      end_remove_this
 		blk_queue_max_segments(q, USE_MAX_PHYS_SEGMENTS);
+//      remove_this
 #endif
 #endif
 #ifdef USE_MAX_HW_SEGMENTS
@@ -894,21 +899,28 @@ static int if_switch(struct if_brick *brick)
 #endif
 #ifdef USE_MAX_SEGMENT_SIZE
 		MARS_DBG("blk_queue_max_segment_size()\n");
+//      end_remove_this
 		blk_queue_max_segment_size(q, USE_MAX_SEGMENT_SIZE);
+//      remove_this
 #endif
 #ifdef USE_LOGICAL_BLOCK_SIZE
 		MARS_DBG("blk_queue_logical_block_size()\n");
+//      end_remove_this
 		blk_queue_logical_block_size(q, USE_LOGICAL_BLOCK_SIZE);
+//      remove_this
 #endif
 #ifdef USE_SEGMENT_BOUNDARY
 		MARS_DBG("blk_queue_segment_boundary()\n");
+//      end_remove_this
 		blk_queue_segment_boundary(q, USE_SEGMENT_BOUNDARY);
+//      remove_this
 #endif
 #ifdef QUEUE_ORDERED_DRAIN
 		MARS_DBG("blk_queue_ordered()\n");
 		blk_queue_ordered(q, QUEUE_ORDERED_DRAIN, NULL);
 #endif
 		MARS_DBG("blk_queue_bounce_limit()\n");
+//      end_remove_this
 		blk_queue_bounce_limit(q, BLK_BOUNCE_ANY);
 //      remove_this
 #ifndef BLK_MAX_REQUEST_COUNT
