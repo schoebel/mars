@@ -110,7 +110,9 @@ static int device_minor = 0;
 
 ///////////////////////// linux operations ////////////////////////
 
+//      remove_this
 #ifdef part_stat_lock
+//      end_remove_this
 static
 void _if_start_io_acct(struct if_input *input, struct bio_wrapper *biow)
 {
@@ -147,11 +149,12 @@ void _if_end_io_acct(struct if_input *input, struct bio_wrapper *biow)
 	part_dec_in_flight(&input->disk->part0, rw);
 	part_stat_unlock();
 }
-
+//      remove_this
 #else // part_stat_lock
 #define _if_start_io_acct(...) do {} while (0)
 #define _if_end_io_acct(...)   do {} while (0)
 #endif
+//      end_remove_this
 
 /* callback
  */
