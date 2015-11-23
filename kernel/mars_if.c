@@ -42,9 +42,9 @@
 #define USE_MAX_SEGMENT_SIZE    MARS_MAX_SEGMENT_SIZE
 #define USE_LOGICAL_BLOCK_SIZE  512
 #define USE_SEGMENT_BOUNDARY    (PAGE_SIZE-1)
+//      remove_this
 
 #define USE_CONGESTED_FN
-//      remove_this
 #define USE_MERGE_BVEC
 //      end_remove_this
 //#define DENY_READA
@@ -939,12 +939,14 @@ static int if_switch(struct if_brick *brick)
 		MARS_INF("ra_pages OLD = %lu NEW = %d\n", q->backing_dev_info.ra_pages, brick->readahead);
 		q->backing_dev_info.ra_pages = brick->readahead;
 #endif
+//      remove_this
 #ifdef USE_CONGESTED_FN
 		MARS_DBG("congested_fn\n");
+//      end_remove_this
 		q->backing_dev_info.congested_fn = mars_congested;
 		q->backing_dev_info.congested_data = input;
-#endif
 //      remove_this
+#endif
 #ifdef USE_MERGE_BVEC
 		MARS_DBG("blk_queue_merge_bvec()\n");
 		blk_queue_merge_bvec(q, mars_merge_bvec);
