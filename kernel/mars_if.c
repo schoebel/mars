@@ -46,8 +46,8 @@
 #define USE_CONGESTED_FN
 //      remove_this
 #define USE_MERGE_BVEC
-//#define DENY_READA
 //      end_remove_this
+//#define DENY_READA
 
 #include <linux/kernel.h>
 #include <linux/module.h>
