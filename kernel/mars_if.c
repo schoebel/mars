@@ -707,6 +707,7 @@ done:
 //      end_remove_this
 }
 
+//      remove_this
 #ifndef BLK_MAX_REQUEST_COUNT
 //static
 void if_unplug(struct request_queue *q)
@@ -721,7 +722,8 @@ void if_unplug(struct request_queue *q)
 }
 #endif
 
-//static
+//      end_remove_this
+static
 int mars_congested(void *data, int bdi_bits)
 {
 	struct if_input *input = data;
@@ -900,11 +902,13 @@ static int if_switch(struct if_brick *brick)
 #endif
 		MARS_DBG("blk_queue_bounce_limit()\n");
 		blk_queue_bounce_limit(q, BLK_BOUNCE_ANY);
+//      remove_this
 #ifndef BLK_MAX_REQUEST_COUNT
 		MARS_DBG("unplug_fn\n");
 		q->unplug_fn = if_unplug;
 #endif
 		MARS_DBG("queue_lock\n");
+//      end_remove_this
 		q->queue_lock = &input->req_lock; // needed!
 		
 		input->bdev = bdget(MKDEV(disk->major, minor));
