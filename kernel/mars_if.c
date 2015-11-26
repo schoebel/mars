@@ -324,8 +324,10 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 	const int  rw      = bio_data_dir(bio);
 	const int  sectors = bio_sectors(bio);
 //      remove_this
-// adapt to different kernel versions (TBD: improve)
-#if defined(bio_flagged)
+/* Adapt to different kernel versions (TBD: improve)
+ * Since 4246a0b63bd8f56a1469b12eafeb875b1041a451 bio_flagged is no longer a macro.
+ */
+#if defined(bio_flagged) || !defined(bio_io_error)
 //      end_remove_this
 	const bool ahead   = bio_flagged(bio, __REQ_RAHEAD) && rw == READ;
 	const bool barrier = bio_flagged(bio, __REQ_SOFTBARRIER);
