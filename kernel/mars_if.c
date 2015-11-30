@@ -72,9 +72,13 @@
 #ifdef __bvec_iter_bvec
 #define HAS_BVEC_ITER
 #endif
-/* adaptation to 4246a0b63bd8f56a1469b12eafeb875b1041a451 and 8ae126660fddbeebb9251a174e6fa45b6ad8f932 */
+/* adaptation to 4246a0b63bd8f56a1469b12eafeb875b1041a451 */
 #ifndef bio_io_error
 #define HAS_BI_ERROR
+#endif
+/* adaptation to 54efd50bfd873e2dbf784e0b21a8027ba4299a3e and 8ae126660fddbeebb9251a174e6fa45b6ad8f932 */
+#ifdef HAS_BI_ERROR
+#define USE_BLK_QUEUE_SPLIT
 #undef USE_MERGE_BVEC
 #endif
 
@@ -395,6 +399,15 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 	bind_to_channel(brick->say_channel, current);
 
 	might_sleep();
+
+//      remove_this
+#ifdef USE_BLK_QUEUE_SPLIT
+#warning USE_BLK_QUEUE_SPLIT
+//      end_remove_this
+	blk_queue_split(q, &bio, q->bio_split);
+//      remove_this
+#endif
+//      end_remove_this
 
 	if (unlikely(!sectors)) {
 		_if_unplug(input);
