@@ -945,6 +945,12 @@ static int if_switch(struct if_brick *brick)
 		q->unplug_fn = if_unplug;
 #endif
 		MARS_DBG("queue_lock\n");
+#ifdef REQ_WRITE_SAME
+/* introduced by 4363ac7c */
+//      end_remove_this
+		blk_queue_max_write_same_sectors(q, 0);
+//      remove_this
+#endif
 //      end_remove_this
 		q->queue_lock = &input->req_lock; // needed!
 		
