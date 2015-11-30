@@ -37,9 +37,11 @@
 //#define MODIFY_READAHEAD // don't use it, otherwise sequential IO will suffer
 
 // low-level device parameters
-#define USE_MAX_SECTORS         (MARS_MAX_SEGMENT_SIZE >> 9)
-#define USE_MAX_PHYS_SEGMENTS   (MARS_MAX_SEGMENT_SIZE >> 9)
-#define USE_MAX_SEGMENT_SIZE    MARS_MAX_SEGMENT_SIZE
+#define IF_MAX_SEGMENT_SIZE     PAGE_SIZE
+//#define IF_MAX_SEGMENT_SIZE     (MARS_MAX_SEGMENT_SIZE < BIO_MAX_SIZE ? MARS_MAX_SEGMENT_SIZE : BIO_MAX_SIZE)
+#define USE_MAX_SECTORS         (IF_MAX_SEGMENT_SIZE >> 9)
+#define USE_MAX_PHYS_SEGMENTS   (IF_MAX_SEGMENT_SIZE >> 9)
+#define USE_MAX_SEGMENT_SIZE    IF_MAX_SEGMENT_SIZE
 #define USE_LOGICAL_BLOCK_SIZE  512
 #define USE_SEGMENT_BOUNDARY    (PAGE_SIZE-1)
 //      remove_this
