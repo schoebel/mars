@@ -888,6 +888,12 @@ static int if_switch(struct if_brick *brick)
 		
 		blk_queue_make_request(q, if_make_request);
 //      remove_this
+#ifdef blk_queue_dead
+/* introduced in b1bd055d397e09f99dcef9b138ed104ff1812fcb, detected by 34f6055c80285e4efb3f602a9119db75239744dc */
+//      end_remove_this
+		blk_set_stacking_limits(&q->limits);
+//      remove_this
+#endif
 #ifdef USE_MAX_SECTORS
 #ifdef MAX_SEGMENT_SIZE
 		MARS_DBG("blk_queue_max_sectors()\n");
