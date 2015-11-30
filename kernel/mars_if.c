@@ -906,7 +906,7 @@ static int if_switch(struct if_brick *brick)
 #else
 		MARS_DBG("blk_queue_max_segments()\n");
 //      end_remove_this
-		blk_queue_max_segments(q, USE_MAX_PHYS_SEGMENTS);
+		blk_queue_max_segments(q, PAGE_SIZE);
 //      remove_this
 #endif
 #endif
