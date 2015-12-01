@@ -679,15 +679,10 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 			pos += this_len;
 			data += this_len;
 			bv_len -= this_len;
-			total_len -= this_len;
 		} // while bv_len > 0
 	} // foreach bvec
 
-	if (likely(!total_len)) {
-		error = 0;
-	} else {
-		MARS_ERR("bad rest len = %d\n", total_len);
-	}
+	error = 0;
 
 err:
 	if (error < 0) {
