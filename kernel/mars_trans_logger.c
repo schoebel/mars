@@ -908,7 +908,7 @@ restart:
 		CHECK_PTR(mref_a->shadow_data, err);
 		if (mref_a->do_dealloc) {
 			brick_block_free(mref_a->shadow_data, mref_a->alloc_len);
-			atomic64_sub(mref->ref_len, &brick->shadow_mem_used);
+			atomic64_sub(mref_a->alloc_len, &brick->shadow_mem_used);
 			mref_a->shadow_data = NULL;
 			mref_a->do_dealloc = false;
 		}
