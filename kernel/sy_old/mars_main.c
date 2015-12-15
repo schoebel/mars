@@ -150,6 +150,8 @@ loff_t raw_remaining_space = 0;
 loff_t global_remaining_space = 0;
 EXPORT_SYMBOL_GPL(global_remaining_space);
 
+int check_mars_space = 1;
+module_param_named(check_mars_space, check_mars_space, int, 0);
 
 int global_logrot_auto = CONFIG_MARS_LOGROT_AUTO;
 EXPORT_SYMBOL_GPL(global_logrot_auto);
@@ -7976,8 +7978,12 @@ static int __init init_main(void)
 	}
 
 	if (unlikely(!mars_is_mountpoint("/mars/"))) {
-		printk(KERN_ERR "/mars is no mountpoint\n");
-		return -EINVAL;
+		if (check_mars_space) {
+			printk(KERN_ERR "/mars is no mountpoint\n");
+			return -EINVAL;
+		}
+		printk(KERN_WARNING "/mars is no mountpoint.\n");
+		printk(KERN_WARNING "This is bad practice even at near-diskless guests.\n");
 	}
 
 	/* This must come first to be effective */
@@ -8027,10 +8033,11 @@ static int __init init_main(void)
 #endif
 
 	status = compute_emergency_mode();
-	if (unlikely(status < 0)) {
+	if (check_mars_space && unlikely(status < 0)) {
 		MARS_ERR("Sorry, your /mars/ filesystem is too small!\n");
 		goto done;
 	}
+	status = 0;
 
 	get_lamport(NULL, &modprobe_stamp);
 
