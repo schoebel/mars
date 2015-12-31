@@ -72,7 +72,7 @@ extern int _brick_msleep(int msecs, bool shorten);
 /*  number management helpers */
 
 extern int get_brick_nr(void);
-extern void put_nr(int nr);
+extern void put_brick_nr(int nr);
 
 /***********************************************************************/
 

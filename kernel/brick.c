@@ -76,7 +76,7 @@ void generic_brick_exit(struct generic_brick *brick)
 	brick->ops = NULL;
 	brick->nr_inputs = 0;
 	brick->nr_outputs = 0;
-	put_nr(brick->aspect_context.brick_index);
+	put_brick_nr(brick->aspect_context.brick_index);
 }
 
 int generic_input_init(struct generic_brick *brick,
@@ -226,7 +226,7 @@ int get_brick_nr(void)
 	}
 }
 
-void put_nr(int nr)
+void put_brick_nr(int nr)
 {
 	if (likely(nr_table && nr > 0 && nr < nr_max))
 		nr_table[nr] = 0;
