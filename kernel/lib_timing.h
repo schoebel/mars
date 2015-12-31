@@ -30,11 +30,12 @@
  * of some simple histogram statistics.
  */
 
-#define TIMING_MAX 24
+#define TIMING_MAX			24
 
 struct timing_stats {
 #ifdef CONFIG_DEBUG_KERNEL
 	int tim_count[TIMING_MAX];
+
 #endif
 };
 
@@ -89,10 +90,10 @@ extern int report_timing(struct timing_stats *tim, char *str, int maxlen);
 #define _TIME_STATS(_timing, _stamp1, _stamp2, _CODE)			\
 	((void)_timing, (_stamp1) = (_stamp2) = cpu_clock(raw_smp_processor_id()), _CODE, 0)
 
-#define TIME_STATS(_timing, _CODE)		\
+#define TIME_STATS(_timing, _CODE)					\
 	((void)_timing, _CODE, 0)
 
-#define report_timing(tim,str,maxlen)   ((void)tim, 0)
+#define report_timing(tim, str, maxlen)   ((void)tim, 0)
 
 #endif // CONFIG_DEBUG_KERNEL
 
@@ -111,6 +112,7 @@ extern int report_timing(struct timing_stats *tim, char *str, int maxlen);
  */
 struct banning {
 	long long ban_last_hit;
+
 	// statistical
 	int ban_renew_count;
 	int ban_count;
@@ -122,6 +124,7 @@ bool banning_hit(struct banning *ban, long long duration)
 	long long now = cpu_clock(raw_smp_processor_id());
 	bool hit = ban->ban_last_hit >= now;
 	long long new_hit = now + duration;
+
 	ban->ban_renew_count++;
 	if (!ban->ban_last_hit || ban->ban_last_hit < new_hit) {
 		ban->ban_last_hit = new_hit;
@@ -134,6 +137,7 @@ extern inline
 bool banning_is_hit(struct banning *ban)
 {
 	long long now = cpu_clock(raw_smp_processor_id());
+
 	return (ban->ban_last_hit && ban->ban_last_hit >= now);
 }
 
@@ -148,13 +152,14 @@ void banning_reset(struct banning *ban)
  */
 struct threshold {
 	struct banning *thr_ban;
+
 	struct threshold *thr_parent; /* support hierarchies */
 	// tunables
 	int  thr_limit;   // in us
 	int  thr_factor;  // in %
-	int  thr_plus;    // in us
+	int  thr_plus;	  // in us
 	// statistical
-	int thr_max;      // in ms
+	int thr_max;	  // in ms
 	int thr_triggered;
 	int thr_true_hit;
 };

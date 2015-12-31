@@ -45,8 +45,8 @@
  */
 #ifndef __USE_COMPAT
 
-#define MARS_MAX_AIO      1024
-#define MARS_MAX_AIO_READ 32
+#define MARS_MAX_AIO			1024
+#define MARS_MAX_AIO_READ		32
 
 static struct timing_stats timings[3];
 
@@ -103,21 +103,23 @@ atomic_t mm_fake_count = ATOMIC_INIT(0);
 
 static inline void set_fake(void)
 {
-        mm_fake = current->mm;
-        if (mm_fake) {
+	mm_fake = current->mm;
+	if (mm_fake) {
 		MARS_DBG("initialized fake\n");
 		mm_fake_task = current;
 		get_task_struct(current); // paired with put_task_struct()
-                atomic_inc(&mm_fake->mm_count); // paired with mmdrop()
-                atomic_inc(&mm_fake->mm_users); // paired with mmput()
-        }
+		atomic_inc(&mm_fake->mm_count); // paired with mmdrop()
+		atomic_inc(&mm_fake->mm_users); // paired with mmput()
+	}
 }
 
 static inline void put_fake(void)
 {
 	int count = 0;
-        while (mm_fake && mm_fake_task) {
+
+	while (mm_fake && mm_fake_task) {
 		int remain = atomic_read(&mm_fake_count);
+
 		if (unlikely(remain != 0)) {
 			if (count++ < 10) {
 				MARS_WRN("cannot cleanup fake, remain = %d\n", remain);
@@ -134,7 +136,7 @@ static inline void put_fake(void)
 			put_task_struct(mm_fake_task);
 			mm_fake_task = NULL;
 		}
-        }
+	}
 }
 
 static inline void use_fake_mm(void)
@@ -204,6 +206,7 @@ struct aio_mref_aspect *_dequeue(struct aio_threadinfo *tinfo)
 	for (prio = 0; prio < MARS_PRIO_NR; prio++) {
 		struct list_head *start = &tinfo->mref_list[prio];
 		struct list_head *tmp = start->next;
+
 		if (tmp != start) {
 			list_del_init(tmp);
 			tinfo->queued[prio]--;
@@ -218,6 +221,7 @@ done:
 
 	if (likely(mref_a && mref_a->object)) {
 		unsigned long long latency;
+
 		latency = cpu_clock(raw_smp_processor_id()) - mref_a->enqueue_stamp;
 		threshold_check(&aio_io_threshold[mref_a->object->ref_rw & 1], latency);
 	}
@@ -259,6 +263,7 @@ loff_t get_total_size(struct aio_output *output)
 	 */
 	if (!output->brick->is_static_device) {
 		loff_t max = 0;
+
 		mf_get_dirty(output->mf, &min, &max, 0, 99);
 	}
 
@@ -297,6 +302,7 @@ static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
 	 */
 	if (!mref->ref_data) {
 		struct aio_mref_aspect *mref_a = aio_mref_get_aspect(output->brick, mref);
+
 		if (unlikely(!mref_a)) {
 			MARS_ERR("bad mref_a\n");
 			return -EILSEQ;
@@ -336,7 +342,7 @@ static void aio_ref_put(struct aio_output *output, struct mref_object *mref)
 		atomic_dec(&output->alloc_count);
 	}
 	_mref_free(mref);
- done:;
+done:;
 }
 
 static
@@ -349,7 +355,12 @@ void _complete(struct aio_output *output, struct aio_mref_aspect *mref_a, int er
 	CHECK_PTR(mref, fatal);
 
 	if (err < 0) {
-		MARS_ERR("IO error %d at pos=%lld len=%d (mref=%p ref_data=%p)\n", err, mref->ref_pos, mref->ref_len, mref, mref->ref_data);
+		MARS_ERR("IO error %d at pos=%lld len=%d (mref=%p ref_data=%p)\n",
+			err,
+			mref->ref_pos,
+			mref->ref_len,
+			mref,
+			mref->ref_data);
 	} else {
 		mref_checksum(mref);
 		mref->ref_flags |= MREF_UPTODATE;
@@ -383,6 +394,7 @@ static
 void _complete_mref(struct aio_output *output, struct mref_object *mref, int err)
 {
 	struct aio_mref_aspect *mref_a;
+
 	_mref_check(mref);
 	mref_a = aio_mref_get_aspect(output->brick, mref);
 	CHECK_PTR(mref_a, fatal);
@@ -399,6 +411,7 @@ void _complete_all(struct list_head *tmp_list, struct aio_output *output, int er
 	while (!list_empty(tmp_list)) {
 		struct list_head *tmp = tmp_list->next;
 		struct aio_mref_aspect *mref_a = container_of(tmp, struct aio_mref_aspect, io_head);
+
 		list_del_init(tmp);
 		mref_a->di.dirty_stage = 3;
 		_complete(output, mref_a, err);
@@ -452,8 +465,10 @@ out_return:;
 static int aio_submit(struct aio_output *output, struct aio_mref_aspect *mref_a, bool use_fdsync)
 {
 	struct mref_object *mref = mref_a->object;
+
 	mm_segment_t oldfs;
 	int res;
+
 	struct iocb iocb = {
 		.aio_data = (__u64)mref_a,
 		.aio_lio_opcode = use_fdsync ? IOCB_CMD_FDSYNC : (mref->ref_rw != 0 ? IOCB_CMD_PWRITE : IOCB_CMD_PREAD),
@@ -497,6 +512,7 @@ static int aio_submit_dummy(struct aio_output *output)
 	mm_segment_t oldfs;
 	int res;
 	int dummy;
+
 	struct iocb iocb = {
 		.aio_buf = (__u64)&dummy,
 	};
@@ -655,6 +671,7 @@ int aio_sync_thread(void *data)
 		spin_lock_irqsave(&tinfo->lock, flags);
 		for (i = 0; i < MARS_PRIO_NR; i++) {
 			struct list_head *start = &tinfo->mref_list[i];
+
 			if (!list_empty(start)) {
 				// move over the whole list
 				list_replace_init(start, &tmp_list);
@@ -700,11 +717,12 @@ static int aio_event_thread(void *data)
 		mm_segment_t oldfs;
 		int count;
 		int i;
+
 		struct timespec timeout = {
 			.tv_sec = 1,
 		};
 
-		if (unlikely(!(void*)output->ctxp)) {
+		if (unlikely(!(void *)output->ctxp)) {
 			MARS_ERR("Oops, context vanished. queued_sum = %d\n", atomic_read(&tinfo->queued_sum));
 			break;
 		}
@@ -735,7 +753,7 @@ static int aio_event_thread(void *data)
 			mapfree_set(output->mf, mref->ref_pos, mref->ref_pos + mref->ref_len);
 
 			if (output->brick->o_fdsync
-			   && err >= 0 
+			   && err >= 0
 			   && mref->ref_rw != READ
 			   && !mref->ref_skip_sync
 			   && !mref_a->resubmit++) {
@@ -759,7 +777,7 @@ static int aio_event_thread(void *data)
 	}
 	err = 0;
 
- err:
+err:
 	MARS_DBG("event thread has stopped, err = %d\n", err);
 
 	aio_stop_thread(output, 2, false);
@@ -829,7 +847,7 @@ void _destroy_ioctx(struct aio_output *output)
 		output->fd = -1;
 	}
 
- done:
+done:
 	if (likely(current->mm)) {
 		unuse_fake_mm();
 	}
@@ -839,6 +857,7 @@ static
 int _create_ioctx(struct aio_output *output)
 {
 	struct file *file;
+
 	mm_segment_t oldfs;
 	int err = -EINVAL;
 
@@ -894,7 +913,7 @@ int _create_ioctx(struct aio_output *output)
 		goto done;
 	}
 
- done:
+done:
 	if (likely(current->mm)) {
 		unuse_fake_mm();
 	}
@@ -948,6 +967,7 @@ static int aio_submit_thread(void *data)
 		    !mref->ref_rw &&
 		    mref->ref_pos + mref->ref_len > mref->ref_total_size) {
 			loff_t len = mref->ref_total_size - mref->ref_pos;
+
 			if (len > 0) {
 				if (mref->ref_len > len)
 					mref->ref_len = len;
@@ -985,7 +1005,7 @@ static int aio_submit_thread(void *data)
 			}
 		}
 
-	error:
+error:
 		if (unlikely(status < 0)) {
 			_complete_mref(output, mref, status);
 		}
@@ -1092,6 +1112,7 @@ void aio_reset_statistics(struct aio_brick *brick)
 {
 	struct aio_output *output = brick->outputs[0];
 	int i;
+
 	atomic_set(&output->total_read_count, 0);
 	atomic_set(&output->total_write_count, 0);
 	atomic_set(&output->total_alloc_count, 0);
@@ -1104,6 +1125,7 @@ void aio_reset_statistics(struct aio_brick *brick)
 	atomic_set(&output->total_mapfree_count, 0);
 	for (i = 0; i < 3; i++) {
 		struct aio_threadinfo *tinfo = &output->tinfo[i];
+
 		atomic_set(&tinfo->total_enqueue_count, 0);
 	}
 }
@@ -1113,6 +1135,7 @@ void aio_reset_statistics(struct aio_brick *brick)
 static int aio_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
 	struct aio_mref_aspect *ini = (void *)_ini;
+
 	INIT_LIST_HEAD(&ini->io_head);
 	INIT_LIST_HEAD(&ini->di.dirty_head);
 	ini->di.dirty_mref = ini->object;
@@ -1122,6 +1145,7 @@ static int aio_mref_aspect_init_fn(struct generic_aspect *_ini)
 static void aio_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
 	struct aio_mref_aspect *ini = (void *)_ini;
+
 	CHECK_HEAD_EMPTY(&ini->di.dirty_head);
 	CHECK_HEAD_EMPTY(&ini->io_head);
 }
@@ -1166,7 +1190,7 @@ static int aio_switch(struct aio_brick *brick)
 		MARS_ERR("could not open file = '%s' flags = %d\n", path, flags);
 		status = -ENOENT;
 		goto err;
-	} 
+	}
 
 	output->index = ++index;
 
@@ -1200,6 +1224,7 @@ cleanup:
 
 	for (;;) {
 		int count = atomic_read(&output->work_count);
+
 		if (count <= 0)
 			break;
 		MARS_DBG("working on %d requests\n", count);

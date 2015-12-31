@@ -33,11 +33,11 @@
 #include "brick.h"
 #include "mars.h"
 #include "mars_bio.h"
-//      remove_this
+//	remove_this
 #ifndef __USE_COMPAT
 #include "mars_aio.h"
 #endif
-//      end_remove_this
+//	end_remove_this
 #include "mars_sio.h"
 
 ///////////////////////// own type definitions ////////////////////////
@@ -64,7 +64,7 @@ int cb_thread(void *data)
 	brick->cb_running = true;
 	wake_up_interruptible(&brick->startup_event);
 
-        while (!brick_thread_should_stop() || !list_empty(&brick->cb_read_list) || !list_empty(&brick->cb_write_list) || atomic_read(&brick->in_flight) > 0) {
+	while (!brick_thread_should_stop() || !list_empty(&brick->cb_read_list) || !list_empty(&brick->cb_write_list) || atomic_read(&brick->in_flight) > 0) {
 		struct server_mref_aspect *mref_a;
 		struct mref_object *mref;
 		struct list_head *tmp;
@@ -107,7 +107,7 @@ int cb_thread(void *data)
 			up(&brick->socket_sem);
 		}
 
-	err:
+err:
 		if (unlikely(status < 0) && !aborted) {
 			aborted = true;
 			MARS_WRN("cannot send response, status = %d\n", status);
@@ -235,24 +235,28 @@ done:
 static int server_get_info(struct server_output *output, struct mars_info *info)
 {
 	struct server_input *input = output->brick->inputs[0];
+
 	return GENERIC_INPUT_CALL(input, mars_get_info, info);
 }
 
 static int server_ref_get(struct server_output *output, struct mref_object *mref)
 {
 	struct server_input *input = output->brick->inputs[0];
+
 	return GENERIC_INPUT_CALL(input, mref_get, mref);
 }
 
 static void server_ref_put(struct server_output *output, struct mref_object *mref)
 {
 	struct server_input *input = output->brick->inputs[0];
+
 	GENERIC_INPUT_CALL(input, mref_put, mref);
 }
 
 static void server_ref_io(struct server_output *output, struct mref_object *mref)
 {
 	struct server_input *input = output->brick->inputs[0];
+
 	GENERIC_INPUT_CALL(input, mref_io, mref);
 }
 
@@ -287,6 +291,7 @@ int server_switch(struct server_brick *brick)
 		mars_power_led_on((void *)brick, true);
 	} else if (!brick->power.led_off) {
 		struct task_struct *thread;
+
 		mars_power_led_on((void *)brick, false);
 
 		mars_shutdown_socket(sock);
@@ -304,7 +309,7 @@ int server_switch(struct server_brick *brick)
 
 		mars_power_led_off((void *)brick, true);
 	}
- err:
+err:
 	if (unlikely(status < 0)) {
 		mars_power_led_off((void *)brick, true);
 		mars_shutdown_socket(sock);
@@ -329,7 +334,7 @@ char *server_statistics(struct server_brick *brick, int verbose)
 		 brick->handler_running,
 		 atomic_read(&brick->in_flight));
 
-        return res;
+	return res;
 }
 
 static
@@ -342,6 +347,7 @@ void server_reset_statistics(struct server_brick *brick)
 static int server_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
 	struct server_mref_aspect *ini = (void *)_ini;
+
 	INIT_LIST_HEAD(&ini->cb_head);
 	return 0;
 }
@@ -349,6 +355,7 @@ static int server_mref_aspect_init_fn(struct generic_aspect *_ini)
 static void server_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
 	struct server_mref_aspect *ini = (void *)_ini;
+
 	CHECK_HEAD_EMPTY(&ini->cb_head);
 }
 
@@ -383,8 +390,8 @@ static int server_output_construct(struct server_output *output)
 
 static struct server_brick_ops server_brick_ops = {
 	.brick_switch = server_switch,
-        .brick_statistics = server_statistics,
-        .reset_statistics = server_reset_statistics,
+	.brick_statistics = server_statistics,
+	.reset_statistics = server_reset_statistics,
 };
 
 static struct server_output_ops server_output_ops = {

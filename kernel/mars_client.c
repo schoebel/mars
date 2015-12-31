@@ -35,7 +35,7 @@
 
 #include "mars_client.h"
 
-#define CLIENT_HASH_MAX (PAGE_SIZE / sizeof(struct list_head))
+#define CLIENT_HASH_MAX			(PAGE_SIZE / sizeof(struct list_head))
 
 int mars_client_abort = 10;
 
@@ -58,6 +58,7 @@ void _do_resubmit(struct client_channel *ch)
 		struct list_head *first = ch->wait_list.next;
 		struct list_head *last = ch->wait_list.prev;
 		struct list_head *old_start = output->mref_list.next;
+
 #define list_connect __list_del // the original routine has a misleading name: in reality it is more general
 		list_connect(&output->mref_list, first);
 		list_connect(last, old_start);
@@ -70,6 +71,7 @@ static
 void _kill_thread(struct client_threadinfo *ti, const char *name)
 {
 	struct task_struct *thread = ti->thread;
+
 	if (thread) {
 		MARS_DBG("stopping %s thread\n", name);
 		ti->thread = NULL;
@@ -103,9 +105,11 @@ static inline
 void _kill_all_channels(struct client_bundle *bundle)
 {
 	int i;
+
 	// first pass: shutdown in parallel without waiting
 	for (i = 0; i < MAX_CLIENT_CHANNELS; i++) {
-		struct client_channel *ch =&bundle->channel[i];
+		struct client_channel *ch = &bundle->channel[i];
+
 		if (mars_socket_is_alive(&ch->socket)) {
 			MARS_DBG("shutdown socket %d\n", i);
 			mars_shutdown_socket(&ch->socket);
@@ -155,7 +159,12 @@ int _setup_channel(struct client_bundle *bundle, int ch_nr)
 	ch->socket.s_recv_abort = mars_client_abort;
 	ch->is_open = true;
 
-	ch->receiver.thread = brick_thread_create(receiver_thread, ch, "mars_receiver%d.%d.%d", bundle->thread_count, ch_nr, ch->thread_count++);
+	ch->receiver.thread = brick_thread_create(receiver_thread,
+		ch,
+		"mars_receiver%d.%d.%d",
+		bundle->thread_count,
+		ch_nr,
+		ch->thread_count++);
 	if (unlikely(!ch->receiver.thread)) {
 		MARS_ERR("cannot start receiver thread %d, status = %d\n", ch_nr, status);
 		status = -ENOENT;
@@ -250,6 +259,7 @@ struct client_channel *_get_channel(struct client_bundle *bundle, int min_channe
 		// create new channels when necessary
 		if (unlikely(!ch->is_open)) {
 			int status;
+
 			// only create one new channel at a time
 			status = _setup_channel(bundle, i);
 			MARS_DBG("setup channel %d status=%d\n", i, status);
@@ -288,6 +298,7 @@ struct client_channel *_get_channel(struct client_bundle *bundle, int min_channe
 			.cmd_str1 = bundle->path,
 		};
 		int status = mars_send_struct(&res->socket, &cmd, mars_cmd_meta);
+
 		MARS_DBG("send CMD_CONNECT status = %d\n", status);
 		if (unlikely(status < 0)) {
 			MARS_WRN("connect '%s' @%s on channel %d failed, status = %d\n",
@@ -305,7 +316,7 @@ struct client_channel *_get_channel(struct client_bundle *bundle, int min_channe
 found:
 	bundle->old_channel = best_channel;
 
- done:
+done:
 	return res;
 }
 
@@ -406,6 +417,7 @@ static int client_ref_get(struct client_output *output, struct mref_object *mref
 
 	if (!mref->ref_data) { // buffered IO
 		struct client_mref_aspect *mref_a = client_mref_get_aspect(output->brick, mref);
+
 		if (!mref_a)
 			return -EILSEQ;
 
@@ -422,6 +434,7 @@ static int client_ref_get(struct client_output *output, struct mref_object *mref
 static void client_ref_put(struct client_output *output, struct mref_object *mref)
 {
 	struct client_mref_aspect *mref_a;
+
 	if (!_mref_put(mref))
 		goto out_return;
 	mref_a = client_mref_get_aspect(output->brick, mref);
@@ -491,7 +504,7 @@ int receiver_thread(void *data)
 	struct client_output *output = ch->output;
 	int status = 0;
 
-        while (!brick_thread_should_stop()) {
+	while (!brick_thread_should_stop()) {
 		struct mars_cmd cmd = {};
 		struct list_head *tmp;
 		struct client_mref_aspect *mref_a = NULL;
@@ -539,6 +552,7 @@ int receiver_thread(void *data)
 			spin_lock_irqsave(&output->lock, flags);
 			for (tmp = output->hash_table[hash_index].next; tmp != &output->hash_table[hash_index]; tmp = tmp->next) {
 				struct mref_object *tmp_mref;
+
 				mref_a = container_of(tmp, struct client_mref_aspect, hash_head);
 				tmp_mref = mref_a->object;
 				CHECK_PTR(tmp_mref, err);
@@ -549,7 +563,7 @@ int receiver_thread(void *data)
 				list_del_init(&mref_a->io_head);
 				break;
 
-			err:
+err:
 				spin_unlock_irqrestore(&output->lock, flags);
 				status = -EBADR;
 				goto done;
@@ -609,7 +623,7 @@ int receiver_thread(void *data)
 			status = -EBADR;
 			goto done;
 		}
-	done:
+done:
 		brick_string_free(cmd.cmd_str1);
 		if (unlikely(status < 0)) {
 			if (!ch->recv_error) {
@@ -707,6 +721,7 @@ void _do_timeout_all(struct client_output *output, bool force)
 {
 	int rounds = 0;
 	int i;
+
 	for (i = 0; i < MAX_CLIENT_CHANNELS; i++) {
 		struct client_channel *ch = &output->bundle.channel[i];
 
@@ -735,7 +750,7 @@ static int sender_thread(void *data)
 	int status = -ESHUTDOWN;
 	unsigned long flags;
 
-        while (!brick_thread_should_stop()) {
+	while (!brick_thread_should_stop()) {
 		struct list_head *tmp = NULL;
 		struct client_mref_aspect *mref_a;
 		struct mref_object *mref;
@@ -793,6 +808,7 @@ static int sender_thread(void *data)
 
 		if (brick->limit_mode) {
 			int amount = 0;
+
 			if (mref->ref_cs_mode < 2)
 				amount = (mref->ref_len - 1) / 1024 + 1;
 			mars_limit_sleep(&client_limiter, amount);
@@ -875,22 +891,22 @@ static int client_switch(struct client_brick *brick)
 	if (brick->power.button) {
 		if (brick->power.led_on)
 			goto done;
-		mars_power_led_off((void*)brick, false);
+		mars_power_led_off((void *)brick, false);
 		status = _setup_bundle(&output->bundle, brick->brick_name);
 		if (likely(status >= 0)) {
 			output->get_info = true;
 			brick->connection_state = 1;
-			mars_power_led_on((void*)brick, true);
+			mars_power_led_on((void *)brick, true);
 		}
 	} else {
 		if (brick->power.led_off)
 			goto done;
-		mars_power_led_on((void*)brick, false);
+		mars_power_led_on((void *)brick, false);
 		_kill_bundle(&output->bundle);
 		_do_timeout_all(output, true);
 		output->got_info = false;
 		brick->connection_state = 0;
-		mars_power_led_off((void*)brick, !output->bundle.sender.thread);
+		mars_power_led_off((void *)brick, !output->bundle.sender.thread);
 	}
 done:
 	return status;
@@ -914,13 +930,14 @@ char *client_statistics(struct client_brick *brick, int verbose)
 		 atomic_read(&output->timeout_count),
 		 atomic_read(&output->fly_count));
 
-        return res;
+	return res;
 }
 
 static
 void client_reset_statistics(struct client_brick *brick)
 {
 	struct client_output *output = brick->outputs[0];
+
 	atomic_set(&output->timeout_count, 0);
 }
 
@@ -928,7 +945,8 @@ void client_reset_statistics(struct client_brick *brick)
 
 static int client_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
-	struct client_mref_aspect *ini = (void*)_ini;
+	struct client_mref_aspect *ini = (void *)_ini;
+
 	INIT_LIST_HEAD(&ini->io_head);
 	INIT_LIST_HEAD(&ini->hash_head);
 	INIT_LIST_HEAD(&ini->tmp_head);
@@ -937,7 +955,8 @@ static int client_mref_aspect_init_fn(struct generic_aspect *_ini)
 
 static void client_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
-	struct client_mref_aspect *ini = (void*)_ini;
+	struct client_mref_aspect *ini = (void *)_ini;
+
 	CHECK_HEAD_EMPTY(&ini->io_head);
 	CHECK_HEAD_EMPTY(&ini->hash_head);
 }
@@ -963,6 +982,7 @@ static int client_output_construct(struct client_output *output)
 
 	for (i = 0; i < MAX_CLIENT_CHANNELS; i++) {
 		struct client_channel *ch = &output->bundle.channel[i];
+
 		ch->output = output;
 		INIT_LIST_HEAD(&ch->wait_list);
 	}
@@ -987,8 +1007,8 @@ static int client_output_destruct(struct client_output *output)
 
 static struct client_brick_ops client_brick_ops = {
 	.brick_switch = client_switch,
-        .brick_statistics = client_statistics,
-        .reset_statistics = client_reset_statistics,
+	.brick_statistics = client_statistics,
+	.reset_statistics = client_reset_statistics,
 };
 
 static struct client_output_ops client_output_ops = {
@@ -1038,12 +1058,13 @@ struct mars_limiter client_limiter = {
 };
 
 int global_net_io_timeout = 30;
+
 module_param_named(net_io_timeout, global_net_io_timeout, int, 0);
 
 int __init init_mars_client(void)
 {
 	MARS_INF("init_client()\n");
-	_client_brick_type = (void*)&client_brick_type;
+	_client_brick_type = (void *)&client_brick_type;
 	return client_register_brick_type();
 }
 

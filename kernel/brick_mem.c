@@ -33,24 +33,24 @@
 #include "brick_mem.h"
 #include "brick_say.h"
 #include "lamport.h"
-//      remove_this
+//	remove_this
 #include "buildtag.h"
-//      end_remove_this
+//	end_remove_this
 
-#define USE_KERNEL_PAGES // currently mandatory (vmalloc does not work)
+#define USE_KERNEL_PAGES		// currently mandatory (vmalloc does not work)
 
-#define MAGIC_BLOCK  ((int)0x8B395D7B)
-#define MAGIC_BEND   ((int)0x8B395D7C)
-#define MAGIC_MEM1   ((int)0x8B395D7D)
-#define MAGIC_MEM2   ((int)0x9B395D8D)
-#define MAGIC_MEND1  ((int)0x8B395D7E)
-#define MAGIC_MEND2  ((int)0x9B395D8E)
-#define MAGIC_STR    ((int)0x8B395D7F)
-#define MAGIC_SEND   ((int)0x9B395D8F)
+#define MAGIC_BLOCK			((int)0x8B395D7B)
+#define MAGIC_BEND			((int)0x8B395D7C)
+#define MAGIC_MEM1			((int)0x8B395D7D)
+#define MAGIC_MEM2			((int)0x9B395D8D)
+#define MAGIC_MEND1			((int)0x8B395D7E)
+#define MAGIC_MEND2			((int)0x9B395D8E)
+#define MAGIC_STR			((int)0x8B395D7F)
+#define MAGIC_SEND			((int)0x9B395D8F)
 
-#define INT_ACCESS(ptr,offset) (*(int*)(((char*)(ptr)) + (offset)))
+#define INT_ACCESS(ptr, offset) (*(int *)(((char *)(ptr)) + (offset)))
 
-#define _BRICK_FMT(_fmt,_class)						\
+#define _BRICK_FMT(_fmt, _class)					\
 	"%ld.%09ld %ld.%09ld MEM_%-5s %s[%d] %s:%d %s(): "		\
 		_fmt,							\
 		_s_now.tv_sec, _s_now.tv_nsec,				\
@@ -72,8 +72,8 @@
 	} while (0)
 
 #define BRICK_ERR(_fmt, _args...) _BRICK_MSG(SAY_ERROR, true,  _fmt, ##_args)
-#define BRICK_WRN(_fmt, _args...) _BRICK_MSG(SAY_WARN,  false, _fmt, ##_args)
-#define BRICK_INF(_fmt, _args...) _BRICK_MSG(SAY_INFO,  false, _fmt, ##_args)
+#define BRICK_WRN(_fmt, _args...) _BRICK_MSG(SAY_WARN,	false, _fmt, ##_args)
+#define BRICK_INF(_fmt, _args...) _BRICK_MSG(SAY_INFO,	false, _fmt, ##_args)
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -83,11 +83,13 @@
 
 long long brick_global_memavail;
 long long brick_global_memlimit;
+
 atomic64_t brick_global_block_used = ATOMIC64_INIT(0);
 
 void get_total_ram(void)
 {
 	struct sysinfo i = {};
+
 	si_meminfo(&i);
 	//si_swapinfo(&i);
 	brick_global_memavail = (long long)i.totalram * (PAGE_SIZE / 1024);
@@ -104,15 +106,17 @@ static atomic_t mem_redirect_alloc = ATOMIC_INIT(0);
 static atomic_t mem_count[BRICK_DEBUG_MEM];
 static atomic_t mem_free[BRICK_DEBUG_MEM];
 static int  mem_len[BRICK_DEBUG_MEM];
-#define PLUS_SIZE (6 * sizeof(int))
+
+#define PLUS_SIZE			(6 * sizeof(int))
 #else
-#define PLUS_SIZE (2 * sizeof(int))
+#define PLUS_SIZE			(2 * sizeof(int))
 #endif
 
 static inline
 void *__brick_mem_alloc(int len)
 {
 	void *res;
+
 	if (len >= PAGE_SIZE) {
 #ifdef BRICK_DEBUG_MEM
 		atomic_inc(&mem_redirect_alloc);
@@ -151,6 +155,7 @@ void __brick_mem_free(void *data, int len)
 void *_brick_mem_alloc(int len, int line)
 {
 	void *res;
+
 #ifdef CONFIG_MARS_DEBUG
 	might_sleep();
 #endif
@@ -182,16 +187,25 @@ void _brick_mem_free(void *data, int cline)
 {
 #ifdef BRICK_DEBUG_MEM
 	void *test = data - 4 * sizeof(int);
-	int magic1= INT_ACCESS(test, 0 * sizeof(int));
-	int len   = INT_ACCESS(test, 1 * sizeof(int));
-	int line  = INT_ACCESS(test, 2 * sizeof(int));
-	int magic2= INT_ACCESS(test, 3 * sizeof(int));
+	int magic1 = INT_ACCESS(test, 0 * sizeof(int));
+	int len = INT_ACCESS(test, 1 * sizeof(int));
+	int line = INT_ACCESS(test, 2 * sizeof(int));
+	int magic2 = INT_ACCESS(test, 3 * sizeof(int));
+
 	if (unlikely(magic1 != MAGIC_MEM1)) {
-		BRICK_ERR("line %d memory corruption: magix1 %08x != %08x, len = %d\n", cline, magic1, MAGIC_MEM1, len);
+		BRICK_ERR("line %d memory corruption: magix1 %08x != %08x, len = %d\n",
+			cline,
+			magic1,
+			MAGIC_MEM1,
+			len);
 		goto _out_return;
 	}
 	if (unlikely(magic2 != MAGIC_MEM2)) {
-		BRICK_ERR("line %d memory corruption: magix2 %08x != %08x, len = %d\n", cline, magic2, MAGIC_MEM2, len);
+		BRICK_ERR("line %d memory corruption: magix2 %08x != %08x, len = %d\n",
+			cline,
+			magic2,
+			MAGIC_MEM2,
+			len);
 		goto _out_return;
 	}
 	if (unlikely(line < 0 || line >= BRICK_DEBUG_MEM)) {
@@ -201,12 +215,20 @@ void _brick_mem_free(void *data, int cline)
 	INT_ACCESS(test, 0) = 0xffffffff;
 	magic1 = INT_ACCESS(data, len + 0 * sizeof(int));
 	if (unlikely(magic1 != MAGIC_MEND1)) {
-		BRICK_ERR("line %d memory corruption: magix1 %08x != %08x, len = %d\n", cline, magic1, MAGIC_MEND1, len);
+		BRICK_ERR("line %d memory corruption: magix1 %08x != %08x, len = %d\n",
+			cline,
+			magic1,
+			MAGIC_MEND1,
+			len);
 		goto _out_return;
 	}
 	magic2 = INT_ACCESS(data, len + 1 * sizeof(int));
 	if (unlikely(magic2 != MAGIC_MEND2)) {
-		BRICK_ERR("line %d memory corruption: magix2 %08x != %08x, len = %d\n", cline, magic2, MAGIC_MEND2, len);
+		BRICK_ERR("line %d memory corruption: magix2 %08x != %08x, len = %d\n",
+			cline,
+			magic2,
+			MAGIC_MEND2,
+			len);
 		goto _out_return;
 	}
 	INT_ACCESS(data, len) = 0xffffffff;
@@ -214,7 +236,8 @@ void _brick_mem_free(void *data, int cline)
 	atomic_inc(&mem_free[line]);
 #else
 	void *test = data - PLUS_SIZE;
-	int len   = INT_ACCESS(test, 0 * sizeof(int));
+	int len = INT_ACCESS(test, 0 * sizeof(int));
+
 #endif
 	data = test;
 	__brick_mem_free(data, len + PLUS_SIZE);
@@ -229,26 +252,26 @@ _out_return:;
 
 #ifdef CONFIG_MARS_DEBUG_MEM_STRONG
 # define STRING_CANARY							\
-	"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"	\
-	"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"	\
-	"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"	\
-	"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"	\
-	"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"	\
-	"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"	\
-	"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"	\
-	"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"	\
-	"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"	\
-/*      remove_this */							\
-	" BUILDTAG = "  BUILDTAG					\
+	"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+	"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy" \
+	"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz" \
+	"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+	"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy" \
+	"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz" \
+	"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+	"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy" \
+	"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz" \
+/*	remove_this */							\
+	" BUILDTAG = "	BUILDTAG					\
 	" BUILDHOST = " BUILDHOST					\
 	" BUILDDATE = " BUILDDATE					\
-/*      end_remove_this */						\
-	" FILE = "      __FILE__					\
-/*      remove_this */							\
-	" DATE = "      __DATE__					\
-	" TIME = "      __TIME__					\
-/*      end_remove_this */						\
-	" VERSION = "   __VERSION__					\
+/*	end_remove_this */						\
+	" FILE = "	__FILE__					\
+/*	remove_this */							\
+	" DATE = "	__DATE__					\
+	" TIME = "	__TIME__					\
+/*	end_remove_this */						\
+	" VERSION = "	__VERSION__					\
 	" xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx STRING_error xxx\n"
 # define STRING_PLUS (sizeof(int) * 3 + sizeof(STRING_CANARY))
 #elif defined(BRICK_DEBUG_MEM)
@@ -261,6 +284,7 @@ _out_return:;
 static atomic_t phys_string_alloc = ATOMIC_INIT(0);
 static atomic_t string_count[BRICK_DEBUG_MEM];
 static atomic_t string_free[BRICK_DEBUG_MEM];
+
 #endif
 
 char *_brick_string_alloc(int len, int line)
@@ -313,7 +337,7 @@ void _brick_string_free(const char *data, int cline)
 	int magic;
 	int len;
 	int line;
-	char *orig = (void*)data;
+	char *orig = (void *)data;
 
 	data -= sizeof(int) * 3;
 	magic = INT_ACCESS(data, 0);
@@ -321,7 +345,7 @@ void _brick_string_free(const char *data, int cline)
 		BRICK_ERR("cline %d stringmem corruption: magix %08x != %08x\n", cline, magic, MAGIC_STR);
 		goto _out_return;
 	}
-	len =  INT_ACCESS(data, sizeof(int));
+	len = INT_ACCESS(data, sizeof(int));
 	line = INT_ACCESS(data, sizeof(int) * 2);
 	if (unlikely(len <= 0)) {
 		BRICK_ERR("cline %d stringmem corruption: line = %d len = %d\n", cline, line, len);
@@ -390,24 +414,28 @@ static atomic_t _alloc_count[BRICK_MAX_ORDER+1];
 int brick_mem_alloc_count[BRICK_MAX_ORDER+1] = {};
 int brick_mem_alloc_max[BRICK_MAX_ORDER+1] = {};
 int brick_mem_freelist_max[BRICK_MAX_ORDER+1] = {};
+
 #endif
 
 #ifdef BRICK_DEBUG_MEM
 static atomic_t phys_block_alloc = ATOMIC_INIT(0);
+
 // indexed by line
 static atomic_t block_count[BRICK_DEBUG_MEM];
 static atomic_t block_free[BRICK_DEBUG_MEM];
 static int  block_len[BRICK_DEBUG_MEM];
+
 // indexed by order
 static atomic_t op_count[BRICK_MAX_ORDER+1];
 static atomic_t raw_count[BRICK_MAX_ORDER+1];
 static int alloc_line[BRICK_MAX_ORDER+1];
 static int alloc_len[BRICK_MAX_ORDER+1];
+
 #endif
 
 #ifdef CONFIG_MARS_DEBUG_MEM_STRONG
 
-#define MAX_INFO_LISTS 1024
+#define MAX_INFO_LISTS			1024
 
 #define INFO_LIST_HASH(addr) ((unsigned long)(addr) / (PAGE_SIZE * 2) % MAX_INFO_LISTS)
 
@@ -459,6 +487,7 @@ struct mem_block_info *_find_block_info(void *data, bool remove)
 		read_lock(&inf_lock[hash]);
 	for (tmp = inf_anchor[hash].next; tmp != &inf_anchor[hash]; tmp = tmp->next) {
 		struct mem_block_info *inf = container_of(tmp, struct mem_block_info, inf_head);
+
 		if (inf->inf_data != data)
 			continue;
 		if (remove)
@@ -482,7 +511,7 @@ void *__brick_block_alloc(gfp_t gfp, int order, int cline)
 
 	for (;;) {
 #ifdef USE_KERNEL_PAGES
-		res = (void*)__get_free_pages(gfp, order);
+		res = (void *)__get_free_pages(gfp, order);
 #else
 		res = __vmalloc(PAGE_SIZE << order, gfp, PAGE_KERNEL_IO);
 #endif
@@ -508,12 +537,19 @@ void __brick_block_free(void *data, int order, int cline)
 {
 #ifdef CONFIG_MARS_DEBUG_MEM_STRONG
 	struct mem_block_info *inf = _find_block_info(data, true);
+
 	if (likely(inf)) {
 		int inf_len = inf->inf_len;
 		int inf_line = inf->inf_line;
+
 		kfree(inf);
 		if (unlikely(inf_len != (PAGE_SIZE << order))) {
-			BRICK_ERR("line %d: address %p: bad freeing size %d (correct should be %d, previous line = %d)\n", cline, data, (int)(PAGE_SIZE << order), inf_len, inf_line);
+			BRICK_ERR("line %d: address %p: bad freeing size %d (correct should be %d, previous line = %d)\n",
+				cline,
+				data,
+				(int)(PAGE_SIZE << order),
+				inf_len,
+				inf_line);
 			goto err;
 		}
 	} else {
@@ -527,7 +563,7 @@ void __brick_block_free(void *data, int order, int cline)
 	vfree(data);
 #endif
 #ifdef CONFIG_MARS_DEBUG_MEM_STRONG
- err:
+err:
 #endif
 #ifdef BRICK_DEBUG_MEM
 	atomic_dec(&phys_block_alloc);
@@ -558,10 +594,12 @@ void *_get_free(int order, int cline)
 	spin_lock_irqsave(&freelist_lock[order], flags);
 	data = brick_freelist[order];
 	if (likely(data)) {
-		void *next = *(void**)data;
+		void *next = *(void **)data;
+
 #ifdef BRICK_DEBUG_MEM // check for corruptions
-		long pattern = *(((long*)data)+1);
-		void *copy = *(((void**)data)+2);
+		long pattern = *(((long *)data)+1);
+		void *copy = *(((void **)data)+2);
+
 		if (unlikely(pattern != 0xf0f0f0f0f0f0f0f0 || next != copy)) { // found a corruption
 			// prevent further trouble by leaving a memleak
 			brick_freelist[order] = NULL;
@@ -578,6 +616,7 @@ void *_get_free(int order, int cline)
 #ifdef CONFIG_MARS_DEBUG_MEM_STRONG
 	if (data) {
 		struct mem_block_info *inf = _find_block_info(data, false);
+
 		if (likely(inf)) {
 			if (unlikely(inf->inf_len != (PAGE_SIZE << order))) {
 				BRICK_ERR("line %d: address %p: bad freelist size %d (correct should be %d, previous line = %d)\n",
@@ -605,9 +644,9 @@ void _put_free(void *data, int order)
 
 	spin_lock_irqsave(&freelist_lock[order], flags);
 	next = brick_freelist[order];
-	*(void**)data = next;
+	*(void **)data = next;
 #ifdef BRICK_DEBUG_MEM // insert redundant copy for checking
-	*(((void**)data)+2) = next;
+	*(((void **)data)+2) = next;
 #endif
 	brick_freelist[order] = data;
 	spin_unlock_irqrestore(&freelist_lock[order], flags);
@@ -618,9 +657,11 @@ static
 void _free_all(void)
 {
 	int order;
+
 	for (order = BRICK_MAX_ORDER; order >= 0; order--) {
 		for (;;) {
 			void *data = _get_free(order, __LINE__);
+
 			if (!data)
 				break;
 			__brick_block_free(data, order, __LINE__);
@@ -632,17 +673,22 @@ int brick_mem_reserve(void)
 {
 	int order;
 	int status = 0;
+
 	for (order = BRICK_MAX_ORDER; order >= 0; order--) {
 		int max = brick_pre_reserve[order];
 		int i;
 
 		brick_mem_freelist_max[order] += max;
-		BRICK_INF("preallocating %d at order %d (new maxlevel = %d)\n", max, order, brick_mem_freelist_max[order]);
+		BRICK_INF("preallocating %d at order %d (new maxlevel = %d)\n",
+			max,
+			order,
+			brick_mem_freelist_max[order]);
 
 		max = brick_mem_freelist_max[order] - atomic_read(&freelist_count[order]);
 		if (max >= 0) {
 			for (i = 0; i < max; i++) {
 				void *data = __brick_block_alloc(GFP_KERNEL, order, __LINE__);
+
 				if (likely(data)) {
 					_put_free(data, order);
 				} else {
@@ -652,6 +698,7 @@ int brick_mem_reserve(void)
 		} else {
 			for (i = 0; i < -max; i++) {
 				void *data = _get_free(order, __LINE__);
+
 				if (likely(data)) {
 					__brick_block_free(data, order, __LINE__);
 				}
@@ -672,15 +719,20 @@ void *_brick_block_alloc(loff_t pos, int len, int line)
 {
 	void *data;
 	int count;
+
 #ifdef BRICK_DEBUG_MEM
 #ifdef BRICK_DEBUG_ORDER0
 	const int plus0 = PAGE_SIZE;
+
 #else
 	const int plus0 = 0;
+
 #endif
 	const int plus = len <= PAGE_SIZE ? plus0 : PAGE_SIZE * 2;
+
 #else
 	const int plus = 0;
+
 #endif
 	int order = len2order(len + plus);
 
@@ -750,20 +802,27 @@ void *_brick_block_alloc(loff_t pos, int len, int line)
 void _brick_block_free(void *data, int len, int cline)
 {
 	int order;
+
 #ifdef CONFIG_MARS_DEBUG_MEM_STRONG
 	struct mem_block_info *inf;
 	char *real_data;
+
 #endif
 #ifdef BRICK_DEBUG_MEM
 	int prev_line = 0;
+
 #ifdef BRICK_DEBUG_ORDER0
 	const int plus0 = PAGE_SIZE;
+
 #else
 	const int plus0 = 0;
+
 #endif
 	const int plus = len <= PAGE_SIZE ? plus0 : PAGE_SIZE * 2;
+
 #else
 	const int plus = 0;
+
 #endif
 
 	order = len2order(len + plus);
@@ -780,7 +839,10 @@ void _brick_block_free(void *data, int len, int cline)
 			goto _out_return;
 		}
 		if (unlikely(!inf->inf_used)) {
-			BRICK_ERR("line %d: address %p: double freeing (previous line = %d)\n", cline, data, prev_line);
+			BRICK_ERR("line %d: address %p: double freeing (previous line = %d)\n",
+				cline,
+				data,
+				prev_line);
 			goto _out_return;
 		}
 		inf->inf_line = cline;
@@ -800,24 +862,48 @@ void _brick_block_free(void *data, int len, int cline)
 		int magic2;
 
 		if (unlikely(magic1 != MAGIC_BLOCK)) {
-			BRICK_ERR("line %d memory corruption: %p magix1 %08x != %08x (previous line = %d)\n", cline, data, magic1, MAGIC_BLOCK, prev_line);
+			BRICK_ERR("line %d memory corruption: %p magix1 %08x != %08x (previous line = %d)\n",
+				cline,
+				data,
+				magic1,
+				MAGIC_BLOCK,
+				prev_line);
 			goto _out_return;
 		}
 		if (unlikely(magic != MAGIC_BLOCK)) {
-			BRICK_ERR("line %d memory corruption: %p magix %08x != %08x (previous line = %d)\n", cline, data, magic, MAGIC_BLOCK, prev_line);
+			BRICK_ERR("line %d memory corruption: %p magix %08x != %08x (previous line = %d)\n",
+				cline,
+				data,
+				magic,
+				MAGIC_BLOCK,
+				prev_line);
 			goto _out_return;
 		}
 		if (unlikely(line < 0 || line >= BRICK_DEBUG_MEM)) {
-			BRICK_ERR("line %d memory corruption %p: alloc line = %d (previous line = %d)\n", cline, data, line, prev_line);
+			BRICK_ERR("line %d memory corruption %p: alloc line = %d (previous line = %d)\n",
+				cline,
+				data,
+				line,
+				prev_line);
 			goto _out_return;
 		}
 		if (unlikely(oldlen != len)) {
-			BRICK_ERR("line %d memory corruption %p: len != oldlen (%d != %d, previous line = %d))\n", cline, data, len, oldlen, prev_line);
+			BRICK_ERR("line %d memory corruption %p: len != oldlen (%d != %d, previous line = %d))\n",
+				cline,
+				data,
+				len,
+				oldlen,
+				prev_line);
 			goto _out_return;
 		}
 		magic2 = INT_ACCESS(data, len);
 		if (unlikely(magic2 != MAGIC_BEND)) {
-			BRICK_ERR("line %d memory corruption %p: magix %08x != %08x (previous line = %d)\n", cline, data, magic, MAGIC_BEND, prev_line);
+			BRICK_ERR("line %d memory corruption %p: magix %08x != %08x (previous line = %d)\n",
+				cline,
+				data,
+				magic,
+				MAGIC_BEND,
+				prev_line);
 			goto _out_return;
 		}
 		INT_ACCESS(test, 0) = 0xffffffff;
@@ -827,20 +913,34 @@ void _brick_block_free(void *data, int len, int cline)
 		atomic_inc(&block_free[line]);
 	} else if (order == 1) {
 		void *test = data + PAGE_SIZE;
-		int magic  = INT_ACCESS(test, 0 * sizeof(int));
-		int line   = INT_ACCESS(test, 1 * sizeof(int));
+		int magic = INT_ACCESS(test, 0 * sizeof(int));
+		int line = INT_ACCESS(test, 1 * sizeof(int));
 		int oldlen = INT_ACCESS(test, 2 * sizeof(int));
 
 		if (unlikely(magic != MAGIC_BLOCK)) {
-			BRICK_ERR("line %d memory corruption %p: magix %08x != %08x (previous line = %d)\n", cline, data, magic, MAGIC_BLOCK, prev_line);
+			BRICK_ERR("line %d memory corruption %p: magix %08x != %08x (previous line = %d)\n",
+				cline,
+				data,
+				magic,
+				MAGIC_BLOCK,
+				prev_line);
 			goto _out_return;
 		}
 		if (unlikely(line < 0 || line >= BRICK_DEBUG_MEM)) {
-			BRICK_ERR("line %d memory corruption %p: alloc line = %d (previous line = %d)\n", cline, data, line, prev_line);
+			BRICK_ERR("line %d memory corruption %p: alloc line = %d (previous line = %d)\n",
+				cline,
+				data,
+				line,
+				prev_line);
 			goto _out_return;
 		}
 		if (unlikely(oldlen != len)) {
-			BRICK_ERR("line %d memory corruption %p: len != oldlen (%d != %d, previous line = %d))\n", cline, data, len, oldlen, prev_line);
+			BRICK_ERR("line %d memory corruption %p: len != oldlen (%d != %d, previous line = %d))\n",
+				cline,
+				data,
+				len,
+				oldlen,
+				prev_line);
 			goto _out_return;
 		}
 		atomic_dec(&block_count[line]);
@@ -866,6 +966,7 @@ struct page *brick_iomap(void *data, int *offset, int *len)
 {
 	int _offset = ((unsigned long)data) & (PAGE_SIZE-1);
 	struct page *page;
+
 	*offset = _offset;
 	if (*len > PAGE_SIZE - _offset) {
 		*len = PAGE_SIZE - _offset;
@@ -913,6 +1014,7 @@ void brick_mem_statistics(bool final)
 #endif
 	for (i = 0; i < BRICK_DEBUG_MEM; i++) {
 		int val = atomic_read(&block_count[i]);
+
 		if (val) {
 			count += val;
 			places++;
@@ -935,6 +1037,7 @@ void brick_mem_statistics(bool final)
 	count = places = 0;
 	for (i = 0; i < BRICK_DEBUG_MEM; i++) {
 		int val = atomic_read(&mem_count[i]);
+
 		if (val) {
 			count += val;
 			places++;
@@ -959,6 +1062,7 @@ void brick_mem_statistics(bool final)
 	count = places = 0;
 	for (i = 0; i < BRICK_DEBUG_MEM; i++) {
 		int val = atomic_read(&string_count[i]);
+
 		if (val) {
 			count += val;
 			places++;
@@ -985,6 +1089,7 @@ void brick_mem_statistics(bool final)
 int __init init_brick_mem(void)
 {
 	int i;
+
 #ifdef CONFIG_MARS_MEM_PREALLOC
 	for (i = BRICK_MAX_ORDER; i >= 0; i--) {
 		spin_lock_init(&freelist_lock[i]);

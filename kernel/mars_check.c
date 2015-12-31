@@ -49,10 +49,10 @@
 
 ///////////////////////// own helper functions ////////////////////////
 
-#define CHECK_ERR(output,fmt,args...)					\
+#define CHECK_ERR(output, fmt, args...)					\
 	do {								\
-		struct check_input *input = (output)->brick->inputs[0];	\
-		struct generic_output *other = (void*)input->connect;	\
+		struct check_input *input = (output)->brick->inputs[0]; \
+		struct generic_output *other = (void *)input->connect;	\
 		if (other) {						\
 			MARS_ERR("instance %d/%s: " fmt,		\
 				 (output)->instance_nr,			\
@@ -122,6 +122,7 @@ static void dump_mem(void *data, int len)
 
 	for (i = 0, tmp = buf; i < len; i++) {
 		unsigned char byte = ((unsigned char*)data)[i];
+
 		if (!(i % 8)) {
 			if (tmp != buf) {
 				say(-1, "%4d: %s\n", i, buf);
@@ -139,6 +140,7 @@ static void dump_mem(void *data, int len)
 static int check_watchdog(void *data)
 {
 	struct check_output *output = data;
+
 	MARS_INF("watchdog has started.\n");
 	while (!brick_thread_should_stop()) {
 		struct list_head *h;
@@ -162,9 +164,13 @@ static int check_watchdog(void *data)
 			elapsed = now - mref_a->last_jiffies;
 			if (elapsed > timeout * HZ && limit-- > 0) {
 				struct generic_object_layout *object_layout;
+
 				mref_a->last_jiffies = now + 600 * HZ;
 				MARS_INF("================================\n");
-				CHECK_ERR(output, "mref %p callback is missing for more than %d seconds.\n", mref, timeout);
+				CHECK_ERR(output,
+					"mref %p callback is missing for more than %d seconds.\n",
+					mref,
+					timeout);
 				object_layout = mref->object_layout;
 				dump_mem(mref, object_layout->size_hint);
 				MARS_INF("================================\n");
@@ -182,18 +188,21 @@ static int check_watchdog(void *data)
 static int check_get_info(struct check_output *output, struct mars_info *info)
 {
 	struct check_input *input = output->brick->inputs[0];
+
 	return GENERIC_INPUT_CALL(input, mars_get_info, info);
 }
 
 static int check_ref_get(struct check_output *output, struct mref_object *mref)
 {
 	struct check_input *input = output->brick->inputs[0];
+
 	return GENERIC_INPUT_CALL(input, mref_get, mref);
 }
 
 static void check_ref_put(struct check_output *output, struct mref_object *mref)
 {
 	struct check_input *input = output->brick->inputs[0];
+
 	GENERIC_INPUT_CALL(input, mref_put, mref);
 }
 
@@ -235,14 +244,15 @@ static void check_ref_io(struct check_output *output, struct mref_object *mref)
 	GENERIC_INPUT_CALL(input, mref_io, mref);
 
 	atomic_inc(&mref_a->call_count);
-fatal: ;
+fatal:;
 }
 
 //////////////// object / aspect constructors / destructors ///////////////
 
 static int check_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
-	struct check_mref_aspect *ini = (void*)_ini;
+	struct check_mref_aspect *ini = (void *)_ini;
+
 #ifdef CHECK_LOCK
 	INIT_LIST_HEAD(&ini->mref_head);
 #endif
@@ -255,11 +265,13 @@ static int check_mref_aspect_init_fn(struct generic_aspect *_ini)
 
 static void check_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
-	struct check_mref_aspect *ini = (void*)_ini;
+	struct check_mref_aspect *ini = (void *)_ini;
+
 	(void)ini;
 #ifdef CHECK_LOCK
 	if (!list_empty(&ini->mref_head)) {
 		struct check_output *output = ini->output;
+
 		if (output) {
 			CHECK_ERR(output, "list head not empty on %p\n", ini->object);
 			INIT_LIST_HEAD(&ini->mref_head);
@@ -282,6 +294,7 @@ static int check_brick_construct(struct check_brick *brick)
 static int check_output_construct(struct check_output *output)
 {
 	static int count;
+
 #ifdef CHECK_LOCK
 
 	spin_lock_init(&output->check_lock);

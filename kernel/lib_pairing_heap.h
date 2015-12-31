@@ -34,26 +34,27 @@
  * embed this structure into other container structures already
  * possessing some key (just provide an empty KEYDEF in this case).
  */
-#define _PAIRING_HEAP_TYPEDEF(KEYTYPE,KEYDEF)		\
-							\
-struct pairing_heap_##KEYTYPE {			        \
-	KEYDEF						\
-	struct pairing_heap_##KEYTYPE *next;	        \
-	struct pairing_heap_##KEYTYPE *subheaps;	\
-};							\
+#define _PAIRING_HEAP_TYPEDEF(KEYTYPE, KEYDEF)				\
+									\
+struct pairing_heap_##KEYTYPE {						\
+	KEYDEF								\
+	struct pairing_heap_##KEYTYPE *next;				\
+	struct pairing_heap_##KEYTYPE *subheaps;			\
+};									\
 /* this comment is for keeping TRAILING_SEMICOLON happy */
 
 /* less generic version: define the key inside.
  */
-#define PAIRING_HEAP_TYPEDEF(KEYTYPE)			\
+#define PAIRING_HEAP_TYPEDEF(KEYTYPE)					\
 	_PAIRING_HEAP_TYPEDEF(KEYTYPE, KEYTYPE key;)
 
 /* generic methods: allow arbitrary CMP() functions.
  */
-#define _PAIRING_HEAP_FUNCTIONS(_STATIC,KEYTYPE,CMP)			\
+#define _PAIRING_HEAP_FUNCTIONS(_STATIC, KEYTYPE, CMP)			\
 									\
-_STATIC								        \
-struct pairing_heap_##KEYTYPE *_ph_merge_##KEYTYPE(struct pairing_heap_##KEYTYPE *heap1, struct pairing_heap_##KEYTYPE *heap2) \
+_STATIC									\
+struct pairing_heap_##KEYTYPE *_ph_merge_##KEYTYPE(struct pairing_heap_##KEYTYPE *heap1,\
+	struct pairing_heap_##KEYTYPE *heap2)				\
 {									\
 	if (!heap1)							\
 		return heap2;						\
@@ -69,15 +70,15 @@ struct pairing_heap_##KEYTYPE *_ph_merge_##KEYTYPE(struct pairing_heap_##KEYTYPE
 	return heap2;							\
 }									\
 									\
-_STATIC								        \
-void ph_insert_##KEYTYPE(struct pairing_heap_##KEYTYPE **heap, struct pairing_heap_##KEYTYPE *new) \
+_STATIC									\
+void ph_insert_##KEYTYPE(struct pairing_heap_##KEYTYPE **heap, struct pairing_heap_##KEYTYPE *new)\
 {									\
 	new->next = NULL;						\
 	new->subheaps = NULL;						\
 	*heap = _ph_merge_##KEYTYPE(*heap, new);			\
 }									\
 									\
-_STATIC								        \
+_STATIC									\
 void ph_delete_min_##KEYTYPE(struct pairing_heap_##KEYTYPE **heap)	\
 {									\
 	struct pairing_heap_##KEYTYPE *tmplist = NULL;			\
@@ -87,7 +88,7 @@ void ph_delete_min_##KEYTYPE(struct pairing_heap_##KEYTYPE **heap)	\
 	if (!*heap) {							\
 		return;							\
 	}								\
-	for (ptr = (*heap)->subheaps; ptr; ptr = next) {			\
+	for (ptr = (*heap)->subheaps; ptr; ptr = next) {		\
 		struct pairing_heap_##KEYTYPE *p2 = ptr->next;		\
 		next = p2;						\
 		if (p2) {						\
@@ -106,10 +107,10 @@ void ph_delete_min_##KEYTYPE(struct pairing_heap_##KEYTYPE **heap)	\
 }
 
 /* some default CMP() function */
-#define PAIRING_HEAP_COMPARE(a,b) ((a)->key < (b)->key ? -1 : ((a)->key > (b)->key ? 1 : 0))
+#define PAIRING_HEAP_COMPARE(a, b) ((a)->key < (b)->key ? -1 : ((a)->key > (b)->key ? 1 : 0))
 
 /* less generic version: use the default CMP() function */
-#define PAIRING_HEAP_FUNCTIONS(_STATIC,KEYTYPE)				\
-	_PAIRING_HEAP_FUNCTIONS(_STATIC,KEYTYPE,PAIRING_HEAP_COMPARE)
+#define PAIRING_HEAP_FUNCTIONS(_STATIC, KEYTYPE)			\
+	_PAIRING_HEAP_FUNCTIONS(_STATIC, KEYTYPE, PAIRING_HEAP_COMPARE)
 
 #endif

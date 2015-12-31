@@ -72,6 +72,7 @@ int ranking_select(struct rank_data rkd[], int rkd_count)
 	for (i = 0; i < rkd_count; i++) {
 		struct rank_data *tmp = &rkd[i];
 		long long rest = tmp->rkd_current_points;
+
 		if (rest <= 0)
 			continue;
 		//rest -= tmp->rkd_got;

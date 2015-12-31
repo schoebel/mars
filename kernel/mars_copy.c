@@ -34,18 +34,18 @@
 #include "lib_limiter.h"
 
 #ifndef READ
-#define READ  0
-#define WRITE 1
+#define READ				0
+#define WRITE				1
 #endif
 
-#define COPY_CHUNK         (PAGE_SIZE)
-#define NR_COPY_REQUESTS   (32 * 1024 * 1024 / COPY_CHUNK)
+#define COPY_CHUNK			(PAGE_SIZE)
+#define NR_COPY_REQUESTS		(32 * 1024 * 1024 / COPY_CHUNK)
 
-#define STATES_PER_PAGE    (PAGE_SIZE / sizeof(struct copy_state))
-#define MAX_SUB_TABLES     (NR_COPY_REQUESTS / STATES_PER_PAGE + (NR_COPY_REQUESTS % STATES_PER_PAGE ? 1 : 0))
-#define MAX_COPY_REQUESTS  (PAGE_SIZE / sizeof(struct copy_state *) * STATES_PER_PAGE)
+#define STATES_PER_PAGE			(PAGE_SIZE / sizeof(struct copy_state))
+#define MAX_SUB_TABLES			(NR_COPY_REQUESTS / STATES_PER_PAGE + (NR_COPY_REQUESTS % STATES_PER_PAGE ? 1 : 0))
+#define MAX_COPY_REQUESTS		(PAGE_SIZE / sizeof(struct copy_state *) * STATES_PER_PAGE)
 
-#define GET_STATE(brick,index)						\
+#define GET_STATE(brick, index)						\
 	((brick)->st[(index) / STATES_PER_PAGE][(index) % STATES_PER_PAGE])
 
 ///////////////////////// own type definitions ////////////////////////
@@ -91,6 +91,7 @@ static inline
 int _clear_clash(struct copy_brick *brick)
 {
 	int old;
+
 	old = test_and_clear_bit(0, &brick->clash);
 	return old;
 }
@@ -145,13 +146,14 @@ int _determine_input(struct copy_brick *brick, struct mref_object *mref)
 	return INPUT_A_IO;
 }
 
-#define GET_INDEX(pos)    (((pos) / COPY_CHUNK) % NR_COPY_REQUESTS)
+#define GET_INDEX(pos)	  (((pos) / COPY_CHUNK) % NR_COPY_REQUESTS)
 #define GET_OFFSET(pos)   ((pos) % COPY_CHUNK)
 
 static
 void __clear_mref(struct copy_brick *brick, struct mref_object *mref, int queue)
 {
 	struct copy_input *input;
+
 	input = queue ? brick->inputs[INPUT_B_COPY] : brick->inputs[INPUT_A_COPY];
 	GENERIC_INPUT_CALL(input, mref_put, mref);
 }
@@ -161,6 +163,7 @@ void _clear_mref(struct copy_brick *brick, int index, int queue)
 {
 	struct copy_state *st = &GET_STATE(brick, index);
 	struct mref_object *mref = st->table[queue];
+
 	if (mref) {
 		if (unlikely(st->active[queue])) {
 			MARS_ERR("clearing active mref, index = %d queue = %d\n", index, queue);
@@ -175,6 +178,7 @@ static
 void _clear_all_mref(struct copy_brick *brick)
 {
 	int i;
+
 	for (i = 0; i < NR_COPY_REQUESTS; i++) {
 		GET_STATE(brick, i).state = COPY_STATE_START;
 		_clear_mref(brick, i, 0);
@@ -186,8 +190,10 @@ static
 void _clear_state_table(struct copy_brick *brick)
 {
 	int i;
+
 	for (i = 0; i < MAX_SUB_TABLES; i++) {
 		struct copy_state *sub_table = brick->st[i];
+
 		memset(sub_table, 0, PAGE_SIZE);
 	}
 }
@@ -262,7 +268,14 @@ out_return:;
 }
 
 static
-int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_t pos, loff_t end_pos, int rw, int cs_mode)
+int _make_mref(struct copy_brick *brick,
+	int index,
+	int queue,
+	void *data,
+	loff_t pos,
+	loff_t end_pos,
+	int rw,
+	int cs_mode)
 {
 	struct mref_object *mref;
 	struct copy_mref_aspect *mref_a;
@@ -344,7 +357,11 @@ void _update_percent(struct copy_brick *brick, bool force)
 		brick->copy_start = brick->copy_last;
 		brick->last_jiffies = jiffies;
 		brick->power.percent_done = brick->copy_end > 0 ? brick->copy_start * 100 / brick->copy_end : 0;
-		MARS_INF("'%s' copied %lld / %lld bytes (%d%%)\n", brick->brick_path, brick->copy_last, brick->copy_end, brick->power.percent_done);
+		MARS_INF("'%s' copied %lld / %lld bytes (%d%%)\n",
+			brick->brick_path,
+			brick->copy_last,
+			brick->copy_end,
+			brick->power.percent_done);
 	}
 }
 
@@ -430,7 +447,7 @@ restart:
 		if (!mref1) { // idempotence: wait by unchanged state
 			goto idle;
 		}
-		/* fallthrough => wait for both mrefs to appear */
+		/* fallthrough = > wait for both mrefs to appear */
 	case COPY_STATE_READ1:
 	case COPY_STATE_READ3:
 		mref0 = st->table[0];
@@ -439,6 +456,7 @@ restart:
 		}
 		if (brick->copy_limiter) {
 			int amount = (mref0->ref_len - 1) / 1024 + 1;
+
 			mars_limit_sleep(brick->copy_limiter, amount);
 		}
 		// on append mode: increase the end pointer dynamically
@@ -447,7 +465,7 @@ restart:
 		}
 		// do verify (when applicable)
 		mref1 = st->table[1];
-		if (mref1 && state != COPY_STATE_READ3) { 
+		if (mref1 && state != COPY_STATE_READ3) {
 			int len = mref0->ref_len;
 			bool ok;
 
@@ -455,6 +473,7 @@ restart:
 				ok = false;
 			} else if (mref0->ref_cs_mode) {
 				static unsigned char null[sizeof(mref0->ref_checksum)];
+
 				ok = !memcmp(mref0->ref_checksum, mref1->ref_checksum, sizeof(mref0->ref_checksum));
 				if (ok)
 					ok = memcmp(mref0->ref_checksum, null, sizeof(mref0->ref_checksum)) != 0;
@@ -594,6 +613,7 @@ int _run_copy(struct copy_brick *brick)
 	int max;
 	loff_t pos;
 	loff_t limit = -1;
+
 	short prev;
 	int progress;
 
@@ -620,6 +640,7 @@ int _run_copy(struct copy_brick *brick)
 	for (pos = brick->copy_last; pos < brick->copy_end || brick->append_mode > 1; pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
 		int index = GET_INDEX(pos);
 		struct copy_state *st = &GET_STATE(brick, index);
+
 		if (max-- <= 0) {
 			break;
 		}
@@ -635,9 +656,11 @@ int _run_copy(struct copy_brick *brick)
 	// check the resulting state: can we advance the copy_last pointer?
 	if (likely(progress && !brick->clash)) {
 		int count = 0;
+
 		for (pos = brick->copy_last; pos <= limit; pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
 			int index = GET_INDEX(pos);
 			struct copy_state *st = &GET_STATE(brick, index);
+
 			if (st->state != COPY_STATE_FINISHED) {
 				break;
 			}
@@ -699,10 +722,11 @@ static int _copy_thread(void *data)
 	mars_power_led_on((void *)brick, true);
 	brick->trigger = true;
 
-        while (!_is_done(brick)) {
+	while (!_is_done(brick)) {
 		loff_t old_start = brick->copy_start;
 		loff_t old_end = brick->copy_end;
 		int progress = 0;
+
 		if (old_end > 0) {
 			progress = _run_copy(brick);
 			if (!progress || ++rounds > 1000) {
@@ -746,6 +770,7 @@ static int _copy_thread(void *data)
 static int copy_get_info(struct copy_output *output, struct mars_info *info)
 {
 	struct copy_input *input = output->brick->inputs[INPUT_B_IO];
+
 	return GENERIC_INPUT_CALL(input, mars_get_info, info);
 }
 
@@ -754,6 +779,7 @@ static int copy_ref_get(struct copy_output *output, struct mref_object *mref)
 	struct copy_input *input;
 	int index;
 	int status;
+
 	index = _determine_input(output->brick, mref);
 	input = output->brick->inputs[index];
 	status = GENERIC_INPUT_CALL(input, mref_get, mref);
@@ -767,6 +793,7 @@ static void copy_ref_put(struct copy_output *output, struct mref_object *mref)
 {
 	struct copy_input *input;
 	int index;
+
 	index = _determine_input(output->brick, mref);
 	input = output->brick->inputs[index];
 	GENERIC_INPUT_CALL(input, mref_put, mref);
@@ -780,6 +807,7 @@ static void copy_ref_io(struct copy_output *output, struct mref_object *mref)
 {
 	struct copy_input *input;
 	int index;
+
 	index = _determine_input(output->brick, mref);
 	input = output->brick->inputs[index];
 	GENERIC_INPUT_CALL(input, mref_io, mref);
@@ -856,7 +884,7 @@ char *copy_statistics(struct copy_brick *brick, int verbose)
 		 atomic_read(&brick->copy_read_flight),
 		 atomic_read(&brick->copy_write_flight));
 
-        return res;
+	return res;
 }
 
 static
@@ -870,6 +898,7 @@ void copy_reset_statistics(struct copy_brick *brick)
 static int copy_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
 	struct copy_mref_aspect *ini = (void *)_ini;
+
 	(void)ini;
 	return 0;
 }
@@ -877,6 +906,7 @@ static int copy_mref_aspect_init_fn(struct generic_aspect *_ini)
 static void copy_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
 	struct copy_mref_aspect *ini = (void *)_ini;
+
 	(void)ini;
 }
 
@@ -888,6 +918,7 @@ static
 void _free_pages(struct copy_brick *brick)
 {
 	int i;
+
 	for (i = 0; i < MAX_SUB_TABLES; i++) {
 		struct copy_state *sub_table = brick->st[i];
 
@@ -947,8 +978,8 @@ static int copy_output_destruct(struct copy_output *output)
 
 static struct copy_brick_ops copy_brick_ops = {
 	.brick_switch = copy_switch,
-        .brick_statistics = copy_statistics,
-        .reset_statistics = copy_reset_statistics,
+	.brick_statistics = copy_statistics,
+	.reset_statistics = copy_reset_statistics,
 };
 
 static struct copy_output_ops copy_output_ops = {

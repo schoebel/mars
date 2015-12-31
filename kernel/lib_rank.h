@@ -29,7 +29,7 @@
 /* Generic round-robin scheduler based on ranking information.
  */
 
-#define RKI_DUMMY INT_MIN
+#define RKI_DUMMY			INT_MIN
 
 struct rank_info {
 	int rki_x;
@@ -39,6 +39,7 @@ struct rank_info {
 struct rank_data {
 	// public readonly
 	long long rkd_current_points;
+
 	// private
 	long long rkd_tmp;
 	long long rkd_got;
@@ -50,20 +51,20 @@ struct rank_data {
  *
  *     ranking_start(...);
  *     for (...) {
- *             ranking_compute(&rkd[this_time], ...);
- *             // usually you need at least 1 call for each rkd[] element,
- *             // but you can call more often to include ranking information
- *             // from many different sources.
- *             // Note: instead / additionally, you may also use
- *             // ranking_add() or ranking_override().
+ *	       ranking_compute(&rkd[this_time], ...);
+ *	       // usually you need at least 1 call for each rkd[] element,
+ *	       // but you can call more often to include ranking information
+ *	       // from many different sources.
+ *	       // Note: instead / additionally, you may also use
+ *	       // ranking_add() or ranking_override().
  *     }
  *     ranking_stop(...);
  *
- * => now the new ranking values are computed and already active
+ * = > now the new ranking values are computed and already active
  * for the round-robin ranking_select() mechanism described below.
  *
  * Important: the rki[] array describes a ranking function at some
- * example points (x_i,y_i) which must be ordered according to x_i
+ * example points (x_i, y_i) which must be ordered according to x_i
  * in ascending order. And, of course, you need to supply at least
  * two sample points (otherwise a linear function cannot
  * be described).
@@ -75,6 +76,7 @@ extern inline
 void ranking_start(struct rank_data rkd[], int rkd_count)
 {
 	int i;
+
 	for (i = 0; i < rkd_count; i++) {
 		rkd[i].rkd_tmp = 0;
 	}
@@ -102,6 +104,7 @@ extern inline
 void ranking_stop(struct rank_data rkd[], int rkd_count)
 {
 	int i;
+
 	for (i = 0; i < rkd_count; i++) {
 		rkd[i].rkd_current_points = rkd[i].rkd_tmp;
 	}
@@ -115,12 +118,12 @@ void ranking_stop(struct rank_data rkd[], int rkd_count)
  * usage pattern):
  *
  *    while (__there_is_work_to_be_done(...)) {
- *            int winner = ranking_select(...);
- *            if (winner >= 0) {
- *                    __do_something(winner);
- *                    ranking_select_done(..., winner, 1); // or higher, winpoints >= 1 must hold
- *            }
- *            ...
+ *	      int winner = ranking_select(...);
+ *	      if (winner >= 0) {
+ *		      __do_something(winner);
+ *		      ranking_select_done(..., winner, 1); // or higher, winpoints >= 1 must hold
+ *	      }
+ *	      ...
  *    }
  *
  */

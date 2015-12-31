@@ -32,7 +32,8 @@
 
 //#define FAKE_ALL // only for testing
 //#define DIRECT_IO // shortcut solely for testing: do direct IO
-//#define DIRECT_WRITE // only for testing: this risks trashing the data by omitting read-before-write in case of false sharing
+// only for testing: this risks trashing the data by omitting read-before-write in case of false sharing
+//#define DIRECT_WRITE
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -53,6 +54,7 @@
 static int usebuf_get_info(struct usebuf_output *output, struct mars_info *info)
 {
 	struct usebuf_input *input = output->brick->inputs[0];
+
 	return GENERIC_INPUT_CALL(input, mars_get_info, info);
 }
 
@@ -163,7 +165,7 @@ static int usebuf_ref_get(struct usebuf_output *output, struct mref_object *mref
 		sub_mref = sub_mref_a->object;
 #if 1
 		MARS_ERR("please do not use this broken feature\n");
-#endif		
+#endif
 	}
 
 	status = GENERIC_INPUT_CALL(input, mref_get, sub_mref);
@@ -292,14 +294,16 @@ out_return:;
 
 static int usebuf_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
-	struct usebuf_mref_aspect *ini = (void*)_ini;
+	struct usebuf_mref_aspect *ini = (void *)_ini;
+
 	(void)ini;
 	return 0;
 }
 
 static void usebuf_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
-	struct usebuf_mref_aspect *ini = (void*)_ini;
+	struct usebuf_mref_aspect *ini = (void *)_ini;
+
 	(void)ini;
 }
 

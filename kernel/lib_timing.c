@@ -33,6 +33,7 @@ int report_timing(struct timing_stats *tim, char *str, int maxlen)
 	int len = 0;
 	int time = 1;
 	int resol = 1;
+
 	static const char * const units[] = {
 		"us",
 		"ms",
@@ -44,7 +45,14 @@ int report_timing(struct timing_stats *tim, char *str, int maxlen)
 	int i;
 
 	for (i = 0; i < TIMING_MAX; i++) {
-		int this_len = scnprintf(str, maxlen, "<%d%s = %d (%lld) ", resol, unit, tim->tim_count[i], (long long)tim->tim_count[i] * time);
+		int this_len = scnprintf(str,
+
+			maxlen,
+			"<%d%s = %d (%lld) ",
+			resol,
+			unit,
+			tim->tim_count[i],
+			(long long)tim->tim_count[i] * time);
 		str += this_len;
 		len += this_len;
 		maxlen -= this_len;

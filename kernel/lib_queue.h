@@ -24,7 +24,7 @@
 #ifndef LIB_QUEUE_H
 #define LIB_QUEUE_H
 
-#define QUEUE_ANCHOR(PREFIX,KEYTYPE,HEAPTYPE)				\
+#define QUEUE_ANCHOR(PREFIX, KEYTYPE, HEAPTYPE)				\
 	/* parameters */						\
 	/* readonly from outside */					\
 	atomic_t q_queued;						\
@@ -45,9 +45,9 @@
 	KEYTYPE last_pos;						\
 	/* this comment is for keeping TRAILING_SEMICOLON happy */
 
-#define QUEUE_FUNCTIONS(PREFIX,ELEM_TYPE,HEAD,KEYFN,KEYCMP,HEAPTYPE)	\
+#define QUEUE_FUNCTIONS(PREFIX, ELEM_TYPE, HEAD, KEYFN, KEYCMP, HEAPTYPE)\
 									\
-static inline							        \
+static inline								\
 void q_##PREFIX##_trigger(struct PREFIX##_queue *q)			\
 {									\
 	if (q->q_event) {						\
@@ -55,7 +55,7 @@ void q_##PREFIX##_trigger(struct PREFIX##_queue *q)			\
 	}								\
 }									\
 									\
-static inline							        \
+static inline								\
 void q_##PREFIX##_init(struct PREFIX##_queue *q)			\
 {									\
 	INIT_LIST_HEAD(&q->q_anchor);					\
@@ -66,7 +66,7 @@ void q_##PREFIX##_init(struct PREFIX##_queue *q)			\
 	atomic_set(&q->q_flying, 0);					\
 }									\
 									\
-static inline							        \
+static inline								\
 void q_##PREFIX##_insert(struct PREFIX##_queue *q, ELEM_TYPE * elem)	\
 {									\
 	unsigned long flags;						\
@@ -91,7 +91,7 @@ void q_##PREFIX##_insert(struct PREFIX##_queue *q, ELEM_TYPE * elem)	\
 	q_##PREFIX##_trigger(q);					\
 }									\
 									\
-static inline							        \
+static inline								\
 void q_##PREFIX##_pushback(struct PREFIX##_queue *q, ELEM_TYPE * elem)	\
 {									\
 	unsigned long flags;						\
@@ -110,7 +110,7 @@ void q_##PREFIX##_pushback(struct PREFIX##_queue *q, ELEM_TYPE * elem)	\
 	spin_unlock_irqrestore(&q->q_lock, flags);			\
 }									\
 									\
-static inline							        \
+static inline								\
 ELEM_TYPE *q_##PREFIX##_fetch(struct PREFIX##_queue *q)			\
 {									\
 	ELEM_TYPE *elem = NULL;						\
@@ -126,15 +126,16 @@ ELEM_TYPE *q_##PREFIX##_fetch(struct PREFIX##_queue *q)			\
 			q->last_pos = 0;				\
 		}							\
 		if (q->heap_high) {					\
-			elem = container_of(q->heap_high, ELEM_TYPE, ph); \
+			elem = container_of(q->heap_high, ELEM_TYPE, ph);\
 									\
-			if (unlikely(KEYCMP(KEYFN(elem), &q->last_pos) < 0)) { \
-				MARS_ERR("backskip pos %lld -> %lld\n", (long long)q->last_pos, (long long)KEYFN(elem)); \
+			if (unlikely(KEYCMP(KEYFN(elem), &q->last_pos) < 0)) {\
+				MARS_ERR("backskip pos %lld -> %lld\n", \
+					(long long)q->last_pos, (long long)KEYFN(elem));\
 			}						\
-			memcpy(&q->last_pos, KEYFN(elem), sizeof(q->last_pos));	\
+			memcpy(&q->last_pos, KEYFN(elem), sizeof(q->last_pos));\
 									\
-			if (KEYCMP(KEYFN(elem), &q->heap_margin) > 0) {	\
-				memcpy(&q->heap_margin, KEYFN(elem), sizeof(q->heap_margin)); \
+			if (KEYCMP(KEYFN(elem), &q->heap_margin) > 0) { \
+				memcpy(&q->heap_margin, KEYFN(elem), sizeof(q->heap_margin));\
 			}						\
 			ph_delete_min_##HEAPTYPE(&q->heap_high);	\
 			atomic_dec(&q->q_queued);			\
@@ -153,14 +154,14 @@ ELEM_TYPE *q_##PREFIX##_fetch(struct PREFIX##_queue *q)			\
 	return elem;							\
 }									\
 									\
-static inline							        \
+static inline								\
 void q_##PREFIX##_inc_flying(struct PREFIX##_queue *q)			\
 {									\
 	atomic_inc(&q->q_flying);					\
 	q_##PREFIX##_trigger(q);					\
 }									\
 									\
-static inline							        \
+static inline								\
 void q_##PREFIX##_dec_flying(struct PREFIX##_queue *q)			\
 {									\
 	atomic_dec(&q->q_flying);					\

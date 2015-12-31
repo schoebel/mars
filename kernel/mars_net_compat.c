@@ -33,7 +33,7 @@
 #include "mars.h"
 #include "mars_net.h"
 
-#define MAX_FIELD_LEN   (32 + 16)
+#define MAX_FIELD_LEN			(32 + 16)
 
 ////////////////////////////////////////////////////////////////////
 
@@ -49,6 +49,7 @@ struct mars_desc_cache_old {
 
 struct mars_desc_item_old {
 	char  field_name[32];
+
 	s32   field_type;
 	s32   field_size;
 	s32   field_sender_offset;
@@ -59,6 +60,7 @@ static
 int _add_fields_old(struct mars_desc_item_old *mi, const struct meta *meta, int offset, const char *prefix, int maxlen)
 {
 	int count = 0;
+
 	for (; meta->field_name != NULL; meta++) {
 		const char *new_prefix;
 		int new_offset;
@@ -93,6 +95,7 @@ int _add_fields_old(struct mars_desc_item_old *mi, const struct meta *meta, int 
 
 		if (meta->field_type == FIELD_SUB) {
 			int sub_count;
+
 			sub_count = _add_fields_old(mi, meta->field_ref, new_offset, new_prefix, maxlen);
 			if (sub_count < 0)
 				return sub_count;
@@ -139,7 +142,7 @@ struct mars_desc_cache_old *make_sender_cache_old(struct mars_socket *msock, con
 	mc->cache_sender_cookie = (u64)meta;
 
 	maxlen -= sizeof(struct mars_desc_cache_old);
-	mi = (void*)(mc + 1);
+	mi = (void *)(mc + 1);
 
 	status = _add_fields_old(mi, meta, 0, "", maxlen);
 
@@ -167,10 +170,15 @@ int _make_recver_cache_old(struct mars_desc_cache_old *mc, const struct meta *me
 		snprintf(tmp, MAX_FIELD_LEN, "%s.%s", prefix, meta->field_name);
 		for (i = 0; i < mc->cache_items; i++) {
 			struct mars_desc_item_old *mi = ((struct mars_desc_item_old *)(mc + 1)) + i;
+
 			if (!strcmp(tmp, mi->field_name)) {
 				mi->field_recver_offset = offset + meta->field_offset;
 				if (meta->field_type == FIELD_SUB) {
-					int sub_count = _make_recver_cache_old(mc, meta->field_ref, mi->field_recver_offset, tmp);
+					int sub_count = _make_recver_cache_old(mc,
+
+						meta->field_ref,
+						mi->field_recver_offset,
+						tmp);
 					if (unlikely(sub_count <= 0)) {
 						count = 0;
 						goto done;
@@ -184,9 +192,9 @@ int _make_recver_cache_old(struct mars_desc_cache_old *mc, const struct meta *me
 			goto done;
 		}
 		MARS_WRN("field %2d '%s' is missing\n", count, meta->field_name);
-	found:;
+found:;
 	}
- done:
+done:
 	brick_string_free(tmp);
 	return count;
 }
@@ -202,6 +210,7 @@ int make_recver_cache_old(struct mars_desc_cache_old *mc, const struct meta *met
 
 	for (i = 0; i < mc->cache_items; i++) {
 		struct mars_desc_item_old *mi = ((struct mars_desc_item_old *)(mc + 1)) + i;
+
 		if (unlikely(mi->field_recver_offset < 0)) {
 			MARS_WRN("field '%s' is not transferred\n", mi->field_name);
 		}
@@ -210,7 +219,11 @@ int make_recver_cache_old(struct mars_desc_cache_old *mc, const struct meta *met
 }
 
 static
-int _desc_send_item_old(struct mars_socket *msock, const void *data, const struct mars_desc_cache_old *mc, int index, bool cork)
+int _desc_send_item_old(struct mars_socket *msock,
+	const void *data,
+	const struct mars_desc_cache_old *mc,
+	int index,
+	bool cork)
 {
 	struct mars_desc_item_old *mi = ((struct mars_desc_item_old *)(mc + 1)) + index;
 	const void *item = data + mi->field_sender_offset;
@@ -227,7 +240,7 @@ int _desc_send_item_old(struct mars_socket *msock, const void *data, const struc
 		res = 0;
 		break;
 	case FIELD_STRING:
-		item = *(void**)item;
+		item = *(void **)item;
 		len = 0;
 		if (item)
 			len = strlen(item) + 1;
@@ -249,7 +262,11 @@ done:
 }
 
 static
-int _desc_recv_item_old(struct mars_socket *msock, void *data, const struct mars_desc_cache_old *mc, int index, int line)
+int _desc_recv_item_old(struct mars_socket *msock,
+	void *data,
+	const struct mars_desc_cache_old *mc,
+	int index,
+	int line)
 {
 	struct mars_desc_item_old *mi = ((struct mars_desc_item_old *)(mc + 1)) + index;
 	void *item = NULL;
@@ -277,11 +294,12 @@ int _desc_recv_item_old(struct mars_socket *msock, void *data, const struct mars
 
 		if (len > 0 && item) {
 			char *str = _brick_string_alloc(len, line);
+
 			if (unlikely(!str)) {
 				MARS_ERR("#%d string alloc error\n", msock->s_debug_nr);
 				goto done;
 			}
-			*(void**)item = str;
+			*(void **)item = str;
 			item = str;
 		}
 
@@ -298,7 +316,7 @@ done:
 	return res;
 }
 
-#define MARS_DESC_MAGIC_OLD 0x73f0A2ec6148f48dll
+#define MARS_DESC_MAGIC_OLD		0x73f0A2ec6148f48dll
 
 struct mars_desc_header_old {
 	u64 h_magic;
@@ -311,6 +329,7 @@ static inline
 int _desc_send_struct_old(struct mars_socket *msock, int cache_index, const void *data, int h_meta_len, bool cork)
 {
 	const struct mars_desc_cache_old *mc = (void *)msock->s_desc_send[cache_index];
+
 	struct mars_desc_header_old header = {
 		.h_magic = MARS_DESC_MAGIC_OLD,
 		.h_cookie = mc->cache_sender_cookie,
@@ -378,7 +397,7 @@ int desc_recv_struct_old(struct mars_socket *msock, void *data, const struct met
 {
 	struct mars_desc_header_old header = {};
 	struct mars_desc_cache_old *mc;
-	int cache_index; 
+	int cache_index;
 	int index;
 	int count = 0;
 	int status = 0;
@@ -388,7 +407,10 @@ int desc_recv_struct_old(struct mars_socket *msock, void *data, const struct met
 		goto err;
 
 	if (unlikely(header.h_magic != MARS_DESC_MAGIC_OLD)) {
-		MARS_WRN("#%d called from line %d bad packet header magic = %llx\n", msock->s_debug_nr, line, header.h_magic);
+		MARS_WRN("#%d called from line %d bad packet header magic = %llx\n",
+			msock->s_debug_nr,
+			line,
+			header.h_magic);
 		use_old_format = 0;
 		status = -ENOMSG;
 		goto err;
@@ -432,11 +454,14 @@ int desc_recv_struct_old(struct mars_socket *msock, void *data, const struct met
 		}
 		msock->s_desc_recv[cache_index] = (void *)mc;
 	} else if (unlikely(header.h_meta_len > 0)) {
-		MARS_WRN("#%d called from line %d has %d unexpected meta bytes\n", msock->s_debug_nr, line, header.h_meta_len);
+		MARS_WRN("#%d called from line %d has %d unexpected meta bytes\n",
+			msock->s_debug_nr,
+			line,
+			header.h_meta_len);
 		status = -EMSGSIZE;
 		goto err;
 	} else if (unlikely(mc->cache_recver_cookie != (u64)meta)) {
-		MARS_ERR("#%d protocol error %p != %p\n", msock->s_debug_nr, meta, (void*)mc->cache_recver_cookie);
+		MARS_ERR("#%d protocol error %p != %p\n", msock->s_debug_nr, meta, (void *)mc->cache_recver_cookie);
 		status = -EPROTO;
 		goto err;
 	}

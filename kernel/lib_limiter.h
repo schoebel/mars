@@ -29,11 +29,13 @@
 struct mars_limiter {
 	/* hierarchy tree */
 	struct mars_limiter *lim_father;
+
 	/* tunables */
 	int lim_max_rate;
 	int lim_max_delay;
 	int lim_min_window;
 	int lim_max_window;
+
 	/* readable */
 	int lim_rate;
 	int lim_cumul;
@@ -41,6 +43,7 @@ struct mars_limiter {
 	int lim_total_ops;
 	int lim_total_sum;
 	long long lim_stamp;
+
 	/* internal */
 	long long lim_accu;
 };

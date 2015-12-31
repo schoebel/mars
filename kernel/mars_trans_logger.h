@@ -24,9 +24,9 @@
 #ifndef MARS_TRANS_LOGGER_H
 #define MARS_TRANS_LOGGER_H
 
-#define REGION_SIZE_BITS      (PAGE_SHIFT + 4)
-#define REGION_SIZE           (1 << REGION_SIZE_BITS)
-#define LOGGER_QUEUES         4
+#define REGION_SIZE_BITS		(PAGE_SHIFT + 4)
+#define REGION_SIZE			(1 << REGION_SIZE_BITS)
+#define LOGGER_QUEUES			4
 
 #include <linux/time.h>
 
@@ -56,6 +56,7 @@ struct writeback_group {
 	struct trans_logger_brick *leader;
 	loff_t biggest;
 	struct list_head group_anchor;
+
 	// tuning
 	struct mars_limiter limiter;
 	int until_percent;
@@ -68,7 +69,7 @@ extern struct writeback_group global_writeback;
 _PAIRING_HEAP_TYPEDEF(logger, /*empty*/)
 
 struct logger_queue {
-	QUEUE_ANCHOR(logger,loff_t,logger);
+	QUEUE_ANCHOR(logger, loff_t, logger);
 	struct trans_logger_brick *q_brick;
 	const char *q_insert_info;
 	const char *q_pushback_info;
@@ -86,11 +87,11 @@ struct logger_head {
 
 ////////////////////////////////////////////////////////////////////
 
-#define TL_INPUT_READ         0
-#define TL_INPUT_WRITEBACK    0
-#define TL_INPUT_LOG1         1
-#define TL_INPUT_LOG2         2
-#define TL_INPUT_NR           3
+#define TL_INPUT_READ			0
+#define TL_INPUT_WRITEBACK		0
+#define TL_INPUT_LOG1			1
+#define TL_INPUT_LOG2			2
+#define TL_INPUT_NR			3
 
 struct writeback_info {
 	struct trans_logger_brick *w_brick;
@@ -98,6 +99,7 @@ struct writeback_info {
 	loff_t w_pos;
 	int    w_len;
 	int    w_error;
+
 	struct list_head w_collect_list;   // list of collected orig requests
 	struct list_head w_sub_read_list;  // for saving the old data before overwrite
 	struct list_head w_sub_write_list; // for overwriting
@@ -152,13 +154,14 @@ struct trans_logger_brick {
 	MARS_BRICK(trans_logger);
 	// parameters
 	struct mars_limiter *replay_limiter;
+
 	int shadow_mem_limit; // max # master shadows
 	bool replay_mode;   // mode of operation
 	bool continuous_replay_mode;   // mode of operation
 	bool log_reads;   // additionally log pre-images
 	bool cease_logging; // direct IO without logging (only in case of EMERGENCY)
 	loff_t replay_start_pos; // where to start replay
-	loff_t replay_end_pos;   // end of replay
+	loff_t replay_end_pos;	 // end of replay
 	int new_input_nr;   // whereto we should switchover ASAP
 	int replay_tolerance; // how many bytes to ignore at truncated logfiles
 	// readonly from outside
@@ -168,13 +171,14 @@ struct trans_logger_brick {
 	int replay_code;    // replay errors (if any)
 	bool stopped_logging; // direct IO without logging (only in case of EMERGENCY)
 	// private
-	int disk_io_error;         // replay errors from callbacks
+	int disk_io_error;	   // replay errors from callbacks
 	struct trans_logger_hash_anchor **hash_table;
 	struct list_head group_head;
 	loff_t old_margin;
 	spinlock_t replay_lock;
 	struct list_head replay_list;
 	struct task_struct *thread;
+
 	wait_queue_head_t worker_event;
 	wait_queue_head_t caller_event;
 	// statistics
@@ -208,6 +212,7 @@ struct trans_logger_brick {
 	atomic_t total_round_count;
 	atomic_t total_restart_count;
 	atomic_t total_delay_count;
+
 	// queues
 	struct logger_queue q_phase[LOGGER_QUEUES];
 	bool   delay_callers;
@@ -217,21 +222,24 @@ struct trans_logger_output {
 	MARS_OUTPUT(trans_logger);
 };
 
-#define MAX_HOST_LEN 32
+#define MAX_HOST_LEN			32
 
 struct trans_logger_info {
 	// to be maintained / initialized from outside
 	void (*inf_callback)(struct trans_logger_info *inf);
 	void  *inf_private;
 	char   inf_host[MAX_HOST_LEN];
-	int    inf_sequence;     // logfile sequence number
+
+	int    inf_sequence;	 // logfile sequence number
 
 	// maintained by trans_logger
 	loff_t inf_min_pos;  // current replay position (both in replay mode and in logging mode)
 	loff_t inf_max_pos;  // dito, indicating the "dirty" area which could be potentially "inconsistent"
 	loff_t inf_log_pos; // position of transaction logging (may be ahead of replay position)
 	struct timespec inf_min_pos_stamp; // when the data has been _successfully_ overwritten
-	struct timespec inf_max_pos_stamp; // when the data has _started_ overwrite (maybe "trashed" in case of errors / aborts)
+// when the data has _started_ overwrite (maybe "trashed" in case of errors / aborts)
+	struct timespec inf_max_pos_stamp;
+
 	struct timespec inf_log_pos_stamp; // stamp from transaction log
 	bool inf_is_replaying;
 	bool inf_is_logging;
@@ -242,6 +250,7 @@ struct trans_logger_input {
 	// parameters
 	// informational
 	struct trans_logger_info inf;
+
 	// readonly from outside
 	atomic_t log_ref_count;
 	atomic_t pos_count;

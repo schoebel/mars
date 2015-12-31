@@ -33,7 +33,7 @@ extern int mars_client_abort;
 extern int max_client_channels;
 extern int max_client_bulk;
 
-#define MAX_CLIENT_CHANNELS 4
+#define MAX_CLIENT_CHANNELS		4
 
 struct client_mref_aspect {
 	GENERIC_ASPECT(mref);
@@ -52,6 +52,7 @@ struct client_brick {
 	bool limit_mode;
 	bool allow_permuting_writes;
 	bool separate_reads;
+
 	// readonly from outside
 	int connection_state; // 0 = switched off, 1 = not connected, 2 = connected
 };
@@ -83,6 +84,7 @@ struct client_bundle {
 	char *path;
 	int thread_count;
 	int old_channel;
+
 	wait_queue_head_t sender_event;
 	struct client_threadinfo sender;
 	struct client_channel channel[MAX_CLIENT_CHANNELS];
@@ -97,6 +99,7 @@ struct client_output {
 	int  last_id;
 	struct client_bundle bundle;
 	struct mars_info info;
+
 	wait_queue_head_t info_event;
 	bool get_info;
 	bool got_info;

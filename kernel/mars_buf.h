@@ -28,23 +28,25 @@
 #include <linux/atomic.h>
 
 //#define MARS_BUF_HASH_MAX 512
-#define MARS_BUF_HASH_MAX 2048
+#define MARS_BUF_HASH_MAX		2048
 
-#define LIST_FREE    0
-#define LIST_FORGET  1
-#define LIST_LRU     2
-#define LIST_MAX     3
+#define LIST_FREE			0
+#define LIST_FORGET			1
+#define LIST_LRU			2
+#define LIST_MAX			3
 
 struct buf_mref_aspect {
 	GENERIC_ASPECT(mref);
 	struct buf_head *rfa_bf;
+
 	//struct list_head rfa_bf_head;
 	struct list_head rfa_pending_head;
+
 	//struct list_head tmp_head;
 };
 
 struct cache_anchor {
-	spinlock_t       hash_lock;
+	spinlock_t	 hash_lock;
 	struct list_head hash_anchor;
 };
 
@@ -93,26 +95,29 @@ struct buf_output {
 MARS_TYPES(buf);
 
 struct buf_head {
-	void             *bf_data; // this MUST come first
-	spinlock_t        bf_lock;
+	void		 *bf_data; // this MUST come first
+	spinlock_t	  bf_lock;
 	struct buf_brick *bf_brick;
-	loff_t            bf_pos;
-	loff_t            bf_base_index;
-	int               bf_flags;
-	int               bf_error;
-	atomic_t          bf_hash_count; // # references pinning the hash
-	atomic_t          bf_mref_count; // # mrefs (only used for checking, no real semantics)
-	atomic_t          bf_io_count;   // # IOs in flight
+	loff_t		  bf_pos;
+	loff_t		  bf_base_index;
+	int		  bf_flags;
+	int		  bf_error;
+
+	atomic_t	  bf_hash_count; // # references pinning the hash
+	atomic_t	  bf_mref_count; // # mrefs (only used for checking, no real semantics)
+	atomic_t	  bf_io_count;	 // # IOs in flight
 	// statistics / data for strategic decisions
-	atomic_t          bf_mfu_stat;
-	atomic_t          bf_chain_len;
-	bool              bf_chain_detected;
+	atomic_t	  bf_mfu_stat;
+	atomic_t	  bf_chain_len;
+	bool		  bf_chain_detected;
+
 	// lists for caching
 	//struct list_head bf_mref_anchor; // all current mref members
 	struct list_head  bf_list_head;
 	struct list_head  bf_hash_head;
-	unsigned long     bf_jiffies;
-	int               bf_member;
+	unsigned long	  bf_jiffies;
+	int		  bf_member;
+
 	// lists for IO
 	struct list_head  bf_io_pending_anchor;
 	struct list_head  bf_postpone_anchor;

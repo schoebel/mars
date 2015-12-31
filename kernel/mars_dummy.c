@@ -44,6 +44,7 @@ static
 int dummy_get_info(struct dummy_output *output, struct mars_info *info)
 {
 	struct dummy_input *input = output->brick->inputs[0];
+
 	return GENERIC_INPUT_CALL(input, mars_get_info, info);
 }
 
@@ -51,6 +52,7 @@ static
 int dummy_ref_get(struct dummy_output *output, struct mref_object *mref)
 {
 	struct dummy_input *input = output->brick->inputs[0];
+
 	return GENERIC_INPUT_CALL(input, mref_get, mref);
 }
 
@@ -58,6 +60,7 @@ static
 void dummy_ref_put(struct dummy_output *output, struct mref_object *mref)
 {
 	struct dummy_input *input = output->brick->inputs[0];
+
 	GENERIC_INPUT_CALL(input, mref_put, mref);
 }
 
@@ -65,6 +68,7 @@ static
 void dummy_ref_io(struct dummy_output *output, struct mref_object *mref)
 {
 	struct dummy_input *input = output->brick->inputs[0];
+
 	GENERIC_INPUT_CALL(input, mref_io, mref);
 }
 
@@ -73,23 +77,25 @@ int dummy_switch(struct dummy_brick *brick)
 {
 	if (brick->power.button) {
 		bool success = false;
+
 		if (brick->power.led_on)
 			goto done;
-		mars_power_led_off((void*)brick, false);
+		mars_power_led_off((void *)brick, false);
 		//...
 		success = true;
 		if (success) {
-			mars_power_led_on((void*)brick, true);
+			mars_power_led_on((void *)brick, true);
 		}
 	} else {
 		bool success = false;
+
 		if (brick->power.led_off)
 			goto done;
-		mars_power_led_on((void*)brick, false);
+		mars_power_led_on((void *)brick, false);
 		//...
 		success = true;
 		if (success) {
-			mars_power_led_off((void*)brick, true);
+			mars_power_led_off((void *)brick, true);
 		}
 	}
 done:
@@ -120,7 +126,8 @@ void dummy_reset_statistics(struct dummy_brick *brick)
 static
 int dummy_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
-	struct dummy_mref_aspect *ini = (void*)_ini;
+	struct dummy_mref_aspect *ini = (void *)_ini;
+
 	(void)ini;
 	//ini->my_own = 0;
 	return 0;
@@ -129,7 +136,8 @@ int dummy_mref_aspect_init_fn(struct generic_aspect *_ini)
 static
 void dummy_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
-	struct dummy_mref_aspect *ini = (void*)_ini;
+	struct dummy_mref_aspect *ini = (void *)_ini;
+
 	(void)ini;
 }
 

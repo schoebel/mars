@@ -70,6 +70,7 @@ int mars_send_dent_list(struct mars_socket *sock, struct list_head *anchor)
 	struct list_head *tmp;
 	struct mars_dent *dent;
 	int status = 0;
+
 	for (tmp = anchor->next; tmp != anchor; tmp = tmp->next) {
 		dent = container_of(tmp, struct mars_dent, dent_link);
 		status = mars_send_struct(sock, dent, mars_dent_meta);
@@ -85,6 +86,7 @@ int mars_send_dent_list(struct mars_socket *sock, struct list_head *anchor)
 int mars_recv_dent_list(struct mars_socket *sock, struct list_head *anchor)
 {
 	int status;
+
 	for (;;) {
 		struct mars_dent *dent = brick_zmem_alloc(sizeof(struct mars_dent));
 

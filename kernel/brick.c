@@ -36,7 +36,9 @@
 
 // init / exit functions
 
-void _generic_output_init(struct generic_brick *brick, const struct generic_output_type *type, struct generic_output *output)
+void _generic_output_init(struct generic_brick *brick,
+	const struct generic_output_type *type,
+	struct generic_output *output)
 {
 	output->brick = brick;
 	output->type = type;
@@ -77,7 +79,10 @@ void generic_brick_exit(struct generic_brick *brick)
 	put_nr(brick->aspect_context.brick_index);
 }
 
-int generic_input_init(struct generic_brick *brick, int index, const struct generic_input_type *type, struct generic_input *input)
+int generic_input_init(struct generic_brick *brick,
+	int index,
+	const struct generic_input_type *type,
+	struct generic_input *input)
 {
 	if (index < 0 || index >= brick->type->max_inputs)
 		return -EINVAL;
@@ -100,7 +105,10 @@ void generic_input_exit(struct generic_input *input)
 	input->connect = NULL;
 }
 
-int generic_output_init(struct generic_brick *brick, int index, const struct generic_output_type *type, struct generic_output *output)
+int generic_output_init(struct generic_brick *brick,
+	int index,
+	const struct generic_output_type *type,
+	struct generic_output *output)
 {
 	if (index < 0 || index >= brick->type->max_outputs)
 		return -ENOMEM;
@@ -116,11 +124,12 @@ int generic_size(const struct generic_brick_type *brick_type)
 {
 	int size = brick_type->brick_size;
 	int i;
-	size += brick_type->max_inputs * sizeof(void*);
+
+	size += brick_type->max_inputs * sizeof(void *);
 	for (i = 0; i < brick_type->max_inputs; i++) {
 		size += brick_type->default_input_types[i]->input_size;
 	}
-	size += brick_type->max_outputs * sizeof(void*);
+	size += brick_type->max_outputs * sizeof(void *);
 	for (i = 0; i < brick_type->max_outputs; i++) {
 		size += brick_type->default_output_types[i]->output_size;
 	}
@@ -150,6 +159,7 @@ int generic_connect(struct generic_input *input, struct generic_output *output)
 int generic_disconnect(struct generic_input *input)
 {
 	struct generic_output *connect;
+
 	BRICK_DBG("generic_disconnect(input=%p)\n", input);
 	if (!input)
 		return -EINVAL;
@@ -170,6 +180,7 @@ int generic_disconnect(struct generic_input *input)
 int _brick_msleep(int msecs, bool shorten)
 {
 	unsigned long timeout;
+
 	flush_signals(current);
 	if (msecs <= 0) {
 		schedule();
@@ -241,6 +252,7 @@ int generic_register_brick_type(const struct generic_brick_type *new_type)
 {
 	int i;
 	int found = -1;
+
 	BRICK_DBG("generic_register_brick_type() name=%s\n", new_type->type_name);
 	for (i = 0; i < nr_brick_types; i++) {
 		if (!brick_types[i]) {
@@ -271,8 +283,8 @@ int generic_unregister_brick_type(const struct generic_brick_type *old_type)
 }
 
 int generic_brick_init_full(
-	void *data, 
-	int size, 
+	void *data,
+	int size,
 	const struct generic_brick_type *brick_type,
 	const struct generic_input_type **input_types,
 	const struct generic_output_type **output_types)
@@ -308,14 +320,15 @@ int generic_brick_init_full(
 	}
 	BRICK_DBG("generic_brick_init_full: input_types\n");
 	brick->inputs = data;
-	data += sizeof(void*) * brick_type->max_inputs;
-	size -= sizeof(void*) * brick_type->max_inputs;
+	data += sizeof(void *) * brick_type->max_inputs;
+	size -= sizeof(void *) * brick_type->max_inputs;
 	if (size < 0) {
 		return -ENOMEM;
 	}
 	for (i = 0; i < brick_type->max_inputs; i++) {
 		struct generic_input *input = data;
 		const struct generic_input_type *type = *input_types++;
+
 		if (!type || type->input_size <= 0) {
 			return -EINVAL;
 		}
@@ -338,13 +351,14 @@ int generic_brick_init_full(
 	}
 	BRICK_DBG("generic_brick_init_full: output_types\n");
 	brick->outputs = data;
-	data += sizeof(void*) * brick_type->max_outputs;
-	size -= sizeof(void*) * brick_type->max_outputs;
+	data += sizeof(void *) * brick_type->max_outputs;
+	size -= sizeof(void *) * brick_type->max_outputs;
 	if (size < 0)
 		return -ENOMEM;
 	for (i = 0; i < brick_type->max_outputs; i++) {
 		struct generic_output *output = data;
 		const struct generic_output_type *type = *output_types++;
+
 		if (!type || type->output_size <= 0) {
 			return -EINVAL;
 		}
@@ -368,6 +382,7 @@ int generic_brick_init_full(
 	}
 	for (i = 0; i < brick_type->max_inputs; i++) {
 		struct generic_input *input = brick->inputs[i];
+
 		if (!input)
 			continue;
 		if (!input->type) {
@@ -383,6 +398,7 @@ int generic_brick_init_full(
 	}
 	for (i = 0; i < brick_type->max_outputs; i++) {
 		struct generic_output *output = brick->outputs[i];
+
 		if (!output)
 			continue;
 		if (!output->type) {
@@ -403,9 +419,11 @@ int generic_brick_exit_full(struct generic_brick *brick)
 {
 	int i;
 	int status;
+
 	// first, check all outputs
 	for (i = 0; i < brick->type->max_outputs; i++) {
 		struct generic_output *output = brick->outputs[i];
+
 		if (!output)
 			continue;
 		if (!output->type) {
@@ -417,9 +435,10 @@ int generic_brick_exit_full(struct generic_brick *brick)
 			return -EPERM;
 		}
 	}
-        // ok, test succeeded. start destruction...
+	// ok, test succeeded. start destruction...
 	for (i = 0; i < brick->type->max_outputs; i++) {
 		struct generic_output *output = brick->outputs[i];
+
 		if (!output)
 			continue;
 		if (!output->type) {
@@ -437,6 +456,7 @@ int generic_brick_exit_full(struct generic_brick *brick)
 	}
 	for (i = 0; i < brick->type->max_inputs; i++) {
 		struct generic_input *input = brick->inputs[i];
+
 		if (!input)
 			continue;
 		if (!input->type) {
@@ -469,7 +489,8 @@ int generic_brick_exit_full(struct generic_brick *brick)
 
 // default implementations
 
-struct generic_object *generic_alloc(struct generic_object_layout *object_layout, const struct generic_object_type *object_type)
+struct generic_object *generic_alloc(struct generic_object_layout *object_layout,
+	const struct generic_object_type *object_type)
 {
 	struct generic_object *object;
 	void *data;
@@ -483,7 +504,7 @@ struct generic_object *generic_alloc(struct generic_object_layout *object_layout
 
 	object_size = object_type->default_size;
 	aspect_nr_max = nr_max;
-	total_size = object_size + aspect_nr_max * sizeof(void*);
+	total_size = object_size + aspect_nr_max * sizeof(void *);
 	hint_size = object_layout->size_hint;
 	if (likely(total_size <= hint_size)) {
 		total_size = hint_size;
@@ -501,11 +522,12 @@ struct generic_object *generic_alloc(struct generic_object_layout *object_layout
 	object->object_layout = object_layout;
 	object->aspects = data + object_size;
 	object->aspect_nr_max = aspect_nr_max;
-	object->free_offset = object_size + aspect_nr_max * sizeof(void*);
+	object->free_offset = object_size + aspect_nr_max * sizeof(void *);
 	object->max_offset = total_size;
 
 	if (object_type->init_fn) {
 		int status = object_type->init_fn(object);
+
 		if (status < 0) {
 			goto err_free;
 		}
@@ -536,6 +558,7 @@ void generic_free(struct generic_object *object)
 	for (i = 0; i < object->aspect_nr_max; i++) {
 		const struct generic_aspect_type *aspect_type;
 		struct generic_aspect *aspect = object->aspects[i];
+
 		if (!aspect)
 			continue;
 		object->aspects[i] = NULL;
@@ -553,7 +576,7 @@ void generic_free(struct generic_object *object)
 		object_type->exit_fn(object);
 	}
 	brick_mem_free(object);
-done: ;
+done:;
 }
 
 static inline
@@ -569,11 +592,12 @@ struct generic_aspect *_new_aspect(const struct generic_aspect_type *aspect_type
 		/* Optimisation: re-use single memory allocation for both
 		 * the object and the new aspect.
 		 */
-		res = ((void*)obj) + obj->free_offset;
+		res = ((void *)obj) + obj->free_offset;
 		obj->free_offset += size;
 		res->shortcut = true;
 	} else {
 		struct generic_object_layout *object_layout = obj->object_layout;
+
 		CHECK_PTR(object_layout, done);
 		/* Maintain the size hint.
 		 * In future, only small aspects should be integrated into
@@ -582,11 +606,12 @@ struct generic_aspect *_new_aspect(const struct generic_aspect_type *aspect_type
 		 */
 		if (size < PAGE_SIZE / 2) {
 			int max;
+
 			max = obj->free_offset + size;
 			/* This is racy, but races won't do any harm because
 			 * it is just a hint, not essential.
 			 */
-			if ((max < PAGE_SIZE || object_layout->size_hint > PAGE_SIZE) && 
+			if ((max < PAGE_SIZE || object_layout->size_hint > PAGE_SIZE) &&
 			    object_layout->size_hint < max)
 				object_layout->size_hint = max;
 		}
@@ -600,6 +625,7 @@ struct generic_aspect *_new_aspect(const struct generic_aspect_type *aspect_type
 
 	if (aspect_type->init_fn) {
 		int status = aspect_type->init_fn(res);
+
 		if (unlikely(status < 0)) {
 			BRICK_ERR("aspect init %p %p %p status = %d\n", aspect_type, obj, res, status);
 			goto done;
@@ -656,6 +682,7 @@ done:
 void set_button(struct generic_switch *sw, bool val, bool force)
 {
 	bool oldval = sw->button;
+
 	sw->force_off |= force;
 	if (sw->force_off)
 		val = false;
@@ -668,6 +695,7 @@ void set_button(struct generic_switch *sw, bool val, bool force)
 void set_led_on(struct generic_switch *sw, bool val)
 {
 	bool oldval = sw->led_on;
+
 	if (val != oldval) {
 		sw->led_on = val;
 		wake_up_interruptible(&sw->event);
@@ -677,6 +705,7 @@ void set_led_on(struct generic_switch *sw, bool val)
 void set_led_off(struct generic_switch *sw, bool val)
 {
 	bool oldval = sw->led_off;
+
 	if (val != oldval) {
 		sw->led_off = val;
 		wake_up_interruptible(&sw->event);
@@ -702,6 +731,7 @@ void set_button_wait(struct generic_brick *brick, bool val, bool force, int time
 const struct meta *find_meta(const struct meta *meta, const char *field_name)
 {
 	const struct meta *tmp;
+
 	for (tmp = meta; tmp->field_name; tmp++) {
 		if (!strcmp(field_name, tmp->field_name)) {
 			return tmp;

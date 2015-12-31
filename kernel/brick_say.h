@@ -23,13 +23,13 @@
 
 #ifndef BRICK_SAY_H
 #define BRICK_SAY_H
-//      remove_this
+//	remove_this
 
 #ifndef CONFIG_MARS_MODULE
 // when unsure, include faked config file
 #include "mars_config.h"
 #endif
-//      end_remove_this
+//	end_remove_this
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -66,7 +66,7 @@ extern void del_channel(struct say_channel *ch);
 
 extern void bind_to_channel(struct say_channel *ch, struct task_struct *whom);
 
-#define bind_me(_name)					\
+#define bind_me(_name)							\
 	bind_to_channel(make_channel(_name), current)
 
 extern struct say_channel *get_binding(struct task_struct *whom);
@@ -79,12 +79,22 @@ extern void rollover_all(void);
 
 extern void say_to(struct say_channel *ch, int class, const char *fmt, ...) __printf(3, 4);
 
-#define say(_class, _fmt, _args...)			\
+#define say(_class, _fmt, _args...)					\
 	say_to(NULL, _class, _fmt, ##_args)
 
-extern void brick_say_to(struct say_channel *ch, int class, bool dump, const char *prefix, const char *file, int line, const char *func, const char *fmt, ...) __printf(8, 9);
+extern void brick_say_to(struct say_channel *ch,
+	int class,
+	bool dump,
+	const char *prefix,
+	const char *file,
+	int line,
+	const char *func,
+	const char *fmt,
 
-#define brick_say(_class, _dump, _prefix, _file, _line, _func, _fmt, _args...) \
+	...) __printf(8,
+	9);
+
+#define brick_say(_class, _dump, _prefix, _file, _line, _func, _fmt, _args...)\
 	brick_say_to(NULL, _class, _dump, _prefix, _file, _line, _func, _fmt, ##_args)
 
 extern void init_say(void);

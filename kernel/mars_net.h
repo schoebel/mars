@@ -38,7 +38,7 @@ extern int mars_net_bind_before_connect;
 
 extern bool mars_net_is_alive;
 
-#define MAX_DESC_CACHE  16
+#define MAX_DESC_CACHE			16
 
 /* The original struct socket has no refcount. This leads to problems
  * during long-lasting system calls when racing with socket shutdown.
@@ -56,11 +56,12 @@ extern bool mars_net_is_alive;
  * writers in parallel to each other. Otherwise, higher level
  * protocol sequences would be disturbed anyway.
  * When needed, you may achieve higher parallelism by doing your own
- * semaphore locking around mars_{send,recv}_struct() or even longer
+ * semaphore locking around mars_{send, recv}_struct() or even longer
  * sequences of subsets of your high-level protocol.
  */
 struct mars_socket {
 	struct socket *s_socket;
+
 	u64 s_send_bytes;
 	u64 s_recv_bytes;
 	void *s_buffer;
@@ -73,6 +74,7 @@ struct mars_socket {
 	int s_recv_cnt;
 	bool s_shutdown_on_err;
 	bool s_alive;
+
 	u8   s_send_proto;
 	u8   s_recv_proto;
 	u16  s_send_flags;
@@ -103,16 +105,18 @@ enum {
 	CMD_CB,
 };
 
-#define CMD_FLAG_MASK     255
-#define CMD_FLAG_HAS_DATA 256
+#define CMD_FLAG_MASK			255
+#define CMD_FLAG_HAS_DATA		256
 
 struct mars_cmd {
 	struct timespec cmd_stamp; // for automatic lamport clock
 	int cmd_code;
 	int cmd_int1;
+
 	//int cmd_int2;
 	//int cmd_int3;
 	char *cmd_str1;
+
 	//char *cmd_str2;
 	//char *cmd_str3;
 };
@@ -127,7 +131,10 @@ extern char *my_id(void);
  */
 extern int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec);
 
-extern int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *src_addr, struct sockaddr_storage *dst_addr);
+extern int mars_create_socket(struct mars_socket *msock,
+	struct sockaddr_storage *src_addr,
+	struct sockaddr_storage *dst_addr);
+
 extern int mars_accept_socket(struct mars_socket *new_msock, struct mars_socket *old_msock);
 extern bool mars_get_socket(struct mars_socket *msock);
 extern void mars_put_socket(struct mars_socket *msock);
@@ -144,9 +151,9 @@ int mars_recv_compressed(struct mars_socket *msock, void *buf, int minlen, int m
 /* Mid-level generic field data exchange
  */
 extern int mars_send_struct(struct mars_socket *msock, const void *data, const struct meta *meta);
-#define mars_recv_struct(_sock_,_data_,_meta_)				\
+#define mars_recv_struct(_sock_, _data_, _meta_)			\
 	({								\
-		_mars_recv_struct(_sock_, _data_, _meta_, __LINE__); \
+		_mars_recv_struct(_sock_, _data_, _meta_, __LINE__);	\
 	})
 extern int _mars_recv_struct(struct mars_socket *msock, void *data, const struct meta *meta, int line);
 
@@ -160,16 +167,17 @@ extern int mars_recv_mref(struct mars_socket *msock, struct mref_object *mref, s
 extern int mars_send_cb(struct mars_socket *msock, struct mref_object *mref);
 extern int mars_recv_cb(struct mars_socket *msock, struct mref_object *mref, struct mars_cmd *cmd);
 
-//      remove_this
+//	remove_this
 /////////////////////////////////////////////////////////////////////////
 
 #ifdef CONFIG_MARS_NET_COMPAT
 extern int use_old_format;
 int desc_send_struct_old(struct mars_socket *msock, const void *data, const struct meta *meta, bool cork);
 int desc_recv_struct_old(struct mars_socket *msock, void *data, const struct meta *meta, int line);
+
 #endif
 
-//      end_remove_this
+//	end_remove_this
 /////////////////////////////////////////////////////////////////////////
 
 // init

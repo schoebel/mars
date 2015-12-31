@@ -29,7 +29,7 @@
 #include "mars_net.h"
 #include "lib_limiter.h"
 
-#define NR_SOCKETS 3
+#define NR_SOCKETS			3
 
 extern int server_show_statist;
 
@@ -55,6 +55,7 @@ struct server_brick {
 	struct mars_brick *conn_brick;
 	struct task_struct *handler_thread;
 	struct task_struct *cb_thread;
+
 	wait_queue_head_t startup_event;
 	wait_queue_head_t cb_event;
 	spinlock_t cb_lock;

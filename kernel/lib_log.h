@@ -50,66 +50,75 @@ struct log_header_v1 {
 	struct timespec l_stamp;
 	struct timespec l_written;
 	loff_t l_pos;
+
 	short  l_len;
 	short  l_code;
 	unsigned int l_seq_nr;
 	int    l_crc;
 };
 
-#define FORMAT_VERSION   1 // version of disk format, currently there is no other one
+#define FORMAT_VERSION			1 // version of disk format, currently there is no other one
 
-#define CODE_UNKNOWN     0
-#define CODE_WRITE_NEW   1
-#define CODE_WRITE_OLD   2
+#define CODE_UNKNOWN			0
+#define CODE_WRITE_NEW			1
+#define CODE_WRITE_OLD			2
 
-#define START_MAGIC  0xa8f7e908d9177957ll
-#define END_MAGIC    0x74941fb74ab5726dll
+#define START_MAGIC			0xa8f7e908d9177957ll
+#define END_MAGIC			0x74941fb74ab5726dll
 
-#define START_OVERHEAD						\
-	(							\
-		sizeof(START_MAGIC) +				\
-		sizeof(char) +					\
-		sizeof(char) +					\
-		sizeof(short) +					\
-		sizeof(struct timespec) +			\
-		sizeof(loff_t) +				\
-		sizeof(int) +					\
-		sizeof(int) +					\
-		sizeof(short) +					\
-		sizeof(short) +					\
-		0						\
+#define START_OVERHEAD							\
+	(								\
+		sizeof(START_MAGIC) +					\
+		sizeof(char) +						\
+		sizeof(char) +						\
+		sizeof(short) +						\
+		sizeof(struct timespec) +				\
+		sizeof(loff_t) +					\
+		sizeof(int) +						\
+		sizeof(int) +						\
+		sizeof(short) +						\
+		sizeof(short) +						\
+		0							\
 	)
 
-#define END_OVERHEAD						\
-	(							\
-		sizeof(END_MAGIC) +				\
-		sizeof(int) +					\
-		sizeof(char) +					\
-		3 + 4 /*spare*/ +				\
-		sizeof(struct timespec) +			\
-		0						\
+#define END_OVERHEAD							\
+	(								\
+		sizeof(END_MAGIC) +					\
+		sizeof(int) +						\
+		sizeof(char) +						\
+		3 + 4 /*spare*/ +					\
+		sizeof(struct timespec) +				\
+		0							\
 	)
 
-#define OVERHEAD (START_OVERHEAD + END_OVERHEAD)
+#define OVERHEAD			(START_OVERHEAD + END_OVERHEAD)
 
 // TODO: make this bytesex-aware.
-#define DATA_PUT(data,offset,val)				\
-	do {							\
+#define DATA_PUT(data, offset, val)					\
+	do {								\
 		*((typeof(val) *)((data)+offset)) = val;		\
-		offset += sizeof(val);				\
+		offset += sizeof(val);					\
 	} while (0)
 
-#define DATA_GET(data,offset,val)				\
-	do {							\
+#define DATA_GET(data, offset, val)					\
+	do {								\
 		val = *((typeof(val) *)((data)+offset));		\
-		offset += sizeof(val);				\
+		offset += sizeof(val);					\
 	} while (0)
 
-#define SCAN_TXT "at file_pos = %lld file_offset = %d scan_offset = %d (%lld) test_offset = %d (%lld) restlen = %d: "
-#define SCAN_PAR file_pos, file_offset, offset, file_pos + file_offset + offset, i, file_pos + file_offset + i, restlen
+#define SCAN_TXT			"at file_pos = %lld file_offset = %d scan_offset = %d (%lld) test_offset = %d (%lld) restlen = %d: "
+#define SCAN_PAR			file_pos, file_offset, offset, file_pos + file_offset + offset, i, file_pos + file_offset + i, restlen
 
 static inline
-int log_scan(void *buf, int len, loff_t file_pos, int file_offset, bool sloppy, struct log_header *lh, void **payload, int *payload_len, unsigned int *seq_nr)
+int log_scan(void *buf,
+	int len,
+	loff_t file_pos,
+	int file_offset,
+	bool sloppy,
+	struct log_header *lh,
+	void **payload,
+	int *payload_len,
+	unsigned int *seq_nr)
 {
 	bool dirty = false;
 	int offset;
@@ -122,6 +131,7 @@ int log_scan(void *buf, int len, loff_t file_pos, int file_offset, bool sloppy, 
 		long long start_magic;
 		char format_version;
 		char valid_flag;
+
 		short total_len;
 		long long end_magic;
 		char valid_copy;
@@ -160,7 +170,10 @@ int log_scan(void *buf, int len, loff_t file_pos, int file_offset, bool sloppy, 
 		}
 		DATA_GET(buf, offset, total_len);
 		if (unlikely(total_len > restlen)) {
-			MARS_WRN(SCAN_TXT "total_len = %d but available data restlen = %d. Was the logfile truncated?\n", SCAN_PAR, total_len, restlen);
+			MARS_WRN(SCAN_TXT "total_len = %d but available data restlen = %d. Was the logfile truncated?\n",
+				SCAN_PAR,
+				total_len,
+				restlen);
 			return -EAGAIN;
 		}
 
@@ -193,7 +206,10 @@ int log_scan(void *buf, int len, loff_t file_pos, int file_offset, bool sloppy, 
 		DATA_GET(buf, offset, valid_copy);
 
 		if (unlikely(valid_copy != 1)) {
-			MARS_WRN(SCAN_TXT "found data marked as uncompleted / invalid, len = %d, valid_flag = %d\n", SCAN_PAR, lh->l_len, (int)valid_copy);
+			MARS_WRN(SCAN_TXT "found data marked as uncompleted / invalid, len = %d, valid_flag = %d\n",
+				SCAN_PAR,
+				lh->l_len,
+				(int)valid_copy);
 			return -EBADMSG;
 		}
 
@@ -205,15 +221,22 @@ int log_scan(void *buf, int len, loff_t file_pos, int file_offset, bool sloppy, 
 		DATA_GET(buf, offset, lh->l_written.tv_nsec);
 
 		if (unlikely(lh->l_seq_nr > *seq_nr + 1 && lh->l_seq_nr && *seq_nr)) {
-			MARS_ERR(SCAN_TXT "record sequence number %u mismatch, expected was %u\n", SCAN_PAR, lh->l_seq_nr, *seq_nr + 1);
+			MARS_ERR(SCAN_TXT "record sequence number %u mismatch, expected was %u\n",
+				SCAN_PAR,
+				lh->l_seq_nr,
+				*seq_nr + 1);
 			return -EBADMSG;
 		} else if (unlikely(lh->l_seq_nr != *seq_nr + 1 && lh->l_seq_nr && *seq_nr)) {
-			MARS_WRN(SCAN_TXT "record sequence number %u mismatch, expected was %u\n", SCAN_PAR, lh->l_seq_nr, *seq_nr + 1);
+			MARS_WRN(SCAN_TXT "record sequence number %u mismatch, expected was %u\n",
+				SCAN_PAR,
+				lh->l_seq_nr,
+				*seq_nr + 1);
 		}
 		*seq_nr = lh->l_seq_nr;
 
 		if (lh->l_crc) {
 			unsigned char checksum[mars_digest_size];
+
 			mars_digest(checksum, buf + found_offset, lh->l_len);
 			if (unlikely(*(int *)checksum != lh->l_crc)) {
 				MARS_ERR(SCAN_TXT "data checksumming mismatch, length = %d\n", SCAN_PAR, lh->l_len);
@@ -255,16 +278,19 @@ struct log_status {
 	// tunables
 	loff_t start_pos;
 	loff_t end_pos;
+
 	int align_size;   // alignment between requests
 	int chunk_size;   // must be at least 8K (better 64k)
-	int max_size;     // max payload length
+	int max_size;	  // max payload length
 	int io_prio;
 	bool do_crc;
+
 	// informational
 	atomic_t mref_flying;
 	int count;
 	loff_t log_pos;
 	struct timespec log_pos_stamp;
+
 	// internal
 	struct timespec tmp_pos_stamp;
 	struct mars_input *input;
@@ -278,6 +304,7 @@ struct log_status {
 	unsigned int seq_nr;
 	struct mref_object *log_mref;
 	struct mref_object *read_mref;
+
 	wait_queue_head_t event;
 	int error_code;
 	bool got;

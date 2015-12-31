@@ -36,7 +36,7 @@
 #include "lib_mapfree.h"
 
 #include "mars_bio.h"
-//      remove_this
+//	remove_this
 #ifdef __bvec_iter_bvec
 #define HAS_BVEC_ITER
 #endif
@@ -45,7 +45,7 @@
 #define HAS_BI_ERROR
 #endif
 
-//      end_remove_this
+//	end_remove_this
 static struct timing_stats timings[2];
 
 struct threshold bio_submit_threshold = {
@@ -79,17 +79,17 @@ struct threshold bio_io_threshold[2] = {
 
 /* This is called from the kernel bio layer.
  */
-//      remove_this
+//	remove_this
 #ifdef HAS_BI_ERROR
-//      end_remove_this
+//	end_remove_this
 static
 void bio_callback(struct bio *bio)
-//      remove_this
+//	remove_this
 #else
 static
 void bio_callback(struct bio *bio, int code)
 #endif
-//      end_remove_this
+//	end_remove_this
 {
 	struct bio_mref_aspect *mref_a = bio->bi_private;
 	struct bio_brick *brick;
@@ -100,15 +100,15 @@ void bio_callback(struct bio *bio, int code)
 	brick = mref_a->output->brick;
 	CHECK_PTR(brick, err);
 
-//      remove_this
+//	remove_this
 #ifdef HAS_BI_ERROR
-//      end_remove_this
+//	end_remove_this
 	mref_a->status_code = bio->bi_error;
-//      remove_this
+//	remove_this
 #else
 	mref_a->status_code = code;
 #endif
-//      end_remove_this
+//	end_remove_this
 
 	spin_lock_irqsave(&brick->lock, flags);
 	list_del(&mref_a->io_head);
@@ -128,7 +128,12 @@ out_return:;
  * Return the length (may be smaller than requested).
  */
 static
-int make_bio(struct bio_brick *brick, void *data, int len, loff_t pos, struct bio_mref_aspect *private, struct bio **_bio)
+int make_bio(struct bio_brick *brick,
+	void *data,
+	int len,
+	loff_t pos,
+	struct bio_mref_aspect *private,
+	struct bio **_bio)
 {
 	unsigned long long sector;
 	int sector_offset;
@@ -153,7 +158,7 @@ int make_bio(struct bio_brick *brick, void *data, int len, loff_t pos, struct bi
 		goto out;
 	}
 
-	sector = pos >> 9;                     // TODO: make dynamic
+	sector = pos >> 9;		       // TODO: make dynamic
 	sector_offset = pos & ((1 << 9) - 1);  // TODO: make dynamic
 	data_offset = ((unsigned long)data) & ((1 << 9) - 1);  // TODO: make dynamic
 
@@ -223,19 +228,19 @@ int make_bio(struct bio_brick *brick, void *data, int len, loff_t pos, struct bi
 	}
 
 	bio->bi_vcnt = i;
-//      remove_this
+//	remove_this
 #ifdef HAS_BVEC_ITER
-//      end_remove_this
+//	end_remove_this
 	bio->bi_iter.bi_idx = 0;
 	bio->bi_iter.bi_size = result_len;
 	bio->bi_iter.bi_sector = sector;
-//      remove_this
+//	remove_this
 #else
 	bio->bi_idx = 0;
 	bio->bi_size = result_len;
 	bio->bi_sector = sector;
 #endif
-//      end_remove_this
+//	end_remove_this
 	bio->bi_bdev = bdev;
 	bio->bi_private = private;
 	bio->bi_end_io = bio_callback;
@@ -344,6 +349,7 @@ void _bio_ref_put(struct bio_output *output, struct mref_object *mref)
 	if (likely(mref_a->bio)) {
 #ifdef MARS_DEBUGGING
 		int bi_cnt = atomic_read(&mref_a->bio->bi_cnt);
+
 		if (bi_cnt > 1) {
 			MARS_DBG("bi_cnt = %d\n", bi_cnt);
 		}
@@ -363,7 +369,7 @@ err:
 out_return:;
 }
 
-#define BIO_REF_PUT(output,mref)					\
+#define BIO_REF_PUT(output, mref)					\
 	({								\
 		if (_mref_put(mref)) {					\
 			_bio_ref_put(output, mref);			\
@@ -398,34 +404,34 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref, bool cork)
 
 	rw = mref->ref_rw & 1;
 	if (brick->do_noidle && !cork) {
-//      remove_this
+//	remove_this
 // adapt to different kernel versions (TBD: improve)
 #if defined(BIO_RW_RQ_MASK) || defined(BIO_FLUSH)
 		rw |= (1 << BIO_RW_NOIDLE);
 #elif defined(REQ_NOIDLE)
-//      end_remove_this
+//	end_remove_this
 		rw |= REQ_NOIDLE;
-//      remove_this
+//	remove_this
 #else
 #warning Cannot control the NOIDLE flag
 #endif
-//      end_remove_this
+//	end_remove_this
 	}
 	if (!mref->ref_skip_sync) {
 		if (brick->do_sync) {
-//      remove_this
+//	remove_this
 #if defined(BIO_RW_RQ_MASK) || defined(BIO_FLUSH)
 			rw |= (1 << BIO_RW_SYNCIO);
 #elif defined(REQ_SYNC)
-//      end_remove_this
+//	end_remove_this
 			rw |= REQ_SYNC;
-//      remove_this
+//	remove_this
 #else
 #warning Cannot control the SYNC flag
 #endif
-//      end_remove_this
+//	end_remove_this
 		}
-//      remove_this
+//	remove_this
 #if defined(BIO_RW_RQ_MASK) || defined(BIO_FLUSH)
 		if (brick->do_unplug && !cork) {
 			rw |= (1 << BIO_RW_UNPLUG);
@@ -433,7 +439,7 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref, bool cork)
 #else
 		// there is no substitute, but the above NOIDLE should do the job (CHECK!)
 #endif
-//      end_remove_this
+//	end_remove_this
 	}
 
 	mref_a->start_stamp = cpu_clock(raw_smp_processor_id());
@@ -466,7 +472,7 @@ err:
 	CHECKED_CALLBACK(mref, status, done);
 	atomic_dec(&mars_global_io_flying);
 
-done: ;
+done:;
 }
 
 static
@@ -596,6 +602,7 @@ int bio_response_thread(void *data)
 			spin_lock_irqsave(&brick->lock, flags);
 			if (!list_empty(&brick->submitted_list[i])) {
 				struct bio_mref_aspect *mref_a;
+
 				mref_a = container_of(brick->submitted_list[i].next, struct bio_mref_aspect, io_head);
 				eldest = mref_a->start_stamp;
 			}
@@ -619,7 +626,7 @@ done:
 static
 bool _bg_should_run(struct bio_brick *brick)
 {
-	return (atomic_read(&brick->queue_count[2]) > 0 && 
+	return (atomic_read(&brick->queue_count[2]) > 0 &&
 		atomic_read(&brick->fly_count[0]) + atomic_read(&brick->fly_count[1]) <= brick->bg_threshold &&
 		(brick->bg_maxfly <= 0 || atomic_read(&brick->fly_count[2]) < brick->bg_maxfly));
 }
@@ -685,11 +692,12 @@ int bio_submit_thread(void *data)
 static int bio_switch(struct bio_brick *brick)
 {
 	int status = 0;
+
 	if (brick->power.button) {
 		if (brick->power.led_on)
 			goto done;
 
-		mars_power_led_off((void*)brick, false);
+		mars_power_led_off((void *)brick, false);
 
 		if (!brick->bdev) {
 			static int index;
@@ -729,7 +737,10 @@ static int bio_switch(struct bio_brick *brick)
 				goto done;
 			}
 
-			MARS_INF("'%s' ra_pages OLD=%lu NEW=%d\n", path, q->backing_dev_info.ra_pages, brick->ra_pages);
+			MARS_INF("'%s' ra_pages OLD=%lu NEW=%d\n",
+				path,
+				q->backing_dev_info.ra_pages,
+				brick->ra_pages);
 			q->backing_dev_info.ra_pages = brick->ra_pages;
 
 			brick->bvec_max = queue_max_hw_sectors(q) >> (PAGE_SHIFT - 9);
@@ -741,7 +752,10 @@ static int bio_switch(struct bio_brick *brick)
 			MARS_INF("'%s' size=%lld bvec_max=%d\n",
 				 path, brick->total_size, brick->bvec_max);
 
-			brick->response_thread = brick_thread_create(bio_response_thread, brick, "mars_bio_r%d", index);
+			brick->response_thread = brick_thread_create(bio_response_thread,
+				brick,
+				"mars_bio_r%d",
+				index);
 			brick->submit_thread = brick_thread_create(bio_submit_thread, brick, "mars_bio_s%d", index);
 			status = -ENOMEM;
 			if (likely(brick->submit_thread && brick->response_thread)) {
@@ -753,9 +767,9 @@ static int bio_switch(struct bio_brick *brick)
 		}
 	}
 
-	mars_power_led_on((void*)brick, brick->power.button && brick->bdev != NULL);
+	mars_power_led_on((void *)brick, brick->power.button && brick->bdev != NULL);
 
- done:
+done:
 	if (status < 0 || !brick->power.button) {
 		if (brick->submit_thread) {
 			brick_thread_stop(brick->submit_thread);
@@ -772,7 +786,7 @@ static int bio_switch(struct bio_brick *brick)
 		brick->mode_ptr = NULL;
 		brick->bdev = NULL;
 		if (!brick->power.button) {
-			mars_power_led_off((void*)brick, true);
+			mars_power_led_off((void *)brick, true);
 			brick->total_size = 0;
 		}
 	}
@@ -828,14 +842,16 @@ void bio_reset_statistics(struct bio_brick *brick)
 
 static int bio_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
-	struct bio_mref_aspect *ini = (void*)_ini;
+	struct bio_mref_aspect *ini = (void *)_ini;
+
 	INIT_LIST_HEAD(&ini->io_head);
 	return 0;
 }
 
 static void bio_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
-	struct bio_mref_aspect *ini = (void*)_ini;
+	struct bio_mref_aspect *ini = (void *)_ini;
+
 	(void)ini;
 }
 
@@ -926,7 +942,7 @@ const struct bio_brick_type bio_brick_type = {
 int __init init_mars_bio(void)
 {
 	MARS_INF("init_bio()\n");
-	_bio_brick_type = (void*)&bio_brick_type;
+	_bio_brick_type = (void *)&bio_brick_type;
 	return bio_register_brick_type();
 }
 

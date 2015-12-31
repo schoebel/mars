@@ -30,6 +30,7 @@ struct check_mref_aspect {
 	GENERIC_ASPECT(mref);
 #ifdef CHECK_LOCK
 	struct list_head mref_head;
+
 #endif
 	struct generic_callback cb;
 	struct check_output *output;
@@ -50,10 +51,12 @@ struct check_input {
 struct check_output {
 	MARS_OUTPUT(check);
 	int instance_nr;
+
 #ifdef CHECK_LOCK
 	struct task_struct *watchdog;
 	spinlock_t check_lock;
 	struct list_head mref_anchor;
+
 #endif
 };
 

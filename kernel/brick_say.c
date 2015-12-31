@@ -48,14 +48,14 @@
 #include "compat.h"
 
 #ifndef GFP_BRICK
-#define GFP_BRICK GFP_NOIO
+#define GFP_BRICK			GFP_NOIO
 #endif
 
-#define SAY_ORDER 0
-#define SAY_BUFMAX (PAGE_SIZE << SAY_ORDER)
-#define SAY_BUF_LIMIT (SAY_BUFMAX - 1500)
-#define MAX_FILELEN 16
-#define MAX_IDS 1000
+#define SAY_ORDER			0
+#define SAY_BUFMAX			(PAGE_SIZE << SAY_ORDER)
+#define SAY_BUF_LIMIT			(SAY_BUFMAX - 1500)
+#define MAX_FILELEN			16
+#define MAX_IDS				1000
 
 const char *say_class[MAX_SAY_CLASS] = {
 	[SAY_DEBUG] = "debug",
@@ -67,8 +67,10 @@ const char *say_class[MAX_SAY_CLASS] = {
 };
 
 int brick_say_logging = 1;
+
 module_param_named(say_logging, brick_say_logging, int, 0);
 int brick_say_debug;
+
 module_param_named(say_debug, brick_say_debug, int, 0);
 
 int brick_say_syslog_min = 1;
@@ -76,6 +78,7 @@ int brick_say_syslog_max = -1;
 int brick_say_syslog_flood_class = 3;
 int brick_say_syslog_flood_limit = 20;
 int brick_say_syslog_flood_recovery = 300;
+
 int delay_say_on_overflow =
 #ifdef CONFIG_MARS_DEBUG
 	1;
@@ -95,6 +98,7 @@ struct say_channel {
 	struct say_channel *ch_next;
 	spinlock_t ch_lock[MAX_SAY_CLASS];
 	char *ch_buf[MAX_SAY_CLASS][2];
+
 	short ch_index[MAX_SAY_CLASS];
 	struct file *ch_filp[MAX_SAY_CLASS][2];
 	int ch_overflow[MAX_SAY_CLASS];
@@ -106,6 +110,7 @@ struct say_channel {
 	int ch_status_written;
 	int ch_id_max;
 	void *ch_ids[MAX_IDS];
+
 	wait_queue_head_t ch_progress;
 };
 
@@ -131,7 +136,9 @@ void wait_channel(struct say_channel *ch, int class)
 		if (!use_atomic()) {
 			say_dirty = true;
 			wake_up_interruptible(&say_event);
-			wait_event_interruptible_timeout(ch->ch_progress, ch->ch_index[class] < SAY_BUF_LIMIT, HZ / 10);
+			wait_event_interruptible_timeout(ch->ch_progress,
+				ch->ch_index[class] < SAY_BUF_LIMIT,
+				HZ / 10);
 		}
 	}
 }
@@ -145,6 +152,7 @@ struct say_channel *find_channel(const void *id)
 	read_lock(&say_lock);
 	for (ch = channel_list; ch; ch = ch->ch_next) {
 		int i;
+
 		for (i = 0; i < ch->ch_id_max; i++) {
 			if (ch->ch_ids[i] == id) {
 				res = ch;
@@ -175,6 +183,7 @@ void _remove_binding(struct task_struct *whom)
 void bind_to_channel(struct say_channel *ch, struct task_struct *whom)
 {
 	int i;
+
 	write_lock(&say_lock);
 	_remove_binding(whom);
 	for (i = 0; i < ch->ch_id_max; i++) {
@@ -304,6 +313,7 @@ void _del_channel(struct say_channel *ch)
 		}
 		for (j = 0; j < 2; j++) {
 			char *buf = ch->ch_buf[i][j];
+
 			if (buf) {
 				__free_pages(virt_to_page((unsigned long)buf), SAY_ORDER);
 				atomic_dec(&say_alloc_pages);
@@ -326,13 +336,14 @@ struct say_channel *_make_channel(const char *name, bool must_exist)
 	struct kstat kstat = {};
 	int i, j;
 	unsigned long mode = use_atomic() ? GFP_ATOMIC : GFP_BRICK;
+
 	mm_segment_t oldfs;
 	bool is_dir = false;
 	int status;
 
 	oldfs = get_fs();
 	set_fs(get_ds());
-	status = vfs_stat((char*)name, &kstat);
+	status = vfs_stat((char *)name, &kstat);
 	set_fs(oldfs);
 
 	if (unlikely(status < 0)) {
@@ -365,8 +376,9 @@ restart2:
 		spin_lock_init(&res->ch_lock[i]);
 		for (j = 0; j < 2; j++) {
 			char *buf;
-		restart3:
-			buf = (void*)__get_free_pages(mode, SAY_ORDER);
+
+restart3:
+			buf = (void *)__get_free_pages(mode, SAY_ORDER);
 			if (unlikely(!buf)) {
 				schedule();
 				goto restart3;
@@ -411,7 +423,7 @@ struct say_channel *make_channel(const char *name, bool must_exist)
 		res->ch_next = channel_list;
 		channel_list = res;
 
-	race_found:
+race_found:
 		write_unlock(&say_lock);
 	}
 
@@ -447,7 +459,8 @@ void _say(struct say_channel *ch, int class, va_list args, bool use_args, const 
 	}
 
 	if (use_args) {
-		va_list args2; 
+		va_list args2;
+
 		va_start(args2, fmt);
 		written = vscnprintf(start, rest, fmt, args2);
 		va_end(args2);
@@ -510,7 +523,15 @@ void say_to(struct say_channel *ch, int class, const char *fmt, ...)
 out_return:;
 }
 
-void brick_say_to(struct say_channel *ch, int class, bool dump, const char *prefix, const char *file, int line, const char *func, const char *fmt, ...) 
+void brick_say_to(struct say_channel *ch,
+	int class,
+	bool dump,
+	const char *prefix,
+	const char *file,
+	int line,
+	const char *func,
+	const char *fmt,
+	...)
 {
 	const char *channel_name = "-";
 	struct timespec s_now;
@@ -617,6 +638,7 @@ static
 void out_to_file(struct file *file, char *buf, int len)
 {
 	loff_t log_pos = 0;
+
 	mm_segment_t oldfs;
 
 	if (file) {
@@ -685,7 +707,14 @@ restart:
 	}
 	atomic_inc(&say_alloc_names);
 	if (ch->ch_is_dir) {
-		snprintf(filename, 1023, "%s/%d.%s.%s%s", ch->ch_name, class, say_class[class], transact ? "status" : "log", add_tmp ? ".tmp" : "");
+		snprintf(filename,
+			1023,
+			"%s/%d.%s.%s%s",
+			ch->ch_name,
+			class,
+			say_class[class],
+			transact ? "status" : "log",
+			add_tmp ? ".tmp" : "");
 	} else {
 		snprintf(filename, 1023, "%s.%s%s", ch->ch_name, transact ? "status" : "log", add_tmp ? ".tmp" : "");
 	}
@@ -710,6 +739,7 @@ void _rollover_channel(struct say_channel *ch)
 
 		if (likely(old && new)) {
 			int i;
+
 			mm_segment_t oldfs;
 
 			for (i = 0; i < 2; i++) {
@@ -774,6 +804,7 @@ void treat_channel(struct say_channel *ch, int class)
 	for (transact = start; transact < 2; transact++) {
 		if (unlikely(!ch->ch_filp[class][transact])) {
 			char *filename = _make_filename(ch, class, transact, transact);
+
 			if (likely(filename)) {
 				try_open_file(&ch->ch_filp[class][transact], filename, transact);
 				kfree(filename);
@@ -786,6 +817,7 @@ void treat_channel(struct say_channel *ch, int class)
 	if (unlikely(overflow > 0)) {
 		struct timespec s_now = CURRENT_TIME;
 		struct timespec l_now;
+
 		get_lamport(&l_now);
 		len = scnprintf(buf,
 			       SAY_BUFMAX,
@@ -813,7 +845,7 @@ int _say_thread(void *data)
 		wait_event_interruptible_timeout(say_event, say_dirty, HZ);
 		say_dirty = false;
 
-	restart_rollover:
+restart_rollover:
 		read_lock(&say_lock);
 		for (ch = channel_list; ch; ch = ch->ch_next) {
 			if (ch->ch_rollover && ch->ch_status_written > 0) {
@@ -824,10 +856,11 @@ int _say_thread(void *data)
 		}
 		read_unlock(&say_lock);
 
-	restart:
+restart:
 		read_lock(&say_lock);
 		for (ch = channel_list; ch; ch = ch->ch_next) {
 			int start = 0;
+
 			if (!ch->ch_is_dir)
 				start = SAY_TOTAL;
 			for (i = start; i < MAX_SAY_CLASS; i++) {

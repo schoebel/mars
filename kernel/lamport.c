@@ -27,7 +27,8 @@
 
 #include "lamport.h"
 
-struct semaphore lamport_sem = __SEMAPHORE_INITIALIZER(lamport_sem, 1); // TODO: replace with spinlock if possible (first check)
+// TODO: replace with spinlock if possible (first check)
+struct semaphore lamport_sem = __SEMAPHORE_INITIALIZER(lamport_sem, 1);
 struct timespec lamport_now = {};
 
 void get_lamport(struct timespec *now)
