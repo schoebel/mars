@@ -58,7 +58,7 @@ void _generic_output_exit(struct generic_output *output)
 
 int generic_brick_init(const struct generic_brick_type *type, struct generic_brick *brick)
 {
-	brick->aspect_context.brick_index = get_nr();
+	brick->aspect_context.brick_index = get_brick_nr();
 	brick->type = type;
 	brick->ops = type->master_ops;
 	brick->nr_inputs = 0;
@@ -203,7 +203,7 @@ int _brick_msleep(int msecs, bool shorten)
 static char *nr_table;
 int nr_max = 256;
 
-int get_nr(void)
+int get_brick_nr(void)
 {
 	char *new;
 	int nr;
