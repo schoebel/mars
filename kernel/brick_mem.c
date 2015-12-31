@@ -40,14 +40,14 @@
 
 #define USE_KERNEL_PAGES // currently mandatory (vmalloc does not work)
 
-#define MAGIC_BLOCK  (int)0x8B395D7B
-#define MAGIC_BEND   (int)0x8B395D7C
-#define MAGIC_MEM1   (int)0x8B395D7D
-#define MAGIC_MEM2   (int)0x9B395D8D
-#define MAGIC_MEND1  (int)0x8B395D7E
-#define MAGIC_MEND2  (int)0x9B395D8E
-#define MAGIC_STR    (int)0x8B395D7F
-#define MAGIC_SEND   (int)0x9B395D8F
+#define MAGIC_BLOCK  ((int)0x8B395D7B)
+#define MAGIC_BEND   ((int)0x8B395D7C)
+#define MAGIC_MEM1   ((int)0x8B395D7D)
+#define MAGIC_MEM2   ((int)0x9B395D8D)
+#define MAGIC_MEND1  ((int)0x8B395D7E)
+#define MAGIC_MEND2  ((int)0x9B395D8E)
+#define MAGIC_STR    ((int)0x8B395D7F)
+#define MAGIC_SEND   ((int)0x9B395D8F)
 
 #define INT_ACCESS(ptr,offset) (*(int*)(((char*)(ptr)) + (offset)))
 
