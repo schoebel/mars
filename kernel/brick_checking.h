@@ -24,9 +24,9 @@
 #ifndef BRICK_CHECKING_H
 #define BRICK_CHECKING_H
 
-/////////////////////////////////////////////////////////////////////////
+/***********************************************************************/
 
-// checking
+/*  checking */
 
 #if defined(CONFIG_MARS_DEBUG) || defined(CONFIG_MARS_CHECKS)
 #define BRICK_CHECKING			true

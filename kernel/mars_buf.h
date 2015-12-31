@@ -39,10 +39,10 @@ struct buf_mref_aspect {
 	GENERIC_ASPECT(mref);
 	struct buf_head *rfa_bf;
 
-	//struct list_head rfa_bf_head;
+	/* struct list_head rfa_bf_head; */
 	struct list_head rfa_pending_head;
 
-	//struct list_head tmp_head;
+	/* struct list_head tmp_head; */
 };
 
 struct cache_anchor {
@@ -68,12 +68,12 @@ struct buf_brick {
 	struct mars_info base_info;
 	bool got_info;
 
-	// lists for caching
-	struct list_head list_anchor[LIST_MAX];   // members are hashed and not in use
-	struct list_head forget_anchor;   // like lru_anchor, but likely
-	struct cache_anchor cache_anchors[MARS_BUF_HASH_MAX]; // hash table
+	/*  lists for caching */
+	struct list_head list_anchor[LIST_MAX];   /*  members are hashed and not in use */
+	struct list_head forget_anchor;   /*  like lru_anchor, but likely */
+	struct cache_anchor cache_anchors[MARS_BUF_HASH_MAX]; /*  hash table */
 
-	// statistics
+	/*  statistics */
 	unsigned long last_jiffies;
 	atomic_t hit_count;
 	atomic_t miss_count;
@@ -95,7 +95,7 @@ struct buf_output {
 MARS_TYPES(buf);
 
 struct buf_head {
-	void		 *bf_data; // this MUST come first
+	void		 *bf_data; /*  this MUST come first */
 	spinlock_t	  bf_lock;
 	struct buf_brick *bf_brick;
 	loff_t		  bf_pos;
@@ -103,22 +103,22 @@ struct buf_head {
 	int		  bf_flags;
 	int		  bf_error;
 
-	atomic_t	  bf_hash_count; // # references pinning the hash
-	atomic_t	  bf_mref_count; // # mrefs (only used for checking, no real semantics)
-	atomic_t	  bf_io_count;	 // # IOs in flight
-	// statistics / data for strategic decisions
+	atomic_t	  bf_hash_count; /*  # references pinning the hash */
+	atomic_t	  bf_mref_count; /*  # mrefs (only used for checking, no real semantics) */
+	atomic_t	  bf_io_count;	 /*  # IOs in flight */
+	/*  statistics / data for strategic decisions */
 	atomic_t	  bf_mfu_stat;
 	atomic_t	  bf_chain_len;
 	bool		  bf_chain_detected;
 
-	// lists for caching
-	//struct list_head bf_mref_anchor; // all current mref members
+	/*  lists for caching */
+	/* struct list_head bf_mref_anchor; // all current mref members */
 	struct list_head  bf_list_head;
 	struct list_head  bf_hash_head;
 	unsigned long	  bf_jiffies;
 	int		  bf_member;
 
-	// lists for IO
+	/*  lists for IO */
 	struct list_head  bf_io_pending_anchor;
 	struct list_head  bf_postpone_anchor;
 };

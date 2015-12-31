@@ -47,14 +47,14 @@ struct client_mref_aspect {
 
 struct client_brick {
 	MARS_BRICK(client);
-	// tunables
-	int max_flying; // limit on parallelism
+	/*  tunables */
+	int max_flying; /*  limit on parallelism */
 	bool limit_mode;
 	bool allow_permuting_writes;
 	bool separate_reads;
 
-	// readonly from outside
-	int connection_state; // 0 = switched off, 1 = not connected, 2 = connected
+	/*  readonly from outside */
+	int connection_state; /*  0 = switched off, 1 = not connected, 2 = connected */
 };
 
 struct client_input {

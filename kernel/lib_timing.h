@@ -85,7 +85,7 @@ struct timing_stats {
 
 extern int report_timing(struct timing_stats *tim, char *str, int maxlen);
 
-#else  // CONFIG_DEBUG_KERNEL
+#else  /*  CONFIG_DEBUG_KERNEL */
 
 #define _TIME_STATS(_timing, _stamp1, _stamp2, _CODE)			\
 	((void)_timing, (_stamp1) = (_stamp2) = cpu_clock(raw_smp_processor_id()), _CODE, 0)
@@ -95,7 +95,7 @@ extern int report_timing(struct timing_stats *tim, char *str, int maxlen);
 
 #define report_timing(tim, str, maxlen)   ((void)tim, 0)
 
-#endif // CONFIG_DEBUG_KERNEL
+#endif /*  CONFIG_DEBUG_KERNEL */
 
 /* A banning represents some overloaded resource.
  *
@@ -113,7 +113,7 @@ extern int report_timing(struct timing_stats *tim, char *str, int maxlen);
 struct banning {
 	long long ban_last_hit;
 
-	// statistical
+	/*  statistical */
 	int ban_renew_count;
 	int ban_count;
 };
@@ -154,12 +154,12 @@ struct threshold {
 	struct banning *thr_ban;
 
 	struct threshold *thr_parent; /* support hierarchies */
-	// tunables
-	int  thr_limit;   // in us
-	int  thr_factor;  // in %
-	int  thr_plus;	  // in us
-	// statistical
-	int thr_max;	  // in ms
+	/*  tunables */
+	int  thr_limit;   /*  in us */
+	int  thr_factor;  /*  in % */
+	int  thr_plus;	  /*  in us */
+	/*  statistical */
+	int thr_max;	  /*  in ms */
 	int thr_triggered;
 	int thr_true_hit;
 };
@@ -167,7 +167,7 @@ struct threshold {
 extern inline
 void threshold_check(struct threshold *thr, long long latency)
 {
-	int ms = latency >> 6; // ignore small rounding error
+	int ms = latency >> 6; /*  ignore small rounding error */
 	while (thr) {
 		if (ms > thr->thr_max)
 			thr->thr_max = ms;

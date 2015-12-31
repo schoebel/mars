@@ -26,17 +26,17 @@
 
 #include <linux/semaphore.h>
 
-#define HT_SHIFT			6 //????
+#define HT_SHIFT			6 /* ???? */
 #define MARS_MAX_SEGMENT_SIZE		(1U << (9+HT_SHIFT))
 
 #define MAX_BIO				32
 
-///////////////////////// global tuning ////////////////////////
+/************************ global tuning ***********************/
 
-extern int if_throttle_start_size; // in kb
+extern int if_throttle_start_size; /*  in kb */
 extern struct mars_limiter if_throttle;
 
-/////////////////////////////////////////////////
+/***********************************************/
 
 /* I don't want to enhance / intrude into struct bio for compatibility reasons
  * (support for a variety of kernel versions).
@@ -65,7 +65,7 @@ struct if_hash_anchor;
 
 struct if_input {
 	MARS_INPUT(if);
-	// TODO: move this to if_brick (better systematics)
+	/*  TODO: move this to if_brick (better systematics) */
 	struct list_head plug_anchor;
 	struct request_queue *q;
 	struct gendisk *disk;
@@ -74,7 +74,7 @@ struct if_input {
 	atomic_t plugged_count;
 	atomic_t flying_count;
 
-	// only for statistics
+	/*  only for statistics */
 	atomic_t read_flying_count;
 	atomic_t write_flying_count;
 	atomic_t total_reada_count;
@@ -95,16 +95,16 @@ struct if_output {
 
 struct if_brick {
 	MARS_BRICK(if);
-	// parameters
+	/*  parameters */
 	loff_t dev_size;
 	int max_plugged;
 	int readahead;
 	bool skip_sync;
 
-	// inspectable
+	/*  inspectable */
 	atomic_t open_count;
 
-	// private
+	/*  private */
 	struct semaphore switch_sem;
 	struct say_channel *say_channel;
 };

@@ -21,7 +21,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-// Server brick (just for demonstration)
+/*  Server brick (just for demonstration) */
 
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
@@ -33,21 +33,21 @@
 #include "brick.h"
 #include "mars.h"
 #include "mars_bio.h"
-//	remove_this
+/* 	remove_this */
 #ifndef __USE_COMPAT
 #include "mars_aio.h"
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 #include "mars_sio.h"
 
-///////////////////////// own type definitions ////////////////////////
+/************************ own type definitions ***********************/
 
 #include "mars_server.h"
 
 static struct mars_socket server_socket[NR_SOCKETS];
 static struct task_struct *server_threads[NR_SOCKETS];
 
-///////////////////////// own helper functions ////////////////////////
+/************************ own helper functions ***********************/
 
 int cb_thread(void *data)
 {
@@ -217,7 +217,7 @@ int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_
 	if (unlikely(status < 0)) {
 		MARS_WRN("mref_get execution error = %d\n", status);
 		SIMPLE_CALLBACK(mref, status);
-		status = 0; // continue serving requests
+		status = 0; /*  continue serving requests */
 		goto done;
 	}
 	mref_a->do_put = true;
@@ -228,7 +228,7 @@ done:
 	return status;
 }
 
-////////////////// own brick / input / output operations //////////////////
+/***************** own brick * input * output operations *****************/
 
 static int server_get_info(struct server_output *output, struct mars_info *info)
 {
@@ -317,7 +317,7 @@ done:
 	return status;
 }
 
-//////////////// informational / statistics ///////////////
+/*************** informational * statistics **************/
 
 static
 char *server_statistics(struct server_brick *brick, int verbose)
@@ -340,7 +340,7 @@ void server_reset_statistics(struct server_brick *brick)
 {
 }
 
-//////////////// object / aspect constructors / destructors ///////////////
+/*************** object * aspect constructors * destructors **************/
 
 static int server_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
@@ -359,7 +359,7 @@ static void server_mref_aspect_exit_fn(struct generic_aspect *_ini)
 
 MARS_MAKE_STATICS(server);
 
-////////////////////// brick constructors / destructors ////////////////////
+/********************* brick constructors * destructors *******************/
 
 static int server_brick_construct(struct server_brick *brick)
 {
@@ -384,7 +384,7 @@ static int server_output_construct(struct server_output *output)
 	return 0;
 }
 
-///////////////////////// static structs ////////////////////////
+/************************ static structs ***********************/
 
 static struct server_brick_ops server_brick_ops = {
 	.brick_switch = server_switch,
@@ -432,13 +432,13 @@ const struct server_brick_type server_brick_type = {
 	.brick_destruct = &server_brick_destruct,
 };
 
-///////////////////////////////////////////////////////////////////////
+/*********************************************************************/
 
-// strategy layer
+/*  strategy layer */
 
 int server_show_statist;
 
-////////////////// module init stuff /////////////////////////
+/***************** module init stuff ************************/
 
 struct mars_limiter server_limiter = {
 	.lim_max_rate = 0,

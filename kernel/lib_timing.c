@@ -68,10 +68,10 @@ int report_timing(struct timing_stats *tim, char *str, int maxlen)
 	return len;
 }
 
-#endif // CONFIG_DEBUG_KERNEL
+#endif /*  CONFIG_DEBUG_KERNEL */
 
 struct threshold global_io_threshold = {
-	.thr_limit = 30 * 1000000, // 30 seconds
+	.thr_limit = 30 * 1000000, /*  30 seconds */
 	.thr_factor = 100,
 	.thr_plus = 0,
 };

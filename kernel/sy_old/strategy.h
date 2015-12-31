@@ -21,15 +21,15 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-// OLD CODE = > will disappear!
+/*  OLD CODE = > will disappear! */
 #ifndef _OLD_STRATEGY
 #define _OLD_STRATEGY
 
-#define _STRATEGY			// call this only in strategy bricks, never in ordinary bricks
+#define _STRATEGY			/*  call this only in strategy bricks, never in ordinary bricks */
 
 #include "../mars.h"
 
-//	remove_this
+/* 	remove_this */
 #ifdef KUIDT_INIT
 #define HAS_KUID
 #else
@@ -37,7 +37,7 @@
 #define __kgid_val(x) (x)
 #endif
 
-//	end_remove_this
+/* 	end_remove_this */
 #define MARS_ARGV_MAX			4
 
 extern loff_t global_total_space;
@@ -141,7 +141,7 @@ extern void mars_kill_dent(struct mars_dent *dent);
 extern void mars_free_dent(struct mars_dent *dent);
 extern void mars_free_dent_all(struct mars_global *global, struct list_head *anchor);
 
-// low-level brick instantiation
+/*  low-level brick instantiation */
 
 extern struct mars_brick *mars_find_brick(struct mars_global *global, const void *brick_type, const char *path);
 extern struct mars_brick *mars_make_brick(struct mars_global *global,
@@ -159,7 +159,7 @@ extern int mars_kill_brick_when_possible(struct mars_global *global,
 	const struct mars_brick_type *type,
 	bool even_on);
 
-// mid-level brick instantiation (identity is based on path strings)
+/*  mid-level brick instantiation (identity is based on path strings) */
 
 extern char *_vpath_make(int line, const char *fmt, va_list *args);
 extern char *_path_make(int line, const char *fmt, ...);
@@ -185,7 +185,7 @@ extern struct mars_brick *make_brick_all(
 	const char *new_name,
 	const struct generic_brick_type *new_brick_type,
 	const struct generic_brick_type *prev_brick_type[],
-// -1 = off, 0 = leave in current state, +1 = create when necessary, +2 = create + switch on
+/*  -1 = off, 0 = leave in current state, +1 = create when necessary, +2 = create + switch on */
 	int switch_override,
 	const char *new_fmt,
 	const char *prev_fmt[],
@@ -193,7 +193,7 @@ extern struct mars_brick *make_brick_all(
 	...
 	);
 
-// general MARS infrastructure
+/*  general MARS infrastructure */
 
 /* General fs wrappers (for abstraction)
  */
@@ -205,7 +205,7 @@ extern char *mars_readlink(const char *newpath);
 extern int mars_rename(const char *oldpath, const char *newpath);
 extern void mars_remaining_space(const char *fspath, loff_t *total, loff_t *remaining);
 
-/////////////////////////////////////////////////////////////////////////
+/***********************************************************************/
 
 extern struct mars_global *mars_global;
 
@@ -214,17 +214,17 @@ extern bool mars_check_outputs(struct mars_brick *brick);
 
 extern int  mars_power_button(struct mars_brick *brick, bool val, bool force_off);
 
-/////////////////////////////////////////////////////////////////////////
+/***********************************************************************/
 
-// statistics
+/*  statistics */
 
 extern int global_show_statist;
 
 void show_statistics(struct mars_global *global, const char *class);
 
-/////////////////////////////////////////////////////////////////////////
+/***********************************************************************/
 
-// quirk
+/*  quirk */
 
 extern int mars_mem_percent;
 
@@ -238,9 +238,9 @@ extern int light_checker(struct mars_dent *parent,
 
 void from_remote_trigger(void);
 
-/////////////////////////////////////////////////////////////////////////
+/***********************************************************************/
 
-// init
+/*  init */
 
 extern int init_sy(void);
 extern void exit_sy(void);

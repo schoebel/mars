@@ -35,9 +35,9 @@
 
 #define MAX_FIELD_LEN			(32 + 16)
 
-////////////////////////////////////////////////////////////////////
+/******************************************************************/
 
-// Compatibility to old network data format: to be removed for kernel upstream
+/*  Compatibility to old network data format: to be removed for kernel upstream */
 
 int use_old_format;
 
@@ -82,7 +82,7 @@ int _add_fields_old(struct mars_desc_item_old *mi, const struct meta *meta, int 
 			goto done;
 		}
 		mi->field_type = meta->field_type;
-		// the old model used no FIELD_RAW or FIELD_UINT
+		/*  the old model used no FIELD_RAW or FIELD_UINT */
 		if (mi->field_type >= FIELD_RAW)
 			mi->field_type = FIELD_INT;
 		mi->field_size = meta->field_data_size;
@@ -415,7 +415,7 @@ int desc_recv_struct_old(struct mars_socket *msock, void *data, const struct met
 	}
 
 	cache_index = header.h_index;
-	if (cache_index < 0) { // EOR
+	if (cache_index < 0) { /*  EOR */
 		goto done;
 	}
 	if (unlikely(cache_index >= MAX_DESC_CACHE - 1)) {

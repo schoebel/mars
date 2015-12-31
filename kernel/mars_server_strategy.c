@@ -32,11 +32,11 @@
 #include "brick.h"
 #include "mars.h"
 #include "mars_bio.h"
-//	remove_this
+/* 	remove_this */
 #ifndef __USE_COMPAT
 #include "mars_aio.h"
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 #include "mars_sio.h"
 
 #include "sy_old/strategy.h"
@@ -64,7 +64,7 @@ int _set_server_sio_params(struct mars_brick *_brick, void *private)
 	return 1;
 }
 
-//	remove_this
+/* 	remove_this */
 #ifndef __USE_COMPAT
 static
 int _set_server_aio_params(struct mars_brick *_brick, void *private)
@@ -85,18 +85,18 @@ int _set_server_aio_params(struct mars_brick *_brick, void *private)
 }
 #endif
 
-//	end_remove_this
+/* 	end_remove_this */
 static
 int _set_server_bio_params(struct mars_brick *_brick, void *private)
 {
 	struct bio_brick *bio_brick;
 
-//	remove_this
+/* 	remove_this */
 #ifndef __USE_COMPAT
 	if (_brick->type == (void *)_aio_brick_type)
 		return _set_server_aio_params(_brick, private);
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 	if (_brick->type == (void *)_sio_brick_type)
 		return _set_server_sio_params(_brick, private);
 	if (_brick->type != (void *)_bio_brick_type) {
@@ -269,7 +269,7 @@ int handler_thread(void *data)
 				path,
 				(const struct generic_brick_type *)_bio_brick_type,
 				(const struct generic_brick_type *[]){},
-				2, // start always
+				2, /*  start always */
 				path,
 				(const char *[]){},
 				0);
@@ -380,7 +380,7 @@ int server_thread(void *data)
 		if (unlikely(status < 0 || !mars_socket_is_alive(&handler_socket))) {
 			brick_msleep(500);
 			if (status == -EAGAIN)
-				continue; // without error message
+				continue; /*  without error message */
 			MARS_WRN("accept status = %d\n", status);
 			brick_msleep(1000);
 			continue;
@@ -409,7 +409,7 @@ int server_thread(void *data)
 			goto err;
 		}
 
-		// further references are usually held by the threads
+		/*  further references are usually held by the threads */
 		mars_put_socket(&brick->handler_socket);
 
 		/* fire and forget....
@@ -435,7 +435,7 @@ err:
 
 	mars_kill_brick_all(&server_global, &server_global.brick_anchor, false);
 
-	//cleanup_mm();
+	/* cleanup_mm(); */
 
 	MARS_INF("-------- done status = %d ----------\n", status);
 	return status;

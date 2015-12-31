@@ -57,7 +57,7 @@ struct log_header_v1 {
 	int    l_crc;
 };
 
-#define FORMAT_VERSION			1 // version of disk format, currently there is no other one
+#define FORMAT_VERSION			1 /*  version of disk format, currently there is no other one */
 
 #define CODE_UNKNOWN			0
 #define CODE_WRITE_NEW			1
@@ -93,7 +93,7 @@ struct log_header_v1 {
 
 #define OVERHEAD			(START_OVERHEAD + END_OVERHEAD)
 
-// TODO: make this bytesex-aware.
+/*  TODO: make this bytesex-aware. */
 #define DATA_PUT(data, offset, val)					\
 	do {								\
 		*((typeof(val) *)((data)+offset)) = val;		\
@@ -183,10 +183,10 @@ int log_scan(void *buf,
 		DATA_GET(buf, offset, lh->l_stamp.tv_nsec);
 		DATA_GET(buf, offset, lh->l_pos);
 		DATA_GET(buf, offset, lh->l_len);
-		offset += 2; // skip spare
-		offset += 4; // skip spare
+		offset += 2; /*  skip spare */
+		offset += 4; /*  skip spare */
 		DATA_GET(buf, offset, lh->l_code);
-		offset += 2; // skip spare
+		offset += 2; /*  skip spare */
 
 		found_offset = offset;
 		offset += lh->l_len;
@@ -213,7 +213,7 @@ int log_scan(void *buf,
 			return -EBADMSG;
 		}
 
-		// skip spares
+		/*  skip spares */
 		offset += 3;
 
 		DATA_GET(buf, offset, lh->l_seq_nr);
@@ -244,17 +244,17 @@ int log_scan(void *buf,
 			}
 		}
 
-		// last check
+		/*  last check */
 		if (unlikely(total_len != offset - i)) {
 			MARS_ERR(SCAN_TXT "internal size mismatch: %d != %d\n", SCAN_PAR, total_len, offset - i);
 			return -EBADMSG;
 		}
 
-		// Success...
+		/*  Success... */
 		*payload = buf + found_offset;
 		*payload_len = lh->l_len;
 
-		// don't cry when nullbytes have been skipped
+		/*  don't cry when nullbytes have been skipped */
 		if (i > 0 && dirty)
 			MARS_WRN(SCAN_TXT "skipped %d dirty bytes to find valid data\n", SCAN_PAR, i);
 
@@ -265,32 +265,32 @@ int log_scan(void *buf,
 	return -EAGAIN;
 }
 
-////////////////////////////////////////////////////////////////////////////
+/**************************************************************************/
 
 #ifdef __KERNEL__
 
 /* Bookkeeping status between calls
  */
 struct log_status {
-	// interfacing
+	/*  interfacing */
 	wait_queue_head_t *signal_event;
-	// tunables
+	/*  tunables */
 	loff_t start_pos;
 	loff_t end_pos;
 
-	int align_size;   // alignment between requests
-	int chunk_size;   // must be at least 8K (better 64k)
-	int max_size;	  // max payload length
+	int align_size;   /*  alignment between requests */
+	int chunk_size;   /*  must be at least 8K (better 64k) */
+	int max_size;	  /*  max payload length */
 	int io_prio;
 	bool do_crc;
 
-	// informational
+	/*  informational */
 	atomic_t mref_flying;
 	int count;
 	loff_t log_pos;
 	struct timespec log_pos_stamp;
 
-	// internal
+	/*  internal */
 	struct timespec tmp_pos_stamp;
 	struct mars_input *input;
 	struct mars_brick *brick;
@@ -322,9 +322,9 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 
 int log_read(struct log_status *logst, bool sloppy, struct log_header *lh, void **payload, int *payload_len);
 
-/////////////////////////////////////////////////////////////////////////
+/***********************************************************************/
 
-// init
+/*  init */
 
 extern int init_log_format(void);
 extern void exit_log_format(void);

@@ -37,7 +37,7 @@ struct sio_mref_aspect {
 
 struct sio_brick {
 	MARS_BRICK(sio);
-	// parameters
+	/*  parameters */
 	bool o_direct;
 	bool o_fdsync;
 };
@@ -61,7 +61,7 @@ struct sio_threadinfo {
 
 struct sio_output {
 	MARS_OUTPUT(sio);
-	// private
+	/*  private */
 	struct mapfree_info *mf;
 	struct sio_threadinfo tinfo[WITH_THREAD+1];
 	spinlock_t g_lock;

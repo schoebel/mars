@@ -24,9 +24,9 @@
 #ifndef MARS_BIO_H
 #define MARS_BIO_H
 
-#define BIO_SUBMIT_MAX_LATENCY		250 // 250 us
-#define BIO_IO_R_MAX_LATENCY		40000 //  40 ms
-#define BIO_IO_W_MAX_LATENCY		100000 // 100 ms
+#define BIO_SUBMIT_MAX_LATENCY		250 /*  250 us */
+#define BIO_IO_R_MAX_LATENCY		40000 /*   40 ms */
+#define BIO_IO_W_MAX_LATENCY		100000 /*  100 ms */
 
 extern struct threshold bio_submit_threshold;
 extern struct threshold bio_io_threshold[2];
@@ -47,7 +47,7 @@ struct bio_mref_aspect {
 
 struct bio_brick {
 	MARS_BRICK(bio);
-	// tunables
+	/*  tunables */
 	int ra_pages;
 	int bg_threshold;
 	int bg_maxfly;
@@ -55,14 +55,14 @@ struct bio_brick {
 	bool do_sync;
 	bool do_unplug;
 
-	// readonly
+	/*  readonly */
 	loff_t total_size;
 	atomic_t fly_count[MARS_PRIO_NR];
 	atomic_t queue_count[MARS_PRIO_NR];
 	atomic_t completed_count;
 	atomic_t total_completed_count[MARS_PRIO_NR];
 
-	// private
+	/*  private */
 	spinlock_t lock;
 	struct list_head queue_list[MARS_PRIO_NR];
 	struct list_head submitted_list[2];

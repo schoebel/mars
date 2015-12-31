@@ -109,16 +109,16 @@ enum {
 #define CMD_FLAG_HAS_DATA		256
 
 struct mars_cmd {
-	struct timespec cmd_stamp; // for automatic lamport clock
+	struct timespec cmd_stamp; /*  for automatic lamport clock */
 	int cmd_code;
 	int cmd_int1;
 
-	//int cmd_int2;
-	//int cmd_int3;
+	/* int cmd_int2; */
+	/* int cmd_int3; */
 	char *cmd_str1;
 
-	//char *cmd_str2;
-	//char *cmd_str3;
+	/* char *cmd_str2; */
+	/* char *cmd_str3; */
 };
 
 extern const struct meta mars_cmd_meta[];
@@ -167,8 +167,8 @@ extern int mars_recv_mref(struct mars_socket *msock, struct mref_object *mref, s
 extern int mars_send_cb(struct mars_socket *msock, struct mref_object *mref);
 extern int mars_recv_cb(struct mars_socket *msock, struct mref_object *mref, struct mars_cmd *cmd);
 
-//	remove_this
-/////////////////////////////////////////////////////////////////////////
+/* 	remove_this */
+/***********************************************************************/
 
 #ifdef CONFIG_MARS_NET_COMPAT
 extern int use_old_format;
@@ -177,10 +177,10 @@ int desc_recv_struct_old(struct mars_socket *msock, void *data, const struct met
 
 #endif
 
-//	end_remove_this
-/////////////////////////////////////////////////////////////////////////
+/* 	end_remove_this */
+/***********************************************************************/
 
-// init
+/*  init */
 
 extern int init_mars_net(void);
 extern void exit_mars_net(void);

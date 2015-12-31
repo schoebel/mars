@@ -25,8 +25,8 @@
  * to work at all.
  */
 
-// #define BRICK_DEBUGGING
-// #define MARS_DEBUGGING
+/*  #define BRICK_DEBUGGING */
+/*  #define MARS_DEBUGGING */
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -36,28 +36,28 @@
 
 #include "mars.h"
 
-// #define FAKE_IO // only for testing
-// #define FAKE_READS // only for testing
-// #define FAKE_WRITES // only for testing
+/*  #define FAKE_IO // only for testing */
+/*  #define FAKE_READS // only for testing */
+/*  #define FAKE_WRITES // only for testing */
 
-// #define OPTIMIZE_FULL_WRITES // does not work currently!
+/*  #define OPTIMIZE_FULL_WRITES // does not work currently! */
 
-///////////////////////// own type definitions ////////////////////////
+/************************ own type definitions ***********************/
 
 #include "mars_buf.h"
 
 #define PRE_ALLOC			8
 
-///////////////////////// own helper functions ////////////////////////
+/************************ own helper functions ***********************/
 
 static inline
 int buf_hash_fn(loff_t base_index)
 {
-	// simple and stupid
+	/*  simple and stupid */
 	loff_t tmp;
 
 	tmp = base_index ^ (base_index / MARS_BUF_HASH_MAX);
-	//tmp ^ = tmp / (MARS_BUF_HASH_MAX * MARS_BUF_HASH_MAX);
+	/* tmp ^ = tmp / (MARS_BUF_HASH_MAX * MARS_BUF_HASH_MAX); */
 	return ((unsigned)tmp) % MARS_BUF_HASH_MAX;
 }
 
@@ -84,7 +84,7 @@ struct buf_head *_hash_find_insert(struct buf_brick *brick, loff_t base_index, s
 				base_index,
 				hash,
 				new);
-			//dump_stack();
+			/* dump_stack(); */
 			spin_unlock_irqrestore(lock, flags);
 			return NULL;
 		}
@@ -101,7 +101,7 @@ struct buf_head *_hash_find_insert(struct buf_brick *brick, loff_t base_index, s
 		}
 #endif
 		res = container_of(tmp, struct buf_head, bf_hash_head);
-		if (res->bf_base_index == base_index) { // found
+		if (res->bf_base_index == base_index) { /*  found */
 			/* This must be paired with _bf_put()
 			 */
 			atomic_inc(&res->bf_hash_count);
@@ -305,7 +305,7 @@ found:
 
 			if (unlikely(!status)) {
 				MARS_INF("bf %p is in use\n", bf);
-				bf = NULL; // forget it = > _bf_put() must fix it
+				bf = NULL; /*  forget it = > _bf_put() must fix it */
 				continue;
 			}
 		}
@@ -350,7 +350,7 @@ void _bf_put(struct buf_head *bf)
 out_return:;
 }
 
-/////////////////////////////////////////////////////////////////////////
+/***********************************************************************/
 
 /* Routines for the relation bf <-> mref
  */
@@ -367,7 +367,7 @@ out_return:;
 static inline
 bool _mref_remove(struct buf_head *bf, struct buf_mref_aspect *mref_a)
 {
-	//struct mref_object *mref;
+	/* struct mref_object *mref; */
 	bool status;
 
 	if (!mref_a->rfa_bf)
@@ -378,7 +378,7 @@ bool _mref_remove(struct buf_head *bf, struct buf_mref_aspect *mref_a)
 	return status;
 }
 
-/////////////////////////////////////////////////////////////
+/***********************************************************/
 
 static inline int _get_info(struct buf_brick *brick)
 {
@@ -390,7 +390,7 @@ static inline int _get_info(struct buf_brick *brick)
 	return status;
 }
 
-////////////////// own brick / input / output operations //////////////////
+/***************** own brick * input * output operations *****************/
 
 static int buf_get_info(struct buf_output *output, struct mars_info *info)
 {
@@ -418,7 +418,7 @@ static int buf_ref_get(struct buf_output *output, struct mref_object *mref)
 
 #ifdef PRE_ALLOC
 	if (unlikely(atomic_read(&brick->alloc_count) < brick->max_count)) {
-		// grab all memory in one go = > avoid memory fragmentation
+		/*  grab all memory in one go = > avoid memory fragmentation */
 		__pre_alloc_bf(brick, brick->max_count + PRE_ALLOC - atomic_read(&brick->alloc_count));
 	}
 #endif
@@ -477,7 +477,7 @@ again:
 		if (!new)
 			goto done;
 #if 1
-		// dont initialize new->bf_data
+		/*  dont initialize new->bf_data */
 		memset(((void *)new) + sizeof(void *), 0, sizeof(struct buf_head) - sizeof(void *));
 #else
 		new->bf_flags = 0;
@@ -502,7 +502,7 @@ again:
 			atomic_inc(&brick->opt_count);
 		}
 #endif
-		//INIT_LIST_HEAD(&new->bf_mref_anchor);
+		/* INIT_LIST_HEAD(&new->bf_mref_anchor); */
 		INIT_LIST_HEAD(&new->bf_list_head);
 		INIT_LIST_HEAD(&new->bf_hash_head);
 		INIT_LIST_HEAD(&new->bf_io_pending_anchor);
@@ -566,7 +566,7 @@ static void _buf_ref_put(struct buf_output *output, struct buf_mref_aspect *mref
 	_mref_remove(bf, mref_a);
 	_mref_free(mref);
 
-	_bf_put(bf); // paired with _hash_find_insert()
+	_bf_put(bf); /*  paired with _hash_find_insert() */
 out_return:;
 }
 
@@ -661,7 +661,7 @@ static int _buf_make_io(struct buf_brick *brick,
 #ifndef FAKE_IO
 		GENERIC_INPUT_CALL(input, mref_io, mref);
 #else
-		// fake IO for testing
+		/*  fake IO for testing */
 		mref_a->cb.cb_error = status;
 		mref_a->cb.cb_fn(&mref_a->cb);
 #endif
@@ -713,23 +713,23 @@ static void _buf_endio(struct generic_callback *cb)
 	if (error < 0)
 		bf->bf_error = error;
 
-	// wait until all IO on this bf is completed.
+	/*  wait until all IO on this bf is completed. */
 	if (!atomic_dec_and_test(&bf->bf_io_count))
 		goto out_return;
 	MARS_DBG("_buf_endio() ZERO bf=%p\n", bf);
 
-	// get an extra reference, to avoid freeing bf underneath during callbacks
+	/*  get an extra reference, to avoid freeing bf underneath during callbacks */
 	CHECK_ATOMIC(&bf->bf_hash_count, 1);
 	atomic_inc(&bf->bf_hash_count);
 
 	spin_lock_irqsave(&bf->bf_lock, flags);
 
-	// update flags. this must be done before the callbacks.
+	/*  update flags. this must be done before the callbacks. */
 	old_flags = bf->bf_flags;
 	if (bf->bf_error >= 0 && (old_flags & MREF_READING))
 		bf->bf_flags |= MREF_UPTODATE;
 
-	// clear the flags, callbacks must not see them. may be re-enabled later.
+	/*  clear the flags, callbacks must not see them. may be re-enabled later. */
 	bf->bf_flags &= ~(MREF_READING | MREF_WRITING);
 	/* Remember current version of pending list.
 	 * This is necessary because later the callbacks might
@@ -766,19 +766,19 @@ static void _buf_endio(struct generic_callback *cb)
 
 		MARS_DBG("postponed mref=%p\n", mref);
 
-		// re-enable flags
+		/*  re-enable flags */
 		bf->bf_flags |= MREF_WRITING;
 		bf->bf_error = 0;
 
 		if (!start_len) {
-			// first time: only flush the affected area
+			/*  first time: only flush the affected area */
 			start_data = mref->ref_data;
 			start_pos = mref->ref_pos;
 			start_len = mref->ref_len;
 		} else if (start_data != mref->ref_data ||
 			  start_pos != mref->ref_pos ||
 			  start_len != mref->ref_len) {
-			// another time: flush larger parts
+			/*  another time: flush larger parts */
 			loff_t start_diff = mref->ref_pos - start_pos;
 			loff_t end_diff;
 
@@ -815,7 +815,7 @@ static void _buf_endio(struct generic_callback *cb)
 		 */
 		list_del_init(&mref_a->rfa_pending_head);
 
-		// update infos for callbacks, they may inspect it.
+		/*  update infos for callbacks, they may inspect it. */
 		mref->ref_flags = bf->bf_flags;
 
 		CHECKED_CALLBACK(mref, bf->bf_error, err);
@@ -829,7 +829,7 @@ static void _buf_endio(struct generic_callback *cb)
 		MARS_DBG("ATTENTION restart %d\n", start_len);
 		_buf_make_io(brick, bf, start_data, start_pos, start_len, WRITE);
 	}
-	// drop the extra reference from above
+	/*  drop the extra reference from above */
 	_bf_put(bf);
 	goto out_return;
 err:
@@ -883,7 +883,7 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 			goto callback;
 		}
 		end = mref->ref_pos + mref->ref_len;
-		//FIXME: race condition :(
+		/* FIXME: race condition :( */
 		if (!brick->got_info)
 			_get_info(brick);
 		if (end > brick->base_info.current_size)
@@ -925,7 +925,7 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 		goto already_done;
 	}
 
-	if (mref->ref_rw != 0) { // WRITE
+	if (mref->ref_rw != 0) { /*  WRITE */
 #ifdef FAKE_WRITES
 		bf->bf_flags |= MREF_UPTODATE;
 		goto already_done;
@@ -934,9 +934,9 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 			MARS_ERR("bad bf_flags %d\n", bf->bf_flags);
 		if (!(bf->bf_flags & MREF_WRITING)) {
 #if 0
-			// by definition, a writeout buffer is always uptodate
+			/*  by definition, a writeout buffer is always uptodate */
 			bf->bf_flags |= (MREF_WRITING | MREF_UPTODATE);
-#else // really ???
+#else /*  really ??? */
 			bf->bf_flags |= MREF_WRITING;
 #endif
 			bf->bf_error = 0;
@@ -944,7 +944,7 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 			start_data = mref->ref_data;
 			start_pos = mref->ref_pos;
 			start_len = mref->ref_len;
-#else // only for testing: write the full buffer
+#else /*  only for testing: write the full buffer */
 			start_data = (void *)((unsigned long)mref->ref_data & ~(unsigned long)(brick->backing_size - 1));
 			start_pos = mref->ref_pos & ~(loff_t)(brick->backing_size - 1);
 			start_len = brick->backing_size;
@@ -957,7 +957,7 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 			delay = true;
 			MARS_DBG("postponing %lld %d\n", mref->ref_pos, mref->ref_len);
 		}
-	} else { // READ
+	} else { /*  READ */
 #ifdef FAKE_READS
 		bf->bf_flags |= MREF_UPTODATE;
 		goto already_done;
@@ -972,7 +972,7 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 			bf->bf_flags |= MREF_READING;
 			bf->bf_error = 0;
 
-			// always read the whole buffer.
+			/*  always read the whole buffer. */
 			start_data = (void *)((unsigned long)mref->ref_data & ~(unsigned long)(brick->backing_size - 1));
 			start_pos = mref->ref_pos & ~(loff_t)(brick->backing_size - 1);
 			start_len = brick->backing_size;
@@ -991,7 +991,7 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 	spin_unlock_irqrestore(&bf->bf_lock, flags);
 
 	if (!start_len) {
-		// nothing to start, IO is already started.
+		/*  nothing to start, IO is already started. */
 		goto no_callback;
 	}
 
@@ -1019,15 +1019,15 @@ callback:
 no_callback:
 	if (!delay) {
 		buf_ref_put(output, mref);
-	} // else the ref_put() will be carried out upon IO completion.
+	} /*  else the ref_put() will be carried out upon IO completion. */
 
 	goto out_return;
-fatal: // no chance to call callback: may produce hanging tasks :(
+fatal: /*  no chance to call callback: may produce hanging tasks :( */
 	MARS_FAT("no chance to call callback, tasks may hang.\n");
 out_return:;
 }
 
-//////////////// object / aspect constructors / destructors ///////////////
+/*************** object * aspect constructors * destructors **************/
 
 static int buf_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
@@ -1035,7 +1035,7 @@ static int buf_mref_aspect_init_fn(struct generic_aspect *_ini)
 
 	ini->rfa_bf = NULL;
 	INIT_LIST_HEAD(&ini->rfa_pending_head);
-	//INIT_LIST_HEAD(&ini->tmp_head);
+	/* INIT_LIST_HEAD(&ini->tmp_head); */
 	return 0;
 }
 
@@ -1046,13 +1046,13 @@ static void buf_mref_aspect_exit_fn(struct generic_aspect *_ini)
 	(void)ini;
 #if 1
 	CHECK_HEAD_EMPTY(&ini->rfa_pending_head);
-	//CHECK_HEAD_EMPTY(&ini->tmp_head);
+	/* CHECK_HEAD_EMPTY(&ini->tmp_head); */
 #endif
 }
 
 MARS_MAKE_STATICS(buf);
 
-////////////////////// brick constructors / destructors ////////////////////
+/********************* brick constructors * destructors *******************/
 
 static int buf_brick_construct(struct buf_brick *brick)
 {
@@ -1091,7 +1091,7 @@ static int buf_brick_destruct(struct buf_brick *brick)
 	return 0;
 }
 
-///////////////////////// static structs ////////////////////////
+/************************ static structs ***********************/
 
 static struct buf_brick_ops buf_brick_ops;
 
@@ -1135,7 +1135,7 @@ const struct buf_brick_type buf_brick_type = {
 	.brick_destruct = &buf_brick_destruct,
 };
 
-////////////////// module init stuff /////////////////////////
+/***************** module init stuff ************************/
 
 int __init init_mars_buf(void)
 {

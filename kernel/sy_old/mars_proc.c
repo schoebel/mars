@@ -35,18 +35,18 @@
 #include "mars_proc.h"
 #include "../lib_mapfree.h"
 #include "../mars_bio.h"
-//	remove_this
+/* 	remove_this */
 #ifndef __USE_COMPAT
 #include "../mars_aio.h"
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 #include "../mars_if.h"
 #include "../mars_copy.h"
 #include "../mars_client.h"
 #include "../mars_server.h"
 #include "../mars_trans_logger.h"
 
-//	remove_this
+/* 	remove_this */
 #include "../buildtag.h"
 
 const char mars_version_string[] = BUILDTAG " (" BUILDHOST " " BUILDDATE ") "
@@ -63,7 +63,7 @@ const char mars_version_string[] = BUILDTAG " (" BUILDHOST " " BUILDDATE ") "
 #endif
 	;
 
-//	end_remove_this
+/* 	end_remove_this */
 mars_info_fn mars_info;
 
 static
@@ -85,7 +85,7 @@ int trigger_sysctl_handler(
 	if (write) {
 		char tmp[8] = {};
 
-		res = len; // fake consumption of all data
+		res = len; /*  fake consumption of all data */
 
 		if (len > 7)
 			len = 7;
@@ -245,14 +245,14 @@ struct ctl_table io_tuning_table[] = {
 	THRESHOLD_ENTRIES(&bio_submit_threshold, "bio_submit"),
 	THRESHOLD_ENTRIES(&bio_io_threshold[0],  "bio_io_r"),
 	THRESHOLD_ENTRIES(&bio_io_threshold[1],  "bio_io_w"),
-//	remove_this
+/* 	remove_this */
 #ifndef __USE_COMPAT
 	THRESHOLD_ENTRIES(&aio_submit_threshold, "aio_submit"),
 	THRESHOLD_ENTRIES(&aio_io_threshold[0],  "aio_io_r"),
 	THRESHOLD_ENTRIES(&aio_io_threshold[1],  "aio_io_w"),
 	THRESHOLD_ENTRIES(&aio_sync_threshold,	 "aio_sync"),
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 	{}
 };
 
@@ -270,7 +270,7 @@ struct ctl_table tcp_tuning_table[] = {
 
 static
 struct ctl_table mars_table[] = {
-//	remove_this
+/* 	remove_this */
 	{
 		_CTL_NAME
 		.procname = "version",
@@ -279,7 +279,7 @@ struct ctl_table mars_table[] = {
 		.mode = 0400,
 		.proc_handler = &proc_dostring,
 	},
-//	end_remove_this
+/* 	end_remove_this */
 	{
 		_CTL_NAME
 		.procname = "trigger",
@@ -302,11 +302,11 @@ struct ctl_table mars_table[] = {
 	INT_ENTRY("show_debug_messages",  brick_say_debug,	  0600),
 	INT_ENTRY("show_statistics_global", global_show_statist,  0600),
 	INT_ENTRY("show_statistics_server", server_show_statist,  0600),
-//	remove_this
+/* 	remove_this */
 #ifndef __USE_COMPAT
 	INT_ENTRY("aio_sync_mode",	  aio_sync_mode,	  0600),
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 	INT_ENTRY("logger_completion_semantics", trans_logger_completion_semantics, 0600),
 	INT_ENTRY("logger_do_crc",	  trans_logger_do_crc,	  0600),
 	INT_ENTRY("syslog_min_class",	  brick_say_syslog_min,   0600),
@@ -359,13 +359,13 @@ struct ctl_table mars_table[] = {
 	INT_ENTRY("write_throttle_end_percent",   mars_throttle_end,	  0600),
 	INT_ENTRY("write_throttle_size_threshold_kb", if_throttle_start_size, 0400),
 	LIMITER_ENTRIES(&if_throttle,	  "write_throttle",	  "kb"),
-	// changing makes no sense because the server will immediately start upon modprobe
+	/*  changing makes no sense because the server will immediately start upon modprobe */
 	INT_ENTRY("mars_port",		  mars_net_default_port,  0400),
-//	remove_this
+/* 	remove_this */
 #ifdef	CONFIG_MARS_NET_COMPAT
 	INT_ENTRY("old_net_proto",	  use_old_format,	  0600),
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 #ifdef __HAVE_LZO
 	INT_ENTRY("network_compress_data", mars_net_compress_data, 0600),
 #endif
@@ -406,7 +406,7 @@ struct ctl_table mars_root_table[] = {
 	{}
 };
 
-////////////////// module init stuff /////////////////////////
+/***************** module init stuff ************************/
 
 static struct ctl_table_header *header;
 

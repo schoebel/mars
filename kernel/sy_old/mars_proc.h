@@ -30,9 +30,9 @@ extern mars_info_fn mars_info;
 
 extern int min_free_kbytes;
 
-/////////////////////////////////////////////////////////////////////////
+/***********************************************************************/
 
-// init
+/*  init */
 
 extern int init_mars_proc(void);
 extern void exit_mars_proc(void);

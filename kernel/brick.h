@@ -30,13 +30,13 @@
 #include <linux/kthread.h>
 
 #include <linux/atomic.h>
-//	remove_this
+/* 	remove_this */
 
 #ifndef CONFIG_MARS_MODULE
-// when unsure, include faked config file
+/*  when unsure, include faked config file */
 #include "mars_config.h"
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 
 #include "brick_say.h"
 #include "meta.h"
@@ -47,9 +47,9 @@
 extern int _brick_msleep(int msecs, bool shorten);
 #define brick_yield() brick_msleep(0)
 
-/////////////////////////////////////////////////////////////////////////
+/***********************************************************************/
 
-// printk() replacements
+/*  printk() replacements */
 
 #define _BRICK_MSG(_class, _dump, _fmt, _args...)			\
 	brick_say(_class, _dump, "BRICK", __BASE_FILE__, __LINE__, __func__, _fmt, ##_args)
@@ -67,16 +67,16 @@ extern int _brick_msleep(int msecs, bool shorten);
 
 #include "brick_checking.h"
 
-/////////////////////////////////////////////////////////////////////////
+/***********************************************************************/
 
-// number management helpers
+/*  number management helpers */
 
 extern int get_nr(void);
 extern void put_nr(int nr);
 
-/////////////////////////////////////////////////////////////////////////
+/***********************************************************************/
 
-// definitions for generic objects with aspects
+/*  definitions for generic objects with aspects */
 
 struct generic_object;
 struct generic_aspect;
@@ -198,9 +198,9 @@ struct generic_aspect_context {
 		}							\
 	})
 
-/////////////////////////////////////////////////////////////////////////
+/***********************************************************************/
 
-// definitions for asynchronous callback objects
+/*  definitions for asynchronous callback objects */
 
 #define GENERIC_CALLBACK(OBJTYPE)					\
 	/* set by macros, afterwards readonly from outside */		\
@@ -333,9 +333,9 @@ do {									\
 #define CALLBACK_ERROR(obj)						\
 	((obj)->object_cb ? (obj)->object_cb->cb_error : -EINVAL)
 
-/////////////////////////////////////////////////////////////////////////
+/***********************************************************************/
 
-// definitions for generic bricks
+/*  definitions for generic bricks */
 
 struct generic_input;
 struct generic_output;
@@ -433,7 +433,7 @@ struct generic_output_ops {
 	GENERIC_OUTPUT_OPS(generic)
 };
 
-// although possible, *_type should never be extended
+/*  although possible, *_type should never be extended */
 #define GENERIC_BRICK_TYPE(BRITYPE)					\
 	/* set by strategy layer, readonly from worker layer */		\
 	const char *type_name;						\
@@ -492,9 +492,9 @@ extern void _generic_output_init(struct generic_brick *brick,
 
 extern void _generic_output_exit(struct generic_output *output);
 
-#ifdef _STRATEGY // call this only in strategy bricks, never in ordinary bricks
+#ifdef _STRATEGY /*  call this only in strategy bricks, never in ordinary bricks */
 
-// you need this only if you circumvent generic_brick_init_full()
+/*  you need this only if you circumvent generic_brick_init_full() */
 extern int generic_brick_init(const struct generic_brick_type *type, struct generic_brick *brick);
 
 extern void generic_brick_exit(struct generic_brick *brick);
@@ -530,9 +530,9 @@ int generic_brick_init_full(
 int generic_brick_exit_full(
 	struct generic_brick *brick);
 
-#endif // _STRATEGY
+#endif /*  _STRATEGY */
 
-// simple wrappers for type safety
+/*  simple wrappers for type safety */
 
 #define DECLARE_BRICK_FUNCTIONS(BRITYPE)				\
 extern inline int BRITYPE##_register_brick_type(void)			\
@@ -558,9 +558,9 @@ extern const struct BRITYPE##_input_type BRITYPE##_input_type;		\
 extern const struct BRITYPE##_output_type BRITYPE##_output_type;	\
 /* this comment is for keeping TRAILING_SEMICOLON happy */
 
-///////////////////////////////////////////////////////////////////////
+/*********************************************************************/
 
-// default operations on objects / aspects
+/*  default operations on objects / aspects */
 
 extern struct generic_object *generic_alloc(struct generic_object_layout *object_layout,
 	const struct generic_object_type *object_type);
@@ -587,11 +587,11 @@ extern inline struct BRITYPE##_##OBJTYPE##_aspect *BRITYPE##_##OBJTYPE##_get_asp
 	return (void *)generic_get_aspect((struct generic_brick *)brick, (struct generic_object *)obj);\
 }
 
-///////////////////////////////////////////////////////////////////////
+/*********************************************************************/
 
-// some general helpers
+/*  some general helpers */
 
-#ifdef _STRATEGY // call this only from the strategy implementation
+#ifdef _STRATEGY /*  call this only from the strategy implementation */
 
 /* Generic interface to simple brick status changes.
  */
@@ -605,9 +605,9 @@ extern void set_button_wait(struct generic_brick *brick, bool val, bool force, i
 
 #endif
 
-/////////////////////////////////////////////////////////////////////////
+/***********************************************************************/
 
-// thread automation (avoid code duplication)
+/*  thread automation (avoid code duplication) */
 
 #define brick_thread_create(_thread_fn, _data, _fmt, _args...)		\
 	({								\
@@ -645,9 +645,9 @@ extern void set_button_wait(struct generic_brick *brick, bool val, bool force, i
 		kthread_should_stop();					\
 	})
 
-/////////////////////////////////////////////////////////////////////////
+/***********************************************************************/
 
-// init
+/*  init */
 
 extern int init_brick(void);
 extern void exit_brick(void);

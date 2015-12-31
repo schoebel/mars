@@ -40,7 +40,7 @@ extern int mars_copy_write_max_fly;
 
 enum {
 	COPY_STATE_RESET = -1,
-	COPY_STATE_START = 0, // don't change this, it _must_ be zero
+	COPY_STATE_START = 0, /*  don't change this, it _must_ be zero */
 	COPY_STATE_START2,
 	COPY_STATE_READ1,
 	COPY_STATE_READ2,
@@ -70,21 +70,21 @@ struct copy_mref_aspect {
 
 struct copy_brick {
 	MARS_BRICK(copy);
-	// parameters
+	/*  parameters */
 	struct mars_limiter *copy_limiter;
 	loff_t copy_start;
 
-	loff_t copy_end; // stop working if == 0
+	loff_t copy_end; /*  stop working if == 0 */
 	int io_prio;
 
-	int append_mode; // 1 = passively, 2 = actively
-	bool verify_mode; // 0 = copy, 1 = checksum+compare
-	bool repair_mode; // whether to repair in case of verify errors
-	bool recheck_mode; // whether to re-check after repairs (costs performance)
-	bool utilize_mode; // utilize already copied data
-	bool abort_mode;  // abort on IO error (default is retry forever)
-	// readonly from outside
-	loff_t copy_last; // current working position
+	int append_mode; /*  1 = passively, 2 = actively */
+	bool verify_mode; /*  0 = copy, 1 = checksum+compare */
+	bool repair_mode; /*  whether to repair in case of verify errors */
+	bool recheck_mode; /*  whether to re-check after repairs (costs performance) */
+	bool utilize_mode; /*  utilize already copied data */
+	bool abort_mode;  /*  abort on IO error (default is retry forever) */
+	/*  readonly from outside */
+	loff_t copy_last; /*  current working position */
 	struct timespec copy_last_stamp;
 	int copy_error;
 	int copy_error_count;
@@ -93,7 +93,7 @@ struct copy_brick {
 	bool low_dirty;
 	bool is_aborting;
 
-	// internal
+	/*  internal */
 	bool trigger;
 	unsigned long clash;
 	atomic_t total_clash_count;

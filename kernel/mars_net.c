@@ -34,9 +34,9 @@
 #include "mars.h"
 #include "mars_net.h"
 
-////////////////////////////////////////////////////////////////////
+/******************************************************************/
 
-// provisionary version detection
+/*  provisionary version detection */
 
 #ifndef TCP_MAX_REORDERING
 #define __HAS_IOV_ITER
@@ -47,7 +47,7 @@
 #define __HAS_STRUCT_NET
 #endif
 
-////////////////////////////////////////////////////////////////////
+/******************************************************************/
 
 #define USE_BUFFERING
 
@@ -67,7 +67,7 @@ const u16 net_global_flags = 0
 #endif
 	;
 
-////////////////////////////////////////////////////////////////////
+/******************************************************************/
 
 /* Internal data structures for low-level transfer of C structures
  * described by struct meta.
@@ -125,7 +125,7 @@ struct mars_desc_header {
 
 #define MAX_INT_TRANSFER		16
 
-////////////////////////////////////////////////////////////////////
+/******************************************************************/
 
 /* Bytesex conversion / sign extension
  */
@@ -190,7 +190,7 @@ char get_sign(const void *data, int len, bool is_bigendian, bool is_signed)
 	return 0;
 }
 
-////////////////////////////////////////////////////////////////////
+/******************************************************************/
 
 /* Low-level network traffic
  */
@@ -213,11 +213,11 @@ int mars_net_bind_before_connect = 1;
 
 struct mars_tcp_params default_tcp_params = {
 	.ip_tos = IPTOS_LOWDELAY,
-	.tcp_window_size = 8 * 1024 * 1024, // for long distance replications
+	.tcp_window_size = 8 * 1024 * 1024, /*  for long distance replications */
 	.tcp_nodelay = 0,
 	.tcp_timeout = 2,
 	.tcp_keepcnt = 3,
-	.tcp_keepintvl = 3, // keepalive ping time
+	.tcp_keepintvl = 3, /*  keepalive ping time */
 	.tcp_keepidle = 4,
 };
 
@@ -228,11 +228,11 @@ char *my_id(void)
 	struct new_utsname *u;
 
 	if (!id) {
-		//down_read(&uts_sem); // FIXME: this is currenty not EXPORTed from the kernel!
+		/* down_read(&uts_sem); // FIXME: this is currenty not EXPORTed from the kernel! */
 		u = utsname();
 		if (u)
 			id = brick_strdup(u->nodename);
-		//up_read(&uts_sem);
+		/* up_read(&uts_sem); */
 	}
 	return id;
 }
@@ -286,7 +286,7 @@ int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec)
 		MARS_DBG("decoded IP = %u.%u.%u.%u\n", u0, u1, u2, u3);
 		sockaddr->sin_addr.s_addr = (__be32)u0 | (__be32)u1 << 8 | (__be32)u2 << 16 | (__be32)u3 << 24;
 	}
-	// deocde port number (when present)
+	/*  deocde port number (when present) */
 	tmp_spec = spec;
 	while (*tmp_spec && *tmp_spec++ != ':')
 		/*empty*/;
@@ -308,7 +308,7 @@ done:
 	return status;
 }
 
-static int current_debug_nr; // no locking, just for debugging
+static int current_debug_nr; /*  no locking, just for debugging */
 
 static
 void _set_socketopts(struct socket *sock)
@@ -333,7 +333,7 @@ void _set_socketopts(struct socket *sock)
 	_setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, t);
 	_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, t);
 
-	if (sock->file) { // switch back to blocking mode
+	if (sock->file) { /*  switch back to blocking mode */
 		sock->file->f_flags &= ~O_NONBLOCK;
 	}
 }
@@ -348,7 +348,7 @@ void mars_proto_check(struct mars_socket *msock)
 	u16 service_flags = 0;
 	int status;
 
-//	remove_this
+/* 	remove_this */
 #ifdef CONFIG_MARS_NET_COMPAT
 	status = _mars_recv_raw(msock, &service_version, 1, 1, MSG_PEEK);
 	if (unlikely(status < 0)) {
@@ -362,7 +362,7 @@ void mars_proto_check(struct mars_socket *msock)
 		goto out_return;
 	}
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 	status = _mars_recv_raw(msock, &service_version, 1, 1, 0);
 	if (unlikely(status < 0)) {
 		MARS_DBG("#%d protocol exchange failed at receiving, status = %d\n",
@@ -371,7 +371,7 @@ void mars_proto_check(struct mars_socket *msock)
 		goto out_return;
 	}
 
-	// take the the minimum of both protocol versions
+	/*  take the the minimum of both protocol versions */
 	if (service_version > msock->s_send_proto)
 		service_version = msock->s_send_proto;
 	msock->s_send_proto = service_version;
@@ -393,13 +393,13 @@ int mars_proto_exchange(struct mars_socket *msock, const char *msg)
 {
 	int status;
 
-//	remove_this
+/* 	remove_this */
 #ifdef CONFIG_MARS_NET_COMPAT
 	if (use_old_format)
 		return 0;
 #endif
 
-//	end_remove_this
+/* 	end_remove_this */
 	msock->s_send_proto = SEND_PROTO_VERSION;
 	status = mars_send_raw(msock, &msock->s_send_proto, 1, false);
 	if (unlikely(status < 0)) {
@@ -691,13 +691,13 @@ int _mars_send_raw(struct mars_socket *msock, const void *buf, int len, int flag
 				break;
 			}
 			brick_msleep(sleeptime);
-			// linearly increasing backoff
+			/*  linearly increasing backoff */
 			if (sleeptime < 100)
 				sleeptime += 1000 / HZ;
 			continue;
 		}
 		msock->s_send_cnt = 0;
-		if (unlikely(status == -EINTR)) { // ignore it
+		if (unlikely(status == -EINTR)) { /*  ignore it */
 			flush_signals(current);
 			brick_msleep(50);
 			continue;
@@ -876,13 +876,13 @@ int _mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen,
 			brick_msleep(sleeptime);
 			if (minlen <= 0)
 				break;
-			// linearly increasing backoff
+			/*  linearly increasing backoff */
 			if (sleeptime < 100)
 				sleeptime += 1000 / HZ;
 			continue;
 		}
 		msock->s_recv_cnt = 0;
-		if (!status) { // EOF
+		if (!status) { /*  EOF */
 			MARS_WRN("#%d got EOF from socket (done=%d, req_size=%d)\n",
 				msock->s_debug_nr,
 				done,
@@ -939,7 +939,7 @@ int mars_send_compressed(struct mars_socket *msock, const void *buf, s32 len, in
 	switch (compress) {
 	case COMPRESS_LZO:
 #ifdef __HAVE_LZO
-		// tolerate mixes of different proto versions
+		/*  tolerate mixes of different proto versions */
 		if (msock->s_send_proto >= 2 && (msock->s_recv_flags & COMPRESS_LZO)) {
 			size_t compr_len = 0;
 			int lzo_status;
@@ -967,7 +967,7 @@ int mars_send_compressed(struct mars_socket *msock, const void *buf, s32 len, in
 		break;
 	}
 
-	// allow mixing of different proto versions
+	/*  allow mixing of different proto versions */
 	if (likely(msock->s_send_proto >= 2)) {
 		status = mars_send_raw(msock, &compr_code, sizeof(compr_code), true);
 		if (unlikely(status < 0))
@@ -993,7 +993,7 @@ int mars_recv_compressed(struct mars_socket *msock, void *buf, int minlen, int m
 	s16 compr_code = COMPRESS_NONE;
 	int status;
 
-	// allow mixing of different proto versions
+	/*  allow mixing of different proto versions */
 	if (msock->s_send_proto >= 2) {
 		status = mars_recv_raw(msock, &compr_code, sizeof(compr_code), sizeof(compr_code));
 		if (unlikely(status < 0))
@@ -1065,7 +1065,7 @@ done:
 	return status;
 }
 
-///////////////////////////////////////////////////////////////////////
+/*********************************************************************/
 
 /* Mid-level field data exchange
  */
@@ -1172,7 +1172,7 @@ struct mars_desc_cache *make_sender_cache(struct mars_socket *msock, const struc
 
 	memset(mc, 0, maxlen);
 	mc->cache_sender_cookie = (u64)meta;
-	// further bits may be used in future
+	/*  further bits may be used in future */
 	mc->cache_sender_proto = msock->s_send_proto;
 	mc->cache_recver_proto = msock->s_recv_proto;
 
@@ -1329,7 +1329,7 @@ int _desc_send_item(struct mars_socket *msock,
 		} else if (unlikely(transfer_len <= 0)) {
 			MARS_ERR("bad transfer_len = %d\n", transfer_len);
 			goto err;
-		} else { // transfer_len < data_len
+		} else { /*  transfer_len < data_len */
 			char check = get_sign(item, data_len, myself_is_bigendian, is_signed);
 			int start;
 			int end;
@@ -1366,7 +1366,7 @@ int _desc_send_item(struct mars_socket *msock,
 				}
 			}
 
-			// just omit the higher/lower bytes
+			/*  just omit the higher/lower bytes */
 			data_len = transfer_len;
 			if (myself_is_bigendian)
 				item += end;
@@ -1459,7 +1459,7 @@ int _desc_recv_item(struct mars_socket *msock, void *data, const struct mars_des
 				_CHECK_STATUS("recv_diff");
 			}
 
-			// check that sign extension did no harm
+			/*  check that sign extension did no harm */
 			check = get_sign(empty, diff, mc->cache_is_bigendian, is_signed);
 			while (--diff >= 0) {
 				if (unlikely(empty[diff] != check)) {
@@ -1489,10 +1489,10 @@ int _desc_recv_item(struct mars_socket *msock, void *data, const struct mars_des
 		} else if (unlikely(transfer_len <= 0)) {
 			MARS_ERR("field '%s' bad transfer_len = %d\n", mi->field_name, transfer_len);
 			goto err;
-		} else if (unlikely(!item)) { // shortcut without checks
+		} else if (unlikely(!item)) { /*  shortcut without checks */
 			data_len = transfer_len;
 			goto raw;
-		} else { // transfer_len < data_len
+		} else { /*  transfer_len < data_len */
 			int diff = data_len - transfer_len;
 			char *transfer_ptr = item;
 			char sign;
@@ -1505,7 +1505,7 @@ int _desc_recv_item(struct mars_socket *msock, void *data, const struct mars_des
 			if (unlikely(mc->cache_is_bigendian != myself_is_bigendian))
 				swap_bytes(transfer_ptr, transfer_len);
 
-			// sign-extend from transfer_len to data_len
+			/*  sign-extend from transfer_len to data_len */
 			sign = get_sign(transfer_ptr, transfer_len, myself_is_bigendian, is_signed);
 			if (myself_is_bigendian)
 				memset(item, sign, diff);
@@ -1602,12 +1602,12 @@ int desc_send_struct(struct mars_socket *msock, const void *data, const struct m
 	int h_meta_len = 0;
 	int status = -EINVAL;
 
-//	remove_this
+/* 	remove_this */
 #ifdef CONFIG_MARS_NET_COMPAT
 	if (!msock->s_recv_proto)
 		return desc_send_struct_old(msock, data, meta, cork);
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 	for (i = 0; i < MAX_DESC_CACHE; i++) {
 		mc = msock->s_desc_send[i];
 		if (!mc)
@@ -1640,12 +1640,12 @@ int desc_recv_struct(struct mars_socket *msock, void *data, const struct meta *m
 	int status = 0;
 	bool need_swap = false;
 
-//	remove_this
+/* 	remove_this */
 #ifdef CONFIG_MARS_NET_COMPAT
 	if (!msock->s_recv_proto)
 		return desc_recv_struct_old(msock, data, meta, line);
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 	status = mars_recv_raw(msock, &header, sizeof(header), sizeof(header));
 	_CHECK_STATUS("recv_header");
 
@@ -1666,7 +1666,7 @@ int desc_recv_struct(struct mars_socket *msock, void *data, const struct meta *m
 	}
 
 	cache_index = header.h_index;
-	if (cache_index < 0) { // EOR
+	if (cache_index < 0) { /*  EOR */
 		goto done;
 	}
 	if (unlikely(cache_index >= MAX_DESC_CACHE - 1)) {
@@ -1737,7 +1737,7 @@ int _mars_recv_struct(struct mars_socket *msock, void *data, const struct meta *
 	return desc_recv_struct(msock, data, meta, line);
 }
 
-///////////////////////////////////////////////////////////////////////
+/*********************************************************************/
 
 /* High-level transport of mars structures
  */
@@ -1851,7 +1851,7 @@ done:
 	return status;
 }
 
-////////////////// module init stuff /////////////////////////
+/***************** module init stuff ************************/
 
 char *(*mars_translate_hostname)(const char *name) = NULL;
 

@@ -47,7 +47,7 @@
 
 #define SKIP_BIO			false
 
-//	remove_this
+/* 	remove_this */
 #include <linux/wait.h>
 #include <linux/version.h>
 
@@ -69,10 +69,10 @@
 #define __HAS_RENAME2
 #endif
 
-//	end_remove_this
-/////////////////////////////////////////////////////////////////////
+/* 	end_remove_this */
+/*******************************************************************/
 
-// meta descriptions
+/*  meta descriptions */
 
 const struct meta mars_kstat_meta[] = {
 	META_INI(ino, struct kstat, FIELD_UINT),
@@ -104,16 +104,16 @@ const struct meta mars_dent_meta[] = {
 	{}
 };
 
-//	remove_this
+/* 	remove_this */
 #ifdef __USE_COMPAT
-//	end_remove_this
-/////////////////////////////////////////////////////////////////////
+/* 	end_remove_this */
+/*******************************************************************/
 
 /* The _compat_*() functions are needed for the out-of-tree version
  * of MARS for adapdation to different kernel version.
  */
 
-//	remove_this
+/* 	remove_this */
 #ifdef SB_FREEZE_LEVELS
 /* since kernel 3.6 */
 /* see a8104a9fcdeb82e22d7acd55fca20746581067d3 */
@@ -127,17 +127,17 @@ const struct meta mars_dent_meta[] = {
 /* see b9d6ba94b875192ef5e2dab92d72beea33b83c3d */
 #define  __HAS_RETRY_ESTALE
 #endif
-//     end_remove_this
+/*      end_remove_this */
 
 /* Hack because of 8bcb77fabd7cbabcad49f58750be8683febee92b
  */
 static int __path_parent(const char *name, struct path *path, unsigned flags)
 {
-//     remove_this
+/*      remove_this */
 #ifdef user_path
 	return kern_path(name, flags | LOOKUP_PARENT | LOOKUP_DIRECTORY | LOOKUP_FOLLOW, path);
 #else
-//     end_remove_this
+/*      end_remove_this */
 	char *tmp;
 	int len;
 	int error;
@@ -156,9 +156,9 @@ static int __path_parent(const char *name, struct path *path, unsigned flags)
 
 	brick_string_free(tmp);
 	return error;
-//     remove_this
+/*      remove_this */
 #endif
-//     end_remove_this
+/*      end_remove_this */
 }
 
 /* code is blindly stolen from symlinkat()
@@ -177,25 +177,25 @@ int _compat_symlink(const char __user *oldname,
 
 	from = (char *)oldname;
 
-//	remove_this
+/* 	remove_this */
 #ifdef __HAS_RETRY_ESTALE
-//	end_remove_this
+/* 	end_remove_this */
 retry:
-//	remove_this
+/* 	remove_this */
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 	dentry = user_path_create(newdfd, newname, &path, lookup_flags);
 	error = PTR_ERR(dentry);
 	if (IS_ERR(dentry))
 		goto out_putname;
 
-//	remove_this
+/* 	remove_this */
 #ifndef __NEW_PATH_CREATE
 	error = mnt_want_write(path.mnt);
 	if (error)
 		goto out_dput;
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 	error = vfs_symlink(path.dentry->d_inode, dentry, from);
 	if (error >= 0 && mtime) {
 		struct iattr iattr = {
@@ -212,11 +212,11 @@ retry:
 #endif
 		mutex_unlock(&dentry->d_inode->i_mutex);
 	}
-//	remove_this
+/* 	remove_this */
 #ifdef __NEW_PATH_CREATE
-//	end_remove_this
+/* 	end_remove_this */
 	done_path_create(&path, dentry);
-//	remove_this
+/* 	remove_this */
 #else
 	mnt_drop_write(path.mnt);
 out_dput:
@@ -225,14 +225,14 @@ out_dput:
 	path_put(&path);
 #endif
 #ifdef __HAS_RETRY_ESTALE
-//	end_remove_this
+/* 	end_remove_this */
 	if (retry_estale(error, lookup_flags)) {
 		lookup_flags |= LOOKUP_REVAL;
 		goto retry;
 	}
-//	remove_this
+/* 	remove_this */
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 out_putname:
 	return error;
 }
@@ -248,32 +248,32 @@ int _compat_mkdir(const char __user *pathname,
 	int error;
 	unsigned int lookup_flags = LOOKUP_DIRECTORY;
 
-//	remove_this
+/* 	remove_this */
 #ifdef __HAS_RETRY_ESTALE
-//	end_remove_this
+/* 	end_remove_this */
 retry:
-//	remove_this
+/* 	remove_this */
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 	dentry = user_path_create(dfd, pathname, &path, lookup_flags);
 	if (IS_ERR(dentry))
 		return PTR_ERR(dentry);
 
 	if (!IS_POSIXACL(path.dentry->d_inode))
 		mode &= ~current_umask();
-//	remove_this
+/* 	remove_this */
 #ifndef __NEW_PATH_CREATE
 	error = mnt_want_write(path.mnt);
 	if (error)
 		goto out_dput;
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 	error = vfs_mkdir(path.dentry->d_inode, dentry, mode);
-//	remove_this
+/* 	remove_this */
 #ifdef __NEW_PATH_CREATE
-//	end_remove_this
+/* 	end_remove_this */
 	done_path_create(&path, dentry);
-//	remove_this
+/* 	remove_this */
 #else
 	mnt_drop_write(path.mnt);
 out_dput:
@@ -282,14 +282,14 @@ out_dput:
 	path_put(&path);
 #endif
 #ifdef __HAS_RETRY_ESTALE
-//	end_remove_this
+/* 	end_remove_this */
 	if (retry_estale(error, lookup_flags)) {
 		lookup_flags |= LOOKUP_REVAL;
 		goto retry;
 	}
-//	remove_this
+/* 	remove_this */
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 	return error;
 }
 
@@ -315,13 +315,13 @@ int _compat_rename(const char *oldname,
 	bool should_retry = false;
 	int error;
 
-//	remove_this
+/* 	remove_this */
 #ifdef __HAS_RETRY_ESTALE
-//	end_remove_this
+/* 	end_remove_this */
 retry:
-//	remove_this
+/* 	remove_this */
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 	error = __path_parent(oldname, &oldpath, lookup_flags);
 	if (unlikely(error))
 		goto exit;
@@ -350,15 +350,15 @@ retry:
 		new_one = tmp + 1;
 	}
 
-//	remove_this
+/* 	remove_this */
 #ifdef __NEW_PATH_CREATE
-//	end_remove_this
+/* 	end_remove_this */
 	error = mnt_want_write(oldpath.mnt);
 	if (unlikely(error))
 		goto exit2;
-//	remove_this
+/* 	remove_this */
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 	trap = lock_rename(new_dir, old_dir);
 
 	old_dentry = lookup_one_len(old_one, old_dir, strlen(old_one));
@@ -380,7 +380,7 @@ retry:
 	if (unlikely(new_dentry == trap))
 		goto out_dput_new;
 
-//	remove_this
+/* 	remove_this */
 #ifndef __NEW_PATH_CREATE
 	error = mnt_want_write(oldpath.mnt);
 	if (unlikely(error))
@@ -388,10 +388,10 @@ retry:
 #endif
 
 #ifdef __HAS_RENAME2
-//	end_remove_this
+/* 	end_remove_this */
 	error = vfs_rename(old_dir->d_inode, old_dentry,
 			   new_dir->d_inode, new_dentry, NULL, 0);
-//	remove_this
+/* 	remove_this */
 #elif defined(FL_DELEG)
 	error = vfs_rename(old_dir->d_inode, old_dentry,
 			   new_dir->d_inode, new_dentry, NULL);
@@ -403,7 +403,7 @@ retry:
 #ifndef __NEW_PATH_CREATE
 	mnt_drop_write(oldpath.mnt);
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 
 out_dput_new:
 	dput(new_dentry);
@@ -413,33 +413,33 @@ out_dput_old:
 
 out_unlock_rename:
 	unlock_rename(new_dir, old_dir);
-//	remove_this
+/* 	remove_this */
 #ifdef __NEW_PATH_CREATE
-//	end_remove_this
+/* 	end_remove_this */
 	mnt_drop_write(oldpath.mnt);
 exit2:
-//	remove_this
+/* 	remove_this */
 #endif
 #ifdef __HAS_RETRY_ESTALE
-//	end_remove_this
+/* 	end_remove_this */
 	if (retry_estale(error, lookup_flags))
 		should_retry = true;
-//	remove_this
+/* 	remove_this */
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 	path_put(&newpath);
 exit1:
 	path_put(&oldpath);
-//	remove_this
+/* 	remove_this */
 #ifdef __HAS_RETRY_ESTALE
-//	end_remove_this
+/* 	end_remove_this */
 	if (should_retry) {
 		lookup_flags |= LOOKUP_REVAL;
 		goto retry;
 	}
-//	remove_this
+/* 	remove_this */
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 exit:
 	return error;
 }
@@ -459,13 +459,13 @@ int _compat_unlink(const char *pathname)
 	int error;
 	unsigned int lookup_flags = 0;
 
-//	remove_this
+/* 	remove_this */
 #ifdef __HAS_RETRY_ESTALE
-//	end_remove_this
+/* 	end_remove_this */
 retry:
-//	remove_this
+/* 	remove_this */
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 	error = __path_parent(pathname, &path, lookup_flags);
 	if (unlikely(error))
 		goto exit;
@@ -483,15 +483,15 @@ retry:
 		one = tmp + 1;
 	}
 
-//	remove_this
+/* 	remove_this */
 #ifdef __NEW_PATH_CREATE
-//	end_remove_this
+/* 	end_remove_this */
 	error = mnt_want_write(path.mnt);
 	if (error)
 		goto exit1;
-//	remove_this
+/* 	remove_this */
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 	mutex_lock_nested(&parent->d_inode->i_mutex, I_MUTEX_PARENT);
 
 	dentry = lookup_one_len(one, parent, strlen(one));
@@ -505,13 +505,13 @@ retry:
 	inode = dentry->d_inode;
 	ihold(inode);
 
-//	remove_this
+/* 	remove_this */
 #ifndef __NEW_PATH_CREATE
 	error = mnt_want_write(path.mnt);
 	if (error)
 		goto exit3;
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 
 #ifdef FL_DELEG
 	error = vfs_unlink(parent->d_inode, dentry, NULL);
@@ -519,47 +519,47 @@ retry:
 	error = vfs_unlink(parent->d_inode, dentry);
 #endif
 
-//	remove_this
+/* 	remove_this */
 #ifndef __NEW_PATH_CREATE
 	mnt_drop_write(path.mnt);
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 exit3:
 	dput(dentry);
 exit2:
 	mutex_unlock(&parent->d_inode->i_mutex);
 	if (inode)
 		iput(inode);
-//	remove_this
+/* 	remove_this */
 #ifdef __NEW_PATH_CREATE
-//	end_remove_this
+/* 	end_remove_this */
 	mnt_drop_write(path.mnt);
-//	remove_this
+/* 	remove_this */
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 exit1:
 	path_put(&path);
 exit:
-//	remove_this
+/* 	remove_this */
 #ifdef __HAS_RETRY_ESTALE
-//	end_remove_this
+/* 	end_remove_this */
 	if (retry_estale(error, lookup_flags)) {
 		lookup_flags |= LOOKUP_REVAL;
 		inode = NULL;
 		goto retry;
 	}
-//	remove_this
+/* 	remove_this */
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 	return error;
 }
 
-//	remove_this
+/* 	remove_this */
 #endif
-//	end_remove_this
-/////////////////////////////////////////////////////////////////////
+/* 	end_remove_this */
+/*******************************************************************/
 
-// some helpers
+/*  some helpers */
 
 static inline
 int _length_paranoia(int len, int line)
@@ -766,11 +766,11 @@ loff_t _compute_space(struct kstatfs *kstatfs, loff_t raw_val)
 		fsize = kstatfs->f_bsize;
 
 	MARS_INF("fsize = %d raw_val = %lld\n", fsize, raw_val);
-	// illegal values? cannot do anything....
+	/*  illegal values? cannot do anything.... */
 	if (fsize <= 0)
 		return 0;
 
-	// prevent intermediate integer overflows
+	/*  prevent intermediate integer overflows */
 	if (fsize <= 1024)
 		return raw_val / (1024 / fsize);
 
@@ -820,9 +820,9 @@ done:
 err:;
 }
 
-//////////////////////////////////////////////////////////////
+/************************************************************/
 
-// thread binding
+/*  thread binding */
 
 void bind_to_dent(struct mars_dent *dent, struct say_channel **ch)
 {
@@ -833,7 +833,7 @@ void bind_to_dent(struct mars_dent *dent, struct say_channel **ch)
 		}
 		goto out_return;
 	}
-	// Memoize the channel. This is executed only once for each dent.
+	/*  Memoize the channel. This is executed only once for each dent. */
 	if (unlikely(!dent->d_say_channel)) {
 		struct mars_dent *test = dent->d_parent;
 
@@ -859,9 +859,9 @@ void bind_to_dent(struct mars_dent *dent, struct say_channel **ch)
 out_return:;
 }
 
-//////////////////////////////////////////////////////////////
+/************************************************************/
 
-// infrastructure
+/*  infrastructure */
 
 struct mars_global *mars_global;
 
@@ -933,16 +933,16 @@ int mars_power_button(struct mars_brick *brick, bool val, bool force_off)
 		val = false;
 
 	if (val != oldval) {
-		// check whether switching is possible
+		/*  check whether switching is possible */
 		status = -EINVAL;
-		if (val) { // check all inputs
+		if (val) { /*  check all inputs */
 			if (unlikely(mars_check_inputs(brick))) {
 				MARS_ERR("CANNOT SWITCH ON: brick '%s' '%s' has a turned-off predecessor\n",
 					brick->brick_name,
 					brick->brick_path);
 				goto done;
 			}
-		} else { // check all outputs
+		} else { /*  check all outputs */
 			if (unlikely(mars_check_outputs(brick))) {
 				/* For now, we have a strong rule:
 				 * Switching off is only allowed when no successor brick
@@ -988,9 +988,9 @@ done:
 	return status;
 }
 
-/////////////////////////////////////////////////////////////////////
+/*******************************************************************/
 
-// strategy layer
+/*  strategy layer */
 
 struct mars_cookie {
 	struct mars_global *global;
@@ -1091,42 +1091,42 @@ int dent_compare(struct mars_dent *a, struct mars_dent *b)
 	return strcmp(a->d_path, b->d_path);
 }
 
-//	remove_this
+/* 	remove_this */
 #ifndef HAS_VFS_READDIR
-//	end_remove_this
+/* 	end_remove_this */
 struct mars_dir_context {
 	struct dir_context ctx;
 	struct mars_cookie *cookie;
 };
-//	remove_this
+/* 	remove_this */
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 
-//	remove_this
+/* 	remove_this */
 #ifdef __HAS_NEW_FILLDIR_T
-//	end_remove_this
+/* 	end_remove_this */
 int mars_filler(struct dir_context *__buf, const char *name, int namlen, loff_t offset,
 		u64 ino, unsigned int d_type)
-//	remove_this
+/* 	remove_this */
 #else
 static
 int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 		u64 ino, unsigned int d_type)
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 {
-//	remove_this
+/* 	remove_this */
 #ifdef HAS_VFS_READDIR
 	struct mars_cookie *cookie = __buf;
 
 #else
-//	end_remove_this
+/* 	end_remove_this */
 	struct mars_dir_context *buf = (void *)__buf;
 	struct mars_cookie *cookie = buf->cookie;
 
-//	remove_this
+/* 	remove_this */
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 	struct mars_global *global = cookie->global;
 	struct list_head *anchor = &global->dent_anchor;
 	struct list_head *start = anchor;
@@ -1171,7 +1171,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 			dent = test;
 			goto found;
 		}
-		// keep the list sorted. find the next smallest member.
+		/*  keep the list sorted. find the next smallest member. */
 		if (cmp > 0)
 			break;
 		start = tmp;
@@ -1225,12 +1225,12 @@ static int _mars_readdir(struct mars_cookie *cookie)
 		mapping_set_gfp_mask(mapping, mapping_gfp_mask(mapping) & ~(__GFP_IO | __GFP_FS));
 
 	for (;;) {
-//	remove_this
+/* 	remove_this */
 #ifdef HAS_VFS_READDIR
 		cookie->hit = false;
 		status = vfs_readdir(f, mars_filler, cookie);
 #else
-//	end_remove_this
+/* 	end_remove_this */
 		struct mars_dir_context buf = {
 			.ctx.actor = mars_filler,
 			.cookie = cookie,
@@ -1238,9 +1238,9 @@ static int _mars_readdir(struct mars_cookie *cookie)
 
 		cookie->hit = false;
 		status = iterate_dir(f, &buf.ctx);
-//	remove_this
+/* 	remove_this */
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 		if (!cookie->hit)
 			break;
 		if (unlikely(status < 0)) {
@@ -1302,7 +1302,7 @@ restart:
 	for (tmp = global->dent_anchor.next; tmp != &global->dent_anchor; tmp = tmp->next) {
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
 
-		// treat any member only once during this invocation
+		/*  treat any member only once during this invocation */
 		if (dent->d_version == version)
 			continue;
 		dent->d_version = version;
@@ -1312,11 +1312,11 @@ restart:
 		status = get_inode(dent->d_path, dent);
 		total_status |= status;
 
-		// mark gone dents for removal
+		/*  mark gone dents for removal */
 		if (unlikely(status < 0) && list_empty(&dent->brick_list))
 			dent->d_killme = true;
 
-		// recurse into subdirectories by inserting into the flat list
+		/*  recurse into subdirectories by inserting into the flat list */
 		if (S_ISDIR(dent->new_stat.mode) && dent->d_depth <= maxdepth) {
 			struct mars_cookie sub_cookie = {
 				.global = global,
@@ -1470,7 +1470,7 @@ struct mars_dent *mars_find_dent(struct mars_global *global, const char *path)
 
 int mars_find_dent_all(struct mars_global *global, char *prefix, struct mars_dent ***table)
 {
-	int max = 1024; // provisionary
+	int max = 1024; /*  provisionary */
 	int count = 0;
 	struct list_head *tmp;
 	struct mars_dent **res;
@@ -1551,9 +1551,9 @@ void mars_free_dent_all(struct mars_global *global, struct list_head *anchor)
 	}
 }
 
-/////////////////////////////////////////////////////////////////////
+/*******************************************************************/
 
-// low-level brick instantiation
+/*  low-level brick instantiation */
 
 struct mars_brick *mars_find_brick(struct mars_global *global, const void *brick_type, const char *path)
 {
@@ -1603,7 +1603,7 @@ int mars_free_brick(struct mars_brick *brick)
 		goto done;
 	}
 
-	// first check whether the brick is in use somewhere
+	/*  first check whether the brick is in use somewhere */
 	for (i = 0; i < brick->type->max_outputs; i++) {
 		struct mars_output *output = brick->outputs[i];
 
@@ -1614,7 +1614,7 @@ int mars_free_brick(struct mars_brick *brick)
 		}
 	}
 
-	// Should not happen, but workaround: wait until flying IO has vanished
+	/*  Should not happen, but workaround: wait until flying IO has vanished */
 	maxsleep = 20000;
 	sleeptime = 1000;
 	for (;;) {
@@ -1780,7 +1780,7 @@ int mars_kill_brick(struct mars_brick *brick)
 	if (brick->show_status)
 		brick->show_status(brick, true);
 
-	// start shutdown
+	/*  start shutdown */
 	set_button_wait((void *)brick, false, true, 0);
 
 	if (likely(brick->power.led_off)) {
@@ -1883,18 +1883,18 @@ restart:
 			brick = container_of(tmp, struct mars_brick, dent_brick_link);
 		else
 			brick = container_of(tmp, struct mars_brick, global_brick_link);
-		// only kill the right brick types
+		/*  only kill the right brick types */
 		if (type && brick->type != type)
 			continue;
-		// only kill marked bricks
+		/*  only kill marked bricks */
 		if (!brick->killme)
 			continue;
-		// only kill unconnected bricks
+		/*  only kill unconnected bricks */
 		if (brick->nr_outputs > 0 && brick->outputs[0] && brick->outputs[0]->nr_connected > 0)
 			continue;
 		if (!even_on && (brick->power.button || !brick->power.led_off))
 			continue;
-		// only kill bricks which have no resources allocated
+		/*  only kill bricks which have no resources allocated */
 		count = atomic_read(&brick->mref_object_layout.alloc_count);
 		if (count > 0)
 			continue;
@@ -1929,9 +1929,9 @@ restart:
 	return return_status;
 }
 
-/////////////////////////////////////////////////////////////////////
+/*******************************************************************/
 
-// mid-level brick instantiation (identity is based on path strings)
+/*  mid-level brick instantiation (identity is based on path strings) */
 
 char *_vpath_make(int line, const char *fmt, va_list *args)
 {
@@ -2019,12 +2019,12 @@ struct mars_brick *path_find_brick(struct mars_global *global, const void *brick
 const struct generic_brick_type *_client_brick_type;
 const struct generic_brick_type *_bio_brick_type;
 
-//	remove_this
+/* 	remove_this */
 #ifndef __USE_COMPAT
 const struct generic_brick_type *_aio_brick_type;
 
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 const struct generic_brick_type *_sio_brick_type;
 
 struct mars_brick *make_brick_all(
@@ -2035,7 +2035,7 @@ struct mars_brick *make_brick_all(
 	const char *new_name,
 	const struct generic_brick_type *new_brick_type,
 	const struct generic_brick_type *prev_brick_type[],
-// -1 = off, 0 = leave in current state, +1 = create when necessary, +2 = create + switch on
+/*  -1 = off, 0 = leave in current state, +1 = create when necessary, +2 = create + switch on */
 	int switch_override,
 	const char *new_fmt,
 	const char *prev_fmt[],
@@ -2053,7 +2053,7 @@ struct mars_brick *make_brick_all(
 	int i;
 	int status;
 
-	// treat variable arguments
+	/*  treat variable arguments */
 	va_start(args, prev_count);
 	if (new_fmt)
 		new_path = _new_path = vpath_make(new_fmt, &args);
@@ -2068,25 +2068,25 @@ struct mars_brick *make_brick_all(
 		goto err;
 	}
 
-	// get old switch state
+	/*  get old switch state */
 	brick = mars_find_brick(global, NULL, new_path);
 	switch_state = false;
 	if (brick)
 		switch_state = brick->power.button;
-	// override?
+	/*  override? */
 	if (switch_override > 1)
 		switch_state = true;
 	else if (switch_override < 0)
 		switch_state = false;
-	// even higher override
+	/*  even higher override */
 	if (global && !global->global_power.button)
 		switch_state = false;
 
-	// brick already existing?
+	/*  brick already existing? */
 	if (brick) {
-		// just switch the power state
+		/*  just switch the power state */
 		MARS_DBG("found existing brick '%s'\n", new_path);
-		// highest general override
+		/*  highest general override */
 		if (mars_check_outputs(brick)) {
 			if (!switch_state)
 				MARS_DBG("brick '%s' override 0 -> 1\n", new_path);
@@ -2095,8 +2095,8 @@ struct mars_brick *make_brick_all(
 		goto do_switch;
 	}
 
-	// brick not existing = > check whether to create it
-	if (switch_override < 1) { // don't create
+	/*  brick not existing = > check whether to create it */
+	if (switch_override < 1) { /*  don't create */
 		MARS_DBG("no need for brick '%s'\n", new_path);
 		goto done;
 	}
@@ -2109,7 +2109,7 @@ struct mars_brick *make_brick_all(
 		new_path,
 		new_name);
 
-	// get all predecessor bricks
+	/*  get all predecessor bricks */
 	for (i = 0; i < prev_count; i++) {
 		char *path = paths[i];
 
@@ -2131,7 +2131,7 @@ struct mars_brick *make_brick_all(
 		}
 	}
 
-	// some generic brick replacements (better performance / network functionality)
+	/*  some generic brick replacements (better performance / network functionality) */
 	brick = NULL;
 	if ((new_brick_type == _bio_brick_type
 #ifndef __USE_COMPAT
@@ -2171,7 +2171,7 @@ struct mars_brick *make_brick_all(
 		}
 	}
 
-	// create it...
+	/*  create it... */
 	if (!brick)
 		brick = mars_make_brick(global, belongs, new_brick_type, new_path, new_name);
 	if (unlikely(!brick)) {
@@ -2183,7 +2183,7 @@ struct mars_brick *make_brick_all(
 		goto err;
 	}
 
-	// connect the wires
+	/*  connect the wires */
 	for (i = 0; i < prev_count; i++) {
 		int status;
 
@@ -2195,7 +2195,7 @@ struct mars_brick *make_brick_all(
 	}
 
 do_switch:
-	// call setup function
+	/*  call setup function */
 	if (setup_fn) {
 		int setup_status = setup_fn(brick, private);
 
@@ -2203,7 +2203,7 @@ do_switch:
 			switch_state = 0;
 	}
 
-	// switch on/off (may fail silently, but responsibility is at the workers)
+	/*  switch on/off (may fail silently, but responsibility is at the workers) */
 	status = mars_power_button((void *)brick, switch_state, false);
 	MARS_DBG("switch '%s' to %d status = %d\n", new_path, switch_state, status);
 	goto done;
@@ -2223,9 +2223,9 @@ done:
 	return brick;
 }
 
-/////////////////////////////////////////////////////////////////////////
+/***********************************************************************/
 
-// statistics
+/*  statistics */
 
 int global_show_statist;
 
@@ -2294,7 +2294,7 @@ void show_statistics(struct mars_global *global, const char *class)
 	int brick_count = 0;
 
 	if (!global_show_statist)
-		return; // silently
+		return; /*  silently */
 
 	brick_mem_statistics(false);
 
@@ -2338,9 +2338,9 @@ void show_statistics(struct mars_global *global, const char *class)
 		global_remaining_space);
 }
 
-/////////////////////////////////////////////////////////////////////
+/*******************************************************************/
 
-// power led handling
+/*  power led handling */
 
 void mars_power_led_on(struct mars_brick *brick, bool val)
 {
@@ -2362,9 +2362,9 @@ void mars_power_led_off(struct mars_brick *brick, bool val)
 	}
 }
 
-/////////////////////////////////////////////////////////////////////
+/*******************************************************************/
 
-// init stuff
+/*  init stuff */
 
 int __init init_sy(void)
 {

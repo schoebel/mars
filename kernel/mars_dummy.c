@@ -21,7 +21,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-// Dummy brick (just for demonstration)
+/*  Dummy brick (just for demonstration) */
 
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
@@ -32,13 +32,13 @@
 
 #include "mars.h"
 
-///////////////////////// own type definitions ////////////////////////
+/************************ own type definitions ***********************/
 
 #include "mars_dummy.h"
 
-///////////////////////// own helper functions ////////////////////////
+/************************ own helper functions ***********************/
 
-////////////////// own brick / input / output operations //////////////////
+/***************** own brick * input * output operations *****************/
 
 static
 int dummy_get_info(struct dummy_output *output, struct mars_info *info)
@@ -81,7 +81,7 @@ int dummy_switch(struct dummy_brick *brick)
 		if (brick->power.led_on)
 			goto done;
 		mars_power_led_off((void *)brick, false);
-		//...
+		/* ... */
 		success = true;
 		if (success)
 			mars_power_led_on((void *)brick, true);
@@ -91,7 +91,7 @@ int dummy_switch(struct dummy_brick *brick)
 		if (brick->power.led_off)
 			goto done;
 		mars_power_led_on((void *)brick, false);
-		//...
+		/* ... */
 		success = true;
 		if (success)
 			mars_power_led_off((void *)brick, true);
@@ -100,7 +100,7 @@ done:
 	return 0;
 }
 
-//////////////// informational / statistics ///////////////
+/*************** informational * statistics **************/
 
 static
 char *dummy_statistics(struct dummy_brick *brick, int verbose)
@@ -119,7 +119,7 @@ void dummy_reset_statistics(struct dummy_brick *brick)
 {
 }
 
-//////////////// object / aspect constructors / destructors ///////////////
+/*************** object * aspect constructors * destructors **************/
 
 static
 int dummy_mref_aspect_init_fn(struct generic_aspect *_ini)
@@ -127,7 +127,7 @@ int dummy_mref_aspect_init_fn(struct generic_aspect *_ini)
 	struct dummy_mref_aspect *ini = (void *)_ini;
 
 	(void)ini;
-	//ini->my_own = 0;
+	/* ini->my_own = 0; */
 	return 0;
 }
 
@@ -141,12 +141,12 @@ void dummy_mref_aspect_exit_fn(struct generic_aspect *_ini)
 
 MARS_MAKE_STATICS(dummy);
 
-////////////////////// brick constructors / destructors ////////////////////
+/********************* brick constructors * destructors *******************/
 
 static
 int dummy_brick_construct(struct dummy_brick *brick)
 {
-	//brick->my_own = 0;
+	/* brick->my_own = 0; */
 	return 0;
 }
 
@@ -159,7 +159,7 @@ int dummy_brick_destruct(struct dummy_brick *brick)
 static
 int dummy_output_construct(struct dummy_output *output)
 {
-	//output->my_own = 0;
+	/* output->my_own = 0; */
 	return 0;
 }
 
@@ -169,7 +169,7 @@ int dummy_output_destruct(struct dummy_output *output)
 	return 0;
 }
 
-///////////////////////// static structs ////////////////////////
+/************************ static structs ***********************/
 
 static
 struct dummy_brick_ops dummy_brick_ops = {
@@ -222,7 +222,7 @@ const struct dummy_brick_type dummy_brick_type = {
 	.brick_destruct = &dummy_brick_destruct,
 };
 
-////////////////// module init stuff /////////////////////////
+/***************** module init stuff ************************/
 
 int __init init_mars_dummy(void)
 {

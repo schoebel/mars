@@ -32,9 +32,9 @@
 #include "brick.h"
 #include "brick_mem.h"
 
-//////////////////////////////////////////////////////////////
+/************************************************************/
 
-// init / exit functions
+/*  init / exit functions */
 
 void _generic_output_init(struct generic_brick *brick,
 	const struct generic_output_type *type,
@@ -143,7 +143,7 @@ int generic_connect(struct generic_input *input, struct generic_output *output)
 		return -EEXIST;
 	if (unlikely(!list_empty(&input->input_head)))
 		return -EINVAL;
-	// helps only against the most common errors
+	/*  helps only against the most common errors */
 	if (unlikely(input->brick == output->brick))
 		return -EDEADLK;
 
@@ -171,9 +171,9 @@ int generic_disconnect(struct generic_input *input)
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////
+/************************************************************/
 
-// general
+/*  general */
 
 int _brick_msleep(int msecs, bool shorten)
 {
@@ -196,9 +196,9 @@ int _brick_msleep(int msecs, bool shorten)
 	return jiffies_to_msecs(timeout);
 }
 
-//////////////////////////////////////////////////////////////
+/************************************************************/
 
-// number management
+/*  number management */
 
 static char *nr_table;
 int nr_max = 256;
@@ -232,13 +232,13 @@ void put_nr(int nr)
 		nr_table[nr] = 0;
 }
 
-//////////////////////////////////////////////////////////////
+/************************************************************/
 
-// object stuff
+/*  object stuff */
 
-//////////////////////////////////////////////////////////////
+/************************************************************/
 
-// brick stuff
+/*  brick stuff */
 
 static int nr_brick_types;
 static const struct generic_brick_type *brick_types[MAX_BRICK_TYPES];
@@ -274,7 +274,7 @@ int generic_register_brick_type(const struct generic_brick_type *new_type)
 int generic_unregister_brick_type(const struct generic_brick_type *old_type)
 {
 	BRICK_DBG("generic_unregister_brick_type()\n");
-	return -1; // NYI
+	return -1; /*  NYI */
 }
 
 int generic_brick_init_full(
@@ -294,7 +294,7 @@ int generic_brick_init_full(
 		return -EINVAL;
 	}
 
-	// call the generic constructors
+	/*  call the generic constructors */
 
 	status = generic_brick_init(brick_type, brick);
 	if (status)
@@ -364,7 +364,7 @@ int generic_brick_init_full(
 			return -ENOMEM;
 	}
 
-	// call the specific constructors
+	/*  call the specific constructors */
 	BRICK_DBG("generic_brick_init_full: call specific contructors.\n");
 	if (brick_type->brick_construct) {
 		BRICK_DBG("generic_brick_init_full: calling brick_construct()\n");
@@ -412,7 +412,7 @@ int generic_brick_exit_full(struct generic_brick *brick)
 	int i;
 	int status;
 
-	// first, check all outputs
+	/*  first, check all outputs */
 	for (i = 0; i < brick->type->max_outputs; i++) {
 		struct generic_output *output = brick->outputs[i];
 
@@ -427,7 +427,7 @@ int generic_brick_exit_full(struct generic_brick *brick)
 			return -EPERM;
 		}
 	}
-	// ok, test succeeded. start destruction...
+	/*  ok, test succeeded. start destruction... */
 	for (i = 0; i < brick->type->max_outputs; i++) {
 		struct generic_output *output = brick->outputs[i];
 
@@ -443,7 +443,7 @@ int generic_brick_exit_full(struct generic_brick *brick)
 			if (status < 0)
 				return status;
 			_generic_output_exit(output);
-			brick->outputs[i] = NULL; // others may remain leftover
+			brick->outputs[i] = NULL; /*  others may remain leftover */
 		}
 	}
 	for (i = 0; i < brick->type->max_inputs; i++) {
@@ -463,7 +463,7 @@ int generic_brick_exit_full(struct generic_brick *brick)
 			status = input->type->input_destruct(input);
 			if (status < 0)
 				return status;
-			brick->inputs[i] = NULL; // others may remain leftover
+			brick->inputs[i] = NULL; /*  others may remain leftover */
 			generic_input_exit(input);
 		}
 	}
@@ -477,9 +477,9 @@ int generic_brick_exit_full(struct generic_brick *brick)
 	return 0;
 }
 
-////////////////////////////////////////////////////////////////////////
+/**********************************************************************/
 
-// default implementations
+/*  default implementations */
 
 struct generic_object *generic_alloc(struct generic_object_layout *object_layout,
 	const struct generic_object_type *object_type)
@@ -500,7 +500,7 @@ struct generic_object *generic_alloc(struct generic_object_layout *object_layout
 	hint_size = object_layout->size_hint;
 	if (likely(total_size <= hint_size)) {
 		total_size = hint_size;
-	} else { // usually happens only at the first time
+	} else { /*  usually happens only at the first time */
 		object_layout->size_hint = total_size;
 	}
 
@@ -664,9 +664,9 @@ done:
 	return res;
 }
 
-/////////////////////////////////////////////////////////////////
+/***************************************************************/
 
-// helper stuff
+/*  helper stuff */
 
 void set_button(struct generic_switch *sw, bool val, bool force)
 {
@@ -712,9 +712,9 @@ void set_button_wait(struct generic_brick *brick, bool val, bool force, int time
 		wait_event_interruptible_timeout(brick->power.event, brick->power.led_off, timeout);
 }
 
-/////////////////////////////////////////////////////////////////
+/***************************************************************/
 
-// meta stuff
+/*  meta stuff */
 
 const struct meta *find_meta(const struct meta *meta, const char *field_name)
 {
@@ -727,9 +727,9 @@ const struct meta *find_meta(const struct meta *meta, const char *field_name)
 	return NULL;
 }
 
-/////////////////////////////////////////////////////////////////////////
+/***********************************************************************/
 
-// module init stuff
+/*  module init stuff */
 
 int __init init_brick(void)
 {

@@ -29,13 +29,13 @@
 //#define MARS_DEBUGGING
 
 #define REQUEST_MERGING
-//#define ALWAYS_UNPLUG false // FIXME: does not work! single requests left over!
+//#define ALWAYS_UNPLUG false /*  FIXME: does not work! single requests left over! */
 #define ALWAYS_UNPLUG			true
 #define PREFETCH_LEN			PAGE_SIZE
-//#define FRONT_MERGE // FIXME: this does not work.
-//#define MODIFY_READAHEAD // don't use it, otherwise sequential IO will suffer
+//#define FRONT_MERGE /*  FIXME: this does not work. */
+//#define MODIFY_READAHEAD /*  don't use it, otherwise sequential IO will suffer */
 
-// low-level device parameters
+/*  low-level device parameters */
 #define IF_MAX_SEGMENT_SIZE		PAGE_SIZE
 //#define IF_MAX_SEGMENT_SIZE	  (MARS_MAX_SEGMENT_SIZE < BIO_MAX_SIZE ? MARS_MAX_SEGMENT_SIZE : BIO_MAX_SIZE)
 #define USE_MAX_SECTORS			(IF_MAX_SEGMENT_SIZE >> 9)
@@ -43,11 +43,11 @@
 #define USE_MAX_SEGMENT_SIZE		IF_MAX_SEGMENT_SIZE
 #define USE_LOGICAL_BLOCK_SIZE		512
 #define USE_SEGMENT_BOUNDARY		(PAGE_SIZE-1)
-//	remove_this
+/* 	remove_this */
 
 #define USE_CONGESTED_FN
 #define USE_MERGE_BVEC
-//	end_remove_this
+/* 	end_remove_this */
 //#define DENY_READA
 
 #include <linux/kernel.h>
@@ -66,7 +66,7 @@
 #define XIO_MAJOR			(DRBD_MAJOR + 1)
 #endif
 
-//	remove_this
+/* 	remove_this */
 #ifdef bio_end_sector
 #define HAS_VOID_RELEASE
 #endif
@@ -83,8 +83,8 @@
 #undef USE_MERGE_BVEC
 #endif
 
-//	end_remove_this
-///////////////////////// global tuning ////////////////////////
+/* 	end_remove_this */
+/************************ global tuning ***********************/
 
 int if_throttle_start_size;
 
@@ -92,7 +92,7 @@ struct mars_limiter if_throttle = {
 	.lim_max_rate = 5000,
 };
 
-///////////////////////// own type definitions ////////////////////////
+/************************ own type definitions ***********************/
 
 #include "mars_if.h"
 
@@ -104,18 +104,18 @@ struct if_hash_anchor {
 	struct list_head hash_anchor;
 };
 
-///////////////////////// own static definitions ////////////////////////
+/************************ own static definitions ***********************/
 
-// TODO: check bounds, ensure that free minor numbers are recycled
+/*  TODO: check bounds, ensure that free minor numbers are recycled */
 static int device_minor;
 
-//////////////// object / aspect constructors / destructors ///////////////
+/*************** object * aspect constructors * destructors **************/
 
-///////////////////////// linux operations ////////////////////////
+/************************ linux operations ***********************/
 
-//	remove_this
+/* 	remove_this */
 #ifdef part_stat_lock
-//	end_remove_this
+/* 	end_remove_this */
 static
 void _if_start_io_acct(struct if_input *input, struct bio_wrapper *biow)
 {
@@ -126,15 +126,15 @@ void _if_start_io_acct(struct if_input *input, struct bio_wrapper *biow)
 	(void)cpu;
 	part_round_stats(cpu, &input->disk->part0);
 	part_stat_inc(cpu, &input->disk->part0, ios[rw]);
-//	remove_this
+/* 	remove_this */
 #ifdef HAS_BVEC_ITER
-//	end_remove_this
+/* 	end_remove_this */
 	part_stat_add(cpu, &input->disk->part0, sectors[rw], bio->bi_iter.bi_size >> 9);
-//	remove_this
+/* 	remove_this */
 #else
 	part_stat_add(cpu, &input->disk->part0, sectors[rw], bio->bi_size >> 9);
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 	part_inc_in_flight(&input->disk->part0, rw);
 	part_stat_unlock();
 	biow->start_time = jiffies;
@@ -154,12 +154,12 @@ void _if_end_io_acct(struct if_input *input, struct bio_wrapper *biow)
 	part_dec_in_flight(&input->disk->part0, rw);
 	part_stat_unlock();
 }
-//	remove_this
-#else // part_stat_lock
+/* 	remove_this */
+#else /*  part_stat_lock */
 #define _if_start_io_acct(...) do {} while (0)
 #define _if_end_io_acct(...)   do {} while (0)
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 
 /* callback
  */
@@ -201,40 +201,40 @@ void if_endio(struct generic_callback *cb)
 
 		error = CALLBACK_ERROR(mref_a->object);
 		if (unlikely(error < 0)) {
-//	remove_this
+/* 	remove_this */
 #ifdef HAS_BVEC_ITER
-//	end_remove_this
+/* 	end_remove_this */
 			int bi_size = bio->bi_iter.bi_size;
 
-//	remove_this
+/* 	remove_this */
 #else
 			int bi_size = bio->bi_size;
 
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 			MARS_ERR("NYI: error=%d RETRY LOGIC %u\n", error, bi_size);
-		} else { // bio conventions are slightly different...
+		} else { /*  bio conventions are slightly different... */
 			error = 0;
-//	remove_this
+/* 	remove_this */
 #ifdef HAS_BVEC_ITER
-//	end_remove_this
+/* 	end_remove_this */
 			bio->bi_iter.bi_size = 0;
-//	remove_this
+/* 	remove_this */
 #else
 			bio->bi_size = 0;
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 		}
-//	remove_this
+/* 	remove_this */
 #ifdef HAS_BI_ERROR
-//	end_remove_this
+/* 	end_remove_this */
 		bio->bi_error = error;
 		bio_endio(bio);
-//	remove_this
+/* 	remove_this */
 #else
 		bio_endio(bio, error);
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 		bio_put(bio);
 		brick_mem_free(biow);
 	}
@@ -254,7 +254,7 @@ out_return:;
 static
 void _if_unplug(struct if_input *input)
 {
-	//struct if_brick *brick = input->brick;
+	/* struct if_brick *brick = input->brick; */
 	LIST_HEAD(tmp_list);
 	unsigned long flags;
 
@@ -264,7 +264,7 @@ void _if_unplug(struct if_input *input)
 
 	spin_lock_irqsave(&input->req_lock, flags);
 	if (!list_empty(&input->plug_anchor)) {
-		// move over the whole list
+		/*  move over the whole list */
 		list_replace_init(&input->plug_anchor, &tmp_list);
 		atomic_set(&input->plugged_count, 0);
 	}
@@ -306,18 +306,18 @@ void _if_unplug(struct if_input *input)
 /* accept a linux bio, convert to mref and call buf_io() on it.
  */
 static
-//	remove_this
+/* 	remove_this */
 /* see dece16353ef47d8d33f5302bc158072a9d65e26f */
 #ifdef BLK_QC_T_NONE
-//	end_remove_this
+/* 	end_remove_this */
 blk_qc_t if_make_request(struct request_queue *q, struct bio *bio)
-//	remove_this
+/* 	remove_this */
 #elif defined(BIO_CPU_AFFINE)
 int if_make_request(struct request_queue *q, struct bio *bio)
 #else
 void if_make_request(struct request_queue *q, struct bio *bio)
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 {
 	struct if_input *input = q->queuedata;
 	struct if_brick *brick = input->brick;
@@ -327,12 +327,12 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 	const int  rw = bio_data_dir(bio);
 	const int  sectors = bio_sectors(bio);
 
-//	remove_this
+/* 	remove_this */
 /* Adapt to different kernel versions (TBD: improve)
  * Since 4246a0b63bd8f56a1469b12eafeb875b1041a451 bio_flagged is no longer a macro.
  */
 #if defined(bio_flagged) || !defined(bio_io_error)
-//	end_remove_this
+/* 	end_remove_this */
 	const bool ahead = bio_flagged(bio, __REQ_RAHEAD) && rw == READ;
 	const bool barrier = bio_flagged(bio, __REQ_SOFTBARRIER);
 	const bool syncio = bio_flagged(bio, __REQ_SYNC);
@@ -341,7 +341,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 	const bool discard = bio_flagged(bio, __REQ_DISCARD);
 	const bool noidle = bio_flagged(bio, __REQ_NOIDLE);
 
-//	remove_this
+/* 	remove_this */
 #elif defined(BIO_RW_RQ_MASK) || defined(BIO_FLUSH)
 	const bool ahead = bio_rw_flagged(bio, BIO_RW_AHEAD) && rw == READ;
 	const bool barrier = bio_rw_flagged(bio, BIO_RW_BARRIER);
@@ -364,7 +364,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 #else
 #error Cannot decode the bio flags
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 	const int  prio = bio_prio(bio);
 
 	/* Transform into MARS flags
@@ -382,25 +382,25 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 	struct mref_object *mref = NULL;
 	struct if_mref_aspect *mref_a;
 
-//	remove_this
+/* 	remove_this */
 #ifdef HAS_BVEC_ITER
-//	end_remove_this
+/* 	end_remove_this */
 	struct bio_vec bvec;
 	struct bvec_iter i;
 
-	loff_t pos = ((loff_t)bio->bi_iter.bi_sector) << 9; // TODO: make dynamic
+	loff_t pos = ((loff_t)bio->bi_iter.bi_sector) << 9; /*  TODO: make dynamic */
 	int total_len = bio->bi_iter.bi_size;
 
-//	remove_this
+/* 	remove_this */
 #else
 	struct bio_vec *bvec;
 	int i;
 
-	loff_t pos = ((loff_t)bio->bi_sector) << 9; // TODO: make dynamic
+	loff_t pos = ((loff_t)bio->bi_sector) << 9; /*  TODO: make dynamic */
 	int total_len = bio->bi_size;
 
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 	bool assigned = false;
 	int error = -EINVAL;
 
@@ -408,14 +408,14 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 
 	might_sleep();
 
-//	remove_this
+/* 	remove_this */
 #ifdef USE_BLK_QUEUE_SPLIT
 #warning USE_BLK_QUEUE_SPLIT
-//	end_remove_this
+/* 	end_remove_this */
 	blk_queue_split(q, &bio, q->bio_split);
-//	remove_this
+/* 	remove_this */
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 
 	if (unlikely(!sectors)) {
 		_if_unplug(input);
@@ -426,21 +426,21 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 		 * In case of exceptional semantics, we need to do
 		 * something here. For now, we do just nothing.
 		 */
-//	remove_this
+/* 	remove_this */
 #ifdef HAS_BI_ERROR
-//	end_remove_this
+/* 	end_remove_this */
 		error = 0;
 		bio->bi_error = error;
 		bio_endio(bio);
-//	remove_this
+/* 	remove_this */
 #else
 		bio_endio(bio, error);
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 		goto done;
 	}
 
-	// throttling of too big write requests
+	/*  throttling of too big write requests */
 	if (rw && if_throttle_start_size > 0) {
 		int kb = (total_len + 512) / 1024;
 
@@ -448,37 +448,37 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 			mars_limit_sleep(&if_throttle, kb);
 	}
 
-#ifdef DENY_READA // provisionary
+#ifdef DENY_READA /*  provisionary */
 	if (ahead) {
 		atomic_inc(&input->total_reada_count);
-//	remove_this
+/* 	remove_this */
 #ifdef HAS_BI_ERROR
-//	end_remove_this
+/* 	end_remove_this */
 		bio->bi_error = -EWOULDBLOCK;
 		bio_endio(bio);
-//	remove_this
+/* 	remove_this */
 #else
 		bio_endio(bio, -EWOULDBLOCK);
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 		error = 0;
 		goto done;
 	}
 #else
-	(void)ahead; // shut up gcc
+	(void)ahead; /*  shut up gcc */
 #endif
-	if (unlikely(discard)) { // NYI
+	if (unlikely(discard)) { /*  NYI */
 		error = 0;
-//	remove_this
+/* 	remove_this */
 #ifdef HAS_BI_ERROR
-//	end_remove_this
+/* 	end_remove_this */
 		bio->bi_error = error;
 		bio_endio(bio);
-//	remove_this
+/* 	remove_this */
 #else
 		bio_endio(bio, error);
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 		goto done;
 	}
 
@@ -503,21 +503,21 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 		brick_msleep(100);
 
 	bio_for_each_segment(bvec, bio, i) {
-//	remove_this
+/* 	remove_this */
 #ifdef HAS_BVEC_ITER
-//	end_remove_this
+/* 	end_remove_this */
 		struct page *page = bvec.bv_page;
 		int bv_len = bvec.bv_len;
 		int offset = bvec.bv_offset;
 
-//	remove_this
+/* 	remove_this */
 #else
 		struct page *page = bvec->bv_page;
 		int bv_len = bvec->bv_len;
 		int offset = bvec->bv_offset;
 
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 		void *data;
 
 #ifdef ARCH_HAS_KMAP
@@ -556,14 +556,14 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 
 				if (tmp_mref->ref_data + tmp_a->current_len == data) {
 					goto merge_end;
-#ifdef FRONT_MERGE // FIXME: this cannot work. ref_data must never be changed. pre-allocate from offset 0 instead.
+#ifdef FRONT_MERGE /*  FIXME: this cannot work. ref_data must never be changed. pre-allocate from offset 0 instead. */
 				} else if (data + bv_len == tmp_mref->ref_data) {
 					goto merge_front;
 #endif
 				}
 				continue;
 
-#ifdef FRONT_MERGE // FIXME: this cannot work. ref_data must never be changed. pre-allocate from offset 0 instead.
+#ifdef FRONT_MERGE /*  FIXME: this cannot work. ref_data must never be changed. pre-allocate from offset 0 instead. */
 merge_front:
 				tmp_mref->ref_data = data;
 #endif
@@ -585,7 +585,7 @@ merge_end:
 				mref_a->orig_biow[mref_a->bio_count++] = biow;
 				assigned = true;
 				goto unlock;
-			} // foreach hash collision list member
+			} /*  foreach hash collision list member */
 
 unlock:
 			spin_unlock_irqrestore(&input->hash_table[hash_index].hash_lock, flags);
@@ -601,7 +601,7 @@ unlock:
 
 #ifdef PREFETCH_LEN
 				prefetch_len = PREFETCH_LEN - offset;
-				// TODO: this restriction is too strong to be useful for performance boosts. Do better.
+				/*  TODO: this restriction is too strong to be useful for performance boosts. Do better. */
 				if (prefetch_len > total_len)
 					prefetch_len = total_len;
 				if (pos + prefetch_len > brick->dev_size)
@@ -618,7 +618,7 @@ unlock:
 				mref->ref_rw = mref->ref_may_write = rw;
 				mref->ref_pos = pos;
 				mref->ref_len = prefetch_len;
-				mref->ref_data = data; // direct IO
+				mref->ref_data = data; /*  direct IO */
 				mref->ref_prio = ref_prio;
 				mref_a->orig_page = page;
 
@@ -626,7 +626,7 @@ unlock:
 				if (unlikely(error < 0))
 					goto err;
 
-				this_len = mref->ref_len; // now may be shorter than originally requested.
+				this_len = mref->ref_len; /*  now may be shorter than originally requested. */
 				mref_a->max_len = this_len;
 				if (this_len > bv_len)
 					this_len = bv_len;
@@ -646,17 +646,17 @@ unlock:
 				 * working in synchronous writethrough mode.
 				 */
 				mref->ref_skip_sync = true;
-//	remove_this
+/* 	remove_this */
 #ifdef HAS_BVEC_ITER
-//	end_remove_this
+/* 	end_remove_this */
 				if (!do_skip_sync && i.bi_idx + 1 >= bio->bi_iter.bi_idx)
 					mref->ref_skip_sync = false;
-//	remove_this
+/* 	remove_this */
 #else
 				if (!do_skip_sync && i + 1 >= bio->bi_vcnt)
 					mref->ref_skip_sync = false;
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 
 				atomic_inc(&input->plugged_count);
 
@@ -668,13 +668,13 @@ unlock:
 				spin_lock_irqsave(&input->req_lock, flags);
 				list_add_tail(&mref_a->plug_head, &input->plug_anchor);
 				spin_unlock_irqrestore(&input->req_lock, flags);
-			} // !mref
+			} /*  !mref */
 
 			pos += this_len;
 			data += this_len;
 			bv_len -= this_len;
-		} // while bv_len > 0
-	} // foreach bvec
+		} /*  while bv_len > 0 */
+	} /*  foreach bvec */
 
 	error = 0;
 
@@ -682,16 +682,16 @@ err:
 	if (error < 0) {
 		MARS_ERR("cannot submit request from bio, status=%d\n", error);
 		if (!assigned) {
-//	remove_this
+/* 	remove_this */
 #ifdef HAS_BI_ERROR
-//	end_remove_this
+/* 	end_remove_this */
 			bio->bi_error = error;
 			bio_endio(bio);
-//	remove_this
+/* 	remove_this */
 #else
 			bio_endio(bio, error);
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 		}
 	}
 
@@ -703,23 +703,23 @@ err:
 done:
 	remove_binding_from(brick->say_channel, current);
 
-//	remove_this
+/* 	remove_this */
 /* see dece16353ef47d8d33f5302bc158072a9d65e26f */
 #ifdef BLK_QC_T_NONE
-//	end_remove_this
+/* 	end_remove_this */
 	return BLK_QC_T_NONE;
-//	remove_this
+/* 	remove_this */
 #elif defined(BIO_CPU_AFFINE)
 	return error;
 #else
 	goto out_return;
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 }
 
-//	remove_this
+/* 	remove_this */
 #ifndef BLK_MAX_REQUEST_COUNT
-//static
+/* static */
 void if_unplug(struct request_queue *q)
 {
 	struct if_input *input = q->queuedata;
@@ -732,16 +732,16 @@ void if_unplug(struct request_queue *q)
 }
 #endif
 
-//	end_remove_this
+/* 	end_remove_this */
 static
 int mars_congested(void *data, int bdi_bits)
 {
 	struct if_input *input = data;
 	int ret = 0;
 
-//	remove_this
+/* 	remove_this */
 #ifdef WB_STAT_BATCH /* changed by 4452226ea276e74fc3e252c88d9bb7e8f8e44bf0 */
-//	end_remove_this
+/* 	end_remove_this */
 	if (bdi_bits & (1 << WB_sync_congested) &&
 	    atomic_read(&input->read_flying_count) > 0) {
 		ret |= (1 << WB_sync_congested);
@@ -750,7 +750,7 @@ int mars_congested(void *data, int bdi_bits)
 	    atomic_read(&input->write_flying_count) > 0) {
 		ret |= (1 << WB_async_congested);
 	}
-//	remove_this
+/* 	remove_this */
 #else /* old code */
 	if (bdi_bits & (1 << BDI_sync_congested) &&
 	    atomic_read(&input->read_flying_count) > 0) {
@@ -761,11 +761,11 @@ int mars_congested(void *data, int bdi_bits)
 		ret |= (1 << BDI_async_congested);
 	}
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 	return ret;
 }
 
-//	remove_this
+/* 	remove_this */
 #ifdef USE_MERGE_BVEC
 static
 int mars_merge_bvec(struct request_queue *q, struct bvec_merge_data *bvm, struct bio_vec *bvec)
@@ -778,7 +778,7 @@ int mars_merge_bvec(struct request_queue *q, struct bvec_merge_data *bvm, struct
 }
 #endif
 
-//	end_remove_this
+/* 	end_remove_this */
 static
 loff_t if_get_capacity(struct if_brick *brick)
 {
@@ -828,7 +828,7 @@ static int if_switch(struct if_brick *brick)
 
 	down(&brick->switch_sem);
 
-	// brick is in operation
+	/*  brick is in operation */
 	if (brick->power.button && brick->power.led_on) {
 		loff_t capacity;
 
@@ -841,7 +841,7 @@ static int if_switch(struct if_brick *brick)
 		}
 	}
 
-	// brick should be switched on
+	/*  brick should be switched on */
 	if (brick->power.button && brick->power.led_off) {
 		loff_t capacity;
 
@@ -863,11 +863,11 @@ static int if_switch(struct if_brick *brick)
 			goto is_down;
 		}
 
-		minor = device_minor++; //TODO: protect against races (e.g. atomic_t)
+		minor = device_minor++; /* TODO: protect against races (e.g. atomic_t) */
 		set_disk_ro(disk, true);
 
 		disk->queue = q;
-		disk->major = XIO_MAJOR; //TODO: make this dynamic for >256 devices
+		disk->major = XIO_MAJOR; /* TODO: make this dynamic for >256 devices */
 		disk->first_minor = minor;
 		disk->fops = &if_blkdev_ops;
 		snprintf(disk->disk_name, sizeof(disk->disk_name),  "%s", brick->brick_name);
@@ -878,12 +878,12 @@ static int if_switch(struct if_brick *brick)
 		if_set_capacity(input, capacity);
 
 		blk_queue_make_request(q, if_make_request);
-//	remove_this
+/* 	remove_this */
 #ifdef blk_queue_dead
 /* introduced in b1bd055d397e09f99dcef9b138ed104ff1812fcb, detected by 34f6055c80285e4efb3f602a9119db75239744dc */
-//	end_remove_this
+/* 	end_remove_this */
 		blk_set_stacking_limits(&q->limits);
-//	remove_this
+/* 	remove_this */
 #endif
 #ifdef USE_MAX_SECTORS
 #ifdef MAX_SEGMENT_SIZE
@@ -891,9 +891,9 @@ static int if_switch(struct if_brick *brick)
 		blk_queue_max_sectors(q, USE_MAX_SECTORS);
 #else
 		MARS_DBG("blk_queue_max_hw_sectors()\n");
-//	end_remove_this
+/* 	end_remove_this */
 		blk_queue_max_hw_sectors(q, USE_MAX_SECTORS);
-//	remove_this
+/* 	remove_this */
 #endif
 #endif
 #ifdef USE_MAX_PHYS_SEGMENTS
@@ -902,9 +902,9 @@ static int if_switch(struct if_brick *brick)
 		blk_queue_max_phys_segments(q, USE_MAX_PHYS_SEGMENTS);
 #else
 		MARS_DBG("blk_queue_max_segments()\n");
-//	end_remove_this
+/* 	end_remove_this */
 		blk_queue_max_segments(q, PAGE_SIZE);
-//	remove_this
+/* 	remove_this */
 #endif
 #endif
 #ifdef USE_MAX_HW_SEGMENTS
@@ -913,30 +913,30 @@ static int if_switch(struct if_brick *brick)
 #endif
 #ifdef USE_MAX_SEGMENT_SIZE
 		MARS_DBG("blk_queue_max_segment_size()\n");
-//	end_remove_this
+/* 	end_remove_this */
 		blk_queue_max_segment_size(q, USE_MAX_SEGMENT_SIZE);
-//	remove_this
+/* 	remove_this */
 #endif
 #ifdef USE_LOGICAL_BLOCK_SIZE
 		MARS_DBG("blk_queue_logical_block_size()\n");
-//	end_remove_this
+/* 	end_remove_this */
 		blk_queue_logical_block_size(q, USE_LOGICAL_BLOCK_SIZE);
-//	remove_this
+/* 	remove_this */
 #endif
 #ifdef USE_SEGMENT_BOUNDARY
 		MARS_DBG("blk_queue_segment_boundary()\n");
-//	end_remove_this
+/* 	end_remove_this */
 		blk_queue_segment_boundary(q, USE_SEGMENT_BOUNDARY);
-//	remove_this
+/* 	remove_this */
 #endif
 #ifdef QUEUE_ORDERED_DRAIN
 		MARS_DBG("blk_queue_ordered()\n");
 		blk_queue_ordered(q, QUEUE_ORDERED_DRAIN, NULL);
 #endif
 		MARS_DBG("blk_queue_bounce_limit()\n");
-//	end_remove_this
+/* 	end_remove_this */
 		blk_queue_bounce_limit(q, BLK_BOUNCE_ANY);
-//	remove_this
+/* 	remove_this */
 #ifndef BLK_MAX_REQUEST_COUNT
 		MARS_DBG("unplug_fn\n");
 		q->unplug_fn = if_unplug;
@@ -944,12 +944,12 @@ static int if_switch(struct if_brick *brick)
 		MARS_DBG("queue_lock\n");
 #ifdef REQ_WRITE_SAME
 /* introduced by 4363ac7c */
-//	end_remove_this
+/* 	end_remove_this */
 		blk_queue_max_write_same_sectors(q, 0);
-//	remove_this
+/* 	remove_this */
 #endif
-//	end_remove_this
-		q->queue_lock = &input->req_lock; // needed!
+/* 	end_remove_this */
+		q->queue_lock = &input->req_lock; /*  needed! */
 
 		input->bdev = bdget(MKDEV(disk->major, minor));
 		/* we have no partitions. we contain only ourselves. */
@@ -959,31 +959,31 @@ static int if_switch(struct if_brick *brick)
 		MARS_INF("ra_pages OLD = %lu NEW = %d\n", q->backing_dev_info.ra_pages, brick->readahead);
 		q->backing_dev_info.ra_pages = brick->readahead;
 #endif
-//	remove_this
+/* 	remove_this */
 #ifdef USE_CONGESTED_FN
 		MARS_DBG("congested_fn\n");
-//	end_remove_this
+/* 	end_remove_this */
 		q->backing_dev_info.congested_fn = mars_congested;
 		q->backing_dev_info.congested_data = input;
-//	remove_this
+/* 	remove_this */
 #endif
 #ifdef USE_MERGE_BVEC
 		MARS_DBG("blk_queue_merge_bvec()\n");
 		blk_queue_merge_bvec(q, mars_merge_bvec);
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 
-		// point of no return
+		/*  point of no return */
 		MARS_DBG("add_disk()\n");
 		add_disk(disk);
 		set_disk_ro(disk, false);
 
-		// report success
+		/*  report success */
 		mars_power_led_on((void *)brick, true);
 		status = 0;
 	}
 
-	// brick should be switched off
+	/*  brick should be switched off */
 	if (!brick->power.button && !brick->power.led_off) {
 		int opened;
 		int plugged;
@@ -998,19 +998,19 @@ static int if_switch(struct if_brick *brick)
 		if (unlikely(opened > 0)) {
 			MARS_INF("device '%s' is open %d times, cannot shutdown\n", disk->disk_name, opened);
 			status = -EBUSY;
-			goto done; // don't indicate "off" status
+			goto done; /*  don't indicate "off" status */
 		}
 		plugged = atomic_read(&input->plugged_count);
 		if (unlikely(plugged > 0)) {
 			MARS_INF("device '%s' has %d plugged requests, cannot shutdown\n", disk->disk_name, plugged);
 			status = -EBUSY;
-			goto done; // don't indicate "off" status
+			goto done; /*  don't indicate "off" status */
 		}
 		flying = atomic_read(&input->flying_count);
 		if (unlikely(flying > 0)) {
 			MARS_INF("device '%s' has %d flying requests, cannot shutdown\n", disk->disk_name, flying);
 			status = -EBUSY;
-			goto done; // don't indicate "off" status
+			goto done; /*  don't indicate "off" status */
 		}
 		MARS_DBG("calling del_gendisk()\n");
 		del_gendisk(input->disk);
@@ -1042,7 +1042,7 @@ done:
 	return status;
 }
 
-//////////////// interface to the outer world (kernel) ///////////////
+/*************** interface to the outer world (kernel) **************/
 
 static int if_open(struct block_device *bdev, fmode_t mode)
 {
@@ -1080,15 +1080,15 @@ static int if_open(struct block_device *bdev, fmode_t mode)
 }
 
 static
-//	remove_this
+/* 	remove_this */
 #ifdef HAS_VOID_RELEASE
-//	end_remove_this
+/* 	end_remove_this */
 void
-//	remove_this
+/* 	remove_this */
 #else
 int
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 if_release(struct gendisk *gd, fmode_t mode)
 {
 	struct if_input *input = gd->private_data;
@@ -1109,11 +1109,11 @@ if_release(struct gendisk *gd, fmode_t mode)
 			brick->power.led_off);
 		mars_trigger();
 	}
-//	remove_this
+/* 	remove_this */
 #ifndef HAS_VOID_RELEASE
 	return 0;
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 }
 
 static const struct block_device_operations if_blkdev_ops = {
@@ -1123,7 +1123,7 @@ static const struct block_device_operations if_blkdev_ops = {
 
 };
 
-//////////////// informational / statistics ///////////////
+/*************** informational * statistics **************/
 
 static
 char *if_statistics(struct if_brick *brick, int verbose)
@@ -1180,11 +1180,11 @@ void if_reset_statistics(struct if_brick *brick)
 	atomic_set(&input->total_mref_write_count, 0);
 }
 
-////////////////// own brick / input / output operations //////////////////
+/***************** own brick * input * output operations *****************/
 
-// none
+/*  none */
 
-//////////////// object / aspect constructors / destructors ///////////////
+/*************** object * aspect constructors * destructors **************/
 
 static int if_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
@@ -1205,7 +1205,7 @@ static void if_mref_aspect_exit_fn(struct generic_aspect *_ini)
 
 MARS_MAKE_STATICS(if);
 
-//////////////////////// constructors / destructors ////////////////////////
+/*********************** constructors * destructors ***********************/
 
 static int if_brick_construct(struct if_brick *brick)
 {
@@ -1253,7 +1253,7 @@ static int if_output_construct(struct if_output *output)
 	return 0;
 }
 
-///////////////////////// static structs ////////////////////////
+/************************ static structs ***********************/
 
 static struct if_brick_ops if_brick_ops = {
 	.brick_switch = if_switch,
@@ -1298,7 +1298,7 @@ const struct if_brick_type if_brick_type = {
 	.brick_destruct = &if_brick_destruct,
 };
 
-////////////////// module init stuff /////////////////////////
+/***************** module init stuff ************************/
 
 void exit_mars_if(void)
 {
@@ -1313,7 +1313,7 @@ int __init init_mars_if(void)
 {
 	int status;
 
-	(void)if_aspect_types; // not used, shut up gcc
+	(void)if_aspect_types; /*  not used, shut up gcc */
 
 	MARS_INF("init_if()\n");
 	status = register_blkdev(XIO_MAJOR, "xio");

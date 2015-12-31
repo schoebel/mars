@@ -21,7 +21,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-// (c) 2012 Thomas Schoebel-Theuer
+/*  (c) 2012 Thomas Schoebel-Theuer */
 
 #ifndef LIB_RANK_H
 #define LIB_RANK_H
@@ -37,10 +37,10 @@ struct rank_info {
 };
 
 struct rank_data {
-	// public readonly
+	/*  public readonly */
 	long long rkd_current_points;
 
-	// private
+	/*  private */
 	long long rkd_tmp;
 	long long rkd_got;
 };

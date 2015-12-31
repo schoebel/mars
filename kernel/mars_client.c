@@ -31,7 +31,7 @@
 
 #include "mars.h"
 
-///////////////////////// own type definitions ////////////////////////
+/************************ own type definitions ***********************/
 
 #include "mars_client.h"
 
@@ -43,7 +43,7 @@ int max_client_channels = 1;
 
 int max_client_bulk = 16;
 
-///////////////////////// own helper functions ////////////////////////
+/************************ own helper functions ***********************/
 
 static int thread_count;
 
@@ -59,7 +59,7 @@ void _do_resubmit(struct client_channel *ch)
 		struct list_head *last = ch->wait_list.prev;
 		struct list_head *old_start = output->mref_list.next;
 
-#define list_connect __list_del // the original routine has a misleading name: in reality it is more general
+#define list_connect __list_del /*  the original routine has a misleading name: in reality it is more general */
 		list_connect(&output->mref_list, first);
 		list_connect(last, old_start);
 		INIT_LIST_HEAD(&ch->wait_list);
@@ -106,7 +106,7 @@ void _kill_all_channels(struct client_bundle *bundle)
 {
 	int i;
 
-	// first pass: shutdown in parallel without waiting
+	/*  first pass: shutdown in parallel without waiting */
 	for (i = 0; i < MAX_CLIENT_CHANNELS; i++) {
 		struct client_channel *ch = &bundle->channel[i];
 
@@ -115,7 +115,7 @@ void _kill_all_channels(struct client_bundle *bundle)
 			mars_shutdown_socket(&ch->socket);
 		}
 	}
-	// separate pass (may wait)
+	/*  separate pass (may wait) */
 	for (i = 0; i < MAX_CLIENT_CHANNELS; i++)
 		_kill_channel(&bundle->channel[i]);
 }
@@ -255,11 +255,11 @@ struct client_channel *_get_channel(struct client_bundle *bundle, int min_channe
 		struct client_channel *ch = &bundle->channel[i];
 		long this_space;
 
-		// create new channels when necessary
+		/*  create new channels when necessary */
 		if (unlikely(!ch->is_open)) {
 			int status;
 
-			// only create one new channel at a time
+			/*  only create one new channel at a time */
 			status = _setup_channel(bundle, i);
 			MARS_DBG("setup channel %d status=%d\n", i, status);
 			if (unlikely(status < 0))
@@ -273,7 +273,7 @@ struct client_channel *_get_channel(struct client_bundle *bundle, int min_channe
 			break;
 		}
 
-		// select the best usable channel
+		/*  select the best usable channel */
 		this_space = mars_socket_send_space_available(&ch->socket);
 		ch->current_space = this_space;
 		if (this_space > best_space) {
@@ -290,7 +290,7 @@ struct client_channel *_get_channel(struct client_bundle *bundle, int min_channe
 		goto done;
 	}
 
-	// send initial connect command
+	/*  send initial connect command */
 	if (unlikely(!res->is_connected)) {
 		struct mars_cmd cmd = {
 			.cmd_code = CMD_CONNECT,
@@ -375,7 +375,7 @@ done:
 	return status;
 }
 
-////////////////// own brick / input / output operations //////////////////
+/***************** own brick * input * output operations *****************/
 
 static int client_get_info(struct client_output *output, struct mars_info *info)
 {
@@ -413,7 +413,7 @@ static int client_ref_get(struct client_output *output, struct mref_object *mref
 	if (mref->ref_len > maxlen)
 		mref->ref_len = maxlen;
 
-	if (!mref->ref_data) { // buffered IO
+	if (!mref->ref_data) { /*  buffered IO */
 		struct client_mref_aspect *mref_a = client_mref_get_aspect(output->brick, mref);
 
 		if (!mref_a)
@@ -569,7 +569,7 @@ err:
 					 cmd.cmd_int1,
 					 output->bundle.path,
 					 output->bundle.host);
-				// try to consume the corresponding payload
+				/*  try to consume the corresponding payload */
 				mref = client_alloc_mref(output->brick);
 				status = mars_recv_cb(&ch->socket, mref, &cmd);
 				_mref_free(mref);
@@ -625,7 +625,7 @@ done:
 			}
 			brick_msleep(100);
 		}
-		// wake up sender in any case
+		/*  wake up sender in any case */
 		wake_up_interruptible_all(&output->bundle.sender_event);
 	}
 
@@ -750,7 +750,7 @@ static int sender_thread(void *data)
 		int min_nr;
 		int max_nr;
 
-		// timeouting is a rather expensive operation, don't do it too often
+		/*  timeouting is a rather expensive operation, don't do it too often */
 		if (do_timeout) {
 			do_timeout = false;
 			_maintain_bundle(&output->bundle);
@@ -793,7 +793,7 @@ static int sender_thread(void *data)
 			continue;
 		}
 		list_del_init(tmp);
-		// notice: hash_head remains in its list!
+		/*  notice: hash_head remains in its list! */
 		spin_unlock_irqrestore(&output->lock, flags);
 
 		mref_a = container_of(tmp, struct client_mref_aspect, io_head);
@@ -807,7 +807,7 @@ static int sender_thread(void *data)
 			mars_limit_sleep(&client_limiter, amount);
 		}
 
-		// try to spread reads over multiple channels....
+		/*  try to spread reads over multiple channels.... */
 		min_nr = 0;
 		max_nr = max_client_channels;
 		if (!mref->ref_rw) {
@@ -822,7 +822,7 @@ static int sender_thread(void *data)
 		    ch->ch_nr >= max_nr || --ch_skip < 0) {
 			ch = _get_channel(bundle, min_nr, max_nr);
 			if (unlikely(!ch)) {
-				// notice: this will re-assign hash_head without harm
+				/*  notice: this will re-assign hash_head without harm */
 				_hash_insert(output, mref_a);
 				do_timeout = true;
 				brick_msleep(1000);
@@ -837,7 +837,7 @@ static int sender_thread(void *data)
 
 		spin_lock_irqsave(&output->lock, flags);
 		list_add(tmp, &ch->wait_list);
-		// notice: hash_head is already there!
+		/*  notice: hash_head is already there! */
 		spin_unlock_irqrestore(&output->lock, flags);
 
 		status = mars_send_mref(&ch->socket, mref);
@@ -845,7 +845,7 @@ static int sender_thread(void *data)
 			_hash_insert(output, mref_a);
 			do_timeout = true;
 			ch = NULL;
-			// retry submission on next occasion..
+			/*  retry submission on next occasion.. */
 			MARS_WRN("mref send '%s' @%s failed, status = %d\n",
 				 output->bundle.path,
 				 output->bundle.host,
@@ -905,7 +905,7 @@ done:
 	return status;
 }
 
-//////////////// informational / statistics ///////////////
+/*************** informational * statistics **************/
 
 static
 char *client_statistics(struct client_brick *brick, int verbose)
@@ -934,7 +934,7 @@ void client_reset_statistics(struct client_brick *brick)
 	atomic_set(&output->timeout_count, 0);
 }
 
-//////////////// object / aspect constructors / destructors ///////////////
+/*************** object * aspect constructors * destructors **************/
 
 static int client_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
@@ -956,7 +956,7 @@ static void client_mref_aspect_exit_fn(struct generic_aspect *_ini)
 
 MARS_MAKE_STATICS(client);
 
-////////////////////// brick constructors / destructors ////////////////////
+/********************* brick constructors * destructors *******************/
 
 static int client_brick_construct(struct client_brick *brick)
 {
@@ -995,7 +995,7 @@ static int client_output_destruct(struct client_output *output)
 	return 0;
 }
 
-///////////////////////// static structs ////////////////////////
+/************************ static structs ***********************/
 
 static struct client_brick_ops client_brick_ops = {
 	.brick_switch = client_switch,
@@ -1043,7 +1043,7 @@ const struct client_brick_type client_brick_type = {
 	.brick_construct = &client_brick_construct,
 };
 
-////////////////// module init stuff /////////////////////////
+/***************** module init stuff ************************/
 
 struct mars_limiter client_limiter = {
 	.lim_max_rate = 0,

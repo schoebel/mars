@@ -83,11 +83,11 @@ int mars_limit(struct mars_limiter *lim, int amount)
 				rate = INT_MAX;
 			lim->lim_rate = rate;
 
-			// limit exceeded?
+			/*  limit exceeded? */
 			if (lim->lim_max_rate > 0 && rate > lim->lim_max_rate) {
 				int this_delay = (window * rate / lim->lim_max_rate - window) / (LIMITER_TIME_RESOLUTION / 1000);
 
-				// compute maximum
+				/*  compute maximum */
 				if (this_delay > delay && this_delay > 0)
 					delay = this_delay;
 			}
@@ -105,7 +105,7 @@ int mars_limit(struct mars_limiter *lim, int amount)
 						lim->lim_accu = 0;
 				}
 			}
-		} else { // reset, start over with new measurement cycle
+		} else { /*  reset, start over with new measurement cycle */
 			if (unlikely(amount < 0))
 				amount = 0;
 			lim->lim_accu = amount;

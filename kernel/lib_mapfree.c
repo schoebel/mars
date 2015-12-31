@@ -33,10 +33,10 @@
 #include <linux/wait.h>
 #include <linux/file.h>
 
-// time to wait between background mapfree operations
+/*  time to wait between background mapfree operations */
 int mapfree_period_sec = 10;
 
-// some grace space where no regular cleanup should occur
+/*  some grace space where no regular cleanup should occur */
 int mapfree_grace_keep_mb = 16;
 
 static
@@ -60,7 +60,7 @@ void mapfree_pages(struct mapfree_info *mf, int grace_keep)
 	if (unlikely(!mapping))
 		goto done;
 
-	if (grace_keep < 0) { // force full flush
+	if (grace_keep < 0) { /*  force full flush */
 		start = 0;
 		end = -1;
 	} else {
@@ -80,19 +80,19 @@ void mapfree_pages(struct mapfree_info *mf, int grace_keep)
 
 		spin_unlock_irqrestore(&mf->mf_lock, flags);
 
-		min -= (loff_t)grace_keep * (1024 * 1024); // megabytes
+		min -= (loff_t)grace_keep * (1024 * 1024); /*  megabytes */
 		end = 0;
 
 		if (min > 0 || mf->mf_last) {
 			start = mf->mf_last / PAGE_SIZE;
-			// add some grace overlapping
+			/*  add some grace overlapping */
 			if (likely(start > 0))
 				start--;
 			mf->mf_last = min;
 			end = min / PAGE_SIZE;
-		} else	{ // there was no progress for at least 2 rounds
+		} else	{ /*  there was no progress for at least 2 rounds */
 			start = 0;
-			if (!grace_keep) // also flush thoroughly
+			if (!grace_keep) /*  also flush thoroughly */
 				end = -1;
 		}
 
@@ -210,11 +210,11 @@ struct mapfree_info *mapfree_get(const char *name, int flags)
 			inode->i_bdev->bd_disk->queue->backing_dev_info.ra_pages = ra;
 		}
 
-		if (flags & O_DIRECT) { // never share them
+		if (flags & O_DIRECT) { /*  never share them */
 			break;
 		}
 
-		// maintain global list of all open files
+		/*  maintain global list of all open files */
 		down_write(&mapfree_mutex);
 		for (tmp = mapfree_list.next; tmp != &mapfree_list; tmp = tmp->next) {
 			struct mapfree_info *_mf = container_of(tmp, struct mapfree_info, mf_head);
@@ -294,7 +294,7 @@ int mapfree_thread(void *data)
 	return 0;
 }
 
-////////////////// dirty IOs on the fly  //////////////////
+/***************** dirty IOs on the fly  *****************/
 
 void mf_insert_dirty(struct mapfree_info *mf, struct dirty_info *di)
 {
@@ -360,7 +360,7 @@ void mf_get_any_dirty(const char *filename, loff_t *min, loff_t *max, int min_st
 	up_read(&mapfree_mutex);
 }
 
-////////////////// module init stuff /////////////////////////
+/***************** module init stuff ************************/
 
 static
 struct task_struct *mf_thread;

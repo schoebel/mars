@@ -43,11 +43,11 @@
 
 #include "mars.h"
 
-///////////////////////// own type definitions ////////////////////////
+/************************ own type definitions ***********************/
 
 #include "mars_check.h"
 
-///////////////////////// own helper functions ////////////////////////
+/************************ own helper functions ***********************/
 
 #define CHECK_ERR(output, fmt, args...)					\
 	do {								\
@@ -180,7 +180,7 @@ static int check_watchdog(void *data)
 }
 #endif
 
-////////////////// own brick / input / output operations //////////////////
+/***************** own brick * input * output operations *****************/
 
 static int check_get_info(struct check_output *output, struct mars_info *info)
 {
@@ -244,7 +244,7 @@ static void check_ref_io(struct check_output *output, struct mref_object *mref)
 fatal:;
 }
 
-//////////////// object / aspect constructors / destructors ///////////////
+/*************** object * aspect constructors * destructors **************/
 
 static int check_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
@@ -281,7 +281,7 @@ static void check_mref_aspect_exit_fn(struct generic_aspect *_ini)
 
 MARS_MAKE_STATICS(check);
 
-////////////////////// brick constructors / destructors ////////////////////
+/********************* brick constructors * destructors *******************/
 
 static int check_brick_construct(struct check_brick *brick)
 {
@@ -302,7 +302,7 @@ static int check_output_construct(struct check_output *output)
 	return 0;
 }
 
-///////////////////////// static structs ////////////////////////
+/************************ static structs ***********************/
 
 static struct check_brick_ops check_brick_ops;
 
@@ -345,7 +345,7 @@ const struct check_brick_type check_brick_type = {
 	.brick_construct = &check_brick_construct,
 };
 
-////////////////// module init stuff /////////////////////////
+/***************** module init stuff ************************/
 
 int __init init_mars_check(void)
 {

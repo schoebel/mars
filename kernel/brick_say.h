@@ -23,15 +23,15 @@
 
 #ifndef BRICK_SAY_H
 #define BRICK_SAY_H
-//	remove_this
+/* 	remove_this */
 
 #ifndef CONFIG_MARS_MODULE
-// when unsure, include faked config file
+/*  when unsure, include faked config file */
 #include "mars_config.h"
 #endif
-//	end_remove_this
+/* 	end_remove_this */
 
-/////////////////////////////////////////////////////////////////////////
+/***********************************************************************/
 
 extern int brick_say_logging;
 extern int brick_say_debug;
@@ -42,7 +42,7 @@ extern int brick_say_syslog_flood_limit;
 extern int brick_say_syslog_flood_recovery;
 extern int delay_say_on_overflow;
 
-// printk() replacements
+/*  printk() replacements */
 
 enum {
 	SAY_DEBUG,
@@ -102,8 +102,8 @@ extern void exit_say(void);
 
 #ifdef CONFIG_MARS_DEBUG
 extern void brick_dump_stack(void);
-#else // CONFIG_MARS_DEBUG
+#else /*  CONFIG_MARS_DEBUG */
 #define brick_dump_stack() /*empty*/
-#endif // CONFIG_MARS_DEBUG
+#endif /*  CONFIG_MARS_DEBUG */
 
 #endif

@@ -21,7 +21,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-// Usebuf brick (just for demonstration)
+/*  Usebuf brick (just for demonstration) */
 
 /* FIXME: this code has been unused for a long time, it is unlikly
  * to work at all.
@@ -30,9 +30,9 @@
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
 
-//#define FAKE_ALL // only for testing
-//#define DIRECT_IO // shortcut solely for testing: do direct IO
-// only for testing: this risks trashing the data by omitting read-before-write in case of false sharing
+//#define FAKE_ALL /*  only for testing */
+//#define DIRECT_IO /*  shortcut solely for testing: do direct IO */
+/*  only for testing: this risks trashing the data by omitting read-before-write in case of false sharing */
 //#define DIRECT_WRITE
 
 #include <linux/kernel.h>
@@ -41,15 +41,15 @@
 
 #include "mars.h"
 
-///////////////////////// own type definitions ////////////////////////
+/************************ own type definitions ***********************/
 
 #include "mars_usebuf.h"
 
 #define SHORTCUT
 
-///////////////////////// own helper functions ////////////////////////
+/************************ own helper functions ***********************/
 
-////////////////// own brick / input / output operations //////////////////
+/***************** own brick * input * output operations *****************/
 
 static int usebuf_get_info(struct usebuf_output *output, struct mars_info *info)
 {
@@ -151,11 +151,11 @@ static int usebuf_ref_get(struct usebuf_output *output, struct mref_object *mref
 		sub_mref->ref_pos = mref->ref_pos;
 		sub_mref->ref_len = mref->ref_len;
 		sub_mref->ref_may_write = mref->ref_may_write;
-#ifdef DIRECT_IO // shortcut solely for testing: do direct IO
+#ifdef DIRECT_IO /*  shortcut solely for testing: do direct IO */
 		if (!mref->ref_data)
 			MARS_ERR("NULL.......\n");
 		sub_mref->ref_data = mref->ref_data;
-#else // normal case: buffered IO
+#else /*  normal case: buffered IO */
 		sub_mref->ref_data = NULL;
 #endif
 		SETUP_CALLBACK(sub_mref, _usebuf_endio, mref_a);
@@ -257,7 +257,7 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mref_object *mref
 	if (mref->ref_rw != 0) {
 #ifdef DIRECT_WRITE
 		sub_mref->ref_rw = 1;
-#else // normal case
+#else /*  normal case */
 		sub_mref->ref_rw = 0;
 		if (sub_mref->ref_flags & MREF_UPTODATE)
 			sub_mref->ref_rw = 1;
@@ -286,7 +286,7 @@ err:
 out_return:;
 }
 
-//////////////// object / aspect constructors / destructors ///////////////
+/*************** object * aspect constructors * destructors **************/
 
 static int usebuf_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
@@ -305,7 +305,7 @@ static void usebuf_mref_aspect_exit_fn(struct generic_aspect *_ini)
 
 MARS_MAKE_STATICS(usebuf);
 
-////////////////////// brick constructors / destructors ////////////////////
+/********************* brick constructors * destructors *******************/
 
 static int usebuf_brick_construct(struct usebuf_brick *brick)
 {
@@ -317,7 +317,7 @@ static int usebuf_output_construct(struct usebuf_output *output)
 	return 0;
 }
 
-///////////////////////// static structs ////////////////////////
+/************************ static structs ***********************/
 
 static struct usebuf_brick_ops usebuf_brick_ops;
 
@@ -360,7 +360,7 @@ const struct usebuf_brick_type usebuf_brick_type = {
 	.brick_construct = &usebuf_brick_construct,
 };
 
-////////////////// module init stuff /////////////////////////
+/***************** module init stuff ************************/
 
 int __init init_mars_usebuf(void)
 {

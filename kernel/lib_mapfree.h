@@ -74,14 +74,14 @@ void mapfree_set(struct mapfree_info *mf, loff_t min, loff_t max);
 
 void mapfree_pages(struct mapfree_info *mf, int grace_keep);
 
-////////////////// dirty IOs on the fly  //////////////////
+/***************** dirty IOs on the fly  *****************/
 
 void mf_insert_dirty(struct mapfree_info *mf, struct dirty_info *di);
 void mf_remove_dirty(struct mapfree_info *mf, struct dirty_info *di);
 void mf_get_dirty(struct mapfree_info *mf, loff_t *min, loff_t *max, int min_stage, int max_stage);
 void mf_get_any_dirty(const char *filename, loff_t *min, loff_t *max, int min_stage, int max_stage);
 
-////////////////// module init stuff /////////////////////////
+/***************** module init stuff ************************/
 
 int __init init_mars_mapfree(void);
 

@@ -38,7 +38,7 @@ void exit_logst(struct log_status *logst)
 
 	log_flush(logst);
 
-	// TODO: replace by event
+	/*  TODO: replace by event */
 	count = 0;
 	while (atomic_read(&logst->mref_flying) > 0) {
 		if (!count++)
@@ -146,7 +146,7 @@ void log_flush(struct log_status *logst)
 	gap = 0;
 	align_size = (logst->align_size / PAGE_SIZE) * PAGE_SIZE;
 	if (align_size > 0) {
-		// round up to next alignment border
+		/*  round up to next alignment border */
 		int align_offset = logst->offset & (align_size-1);
 
 		if (align_offset > 0) {
@@ -158,7 +158,7 @@ void log_flush(struct log_status *logst)
 		}
 	}
 	if (gap > 0) {
-		// don't leak information from kernelspace
+		/*  don't leak information from kernelspace */
 		memset(mref->ref_data + logst->offset, 0, gap);
 		logst->offset += gap;
 	}
@@ -251,19 +251,19 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 	DATA_PUT(data, offset, START_MAGIC);
 	DATA_PUT(data, offset, (char)FORMAT_VERSION);
 	logst->validflag_offset = offset;
-	DATA_PUT(data, offset, (char)0); // valid_flag
-	DATA_PUT(data, offset, total_len); // start of next header
+	DATA_PUT(data, offset, (char)0); /*  valid_flag */
+	DATA_PUT(data, offset, total_len); /*  start of next header */
 	DATA_PUT(data, offset, lh->l_stamp.tv_sec);
 	DATA_PUT(data, offset, lh->l_stamp.tv_nsec);
 	DATA_PUT(data, offset, lh->l_pos);
 	logst->reallen_offset = offset;
 	DATA_PUT(data, offset, lh->l_len);
-	DATA_PUT(data, offset, (short)0); // spare
-	DATA_PUT(data, offset, (int)0); // spare
+	DATA_PUT(data, offset, (short)0); /*  spare */
+	DATA_PUT(data, offset, (int)0); /*  spare */
 	DATA_PUT(data, offset, lh->l_code);
-	DATA_PUT(data, offset, (short)0); // spare
+	DATA_PUT(data, offset, (short)0); /*  spare */
 
-	// remember the last timestamp
+	/*  remember the last timestamp */
 	memcpy(&logst->tmp_pos_stamp, &lh->l_stamp, sizeof(logst->tmp_pos_stamp));
 
 	logst->payload_offset = offset;
@@ -279,7 +279,7 @@ put:
 err_free:
 	_mref_free(mref);
 	if (logst->private) {
-		// TODO: if callbacks are already registered, call them here with some error code
+		/*  TODO: if callbacks are already registered, call them here with some error code */
 		brick_mem_free(logst->private);
 		logst->private = NULL;
 	}
@@ -335,11 +335,11 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	offset = logst->payload_offset + len;
 	DATA_PUT(data, offset, END_MAGIC);
 	DATA_PUT(data, offset, crc);
-	DATA_PUT(data, offset, (char)1);  // valid_flag copy
-	DATA_PUT(data, offset, (char)0);  // spare
-	DATA_PUT(data, offset, (short)0); // spare
+	DATA_PUT(data, offset, (char)1);  /*  valid_flag copy */
+	DATA_PUT(data, offset, (char)0);  /*  spare */
+	DATA_PUT(data, offset, (short)0); /*  spare */
 	DATA_PUT(data, offset, logst->seq_nr + 1);
-	get_lamport(&now);    // when the log entry was ready.
+	get_lamport(&now);    /*  when the log entry was ready. */
 	DATA_PUT(data, offset, now.tv_sec);
 	DATA_PUT(data, offset, now.tv_nsec);
 
@@ -361,7 +361,7 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	cb_info->endios[nr_cb] = endio;
 	cb_info->privates[nr_cb] = private;
 
-	// report success
+	/*  report success */
 	logst->seq_nr++;
 	logst->count++;
 	ok = true;
@@ -429,7 +429,7 @@ restart:
 				MARS_ERR("mref_get() failed, status = %d\n", status);
 			goto done_free;
 		}
-		if (unlikely(mref->ref_len <= OVERHEAD)) { // EOF
+		if (unlikely(mref->ref_len <= OVERHEAD)) { /*  EOF */
 			status = 0;
 			goto done_put;
 		}
@@ -469,14 +469,14 @@ restart:
 	if (unlikely(status < 0))
 		goto done_put;
 
-	// memoize success
+	/*  memoize success */
 	logst->offset += status;
 	if (logst->offset + (logst->max_size + OVERHEAD) * 2 >= mref->ref_len)
 		logst->do_free = true;
 
 done:
 	if (status == -ENODATA) {
-		// indicate EOF
+		/*  indicate EOF */
 		status = 0;
 	}
 	return status;
@@ -500,7 +500,7 @@ done_free:
 
 }
 
-////////////////// module init stuff /////////////////////////
+/***************** module init stuff ************************/
 
 int __init init_log_format(void)
 {

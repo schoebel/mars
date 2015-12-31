@@ -33,11 +33,11 @@
 #include "brick_mem.h"
 #include "brick_say.h"
 #include "lamport.h"
-//	remove_this
+/* 	remove_this */
 #include "buildtag.h"
-//	end_remove_this
+/* 	end_remove_this */
 
-#define USE_KERNEL_PAGES		// currently mandatory (vmalloc does not work)
+#define USE_KERNEL_PAGES		/*  currently mandatory (vmalloc does not work) */
 
 #define MAGIC_BLOCK			((int)0x8B395D7B)
 #define MAGIC_BEND			((int)0x8B395D7C)
@@ -75,9 +75,9 @@
 #define BRICK_WRN(_fmt, _args...) _BRICK_MSG(SAY_WARN,	false, _fmt, ##_args)
 #define BRICK_INF(_fmt, _args...) _BRICK_MSG(SAY_INFO,	false, _fmt, ##_args)
 
-/////////////////////////////////////////////////////////////////////////
+/***********************************************************************/
 
-// limit handling
+/*  limit handling */
 
 #include <linux/swap.h>
 
@@ -91,14 +91,14 @@ void get_total_ram(void)
 	struct sysinfo i = {};
 
 	si_meminfo(&i);
-	//si_swapinfo(&i);
+	/* si_swapinfo(&i); */
 	brick_global_memavail = (long long)i.totalram * (PAGE_SIZE / 1024);
 	BRICK_INF("total RAM = %lld [KiB]\n", brick_global_memavail);
 }
 
-/////////////////////////////////////////////////////////////////////////
+/***********************************************************************/
 
-// small memory allocation (use this only for len < PAGE_SIZE)
+/*  small memory allocation (use this only for len < PAGE_SIZE) */
 
 #ifdef BRICK_DEBUG_MEM
 static atomic_t phys_mem_alloc = ATOMIC_INIT(0);
@@ -246,9 +246,9 @@ _out_return:;
 #endif
 }
 
-/////////////////////////////////////////////////////////////////////////
+/***********************************************************************/
 
-// string memory allocation
+/*  string memory allocation */
 
 #ifdef CONFIG_MARS_DEBUG_MEM_STRONG
 # define STRING_CANARY							\
@@ -382,9 +382,9 @@ _out_return:;
 #endif
 }
 
-/////////////////////////////////////////////////////////////////////////
+/***********************************************************************/
 
-// block memory allocation
+/*  block memory allocation */
 
 static
 int len2order(int len)
@@ -417,12 +417,12 @@ int brick_mem_freelist_max[BRICK_MAX_ORDER+1] = {};
 #ifdef BRICK_DEBUG_MEM
 static atomic_t phys_block_alloc = ATOMIC_INIT(0);
 
-// indexed by line
+/*  indexed by line */
 static atomic_t block_count[BRICK_DEBUG_MEM];
 static atomic_t block_free[BRICK_DEBUG_MEM];
 static int  block_len[BRICK_DEBUG_MEM];
 
-// indexed by order
+/*  indexed by order */
 static atomic_t op_count[BRICK_MAX_ORDER+1];
 static atomic_t raw_count[BRICK_MAX_ORDER+1];
 static int alloc_line[BRICK_MAX_ORDER+1];
@@ -499,7 +499,7 @@ struct mem_block_info *_find_block_info(void *data, bool remove)
 	return res;
 }
 
-#endif // CONFIG_MARS_DEBUG_MEM_STRONG
+#endif /*  CONFIG_MARS_DEBUG_MEM_STRONG */
 
 static inline
 void *__brick_block_alloc(gfp_t gfp, int order, int cline)
@@ -593,12 +593,12 @@ void *_get_free(int order, int cline)
 	if (likely(data)) {
 		void *next = *(void **)data;
 
-#ifdef BRICK_DEBUG_MEM // check for corruptions
+#ifdef BRICK_DEBUG_MEM /*  check for corruptions */
 		long pattern = *(((long *)data)+1);
 		void *copy = *(((void **)data)+2);
 
-		if (unlikely(pattern != 0xf0f0f0f0f0f0f0f0 || next != copy)) { // found a corruption
-			// prevent further trouble by leaving a memleak
+		if (unlikely(pattern != 0xf0f0f0f0f0f0f0f0 || next != copy)) { /*  found a corruption */
+			/*  prevent further trouble by leaving a memleak */
 			brick_freelist[order] = NULL;
 			spin_unlock_irqrestore(&freelist_lock[order], flags);
 			BRICK_ERR("line %d:freelist corruption at %p (pattern = %lx next %p != %p, murdered = %d), order = %d\n",
@@ -635,14 +635,14 @@ void _put_free(void *data, int order)
 	void *next;
 	unsigned long flags;
 
-#ifdef BRICK_DEBUG_MEM // fill with pattern
+#ifdef BRICK_DEBUG_MEM /*  fill with pattern */
 	memset(data, 0xf0, PAGE_SIZE << order);
 #endif
 
 	spin_lock_irqsave(&freelist_lock[order], flags);
 	next = brick_freelist[order];
 	*(void **)data = next;
-#ifdef BRICK_DEBUG_MEM // insert redundant copy for checking
+#ifdef BRICK_DEBUG_MEM /*  insert redundant copy for checking */
 	*(((void **)data)+2) = next;
 #endif
 	brick_freelist[order] = data;
@@ -749,7 +749,7 @@ void *_brick_block_alloc(loff_t pos, int len, int line)
 
 #ifdef BRICK_DEBUG_MEM
 	atomic_inc(&op_count[order]);
-	// statistics
+	/*  statistics */
 	alloc_line[order] = line;
 	alloc_len[order] = len;
 #endif
@@ -972,9 +972,9 @@ struct page *brick_iomap(void *data, int *offset, int *len)
 	return page;
 }
 
-/////////////////////////////////////////////////////////////////////////
+/***********************************************************************/
 
-// module
+/*  module */
 
 void brick_mem_statistics(bool final)
 {
@@ -1077,7 +1077,7 @@ void brick_mem_statistics(bool final)
 #endif
 }
 
-// module init stuff
+/*  module init stuff */
 
 int __init init_brick_mem(void)
 {

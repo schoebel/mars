@@ -28,9 +28,9 @@
 #include "brick_say.h"
 #include "lamport.h"
 
-/////////////////////////////////////////////////////////////////////
+/*******************************************************************/
 
-// messaging
+/*  messaging */
 
 #include <linux/fs.h>
 #include <linux/blkdev.h>
@@ -424,7 +424,7 @@ done:
 	return res;
 }
 
-// tell gcc to check for varargs errors
+/*  tell gcc to check for varargs errors */
 static
 void _say(struct say_channel *ch, int class, va_list args, bool use_args, const char *fmt, ...)  __printf(5, 6);
 
@@ -466,7 +466,7 @@ void _say(struct say_channel *ch, int class, va_list args, bool use_args, const 
 		ch->ch_index[class] += written;
 		say_dirty = true;
 	} else {
-		// indicate overflow
+		/*  indicate overflow */
 		start[0] = '\0';
 		ch->ch_overflow[class]++;
 	}
@@ -543,7 +543,7 @@ void brick_say_to(struct say_channel *ch,
 
 	orig_class = class;
 
-	// limit the filename
+	/*  limit the filename */
 	filelen = strlen(file);
 	if (filelen > MAX_FILELEN)
 		file += filelen - MAX_FILELEN;
@@ -914,7 +914,7 @@ static int dump_max = 5;
 void brick_dump_stack(void)
 {
 	if (dump_max > 0) {
-		dump_max--; // racy, but does no harm
+		dump_max--; /*  racy, but does no harm */
 		dump_stack();
 	}
 }
