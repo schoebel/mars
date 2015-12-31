@@ -51,8 +51,6 @@ extern int _brick_msleep(int msecs, bool shorten);
 
 // printk() replacements
 
-#define SAFE_STR(str) ((str) ? (str) : "NULL")
-
 #define _BRICK_MSG(_class, _dump, _fmt, _args...)		\
 	brick_say(_class, _dump, "BRICK", __BASE_FILE__, __LINE__, __FUNCTION__, _fmt, ##_args)
 

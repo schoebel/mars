@@ -896,7 +896,7 @@ bool mars_check_inputs(struct mars_brick *brick)
 	if (likely(brick->type)) {
 		max_inputs = brick->type->max_inputs;
 	} else {
-		MARS_ERR("uninitialized brick '%s' '%s'\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
+		MARS_ERR("uninitialized brick '%s' '%s'\n", brick->brick_name, brick->brick_path);
 		return true;
 	}
 	for (i = 0; i < max_inputs; i++) {
@@ -1649,7 +1649,7 @@ int mars_free_brick(struct mars_brick *brick)
 		}
 	}
 
-	MARS_DBG("deallocate name = '%s' path = '%s'\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
+	MARS_DBG("deallocate name = '%s' path = '%s'\n", brick->brick_name, brick->brick_path);
 	brick_string_free(brick->brick_name);
 	brick_string_free(brick->brick_path);
 
@@ -1749,10 +1749,10 @@ int mars_kill_brick(struct mars_brick *brick)
 	CHECK_PTR(brick, done);
 	global = brick->private_ptr;
 
-	MARS_DBG("===> killing brick %s path = '%s' name = '%s'\n", brick->type ? SAFE_STR(brick->type->type_name) : "undef", SAFE_STR(brick->brick_path), SAFE_STR(brick->brick_name));
+	MARS_DBG("===> killing brick %s path = '%s' name = '%s'\n", brick->type ? brick->type->type_name : "undef", brick->brick_path, brick->brick_name);
 
 	if (unlikely(brick->nr_outputs > 0 && brick->outputs[0] && brick->outputs[0]->nr_connected)) {
-		MARS_ERR("sorry, output is in use '%s'\n", SAFE_STR(brick->brick_path));
+		MARS_ERR("sorry, output is in use '%s'\n", brick->brick_path);
 		goto done;
 	}
 
@@ -1777,10 +1777,10 @@ int mars_kill_brick(struct mars_brick *brick)
 		if (likely(brick->type)) {
 			max_inputs = brick->type->max_inputs;
 		} else {
-			MARS_ERR("uninitialized brick '%s' '%s'\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
+			MARS_ERR("uninitialized brick '%s' '%s'\n", brick->brick_name, brick->brick_path);
 		}
 
-		MARS_DBG("---> freeing '%s' '%s'\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
+		MARS_DBG("---> freeing '%s' '%s'\n", brick->brick_name, brick->brick_path);
 
 		if (brick->kill_ptr)
 			*brick->kill_ptr = NULL;
@@ -1791,22 +1791,22 @@ int mars_kill_brick(struct mars_brick *brick)
 				continue;
 			status = generic_disconnect(input);
 			if (unlikely(status < 0)) {
-				MARS_ERR("brick '%s' '%s' disconnect %d failed, status = %d\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path), i, status);
+				MARS_ERR("brick '%s' '%s' disconnect %d failed, status = %d\n", brick->brick_name, brick->brick_path, i, status);
 				goto done;
 			}
 		}
 		if (likely(brick->free)) {
 			status = brick->free(brick);
 			if (unlikely(status < 0)) {
-				MARS_ERR("freeing '%s' '%s' failed, status = %d\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path), status);
+				MARS_ERR("freeing '%s' '%s' failed, status = %d\n", brick->brick_name, brick->brick_path, status);
 				goto done;
 			}
 		} else {
-			MARS_ERR("brick '%s' '%s' has no destructor\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
+			MARS_ERR("brick '%s' '%s' has no destructor\n", brick->brick_name, brick->brick_path);
 		}
 		status = 0;
 	} else {
-		MARS_ERR("brick '%s' '%s' is not off\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
+		MARS_ERR("brick '%s' '%s' is not off\n", brick->brick_name, brick->brick_path);
 		status = -EUCLEAN;
 	}
 
@@ -2247,9 +2247,9 @@ void _show_one(struct mars_brick *test, int *brick_count)
 		  "total_mrefs_alloc = %d "
 		  "total_mrefs_aspects = %d "
 		  "button = %d off = %d on = %d\n",
-		  SAFE_STR(test->type->type_name),
-		  SAFE_STR(test->brick_path),
-		  SAFE_STR(test->brick_name),
+		  test->type->type_name,
+		  test->brick_path,
+		  test->brick_name,
 		  test->mref_object_layout.size_hint,
 		  atomic_read(&test->mref_object_layout.alloc_count),
 		  atomic_read(&test->mref_object_layout.aspect_count),
@@ -2270,7 +2270,7 @@ void _show_one(struct mars_brick *test, int *brick_count)
 		struct mars_input *input = test->inputs[i];
 		struct mars_output *output = input ? input->connect : NULL;
 		if (output) {
-			MARS_DBG("    input %d connected with %s path = '%s' name = '%s'\n", i, SAFE_STR(output->brick->type->type_name), SAFE_STR(output->brick->brick_path), SAFE_STR(output->brick->brick_name));
+			MARS_DBG("    input %d connected with %s path = '%s' name = '%s'\n", i, output->brick->type->type_name, output->brick->brick_path, output->brick->brick_name);
 		} else {
 			MARS_DBG("    input %d not connected\n", i);
 		}
@@ -2309,12 +2309,12 @@ void show_statistics(struct mars_global *global, const char *class)
 		struct mars_dent *dent;
 		struct list_head *sub;
 		dent = container_of(tmp, struct mars_dent, dent_link);
-		MARS_DBG("dent %d '%s' '%s' stamp=%ld.%09ld\n", dent->d_class, SAFE_STR(dent->d_path), SAFE_STR(dent->new_link), dent->new_stat.mtime.tv_sec, dent->new_stat.mtime.tv_nsec);
+		MARS_DBG("dent %d '%s' '%s' stamp=%ld.%09ld\n", dent->d_class, dent->d_path, dent->new_link, dent->new_stat.mtime.tv_sec, dent->new_stat.mtime.tv_nsec);
 		dent_count++;
 		for (sub = dent->brick_list.next; sub != &dent->brick_list; sub = sub->next) {
 			struct mars_brick *test;
 			test = container_of(sub, struct mars_brick, dent_brick_link);
-			MARS_DBG("  owner of brick '%s'\n", SAFE_STR(test->brick_path));
+			MARS_DBG("  owner of brick '%s'\n", test->brick_path);
 		}
 	}
 	up_read(&global->dent_mutex);

@@ -1226,7 +1226,7 @@ void _update_info(struct trans_logger_info *inf)
 
 	MARS_DBG("inf = %p '%s' seq = %d min_pos = %lld max_pos = %lld log_pos = %lld is_replaying = %d is_logging = %d\n",
 		 inf,
-		 SAFE_STR(inf->inf_host),
+		 inf->inf_host,
 		 inf->inf_sequence,
 		 inf->inf_min_pos,
 		 inf->inf_max_pos,
@@ -2529,21 +2529,21 @@ bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, c
 	// fetch all the versionlinks and test for their existence.
 	own_versionlink = get_versionlink(rot->parent_path, old_log_seq, my_id(), &own_versionlink_path);
 	if (unlikely(!own_versionlink || !own_versionlink[0])) {
-		MARS_ERR_TO(rot->log_say, "cannot read my own versionlink '%s'\n", SAFE_STR(own_versionlink_path));
-		make_rot_msg(rot, "err-versionlink-not-readable", "cannot read my own versionlink '%s'", SAFE_STR(own_versionlink_path));
+		MARS_ERR_TO(rot->log_say, "cannot read my own versionlink '%s'\n", own_versionlink_path);
+		make_rot_msg(rot, "err-versionlink-not-readable", "cannot read my own versionlink '%s'", own_versionlink_path);
 		goto done;
 	}
 	old_versionlink = get_versionlink(rot->parent_path, old_log_seq, old_host, &old_versionlink_path);
 	if (unlikely(!old_versionlink || !old_versionlink[0])) {
-		MARS_ERR_TO(rot->log_say, "cannot read old versionlink '%s'\n", SAFE_STR(old_versionlink_path));
-		make_rot_msg(rot, "err-versionlink-not-readable", "cannot read old versionlink '%s'", SAFE_STR(old_versionlink_path));
+		MARS_ERR_TO(rot->log_say, "cannot read old versionlink '%s'\n", old_versionlink_path);
+		make_rot_msg(rot, "err-versionlink-not-readable", "cannot read old versionlink '%s'", old_versionlink_path);
 		goto done;
 	}
 	if (!skip_new) {
 		new_versionlink = get_versionlink(rot->parent_path, new_log_seq, new_host, &new_versionlink_path);
 		if (unlikely(!new_versionlink || !new_versionlink[0])) {
-			MARS_INF_TO(rot->log_say, "new versionlink '%s' does not yet exist, we must wait for it.\n", SAFE_STR(new_versionlink_path));
-			make_rot_msg(rot, "inf-versionlink-not-yet-exist", "we must wait for new versionlink '%s'", SAFE_STR(new_versionlink_path));
+			MARS_INF_TO(rot->log_say, "new versionlink '%s' does not yet exist, we must wait for it.\n", new_versionlink_path);
+			make_rot_msg(rot, "inf-versionlink-not-yet-exist", "we must wait for new versionlink '%s'", new_versionlink_path);
 			goto done;
 		}
 	}
@@ -2558,7 +2558,7 @@ bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, c
 	// check: did I fully replay my old logfile data?
 	own_replaylink = get_replaylink(rot->parent_path, my_id(), &own_replaylink_path);
 	if (unlikely(!own_replaylink || !own_replaylink[0])) {
-		MARS_ERR_TO(rot->log_say, "cannot read my own replaylink '%s'\n", SAFE_STR(own_replaylink_path));
+		MARS_ERR_TO(rot->log_say, "cannot read my own replaylink '%s'\n", own_replaylink_path);
 		goto done;
 	}
 	own_r_len    = skip_part(own_replaylink);
@@ -2788,12 +2788,12 @@ int make_log_init(void *buf, struct mars_dent *dent)
 		struct trans_logger_input *trans_input = rot->trans_brick->inputs[rot->trans_brick->old_input_nr];
 		if (trans_input && trans_input->is_operating) {
 			aio_path = path_make("%s/log-%09d-%s", parent_path, trans_input->inf.inf_sequence, trans_input->inf.inf_host);
-			MARS_DBG("using logfile '%s' from trans_input %d (new=%d)\n", SAFE_STR(aio_path), rot->trans_brick->old_input_nr, rot->trans_brick->log_input_nr);
+			MARS_DBG("using logfile '%s' from trans_input %d (new=%d)\n", aio_path, rot->trans_brick->old_input_nr, rot->trans_brick->log_input_nr);
 		}
 	}
 	if (!aio_path) {
 		aio_path = path_make("%s/%s", parent_path, replay_link->d_argv[0]);
-		MARS_DBG("using logfile '%s' from replay symlink\n", SAFE_STR(aio_path));
+		MARS_DBG("using logfile '%s' from replay symlink\n", aio_path);
 	}
 	if (unlikely(!aio_path)) {
 		MARS_ERR("cannot make path\n");
@@ -4441,7 +4441,7 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	if (brick &&
 	    unlikely((brick->nr_outputs > 0 && brick->outputs[0] && brick->outputs[0]->nr_connected) ||
 		     (brick->type == (void *)&if_brick_type && !brick->power.led_off))) {
-		MARS_WRN("target '%s' cannot be deleted, its brick '%s' in use\n", dent->new_link, SAFE_STR(brick->brick_name));
+		MARS_WRN("target '%s' cannot be deleted, its brick '%s' in use\n", dent->new_link, brick->brick_name);
 		goto done;
 	}
 

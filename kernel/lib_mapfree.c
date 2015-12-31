@@ -99,7 +99,7 @@ void mapfree_pages(struct mapfree_info *mf, int grace_keep)
 				end = -1;
 		}
 
-		MARS_DBG("file = '%s' start = %lu end = %lu\n", SAFE_STR(mf->mf_name), start, end);
+		MARS_DBG("file = '%s' start = %lu end = %lu\n", mf->mf_name, start, end);
 	}
 
 	if (end > start || end == -1) {
