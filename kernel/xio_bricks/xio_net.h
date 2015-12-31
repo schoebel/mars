@@ -161,17 +161,6 @@ extern int xio_recv_aio(struct xio_socket *msock, struct aio_object *aio, struct
 extern int xio_send_cb(struct xio_socket *msock, struct aio_object *aio);
 extern int xio_recv_cb(struct xio_socket *msock, struct aio_object *aio, struct xio_cmd *cmd);
 
-/*	remove_this */
-/***********************************************************************/
-
-#ifdef CONFIG_MARS_NET_COMPAT
-extern int use_old_format;
-int desc_send_struct_old(struct xio_socket *msock, const void *data, const struct meta *meta, bool cork);
-int desc_recv_struct_old(struct xio_socket *msock, void *data, const struct meta *meta, int line);
-
-#endif
-
-/*	end_remove_this */
 /***********************************************************************/
 
 /*  init */

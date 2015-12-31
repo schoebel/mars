@@ -342,21 +342,6 @@ void xio_proto_check(struct xio_socket *msock)
 	u16 service_flags = 0;
 	int status;
 
-/*	remove_this */
-#ifdef CONFIG_MARS_NET_COMPAT
-	status = _xio_recv_raw(msock, &service_version, 1, 1, MSG_PEEK);
-	if (unlikely(status < 0)) {
-		XIO_DBG("#%d protocol exchange failed at peeking, status = %d\n",
-			 msock->s_debug_nr,
-			 status);
-		goto out_return;
-	}
-	if (service_version == 0x8d) {
-		use_old_format = 1;
-		goto out_return;
-	}
-#endif
-/*	end_remove_this */
 	status = _xio_recv_raw(msock, &service_version, 1, 1, 0);
 	if (unlikely(status < 0)) {
 		XIO_DBG("#%d protocol exchange failed at receiving, status = %d\n",
@@ -387,13 +372,6 @@ int xio_proto_exchange(struct xio_socket *msock, const char *msg)
 {
 	int status;
 
-/*	remove_this */
-#ifdef CONFIG_MARS_NET_COMPAT
-	if (use_old_format)
-		return 0;
-#endif
-
-/*	end_remove_this */
 	msock->s_send_proto = SEND_PROTO_VERSION;
 	status = xio_send_raw(msock, &msock->s_send_proto, 1, false);
 	if (unlikely(status < 0)) {
@@ -1596,12 +1574,6 @@ int desc_send_struct(struct xio_socket *msock, const void *data, const struct me
 	int h_meta_len = 0;
 	int status = -EINVAL;
 
-/*	remove_this */
-#ifdef CONFIG_MARS_NET_COMPAT
-	if (!msock->s_recv_proto)
-		return desc_send_struct_old(msock, data, meta, cork);
-#endif
-/*	end_remove_this */
 	for (i = 0; i < MAX_DESC_CACHE; i++) {
 		mc = msock->s_desc_send[i];
 		if (!mc)
@@ -1634,12 +1606,6 @@ int desc_recv_struct(struct xio_socket *msock, void *data, const struct meta *me
 	int status = 0;
 	bool need_swap = false;
 
-/*	remove_this */
-#ifdef CONFIG_MARS_NET_COMPAT
-	if (!msock->s_recv_proto)
-		return desc_recv_struct_old(msock, data, meta, line);
-#endif
-/*	end_remove_this */
 	status = xio_recv_raw(msock, &header, sizeof(header), sizeof(header));
 	_CHECK_STATUS("recv_header");
 

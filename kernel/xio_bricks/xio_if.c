@@ -37,11 +37,6 @@
 #define USE_MAX_SEGMENT_SIZE		IF_MAX_SEGMENT_SIZE
 #define USE_LOGICAL_BLOCK_SIZE		512
 #define USE_SEGMENT_BOUNDARY		(PAGE_SIZE-1)
-/*	remove_this */
-
-#define USE_CONGESTED_FN
-#define USE_MERGE_BVEC
-/*	end_remove_this */
 //#define DENY_READA
 
 #include <linux/kernel.h>
@@ -60,24 +55,6 @@
 #define XIO_MAJOR			(DRBD_MAJOR + 1)
 #endif
 
-/*	remove_this */
-#ifdef bio_end_sector
-#define HAS_VOID_RELEASE
-#endif
-#ifdef __bvec_iter_bvec
-#define HAS_BVEC_ITER
-#endif
-/* adaptation to 4246a0b63bd8f56a1469b12eafeb875b1041a451 */
-#ifndef bio_io_error
-#define HAS_BI_ERROR
-#endif
-/* adaptation to 54efd50bfd873e2dbf784e0b21a8027ba4299a3e and 8ae126660fddbeebb9251a174e6fa45b6ad8f932 */
-#ifdef HAS_BI_ERROR
-#define USE_BLK_QUEUE_SPLIT
-#undef USE_MERGE_BVEC
-#endif
-
-/*	end_remove_this */
 /************************ global tuning ***********************/
 
 int if_throttle_start_size;
@@ -107,9 +84,6 @@ static int device_minor;
 
 /************************ linux operations ***********************/
 
-/*	remove_this */
-#ifdef part_stat_lock
-/*	end_remove_this */
 static
 void _if_start_io_acct(struct if_input *input, struct bio_wrapper *biow)
 {
@@ -120,15 +94,7 @@ void _if_start_io_acct(struct if_input *input, struct bio_wrapper *biow)
 	(void)cpu;
 	part_round_stats(cpu, &input->disk->part0);
 	part_stat_inc(cpu, &input->disk->part0, ios[rw]);
-/*	remove_this */
-#ifdef HAS_BVEC_ITER
-/*	end_remove_this */
 	part_stat_add(cpu, &input->disk->part0, sectors[rw], bio->bi_iter.bi_size >> 9);
-/*	remove_this */
-#else
-	part_stat_add(cpu, &input->disk->part0, sectors[rw], bio->bi_size >> 9);
-#endif
-/*	end_remove_this */
 	part_inc_in_flight(&input->disk->part0, rw);
 	part_stat_unlock();
 	biow->start_time = jiffies;
@@ -148,12 +114,6 @@ void _if_end_io_acct(struct if_input *input, struct bio_wrapper *biow)
 	part_dec_in_flight(&input->disk->part0, rw);
 	part_stat_unlock();
 }
-/*	remove_this */
-#else /*  part_stat_lock */
-#define _if_start_io_acct(...) do {} while (0)
-#define _if_end_io_acct(...)   do {} while (0)
-#endif
-/*	end_remove_this */
 
 /* callback
  */
@@ -195,40 +155,15 @@ void if_endio(struct generic_callback *cb)
 
 		error = CALLBACK_ERROR(aio_a->object);
 		if (unlikely(error < 0)) {
-/*	remove_this */
-#ifdef HAS_BVEC_ITER
-/*	end_remove_this */
 			int bi_size = bio->bi_iter.bi_size;
 
-/*	remove_this */
-#else
-			int bi_size = bio->bi_size;
-
-#endif
-/*	end_remove_this */
 			XIO_ERR("NYI: error=%d RETRY LOGIC %u\n", error, bi_size);
 		} else { /*  bio conventions are slightly different... */
 			error = 0;
-/*	remove_this */
-#ifdef HAS_BVEC_ITER
-/*	end_remove_this */
 			bio->bi_iter.bi_size = 0;
-/*	remove_this */
-#else
-			bio->bi_size = 0;
-#endif
-/*	end_remove_this */
 		}
-/*	remove_this */
-#ifdef HAS_BI_ERROR
-/*	end_remove_this */
 		bio->bi_error = error;
 		bio_endio(bio);
-/*	remove_this */
-#else
-		bio_endio(bio, error);
-#endif
-/*	end_remove_this */
 		bio_put(bio);
 		brick_mem_free(biow);
 	}
@@ -300,18 +235,7 @@ void _if_unplug(struct if_input *input)
 /* accept a linux bio, convert to aio and call buf_io() on it.
  */
 static
-/*	remove_this */
-/* see dece16353ef47d8d33f5302bc158072a9d65e26f */
-#ifdef BLK_QC_T_NONE
-/*	end_remove_this */
 blk_qc_t if_make_request(struct request_queue *q, struct bio *bio)
-/*	remove_this */
-#elif defined(BIO_CPU_AFFINE)
-int if_make_request(struct request_queue *q, struct bio *bio)
-#else
-void if_make_request(struct request_queue *q, struct bio *bio)
-#endif
-/*	end_remove_this */
 {
 	struct if_input *input = q->queuedata;
 	struct if_brick *brick = input->brick;
@@ -321,12 +245,6 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 	const int  rw = bio_data_dir(bio);
 	const int  sectors = bio_sectors(bio);
 
-/*	remove_this */
-/* Adapt to different kernel versions (TBD: improve)
- * Since 4246a0b63bd8f56a1469b12eafeb875b1041a451 bio_flagged is no longer a macro.
- */
-#if defined(bio_flagged) || !defined(bio_io_error)
-/*	end_remove_this */
 	const bool ahead = bio_flagged(bio, __REQ_RAHEAD) && rw == READ;
 	const bool barrier = bio_flagged(bio, __REQ_SOFTBARRIER);
 	const bool syncio = bio_flagged(bio, __REQ_SYNC);
@@ -335,30 +253,6 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 	const bool discard = bio_flagged(bio, __REQ_DISCARD);
 	const bool noidle = bio_flagged(bio, __REQ_NOIDLE);
 
-/*	remove_this */
-#elif defined(BIO_RW_RQ_MASK) || defined(BIO_FLUSH)
-	const bool ahead = bio_rw_flagged(bio, BIO_RW_AHEAD) && rw == READ;
-	const bool barrier = bio_rw_flagged(bio, BIO_RW_BARRIER);
-	const bool syncio = bio_rw_flagged(bio, BIO_RW_SYNCIO);
-	const bool unplug = bio_rw_flagged(bio, BIO_RW_UNPLUG);
-	const bool meta = bio_rw_flagged(bio, BIO_RW_META);
-	const bool discard = bio_rw_flagged(bio, BIO_RW_DISCARD);
-	const bool noidle = bio_rw_flagged(bio, BIO_RW_NOIDLE);
-
-#elif defined(REQ_FLUSH) && defined(REQ_SYNC)
-#define _flagged(x) (bio->bi_rw & (x))
-	const bool ahead = _flagged(REQ_RAHEAD) && rw == READ;
-	const bool barrier = _flagged(REQ_FLUSH);
-	const bool syncio = _flagged(REQ_SYNC);
-	const bool unplug = false;
-	const bool meta = _flagged(REQ_META);
-	const bool discard = _flagged(REQ_DISCARD);
-	const bool noidle = _flagged(REQ_THROTTLED);
-
-#else
-#error Cannot decode the bio flags
-#endif
-/*	end_remove_this */
 	const int  prio = bio_prio(bio);
 
 	/* Transform into XIO flags
@@ -376,25 +270,12 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 	struct aio_object *aio = NULL;
 	struct if_aio_aspect *aio_a;
 
-/*	remove_this */
-#ifdef HAS_BVEC_ITER
-/*	end_remove_this */
 	struct bio_vec bvec;
 	struct bvec_iter i;
 
 	loff_t pos = ((loff_t)bio->bi_iter.bi_sector) << 9; /*	TODO: make dynamic */
 	int total_len = bio->bi_iter.bi_size;
 
-/*	remove_this */
-#else
-	struct bio_vec *bvec;
-	int i;
-
-	loff_t pos = ((loff_t)bio->bi_sector) << 9; /*	TODO: make dynamic */
-	int total_len = bio->bi_size;
-
-#endif
-/*	end_remove_this */
 	bool assigned = false;
 	int error = -EINVAL;
 
@@ -402,14 +283,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 
 	might_sleep();
 
-/*	remove_this */
-#ifdef USE_BLK_QUEUE_SPLIT
-#warning USE_BLK_QUEUE_SPLIT
-/*	end_remove_this */
 	blk_queue_split(q, &bio, q->bio_split);
-/*	remove_this */
-#endif
-/*	end_remove_this */
 
 	if (unlikely(!sectors)) {
 		_if_unplug(input);
@@ -420,17 +294,9 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 		 * In case of exceptional semantics, we need to do
 		 * something here. For now, we do just nothing.
 		 */
-/*	remove_this */
-#ifdef HAS_BI_ERROR
-/*	end_remove_this */
 		error = 0;
 		bio->bi_error = error;
 		bio_endio(bio);
-/*	remove_this */
-#else
-		bio_endio(bio, error);
-#endif
-/*	end_remove_this */
 		goto done;
 	}
 
@@ -445,16 +311,8 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 #ifdef DENY_READA /*  provisionary */
 	if (ahead) {
 		atomic_inc(&input->total_reada_count);
-/*	remove_this */
-#ifdef HAS_BI_ERROR
-/*	end_remove_this */
 		bio->bi_error = -EWOULDBLOCK;
 		bio_endio(bio);
-/*	remove_this */
-#else
-		bio_endio(bio, -EWOULDBLOCK);
-#endif
-/*	end_remove_this */
 		error = 0;
 		goto done;
 	}
@@ -463,16 +321,8 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 #endif
 	if (unlikely(discard)) { /*  NYI */
 		error = 0;
-/*	remove_this */
-#ifdef HAS_BI_ERROR
-/*	end_remove_this */
 		bio->bi_error = error;
 		bio_endio(bio);
-/*	remove_this */
-#else
-		bio_endio(bio, error);
-#endif
-/*	end_remove_this */
 		goto done;
 	}
 
@@ -497,21 +347,10 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 		brick_msleep(100);
 
 	bio_for_each_segment(bvec, bio, i) {
-/*	remove_this */
-#ifdef HAS_BVEC_ITER
-/*	end_remove_this */
 		struct page *page = bvec.bv_page;
 		int bv_len = bvec.bv_len;
 		int offset = bvec.bv_offset;
 
-/*	remove_this */
-#else
-		struct page *page = bvec->bv_page;
-		int bv_len = bvec->bv_len;
-		int offset = bvec->bv_offset;
-
-#endif
-/*	end_remove_this */
 		void *data;
 
 #ifdef ARCH_HAS_KMAP
@@ -640,17 +479,8 @@ unlock:
 				 * working in synchronous writethrough mode.
 				 */
 				aio->io_skip_sync = true;
-/*	remove_this */
-#ifdef HAS_BVEC_ITER
-/*	end_remove_this */
 				if (!do_skip_sync && i.bi_idx + 1 >= bio->bi_iter.bi_idx)
 					aio->io_skip_sync = false;
-/*	remove_this */
-#else
-				if (!do_skip_sync && i + 1 >= bio->bi_vcnt)
-					aio->io_skip_sync = false;
-#endif
-/*	end_remove_this */
 
 				atomic_inc(&input->plugged_count);
 
@@ -676,16 +506,8 @@ err:
 	if (error < 0) {
 		XIO_ERR("cannot submit request from bio, status=%d\n", error);
 		if (!assigned) {
-/*	remove_this */
-#ifdef HAS_BI_ERROR
-/*	end_remove_this */
 			bio->bi_error = error;
 			bio_endio(bio);
-/*	remove_this */
-#else
-			bio_endio(bio, error);
-#endif
-/*	end_remove_this */
 		}
 	}
 
@@ -697,45 +519,15 @@ err:
 done:
 	remove_binding_from(brick->say_channel, current);
 
-/*	remove_this */
-/* see dece16353ef47d8d33f5302bc158072a9d65e26f */
-#ifdef BLK_QC_T_NONE
-/*	end_remove_this */
 	return BLK_QC_T_NONE;
-/*	remove_this */
-#elif defined(BIO_CPU_AFFINE)
-	return error;
-#else
-	goto out_return;
-#endif
-/*	end_remove_this */
 }
 
-/*	remove_this */
-#ifndef BLK_MAX_REQUEST_COUNT
-/* static */
-void if_unplug(struct request_queue *q)
-{
-	struct if_input *input = q->queuedata;
-
-	spin_lock_irq(q->queue_lock);
-	was_plugged = blk_remove_plug(q);
-	spin_unlock_irq(q->queue_lock);
-
-	_if_unplug(input);
-}
-#endif
-
-/*	end_remove_this */
 static
 int xio_congested(void *data, int bdi_bits)
 {
 	struct if_input *input = data;
 	int ret = 0;
 
-/*	remove_this */
-#ifdef WB_STAT_BATCH /* changed by 4452226ea276e74fc3e252c88d9bb7e8f8e44bf0 */
-/*	end_remove_this */
 	if (bdi_bits & (1 << WB_sync_congested) &&
 	    atomic_read(&input->read_flying_count) > 0) {
 		ret |= (1 << WB_sync_congested);
@@ -744,35 +536,9 @@ int xio_congested(void *data, int bdi_bits)
 	    atomic_read(&input->write_flying_count) > 0) {
 		ret |= (1 << WB_async_congested);
 	}
-/*	remove_this */
-#else /* old code */
-	if (bdi_bits & (1 << BDI_sync_congested) &&
-	    atomic_read(&input->read_flying_count) > 0) {
-		ret |= (1 << BDI_sync_congested);
-	}
-	if (bdi_bits & (1 << BDI_async_congested) &&
-	    atomic_read(&input->write_flying_count) > 0) {
-		ret |= (1 << BDI_async_congested);
-	}
-#endif
-/*	end_remove_this */
 	return ret;
 }
 
-/*	remove_this */
-#ifdef USE_MERGE_BVEC
-static
-int xio_merge_bvec(struct request_queue *q, struct bvec_merge_data *bvm, struct bio_vec *bvec)
-{
-	unsigned int bio_size = bvm->bi_size;
-
-	if (!bio_size)
-		return bvec->bv_len;
-	return 128;
-}
-#endif
-
-/*	end_remove_this */
 static
 loff_t if_get_capacity(struct if_brick *brick)
 {
@@ -872,77 +638,14 @@ static int if_switch(struct if_brick *brick)
 		if_set_capacity(input, capacity);
 
 		blk_queue_make_request(q, if_make_request);
-/*	remove_this */
-#ifdef blk_queue_dead
-/* introduced in b1bd055d397e09f99dcef9b138ed104ff1812fcb, detected by 34f6055c80285e4efb3f602a9119db75239744dc */
-/*	end_remove_this */
 		blk_set_stacking_limits(&q->limits);
-/*	remove_this */
-#endif
-#ifdef USE_MAX_SECTORS
-#ifdef MAX_SEGMENT_SIZE
-		XIO_DBG("blk_queue_max_sectors()\n");
-		blk_queue_max_sectors(q, USE_MAX_SECTORS);
-#else
-		XIO_DBG("blk_queue_max_hw_sectors()\n");
-/*	end_remove_this */
 		blk_queue_max_hw_sectors(q, USE_MAX_SECTORS);
-/*	remove_this */
-#endif
-#endif
-#ifdef USE_MAX_PHYS_SEGMENTS
-#ifdef MAX_SEGMENT_SIZE
-		XIO_DBG("blk_queue_max_phys_segments()\n");
-		blk_queue_max_phys_segments(q, USE_MAX_PHYS_SEGMENTS);
-#else
-		XIO_DBG("blk_queue_max_segments()\n");
-/*	end_remove_this */
 		blk_queue_max_segments(q, PAGE_SIZE);
-/*	remove_this */
-#endif
-#endif
-#ifdef USE_MAX_HW_SEGMENTS
-		XIO_DBG("blk_queue_max_hw_segments()\n");
-		blk_queue_max_hw_segments(q, USE_MAX_HW_SEGMENTS);
-#endif
-#ifdef USE_MAX_SEGMENT_SIZE
-		XIO_DBG("blk_queue_max_segment_size()\n");
-/*	end_remove_this */
 		blk_queue_max_segment_size(q, USE_MAX_SEGMENT_SIZE);
-/*	remove_this */
-#endif
-#ifdef USE_LOGICAL_BLOCK_SIZE
-		XIO_DBG("blk_queue_logical_block_size()\n");
-/*	end_remove_this */
 		blk_queue_logical_block_size(q, USE_LOGICAL_BLOCK_SIZE);
-/*	remove_this */
-#endif
-#ifdef USE_SEGMENT_BOUNDARY
-		XIO_DBG("blk_queue_segment_boundary()\n");
-/*	end_remove_this */
 		blk_queue_segment_boundary(q, USE_SEGMENT_BOUNDARY);
-/*	remove_this */
-#endif
-#ifdef QUEUE_ORDERED_DRAIN
-		XIO_DBG("blk_queue_ordered()\n");
-		blk_queue_ordered(q, QUEUE_ORDERED_DRAIN, NULL);
-#endif
-		XIO_DBG("blk_queue_bounce_limit()\n");
-/*	end_remove_this */
 		blk_queue_bounce_limit(q, BLK_BOUNCE_ANY);
-/*	remove_this */
-#ifndef BLK_MAX_REQUEST_COUNT
-		XIO_DBG("unplug_fn\n");
-		q->unplug_fn = if_unplug;
-#endif
-		XIO_DBG("queue_lock\n");
-#ifdef REQ_WRITE_SAME
-/* introduced by 4363ac7c */
-/*	end_remove_this */
 		blk_queue_max_write_same_sectors(q, 0);
-/*	remove_this */
-#endif
-/*	end_remove_this */
 		q->queue_lock = &input->req_lock; /*  needed! */
 
 		input->bdev = bdget(MKDEV(disk->major, minor));
@@ -953,19 +656,8 @@ static int if_switch(struct if_brick *brick)
 		XIO_INF("ra_pages OLD = %lu NEW = %d\n", q->backing_dev_info.ra_pages, brick->readahead);
 		q->backing_dev_info.ra_pages = brick->readahead;
 #endif
-/*	remove_this */
-#ifdef USE_CONGESTED_FN
-		XIO_DBG("congested_fn\n");
-/*	end_remove_this */
 		q->backing_dev_info.congested_fn = xio_congested;
 		q->backing_dev_info.congested_data = input;
-/*	remove_this */
-#endif
-#ifdef USE_MERGE_BVEC
-		XIO_DBG("blk_queue_merge_bvec()\n");
-		blk_queue_merge_bvec(q, xio_merge_bvec);
-#endif
-/*	end_remove_this */
 
 		/*  point of no return */
 		XIO_DBG("add_disk()\n");
@@ -1074,15 +766,7 @@ static int if_open(struct block_device *bdev, fmode_t mode)
 }
 
 static
-/*	remove_this */
-#ifdef HAS_VOID_RELEASE
-/*	end_remove_this */
 void
-/*	remove_this */
-#else
-int
-#endif
-/*	end_remove_this */
 if_release(struct gendisk *gd, fmode_t mode)
 {
 	struct if_input *input = gd->private_data;
@@ -1103,11 +787,6 @@ if_release(struct gendisk *gd, fmode_t mode)
 			brick->power.off_led);
 		local_trigger();
 	}
-/*	remove_this */
-#ifndef HAS_VOID_RELEASE
-	return 0;
-#endif
-/*	end_remove_this */
 }
 
 static const struct block_device_operations if_blkdev_ops = {

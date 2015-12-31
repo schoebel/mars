@@ -29,35 +29,12 @@
 #include "mars_proc.h"
 #include "../xio_bricks/lib_mapfree.h"
 #include "../xio_bricks/xio_bio.h"
-/*	remove_this */
-#ifndef __USE_COMPAT
-#include "../xio_bricks/unused/xio_aio_user.h"
-#endif
-/*	end_remove_this */
 #include "../xio_bricks/xio_if.h"
 #include "../xio_bricks/xio_copy.h"
 #include "../xio_bricks/xio_client.h"
 #include "../xio_bricks/xio_server.h"
 #include "../xio_bricks/xio_trans_logger.h"
 
-/*	remove_this */
-#include "../buildtag.h"
-
-const char mars_version_string[] = BUILDTAG " (" BUILDHOST " " BUILDDATE ") "
-#ifndef CONFIG_MARS_DEBUG
-	"production"
-#else
-	"DEBUG"
-#endif
-#ifdef CONFIG_MARS_DEBUG_MEM
-	" BAD_PERFORMANCE"
-#endif
-#ifdef CONFIG_MARS_DEBUG_ORDER0
-	" EVIL_PERFORMANCE"
-#endif
-	;
-
-/*	end_remove_this */
 xio_info_fn xio_info;
 
 static
@@ -239,14 +216,6 @@ struct ctl_table io_tuning_table[] = {
 	THRESHOLD_ENTRIES(&bio_submit_threshold, "bio_submit"),
 	THRESHOLD_ENTRIES(&bio_io_threshold[0],  "bio_io_r"),
 	THRESHOLD_ENTRIES(&bio_io_threshold[1],  "bio_io_w"),
-/*	remove_this */
-#ifndef __USE_COMPAT
-	THRESHOLD_ENTRIES(&aio_submit_threshold, "aio_submit"),
-	THRESHOLD_ENTRIES(&aio_io_threshold[0],  "aio_io_r"),
-	THRESHOLD_ENTRIES(&aio_io_threshold[1],  "aio_io_w"),
-	THRESHOLD_ENTRIES(&aio_sync_threshold,	 "aio_sync"),
-#endif
-/*	end_remove_this */
 	{}
 };
 
@@ -264,16 +233,6 @@ struct ctl_table tcp_tuning_table[] = {
 
 static
 struct ctl_table mars_table[] = {
-/*	remove_this */
-	{
-		_CTL_NAME
-		.procname = "version",
-		.data = (char *)mars_version_string,
-		.maxlen = sizeof(mars_version_string),
-		.mode = 0400,
-		.proc_handler = &proc_dostring,
-	},
-/*	end_remove_this */
 	{
 		_CTL_NAME
 		.procname = "trigger",
@@ -296,11 +255,6 @@ struct ctl_table mars_table[] = {
 	INT_ENTRY("show_debug_messages",  brick_say_debug,	  0600),
 	INT_ENTRY("show_statistics_global", global_show_statist,  0600),
 	INT_ENTRY("show_statistics_server", server_show_statist,  0600),
-/*	remove_this */
-#ifndef __USE_COMPAT
-	INT_ENTRY("aio_sync_mode",	  aio_sync_mode,	  0600),
-#endif
-/*	end_remove_this */
 	INT_ENTRY("logger_completion_semantics", trans_logger_completion_semantics, 0600),
 	INT_ENTRY("logger_do_crc",	  trans_logger_do_crc,	  0600),
 	INT_ENTRY("syslog_min_class",	  brick_say_syslog_min,   0600),
@@ -355,11 +309,6 @@ struct ctl_table mars_table[] = {
 	LIMITER_ENTRIES(&if_throttle,	  "write_throttle",	  "kb"),
 	/*  changing makes no sense because the server will immediately start upon modprobe */
 	INT_ENTRY("xio_port",		  xio_net_default_port,  0400),
-/*	remove_this */
-#ifdef	CONFIG_MARS_NET_COMPAT
-	INT_ENTRY("old_net_proto",	  use_old_format,	  0600),
-#endif
-/*	end_remove_this */
 #ifdef __HAVE_LZO
 	INT_ENTRY("network_compress_data", xio_net_compress_data, 0600),
 #endif

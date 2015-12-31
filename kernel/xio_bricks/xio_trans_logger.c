@@ -1460,14 +1460,6 @@ void phase0_endio(void *private, int error)
 	orig_aio_a = private;
 	CHECK_PTR(orig_aio_a, err);
 
-/*	remove_this */
-	if (unlikely(cmpxchg(&orig_aio_a->is_endio, false, true))) {
-		XIO_ERR("Sigh this should not happen %p %p\n",
-			 orig_aio_a, orig_aio_a->object);
-		goto out_return;
-	}
-
-/*	end_remove_this */
 	brick = orig_aio_a->my_brick;
 	CHECK_PTR(brick, err);
 	orig_aio = orig_aio_a->object;

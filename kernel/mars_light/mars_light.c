@@ -36,9 +36,6 @@
 #include <linux/blkdev.h>
 
 #include "light_strategy.h"
-/*	remove_this */
-#include "../buildtag.h"
-/*	end_remove_this */
 
 #include <linux/wait.h>
 
@@ -50,26 +47,9 @@
 #include "../xio_bricks/xio_copy.h"
 #include "../xio_bricks/xio_bio.h"
 #include "../xio_bricks/xio_sio.h"
-/*	remove_this */
-#ifndef __USE_COMPAT
-#include "../xio_bricks/unused/xio_aio_user.h"
-#else
-#define aio_brick_type sio_brick_type
-#define _set_aio_params _set_sio_params
-#endif
-/*	end_remove_this */
 #include "../xio_bricks/xio_trans_logger.h"
 #include "../xio_bricks/xio_if.h"
 #include "mars_proc.h"
-/*	remove_this */
-#ifdef CONFIG_MARS_DEBUG
-/* include currently unused bricks, essentially a compile check only */
-#include "../xio_bricks/unused/xio_dummy.h"
-#include "../xio_bricks/unused/xio_check.h"
-#include "../xio_bricks/unused/xio_buf.h"
-#include "../xio_bricks/unused/xio_usebuf.h"
-#endif
-/*	end_remove_this */
 
 #define REPLAY_TOLERANCE		(PAGE_SIZE + OVERHEAD)
 
@@ -648,32 +628,6 @@ int _set_sio_params(struct xio_brick *_brick, void *private)
 	return 1;
 }
 
-/*	remove_this */
-#ifndef __USE_COMPAT
-static
-int _set_aio_params(struct xio_brick *_brick, void *private)
-{
-	struct aio_brick *aio_brick = (void *)_brick;
-	struct client_cookie *clc = private;
-
-	if (_brick->type == (void *)&client_brick_type)
-		return _set_client_params(_brick, private);
-	if (_brick->type == (void *)&sio_brick_type)
-		return _set_sio_params(_brick, private);
-	if (_brick->type != (void *)&aio_brick_type) {
-		XIO_ERR("bad brick type\n");
-		return -EINVAL;
-	}
-	aio_brick->o_creat = clc && clc->create_mode;
-	aio_brick->o_direct = false; /*  important! */
-	aio_brick->o_fdsync = true;
-	aio_brick->killme = true;
-	XIO_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
-	return 1;
-}
-#endif
-
-/*	end_remove_this */
 static
 int _set_bio_params(struct xio_brick *_brick, void *private)
 {
@@ -681,12 +635,6 @@ int _set_bio_params(struct xio_brick *_brick, void *private)
 
 	if (_brick->type == (void *)&client_brick_type)
 		return _set_client_params(_brick, private);
-/*	remove_this */
-#ifndef __USE_COMPAT
-	if (_brick->type == (void *)&aio_brick_type)
-		return _set_aio_params(_brick, private);
-#endif
-/*	end_remove_this */
 	if (_brick->type == (void *)&sio_brick_type)
 		return _set_sio_params(_brick, private);
 	if (_brick->type != (void *)&bio_brick_type) {
@@ -2269,9 +2217,6 @@ void _make_alive(void)
 	}
 	_make_alivelink("alive", mars_global && mars_global->global_power.button ? 1 : 0);
 	_make_alivelink_str("tree", SYMLINK_TREE_VERSION);
-/*	remove_this */
-	_make_alivelink_str("buildtag", BUILDTAG "(" BUILDDATE ")");
-/*	end_remove_this */
 }
 
 void from_remote_trigger(void)
@@ -3042,18 +2987,10 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	aio_brick =
 		make_brick_all(global,
 			       aio_dent,
-/*	remove_this */
-			       _set_aio_params,
-/*	else_this */
-/*			       _set_sio_params, */
-/*	end_remove_this */
+			       _set_sio_params,
 			       NULL,
 			       aio_path,
-/*	remove_this */
-			       (const struct generic_brick_type *)&aio_brick_type,
-/*	else_this */
-/*			       (const struct generic_brick_type *)&sio_brick_type, */
-/*	end_remove_this */
+			       (const struct generic_brick_type *)&sio_brick_type,
 			       (const struct generic_brick_type*[]){},
 /**/			       rot->trans_brick || switch_on ? 2 : -1,
 			       "%s",
@@ -3675,18 +3612,10 @@ void _rotate_trans(struct mars_rotate *rot)
 		rot->next_relevant_brick =
 			make_brick_all(rot->global,
 				       rot->next_relevant_log,
-/*	remove_this */
-				       _set_aio_params,
-/*	else_this */
-/*				       _set_sio_params, */
-/*	end_remove_this */
+				       _set_sio_params,
 				       NULL,
 				       rot->next_relevant_log->d_path,
-/*	remove_this */
-				       (const struct generic_brick_type *)&aio_brick_type,
-/*	else_this */
-/*				       (const struct generic_brick_type *)&sio_brick_type, */
-/*	end_remove_this */
+				       (const struct generic_brick_type *)&sio_brick_type,
 				       (const struct generic_brick_type *[]){},
 				       2, /*  create + activate */
 				       rot->next_relevant_log->d_path,
@@ -3805,18 +3734,10 @@ int _start_trans(struct mars_rotate *rot)
 	rot->relevant_brick =
 		make_brick_all(rot->global,
 			       rot->relevant_log,
-/*	remove_this */
-			       _set_aio_params,
-/*	else_this */
-/*			       _set_sio_params, */
-/*	end_remove_this */
+			       _set_sio_params,
 			       NULL,
 			       rot->relevant_log->d_path,
-/*	remove_this */
-			       (const struct generic_brick_type *)&aio_brick_type,
-/*	else_this */
-/*			       (const struct generic_brick_type *)&sio_brick_type, */
-/*	end_remove_this */
+			       (const struct generic_brick_type *)&sio_brick_type,
 			       (const struct generic_brick_type *[]){},
 			       2, /*  start always */
 			       rot->relevant_log->d_path,
@@ -5736,16 +5657,6 @@ static int light_thread(void *data)
 			(void *)&client_brick_type,
 			true);
 		XIO_DBG("kill client bricks (when possible) = %d\n", status);
-/*	remove_this */
-#ifndef __USE_COMPAT
-		status = xio_kill_brick_when_possible(&_global,
-			&_global.brick_anchor,
-			false,
-			(void *)&aio_brick_type,
-			true);
-		XIO_DBG("kill aio    bricks (when possible) = %d\n", status);
-#endif
-/*	end_remove_this */
 		status = xio_kill_brick_when_possible(&_global,
 			&_global.brick_anchor,
 			false,
@@ -5900,11 +5811,7 @@ static int __init init_light(void)
 		return -ENOENT;
 	}
 
-/*	remove_this */
-	printk(KERN_INFO "loading MARS, BUILDTAG=%s BUILDHOST=%s BUILDDATE=%s\n", BUILDTAG, BUILDHOST, BUILDDATE);
-/*	else_this */
-/*	printk(KERN_INFO "loading MARS, tree_version=%s\n", SYMLINK_TREE_VERSION); */
-/*	end_remove_this */
+	printk(KERN_INFO "loading MARS, tree_version=%s\n", SYMLINK_TREE_VERSION);
 
 	init_say(); /*	this must come first */
 
@@ -5914,22 +5821,8 @@ static int __init init_light(void)
 	DO_INIT(brick);
 	DO_INIT(xio);
 	DO_INIT(xio_mapfree);
-/*	remove_this */
-#ifdef CONFIG_MARS_DEBUG
-	/* essentially a compile check only */
-	DO_INIT(xio_dummy);
-	DO_INIT(xio_check);
-	DO_INIT(xio_buf);
-	DO_INIT(xio_usebuf);
-#endif
-/*	end_remove_this */
 	DO_INIT(xio_net);
 	DO_INIT(xio_client);
-/*	remove_this */
-#ifndef __USE_COMPAT
-	DO_INIT(xio_aio);
-#endif
-/*	end_remove_this */
 	DO_INIT(xio_sio);
 	DO_INIT(xio_bio);
 	DO_INIT(xio_copy);
@@ -5976,11 +5869,7 @@ const void *dummy2 = &server_brick_type;
 
 MODULE_DESCRIPTION("MARS Light");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@{schoebel-theuer,1und1}.de>");
-/*	remove_this */
-MODULE_VERSION(BUILDTAG " (" BUILDHOST " " BUILDDATE ")");
-/*	else_this */
-/* MODULE_VERSION(SYMLINK_TREE_VERSION); */
-/*	end_remove_this */
+MODULE_VERSION(SYMLINK_TREE_VERSION);
 MODULE_LICENSE("GPL");
 
 #ifndef CONFIG_MARS_DEBUG

@@ -22,37 +22,6 @@
 #include <linux/rwsem.h>
 #include <linux/major.h>
 
-/*	remove_this */
-
-/*  check the Kconfig environment */
-
-#ifndef CONFIG_MARS_MODULE
-/*  when unsure, include faked config file */
-#include "mars_config.h"
-#ifndef CONFIG_SMP
-#warning CONFIG_SMP is not set -- are you SURE???
-#endif
-#endif
-
-#ifndef CONFIG_64BIT
-#error XIO is only tested under 64bit
-#endif
-#ifndef CONFIG_BLOCK
-#error CONFIG_BLOCK must be set
-#endif
-#ifndef CONFIG_PROC_SYSCTL
-#error CONFIG_PROC_SYSCTL must be set
-#endif
-#ifndef CONFIG_HIGH_RES_TIMERS
-#error CONFIG_HIGH_RES_TIMERS must be set
-#endif
-#ifdef CONFIG_DEBUG_SLAB
-#error Fixme: CONFIG_DEBUG_SLAB does not work (fix the bio offset calculation)
-#endif
-#ifdef CONFIG_DEBUG_SG
-#error Fixme: CONFIG_DEBUG_SG does not work (fix the bio offset calculation)
-#endif
-/*	end_remove_this */
 #if defined(CONFIG_CRYPTO_LZO) || defined(CONFIG_CRYPTO_LZO_MODULE)
 #define __HAVE_LZO
 #endif
@@ -323,11 +292,6 @@ extern int xio_throttle_end;
  */
 extern const struct generic_brick_type *_client_brick_type;
 extern const struct generic_brick_type *_bio_brick_type;
-/*	remove_this */
-#ifndef __USE_COMPAT
-extern const struct generic_brick_type *_aio_brick_type;
-#endif
-/*	end_remove_this */
 extern const struct generic_brick_type *_sio_brick_type;
 
 /***********************************************************************/

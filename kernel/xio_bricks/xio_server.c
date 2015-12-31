@@ -27,11 +27,6 @@
 #include "brick.h"
 #include "xio.h"
 #include "xio_bio.h"
-/*	remove_this */
-#ifndef __USE_COMPAT
-#include "unused/xio_aio_user.h"
-#endif
-/*	end_remove_this */
 #include "xio_sio.h"
 
 /************************ own type definitions ***********************/

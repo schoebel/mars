@@ -23,15 +23,6 @@
 
 #include "../xio_bricks/xio.h"
 
-/*	remove_this */
-#ifdef KUIDT_INIT
-#define HAS_KUID
-#else
-#define __kuid_val(x) (x)
-#define __kgid_val(x) (x)
-#endif
-
-/*	end_remove_this */
 #define MARS_ARGV_MAX			4
 
 extern loff_t global_total_space;

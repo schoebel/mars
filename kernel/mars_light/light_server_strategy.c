@@ -26,11 +26,6 @@
 #include "brick.h"
 #include "../xio_bricks/xio.h"
 #include "../xio_bricks/xio_bio.h"
-/*	remove_this */
-#ifndef __USE_COMPAT
-#include "../xio_bricks/unused/xio_aio_user.h"
-#endif
-/*	end_remove_this */
 #include "../xio_bricks/xio_sio.h"
 
 #include "light_strategy.h"
@@ -58,39 +53,11 @@ int _set_server_sio_params(struct xio_brick *_brick, void *private)
 	return 1;
 }
 
-/*	remove_this */
-#ifndef __USE_COMPAT
-static
-int _set_server_aio_params(struct xio_brick *_brick, void *private)
-{
-	struct aio_brick *aio_brick = (void *)_brick;
-
-	if (_brick->type == (void *)_sio_brick_type)
-		return _set_server_sio_params(_brick, private);
-	if (_brick->type != (void *)_aio_brick_type) {
-		XIO_ERR("bad brick type\n");
-		return -EINVAL;
-	}
-	aio_brick->o_creat = false;
-	aio_brick->o_direct = false;
-	aio_brick->o_fdsync = false;
-	XIO_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);
-	return 1;
-}
-#endif
-
-/*	end_remove_this */
 static
 int _set_server_bio_params(struct xio_brick *_brick, void *private)
 {
 	struct bio_brick *bio_brick;
 
-/*	remove_this */
-#ifndef __USE_COMPAT
-	if (_brick->type == (void *)_aio_brick_type)
-		return _set_server_aio_params(_brick, private);
-#endif
-/*	end_remove_this */
 	if (_brick->type == (void *)_sio_brick_type)
 		return _set_server_sio_params(_brick, private);
 	if (_brick->type != (void *)_bio_brick_type) {

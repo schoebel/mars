@@ -17,13 +17,6 @@
 
 #ifndef BRICK_SAY_H
 #define BRICK_SAY_H
-/*	remove_this */
-
-#ifndef CONFIG_MARS_MODULE
-/*  when unsure, include faked config file */
-#include "mars_config.h"
-#endif
-/*	end_remove_this */
 
 /***********************************************************************/
 

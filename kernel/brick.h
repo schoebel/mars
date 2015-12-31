@@ -24,13 +24,6 @@
 #include <linux/kthread.h>
 
 #include <linux/atomic.h>
-/*	remove_this */
-
-#ifndef CONFIG_MARS_MODULE
-/*  when unsure, include faked config file */
-#include "mars_config.h"
-#endif
-/*	end_remove_this */
 
 #include "brick_say.h"
 #include "meta.h"

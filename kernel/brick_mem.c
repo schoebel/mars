@@ -27,9 +27,6 @@
 #include "brick_mem.h"
 #include "brick_say.h"
 #include "lamport.h"
-/*	remove_this */
-#include "buildtag.h"
-/*	end_remove_this */
 
 #define USE_KERNEL_PAGES		/*  currently mandatory (vmalloc does not work) */
 
@@ -255,16 +252,7 @@ _out_return:;
 	"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
 	"yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy" \
 	"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz" \
-/*	remove_this */							\
-	" BUILDTAG = "	BUILDTAG					\
-	" BUILDHOST = " BUILDHOST					\
-	" BUILDDATE = " BUILDDATE					\
-/*	end_remove_this */						\
 	" FILE = "	__FILE__					\
-/*	remove_this */							\
-	" DATE = "	__DATE__					\
-	" TIME = "	__TIME__					\
-/*	end_remove_this */						\
 	" VERSION = "	__VERSION__					\
 	" xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx STRING_error xxx\n"
 # define STRING_PLUS (sizeof(int) * 3 + sizeof(STRING_CANARY))
