@@ -244,9 +244,8 @@ int generic_register_brick_type(const struct generic_brick_type *new_type)
 			found = i;
 			continue;
 		}
-		if (!strcmp(brick_types[i]->type_name, new_type->type_name)) {
+		if (!strcmp(brick_types[i]->type_name, new_type->type_name))
 			return 0;
-		}
 	}
 	if (found < 0) {
 		if (nr_brick_types >= MAX_BRICK_TYPES) {

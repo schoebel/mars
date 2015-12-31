@@ -340,13 +340,11 @@ void _bio_io_io(struct bio_output *output, struct aio_object *aio, bool cork)
 	bio_get(bio);
 
 	rw = aio->io_rw & 1;
-	if (brick->do_noidle && !cork) {
+	if (brick->do_noidle && !cork)
 		rw |= REQ_NOIDLE;
-	}
 	if (!aio->io_skip_sync) {
-		if (brick->do_sync) {
+		if (brick->do_sync)
 			rw |= REQ_SYNC;
-		}
 	}
 
 	aio_a->start_stamp = cpu_clock(raw_smp_processor_id());

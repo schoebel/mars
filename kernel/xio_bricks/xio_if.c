@@ -369,9 +369,8 @@ blk_qc_t if_make_request(struct request_queue *q, struct bio *bio)
 				if (tmp_a->orig_page != page || tmp_aio->io_rw != rw || tmp_a->bio_count >= MAX_BIO || tmp_a->current_len + bv_len > tmp_a->max_len)
 					continue;
 
-				if (tmp_aio->io_data + tmp_a->current_len == data) {
+				if (tmp_aio->io_data + tmp_a->current_len == data)
 					goto merge_end;
-				}
 				continue;
 
 merge_end:
