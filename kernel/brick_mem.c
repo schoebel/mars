@@ -60,7 +60,7 @@
 		current->comm, (int)smp_processor_id(),			\
 		__BASE_FILE__,						\
 		__LINE__,						\
-		__FUNCTION__
+		__func__
 
 #define _BRICK_MSG(_class, _dump, _fmt, _args...)			\
 	do {								\

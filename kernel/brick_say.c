@@ -423,7 +423,7 @@ done:
 
 // tell gcc to check for varargs errors
 static
-void _say(struct say_channel *ch, int class, va_list args, bool use_args, const char *fmt, ...)  __attribute__ ((format (printf, 5, 6)));
+void _say(struct say_channel *ch, int class, va_list args, bool use_args, const char *fmt, ...)  __printf(5, 6);
 
 static
 void _say(struct say_channel *ch, int class, va_list args, bool use_args, const char *fmt, ...)

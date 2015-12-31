@@ -52,7 +52,7 @@ extern int _brick_msleep(int msecs, bool shorten);
 // printk() replacements
 
 #define _BRICK_MSG(_class, _dump, _fmt, _args...)		\
-	brick_say(_class, _dump, "BRICK", __BASE_FILE__, __LINE__, __FUNCTION__, _fmt, ##_args)
+	brick_say(_class, _dump, "BRICK", __BASE_FILE__, __LINE__, __func__, _fmt, ##_args)
 
 #define BRICK_FAT(_fmt, _args...) _BRICK_MSG(SAY_FATAL, true,  _fmt, ##_args)
 #define BRICK_ERR(_fmt, _args...) _BRICK_MSG(SAY_ERROR, false, _fmt, ##_args)

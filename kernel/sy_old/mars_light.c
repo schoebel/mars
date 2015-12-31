@@ -233,7 +233,7 @@ struct key_value_pair *find_key(struct key_value_pair *start, const char *key)
 }
 
 static
-void _make_msg(int line, struct key_value_pair *pair, const char *fmt, ...)  __attribute__ ((format (printf, 3, 4)));
+void _make_msg(int line, struct key_value_pair *pair, const char *fmt, ...)  __printf(3, 4);
 
 static
 void _make_msg(int line, struct key_value_pair *pair, const char *fmt, ...)

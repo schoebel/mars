@@ -101,7 +101,7 @@
 // MARS-specific debugging helpers
 
 #define _MARS_MSG(_class, _dump, _fmt, _args...)		\
-	brick_say(_class, _dump, "MARS", __BASE_FILE__, __LINE__, __FUNCTION__, _fmt, ##_args)
+	brick_say(_class, _dump, "MARS", __BASE_FILE__, __LINE__, __func__, _fmt, ##_args)
 
 #define MARS_FAT(_fmt, _args...) _MARS_MSG(SAY_FATAL, true,  _fmt, ##_args)
 #define MARS_ERR(_fmt, _args...) _MARS_MSG(SAY_ERROR, false, _fmt, ##_args)

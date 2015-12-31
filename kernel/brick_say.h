@@ -77,12 +77,12 @@ extern void remove_binding(struct task_struct *whom);
 extern void rollover_channel(struct say_channel *ch);
 extern void rollover_all(void);
 
-extern void say_to(struct say_channel *ch, int class, const char *fmt, ...) __attribute__ ((format (printf, 3, 4)));
+extern void say_to(struct say_channel *ch, int class, const char *fmt, ...) __printf(3, 4);
 
 #define say(_class, _fmt, _args...)			\
 	say_to(NULL, _class, _fmt, ##_args)
 
-extern void brick_say_to(struct say_channel *ch, int class, bool dump, const char *prefix, const char *file, int line, const char *func, const char *fmt, ...) __attribute__ ((format (printf, 8, 9)));
+extern void brick_say_to(struct say_channel *ch, int class, bool dump, const char *prefix, const char *file, int line, const char *func, const char *fmt, ...) __printf(8, 9);
 
 #define brick_say(_class, _dump, _prefix, _file, _line, _func, _fmt, _args...) \
 	brick_say_to(NULL, _class, _dump, _prefix, _file, _line, _func, _fmt, ##_args)
