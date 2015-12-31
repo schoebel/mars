@@ -32,7 +32,6 @@
 #include "lib_log.h"
 
 atomic_t global_mref_flying = ATOMIC_INIT(0);
-EXPORT_SYMBOL_GPL(global_mref_flying);
 
 void exit_logst(struct log_status *logst)
 {
@@ -58,7 +57,6 @@ void exit_logst(struct log_status *logst)
 		logst->log_mref = NULL;
 	}
 }
-EXPORT_SYMBOL_GPL(exit_logst);
 
 void init_logst(struct log_status *logst, struct mars_input *input, loff_t start_pos, loff_t end_pos)
 {
@@ -73,7 +71,6 @@ void init_logst(struct log_status *logst, struct mars_input *input, loff_t start
 	logst->end_pos = end_pos;
 	init_waitqueue_head(&logst->event);
 }
-EXPORT_SYMBOL_GPL(init_logst);
 
 #define MARS_LOG_CB_MAX 32
 
@@ -188,7 +185,6 @@ void log_flush(struct log_status *logst)
 
 	put_log_cb_info(cb_info);
 }
-EXPORT_SYMBOL_GPL(log_flush);
 
 void *log_reserve(struct log_status *logst, struct log_header *lh)
 {
@@ -290,7 +286,6 @@ err_free:
 err:
 	return NULL;
 }
-EXPORT_SYMBOL_GPL(log_reserve);
 
 bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private, int error), void *private)
 {
@@ -373,7 +368,6 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 err:
 	return ok;
 }
-EXPORT_SYMBOL_GPL(log_finalize);
 
 static
 void log_read_endio(struct generic_callback *cb)
@@ -504,7 +498,6 @@ done_free:
 	goto done;
 
 }
-EXPORT_SYMBOL_GPL(log_read);
 
 
 ////////////////// module init stuff /////////////////////////

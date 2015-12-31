@@ -85,7 +85,6 @@ struct trans_logger_hash_anchor {
 ///////////////////////// global tuning ////////////////////////
 
 int trans_logger_completion_semantics = 1;
-EXPORT_SYMBOL_GPL(trans_logger_completion_semantics);
 
 int trans_logger_do_crc =
 #ifdef CONFIG_MARS_DEBUG
@@ -93,26 +92,20 @@ int trans_logger_do_crc =
 #else
 	false;
 #endif
-EXPORT_SYMBOL_GPL(trans_logger_do_crc);
 
 int trans_logger_mem_usage; // in KB
-EXPORT_SYMBOL_GPL(trans_logger_mem_usage);
 
 int trans_logger_max_interleave = -1;
-EXPORT_SYMBOL_GPL(trans_logger_max_interleave);
 
 int trans_logger_resume = 1;
-EXPORT_SYMBOL_GPL(trans_logger_resume);
 
 int trans_logger_replay_timeout = 1; // in s
-EXPORT_SYMBOL_GPL(trans_logger_replay_timeout);
 
 struct writeback_group global_writeback = {
 	.lock = __RW_LOCK_UNLOCKED(global_writeback.lock),
 	.group_anchor = LIST_HEAD_INIT(global_writeback.group_anchor),
 	.until_percent = 30,
 };
-EXPORT_SYMBOL_GPL(global_writeback);
 
 static
 void add_to_group(struct writeback_group *gr, struct trans_logger_brick *brick)
@@ -577,9 +570,7 @@ int _congested(struct trans_logger_brick *brick)
 ////////////////// own brick / input / output operations //////////////////
 
 atomic_t   global_mshadow_count =   ATOMIC_INIT(0);
-EXPORT_SYMBOL_GPL(global_mshadow_count);
 atomic64_t global_mshadow_used  = ATOMIC64_INIT(0);
-EXPORT_SYMBOL_GPL(global_mshadow_used);
 
 static
 int trans_logger_get_info(struct trans_logger_output *output, struct mars_info *info)
@@ -3347,7 +3338,6 @@ const struct trans_logger_brick_type trans_logger_brick_type = {
 	.brick_construct = &trans_logger_brick_construct,
 	.brick_destruct = &trans_logger_brick_destruct,
 };
-EXPORT_SYMBOL_GPL(trans_logger_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 

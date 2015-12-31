@@ -52,8 +52,6 @@ void get_lamport(struct timespec *now)
 	up(&lamport_sem);
 }
 
-EXPORT_SYMBOL_GPL(get_lamport);
-
 void set_lamport(struct timespec *old)
 {
 	int diff;
@@ -68,4 +66,3 @@ void set_lamport(struct timespec *old)
 
 	up(&lamport_sem);
 }
-EXPORT_SYMBOL_GPL(set_lamport);

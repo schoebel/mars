@@ -83,11 +83,8 @@
 #include <linux/swap.h>
 
 long long brick_global_memavail = 0;
-EXPORT_SYMBOL_GPL(brick_global_memavail);
 long long brick_global_memlimit = 0;
-EXPORT_SYMBOL_GPL(brick_global_memlimit);
 atomic64_t brick_global_block_used = ATOMIC64_INIT(0);
-EXPORT_SYMBOL_GPL(brick_global_block_used);
 
 void get_total_ram(void)
 {
@@ -181,7 +178,6 @@ void *_brick_mem_alloc(int len, int line)
 #endif
 	return res;
 }
-EXPORT_SYMBOL_GPL(_brick_mem_alloc);
 
 void _brick_mem_free(void *data, int cline)
 {
@@ -227,7 +223,6 @@ void _brick_mem_free(void *data, int cline)
 _out_return:;
 #endif
 }
-EXPORT_SYMBOL_GPL(_brick_mem_free);
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -312,7 +307,6 @@ char *_brick_string_alloc(int len, int line)
 #endif
 	return res;
 }
-EXPORT_SYMBOL_GPL(_brick_string_alloc);
 
 void _brick_string_free(const char *data, int cline)
 {
@@ -367,7 +361,6 @@ void _brick_string_free(const char *data, int cline)
 _out_return:;
 #endif
 }
-EXPORT_SYMBOL_GPL(_brick_string_free);
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -396,11 +389,8 @@ int len2order(int len)
 #ifdef CONFIG_MARS_MEM_PREALLOC
 static atomic_t _alloc_count[BRICK_MAX_ORDER+1] = {};
 int brick_mem_alloc_count[BRICK_MAX_ORDER+1] = {};
-EXPORT_SYMBOL_GPL(brick_mem_alloc_count);
 int brick_mem_alloc_max[BRICK_MAX_ORDER+1] = {};
-EXPORT_SYMBOL_GPL(brick_mem_alloc_max);
 int brick_mem_freelist_max[BRICK_MAX_ORDER+1] = {};
-EXPORT_SYMBOL_GPL(brick_mem_freelist_max);
 #endif
 
 #ifdef BRICK_DEBUG_MEM
@@ -549,10 +539,8 @@ void __brick_block_free(void *data, int order, int cline)
 
 #ifdef CONFIG_MARS_MEM_PREALLOC
 int brick_allow_freelist = 1;
-EXPORT_SYMBOL_GPL(brick_allow_freelist);
 
 int brick_pre_reserve[BRICK_MAX_ORDER+1] = {};
-EXPORT_SYMBOL_GPL(brick_pre_reserve);
 
 /* Note: we have no separate lists per CPU.
  * This should not hurt because the freelists are only used
@@ -680,7 +668,6 @@ int brick_mem_reserve(struct mem_reservation *r)
 	return 0;
 }
 #endif
-EXPORT_SYMBOL_GPL(brick_mem_reserve);
 
 void *_brick_block_alloc(loff_t pos, int len, int line)
 {
@@ -760,7 +747,6 @@ void *_brick_block_alloc(loff_t pos, int len, int line)
 #endif
 	return data;
 }
-EXPORT_SYMBOL_GPL(_brick_block_alloc);
 
 void _brick_block_free(void *data, int len, int cline)
 {
@@ -876,7 +862,6 @@ void _brick_block_free(void *data, int len, int cline)
 _out_return:;
 #endif
 }
-EXPORT_SYMBOL_GPL(_brick_block_free);
 
 struct page *brick_iomap(void *data, int *offset, int *len)
 {
@@ -893,7 +878,6 @@ struct page *brick_iomap(void *data, int *offset, int *len)
 	}
 	return page;
 }
-EXPORT_SYMBOL_GPL(brick_iomap);
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -996,7 +980,6 @@ void brick_mem_statistics(bool final)
 	}
 #endif
 }
-EXPORT_SYMBOL_GPL(brick_mem_statistics);
 
 // module init stuff
 

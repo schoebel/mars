@@ -45,7 +45,6 @@ void _generic_output_init(struct generic_brick *brick, const struct generic_outp
 	output->nr_connected = 0;
 	INIT_LIST_HEAD(&output->output_head);
 }
-EXPORT_SYMBOL_GPL(_generic_output_init);
 
 void _generic_output_exit(struct generic_output *output)
 {
@@ -55,7 +54,6 @@ void _generic_output_exit(struct generic_output *output)
 	output->ops = NULL;
 	output->nr_connected = 0;
 }
-EXPORT_SYMBOL_GPL(_generic_output_exit);
 
 int generic_brick_init(const struct generic_brick_type *type, struct generic_brick *brick)
 {
@@ -69,7 +67,6 @@ int generic_brick_init(const struct generic_brick_type *type, struct generic_bri
 	INIT_LIST_HEAD(&brick->tmp_head);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(generic_brick_init);
 
 void generic_brick_exit(struct generic_brick *brick)
 {
@@ -80,7 +77,6 @@ void generic_brick_exit(struct generic_brick *brick)
 	brick->nr_outputs = 0;
 	put_nr(brick->aspect_context.brick_index);
 }
-EXPORT_SYMBOL_GPL(generic_brick_exit);
 
 int generic_input_init(struct generic_brick *brick, int index, const struct generic_input_type *type, struct generic_input *input)
 {
@@ -96,7 +92,6 @@ int generic_input_init(struct generic_brick *brick, int index, const struct gene
 	brick->nr_inputs++;
 	return 0;
 }
-EXPORT_SYMBOL_GPL(generic_input_init);
 
 void generic_input_exit(struct generic_input *input)
 {
@@ -105,7 +100,6 @@ void generic_input_exit(struct generic_input *input)
 	input->type = NULL;
 	input->connect = NULL;
 }
-EXPORT_SYMBOL_GPL(generic_input_exit);
 
 int generic_output_init(struct generic_brick *brick, int index, const struct generic_output_type *type, struct generic_output *output)
 {
@@ -118,7 +112,6 @@ int generic_output_init(struct generic_brick *brick, int index, const struct gen
 	brick->nr_outputs++;
 	return 0;
 }
-EXPORT_SYMBOL_GPL(generic_output_init);
 
 int generic_size(const struct generic_brick_type *brick_type)
 {
@@ -134,7 +127,6 @@ int generic_size(const struct generic_brick_type *brick_type)
 	}
 	return size;
 }
-EXPORT_SYMBOL_GPL(generic_size);
 
 int generic_connect(struct generic_input *input, struct generic_output *output)
 {
@@ -155,7 +147,6 @@ int generic_connect(struct generic_input *input, struct generic_output *output)
 	BRICK_DBG("now nr_connected=%d\n", output->nr_connected);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(generic_connect);
 
 int generic_disconnect(struct generic_input *input)
 {
@@ -172,7 +163,6 @@ int generic_disconnect(struct generic_input *input)
 	}
 	return 0;
 }
-EXPORT_SYMBOL_GPL(generic_disconnect);
 
 
 //////////////////////////////////////////////////////////////
@@ -199,7 +189,6 @@ int _brick_msleep(int msecs, bool shorten)
 
 	return jiffies_to_msecs(timeout);
 }
-EXPORT_SYMBOL_GPL(_brick_msleep);
 
 //////////////////////////////////////////////////////////////
 
@@ -207,7 +196,6 @@ EXPORT_SYMBOL_GPL(_brick_msleep);
 
 static char *nr_table = NULL;
 int nr_max = 256;
-EXPORT_SYMBOL_GPL(nr_max);
 
 int get_nr(void)
 {
@@ -232,7 +220,6 @@ int get_nr(void)
 		nr_max <<= 1;
 	}
 }
-EXPORT_SYMBOL_GPL(get_nr);
 
 void put_nr(int nr)
 {
@@ -240,7 +227,6 @@ void put_nr(int nr)
 		nr_table[nr] = 0;
 	}
 }
-EXPORT_SYMBOL_GPL(put_nr);
 
 //////////////////////////////////////////////////////////////
 
@@ -279,14 +265,12 @@ int generic_register_brick_type(const struct generic_brick_type *new_type)
 	BRICK_DBG("generic_register_brick_type() done.\n");
 	return 0;
 }
-EXPORT_SYMBOL_GPL(generic_register_brick_type);
 
 int generic_unregister_brick_type(const struct generic_brick_type *old_type)
 {
 	BRICK_DBG("generic_unregister_brick_type()\n");
 	return -1; // NYI
 }
-EXPORT_SYMBOL_GPL(generic_unregister_brick_type);
 
 int generic_brick_init_full(
 	void *data, 
@@ -416,7 +400,6 @@ int generic_brick_init_full(
 	}
 	return 0;
 }
-EXPORT_SYMBOL_GPL(generic_brick_init_full);
 
 int generic_brick_exit_full(struct generic_brick *brick)
 {
@@ -483,7 +466,6 @@ int generic_brick_exit_full(struct generic_brick *brick)
 	generic_brick_exit(brick);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(generic_brick_exit_full);
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -538,7 +520,6 @@ err_free:
 err:
 	return NULL;
 }
-EXPORT_SYMBOL_GPL(generic_alloc);
 
 void generic_free(struct generic_object *object)
 {
@@ -576,7 +557,6 @@ void generic_free(struct generic_object *object)
 	brick_mem_free(object);
 done: ;
 }
-EXPORT_SYMBOL_GPL(generic_free);
 
 static inline
 struct generic_aspect *_new_aspect(const struct generic_aspect_type *aspect_type, struct generic_object *obj)
@@ -670,7 +650,6 @@ struct generic_aspect *generic_get_aspect(struct generic_brick *brick, struct ge
 done:
 	return res;
 }
-EXPORT_SYMBOL_GPL(generic_get_aspect);
 
 /////////////////////////////////////////////////////////////////
 
@@ -687,7 +666,6 @@ void set_button(struct generic_switch *sw, bool val, bool force)
 		wake_up_interruptible(&sw->event);
 	}
 }
-EXPORT_SYMBOL_GPL(set_button);
 
 void set_led_on(struct generic_switch *sw, bool val)
 {
@@ -697,7 +675,6 @@ void set_led_on(struct generic_switch *sw, bool val)
 		wake_up_interruptible(&sw->event);
 	}
 }
-EXPORT_SYMBOL_GPL(set_led_on);
 
 void set_led_off(struct generic_switch *sw, bool val)
 {
@@ -707,7 +684,6 @@ void set_led_off(struct generic_switch *sw, bool val)
 		wake_up_interruptible(&sw->event);
 	}
 }
-EXPORT_SYMBOL_GPL(set_led_off);
 
 void set_button_wait(struct generic_brick *brick, bool val, bool force, int timeout)
 {
@@ -720,7 +696,6 @@ void set_button_wait(struct generic_brick *brick, bool val, bool force, int time
 		wait_event_interruptible_timeout(brick->power.event, brick->power.led_off, timeout);
 	}
 }
-EXPORT_SYMBOL_GPL(set_button_wait);
 
 /////////////////////////////////////////////////////////////////
 
@@ -736,7 +711,6 @@ const struct meta *find_meta(const struct meta *meta, const char *field_name)
 	}
 	return NULL;
 }
-EXPORT_SYMBOL_GPL(find_meta);
 
 /////////////////////////////////////////////////////////////////////////
 

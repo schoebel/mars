@@ -217,7 +217,6 @@ const struct dummy_brick_type dummy_brick_type = {
 	.brick_construct = &dummy_brick_construct,
 	.brick_destruct = &dummy_brick_destruct,
 };
-EXPORT_SYMBOL_GPL(dummy_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 

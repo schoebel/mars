@@ -88,12 +88,10 @@
 ///////////////////////// global tuning ////////////////////////
 
 int if_throttle_start_size = 0; // in kb
-EXPORT_SYMBOL_GPL(if_throttle_start_size);
 
 struct mars_limiter if_throttle = {
 	.lim_max_rate = 5000,
 };
-EXPORT_SYMBOL_GPL(if_throttle);
 
 ///////////////////////// own type definitions ////////////////////////
 
@@ -1296,7 +1294,6 @@ const struct if_brick_type if_brick_type = {
 	.brick_construct = &if_brick_construct,
 	.brick_destruct = &if_brick_destruct,
 };
-EXPORT_SYMBOL_GPL(if_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 

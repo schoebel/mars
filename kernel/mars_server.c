@@ -427,21 +427,18 @@ const struct server_brick_type server_brick_type = {
 	.brick_construct = &server_brick_construct,
 	.brick_destruct = &server_brick_destruct,
 };
-EXPORT_SYMBOL_GPL(server_brick_type);
 
 ///////////////////////////////////////////////////////////////////////
 
 // strategy layer
 
 int server_show_statist = 0;
-EXPORT_SYMBOL_GPL(server_show_statist);
 
 ////////////////// module init stuff /////////////////////////
 
 struct mars_limiter server_limiter = {
 	.lim_max_rate = 0,
 };
-EXPORT_SYMBOL_GPL(server_limiter);
 
 void exit_mars_server(void)
 {

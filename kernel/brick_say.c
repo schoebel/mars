@@ -67,32 +67,23 @@ const char *say_class[MAX_SAY_CLASS] = {
 	[SAY_FATAL] = "fatal",
 	[SAY_TOTAL] = "total",
 };
-EXPORT_SYMBOL_GPL(say_class);
 
 int brick_say_logging = 1;
-EXPORT_SYMBOL_GPL(brick_say_logging);
 module_param_named(say_logging, brick_say_logging, int, 0);
 int brick_say_debug = 0;
-EXPORT_SYMBOL_GPL(brick_say_debug);
 module_param_named(say_debug, brick_say_debug, int, 0);
 
 int brick_say_syslog_min = 1;
-EXPORT_SYMBOL_GPL(brick_say_syslog_min);
 int brick_say_syslog_max = -1;
-EXPORT_SYMBOL_GPL(brick_say_syslog_max);
 int brick_say_syslog_flood_class = 3;
-EXPORT_SYMBOL_GPL(brick_say_syslog_flood_class);
 int brick_say_syslog_flood_limit = 20;
-EXPORT_SYMBOL_GPL(brick_say_syslog_flood_limit);
 int brick_say_syslog_flood_recovery = 300;
-EXPORT_SYMBOL_GPL(brick_say_syslog_flood_recovery);
 int delay_say_on_overflow =
 #ifdef CONFIG_MARS_DEBUG
 	1;
 #else
 	0;
 #endif
-EXPORT_SYMBOL_GPL(delay_say_on_overflow);
 
 static atomic_t say_alloc_channels = ATOMIC_INIT(0);
 static atomic_t say_alloc_names = ATOMIC_INIT(0);
@@ -121,7 +112,6 @@ struct say_channel {
 };
 
 struct say_channel *default_channel = NULL;
-EXPORT_SYMBOL_GPL(default_channel);
 
 static struct say_channel *channel_list = NULL;
 
@@ -210,7 +200,6 @@ err:
 
 	say_to(default_channel, SAY_ERROR, "ID overflow for thread '%s'\n", whom->comm);
 }
-EXPORT_SYMBOL_GPL(bind_to_channel);
 
 struct say_channel *get_binding(struct task_struct *whom)
 {
@@ -230,7 +219,6 @@ found:
 	read_unlock(&say_lock);
 	return ch;
 }
-EXPORT_SYMBOL_GPL(get_binding);
 
 void remove_binding_from(struct say_channel *ch, struct task_struct *whom)
 {
@@ -250,7 +238,6 @@ void remove_binding_from(struct say_channel *ch, struct task_struct *whom)
 	}
 	write_unlock(&say_lock);
 }
-EXPORT_SYMBOL_GPL(remove_binding_from);
 
 void remove_binding(struct task_struct *whom)
 {
@@ -258,7 +245,6 @@ void remove_binding(struct task_struct *whom)
 	_remove_binding(whom);
 	write_unlock(&say_lock);
 }
-EXPORT_SYMBOL_GPL(remove_binding);
 
 void rollover_channel(struct say_channel *ch)
 {
@@ -268,7 +254,6 @@ void rollover_channel(struct say_channel *ch)
 	if (likely(ch))
 		ch->ch_rollover = true;
 }
-EXPORT_SYMBOL_GPL(rollover_channel);
 
 void rollover_all(void)
 {
@@ -280,7 +265,6 @@ void rollover_all(void)
 	}
 	read_unlock(&say_lock);
 }
-EXPORT_SYMBOL_GPL(rollover_all);
 
 void del_channel(struct say_channel *ch)
 {
@@ -293,7 +277,6 @@ void del_channel(struct say_channel *ch)
 	
 	ch->ch_delete = true;
 }
-EXPORT_SYMBOL_GPL(del_channel);
 
 static
 void _del_channel(struct say_channel *ch)
@@ -436,7 +419,6 @@ struct say_channel *make_channel(const char *name, bool must_exist)
 done:
 	return res;
 }
-EXPORT_SYMBOL_GPL(make_channel);
 
 // tell gcc to check for varargs errors
 static
@@ -527,7 +509,6 @@ void say_to(struct say_channel *ch, int class, const char *fmt, ...)
 		wake_up_interruptible(&say_event);
 	}
 }
-EXPORT_SYMBOL_GPL(say_to);
 
 void brick_say_to(struct say_channel *ch, int class, bool dump, const char *prefix, const char *file, int line, const char *func, const char *fmt, ...) 
 {
@@ -609,7 +590,6 @@ void brick_say_to(struct say_channel *ch, int class, bool dump, const char *pref
 #endif
 	wake_up_interruptible(&say_event);
 }
-EXPORT_SYMBOL_GPL(brick_say_to);
 
 static
 void try_open_file(struct file **file, char *filename, bool creat)
@@ -880,7 +860,6 @@ void init_say(void)
 	}
 
 }
-EXPORT_SYMBOL_GPL(init_say);
 
 void exit_say(void)
 {
@@ -906,7 +885,6 @@ void exit_say(void)
 		printk("MEMLEAK: channels=%d names=%d pages=%d\n", memleak_channels, memleak_names, memleak_pages);
 	}
 }
-EXPORT_SYMBOL_GPL(exit_say);
 
 #ifdef CONFIG_MARS_DEBUG
 
@@ -919,6 +897,5 @@ void brick_dump_stack(void)
 		dump_stack();
 	}
 }
-EXPORT_SYMBOL(brick_dump_stack);
 
 #endif

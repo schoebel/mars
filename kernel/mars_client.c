@@ -39,13 +39,10 @@
 #define CLIENT_HASH_MAX (PAGE_SIZE / sizeof(struct list_head))
 
 int mars_client_abort = 10;
-EXPORT_SYMBOL_GPL(mars_client_abort);
 
 int max_client_channels = 1;
-EXPORT_SYMBOL_GPL(max_client_channels);
 
 int max_client_bulk = 16;
-EXPORT_SYMBOL_GPL(max_client_bulk);
 
 ///////////////////////// own helper functions ////////////////////////
 
@@ -1035,17 +1032,14 @@ const struct client_brick_type client_brick_type = {
 	.default_output_types = client_output_types,
 	.brick_construct = &client_brick_construct,
 };
-EXPORT_SYMBOL_GPL(client_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 
 struct mars_limiter client_limiter = {
 	.lim_max_rate = 0,
 };
-EXPORT_SYMBOL_GPL(client_limiter);
 
 int global_net_io_timeout = 30;
-EXPORT_SYMBOL_GPL(global_net_io_timeout);
 module_param_named(net_io_timeout, global_net_io_timeout, int, 0);
 
 int __init init_mars_client(void)

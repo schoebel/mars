@@ -57,7 +57,6 @@ struct threshold aio_submit_threshold = {
 	.thr_factor = 10,
 	.thr_plus = 10000,
 };
-EXPORT_SYMBOL_GPL(aio_submit_threshold);
 
 struct threshold aio_io_threshold[2] = {
 	[0] = {
@@ -75,7 +74,6 @@ struct threshold aio_io_threshold[2] = {
 		.thr_plus = 0,
 	},
 };
-EXPORT_SYMBOL_GPL(aio_io_threshold);
 
 struct threshold aio_sync_threshold = {
 	.thr_ban = &mars_global_ban,
@@ -83,10 +81,8 @@ struct threshold aio_sync_threshold = {
 	.thr_factor = 100,
 	.thr_plus = 0,
 };
-EXPORT_SYMBOL_GPL(aio_sync_threshold);
 
 int aio_sync_mode = 2;
-EXPORT_SYMBOL_GPL(aio_sync_mode);
 
 ///////////////////////// mmu faking (provisionary) ////////////////////////
 
@@ -1294,7 +1290,6 @@ const struct aio_brick_type aio_brick_type = {
 	.default_output_types = aio_output_types,
 	.brick_construct = &aio_brick_construct,
 };
-EXPORT_SYMBOL_GPL(aio_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 

@@ -549,7 +549,6 @@ const struct sio_brick_type sio_brick_type = {
 	.default_output_types = sio_output_types,
 	.brick_construct = &sio_brick_construct,
 };
-EXPORT_SYMBOL_GPL(sio_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 

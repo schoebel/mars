@@ -361,7 +361,6 @@ const struct usebuf_brick_type usebuf_brick_type = {
 	.default_output_types = usebuf_output_types,
 	.brick_construct = &usebuf_brick_construct,
 };
-EXPORT_SYMBOL_GPL(usebuf_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 

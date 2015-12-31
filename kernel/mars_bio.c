@@ -57,7 +57,6 @@ struct threshold bio_submit_threshold = {
 	.thr_factor = 100,
 	.thr_plus = 0,
 };
-EXPORT_SYMBOL_GPL(bio_submit_threshold);
 
 struct threshold bio_io_threshold[2] = {
 	[0] = {
@@ -75,7 +74,6 @@ struct threshold bio_io_threshold[2] = {
 		.thr_plus = 10000,
 	},
 };
-EXPORT_SYMBOL_GPL(bio_io_threshold);
 
 ///////////////////////// own type definitions ////////////////////////
 
@@ -930,7 +928,6 @@ const struct bio_brick_type bio_brick_type = {
 	.brick_construct = &bio_brick_construct,
 	.brick_destruct = &bio_brick_destruct,
 };
-EXPORT_SYMBOL_GPL(bio_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 

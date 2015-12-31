@@ -335,7 +335,6 @@ const struct check_brick_type check_brick_type = {
 	.default_output_types = check_output_types,
 	.brick_construct = &check_brick_construct,
 };
-EXPORT_SYMBOL_GPL(check_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 

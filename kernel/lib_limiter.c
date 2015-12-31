@@ -115,7 +115,6 @@ int mars_limit(struct mars_limiter *lim, int amount)
 	}
 	return delay;
 }
-EXPORT_SYMBOL_GPL(mars_limit);
 
 void mars_limit_sleep(struct mars_limiter *lim, int amount)
 {
@@ -132,4 +131,3 @@ void mars_limit_sleep(struct mars_limiter *lim, int amount)
 			timeout = schedule_timeout_uninterruptible(timeout);
 	}
 }
-EXPORT_SYMBOL_GPL(mars_limit_sleep);

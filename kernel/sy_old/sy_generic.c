@@ -85,7 +85,6 @@ const struct meta mars_kstat_meta[] = {
 	META_INI_TRANSFER(blksize, struct kstat, FIELD_UINT, 4),
 	{}
 };
-EXPORT_SYMBOL_GPL(mars_kstat_meta);
 
 const struct meta mars_dent_meta[] = {
 	META_INI(d_name,    struct mars_dent, FIELD_STRING),
@@ -105,7 +104,6 @@ const struct meta mars_dent_meta[] = {
 	META_INI(d_argv[3], struct mars_dent, FIELD_STRING),
 	{}
 };
-EXPORT_SYMBOL_GPL(mars_dent_meta);
 
 //      remove_this
 #ifdef __USE_COMPAT
@@ -598,7 +596,6 @@ int mars_stat(const char *path, struct kstat *stat, bool use_lstat)
 
 	return status;
 }
-EXPORT_SYMBOL_GPL(mars_stat);
 
 int mars_mkdir(const char *path)
 {
@@ -616,7 +613,6 @@ int mars_mkdir(const char *path)
 
 	return status;
 }
-EXPORT_SYMBOL_GPL(mars_mkdir);
 
 int mars_unlink(const char *path)
 {
@@ -634,7 +630,6 @@ int mars_unlink(const char *path)
 
 	return status;
 }
-EXPORT_SYMBOL_GPL(mars_unlink);
 
 int mars_symlink(const char *oldpath, const char *newpath, const struct timespec *stamp, uid_t uid)
 {
@@ -695,7 +690,6 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct timespec
 done:
 	return status;
 }
-EXPORT_SYMBOL_GPL(mars_symlink);
 
 char *mars_readlink(const char *newpath)
 {
@@ -750,7 +744,6 @@ done_fs:
 	}
 	return res;
 }
-EXPORT_SYMBOL_GPL(mars_readlink);
 
 int mars_rename(const char *oldpath, const char *newpath)
 {
@@ -768,7 +761,6 @@ int mars_rename(const char *oldpath, const char *newpath)
 
 	return status;
 }
-EXPORT_SYMBOL_GPL(mars_rename);
 
 loff_t _compute_space(struct kstatfs *kstatfs, loff_t raw_val)
 {
@@ -830,7 +822,6 @@ done:
 	path_put(&path);
 err: ;
 }
-EXPORT_SYMBOL_GPL(mars_remaining_space);
 
 //////////////////////////////////////////////////////////////
 
@@ -868,17 +859,14 @@ void bind_to_dent(struct mars_dent *dent, struct say_channel **ch)
 			bind_to_channel(*ch, current);
 	}
 }
-EXPORT_SYMBOL_GPL(bind_to_dent);
 
 //////////////////////////////////////////////////////////////
 
 // infrastructure
 
 struct mars_global *mars_global = NULL;
-EXPORT_SYMBOL_GPL(mars_global);
 
 void (*_mars_trigger)(void) = NULL;
-EXPORT_SYMBOL_GPL(_mars_trigger);
 
 static
 void __mars_trigger(void)
@@ -917,7 +905,6 @@ bool mars_check_inputs(struct mars_brick *brick)
 	}
 	return false;
 }
-EXPORT_SYMBOL_GPL(mars_check_inputs);
 
 bool mars_check_outputs(struct mars_brick *brick)
 {
@@ -930,7 +917,6 @@ bool mars_check_outputs(struct mars_brick *brick)
 	}
 	return false;
 }
-EXPORT_SYMBOL_GPL(mars_check_outputs);
 
 int mars_power_button(struct mars_brick *brick, bool val, bool force_off)
 {
@@ -990,7 +976,6 @@ int mars_power_button(struct mars_brick *brick, bool val, bool force_off)
  done:
 	return status;
 }
-EXPORT_SYMBOL_GPL(mars_power_button);
 
 /////////////////////////////////////////////////////////////////////
 
@@ -1426,7 +1411,6 @@ restart:
 done:
 	return total_status;
 }
-EXPORT_SYMBOL_GPL(mars_dent_work);
 
 struct mars_dent *_mars_find_dent(struct mars_global *global, const char *path)
 {
@@ -1447,7 +1431,6 @@ struct mars_dent *_mars_find_dent(struct mars_global *global, const char *path)
 
 	return res;
 }
-EXPORT_SYMBOL_GPL(_mars_find_dent);
 
 struct mars_dent *mars_find_dent(struct mars_global *global, const char *path)
 {
@@ -1459,7 +1442,6 @@ struct mars_dent *mars_find_dent(struct mars_global *global, const char *path)
 	up_read(&global->dent_mutex);
 	return res;
 }
-EXPORT_SYMBOL_GPL(mars_find_dent);
 
 int mars_find_dent_all(struct mars_global *global, char *prefix, struct mars_dent ***table)
 {
@@ -1495,14 +1477,12 @@ int mars_find_dent_all(struct mars_global *global, char *prefix, struct mars_den
 done:
 	return count;
 }
-EXPORT_SYMBOL_GPL(mars_find_dent_all);
 
 void mars_kill_dent(struct mars_dent *dent)
 {
 	dent->d_killme = true;
 	mars_kill_brick_all(NULL, &dent->brick_list, true);
 }
-EXPORT_SYMBOL_GPL(mars_kill_dent);
 
 void mars_free_dent(struct mars_dent *dent)
 {
@@ -1530,7 +1510,6 @@ void mars_free_dent(struct mars_dent *dent)
 	brick_mem_free(dent->d_private);
 	brick_mem_free(dent);
 }
-EXPORT_SYMBOL_GPL(mars_free_dent);
 
 void mars_free_dent_all(struct mars_global *global, struct list_head *anchor)
 {
@@ -1548,7 +1527,6 @@ void mars_free_dent_all(struct mars_global *global, struct list_head *anchor)
 		mars_free_dent(dent);
 	}
 }
-EXPORT_SYMBOL_GPL(mars_free_dent_all);
 
 
 /////////////////////////////////////////////////////////////////////
@@ -1580,7 +1558,6 @@ struct mars_brick *mars_find_brick(struct mars_global *global, const void *brick
 
 	return NULL;
 }
-EXPORT_SYMBOL_GPL(mars_find_brick);
 
 int mars_free_brick(struct mars_brick *brick)
 {
@@ -1665,7 +1642,6 @@ int mars_free_brick(struct mars_brick *brick)
 done:
 	return status;
 }
-EXPORT_SYMBOL_GPL(mars_free_brick);
 
 struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent *belongs, const void *_brick_type, const char *path, const char *name)
 {
@@ -1739,7 +1715,6 @@ err_path:
 err_name:
 	return NULL;
 }
-EXPORT_SYMBOL_GPL(mars_make_brick);
 
 int mars_kill_brick(struct mars_brick *brick)
 {
@@ -1813,7 +1788,6 @@ int mars_kill_brick(struct mars_brick *brick)
 done:
 	return status;
 }
-EXPORT_SYMBOL_GPL(mars_kill_brick);
 
 int mars_kill_brick_all(struct mars_global *global, struct list_head *anchor, bool use_dent_link)
 {
@@ -1846,7 +1820,6 @@ int mars_kill_brick_all(struct mars_global *global, struct list_head *anchor, bo
 done:
 	return status;
 }
-EXPORT_SYMBOL_GPL(mars_kill_brick_all);
 
 int mars_kill_brick_when_possible(struct mars_global *global, struct list_head *anchor, bool use_dent_link, const struct mars_brick_type *type, bool even_on)
 {
@@ -1920,7 +1893,6 @@ restart:
 	}
 	return return_status;
 }
-EXPORT_SYMBOL_GPL(mars_kill_brick_when_possible);
 
 
 /////////////////////////////////////////////////////////////////////
@@ -1943,7 +1915,6 @@ char *_vpath_make(int line, const char *fmt, va_list *args)
 
 	return res;
 }
-EXPORT_SYMBOL_GPL(_vpath_make);
 
 char *_path_make(int line, const char *fmt, ...)
 {
@@ -1954,7 +1925,6 @@ char *_path_make(int line, const char *fmt, ...)
 	va_end(args);
 	return res;
 }
-EXPORT_SYMBOL_GPL(_path_make);
 
 char *_backskip_replace(int line, const char *path, char delim, bool insert, const char *fmt, ...)
 {
@@ -1996,7 +1966,6 @@ char *_backskip_replace(int line, const char *path, char delim, bool insert, con
 	}
 	return res;
 }
-EXPORT_SYMBOL_GPL(_backskip_replace);
 
 struct mars_brick *path_find_brick(struct mars_global *global, const void *brick_type, const char *fmt, ...)
 {
@@ -2015,20 +1984,15 @@ struct mars_brick *path_find_brick(struct mars_global *global, const void *brick
 	brick_string_free(fullpath);
 	return res;
 }
-EXPORT_SYMBOL_GPL(path_find_brick);
 
 const struct generic_brick_type *_client_brick_type = NULL;
-EXPORT_SYMBOL_GPL(_client_brick_type);
 const struct generic_brick_type *_bio_brick_type = NULL;
-EXPORT_SYMBOL_GPL(_bio_brick_type);
 //      remove_this
 #ifndef __USE_COMPAT
 const struct generic_brick_type *_aio_brick_type = NULL;
-EXPORT_SYMBOL_GPL(_aio_brick_type);
 #endif
 //      end_remove_this
 const struct generic_brick_type *_sio_brick_type = NULL;
-EXPORT_SYMBOL_GPL(_sio_brick_type);
 
 struct mars_brick *make_brick_all(
 	struct mars_global *global,
@@ -2223,14 +2187,12 @@ done:
 
 	return brick;
 }
-EXPORT_SYMBOL_GPL(make_brick_all);
 
 /////////////////////////////////////////////////////////////////////////
 
 // statistics
 
 int global_show_statist = 0;
-EXPORT_SYMBOL_GPL(global_show_statist);
 module_param_named(show_statist, global_show_statist, int, 0);
 
 static
@@ -2321,7 +2283,6 @@ void show_statistics(struct mars_global *global, const char *class)
 
 	MARS_DBG("==================== %s STATISTICS: %d dents, %d bricks, %lld KB free\n", class, dent_count, brick_count, global_remaining_space);
 }
-EXPORT_SYMBOL_GPL(show_statistics);
 
 /////////////////////////////////////////////////////////////////////
 
@@ -2335,7 +2296,6 @@ void mars_power_led_on(struct mars_brick *brick, bool val)
 		mars_trigger();
 	}
 }
-EXPORT_SYMBOL_GPL(mars_power_led_on);
 
 void mars_power_led_off(struct mars_brick *brick, bool val)
 {
@@ -2345,7 +2305,6 @@ void mars_power_led_off(struct mars_brick *brick, bool val)
 		mars_trigger();
 	}
 }
-EXPORT_SYMBOL_GPL(mars_power_led_off);
 
 /////////////////////////////////////////////////////////////////////
 

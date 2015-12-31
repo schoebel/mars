@@ -36,11 +36,9 @@
 
 // time to wait between background mapfree operations
 int mapfree_period_sec = 10;
-EXPORT_SYMBOL_GPL(mapfree_period_sec);
 
 // some grace space where no regular cleanup should occur
 int mapfree_grace_keep_mb = 16;
-EXPORT_SYMBOL_GPL(mapfree_grace_keep_mb);
 
 static
 DECLARE_RWSEM(mapfree_mutex);
@@ -133,7 +131,6 @@ void mapfree_put(struct mapfree_info *mf)
 		up_write(&mapfree_mutex);
 	}
 }
-EXPORT_SYMBOL_GPL(mapfree_put);
 
 struct mapfree_info *mapfree_get(const char *name, int flags)
 {
@@ -234,7 +231,6 @@ struct mapfree_info *mapfree_get(const char *name, int flags)
  done:
 	return mf;
 }
-EXPORT_SYMBOL_GPL(mapfree_get);
 
 void mapfree_set(struct mapfree_info *mf, loff_t min, loff_t max)
 {
@@ -249,7 +245,6 @@ void mapfree_set(struct mapfree_info *mf, loff_t min, loff_t max)
 		spin_unlock_irqrestore(&mf->mf_lock, flags);
 	}
 }
-EXPORT_SYMBOL_GPL(mapfree_set);
 
 static
 int mapfree_thread(void *data)
@@ -308,7 +303,6 @@ void mf_insert_dirty(struct mapfree_info *mf, struct dirty_info *di)
 		spin_unlock_irqrestore(&mf->mf_lock, flags);
 	}
 }
-EXPORT_SYMBOL_GPL(mf_insert_dirty);
 
 void mf_remove_dirty(struct mapfree_info *mf, struct dirty_info *di)
 {
@@ -320,7 +314,6 @@ void mf_remove_dirty(struct mapfree_info *mf, struct dirty_info *di)
 		spin_unlock_irqrestore(&mf->mf_lock, flags);
 	}
 }
-EXPORT_SYMBOL_GPL(mf_remove_dirty);
 
 void mf_get_dirty(struct mapfree_info *mf, loff_t *min, loff_t *max, int min_stage, int max_stage)
 {
@@ -351,7 +344,6 @@ void mf_get_dirty(struct mapfree_info *mf, loff_t *min, loff_t *max, int min_sta
 	spin_unlock_irqrestore(&mf->mf_lock, flags);
 done:;
 }
-EXPORT_SYMBOL_GPL(mf_get_dirty);
 
 void mf_get_any_dirty(const char *filename, loff_t *min, loff_t *max, int min_stage, int max_stage)
 {
@@ -366,7 +358,6 @@ void mf_get_any_dirty(const char *filename, loff_t *min, loff_t *max, int min_st
 	}
 	up_read(&mapfree_mutex);
 }
-EXPORT_SYMBOL_GPL(mf_get_any_dirty);
 
 ////////////////// module init stuff /////////////////////////
 

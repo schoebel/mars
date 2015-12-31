@@ -1104,7 +1104,6 @@ const struct buf_brick_type buf_brick_type = {
 	.brick_construct = &buf_brick_construct,
 	.brick_destruct = &buf_brick_destruct,
 };
-EXPORT_SYMBOL_GPL(buf_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 

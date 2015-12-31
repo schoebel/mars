@@ -39,9 +39,7 @@
 // infrastructure
 
 struct banning mars_global_ban = {};
-EXPORT_SYMBOL_GPL(mars_global_ban);
 atomic_t mars_global_io_flying = ATOMIC_INIT(0);
-EXPORT_SYMBOL_GPL(mars_global_io_flying);
 
 //////////////////////////////////////////////////////////////
 
@@ -52,7 +50,6 @@ const struct generic_object_type mref_type = {
         .default_size = sizeof(struct mref_object),
 	.object_type_nr = OBJ_TYPE_MREF,
 };
-EXPORT_SYMBOL_GPL(mref_type);
 
 //////////////////////////////////////////////////////////////
 
@@ -68,7 +65,6 @@ const struct meta mars_info_meta[] = {
 	META_INI(tf_min_size,     struct mars_info, FIELD_INT),
 	{}
 };
-EXPORT_SYMBOL_GPL(mars_info_meta);
 
 const struct meta mars_mref_meta[] = {
 	META_INI(_object_cb.cb_error, struct mref_object, FIELD_INT),
@@ -86,14 +82,12 @@ const struct meta mars_mref_meta[] = {
 	META_INI(ref_skip_sync,    struct mref_object, FIELD_INT),
 	{}
 };
-EXPORT_SYMBOL_GPL(mars_mref_meta);
 
 const struct meta mars_timespec_meta[] = {
 	META_INI_TRANSFER(tv_sec,  struct timespec, FIELD_UINT, 8),
 	META_INI_TRANSFER(tv_nsec, struct timespec, FIELD_UINT, 4),
 	{}
 };
-EXPORT_SYMBOL_GPL(mars_timespec_meta);
 
 
 //////////////////////////////////////////////////////////////
@@ -106,7 +100,6 @@ EXPORT_SYMBOL_GPL(mars_timespec_meta);
 static struct crypto_hash *mars_tfm = NULL;
 static struct semaphore tfm_sem;
 int mars_digest_size = 0;
-EXPORT_SYMBOL_GPL(mars_digest_size);
 
 void mars_digest(unsigned char *digest, void *data, int len)
 {
@@ -128,7 +121,6 @@ void mars_digest(unsigned char *digest, void *data, int len)
 	crypto_hash_final(&desc, digest);
 	up(&tfm_sem);
 }
-EXPORT_SYMBOL_GPL(mars_digest);
 
 void mref_checksum(struct mref_object *mref)
 {
@@ -145,7 +137,6 @@ void mref_checksum(struct mref_object *mref)
 		len = mars_digest_size;
 	memcpy(&mref->ref_checksum, checksum, len);
 }
-EXPORT_SYMBOL_GPL(mref_checksum);
 
 /////////////////////////////////////////////////////////////////////
 

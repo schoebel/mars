@@ -61,7 +61,6 @@ enum COMPRESS_TYPES {
 };
 
 int mars_net_compress_data = 0;
-EXPORT_SYMBOL_GPL(mars_net_compress_data);
 
 const u16 net_global_flags = 0
 #ifdef __HAVE_LZO
@@ -195,15 +194,12 @@ char get_sign(const void *data, int len, bool is_bigendian, bool is_signed)
  */
 
 int mars_net_default_port = CONFIG_MARS_DEFAULT_PORT;
-EXPORT_SYMBOL_GPL(mars_net_default_port);
 module_param_named(mars_port, mars_net_default_port, int, 0);
 
 int mars_net_bind_before_listen = 1;
-EXPORT_SYMBOL_GPL(mars_net_bind_before_listen);
 module_param_named(mars_net_bind_before_listen, mars_net_bind_before_listen, int, 0);
 
 int mars_net_bind_before_connect = 1;
-EXPORT_SYMBOL_GPL(mars_net_bind_before_connect);
 
 /* TODO: make all the socket options configurable.
  * TODO: implement signal handling.
@@ -220,7 +216,6 @@ struct mars_tcp_params default_tcp_params = {
 	.tcp_keepintvl = 3, // keepalive ping time
 	.tcp_keepidle = 4,
 };
-EXPORT_SYMBOL(default_tcp_params);
 
 static char *id = NULL;
 
@@ -237,7 +232,6 @@ char *my_id(void)
 	}
 	return id;
 }
-EXPORT_SYMBOL_GPL(my_id);
 
 static
 void __setsockopt(struct socket *sock, int level, int optname, char *optval, int optsize)
@@ -307,7 +301,6 @@ int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec)
 	brick_string_free(new_spec);
 	return status;
 }
-EXPORT_SYMBOL_GPL(mars_create_sockaddr);
 
 static int current_debug_nr = 0; // no locking, just for debugging
 
@@ -520,7 +513,6 @@ done:
 final:
 	return status;
 }
-EXPORT_SYMBOL_GPL(mars_create_socket);
 
 int mars_accept_socket(struct mars_socket *new_msock, struct mars_socket *old_msock)
 {
@@ -559,7 +551,6 @@ err:
 	}
 	return status;
 }
-EXPORT_SYMBOL_GPL(mars_accept_socket);
 
 bool mars_get_socket(struct mars_socket *msock)
 {
@@ -576,7 +567,6 @@ bool mars_get_socket(struct mars_socket *msock)
 	}
 	return true;
 }
-EXPORT_SYMBOL_GPL(mars_get_socket);
 
 void mars_put_socket(struct mars_socket *msock)
 {
@@ -604,7 +594,6 @@ void mars_put_socket(struct mars_socket *msock)
 		memset(msock, 0, sizeof(struct mars_socket));
 	}
 }
-EXPORT_SYMBOL_GPL(mars_put_socket);
 
 void mars_shutdown_socket(struct mars_socket *msock)
 {
@@ -620,7 +609,6 @@ void mars_shutdown_socket(struct mars_socket *msock)
 		}
 	}
 }
-EXPORT_SYMBOL_GPL(mars_shutdown_socket);
 
 bool mars_socket_is_alive(struct mars_socket *msock)
 {
@@ -635,7 +623,6 @@ bool mars_socket_is_alive(struct mars_socket *msock)
 done:
 	return res;
 }
-EXPORT_SYMBOL_GPL(mars_socket_is_alive);
 
 long mars_socket_send_space_available(struct mars_socket *msock)
 {
@@ -656,7 +643,6 @@ long mars_socket_send_space_available(struct mars_socket *msock)
 done:
 	return res;
 }
-EXPORT_SYMBOL_GPL(mars_socket_send_space_available);
 
 static
 int _mars_send_raw(struct mars_socket *msock, const void *buf, int len, int flags)
@@ -791,7 +777,6 @@ done:
 final:
 	return status;
 }
-EXPORT_SYMBOL_GPL(mars_send_raw);
 
 /**
  * mars_recv_raw() - Get [min,max] number of bytes
@@ -928,7 +913,6 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 
 	return _mars_recv_raw(msock, buf, minlen, maxlen, 0);
 }
-EXPORT_SYMBOL_GPL(mars_recv_raw);
 
 int mars_send_compressed(struct mars_socket *msock, const void *buf, s32 len, int compress, bool cork)
 {
@@ -985,7 +969,6 @@ int mars_send_compressed(struct mars_socket *msock, const void *buf, s32 len, in
 	brick_mem_free(compr_data);
 	return status;
 }
-EXPORT_SYMBOL_GPL(mars_send_compressed);
 
 int mars_recv_compressed(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 {
@@ -1061,7 +1044,6 @@ int mars_recv_compressed(struct mars_socket *msock, void *buf, int minlen, int m
 	brick_mem_free(compr_data);
 	return status;
 }
-EXPORT_SYMBOL_GPL(mars_recv_compressed);
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -1714,13 +1696,11 @@ int mars_send_struct(struct mars_socket *msock, const void *data, const struct m
 {
 	return desc_send_struct(msock, data, meta, false);
 }
-EXPORT_SYMBOL_GPL(mars_send_struct);
 
 int _mars_recv_struct(struct mars_socket *msock, void *data, const struct meta *meta, int line)
 {
 	return desc_recv_struct(msock, data, meta, line);
 }
-EXPORT_SYMBOL_GPL(_mars_recv_struct);
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -1734,7 +1714,6 @@ const struct meta mars_cmd_meta[] = {
 	META_INI(cmd_str1, struct mars_cmd, FIELD_STRING),
 	{}
 };
-EXPORT_SYMBOL_GPL(mars_cmd_meta);
 
 
 int mars_send_mref(struct mars_socket *msock, struct mref_object *mref)
@@ -1766,7 +1745,6 @@ int mars_send_mref(struct mars_socket *msock, struct mref_object *mref)
 done:
 	return status;
 }
-EXPORT_SYMBOL_GPL(mars_send_mref);
 
 int mars_recv_mref(struct mars_socket *msock, struct mref_object *mref, struct mars_cmd *cmd)
 {
@@ -1788,7 +1766,6 @@ int mars_recv_mref(struct mars_socket *msock, struct mref_object *mref, struct m
 done:
 	return status;
 }
-EXPORT_SYMBOL_GPL(mars_recv_mref);
 
 int mars_send_cb(struct mars_socket *msock, struct mref_object *mref)
 {
@@ -1819,7 +1796,6 @@ int mars_send_cb(struct mars_socket *msock, struct mref_object *mref)
 done:
 	return status;
 }
-EXPORT_SYMBOL_GPL(mars_send_cb);
 
 int mars_recv_cb(struct mars_socket *msock, struct mref_object *mref, struct mars_cmd *cmd)
 {
@@ -1842,15 +1818,12 @@ int mars_recv_cb(struct mars_socket *msock, struct mref_object *mref, struct mar
 done:
 	return status;
 }
-EXPORT_SYMBOL_GPL(mars_recv_cb);
 
 ////////////////// module init stuff /////////////////////////
 
 char *(*mars_translate_hostname)(const char *name) = NULL;
-EXPORT_SYMBOL_GPL(mars_translate_hostname);
 
 bool mars_net_is_alive = false;
-EXPORT_SYMBOL_GPL(mars_net_is_alive);
 
 int __init init_mars_net(void)
 {

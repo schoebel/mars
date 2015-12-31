@@ -273,7 +273,6 @@ DECLARE_ASPECT_FUNCTIONS(mars,mref);
 #define MARS_MAKE_STATICS(BRITYPE)					\
 									\
 int BRITYPE##_brick_nr = -EEXIST;				        \
-EXPORT_SYMBOL_GPL(BRITYPE##_brick_nr);			                \
 									\
 static const struct generic_aspect_type BRITYPE##_mref_aspect_type = {  \
 	.aspect_type_name = #BRITYPE "_mref_aspect_type",		\

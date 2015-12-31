@@ -54,19 +54,14 @@
 #include "mars_copy.h"
 
 int mars_copy_overlap = 1;
-EXPORT_SYMBOL_GPL(mars_copy_overlap);
 
 int mars_copy_read_prio = MARS_PRIO_NORMAL;
-EXPORT_SYMBOL_GPL(mars_copy_read_prio);
 
 int mars_copy_write_prio = MARS_PRIO_NORMAL;
-EXPORT_SYMBOL_GPL(mars_copy_write_prio);
 
 int mars_copy_read_max_fly = 0;
-EXPORT_SYMBOL_GPL(mars_copy_read_max_fly);
 
 int mars_copy_write_max_fly = 0;
-EXPORT_SYMBOL_GPL(mars_copy_write_max_fly);
 
 #define is_read_limited(brick)						\
 	(mars_copy_read_max_fly > 0 && atomic_read(&(brick)->copy_read_flight) >= mars_copy_read_max_fly)
@@ -1002,7 +997,6 @@ const struct copy_brick_type copy_brick_type = {
 	.brick_construct = &copy_brick_construct,
 	.brick_destruct = &copy_brick_destruct,
 };
-EXPORT_SYMBOL_GPL(copy_brick_type);
 
 ////////////////// module init stuff /////////////////////////
 

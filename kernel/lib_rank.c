@@ -62,7 +62,6 @@ void ranking_compute(struct rank_data *rkd, const struct rank_info rki[], int x)
 	}
 	rkd->rkd_tmp += points;
 }
-EXPORT_SYMBOL_GPL(ranking_compute);
 
 int ranking_select(struct rank_data rkd[], int rkd_count)
 {
@@ -91,4 +90,3 @@ int ranking_select(struct rank_data rkd[], int rkd_count)
 	}
 	return res;
 }
-EXPORT_SYMBOL_GPL(ranking_select);

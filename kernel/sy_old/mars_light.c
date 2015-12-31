@@ -101,79 +101,57 @@
 
 loff_t raw_total_space = 0;
 loff_t global_total_space = 0;
-EXPORT_SYMBOL_GPL(global_total_space);
 
 loff_t raw_remaining_space = 0;
 loff_t global_remaining_space = 0;
-EXPORT_SYMBOL_GPL(global_remaining_space);
 
 
 int global_logrot_auto = 32;
-EXPORT_SYMBOL_GPL(global_logrot_auto);
 module_param_named(logrot_auto, global_logrot_auto, int, 0);
 
 int global_free_space_0 = CONFIG_MARS_MIN_SPACE_0;
-EXPORT_SYMBOL_GPL(global_free_space_0);
 
 int global_free_space_1 = CONFIG_MARS_MIN_SPACE_1;
-EXPORT_SYMBOL_GPL(global_free_space_1);
 
 int global_free_space_2 = CONFIG_MARS_MIN_SPACE_2;
-EXPORT_SYMBOL_GPL(global_free_space_2);
 
 int global_free_space_3 = CONFIG_MARS_MIN_SPACE_3;
-EXPORT_SYMBOL_GPL(global_free_space_3);
 
 int global_free_space_4 = CONFIG_MARS_MIN_SPACE_4;
-EXPORT_SYMBOL_GPL(global_free_space_4);
 
 int _global_sync_want = 0;
 int global_sync_want = 0;
-EXPORT_SYMBOL_GPL(global_sync_want);
 
 int global_sync_nr = 0;
-EXPORT_SYMBOL_GPL(global_sync_nr);
 
 int global_sync_limit = 0;
-EXPORT_SYMBOL_GPL(global_sync_limit);
 
 int mars_rollover_interval = 3;
-EXPORT_SYMBOL_GPL(mars_rollover_interval);
 module_param_named(mars_rollover_interval, mars_rollover_interval, int, 0);
 
 int mars_scan_interval = 5;
-EXPORT_SYMBOL_GPL(mars_scan_interval);
 module_param_named(mars_scan_interval, mars_scan_interval, int, 0);
 
 int mars_propagate_interval = 5;
-EXPORT_SYMBOL_GPL(mars_propagate_interval);
 module_param_named(mars_propagate_interval, mars_propagate_interval, int, 0);
 
 int mars_sync_flip_interval = 60;
-EXPORT_SYMBOL_GPL(mars_sync_flip_interval);
 module_param_named(mars_sync_flip_interval, mars_sync_flip_interval, int, 0);
 
 int mars_peer_abort = 7;
-EXPORT_SYMBOL_GPL(mars_peer_abort);
 
 int mars_fast_fullsync = 1;
-EXPORT_SYMBOL_GPL(mars_fast_fullsync);
 module_param_named(mars_fast_fullsync, mars_fast_fullsync, int, 0);
 
 int mars_throttle_start = 60;
-EXPORT_SYMBOL_GPL(mars_throttle_start);
 
 int mars_throttle_end = 90;
-EXPORT_SYMBOL_GPL(mars_throttle_end);
 
 int mars_emergency_mode = 0;
-EXPORT_SYMBOL_GPL(mars_emergency_mode);
 
 int mars_reset_emergency = 1;
-EXPORT_SYMBOL_GPL(mars_reset_emergency);
 
 int mars_keep_msg = 10;
-EXPORT_SYMBOL_GPL(mars_keep_msg);
 
 #define MARS_SYMLINK_MAX 1023
 
@@ -579,7 +557,6 @@ static LIST_HEAD(rot_anchor);
 // TUNING
 
 int mars_mem_percent = 20;
-EXPORT_SYMBOL_GPL(mars_mem_percent);
 
 #define CONF_TRANS_SHADOW_LIMIT (1024 * 128) // don't fill the hashtable too much
 
@@ -2208,7 +2185,6 @@ void from_remote_trigger(void)
 	MARS_DBG("got trigger for %d peers\n", count);
 	wake_up_interruptible_all(&remote_event);
 }
-EXPORT_SYMBOL_GPL(from_remote_trigger);
 
 static
 void __mars_remote_trigger(void)
@@ -5439,7 +5415,6 @@ static int exit_fn_nr = 0;
 	} while (0)
 
 void (*_mars_remote_trigger)(void);
-EXPORT_SYMBOL_GPL(_mars_remote_trigger);
 
 static void exit_light(void)
 {

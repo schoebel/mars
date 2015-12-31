@@ -82,7 +82,6 @@ int mars_send_dent_list(struct mars_socket *sock, struct list_head *anchor)
 	}
 	return status;
 }
-EXPORT_SYMBOL_GPL(mars_send_dent_list);
 
 int mars_recv_dent_list(struct mars_socket *sock, struct list_head *anchor)
 {
@@ -103,7 +102,6 @@ int mars_recv_dent_list(struct mars_socket *sock, struct list_head *anchor)
 done:
 	return status;
 }
-EXPORT_SYMBOL_GPL(mars_recv_dent_list);
 
 
 ////////////////// module init stuff /////////////////////////

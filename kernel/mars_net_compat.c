@@ -41,7 +41,6 @@
 // Compatibility to old network data format: to be removed for kernel upstream
 
 int use_old_format = 0;
-EXPORT_SYMBOL_GPL(use_old_format);
 
 struct mars_desc_cache_old {
 	u64   cache_sender_cookie;
@@ -375,7 +374,6 @@ found:
 done:
 	return status;
 }
-EXPORT_SYMBOL_GPL(desc_send_struct_old);
 
 int desc_recv_struct_old(struct mars_socket *msock, void *data, const struct meta *meta, int line)
 {
@@ -457,4 +455,3 @@ done:
 err:
 	return status;
 }
-EXPORT_SYMBOL_GPL(desc_recv_struct_old);
