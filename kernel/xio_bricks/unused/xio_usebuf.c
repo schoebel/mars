@@ -21,7 +21,6 @@
  * to work at all.
  */
 
-
 /*  only for testing: this risks trashing the data by omitting read-before-write in case of false sharing */
 
 #include <linux/kernel.h>

@@ -28,7 +28,6 @@
  * even by the silliest type of accident!
  */
 
-
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/string.h>

@@ -80,7 +80,6 @@ const struct meta mars_dent_meta[] = {
  * of MARS for adapdation to different kernel version.
  */
 
-
 /* Hack because of 8bcb77fabd7cbabcad49f58750be8683febee92b
  */
 static int __path_parent(const char *name, struct path *path, unsigned flags)
@@ -328,7 +327,6 @@ retry:
 
 	inode = dentry->d_inode;
 	ihold(inode);
-
 
 #ifdef FL_DELEG
 	error = vfs_unlink(parent->d_inode, dentry, NULL);

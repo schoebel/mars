@@ -19,7 +19,6 @@
 #include <linux/module.h>
 #include <linux/string.h>
 
-
 #define _STRATEGY
 
 #include "brick.h"

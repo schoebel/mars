@@ -17,7 +17,6 @@
 
 /*  Copy brick (just for demonstration) */
 
-
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/string.h>
