@@ -17,8 +17,6 @@
 
 /*  Bio brick (interface to blkdev IO via kernel bios) */
 
-//#define BRICK_DEBUGGING
-//#define XIO_DEBUGGING
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -162,13 +160,6 @@ int make_bio(struct bio_brick *brick,
 
 		if (this_len > this_rest)
 			this_len = this_rest;
-#ifdef XIO_DEBUGGING
-		if (unlikely(!virt_addr_valid(data))) {
-			XIO_ERR("invalid virtual kernel address %p\n", data);
-			status = -EINVAL;
-			goto out;
-		}
-#endif
 
 		page = brick_iomap(data, &page_offset, &this_len);
 		if (unlikely(!page)) {
@@ -301,12 +292,6 @@ void _bio_io_put(struct bio_output *output, struct aio_object *aio)
 	CHECK_PTR(aio_a, err);
 
 	if (likely(aio_a->bio)) {
-#ifdef XIO_DEBUGGING
-		int bi_cnt = atomic_read(&aio_a->bio->bi_cnt);
-
-		if (bi_cnt > 1)
-			XIO_DBG("bi_cnt = %d\n", bi_cnt);
-#endif
 		bio_put(aio_a->bio);
 		aio_a->bio = NULL;
 	}

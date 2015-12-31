@@ -15,7 +15,6 @@
  * GNU General Public License for more details.
  */
 
-//#define BRICK_DEBUGGING
 #define XIO_DEBUGGING
 
 #include <linux/kernel.h>

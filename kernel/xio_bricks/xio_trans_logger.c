@@ -17,9 +17,7 @@
 
 /*  Trans_Logger brick */
 
-//#define BRICK_DEBUGGING
 #define XIO_DEBUGGING
-//#define REPLAY_DEBUGGING
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -55,14 +53,9 @@
 #define CONF_TRANS_CHUNKSIZE		(128 * 1024)
 #endif
 #define CONF_TRANS_MAX_AIO_SIZE		PAGE_SIZE
-//#define CONF_TRANS_ALIGN	PAGE_SIZE /*  FIXME: does not work */
 #define CONF_TRANS_ALIGN		0
 
-#ifdef REPLAY_DEBUGGING
-#define XIO_RPL(_fmt, _args...)  _XIO_MSG(false, "REPLAY ", _fmt, ##_args)
-#else
 #define XIO_RPL(_args...) /*empty*/
-#endif
 
 struct trans_logger_hash_anchor {
 	struct rw_semaphore hash_mutex;

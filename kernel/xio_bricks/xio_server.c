@@ -17,8 +17,6 @@
 
 /*  Server brick (just for demonstration) */
 
-//#define BRICK_DEBUGGING
-//#define XIO_DEBUGGING
 
 #include <linux/kernel.h>
 #include <linux/module.h>

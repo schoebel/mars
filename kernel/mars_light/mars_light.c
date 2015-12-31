@@ -15,7 +15,6 @@
  * GNU General Public License for more details.
  */
 
-//#define BRICK_DEBUGGING
 #define XIO_DEBUGGING
 
 /* This MUST be updated whenever INCOMPATIBLE changes are made to the
@@ -542,7 +541,6 @@ int mars_mem_percent = 20;
 #define CONF_TRANS_BATCHLEN		64
 #define CONF_TRANS_PRIO			XIO_PRIO_HIGH
 #define CONF_TRANS_LOG_READS		false
-//#define CONF_TRANS_LOG_READS true
 
 #define CONF_ALL_BATCHLEN		1
 #define CONF_ALL_PRIO			XIO_PRIO_NORMAL
@@ -551,16 +549,13 @@ int mars_mem_percent = 20;
 
 #define IF_MAX_PLUGGED			10000
 #define IF_READAHEAD			0
-//#define IF_READAHEAD 1
 
 #define BIO_READAHEAD			0
-//#define BIO_READAHEAD 1
 #define BIO_NOIDLE			true
 #define BIO_SYNC			true
 #define BIO_UNPLUG			true
 
 #define COPY_APPEND_MODE		0
-//#define COPY_APPEND_MODE 1 /*  FIXME: does not work yet */
 #define COPY_PRIO			XIO_PRIO_LOW
 
 static

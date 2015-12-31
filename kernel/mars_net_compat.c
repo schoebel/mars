@@ -15,9 +15,6 @@
  * GNU General Public License for more details.
  */
 
-//#define BRICK_DEBUGGING
-//#define BRICK_DEBUGGING
-//#define IO_DEBUGGING
 
 #include <linux/kernel.h>
 #include <linux/module.h>

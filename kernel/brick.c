@@ -19,7 +19,6 @@
 #include <linux/module.h>
 #include <linux/string.h>
 
-//#define BRICK_DEBUGGING
 
 #define _STRATEGY
 
@@ -144,7 +143,6 @@ int generic_connect(struct generic_input *input, struct generic_output *output)
 	input->connect = output;
 	output->nr_connected++;
 	list_add(&input->input_head, &output->output_head);
-	BRICK_DBG("now nr_connected=%d\n", output->nr_connected);
 	return 0;
 }
 
@@ -158,7 +156,6 @@ int generic_disconnect(struct generic_input *input)
 	connect = input->connect;
 	if (connect) {
 		connect->nr_connected--;
-		BRICK_DBG("now nr_connected=%d\n", connect->nr_connected);
 		input->connect = NULL;
 		list_del_init(&input->input_head);
 	}
@@ -249,7 +246,6 @@ int generic_register_brick_type(const struct generic_brick_type *new_type)
 			continue;
 		}
 		if (!strcmp(brick_types[i]->type_name, new_type->type_name)) {
-			BRICK_DBG("bricktype %s is already registered.\n", new_type->type_name);
 			return 0;
 		}
 	}
@@ -281,8 +277,6 @@ int generic_brick_init_full(
 	struct generic_brick *brick = data;
 	int status;
 	int i;
-
-	BRICK_DBG("brick_type = %s\n", brick_type->type_name);
 	if (unlikely(!data)) {
 		BRICK_ERR("invalid memory\n");
 		return -EINVAL;
@@ -300,14 +294,12 @@ int generic_brick_init_full(
 		return -ENOMEM;
 	}
 	if (!input_types) {
-		BRICK_DBG("generic_brick_init_full: switch to default input_types\n");
 		input_types = brick_type->default_input_types;
 		if (unlikely(!input_types)) {
 			BRICK_ERR("no input types specified\n");
 			return -EINVAL;
 		}
 	}
-	BRICK_DBG("generic_brick_init_full: input_types\n");
 	brick->inputs = data;
 	data += sizeof(void *) * brick_type->max_inputs;
 	size -= sizeof(void *) * brick_type->max_inputs;
@@ -329,14 +321,12 @@ int generic_brick_init_full(
 			return -ENOMEM;
 	}
 	if (!output_types) {
-		BRICK_DBG("generic_brick_init_full: switch to default output_types\n");
 		output_types = brick_type->default_output_types;
 		if (unlikely(!output_types)) {
 			BRICK_ERR("no output types specified\n");
 			return -EINVAL;
 		}
 	}
-	BRICK_DBG("generic_brick_init_full: output_types\n");
 	brick->outputs = data;
 	data += sizeof(void *) * brick_type->max_outputs;
 	size -= sizeof(void *) * brick_type->max_outputs;
@@ -359,7 +349,6 @@ int generic_brick_init_full(
 	}
 
 	/*  call the specific constructors */
-	BRICK_DBG("generic_brick_init_full: call specific contructors.\n");
 	if (brick_type->brick_construct) {
 		BRICK_DBG("generic_brick_init_full: calling brick_construct()\n");
 		status = brick_type->brick_construct(brick);

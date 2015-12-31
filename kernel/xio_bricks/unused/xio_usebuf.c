@@ -21,13 +21,8 @@
  * to work at all.
  */
 
-//#define BRICK_DEBUGGING
-//#define XIO_DEBUGGING
 
-//#define FAKE_ALL /*  only for testing */
-//#define DIRECT_IO /*	shortcut solely for testing: do direct IO */
 /*  only for testing: this risks trashing the data by omitting read-before-write in case of false sharing */
-//#define DIRECT_WRITE
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -55,12 +50,10 @@ static int usebuf_get_info(struct usebuf_output *output, struct xio_info *info)
 static inline
 void _usebuf_copy(struct aio_object *aio, struct aio_object *sub_aio, int rw)
 {
-#ifndef FAKE_ALL
 	if (rw == 0)
 		memcpy(aio->io_data, sub_aio->io_data, aio->io_len);
 	else
 		memcpy(sub_aio->io_data, aio->io_data, aio->io_len);
-#endif
 }
 
 static void _usebuf_endio(struct generic_callback *cb)
@@ -85,14 +78,12 @@ static void _usebuf_endio(struct generic_callback *cb)
 				_usebuf_copy(aio, sub_aio, 0);
 				aio->io_flags |= AIO_UPTODATE;
 			}
-#ifndef FAKE_ALL
 		} else if (sub_aio->io_rw == 0) {
 			sub_aio->io_rw = 1;
 			_usebuf_copy(aio, sub_aio, 1);
 			aio->io_flags |= AIO_UPTODATE;
 			GENERIC_INPUT_CALL(aio_a->input, aio_io, sub_aio);
 			goto out_return;
-#endif
 		}
 	}
 
@@ -145,13 +136,7 @@ static int usebuf_io_get(struct usebuf_output *output, struct aio_object *aio)
 		sub_aio->io_pos = aio->io_pos;
 		sub_aio->io_len = aio->io_len;
 		sub_aio->io_may_write = aio->io_may_write;
-#ifdef DIRECT_IO /*  shortcut solely for testing: do direct IO */
-		if (!aio->io_data)
-			XIO_ERR("NULL.......\n");
-		sub_aio->io_data = aio->io_data;
-#else /*  normal case: buffered IO */
 		sub_aio->io_data = NULL;
-#endif
 		SETUP_CALLBACK(sub_aio, _usebuf_endio, aio_a);
 		aio->io_flags = 0;
 	} else {
@@ -249,13 +234,9 @@ static void usebuf_io_io(struct usebuf_output *output, struct aio_object *aio)
 	 * uptodate, skip real IO operation.
 	 */
 	if (aio->io_rw != 0) {
-#ifdef DIRECT_WRITE
-		sub_aio->io_rw = 1;
-#else /*  normal case */
 		sub_aio->io_rw = 0;
 		if (sub_aio->io_flags & AIO_UPTODATE)
 			sub_aio->io_rw = 1;
-#endif
 	} else if (sub_aio->io_flags & AIO_UPTODATE) {
 		_usebuf_endio(sub_aio->object_cb);
 		goto out_return;
@@ -267,10 +248,6 @@ static void usebuf_io_io(struct usebuf_output *output, struct aio_object *aio)
 		}
 	}
 
-#ifdef FAKE_ALL
-	_usebuf_endio(sub_aio->io_cb);
-	goto out_return;
-#endif
 	GENERIC_INPUT_CALL(input, aio_io, sub_aio);
 
 	goto out_return;

@@ -21,7 +21,6 @@
 #include <linux/list.h>
 #include <linux/atomic.h>
 
-//#define XIO_BUF_HASH_MAX 512
 #define XIO_BUF_HASH_MAX		2048
 
 #define LIST_FREE			0

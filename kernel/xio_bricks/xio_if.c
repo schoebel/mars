@@ -19,25 +19,18 @@
  * 1 Input, 0 Outputs.
  */
 
-//#define BRICK_DEBUGGING
-//#define XIO_DEBUGGING
 
 #define REQUEST_MERGING
-//#define ALWAYS_UNPLUG false /*  FIXME: does not work! single requests left over! */
 #define ALWAYS_UNPLUG			true
 #define PREFETCH_LEN			PAGE_SIZE
-//#define FRONT_MERGE /*  FIXME: this does not work. */
-//#define MODIFY_READAHEAD /*  don't use it, otherwise sequential IO will suffer */
 
 /*  low-level device parameters */
 #define IF_MAX_SEGMENT_SIZE		PAGE_SIZE
-//#define IF_MAX_SEGMENT_SIZE	  (XIO_MAX_SEGMENT_SIZE < BIO_MAX_SIZE ? XIO_MAX_SEGMENT_SIZE : BIO_MAX_SIZE)
 #define USE_MAX_SECTORS			(IF_MAX_SEGMENT_SIZE >> 9)
 #define USE_MAX_PHYS_SEGMENTS		(IF_MAX_SEGMENT_SIZE >> 9)
 #define USE_MAX_SEGMENT_SIZE		IF_MAX_SEGMENT_SIZE
 #define USE_LOGICAL_BLOCK_SIZE		512
 #define USE_SEGMENT_BOUNDARY		(PAGE_SIZE-1)
-//#define DENY_READA
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -308,17 +301,7 @@ blk_qc_t if_make_request(struct request_queue *q, struct bio *bio)
 			rate_limit_sleep(&if_throttle, kb);
 	}
 
-#ifdef DENY_READA /*  provisionary */
-	if (ahead) {
-		atomic_inc(&input->total_reada_count);
-		bio->bi_error = -EWOULDBLOCK;
-		bio_endio(bio);
-		error = 0;
-		goto done;
-	}
-#else
 	(void)ahead; /*  shut up gcc */
-#endif
 	if (unlikely(discard)) { /*  NYI */
 		error = 0;
 		bio->bi_error = error;
@@ -389,17 +372,9 @@ blk_qc_t if_make_request(struct request_queue *q, struct bio *bio)
 
 				if (tmp_aio->io_data + tmp_a->current_len == data) {
 					goto merge_end;
-#ifdef FRONT_MERGE /*  FIXME: this cannot work. io_data must never be changed. pre-allocate from offset 0 instead. */
-				} else if (data + bv_len == tmp_aio->io_data) {
-					goto merge_front;
-#endif
 				}
 				continue;
 
-#ifdef FRONT_MERGE /*  FIXME: this cannot work. io_data must never be changed. pre-allocate from offset 0 instead. */
-merge_front:
-				tmp_aio->io_data = data;
-#endif
 merge_end:
 				tmp_a->current_len += bv_len;
 				aio = tmp_aio;
@@ -652,10 +627,6 @@ static int if_switch(struct if_brick *brick)
 		/* we have no partitions. we contain only ourselves. */
 		input->bdev->bd_contains = input->bdev;
 
-#ifdef MODIFY_READAHEAD
-		XIO_INF("ra_pages OLD = %lu NEW = %d\n", q->backing_dev_info.ra_pages, brick->readahead);
-		q->backing_dev_info.ra_pages = brick->readahead;
-#endif
 		q->backing_dev_info.congested_fn = xio_congested;
 		q->backing_dev_info.congested_data = input;
 
