@@ -34,6 +34,7 @@
 
 #define STATES_PER_PAGE			(PAGE_SIZE / sizeof(struct copy_state))
 #define MAX_SUB_TABLES			(NR_COPY_REQUESTS / STATES_PER_PAGE + (NR_COPY_REQUESTS % STATES_PER_PAGE ? 1 : 0)\
+									\
 )
 #define MAX_COPY_REQUESTS		(PAGE_SIZE / sizeof(struct copy_state *) * STATES_PER_PAGE)
 

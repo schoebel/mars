@@ -276,6 +276,7 @@ int generic_brick_init_full(
 	struct generic_brick *brick = data;
 	int status;
 	int i;
+
 	if (unlikely(!data)) {
 		BRICK_ERR("invalid memory\n");
 		return -EINVAL;
