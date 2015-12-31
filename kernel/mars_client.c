@@ -21,7 +21,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
 
@@ -317,7 +316,7 @@ int _request_info(struct client_channel *ch)
 		.cmd_code = CMD_GETINFO,
 	};
 	int status;
-	
+
 	MARS_DBG("\n");
 	status = mars_send_struct(&ch->socket, &cmd, mars_cmd_meta);
 	MARS_DBG("send CMD_GETINFO status = %d\n", status);
@@ -376,7 +375,7 @@ static int client_get_info(struct client_output *output, struct mars_info *info)
 	output->got_info = false;
 	output->get_info = true;
 	wake_up_interruptible_all(&output->bundle.sender_event);
-	
+
 	wait_event_interruptible_timeout(output->info_event, output->got_info, 60 * HZ);
 	status = -ETIME;
 	if (output->got_info && info) {
@@ -648,25 +647,25 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 		goto out_return;
 	if (io_timeout <= 0)
 		io_timeout = global_net_io_timeout;
-	
+
 	if (!mars_net_is_alive)
 		force = true;
-	
+
 	if (!force && io_timeout <= 0)
 		goto out_return;
 	io_timeout *= HZ;
-	
+
 	spin_lock_irqsave(&output->lock, flags);
 	for (tmp = anchor->next, next = tmp->next; tmp != anchor; tmp = next, next = tmp->next) {
 		struct client_mref_aspect *mref_a;
 
 		mref_a = container_of(tmp, struct client_mref_aspect, io_head);
-		
+
 		if (!force &&
 		    !time_is_before_jiffies(mref_a->submit_jiffies + io_timeout)) {
 			continue;
 		}
-		
+
 		list_del_init(&mref_a->hash_head);
 		list_del_init(&mref_a->io_head);
 		list_add_tail(&mref_a->tmp_head, &tmp_list);
@@ -676,7 +675,7 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 	while (!list_empty(&tmp_list)) {
 		struct client_mref_aspect *mref_a;
 		struct mref_object *mref;
-		
+
 		tmp = tmp_list.next;
 		list_del_init(tmp);
 		mref_a = container_of(tmp, struct client_mref_aspect, tmp_head);
@@ -897,7 +896,6 @@ done:
 	return status;
 }
 
-
 //////////////// informational / statistics ///////////////
 
 static
@@ -915,7 +913,7 @@ char *client_statistics(struct client_brick *brick, int verbose)
 		 brick->power.io_timeout,
 		 atomic_read(&output->timeout_count),
 		 atomic_read(&output->fly_count));
-	
+
         return res;
 }
 

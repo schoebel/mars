@@ -21,7 +21,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 #include "lib_timing.h"
 
 #include <linux/kernel.h>
@@ -68,4 +67,3 @@ struct threshold global_io_threshold = {
 	.thr_factor = 100,
 	.thr_plus = 0,
 };
-

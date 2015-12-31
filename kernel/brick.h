@@ -383,7 +383,7 @@ struct generic_brick {
 	struct BRITYPE##_output *connect;				\
 	struct list_head input_head;					\
 	/* this comment is for keeping TRAILING_SEMICOLON happy */
-	
+
 struct generic_input {
 	GENERIC_INPUT(generic);
 };
@@ -408,7 +408,7 @@ struct generic_output {
 		(OUTPUT)->ops->OP(OUTPUT, ##ARGS) :			\
 		-ENOTCONN						\
 	)
-		
+
 #define GENERIC_INPUT_CALL(INPUT,OP,ARGS...)				\
 	(							        \
 		(INPUT) && (INPUT)->connect ?				\
@@ -428,7 +428,7 @@ struct generic_brick_ops {
 	/*int (*output_start)(struct BRITYPE##_output *output);*/	\
 	/*int (*output_stop)(struct BRITYPE##_output *output);*/		\
 	/* this comment is for keeping TRAILING_SEMICOLON happy */
-	
+
 struct generic_output_ops {
 	GENERIC_OUTPUT_OPS(generic)
 };

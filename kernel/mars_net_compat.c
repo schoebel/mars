@@ -21,7 +21,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
 //#define IO_DEBUGGING
@@ -73,7 +72,7 @@ int _add_fields_old(struct mars_desc_item_old *mi, const struct meta *meta, int 
 			count = -1;
 			goto done;
 		}
-		
+
 		len = scnprintf(mi->field_name, MAX_FIELD_LEN, "%s.%s", prefix, meta->field_name);
 		if (unlikely(len >= MAX_FIELD_LEN)) {
 			MARS_ERR("field len overflow on '%s.%s'\n", prefix, meta->field_name);

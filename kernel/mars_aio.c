@@ -608,12 +608,12 @@ void aio_sync_all(struct aio_output *output, struct list_head *tmp_list)
 
 	output->fdsync_active = true;
 	atomic_inc(&output->total_fdsync_count);
-	
+
 	latency = TIME_STATS(
 		&timings[2],
 		err = aio_sync(output->mf->mf_filp)
 		);
-	
+
 	threshold_check(&aio_sync_threshold, latency);
 
 	output->fdsync_active = false;
@@ -621,7 +621,7 @@ void aio_sync_all(struct aio_output *output, struct list_head *tmp_list)
 	if (err < 0) {
 		MARS_ERR("FDSYNC error %d\n", err);
 	}
-	
+
 	/* Signal completion for the whole list.
 	 * No locking needed, it's on the stack.
 	 */
@@ -635,7 +635,7 @@ int aio_sync_thread(void *data)
 {
 	struct aio_threadinfo *tinfo = data;
 	struct aio_output *output = tinfo->output;
-	
+
 	MARS_DBG("sync thread has started on '%s'.\n", output->brick->brick_path);
 	//set_user_nice(current, -20);
 
@@ -683,7 +683,7 @@ static int aio_event_thread(void *data)
 	struct aio_threadinfo *other = &output->tinfo[2];
 	struct io_event *events;
 	int err = -ENOMEM;
-	
+
 	events = brick_mem_alloc(sizeof(struct io_event) * MARS_MAX_AIO_READ);
 
 	MARS_DBG("event thread has started.\n");
@@ -887,7 +887,7 @@ int _create_ioctx(struct aio_output *output)
 		MARS_ERR("io_setup failed, err=%d\n", err);
 		goto done;
 	}
-	
+
 	err = aio_start_thread(output, &output->tinfo[1], aio_event_thread, 'e');
 	if (unlikely(err < 0)) {
 		MARS_ERR("could not start event thread\n");
@@ -1080,7 +1080,7 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 		 atomic_read(&output->tinfo[1].total_enqueue_count),
 		 atomic_read(&output->tinfo[2].total_enqueue_count),
 		 sync ? sync : "");
-	
+
 	if (sync)
 		brick_string_free(sync);
 
@@ -1107,7 +1107,6 @@ void aio_reset_statistics(struct aio_brick *brick)
 		atomic_set(&tinfo->total_enqueue_count, 0);
 	}
 }
-
 
 //////////////// object / aspect constructors / destructors ///////////////
 

@@ -177,5 +177,4 @@ int desc_recv_struct_old(struct mars_socket *msock, void *data, const struct met
 extern int init_mars_net(void);
 extern void exit_mars_net(void);
 
-
 #endif

@@ -48,14 +48,12 @@ struct timing_stats {
 		(_stamp2) - (_stamp1);					\
 	})
 
-
 #define TIME_THIS(_CODE)						\
 	({								\
 		unsigned long long _stamp1;				\
 		unsigned long long _stamp2;				\
 		_TIME_THIS(_stamp1, _stamp2, _CODE);			\
 	})
-
 
 #ifdef CONFIG_DEBUG_KERNEL
 

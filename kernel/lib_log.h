@@ -21,7 +21,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 /* Definitions for logfile format.
  *
  * This is meant for sharing between different transaction logger variants,

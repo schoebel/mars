@@ -107,7 +107,6 @@ void ranking_stop(struct rank_data rkd[], int rkd_count)
 	}
 }
 
-
 /* This is a round-robin scheduler taking her weights
  * from the previous ranking phase (the more ranking points,
  * the more frequently a candidate will be selected).

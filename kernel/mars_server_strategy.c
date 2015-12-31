@@ -21,10 +21,8 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 /* MARS Light specific parts of xio_server
  */
-
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -138,7 +136,7 @@ int handler_thread(void *data)
 	MARS_DBG("#%d --------------- handler_thread starting on socket %p\n", sock->s_debug_nr, sock);
 	if (!ok)
 		goto done;
-	
+
 	thread = brick_thread_create(cb_thread, brick, "mars_cb%d", brick->version);
 	if (unlikely(!thread)) {
 		MARS_ERR("cannot create cb thread\n");
@@ -275,7 +273,7 @@ int handler_thread(void *data)
 			} else {
 				MARS_ERR("#%d cannot find brick '%s'\n", sock->s_debug_nr, path);
 			}
-			
+
 		err:
 			cmd.cmd_int1 = status;
 			down(&brick->socket_sem);
@@ -318,7 +316,7 @@ int handler_thread(void *data)
 	}
 
 	debug_nr = sock->s_debug_nr;
-	
+
 	MARS_DBG("#%d done.\n", debug_nr);
 	brick->killme = true;
 	return status;
@@ -433,4 +431,3 @@ int server_thread(void *data)
 	MARS_INF("-------- done status = %d ----------\n", status);
 	return status;
 }
-

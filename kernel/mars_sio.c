@@ -21,7 +21,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
 
@@ -291,7 +290,7 @@ out_return:;
 static int sio_thread(void *data)
 {
 	struct sio_threadinfo *tinfo = data;
-	
+
 	MARS_INF("sio thread has started.\n");
 	//set_user_nice(current, -20);
 
@@ -309,7 +308,7 @@ static int sio_thread(void *data)
 		tinfo->last_jiffies = jiffies;
 
 		spin_lock_irqsave(&tinfo->lock, flags);
-		
+
 		if (!list_empty(&tinfo->mref_list)) {
 			tmp = tinfo->mref_list.next;
 			list_del_init(tmp);
@@ -384,7 +383,6 @@ void sio_reset_statistics(struct sio_brick *brick)
 	}
 }
 
-
 //////////////// object / aspect constructors / destructors ///////////////
 
 static int sio_mref_aspect_init_fn(struct generic_aspect *_ini)
@@ -441,7 +439,7 @@ static int sio_switch(struct sio_brick *brick)
 		output->index = 0;
 		for (index = 0; index <= WITH_THREAD; index++) {
 			struct sio_threadinfo *tinfo = &output->tinfo[index];
-			
+
 			tinfo->last_jiffies = jiffies;
 			tinfo->thread = brick_thread_create(sio_thread, tinfo, "mars_sio%d", sio_nr++);
 			if (unlikely(!tinfo->thread)) {

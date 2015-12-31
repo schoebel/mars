@@ -21,8 +21,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
-
 // Bio brick (interface to blkdev IO via kernel bios)
 
 //#define BRICK_DEBUGGING
@@ -256,7 +254,6 @@ out:
 	return status;
 }
 
-
 ////////////////// own brick / input / output operations //////////////////
 
 #define PRIO_INDEX(mref) ((mref)->ref_prio + 1)
@@ -266,7 +263,6 @@ static int bio_get_info(struct bio_output *output, struct mars_info *info)
 	struct bio_brick *brick = output->brick;
 	struct inode *inode;
 	int status = -ENOENT;
-
 
 	if (unlikely(!brick->mf ||
 		     !brick->mf->mf_filp ||
@@ -306,7 +302,6 @@ static int bio_ref_get(struct bio_output *output, struct mref_object *mref)
 	CHECK_PTR(mref_a, done);
 	mref_a->output = output;
 	mref_a->bio = NULL;
-
 
 	if (!mref->ref_data) { // buffered IO.
 		if (unlikely(mref->ref_len <= 0)) {
@@ -558,7 +553,7 @@ int bio_response_thread(void *data)
 					goto done;
 				break;
 			}
-			
+
 			tmp = tmp_list.next;
 			list_del_init(tmp);
 			atomic_dec(&brick->completed_count);
@@ -566,12 +561,11 @@ int bio_response_thread(void *data)
 			mref_a = container_of(tmp, struct bio_mref_aspect, io_head);
 			mref = mref_a->object;
 
-			
 			latency = cpu_clock(raw_smp_processor_id()) - mref_a->start_stamp;
 			threshold_check(&bio_io_threshold[mref->ref_rw & 1], latency);
 
 			code = mref_a->status_code;
-		
+
 			if (code < 0) {
 				MARS_ERR("IO error %d\n", code);
 			} else {
@@ -666,7 +660,7 @@ int bio_submit_thread(void *data)
 				bool cork;
 
 				list_del_init(tmp);
-				
+
 				mref_a = container_of(tmp, struct bio_mref_aspect, io_head);
 				mref = mref_a->object;
 				if (unlikely(!mref)) {
@@ -676,7 +670,7 @@ int bio_submit_thread(void *data)
 
 				atomic_dec(&brick->queue_count[PRIO_INDEX(mref)]);
 				cork = atomic_read(&brick->queue_count[PRIO_INDEX(mref)]) > 0;
-				
+
 				_bio_ref_io(mref_a->output, mref, cork);
 
 				BIO_REF_PUT(mref_a->output, mref);
@@ -694,9 +688,9 @@ static int bio_switch(struct bio_brick *brick)
 	if (brick->power.button) {
 		if (brick->power.led_on)
 			goto done;
-		
+
 		mars_power_led_off((void*)brick, false);
-		
+
 		if (!brick->bdev) {
 			static int index;
 			const char *path = brick->brick_path;
@@ -758,9 +752,9 @@ static int bio_switch(struct bio_brick *brick)
 			}
 		}
 	}
-	
+
 	mars_power_led_on((void*)brick, brick->power.button && brick->bdev != NULL);
-	
+
  done:
 	if (status < 0 || !brick->power.button) {
 		if (brick->submit_thread) {
@@ -784,7 +778,6 @@ static int bio_switch(struct bio_brick *brick)
 	}
 	return status;
 }
-
 
 //////////////// informational / statistics ///////////////
 
@@ -830,7 +823,6 @@ void bio_reset_statistics(struct bio_brick *brick)
 	atomic_set(&brick->total_completed_count[1], 0);
 	atomic_set(&brick->total_completed_count[2], 0);
 }
-
 
 //////////////// object / aspect constructors / destructors ///////////////
 

@@ -208,7 +208,7 @@ struct mars_output {
 	char *(*brick_statistics)(struct BRITYPE##_brick *brick, int verbose); \
 	void (*reset_statistics)(struct BRITYPE##_brick *brick);	\
 	/* this comment is for keeping TRAILING_SEMICOLON happy */
-	
+
 #define MARS_OUTPUT_OPS(BRITYPE)					\
 	GENERIC_OUTPUT_OPS(BRITYPE);					\
 	int  (*mars_get_info)(struct BRITYPE##_output *output, struct mars_info *info); \
@@ -249,7 +249,6 @@ struct BRITYPE##_callback {					        \
 DECLARE_BRICK_FUNCTIONS(BRITYPE);				        \
 /* this comment is for keeping TRAILING_SEMICOLON happy */
 
-
 #define MARS_TYPES(BRITYPE)						\
 									\
 _MARS_TYPES(BRITYPE)						        \
@@ -258,7 +257,6 @@ DECLARE_ASPECT_FUNCTIONS(BRITYPE,mref);					\
 extern int init_mars_##BRITYPE(void);					\
 extern void exit_mars_##BRITYPE(void);					\
 /* this comment is for keeping TRAILING_SEMICOLON happy */
-
 
 // instantiate pseudo base-classes
 

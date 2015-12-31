@@ -21,7 +21,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/string.h>
@@ -163,7 +162,6 @@ int generic_disconnect(struct generic_input *input)
 	}
 	return 0;
 }
-
 
 //////////////////////////////////////////////////////////////
 
@@ -564,7 +562,7 @@ struct generic_aspect *_new_aspect(const struct generic_aspect_type *aspect_type
 	struct generic_aspect *res = NULL;
 	int size;
 	int rest;
-	
+
 	size = aspect_type->aspect_size;
 	rest = obj->max_offset - obj->free_offset;
 	if (likely(size <= rest)) {

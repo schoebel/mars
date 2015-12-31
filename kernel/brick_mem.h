@@ -131,7 +131,6 @@ void *brick_mark_nonnull(void *_ptr)
 		}							\
 	} while(0)
 
-
 // don't use the following directly
 extern void *_brick_mem_alloc(int len, int line) __attribute__((malloc)) __attribute__((alloc_size(1)));
 extern void _brick_mem_free(void *data, int line);

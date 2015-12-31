@@ -21,7 +21,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 /* Check brick
  * checks various semantic properties, uses watchdog to find lost callbacks.
  */

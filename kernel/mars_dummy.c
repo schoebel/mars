@@ -21,7 +21,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 // Dummy brick (just for demonstration)
 
 //#define BRICK_DEBUGGING
@@ -96,7 +95,6 @@ int dummy_switch(struct dummy_brick *brick)
 done:
 	return 0;
 }
-
 
 //////////////// informational / statistics ///////////////
 

@@ -21,7 +21,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 // Usebuf brick (just for demonstration)
 
 /* FIXME: this code has been unused for a long time, it is unlikly

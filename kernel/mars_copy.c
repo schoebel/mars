@@ -21,7 +21,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 // Copy brick (just for demonstration)
 
 //#define BRICK_DEBUGGING
@@ -304,7 +303,7 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 		mref->ref_prio = brick->io_prio;
 
 	SETUP_CALLBACK(mref, copy_endio, mref_a);
-	
+
 	input = queue ? brick->inputs[INPUT_B_COPY] : brick->inputs[INPUT_A_COPY];
 	status = GENERIC_INPUT_CALL(input, mref_get, mref);
 	if (unlikely(status < 0)) {
@@ -348,7 +347,6 @@ void _update_percent(struct copy_brick *brick, bool force)
 		MARS_INF("'%s' copied %lld / %lld bytes (%d%%)\n", brick->brick_path, brick->copy_last, brick->copy_end, brick->power.percent_done);
 	}
 }
-
 
 /* The heart of this brick.
  * State transition function of the finite automaton.
@@ -821,14 +819,13 @@ done:
 	return 0;
 }
 
-
 //////////////// informational / statistics ///////////////
 
 static
 char *copy_statistics(struct copy_brick *brick, int verbose)
 {
 	char *res = brick_string_alloc(1024);
-	
+
 	snprintf(res, 1024,
 		 "copy_start = %lld "
 		 "copy_last = %lld "

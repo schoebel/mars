@@ -32,13 +32,13 @@ void ranking_compute(struct rank_data *rkd, const struct rank_info rki[], int x)
 {
 	int points = 0;
 	int i;
-	
+
 	for (i = 0; ; i++) {
 		int x0;
 		int x1;
 		int y0;
 		int y1;
-		
+
 		x0 = rki[i].rki_x;
 		if (x < x0)
 			break;
@@ -52,7 +52,7 @@ void ranking_compute(struct rank_data *rkd, const struct rank_info rki[], int x)
 
 		if (x > x1)
 			continue;
-		
+
 		y0 = rki[i].rki_y;
 		y1 = rki[i+1].rki_y;
 

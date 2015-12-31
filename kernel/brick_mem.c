@@ -21,7 +21,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/mm.h>
@@ -315,7 +314,7 @@ void _brick_string_free(const char *data, int cline)
 	int len;
 	int line;
 	char *orig = (void*)data;
-	
+
 	data -= sizeof(int) * 3;
 	magic = INT_ACCESS(data, 0);
 	if (unlikely(magic != MAGIC_STR)) {
@@ -722,7 +721,7 @@ void *_brick_block_alloc(loff_t pos, int len, int line)
 	if (!data)
 #endif
 		data = __brick_block_alloc(GFP_BRICK, order, line);
-	
+
 #ifdef BRICK_DEBUG_MEM
 	if (order > 0) {
 		if (unlikely(line < 0))
@@ -854,7 +853,7 @@ void _brick_block_free(void *data, int len, int cline)
 	} else
 #endif
 		__brick_block_free(data, order, cline);
-	
+
 #ifdef CONFIG_MARS_MEM_PREALLOC
 	brick_mem_alloc_count[order] = atomic_dec_return(&_alloc_count[order]);
 #endif

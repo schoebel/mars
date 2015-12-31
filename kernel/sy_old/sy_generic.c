@@ -21,7 +21,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 //#define BRICK_DEBUGGING
 #define MARS_DEBUGGING
 
@@ -580,7 +579,7 @@ int mars_stat(const char *path, struct kstat *stat, bool use_lstat)
 {
 	mm_segment_t oldfs;
 	int status;
-	
+
 	oldfs = get_fs();
 	set_fs(get_ds());
 	if (use_lstat) {
@@ -601,7 +600,7 @@ int mars_mkdir(const char *path)
 {
 	mm_segment_t oldfs;
 	int status;
-	
+
 	oldfs = get_fs();
 	set_fs(get_ds());
 #ifdef __USE_COMPAT
@@ -618,7 +617,7 @@ int mars_unlink(const char *path)
 {
 	mm_segment_t oldfs;
 	int status;
-	
+
 	oldfs = get_fs();
 	set_fs(get_ds());
 #ifdef __USE_COMPAT
@@ -638,7 +637,7 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct timespec
 	struct kstat stat = {};
 	struct timespec times[2];
 	int status = -ENOMEM;
-	
+
 	if (unlikely(!tmp))
 		goto done;
 
@@ -646,7 +645,7 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct timespec
 		memcpy(&times[0], stamp, sizeof(times[0]));
 	else
 		get_lamport(&times[0]);
-	
+
 	oldfs = get_fs();
 	set_fs(get_ds());
 	/* Some filesystems have only full second resolution.
@@ -733,7 +732,7 @@ char *mars_readlink(const char *newpath)
 
 done_put:
 	path_put(&path);
-	
+
 done_fs:
 	set_fs(oldfs);
 	if (unlikely(status < 0)) {
@@ -749,7 +748,7 @@ int mars_rename(const char *oldpath, const char *newpath)
 {
 	mm_segment_t oldfs;
 	int status;
-	
+
 	oldfs = get_fs();
 	set_fs(get_ds());
 #ifdef __USE_COMPAT
@@ -817,7 +816,7 @@ void mars_remaining_space(const char *fspath, loff_t *total, loff_t *remaining)
 
 	*total = _compute_space(&kstatfs, kstatfs.f_blocks);
 	*remaining = _compute_space(&kstatfs, kstatfs.f_bavail);
-	
+
 done:
 	path_put(&path);
 err: ;
@@ -982,7 +981,6 @@ int mars_power_button(struct mars_brick *brick, bool val, bool force_off)
 
 // strategy layer
 
-
 struct mars_cookie {
 	struct mars_global *global;
 	mars_dent_checker_fn checker;
@@ -1016,7 +1014,7 @@ int get_inode(char *newpath, struct mars_dent *dent)
 		int len = dent->new_stat.size;
                 struct inode *inode;
 		char *link;
-		
+
 		if (unlikely(len <= 0)) {
 			MARS_ERR("symlink '%s' bad len = %d\n", newpath, len);
 			status = -EINVAL;
@@ -1488,7 +1486,7 @@ void mars_kill_dent(struct mars_dent *dent)
 void mars_free_dent(struct mars_dent *dent)
 {
 	int i;
-	
+
 	mars_kill_dent(dent);
 
 	CHECK_HEAD_EMPTY(&dent->dent_link);
@@ -1528,7 +1526,6 @@ void mars_free_dent_all(struct mars_global *global, struct list_head *anchor)
 		mars_free_dent(dent);
 	}
 }
-
 
 /////////////////////////////////////////////////////////////////////
 
@@ -1653,7 +1650,7 @@ struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent 
 	int size;
 	int i;
 	int status;
-	
+
 	size = brick_type->brick_size +
 		(brick_type->max_inputs + brick_type->max_outputs) * sizeof(void*);
 	input_types = brick_type->default_input_types;
@@ -1682,7 +1679,7 @@ struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent 
 		}
 		size += type->output_size;
 	}
-	
+
 	res = brick_zmem_alloc(size);
 	res->private_ptr = global;
 	INIT_LIST_HEAD(&res->dent_brick_link);
@@ -1760,7 +1757,7 @@ int mars_kill_brick(struct mars_brick *brick)
 
 		if (brick->kill_ptr)
 			*brick->kill_ptr = NULL;
-		
+
 		for (i = 0; i < max_inputs; i++) {
 			struct generic_input *input = (void*)brick->inputs[i];
 			if (!input)
@@ -1894,7 +1891,6 @@ restart:
 	}
 	return return_status;
 }
-
 
 /////////////////////////////////////////////////////////////////////
 
@@ -2112,7 +2108,7 @@ struct mars_brick *make_brick_all(
 		if (remote) {
 			remote++;
 			MARS_DBG("substitute by remote brick '%s' on peer '%s'\n", new_name, remote);
-			
+
 			brick = mars_make_brick(global, belongs, _client_brick_type, new_path, new_name);
 			if (brick) {
 				struct client_brick *_brick = (void*)brick;
@@ -2254,7 +2250,7 @@ void show_statistics(struct mars_global *global, const char *class)
 
 	if (!global_show_statist)
 		return; // silently
-	
+
 	brick_mem_statistics(false);
 
 	down_read(&global->brick_mutex);
@@ -2265,7 +2261,7 @@ void show_statistics(struct mars_global *global, const char *class)
 		_show_one(test, &brick_count);
 	}
 	up_read(&global->brick_mutex);
-	
+
 	MARS_DBG("================================== %s dents:\n", class);
 	down_read(&global->dent_mutex);
 	for (tmp = global->dent_anchor.next; tmp != &global->dent_anchor; tmp = tmp->next) {

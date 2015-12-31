@@ -21,7 +21,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
 
@@ -391,7 +390,7 @@ int mars_proto_exchange(struct mars_socket *msock, const char *msg)
 	if (use_old_format)
 		return 0;
 #endif
-	
+
 //      end_remove_this
 	msock->s_send_proto = SEND_PROTO_VERSION;
 	status = mars_send_raw(msock, &msock->s_send_proto, 1, false);
@@ -640,7 +639,7 @@ long mars_socket_send_space_available(struct mars_socket *msock)
 	if (res < 0)
 		res = 0;
 	res += msock->s_pos;
-	
+
 done:
 	return res;
 }
@@ -752,7 +751,7 @@ restart:
 		status = _mars_send_raw(msock, msock->s_buffer, msock->s_pos, 0);
 		if (status < 0)
 			goto done;
-		
+
 		brick_block_free(msock->s_buffer, PAGE_SIZE);
 		msock->s_buffer = NULL;
 		msock->s_pos = 0;
@@ -1086,7 +1085,7 @@ int _add_fields(struct mars_desc_item *mi, const struct meta *meta, int offset, 
 			count = -1;
 			goto done;
 		}
-		
+
 		len = scnprintf(mi->field_name, MAX_FIELD_LEN, "%s.%s", prefix, meta->field_name);
 		if (unlikely(len >= MAX_FIELD_LEN)) {
 			MARS_ERR("field len overflow on '%s.%s'\n", prefix, meta->field_name);
@@ -1275,7 +1274,7 @@ int _desc_send_item(struct mars_socket *msock, const void *data, const struct ma
 			int diff = transfer_len - data_len;
 			char empty[diff];
 			char sign;
-			
+
 			sign = get_sign(item, data_len, myself_is_bigendian, is_signed);
 			memset(empty, sign, diff);
 
@@ -1484,7 +1483,7 @@ int _desc_recv_item(struct mars_socket *msock, void *data, const struct mars_des
 			} else {
 				memset(item + transfer_len, sign, diff);
 			}
-			
+
 			res = data_len;
 			break;
 		}		
@@ -1715,7 +1714,6 @@ const struct meta mars_cmd_meta[] = {
 	META_INI(cmd_str1, struct mars_cmd, FIELD_STRING),
 	{}
 };
-
 
 int mars_send_mref(struct mars_socket *msock, struct mref_object *mref)
 {

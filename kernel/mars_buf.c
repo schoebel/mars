@@ -21,7 +21,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 /* FIXME: this code has been unused for a long time, it is unlikly
  * to work at all.
  */
@@ -61,11 +60,10 @@ int buf_hash_fn(loff_t base_index)
 	return ((unsigned)tmp) % MARS_BUF_HASH_MAX;
 }
 
-
 static
 struct buf_head *_hash_find_insert(struct buf_brick *brick, loff_t base_index, struct buf_head *new)
 {
-	
+
 	int hash = buf_hash_fn(base_index);
 	spinlock_t *lock = &brick->cache_anchors[hash].hash_lock;
 	struct list_head *start	= &brick->cache_anchors[hash].hash_anchor;
@@ -147,7 +145,6 @@ bool _remove_hash(struct buf_brick *brick, struct buf_head *bf)
 
 	return success;
 }
-
 
 static inline
 void _add_bf_list(struct buf_brick *brick, struct buf_head *bf, int nr, bool at_end)
@@ -374,12 +371,7 @@ bool _mref_remove(struct buf_head *bf, struct buf_mref_aspect *mref_a)
 	return status;
 }
 
-
-
-
-
 /////////////////////////////////////////////////////////////
-
 
 static inline int _get_info(struct buf_brick *brick)
 {
@@ -436,7 +428,7 @@ static int buf_ref_get(struct buf_output *output, struct mref_object *mref)
 	mref_a = buf_mref_get_aspect(brick, mref);
 	if (unlikely(!mref_a))
 		goto done;
-	
+
 	base_pos = mref->ref_pos & ~(loff_t)(brick->backing_size - 1);
 	base_offset = (mref->ref_pos - base_pos);
 	if (unlikely(base_offset < 0 || base_offset >= brick->backing_size)) {
@@ -644,9 +636,9 @@ static int _buf_make_io(struct buf_brick *brick, struct buf_head *bf, void *star
 		/* Remember number of fired-off mrefs
 		 */
 		atomic_inc(&bf->bf_io_count);
-		
+
 		len = mref->ref_len;
-		
+
 #ifndef FAKE_IO
 		GENERIC_INPUT_CALL(input, mref_io, mref);
 #else

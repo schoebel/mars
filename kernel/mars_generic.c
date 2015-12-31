@@ -21,7 +21,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
 
@@ -88,7 +87,6 @@ const struct meta mars_timespec_meta[] = {
 	META_INI_TRANSFER(tv_nsec, struct timespec, FIELD_UINT, 4),
 	{}
 };
-
 
 //////////////////////////////////////////////////////////////
 

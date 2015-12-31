@@ -21,7 +21,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 /* Interface to a Linux device.
  * 1 Input, 0 Outputs.
  */
@@ -624,7 +623,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 				if (unlikely(error < 0)) {
 					goto err;
 				}
-				
+
 				this_len = mref->ref_len; // now may be shorter than originally requested.
 				mref_a->max_len = this_len;
 				if (this_len > bv_len) {
@@ -858,7 +857,7 @@ static int if_switch(struct if_brick *brick)
 		}
 		q->queuedata = input;
 		input->q = q;
-		
+
 		disk = alloc_disk(1);
 		if (!disk) {
 			MARS_ERR("cannot allocate gendisk\n");
@@ -878,7 +877,7 @@ static int if_switch(struct if_brick *brick)
 		capacity = if_get_capacity(brick);
 		MARS_DBG("created device name %s, capacity=%lld\n", disk->disk_name, capacity);
 		if_set_capacity(input, capacity);
-		
+
 		blk_queue_make_request(q, if_make_request);
 //      remove_this
 #ifdef blk_queue_dead
@@ -952,7 +951,7 @@ static int if_switch(struct if_brick *brick)
 #endif
 //      end_remove_this
 		q->queue_lock = &input->req_lock; // needed!
-		
+
 		input->bdev = bdget(MKDEV(disk->major, minor));
 		/* we have no partitions. we contain only ourselves. */
 		input->bdev->bd_contains = input->bdev;
@@ -1279,7 +1278,6 @@ const struct if_output_type if_output_type = {
 static const struct if_output_type *if_output_types[] = {
 	&if_output_type,
 };
-
 
 const struct if_brick_type if_brick_type = {
 	.type_name = "if_brick",

@@ -21,7 +21,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 // Server brick (just for demonstration)
 
 //#define BRICK_DEBUGGING
@@ -49,7 +48,6 @@ static struct mars_socket server_socket[NR_SOCKETS];
 static struct task_struct *server_threads[NR_SOCKETS];
 
 ///////////////////////// own helper functions ////////////////////////
-
 
 int cb_thread(void *data)
 {
@@ -206,7 +204,7 @@ int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_
 		_mref_free(mref);
 		goto done;
 	}
-	
+
 	mref_a->brick = brick;
 	mref_a->data = mref->ref_data;
 	mref_a->len = mref->ref_len;
@@ -216,7 +214,7 @@ int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_
 	if (!mref->ref_cs_mode < 2)
 		amount = (mref->ref_len - 1) / 1024 + 1;
 	mars_limit_sleep(&server_limiter, amount);
-	
+
 	status = GENERIC_INPUT_CALL(brick->inputs[0], mref_get, mref);
 	if (unlikely(status < 0)) {
 		MARS_WRN("mref_get execution error = %d\n", status);
@@ -322,7 +320,7 @@ static
 char *server_statistics(struct server_brick *brick, int verbose)
 {
 	char *res = brick_string_alloc(1024);
-	
+
 	snprintf(res, 1024,
 		 "cb_running = %d "
 		 "handler_running = %d "

@@ -21,7 +21,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 //#define BRICK_DEBUGGING
 //#define MARS_DEBUGGING
 
@@ -103,9 +102,7 @@ done:
 	return status;
 }
 
-
 ////////////////// module init stuff /////////////////////////
-
 
 int __init init_sy_net(void)
 {

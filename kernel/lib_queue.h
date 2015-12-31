@@ -21,7 +21,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 #ifndef LIB_QUEUE_H
 #define LIB_QUEUE_H
 
@@ -168,6 +167,5 @@ void q_##PREFIX##_dec_flying(struct PREFIX##_queue *q)			\
 	q_##PREFIX##_trigger(q);					\
 }									\
 									\
-
 
 #endif

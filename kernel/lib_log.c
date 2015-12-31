@@ -21,7 +21,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/bio.h>
@@ -385,7 +384,6 @@ err:
 out_return:;
 }
 
-
 int log_read(struct log_status *logst, bool sloppy, struct log_header *lh, void **payload, int *payload_len)
 {
 	struct mref_object *mref;
@@ -498,7 +496,6 @@ done_free:
 	goto done;
 
 }
-
 
 ////////////////// module init stuff /////////////////////////
 
