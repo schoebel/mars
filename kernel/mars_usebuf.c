@@ -62,11 +62,10 @@ static inline
 void _usebuf_copy(struct mref_object *mref, struct mref_object *sub_mref, int rw)
 {
 #ifndef FAKE_ALL
-	if (rw == 0) {
+	if (rw == 0)
 		memcpy(mref->ref_data, sub_mref->ref_data, mref->ref_len);
-	} else {
+	else
 		memcpy(sub_mref->ref_data, mref->ref_data, mref->ref_len);
-	}
 #endif
 }
 
@@ -169,14 +168,12 @@ static int usebuf_ref_get(struct usebuf_output *output, struct mref_object *mref
 	}
 
 	status = GENERIC_INPUT_CALL(input, mref_get, sub_mref);
-	if (status < 0) {
+	if (status < 0)
 		return status;
-	}
 
 	mref->ref_len = sub_mref->ref_len;
-	if (!mref->ref_data) {
+	if (!mref->ref_data)
 		mref->ref_data = sub_mref->ref_data;
-	}
 	_mref_get(mref);
 
 	return status;
@@ -262,9 +259,8 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mref_object *mref
 		sub_mref->ref_rw = 1;
 #else // normal case
 		sub_mref->ref_rw = 0;
-		if (sub_mref->ref_flags & MREF_UPTODATE) {
+		if (sub_mref->ref_flags & MREF_UPTODATE)
 			sub_mref->ref_rw = 1;
-		}
 #endif
 	} else if (sub_mref->ref_flags & MREF_UPTODATE) {
 		_usebuf_endio(sub_mref->object_cb);

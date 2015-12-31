@@ -46,9 +46,8 @@ char *_mars_translate_hostname(const char *name)
 	}
 
 	tmp = path_make("/mars/ips/ip-%s", res);
-	if (unlikely(!tmp)) {
+	if (unlikely(!tmp))
 		goto done;
-	}
 
 	test = mars_readlink(tmp);
 	if (test && test[0]) {

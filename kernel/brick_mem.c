@@ -293,13 +293,11 @@ char *_brick_string_alloc(int len, int line)
 
 #ifdef CONFIG_MARS_DEBUG
 	might_sleep();
-	if (unlikely(len > PAGE_SIZE)) {
+	if (unlikely(len > PAGE_SIZE))
 		BRICK_WRN("line = %d string too long: len = %d\n", line, len);
-	}
 #endif
-	if (len <= 0) {
+	if (len <= 0)
 		len = BRICK_STRING_LEN;
-	}
 
 	for (;;) {
 		res = kzalloc(len + STRING_PLUS, GFP_BRICK);
@@ -351,9 +349,8 @@ void _brick_string_free(const char *data, int cline)
 		BRICK_ERR("cline %d stringmem corruption: line = %d len = %d\n", cline, line, len);
 		goto _out_return;
 	}
-	if (unlikely(len > PAGE_SIZE)) {
+	if (unlikely(len > PAGE_SIZE))
 		BRICK_ERR("cline %d string too long: line = %d len = %d string='%s'\n", cline, line, len, orig);
-	}
 	if (unlikely(line < 0 || line >= BRICK_DEBUG_MEM)) {
 		BRICK_ERR("cline %d stringmem corruption: line = %d (len = %d)\n", cline, line, len);
 		goto _out_return;
@@ -689,19 +686,17 @@ int brick_mem_reserve(void)
 			for (i = 0; i < max; i++) {
 				void *data = __brick_block_alloc(GFP_KERNEL, order, __LINE__);
 
-				if (likely(data)) {
+				if (likely(data))
 					_put_free(data, order);
-				} else {
+				else
 					status = -ENOMEM;
-				}
 			}
 		} else {
 			for (i = 0; i < -max; i++) {
 				void *data = _get_free(order, __LINE__);
 
-				if (likely(data)) {
+				if (likely(data))
 					__brick_block_free(data, order, __LINE__);
-				}
 			}
 		}
 	}
@@ -968,14 +963,12 @@ struct page *brick_iomap(void *data, int *offset, int *len)
 	struct page *page;
 
 	*offset = _offset;
-	if (*len > PAGE_SIZE - _offset) {
+	if (*len > PAGE_SIZE - _offset)
 		*len = PAGE_SIZE - _offset;
-	}
-	if (is_vmalloc_addr(data)) {
+	if (is_vmalloc_addr(data))
 		page = vmalloc_to_page(data);
-	} else {
+	else
 		page = virt_to_page(data);
-	}
 	return page;
 }
 
@@ -1091,9 +1084,8 @@ int __init init_brick_mem(void)
 	int i;
 
 #ifdef CONFIG_MARS_MEM_PREALLOC
-	for (i = BRICK_MAX_ORDER; i >= 0; i--) {
+	for (i = BRICK_MAX_ORDER; i >= 0; i--)
 		spin_lock_init(&freelist_lock[i]);
-	}
 #endif
 #ifdef CONFIG_MARS_DEBUG_MEM_STRONG
 	for (i = 0; i < MAX_INFO_LISTS; i++) {

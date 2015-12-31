@@ -211,9 +211,8 @@ int make_recver_cache_old(struct mars_desc_cache_old *mc, const struct meta *met
 	for (i = 0; i < mc->cache_items; i++) {
 		struct mars_desc_item_old *mi = ((struct mars_desc_item_old *)(mc + 1)) + i;
 
-		if (unlikely(mi->field_recver_offset < 0)) {
+		if (unlikely(mi->field_recver_offset < 0))
 			MARS_WRN("field '%s' is not transferred\n", mi->field_name);
-		}
 	}
 	return count;
 }
@@ -274,9 +273,8 @@ int _desc_recv_item_old(struct mars_socket *msock,
 	int status;
 	int res = -1;
 
-	if (likely(data && mi->field_recver_offset >= 0)) {
+	if (likely(data && mi->field_recver_offset >= 0))
 		item = data + mi->field_recver_offset;
-	}
 
 	switch (mi->field_type) {
 	case FIELD_REF:

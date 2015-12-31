@@ -41,9 +41,8 @@ void exit_logst(struct log_status *logst)
 	// TODO: replace by event
 	count = 0;
 	while (atomic_read(&logst->mref_flying) > 0) {
-		if (!count++) {
+		if (!count++)
 			MARS_DBG("waiting for IO terminating...");
-		}
 		brick_msleep(500);
 	}
 	if (logst->read_mref) {
@@ -87,9 +86,8 @@ struct log_cb_info {
 static
 void put_log_cb_info(struct log_cb_info *cb_info)
 {
-	if (atomic_dec_and_test(&cb_info->refcount)) {
+	if (atomic_dec_and_test(&cb_info->refcount))
 		brick_mem_free(cb_info);
-	}
 }
 
 static
@@ -103,9 +101,8 @@ void _do_callbacks(struct log_cb_info *cb_info, int error)
 
 		end_fn = cb_info->endios[i];
 		cb_info->endios[i] = NULL;
-		if (end_fn) {
+		if (end_fn)
 			end_fn(cb_info->privates[i], error);
-		}
 	}
 	up(&cb_info->mutex);
 }
@@ -156,9 +153,8 @@ void log_flush(struct log_status *logst)
 			int restlen = mref->ref_len - logst->offset;
 
 			gap = align_size - align_offset;
-			if (unlikely(gap > restlen)) {
+			if (unlikely(gap > restlen))
 				gap = restlen;
-			}
 		}
 	}
 	if (gap > 0) {
@@ -232,9 +228,8 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 
 		for (;;) {
 			status = GENERIC_INPUT_CALL(logst->input, mref_get, mref);
-			if (likely(status >= 0)) {
+			if (likely(status >= 0))
 				break;
-			}
 			if (status != -ENOMEM && status != -EAGAIN) {
 				MARS_ERR("mref_get() failed, status = %d\n", status);
 				goto err_free;
@@ -430,9 +425,8 @@ restart:
 
 		status = GENERIC_INPUT_CALL(logst->input, mref_get, mref);
 		if (unlikely(status < 0)) {
-			if (status != -ENODATA) {
+			if (status != -ENODATA)
 				MARS_ERR("mref_get() failed, status = %d\n", status);
-			}
 			goto done_free;
 		}
 		if (unlikely(mref->ref_len <= OVERHEAD)) { // EOF
@@ -472,15 +466,13 @@ restart:
 		MARS_ERR("bad logfile scan\n");
 		status = -EINVAL;
 	}
-	if (unlikely(status < 0)) {
+	if (unlikely(status < 0))
 		goto done_put;
-	}
 
 	// memoize success
 	logst->offset += status;
-	if (logst->offset + (logst->max_size + OVERHEAD) * 2 >= mref->ref_len) {
+	if (logst->offset + (logst->max_size + OVERHEAD) * 2 >= mref->ref_len)
 		logst->do_free = true;
-	}
 
 done:
 	if (status == -ENODATA) {
@@ -497,9 +489,8 @@ done_put:
 		logst->log_pos += logst->offset;
 		logst->offset = 0;
 	}
-	if (status == -EAGAIN && old_offset > 0) {
+	if (status == -EAGAIN && old_offset > 0)
 		goto restart;
-	}
 	goto done;
 
 done_free:

@@ -165,7 +165,6 @@ void exit_mars(void)
 {
 	MARS_INF("exit_mars()\n");
 
-	if (mars_tfm) {
+	if (mars_tfm)
 		crypto_free_hash(mars_tfm);
-	}
 }

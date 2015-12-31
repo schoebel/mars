@@ -77,9 +77,8 @@ void ranking_start(struct rank_data rkd[], int rkd_count)
 {
 	int i;
 
-	for (i = 0; i < rkd_count; i++) {
+	for (i = 0; i < rkd_count; i++)
 		rkd[i].rkd_tmp = 0;
-	}
 }
 
 extern void ranking_compute(struct rank_data *rkd, const struct rank_info rki[], int x);
@@ -105,9 +104,8 @@ void ranking_stop(struct rank_data rkd[], int rkd_count)
 {
 	int i;
 
-	for (i = 0; i < rkd_count; i++) {
+	for (i = 0; i < rkd_count; i++)
 		rkd[i].rkd_current_points = rkd[i].rkd_tmp;
-	}
 }
 
 /* This is a round-robin scheduler taking her weights

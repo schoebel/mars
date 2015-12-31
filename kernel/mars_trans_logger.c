@@ -269,9 +269,8 @@ struct writeback_info *qq_wb_fetch(struct logger_queue *q)
 
 	test = q_logger_fetch(q);
 
-	if (test) {
+	if (test)
 		res = container_of(test, struct writeback_info, w_lh);
-	}
 	return res;
 }
 
@@ -307,11 +306,10 @@ struct trans_logger_mref_aspect *_hash_find(struct list_head *start,
 		struct mref_object *test;
 		int diff;
 
-		if (use_collect_head) {
+		if (use_collect_head)
 			test_a = container_of(tmp, struct trans_logger_mref_aspect, collect_head);
-		} else {
+		else
 			test_a = container_of(tmp, struct trans_logger_mref_aspect, hash_head);
-		}
 		test = test_a->object;
 
 		_mref_check(test);
@@ -329,14 +327,12 @@ struct trans_logger_mref_aspect *_hash_find(struct list_head *start,
 			int restlen = test->ref_len + diff;
 
 			res = test_a;
-			if (restlen < len) {
+			if (restlen < len)
 				len = restlen;
-			}
 			break;
 		}
-		if (diff < len) {
+		if (diff < len)
 			len = diff;
-		}
 	}
 
 	*max_len = len;
@@ -407,9 +403,8 @@ void hash_extend(struct trans_logger_brick *brick, loff_t *_pos, int *_len, stru
 	struct list_head *tmp;
 	bool extended;
 
-	if (collect_list) {
+	if (collect_list)
 		CHECK_HEAD_EMPTY(collect_list);
-	}
 
 	atomic_inc(&brick->total_hash_extend_count);
 
@@ -471,9 +466,8 @@ void hash_extend(struct trans_logger_brick *brick, loff_t *_pos, int *_len, stru
 
 		// collect
 		CHECK_HEAD_EMPTY(&test_a->collect_head);
-		if (unlikely(test_a->is_collected)) {
+		if (unlikely(test_a->is_collected))
 			MARS_ERR("collision detection did not work\n");
-		}
 		test_a->is_collected = true;
 		_mref_check(test);
 		list_add_tail(&test_a->collect_head, collect_list);
@@ -514,9 +508,8 @@ void hash_put_all(struct trans_logger_brick *brick, struct list_head *list)
 			MARS_ERR("oops, different hashes: %d != %d\n", hash, first_hash);
 		}
 
-		if (!elem_a->is_hashed) {
+		if (!elem_a->is_hashed)
 			continue;
-		}
 
 		list_del_init(&elem_a->hash_head);
 		elem_a->is_hashed = false;
@@ -524,9 +517,8 @@ void hash_put_all(struct trans_logger_brick *brick, struct list_head *list)
 	}
 
 err:
-	if (start) {
+	if (start)
 		up_write(&start->hash_mutex);
-	}
 }
 
 static inline
@@ -670,9 +662,8 @@ int _read_ref_get(struct trans_logger_output *output, struct trans_logger_mref_a
 	 * When a shadow is found, use it as buffer for the mref.
 	 */
 	mshadow_a = hash_find(brick, mref->ref_pos, &mref->ref_len, false);
-	if (!mshadow_a) {
+	if (!mshadow_a)
 		return GENERIC_INPUT_CALL(input, mref_get, mref);
-	}
 
 	return _make_sshadow(output, mref_a, mshadow_a);
 }
@@ -698,9 +689,8 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 
 #ifdef KEEP_UNIQUE
 	mshadow_a = hash_find(brick, mref->ref_pos, &mref->ref_len, true);
-	if (mshadow_a) {
+	if (mshadow_a)
 		return _make_sshadow(output, mref_a, mshadow_a);
-	}
 #endif
 
 #ifdef DELAY_CALLERS
@@ -771,13 +761,11 @@ int trans_logger_ref_get(struct trans_logger_output *output, struct mref_object 
 
 	// ensure that REGION_SIZE boundaries are obeyed by hashing
 	base_offset = mref->ref_pos & (loff_t)(REGION_SIZE - 1);
-	if (mref->ref_len > REGION_SIZE - base_offset) {
+	if (mref->ref_len > REGION_SIZE - base_offset)
 		mref->ref_len = REGION_SIZE - base_offset;
-	}
 
-	if (mref->ref_may_write == READ) {
+	if (mref->ref_may_write == READ)
 		return _read_ref_get(output, mref_a);
-	}
 
 	if (unlikely(brick->stopped_logging)) { // only in EMERGENCY mode
 		mref_a->is_emergency = true;
@@ -794,9 +782,8 @@ int trans_logger_ref_get(struct trans_logger_output *output, struct mref_object 
 
 	/* FIXME: THIS IS PROVISIONARY (use event instead)
 	 */
-	while (unlikely(!brick->power.led_on)) {
+	while (unlikely(!brick->power.led_on))
 		brick_msleep(HZ / 10);
-	}
 
 	return _write_ref_get(output, mref_a);
 
@@ -836,9 +823,8 @@ restart:
 			finished = false; // leaves a memleak
 		}
 
-		if (!finished) {
+		if (!finished)
 			goto out_return;
-		}
 
 		CHECK_HEAD_EMPTY(&mref_a->lh.lh_head);
 		CHECK_HEAD_EMPTY(&mref_a->hash_head);
@@ -847,9 +833,8 @@ restart:
 		CHECK_HEAD_EMPTY(&mref_a->sub_list);
 		CHECK_HEAD_EMPTY(&mref_a->sub_head);
 
-		if (mref_a->is_collected && likely(mref_a->wb_error >= 0)) {
+		if (mref_a->is_collected && likely(mref_a->wb_error >= 0))
 			pos_complete(mref_a);
-		}
 
 		CHECK_HEAD_EMPTY(&mref_a->pos_head);
 
@@ -870,9 +855,8 @@ restart:
 			mref_a->shadow_data = NULL;
 			mref_a->do_dealloc = false;
 		}
-		if (mref_a->do_buffered) {
+		if (mref_a->do_buffered)
 			mref->ref_data = NULL;
-		}
 		atomic_dec(&brick->mshadow_count);
 		atomic_dec(&global_mshadow_count);
 		atomic64_sub(mref->ref_len, &global_mshadow_used);
@@ -881,9 +865,8 @@ restart:
 	}
 
 	// only READ is allowed on non-shadow buffers
-	if (unlikely(mref->ref_rw != READ && !mref_a->is_emergency)) {
+	if (unlikely(mref->ref_rw != READ && !mref_a->is_emergency))
 		MARS_FAT("bad operation %d on non-shadow\n", mref->ref_rw);
-	}
 
 	// no shadow = > call through
 	input = brick->inputs[TL_INPUT_READ];
@@ -961,12 +944,10 @@ void trans_logger_ref_io(struct trans_logger_output *output, struct mref_object 
 	CHECK_ASPECT(mref_a, mref, err);
 
 	// statistics
-	if (mref->ref_rw) {
+	if (mref->ref_rw)
 		atomic_inc(&brick->total_write_count);
-	} else {
+	else
 		atomic_inc(&brick->total_read_count);
-	}
-
 	// is this a shadow buffer?
 	shadow_a = mref_a->shadow_ref;
 	if (shadow_a) {
@@ -983,9 +964,8 @@ void trans_logger_ref_io(struct trans_logger_output *output, struct mref_object 
 	}
 
 	// only READ is allowed on non-shadow buffers
-	if (unlikely(mref->ref_rw != READ && !mref_a->is_emergency)) {
+	if (unlikely(mref->ref_rw != READ && !mref_a->is_emergency))
 		MARS_FAT("bad operation %d on non-shadow\n", mref->ref_rw);
-	}
 
 	atomic_inc(&brick->any_fly_count);
 
@@ -1026,12 +1006,10 @@ void pos_complete(struct trans_logger_mref_aspect *orig_mref_a)
 	finished = orig_mref_a->log_pos;
 	// am I the first member? (means "youngest" list entry)
 	if (tmp == log_input->pos_list.next) {
-		if (unlikely(finished <= log_input->inf.inf_min_pos)) {
+		if (unlikely(finished <= log_input->inf.inf_min_pos))
 			MARS_ERR("backskip in log writeback: %lld -> %lld\n", log_input->inf.inf_min_pos, finished);
-		}
-		if (unlikely(finished > log_input->inf.inf_max_pos)) {
+		if (unlikely(finished > log_input->inf.inf_max_pos))
 			MARS_ERR("min_pos > max_pos: %lld > %lld\n", finished, log_input->inf.inf_max_pos);
-		}
 		log_input->inf.inf_min_pos = finished;
 		get_lamport(&log_input->inf.inf_min_pos_stamp);
 		_inf_callback(log_input, false);
@@ -1085,9 +1063,8 @@ void free_writeback(struct writeback_info *wb)
 				orig_mref->ref_pos,
 				orig_mref->ref_len);
 		}
-		if (unlikely(wb->w_error < 0)) {
+		if (unlikely(wb->w_error < 0))
 			orig_mref_a->wb_error = wb->w_error;
-		}
 
 		__trans_logger_ref_put(orig_mref_a->my_brick, orig_mref_a);
 	}
@@ -1119,28 +1096,24 @@ void wb_endio(struct generic_callback *cb)
 	brick = wb->w_brick;
 	CHECK_PTR(brick, err);
 
-	if (cb->cb_error < 0) {
+	if (cb->cb_error < 0)
 		wb->w_error = cb->cb_error;
-	}
 
 	atomic_dec(&brick->wb_balance_count);
 
 	rw = sub_mref_a->orig_rw;
 	dec = rw ? &wb->w_sub_write_count : &wb->w_sub_read_count;
 	CHECK_ATOMIC(dec, 1);
-	if (!atomic_dec_and_test(dec)) {
+	if (!atomic_dec_and_test(dec))
 		goto done;
-	}
 
 	_endio = rw ? &wb->write_endio : &wb->read_endio;
 	endio = *_endio;
 	*_endio = NULL;
-	if (likely(endio)) {
+	if (likely(endio))
 		endio(cb);
-	} else {
+	else
 		MARS_ERR("internal: no endio defined\n");
-	}
-
 done:
 	wake_up_interruptible_all(&brick->worker_event);
 	goto out_return;
@@ -1166,9 +1139,8 @@ struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t p
 	/* Allocate structure representing a bunch of adjacent writebacks
 	 */
 	wb = brick_zmem_alloc(sizeof(struct writeback_info));
-	if (unlikely(len < 0)) {
+	if (unlikely(len < 0))
 		MARS_ERR("len = %d\n", len);
-	}
 
 	wb->w_brick = brick;
 	wb->w_pos = pos;
@@ -1184,16 +1156,14 @@ struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t p
 	 */
 	hash_extend(brick, &wb->w_pos, &wb->w_len, &wb->w_collect_list);
 
-	if (list_empty(&wb->w_collect_list)) {
+	if (list_empty(&wb->w_collect_list))
 		goto collision;
-	}
 
 	pos = wb->w_pos;
 	len = wb->w_len;
 
-	if (unlikely(len < 0)) {
+	if (unlikely(len < 0))
 		MARS_ERR("len = %d\n", len);
-	}
 
 	/* Determine the "channels" we want to operate on
 	 */
@@ -1326,9 +1296,8 @@ struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t p
 err:
 	MARS_ERR("cleaning up...\n");
 collision:
-	if (wb) {
+	if (wb)
 		free_writeback(wb);
-	}
 	return NULL;
 }
 
@@ -1394,9 +1363,8 @@ void update_max_pos(struct trans_logger_mref_aspect *orig_mref_a)
 
 	down(&log_input->inf_mutex);
 
-	if (unlikely(max_pos < log_input->inf.inf_min_pos)) {
+	if (unlikely(max_pos < log_input->inf.inf_min_pos))
 		MARS_ERR("new max_pos < min_pos: %lld < %lld\n", max_pos, log_input->inf.inf_min_pos);
-	}
 	if (log_input->inf.inf_max_pos < max_pos) {
 		log_input->inf.inf_max_pos = max_pos;
 		get_lamport(&log_input->inf.inf_max_pos_stamp);
@@ -1566,9 +1534,8 @@ bool phase0_startio(struct trans_logger_mref_aspect *orig_mref_a)
 		};
 		data = log_reserve(logst, &l);
 	}
-	if (unlikely(!data)) {
+	if (unlikely(!data))
 		goto err;
-	}
 
 	hash_ensure_stableness(brick, orig_mref_a);
 
@@ -1601,9 +1568,8 @@ bool phase0_startio(struct trans_logger_mref_aspect *orig_mref_a)
 		struct trans_logger_mref_aspect *last_mref_a;
 
 		last_mref_a = container_of(input->pos_list.prev, struct trans_logger_mref_aspect, pos_head);
-		if (last_mref_a->log_pos >= orig_mref_a->log_pos) {
+		if (last_mref_a->log_pos >= orig_mref_a->log_pos)
 			MARS_ERR("backskip in pos_list, %lld >= %lld\n", last_mref_a->log_pos, orig_mref_a->log_pos);
-		}
 	}
 #endif
 	list_add_tail(&orig_mref_a->pos_head, &input->pos_list);
@@ -1637,14 +1603,12 @@ bool prep_phase_startio(struct trans_logger_mref_aspect *mref_a)
 		// nothing to do: directly signal success.
 		struct mref_object *shadow = shadow_a->object;
 
-		if (unlikely(shadow == mref)) {
+		if (unlikely(shadow == mref))
 			MARS_ERR("oops, we should be a slave shadow, but are a master one\n");
-		}
 #ifdef USE_MEMCPY
 		if (mref_a->shadow_data != mref->ref_data) {
-			if (unlikely(mref->ref_len <= 0 || mref->ref_len > PAGE_SIZE)) {
+			if (unlikely(mref->ref_len <= 0 || mref->ref_len > PAGE_SIZE))
 				MARS_ERR("implausible ref_len = %d\n", mref->ref_len);
-			}
 			memcpy(mref->ref_data, mref_a->shadow_data, mref->ref_len);
 		}
 #endif
@@ -1659,9 +1623,8 @@ bool prep_phase_startio(struct trans_logger_mref_aspect *mref_a)
 	// else WRITE
 	CHECK_HEAD_EMPTY(&mref_a->lh.lh_head);
 	CHECK_HEAD_EMPTY(&mref_a->hash_head);
-	if (unlikely(mref->ref_flags & (MREF_READING | MREF_WRITING))) {
+	if (unlikely(mref->ref_flags & (MREF_READING | MREF_WRITING)))
 		MARS_ERR("bad flags %d\n", mref->ref_flags);
-	}
 	/* In case of non-buffered IO, the buffer is
 	 * under control of the user. In particular, he
 	 * may change it without telling us.
@@ -1670,18 +1633,16 @@ bool prep_phase_startio(struct trans_logger_mref_aspect *mref_a)
 	mref->ref_flags |= MREF_WRITING;
 #ifdef USE_MEMCPY
 	if (mref_a->shadow_data != mref->ref_data) {
-		if (unlikely(mref->ref_len <= 0 || mref->ref_len > PAGE_SIZE)) {
+		if (unlikely(mref->ref_len <= 0 || mref->ref_len > PAGE_SIZE))
 			MARS_ERR("implausible ref_len = %d\n", mref->ref_len);
-		}
 		memcpy(mref_a->shadow_data, mref->ref_data, mref->ref_len);
 	}
 #endif
 	mref_a->is_dirty = true;
 	mref_a->shadow_ref->is_dirty = true;
 #ifndef KEEP_UNIQUE
-	if (unlikely(mref_a->shadow_ref != mref_a)) {
+	if (unlikely(mref_a->shadow_ref != mref_a))
 		MARS_ERR("something is wrong: %p != %p\n", mref_a->shadow_ref, mref_a);
-	}
 #endif
 	if (likely(!mref_a->is_hashed)) {
 		struct trans_logger_input *log_input;
@@ -1760,17 +1721,14 @@ bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	brick = orig_mref_a->my_brick;
 	CHECK_PTR(brick, err);
 
-	if (orig_mref_a->is_collected) {
+	if (orig_mref_a->is_collected)
 		goto done;
-	}
-	if (!orig_mref_a->is_hashed) {
+	if (!orig_mref_a->is_hashed)
 		goto done;
-	}
 
 	wb = make_writeback(brick, orig_mref->ref_pos, orig_mref->ref_len);
-	if (unlikely(!wb)) {
+	if (unlikely(!wb))
 		goto collision;
-	}
 
 	if (unlikely(list_empty(&wb->w_sub_write_list))) {
 		MARS_ERR("sub_write_list is empty, orig pos = %lld len = %d (collected=%d), extended pos = %lld len = %d\n",
@@ -1802,9 +1760,8 @@ done:
 	return true;
 
 err:
-	if (wb) {
+	if (wb)
 		free_writeback(wb);
-	}
 collision:
 	return false;
 }
@@ -1890,16 +1847,14 @@ bool _phase2_startio(struct trans_logger_mref_aspect *sub_mref_a)
 		data = log_reserve(logst, &l);
 	}
 
-	if (unlikely(!data)) {
+	if (unlikely(!data))
 		goto err;
-	}
 
 	memcpy(data, sub_mref->ref_data, sub_mref->ref_len);
 
 	ok = log_finalize(logst, sub_mref->ref_len, phase2_endio, sub_mref_a);
-	if (unlikely(!ok)) {
+	if (unlikely(!ok))
 		goto err;
-	}
 
 	qq_inc_flying(&brick->q_phase[2]);
 
@@ -1934,9 +1889,8 @@ bool phase2_startio(struct writeback_info *wb)
 			sub_mref_a = container_of(tmp, struct trans_logger_mref_aspect, sub_head);
 			sub_mref = sub_mref_a->object;
 
-			if (!_phase2_startio(sub_mref_a)) {
+			if (!_phase2_startio(sub_mref_a))
 				ok = false;
-			}
 		}
 		wake_up_interruptible_all(&brick->worker_event);
 	} else {
@@ -2273,9 +2227,8 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 		if (queued <= 0)
 			continue;
 
-		if (banning_is_hit(&brick->q_phase[i].q_banning)) {
+		if (banning_is_hit(&brick->q_phase[i].q_banning))
 			break;
-		}
 
 		if (i == 0) {
 			// limit mref IO parallelism on transaction log
@@ -2284,23 +2237,19 @@ int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
 			struct trans_logger_brick *leader;
 			int lim;
 
-			if (!mref_flying && atomic_read(&brick->q_phase[0].q_queued) > 0) {
+			if (!mref_flying && atomic_read(&brick->q_phase[0].q_queued) > 0)
 				break;
-			}
 
 			leader = elect_leader(&global_writeback);
-			if (leader != brick) {
+			if (leader != brick)
 				break;
-			}
 
-			if (banning_is_hit(&mars_global_ban)) {
+			if (banning_is_hit(&mars_global_ban))
 				break;
-			}
 
 			lim = mars_limit(&global_writeback.limiter, 0);
-			if (lim > 0) {
+			if (lim > 0)
 				break;
-			}
 		}
 
 		ranking_compute(&rkd[i], queue_ranks[floating_mode][i], queued);
@@ -2365,9 +2314,8 @@ void _init_inputs(struct trans_logger_brick *brick, bool is_first)
 	input = brick->inputs[new_nr];
 	CHECK_PTR(input, done);
 
-	if (input->is_operating || !input->connect) {
+	if (input->is_operating || !input->connect)
 		goto done;
-	}
 
 	down(&input->inf_mutex);
 
@@ -2407,9 +2355,8 @@ int _nr_flying_inputs(struct trans_logger_brick *brick)
 		struct trans_logger_input *input = brick->inputs[i];
 		struct log_status *logst = &input->logst;
 
-		if (input->is_operating) {
+		if (input->is_operating)
 			count += logst->count;
-		}
 	}
 	return count;
 }
@@ -2645,12 +2592,10 @@ void replay_endio(struct generic_callback *cb)
 	list_del_init(&mref_a->replay_head);
 	spin_unlock_irqrestore(&brick->replay_lock, flags);
 
-	if (likely(ok)) {
+	if (likely(ok))
 		atomic_dec(&brick->replay_count);
-	} else {
+	else
 		MARS_ERR("callback with empty replay_head (replay_count=%d)\n", atomic_read(&brick->replay_count));
-	}
-
 	wake_up_interruptible_all(&brick->worker_event);
 	goto out_return;
 err:
@@ -2706,11 +2651,10 @@ void wait_replay(struct trans_logger_brick *brick, struct trans_logger_mref_aspe
 
 	spin_lock_irqsave(&brick->replay_lock, flags);
 	was_empty = !!list_empty(&mref_a->replay_head);
-	if (likely(was_empty)) {
+	if (likely(was_empty))
 		atomic_inc(&brick->replay_count);
-	} else {
+	else
 		list_del(&mref_a->replay_head);
-	}
 	list_add(&mref_a->replay_head, &brick->replay_list);
 	spin_unlock_irqrestore(&brick->replay_lock, flags);
 
@@ -2728,9 +2672,8 @@ int replay_data(struct trans_logger_brick *brick, loff_t pos, void *buf, int len
 	struct trans_logger_input *input = brick->inputs[TL_INPUT_WRITEBACK];
 	int status;
 
-	if (!input->connect) {
+	if (!input->connect)
 		input = brick->inputs[TL_INPUT_READ];
-	}
 
 	/* TODO for better efficiency:
 	 * Instead of starting IO here, just put the data into the hashes
@@ -3001,9 +2944,8 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 
 	mars_trigger();
 
-	while (!brick_thread_should_stop()) {
+	while (!brick_thread_should_stop())
 		brick_msleep(500);
-	}
 }
 
 ///////////////////////// logger thread / switching /////////////////////////
@@ -3016,12 +2958,10 @@ int trans_logger_thread(void *data)
 
 	MARS_INF("........... logger has started.\n");
 
-	if (brick->replay_mode) {
+	if (brick->replay_mode)
 		trans_logger_replay(brick);
-	} else {
+	else
 		trans_logger_log(brick);
-	}
-
 	MARS_INF("........... logger has stopped.\n");
 	mars_power_led_on((void *)brick, false);
 	mars_power_led_off((void *)brick, true);
@@ -3258,9 +3198,8 @@ void trans_logger_mref_aspect_exit_fn(struct generic_aspect *_ini)
 	CHECK_HEAD_EMPTY(&ini->collect_head);
 	CHECK_HEAD_EMPTY(&ini->sub_list);
 	CHECK_HEAD_EMPTY(&ini->sub_head);
-	if (ini->log_input) {
+	if (ini->log_input)
 		atomic_dec(&ini->log_input->log_ref_count);
-	}
 }
 
 MARS_MAKE_STATICS(trans_logger);
@@ -3276,9 +3215,8 @@ void _free_pages(struct trans_logger_brick *brick)
 		struct trans_logger_hash_anchor *sub_table = brick->hash_table[i];
 		int j;
 
-		if (!sub_table) {
+		if (!sub_table)
 			continue;
-		}
 		for (j = 0; j < HASH_PER_PAGE; j++) {
 			struct trans_logger_hash_anchor *start = &sub_table[j];
 

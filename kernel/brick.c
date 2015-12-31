@@ -126,13 +126,11 @@ int generic_size(const struct generic_brick_type *brick_type)
 	int i;
 
 	size += brick_type->max_inputs * sizeof(void *);
-	for (i = 0; i < brick_type->max_inputs; i++) {
+	for (i = 0; i < brick_type->max_inputs; i++)
 		size += brick_type->default_input_types[i]->input_size;
-	}
 	size += brick_type->max_outputs * sizeof(void *);
-	for (i = 0; i < brick_type->max_outputs; i++) {
+	for (i = 0; i < brick_type->max_outputs; i++)
 		size += brick_type->default_output_types[i]->output_size;
-	}
 	return size;
 }
 
@@ -191,9 +189,8 @@ int _brick_msleep(int msecs, bool shorten)
 	timeout = schedule_timeout_interruptible(timeout);
 
 	if (!shorten) {
-		while ((long)timeout > 0) {
+		while ((long)timeout > 0)
 			timeout = schedule_timeout_uninterruptible(timeout);
-		}
 	}
 
 	return jiffies_to_msecs(timeout);
@@ -211,9 +208,8 @@ int get_nr(void)
 	char *new;
 	int nr;
 
-	if (unlikely(!nr_table)) {
+	if (unlikely(!nr_table))
 		nr_table = brick_zmem_alloc(nr_max);
-	}
 
 	for (;;) {
 		for (nr = 1; nr < nr_max; nr++) {
@@ -232,9 +228,8 @@ int get_nr(void)
 
 void put_nr(int nr)
 {
-	if (likely(nr_table && nr > 0 && nr < nr_max)) {
+	if (likely(nr_table && nr > 0 && nr < nr_max))
 		nr_table[nr] = 0;
-	}
 }
 
 //////////////////////////////////////////////////////////////
@@ -322,16 +317,14 @@ int generic_brick_init_full(
 	brick->inputs = data;
 	data += sizeof(void *) * brick_type->max_inputs;
 	size -= sizeof(void *) * brick_type->max_inputs;
-	if (size < 0) {
+	if (size < 0)
 		return -ENOMEM;
-	}
 	for (i = 0; i < brick_type->max_inputs; i++) {
 		struct generic_input *input = data;
 		const struct generic_input_type *type = *input_types++;
 
-		if (!type || type->input_size <= 0) {
+		if (!type || type->input_size <= 0)
 			return -EINVAL;
-		}
 		BRICK_DBG("generic_brick_init_full: calling generic_input_init()\n");
 		status = generic_input_init(brick, i, type, input);
 		if (status < 0)
@@ -359,9 +352,8 @@ int generic_brick_init_full(
 		struct generic_output *output = data;
 		const struct generic_output_type *type = *output_types++;
 
-		if (!type || type->output_size <= 0) {
+		if (!type || type->output_size <= 0)
 			return -EINVAL;
-		}
 		BRICK_DBG("generic_brick_init_full: calling generic_output_init()\n");
 		generic_output_init(brick, i, type, output);
 		if (status < 0)
@@ -528,9 +520,8 @@ struct generic_object *generic_alloc(struct generic_object_layout *object_layout
 	if (object_type->init_fn) {
 		int status = object_type->init_fn(object);
 
-		if (status < 0) {
+		if (status < 0)
 			goto err_free;
-		}
 	}
 
 	return object;
@@ -564,17 +555,15 @@ void generic_free(struct generic_object *object)
 		object->aspects[i] = NULL;
 		aspect_type = aspect->aspect_type;
 		CHECK_PTR_NULL(aspect_type, done);
-		if (aspect_type->exit_fn) {
+		if (aspect_type->exit_fn)
 			aspect_type->exit_fn(aspect);
-		}
 		if (aspect->shortcut)
 			continue;
 		brick_mem_free(aspect);
 		atomic_dec(&object_layout->aspect_count);
 	}
-	if (object_type->exit_fn) {
+	if (object_type->exit_fn)
 		object_type->exit_fn(object);
-	}
 	brick_mem_free(object);
 done:;
 }
@@ -717,11 +706,10 @@ void set_button_wait(struct generic_brick *brick, bool val, bool force, int time
 	set_button(&brick->power, val, force);
 	if (brick->ops)
 		(void)brick->ops->brick_switch(brick);
-	if (val) {
+	if (val)
 		wait_event_interruptible_timeout(brick->power.event, brick->power.led_on, timeout);
-	} else {
+	else
 		wait_event_interruptible_timeout(brick->power.event, brick->power.led_off, timeout);
-	}
 }
 
 /////////////////////////////////////////////////////////////////
@@ -733,9 +721,8 @@ const struct meta *find_meta(const struct meta *meta, const char *field_name)
 	const struct meta *tmp;
 
 	for (tmp = meta; tmp->field_name; tmp++) {
-		if (!strcmp(field_name, tmp->field_name)) {
+		if (!strcmp(field_name, tmp->field_name))
 			return tmp;
-		}
 	}
 	return NULL;
 }

@@ -193,9 +193,8 @@ int make_bio(struct bio_brick *brick,
 		int this_rest = PAGE_SIZE - page_offset;
 		int this_len = rest_len;
 
-		if (this_len > this_rest) {
+		if (this_len > this_rest)
 			this_len = this_rest;
-		}
 #ifdef MARS_DEBUGGING
 		if (unlikely(!virt_addr_valid(data))) {
 			MARS_ERR("invalid virtual kernel address %p\n", data);
@@ -275,9 +274,8 @@ static int bio_get_info(struct bio_output *output, struct mars_info *info)
 		goto done;
 	}
 	inode = brick->mf->mf_filp->f_mapping->host;
-	if (unlikely(!inode)) {
+	if (unlikely(!inode))
 		goto done;
-	}
 
 	info->tf_align = 512;
 	info->tf_min_size = 512;
@@ -309,9 +307,8 @@ static int bio_ref_get(struct bio_output *output, struct mref_object *mref)
 	mref_a->bio = NULL;
 
 	if (!mref->ref_data) { // buffered IO.
-		if (unlikely(mref->ref_len <= 0)) {
+		if (unlikely(mref->ref_len <= 0))
 			goto done;
-		}
 		status = -ENOMEM;
 		mref->ref_data = brick_block_alloc(mref->ref_pos, (mref_a->alloc_len = mref->ref_len));
 		mref_a->do_dealloc = true;
@@ -350,9 +347,8 @@ void _bio_ref_put(struct bio_output *output, struct mref_object *mref)
 #ifdef MARS_DEBUGGING
 		int bi_cnt = atomic_read(&mref_a->bio->bi_cnt);
 
-		if (bi_cnt > 1) {
+		if (bi_cnt > 1)
 			MARS_DBG("bi_cnt = %d\n", bi_cnt);
-		}
 #endif
 		bio_put(mref_a->bio);
 		mref_a->bio = NULL;
@@ -433,9 +429,8 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref, bool cork)
 		}
 //	remove_this
 #if defined(BIO_RW_RQ_MASK) || defined(BIO_FLUSH)
-		if (brick->do_unplug && !cork) {
+		if (brick->do_unplug && !cork)
 			rw |= (1 << BIO_RW_UNPLUG);
-		}
 #else
 		// there is no substitute, but the above NOIDLE should do the job (CHECK!)
 #endif
@@ -585,9 +580,8 @@ int bio_response_thread(void *data)
 			atomic_inc(&brick->total_completed_count[PRIO_INDEX(mref)]);
 			count++;
 
-			if (likely(mref_a->bio)) {
+			if (likely(mref_a->bio))
 				bio_put(mref_a->bio);
-			}
 			BIO_REF_PUT(mref_a->output, mref);
 
 			atomic_dec(&mars_global_io_flying);
@@ -608,9 +602,8 @@ int bio_response_thread(void *data)
 			}
 			spin_unlock_irqrestore(&brick->lock, flags);
 
-			if (eldest) {
+			if (eldest)
 				threshold_check(&bio_io_threshold[i], cpu_clock(raw_smp_processor_id()) - eldest);
-			}
 		}
 
 		if (count) {
@@ -652,9 +645,8 @@ int bio_submit_thread(void *data)
 			LIST_HEAD(tmp_list);
 			unsigned long flags;
 
-			if (prio == MARS_PRIO_NR-1 && !_bg_should_run(brick)) {
+			if (prio == MARS_PRIO_NR-1 && !_bg_should_run(brick))
 				break;
-			}
 
 			spin_lock_irqsave(&brick->lock, flags);
 			list_replace_init(&brick->queue_list[prio], &tmp_list);

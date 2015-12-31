@@ -191,9 +191,8 @@ void if_endio(struct generic_callback *cb)
 		CHECK_PTR(biow, err);
 
 		CHECK_ATOMIC(&biow->bi_comp_cnt, 1);
-		if (!atomic_dec_and_test(&biow->bi_comp_cnt)) {
+		if (!atomic_dec_and_test(&biow->bi_comp_cnt))
 			continue;
-		}
 
 		bio = biow->bio;
 		CHECK_PTR_NULL(bio, err);
@@ -240,11 +239,10 @@ void if_endio(struct generic_callback *cb)
 		brick_mem_free(biow);
 	}
 	atomic_dec(&input->flying_count);
-	if (rw) {
+	if (rw)
 		atomic_dec(&input->write_flying_count);
-	} else {
+	else
 		atomic_dec(&input->read_flying_count);
-	}
 	goto out_return;
 err:
 	MARS_FAT("error in callback, giving up\n");
@@ -287,18 +285,16 @@ void _if_unplug(struct if_input *input)
 
 		mref = mref_a->object;
 
-		if (unlikely(mref_a->current_len > mref_a->max_len)) {
+		if (unlikely(mref_a->current_len > mref_a->max_len))
 			MARS_ERR("request len %d > %d\n", mref_a->current_len, mref_a->max_len);
-		}
 		mref->ref_len = mref_a->current_len;
 
 		atomic_inc(&input->flying_count);
 		atomic_inc(&input->total_fire_count);
-		if (mref->ref_rw) {
+		if (mref->ref_rw)
 			atomic_inc(&input->write_flying_count);
-		} else {
+		else
 			atomic_inc(&input->read_flying_count);
-		}
 		if (mref->ref_skip_sync)
 			atomic_inc(&input->total_skip_sync_count);
 
@@ -490,12 +486,10 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 	biow->bio = bio;
 	atomic_set(&biow->bi_comp_cnt, 0);
 
-	if (rw) {
+	if (rw)
 		atomic_inc(&input->total_write_count);
-	} else {
+	else
 		atomic_inc(&input->total_read_count);
-	}
-
 	_if_start_io_acct(input, biow);
 
 	/* Get a reference to the bio.
@@ -505,9 +499,8 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 
 	/* FIXME: THIS IS PROVISIONARY (use event instead)
 	 */
-	while (unlikely(!brick->power.led_on)) {
+	while (unlikely(!brick->power.led_on))
 		brick_msleep(100);
-	}
 
 	bio_for_each_segment(bvec, bio, i) {
 //	remove_this
@@ -558,9 +551,8 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 
 				tmp_a = container_of(tmp, struct if_mref_aspect, hash_head);
 				tmp_mref = tmp_a->object;
-				if (tmp_a->orig_page != page || tmp_mref->ref_rw != rw || tmp_a->bio_count >= MAX_BIO || tmp_a->current_len + bv_len > tmp_a->max_len) {
+				if (tmp_a->orig_page != page || tmp_mref->ref_rw != rw || tmp_a->bio_count >= MAX_BIO || tmp_a->current_len + bv_len > tmp_a->max_len)
 					continue;
-				}
 
 				if (tmp_mref->ref_data + tmp_a->current_len == data) {
 					goto merge_end;
@@ -580,14 +572,12 @@ merge_end:
 				mref = tmp_mref;
 				mref_a = tmp_a;
 				this_len = bv_len;
-				if (!do_skip_sync) {
+				if (!do_skip_sync)
 					mref->ref_skip_sync = false;
-				}
 
 				for (i = 0; i < mref_a->bio_count; i++) {
-					if (mref_a->orig_biow[i]->bio == bio) {
+					if (mref_a->orig_biow[i]->bio == bio)
 						goto unlock;
-					}
 				}
 
 				CHECK_ATOMIC(&biow->bi_comp_cnt, 0);
@@ -606,22 +596,18 @@ unlock:
 				error = -ENOMEM;
 				mref = if_alloc_mref(brick);
 				mref_a = if_mref_get_aspect(brick, mref);
-				if (unlikely(!mref_a)) {
+				if (unlikely(!mref_a))
 					goto err;
-				}
 
 #ifdef PREFETCH_LEN
 				prefetch_len = PREFETCH_LEN - offset;
 				// TODO: this restriction is too strong to be useful for performance boosts. Do better.
-				if (prefetch_len > total_len) {
+				if (prefetch_len > total_len)
 					prefetch_len = total_len;
-				}
-				if (pos + prefetch_len > brick->dev_size) {
+				if (pos + prefetch_len > brick->dev_size)
 					prefetch_len = brick->dev_size - pos;
-				}
-				if (prefetch_len < bv_len) {
+				if (prefetch_len < bv_len)
 					prefetch_len = bv_len;
-				}
 #else
 				prefetch_len = bv_len;
 #endif
@@ -637,22 +623,18 @@ unlock:
 				mref_a->orig_page = page;
 
 				error = GENERIC_INPUT_CALL(input, mref_get, mref);
-				if (unlikely(error < 0)) {
+				if (unlikely(error < 0))
 					goto err;
-				}
 
 				this_len = mref->ref_len; // now may be shorter than originally requested.
 				mref_a->max_len = this_len;
-				if (this_len > bv_len) {
+				if (this_len > bv_len)
 					this_len = bv_len;
-				}
 				mref_a->current_len = this_len;
-				if (rw) {
+				if (rw)
 					atomic_inc(&input->total_mref_write_count);
-				} else {
+				else
 					atomic_inc(&input->total_mref_read_count);
-				}
-
 				CHECK_ATOMIC(&biow->bi_comp_cnt, 0);
 				atomic_inc(&biow->bi_comp_cnt);
 				mref_a->orig_biow[0] = biow;
@@ -667,14 +649,12 @@ unlock:
 //	remove_this
 #ifdef HAS_BVEC_ITER
 //	end_remove_this
-				if (!do_skip_sync && i.bi_idx + 1 >= bio->bi_iter.bi_idx) {
+				if (!do_skip_sync && i.bi_idx + 1 >= bio->bi_iter.bi_idx)
 					mref->ref_skip_sync = false;
-				}
 //	remove_this
 #else
-				if (!do_skip_sync && i + 1 >= bio->bi_vcnt) {
+				if (!do_skip_sync && i + 1 >= bio->bi_vcnt)
 					mref->ref_skip_sync = false;
-				}
 #endif
 //	end_remove_this
 
@@ -792,9 +772,8 @@ int mars_merge_bvec(struct request_queue *q, struct bvec_merge_data *bvm, struct
 {
 	unsigned int bio_size = bvm->bi_size;
 
-	if (!bio_size) {
+	if (!bio_size)
 		return bvec->bv_len;
-	}
 	return 128;
 }
 #endif
@@ -832,9 +811,8 @@ void if_set_capacity(struct if_input *input, loff_t capacity)
 	MARS_INF("new capacity of '%s': %lld bytes\n", input->disk->disk_name, capacity);
 	input->capacity = capacity;
 	set_capacity(input->disk, capacity >> 9);
-	if (likely(input->bdev && input->bdev->bd_inode)) {
+	if (likely(input->bdev && input->bdev->bd_inode))
 		i_size_write(input->bdev->bd_inode, capacity);
-	}
 done:;
 }
 
@@ -1263,9 +1241,8 @@ static int if_input_destruct(struct if_input *input)
 {
 	int i;
 
-	for (i = 0; i < IF_HASH_MAX; i++) {
+	for (i = 0; i < IF_HASH_MAX; i++)
 		CHECK_HEAD_EMPTY(&input->hash_table[i].hash_anchor);
-	}
 	CHECK_HEAD_EMPTY(&input->plug_anchor);
 	brick_block_free(input->hash_table, PAGE_SIZE);
 	return 0;

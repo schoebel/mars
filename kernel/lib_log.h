@@ -255,9 +255,8 @@ int log_scan(void *buf,
 		*payload_len = lh->l_len;
 
 		// don't cry when nullbytes have been skipped
-		if (i > 0 && dirty) {
+		if (i > 0 && dirty)
 			MARS_WRN(SCAN_TXT "skipped %d dirty bytes to find valid data\n", SCAN_PAR, i);
-		}
 
 		return offset;
 	}

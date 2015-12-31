@@ -116,9 +116,8 @@ void _kill_all_channels(struct client_bundle *bundle)
 		}
 	}
 	// separate pass (may wait)
-	for (i = 0; i < MAX_CLIENT_CHANNELS; i++) {
+	for (i = 0; i < MAX_CLIENT_CHANNELS; i++)
 		_kill_channel(&bundle->channel[i]);
-	}
 }
 
 static int receiver_thread(void *data);
@@ -331,9 +330,8 @@ int _request_info(struct client_channel *ch)
 	MARS_DBG("\n");
 	status = mars_send_struct(&ch->socket, &cmd, mars_cmd_meta);
 	MARS_DBG("send CMD_GETINFO status = %d\n", status);
-	if (unlikely(status < 0)) {
+	if (unlikely(status < 0))
 		MARS_DBG("send of getinfo failed, status = %d\n", status);
-	}
 	return status;
 }
 
@@ -438,9 +436,8 @@ static void client_ref_put(struct client_output *output, struct mref_object *mre
 	if (!_mref_put(mref))
 		goto out_return;
 	mref_a = client_mref_get_aspect(output->brick, mref);
-	if (mref_a && mref_a->do_dealloc) {
+	if (mref_a && mref_a->do_dealloc)
 		brick_block_free(mref->ref_data, mref_a->alloc_len);
-	}
 	_mref_free(mref);
 out_return:;
 }
@@ -468,17 +465,14 @@ static void client_ref_io(struct client_output *output, struct mref_object *mref
 	int error = -EINVAL;
 
 	mref_a = client_mref_get_aspect(output->brick, mref);
-	if (unlikely(!mref_a)) {
+	if (unlikely(!mref_a))
 		goto error;
-	}
 
-	while (output->brick->max_flying > 0 && atomic_read(&output->fly_count) > output->brick->max_flying) {
+	while (output->brick->max_flying > 0 && atomic_read(&output->fly_count) > output->brick->max_flying)
 		brick_msleep(1000 * 2 / HZ);
-	}
 
-	if (!output->brick->power.led_on) {
+	if (!output->brick->power.led_on)
 		MARS_ERR("IO submission on dead instance\n");
-	}
 
 	atomic_inc(&mars_global_io_flying);
 	atomic_inc(&output->fly_count);
@@ -592,9 +586,8 @@ err:
 				goto done;
 			}
 
-			if (mref->_object_cb.cb_error < 0) {
+			if (mref->_object_cb.cb_error < 0)
 				MARS_DBG("ERROR %d\n", mref->_object_cb.cb_error);
-			}
 			SIMPLE_CALLBACK(mref, mref->_object_cb.cb_error);
 
 			client_ref_put(output, mref);
@@ -976,9 +969,8 @@ static int client_output_construct(struct client_output *output)
 
 	output->hash_table = brick_block_alloc(0, PAGE_SIZE);
 
-	for (i = 0; i < CLIENT_HASH_MAX; i++) {
+	for (i = 0; i < CLIENT_HASH_MAX; i++)
 		INIT_LIST_HEAD(&output->hash_table[i]);
-	}
 
 	for (i = 0; i < MAX_CLIENT_CHANNELS; i++) {
 		struct client_channel *ch = &output->bundle.channel[i];

@@ -230,9 +230,8 @@ char *my_id(void)
 	if (!id) {
 		//down_read(&uts_sem); // FIXME: this is currenty not EXPORTed from the kernel!
 		u = utsname();
-		if (u) {
+		if (u)
 			id = brick_strdup(u->nodename);
-		}
 		//up_read(&uts_sem);
 	}
 	return id;
@@ -264,11 +263,10 @@ int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec)
 
 	/* Try to translate hostnames to IPs if possible.
 	 */
-	if (mars_translate_hostname) {
+	if (mars_translate_hostname)
 		new_spec = mars_translate_hostname(spec);
-	} else {
+	else
 		new_spec = brick_strdup(spec);
-	}
 	tmp_spec = new_spec;
 
 	/* This is PROVISIONARY!
@@ -479,9 +477,8 @@ int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *src_a
 			goto done;
 		}
 		status = kernel_listen(sock, 16);
-		if (status < 0) {
+		if (status < 0)
 			MARS_WRN("#%d listen failed, status = %d\n", msock->s_debug_nr, status);
-		}
 	} else {
 		/* When both src and dst are given, explicitly bind local address.
 		 * Needed for multihomed hosts.
@@ -515,11 +512,10 @@ int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *src_a
 	}
 
 done:
-	if (status < 0) {
+	if (status < 0)
 		mars_put_socket(msock);
-	} else {
+	else
 		MARS_DBG("successfully created socket #%d\n", msock->s_debug_nr);
-	}
 final:
 	return status;
 }
@@ -534,14 +530,12 @@ int mars_accept_socket(struct mars_socket *new_msock, struct mars_socket *old_ms
 	if (likely(ok)) {
 		struct socket *sock = old_msock->s_socket;
 
-		if (unlikely(!sock)) {
+		if (unlikely(!sock))
 			goto err;
-		}
 
 		status = kernel_accept(sock, &new_socket, O_NONBLOCK);
-		if (unlikely(status < 0)) {
+		if (unlikely(status < 0))
 			goto err;
-		}
 		if (unlikely(!new_socket)) {
 			status = -EBADF;
 			goto err;
@@ -588,9 +582,8 @@ void mars_put_socket(struct mars_socket *msock)
 		int i;
 
 		MARS_DBG("#%d closing socket %p\n", msock->s_debug_nr, sock);
-		if (likely(sock && cmpxchg(&msock->s_alive, true, false))) {
+		if (likely(sock && cmpxchg(&msock->s_alive, true, false)))
 			kernel_sock_shutdown(sock, SHUT_RDWR);
-		}
 		if (likely(sock && !msock->s_alive)) {
 			MARS_DBG("#%d releasing socket %p\n", msock->s_debug_nr, sock);
 			sock_release(sock);
@@ -699,9 +692,8 @@ int _mars_send_raw(struct mars_socket *msock, const void *buf, int len, int flag
 			}
 			brick_msleep(sleeptime);
 			// linearly increasing backoff
-			if (sleeptime < 100) {
+			if (sleeptime < 100)
 				sleeptime += 1000 / HZ;
-			}
 			continue;
 		}
 		msock->s_send_cnt = 0;
@@ -823,9 +815,8 @@ int _mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen,
 	int status = -EIDRM;
 	int done = 0;
 
-	if (!buf) {
+	if (!buf)
 		buf = dummy = brick_block_alloc(0, maxlen);
-	}
 
 	if (!mars_get_socket(msock))
 		goto final;
@@ -886,9 +877,8 @@ int _mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen,
 			if (minlen <= 0)
 				break;
 			// linearly increasing backoff
-			if (sleeptime < 100) {
+			if (sleeptime < 100)
 				sleeptime += 1000 / HZ;
-			}
 			continue;
 		}
 		msock->s_recv_cnt = 0;
@@ -1130,9 +1120,8 @@ int _add_fields(struct mars_desc_item *mi, const struct meta *meta, int offset, 
 		mi->field_data_size = this_size;
 		mi->field_sender_size = this_size;
 		this_size = meta->field_transfer_size;
-		if (this_size > 0) {
+		if (this_size > 0)
 			mi->field_sender_size = this_size;
-		}
 		mi->field_sender_offset = new_offset;
 		mi->field_recver_offset = -1;
 
@@ -1260,9 +1249,8 @@ int make_recver_cache(struct mars_desc_cache *mc, const struct meta *meta)
 	for (i = 0; i < mc->cache_items; i++) {
 		struct mars_desc_item *mi = ((struct mars_desc_item *)(mc + 1)) + i;
 
-		if (unlikely(mi->field_recver_offset < 0)) {
+		if (unlikely(mi->field_recver_offset < 0))
 			MARS_WRN("field '%s' is not transferred\n", mi->field_name);
-		}
 	}
 	return count;
 }
@@ -1380,9 +1368,8 @@ int _desc_send_item(struct mars_socket *msock,
 
 			// just omit the higher/lower bytes
 			data_len = transfer_len;
-			if (myself_is_bigendian) {
+			if (myself_is_bigendian)
 				item += end;
-			}
 			goto raw;
 		}
 	case FIELD_STRING:
@@ -1423,9 +1410,8 @@ int _desc_recv_item(struct mars_socket *msock, void *data, const struct mars_des
 	bool is_signed = false;
 	int res = -1;
 
-	if (likely(data && data_len > 0 && mi->field_recver_offset >= 0)) {
+	if (likely(data && data_len > 0 && mi->field_recver_offset >= 0))
 		item = data + mi->field_recver_offset;
-	}
 
 	switch (mi->field_type) {
 	case FIELD_REF:
@@ -1465,9 +1451,8 @@ int _desc_recv_item(struct mars_socket *msock, void *data, const struct mars_des
 
 			status = mars_recv_raw(msock, item, data_len, data_len);
 			_CHECK_STATUS("recv_item");
-			if (unlikely(mc->cache_is_bigendian != myself_is_bigendian && item)) {
+			if (unlikely(mc->cache_is_bigendian != myself_is_bigendian && item))
 				swap_bytes(item, data_len);
-			}
 
 			if (!myself_is_bigendian) {
 				status = mars_recv_raw(msock, empty, diff, diff);
@@ -1512,24 +1497,20 @@ int _desc_recv_item(struct mars_socket *msock, void *data, const struct mars_des
 			char *transfer_ptr = item;
 			char sign;
 
-			if (myself_is_bigendian) {
+			if (myself_is_bigendian)
 				transfer_ptr += diff;
-			}
 
 			status = mars_recv_raw(msock, transfer_ptr, transfer_len, transfer_len);
 			_CHECK_STATUS("recv_transfer");
-			if (unlikely(mc->cache_is_bigendian != myself_is_bigendian)) {
+			if (unlikely(mc->cache_is_bigendian != myself_is_bigendian))
 				swap_bytes(transfer_ptr, transfer_len);
-			}
 
 			// sign-extend from transfer_len to data_len
 			sign = get_sign(transfer_ptr, transfer_len, myself_is_bigendian, is_signed);
-			if (myself_is_bigendian) {
+			if (myself_is_bigendian)
 				memset(item, sign, diff);
-			} else {
+			else
 				memset(item + transfer_len, sign, diff);
-			}
-
 			res = data_len;
 			break;
 		}
@@ -1538,9 +1519,8 @@ int _desc_recv_item(struct mars_socket *msock, void *data, const struct mars_des
 		status = mars_recv_raw(msock, &data_len, sizeof(data_len), sizeof(data_len));
 		_CHECK_STATUS("recv_string_len");
 
-		if (unlikely(mc->cache_is_bigendian != myself_is_bigendian)) {
+		if (unlikely(mc->cache_is_bigendian != myself_is_bigendian))
 			swap_bytes(&data_len, sizeof(data_len));
-		}
 
 		if (data_len > 0 && item) {
 			char *str = _brick_string_alloc(data_len, line);
@@ -1706,14 +1686,12 @@ int desc_recv_struct(struct mars_socket *msock, void *data, const struct meta *m
 		mc = _brick_block_alloc(0, PAGE_SIZE, line);
 
 		status = mars_recv_raw(msock, mc, header.h_meta_len, header.h_meta_len);
-		if (unlikely(status < 0)) {
+		if (unlikely(status < 0))
 			brick_block_free(mc, PAGE_SIZE);
-		}
 		_CHECK_STATUS("recv_meta");
 
-		if (unlikely(need_swap)) {
+		if (unlikely(need_swap))
 			swap_mc(mc, header.h_meta_len);
-		}
 
 		status = make_recver_cache(mc, meta);
 		if (unlikely(status < 0)) {
@@ -1795,9 +1773,8 @@ int mars_send_mref(struct mars_socket *msock, struct mref_object *mref)
 	if (status < 0)
 		goto done;
 
-	if (cmd.cmd_code & CMD_FLAG_HAS_DATA) {
+	if (cmd.cmd_code & CMD_FLAG_HAS_DATA)
 		status = mars_send_compressed(msock, mref->ref_data, mref->ref_len, mars_net_compress_data, false);
-	}
 done:
 	return status;
 }
@@ -1846,9 +1823,8 @@ int mars_send_cb(struct mars_socket *msock, struct mref_object *mref)
 	if (status < 0)
 		goto done;
 
-	if (cmd.cmd_code & CMD_FLAG_HAS_DATA) {
+	if (cmd.cmd_code & CMD_FLAG_HAS_DATA)
 		status = mars_send_compressed(msock, mref->ref_data, mref->ref_len, mars_net_compress_data, false);
-	}
 done:
 	return status;
 }

@@ -83,9 +83,8 @@ int dummy_switch(struct dummy_brick *brick)
 		mars_power_led_off((void *)brick, false);
 		//...
 		success = true;
-		if (success) {
+		if (success)
 			mars_power_led_on((void *)brick, true);
-		}
 	} else {
 		bool success = false;
 
@@ -94,9 +93,8 @@ int dummy_switch(struct dummy_brick *brick)
 		mars_power_led_on((void *)brick, false);
 		//...
 		success = true;
-		if (success) {
+		if (success)
 			mars_power_led_off((void *)brick, true);
-		}
 	}
 done:
 	return 0;

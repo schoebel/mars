@@ -79,9 +79,8 @@ int mars_limit(struct mars_limiter *lim, int amount)
 
 			rate_raw = lim->lim_accu * LIMITER_TIME_RESOLUTION / window;
 			rate = rate_raw;
-			if (unlikely(rate_raw > INT_MAX)) {
+			if (unlikely(rate_raw > INT_MAX))
 				rate = INT_MAX;
-			}
 			lim->lim_rate = rate;
 
 			// limit exceeded?

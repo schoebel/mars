@@ -99,9 +99,8 @@ void mapfree_pages(struct mapfree_info *mf, int grace_keep)
 		MARS_DBG("file = '%s' start = %lu end = %lu\n", mf->mf_name, start, end);
 	}
 
-	if (end > start || end == -1) {
+	if (end > start || end == -1)
 		invalidate_mapping_pages(mapping, start, end);
-	}
 
 done:;
 }
@@ -284,9 +283,8 @@ int mapfree_thread(void *data)
 
 		up_read(&mapfree_mutex);
 
-		if (!mf) {
+		if (!mf)
 			continue;
-		}
 
 		mapfree_pages(mf, mapfree_grace_keep_mb);
 
@@ -335,18 +333,14 @@ void mf_get_dirty(struct mapfree_info *mf, loff_t *min, loff_t *max, int min_sta
 		struct dirty_info *di = container_of(tmp, struct dirty_info, dirty_head);
 		struct mref_object *mref = di->dirty_mref;
 
-		if (unlikely(!mref)) {
+		if (unlikely(!mref))
 			continue;
-		}
-		if (di->dirty_stage < min_stage || di->dirty_stage > max_stage) {
+		if (di->dirty_stage < min_stage || di->dirty_stage > max_stage)
 			continue;
-		}
-		if (mref->ref_pos < *min) {
+		if (mref->ref_pos < *min)
 			*min = mref->ref_pos;
-		}
-		if (mref->ref_pos + mref->ref_len > *max) {
+		if (mref->ref_pos + mref->ref_len > *max)
 			*max = mref->ref_pos + mref->ref_len;
-		}
 	}
 	spin_unlock_irqrestore(&mf->mf_lock, flags);
 done:;
@@ -360,9 +354,8 @@ void mf_get_any_dirty(const char *filename, loff_t *min, loff_t *max, int min_st
 	for (tmp = mapfree_list.next; tmp != &mapfree_list; tmp = tmp->next) {
 		struct mapfree_info *mf = container_of(tmp, struct mapfree_info, mf_head);
 
-		if (!strcmp(mf->mf_name, filename)) {
+		if (!strcmp(mf->mf_name, filename))
 			mf_get_dirty(mf, min, max, min_stage, max_stage);
-		}
 	}
 	up_read(&mapfree_mutex);
 }

@@ -238,9 +238,8 @@ void copy_endio(struct generic_callback *cb)
 		/* This is racy, but does no harm.
 		 * Worst case just produces more error output.
 		 */
-		if (!brick->copy_error_count++) {
+		if (!brick->copy_error_count++)
 			MARS_WRN("IO error %d on index %d, old state = %d\n", cb->cb_error, index, st->state);
-		}
 	} else {
 		if (unlikely(st->table[queue])) {
 			MARS_ERR("overwriting index %d, state = %d\n", index, st->state);
@@ -254,11 +253,10 @@ exit:
 		st->error = error;
 		_clash(brick);
 	}
-	if (mref->ref_rw) {
+	if (mref->ref_rw)
 		atomic_dec(&brick->copy_write_flight);
-	} else {
+	else
 		atomic_dec(&brick->copy_read_flight);
-	}
 	brick->trigger = true;
 	wake_up_interruptible(&brick->event);
 	goto out_return;
@@ -305,9 +303,8 @@ int _make_mref(struct copy_brick *brick,
 	mref->ref_cs_mode = cs_mode;
 	offset = GET_OFFSET(pos);
 	len = COPY_CHUNK - offset;
-	if (pos + len > end_pos) {
+	if (pos + len > end_pos)
 		len = end_pos - pos;
-	}
 	mref->ref_len = len;
 	mref->ref_prio = rw ?
 		mars_copy_write_prio :
@@ -324,9 +321,8 @@ int _make_mref(struct copy_brick *brick,
 		_mref_free(mref);
 		goto done;
 	}
-	if (unlikely(mref->ref_len < len)) {
+	if (unlikely(mref->ref_len < len))
 		MARS_DBG("shorten len %d < %d\n", mref->ref_len, len);
-	}
 	if (queue == 0) {
 		GET_STATE(brick, index).len = mref->ref_len;
 	} else if (unlikely(mref->ref_len < GET_STATE(brick, index).len)) {
@@ -335,12 +331,10 @@ int _make_mref(struct copy_brick *brick,
 	}
 
 	GET_STATE(brick, index).active[queue] = true;
-	if (rw) {
+	if (rw)
 		atomic_inc(&brick->copy_write_flight);
-	} else {
+	else
 		atomic_inc(&brick->copy_read_flight);
-	}
-
 	GENERIC_INPUT_CALL(input, mref_io, mref);
 
 done:
@@ -427,9 +421,8 @@ restart:
 		}
 
 		next_state = COPY_STATE_READ1;
-		if (!brick->verify_mode) {
+		if (!brick->verify_mode)
 			break;
-		}
 
 		next_state = COPY_STATE_START2;
 		/* fallthrough */
@@ -460,9 +453,8 @@ restart:
 			mars_limit_sleep(brick->copy_limiter, amount);
 		}
 		// on append mode: increase the end pointer dynamically
-		if (brick->append_mode > 0 && mref0->ref_total_size && mref0->ref_total_size > brick->copy_end) {
+		if (brick->append_mode > 0 && mref0->ref_total_size && mref0->ref_total_size > brick->copy_end)
 			brick->copy_end = mref0->ref_total_size;
-		}
 		// do verify (when applicable)
 		mref1 = st->table[1];
 		if (mref1 && state != COPY_STATE_READ3) {
@@ -524,9 +516,8 @@ restart:
 		 * Currenty, bio and aio are obeying this. Be careful when
 		 * implementing new IO bricks!
 		 */
-		if (st->prev >= 0 && !GET_STATE(brick, st->prev).writeout) {
+		if (st->prev >= 0 && !GET_STATE(brick, st->prev).writeout)
 			goto idle;
-		}
 		mref0 = st->table[0];
 		if (unlikely(!mref0 || !mref0->ref_data)) {
 			MARS_ERR("src buffer for write does not exist, state %d at index %d\n", state, index);
@@ -641,9 +632,8 @@ int _run_copy(struct copy_brick *brick)
 		int index = GET_INDEX(pos);
 		struct copy_state *st = &GET_STATE(brick, index);
 
-		if (max-- <= 0) {
+		if (max-- <= 0)
 			break;
-		}
 		st->prev = prev;
 		prev = index;
 		// call the finite state automaton
@@ -661,9 +651,8 @@ int _run_copy(struct copy_brick *brick)
 			int index = GET_INDEX(pos);
 			struct copy_state *st = &GET_STATE(brick, index);
 
-			if (st->state != COPY_STATE_FINISHED) {
+			if (st->state != COPY_STATE_FINISHED)
 				break;
-			}
 			if (unlikely(st->error < 0)) {
 				/* check for fatal consistency errors */
 				if (st->error == -EMEDIUMTYPE) {
@@ -675,18 +664,16 @@ int _run_copy(struct copy_brick *brick)
 					brick->copy_error = st->error;
 					MARS_WRN("IO error = %d\n", st->error);
 				}
-				if (brick->abort_mode) {
+				if (brick->abort_mode)
 					brick->is_aborting = true;
-				}
 				break;
 			}
 			// rollover
 			st->state = COPY_STATE_START;
 			count += st->len;
 			// check contiguity
-			if (unlikely(GET_OFFSET(pos) + st->len != COPY_CHUNK)) {
+			if (unlikely(GET_OFFSET(pos) + st->len != COPY_CHUNK))
 				break;
-			}
 		}
 		if (count > 0) {
 			brick->copy_last += count;
@@ -729,9 +716,8 @@ static int _copy_thread(void *data)
 
 		if (old_end > 0) {
 			progress = _run_copy(brick);
-			if (!progress || ++rounds > 1000) {
+			if (!progress || ++rounds > 1000)
 				rounds = 0;
-			}
 		}
 
 		wait_event_interruptible_timeout(brick->event,
@@ -783,9 +769,8 @@ static int copy_ref_get(struct copy_output *output, struct mref_object *mref)
 	index = _determine_input(output->brick, mref);
 	input = output->brick->inputs[index];
 	status = GENERIC_INPUT_CALL(input, mref_get, mref);
-	if (status >= 0) {
+	if (status >= 0)
 		atomic_inc(&output->brick->io_flight);
-	}
 	return status;
 }
 
@@ -922,9 +907,8 @@ void _free_pages(struct copy_brick *brick)
 	for (i = 0; i < MAX_SUB_TABLES; i++) {
 		struct copy_state *sub_table = brick->st[i];
 
-		if (!sub_table) {
+		if (!sub_table)
 			continue;
-		}
 
 		brick_block_free(sub_table, PAGE_SIZE);
 	}

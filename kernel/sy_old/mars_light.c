@@ -228,9 +228,8 @@ static inline
 struct key_value_pair *find_key(struct key_value_pair *start, const char *key)
 {
 	while (start->key) {
-		if (!strcmp(start->key, key)) {
+		if (!strcmp(start->key, key))
 			return start;
-		}
 		start++;
 	}
 	MARS_ERR("cannot find key '%s'\n", key);
@@ -376,12 +375,10 @@ do {									\
 
 	/* Decrease the emergeny mode only in single steps.
 	 */
-	if (mars_reset_emergency && mars_emergency_mode > 0 && mars_emergency_mode > this_mode) {
+	if (mars_reset_emergency && mars_emergency_mode > 0 && mars_emergency_mode > this_mode)
 		mars_emergency_mode--;
-	} else {
+	else
 		mars_emergency_mode = this_mode;
-	}
-
 	_make_alivelink("emergency", mars_emergency_mode);
 
 	rest -= limit;
@@ -406,9 +403,8 @@ do {									\
 			if_throttle_start_size = (mars_throttle_end - percent_used) * 1024 / (mars_throttle_end - mars_throttle_start) + 1;
 	}
 
-	if (unlikely(present < global_free_space_0)) {
+	if (unlikely(present < global_free_space_0))
 		return -ENOSPC;
-	}
 	return 0;
 }
 
@@ -645,9 +641,8 @@ int _set_sio_params(struct mars_brick *_brick, void *private)
 {
 	struct sio_brick *sio_brick = (void *)_brick;
 
-	if (_brick->type == (void *)&client_brick_type) {
+	if (_brick->type == (void *)&client_brick_type)
 		return _set_client_params(_brick, private);
-	}
 	if (_brick->type != (void *)&sio_brick_type) {
 		MARS_ERR("bad brick type\n");
 		return -EINVAL;
@@ -667,12 +662,10 @@ int _set_aio_params(struct mars_brick *_brick, void *private)
 	struct aio_brick *aio_brick = (void *)_brick;
 	struct client_cookie *clc = private;
 
-	if (_brick->type == (void *)&client_brick_type) {
+	if (_brick->type == (void *)&client_brick_type)
 		return _set_client_params(_brick, private);
-	}
-	if (_brick->type == (void *)&sio_brick_type) {
+	if (_brick->type == (void *)&sio_brick_type)
 		return _set_sio_params(_brick, private);
-	}
 	if (_brick->type != (void *)&aio_brick_type) {
 		MARS_ERR("bad brick type\n");
 		return -EINVAL;
@@ -692,19 +685,16 @@ int _set_bio_params(struct mars_brick *_brick, void *private)
 {
 	struct bio_brick *bio_brick;
 
-	if (_brick->type == (void *)&client_brick_type) {
+	if (_brick->type == (void *)&client_brick_type)
 		return _set_client_params(_brick, private);
-	}
 //	remove_this
 #ifndef __USE_COMPAT
-	if (_brick->type == (void *)&aio_brick_type) {
+	if (_brick->type == (void *)&aio_brick_type)
 		return _set_aio_params(_brick, private);
-	}
 #endif
 //	end_remove_this
-	if (_brick->type == (void *)&sio_brick_type) {
+	if (_brick->type == (void *)&sio_brick_type)
 		return _set_sio_params(_brick, private);
-	}
 	if (_brick->type != (void *)&bio_brick_type) {
 		MARS_ERR("bad brick type\n");
 		return -EINVAL;
@@ -855,9 +845,8 @@ static int _parse_args(struct mars_dent *dent, char *str, int count)
 
 	if (!str)
 		goto done;
-	if (!dent->d_args) {
+	if (!dent->d_args)
 		dent->d_args = brick_strdup(str);
-	}
 	for (i = 0; i < count; i++) {
 		char *tmp;
 		int len;
@@ -1019,13 +1008,11 @@ int compare_replaylinks(struct mars_rotate *rot, const char *hosta, const char *
 	}
 
 	count = sscanf(a, "log-%d-%n", &seqa, &posa);
-	if (unlikely(count != 1)) {
+	if (unlikely(count != 1))
 		MARS_ERR_TO(rot->log_say, "replay link '%s' -> '%s' is malformed\n", linka, a);
-	}
 	count = sscanf(b, "log-%d-%n", &seqb, &posb);
-	if (unlikely(count != 1)) {
+	if (unlikely(count != 1))
 		MARS_ERR_TO(rot->log_say, "replay link '%s' -> '%s' is malformed\n", linkb, b);
-	}
 
 	if (seqa < seqb) {
 		res = -1;
@@ -1037,21 +1024,17 @@ int compare_replaylinks(struct mars_rotate *rot, const char *hosta, const char *
 
 	posa += skip_part(a + posa);
 	posb += skip_part(b + posb);
-	if (unlikely(!a[posa++])) {
+	if (unlikely(!a[posa++]))
 		MARS_ERR_TO(rot->log_say, "replay link '%s' -> '%s' is malformed\n", linka, a);
-	}
-	if (unlikely(!b[posb++])) {
+	if (unlikely(!b[posb++]))
 		MARS_ERR_TO(rot->log_say, "replay link '%s' -> '%s' is malformed\n", linkb, b);
-	}
 
 	count = sscanf(a + posa, "%lld,%lld", &offa, &taila);
-	if (unlikely(count != 2)) {
+	if (unlikely(count != 2))
 		MARS_ERR_TO(rot->log_say, "replay link '%s' -> '%s' is malformed\n", linka, a);
-	}
 	count = sscanf(b + posb, "%lld,%lld", &offb, &tailb);
-	if (unlikely(count != 2)) {
+	if (unlikely(count != 2))
 		MARS_ERR_TO(rot->log_say, "replay link '%s' -> '%s' is malformed\n", linkb, b);
-	}
 
 	if (posa < posb)
 		res = -1;
@@ -1122,13 +1105,11 @@ int _update_replay_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 		inf->inf_host,
 		inf->inf_min_pos,
 		inf->inf_max_pos - inf->inf_min_pos);
-	if (!old) {
+	if (!old)
 		goto out;
-	}
 	new = path_make("%s/replay-%s", rot->parent_path, my_id());
-	if (!new) {
+	if (!new)
 		goto out;
-	}
 
 	res = _update_link_when_necessary(rot, "replay", old, new);
 
@@ -1208,9 +1189,8 @@ int _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 	mars_digest(digest, data, len);
 
 	len = 0;
-	for (i = 0; i < mars_digest_size; i++) {
+	for (i = 0; i < mars_digest_size; i++)
 		len += sprintf(old + len, "%02x", digest[i]);
-	}
 
 	if (likely(prev_link && prev_link[0])) {
 		char *tmp;
@@ -1338,12 +1318,10 @@ void write_info_links(struct mars_rotate *rot)
 			 inf.inf_is_replaying,
 			 inf.inf_is_logging);
 
-		if (inf.inf_is_logging || inf.inf_is_replaying) {
+		if (inf.inf_is_logging || inf.inf_is_replaying)
 			count += _update_replay_link(rot, &inf);
-		}
-		if (inf.inf_is_logging || inf.inf_is_replaying) {
+		if (inf.inf_is_logging || inf.inf_is_replaying)
 			count += _update_version_link(rot, &inf);
-		}
 	}
 	if (count) {
 		if (inf.inf_min_pos == inf.inf_max_pos)
@@ -1407,9 +1385,8 @@ void _show_primary(struct mars_rotate *rot, struct mars_dent *parent)
 {
 	int status;
 
-	if (!rot || !parent) {
+	if (!rot || !parent)
 		goto out_return;
-	}
 	status = _show_actual(parent->d_path, "is-primary", rot->is_primary);
 	if (rot->is_primary != rot->old_is_primary) {
 		rot->old_is_primary = rot->is_primary;
@@ -1438,9 +1415,8 @@ void _show_brick_status(struct mars_brick *test, bool shutdown)
 
 	src = (test->power.led_on && !shutdown) ? "1" : "0";
 	dst = backskip_replace(path, '/', true, "/actual-%s/", my_id());
-	if (!dst) {
+	if (!dst)
 		goto out_return;
-	}
 
 	status = mars_symlink(src, dst, NULL, 0);
 	MARS_DBG("status symlink '%s' -> '%s' status = %d\n", dst, src, status);
@@ -1507,16 +1483,14 @@ int __make_copy(
 	bool switch_copy;
 	int status = -EINVAL;
 
-	if (!switch_path || !global) {
+	if (!switch_path || !global)
 		goto done;
-	}
 
 	// don't generate empty aio files if copy does not yet exist
 	switch_copy = _check_switch(global, switch_path);
 	copy = mars_find_brick(global, &copy_brick_type, copy_path);
-	if (!copy && !switch_copy) {
+	if (!copy && !switch_copy)
 		goto done;
-	}
 
 	// create/find predecessor aio bricks
 	for (i = 0; i < 2; i++) {
@@ -1907,15 +1881,12 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 	bool update_ctime = true;
 	bool run_trigger = false;
 
-	if (!strncmp(remote_dent->d_name, ".tmp", 4)) {
+	if (!strncmp(remote_dent->d_name, ".tmp", 4))
 		goto done;
-	}
-	if (!strncmp(remote_dent->d_name, ".deleted-", 9)) {
+	if (!strncmp(remote_dent->d_name, ".deleted-", 9))
 		goto done;
-	}
-	if (!strncmp(remote_dent->d_name, "ignore", 6)) {
+	if (!strncmp(remote_dent->d_name, "ignore", 6))
 		goto done;
-	}
 
 	// create / check markers (prevent concurrent updates)
 	if (remote_dent->new_link && !strncmp(remote_dent->d_path, "/mars/todo-global/delete-", 25)) {
@@ -2016,9 +1987,8 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 
 done:
 	brick_string_free(marker_path);
-	if (status >= 0) {
+	if (status >= 0)
 		status = run_trigger ? 1 : 0;
-	}
 	return status;
 }
 
@@ -2052,9 +2022,8 @@ int run_bones(struct mars_peerinfo *peer)
 
 	mars_free_dent_all(NULL, &tmp_list);
 
-	if (run_trigger) {
+	if (run_trigger)
 		mars_trigger();
-	}
 	return status;
 }
 
@@ -2283,9 +2252,8 @@ free_and_restart:
 	make_msg(peer_pairs, "NOT connected %s(%s)", peer->peer, real_peer);
 	show_vals(peer_pairs, "/mars", "connection-from-");
 
-	if (do_kill) {
+	if (do_kill)
 		_peer_cleanup(peer);
-	}
 
 done:
 	clear_vals(peer_pairs);
@@ -2373,9 +2341,8 @@ bool is_shutdown(void)
 			}
 			brick_msleep(30);
 		}
-		if (!res) {
+		if (!res)
 			MARS_INF("global shutdown delayed: there are %d IO requests flying\n", used);
-		}
 	}
 	return res;
 }
@@ -2389,9 +2356,8 @@ static int _kill_peer(struct mars_global *global, struct mars_peerinfo *peer)
 	LIST_HEAD(tmp_list);
 	unsigned long flags;
 
-	if (!peer) {
+	if (!peer)
 		return 0;
-	}
 
 	write_lock_irqsave(&peer_lock, flags);
 	list_del_init(&peer->peer_head);
@@ -2492,9 +2458,8 @@ static int kill_scan(void *buf, struct mars_dent *dent)
 	struct mars_peerinfo *peer = dent->d_private;
 	int res;
 
-	if (!global || global->global_power.button || !peer) {
+	if (!global || global->global_power.button || !peer)
 		return 0;
-	}
 	dent->d_private = NULL;
 	res = _kill_peer(global, peer);
 	brick_mem_free(peer);
@@ -2505,9 +2470,8 @@ static int make_scan(void *buf, struct mars_dent *dent)
 {
 	MARS_DBG("path = '%s' peer = '%s'\n", dent->d_path, dent->d_rest);
 	// don't connect to myself
-	if (!strcmp(dent->d_rest, my_id())) {
+	if (!strcmp(dent->d_rest, my_id()))
 		return 0;
-	}
 	return _make_peer(buf, dent, "/mars");
 }
 
@@ -2517,9 +2481,8 @@ int kill_any(void *buf, struct mars_dent *dent)
 	struct mars_global *global = buf;
 	struct list_head *tmp;
 
-	if (global->global_power.button || !is_shutdown()) {
+	if (global->global_power.button || !is_shutdown())
 		return 0;
-	}
 
 	for (tmp = dent->brick_list.next; tmp != &dent->brick_list; tmp = tmp->next) {
 		struct mars_brick *brick = container_of(tmp, struct mars_brick, dent_brick_link);
@@ -2557,11 +2520,10 @@ void _create_new_logfile(const char *path)
 	if (IS_ERR(f)) {
 		int err = PTR_ERR(f);
 
-		if (err == -EEXIST) {
+		if (err == -EEXIST)
 			MARS_INF("logfile '%s' already exists\n", path);
-		} else {
+		else
 			MARS_ERR("could not create logfile '%s' status = %d\n", path, err);
-		}
 	} else {
 		MARS_DBG("created empty logfile '%s'\n", path);
 		filp_close(f, NULL);
@@ -2938,9 +2900,8 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	bool switch_on;
 	int status = 0;
 
-	if (!global->global_power.button) {
+	if (!global->global_power.button)
 		goto done;
-	}
 	status = -EINVAL;
 	CHECK_PTR(parent, done);
 	parent_path = parent->d_path;
@@ -3029,9 +2990,8 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	}
 
 	status = _parse_args(replay_link, replay_link->new_link, 3);
-	if (unlikely(status < 0)) {
+	if (unlikely(status < 0))
 		goto done;
-	}
 	rot->replay_link = replay_link;
 
 	/* Fetch AIO dentry of the logfile.
@@ -3161,9 +3121,8 @@ int make_log_init(void *buf, struct mars_dent *dent)
 			       my_id());
 	rot->trans_brick = (void *)trans_brick;
 	status = -ENOENT;
-	if (!trans_brick) {
+	if (!trans_brick)
 		goto done;
-	}
 	rot->trans_brick->kill_ptr = (void **)&rot->trans_brick;
 	rot->trans_brick->replay_limiter = &rot->replay_limiter;
 	/* For safety, default is to try an (unnecessary) replay in case
@@ -3254,9 +3213,8 @@ int make_log_step(void *buf, struct mars_dent *dent)
 			dent->d_serial);
 	}
 
-	if (dent->d_serial > rot->max_sequence) {
+	if (dent->d_serial > rot->max_sequence)
 		rot->max_sequence = dent->d_serial;
-	}
 
 	if (!rot->first_log)
 		rot->first_log = dent;
@@ -3379,9 +3337,8 @@ int _check_logging_status(struct mars_rotate *rot,
 
 	MARS_DBG("    dent = '%s'\n", dent->d_path);
 	MARS_DBG("aio_dent = '%s'\n", rot->aio_dent->d_path);
-	if (unlikely(strcmp(dent->d_path, rot->aio_dent->d_path))) {
+	if (unlikely(strcmp(dent->d_path, rot->aio_dent->d_path)))
 		goto done;
-	}
 
 	if (sscanf(rot->replay_link->d_argv[0], "log-%d", log_nr) != 1) {
 		MARS_ERR_TO(rot->log_say,
@@ -3520,9 +3477,8 @@ int _make_logging_status(struct mars_rotate *rot)
 		rot->todo_primary,
 		rot->is_primary,
 		rot->old_is_primary);
-	if (status < 0) {
+	if (status < 0)
 		goto done;
-	}
 	if (unlikely(start_pos < 0 || dirty_pos < start_pos || end_pos < dirty_pos)) {
 		MARS_ERR_TO(rot->log_say,
 			"replay symlink has implausible values: start_pos = %lld dirty_pos = %lld end_pos = %lld\n",
@@ -3695,11 +3651,10 @@ void _rotate_trans(struct mars_rotate *rot)
 
 			MARS_INF("cleanup old transaction log (%d -> %d)\n", old_nr, log_nr);
 			status = generic_disconnect((void *)trans_input);
-			if (unlikely(status < 0)) {
+			if (unlikely(status < 0))
 				MARS_ERR("disconnect failed\n");
-			} else {
+			else
 				mars_remote_trigger();
-			}
 		} else {
 			MARS_DBG("old transaction replay not yet finished: is_operating = %d pos %lld != %lld\n",
 				 trans_input->is_operating,
@@ -3909,17 +3864,15 @@ int _stop_trans(struct mars_rotate *rot, const char *parent_path)
 	struct trans_logger_brick *trans_brick = rot->trans_brick;
 	int status = 0;
 
-	if (!trans_brick) {
+	if (!trans_brick)
 		goto done;
-	}
 
 	/* Switch off temporarily....
 	 */
 	status = mars_power_button((void *)trans_brick, false, false);
 	MARS_DBG("status = %d\n", status);
-	if (status < 0) {
+	if (status < 0)
 		goto done;
-	}
 
 	/* Disconnect old connection(s)
 	 */
@@ -4123,11 +4076,10 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 			rot->is_primary,
 			(int)do_stop);
 
-		if (do_stop) {
+		if (do_stop)
 			status = _stop_trans(rot, parent->d_path);
-		} else {
+		else
 			_change_trans(rot);
-		}
 		goto done;
 	}
 
@@ -4144,9 +4096,8 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		bool do_start;
 
 		status = _make_logging_status(rot);
-		if (status <= 0) {
+		if (status <= 0)
 			goto done;
-		}
 
 		rot->is_log_damaged = false;
 
@@ -4172,9 +4123,8 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 			rot->end_pos,
 			do_start);
 
-		if (do_start) {
+		if (do_start)
 			status = _start_trans(rot);
-		}
 	}
 
 done:
@@ -4196,21 +4146,18 @@ done:
 				fetch_brick->inputs[i]->brick->power.io_timeout = 1;
 		}
 		status = mars_kill_brick((void *)fetch_brick);
-		if (status < 0) {
+		if (status < 0)
 			MARS_ERR("could not kill fetch_brick, status = %d\n", status);
-		} else {
+		else
 			fetch_brick = NULL;
-		}
 		mars_trigger();
 	}
 	rot->fetch_next_is_available = 0;
 	rot->fetch_brick = fetch_brick;
-	if (fetch_brick) {
+	if (fetch_brick)
 		fetch_brick->kill_ptr = (void **)&rot->fetch_brick;
-	} else {
+	else
 		rot->fetch_serial = 0;
-	}
-
 	// remove trans_logger (when possible) upon detach
 	is_attached = !!rot->trans_brick;
 	_show_actual(rot->parent_path, "is-attached", is_attached);
@@ -4276,9 +4223,8 @@ int make_bio(void *buf, struct mars_dent *dent)
 	bool switch_on;
 	int status = 0;
 
-	if (!global || !dent->d_parent) {
+	if (!global || !dent->d_parent)
 		goto done;
-	}
 	rot = dent->d_parent->d_private;
 	if (!rot)
 		goto done;
@@ -4326,9 +4272,8 @@ int make_bio(void *buf, struct mars_dent *dent)
 		}
 		src = path_make("%lld", info.current_size);
 		dst = path_make("%s/actsize-%s", dent->d_parent->d_path, my_id());
-		if (src && dst) {
+		if (src && dst)
 			(void)mars_symlink(src, dst, NULL, 0);
-		}
 		brick_string_free(src);
 		brick_string_free(dst);
 	}
@@ -4404,9 +4349,8 @@ int make_dev(void *buf, struct mars_dent *dent)
 		 !rot->trans_brick->replay_mode &&
 		 rot->trans_brick->power.led_on &&
 		 _check_allow(global, dent->d_parent, "attach"));
-	if (!global->global_power.button) {
+	if (!global->global_power.button)
 		switch_on = false;
-	}
 	if (switch_on && rot->res_shutdown) {
 		MARS_ERR("cannot create device: resource shutdown mode is currently active\n");
 		switch_on = false;
@@ -4462,9 +4406,8 @@ int kill_dev(void *buf, struct mars_dent *dent)
 	if (status > 0 && parent) {
 		struct mars_rotate *rot = parent->d_private;
 
-		if (rot) {
+		if (rot)
 			rot->if_brick = NULL;
-		}
 	}
 	return status;
 }
@@ -4581,9 +4524,8 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	bool do_start;
 	int status;
 
-	if (!dent->d_parent || !dent->new_link) {
+	if (!dent->d_parent || !dent->new_link)
 		return 0;
-	}
 
 	/* Determine peer
 	 */
@@ -4807,13 +4749,11 @@ int make_connect(void *buf, struct mars_dent *dent)
 	char *this_name;
 	char *tmp;
 
-	if (unlikely(!dent->d_parent || !dent->new_link)) {
+	if (unlikely(!dent->d_parent || !dent->new_link))
 		goto done;
-	}
 	rot = dent->d_parent->d_private;
-	if (unlikely(!rot)) {
+	if (unlikely(!rot))
 		goto done;
-	}
 
 	names = brick_strdup(dent->new_link);
 	for (tmp = this_name = names; *tmp; tmp++) {
@@ -4847,9 +4787,8 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	int max_serial = 0;
 	int status;
 
-	if (!global || !dent || !dent->new_link || !dent->d_path) {
+	if (!global || !dent || !dent->new_link || !dent->d_path)
 		goto err;
-	}
 
 	// create a marker which prevents concurrent updates from remote hosts
 	marker_path = backskip_replace(dent->new_link, '/', true, "/.deleted-");
@@ -4942,9 +4881,8 @@ static int check_deleted(void *buf, struct mars_dent *dent)
 	int serial = 0;
 	int status;
 
-	if (!global || !dent || !dent->new_link) {
+	if (!global || !dent || !dent->new_link)
 		goto done;
-	}
 
 	status = kstrtoint(dent->new_link, 10, &serial);
 	if (unlikely(status || serial <= 0)) {
@@ -5052,9 +4990,8 @@ int kill_res(void *buf, struct mars_dent *dent)
 			MARS_INF("switching off resource '%s', logger status = %d\n", rot->parent_path, status);
 		}
 	}
-	if (!rot->if_brick && !rot->sync_brick && !rot->fetch_brick && !rot->trans_brick) {
+	if (!rot->if_brick && !rot->sync_brick && !rot->fetch_brick && !rot->trans_brick)
 		rot->res_shutdown = false;
-	}
 
 done:
 	return 0;
@@ -5876,9 +5813,8 @@ char *_mars_info(void)
 	int brick_count = 0;
 	int pos = 0;
 
-	if (unlikely(!mars_global)) {
+	if (unlikely(!mars_global))
 		return NULL;
-	}
 
 	txt = brick_string_alloc(max);
 

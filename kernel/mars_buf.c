@@ -95,9 +95,8 @@ struct buf_head *_hash_find_insert(struct buf_brick *brick, loff_t base_index, s
 
 			if (++count > max) {
 				max = count;
-				if (!(max % 10)) {
+				if (!(max % 10))
 					MARS_INF("hash maxlen=%d hash=%d base_index=%llu\n", max, hash, base_index);
-				}
 			}
 		}
 #endif
@@ -170,11 +169,10 @@ void _add_bf_list(struct buf_brick *brick, struct buf_head *bf, int nr, bool at_
 		atomic_dec(&brick->list_count[bf->bf_member]);
 		list_del(&bf->bf_list_head);
 	}
-	if (at_end) {
+	if (at_end)
 		list_add_tail(&bf->bf_list_head, &brick->list_anchor[nr]);
-	} else {
+	else
 		list_add(&bf->bf_list_head, &brick->list_anchor[nr]);
-	}
 	bf->bf_member = nr;
 	bf->bf_jiffies = jiffies;
 
@@ -336,12 +334,10 @@ void _bf_put(struct buf_head *bf)
 		goto out_return;
 #if 1
 	MARS_DBG("ZERO_COUNT %p %d\n", bf, at_end);
-	if (unlikely(!list_empty(&bf->bf_io_pending_anchor))) {
+	if (unlikely(!list_empty(&bf->bf_io_pending_anchor)))
 		MARS_ERR("bf_io_pending_anchor is not empty!\n");
-	}
-	if (unlikely(!list_empty(&bf->bf_postpone_anchor))) {
+	if (unlikely(!list_empty(&bf->bf_postpone_anchor)))
 		MARS_ERR("bf_postpone_anchor is not empty!\n");
-	}
 #endif
 
 	list = LIST_LRU;
@@ -361,9 +357,8 @@ out_return:;
 static inline
 void _mref_assign(struct buf_head *bf, struct buf_mref_aspect *mref_a)
 {
-	if (mref_a->rfa_bf) {
+	if (mref_a->rfa_bf)
 		goto out_return;
-	}
 	mref_a->rfa_bf = bf;
 	atomic_inc(&bf->bf_mref_count);
 out_return:;
@@ -375,9 +370,8 @@ bool _mref_remove(struct buf_head *bf, struct buf_mref_aspect *mref_a)
 	//struct mref_object *mref;
 	bool status;
 
-	if (!mref_a->rfa_bf) {
+	if (!mref_a->rfa_bf)
 		return false;
-	}
 	mref_a->rfa_bf = NULL;
 	CHECK_ATOMIC(&bf->bf_mref_count, 1);
 	status = atomic_dec_and_test(&bf->bf_mref_count);
@@ -446,9 +440,8 @@ static int buf_ref_get(struct buf_output *output, struct mref_object *mref)
 
 	base_pos = mref->ref_pos & ~(loff_t)(brick->backing_size - 1);
 	base_offset = (mref->ref_pos - base_pos);
-	if (unlikely(base_offset < 0 || base_offset >= brick->backing_size)) {
+	if (unlikely(base_offset < 0 || base_offset >= brick->backing_size))
 		MARS_ERR("bad base_offset %d\n", base_offset);
-	}
 
 	max_len = brick->backing_size - base_offset;
 	if (mref->ref_len > max_len)
@@ -460,9 +453,8 @@ again:
 #if 1
 		loff_t end_pos = bf->bf_pos + brick->backing_size;
 
-		if (mref->ref_pos < bf->bf_pos || mref->ref_pos >= end_pos) {
+		if (mref->ref_pos < bf->bf_pos || mref->ref_pos >= end_pos)
 			MARS_ERR("hash corruption. %lld not in (%lld ... %lld)\n", mref->ref_pos, bf->bf_pos, end_pos);
-		}
 #endif
 		_remove_bf_list(brick, bf);
 		atomic_inc(&brick->hit_count);
@@ -734,9 +726,8 @@ static void _buf_endio(struct generic_callback *cb)
 
 	// update flags. this must be done before the callbacks.
 	old_flags = bf->bf_flags;
-	if (bf->bf_error >= 0 && (old_flags & MREF_READING)) {
+	if (bf->bf_error >= 0 && (old_flags & MREF_READING))
 		bf->bf_flags |= MREF_UPTODATE;
-	}
 
 	// clear the flags, callbacks must not see them. may be re-enabled later.
 	bf->bf_flags &= ~(MREF_READING | MREF_WRITING);
@@ -764,13 +755,11 @@ static void _buf_endio(struct generic_callback *cb)
 			rfa_pending_head);
 		struct mref_object *mref = mref_a->object;
 
-		if (mref_a->rfa_bf != bf) {
+		if (mref_a->rfa_bf != bf)
 			MARS_ERR("bad pointers %p != %p\n", mref_a->rfa_bf, bf);
-		}
 #if 1
-		if (!(++count % 1000)) {
+		if (!(++count % 1000))
 			MARS_ERR("endless loop 1\n");
-		}
 #endif
 		list_del_init(&mref_a->rfa_pending_head);
 		list_add_tail(&mref_a->rfa_pending_head, &bf->bf_io_pending_anchor);
@@ -799,9 +788,8 @@ static void _buf_endio(struct generic_callback *cb)
 				start_len -= start_diff;
 			}
 			end_diff = (mref->ref_pos + mref->ref_len) - (start_pos + start_len);
-			if (end_diff > 0) {
+			if (end_diff > 0)
 				start_len += end_diff;
-			}
 		}
 	}
 
@@ -815,13 +803,11 @@ static void _buf_endio(struct generic_callback *cb)
 		struct buf_mref_aspect *mref_a = container_of(tmp.next, struct buf_mref_aspect, rfa_pending_head);
 		struct mref_object *mref = mref_a->object;
 
-		if (mref_a->rfa_bf != bf) {
+		if (mref_a->rfa_bf != bf)
 			MARS_ERR("bad pointers %p != %p\n", mref_a->rfa_bf, bf);
-		}
 #if 1
-		if (!(++count % 1000)) {
+		if (!(++count % 1000))
 			MARS_ERR("endless loop 2\n");
-		}
 #endif
 		_mref_check(mref);
 		/* It should be safe to do this without locking, because
@@ -900,9 +886,8 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 		//FIXME: race condition :(
 		if (!brick->got_info)
 			_get_info(brick);
-		if (end > brick->base_info.current_size) {
+		if (end > brick->base_info.current_size)
 			brick->base_info.current_size = end;
-		}
 	}
 
 #if 1
@@ -945,9 +930,8 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 		bf->bf_flags |= MREF_UPTODATE;
 		goto already_done;
 #endif
-		if (bf->bf_flags & MREF_READING) {
+		if (bf->bf_flags & MREF_READING)
 			MARS_ERR("bad bf_flags %d\n", bf->bf_flags);
-		}
 		if (!(bf->bf_flags & MREF_WRITING)) {
 #if 0
 			// by definition, a writeout buffer is always uptodate
@@ -1078,9 +1062,8 @@ static int buf_brick_construct(struct buf_brick *brick)
 	brick->backing_size = PAGE_SIZE;
 	brick->max_count = 32;
 	spin_lock_init(&brick->brick_lock);
-	for (i = 0; i < LIST_MAX; i++) {
+	for (i = 0; i < LIST_MAX; i++)
 		INIT_LIST_HEAD(&brick->list_anchor[i]);
-	}
 	for (i = 0; i < MARS_BUF_HASH_MAX; i++) {
 		spin_lock_init(&brick->cache_anchors[i].hash_lock);
 		INIT_LIST_HEAD(&brick->cache_anchors[i].hash_anchor);
@@ -1100,12 +1083,10 @@ static int buf_brick_destruct(struct buf_brick *brick)
 	brick->max_count = 0;
 	_prune_cache(brick, 0);
 
-	for (i = 0; i < LIST_MAX; i++) {
+	for (i = 0; i < LIST_MAX; i++)
 		CHECK_HEAD_EMPTY(&brick->list_anchor[i]);
-	}
-	for (i = 0; i < MARS_BUF_HASH_MAX; i++) {
+	for (i = 0; i < MARS_BUF_HASH_MAX; i++)
 		CHECK_HEAD_EMPTY(&brick->cache_anchors[i].hash_anchor);
-	}
 
 	return 0;
 }

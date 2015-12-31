@@ -173,9 +173,8 @@ void _remove_binding(struct task_struct *whom)
 
 	for (ch = channel_list; ch; ch = ch->ch_next) {
 		for (i = 0; i < ch->ch_id_max; i++) {
-			if (ch->ch_ids[i] == whom) {
+			if (ch->ch_ids[i] == whom)
 				ch->ch_ids[i] = NULL;
-			}
 		}
 	}
 }
@@ -192,12 +191,10 @@ void bind_to_channel(struct say_channel *ch, struct task_struct *whom)
 			goto done;
 		}
 	}
-	if (likely(ch->ch_id_max < MAX_IDS - 1)) {
+	if (likely(ch->ch_id_max < MAX_IDS - 1))
 		ch->ch_ids[ch->ch_id_max++] = whom;
-	} else {
+	else
 		goto err;
-	}
-
 done:
 	write_unlock(&say_lock);
 	goto out_return;
@@ -216,9 +213,8 @@ struct say_channel *get_binding(struct task_struct *whom)
 	read_lock(&say_lock);
 	for (ch = channel_list; ch; ch = ch->ch_next) {
 		for (i = 0; i < ch->ch_id_max; i++) {
-			if (ch->ch_ids[i] == whom) {
+			if (ch->ch_ids[i] == whom)
 				goto found;
-			}
 		}
 	}
 	ch = NULL;
@@ -240,9 +236,8 @@ void remove_binding_from(struct say_channel *ch, struct task_struct *whom)
 			break;
 		}
 	}
-	if (!found) {
+	if (!found)
 		_remove_binding(whom);
-	}
 	write_unlock(&say_lock);
 }
 
@@ -255,9 +250,8 @@ void remove_binding(struct task_struct *whom)
 
 void rollover_channel(struct say_channel *ch)
 {
-	if (!ch) {
+	if (!ch)
 		ch = find_channel(current);
-	}
 	if (likely(ch))
 		ch->ch_rollover = true;
 }
@@ -267,9 +261,8 @@ void rollover_all(void)
 	struct say_channel *ch;
 
 	read_lock(&say_lock);
-	for (ch = channel_list; ch; ch = ch->ch_next) {
+	for (ch = channel_list; ch; ch = ch->ch_next)
 		ch->ch_rollover = true;
-	}
 	read_unlock(&say_lock);
 }
 
@@ -487,9 +480,8 @@ void say_to(struct say_channel *ch, int class, const char *fmt, ...)
 
 	if (!class && !brick_say_debug)
 		goto out_return;
-	if (!ch) {
+	if (!ch)
 		ch = find_channel(current);
-	}
 
 	if (likely(ch)) {
 		if (!ch->ch_is_dir)
@@ -546,9 +538,8 @@ void brick_say_to(struct say_channel *ch,
 	s_now = CURRENT_TIME;
 	get_lamport(&l_now);
 
-	if (!ch) {
+	if (!ch)
 		ch = find_channel(current);
-	}
 
 	orig_class = class;
 
@@ -628,9 +619,8 @@ void try_open_file(struct file **file, char *filename, bool creat)
 		goto out_return;
 	}
 	mapping = (*file)->f_mapping;
-	if (likely(mapping)) {
+	if (likely(mapping))
 		mapping_set_gfp_mask(mapping, mapping_gfp_mask(mapping) & ~(__GFP_IO | __GFP_FS));
-	}
 out_return:;
 }
 
@@ -829,9 +819,8 @@ void treat_channel(struct say_channel *ch, int class)
 			       overflow);
 		ch->ch_status_written += len;
 		out_to_syslog(class, buf, len);
-		for (transact = 0; transact < 2; transact++) {
+		for (transact = 0; transact < 2; transact++)
 			out_to_file(ch->ch_filp[class][transact], buf, len);
-		}
 	}
 }
 
@@ -908,16 +897,14 @@ void exit_say(void)
 	}
 
 	default_channel = NULL;
-	while (channel_list) {
+	while (channel_list)
 		_del_channel(channel_list);
-	}
 
 	memleak_channels = atomic_read(&say_alloc_channels);
 	memleak_names = atomic_read(&say_alloc_names);
 	memleak_pages = atomic_read(&say_alloc_pages);
-	if (unlikely(memleak_channels || memleak_names || memleak_pages)) {
+	if (unlikely(memleak_channels || memleak_names || memleak_pages))
 		printk("MEMLEAK: channels=%d names=%d pages=%d\n", memleak_channels, memleak_names, memleak_pages);
-	}
 }
 
 #ifdef CONFIG_MARS_DEBUG

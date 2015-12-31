@@ -75,9 +75,8 @@ static int sio_ref_get(struct sio_output *output, struct mref_object *mref)
 				}
 			}
 			// Shorten below EOF, but allow special case
-			if (mref->ref_len > len && len > 0) {
+			if (mref->ref_len > len && len > 0)
 				mref->ref_len = len;
-			}
 		}
 	}
 
@@ -154,9 +153,8 @@ int read_aops(struct sio_output *output, struct mref_object *mref)
 	ret = vfs_read(output->mf->mf_filp, mref->ref_data, len, &pos);
 	set_fs(oldfs);
 
-	if (unlikely(ret < 0)) {
+	if (unlikely(ret < 0))
 		MARS_ERR("%p %p status=%d\n", output, mref, ret);
-	}
 	return ret;
 }
 
@@ -170,9 +168,8 @@ static void sync_file(struct sio_output *output)
 #else
 	ret = vfs_fsync(file, 1);
 #endif
-	if (unlikely(ret)) {
+	if (unlikely(ret))
 		MARS_ERR("syncing pages failed: %d\n", ret);
-	}
 	goto out_return;
 out_return:;
 }

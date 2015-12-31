@@ -79,9 +79,8 @@ int trigger_sysctl_handler(
 
 	MARS_DBG("write = %d len = %ld pos = %lld\n", write, len, *ppos);
 
-	if (!len || *ppos > 0) {
+	if (!len || *ppos > 0)
 		goto done;
-	}
 
 	if (write) {
 		char tmp[8] = {};
@@ -96,12 +95,10 @@ int trigger_sysctl_handler(
 
 			/* the return value from ssanf() does not matter */
 			(void)status;
-			if (code > 0) {
+			if (code > 0)
 				mars_trigger();
-			}
-			if (code > 1) {
+			if (code > 1)
 				mars_remote_trigger();
-			}
 		}
 	} else {
 		char *answer = "MARS module not operational\n";
@@ -149,9 +146,8 @@ int lamport_sysctl_handler(
 
 	MARS_DBG("write = %d len = %ld pos = %lld\n", write, len, *ppos);
 
-	if (!len || *ppos > 0) {
+	if (!len || *ppos > 0)
 		goto done;
-	}
 
 	if (write) {
 		return -EINVAL;
