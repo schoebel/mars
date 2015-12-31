@@ -59,9 +59,9 @@ int mars_copy_read_prio = MARS_PRIO_NORMAL;
 
 int mars_copy_write_prio = MARS_PRIO_NORMAL;
 
-int mars_copy_read_max_fly = 0;
+int mars_copy_read_max_fly;
 
-int mars_copy_write_max_fly = 0;
+int mars_copy_write_max_fly;
 
 #define is_read_limited(brick)						\
 	(mars_copy_read_max_fly > 0 && atomic_read(&(brick)->copy_read_flight) >= mars_copy_read_max_fly)
@@ -789,7 +789,7 @@ static void copy_ref_io(struct copy_output *output, struct mref_object *mref)
 
 static int copy_switch(struct copy_brick *brick)
 {
-	static int version = 0;
+	static int version;
 
 	MARS_DBG("power.button = %d\n", brick->power.button);
 	if (brick->power.button) {

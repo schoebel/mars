@@ -87,7 +87,7 @@ struct buf_head *_hash_find_insert(struct buf_brick *brick, loff_t base_index, s
 #endif
 #if 1
 		{
-			static int max = 0;
+			static int max;
 			if (++count > max) {
 				max = count;
 				if (!(max % 10)) {
@@ -1062,8 +1062,7 @@ static int buf_brick_destruct(struct buf_brick *brick)
 
 ///////////////////////// static structs ////////////////////////
 
-static struct buf_brick_ops buf_brick_ops = {
-};
+static struct buf_brick_ops buf_brick_ops;
 
 static struct buf_output_ops buf_output_ops = {
 	.mars_get_info = buf_get_info,

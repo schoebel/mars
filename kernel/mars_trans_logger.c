@@ -2940,7 +2940,7 @@ int trans_logger_thread(void *data)
 static
 int trans_logger_switch(struct trans_logger_brick *brick)
 {
-	static int index = 0;
+	static int index;
 	struct trans_logger_output *output = brick->outputs[0];
 
 	if (brick->power.button) {

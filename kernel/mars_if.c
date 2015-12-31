@@ -87,7 +87,7 @@
 //      end_remove_this
 ///////////////////////// global tuning ////////////////////////
 
-int if_throttle_start_size = 0; // in kb
+int if_throttle_start_size;
 
 struct mars_limiter if_throttle = {
 	.lim_max_rate = 5000,
@@ -108,7 +108,7 @@ struct if_hash_anchor {
 ///////////////////////// own static definitions ////////////////////////
 
 // TODO: check bounds, ensure that free minor numbers are recycled
-static int device_minor = 0;
+static int device_minor;
 
 //////////////// object / aspect constructors / destructors ///////////////
 
@@ -1256,8 +1256,7 @@ static struct if_brick_ops if_brick_ops = {
 	.reset_statistics = if_reset_statistics,
 };
 
-static struct if_output_ops if_output_ops = {
-};
+static struct if_output_ops if_output_ops;
 
 const struct if_input_type if_input_type = {
 	.type_name = "if_input",

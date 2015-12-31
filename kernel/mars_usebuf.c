@@ -320,8 +320,7 @@ static int usebuf_output_construct(struct usebuf_output *output)
 
 ///////////////////////// static structs ////////////////////////
 
-static struct usebuf_brick_ops usebuf_brick_ops = {
-};
+static struct usebuf_brick_ops usebuf_brick_ops;
 
 static struct usebuf_output_ops usebuf_output_ops = {
 	.mars_get_info = usebuf_get_info,

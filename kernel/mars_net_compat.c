@@ -40,7 +40,7 @@
 
 // Compatibility to old network data format: to be removed for kernel upstream
 
-int use_old_format = 0;
+int use_old_format;
 
 struct mars_desc_cache_old {
 	u64   cache_sender_cookie;

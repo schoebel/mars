@@ -99,11 +99,11 @@
 		MARS_ERR(fmt, ##args);					\
 	})
 
-loff_t raw_total_space = 0;
-loff_t global_total_space = 0;
+loff_t raw_total_space;
+loff_t global_total_space;
 
-loff_t raw_remaining_space = 0;
-loff_t global_remaining_space = 0;
+loff_t raw_remaining_space;
+loff_t global_remaining_space;
 
 
 int global_logrot_auto = 32;
@@ -119,12 +119,12 @@ int global_free_space_3 = CONFIG_MARS_MIN_SPACE_3;
 
 int global_free_space_4 = CONFIG_MARS_MIN_SPACE_4;
 
-int _global_sync_want = 0;
-int global_sync_want = 0;
+int _global_sync_want;
+int global_sync_want;
 
-int global_sync_nr = 0;
+int global_sync_nr;
 
-int global_sync_limit = 0;
+int global_sync_limit;
 
 int mars_rollover_interval = 3;
 module_param_named(mars_rollover_interval, mars_rollover_interval, int, 0);
@@ -147,7 +147,7 @@ int mars_throttle_start = 60;
 
 int mars_throttle_end = 90;
 
-int mars_emergency_mode = 0;
+int mars_emergency_mode;
 
 int mars_reset_emergency = 1;
 
@@ -406,7 +406,7 @@ do {								\
 
 ///////////////////////////////////////////////////////////////////
 
-static struct task_struct *main_thread = NULL;
+static struct task_struct *main_thread;
 
 typedef int (*light_worker_fn)(void *buf, struct mars_dent *dent);
 
@@ -2269,7 +2269,7 @@ void peer_destruct(void *_peer)
 
 static int _make_peer(struct mars_global *global, struct mars_dent *dent, char *path)
 {
-	static int serial = 0;
+	static int serial;
 	struct mars_peerinfo *peer;
 	char *mypeer;
 	char *parent_path;
@@ -5400,9 +5400,9 @@ char *_mars_info(void)
 }
 
 #define INIT_MAX 32
-static char *exit_names[INIT_MAX] = {};
-static void (*exit_fn[INIT_MAX])(void) = {};
-static int exit_fn_nr = 0;
+static char *exit_names[INIT_MAX];
+static void (*exit_fn[INIT_MAX])(void);
+static int exit_fn_nr;
 
 #define DO_INIT(name)						\
 	do {							\

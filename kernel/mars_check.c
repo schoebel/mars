@@ -281,7 +281,7 @@ static int check_brick_construct(struct check_brick *brick)
 
 static int check_output_construct(struct check_output *output)
 {
-	static int count = 0;
+	static int count;
 #ifdef CHECK_LOCK
 
 	spin_lock_init(&output->check_lock);
@@ -294,8 +294,7 @@ static int check_output_construct(struct check_output *output)
 
 ///////////////////////// static structs ////////////////////////
 
-static struct check_brick_ops check_brick_ops = {
-};
+static struct check_brick_ops check_brick_ops;
 
 static struct check_output_ops check_output_ops = {
 	.mars_get_info = check_get_info,

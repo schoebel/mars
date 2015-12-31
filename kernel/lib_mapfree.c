@@ -362,7 +362,7 @@ void mf_get_any_dirty(const char *filename, loff_t *min, loff_t *max, int min_st
 ////////////////// module init stuff /////////////////////////
 
 static
-struct task_struct *mf_thread = NULL;
+struct task_struct *mf_thread;
 
 int __init init_mars_mapfree(void)
 {

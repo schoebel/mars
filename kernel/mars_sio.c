@@ -410,7 +410,7 @@ static int sio_brick_construct(struct sio_brick *brick)
 
 static int sio_switch(struct sio_brick *brick)
 {
-	static int sio_nr = 0;
+	static int sio_nr;
 	struct sio_output *output = brick->outputs[0];
 	const char *path = output->brick->brick_path;
 	int status = 0;

@@ -45,8 +45,8 @@
 
 #include "mars_server.h"
 
-static struct mars_socket server_socket[NR_SOCKETS] = {};
-static struct task_struct *server_threads[NR_SOCKETS] = {};
+static struct mars_socket server_socket[NR_SOCKETS];
+static struct task_struct *server_threads[NR_SOCKETS];
 
 ///////////////////////// own helper functions ////////////////////////
 
@@ -263,7 +263,7 @@ int server_switch(struct server_brick *brick)
 	int status = 0;
 
 	if (brick->power.button) {
-		static int version = 0;
+		static int version;
 		bool ok;
 
 		if (brick->power.led_on)
@@ -432,7 +432,7 @@ const struct server_brick_type server_brick_type = {
 
 // strategy layer
 
-int server_show_statist = 0;
+int server_show_statist;
 
 ////////////////// module init stuff /////////////////////////
 

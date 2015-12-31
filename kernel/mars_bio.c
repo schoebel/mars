@@ -48,7 +48,7 @@
 #endif
 
 //      end_remove_this
-static struct timing_stats timings[2] = {};
+static struct timing_stats timings[2];
 
 struct threshold bio_submit_threshold = {
 	.thr_ban = &mars_global_ban,
@@ -698,7 +698,7 @@ static int bio_switch(struct bio_brick *brick)
 		mars_power_led_off((void*)brick, false);
 		
 		if (!brick->bdev) {
-			static int index = 0;
+			static int index;
 			const char *path = brick->brick_path;
 			int flags = O_RDWR | O_EXCL | O_LARGEFILE;
 			struct address_space *mapping;

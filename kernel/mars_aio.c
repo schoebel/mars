@@ -48,7 +48,7 @@
 #define MARS_MAX_AIO      1024
 #define MARS_MAX_AIO_READ 32
 
-static struct timing_stats timings[3] = {};
+static struct timing_stats timings[3];
 
 struct threshold aio_submit_threshold = {
 	.thr_ban = &mars_global_ban,
@@ -97,8 +97,8 @@ int aio_sync_mode = 2;
  */
 #include <linux/mmu_context.h>
 
-struct mm_struct *mm_fake = NULL;
-struct task_struct *mm_fake_task = NULL;
+struct mm_struct *mm_fake;
+struct task_struct *mm_fake_task;
 atomic_t mm_fake_count = ATOMIC_INIT(0);
 
 static inline void set_fake(void)

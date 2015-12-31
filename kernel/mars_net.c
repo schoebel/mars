@@ -60,7 +60,7 @@ enum COMPRESS_TYPES {
 	/* insert further methods here */
 };
 
-int mars_net_compress_data = 0;
+int mars_net_compress_data;
 
 const u16 net_global_flags = 0
 #ifdef __HAVE_LZO
@@ -132,7 +132,7 @@ struct mars_desc_header {
  */
 
 #ifdef __LITTLE_ENDIAN
-static const bool myself_is_bigendian = false;
+static const bool myself_is_bigendian;
 #endif
 #ifdef __BIG_ENDIAN
 static const bool myself_is_bigendian = true;
@@ -217,7 +217,7 @@ struct mars_tcp_params default_tcp_params = {
 	.tcp_keepidle = 4,
 };
 
-static char *id = NULL;
+static char *id;
 
 char *my_id(void)
 {
@@ -302,7 +302,7 @@ int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec)
 	return status;
 }
 
-static int current_debug_nr = 0; // no locking, just for debugging
+static int current_debug_nr; // no locking, just for debugging
 
 static
 void _set_socketopts(struct socket *sock)
@@ -1823,7 +1823,7 @@ done:
 
 char *(*mars_translate_hostname)(const char *name) = NULL;
 
-bool mars_net_is_alive = false;
+bool mars_net_is_alive;
 
 int __init init_mars_net(void)
 {

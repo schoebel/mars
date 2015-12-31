@@ -82,8 +82,8 @@
 
 #include <linux/swap.h>
 
-long long brick_global_memavail = 0;
-long long brick_global_memlimit = 0;
+long long brick_global_memavail;
+long long brick_global_memlimit;
 atomic64_t brick_global_block_used = ATOMIC64_INIT(0);
 
 void get_total_ram(void)
@@ -102,9 +102,9 @@ void get_total_ram(void)
 #ifdef BRICK_DEBUG_MEM
 static atomic_t phys_mem_alloc = ATOMIC_INIT(0);
 static atomic_t mem_redirect_alloc = ATOMIC_INIT(0);
-static atomic_t mem_count[BRICK_DEBUG_MEM] = {};
-static atomic_t mem_free[BRICK_DEBUG_MEM] = {};
-static int  mem_len[BRICK_DEBUG_MEM] = {};
+static atomic_t mem_count[BRICK_DEBUG_MEM];
+static atomic_t mem_free[BRICK_DEBUG_MEM];
+static int  mem_len[BRICK_DEBUG_MEM];
 #define PLUS_SIZE (6 * sizeof(int))
 #else
 #define PLUS_SIZE (2 * sizeof(int))
@@ -260,8 +260,8 @@ _out_return:;
 
 #ifdef BRICK_DEBUG_MEM
 static atomic_t phys_string_alloc = ATOMIC_INIT(0);
-static atomic_t string_count[BRICK_DEBUG_MEM] = {};
-static atomic_t string_free[BRICK_DEBUG_MEM] = {};
+static atomic_t string_count[BRICK_DEBUG_MEM];
+static atomic_t string_free[BRICK_DEBUG_MEM];
 #endif
 
 char *_brick_string_alloc(int len, int line)
@@ -387,7 +387,7 @@ int len2order(int len)
 }
 
 #ifdef CONFIG_MARS_MEM_PREALLOC
-static atomic_t _alloc_count[BRICK_MAX_ORDER+1] = {};
+static atomic_t _alloc_count[BRICK_MAX_ORDER+1];
 int brick_mem_alloc_count[BRICK_MAX_ORDER+1] = {};
 int brick_mem_alloc_max[BRICK_MAX_ORDER+1] = {};
 int brick_mem_freelist_max[BRICK_MAX_ORDER+1] = {};
@@ -396,14 +396,14 @@ int brick_mem_freelist_max[BRICK_MAX_ORDER+1] = {};
 #ifdef BRICK_DEBUG_MEM
 static atomic_t phys_block_alloc = ATOMIC_INIT(0);
 // indexed by line
-static atomic_t block_count[BRICK_DEBUG_MEM] = {};
-static atomic_t block_free[BRICK_DEBUG_MEM] = {};
-static int  block_len[BRICK_DEBUG_MEM] = {};
+static atomic_t block_count[BRICK_DEBUG_MEM];
+static atomic_t block_free[BRICK_DEBUG_MEM];
+static int  block_len[BRICK_DEBUG_MEM];
 // indexed by order
-static atomic_t op_count[BRICK_MAX_ORDER+1] = {};
-static atomic_t raw_count[BRICK_MAX_ORDER+1] = {};
-static int alloc_line[BRICK_MAX_ORDER+1] = {};
-static int alloc_len[BRICK_MAX_ORDER+1] = {};
+static atomic_t op_count[BRICK_MAX_ORDER+1];
+static atomic_t raw_count[BRICK_MAX_ORDER+1];
+static int alloc_line[BRICK_MAX_ORDER+1];
+static int alloc_len[BRICK_MAX_ORDER+1];
 #endif
 
 #ifdef CONFIG_MARS_DEBUG_MEM_STRONG
@@ -547,8 +547,8 @@ int brick_pre_reserve[BRICK_MAX_ORDER+1] = {};
  * for higher-order pages which should be rather low-frequency.
  */
 static spinlock_t freelist_lock[BRICK_MAX_ORDER+1];
-static void *brick_freelist[BRICK_MAX_ORDER+1] = {};
-static atomic_t freelist_count[BRICK_MAX_ORDER+1] = {};
+static void *brick_freelist[BRICK_MAX_ORDER+1];
+static atomic_t freelist_count[BRICK_MAX_ORDER+1];
 
 static
 void *_get_free(int order, int cline)

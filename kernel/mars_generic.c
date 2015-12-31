@@ -97,9 +97,9 @@ const struct meta mars_timespec_meta[] = {
 #include <linux/scatterlist.h>
 #include <linux/crypto.h>
 
-static struct crypto_hash *mars_tfm = NULL;
+static struct crypto_hash *mars_tfm;
 static struct semaphore tfm_sem;
-int mars_digest_size = 0;
+int mars_digest_size;
 
 void mars_digest(unsigned char *digest, void *data, int len)
 {

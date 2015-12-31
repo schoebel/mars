@@ -864,7 +864,7 @@ void bind_to_dent(struct mars_dent *dent, struct say_channel **ch)
 
 // infrastructure
 
-struct mars_global *mars_global = NULL;
+struct mars_global *mars_global;
 
 void (*_mars_trigger)(void) = NULL;
 
@@ -1247,7 +1247,7 @@ static int _mars_readdir(struct mars_cookie *cookie)
 
 int mars_dent_work(struct mars_global *global, char *dirname, int allocsize, mars_dent_checker_fn checker, mars_dent_worker_fn worker, void *buf, int maxdepth)
 {
-	static int version = 0;
+	static int version;
 	struct mars_cookie cookie = {
 		.global = global,
 		.checker = checker,
@@ -1985,14 +1985,14 @@ struct mars_brick *path_find_brick(struct mars_global *global, const void *brick
 	return res;
 }
 
-const struct generic_brick_type *_client_brick_type = NULL;
-const struct generic_brick_type *_bio_brick_type = NULL;
+const struct generic_brick_type *_client_brick_type;
+const struct generic_brick_type *_bio_brick_type;
 //      remove_this
 #ifndef __USE_COMPAT
-const struct generic_brick_type *_aio_brick_type = NULL;
+const struct generic_brick_type *_aio_brick_type;
 #endif
 //      end_remove_this
-const struct generic_brick_type *_sio_brick_type = NULL;
+const struct generic_brick_type *_sio_brick_type;
 
 struct mars_brick *make_brick_all(
 	struct mars_global *global,
@@ -2192,7 +2192,7 @@ done:
 
 // statistics
 
-int global_show_statist = 0;
+int global_show_statist;
 module_param_named(show_statist, global_show_statist, int, 0);
 
 static

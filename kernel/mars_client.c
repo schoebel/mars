@@ -46,7 +46,7 @@ int max_client_bulk = 16;
 
 ///////////////////////// own helper functions ////////////////////////
 
-static int thread_count = 0;
+static int thread_count;
 
 static
 void _do_resubmit(struct client_channel *ch)

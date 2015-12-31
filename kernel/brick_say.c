@@ -70,7 +70,7 @@ const char *say_class[MAX_SAY_CLASS] = {
 
 int brick_say_logging = 1;
 module_param_named(say_logging, brick_say_logging, int, 0);
-int brick_say_debug = 0;
+int brick_say_debug;
 module_param_named(say_debug, brick_say_debug, int, 0);
 
 int brick_say_syslog_min = 1;
@@ -89,8 +89,8 @@ static atomic_t say_alloc_channels = ATOMIC_INIT(0);
 static atomic_t say_alloc_names = ATOMIC_INIT(0);
 static atomic_t say_alloc_pages = ATOMIC_INIT(0);
 
-static unsigned long flood_start_jiffies = 0;
-static int flood_count = 0;
+static unsigned long flood_start_jiffies;
+static int flood_count;
 
 struct say_channel {
 	char *ch_name;
@@ -111,17 +111,17 @@ struct say_channel {
 	wait_queue_head_t ch_progress;
 };
 
-struct say_channel *default_channel = NULL;
+struct say_channel *default_channel;
 
-static struct say_channel *channel_list = NULL;
+static struct say_channel *channel_list;
 
 static rwlock_t say_lock = __RW_LOCK_UNLOCKED(say_lock);
 
-static struct task_struct *say_thread = NULL;
+static struct task_struct *say_thread;
 
 static DECLARE_WAIT_QUEUE_HEAD(say_event);
 
-bool say_dirty = false;
+bool say_dirty;
 
 #define use_atomic()							\
 	((preempt_count() & (PREEMPT_MASK | SOFTIRQ_MASK | HARDIRQ_MASK | NMI_MASK)) != 0 || irqs_disabled())
