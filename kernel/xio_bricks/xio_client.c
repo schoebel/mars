@@ -905,10 +905,7 @@ char *client_statistics(struct client_brick *brick, int verbose)
 	char *res = brick_string_alloc(1024);
 
 	snprintf(res, 1024,
-		 "max_flying = %d "
-		 "io_timeout = %d | "
-		 "timeout_count = %d "
-		 "fly_count = %d\n",
+		 "max_flying = %d io_timeout = %d | timeout_count = %d fly_count = %d\n",
 		 brick->max_flying,
 		 brick->power.io_timeout,
 		 atomic_read(&output->timeout_count),

@@ -709,17 +709,7 @@ char *bio_statistics(struct bio_brick *brick, int verbose)
 	pos += report_timing(&timings[1], res + pos, 4096 - pos);
 
 	snprintf(res + pos, 4096 - pos,
-		 "total "
-		 "completed[0] = %d "
-		 "completed[1] = %d "
-		 "completed[2] = %d | "
-		 "queued[0] = %d "
-		 "queued[1] = %d "
-		 "queued[2] = %d "
-		 "flying[0] = %d "
-		 "flying[1] = %d "
-		 "flying[2] = %d "
-		 "completing = %d\n",
+		 "total completed[0] = %d completed[1] = %d completed[2] = %d | queued[0] = %d queued[1] = %d queued[2] = %d flying[0] = %d flying[1] = %d flying[2] = %d completing = %d\n",
 		 atomic_read(&brick->total_completed_count[0]),
 		 atomic_read(&brick->total_completed_count[1]),
 		 atomic_read(&brick->total_completed_count[2]),

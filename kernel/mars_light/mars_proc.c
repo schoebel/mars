@@ -128,8 +128,7 @@ int lamport_sysctl_handler(
 		get_lamport(&lnow);
 
 		res = scnprintf(tmp, my_len,
-			       "CURRENT_TIME=%ld.%09ld\n"
-			       "lamport_now=%ld.%09ld\n",
+			       "CURRENT_TIME=%ld.%09ld\nlamport_now=%ld.%09ld\n",
 			       know.tv_sec, know.tv_nsec,
 			       lnow.tv_sec, lnow.tv_nsec
 			);

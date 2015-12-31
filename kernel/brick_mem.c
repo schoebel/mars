@@ -968,14 +968,7 @@ void brick_mem_statistics(bool final)
 	BRICK_INF("======== page allocation:\n");
 #ifdef CONFIG_MARS_MEM_PREALLOC
 	for (i = 0; i <= BRICK_MAX_ORDER; i++) {
-		BRICK_INF("pages order = %2d "
-			  "operations = %9d "
-			  "freelist_count = %4d / %3d "
-			  "raw_count = %5d "
-			  "alloc_count = %5d "
-			  "alloc_len = %5d "
-			  "line = %5d "
-			  "max_count = %5d\n",
+		BRICK_INF("pages order = %2d operations = %9d freelist_count = %4d / %3d raw_count = %5d alloc_count = %5d alloc_len = %5d line = %5d max_count = %5d\n",
 			  i,
 			  atomic_read(&op_count[i]),
 			  atomic_read(&freelist_count[i]),
@@ -993,9 +986,7 @@ void brick_mem_statistics(bool final)
 		if (val) {
 			count += val;
 			places++;
-			BRICK_INF("line %4d: "
-				  "%6d allocated "
-				  "(last size = %4d, freed = %6d)\n",
+			BRICK_INF("line %4d: %6d allocated (last size = %4d, freed = %6d)\n",
 				  i,
 				  val,
 				  block_len[i],
@@ -1016,9 +1007,7 @@ void brick_mem_statistics(bool final)
 		if (val) {
 			count += val;
 			places++;
-			BRICK_INF("line %4d: "
-				  "%6d allocated "
-				  "(last size = %4d, freed = %6d)\n",
+			BRICK_INF("line %4d: %6d allocated (last size = %4d, freed = %6d)\n",
 				  i,
 				  val,
 				  mem_len[i],
@@ -1041,9 +1030,7 @@ void brick_mem_statistics(bool final)
 		if (val) {
 			count += val;
 			places++;
-			BRICK_INF("line %4d: "
-				  "%6d allocated "
-				  "(freed = %6d)\n",
+			BRICK_INF("line %4d: %6d allocated (freed = %6d)\n",
 				  i,
 				  val,
 				  atomic_read(&string_free[i]));

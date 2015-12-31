@@ -780,18 +780,7 @@ char *if_statistics(struct if_brick *brick, int verbose)
 	int tmp4 = atomic_read(&input->total_aio_write_count);
 
 	snprintf(res, 512,
-		 "total reada = %d "
-		 "reads = %d "
-		 "aio_reads = %d (%d%%) "
-		 "writes = %d "
-		 "aio_writes = %d (%d%%) "
-		 "empty = %d "
-		 "fired = %d "
-		 "skip_sync = %d "
-		 "| "
-		 "plugged = %d "
-		 "flying = %d "
-		 "(reads = %d writes = %d)\n",
+		 "total reada = %d reads = %d aio_reads = %d (%d%%) writes = %d aio_writes = %d (%d%%) empty = %d fired = %d skip_sync = %d | plugged = %d flying = %d (reads = %d writes = %d)\n",
 		 tmp0,
 		 tmp1,
 		 tmp2,

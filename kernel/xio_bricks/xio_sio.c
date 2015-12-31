@@ -363,9 +363,7 @@ char *sio_statistics(struct sio_brick *brick, int verbose)
 	}
 
 	snprintf(res, 1024,
-		 "queued read = %d write = %d "
-		 "flying read = %d write = %d "
-		 "total  read = %d write = %d\n",
+		 "queued read = %d write = %d flying read = %d write = %d total  read = %d write = %d\n",
 		 queue_sum, atomic_read(&output->tinfo[0].queue_count),
 		 fly_sum,   atomic_read(&output->tinfo[0].fly_count),
 		 total_sum, atomic_read(&output->tinfo[0].total_count)

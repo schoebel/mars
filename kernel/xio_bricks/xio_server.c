@@ -311,9 +311,7 @@ char *server_statistics(struct server_brick *brick, int verbose)
 	char *res = brick_string_alloc(1024);
 
 	snprintf(res, 1024,
-		 "cb_running = %d "
-		 "handler_running = %d "
-		 "in_flight = %d\n",
+		 "cb_running = %d handler_running = %d in_flight = %d\n",
 		 brick->cb_running,
 		 brick->handler_running,
 		 atomic_read(&brick->in_flight));

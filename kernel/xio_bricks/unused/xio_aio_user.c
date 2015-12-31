@@ -1026,29 +1026,7 @@ char *aio_statistics(struct aio_brick *brick, int verbose)
 	pos += report_timing(&timings[2], res + pos, 4096 - pos);
 
 	snprintf(res + pos, 4096 - pos,
-		 "total "
-		 "reads = %d "
-		 "writes = %d "
-		 "allocs = %d "
-		 "submits = %d "
-		 "again = %d "
-		 "delays = %d "
-		 "msleeps = %d "
-		 "fdsyncs = %d "
-		 "fdsync_waits = %d "
-		 "map_free = %d | "
-		 "flying reads = %d "
-		 "writes = %d "
-		 "allocs = %d "
-		 "submits = %d "
-		 "q0 = %d "
-		 "q1 = %d "
-		 "q2 = %d "
-		 "| total "
-		 "q0 = %d "
-		 "q1 = %d "
-		 "q2 = %d "
-		 "%s\n",
+		 "total reads = %d writes = %d allocs = %d submits = %d again = %d delays = %d msleeps = %d fdsyncs = %d fdsync_waits = %d map_free = %d | flying reads = %d writes = %d allocs = %d submits = %d q0 = %d q1 = %d q2 = %d | total q0 = %d q1 = %d q2 = %d %s\n",
 		 atomic_read(&output->total_read_count),
 		 atomic_read(&output->total_write_count),
 		 atomic_read(&output->total_alloc_count),

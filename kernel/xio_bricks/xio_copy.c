@@ -832,20 +832,7 @@ char *copy_statistics(struct copy_brick *brick, int verbose)
 	char *res = brick_string_alloc(1024);
 
 	snprintf(res, 1024,
-		 "copy_start = %lld "
-		 "copy_last = %lld "
-		 "copy_end = %lld "
-		 "copy_error = %d "
-		 "copy_error_count = %d "
-		 "verify_ok_count = %d "
-		 "verify_error_count = %d "
-		 "low_dirty = %d "
-		 "is_aborting = %d "
-		 "clash = %lu | "
-		 "total clash_count = %d | "
-		 "io_flight = %d "
-		 "copy_read_flight = %d "
-		 "copy_write_flight = %d\n",
+		 "copy_start = %lld copy_last = %lld copy_end = %lld copy_error = %d copy_error_count = %d verify_ok_count = %d verify_error_count = %d low_dirty = %d is_aborting = %d clash = %lu | total clash_count = %d | io_flight = %d copy_read_flight = %d copy_write_flight = %d\n",
 		 brick->copy_start,
 		 brick->copy_last,
 		 brick->copy_end,

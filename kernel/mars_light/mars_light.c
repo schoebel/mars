@@ -1497,10 +1497,7 @@ int __make_copy(
 
 		copy->show_status = _show_brick_status;
 		make_msg(msg_pair,
-			 "from = '%s' to = '%s'"
-			 " on = %d start_pos = %lld end_pos = %lld"
-			 " actual_pos = %lld actual_stamp = %ld.%09ld"
-			 " rate = %d read_fly = %d write_fly = %d error_code = %d nr_errors = %d",
+			 "from = '%s' to = '%s' on = %d start_pos = %lld end_pos = %lld actual_pos = %lld actual_stamp = %ld.%09ld rate = %d read_fly = %d write_fly = %d error_code = %d nr_errors = %d",
 			 argv[0],
 			 argv[1],
 			 _copy->power.on_led,

@@ -1993,13 +1993,7 @@ void _show_one(struct xio_brick *test, int *brick_count)
 
 	if (*brick_count)
 		XIO_DBG("---------\n");
-	XIO_DBG("BRICK type = %s path = '%s' name = '%s' "
-		  "size_hint=%d "
-		  "aios_alloc = %d "
-		  "aios_apsect_alloc = %d "
-		  "total_aios_alloc = %d "
-		  "total_aios_aspects = %d "
-		  "button = %d off = %d on = %d\n",
+	XIO_DBG("BRICK type = %s path = '%s' name = '%s' size_hint=%d aios_alloc = %d aios_apsect_alloc = %d total_aios_alloc = %d total_aios_aspects = %d button = %d off = %d on = %d\n",
 		  test->type->type_name,
 		  test->brick_path,
 		  test->brick_name,
