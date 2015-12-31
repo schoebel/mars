@@ -33,9 +33,9 @@
 #include "brick_mem.h"
 #include "brick_say.h"
 #include "lamport.h"
-/* 	remove_this */
+/*	remove_this */
 #include "buildtag.h"
-/* 	end_remove_this */
+/*	end_remove_this */
 
 #define USE_KERNEL_PAGES		/*  currently mandatory (vmalloc does not work) */
 

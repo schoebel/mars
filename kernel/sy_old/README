@@ -1,5 +1,0 @@
-This is ugly code from a first prototype trial.
-It will disappear as soon as the new strategy layer has been
-implemented. The new system will use an interpreter for automated
-pattern matching and triggering actions, in a much more generic
-fashion than hand-crafted here.

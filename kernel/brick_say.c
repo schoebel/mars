@@ -45,7 +45,7 @@
 
 #include <linux/uaccess.h>
 
-#include "compat.h"
+#include "vfs_compat.h"
 
 #ifndef GFP_BRICK
 #define GFP_BRICK			GFP_NOIO
@@ -914,7 +914,7 @@ static int dump_max = 5;
 void brick_dump_stack(void)
 {
 	if (dump_max > 0) {
-		dump_max--; /*  racy, but does no harm */
+		dump_max--; /*	racy, but does no harm */
 		dump_stack();
 	}
 }

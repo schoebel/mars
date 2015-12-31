@@ -63,7 +63,7 @@ int generic_brick_init(const struct generic_brick_type *type, struct generic_bri
 	brick->ops = type->master_ops;
 	brick->nr_inputs = 0;
 	brick->nr_outputs = 0;
-	brick->power.led_off = true;
+	brick->power.off_led = true;
 	init_waitqueue_head(&brick->power.event);
 	INIT_LIST_HEAD(&brick->tmp_head);
 	return 0;
@@ -681,22 +681,22 @@ void set_button(struct generic_switch *sw, bool val, bool force)
 	}
 }
 
-void set_led_on(struct generic_switch *sw, bool val)
+void set_on_led(struct generic_switch *sw, bool val)
 {
-	bool oldval = sw->led_on;
+	bool oldval = sw->on_led;
 
 	if (val != oldval) {
-		sw->led_on = val;
+		sw->on_led = val;
 		wake_up_interruptible(&sw->event);
 	}
 }
 
-void set_led_off(struct generic_switch *sw, bool val)
+void set_off_led(struct generic_switch *sw, bool val)
 {
-	bool oldval = sw->led_off;
+	bool oldval = sw->off_led;
 
 	if (val != oldval) {
-		sw->led_off = val;
+		sw->off_led = val;
 		wake_up_interruptible(&sw->event);
 	}
 }
@@ -707,9 +707,9 @@ void set_button_wait(struct generic_brick *brick, bool val, bool force, int time
 	if (brick->ops)
 		(void)brick->ops->brick_switch(brick);
 	if (val)
-		wait_event_interruptible_timeout(brick->power.event, brick->power.led_on, timeout);
+		wait_event_interruptible_timeout(brick->power.event, brick->power.on_led, timeout);
 	else
-		wait_event_interruptible_timeout(brick->power.event, brick->power.led_off, timeout);
+		wait_event_interruptible_timeout(brick->power.event, brick->power.off_led, timeout);
 }
 
 /***************************************************************/

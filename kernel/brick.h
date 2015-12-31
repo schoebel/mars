@@ -30,13 +30,13 @@
 #include <linux/kthread.h>
 
 #include <linux/atomic.h>
-/* 	remove_this */
+/*	remove_this */
 
 #ifndef CONFIG_MARS_MODULE
 /*  when unsure, include faked config file */
 #include "mars_config.h"
 #endif
-/* 	end_remove_this */
+/*	end_remove_this */
 
 #include "brick_say.h"
 #include "meta.h"
@@ -161,40 +161,40 @@ struct generic_aspect_context {
 	GENERIC_ASPECT_CONTEXT(generic);
 };
 
-#define obj_check(aio)						\
+#define obj_check(object)						\
 	({								\
-		if (unlikely(BRICK_CHECKING && !(aio)->obj_initialized)) {\
-			MARS_ERR("aio %p is not initialized\n", (aio));\
+		if (unlikely(BRICK_CHECKING && !(object)->obj_initialized)) {\
+			BRICK_ERR("object %p is not initialized\n", (object));\
 		}							\
-		CHECK_ATOMIC(&(aio)->obj_count, 1);			\
+		CHECK_ATOMIC(&(object)->obj_count, 1);			\
 	})
 
-#define obj_get_first(aio)						\
+#define obj_get_first(object)						\
 	({								\
-		if (unlikely(BRICK_CHECKING && (aio)->obj_initialized)) {\
-			MARS_ERR("aio %p is already initialized\n", (aio));\
+		if (unlikely(BRICK_CHECKING && (object)->obj_initialized)) {\
+			BRICK_ERR("object %p is already initialized\n", (object));\
 		}							\
-		_CHECK_ATOMIC(&(aio)->obj_count, !=, 0);		\
-		(aio)->obj_initialized = true;				\
-		atomic_inc(&(aio)->obj_count);				\
+		_CHECK_ATOMIC(&(object)->obj_count, !=, 0);		\
+		(object)->obj_initialized = true;			\
+		atomic_inc(&(object)->obj_count);			\
 	})
 
-#define obj_get(aio)							\
+#define obj_get(object)							\
 	({								\
-		obj_check(aio);					\
-		atomic_inc(&(aio)->obj_count);				\
+		obj_check(object);					\
+		atomic_inc(&(object)->obj_count);			\
 	})
 
-#define obj_put(aio)							\
+#define obj_put(object)							\
 	({								\
-		obj_check(aio);					\
-		atomic_dec_and_test(&(aio)->obj_count);		\
+		obj_check(object);					\
+		atomic_dec_and_test(&(object)->obj_count);		\
 	})
 
-#define obj_free(aio)						\
+#define obj_free(object)						\
 	({								\
-		if (likely(aio)) {					\
-			generic_free((struct generic_object *)(aio));	\
+		if (likely(object)) {					\
+			generic_free((struct generic_object *)(object));\
 		}							\
 	})
 
@@ -346,8 +346,8 @@ struct generic_brick_type;
 struct generic_switch {
 	/* public */
 	bool button;	   /* in:  main switch (on/off)			    */
-	bool led_on;	   /* out: indicate regular operation		    */
-	bool led_off;	   /* out: indicate no activity of any kind	    */
+	bool on_led;	   /* out: indicate regular operation		    */
+	bool off_led;	   /* out: indicate no activity of any kind	    */
 	bool force_off;    /* in:  make ready for destruction		    */
 	int  io_timeout;   /* in:  report IO errors after timeout (seconds) */
 	int  percent_done; /* out: generic progress indicator		    */
@@ -596,8 +596,8 @@ extern inline struct BRITYPE##_##OBJTYPE##_aspect *BRITYPE##_##OBJTYPE##_get_asp
 /* Generic interface to simple brick status changes.
  */
 extern void set_button(struct generic_switch *sw, bool val, bool force);
-extern void set_led_on(struct generic_switch *sw, bool val);
-extern void set_led_off(struct generic_switch *sw, bool val);
+extern void set_on_led(struct generic_switch *sw, bool val);
+extern void set_off_led(struct generic_switch *sw, bool val);
 /*
  * "Forced switch off" means that it cannot be switched on again.
  */

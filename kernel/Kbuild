@@ -39,25 +39,25 @@ mars-objs :=				\
 	brick_say.o			\
 	brick_mem.o			\
 	brick.o				\
-	mars_generic.o			\
-	lib_log.o			\
-	lib_rank.o			\
-	lib_limiter.o			\
-	lib_timing.o			\
-	lib_mapfree.o			\
-	mars_net.o			\
-	mars_server_strategy.o		\
-	mars_server.o			\
-	mars_client.o			\
-	mars_sio.o			\
-	mars_bio.o			\
-	mars_if.o			\
-	mars_copy.o			\
-	mars_trans_logger.o		\
-	sy_old/sy_generic.o		\
-	sy_old/sy_net.o			\
-	sy_old/mars_proc.o		\
-	sy_old/mars_light.o
+	xio_bricks/xio.o			\
+	xio_bricks/lib_log.o			\
+	lib/lib_rank.o			\
+	lib/lib_limiter.o			\
+	lib/lib_timing.o			\
+	xio_bricks/lib_mapfree.o			\
+	xio_bricks/xio_net.o			\
+	mars_light/light_server_strategy.o		\
+	xio_bricks/xio_server.o			\
+	xio_bricks/xio_client.o			\
+	xio_bricks/xio_sio.o			\
+	xio_bricks/xio_bio.o			\
+	xio_bricks/xio_if.o			\
+	xio_bricks/xio_copy.o			\
+	xio_bricks/xio_trans_logger.o		\
+	mars_light/light_strategy.o		\
+	mars_light/light_net.o			\
+	mars_light/mars_proc.o		\
+	mars_light/mars_light.o
 
 ## remove_this
 
@@ -66,7 +66,7 @@ ifdef CONFIG_MARS_NET_COMPAT
 endif
 
 mars-objs +=				\
-	mars_aio.o			\
+	xio_bricks/unused/xio_aio_user.o			\
 
 ifdef CONFIG_MARS_DEBUG
 
@@ -77,10 +77,10 @@ KBUILD_CFLAGS += -fno-inline-functions -fno-inline-small-functions -fno-inline-f
 # (so the compiler may throw any complaints)
 
 mars-objs += 				\
-	mars_dummy.o			\
-	mars_check.o			\
-	mars_buf.o			\
-	mars_usebuf.o			\
+	xio_bricks/unused/xio_dummy.o			\
+	xio_bricks/unused/xio_check.o			\
+	xio_bricks/unused/xio_buf.o			\
+	xio_bricks/unused/xio_usebuf.o			\
 
 endif
 

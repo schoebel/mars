@@ -25,13 +25,13 @@
 #define BRICK_MEM_H
 
 #include <linux/mm_types.h>
-/* 	remove_this */
+/*	remove_this */
 
 #ifndef CONFIG_MARS_MODULE
 /*  when unsure, include faked config file */
 #include "mars_config.h"
 #endif
-/* 	end_remove_this */
+/*	end_remove_this */
 
 #define BRICK_DEBUG_MEM			4096
 
@@ -93,7 +93,7 @@ extern atomic64_t brick_global_block_used;
  * Following is a small hack which solves the problem at least for gcc 4.7.
  *
  * In order to be useful, the -fdelete-null-pointer-checks must be set.
- * Since MARS is superuser-only anyway, enabling this for MARS should not
+ * Since BRICK is superuser-only anyway, enabling this for MARS should not
  * be a security risk
  * (c.f. upstream kernel commit a3ca86aea507904148870946d599e07a340b39bf)
  */
