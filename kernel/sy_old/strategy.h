@@ -77,15 +77,15 @@ extern int mars_fast_fullsync;
 	loff_t d_corr_B; /* logical size correction */			\
 	int   d_depth;							\
 	unsigned int d_type; /* from readdir() = > often DT_UNKNOWN = > don't rely on it,\
-		use new_stat.mode instead */				\
+		use stat_val.mode instead */				\
 	int   d_class;	  /* for pre-grouping order */			\
 	int   d_serial;   /* for pre-grouping order */			\
 	int   d_version;  /* dynamic programming per call of mars_ent_work() */\
 	int   d_child_count;						\
 	bool d_killme;							\
 	bool d_use_channel;						\
-	struct kstat new_stat;						\
-	char *new_link;							\
+	struct kstat stat_val;						\
+	char *link_val;							\
 	struct mars_global *d_global;					\
 	void (*d_private_destruct)(void *private);			\
 	void *d_private;						\

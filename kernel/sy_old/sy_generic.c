@@ -94,8 +94,8 @@ const struct meta mars_dent_meta[] = {
 	META_INI(d_serial,  struct mars_dent, FIELD_INT),
 	META_INI(d_corr_A,  struct mars_dent, FIELD_INT),
 	META_INI(d_corr_B,  struct mars_dent, FIELD_INT),
-	META_INI_SUB(new_stat, struct mars_dent, mars_kstat_meta),
-	META_INI(new_link,    struct mars_dent, FIELD_STRING),
+	META_INI_SUB(stat_val, struct mars_dent, mars_kstat_meta),
+	META_INI(link_val,    struct mars_dent, FIELD_STRING),
 	META_INI(d_args,    struct mars_dent, FIELD_STRING),
 	META_INI(d_argv[0], struct mars_dent, FIELD_STRING),
 	META_INI(d_argv[1], struct mars_dent, FIELD_STRING),
@@ -1019,11 +1019,11 @@ int get_inode(char *newpath, struct mars_dent *dent)
 		goto done;
 	}
 
-	memcpy(&dent->new_stat, &tmp, sizeof(dent->new_stat));
+	memcpy(&dent->stat_val, &tmp, sizeof(dent->stat_val));
 
-	if (S_ISLNK(dent->new_stat.mode)) {
+	if (S_ISLNK(dent->stat_val.mode)) {
 		struct path path = {};
-		int len = dent->new_stat.size;
+		int len = dent->stat_val.size;
 		struct inode *inode;
 		char *link;
 
@@ -1047,27 +1047,27 @@ int get_inode(char *newpath, struct mars_dent *dent)
 		status = inode->i_op->readlink(path.dentry, link, len + 1);
 		link[len] = '\0';
 		if (status < 0 ||
-		    (dent->new_link && !strncmp(dent->new_link, link, len))) {
+		    (dent->link_val && !strncmp(dent->link_val, link, len))) {
 			brick_string_free(link);
 		} else {
-			brick_string_free(dent->new_link);
-			dent->new_link = link;
+			brick_string_free(dent->link_val);
+			dent->link_val = link;
 		}
 		path_put(&path);
-	} else if (S_ISREG(dent->new_stat.mode) && dent->d_name && !strncmp(dent->d_name, "log-", 4)) {
-		loff_t min = dent->new_stat.size;
+	} else if (S_ISREG(dent->stat_val.mode) && dent->d_name && !strncmp(dent->d_name, "log-", 4)) {
+		loff_t min = dent->stat_val.size;
 		loff_t max = 0;
 
 		dent->d_corr_A = 0;
 		dent->d_corr_B = 0;
 		mf_get_any_dirty(newpath, &min, &max, 0, 2);
-		if (min < dent->new_stat.size) {
-			MARS_DBG("file '%s' A size=%lld min=%lld max=%lld\n", newpath, dent->new_stat.size, min, max);
+		if (min < dent->stat_val.size) {
+			MARS_DBG("file '%s' A size=%lld min=%lld max=%lld\n", newpath, dent->stat_val.size, min, max);
 			dent->d_corr_A = min;
 		}
 		mf_get_any_dirty(newpath, &min, &max, 0, 3);
-		if (min < dent->new_stat.size) {
-			MARS_DBG("file '%s' B size=%lld min=%lld max=%lld\n", newpath, dent->new_stat.size, min, max);
+		if (min < dent->stat_val.size) {
+			MARS_DBG("file '%s' B size=%lld min=%lld max=%lld\n", newpath, dent->stat_val.size, min, max);
 			dent->d_corr_B = min;
 		}
 	}
@@ -1317,7 +1317,7 @@ restart:
 			dent->d_killme = true;
 
 		/*  recurse into subdirectories by inserting into the flat list */
-		if (S_ISDIR(dent->new_stat.mode) && dent->d_depth <= maxdepth) {
+		if (S_ISDIR(dent->stat_val.mode) && dent->d_depth <= maxdepth) {
 			struct mars_cookie sub_cookie = {
 				.global = global,
 				.checker = checker,
@@ -1523,7 +1523,7 @@ void mars_free_dent(struct mars_dent *dent)
 	brick_string_free(dent->d_name);
 	brick_string_free(dent->d_rest);
 	brick_string_free(dent->d_path);
-	brick_string_free(dent->new_link);
+	brick_string_free(dent->link_val);
 	if (likely(dent->d_parent))
 		dent->d_parent->d_child_count--;
 	if (dent->d_private_destruct)
@@ -2318,9 +2318,9 @@ void show_statistics(struct mars_global *global, const char *class)
 		MARS_DBG("dent %d '%s' '%s' stamp=%ld.%09ld\n",
 			dent->d_class,
 			dent->d_path,
-			dent->new_link,
-			dent->new_stat.mtime.tv_sec,
-			dent->new_stat.mtime.tv_nsec);
+			dent->link_val,
+			dent->stat_val.mtime.tv_sec,
+			dent->stat_val.mtime.tv_nsec);
 		dent_count++;
 		for (sub = dent->brick_list.next; sub != &dent->brick_list; sub = sub->next) {
 			struct mars_brick *test;
