@@ -128,14 +128,14 @@ void mref_checksum(struct mref_object *mref)
 	int len;
 
 	if (mref->ref_cs_mode <= 0 || !mref->ref_data)
-		return;
-
+		goto out_return;
 	mars_digest(checksum, mref->ref_data, mref->ref_len);
 
 	len = sizeof(mref->ref_checksum);
 	if (len > mars_digest_size)
 		len = mars_digest_size;
 	memcpy(&mref->ref_checksum, checksum, len);
+out_return:;
 }
 
 /////////////////////////////////////////////////////////////////////

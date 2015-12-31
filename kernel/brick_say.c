@@ -193,12 +193,12 @@ void bind_to_channel(struct say_channel *ch, struct task_struct *whom)
 
 done:
 	write_unlock(&say_lock);
-	return;
-
+	goto out_return;
 err:
 	write_unlock(&say_lock);
 
 	say_to(default_channel, SAY_ERROR, "ID overflow for thread '%s'\n", whom->comm);
+out_return:;
 }
 
 struct say_channel *get_binding(struct task_struct *whom)
@@ -269,13 +269,14 @@ void rollover_all(void)
 void del_channel(struct say_channel *ch)
 {
 	if (unlikely(!ch))
-		return;
+		goto out_return;
 	if (unlikely(ch == default_channel)) {
 		say_to(default_channel, SAY_ERROR, "thread '%s' tried to delete the default channel\n", current->comm);
-		return;
+		goto out_return;
 	}
 	
 	ch->ch_delete = true;
+out_return:;
 }
 
 static
@@ -286,8 +287,7 @@ void _del_channel(struct say_channel *ch)
 	int i, j;
 
 	if (!ch)
-		return;
-
+		goto out_return;
 	write_lock(&say_lock);
 	for (_tmp = &channel_list; (tmp = *_tmp) != NULL; _tmp = &tmp->ch_next) {
 		if (tmp == ch) {
@@ -318,6 +318,7 @@ void _del_channel(struct say_channel *ch)
 	}
 	kfree(ch);
 	atomic_dec(&say_alloc_channels);
+out_return:;
 }
 
 static
@@ -433,10 +434,10 @@ void _say(struct say_channel *ch, int class, va_list args, bool use_args, const 
 	int written;
 
 	if (unlikely(!ch))
-		return;
+		goto out_return;
 	if (unlikely(ch->ch_delete && ch != default_channel)) {
 		say_to(default_channel, SAY_ERROR, "thread '%s' tried to write on deleted channel\n", current->comm);
-		return;
+		goto out_return;
 	}
 
 	offset = ch->ch_index[class];
@@ -444,7 +445,7 @@ void _say(struct say_channel *ch, int class, va_list args, bool use_args, const 
 	rest = SAY_BUFMAX - 1 - offset;
 	if (unlikely(rest <= 0)) {
 		ch->ch_overflow[class]++;
-		return;
+		goto out_return;
 	}
 
 	if (use_args) {
@@ -465,6 +466,7 @@ void _say(struct say_channel *ch, int class, va_list args, bool use_args, const 
 		start[0] = '\0';
 		ch->ch_overflow[class]++;
 	}
+out_return:;
 }
 
 void say_to(struct say_channel *ch, int class, const char *fmt, ...)
@@ -473,8 +475,7 @@ void say_to(struct say_channel *ch, int class, const char *fmt, ...)
 	unsigned long flags;
 
 	if (!class && !brick_say_debug)
-		return;
-
+		goto out_return;
 	if (!ch) {
 		ch = find_channel(current);
 	}
@@ -508,6 +509,7 @@ void say_to(struct say_channel *ch, int class, const char *fmt, ...)
 
 		wake_up_interruptible(&say_event);
 	}
+out_return:;
 }
 
 void brick_say_to(struct say_channel *ch, int class, bool dump, const char *prefix, const char *file, int line, const char *func, const char *fmt, ...) 
@@ -521,8 +523,7 @@ void brick_say_to(struct say_channel *ch, int class, bool dump, const char *pref
 	unsigned long flags;
 
 	if (!class && !brick_say_debug)
-		return;
-
+		goto out_return;
 	s_now = CURRENT_TIME;
 	get_lamport(&l_now);
 
@@ -589,6 +590,7 @@ void brick_say_to(struct say_channel *ch, int class, bool dump, const char *pref
 		brick_dump_stack();
 #endif
 	wake_up_interruptible(&say_event);
+out_return:;
 }
 
 static
@@ -604,12 +606,13 @@ void try_open_file(struct file **file, char *filename, bool creat)
 	*file = filp_open(filename, flags, prot);
 	if (unlikely(IS_ERR(*file))) {
 		*file = NULL;
-		return;
+		goto out_return;
 	}
 	mapping = (*file)->f_mapping;
 	if (likely(mapping)) {
 		mapping_set_gfp_mask(mapping, mapping_gfp_mask(mapping) & ~(__GFP_IO | __GFP_FS));
 	}
+out_return:;
 }
 
 static

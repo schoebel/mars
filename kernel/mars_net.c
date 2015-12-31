@@ -348,11 +348,11 @@ void mars_proto_check(struct mars_socket *msock)
 		MARS_DBG("#%d protocol exchange failed at peeking, status = %d\n",
 			 msock->s_debug_nr,
 			 status);
-		return;
+		goto out_return;
 	}
 	if (service_version == 0x8d) {
 		use_old_format = 1;
-		return;
+		goto out_return;
 	}
 #endif
 //      end_remove_this
@@ -361,7 +361,7 @@ void mars_proto_check(struct mars_socket *msock)
 		MARS_DBG("#%d protocol exchange failed at receiving, status = %d\n",
 			 msock->s_debug_nr,
 			 status);
-		return;
+		goto out_return;
 	}
 
 	// take the the minimum of both protocol versions
@@ -374,10 +374,11 @@ void mars_proto_check(struct mars_socket *msock)
 		MARS_DBG("#%d protocol exchange failed at receiving, status = %d\n",
 			 msock->s_debug_nr,
 			 status);
-		return;
+		goto out_return;
 	}
 
 	msock->s_recv_flags = service_flags;
+out_return:;
 }
 
 static

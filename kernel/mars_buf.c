@@ -323,8 +323,7 @@ void _bf_put(struct buf_head *bf)
 	bool at_end;
 
 	if (!atomic_dec_and_test(&bf->bf_hash_count))
-		return;
-
+		goto out_return;
 #if 1
 	MARS_DBG("ZERO_COUNT %p %d\n", bf, at_end);
 	if (unlikely(!list_empty(&bf->bf_io_pending_anchor))) {
@@ -342,6 +341,7 @@ void _bf_put(struct buf_head *bf)
 		at_end = false;
 	}
 	_add_bf_list(bf->bf_brick, bf, list, at_end);
+out_return:;
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -352,10 +352,11 @@ static inline
 void _mref_assign(struct buf_head *bf, struct buf_mref_aspect *mref_a)
 {
 	if (mref_a->rfa_bf) {
-		return;
+		goto out_return;
 	}
 	mref_a->rfa_bf = bf;
 	atomic_inc(&bf->bf_mref_count);
+out_return:;
 }
 
 static inline
@@ -553,17 +554,17 @@ static void _buf_ref_put(struct buf_output *output, struct buf_mref_aspect *mref
 	if (!bf) {
 		struct buf_brick *brick = output->brick;
 		GENERIC_INPUT_CALL(brick->inputs[0], mref_put, mref);
-		return;
+		goto out_return;
 	}
 
 	if (!_mref_put(mref))
-		return;
-
+		goto out_return;
 	MARS_DBG("buf_ref_put() mref=%p mref_a=%p bf=%p flags=%d\n", mref, mref_a, bf, bf->bf_flags);
 	_mref_remove(bf, mref_a);
 	_mref_free(mref);
 
 	_bf_put(bf); // paired with _hash_find_insert()
+out_return:;
 }
 
 static void buf_ref_put(struct buf_output *output, struct mref_object *mref)
@@ -572,9 +573,10 @@ static void buf_ref_put(struct buf_output *output, struct mref_object *mref)
 	mref_a = buf_mref_get_aspect(output->brick, mref);
 	if (unlikely(!mref_a)) {
 		MARS_FAT("cannot get aspect\n");
-		return;
+		goto out_return;
 	}
 	_buf_ref_put(output, mref_a);
+out_return:;
 }
 
 static void _buf_endio(struct generic_callback *cb);
@@ -700,8 +702,7 @@ static void _buf_endio(struct generic_callback *cb)
 
 	// wait until all IO on this bf is completed.
 	if (!atomic_dec_and_test(&bf->bf_io_count))
-		return;
-
+		goto out_return;
 	MARS_DBG("_buf_endio() ZERO bf=%p\n", bf);
 
 	// get an extra reference, to avoid freeing bf underneath during callbacks
@@ -818,10 +819,10 @@ static void _buf_endio(struct generic_callback *cb)
 	}
 	// drop the extra reference from above
 	_bf_put(bf);
-	return;
-
+	goto out_return;
 err:
 	MARS_FAT("giving up.\n");
+out_return:;
 }
 
 static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
@@ -850,7 +851,7 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 	bf = mref_a->rfa_bf;
 	if (!bf) {
 		GENERIC_INPUT_CALL(brick->inputs[0], mref_io, mref);
-		return;
+		goto out_return;
 	}
 
 	/* Grab an extra reference.
@@ -991,9 +992,10 @@ no_callback:
 		buf_ref_put(output, mref);
 	} // else the ref_put() will be carried out upon IO completion.
 
-	return;
+	goto out_return;
 fatal: // no chance to call callback: may produce hanging tasks :(
 	MARS_FAT("no chance to call callback, tasks may hang.\n");
+out_return:;
 }
 
 //////////////// object / aspect constructors / destructors ///////////////

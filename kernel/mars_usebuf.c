@@ -97,7 +97,7 @@ static void _usebuf_endio(struct generic_callback *cb)
 			_usebuf_copy(mref, sub_mref, 1);
 			mref->ref_flags |= MREF_UPTODATE;
 			GENERIC_INPUT_CALL(mref_a->input, mref_io, sub_mref);
-			return;
+			goto out_return;
 #endif
 		}
 	}
@@ -111,14 +111,14 @@ static void _usebuf_endio(struct generic_callback *cb)
 	CHECKED_CALLBACK(mref, cb->cb_error, done);
 
 	if (!_mref_put(mref))
-		return;
-
+		goto out_return;
 #if 1
 	_mref_put(sub_mref);
 #endif
 
 	_mref_free(mref);
 done:;
+out_return:;
 }
 
 static int usebuf_ref_get(struct usebuf_output *output, struct mref_object *mref)
@@ -191,26 +191,26 @@ static void usebuf_ref_put(struct usebuf_output *output, struct mref_object *mre
 	mref_a = usebuf_mref_get_aspect(output->brick, mref);
 	if (unlikely(!mref_a)) {
 		MARS_FAT("cannot get aspect\n");
-		return;
+		goto out_return;
 	}
 
 	sub_mref_a = mref_a->sub_mref_a;
 	if (!sub_mref_a) {
 		MARS_FAT("sub_mref_a is missing\n");
-		return;
+		goto out_return;
 	}
 
 	sub_mref = sub_mref_a->object;
 	if (!sub_mref) {
 		MARS_FAT("sub_mref is missing\n");
-		return;
+		goto out_return;
 	}
 
 	if (!_mref_put(mref))
-		return;
-
+		goto out_return;
 	GENERIC_INPUT_CALL(input, mref_put, sub_mref);
 	_mref_free(mref);
+out_return:;
 }
 
 static void usebuf_ref_io(struct usebuf_output *output, struct mref_object *mref)
@@ -267,7 +267,7 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mref_object *mref
 #endif
 	} else if (sub_mref->ref_flags & MREF_UPTODATE) {
 		_usebuf_endio(sub_mref->object_cb);
-		return;
+		goto out_return;
 	}
 	if (mref->ref_data != sub_mref->ref_data) {
 		if (sub_mref->ref_rw != 0) {
@@ -278,15 +278,15 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mref_object *mref
 
 #ifdef FAKE_ALL
 	_usebuf_endio(sub_mref->ref_cb);
-	return;
+	goto out_return;
 #endif
 	GENERIC_INPUT_CALL(input, mref_io, sub_mref);
 
-	return;
-
+	goto out_return;
 err:
 	SIMPLE_CALLBACK(mref, error);
-	return;
+	goto out_return;
+out_return:;
 }
 
 //////////////// object / aspect constructors / destructors ///////////////

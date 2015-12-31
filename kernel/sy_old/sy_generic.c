@@ -834,7 +834,7 @@ void bind_to_dent(struct mars_dent *dent, struct say_channel **ch)
 			remove_binding_from(*ch, current);
 			*ch = NULL;
 		}
-		return;
+		goto out_return;
 	}
 	// Memoize the channel. This is executed only once for each dent.
 	if (unlikely(!dent->d_say_channel)) {
@@ -858,6 +858,7 @@ void bind_to_dent(struct mars_dent *dent, struct say_channel **ch)
 		if (*ch)
 			bind_to_channel(*ch, current);
 	}
+out_return:;
 }
 
 //////////////////////////////////////////////////////////////

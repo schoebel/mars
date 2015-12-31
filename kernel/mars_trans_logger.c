@@ -541,8 +541,7 @@ void _inf_callback(struct trans_logger_input *input, bool force)
 	if (!force &&
 	    input->inf_last_jiffies &&
 	    input->inf_last_jiffies + 4 * HZ > (long long)jiffies)
-		return;
-	
+		goto out_return;
 	if (input->inf.inf_callback && input->is_operating) {
 		input->inf_last_jiffies = jiffies;
 
@@ -552,6 +551,7 @@ void _inf_callback(struct trans_logger_input *input, bool force)
 	} else {
 		MARS_DBG("%p skipped callback, callback = %p is_operating = %d\n", input, input->inf.inf_callback, input->is_operating);
 	}
+out_return:;
 }
 
 static inline 
@@ -817,7 +817,7 @@ restart:
 		}
 
 		if (!finished) {
-			return;
+			goto out_return;
 		}
 
 		CHECK_HEAD_EMPTY(&mref_a->lh.lh_head);
@@ -857,7 +857,7 @@ restart:
 		atomic_dec(&global_mshadow_count);
 		atomic64_sub(mref->ref_len, &global_mshadow_used);
 		_mref_free(mref);
-		return;
+		goto out_return;
 	}
 
 	// only READ is allowed on non-shadow buffers
@@ -872,6 +872,7 @@ restart:
 	GENERIC_INPUT_CALL(input, mref_put, mref);
 
 err: ;
+out_return:;
 }
 
 static
@@ -884,10 +885,10 @@ void _trans_logger_ref_put(struct trans_logger_output *output, struct mref_objec
 	CHECK_ASPECT(mref_a, mref, err);
 
 	__trans_logger_ref_put(output->brick, mref_a);
-	return;
-
+	goto out_return;
 err:
 	MARS_FAT("giving up...\n");
+out_return:;
 }
 
 static
@@ -918,10 +919,10 @@ void _trans_logger_endio(struct generic_callback *cb)
 	atomic_dec(&brick->any_fly_count);
 	atomic_inc(&brick->total_cb_count);
 	wake_up_interruptible_all(&brick->worker_event);
-	return;
-
+	goto out_return;
 err: 
 	MARS_FAT("cannot handle callback\n");
+out_return:;
 }
 
 static
@@ -957,7 +958,7 @@ void trans_logger_ref_io(struct trans_logger_output *output, struct mref_object 
 
 		qq_mref_insert(&brick->q_phase[0], mref_a);
 		wake_up_interruptible_all(&brick->worker_event);
-		return;
+		goto out_return;
 	}
 
 	// only READ is allowed on non-shadow buffers
@@ -974,9 +975,10 @@ void trans_logger_ref_io(struct trans_logger_output *output, struct mref_object 
 	input = output->brick->inputs[TL_INPUT_READ];
 
 	GENERIC_INPUT_CALL(input, mref_io, mref);
-	return;
+	goto out_return;
 err:
 	MARS_FAT("cannot handle IO\n");
+out_return:;
 }
 
 ////////////////////////////// writeback info //////////////////////////////
@@ -1114,10 +1116,10 @@ void wb_endio(struct generic_callback *cb)
 
 done:
 	wake_up_interruptible_all(&brick->worker_event);
-	return;
-
+	goto out_return;
 err: 
 	MARS_FAT("hanging up....\n");
+out_return:;
 }
 
 /* Atomically create writeback info, based on "snapshot" of current hash
@@ -1315,7 +1317,7 @@ void _fire_one(struct list_head *tmp, bool do_update)
 
 	if (unlikely(sub_mref_a->is_fired)) {
 		MARS_ERR("trying to fire twice\n");
-		return;
+		goto out_return;
 	}
 	sub_mref_a->is_fired = true;
 
@@ -1331,6 +1333,7 @@ void _fire_one(struct list_head *tmp, bool do_update)
 	if (do_update) { // CHECK: shouldn't we do this always?
 		GENERIC_INPUT_CALL(sub_input, mref_put, sub_mref);
 	}
+out_return:;
 }
 
 static inline
@@ -1425,10 +1428,10 @@ void _complete(struct trans_logger_brick *brick, struct trans_logger_mref_aspect
 	CHECKED_CALLBACK(orig_mref, error, err);
 
 done:
-	return;
-
+	goto out_return;
 err: 
 	MARS_ERR("giving up...\n");
+out_return:;
 }
 
 static
@@ -1448,9 +1451,10 @@ void phase0_preio(void *private)
 	_mref_check(orig_mref_a->object);
 	_complete(brick, orig_mref_a, 0, true);
 	_mref_check(orig_mref_a->object);
-	return;
+	goto out_return;
 err: 
 	MARS_ERR("giving up...\n");
+out_return:;
 }
 
 static
@@ -1467,7 +1471,7 @@ void phase0_endio(void *private, int error)
 	if (unlikely(cmpxchg(&orig_mref_a->is_endio, false, true))) {
 		MARS_ERR("Sigh this should not happen %p %p\n",
 			 orig_mref_a, orig_mref_a->object);
-		return;
+		goto out_return;
 	}
 
 //      end_remove_this
@@ -1495,9 +1499,10 @@ void phase0_endio(void *private, int error)
 	banning_reset(&brick->q_phase[0].q_banning);
 
 	wake_up_interruptible_all(&brick->worker_event);
-	return;
+	goto out_return;
 err: 
 	MARS_ERR("giving up...\n");
+out_return:;
 }
 
 static
@@ -1698,10 +1703,10 @@ void phase1_endio(struct generic_callback *cb)
 	// queue up for the next phase
 	qq_wb_insert(&brick->q_phase[2], wb);
 	wake_up_interruptible_all(&brick->worker_event);
-	return;
-
+	goto out_return;
 err: 
 	MARS_FAT("hanging up....\n");
+out_return:;
 }
 
 static void phase3_endio(struct generic_callback *cb);
@@ -1778,7 +1783,8 @@ void _phase2_endio(struct writeback_info *wb)
 	// queue up for the next phase
 	qq_wb_insert(&brick->q_phase[3], wb);
 	wake_up_interruptible_all(&brick->worker_event);
-	return;
+	goto out_return;
+out_return:;
 }
 
 static
@@ -1807,10 +1813,10 @@ void phase2_endio(void *private, int error)
 		banning_reset(&brick->q_phase[2].q_banning);
 		_phase2_endio(wb);
 	}
-	return;
-
+	goto out_return;
 err:
 	MARS_FAT("hanging up....\n");
+out_return:;
 }
 
 static
@@ -1936,10 +1942,10 @@ void phase3_endio(struct generic_callback *cb)
 
 	wake_up_interruptible_all(&brick->worker_event);
 
-	return;
-
+	goto out_return;
 err: 
 	MARS_FAT("hanging up....\n");
+out_return:;
 }
 
 
@@ -2584,9 +2590,10 @@ void replay_endio(struct generic_callback *cb)
 	}
 
 	wake_up_interruptible_all(&brick->worker_event);
-	return;
+	goto out_return;
  err:
 	MARS_FAT("cannot handle replay IO\n");
+out_return:;
 }
 
 static

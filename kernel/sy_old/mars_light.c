@@ -243,7 +243,7 @@ void _make_msg(int line, struct key_value_pair *pair, const char *fmt, ...)
 
 	if (unlikely(!pair || !pair->key)) {
 		MARS_ERR("bad pointer %p at line %d\n", pair, line);
-		return;
+		goto out_return;
 	}
 	pair->last_jiffies = jiffies;
 	if (!pair->val) {
@@ -256,13 +256,14 @@ void _make_msg(int line, struct key_value_pair *pair, const char *fmt, ...)
 	} else {
 		len = strnlen(pair->val, MARS_SYMLINK_MAX);
 		if (unlikely(len >= MARS_SYMLINK_MAX - 48))
-			return;
+			goto out_return;
 		pair->val[len++] = ',';
 	}
 
 	va_start(args, fmt);
 	vsnprintf(pair->val + len, MARS_SYMLINK_MAX - 1 - len, fmt, args);
 	va_end(args);
+out_return:;
 }
 
 #define make_msg(pair, fmt, args...)			\
@@ -1338,13 +1339,14 @@ void _show_primary(struct mars_rotate *rot, struct mars_dent *parent)
 {
 	int status;
 	if (!rot || !parent) {
-		return;
+		goto out_return;
 	}
 	status = _show_actual(parent->d_path, "is-primary", rot->is_primary);
 	if (rot->is_primary != rot->old_is_primary) {
 		rot->old_is_primary = rot->is_primary;
 		mars_remote_trigger();
 	}
+out_return:;
 }
 
 static
@@ -1357,22 +1359,23 @@ void _show_brick_status(struct mars_brick *test, bool shutdown)
 	path = test->brick_path;
 	if (!path) {
 		MARS_WRN("bad path\n");
-		return;
+		goto out_return;
 	}
 	if (*path != '/') {
 		MARS_WRN("bogus path '%s'\n", path);
-		return;
+		goto out_return;
 	}
 
 	src = (test->power.led_on && !shutdown) ? "1" : "0";
 	dst = backskip_replace(path, '/', true, "/actual-%s/", my_id());
 	if (!dst) {
-		return;
+		goto out_return;
 	}
 
 	status = mars_symlink(src, dst, NULL, 0);
 	MARS_DBG("status symlink '%s' -> '%s' status = %d\n", dst, src, status);
 	brick_string_free(dst);
+out_return:;
 }
 
 static
@@ -3253,7 +3256,7 @@ void _init_trans_input(struct trans_logger_input *trans_input, struct mars_dent 
 {
 	if (unlikely(trans_input->connect || trans_input->is_operating)) {
 		MARS_ERR("this should not happen\n");
-		return;
+		goto out_return;
 	}
 
 	memset(&trans_input->inf, 0, sizeof(trans_input->inf));
@@ -3263,6 +3266,7 @@ void _init_trans_input(struct trans_logger_input *trans_input, struct mars_dent 
 	trans_input->inf.inf_private = rot;
 	trans_input->inf.inf_callback = _update_info;
 	MARS_DBG("initialized '%s' %d\n", trans_input->inf.inf_host, trans_input->inf.inf_sequence);
+out_return:;
 }
 
 static

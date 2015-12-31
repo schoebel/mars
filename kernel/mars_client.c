@@ -424,12 +424,13 @@ static void client_ref_put(struct client_output *output, struct mref_object *mre
 {
 	struct client_mref_aspect *mref_a;
 	if (!_mref_put(mref))
-		return;
+		goto out_return;
 	mref_a = client_mref_get_aspect(output->brick, mref);
 	if (mref_a && mref_a->do_dealloc) {
 		brick_block_free(mref->ref_data, mref_a->alloc_len);
 	}
 	_mref_free(mref);
+out_return:;
 }
 
 static
@@ -476,12 +477,12 @@ static void client_ref_io(struct client_output *output, struct mref_object *mref
 
 	wake_up_interruptible_all(&output->bundle.sender_event);
 
-	return;
-
+	goto out_return;
 error:
 	MARS_ERR("IO error = %d\n", error);
 	SIMPLE_CALLBACK(mref, error);
 	client_ref_put(output, mref);
+out_return:;
 }
 
 static
@@ -644,8 +645,7 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 	unsigned long flags;
 
 	if (list_empty(anchor))
-		return;
-
+		goto out_return;
 	if (io_timeout <= 0)
 		io_timeout = global_net_io_timeout;
 	
@@ -653,8 +653,7 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 		force = true;
 	
 	if (!force && io_timeout <= 0)
-		return;
-	
+		goto out_return;
 	io_timeout *= HZ;
 	
 	spin_lock_irqsave(&output->lock, flags);
@@ -701,6 +700,7 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 		atomic_dec(&output->fly_count);
 		atomic_dec(&mars_global_io_flying);
 	}
+out_return:;
 }
 
 static

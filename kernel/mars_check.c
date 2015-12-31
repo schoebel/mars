@@ -107,10 +107,11 @@ static void check_endio(struct generic_callback *cb)
 
 	NEXT_CHECKED_CALLBACK(cb, fatal);
 
-	return;
+	goto out_return;
 fatal:
 	brick_msleep(60000);
-	return;
+	goto out_return;
+out_return:;
 }
 
 #ifdef CHECK_LOCK

@@ -256,10 +256,10 @@ exit:
 	}
 	brick->trigger = true;
 	wake_up_interruptible(&brick->event);
-	return;
-
+	goto out_return;
 err:
 	MARS_FAT("cannot handle callback\n");
+out_return:;
 }
 
 static

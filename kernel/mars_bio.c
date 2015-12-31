@@ -119,10 +119,10 @@ void bio_callback(struct bio *bio, int code)
 	spin_unlock_irqrestore(&brick->lock, flags);
 
 	wake_up_interruptible(&brick->response_event);
-	return;
-
+	goto out_return;
 err:
 	MARS_FAT("cannot handle bio callback\n");
+out_return:;
 }
 
 /* Map from kernel address/length to struct page (if not already known),
@@ -362,10 +362,10 @@ void _bio_ref_put(struct bio_output *output, struct mref_object *mref)
 	}
 	_mref_free(mref);
 
-	return;
-
+	goto out_return;
 err:
 	MARS_FAT("cannot work\n");
+out_return:;
 }
 
 #define BIO_REF_PUT(output,mref)					\
@@ -495,16 +495,16 @@ void bio_ref_io(struct bio_output *output, struct mref_object *mref)
 		brick->submitted = true;
 
 		wake_up_interruptible(&brick->submit_event);
-		return;
+		goto out_return;
 	}
 
 	// realtime IO: start immediately
 	_bio_ref_io(output, mref, false);
 	BIO_REF_PUT(output, mref);
-	return;
-
+	goto out_return;
 fatal:
 	MARS_FAT("cannot handle mref %p on output %p\n", mref, output);
+out_return:;
 }
 
 static
