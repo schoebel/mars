@@ -29,7 +29,7 @@
 #include <linux/wait.h>
 #include <linux/kthread.h>
 
-#include <asm/atomic.h>
+#include <linux/atomic.h>
 //      remove_this
 
 #ifndef CONFIG_MARS_MODULE

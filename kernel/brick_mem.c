@@ -29,7 +29,7 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 
-#include <asm/atomic.h>
+#include <linux/atomic.h>
 
 #include "brick_mem.h"
 #include "brick_say.h"

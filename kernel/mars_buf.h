@@ -25,7 +25,7 @@
 #define MARS_BUF_H
 
 #include <linux/list.h>
-#include <asm/atomic.h>
+#include <linux/atomic.h>
 
 //#define MARS_BUF_HASH_MAX 512
 #define MARS_BUF_HASH_MAX 2048
