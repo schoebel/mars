@@ -59,246 +59,246 @@ static int usebuf_get_info(struct usebuf_output *output, struct mars_info *info)
 }
 
 static inline
-void _usebuf_copy(struct mref_object *mref, struct mref_object *sub_mref, int rw)
+void _usebuf_copy(struct aio_object *aio, struct aio_object *sub_aio, int rw)
 {
 #ifndef FAKE_ALL
 	if (rw == 0)
-		memcpy(mref->ref_data, sub_mref->ref_data, mref->ref_len);
+		memcpy(aio->io_data, sub_aio->io_data, aio->io_len);
 	else
-		memcpy(sub_mref->ref_data, mref->ref_data, mref->ref_len);
+		memcpy(sub_aio->io_data, aio->io_data, aio->io_len);
 #endif
 }
 
 static void _usebuf_endio(struct generic_callback *cb)
 {
-	struct usebuf_mref_aspect *mref_a = cb->cb_private;
-	struct mref_object *mref;
-	struct usebuf_mref_aspect *sub_mref_a;
-	struct mref_object *sub_mref;
+	struct usebuf_aio_aspect *aio_a = cb->cb_private;
+	struct aio_object *aio;
+	struct usebuf_aio_aspect *sub_aio_a;
+	struct aio_object *sub_aio;
 
 	LAST_CALLBACK(cb);
-	CHECK_PTR(mref_a, done);
-	mref = mref_a->object;
-	CHECK_PTR(mref, done);
-	sub_mref_a = mref_a->sub_mref_a;
-	CHECK_PTR(sub_mref_a, done);
-	sub_mref = sub_mref_a->object;
-	CHECK_PTR(sub_mref, done);
+	CHECK_PTR(aio_a, done);
+	aio = aio_a->object;
+	CHECK_PTR(aio, done);
+	sub_aio_a = aio_a->sub_aio_a;
+	CHECK_PTR(sub_aio_a, done);
+	sub_aio = sub_aio_a->object;
+	CHECK_PTR(sub_aio, done);
 
-	if (mref->ref_data != sub_mref->ref_data && cb->cb_error >= 0) {
-		if (sub_mref->ref_may_write == 0) {
-			if (sub_mref->ref_flags & MREF_UPTODATE) {
-				_usebuf_copy(mref, sub_mref, 0);
-				mref->ref_flags |= MREF_UPTODATE;
+	if (aio->io_data != sub_aio->io_data && cb->cb_error >= 0) {
+		if (sub_aio->io_may_write == 0) {
+			if (sub_aio->io_flags & AIO_UPTODATE) {
+				_usebuf_copy(aio, sub_aio, 0);
+				aio->io_flags |= AIO_UPTODATE;
 			}
 #ifndef FAKE_ALL
-		} else if (sub_mref->ref_rw == 0) {
-			sub_mref->ref_rw = 1;
-			_usebuf_copy(mref, sub_mref, 1);
-			mref->ref_flags |= MREF_UPTODATE;
-			GENERIC_INPUT_CALL(mref_a->input, mref_io, sub_mref);
+		} else if (sub_aio->io_rw == 0) {
+			sub_aio->io_rw = 1;
+			_usebuf_copy(aio, sub_aio, 1);
+			aio->io_flags |= AIO_UPTODATE;
+			GENERIC_INPUT_CALL(aio_a->input, aio_io, sub_aio);
 			goto out_return;
 #endif
 		}
 	}
 
 #if 1
-	if (mref_a->yyy++ > 0)
-		MARS_ERR("yyy = %d\n", mref_a->yyy - 1);
+	if (aio_a->yyy++ > 0)
+		MARS_ERR("yyy = %d\n", aio_a->yyy - 1);
 	if (cb->cb_error < 0)
 		MARS_ERR("error = %d\n", cb->cb_error);
 #endif
-	CHECKED_CALLBACK(mref, cb->cb_error, done);
+	CHECKED_CALLBACK(aio, cb->cb_error, done);
 
-	if (!_mref_put(mref))
+	if (!obj_put(aio))
 		goto out_return;
 #if 1
-	_mref_put(sub_mref);
+	obj_put(sub_aio);
 #endif
 
-	_mref_free(mref);
+	obj_free(aio);
 done:;
 out_return:;
 }
 
-static int usebuf_ref_get(struct usebuf_output *output, struct mref_object *mref)
+static int usebuf_io_get(struct usebuf_output *output, struct aio_object *aio)
 {
 	struct usebuf_input *input = output->brick->inputs[0];
-	struct usebuf_mref_aspect *mref_a;
-	struct usebuf_mref_aspect *sub_mref_a;
-	struct mref_object *sub_mref;
+	struct usebuf_aio_aspect *aio_a;
+	struct usebuf_aio_aspect *sub_aio_a;
+	struct aio_object *sub_aio;
 	int status = 0;
 
 	might_sleep();
 
-	mref_a = usebuf_mref_get_aspect(output->brick, mref);
-	if (unlikely(!mref_a)) {
+	aio_a = usebuf_aio_get_aspect(output->brick, aio);
+	if (unlikely(!aio_a)) {
 		MARS_FAT("cannot get aspect\n");
 		return -EILSEQ;
 	}
 
-	sub_mref_a = mref_a->sub_mref_a;
-	if (!sub_mref_a) {
-		sub_mref = usebuf_alloc_mref(output->brick);
+	sub_aio_a = aio_a->sub_aio_a;
+	if (!sub_aio_a) {
+		sub_aio = usebuf_alloc_aio(output->brick);
 
-		sub_mref_a = usebuf_mref_get_aspect(output->brick, sub_mref);
-		if (unlikely(!sub_mref_a)) {
+		sub_aio_a = usebuf_aio_get_aspect(output->brick, sub_aio);
+		if (unlikely(!sub_aio_a)) {
 			MARS_FAT("cannot get aspect\n");
 			return -EILSEQ;
 		}
 
-		mref_a->sub_mref_a = sub_mref_a;
-		sub_mref->ref_pos = mref->ref_pos;
-		sub_mref->ref_len = mref->ref_len;
-		sub_mref->ref_may_write = mref->ref_may_write;
+		aio_a->sub_aio_a = sub_aio_a;
+		sub_aio->io_pos = aio->io_pos;
+		sub_aio->io_len = aio->io_len;
+		sub_aio->io_may_write = aio->io_may_write;
 #ifdef DIRECT_IO /*  shortcut solely for testing: do direct IO */
-		if (!mref->ref_data)
+		if (!aio->io_data)
 			MARS_ERR("NULL.......\n");
-		sub_mref->ref_data = mref->ref_data;
+		sub_aio->io_data = aio->io_data;
 #else /*  normal case: buffered IO */
-		sub_mref->ref_data = NULL;
+		sub_aio->io_data = NULL;
 #endif
-		SETUP_CALLBACK(sub_mref, _usebuf_endio, mref_a);
-		mref->ref_flags = 0;
+		SETUP_CALLBACK(sub_aio, _usebuf_endio, aio_a);
+		aio->io_flags = 0;
 	} else {
-		sub_mref = sub_mref_a->object;
+		sub_aio = sub_aio_a->object;
 #if 1
 		MARS_ERR("please do not use this broken feature\n");
 #endif
 	}
 
-	status = GENERIC_INPUT_CALL(input, mref_get, sub_mref);
+	status = GENERIC_INPUT_CALL(input, aio_get, sub_aio);
 	if (status < 0)
 		return status;
 
-	mref->ref_len = sub_mref->ref_len;
-	if (!mref->ref_data)
-		mref->ref_data = sub_mref->ref_data;
-	_mref_get(mref);
+	aio->io_len = sub_aio->io_len;
+	if (!aio->io_data)
+		aio->io_data = sub_aio->io_data;
+	obj_get(aio);
 
 	return status;
 }
 
-static void usebuf_ref_put(struct usebuf_output *output, struct mref_object *mref)
+static void usebuf_io_put(struct usebuf_output *output, struct aio_object *aio)
 {
 	struct usebuf_input *input = output->brick->inputs[0];
-	struct usebuf_mref_aspect *mref_a;
-	struct usebuf_mref_aspect *sub_mref_a;
-	struct mref_object *sub_mref;
+	struct usebuf_aio_aspect *aio_a;
+	struct usebuf_aio_aspect *sub_aio_a;
+	struct aio_object *sub_aio;
 
-	mref_a = usebuf_mref_get_aspect(output->brick, mref);
-	if (unlikely(!mref_a)) {
+	aio_a = usebuf_aio_get_aspect(output->brick, aio);
+	if (unlikely(!aio_a)) {
 		MARS_FAT("cannot get aspect\n");
 		goto out_return;
 	}
 
-	sub_mref_a = mref_a->sub_mref_a;
-	if (!sub_mref_a) {
-		MARS_FAT("sub_mref_a is missing\n");
+	sub_aio_a = aio_a->sub_aio_a;
+	if (!sub_aio_a) {
+		MARS_FAT("sub_aio_a is missing\n");
 		goto out_return;
 	}
 
-	sub_mref = sub_mref_a->object;
-	if (!sub_mref) {
-		MARS_FAT("sub_mref is missing\n");
+	sub_aio = sub_aio_a->object;
+	if (!sub_aio) {
+		MARS_FAT("sub_aio is missing\n");
 		goto out_return;
 	}
 
-	if (!_mref_put(mref))
+	if (!obj_put(aio))
 		goto out_return;
-	GENERIC_INPUT_CALL(input, mref_put, sub_mref);
-	_mref_free(mref);
+	GENERIC_INPUT_CALL(input, aio_put, sub_aio);
+	obj_free(aio);
 out_return:;
 }
 
-static void usebuf_ref_io(struct usebuf_output *output, struct mref_object *mref)
+static void usebuf_io_io(struct usebuf_output *output, struct aio_object *aio)
 {
 	struct usebuf_input *input = output->brick->inputs[0];
-	struct usebuf_mref_aspect *mref_a;
-	struct usebuf_mref_aspect *sub_mref_a;
-	struct mref_object *sub_mref;
+	struct usebuf_aio_aspect *aio_a;
+	struct usebuf_aio_aspect *sub_aio_a;
+	struct aio_object *sub_aio;
 	int error = -EILSEQ;
 
 	might_sleep();
 
-	_mref_check(mref);
+	obj_check(aio);
 
-	mref_a = usebuf_mref_get_aspect(output->brick, mref);
-	if (unlikely(!mref_a)) {
+	aio_a = usebuf_aio_get_aspect(output->brick, aio);
+	if (unlikely(!aio_a)) {
 		MARS_FAT("cannot get aspect\n");
 		goto err;
 	}
 
-	sub_mref_a = mref_a->sub_mref_a;
-	if (!sub_mref_a) {
-		MARS_FAT("sub_mref is missing\n");
+	sub_aio_a = aio_a->sub_aio_a;
+	if (!sub_aio_a) {
+		MARS_FAT("sub_aio is missing\n");
 		goto err;
 	}
 
-	sub_mref = sub_mref_a->object;
-	if (!sub_mref) {
-		MARS_FAT("sub_mref is missing\n");
+	sub_aio = sub_aio_a->object;
+	if (!sub_aio) {
+		MARS_FAT("sub_aio is missing\n");
 		goto err;
 	}
 
-	if (mref->ref_rw != 0 && sub_mref->ref_may_write == 0) {
-		MARS_ERR("mref_may_write was not set before\n");
+	if (aio->io_rw != 0 && sub_aio->io_may_write == 0) {
+		MARS_ERR("aio_may_write was not set before\n");
 		goto err;
 	}
 
-	_mref_get(mref);
+	obj_get(aio);
 
-	sub_mref->ref_rw = mref->ref_rw;
-	sub_mref->ref_len = mref->ref_len;
-	mref_a->input = input;
+	sub_aio->io_rw = aio->io_rw;
+	sub_aio->io_len = aio->io_len;
+	aio_a->input = input;
 	/* Optimization: when buffered IO is used and buffer is already
 	 * uptodate, skip real IO operation.
 	 */
-	if (mref->ref_rw != 0) {
+	if (aio->io_rw != 0) {
 #ifdef DIRECT_WRITE
-		sub_mref->ref_rw = 1;
+		sub_aio->io_rw = 1;
 #else /*  normal case */
-		sub_mref->ref_rw = 0;
-		if (sub_mref->ref_flags & MREF_UPTODATE)
-			sub_mref->ref_rw = 1;
+		sub_aio->io_rw = 0;
+		if (sub_aio->io_flags & AIO_UPTODATE)
+			sub_aio->io_rw = 1;
 #endif
-	} else if (sub_mref->ref_flags & MREF_UPTODATE) {
-		_usebuf_endio(sub_mref->object_cb);
+	} else if (sub_aio->io_flags & AIO_UPTODATE) {
+		_usebuf_endio(sub_aio->object_cb);
 		goto out_return;
 	}
-	if (mref->ref_data != sub_mref->ref_data) {
-		if (sub_mref->ref_rw != 0) {
-			_usebuf_copy(mref, sub_mref, 1);
-			mref->ref_flags |= MREF_UPTODATE;
+	if (aio->io_data != sub_aio->io_data) {
+		if (sub_aio->io_rw != 0) {
+			_usebuf_copy(aio, sub_aio, 1);
+			aio->io_flags |= AIO_UPTODATE;
 		}
 	}
 
 #ifdef FAKE_ALL
-	_usebuf_endio(sub_mref->ref_cb);
+	_usebuf_endio(sub_aio->io_cb);
 	goto out_return;
 #endif
-	GENERIC_INPUT_CALL(input, mref_io, sub_mref);
+	GENERIC_INPUT_CALL(input, aio_io, sub_aio);
 
 	goto out_return;
 err:
-	SIMPLE_CALLBACK(mref, error);
+	SIMPLE_CALLBACK(aio, error);
 	goto out_return;
 out_return:;
 }
 
 /*************** object * aspect constructors * destructors **************/
 
-static int usebuf_mref_aspect_init_fn(struct generic_aspect *_ini)
+static int usebuf_aio_aspect_init_fn(struct generic_aspect *_ini)
 {
-	struct usebuf_mref_aspect *ini = (void *)_ini;
+	struct usebuf_aio_aspect *ini = (void *)_ini;
 
 	(void)ini;
 	return 0;
 }
 
-static void usebuf_mref_aspect_exit_fn(struct generic_aspect *_ini)
+static void usebuf_aio_aspect_exit_fn(struct generic_aspect *_ini)
 {
-	struct usebuf_mref_aspect *ini = (void *)_ini;
+	struct usebuf_aio_aspect *ini = (void *)_ini;
 
 	(void)ini;
 }
@@ -323,9 +323,9 @@ static struct usebuf_brick_ops usebuf_brick_ops;
 
 static struct usebuf_output_ops usebuf_output_ops = {
 	.mars_get_info = usebuf_get_info,
-	.mref_get = usebuf_ref_get,
-	.mref_put = usebuf_ref_put,
-	.mref_io = usebuf_ref_io,
+	.aio_get = usebuf_io_get,
+	.aio_put = usebuf_io_put,
+	.aio_io = usebuf_io_io,
 };
 
 const struct usebuf_input_type usebuf_input_type = {

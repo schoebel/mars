@@ -115,20 +115,20 @@ int _clear_clash(struct copy_brick *brick)
  * crashes during inconsistency caused by partial replication of writes.
  */
 static
-int _determine_input(struct copy_brick *brick, struct mref_object *mref)
+int _determine_input(struct copy_brick *brick, struct aio_object *aio)
 {
 	int rw;
 	int below;
 	int behind;
-	loff_t ref_end;
+	loff_t io_end;
 
 	if (!brick->utilize_mode || brick->low_dirty)
 		return INPUT_A_IO;
 
-	ref_end = mref->ref_pos + mref->ref_len;
-	below = ref_end <= brick->copy_start;
-	behind = !brick->copy_end || mref->ref_pos >= brick->copy_end;
-	rw = mref->ref_may_write | mref->ref_rw;
+	io_end = aio->io_pos + aio->io_len;
+	below = io_end <= brick->copy_start;
+	behind = !brick->copy_end || aio->io_pos >= brick->copy_end;
+	rw = aio->io_may_write | aio->io_rw;
 	if (rw) {
 		if (!behind) {
 			brick->low_dirty = true;
@@ -150,39 +150,39 @@ int _determine_input(struct copy_brick *brick, struct mref_object *mref)
 #define GET_OFFSET(pos)   ((pos) % COPY_CHUNK)
 
 static
-void __clear_mref(struct copy_brick *brick, struct mref_object *mref, int queue)
+void __clear_aio(struct copy_brick *brick, struct aio_object *aio, int queue)
 {
 	struct copy_input *input;
 
 	input = queue ? brick->inputs[INPUT_B_COPY] : brick->inputs[INPUT_A_COPY];
-	GENERIC_INPUT_CALL(input, mref_put, mref);
+	GENERIC_INPUT_CALL(input, aio_put, aio);
 }
 
 static
-void _clear_mref(struct copy_brick *brick, int index, int queue)
+void _clear_aio(struct copy_brick *brick, int index, int queue)
 {
 	struct copy_state *st = &GET_STATE(brick, index);
-	struct mref_object *mref = st->table[queue];
+	struct aio_object *aio = st->table[queue];
 
-	if (mref) {
+	if (aio) {
 		if (unlikely(st->active[queue])) {
-			MARS_ERR("clearing active mref, index = %d queue = %d\n", index, queue);
+			MARS_ERR("clearing active aio, index = %d queue = %d\n", index, queue);
 			st->active[queue] = false;
 		}
-		__clear_mref(brick, mref, queue);
+		__clear_aio(brick, aio, queue);
 		st->table[queue] = NULL;
 	}
 }
 
 static
-void _clear_all_mref(struct copy_brick *brick)
+void _clear_all_aio(struct copy_brick *brick)
 {
 	int i;
 
 	for (i = 0; i < NR_COPY_REQUESTS; i++) {
 		GET_STATE(brick, i).state = COPY_STATE_START;
-		_clear_mref(brick, i, 0);
-		_clear_mref(brick, i, 1);
+		_clear_aio(brick, i, 0);
+		_clear_aio(brick, i, 1);
 	}
 }
 
@@ -201,8 +201,8 @@ void _clear_state_table(struct copy_brick *brick)
 static
 void copy_endio(struct generic_callback *cb)
 {
-	struct copy_mref_aspect *mref_a;
-	struct mref_object *mref;
+	struct copy_aio_aspect *aio_a;
+	struct aio_object *aio;
 	struct copy_brick *brick;
 	struct copy_state *st;
 	int index;
@@ -210,15 +210,15 @@ void copy_endio(struct generic_callback *cb)
 	int error = 0;
 
 	LAST_CALLBACK(cb);
-	mref_a = cb->cb_private;
-	CHECK_PTR(mref_a, err);
-	mref = mref_a->object;
-	CHECK_PTR(mref, err);
-	brick = mref_a->brick;
+	aio_a = cb->cb_private;
+	CHECK_PTR(aio_a, err);
+	aio = aio_a->object;
+	CHECK_PTR(aio, err);
+	brick = aio_a->brick;
 	CHECK_PTR(brick, err);
 
-	queue = mref_a->queue;
-	index = GET_INDEX(mref->ref_pos);
+	queue = aio_a->queue;
+	index = GET_INDEX(aio->io_pos);
 	st = &GET_STATE(brick, index);
 
 	if (unlikely(queue < 0 || queue >= 2)) {
@@ -228,13 +228,13 @@ void copy_endio(struct generic_callback *cb)
 	}
 	st->active[queue] = false;
 	if (unlikely(st->table[queue])) {
-		MARS_ERR("table corruption at %d %d (%p => %p)\n", index, queue, st->table[queue], mref);
+		MARS_ERR("table corruption at %d %d (%p => %p)\n", index, queue, st->table[queue], aio);
 		error = -EEXIST;
 		goto exit;
 	}
 	if (unlikely(cb->cb_error < 0)) {
 		error = cb->cb_error;
-		__clear_mref(brick, mref, queue);
+		__clear_aio(brick, aio, queue);
 		/* This is racy, but does no harm.
 		 * Worst case just produces more error output.
 		 */
@@ -243,9 +243,9 @@ void copy_endio(struct generic_callback *cb)
 	} else {
 		if (unlikely(st->table[queue])) {
 			MARS_ERR("overwriting index %d, state = %d\n", index, st->state);
-			_clear_mref(brick, index, queue);
+			_clear_aio(brick, index, queue);
 		}
-		st->table[queue] = mref;
+		st->table[queue] = aio;
 	}
 
 exit:
@@ -253,7 +253,7 @@ exit:
 		st->error = error;
 		_clash(brick);
 	}
-	if (mref->ref_rw)
+	if (aio->io_rw)
 		atomic_dec(&brick->copy_write_flight);
 	else
 		atomic_dec(&brick->copy_read_flight);
@@ -266,7 +266,7 @@ out_return:;
 }
 
 static
-int _make_mref(struct copy_brick *brick,
+int _make_aio(struct copy_brick *brick,
 	int index,
 	int queue,
 	void *data,
@@ -275,8 +275,8 @@ int _make_mref(struct copy_brick *brick,
 	int rw,
 	int cs_mode)
 {
-	struct mref_object *mref;
-	struct copy_mref_aspect *mref_a;
+	struct aio_object *aio;
+	struct copy_aio_aspect *aio_a;
 	struct copy_input *input;
 	int offset;
 	int len;
@@ -285,49 +285,49 @@ int _make_mref(struct copy_brick *brick,
 	if (brick->clash || end_pos <= 0)
 		goto done;
 
-	mref = copy_alloc_mref(brick);
+	aio = copy_alloc_aio(brick);
 	status = -ENOMEM;
 
-	mref_a = copy_mref_get_aspect(brick, mref);
-	if (unlikely(!mref_a)) {
+	aio_a = copy_aio_get_aspect(brick, aio);
+	if (unlikely(!aio_a)) {
 		MARS_FAT("cannot get own apsect\n");
 		goto done;
 	}
 
-	mref_a->brick = brick;
-	mref_a->queue = queue;
-	mref->ref_may_write = rw;
-	mref->ref_rw = rw;
-	mref->ref_data = data;
-	mref->ref_pos = pos;
-	mref->ref_cs_mode = cs_mode;
+	aio_a->brick = brick;
+	aio_a->queue = queue;
+	aio->io_may_write = rw;
+	aio->io_rw = rw;
+	aio->io_data = data;
+	aio->io_pos = pos;
+	aio->io_cs_mode = cs_mode;
 	offset = GET_OFFSET(pos);
 	len = COPY_CHUNK - offset;
 	if (pos + len > end_pos)
 		len = end_pos - pos;
-	mref->ref_len = len;
-	mref->ref_prio = rw ?
+	aio->io_len = len;
+	aio->io_prio = rw ?
 		mars_copy_write_prio :
 		mars_copy_read_prio;
-	if (mref->ref_prio < MARS_PRIO_HIGH || mref->ref_prio > MARS_PRIO_LOW)
-		mref->ref_prio = brick->io_prio;
+	if (aio->io_prio < MARS_PRIO_HIGH || aio->io_prio > MARS_PRIO_LOW)
+		aio->io_prio = brick->io_prio;
 
-	SETUP_CALLBACK(mref, copy_endio, mref_a);
+	SETUP_CALLBACK(aio, copy_endio, aio_a);
 
 	input = queue ? brick->inputs[INPUT_B_COPY] : brick->inputs[INPUT_A_COPY];
-	status = GENERIC_INPUT_CALL(input, mref_get, mref);
+	status = GENERIC_INPUT_CALL(input, aio_get, aio);
 	if (unlikely(status < 0)) {
 		MARS_ERR("status = %d\n", status);
-		_mref_free(mref);
+		obj_free(aio);
 		goto done;
 	}
-	if (unlikely(mref->ref_len < len))
-		MARS_DBG("shorten len %d < %d\n", mref->ref_len, len);
+	if (unlikely(aio->io_len < len))
+		MARS_DBG("shorten len %d < %d\n", aio->io_len, len);
 	if (queue == 0) {
-		GET_STATE(brick, index).len = mref->ref_len;
-	} else if (unlikely(mref->ref_len < GET_STATE(brick, index).len)) {
-		MARS_DBG("shorten len %d < %d at index %d\n", mref->ref_len, GET_STATE(brick, index).len, index);
-		GET_STATE(brick, index).len = mref->ref_len;
+		GET_STATE(brick, index).len = aio->io_len;
+	} else if (unlikely(aio->io_len < GET_STATE(brick, index).len)) {
+		MARS_DBG("shorten len %d < %d at index %d\n", aio->io_len, GET_STATE(brick, index).len, index);
+		GET_STATE(brick, index).len = aio->io_len;
 	}
 
 	GET_STATE(brick, index).active[queue] = true;
@@ -335,7 +335,7 @@ int _make_mref(struct copy_brick *brick,
 		atomic_inc(&brick->copy_write_flight);
 	else
 		atomic_inc(&brick->copy_read_flight);
-	GENERIC_INPUT_CALL(input, mref_io, mref);
+	GENERIC_INPUT_CALL(input, aio_io, aio);
 
 done:
 	return status;
@@ -368,8 +368,8 @@ void _update_percent(struct copy_brick *brick, bool force)
 static
 int _next_state(struct copy_brick *brick, int index, loff_t pos)
 {
-	struct mref_object *mref0;
-	struct mref_object *mref1;
+	struct aio_object *aio0;
+	struct aio_object *aio1;
 	struct copy_state *st;
 	char state;
 	char next_state;
@@ -390,8 +390,8 @@ restart:
 		/* This state is only entered after errors or
 		 * in restarting situations.
 		 */
-		_clear_mref(brick, index, 1);
-		_clear_mref(brick, index, 0);
+		_clear_aio(brick, index, 1);
+		_clear_aio(brick, index, 0);
 		next_state = COPY_STATE_START;
 		/* fallthrough */
 	case COPY_STATE_START:
@@ -404,8 +404,8 @@ restart:
 			goto idle;
 		}
 
-		_clear_mref(brick, index, 1);
-		_clear_mref(brick, index, 0);
+		_clear_aio(brick, index, 1);
+		_clear_aio(brick, index, 0);
 		st->writeout = false;
 		st->error = 0;
 
@@ -413,7 +413,7 @@ restart:
 		    is_read_limited(brick))
 			goto idle;
 
-		status = _make_mref(brick, index, 0, NULL, pos, brick->copy_end, READ, brick->verify_mode ? 2 : 0);
+		status = _make_aio(brick, index, 0, NULL, pos, brick->copy_end, READ, brick->verify_mode ? 2 : 0);
 		if (unlikely(status < 0)) {
 			MARS_DBG("status = %d\n", status);
 			progress = status;
@@ -427,7 +427,7 @@ restart:
 		next_state = COPY_STATE_START2;
 		/* fallthrough */
 	case COPY_STATE_START2:
-		status = _make_mref(brick, index, 1, NULL, pos, brick->copy_end, READ, 2);
+		status = _make_aio(brick, index, 1, NULL, pos, brick->copy_end, READ, 2);
 		if (unlikely(status < 0)) {
 			MARS_DBG("status = %d\n", status);
 			progress = status;
@@ -436,46 +436,46 @@ restart:
 		next_state = COPY_STATE_READ2;
 		/* fallthrough */
 	case COPY_STATE_READ2:
-		mref1 = st->table[1];
-		if (!mref1) { /*  idempotence: wait by unchanged state */
+		aio1 = st->table[1];
+		if (!aio1) { /*  idempotence: wait by unchanged state */
 			goto idle;
 		}
-		/* fallthrough = > wait for both mrefs to appear */
+		/* fallthrough = > wait for both aios to appear */
 	case COPY_STATE_READ1:
 	case COPY_STATE_READ3:
-		mref0 = st->table[0];
-		if (!mref0) { /*  idempotence: wait by unchanged state */
+		aio0 = st->table[0];
+		if (!aio0) { /*  idempotence: wait by unchanged state */
 			goto idle;
 		}
 		if (brick->copy_limiter) {
-			int amount = (mref0->ref_len - 1) / 1024 + 1;
+			int amount = (aio0->io_len - 1) / 1024 + 1;
 
 			mars_limit_sleep(brick->copy_limiter, amount);
 		}
 		/*  on append mode: increase the end pointer dynamically */
-		if (brick->append_mode > 0 && mref0->ref_total_size && mref0->ref_total_size > brick->copy_end)
-			brick->copy_end = mref0->ref_total_size;
+		if (brick->append_mode > 0 && aio0->io_total_size && aio0->io_total_size > brick->copy_end)
+			brick->copy_end = aio0->io_total_size;
 		/*  do verify (when applicable) */
-		mref1 = st->table[1];
-		if (mref1 && state != COPY_STATE_READ3) {
-			int len = mref0->ref_len;
+		aio1 = st->table[1];
+		if (aio1 && state != COPY_STATE_READ3) {
+			int len = aio0->io_len;
 			bool ok;
 
-			if (len != mref1->ref_len) {
+			if (len != aio1->io_len) {
 				ok = false;
-			} else if (mref0->ref_cs_mode) {
-				static unsigned char null[sizeof(mref0->ref_checksum)];
+			} else if (aio0->io_cs_mode) {
+				static unsigned char null[sizeof(aio0->io_checksum)];
 
-				ok = !memcmp(mref0->ref_checksum, mref1->ref_checksum, sizeof(mref0->ref_checksum));
+				ok = !memcmp(aio0->io_checksum, aio1->io_checksum, sizeof(aio0->io_checksum));
 				if (ok)
-					ok = memcmp(mref0->ref_checksum, null, sizeof(mref0->ref_checksum)) != 0;
-			} else if (!mref0->ref_data || !mref1->ref_data) {
+					ok = memcmp(aio0->io_checksum, null, sizeof(aio0->io_checksum)) != 0;
+			} else if (!aio0->io_data || !aio1->io_data) {
 				ok = false;
 			} else {
-				ok = !memcmp(mref0->ref_data, mref1->ref_data, len);
+				ok = !memcmp(aio0->io_data, aio1->io_data, len);
 			}
 
-			_clear_mref(brick, index, 1);
+			_clear_aio(brick, index, 1);
 
 			if (ok)
 				brick->verify_ok_count++;
@@ -489,9 +489,9 @@ restart:
 			}
 		}
 
-		if (mref0->ref_cs_mode > 1) { /*  re-read, this time with data */
-			_clear_mref(brick, index, 0);
-			status = _make_mref(brick, index, 0, NULL, pos, brick->copy_end, READ, 0);
+		if (aio0->io_cs_mode > 1) { /*  re-read, this time with data */
+			_clear_aio(brick, index, 0);
+			status = _make_aio(brick, index, 0, NULL, pos, brick->copy_end, READ, 0);
 			if (unlikely(status < 0)) {
 				MARS_DBG("status = %d\n", status);
 				progress = status;
@@ -512,14 +512,14 @@ restart:
 		 * under all circumstances, i.e. we only assure that
 		 * _starting_ the writes is in order.
 		 * This is only correct when all lower bricks obey the
-		 * order of ref_io() operations.
+		 * order of io_io() operations.
 		 * Currenty, bio and aio are obeying this. Be careful when
 		 * implementing new IO bricks!
 		 */
 		if (st->prev >= 0 && !GET_STATE(brick, st->prev).writeout)
 			goto idle;
-		mref0 = st->table[0];
-		if (unlikely(!mref0 || !mref0->ref_data)) {
+		aio0 = st->table[0];
+		if (unlikely(!aio0 || !aio0->io_data)) {
 			MARS_ERR("src buffer for write does not exist, state %d at index %d\n", state, index);
 			progress = -EILSEQ;
 			break;
@@ -529,7 +529,7 @@ restart:
 			break;
 		}
 		/* start writeout */
-		status = _make_mref(brick, index, 1, mref0->ref_data, pos, pos + mref0->ref_len, WRITE, 0);
+		status = _make_aio(brick, index, 1, aio0->io_data, pos, pos + aio0->io_len, WRITE, 0);
 		if (unlikely(status < 0)) {
 			MARS_DBG("status = %d\n", status);
 			progress = status;
@@ -546,8 +546,8 @@ restart:
 		next_state = COPY_STATE_WRITTEN;
 		/* fallthrough */
 	case COPY_STATE_WRITTEN:
-		mref1 = st->table[1];
-		if (!mref1) { /*  idempotence: wait by unchanged state */
+		aio1 = st->table[1];
+		if (!aio1) { /*  idempotence: wait by unchanged state */
 			goto idle;
 		}
 		st->writeout = true;
@@ -563,8 +563,8 @@ restart:
 		next_state = COPY_STATE_CLEANUP;
 		/* fallthrough */
 	case COPY_STATE_CLEANUP:
-		_clear_mref(brick, index, 1);
-		_clear_mref(brick, index, 0);
+		_clear_aio(brick, index, 1);
+		_clear_aio(brick, index, 0);
 		next_state = COPY_STATE_FINISHED;
 		/* fallthrough */
 	case COPY_STATE_FINISHED:
@@ -618,7 +618,7 @@ int _run_copy(struct copy_brick *brick)
 			brick_msleep(100);
 			return 0;
 		}
-		_clear_all_mref(brick);
+		_clear_all_aio(brick);
 		_clear_state_table(brick);
 	}
 
@@ -745,7 +745,7 @@ static int _copy_thread(void *data)
 		 brick->copy_start,
 		 brick->copy_end);
 
-	_clear_all_mref(brick);
+	_clear_all_aio(brick);
 	mars_power_led_off((void *)brick, true);
 	MARS_DBG("--------------- copy_thread done.\n");
 	return 0;
@@ -760,42 +760,42 @@ static int copy_get_info(struct copy_output *output, struct mars_info *info)
 	return GENERIC_INPUT_CALL(input, mars_get_info, info);
 }
 
-static int copy_ref_get(struct copy_output *output, struct mref_object *mref)
+static int copy_io_get(struct copy_output *output, struct aio_object *aio)
 {
 	struct copy_input *input;
 	int index;
 	int status;
 
-	index = _determine_input(output->brick, mref);
+	index = _determine_input(output->brick, aio);
 	input = output->brick->inputs[index];
-	status = GENERIC_INPUT_CALL(input, mref_get, mref);
+	status = GENERIC_INPUT_CALL(input, aio_get, aio);
 	if (status >= 0)
 		atomic_inc(&output->brick->io_flight);
 	return status;
 }
 
-static void copy_ref_put(struct copy_output *output, struct mref_object *mref)
+static void copy_io_put(struct copy_output *output, struct aio_object *aio)
 {
 	struct copy_input *input;
 	int index;
 
-	index = _determine_input(output->brick, mref);
+	index = _determine_input(output->brick, aio);
 	input = output->brick->inputs[index];
-	GENERIC_INPUT_CALL(input, mref_put, mref);
+	GENERIC_INPUT_CALL(input, aio_put, aio);
 	if (atomic_dec_and_test(&output->brick->io_flight)) {
 		output->brick->trigger = true;
 		wake_up_interruptible(&output->brick->event);
 	}
 }
 
-static void copy_ref_io(struct copy_output *output, struct mref_object *mref)
+static void copy_io_io(struct copy_output *output, struct aio_object *aio)
 {
 	struct copy_input *input;
 	int index;
 
-	index = _determine_input(output->brick, mref);
+	index = _determine_input(output->brick, aio);
 	input = output->brick->inputs[index];
-	GENERIC_INPUT_CALL(input, mref_io, mref);
+	GENERIC_INPUT_CALL(input, aio_io, aio);
 }
 
 static int copy_switch(struct copy_brick *brick)
@@ -880,17 +880,17 @@ void copy_reset_statistics(struct copy_brick *brick)
 
 /*************** object * aspect constructors * destructors **************/
 
-static int copy_mref_aspect_init_fn(struct generic_aspect *_ini)
+static int copy_aio_aspect_init_fn(struct generic_aspect *_ini)
 {
-	struct copy_mref_aspect *ini = (void *)_ini;
+	struct copy_aio_aspect *ini = (void *)_ini;
 
 	(void)ini;
 	return 0;
 }
 
-static void copy_mref_aspect_exit_fn(struct generic_aspect *_ini)
+static void copy_aio_aspect_exit_fn(struct generic_aspect *_ini)
 {
-	struct copy_mref_aspect *ini = (void *)_ini;
+	struct copy_aio_aspect *ini = (void *)_ini;
 
 	(void)ini;
 }
@@ -968,9 +968,9 @@ static struct copy_brick_ops copy_brick_ops = {
 
 static struct copy_output_ops copy_output_ops = {
 	.mars_get_info = copy_get_info,
-	.mref_get = copy_ref_get,
-	.mref_put = copy_ref_put,
-	.mref_io = copy_ref_io,
+	.aio_get = copy_io_get,
+	.aio_put = copy_io_put,
+	.aio_io = copy_io_io,
 };
 
 const struct copy_input_type copy_input_type = {

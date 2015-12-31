@@ -30,7 +30,7 @@
 
 #include "lib_log.h"
 
-atomic_t global_mref_flying = ATOMIC_INIT(0);
+atomic_t global_aio_flying = ATOMIC_INIT(0);
 
 void exit_logst(struct log_status *logst)
 {
@@ -40,20 +40,20 @@ void exit_logst(struct log_status *logst)
 
 	/*  TODO: replace by event */
 	count = 0;
-	while (atomic_read(&logst->mref_flying) > 0) {
+	while (atomic_read(&logst->aio_flying) > 0) {
 		if (!count++)
 			MARS_DBG("waiting for IO terminating...");
 		brick_msleep(500);
 	}
-	if (logst->read_mref) {
-		MARS_DBG("putting read_mref\n");
-		GENERIC_INPUT_CALL(logst->input, mref_put, logst->read_mref);
-		logst->read_mref = NULL;
+	if (logst->read_aio) {
+		MARS_DBG("putting read_aio\n");
+		GENERIC_INPUT_CALL(logst->input, aio_put, logst->read_aio);
+		logst->read_aio = NULL;
 	}
-	if (logst->log_mref) {
-		MARS_DBG("putting log_mref\n");
-		GENERIC_INPUT_CALL(logst->input, mref_put, logst->log_mref);
-		logst->log_mref = NULL;
+	if (logst->log_aio) {
+		MARS_DBG("putting log_aio\n");
+		GENERIC_INPUT_CALL(logst->input, aio_put, logst->log_aio);
+		logst->log_aio = NULL;
 	}
 }
 
@@ -74,7 +74,7 @@ void init_logst(struct log_status *logst, struct mars_input *input, loff_t start
 #define MARS_LOG_CB_MAX			32
 
 struct log_cb_info {
-	struct mref_object *mref;
+	struct aio_object *aio;
 	struct log_status *logst;
 	struct semaphore mutex;
 	atomic_t refcount;
@@ -123,8 +123,8 @@ void log_write_endio(struct generic_callback *cb)
 
 done:
 	put_log_cb_info(cb_info);
-	atomic_dec(&logst->mref_flying);
-	atomic_dec(&global_mref_flying);
+	atomic_dec(&logst->aio_flying);
+	atomic_dec(&global_aio_flying);
 	if (logst->signal_event)
 		wake_up_interruptible(logst->signal_event);
 
@@ -136,12 +136,12 @@ out_return:;
 
 void log_flush(struct log_status *logst)
 {
-	struct mref_object *mref = logst->log_mref;
+	struct aio_object *aio = logst->log_aio;
 	struct log_cb_info *cb_info;
 	int align_size;
 	int gap;
 
-	if (!mref || !logst->count)
+	if (!aio || !logst->count)
 		goto out_return;
 	gap = 0;
 	align_size = (logst->align_size / PAGE_SIZE) * PAGE_SIZE;
@@ -150,7 +150,7 @@ void log_flush(struct log_status *logst)
 		int align_offset = logst->offset & (align_size-1);
 
 		if (align_offset > 0) {
-			int restlen = mref->ref_len - logst->offset;
+			int restlen = aio->io_len - logst->offset;
 
 			gap = align_size - align_offset;
 			if (unlikely(gap > restlen))
@@ -159,28 +159,28 @@ void log_flush(struct log_status *logst)
 	}
 	if (gap > 0) {
 		/*  don't leak information from kernelspace */
-		memset(mref->ref_data + logst->offset, 0, gap);
+		memset(aio->io_data + logst->offset, 0, gap);
 		logst->offset += gap;
 	}
-	mref->ref_len = logst->offset;
+	aio->io_len = logst->offset;
 	memcpy(&logst->log_pos_stamp, &logst->tmp_pos_stamp, sizeof(logst->log_pos_stamp));
 
 	cb_info = logst->private;
 	logst->private = NULL;
-	SETUP_CALLBACK(mref, log_write_endio, cb_info);
+	SETUP_CALLBACK(aio, log_write_endio, cb_info);
 	cb_info->logst = logst;
-	mref->ref_rw = 1;
+	aio->io_rw = 1;
 
-	atomic_inc(&logst->mref_flying);
-	atomic_inc(&global_mref_flying);
+	atomic_inc(&logst->aio_flying);
+	atomic_inc(&global_aio_flying);
 
-	GENERIC_INPUT_CALL(logst->input, mref_io, mref);
-	GENERIC_INPUT_CALL(logst->input, mref_put, mref);
+	GENERIC_INPUT_CALL(logst->input, aio_io, aio);
+	GENERIC_INPUT_CALL(logst->input, aio_put, aio);
 
 	logst->log_pos += logst->offset;
 	logst->offset = 0;
 	logst->count = 0;
-	logst->log_mref = NULL;
+	logst->log_aio = NULL;
 
 	put_log_cb_info(cb_info);
 out_return:;
@@ -189,7 +189,7 @@ out_return:;
 void *log_reserve(struct log_status *logst, struct log_header *lh)
 {
 	struct log_cb_info *cb_info = logst->private;
-	struct mref_object *mref;
+	struct aio_object *aio;
 	void *data;
 
 	short total_len = lh->l_len + OVERHEAD;
@@ -201,14 +201,14 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 		goto err;
 	}
 
-	mref = logst->log_mref;
-	if ((mref && total_len > mref->ref_len - logst->offset)
+	aio = logst->log_aio;
+	if ((aio && total_len > aio->io_len - logst->offset)
 	   || !cb_info || cb_info->nr_cb >= MARS_LOG_CB_MAX) {
 		log_flush(logst);
 	}
 
-	mref = logst->log_mref;
-	if (!mref) {
+	aio = logst->log_aio;
+	if (!aio) {
 		if (unlikely(logst->private)) {
 			MARS_ERR("oops\n");
 			brick_mem_free(logst->private);
@@ -218,36 +218,36 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 		sema_init(&cb_info->mutex, 1);
 		atomic_set(&cb_info->refcount, 2);
 
-		mref = mars_alloc_mref(logst->brick);
-		cb_info->mref = mref;
+		aio = mars_alloc_aio(logst->brick);
+		cb_info->aio = aio;
 
-		mref->ref_pos = logst->log_pos;
-		mref->ref_len = logst->chunk_size ? logst->chunk_size : total_len;
-		mref->ref_may_write = WRITE;
-		mref->ref_prio = logst->io_prio;
+		aio->io_pos = logst->log_pos;
+		aio->io_len = logst->chunk_size ? logst->chunk_size : total_len;
+		aio->io_may_write = WRITE;
+		aio->io_prio = logst->io_prio;
 
 		for (;;) {
-			status = GENERIC_INPUT_CALL(logst->input, mref_get, mref);
+			status = GENERIC_INPUT_CALL(logst->input, aio_get, aio);
 			if (likely(status >= 0))
 				break;
 			if (status != -ENOMEM && status != -EAGAIN) {
-				MARS_ERR("mref_get() failed, status = %d\n", status);
+				MARS_ERR("aio_get() failed, status = %d\n", status);
 				goto err_free;
 			}
 			brick_msleep(100);
 		}
 
-		if (unlikely(mref->ref_len < total_len)) {
-			MARS_ERR("ref_len = %d total_len = %d\n", mref->ref_len, total_len);
+		if (unlikely(aio->io_len < total_len)) {
+			MARS_ERR("io_len = %d total_len = %d\n", aio->io_len, total_len);
 			goto put;
 		}
 
 		logst->offset = 0;
-		logst->log_mref = mref;
+		logst->log_aio = aio;
 	}
 
 	offset = logst->offset;
-	data = mref->ref_data;
+	data = aio->io_data;
 	DATA_PUT(data, offset, START_MAGIC);
 	DATA_PUT(data, offset, (char)FORMAT_VERSION);
 	logst->validflag_offset = offset;
@@ -272,12 +272,12 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 	return data + offset;
 
 put:
-	GENERIC_INPUT_CALL(logst->input, mref_put, mref);
-	logst->log_mref = NULL;
+	GENERIC_INPUT_CALL(logst->input, aio_put, aio);
+	logst->log_aio = NULL;
 	return NULL;
 
 err_free:
-	_mref_free(mref);
+	obj_free(aio);
 	if (logst->private) {
 		/*  TODO: if callbacks are already registered, call them here with some error code */
 		brick_mem_free(logst->private);
@@ -289,7 +289,7 @@ err:
 
 bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private, int error), void *private)
 {
-	struct mref_object *mref = logst->log_mref;
+	struct aio_object *aio = logst->log_aio;
 	struct log_cb_info *cb_info = logst->private;
 	struct timespec now;
 	void *data;
@@ -299,13 +299,13 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	int crc;
 	bool ok = false;
 
-	CHECK_PTR(mref, err);
+	CHECK_PTR(aio, err);
 
 	if (unlikely(len > logst->payload_len)) {
 		MARS_ERR("trying to write more than reserved (%d > %d)\n", len, logst->payload_len);
 		goto err;
 	}
-	restlen = mref->ref_len - logst->offset;
+	restlen = aio->io_len - logst->offset;
 	if (unlikely(len + END_OVERHEAD > restlen)) {
 		MARS_ERR("trying to write more than available (%d > %d)\n", len, (int)(restlen - END_OVERHEAD));
 		goto err;
@@ -315,7 +315,7 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 		goto err;
 	}
 
-	data = mref->ref_data;
+	data = aio->io_data;
 
 	crc = 0;
 	if (logst->do_crc) {
@@ -343,8 +343,8 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	DATA_PUT(data, offset, now.tv_sec);
 	DATA_PUT(data, offset, now.tv_nsec);
 
-	if (unlikely(offset > mref->ref_len)) {
-		MARS_FAT("length calculation was wrong: %d > %d\n", offset, mref->ref_len);
+	if (unlikely(offset > aio->io_len)) {
+		MARS_FAT("length calculation was wrong: %d > %d\n", offset, aio->io_len);
 		goto err;
 	}
 	logst->offset = offset;
@@ -388,19 +388,19 @@ out_return:;
 
 int log_read(struct log_status *logst, bool sloppy, struct log_header *lh, void **payload, int *payload_len)
 {
-	struct mref_object *mref;
+	struct aio_object *aio;
 	int old_offset;
 	int status;
 
 restart:
 	status = 0;
-	mref = logst->read_mref;
-	if (!mref || logst->do_free) {
+	aio = logst->read_aio;
+	if (!aio || logst->do_free) {
 		loff_t this_len;
 
-		if (mref) {
-			GENERIC_INPUT_CALL(logst->input, mref_put, mref);
-			logst->read_mref = NULL;
+		if (aio) {
+			GENERIC_INPUT_CALL(logst->input, aio_put, aio);
+			logst->read_aio = NULL;
 			logst->log_pos += logst->offset;
 			logst->offset = 0;
 		}
@@ -418,29 +418,29 @@ restart:
 			goto done;
 		}
 
-		mref = mars_alloc_mref(logst->brick);
-		mref->ref_pos = logst->log_pos;
-		mref->ref_len = this_len;
-		mref->ref_prio = logst->io_prio;
+		aio = mars_alloc_aio(logst->brick);
+		aio->io_pos = logst->log_pos;
+		aio->io_len = this_len;
+		aio->io_prio = logst->io_prio;
 
-		status = GENERIC_INPUT_CALL(logst->input, mref_get, mref);
+		status = GENERIC_INPUT_CALL(logst->input, aio_get, aio);
 		if (unlikely(status < 0)) {
 			if (status != -ENODATA)
-				MARS_ERR("mref_get() failed, status = %d\n", status);
+				MARS_ERR("aio_get() failed, status = %d\n", status);
 			goto done_free;
 		}
-		if (unlikely(mref->ref_len <= OVERHEAD)) { /*  EOF */
+		if (unlikely(aio->io_len <= OVERHEAD)) { /*  EOF */
 			status = 0;
 			goto done_put;
 		}
 
-		SETUP_CALLBACK(mref, log_read_endio, logst);
-		mref->ref_rw = READ;
+		SETUP_CALLBACK(aio, log_read_endio, logst);
+		aio->io_rw = READ;
 		logst->offset = 0;
 		logst->got = false;
 		logst->do_free = false;
 
-		GENERIC_INPUT_CALL(logst->input, mref_io, mref);
+		GENERIC_INPUT_CALL(logst->input, aio_io, aio);
 
 		wait_event_interruptible_timeout(logst->event, logst->got, 60 * HZ);
 		status = -ETIME;
@@ -449,12 +449,12 @@ restart:
 		status = logst->error_code;
 		if (status < 0)
 			goto done_put;
-		logst->read_mref = mref;
+		logst->read_aio = aio;
 	}
 
-	status = log_scan(mref->ref_data + logst->offset,
-			  mref->ref_len - logst->offset,
-			  mref->ref_pos,
+	status = log_scan(aio->io_data + logst->offset,
+			  aio->io_len - logst->offset,
+			  aio->io_pos,
 			  logst->offset,
 			  sloppy,
 			  lh,
@@ -471,7 +471,7 @@ restart:
 
 	/*  memoize success */
 	logst->offset += status;
-	if (logst->offset + (logst->max_size + OVERHEAD) * 2 >= mref->ref_len)
+	if (logst->offset + (logst->max_size + OVERHEAD) * 2 >= aio->io_len)
 		logst->do_free = true;
 
 done:
@@ -483,9 +483,9 @@ done:
 
 done_put:
 	old_offset = logst->offset;
-	if (mref) {
-		GENERIC_INPUT_CALL(logst->input, mref_put, mref);
-		logst->read_mref = NULL;
+	if (aio) {
+		GENERIC_INPUT_CALL(logst->input, aio_put, aio);
+		logst->read_aio = NULL;
 		logst->log_pos += logst->offset;
 		logst->offset = 0;
 	}
@@ -494,8 +494,8 @@ done_put:
 	goto done;
 
 done_free:
-	_mref_free(mref);
-	logst->read_mref = NULL;
+	obj_free(aio);
+	logst->read_aio = NULL;
 	goto done;
 
 }

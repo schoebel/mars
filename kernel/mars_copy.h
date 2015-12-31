@@ -52,7 +52,7 @@ enum {
 };
 
 struct copy_state {
-	struct mref_object *table[2];
+	struct aio_object *table[2];
 	bool active[2];
 	char state;
 	bool writeout;
@@ -62,8 +62,8 @@ struct copy_state {
 	short error;
 };
 
-struct copy_mref_aspect {
-	GENERIC_ASPECT(mref);
+struct copy_aio_aspect {
+	GENERIC_ASPECT(aio);
 	struct copy_brick *brick;
 	int queue;
 };

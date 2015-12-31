@@ -67,41 +67,41 @@
 
 static void check_endio(struct generic_callback *cb)
 {
-	struct check_mref_aspect *mref_a;
-	struct mref_object *mref;
+	struct check_aio_aspect *aio_a;
+	struct aio_object *aio;
 	struct check_output *output;
 	struct check_input *input;
 	unsigned long flags;
 
-	mref_a = cb->cb_private;
-	CHECK_PTR(mref_a, fatal);
-	_CHECK(&mref_a->cb == cb, fatal);
+	aio_a = cb->cb_private;
+	CHECK_PTR(aio_a, fatal);
+	_CHECK(&aio_a->cb == cb, fatal);
 
-	mref = mref_a->object;
-	CHECK_PTR(mref, fatal);
+	aio = aio_a->object;
+	CHECK_PTR(aio, fatal);
 
-	output = mref_a->output;
+	output = aio_a->output;
 	CHECK_PTR(output, fatal);
 
 	input = output->brick->inputs[0];
 	CHECK_PTR(input, fatal);
 
-	if (atomic_dec_and_test(&mref_a->callback_count)) {
-		atomic_set(&mref_a->callback_count, 1);
-		CHECK_ERR(output, "too many callbacks on %p\n", mref);
+	if (atomic_dec_and_test(&aio_a->callback_count)) {
+		atomic_set(&aio_a->callback_count, 1);
+		CHECK_ERR(output, "too many callbacks on %p\n", aio);
 	}
 
 #ifdef CHECK_LOCK
 	spin_lock_irqsave(&output->check_lock, flags);
 
-	if (list_empty(&mref_a->mref_head))
-		CHECK_ERR(output, "list entry missing on %p\n", mref);
-	list_del_init(&mref_a->mref_head);
+	if (list_empty(&aio_a->aio_head))
+		CHECK_ERR(output, "list entry missing on %p\n", aio);
+	list_del_init(&aio_a->aio_head);
 
 	spin_unlock_irqrestore(&output->check_lock, flags);
 #endif
 
-	mref_a->last_jiffies = jiffies;
+	aio_a->last_jiffies = jiffies;
 
 	NEXT_CHECKED_CALLBACK(cb, fatal);
 
@@ -149,27 +149,27 @@ static int check_watchdog(void *data)
 		spin_lock_irqsave(&output->check_lock, flags);
 
 		now = jiffies;
-		for (h = output->mref_anchor.next; h != &output->mref_anchor; h = h->next) {
+		for (h = output->aio_anchor.next; h != &output->aio_anchor; h = h->next) {
 			static int limit = 1;
 			const int timeout = 30;
-			struct check_mref_aspect *mref_a;
-			struct mref_object *mref;
+			struct check_aio_aspect *aio_a;
+			struct aio_object *aio;
 			unsigned long elapsed;
 
-			mref_a = container_of(h, struct check_mref_aspect, mref_head);
-			mref = mref_a->object;
-			elapsed = now - mref_a->last_jiffies;
+			aio_a = container_of(h, struct check_aio_aspect, aio_head);
+			aio = aio_a->object;
+			elapsed = now - aio_a->last_jiffies;
 			if (elapsed > timeout * HZ && limit-- > 0) {
 				struct generic_object_layout *object_layout;
 
-				mref_a->last_jiffies = now + 600 * HZ;
+				aio_a->last_jiffies = now + 600 * HZ;
 				MARS_INF("================================\n");
 				CHECK_ERR(output,
-					"mref %p callback is missing for more than %d seconds.\n",
-					mref,
+					"aio %p callback is missing for more than %d seconds.\n",
+					aio,
 					timeout);
-				object_layout = mref->object_layout;
-				dump_mem(mref, object_layout->size_hint);
+				object_layout = aio->object_layout;
+				dump_mem(aio, object_layout->size_hint);
 				MARS_INF("================================\n");
 			}
 		}
@@ -189,69 +189,69 @@ static int check_get_info(struct check_output *output, struct mars_info *info)
 	return GENERIC_INPUT_CALL(input, mars_get_info, info);
 }
 
-static int check_ref_get(struct check_output *output, struct mref_object *mref)
+static int check_io_get(struct check_output *output, struct aio_object *aio)
 {
 	struct check_input *input = output->brick->inputs[0];
 
-	return GENERIC_INPUT_CALL(input, mref_get, mref);
+	return GENERIC_INPUT_CALL(input, aio_get, aio);
 }
 
-static void check_ref_put(struct check_output *output, struct mref_object *mref)
+static void check_io_put(struct check_output *output, struct aio_object *aio)
 {
 	struct check_input *input = output->brick->inputs[0];
 
-	GENERIC_INPUT_CALL(input, mref_put, mref);
+	GENERIC_INPUT_CALL(input, aio_put, aio);
 }
 
-static void check_ref_io(struct check_output *output, struct mref_object *mref)
+static void check_io_io(struct check_output *output, struct aio_object *aio)
 {
 	struct check_input *input = output->brick->inputs[0];
-	struct check_mref_aspect *mref_a = check_mref_get_aspect(output->brick, mref);
+	struct check_aio_aspect *aio_a = check_aio_get_aspect(output->brick, aio);
 	unsigned long flags;
 
-	CHECK_PTR(mref_a, fatal);
+	CHECK_PTR(aio_a, fatal);
 
-	if (atomic_dec_and_test(&mref_a->call_count)) {
-		atomic_set(&mref_a->call_count, 1);
-		CHECK_ERR(output, "multiple parallel calls on %p\n", mref);
+	if (atomic_dec_and_test(&aio_a->call_count)) {
+		atomic_set(&aio_a->call_count, 1);
+		CHECK_ERR(output, "multiple parallel calls on %p\n", aio);
 	}
-	atomic_set(&mref_a->callback_count, 2);
+	atomic_set(&aio_a->callback_count, 2);
 
 #ifdef CHECK_LOCK
 	spin_lock_irqsave(&output->check_lock, flags);
 
-	if (!list_empty(&mref_a->mref_head)) {
-		CHECK_ERR(output, "list head not empty on %p\n", mref);
-		list_del(&mref_a->mref_head);
+	if (!list_empty(&aio_a->aio_head)) {
+		CHECK_ERR(output, "list head not empty on %p\n", aio);
+		list_del(&aio_a->aio_head);
 	}
-	list_add_tail(&mref_a->mref_head, &output->mref_anchor);
+	list_add_tail(&aio_a->aio_head, &output->aio_anchor);
 
 	spin_unlock_irqrestore(&output->check_lock, flags);
 #else
 	(void)flags;
 #endif
 
-	mref_a->last_jiffies = jiffies;
-	if (!mref_a->installed) {
-		mref_a->installed = true;
-		mref_a->output = output;
-		INSERT_CALLBACK(mref, &mref_a->cb, check_endio, mref_a);
+	aio_a->last_jiffies = jiffies;
+	if (!aio_a->installed) {
+		aio_a->installed = true;
+		aio_a->output = output;
+		INSERT_CALLBACK(aio, &aio_a->cb, check_endio, aio_a);
 	}
 
-	GENERIC_INPUT_CALL(input, mref_io, mref);
+	GENERIC_INPUT_CALL(input, aio_io, aio);
 
-	atomic_inc(&mref_a->call_count);
+	atomic_inc(&aio_a->call_count);
 fatal:;
 }
 
 /*************** object * aspect constructors * destructors **************/
 
-static int check_mref_aspect_init_fn(struct generic_aspect *_ini)
+static int check_aio_aspect_init_fn(struct generic_aspect *_ini)
 {
-	struct check_mref_aspect *ini = (void *)_ini;
+	struct check_aio_aspect *ini = (void *)_ini;
 
 #ifdef CHECK_LOCK
-	INIT_LIST_HEAD(&ini->mref_head);
+	INIT_LIST_HEAD(&ini->aio_head);
 #endif
 	ini->last_jiffies = jiffies;
 	atomic_set(&ini->call_count, 2);
@@ -260,20 +260,20 @@ static int check_mref_aspect_init_fn(struct generic_aspect *_ini)
 	return 0;
 }
 
-static void check_mref_aspect_exit_fn(struct generic_aspect *_ini)
+static void check_aio_aspect_exit_fn(struct generic_aspect *_ini)
 {
-	struct check_mref_aspect *ini = (void *)_ini;
+	struct check_aio_aspect *ini = (void *)_ini;
 
 	(void)ini;
 #ifdef CHECK_LOCK
-	if (!list_empty(&ini->mref_head)) {
+	if (!list_empty(&ini->aio_head)) {
 		struct check_output *output = ini->output;
 
 		if (output) {
 			CHECK_ERR(output, "list head not empty on %p\n", ini->object);
-			INIT_LIST_HEAD(&ini->mref_head);
+			INIT_LIST_HEAD(&ini->aio_head);
 		} else {
-			CHECK_HEAD_EMPTY(&ini->mref_head);
+			CHECK_HEAD_EMPTY(&ini->aio_head);
 		}
 	}
 #endif
@@ -295,7 +295,7 @@ static int check_output_construct(struct check_output *output)
 #ifdef CHECK_LOCK
 
 	spin_lock_init(&output->check_lock);
-	INIT_LIST_HEAD(&output->mref_anchor);
+	INIT_LIST_HEAD(&output->aio_anchor);
 	output->watchdog = brick_thread_create(check_watchdog, output, "check_watchdog%d", output->instance_nr);
 #endif
 	output->instance_nr = ++count;
@@ -308,9 +308,9 @@ static struct check_brick_ops check_brick_ops;
 
 static struct check_output_ops check_output_ops = {
 	.mars_get_info = check_get_info,
-	.mref_get = check_ref_get,
-	.mref_put = check_ref_put,
-	.mref_io = check_ref_io,
+	.aio_get = check_io_get,
+	.aio_put = check_io_put,
+	.aio_io = check_io_io,
 };
 
 const struct check_input_type check_input_type = {

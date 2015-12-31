@@ -110,8 +110,8 @@ struct writeback_info {
 	void (*write_endio)(struct generic_callback *cb);
 };
 
-struct trans_logger_mref_aspect {
-	GENERIC_ASPECT(mref);
+struct trans_logger_aio_aspect {
+	GENERIC_ASPECT(aio);
 	struct trans_logger_brick *my_brick;
 	struct trans_logger_input *my_input;
 	struct trans_logger_input *log_input;
@@ -121,8 +121,8 @@ struct trans_logger_mref_aspect {
 	struct list_head replay_head;
 	struct list_head collect_head;
 	struct pairing_heap_logger ph;
-	struct trans_logger_mref_aspect *shadow_ref;
-	struct trans_logger_mref_aspect *orig_mref_a;
+	struct trans_logger_aio_aspect *shadow_aio;
+	struct trans_logger_aio_aspect *orig_aio_a;
 	void  *shadow_data;
 	int    orig_rw;
 	int    wb_error;
@@ -252,7 +252,7 @@ struct trans_logger_input {
 	struct trans_logger_info inf;
 
 	/*  readonly from outside */
-	atomic_t log_ref_count;
+	atomic_t log_obj_count;
 	atomic_t pos_count;
 	bool is_operating;
 	long long last_jiffies;

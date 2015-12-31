@@ -33,8 +33,8 @@ extern struct threshold bio_io_threshold[2];
 
 #include <linux/blkdev.h>
 
-struct bio_mref_aspect {
-	GENERIC_ASPECT(mref);
+struct bio_aio_aspect {
+	GENERIC_ASPECT(aio);
 	struct list_head io_head;
 	struct bio *bio;
 	struct bio_output *output;

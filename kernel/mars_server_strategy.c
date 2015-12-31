@@ -290,7 +290,7 @@ err:
 			up(&brick->socket_sem);
 			break;
 		}
-		case CMD_MREF:
+		case CMD_AIO:
 		{
 			status = server_io(brick, sock, &cmd);
 			break;

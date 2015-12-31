@@ -3646,7 +3646,7 @@ void _rotate_trans(struct mars_rotate *rot)
 		} else if (trans_input->is_operating &&
 			   trans_input->inf.inf_min_pos == trans_input->inf.inf_max_pos &&
 			   list_empty(&trans_input->pos_list) &&
-			   atomic_read(&trans_input->log_ref_count) <= 0) {
+			   atomic_read(&trans_input->log_obj_count) <= 0) {
 			int status;
 
 			MARS_INF("cleanup old transaction log (%d -> %d)\n", old_nr, log_nr);

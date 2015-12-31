@@ -24,8 +24,8 @@
 #ifndef MARS_DUMMY_H
 #define MARS_DUMMY_H
 
-struct dummy_mref_aspect {
-	GENERIC_ASPECT(mref);
+struct dummy_aio_aspect {
+	GENERIC_ASPECT(aio);
 	int my_own;
 };
 

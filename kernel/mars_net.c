@@ -1750,16 +1750,16 @@ const struct meta mars_cmd_meta[] = {
 	{}
 };
 
-int mars_send_mref(struct mars_socket *msock, struct mref_object *mref)
+int mars_send_aio(struct mars_socket *msock, struct aio_object *aio)
 {
 	struct mars_cmd cmd = {
-		.cmd_code = CMD_MREF,
-		.cmd_int1 = mref->ref_id,
+		.cmd_code = CMD_AIO,
+		.cmd_int1 = aio->io_id,
 	};
 	int seq = 0;
 	int status;
 
-	if (mref->ref_rw != 0 && mref->ref_data && mref->ref_cs_mode < 2)
+	if (aio->io_rw != 0 && aio->io_data && aio->io_cs_mode < 2)
 		cmd.cmd_code |= CMD_FLAG_HAS_DATA;
 
 	get_lamport(&cmd.cmd_stamp);
@@ -1769,47 +1769,47 @@ int mars_send_mref(struct mars_socket *msock, struct mref_object *mref)
 		goto done;
 
 	seq = 0;
-	status = desc_send_struct(msock, mref, mars_mref_meta, cmd.cmd_code & CMD_FLAG_HAS_DATA);
+	status = desc_send_struct(msock, aio, mars_aio_meta, cmd.cmd_code & CMD_FLAG_HAS_DATA);
 	if (status < 0)
 		goto done;
 
 	if (cmd.cmd_code & CMD_FLAG_HAS_DATA)
-		status = mars_send_compressed(msock, mref->ref_data, mref->ref_len, mars_net_compress_data, false);
+		status = mars_send_compressed(msock, aio->io_data, aio->io_len, mars_net_compress_data, false);
 done:
 	return status;
 }
 
-int mars_recv_mref(struct mars_socket *msock, struct mref_object *mref, struct mars_cmd *cmd)
+int mars_recv_aio(struct mars_socket *msock, struct aio_object *aio, struct mars_cmd *cmd)
 {
 	int status;
 
-	status = desc_recv_struct(msock, mref, mars_mref_meta, __LINE__);
+	status = desc_recv_struct(msock, aio, mars_aio_meta, __LINE__);
 	if (status < 0)
 		goto done;
 
 	set_lamport(&cmd->cmd_stamp);
 
 	if (cmd->cmd_code & CMD_FLAG_HAS_DATA) {
-		if (!mref->ref_data)
-			mref->ref_data = brick_block_alloc(0, mref->ref_len);
-		status = mars_recv_compressed(msock, mref->ref_data, mref->ref_len, mref->ref_len);
+		if (!aio->io_data)
+			aio->io_data = brick_block_alloc(0, aio->io_len);
+		status = mars_recv_compressed(msock, aio->io_data, aio->io_len, aio->io_len);
 		if (unlikely(status < 0))
-			MARS_WRN("#%d mref_len = %d, status = %d\n", msock->s_debug_nr, mref->ref_len, status);
+			MARS_WRN("#%d aio_len = %d, status = %d\n", msock->s_debug_nr, aio->io_len, status);
 	}
 done:
 	return status;
 }
 
-int mars_send_cb(struct mars_socket *msock, struct mref_object *mref)
+int mars_send_cb(struct mars_socket *msock, struct aio_object *aio)
 {
 	struct mars_cmd cmd = {
 		.cmd_code = CMD_CB,
-		.cmd_int1 = mref->ref_id,
+		.cmd_int1 = aio->io_id,
 	};
 	int seq = 0;
 	int status;
 
-	if (mref->ref_rw == 0 && mref->ref_data && mref->ref_cs_mode < 2)
+	if (aio->io_rw == 0 && aio->io_data && aio->io_cs_mode < 2)
 		cmd.cmd_code |= CMD_FLAG_HAS_DATA;
 
 	get_lamport(&cmd.cmd_stamp);
@@ -1819,33 +1819,33 @@ int mars_send_cb(struct mars_socket *msock, struct mref_object *mref)
 		goto done;
 
 	seq = 0;
-	status = desc_send_struct(msock, mref, mars_mref_meta, cmd.cmd_code & CMD_FLAG_HAS_DATA);
+	status = desc_send_struct(msock, aio, mars_aio_meta, cmd.cmd_code & CMD_FLAG_HAS_DATA);
 	if (status < 0)
 		goto done;
 
 	if (cmd.cmd_code & CMD_FLAG_HAS_DATA)
-		status = mars_send_compressed(msock, mref->ref_data, mref->ref_len, mars_net_compress_data, false);
+		status = mars_send_compressed(msock, aio->io_data, aio->io_len, mars_net_compress_data, false);
 done:
 	return status;
 }
 
-int mars_recv_cb(struct mars_socket *msock, struct mref_object *mref, struct mars_cmd *cmd)
+int mars_recv_cb(struct mars_socket *msock, struct aio_object *aio, struct mars_cmd *cmd)
 {
 	int status;
 
-	status = desc_recv_struct(msock, mref, mars_mref_meta, __LINE__);
+	status = desc_recv_struct(msock, aio, mars_aio_meta, __LINE__);
 	if (status < 0)
 		goto done;
 
 	set_lamport(&cmd->cmd_stamp);
 
 	if (cmd->cmd_code & CMD_FLAG_HAS_DATA) {
-		if (!mref->ref_data) {
+		if (!aio->io_data) {
 			MARS_WRN("#%d no internal buffer available\n", msock->s_debug_nr);
 			status = -EINVAL;
 			goto done;
 		}
-		status = mars_recv_compressed(msock, mref->ref_data, mref->ref_len, mref->ref_len);
+		status = mars_recv_compressed(msock, aio->io_data, aio->io_len, aio->io_len);
 	}
 done:
 	return status;

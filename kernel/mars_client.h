@@ -35,8 +35,8 @@ extern int max_client_bulk;
 
 #define MAX_CLIENT_CHANNELS		4
 
-struct client_mref_aspect {
-	GENERIC_ASPECT(mref);
+struct client_aio_aspect {
+	GENERIC_ASPECT(aio);
 	struct list_head io_head;
 	struct list_head hash_head;
 	struct list_head tmp_head;
@@ -95,7 +95,7 @@ struct client_output {
 	atomic_t fly_count;
 	atomic_t timeout_count;
 	spinlock_t lock;
-	struct list_head mref_list;
+	struct list_head aio_list;
 	int  last_id;
 	struct client_bundle bundle;
 	struct mars_info info;

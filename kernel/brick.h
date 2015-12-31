@@ -124,8 +124,8 @@ struct generic_object_layout {
 
 #define GENERIC_OBJECT(OBJTYPE)						\
 	/* maintenance, access by macros */				\
-	atomic_t ref_count;	  /* reference counter */		\
-	bool	 ref_initialized; /* internally used for checking */	\
+	atomic_t obj_count;	  /* reference counter */		\
+	bool	 obj_initialized; /* internally used for checking */	\
 	/* readonly from outside */					\
 	const struct generic_object_type *object_type;			\
 	/* private */							\
@@ -161,40 +161,40 @@ struct generic_aspect_context {
 	GENERIC_ASPECT_CONTEXT(generic);
 };
 
-#define _mref_check(mref)						\
+#define obj_check(aio)						\
 	({								\
-		if (unlikely(BRICK_CHECKING && !(mref)->ref_initialized)) {\
-			MARS_ERR("mref %p is not initialized\n", (mref));\
+		if (unlikely(BRICK_CHECKING && !(aio)->obj_initialized)) {\
+			MARS_ERR("aio %p is not initialized\n", (aio));\
 		}							\
-		CHECK_ATOMIC(&(mref)->ref_count, 1);			\
+		CHECK_ATOMIC(&(aio)->obj_count, 1);			\
 	})
 
-#define _mref_get_first(mref)						\
+#define obj_get_first(aio)						\
 	({								\
-		if (unlikely(BRICK_CHECKING && (mref)->ref_initialized)) {\
-			MARS_ERR("mref %p is already initialized\n", (mref));\
+		if (unlikely(BRICK_CHECKING && (aio)->obj_initialized)) {\
+			MARS_ERR("aio %p is already initialized\n", (aio));\
 		}							\
-		_CHECK_ATOMIC(&(mref)->ref_count, !=, 0);		\
-		(mref)->ref_initialized = true;				\
-		atomic_inc(&(mref)->ref_count);				\
+		_CHECK_ATOMIC(&(aio)->obj_count, !=, 0);		\
+		(aio)->obj_initialized = true;				\
+		atomic_inc(&(aio)->obj_count);				\
 	})
 
-#define _mref_get(mref)							\
+#define obj_get(aio)							\
 	({								\
-		_mref_check(mref);					\
-		atomic_inc(&(mref)->ref_count);				\
+		obj_check(aio);					\
+		atomic_inc(&(aio)->obj_count);				\
 	})
 
-#define _mref_put(mref)							\
+#define obj_put(aio)							\
 	({								\
-		_mref_check(mref);					\
-		atomic_dec_and_test(&(mref)->ref_count);		\
+		obj_check(aio);					\
+		atomic_dec_and_test(&(aio)->obj_count);		\
 	})
 
-#define _mref_free(mref)						\
+#define obj_free(aio)						\
 	({								\
-		if (likely(mref)) {					\
-			generic_free((struct generic_object *)(mref));	\
+		if (likely(aio)) {					\
+			generic_free((struct generic_object *)(aio));	\
 		}							\
 	})
 

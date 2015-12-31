@@ -48,8 +48,8 @@ struct bio_wrapper {
 	unsigned long start_time;
 };
 
-struct if_mref_aspect {
-	GENERIC_ASPECT(mref);
+struct if_aio_aspect {
+	GENERIC_ASPECT(aio);
 	struct list_head plug_head;
 	struct list_head hash_head;
 	int hash_index;
@@ -83,8 +83,8 @@ struct if_input {
 	atomic_t total_empty_count;
 	atomic_t total_fire_count;
 	atomic_t total_skip_sync_count;
-	atomic_t total_mref_read_count;
-	atomic_t total_mref_write_count;
+	atomic_t total_aio_read_count;
+	atomic_t total_aio_write_count;
 	spinlock_t req_lock;
 	struct if_hash_anchor *hash_table;
 };

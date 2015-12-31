@@ -88,14 +88,14 @@ struct meta {
 #define META_INI(NAME, STRUCT, TYPE)					\
 	{ _META_INI(NAME, STRUCT, TYPE, 0) }
 
-#define _META_INI_REF(NAME, STRUCT, REF)				\
+#define _META_INI_AIO(NAME, STRUCT, AIO)				\
 	.field_name = #NAME,						\
 	.field_type = FIELD_REF,					\
 	.field_data_size = sizeof(*(((STRUCT *)NULL)->NAME)),		\
 	.field_offset = offsetof(STRUCT, NAME),				\
-	.field_ref = REF
+	.field_ref = AIO
 
-#define META_INI_REF(NAME, STRUCT, REF) { _META_INI_REF(NAME, STRUCT, REF) }
+#define META_INI_AIO(NAME, STRUCT, AIO) { _META_INI_AIO(NAME, STRUCT, AIO) }
 
 #define _META_INI_SUB(NAME, STRUCT, SUB)				\
 	.field_name = #NAME,						\

@@ -43,91 +43,91 @@
 
 /***************** own brick * input * output operations *****************/
 
-static int sio_ref_get(struct sio_output *output, struct mref_object *mref)
+static int sio_io_get(struct sio_output *output, struct aio_object *aio)
 {
 	struct file *file;
 
 	if (unlikely(!output->brick->power.led_on))
 		return -EBADFD;
 
-	if (mref->ref_initialized) {
-		_mref_get(mref);
-		return mref->ref_len;
+	if (aio->obj_initialized) {
+		obj_get(aio);
+		return aio->io_len;
 	}
 
 	file = output->mf->mf_filp;
 	if (file) {
 		loff_t total_size = i_size_read(file->f_mapping->host);
 
-		mref->ref_total_size = total_size;
+		aio->io_total_size = total_size;
 		/* Only check reads.
 		 * Writes behind EOF are always allowed (sparse files)
 		 */
-		if (!mref->ref_may_write) {
-			loff_t len = total_size - mref->ref_pos;
+		if (!aio->io_may_write) {
+			loff_t len = total_size - aio->io_pos;
 
 			if (unlikely(len <= 0)) {
 				/* Special case: allow reads starting _exactly_ at EOF when a timeout is specified.
 				 */
-				if (len < 0 || mref->ref_timeout <= 0) {
+				if (len < 0 || aio->io_timeout <= 0) {
 					MARS_DBG("ENODATA %lld\n", len);
 					return -ENODATA;
 				}
 			}
 			/*  Shorten below EOF, but allow special case */
-			if (mref->ref_len > len && len > 0)
-				mref->ref_len = len;
+			if (aio->io_len > len && len > 0)
+				aio->io_len = len;
 		}
 	}
 
 	/* Buffered IO.
 	 */
-	if (!mref->ref_data) {
-		struct sio_mref_aspect *mref_a = sio_mref_get_aspect(output->brick, mref);
+	if (!aio->io_data) {
+		struct sio_aio_aspect *aio_a = sio_aio_get_aspect(output->brick, aio);
 
-		if (unlikely(!mref_a))
+		if (unlikely(!aio_a))
 			return -EILSEQ;
-		if (unlikely(mref->ref_len <= 0)) {
-			MARS_ERR("bad ref_len = %d\n", mref->ref_len);
+		if (unlikely(aio->io_len <= 0)) {
+			MARS_ERR("bad io_len = %d\n", aio->io_len);
 			return -ENOMEM;
 		}
-		mref->ref_data = brick_block_alloc(mref->ref_pos, (mref_a->alloc_len = mref->ref_len));
-		mref_a->do_dealloc = true;
+		aio->io_data = brick_block_alloc(aio->io_pos, (aio_a->alloc_len = aio->io_len));
+		aio_a->do_dealloc = true;
 		/* atomic_inc(&output->total_alloc_count); */
 		/* atomic_inc(&output->alloc_count); */
 	}
 
-	_mref_get_first(mref);
-	return mref->ref_len;
+	obj_get_first(aio);
+	return aio->io_len;
 }
 
-static void sio_ref_put(struct sio_output *output, struct mref_object *mref)
+static void sio_io_put(struct sio_output *output, struct aio_object *aio)
 {
 	struct file *file;
-	struct sio_mref_aspect *mref_a;
+	struct sio_aio_aspect *aio_a;
 
-	if (!_mref_put(mref))
+	if (!obj_put(aio))
 		goto out_return;
 	file = output->mf->mf_filp;
-	mref->ref_total_size = i_size_read(file->f_mapping->host);
+	aio->io_total_size = i_size_read(file->f_mapping->host);
 
-	mref_a = sio_mref_get_aspect(output->brick, mref);
-	if (mref_a && mref_a->do_dealloc) {
-		brick_block_free(mref->ref_data, mref_a->alloc_len);
+	aio_a = sio_aio_get_aspect(output->brick, aio);
+	if (aio_a && aio_a->do_dealloc) {
+		brick_block_free(aio->io_data, aio_a->alloc_len);
 		/* atomic_dec(&output->alloc_count); */
 	}
 
-	_mref_free(mref);
+	obj_free(aio);
 out_return:;
 }
 
 static
-int write_aops(struct sio_output *output, struct mref_object *mref)
+int write_aops(struct sio_output *output, struct aio_object *aio)
 {
 	struct file *file = output->mf->mf_filp;
-	loff_t pos = mref->ref_pos;
-	void *data = mref->ref_data;
-	int  len = mref->ref_len;
+	loff_t pos = aio->io_pos;
+	void *data = aio->io_data;
+	int  len = aio->io_len;
 	int ret = 0;
 
 	mm_segment_t oldfs;
@@ -140,21 +140,21 @@ int write_aops(struct sio_output *output, struct mref_object *mref)
 }
 
 static
-int read_aops(struct sio_output *output, struct mref_object *mref)
+int read_aops(struct sio_output *output, struct aio_object *aio)
 {
-	loff_t pos = mref->ref_pos;
-	int len = mref->ref_len;
+	loff_t pos = aio->io_pos;
+	int len = aio->io_len;
 	int ret;
 
 	mm_segment_t oldfs;
 
 	oldfs = get_fs();
 	set_fs(get_ds());
-	ret = vfs_read(output->mf->mf_filp, mref->ref_data, len, &pos);
+	ret = vfs_read(output->mf->mf_filp, aio->io_data, len, &pos);
 	set_fs(oldfs);
 
 	if (unlikely(ret < 0))
-		MARS_ERR("%p %p status=%d\n", output, mref, ret);
+		MARS_ERR("%p %p status=%d\n", output, aio, ret);
 	return ret;
 }
 
@@ -175,26 +175,26 @@ out_return:;
 }
 
 static
-void _complete(struct sio_output *output, struct mref_object *mref, int err)
+void _complete(struct sio_output *output, struct aio_object *aio, int err)
 {
-	_mref_check(mref);
+	obj_check(aio);
 
 	if (err < 0) {
-		MARS_ERR("IO error %d at pos=%lld len=%d (mref=%p ref_data=%p)\n",
+		MARS_ERR("IO error %d at pos=%lld len=%d (aio=%p io_data=%p)\n",
 			err,
-			mref->ref_pos,
-			mref->ref_len,
-			mref,
-			mref->ref_data);
+			aio->io_pos,
+			aio->io_len,
+			aio,
+			aio->io_data);
 	} else {
-		mref_checksum(mref);
-		mref->ref_flags |= MREF_UPTODATE;
+		aio_checksum(aio);
+		aio->io_flags |= AIO_UPTODATE;
 	}
 
-	CHECKED_CALLBACK(mref, err, err_found);
+	CHECKED_CALLBACK(aio, err, err_found);
 
 done:
-	sio_ref_put(output, mref);
+	sio_io_put(output, aio);
 
 	atomic_dec(&output->work_count);
 	atomic_dec(&mars_global_io_flying);
@@ -208,13 +208,13 @@ out_return:;
 /* This is called by the threads
  */
 static
-void _sio_ref_io(struct sio_threadinfo *tinfo, struct mref_object *mref)
+void _sio_io_io(struct sio_threadinfo *tinfo, struct aio_object *aio)
 {
 	struct sio_output *output = tinfo->output;
 	bool barrier = false;
 	int status;
 
-	_mref_check(mref);
+	obj_check(aio);
 
 	atomic_inc(&tinfo->fly_count);
 
@@ -228,18 +228,18 @@ void _sio_ref_io(struct sio_threadinfo *tinfo, struct mref_object *mref)
 		sync_file(output);
 	}
 
-	if (mref->ref_rw == READ) {
-		status = read_aops(output, mref);
+	if (aio->io_rw == READ) {
+		status = read_aops(output, aio);
 	} else {
-		status = write_aops(output, mref);
+		status = write_aops(output, aio);
 		if (barrier || output->brick->o_fdsync)
 			sync_file(output);
 	}
 
-	mapfree_set(output->mf, mref->ref_pos, mref->ref_pos + mref->ref_len);
+	mapfree_set(output->mf, aio->io_pos, aio->io_pos + aio->io_len);
 
 done:
-	_complete(output, mref, status);
+	_complete(output, aio, status);
 
 	atomic_dec(&tinfo->fly_count);
 }
@@ -247,35 +247,35 @@ done:
 /* This is called from outside
  */
 static
-void sio_ref_io(struct sio_output *output, struct mref_object *mref)
+void sio_io_io(struct sio_output *output, struct aio_object *aio)
 {
 	int index;
 	struct sio_threadinfo *tinfo;
-	struct sio_mref_aspect *mref_a;
+	struct sio_aio_aspect *aio_a;
 	unsigned long flags;
 
-	_mref_check(mref);
+	obj_check(aio);
 
-	mref_a = sio_mref_get_aspect(output->brick, mref);
-	if (unlikely(!mref_a)) {
+	aio_a = sio_aio_get_aspect(output->brick, aio);
+	if (unlikely(!aio_a)) {
 		MARS_FAT("cannot get aspect\n");
-		SIMPLE_CALLBACK(mref, -EINVAL);
+		SIMPLE_CALLBACK(aio, -EINVAL);
 		goto out_return;
 	}
 
 	if (unlikely(!output->brick->power.led_on)) {
-		SIMPLE_CALLBACK(mref, -EBADFD);
+		SIMPLE_CALLBACK(aio, -EBADFD);
 		goto out_return;
 	}
 
 	atomic_inc(&mars_global_io_flying);
 	atomic_inc(&output->work_count);
-	_mref_get(mref);
+	obj_get(aio);
 
-	mapfree_set(output->mf, mref->ref_pos, -1);
+	mapfree_set(output->mf, aio->io_pos, -1);
 
 	index = 0;
-	if (mref->ref_rw == READ) {
+	if (aio->io_rw == READ) {
 		spin_lock_irqsave(&output->g_lock, flags);
 		index = output->index++;
 		spin_unlock_irqrestore(&output->g_lock, flags);
@@ -288,7 +288,7 @@ void sio_ref_io(struct sio_output *output, struct mref_object *mref)
 	atomic_inc(&tinfo->queue_count);
 
 	spin_lock_irqsave(&tinfo->lock, flags);
-	list_add_tail(&mref_a->io_head, &tinfo->mref_list);
+	list_add_tail(&aio_a->io_head, &tinfo->aio_list);
 	spin_unlock_irqrestore(&tinfo->lock, flags);
 
 	wake_up_interruptible(&tinfo->event);
@@ -304,21 +304,21 @@ static int sio_thread(void *data)
 
 	while (!brick_thread_should_stop()) {
 		struct list_head *tmp = NULL;
-		struct mref_object *mref;
-		struct sio_mref_aspect *mref_a;
+		struct aio_object *aio;
+		struct sio_aio_aspect *aio_a;
 		unsigned long flags;
 
 		wait_event_interruptible_timeout(
 			tinfo->event,
-			!list_empty(&tinfo->mref_list) || brick_thread_should_stop(),
+			!list_empty(&tinfo->aio_list) || brick_thread_should_stop(),
 			HZ);
 
 		tinfo->last_jiffies = jiffies;
 
 		spin_lock_irqsave(&tinfo->lock, flags);
 
-		if (!list_empty(&tinfo->mref_list)) {
-			tmp = tinfo->mref_list.next;
+		if (!list_empty(&tinfo->aio_list)) {
+			tmp = tinfo->aio_list.next;
 			list_del_init(tmp);
 			atomic_dec(&tinfo->queue_count);
 		}
@@ -328,9 +328,9 @@ static int sio_thread(void *data)
 		if (!tmp)
 			continue;
 
-		mref_a = container_of(tmp, struct sio_mref_aspect, io_head);
-		mref = mref_a->object;
-		_sio_ref_io(tinfo, mref);
+		aio_a = container_of(tmp, struct sio_aio_aspect, io_head);
+		aio = aio_a->object;
+		_sio_io_io(tinfo, aio);
 	}
 
 	MARS_INF("sio thread has stopped.\n");
@@ -397,17 +397,17 @@ void sio_reset_statistics(struct sio_brick *brick)
 
 /*************** object * aspect constructors * destructors **************/
 
-static int sio_mref_aspect_init_fn(struct generic_aspect *_ini)
+static int sio_aio_aspect_init_fn(struct generic_aspect *_ini)
 {
-	struct sio_mref_aspect *ini = (void *)_ini;
+	struct sio_aio_aspect *ini = (void *)_ini;
 
 	INIT_LIST_HEAD(&ini->io_head);
 	return 0;
 }
 
-static void sio_mref_aspect_exit_fn(struct generic_aspect *_ini)
+static void sio_aio_aspect_exit_fn(struct generic_aspect *_ini)
 {
-	struct sio_mref_aspect *ini = (void *)_ini;
+	struct sio_aio_aspect *ini = (void *)_ini;
 
 	(void)ini;
 	CHECK_HEAD_EMPTY(&ini->io_head);
@@ -507,7 +507,7 @@ static int sio_output_construct(struct sio_output *output)
 		tinfo->output = output;
 		spin_lock_init(&tinfo->lock);
 		init_waitqueue_head(&tinfo->event);
-		INIT_LIST_HEAD(&tinfo->mref_list);
+		INIT_LIST_HEAD(&tinfo->aio_list);
 	}
 
 	return 0;
@@ -527,9 +527,9 @@ static struct sio_brick_ops sio_brick_ops = {
 };
 
 static struct sio_output_ops sio_output_ops = {
-	.mref_get = sio_ref_get,
-	.mref_put = sio_ref_put,
-	.mref_io = sio_ref_io,
+	.aio_get = sio_io_get,
+	.aio_put = sio_io_put,
+	.aio_io = sio_io_io,
 	.mars_get_info = sio_get_info,
 };
 

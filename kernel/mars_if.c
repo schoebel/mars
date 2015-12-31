@@ -166,28 +166,28 @@ void _if_end_io_acct(struct if_input *input, struct bio_wrapper *biow)
 static
 void if_endio(struct generic_callback *cb)
 {
-	struct if_mref_aspect *mref_a = cb->cb_private;
+	struct if_aio_aspect *aio_a = cb->cb_private;
 	struct if_input *input;
 	int k;
 	int rw;
 	int error;
 
 	LAST_CALLBACK(cb);
-	if (unlikely(!mref_a || !mref_a->object)) {
-		MARS_FAT("mref_a = %p mref = %p, something is very wrong here!\n", mref_a, mref_a->object);
+	if (unlikely(!aio_a || !aio_a->object)) {
+		MARS_FAT("aio_a = %p aio = %p, something is very wrong here!\n", aio_a, aio_a->object);
 		goto out_return;
 	}
-	input = mref_a->input;
+	input = aio_a->input;
 	CHECK_PTR(input, err);
 
-	rw = mref_a->object->ref_rw;
+	rw = aio_a->object->io_rw;
 
-	for (k = 0; k < mref_a->bio_count; k++) {
+	for (k = 0; k < aio_a->bio_count; k++) {
 		struct bio_wrapper *biow;
 		struct bio *bio;
 
-		biow = mref_a->orig_biow[k];
-		mref_a->orig_biow[k] = NULL;
+		biow = aio_a->orig_biow[k];
+		aio_a->orig_biow[k] = NULL;
 		CHECK_PTR(biow, err);
 
 		CHECK_ATOMIC(&biow->bi_comp_cnt, 1);
@@ -199,7 +199,7 @@ void if_endio(struct generic_callback *cb)
 
 		_if_end_io_acct(input, biow);
 
-		error = CALLBACK_ERROR(mref_a->object);
+		error = CALLBACK_ERROR(aio_a->object);
 		if (unlikely(error < 0)) {
 /* 	remove_this */
 #ifdef HAS_BVEC_ITER
@@ -249,7 +249,7 @@ err:
 out_return:;
 }
 
-/* Kick off plugged mrefs
+/* Kick off plugged aios
  */
 static
 void _if_unplug(struct if_input *input)
@@ -271,39 +271,39 @@ void _if_unplug(struct if_input *input)
 	spin_unlock_irqrestore(&input->req_lock, flags);
 
 	while (!list_empty(&tmp_list)) {
-		struct if_mref_aspect *mref_a;
-		struct mref_object *mref;
+		struct if_aio_aspect *aio_a;
+		struct aio_object *aio;
 		int hash_index;
 
-		mref_a = container_of(tmp_list.next, struct if_mref_aspect, plug_head);
-		list_del_init(&mref_a->plug_head);
+		aio_a = container_of(tmp_list.next, struct if_aio_aspect, plug_head);
+		list_del_init(&aio_a->plug_head);
 
-		hash_index = mref_a->hash_index;
+		hash_index = aio_a->hash_index;
 		spin_lock_irqsave(&input->hash_table[hash_index].hash_lock, flags);
-		list_del_init(&mref_a->hash_head);
+		list_del_init(&aio_a->hash_head);
 		spin_unlock_irqrestore(&input->hash_table[hash_index].hash_lock, flags);
 
-		mref = mref_a->object;
+		aio = aio_a->object;
 
-		if (unlikely(mref_a->current_len > mref_a->max_len))
-			MARS_ERR("request len %d > %d\n", mref_a->current_len, mref_a->max_len);
-		mref->ref_len = mref_a->current_len;
+		if (unlikely(aio_a->current_len > aio_a->max_len))
+			MARS_ERR("request len %d > %d\n", aio_a->current_len, aio_a->max_len);
+		aio->io_len = aio_a->current_len;
 
 		atomic_inc(&input->flying_count);
 		atomic_inc(&input->total_fire_count);
-		if (mref->ref_rw)
+		if (aio->io_rw)
 			atomic_inc(&input->write_flying_count);
 		else
 			atomic_inc(&input->read_flying_count);
-		if (mref->ref_skip_sync)
+		if (aio->io_skip_sync)
 			atomic_inc(&input->total_skip_sync_count);
 
-		GENERIC_INPUT_CALL(input, mref_io, mref);
-		GENERIC_INPUT_CALL(input, mref_put, mref);
+		GENERIC_INPUT_CALL(input, aio_io, aio);
+		GENERIC_INPUT_CALL(input, aio_put, aio);
 	}
 }
 
-/* accept a linux bio, convert to mref and call buf_io() on it.
+/* accept a linux bio, convert to aio and call buf_io() on it.
  */
 static
 /* 	remove_this */
@@ -369,7 +369,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 
 	/* Transform into MARS flags
 	 */
-	const int  ref_prio =
+	const int  io_prio =
 		(prio == IOPRIO_CLASS_RT || (meta | syncio)) ?
 		MARS_PRIO_HIGH :
 		(prio == IOPRIO_CLASS_IDLE) ?
@@ -379,8 +379,8 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 	const bool do_skip_sync = brick->skip_sync && !(barrier | syncio);
 
 	struct bio_wrapper *biow;
-	struct mref_object *mref = NULL;
-	struct if_mref_aspect *mref_a;
+	struct aio_object *aio = NULL;
+	struct if_aio_aspect *aio_a;
 
 /* 	remove_this */
 #ifdef HAS_BVEC_ITER
@@ -537,52 +537,52 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 			int this_len = 0;
 			unsigned long flags;
 
-			mref = NULL;
-			mref_a = NULL;
+			aio = NULL;
+			aio_a = NULL;
 
 			hash_index = (pos / IF_HASH_CHUNK) % IF_HASH_MAX;
 
 #ifdef REQUEST_MERGING
 			spin_lock_irqsave(&input->hash_table[hash_index].hash_lock, flags);
 			for (tmp = input->hash_table[hash_index].hash_anchor.next; tmp != &input->hash_table[hash_index].hash_anchor; tmp = tmp->next) {
-				struct if_mref_aspect *tmp_a;
-				struct mref_object *tmp_mref;
+				struct if_aio_aspect *tmp_a;
+				struct aio_object *tmp_aio;
 				int i;
 
-				tmp_a = container_of(tmp, struct if_mref_aspect, hash_head);
-				tmp_mref = tmp_a->object;
-				if (tmp_a->orig_page != page || tmp_mref->ref_rw != rw || tmp_a->bio_count >= MAX_BIO || tmp_a->current_len + bv_len > tmp_a->max_len)
+				tmp_a = container_of(tmp, struct if_aio_aspect, hash_head);
+				tmp_aio = tmp_a->object;
+				if (tmp_a->orig_page != page || tmp_aio->io_rw != rw || tmp_a->bio_count >= MAX_BIO || tmp_a->current_len + bv_len > tmp_a->max_len)
 					continue;
 
-				if (tmp_mref->ref_data + tmp_a->current_len == data) {
+				if (tmp_aio->io_data + tmp_a->current_len == data) {
 					goto merge_end;
-#ifdef FRONT_MERGE /*  FIXME: this cannot work. ref_data must never be changed. pre-allocate from offset 0 instead. */
-				} else if (data + bv_len == tmp_mref->ref_data) {
+#ifdef FRONT_MERGE /*  FIXME: this cannot work. io_data must never be changed. pre-allocate from offset 0 instead. */
+				} else if (data + bv_len == tmp_aio->io_data) {
 					goto merge_front;
 #endif
 				}
 				continue;
 
-#ifdef FRONT_MERGE /*  FIXME: this cannot work. ref_data must never be changed. pre-allocate from offset 0 instead. */
+#ifdef FRONT_MERGE /*  FIXME: this cannot work. io_data must never be changed. pre-allocate from offset 0 instead. */
 merge_front:
-				tmp_mref->ref_data = data;
+				tmp_aio->io_data = data;
 #endif
 merge_end:
 				tmp_a->current_len += bv_len;
-				mref = tmp_mref;
-				mref_a = tmp_a;
+				aio = tmp_aio;
+				aio_a = tmp_a;
 				this_len = bv_len;
 				if (!do_skip_sync)
-					mref->ref_skip_sync = false;
+					aio->io_skip_sync = false;
 
-				for (i = 0; i < mref_a->bio_count; i++) {
-					if (mref_a->orig_biow[i]->bio == bio)
+				for (i = 0; i < aio_a->bio_count; i++) {
+					if (aio_a->orig_biow[i]->bio == bio)
 						goto unlock;
 				}
 
 				CHECK_ATOMIC(&biow->bi_comp_cnt, 0);
 				atomic_inc(&biow->bi_comp_cnt);
-				mref_a->orig_biow[mref_a->bio_count++] = biow;
+				aio_a->orig_biow[aio_a->bio_count++] = biow;
 				assigned = true;
 				goto unlock;
 			} /*  foreach hash collision list member */
@@ -590,13 +590,13 @@ merge_end:
 unlock:
 			spin_unlock_irqrestore(&input->hash_table[hash_index].hash_lock, flags);
 #endif
-			if (!mref) {
+			if (!aio) {
 				int prefetch_len;
 
 				error = -ENOMEM;
-				mref = if_alloc_mref(brick);
-				mref_a = if_mref_get_aspect(brick, mref);
-				if (unlikely(!mref_a))
+				aio = if_alloc_aio(brick);
+				aio_a = if_aio_get_aspect(brick, aio);
+				if (unlikely(!aio_a))
 					goto err;
 
 #ifdef PREFETCH_LEN
@@ -612,63 +612,63 @@ unlock:
 				prefetch_len = bv_len;
 #endif
 
-				SETUP_CALLBACK(mref, if_endio, mref_a);
+				SETUP_CALLBACK(aio, if_endio, aio_a);
 
-				mref_a->input = input;
-				mref->ref_rw = mref->ref_may_write = rw;
-				mref->ref_pos = pos;
-				mref->ref_len = prefetch_len;
-				mref->ref_data = data; /*  direct IO */
-				mref->ref_prio = ref_prio;
-				mref_a->orig_page = page;
+				aio_a->input = input;
+				aio->io_rw = aio->io_may_write = rw;
+				aio->io_pos = pos;
+				aio->io_len = prefetch_len;
+				aio->io_data = data; /*  direct IO */
+				aio->io_prio = io_prio;
+				aio_a->orig_page = page;
 
-				error = GENERIC_INPUT_CALL(input, mref_get, mref);
+				error = GENERIC_INPUT_CALL(input, aio_get, aio);
 				if (unlikely(error < 0))
 					goto err;
 
-				this_len = mref->ref_len; /*  now may be shorter than originally requested. */
-				mref_a->max_len = this_len;
+				this_len = aio->io_len; /*  now may be shorter than originally requested. */
+				aio_a->max_len = this_len;
 				if (this_len > bv_len)
 					this_len = bv_len;
-				mref_a->current_len = this_len;
+				aio_a->current_len = this_len;
 				if (rw)
-					atomic_inc(&input->total_mref_write_count);
+					atomic_inc(&input->total_aio_write_count);
 				else
-					atomic_inc(&input->total_mref_read_count);
+					atomic_inc(&input->total_aio_read_count);
 				CHECK_ATOMIC(&biow->bi_comp_cnt, 0);
 				atomic_inc(&biow->bi_comp_cnt);
-				mref_a->orig_biow[0] = biow;
-				mref_a->bio_count = 1;
+				aio_a->orig_biow[0] = biow;
+				aio_a->bio_count = 1;
 				assigned = true;
 
 				/* When a bio with multiple biovecs is split into
-				 * multiple mrefs, only the last one should be
+				 * multiple aios, only the last one should be
 				 * working in synchronous writethrough mode.
 				 */
-				mref->ref_skip_sync = true;
+				aio->io_skip_sync = true;
 /* 	remove_this */
 #ifdef HAS_BVEC_ITER
 /* 	end_remove_this */
 				if (!do_skip_sync && i.bi_idx + 1 >= bio->bi_iter.bi_idx)
-					mref->ref_skip_sync = false;
+					aio->io_skip_sync = false;
 /* 	remove_this */
 #else
 				if (!do_skip_sync && i + 1 >= bio->bi_vcnt)
-					mref->ref_skip_sync = false;
+					aio->io_skip_sync = false;
 #endif
 /* 	end_remove_this */
 
 				atomic_inc(&input->plugged_count);
 
-				mref_a->hash_index = hash_index;
+				aio_a->hash_index = hash_index;
 				spin_lock_irqsave(&input->hash_table[hash_index].hash_lock, flags);
-				list_add_tail(&mref_a->hash_head, &input->hash_table[hash_index].hash_anchor);
+				list_add_tail(&aio_a->hash_head, &input->hash_table[hash_index].hash_anchor);
 				spin_unlock_irqrestore(&input->hash_table[hash_index].hash_lock, flags);
 
 				spin_lock_irqsave(&input->req_lock, flags);
-				list_add_tail(&mref_a->plug_head, &input->plug_anchor);
+				list_add_tail(&aio_a->plug_head, &input->plug_anchor);
 				spin_unlock_irqrestore(&input->req_lock, flags);
-			} /*  !mref */
+			} /*  !aio */
 
 			pos += this_len;
 			data += this_len;
@@ -1132,16 +1132,16 @@ char *if_statistics(struct if_brick *brick, int verbose)
 	char *res = brick_string_alloc(512);
 	int tmp0 = atomic_read(&input->total_reada_count);
 	int tmp1 = atomic_read(&input->total_read_count);
-	int tmp2 = atomic_read(&input->total_mref_read_count);
+	int tmp2 = atomic_read(&input->total_aio_read_count);
 	int tmp3 = atomic_read(&input->total_write_count);
-	int tmp4 = atomic_read(&input->total_mref_write_count);
+	int tmp4 = atomic_read(&input->total_aio_write_count);
 
 	snprintf(res, 512,
 		 "total reada = %d "
 		 "reads = %d "
-		 "mref_reads = %d (%d%%) "
+		 "aio_reads = %d (%d%%) "
 		 "writes = %d "
-		 "mref_writes = %d (%d%%) "
+		 "aio_writes = %d (%d%%) "
 		 "empty = %d "
 		 "fired = %d "
 		 "skip_sync = %d "
@@ -1176,8 +1176,8 @@ void if_reset_statistics(struct if_brick *brick)
 	atomic_set(&input->total_empty_count, 0);
 	atomic_set(&input->total_fire_count, 0);
 	atomic_set(&input->total_skip_sync_count, 0);
-	atomic_set(&input->total_mref_read_count, 0);
-	atomic_set(&input->total_mref_write_count, 0);
+	atomic_set(&input->total_aio_read_count, 0);
+	atomic_set(&input->total_aio_write_count, 0);
 }
 
 /***************** own brick * input * output operations *****************/
@@ -1186,18 +1186,18 @@ void if_reset_statistics(struct if_brick *brick)
 
 /*************** object * aspect constructors * destructors **************/
 
-static int if_mref_aspect_init_fn(struct generic_aspect *_ini)
+static int if_aio_aspect_init_fn(struct generic_aspect *_ini)
 {
-	struct if_mref_aspect *ini = (void *)_ini;
+	struct if_aio_aspect *ini = (void *)_ini;
 
 	INIT_LIST_HEAD(&ini->plug_head);
 	INIT_LIST_HEAD(&ini->hash_head);
 	return 0;
 }
 
-static void if_mref_aspect_exit_fn(struct generic_aspect *_ini)
+static void if_aio_aspect_exit_fn(struct generic_aspect *_ini)
 {
-	struct if_mref_aspect *ini = (void *)_ini;
+	struct if_aio_aspect *ini = (void *)_ini;
 
 	CHECK_HEAD_EMPTY(&ini->plug_head);
 	CHECK_HEAD_EMPTY(&ini->hash_head);

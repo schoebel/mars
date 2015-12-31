@@ -62,7 +62,7 @@ struct mapfree_info {
 
 struct dirty_info {
 	struct list_head dirty_head;
-	struct mref_object *dirty_mref;
+	struct aio_object *dirty_aio;
 	int dirty_stage;
 };
 

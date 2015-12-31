@@ -101,7 +101,7 @@ enum {
 	CMD_CONNECT,
 	CMD_GETINFO,
 	CMD_GETENTS,
-	CMD_MREF,
+	CMD_AIO,
 	CMD_CB,
 };
 
@@ -162,10 +162,10 @@ extern int _mars_recv_struct(struct mars_socket *msock, void *data, const struct
 extern int mars_send_dent_list(struct mars_socket *msock, struct list_head *anchor);
 extern int mars_recv_dent_list(struct mars_socket *msock, struct list_head *anchor);
 
-extern int mars_send_mref(struct mars_socket *msock, struct mref_object *mref);
-extern int mars_recv_mref(struct mars_socket *msock, struct mref_object *mref, struct mars_cmd *cmd);
-extern int mars_send_cb(struct mars_socket *msock, struct mref_object *mref);
-extern int mars_recv_cb(struct mars_socket *msock, struct mref_object *mref, struct mars_cmd *cmd);
+extern int mars_send_aio(struct mars_socket *msock, struct aio_object *aio);
+extern int mars_recv_aio(struct mars_socket *msock, struct aio_object *aio, struct mars_cmd *cmd);
+extern int mars_send_cb(struct mars_socket *msock, struct aio_object *aio);
+extern int mars_recv_cb(struct mars_socket *msock, struct aio_object *aio, struct mars_cmd *cmd);
 
 /* 	remove_this */
 /***********************************************************************/

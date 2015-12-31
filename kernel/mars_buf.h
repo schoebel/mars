@@ -35,8 +35,8 @@
 #define LIST_LRU			2
 #define LIST_MAX			3
 
-struct buf_mref_aspect {
-	GENERIC_ASPECT(mref);
+struct buf_aio_aspect {
+	GENERIC_ASPECT(aio);
 	struct buf_head *rfa_bf;
 
 	/* struct list_head rfa_bf_head; */
@@ -104,7 +104,7 @@ struct buf_head {
 	int		  bf_error;
 
 	atomic_t	  bf_hash_count; /*  # references pinning the hash */
-	atomic_t	  bf_mref_count; /*  # mrefs (only used for checking, no real semantics) */
+	atomic_t	  bf_aio_count; /*  # aios (only used for checking, no real semantics) */
 	atomic_t	  bf_io_count;	 /*  # IOs in flight */
 	/*  statistics / data for strategic decisions */
 	atomic_t	  bf_mfu_stat;
@@ -112,7 +112,7 @@ struct buf_head {
 	bool		  bf_chain_detected;
 
 	/*  lists for caching */
-	/* struct list_head bf_mref_anchor; // all current mref members */
+	/* struct list_head bf_aio_anchor; // all current aio members */
 	struct list_head  bf_list_head;
 	struct list_head  bf_hash_head;
 	unsigned long	  bf_jiffies;

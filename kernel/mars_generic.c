@@ -44,10 +44,10 @@ atomic_t mars_global_io_flying = ATOMIC_INIT(0);
 
 /*  object stuff */
 
-const struct generic_object_type mref_type = {
-	.object_type_name = "mref",
-	.default_size = sizeof(struct mref_object),
-	.object_type_nr = OBJ_TYPE_MREF,
+const struct generic_object_type aio_type = {
+	.object_type_name = "aio",
+	.default_size = sizeof(struct aio_object),
+	.object_type_nr = OBJ_TYPE_AIO,
 };
 
 /************************************************************/
@@ -65,20 +65,20 @@ const struct meta mars_info_meta[] = {
 	{}
 };
 
-const struct meta mars_mref_meta[] = {
-	META_INI(_object_cb.cb_error, struct mref_object, FIELD_INT),
-	META_INI(ref_pos,	   struct mref_object, FIELD_INT),
-	META_INI(ref_len,	   struct mref_object, FIELD_INT),
-	META_INI(ref_may_write,    struct mref_object, FIELD_INT),
-	META_INI(ref_prio,	   struct mref_object, FIELD_INT),
-	META_INI(ref_cs_mode,	   struct mref_object, FIELD_INT),
-	META_INI(ref_timeout,	   struct mref_object, FIELD_INT),
-	META_INI(ref_total_size,   struct mref_object, FIELD_INT),
-	META_INI(ref_checksum,	   struct mref_object, FIELD_RAW),
-	META_INI(ref_flags,	   struct mref_object, FIELD_INT),
-	META_INI(ref_rw,	   struct mref_object, FIELD_INT),
-	META_INI(ref_id,	   struct mref_object, FIELD_INT),
-	META_INI(ref_skip_sync,    struct mref_object, FIELD_INT),
+const struct meta mars_aio_meta[] = {
+	META_INI(_object_cb.cb_error, struct aio_object, FIELD_INT),
+	META_INI(io_pos,	   struct aio_object, FIELD_INT),
+	META_INI(io_len,	   struct aio_object, FIELD_INT),
+	META_INI(io_may_write,    struct aio_object, FIELD_INT),
+	META_INI(io_prio,	   struct aio_object, FIELD_INT),
+	META_INI(io_cs_mode,	   struct aio_object, FIELD_INT),
+	META_INI(io_timeout,	   struct aio_object, FIELD_INT),
+	META_INI(io_total_size,   struct aio_object, FIELD_INT),
+	META_INI(io_checksum,	   struct aio_object, FIELD_RAW),
+	META_INI(io_flags,	   struct aio_object, FIELD_INT),
+	META_INI(io_rw,	   struct aio_object, FIELD_INT),
+	META_INI(io_id,	   struct aio_object, FIELD_INT),
+	META_INI(io_skip_sync,    struct aio_object, FIELD_INT),
 	{}
 };
 
@@ -120,19 +120,19 @@ void mars_digest(unsigned char *digest, void *data, int len)
 	up(&tfm_sem);
 }
 
-void mref_checksum(struct mref_object *mref)
+void aio_checksum(struct aio_object *aio)
 {
 	unsigned char checksum[mars_digest_size];
 	int len;
 
-	if (mref->ref_cs_mode <= 0 || !mref->ref_data)
+	if (aio->io_cs_mode <= 0 || !aio->io_data)
 		goto out_return;
-	mars_digest(checksum, mref->ref_data, mref->ref_len);
+	mars_digest(checksum, aio->io_data, aio->io_len);
 
-	len = sizeof(mref->ref_checksum);
+	len = sizeof(aio->io_checksum);
 	if (len > mars_digest_size)
 		len = mars_digest_size;
-	memcpy(&mref->ref_checksum, checksum, len);
+	memcpy(&aio->io_checksum, checksum, len);
 out_return:;
 }
 

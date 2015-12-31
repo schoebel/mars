@@ -45,8 +45,8 @@ extern struct threshold aio_sync_threshold;
  */
 extern int aio_sync_mode;
 
-struct aio_mref_aspect {
-	GENERIC_ASPECT(mref);
+struct aio_aio_aspect {
+	GENERIC_ASPECT(aio);
 	struct list_head io_head;
 	struct dirty_info di;
 	unsigned long long enqueue_stamp;
@@ -70,7 +70,7 @@ struct aio_input {
 };
 
 struct aio_threadinfo {
-	struct list_head mref_list[MARS_PRIO_NR];
+	struct list_head aio_list[MARS_PRIO_NR];
 	struct aio_output *output;
 	struct task_struct *thread;
 

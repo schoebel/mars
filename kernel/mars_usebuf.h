@@ -24,9 +24,9 @@
 #ifndef MARS_USEBUF_H
 #define MARS_USEBUF_H
 
-struct usebuf_mref_aspect {
-	GENERIC_ASPECT(mref);
-	struct usebuf_mref_aspect *sub_mref_a;
+struct usebuf_aio_aspect {
+	GENERIC_ASPECT(aio);
+	struct usebuf_aio_aspect *sub_aio_a;
 	struct usebuf_input *input;
 
 #if 1

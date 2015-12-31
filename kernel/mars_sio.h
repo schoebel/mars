@@ -28,8 +28,8 @@
 
 #define WITH_THREAD			16
 
-struct sio_mref_aspect {
-	GENERIC_ASPECT(mref);
+struct sio_aio_aspect {
+	GENERIC_ASPECT(aio);
 	struct list_head io_head;
 	int alloc_len;
 	bool do_dealloc;
@@ -48,7 +48,7 @@ struct sio_input {
 
 struct sio_threadinfo {
 	struct sio_output *output;
-	struct list_head mref_list;
+	struct list_head aio_list;
 	struct task_struct *thread;
 
 	wait_queue_head_t event;

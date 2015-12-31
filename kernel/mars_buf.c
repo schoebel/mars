@@ -139,7 +139,7 @@ bool _remove_hash(struct buf_brick *brick, struct buf_head *bf)
 
 	spin_lock_irqsave(lock, flags);
 
-	if (likely(!atomic_read(&bf->bf_hash_count) && !atomic_read(&bf->bf_mref_count) && !atomic_read(&bf->bf_io_count))) {
+	if (likely(!atomic_read(&bf->bf_hash_count) && !atomic_read(&bf->bf_aio_count) && !atomic_read(&bf->bf_io_count))) {
 		success = true;
 		if (likely(!list_empty(&bf->bf_hash_head))) {
 			list_del_init(&bf->bf_hash_head);
@@ -245,7 +245,7 @@ void _dealloc_bf(struct buf_brick *brick, struct buf_head *bf)
 {
 	MARS_INF("really freeing bf=%p\n", bf);
 	_CHECK_ATOMIC(&bf->bf_hash_count, !=, 0);
-	_CHECK_ATOMIC(&bf->bf_mref_count, !=, 0);
+	_CHECK_ATOMIC(&bf->bf_aio_count, !=, 0);
 	_CHECK_ATOMIC(&bf->bf_io_count, !=, 0);
 	CHECK_HEAD_EMPTY(&bf->bf_list_head);
 	CHECK_HEAD_EMPTY(&bf->bf_hash_head);
@@ -341,7 +341,7 @@ void _bf_put(struct buf_head *bf)
 #endif
 
 	list = LIST_LRU;
-	at_end = !(bf->bf_flags & MREF_UPTODATE);
+	at_end = !(bf->bf_flags & AIO_UPTODATE);
 	if (bf->bf_chain_detected) {
 		list = LIST_FORGET;
 		at_end = false;
@@ -352,29 +352,29 @@ out_return:;
 
 /***********************************************************************/
 
-/* Routines for the relation bf <-> mref
+/* Routines for the relation bf <-> aio
  */
 static inline
-void _mref_assign(struct buf_head *bf, struct buf_mref_aspect *mref_a)
+void _aio_assign(struct buf_head *bf, struct buf_aio_aspect *aio_a)
 {
-	if (mref_a->rfa_bf)
+	if (aio_a->rfa_bf)
 		goto out_return;
-	mref_a->rfa_bf = bf;
-	atomic_inc(&bf->bf_mref_count);
+	aio_a->rfa_bf = bf;
+	atomic_inc(&bf->bf_aio_count);
 out_return:;
 }
 
 static inline
-bool _mref_remove(struct buf_head *bf, struct buf_mref_aspect *mref_a)
+bool _aio_remove(struct buf_head *bf, struct buf_aio_aspect *aio_a)
 {
-	/* struct mref_object *mref; */
+	/* struct aio_object *aio; */
 	bool status;
 
-	if (!mref_a->rfa_bf)
+	if (!aio_a->rfa_bf)
 		return false;
-	mref_a->rfa_bf = NULL;
-	CHECK_ATOMIC(&bf->bf_mref_count, 1);
-	status = atomic_dec_and_test(&bf->bf_mref_count);
+	aio_a->rfa_bf = NULL;
+	CHECK_ATOMIC(&bf->bf_aio_count, 1);
+	status = atomic_dec_and_test(&bf->bf_aio_count);
 	return status;
 }
 
@@ -399,10 +399,10 @@ static int buf_get_info(struct buf_output *output, struct mars_info *info)
 	return GENERIC_INPUT_CALL(input, mars_get_info, info);
 }
 
-static int buf_ref_get(struct buf_output *output, struct mref_object *mref)
+static int buf_io_get(struct buf_output *output, struct aio_object *aio)
 {
 	struct buf_brick *brick = output->brick;
-	struct buf_mref_aspect *mref_a;
+	struct buf_aio_aspect *aio_a;
 	struct buf_head *bf;
 	struct buf_head *new = NULL;
 	loff_t base_pos;
@@ -424,28 +424,28 @@ static int buf_ref_get(struct buf_output *output, struct mref_object *mref)
 #endif
 	/* Grab reference.
 	 */
-	_mref_get(mref);
+	obj_get(aio);
 
 	/* shortcut in case of unbuffered IO
 	 */
-	if (mref->ref_data) {
+	if (aio->io_data) {
 		/* Note: unbuffered IO is later indicated by rfa_bf == NULL
 		 */
 		return 0;
 	}
 
-	mref_a = buf_mref_get_aspect(brick, mref);
-	if (unlikely(!mref_a))
+	aio_a = buf_aio_get_aspect(brick, aio);
+	if (unlikely(!aio_a))
 		goto done;
 
-	base_pos = mref->ref_pos & ~(loff_t)(brick->backing_size - 1);
-	base_offset = (mref->ref_pos - base_pos);
+	base_pos = aio->io_pos & ~(loff_t)(brick->backing_size - 1);
+	base_offset = (aio->io_pos - base_pos);
 	if (unlikely(base_offset < 0 || base_offset >= brick->backing_size))
 		MARS_ERR("bad base_offset %d\n", base_offset);
 
 	max_len = brick->backing_size - base_offset;
-	if (mref->ref_len > max_len)
-		mref->ref_len = max_len;
+	if (aio->io_len > max_len)
+		aio->io_len = max_len;
 
 again:
 	bf = _hash_find_insert(brick, base_pos >> (brick->backing_order + PAGE_SHIFT), new);
@@ -453,8 +453,8 @@ again:
 #if 1
 		loff_t end_pos = bf->bf_pos + brick->backing_size;
 
-		if (mref->ref_pos < bf->bf_pos || mref->ref_pos >= end_pos)
-			MARS_ERR("hash corruption. %lld not in (%lld ... %lld)\n", mref->ref_pos, bf->bf_pos, end_pos);
+		if (aio->io_pos < bf->bf_pos || aio->io_pos >= end_pos)
+			MARS_ERR("hash corruption. %lld not in (%lld ... %lld)\n", aio->io_pos, bf->bf_pos, end_pos);
 #endif
 		_remove_bf_list(brick, bf);
 		atomic_inc(&brick->hit_count);
@@ -495,14 +495,14 @@ again:
 		/* Important optimization: treat whole buffer as uptodate
 		 * upon full write.
 		 */
-		if (mref->ref_may_write != READ &&
-		   ((!base_offset && mref->ref_len >= brick->backing_size) ||
-		    (mref->ref_pos >= brick->base_info.current_size && brick->base_info.current_size > 0))) {
-			new->bf_flags |= MREF_UPTODATE;
+		if (aio->io_may_write != READ &&
+		   ((!base_offset && aio->io_len >= brick->backing_size) ||
+		    (aio->io_pos >= brick->base_info.current_size && brick->base_info.current_size > 0))) {
+			new->bf_flags |= AIO_UPTODATE;
 			atomic_inc(&brick->opt_count);
 		}
 #endif
-		/* INIT_LIST_HEAD(&new->bf_mref_anchor); */
+		/* INIT_LIST_HEAD(&new->bf_aio_anchor); */
 		INIT_LIST_HEAD(&new->bf_list_head);
 		INIT_LIST_HEAD(&new->bf_hash_head);
 		INIT_LIST_HEAD(&new->bf_io_pending_anchor);
@@ -528,16 +528,16 @@ again:
 		goto again;
 	}
 
-	_mref_assign(bf, mref_a);
+	_aio_assign(bf, aio_a);
 
 	MARS_DBG("bf=%p index = %lld flags = %d\n", bf, bf->bf_base_index, bf->bf_flags);
 
-	mref->ref_flags = bf->bf_flags;
-	mref->ref_data = bf->bf_data + base_offset;
+	aio->io_flags = bf->bf_flags;
+	aio->io_data = bf->bf_data + base_offset;
 
-	_mref_check(mref);
+	obj_check(aio);
 	CHECK_ATOMIC(&bf->bf_hash_count, 1);
-	CHECK_ATOMIC(&bf->bf_mref_count, 1);
+	CHECK_ATOMIC(&bf->bf_aio_count, 1);
 
 	status = 0;
 
@@ -545,41 +545,41 @@ done:
 	return status;
 }
 
-static void _buf_ref_put(struct buf_output *output, struct buf_mref_aspect *mref_a)
+static void _buf_io_put(struct buf_output *output, struct buf_aio_aspect *aio_a)
 {
-	struct mref_object *mref = mref_a->object;
+	struct aio_object *aio = aio_a->object;
 	struct buf_head *bf;
 
 	/* shortcut in case of unbuffered IO
 	 */
-	bf = mref_a->rfa_bf;
+	bf = aio_a->rfa_bf;
 	if (!bf) {
 		struct buf_brick *brick = output->brick;
 
-		GENERIC_INPUT_CALL(brick->inputs[0], mref_put, mref);
+		GENERIC_INPUT_CALL(brick->inputs[0], aio_put, aio);
 		goto out_return;
 	}
 
-	if (!_mref_put(mref))
+	if (!obj_put(aio))
 		goto out_return;
-	MARS_DBG("buf_ref_put() mref=%p mref_a=%p bf=%p flags=%d\n", mref, mref_a, bf, bf->bf_flags);
-	_mref_remove(bf, mref_a);
-	_mref_free(mref);
+	MARS_DBG("buf_io_put() aio=%p aio_a=%p bf=%p flags=%d\n", aio, aio_a, bf, bf->bf_flags);
+	_aio_remove(bf, aio_a);
+	obj_free(aio);
 
 	_bf_put(bf); /*  paired with _hash_find_insert() */
 out_return:;
 }
 
-static void buf_ref_put(struct buf_output *output, struct mref_object *mref)
+static void buf_io_put(struct buf_output *output, struct aio_object *aio)
 {
-	struct buf_mref_aspect *mref_a;
+	struct buf_aio_aspect *aio_a;
 
-	mref_a = buf_mref_get_aspect(output->brick, mref);
-	if (unlikely(!mref_a)) {
+	aio_a = buf_aio_get_aspect(output->brick, aio);
+	if (unlikely(!aio_a)) {
 		MARS_FAT("cannot get aspect\n");
 		goto out_return;
 	}
-	_buf_ref_put(output, mref_a);
+	_buf_io_put(output, aio_a);
 out_return:;
 }
 
@@ -625,48 +625,48 @@ static int _buf_make_io(struct buf_brick *brick,
 	input = brick->inputs[0];
 
 	while (start_len > 0) {
-		struct mref_object *mref;
-		struct buf_mref_aspect *mref_a;
+		struct aio_object *aio;
+		struct buf_aio_aspect *aio_a;
 		int len;
 
-		mref = buf_alloc_mref(brick);
+		aio = buf_alloc_aio(brick);
 
-		mref_a = buf_mref_get_aspect(brick, mref);
-		if (unlikely(!mref_a)) {
-			_mref_free(mref);
+		aio_a = buf_aio_get_aspect(brick, aio);
+		if (unlikely(!aio_a)) {
+			obj_free(aio);
 			break;
 		}
 
-		mref_a->rfa_bf = bf;
-		SETUP_CALLBACK(mref, _buf_endio, mref_a);
+		aio_a->rfa_bf = bf;
+		SETUP_CALLBACK(aio, _buf_endio, aio_a);
 
-		mref->ref_pos = start_pos;
-		mref->ref_len = start_len;
-		mref->ref_may_write = rw;
-		mref->ref_rw = rw;
-		mref->ref_data = start_data;
+		aio->io_pos = start_pos;
+		aio->io_len = start_len;
+		aio->io_may_write = rw;
+		aio->io_rw = rw;
+		aio->io_data = start_data;
 
-		status = GENERIC_INPUT_CALL(input, mref_get, mref);
+		status = GENERIC_INPUT_CALL(input, aio_get, aio);
 		if (status < 0) {
 			MARS_ERR("status = %d\n", status);
 			goto done;
 		}
 
-		/* Remember number of fired-off mrefs
+		/* Remember number of fired-off aios
 		 */
 		atomic_inc(&bf->bf_io_count);
 
-		len = mref->ref_len;
+		len = aio->io_len;
 
 #ifndef FAKE_IO
-		GENERIC_INPUT_CALL(input, mref_io, mref);
+		GENERIC_INPUT_CALL(input, aio_io, aio);
 #else
 		/*  fake IO for testing */
-		mref_a->cb.cb_error = status;
-		mref_a->cb.cb_fn(&mref_a->cb);
+		aio_a->cb.cb_error = status;
+		aio_a->cb.cb_fn(&aio_a->cb);
 #endif
 
-		GENERIC_INPUT_CALL(input, mref_put, mref);
+		GENERIC_INPUT_CALL(input, aio_put, aio);
 
 		start_data += len;
 		start_pos += len;
@@ -682,8 +682,8 @@ done:
 
 static void _buf_endio(struct generic_callback *cb)
 {
-	struct buf_mref_aspect *bf_mref_a = cb->cb_private;
-	struct mref_object *bf_mref;
+	struct buf_aio_aspect *bf_aio_a = cb->cb_private;
+	struct aio_object *bf_aio;
 	struct buf_head *bf;
 	struct buf_brick *brick;
 	LIST_HEAD(tmp);
@@ -700,15 +700,15 @@ static void _buf_endio(struct generic_callback *cb)
 #endif
 
 	LAST_CALLBACK(cb);
-	CHECK_PTR(bf_mref_a, err);
-	bf_mref = bf_mref_a->object;
-	CHECK_PTR(bf_mref, err);
-	bf = bf_mref_a->rfa_bf;
+	CHECK_PTR(bf_aio_a, err);
+	bf_aio = bf_aio_a->object;
+	CHECK_PTR(bf_aio, err);
+	bf = bf_aio_a->rfa_bf;
 	CHECK_PTR(bf, err);
 	brick = bf->bf_brick;
 	CHECK_PTR(brick, err);
 
-	MARS_DBG("_buf_endio() bf_mref_a=%p bf_mref=%p bf=%p flags=%d\n", bf_mref_a, bf_mref, bf, bf->bf_flags);
+	MARS_DBG("_buf_endio() bf_aio_a=%p bf_aio=%p bf=%p flags=%d\n", bf_aio_a, bf_aio, bf, bf->bf_flags);
 
 	if (error < 0)
 		bf->bf_error = error;
@@ -726,11 +726,11 @@ static void _buf_endio(struct generic_callback *cb)
 
 	/*  update flags. this must be done before the callbacks. */
 	old_flags = bf->bf_flags;
-	if (bf->bf_error >= 0 && (old_flags & MREF_READING))
-		bf->bf_flags |= MREF_UPTODATE;
+	if (bf->bf_error >= 0 && (old_flags & AIO_READING))
+		bf->bf_flags |= AIO_UPTODATE;
 
 	/*  clear the flags, callbacks must not see them. may be re-enabled later. */
-	bf->bf_flags &= ~(MREF_READING | MREF_WRITING);
+	bf->bf_flags &= ~(AIO_READING | AIO_WRITING);
 	/* Remember current version of pending list.
 	 * This is necessary because later the callbacks might
 	 * change it underneath.
@@ -749,37 +749,37 @@ static void _buf_endio(struct generic_callback *cb)
 	 * IO ordering semantics.
 	 */
 	while (!list_empty(&bf->bf_postpone_anchor)) {
-		struct buf_mref_aspect *mref_a = container_of(bf->bf_postpone_anchor.next,
-			struct buf_mref_aspect,
+		struct buf_aio_aspect *aio_a = container_of(bf->bf_postpone_anchor.next,
+			struct buf_aio_aspect,
 
 			rfa_pending_head);
-		struct mref_object *mref = mref_a->object;
+		struct aio_object *aio = aio_a->object;
 
-		if (mref_a->rfa_bf != bf)
-			MARS_ERR("bad pointers %p != %p\n", mref_a->rfa_bf, bf);
+		if (aio_a->rfa_bf != bf)
+			MARS_ERR("bad pointers %p != %p\n", aio_a->rfa_bf, bf);
 #if 1
 		if (!(++count % 1000))
 			MARS_ERR("endless loop 1\n");
 #endif
-		list_del_init(&mref_a->rfa_pending_head);
-		list_add_tail(&mref_a->rfa_pending_head, &bf->bf_io_pending_anchor);
+		list_del_init(&aio_a->rfa_pending_head);
+		list_add_tail(&aio_a->rfa_pending_head, &bf->bf_io_pending_anchor);
 
-		MARS_DBG("postponed mref=%p\n", mref);
+		MARS_DBG("postponed aio=%p\n", aio);
 
 		/*  re-enable flags */
-		bf->bf_flags |= MREF_WRITING;
+		bf->bf_flags |= AIO_WRITING;
 		bf->bf_error = 0;
 
 		if (!start_len) {
 			/*  first time: only flush the affected area */
-			start_data = mref->ref_data;
-			start_pos = mref->ref_pos;
-			start_len = mref->ref_len;
-		} else if (start_data != mref->ref_data ||
-			  start_pos != mref->ref_pos ||
-			  start_len != mref->ref_len) {
+			start_data = aio->io_data;
+			start_pos = aio->io_pos;
+			start_len = aio->io_len;
+		} else if (start_data != aio->io_data ||
+			  start_pos != aio->io_pos ||
+			  start_len != aio->io_len) {
 			/*  another time: flush larger parts */
-			loff_t start_diff = mref->ref_pos - start_pos;
+			loff_t start_diff = aio->io_pos - start_pos;
 			loff_t end_diff;
 
 			if (start_diff < 0) {
@@ -787,7 +787,7 @@ static void _buf_endio(struct generic_callback *cb)
 				start_pos += start_diff;
 				start_len -= start_diff;
 			}
-			end_diff = (mref->ref_pos + mref->ref_len) - (start_pos + start_len);
+			end_diff = (aio->io_pos + aio->io_len) - (start_pos + start_len);
 			if (end_diff > 0)
 				start_len += end_diff;
 		}
@@ -800,29 +800,29 @@ static void _buf_endio(struct generic_callback *cb)
 	 */
 	count = 0;
 	while (!list_empty(&tmp)) {
-		struct buf_mref_aspect *mref_a = container_of(tmp.next, struct buf_mref_aspect, rfa_pending_head);
-		struct mref_object *mref = mref_a->object;
+		struct buf_aio_aspect *aio_a = container_of(tmp.next, struct buf_aio_aspect, rfa_pending_head);
+		struct aio_object *aio = aio_a->object;
 
-		if (mref_a->rfa_bf != bf)
-			MARS_ERR("bad pointers %p != %p\n", mref_a->rfa_bf, bf);
+		if (aio_a->rfa_bf != bf)
+			MARS_ERR("bad pointers %p != %p\n", aio_a->rfa_bf, bf);
 #if 1
 		if (!(++count % 1000))
 			MARS_ERR("endless loop 2\n");
 #endif
-		_mref_check(mref);
+		obj_check(aio);
 		/* It should be safe to do this without locking, because
 		 * tmp is on the stack, so there is no concurrency.
 		 */
-		list_del_init(&mref_a->rfa_pending_head);
+		list_del_init(&aio_a->rfa_pending_head);
 
 		/*  update infos for callbacks, they may inspect it. */
-		mref->ref_flags = bf->bf_flags;
+		aio->io_flags = bf->bf_flags;
 
-		CHECKED_CALLBACK(mref, bf->bf_error, err);
+		CHECKED_CALLBACK(aio, bf->bf_error, err);
 
 		atomic_dec(&brick->nr_io_pending);
 
-		_buf_ref_put(brick->outputs[0], mref_a);
+		_buf_io_put(brick->outputs[0], aio_a);
 	}
 
 	if (start_len) {
@@ -837,10 +837,10 @@ err:
 out_return:;
 }
 
-static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
+static void buf_io_io(struct buf_output *output, struct aio_object *aio)
 {
 	struct buf_brick *brick = output->brick;
-	struct buf_mref_aspect *mref_a;
+	struct buf_aio_aspect *aio_a;
 	struct buf_head *bf;
 	void  *start_data = NULL;
 	loff_t start_pos = 0;
@@ -849,20 +849,20 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 	bool delay = false;
 	unsigned long flags;
 
-	if (unlikely(!mref)) {
-		MARS_FAT("internal problem: forgotten to supply mref\n");
+	if (unlikely(!aio)) {
+		MARS_FAT("internal problem: forgotten to supply aio\n");
 		goto fatal;
 	}
-	mref_a = buf_mref_get_aspect(brick, mref);
-	if (unlikely(!mref_a)) {
-		MARS_ERR("internal problem: mref aspect does not work\n");
+	aio_a = buf_aio_get_aspect(brick, aio);
+	if (unlikely(!aio_a)) {
+		MARS_ERR("internal problem: aio aspect does not work\n");
 		goto fatal;
 	}
 	/* shortcut in case of unbuffered IO
 	 */
-	bf = mref_a->rfa_bf;
+	bf = aio_a->rfa_bf;
 	if (!bf) {
-		GENERIC_INPUT_CALL(brick->inputs[0], mref_io, mref);
+		GENERIC_INPUT_CALL(brick->inputs[0], aio_io, aio);
 		goto out_return;
 	}
 
@@ -870,19 +870,19 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 	 * This will be released later in _bf_endio() after
 	 * calling the callbacks.
 	 */
-	_mref_get(mref);
+	obj_get(aio);
 	CHECK_ATOMIC(&bf->bf_hash_count, 1);
 
-	MARS_DBG("IO mref=%p rw=%d bf=%p flags=%d\n", mref, mref->ref_rw, bf, bf->bf_flags);
+	MARS_DBG("IO aio=%p rw=%d bf=%p flags=%d\n", aio, aio->io_rw, bf, bf->bf_flags);
 
-	if (mref->ref_rw != READ) {
+	if (aio->io_rw != READ) {
 		loff_t end;
 
-		if (unlikely(mref->ref_may_write == READ)) {
-			MARS_ERR("sorry, you have forgotten to set ref_may_write\n");
+		if (unlikely(aio->io_may_write == READ)) {
+			MARS_ERR("sorry, you have forgotten to set io_may_write\n");
 			goto callback;
 		}
-		end = mref->ref_pos + mref->ref_len;
+		end = aio->io_pos + aio->io_len;
 		/* FIXME: race condition :( */
 		if (!brick->got_info)
 			_get_info(brick);
@@ -920,71 +920,71 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 
 	spin_lock_irqsave(&bf->bf_lock, flags);
 
-	if (!list_empty(&mref_a->rfa_pending_head)) {
-		MARS_ERR("trying to start IO on an already started mref\n");
+	if (!list_empty(&aio_a->rfa_pending_head)) {
+		MARS_ERR("trying to start IO on an already started aio\n");
 		goto already_done;
 	}
 
-	if (mref->ref_rw != 0) { /*  WRITE */
+	if (aio->io_rw != 0) { /*  WRITE */
 #ifdef FAKE_WRITES
-		bf->bf_flags |= MREF_UPTODATE;
+		bf->bf_flags |= AIO_UPTODATE;
 		goto already_done;
 #endif
-		if (bf->bf_flags & MREF_READING)
+		if (bf->bf_flags & AIO_READING)
 			MARS_ERR("bad bf_flags %d\n", bf->bf_flags);
-		if (!(bf->bf_flags & MREF_WRITING)) {
+		if (!(bf->bf_flags & AIO_WRITING)) {
 #if 0
 			/*  by definition, a writeout buffer is always uptodate */
-			bf->bf_flags |= (MREF_WRITING | MREF_UPTODATE);
+			bf->bf_flags |= (AIO_WRITING | AIO_UPTODATE);
 #else /*  really ??? */
-			bf->bf_flags |= MREF_WRITING;
+			bf->bf_flags |= AIO_WRITING;
 #endif
 			bf->bf_error = 0;
 #if 1
-			start_data = mref->ref_data;
-			start_pos = mref->ref_pos;
-			start_len = mref->ref_len;
+			start_data = aio->io_data;
+			start_pos = aio->io_pos;
+			start_len = aio->io_len;
 #else /*  only for testing: write the full buffer */
-			start_data = (void *)((unsigned long)mref->ref_data & ~(unsigned long)(brick->backing_size - 1));
-			start_pos = mref->ref_pos & ~(loff_t)(brick->backing_size - 1);
+			start_data = (void *)((unsigned long)aio->io_data & ~(unsigned long)(brick->backing_size - 1));
+			start_pos = aio->io_pos & ~(loff_t)(brick->backing_size - 1);
 			start_len = brick->backing_size;
 #endif
-			list_add(&mref_a->rfa_pending_head, &bf->bf_io_pending_anchor);
+			list_add(&aio_a->rfa_pending_head, &bf->bf_io_pending_anchor);
 			delay = true;
 		} else {
-			list_add(&mref_a->rfa_pending_head, &bf->bf_postpone_anchor);
+			list_add(&aio_a->rfa_pending_head, &bf->bf_postpone_anchor);
 			atomic_inc(&brick->post_count);
 			delay = true;
-			MARS_DBG("postponing %lld %d\n", mref->ref_pos, mref->ref_len);
+			MARS_DBG("postponing %lld %d\n", aio->io_pos, aio->io_len);
 		}
 	} else { /*  READ */
 #ifdef FAKE_READS
-		bf->bf_flags |= MREF_UPTODATE;
+		bf->bf_flags |= AIO_UPTODATE;
 		goto already_done;
 #endif
 #if 0
-		if (bf->bf_flags & (MREF_UPTODATE | MREF_WRITING))
+		if (bf->bf_flags & (AIO_UPTODATE | AIO_WRITING))
 #else
-		if (bf->bf_flags & MREF_UPTODATE)
+		if (bf->bf_flags & AIO_UPTODATE)
 #endif
 			goto already_done;
-		if (!(bf->bf_flags & MREF_READING)) {
-			bf->bf_flags |= MREF_READING;
+		if (!(bf->bf_flags & AIO_READING)) {
+			bf->bf_flags |= AIO_READING;
 			bf->bf_error = 0;
 
 			/*  always read the whole buffer. */
-			start_data = (void *)((unsigned long)mref->ref_data & ~(unsigned long)(brick->backing_size - 1));
-			start_pos = mref->ref_pos & ~(loff_t)(brick->backing_size - 1);
+			start_data = (void *)((unsigned long)aio->io_data & ~(unsigned long)(brick->backing_size - 1));
+			start_pos = aio->io_pos & ~(loff_t)(brick->backing_size - 1);
 			start_len = brick->backing_size;
 		}
-		list_add(&mref_a->rfa_pending_head, &bf->bf_io_pending_anchor);
+		list_add(&aio_a->rfa_pending_head, &bf->bf_io_pending_anchor);
 		delay = true;
 	}
 
 	if (likely(delay)) {
 		atomic_inc(&brick->nr_io_pending);
 		atomic_inc(&brick->io_count);
-		if (mref->ref_rw != 0)
+		if (aio->io_rw != 0)
 			atomic_inc(&brick->write_count);
 	}
 
@@ -995,7 +995,7 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 		goto no_callback;
 	}
 
-	status = _buf_make_io(brick, bf, start_data, start_pos, start_len, mref->ref_rw);
+	status = _buf_make_io(brick, bf, start_data, start_pos, start_len, aio->io_rw);
 	if (likely(status >= 0)) {
 		/* No immediate callback, this time.
 		 * Callbacks will be called later from _bf_endio().
@@ -1003,8 +1003,8 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 		goto no_callback;
 	}
 
-	MARS_ERR("error %d during buf_ref_io()\n", status);
-	buf_ref_put(output, mref);
+	MARS_ERR("error %d during buf_io_io()\n", status);
+	buf_io_put(output, aio);
 	goto callback;
 
 already_done:
@@ -1013,13 +1013,13 @@ already_done:
 	spin_unlock_irqrestore(&bf->bf_lock, flags);
 
 callback:
-	mref->ref_flags = bf->bf_flags;
-	CHECKED_CALLBACK(mref, status, fatal);
+	aio->io_flags = bf->bf_flags;
+	CHECKED_CALLBACK(aio, status, fatal);
 
 no_callback:
 	if (!delay) {
-		buf_ref_put(output, mref);
-	} /*  else the ref_put() will be carried out upon IO completion. */
+		buf_io_put(output, aio);
+	} /*  else the io_put() will be carried out upon IO completion. */
 
 	goto out_return;
 fatal: /*  no chance to call callback: may produce hanging tasks :( */
@@ -1029,9 +1029,9 @@ out_return:;
 
 /*************** object * aspect constructors * destructors **************/
 
-static int buf_mref_aspect_init_fn(struct generic_aspect *_ini)
+static int buf_aio_aspect_init_fn(struct generic_aspect *_ini)
 {
-	struct buf_mref_aspect *ini = (void *)_ini;
+	struct buf_aio_aspect *ini = (void *)_ini;
 
 	ini->rfa_bf = NULL;
 	INIT_LIST_HEAD(&ini->rfa_pending_head);
@@ -1039,9 +1039,9 @@ static int buf_mref_aspect_init_fn(struct generic_aspect *_ini)
 	return 0;
 }
 
-static void buf_mref_aspect_exit_fn(struct generic_aspect *_ini)
+static void buf_aio_aspect_exit_fn(struct generic_aspect *_ini)
 {
-	struct buf_mref_aspect *ini = (void *)_ini;
+	struct buf_aio_aspect *ini = (void *)_ini;
 
 	(void)ini;
 #if 1
@@ -1097,9 +1097,9 @@ static struct buf_brick_ops buf_brick_ops;
 
 static struct buf_output_ops buf_output_ops = {
 	.mars_get_info = buf_get_info,
-	.mref_get = buf_ref_get,
-	.mref_put = buf_ref_put,
-	.mref_io = buf_ref_io,
+	.aio_get = buf_io_get,
+	.aio_put = buf_io_put,
+	.aio_io = buf_io_io,
 };
 
 const struct buf_input_type buf_input_type = {

@@ -49,27 +49,27 @@ int dummy_get_info(struct dummy_output *output, struct mars_info *info)
 }
 
 static
-int dummy_ref_get(struct dummy_output *output, struct mref_object *mref)
+int dummy_io_get(struct dummy_output *output, struct aio_object *aio)
 {
 	struct dummy_input *input = output->brick->inputs[0];
 
-	return GENERIC_INPUT_CALL(input, mref_get, mref);
+	return GENERIC_INPUT_CALL(input, aio_get, aio);
 }
 
 static
-void dummy_ref_put(struct dummy_output *output, struct mref_object *mref)
+void dummy_io_put(struct dummy_output *output, struct aio_object *aio)
 {
 	struct dummy_input *input = output->brick->inputs[0];
 
-	GENERIC_INPUT_CALL(input, mref_put, mref);
+	GENERIC_INPUT_CALL(input, aio_put, aio);
 }
 
 static
-void dummy_ref_io(struct dummy_output *output, struct mref_object *mref)
+void dummy_io_io(struct dummy_output *output, struct aio_object *aio)
 {
 	struct dummy_input *input = output->brick->inputs[0];
 
-	GENERIC_INPUT_CALL(input, mref_io, mref);
+	GENERIC_INPUT_CALL(input, aio_io, aio);
 }
 
 static
@@ -122,9 +122,9 @@ void dummy_reset_statistics(struct dummy_brick *brick)
 /*************** object * aspect constructors * destructors **************/
 
 static
-int dummy_mref_aspect_init_fn(struct generic_aspect *_ini)
+int dummy_aio_aspect_init_fn(struct generic_aspect *_ini)
 {
-	struct dummy_mref_aspect *ini = (void *)_ini;
+	struct dummy_aio_aspect *ini = (void *)_ini;
 
 	(void)ini;
 	/* ini->my_own = 0; */
@@ -132,9 +132,9 @@ int dummy_mref_aspect_init_fn(struct generic_aspect *_ini)
 }
 
 static
-void dummy_mref_aspect_exit_fn(struct generic_aspect *_ini)
+void dummy_aio_aspect_exit_fn(struct generic_aspect *_ini)
 {
-	struct dummy_mref_aspect *ini = (void *)_ini;
+	struct dummy_aio_aspect *ini = (void *)_ini;
 
 	(void)ini;
 }
@@ -181,9 +181,9 @@ struct dummy_brick_ops dummy_brick_ops = {
 static
 struct dummy_output_ops dummy_output_ops = {
 	.mars_get_info = dummy_get_info,
-	.mref_get = dummy_ref_get,
-	.mref_put = dummy_ref_put,
-	.mref_io = dummy_ref_io,
+	.aio_get = dummy_io_get,
+	.aio_put = dummy_io_put,
+	.aio_io = dummy_io_io,
 };
 
 const struct dummy_input_type dummy_input_type = {

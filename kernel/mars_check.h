@@ -26,10 +26,10 @@
 
 #define CHECK_LOCK
 
-struct check_mref_aspect {
-	GENERIC_ASPECT(mref);
+struct check_aio_aspect {
+	GENERIC_ASPECT(aio);
 #ifdef CHECK_LOCK
-	struct list_head mref_head;
+	struct list_head aio_head;
 
 #endif
 	struct generic_callback cb;
@@ -55,7 +55,7 @@ struct check_output {
 #ifdef CHECK_LOCK
 	struct task_struct *watchdog;
 	spinlock_t check_lock;
-	struct list_head mref_anchor;
+	struct list_head aio_anchor;
 
 #endif
 };

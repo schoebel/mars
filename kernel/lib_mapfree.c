@@ -300,7 +300,7 @@ void mf_insert_dirty(struct mapfree_info *mf, struct dirty_info *di)
 {
 	unsigned long flags;
 
-	if (likely(di->dirty_mref && mf)) {
+	if (likely(di->dirty_aio && mf)) {
 		spin_lock_irqsave(&mf->mf_lock, flags);
 		list_del(&di->dirty_head);
 		list_add(&di->dirty_head, &mf->mf_dirty_anchor);
@@ -331,16 +331,16 @@ void mf_get_dirty(struct mapfree_info *mf, loff_t *min, loff_t *max, int min_sta
 	spin_lock_irqsave(&mf->mf_lock, flags);
 	for (tmp = mf->mf_dirty_anchor.next; tmp != &mf->mf_dirty_anchor; tmp = tmp->next) {
 		struct dirty_info *di = container_of(tmp, struct dirty_info, dirty_head);
-		struct mref_object *mref = di->dirty_mref;
+		struct aio_object *aio = di->dirty_aio;
 
-		if (unlikely(!mref))
+		if (unlikely(!aio))
 			continue;
 		if (di->dirty_stage < min_stage || di->dirty_stage > max_stage)
 			continue;
-		if (mref->ref_pos < *min)
-			*min = mref->ref_pos;
-		if (mref->ref_pos + mref->ref_len > *max)
-			*max = mref->ref_pos + mref->ref_len;
+		if (aio->io_pos < *min)
+			*min = aio->io_pos;
+		if (aio->io_pos + aio->io_len > *max)
+			*max = aio->io_pos + aio->io_len;
 	}
 	spin_unlock_irqrestore(&mf->mf_lock, flags);
 done:;

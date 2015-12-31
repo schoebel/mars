@@ -1618,20 +1618,20 @@ int mars_free_brick(struct mars_brick *brick)
 	maxsleep = 20000;
 	sleeptime = 1000;
 	for (;;) {
-		count = atomic_read(&brick->mref_object_layout.alloc_count);
+		count = atomic_read(&brick->aio_object_layout.alloc_count);
 		if (likely(!count))
 			break;
 		if (maxsleep > 0) {
-			MARS_WRN("MEMLEAK: brick '%s' has %d mrefs allocated (total = %d, maxsleep = %d)\n",
+			MARS_WRN("MEMLEAK: brick '%s' has %d aios allocated (total = %d, maxsleep = %d)\n",
 				brick->brick_path,
 				count,
-				atomic_read(&brick->mref_object_layout.total_alloc_count),
+				atomic_read(&brick->aio_object_layout.total_alloc_count),
 				maxsleep);
 		} else {
-			MARS_ERR("MEMLEAK: brick '%s' has %d mrefs allocated (total = %d)\n",
+			MARS_ERR("MEMLEAK: brick '%s' has %d aios allocated (total = %d)\n",
 				brick->brick_path,
 				count,
-				atomic_read(&brick->mref_object_layout.total_alloc_count));
+				atomic_read(&brick->aio_object_layout.total_alloc_count));
 			break;
 		}
 		brick_msleep(sleeptime);
@@ -1895,7 +1895,7 @@ restart:
 		if (!even_on && (brick->power.button || !brick->power.led_off))
 			continue;
 		/*  only kill bricks which have no resources allocated */
-		count = atomic_read(&brick->mref_object_layout.alloc_count);
+		count = atomic_read(&brick->aio_object_layout.alloc_count);
 		if (count > 0)
 			continue;
 		/* Workaround FIXME:
@@ -2240,19 +2240,19 @@ void _show_one(struct mars_brick *test, int *brick_count)
 		MARS_DBG("---------\n");
 	MARS_DBG("BRICK type = %s path = '%s' name = '%s' "
 		  "size_hint=%d "
-		  "mrefs_alloc = %d "
-		  "mrefs_apsect_alloc = %d "
-		  "total_mrefs_alloc = %d "
-		  "total_mrefs_aspects = %d "
+		  "aios_alloc = %d "
+		  "aios_apsect_alloc = %d "
+		  "total_aios_alloc = %d "
+		  "total_aios_aspects = %d "
 		  "button = %d off = %d on = %d\n",
 		  test->type->type_name,
 		  test->brick_path,
 		  test->brick_name,
-		  test->mref_object_layout.size_hint,
-		  atomic_read(&test->mref_object_layout.alloc_count),
-		  atomic_read(&test->mref_object_layout.aspect_count),
-		  atomic_read(&test->mref_object_layout.total_alloc_count),
-		  atomic_read(&test->mref_object_layout.total_aspect_count),
+		  test->aio_object_layout.size_hint,
+		  atomic_read(&test->aio_object_layout.alloc_count),
+		  atomic_read(&test->aio_object_layout.aspect_count),
+		  atomic_read(&test->aio_object_layout.total_alloc_count),
+		  atomic_read(&test->aio_object_layout.total_aspect_count),
 		  test->power.button,
 		  test->power.led_off,
 		  test->power.led_on);
