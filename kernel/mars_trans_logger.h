@@ -35,6 +35,7 @@
 #include "lib_pairing_heap.h"
 #include "lib_queue.h"
 #include "lib_timing.h"
+#include "lib_rank.h"
 
 ///////////////////////// global tuning ////////////////////////
 
@@ -212,6 +213,7 @@ struct trans_logger_brick {
 	atomic_t total_delay_count;
 	// queues
 	struct logger_queue q_phase[LOGGER_QUEUES];
+	struct rank_data rkd[LOGGER_QUEUES];
 	bool   delay_callers;
 };
 

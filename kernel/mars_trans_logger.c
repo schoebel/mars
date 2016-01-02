@@ -37,7 +37,6 @@
 #include <linux/bio.h>
 
 #include "mars.h"
-#include "lib_rank.h"
 #include "lib_limiter.h"
 
 #include "mars_trans_logger.h"
@@ -908,7 +907,7 @@ restart:
 		CHECK_PTR(mref_a->shadow_data, err);
 		if (mref_a->do_dealloc) {
 			brick_block_free(mref_a->shadow_data, mref_a->alloc_len);
-			atomic64_sub(mref->ref_len, &brick->shadow_mem_used);
+			atomic64_sub(mref_a->alloc_len, &brick->shadow_mem_used);
 			mref_a->shadow_data = NULL;
 			mref_a->do_dealloc = false;
 		}
@@ -2250,8 +2249,9 @@ struct rank_info global_rank_mref_flying[] = {
 };
 
 static noinline
-int _do_ranking(struct trans_logger_brick *brick, struct rank_data rkd[])
+int _do_ranking(struct trans_logger_brick *brick)
 {
+	struct rank_data *rkd = brick->rkd;
 	int res;
 	int i;
 	int floating_mode;
@@ -2578,12 +2578,12 @@ void flush_inputs(struct trans_logger_brick *brick, int flush_mode)
 static noinline
 void trans_logger_log(struct trans_logger_brick *brick)
 {
-	struct rank_data rkd[LOGGER_QUEUES] = {};
 	long long old_jiffies = jiffies;
 	long long work_jiffies = jiffies;
 	int interleave = 0;
 	int nr_flying;
 
+	memset(brick->rkd, 0, sizeof(brick->rkd));
 	brick->replay_code = 0; // indicates "running"
 	brick->disk_io_error = 0;
 
@@ -2598,7 +2598,7 @@ void trans_logger_log(struct trans_logger_brick *brick)
 		wait_event_interruptible_timeout(
 			brick->worker_event,
 			({
-				winner = _do_ranking(brick, rkd);
+				winner = _do_ranking(brick);
 				MARS_IO("winner = %d\n", winner);
 				if (winner < 0) { // no more work to do
 					int flush_mode = 2 - ((int)(jiffies - work_jiffies)) / (HZ * 2);
@@ -2655,7 +2655,7 @@ void trans_logger_log(struct trans_logger_brick *brick)
 				banning_hit(&brick->q_phase[winner].q_banning, 10000);
 				flush_inputs(brick, 0);
 			}
-			ranking_select_done(rkd, winner, nr);
+			ranking_select_done(brick->rkd, winner, nr);
 			break;
 
 		default:

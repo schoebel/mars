@@ -616,7 +616,7 @@ int get_inode(char *newpath, struct mars_dent *dent)
 		status = inode->i_op->readlink(path.dentry, link, len + 1);
 		link[len] = '\0';
 		if (status < 0 ||
-		    (dent->new_link && !strncmp(dent->new_link, link, len))) {
+		    (dent->new_link && !strcmp(dent->new_link, link))) {
 			brick_string_free(link);
 		} else {
 			MARS_IO("symlink '%s' -> '%s' (%s) status = %d\n", newpath, link, dent->new_link ? dent->new_link : "", status);
