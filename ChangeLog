@@ -93,7 +93,36 @@ Release Conventions / Branches / Tagnames
 -----------------------------------
 Changelog for series 0.2:
 
-(you need to checkout branch light0.2.y to see any details)
+light0.2beta2.1
+--------
+	* Include all fixes from light0.1stable20 and light0.1stable21.
+	* Minor fixes: memory leak; possible (but not really observed)
+	  deadlock in new socket bundling code.
+
+light0.2beta2.0
+--------
+	* New feature: LZO compression of network bulk data.
+	* Various Fixes.
+	* Minor doc updates.
+
+light0.2beta1.0
+--------
+	* New feature: socket bundling. Measurements show major network
+	  performance improvements when running over highly congested
+	  shared network lines.
+	* New network protocol: future-proof for mixed operations between
+	  different processor architectures. Self-adaptive. Allows mixed
+	  operations of different MARS versions even when new features
+	  have been incorporated into the network protocol.
+	* New option: backward compatibility to the old protocol.
+	  For transitional purposes (may be removed some day).
+	* Some minor code cleanups. Much more to come later.
+	* Doc: describe the bundling feature, performance results for
+	  various settings.
+	* Sorry, this release was buggy because some WIP patches went
+	  into it by accident. Fixed later by factoring out these patches
+	  into branch WIP-compatibility which will be included into the
+	  light0.2 series later once they are more mature.
 
 -----------------------------------
 Changelog for series 0.1:
