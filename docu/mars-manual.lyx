@@ -9160,8 +9160,7 @@ These rules are hopefully simple and intuitive.
 \end_inset
 
 When deeply nesting macros and their braces, you may easily find yourself
- in a feeling like in the goodDELL.shared-derived.istore.parallel-08.threads-032.test.
-g000.overview.thrp.png.pdf old days of Lisp.
+ in a feeling like in the good old days of Lisp.
  Use the above backslash-newline syntax to indent your macros in a readable
  and structured way.
  Fortunately, modern text editors like (x)emacs or vim have modes for dealing
