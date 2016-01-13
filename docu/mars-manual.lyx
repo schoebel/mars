@@ -6244,27 +6244,26 @@ initial
  logfile replay after the sync has not yet finished), because the ordinary
  logfile replay always maintains anytime consistency once a consistent state
  had been reached.
- On a 
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ 
 \emph on
-running
+Only
 \emph default
- primary, this display does not mean that something went wrong.
- It just means that there exists some 
+ in case of a primary node crash, and 
 \emph on
-writeback
+only
 \emph default
- in the temporary memory buffer which has to be flushed before consistency
- of the underlying local disk (as opposed to 
-\family typewriter
-/dev/mars/mydata
-\family default
- which will 
-\emph on
-always
-\emph default
- appear as being consistent) will be reached again.
- Only in case of a primary node crash, and only after attempts have failed
- to become primary again (e.g.
+ after attempts have failed to become primary again (e.g.
  IO errors, etc), this 
 \emph on
 can
@@ -6276,6 +6275,38 @@ fsck
 \family default
 can fix any remaining problems (and, of course, you can also switchover
  to a former secondary).
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+When this message appears, simply start MARS again (e.g.
+ 
+\family typewriter
+modprobe mars; marsadm up all
+\family default
+), in whatever role you are intending.
+ This will 
+\emph on
+automatically
+\emph default
+ try to replay any necessary transaction logfile(s) in order to fix the
+ inconsistency.
+ Only if the automatic fix fails and this message persists for a long time
+ without progress, you 
+\emph on
+might
+\emph default
+ have a problem.
+ Typically, as observed at a large installation at 1&1, this happens extremely
+ rarely, and then typically indicates that your hardware is likely to be
+ defective.
 \end_layout
 
 \begin_layout Labeling
