@@ -13023,12 +13023,12 @@ reference "sub:Predefined-Trivial-Macros"
 \end_layout
 
 \begin_layout Standard
-The 
+The current 
 \family typewriter
 /mars/
 \family default
- filesystem contains not only transaction logfiles, but also acts as a generic
- storage for (persistent) state information.
+ filesystem container format contains not only transaction logfiles, but
+ also acts as a generic storage for (persistent) state information.
  Both configuration information and runtime state information are currently
  stored in symlinks.
  Symlinks are 
@@ -13066,9 +13066,40 @@ key -> value
 
 \end_inset
 
-Therefrom results a fundamentally different behaviour than DRBD.
- When your DRBD primary crashed before and now comes up again, you have
- to setup DRBD again by a sequence of commands like 
+It is not yet clear / decided, but there is a 
+\emph on
+chance
+\emph default
+ that the 
+\emph on
+concept
+\emph default
+ of 
+\family typewriter
+key -> value
+\family default
+ pairs will be retained in future versions of MARS.
+ Instead of being represented by symlinks, another representation will be
+ used, such that hopefully the 
+\family typewriter
+key
+\family default
+ part will remain in the form of a pathname, even if there were no longer
+ a physical representation in an actual filesystem.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ A fundamentally different behaviour than DRBD: when your DRBD primary crashed
+ some time ago, and now comes up again, you have to setup DRBD again by
+ a sequence of commands like 
 \family typewriter
 modprobe drbd; drbdadm up all; drbdadm primary all
 \family default
@@ -13161,17 +13192,8 @@ global namespace
 \end_layout
 
 \begin_layout Standard
-Since the symlink replication works generically, you may use the 
-\family typewriter
-/mars/userspace/
-\family default
- directory in order to place your own symlink there (for whatever purpose,
- which need not have to do with MARS).
-\end_layout
-
-\begin_layout Standard
-In order to avoid name clashes, each symlink created at node A should have
- the name A in its path name.
+In order to avoid name clashes, each pathname created at node A follows
+ a convention: the node name A should be a suffix of the pathname.
  Typically, internal MARS names follow the scheme 
 \family typewriter
 /mars/
@@ -13180,7 +13202,14 @@ something
 \emph default
 /myname-A
 \family default
-, and you should follow the best practice of systematically using 
+.
+ When using the expert command 
+\family typewriter
+marsadm {get,set}-link
+\family default
+ (which will likely be replaced by something else in future MARS releases),
+ you should follow the best practice of systematically using pathnames like
+ 
 \family typewriter
 /mars/userspace/myname-A
 \family default
@@ -13203,11 +13232,38 @@ something
 
 \end_inset
 
+ Experts only: the symlink replication works generically.
+ You might use the 
+\family typewriter
+/mars/userspace/
+\family default
+ directory in order to place your own symlink there (for whatever purpose,
+ which need not have to do with MARS).
+ However, the symlinks are likely to disappear.
+ Use 
+\family typewriter
+marsadm {get,set}-link
+\family default
+ instead.
+ There is a chance that these abstract commands (or variants thereof) will
+ be retained, by acting on the new data representation in future, even if
+ the old symlink format will vanish some day.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
 Important: the convention of placing the 
 \series bold
 creator host name
 \series default
- inside your symlink names should be used wherever possible.
+ inside your pathnames should be used wherever possible.
  The name part is a kind of 
 \begin_inset Quotes eld
 \end_inset
@@ -13226,18 +13282,18 @@ belonging
 \end_inset
 
  to him.
- Other hosts may read foreign symlinks as often as they want, but never
+ Other hosts may read foreign information as often as they want, but never
  modify them.
  This way, your cluster nodes are able to 
 \emph on
 communicate
 \emph default
- with each other via symlink updates.
+ with each other via symlink / information updates.
 \end_layout
 
 \begin_layout Standard
-Although you may create (and change) your symlinks with userspace tools
- like 
+Although experts might create (and change) the current symlinks with userspace
+ tools like 
 \family typewriter
 ln -s
 \family default
@@ -13257,7 +13313,7 @@ marsadm delete-file /mars/userspace/mykey-A
 \end_layout
 
 \begin_layout Standard
-There are two reasons for this: first, the 
+There are many reasons for this: first, the 
 \family typewriter
 marsadm set-link
 \family default
@@ -13284,20 +13340,30 @@ marsadm delete-file
 whole cluster
 \emph default
 .
+ And finally, there is a chance that this will work in future versions of
+ MARS even after the symlinks have vanished.
 \end_layout
 
 \begin_layout Standard
-What's the difference? If you try to remove your symlink locally by hand
- via 
+What's the difference? If you would try to remove your symlink locally by
+ hand via 
 \family typewriter
 rm -f
 \family default
-, you will be surprised: since the symlink has been replicated to other
+, you will be surprised: since the symlink has been replicated to the other
  cluster nodes, it will be re-transferred from there and will be resurrected
  locally after some short time.
  This way, you cannot delete any object reliably, because your whole cluster
  (which may consist of many nodes) remembers all your state information
- and will resurrect it whenever 
+ and will 
+\begin_inset Quotes eld
+\end_inset
+
+correct
+\begin_inset Quotes erd
+\end_inset
+
+ it whenever 
 \begin_inset Quotes eld
 \end_inset
 
@@ -13316,7 +13382,7 @@ In order to solve the deletion problem, MARS Light uses some internal deletion
 
 \family default
  The deletion protocol ensures that all replicas get deleted in the whole
- cluster, and only after that the auxiliary symlinks in 
+ cluster, and only thereafter the auxiliary symlinks in 
 \family typewriter
 /mars/todo-global/
 \family default
@@ -13324,12 +13390,13 @@ In order to solve the deletion problem, MARS Light uses some internal deletion
 \end_layout
 
 \begin_layout Standard
-You may change your already existing symlink via 
+You may update your already existing symlink via 
 \family typewriter
 marsadm set-link some-other-value /mars/userspace/mykey-A
 \family default
  .
- The new value will be propagated in the cluster according to a 
+ The new value will be propagated throughout the cluster according to a
+ 
 \series bold
 timestamp comparison protocol
 \series default
@@ -13359,7 +13426,7 @@ by hand
 
  via 
 \family typewriter
-ln -s
+ln -sf
 \family default
  may get lost when the local system clock is much more earlier than the
  Lamport clock.
@@ -13387,18 +13454,18 @@ temporarily inconsistent
 \end_layout
 
 \begin_layout Standard
-The meaning of the internal MARS Light symlinks residing in 
+The meaning of some internal MARS Light symlinks residing in 
 \family typewriter
 /mars/
 \family default
- is documented in section 
+ will be hopefully documented in section 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "sec:Documentation-of-the"
 
 \end_inset
 
-.
+ some day.
 \end_layout
 
 \begin_layout Section
