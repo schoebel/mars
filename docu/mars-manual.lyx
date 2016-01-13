@@ -2375,6 +2375,75 @@ extremely
 
 \end_inset
 
+ Notice that the filesystem 
+\family typewriter
+/mars/
+\family default
+ has nothing to do with an ordinary filesystem.
+ It is completely reserved for MARS internal purposes, namely as a 
+\series bold
+storage container
+\series default
+ for MARS' persistent data.
+ It does not obey any userspace rules like FHS (filesystem hierarchy standard),
+ and it should not be accessed by any userspace tool execpt the official
+ 
+\family typewriter
+marsadm
+\family default
+ tool.
+ Its internal data format should be a regarded as a 
+\series bold
+blackbox
+\series default
+ by you.
+ The internal data format may change in future, or the complete 
+\family typewriter
+/mars/
+\family default
+ filesystem may be even replaced by a totally different container format,
+ while the official 
+\family typewriter
+marsadm
+\family default
+ interface is supposed to remain stable.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+That said, you might look into its contents 
+\emph on
+by hand
+\emph default
+ for curiosity or for 
+\emph on
+debugging purposes
+\emph default
+, and only as root.
+ But don't program any tools / monitoring scripts / etc bypassing the official
+ 
+\family typewriter
+marsadm
+\family default
+ tool.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
  Like DRBD, the current version of MARS has 
 \series bold
 no security
