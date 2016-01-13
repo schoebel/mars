@@ -4976,6 +4976,20 @@ if ($cmd !~ m/^(version$|v$|view)/ && -x $logger) {
 
 ldie "The $mars directory does not exist.\n" unless -d $mars;
 
+my @mars_stat = stat($mars) or ldie "Cannot stat '$mars'\n";
+# check uid
+if ($mars_stat[4]) {
+  lwarn "Directory $mars has wrong owner uid $mars_stat[4].\n";
+  chown(0, 0, $mars) or ldie "Cannot chown $mars.\n";
+  lwarn "Fixed by setting to 0.\n";
+}
+# check permissions
+if ($mars_stat[2] & 077777 != 0700) {
+  lwarn "Directory $mars has wrong permissions.\n";
+  chmod(0700, $mars) or ldie "Cannot chmod $mars.\n";
+  lwarn "Fixed to mode 0700 for security reasons.\n";
+}
+
 if ($cmd !~ m/(create|join)-cluster|create-uuid|cat|view|pretty/) {
   my $uuid = get_link("$mars/uuid", 1);
   ldie "No valid cluster UUID $mars/uuid found. You need {create,join}-cluster first (or create-uuid).\n" unless $uuid;

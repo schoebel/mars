@@ -2586,6 +2586,23 @@ On each node, mount that filesystem to
 \end_layout
 
 \begin_layout Enumerate
+For security reasons, execute 
+\family typewriter
+chmod 0700 /mars
+\family default
+ everyhwere after 
+\family typewriter
+/mars/
+\family default
+ has been mounted.
+ If you forget this step, any following 
+\family typewriter
+marsadm
+\family default
+ command will drop you a warning, but will fix the problem for you.
+\end_layout
+
+\begin_layout Enumerate
 On node A, say 
 \family typewriter
 marsadm create-cluster
