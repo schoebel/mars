@@ -3691,6 +3691,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		} else if (trans_brick->replay_code < 0) {
 			MARS_ERR_TO(rot->log_say, "logfile replay stopped with error = %d at position %lld\n", trans_brick->replay_code, trans_brick->replay_current_pos);
 			make_rot_msg(rot, "err-replay-stop", "logfile replay stopped with error = %d at position %lld", trans_brick->replay_code, trans_brick->replay_current_pos);
+			__show_actual(parent->d_path, "replay-code", trans_brick->replay_code);
 			rot->log_is_really_damaged = true;
 		}
 	}
@@ -4039,6 +4040,8 @@ done:
 	__show_actual(rot->parent_path, "open-count", open_count);
 	rot->is_primary =
 		rot->if_brick && !rot->if_brick->power.led_off;	
+	if (rot->is_primary)
+		_show_actual(parent->d_path, "replay-code", 0);
 	_show_primary(rot, parent);
 
 err:
