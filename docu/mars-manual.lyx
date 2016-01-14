@@ -1,5 +1,5 @@
-#LyX 2.0 created this file. For more info see http://www.lyx.org/
-\lyxformat 413
+#LyX 2.1 created this file. For more info see http://www.lyx.org/
+\lyxformat 474
 \begin_document
 \begin_header
 \textclass scrreprt
@@ -22,13 +22,13 @@ fixltx2e
 \font_roman default
 \font_sans default
 \font_typewriter default
+\font_math auto
 \font_default_family rmdefault
 \use_non_tex_fonts false
 \font_sc false
 \font_osf false
 \font_sf_scale 100
 \font_tt_scale 100
-
 \graphics default
 \default_output_format default
 \output_sync 0
@@ -50,15 +50,24 @@ fixltx2e
 \pdf_pdfusetitle true
 \papersize a4paper
 \use_geometry true
-\use_amsmath 1
-\use_esint 1
-\use_mhchem 1
-\use_mathdots 1
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
 \cite_engine basic
+\cite_engine_type default
+\biblio_style plain
 \use_bibtopic false
 \use_indices false
 \paperorientation portrait
 \suppress_date false
+\justification true
 \use_refstyle 1
 \index Index
 \shortcut idx
@@ -570,9 +579,9 @@ The following table is a short guide to the most important cases where the
 \align center
 \begin_inset Tabular
 <lyxtabular version="3" rows="6" columns="2">
-<features tabularvalignment="middle">
-<column alignment="center" valignment="top" width="0">
-<column alignment="center" valignment="top" width="0">
+<features rotate="0" tabularvalignment="middle">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
 <row>
 <cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
 \begin_inset Text
@@ -6904,10 +6913,10 @@ should
 
 \begin_inset Tabular
 <lyxtabular version="3" rows="3" columns="3">
-<features tabularvalignment="middle">
-<column alignment="center" valignment="top" width="0">
-<column alignment="center" valignment="top" width="0">
-<column alignment="center" valignment="top" width="0">
+<features rotate="0" tabularvalignment="middle">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
 <row>
 <cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
 \begin_inset Text
@@ -7699,7 +7708,7 @@ status open
 \end_layout
 
 \begin_layout Plain Layout
-\begin_inset Caption
+\begin_inset Caption Standard
 
 \begin_layout Plain Layout
 overview on amounts / cursors
@@ -11943,7 +11952,7 @@ remembers
 \size tiny
 \begin_inset Tabular
 <lyxtabular version="3" rows="6" columns="3">
-<features tabularvalignment="middle">
+<features rotate="0" tabularvalignment="middle">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="left" valignment="top" width="0pt">
@@ -12191,7 +12200,7 @@ If you intentionally want to switch over (and to produce a split brain as
 \size tiny
 \begin_inset Tabular
 <lyxtabular version="3" rows="9" columns="3">
-<features tabularvalignment="middle">
+<features rotate="0" tabularvalignment="middle">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="left" valignment="top" width="0pt">
@@ -14532,9 +14541,9 @@ The following table documents common options which work with (almost) any
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="10" columns="3">
-<features islongtable="true" longtabularalignment="left">
+<features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
-<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
 <row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
 <cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
@@ -15525,9 +15534,9 @@ name "sec:Cluster-Operations"
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="6" columns="3">
-<features islongtable="true" longtabularalignment="left">
+<features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
-<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
 <row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
 <cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
@@ -16506,9 +16515,9 @@ name "sub:Resource-Creation"
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="6" columns="3">
-<features islongtable="true" longtabularalignment="left">
+<features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
-<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
 <row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
 <cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
@@ -17758,9 +17767,9 @@ all
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="42" columns="3">
-<features islongtable="true" longtabularalignment="left">
+<features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
-<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
 <row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
 <cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
@@ -21483,6 +21492,12 @@ resume-replay
 /mars/
 \family default
  to fetch it.
+ Any replay must not have been interrupted by a replay error (see macro
+ %replay-code{} or diskstate 
+\family typewriter
+DefectiveLog
+\family default
+).
  The current designated primary must be reachable over network.
  When there is no designated primary (i.e.
  
@@ -21669,8 +21684,8 @@ pause-fetch
 \family typewriter
 pause-replay
 \family default
-), many preconditions are skipped, and MARS does its best to actually become
- primary even if some logfiles are missing or incomplete.
+), most preconditions are ignored, and MARS does its best to actually become
+ primary even if some logfiles are missing or incomplete or even defective.
 \end_layout
 
 \begin_layout Plain Layout
@@ -21843,17 +21858,37 @@ your
 \size scriptsize
  primary --force
 \family default
- switches only the 
+ switches the 
 \emph on
 designated
 \emph default
- primary, but actually becoming the / an actual primary may be impossible
- in case you are 
+ primary.
+ In some extremely rare cases, when 
+\emph on
+multiple
+\emph default
+ faults have accumulated in a 
+\emph on
+weird
+\emph default
+ situation, it 
+\emph on
+might
+\emph default
+ be impossible becoming the / an actual primary.
+ Typically you may be 
 \emph on
 already
 \emph default
  in a split brain situation.
- In such a case, you 
+ This has not been observed for a long operations time on recent versions
+ of MARS, but in general becoming primary via 
+\family typewriter
+--force
+\family default
+ cannot be guaranteed always, although MARS does its best.
+ In split brain situations, or if you ever encounter such a problem, you
+ 
 \emph on
 must
 \emph default
@@ -22798,9 +22833,9 @@ Logfile Operations
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="4" columns="3">
-<features islongtable="true" longtabularalignment="left">
+<features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
-<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
 <row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
 <cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
@@ -23233,9 +23268,9 @@ Consistency Operations
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="4" columns="3">
-<features islongtable="true" longtabularalignment="left">
+<features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
-<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
 <row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
 <cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
@@ -23689,9 +23724,9 @@ Inspection Commands
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="14" columns="3">
-<features islongtable="true" longtabularalignment="left">
+<features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
-<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
 <row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
 <cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
@@ -25031,9 +25066,9 @@ Per-Resource Parameters
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="4" columns="3">
-<features islongtable="true" longtabularalignment="left">
+<features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
-<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
 <row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
 <cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
@@ -25297,9 +25332,9 @@ Global Parameters
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="8" columns="3">
-<features islongtable="true" longtabularalignment="left">
+<features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
-<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
 <row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
 <cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
@@ -25868,9 +25903,9 @@ name "sub:Waiting"
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="5" columns="3">
-<features islongtable="true" longtabularalignment="left">
+<features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
-<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
 <row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
 <cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
@@ -26479,9 +26514,9 @@ These commands are for experts and advanced sysadmins only.
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="4" columns="3">
-<features islongtable="true" longtabularalignment="left">
+<features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
-<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
 <row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
 <cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
@@ -26771,9 +26806,9 @@ Senseless Commands (from DRBD)
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="11" columns="3">
-<features islongtable="true" longtabularalignment="left">
+<features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
-<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
 <row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
 <cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
@@ -27414,9 +27449,9 @@ These commands are not implemented because they would be dangerous in MARS
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="3" columns="3">
-<features islongtable="true" longtabularalignment="left">
+<features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
-<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
 <row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
 <cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
