@@ -6124,6 +6124,71 @@ d by MARS.
 \labelwidthstring 00.00.0000
 
 \family typewriter
+DamagedLog[
+\emph on
+description-text
+\emph default
+]
+\family default
+ (cf 
+\family typewriter
+%replay-code{}
+\family default
+) Typicially this indicates an 
+\family typewriter
+md5
+\family default
+ checksum error in a transaction logfile, or another (hardware / filesystem)
+ defect.
+ This occurs extremely rarely in practice, but has been observed more frequently
+ during a massive failure of air conditioning in a datacenter, when disk
+ temperatures raised to more than 80° Celsius.
+ Notice that MARS 
+\series bold
+refuses
+\series default
+ to apply any knowingly defective logfile data to the disk.
+ Although this message is 
+\emph on
+not directly
+\emph default
+ referring to the underlying disk, it is mentioned here because of its superior
+ 
+\series bold
+relevance
+\series default
+ for the diskstate.
+ A damaged transaction logfile will always affect the 
+\emph on
+actuality
+\emph default
+ of the disk, but not its 
+\emph on
+integrity
+\emph default
+ (by itself).
+ Hint: typically you should try 
+\family typewriter
+marsadm invalidate
+\family default
+ when the damaged logfile is only at a secondary while the primary has a
+ correct logfile, or at least is continuing to operate correctly.
+ When a primary is affected in a very bad way, such that it crashed badly
+ and afterwards even recovery is impossible due to this error (which typically
+ occurs extremely rarely, observed once during 7 millions of operating hours),
+ you might need a switchover to a former secondary via 
+\family typewriter
+primary --force
+\family default
+, producing a split brain, and producing some (typically small) data loss.
+ However, integrity is more important than actuality in such an extreme
+ case.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
 NoAttach
 \family default
  (cf 

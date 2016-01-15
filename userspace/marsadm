@@ -3588,6 +3588,8 @@ my %complex_macros =
    .    "}{"
    .      "Detached"
    .    "}"
+   .  "}{%and{%replay-code{}}{%<{%replay-code{}}{0}}}{"
+   .    "DefectiveLog[%errno-text{%replay-code{}}]"
    .  "}{%not{%is-attach{}}}{"
    .    "NoAttach"
    .  "}{%not{%is-consistent{}}}{"
