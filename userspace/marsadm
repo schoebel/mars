@@ -1159,7 +1159,7 @@ sub __conv_errno {
   my ($txt, $error) = @_;
   return "$txt$error" if !defined($error) || ($error <= 0);
   $! = $error;
-  my $res = "${txt}${error} [$!]";
+  my $res = "${txt}${error}[$!]";
   $! = 0;
   return $res;
 }
@@ -2079,6 +2079,12 @@ sub primary_phase0 {
     check_todo($cmd, $res, "attach", 1, 0);
     check_todo($cmd, $res, "fetch", 1, 0) if !$force;
     check_todo($cmd, $res, "replay", 1, 0);
+    # check that no logfile replay errors exist.
+    my $replay_error = get_link("$mars/resource-$res/actual-$host/replay-code", 2);
+    if ($replay_error < 0) {
+      lwarn "Logfile replay / recovery stopped with error code $replay_error.\n";
+      ldie "Cannot switch to avoid unnoticed data loss. You may however do a 'primary --force'.\n" unless $force;
+    }
   }
   return if ($old eq $host and $cmd eq "primary");
   return if $old eq "(none)";
@@ -2777,6 +2783,12 @@ sub eval_fn {
       my $max = make_numeric(parse_macro($arg4, $env));
       return progress_bar($length, $min, $mid, $max);
     }
+    if (/^errno[-_]?text$/) {
+      my $code = parse_macro($arg1, $env);
+      return "" unless defined($code) && $code != 0;
+      $code = -$code if $code < 0;
+      return __conv_errno("", $code);
+    }
     if (/^get[-_]?log[-_]?status/) {
       return get_error_text($$env{"cmd"}, $$env{"res"});
     }
@@ -2992,6 +3004,10 @@ sub eval_fn {
       my $lnk = "$mars/$what";
       $lnk = correct_path($lnk);
       return get_link($lnk, 1);
+    }
+    if (/^replay[-_]?code$/) {
+      my $lnk = $$env{"resdir"} . "/actual-" . $$env{"host"} . "/replay-code";
+      return get_link($lnk, 2);
     }
     if (/^(sync|fetch|replay|work)[-_]?(rate|remain)$/) {
       my $what = $1;
@@ -3572,10 +3588,18 @@ my %complex_macros =
    .    "}{"
    .      "Detached"
    .    "}"
+   .  "}{%and{%replay-code{}}{%<{%replay-code{}}{0}}}{"
+   .    "DefectiveLog[%errno-text{%replay-code{}}]"
    .  "}{%not{%is-attach{}}}{"
    .    "NoAttach"
    .  "}{%not{%is-consistent{}}}{"
-   .    "InConsistent"
+   .    "%elsif{%not{%todo-primary{}}}{"
+   .      "InConsistent"
+   .    "}{%is-primary{}}{"
+   .      "WriteBack"
+   .    "}{"
+   .      "Recovery"
+   .    "}"
    .  "}{%not{%work-reached{}}}{"
    .    "%elsif{%not{%todo-primary{}}}{"
    .      "OutDated[%call{outdated-flags}]"
@@ -3982,6 +4006,10 @@ my %trivial_globs =
    => "",
    "occupied-size"
    => "",
+   "replay-code"
+   => "When negative, this indidates that a replay/recovery error has occurred.",
+   "errno-text"
+   => "Convert errno numbers (positive or negative) into human readable text.",
    "{sync,fetch,replay,work,syncpos}-{size,pos}"
    => "",
    "{sync,fetch,replay,work}-{rest,{almost-,threshold-,}reached,percent,permille,vector}"
@@ -4975,6 +5003,20 @@ if ($cmd !~ m/^(version$|v$|view)/ && -x $logger) {
 # checks
 
 ldie "The $mars directory does not exist.\n" unless -d $mars;
+
+my @mars_stat = stat($mars) or ldie "Cannot stat '$mars'\n";
+# check uid
+if ($mars_stat[4]) {
+  lwarn "Directory $mars has wrong owner uid $mars_stat[4].\n";
+  chown(0, 0, $mars) or ldie "Cannot chown $mars.\n";
+  lwarn "Fixed by setting to 0.\n";
+}
+# check permissions
+if ($mars_stat[2] & 077777 != 0700) {
+  lwarn "Directory $mars has wrong permissions.\n";
+  chmod(0700, $mars) or ldie "Cannot chmod $mars.\n";
+  lwarn "Fixed to mode 0700 for security reasons.\n";
+}
 
 if ($cmd !~ m/(create|join)-cluster|create-uuid|cat|view|pretty/) {
   my $uuid = get_link("$mars/uuid", 1);

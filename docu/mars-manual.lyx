@@ -1,5 +1,5 @@
-#LyX 2.0 created this file. For more info see http://www.lyx.org/
-\lyxformat 413
+#LyX 2.1 created this file. For more info see http://www.lyx.org/
+\lyxformat 474
 \begin_document
 \begin_header
 \textclass scrreprt
@@ -22,13 +22,13 @@ fixltx2e
 \font_roman default
 \font_sans default
 \font_typewriter default
+\font_math auto
 \font_default_family rmdefault
 \use_non_tex_fonts false
 \font_sc false
 \font_osf false
 \font_sf_scale 100
 \font_tt_scale 100
-
 \graphics default
 \default_output_format default
 \output_sync 0
@@ -50,15 +50,24 @@ fixltx2e
 \pdf_pdfusetitle true
 \papersize a4paper
 \use_geometry true
-\use_amsmath 1
-\use_esint 1
-\use_mhchem 1
-\use_mathdots 1
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
 \cite_engine basic
+\cite_engine_type default
+\biblio_style plain
 \use_bibtopic false
 \use_indices false
 \paperorientation portrait
 \suppress_date false
+\justification true
 \use_refstyle 1
 \index Index
 \shortcut idx
@@ -131,16 +140,16 @@ tst@1und1.de
 \end_layout
 
 \begin_layout Date
-Version 0.2-25
+Version 0.2-26
 \end_layout
 
 \begin_layout Lowertitleback
 \noindent
-Copyright (C) 2013-15 Thomas Schöbel-Theuer
+Copyright (C) 2013-16 Thomas Schöbel-Theuer
 \begin_inset Newline newline
 \end_inset
 
-Copyright (C) 2013-15 1&1 Internet AG (see 
+Copyright (C) 2013-16 1&1 Internet AG (see 
 \begin_inset Flex URL
 status open
 
@@ -570,9 +579,9 @@ The following table is a short guide to the most important cases where the
 \align center
 \begin_inset Tabular
 <lyxtabular version="3" rows="6" columns="2">
-<features tabularvalignment="middle">
-<column alignment="center" valignment="top" width="0">
-<column alignment="center" valignment="top" width="0">
+<features rotate="0" tabularvalignment="middle">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
 <row>
 <cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
 \begin_inset Text
@@ -2366,6 +2375,75 @@ extremely
 
 \end_inset
 
+ Notice that the filesystem 
+\family typewriter
+/mars/
+\family default
+ has nothing to do with an ordinary filesystem.
+ It is completely reserved for MARS internal purposes, namely as a 
+\series bold
+storage container
+\series default
+ for MARS' persistent data.
+ It does not obey any userspace rules like FHS (filesystem hierarchy standard),
+ and it should not be accessed by any userspace tool execpt the official
+ 
+\family typewriter
+marsadm
+\family default
+ tool.
+ Its internal data format should be a regarded as a 
+\series bold
+blackbox
+\series default
+ by you.
+ The internal data format may change in future, or the complete 
+\family typewriter
+/mars/
+\family default
+ filesystem may be even replaced by a totally different container format,
+ while the official 
+\family typewriter
+marsadm
+\family default
+ interface is supposed to remain stable.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+That said, you might look into its contents 
+\emph on
+by hand
+\emph default
+ for curiosity or for 
+\emph on
+debugging purposes
+\emph default
+, and only as root.
+ But don't program any tools / monitoring scripts / etc bypassing the official
+ 
+\family typewriter
+marsadm
+\family default
+ tool.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
  Like DRBD, the current version of MARS has 
 \series bold
 no security
@@ -2583,6 +2661,23 @@ On each node, mount that filesystem to
 /etc/fstab
 \family default
 .
+\end_layout
+
+\begin_layout Enumerate
+For security reasons, execute 
+\family typewriter
+chmod 0700 /mars
+\family default
+ everyhwere after 
+\family typewriter
+/mars/
+\family default
+ has been mounted.
+ If you forget this step, any following 
+\family typewriter
+marsadm
+\family default
+ command will drop you a warning, but will fix the problem for you.
 \end_layout
 
 \begin_layout Enumerate
@@ -6098,6 +6193,71 @@ d by MARS.
 \labelwidthstring 00.00.0000
 
 \family typewriter
+DamagedLog[
+\emph on
+description-text
+\emph default
+]
+\family default
+ (cf 
+\family typewriter
+%replay-code{}
+\family default
+) Typicially this indicates an 
+\family typewriter
+md5
+\family default
+ checksum error in a transaction logfile, or another (hardware / filesystem)
+ defect.
+ This occurs extremely rarely in practice, but has been observed more frequently
+ during a massive failure of air conditioning in a datacenter, when disk
+ temperatures raised to more than 80° Celsius.
+ Notice that MARS 
+\series bold
+refuses
+\series default
+ to apply any knowingly defective logfile data to the disk.
+ Although this message is 
+\emph on
+not directly
+\emph default
+ referring to the underlying disk, it is mentioned here because of its superior
+ 
+\series bold
+relevance
+\series default
+ for the diskstate.
+ A damaged transaction logfile will always affect the 
+\emph on
+actuality
+\emph default
+ of the disk, but not its 
+\emph on
+integrity
+\emph default
+ (by itself).
+ Hint: typically you should try 
+\family typewriter
+marsadm invalidate
+\family default
+ when the damaged logfile is only at a secondary while the primary has a
+ correct logfile, or at least is continuing to operate correctly.
+ When a primary is affected in a very bad way, such that it crashed badly
+ and afterwards even recovery is impossible due to this error (which typically
+ occurs extremely rarely, observed once during 7 millions of operating hours),
+ you might need a switchover to a former secondary via 
+\family typewriter
+primary --force
+\family default
+, producing a split brain, and producing some (typically small) data loss.
+ However, integrity is more important than actuality in such an extreme
+ case.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
 NoAttach
 \family default
  (cf 
@@ -6153,27 +6313,26 @@ initial
  logfile replay after the sync has not yet finished), because the ordinary
  logfile replay always maintains anytime consistency once a consistent state
  had been reached.
- On a 
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ 
 \emph on
-running
+Only
 \emph default
- primary, this display does not mean that something went wrong.
- It just means that there exists some 
+ in case of a primary node crash, and 
 \emph on
-writeback
+only
 \emph default
- in the temporary memory buffer which has to be flushed before consistency
- of the underlying local disk (as opposed to 
-\family typewriter
-/dev/mars/mydata
-\family default
- which will 
-\emph on
-always
-\emph default
- appear as being consistent) will be reached again.
- Only in case of a primary node crash, and only after attempts have failed
- to become primary again (e.g.
+ after attempts have failed to become primary again (e.g.
  IO errors, etc), this 
 \emph on
 can
@@ -6185,6 +6344,38 @@ fsck
 \family default
 can fix any remaining problems (and, of course, you can also switchover
  to a former secondary).
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+When this message appears, simply start MARS again (e.g.
+ 
+\family typewriter
+modprobe mars; marsadm up all
+\family default
+), in whatever role you are intending.
+ This will 
+\emph on
+automatically
+\emph default
+ try to replay any necessary transaction logfile(s) in order to fix the
+ inconsistency.
+ Only if the automatic fix fails and this message persists for a long time
+ without progress, you 
+\emph on
+might
+\emph default
+ have a problem.
+ Typically, as observed at a large installation at 1&1, this happens extremely
+ rarely, and then typically indicates that your hardware is likely to be
+ defective.
 \end_layout
 
 \begin_layout Labeling
@@ -6887,10 +7078,10 @@ should
 
 \begin_inset Tabular
 <lyxtabular version="3" rows="3" columns="3">
-<features tabularvalignment="middle">
-<column alignment="center" valignment="top" width="0">
-<column alignment="center" valignment="top" width="0">
-<column alignment="center" valignment="top" width="0">
+<features rotate="0" tabularvalignment="middle">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
 <row>
 <cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
 \begin_inset Text
@@ -7314,6 +7505,23 @@ marsadm
 \labelwidthstring 00.00.0000
 
 \family typewriter
+errno-text
+\family default
+ This macro takes 1 argument, which must represent a Linux 
+\family typewriter
+errno
+\family default
+ number, and converts it to human readable form (similar to the C 
+\family typewriter
+strerror()
+\family default
+ function).
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
 todo-{attach,sync,fetch,replay,primary}
 \family default
  Shows a boolean value (0 or 1) indicating the current state of the correspondin
@@ -7368,6 +7576,52 @@ get-resource-{fat,err,wrn}-count
  Dito, but get the number of lines instead of the text.
 \end_layout
 
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+replay-code
+\family default
+ Indicate the current state of logfile replay / recovery:
+\end_layout
+
+\begin_deeper
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+(empty) Unknown.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+0 No replay is currently running.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+1 Replay is currently running.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+2 Replay has successfully stopped.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+<0 See Linux 
+\family typewriter
+errno
+\family default
+ code.
+ Typically this indicates a damaged logfile, or another filesystem error
+ at 
+\family typewriter
+/mars
+\family default
+.
+\end_layout
+
+\end_deeper
 \begin_layout Labeling
 \labelwidthstring 00.00.0000
 
@@ -7682,7 +7936,7 @@ status open
 \end_layout
 
 \begin_layout Plain Layout
-\begin_inset Caption
+\begin_inset Caption Standard
 
 \begin_layout Plain Layout
 overview on amounts / cursors
@@ -8906,8 +9160,7 @@ These rules are hopefully simple and intuitive.
 \end_inset
 
 When deeply nesting macros and their braces, you may easily find yourself
- in a feeling like in the goodDELL.shared-derived.istore.parallel-08.threads-032.test.
-g000.overview.thrp.png.pdf old days of Lisp.
+ in a feeling like in the good old days of Lisp.
  Use the above backslash-newline syntax to indent your macros in a readable
  and structured way.
  Fortunately, modern text editors like (x)emacs or vim have modes for dealing
@@ -11926,7 +12179,7 @@ remembers
 \size tiny
 \begin_inset Tabular
 <lyxtabular version="3" rows="6" columns="3">
-<features tabularvalignment="middle">
+<features rotate="0" tabularvalignment="middle">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="left" valignment="top" width="0pt">
@@ -12174,7 +12427,7 @@ If you intentionally want to switch over (and to produce a split brain as
 \size tiny
 \begin_inset Tabular
 <lyxtabular version="3" rows="9" columns="3">
-<features tabularvalignment="middle">
+<features rotate="0" tabularvalignment="middle">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="left" valignment="top" width="0pt">
@@ -12770,12 +13023,12 @@ reference "sub:Predefined-Trivial-Macros"
 \end_layout
 
 \begin_layout Standard
-The 
+The current 
 \family typewriter
 /mars/
 \family default
- filesystem contains not only transaction logfiles, but also acts as a generic
- storage for (persistent) state information.
+ filesystem container format contains not only transaction logfiles, but
+ also acts as a generic storage for (persistent) state information.
  Both configuration information and runtime state information are currently
  stored in symlinks.
  Symlinks are 
@@ -12813,9 +13066,40 @@ key -> value
 
 \end_inset
 
-Therefrom results a fundamentally different behaviour than DRBD.
- When your DRBD primary crashed before and now comes up again, you have
- to setup DRBD again by a sequence of commands like 
+It is not yet clear / decided, but there is a 
+\emph on
+chance
+\emph default
+ that the 
+\emph on
+concept
+\emph default
+ of 
+\family typewriter
+key -> value
+\family default
+ pairs will be retained in future versions of MARS.
+ Instead of being represented by symlinks, another representation will be
+ used, such that hopefully the 
+\family typewriter
+key
+\family default
+ part will remain in the form of a pathname, even if there were no longer
+ a physical representation in an actual filesystem.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ A fundamentally different behaviour than DRBD: when your DRBD primary crashed
+ some time ago, and now comes up again, you have to setup DRBD again by
+ a sequence of commands like 
 \family typewriter
 modprobe drbd; drbdadm up all; drbdadm primary all
 \family default
@@ -12908,17 +13192,8 @@ global namespace
 \end_layout
 
 \begin_layout Standard
-Since the symlink replication works generically, you may use the 
-\family typewriter
-/mars/userspace/
-\family default
- directory in order to place your own symlink there (for whatever purpose,
- which need not have to do with MARS).
-\end_layout
-
-\begin_layout Standard
-In order to avoid name clashes, each symlink created at node A should have
- the name A in its path name.
+In order to avoid name clashes, each pathname created at node A follows
+ a convention: the node name A should be a suffix of the pathname.
  Typically, internal MARS names follow the scheme 
 \family typewriter
 /mars/
@@ -12927,7 +13202,14 @@ something
 \emph default
 /myname-A
 \family default
-, and you should follow the best practice of systematically using 
+.
+ When using the expert command 
+\family typewriter
+marsadm {get,set}-link
+\family default
+ (which will likely be replaced by something else in future MARS releases),
+ you should follow the best practice of systematically using pathnames like
+ 
 \family typewriter
 /mars/userspace/myname-A
 \family default
@@ -12950,11 +13232,38 @@ something
 
 \end_inset
 
+ Experts only: the symlink replication works generically.
+ You might use the 
+\family typewriter
+/mars/userspace/
+\family default
+ directory in order to place your own symlink there (for whatever purpose,
+ which need not have to do with MARS).
+ However, the symlinks are likely to disappear.
+ Use 
+\family typewriter
+marsadm {get,set}-link
+\family default
+ instead.
+ There is a chance that these abstract commands (or variants thereof) will
+ be retained, by acting on the new data representation in future, even if
+ the old symlink format will vanish some day.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
 Important: the convention of placing the 
 \series bold
 creator host name
 \series default
- inside your symlink names should be used wherever possible.
+ inside your pathnames should be used wherever possible.
  The name part is a kind of 
 \begin_inset Quotes eld
 \end_inset
@@ -12973,18 +13282,18 @@ belonging
 \end_inset
 
  to him.
- Other hosts may read foreign symlinks as often as they want, but never
+ Other hosts may read foreign information as often as they want, but never
  modify them.
  This way, your cluster nodes are able to 
 \emph on
 communicate
 \emph default
- with each other via symlink updates.
+ with each other via symlink / information updates.
 \end_layout
 
 \begin_layout Standard
-Although you may create (and change) your symlinks with userspace tools
- like 
+Although experts might create (and change) the current symlinks with userspace
+ tools like 
 \family typewriter
 ln -s
 \family default
@@ -13004,7 +13313,7 @@ marsadm delete-file /mars/userspace/mykey-A
 \end_layout
 
 \begin_layout Standard
-There are two reasons for this: first, the 
+There are many reasons for this: first, the 
 \family typewriter
 marsadm set-link
 \family default
@@ -13031,20 +13340,30 @@ marsadm delete-file
 whole cluster
 \emph default
 .
+ And finally, there is a chance that this will work in future versions of
+ MARS even after the symlinks have vanished.
 \end_layout
 
 \begin_layout Standard
-What's the difference? If you try to remove your symlink locally by hand
- via 
+What's the difference? If you would try to remove your symlink locally by
+ hand via 
 \family typewriter
 rm -f
 \family default
-, you will be surprised: since the symlink has been replicated to other
+, you will be surprised: since the symlink has been replicated to the other
  cluster nodes, it will be re-transferred from there and will be resurrected
  locally after some short time.
  This way, you cannot delete any object reliably, because your whole cluster
  (which may consist of many nodes) remembers all your state information
- and will resurrect it whenever 
+ and will 
+\begin_inset Quotes eld
+\end_inset
+
+correct
+\begin_inset Quotes erd
+\end_inset
+
+ it whenever 
 \begin_inset Quotes eld
 \end_inset
 
@@ -13063,7 +13382,7 @@ In order to solve the deletion problem, MARS Light uses some internal deletion
 
 \family default
  The deletion protocol ensures that all replicas get deleted in the whole
- cluster, and only after that the auxiliary symlinks in 
+ cluster, and only thereafter the auxiliary symlinks in 
 \family typewriter
 /mars/todo-global/
 \family default
@@ -13071,12 +13390,13 @@ In order to solve the deletion problem, MARS Light uses some internal deletion
 \end_layout
 
 \begin_layout Standard
-You may change your already existing symlink via 
+You may update your already existing symlink via 
 \family typewriter
 marsadm set-link some-other-value /mars/userspace/mykey-A
 \family default
  .
- The new value will be propagated in the cluster according to a 
+ The new value will be propagated throughout the cluster according to a
+ 
 \series bold
 timestamp comparison protocol
 \series default
@@ -13106,7 +13426,7 @@ by hand
 
  via 
 \family typewriter
-ln -s
+ln -sf
 \family default
  may get lost when the local system clock is much more earlier than the
  Lamport clock.
@@ -13134,18 +13454,18 @@ temporarily inconsistent
 \end_layout
 
 \begin_layout Standard
-The meaning of the internal MARS Light symlinks residing in 
+The meaning of some internal MARS Light symlinks residing in 
 \family typewriter
 /mars/
 \family default
- is documented in section 
+ will be hopefully documented in section 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "sec:Documentation-of-the"
 
 \end_inset
 
-.
+ some day.
 \end_layout
 
 \begin_layout Section
@@ -14515,9 +14835,9 @@ The following table documents common options which work with (almost) any
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="10" columns="3">
-<features islongtable="true" longtabularalignment="left">
+<features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
-<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
 <row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
 <cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
@@ -15508,9 +15828,9 @@ name "sec:Cluster-Operations"
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="6" columns="3">
-<features islongtable="true" longtabularalignment="left">
+<features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
-<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
 <row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
 <cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
@@ -16489,9 +16809,9 @@ name "sub:Resource-Creation"
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="6" columns="3">
-<features islongtable="true" longtabularalignment="left">
+<features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
-<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
 <row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
 <cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
@@ -17741,9 +18061,9 @@ all
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="42" columns="3">
-<features islongtable="true" longtabularalignment="left">
+<features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
-<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
 <row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
 <cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
@@ -21466,6 +21786,12 @@ resume-replay
 /mars/
 \family default
  to fetch it.
+ Any replay must not have been interrupted by a replay error (see macro
+ %replay-code{} or diskstate 
+\family typewriter
+DefectiveLog
+\family default
+).
  The current designated primary must be reachable over network.
  When there is no designated primary (i.e.
  
@@ -21652,8 +21978,8 @@ pause-fetch
 \family typewriter
 pause-replay
 \family default
-), many preconditions are skipped, and MARS does its best to actually become
- primary even if some logfiles are missing or incomplete.
+), most preconditions are ignored, and MARS does its best to actually become
+ primary even if some logfiles are missing or incomplete or even defective.
 \end_layout
 
 \begin_layout Plain Layout
@@ -21826,17 +22152,37 @@ your
 \size scriptsize
  primary --force
 \family default
- switches only the 
+ switches the 
 \emph on
 designated
 \emph default
- primary, but actually becoming the / an actual primary may be impossible
- in case you are 
+ primary.
+ In some extremely rare cases, when 
+\emph on
+multiple
+\emph default
+ faults have accumulated in a 
+\emph on
+weird
+\emph default
+ situation, it 
+\emph on
+might
+\emph default
+ be impossible becoming the / an actual primary.
+ Typically you may be 
 \emph on
 already
 \emph default
  in a split brain situation.
- In such a case, you 
+ This has not been observed for a long operations time on recent versions
+ of MARS, but in general becoming primary via 
+\family typewriter
+--force
+\family default
+ cannot be guaranteed always, although MARS does its best.
+ In split brain situations, or if you ever encounter such a problem, you
+ 
 \emph on
 must
 \emph default
@@ -22781,9 +23127,9 @@ Logfile Operations
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="4" columns="3">
-<features islongtable="true" longtabularalignment="left">
+<features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
-<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
 <row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
 <cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
@@ -23216,9 +23562,9 @@ Consistency Operations
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="4" columns="3">
-<features islongtable="true" longtabularalignment="left">
+<features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
-<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
 <row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
 <cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
@@ -23672,9 +24018,9 @@ Inspection Commands
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="14" columns="3">
-<features islongtable="true" longtabularalignment="left">
+<features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
-<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
 <row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
 <cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
@@ -25014,9 +25360,9 @@ Per-Resource Parameters
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="4" columns="3">
-<features islongtable="true" longtabularalignment="left">
+<features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
-<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
 <row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
 <cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
@@ -25280,9 +25626,9 @@ Global Parameters
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="8" columns="3">
-<features islongtable="true" longtabularalignment="left">
+<features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
-<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
 <row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
 <cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
@@ -25851,9 +26197,9 @@ name "sub:Waiting"
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="5" columns="3">
-<features islongtable="true" longtabularalignment="left">
+<features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
-<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
 <row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
 <cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
@@ -26462,9 +26808,9 @@ These commands are for experts and advanced sysadmins only.
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="4" columns="3">
-<features islongtable="true" longtabularalignment="left">
+<features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
-<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
 <row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
 <cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
@@ -26754,9 +27100,9 @@ Senseless Commands (from DRBD)
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="11" columns="3">
-<features islongtable="true" longtabularalignment="left">
+<features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
-<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
 <row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
 <cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
@@ -27397,9 +27743,9 @@ These commands are not implemented because they would be dangerous in MARS
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="3" columns="3">
-<features islongtable="true" longtabularalignment="left">
+<features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
-<column alignment="center" valignment="top" width="0">
+<column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
 <row endhead="true" endfirsthead="true" endfoot="true" endlastfoot="true">
 <cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">

@@ -51,7 +51,7 @@ Release Conventions / Branches / Tagnames
 		   which doesn't necessarily need any local disks.
 		 - Various smaller features and improvements.
 		 - Unstable tagnames: light0.2beta%d.%d (current)
-		 - Stable branch: light0.2.y (planned)
+		 - Stable branch: light0.2.y (already in use for beta)
 		 - Stable tagnames: light0.2stable%02d (planned)
 
 	light0.3 series (planned):
@@ -88,7 +88,8 @@ Release Conventions / Branches / Tagnames
 	of bugs are also possible. Error messages / warnings and their
 	error class may	also be changed.
 	NO NEW FEATURES, not even minor ones, except when absolutely
-	necessary for a bugfix.
+	necessary for a bugfix, or for an important usability improvement
+	(such as clearer display of errors, hints for resolving them, etc).
 
 -----------------------------------
 Changelog for series 0.2:
@@ -126,6 +127,45 @@ light0.2beta1.0
 
 -----------------------------------
 Changelog for series 0.1:
+
+light0.1stable22
+--------
+	* Critical fix for non-storage servers: the /mars directory
+	  was readable by ordinary non-root users, opening a potential
+	  security hole. Originally MARS was designed for standalone
+	  storage servers solely, but now it is increasingly deployed to
+	  machines where ordinary users can log in.
+	  Update recommended, but only urgent for potentially affected
+	  installations.
+	* Minor fix: when a logfile was damaged (observed at defective
+	  hardware), this was often (but not always) detected by the
+	  md5 data checksums in the transaction logfiles. So far so good.
+	  The replay / recovery process stopped for a very good reason.
+	  But it was not easily possible to _force_ any of the resource
+	  members into primary role when the defect was already present at
+	  the _primary_ (which happend once during 7 millions of operating
+	  hours, and at a primary site which proved defective afterwards),
+	  and the defect had been replicated to all secondaries.
+	  As a workaround, the resource could be destroyed via leave-resource
+	  everywhere, and re-surrected from scratch. Clumsy.
+	  Now an md5 checksum error in the middle of a logfile is
+	  treated similarly to an EOF. "primary --force" will succeed now,
+	  without applying the defective data (as before).
+	  Split brain will result for sure in such a case.
+	* Minor improvement: md5 logfile checksum errors are now displayed
+	  directly in the diskstate macro (and therefore also at plain
+	  "view").
+	* Minor improvement: when "marsadm view all" told you "InConsistent"
+	  as the disk state, this was _formally correct_ because it related
+	  to the state of the _disk_, not to the state of the replication.
+	  The former message could appear regularly during ordinary
+	  out-of-order writeback at the primary side, without violating
+	  the consistency of /dev/mars/mydata.
+	  However, many people were confused and alarmed by the irritating
+	  message.
+	  Now a better wording is used: "WriteBack" and "Recovery" describes
+	  more intuitively what is really happening :)
+	* Minor doc improvements.
 
 light0.1stable21
 --------
