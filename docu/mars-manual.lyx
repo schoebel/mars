@@ -7340,6 +7340,23 @@ marsadm
 \labelwidthstring 00.00.0000
 
 \family typewriter
+errno-text
+\family default
+ This macro takes 1 argument, which must represent a Linux 
+\family typewriter
+errno
+\family default
+ number, and converts it to human readable form (similar to the C 
+\family typewriter
+strerror()
+\family default
+ function).
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
 todo-{attach,sync,fetch,replay,primary}
 \family default
  Shows a boolean value (0 or 1) indicating the current state of the correspondin

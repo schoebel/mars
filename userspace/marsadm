@@ -1159,7 +1159,7 @@ sub __conv_errno {
   my ($txt, $error) = @_;
   return "$txt$error" if !defined($error) || ($error <= 0);
   $! = $error;
-  my $res = "${txt}${error} [$!]";
+  my $res = "${txt}${error}[$!]";
   $! = 0;
   return $res;
 }
@@ -2783,6 +2783,12 @@ sub eval_fn {
       my $max = make_numeric(parse_macro($arg4, $env));
       return progress_bar($length, $min, $mid, $max);
     }
+    if (/^errno[-_]?text$/) {
+      my $code = parse_macro($arg1, $env);
+      return "" unless defined($code) && $code != 0;
+      $code = -$code if $code < 0;
+      return __conv_errno("", $code);
+    }
     if (/^get[-_]?log[-_]?status/) {
       return get_error_text($$env{"cmd"}, $$env{"res"});
     }
@@ -3994,6 +4000,8 @@ my %trivial_globs =
    => "",
    "replay-code"
    => "When negative, this indidates that a replay/recovery error has occurred.",
+   "errno-text"
+   => "Convert errno numbers (positive or negative) into human readable text.",
    "{sync,fetch,replay,work,syncpos}-{size,pos}"
    => "",
    "{sync,fetch,replay,work}-{rest,{almost-,threshold-,}reached,percent,permille,vector}"
