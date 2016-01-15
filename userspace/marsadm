@@ -2999,6 +2999,10 @@ sub eval_fn {
       $lnk = correct_path($lnk);
       return get_link($lnk, 1);
     }
+    if (/^replay[-_]?code$/) {
+      my $lnk = $$env{"resdir"} . "/actual-" . $$env{"host"} . "/replay-code";
+      return get_link($lnk, 2);
+    }
     if (/^(sync|fetch|replay|work)[-_]?(rate|remain)$/) {
       my $what = $1;
       my $select = $2;
@@ -3988,6 +3992,8 @@ my %trivial_globs =
    => "",
    "occupied-size"
    => "",
+   "replay-code"
+   => "When negative, this indidates that a replay/recovery error has occurred.",
    "{sync,fetch,replay,work,syncpos}-{size,pos}"
    => "",
    "{sync,fetch,replay,work}-{rest,{almost-,threshold-,}reached,percent,permille,vector}"

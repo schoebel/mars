@@ -7398,6 +7398,52 @@ get-resource-{fat,err,wrn}-count
 \labelwidthstring 00.00.0000
 
 \family typewriter
+replay-code
+\family default
+ Indicate the current state of logfile replay / recovery:
+\end_layout
+
+\begin_deeper
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+(empty) Unknown.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+0 No replay is currently running.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+1 Replay is currently running.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+2 Replay has successfully stopped.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+<0 See Linux 
+\family typewriter
+errno
+\family default
+ code.
+ Typically this indicates a damaged logfile, or another filesystem error
+ at 
+\family typewriter
+/mars
+\family default
+.
+\end_layout
+
+\end_deeper
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
 is-{attach,sync,fetch,replay,primary,module-loaded}
 \family default
  Shows a boolean value (0 or 1) indicating the 
