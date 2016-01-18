@@ -31358,6 +31358,16 @@ is-*
 todo-*
 \family default
  values when something is not (yet) working.
+ Notice: 
+\family typewriter
+is-primary
+\family default
+ means that the transaction logger has reached a working state, but the
+ corresponding 
+\family typewriter
+/dev/mars/mydata
+\family default
+ prosumer device need not (yet) have appeared (somewhere else).
  More explanations can be found in section 
 \begin_inset CommandInset ref
 LatexCommand ref
