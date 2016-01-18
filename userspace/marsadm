@@ -2626,9 +2626,8 @@ sub eval_fn {
       }
       return $number;
     }
-    if (/^([<>]=?|[!=]=)$/) { # comparisons
+    if (/^([<>]=?|[!=]=)$/) { # numeric comparisons
       my $op = $1;
-      $op = "~" if $op eq "match";
       my $n1 = make_numeric(parse_macro($arg1, $env));
       my $arg2 = shift;
       my $n2 = make_numeric(parse_macro($arg2, $env));
@@ -2641,9 +2640,9 @@ sub eval_fn {
       if (/^!=$/) { return $n1 != $n2; }
       ldie "bad comparison operator '$op'";
     }
-    if (/^(lt|gt|le|ge|eq|ne|match)$/) { # binary operators
+    if (/^(lt|gt|le|ge|eq|ne|match|=~)$/) { # binary string operators
       my $op = $1;
-      $op = "~" if $op eq "match";
+      $op = "=~" if $op eq "match";
       my $n1 = parse_macro($arg1, $env);
       my $arg2 = shift;
       my $n2 = parse_macro($arg2, $env);
@@ -2659,8 +2658,9 @@ sub eval_fn {
 	my $arg3 = shift;
 	$opts = parse_macro($arg3, $env) if defined($arg3);
 	# unfortunately standard regex operators don't seem to accept variable options, so we use eval()
-	eval("\$n1 =~ m{$n2}$opts");
-	return $n1;
+	my $result = eval("\$n1 =~ m{$n2}$opts");
+	return "" unless defined($result);
+	return $result;
       }
       ldie "bad binary operator '$op'";
     }

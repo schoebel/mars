@@ -10062,7 +10062,23 @@ opts
 \emph default
 } 
 \family default
-Checks whether 
+or 
+\family typewriter
+%match{
+\emph on
+string
+\emph default
+}{
+\emph on
+regex
+\emph default
+}{
+\emph on
+opts
+\emph default
+}
+\family default
+ Checks whether 
 \family typewriter
 \emph on
 string
