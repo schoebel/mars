@@ -6193,7 +6193,7 @@ d by MARS.
 \labelwidthstring 00.00.0000
 
 \family typewriter
-DamagedLog[
+DefectiveLog[
 \emph on
 description-text
 \emph default
@@ -6236,16 +6236,26 @@ actuality
 integrity
 \emph default
  (by itself).
- Hint: typically you should try 
+ Hint: When the damage is only at the secondary, you should first ensure
+ that the primary has a good logfile after a 
+\family typewriter
+marsadm log-rotate
+\family default
+, then try 
 \family typewriter
 marsadm invalidate
 \family default
- when the damaged logfile is only at a secondary while the primary has a
- correct logfile, or at least is continuing to operate correctly.
- When a primary is affected in a very bad way, such that it crashed badly
- and afterwards even recovery is impossible due to this error (which typically
- occurs extremely rarely, observed once during 7 millions of operating hours),
- you might need a switchover to a former secondary via 
+ at the damaged secondary.
+ It is crucial that the primary has a fresh correct logfile behind the error
+ position, and that it is continuing to operate correctly.
+ However, when a primary is affected in a very bad way, such that it crashed
+ badly and afterwards even recovery of the 
+\emph on
+primary
+\emph default
+ is impossible due to this error (which typically occurs extremely rarely,
+ observed once during 7 millions of operating hours), you might need a switchove
+r to a former secondary via 
 \family typewriter
 primary --force
 \family default
