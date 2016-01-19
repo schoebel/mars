@@ -59,7 +59,7 @@
 #include <linux/blkdev.h>
 
 #include "mars.h"
-#include "lib_limiter.h"
+#include "mars_if.h"
 
 //      remove_this
 
@@ -82,8 +82,6 @@ struct mars_limiter if_throttle = {
 };
 
 ///////////////////////// own type definitions ////////////////////////
-
-#include "mars_if.h"
 
 #define IF_HASH_MAX   (PAGE_SIZE / sizeof(struct if_hash_anchor))
 #define IF_HASH_CHUNK (PAGE_SIZE * 32)
@@ -595,6 +593,9 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 #endif
 //      end_remove_this
 		void *data;
+
+		/* gather statistics on IOPS etc */
+		mars_limit(&brick->io_limiter, bv_len);
 
 #ifdef ARCH_HAS_KMAP
 #error FIXME: the current infrastructure cannot deal with HIGHMEM / kmap()

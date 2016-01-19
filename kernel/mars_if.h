@@ -24,6 +24,8 @@
 #ifndef MARS_IF_H
 #define MARS_IF_H
 
+#include "lib_limiter.h"
+
 #include <linux/semaphore.h>
 
 #define MARS_MAX_SEGMENT_SIZE (PAGE_SIZE)
@@ -107,6 +109,7 @@ struct if_brick {
 	// inspectable
 	atomic_t open_count;
 	atomic_t flying_count;
+	struct mars_limiter io_limiter;
 	// private
 	struct semaphore switch_sem;
 	struct say_channel *say_channel;
