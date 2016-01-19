@@ -936,7 +936,7 @@ static int _server_thread(void *data)
 ////////////////// module init stuff /////////////////////////
 
 struct mars_limiter server_limiter = {
-	.lim_max_rate = 0,
+	/* Let all be zero */
 };
 EXPORT_SYMBOL_GPL(server_limiter);
 

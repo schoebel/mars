@@ -240,15 +240,17 @@ done:
 	VEC_ENTRY(NAME, VAR, MODE, 1)
 
 #define LIMITER_ENTRIES(VAR, PREFIX, SUFFIX)				\
-	INT_ENTRY(PREFIX "_total_ops_" SUFFIX, (VAR)->lim_total_ops, 0400), \
-	INT_ENTRY(PREFIX "_total_sum_" SUFFIX, (VAR)->lim_total_sum, 0400), \
-	INT_ENTRY(PREFIX "_ratelimit_" SUFFIX, (VAR)->lim_max_rate, 0600), \
+	INT_ENTRY(PREFIX "_total_ops",          (VAR)->lim_total_ops,    0400), \
+	INT_ENTRY(PREFIX "_total_" SUFFIX,      (VAR)->lim_total_amount, 0400), \
+	INT_ENTRY(PREFIX "_ratelimit_ops",      (VAR)->lim_max_ops_rate, 0600), \
+	INT_ENTRY(PREFIX "_ratelimit_" SUFFIX,  (VAR)->lim_max_amount_rate, 0600), \
 	INT_ENTRY(PREFIX "_maxdelay_ms",   (VAR)->lim_max_delay,0600),	\
 	INT_ENTRY(PREFIX "_minwindow_ms",  (VAR)->lim_min_window,0600),	\
 	INT_ENTRY(PREFIX "_maxwindow_ms",  (VAR)->lim_max_window,0600),	\
-	INT_ENTRY(PREFIX "_cumul_" SUFFIX, (VAR)->lim_cumul,    0600),	\
-	INT_ENTRY(PREFIX "_count_ops",     (VAR)->lim_count,    0600),	\
-	INT_ENTRY(PREFIX "_rate_"  SUFFIX, (VAR)->lim_rate,     0400)	\
+	INT_ENTRY(PREFIX "_cumul_ops",     (VAR)->lim_ops_cumul,       0600),	\
+	INT_ENTRY(PREFIX "_cumul_" SUFFIX, (VAR)->lim_amount_cumul,    0600),	\
+	INT_ENTRY(PREFIX "_rate_ops",      (VAR)->lim_ops_rate,        0400), \
+	INT_ENTRY(PREFIX "_rate_"  SUFFIX, (VAR)->lim_amount_rate,     0400)	\
 
 #define THRESHOLD_ENTRIES(VAR, PREFIX)					\
 	INT_ENTRY(PREFIX "_threshold_us",   (VAR)->thr_limit,    0600),	\

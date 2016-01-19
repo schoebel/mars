@@ -5418,7 +5418,7 @@ sub eval_fn {
       my $lnk = $$env{"resdir"} . "/actual-" . $$env{"host"} . "/replay-code";
       return get_link($lnk, 2);
     }
-    if (/^(sync|fetch|replay|work)[-_]?(rate|remain)$/) {
+    if (/^(sync|fetch|replay|work)[-_]?(rate|ops[-_]?rate|amount[-_]?rate|remain)$/) {
       my $what = $1;
       my $select = $2;
       if ($what eq "work") {
@@ -5433,21 +5433,33 @@ sub eval_fn {
 	return $val1 if $val1 > $val2;
 	return $val2;
       }
+      my $name = $select;
+      $name = "amount_rate" if ($name eq "rate" || $name eq "remain");
+      $name =~ s/-/_/;
       my %names =
 	(
-	 "sync"   => "sync_rate",
-	 "fetch"  => "file_rate",
-	 "replay" => "replay_rate",
+	 "sync"   => "sync",
+	 "fetch"  => "file",
+	 "replay" => "replay",
 	);
-      my $lnk = $$env{"resdir"} . "/actual-" . $$env{"host"} . "/" . $names{$what};
+      $name =~ s/_/-$names{$what}_/;
+      my $lnk = $$env{"resdir"} . "/actual-" . $$env{"host"} . "/$name";
       my $rate = get_link($lnk, 2);
-      return "" if !defined($rate) || $rate eq "" || $rate < 0;
-      return $rate * 1024 if $select eq "rate";
+      # deprecated: compatibility with old version
+      if (!defined($rate) || $rate eq "") {
+	$lnk =~ s:/amount-:/:;
+	$rate = get_link($lnk, 2);
+      }
       if ($select eq "remain") {
 	my $rest = make_numeric(eval_fn($env, "$what-rest", ""));
 	return 0 if $rest <= 0;
-	return -1 if ($rate <= 0);
+	return -1 if (!defined($rate) || $rate eq "" || $rate <= 0);
 	return $rest / 1024 / $rate;
+      }
+      if ($select =~ /rate/) {
+	return 0 if (!defined($rate) || !$rate || $rate <= 0);
+	return $rate if $select =~ /^ops-/;
+	return $rate * 1024;
       }
       ldie "unknown macro $_\n";
     }
@@ -6431,7 +6443,7 @@ my %trivial_globs =
    => "",
    "writeback-rest"
    => "",
-   "{sync,fetch,replay}-{rate,remain}"
+   "{sync,fetch,replay}-{ops-rate,amount-rate,rate,remain}"
    => "",
    "replay-basenr"
    => "",

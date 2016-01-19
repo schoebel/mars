@@ -1161,7 +1161,7 @@ EXPORT_SYMBOL_GPL(client_brick_type);
 ////////////////// module init stuff /////////////////////////
 
 struct mars_limiter client_limiter = {
-	.lim_max_rate = 0,
+	/* Let all be zero */
 };
 EXPORT_SYMBOL_GPL(client_limiter);
 

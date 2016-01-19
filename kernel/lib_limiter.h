@@ -33,19 +33,22 @@ struct mars_limiter {
 	/* hierarchy tree */
 	struct mars_limiter *lim_father;
 	/* tunables */
-	int lim_max_rate;
+	int lim_max_ops_rate;
+	int lim_max_amount_rate;
 	int lim_max_delay;
 	int lim_min_window;
 	int lim_max_window;
 	/* readable */
-	int lim_rate;
-	int lim_cumul;
-	int lim_count;
+	int lim_ops_rate;
+	int lim_amount_rate;
+	int lim_ops_cumul;
+	int lim_amount_cumul;
 	int lim_total_ops;
-	int lim_total_sum;
+	int lim_total_amount;
 	struct lamport_time lim_stamp;
 	/* internal */
-	long long lim_accu;
+	long long lim_ops_accu;
+	long long lim_amount_accu;
 };
 
 extern int mars_limit(struct mars_limiter *lim, int amount);

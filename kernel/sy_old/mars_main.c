@@ -1606,10 +1606,19 @@ void _show_status_all(struct mars_global *global)
 }
 
 static
-void _show_rate(struct mars_rotate *rot, struct mars_limiter *limiter, const char *name)
+void _show_rate(struct mars_rotate *rot, struct mars_limiter *limiter, const char *basename)
 {
+	char *name;
+
 	mars_limit(limiter, 0);
-	__show_actual(rot->parent_path, name, limiter->lim_rate);
+
+	name = path_make("ops-%s", basename);
+	__show_actual(rot->parent_path, name, limiter->lim_ops_rate);
+	brick_string_free(name);
+
+	name = path_make("amount-%s", basename);
+	__show_actual(rot->parent_path, name, limiter->lim_amount_rate);
+	brick_string_free(name);
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -1758,7 +1767,8 @@ int __make_copy(
 			 "from = '%s' to = '%s'"
 			 " on = %d start_pos = %lld end_pos = %lld"
 			 " actual_pos = %lld actual_stamp = %ld.%09ld"
-			 " rate = %d read_fly = %d write_fly = %d error_code = %d nr_errors = %d",
+			 " ops_rate = %d amount_rate = %d"
+			 " read_fly = %d write_fly = %d error_code = %d nr_errors = %d",
 			 argv[0],
 			 argv[1],
 			 _copy->power.led_on,
@@ -1766,7 +1776,8 @@ int __make_copy(
 			 _copy->copy_end,
 			 _copy->copy_last,
 			 _copy->copy_last_stamp.tv_sec, _copy->copy_last_stamp.tv_nsec,
-			 _copy->copy_limiter ? _copy->copy_limiter->lim_rate : 0,
+			 _copy->copy_limiter ? _copy->copy_limiter->lim_ops_rate : 0,
+			 _copy->copy_limiter ? _copy->copy_limiter->lim_amount_rate : 0,
 			 atomic_read(&_copy->copy_read_flight),
 			 atomic_read(&_copy->copy_write_flight),
 			 _copy->copy_error,
