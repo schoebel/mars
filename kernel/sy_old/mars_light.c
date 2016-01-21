@@ -3158,7 +3158,9 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 	if (rot->aio_info.current_size > *oldpos_start) {
 		if ((rot->aio_info.current_size - *oldpos_start < REPLAY_TOLERANCE ||
 		     (rot->log_is_really_damaged &&
-		      rot->todo_primary)) &&
+		      rot->todo_primary &&
+		      rot->relevant_log &&
+		      strcmp(rot->relevant_log->d_rest, my_id()))) &&
 		    (rot->todo_primary ||
 		        (rot->relevant_log &&
 		         rot->next_relevant_log &&

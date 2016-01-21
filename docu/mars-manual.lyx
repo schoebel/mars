@@ -6212,7 +6212,7 @@ md5
  This occurs extremely rarely in practice, but has been observed more frequently
  during a massive failure of air conditioning in a datacenter, when disk
  temperatures raised to more than 80° Celsius.
- Notice that MARS 
+ Notice that a secondary 
 \series bold
 refuses
 \series default
@@ -6236,7 +6236,12 @@ actuality
 integrity
 \emph default
  (by itself).
- Hint: When the damage is only at the secondary, you should first ensure
+ What to do in such a case?
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+When the damage is only at one of your secondaries, you should first ensure
  that the primary has a good logfile after a 
 \family typewriter
 marsadm log-rotate
@@ -6248,14 +6253,100 @@ marsadm invalidate
  at the damaged secondary.
  It is crucial that the primary has a fresh correct logfile behind the error
  position, and that it is continuing to operate correctly.
- However, when a primary is affected in a very bad way, such that it crashed
+\end_layout
+
+\begin_layout Enumerate
+When 
+\emph on
+all
+\emph default
+ of your secondaries are reporting 
+\family typewriter
+DefectiveLog
+\family default
+, the primary could have 
+\emph on
+produced
+\emph default
+ a damaged logfile (e.g.
+ in RAM, in a DMA channel, etc) while continuing to operate, and all of
+ your secondaries got that defective logfile.
+ After 
+\family typewriter
+marsadm log-delete-all all
+\family default
+, you can check this by comparing the 
+\family typewriter
+md5sum
+\family default
+ of the first primary logfile (having the lowest serial number) with the
+ versions on your replicas.
+ The problem is that you don't know whether the primary side has a silent
+ corruption on any of its disks, or not.
+ You will need to take an operational decision whether to switchover to
+ a secondary via 
+\family typewriter
+primary --force
+\family default
+, or whether to continue operation at the primary and 
+\family typewriter
+invalidate
+\family default
+ your secondaries.
+\end_layout
+
+\begin_layout Enumerate
+When the original primary is affected in a very bad way, such that it crashed
  badly and afterwards even recovery of the 
 \emph on
 primary
 \emph default
- is impossible due to this error (which typically occurs extremely rarely,
- observed once during 7 millions of operating hours), you might need a switchove
-r to a former secondary via 
+ is impossible
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In such a rare case, the 
+\emph on
+original primary
+\emph default
+ (but not any other host) 
+\series bold
+refuses
+\series default
+ to come up during recovery with 
+\emph on
+his own
+\emph default
+ logfile originally produced by 
+\emph on
+himself
+\emph default
+.
+ This is not a bug, but saves you from incorrectly assuming that your original
+ primary disk were consistent - it is 
+\emph on
+known
+\emph default
+ to be inconsistent, but recovery is impossible due to the damaged logfile.
+ Thus 
+\emph on
+this one
+\emph default
+ replica is trapped by defective hardware.
+ The other replicas shouldn't.
+\end_layout
+
+\end_inset
+
+ due to this error (which typically occurs extremely rarely, observed two
+ times during 7 millions of operating hours on defective hardware), you
+ need to take an operational decision between the following alternatives:
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+switchover to a former secondary via 
 \family typewriter
 primary --force
 \family default
@@ -6264,6 +6355,29 @@ primary --force
  case.
 \end_layout
 
+\begin_layout Enumerate
+deconstruction of the resource at 
+\emph on
+all
+\emph default
+ replicas via 
+\family typewriter
+leave-resource --force
+\family default
+, running 
+\family typewriter
+fsck
+\family default
+ or similar tools by hand at the underlying disks, selecting the best replica
+ out of them, and finally re-constructing the resource again.
+\end_layout
+
+\begin_layout Enumerate
+restore your backup.
+\end_layout
+
+\end_deeper
+\end_deeper
 \begin_layout Labeling
 \labelwidthstring 00.00.0000
 
