@@ -94,6 +94,10 @@ Release Conventions / Branches / Tagnames
 -----------------------------------
 Changelog for series 0.2:
 
+light0.2beta2.2
+--------
+	* Include all fixes from light0.1stable22 and light0.1stable23.
+
 light0.2beta2.1
 --------
 	* Include all fixes from light0.1stable20 and light0.1stable21.
