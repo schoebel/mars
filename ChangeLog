@@ -128,6 +128,14 @@ light0.2beta1.0
 -----------------------------------
 Changelog for series 0.1:
 
+light0.1stable23
+--------
+	* Minor fix: the new replay-code error message was forgotten
+	  to reset at secondaries. Now the annoying old error message
+	  disappears after the next successful logrotate.
+	* Minor fixes of internal marsadm code (not in use until now).
+	* Minor doc update.
+
 light0.1stable22
 --------
 	* Critical fix for non-storage servers: the /mars directory

@@ -556,6 +556,7 @@ struct mars_rotate {
 	int split_brain_round;
 	int fetch_next_is_available;
 	int relevant_serial;
+	int replay_code;
 	bool has_symlinks;
 	bool res_shutdown;
 	bool has_error;
@@ -3164,7 +3165,9 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 	if (rot->aio_info.current_size > *oldpos_start) {
 		if ((rot->aio_info.current_size - *oldpos_start < REPLAY_TOLERANCE ||
 		     (rot->log_is_really_damaged &&
-		      rot->todo_primary)) &&
+		      rot->todo_primary &&
+		      rot->relevant_log &&
+		      strcmp(rot->relevant_log->d_rest, my_id()))) &&
 		    (rot->todo_primary ||
 		        (rot->relevant_log &&
 		         rot->next_relevant_log &&
@@ -3418,6 +3421,7 @@ void _rotate_trans(struct mars_rotate *rot)
 		}
 		trans_brick->new_input_nr = next_nr;
 		MARS_INF_TO(rot->log_say, "started logrotate switchover from '%s' to '%s'\n", rot->relevant_log->d_path, rot->next_relevant_log->d_path);
+		rot->replay_code = 0;
 	}
 done: ;
 }
@@ -3521,6 +3525,7 @@ int _start_trans(struct mars_rotate *rot)
 	trans_brick->replay_mode = rot->replay_mode;
 	trans_brick->replay_tolerance = REPLAY_TOLERANCE;
 	_init_trans_input(trans_input, rot->relevant_log, rot);
+	rot->replay_code = 0;
 
 	/* Connect to new transaction log
 	 */
@@ -3692,15 +3697,20 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	if (trans_brick->replay_mode) {
 		if (trans_brick->replay_code > 0) {
 			MARS_INF_TO(rot->log_say, "logfile replay ended successfully at position %lld\n", trans_brick->replay_current_pos);
+			if (rot->replay_code >= 0)
+				rot->replay_code = trans_brick->replay_code;
 		} else if (trans_brick->replay_code == -EAGAIN ||
 			   trans_brick->replay_end_pos - trans_brick->replay_current_pos < trans_brick->replay_tolerance) {
 			MARS_INF_TO(rot->log_say, "logfile replay stopped intermediately at position %lld\n", trans_brick->replay_current_pos);
 		} else if (trans_brick->replay_code < 0) {
 			MARS_ERR_TO(rot->log_say, "logfile replay stopped with error = %d at position %lld\n", trans_brick->replay_code, trans_brick->replay_current_pos);
 			make_rot_msg(rot, "err-replay-stop", "logfile replay stopped with error = %d at position %lld", trans_brick->replay_code, trans_brick->replay_current_pos);
-			__show_actual(parent->d_path, "replay-code", trans_brick->replay_code);
+			rot->replay_code = trans_brick->replay_code;
 			rot->log_is_really_damaged = true;
+		} else if (rot->replay_code >= 0) {
+			rot->replay_code = trans_brick->replay_code;
 		}
+		__show_actual(parent->d_path, "replay-code", rot->replay_code);
 	}
 
 	/* Stopping is also possible in case of errors
@@ -4047,8 +4057,6 @@ done:
 	__show_actual(rot->parent_path, "open-count", open_count);
 	rot->is_primary =
 		rot->if_brick && !rot->if_brick->power.led_off;	
-	if (rot->is_primary)
-		_show_actual(parent->d_path, "replay-code", 0);
 	_show_primary(rot, parent);
 
 err:
