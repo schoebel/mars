@@ -2999,7 +2999,7 @@ sub eval_fn {
       $result = "/dev/mars/$result" if ($what eq "device" && $result !~ m:^/:);
       if ($op eq "present" && $result) {
 	$result = -b $result;
-	$result = "" unless defined($result);
+	$result = "0" unless defined($result);
       }
       return $result;
     }
