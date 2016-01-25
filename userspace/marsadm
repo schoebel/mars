@@ -2114,9 +2114,9 @@ sub primary_phase0 {
     check_todo($cmd, $res, "replay", 1, 0);
     # check that no logfile replay errors exist.
     my $replay_error = get_link("$mars/resource-$res/actual-$host/replay-code", 2);
-    if ($replay_error < 0) {
+    if (int($replay_error) < 0) {
       lwarn "Logfile replay / recovery stopped with error code $replay_error.\n";
-      ldie "Cannot switch to avoid unnoticed data loss. You may however do a 'primary --force'.\n" unless $force;
+      ldie "Won't switch to avoid unnoticed data loss. You may however do a 'primary --force'.\n" unless $force;
     }
   }
   return if ($old eq $host and $cmd eq "primary");
