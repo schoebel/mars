@@ -58,6 +58,7 @@ struct client_brick {
 	/* internal */
 	atomic_t sender_count;
 	atomic_t receiver_count;
+	int socket_count;
 };
 
 struct client_input {

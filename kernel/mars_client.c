@@ -971,6 +971,13 @@ static int client_switch(struct client_brick *brick)
 	int status = 0;
 
 	if (brick->power.button) {
+		int socket_count = 0;
+		int i;
+
+		for (i = 0; i < MAX_CLIENT_CHANNELS; i++)
+			if (output->bundle.channel[i].is_connected)
+				socket_count++;
+		brick->socket_count = socket_count;
 		if (brick->power.led_on)
 			goto done;
 		mars_power_led_off((void*)brick, false);
@@ -985,6 +992,7 @@ static int client_switch(struct client_brick *brick)
 		}
 		mars_power_led_on((void*)brick, output->got_info);
 	} else {
+		brick->socket_count = 0;
 		if (brick->power.led_off)
 			goto done;
 		mars_power_led_on((void*)brick, false);
