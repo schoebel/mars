@@ -1456,6 +1456,19 @@ sub create_cluster {
   _create_cluster(@_);
 }
 
+sub _run_rsync {
+  my ($cmd) = @_;
+  my $cycle = 0;
+  my $status = 0;
+  # Repeat the action because some symlinks might be updated (or even vanish)
+  # when the peer is actively running. There seems to exist no rsync option
+  # for ignoring all of these errors.
+  do {
+    $status = system($cmd);
+  } while ($status != 0 && $status != 24 && $cycle++ < 3);
+  ldie "Cannot get remote symlink tree via rsync, status=$status\n" if ($status && $status != 24);
+}
+
 sub join_cluster {
   my ($cmd, $peer) = @_;
   ldie "Cannot join myself (peer='$peer', host='$host')\n" if $peer eq $host;
@@ -1470,12 +1483,12 @@ sub join_cluster {
   # check connection
   system("ssh $peer uname -a") == 0 or ldie "oops, no connection to $peer ...\n";
   unless ($dry_run) {
-    system("rsync --recursive --links --max-size=1 -v $peer:$mars/ $mars/") == 0 or ldie "cannot get remote symlink tree via rsync\n";
+    _run_rsync("rsync --recursive --links --max-size=1 -v $peer:$mars/ $mars/");
   }
   _create_cluster(@_);
   finish_links();
   unless ($dry_run) {
-    system("rsync --recursive --links -v $mars/ips/ $peer:$mars/ips/") == 0 or ldie "oops\n";
+    _run_rsync("rsync --recursive --links -v $mars/ips/ $peer:$mars/ips/");
   }
 }
 
