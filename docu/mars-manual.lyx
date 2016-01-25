@@ -7951,6 +7951,28 @@ get-{disk,device}
  device, is available.
 \end_layout
 
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+device-opened
+\family default
+ Show (as a number) how often 
+\family typewriter
+/dev/mars/mydata
+\family default
+ has been actually openend, e.g.
+ by 
+\family typewriter
+mount
+\family default
+ or by some processes like 
+\family typewriter
+dd
+\family default
+, or by iSCSI, etc.
+\end_layout
+
 \begin_layout Paragraph
 Intended for Scripting
 \end_layout
