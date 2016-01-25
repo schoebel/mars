@@ -487,15 +487,17 @@ void _hash_insert(struct client_output *output, struct client_mref_aspect *mref_
 
 static void client_ref_io(struct client_output *output, struct mref_object *mref)
 {
+	struct client_brick *brick = output->brick;
 	struct client_mref_aspect *mref_a;
 	int error = -EINVAL;
 
-	mref_a = client_mref_get_aspect(output->brick, mref);
+	mref_a = client_mref_get_aspect(brick, mref);
 	if (unlikely(!mref_a)) {
 		goto error;
 	}
 
-	while (output->brick->max_flying > 0 && atomic_read(&output->fly_count) > output->brick->max_flying) {
+	while (brick->max_flying > 0 &&
+	       atomic_read(&brick->fly_count) > brick->max_flying) {
 		MARS_IO("sleeping request pos = %lld len = %d flags = %ux (flying = %d)\n",
 			mref->ref_pos, mref->ref_len, mref->ref_flags,
 			atomic_read(&output->fly_count));
@@ -506,12 +508,12 @@ static void client_ref_io(struct client_output *output, struct mref_object *mref
 #endif
 	}
 
-	if (!output->brick->power.led_on) {
+	if (!brick->power.led_on) {
 		MARS_ERR("IO submission on dead instance\n");
 	}
 
 	atomic_inc(&mars_global_io_flying);
-	atomic_inc(&output->fly_count);
+	atomic_inc(&brick->fly_count);
 	_mref_get(mref);
 
 	mref_a->submit_jiffies = jiffies;
@@ -644,7 +646,7 @@ int receiver_thread(void *data)
 
 			client_ref_put(output, mref);
 
-			atomic_dec(&output->fly_count);
+			atomic_dec(&output->brick->fly_count);
 			atomic_dec(&mars_global_io_flying);
 			break;
 		}
@@ -764,13 +766,13 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 				 mref->ref_len);
 		}
 
-		atomic_inc(&output->timeout_count);
+		atomic_inc(&brick->timeout_count);
 
 		SIMPLE_CALLBACK(mref, -ETIME);
 
 		client_ref_put(output, mref);
 
-		atomic_dec(&output->fly_count);
+		atomic_dec(&brick->fly_count);
 		atomic_dec(&mars_global_io_flying);
 	}
 }
@@ -1042,8 +1044,8 @@ char *client_statistics(struct client_brick *brick, int verbose)
 		 socket_count,
 		 brick->max_flying,
 		 brick->power.io_timeout,
-		 atomic_read(&output->timeout_count),
-		 atomic_read(&output->fly_count));
+		 atomic_read(&brick->timeout_count),
+		 atomic_read(&brick->fly_count));
 	
         return res;
 }
@@ -1051,8 +1053,7 @@ char *client_statistics(struct client_brick *brick, int verbose)
 static
 void client_reset_statistics(struct client_brick *brick)
 {
-	struct client_output *output = brick->outputs[0];
-	atomic_set(&output->timeout_count, 0);
+	atomic_set(&brick->timeout_count, 0);
 }
 
 //////////////// object / aspect constructors / destructors ///////////////
