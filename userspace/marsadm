@@ -1105,6 +1105,14 @@ sub try_to_avoid_splitbrain {
 sub get_size {
   my $arg = shift;
   my $orig_arg = $arg;
+  # Do what I mean: when given a device, take its actual size.
+  if (-b $arg) {
+    my $mangled = $arg;
+    $mangled =~ s:/dev/::;
+    $mangled =~ s:/:!:g;
+    my $path = "/sys/block/$mangled/size";
+    $arg = `cat $path` * 512 if -r $path;
+  }
   if ($arg !~ m/^([0-9]+(?:\.[0-9]*)?)([kmgtp]?)$/i) {
     ldie "Size argument '$arg' must be a number, optionally followed by a suffix [kKmMgGtTpP]. Lowercase = multiples of 1000, Uppercase = multiples of 1024.\n";
   }
