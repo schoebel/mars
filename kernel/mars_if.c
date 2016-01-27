@@ -1209,6 +1209,7 @@ char *if_statistics(struct if_brick *brick, int verbose)
 		 "fired = %d "
 		 "skip_sync = %d "
 		 "| "
+		 "opened = %d "
 		 "plugged = %d "
 		 "flying = %d "
 		 "(reads = %d writes = %d)\n",
@@ -1222,6 +1223,7 @@ char *if_statistics(struct if_brick *brick, int verbose)
 		 atomic_read(&input->total_empty_count),
 		 atomic_read(&input->total_fire_count),
 		 atomic_read(&input->total_skip_sync_count),
+		 atomic_read(&brick->open_count),
 		 atomic_read(&input->plugged_count),
 		 atomic_read(&input->flying_count),
 		 atomic_read(&input->read_flying_count),
