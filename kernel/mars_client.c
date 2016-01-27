@@ -830,13 +830,13 @@ static int sender_thread(void *data)
 			max_nr = 1;
 		}
 		if (!ch || ch->recv_error ||
-		    !mars_socket_is_alive(&ch->socket) ||
-		    ch->ch_nr >= max_nr || --ch_skip < 0) {
+		    !mars_socket_is_alive(&ch->socket))
+			do_timeout = true;
+		if (do_timeout || ch->ch_nr >= max_nr || --ch_skip < 0) {
 			ch = _get_channel(bundle, min_nr, max_nr);
 			if (unlikely(!ch)) {
 				// notice: this will re-assign hash_head without harm
 				_hash_insert(output, mref_a);
-				do_timeout = true;
 				brick_msleep(1000);
 				continue;
 			}
