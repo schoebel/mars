@@ -54,14 +54,14 @@ struct client_brick {
 	bool allow_permuting_writes;
 	bool separate_reads;
 	// readonly from outside
-	int connection_state; // 0 = switched off, 1 = not connected, 2 = connected
-	/* internal */
+	int connection_state; // 0 = switched off, 1 = connected
 	atomic_t sender_count;
 	atomic_t receiver_count;
 	int socket_count;
 	atomic_t fly_count;
 	atomic_t timeout_count;
 	struct lamport_time hang_stamp; /* submit stamp of eldest request */
+	struct lamport_time last_timeout_stamp;
 };
 
 struct client_input {

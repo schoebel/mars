@@ -767,6 +767,14 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 	get_real_lamport(&timeout_stamp);
 	timeout_stamp.tv_sec -= io_timeout;
 
+	/* Don't run more than once per second */
+	if (!force &&
+	    lamport_time_compare(&timeout_stamp, &brick->last_timeout_stamp) <= 0)
+		return;
+
+	memcpy(&brick->last_timeout_stamp, &timeout_stamp, sizeof(brick->last_timeout_stamp));
+	brick->last_timeout_stamp.tv_sec += 1;
+
 	mutex_lock(&output->mutex);
 	for (tmp = anchor->prev, prev = tmp->prev; tmp != anchor; tmp = prev, prev = tmp->prev) {
 		struct client_mref_aspect *mref_a;
