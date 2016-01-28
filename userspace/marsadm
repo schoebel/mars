@@ -3010,19 +3010,32 @@ sub eval_fn {
       }
       return 1;
     }
-    if (/^(present|get)[-_]?(disk|device)$/) {
-      my $op = $1;
-      my $what = $2;
+    if (/^get[-_]?(disk|device)$/) {
+      my $what = $1;
       $what = "data" if $what eq "disk";
       my $lnk = $$env{"resdir"} . "/$what-" . $$env{"host"};
       my $result = get_link($lnk, 1);
       $result = "" unless defined($result);
       $result = "/dev/mars/$result" if ($what eq "device" && $result !~ m:^/:);
-      if ($op eq "present" && $result) {
+      return $result;
+    }
+    if (/^(disk|device)[-_]?present$/) {
+      my $what = $1;
+      $what = "data" if $what eq "disk";
+      my $lnk = $$env{"resdir"} . "/$what-" . $$env{"host"};
+      my $result = get_link($lnk, 1);
+      $result = "" unless defined($result);
+      $result = "/dev/mars/$result" if ($what eq "device" && $result !~ m:^/:);
+      if ($result) {
 	$result = -b $result;
 	$result = "0" unless defined($result);
       }
       return $result;
+    }
+    # deprecated (irregular names)
+    if (/^present[-_]?(disk|device)$/) {
+      my $what = $1;
+      return eval_fn($env, "$what-present", $arg1);
     }
     if (/^is[-_]?split([-_]?brain)?$/) {
       my $split = detect_splitbrain($$env{"res"}, 0);
@@ -4039,7 +4052,11 @@ my %trivial_globs =
    => "",
    "rest-space"
    => "",
-   "{present,get}-{disk,device}"
+   "get-{disk,device}"
+   => "",
+   "present-{disk,device}"
+   => "(deprecated, use *-present instead)",
+   "{disk,device}-present"
    => "",
    "get-log-status"
    => "",
