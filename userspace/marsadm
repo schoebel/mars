@@ -3255,7 +3255,7 @@ sub eval_fn {
     if (/^(disk|resource|device)[-_]?size$/) {
       my $what = $1;
       my $path = "$mars/resource-" . $$env{"res"};
-      if ($what eq "device" && eval_fn($env, "present-device", "")) {
+      if ($what eq "device" && eval_fn($env, "device-present", "")) {
 	return _get_mars_size($$env{"cmd"}, $$env{"res"});
       } elsif ($what eq "disk"){
 	my $peer = parse_macro($arg1, $env);
@@ -3634,7 +3634,7 @@ my %complex_macros =
    "diskstate"
    => "%elsif{%not{%get-disk{}}}{"
    .    "NotJoined"
-   .  "}{%not{%present-disk{}}}{"
+   .  "}{%not{%disk-present{}}}{"
    .    "NotPresent"
    .  "}{%not{%todo-attach{}}}{"
    .    "%if{%is-attach{}}{"
@@ -3669,7 +3669,7 @@ my %complex_macros =
    .  "}",
 
    "diskstate-1and1"
-   => "%if{%present-disk{}}{"
+   => "%if{%disk-present{}}{"
    .    "%if{%does{attach}}{"
    .      "%if{%is-almost-consistent{}}{"
    .        "%if{%work-reached{}}{"
@@ -3723,7 +3723,7 @@ my %complex_macros =
    .  "}",
 
    "replstate-1and1"
-   => "%if{%present-disk{}}{"
+   => "%if{%disk-present{}}{"
    .    "%if{%is-primary{}}{"
    .      "Replicating"
    .    "}{"
@@ -3744,8 +3744,8 @@ my %complex_macros =
    .  "}{NotJoined}",
 
    "flags"
-   => "%if{%present-disk{}}{%if{%present-device{}}{D}{d}}{-}"
-   .  "%if{%is-consistent{}}{C}{%if{%present-disk{}}{c}{-}}"
+   => "%if{%disk-present{}}{%if{%device-present{}}{D}{d}}{-}"
+   .  "%if{%is-consistent{}}{C}{%if{%disk-present{}}{c}{-}}"
    .  "%if{%does{attach}}{%if{%todo{attach}}{A}{a}}{%if{%todo{attach}}{a}{-}}"
    .  "%if{%sync-reached{}}{S}{%if{%todo{sync}}{s}{-}}"
    .  "%if{%fetch-reached{}}{F}{%if{%todo{fetch}}{f}{-}}"
@@ -3755,7 +3755,7 @@ my %complex_macros =
    => "-%if{%todo{sync}}{S}{-}%if{%todo{fetch}}{F}{-}%if{%todo{replay}}{R}{-}-",
 
    "todo-role"
-   => "%if{%present-disk{}}{"
+   => "%if{%disk-present{}}{"
    .    "%if{%todo-primary{}}{"
    .      "Primary"
    .    "}{"
@@ -3764,7 +3764,7 @@ my %complex_macros =
    .  "}{None}",
 
    "role"
-   => "%if{%present-disk{}}{"
+   => "%if{%disk-present{}}{"
    .    "%if{%todo-primary{}}{"
    .      "%if{%is-primary{}}{"
    .        "Primary"
@@ -3781,7 +3781,7 @@ my %complex_macros =
    .  "}{None}",
 
    "role-1and1"
-   => "%if{%present-disk{}}{"
+   => "%if{%disk-present{}}{"
    .    "%if{%is-primary{}}{"
    .      "Primary"
    .    "}{"
@@ -3797,7 +3797,7 @@ my %complex_macros =
    .  "}",
 
    "primarynode-1and1"
-   => "%if{%present-disk{}}{"
+   => "%if{%disk-present{}}{"
    .    "%if{%is-primary{}}{"
    .      "%{host}"
    .    "}{"
