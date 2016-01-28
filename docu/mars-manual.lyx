@@ -6126,7 +6126,7 @@ NotPresent
 \family default
  (cf 
 \family typewriter
-%present-disk{}
+%disk-present{}
 \family default
 ) The underlying disk device (as configured, see 
 \family typewriter
@@ -7929,19 +7929,6 @@ df
 \labelwidthstring 00.00.0000
 
 \family typewriter
-present-{disk,device}
-\family default
- Show (as a boolean value) whether the underlying disk, or the 
-\family typewriter
-/dev/mars/mydata
-\family default
- device, is available.
-\end_layout
-
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-
-\family typewriter
 get-{disk,device}
 \family default
  Show the name of the underlying disk, or of the 
@@ -7949,6 +7936,19 @@ get-{disk,device}
 /dev/mars/mydata
 \family default
  device (if it is available).
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{disk,device}-present
+\family default
+ Show (as a boolean value) whether the underlying disk, or the 
+\family typewriter
+/dev/mars/mydata
+\family default
+ device, is available.
 \end_layout
 
 \begin_layout Paragraph
