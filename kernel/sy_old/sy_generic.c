@@ -137,6 +137,32 @@ int mars_stat(const char *path, struct kstat *stat, bool use_lstat)
 }
 EXPORT_SYMBOL_GPL(mars_stat);
 
+void mars_sync(void)
+{
+	struct file *f;
+	mm_segment_t oldfs;
+
+	oldfs = get_fs();
+	set_fs(get_ds());
+	f = filp_open("/mars", O_DIRECTORY | O_RDONLY, 0);
+	set_fs(oldfs);
+	if (unlikely(IS_ERR(f)))
+		return;
+
+	if (likely(f->f_mapping)) {
+		struct inode *inode = f->f_mapping->host;
+
+		if (likely(inode && inode->i_sb)) {
+			struct super_block *sb = inode->i_sb;
+			down_read(&sb->s_umount);
+			sync_filesystem(sb);
+			up_read(&sb->s_umount);
+		}
+	}
+
+	filp_close(f, NULL);
+}
+
 int mars_mkdir(const char *path)
 {
 	mm_segment_t oldfs;
