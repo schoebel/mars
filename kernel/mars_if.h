@@ -119,6 +119,7 @@ struct if_brick {
 	struct mars_limiter io_limiter;
 	int error_code;
 	// private
+	wait_queue_head_t status_event;
 	struct semaphore switch_sem;
 	struct say_channel *say_channel;
 	struct mars_info info;

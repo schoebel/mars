@@ -527,6 +527,27 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 
 	might_sleep();
 
+ check_brick_status:
+	if (brick->power.led_off || !brick->power.button) {
+		/* We are not operational.
+		 * This may happen at forceful prosumer shutdown.
+		 * Reject any IO attempt.
+		 */
+		error = -ESHUTDOWN;
+		_call_bio_endio(brick, bio, error);
+		goto done;
+	} else if (!brick->power.led_on) {
+		/* We are not (yet) fully ready for processing IO.
+		 * Wait until we are fully up.
+		 * Then reconsider any status changes.
+		 */
+		wait_event_interruptible_timeout(
+			 brick->status_event,
+			 brick->power.led_on,
+			 1 * HZ);
+		goto check_brick_status;
+	}
+
 	if (unlikely(!sectors)) {
 		_if_unplug(input);
 		/* THINK: usually this happens only at write barriers.
@@ -582,12 +603,6 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 #endif
 
 	_if_start_io_acct(input, biow);
-
-	/* FIXME: THIS IS PROVISIONARY (use event instead)
-	 */
-	while (unlikely(!brick->power.led_on)) {
-		brick_msleep(100);
-	}
 
 	down(&input->kick_sem);
 
@@ -1184,17 +1199,29 @@ static int if_switch(struct if_brick *brick)
 
 //      end_remove_this
 		q->nr_requests = if_nr_requests;
-		// point of no return
+
+		/* POINT OF NO RETURN */
+
+		/* THINK: if add_disk() fails for some reason (e.g.
+		 * conflicting device name), we won't notice it directly.
+		 * What could we do about this?
+		 */
 		MARS_DBG("add_disk()\n");
 		add_disk(disk);
+
 #if 1
 		set_disk_ro(disk, false);
 #else
 		set_device_ro(input->bdev, 0); // TODO: implement modes
 #endif
 
-		// report success
-		mars_power_led_on((void*)brick, true);
+		/* Avoid IO races with block IO daemons / udev / etc.
+		 * They may access the new disk immediately after
+		 * add_disk(). However, the setup was not yet fully
+		 * complete.
+		 */
+		mars_power_led_on((void *)brick, true);
+
 		status = 0;
 	}
 
@@ -1265,6 +1292,7 @@ static int if_switch(struct if_brick *brick)
 
 done:
 	up(&brick->switch_sem);
+	wake_up_interruptible_all(&brick->status_event);
 	return status;
 }
 
@@ -1302,6 +1330,7 @@ static int if_open(struct block_device *bdev, fmode_t mode)
 	mars_remote_trigger(MARS_TRIGGER_LOCAL | MARS_TRIGGER_TO_REMOTE);
 
 	up(&brick->switch_sem);
+	wake_up_interruptible_all(&brick->status_event);
 	return 0;
 }
 
@@ -1444,6 +1473,7 @@ MARS_MAKE_STATICS(if);
 
 static int if_brick_construct(struct if_brick *brick)
 {
+	init_waitqueue_head(&brick->status_event);
 	sema_init(&brick->switch_sem, 1);
 	atomic_set(&brick->open_count, 0);
 	atomic_set(&brick->read_flying_count, 0);
