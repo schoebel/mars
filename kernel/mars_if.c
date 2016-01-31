@@ -245,7 +245,7 @@ void if_endio(struct generic_callback *cb)
 //      end_remove_this
 		brick_mem_free(biow);
 	}
-	atomic_dec(&input->flying_count);
+	atomic_dec(&input->brick->flying_count);
 	if (rw) {
 		atomic_dec(&input->write_flying_count);
 	} else {
@@ -317,7 +317,7 @@ void _if_unplug(struct if_input *input)
 
 		mars_trace(mref, "if_unplug");
 
-		atomic_inc(&input->flying_count);
+		atomic_inc(&input->brick->flying_count);
 		atomic_inc(&input->total_fire_count);
 		if (mref->ref_rw) {
 			atomic_inc(&input->write_flying_count);
@@ -1132,7 +1132,7 @@ static int if_switch(struct if_brick *brick)
 			status = -EBUSY;
 			goto done; // don't indicate "off" status
 		}
-		flying = atomic_read(&input->flying_count);
+		flying = atomic_read(&brick->flying_count);
 		if (unlikely(flying > 0)) {
 			MARS_INF("device '%s' has %d flying requests, cannot shutdown\n", disk->disk_name, flying);
 			status = -EBUSY;
@@ -1141,7 +1141,7 @@ static int if_switch(struct if_brick *brick)
 		MARS_DBG("calling del_gendisk()\n");
 		del_gendisk(input->disk);
 		/* There might be subtle races */
-		while (atomic_read(&input->flying_count) > 0) {
+		while (atomic_read(&brick->flying_count) > 0) {
 			MARS_WRN("device '%s' unexpectedly has %d flying requests\n", disk->disk_name, flying);
 			brick_msleep(1000);
 		}
@@ -1223,7 +1223,7 @@ if_release(struct gendisk *gd, fmode_t mode)
 	MARS_INF("----------------------- CLOSE %d ------------------------------\n", atomic_read(&brick->open_count));
 
 	if (atomic_dec_and_test(&brick->open_count)) {
-		while ((nr = atomic_read(&input->flying_count)) > 0) {
+		while ((nr = atomic_read(&brick->flying_count)) > 0) {
 			MARS_INF("%d IO requests not yet completed\n", nr);
 			brick_msleep(1000);
 		}
@@ -1286,7 +1286,7 @@ char *if_statistics(struct if_brick *brick, int verbose)
 		 atomic_read(&input->total_skip_sync_count),
 		 atomic_read(&brick->open_count),
 		 atomic_read(&input->plugged_count),
-		 atomic_read(&input->flying_count),
+		 atomic_read(&brick->flying_count),
 		 atomic_read(&input->read_flying_count),
 		 atomic_read(&input->write_flying_count));
 	return res;
@@ -1334,6 +1334,7 @@ static int if_brick_construct(struct if_brick *brick)
 {
 	sema_init(&brick->switch_sem, 1);
 	atomic_set(&brick->open_count, 0);
+	atomic_set(&brick->flying_count, 0);
 	return 0;
 }
 
@@ -1358,7 +1359,6 @@ static int if_input_construct(struct if_input *input)
 	INIT_LIST_HEAD(&input->plug_anchor);
 	sema_init(&input->kick_sem, 1);
 	spin_lock_init(&input->req_lock);
-	atomic_set(&input->flying_count, 0);
 	atomic_set(&input->read_flying_count, 0);
 	atomic_set(&input->write_flying_count, 0);
 	atomic_set(&input->plugged_count, 0);

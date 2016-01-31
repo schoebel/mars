@@ -77,7 +77,6 @@ struct if_input {
 #endif
 	loff_t capacity;
 	atomic_t plugged_count;
-	atomic_t flying_count;
 	// only for statistics
 	atomic_t read_flying_count;
 	atomic_t write_flying_count;
@@ -107,6 +106,7 @@ struct if_brick {
 	bool skip_sync;
 	// inspectable
 	atomic_t open_count;
+	atomic_t flying_count;
 	// private
 	struct semaphore switch_sem;
 	struct say_channel *say_channel;
