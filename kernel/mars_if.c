@@ -534,6 +534,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 		 * Reject any IO attempt.
 		 */
 		error = -ESHUTDOWN;
+		brick->error_code = error;
 		_call_bio_endio(brick, bio, error);
 		goto done;
 	} else if (!brick->power.led_on) {
@@ -1054,6 +1055,8 @@ static int if_switch(struct if_brick *brick)
 	// brick should be switched on
 	if (brick->power.button && brick->power.led_off) {
 		loff_t capacity;
+
+		brick->error_code = 0;
 
 		brick->say_channel = get_binding(current);
 
