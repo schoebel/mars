@@ -110,6 +110,7 @@ struct if_brick {
 	atomic_t open_count;
 	atomic_t flying_count;
 	struct mars_limiter io_limiter;
+	int error_code;
 	// private
 	struct semaphore switch_sem;
 	struct say_channel *say_channel;

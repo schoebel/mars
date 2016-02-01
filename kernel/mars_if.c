@@ -259,6 +259,8 @@ void if_endio(struct generic_callback *cb)
 			int bi_size = bio->bi_size;
 #endif
 //      end_remove_this
+			if (likely(input->brick))
+				input->brick->error_code = error;
 			MARS_ERR("NYI: error=%d RETRY LOGIC %u\n", error, bi_size);
 		} else { // bio conventions are slightly different...
 			error = 0;
@@ -802,6 +804,7 @@ err:
 	if (error < 0) {
 		MARS_ERR("cannot submit request from bio, status=%d\n", error);
 		if (!assigned) {
+			brick->error_code = error;
 			_call_bio_endio(bio, error);
 		}
 	}
@@ -1271,6 +1274,7 @@ if_release(struct gendisk *gd, fmode_t mode)
 		wait_io_done(brick);
 
 		MARS_DBG("status button=%d led_on=%d led_off=%d\n", brick->power.button, brick->power.led_on, brick->power.led_off);
+		brick->error_code = 0;
 		mars_trigger();
 		mars_remote_trigger();
 	}
