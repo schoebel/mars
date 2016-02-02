@@ -50,6 +50,7 @@ struct client_brick {
 	MARS_BRICK(client);
 	// tunables
 	int max_flying; // limit on parallelism
+	bool keep_idle_sockets;
 	bool limit_mode;
 	bool allow_permuting_writes;
 	bool separate_reads;
