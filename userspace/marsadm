@@ -267,8 +267,10 @@ sub sleep_timeout {
     return;
   }
   if ($timeout <= 0) {
-    ldie "Timeout reached. You may retry with --timeout=-1 to ensure waiting until progress is possible.\n" if (!defined($continue) || !$continue);
-    lwarn "Timeout reached. Continuing anyway.\n"
+    if (!defined($continue) || !$continue) {
+      ldie "Timeout reached.\n";
+    }
+    lwarn "Timeout reached. Continuing anyway.\n";
   }
   my $rest = $timeout;
   $rest = $sleeptime if $rest > $sleeptime;
@@ -1008,6 +1010,8 @@ sub log_purge_res {
 
 sub try_to_avoid_splitbrain {
   my ($cmd, $res, $old_primary) = @_;
+  my $old_timeout = $timeout;
+  $timeout = $window * 2 if $timeout < 0;
   $old_primary = "" if $old_primary eq "(none)";
   wait_cluster($cmd, $res, $old_primary);
   if (!detect_splitbrain($res, 0)) {
@@ -1015,11 +1019,15 @@ sub try_to_avoid_splitbrain {
     lwarn "ATTENTION: that's no good idea.\n";
     lwarn "ATTENTION: I will continue to do what you want.\n";
     lwarn "ATTENTION: But you are responsible for the consequences.\n";
+    $timeout = $old_timeout;
     return;
   }
   # now try to prevent producing a _new_ split brain situation....
   my @host_list = glob("$mars/resource-$res/replay-*");
+  $timeout = $old_timeout;
   return if scalar(@host_list) < 2;
+  $timeout = $window * 2 if $timeout < 0;
+  my $old_situation = "";
   for (;;) {
     my ($min, $max) = get_minmax_versions($res);
     my $vers_glob = sprintf("$mars/resource-$res/version-%09d-*", $max);
@@ -1040,10 +1048,27 @@ sub try_to_avoid_splitbrain {
       ldie "emergency mode $emergency has been entered locally: handover is not possible. Either free some space in $mars/, or use --force to use a potentially outdated version.\n";
     }
     my $own_vers = sprintf("$mars/resource-$res/version-%09d-$host", $max);
+    my $own_log = sprintf("$mars/resource-$res/log-%09d-$host", $max);
     if (!get_link($own_vers, 2)) {
-	$ok = 0;
+      lprint "Jumping over non-existant local versionlink '$own_vers'\n";
+      $ok = 1;
+    } elsif (-r $own_log) {
+      lprint "Preferring local logfile '$own_log'\n";
+      $ok = 1;
     } else {
       my $primary = _get_designated_primary($res);
+      if ($primary eq "(none)") {
+	# try to determine the old primary when unique
+	my $glob_logs = sprintf("$mars/resource-$res/log-%09d-*", $max);
+	my @candidates = glob($glob_logs);
+	if (scalar(@candidates) == 1) {
+	  my $log_path = pop @candidates;
+	  if ($log_path =~ m:/log-[0-9]+-(.+)$:) {
+	    $primary = $1;
+	    lprint "Using last primary '$primary' as a substitute.\n";
+	  }
+	}
+      }
       # if the old primary is known, we can ignore all other / unrelated hosts
       if ($primary && $primary ne $host && $primary ne "(none)") {
 	my $p_path = sprintf("$mars/resource-$res/version-%09d-%s", $max, $primary);
@@ -1066,10 +1091,15 @@ sub try_to_avoid_splitbrain {
       }
     }
     last if $ok;
-    lprint "trying to avoid split brain: logfile update not yet completed.\n";
-    view_cmd("replinfo", $res);
+    lprint "Trying to avoid split brain for $timeout s: logfile update not yet completed.\n";
+    my $tpl = get_macro("replinfo");
+    my $new_situation = eval_macro($cmd, $res, $tpl, @_);
+    print $new_situation;
+    $timeout = $window * 2 if $new_situation ne $old_situation;
     sleep_timeout();
+    $old_situation = $new_situation;
   }
+  $timeout = $old_timeout;
 }
 
 sub get_size {
