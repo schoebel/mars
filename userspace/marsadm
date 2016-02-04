@@ -267,8 +267,10 @@ sub sleep_timeout {
     return;
   }
   if ($timeout <= 0) {
-    ldie "Timeout reached. You may retry with --timeout=-1 to ensure waiting until progress is possible.\n" if (!defined($continue) || !$continue);
-    lwarn "Timeout reached. Continuing anyway.\n"
+    if (!defined($continue) || !$continue) {
+      ldie "Timeout reached.\n";
+    }
+    lwarn "Timeout reached. Continuing anyway.\n";
   }
   my $rest = $timeout;
   $rest = $sleeptime if $rest > $sleeptime;
@@ -1008,6 +1010,8 @@ sub log_purge_res {
 
 sub try_to_avoid_splitbrain {
   my ($cmd, $res, $old_primary) = @_;
+  my $old_timeout = $timeout;
+  $timeout = $window * 2 if $timeout < 0;
   $old_primary = "" if $old_primary eq "(none)";
   wait_cluster($cmd, $res, $old_primary);
   if (!detect_splitbrain($res, 0)) {
@@ -1015,11 +1019,15 @@ sub try_to_avoid_splitbrain {
     lwarn "ATTENTION: that's no good idea.\n";
     lwarn "ATTENTION: I will continue to do what you want.\n";
     lwarn "ATTENTION: But you are responsible for the consequences.\n";
+    $timeout = $old_timeout;
     return;
   }
   # now try to prevent producing a _new_ split brain situation....
   my @host_list = glob("$mars/resource-$res/replay-*");
+  $timeout = $old_timeout;
   return if scalar(@host_list) < 2;
+  $timeout = $window * 2 if $timeout < 0;
+  my $old_situation = "";
   for (;;) {
     my ($min, $max) = get_minmax_versions($res);
     my $vers_glob = sprintf("$mars/resource-$res/version-%09d-*", $max);
@@ -1039,42 +1047,62 @@ sub try_to_avoid_splitbrain {
     if ($emergency) {
       ldie "emergency mode $emergency has been entered locally: handover is not possible. Either free some space in $mars/, or use --force to use a potentially outdated version.\n";
     }
-    my $own_vers = sprintf("$mars/resource-$res/version-%09d-$host", $max);
-    if (!get_link($own_vers, 2)) {
-	$ok = 0;
-    } else {
-      my $primary = _get_designated_primary($res);
-      # if the old primary is known, we can ignore all other / unrelated hosts
-      if ($primary && $primary ne $host && $primary ne "(none)") {
-	my $p_path = sprintf("$mars/resource-$res/version-%09d-%s", $max, $primary);
-	my $h_path = sprintf("$mars/resource-$res/version-%09d-%s", $max, $host);
-	my $p_vers = get_link($p_path, 1);
-	my $h_vers = get_link($h_path, 1);
-	if (!$p_vers || !$h_vers || $p_vers ne $h_vers) {
-	  $ok = 0;
+    my $primary = _get_designated_primary($res);
+    if ($primary eq "(none)") {
+      # try to determine the old primary when unique
+      my $glob_logs = sprintf("$mars/resource-$res/log-%09d-*", $max);
+      my @candidates = glob($glob_logs);
+      if (scalar(@candidates) == 1) {
+	my $log_path = pop @candidates;
+	if ($log_path =~ m:/log-[0-9]+-(.+)$:) {
+	  $primary = $1;
+	  lprint "Using last primary '$primary' as a substitute.\n";
 	}
-      } else {
-	# old primary is unkown: we have no chance, other than comparing _all_ versions.
-	my @versions = glob($vers_glob);
-	my $first = get_link(shift @versions);
-	while (@versions) {
-	  my $next = get_link(shift @versions);
-	  if ($next ne $first) {
-	    $ok = 0;
-	  }
+      }
+    }
+    # if the old primary is known, we can ignore all other / unrelated hosts
+    if ($primary && $primary ne $host && $primary ne "(none)") {
+      my $p_path = sprintf("$mars/resource-$res/version-%09d-%s", $max, $primary);
+      my $h_path = sprintf("$mars/resource-$res/version-%09d-%s", $max, $host);
+      my $p_vers = get_link($p_path, 1);
+      my $h_vers = get_link($h_path, 1);
+      if (!$p_vers || !$h_vers || $p_vers ne $h_vers) {
+	$ok = 0;
+      }
+    } else {
+      # old primary is unknown: we have no chance, other than comparing _all_ versions.
+      my @versions = glob($vers_glob);
+      my $first = get_link(shift @versions);
+      while (@versions) {
+	my $next = get_link(shift @versions);
+	if ($next ne $first) {
+	  $ok = 0;
 	}
       }
     }
     last if $ok;
-    lprint "trying to avoid split brain: logfile update not yet completed.\n";
-    view_cmd("replinfo", $res);
+    lprint "Trying to avoid split brain for $timeout s: logfile update not yet completed.\n";
+    my $tpl = get_macro("replinfo");
+    my $new_situation = eval_macro($cmd, $res, $tpl, @_);
+    print $new_situation;
+    $timeout = $window * 2 if $new_situation ne $old_situation;
     sleep_timeout();
+    $old_situation = $new_situation;
   }
+  $timeout = $old_timeout;
 }
 
 sub get_size {
   my $arg = shift;
   my $orig_arg = $arg;
+  # Do what I mean: when given a device, take its actual size.
+  if (-b $arg) {
+    my $mangled = $arg;
+    $mangled =~ s:/dev/::;
+    $mangled =~ s:/:!:g;
+    my $path = "/sys/block/$mangled/size";
+    $arg = `cat $path` * 512 if -r $path;
+  }
   if ($arg !~ m/^([0-9]+(?:\.[0-9]*)?)([kmgtp]?)$/i) {
     ldie "Size argument '$arg' must be a number, optionally followed by a suffix [kKmMgGtTpP]. Lowercase = multiples of 1000, Uppercase = multiples of 1024.\n";
   }
@@ -1436,6 +1464,19 @@ sub create_cluster {
   _create_cluster(@_);
 }
 
+sub _run_rsync {
+  my ($cmd) = @_;
+  my $cycle = 0;
+  my $status = 0;
+  # Repeat the action because some symlinks might be updated (or even vanish)
+  # when the peer is actively running. There seems to exist no rsync option
+  # for ignoring all of these errors.
+  do {
+    $status = system($cmd);
+  } while ($status != 0 && $status != 24 && $cycle++ < 3);
+  ldie "Cannot get remote symlink tree via rsync, status=$status\n" if ($status && $status != 24);
+}
+
 sub join_cluster {
   my ($cmd, $peer) = @_;
   ldie "Cannot join myself (peer='$peer', host='$host')\n" if $peer eq $host;
@@ -1450,12 +1491,12 @@ sub join_cluster {
   # check connection
   system("ssh $peer uname -a") == 0 or ldie "oops, no connection to $peer ...\n";
   unless ($dry_run) {
-    system("rsync --recursive --links --max-size=1 -v $peer:$mars/ $mars/") == 0 or ldie "cannot get remote symlink tree via rsync\n";
+    _run_rsync("rsync --recursive --links --max-size=1 -v $peer:$mars/ $mars/");
   }
   _create_cluster(@_);
   finish_links();
   unless ($dry_run) {
-    system("rsync --recursive --links -v $mars/ips/ $peer:$mars/ips/") == 0 or ldie "oops\n";
+    _run_rsync("rsync --recursive --links -v $mars/ips/ $peer:$mars/ips/");
   }
 }
 
@@ -2063,6 +2104,7 @@ sub primary_phase0 {
     check_todo($cmd, $res, "fetch", 0, 0);
   }
   my $old = _get_designated_primary($res);
+  lprint "Current designated primary: $old\n";
   if ($cmd eq "primary") {
     check_sync_finished($res, $host) if $host ne $old;
     # also check that other secondaries won't loose their sync primary
@@ -2081,9 +2123,9 @@ sub primary_phase0 {
     check_todo($cmd, $res, "replay", 1, 0);
     # check that no logfile replay errors exist.
     my $replay_error = get_link("$mars/resource-$res/actual-$host/replay-code", 2);
-    if ($replay_error < 0) {
+    if (int($replay_error) < 0) {
       lwarn "Logfile replay / recovery stopped with error code $replay_error.\n";
-      ldie "Cannot switch to avoid unnoticed data loss. You may however do a 'primary --force'.\n" unless $force;
+      ldie "Won't switch to avoid unnoticed data loss. You may however do a 'primary --force'.\n" unless $force;
     }
   }
   return if ($old eq $host and $cmd eq "primary");
@@ -2959,18 +3001,45 @@ sub eval_fn {
       }
       return 1;
     }
-    if (/^(present|get)[-_]?(disk|device)$/) {
-      my $op = $1;
-      my $what = $2;
+    if (/^get[-_]?(disk|device)$/) {
+      my $what = $1;
       $what = "data" if $what eq "disk";
       my $lnk = $$env{"resdir"} . "/$what-" . $$env{"host"};
       my $result = get_link($lnk, 1);
       $result = "" unless defined($result);
       $result = "/dev/mars/$result" if ($what eq "device" && $result !~ m:^/:);
-      if ($op eq "present" && $result) {
+      return $result;
+    }
+    if (/^(disk|device)[-_]?present$/) {
+      my $what = $1;
+      $what = "data" if $what eq "disk";
+      my $lnk = $$env{"resdir"} . "/$what-" . $$env{"host"};
+      my $result = get_link($lnk, 1);
+      $result = "" unless defined($result);
+      $result = "/dev/mars/$result" if ($what eq "device" && $result !~ m:^/:);
+      if ($result) {
 	$result = -b $result;
-	$result = "" unless defined($result);
+	$result = "0" unless defined($result);
       }
+      return $result;
+    }
+    # deprecated (irregular names)
+    if (/^present[-_]?(disk|device)$/) {
+      my $what = $1;
+      return eval_fn($env, "$what-present", $arg1);
+    }
+    if (/^(device)[-_]?opened$/) {
+      my $what = $1;
+      my $peer = $$env{"host"};
+      if ($what eq "device") {
+	my $other = eval_fn($env, "get-device", $arg1);
+	if ($other =~ m/\@(.*)/) {
+	  $peer = $1;
+	}
+      }
+      my $lnk = $$env{"resdir"} . "/actual-$peer/open-count";
+      my $result = get_link($lnk, 1);
+      $result = "0" unless defined($result);
       return $result;
     }
     if (/^is[-_]?split([-_]?brain)?$/) {
@@ -3201,7 +3270,7 @@ sub eval_fn {
     if (/^(disk|resource|device)[-_]?size$/) {
       my $what = $1;
       my $path = "$mars/resource-" . $$env{"res"};
-      if ($what eq "device" && eval_fn($env, "present-device", "")) {
+      if ($what eq "device" && eval_fn($env, "device-present", "")) {
 	return _get_mars_size($$env{"cmd"}, $$env{"res"});
       } elsif ($what eq "disk"){
 	my $peer = parse_macro($arg1, $env);
@@ -3580,7 +3649,7 @@ my %complex_macros =
    "diskstate"
    => "%elsif{%not{%get-disk{}}}{"
    .    "NotJoined"
-   .  "}{%not{%present-disk{}}}{"
+   .  "}{%not{%disk-present{}}}{"
    .    "NotPresent"
    .  "}{%not{%todo-attach{}}}{"
    .    "%if{%is-attach{}}{"
@@ -3615,7 +3684,7 @@ my %complex_macros =
    .  "}",
 
    "diskstate-1and1"
-   => "%if{%present-disk{}}{"
+   => "%if{%disk-present{}}{"
    .    "%if{%does{attach}}{"
    .      "%if{%is-almost-consistent{}}{"
    .        "%if{%work-reached{}}{"
@@ -3669,7 +3738,7 @@ my %complex_macros =
    .  "}",
 
    "replstate-1and1"
-   => "%if{%present-disk{}}{"
+   => "%if{%disk-present{}}{"
    .    "%if{%is-primary{}}{"
    .      "Replicating"
    .    "}{"
@@ -3690,8 +3759,8 @@ my %complex_macros =
    .  "}{NotJoined}",
 
    "flags"
-   => "%if{%present-disk{}}{%if{%present-device{}}{D}{d}}{-}"
-   .  "%if{%is-consistent{}}{C}{%if{%present-disk{}}{c}{-}}"
+   => "%if{%disk-present{}}{%if{%device-present{}}{D}{d}}{-}"
+   .  "%if{%is-consistent{}}{C}{%if{%disk-present{}}{c}{-}}"
    .  "%if{%does{attach}}{%if{%todo{attach}}{A}{a}}{%if{%todo{attach}}{a}{-}}"
    .  "%if{%sync-reached{}}{S}{%if{%todo{sync}}{s}{-}}"
    .  "%if{%fetch-reached{}}{F}{%if{%todo{fetch}}{f}{-}}"
@@ -3701,7 +3770,7 @@ my %complex_macros =
    => "-%if{%todo{sync}}{S}{-}%if{%todo{fetch}}{F}{-}%if{%todo{replay}}{R}{-}-",
 
    "todo-role"
-   => "%if{%present-disk{}}{"
+   => "%if{%disk-present{}}{"
    .    "%if{%todo-primary{}}{"
    .      "Primary"
    .    "}{"
@@ -3710,7 +3779,7 @@ my %complex_macros =
    .  "}{None}",
 
    "role"
-   => "%if{%present-disk{}}{"
+   => "%if{%disk-present{}}{"
    .    "%if{%todo-primary{}}{"
    .      "%if{%is-primary{}}{"
    .        "Primary"
@@ -3727,7 +3796,7 @@ my %complex_macros =
    .  "}{None}",
 
    "role-1and1"
-   => "%if{%present-disk{}}{"
+   => "%if{%disk-present{}}{"
    .    "%if{%is-primary{}}{"
    .      "Primary"
    .    "}{"
@@ -3743,7 +3812,7 @@ my %complex_macros =
    .  "}",
 
    "primarynode-1and1"
-   => "%if{%present-disk{}}{"
+   => "%if{%disk-present{}}{"
    .    "%if{%is-primary{}}{"
    .      "%{host}"
    .    "}{"
@@ -3988,7 +4057,13 @@ my %trivial_globs =
    => "",
    "rest-space"
    => "",
-   "{present,get}-{disk,device}"
+   "get-{disk,device}"
+   => "",
+   "present-{disk,device}"
+   => "(deprecated, use *-present instead)",
+   "{disk,device}-present"
+   => "",
+   "device-opened"
    => "",
    "get-log-status"
    => "",

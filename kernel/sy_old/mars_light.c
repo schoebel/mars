@@ -544,6 +544,7 @@ struct mars_rotate {
 	struct mars_limiter sync_limiter;
 	struct mars_limiter fetch_limiter;
 	int inf_prev_sequence;
+	int inf_old_sequence;
 	long long flip_start;
 	loff_t dev_size;
 	loff_t start_pos;
@@ -1320,6 +1321,10 @@ void write_info_links(struct mars_rotate *rot)
 		}
 		if (inf.inf_is_logging || inf.inf_is_replaying) {
 			count += _update_version_link(rot, &inf);
+			if (min > rot->inf_old_sequence) {
+				mars_sync();
+				rot->inf_old_sequence = min;
+			}
 		}
 	}
 	if (count) {
@@ -2469,6 +2474,7 @@ void _create_new_logfile(const char *path)
 		}
 	} else {
 		MARS_DBG("created empty logfile '%s'\n", path);
+		mars_sync();
 		filp_close(f, NULL);
 		mars_trigger();
 	}

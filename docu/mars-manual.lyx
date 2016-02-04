@@ -140,7 +140,7 @@ tst@1und1.de
 \end_layout
 
 \begin_layout Date
-Version 0.2-27
+Version 0.2-28
 \end_layout
 
 \begin_layout Lowertitleback
@@ -6126,7 +6126,7 @@ NotPresent
 \family default
  (cf 
 \family typewriter
-%present-disk{}
+%disk-present{}
 \family default
 ) The underlying disk device (as configured, see 
 \family typewriter
@@ -7929,7 +7929,20 @@ df
 \labelwidthstring 00.00.0000
 
 \family typewriter
-present-{disk,device}
+get-{disk,device}
+\family default
+ Show the name of the underlying disk, or of the 
+\family typewriter
+/dev/mars/mydata
+\family default
+ device (if it is available).
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{disk,device}-present
 \family default
  Show (as a boolean value) whether the underlying disk, or the 
 \family typewriter
@@ -7942,13 +7955,22 @@ present-{disk,device}
 \labelwidthstring 00.00.0000
 
 \family typewriter
-get-{disk,device}
+device-opened
 \family default
- Show the name of the underlying disk, or of the 
+ Show (as a number) how often 
 \family typewriter
 /dev/mars/mydata
 \family default
- device (if it is available).
+ has been actually openend, e.g.
+ by 
+\family typewriter
+mount
+\family default
+ or by some processes like 
+\family typewriter
+dd
+\family default
+, or by iSCSI, etc.
 \end_layout
 
 \begin_layout Paragraph

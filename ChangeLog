@@ -132,6 +132,27 @@ light0.2beta1.0
 -----------------------------------
 Changelog for series 0.1:
 
+light0.1stable25
+--------
+	* Major fix: in rare cases "marsadm primary" (without --force)
+	  could go into an endless loop, even if --timeout= was specified.
+	* Minor fix: in rare cases of hanging or defective IO, crashes
+	  of the primary could replicate versionlinks to the secondary,
+	  but after reboot they were missing at the primary because of
+	  of hanging IO or other IO / RAID controller problems.
+	  Now using sync_filesystem() for either ensuring actuality,
+	  or for letting the mars_light main control thread hang
+	  (which will hopefully be noticed soon by monitoring).
+	* Minor fix: join-cluster uses rsync, which could abort due to
+	  vanished filesystem objects while the primary is actively running.
+	  Now it should tolerate such "errors".
+	* Minor fixes / additions at primitive macros.
+	* Tiny doc update.
+
+light0.1stable24
+--------
+	* Skip this release due to a regression.
+
 light0.1stable23
 --------
 	* Minor fix: the new replay-code error message was forgotten

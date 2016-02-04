@@ -175,6 +175,7 @@ extern struct mars_brick *make_brick_all(
 /* General fs wrappers (for abstraction)
  */
 extern int mars_stat(const char *path, struct kstat *stat, bool use_lstat);
+extern void mars_sync(void);
 extern int mars_mkdir(const char *path);
 extern int mars_rmdir(const char *path);
 extern int mars_unlink(const char *path);
