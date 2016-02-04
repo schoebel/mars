@@ -5606,8 +5606,14 @@ where
 $macroname
 \family default
 \emph default
- is one of the following macros described in the following sections, or
- a macro which has been written by yourself.
+ is one of the macros described in chapter 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "chap:The-Macro-Processor"
+
+\end_inset
+
+, or a macro which has been written by yourself.
 \end_layout
 
 \begin_layout Standard
@@ -5638,6 +5644,79 @@ marsadm view all
 \family default
 , additionally the global communication status will be displayed.
  This helps humans in diagnosing problems.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Hint: use the compound command 
+\family typewriter
+watch marsadm view all
+\family default
+ for continuous display of the current state of MARS.
+ When starting this side-by-side in 
+\family typewriter
+ssh
+\family default
+ terminal windows for all your cluster nodes, you can easily watch what's
+ going on in the whole cluster.
+\end_layout
+
+\begin_layout Chapter
+The Macro Processor
+\begin_inset CommandInset label
+LatexCommand label
+name "chap:The-Macro-Processor"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+marsadm
+\family default
+ comes with a customizable macro processor.
+ It can be used for high-level complex display of the state of MARS (so-called
+ 
+\emph on
+complex macros
+\emph default
+), as well as for low-level display of lots of individual state values (so-calle
+d 
+\emph on
+primitive macros
+\emph default
+).
+\end_layout
+
+\begin_layout Standard
+From the commandline, any macro can be called via 
+\family typewriter
+marsadm view-
+\emph on
+$macroname
+\emph default
+ mydata
+\family default
+.
+ The short form 
+\family typewriter
+marsadm view mydata
+\family default
+ is equivalent to 
+\family typewriter
+marsadm view-default mydata
+\family default
+.
 \end_layout
 
 \begin_layout Standard
@@ -5688,7 +5767,7 @@ $macroname
  which does not depend on a particular resource.
 \end_layout
 
-\begin_layout Subsection
+\begin_layout Section
 Predefined Macros
 \end_layout
 
@@ -5702,7 +5781,7 @@ customizing
  macros is already sufficient for your needs.
 \end_layout
 
-\begin_layout Subsubsection
+\begin_layout Subsection
 Predefined Complex and High-Level Macros
 \begin_inset CommandInset label
 LatexCommand label
@@ -7494,7 +7573,7 @@ comminfo
  Otherwise, don't produce any output.
 \end_layout
 
-\begin_layout Subsubsection
+\begin_layout Subsection
 Predefined Primitive Macros
 \begin_inset CommandInset label
 LatexCommand label
@@ -7505,7 +7584,7 @@ name "sub:Predefined-Trivial-Macros"
 
 \end_layout
 
-\begin_layout Paragraph
+\begin_layout Subsubsection
 Intended for Humans
 \end_layout
 
@@ -7973,7 +8052,7 @@ dd
 , or by iSCSI, etc.
 \end_layout
 
-\begin_layout Paragraph
+\begin_layout Subsubsection
 Intended for Scripting
 \end_layout
 
@@ -8002,7 +8081,7 @@ In the following, shell glob notation
  (excluding the braces).
 \end_layout
 
-\begin_layout Subparagraph
+\begin_layout Paragraph
 Name Querying
 \end_layout
 
@@ -8058,7 +8137,7 @@ otherhost
 .
 \end_layout
 
-\begin_layout Subparagraph
+\begin_layout Paragraph
 Amounts of Data Inquiry
 \end_layout
 
@@ -8821,7 +8900,7 @@ some
  progress has been made, but says nothing about the amount of the progress.
 \end_layout
 
-\begin_layout Subparagraph
+\begin_layout Paragraph
 Misc Informational Status
 \end_layout
 
@@ -8936,7 +9015,7 @@ reference "sec:The-Symlink-Tree"
 ).
 \end_layout
 
-\begin_layout Subparagraph
+\begin_layout Paragraph
 Experts Only
 \end_layout
 
@@ -8956,7 +9035,7 @@ wait-{is,todo}-{attach,sync,fetch,replay,primary}-{on,off}
  Use at your own risk!
 \end_layout
 
-\begin_layout Subsection
+\begin_layout Section
 Creating your own Macros
 \begin_inset CommandInset label
 LatexCommand label
@@ -9042,7 +9121,7 @@ mydata
 .
 \end_layout
 
-\begin_layout Subsubsection
+\begin_layout Subsection
 General Macro Syntax
 \end_layout
 
@@ -9313,8 +9392,8 @@ When deeply nesting macros and their braces, you may easily find yourself
  with the correctness of nested braces.
 \end_layout
 
-\begin_layout Subsubsection
-Builtin / Primitive Macros
+\begin_layout Subsection
+Calling Builtin / Primitive Macros
 \end_layout
 
 \begin_layout Standard
@@ -11351,7 +11430,7 @@ name
  Use with care!
 \end_layout
 
-\begin_layout Paragraph
+\begin_layout Subsection
 Predefined Variables
 \begin_inset CommandInset label
 LatexCommand label
