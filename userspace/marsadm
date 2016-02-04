@@ -5087,8 +5087,10 @@ if ($mars_stat[4]) {
   lwarn "Fixed by setting to 0.\n";
 }
 # check permissions
-if ($mars_stat[2] & 077777 != 0700) {
-  lwarn "Directory $mars has wrong permissions.\n";
+my $perms = ($mars_stat[2] & 07777);
+if ($perms != 0700) {
+  my $txt = sprintf("Directory $mars has wrong permissions 0%o.\n", $perms);
+  lwarn($txt);
   chmod(0700, $mars) or ldie "Cannot chmod $mars.\n";
   lwarn "Fixed to mode 0700 for security reasons.\n";
 }
