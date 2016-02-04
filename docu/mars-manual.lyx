@@ -5669,6 +5669,3192 @@ ssh
 \end_layout
 
 \begin_layout Chapter
+Basic Working Principle
+\end_layout
+
+\begin_layout Standard
+Even if you are impatient, please read this chapter.
+ At the 
+\emph on
+surface
+\emph default
+, MARS appears to be very similar to DRBD.
+ It looks like almost being a drop-in replacement for DRBD.
+\end_layout
+
+\begin_layout Standard
+When taking this naïvely, you could easily step into some trivial pitfalls,
+ because the internal working principle of MARS is totally different from
+ DRBD.
+ Please forget (almost) anything you already know about the internal working
+ principles of DRBD, and look at the very different working principles of
+ MARS.
+\end_layout
+
+\begin_layout Section
+The Transaction Logger
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:The-Transaction-Logger"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/MARS_Data_Flow.pdf
+	lyxscale 60
+	width 100text%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+The basic idea of MARS is to record all changes made to your block device
+ in a so-called 
+\series bold
+transaction logfile
+\series default
+.
+ 
+\emph on
+Any
+\emph default
+ write reqeuest is treated like a transaction which changes the contents
+ of your block device.
+\end_layout
+
+\begin_layout Standard
+This is similar in concept to some database systems, but there exists no
+ separate 
+\begin_inset Quotes eld
+\end_inset
+
+commit
+\begin_inset Quotes erd
+\end_inset
+
+ operation: 
+\emph on
+any
+\emph default
+ write request is acting like a commit.
+\end_layout
+
+\begin_layout Standard
+The picture shows the flow of write requests.
+ Let's start with the primary node.
+\end_layout
+
+\begin_layout Standard
+Upon submission of a write request on 
+\family typewriter
+/dev/mars/mydata
+\family default
+, it is first buffered in a 
+\emph on
+temporary
+\emph default
+ memory buffer.
+\end_layout
+
+\begin_layout Standard
+The temporary memory buffer serves multiple purposes:
+\end_layout
+
+\begin_layout Itemize
+It keeps track of the order of write operations.
+\end_layout
+
+\begin_layout Itemize
+Additionally, it keeps track of the positions in the underlying disk 
+\family typewriter
+/dev/lv-x/mydata
+\family default
+.
+ In particular, it detects when the same block is overwritten multiple times.
+\end_layout
+
+\begin_layout Itemize
+During pending write operation, any concurrent reads are served from the
+ memory buffer.
+\end_layout
+
+\begin_layout Standard
+After the write has been buffered in the temporary memory buffer, the main
+ logger thread of the transaction logger creates a so-called 
+\emph on
+log entry
+\emph default
+ and starts an 
+\begin_inset Quotes eld
+\end_inset
+
+append
+\begin_inset Quotes erd
+\end_inset
+
+ operation on the transaction logfile.
+ The log entry contains vital information such as the logical block number
+ in the underlying disk, the length of the data, a timestamp, some header
+ magic in order to detect corruption, the log entry sequence number, of
+ course the data itself, and optional information like a checksum or compression
+ information.
+\end_layout
+
+\begin_layout Standard
+Once the log entry has been written through to the 
+\family typewriter
+/mars/
+\family default
+ filesystem via fsync(), the application waiting for the write operation
+ at 
+\family typewriter
+/dev/mars/mydata
+\family default
+ is signalled that the write was successful.
+\end_layout
+
+\begin_layout Standard
+This may happen even 
+\emph on
+before
+\emph default
+ the writeback to the underlying disk 
+\family typewriter
+/dev/lv-x/mydata
+\family default
+ has started.
+ Even when you power off the system right now, the information is not lost:
+ it is present in the logfile, and can be reconstructed from there.
+\end_layout
+
+\begin_layout Standard
+Notice that the order of log records present in the transaction log defines
+ a total order among the write requests which is 
+\emph on
+compatible
+\emph default
+ to the partial order of write requests issued on 
+\family typewriter
+/dev/mars/mydata
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+Also notice that despite its sequential nature, the transaction logfile
+ is typically 
+\emph on
+not
+\emph default
+ the performance bottleneck of the system: since appending to a logfile
+ is almost purely sequential IO, it runs much faster than random IO on typical
+ datacenter workloads.
+\end_layout
+
+\begin_layout Standard
+In order to reclaim the temporary memory buffer, its content must be written
+ back to the underlying disk 
+\family typewriter
+/dev/lv-x/mydat
+\family default
+a somewhen.
+ After writeback, the temporary space is freed.
+ The writeback can do the following optimizations:
+\end_layout
+
+\begin_layout Enumerate
+writeback may be in 
+\emph on
+any
+\emph default
+ order; in particular, it may be 
+\emph on
+sorted
+\emph default
+ according to ascending sector ´numbers.
+ This will reduce the average seek distances of magnetic disks in general.
+\end_layout
+
+\begin_layout Enumerate
+when the same sector is overwritten multiple times, only the 
+\begin_inset Quotes eld
+\end_inset
+
+last
+\begin_inset Quotes erd
+\end_inset
+
+ version need to be written back, skipping some intermediate versions.
+\end_layout
+
+\begin_layout Standard
+In case the primary node crashes during writeback, it suffices to replay
+ the log entries from some point in the past until the end of the transaction
+ logfile.
+ It does no harm if you accidentally replay some log entries twice or even
+ more often: since the replay is in the original total order, any temporary
+ inconsistency is 
+\emph on
+healed
+\emph default
+ by the logfile application.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+In mathematics, the property that you can apply your logfile twice to your
+ data (or even as often as you want), is called 
+\series bold
+idempotence
+\series default
+.
+ This is a very desirable property: it ensures that nothing goes wrong when
+ replaying 
+\begin_inset Quotes eld
+\end_inset
+
+too much
+\begin_inset Quotes erd
+\end_inset
+
+ / starting your replay 
+\begin_inset Quotes eld
+\end_inset
+
+too early
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Idempotence is even more beneficial: in case anything should go wrong with
+ your data on your disk (e.g.
+ IO errors), replaying your logfile once more often may
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Miracles cannot be guaranteed, but 
+\emph on
+higher chances
+\emph default
+ and 
+\emph on
+improvements
+\emph default
+ can be expected (e.g.
+ better chances for 
+\family typewriter
+fsck
+\family default
+).
+\end_layout
+
+\end_inset
+
+ even 
+\series bold
+heal
+\series default
+ some defects.
+ Good news for desperate sysadmins forced to work with flaky hardware!
+\end_layout
+
+\begin_layout Standard
+The basic idea of the asynchronous replication of MARS is rather simple:
+ just transfer the logfiles to your secondary nodes, and replay them onto
+ their copy of the disk data (also called 
+\emph on
+mirror
+\emph default
+) in the same order as the total order defined by the primary.
+\end_layout
+
+\begin_layout Standard
+Therefore, a mirror of your data on any secondary may be outdated, but it
+ always corresponds to some version which was valid in the past.
+ This property is called 
+\series bold
+anytime consistency
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Your secondary nodes are always consistent in themselves.
+ Notice that this kind of consistency is a 
+\emph on
+local
+\emph default
+ consistency model.
+ There exists no global consistency in MARS.
+ Global consistency would be practically impossible in long-distance replication
+ where Einstein's law of the speed of light is limiting global consistency.
+ The front-cover pictures showing the planets Earth and Mars tries to lead
+ your imagination away from global consistency models as used in 
+\begin_inset Quotes eld
+\end_inset
+
+DRBD Think(tm)
+\begin_inset Quotes erd
+\end_inset
+
+, and try to prepare you mentally for local consistency as in 
+\begin_inset Quotes eld
+\end_inset
+
+MARS Think(tm)
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+As you can see in the picture, the process of transfering the logfiles is
+ 
+\emph on
+independent
+\emph default
+ from the process which replays the logfiles onto the data at some secondary
+ site.
+ Both processes can be switched on / off separately (see commands 
+\family typewriter
+marsadm {dis,}connect
+\family default
+ and 
+\family typewriter
+marsadm {pause,resume}-replay
+\family default
+ in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Operation-of-the"
+
+\end_inset
+
+).
+ This may be 
+\emph on
+exploited
+\emph default
+: for example, you may replicate your logfiles as soon as possible (to protect
+ against catastrophic failures), but deliberately wait one hour until it
+ is replayed (under regular circumstances).
+ If your data inside your filesystem 
+\family typewriter
+/mydata/
+\family default
+ at the primary site is accidentally destroyed by 
+\family typewriter
+rm -rf /mydata/
+\family default
+, you have an old copy at the secondary site.
+ This way, you can substitute 
+\emph on
+some parts
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Please note that MARS cannot 
+\emph on
+fully
+\emph default
+ substitute a backup system, because it can keep only 
+\emph on
+physical
+\emph default
+ copies, and does not create logical copies.
+\end_layout
+
+\end_inset
+
+
+\emph default
+ of conventional backup functionality by MARS.
+ In case you need the actual version, just replay in 
+\begin_inset Quotes eld
+\end_inset
+
+fast-forward
+\begin_inset Quotes erd
+\end_inset
+
+ mode (similar to old-fashioned video tapes).
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Future versions of MARS Full are planned to also allow 
+\begin_inset Quotes eld
+\end_inset
+
+fast-backward
+\begin_inset Quotes erd
+\end_inset
+
+ rewinding, of course at some cost.
+\end_layout
+
+\begin_layout Section
+The Lamport Clock
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:The-Lamport-Clock"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+MARS is always 
+\emph on
+asynchonously
+\emph default
+ communicating in the distributed system on 
+\emph on
+any
+\emph default
+ topics, even strategic decisions.
+\end_layout
+
+\begin_layout Standard
+If there were a 
+\emph on
+strict
+\emph default
+ global consistency model, which would be roughly equivalent to a standalone
+ model, we would need 
+\emph on
+locking
+\emph default
+ in order to serialize conflicting requests.
+ It is known for many decades that 
+\emph on
+distributed locks
+\emph default
+ do not only suffer from performance problems, but they are also cumbersome
+ to get them working reliably in scenarios where nodes or network links
+ may fail at any time.
+\end_layout
+
+\begin_layout Standard
+Therefore, MARS uses a very different consistency model: 
+\series bold
+Eventually Consistent
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Notice that the network bottleneck problems described in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Network-Bottlenecks"
+
+\end_inset
+
+ are 
+\emph on
+demanding
+\emph default
+ an 
+\begin_inset Quotes eld
+\end_inset
+
+eventually consistent
+\begin_inset Quotes erd
+\end_inset
+
+ model.
+ You have 
+\series bold
+no chance
+\series default
+ against natural laws, like Einstein's laws.
+ In order to cope with the problem area, you have to 
+\emph on
+invest some additional effort
+\emph default
+.
+ Unfortunately, asynchronous communication models are more tricky to program
+ and to debug than simple strictly consistent models.
+ In particular, you 
+\emph on
+have to cope with
+\emph default
+ additional 
+\series bold
+race conditions
+\series default
+ 
+\emph on
+inherent
+\emph default
+ 
+\emph on
+to
+\emph default
+ the 
+\begin_inset Quotes eld
+\end_inset
+
+eventually consistent
+\begin_inset Quotes erd
+\end_inset
+
+ model.
+ In the face of the laws of the universe, motivate yourself by looking at
+ the graphics at the cover page: the planets are a 
+\emph on
+symbol
+\emph default
+ for what you have to do!
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Example: the asynchronous communication protocol of MARS leads to a different
+ behaviour from DRBD in case of 
+\series bold
+network partitions
+\series default
+ (temporary interruption of communication between some cluster nodes), because
+ MARS 
+\emph on
+remembers
+\emph default
+ the old state of remote nodes over long periods of time, while DRBD knows
+ absolutely nothing about its peers in disconnected state.
+ Sysadmins familiar with DRBD might find the following behaviour unusual:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+
+\size tiny
+\begin_inset Tabular
+<lyxtabular version="3" rows="6" columns="3">
+<features rotate="0" tabularvalignment="middle">
+<column alignment="left" valignment="top" width="0pt">
+<column alignment="left" valignment="top" width="0pt">
+<column alignment="left" valignment="top" width="0pt">
+<row>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+Event
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+DRBD Behaviour
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+MARS Behaviour
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row endhead="true">
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+1.
+ the network partitions
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+automatic disconnect
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+nothing happens, but replication lags behind
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+2.
+ on A: 
+\family typewriter
+umount $device
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+works
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+works
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+3.
+ on A: 
+\family typewriter
+{drbd,mars}adm secondary
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+works
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+works
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+4.
+ on B: 
+\family typewriter
+{drbd,mars}adm primary
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+works, split brain happens
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\series bold
+\size tiny
+refused
+\series default
+ because B believes that A is primary
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+5.
+ the network resumes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+automatic connect attempt fails
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+communication automatically resumes
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+If you intentionally want to switch over (and to produce a split brain as
+ a side effect), the following variant must be used with MARS:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+
+\size tiny
+\begin_inset Tabular
+<lyxtabular version="3" rows="9" columns="3">
+<features rotate="0" tabularvalignment="middle">
+<column alignment="left" valignment="top" width="0pt">
+<column alignment="left" valignment="top" width="0pt">
+<column alignment="left" valignment="top" width="0pt">
+<row>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+Event
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+DRBD Behaviour
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+MARS Behaviour
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row endhead="true">
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+1.
+ the network partitions
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+automatic disconnect
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+nothing happens, but replication lags behind
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+2.
+ on A: 
+\family typewriter
+umount $device
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+works
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+works
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+3.
+ on A: 
+\family typewriter
+{drbd,mars}adm secondary
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+works
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+works (but 
+\emph on
+not remmonended!
+\emph default
+)
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+4.
+ on B: 
+\family typewriter
+{drbd,mars}adm primary
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+split brain, but nobody knows
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\series bold
+\size tiny
+refused
+\series default
+ because B believes that A is primary
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+5.
+ on B: 
+\family typewriter
+marsadm disconnect
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+-
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+works, nothing happens
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+6.
+ on B: 
+\family typewriter
+marsadm primary --force
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+-
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+works, split brain happens on B, but A doesn't know
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+7.
+ on B: 
+\family typewriter
+marsadm connect
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+-
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+works, nothing happens
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+8.
+ the network resumes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+automatic connect attempt fails
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size tiny
+communication resumes, A now detects the split brain
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+In order to implement the consistency model 
+\begin_inset Quotes eld
+\end_inset
+
+eventually consistent
+\begin_inset Quotes erd
+\end_inset
+
+, MARS uses a so-called Lamport
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Published in the late 1970s by Leslie Lamport, also known as inventor of
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+LaTeX
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+ clock.
+ MARS uses a special variant called 
+\begin_inset Quotes eld
+\end_inset
+
+physical Lamport clock
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+The physical Lamport clock is another almost-realtime clock which 
+\emph on
+can
+\emph default
+ run independently from the Linux kernel system clock.
+ However, the Lamport clock tries to remain as near as possible to the system
+ clock.
+\end_layout
+
+\begin_layout Standard
+Both clocks can be queried at any time via 
+\family typewriter
+cat /proc/sys/mars/lamport_clock
+\family default
+.
+ The result will show both clocks in parallel, in units of seconds since
+ the Unix epoch, with nanosecond resolution.
+\end_layout
+
+\begin_layout Standard
+When there are no network messages at all, both the system clock and the
+ Lamport clock will show almost the same time (except some minor differences
+ of a few nanoseconds resulting from the finite processor clock speed).
+\end_layout
+
+\begin_layout Standard
+The physical Lamport clock works rather simple: 
+\emph on
+any
+\emph default
+ message on the network is augmented with a Lamport time stamp telling when
+ the message was 
+\emph on
+sent
+\emph default
+ according to the local Lamport clock of the sender.
+ Whenever that message is received by some receiver, it checks whether the
+ time ordering relation would be violated: whenever the Lamport timestamp
+ in the message would claim that the sender had sent it 
+\emph on
+after
+\emph default
+ it arrived at the receiver (according to drifts in their respective local
+ clocks), something must be wrong.
+ In this case, the local Lamport clock of the 
+\emph on
+receiver
+\emph default
+ is advanced shortly after the sender Lamport timestamp, such that the time
+ ordering relation is no longer violated.
+\end_layout
+
+\begin_layout Standard
+As a consequence, any local Lamport clock may precede the corresponding
+ local system clock.
+ In order to avoid accumulation of deltas between the Lamport and the system
+ clock, the Lamport clock will run slower after that, possibly until it
+ reaches the system clock again (if no other message arrives which sets
+ it forward again).
+ After having reached the system clock, the Lamport clock will continue
+ with 
+\begin_inset Quotes eld
+\end_inset
+
+normal
+\begin_inset Quotes erd
+\end_inset
+
+ speed.
+\end_layout
+
+\begin_layout Standard
+MARS uses the local Lamport clock for anything where other systems would
+ use the local system clock: for example, timestamp generation in the 
+\family typewriter
+/mars/
+\family default
+ filesystem.
+ Even symlinks created there are timestamped according to the Lamport clock.
+ Both the kernel module and the userspace tool 
+\family typewriter
+marsadm
+\family default
+ are always operating in the timescale of the Lamport clock.
+ Most importantly, all timestamp comparisons are always carried out with
+ respect to Lamport time.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Bigger differences between the Lamport and the system clock can be annoying
+ from a human point of view: when typing 
+\family typewriter
+ls -l /mars/resource-mydata/
+\family default
+ many timestamps may appear as if they were created in the 
+\begin_inset Quotes eld
+\end_inset
+
+future
+\begin_inset Quotes erd
+\end_inset
+
+, because the 
+\family typewriter
+ls
+\family default
+ command compares the output formatting against the system clock (it does
+ not even know of the existence of the MARS Lamport clock).
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Always use 
+\family typewriter
+ntp
+\family default
+ (or another clock synchronization service) in order to pre-synchronize
+ your system clocks as close as possible.
+ Bigger differences are not only annoying, but may lead some people to wrong
+ conclusions and therefore even lead to bad human decisions!
+\end_layout
+
+\begin_layout Standard
+In a professional datacenter, you should use 
+\family typewriter
+ntp
+\family default
+ anyway, and you should monitor its effectiveness anyway.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Hint: many internal logfiles produced by the MARS kernel module contain
+ Lamport timestamps written as numerical values.
+ In order to convert them into human-readable form, use the command 
+\family typewriter
+marsadm cat /mars/5.total.status
+\family default
+ or similar.
+\end_layout
+
+\begin_layout Section
+The Symlink Tree
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:The-Symlink-Tree"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ The symlink tree as described here will be replaced by another representation
+ in future versions of MARS.
+ Therefore, don't do any scripting by directly accessing symlinks! Use the
+ primitive macros described in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Predefined-Trivial-Macros"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+The current 
+\family typewriter
+/mars/
+\family default
+ filesystem container format contains not only transaction logfiles, but
+ also acts as a generic storage for (persistent) state information.
+ Both configuration information and runtime state information are currently
+ stored in symlinks.
+ Symlinks are 
+\begin_inset Quotes eld
+\end_inset
+
+misused
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+This means, the symlink targets need not be other files or directories,
+ but just any values like integers or strings.
+\end_layout
+
+\end_inset
+
+
+\begin_inset Quotes erd
+\end_inset
+
+ in order to represent some 
+\family typewriter
+key -> value
+\family default
+ pairs.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+It is not yet clear / decided, but there is a 
+\emph on
+chance
+\emph default
+ that the 
+\emph on
+concept
+\emph default
+ of 
+\family typewriter
+key -> value
+\family default
+ pairs will be retained in future versions of MARS.
+ Instead of being represented by symlinks, another representation will be
+ used, such that hopefully the 
+\family typewriter
+key
+\family default
+ part will remain in the form of a pathname, even if there were no longer
+ a physical representation in an actual filesystem.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ A fundamentally different behaviour than DRBD: when your DRBD primary crashed
+ some time ago, and now comes up again, you have to setup DRBD again by
+ a sequence of commands like 
+\family typewriter
+modprobe drbd; drbdadm up all; drbdadm primary all
+\family default
+ or similar.
+ In contrast, MARS needs only 
+\family typewriter
+modprobe mars
+\family default
+ (after 
+\family typewriter
+/mars/
+\family default
+ has been mounted by 
+\family typewriter
+/etc/fstab
+\family default
+).
+ The 
+\emph on
+persistence
+\emph default
+ of the symlinks residing in 
+\family typewriter
+/mars/
+\family default
+ will automatically remember your previous state, even if some your resources
+ were primary while others were secondary (mixed operations).
+ You don't need to do any actions in order to 
+\begin_inset Quotes eld
+\end_inset
+
+restore
+\begin_inset Quotes erd
+\end_inset
+
+ a previous state, no matter how 
+\begin_inset Quotes eld
+\end_inset
+
+complex
+\begin_inset Quotes erd
+\end_inset
+
+ it was.
+\end_layout
+
+\begin_layout Standard
+(Almost) all symlinks appearing in the 
+\family typewriter
+/mars/
+\family default
+ directory tree are automatically replicated thoughout the whole cluster,
+ provided that the cluster 
+\family typewriter
+uuid
+\family default
+s are equal
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+This is protection against accidental 
+\begin_inset Quotes eld
+\end_inset
+
+merging
+\begin_inset Quotes erd
+\end_inset
+
+ of two unrelated clusters which had been created at different times with
+ different 
+\family typewriter
+uuids
+\family default
+.
+\end_layout
+
+\end_inset
+
+ at all sites.
+ Thus the 
+\family typewriter
+/mars/
+\family default
+ directory forms some kind of 
+\emph on
+global namespace
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+In order to avoid name clashes, each pathname created at node A follows
+ a convention: the node name A should be a suffix of the pathname.
+ Typically, internal MARS names follow the scheme 
+\family typewriter
+/mars/
+\emph on
+something
+\emph default
+/myname-A
+\family default
+.
+ When using the expert command 
+\family typewriter
+marsadm {get,set}-link
+\family default
+ (which will likely be replaced by something else in future MARS releases),
+ you should follow the best practice of systematically using pathnames like
+ 
+\family typewriter
+/mars/userspace/myname-A
+\family default
+ or similar.
+ As a result, each node will automatically get informed about the state
+ at any other node, like B when the corresponding information is recorded
+ on node B under the name 
+\family typewriter
+/mars/userspace/myname-B
+\family default
+ (context-dependent names).
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Experts only: the symlink replication works generically.
+ You might use the 
+\family typewriter
+/mars/userspace/
+\family default
+ directory in order to place your own symlink there (for whatever purpose,
+ which need not have to do with MARS).
+ However, the symlinks are likely to disappear.
+ Use 
+\family typewriter
+marsadm {get,set}-link
+\family default
+ instead.
+ There is a chance that these abstract commands (or variants thereof) will
+ be retained, by acting on the new data representation in future, even if
+ the old symlink format will vanish some day.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Important: the convention of placing the 
+\series bold
+creator host name
+\series default
+ inside your pathnames should be used wherever possible.
+ The name part is a kind of 
+\begin_inset Quotes eld
+\end_inset
+
+ownership indicator
+\begin_inset Quotes erd
+\end_inset
+
+.
+ It is crucial that no other host writes any symlink not 
+\begin_inset Quotes eld
+\end_inset
+
+belonging
+\begin_inset Quotes erd
+\end_inset
+
+ to him.
+ Other hosts may read foreign information as often as they want, but never
+ modify them.
+ This way, your cluster nodes are able to 
+\emph on
+communicate
+\emph default
+ with each other via symlink / information updates.
+\end_layout
+
+\begin_layout Standard
+Although experts might create (and change) the current symlinks with userspace
+ tools like 
+\family typewriter
+ln -s
+\family default
+, you should use the following marsadm commands instead:
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+marsadm set-link myvalue /mars/userspace/mykey-A
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+marsadm delete-file /mars/userspace/mykey-A
+\end_layout
+
+\begin_layout Standard
+There are many reasons for this: first, the 
+\family typewriter
+marsadm set-link
+\family default
+ command will automatically use the Lamport clock for symlink creation,
+ and therefore will avoid any errors resulting from a 
+\begin_inset Quotes eld
+\end_inset
+
+wrong
+\begin_inset Quotes erd
+\end_inset
+
+ system clock (as in 
+\family typewriter
+ln -s
+\family default
+).
+ Second, the 
+\family typewriter
+marsadm delete-file
+\family default
+ (which also deletes symlinks) works on the 
+\emph on
+whole cluster
+\emph default
+.
+ And finally, there is a chance that this will work in future versions of
+ MARS even after the symlinks have vanished.
+\end_layout
+
+\begin_layout Standard
+What's the difference? If you would try to remove your symlink locally by
+ hand via 
+\family typewriter
+rm -f
+\family default
+, you will be surprised: since the symlink has been replicated to the other
+ cluster nodes, it will be re-transferred from there and will be resurrected
+ locally after some short time.
+ This way, you cannot delete any object reliably, because your whole cluster
+ (which may consist of many nodes) remembers all your state information
+ and will 
+\begin_inset Quotes eld
+\end_inset
+
+correct
+\begin_inset Quotes erd
+\end_inset
+
+ it whenever 
+\begin_inset Quotes eld
+\end_inset
+
+necessary
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+In order to solve the deletion problem, MARS Light uses some internal deletion
+ protocol using auxiliary symlinks residing in 
+\family typewriter
+/mars/todo-global/.
+
+\family default
+ The deletion protocol ensures that all replicas get deleted in the whole
+ cluster, and only thereafter the auxiliary symlinks in 
+\family typewriter
+/mars/todo-global/
+\family default
+ are also deleted eventually.
+\end_layout
+
+\begin_layout Standard
+You may update your already existing symlink via 
+\family typewriter
+marsadm set-link some-other-value /mars/userspace/mykey-A
+\family default
+ .
+ The new value will be propagated throughout the cluster according to a
+ 
+\series bold
+timestamp comparison protocol
+\series default
+: whenever node B notices that A has a 
+\emph on
+newer
+\emph default
+ version of some symlink (according to the Lamport timestamp), it will replace
+ its elder version by the newer one.
+ The opposite does 
+\emph on
+not
+\emph default
+ work: if B notices that A has an elder version, just nothing happens.
+ This way, the timestamps of symlinks can only progress in forward direction,
+ but never backwards in time.
+\end_layout
+
+\begin_layout Standard
+As a consequence, symlink updates made 
+\begin_inset Quotes eld
+\end_inset
+
+by hand
+\begin_inset Quotes erd
+\end_inset
+
+ via 
+\family typewriter
+ln -sf
+\family default
+ may get lost when the local system clock is much more earlier than the
+ Lamport clock.
+\end_layout
+
+\begin_layout Standard
+When your cluster is fully connected by the network, the last timestamp
+ will finally win everywhere.
+ Only in case of network outages leading to 
+\emph on
+network partitions
+\emph default
+, some information may be 
+\emph on
+temporarily inconsistent
+\emph default
+, but only for the duration of the network outage.
+ The timestamp comparison protocol in combination with the Lamport clock
+ and with the persistence of the 
+\family typewriter
+/mars/
+\family default
+ filesystem will automatically heal any temporary inconsistencies as soon
+ as possible, even in case of temporary node shutdown.
+\end_layout
+
+\begin_layout Standard
+The meaning of some internal MARS Light symlinks residing in 
+\family typewriter
+/mars/
+\family default
+ will be hopefully documented in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Documentation-of-the"
+
+\end_inset
+
+ some day.
+\end_layout
+
+\begin_layout Section
+Defending Overflow of 
+\family typewriter
+/mars/
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Defending-Overflow"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This section describes an important difference to DRBD.
+ The metadata of DRBD is allocated 
+\emph on
+statically
+\emph default
+ at 
+\emph on
+creation
+\emph default
+ 
+\emph on
+time
+\emph default
+ of the resource.
+ In contrast, the MARS transaction logfiles are allocated 
+\emph on
+dynamically
+\emph default
+ at 
+\emph on
+runtime
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+This leads to a potential risk from the perspective of a sysadmin: what
+ happens if the 
+\family typewriter
+/mars/
+\family default
+ filesystem runs out of space?
+\end_layout
+
+\begin_layout Standard
+No risk, no fun.
+ If you want a system which survives long-lasting network outages while
+ keeping your replicas always consistent (anytime consistency), you 
+\emph on
+need
+\emph default
+ dynamic memory for that.
+ It is 
+\emph on
+impossible
+\emph default
+ to solve that problem using static memory
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+The bitmaps used by DRBD don't preserve the 
+\emph on
+order
+\emph default
+ of write operations.
+ They cannot do that, because their space is 
+\begin_inset Formula $O(k)$
+\end_inset
+
+ for some constant 
+\begin_inset Formula $k$
+\end_inset
+
+.
+ In contrast, MARS preserves the order.
+ Preserving the order as such (even when only 
+\emph on
+facts
+\emph default
+ about the order were recorded without recording the actual data contents)
+ requires 
+\begin_inset Formula $O(n)$
+\end_inset
+
+ space where 
+\begin_inset Formula $n$
+\end_inset
+
+ is infinitely growing over time.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Therefore, DRBD and MARS have different application areas.
+ If you just want a simple system for mirroring your data over short distances
+ like a crossover cable, DRBD will be a suitable choice.
+ However, if you need to replicate over longer distances, or if you need
+ higher levels of reliability even when multiple failures may accumulate
+ (such as network loss during a 
+\emph on
+re
+\emph default
+sync of DRBD), the transaction logs of MARS can solve that, but at some
+ 
+\emph on
+cost
+\emph default
+.
+\end_layout
+
+\begin_layout Subsection
+Countermeasures
+\end_layout
+
+\begin_layout Subsubsection
+Dimensioning of 
+\family typewriter
+/mars/
+\begin_inset CommandInset label
+LatexCommand label
+name "sub:Dimensioning-of-/mars/"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The first (and most important) measure against overflow of 
+\family typewriter
+/mars/
+\family default
+ is simply to dimension it large enough to survive longer-lasting problems,
+ at least one weekend.
+\end_layout
+
+\begin_layout Standard
+Recommended size is at least one dedicated disk, residing at a hardware
+ RAID controller with BBU (see section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Preparation:-What-you"
+
+\end_inset
+
+).
+ During normal operation, that size is needed only for a small fraction,
+ typically a few percent or even less than one percent.
+ However, it is your 
+\series bold
+safety margin
+\series default
+.
+ Keep it high enough!
+\end_layout
+
+\begin_layout Subsubsection
+Monitoring
+\end_layout
+
+\begin_layout Standard
+The next (equally important) measure is 
+\series bold
+monitoring in userspace
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+Following is a list of countermeasures both in userspace and in kernelspace,
+ in the order of 
+\begin_inset Quotes eld
+\end_inset
+
+defensive walling
+\begin_inset Quotes erd
+\end_inset
+
+:
+\end_layout
+
+\begin_layout Enumerate
+Regular userspace monitoring must throw an INFO if a certain freespace limit
+ 
+\begin_inset Formula $l_{1}$
+\end_inset
+
+ of 
+\family typewriter
+/mars/
+\family default
+ is undershot.
+ Typical values for 
+\begin_inset Formula $l_{1}$
+\end_inset
+
+ are 30%.
+ Typical actions are automated calls of 
+\family typewriter
+marsadm log-rotate all
+\family default
+ followed by 
+\family typewriter
+marsadm log-delete-all all
+\family default
+.
+ You have to implement that yourself in sysadmin space.
+\end_layout
+
+\begin_layout Enumerate
+Regular userspace monitoring must throw a WARNING if a certain freespace
+ limit 
+\begin_inset Formula $l_{2}$
+\end_inset
+
+ of 
+\family typewriter
+/mars/
+\family default
+ is undershot.
+ Typical values for 
+\begin_inset Formula $l_{2}$
+\end_inset
+
+ are 20%.
+ Typical actions are (in addition to 
+\family typewriter
+log-rotate
+\family default
+ and 
+\family typewriter
+log-delete-all
+\family default
+) alarming human supervisors via SMS and/or further stronger automated actions.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Frequently large space is occupied by files stemming from debugging output,
+ or from other programs or processes.
+ A hot candidate is 
+\begin_inset Quotes eld
+\end_inset
+
+forgotten
+\begin_inset Quotes erd
+\end_inset
+
+ removal of debugging output to 
+\family typewriter
+/mars/
+\family default
+.
+ Sometimes, an 
+\family typewriter
+rm -rf $(find /mars/ -name 
+\begin_inset Quotes eld
+\end_inset
+
+*.log
+\begin_inset Quotes erd
+\end_inset
+
+)
+\family default
+ can work miracles.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Another source of space hogging is a 
+\begin_inset Quotes eld
+\end_inset
+
+forgotten
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\family typewriter
+pause-sync
+\family default
+ or 
+\family typewriter
+disconnect
+\family default
+.
+ Therefore, a simple 
+\family typewriter
+marsadm connect-global all
+\family default
+ followed by 
+\family typewriter
+marsadm resume-replay-global all
+\family default
+ may also work miracles (if you didn't want to freeze some mirror deliberately).
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+If you just wanted to freeze a mirror at an outdated state for a very long
+ time, you simply 
+\emph on
+cannot
+\emph default
+ do that without causing infinite growth of space consumption in 
+\family typewriter
+/mars/
+\family default
+.
+ Therefore, a 
+\family typewriter
+marsadm leave-resource $res
+\family default
+ at 
+\emph on
+exactly that(!)
+\emph default
+ secondary site where the mirror is frozen, can also work miracles.
+ If you want to automate this in unserspace, be careful.
+ It is easy to get unintended effects when choosing the wrong site for 
+\family typewriter
+leave-resource
+\family default
+.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Hint: you can / should start some of these measures even earlier at the
+ INFO level (see item 1), or even earlier.
+\end_layout
+
+\begin_layout Enumerate
+Regular userspace monitoring must throw an ERROR if a certain freespace
+ limit 
+\begin_inset Formula $l_{3}$
+\end_inset
+
+ of 
+\family typewriter
+/mars/
+\family default
+ is undershot.
+ Typical values for 
+\begin_inset Formula $l_{3}$
+\end_inset
+
+ are 10%.
+ Typical actions are alarming the CEO via SMS and/or even stronger automated
+ actions.
+ For example, you may choose to automatically call 
+\family typewriter
+marsadm leave-resource $res
+\family default
+ on some or all secondary nodes, such that the primary will be left alone
+ and now has a chance to really delete its logfiles because no one else
+ is any longer potentially needing it.
+\end_layout
+
+\begin_layout Enumerate
+First-level kernelspace action, automatically executed when 
+\family typewriter
+
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+/proc/sys/mars/required_free_space_4_gb
+\end_layout
+
+\end_inset
+
+
+\family default
+ + 
+\family typewriter
+
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+/proc/sys/mars/required_free_space_3_gb
+\end_layout
+
+\end_inset
+
+
+\family default
+ + 
+\family typewriter
+
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+/proc/sys/mars/required_free_space_2_gb
+\end_layout
+
+\end_inset
+
+
+\family default
+ + 
+\family typewriter
+
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+/proc/sys/mars/required_free_space_1_gb
+\end_layout
+
+\end_inset
+
+
+\family default
+ is undershot:
+\begin_inset Newline newline
+\end_inset
+
+a warning will be issued.
+\end_layout
+
+\begin_layout Enumerate
+Second-level kernelspace action, automatically executed when 
+\family typewriter
+
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+/proc/sys/mars/required_free_space_3_gb
+\end_layout
+
+\end_inset
+
+
+\family default
+ + 
+\family typewriter
+
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+/proc/sys/mars/required_free_space_2_gb
+\end_layout
+
+\end_inset
+
+
+\family default
+ + 
+\family typewriter
+
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+/proc/sys/mars/required_free_space_1_gb
+\end_layout
+
+\end_inset
+
+
+\family default
+ is undershot:
+\begin_inset Newline newline
+\end_inset
+
+all locally secondary resources will delete local copies of transaction
+ logfiles which are no longer needed locally.
+ This is a desperate action of the kernel module.
+\end_layout
+
+\begin_layout Enumerate
+Third-level kernelspace action, automatically executed when 
+\family typewriter
+
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+/proc/sys/mars/required_free_space_2_gb
+\end_layout
+
+\end_inset
+
+
+\family default
+ + 
+\family typewriter
+
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+/proc/sys/mars/required_free_space_1_gb
+\end_layout
+
+\end_inset
+
+
+\family default
+ is undershot:
+\begin_inset Newline newline
+\end_inset
+
+all locally secondary resources will stop fetching transaction logfiles.
+ This is a more desperate action of the kernel module.
+ You don't want to get there (except for testing).
+\end_layout
+
+\begin_layout Enumerate
+Last desperate kernelspace action when all else has failed and 
+\family typewriter
+
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+/proc/sys/mars/required_free_space_1_gb
+\end_layout
+
+\end_inset
+
+
+\family default
+ is undershot:
+\begin_inset Newline newline
+\end_inset
+
+all locally primary resources will enter 
+\series bold
+emergency mode
+\series default
+ (see description below in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Emergency-Mode"
+
+\end_inset
+
+).
+ This is the most desperate action of the kernel module.
+ You don't want to get there (except for testing).
+\end_layout
+
+\begin_layout Standard
+In addition, the kernel module obeys a general global limit 
+\family typewriter
+
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+/proc/sys/mars/required_total_space_0_gb
+\end_layout
+
+\end_inset
+
+ +
+\family default
+ the sum of all of the above limits.
+ When the 
+\emph on
+total size
+\emph default
+ of 
+\family typewriter
+/mars/
+\family default
+ undershots that sum, the kernel module refuses to start at all, because
+ it assumes that it is senseless to try to operate MARS on a system with
+ such low memory resources.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+The current level of emergency kernel actions may be viewed at any time
+ via 
+\family typewriter
+
+\begin_inset Flex URL
+status collapsed
+
+\begin_layout Plain Layout
+
+/proc/sys/mars/mars_emergency_mode
+\end_layout
+
+\end_inset
+
+
+\family default
+.
+\end_layout
+
+\begin_layout Subsubsection
+Throttling
+\end_layout
+
+\begin_layout Standard
+The last measure for defense of overflow is 
+\series bold
+throttling your performance pigs
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+Motivation: in rare cases, some users with 
+\family typewriter
+ssh
+\family default
+ access can do 
+\emph on
+very
+\emph default
+ silly things.
+ For example, some of them are creating their own backups via user-cron
+ jobs, and they do it every 5 minutes.
+ Some example guy created a zip archive (almost 1GB) by regularly copying
+ his old zip archive into a new one, then appending deltas to the new one,
+ and finally deleting the old archive.
+ Every 5 minutes.
+ Yes, every 5 minutes, although almost never any new files were added to
+ the archive.
+ Essentially, he copied over his archive, for nothing.
+ This led to massive bulk write requests, for ridiculous reasons.
+\end_layout
+
+\begin_layout Standard
+In general, your hard disks (or even RAID systems) allow much higher write
+ IO rates than you can ever transport over a standard TCP network from your
+ primary site to your secondary, at least over longer distances (see use
+ cases for MARS in chapter 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "chap:Use-Cases-for"
+
+\end_inset
+
+).
+ Therefore, it is easy to create a such a high write load that it will be
+ 
+\emph on
+impossible
+\emph default
+ to replicate it over the network, 
+\emph on
+by construction
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+Therefore, we 
+\emph on
+need
+\emph default
+ some mechanism for throttling bulk writers whenever the network is weaker
+ than your IO subsystem.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Notice that DRBD will 
+\emph on
+always
+\emph default
+ throttle your writes whenever the network forms a bottleneck, due to its
+ synchronous operation mode.
+ In contrast, MARS allows for buffering of performance peaks in the transaction
+ logfiles.
+ 
+\emph on
+Only when
+\emph default
+ your buffer in 
+\family typewriter
+/mars/
+\family default
+ runs short (cf subsection 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Dimensioning-of-/mars/"
+
+\end_inset
+
+), MARS will start to throttle your application writes.
+\end_layout
+
+\begin_layout Standard
+There are a lot of screws named 
+\family typewriter
+/proc/sys/mars/write_throttle_*
+\family default
+ with the following meaning:
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+write_throttle_start_percent
+\family default
+ Whenever the used space in 
+\family typewriter
+/mars/
+\family default
+ is below this threshold, no throttling will occur at all.
+ Only when this threshold is exceeded, throttling will start 
+\emph on
+slowly
+\emph default
+.
+ Typical values for this are 60%.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+write_throttle_end_percent
+\family default
+ Maximum throttling will occur once this space threshold is reached, i.e.
+ the throttling is now at its maximum effect.
+ Typical values for this are 90%.
+ When the actual space in 
+\family typewriter
+/mars/
+\family default
+ lies between 
+\family typewriter
+write_throttle_start_percent
+\family default
+ and 
+\family typewriter
+write_throttle_end_percent
+\family default
+, the strength of throttling will be interpolated linearly between the extremes.
+ In practice, this should lead to an equilibrum between new input flow into
+ 
+\family typewriter
+/mars/
+\family default
+ and output flow over the network to secondaries.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+write_throttle_size_threshold_kb
+\family default
+ (readonly) This parameter shows the internal strength calculation of the
+ throttling.
+ Only write
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Read requests are never throttled at all.
+\end_layout
+
+\end_inset
+
+ requests exceeding this size (in KB) are throttled at all.
+ Typically, this will hurt the bulk performance pigs first, while leaving
+ ordinary users (issuing small requests) unaffected.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+write_throttle_ratelimit_kb
+\family default
+ Set the global IO rate in KB/s for those write requests which are throttled.
+ In case of strongest
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In case of lighter throttling, the input flow into 
+\family typewriter
+/mars/
+\family default
+ may be higher because small requests are not throttled.
+\end_layout
+
+\end_inset
+
+ throttling, this parameters determines the input flow into 
+\family typewriter
+/mars/
+\family default
+.
+ The default value is 5.000 KB/s.
+ Please adjust this value to your application needs and to your environment.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+write_throttle_rate_kb
+\family default
+ (readonly) Shows the current rate of exactly those requests which are actually
+ throttled (in contrast to 
+\emph on
+all
+\emph default
+ requests).
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+write_throttle_cumul_kb
+\family default
+ (logically readonly) Same as before, but the cumulative sum of all throttled
+ requests since startup / reset.
+ This value can be reset from userspace in order to prevent integer overflow.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+write_throttle_count_ops
+\family default
+ (logically readonly) Shows the cumulative number of throttled requests.
+ This value can be reset from userspace in order to prevent integer overflow.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+write_throttle_maxdelay_ms
+\family default
+ Each request is delayed at most for this timespan.
+ Smaller values will improve the responsiveness of your userspace application,
+ but at the cost of potentially retarding the requests not sufficiently.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+write_throttle_minwindow_ms
+\family default
+ Set the minimum length of the measuring window.
+ The measuring window is the timespan for which the average (throughput)
+ rate is computed (see 
+\family typewriter
+write_throttle_rate_kb
+\family default
+).
+ Lower values can increase the responsiveness of the controller algorithm,
+ but at the cost of accuracy.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+write_throttle_maxwindow_ms
+\family default
+ This parameter must be set sufficiently much greater than 
+\family typewriter
+write_throttle_minwindow_ms
+\family default
+.
+ In case the flow of throttled operations pauses for some natural reason
+ (e.g.
+ switched off, low load, etc), this parameter determines when a completely
+ new rate calculation should be started over
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Motivation: if requests would pause for one hour, the measuring window could
+ become also an hour.
+ Of course, that would lead to completely meaningless results.
+ Two requests in one hour is 
+\begin_inset Quotes eld
+\end_inset
+
+incorrect
+\begin_inset Quotes erd
+\end_inset
+
+ from a human point of view: we just have to ensure that averages are computed
+ with respect to a reasonable maximum time window in the magnitude of 10s.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Subsection
+Emergency Mode and its Resolution
+\begin_inset CommandInset label
+LatexCommand label
+name "sub:Emergency-Mode"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+When 
+\family typewriter
+/mars/
+\family default
+ is almost full and there is really absolutely no chance of getting rid
+ of any local transaction logfile (or free some space in any other way),
+ there is only one exit strategy: stop creating new logfile data.
+\end_layout
+
+\begin_layout Standard
+This means that the ability for replication gets lost.
+\end_layout
+
+\begin_layout Standard
+When entering emergency mode, the kernel module will execute the following
+ steps for all resources where the affected host is acting as a primary:
+\end_layout
+
+\begin_layout Enumerate
+Do a kind of 
+\begin_inset Quotes eld
+\end_inset
+
+logrotate
+\begin_inset Quotes erd
+\end_inset
+
+, but create a 
+\emph on
+hole
+\emph default
+ in the sequence of transaction logfile numbers.
+ The 
+\begin_inset Quotes eld
+\end_inset
+
+new
+\begin_inset Quotes erd
+\end_inset
+
+ logfile is left empty, i.e.
+ no data ist written to it (for now).
+ The hole in the numbering will prevent any secondaries from replaying any
+ logfiles behind the hole (should they ever contain some data, e.g.
+ because the emergency mode has been left again).
+ This works because the secondaries are regularly checking the logfile numbers
+ for contiguity, and they will refuse to replay anything which is not contiguous.
+ As a result, the secondaries will be left in a consistent, but outdated
+ state (at least if they already were consistent before that).
+\end_layout
+
+\begin_layout Enumerate
+The kernel module writes back all data present in the temporary memory buffer
+ (see figure in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:The-Transaction-Logger"
+
+\end_inset
+
+).
+ This may lead to a (short) delay of user write requests until that has
+ finished (typically fractions of a second or a few seconds).
+ The reason is that the temporary memory buffer must not be increased in
+ parallel during this phase (race conditions).
+\end_layout
+
+\begin_layout Enumerate
+After the temporary memory buffer is empty, all local IO requests (whether
+ reads or writes) are directly going to the underlying disk.
+ This has the same effect as if MARS would not be present anymore.
+ Transaction logging does no longer take place.
+\end_layout
+
+\begin_layout Enumerate
+Any sync from any secondary is stopped ASAP.
+ In case they are resuming their sync somewhen later, they will start over
+ from the beginning (position 
+\begin_inset Formula $0$
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Standard
+In order to leave emergency mode, the sysadmin should do the following steps:
+\end_layout
+
+\begin_layout Enumerate
+Free enough space.
+ For example, delete any foreign files on 
+\family typewriter
+/mars/
+\family default
+ which have nothing to do with MARS, or resize the 
+\family typewriter
+/mars/
+\family default
+ filesystem, or whatever.
+\end_layout
+
+\begin_layout Enumerate
+If 
+\family typewriter
+
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+/proc/sys/mars/mars_reset_emergency
+\end_layout
+
+\end_inset
+
+
+\family default
+ is not set, now it is time to set it.
+ Normally, it should be already set.
+\end_layout
+
+\begin_layout Enumerate
+Notice: as long as not enough space has been freed, a message containing
+ 
+\family typewriter
+
+\begin_inset Quotes eld
+\end_inset
+
+EMEGENCY MODE HYSTERESIS
+\begin_inset Quotes erd
+\end_inset
+
+
+\family default
+ (or similar) will be displayed by 
+\family typewriter
+marsadm view all
+\family default
+.
+ As a consequence, any sync will be automatically halted.
+ This applies to freshly invoked syncs also, for example created by 
+\family typewriter
+invalidate
+\family default
+ or 
+\family typewriter
+join-resource
+\family default
+.
+\end_layout
+
+\begin_layout Enumerate
+On the secondaries, use 
+\family typewriter
+marsadm invalidate $res
+\family default
+ in order to request updating your outdated mirrors.
+\end_layout
+
+\begin_layout Enumerate
+On the primary: 
+\family typewriter
+marsadm log-delete-all all
+\end_layout
+
+\begin_layout Enumerate
+As soon as emough space has been freed everywhere to leave the 
+\family typewriter
+EMEGENCY MODE HYSTERESIS
+\family default
+, sync should really start.
+ Until that it had been halted.
+\end_layout
+
+\begin_layout Standard
+Alternatively, there is another method by roughly following the instructions
+ from appendix 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "chap:Alternative-Methods-for"
+
+\end_inset
+
+, but in a slightly different order.
+ In this case, do 
+\family typewriter
+leave-resource
+\family default
+ everywhere on 
+\emph on
+all
+\emph default
+ secondaries, but 
+\emph on
+don't
+\emph default
+ start the 
+\family typewriter
+join-resource
+\family default
+ phase 
+\emph on
+for now
+\emph default
+.
+ Then cleanup all your secondaries via 
+\family typewriter
+log-purge-all
+\family default
+, and finally 
+\family typewriter
+log-delete-all all
+\family default
+ at the primary, and wait until the emergency has vanished everywhere.
+ Only after that, re-
+\family typewriter
+join-resource
+\family default
+ your secondaries.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Expert advice for 
+\begin_inset Formula $k=2$
+\end_inset
+
+ replicas: this means you had only 1 mirror per resource before the overflow
+ happened.
+ Provided that you have enough space on your LVMs and on 
+\family typewriter
+/mars/
+\family default
+, and provided that transaction logging has automatically restarted after
+ 
+\family typewriter
+leave-resource
+\family default
+ and 
+\family typewriter
+log-purge-all
+\family default
+, you can recover redundancy by creating a 
+\emph on
+new
+\emph default
+ replica via 
+\family typewriter
+marsadm join-resource $res
+\family default
+ on a 
+\emph on
+third
+\emph default
+ node.
+ Only after the initial full sync has finished there, run 
+\family typewriter
+join-resource 
+\family default
+at your original mirror.
+ This way, you will always retain at least one 
+\series bold
+consistent mirror
+\series default
+ somewhere.
+ After all is up-to-date, you can delete the superfluous mirror by 
+\family typewriter
+marsadm leave-resource $res
+\family default
+ and reclaim the disk space from its underlying LVM disk.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+If you already have 
+\begin_inset Formula $k>2$
+\end_inset
+
+ replicas in total, it may be a wise idea to prefer the 
+\family typewriter
+leave-resource ; log-purge-all ; join-resource
+\family default
+ method in front of 
+\family typewriter
+invalidate
+\family default
+ because it does not invalidate 
+\emph on
+all
+\emph default
+ your replicas at the same time (when handled properly in the right order).
+\end_layout
+
+\begin_layout Chapter
 The Macro Processor
 \begin_inset CommandInset label
 LatexCommand label
@@ -11799,3192 +14985,6 @@ In case of network problems, some command may hang (forever), if you don't
 
 \begin_layout Itemize
 Test your scripts in failure scenarios!
-\end_layout
-
-\begin_layout Chapter
-Basic Working Principle
-\end_layout
-
-\begin_layout Standard
-Even if you are impatient, please read this chapter.
- At the 
-\emph on
-surface
-\emph default
-, MARS appears to be very similar to DRBD.
- It looks like almost being a drop-in replacement for DRBD.
-\end_layout
-
-\begin_layout Standard
-When taking this naïvely, you could easily step into some trivial pitfalls,
- because the internal working principle of MARS is totally different from
- DRBD.
- Please forget (almost) anything you already know about the internal working
- principles of DRBD, and look at the very different working principles of
- MARS.
-\end_layout
-
-\begin_layout Section
-The Transaction Logger
-\begin_inset CommandInset label
-LatexCommand label
-name "sec:The-Transaction-Logger"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-\align center
-\begin_inset Graphics
-	filename images/MARS_Data_Flow.pdf
-	lyxscale 60
-	width 100text%
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-The basic idea of MARS is to record all changes made to your block device
- in a so-called 
-\series bold
-transaction logfile
-\series default
-.
- 
-\emph on
-Any
-\emph default
- write reqeuest is treated like a transaction which changes the contents
- of your block device.
-\end_layout
-
-\begin_layout Standard
-This is similar in concept to some database systems, but there exists no
- separate 
-\begin_inset Quotes eld
-\end_inset
-
-commit
-\begin_inset Quotes erd
-\end_inset
-
- operation: 
-\emph on
-any
-\emph default
- write request is acting like a commit.
-\end_layout
-
-\begin_layout Standard
-The picture shows the flow of write requests.
- Let's start with the primary node.
-\end_layout
-
-\begin_layout Standard
-Upon submission of a write request on 
-\family typewriter
-/dev/mars/mydata
-\family default
-, it is first buffered in a 
-\emph on
-temporary
-\emph default
- memory buffer.
-\end_layout
-
-\begin_layout Standard
-The temporary memory buffer serves multiple purposes:
-\end_layout
-
-\begin_layout Itemize
-It keeps track of the order of write operations.
-\end_layout
-
-\begin_layout Itemize
-Additionally, it keeps track of the positions in the underlying disk 
-\family typewriter
-/dev/lv-x/mydata
-\family default
-.
- In particular, it detects when the same block is overwritten multiple times.
-\end_layout
-
-\begin_layout Itemize
-During pending write operation, any concurrent reads are served from the
- memory buffer.
-\end_layout
-
-\begin_layout Standard
-After the write has been buffered in the temporary memory buffer, the main
- logger thread of the transaction logger creates a so-called 
-\emph on
-log entry
-\emph default
- and starts an 
-\begin_inset Quotes eld
-\end_inset
-
-append
-\begin_inset Quotes erd
-\end_inset
-
- operation on the transaction logfile.
- The log entry contains vital information such as the logical block number
- in the underlying disk, the length of the data, a timestamp, some header
- magic in order to detect corruption, the log entry sequence number, of
- course the data itself, and optional information like a checksum or compression
- information.
-\end_layout
-
-\begin_layout Standard
-Once the log entry has been written through to the 
-\family typewriter
-/mars/
-\family default
- filesystem via fsync(), the application waiting for the write operation
- at 
-\family typewriter
-/dev/mars/mydata
-\family default
- is signalled that the write was successful.
-\end_layout
-
-\begin_layout Standard
-This may happen even 
-\emph on
-before
-\emph default
- the writeback to the underlying disk 
-\family typewriter
-/dev/lv-x/mydata
-\family default
- has started.
- Even when you power off the system right now, the information is not lost:
- it is present in the logfile, and can be reconstructed from there.
-\end_layout
-
-\begin_layout Standard
-Notice that the order of log records present in the transaction log defines
- a total order among the write requests which is 
-\emph on
-compatible
-\emph default
- to the partial order of write requests issued on 
-\family typewriter
-/dev/mars/mydata
-\family default
-.
-\end_layout
-
-\begin_layout Standard
-Also notice that despite its sequential nature, the transaction logfile
- is typically 
-\emph on
-not
-\emph default
- the performance bottleneck of the system: since appending to a logfile
- is almost purely sequential IO, it runs much faster than random IO on typical
- datacenter workloads.
-\end_layout
-
-\begin_layout Standard
-In order to reclaim the temporary memory buffer, its content must be written
- back to the underlying disk 
-\family typewriter
-/dev/lv-x/mydat
-\family default
-a somewhen.
- After writeback, the temporary space is freed.
- The writeback can do the following optimizations:
-\end_layout
-
-\begin_layout Enumerate
-writeback may be in 
-\emph on
-any
-\emph default
- order; in particular, it may be 
-\emph on
-sorted
-\emph default
- according to ascending sector ´numbers.
- This will reduce the average seek distances of magnetic disks in general.
-\end_layout
-
-\begin_layout Enumerate
-when the same sector is overwritten multiple times, only the 
-\begin_inset Quotes eld
-\end_inset
-
-last
-\begin_inset Quotes erd
-\end_inset
-
- version need to be written back, skipping some intermediate versions.
-\end_layout
-
-\begin_layout Standard
-In case the primary node crashes during writeback, it suffices to replay
- the log entries from some point in the past until the end of the transaction
- logfile.
- It does no harm if you accidentally replay some log entries twice or even
- more often: since the replay is in the original total order, any temporary
- inconsistency is 
-\emph on
-healed
-\emph default
- by the logfile application.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-In mathematics, the property that you can apply your logfile twice to your
- data (or even as often as you want), is called 
-\series bold
-idempotence
-\series default
-.
- This is a very desirable property: it ensures that nothing goes wrong when
- replaying 
-\begin_inset Quotes eld
-\end_inset
-
-too much
-\begin_inset Quotes erd
-\end_inset
-
- / starting your replay 
-\begin_inset Quotes eld
-\end_inset
-
-too early
-\begin_inset Quotes erd
-\end_inset
-
-.
- Idempotence is even more beneficial: in case anything should go wrong with
- your data on your disk (e.g.
- IO errors), replaying your logfile once more often may
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-Miracles cannot be guaranteed, but 
-\emph on
-higher chances
-\emph default
- and 
-\emph on
-improvements
-\emph default
- can be expected (e.g.
- better chances for 
-\family typewriter
-fsck
-\family default
-).
-\end_layout
-
-\end_inset
-
- even 
-\series bold
-heal
-\series default
- some defects.
- Good news for desperate sysadmins forced to work with flaky hardware!
-\end_layout
-
-\begin_layout Standard
-The basic idea of the asynchronous replication of MARS is rather simple:
- just transfer the logfiles to your secondary nodes, and replay them onto
- their copy of the disk data (also called 
-\emph on
-mirror
-\emph default
-) in the same order as the total order defined by the primary.
-\end_layout
-
-\begin_layout Standard
-Therefore, a mirror of your data on any secondary may be outdated, but it
- always corresponds to some version which was valid in the past.
- This property is called 
-\series bold
-anytime consistency
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-Your secondary nodes are always consistent in themselves.
- Notice that this kind of consistency is a 
-\emph on
-local
-\emph default
- consistency model.
- There exists no global consistency in MARS.
- Global consistency would be practically impossible in long-distance replication
- where Einstein's law of the speed of light is limiting global consistency.
- The front-cover pictures showing the planets Earth and Mars tries to lead
- your imagination away from global consistency models as used in 
-\begin_inset Quotes eld
-\end_inset
-
-DRBD Think(tm)
-\begin_inset Quotes erd
-\end_inset
-
-, and try to prepare you mentally for local consistency as in 
-\begin_inset Quotes eld
-\end_inset
-
-MARS Think(tm)
-\begin_inset Quotes erd
-\end_inset
-
-.
-\end_layout
-
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-As you can see in the picture, the process of transfering the logfiles is
- 
-\emph on
-independent
-\emph default
- from the process which replays the logfiles onto the data at some secondary
- site.
- Both processes can be switched on / off separately (see commands 
-\family typewriter
-marsadm {dis,}connect
-\family default
- and 
-\family typewriter
-marsadm {pause,resume}-replay
-\family default
- in section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sub:Operation-of-the"
-
-\end_inset
-
-).
- This may be 
-\emph on
-exploited
-\emph default
-: for example, you may replicate your logfiles as soon as possible (to protect
- against catastrophic failures), but deliberately wait one hour until it
- is replayed (under regular circumstances).
- If your data inside your filesystem 
-\family typewriter
-/mydata/
-\family default
- at the primary site is accidentally destroyed by 
-\family typewriter
-rm -rf /mydata/
-\family default
-, you have an old copy at the secondary site.
- This way, you can substitute 
-\emph on
-some parts
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-Please note that MARS cannot 
-\emph on
-fully
-\emph default
- substitute a backup system, because it can keep only 
-\emph on
-physical
-\emph default
- copies, and does not create logical copies.
-\end_layout
-
-\end_inset
-
-
-\emph default
- of conventional backup functionality by MARS.
- In case you need the actual version, just replay in 
-\begin_inset Quotes eld
-\end_inset
-
-fast-forward
-\begin_inset Quotes erd
-\end_inset
-
- mode (similar to old-fashioned video tapes).
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-Future versions of MARS Full are planned to also allow 
-\begin_inset Quotes eld
-\end_inset
-
-fast-backward
-\begin_inset Quotes erd
-\end_inset
-
- rewinding, of course at some cost.
-\end_layout
-
-\begin_layout Section
-The Lamport Clock
-\begin_inset CommandInset label
-LatexCommand label
-name "sec:The-Lamport-Clock"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-MARS is always 
-\emph on
-asynchonously
-\emph default
- communicating in the distributed system on 
-\emph on
-any
-\emph default
- topics, even strategic decisions.
-\end_layout
-
-\begin_layout Standard
-If there were a 
-\emph on
-strict
-\emph default
- global consistency model, which would be roughly equivalent to a standalone
- model, we would need 
-\emph on
-locking
-\emph default
- in order to serialize conflicting requests.
- It is known for many decades that 
-\emph on
-distributed locks
-\emph default
- do not only suffer from performance problems, but they are also cumbersome
- to get them working reliably in scenarios where nodes or network links
- may fail at any time.
-\end_layout
-
-\begin_layout Standard
-Therefore, MARS uses a very different consistency model: 
-\series bold
-Eventually Consistent
-\series default
-.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-Notice that the network bottleneck problems described in section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:Network-Bottlenecks"
-
-\end_inset
-
- are 
-\emph on
-demanding
-\emph default
- an 
-\begin_inset Quotes eld
-\end_inset
-
-eventually consistent
-\begin_inset Quotes erd
-\end_inset
-
- model.
- You have 
-\series bold
-no chance
-\series default
- against natural laws, like Einstein's laws.
- In order to cope with the problem area, you have to 
-\emph on
-invest some additional effort
-\emph default
-.
- Unfortunately, asynchronous communication models are more tricky to program
- and to debug than simple strictly consistent models.
- In particular, you 
-\emph on
-have to cope with
-\emph default
- additional 
-\series bold
-race conditions
-\series default
- 
-\emph on
-inherent
-\emph default
- 
-\emph on
-to
-\emph default
- the 
-\begin_inset Quotes eld
-\end_inset
-
-eventually consistent
-\begin_inset Quotes erd
-\end_inset
-
- model.
- In the face of the laws of the universe, motivate yourself by looking at
- the graphics at the cover page: the planets are a 
-\emph on
-symbol
-\emph default
- for what you have to do!
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- Example: the asynchronous communication protocol of MARS leads to a different
- behaviour from DRBD in case of 
-\series bold
-network partitions
-\series default
- (temporary interruption of communication between some cluster nodes), because
- MARS 
-\emph on
-remembers
-\emph default
- the old state of remote nodes over long periods of time, while DRBD knows
- absolutely nothing about its peers in disconnected state.
- Sysadmins familiar with DRBD might find the following behaviour unusual:
-\end_layout
-
-\begin_layout Standard
-\noindent
-\align center
-
-\size tiny
-\begin_inset Tabular
-<lyxtabular version="3" rows="6" columns="3">
-<features rotate="0" tabularvalignment="middle">
-<column alignment="left" valignment="top" width="0pt">
-<column alignment="left" valignment="top" width="0pt">
-<column alignment="left" valignment="top" width="0pt">
-<row>
-<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-Event
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-DRBD Behaviour
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-MARS Behaviour
-\end_layout
-
-\end_inset
-</cell>
-</row>
-<row endhead="true">
-<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-1.
- the network partitions
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-automatic disconnect
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-nothing happens, but replication lags behind
-\end_layout
-
-\end_inset
-</cell>
-</row>
-<row>
-<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-2.
- on A: 
-\family typewriter
-umount $device
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-works
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-works
-\end_layout
-
-\end_inset
-</cell>
-</row>
-<row>
-<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-3.
- on A: 
-\family typewriter
-{drbd,mars}adm secondary
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-works
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-works
-\end_layout
-
-\end_inset
-</cell>
-</row>
-<row>
-<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-4.
- on B: 
-\family typewriter
-{drbd,mars}adm primary
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-works, split brain happens
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\series bold
-\size tiny
-refused
-\series default
- because B believes that A is primary
-\end_layout
-
-\end_inset
-</cell>
-</row>
-<row>
-<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-5.
- the network resumes
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-automatic connect attempt fails
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-communication automatically resumes
-\end_layout
-
-\end_inset
-</cell>
-</row>
-</lyxtabular>
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-If you intentionally want to switch over (and to produce a split brain as
- a side effect), the following variant must be used with MARS:
-\end_layout
-
-\begin_layout Standard
-\noindent
-\align center
-
-\size tiny
-\begin_inset Tabular
-<lyxtabular version="3" rows="9" columns="3">
-<features rotate="0" tabularvalignment="middle">
-<column alignment="left" valignment="top" width="0pt">
-<column alignment="left" valignment="top" width="0pt">
-<column alignment="left" valignment="top" width="0pt">
-<row>
-<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-Event
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-DRBD Behaviour
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-MARS Behaviour
-\end_layout
-
-\end_inset
-</cell>
-</row>
-<row endhead="true">
-<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-1.
- the network partitions
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-automatic disconnect
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-nothing happens, but replication lags behind
-\end_layout
-
-\end_inset
-</cell>
-</row>
-<row>
-<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-2.
- on A: 
-\family typewriter
-umount $device
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-works
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-works
-\end_layout
-
-\end_inset
-</cell>
-</row>
-<row>
-<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-3.
- on A: 
-\family typewriter
-{drbd,mars}adm secondary
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-works
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-works (but 
-\emph on
-not remmonended!
-\emph default
-)
-\end_layout
-
-\end_inset
-</cell>
-</row>
-<row>
-<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-4.
- on B: 
-\family typewriter
-{drbd,mars}adm primary
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-split brain, but nobody knows
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\series bold
-\size tiny
-refused
-\series default
- because B believes that A is primary
-\end_layout
-
-\end_inset
-</cell>
-</row>
-<row>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-5.
- on B: 
-\family typewriter
-marsadm disconnect
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
--
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-works, nothing happens
-\end_layout
-
-\end_inset
-</cell>
-</row>
-<row>
-<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-6.
- on B: 
-\family typewriter
-marsadm primary --force
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
--
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-works, split brain happens on B, but A doesn't know
-\end_layout
-
-\end_inset
-</cell>
-</row>
-<row>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-7.
- on B: 
-\family typewriter
-marsadm connect
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
--
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-works, nothing happens
-\end_layout
-
-\end_inset
-</cell>
-</row>
-<row>
-<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-8.
- the network resumes
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-automatic connect attempt fails
-\end_layout
-
-\end_inset
-</cell>
-<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
-\begin_inset Text
-
-\begin_layout Plain Layout
-
-\size tiny
-communication resumes, A now detects the split brain
-\end_layout
-
-\end_inset
-</cell>
-</row>
-</lyxtabular>
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-In order to implement the consistency model 
-\begin_inset Quotes eld
-\end_inset
-
-eventually consistent
-\begin_inset Quotes erd
-\end_inset
-
-, MARS uses a so-called Lamport
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-Published in the late 1970s by Leslie Lamport, also known as inventor of
- 
-\begin_inset ERT
-status open
-
-\begin_layout Plain Layout
-
-
-\backslash
-LaTeX
-\end_layout
-
-\end_inset
-
-.
-\end_layout
-
-\end_inset
-
- clock.
- MARS uses a special variant called 
-\begin_inset Quotes eld
-\end_inset
-
-physical Lamport clock
-\begin_inset Quotes erd
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Standard
-The physical Lamport clock is another almost-realtime clock which 
-\emph on
-can
-\emph default
- run independently from the Linux kernel system clock.
- However, the Lamport clock tries to remain as near as possible to the system
- clock.
-\end_layout
-
-\begin_layout Standard
-Both clocks can be queried at any time via 
-\family typewriter
-cat /proc/sys/mars/lamport_clock
-\family default
-.
- The result will show both clocks in parallel, in units of seconds since
- the Unix epoch, with nanosecond resolution.
-\end_layout
-
-\begin_layout Standard
-When there are no network messages at all, both the system clock and the
- Lamport clock will show almost the same time (except some minor differences
- of a few nanoseconds resulting from the finite processor clock speed).
-\end_layout
-
-\begin_layout Standard
-The physical Lamport clock works rather simple: 
-\emph on
-any
-\emph default
- message on the network is augmented with a Lamport time stamp telling when
- the message was 
-\emph on
-sent
-\emph default
- according to the local Lamport clock of the sender.
- Whenever that message is received by some receiver, it checks whether the
- time ordering relation would be violated: whenever the Lamport timestamp
- in the message would claim that the sender had sent it 
-\emph on
-after
-\emph default
- it arrived at the receiver (according to drifts in their respective local
- clocks), something must be wrong.
- In this case, the local Lamport clock of the 
-\emph on
-receiver
-\emph default
- is advanced shortly after the sender Lamport timestamp, such that the time
- ordering relation is no longer violated.
-\end_layout
-
-\begin_layout Standard
-As a consequence, any local Lamport clock may precede the corresponding
- local system clock.
- In order to avoid accumulation of deltas between the Lamport and the system
- clock, the Lamport clock will run slower after that, possibly until it
- reaches the system clock again (if no other message arrives which sets
- it forward again).
- After having reached the system clock, the Lamport clock will continue
- with 
-\begin_inset Quotes eld
-\end_inset
-
-normal
-\begin_inset Quotes erd
-\end_inset
-
- speed.
-\end_layout
-
-\begin_layout Standard
-MARS uses the local Lamport clock for anything where other systems would
- use the local system clock: for example, timestamp generation in the 
-\family typewriter
-/mars/
-\family default
- filesystem.
- Even symlinks created there are timestamped according to the Lamport clock.
- Both the kernel module and the userspace tool 
-\family typewriter
-marsadm
-\family default
- are always operating in the timescale of the Lamport clock.
- Most importantly, all timestamp comparisons are always carried out with
- respect to Lamport time.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- Bigger differences between the Lamport and the system clock can be annoying
- from a human point of view: when typing 
-\family typewriter
-ls -l /mars/resource-mydata/
-\family default
- many timestamps may appear as if they were created in the 
-\begin_inset Quotes eld
-\end_inset
-
-future
-\begin_inset Quotes erd
-\end_inset
-
-, because the 
-\family typewriter
-ls
-\family default
- command compares the output formatting against the system clock (it does
- not even know of the existence of the MARS Lamport clock).
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/MatieresToxiques.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- Always use 
-\family typewriter
-ntp
-\family default
- (or another clock synchronization service) in order to pre-synchronize
- your system clocks as close as possible.
- Bigger differences are not only annoying, but may lead some people to wrong
- conclusions and therefore even lead to bad human decisions!
-\end_layout
-
-\begin_layout Standard
-In a professional datacenter, you should use 
-\family typewriter
-ntp
-\family default
- anyway, and you should monitor its effectiveness anyway.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-Hint: many internal logfiles produced by the MARS kernel module contain
- Lamport timestamps written as numerical values.
- In order to convert them into human-readable form, use the command 
-\family typewriter
-marsadm cat /mars/5.total.status
-\family default
- or similar.
-\end_layout
-
-\begin_layout Section
-The Symlink Tree
-\begin_inset CommandInset label
-LatexCommand label
-name "sec:The-Symlink-Tree"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- The symlink tree as described here will be replaced by another representation
- in future versions of MARS.
- Therefore, don't do any scripting by directly accessing symlinks! Use the
- primitive macros described in section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sub:Predefined-Trivial-Macros"
-
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Standard
-The current 
-\family typewriter
-/mars/
-\family default
- filesystem container format contains not only transaction logfiles, but
- also acts as a generic storage for (persistent) state information.
- Both configuration information and runtime state information are currently
- stored in symlinks.
- Symlinks are 
-\begin_inset Quotes eld
-\end_inset
-
-misused
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-This means, the symlink targets need not be other files or directories,
- but just any values like integers or strings.
-\end_layout
-
-\end_inset
-
-
-\begin_inset Quotes erd
-\end_inset
-
- in order to represent some 
-\family typewriter
-key -> value
-\family default
- pairs.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-It is not yet clear / decided, but there is a 
-\emph on
-chance
-\emph default
- that the 
-\emph on
-concept
-\emph default
- of 
-\family typewriter
-key -> value
-\family default
- pairs will be retained in future versions of MARS.
- Instead of being represented by symlinks, another representation will be
- used, such that hopefully the 
-\family typewriter
-key
-\family default
- part will remain in the form of a pathname, even if there were no longer
- a physical representation in an actual filesystem.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
- A fundamentally different behaviour than DRBD: when your DRBD primary crashed
- some time ago, and now comes up again, you have to setup DRBD again by
- a sequence of commands like 
-\family typewriter
-modprobe drbd; drbdadm up all; drbdadm primary all
-\family default
- or similar.
- In contrast, MARS needs only 
-\family typewriter
-modprobe mars
-\family default
- (after 
-\family typewriter
-/mars/
-\family default
- has been mounted by 
-\family typewriter
-/etc/fstab
-\family default
-).
- The 
-\emph on
-persistence
-\emph default
- of the symlinks residing in 
-\family typewriter
-/mars/
-\family default
- will automatically remember your previous state, even if some your resources
- were primary while others were secondary (mixed operations).
- You don't need to do any actions in order to 
-\begin_inset Quotes eld
-\end_inset
-
-restore
-\begin_inset Quotes erd
-\end_inset
-
- a previous state, no matter how 
-\begin_inset Quotes eld
-\end_inset
-
-complex
-\begin_inset Quotes erd
-\end_inset
-
- it was.
-\end_layout
-
-\begin_layout Standard
-(Almost) all symlinks appearing in the 
-\family typewriter
-/mars/
-\family default
- directory tree are automatically replicated thoughout the whole cluster,
- provided that the cluster 
-\family typewriter
-uuid
-\family default
-s are equal
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-This is protection against accidental 
-\begin_inset Quotes eld
-\end_inset
-
-merging
-\begin_inset Quotes erd
-\end_inset
-
- of two unrelated clusters which had been created at different times with
- different 
-\family typewriter
-uuids
-\family default
-.
-\end_layout
-
-\end_inset
-
- at all sites.
- Thus the 
-\family typewriter
-/mars/
-\family default
- directory forms some kind of 
-\emph on
-global namespace
-\emph default
-.
-\end_layout
-
-\begin_layout Standard
-In order to avoid name clashes, each pathname created at node A follows
- a convention: the node name A should be a suffix of the pathname.
- Typically, internal MARS names follow the scheme 
-\family typewriter
-/mars/
-\emph on
-something
-\emph default
-/myname-A
-\family default
-.
- When using the expert command 
-\family typewriter
-marsadm {get,set}-link
-\family default
- (which will likely be replaced by something else in future MARS releases),
- you should follow the best practice of systematically using pathnames like
- 
-\family typewriter
-/mars/userspace/myname-A
-\family default
- or similar.
- As a result, each node will automatically get informed about the state
- at any other node, like B when the corresponding information is recorded
- on node B under the name 
-\family typewriter
-/mars/userspace/myname-B
-\family default
- (context-dependent names).
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
- Experts only: the symlink replication works generically.
- You might use the 
-\family typewriter
-/mars/userspace/
-\family default
- directory in order to place your own symlink there (for whatever purpose,
- which need not have to do with MARS).
- However, the symlinks are likely to disappear.
- Use 
-\family typewriter
-marsadm {get,set}-link
-\family default
- instead.
- There is a chance that these abstract commands (or variants thereof) will
- be retained, by acting on the new data representation in future, even if
- the old symlink format will vanish some day.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-Important: the convention of placing the 
-\series bold
-creator host name
-\series default
- inside your pathnames should be used wherever possible.
- The name part is a kind of 
-\begin_inset Quotes eld
-\end_inset
-
-ownership indicator
-\begin_inset Quotes erd
-\end_inset
-
-.
- It is crucial that no other host writes any symlink not 
-\begin_inset Quotes eld
-\end_inset
-
-belonging
-\begin_inset Quotes erd
-\end_inset
-
- to him.
- Other hosts may read foreign information as often as they want, but never
- modify them.
- This way, your cluster nodes are able to 
-\emph on
-communicate
-\emph default
- with each other via symlink / information updates.
-\end_layout
-
-\begin_layout Standard
-Although experts might create (and change) the current symlinks with userspace
- tools like 
-\family typewriter
-ln -s
-\family default
-, you should use the following marsadm commands instead:
-\end_layout
-
-\begin_layout Itemize
-
-\family typewriter
-marsadm set-link myvalue /mars/userspace/mykey-A
-\end_layout
-
-\begin_layout Itemize
-
-\family typewriter
-marsadm delete-file /mars/userspace/mykey-A
-\end_layout
-
-\begin_layout Standard
-There are many reasons for this: first, the 
-\family typewriter
-marsadm set-link
-\family default
- command will automatically use the Lamport clock for symlink creation,
- and therefore will avoid any errors resulting from a 
-\begin_inset Quotes eld
-\end_inset
-
-wrong
-\begin_inset Quotes erd
-\end_inset
-
- system clock (as in 
-\family typewriter
-ln -s
-\family default
-).
- Second, the 
-\family typewriter
-marsadm delete-file
-\family default
- (which also deletes symlinks) works on the 
-\emph on
-whole cluster
-\emph default
-.
- And finally, there is a chance that this will work in future versions of
- MARS even after the symlinks have vanished.
-\end_layout
-
-\begin_layout Standard
-What's the difference? If you would try to remove your symlink locally by
- hand via 
-\family typewriter
-rm -f
-\family default
-, you will be surprised: since the symlink has been replicated to the other
- cluster nodes, it will be re-transferred from there and will be resurrected
- locally after some short time.
- This way, you cannot delete any object reliably, because your whole cluster
- (which may consist of many nodes) remembers all your state information
- and will 
-\begin_inset Quotes eld
-\end_inset
-
-correct
-\begin_inset Quotes erd
-\end_inset
-
- it whenever 
-\begin_inset Quotes eld
-\end_inset
-
-necessary
-\begin_inset Quotes erd
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Standard
-In order to solve the deletion problem, MARS Light uses some internal deletion
- protocol using auxiliary symlinks residing in 
-\family typewriter
-/mars/todo-global/.
-
-\family default
- The deletion protocol ensures that all replicas get deleted in the whole
- cluster, and only thereafter the auxiliary symlinks in 
-\family typewriter
-/mars/todo-global/
-\family default
- are also deleted eventually.
-\end_layout
-
-\begin_layout Standard
-You may update your already existing symlink via 
-\family typewriter
-marsadm set-link some-other-value /mars/userspace/mykey-A
-\family default
- .
- The new value will be propagated throughout the cluster according to a
- 
-\series bold
-timestamp comparison protocol
-\series default
-: whenever node B notices that A has a 
-\emph on
-newer
-\emph default
- version of some symlink (according to the Lamport timestamp), it will replace
- its elder version by the newer one.
- The opposite does 
-\emph on
-not
-\emph default
- work: if B notices that A has an elder version, just nothing happens.
- This way, the timestamps of symlinks can only progress in forward direction,
- but never backwards in time.
-\end_layout
-
-\begin_layout Standard
-As a consequence, symlink updates made 
-\begin_inset Quotes eld
-\end_inset
-
-by hand
-\begin_inset Quotes erd
-\end_inset
-
- via 
-\family typewriter
-ln -sf
-\family default
- may get lost when the local system clock is much more earlier than the
- Lamport clock.
-\end_layout
-
-\begin_layout Standard
-When your cluster is fully connected by the network, the last timestamp
- will finally win everywhere.
- Only in case of network outages leading to 
-\emph on
-network partitions
-\emph default
-, some information may be 
-\emph on
-temporarily inconsistent
-\emph default
-, but only for the duration of the network outage.
- The timestamp comparison protocol in combination with the Lamport clock
- and with the persistence of the 
-\family typewriter
-/mars/
-\family default
- filesystem will automatically heal any temporary inconsistencies as soon
- as possible, even in case of temporary node shutdown.
-\end_layout
-
-\begin_layout Standard
-The meaning of some internal MARS Light symlinks residing in 
-\family typewriter
-/mars/
-\family default
- will be hopefully documented in section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:Documentation-of-the"
-
-\end_inset
-
- some day.
-\end_layout
-
-\begin_layout Section
-Defending Overflow of 
-\family typewriter
-/mars/
-\begin_inset CommandInset label
-LatexCommand label
-name "sec:Defending-Overflow"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-This section describes an important difference to DRBD.
- The metadata of DRBD is allocated 
-\emph on
-statically
-\emph default
- at 
-\emph on
-creation
-\emph default
- 
-\emph on
-time
-\emph default
- of the resource.
- In contrast, the MARS transaction logfiles are allocated 
-\emph on
-dynamically
-\emph default
- at 
-\emph on
-runtime
-\emph default
-.
-\end_layout
-
-\begin_layout Standard
-This leads to a potential risk from the perspective of a sysadmin: what
- happens if the 
-\family typewriter
-/mars/
-\family default
- filesystem runs out of space?
-\end_layout
-
-\begin_layout Standard
-No risk, no fun.
- If you want a system which survives long-lasting network outages while
- keeping your replicas always consistent (anytime consistency), you 
-\emph on
-need
-\emph default
- dynamic memory for that.
- It is 
-\emph on
-impossible
-\emph default
- to solve that problem using static memory
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-The bitmaps used by DRBD don't preserve the 
-\emph on
-order
-\emph default
- of write operations.
- They cannot do that, because their space is 
-\begin_inset Formula $O(k)$
-\end_inset
-
- for some constant 
-\begin_inset Formula $k$
-\end_inset
-
-.
- In contrast, MARS preserves the order.
- Preserving the order as such (even when only 
-\emph on
-facts
-\emph default
- about the order were recorded without recording the actual data contents)
- requires 
-\begin_inset Formula $O(n)$
-\end_inset
-
- space where 
-\begin_inset Formula $n$
-\end_inset
-
- is infinitely growing over time.
-\end_layout
-
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Standard
-Therefore, DRBD and MARS have different application areas.
- If you just want a simple system for mirroring your data over short distances
- like a crossover cable, DRBD will be a suitable choice.
- However, if you need to replicate over longer distances, or if you need
- higher levels of reliability even when multiple failures may accumulate
- (such as network loss during a 
-\emph on
-re
-\emph default
-sync of DRBD), the transaction logs of MARS can solve that, but at some
- 
-\emph on
-cost
-\emph default
-.
-\end_layout
-
-\begin_layout Subsection
-Countermeasures
-\end_layout
-
-\begin_layout Subsubsection
-Dimensioning of 
-\family typewriter
-/mars/
-\begin_inset CommandInset label
-LatexCommand label
-name "sub:Dimensioning-of-/mars/"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-The first (and most important) measure against overflow of 
-\family typewriter
-/mars/
-\family default
- is simply to dimension it large enough to survive longer-lasting problems,
- at least one weekend.
-\end_layout
-
-\begin_layout Standard
-Recommended size is at least one dedicated disk, residing at a hardware
- RAID controller with BBU (see section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:Preparation:-What-you"
-
-\end_inset
-
-).
- During normal operation, that size is needed only for a small fraction,
- typically a few percent or even less than one percent.
- However, it is your 
-\series bold
-safety margin
-\series default
-.
- Keep it high enough!
-\end_layout
-
-\begin_layout Subsubsection
-Monitoring
-\end_layout
-
-\begin_layout Standard
-The next (equally important) measure is 
-\series bold
-monitoring in userspace
-\series default
-.
-\end_layout
-
-\begin_layout Standard
-Following is a list of countermeasures both in userspace and in kernelspace,
- in the order of 
-\begin_inset Quotes eld
-\end_inset
-
-defensive walling
-\begin_inset Quotes erd
-\end_inset
-
-:
-\end_layout
-
-\begin_layout Enumerate
-Regular userspace monitoring must throw an INFO if a certain freespace limit
- 
-\begin_inset Formula $l_{1}$
-\end_inset
-
- of 
-\family typewriter
-/mars/
-\family default
- is undershot.
- Typical values for 
-\begin_inset Formula $l_{1}$
-\end_inset
-
- are 30%.
- Typical actions are automated calls of 
-\family typewriter
-marsadm log-rotate all
-\family default
- followed by 
-\family typewriter
-marsadm log-delete-all all
-\family default
-.
- You have to implement that yourself in sysadmin space.
-\end_layout
-
-\begin_layout Enumerate
-Regular userspace monitoring must throw a WARNING if a certain freespace
- limit 
-\begin_inset Formula $l_{2}$
-\end_inset
-
- of 
-\family typewriter
-/mars/
-\family default
- is undershot.
- Typical values for 
-\begin_inset Formula $l_{2}$
-\end_inset
-
- are 20%.
- Typical actions are (in addition to 
-\family typewriter
-log-rotate
-\family default
- and 
-\family typewriter
-log-delete-all
-\family default
-) alarming human supervisors via SMS and/or further stronger automated actions.
-\begin_inset Newline newline
-\end_inset
-
-
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-Frequently large space is occupied by files stemming from debugging output,
- or from other programs or processes.
- A hot candidate is 
-\begin_inset Quotes eld
-\end_inset
-
-forgotten
-\begin_inset Quotes erd
-\end_inset
-
- removal of debugging output to 
-\family typewriter
-/mars/
-\family default
-.
- Sometimes, an 
-\family typewriter
-rm -rf $(find /mars/ -name 
-\begin_inset Quotes eld
-\end_inset
-
-*.log
-\begin_inset Quotes erd
-\end_inset
-
-)
-\family default
- can work miracles.
-\begin_inset Newline newline
-\end_inset
-
-
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-Another source of space hogging is a 
-\begin_inset Quotes eld
-\end_inset
-
-forgotten
-\begin_inset Quotes erd
-\end_inset
-
- 
-\family typewriter
-pause-sync
-\family default
- or 
-\family typewriter
-disconnect
-\family default
-.
- Therefore, a simple 
-\family typewriter
-marsadm connect-global all
-\family default
- followed by 
-\family typewriter
-marsadm resume-replay-global all
-\family default
- may also work miracles (if you didn't want to freeze some mirror deliberately).
-\begin_inset Newline newline
-\end_inset
-
-
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-If you just wanted to freeze a mirror at an outdated state for a very long
- time, you simply 
-\emph on
-cannot
-\emph default
- do that without causing infinite growth of space consumption in 
-\family typewriter
-/mars/
-\family default
-.
- Therefore, a 
-\family typewriter
-marsadm leave-resource $res
-\family default
- at 
-\emph on
-exactly that(!)
-\emph default
- secondary site where the mirror is frozen, can also work miracles.
- If you want to automate this in unserspace, be careful.
- It is easy to get unintended effects when choosing the wrong site for 
-\family typewriter
-leave-resource
-\family default
-.
-\begin_inset Newline newline
-\end_inset
-
-
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-Hint: you can / should start some of these measures even earlier at the
- INFO level (see item 1), or even earlier.
-\end_layout
-
-\begin_layout Enumerate
-Regular userspace monitoring must throw an ERROR if a certain freespace
- limit 
-\begin_inset Formula $l_{3}$
-\end_inset
-
- of 
-\family typewriter
-/mars/
-\family default
- is undershot.
- Typical values for 
-\begin_inset Formula $l_{3}$
-\end_inset
-
- are 10%.
- Typical actions are alarming the CEO via SMS and/or even stronger automated
- actions.
- For example, you may choose to automatically call 
-\family typewriter
-marsadm leave-resource $res
-\family default
- on some or all secondary nodes, such that the primary will be left alone
- and now has a chance to really delete its logfiles because no one else
- is any longer potentially needing it.
-\end_layout
-
-\begin_layout Enumerate
-First-level kernelspace action, automatically executed when 
-\family typewriter
-
-\begin_inset Flex URL
-status open
-
-\begin_layout Plain Layout
-
-/proc/sys/mars/required_free_space_4_gb
-\end_layout
-
-\end_inset
-
-
-\family default
- + 
-\family typewriter
-
-\begin_inset Flex URL
-status open
-
-\begin_layout Plain Layout
-
-/proc/sys/mars/required_free_space_3_gb
-\end_layout
-
-\end_inset
-
-
-\family default
- + 
-\family typewriter
-
-\begin_inset Flex URL
-status open
-
-\begin_layout Plain Layout
-
-/proc/sys/mars/required_free_space_2_gb
-\end_layout
-
-\end_inset
-
-
-\family default
- + 
-\family typewriter
-
-\begin_inset Flex URL
-status open
-
-\begin_layout Plain Layout
-
-/proc/sys/mars/required_free_space_1_gb
-\end_layout
-
-\end_inset
-
-
-\family default
- is undershot:
-\begin_inset Newline newline
-\end_inset
-
-a warning will be issued.
-\end_layout
-
-\begin_layout Enumerate
-Second-level kernelspace action, automatically executed when 
-\family typewriter
-
-\begin_inset Flex URL
-status open
-
-\begin_layout Plain Layout
-
-/proc/sys/mars/required_free_space_3_gb
-\end_layout
-
-\end_inset
-
-
-\family default
- + 
-\family typewriter
-
-\begin_inset Flex URL
-status open
-
-\begin_layout Plain Layout
-
-/proc/sys/mars/required_free_space_2_gb
-\end_layout
-
-\end_inset
-
-
-\family default
- + 
-\family typewriter
-
-\begin_inset Flex URL
-status open
-
-\begin_layout Plain Layout
-
-/proc/sys/mars/required_free_space_1_gb
-\end_layout
-
-\end_inset
-
-
-\family default
- is undershot:
-\begin_inset Newline newline
-\end_inset
-
-all locally secondary resources will delete local copies of transaction
- logfiles which are no longer needed locally.
- This is a desperate action of the kernel module.
-\end_layout
-
-\begin_layout Enumerate
-Third-level kernelspace action, automatically executed when 
-\family typewriter
-
-\begin_inset Flex URL
-status open
-
-\begin_layout Plain Layout
-
-/proc/sys/mars/required_free_space_2_gb
-\end_layout
-
-\end_inset
-
-
-\family default
- + 
-\family typewriter
-
-\begin_inset Flex URL
-status open
-
-\begin_layout Plain Layout
-
-/proc/sys/mars/required_free_space_1_gb
-\end_layout
-
-\end_inset
-
-
-\family default
- is undershot:
-\begin_inset Newline newline
-\end_inset
-
-all locally secondary resources will stop fetching transaction logfiles.
- This is a more desperate action of the kernel module.
- You don't want to get there (except for testing).
-\end_layout
-
-\begin_layout Enumerate
-Last desperate kernelspace action when all else has failed and 
-\family typewriter
-
-\begin_inset Flex URL
-status open
-
-\begin_layout Plain Layout
-
-/proc/sys/mars/required_free_space_1_gb
-\end_layout
-
-\end_inset
-
-
-\family default
- is undershot:
-\begin_inset Newline newline
-\end_inset
-
-all locally primary resources will enter 
-\series bold
-emergency mode
-\series default
- (see description below in section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sub:Emergency-Mode"
-
-\end_inset
-
-).
- This is the most desperate action of the kernel module.
- You don't want to get there (except for testing).
-\end_layout
-
-\begin_layout Standard
-In addition, the kernel module obeys a general global limit 
-\family typewriter
-
-\begin_inset Flex URL
-status open
-
-\begin_layout Plain Layout
-
-/proc/sys/mars/required_total_space_0_gb
-\end_layout
-
-\end_inset
-
- +
-\family default
- the sum of all of the above limits.
- When the 
-\emph on
-total size
-\emph default
- of 
-\family typewriter
-/mars/
-\family default
- undershots that sum, the kernel module refuses to start at all, because
- it assumes that it is senseless to try to operate MARS on a system with
- such low memory resources.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-The current level of emergency kernel actions may be viewed at any time
- via 
-\family typewriter
-
-\begin_inset Flex URL
-status collapsed
-
-\begin_layout Plain Layout
-
-/proc/sys/mars/mars_emergency_mode
-\end_layout
-
-\end_inset
-
-
-\family default
-.
-\end_layout
-
-\begin_layout Subsubsection
-Throttling
-\end_layout
-
-\begin_layout Standard
-The last measure for defense of overflow is 
-\series bold
-throttling your performance pigs
-\series default
-.
-\end_layout
-
-\begin_layout Standard
-Motivation: in rare cases, some users with 
-\family typewriter
-ssh
-\family default
- access can do 
-\emph on
-very
-\emph default
- silly things.
- For example, some of them are creating their own backups via user-cron
- jobs, and they do it every 5 minutes.
- Some example guy created a zip archive (almost 1GB) by regularly copying
- his old zip archive into a new one, then appending deltas to the new one,
- and finally deleting the old archive.
- Every 5 minutes.
- Yes, every 5 minutes, although almost never any new files were added to
- the archive.
- Essentially, he copied over his archive, for nothing.
- This led to massive bulk write requests, for ridiculous reasons.
-\end_layout
-
-\begin_layout Standard
-In general, your hard disks (or even RAID systems) allow much higher write
- IO rates than you can ever transport over a standard TCP network from your
- primary site to your secondary, at least over longer distances (see use
- cases for MARS in chapter 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "chap:Use-Cases-for"
-
-\end_inset
-
-).
- Therefore, it is easy to create a such a high write load that it will be
- 
-\emph on
-impossible
-\emph default
- to replicate it over the network, 
-\emph on
-by construction
-\emph default
-.
-\end_layout
-
-\begin_layout Standard
-Therefore, we 
-\emph on
-need
-\emph default
- some mechanism for throttling bulk writers whenever the network is weaker
- than your IO subsystem.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-Notice that DRBD will 
-\emph on
-always
-\emph default
- throttle your writes whenever the network forms a bottleneck, due to its
- synchronous operation mode.
- In contrast, MARS allows for buffering of performance peaks in the transaction
- logfiles.
- 
-\emph on
-Only when
-\emph default
- your buffer in 
-\family typewriter
-/mars/
-\family default
- runs short (cf subsection 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sub:Dimensioning-of-/mars/"
-
-\end_inset
-
-), MARS will start to throttle your application writes.
-\end_layout
-
-\begin_layout Standard
-There are a lot of screws named 
-\family typewriter
-/proc/sys/mars/write_throttle_*
-\family default
- with the following meaning:
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-write_throttle_start_percent
-\family default
- Whenever the used space in 
-\family typewriter
-/mars/
-\family default
- is below this threshold, no throttling will occur at all.
- Only when this threshold is exceeded, throttling will start 
-\emph on
-slowly
-\emph default
-.
- Typical values for this are 60%.
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-write_throttle_end_percent
-\family default
- Maximum throttling will occur once this space threshold is reached, i.e.
- the throttling is now at its maximum effect.
- Typical values for this are 90%.
- When the actual space in 
-\family typewriter
-/mars/
-\family default
- lies between 
-\family typewriter
-write_throttle_start_percent
-\family default
- and 
-\family typewriter
-write_throttle_end_percent
-\family default
-, the strength of throttling will be interpolated linearly between the extremes.
- In practice, this should lead to an equilibrum between new input flow into
- 
-\family typewriter
-/mars/
-\family default
- and output flow over the network to secondaries.
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-write_throttle_size_threshold_kb
-\family default
- (readonly) This parameter shows the internal strength calculation of the
- throttling.
- Only write
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-Read requests are never throttled at all.
-\end_layout
-
-\end_inset
-
- requests exceeding this size (in KB) are throttled at all.
- Typically, this will hurt the bulk performance pigs first, while leaving
- ordinary users (issuing small requests) unaffected.
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-write_throttle_ratelimit_kb
-\family default
- Set the global IO rate in KB/s for those write requests which are throttled.
- In case of strongest
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-In case of lighter throttling, the input flow into 
-\family typewriter
-/mars/
-\family default
- may be higher because small requests are not throttled.
-\end_layout
-
-\end_inset
-
- throttling, this parameters determines the input flow into 
-\family typewriter
-/mars/
-\family default
-.
- The default value is 5.000 KB/s.
- Please adjust this value to your application needs and to your environment.
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-write_throttle_rate_kb
-\family default
- (readonly) Shows the current rate of exactly those requests which are actually
- throttled (in contrast to 
-\emph on
-all
-\emph default
- requests).
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-write_throttle_cumul_kb
-\family default
- (logically readonly) Same as before, but the cumulative sum of all throttled
- requests since startup / reset.
- This value can be reset from userspace in order to prevent integer overflow.
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-write_throttle_count_ops
-\family default
- (logically readonly) Shows the cumulative number of throttled requests.
- This value can be reset from userspace in order to prevent integer overflow.
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-write_throttle_maxdelay_ms
-\family default
- Each request is delayed at most for this timespan.
- Smaller values will improve the responsiveness of your userspace application,
- but at the cost of potentially retarding the requests not sufficiently.
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-write_throttle_minwindow_ms
-\family default
- Set the minimum length of the measuring window.
- The measuring window is the timespan for which the average (throughput)
- rate is computed (see 
-\family typewriter
-write_throttle_rate_kb
-\family default
-).
- Lower values can increase the responsiveness of the controller algorithm,
- but at the cost of accuracy.
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-write_throttle_maxwindow_ms
-\family default
- This parameter must be set sufficiently much greater than 
-\family typewriter
-write_throttle_minwindow_ms
-\family default
-.
- In case the flow of throttled operations pauses for some natural reason
- (e.g.
- switched off, low load, etc), this parameter determines when a completely
- new rate calculation should be started over
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-Motivation: if requests would pause for one hour, the measuring window could
- become also an hour.
- Of course, that would lead to completely meaningless results.
- Two requests in one hour is 
-\begin_inset Quotes eld
-\end_inset
-
-incorrect
-\begin_inset Quotes erd
-\end_inset
-
- from a human point of view: we just have to ensure that averages are computed
- with respect to a reasonable maximum time window in the magnitude of 10s.
-\end_layout
-
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Subsection
-Emergency Mode and its Resolution
-\begin_inset CommandInset label
-LatexCommand label
-name "sub:Emergency-Mode"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-When 
-\family typewriter
-/mars/
-\family default
- is almost full and there is really absolutely no chance of getting rid
- of any local transaction logfile (or free some space in any other way),
- there is only one exit strategy: stop creating new logfile data.
-\end_layout
-
-\begin_layout Standard
-This means that the ability for replication gets lost.
-\end_layout
-
-\begin_layout Standard
-When entering emergency mode, the kernel module will execute the following
- steps for all resources where the affected host is acting as a primary:
-\end_layout
-
-\begin_layout Enumerate
-Do a kind of 
-\begin_inset Quotes eld
-\end_inset
-
-logrotate
-\begin_inset Quotes erd
-\end_inset
-
-, but create a 
-\emph on
-hole
-\emph default
- in the sequence of transaction logfile numbers.
- The 
-\begin_inset Quotes eld
-\end_inset
-
-new
-\begin_inset Quotes erd
-\end_inset
-
- logfile is left empty, i.e.
- no data ist written to it (for now).
- The hole in the numbering will prevent any secondaries from replaying any
- logfiles behind the hole (should they ever contain some data, e.g.
- because the emergency mode has been left again).
- This works because the secondaries are regularly checking the logfile numbers
- for contiguity, and they will refuse to replay anything which is not contiguous.
- As a result, the secondaries will be left in a consistent, but outdated
- state (at least if they already were consistent before that).
-\end_layout
-
-\begin_layout Enumerate
-The kernel module writes back all data present in the temporary memory buffer
- (see figure in section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:The-Transaction-Logger"
-
-\end_inset
-
-).
- This may lead to a (short) delay of user write requests until that has
- finished (typically fractions of a second or a few seconds).
- The reason is that the temporary memory buffer must not be increased in
- parallel during this phase (race conditions).
-\end_layout
-
-\begin_layout Enumerate
-After the temporary memory buffer is empty, all local IO requests (whether
- reads or writes) are directly going to the underlying disk.
- This has the same effect as if MARS would not be present anymore.
- Transaction logging does no longer take place.
-\end_layout
-
-\begin_layout Enumerate
-Any sync from any secondary is stopped ASAP.
- In case they are resuming their sync somewhen later, they will start over
- from the beginning (position 
-\begin_inset Formula $0$
-\end_inset
-
-).
-\end_layout
-
-\begin_layout Standard
-In order to leave emergency mode, the sysadmin should do the following steps:
-\end_layout
-
-\begin_layout Enumerate
-Free enough space.
- For example, delete any foreign files on 
-\family typewriter
-/mars/
-\family default
- which have nothing to do with MARS, or resize the 
-\family typewriter
-/mars/
-\family default
- filesystem, or whatever.
-\end_layout
-
-\begin_layout Enumerate
-If 
-\family typewriter
-
-\begin_inset Flex URL
-status open
-
-\begin_layout Plain Layout
-
-/proc/sys/mars/mars_reset_emergency
-\end_layout
-
-\end_inset
-
-
-\family default
- is not set, now it is time to set it.
- Normally, it should be already set.
-\end_layout
-
-\begin_layout Enumerate
-Notice: as long as not enough space has been freed, a message containing
- 
-\family typewriter
-
-\begin_inset Quotes eld
-\end_inset
-
-EMEGENCY MODE HYSTERESIS
-\begin_inset Quotes erd
-\end_inset
-
-
-\family default
- (or similar) will be displayed by 
-\family typewriter
-marsadm view all
-\family default
-.
- As a consequence, any sync will be automatically halted.
- This applies to freshly invoked syncs also, for example created by 
-\family typewriter
-invalidate
-\family default
- or 
-\family typewriter
-join-resource
-\family default
-.
-\end_layout
-
-\begin_layout Enumerate
-On the secondaries, use 
-\family typewriter
-marsadm invalidate $res
-\family default
- in order to request updating your outdated mirrors.
-\end_layout
-
-\begin_layout Enumerate
-On the primary: 
-\family typewriter
-marsadm log-delete-all all
-\end_layout
-
-\begin_layout Enumerate
-As soon as emough space has been freed everywhere to leave the 
-\family typewriter
-EMEGENCY MODE HYSTERESIS
-\family default
-, sync should really start.
- Until that it had been halted.
-\end_layout
-
-\begin_layout Standard
-Alternatively, there is another method by roughly following the instructions
- from appendix 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "chap:Alternative-Methods-for"
-
-\end_inset
-
-, but in a slightly different order.
- In this case, do 
-\family typewriter
-leave-resource
-\family default
- everywhere on 
-\emph on
-all
-\emph default
- secondaries, but 
-\emph on
-don't
-\emph default
- start the 
-\family typewriter
-join-resource
-\family default
- phase 
-\emph on
-for now
-\emph default
-.
- Then cleanup all your secondaries via 
-\family typewriter
-log-purge-all
-\family default
-, and finally 
-\family typewriter
-log-delete-all all
-\family default
- at the primary, and wait until the emergency has vanished everywhere.
- Only after that, re-
-\family typewriter
-join-resource
-\family default
- your secondaries.
-\begin_inset Newline newline
-\end_inset
-
-
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-Expert advice for 
-\begin_inset Formula $k=2$
-\end_inset
-
- replicas: this means you had only 1 mirror per resource before the overflow
- happened.
- Provided that you have enough space on your LVMs and on 
-\family typewriter
-/mars/
-\family default
-, and provided that transaction logging has automatically restarted after
- 
-\family typewriter
-leave-resource
-\family default
- and 
-\family typewriter
-log-purge-all
-\family default
-, you can recover redundancy by creating a 
-\emph on
-new
-\emph default
- replica via 
-\family typewriter
-marsadm join-resource $res
-\family default
- on a 
-\emph on
-third
-\emph default
- node.
- Only after the initial full sync has finished there, run 
-\family typewriter
-join-resource 
-\family default
-at your original mirror.
- This way, you will always retain at least one 
-\series bold
-consistent mirror
-\series default
- somewhere.
- After all is up-to-date, you can delete the superfluous mirror by 
-\family typewriter
-marsadm leave-resource $res
-\family default
- and reclaim the disk space from its underlying LVM disk.
-\begin_inset Newline newline
-\end_inset
-
-
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-If you already have 
-\begin_inset Formula $k>2$
-\end_inset
-
- replicas in total, it may be a wise idea to prefer the 
-\family typewriter
-leave-resource ; log-purge-all ; join-resource
-\family default
- method in front of 
-\family typewriter
-invalidate
-\family default
- because it does not invalidate 
-\emph on
-all
-\emph default
- your replicas at the same time (when handled properly in the right order).
 \end_layout
 
 \begin_layout Chapter
