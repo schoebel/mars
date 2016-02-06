@@ -459,6 +459,20 @@ extern void mref_checksum(struct mref_object *mref);
 
 /////////////////////////////////////////////////////////////////////////
 
+/* Crash-testing instrumentation.
+ * Only for debugging. Never use this for production.
+ * Simulate a crash at the "wrong moment".
+ */
+
+#ifdef CONFIG_MARS_DEBUG
+extern int mars_crash_mode;
+extern void _crashme(int mode, bool do_sync);
+#else
+extern inline void _crashme(int mode, bool do_sync) {}
+#endif
+
+/////////////////////////////////////////////////////////////////////////
+
 // init
 
 extern int init_mars(void);
