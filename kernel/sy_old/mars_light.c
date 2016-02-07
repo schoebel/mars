@@ -3285,13 +3285,6 @@ int _make_logging_status(struct mars_rotate *rot)
 				    (skip_new && !_check_allow(global, parent, "connect"))) {
 					MARS_INF_TO(rot->log_say, "start switchover from transaction log '%s' to '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
 					_make_new_replaylink(rot, rot->next_relevant_log->d_rest, rot->next_relevant_log->d_serial, rot->next_relevant_log->new_stat.size);
-				} else if (!_check_allow(global, parent, "connect")) {
-					char *new_path = path_make("%s/log-%09d-%s", parent->d_path, log_nr + 1, my_id());
-					if (strcmp(new_path, rot->next_relevant_log->d_path)) {
-						MARS_WRN("FORCING PRIMARY LOGFILE '%s'\n", new_path);
-						_create_new_logfile(new_path);
-					}
-					brick_string_free(new_path);
 				}
 			} else if (rot->todo_primary) {
 				if (dent->d_serial > log_nr)
