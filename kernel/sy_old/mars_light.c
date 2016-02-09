@@ -2489,7 +2489,8 @@ static
 const char *get_versionlink(const char *parent_path, int seq, const char *host, const char **linkpath)
 {
 	const char * _linkpath = path_make("%s/version-%09d-%s", parent_path, seq, host);
-	*linkpath = _linkpath;
+	if (linkpath)
+		*linkpath = _linkpath;
 	if (unlikely(!_linkpath)) {
 		MARS_ERR("no MEM\n");
 		return NULL;
@@ -3110,6 +3111,7 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 	struct mars_dent *dent = rot->relevant_log;
 	struct mars_dent *parent;
 	struct mars_global *global = NULL;
+	const char *vers_link = NULL;
 	int status = 0;
 
 	if (!dent)
@@ -3151,6 +3153,33 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 			*oldpos_start = 0;
 	}
 
+	vers_link = get_versionlink(rot->parent_path, *log_nr, my_id(), NULL);
+	if (vers_link) {
+		long long vers_pos = 0;
+		int offset = 0;
+		int i;
+
+		for (i = 0; i < 2; i++) {
+			offset += skip_part(vers_link + offset);
+			if (unlikely(!vers_link[offset++])) {
+				MARS_ERR_TO(rot->log_say, "version link '%s' is malformed\n", vers_link);
+				goto check_pos;
+			}
+		}
+
+		sscanf(vers_link + offset, "%lld", &vers_pos);
+		if (vers_pos < *oldpos_start) {
+			MARS_WRN("versionlink has smaller startpos %lld < %lld\n",
+				 vers_pos, *oldpos_start);
+			/* for safety, take the minimum of both */
+			*oldpos_start = vers_pos;
+		} else if (vers_pos > *oldpos_start) {
+			MARS_WRN("versionlink has greater startpos %lld > %lld\n",
+				 vers_pos, *oldpos_start);
+		}
+
+	}
+ check_pos:
 	*newpos = rot->aio_info.current_size;
 
 	if (unlikely(rot->aio_info.current_size < *oldpos_start)) {
@@ -3195,6 +3224,7 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 	}
 
 done:
+	brick_string_free(vers_link);
 	return status;
 }
 
