@@ -29,6 +29,15 @@ umask 0077;
 
 ##################################################################
 
+# global defaults
+
+my $threshold = 10 * 1024 * 1024;
+my $window = 30;
+my $verbose = 0;
+my $dry_run = 0;
+
+##################################################################
+
 # messaging
 
 my $error_count = 0;
@@ -58,6 +67,14 @@ sub lprint_stderr {
 
 sub ldie {
   my ($text) = @_;
+  if ($verbose > 2) {
+    my $i = 1;
+    for (;;) {
+      my ($package, $filename, $line, $subroutine, $hasargs, $wantarray, $evaltext, $is_require, $hints, $bitmask, $hinthash) = caller($i++);
+      last unless defined($subroutine);
+      lprint_stderr "$line:$subroutine\n";
+    }
+  }
   $error_count++;
   lprint_stderr "DYING: $text";
   llog("DYING: $text");
@@ -110,10 +127,6 @@ sub correct_path {
 
 my @link_list = ();
 my %link_hash;
-my $threshold = 10 * 1024 * 1024;
-my $window = 30;
-my $verbose = 0;
-my $dry_run = 0;
 
 sub get_link {
   my ($path, $unchecked) = @_;
