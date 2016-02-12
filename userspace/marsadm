@@ -306,7 +306,7 @@ sub wait_cond {
       );
     my $name = $table{$specific};
     ldie "actual indicator '$specific' does not exist\n" unless exists($table{$specific});
-    check_status($cmd, $res, $name, $is_on ? 1 : 0, 1);
+    check_status($cmd, $res, $name, $is_on ? 1 : 0, 1, 1);
   } else {
     my %table =
       (
@@ -487,7 +487,7 @@ sub check_sync_finished {
 sub check_primary {
   my ($cmd, $res) = @_;
   my $lnk = "$mars/resource-$res/actual-$host/is-primary";
-  my $is_primary = get_link($lnk);
+  my $is_primary = get_link($lnk, 1);
   if (!$is_primary) { # give it a second chance
     my $name = get_link("$mars/resource-$res/device-$host", 1);
     my $dev = "/dev/mars/$name";
@@ -580,7 +580,7 @@ sub check_status {
   my $link;
   for (;;) {
     $link = get_link($path, $unchecked);
-    return unless defined($link);
+    $link = 0 unless (defined($link) && $link ne "");
     if (defined($inv) && $inv) {
       last if $link != $val;
       lprint "$wait_msg actual '$key' != '$val'...\n";
