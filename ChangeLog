@@ -96,6 +96,22 @@ Changelog for series 0.2:
 -----------------------------------
 Changelog for series 0.1:
 
+light0.1stable26
+--------
+	* Minor fixes: some primitive macros were reporting misleading or
+	  even wrong values at split brain, or during/after emergency mode.
+	  Some high-level macros as well as try_to_avoid_split_brain
+	  should work better / more reliable now.
+	* Minor fix: potential deadlock after crash reboot, or after
+	  defective /mars filesystem. Never observed in practice.
+	* Minor safeguard: unnecessary split brain could emerge at
+	  secondaries under extremely rare and strange conditions.
+	  Unsure whether it ever occurred in practice.
+	* Minor usability improvement: show incorrect permissions on /mars.
+	  Some other sysadmin tools like Puppet seem to have their own
+	  default notion of "secure permissions" ;)
+	* Minor doc reorg, better chapter structure.
+
 light0.1stable25
 --------
 	* Major fix: in rare cases "marsadm primary" (without --force)
