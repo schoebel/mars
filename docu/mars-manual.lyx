@@ -14572,12 +14572,21 @@ etc.
 \begin_layout Itemize
 
 \family typewriter
-%fetch-lognr{} 
+%{replay,fetch}-lognr{} 
 \family default
-etc.
- Get logfile numbers.
- Only for curious humans - don't use in scripts, don't base any decisions
- on this.
+Get current logfile number of replay or fetch position.
+ Only for curious humans or for debugging - don't use in scripts, don't
+ base any decisions on this.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+%replay-basenr{} 
+\family default
+Get currently first reachable logfile number.
+ Only for curious humans or for debugging - don't use in scripts, don't
+ base any decisions on this.
  
 \end_layout
 
@@ -14592,7 +14601,7 @@ etc.
 %is-consistent{}
 \family default
  - it is risky to base decisions on this.
- 
+ Mostly for historical reasons.
 \end_layout
 
 \begin_layout Itemize
