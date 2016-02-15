@@ -306,7 +306,7 @@ sub wait_cond {
       );
     my $name = $table{$specific};
     ldie "actual indicator '$specific' does not exist\n" unless exists($table{$specific});
-    check_status($cmd, $res, $name, $is_on ? 1 : 0, 1);
+    check_status($cmd, $res, $name, $is_on ? 1 : 0, 1, 1);
   } else {
     my %table =
       (
@@ -487,7 +487,7 @@ sub check_sync_finished {
 sub check_primary {
   my ($cmd, $res) = @_;
   my $lnk = "$mars/resource-$res/actual-$host/is-primary";
-  my $is_primary = get_link($lnk);
+  my $is_primary = get_link($lnk, 1);
   if (!$is_primary) { # give it a second chance
     my $name = get_link("$mars/resource-$res/device-$host", 1);
     my $dev = "/dev/mars/$name";
@@ -580,7 +580,7 @@ sub check_status {
   my $link;
   for (;;) {
     $link = get_link($path, $unchecked);
-    return unless defined($link);
+    $link = 0 unless (defined($link) && $link ne "");
     if (defined($inv) && $inv) {
       last if $link != $val;
       lprint "$wait_msg actual '$key' != '$val'...\n";
@@ -715,6 +715,84 @@ sub compare_replaylinks {
   return -1 if $a_pos < $b_pos;
   return +1 if $a_pos > $b_pos;
   return 0;
+}
+
+##################################################################
+
+sub get_amount {
+  my ($resdir, $host, $direction, $only_files) = @_;
+  my $level = 0;
+  my $firstpos = 0;
+  my $logpos = 0;
+  my $oldpos = 0;
+  my $sum = 0;
+  for (;;) {
+    my $val0 = 0;
+    my $ok = 0;
+    if (!$level) {
+      my $replay_path = sprintf("%s/replay-%s", $resdir, $host);
+      my $replay_link = get_link($replay_path, 1);
+      return (0, 0, 0, 0) if !$replay_link;
+      return (0, 0, 0, 0) if $replay_link !~ m:log-([0-9]+)-[^,]+,([0-9]+),([0-9]+):;
+      $firstpos = int($1);
+      $logpos = $firstpos;
+      if ($direction < 0) {
+	$sum = $2;
+      } else {
+	$val0 = $2;
+	$sum = $3;
+      }
+    }
+    if ($level > 0 || $direction > 0) {
+      my $file = sprintf("%s/log-%09d-%s", $resdir, $logpos, $host);
+      my @stat = stat($file);
+      my $val = 0;
+      if (@stat) {
+	$val = $stat[7];
+	$ok = 1;
+      } else {
+	my $glob = sprintf("%s/log-%09d-*", $resdir, $logpos);
+	foreach $file (glob($glob)) {
+	  my @tstat = stat($file);
+	  if (@tstat && $tstat[7] > $val) {
+	    @stat = @tstat;
+	    $val = $stat[7];
+	    $ok = 1;
+	  }
+	}
+      }
+      if (!$only_files) {
+	my $glob = sprintf("%s/version-%09d-*", $resdir, $logpos);
+	foreach $file (glob($glob)) {
+	  my $vers_link = get_link($file, 1);
+	  if ($vers_link && $vers_link =~ m;,([0-9]+):;) {
+	    my $nval = $1;
+	    $val = $nval if $nval > $val;
+	    $ok = 1;
+	  }
+	}
+      }
+      return ($sum, $firstpos, $oldpos, $level) unless $ok;
+      if ($level > 0) {
+	$sum += $val;
+      } else {
+	# the logfile may be bigger than the replay pos/length
+	my $new_sum = $val - $val0;
+	$sum = $new_sum if $new_sum > $sum;
+	$sum = 0 if $sum < 0;
+      }
+    }
+    $oldpos = $logpos;
+    if ($direction > 0) {
+      $logpos++;
+    } elsif ($direction < 0) {
+      $logpos--;
+      return ($sum, $firstpos, $oldpos, $level) if $logpos < 1;
+    } else {
+      return ($sum, $firstpos, $oldpos, $level);
+    }
+    $level++;
+  }
 }
 
 ##################################################################
@@ -3119,88 +3197,26 @@ sub eval_fn {
       my $lnk = $$env{"resdir"} . "/syncstatus-" . $$env{"host"};
       return get_link($lnk, 1);
     }
-    if (/^(fetch|replay|work|syncpos)[-_]?(size|pos|lognr|basenr|_internal_)$/) {
+    if (/^(replay|work)[-_]?(pos|lognr|basenr)$/) {
       my $what = $1;
       my $op   = $2;
-      my $sum = 0;
-      my $pos;
-      # work-* spans both the replay and fetch ranges
-      if ($what eq "work") {
-	$what = ($op eq "size") ? "fetch" : "replay";
-      }
-      my ($min, $max, $inter_sum) = (0, 0, 0);
-      if ($op eq "size" || ($what eq "fetch" && $op =~ /nr$/)) {
-	if ($what eq "replay") { # same as fetch-pos
-	  return eval_fn($env, "fetch-pos", "");
-	}
-
-	my $primary = _get_designated_primary($$env{"res"});
-	$primary = $host if $primary eq "(none)";
-	my $replay_base_nr = eval_fn($env, "replay-basenr", "");
-
-	my $replay = get_link($$env{"resdir"} . "/replay-$primary", 1);
-	($pos, my $nr, my $from, $sum)  = _parse_pos($$env{"resdir"}, $replay);
-	my $base_nr = $nr;
-	$pos = _get_prev_pos($$env{"resdir"}, $nr, $primary);
-	if ($pos) {
-	  (my $plus, $base_nr) = _mark_path_backward($$env{"resdir"}, $pos, $primary, $replay_base_nr, $host);
-	  $sum += $plus;
-	}
-	
-	($min, $max) = get_minmax_versions($$env{"res"}, "-$primary");
-	my $check_pos = get_link($$env{"resdir"} . "/version-$max-$primary", 1);
-	$check_pos =~ s{^.*(log-[^:]*):.*$}{$1};
-	my ($test_pos, $test_nr, $test_from, $test_sum)  = _parse_pos($$env{"resdir"}, $check_pos);
-	$test_pos = _get_prev_pos($$env{"resdir"}, $test_nr, $primary);
-	my $test_base_nr = $base_nr;
-	if ($test_pos) {
-	  (my $test_plus, $test_base_nr) = _mark_path_backward($$env{"resdir"}, $test_pos, $primary, $replay_base_nr, $host);
-	  $test_sum += $test_plus;
-	}
-	if ($test_sum > $sum) { # take the maximum
-	  ($pos, $nr, $from, $sum, $base_nr) = ($test_pos, $test_nr, $test_from, $test_sum, $test_base_nr);
-	}
-	return $nr if $op eq "lognr";
-	return $base_nr if $op eq "basenr";
-	return $sum;
-      } elsif ($what eq "fetch") { # fetch-pos
-	(my $stop_nr, my $stop_sum, $sum) = eval_fn($env, "replay-_internal_", "");
-	$sum -= $stop_sum;
-	$sum = 0 if $sum < 0;
-	# mark all path elements reachable by the designated primary
-	%visited_pos = ();
-	eval_fn($env, "fetch-size", "");
-	foreach my $file (sort(glob($$env{"resdir"} . "/log-*"))) {
-	  $file =~ m:/log-([0-9]+)-(.*): or ldie "bad path '$file'\n";
-	  my $nr = $1;
-	  my $from = $2;
-	  if ($nr < $stop_nr || !_is_visited($nr, $from)) {
-	    next;
-	  }
-	  my @stat = stat($file);
-	  $sum += $stat[7];
-	}
-	return $sum;
-      } elsif ($what =~ m/replay|syncpos/) {
-	my $replay = get_link($$env{"resdir"} . "/$what-" . $$env{"host"}, $what eq "syncpos" ? 2 : 1);
-	return 0 unless $replay;
-	my ($p, $nr, $from, $len)  = _parse_pos($$env{"resdir"}, $replay);
-	return $nr if $op eq "lognr";
-	$min = $nr;
-	$sum = $len;
-	$inter_sum = $sum;
-	$pos = _get_prev_pos($$env{"resdir"}, $nr, $$env{"host"});
-      } else {
-	ldie "unknown combination '$what' '$op'\n";
-      }
-      if ($pos) {
-	my ($plus, $base_nr) = _mark_path_backward($$env{"resdir"}, $pos, $$env{"host"}, 1);
-	return $base_nr if $op eq "basenr";
-	$sum += $plus;
-      }
-      return $min if $op eq "basenr";
-      return (make_numeric($min), make_numeric($inter_sum), make_numeric($sum)) if $op eq "_internal_";
+      my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $$env{"host"}, -1, 0);
+      return $firstpos if $op eq "lognr";
+      return $logpos if $op eq "basenr";
       return $sum;
+    }
+    if (/^(replay[-_]?size)|(fetch[-_]?pos)$/) {
+      my ($sum0) = get_amount($$env{"resdir"}, $$env{"host"}, -1, 0);
+      my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $$env{"host"}, 1, 1);
+      return $sum0 + $sum;
+    }
+    if (/^(fetch|work)[-_]?(size|lognr)$/) {
+      my $what = $1;
+      my $op   = $2;
+      my ($sum0) = get_amount($$env{"resdir"}, $$env{"host"}, -1, 0);
+      my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $$env{"host"}, 1, 0);
+      return $logpos if $op eq "lognr";
+      return $sum0 + $sum;
     }
     if (/^(sync|fetch|replay|work)[-_]?(rest|(?:almost[-_]?|threshold[-_]?)?reached|percent|permille|vector)$/) {
       my $what = $1;
@@ -5087,8 +5103,10 @@ if ($mars_stat[4]) {
   lwarn "Fixed by setting to 0.\n";
 }
 # check permissions
-if ($mars_stat[2] & 077777 != 0700) {
-  lwarn "Directory $mars has wrong permissions.\n";
+my $perms = ($mars_stat[2] & 07777);
+if ($perms != 0700) {
+  my $txt = sprintf("Directory $mars has wrong permissions 0%o.\n", $perms);
+  lwarn($txt);
   chmod(0700, $mars) or ldie "Cannot chmod $mars.\n";
   lwarn "Fixed to mode 0700 for security reasons.\n";
 }

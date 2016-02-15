@@ -2496,7 +2496,8 @@ static
 const char *get_versionlink(const char *parent_path, int seq, const char *host, const char **linkpath)
 {
 	const char * _linkpath = path_make("%s/version-%09d-%s", parent_path, seq, host);
-	*linkpath = _linkpath;
+	if (linkpath)
+		*linkpath = _linkpath;
 	if (unlikely(!_linkpath)) {
 		MARS_ERR("no MEM\n");
 		return NULL;
@@ -3117,6 +3118,7 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 	struct mars_dent *dent = rot->relevant_log;
 	struct mars_dent *parent;
 	struct mars_global *global = NULL;
+	const char *vers_link = NULL;
 	int status = 0;
 
 	if (!dent)
@@ -3158,6 +3160,33 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 			*oldpos_start = 0;
 	}
 
+	vers_link = get_versionlink(rot->parent_path, *log_nr, my_id(), NULL);
+	if (vers_link) {
+		long long vers_pos = 0;
+		int offset = 0;
+		int i;
+
+		for (i = 0; i < 2; i++) {
+			offset += skip_part(vers_link + offset);
+			if (unlikely(!vers_link[offset++])) {
+				MARS_ERR_TO(rot->log_say, "version link '%s' is malformed\n", vers_link);
+				goto check_pos;
+			}
+		}
+
+		sscanf(vers_link + offset, "%lld", &vers_pos);
+		if (vers_pos < *oldpos_start) {
+			MARS_WRN("versionlink has smaller startpos %lld < %lld\n",
+				 vers_pos, *oldpos_start);
+			/* for safety, take the minimum of both */
+			*oldpos_start = vers_pos;
+		} else if (vers_pos > *oldpos_start) {
+			MARS_WRN("versionlink has greater startpos %lld > %lld\n",
+				 vers_pos, *oldpos_start);
+		}
+
+	}
+ check_pos:
 	*newpos = rot->aio_info.current_size;
 
 	if (unlikely(rot->aio_info.current_size < *oldpos_start)) {
@@ -3202,6 +3231,7 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 	}
 
 done:
+	brick_string_free(vers_link);
 	return status;
 }
 
@@ -3262,13 +3292,6 @@ int _make_logging_status(struct mars_rotate *rot)
 				    (skip_new && !_check_allow(global, parent, "connect"))) {
 					MARS_INF_TO(rot->log_say, "start switchover from transaction log '%s' to '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
 					_make_new_replaylink(rot, rot->next_relevant_log->d_rest, rot->next_relevant_log->d_serial, rot->next_relevant_log->new_stat.size);
-				} else if (!_check_allow(global, parent, "connect")) {
-					char *new_path = path_make("%s/log-%09d-%s", parent->d_path, log_nr + 1, my_id());
-					if (strcmp(new_path, rot->next_relevant_log->d_path)) {
-						MARS_WRN("FORCING PRIMARY LOGFILE '%s'\n", new_path);
-						_create_new_logfile(new_path);
-					}
-					brick_string_free(new_path);
 				}
 			} else if (rot->todo_primary) {
 				if (dent->d_serial > log_nr)
