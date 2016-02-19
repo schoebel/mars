@@ -3157,7 +3157,7 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 	}
 
 	vers_link = get_versionlink(rot->parent_path, *log_nr, my_id(), NULL);
-	if (vers_link) {
+	if (vers_link && vers_link[0]) {
 		long long vers_pos = 0;
 		int offset = 0;
 		int i;
