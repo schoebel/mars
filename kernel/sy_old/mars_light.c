@@ -3602,6 +3602,7 @@ int _stop_trans(struct mars_rotate *rot, const char *parent_path)
 			}
 		}
 	}
+	write_info_links(rot);
 
 done:
 	return status;
