@@ -1651,6 +1651,30 @@ MARS utilizes the existing network bandwidth as best as possible in order
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Note that 
+\emph on
+in average
+\emph default
+ during a longer period of time, the network must have emough capacity for
+ transporting all of your data.
+ MARS cannot magically break through information-theoretic limits.
+ It cannot magically transport gigabytes of data over modem lines.
+ Only 
+\emph on
+relatively short
+\emph default
+ network problems / packet loss can be compensated.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
@@ -1682,9 +1706,34 @@ as up-to-date as possible
 There is simply no better way to do it.
 
 \series default
- In presence of network bottlenecks, there exists no better method than
- prescribed by the information theoretic limit (red line, neglecting data
- compression).
+ In presence of temporary network bottlenecks such as network congenstion,
+ there exists no better method than prescribed by the information theoretic
+ limit (red line, neglecting data compression).
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In order to get all of your data through the line, somewhen the network
+ must be healthy again.
+ Otherwise, data will be recorded until the capacity of the 
+\family typewriter
+/mars/
+\family default
+ filesystem is exhausted, leading to an emergency mode (see section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Resolution-of-Emergency"
+
+\end_inset
+
+).
 \end_layout
 
 \begin_layout Standard
@@ -1697,10 +1746,45 @@ There is simply no better way to do it.
 \end_inset
 
 MARS' property of never sacrificing local data consistency (at the possible
- cost of actuality) is called 
+ cost of actuality, as long as you have enough capacity in 
+\family typewriter
+/mars/
+\family default
+) is called 
 \series bold
 Anytime Consistency
 \series default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Even when the capacity of 
+\family typewriter
+/mars/
+\family default
+ is exhausted and when emergency mode is entered, the replicas will not
+ become inconsistent by themselves.
+ However, when the emergency mode is later 
+\emph on
+cleaned up
+\emph default
+ for a replica, it will become temporarily inconsistent during the fast
+ full sync.
+ Details are in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Resolution-of-Emergency"
+
+\end_inset
+
 .
 \end_layout
 
