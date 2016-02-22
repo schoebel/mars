@@ -1933,17 +1933,37 @@ Our experience leads to the following rule of thumb, not formally proven
 \end_layout
 
 \begin_layout Quotation
-In general, synchronous data replication (not limited to applications of
- DRBD) works reliably only over distances 
+In general
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+We have heard of cases where even less than 50 km were not working with
+ DRBD.
+ It depends on application workload, on properties of the line, and on congestio
+n caused by other traffic.
+ Some other people told us that according to 
+\emph on
+their
+\emph default
+ experience, much lesser distances should be considered operable, only in
+ the range of a few single kilometers.
+ However, they agree that DRBD is rock stable when used on crossover cables.
+\end_layout
+
+\end_inset
+
+, synchronous data replication (not limited to applications of DRBD) works
+ reliably only over distances 
 \begin_inset Formula $<50$
 \end_inset
 
- km.
+ km, or sometimes even less.
 \end_layout
 
 \begin_layout Standard
-There may be some exceptions, at least when dealing with low-end workstation
- loads.
+There may be some exceptions, e.g.
+ when dealing with low-end workstation loads.
  But when you are responsible for a whole datacenter and/or some centralized
  storage units, don't waste your time by trying (almost) impossible things.
  We recommend to use MARS in such use cases.
