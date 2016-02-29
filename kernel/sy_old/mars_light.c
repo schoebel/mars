@@ -1061,9 +1061,9 @@ int compare_replaylinks(struct mars_rotate *rot, const char *hosta, const char *
 		MARS_ERR_TO(rot->log_say, "replay link '%s' -> '%s' is malformed\n", linkb, b);
 	}
 
-	if (posa < posb) {
+	if (offa < offb) {
 		res = -1;
-	} else if (posa > posb) {
+	} else if (offa > offb) {
 		res = 1;
 	} else {
 		res = 0;
