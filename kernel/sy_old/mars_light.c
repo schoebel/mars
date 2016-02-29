@@ -4356,7 +4356,6 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	status = -ENOENT;
 	CHECK_PTR(rot, done);
 
-	rot->forbid_replay = false;
 	rot->has_symlinks = true;
 	rot->allow_update = true;
 	rot->syncstatus_dent = dent;
@@ -4439,10 +4438,10 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	 */
 	if (do_start)
 		write_info_links(rot);
-	if (do_start && compare_replaylinks(rot, peer, my_id()) < 0) {
+	rot->forbid_replay = (do_start && compare_replaylinks(rot, peer, my_id()) < 0);
+	if (rot->forbid_replay) {
 		MARS_INF("cannot start sync because my data is newer than the remote one at '%s'!\n", peer);
 		do_start = false;
-		rot->forbid_replay = true;
 	}
 
 	/* Flip between replay and sync
