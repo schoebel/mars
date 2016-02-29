@@ -4437,6 +4437,8 @@ static int make_sync(void *buf, struct mars_dent *dent)
 
 	/* Disallow overwrite of newer data
 	 */
+	if (do_start)
+		write_info_links(rot);
 	if (do_start && compare_replaylinks(rot, peer, my_id()) < 0) {
 		MARS_INF("cannot start sync because my data is newer than the remote one at '%s'!\n", peer);
 		do_start = false;
