@@ -1584,6 +1584,11 @@ sub join_cluster {
   unless ($dry_run) {
     _run_rsync("rsync --recursive --links --max-size=1 -v $peer:$mars/ $mars/");
   }
+  # check uniqness of IPs
+  foreach my $other_ip_path (glob("$mars/ips/*")) {
+    my $other_ip = get_link($other_ip_path, 1);
+    ldie "New IP '$ip' already exists at '$other_ip_path'\n" if $ip eq $other_ip;
+  }
   _create_cluster(@_);
   finish_links();
   unless ($dry_run) {
