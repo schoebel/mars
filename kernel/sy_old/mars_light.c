@@ -2474,28 +2474,31 @@ void _create_new_logfile(const char *path)
 }
 
 static
+const char *__get_link_path(const char *_linkpath, const char **linkpath)
+{
+	const char *res = mars_readlink(_linkpath);
+
+	if (linkpath)
+		*linkpath = _linkpath;
+	else
+		brick_string_free(_linkpath);
+	return res;
+}
+
+static
 const char *get_replaylink(const char *parent_path, const char *host, const char **linkpath)
 {
 	const char * _linkpath = path_make("%s/replay-%s", parent_path, host);
-	*linkpath = _linkpath;
-	if (unlikely(!_linkpath)) {
-		MARS_ERR("no MEM\n");
-		return NULL;
-	}
-	return mars_readlink(_linkpath);
+
+	return __get_link_path(_linkpath, linkpath);
 }
 
 static
 const char *get_versionlink(const char *parent_path, int seq, const char *host, const char **linkpath)
 {
 	const char * _linkpath = path_make("%s/version-%09d-%s", parent_path, seq, host);
-	if (linkpath)
-		*linkpath = _linkpath;
-	if (unlikely(!_linkpath)) {
-		MARS_ERR("no MEM\n");
-		return NULL;
-	}
-	return mars_readlink(_linkpath);
+
+	return __get_link_path(_linkpath, linkpath);
 }
 
 static inline
