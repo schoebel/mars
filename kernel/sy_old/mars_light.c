@@ -1061,9 +1061,9 @@ int compare_replaylinks(struct mars_rotate *rot, const char *hosta, const char *
 		MARS_ERR_TO(rot->log_say, "replay link '%s' -> '%s' is malformed\n", linkb, b);
 	}
 
-	if (posa < posb) {
+	if (offa < offb) {
 		res = -1;
-	} else if (posa > posb) {
+	} else if (offa > offb) {
 		res = 1;
 	} else {
 		res = 0;
@@ -1318,8 +1318,6 @@ void write_info_links(struct mars_rotate *rot)
 		
 		if (inf.inf_is_logging || inf.inf_is_replaying) {
 			count += _update_replay_link(rot, &inf);
-		}
-		if (inf.inf_is_logging || inf.inf_is_replaying) {
 			count += _update_version_link(rot, &inf);
 			if (min > rot->inf_old_sequence) {
 				mars_sync();
@@ -2481,28 +2479,31 @@ void _create_new_logfile(const char *path)
 }
 
 static
+const char *__get_link_path(const char *_linkpath, const char **linkpath)
+{
+	const char *res = mars_readlink(_linkpath);
+
+	if (linkpath)
+		*linkpath = _linkpath;
+	else
+		brick_string_free(_linkpath);
+	return res;
+}
+
+static
 const char *get_replaylink(const char *parent_path, const char *host, const char **linkpath)
 {
 	const char * _linkpath = path_make("%s/replay-%s", parent_path, host);
-	*linkpath = _linkpath;
-	if (unlikely(!_linkpath)) {
-		MARS_ERR("no MEM\n");
-		return NULL;
-	}
-	return mars_readlink(_linkpath);
+
+	return __get_link_path(_linkpath, linkpath);
 }
 
 static
 const char *get_versionlink(const char *parent_path, int seq, const char *host, const char **linkpath)
 {
 	const char * _linkpath = path_make("%s/version-%09d-%s", parent_path, seq, host);
-	if (linkpath)
-		*linkpath = _linkpath;
-	if (unlikely(!_linkpath)) {
-		MARS_ERR("no MEM\n");
-		return NULL;
-	}
-	return mars_readlink(_linkpath);
+
+	return __get_link_path(_linkpath, linkpath);
 }
 
 static inline
@@ -3161,7 +3162,7 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 	}
 
 	vers_link = get_versionlink(rot->parent_path, *log_nr, my_id(), NULL);
-	if (vers_link) {
+	if (vers_link && vers_link[0]) {
 		long long vers_pos = 0;
 		int offset = 0;
 		int i;
@@ -3606,6 +3607,7 @@ int _stop_trans(struct mars_rotate *rot, const char *parent_path)
 			}
 		}
 	}
+	write_info_links(rot);
 
 done:
 	return status;
@@ -4359,7 +4361,6 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	status = -ENOENT;
 	CHECK_PTR(rot, done);
 
-	rot->forbid_replay = false;
 	rot->has_symlinks = true;
 	rot->allow_update = true;
 	rot->syncstatus_dent = dent;
@@ -4440,10 +4441,12 @@ static int make_sync(void *buf, struct mars_dent *dent)
 
 	/* Disallow overwrite of newer data
 	 */
-	if (do_start && compare_replaylinks(rot, peer, my_id()) < 0) {
+	if (do_start)
+		write_info_links(rot);
+	rot->forbid_replay = (do_start && compare_replaylinks(rot, peer, my_id()) < 0);
+	if (rot->forbid_replay) {
 		MARS_INF("cannot start sync because my data is newer than the remote one at '%s'!\n", peer);
 		do_start = false;
-		rot->forbid_replay = true;
 	}
 
 	/* Flip between replay and sync

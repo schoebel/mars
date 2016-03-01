@@ -138,6 +138,23 @@ light0.2beta1.0
 -----------------------------------
 Changelog for series 0.1:
 
+light0.1stable27
+--------
+	* Critical fix: typo in sync progress comparison code could lead
+	  to data version mismatches during sync when alternating with
+	  replay. Only observed at a certain new hardware class, and only
+	  while testing with an extremely high load (9 loaded resources
+	  in parallel to 9 concurrent syncs). As a workaround,
+	  echo 0 > /proc/sys/mars/sync_flip_interval_sec can be used.
+	  Nevertheless, update is highly recommended!
+	* Major fix: slow memory leak (regression from light0.1stable26).
+	  Only when starting the transaction logger (i.e. primary is typically
+	  not affected). But don't let run it for a longer time.
+	  Monitoring is possible via /proc/slabinfo (size-64 or siblings).
+	* Minor fix: join-cluster did not check for duplicate IP addresses.
+	* Minor fixes: some unnecessary annoying error messages.
+	* Docu: new slides from GUUG 2016 in Köln.
+
 light0.1stable26
 --------
 	* Minor fixes: some primitive macros were reporting misleading or
