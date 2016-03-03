@@ -29,7 +29,7 @@ mars-objs :=				\
 	sy_old/sy_generic.o		\
 	sy_old/sy_net.o			\
 	sy_old/mars_proc.o		\
-	sy_old/mars_light.o
+	sy_old/mars_main.o
 
 ifdef CONFIG_MARS_NET_COMPAT
 	mars-objs += mars_net_compat.o
