@@ -1,26 +1,45 @@
+IMPORTANT: the historic distinction between MARS Light and the future
+MARS Full has been dropped. Now all versions are simply called "mars".
+
+Old tagnames light* will remain valid, but newer names will follow the
+convention s/light/mars/g (this means that the old version number counting
+will be continued, only the "light" is substituted).
+
+
 Meaning of stable tagnames
 --------------------------
 
-Example: light0.1stable01:
-              0            = version of on-disk data structures
-                             (only incremented when downgrades are impossible)
-                             (not incremented on backwards-compatible upgrades)
-                1          = version of feature set
-                 stable    = feature set is frozen during this series
-                       01  = bugfix revision
+Example: mars0.1stable01:
+             0             = version of on-disk data structures
+                            (only incremented when downgrades are impossible)
+                            (not incremented on backwards-compatible upgrades)
+               1           = version of feature set
+                stable     = feature set is frozen during this series
+                      01   = bugfix revision
+
+Example: mars0.2beta2.3:
+			   The general idea is as before.
+			   "beta" means that new features are roughly tested
+			   in the lab, but not in production, so there may be
+	                   some bugs. New features may be added during
+			   the beta phase.
+
+Example: mars0.3alpha*:
+			  Never use this for production. Only for historic
+			  code inspection.
 
 Release Conventions / Branches / Tagnames
 -----------------------------------------
 
-	light0.1 series (stable):
+	mars0.1 series (stable):
 		 - Asynchronous replication.
-		   Currently operational at more than 1600 servers at
-		   1&1, more than 6,000,000 operating hours (end of 2015)
+		   Currently operational at more than 1700 servers at
+		   1&1, more than 9,000,000 operating hours (Mar 2016)
 		 - Unstable tagnames: light0.1beta%d.%d (obsolete)
-		 - Stable branch: light0.1.y
-		 - Stable tagnames: light0.1stable%02d
+		 - Stable branch: mars0.1.y
+		 - Stable tagnames: mars0.1stable%02d
 
-	light0.2 series (currently in beta stage):
+	mars0.2 series (currently in beta stage):
 		   Mostly for internal needs of 1&1 (but not limited to that).
 		 - Getting rid of the kernel prepatch! MARS may be built
 		   as an external kernel module for any supported
@@ -28,7 +47,7 @@ Release Conventions / Branches / Tagnames
 		   unaltered 3.2.x vanilla kernel, but compatibility to
 		   further vanilla kernel versions (maybe even
 		   Redhat-specific ones) will follow during the course of
-		   the MARS light0.2 stable series. The problem is not
+		   the MARS mars0.2 stable series. The problem is not
 		   compatibility as such, but _testing_ that it really
 		   works. These tests need a lot of time.
 		   => further arguments for getting to kernel upstream ASAP.
@@ -47,31 +66,31 @@ Release Conventions / Branches / Tagnames
 		   /dev/mars/mydata can appear at any other cluster member
 		   which doesn't necessarily need any local disks.
 		 - Various smaller features and improvements.
-		 - Unstable tagnames: light0.2beta%d.%d (current)
-		 - Stable branch: light0.2.y (already in use for beta)
-		 - Stable tagnames: light0.2stable%02d (planned)
+		 - Unstable tagnames: mars0.2beta%d.%d (current)
+		 - Stable branch: mars0.2.y (already in use for beta)
+		 - Stable tagnames: mars0.2stable%02d (planned)
 
-	light0.3 series (planned):
+	mars0.3 series (planned):
 		   (some might possibly go to 1.0 series instead)
 		 - Improve replication latency.
 		 - New pseudo-synchronous replication modes.
 		   For the internal needs of database folks at 1&1.
 		 - (Maybe) old test suite could be retired, a new
 		   one is at github.com/schoebel/test-suite
-		 - Unstable tagnames: light0.3beta%d.%d (planned)
-		 - Stable branch: light0.3.y (planned)
-		 - Stable tagnames: light0.3stable%02d (planned)
+		 - Unstable tagnames: mars0.3beta%d.%d (planned)
+		 - Stable branch: mars0.3.y (planned)
+		 - Stable tagnames: mars0.3stable%02d (planned)
 
-	light1.0 series (planned):
+	mars1.0 series (planned):
 		 - Replace symlink tree by transactional status files
 		   (future-proof)
 		   This is required for upstream merging to the kernel.
 		   It has further advantages, such as better scalability.
 		 - Trying to additionally address public needs.
 		 - Potentially for Linux kernel upstream,
-		 - Unstable tagnames: light1.0beta%d.%d (planned)
-		 - Stable branch: light1.0.y (planned)
-		 - Stable tagnames: light1.0stable%02d (planned)
+		 - Unstable tagnames: mars1.0beta%d.%d (planned)
+		 - Stable branch: mars1.0.y (planned)
+		 - Stable tagnames: mars1.0stable%02d (planned)
 
 	full* (somewhen in future)
 
@@ -91,11 +110,27 @@ Release Conventions / Branches / Tagnames
 -----------------------------------
 Changelog for series 0.2:
 
-(you need to checkout branch light0.2.y to see any details)
+(you need to checkout branch mars0.2.y to see any details)
 
 -----------------------------------
 Changelog for series 0.1:
 
+mars0.1stable28
+--------
+	* Doc: describe new naming conventions.
+	  MARS Light is now simply called MARS.
+	  No distinction between "Light" and the future "Full" anymore.
+	  Please note that the git branches light0.1.y and light0.2.y have
+	  been renamed to mars0.1.y and mars0.2.y respectively.
+	* Minor sourcecode cleanup: s/light//g or s/light/main/g
+	  where appropriate.
+	  No other changes in the sourcecode, deliberately.
+	  In case anyone encounters any build problems compiling MARS,
+	  this release is separated just for the sake of build testing,
+	  or Debian packaging testing, etc.
+	* Doc: minor clarifications.
+
+mars0.1stable27
 light0.1stable27
 --------
 	* Critical fix: typo in sync progress comparison code could lead
@@ -588,19 +623,3 @@ Release Policy / Software Lifecycle
 -----------------------------------
 
 	New source releases are simply announced by appearance of git tags.
-
-General Conventions
--------------------
-	
-The git tags have the following meaning:
-
-	full* for future use.
-
-	light1.0 The first number indicates the main symlink tree revision, the second number indicates the sub revision. The main symlink tree revision is only updated upon (potentially) incompatible changes. Upgrades of main revisions will always be possible, but downgrades are not automatically supported. The sub revision will indicate new releases, and they may also indicate symlink tree extersions which are both forwards and backwards compatible. It may just happen that new features are not available with elder releases :)
-	Example: 1.0 ff will indicate the future main production revision.
-	Extensions: suffixes like pre1 indicate pre-releases. Other suffixes like testing2 are reserved for future use.
-	Hint: you may automatically convert the MARS git tags into Debian release tags by a regex inserting a ~ after any transition from a digit to an alpha character. We just omitted the ~ because git treats it as an invalid character. The corresponding Debian tags _should_ result in the correct ordering according to the Debian guidelines. Please report a bug if not :)
-
-	light0.1beta* Internal 1&1 releases during the pilot phase. May be used by the public, but you should know that the 1.0 symlink tree revision will appear soon.
-
-	light0.0alpha* Very old prototypes; never use them. Vital feature were missing. Only for historic inspection.
