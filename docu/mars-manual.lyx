@@ -205,8 +205,8 @@ sloppy
 
  MARS
 \family default
- Light is a block-level storage replication system for long distances /
- flaky networks under GPL.
+ is a block-level storage replication system for long distances / flaky
+ networks under GPL.
  It runs as a Linux kernel module.
  The sysadmin interface is similar to DRBD
 \begin_inset Foot
@@ -227,14 +227,14 @@ transaction logging
 \end_layout
 
 \begin_layout Abstract
-Therefore, MARS Light can provide stronger 
+Therefore, MARS can provide stronger 
 \series bold
 consistency guarantees
 \series default
 .
  Even in case of network bottlenecks / problems / failures, the secondaries
  may become outdated (reflect an elder state), but never become inconsistent.
- In contrast to DRBD, MARS Light preserves the 
+ In contrast to DRBD, MARS preserves the 
 \series bold
 order of write operations
 \series default
@@ -246,7 +246,7 @@ Anytime Consistency
 \end_layout
 
 \begin_layout Abstract
-The current version of MARS Light supports 
+The current version of MARS supports 
 \begin_inset Formula $k>2$
 \end_inset
 
@@ -2138,7 +2138,7 @@ reference "sub:Behaviour-of-MARS"
 
 \begin_layout Enumerate
 People are stuck in contradictive requirements because the current version
- of MARS Light does not yet support synchronous or pseudo-synchronous operation
+ of MARS does not yet support synchronous or pseudo-synchronous operation
  modes.
  This should be resolved some day.
 \end_layout
@@ -2265,12 +2265,12 @@ name "sec:Preparation:-What-you"
 \end_layout
 
 \begin_layout Standard
-Typically, you will use MARS Light at servers in a datacenter for replication
+Typically, you will use MARS at servers in a datacenter for replication
  of big masses of data.
 \end_layout
 
 \begin_layout Standard
-Typically, you will use MARS Light for replication 
+Typically, you will use MARS for replication 
 \emph on
 between
 \emph default
@@ -2291,7 +2291,7 @@ extremely
 \end_layout
 
 \begin_layout Standard
-You can use MARS Light both at dedicated storage servers (e.g.
+You can use MARS both at dedicated storage servers (e.g.
  for serving Windows clients), or at standalone Linux servers where CPU
  and storage are not separated.
 \end_layout
@@ -3408,7 +3408,7 @@ Switch Primary / Secondary Roles
 
 \begin_layout Standard
 \noindent
-In contrast to DRBD, MARS Light distinguishes between 
+In contrast to DRBD, MARS distinguishes between 
 \emph on
 intended
 \emph default
@@ -4414,7 +4414,7 @@ Some Background
 
 \begin_layout Standard
 In contrast to DRBD, split brain situations are handled differently by MARS
- Light.
+ .
  When two primaries are accidentally active at the same time, each of them
  writes into different logfiles 
 \family typewriter
@@ -4486,8 +4486,8 @@ nobody
 All
 \emph default
  nodes should go into secondary mode, globally.
- In the current version of MARS Light, the secondaries will no long fetch
- any logfiles, since they don't know which version is the 
+ In the current version of MARS, the secondaries will no long fetch any
+ logfiles, since they don't know which version is the 
 \begin_inset Quotes eld
 \end_inset
 
@@ -5680,7 +5680,7 @@ name "sec:Inspecting-the-State"
 \end_layout
 
 \begin_layout Standard
-The main command for viewing the current state of MARS Light is
+The main command for viewing the current state of MARS is
 \end_layout
 
 \begin_layout Itemize
@@ -7587,7 +7587,7 @@ necessary
 \end_layout
 
 \begin_layout Standard
-In order to solve the deletion problem, MARS Light uses some internal deletion
+In order to solve the deletion problem, MARS uses some internal deletion
  protocol using auxiliary symlinks residing in 
 \family typewriter
 /mars/todo-global/.
@@ -7666,7 +7666,7 @@ temporarily inconsistent
 \end_layout
 
 \begin_layout Standard
-The meaning of some internal MARS Light symlinks residing in 
+The meaning of some internal MARS symlinks residing in 
 \family typewriter
 /mars/
 \family default
@@ -11788,8 +11788,8 @@ reference "chap:Use-Cases-for"
 
 \end_inset
 
- that MARS Light (in its current stage of development) does only guarantee
- local consistency, but cannot guarantee actuality in all imaginable situations.
+ that MARS (in its current stage of development) does only guarantee local
+ consistency, but cannot guarantee actuality in all imaginable situations.
  Notice that a general notion of 
 \begin_inset Quotes eld
 \end_inset
@@ -17010,7 +17010,7 @@ status open
 
 \begin_layout Plain Layout
 Deprecated.
- Only for compatibility with light0.1beta05 or earlier.
+ Only for compatibility with old version light0.1beta05 or earlier.
 \end_layout
 
 \begin_layout Plain Layout
@@ -18160,8 +18160,8 @@ half-dead
 \end_inset
 
  nodes (beware of shapshot / restores on virtual machines!!).
- MARS Light does its best to avoid problems even in case the new resource
- name should equal the old one, but there can be 
+ MARS does its best to avoid problems even in case the new resource name
+ should equal the old one, but there can be 
 \emph on
 no guarantee
 \emph default
@@ -23293,7 +23293,7 @@ might
 \emph default
  destroy some valuable logfiles / other information in case the local informatio
 n is outdated or otherwise incorrect.
- MARS Light does its best for checking anything, but there is no guarantee.
+ MARS does its best for checking anything, but there is no guarantee.
 \end_layout
 
 \begin_layout Plain Layout
@@ -28349,7 +28349,7 @@ mars.ko
 not
 \emph default
  a stable interface.
- It is not only specific for MARS Light, but may also change between releases
+ It is not only specific for MARS, but may also change between releases
  without notice.
 \end_layout
 
@@ -28696,8 +28696,8 @@ sync_flip_interval_sec
 /mars/
 \family default
  filesystem could overflow because no replay would be possible in the meantime.
- Therefore, MARS Light regulary flips between actually syncing and actually
- replaying, if both is enabled.
+ Therefore, MARS regulary flips between actually syncing and actually replaying,
+ if both is enabled.
  You can set the time interval for flipping here.
 \end_layout
 
@@ -30970,13 +30970,13 @@ When all your secondaries are all homogenously located in a standby datacenter,
 \end_layout
 
 \begin_layout Standard
-Since MARS Light is no substitute for a full-fledged backup system, and
- since backups may put high system load onto your active side, you may want
- to utilize your passive hardware resources in a better way.
+Since MARS is no substitute for a full-fledged backup system, and since
+ backups may put high system load onto your active side, you may want to
+ utilize your passive hardware resources in a better way.
 \end_layout
 
 \begin_layout Standard
-MARS Light supports this thanks to its ability to switch the 
+MARS supports this thanks to its ability to switch the 
 \family typewriter
 pause-replay
 \family default
@@ -31024,7 +31024,7 @@ However, some
 details
 \emph default
  have to be obeyed.
- In particular, the current version of MARS Light needs an additional 
+ In particular, the current version of MARS needs an additional 
 \family typewriter
 detach
 \family default
@@ -31034,8 +31034,8 @@ detach
 /dev/lv/$res
 \family default
 .
- Future versions of MARS Light are planned to support this more directly,
- without need for an intermediate 
+ Future versions of MARS are planned to support this more directly, without
+ need for an intermediate 
 \family typewriter
 detach
 \family default
@@ -31474,7 +31474,7 @@ during
 \emph default
  operation (even while parallel IO requests are flying, some of them taking
  different paths in the IO stack in parallel).
- This is absolutely needed for MARS Light logfile rotation.
+ This is absolutely needed for MARS logfile rotation.
  In the long term, this would be useful for many advanced new features and
  products, not limited to multipathing.
 \end_layout
@@ -31668,7 +31668,7 @@ stackable filesystems
 \end_layout
 
 \begin_layout Standard
-In summary, anyone who would insist that MARS Light should be 
+In summary, anyone who would insist that MARS should be 
 \emph on
 directly
 \begin_inset Foot
@@ -31754,7 +31754,7 @@ possible
 \emph default
  (but not the only possible) way to do this is giving the generic brick
  framework / the XIO personality as well as future personalities / the MARS
- Light application the status of a 
+ application the status of a 
 \emph on
 subsystem
 \emph default
@@ -31819,7 +31819,7 @@ http://athomux.net/papers/paper_inst2.pdf
 \end_inset
 
 .
- Please note that MARS Light is only instance-
+ Please note that MARS is only instance-
 \emph on
 based
 \emph default
@@ -31874,7 +31874,7 @@ oriented
 \end_layout
 
 \begin_layout Subsection
-MARS Light Architecture
+MARS Architecture
 \end_layout
 
 \begin_layout Standard
@@ -32045,7 +32045,7 @@ marsadm
 \end_layout
 
 \begin_layout Subsection
-Documentation of the MARS Light Symlink Tree
+Documentation of the MARS Symlink Tree
 \end_layout
 
 \begin_layout Section
@@ -32074,19 +32074,19 @@ The Generic Object and Aspect Infrastructure
 
 \begin_layout Chapter
 \start_of_appendix
-Technical Data MARS Light
+Technical Data MARS 
 \end_layout
 
 \begin_layout Standard
-MARS Light has some built-in limitations which should be overcome
+MARS  has some built-in limitations which should be overcome
 \begin_inset Foot
 status open
 
 \begin_layout Plain Layout
 Some internal algorithms are quadratic.
- The reason is that MARS Light evolved from a lab prototype which wasn't
- originally intended for enterprise grade usage, but should have been succeeded
- by the fully instance-oriented MARS Full much earlier.
+ The reason is that MARS  evolved from a lab prototype which wasn't originally
+ intended for enterprise grade usage, but should have been succeeded by
+ the fully instance-oriented MARS Full much earlier.
 \end_layout
 
 \end_inset
@@ -33469,7 +33469,7 @@ name "sub:Cleanup-in-case"
 \end_layout
 
 \begin_layout Standard
-MARS Light does its best to recover even from multiple failures (e.g.
+MARS does its best to recover even from multiple failures (e.g.
  
 \series bold
 rolling disasters

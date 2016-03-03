@@ -37,6 +37,6 @@ Single
 4 1 0 50 -1 2 12 0.0000 4 180 2505 3375 1980 interface: /mars/ symlink tree\001
 4 1 0 50 -1 2 14 0.0000 4 210 3060 3375 1305 userspace tool marsadm (perl)\001
 4 1 0 50 -1 2 12 0.0000 4 180 5940 3375 540 interface: marsadm parameters, exit code, stdout (similar to drbdadm)\001
-4 1 0 50 -1 2 14 0.0000 4 225 3525 3375 2655 MARS Light ad-hoc strategy layer\001
+4 1 0 50 -1 2 14 0.0000 4 225 3525 3375 2655 MARS ad-hoc strategy layer\001
 4 1 0 50 -1 2 14 0.0000 4 225 2910 3330 5940 generic aspect infrastructure\001
 4 1 0 50 -1 2 14 0.0000 4 225 2820 3330 5445 generic brick infrastructure\001
