@@ -435,7 +435,7 @@ static struct task_struct *main_thread = NULL;
 
 typedef int (*main_worker_fn)(void *buf, struct mars_dent *dent);
 
-struct light_class {
+struct main_class {
 	char *cl_name;
 	int    cl_len;
 	char   cl_type;
@@ -4872,7 +4872,7 @@ int make_defaults(void *buf, struct mars_dent *dent)
 
 /* Please keep the order the same as in the enum.
  */
-static const struct light_class light_classes[] = {
+static const struct main_class main_classes[] = {
 	/* Placeholder for root node /mars/
 	 */
 	[CL_ROOT] = {
@@ -5363,7 +5363,7 @@ int main_checker(struct mars_dent *parent, const char *_name, int namlen, unsign
 
 	//MARS_DBG("trying '%s' '%s'\n", path, name);
 	for (class = CL_ROOT + 1; ; class++) {
-		const struct light_class *test = &light_classes[class];
+		const struct main_class *test = &main_classes[class];
 		int len = test->cl_len;
 		if (!test->cl_name) { // end of table
 			break;
@@ -5425,18 +5425,18 @@ int main_checker(struct mars_dent *parent, const char *_name, int namlen, unsign
 }
 
 /* Do some syntactic checks, then delegate work to the real worker functions
- * from the light_classes[] table.
+ * from the main_classes[] table.
  */
 static int main_worker(struct mars_global *global, struct mars_dent *dent, bool prepare, bool direction)
 {
 	main_worker_fn worker;
 	int class = dent->d_class;
 
-	if (class < 0 || class >= sizeof(light_classes)/sizeof(struct light_class)) {
+	if (class < 0 || class >= sizeof(main_classes)/sizeof(struct main_class)) {
 		MARS_ERR_ONCE(dent, "bad internal class %d of '%s'\n", class, dent->d_path);
 		return -EINVAL;
 	}
-	switch (light_classes[class].cl_type) {
+	switch (main_classes[class].cl_type) {
 	case 'd':
 		if (!S_ISDIR(dent->new_stat.mode)) {
 			MARS_ERR_ONCE(dent, "'%s' should be a directory, but is something else\n", dent->d_path);
@@ -5463,7 +5463,7 @@ static int main_worker(struct mars_global *global, struct mars_dent *dent, bool 
 		break;
 	}
 	if (likely(class > CL_ROOT)) {
-		int father = light_classes[class].cl_father;
+		int father = main_classes[class].cl_father;
 		if (father == CL_ROOT) {
 			if (unlikely(dent->d_parent)) {
 				MARS_ERR_ONCE(dent, "'%s' class %d is not at the root of the hierarchy\n", dent->d_path, class);
@@ -5475,11 +5475,11 @@ static int main_worker(struct mars_global *global, struct mars_dent *dent, bool 
 		}
 	}
 	if (prepare) {
-		worker = light_classes[class].cl_prepare;
+		worker = main_classes[class].cl_prepare;
 	} else if (direction) {
-		worker = light_classes[class].cl_backward;
+		worker = main_classes[class].cl_backward;
 	} else {
-		worker = light_classes[class].cl_forward;
+		worker = main_classes[class].cl_forward;
 	}
 	if (worker) {
 		int status;
