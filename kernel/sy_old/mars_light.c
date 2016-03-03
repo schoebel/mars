@@ -433,9 +433,9 @@ int compute_emergency_mode(void)
 
 static struct task_struct *main_thread = NULL;
 
-typedef int (*light_worker_fn)(void *buf, struct mars_dent *dent);
+typedef int (*main_worker_fn)(void *buf, struct mars_dent *dent);
 
-struct light_class {
+struct main_class {
 	char *cl_name;
 	int    cl_len;
 	char   cl_type;
@@ -443,9 +443,9 @@ struct light_class {
 	bool   cl_serial;
 	bool   cl_use_channel;
 	int    cl_father;
-	light_worker_fn cl_prepare;
-	light_worker_fn cl_forward;
-	light_worker_fn cl_backward;
+	main_worker_fn cl_prepare;
+	main_worker_fn cl_forward;
+	main_worker_fn cl_backward;
 };
 
 // the order is important!
@@ -1262,7 +1262,7 @@ void _update_info(struct trans_logger_info *inf)
 	hash = inf->inf_sequence % MAX_INFOS;
 	if (unlikely(rot->infs_is_dirty[hash])) {
 		if (unlikely(rot->infs[hash].inf_sequence != inf->inf_sequence)) {
-			MARS_ERR_TO(rot->log_say, "buffer %d: sequence trash %d -> %d. is the mar_light thread hanging?\n", hash, rot->infs[hash].inf_sequence, inf->inf_sequence);
+			MARS_ERR_TO(rot->log_say, "buffer %d: sequence trash %d -> %d. is the mars_main thread hanging?\n", hash, rot->infs[hash].inf_sequence, inf->inf_sequence);
 			make_rot_msg(rot, "err-sequence-trash", "buffer %d: sequence trash %d -> %d", hash, rot->infs[hash].inf_sequence, inf->inf_sequence);
 		} else {
 			MARS_DBG("buffer %d is overwritten (sequence=%d)\n", hash, inf->inf_sequence);
@@ -4879,7 +4879,7 @@ int make_defaults(void *buf, struct mars_dent *dent)
 
 /* Please keep the order the same as in the enum.
  */
-static const struct light_class light_classes[] = {
+static const struct main_class main_classes[] = {
 	/* Placeholder for root node /mars/
 	 */
 	[CL_ROOT] = {
@@ -5356,7 +5356,7 @@ static const struct light_class light_classes[] = {
 
 /* Helper routine to pre-determine the relevance of a name from the filesystem.
  */
-int light_checker(struct mars_dent *parent, const char *_name, int namlen, unsigned int d_type, int *prefix, int *serial, bool *use_channel)
+int main_checker(struct mars_dent *parent, const char *_name, int namlen, unsigned int d_type, int *prefix, int *serial, bool *use_channel)
 {
 	int class;
 	int status = -2;
@@ -5370,7 +5370,7 @@ int light_checker(struct mars_dent *parent, const char *_name, int namlen, unsig
 
 	//MARS_DBG("trying '%s' '%s'\n", path, name);
 	for (class = CL_ROOT + 1; ; class++) {
-		const struct light_class *test = &light_classes[class];
+		const struct main_class *test = &main_classes[class];
 		int len = test->cl_len;
 		if (!test->cl_name) { // end of table
 			break;
@@ -5432,18 +5432,18 @@ int light_checker(struct mars_dent *parent, const char *_name, int namlen, unsig
 }
 
 /* Do some syntactic checks, then delegate work to the real worker functions
- * from the light_classes[] table.
+ * from the main_classes[] table.
  */
-static int light_worker(struct mars_global *global, struct mars_dent *dent, bool prepare, bool direction)
+static int main_worker(struct mars_global *global, struct mars_dent *dent, bool prepare, bool direction)
 {
-	light_worker_fn worker;
+	main_worker_fn worker;
 	int class = dent->d_class;
 
-	if (class < 0 || class >= sizeof(light_classes)/sizeof(struct light_class)) {
+	if (class < 0 || class >= sizeof(main_classes)/sizeof(struct main_class)) {
 		MARS_ERR_ONCE(dent, "bad internal class %d of '%s'\n", class, dent->d_path);
 		return -EINVAL;
 	}
-	switch (light_classes[class].cl_type) {
+	switch (main_classes[class].cl_type) {
 	case 'd':
 		if (!S_ISDIR(dent->new_stat.mode)) {
 			MARS_ERR_ONCE(dent, "'%s' should be a directory, but is something else\n", dent->d_path);
@@ -5470,7 +5470,7 @@ static int light_worker(struct mars_global *global, struct mars_dent *dent, bool
 		break;
 	}
 	if (likely(class > CL_ROOT)) {
-		int father = light_classes[class].cl_father;
+		int father = main_classes[class].cl_father;
 		if (father == CL_ROOT) {
 			if (unlikely(dent->d_parent)) {
 				MARS_ERR_ONCE(dent, "'%s' class %d is not at the root of the hierarchy\n", dent->d_path, class);
@@ -5482,11 +5482,11 @@ static int light_worker(struct mars_global *global, struct mars_dent *dent, bool
 		}
 	}
 	if (prepare) {
-		worker = light_classes[class].cl_prepare;
+		worker = main_classes[class].cl_prepare;
 	} else if (direction) {
-		worker = light_classes[class].cl_backward;
+		worker = main_classes[class].cl_backward;
 	} else {
-		worker = light_classes[class].cl_forward;
+		worker = main_classes[class].cl_forward;
 	}
 	if (worker) {
 		int status;
@@ -5510,7 +5510,7 @@ static struct mars_global _global = {
 	.main_event = __WAIT_QUEUE_HEAD_INITIALIZER(_global.main_event),
 };
 
-static int light_thread(void *data)
+static int _main_thread(void *data)
 {
 	long long last_rollover = jiffies;
 	char *id = my_id();
@@ -5549,7 +5549,7 @@ static int light_thread(void *data)
 
 		MARS_DBG("-------- start worker ---------\n");
 		_global.deleted_min = 0;
-		status = mars_dent_work(&_global, "/mars", sizeof(struct mars_dent), light_checker, light_worker, &_global, 3);
+		status = mars_dent_work(&_global, "/mars", sizeof(struct mars_dent), main_checker, main_worker, &_global, 3);
 		_global.deleted_border = _global.deleted_min;
 		MARS_DBG("-------- worker deleted_min = %d status = %d\n", _global.deleted_min, status);
 
@@ -5683,12 +5683,12 @@ static int exit_fn_nr = 0;
 void (*_mars_remote_trigger)(void);
 EXPORT_SYMBOL_GPL(_mars_remote_trigger);
 
-static void exit_light(void)
+static void exit_main(void)
 {
 	MARS_DBG("====================== stopping everything...\n");
 	// TODO: make this thread-safe.
 	if (main_thread) {
-		MARS_DBG("=== stopping light thread...\n");
+		MARS_DBG("=== stopping main thread...\n");
 		mars_trigger();
 		MARS_INF("stopping main thread...\n");
 		brick_thread_stop(main_thread);
@@ -5701,6 +5701,7 @@ static void exit_light(void)
 		MARS_DBG("=== stopping module %s ...\n", exit_names[exit_fn_nr - 1]);
 		exit_fn[--exit_fn_nr]();
 	}
+
 	MARS_DBG("====================== stopped everything.\n");
 	exit_say();
 	printk(KERN_INFO "stopped MARS\n");
@@ -5714,7 +5715,7 @@ static void exit_light(void)
 	brick_msleep(1000);
 }
 
-static int __init init_light(void)
+static int __init init_main(void)
 {
 	extern int min_free_kbytes;
 	int new_limit = 4096;
@@ -5773,7 +5774,7 @@ static int __init init_light(void)
 		goto done;
 	}
 
-	main_thread = brick_thread_create(light_thread, NULL, "mars_light");
+	main_thread = brick_thread_create(_main_thread, NULL, "mars_main");
 	if (unlikely(!main_thread)) {
 		status = -ENOENT;
 		goto done;
@@ -5782,7 +5783,7 @@ static int __init init_light(void)
 done:
 	if (status < 0) {
 		MARS_ERR("module init failed with status = %d, exiting.\n", status);
-		exit_light();
+		exit_main();
 	}
 	_mars_remote_trigger = __mars_remote_trigger;
 	mars_info = _mars_info;
@@ -5793,7 +5794,7 @@ done:
 const void *dummy1 = &client_brick_type;
 const void *dummy2 = &server_brick_type;
 
-MODULE_DESCRIPTION("MARS Light");
+MODULE_DESCRIPTION("MARS");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@{schoebel-theuer,1und1}.de>");
 MODULE_VERSION(BUILDTAG " (" BUILDHOST " " BUILDDATE ")");
 MODULE_LICENSE("GPL");
@@ -5810,5 +5811,5 @@ MODULE_INFO(io, "BAD_PERFORMANCE");
 MODULE_INFO(memory, "EVIL_PERFORMANCE");
 #endif
 
-module_init(init_light);
-module_exit(exit_light);
+module_init(init_main);
+module_exit(exit_main);

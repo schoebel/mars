@@ -370,4 +370,3 @@ config MARS_LOGROT_AUTO
 	  fractions of hours (depending on the underlying filesystem).
 	  Thus it is highly recommended to limit the logfile size to some
 	  reasonable maximum size. Switch only off for experiments!
-

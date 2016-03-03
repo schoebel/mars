@@ -446,7 +446,7 @@ int handler_thread(void *data)
 			if (unlikely(!cmd.cmd_str1))
 				break;
 
-			status = mars_dent_work(&handler_global, "/mars", sizeof(struct mars_dent), light_checker, dummy_worker, &handler_global, 3);
+			status = mars_dent_work(&handler_global, "/mars", sizeof(struct mars_dent), main_checker, dummy_worker, &handler_global, 3);
 
 			down(&brick->socket_sem);
 			status = mars_send_dent_list(sock, &handler_global.dent_anchor);
