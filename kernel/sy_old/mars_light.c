@@ -433,7 +433,7 @@ int compute_emergency_mode(void)
 
 static struct task_struct *main_thread = NULL;
 
-typedef int (*light_worker_fn)(void *buf, struct mars_dent *dent);
+typedef int (*main_worker_fn)(void *buf, struct mars_dent *dent);
 
 struct light_class {
 	char *cl_name;
@@ -443,9 +443,9 @@ struct light_class {
 	bool   cl_serial;
 	bool   cl_use_channel;
 	int    cl_father;
-	light_worker_fn cl_prepare;
-	light_worker_fn cl_forward;
-	light_worker_fn cl_backward;
+	main_worker_fn cl_prepare;
+	main_worker_fn cl_forward;
+	main_worker_fn cl_backward;
 };
 
 // the order is important!
@@ -5349,7 +5349,7 @@ static const struct light_class light_classes[] = {
 
 /* Helper routine to pre-determine the relevance of a name from the filesystem.
  */
-int light_checker(struct mars_dent *parent, const char *_name, int namlen, unsigned int d_type, int *prefix, int *serial, bool *use_channel)
+int main_checker(struct mars_dent *parent, const char *_name, int namlen, unsigned int d_type, int *prefix, int *serial, bool *use_channel)
 {
 	int class;
 	int status = -2;
@@ -5427,9 +5427,9 @@ int light_checker(struct mars_dent *parent, const char *_name, int namlen, unsig
 /* Do some syntactic checks, then delegate work to the real worker functions
  * from the light_classes[] table.
  */
-static int light_worker(struct mars_global *global, struct mars_dent *dent, bool prepare, bool direction)
+static int main_worker(struct mars_global *global, struct mars_dent *dent, bool prepare, bool direction)
 {
-	light_worker_fn worker;
+	main_worker_fn worker;
 	int class = dent->d_class;
 
 	if (class < 0 || class >= sizeof(light_classes)/sizeof(struct light_class)) {
@@ -5542,7 +5542,7 @@ static int light_thread(void *data)
 
 		MARS_DBG("-------- start worker ---------\n");
 		_global.deleted_min = 0;
-		status = mars_dent_work(&_global, "/mars", sizeof(struct mars_dent), light_checker, light_worker, &_global, 3);
+		status = mars_dent_work(&_global, "/mars", sizeof(struct mars_dent), main_checker, main_worker, &_global, 3);
 		_global.deleted_border = _global.deleted_min;
 		MARS_DBG("-------- worker deleted_min = %d status = %d\n", _global.deleted_min, status);
 
