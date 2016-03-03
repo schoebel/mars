@@ -404,12 +404,3 @@ void exit_mars_proc(void)
 		header = NULL;
 	}
 }
-
-#ifndef CONFIG_MARS_HAVE_BIGMODULE
-MODULE_DESCRIPTION("MARS /proc/ infrastructure");
-MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@{schoebel-theuer,1und1}.de>");
-MODULE_LICENSE("GPL");
-
-module_init(init_mars_proc);
-module_exit(exit_mars_proc);
-#endif

@@ -389,12 +389,3 @@ void exit_mars_usebuf(void)
 	MARS_INF("exit_usebuf()\n");
 	usebuf_unregister_brick_type();
 }
-
-#ifndef CONFIG_MARS_HAVE_BIGMODULE
-MODULE_DESCRIPTION("MARS usebuf brick");
-MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@{schoebel-theuer,1und1}.de>");
-MODULE_LICENSE("GPL");
-
-module_init(init_mars_usebuf);
-module_exit(exit_mars_usebuf);
-#endif

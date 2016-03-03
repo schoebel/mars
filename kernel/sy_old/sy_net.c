@@ -129,12 +129,3 @@ void exit_sy_net(void)
 {
 	MARS_INF("exit_sy_net()\n");
 }
-
-#ifndef CONFIG_MARS_HAVE_BIGMODULE
-MODULE_DESCRIPTION("MARS network infrastructure");
-MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@{schoebel-theuer,1und1}.de>");
-MODULE_LICENSE("GPL");
-
-module_init(init_sy_net);
-module_exit(exit_sy_net);
-#endif

@@ -394,12 +394,3 @@ void exit_mars_mapfree(void)
 		mf_thread = NULL;
 	}
 }
-
-#ifndef CONFIG_MARS_HAVE_BIGMODULE
-MODULE_DESCRIPTION("MARS mapfree infrastructure");
-MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@{schoebel-theuer,1und1}.de>");
-MODULE_LICENSE("GPL");
-
-module_init(init_mars_mapfree);
-module_exit(exit_mars_mapfree);
-#endif

@@ -1320,12 +1320,3 @@ err_device:
 	exit_mars_if();
 	return status;
 }
-
-#ifndef CONFIG_MARS_HAVE_BIGMODULE
-MODULE_DESCRIPTION("MARS if");
-MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@{schoebel-theuer,1und1}.de>");
-MODULE_LICENSE("GPL");
-
-module_init(init_mars_if);
-module_exit(exit_mars_if);
-#endif
