@@ -1262,7 +1262,7 @@ void _update_info(struct trans_logger_info *inf)
 	hash = inf->inf_sequence % MAX_INFOS;
 	if (unlikely(rot->infs_is_dirty[hash])) {
 		if (unlikely(rot->infs[hash].inf_sequence != inf->inf_sequence)) {
-			MARS_ERR_TO(rot->log_say, "buffer %d: sequence trash %d -> %d. is the mar_light thread hanging?\n", hash, rot->infs[hash].inf_sequence, inf->inf_sequence);
+			MARS_ERR_TO(rot->log_say, "buffer %d: sequence trash %d -> %d. is the mars_main thread hanging?\n", hash, rot->infs[hash].inf_sequence, inf->inf_sequence);
 			make_rot_msg(rot, "err-sequence-trash", "buffer %d: sequence trash %d -> %d", hash, rot->infs[hash].inf_sequence, inf->inf_sequence);
 		} else {
 			MARS_DBG("buffer %d is overwritten (sequence=%d)\n", hash, inf->inf_sequence);
@@ -5503,7 +5503,7 @@ static struct mars_global _global = {
 	.main_event = __WAIT_QUEUE_HEAD_INITIALIZER(_global.main_event),
 };
 
-static int light_thread(void *data)
+static int _main_thread(void *data)
 {
 	long long last_rollover = jiffies;
 	char *id = my_id();
@@ -5679,12 +5679,12 @@ static int exit_fn_nr = 0;
 void (*_mars_remote_trigger)(void);
 EXPORT_SYMBOL_GPL(_mars_remote_trigger);
 
-static void exit_light(void)
+static void exit_main(void)
 {
 	MARS_DBG("====================== stopping everything...\n");
 	// TODO: make this thread-safe.
 	if (main_thread) {
-		MARS_DBG("=== stopping light thread...\n");
+		MARS_DBG("=== stopping main thread...\n");
 		mars_trigger();
 		MARS_INF("stopping main thread...\n");
 		brick_thread_stop(main_thread);
@@ -5712,7 +5712,7 @@ static void exit_light(void)
 	brick_msleep(1000);
 }
 
-static int __init init_light(void)
+static int __init init_main(void)
 {
 	extern int min_free_kbytes;
 	int new_limit = 4096;
@@ -5772,7 +5772,7 @@ static int __init init_light(void)
 		goto done;
 	}
 
-	main_thread = brick_thread_create(light_thread, NULL, "mars_light");
+	main_thread = brick_thread_create(_main_thread, NULL, "mars_main");
 	if (unlikely(!main_thread)) {
 		status = -ENOENT;
 		goto done;
@@ -5781,7 +5781,7 @@ static int __init init_light(void)
 done:
 	if (status < 0) {
 		MARS_ERR("module init failed with status = %d, exiting.\n", status);
-		exit_light();
+		exit_main();
 	}
 	_mars_remote_trigger = __mars_remote_trigger;
 	mars_info = _mars_info;
@@ -5792,7 +5792,7 @@ done:
 const void *dummy1 = &client_brick_type;
 const void *dummy2 = &server_brick_type;
 
-MODULE_DESCRIPTION("MARS Light");
+MODULE_DESCRIPTION("MARS");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@{schoebel-theuer,1und1}.de>");
 MODULE_VERSION(BUILDTAG " (" BUILDHOST " " BUILDDATE ")");
 MODULE_LICENSE("GPL");
@@ -5809,5 +5809,5 @@ MODULE_INFO(io, "BAD_PERFORMANCE");
 MODULE_INFO(memory, "EVIL_PERFORMANCE");
 #endif
 
-module_init(init_light);
-module_exit(exit_light);
+module_init(init_main);
+module_exit(exit_main);
