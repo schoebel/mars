@@ -4501,7 +4501,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 				     do_start ? switch_path : "",
 				     copy_path, dent->d_parent->d_path, argv, find_key(rot->msgs, "inf-sync"),
 				     start_pos, end_pos,
-				     rot->sync_finish_stamp.tv_sec != 0,
+				     true,
 				     mars_fast_fullsync > 0,
 				     true, false, &copy);
 		if (copy) {
