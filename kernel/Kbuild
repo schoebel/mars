@@ -2,6 +2,10 @@
 # Makefile for MARS
 #
 
+ifneq ($(KBUILD_EXTMOD),)
+  CONFIG_MARS := m
+endif
+
 KBUILD_CFLAGS += -fdelete-null-pointer-checks
 
 mars-objs :=				\
