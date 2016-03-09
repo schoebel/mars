@@ -1424,6 +1424,38 @@ sub _set_replaylink {
 
 ##################################################################
 
+# lowlevel tools
+
+sub lowlevel_ls_host_ips {
+  my ($cmd) = @_;
+  for my $path (glob("$mars/ips/ip-*")) {
+    $path =~ m:/ip-(.*):;
+    my $peer = $1;
+    my $ip = get_link($path, 1);
+    lprint "$peer $ip\n";
+  }
+}
+
+sub lowlevel_set_host_ip {
+  my ($cmd, $peer, $ip) = @_;
+  check_id($peer);
+  my $path = "$mars/ips/ip-$peer";
+  my $old = get_link($path, 2) || "";
+  lprint "Set host '$peer' IP from '$old' to '$ip'\n";
+  set_link($ip, $path);
+}
+
+sub lowlevel_delete_host {
+  my ($cmd, $peer) = @_;
+  check_id($peer, 1);
+  my $path = "$mars/ips/ip-$peer";
+  my $old = get_link($path);
+  lprint "Removing host '$peer' old IP '$old'\n";
+  _create_delete($path);
+}
+
+##################################################################
+
 # commands
 
 sub ignore_cmd {
@@ -4918,6 +4950,23 @@ my %cmd_table =
       ],
    "new-current-uuid"  => \&senseless_cmd,
    "hidden-commands"   => \&ignore_cmd,
+
+   # lowlevel tools
+   "lowlevel-ls-host-ips"
+   => [
+       "List cluster member names and IP addresses.",
+       \&lowlevel_ls_host_ips,
+      ],
+   "lowlevel-set-host-ip"
+   => [
+       "Set IP for host.",
+       \&lowlevel_set_host_ip,
+      ],
+   "lowlevel-delete-host"
+   => [
+       "Delete cluster member.",
+       \&lowlevel_delete_host,
+      ],
   );
 
 
@@ -5127,6 +5176,24 @@ if ($perms != 0700) {
   lwarn($txt);
   chmod(0700, $mars) or ldie "Cannot chmod $mars.\n";
   lwarn "Fixed to mode 0700 for security reasons.\n";
+}
+
+# lowlevel tools
+if ($cmd =~ m/^lowlevel-/) {
+  my $func = $cmd_table{$cmd};
+  if ($func && ref($func) eq "ARRAY") {
+    lwarn "EXPERTS ONLY -- risky lowlevel command '$cmd'\n";
+    my @list = @$func;
+    while (@list) {
+      my $memb_func = shift @list;
+      next unless ref($memb_func) eq "CODE";
+      &{$memb_func}($cmd, @args);
+    }
+    finish_links();
+    exit(0);
+  } else {
+    ldie "Internal error: command table is wrong for '$cmd'";
+  }
 }
 
 if ($cmd !~ m/(create|join)-cluster|create-uuid|cat|view|pretty/) {

@@ -2015,7 +2015,7 @@ static
 int peer_thread(void *data)
 {
 	struct mars_peerinfo *peer = data;
-	char *real_peer;
+	const char *real_peer;
 	struct sockaddr_storage src_sockaddr;
 	struct sockaddr_storage dst_sockaddr;
 	struct key_value_pair peer_pairs[] = {
@@ -2100,6 +2100,17 @@ int peer_thread(void *data)
 			MARS_DBG("successfully opened socket to '%s'\n", real_peer);
 			brick_msleep(100);
 			continue;
+		} else {
+			const char *new_peer;
+
+			/* check whether IP assignment has changed */
+			new_peer = mars_translate_hostname(peer->peer);
+			MARS_INF("AHA %d '%s' '%s'\n", 
+				 mars_socket_is_alive(&peer->socket),
+				 new_peer, real_peer);
+			if (new_peer && real_peer && strcmp(new_peer, real_peer))
+				mars_shutdown_socket(&peer->socket);
+			brick_string_free(new_peer);
 		}
 
 		if (peer->from_remote_trigger) {
@@ -4508,7 +4519,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 				     do_start ? switch_path : "",
 				     copy_path, dent->d_parent->d_path, argv, find_key(rot->msgs, "inf-sync"),
 				     start_pos, end_pos,
-				     rot->sync_finish_stamp.tv_sec != 0,
+				     true,
 				     mars_fast_fullsync > 0,
 				     true, false, &copy);
 		if (copy) {

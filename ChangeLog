@@ -166,6 +166,17 @@ light0.2beta1.0
 -----------------------------------
 Changelog for series 0.1:
 
+mars0.1stable29
+--------
+	* Minor fix: on very fast hardware and networks, sync could take
+	  a while for terminating.
+	* Minor fix: external module build.
+	* Major usability improvement: new expert commands marsadm
+	  lowlevel-ls-host-ips, lowlevel-set-host-ip, lowlevel-delete-host.
+	  Necessary for moves between networks, dedicated replication IPs,
+	  etc.
+	* Minor doc update.
+
 mars0.1stable28
 --------
 	* Doc: describe new naming conventions.
