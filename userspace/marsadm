@@ -1151,6 +1151,10 @@ sub try_to_avoid_splitbrain {
 	}
       }
     }
+    if ($primary && $primary eq $host) {
+      lprint "Switching back to last primary.\n";
+      last;
+    }
     # if the old primary is known, we can ignore all other / unrelated hosts
     if ($primary && $primary ne $host && $primary ne "(none)") {
       my $p_path = sprintf("$mars/resource-$res/version-%09d-%s", $max, $primary);
