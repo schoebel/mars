@@ -3252,12 +3252,24 @@ sub eval_fn {
       my $lnk = $$env{"resdir"} . "/syncstatus-" . $$env{"host"};
       return get_link($lnk, 1);
     }
-    if (/^(replay|work)[-_]?(pos|lognr|basenr)$/) {
+    if (/^(replay)[-_]?(lognr|basenr)$/) {
+      my $op = $2;
+      my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $$env{"host"}, -1, 1);
+      return $firstpos if $op eq "lognr";
+      return $logpos;
+    }
+    if (/^(fetch)[-_]?(lognr)$/) {
+      my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $$env{"host"}, 1, 1);
+      return $logpos;
+    }
+    if (/^(work)[-_]?(lognr)$/) {
+      my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $$env{"host"}, 1, 0);
+      return $logpos;
+    }
+    if (/^(replay|work)[-_]?(pos)$/) {
       my $what = $1;
       my $op   = $2;
       my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $$env{"host"}, -1, 0);
-      return $firstpos if $op eq "lognr";
-      return $logpos if $op eq "basenr";
       return $sum;
     }
     if (/^(replay[-_]?size)|(fetch[-_]?pos)$/) {
@@ -3265,12 +3277,10 @@ sub eval_fn {
       my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $$env{"host"}, 1, 1);
       return $sum0 + $sum;
     }
-    if (/^(fetch|work)[-_]?(size|lognr)$/) {
+    if (/^(fetch|work)[-_]?(size)$/) {
       my $what = $1;
-      my $op   = $2;
       my ($sum0) = get_amount($$env{"resdir"}, $$env{"host"}, -1, 0);
       my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $$env{"host"}, 1, 0);
-      return $logpos if $op eq "lognr";
       return $sum0 + $sum;
     }
     if (/^(sync|fetch|replay|work)[-_]?(rest|(?:almost[-_]?|threshold[-_]?)?reached|percent|permille|vector)$/) {
@@ -4161,6 +4171,10 @@ my %trivial_globs =
    "{sync,fetch,replay,work}-{rest,{almost-,threshold-,}reached,percent,permille,vector}"
    => "",
    "{sync,fetch,replay}-{rate,remain}"
+   => "",
+   "replay-basenr"
+   => "",
+   "{fetch,replay,work}-{lognr}"
    => "",
    "summary-vector",
    => "",
