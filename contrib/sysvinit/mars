@@ -1,0 +1,248 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          mars
+# Required-Start:    $network $local_fs $remote_fs
+# Required-Stop:     $remote_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: MARS module/userspace control
+# Description:       This script loads/unloads the MARS kernel module
+### END INIT INFO
+
+# Author: Daniel Hermann <daniel.hermann@1und1.de>
+
+# PATH should only include /usr/* if it runs after the mountnfs.sh script
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+DESC=MARS
+NAME=mars
+MODULE=mars
+SCRIPTNAME=/etc/init.d/$NAME
+ENABLED="true"
+
+MODPROBE=/sbin/modprobe
+RMMOD=/sbin/rmmod
+SYSCTL=/sbin/sysctl
+
+MODPROBE_PARAMS="-s"
+RMMOD_PARAMS="-s"
+
+MOUNT_FROM_FSTAB="true"
+MARS_MOUNTPOINT="/mars"
+MOUNT_OPTIONS=""
+SYSCTL_CONFFILE=/etc/mars/sysctl.conf
+
+## Enable read ahead for /mars by setting following parameter in kB
+## Reasonable value: 256 (kB)
+READAHEAD_FOR_MARS_DEVICE=
+
+# Read configuration variable file if it is present
+[ -r /etc/default/$NAME ] && . /etc/default/$NAME
+
+# Load the VERBOSE setting and other rcS variables
+. /lib/init/vars.sh
+
+# Define LSB log_* functions.
+# Depend on lsb-base (>= 3.0-6) to ensure that this file is present.
+. /lib/lsb/init-functions
+
+mount_mars_from_fstab()
+{
+    if [ "$MOUNT_FROM_FSTAB" = "true" ]; then
+	if grep -q " $MARS_MOUNTPOINT " /proc/mounts; then
+	    log_progress_msg "($MARS_MOUNTPOINT already mounted)"
+	    return 1
+	fi
+	log_progress_msg "(mount $MARS_MOUNTPOINT)"
+	mount $MOUNT_OPTIONS $MARS_MOUNTPOINT || return 2
+    else
+	# MOUNT_FROM_FSTAB is disabled and we have no
+	log_progress_msg "($MARS_MOUNTPOINT not mounted)"
+        # ignore this "error", /mars may be on root partition
+	return 0
+    fi
+}
+
+umount_mars()
+{
+    if [ "$MOUNT_FROM_FSTAB" = "true" ]; then
+	if ! grep -q " $MARS_MOUNTPOINT " /proc/mounts; then
+	    log_progress_msg "($MARS_MOUNTPOINT not mounted)"
+	    return 1
+	else
+	    log_progress_msg "(umount $MARS_MOUNTPOINT)"
+	    umount $MARS_MOUNTPOINT || return 2
+	fi
+    fi
+}
+
+load_module()
+{
+    if [ -r /sys/module/mars/version ]; then
+	log_progress_msg "(module already loaded)"
+	return 1    # already loaded
+    fi
+
+    if ! modinfo mars >/dev/null; then
+	log_progress_msg "(module unavailable)"
+	return 2
+    fi
+
+    log_progress_msg "(load module)"
+
+    $MODPROBE $MODPROBE_PARAMS mars || return 2
+
+    # Set custom kernel parameters after module is loaded
+    if [ -s $SYSCTL_CONFFILE ]; then
+        log_progress_msg "(sysctl $SYSCTL_CONFFILE)"
+        $SYSCTL -q -p $SYSCTL_CONFFILE || return 2
+    fi
+
+}
+
+unload_module()
+{
+    if [ ! -r /sys/module/mars/version ]; then
+	log_progress_msg "(module not loaded)"
+	return 1
+    fi
+
+    log_progress_msg "(unload module)"
+
+    $RMMOD $RMMOD_PARAMS mars || return 2
+}
+
+set_readahead()
+{
+    local rc=0
+    if [ $READAHEAD_FOR_MARS_DEVICE ]; then
+	MARS_DEV_LINK=/dev/disk/by-label/mars
+	if [ ! -L ${MARS_DEV_LINK} ]; then
+	    errmsg=" NOLABEL"
+	    rc=2
+	else
+	    MARS_DEV=$( readlink -e ${MARS_DEV_LINK} )
+	    if [ $? -ne 0 ]; then
+		errmsg=" NODEV"
+		rc=2
+	    else
+		MARS_DEV=${MARS_DEV##*/}  # remove prefix
+		READAHEAD_SYSFILE=/sys/block/$MARS_DEV/queue/read_ahead_kb
+		if [ ! -w $READAHEAD_SYSFILE ]; then
+		    errmsg=" NOSYSFILE"
+		    rc=2
+		fi
+	    fi
+	fi
+	log_progress_msg "(set readahead ${READAHEAD_FOR_MARS_DEVICE}kB for $MARS_DEV$errmsg)"
+	if [ $rc -eq 0 ]; then
+	    echo ${READAHEAD_FOR_MARS_DEVICE} > $READAHEAD_SYSFILE
+	fi
+    fi
+    return $rc
+}
+
+do_start()
+{
+    mount_mars_from_fstab; rc1=$?
+    case "$rc1" in
+	0|1)  set_readahead; rc2=$? ;;
+	*)  rc2=255 ;;
+    esac
+    case "$rc1" in   # ignore failures of set_readahead
+	0|1)  load_module; rc3=$? ;;
+	*)  rc3=255 ;;
+    esac
+    case "$rc3" in
+	0|1)  return $(( rc1 * rc3 )) ;;
+	*)    return 2
+    esac
+}
+
+do_stop()
+{
+    if marsadm show all | grep -q actual-$(uname -n)/is-primary\=1; then
+	log_progress_msg "(local node is primary for some resource)"
+	return 2
+    fi
+    unload_module; rc1=$?
+    case "$rc1" in
+	0|1)  umount_mars; rc2=$? ;;
+	2)  rc2=255 ;;
+    esac
+    case "$rc2" in
+	0|1)  return $(( rc1 * rc2 )) ;;
+	*)    return 2
+    esac
+}
+
+do_status()
+{
+    if [ -r /sys/module/mars/version ]; then
+	MODVERS=$(cat /sys/module/mars/version)
+	echo "module is loaded: $MODVERS"
+	return 0  # LSB: running
+    else
+	echo -n "module NOT loaded, "
+	if grep -q " $MARS_MOUNTPOINT " /proc/mounts; then
+	    echo "$MARS_MOUNTPOINT is mounted"
+	else
+	    echo "$MARS_MOUNTPOINT NOT mounted"
+	fi
+	return 3  # LSB: not running
+    fi
+}
+
+case "$1" in
+  start)
+	if [ "$ENABLED" = "true" ]; then
+	    [ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC "
+	    do_start
+	    case "$?" in
+		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+	    esac
+	else
+	    log_warning_msg "$DESC not enabled in /etc/default/$NAME, not starting."
+	fi
+	;;
+  stop)
+	[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC"
+	do_stop
+	case "$?" in
+	    0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+	    2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+	esac
+	;;
+  status)
+	do_status
+	exit $?
+	;;
+  restart|force-reload)
+	if [ "$ENABLED" = "true" ]; then
+	    log_daemon_msg "Restarting $DESC"
+	    do_stop
+	    case "$?" in
+		0|1)
+		    do_start
+		    case "$?" in
+			0) log_end_msg 0 ;;
+			1) log_end_msg 1 ;; # module never was sucessfully unloaded
+			*) log_end_msg 1 ;; # failed to load module
+		    esac
+		    ;;
+		*)
+		    # failed to unload
+		    log_end_msg 1
+		    ;;
+	    esac
+	else
+	    log_warning_msg "$DESC not enabled in /etc/default/$NAME, not starting."
+	fi
+	;;
+  *)
+	echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload}" >&2
+	exit 3
+	;;
+esac
+
+:
