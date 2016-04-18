@@ -3266,6 +3266,13 @@ sub eval_fn {
       my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $$env{"host"}, 1, 0);
       return $logpos;
     }
+    if (/^replay[-_]?logcount$/) {
+      return eval_fn($env, "replay-lognr", "") - eval_fn($env, "replay-basenr", "");
+    }
+    if (/^(fetch|work)[-_]?logcount$/) {
+      my $what = $1;
+      return eval_fn($env, "$what-lognr", "") - eval_fn($env, "replay-lognr", "");
+    }
     if (/^(replay|work)[-_]?(pos)$/) {
       my $what = $1;
       my $op   = $2;
@@ -4174,7 +4181,7 @@ my %trivial_globs =
    => "",
    "replay-basenr"
    => "",
-   "{fetch,replay,work}-{lognr}"
+   "{fetch,replay,work}-{lognr,logcount}"
    => "",
    "summary-vector",
    => "",
