@@ -749,6 +749,7 @@ sub get_amount {
       return (0, 0, 0, 0) if $replay_link !~ m:log-([0-9]+)-[^,]+,([0-9]+),([0-9]+):;
       $firstpos = int($1);
       $logpos = $firstpos;
+      $oldpos = $firstpos;
       if ($direction < 0) {
 	$sum = $2;
       } else {
