@@ -2611,7 +2611,7 @@ bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, c
 		make_rot_msg(rot, "err-versionlink-not-readable", "cannot read old versionlink '%s'", SAFE_STR(old_versionlink_path));
 		goto done;
 	}
-	if (!skip_new) {
+	if (!skip_new && strcmp(new_host, my_id())) {
 		new_versionlink = get_versionlink(rot->parent_path, new_log_seq, new_host, &new_versionlink_path);
 		if (unlikely(!new_versionlink || !new_versionlink[0])) {
 			MARS_INF_TO(rot->log_say, "new versionlink '%s' does not yet exist, we must wait for it.\n", SAFE_STR(new_versionlink_path));
