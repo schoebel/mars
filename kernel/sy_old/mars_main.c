@@ -3769,8 +3769,10 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		} else if (rot->replay_code >= 0) {
 			rot->replay_code = trans_brick->replay_code;
 		}
-		__show_actual(parent->d_path, "replay-code", rot->replay_code);
+	} else {
+		rot->replay_code = 0;
 	}
+	__show_actual(parent->d_path, "replay-code", rot->replay_code);
 
 	/* Stopping is also possible in case of errors
 	 */
