@@ -545,6 +545,12 @@ int bio_response_thread(void *data)
 			atomic_read(&brick->fly_count[1]),
 			atomic_read(&brick->fly_count[2]));
 
+#ifdef CONFIG_MARS_DEBUG
+		if (mars_hang_mode & 2) {
+			brick_msleep(100);
+			continue;
+		}
+#endif
 		spin_lock_irqsave(&brick->lock, flags);
 		list_replace_init(&brick->completed_list, &tmp_list);
 		spin_unlock_irqrestore(&brick->lock, flags);

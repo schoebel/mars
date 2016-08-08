@@ -466,6 +466,7 @@ extern void mref_checksum(struct mref_object *mref);
 
 #ifdef CONFIG_MARS_DEBUG
 extern int mars_crash_mode;
+extern int mars_hang_mode;
 extern void _crashme(int mode, bool do_sync);
 #else
 extern inline void _crashme(int mode, bool do_sync) {}

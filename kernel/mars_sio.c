@@ -350,6 +350,11 @@ void _complete(struct sio_output *output, struct mref_object *mref, int err)
 		mref->ref_flags |= MREF_UPTODATE;
 	}
 
+#ifdef CONFIG_MARS_DEBUG
+	while (mars_hang_mode & 1)
+		brick_msleep(100);
+#endif
+
 	CHECKED_CALLBACK(mref, err, err_found);
 
 done:

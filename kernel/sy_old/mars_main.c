@@ -184,6 +184,8 @@ EXPORT_SYMBOL_GPL(mars_keep_msg);
 
 int mars_crash_mode = 0;
 EXPORT_SYMBOL_GPL(mars_crash_mode);
+int mars_hang_mode = 0;
+EXPORT_SYMBOL_GPL(mars_hang_mode);
 
 void _crashme(int mode, bool do_sync)
 {
