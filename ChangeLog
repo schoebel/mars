@@ -115,6 +115,17 @@ Changelog for series 0.2:
 -----------------------------------
 Changelog for series 0.1:
 
+mars0.1stable30
+--------
+	* Minor fix: in very rare cases of a primary crash, a missing
+	  versionlink could lead to a hang.
+	* Minor fix: improved error reporting of replay code.
+	* Minor fix: improved switchback to former primary side.
+	* Minor fix: systematically add some missing macros.
+	* Minor improvements: add some example systemd unit and other
+	  contrib stuff like a cronjob example.
+	* Doc: minor additions and improvements.
+
 mars0.1stable29
 --------
 	* Minor fix: on very fast hardware and networks, sync could take
