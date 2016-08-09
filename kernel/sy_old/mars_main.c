@@ -179,6 +179,25 @@ EXPORT_SYMBOL_GPL(mars_reset_emergency);
 int mars_keep_msg = 10;
 EXPORT_SYMBOL_GPL(mars_keep_msg);
 
+#ifdef CONFIG_MARS_DEBUG
+#include <linux/reboot.h>
+
+int mars_crash_mode = 0;
+EXPORT_SYMBOL_GPL(mars_crash_mode);
+int mars_hang_mode = 0;
+EXPORT_SYMBOL_GPL(mars_hang_mode);
+
+void _crashme(int mode, bool do_sync)
+{
+	if (mode == mars_crash_mode) {
+		if (do_sync)
+			mars_sync();
+		emergency_restart();
+	}
+}
+
+#endif
+
 #define MARS_SYMLINK_MAX 1023
 
 struct key_value_pair {
@@ -1130,6 +1149,8 @@ int _update_replay_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 		goto out;
 	}
 
+	_crashme(1, true);
+
 	res = _update_link_when_necessary(rot, "replay", old, new);
 
 out:
@@ -1223,6 +1244,8 @@ int _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 		MARS_ERR("no MEM\n");
 		goto out;
 	}
+
+	_crashme(2, true);
 
 	res = _update_link_when_necessary(rot , "version", old, new);
 
@@ -2484,6 +2507,7 @@ void _create_new_logfile(const char *path)
 	} else {
 		MARS_DBG("created empty logfile '%s'\n", path);
 		mars_sync();
+		_crashme(10, false);
 		filp_close(f, NULL);
 		mars_trigger();
 	}
@@ -2594,7 +2618,7 @@ bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, c
 		make_rot_msg(rot, "err-versionlink-not-readable", "cannot read old versionlink '%s'", SAFE_STR(old_versionlink_path));
 		goto done;
 	}
-	if (!skip_new) {
+	if (!skip_new && strcmp(new_host, my_id())) {
 		new_versionlink = get_versionlink(rot->parent_path, new_log_seq, new_host, &new_versionlink_path);
 		if (unlikely(!new_versionlink || !new_versionlink[0])) {
 			MARS_INF_TO(rot->log_say, "new versionlink '%s' does not yet exist, we must wait for it.\n", SAFE_STR(new_versionlink_path));
@@ -3752,8 +3776,10 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		} else if (rot->replay_code >= 0) {
 			rot->replay_code = trans_brick->replay_code;
 		}
-		__show_actual(parent->d_path, "replay-code", rot->replay_code);
+	} else {
+		rot->replay_code = 0;
 	}
+	__show_actual(parent->d_path, "replay-code", rot->replay_code);
 
 	/* Stopping is also possible in case of errors
 	 */
@@ -4283,6 +4309,8 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 			goto done;
 		}
 
+		_crashme(3, true);
+
 		status = _update_link_when_necessary(rot, "syncpos", peer_replay_link, syncpos_path);
 		/* Sync is only marked as finished when the syncpos
 		 * production was successful and timestamps are recent enough.
@@ -4303,12 +4331,16 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 	src = path_make("%lld", copy->copy_last);
 	dst = path_make("%s/syncstatus-%s", rot->parent_path, my_id());
 
+	_crashme(4, true);
+
 	status = _update_link_when_necessary(rot, "syncstatus", src, dst);
 
 	brick_string_free(src);
 	brick_string_free(dst);
 	src = path_make("%lld,%lld", copy->verify_ok_count, copy->verify_error_count);
 	dst = path_make("%s/verifystatus-%s", rot->parent_path, my_id());
+
+	_crashme(5, true);
 
 	(void)_update_link_when_necessary(rot, "verifystatus", src, dst);
 

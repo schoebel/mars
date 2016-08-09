@@ -50,6 +50,7 @@
 #define mars_digest_size 16
 #define mars_digest(a,b,c) /*empty*/
 #define loff_t long long
+#define scnprintf snprintf
 #include "../kernel/lib_log.h"
 
 static

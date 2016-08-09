@@ -728,6 +728,13 @@ static int aio_event_thread(void *data)
 			break;
 		}
 
+#ifdef CONFIG_MARS_DEBUG
+		if (mars_hang_mode & 1) {
+			brick_msleep(100);
+			continue;
+		}
+#endif
+
 		oldfs = get_fs();
 		set_fs(get_ds());
 		/* TODO: don't timeout upon termination.

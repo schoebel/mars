@@ -966,6 +966,8 @@ void _trans_logger_endio(struct generic_callback *cb)
 	struct trans_logger_mref_aspect *mref_a;
 	struct trans_logger_brick *brick;
 
+	_crashme(20, false);
+
 	mref_a = cb->cb_private;
 	CHECK_PTR(mref_a, err);
 	if (unlikely(&mref_a->cb != cb)) {
@@ -1145,6 +1147,8 @@ void wb_endio(struct generic_callback *cb)
 	atomic_t *dec;
 	void (**_endio)(struct generic_callback *cb);
 	void (*endio)(struct generic_callback *cb);
+
+	_crashme(21, false);
 
 	LAST_CALLBACK(cb);
 	sub_mref_a = cb->cb_private;
@@ -2697,6 +2701,8 @@ void replay_endio(struct generic_callback *cb)
 	struct trans_logger_brick *brick;
 	bool ok;
 	unsigned long flags;
+
+	_crashme(22, false);
 
 	LAST_CALLBACK(cb);
 	CHECK_PTR(mref_a, err);

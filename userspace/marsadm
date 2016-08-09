@@ -749,6 +749,7 @@ sub get_amount {
       return (0, 0, 0, 0) if $replay_link !~ m:log-([0-9]+)-[^,]+,([0-9]+),([0-9]+):;
       $firstpos = int($1);
       $logpos = $firstpos;
+      $oldpos = $firstpos;
       if ($direction < 0) {
 	$sum = $2;
       } else {
@@ -1150,6 +1151,10 @@ sub try_to_avoid_splitbrain {
 	  lprint "Using last primary '$primary' as a substitute.\n";
 	}
       }
+    }
+    if ($primary && $primary eq $host) {
+      lprint "Switching back to last primary.\n";
+      last;
     }
     # if the old primary is known, we can ignore all other / unrelated hosts
     if ($primary && $primary ne $host && $primary ne "(none)") {
@@ -2251,7 +2256,7 @@ sub primary_phase0 {
     check_todo($cmd, $res, "replay", 1, 0);
     # check that no logfile replay errors exist.
     my $replay_error = get_link("$mars/resource-$res/actual-$host/replay-code", 2);
-    if (int($replay_error) < 0) {
+    if (defined($replay_error) && $replay_error ne "" && int($replay_error) < 0) {
       lwarn "Logfile replay / recovery stopped with error code $replay_error.\n";
       ldie "Won't switch to avoid unnoticed data loss. You may however do a 'primary --force'.\n" unless $force;
     }
@@ -3247,12 +3252,31 @@ sub eval_fn {
       my $lnk = $$env{"resdir"} . "/syncstatus-" . $$env{"host"};
       return get_link($lnk, 1);
     }
-    if (/^(replay|work)[-_]?(pos|lognr|basenr)$/) {
+    if (/^(replay)[-_]?(lognr|basenr)$/) {
+      my $op = $2;
+      my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $$env{"host"}, -1, 1);
+      return $firstpos if $op eq "lognr";
+      return $logpos;
+    }
+    if (/^(fetch)[-_]?(lognr)$/) {
+      my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $$env{"host"}, 1, 1);
+      return $logpos;
+    }
+    if (/^(work)[-_]?(lognr)$/) {
+      my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $$env{"host"}, 1, 0);
+      return $logpos;
+    }
+    if (/^replay[-_]?logcount$/) {
+      return eval_fn($env, "replay-lognr", "") - eval_fn($env, "replay-basenr", "");
+    }
+    if (/^(fetch|work)[-_]?logcount$/) {
+      my $what = $1;
+      return eval_fn($env, "$what-lognr", "") - eval_fn($env, "replay-lognr", "");
+    }
+    if (/^(replay|work)[-_]?(pos)$/) {
       my $what = $1;
       my $op   = $2;
       my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $$env{"host"}, -1, 0);
-      return $firstpos if $op eq "lognr";
-      return $logpos if $op eq "basenr";
       return $sum;
     }
     if (/^(replay[-_]?size)|(fetch[-_]?pos)$/) {
@@ -3260,12 +3284,10 @@ sub eval_fn {
       my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $$env{"host"}, 1, 1);
       return $sum0 + $sum;
     }
-    if (/^(fetch|work)[-_]?(size|lognr)$/) {
+    if (/^(fetch|work)[-_]?(size)$/) {
       my $what = $1;
-      my $op   = $2;
       my ($sum0) = get_amount($$env{"resdir"}, $$env{"host"}, -1, 0);
       my ($sum, $firstpos, $logpos, $level) = get_amount($$env{"resdir"}, $$env{"host"}, 1, 0);
-      return $logpos if $op eq "lognr";
       return $sum0 + $sum;
     }
     if (/^(sync|fetch|replay|work)[-_]?(rest|(?:almost[-_]?|threshold[-_]?)?reached|percent|permille|vector)$/) {
@@ -4156,6 +4178,10 @@ my %trivial_globs =
    "{sync,fetch,replay,work}-{rest,{almost-,threshold-,}reached,percent,permille,vector}"
    => "",
    "{sync,fetch,replay}-{rate,remain}"
+   => "",
+   "replay-basenr"
+   => "",
+   "{fetch,replay,work}-{lognr,logcount}"
    => "",
    "summary-vector",
    => "",

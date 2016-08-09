@@ -140,7 +140,7 @@ tst@1und1.de
 \end_layout
 
 \begin_layout Date
-Version 0.2-31
+Version 0.2-32
 \end_layout
 
 \begin_layout Lowertitleback
@@ -11455,6 +11455,13 @@ status open
 
 \begin_layout Plain Layout
 overview on amounts / cursors
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:overview-on-amounts"
+
+\end_inset
+
+
 \end_layout
 
 \end_inset
@@ -11936,7 +11943,7 @@ approximately
 \emph default
  dropped down to zero.
  The default is that at lease 990 permille are reached.
- In asynchronous use cases of MARS, this should be preferred over 
+ In asynchronous use cases of MARS, this can be preferred over 
 \family typewriter
 *-reached
 \family default
@@ -11944,7 +11951,9 @@ approximately
 \emph on
 human display
 \emph default
-, because it produces less flickering by the inevitable replication delay.
+ only, because it produces less flickering by the inevitable replication
+ delay.
+ However, don't base any decisions on this!
 \end_layout
 
 \begin_layout Labeling
@@ -12046,6 +12055,77 @@ summary-vector
 %replay-pos{}:%fetch-pos{}:%fetch-size{}
 \family default
 .
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+replay-basenr 
+\family default
+Get currently first reachable logfile number (see figure 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "fig:overview-on-amounts"
+
+\end_inset
+
+).
+ Only for curious humans or for debugging / monitoring - don't base any
+ decisions on this.
+ Use the 
+\family typewriter
+*-{pos,size}
+\family default
+ macros instead.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{replay,fetch,work}-lognr 
+\family default
+Get current logfile number of replay or fetch position, or of the currently
+ known last reachable number (see figure 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "fig:overview-on-amounts"
+
+\end_inset
+
+).
+ Only for curious humans or for debugging / monitoring - don't base any
+ decisions on this.
+ Use the 
+\family typewriter
+*-{pos,size}
+\family default
+ macros instead.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+{replay,fetch,work}-logcount 
+\family default
+Get current number of logfiles which are already replayed, or are already
+ fetched, or are to be applied in total (see figure 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "fig:overview-on-amounts"
+
+\end_inset
+
+).
+ Only for curious humans or for debugging / monitoring - don't base any
+ decisions on this.
+ Use the 
+\family typewriter
+*-{rest}
+\family default
+ macros instead.
 \end_layout
 
 \begin_layout Labeling
@@ -14671,27 +14751,6 @@ path
 etc.
  Low-level access to internal symlink formats.
  Don't use this in scripts! Only for curious humans.
-\end_layout
-
-\begin_layout Itemize
-
-\family typewriter
-%{replay,fetch}-lognr{} 
-\family default
-Get current logfile number of replay or fetch position.
- Only for curious humans or for debugging - don't use in scripts, don't
- base any decisions on this.
-\end_layout
-
-\begin_layout Itemize
-
-\family typewriter
-%replay-basenr{} 
-\family default
-Get currently first reachable logfile number.
- Only for curious humans or for debugging - don't use in scripts, don't
- base any decisions on this.
- 
 \end_layout
 
 \begin_layout Itemize

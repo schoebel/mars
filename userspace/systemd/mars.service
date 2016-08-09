@@ -1,0 +1,13 @@
+[Unit]
+Description=MARS block layer HA (kernel module)
+Documentation=https://github.com/schoebel/mars/docu/mars-manual.pdf
+RequiresMountsFor=/mars/uuid
+
+[Service]
+Type=oneshot
+RemainAfterExit=1
+ExecStart=/sbin/modprobe mars
+ExecStop=/sbin/rmmod mars
+
+[Install]
+WantedBy=dev-mars-@.device

@@ -221,6 +221,11 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct timespec
 	else
 		get_lamport(&times[0]);
 	
+#ifdef CONFIG_MARS_DEBUG
+	while (mars_hang_mode & 4)
+		brick_msleep(100);
+#endif
+
 	oldfs = get_fs();
 	set_fs(get_ds());
 	/* Some filesystems have only full second resolution.
