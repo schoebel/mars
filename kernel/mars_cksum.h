@@ -32,8 +32,19 @@ struct cksum_brick {
 	MARS_BRICK(cksum);
 };
 
-struct cksum_input {
+/* common part of 2 input types */
+struct _cksum_input {
 	MARS_INPUT(cksum);
+};
+
+/* 1st input type, referencing the original data */
+struct cksum_input_orig {
+	struct _cksum_input inp;
+};
+
+/* 2nd input type, referencing the corresponding checksum data */
+struct cksum_input_cksum {
+	struct _cksum_input inp;
 };
 
 struct cksum_output {

@@ -45,29 +45,34 @@
 static
 int cksum_get_info(struct cksum_output *output, struct mars_info *info)
 {
-	struct cksum_input *input = output->brick->inputs[0];
-	return GENERIC_INPUT_CALL(input, mars_get_info, info);
+	struct cksum_input_orig *input_orig = (void *)output->brick->inputs[0];
+	struct cksum_input_cksum *input_cksum = (void *)output->brick->inputs[1];
+
+	return GENERIC_INPUT_CALL(&input_orig->inp, mars_get_info, info);
 }
 
 static
 int cksum_ref_get(struct cksum_output *output, struct mref_object *mref)
 {
-	struct cksum_input *input = output->brick->inputs[0];
-	return GENERIC_INPUT_CALL(input, mref_get, mref);
+	struct cksum_input_orig *input_orig = (void *)output->brick->inputs[0];
+
+	return GENERIC_INPUT_CALL(&input_orig->inp, mref_get, mref);
 }
 
 static
 void cksum_ref_put(struct cksum_output *output, struct mref_object *mref)
 {
-	struct cksum_input *input = output->brick->inputs[0];
-	GENERIC_INPUT_CALL(input, mref_put, mref);
+	struct cksum_input_orig *input_orig = (void *)output->brick->inputs[0];
+
+	GENERIC_INPUT_CALL(&input_orig->inp, mref_put, mref);
 }
 
 static
 void cksum_ref_io(struct cksum_output *output, struct mref_object *mref)
 {
-	struct cksum_input *input = output->brick->inputs[0];
-	GENERIC_INPUT_CALL(input, mref_io, mref);
+	struct cksum_input_orig *input_orig = (void *)output->brick->inputs[0];
+
+	GENERIC_INPUT_CALL(&input_orig->inp, mref_io, mref);
 }
 
 static
@@ -182,14 +187,20 @@ struct cksum_output_ops cksum_output_ops = {
 	.mref_io = cksum_ref_io,
 };
 
-const struct cksum_input_type cksum_input_type = {
-	.type_name = "cksum_input",
-	.input_size = sizeof(struct cksum_input),
+const struct cksum_input_type cksum_input_orig_type = {
+	.type_name = "cksum_input_orig",
+	.input_size = sizeof(struct cksum_input_orig),
+};
+
+const struct cksum_input_type cksum_input_cksum_type = {
+	.type_name = "cksum_input_cksum",
+	.input_size = sizeof(struct cksum_input_cksum),
 };
 
 static
 const struct cksum_input_type *cksum_input_types[] = {
-	&cksum_input_type,
+	&cksum_input_orig_type,
+	&cksum_input_cksum_type,
 };
 
 const struct cksum_output_type cksum_output_type = {
@@ -208,7 +219,7 @@ const struct cksum_output_type *cksum_output_types[] = {
 const struct cksum_brick_type cksum_brick_type = {
 	.type_name = "cksum_brick",
 	.brick_size = sizeof(struct cksum_brick),
-	.max_inputs = 1,
+	.max_inputs = 2,
 	.max_outputs = 1,
 	.master_ops = &cksum_brick_ops,
 	.aspect_types = cksum_aspect_types,
