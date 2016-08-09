@@ -113,6 +113,10 @@ Release Conventions / Branches / Tagnames
 -----------------------------------
 Changelog for series 0.2:
 
+mars0.2beta2.5
+--------
+	* Include all fixes from mars0.1stable29 to mars0.1stable30.
+
 mars0.2beta2.4
 --------
 	* Doc: describe new naming conventions.
