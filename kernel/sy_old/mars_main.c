@@ -69,6 +69,7 @@
 #include "../mars_sio.h"
 #include "../mars_aio.h"
 #include "../mars_trans_logger.h"
+#include "../mars_cksum.h"
 #include "../mars_if.h"
 #include "mars_proc.h"
 #ifdef CONFIG_MARS_DEBUG // otherwise currently unused
@@ -5797,6 +5798,7 @@ static int __init init_main(void)
 	DO_INIT(log_format);
 	DO_INIT(mars_trans_logger);
 	DO_INIT(mars_if);
+	DO_INIT(mars_cksum);
 
 	DO_INIT(sy);
 	DO_INIT(sy_net);

@@ -50,6 +50,7 @@ mars-objs :=				\
 	mars_aio.o			\
 	mars_sio.o			\
 	mars_bio.o			\
+	mars_cksum.o			\
 	mars_if.o			\
 	mars_copy.o			\
 	mars_trans_logger.o		\
