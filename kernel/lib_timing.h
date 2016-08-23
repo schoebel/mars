@@ -120,7 +120,7 @@ struct banning {
 	int ban_count;
 };
 
-extern inline
+static inline
 bool banning_hit(struct banning *ban, long long duration)
 {
 	long long now = cpu_clock(raw_smp_processor_id());
@@ -134,7 +134,7 @@ bool banning_hit(struct banning *ban, long long duration)
 	return hit;
 }
 
-extern inline
+static inline
 bool banning_is_hit(struct banning *ban)
 {
 	long long now = cpu_clock(raw_smp_processor_id());
@@ -163,7 +163,7 @@ struct threshold {
 	int thr_true_hit;
 };
 
-extern inline
+static inline
 void threshold_check(struct threshold *thr, long long latency)
 {
 	int ms = latency >> 6; // ignore small rounding error
