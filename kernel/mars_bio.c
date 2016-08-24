@@ -50,6 +50,11 @@
 #define HAS_BI_ERROR
 #endif
 
+/* adapt to 4e1b2d52a80d79296a5d899d73249748dea71a53 and many others */
+#ifdef bio_op
+#define HAS_NEW_BIO_OP
+#endif
+
 //      end_remove_this
 static struct timing_stats timings[2] = {};
 
@@ -255,7 +260,9 @@ int make_bio(struct bio_brick *brick, void *data, int len, loff_t pos, struct bi
 	bio->bi_bdev = bdev;
 	bio->bi_private = private;
 	bio->bi_end_io = bio_callback;
+#ifndef HAS_NEW_BIO_OP
 	bio->bi_rw = 0; // must be filled in later
+#endif
 	status = result_len;
 
 out:
@@ -466,11 +473,25 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref, bool cork)
 #ifdef FAKE_IO
 	bio->bi_end_io(bio, 0);
 #else
+#ifdef HAS_NEW_BIO_OP
+	if (rw & 1) {
+		bio_set_op_attrs(bio, REQ_OP_WRITE,
+				 mref->ref_skip_sync ? 0 : WRITE_SYNC);
+	} else {
+		bio_set_op_attrs(bio, REQ_OP_READ,
+				 mref->ref_skip_sync ? 0 : READ_SYNC);
+	}
+	latency = TIME_STATS(
+		&timings[rw & 1],
+		submit_bio(bio)
+		);
+#else
 	bio->bi_rw = rw;
 	latency = TIME_STATS(
 		&timings[rw & 1],
 		submit_bio(rw, bio)
 		);
+#endif
 #endif
 
 	threshold_check(&bio_submit_threshold, latency);
