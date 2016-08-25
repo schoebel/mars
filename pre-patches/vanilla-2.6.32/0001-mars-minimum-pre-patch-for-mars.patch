@@ -1,23 +1,23 @@
-From 3bbda9eb6457de0629527ced0f276f31ab820d24 Mon Sep 17 00:00:00 2001
+From 2fefc2b162e6b0d5b9270e16bcf7f79611713302 Mon Sep 17 00:00:00 2001
 From: Thomas Schoebel-Theuer <schoebel@bell.site>
 Date: Wed, 26 Jun 2013 14:45:07 +0200
-Subject: [PATCH] mars: pre-patch for mars
+Subject: [PATCH] mars: minimum pre-patch for mars
 
 Mostly introduces missing EXPORT_SYMBOL().
-Should have exactly zero impact onto the kernel.
 ---
  fs/aio.c              | 5 +++++
  fs/namei.c            | 5 +++++
  fs/open.c             | 2 ++
  fs/utimes.c           | 2 ++
  include/linux/major.h | 1 +
+ kernel/fork.c         | 1 +
  mm/mmu_context.c      | 3 +++
  mm/page_alloc.c       | 2 ++
  mm/swap_state.c       | 1 +
- 8 files changed, 21 insertions(+)
+ 9 files changed, 22 insertions(+)
 
 diff --git a/fs/aio.c b/fs/aio.c
-index 02a2c93..3a0d018 100644
+index 5030dc6..de5b507 100644
 --- a/fs/aio.c
 +++ b/fs/aio.c
 @@ -1267,6 +1267,7 @@ SYSCALL_DEFINE2(io_setup, unsigned, nr_events, aio_context_t __user *, ctxp)
@@ -36,7 +36,7 @@ index 02a2c93..3a0d018 100644
  
  static void aio_advance_iovec(struct kiocb *iocb, ssize_t ret)
  {
-@@ -1674,6 +1676,7 @@ SYSCALL_DEFINE3(io_submit, aio_context_t, ctx_id, long, nr,
+@@ -1675,6 +1677,7 @@ SYSCALL_DEFINE3(io_submit, aio_context_t, ctx_id, long, nr,
  	put_ioctx(ctx);
  	return i ? i : ret;
  }
@@ -44,7 +44,7 @@ index 02a2c93..3a0d018 100644
  
  /* lookup_kiocb
   *	Finds a given iocb for cancellation.
-@@ -1753,6 +1756,7 @@ SYSCALL_DEFINE3(io_cancel, aio_context_t, ctx_id, struct iocb __user *, iocb,
+@@ -1754,6 +1757,7 @@ SYSCALL_DEFINE3(io_cancel, aio_context_t, ctx_id, struct iocb __user *, iocb,
  
  	return ret;
  }
@@ -52,16 +52,16 @@ index 02a2c93..3a0d018 100644
  
  /* io_getevents:
   *	Attempts to read at least min_nr events and up to nr events from
-@@ -1784,3 +1788,4 @@ SYSCALL_DEFINE5(io_getevents, aio_context_t, ctx_id,
+@@ -1785,3 +1789,4 @@ SYSCALL_DEFINE5(io_getevents, aio_context_t, ctx_id,
  	asmlinkage_protect(5, ret, ctx_id, min_nr, nr, events, timeout);
  	return ret;
  }
 +EXPORT_SYMBOL(sys_io_getevents);
 diff --git a/fs/namei.c b/fs/namei.c
-index d11f404..e5b472d 100644
+index 6551acb..c76d8e6 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
-@@ -2945,12 +2945,17 @@ EXPORT_SYMBOL(vfs_create);
+@@ -2983,12 +2983,17 @@ EXPORT_SYMBOL(vfs_create);
  EXPORT_SYMBOL(vfs_follow_link);
  EXPORT_SYMBOL(vfs_link);
  EXPORT_SYMBOL(vfs_mkdir);
@@ -128,6 +128,18 @@ index 6a8ca98..faf6692 100644
  #define RTF_MAJOR		150
  #define RAW_MAJOR		162
  
+diff --git a/kernel/fork.c b/kernel/fork.c
+index c28f804..1256c1b 100644
+--- a/kernel/fork.c
++++ b/kernel/fork.c
+@@ -169,6 +169,7 @@ void __put_task_struct(struct task_struct *tsk)
+ 	if (!profile_handoff_task(tsk))
+ 		free_task(tsk);
+ }
++EXPORT_SYMBOL(__put_task_struct);
+ 
+ /*
+  * macro override instead of weak attribute alias, to workaround
 diff --git a/mm/mmu_context.c b/mm/mmu_context.c
 index ded9081..addb2e3 100644
 --- a/mm/mmu_context.c
@@ -154,7 +166,7 @@ index ded9081..addb2e3 100644
  }
 +EXPORT_SYMBOL(unuse_mm);
 diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index 2bc2ac6..31e3a3f 100644
+index 3ecab7e..9774425 100644
 --- a/mm/page_alloc.c
 +++ b/mm/page_alloc.c
 @@ -122,6 +122,7 @@ static char * const zone_names[MAX_NR_ZONES] = {
@@ -165,7 +177,7 @@ index 2bc2ac6..31e3a3f 100644
  
  static unsigned long __meminitdata nr_kernel_pages;
  static unsigned long __meminitdata nr_all_pages;
-@@ -4631,6 +4632,7 @@ void setup_per_zone_wmarks(void)
+@@ -4645,6 +4646,7 @@ void setup_per_zone_wmarks(void)
  	/* update totalreserve_pages */
  	calculate_totalreserve_pages();
  }
@@ -186,5 +198,5 @@ index 6d1daeb..8f2038a 100644
  #define INC_CACHE_INFO(x)	do { swap_cache_info.x++; } while (0)
  
 -- 
-1.8.1.4
+2.9.2
 
