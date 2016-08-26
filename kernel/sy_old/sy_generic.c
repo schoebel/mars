@@ -133,6 +133,12 @@ EXPORT_SYMBOL_GPL(mars_dent_meta);
 #define  __HAS_RETRY_ESTALE
 #endif
 
+/* 5955102c9984fa081b2d570cfac75c97eecf8f3b
+ */
+#ifndef FLOCK_VERIFY_READ /* detect kernel 4.5-rc1 via acc15575e */
+#define HAS_INODE_LOCK_WRAPPERS
+#endif
+
 /* Hack because of 8bcb77fabd7cbabcad49f58750be8683febee92b
  */
 static int __path_parent(const char *name, struct path *path, unsigned flags)
@@ -198,13 +204,21 @@ retry:
 			.ia_mtime.tv_nsec = mtime->tv_nsec,
 		};
 
+#ifdef HAS_INODE_LOCK_WRAPPERS
+		inode_lock(dentry->d_inode);
+#else
 		mutex_lock(&dentry->d_inode->i_mutex);
+#endif
 #ifdef FL_DELEG
 		error = notify_change(dentry, &iattr, NULL);
 #else
 		error = notify_change(dentry, &iattr);
 #endif
+#ifdef HAS_INODE_LOCK_WRAPPERS
+		inode_unlock(dentry->d_inode);
+#else
 		mutex_unlock(&dentry->d_inode->i_mutex);
+#endif
 	}
 #ifdef __NEW_PATH_CREATE
 	done_path_create(&path, dentry);
@@ -440,7 +454,11 @@ retry:
 	if (error)
 		goto exit1;
 #endif
+#ifdef HAS_INODE_LOCK_WRAPPERS
+	inode_lock_nested(dentry->d_inode, I_MUTEX_PARENT);
+#else
 	mutex_lock_nested(&parent->d_inode->i_mutex, I_MUTEX_PARENT);
+#endif
 
 	dentry = lookup_one_len(one, parent, strlen(one));
 	error = PTR_ERR(dentry);
@@ -471,7 +489,11 @@ retry:
 exit3:
 	dput(dentry);
 exit2:
+#ifdef HAS_INODE_LOCK_WRAPPERS
+	inode_unlock(dentry->d_inode);
+#else
 	mutex_unlock(&parent->d_inode->i_mutex);
+#endif
 	if (inode)
 		iput(inode);
 #ifdef __NEW_PATH_CREATE
