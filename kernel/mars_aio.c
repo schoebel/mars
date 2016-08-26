@@ -46,7 +46,7 @@
 #define MARS_MAX_AIO      512
 #define MARS_MAX_AIO_READ 32
 
-static struct timing_stats timings[3] = {};
+struct timing_stats timings[3] = {};
 
 struct threshold aio_submit_threshold = {
 	.thr_ban = &mars_global_ban,
@@ -89,6 +89,8 @@ EXPORT_SYMBOL_GPL(aio_sync_mode);
 ///////////////////////// own type definitions ////////////////////////
 
 ////////////////// some helpers //////////////////
+
+#ifdef ENABLE_MARS_AIO
 
 static inline
 void _enqueue(struct aio_threadinfo *tinfo, struct aio_mref_aspect *mref_a, int prio, bool at_end)
@@ -1068,7 +1070,7 @@ void aio_reset_statistics(struct aio_brick *brick)
 	}
 }
 
-
+#endif /* ENABLE_MARS_AIO */
 //////////////// object / aspect constructors / destructors ///////////////
 
 static int aio_mref_aspect_init_fn(struct generic_aspect *_ini)
@@ -1089,6 +1091,7 @@ static void aio_mref_aspect_exit_fn(struct generic_aspect *_ini)
 
 MARS_MAKE_STATICS(aio);
 
+#ifdef ENABLE_MARS_AIO
 ////////////////////// brick constructors / destructors ////////////////////
 
 static int aio_brick_construct(struct aio_brick *brick)
@@ -1240,16 +1243,22 @@ static const struct aio_output_type *aio_output_types[] = {
 	&aio_output_type,
 };
 
+#endif /* ENABLE_MARS_AIO */
+
 const struct aio_brick_type aio_brick_type = {
 	.type_name = "aio_brick",
 	.brick_size = sizeof(struct aio_brick),
 	.max_inputs = 0,
 	.max_outputs = 1,
+#ifdef ENABLE_MARS_AIO
 	.master_ops = &aio_brick_ops,
 	.aspect_types = aio_aspect_types,
 	.default_input_types = aio_input_types,
 	.default_output_types = aio_output_types,
 	.brick_construct = &aio_brick_construct,
+#else /* ENABLE_MARS_AIO */
+	.aspect_types = aio_aspect_types,	/* dummy, shut up gcc */
+#endif /* ENABLE_MARS_AIO */
 };
 EXPORT_SYMBOL_GPL(aio_brick_type);
 

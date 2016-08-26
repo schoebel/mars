@@ -27,6 +27,7 @@
 #include <linux/aio.h>
 #include <linux/syscalls.h>
 
+#include "mars.h"
 #include "lib_mapfree.h"
 
 #define AIO_SUBMIT_MAX_LATENCY    1000 //   1 ms

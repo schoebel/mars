@@ -381,8 +381,11 @@ extern const struct generic_brick_type *_bio_brick_type;
 extern const struct generic_brick_type *_aio_brick_type;
 extern const struct generic_brick_type *_sio_brick_type;
 
-#ifndef CONFIG_MARS_PREFER_SIO
+#if !defined(CONFIG_MARS_PREFER_SIO) && defined(HAS_MARS_PREPATCH)
+#define ENABLE_MARS_AIO
+#endif
 
+#ifdef ENABLE_MARS_AIO
 /* Kludge: our kernel threads will have no mm context, but need one
  * for stuff like ioctx_alloc() / aio_setup_ring() etc
  * which expect userspace resources.
