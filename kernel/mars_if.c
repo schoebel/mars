@@ -46,7 +46,7 @@
 #define USE_SEGMENT_BOUNDARY    (PAGE_SIZE-1)
 
 #define USE_CONGESTED_FN
-#define USE_MERGE_BVEC
+//      end_remove_this
 //#define DENY_READA
 
 #include <linux/kernel.h>
@@ -67,6 +67,11 @@
 #endif
 #ifdef __bvec_iter_bvec
 #define HAS_BVEC_ITER
+#endif
+/* adaptation to 4246a0b63bd8f56a1469b12eafeb875b1041a451 and 8ae126660fddbeebb9251a174e6fa45b6ad8f932 */
+#ifndef bio_io_error
+#define HAS_BI_ERROR
+#undef USE_MERGE_BVEC
 #endif
 
 //      end_remove_this
@@ -212,7 +217,16 @@ void if_endio(struct generic_callback *cb)
 //      end_remove_this
 		}
 		MARS_IO("calling end_io() rw = %d error = %d\n", rw, error);
+//      remove_this
+#ifdef HAS_BI_ERROR
+//      end_remove_this
+		bio->bi_error = error;
+		bio_endio(bio);
+//      remove_this
+#else
 		bio_endio(bio, error);
+#endif
+//      end_remove_this
 		bio_put(bio);
 		brick_mem_free(biow);
 	}
@@ -325,12 +339,17 @@ void if_timer(unsigned long data)
 /* accept a linux bio, convert to mref and call buf_io() on it.
  */
 static
-#ifdef BIO_CPU_AFFINE
-int
+//      remove_this
+/* see dece16353ef47d8d33f5302bc158072a9d65e26f */
+#ifdef BLK_QC_T_NONE
+//      end_remove_this
+blk_qc_t if_make_request(struct request_queue *q, struct bio *bio)
+//      remove_this
+#elif defined(BIO_CPU_AFFINE)
+int if_make_request(struct request_queue *q, struct bio *bio)
 #else
-void
+void if_make_request(struct request_queue *q, struct bio *bio)
 #endif
-if_make_request(struct request_queue *q, struct bio *bio)
 {
 	struct if_input *input = q->queuedata;
 	struct if_brick *brick = input->brick;
@@ -436,8 +455,17 @@ if_make_request(struct request_queue *q, struct bio *bio)
 		 * In case of exceptional semantics, we need to do
 		 * something here. For now, we do just nothing.
 		 */
-		bio_endio(bio, 0);
+//      remove_this
+#ifdef HAS_BI_ERROR
+//      end_remove_this
 		error = 0;
+		bio->bi_error = error;
+		bio_endio(bio);
+//      remove_this
+#else
+		bio_endio(bio, error);
+#endif
+//      end_remove_this
 		goto done;
 	}
 
@@ -451,7 +479,16 @@ if_make_request(struct request_queue *q, struct bio *bio)
 #ifdef DENY_READA // provisinary -- we should introduce an equivalent of READA also to the MARS infrastructure
 	if (ahead) {
 		atomic_inc(&input->total_reada_count);
+//      remove_this
+#ifdef HAS_BI_ERROR
+//      end_remove_this
+		bio->bi_error = -EWOULDBLOCK;
+		bio_endio(bio);
+//      remove_this
+#else
 		bio_endio(bio, -EWOULDBLOCK);
+#endif
+//      end_remove_this
 		error = 0;
 		goto done;
 	}
@@ -459,8 +496,17 @@ if_make_request(struct request_queue *q, struct bio *bio)
 	(void)ahead; // shut up gcc
 #endif
 	if (unlikely(discard)) { // NYI
-		bio_endio(bio, 0);
 		error = 0;
+//      remove_this
+#ifdef HAS_BI_ERROR
+//      end_remove_this
+		bio->bi_error = error;
+		bio_endio(bio);
+//      remove_this
+#else
+		bio_endio(bio, error);
+#endif
+//      end_remove_this
 		goto done;
 	}
 
@@ -480,7 +526,7 @@ if_make_request(struct request_queue *q, struct bio *bio)
 	/* Get a reference to the bio.
 	 * Will be released after bio_endio().
 	 */
-	atomic_inc(&bio->bi_cnt);
+	bio_get(bio);
 
 	/* FIXME: THIS IS PROVISIONARY (use event instead)
 	 */
@@ -707,10 +753,17 @@ err:
 
 	if (error < 0) {
 		MARS_ERR("cannot submit request from bio, status=%d\n", error);
-		if (assigned) {
-			//... cleanup the mess NYI
-		} else {
+		if (!assigned) {
+//      remove_this
+#ifdef HAS_BI_ERROR
+//      end_remove_this
+			bio->bi_error = error;
+			bio_endio(bio);
+//      remove_this
+#else
 			bio_endio(bio, error);
+#endif
+//      end_remove_this
 		}
 	}
 
@@ -736,7 +789,13 @@ err:
 done:
 	remove_binding_from(brick->say_channel, current);
 
-#ifdef BIO_CPU_AFFINE
+//      remove_this
+/* see dece16353ef47d8d33f5302bc158072a9d65e26f */
+#ifdef BLK_QC_T_NONE
+//      end_remove_this
+	return BLK_QC_T_NONE;
+//      remove_this
+#elif defined(BIO_CPU_AFFINE)
 	return error;
 #else
 	return;
@@ -771,6 +830,17 @@ int mars_congested(void *data, int bdi_bits)
 {
 	struct if_input *input = data;
 	int ret = 0;
+
+#ifdef WB_STAT_BATCH /* changed by 4452226ea276e74fc3e252c88d9bb7e8f8e44bf0 */
+	if (bdi_bits & (1 << WB_sync_congested) &&
+	    atomic_read(&input->read_flying_count) > 0) {
+		ret |= (1 << WB_sync_congested);
+	}
+	if (bdi_bits & (1 << WB_async_congested) &&
+	    atomic_read(&input->write_flying_count) > 0) {
+		ret |= (1 << WB_async_congested);
+	}
+#else /* old code */
 	if (bdi_bits & (1 << BDI_sync_congested) &&
 	    atomic_read(&input->read_flying_count) > 0) {
 		ret |= (1 << BDI_sync_congested);
@@ -779,17 +849,8 @@ int mars_congested(void *data, int bdi_bits)
 	    atomic_read(&input->write_flying_count) > 0) {
 		ret |= (1 << BDI_async_congested);
 	}
+#endif
 	return ret;
-}
-
-static
-int mars_merge_bvec(struct request_queue *q, struct bvec_merge_data *bvm, struct bio_vec *bvec)
-{
-	unsigned int bio_size = bvm->bi_size;
-	if (!bio_size) {
-		return bvec->bv_len;
-	}
-	return 128;
 }
 
 static
@@ -949,10 +1010,6 @@ static int if_switch(struct if_brick *brick)
 		q->backing_dev_info.congested_fn = mars_congested;
 		q->backing_dev_info.congested_data = input;
 #endif
-#ifdef USE_MERGE_BVEC
-		MARS_DBG("blk_queue_merge_bvec()\n");
-		blk_queue_merge_bvec(q, mars_merge_bvec);
-#endif
 
 		// point of no return
 		MARS_DBG("add_disk()\n");
@@ -979,13 +1036,6 @@ static int if_switch(struct if_brick *brick)
 		if (!disk)
 			goto is_down;
 
-#if 0
-		q = disk->queue;
-		if (q) {
-			blk_cleanup_queue(q);
-			input->q = NULL;
-		}
-#endif
 		opened = atomic_read(&brick->open_count);
 		if (unlikely(opened > 0)) {
 			MARS_INF("device '%s' is open %d times, cannot shutdown\n", disk->disk_name, opened);
@@ -1019,6 +1069,11 @@ static int if_switch(struct if_brick *brick)
 		MARS_DBG("calling put_disk()\n");
 		put_disk(input->disk);
 		input->disk = NULL;
+		q = input->q;
+		if (q) {
+			blk_cleanup_queue(q);
+			input->q = NULL;
+		}
 		status = 0;
 	is_down:
 		mars_power_led_off((void*)brick, true);

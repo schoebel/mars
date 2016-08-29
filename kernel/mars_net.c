@@ -43,6 +43,21 @@
 #include "mars.h"
 #include "mars_net.h"
 
+////////////////////////////////////////////////////////////////////
+
+// provisionary version detection
+
+#ifndef TCP_MAX_REORDERING
+#define __HAS_IOV_ITER
+#endif
+
+#ifdef sk_net_refcnt
+/* see eeb1bd5c40edb0e2fd925c8535e2fdebdbc5cef2 */
+#define __HAS_STRUCT_NET
+#endif
+
+////////////////////////////////////////////////////////////////////
+
 #define USE_BUFFERING
 
 #define SEND_PROTO_VERSION   2
@@ -431,7 +446,11 @@ int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *src_a
 	}
 	atomic_set(&msock->s_count, 1);
 
+#ifdef __HAS_STRUCT_NET
+	status = sock_create_kern(&init_net, AF_INET, SOCK_STREAM, IPPROTO_TCP, &msock->s_socket);
+#else
 	status = sock_create_kern(AF_INET, SOCK_STREAM, IPPROTO_TCP, &msock->s_socket);
+#endif
 	if (unlikely(status < 0 || !msock->s_socket)) {
 		msock->s_socket = NULL;
 		MARS_WRN("cannot create socket, status = %d\n", status);
@@ -677,7 +696,9 @@ int _mars_send_raw(struct mars_socket *msock, const void *buf, int len, int flag
 				.iov_len  = this_len,
 			};
 			struct msghdr msg = {
+#ifndef __HAS_IOV_ITER
 				.msg_iov = (struct iovec*)&iov,
+#endif
 				.msg_flags = 0 | MSG_NOSIGNAL,
 			};
 			status = kernel_sendmsg(sock, &msg, &iov, 1, this_len);
@@ -847,9 +868,11 @@ int _mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen,
 			.iov_len = maxlen - done,
 		};
 		struct msghdr msg = {
+#ifndef __HAS_IOV_ITER
 			.msg_iovlen = 1,
 			.msg_iov = (struct iovec*)&iov,
 			.msg_flags = flags | MSG_NOSIGNAL,
+#endif
 		};
 		struct socket *sock = msock->s_socket;
 

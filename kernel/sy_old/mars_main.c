@@ -2074,8 +2074,6 @@ int peer_thread(void *data)
 			.global_power = {
 				.button = true,
 			},
-			.dent_mutex = __RWSEM_INITIALIZER(tmp_global.dent_mutex),
-			.brick_mutex = __RWSEM_INITIALIZER(tmp_global.brick_mutex),
 			.main_event = __WAIT_QUEUE_HEAD_INITIALIZER(tmp_global.main_event),
 		};
 		LIST_HEAD(old_list);
@@ -2084,6 +2082,9 @@ int peer_thread(void *data)
 			.cmd_str1 = peer->path,
 			.cmd_int1 = peer->maxdepth,
 		};
+
+		init_rwsem(&tmp_global.dent_mutex);
+		init_rwsem(&tmp_global.brick_mutex);
 
 		show_vals(peer_pairs, "/mars", "connection-from-");
 
@@ -5548,8 +5549,6 @@ static struct mars_global _global = {
 	.global_power = {
 		.button = true,
 	},
-	.dent_mutex = __RWSEM_INITIALIZER(_global.dent_mutex),
-	.brick_mutex = __RWSEM_INITIALIZER(_global.brick_mutex),
 	.main_event = __WAIT_QUEUE_HEAD_INITIALIZER(_global.main_event),
 };
 
@@ -5558,6 +5557,10 @@ static int _main_thread(void *data)
 	long long last_rollover = jiffies;
 	char *id = my_id();
 	int status = 0;
+
+	init_rwsem(&_global.dent_mutex);
+	init_rwsem(&_global.brick_mutex);
+
 	mars_global = &_global;
 
 	if (!id || strlen(id) < 2) {

@@ -64,7 +64,7 @@ mars_info_fn mars_info = NULL;
 
 static
 int trigger_sysctl_handler(
-	ctl_table *table,
+	struct ctl_table *table,
 	int write, 
 	void __user *buffer,
 	size_t *length,
@@ -131,7 +131,7 @@ done:
 
 static
 int lamport_sysctl_handler(
-	ctl_table *table,
+	struct ctl_table *table,
 	int write, 
 	void __user *buffer,
 	size_t *length,
@@ -222,14 +222,14 @@ done:
 	INT_ENTRY(PREFIX "_true_hit",       (VAR)->thr_true_hit, 0400)	\
 
 static
-ctl_table traffic_tuning_table[] = {
+struct ctl_table traffic_tuning_table[] = {
 	LIMITER_ENTRIES(&client_limiter,    "client_role_traffic",    "kb"),
 	LIMITER_ENTRIES(&server_limiter,    "server_role_traffic",    "kb"),
 	{}
 };
 
 static
-ctl_table io_tuning_table[] = {
+struct ctl_table io_tuning_table[] = {
 	LIMITER_ENTRIES(&global_writeback.limiter, "writeback",       "kb"),
 	INT_ENTRY("writeback_until_percent", global_writeback.until_percent, 0600),
 	THRESHOLD_ENTRIES(&global_io_threshold,  "global_io"),
@@ -244,7 +244,7 @@ ctl_table io_tuning_table[] = {
 };
 
 static
-ctl_table tcp_tuning_table[] = {
+struct ctl_table tcp_tuning_table[] = {
 	INT_ENTRY("ip_tos",          default_tcp_params.ip_tos,          0600),
 	INT_ENTRY("tcp_window_size", default_tcp_params.tcp_window_size, 0600),
 	INT_ENTRY("tcp_nodelay",     default_tcp_params.tcp_nodelay,     0600),
@@ -256,7 +256,7 @@ ctl_table tcp_tuning_table[] = {
 };
 
 static
-ctl_table mars_table[] = {
+struct ctl_table mars_table[] = {
 	{
 		_CTL_NAME
 		.procname	= "version",
@@ -379,7 +379,7 @@ ctl_table mars_table[] = {
 };
 
 static
-ctl_table mars_root_table[] = {
+struct ctl_table mars_root_table[] = {
 	{
 		_CTL_NAME
 		.procname	= "mars",

@@ -103,10 +103,56 @@ EXPORT_SYMBOL_GPL(mars_timespec_meta);
 
 #include <linux/crypto.h>
 
+/* 896545098777564212b9e91af4c973f094649aa7 */
+#ifndef crt_hash
+#define HAS_NEW_CRYPTO
+#endif
+
+#ifdef HAS_NEW_CRYPTO
+
+/* Nor now, use shash.
+ * Later, asynchronous support should be added for full exploitation
+ * of crypto hardware.
+ */
+#include <crypto/hash.h>
+
+static struct crypto_shash *mars_tfm = NULL;
+int mars_digest_size = 0;
+
+struct mars_sdesc {
+	struct shash_desc shash;
+	char ctx[];
+};
+
+void mars_digest(unsigned char *digest, void *data, int len)
+{
+	int size = sizeof(struct mars_sdesc) + crypto_shash_descsize(mars_tfm);
+	struct mars_sdesc *sdesc = brick_mem_alloc(size);
+	int status;
+
+	sdesc->shash.tfm = mars_tfm;
+	sdesc->shash.flags = 0;
+
+	memset(digest, 0, mars_digest_size);
+	status = crypto_shash_digest(&sdesc->shash, data, len, digest);
+	if (unlikely(status < 0))
+		MARS_ERR("cannot calculate cksum on %p len=%d, status=%d\n",
+			 data, len,
+			 status);
+
+	brick_mem_free(sdesc);
+}
+
+#else  /* HAS_NEW_CRYPTO */
+
+/* Old implementation, to disappear.
+ * Was a quick'n dirty lab prototype with unnecessary
+ * global variables and locking.
+ */
+
 static struct crypto_hash *mars_tfm = NULL;
 static struct semaphore tfm_sem = __SEMAPHORE_INITIALIZER(tfm_sem, 1);
 int mars_digest_size = 0;
-EXPORT_SYMBOL_GPL(mars_digest_size);
 
 void mars_digest(unsigned char *digest, void *data, int len)
 {
@@ -128,7 +174,8 @@ void mars_digest(unsigned char *digest, void *data, int len)
 	crypto_hash_final(&desc, digest);
 	up(&tfm_sem);
 }
-EXPORT_SYMBOL_GPL(mars_digest);
+
+#endif /* HAS_NEW_CRYPTO */
 
 void mref_checksum(struct mref_object *mref)
 {
@@ -145,7 +192,6 @@ void mref_checksum(struct mref_object *mref)
 		len = mars_digest_size;
 	memcpy(&mref->ref_checksum, checksum, len);
 }
-EXPORT_SYMBOL_GPL(mref_checksum);
 
 /////////////////////////////////////////////////////////////////////
 
@@ -300,6 +346,15 @@ int __init init_mars(void)
 	}
 #endif
 
+#ifdef HAS_NEW_CRYPTO
+	mars_tfm = crypto_alloc_shash("md5", 0, 0);
+	if (unlikely(!mars_tfm) || IS_ERR(mars_tfm)) {
+		MARS_ERR("cannot alloc crypto hash, status=%ld\n",
+			 PTR_ERR(mars_tfm));
+		return -ELIBACC;
+	}
+	mars_digest_size = crypto_shash_digestsize(mars_tfm);
+#else  /* HAS_NEW_CRYPTO */
 	mars_tfm = crypto_alloc_hash("md5", 0, CRYPTO_ALG_ASYNC);
 	if (!mars_tfm) {
 		MARS_ERR("cannot alloc crypto hash\n");
@@ -316,6 +371,7 @@ int __init init_mars(void)
 	}
 #endif
 	mars_digest_size = crypto_hash_digestsize(mars_tfm);
+#endif /* HAS_NEW_CRYPTO */
 	MARS_INF("digest_size = %d\n", mars_digest_size);
 
 	return 0;
@@ -326,7 +382,11 @@ void exit_mars(void)
 	MARS_INF("exit_mars()\n");
 
 	if (mars_tfm) {
+#ifdef HAS_NEW_CRYPTO
+		crypto_free_shash(mars_tfm);
+#else  /* HAS_NEW_CRYPTO */
 		crypto_free_hash(mars_tfm);
+#endif /* HAS_NEW_CRYPTO */
 	}
 
 #ifdef MARS_TRACING

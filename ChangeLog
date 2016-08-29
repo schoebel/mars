@@ -170,6 +170,16 @@ light0.2beta1.0
 -----------------------------------
 Changelog for series 0.1:
 
+mars0.1stable31
+--------
+	* New _minimum_ pre-patches for vanilla LTS kernels 3.2.x to 4.7.x.
+	  For security reasons, please prefer them over the old _generic_
+	  pre-patch versions which expose many unnecessary EXPORT_SYMBOL
+	  to potential attackers.
+	* Adaptions to vanilla kernels up to 4.7.x.
+	  Note: 4.8rc-* does not yet work.
+	* Regression testing with many kernel versions: looks fine.
+
 mars0.1stable30
 --------
 	* Minor fix: in very rare cases of a primary crash, a missing
