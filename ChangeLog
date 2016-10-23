@@ -115,6 +115,20 @@ Changelog for series 0.2:
 -----------------------------------
 Changelog for series 0.1:
 
+mars0.1stable32
+--------
+	* Critical regression between stable30 and stable31 (can be avoided
+	  by simply using stable30 for affected kernels): on _old_ kernels
+	  (before 4.3.x) the removal of merge_bvec_fn() (see upstream commit
+	  8ae126660fddbeebb9251a174e6fa45b6ad8f932) can lead to fatal
+	  crashes at the primary side.
+	  Fixed by using (hopefully) proper #ifdef's according to the
+	  kernel version.
+	  Notice: between stable30 and stable31 no true MARS fixes were
+	  made (since no bugs were found). This strategy is likely to
+	  continue for a while, for newer adaptations to even newer kernels.
+	  In case of problems, go back. And, please, report it to me :)
+
 mars0.1stable31
 --------
 	* New _minimum_ pre-patches for vanilla LTS kernels 3.2.x to 4.7.x.
