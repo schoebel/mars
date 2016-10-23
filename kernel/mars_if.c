@@ -46,7 +46,7 @@
 #define USE_SEGMENT_BOUNDARY    (PAGE_SIZE-1)
 
 #define USE_CONGESTED_FN
-//      end_remove_this
+#define USE_MERGE_BVEC
 //#define DENY_READA
 
 #include <linux/kernel.h>
@@ -854,6 +854,16 @@ int mars_congested(void *data, int bdi_bits)
 }
 
 static
+int mars_merge_bvec(struct request_queue *q, struct bvec_merge_data *bvm, struct bio_vec *bvec)
+{
+	unsigned int bio_size = bvm->bi_size;
+	if (!bio_size) {
+		return bvec->bv_len;
+	}
+	return 128;
+}
+
+static
 loff_t if_get_capacity(struct if_brick *brick)
 {
 	/* Don't read always, read only when unknown.
@@ -1009,6 +1019,10 @@ static int if_switch(struct if_brick *brick)
 		MARS_DBG("congested_fn\n");
 		q->backing_dev_info.congested_fn = mars_congested;
 		q->backing_dev_info.congested_data = input;
+#endif
+#ifdef USE_MERGE_BVEC
+		MARS_DBG("blk_queue_merge_bvec()\n");
+		blk_queue_merge_bvec(q, mars_merge_bvec);
 #endif
 
 		// point of no return
