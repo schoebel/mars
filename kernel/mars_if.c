@@ -46,7 +46,6 @@
 #define USE_SEGMENT_BOUNDARY    (PAGE_SIZE-1)
 
 #define USE_CONGESTED_FN
-#define USE_MERGE_BVEC
 //#define DENY_READA
 
 #include <linux/kernel.h>
@@ -71,7 +70,8 @@
 /* adaptation to 4246a0b63bd8f56a1469b12eafeb875b1041a451 and 8ae126660fddbeebb9251a174e6fa45b6ad8f932 */
 #ifndef bio_io_error
 #define HAS_BI_ERROR
-#undef USE_MERGE_BVEC
+#else
+#define HAS_MERGE_BVEC
 #endif
 
 //      end_remove_this
@@ -853,6 +853,8 @@ int mars_congested(void *data, int bdi_bits)
 	return ret;
 }
 
+//      remove_this
+#ifdef HAS_MERGE_BVEC
 static
 int mars_merge_bvec(struct request_queue *q, struct bvec_merge_data *bvm, struct bio_vec *bvec)
 {
@@ -862,7 +864,9 @@ int mars_merge_bvec(struct request_queue *q, struct bvec_merge_data *bvm, struct
 	}
 	return 128;
 }
+#endif
 
+//      end_remove_this
 static
 loff_t if_get_capacity(struct if_brick *brick)
 {
@@ -1020,11 +1024,13 @@ static int if_switch(struct if_brick *brick)
 		q->backing_dev_info.congested_fn = mars_congested;
 		q->backing_dev_info.congested_data = input;
 #endif
-#ifdef USE_MERGE_BVEC
+//      remove_this
+#ifdef HAS_MERGE_BVEC
 		MARS_DBG("blk_queue_merge_bvec()\n");
 		blk_queue_merge_bvec(q, mars_merge_bvec);
 #endif
 
+//      end_remove_this
 		// point of no return
 		MARS_DBG("add_disk()\n");
 		add_disk(disk);
