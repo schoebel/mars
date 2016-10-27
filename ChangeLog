@@ -115,6 +115,17 @@ Changelog for series 0.2:
 -----------------------------------
 Changelog for series 0.1:
 
+mars0.1stable33
+--------
+	* Minor regression from stable29:
+	  After a primary crash, without switchover, and when the primary
+	  recovery phase involves a logrotate to an empty new logfile
+	  which had been in the meantime shortly before the crash but
+	  has not yet been used before the crash (race condition),
+	  a kernel NULL pointer deref may stop the main thread.
+	  Workaround: either remove the empty logfile by hand,
+	  or just do a failover to the other side.
+
 mars0.1stable32
 --------
 	* Critical regression between stable30 and stable31 (can be avoided
