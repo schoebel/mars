@@ -2687,7 +2687,7 @@ bool is_switchover_possible(struct mars_rotate *rot, const char *old_log_path, c
 	}
 
 	// last check: is the new versionlink based on the old one?
-	if (!skip_new) {
+	if (new_versionlink) {
 		len1  = skip_sect(own_versionlink);
 		offs2 = skip_sect(new_versionlink);
 		if (unlikely(!new_versionlink[offs2++])) {
