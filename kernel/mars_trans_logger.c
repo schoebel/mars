@@ -1505,6 +1505,8 @@ void _complete(struct trans_logger_brick *brick, struct trans_logger_mref_aspect
 	}
 	CHECKED_CALLBACK(orig_mref, error, err);
 
+	update_max_pos(orig_mref_a);
+
 done:
 	return;
 
