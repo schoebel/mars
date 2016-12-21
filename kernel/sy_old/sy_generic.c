@@ -1975,6 +1975,7 @@ void _show_one(struct mars_brick *test, int *brick_count)
 		  "mrefs_apsect_alloc = %d "
 		  "total_mrefs_alloc = %d "
 		  "total_mrefs_aspects = %d "
+		  "killme = %d "
 		  "button = %d off = %d on = %d\n",
 		  SAFE_STR(test->type->type_name),
 		  SAFE_STR(test->brick_path),
@@ -1984,6 +1985,7 @@ void _show_one(struct mars_brick *test, int *brick_count)
 		  atomic_read(&test->mref_object_layout.aspect_count),
 		  atomic_read(&test->mref_object_layout.total_alloc_count),
 		  atomic_read(&test->mref_object_layout.total_aspect_count),
+		  test->killme,
 		  test->power.button,
 		  test->power.led_off,
 		  test->power.led_on);
