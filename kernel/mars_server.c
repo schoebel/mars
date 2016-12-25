@@ -478,6 +478,7 @@ int handler_thread(void *data)
 				(const struct generic_brick_type*[]){},
 				2, // start always
 				path,
+				NULL,
 				(const char *[]){},
 				0);
 			if (likely(prev)) {

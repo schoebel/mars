@@ -1291,6 +1291,7 @@ int mars_free_brick(struct mars_brick *brick)
 	MARS_DBG("deallocate name = '%s' path = '%s'\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
 	brick_string_free(brick->brick_name);
 	brick_string_free(brick->brick_path);
+	brick_string_free(brick->brick_args);
 
 	status = generic_brick_exit_full((void*)brick);
 
@@ -1387,6 +1388,7 @@ struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent 
 
 err_path:
 	brick_string_free(res->brick_path);
+	brick_string_free(res->brick_args);
 err_res:
 	brick_mem_free(res);
 err_name:
@@ -1691,6 +1693,7 @@ struct mars_brick *make_brick_all(
 	const struct generic_brick_type *prev_brick_type[],
 	int switch_override, // -1 = off, 0 = leave in current state, +1 = create when necessary, +2 = create + switch on
 	const char *new_fmt,
+	const char *new_args,
 	const char *prev_fmt[],
 	int prev_count,
 	...
@@ -1699,6 +1702,7 @@ struct mars_brick *make_brick_all(
 	va_list args;
 	const char *new_path;
 	char *_new_path = NULL;
+	char *_new_args = NULL;
 	struct mars_brick *brick = NULL;
 	char *paths[prev_count];
 	struct mars_brick *prev[prev_count];
@@ -1712,6 +1716,11 @@ struct mars_brick *make_brick_all(
 		new_path = _new_path = vpath_make(new_fmt, &args);
 	} else {
 		new_path = new_name;
+	}
+	if (new_args) {
+		new_args = _new_args = vpath_make(new_args, &args);
+	} else {
+		new_args = new_path;
 	}
 	for (i = 0; i < prev_count; i++) {
 		paths[i] = vpath_make(prev_fmt[i], &args);
@@ -1797,13 +1806,15 @@ struct mars_brick *make_brick_all(
 			brick = mars_make_brick(global, belongs, _client_brick_type, new_path, new_name);
 			if (brick) {
 				struct client_brick *_brick = (void*)brick;
+
+				_brick->brick_args = brick_strdup(new_args);
 				_brick->max_flying = 10000;
 			}
 		}
 	}
 	if (!brick && new_brick_type == _bio_brick_type && _aio_brick_type) {
 		struct kstat test = {};
-		int status = mars_stat(new_path, &test, false);
+		int status = mars_stat(new_args, &test, false);
 		if (SKIP_BIO || status < 0 || !S_ISBLK(test.mode)) {
 			new_brick_type = _aio_brick_type;
 			MARS_DBG("substitute bio by aio\n");
@@ -1827,6 +1838,7 @@ struct mars_brick *make_brick_all(
 		MARS_ERR("'%s' wrong number of arguments: %d < %d\n", new_path, brick->nr_inputs, prev_count);
 		goto err;
 	}
+	brick->brick_args = brick_strdup(new_args);
 
 	// connect the wires
 	for (i = 0; i < prev_count; i++) {
@@ -1863,9 +1875,8 @@ done:
 			brick_string_free(paths[i]);
 		}
 	}
-	if (_new_path)
-		brick_string_free(_new_path);
-
+	brick_string_free(_new_path);
+	brick_string_free(_new_args);
 	return brick;
 }
 EXPORT_SYMBOL_GPL(make_brick_all);
@@ -1916,7 +1927,7 @@ void _show_one(struct mars_brick *test, int *brick_count)
 	if (*brick_count) {
 		MARS_STAT("---------\n");
 	}
-	MARS_STAT("BRICK type = %s path = '%s' name = '%s' "
+	MARS_STAT("BRICK type = %s name = '%s' path = '%s' args = '%s'"
 		  "size_hint=%d "
 		  "mrefs_alloc = %d "
 		  "mrefs_apsect_alloc = %d "
@@ -1924,8 +1935,9 @@ void _show_one(struct mars_brick *test, int *brick_count)
 		  "total_mrefs_aspects = %d "
 		  "button = %d off = %d on = %d\n",
 		  SAFE_STR(test->type->type_name),
-		  SAFE_STR(test->brick_path),
 		  SAFE_STR(test->brick_name),
+		  SAFE_STR(test->brick_path),
+		  SAFE_STR(test->brick_args),
 		  test->mref_object_layout.size_hint,
 		  atomic_read(&test->mref_object_layout.alloc_count),
 		  atomic_read(&test->mref_object_layout.aspect_count),

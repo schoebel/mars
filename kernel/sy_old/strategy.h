@@ -165,6 +165,7 @@ extern struct mars_brick *make_brick_all(
 	const struct generic_brick_type *prev_brick_type[],
 	int switch_override, // -1 = off, 0 = leave in current state, +1 = create when necessary, +2 = create + switch on
 	const char *new_fmt,
+	const char *new_args,
 	const char *prev_fmt[],
 	int prev_count,
 	...

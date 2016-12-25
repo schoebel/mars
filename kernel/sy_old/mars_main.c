@@ -1542,6 +1542,7 @@ int __make_copy(
 				       (const struct generic_brick_type*[]){},
 				       switch_copy || (copy && !copy->power.led_off) ? 2 : -1,
 				       cc.fullpath[i],
+				       NULL,
 				       (const char *[]){},
 				       0);
 		if (!aio) {
@@ -1573,6 +1574,7 @@ int __make_copy(
 			       (const struct generic_brick_type*[]){NULL,NULL,NULL,NULL},
 			       (!switch_copy || (IS_EMERGENCY_PRIMARY() && !space_using_mode)) ? -1 : 2,
 			       "%s",
+			       NULL,
 			       (const char *[]){"%s", "%s", "%s", "%s"},
 			       4,
 			       copy_path,
@@ -2910,6 +2912,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 			       (const struct generic_brick_type*[]){},
 			       rot->trans_brick || switch_on ? 2 : -1, // disallow detach when trans_logger is present
 			       "%s",
+			       NULL,
 			       (const char *[]){},
 			       0,
 			       aio_path);
@@ -2959,6 +2962,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 			       (const struct generic_brick_type*[]){NULL},
 			       1, // create when necessary, but leave in current state otherwise
 			       "%s/replay-%s", 
+			       NULL,
 			       (const char *[]){"%s/data-%s"},
 			       1,
 			       parent_path,
@@ -3460,6 +3464,7 @@ void _rotate_trans(struct mars_rotate *rot)
 				       (const struct generic_brick_type*[]){},
 				       2, // create + activate
 				       rot->next_relevant_log->d_path,
+				       NULL,
 				       (const char *[]){},
 				       0);
 		if (unlikely(!rot->next_relevant_brick)) {
@@ -3573,6 +3578,7 @@ int _start_trans(struct mars_rotate *rot)
 			       (const struct generic_brick_type*[]){},
 			       2, // start always
 			       rot->relevant_log->d_path,
+			       NULL,
 			       (const char *[]){},
 			       0);
 	if (unlikely(!rot->relevant_brick)) {
@@ -3969,6 +3975,7 @@ int make_bio(void *buf, struct mars_dent *dent)
 			       (const struct generic_brick_type*[]){},
 			       switch_on ? 2 : -1,
 			       dent->d_path,
+			       NULL,
 			       (const char *[]){},
 			       0);
 	rot->bio_brick = brick;
@@ -4088,6 +4095,7 @@ int make_dev(void *buf, struct mars_dent *dent)
 			       (const struct generic_brick_type*[]){(const struct generic_brick_type*)&trans_logger_brick_type},
 			       switch_on ? 2 : -1,
 			       "%s/device-%s", 
+			       NULL,
 			       (const char *[]){"%s/replay-%s"},
 			       1,
 			       parent->d_path,
@@ -4180,6 +4188,7 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 			       (const struct generic_brick_type*[]){},
 			       switch_on ? 2 : -1,
 			       "%s",
+			       NULL,
 			       (const char *[]){},
 			       0,
 			       src_path);
@@ -4199,6 +4208,7 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 			       (const struct generic_brick_type*[]){NULL},
 			       switch_on ? 2 : -1,
 			       "%s/directdevice-%s",
+			       NULL,
 			       (const char *[]){ "%s" },
 			       1,
 			       dent->d_parent->d_path,
