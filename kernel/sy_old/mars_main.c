@@ -1519,7 +1519,7 @@ int __make_copy(
 
 	// create/find predecessor aio bricks
 	for (i = 0; i < 2; i++) {
-		struct mars_brick *aio;
+		struct mars_brick *aio = NULL;
 
 		cc.argv[i] = argv[i];
 		if (parent) {
@@ -1532,7 +1532,13 @@ int __make_copy(
 			cc.fullpath[i] = argv[i];
 		}
 
-		aio =
+		if (!space_using_mode && i > 0)
+			aio =
+				mars_find_brick(global,
+						NULL,
+						cc.fullpath[i]);
+		if (!aio)
+			aio =
 			make_brick_all(global,
 				       NULL,
 				       _set_bio_params,
@@ -3947,7 +3953,11 @@ int make_bio(void *buf, struct mars_dent *dent)
 	struct mars_global *global = buf;
 	struct mars_rotate *rot;
 	struct mars_brick *brick;
+	const char *cksum_name = NULL;
+	const char *bio_name;
+	struct kstat dummy;
 	bool switch_on;
+	bool intermediate_cksum;
 	int status = 0;
 
 	if (!global || !dent->d_parent) {
@@ -3965,19 +3975,72 @@ int make_bio(void *buf, struct mars_dent *dent)
 		switch_on = false;
 	}
 
+	cksum_name = path_make("%s/cksum-%s", rot->parent_path, my_id());
+	intermediate_cksum = mars_stat(cksum_name, &dummy, false) >= 0;
+	MARS_INF("cksum '%s' %d\n", cksum_name, intermediate_cksum);
+	//intermediate_cksum = true;
+
+	bio_name = dent->d_path;
+	if (intermediate_cksum) {
+		bio_name = path_make("%s/inter-cksum-%s", rot->parent_path, my_id());
+		brick =
+			make_brick_all(global,
+				       dent,
+				       _set_aio_params,
+				       NULL,
+				       dent->d_path,
+				       (const struct generic_brick_type*)&aio_brick_type,
+				       (const struct generic_brick_type*[]){},
+				       switch_on ? 2 : -1,
+				       cksum_name,
+				       NULL,
+				       (const char *[]){},
+				       0);
+		MARS_INF("cksum %p\n", brick);
+		if (brick)
+			brick->killme = true;
+	}
+
 	brick =
 		make_brick_all(global,
 			       dent,
 			       _set_bio_params,
 			       NULL,
-			       dent->d_path,
+			       bio_name,
 			       (const struct generic_brick_type*)&bio_brick_type,
 			       (const struct generic_brick_type*[]){},
 			       switch_on ? 2 : -1,
+			       bio_name,
 			       dent->d_path,
-			       NULL,
 			       (const char *[]){},
 			       0);
+	MARS_INF("bio %p\n", brick);
+	if (brick)
+		brick->killme = true;
+
+	if (intermediate_cksum) {
+		brick =
+			make_brick_all(global,
+				       dent,
+				       NULL,
+				       NULL,
+				       dent->d_path,
+				       (const struct generic_brick_type*)&cksum_brick_type,
+				       (const struct generic_brick_type*[]){},
+				       switch_on ? 2 : -1,
+				       dent->d_path,
+				       NULL,
+				       (const char *[]){ "%s", "%s" },
+				       2,
+				       bio_name,
+				       cksum_name);
+
+		MARS_INF("cksum %p\n", brick);
+		if (brick)
+			brick->killme = true;
+		brick_string_free(bio_name);
+	}
+
 	rot->bio_brick = brick;
 	if (unlikely(!brick)) {
 		status = -ENXIO;
@@ -4010,6 +4073,7 @@ int make_bio(void *buf, struct mars_dent *dent)
 	}
 
  done:
+	brick_string_free(cksum_name);
 	return status;
 }
 
