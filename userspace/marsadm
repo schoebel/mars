@@ -1487,6 +1487,72 @@ sub is_module_loaded {
   return -d "/proc/sys/mars";
 }
 
+sub get_cksum_size {
+  my $size = shift;
+  return $size / 4096 / 32 + 2;
+}
+
+sub create_cksum {
+  my ($cmd, $res, $size) = @_;
+  my $create = $cmd ne "delete-cksum";
+  my $resdir = "$mars/resource-$res";
+  my $cksum_name = "$resdir/cksum-$host";
+  if ($create) {
+    if (-f $cksum_name) {
+      ldie "CKSUM file '$cksum_name' already exists\n" if $cmd eq "create-cksum" && !$force;
+      if ($cmd eq "create-missing-cksum") {
+	lprint "Need not create already existing '$cksum_name'\n";
+	return;
+      }
+      if ($cmd =~ m:invalidate-(existing-)?cksum:) {
+	lprint "Re-initialze already existing '$cksum_name'\n";
+      } else {
+	lwarn "CKSUM file '$cksum_name' already exists - re-initializing it\n";
+      }
+    } elsif ($cmd eq "invalidate-existing-cksum") {
+      lprint "$cmd: CKSUM file '$cksum_name' did not exist before.\n";
+      lprint "Doing nothing.\n";
+      return;
+    }
+    unless (defined($size)) { # determine from size symlinks
+      my $size_path = "$resdir/actsize-$host";
+      $size = get_link($size_path, 1);
+      $size = get_link($size_path) unless defined($size) && $size > 0;
+      lprint "Determined size for resource $res is $size bytes";
+    }
+    my $cksum_size = get_cksum_size($size);
+    lprint "$cmd CKSUM file '$cksum_name' with $cksum_size blocks\n";
+    if (!eval {
+      open CKSUM, ">", "$cksum_name.tmp" or die "cannot create '$cksum_name.tmp'";
+      my $zero = "\0" x 4096;
+      for (my $i = 0; $i < $cksum_size; $i++) {
+	my $written = syswrite(CKSUM, $zero);
+	if ($written != 4096) {
+	  die "Cannot write to '$cksum_name', written=$written\n";
+	}
+      }
+      close(CKSUM);
+      if (rename("$cksum_name.tmp", $cksum_name)) {
+	lprint "created '$cksum_name' with $cksum_size blocks\n";
+	return 1;
+      }
+      return 0;
+    }) {
+      lwarn $@;
+      unlink("$cksum_name.tmp");
+      lwarn "Could not create '$cksum_name' with $cksum_size blocks\n";
+    }
+  } else { # delete-cksum
+    if (-f $cksum_name) {
+      lprint "Deleting CKSUM file '$cksum_name'\n";
+      unlink($cksum_name);
+      lprint "CKSUM file '$cksum_name' does no longer exist\n" unless -f $cksum_name;
+    } else {
+      lprint "CKSUM file '$cksum_name' did not exist.\n";
+    }
+  }
+}
+
 sub set_connect_pref_list {
   my ($cmd, $res, $list) = @_;
   check_res_member($cmd, $res);
@@ -1750,6 +1816,11 @@ sub create_res {
     }
   }
 
+  # initialize cksum data when necessary
+  if (1) {
+    create_cksum("create-missing-cksum", $res, $size);
+  }
+
   # check for uniqeness of $appear
   if ($appear) {
     foreach my $old_dev (glob("$mars/resource-*/device-$host")) {
@@ -1922,6 +1993,7 @@ sub delete_res {
     ldie "resource '$res' is not empty: first remove the hosts '$h_list' via leave-resource\n" unless $force;
     lwarn "BRUTE FORCE resource destruction: '$res' has $cnt members ($h_list) THESE ARE FINALLY TRASHED right now -- you are RESPONSIBLE for any subsequent problems.\n";
   }
+  create_cksum("delete-cksum", $res);
   for my $path (`find $basedir/* | sort -r`) {
     chomp $path;
     next if $path =~ m:/(maxnr$|\.deleted-):;
@@ -2400,6 +2472,7 @@ sub invalidate_res_phase3 {
   _set_replaylink("$mars/resource-$res", $replay_nr, $primary, "");
   finish_links();
   _wait_delete();
+  create_cksum("invalidate-existing-cksum", $res);
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/attach", 1);
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/fetch", 1);
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/replay", 1);
@@ -4444,6 +4517,56 @@ my %cmd_table =
        "resource with a new <resource_name> out of your local disks.",
        "Please read the PDF manual on potential consequences.",
        \&delete_res,
+      ],
+   "create-cksum"
+   => [
+       "Create a new CKSUM file for an existing resource.",
+       "For each 4k data block, and MD5 checksum (or similar) will be",
+       "stored in the CKSUM file. It will be updated at each write operation.",
+       "Upon read, the stored checksum will be compared against the",
+       "checksum of the actual data block.",
+       "This will verify the data integrity, continuously during operation.",
+       "HINT: a CKSUM file uses up about 1/128 of the underlying disk space.",
+       "This is less than 1%. If you cannot afford it, don't use it.",
+       "HINT: it costs some performance. You may deactivate it later via",
+       "delete-cksum followed by detach, trading performance for data safety.",
+       "HINT: the new CKSUM file will be only used after the next attach.",
+       \&create_cksum,
+      ],
+   "create-missing-cksum"
+   => [
+       "Like create-cksum, but does not overwrite / re-initialize an",
+       "already existing CKSUM file.",
+       \&create_cksum,
+      ],
+   "invalidate-cksum"
+   => [
+       "Like create-cksum, an already existing CKSUM file will be freshly",
+       "initialized. Any old stored checksums will be forgotten.",
+       "If no CKSUM file exists, a new one is created.",
+       "This is useful if you _want_ to ignore any previous checksum errors,",
+       "e.g. after directly accessing the underlying disk data by",
+       "cirumvention of MARS.",
+       "HINT: this has no effect when the resource is currently attached.",
+       "Please detach first.",
+       \&create_cksum,
+      ],
+   "invalidate-existing-cksum"
+   => [
+       "Like invalidate-cksum, but only works when when a CKSUM file",
+       "already existed before.",
+       "Does nothing if no CKSUM file exists.",
+       \&create_cksum,
+      ],
+   "delete-cksum"
+   => [
+       "Delete an already existing CKSUM file.",
+       "Does nothing if no CKSUM file exists.",
+       "HINT: when the resource is currently attached, any deleted CKSUM file",
+       "will be continuously used until the next detach.",
+       "Like any other orphan file, the filesystem space will be freed",
+       "only thereafter.",
+       \&create_cksum,
       ],
    "set-connect-pref-list"
    => [
