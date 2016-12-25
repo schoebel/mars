@@ -24,12 +24,34 @@
 #ifndef MARS_CKSUM_H
 #define MARS_CKSUM_H
 
+#define CKSUM_PAGE_SIZE PAGE_SIZE
+
+struct cksum_record_v1 {
+	struct timespec cs_stamp;
+	unsigned char cs_cksum[16];
+};
+
 struct cksum_mref_aspect {
 	GENERIC_ASPECT(mref);
+	struct cksum_brick *brick;
+	struct generic_callback *master_cb;
+	struct generic_callback inter_cb;
+	struct cksum_record_v1 cs;
+	atomic_t cb_count;
+	int cb_error;
+	int orig_rw;
+	int delayed_dec;
+	bool is_right_sized;
 };
 
 struct cksum_brick {
 	MARS_BRICK(cksum);
+	atomic_t total_reads;
+	atomic_t total_writes;
+	atomic_t total_small_reads;
+	atomic_t total_small_writes;
+	atomic_t total_success;
+	atomic_t total_errors;
 };
 
 /* common part of 2 input types */
