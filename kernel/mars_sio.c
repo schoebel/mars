@@ -598,10 +598,10 @@ static int sio_switch(struct sio_brick *brick)
 {
 	static int sio_nr = 0;
 	struct sio_output *output = brick->outputs[0];
-	const char *path = output->brick->brick_path;
 	int status = 0;
 
 	if (brick->power.button) {
+		const char *path = brick->brick_args;
 		int flags = O_CREAT | O_RDWR | O_LARGEFILE;
 		int index;
 
@@ -615,6 +615,8 @@ static int sio_switch(struct sio_brick *brick)
 
 		mars_power_led_off((void*)brick, false);
 
+		if (!path)
+			path = brick->brick_path;
 		output->mf = mapfree_get(path, flags);
 		if (unlikely(IS_ERR(output->mf))) {
 			MARS_ERR("could not open file = '%s' flags = %d\n", path, flags);

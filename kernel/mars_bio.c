@@ -760,12 +760,14 @@ static int bio_switch(struct bio_brick *brick)
 		
 		if (!brick->bdev) {
 			static int index = 0;
-			const char *path = brick->brick_path;
+			const char *path = brick->brick_args;
 			int flags = O_RDWR | O_EXCL | O_LARGEFILE;
 			struct address_space *mapping;
 			struct inode *inode;
 			struct request_queue *q;
 
+			if (!path)
+				path = brick->brick_path;
 			brick->mf = mapfree_get(path, flags);
 			if (unlikely(!brick->mf)) {
 				status = -ENOENT;

@@ -1100,7 +1100,7 @@ static int aio_switch(struct aio_brick *brick)
 {
 	static int index;
 	struct aio_output *output = brick->outputs[0];
-	const char *path = output->brick->brick_path;
+	const char *path = brick->brick_args;
 	int flags = O_RDWR | O_LARGEFILE;
 	int status = 0;
 
@@ -1122,6 +1122,8 @@ static int aio_switch(struct aio_brick *brick)
 		MARS_DBG("using O_DIRECT on %s\n", path);
 	}
 
+	if (!path)
+		path = brick->brick_path;
 	output->mf = mapfree_get(path, flags);
 	if (unlikely(!output->mf)) {
 		MARS_ERR("could not open file = '%s' flags = %d\n", path, flags);
