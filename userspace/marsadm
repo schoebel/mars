@@ -1891,6 +1891,7 @@ sub create_res {
   set_link("1", "$todo/connect");
   set_link("1", "$todo/sync");
   set_link("1", "$todo/allow-replay");
+  set_link("0", "$todo/pause-cksum");
   unlink("$resdir/syncstatus-$host");
 
   if ($create) {
@@ -1947,6 +1948,7 @@ sub leave_res_phase0 {
 
 sub leave_res_phase1 {
   my ($cmd, $res) = @_;
+  _switch($cmd, $res, "$mars/resource-$res/todo-$host/pause-cksum", 0);
   _create_delete("$mars/resource-$res/replay-$host");
   _create_delete("$mars/resource-$res/data-$host");
   _create_delete("$mars/resource-$res/syncstatus-$host");
@@ -2220,6 +2222,22 @@ sub pause_replay_local_res {
   _switch($cmd, $res, $path, !$pause);
 }
 
+sub pause_cksum_global_res {
+  my ($cmd, $res) = @_;
+  my $pause = ($cmd =~ m/pause/);
+  my @paths = glob("$mars/resource-$res/todo-*/");
+  for my $path (@paths) {
+    _switch($cmd, $res, "$path/pause-cksum", $pause);
+  }
+}
+
+sub pause_cksum_local_res {
+  my ($cmd, $res) = @_;
+  my $pause = ($cmd =~ m/pause/);
+  my $path = "$mars/resource-$res/todo-$host/pause-cksum";
+  _switch($cmd, $res, $path, $pause);
+}
+
 sub up_res_phase0 {
   my ($cmd, $res) = @_;
   my $down = ($cmd eq "down");
@@ -2234,6 +2252,7 @@ sub up_res_phase1 {
   my ($cmd, $res) = @_;
   my $down = ($cmd eq "down");
   if ($down) {
+    pause_cksum_local_res("resume-cksum-local", $res);
     pause_replay_local_res("pause-replay-local", $res);
     pause_sync_local_res("pause-sync-local", $res);
     fetch_local_res("pause-fetch", $res);
@@ -2430,6 +2449,7 @@ sub invalidate_res_phase0 {
 
 sub invalidate_res_phase1 {
   my ($cmd, $res) = @_;
+  _switch($cmd, $res, "$mars/resource-$res/todo-$host/pause-cksum", 0);
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/attach", 0);
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/sync", 0);
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/fetch", 0);
@@ -4567,6 +4587,41 @@ my %cmd_table =
        "Like any other orphan file, the filesystem space will be freed",
        "only thereafter.",
        \&create_cksum,
+      ],
+   "resume-cksum-local"
+   => [
+       "Resume any IO stalls caused by CKSUM errors.",
+       \&pause_cksum_local_res,
+      ],
+   "resume-cksum-global"
+   => [
+       "Like resume-cksum-local, but affects all resource members",
+       "in the cluster (remotely).",
+       \&pause_cksum_global_res,
+      ],
+   "resume-cksum"
+   => [
+       "See resume-cksum-local.",
+       \&pause_cksum_local_res,
+      ],
+   "pause-cksum-local"
+   => [
+       "Stall IO when CKSUM errors are encountered.",
+       "This will lead to hangs from the application viewpoint,",
+       "but known bad data will not be read.",
+       "This trades better safety for availability.",
+       \&pause_cksum_local_res,
+      ],
+   "pause-cksum-global"
+   => [
+       "Like pause-cksum-local, but affects all resource members",
+       "in the cluster (remotely).",
+       \&pause_cksum_global_res,
+      ],
+   "pause-cksum"
+   => [
+       "See pause-cksum-local.",
+       \&pause_cksum_local_res,
       ],
    "set-connect-pref-list"
    => [
