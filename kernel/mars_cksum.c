@@ -163,10 +163,14 @@ void cksum_do_finish(struct cksum_mref_aspect *mref_a, int error)
 			struct mref_object *mref = mref_a->object;
 
 			atomic_inc(&brick->total_errors);
-#if 1
-			MARS_ERR("CKSUM MISMATCH status=%d pos=%lld len=%d\n",
-				 status, mref->ref_pos, mref->ref_len);
-#endif
+			if (brick->report_errors) {
+				MARS_ERR("CKSUM MISMATCH status=%d pos=%lld len=%d\n",
+					 status, mref->ref_pos, mref->ref_len);
+			}
+			/* Hard blocking exactly where it is */
+			while (brick->block_on_errors) {
+				brick_msleep(100);
+			}
 		}
 	}
 }

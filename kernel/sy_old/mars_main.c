@@ -341,6 +341,8 @@ const char *rot_keys[] = {
 	"inf-fetch",
 	// from make_sync()
 	"inf-sync",
+	// from make_bio()
+	"err-cksum",
 	// from make_log_step()
 	"wrn-log-consecutive",
 	// from make_log_finalize()
@@ -4036,8 +4038,21 @@ int make_bio(void *buf, struct mars_dent *dent)
 				       cksum_name);
 
 		MARS_INF("cksum %p\n", brick);
-		if (brick)
+		if (brick) {
+			struct cksum_brick *cksum_brick = (void*)brick;
+			int err_count;
+
 			brick->killme = true;
+			cksum_brick->report_errors = true;
+			cksum_brick->block_on_errors =
+				_check_allow(global, dent->d_parent, "pause-cksum");
+			err_count = atomic_read(&cksum_brick->total_errors);
+			if (err_count > 0) {
+				make_rot_msg(rot, "err-cksum",
+					     "There are %d CKSUM errors",
+					     err_count);
+			}
+		}
 		brick_string_free(bio_name);
 	}
 

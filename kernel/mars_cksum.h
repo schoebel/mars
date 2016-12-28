@@ -46,6 +46,10 @@ struct cksum_mref_aspect {
 
 struct cksum_brick {
 	MARS_BRICK(cksum);
+	/* parameters */
+	bool report_errors;
+	bool block_on_errors;
+	/* statistics */
 	atomic_t total_reads;
 	atomic_t total_writes;
 	atomic_t total_small_reads;
