@@ -1337,7 +1337,7 @@ int mars_free_brick(struct mars_brick *brick)
 		struct mars_input *input = brick->inputs[i];
 		if (input) {
 			MARS_DBG("disconnecting input %i\n", i);
-			generic_disconnect((void*)input);
+			mars_disconnect(input);
 		}
 	}
 
@@ -1493,10 +1493,10 @@ int mars_kill_brick(struct mars_brick *brick)
 			*brick->kill_ptr = NULL;
 		
 		for (i = 0; i < max_inputs; i++) {
-			struct generic_input *input = (void*)brick->inputs[i];
+			struct mars_input *input = brick->inputs[i];
 			if (!input)
 				continue;
-			status = generic_disconnect(input);
+			status = mars_disconnect(input);
 			if (unlikely(status < 0)) {
 				MARS_ERR("brick '%s' '%s' disconnect %d failed, status = %d\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path), i, status);
 				goto done;
@@ -1884,7 +1884,7 @@ struct mars_brick *make_brick_all(
 	// connect the wires
 	for (i = 0; i < prev_count; i++) {
 		int status;
-		status = generic_connect((void*)brick->inputs[i], (void*)prev[i]->outputs[0]);
+		status = mars_connect(brick->inputs[i], prev[i]->outputs[0]);
 		if (unlikely(status < 0)) {
 			MARS_ERR("'%s' '%s' cannot connect input %d\n", new_path, new_name, i);
 			goto err;
