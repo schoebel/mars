@@ -3427,7 +3427,7 @@ void _rotate_trans(struct mars_rotate *rot)
 			   atomic_read(&trans_input->log_ref_count) <= 0) {
 			int status;
 			MARS_INF("cleanup old transaction log (%d -> %d)\n", old_nr, log_nr);
-			status = generic_disconnect((void*)trans_input);
+			status = mars_disconnect((void*)trans_input);
 			if (unlikely(status < 0)) {
 				MARS_ERR("disconnect failed\n");
 			} else {
@@ -3475,7 +3475,7 @@ void _rotate_trans(struct mars_rotate *rot)
 
 		_init_trans_input(trans_input, rot->next_relevant_log, rot);
 
-		status = generic_connect((void*)trans_input, (void*)rot->next_relevant_brick->outputs[0]);
+		status = mars_connect((void *)trans_input, rot->next_relevant_brick->outputs[0]);
 		if (unlikely(status < 0)) {
 			MARS_ERR_TO(rot->log_say, "internal connect failed\n");
 			goto done;
@@ -3590,7 +3590,7 @@ int _start_trans(struct mars_rotate *rot)
 
 	/* Connect to new transaction log
 	 */
-	status = generic_connect((void*)trans_input, (void*)rot->relevant_brick->outputs[0]);
+	status = mars_connect((void *)trans_input, rot->relevant_brick->outputs[0]);
 	if (unlikely(status < 0)) {
 		MARS_ERR("initial connect failed\n");
 		goto done;
@@ -3633,8 +3633,7 @@ int _stop_trans(struct mars_rotate *rot, const char *parent_path)
 			struct trans_logger_input *trans_input;
 			trans_input = trans_brick->inputs[i];
 			if (trans_input && !trans_input->is_operating) {
-				if (trans_input->connect)
-					(void)generic_disconnect((void*)trans_input);
+				(void)mars_disconnect((void*)trans_input);
 			}
 		}
 	}
