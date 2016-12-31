@@ -1194,6 +1194,59 @@ EXPORT_SYMBOL_GPL(mars_free_dent_all);
 
 // low-level brick instantiation
 
+int mars_connect(struct mars_input *a, struct mars_output *b)
+{
+	struct mars_brick *a_brick = a->brick;
+	struct mars_global *a_global = a_brick->global;
+	struct mars_brick *b_brick = b->brick;
+	struct mars_global *b_global = b_brick->global;
+	int status;
+
+	if (a_global)
+		down_write(&a_global->brick_mutex);
+	if (b_global && b_global != a_global)
+		down_write(&b_global->brick_mutex);
+
+	status = generic_connect((void*)a, (void*)b);
+
+	if (b_global && b_global != a_global)
+		up_write(&b_global->brick_mutex);
+	if (a_global)
+		up_write(&a_global->brick_mutex);
+
+	return status;
+}
+
+int mars_disconnect(struct mars_input *a)
+{
+	struct mars_brick *a_brick = a->brick;
+	struct mars_global *a_global = a_brick->global;
+	struct mars_output *b;
+	int status = 0;
+
+	if (a_global)
+		down_write(&a_global->brick_mutex);
+
+	b = a->connect;
+	if (b) {
+		struct mars_brick *b_brick = b->brick;
+		struct mars_global *b_global = b_brick->global;
+
+		if (b_global && b_global != a_global)
+			down_write(&b_global->brick_mutex);
+
+		status = generic_disconnect((void*)a);
+
+		if (b_global && b_global != a_global)
+			up_write(&b_global->brick_mutex);
+	}
+
+	if (a_global)
+		up_write(&a_global->brick_mutex);
+
+	return status;
+}
+
 struct mars_brick *mars_find_brick(struct mars_global *global, const void *brick_type, const char *path)
 {
 	struct list_head *tmp;
