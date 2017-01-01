@@ -1410,6 +1410,7 @@ struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent 
 		MARS_ERR("cannot grab %d bytes for brick type '%s'\n", size, brick_type->type_name);
 		goto err_name;
 	}
+	get_lamport(&res->create_stamp);
 	res->global = global;
 	INIT_LIST_HEAD(&res->dent_brick_link);
 	res->brick_path = brick_strdup(path);
@@ -1970,6 +1971,7 @@ void _show_one(struct mars_brick *test, int *brick_count)
 		MARS_STAT("---------\n");
 	}
 	MARS_STAT("BRICK type = %s path = '%s' name = '%s' "
+		  "create_stamp = %ld.%09ld "
 		  "size_hint=%d "
 		  "mrefs_alloc = %d "
 		  "mrefs_apsect_alloc = %d "
@@ -1980,6 +1982,7 @@ void _show_one(struct mars_brick *test, int *brick_count)
 		  SAFE_STR(test->type->type_name),
 		  SAFE_STR(test->brick_path),
 		  SAFE_STR(test->brick_name),
+		  test->create_stamp.tv_sec, test->create_stamp.tv_nsec,
 		  test->mref_object_layout.size_hint,
 		  atomic_read(&test->mref_object_layout.alloc_count),
 		  atomic_read(&test->mref_object_layout.aspect_count),

@@ -227,6 +227,7 @@ struct mars_info {
 	struct list_head dent_brick_link;				\
 	const char *brick_path;						\
 	struct mars_global *global;					\
+	struct timespec create_stamp;					\
 	void **kill_ptr;						\
 	int *mode_ptr;							\
 	int kill_round;							\
