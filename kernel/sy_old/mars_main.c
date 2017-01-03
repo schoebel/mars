@@ -1750,15 +1750,19 @@ void show_peers(void)
 	struct list_head *tmp;
 
 	down_read(&peer_lock);
+	MARS_DBG("PEER_count = %d\n", peer_count); 
 	for (tmp = peer_anchor.next; tmp != &peer_anchor; tmp = tmp->next) {
 		struct mars_peerinfo *peer;
 
 		peer = container_of(tmp, struct mars_peerinfo, peer_head);
-		MARS_DBG("PEER '%s' alive=%d trigg=%d/%d\n",
+		MARS_DBG("PEER '%s' alive=%d trigg=%d/%d comm=%d add=%d/%d\n",
 			 peer->peer,
 			 mars_socket_is_alive(&peer->socket),
 			 peer->to_remote_trigger,
-			 peer->from_remote_trigger);
+			 peer->from_remote_trigger,
+			 peer->do_communicate,
+			 peer->do_additional,
+			 peer->doing_additional);
 	}
 	up_read(&peer_lock);
 }
