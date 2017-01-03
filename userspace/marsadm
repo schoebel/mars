@@ -1697,6 +1697,100 @@ sub join_cluster {
   rsync_cmd($peer, "--update $mars/ips/ $peer:$mars/ips/");
 }
 
+sub merge_cluster {
+  my ($cmd, $peer) = @_;
+  my $uuid = readlink("$mars/uuid");
+  my @resources = glob("$mars/resource-*");
+  my @ip_links = glob("$mars/ips/*");
+  if ($cmd =~ m/-list/) {
+    print "UUID: $uuid\n";
+    print "IPs:\n";
+    foreach my $ip (@ip_links) {
+      print "$ip\n";
+    }
+    print "RESOURCEs:\n";
+    foreach my $i (@resources) {
+      print "$i\n";
+    }
+    return;
+  }
+  ldie "No peer argument given" unless $peer;
+  ldie "Cannot merge myself (peer='$peer', host='$host')\n" if $peer eq $host;
+  ldie "Directory $mars is missing\n" unless -d $mars;
+  ldie "A cluster UUD '$mars/uuid' does not exist. Please use 'join-cluster instead.\n" unless -l "$mars/uuid";
+  # check connections
+  my $check_cmd = "uname -a";
+  system("$check_cmd") == 0 or ldie "oops, 'uname is not installed'\n";
+  system("rsync --help > /dev/null") == 0 or ldie "Command 'rsync' is not installed\n";
+  ssh_cmd($peer, $ssh_probe);
+  my @old_peers;
+  foreach my $ip (@ip_links) {
+    my $old_peer = $ip;
+    $old_peer =~ s:^.+/ip-::;
+    next if $old_peer eq $host;
+    next if $old_peer eq $real_host;
+    ssh_cmd($old_peer, $ssh_probe);
+    push @old_peers, $old_peer;
+  }
+  # check whether merge-cluster is possible
+  my %total_res;
+  foreach my $res (@resources) {
+    $total_res{$res}++;
+  }
+  my $ssh_cmd = make_ssh_cmd($peer) . " marsadm merge-cluster-list";
+  my $answer = `$ssh_cmd`;
+  $answer =~ m/^UUID: (.*)$/m or ldie "cannot determine remote UUID from '$answer'\n";
+  my $other_uuid = $1;
+  ldie "Other cluster peer '$peer' has no UUID\n" unless $other_uuid;
+  if ($other_uuid eq $uuid) {
+    lprint "Other cluster peer '$peer' has the same UUID.\n";
+    lprint "No resource name checking necessary.\n";
+    lprint "Operation '$cmd' will therfore work logically idempotent.\n";
+  } else {
+    if (-l "$mars/tree-$peer") {
+      lwarn "A valid tree signature '$mars/tree-$peer' already exists, thus it appears to be already merged!\n";
+      ldie "Aborting for saftey. Override via --force only if you know what you are doing!\n" unless $force;
+    }
+    # Check that both sets of resources are disjoint
+    lprint "Other cluster peer '$peer' has a different UUID, checking for resource name conflicts.\n";
+    my @other_resources;
+    my @conflicts;
+    my $copy = $answer;
+    $copy =~ s/\A.*?RESOURCEs:\n//ms;
+    while ($copy) {
+      $copy =~ s/\A(.*)\n$//m;
+      my $other_res = $1;
+      last unless $other_res;
+      push @other_resources, $other_res;
+      if ($total_res{$other_res}++) {
+	push @conflicts, $other_res;
+      }
+    }
+    if (@conflicts) {
+      lprint "CONFLICTS:\n";
+      foreach my $res (@conflicts) {
+	lprint "\t$res\n";
+      }
+      ldie "Cannot $cmd: some resource directories exist at both clusters with same name.\nThis cannot be overriden.\nPlease resolve the conflict by hand.\n";
+    }
+    lprint "List of total resources:\n";
+    foreach my $res (keys(%total_res)) {
+      lprint "\t$res\n";
+    }
+    # INTERNAL, for debugging and error analysis: backup the old uuid symlink
+    system("mkdir -p $mars/uuid-backups; cp -a $mars/uuid $mars/uuid-backups/") unless -l "$mars/uuid-backups/uuid";
+  }
+  # Start the "hot phase"
+  my $rsync_cmd = "--max-size=1";
+  rsync_cmd($peer, "$rsync_cmd $peer:$mars/uuid $mars/uuid");
+  foreach my $old_peer (@old_peers) {
+    rsync_cmd($old_peer, "$rsync_cmd $mars/uuid $old_peer:$mars/uuid");
+  }
+  $rsync_cmd .= " --update --ignore-existing";
+  rsync_cmd($peer, "$rsync_cmd $peer:$mars/ $mars/");
+  rsync_cmd($peer, "$rsync_cmd $mars/ $peer:$mars/");
+}
+
 sub leave_cluster {
   my ($cmd) = @_;
   ldie "mars kernel module is not loaded. This is needed for communication with some other hosts!\n" if !is_module_loaded();
@@ -4543,6 +4637,33 @@ my %cmd_table =
        "This is a prerequisite for join-resource.",
        \&join_cluster,
       ],
+   "merge-cluster"
+   => [
+       "usage: merge-cluster <hostname_of_other_cluster>",
+       "Precondition: the resource names of both clusters must be disjoint.",
+       "Create the union of two clusters, consisting of the",
+       "union of all machines, and the union of all resources.",
+       "The members of each resource are _not_ changed by this.",
+       "This is useful for creating a big \"virtual LVM cluster\" where",
+       "resources can be almost arbitrarily migrated between machines via",
+       "later join-resource / leave-resource operations.",
+       \&merge_cluster,
+      ],
+   "merge-cluster-list"
+   => [
+       "usage: merge-cluster-list",
+       "Determine the local list of resources.",
+       "Useful for checking or analysis of merge-cluster disjointness by hand.",
+       \&merge_cluster,
+      ],
+   "merge-cluster-check"
+   => [
+       "usage: merge-cluster-check <hostname_of_other_cluster>",
+       "Check whether the resources of both clusters are disjoint.",
+       "Useful for checking in advance whether merge-cluster would be",
+       "possible.",
+       \&merge_cluster,
+      ],
    "leave-cluster"
    => [
        "usage: leave-cluster (no parameters)",
@@ -5421,7 +5542,9 @@ if ($cmd =~ "show|cron") {
 } elsif ($cmd =~ m/^set-.*-value$/) {
   $res = shift @args || helplist "numeric argument is missing\n";
   ldie "argument '$res' isn't numeric\n" unless $res =~ m/^[0-9.]+$/;
-} elsif (!($cmd =~ m/^(create|leave|wait)-cluster|create-uuid|cat|[a-z]+-file/)) {
+} elsif ($cmd =~ m/^(join|merge)-cluster$/) {
+  $res = shift @args || helplist "peer argument is missing\n";
+} elsif (!($cmd =~ m/^(create|leave|wait)-cluster|merge-cluster-list|create-uuid|cat|[a-z]+-file/)) {
   $res = shift @args || helplist "resource argument is missing\n";
   check_id($res);
 }
@@ -5436,8 +5559,8 @@ sub do_one_res {
   my ($cmd, $res) = @_;
   if ($cmd =~ m/^cat|-file$|-list$|-link$|-value$/) { # no resource argument
   } elsif (!$checked_res{"$cmd$res"}) {
-    $res = check_res($res) unless (!$res || $cmd =~ m/^(join|create|merge|leave|wait)-cluster|(create|join)-resource|show/);
-    check_res_member($cmd, $res) unless (!$res || $cmd =~ m/^(join|create|delete)-(cluster|resource)|^(leave|wait)-cluster|^log-purge|^show|^view/);
+    $res = check_res($res) unless (!$res || $cmd =~ m/^(join|create|merge|leave|wait)-cluster|create-resource|show/);
+    check_res_member($cmd, $res) unless (!$res || $cmd =~ m/^(join|create|delete)-(cluster|resource)|^(merge|leave|wait)-cluster|^log-purge|^show|^view/);
     detect_splitbrain($res, 1);
     $checked_res{"$cmd$res"} = 1;
   }
