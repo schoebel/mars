@@ -4015,6 +4015,8 @@ int make_bio(void *buf, struct mars_dent *dent)
 		goto done;
 
 	rot->has_symlinks = true;
+	if (strcmp(dent->d_rest, my_id()))
+		goto done;
 
 	switch_on = _check_allow(global, dent->d_parent, "attach");
 	if (switch_on && rot->res_shutdown) {
@@ -5237,7 +5239,7 @@ static const struct main_class main_classes[] = {
 		.cl_name = "data-",
 		.cl_len = 5,
 		.cl_type = 'F',
-		.cl_hostcontext = true,
+		.cl_hostcontext = false, // not really
 		.cl_father = CL_RESOURCE,
 #ifdef RUN_DATA
 		.cl_forward = make_bio,
