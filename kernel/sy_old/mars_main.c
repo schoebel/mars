@@ -1662,6 +1662,25 @@ struct mars_peerinfo *find_peer(const char *peer_name)
 }
 
 static
+void show_peers(void)
+{
+	struct list_head *tmp;
+
+	down_read(&peer_lock);
+	for (tmp = peer_anchor.next; tmp != &peer_anchor; tmp = tmp->next) {
+		struct mars_peerinfo *peer;
+
+		peer = container_of(tmp, struct mars_peerinfo, peer_head);
+		MARS_DBG("PEER '%s' alive=%d trigg=%d/%d\n",
+			 peer->peer,
+			 mars_socket_is_alive(&peer->socket),
+			 peer->to_remote_trigger,
+			 peer->from_remote_trigger);
+	}
+	up_read(&peer_lock);
+}
+
+static
 bool _is_usable_dir(const char *name)
 {
 	if (!strncmp(name, "resource-", 9)
@@ -5625,6 +5644,7 @@ static int _main_thread(void *data)
 		_show_status_all(&_global);
 		show_vals(gbl_pairs, "/mars", "");
 		show_statistics(&_global, "main");
+		show_peers();
 
 		MARS_DBG("ban_count = %d ban_renew_count = %d\n", mars_global_ban.ban_count, mars_global_ban.ban_renew_count);
 
