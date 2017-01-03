@@ -604,6 +604,7 @@ struct mars_rotate {
 	int relevant_serial;
 	int replay_code;
 	bool has_symlinks;
+	bool peer_activated;
 	bool res_shutdown;
 	bool has_error;
 	bool has_double_logfile;
@@ -1675,6 +1676,7 @@ struct mars_peerinfo {
 	int maxdepth;
 	bool to_remote_trigger;
 	bool from_remote_trigger;
+	bool do_communicate;
 };
 
 static
@@ -2402,6 +2404,21 @@ bool is_shutdown(void)
 
 // helpers for worker functions
 
+static
+void activate_peer(struct mars_rotate *rot, const char *peer_name)
+{
+	struct mars_peerinfo *peer;
+
+	if (rot->peer_activated)
+		return;
+
+	peer = find_peer(peer_name);
+	if (peer) {
+		peer->do_communicate = true;
+		rot->peer_activated = true;
+	}
+}
+
 static int _kill_peer(struct mars_global *global, struct mars_peerinfo *peer)
 {
 	LIST_HEAD(tmp_list);
@@ -2443,6 +2460,7 @@ static int _make_peer(struct mars_global *global, struct mars_dent *dent, char *
 	struct mars_peerinfo *peer;
 	char *mypeer;
 	char *parent_path;
+	bool do_start;
 	int status = 0;
 
 	if (!global || !dent || !dent->new_link || !dent->d_parent || !(parent_path = dent->d_parent->d_path)) {
@@ -2482,7 +2500,10 @@ static int _make_peer(struct mars_global *global, struct mars_dent *dent, char *
 	}
 
 	peer = dent->d_private;
-	if (!peer->peer_thread) {
+	// check whether we are participating at some resource
+	do_start = peer->do_communicate;
+	// create communication thread when necessary
+	if (!peer->peer_thread && do_start) {
 		peer->peer_thread = brick_thread_create(peer_thread, peer, "mars_peer%d", serial++);
 		if (unlikely(!peer->peer_thread)) {
 			MARS_ERR("cannot start peer thread\n");
@@ -4015,6 +4036,7 @@ int make_bio(void *buf, struct mars_dent *dent)
 		goto done;
 
 	rot->has_symlinks = true;
+	activate_peer(rot, dent->d_rest);
 	if (strcmp(dent->d_rest, my_id()))
 		goto done;
 
