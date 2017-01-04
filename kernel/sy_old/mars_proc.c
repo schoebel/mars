@@ -92,7 +92,9 @@ int trigger_sysctl_handler(
 			if (code > 0) {
 				mars_trigger();
 			}
-			if (code > 1) {
+			if (code > 2) {
+				mars_remote_trigger_all();
+			} else if (code > 1) {
 				mars_remote_trigger();
 			}
 		}

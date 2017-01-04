@@ -2435,7 +2435,7 @@ void from_remote_trigger(void)
 EXPORT_SYMBOL_GPL(from_remote_trigger);
 
 static
-void __mars_remote_trigger(void)
+void __mars_remote_trigger(bool do_all)
 {
 	struct list_head *tmp;
 	int count = 0;
@@ -2443,6 +2443,9 @@ void __mars_remote_trigger(void)
 	down_read(&peer_lock);
 	for (tmp = peer_anchor.next; tmp != &peer_anchor; tmp = tmp->next) {
 		struct mars_peerinfo *peer = container_of(tmp, struct mars_peerinfo, peer_head);
+		/* skip some peers when requested */
+		if (!do_all && !peer->do_communicate)
+			continue;
 		peer->to_remote_trigger = true;
 		count++;
 	}
@@ -5898,7 +5901,7 @@ static int exit_fn_nr = 0;
 	} while (0)
 
 
-void (*_mars_remote_trigger)(void);
+void (*_mars_remote_trigger)(bool do_all);
 EXPORT_SYMBOL_GPL(_mars_remote_trigger);
 
 static void exit_main(void)
