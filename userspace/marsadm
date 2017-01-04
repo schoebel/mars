@@ -418,9 +418,11 @@ sub wait_cluster {
   my $cmd = shift;
   my $res = shift || "all";
   my $hosts = shift || "*";
+  my $abort = shift;
+  $abort = $force unless defined($abort);
   my $old_timeout = $timeout;
   my $start_time = mars_time();
-  _trigger();
+  _trigger($hosts =~ m/\*/ ? 3 : 2);
   my $delta = $timeout > 0 ? $timeout : 30;
   while (1) {
     my $dead_count = 0;
@@ -444,7 +446,7 @@ sub wait_cluster {
 	last;
       } else {
 	lwarn "$alive_count peer(s) seem to be alive, and $dead_count peer(s) seem to be dead / not reachable\n";
-	ldie "aborting because --force was given\n" if $force;
+	ldie "aborting because --force was given\n" if $abort;
       }
     }
     sleep_timeout();
@@ -486,7 +488,9 @@ sub check_id_list {
 
 sub check_res {
   my $res = shift;
+  wait_cluster("wait-cluster", "all", "*", 0) unless -d "$mars/resource-$res";
   if (not -d "$mars/resource-$res") {
+    # Ensure that all cluster information is present
     # DO WHAT I MEAN: try to substitute a device name for a badly given resource name if it is unique
     my $count = 0;
     my $found;
@@ -1411,8 +1415,9 @@ sub get_error_text {
 
 # helpers
 
-sub _trigger {
-  system("(echo 2 > /proc/sys/mars/trigger) >/dev/null 2>&1");
+sub _trigger{
+  my ($code) = shift || 2;
+  system("(echo $code > /proc/sys/mars/trigger) >/dev/null 2>&1");
 }
 
 sub _switch {
