@@ -1464,13 +1464,6 @@ int mars_kill_brick(struct mars_brick *brick)
 		goto done;
 	}
 
-	if (global) {
-		down_write(&global->brick_mutex);
-		list_del_init(&brick->global_brick_link);
-		list_del_init(&brick->dent_brick_link);
-		up_write(&global->brick_mutex);
-	}
-
 	if (brick->show_status) {
 		brick->show_status(brick, true);
 	}
@@ -1480,7 +1473,15 @@ int mars_kill_brick(struct mars_brick *brick)
 
 	if (likely(brick->power.led_off)) {
 		int max_inputs = 0;
+		bool failed = false;
 		int i;
+
+		if (global) {
+			down_write(&global->brick_mutex);
+			list_del_init(&brick->global_brick_link);
+			list_del_init(&brick->dent_brick_link);
+			up_write(&global->brick_mutex);
+		}
 
 		if (likely(brick->type)) {
 			max_inputs = brick->type->max_inputs;
@@ -1499,10 +1500,12 @@ int mars_kill_brick(struct mars_brick *brick)
 				continue;
 			status = mars_disconnect(input);
 			if (unlikely(status < 0)) {
+				failed = true;
 				MARS_ERR("brick '%s' '%s' disconnect %d failed, status = %d\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path), i, status);
-				goto done;
 			}
 		}
+		if (failed)
+			goto done;
 		if (likely(brick->free)) {
 			status = brick->free(brick);
 			if (unlikely(status < 0)) {
