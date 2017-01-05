@@ -188,6 +188,49 @@ sub rsync_cmd {
 
 ##################################################################
 
+# external hook scripts
+
+sub _try_exec {
+  my ($path, $cmd, $args, $abort) = @_;
+  return unless -x $path;
+  lprint "RUNNING HOOK $path $cmd $args\n" if $verbose;
+  unless ($dry_run) {
+    my $status = system("$path $cmd $args");
+    lprint "HOOK status=$status\n" if $verbose;
+    if ($status) {
+      lwarn "HOOK $path $cmd $args\nFAILURE $status\n";
+      ldie if $abort;
+    }
+  }
+}
+
+sub _try_exec_dir {
+  my ($subdir, $cmd, $args, $abort) = @_;
+  return unless -d $subdir;
+  foreach my $sub_path (glob("$subdir/*")) {
+    next if $sub_path =~ m:~$:;
+    _try_exec($sub_path, $cmd, $args, $abort);
+  }
+}
+
+sub call_hook {
+  my $abort = shift;
+  my $type = shift;
+  my $cmd = shift;
+  my $args = join(" ", @_);
+
+  my $pattern = "hook-$type";
+  foreach my $dir (@MARS_PATH) {
+    -d $dir || next;
+    _try_exec("$dir/$pattern-$cmd", $cmd, $args, $abort);
+    _try_exec("$dir/$pattern", $cmd, $args, $abort);
+    _try_exec_dir("$dir/$pattern-$cmd.d", $cmd, $args, $abort);
+    _try_exec_dir("$dir/$pattern.d", $cmd, $args, $abort);
+  }
+}
+
+##################################################################
+
 # path correction
 
 sub correct_path {
@@ -5564,7 +5607,9 @@ sub do_one_res {
     detect_splitbrain($res, 1);
     $checked_res{"$cmd$res"} = 1;
   }
+  call_hook(!$force, "pre", @_);
   &{$func}(@_);
+  call_hook(!$force, "post", @_);
 }
 
 my %skip_res;
@@ -5577,6 +5622,7 @@ sub do_all_res {
     ldie "Cannot combine command '$cmd' with 'all' existing resources - you must explicitly name a single new resource\n" if $cmd =~ m/create|join/;
     my $any_success = 0;
     my $any_member = 0;
+    call_hook(!$force, "all-pre", $cmd, "all", @_);
     foreach $res (glob("$mars/resource-*")) {
       next unless -e "$res/data-$host";
       $any_member++;
@@ -5595,6 +5641,7 @@ sub do_all_res {
       }
       ldie "all resources have errors\n";
     }
+    call_hook(!$force, "all-post", $cmd, "all", @_);
     return !$any_success;
   } else {
     return do_one_res($func, $cmd, $res, @_);
