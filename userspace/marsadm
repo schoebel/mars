@@ -35,6 +35,9 @@ my $threshold = 10 * 1024 * 1024;
 my $window = 30;
 my $verbose = 0;
 my $dry_run = 0;
+my @MARS_PATH = $ENV{MARS_PATH} ?
+  split(/:/, $ENV{MARS_PATH}) :
+  (".", "~/.marsadm", "/etc/marsadm", "/usr/lib/marsadm", "/usr/local/lib/marsadm");
 
 ##################################################################
 
@@ -4432,7 +4435,7 @@ sub get_macro {
     $macro = ""; # consume once
     return $orig;
   }
-  foreach my $path (".", "~/.marsadm", "/etc/marsadm") {
+  foreach my $path (@MARS_PATH) {
     my $file = "$path/$cmd.tpl";
     if (-r $file) {
       lprint_stderr "using macro file '$file'\n" if (defined($view_macros{$cmd}));
