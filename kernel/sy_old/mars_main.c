@@ -4739,7 +4739,6 @@ static int make_sync(void *buf, struct mars_dent *dent)
 		rot->flip_start = 0;
 	}
 
-	MARS_DBG("initial sync '%s' => '%s' do_start = %d\n", src, dst, do_start);
  shortcut:
 	/* Start copy
 	 */
@@ -4753,6 +4752,11 @@ static int make_sync(void *buf, struct mars_dent *dent)
 
 	// check whether connection is allowed
 	switch_path = path_make("%s/todo-%s/sync", dent->d_parent->d_path, my_id());
+
+	MARS_DBG("initial sync '%s' => '%s' ('%s' '%s') do_start = %d\n",
+		 src, dst,
+		 copy_path, switch_path,
+		 do_start);
 
 	status = -ENOMEM;
 	if (unlikely(!src || !dst || !copy_path || !switch_path))
