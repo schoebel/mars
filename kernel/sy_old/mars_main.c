@@ -445,6 +445,32 @@ int compute_emergency_mode(void)
 	return 0;
 }
 
+static
+struct mars_brick *_kill_brick(struct mars_brick* brick)
+{
+	int status;
+	int i;
+
+	for (i = 0; i < 4; i++)
+		if (brick->inputs[i] && brick->inputs[i]->brick)
+			brick->inputs[i]->brick->power.io_timeout = 1;
+
+	/* first switch off before trying to wait */
+	if (!brick->power.led_off) {
+		MARS_DBG("need switching off\n");
+		mars_power_button(brick, false, true);
+		return brick;
+	}
+	status = mars_kill_brick((void *)brick);
+	if (status < 0) {
+		MARS_ERR("could not kill brick, status = %d\n", status);
+	} else {
+		brick = NULL;
+	}
+	mars_trigger();
+	return brick;
+}
+
 ///////////////////////////////////////////////////////////////////
 
 static struct task_struct *main_thread = NULL;
@@ -3857,19 +3883,7 @@ done:
 	     (fetch_brick->copy_last == fetch_brick->copy_end &&
 	      (rot->fetch_next_is_available > 0 ||
 	       rot->fetch_round++ > 3)))) {
-		int i;
-
-		for (i = 0; i < 4; i++) {
-			if (fetch_brick->inputs[i] && fetch_brick->inputs[i]->brick)
-				fetch_brick->inputs[i]->brick->power.io_timeout = 1;
-		}
-		status = mars_kill_brick((void*)fetch_brick);
-		if (status < 0) {
-			MARS_ERR("could not kill fetch_brick, status = %d\n", status);
-		} else {
-			fetch_brick = NULL;
-		}
-		mars_trigger();
+		fetch_brick = (void *)_kill_brick((void *)fetch_brick);
 	}
 	rot->fetch_next_is_available = 0;
 	rot->fetch_brick = fetch_brick;
