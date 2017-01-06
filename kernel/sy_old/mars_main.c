@@ -4011,7 +4011,7 @@ static int make_replay(void *buf, struct mars_dent *dent)
 	struct mars_dent *parent = dent->d_parent;
 	int status = 0;
 
-	if (!global->global_power.button || !parent || !dent->new_link) {
+	if (!parent || !dent->new_link) {
 		MARS_DBG("nothing to do\n");
 		goto done;
 	}
