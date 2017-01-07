@@ -451,13 +451,16 @@ struct mars_brick *_kill_brick(struct mars_brick* brick)
 	int status;
 	int i;
 
-	for (i = 0; i < 4; i++)
+	MARS_DBG("brick '%s' forceful shutdown\n", brick->brick_path);
+
+	/* any predecessors should timeout ASAP */
+	for (i = 0; i < brick->nr_inputs; i++)
 		if (brick->inputs[i] && brick->inputs[i]->brick)
 			brick->inputs[i]->brick->power.io_timeout = 1;
 
-	/* first switch off before trying to wait */
+	/* first switch off (in parallel to other ones) before waiting */
 	if (!brick->power.led_off) {
-		MARS_DBG("need switching off\n");
+		MARS_DBG("brick '%s' needs switching off\n", brick->brick_path);
 		mars_power_button(brick, false, true);
 		return brick;
 	}
