@@ -443,9 +443,15 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, bool fo
 	if (!mars_net_is_alive)
 		force = true;
 	
-	if (!force && io_timeout <= 0)
+	if (!force && io_timeout <= 0) {
+		output->socket.s_send_abort = mars_client_abort;
+		output->socket.s_recv_abort = mars_client_abort;
 		return;
-	
+	}
+
+	output->socket.s_send_abort = 1;
+	output->socket.s_recv_abort = 1;
+
 	io_timeout *= HZ;
 	
 	mutex_lock(&output->mutex);
