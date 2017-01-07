@@ -552,6 +552,9 @@ static int sender_thread(void *data)
 						 brick_thread_should_stop(),
 						 1 * HZ);
 
+		if (unlikely(brick_thread_should_stop()))
+			break;
+
 		if (unlikely(output->recv_error != 0)) {
 			MARS_DBG("recv_error = %d\n", output->recv_error);
 			brick_msleep(1000);
