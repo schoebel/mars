@@ -429,7 +429,7 @@ int _mars_send_raw(struct mars_socket *msock, const void *buf, int len)
 #endif
 
 		if (status == -EAGAIN) {
-			if (msock->s_send_abort > 0 && ++msock->s_send_cnt > msock->s_send_abort) {
+			if (msock->s_send_abort > 0 && ++msock->s_send_cnt >= msock->s_send_abort) {
 				MARS_WRN("#%d reached send abort %d\n", msock->s_debug_nr, msock->s_send_abort);
 				status = -EINTR;
 				break;
@@ -623,7 +623,7 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 		}
 
 		if (status == -EAGAIN) {
-			if (msock->s_recv_abort > 0 && ++msock->s_recv_cnt > msock->s_recv_abort) {
+			if (msock->s_recv_abort > 0 && ++msock->s_recv_cnt >= msock->s_recv_abort) {
 				MARS_WRN("#%d reached recv abort %d\n", msock->s_debug_nr, msock->s_recv_abort);
 				status = -EINTR;
 				goto err;
