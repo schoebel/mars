@@ -723,7 +723,7 @@ int _run_copy(struct copy_brick *brick)
 static
 bool _is_done(struct copy_brick *brick)
 {
-	if (brick_thread_should_stop())
+	if (!brick->power.led_on || brick_thread_should_stop())
 		brick->is_aborting = true;
 	return brick->is_aborting &&
 		atomic_read(&brick->copy_read_flight) + atomic_read(&brick->copy_write_flight) <= 0;
@@ -742,7 +742,6 @@ static int _copy_thread(void *data)
 
 	_update_percent(brick, true);
 
-	mars_power_led_on((void*)brick, true);
 	brick->trigger = true;
 
         while (!_is_done(brick)) {
@@ -848,6 +847,7 @@ static int copy_switch(struct copy_brick *brick)
 		if (brick->power.led_on)
 			goto done;
 		mars_power_led_off((void*)brick, false);
+		mars_power_led_on((void*)brick, true);
 		brick->is_aborting = false;
 		if (!brick->thread) {
 			brick->copy_last = brick->copy_start;
@@ -861,14 +861,15 @@ static int copy_switch(struct copy_brick *brick)
 			}
 		}
 	} else {
-		if (brick->power.led_off)
-			goto done;
+		/* Tell thread to stop asynchronously */
 		mars_power_led_on((void*)brick, false);
 		if (brick->thread) {
+			/* Notice: this will be reported by the thread */
+			if (brick->power.led_off)
+				goto done;
 			MARS_INF("stopping thread...\n");
 			brick_thread_stop(brick->thread);
 		}
-		mars_power_led_off((void *)brick, true);
 	}
 done:
 	return 0;
