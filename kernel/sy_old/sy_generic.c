@@ -1471,7 +1471,7 @@ int mars_kill_brick(struct mars_brick *brick)
 	// start shutdown
 	set_button_wait((void*)brick, false, true, 0);
 
-	if (likely(brick->power.led_off)) {
+	if (brick->power.led_off) {
 		int max_inputs = 0;
 		bool failed = false;
 		int i;
@@ -1517,7 +1517,9 @@ int mars_kill_brick(struct mars_brick *brick)
 		}
 		status = 0;
 	} else {
-		MARS_ERR("brick '%s' '%s' is not off\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
+		/* This may happen regularly when bricks are shut down in parallel */
+		MARS_INF("brick '%s' '%s' is not off\n",
+			 SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path));
 		status = -EUCLEAN;
 	}
 
@@ -1608,19 +1610,24 @@ restart:
 			continue;
 		}
 
-		list_del_init(tmp);
+		/* start shutdown */
+		mars_power_button(brick, false, true);
+
+		/* wait until actually off */
+		if (!brick->power.led_off)
+			continue;
+
 		if (global) {
 			up_write(&global->brick_mutex);
 		}
 
-		MARS_DBG("KILLING '%s'\n", brick->brick_name);
+		MARS_DBG("KILLING '%s' '%s'\n",
+			 brick->brick_path, brick->brick_name);
 		status = mars_kill_brick(brick);
 
-		if (status >= 0) {
+		if (status >= 0)
 			return_status++;
-		} else {
-			return status;
-		}
+
 		/* The list may have changed during the open lock
 		 * in unpredictable ways.
 		 */
