@@ -820,7 +820,7 @@ int _set_copy_params(struct mars_brick *_brick, void *private)
 	 */
 	if (!copy_brick->power.button && copy_brick->power.led_off) {
 		int i;
-		copy_brick->copy_last = 0;
+
 		for (i = 0; i < 2; i++) {
 			status = cc->output[i]->ops->mars_get_info(cc->output[i], &cc->info[i]);
 			if (status < 0) {
@@ -830,6 +830,7 @@ int _set_copy_params(struct mars_brick *_brick, void *private)
 			MARS_DBG("%d '%s' current_size = %lld\n", i, cc->fullpath[i], cc->info[i].current_size);
 		}
 		copy_brick->copy_start = cc->info[1].current_size;
+		copy_brick->copy_last = copy_brick->copy_start;
 		if (cc->start_pos != -1) {
 			copy_brick->copy_start = cc->start_pos;
 			if (unlikely(cc->start_pos > cc->info[0].current_size)) {
