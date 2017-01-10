@@ -5695,6 +5695,8 @@ static void exit_main(void)
 	// TODO: make this thread-safe.
 	if (main_thread) {
 		MARS_DBG("=== stopping main thread...\n");
+		_global.global_power.button = false;
+		mars_net_is_alive = false;
 		mars_trigger();
 		MARS_INF("stopping main thread...\n");
 		brick_thread_stop(main_thread);
