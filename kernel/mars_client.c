@@ -184,17 +184,19 @@ static int client_get_info(struct client_output *output, struct mars_info *info)
 	int status;
 
 	output->got_info = false;
+	if (!brick->power.led_on)
+		goto timeout;
+
 	output->get_info = true;
 	wake_up_interruptible(&output->event);
 	
 	wait_event_interruptible_timeout(output->info_event, output->got_info, io_timeout * HZ);
+timeout:
 	status = -ETIME;
 	if (output->got_info && info) {
 		memcpy(info, &output->info, sizeof(*info));
 		status = 0;
 	}
-
-//done:
 	return status;
 }
 
