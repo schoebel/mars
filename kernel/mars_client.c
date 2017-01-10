@@ -162,17 +162,30 @@ really_done:
 	return status;
 }
 
+static
+long _compute_timeout(struct client_brick *brick)
+{
+	long io_timeout = brick->power.io_timeout;
+
+	if (io_timeout <= 0)
+		io_timeout = global_net_io_timeout;
+
+	return io_timeout;
+}
+
 ////////////////// own brick / input / output operations //////////////////
 
 static int client_get_info(struct client_output *output, struct mars_info *info)
 {
+	struct client_brick *brick = output->brick;
+	long io_timeout = _compute_timeout(brick);
 	int status;
 
 	output->got_info = false;
 	output->get_info = true;
 	wake_up_interruptible(&output->event);
 	
-	wait_event_interruptible_timeout(output->info_event, output->got_info, 60 * HZ);
+	wait_event_interruptible_timeout(output->info_event, output->got_info, io_timeout * HZ);
 	status = -ETIME;
 	if (output->got_info && info) {
 		memcpy(info, &output->info, sizeof(*info));
@@ -437,12 +450,9 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, bool fo
 	struct list_head *next;
 	LIST_HEAD(tmp_list);
 	int rounds = 0;
-	long io_timeout = brick->power.io_timeout;
+	long io_timeout = _compute_timeout(brick);
 	unsigned long flags;
 
-	if (io_timeout <= 0)
-		io_timeout = global_net_io_timeout;
-	
 	if (!mars_net_is_alive)
 		force = true;
 	
