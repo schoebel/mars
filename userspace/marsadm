@@ -1412,9 +1412,16 @@ sub _get_text {
   return $text;
 }
 
+my %global_error_texts;
+
 sub get_error_text {
   my ($cmd, $res) = @_;
-  my $text = _get_text("$mars/resource-$res/logstatus-$host.status", "m/^(err|warn)/i", 0);
+  my $path = "$mars/resource-$res/logstatus-$host.status";
+  if (defined($global_error_texts{$path})) {
+    return $global_error_texts{$path};
+  }
+  my $text = _get_text($path, "m/^(err|warn)/i", 0);
+  $global_error_texts{$path} = $text;
   return $text;
 }
 
