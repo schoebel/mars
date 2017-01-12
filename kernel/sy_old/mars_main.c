@@ -4434,6 +4434,8 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	 */
 	if (rot->sync_finish_stamp.tv_sec && do_start)
 		goto shortcut;
+	if (!do_start)
+		memset(&rot->sync_finish_stamp, 0, sizeof(rot->sync_finish_stamp));
 
 	/* Don't sync when logfiles are discontiguous
 	 */
@@ -4534,9 +4536,6 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	 */
 	MARS_DBG("start_pos = %lld end_pos = %lld sync_finish_stamp=%lu do_start=%d\n",
 		 start_pos, end_pos, rot->sync_finish_stamp.tv_sec, do_start);
-
-	if (!do_start)
-		memset(&rot->sync_finish_stamp, 0, sizeof(rot->sync_finish_stamp));
 
 	/* Now do it....
 	 */
