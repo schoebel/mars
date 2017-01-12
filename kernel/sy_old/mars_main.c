@@ -4400,6 +4400,30 @@ done:
 	return status;
 }
 
+struct syncstatus_cookie {
+	struct mars_global *global;
+	struct mars_rotate *rot;
+	char *peer;
+};
+
+static
+int update_syncstatus(struct mars_brick *_copy, bool switch_on, void *private)
+{
+	struct copy_brick *copy = (void *)_copy;
+	struct syncstatus_cookie *cc = private;
+	int status = 0;
+
+	/* Update syncstatus symlink
+	 */
+	if (copy &&
+	    ((copy->power.button && copy->power.led_on) ||
+	     !copy->copy_start ||
+	     (copy->copy_last == copy->copy_end && copy->copy_end > 0))) {
+		status = _update_syncstatus(cc->rot, copy, cc->peer);
+	}
+	return status;
+}
+
 static int make_sync(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
@@ -4589,6 +4613,12 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	 */
 	{
 		const char *argv[2] = { src, dst };
+		struct syncstatus_cookie cc = {
+			.global = global,
+			.rot = rot,
+			.peer = peer,
+		};
+
 		status = __make_copy(global, dent,
 				     do_start ? switch_path : "",
 				     copy_path, dent->d_parent->d_path, argv, find_key(rot->msgs, "inf-sync"),
@@ -4597,21 +4627,12 @@ static int make_sync(void *buf, struct mars_dent *dent)
 				     mars_fast_fullsync > 0,
 				     true, false,
 				     &copy,
-				     NULL, NULL);
+				     update_syncstatus, &cc);
 		if (copy) {
 			copy->kill_ptr = (void**)&rot->sync_brick;
 			copy->copy_limiter = &rot->sync_limiter;
 		}
 		rot->sync_brick = copy;
-	}
-
-	/* Update syncstatus symlink
-	 */
-	if (status >= 0 && copy &&
-	    ((copy->power.button && copy->power.led_on) ||
-	     !copy->copy_start ||
-	     (copy->copy_last == copy->copy_end && copy->copy_end > 0))) {
-		status = _update_syncstatus(rot, copy, peer);
 	}
 
 done:
