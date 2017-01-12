@@ -1500,6 +1500,8 @@ void _show_rate(struct mars_rotate *rot, struct mars_limiter *limiter, const cha
 
 ///////////////////////////////////////////////////////////////////////
 
+typedef int (*copy_update_fn)(struct mars_brick *copy, bool switch_on, void *private);
+
 static
 int __make_copy(
 		struct mars_global *global,
@@ -1515,7 +1517,9 @@ int __make_copy(
 		bool verify_mode,
 		bool limit_mode,
 		bool space_using_mode,
-		struct copy_brick **__copy)
+		struct copy_brick **__copy,
+		copy_update_fn updater,
+		void *private)
 {
 	struct mars_brick *copy;
 	struct copy_cookie cc = {};
@@ -1583,6 +1587,15 @@ int __make_copy(
 		aio->power.io_timeout = switch_copy ? 0 : 1;
 	}
 
+	switch_copy = (switch_copy && (!IS_EMERGENCY_PRIMARY() || space_using_mode));
+	if (updater) {
+		status = updater(copy, switch_copy, private);
+		if (unlikely(status < 0)) {
+			MARS_DBG("brick '%s' updater status=%d\n",
+				 copy->brick_path, status);
+		}
+	}
+
 	cc.copy_path = copy_path;
 	cc.start_pos = start_pos;
 	cc.end_pos = end_pos;
@@ -1597,7 +1610,7 @@ int __make_copy(
 			       cc.fullpath[1],
 			       (const struct generic_brick_type*)&copy_brick_type,
 			       (const struct generic_brick_type*[]){NULL,NULL,NULL,NULL},
-			       (!switch_copy || (IS_EMERGENCY_PRIMARY() && !space_using_mode)) ? -1 : 2,
+			       switch_copy ? 2 : -1,
 			       "%s",
 			       (const char *[]){"%s", "%s", "%s", "%s"},
 			       4,
@@ -1778,8 +1791,20 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 		do_start = false;
 	}
 
-	MARS_DBG("src = '%s' dst = '%s'\n", tmp, file);
-	status = __make_copy(global, NULL, do_start ? switch_path : "", copy_path, NULL, argv, msg_pair, -1, -1, false, false, false, true, &copy);
+	MARS_DBG("src = '%s' dst = '%s' do_start=%d\n", tmp, file, do_start);
+
+	status = __make_copy(global,
+			     NULL,
+			     do_start ? switch_path : "",
+			     copy_path,
+			     NULL,
+			     argv,
+			     msg_pair,
+			     -1,
+			     -1, 
+			     false, false, false, true,
+			     &copy,
+			     NULL, NULL);
 	if (status >= 0 && copy) {
 		copy->copy_limiter = &rot->fetch_limiter;
 		// FIXME: code is dead
@@ -4254,7 +4279,18 @@ static int _make_copy(void *buf, struct mars_dent *dent)
 	// check whether connection is allowed
 	switch_path = path_make("%s/todo-%s/connect", dent->d_parent->d_path, my_id());
 
-	status = __make_copy(global, dent, switch_path, copy_path, dent->d_parent->d_path, (const char**)dent->d_argv, NULL, -1, -1, false, false, true, true, NULL);
+	status = __make_copy(global,
+			     dent,
+			     switch_path,
+			     copy_path,
+			     dent->d_parent->d_path,
+			     (const char**)dent->d_argv,
+			     NULL,
+			     -1,
+			     -1,
+			     false, false, true, true,
+			     NULL,
+			     NULL, NULL);
 
 done:
 	MARS_DBG("status = %d\n", status);
@@ -4559,7 +4595,9 @@ static int make_sync(void *buf, struct mars_dent *dent)
 				     start_pos, end_pos,
 				     true,
 				     mars_fast_fullsync > 0,
-				     true, false, &copy);
+				     true, false,
+				     &copy,
+				     NULL, NULL);
 		if (copy) {
 			copy->kill_ptr = (void**)&rot->sync_brick;
 			copy->copy_limiter = &rot->sync_limiter;
