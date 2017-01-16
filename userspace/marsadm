@@ -2388,6 +2388,7 @@ sub invalidate_res_phase3 {
   my $replay = get_link("$mars/resource-$res/replay-$primary");
   $replay =~ m/^log-([0-9]+)-/ or ldie "replay link '$replay' is not parsable\n";
   my $replay_nr = $1;
+
   set_link("0", $dst);
   finish_links(); # opportunity for errors => don't continue
   for my $vers_path (glob("$mars/resource-$res/version-*-$host")) {
@@ -2397,14 +2398,51 @@ sub invalidate_res_phase3 {
   }
   _create_delete("$mars/resource-$res/replay-$host");
   finish_links();
+}
+
+sub invalidate_res_phase4 {
+  my ($cmd, $res) = @_;
   _wait_delete();
+}
+
+sub invalidate_res_phase5 {
+  my ($cmd, $res) = @_;
   $force = 0; # this would be too dangerous
   log_purge_res(@_);
   finish_links();
+}
+
+sub invalidate_res_phase6 {
+  my ($cmd, $res) = @_;
   _wait_delete();
+}
+
+sub invalidate_res_phase7 {
+  my ($cmd, $res) = @_;
+  my $dst = "$mars/resource-$res/syncstatus-$host";
+  my $primary = _get_designated_primary($res);
+  ldie "Cannot execute 'invalidate' because noone is designated as primary.\n" if (!$primary || $primary eq "(none)");
+  ldie "Cannot invalidate the designated primary host '$primary'\n" if $primary eq $host;
+  my $replay = get_link("$mars/resource-$res/replay-$primary");
+  $replay =~ m/^log-([0-9]+)-/ or ldie "replay link '$replay' is not parsable\n";
+  my $replay_nr = $1;
+
   _set_replaylink("$mars/resource-$res", $replay_nr, $primary, "");
   finish_links();
+}
+
+sub invalidate_res_phase8 {
+  my ($cmd, $res) = @_;
   _wait_delete();
+}
+
+sub invalidate_res_phase9 {
+  my ($cmd, $res) = @_;
+  my $dst = "$mars/resource-$res/syncstatus-$host";
+  my $primary = _get_designated_primary($res);
+  ldie "Cannot execute 'invalidate' because noone is designated as primary.\n" if (!$primary || $primary eq "(none)");
+  ldie "Cannot invalidate the designated primary host '$primary'\n" if $primary eq $host;
+
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/attach", 1);
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/fetch", 1);
   _switch($cmd, $res, "$mars/resource-$res/todo-$host/replay", 1);
@@ -4875,11 +4913,23 @@ my %cmd_table =
        \&invalidate_res_phase0,
        "check preconditions",
        \&invalidate_res_phase1,
-       "stop old replay",
+       "switch off everything",
        \&invalidate_res_phase2,
-       "wait for replay off",
+       "wait for everything switched off",
        \&invalidate_res_phase3,
-       "force symlinks",
+       "start deletion of old version links",
+       \&invalidate_res_phase4,
+       "wait for effect",
+       \&invalidate_res_phase5,
+       "start purging old logfiles",
+       \&invalidate_res_phase6,
+       "wait for effect",
+       \&invalidate_res_phase7,
+       "set new replaylink",
+       \&invalidate_res_phase8,
+       "wait for effect",
+       \&invalidate_res_phase9,
+       "switch on everything again",
       ],
    "invalidate-remote" => \&forbidden_cmd,
    "resize"
