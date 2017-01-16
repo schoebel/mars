@@ -833,6 +833,7 @@ int _set_copy_params(struct mars_brick *_brick, void *private)
 		copy_brick->copy_last = copy_brick->copy_start;
 		if (cc->start_pos != -1) {
 			copy_brick->copy_start = cc->start_pos;
+			copy_brick->copy_last = copy_brick->copy_start;
 			if (unlikely(cc->start_pos > cc->info[0].current_size)) {
 				MARS_ERR("bad start position %lld is larger than actual size %lld on '%s'\n", cc->start_pos, cc->info[0].current_size, cc->copy_path);
 				status = -EINVAL;
