@@ -2003,7 +2003,6 @@ print "deleted: $deleted / $delete_nr\n";
     lprint "waiting for deletions to apply locally....\n";
     sleep_timeout();
   }
-  sleep(3);
 }
 
 sub delete_file_cmd {
