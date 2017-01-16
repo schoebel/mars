@@ -1934,9 +1934,17 @@ sub delete_res {
 sub logrotate_res {
   my ($cmd, $res) = @_;
   check_primary(@_) unless $force;
-  my @paths = glob("$mars/resource-$res/log-*-$host") or ldie "cannot find any logfiles\n";
-  @paths = sort(@paths);
-  my $last = pop(@paths);
+  my @paths = glob("$mars/resource-$res/log-*-$host");
+  my $last;
+  if (@paths) {
+    @paths = sort(@paths);
+    $last = pop(@paths);
+  } else {
+    lwarn "no logfile exists on '$host' for resource '$res'\n";
+    my $replay = get_link("$mars/resource-$res/replay-$host");
+    $replay =~ m:^(log-[0-9]+-[^,]+),: or ldie "badly formed replaylink '$replay'\n";
+    $last = $1;
+  }
   if (-z $last) {
     lprint "an empty logfile '$last' already exists, nothing to do.\n" if $verbose;
     return;
