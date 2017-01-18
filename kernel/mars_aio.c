@@ -43,7 +43,7 @@
 
 #include "mars_aio.h"
 
-#define MARS_MAX_AIO      1024
+#define MARS_MAX_AIO      512
 #define MARS_MAX_AIO_READ 32
 
 static struct timing_stats timings[3] = {};
