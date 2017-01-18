@@ -55,7 +55,7 @@
 #define SAY_BUFMAX (PAGE_SIZE << SAY_ORDER)
 #define SAY_BUF_LIMIT (SAY_BUFMAX - 1500)
 #define MAX_FILELEN 16
-#define MAX_IDS 1000
+#define MAX_IDS     16384
 
 const char *say_class[MAX_SAY_CLASS] = {
 	[SAY_DEBUG] = "debug",
