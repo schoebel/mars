@@ -1683,6 +1683,8 @@ struct mars_peerinfo {
 	struct list_head remote_dent_list;
 	unsigned long last_remote_jiffies;
 	int maxdepth;
+	bool to_terminate;
+	bool has_terminated;
 	bool to_remote_trigger;
 	bool from_remote_trigger;
 	bool do_communicate;
@@ -2190,7 +2192,7 @@ int peer_thread(void *data)
 		goto done;
 	}
 
-        while (!brick_thread_should_stop()) {
+        while (!peer->to_terminate && !brick_thread_should_stop()) {
 		struct mars_global tmp_global = {
 			.dent_anchor = LIST_HEAD_INIT(tmp_global.dent_anchor),
 			.brick_anchor = LIST_HEAD_INIT(tmp_global.brick_anchor),
@@ -2349,7 +2351,7 @@ int peer_thread(void *data)
 		}
 
 		brick_msleep(100);
-		if (!brick_thread_should_stop()) {
+		if (!peer->to_terminate && !brick_thread_should_stop()) {
 			if (peer->do_additional && !peer->do_communicate) {
 				if (mars_running_additional_peers > mars_run_additional_peers)
 					break;
@@ -2391,6 +2393,7 @@ int peer_thread(void *data)
 done:
 	clear_vals(peer_pairs);
 	brick_string_free(real_peer);
+	peer->has_terminated = true;
 	return 0;
 }
 
@@ -2585,14 +2588,29 @@ static int _make_peer(struct mars_global *global, struct mars_dent *dent, char *
 	}
 
 	peer = dent->d_private;
-	// create communication thread when necessary
-	if (!peer->peer_thread && (peer->do_communicate | peer->do_additional)) {
-		peer->peer_thread = brick_thread_create(peer_thread, peer, "mars_peer%d", serial++);
-		if (unlikely(!peer->peer_thread)) {
-			MARS_ERR("cannot start peer thread\n");
-			return -1;
+	// create or stop communication thread when necessary
+	if (peer->do_communicate | peer->do_additional) {
+		/* Peers may terminate unexpectedly on their own */
+		if (unlikely(peer->has_terminated && peer->peer_thread)) {
+			brick_thread_stop(peer->peer_thread);
+			peer->peer_thread = NULL;
 		}
-		MARS_DBG("started peer thread\n");
+		if (!peer->peer_thread) {
+			peer->to_terminate = false;
+			peer->has_terminated = false;
+			peer->peer_thread = brick_thread_create(peer_thread, peer, "mars_peer%d", serial++);
+			if (unlikely(!peer->peer_thread)) {
+				MARS_ERR("cannot start peer thread\n");
+				return -1;
+			}
+			MARS_DBG("started peer thread\n");
+		}
+	} else if (peer->peer_thread) {
+		peer->to_terminate = true;
+		if (peer->has_terminated) {
+			brick_thread_stop(peer->peer_thread);
+			peer->peer_thread = NULL;
+		}
 	}
 
 	/* This must be called by the main thread in order to
