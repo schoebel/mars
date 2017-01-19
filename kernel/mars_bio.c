@@ -698,7 +698,7 @@ int bio_submit_thread(void *data)
 #endif
 		wait_event_interruptible_timeout(
 			brick->submit_event,
-			brick->submitted,
+			brick->submitted || brick_thread_should_stop(),
 			HZ / 2);
 
 		brick->submitted = false;
