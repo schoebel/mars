@@ -558,7 +558,11 @@ int bio_response_thread(void *data)
 #endif
 		wait_event_interruptible_timeout(
 			brick->response_event,
-			atomic_read(&brick->completed_count) > 0,
+			atomic_read(&brick->completed_count) > 0 ||
+			(brick_thread_should_stop() &&
+			 atomic_read(&brick->fly_count[0]) +
+			 atomic_read(&brick->fly_count[1]) +
+			 atomic_read(&brick->fly_count[2]) <= 0),
 			sleeptime);
 
 		MARS_IO("%d woken up, completed_count = %d fly_count[0] = %d fly_count[1] = %d fly_count[2] = %d\n",
