@@ -204,6 +204,10 @@ void _crashme(int mode, bool do_sync)
 
 #endif
 
+static DECLARE_RWSEM(mars_resource_sem);
+static const char *mars_resource_list;
+static const char *tmp_resource_list;
+
 #define MARS_SYMLINK_MAX 1023
 
 struct key_value_pair {
@@ -4131,6 +4135,7 @@ int make_bio(void *buf, struct mars_dent *dent)
 	struct mars_global *global = buf;
 	struct mars_rotate *rot;
 	struct mars_brick *brick;
+	const char *tmp;
 	bool switch_on;
 	int status = 0;
 
@@ -4145,6 +4150,10 @@ int make_bio(void *buf, struct mars_dent *dent)
 	activate_peer(rot, dent->d_rest);
 	if (strcmp(dent->d_rest, my_id()))
 		goto done;
+
+	tmp = path_make("%s|%s/", tmp_resource_list, rot->parent_path);
+	brick_string_free(tmp_resource_list);
+	tmp_resource_list = tmp;
 
 	switch_on = _check_allow(global, dent->d_parent, "attach");
 	if (switch_on && rot->res_shutdown) {
@@ -5769,6 +5778,13 @@ static int _main_thread(void *data)
 		compute_emergency_mode();
 
 		MARS_DBG("-------- start worker ---------\n");
+
+		down_write(&mars_resource_sem);
+		brick_string_free(mars_resource_list);
+		mars_resource_list = tmp_resource_list;
+		up_write(&mars_resource_sem);
+		tmp_resource_list = brick_strdup("/mars|/mars/ips/|/mars/todo-global/|/mars/userspace/");
+
 		_global.deleted_min = 0;
 		status = mars_dent_work(&_global, "/mars", sizeof(struct mars_dent), main_checker, main_worker, &_global, 3);
 		_global.deleted_border = _global.deleted_min;
@@ -5824,6 +5840,8 @@ done:
 	show_vals(gbl_pairs, "/mars", "");
 	show_statistics(&_global, "main");
 
+	brick_string_free(mars_resource_list);
+	brick_string_free(tmp_resource_list);
 	mars_global = NULL;
 
 	MARS_INF("-------- done status = %d ----------\n", status);
