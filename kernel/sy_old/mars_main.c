@@ -2293,6 +2293,8 @@ int peer_thread(void *data)
 			} else {
 				cmd.cmd_str1 = brick_strdup("/mars");
 			}
+			MARS_DBG("fetching dents from '%s' paths '%s'\n",
+				 peer->peer, cmd.cmd_str1);
 			status = mars_send_struct(&peer->socket, &cmd, mars_cmd_meta, false);
 		}
 		if (unlikely(status < 0)) {
@@ -2304,7 +2306,8 @@ int peer_thread(void *data)
 			goto free_and_restart;
 		}
 
-		MARS_DBG("fetching remote dentry list\n");
+		MARS_DBG("fetching remote dentries from '%s' '%s'\n",
+			 peer->peer, cmd.cmd_str1);
 		status = mars_recv_dent_list(&peer->socket, &tmp_global.dent_anchor);
 		if (unlikely(status < 0)) {
 			MARS_WRN("communication error on receive, status = %d\n", status);
@@ -2319,12 +2322,13 @@ int peer_thread(void *data)
 			struct mars_dent *peer_uuid;
 			struct mars_dent *my_uuid;
 
-			MARS_DBG("got remote denties\n");
+			MARS_DBG("got remote denties from %s\n", peer->peer);
 
 			peer_uuid = mars_find_dent(&tmp_global, "/mars/uuid");
 			if (unlikely(!peer_uuid || !peer_uuid->new_link)) {
 				MARS_ERR("peer %s has no uuid\n", peer->peer);
-				make_msg(peer_pairs, "peer has no UUID");
+				make_msg(peer_pairs, "peer '%s' has no UUID",
+					peer->peer);
 				goto free_and_restart;
 			}
 			my_uuid = mars_find_dent(mars_global, "/mars/uuid");
@@ -2335,12 +2339,15 @@ int peer_thread(void *data)
 			}
 			if (unlikely(strcmp(peer_uuid->new_link, my_uuid->new_link))) {
 				MARS_ERR("UUID mismatch for peer %s, you are trying to communicate with a foreign cluster!\n", peer->peer);
-				make_msg(peer_pairs, "UUID mismatch, own cluster '%s' is trying to communicate with a foreign cluster '%s'",
+				make_msg(peer_pairs, "UUID mismatch with '%s', own cluster '%s' is trying to communicate with a foreign cluster '%s'",
+					 peer->peer,
 					 my_uuid->new_link, peer_uuid->new_link);
 				goto free_and_restart;
 			}
 
-			make_msg(peer_pairs, "CONNECTED %s(%s)", peer->peer, real_peer);
+			make_msg(peer_pairs, "CONNECTED %s(%s) fetching '%s'",
+				 peer->peer, real_peer,
+				 cmd.cmd_str1);
 
 			traced_lock(&peer->lock, flags);
 
