@@ -1679,7 +1679,6 @@ struct list_head peer_anchor = LIST_HEAD_INIT(peer_anchor);
 struct mars_peerinfo {
 	struct mars_global *global;
 	char *peer;
-	char *path;
 	struct mars_socket socket;
 	struct task_struct *peer_thread;
 	spinlock_t lock;
@@ -2208,7 +2207,6 @@ int peer_thread(void *data)
 		LIST_HEAD(old_list);
 		unsigned long flags;
 		struct mars_cmd cmd = {
-			.cmd_str1 = peer->path,
 			.cmd_int1 = peer->maxdepth,
 		};
 
@@ -2287,6 +2285,14 @@ int peer_thread(void *data)
 
 		if (likely(status >= 0)) {
 			cmd.cmd_code = CMD_GETENTS;
+			if ((!peer->do_additional || peer->do_communicate) &&
+			    mars_resource_list) {
+				down_read(&mars_resource_sem);
+				cmd.cmd_str1 = brick_strdup(mars_resource_list);
+				up_read(&mars_resource_sem);
+			} else {
+				cmd.cmd_str1 = brick_strdup("/mars");
+			}
 			status = mars_send_struct(&peer->socket, &cmd, mars_cmd_meta, false);
 		}
 		if (unlikely(status < 0)) {
@@ -2295,8 +2301,7 @@ int peer_thread(void *data)
 				do_kill = false;
 				_peer_cleanup(peer);
 			}
-			brick_msleep(1000);
-			continue;
+			goto free_and_restart;
 		}
 
 		MARS_DBG("fetching remote dentry list\n");
@@ -2308,9 +2313,6 @@ int peer_thread(void *data)
 				_peer_cleanup(peer);
 			}
 			goto free_and_restart;
-			mars_free_dent_all(NULL, &tmp_global.dent_anchor);
-			brick_msleep(2000);
-			continue;
 		}
 
 		if (likely(!list_empty(&tmp_global.dent_anchor))) {
@@ -2354,6 +2356,7 @@ int peer_thread(void *data)
 			mars_free_dent_all(NULL, &old_list);
 		}
 
+		brick_string_free(cmd.cmd_str1);
 		brick_msleep(100);
 		if (!peer->to_terminate && !brick_thread_should_stop()) {
 			if (peer->do_additional && !peer->do_communicate) {
@@ -2373,6 +2376,7 @@ int peer_thread(void *data)
 		continue;
 
 	free_and_restart:
+		brick_string_free(cmd.cmd_str1);
 		mars_free_dent_all(NULL, &tmp_global.dent_anchor);
 		/* additional threads should give up immediately */
 		if (peer->do_additional && !peer->do_communicate)
@@ -2537,7 +2541,6 @@ static int _kill_peer(struct mars_global *global, struct mars_peerinfo *peer)
 		mars_running_additional_peers--;
 	}
 	brick_string_free(peer->peer);
-	brick_string_free(peer->path);
 	return 0;
 }
 
@@ -2549,7 +2552,8 @@ void peer_destruct(void *_peer)
 		_kill_peer(peer->global, peer);
 }
 
-static int _make_peer(struct mars_global *global, struct mars_dent *dent, char *path)
+static
+int _make_peer(struct mars_global *global, struct mars_dent *dent)
 {
 	static int serial = 0;
 	struct mars_peerinfo *peer;
@@ -2582,7 +2586,6 @@ static int _make_peer(struct mars_global *global, struct mars_dent *dent, char *
 		peer = dent->d_private;
 		peer->global = global;
 		peer->peer = brick_strdup(mypeer);
-		peer->path = brick_strdup(path);
 		peer->maxdepth = 2;
 		spin_lock_init(&peer->lock);
 		INIT_LIST_HEAD(&peer->peer_head);
@@ -2652,7 +2655,7 @@ static int make_scan(void *buf, struct mars_dent *dent)
 	if (!strcmp(dent->d_rest, my_id())) {
 		return 0;
 	}
-	return _make_peer(buf, dent, "/mars");
+	return _make_peer(buf, dent);
 }
 
 
