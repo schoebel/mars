@@ -713,7 +713,7 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 
 		atomic_inc(&output->timeout_count);
 
-		SIMPLE_CALLBACK(mref, -ESTALE);
+		SIMPLE_CALLBACK(mref, -ETIME);
 
 		client_ref_put(output, mref);
 

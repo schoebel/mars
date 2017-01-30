@@ -1194,6 +1194,59 @@ EXPORT_SYMBOL_GPL(mars_free_dent_all);
 
 // low-level brick instantiation
 
+int mars_connect(struct mars_input *a, struct mars_output *b)
+{
+	struct mars_brick *a_brick = a->brick;
+	struct mars_global *a_global = a_brick->global;
+	struct mars_brick *b_brick = b->brick;
+	struct mars_global *b_global = b_brick->global;
+	int status;
+
+	if (a_global)
+		down_write(&a_global->brick_mutex);
+	if (b_global && b_global != a_global)
+		down_write(&b_global->brick_mutex);
+
+	status = generic_connect((void*)a, (void*)b);
+
+	if (b_global && b_global != a_global)
+		up_write(&b_global->brick_mutex);
+	if (a_global)
+		up_write(&a_global->brick_mutex);
+
+	return status;
+}
+
+int mars_disconnect(struct mars_input *a)
+{
+	struct mars_brick *a_brick = a->brick;
+	struct mars_global *a_global = a_brick->global;
+	struct mars_output *b;
+	int status = 0;
+
+	if (a_global)
+		down_write(&a_global->brick_mutex);
+
+	b = a->connect;
+	if (b) {
+		struct mars_brick *b_brick = b->brick;
+		struct mars_global *b_global = b_brick->global;
+
+		if (b_global && b_global != a_global)
+			down_write(&b_global->brick_mutex);
+
+		status = generic_disconnect((void*)a);
+
+		if (b_global && b_global != a_global)
+			up_write(&b_global->brick_mutex);
+	}
+
+	if (a_global)
+		up_write(&a_global->brick_mutex);
+
+	return status;
+}
+
 struct mars_brick *mars_find_brick(struct mars_global *global, const void *brick_type, const char *path)
 {
 	struct list_head *tmp;
@@ -1284,7 +1337,7 @@ int mars_free_brick(struct mars_brick *brick)
 		struct mars_input *input = brick->inputs[i];
 		if (input) {
 			MARS_DBG("disconnecting input %i\n", i);
-			generic_disconnect((void*)input);
+			mars_disconnect(input);
 		}
 	}
 
@@ -1357,6 +1410,7 @@ struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent 
 		MARS_ERR("cannot grab %d bytes for brick type '%s'\n", size, brick_type->type_name);
 		goto err_name;
 	}
+	get_lamport(&res->create_stamp);
 	res->global = global;
 	INIT_LIST_HEAD(&res->dent_brick_link);
 	res->brick_path = brick_strdup(path);
@@ -1410,13 +1464,6 @@ int mars_kill_brick(struct mars_brick *brick)
 		goto done;
 	}
 
-	if (global) {
-		down_write(&global->brick_mutex);
-		list_del_init(&brick->global_brick_link);
-		list_del_init(&brick->dent_brick_link);
-		up_write(&global->brick_mutex);
-	}
-
 	if (brick->show_status) {
 		brick->show_status(brick, true);
 	}
@@ -1426,7 +1473,15 @@ int mars_kill_brick(struct mars_brick *brick)
 
 	if (likely(brick->power.led_off)) {
 		int max_inputs = 0;
+		bool failed = false;
 		int i;
+
+		if (global) {
+			down_write(&global->brick_mutex);
+			list_del_init(&brick->global_brick_link);
+			list_del_init(&brick->dent_brick_link);
+			up_write(&global->brick_mutex);
+		}
 
 		if (likely(brick->type)) {
 			max_inputs = brick->type->max_inputs;
@@ -1440,15 +1495,17 @@ int mars_kill_brick(struct mars_brick *brick)
 			*brick->kill_ptr = NULL;
 		
 		for (i = 0; i < max_inputs; i++) {
-			struct generic_input *input = (void*)brick->inputs[i];
+			struct mars_input *input = brick->inputs[i];
 			if (!input)
 				continue;
-			status = generic_disconnect(input);
+			status = mars_disconnect(input);
 			if (unlikely(status < 0)) {
+				failed = true;
 				MARS_ERR("brick '%s' '%s' disconnect %d failed, status = %d\n", SAFE_STR(brick->brick_name), SAFE_STR(brick->brick_path), i, status);
-				goto done;
 			}
 		}
+		if (failed)
+			goto done;
 		if (likely(brick->free)) {
 			status = brick->free(brick);
 			if (unlikely(status < 0)) {
@@ -1825,7 +1882,7 @@ struct mars_brick *make_brick_all(
 	// connect the wires
 	for (i = 0; i < prev_count; i++) {
 		int status;
-		status = generic_connect((void*)brick->inputs[i], (void*)prev[i]->outputs[0]);
+		status = mars_connect(brick->inputs[i], prev[i]->outputs[0]);
 		if (unlikely(status < 0)) {
 			MARS_ERR("'%s' '%s' cannot connect input %d\n", new_path, new_name, i);
 			goto err;
@@ -1880,20 +1937,24 @@ void _show_one(struct mars_brick *test, int *brick_count)
 		MARS_STAT("---------\n");
 	}
 	MARS_STAT("BRICK type = %s path = '%s' name = '%s' "
+		  "create_stamp = %ld.%09ld "
 		  "size_hint=%d "
 		  "mrefs_alloc = %d "
 		  "mrefs_apsect_alloc = %d "
 		  "total_mrefs_alloc = %d "
 		  "total_mrefs_aspects = %d "
+		  "killme = %d "
 		  "button = %d off = %d on = %d\n",
 		  SAFE_STR(test->type->type_name),
 		  SAFE_STR(test->brick_path),
 		  SAFE_STR(test->brick_name),
+		  test->create_stamp.tv_sec, test->create_stamp.tv_nsec,
 		  test->mref_object_layout.size_hint,
 		  atomic_read(&test->mref_object_layout.alloc_count),
 		  atomic_read(&test->mref_object_layout.aspect_count),
 		  atomic_read(&test->mref_object_layout.total_alloc_count),
 		  atomic_read(&test->mref_object_layout.total_aspect_count),
+		  test->killme,
 		  test->power.button,
 		  test->power.led_off,
 		  test->power.led_on);

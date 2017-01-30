@@ -820,7 +820,7 @@ int _set_copy_params(struct mars_brick *_brick, void *private)
 	 */
 	if (!copy_brick->power.button && copy_brick->power.led_off) {
 		int i;
-		copy_brick->copy_last = 0;
+
 		for (i = 0; i < 2; i++) {
 			status = cc->output[i]->ops->mars_get_info(cc->output[i], &cc->info[i]);
 			if (status < 0) {
@@ -830,8 +830,10 @@ int _set_copy_params(struct mars_brick *_brick, void *private)
 			MARS_DBG("%d '%s' current_size = %lld\n", i, cc->fullpath[i], cc->info[i].current_size);
 		}
 		copy_brick->copy_start = cc->info[1].current_size;
+		copy_brick->copy_last = copy_brick->copy_start;
 		if (cc->start_pos != -1) {
 			copy_brick->copy_start = cc->start_pos;
+			copy_brick->copy_last = copy_brick->copy_start;
 			if (unlikely(cc->start_pos > cc->info[0].current_size)) {
 				MARS_ERR("bad start position %lld is larger than actual size %lld on '%s'\n", cc->start_pos, cc->info[0].current_size, cc->copy_path);
 				status = -EINVAL;
@@ -3432,7 +3434,7 @@ void _rotate_trans(struct mars_rotate *rot)
 			   atomic_read(&trans_input->log_ref_count) <= 0) {
 			int status;
 			MARS_INF("cleanup old transaction log (%d -> %d)\n", old_nr, log_nr);
-			status = generic_disconnect((void*)trans_input);
+			status = mars_disconnect((void*)trans_input);
 			if (unlikely(status < 0)) {
 				MARS_ERR("disconnect failed\n");
 			} else {
@@ -3480,7 +3482,7 @@ void _rotate_trans(struct mars_rotate *rot)
 
 		_init_trans_input(trans_input, rot->next_relevant_log, rot);
 
-		status = generic_connect((void*)trans_input, (void*)rot->next_relevant_brick->outputs[0]);
+		status = mars_connect((void *)trans_input, rot->next_relevant_brick->outputs[0]);
 		if (unlikely(status < 0)) {
 			MARS_ERR_TO(rot->log_say, "internal connect failed\n");
 			goto done;
@@ -3595,7 +3597,7 @@ int _start_trans(struct mars_rotate *rot)
 
 	/* Connect to new transaction log
 	 */
-	status = generic_connect((void*)trans_input, (void*)rot->relevant_brick->outputs[0]);
+	status = mars_connect((void *)trans_input, rot->relevant_brick->outputs[0]);
 	if (unlikely(status < 0)) {
 		MARS_ERR("initial connect failed\n");
 		goto done;
@@ -3638,8 +3640,7 @@ int _stop_trans(struct mars_rotate *rot, const char *parent_path)
 			struct trans_logger_input *trans_input;
 			trans_input = trans_brick->inputs[i];
 			if (trans_input && !trans_input->is_operating) {
-				if (trans_input->connect)
-					(void)generic_disconnect((void*)trans_input);
+				(void)mars_disconnect((void*)trans_input);
 			}
 		}
 	}
@@ -4018,7 +4019,7 @@ static int make_replay(void *buf, struct mars_dent *dent)
 	struct mars_dent *parent = dent->d_parent;
 	int status = 0;
 
-	if (!global->global_power.button || !parent || !dent->new_link) {
+	if (!parent || !dent->new_link) {
 		MARS_DBG("nothing to do\n");
 		goto done;
 	}

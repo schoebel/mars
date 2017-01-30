@@ -170,6 +170,19 @@ light0.2beta1.0
 -----------------------------------
 Changelog for series 0.1:
 
+mars0.1stable34
+--------
+	* Minor fix: in some rare cases, when lots of gigabytes had to be
+	  replayed in one big slurp, the replay position wasn't updated
+	  during a longer time. Some admins were complaining that it
+	  appeared "stuck" although it worked in reality.
+	  Improved by increasing the update frequency of the replay link.
+	* Minor fix: after network errors, sometimes the sync restarted
+	  from scratch, unnecessarily.
+	* Minor fix: under rare conditions, rmmod could hang forever.
+	  A known reason has been fixed. Other theoretical reasons
+	  hopefully improved by some further safeguards.
+
 mars0.1stable33
 --------
 	* Minor regression from stable29:

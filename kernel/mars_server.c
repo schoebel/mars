@@ -377,7 +377,7 @@ int handler_thread(void *data)
 			if (!mars_socket_is_alive(sock) &&
 			    atomic_read(&brick->in_flight) <= 0 &&
 			    brick->conn_brick) {
-				if (generic_disconnect((void*)brick->inputs[0]) >= 0)
+				if (mars_disconnect((void*)brick->inputs[0]) >= 0)
 					brick->conn_brick = NULL;
 			}
 
@@ -481,7 +481,7 @@ int handler_thread(void *data)
 				(const char *[]){},
 				0);
 			if (likely(prev)) {
-				status = generic_connect((void*)brick->inputs[0], (void*)prev->outputs[0]);
+				status = mars_connect((void *)brick->inputs[0], prev->outputs[0]);
 				if (unlikely(status < 0)) {
 					MARS_ERR("#%d cannot connect to '%s'\n", sock->s_debug_nr, path);
 				}
