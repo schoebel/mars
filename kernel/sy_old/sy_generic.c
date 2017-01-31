@@ -1299,13 +1299,32 @@ static int _mars_readdir(struct mars_cookie *cookie)
 	return status;
 }
 
-int mars_dent_work(struct mars_global *global, char *dirname, int allocsize, mars_dent_checker_fn checker, mars_dent_worker_fn worker, void *buf, int maxdepth)
+static
+bool dir_path_is_in(const char *path, const char *list)
+{
+	const char *pattern = path_make("|%s/", path);
+	bool res;
+
+	res = strstr(list, pattern) != NULL;
+	brick_string_free(pattern);
+	return res;
+}
+
+int mars_dent_work(struct mars_global *global,
+		   char *path_list,
+		   int allocsize,
+		   mars_dent_checker_fn checker,
+		   mars_dent_worker_fn worker,
+		   void *buf,
+		   int maxdepth)
 {
 	static int version = 0;
+	char *startname = brick_strdup(path_list);
+	char *ptr;
 	struct mars_cookie cookie = {
 		.global = global,
 		.checker = checker,
-		.path = dirname,
+		.path = startname,
 		.parent = NULL,
 		.allocsize = allocsize,
 		.depth = 0,
@@ -1317,6 +1336,13 @@ int mars_dent_work(struct mars_global *global, char *dirname, int allocsize, mar
 	int status;
 	int total_status = 0;
 	bool found_dir;
+	bool has_dir_list = false;
+
+	ptr = strchr(startname, '|');
+	if (ptr) {
+		*ptr = '\0';
+		has_dir_list = true;
+	}
 
 	/* Initialize the flat dent list
 	 */
@@ -1358,7 +1384,11 @@ restart:
 			dent->d_killme = true;
 
 		// recurse into subdirectories by inserting into the flat list
-		if (S_ISDIR(dent->new_stat.mode) && dent->d_depth <= maxdepth) {
+		if (S_ISDIR(dent->new_stat.mode) &&
+		    dent->d_depth <= maxdepth &&
+		    (!has_dir_list || 
+		     dent->d_depth > 0 ||
+		     dir_path_is_in(dent->d_path, path_list))) {
 			struct mars_cookie sub_cookie = {
 				.global = global,
 				.checker = checker,
@@ -1479,6 +1509,7 @@ restart:
 	bind_to_dent(NULL, &say_channel);
 
 done:
+	brick_string_free(startname);
 	MARS_IO("total_status = %d\n", total_status);
 	return total_status;
 }
