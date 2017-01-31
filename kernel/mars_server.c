@@ -444,11 +444,16 @@ int handler_thread(void *data)
 		}
 		case CMD_GETENTS:
 		{
-			status = -EINVAL;
-			if (unlikely(!cmd.cmd_str1))
-				break;
+			char *path = cmd.cmd_str1 ? cmd.cmd_str1 : "/mars";
 
-			status = mars_dent_work(&handler_global, "/mars", sizeof(struct mars_dent), main_checker, dummy_worker, &handler_global, 3);
+			status = mars_dent_work(
+				&handler_global,
+				path,
+				sizeof(struct mars_dent),
+				main_checker,
+				dummy_worker,
+				&handler_global,
+				3);
 
 			down(&brick->socket_sem);
 			status = mars_send_dent_list(sock, &handler_global.dent_anchor);
