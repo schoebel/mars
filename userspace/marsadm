@@ -5559,7 +5559,7 @@ sub do_one_res {
   my ($cmd, $res) = @_;
   if ($cmd =~ m/^cat|-file$|-list$|-link$|-value$/) { # no resource argument
   } elsif (!$checked_res{"$cmd$res"}) {
-    $res = check_res($res) unless (!$res || $cmd =~ m/^(join|create|merge|leave|wait)-cluster|create-resource|show/);
+    $res = check_res($res) unless (!$res || $cmd =~ m/^(join|create|merge|leave|wait)-cluster|(create|join)-resource|show/);
     check_res_member($cmd, $res) unless (!$res || $cmd =~ m/^(join|create|delete)-(cluster|resource)|^(merge|leave|wait)-cluster|^log-purge|^show|^view/);
     detect_splitbrain($res, 1);
     $checked_res{"$cmd$res"} = 1;
