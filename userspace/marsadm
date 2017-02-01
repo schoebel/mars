@@ -1100,7 +1100,7 @@ sub _mark_path_transitive {
 }
 
 sub log_purge_res {
-  my ($cmd, $res) = @_;
+  my ($cmd, $res, $ignore_empty) = @_;
   lwarn "DANGEROUS OPERATION: $cmd --force on resource '$res'\n" if $force;
   %visited_pos = ();
   my %start_logs;
@@ -1118,6 +1118,7 @@ sub log_purge_res {
     _mark_path_transitive($basedir, $target, $peer);
   }
   if (!$start_count) {
+    return if defined($ignore_empty) && $ignore_empty;
     ldie "Resource contains no valid information - refusing to delete everything for safety reasons\n";
   }
   my %logs;
@@ -1987,7 +1988,7 @@ sub leave_res_phase2 {
   my ($cmd, $res) = @_;
   _wait_delete();
   $force = 0; # this would be too dangerous
-  log_purge_res(@_);
+  log_purge_res($cmd, $res, 1);
   finish_links();
   _wait_delete();
   system("rm -f $mars/resource-$res/log-*") if $host eq $real_host;
