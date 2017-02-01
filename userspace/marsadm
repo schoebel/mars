@@ -155,13 +155,15 @@ sub make_ssh_cmd {
 }
 
 sub ssh_cmd {
-  my ($peer, $cmd) = @_;
+  my ($peer, $cmd, $no_fail) = @_;
   my $ssh = make_ssh_cmd($peer) . " \"$cmd\"";
-  system $ssh or ldie "SSH to '$peer' command '$cmd' failed\n";
+  if (system ($ssh) && defined($no_fail)) {
+    ldie "SSH to '$peer' command '$cmd' failed\nFull command: '$ssh'\n";
+  }
 }
 
 sub rsync_cmd {
-  my ($peer, $cmd) = @_;
+  my ($peer, $cmd, $no_fail) = @_;
   my ($real_peer, $port, $ssh) = make_ssh_cmd($peer, 1);
   $cmd =~ s/(?<![-a-zA-Z0-9_])$peer(?![-a-zA-Z0-9_])/$real_peer/g if (defined($real_peer) && $real_peer && $real_peer ne $peer);
   my $rsync_cmd = "rsync -e '$ssh' $rsync_opts $cmd";
@@ -177,7 +179,7 @@ sub rsync_cmd {
   do {
     $status = system($rsync_cmd);
   } while ($status != 0 && $status != 24 && $cycle++ < 3);
-  ldie "Cannot get remote symlink tree via rsync, status=$status\n" if ($status && $status != 24);
+  ldie "Cannot get remote symlink tree via rsync, status=$status\n" if (!defined($no_fail) && $status && $status != 24);
 }
 
 ##################################################################
@@ -1338,8 +1340,8 @@ sub _get_actual_primary {
 }
 
 sub _get_designated_primary {
-  my ($res) = @_;
-  return get_link("$mars/resource-$res/primary");
+  my ($res, $unchecked) = @_;
+  return get_link("$mars/resource-$res/primary", $unchecked);
 }
 
 sub get_peers {
@@ -1685,7 +1687,7 @@ sub join_cluster {
   }
   ldie "mars module is loaded, please unload first\n" if is_module_loaded();
   lprint "joining cluster via rsync (peer='$peer')\n";
-  rsync_cmd($peer, "--max-size=1 $peer:$mars/ $mars/");
+  rsync_cmd($peer, "--max-size=1 --update $peer:$mars/ $mars/");
   # check uniqness of IPs
   foreach my $other_ip_path (glob("$mars/ips/*")) {
     my $other_ip = get_link($other_ip_path, 1);
@@ -1693,7 +1695,7 @@ sub join_cluster {
   }
   _create_cluster(@_);
   finish_links();
-  rsync_cmd($peer, "$mars/ips/ $peer:$mars/ips/");
+  rsync_cmd($peer, "--update $mars/ips/ $peer:$mars/ips/");
 }
 
 sub leave_cluster {
@@ -1791,8 +1793,28 @@ sub create_res {
     ldie "could not create resource '$res'\n" unless -d $resdir;
     set_link($size, "$resdir/size");
   } else { # join
-    ldie "resource '$res' does not exist\n" unless -d $resdir;
-    my $res_size = get_link("$mars/resource-$res/size");
+    if (-d $resdir) {
+      $primary = _get_designated_primary($res, 1);
+      # For safety, try to get the very newest infos
+      if ($primary && $primary ne "(none)") {
+	rsync_cmd("--max-size=1 --update $primary:$mars/resource-$res/ $mars/resource-$res/", 1);
+      }
+    }
+    if (!-d $resdir || !_get_designated_primary($res, 1)) {
+      # We are desperate. Try to fetch the directory from anywhere.
+      my @peers = glob("$mars/ips/ip-*");
+      my $max_rsync = 3;
+      foreach my $peer (map { m:^$mars/ips/ip-(.+):; $1 } @peers) {
+	next if $peer eq $host;
+	next if $peer eq $real_host;
+	rsync_cmd($peer, "--max-size=1 --update $peer:$mars/resource-$res/ $mars/resource-$res/", 1);
+	if (_get_designated_primary($res, 1)) {
+	  last if $max_rsync-- <= 0;
+	}
+      }
+      ldie "resource '$res' does not exist\n" unless -d $resdir;
+    }
+    my $res_size = get_link("$mars/resource-$res/size", 1);
     if ($size < $res_size) {
       lwarn "size of new device is only $size, but should be $res_size\n";
       ldie "refusing to join due to bad size\n" unless $force;
@@ -1905,10 +1927,11 @@ sub create_res {
     set_link("$startnr", "$resdir/maxnr");
     finish_links();
     lprint "successfully created resource '$res'\n";
-  } else {
+  } else { # join
     _set_replaylink($resdir, $replay_nr, $primary, "");
     set_link("0", "$resdir/syncstatus-$host");
     finish_links();
+    rsync_cmd($primary, "--max-size=1 --update $file $primary:$mars/resource-$res/", 1);
     lprint "successfully joined resource '$res'\n";
   }
 }
@@ -5338,7 +5361,7 @@ sub do_one_res {
   my ($cmd, $res) = @_;
   if ($cmd =~ m/^cat|-file$|-list$|-link$|-value$/) { # no resource argument
   } elsif (!$checked_res{"$cmd$res"}) {
-    $res = check_res($res) unless (!$res || $cmd =~ m/^(join|create|leave|wait)-cluster|create-resource|show/);
+    $res = check_res($res) unless (!$res || $cmd =~ m/^(join|create|merge|leave|wait)-cluster|(create|join)-resource|show/);
     check_res_member($cmd, $res) unless (!$res || $cmd =~ m/^(join|create|delete)-(cluster|resource)|^(leave|wait)-cluster|^log-purge|^show|^view/);
     detect_splitbrain($res, 1);
     $checked_res{"$cmd$res"} = 1;
