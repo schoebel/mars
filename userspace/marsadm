@@ -1865,13 +1865,30 @@ sub create_res {
   }
 
   # check for remains from former incidents
-  foreach my $remain (glob("$resdir/{log,version}-*-$host")) {
-    if (!$create) {
-      $remain =~ m/-([0-9]+)-$host/;
-      my $nr = $1;
-      next if $nr < $replay_nr;
+  my $max_retry = 3;
+  while ($max_retry-- > 0) {
+    my @remains = ();
+    foreach my $remain (glob("$resdir/{log,version}-*-$host")) {
+      if (!$create) {
+	$remain =~ m/-([0-9]+)-$host/;
+	my $nr = $1;
+	next if $nr < $replay_nr;
+      }
+      lwarn "OLD REMAIN '$remain'\n";
+      push @remains, $remain;
     }
-    lwarn "Resource directory has some old remains like '$remain'.\n";
+    last if !@remains;
+    lwarn "Resource directory has some old remains.\n";
+    if ($force && !$create) {
+      foreach my $remain (@remains) {
+	lwarn "REMOVING remain '$remain'";
+	_create_delete($remain);
+      }
+      finish_links();
+      _wait_delete();
+      sleep(5);
+      next;
+    }
     lwarn "First cleanup.\n";
     my $extra_op = $create ? "delete-resource" : "log-purge-all";
     lwarn "If you really want to $cmd, run 'marsadm $extra_op' first.\n";
