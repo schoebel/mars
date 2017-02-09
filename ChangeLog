@@ -30,14 +30,31 @@ Example: mars0.3alpha*:
 
 Release Conventions / Branches / Tagnames
 -----------------------------------------
+	FLOW OF BUGFIXES: 0.1 -> 0.1b -> 0.2 -> ...
 
 	mars0.1 series (stable):
 		 - Asynchronous replication.
-		   Currently operational at more than 1700 servers at
-		   1&1, more than 9,000,000 operating hours (Mar 2016)
+		   Currently operational at more than 3000 servers at
+		   1&1, more than 25,000,000 operating hours (Feb 2017)
 		 - Unstable tagnames: light0.1beta%d.%d (obsolete)
 		 - Stable branch: mars0.1.y
 		 - Stable tagnames: mars0.1stable%02d
+
+	mars0.1b series (currently alpha):
+		 This is an _imtermediate_ series between 0.1 and 0.2.
+		 The goal is to improve _scalability_ to thousands of
+		 hosts in one cluster, as well as thousands of resources.
+		 Likely, this intermdiate branch will be merged into 0.2
+		 and then continue development there. When this point
+		 will arrive is uncertain at the moment.
+		 Likely, the stabilization of the new scalability features
+		 will occur together with the 0.2 series.
+		 Reason for this: the rollout strategy at 1&1 to
+		 thousands of machines wants to do small incremental
+		 steps. The risk of directly going to 0.2 in _masses_
+		 is minimized by first rolling out the really necessary
+		 changes, and to postpone those developments which are
+		 currently not yet really needed in mass deployment.
 
 	mars0.2 series (currently in beta stage):
 		   Mostly for internal needs of 1&1 (but not limited to that).
@@ -91,8 +108,6 @@ Release Conventions / Branches / Tagnames
 		 - Unstable tagnames: mars1.0beta%d.%d (planned)
 		 - Stable branch: mars1.0.y (planned)
 		 - Stable tagnames: mars1.0stable%02d (planned)
-
-	full* (somewhen in future)
 
 	WIP-* branches are for development and may be rebased onto anything
 	at any time without notice. They will disappear eventually.
