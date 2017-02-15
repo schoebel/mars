@@ -1532,19 +1532,6 @@ sub set_link_cmd {
   }
 }
 
-sub set_sync_pref_list {
-  my ($cmd, $list) = @_;
-  my $todo_dir = "$mars/defaults-$host";
-  ldie "directory '$todo_dir' does not exist\n" unless -d $todo_dir;
-  my $dst = "$todo_dir/sync-pref-list";
-  if ($cmd =~ m/^get-/) {
-    my $value = get_link($dst);
-    lprint "$value\n";
-    return;
-  }
-  set_link($list, $dst);
-}
-
 sub set_sync_limit_value {
   my ($cmd, $value) = @_;
   my $todo_dir = "$mars/defaults-$host";
@@ -4533,21 +4520,6 @@ my %cmd_table =
        "Only for experts.",
        "Will disappear in a future MARS release.",
        \&set_link_cmd,
-      ],
-   "set-sync-pref-list"
-   => [
-       "verbose 2",
-       "usage: set-sync-pref-list <resource_name> <host_list>",
-       "Provisionary command for internal use at 1&1. Will be replaced by",
-       "a better concept somewhen. The <host_list> must be comma-separated.",
-       \&set_sync_pref_list,
-      ],
-   "get-sync-pref-list"
-   => [
-       "verbose 2",
-       "Provisionary command for internal use at 1&1. Will be replaced by",
-       "a better concept somewhen. Shows the outcome of set-sync-pref-list.",
-       \&set_sync_pref_list,
       ],
    "set-sync-limit-value"
    => [
