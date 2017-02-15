@@ -130,6 +130,7 @@ EXPORT_SYMBOL_GPL(global_free_space_3);
 int global_free_space_4 = CONFIG_MARS_MIN_SPACE_4;
 EXPORT_SYMBOL_GPL(global_free_space_4);
 
+int _global_sync_nr;
 int global_sync_nr = 0;
 EXPORT_SYMBOL_GPL(global_sync_nr);
 
@@ -4466,6 +4467,14 @@ static int make_sync(void *buf, struct mars_dent *dent)
 		do_start = false;
 	}
 
+	/* Obey global sync limit
+	 */
+	if (do_start) {
+		_global_sync_nr++;
+		if (_global_sync_nr > global_sync_limit && global_sync_limit > 0)
+			do_start = false;
+	}
+
 	/* Disallow contemporary sync & logfile_replay
 	 */
 	if (do_start &&
@@ -5512,6 +5521,7 @@ static int _main_thread(void *data)
 		if (mars_mem_percent > 70)
 			mars_mem_percent = 70;
 		brick_global_memlimit = (long long)brick_global_memavail * mars_mem_percent / 100;
+		_global_sync_nr = 0;
 
 		brick_msleep(100);
 
@@ -5552,6 +5562,7 @@ static int _main_thread(void *data)
 			rollover_all();
 		}
 
+		global_sync_nr = _global_sync_nr;
 		_show_status_all(&_global);
 		show_vals(gbl_pairs, "/mars", "");
 		show_statistics(&_global, "main");
