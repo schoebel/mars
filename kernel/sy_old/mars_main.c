@@ -130,10 +130,6 @@ EXPORT_SYMBOL_GPL(global_free_space_3);
 int global_free_space_4 = CONFIG_MARS_MIN_SPACE_4;
 EXPORT_SYMBOL_GPL(global_free_space_4);
 
-int _global_sync_want = 0;
-int global_sync_want = 0;
-EXPORT_SYMBOL_GPL(global_sync_want);
-
 int global_sync_nr = 0;
 EXPORT_SYMBOL_GPL(global_sync_nr);
 
@@ -592,8 +588,6 @@ struct mars_rotate {
 	bool created_hole;
 	bool is_log_damaged;
 	bool has_emergency;
-	bool wants_sync;
-	bool gets_sync;
 	bool log_is_really_damaged;
 	spinlock_t inf_lock;
 	bool infs_is_dirty[MAX_INFOS];
@@ -2814,7 +2808,6 @@ int make_log_init(void *buf, struct mars_dent *dent)
 		rot->split_brain_serial = 0;
 	rot->fetch_next_serial = 0;
 	rot->has_error = false;
-	rot->wants_sync = false;
 	rot->has_symlinks = true;
 	brick_string_free(rot->preferred_peer);
 	rot->preferred_peer = NULL;
@@ -4507,16 +4500,6 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	}
 
 	MARS_DBG("initial sync '%s' => '%s' do_start = %d\n", src, dst, do_start);
-	/* Obey global sync limit
-	 */
-	rot->wants_sync = (do_start != 0);
-	if (rot->wants_sync && global_sync_limit > 0) {
-		do_start = rot->gets_sync;
-		if (!rot->gets_sync) {
-			MARS_INF_TO(rot->log_say, "won't start sync because of parallelism limit %d\n", global_sync_limit);
-		}
-	}
-
  shortcut:
 	/* Start copy
 	 */
@@ -4860,54 +4843,6 @@ int make_defaults(void *buf, struct mars_dent *dent)
 
 	if (!strcmp(dent->d_name, "sync-limit")) {
 		sscanf(dent->new_link, "%d", &global_sync_limit);
-	} else if (!strcmp(dent->d_name, "sync-pref-list")) {
-		const char *start;
-		struct list_head *tmp;
-		int len;
-		int want_count = 0;
-		int get_count = 0;
-		
-		for (tmp = rot_anchor.next; tmp != &rot_anchor; tmp = tmp->next) {
-			struct mars_rotate *rot = container_of(tmp, struct mars_rotate, rot_head);
-			if (rot->wants_sync)
-				want_count++;
-			else
-				rot->gets_sync = false;
-			if (rot->sync_brick && rot->sync_brick->power.led_on)
-				get_count++;
-		}
-		global_sync_want = want_count;
-		global_sync_nr   = get_count;
-
-		// prefer mentioned resources in the right order
-		for (start = dent->new_link; *start && get_count < global_sync_limit; start += len) {
-			len = 1;
-			while (start[len] && start[len] != ',')
-				len++;
-			for (tmp = rot_anchor.next; tmp != &rot_anchor; tmp = tmp->next) {
-				struct mars_rotate *rot = container_of(tmp, struct mars_rotate, rot_head);
-				if (rot->wants_sync && rot->parent_rest && !strncmp(start, rot->parent_rest, len)) {
-					rot->gets_sync = true;
-					get_count++;
-					MARS_DBG("new get_count = %d res = '%s' wants_sync = %d gets_sync = %d\n",
-						 get_count, rot->parent_rest, rot->wants_sync, rot->gets_sync);
-					break;
-				}
-			}
-			if (start[len])
-				len++;
-		}
-		// fill up with unmentioned resources
-		for (tmp = rot_anchor.next; tmp != &rot_anchor && get_count < global_sync_limit; tmp = tmp->next) {
-			struct mars_rotate *rot = container_of(tmp, struct mars_rotate, rot_head);
-			if (rot->wants_sync && !rot->gets_sync) {
-				rot->gets_sync = true;
-				get_count++;
-			}
-			MARS_DBG("new get_count = %d res = '%s' wants_sync = %d gets_sync = %d\n",
-				 get_count, rot->parent_rest, rot->wants_sync, rot->gets_sync);
-		}
-		MARS_DBG("final want_count = %d get_count = %d\n", want_count, get_count);
 	} else {
 		MARS_DBG("unimplemented default '%s'\n", dent->d_name);
 	}

@@ -49,7 +49,6 @@ extern int global_free_space_1;
 extern int global_free_space_2;
 extern int global_free_space_3;
 extern int global_free_space_4;
-extern int global_sync_want;
 extern int global_sync_nr;
 extern int global_sync_limit;
 extern int mars_rollover_interval;

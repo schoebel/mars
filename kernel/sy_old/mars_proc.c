@@ -338,7 +338,6 @@ struct ctl_table mars_table[] = {
 	INT_ENTRY("required_free_space_2_gb", global_free_space_2, 0600),
 	INT_ENTRY("required_free_space_3_gb", global_free_space_3, 0600),
 	INT_ENTRY("required_free_space_4_gb", global_free_space_4, 0600),
-	INT_ENTRY("sync_want",            global_sync_want,       0400),
 	INT_ENTRY("sync_nr",              global_sync_nr,         0400),
 	INT_ENTRY("sync_limit",           global_sync_limit,      0600),
 	INT_ENTRY("mars_emergency_mode",  mars_emergency_mode,    0600),
