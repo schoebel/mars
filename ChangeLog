@@ -130,6 +130,21 @@ Changelog for series 0.2:
 -----------------------------------
 Changelog for series 0.1:
 
+mars0.1stable35
+--------
+	* Minor fix: when syncing a big resource (e.g. 40TiB) over an 1GBit
+	  uplink, the sync may take longer than 1 day. This increases the
+	  probability for triggering an unintended restart of that sync
+	  from scratch.
+	  Among further obscure preconditions, more than 5 logfiles must
+	  exist such that the wrong assumption of an emergency mode can
+	  happen at the secondary. In order to trigger the bug more likely,
+	  it is therefore helpful to misconfigure /etc/cron.d/mars by
+	  log-rotate'ing every 10 minutes, but doing log-delete-all only
+	  once an hour (which contradicts my upstream documentation and
+	  unnecessarily wastes valuable storage space in /mars).
+	  Fixed by correction of a typo-like error.
+
 mars0.1stable34
 --------
 	* Minor fix: in some rare cases, when lots of gigabytes had to be
