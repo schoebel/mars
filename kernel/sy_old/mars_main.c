@@ -542,6 +542,7 @@ struct mars_rotate {
 	struct mars_info aio_info;
 	struct trans_logger_brick *trans_brick;
 	struct mars_dent *first_log;
+	struct mars_dent *last_log;
 	struct mars_dent *relevant_log;
 	struct mars_brick *relevant_brick;
 	struct mars_dent *next_relevant_log;
@@ -2798,6 +2799,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	rot->aio_dent = NULL;
 	rot->aio_brick = NULL;
 	rot->first_log = NULL;
+	rot->last_log = NULL;
 	rot->relevant_log = NULL;
 	rot->relevant_serial = 0;
 	rot->relevant_brick = NULL;
@@ -3080,7 +3082,7 @@ int make_log_step(void *buf, struct mars_dent *dent)
 				}
 			} else if (_next_is_acceptable(rot, rot->relevant_log, dent)) {
 				rot->next_relevant_log = dent;
-			} else if (dent->d_serial > rot->relevant_log->d_serial + 5) {
+			} else if (rot->last_log && dent->d_serial > rot->last_log->d_serial + 5) {
 				rot->has_hole_logfile = true;
 			}
 		} else { // check for double logfiles => split brain
@@ -3110,6 +3112,7 @@ int make_log_step(void *buf, struct mars_dent *dent)
 		MARS_DBG("nothing to do on '%s'\n", dent->d_path);
 		goto ok;
 	}
+	rot->last_log = dent;
 
 	/* Remember the relevant log.
 	 */
