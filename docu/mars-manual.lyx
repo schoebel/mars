@@ -4740,10 +4740,27 @@ marsadm disconnect $res
 \family default
 ) will freeze the space reclamation in the whole cluster when the pause
  is lasting very long.
-\begin_inset Newline newline
-\end_inset
+\end_layout
 
+\begin_layout Standard
+Please prefer the short form 
+\family typewriter
+marsadm cron
+\family default
+ as an equivalent to scripting two separate commands 
+\family typewriter
+marsadm log-rotate all
+\family default
+ and 
+\family typewriter
+marsadm log-delete-all all
+\family default
+.
+ The short form is not only easier to remember, but also future-proof in
+ case some new MARS features should be implemented in future.
+\end_layout
 
+\begin_layout Standard
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -4751,20 +4768,35 @@ marsadm disconnect $res
 
 \end_inset
 
-Best practice is to do both 
+Best practice is to run 
 \family typewriter
-log-rotate
-\family default
- and 
-\family typewriter
-log-delete-all
+marsadm cron
 \family default
  in a 
 \family typewriter
 cron
 \family default
- job.
- In addition, you should establish some regular monitoring of the free space
+ job, such as 
+\family typewriter
+/etc/cron.d/mars
+\family default
+.
+ An example cronjob can be found in the 
+\family typewriter
+userspace/cron.d/
+\family default
+ subdirectory of the git repo.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+In addition, you should establish some regular monitoring of the free space
  present in the 
 \family typewriter
 /mars/
@@ -9285,13 +9317,17 @@ Regular userspace monitoring must throw an INFO if a certain freespace limit
  are 30%.
  Typical actions are automated calls of 
 \family typewriter
+marsadm cron
+\family default
+ (or 
+\family typewriter
 marsadm log-rotate all
 \family default
  followed by 
 \family typewriter
 marsadm log-delete-all all
 \family default
-.
+).
  You have to implement that yourself in sysadmin space.
 \end_layout
 
@@ -24936,7 +24972,7 @@ Logfile Operations
 
 \size scriptsize
 \begin_inset Tabular
-<lyxtabular version="3" rows="4" columns="3">
+<lyxtabular version="3" rows="5" columns="3">
 <features rotate="0" islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
@@ -24971,6 +25007,100 @@ Cmp
 
 \size scriptsize
 Description
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+cron
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Do all necessary housekeeping tasks.
+ See 
+\family typewriter
+log-rotate
+\family default
+ and 
+\family typewriter
+log-delete-all
+\family default
+ for details.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+This should be regularly called by an external cron job or similar.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \end_inset
@@ -34298,6 +34428,10 @@ reference "sec:Resolution-of-Split"
  Notice that network outages or missing 
 \family typewriter
 marsadm log-delete-all all
+\family default
+ or 
+\family typewriter
+cron
 \family default
  may continue to report an old split brain which has gone in the meantime.
 \end_layout
