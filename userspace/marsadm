@@ -2060,6 +2060,14 @@ sub logdelete_res {
   }
 }
 
+sub cron_res {
+  my ($cmd, $res) = @_;
+  logrotate_res(@_);
+  finish_links();
+  sleep(5);
+  logdelete_res(@_);
+}
+
 sub attach_res_phase0 {
   my ($cmd, $res) = @_;
   return if $force;
@@ -4462,7 +4470,8 @@ my %cmd_table =
    => [
        "Only useful at the primary side.",
        "Start writing transaction logs into a new transaction logfile.",
-       "This must be regularly called by a cron job or similar.",
+       "This should be regularly called by a cron job or similar.",
+       "For regular maintainance cron jobs, please prefer 'marsadm cron'.",
        "For details and best practices, please refer to the PDF manual.",
        \&logrotate_res,
       ],
@@ -4472,7 +4481,8 @@ my %cmd_table =
        "which is known to be superfluous, i.e. all secondaries no longer",
        "need to replay it.",
        "Hint: use this only for testing and manual inspection.",
-       "For regular maintainance cron jobs, please prefer log-delete-all.",
+       "For regular maintainance cron jobs, please prefer cron",
+       "or log-delete-all.",
        \&logdelete_res,
       ],
    "log-delete-all"
@@ -4482,8 +4492,16 @@ my %cmd_table =
        "to replay them.",
        "This must be regularly called by a cron job or similar, in order",
        "to prevent overflow of the /mars/ directory.",
+       "For regular maintainance cron jobs, please prefer 'marsadm cron'.",
        "For details and best practices, please refer to the PDF manual.",
        \&logdelete_res,
+      ],
+   "cron"
+   => [
+       "usage: cron (no parameters)",
+       "Do all necessary regular housekeeping tasks.",
+       "This is equivalent to log-rotate all; sleep 5; log-delete-all all.",
+       \&cron_res,
       ],
    "log-purge-all"
    => [
@@ -5210,7 +5228,7 @@ if ($cmd !~ m/(create|join)-cluster|create-uuid|cat|view|pretty/) {
 }
 
 my $res = "";
-if ($cmd =~ "show") {
+if ($cmd =~ "show|cron") {
   $res = shift @args || "all";
 } elsif ($cmd =~ m/^(view|pretty)/) {
   $res = shift @args || "";
