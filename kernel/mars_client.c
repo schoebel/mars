@@ -660,6 +660,13 @@ static int client_switch(struct client_brick *brick)
 		if (brick->power.led_off)
 			goto done;
 		mars_power_led_on((void*)brick, false);
+		if (mars_get_socket(&output->socket)) {
+			if (mars_socket_is_alive(&output->socket)) {
+				MARS_DBG("shutdown socket\n");
+				mars_shutdown_socket(&output->socket);
+			}
+			mars_put_socket(&output->socket);
+		}
 		_kill_thread(&output->sender, "sender");
 		brick->connection_state = 0;
 		if (!output->sender.thread) {
