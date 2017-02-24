@@ -511,7 +511,7 @@ static int sender_thread(void *data)
 
 	output->receiver.restart_count = 0;
 
-        while (!brick_thread_should_stop()) {
+        while (brick->power.button && !brick_thread_should_stop()) {
 		struct list_head *tmp = NULL;
 		struct client_mref_aspect *mref_a;
 		struct mref_object *mref;
@@ -549,10 +549,11 @@ static int sender_thread(void *data)
 						 !list_empty(&output->mref_list) ||
 						 output->get_info ||
 						 output->recv_error != 0 ||
+						 !brick->power.button ||
 						 brick_thread_should_stop(),
 						 1 * HZ);
 
-		if (unlikely(brick_thread_should_stop()))
+		if (unlikely(!brick->power.button || brick_thread_should_stop()))
 			break;
 
 		if (unlikely(output->recv_error != 0)) {
