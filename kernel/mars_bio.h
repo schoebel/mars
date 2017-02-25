@@ -24,6 +24,8 @@
 #ifndef MARS_BIO_H
 #define MARS_BIO_H
 
+#define BIO_RESPONSE_THREADS 1
+
 #define BIO_SUBMIT_MAX_LATENCY    250 // 250 us
 #define BIO_IO_R_MAX_LATENCY    40000 //  40 ms
 #define BIO_IO_W_MAX_LATENCY   100000 // 100 ms
@@ -46,6 +48,12 @@ struct bio_mref_aspect {
 	bool do_dealloc;
 };
 
+struct bio_response {
+	struct list_head completed_list;
+	wait_queue_head_t response_event;
+	brick_thread_t *response_thread;
+};
+
 struct bio_brick {
 	MARS_BRICK(bio);
 	// tunables
@@ -65,13 +73,11 @@ struct bio_brick {
 	spinlock_t lock;
 	struct list_head queue_list[MARS_PRIO_NR];
 	struct list_head submitted_list[2];
-	struct list_head completed_list;
 	wait_queue_head_t submit_event;
-	wait_queue_head_t response_event;
 	struct mapfree_info *mf;
 	struct block_device *bdev;
 	brick_thread_t *submit_thread;
-	brick_thread_t *response_thread;
+	struct bio_response rsp[BIO_RESPONSE_THREADS];
 	int bvec_max;
 	bool submitted;
 };
