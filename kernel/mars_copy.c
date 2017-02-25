@@ -998,7 +998,6 @@ static int copy_brick_construct(struct copy_brick *brick)
 	}
 
 	init_waitqueue_head(&brick->event);
-	sema_init(&brick->mutex, 1);
 	return 0;
 }
 

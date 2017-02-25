@@ -25,7 +25,6 @@
 #define MARS_COPY_H
 
 #include <linux/wait.h>
-#include <linux/semaphore.h>
 
 #define INPUT_A_IO   0
 #define INPUT_A_COPY 1
@@ -102,7 +101,6 @@ struct copy_brick {
 	atomic_t copy_write_flight;
 	long long last_jiffies;
 	wait_queue_head_t event;
-	struct semaphore mutex;
 	struct task_struct *thread;
 	struct copy_state **st;
 };
