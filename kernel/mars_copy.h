@@ -101,6 +101,7 @@ struct copy_brick {
 	atomic_t copy_read_flight;
 	atomic_t copy_write_flight;
 	long long last_jiffies;
+	loff_t check_hint;
 	wait_queue_head_t event;
 	struct task_struct *thread;
 	struct copy_state **st;

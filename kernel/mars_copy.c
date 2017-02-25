@@ -223,6 +223,8 @@ void copy_endio(struct generic_callback *cb)
 	brick = mref_a->brick;
 	CHECK_PTR(brick, err);
 
+	brick->check_hint = mref->ref_pos;
+
 	queue = mref_a->queue;
 	index = GET_INDEX(mref->ref_pos);
 	st = &GET_STATE(brick, index);
@@ -775,6 +777,7 @@ static int _copy_thread(void *data)
 	brick->copy_error_count = 0;
 	brick->verify_ok_count = 0;
 	brick->verify_error_count = 0;
+	brick->check_hint = 0;
 
 	_update_percent(brick, true);
 
@@ -784,9 +787,18 @@ static int _copy_thread(void *data)
 		loff_t old_start = brick->copy_start;
 		loff_t old_end = brick->copy_end;
 		int progress = 0;
+		loff_t check_hint;
 
 		if (old_end > 0) {
 			progress = _run_copy(brick, -1);
+			/* This is racy, deliberately.
+			 * Missing some events does no harm.
+			 */
+			check_hint = brick->check_hint;
+			if (check_hint > 0) {
+				brick->check_hint = 0;
+				progress += _run_copy(brick, check_hint);
+			}
 			/* abort when no progress is made for a longer time */
 			if (progress > 0) {
 				last_progress = CURRENT_TIME;
@@ -928,6 +940,7 @@ char *copy_statistics(struct copy_brick *brick, int verbose)
 		 "copy_last = %lld "
 		 "copy_dirty = %lld "
 		 "copy_end = %lld "
+		 "check_hint = %lld "
 		 "copy_error = %d "
 		 "copy_error_count = %d "
 		 "verify_ok_count = %d "
@@ -943,6 +956,7 @@ char *copy_statistics(struct copy_brick *brick, int verbose)
 		 brick->copy_last,
 		 brick->copy_dirty,
 		 brick->copy_end,
+		 brick->check_hint,
 		 brick->copy_error,
 		 brick->copy_error_count,
 		 brick->verify_ok_count,
