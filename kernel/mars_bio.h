@@ -24,7 +24,7 @@
 #ifndef MARS_BIO_H
 #define MARS_BIO_H
 
-#define BIO_RESPONSE_THREADS 1
+#define BIO_RESPONSE_THREADS 4
 
 #define BIO_SUBMIT_MAX_LATENCY    250 // 250 us
 #define BIO_IO_R_MAX_LATENCY    40000 //  40 ms
