@@ -642,9 +642,9 @@ idle:
 static
 int _run_copy(struct copy_brick *brick)
 {
+	int all_max;
 	int max;
 	loff_t pos;
-	loff_t limit = -1;
 	short prev;
 	int progress;
 
@@ -665,6 +665,7 @@ int _run_copy(struct copy_brick *brick)
 	/* Do at most max iterations in the below loop
 	 */
 	max = NR_COPY_REQUESTS - atomic_read(&brick->io_flight) * 2;
+	all_max = max;
 	MARS_IO("max = %d\n", max);
 
 	prev = -1;
@@ -680,17 +681,23 @@ int _run_copy(struct copy_brick *brick)
 		// call the finite state automaton
 		if (!(st->active[0] | st->active[1])) {
 			progress += _next_state(brick, index, pos);
-			limit = pos;
 		}
 	}
 
 	// check the resulting state: can we advance the copy_last pointer?
 	if (likely(progress && !brick->clash)) {
 		int count = 0;
-		for (pos = brick->copy_last; pos <= limit; pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
+
+		max = all_max;
+		for (pos = brick->copy_last;
+		     pos < brick->copy_end;
+		     pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
 			int index = GET_INDEX(pos);
 			struct copy_state *st = &GET_STATE(brick, index);
 			if (st->state != COPY_STATE_FINISHED) {
+				break;
+			}
+			if (max-- <= 0) {
 				break;
 			}
 			if (unlikely(st->error < 0)) {
