@@ -102,6 +102,7 @@ void bio_callback(struct bio *bio, int code)
 {
 	struct bio_mref_aspect *mref_a = bio->bi_private;
 	struct bio_brick *brick;
+	unsigned int rsp_nr;
 	unsigned long flags;
 
 	CHECK_PTR(mref_a, err);
@@ -121,11 +122,13 @@ void bio_callback(struct bio *bio, int code)
 
 	spin_lock_irqsave(&brick->lock, flags);
 	list_del(&mref_a->io_head);
-	list_add_tail(&mref_a->io_head, &brick->rsp[0].completed_list);
+	rsp_nr = (brick->rsp_nr + 1) % BIO_RESPONSE_THREADS;
+	brick->rsp_nr = rsp_nr;
+	list_add_tail(&mref_a->io_head, &brick->rsp[rsp_nr].completed_list);
 	atomic_inc(&brick->completed_count);
 	spin_unlock_irqrestore(&brick->lock, flags);
 
-	wake_up_interruptible(&brick->rsp[0].response_event);
+	wake_up_interruptible(&brick->rsp[rsp_nr].response_event);
 	return;
 
 err:
@@ -528,7 +531,8 @@ fatal:
 static
 int bio_response_thread(void *data)
 {
-	struct bio_brick *brick = data;
+	struct bio_response *rsp = data;
+	struct bio_brick *brick = rsp->brick;
 #ifdef IO_DEBUGGING
 	int round = 0;
 #endif
@@ -559,7 +563,7 @@ int bio_response_thread(void *data)
 		MARS_IO("%d sleeping %d...\n", round, sleeptime);
 #endif
 		wait_event_interruptible_timeout(
-			brick->rsp[0].response_event,
+			rsp->response_event,
 			atomic_read(&brick->completed_count) > 0 ||
 			(brick_thread_should_stop() &&
 			 atomic_read(&brick->fly_count[0]) +
@@ -581,7 +585,7 @@ int bio_response_thread(void *data)
 		}
 #endif
 		spin_lock_irqsave(&brick->lock, flags);
-		list_replace_init(&brick->rsp[0].completed_list, &tmp_list);
+		list_replace_init(&rsp->completed_list, &tmp_list);
 		spin_unlock_irqrestore(&brick->lock, flags);
 
 		count = 0;
@@ -758,6 +762,8 @@ int bio_submit_thread(void *data)
 static int bio_switch(struct bio_brick *brick)
 {
 	int status = 0;
+	int i;
+
 	if (brick->power.button) {
 		if (brick->power.led_on)
 			goto done;
@@ -814,10 +820,16 @@ static int bio_switch(struct bio_brick *brick)
 			MARS_INF("'%s' size=%lld bvec_max=%d\n",
 				 path, brick->total_size, brick->bvec_max);
 
-			brick->rsp[0].response_thread = brick_thread_create(bio_response_thread, brick, "mars_bio_r%d", index);
+			for (i = 0; i < BIO_RESPONSE_THREADS; i++) {
+				brick->rsp[i].response_thread =
+					brick_thread_create(bio_response_thread,
+							    &brick->rsp[i],
+							    "mars_bio_r%d",
+							    index);
+			}
 			brick->submit_thread = brick_thread_create(bio_submit_thread, brick, "mars_bio_s%d", index);
 			status = -ENOMEM;
-			if (likely(brick->submit_thread && brick->rsp[0].response_thread)) {
+			if (likely(brick->submit_thread)) {
 				brick->bdev = inode->i_bdev;
 				brick->mode_ptr = &brick->mf->mf_mode;
 				index++;
@@ -834,9 +846,11 @@ static int bio_switch(struct bio_brick *brick)
 			brick_thread_stop(brick->submit_thread);
 			brick->submit_thread = NULL;
 		}
-		if (brick->rsp[0].response_thread) {
-			brick_thread_stop(brick->rsp[0].response_thread);
-			brick->rsp[0].response_thread = NULL;
+		for (i = 0; i < BIO_RESPONSE_THREADS; i++) {
+			if (brick->rsp[i].response_thread) {
+				brick_thread_stop(brick->rsp[i].response_thread);
+				brick->rsp[i].response_thread = NULL;
+			}
 		}
 		if (brick->mf) {
 			mapfree_put(brick->mf);
@@ -922,15 +936,20 @@ MARS_MAKE_STATICS(bio);
 
 static int bio_brick_construct(struct bio_brick *brick)
 {
+	int i;
+
 	spin_lock_init(&brick->lock);
 	INIT_LIST_HEAD(&brick->queue_list[0]);
 	INIT_LIST_HEAD(&brick->queue_list[1]);
 	INIT_LIST_HEAD(&brick->queue_list[2]);
 	INIT_LIST_HEAD(&brick->submitted_list[0]);
 	INIT_LIST_HEAD(&brick->submitted_list[1]);
-	INIT_LIST_HEAD(&brick->rsp[0].completed_list);
 	init_waitqueue_head(&brick->submit_event);
-	init_waitqueue_head(&brick->rsp[0].response_event);
+	for (i = 0; i < BIO_RESPONSE_THREADS; i++) {
+		INIT_LIST_HEAD(&brick->rsp[i].completed_list);
+		init_waitqueue_head(&brick->rsp[i].response_event);
+		brick->rsp[i].brick = brick;
+	}
 	return 0;
 }
 

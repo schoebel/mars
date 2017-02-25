@@ -52,6 +52,7 @@ struct bio_response {
 	struct list_head completed_list;
 	wait_queue_head_t response_event;
 	brick_thread_t *response_thread;
+	struct bio_brick *brick;
 };
 
 struct bio_brick {
@@ -78,6 +79,7 @@ struct bio_brick {
 	struct block_device *bdev;
 	brick_thread_t *submit_thread;
 	struct bio_response rsp[BIO_RESPONSE_THREADS];
+	unsigned int rsp_nr;
 	int bvec_max;
 	bool submitted;
 };
