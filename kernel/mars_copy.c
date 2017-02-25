@@ -640,7 +640,7 @@ idle:
 }
 
 static
-int _run_copy(struct copy_brick *brick)
+int _run_copy(struct copy_brick *brick, loff_t this_start)
 {
 	int all_max;
 	int max;
@@ -662,6 +662,11 @@ int _run_copy(struct copy_brick *brick)
 		_clear_state_table(brick);
 	}
 
+	if (this_start < brick->copy_last)
+		this_start = brick->copy_last;
+	else if (this_start > brick->copy_dirty && brick->copy_dirty)
+		this_start = brick->copy_dirty;
+
 	/* Do at most max iterations in the below loop
 	 */
 	max = NR_COPY_REQUESTS - atomic_read(&brick->io_flight) * 2;
@@ -669,8 +674,15 @@ int _run_copy(struct copy_brick *brick)
 	MARS_IO("max = %d\n", max);
 
 	prev = -1;
+	if (this_start > brick->copy_last) {
+		prev = GET_INDEX(this_start - COPY_CHUNK);
+		max -= (this_start - brick->copy_last) / COPY_CHUNK;
+		all_max = max;
+	}
 	progress = 0;
-	for (pos = brick->copy_last; pos < brick->copy_end || brick->append_mode > 1; pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
+	for (pos = this_start;
+	     pos < brick->copy_end || brick->append_mode > 1;
+	     pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
 		int index = GET_INDEX(pos);
 		struct copy_state *st = &GET_STATE(brick, index);
 		int this_progress;
@@ -685,7 +697,7 @@ int _run_copy(struct copy_brick *brick)
 
 		// call the finite state automaton
 		this_progress = _next_state(brick, index, pos);
-		if (this_progress < 0)
+		if (this_progress <= 0)
 			break;
 
 		progress += this_progress;
@@ -694,7 +706,7 @@ int _run_copy(struct copy_brick *brick)
 	}
 
 	// check the resulting state: can we advance the copy_last pointer?
-	if (likely(progress && !brick->clash)) {
+	if (this_start == brick->copy_last && progress && !brick->clash) {
 		int count = 0;
 
 		max = all_max;
@@ -703,6 +715,7 @@ int _run_copy(struct copy_brick *brick)
 		     pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
 			int index = GET_INDEX(pos);
 			struct copy_state *st = &GET_STATE(brick, index);
+
 			if (st->state != COPY_STATE_FINISHED) {
 				break;
 			}
@@ -773,7 +786,7 @@ static int _copy_thread(void *data)
 		int progress = 0;
 
 		if (old_end > 0) {
-			progress = _run_copy(brick);
+			progress = _run_copy(brick, -1);
 			/* abort when no progress is made for a longer time */
 			if (progress > 0) {
 				last_progress = CURRENT_TIME;
