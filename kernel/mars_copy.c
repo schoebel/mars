@@ -223,7 +223,11 @@ void copy_endio(struct generic_callback *cb)
 	brick = mref_a->brick;
 	CHECK_PTR(brick, err);
 
-	brick->check_hint = mref->ref_pos;
+	/* This is racy, but affects only a _hint_ for
+	 * performance optimization.
+	 */
+	if (!brick->check_hint || mref->ref_pos < brick->check_hint)
+		brick->check_hint = mref->ref_pos;
 
 	queue = mref_a->queue;
 	index = GET_INDEX(mref->ref_pos);
