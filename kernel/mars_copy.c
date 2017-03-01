@@ -673,15 +673,21 @@ int _run_copy(struct copy_brick *brick)
 	for (pos = brick->copy_last; pos < brick->copy_end || brick->append_mode > 1; pos = ((pos / COPY_CHUNK) + 1) * COPY_CHUNK) {
 		int index = GET_INDEX(pos);
 		struct copy_state *st = &GET_STATE(brick, index);
+		int this_progress;
+
 		if (max-- <= 0) {
 			break;
 		}
 		st->prev = prev;
 		prev = index;
+		if (st->active[0] & st->active[1])
+			break;
+
 		// call the finite state automaton
-		if (!(st->active[0] | st->active[1])) {
-			progress += _next_state(brick, index, pos);
-		}
+		this_progress = _next_state(brick, index, pos);
+		if (this_progress < 0)
+			break;
+		progress += this_progress;
 	}
 
 	// check the resulting state: can we advance the copy_last pointer?
