@@ -687,7 +687,10 @@ int _run_copy(struct copy_brick *brick)
 		this_progress = _next_state(brick, index, pos);
 		if (this_progress < 0)
 			break;
+
 		progress += this_progress;
+		if (pos > brick->copy_dirty)
+			brick->copy_dirty = pos;
 	}
 
 	// check the resulting state: can we advance the copy_last pointer?
@@ -798,6 +801,7 @@ static int _copy_thread(void *data)
 		/* reset the whole area */
 		brick->copy_start = 0;
 		brick->copy_last = 0;
+		brick->copy_dirty = 0;
 		MARS_WRN("resetting the full copy area\n");
 	}
 	_update_percent(brick, true);
@@ -871,6 +875,7 @@ static int copy_switch(struct copy_brick *brick)
 		brick->is_aborting = false;
 		if (!brick->thread) {
 			brick->copy_last = brick->copy_start;
+			brick->copy_dirty = 0;
 			get_lamport(&brick->copy_last_stamp);
 			brick->thread = brick_thread_create(_copy_thread, brick, "mars_copy%d", version++);
 			if (brick->thread) {
@@ -908,6 +913,7 @@ char *copy_statistics(struct copy_brick *brick, int verbose)
 	snprintf(res, 1024,
 		 "copy_start = %lld "
 		 "copy_last = %lld "
+		 "copy_dirty = %lld "
 		 "copy_end = %lld "
 		 "copy_error = %d "
 		 "copy_error_count = %d "
@@ -922,6 +928,7 @@ char *copy_statistics(struct copy_brick *brick, int verbose)
 		 "copy_write_flight = %d\n",
 		 brick->copy_start,
 		 brick->copy_last,
+		 brick->copy_dirty,
 		 brick->copy_end,
 		 brick->copy_error,
 		 brick->copy_error_count,
