@@ -730,7 +730,6 @@ bool _is_done(struct copy_brick *brick)
 static int _copy_thread(void *data)
 {
 	struct copy_brick *brick = data;
-	int rounds = 0;
 
 	MARS_DBG("--------------- copy_thread %p starting\n", brick);
 	brick->copy_error = 0;
@@ -749,9 +748,6 @@ static int _copy_thread(void *data)
 		int progress = 0;
 		if (old_end > 0) {
 			progress = _run_copy(brick);
-			if (!progress || ++rounds > 1000) {
-				rounds = 0;
-			}
 		}
 
 		wait_event_interruptible_timeout(brick->event,
