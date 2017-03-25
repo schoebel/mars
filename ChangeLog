@@ -128,7 +128,22 @@ Changelog for series 0.2:
 (you need to checkout branch mars0.2.y to see any details)
 
 -----------------------------------
+Changelog for series 0.1b:
+
+(you need to checkout branch mars0.1b.y to see any details)
+
+-----------------------------------
 Changelog for series 0.1:
+
+mars0.1stable36
+--------
+	* Doc: new slides from GUUG2017, both in English and in German.
+	  Some very important hints for cost savings. May easily save
+	  you a few millions when operating some petabytes of data.
+	* Doc: new chapter on cost savings in mars-manual.pdf.
+	  Some parts of German oral explanations from the GUUG conference
+	  translated to English for my English-speaking audience.
+	  More to come later (hopefully; I need to get the time).
 
 mars0.1stable35
 --------
