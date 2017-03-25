@@ -146,6 +146,16 @@ mars0.1balpha0
 -----------------------------------
 Changelog for series 0.1:
 
+mars0.1stable36
+--------
+	* Doc: new slides from GUUG2017, both in English and in German.
+	  Some very important hints for cost savings. May easily save
+	  you a few millions when operating some petabytes of data.
+	* Doc: new chapter on cost savings in mars-manual.pdf.
+	  Some parts of German oral explanations from the GUUG conference
+	  translated to English for my English-speaking audience.
+	  More to come later (hopefully; I need to get the time).
+
 mars0.1stable35
 --------
 	* Minor fix: when syncing a big resource (e.g. 40TiB) over an 1GBit

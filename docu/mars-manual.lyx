@@ -140,7 +140,7 @@ tst@1und1.de
 \end_layout
 
 \begin_layout Date
-Version 0.1b-0
+Version 0.1b-0.1
 \end_layout
 
 \begin_layout Lowertitleback
@@ -328,6 +328,1292 @@ name "chap:Why-You-should"
 
 \end_layout
 
+\begin_layout Section
+Cost Arguments from Architecture
+\end_layout
+
+\begin_layout Standard
+Datacenters aren't usually operated for fun or for hobby.
+ Costs are therefore a very important argument.
+\end_layout
+
+\begin_layout Standard
+Many enterprise system architects are starting with a particular architecture
+ in mind, called 
+\begin_inset Quotes eld
+\end_inset
+
+big cluster
+\begin_inset Quotes erd
+\end_inset
+
+.
+ There is a common belief that otherwise 
+\series bold
+scalability
+\series default
+ could not be achieved:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/Architecure_Big_Cluster.pdf
+	width 100col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+The crucial point is the storage network here: 
+\begin_inset Formula $n$
+\end_inset
+
+ frontend servers are interconnected with 
+\begin_inset Formula $m=O(n)$
+\end_inset
+
+ storage servers, in order to achieve properties like scalability, failure
+ tolerance, etc.
+\end_layout
+
+\begin_layout Standard
+Since 
+\emph on
+any
+\emph default
+ of the 
+\begin_inset Formula $n$
+\end_inset
+
+ frontends must be able to access 
+\emph on
+any
+\emph default
+ of the 
+\begin_inset Formula $m$
+\end_inset
+
+ storages in realtime, the storage network must be dimensioned for 
+\begin_inset Formula $O(n\cdot m)=O(n^{2})$
+\end_inset
+
+ network connections running in parallel.
+ Even if the total network throughput would be scaling only with 
+\begin_inset Formula $O(n)$
+\end_inset
+
+, the network has to 
+\emph on
+switch
+\emph default
+ the packets from 
+\begin_inset Formula $n$
+\end_inset
+
+ sources to 
+\begin_inset Formula $m$
+\end_inset
+
+ destinations (and their opposite way back) in 
+\series bold
+realtime
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+This 
+\series bold
+cross-bar functionality
+\series default
+ in realtime makes the storage network expensive.
+ Some further factors are increasing the costs of storage networks:
+\end_layout
+
+\begin_layout Itemize
+In order to limit error propagation from other networks, the storage network
+ is often built as a 
+\emph on
+physically separate
+\emph default
+ / 
+\emph on
+dedicated
+\emph default
+ network.
+ 
+\end_layout
+
+\begin_layout Itemize
+Because storage networks are heavily reacting to high latencies and packet
+ loss, they often need to be dimensioned for the 
+\series bold
+worst case
+\series default
+ (load peaks, packet storms, etc), needing one of the best = most expensive
+ components for reducing latency and increasing throughput.
+ Dimensioning to the worst case instead of an average case plus some safety
+ margins is nothing but an expensive 
+\series bold
+overdimensioning
+\series default
+ / 
+\series bold
+over-engineering
+\series default
+.
+\end_layout
+
+\begin_layout Itemize
+When multipathing is required for improving fault tolerance of the storage
+ network itself, these efforts will even 
+\series bold
+double
+\series default
+.
+\end_layout
+
+\begin_layout Itemize
+When geo-redundancy is required, the whole mess may easily more than double
+ another time because in cases of disasters like terrorist attacks the backup
+ datacenter must be prepared for taking over for multiple days or weeks.
+\end_layout
+
+\begin_layout Standard
+Fortunately, there is an alternative called 
+\begin_inset Quotes eld
+\end_inset
+
+sharding architecture
+\begin_inset Quotes erd
+\end_inset
+
+ which does not need a storage network at all, at least when built and dimension
+ed properly.
+ Instead, it 
+\emph on
+should have
+\emph default
+ (but not always needs) a so-called replication network which can, when
+ present, be dimensioned much smaller because it does neither need realtime
+ operations, nor scalabiliy to 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/Architecure_Sharding.pdf
+	width 100col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Sharding architectures are extremely well suited when both the input traffic
+ and the data is 
+\series bold
+already partitioned
+\series default
+.
+ For example, when several thousands or even millions of customers are operating
+ on disjoint data sets, like in web hosting where each webspace is residing
+ in its own home directory, or when each of millions of mySQL database instances
+ has to be isolated from its neighbour.
+\end_layout
+
+\begin_layout Standard
+Even in cases when any customer may potentially access any of the data items
+ residing in the whole storage pool (e.g.
+ like in a search engine), sharding can be often applied.
+ The trick is to create some relatively simple content-based dynamic switching
+ or redirect mechanism in the input network traffic, similar to HTTP load
+ balancers or redirectors.
+\end_layout
+
+\begin_layout Standard
+Only when partitioning of input traffic plus data is not possible in a reasonabl
+e way, big cluster architectures as implemented for example in Ceph or Swift
+ (and partly even possible with MARS when resticted to the block layer)
+ have their 
+\series bold
+usecase
+\series default
+.
+ Only under such a precondition they are really needed.
+\end_layout
+
+\begin_layout Standard
+When sharding is possible, it is the preferred model due to cost and performance
+ reasons.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Notice that MARS' new remote device feature from the 0.2 branch series (which
+ is a replacement for iSCSI) 
+\emph on
+could
+\emph default
+ be used for implementing the 
+\begin_inset Quotes eld
+\end_inset
+
+big cluster
+\begin_inset Quotes erd
+\end_inset
+
+ model at block layer.
+\end_layout
+
+\begin_layout Standard
+Nevertheless, this sub-variant is not the preferred model.
+ Following is the a super-model which combines both the 
+\begin_inset Quotes eld
+\end_inset
+
+big cluster
+\begin_inset Quotes erd
+\end_inset
+
+ and sharding model at block lyer in a very flexible way.
+ The following example shows only two servers from a pool consisting of
+ hundreds or thousands of servers:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/MARS_Cluster_on_Demand.pdf
+	width 100col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+The idea is to use iSCSI or the MARS remote device 
+\emph on
+only where necessary
+\emph default
+.
+ Preferably, local storage is divided into multiple Logical Volumes (LVs)
+ via LVM, which are 
+\emph on
+directly
+\emph default
+ used 
+\emph on
+locally
+\emph default
+ by Virtual Machines (VMs), such as KVM or filesystem-based variants like
+ LXC containers.
+\end_layout
+
+\begin_layout Standard
+In the above example, the left machine has relatively less CPU power or
+ RAM than storage capacity.
+ Therefore, not 
+\emph on
+all
+\emph default
+ LVs could be instantiated locally at the same time without causing operational
+ problems, but 
+\emph on
+some
+\emph default
+ of them can be run locally.
+ The example solution is to 
+\emph on
+exceptionally(!)
+\emph default
+ export LV3 to the right server, which has some otherwise unused CPU and
+ RAM capacity.
+\end_layout
+
+\begin_layout Standard
+Notice that locally running VMs doesn't produce any storage network traffic
+ at all.
+ Therefore, this is the preferred runtime configuration.
+\end_layout
+
+\begin_layout Standard
+Only in cases of resource imbalance, such as (transient) CPU or RAM peaks
+ (e.g.
+ caused by DDOS attacks), 
+\emph on
+some
+\emph default
+ containers may be run somewhere else over the network.
+ In a well-balanced and well-dimensioned system, this will be the 
+\series bold
+vast minority
+\series default
+, and should be only used for dealing with timely load peaks etc.
+\end_layout
+
+\begin_layout Standard
+Running VMs directly on the same servers as their storage is a 
+\series bold
+major cost reducer.
+\end_layout
+
+\begin_layout Standard
+You simply don't need to buy and operate 
+\begin_inset Formula $n+m$
+\end_inset
+
+ servers, but only about 
+\begin_inset Formula $\max(n,m)+m\cdot\epsilon$
+\end_inset
+
+ servers, where 
+\begin_inset Formula $\epsilon$
+\end_inset
+
+ corresponds to some relative small extra resources needed by MARS.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+In addition to this and to reduced networking costs, there are further cost
+ savings at power consumption, air conditioning, Height Units (HUs), number
+ of HDDs, operating costs, etc as explained below in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Cost-Arguments-from"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+The sharding model needs a different approach to load balancing of storage
+ space than the big cluster model.
+ There are serveral possibilities at different layers:
+\end_layout
+
+\begin_layout Itemize
+Dynamically growing the sizes of LVs via 
+\family typewriter
+lvresize
+\family default
+ followed by 
+\family typewriter
+marsadm resize
+\family default
+ followed by 
+\family typewriter
+xfs_growfs
+\family default
+ or similar operations.
+\end_layout
+
+\begin_layout Itemize
+Moving customer data at filesystem or database level via 
+\family typewriter
+rsync
+\family default
+ or 
+\family typewriter
+mysqldump
+\family default
+ or similar.
+\end_layout
+
+\begin_layout Itemize
+Moving whole LVs via MARS, as shown in the following example:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/MARS_Background_Migration.pdf
+	width 100col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+The idea is to dynamically create 
+\emph on
+additional
+\emph default
+ LV replicas for the sake of background migration.
+ Examples:
+\end_layout
+
+\begin_layout Itemize
+In case you had no redundancy at LV level before, you have 
+\begin_inset Formula $k=1$
+\end_inset
+
+ replicas during ordinary operation.
+ If not yet done, you should transparently introduce MARS into your LVM-based
+ stack by using the so-called 
+\begin_inset Quotes eld
+\end_inset
+
+standalone mode
+\begin_inset Quotes erd
+\end_inset
+
+ of MARS.
+ When necessary, create the first MARS replica with 
+\family typewriter
+marsadm create-resource
+\family default
+ on your already-existing LV data, which is retained unmodified, and restart
+ your application again.
+ Now, for the sake of migration, you just create an additional replica at
+ another server via 
+\family typewriter
+marsadm join-resource
+\family default
+ there and wait until the second mirror has been fully 
+\series bold
+synced
+\series default
+ in background, while your application is running and while the contents
+ of the LV is modified 
+\emph on
+in parallel
+\emph default
+ by your ordinary applications.
+ Then you do a primary 
+\series bold
+handover
+\series default
+ to your mirror.
+ This is usually a matter of minutes, or even seconds.
+ Once the application runs again at the new location, you can delete the
+ old replica via 
+\family typewriter
+marsadm leave-resource
+\family default
+ and 
+\family typewriter
+lvremove
+\family default
+.
+ Finally, you may re-use the freed-up space for something else (e.g.
+ 
+\family typewriter
+lvresize
+\family default
+ of 
+\emph on
+another
+\emph default
+ LV followed by 
+\family typewriter
+marsadm resize
+\family default
+ followed by 
+\family typewriter
+xfs_growfs
+\family default
+ or similar).
+ For the sake of some hardware lifecycle, you may run a different strategy:
+ evacuate the original source server completely via the above MARS migration
+ method, and eventually decommission it.
+\end_layout
+
+\begin_layout Itemize
+In case you already have a redundant LV copy somewhere, you should run a
+ similar procedure, but starting with 
+\begin_inset Formula $k=2$
+\end_inset
+
+ replicas, and temporarily increasing the number of replicas to either 
+\begin_inset Formula $k'=3$
+\end_inset
+
+ when moving each replica step-by-step, or you may even directly go up to
+ 
+\begin_inset Formula $k'=4$
+\end_inset
+
+ when moving pairs at once.
+\end_layout
+
+\begin_layout Itemize
+When already starting with 
+\begin_inset Formula $k>2$
+\end_inset
+
+ LV replicas in the starting position, you can do the same analogously,
+ or you may then use a lesser variant.
+ For example, we have some mission-critical servers at 1&1 which are running
+ 
+\begin_inset Formula $k=4$
+\end_inset
+
+ replicas all the time on relatively small but important LVs for extremely
+ increased safety.
+ Only in such a case, you may have the freedom to temporarily decrease from
+ 
+\begin_inset Formula $k=4$
+\end_inset
+
+ to 
+\begin_inset Formula $k'=3$
+\end_inset
+
+ and then going up to 
+\begin_inset Formula $k''=4$
+\end_inset
+
+ again.
+ This has the advantage of requiring less temporary storage space for 
+\emph on
+swapping
+\emph default
+ some LVs.
+\end_layout
+
+\begin_layout Section
+Cost Arguments from Technology
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Cost-Arguments-from"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+A common pre-jugdement is that 
+\begin_inset Quotes eld
+\end_inset
+
+big cluster
+\begin_inset Quotes erd
+\end_inset
+
+ is the cheapest scaling storage technology when built on so-called 
+\begin_inset Quotes eld
+\end_inset
+
+commodity hardware
+\begin_inset Quotes erd
+\end_inset
+
+.
+ While this is very often true for the 
+\begin_inset Quotes eld
+\end_inset
+
+commodity hardware
+\begin_inset Quotes erd
+\end_inset
+
+ part, it is often not true for the 
+\begin_inset Quotes eld
+\end_inset
+
+big cluster
+\begin_inset Quotes erd
+\end_inset
+
+ part.
+ But let us first look at the 
+\begin_inset Quotes eld
+\end_inset
+
+commodity
+\begin_inset Quotes erd
+\end_inset
+
+ part.
+\end_layout
+
+\begin_layout Standard
+Here are some rough market prices for basic storage as determined around
+ end of 2016 / start of 2017:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Tabular
+<lyxtabular version="3" rows="6" columns="3">
+<features rotate="0" tabularvalignment="middle">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size small
+Technology
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size small
+Enterprise-Grade
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size small
+Price in € / TB
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size small
+Consumer SATA disks via on-board SATA controllers
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size small
+no (small-scale)
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size small
+< 30 possible
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size small
+SAS disks via SAS HBAs (e.g.
+ in external 14
+\begin_inset Quotes erd
+\end_inset
+
+ shelfs)
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size small
+halfways
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size small
+< 80
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size small
+SAS disks via hardware RAID + LVM (+DRBD/MARS)
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size small
+yes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size small
+80 to 150
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size small
+Commercial storage appliances via iSCSI
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size small
+yes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size small
+around 1000
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size small
+Cloud storage, S3 over 5 years lifetime
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size small
+yes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size small
+3000 to 8000
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+You can see that any self-built and self-administered storage (whose price
+ varies with slower high-capacity versus faster low-capacity disks) is much
+ cheaper than any commercial offering by about a factor of 10 or even more.
+ If you need to operate serveral petabytes of data, self-built storage is
+ always cheaper than commercial one, even if additional manpower would be
+ needed for commissioning and operating.
+ Here we just assume that the storage is needed permanently for at least
+ 5 years, as is the case in web hosting, databases, backup / archival systems,
+ and many other application areas.
+\end_layout
+
+\begin_layout Standard
+Cloud storage is way too much hyped.
+ From a commercial perspective it usually pays off only when your storage
+ demands are 
+\emph on
+extremely
+\emph default
+ varying over time, and when you need some 
+\emph on
+extra
+\emph default
+ capacity only 
+\emph on
+temporarily
+\emph default
+ for a 
+\emph on
+very
+\emph default
+ short time.
+\end_layout
+
+\begin_layout Standard
+In addition to basic storage prices, many further factors come into play
+ when roughly comparing big clusters versus sharding (
+\family roman
+\series medium
+\shape up
+\size normal
+\emph off
+\bar no
+\strikeout off
+\uuline off
+\uwave off
+\noun off
+\color none
+
+\begin_inset Formula $\times2$
+\end_inset
+
+
+\family default
+\series default
+\shape default
+\size default
+\emph default
+\bar default
+\strikeout default
+\uuline default
+\uwave default
+\noun default
+\color inherit
+ means with geo-redundancy):
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Tabular
+<lyxtabular version="3" rows="5" columns="5">
+<features rotate="0" tabularvalignment="middle">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+BC
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+SHA
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+BC
+\begin_inset Formula $\times2$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+SHA
+\begin_inset Formula $\times2$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+# of Disks
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+>200%
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+<120%
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+>400%
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+<240%
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+# of Servers
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $\approx\times2$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $\approx\times1.1$
+\end_inset
+
+ possible
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $\approx\times4$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $\approx\times2.2$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Power Consumption
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $\approx\times2$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+dito
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+dito
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+dito
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+HU Consumption
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $\approx\times2$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+dito
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+dito
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+dito
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+The crucial point is not only the number of extra servers needed for dedicated
+ storage boxes, but also the total number of HDDs.
+ While big cluster implementations like Ceph or Swift can 
+\emph on
+theoretically
+\emph default
+ use some erasure encoding for avoiding full object replicas, their 
+\emph on
+practice
+\emph default
+ as seen in our internal 1&1 Ceph clusters is similar to RAID-10, but just
+ on objects instead of block-based sectors.
+\end_layout
+
+\begin_layout Standard
+Therefore a big cluster typically needs >200% disks to reach the same net
+ capacity as a sharded cluster, where typically hardware RAID-60 with a
+ significantly smaller overhead is sufficient for providing sufficient failure
+ tolerance at disk level.
+\end_layout
+
+\begin_layout Standard
+There is a surprising consequence from this: geo-redundancy is not as expensive
+ as many people are believing.
+ It just needs to be built with the proper architecture.
+ A sharded geo-redundant pool based on hardware RAID-60 costs roughly about
+ the same as (or when taking 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ storage networks into account it is possibly even cheaper than) a big cluster
+ with full replicas without geo-redundancy.
+ A geo-redundant sharded pool provides even better failure compensation.
+\end_layout
+
+\begin_layout Standard
+Notice that geo-redundancy implies by definition that an unforeseeable 
+\series bold
+full datacenter loss
+\series default
+ (e.g.
+ caused by 
+\series bold
+disasters
+\series default
+ like a terrorist attack or an earthquake) must be compensated for 
+\series bold
+several days or weeks
+\series default
+.
+ Therefore it is 
+\emph on
+not
+\emph default
+ sufficient to take a big cluster and just spread it to two different locations.
+\end_layout
+
+\begin_layout Standard
+In any case, a MARS-based geo-redundant sharding pool is cheaper than using
+ commercial storage appliances which are much more expensive by their nature.
+\end_layout
+
+\begin_layout Section
+Performance Arguments from Architecture
+\end_layout
+
 \begin_layout Standard
 Some people think that replication is easily done at filesystem layer.
  There exist lots of cluster filesystems and other filesystem-layer solutions
@@ -346,7 +1632,7 @@ Choosing the wrong layer for
 mass data replication
 \series default
  may get you into trouble.
- Here is an explaination why replication at the block layer is more easy
+ Here is an explanation why replication at the block layer is more easy
  and less error prone:
 \end_layout
 
@@ -29160,7 +30446,7 @@ This section addresses some wide-spread misconceptions.
  Its main target audience is developers, but sysadmins will profit from
  
 \series bold
-detailed explainations of problems and pitfalls
+detailed explanations of problems and pitfalls
 \series default
 .
  When the problems described in this section are solved somewhen in future,
