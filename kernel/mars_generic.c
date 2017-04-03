@@ -175,14 +175,18 @@ void mars_digest(unsigned char *digest, void *data, int len)
  * global variables and locking.
  */
 
-static struct crypto_hash *mars_tfm = NULL;
-static struct semaphore tfm_sem = __SEMAPHORE_INITIALIZER(tfm_sem, 1);
+#define OBSOLETE_TFM_MAX 16
+
+static struct crypto_hash *mars_tfm[OBSOLETE_TFM_MAX];
+static struct semaphore tfm_sem[OBSOLETE_TFM_MAX];
 int mars_digest_size = 0;
 
 void mars_digest(unsigned char *digest, void *data, int len)
 {
+	static unsigned int round_robin = 0;
+	unsigned int i = round_robin++ % OBSOLETE_TFM_MAX;
 	struct hash_desc desc = {
-		.tfm = mars_tfm,
+		.tfm = mars_tfm[i],
 		.flags = 0,
 	};
 	struct scatterlist sg;
@@ -190,14 +194,14 @@ void mars_digest(unsigned char *digest, void *data, int len)
 	memset(digest, 0, mars_digest_size);
 
 	// TODO: use per-thread instance, omit locking
-	down(&tfm_sem);
+	down(&tfm_sem[i]);
 
 	crypto_hash_init(&desc);
 	sg_init_table(&sg, 1);
 	sg_set_buf(&sg, data, len);
 	crypto_hash_update(&desc, &sg, sg.length);
 	crypto_hash_final(&desc, digest);
-	up(&tfm_sem);
+	up(&tfm_sem[i]);
 }
 
 #endif /* HAS_NEW_CRYPTO */
@@ -388,14 +392,21 @@ int __init init_mars(void)
 	}
 	mars_digest_size = crypto_shash_digestsize(mars_tfm);
 #else  /* HAS_NEW_CRYPTO */
-	mars_tfm = crypto_alloc_hash("md5", 0, CRYPTO_ALG_ASYNC);
-	if (!mars_tfm) {
-		MARS_ERR("cannot alloc crypto hash\n");
-		return -ENOMEM;
-	}
-	if (IS_ERR(mars_tfm)) {
-		MARS_ERR("alloc crypto hash failed, status = %d\n", (int)PTR_ERR(mars_tfm));
-		return PTR_ERR(mars_tfm);
+	{
+		int i;
+
+		for (i = 0; i < OBSOLETE_TFM_MAX; i++) {
+			sema_init(&tfm_sem[i], 1);
+			mars_tfm[i] = crypto_alloc_hash("md5", 0, CRYPTO_ALG_ASYNC);
+			if (!mars_tfm[i]) {
+				MARS_ERR("cannot alloc crypto hash\n");
+				return -ENOMEM;
+			}
+			if (IS_ERR(mars_tfm)) {
+				MARS_ERR("alloc crypto hash failed, status = %d\n", (int)PTR_ERR(mars_tfm));
+				return PTR_ERR(mars_tfm);
+			}
+		}
 	}
 #if 0
 	if (crypto_tfm_alg_type(crypto_hash_tfm(mars_tfm)) != CRYPTO_ALG_TYPE_DIGEST) {
@@ -403,7 +414,7 @@ int __init init_mars(void)
 		return -EINVAL;
 	}
 #endif
-	mars_digest_size = crypto_hash_digestsize(mars_tfm);
+	mars_digest_size = crypto_hash_digestsize(mars_tfm[0]);
 #endif /* HAS_NEW_CRYPTO */
 	MARS_INF("digest_size = %d\n", mars_digest_size);
 
@@ -416,13 +427,18 @@ void exit_mars(void)
 
 	put_fake();
 
-	if (mars_tfm) {
 #ifdef HAS_NEW_CRYPTO
+	if (mars_tfm) {
 		crypto_free_shash(mars_tfm);
-#else  /* HAS_NEW_CRYPTO */
-		crypto_free_hash(mars_tfm);
-#endif /* HAS_NEW_CRYPTO */
 	}
+#else  /* HAS_NEW_CRYPTO */
+	if (mars_tfm[0]) {
+		int i;
+
+		for (i = 0; i < OBSOLETE_TFM_MAX; i++)
+			crypto_free_hash(mars_tfm[i]);
+	}
+#endif /* HAS_NEW_CRYPTO */
 
 #ifdef MARS_TRACING
 	if (mars_log_file) {
