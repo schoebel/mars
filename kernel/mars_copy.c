@@ -41,7 +41,7 @@
 #endif
 
 #define COPY_CHUNK         (PAGE_SIZE)
-#define NR_COPY_REQUESTS   (32 * 1024 * 1024 / COPY_CHUNK)
+#define NR_COPY_REQUESTS   (128 * 1024 * 1024 / COPY_CHUNK)
 
 #define STATES_PER_PAGE    (PAGE_SIZE / sizeof(struct copy_state))
 #define MAX_SUB_TABLES     (NR_COPY_REQUESTS / STATES_PER_PAGE + (NR_COPY_REQUESTS % STATES_PER_PAGE ? 1 : 0))
