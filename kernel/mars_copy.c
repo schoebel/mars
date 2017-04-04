@@ -794,6 +794,9 @@ static int _copy_thread(void *data)
 		loff_t check_hint;
 
 		if (old_end > 0) {
+			loff_t old_last = brick->copy_last;
+			loff_t old_dirty = brick->copy_dirty;
+
 			progress = _run_copy(brick, -1);
 			/* This is racy, deliberately.
 			 * Missing some events does no harm.
@@ -803,6 +806,9 @@ static int _copy_thread(void *data)
 				brick->check_hint = 0;
 				progress += _run_copy(brick, check_hint);
 			}
+			/* earlier resume working at the tail */
+			if (brick->copy_last > old_last && old_dirty)
+				progress += _run_copy(brick, old_dirty);
 			/* abort when no progress is made for a longer time */
 			if (progress > 0) {
 				last_progress = CURRENT_TIME;
