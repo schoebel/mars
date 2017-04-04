@@ -57,6 +57,8 @@
 int mars_copy_overlap = 1;
 EXPORT_SYMBOL_GPL(mars_copy_overlap);
 
+int mars_copy_timeout = 180;
+
 int mars_copy_read_prio = MARS_PRIO_NORMAL;
 EXPORT_SYMBOL_GPL(mars_copy_read_prio);
 
@@ -730,7 +732,7 @@ bool _is_done(struct copy_brick *brick)
 static int _copy_thread(void *data)
 {
 	struct copy_brick *brick = data;
-	int rounds = 0;
+	struct timespec last_progress = CURRENT_TIME;
 
 	MARS_DBG("--------------- copy_thread %p starting\n", brick);
 	brick->copy_error = 0;
@@ -747,10 +749,18 @@ static int _copy_thread(void *data)
 		loff_t old_start = brick->copy_start;
 		loff_t old_end = brick->copy_end;
 		int progress = 0;
+
 		if (old_end > 0) {
 			progress = _run_copy(brick);
-			if (!progress || ++rounds > 1000) {
-				rounds = 0;
+			/* abort when no progress is made for a longer time */
+			if (progress > 0) {
+				last_progress = CURRENT_TIME;
+			} else {
+				struct timespec next_progress = CURRENT_TIME;
+
+				next_progress.tv_sec -= mars_copy_timeout;
+				if (timespec_compare(&next_progress, &last_progress) > 0)
+					brick->is_aborting = true;
 			}
 		}
 
