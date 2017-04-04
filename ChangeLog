@@ -135,6 +135,13 @@ Changelog for series 0.1b:
 -----------------------------------
 Changelog for series 0.1:
 
+mars0.1stable37
+--------
+	* Minor fix: secondary logfile replication could hang in the
+	  extremely unusual case that the expected primary logfile size
+	  gets shortened after a crash followed by reboot.
+	  Workaround was possible via "pause-fetch; resume-fetch".
+
 mars0.1stable36
 --------
 	* Doc: new slides from GUUG2017, both in English and in German.
