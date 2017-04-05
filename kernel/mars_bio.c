@@ -955,6 +955,16 @@ static int bio_brick_construct(struct bio_brick *brick)
 
 static int bio_brick_destruct(struct bio_brick *brick)
 {
+	int i;
+
+	CHECK_HEAD_EMPTY(&brick->queue_list[0]);
+	CHECK_HEAD_EMPTY(&brick->queue_list[1]);
+	CHECK_HEAD_EMPTY(&brick->queue_list[2]);
+	CHECK_HEAD_EMPTY(&brick->submitted_list[0]);
+	CHECK_HEAD_EMPTY(&brick->submitted_list[1]);
+	for (i = 0; i < BIO_RESPONSE_THREADS; i++) {
+		CHECK_HEAD_EMPTY(&brick->rsp[i].completed_list);
+	}
 	return 0;
 }
 
