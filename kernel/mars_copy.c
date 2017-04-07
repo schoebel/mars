@@ -209,6 +209,7 @@ void copy_endio(struct generic_callback *cb)
 {
 	struct copy_mref_aspect *mref_a;
 	struct mref_object *mref;
+	struct copy_input *input;
 	struct copy_brick *brick;
 	struct copy_state *st;
 	int index;
@@ -226,8 +227,10 @@ void copy_endio(struct generic_callback *cb)
 	/* This is racy, but affects only a _hint_ for
 	 * performance optimization.
 	 */
-	if (!brick->check_hint || mref->ref_pos < brick->check_hint)
-		brick->check_hint = mref->ref_pos;
+	input = mref_a->input;
+	if (input &&
+	    (!input->check_hint || mref->ref_pos < input->check_hint))
+		input->check_hint = mref->ref_pos;
 
 	queue = mref_a->queue;
 	index = GET_INDEX(mref->ref_pos);
@@ -328,6 +331,7 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 	SETUP_CALLBACK(mref, copy_endio, mref_a);
 	
 	input = queue ? brick->inputs[INPUT_B_COPY] : brick->inputs[INPUT_A_COPY];
+	mref_a->input = input;
 	status = GENERIC_INPUT_CALL(input, mref_get, mref);
 	if (unlikely(status < 0)) {
 		MARS_ERR("status = %d\n", status);
@@ -775,13 +779,15 @@ static int _copy_thread(void *data)
 {
 	struct copy_brick *brick = data;
 	struct timespec last_progress = CURRENT_TIME;
+	int i;
 
 	MARS_DBG("--------------- copy_thread %p starting\n", brick);
 	brick->copy_error = 0;
 	brick->copy_error_count = 0;
 	brick->verify_ok_count = 0;
 	brick->verify_error_count = 0;
-	brick->check_hint = 0;
+	for (i = 0; i < COPY_INPUT_NR; i++)
+		brick->inputs[i]->check_hint = 0;
 
 	_update_percent(brick, true);
 
@@ -798,13 +804,16 @@ static int _copy_thread(void *data)
 			loff_t old_dirty = brick->copy_dirty;
 
 			progress = _run_copy(brick, -1);
+
 			/* This is racy, deliberately.
 			 * Missing some events does no harm.
 			 */
-			check_hint = brick->check_hint;
-			if (check_hint > 0) {
-				brick->check_hint = 0;
-				progress += _run_copy(brick, check_hint);
+			for (i = 0; i < COPY_INPUT_NR; i++) {
+				check_hint = brick->inputs[i]->check_hint;
+				if (check_hint > 0) {
+					brick->inputs[i]->check_hint = 0;
+					progress += _run_copy(brick, check_hint);
+				}
 			}
 			/* earlier resume working at the tail */
 			if (brick->copy_last > old_last && old_dirty)
@@ -950,7 +959,10 @@ char *copy_statistics(struct copy_brick *brick, int verbose)
 		 "copy_last = %lld "
 		 "copy_dirty = %lld "
 		 "copy_end = %lld "
-		 "check_hint = %lld "
+		 "check_hint[0] = %lld "
+		 "check_hint[1] = %lld "
+		 "check_hint[2] = %lld "
+		 "check_hint[3] = %lld "
 		 "copy_error = %d "
 		 "copy_error_count = %d "
 		 "verify_ok_count = %d "
@@ -966,7 +978,10 @@ char *copy_statistics(struct copy_brick *brick, int verbose)
 		 brick->copy_last,
 		 brick->copy_dirty,
 		 brick->copy_end,
-		 brick->check_hint,
+		 brick->inputs[0]->check_hint,
+		 brick->inputs[1]->check_hint,
+		 brick->inputs[2]->check_hint,
+		 brick->inputs[3]->check_hint,
 		 brick->copy_error,
 		 brick->copy_error_count,
 		 brick->verify_ok_count,

@@ -30,6 +30,7 @@
 #define INPUT_A_COPY 1
 #define INPUT_B_IO   2
 #define INPUT_B_COPY 3
+#define COPY_INPUT_NR 4
 
 extern int mars_copy_overlap;
 extern int mars_copy_timeout;
@@ -66,6 +67,7 @@ struct copy_state {
 
 struct copy_mref_aspect {
 	GENERIC_ASPECT(mref);
+	struct copy_input *input;
 	struct copy_brick *brick;
 	int queue;
 };
@@ -101,7 +103,6 @@ struct copy_brick {
 	atomic_t copy_read_flight;
 	atomic_t copy_write_flight;
 	long long last_jiffies;
-	loff_t check_hint;
 	wait_queue_head_t event;
 	struct task_struct *thread;
 	struct copy_state **st;
@@ -109,6 +110,7 @@ struct copy_brick {
 
 struct copy_input {
 	MARS_INPUT(copy);
+	loff_t check_hint;
 };
 
 struct copy_output {
