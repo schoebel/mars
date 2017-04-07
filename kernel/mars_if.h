@@ -35,6 +35,7 @@
 
 ///////////////////////// global tuning ////////////////////////
 
+extern int if_nr_requests;
 extern int if_throttle_start_size; // in kb
 extern struct mars_limiter if_throttle;
 

@@ -77,6 +77,8 @@
 //      end_remove_this
 ///////////////////////// global tuning ////////////////////////
 
+int if_nr_requests = 1024;
+
 int if_throttle_start_size = 0; // in kb
 EXPORT_SYMBOL_GPL(if_throttle_start_size);
 
@@ -1031,6 +1033,7 @@ static int if_switch(struct if_brick *brick)
 #endif
 
 //      end_remove_this
+		q->nr_requests = if_nr_requests;
 		// point of no return
 		MARS_DBG("add_disk()\n");
 		add_disk(disk);

@@ -244,6 +244,7 @@ struct ctl_table io_tuning_table[] = {
 	THRESHOLD_ENTRIES(&aio_io_threshold[0],  "aio_io_r"),
 	THRESHOLD_ENTRIES(&aio_io_threshold[1],  "aio_io_w"),
 	THRESHOLD_ENTRIES(&aio_sync_threshold,   "aio_sync"),
+	INT_ENTRY("if_nr_requests", if_nr_requests, 0600),
 	{}
 };
 
