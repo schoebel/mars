@@ -28,6 +28,7 @@
 #define BIO_IO_R_MAX_LATENCY    40000 //  40 ms
 #define BIO_IO_W_MAX_LATENCY   100000 // 100 ms
 
+extern int bio_nr_requests;
 extern struct threshold bio_submit_threshold;
 extern struct threshold bio_io_threshold[2];
 

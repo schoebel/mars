@@ -236,6 +236,7 @@ struct ctl_table io_tuning_table[] = {
 	LIMITER_ENTRIES(&global_writeback.limiter, "writeback",       "kb"),
 	INT_ENTRY("writeback_until_percent", global_writeback.until_percent, 0600),
 	THRESHOLD_ENTRIES(&global_io_threshold,  "global_io"),
+	INT_ENTRY("bio_nr_requests", bio_nr_requests, 0600),
 	THRESHOLD_ENTRIES(&bio_submit_threshold, "bio_submit"),
 	THRESHOLD_ENTRIES(&bio_io_threshold[0],  "bio_io_r"),
 	THRESHOLD_ENTRIES(&bio_io_threshold[1],  "bio_io_w"),

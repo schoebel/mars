@@ -51,6 +51,8 @@
 #endif
 
 //      end_remove_this
+int bio_nr_requests = 1024;
+
 static struct timing_stats timings[2] = {};
 
 struct threshold bio_submit_threshold = {
@@ -800,6 +802,8 @@ static int bio_switch(struct bio_brick *brick)
 
 			MARS_INF("'%s' ra_pages OLD=%lu NEW=%d\n", path, q->backing_dev_info.ra_pages, brick->ra_pages);
 			q->backing_dev_info.ra_pages = brick->ra_pages;
+
+			q->nr_requests = bio_nr_requests;
 
 			brick->bvec_max = queue_max_hw_sectors(q) >> (PAGE_SHIFT - 9);
 			if (brick->bvec_max > BIO_MAX_PAGES)
