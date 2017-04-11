@@ -132,6 +132,7 @@ Changelog for series 0.1b:
 
 mars0.1balpha2
 --------
+	* Speedup copy processes (sync, logfile transfer).
 	* Speedup bio and md5 checksumming.
 
 mars0.1balpha1
