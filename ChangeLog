@@ -132,6 +132,7 @@ Changelog for series 0.1b:
 
 mars0.1balpha2
 --------
+	* Socket bundling (cherry-picked from mars0.2.y).
 	* Speedup copy processes (sync, logfile transfer).
 	* Speedup bio and md5 checksumming.
 
