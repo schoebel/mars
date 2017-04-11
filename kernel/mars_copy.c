@@ -65,10 +65,10 @@ EXPORT_SYMBOL_GPL(mars_copy_read_prio);
 int mars_copy_write_prio = MARS_PRIO_NORMAL;
 EXPORT_SYMBOL_GPL(mars_copy_write_prio);
 
-int mars_copy_read_max_fly = 0;
+int mars_copy_read_max_fly = 32768;
 EXPORT_SYMBOL_GPL(mars_copy_read_max_fly);
 
-int mars_copy_write_max_fly = 0;
+int mars_copy_write_max_fly = 32768;
 EXPORT_SYMBOL_GPL(mars_copy_write_max_fly);
 
 atomic_t global_copy_read_flight;
