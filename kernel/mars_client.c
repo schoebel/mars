@@ -42,7 +42,7 @@
 int mars_client_abort = 10;
 EXPORT_SYMBOL_GPL(mars_client_abort);
 
-int max_client_channels = 1;
+int max_client_channels = 2;
 EXPORT_SYMBOL_GPL(max_client_channels);
 
 int max_client_bulk = 16;
