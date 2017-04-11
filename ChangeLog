@@ -130,6 +130,10 @@ Changelog for series 0.2:
 -----------------------------------
 Changelog for series 0.1b:
 
+mars0.1balpha2
+--------
+	* Speedup bio and md5 checksumming.
+
 mars0.1balpha1
 --------
 	* First improvements for scalability to more than 10 resources
