@@ -130,6 +130,16 @@ Changelog for series 0.2:
 -----------------------------------
 Changelog for series 0.1b:
 
+mars0.1balpha1
+--------
+	* First improvements for scalability to more than 10 resources
+	  per node. Already tested with 128 resources on a pair of nodes.
+	  More improvements to come later.
+	  No functional changes otherwise (from a sysadmin perspective).
+	  Rollback to stable series 0.1 should be possible at
+	  any time.
+	* Include fix from 0.1stable37.
+
 mars0.1balpha0
 --------
 	* Minor fix: the 1&1 specific feature set-sync-pref-list was
