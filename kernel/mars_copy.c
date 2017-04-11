@@ -71,11 +71,14 @@ EXPORT_SYMBOL_GPL(mars_copy_read_max_fly);
 int mars_copy_write_max_fly = 0;
 EXPORT_SYMBOL_GPL(mars_copy_write_max_fly);
 
+atomic_t global_copy_read_flight;
+atomic_t global_copy_write_flight;
+
 #define is_read_limited(brick)						\
-	(mars_copy_read_max_fly > 0 && atomic_read(&(brick)->copy_read_flight) >= mars_copy_read_max_fly)
+	(mars_copy_read_max_fly > 0 && atomic_read(&global_copy_read_flight) >= mars_copy_read_max_fly)
 
 #define is_write_limited(brick)						\
-	(mars_copy_write_max_fly > 0 && atomic_read(&(brick)->copy_write_flight) >= mars_copy_write_max_fly)
+	(mars_copy_write_max_fly > 0 && atomic_read(&global_copy_write_flight) >= mars_copy_write_max_fly)
 
 ///////////////////////// own helper functions ////////////////////////
 
@@ -260,8 +263,10 @@ exit:
 	}
 	if (mref->ref_rw) {
 		atomic_dec(&brick->copy_write_flight);
+		atomic_dec(&global_copy_write_flight);
 	} else {
 		atomic_dec(&brick->copy_read_flight);
+		atomic_dec(&global_copy_read_flight);
 	}
 	brick->trigger = true;
 	wake_up_interruptible(&brick->event);
@@ -338,8 +343,10 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 	GET_STATE(brick, index).active[queue] = true;
 	if (rw) {
 		atomic_inc(&brick->copy_write_flight);
+		atomic_inc(&global_copy_write_flight);
 	} else {
 		atomic_inc(&brick->copy_read_flight);
+		atomic_inc(&global_copy_read_flight);
 	}
 
 	GENERIC_INPUT_CALL(input, mref_io, mref);

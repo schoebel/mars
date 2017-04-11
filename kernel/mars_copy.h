@@ -39,6 +39,9 @@ extern int mars_copy_write_prio;
 extern int mars_copy_read_max_fly;
 extern int mars_copy_write_max_fly;
 
+extern atomic_t global_copy_read_flight;
+extern atomic_t global_copy_write_flight;
+
 enum {
 	COPY_STATE_RESET    = -1,
 	COPY_STATE_START    = 0, // don't change this, it _must_ be zero
