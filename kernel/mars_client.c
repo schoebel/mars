@@ -285,7 +285,7 @@ struct client_channel *_get_channel(struct client_bundle *bundle, int min_channe
 			.cmd_code = CMD_CONNECT,
 			.cmd_str1 = bundle->path,
 		};
-		int status = mars_send_struct(&res->socket, &cmd, mars_cmd_meta);
+		int status = mars_send_struct(&res->socket, &cmd, mars_cmd_meta, false);
 		MARS_DBG("send CMD_CONNECT status = %d\n", status);
 		if (unlikely(status < 0)) {
 			MARS_WRN("connect '%s' @%s on channel %d failed, status = %d\n",
@@ -316,7 +316,7 @@ int _request_info(struct client_channel *ch)
 	int status;
 	
 	MARS_DBG("\n");
-	status = mars_send_struct(&ch->socket, &cmd, mars_cmd_meta);
+	status = mars_send_struct(&ch->socket, &cmd, mars_cmd_meta, false);
 	MARS_DBG("send CMD_GETINFO status = %d\n", status);
 	if (unlikely(status < 0)) {
 		MARS_DBG("send of getinfo failed, status = %d\n", status);

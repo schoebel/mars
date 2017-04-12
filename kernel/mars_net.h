@@ -132,7 +132,7 @@ extern int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int m
 
 /* Mid-level generic field data exchange
  */
-extern int mars_send_struct(struct mars_socket *msock, const void *data, const struct meta *meta);
+extern int mars_send_struct(struct mars_socket *msock, const void *data, const struct meta *meta, bool cork);
 #define mars_recv_struct(_sock_,_data_,_meta_)				\
 	({								\
 		_mars_recv_struct(_sock_, _data_, _meta_, __LINE__); \

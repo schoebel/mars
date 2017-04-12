@@ -2194,12 +2194,12 @@ int peer_thread(void *data)
 			peer->to_remote_trigger = false;
 			MARS_DBG("sending notify to peer...\n");
 			cmd.cmd_code = CMD_NOTIFY;
-			status = mars_send_struct(&peer->socket, &cmd, mars_cmd_meta);
+			status = mars_send_struct(&peer->socket, &cmd, mars_cmd_meta, true);
 		}
 
 		if (likely(status >= 0)) {
 			cmd.cmd_code = CMD_GETENTS;
-			status = mars_send_struct(&peer->socket, &cmd, mars_cmd_meta);
+			status = mars_send_struct(&peer->socket, &cmd, mars_cmd_meta, false);
 		}
 		if (unlikely(status < 0)) {
 			MARS_WRN("communication error on send, status = %d\n", status);

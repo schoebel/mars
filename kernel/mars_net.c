@@ -1121,10 +1121,10 @@ err:
 	return status;
 }
 
-int mars_send_struct(struct mars_socket *msock, const void *data, const struct meta *meta)
+int mars_send_struct(struct mars_socket *msock, const void *data, const struct meta *meta, bool cork)
 {
 	MARS_IO("#%d meta=%p\n", msock->s_debug_nr, meta);
-	return desc_send_struct(msock, data, meta, false);
+	return desc_send_struct(msock, data, meta, cork);
 }
 EXPORT_SYMBOL_GPL(mars_send_struct);
 

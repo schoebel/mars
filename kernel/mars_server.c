@@ -433,9 +433,9 @@ int handler_thread(void *data)
 				break;
 			}
 			down(&brick->socket_sem);
-			status = mars_send_struct(sock, &cmd, mars_cmd_meta);
+			status = mars_send_struct(sock, &cmd, mars_cmd_meta, true);
 			if (status >= 0) {
-				status = mars_send_struct(sock, &info, mars_info_meta);
+				status = mars_send_struct(sock, &info, mars_info_meta, false);
 			}
 			up(&brick->socket_sem);
 			break;
@@ -494,7 +494,7 @@ int handler_thread(void *data)
 		err:
 			cmd.cmd_int1 = status;
 			down(&brick->socket_sem);
-			status = mars_send_struct(sock, &cmd, mars_cmd_meta);
+			status = mars_send_struct(sock, &cmd, mars_cmd_meta, false);
 			up(&brick->socket_sem);
 			break;
 		}

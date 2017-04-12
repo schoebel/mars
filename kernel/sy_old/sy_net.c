@@ -78,12 +78,12 @@ int mars_send_dent_list(struct mars_socket *sock, struct list_head *anchor)
 	int status = 0;
 	for (tmp = anchor->next; tmp != anchor; tmp = tmp->next) {
 		dent = container_of(tmp, struct mars_dent, dent_link);
-		status = mars_send_struct(sock, dent, mars_dent_meta);
+		status = mars_send_struct(sock, dent, mars_dent_meta, true);
 		if (status < 0)
 			break;
 	}
 	if (status >= 0) { // send EOR
-		status = mars_send_struct(sock, NULL, mars_dent_meta);
+		status = mars_send_struct(sock, NULL, mars_dent_meta, false);
 	}
 	return status;
 }
