@@ -144,7 +144,7 @@ extern int _mars_recv_struct(struct mars_socket *msock, void *data, const struct
 extern int mars_send_dent_list(struct mars_socket *msock, struct list_head *anchor);
 extern int mars_recv_dent_list(struct mars_socket *msock, struct list_head *anchor);
 
-extern int mars_send_mref(struct mars_socket *msock, struct mref_object *mref);
+extern int mars_send_mref(struct mars_socket *msock, struct mref_object *mref, bool cork);
 extern int mars_recv_mref(struct mars_socket *msock, struct mref_object *mref, struct mars_cmd *cmd);
 extern int mars_send_cb(struct mars_socket *msock, struct mref_object *mref);
 extern int mars_recv_cb(struct mars_socket *msock, struct mref_object *mref, struct mars_cmd *cmd);

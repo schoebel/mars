@@ -1150,7 +1150,7 @@ const struct meta mars_cmd_meta[] = {
 EXPORT_SYMBOL_GPL(mars_cmd_meta);
 
 
-int mars_send_mref(struct mars_socket *msock, struct mref_object *mref)
+int mars_send_mref(struct mars_socket *msock, struct mref_object *mref, bool cork)
 {
 	struct mars_cmd cmd = {
 		.cmd_code = CMD_MREF,
@@ -1169,12 +1169,12 @@ int mars_send_mref(struct mars_socket *msock, struct mref_object *mref)
 		goto done;
 
 	seq = 0;
-	status = desc_send_struct(msock, mref, mars_mref_meta, cmd.cmd_code & CMD_FLAG_HAS_DATA);
+	status = desc_send_struct(msock, mref, mars_mref_meta, cork || cmd.cmd_code & CMD_FLAG_HAS_DATA);
 	if (status < 0)
 		goto done;
 
 	if (cmd.cmd_code & CMD_FLAG_HAS_DATA) {
-		status = mars_send_raw(msock, mref->ref_data, mref->ref_len, false);
+		status = mars_send_raw(msock, mref->ref_data, mref->ref_len, cork);
 	}
 done:
 	return status;

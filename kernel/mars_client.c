@@ -782,6 +782,7 @@ static int sender_thread(void *data)
 		struct mref_object *mref;
 		int min_nr;
 		int max_nr;
+		bool cork;
 
 		// timeouting is a rather expensive operation, don't do it too often
 		if (do_timeout) {
@@ -828,6 +829,7 @@ static int sender_thread(void *data)
 		}
 		list_del_init(tmp);
 		// notice: hash_head remains in its list!
+		cork = !list_empty(&output->mref_list);
 		traced_unlock(&output->lock, flags);
 
 		mref_a = container_of(tmp, struct client_mref_aspect, io_head);
@@ -873,7 +875,7 @@ static int sender_thread(void *data)
 		// notice: hash_head is already there!
 		spin_unlock(&output->lock);
 
-		status = mars_send_mref(&ch->socket, mref);
+		status = mars_send_mref(&ch->socket, mref, cork);
 		if (unlikely(status < 0)) {
 			_hash_insert(output, mref_a);
 			do_timeout = true;
