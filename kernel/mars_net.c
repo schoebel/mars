@@ -515,9 +515,11 @@ restart:
 	}
 
 	if (msock->s_pos + rest < PAGE_SIZE) {
-		memcpy(msock->s_buffer + msock->s_pos, buf, rest);
-		msock->s_pos += rest;
-		sent += rest;
+		if (buf) {
+			memcpy(msock->s_buffer + msock->s_pos, buf, rest);
+			msock->s_pos += rest;
+			sent += rest;
+		}
 		rest = 0;
 		status = sent;
 		if (cork)
