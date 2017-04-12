@@ -73,6 +73,7 @@ int cb_thread(void *data)
 		struct server_mref_aspect *mref_a;
 		struct mref_object *mref;
 		struct list_head *tmp;
+		bool cork;
 		unsigned long flags;
 		
 		wait_event_interruptible_timeout(
@@ -92,6 +93,7 @@ int cb_thread(void *data)
 			}
 		}
 		list_del_init(tmp);
+		cork = !list_empty(&brick->cb_write_list);
 		traced_unlock(&brick->cb_lock, flags);
 
 		mref_a = container_of(tmp, struct server_mref_aspect, cb_head);
@@ -108,7 +110,7 @@ int cb_thread(void *data)
 			mref->object_cb->cb_error = *brick->conn_brick->mode_ptr;
 		if (!aborted) {
 			down(&brick->socket_sem);
-			status = mars_send_cb(sock, mref);
+			status = mars_send_cb(sock, mref, cork);
 			up(&brick->socket_sem);
 		}
 

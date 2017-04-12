@@ -1207,7 +1207,7 @@ done:
 }
 EXPORT_SYMBOL_GPL(mars_recv_mref);
 
-int mars_send_cb(struct mars_socket *msock, struct mref_object *mref)
+int mars_send_cb(struct mars_socket *msock, struct mref_object *mref, bool cork)
 {
 	struct mars_cmd cmd = {
 		.cmd_code = CMD_CB,
@@ -1226,13 +1226,13 @@ int mars_send_cb(struct mars_socket *msock, struct mref_object *mref)
 		goto done;
 
 	seq = 0;
-	status = desc_send_struct(msock, mref, mars_mref_meta, cmd.cmd_code & CMD_FLAG_HAS_DATA);
+	status = desc_send_struct(msock, mref, mars_mref_meta, cork || cmd.cmd_code & CMD_FLAG_HAS_DATA);
 	if (status < 0)
 		goto done;
 
 	if (cmd.cmd_code & CMD_FLAG_HAS_DATA) {
 		MARS_IO("#%d sending blocklen = %d\n", msock->s_debug_nr, mref->ref_len);
-		status = mars_send_raw(msock, mref->ref_data, mref->ref_len, false);
+		status = mars_send_raw(msock, mref->ref_data, mref->ref_len, cork);
 	}
 done:
 	return status;
