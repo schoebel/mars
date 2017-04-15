@@ -151,10 +151,10 @@ int lamport_sysctl_handler(
 	} else {
 		int my_len = 128;
 		char *tmp = brick_string_alloc(my_len);
-		struct timespec know = CURRENT_TIME;
+		struct timespec know;
 		struct timespec lnow;
 
-		get_lamport(&lnow);
+		get_lamport(&know, &lnow);
 		
 		res = scnprintf(tmp, my_len,
 			       "CURRENT_TIME=%ld.%09ld\n"

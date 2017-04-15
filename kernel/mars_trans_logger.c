@@ -802,7 +802,7 @@ int trans_logger_ref_get(struct trans_logger_output *output, struct mref_object 
 		return mref->ref_len;
 	}
 
-	get_lamport(&mref_a->stamp);
+	get_lamport(NULL, &mref_a->stamp);
 
 	if (mref->ref_len > CONF_TRANS_MAX_MREF_SIZE && CONF_TRANS_MAX_MREF_SIZE > 0)
 		mref->ref_len = CONF_TRANS_MAX_MREF_SIZE;
@@ -1078,7 +1078,7 @@ void pos_complete(struct trans_logger_mref_aspect *orig_mref_a)
 			MARS_ERR("min_pos > max_pos: %lld > %lld\n", finished, log_input->inf.inf_max_pos);
 		}
 		log_input->inf.inf_min_pos = finished;
-		get_lamport(&log_input->inf.inf_min_pos_stamp);
+		get_lamport(NULL, &log_input->inf.inf_min_pos_stamp);
 		_inf_callback(log_input, false);
 	} else {
 		struct trans_logger_mref_aspect *prev_mref_a;
@@ -1448,7 +1448,7 @@ void update_max_pos(struct trans_logger_mref_aspect *orig_mref_a)
 	}
 	if (log_input->inf.inf_max_pos < max_pos) {
 		log_input->inf.inf_max_pos = max_pos;
-		get_lamport(&log_input->inf.inf_max_pos_stamp);
+		get_lamport(NULL, &log_input->inf.inf_max_pos_stamp);
 		_inf_callback(log_input, false);
 	}
 
@@ -2413,7 +2413,7 @@ void _init_input(struct trans_logger_input *input, loff_t start_pos, loff_t end_
 	
 	input->inf.inf_min_pos = start_pos;
 	input->inf.inf_max_pos = end_pos;
-	get_lamport(&input->inf.inf_max_pos_stamp);
+	get_lamport(NULL, &input->inf.inf_max_pos_stamp);
 	memcpy(&input->inf.inf_min_pos_stamp, &input->inf.inf_max_pos_stamp, sizeof(input->inf.inf_min_pos_stamp));
 
 	logst->log_pos = start_pos;
@@ -3010,7 +3010,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 
 			down(&input->inf_mutex);
 			input->inf.inf_min_pos = finished_pos;
-			get_lamport(&input->inf.inf_min_pos_stamp);
+			get_lamport(NULL, &input->inf.inf_min_pos_stamp);
 			old_jiffies = jiffies;
 			_inf_callback(input, false);
 			up(&input->inf_mutex);
@@ -3031,7 +3031,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		brick->replay_current_pos = finished_pos;
 	}
 
-	get_lamport(&input->inf.inf_min_pos_stamp);
+	get_lamport(NULL, &input->inf.inf_min_pos_stamp);
 
 	if (status >= 0 && finished_pos == brick->replay_end_pos) {
 		MARS_INF("replay finished at %lld\n", finished_pos);

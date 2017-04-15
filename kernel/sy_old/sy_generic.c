@@ -221,7 +221,7 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct timespec
 	if (stamp)
 		memcpy(&times[0], stamp, sizeof(times[0]));
 	else
-		get_lamport(&times[0]);
+		get_lamport(NULL, &times[0]);
 	
 #ifdef CONFIG_MARS_DEBUG
 	while (mars_hang_mode & 4)
@@ -1410,7 +1410,7 @@ struct mars_brick *mars_make_brick(struct mars_global *global, struct mars_dent 
 		MARS_ERR("cannot grab %d bytes for brick type '%s'\n", size, brick_type->type_name);
 		goto err_name;
 	}
-	get_lamport(&res->create_stamp);
+	get_lamport(NULL, &res->create_stamp);
 	res->global = global;
 	INIT_LIST_HEAD(&res->dent_brick_link);
 	res->brick_path = brick_strdup(path);

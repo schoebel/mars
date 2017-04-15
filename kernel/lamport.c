@@ -32,21 +32,23 @@
 struct semaphore lamport_sem = __SEMAPHORE_INITIALIZER(lamport_sem, 1); // TODO: replace with spinlock if possible (first check)
 struct timespec lamport_now = {};
 
-void get_lamport(struct timespec *now)
+void get_lamport(struct timespec *real_now, struct timespec *lamp_now)
 {
 	int diff;
 
 	down(&lamport_sem);
 
-	*now = CURRENT_TIME;
-	diff = timespec_compare(now, &lamport_now);
+	*lamp_now = CURRENT_TIME;
+	if (real_now)
+		*real_now = *lamp_now;
+	diff = timespec_compare(lamp_now, &lamport_now);
 	if (diff >= 0) {
-		timespec_add_ns(now, 1);
-		memcpy(&lamport_now, now, sizeof(lamport_now));
+		timespec_add_ns(lamp_now, 1);
+		memcpy(&lamport_now, lamp_now, sizeof(lamport_now));
 		timespec_add_ns(&lamport_now, 1);
 	} else {
 		timespec_add_ns(&lamport_now, 1);
-		memcpy(now, &lamport_now, sizeof(*now));
+		memcpy(lamp_now, &lamport_now, sizeof(*lamp_now));
 	}
 
 	up(&lamport_sem);

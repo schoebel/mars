@@ -292,8 +292,7 @@ void _make_msg(int line, struct key_value_pair *pair, const char *fmt, ...)
 		pair->val = brick_string_alloc(MARS_SYMLINK_MAX + 1);
 		len = 0;
 		if (!pair->system_stamp.tv_sec) {
-			pair->system_stamp = CURRENT_TIME;
-			get_lamport(&pair->lamport_stamp);
+			get_lamport(&pair->system_stamp, &pair->lamport_stamp);
 		}
 	} else {
 		len = strnlen(pair->val, MARS_SYMLINK_MAX);
@@ -2303,7 +2302,7 @@ void _make_alive(void)
 	struct timespec now;
 	char *tmp;
 
-	get_lamport(&now);
+	get_lamport(NULL, &now);
 	tmp = path_make("%ld.%09ld", now.tv_sec, now.tv_nsec);
 	if (likely(tmp)) {
 		_make_alivelink_str("time", tmp);
@@ -4314,7 +4313,7 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 
 	/* create syncpos symlink when necessary */
 	if (copy->copy_last == copy->copy_end && !rot->sync_finish_stamp.tv_sec) {
-		get_lamport(&rot->sync_finish_stamp);
+		get_lamport(NULL, &rot->sync_finish_stamp);
 		MARS_DBG("sync finished at timestamp %lu\n",
 			 rot->sync_finish_stamp.tv_sec);
 		/* Give the remote replay position a chance to become

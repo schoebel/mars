@@ -361,7 +361,7 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	DATA_PUT(data, offset, (char)0);  // spare
 	DATA_PUT(data, offset, (short)0); // spare
 	DATA_PUT(data, offset, logst->seq_nr + 1);
-	get_lamport(&now);    // when the log entry was ready.
+	get_lamport(NULL, &now);    // when the log entry was ready.
 	DATA_PUT(data, offset, now.tv_sec);  
 	DATA_PUT(data, offset, now.tv_nsec);
 

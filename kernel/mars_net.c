@@ -1164,7 +1164,7 @@ int mars_send_mref(struct mars_socket *msock, struct mref_object *mref, bool cor
 	if (mref->ref_rw != 0 && mref->ref_data && mref->ref_cs_mode < 2)
 		cmd.cmd_code |= CMD_FLAG_HAS_DATA;
 
-	get_lamport(&cmd.cmd_stamp);
+	get_lamport(NULL, &cmd.cmd_stamp);
 
 	status = desc_send_struct(msock, &cmd, mars_cmd_meta, true);
 	if (status < 0)
@@ -1221,7 +1221,7 @@ int mars_send_cb(struct mars_socket *msock, struct mref_object *mref, bool cork)
 	if (mref->ref_rw == 0 && mref->ref_data && mref->ref_cs_mode < 2)
 		cmd.cmd_code |= CMD_FLAG_HAS_DATA;
 
-	get_lamport(&cmd.cmd_stamp);
+	get_lamport(NULL, &cmd.cmd_stamp);
 
 	status = desc_send_struct(msock, &cmd, mars_cmd_meta, true);
 	if (status < 0)

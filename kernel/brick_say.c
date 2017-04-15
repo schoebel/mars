@@ -541,8 +541,7 @@ void brick_say_to(struct say_channel *ch, int class, bool dump, const char *pref
 	if (!class && !brick_say_debug)
 		return;
 
-	s_now = CURRENT_TIME;
-	get_lamport(&l_now);
+	get_lamport(&s_now, &l_now);
 
 	if (!ch) {
 		ch = find_channel(current);
@@ -776,9 +775,10 @@ void treat_channel(struct say_channel *ch, int class)
 	}
 
 	if (unlikely(overflow > 0)) {
-		struct timespec s_now = CURRENT_TIME;
+		struct timespec s_now;
 		struct timespec l_now;
-		get_lamport(&l_now);
+
+		get_lamport(&s_now, &l_now);
 		len = scnprintf(buf,
 			       SAY_BUFMAX,
 			       "%ld.%09ld %ld.%09ld %s %d OVERFLOW %d times\n",

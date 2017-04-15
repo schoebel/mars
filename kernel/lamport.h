@@ -26,7 +26,13 @@
 
 #include <linux/time.h>
 
-extern void get_lamport(struct timespec *now);
-extern void set_lamport(struct timespec *old);
+/*
+ * We always get both the local real time and the Lamport time in parallel,
+ * consistently.
+ *
+ * When not interested in real time, you can simply leave real_now at NULL.
+ */
+extern void get_lamport(struct timespec *real_now, struct timespec *lamport_now);
+extern void set_lamport(struct timespec *lamport_old);
 
 #endif
