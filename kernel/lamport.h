@@ -30,9 +30,13 @@
  * We always get both the local real time and the Lamport time in parallel,
  * consistently.
  *
+ * The implementation ensures that the distributed Lamport timestamp can
+ * never fall behind the local real time.
+ *
  * When not interested in real time, you can simply leave real_now at NULL.
  */
 extern void get_lamport(struct timespec *real_now, struct timespec *lamport_now);
 extern void set_lamport(struct timespec *lamport_old);
+extern void set_get_lamport(struct timespec *lamport_old, struct timespec *real_now, struct timespec *lamport_now);
 
 #endif
