@@ -130,6 +130,12 @@ Changelog for series 0.2:
 -----------------------------------
 Changelog for series 0.1b:
 
+mars0.1balpha3
+--------
+	* Some tuning (more to come later):
+	  * Speedup network by better corking.
+	  * New scalable Lamport clock implementation.
+
 mars0.1balpha2
 --------
 	* Socket bundling (cherry-picked from mars0.2.y).
