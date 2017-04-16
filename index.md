@@ -10,9 +10,9 @@ GPLed software AS IS, sponsored by 1&1 Internet SE (www.1und1.de). Contact: tst@
 
 ## What is MARS?
 
-MARS can be used to replicate Linux-based storage devices, and even whole datacenters, over arbitrary distances (geo-redundancy).
+MARS can be used to replicate Linux-based storage devices, and even whole datacenters, over arbitrary distances (**geo-redundancy**).
 
-Another use case is cost-efficient virtual pools of sharded storage.
+Another use case is **cost-efficient virtual pools of sharded storage**.
 
 At 1&1 Internet SE, it runs at more than 2000 servers and about 2x8 petabytes of customer data.
 
@@ -24,7 +24,7 @@ Main features:
 
 MARS is almost a drop-in replacement for DRBD (block-level storage replication). It runs as a Linux kernel module.
 
-In contrast to plain DRBD, it works _asynchronously_ and over arbitrary distances. Our internal 1&1 testing runs between datacenters in the US and Europe. MARS uses very different technology under the hood, similar to transaction logging of database systems.
+In contrast to plain DRBD, it works _asynchronously_ and over arbitrary distances. Some of our internal 1&1 testing runs between datacenters in the US and Europe. MARS uses very different technology under the hood, similar to transaction logging of database systems.
 
 Reliability: application and replication are completely decoupled.
 
@@ -41,7 +41,7 @@ See https://github.com/schoebel/mars/blob/master/docu/mars-manual.pdf
 
 Intro: the use cases MARS vs DRBD can be found in chapter 1.
 
-COST SAVINGS using MARS is described at https://github.com/schoebel/mars/blob/master/docu/MARS_GUUG2017_en.pdf
+**COST SAVINGS** using MARS is described at https://github.com/schoebel/mars/blob/master/docu/MARS_GUUG2017_en.pdf
 
 ## Concepts
 
@@ -64,7 +64,7 @@ In Summer 2012, the next "official" internal 1&1 project started. Its goal was t
 
 In December 2012 (shortly before Christmas), I got the official permission from our CTO Henning Kettler to publish MARS under GPL on github. Many thanks to him!
 
-Before that point, I was probably bound to my working contract which kept internal software as secret by default (when there was no explicit permission).
+Before that point, I was probably bound to my working contract which keeps internal software as secret by default (when there is no explicit permission).
 
 Now there is a chance to build up an opensource community for MARS, partially outside of 1&1.
 
@@ -72,7 +72,7 @@ I am trying to respect the guidelines from Linus, but getting MARS upstream into
 
 In November 2013, internal 1&1 projects started for mass rollout to several thousands of servers at Shared Hosting Linux (ShaHoLin).
 
-Some other teams, in particular ePages and Mail&Media teams, were the first to use MARS at real production in Spring 2014 at about 10 clusters each, with great success. I did not have much work with those teams: they just rolled it out, and it worked for them. I got only one bug report from them which I had to fix.
+Some other teams, in particular ePages and Mail&Media teams, were starting later but were the first to use MARS at real production in Spring 2014 at about 10 clusters each, with great success. I did not have much work with those teams: they just rolled it out, and it worked for them. I got only one bug report from them which I had to fix.
 
 Unfortunately, the ShaHoLin team was different. Their rollout process to several thousands of servers took extremely long. After more than a year, only about 50 clusters were migrated to MARS. Eventually, I managed to get MARS fully onto the street in April 2015 by developping a fully automatic rollout script and rolling it out myself during two nights, personally, and by personally taking full responsibility for rollout (and there was no incident). Otherwise, it likely would have taken a few years longer, according to some sysadmins.
 
@@ -82,6 +82,6 @@ Since then MARS is running on several thousands of servers, and on several petab
 
 At the moment, cost savings are very important for 1&1. In 2017, MARS will be improved for scalability and load balancing according to the GUUG2017 slides.
 
-Sketch: the traditional pairwise clusters (originally from DRBD pairs) will be merged into one "big cluster" for EU and US each (with respect to _metadata_ updates only while the data IO paths remain at the sharding principle), such that any resource can be migrated via MARS fast fullsync to any other server. Then background migration of VMs / LXC containers is easily possible for optimizing density and load balancing.
+Sketch: the traditional pairwise clusters (originally from DRBD pairs) will be merged into one "big cluster" for EU and US each (with respect to _metadata_ updates only, while the IO data paths remain at the sharding principle), such that any resource can be migrated via MARS fast fullsync to any other server. Then background migration of VMs / LXC containers is easily possible for optimizing density and load balancing.
 
 Kernel upstream development is planned to resume later.
