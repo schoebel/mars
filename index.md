@@ -72,7 +72,7 @@ I am trying to respect the guidelines from Linus, but getting MARS upstream into
 
 In November 2013, internal 1&1 projects started for mass rollout to several thousands of servers at Shared Hosting Linux (ShaHoLin).
 
-Some other teams, in particular ePages and Mail&Media teams, were starting later but were the first to use MARS at real production in Spring 2014 at about 10 clusters each, with great success. I did not have much work with those teams: they just rolled it out, and it worked for them. I got only one bug report from them which I had to fix.
+Some other teams, in particular ePages and Mail&Media teams, were starting later but were the first to use MARS at real production in Spring 2014 at about 10 clusters each, with great success. Some of these cluster were even starting with k=4 replicas from scratch, while others were using it as a substitute for pairwise DRBD. I did not have much work with those teams: they just rolled it out, and it worked for them. I got only one bug report from them which I had to fix.
 
 Unfortunately, the ShaHoLin team was different. Their rollout process to several thousands of servers took extremely long. After more than a year, only about 50 clusters were migrated to MARS. Eventually, I managed to get MARS fully onto the street in April 2015 by developping a fully automatic rollout script and rolling it out myself during two nights, personally, and by personally taking full responsibility for rollout (and there was no incident). Otherwise, it likely would have taken a few years longer, according to some sysadmins.
 
