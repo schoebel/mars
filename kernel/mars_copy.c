@@ -939,6 +939,8 @@ static int copy_switch(struct copy_brick *brick)
 			MARS_INF("stopping thread...\n");
 			brick_thread_stop(brick->thread);
 		}
+		/* for safety, and when the thread was not started */
+		mars_power_led_off((void*)brick, true);
 	}
 done:
 	return 0;
