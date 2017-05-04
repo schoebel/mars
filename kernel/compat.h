@@ -55,6 +55,9 @@ extern int _compat_rename(
 	const char __user *oldname,
 	const char __user *newname);
 
+extern int _compat_unlink(
+	const char __user *pathname);
+
 #endif /* HAS_MARS_PREPATCH */
 
 #endif /* _MARS_COMPAT */
