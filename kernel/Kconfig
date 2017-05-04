@@ -3,11 +3,14 @@
 #
 
 config MARS
-	tristate "storage system MARS (EXPERIMENTAL)"
-	depends on BLOCK && PROC_SYSCTL && HIGH_RES_TIMERS && !DEBUG_SLAB && !DEBUG_SG
+	tristate "block storage replication MARS"
+	depends on m
+	depends on BLOCK && PROC_SYSCTL && HIGH_RES_TIMERS
+	depends on !DEBUG_SLAB && !DEBUG_SG
 	default n
 	---help---
-	Experimental storage System. Only compile as a module!
+	See https://github.com/schoebel/mars/docu/
+	Only compile as a module!
 
 config MARS_CHECKS
 	bool "enable simple runtime checks in MARS"
