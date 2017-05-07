@@ -5849,6 +5849,12 @@ MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@{schoebel-theuer,1und1}.de>");
 MODULE_VERSION(BUILDTAG " (" BUILDHOST " " BUILDDATE ")");
 MODULE_LICENSE("GPL");
 
+#ifdef HAS_MARS_PREPATCH
+MODULE_INFO(prepatch, "has_prepatch");
+#else
+MODULE_INFO(prepatch, "no_prepatch");
+#endif
+
 #ifndef CONFIG_MARS_DEBUG
 MODULE_INFO(debug, "production");
 #else
