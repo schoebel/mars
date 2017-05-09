@@ -5854,6 +5854,11 @@ MODULE_INFO(prepatch, "has_prepatch");
 #else
 MODULE_INFO(prepatch, "no_prepatch");
 #endif
+#ifdef ENABLE_MARS_AIO
+MODULE_INFO(io_driver, "aio");
+#else
+MODULE_INFO(io_driver, "sio");
+#endif
 
 #ifndef CONFIG_MARS_DEBUG
 MODULE_INFO(debug, "production");
