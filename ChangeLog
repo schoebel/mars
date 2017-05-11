@@ -130,6 +130,15 @@ Changelog for series 0.2:
 -----------------------------------
 Changelog for series 0.1b:
 
+mars0.1balpha3.2
+--------
+	* Merge	mars0.1stable38: now compiles without pre-patch
+	  on certain kernel versions. Please read ChangeLog there.
+
+mars0.1balpha3.1
+--------
+	* Minor fix: deadlock on termination of copy thread.
+
 mars0.1balpha3
 --------
 	* Some tuning (more to come later):
