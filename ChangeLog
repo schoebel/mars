@@ -135,6 +135,23 @@ Changelog for series 0.1b:
 -----------------------------------
 Changelog for series 0.1:
 
+mars0.1stable38
+--------
+	* Compile without pre-patch on some kernel versions!
+	  Whether the pre-patch is applied will be detected automatically.
+	  However, there is some (hopefully minor) performance penalty when
+	  the pre-patch is missing.
+	  This will be addressed in a future release (but might go
+	  to branch 0.1b instead, not yet decided).
+	  Tested with vanilla kernels 3.10.105, 3.14.79, 3.16.43,
+	  4.1.39, 4.4.67.
+	  Vanilla kernels 4.8.x and later are _not_ yet working
+	  (independently from pre-patches). This will be addressed
+	  in a future release.
+	* No functional changes otherwise. Rollback to prior versions
+	  should be easy. Please report any issues.
+	* Updated docs describing build methods.
+
 mars0.1stable37
 --------
 	* Minor fix: secondary logfile replication could hang in the
