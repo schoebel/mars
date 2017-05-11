@@ -34,6 +34,8 @@
 #include <linux/file.h>
 #include <linux/blkdev.h>
 #include <linux/fs.h>
+#include <linux/namei.h>
+#include <linux/mount.h>
 #include <linux/utsname.h>
 
 #include "strategy.h"
@@ -41,7 +43,7 @@
 #include "../lib_mapfree.h"
 #include "../mars_client.h"
 
-#include <linux/syscalls.h>
+#include "../compat.h"
 #include <linux/namei.h>
 #include <linux/kthread.h>
 #include <linux/statfs.h>
@@ -51,6 +53,12 @@
 //      remove_this
 #include <linux/wait.h>
 #include <linux/version.h>
+
+#ifndef DCACHE_MISS_TYPE /* define accessors compatible to b18825a7c8e37a7cf6abb97a12a6ad71af160de7 */
+#define d_is_negative(dentry)     ((dentry)->d_inode == NULL)
+#define d_backing_inode(dentry)   ((dentry)->d_inode)
+#endif
+
 /* FIXME: some Redhat/openvz kernels seem to have both (backporting etc).
  * The folling is an incomplete quickfix / workaround. TBD.
  */
@@ -58,6 +66,10 @@
 #define HAS_VFS_READDIR
 #elif !defined(f_dentry)
 #define __HAS_NEW_FILLDIR_T
+#endif
+
+#ifdef RENAME_NOREPLACE
+#define __HAS_RENAME2
 #endif
 
 //      end_remove_this
@@ -99,6 +111,386 @@ const struct meta mars_dent_meta[] = {
 };
 EXPORT_SYMBOL_GPL(mars_dent_meta);
 
+//      remove_this
+#ifndef HAS_MARS_PREPATCH
+/////////////////////////////////////////////////////////////////////
+
+/* The _compat_*() functions are needed for the out-of-tree version
+ * of MARS for adapdation to different kernel version.
+ */
+
+#ifdef SB_FREEZE_LEVELS
+/* since kernel 3.6 */
+/* see a8104a9fcdeb82e22d7acd55fca20746581067d3 */
+/* locking order changes in c30dabfe5d10c5fd70d882e5afb8f59f2942b194, we need to adapt */
+#define __NEW_PATH_CREATE
+#endif
+
+#ifndef FSCACHE_OP_DEAD
+/* since kernel 3.8 */
+/* see b9d6ba94b875192ef5e2dab92d72beea33b83c3d */
+#define  __HAS_RETRY_ESTALE
+#endif
+
+/* Hack because of 8bcb77fabd7cbabcad49f58750be8683febee92b
+ */
+static int __path_parent(const char *name, struct path *path, unsigned flags)
+{
+#ifdef user_path
+	return kern_path(name, flags | LOOKUP_PARENT | LOOKUP_DIRECTORY | LOOKUP_FOLLOW, path);
+#else
+	char *tmp;
+	int len;
+	int error;
+
+	len = strlen(name);
+	while (len > 0 && name[len] != '/')
+		len--;
+	if (unlikely(!len))
+		return -EINVAL;
+
+	tmp = brick_string_alloc(len + 1);
+	strncpy(tmp, name, len);
+	tmp[len] = '\0';
+
+	error = kern_path(tmp, flags | LOOKUP_DIRECTORY | LOOKUP_FOLLOW, path);
+
+	brick_string_free(tmp);
+	return error;
+#endif
+}
+
+/* code is blindly stolen from symlinkat()
+ * and later adapted to various kernels
+ */
+int _compat_symlink(const char __user *oldname,
+		    const char __user *newname,
+		    struct timespec *mtime)
+{
+	const int newdfd = AT_FDCWD;
+	int error;
+	char *from;
+	struct dentry *dentry;
+	struct path path;
+	unsigned int lookup_flags = 0;
+
+	from = (char *)oldname;
+
+#ifdef __HAS_RETRY_ESTALE
+retry:
+#endif
+	dentry = user_path_create(newdfd, newname, &path, lookup_flags);
+	error = PTR_ERR(dentry);
+	if (IS_ERR(dentry))
+		goto out_putname;
+
+#ifndef __NEW_PATH_CREATE
+	error = mnt_want_write(path.mnt);
+	if (error)
+		goto out_dput;
+#endif
+	error = vfs_symlink(path.dentry->d_inode, dentry, from);
+	if (error >= 0 && mtime) {
+		struct iattr iattr = {
+			.ia_valid = ATTR_MTIME | ATTR_MTIME_SET | ATTR_TIMES_SET,
+			.ia_mtime.tv_sec = mtime->tv_sec,
+			.ia_mtime.tv_nsec = mtime->tv_nsec,
+		};
+
+		mutex_lock(&dentry->d_inode->i_mutex);
+#ifdef FL_DELEG
+		error = notify_change(dentry, &iattr, NULL);
+#else
+		error = notify_change(dentry, &iattr);
+#endif
+		mutex_unlock(&dentry->d_inode->i_mutex);
+	}
+#ifdef __NEW_PATH_CREATE
+	done_path_create(&path, dentry);
+#else
+	mnt_drop_write(path.mnt);
+out_dput:
+	dput(dentry);
+	mutex_unlock(&path.dentry->d_inode->i_mutex);
+	path_put(&path);
+#endif
+#ifdef __HAS_RETRY_ESTALE
+	if (retry_estale(error, lookup_flags)) {
+		lookup_flags |= LOOKUP_REVAL;
+		goto retry;
+	}
+#endif
+out_putname:
+	return error;
+}
+
+/* code is stolen from mkdirat()
+ */
+int _compat_mkdir(const char __user *pathname,
+		  int mode)
+{
+	const int dfd = AT_FDCWD;
+	struct dentry *dentry;
+	struct path path;
+	int error;
+	unsigned int lookup_flags = LOOKUP_DIRECTORY;
+
+#ifdef __HAS_RETRY_ESTALE
+retry:
+#endif
+	dentry = user_path_create(dfd, pathname, &path, lookup_flags);
+	if (IS_ERR(dentry))
+		return PTR_ERR(dentry);
+
+	if (!IS_POSIXACL(path.dentry->d_inode))
+		mode &= ~current_umask();
+#ifndef __NEW_PATH_CREATE
+	error = mnt_want_write(path.mnt);
+	if (error)
+		goto out_dput;
+#endif
+	error = vfs_mkdir(path.dentry->d_inode, dentry, mode);
+#ifdef __NEW_PATH_CREATE
+	done_path_create(&path, dentry);
+#else
+	mnt_drop_write(path.mnt);
+out_dput:
+	dput(dentry);
+	mutex_unlock(&path.dentry->d_inode->i_mutex);
+	path_put(&path);
+#endif
+#ifdef __HAS_RETRY_ESTALE
+	if (retry_estale(error, lookup_flags)) {
+		lookup_flags |= LOOKUP_REVAL;
+		goto retry;
+	}
+#endif
+	return error;
+}
+
+/* This has some restrictions:
+ *  - oldname and newname must reside in the same directory
+ *  - standard case, no mountpoints inbetween
+ *  - no security checks (we are anyway called from kernel code)
+ */
+int _compat_rename(const char *oldname,
+		   const char *newname)
+{
+	struct path oldpath;
+	struct path newpath;
+	struct dentry *old_dir;
+	struct dentry *new_dir;
+	struct dentry *old_dentry;
+	struct dentry *new_dentry;
+	struct dentry *trap;
+	const char *old_one;
+	const char *new_one;
+	const char *tmp;
+	unsigned int lookup_flags = 0;
+#ifdef __HAS_RETRY_ESTALE
+	bool should_retry = false;
+#endif
+	int error;
+
+#ifdef __HAS_RETRY_ESTALE
+retry:
+#endif
+	error = __path_parent(oldname, &oldpath, lookup_flags);
+	if (unlikely(error))
+		goto exit;
+	old_dir = oldpath.dentry;
+
+	error = __path_parent(newname, &newpath, lookup_flags);
+	if (unlikely(error))
+		goto exit1;
+	new_dir = newpath.dentry;
+
+	old_one = oldname;
+	for (;;) {
+		for (tmp = old_one; *tmp && *tmp != '/'; tmp++)
+			/* empty */;
+		if (!*tmp)
+			break;
+		old_one = tmp + 1;
+	}
+
+	new_one = newname;
+	for (;;) {
+		for (tmp = new_one; *tmp && *tmp != '/'; tmp++)
+			/* empty */;
+		if (!*tmp)
+			break;
+		new_one = tmp + 1;
+	}
+
+#ifdef __NEW_PATH_CREATE
+	error = mnt_want_write(oldpath.mnt);
+	if (unlikely(error))
+		goto exit2;
+#endif
+	trap = lock_rename(new_dir, old_dir);
+
+	old_dentry = lookup_one_len(old_one, old_dir, strlen(old_one));
+	error = PTR_ERR(old_dentry);
+	if (unlikely(IS_ERR(old_dentry)))
+		goto out_unlock_rename;
+	error = -ENOENT;
+	if (unlikely(d_is_negative(old_dentry)))
+		goto out_dput_old;
+	error = -EINVAL;
+	if (unlikely(old_dentry == trap))
+		goto out_dput_old;
+
+	new_dentry = lookup_one_len(new_one, new_dir, strlen(new_one));
+	error = PTR_ERR(new_dentry);
+	if (unlikely(IS_ERR(new_dentry)))
+		goto out_dput_old;
+	error = -ENOTEMPTY;
+	if (unlikely(new_dentry == trap))
+		goto out_dput_new;
+
+#ifndef __NEW_PATH_CREATE
+	error = mnt_want_write(oldpath.mnt);
+	if (unlikely(error))
+		goto out_dput_new;
+#endif
+
+#ifdef __HAS_RENAME2
+	error = vfs_rename(old_dir->d_inode, old_dentry,
+			   new_dir->d_inode, new_dentry, NULL, 0);
+#elif defined(FL_DELEG)
+	error = vfs_rename(old_dir->d_inode, old_dentry,
+			   new_dir->d_inode, new_dentry, NULL);
+#else
+	error = vfs_rename(old_dir->d_inode, old_dentry,
+			   new_dir->d_inode, new_dentry);
+#endif
+
+#ifndef __NEW_PATH_CREATE
+	mnt_drop_write(oldpath.mnt);
+#endif
+
+out_dput_new:
+	dput(new_dentry);
+
+out_dput_old:
+	dput(old_dentry);
+
+out_unlock_rename:
+	unlock_rename(new_dir, old_dir);
+#ifdef __NEW_PATH_CREATE
+	mnt_drop_write(oldpath.mnt);
+exit2:
+#endif
+#ifdef __HAS_RETRY_ESTALE
+	if (retry_estale(error, lookup_flags))
+		should_retry = true;
+#endif
+	path_put(&newpath);
+exit1:
+	path_put(&oldpath);
+#ifdef __HAS_RETRY_ESTALE
+	if (should_retry) {
+		lookup_flags |= LOOKUP_REVAL;
+		goto retry;
+	}
+#endif
+exit:
+	return error;
+}
+
+/* This has some restrictions:
+ *  - standard case, no mountpoints inbetween
+ *  - no security checks (we are anyway called from kernel code)
+ */
+int _compat_unlink(const char *pathname)
+{
+	struct path path;
+	struct dentry *parent;
+	struct dentry *dentry;
+	struct inode *inode = NULL;
+	const char *one;
+	const char *tmp;
+	int error;
+	unsigned int lookup_flags = 0;
+
+#ifdef __HAS_RETRY_ESTALE
+retry:
+#endif
+	error = __path_parent(pathname, &path, lookup_flags);
+	if (unlikely(error))
+		goto exit;
+
+	parent = path.dentry;
+	if (unlikely(d_is_negative(parent)))
+		goto exit1;
+
+	one = pathname;
+	for (;;) {
+		for (tmp = one; *tmp && *tmp != '/'; tmp++)
+			/* empty */;
+		if (!*tmp)
+			break;
+		one = tmp + 1;
+	}
+
+#ifdef __NEW_PATH_CREATE
+	error = mnt_want_write(path.mnt);
+	if (error)
+		goto exit1;
+#endif
+	mutex_lock_nested(&parent->d_inode->i_mutex, I_MUTEX_PARENT);
+
+	dentry = lookup_one_len(one, parent, strlen(one));
+	error = PTR_ERR(dentry);
+	if (unlikely(IS_ERR(dentry)))
+		goto exit2;
+	error = -ENOENT;
+	if (unlikely(d_is_negative(dentry)))
+		goto exit3;
+
+	inode = dentry->d_inode;
+	ihold(inode);
+
+#ifndef __NEW_PATH_CREATE
+	error = mnt_want_write(path.mnt);
+	if (error)
+		goto exit3;
+#endif
+
+#ifdef FL_DELEG
+	error = vfs_unlink(parent->d_inode, dentry, NULL);
+#else
+	error = vfs_unlink(parent->d_inode, dentry);
+#endif
+
+#ifndef __NEW_PATH_CREATE
+	mnt_drop_write(path.mnt);
+#endif
+exit3:
+	dput(dentry);
+exit2:
+	mutex_unlock(&parent->d_inode->i_mutex);
+	if (inode)
+		iput(inode);
+#ifdef __NEW_PATH_CREATE
+	mnt_drop_write(path.mnt);
+#endif
+exit1:
+	path_put(&path);
+exit:
+#ifdef __HAS_RETRY_ESTALE
+	if (retry_estale(error, lookup_flags)) {
+		lookup_flags |= LOOKUP_REVAL;
+		inode = NULL;
+		goto retry;
+	}
+#endif
+	return error;
+}
+
+#endif
+//      end_remove_this
 /////////////////////////////////////////////////////////////////////
 
 // some helpers
@@ -172,7 +564,11 @@ int mars_mkdir(const char *path)
 	
 	oldfs = get_fs();
 	set_fs(get_ds());
+#ifdef HAS_MARS_PREPATCH
 	status = sys_mkdir(path, 0700);
+#else
+	status = _compat_mkdir(path, 0700);
+#endif
 	set_fs(oldfs);
 
 	return status;
@@ -181,6 +577,7 @@ EXPORT_SYMBOL_GPL(mars_mkdir);
 
 int mars_rmdir(const char *path)
 {
+#ifdef HAS_MARS_PREPATCH
 	mm_segment_t oldfs;
 	int status;
 	
@@ -190,6 +587,9 @@ int mars_rmdir(const char *path)
 	set_fs(oldfs);
 
 	return status;
+#else
+	return -ENOSYS;
+#endif
 }
 EXPORT_SYMBOL_GPL(mars_rmdir);
 
@@ -200,7 +600,11 @@ int mars_unlink(const char *path)
 	
 	oldfs = get_fs();
 	set_fs(get_ds());
+#ifdef HAS_MARS_PREPATCH
 	status = sys_unlink(path);
+#else
+	status = _compat_unlink(path);
+#endif
 	set_fs(oldfs);
 
 	return status;
@@ -250,15 +654,18 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct timespec
 		times[0].tv_nsec = 1;
 	}
 
+#ifdef HAS_MARS_PREPATCH
 	(void)sys_unlink(tmp);
-
 	status = sys_symlink(oldpath, tmp);
-
 	if (status >= 0) {
 		sys_lchown(tmp, uid, 0);
 		memcpy(&times[1], &times[0], sizeof(struct timespec));
 		status = do_utimes(AT_FDCWD, tmp, times, AT_SYMLINK_NOFOLLOW);
 	}
+#else
+	(void)_compat_unlink(tmp);
+	status = _compat_symlink(oldpath, tmp, &times[0]);
+#endif
 
 	if (status >= 0) {
 		set_lamport(&times[0]);
@@ -334,7 +741,11 @@ int mars_rename(const char *oldpath, const char *newpath)
 	
 	oldfs = get_fs();
 	set_fs(get_ds());
+#ifdef HAS_MARS_PREPATCH
 	status = sys_rename(oldpath, newpath);
+#else
+	status = _compat_rename(oldpath, newpath);
+#endif
 	set_fs(oldfs);
 
 	return status;
@@ -343,6 +754,7 @@ EXPORT_SYMBOL_GPL(mars_rename);
 
 int mars_chmod(const char *path, mode_t mode)
 {
+#ifdef HAS_MARS_PREPATCH
 	mm_segment_t oldfs;
 	int status;
 	
@@ -352,11 +764,15 @@ int mars_chmod(const char *path, mode_t mode)
 	set_fs(oldfs);
 
 	return status;
+#else
+	return -ENOSYS;
+#endif
 }
 EXPORT_SYMBOL_GPL(mars_chmod);
 
 int mars_lchown(const char *path, uid_t uid)
 {
+#ifdef HAS_MARS_PREPATCH
 	mm_segment_t oldfs;
 	int status;
 	
@@ -366,6 +782,9 @@ int mars_lchown(const char *path, uid_t uid)
 	set_fs(oldfs);
 
 	return status;
+#else
+	return -ENOSYS;
+#endif
 }
 EXPORT_SYMBOL_GPL(mars_lchown);
 
@@ -1873,7 +2292,7 @@ struct mars_brick *make_brick_all(
 			MARS_DBG("substitute bio by aio\n");
 		}
 	}
-#ifdef CONFIG_MARS_PREFER_SIO
+#ifndef ENABLE_MARS_AIO
 	if (!brick && new_brick_type == _aio_brick_type && _sio_brick_type) {
 		new_brick_type = _sio_brick_type;
 		MARS_DBG("substitute aio by sio\n");

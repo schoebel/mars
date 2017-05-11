@@ -140,7 +140,7 @@ tst@1und1.de
 \end_layout
 
 \begin_layout Date
-Version 0.1b-0.1
+Version 0.1b-0.3
 \end_layout
 
 \begin_layout Lowertitleback
@@ -3907,29 +3907,17 @@ Kernel and MARS Module
 \end_layout
 
 \begin_layout Standard
-At the time of this writing, a small pre-patch for the Linux kernel is needed.
- It it trivial and consists mostly of 
-\family typewriter
-EXPORT_SYMBOL()
-\family default
- statements.
- The pre-patch must be applied to the kernel source tree before building
- your (custom) kernel.
- Future versions of MARS are planned to require no pre-patch anymore.
-\end_layout
-
-\begin_layout Standard
-The MARS kernel module can be built in two different ways:
+The MARS kernel module should be available or can be built via one of the
+ following methods:
 \end_layout
 
 \begin_layout Enumerate
-inplace in the kernel source tree: 
-\family typewriter
-cd block/ && git clone git://github.com/schoebel/mars
+As an external Debian or rpm kernel module, as provided by a package contributor
+ (or hopefully by standard distros in the future).
 \end_layout
 
 \begin_layout Enumerate
-as a separate kernel module, only for experienced
+As a separate kernel module, only for experienced
 \begin_inset Foot
 status open
 
@@ -3958,6 +3946,52 @@ Makefile.dist
  other distros).
 \end_layout
 
+\begin_layout Enumerate
+Build for senior sysadmins or developers, inplace in the kernel source tree:
+ first apply 
+\family typewriter
+0001-mars-minimum-pre-patch-for-mars.patch
+\family default
+ and 
+\family typewriter
+0001-mars-SPECIAL-for-in-tree-build.patch
+\family default
+ or similar, then 
+\family typewriter
+cd block/ && git clone https://github.com/schoebel/mars
+\family default
+.
+ Then 
+\family typewriter
+cd ..
+
+\family default
+ and build your kernel as usual.
+ Config options for MARS should appear under 
+\begin_inset Quotes eld
+\end_inset
+
+Enable the block layer
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Just activate MARS as a 
+\series bold
+kernel module
+\series default
+ via 
+\begin_inset Quotes eld
+\end_inset
+
+m
+\begin_inset Quotes erd
+\end_inset
+
+ (don't try a fixed compile-in), and leave all else MARS config options
+ at the default (except you know what you are doing).
+\end_layout
+
 \begin_layout Standard
 Further / more accurate / latest instructions can be found in 
 \family typewriter
@@ -3977,6 +4011,83 @@ mars.ko
 marsadm
 \family default
  userspace tool.
+\end_layout
+
+\begin_layout Standard
+Starting with 
+\family typewriter
+mars0.1stable38
+\family default
+ and other branches having merged this feature, a prepatch for vanilla kernels
+ 3.2 through 4.4 is no longer needed.
+ However, 
+\series bold
+IO performance
+\series default
+ is currently somewhat worse when the pre-patch is not applied.
+ This will be addressed in a later release.
+\end_layout
+
+\begin_layout Standard
+Therefore, application of the pre-patch to the kernel is 
+\emph on
+recommended
+\emph default
+ for large-scale production systems for now.
+\end_layout
+
+\begin_layout Standard
+Kernel pre-patches can be found in the 
+\family typewriter
+pre-patches/
+\family default
+ subdirectory of the MARS source tree.
+ Following are the types of pre-patches:
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+0001-mars-minimum-pre-patch-for-mars.patch
+\family default
+ or similar.
+ Please prefer this one (when present for your kernel version) in front
+ of 
+\family typewriter
+0001-mars-generic-pre-patch-for-mars.patch
+\family default
+ or similar.
+ The latter should not be used anymore, except for testing or as an emergency
+ fallback.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+0001-mars-SPECIAL-for-in-tree-build.patch
+\family default
+ or similar.
+ This is 
+\emph on
+only
+\emph default
+ needed when building the MARS kernel module together with all other kernel
+ modules in a single 
+\family typewriter
+make
+\family default
+ pass.
+ For separate external module builds, this patch 
+\emph on
+must not
+\emph default
+ be applied (but the pre-patch 
+\emph on
+should
+\emph default
+ when possible).
+ When using this patch, please apply the aforementioned pre-patch also,
+ because your kernel is patched anyway.
 \end_layout
 
 \begin_layout Subsection

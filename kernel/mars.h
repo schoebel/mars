@@ -24,8 +24,15 @@
 #ifndef MARS_H
 #define MARS_H
 
+/* TRANSITIONAL compatibility to BOTH the old prepatch
+ * and the new wrapper around vfs_*(). Both will be replaced
+ * for kernel upstream.
+ */
+#include "compat.h"
+
 #include <linux/semaphore.h>
 #include <linux/rwsem.h>
+#include <linux/major.h>
 
 //#define MARS_TRACING // write runtime trace data to /mars/trace.csv
 
@@ -57,7 +64,6 @@
 #ifdef CONFIG_DEBUG_SG
 #error Fixme: CONFIG_DEBUG_SG does not work (fix the bio offset calculation)
 #endif
-
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -375,8 +381,11 @@ extern const struct generic_brick_type *_bio_brick_type;
 extern const struct generic_brick_type *_aio_brick_type;
 extern const struct generic_brick_type *_sio_brick_type;
 
-#ifndef CONFIG_MARS_PREFER_SIO
+#if !defined(CONFIG_MARS_PREFER_SIO) && defined(HAS_MARS_PREPATCH)
+#define ENABLE_MARS_AIO
+#endif
 
+#ifdef ENABLE_MARS_AIO
 /* Kludge: our kernel threads will have no mm context, but need one
  * for stuff like ioctx_alloc() / aio_setup_ring() etc
  * which expect userspace resources.

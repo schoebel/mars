@@ -1966,6 +1966,7 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 
 		MARS_IO("timestamps '%s' remote = %ld.%09ld local = %ld.%09ld\n", remote_dent->d_path, remote_dent->new_stat.mtime.tv_sec, remote_dent->new_stat.mtime.tv_nsec, local_stat.mtime.tv_sec, local_stat.mtime.tv_nsec);
 
+#ifdef HAS_MARS_PREPATCH
 		if ((remote_dent->new_stat.mode & S_IRWXU) !=
 		   (local_stat.mode & S_IRWXU) &&
 		   update_ctime) {
@@ -1982,6 +1983,7 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 			mars_lchown(remote_dent->d_path, __kuid_val(remote_dent->new_stat.uid));
 			run_trigger = true;
 		}
+#endif
 	}
 
 	if (S_ISDIR(remote_dent->new_stat.mode)) {
@@ -1992,10 +1994,12 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 		if (!stat_ok) {
 			status = mars_mkdir(remote_dent->d_path);
 			MARS_DBG("create directory '%s' status = %d\n", remote_dent->d_path, status);
+#ifdef HAS_MARS_PREPATCH
 			if (status >= 0) {
 				mars_chmod(remote_dent->d_path, remote_dent->new_stat.mode);
 				mars_lchown(remote_dent->d_path, __kuid_val(remote_dent->new_stat.uid));
 			}
+#endif
 		}
 	} else if (S_ISLNK(remote_dent->new_stat.mode) && remote_dent->new_link) {
 		if (!stat_ok || update_mtime) {
@@ -5783,8 +5787,10 @@ static void exit_main(void)
 
 static int __init init_main(void)
 {
+#ifdef HAS_MARS_PREPATCH
 	extern int min_free_kbytes;
 	int new_limit = 4096;
+#endif
 	struct kstat dummy;
 	int status = mars_stat("/mars/uuid", &dummy, true);
 
@@ -5793,10 +5799,12 @@ static int __init init_main(void)
 		return -ENOENT;
 	}
 
+#ifdef HAS_MARS_PREPATCH
 	// bump the min_free limit
 	if (min_free_kbytes < new_limit)
 		min_free_kbytes = new_limit;
-	
+#endif
+
 	printk(KERN_INFO "loading MARS, BUILDTAG=%s BUILDHOST=%s BUILDDATE=%s\n", BUILDTAG, BUILDHOST, BUILDDATE);
 
 	init_say(); // this must come first
@@ -5863,6 +5871,17 @@ MODULE_DESCRIPTION("MARS");
 MODULE_AUTHOR("Thomas Schoebel-Theuer <tst@{schoebel-theuer,1und1}.de>");
 MODULE_VERSION(BUILDTAG " (" BUILDHOST " " BUILDDATE ")");
 MODULE_LICENSE("GPL");
+
+#ifdef HAS_MARS_PREPATCH
+MODULE_INFO(prepatch, "has_prepatch");
+#else
+MODULE_INFO(prepatch, "no_prepatch");
+#endif
+#ifdef ENABLE_MARS_AIO
+MODULE_INFO(io_driver, "aio");
+#else
+MODULE_INFO(io_driver, "sio");
+#endif
 
 #ifndef CONFIG_MARS_DEBUG
 MODULE_INFO(debug, "production");
