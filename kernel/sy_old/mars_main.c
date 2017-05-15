@@ -3865,6 +3865,7 @@ done:
 	MARS_DBG("fetch_path = '%s' fetch_brick = %p\n", rot->fetch_path, fetch_brick);
 	if (fetch_brick &&
 	    (fetch_brick->power.led_off ||
+	     fetch_brick->power.force_off ||
 	     !global->global_power.button ||
 	     !_check_allow(global, parent, "connect") ||
 	     !_check_allow(global, parent, "attach") ||
