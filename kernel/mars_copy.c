@@ -679,7 +679,9 @@ int _run_copy(struct copy_brick *brick, loff_t this_start)
 
 	/* Do at most max iterations in the below loop
 	 */
-	max = NR_COPY_REQUESTS - atomic_read(&brick->io_flight) * 2;
+	max = NR_COPY_REQUESTS - 1 - atomic_read(&brick->io_flight) * 2;
+	if (unlikely(max < 32))
+		max = 32;
 	all_max = max;
 	MARS_IO("max = %d\n", max);
 
