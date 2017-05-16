@@ -399,6 +399,7 @@ static
 int _mars_send_raw(struct mars_socket *msock, const void *buf, int len)
 {
 	int sleeptime = 1000 / HZ;
+	int backoff = 0;
 	int sent = 0;
 	int status = 0;
 
@@ -456,9 +457,10 @@ int _mars_send_raw(struct mars_socket *msock, const void *buf, int len)
 				break;
 			}
 			brick_msleep(sleeptime);
-			// linearly increasing backoff
-			if (sleeptime < 100) {
-				sleeptime += 1000 / HZ;
+			// quadratic backoff
+			if (sleeptime < 50) {
+				sleeptime += backoff;
+				backoff += 1000 / HZ;
 			}
 			continue;
 		}
@@ -466,12 +468,11 @@ int _mars_send_raw(struct mars_socket *msock, const void *buf, int len)
 		if (unlikely(status == -EINTR)) { // ignore it
 			flush_signals(current);
 			MARS_IO("#%d got signal\n", msock->s_debug_nr);
-			brick_msleep(50);
+			brick_msleep(sleeptime);
 			continue;
 		}
 		if (unlikely(!status)) {
 			MARS_WRN("#%d EOF from socket upon send_page()\n", msock->s_debug_nr);
-			brick_msleep(50);
 			status = -ECOMM;
 			break;
 		}
@@ -484,6 +485,7 @@ int _mars_send_raw(struct mars_socket *msock, const void *buf, int len)
 		buf += status;
 		sent += status;
 		sleeptime = 1000 / HZ;
+		backoff = 0;
 	}
 
 	if (status >= 0)
@@ -580,6 +582,7 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 {
 	void *dummy = NULL;
 	int sleeptime = 1000 / HZ;
+	int backoff = 0;
 	int status = -EIDRM;
 	int done = 0;
 
@@ -654,9 +657,10 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 			brick_msleep(sleeptime);
 			if (minlen <= 0)
 				break;
-			// linearly increasing backoff
-			if (sleeptime < 100) {
-				sleeptime += 1000 / HZ;
+			// quadratic backoff
+			if (sleeptime < 50) {
+				sleeptime += backoff;
+				backoff += 1000 / HZ;
 			}
 			continue;
 		}
@@ -672,6 +676,7 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 		}
 		done += status;
 		sleeptime = 1000 / HZ;
+		backoff = 0;
 	}
 	status = done;
 
