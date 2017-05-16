@@ -737,15 +737,17 @@ void fd_uninstall(unsigned int fd)
 {
 	struct files_struct *files = current->files;
 	struct fdtable *fdt;
+	unsigned long flags;
+
 	MARS_DBG("fd = %d\n", fd);
 	if (unlikely(fd < 0)) {
 		MARS_ERR("bad fd = %d\n", fd);
 		return;
 	}
-	spin_lock(&files->file_lock);
+	spin_lock_irqsave(&files->file_lock, flags);
 	fdt = files_fdtable(files);
 	rcu_assign_pointer(fdt->fd[fd], NULL);
-	spin_unlock(&files->file_lock);
+	spin_unlock_irqrestore(&files->file_lock, flags);
 }
 EXPORT_SYMBOL(fd_uninstall);
 #endif
