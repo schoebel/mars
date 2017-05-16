@@ -153,8 +153,9 @@ struct say_channel *find_channel(const void *id)
 {
 	struct say_channel *res = default_channel;
 	struct say_channel *ch;
+	unsigned long flags;
 
-	read_lock(&say_lock);
+	read_lock_irqsave(&say_lock, flags);
 	for (ch = channel_list; ch; ch = ch->ch_next) {
 		int i;
 		for (i = 0; i < ch->ch_id_max; i++) {
@@ -165,7 +166,7 @@ struct say_channel *find_channel(const void *id)
 		}
 	}
 found:
-	read_unlock(&say_lock);
+	read_unlock_irqrestore(&say_lock, flags);
 	return res;
 }
 
@@ -187,7 +188,9 @@ void _remove_binding(struct task_struct *whom)
 void bind_to_channel(struct say_channel *ch, struct task_struct *whom)
 {
 	int i;
-	write_lock(&say_lock);
+	unsigned long flags;
+
+	write_lock_irqsave(&say_lock, flags);
 	_remove_binding(whom);
 	for (i = 0; i < ch->ch_id_max; i++) {
 		if (!ch->ch_ids[i]) {
@@ -202,11 +205,11 @@ void bind_to_channel(struct say_channel *ch, struct task_struct *whom)
 	}
 
 done:
-	write_unlock(&say_lock);
+	write_unlock_irqrestore(&say_lock, flags);
 	return;
 
 err:
-	write_unlock(&say_lock);
+	write_unlock_irqrestore(&say_lock, flags);
 
 	say_to(default_channel, SAY_ERROR, "ID overflow for thread '%s'\n", whom->comm);
 }
@@ -216,8 +219,9 @@ struct say_channel *get_binding(struct task_struct *whom)
 {
 	struct say_channel *ch;
 	int i;
+	unsigned long flags;
 
-	read_lock(&say_lock);
+	read_lock_irqsave(&say_lock, flags);
 	for (ch = channel_list; ch; ch = ch->ch_next) {
 		for (i = 0; i < ch->ch_id_max; i++) {
 			if (ch->ch_ids[i] == whom) {
@@ -227,7 +231,7 @@ struct say_channel *get_binding(struct task_struct *whom)
 	}
 	ch = NULL;
 found:
-	read_unlock(&say_lock);
+	read_unlock_irqrestore(&say_lock, flags);
 	return ch;
 }
 EXPORT_SYMBOL_GPL(get_binding);
@@ -236,8 +240,9 @@ void remove_binding_from(struct say_channel *ch, struct task_struct *whom)
 {
 	bool found = false;
 	int i;
+	unsigned long flags;
 
-	write_lock(&say_lock);
+	write_lock_irqsave(&say_lock, flags);
 	for (i = 0; i < ch->ch_id_max; i++) {
 		if (ch->ch_ids[i] == whom) {
 			ch->ch_ids[i] = NULL;
@@ -248,15 +253,17 @@ void remove_binding_from(struct say_channel *ch, struct task_struct *whom)
 	if (!found) {
 		_remove_binding(whom);
 	}
-	write_unlock(&say_lock);
+	write_unlock_irqrestore(&say_lock, flags);
 }
 EXPORT_SYMBOL_GPL(remove_binding_from);
 
 void remove_binding(struct task_struct *whom)
 {
-	write_lock(&say_lock);
+	unsigned long flags;
+
+	write_lock_irqsave(&say_lock, flags);
 	_remove_binding(whom);
-	write_unlock(&say_lock);
+	write_unlock_irqrestore(&say_lock, flags);
 }
 EXPORT_SYMBOL_GPL(remove_binding);
 
@@ -273,12 +280,13 @@ EXPORT_SYMBOL_GPL(rollover_channel);
 void rollover_all(void)
 {
 	struct say_channel *ch;
+	unsigned long flags;
 
-	read_lock(&say_lock);
+	read_lock_irqsave(&say_lock, flags);
 	for (ch = channel_list; ch; ch = ch->ch_next) {
 		ch->ch_rollover = true;
 	}
-	read_unlock(&say_lock);
+	read_unlock_irqrestore(&say_lock, flags);
 }
 EXPORT_SYMBOL_GPL(rollover_all);
 
@@ -301,18 +309,19 @@ void _del_channel(struct say_channel *ch)
 	struct say_channel *tmp;
 	struct say_channel **_tmp;
 	int i, j;
+	unsigned long flags;
 
 	if (!ch)
 		return;
 
-	write_lock(&say_lock);
+	write_lock_irqsave(&say_lock, flags);
 	for (_tmp = &channel_list; (tmp = *_tmp) != NULL; _tmp = &tmp->ch_next) {
 		if (tmp == ch) {
 			*_tmp = tmp->ch_next;
 			break;
 		}
 	}
-	write_unlock(&say_lock);
+	write_unlock_irqrestore(&say_lock, flags);
 
 	for (i = 0; i < MAX_SAY_CLASS; i++) {
 		for (j = 0; j < 2; j++) {
@@ -402,22 +411,23 @@ struct say_channel *make_channel(const char *name, bool must_exist)
 {
 	struct say_channel *res = NULL;
 	struct say_channel *ch;
+	unsigned long flags;
 
-	read_lock(&say_lock);
+	read_lock_irqsave(&say_lock, flags);
 	for (ch = channel_list; ch; ch = ch->ch_next) {
 		if (!strcmp(ch->ch_name, name)) {
 			res = ch;
 			break;
 		}
 	}
-	read_unlock(&say_lock);
+	read_unlock_irqrestore(&say_lock, flags);
 
 	if (unlikely(!res)) {
 		res = _make_channel(name, must_exist);
 		if (unlikely(!res))
 			goto done;
 
-		write_lock(&say_lock);
+		write_lock_irqsave(&say_lock, flags);
 
 		for (ch = channel_list; ch; ch = ch->ch_next) {
 			if (ch != res && unlikely(!strcmp(ch->ch_name, name))) {
@@ -431,7 +441,7 @@ struct say_channel *make_channel(const char *name, bool must_exist)
 		channel_list = res;
 
 	race_found:
-		write_unlock(&say_lock);
+		write_unlock_irqrestore(&say_lock, flags);
 	}
 
 done:
@@ -804,6 +814,8 @@ void treat_channel(struct say_channel *ch, int class)
 static
 int _say_thread(void *data)
 {
+	unsigned long flags;
+
 	while (!kthread_should_stop()) {
 		struct say_channel *ch;
 		int i;
@@ -812,36 +824,36 @@ int _say_thread(void *data)
 		say_dirty = false;
 		
 	restart_rollover:
-		read_lock(&say_lock);
+		read_lock_irqsave(&say_lock, flags);
 		for (ch = channel_list; ch; ch = ch->ch_next) {
 			if (ch->ch_rollover && ch->ch_status_written > 0) {
-				read_unlock(&say_lock);
+				read_unlock_irqrestore(&say_lock, flags);
 				_rollover_channel(ch);
 				goto restart_rollover;
 			}
 		}
-		read_unlock(&say_lock);
+		read_unlock_irqrestore(&say_lock, flags);
 
 	restart:
-		read_lock(&say_lock);
+		read_lock_irqsave(&say_lock, flags);
 		for (ch = channel_list; ch; ch = ch->ch_next) {
 			int start = 0;
 			if (!ch->ch_is_dir)
 				start = SAY_TOTAL;
 			for (i = start; i < MAX_SAY_CLASS; i++) {
 				if (ch->ch_index[i] > 0) {
-					read_unlock(&say_lock);
+					read_unlock_irqrestore(&say_lock, flags);
 					treat_channel(ch, i);
 					goto restart;
 				}
 			}
 			if (ch->ch_delete) {
-				read_unlock(&say_lock);
+				read_unlock_irqrestore(&say_lock, flags);
 				_del_channel(ch);
 				goto restart;
 			}
 		}
-		read_unlock(&say_lock);
+		read_unlock_irqrestore(&say_lock, flags);
 	}
 
 	return 0;
