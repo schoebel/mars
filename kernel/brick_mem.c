@@ -441,6 +441,7 @@ void _new_block_info(void *data, int len, int cline)
 {
 	struct mem_block_info *inf;
 	int hash;
+	unsigned long flags;
 
 	for (;;) {
 		inf = kmalloc(sizeof(struct mem_block_info), GFP_BRICK);
@@ -455,9 +456,9 @@ void _new_block_info(void *data, int len, int cline)
 
 	hash = INFO_LIST_HASH(data);
 
-	write_lock(&inf_lock[hash]);
+	write_lock_irqsave(&inf_lock[hash], flags);
 	list_add(&inf->inf_head, &inf_anchor[hash]);
-	write_unlock(&inf_lock[hash]);
+	write_unlock_irqrestore(&inf_lock[hash], flags);
 }
 
 static
@@ -466,11 +467,12 @@ struct mem_block_info *_find_block_info(void *data, bool remove)
 	struct mem_block_info *res = NULL;
 	struct list_head *tmp;
 	int hash = INFO_LIST_HASH(data);
+	unsigned long flags;
 
 	if (remove)
-		write_lock(&inf_lock[hash]);
+		write_lock_irqsave(&inf_lock[hash], flags);
 	else
-		read_lock(&inf_lock[hash]);
+		read_lock_irqsave(&inf_lock[hash], flags);
 	for (tmp = inf_anchor[hash].next; tmp != &inf_anchor[hash]; tmp = tmp->next) {
 		struct mem_block_info *inf = container_of(tmp, struct mem_block_info, inf_head);
 		if (inf->inf_data != data)
@@ -481,9 +483,9 @@ struct mem_block_info *_find_block_info(void *data, bool remove)
 		break;
 	}
 	if (remove)
-		write_unlock(&inf_lock[hash]);
+		write_unlock_irqrestore(&inf_lock[hash], flags);
 	else
-		read_unlock(&inf_lock[hash]);
+		read_unlock_irqrestore(&inf_lock[hash], flags);
 	return res;
 }
 
