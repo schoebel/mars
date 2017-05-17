@@ -375,7 +375,7 @@ struct say_channel *_make_channel(const char *name, bool must_exist)
 restart:
 	res = kzalloc(sizeof(struct say_channel), mode);
 	if (unlikely(!res)) {
-		schedule();
+		cond_resched();
 		goto restart;
 	}
 	atomic_inc(&say_alloc_channels);
@@ -385,7 +385,7 @@ restart:
 restart2:
 	res->ch_name = kstrdup(name, mode);
 	if (unlikely(!res->ch_name)) {
-		schedule();
+		cond_resched();
 		goto restart2;
 	}
 	atomic_inc(&say_alloc_names);
@@ -396,7 +396,7 @@ restart2:
 		restart3:
 			buf = (void*)__get_free_pages(mode, SAY_ORDER);
 			if (unlikely(!buf)) {
-				schedule();
+				cond_resched();
 				goto restart3;
 			}
 			atomic_inc(&say_alloc_pages);
@@ -688,7 +688,7 @@ char *_make_filename(struct say_channel *ch, int class, int transact, int add_tm
 restart:
 	filename = kmalloc(1024, GFP_KERNEL);
 	if (unlikely(!filename)) {
-		schedule();
+		cond_resched();
 		goto restart;
 	}
 	atomic_inc(&say_alloc_names);
