@@ -2190,6 +2190,7 @@ int peer_thread(void *data)
 			pause_time = 0;
 			peer->from_remote_trigger = false;
 			MARS_DBG("got notify from peer.\n");
+			mars_trigger();
 		}
 
 		status = 0;
