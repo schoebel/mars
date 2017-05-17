@@ -138,6 +138,19 @@ void set_lamport(struct timespec *lamport_old)
 }
 EXPORT_SYMBOL_GPL(set_lamport);
 
+void set_lamport_nonstrict(struct timespec *lamport_old)
+{
+	/*  Speculate that advaning is not necessary, to avoid the lock
+	 */
+	if (timespec_compare(lamport_old, &lamport_stamp) > 0) {
+		down_write(&lamport_sem);
+		if (timespec_compare(lamport_old, &lamport_stamp) > 0)
+			lamport_stamp = *lamport_old;
+		up_write(&lamport_sem);
+	}
+}
+EXPORT_SYMBOL_GPL(set_lamport_nonstrict);
+
 /* After advancing the Lamport time, re-get the new values.
  * This is almost equivalent to a sequence of set_lamport() ; get_lamport()
  * but more efficient because the lock is taken only once.

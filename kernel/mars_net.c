@@ -1193,7 +1193,7 @@ int mars_recv_mref(struct mars_socket *msock, struct mref_object *mref, struct m
 		goto done;
 
 	if (cmd->cmd_stamp.tv_sec)
-		set_lamport(&cmd->cmd_stamp);
+		set_lamport_nonstrict(&cmd->cmd_stamp);
 
 	if (cmd->cmd_code & CMD_FLAG_HAS_DATA) {
 		if (!mref->ref_data)
@@ -1253,7 +1253,7 @@ int mars_recv_cb(struct mars_socket *msock, struct mref_object *mref, struct mar
 		goto done;
 
 	if (cmd->cmd_stamp.tv_sec)
-		set_lamport(&cmd->cmd_stamp);
+		set_lamport_nonstrict(&cmd->cmd_stamp);
 
 	if (cmd->cmd_code & CMD_FLAG_HAS_DATA) {
 		if (!mref->ref_data) {

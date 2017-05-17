@@ -36,7 +36,20 @@
  * When not interested in real time, you can simply leave real_now at NULL.
  */
 extern void get_lamport(struct timespec *real_now, struct timespec *lamport_now);
+
+/* This ensures _strict_ monotonicity of the Lamport clock */
 extern void set_lamport(struct timespec *lamport_old);
+
+/* Non-strict version.
+ * Use this for better performance when strictness is not needed.
+ */
+extern void set_lamport_nonstrict(struct timespec *lamport_old);
+
+/* After strictly advancing the Lamport time, re-get the new values.
+ * This is almost equivalent to a sequence of set_lamport() ; get_lamport()
+ * but (1) atomic and (2) more efficient
+ * because the internal lock is taken only once.
+ */
 extern void set_get_lamport(struct timespec *lamport_old, struct timespec *real_now, struct timespec *lamport_now);
 
 #endif
