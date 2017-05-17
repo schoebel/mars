@@ -175,7 +175,7 @@ void mars_digest(unsigned char *digest, void *data, int len)
  * global variables and locking.
  */
 
-#define OBSOLETE_TFM_MAX 16
+#define OBSOLETE_TFM_MAX 128
 
 static struct crypto_hash *mars_tfm[OBSOLETE_TFM_MAX];
 static struct semaphore tfm_sem[OBSOLETE_TFM_MAX];
