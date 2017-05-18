@@ -33,6 +33,7 @@
 #define COPY_INPUT_NR 4
 
 extern int mars_copy_overlap;
+extern int mars_copy_strict_write_order;
 extern int mars_copy_timeout;
 extern int mars_copy_read_prio;
 extern int mars_copy_write_prio;

@@ -57,6 +57,9 @@
 int mars_copy_overlap = 1;
 EXPORT_SYMBOL_GPL(mars_copy_overlap);
 
+/* Always leave at 1, disable only for throughput _testing_ */
+int mars_copy_strict_write_order = 1;
+
 int mars_copy_timeout = 180;
 
 int mars_copy_read_prio = MARS_PRIO_NORMAL;
@@ -551,7 +554,9 @@ restart:
 		 * Currenty, bio and aio are obeying this. Be careful when
 		 * implementing new IO bricks!
 		 */
-		if (st->prev >= 0 && !GET_STATE(brick, st->prev).writeout) {
+		if (mars_copy_strict_write_order &&
+		    st->prev >= 0 &&
+		    !GET_STATE(brick, st->prev).writeout) {
 			goto idle;
 		}
 		mref0 = st->table[0];
