@@ -130,6 +130,17 @@ Changelog for series 0.2:
 -----------------------------------
 Changelog for series 0.1b:
 
+mars0.1balpha3.3
+--------
+	* Merge	fixes from mars0.1stable39
+	* Major fix: copy was sometimes hanging.
+	* Minor fix: unnecessary delay of metadata propagation.
+	* Performance improvements / bottleneck enhancenemts:
+	  - Lamport clock
+	  - Network
+	  - md5 checksumming
+	* Userspace: faster logfile deletion via cron job.
+
 mars0.1balpha3.2
 --------
 	* Merge	mars0.1stable38: now compiles without pre-patch
