@@ -6,6 +6,7 @@ PATH=/usr/local/bin:/usr/lib/mars:/sbin:/bin:/usr/sbin:/usr/bin
 # MARS transaction logfile rotation + deletion every x minutes
 
 */10 * * * *	root	if [ -L /mars/uuid ] ; then marsadm cron ; fi > /dev/null 2>&1
+*/5,15,25,35,45,55 * * * *	root	if [ -L /mars/uuid ] ; then marsadm log-delete-all all ; fi > /dev/null 2>&1
 
 # When a different mars kernel module is installed than actually loaded
 # into the kernel, _try_ to reload it.
