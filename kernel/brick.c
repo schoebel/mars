@@ -36,7 +36,7 @@
 int _brick_msleep(int msecs, bool shorten)
 {
 	unsigned long timeout;
-	flush_signals(current);			\
+	flush_signals(current);
 	if (msecs <= 0) {
 		cond_resched();
 		return 0;
