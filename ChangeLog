@@ -177,6 +177,18 @@ mars0.1balpha0
 -----------------------------------
 Changelog for series 0.1:
 
+mars0.1stable39
+--------
+	* Minor fix: hangs of logfile updates. Found by stress-testing
+	  on fast hardware over 10GBit network links. Might explain
+	  some extremely rare (1 per several millions of operations hours)
+	  production hangs on secondaries. Workaround possible by
+	  "pause-fetch; resume-fetch".
+	* Minor fixes of rare kthread retarding under very high load.
+	* Minor improvement: add version number to "marsadm version" which
+	  can be used for future compatibilty checking with respect to
+	  new features.
+
 mars0.1stable38
 --------
 	* Compile without pre-patch on some kernel versions!

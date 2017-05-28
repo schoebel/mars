@@ -93,6 +93,7 @@ sub lwarn {
 
 my $Id = '$Id$ ';
 my $user_version = 0.1;
+my $marsadm_version = 1; # some rough hint at newer features
 my $mars = "/mars";
 my $host = `uname -n` or ldie "cannot determine my network node name\n";
 chomp $host;
@@ -2633,7 +2634,7 @@ sub show_errors_cmd {
 }
 
 sub version {
-	lprint "$0 $Id\n";
+	lprint "$0 Version: $marsadm_version $Id\n";
 	#lprint "my IP is $ip\n";
 	exit 0;
 } 

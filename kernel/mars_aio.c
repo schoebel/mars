@@ -737,15 +737,17 @@ void fd_uninstall(unsigned int fd)
 {
 	struct files_struct *files = current->files;
 	struct fdtable *fdt;
+	unsigned long flags;
+
 	MARS_DBG("fd = %d\n", fd);
 	if (unlikely(fd < 0)) {
 		MARS_ERR("bad fd = %d\n", fd);
 		return;
 	}
-	spin_lock(&files->file_lock);
+	spin_lock_irqsave(&files->file_lock, flags);
 	fdt = files_fdtable(files);
 	rcu_assign_pointer(fdt->fd[fd], NULL);
-	spin_unlock(&files->file_lock);
+	spin_unlock_irqrestore(&files->file_lock, flags);
 }
 EXPORT_SYMBOL(fd_uninstall);
 #endif
@@ -790,6 +792,33 @@ void _destroy_ioctx(struct aio_output *output)
 	}
 }
 
+/* TODO: this is provisionary. We only need it for sys_io_submit()
+ * which uses userspace concepts like file handles.
+ * This should be replaced by a future kernelsapce vfs_submit() or
+ * do_submit() which currently does not exist :(
+ * Or, the whole aio brick should be replaced by something else.
+ * A good candidate could be the new {read,write}_iter() infrastructure.
+ * But only present at newer kernels.
+ * Unfortunately I will have to support old kernels for a while :(
+ */
+static int _get_fd(void)
+{
+	int err;
+
+	do {
+		/* see f938612dd97d481b8b5bf960c992ae577f081c17
+		 * and 1a7bd2265fc57f29400d57f66275cc5918e30aa6
+		 */
+#if defined(get_unused_fd) || defined(get_unused_fd_flags)
+		err = get_unused_fd();
+#else
+		err = get_unused_fd_flags(0);
+#endif
+		/* safety workaround: skip standard Unix filehandles */
+	} while (err >= 0 && err <= 2);
+	return err;
+}
+
 static
 int _create_ioctx(struct aio_output *output)
 {
@@ -802,19 +831,7 @@ int _create_ioctx(struct aio_output *output)
 	file = output->mf->mf_filp;
 	CHECK_PTR_NULL(file, done);
 
-	/* TODO: this is provisionary. We only need it for sys_io_submit()
-	 * which uses userspace concepts like file handles.
-	 * This should be accompanied by a future kernelsapce vfs_submit() or
-	 * do_submit() which currently does not exist :(
-	 */
-/* see f938612dd97d481b8b5bf960c992ae577f081c17
- * and 1a7bd2265fc57f29400d57f66275cc5918e30aa6
- */
-#if defined(get_unused_fd) || defined(get_unused_fd_flags)
-	err = get_unused_fd();
-#else
-	err = get_unused_fd_flags(0);
-#endif
+	err = _get_fd();
 	MARS_DBG("file %p '%s' new fd = %d\n", file, output->mf->mf_name, err);
 	if (unlikely(err < 0)) {
 		MARS_ERR("cannot get fd, err=%d\n", err);

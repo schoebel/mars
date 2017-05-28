@@ -686,6 +686,7 @@ typedef enum {
 
 #define brick_thread_should_stop()		\
 	({					\
+		flush_signals(current);		\
 		brick_yield();			\
 		kthread_should_stop();		\
 	})
