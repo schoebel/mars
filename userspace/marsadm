@@ -6111,8 +6111,8 @@ Thorough documentation is in mars-manual.pdf. Please use the PDF manual
 as authoritative reference! Here is only a short summary of the most
 important sub-commands / options:
 
-marsadm [<global_options>] <command> [<resource_name> | all | <args> ]
-marsadm [<global_options>] view[-<macroname>] [<resource_name> | all ]
+marsadm [<global_options>] <command> [<resource_names> | all | <args> ]
+marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
 
 <global_option> =
   --force
@@ -6205,7 +6205,7 @@ marsadm [<global_options>] view[-<macroname>] [<resource_name> | all ]
   }
 
   print "
-<resource_name> = name of resource or \"all\" for all resources
+<resource_names> = comma-separated list of resource names or \"all\" for all resources
 ";
 
   print "
@@ -6391,7 +6391,7 @@ if ($cmd =~ "show|cron") {
   $res = shift @args || helplist "peer argument is missing\n";
 } elsif (!($cmd =~ m/^(create|split|leave|wait)-cluster|merge-cluster-list|create-uuid|cat|[a-z]+-file|trigger/)) {
   $res = shift @args || helplist "resource argument is missing\n";
-  check_id($res);
+  check_id_list($res);
 }
 
 
@@ -6420,14 +6420,20 @@ sub do_all_res {
   my $func = shift;
   my $cmd = shift;
   my $res = shift;
+  my @res_list=();
   if ($res eq "all" && $cmd !~ m/show|cat|cluster|set-link|delete-file/) {
+    @res_list = glob("$mars/resource-*");
+  } elsif ($res =~ m/,/) {
+    @res_list = split(",", $res);
+  }
+  if (@res_list) {
     ldie "Cannot combine command '$cmd' with 'all' existing resources - you must explicitly name a single new resource\n" if $cmd =~ m/create|join/;
     my $any_success = 0;
     my $any_member = 0;
     my @total_list = glob("$mars/ips/ip-*");
     my $total_count = scalar(@total_list);
     call_hook(!$force, "all-pre", $cmd, "all", @_);
-    foreach $res (glob("$mars/resource-*")) {
+    foreach $res (@res_list) {
       next unless -e "$res/data-$host";
       $any_member++;
       $res =~ s/^.*\/resource-(.*)$/$1/;
