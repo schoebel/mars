@@ -45,6 +45,8 @@ EXPORT_SYMBOL_GPL(mars_client_abort);
 
 ///////////////////////// own helper functions ////////////////////////
 
+static atomic_t sender_count = ATOMIC_INIT(0);
+
 static int thread_count = 0;
 
 static void _kill_thread(struct client_threadinfo *ti, const char *name)
@@ -505,6 +507,9 @@ static int sender_thread(void *data)
 
 	output->receiver.restart_count = 0;
 
+	if (atomic_inc_return(&sender_count) == 1)
+		mars_limit_reset(&client_limiter);
+
         while (!brick_thread_should_stop()) {
 		struct list_head *tmp = NULL;
 		struct client_mref_aspect *mref_a;
@@ -617,6 +622,9 @@ static int sender_thread(void *data)
 	 */
 	_do_timeout(output, &output->wait_list, true);
 	_do_timeout(output, &output->mref_list, true);
+
+	if (!atomic_dec_return(&sender_count))
+		mars_limit_reset(&client_limiter);
 
 	wake_up_interruptible(&output->sender.run_event);
 	MARS_DBG("sender terminated\n");
