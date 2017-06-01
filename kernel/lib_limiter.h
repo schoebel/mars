@@ -51,4 +51,6 @@ extern int mars_limit(struct mars_limiter *lim, int amount);
 
 extern void mars_limit_sleep(struct mars_limiter *lim, int amount);
 
+void mars_limit_reset(struct mars_limiter *lim);
+
 #endif

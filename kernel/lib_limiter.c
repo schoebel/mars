@@ -34,6 +34,9 @@ int mars_limit(struct mars_limiter *lim, int amount)
 	int delay = 0;
 	long long now;
 
+	if (unlikely(amount < 0))
+		amount = 0;
+
 	now = cpu_clock(raw_smp_processor_id());
 
 	/* Compute the maximum delay along the path
@@ -103,8 +106,6 @@ int mars_limit(struct mars_limiter *lim, int amount)
 				}
 			}
 		} else { // reset, start over with new measurement cycle
-			if (unlikely(amount < 0))
-				amount = 0;
 			lim->lim_accu = amount;
 			lim->lim_stamp = now - lim->lim_min_window * (LIMITER_TIME_RESOLUTION / 1000);
 			lim->lim_rate = 0;
@@ -127,3 +128,11 @@ void mars_limit_sleep(struct mars_limiter *lim, int amount)
 	}
 }
 EXPORT_SYMBOL_GPL(mars_limit_sleep);
+
+void mars_limit_reset(struct mars_limiter *lim)
+{
+	if (!lim)
+		return;
+	lim->lim_stamp = 0;
+	mars_limit(lim, 0);
+}
