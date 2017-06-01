@@ -740,6 +740,8 @@ static int _copy_thread(void *data)
 	brick->verify_ok_count = 0;
 	brick->verify_error_count = 0;
 
+	if (brick->copy_limiter)
+			mars_limit_reset(brick->copy_limiter);
 	_update_percent(brick, true);
 
 	mars_power_led_on((void*)brick, true);
@@ -773,6 +775,9 @@ static int _copy_thread(void *data)
 						 1 * HZ);
 		brick->trigger = false;
 	}
+
+	if (brick->copy_limiter)
+			mars_limit_reset(brick->copy_limiter);
 
 	/* check for fatal consistency errors */
 	if (brick->copy_error == -EMEDIUMTYPE) {
