@@ -2585,6 +2585,8 @@ void flush_inputs(struct trans_logger_brick *brick, int flush_mode)
 	}
 }
 
+static atomic_t logger_count = ATOMIC_INIT(0);
+
 static noinline
 void trans_logger_log(struct trans_logger_brick *brick)
 {
@@ -2598,6 +2600,8 @@ void trans_logger_log(struct trans_logger_brick *brick)
 	brick->disk_io_error = 0;
 
 	_init_inputs(brick, true);
+	if (atomic_inc_return(&logger_count) == 1)
+		mars_limit_reset(&global_writeback.limiter);
 
 	mars_power_led_on((void*)brick, true);
 
@@ -2696,6 +2700,8 @@ void trans_logger_log(struct trans_logger_brick *brick)
 		MARS_INF("%d inputs are operating\n", nr_flying);
 		brick_msleep(1000);
 	}
+	if (!atomic_dec_return(&logger_count))
+		mars_limit_reset(&global_writeback.limiter);
 }
 
 ////////////////////////////// log replay //////////////////////////////
@@ -2913,6 +2919,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 	input->inf.inf_log_pos = end_pos;
 	input->inf.inf_is_replaying = true;
 	input->inf.inf_is_logging = false;
+	mars_limit_reset(brick->replay_limiter);
 
 	MARS_INF("starting replay from %lld to %lld\n", start_pos, end_pos);
 	
@@ -3071,6 +3078,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 	while (!brick_thread_should_stop()) {
 		brick_msleep(500);
 	}
+	mars_limit_reset(brick->replay_limiter);
 }
 
 ///////////////////////// logger thread / switching /////////////////////////
