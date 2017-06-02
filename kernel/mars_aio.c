@@ -407,6 +407,7 @@ static int aio_submit(struct aio_output *output, struct aio_mref_aspect *mref_a,
 		// .aio_reqprio = something(mref->ref_prio) field exists, but not yet implemented in kernelspace :(
 	};
 	struct iocb *iocbp = &iocb;
+	struct timing_stats *this_timing = &timings[mref->ref_rw & 1];
 	unsigned long long latency;
 
 	mars_trace(mref, "aio_submit");
@@ -419,7 +420,10 @@ static int aio_submit(struct aio_output *output, struct aio_mref_aspect *mref_a,
 
 	oldfs = get_fs();
 	set_fs(get_ds());
-	latency = TIME_STATS(&timings[mref->ref_rw & 1], res = sys_io_submit(output->ctxp, 1, &iocbp));
+	latency = TIME_STATS(
+		this_timing,
+		res = sys_io_submit(output->ctxp, 1, &iocbp)
+		);
 	set_fs(oldfs);
 
 	threshold_check(&aio_submit_threshold, latency);
