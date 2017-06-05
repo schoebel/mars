@@ -219,6 +219,18 @@ void qq_dec_flying(struct logger_queue *q)
 }
 
 static inline
+void qq_activate(struct logger_queue *q)
+{
+	q_logger_activate(q, 1);
+}
+
+static inline
+void qq_deactivate(struct logger_queue *q)
+{
+	q_logger_activate(q, -1);
+}
+
+static inline
 void qq_mref_insert(struct logger_queue *q, struct trans_logger_mref_aspect *mref_a)
 {
 	struct mref_object *mref = mref_a->object;
@@ -1583,6 +1595,8 @@ void phase0_endio(void *private, int error)
 
 	banning_reset(&brick->q_phase[0].q_banning);
 
+	qq_deactivate(&brick->q_phase[0]);
+
 	wake_up_interruptible_all(&brick->worker_event);
 	return;
 err: 
@@ -1708,6 +1722,7 @@ bool prep_phase_startio(struct trans_logger_mref_aspect *mref_a)
 
 		__trans_logger_ref_put(brick, mref_a);
 
+		qq_deactivate(&brick->q_phase[0]);
 		return true;
 	} 
 	// else WRITE
@@ -1793,6 +1808,7 @@ void phase1_endio(struct generic_callback *cb)
 
 	// queue up for the next phase
 	qq_wb_insert(&brick->q_phase[2], wb);
+	qq_deactivate(&brick->q_phase[1]);
 	wake_up_interruptible_all(&brick->worker_event);
 	return;
 
@@ -1820,10 +1836,12 @@ bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 
 	if (orig_mref_a->is_collected) {
 		MARS_IO("already collected, pos = %lld len = %d\n", orig_mref->ref_pos, orig_mref->ref_len);
+		qq_deactivate(&brick->q_phase[1]);
 		goto done;
 	}
 	if (!orig_mref_a->is_hashed) {
 		MARS_IO("AHA not hashed, pos = %lld len = %d\n", orig_mref->ref_pos, orig_mref->ref_len);
+		qq_deactivate(&brick->q_phase[1]);
 		goto done;
 	}
 
@@ -1845,12 +1863,22 @@ bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 		qq_inc_flying(&brick->q_phase[1]);
 		fire_writeback(&wb->w_sub_read_list, false);
 	} else { // shortcut
-#ifndef SHORTCUT_1_to_3
-		qq_wb_insert(&brick->q_phase[3], wb);
-		wake_up_interruptible_all(&brick->worker_event);
-#else
-		return phase3_startio(wb);
+#ifdef SHORTCUT_1_to_3
+		bool res;
+
+		/* speculate that next phase can be immediately started */
+		qq_activate(&brick->q_phase[3]);
+		res = phase3_startio(wb);
+		if (likely(res)) {
+			qq_deactivate(&brick->q_phase[1]);
+			goto done;
+		}
+		/* speculation was wrong: no shortcutting */
+		qq_deactivate(&brick->q_phase[3]);
 #endif
+		qq_wb_insert(&brick->q_phase[3], wb);
+		qq_deactivate(&brick->q_phase[1]);
+		wake_up_interruptible_all(&brick->worker_event);
 	}
 
  done:
@@ -1906,6 +1934,7 @@ void phase2_endio(void *private, int error)
 		banning_reset(&brick->q_phase[2].q_banning);
 		_phase2_endio(wb);
 	}
+	qq_deactivate(&brick->q_phase[2]);
 	return;
 
 err:
@@ -2034,6 +2063,8 @@ void phase3_endio(struct generic_callback *cb)
 	free_writeback(wb);
 
 	banning_reset(&brick->q_phase[3].q_banning);
+
+	qq_deactivate(&brick->q_phase[3]);
 
 	wake_up_interruptible_all(&brick->worker_event);
 

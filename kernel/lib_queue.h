@@ -28,6 +28,7 @@
 #define QUEUE_ANCHOR(PREFIX,KEYTYPE,HEAPTYPE)				\
 	/* parameters */						\
 	/* readonly from outside */					\
+	int q_active;							\
 	int q_queued;							\
 	atomic_t q_flying;						\
 	/* tunables */							\
@@ -61,8 +62,20 @@ void q_##PREFIX##_init(struct PREFIX##_queue *q)			\
 	q->heap_low = NULL;						\
 	q->heap_high = NULL;						\
 	spin_lock_init(&q->q_lock);					\
+	q->q_active = 0;						\
 	q->q_queued = 0;						\
 	atomic_set(&q->q_flying, 0);					\
+}									\
+									\
+static inline							        \
+void __q_##PREFIX##_insert_ordered(struct PREFIX##_queue *q, ELEM_TYPE *elem) \
+{									\
+	struct pairing_heap_##HEAPTYPE **use = &q->heap_high;		\
+									\
+	if (KEYCMP(KEYFN(elem), &q->heap_margin) <= 0) {		\
+		use = &q->heap_low;					\
+	}								\
+	ph_insert_##HEAPTYPE(use, &elem->ph);				\
 }									\
 									\
 static inline							        \
@@ -73,14 +86,11 @@ void q_##PREFIX##_insert(struct PREFIX##_queue *q, ELEM_TYPE *elem)	\
 	traced_lock(&q->q_lock, flags);					\
 									\
 	if (q->q_ordering) {						\
-		struct pairing_heap_##HEAPTYPE **use = &q->heap_high;	\
-		if (KEYCMP(KEYFN(elem), &q->heap_margin) <= 0) {	\
-			use = &q->heap_low;				\
-		}							\
-		ph_insert_##HEAPTYPE(use, &elem->ph);			\
+		__q_##PREFIX##_insert_ordered(q, elem);			\
 	} else {							\
 		list_add_tail(&elem->HEAD, &q->q_anchor);		\
 	}								\
+	q->q_active++;							\
 	q->q_queued++;							\
 	q->q_last_insert = jiffies;					\
 									\
@@ -94,17 +104,18 @@ void q_##PREFIX##_pushback(struct PREFIX##_queue *q, ELEM_TYPE *elem)	\
 {									\
 	unsigned long flags;						\
 									\
-	if (q->q_ordering) {						\
-		q_##PREFIX##_insert(q, elem);				\
-		return;							\
-	}								\
-									\
 	traced_lock(&q->q_lock, flags);					\
 									\
-	list_add(&elem->HEAD, &q->q_anchor);				\
+	if (q->q_ordering) {						\
+		__q_##PREFIX##_insert_ordered(q, elem);			\
+	} else {							\
+		list_add(&elem->HEAD, &q->q_anchor);			\
+	}								\
 	q->q_queued++;							\
 									\
 	traced_unlock(&q->q_lock, flags);				\
+									\
+	q_##PREFIX##_trigger(q);					\
 }									\
 									\
 static inline							        \
@@ -164,6 +175,16 @@ void q_##PREFIX##_dec_flying(struct PREFIX##_queue *q)			\
 	q_##PREFIX##_trigger(q);					\
 }									\
 									\
+static inline							        \
+void q_##PREFIX##_activate(struct PREFIX##_queue *q, int count)		\
+{									\
+	unsigned long flags;						\
+									\
+	traced_lock(&q->q_lock, flags);					\
+	q->q_active += count;						\
+	traced_unlock(&q->q_lock, flags);				\
+	q_##PREFIX##_trigger(q);					\
+}									\
 
 
 #endif
