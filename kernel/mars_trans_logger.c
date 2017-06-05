@@ -3167,11 +3167,7 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 "mshadow_buffered=%d sshadow_buffered=%d "
 		 "rounds=%d "
 		 "restarts=%d "
-		 "delays=%d "
-		 "phase0=%d "
-		 "phase1=%d "
-		 "phase2=%d "
-		 "phase3=%d | "
+		 "delays=%d | "
 		 "current #mrefs = %d "
 		 "shadow_mem_used=%ld/%lld "
 		 "replay_count=%d "
@@ -3231,10 +3227,6 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 atomic_read(&brick->total_round_count),
 		 atomic_read(&brick->total_restart_count),
 		 atomic_read(&brick->total_delay_count),
-		 atomic_read(&brick->q_phase[0].q_total),
-		 atomic_read(&brick->q_phase[1].q_total),
-		 atomic_read(&brick->q_phase[2].q_total),
-		 atomic_read(&brick->q_phase[3].q_total),
 		 atomic_read(&brick->mref_object_layout.alloc_count),
 		 atomic64_read(&brick->shadow_mem_used) / 1024,
 		 brick_global_memlimit,

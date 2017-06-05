@@ -30,7 +30,6 @@
 	/* readonly from outside */					\
 	atomic_t q_queued;						\
 	atomic_t q_flying;						\
-	atomic_t q_total;						\
 	/* tunables */							\
 	int q_batchlen;							\
 	int q_io_prio;							\
@@ -83,7 +82,6 @@ void q_##PREFIX##_insert(struct PREFIX##_queue *q, ELEM_TYPE *elem)	\
 		list_add_tail(&elem->HEAD, &q->q_anchor);		\
 	}								\
 	atomic_inc(&q->q_queued);					\
-	atomic_inc(&q->q_total);					\
 	q->q_last_insert = jiffies;					\
 									\
 	traced_unlock(&q->q_lock, flags);				\
@@ -97,7 +95,6 @@ void q_##PREFIX##_pushback(struct PREFIX##_queue *q, ELEM_TYPE *elem)	\
 	unsigned long flags;						\
 									\
 	if (q->q_ordering) {						\
-		atomic_dec(&q->q_total);				\
 		q_##PREFIX##_insert(q, elem);				\
 		return;							\
 	}								\
