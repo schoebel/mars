@@ -610,14 +610,15 @@ void _inf_callback(struct trans_logger_input *input, bool force)
 static inline 
 int _congested(struct trans_logger_brick *brick)
 {
-	return atomic_read(&brick->q_phase[0].q_queued)
-		|| atomic_read(&brick->q_phase[0].q_flying)
-		|| atomic_read(&brick->q_phase[1].q_queued)
-		|| atomic_read(&brick->q_phase[1].q_flying)
-		|| atomic_read(&brick->q_phase[2].q_queued)
-		|| atomic_read(&brick->q_phase[2].q_flying)
-		|| atomic_read(&brick->q_phase[3].q_queued)
-		|| atomic_read(&brick->q_phase[3].q_flying);
+	return
+		brick->q_phase[0].q_queued ||
+		atomic_read(&brick->q_phase[0].q_flying) ||
+		brick->q_phase[1].q_queued ||
+		atomic_read(&brick->q_phase[1].q_flying) ||
+		brick->q_phase[2].q_queued ||
+		atomic_read(&brick->q_phase[2].q_flying) ||
+		brick->q_phase[3].q_queued ||
+		atomic_read(&brick->q_phase[3].q_flying);
 }
 
 ////////////////// own brick / input / output operations //////////////////
@@ -2316,7 +2317,7 @@ int _do_ranking(struct trans_logger_brick *brick)
 
 	// obey the basic rules...
 	for (i = 0; i < LOGGER_QUEUES; i++) {
-		int queued = atomic_read(&brick->q_phase[i].q_queued);
+		int queued = brick->q_phase[i].q_queued;
 		int flying;
 
 		MARS_IO("i = %d queued = %d\n", i, queued);
@@ -2350,8 +2351,10 @@ int _do_ranking(struct trans_logger_brick *brick)
 			struct trans_logger_brick *leader;
 			int lim;
 
-			if (!mref_flying && atomic_read(&brick->q_phase[0].q_queued) > 0) {
-				MARS_IO("BAILOUT phase_[0]queued = %d phase_[0]flying = %d\n", atomic_read(&brick->q_phase[0].q_queued), atomic_read(&brick->q_phase[0].q_flying));
+			if (!mref_flying && brick->q_phase[0].q_queued > 0) {
+				MARS_IO("BAILOUT phase_[0]queued = %d phase_[0]flying = %d\n",
+					brick->q_phase[0].q_queued,
+					atomic_read(&brick->q_phase[0].q_flying));
 				break;
 			}
 
@@ -2568,7 +2571,7 @@ void flush_inputs(struct trans_logger_brick *brick, int flush_mode)
 {
 	if (flush_mode < 1 ||
 	    // there is nothing to append any more
-	    (atomic_read(&brick->q_phase[0].q_queued) <= 0 &&
+	    (brick->q_phase[0].q_queued <= 0 &&
 	     // and the user is waiting for an answer
 	     (flush_mode < 2 ||
 	      atomic_read(&brick->log_fly_count) > 0 ||
@@ -3247,19 +3250,19 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 atomic_read(&brick->log_fly_count),
 		 atomic_read(&brick->inputs[TL_INPUT_LOG1]->logst.mref_flying),
 		 atomic_read(&brick->inputs[TL_INPUT_LOG2]->logst.mref_flying),
-		 atomic_read(&brick->q_phase[0].q_queued),
+		 brick->q_phase[0].q_queued,
 		 atomic_read(&brick->q_phase[0].q_flying),
 		 brick->q_phase[0].pushback_count,
 		 brick->q_phase[0].no_progress_count,
-		 atomic_read(&brick->q_phase[1].q_queued),
+		 brick->q_phase[1].q_queued,
 		 atomic_read(&brick->q_phase[1].q_flying),
 		 brick->q_phase[1].pushback_count,
 		 brick->q_phase[1].no_progress_count,
-		 atomic_read(&brick->q_phase[2].q_queued),
+		 brick->q_phase[2].q_queued,
 		 atomic_read(&brick->q_phase[2].q_flying),
 		 brick->q_phase[2].pushback_count,
 		 brick->q_phase[2].no_progress_count,
-		 atomic_read(&brick->q_phase[3].q_queued),
+		 brick->q_phase[3].q_queued,
 		 atomic_read(&brick->q_phase[3].q_flying),
 		 brick->q_phase[3].pushback_count,
 		 brick->q_phase[3].no_progress_count);

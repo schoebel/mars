@@ -28,7 +28,7 @@
 #define QUEUE_ANCHOR(PREFIX,KEYTYPE,HEAPTYPE)				\
 	/* parameters */						\
 	/* readonly from outside */					\
-	atomic_t q_queued;						\
+	int q_queued;							\
 	atomic_t q_flying;						\
 	/* tunables */							\
 	int q_batchlen;							\
@@ -61,7 +61,7 @@ void q_##PREFIX##_init(struct PREFIX##_queue *q)			\
 	q->heap_low = NULL;						\
 	q->heap_high = NULL;						\
 	spin_lock_init(&q->q_lock);					\
-	atomic_set(&q->q_queued, 0);					\
+	q->q_queued = 0;						\
 	atomic_set(&q->q_flying, 0);					\
 }									\
 									\
@@ -81,7 +81,7 @@ void q_##PREFIX##_insert(struct PREFIX##_queue *q, ELEM_TYPE *elem)	\
 	} else {							\
 		list_add_tail(&elem->HEAD, &q->q_anchor);		\
 	}								\
-	atomic_inc(&q->q_queued);					\
+	q->q_queued++;							\
 	q->q_last_insert = jiffies;					\
 									\
 	traced_unlock(&q->q_lock, flags);				\
@@ -102,7 +102,7 @@ void q_##PREFIX##_pushback(struct PREFIX##_queue *q, ELEM_TYPE *elem)	\
 	traced_lock(&q->q_lock, flags);					\
 									\
 	list_add(&elem->HEAD, &q->q_anchor);				\
-	atomic_inc(&q->q_queued);					\
+	q->q_queued++;							\
 									\
 	traced_unlock(&q->q_lock, flags);				\
 }									\
@@ -134,12 +134,12 @@ ELEM_TYPE *q_##PREFIX##_fetch(struct PREFIX##_queue *q)			\
 				memcpy(&q->heap_margin, KEYFN(elem), sizeof(q->heap_margin)); \
 			}						\
 			ph_delete_min_##HEAPTYPE(&q->heap_high);	\
-			atomic_dec(&q->q_queued);			\
+			q->q_queued--;					\
 		}							\
 	} else if (!list_empty(&q->q_anchor)) {				\
 		struct list_head *next = q->q_anchor.next;		\
 		list_del_init(next);					\
-		atomic_dec(&q->q_queued);				\
+		q->q_queued--;						\
 		elem = container_of(next, ELEM_TYPE, HEAD);		\
 	}								\
 									\
