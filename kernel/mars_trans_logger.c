@@ -202,7 +202,6 @@ static inline
 void qq_init(struct logger_queue *q, struct trans_logger_brick *brick)
 {
 	q_logger_init(q);
-	q->q_event = &brick->worker_event;
 	q->q_brick = brick;
 }
 

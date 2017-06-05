@@ -35,7 +35,6 @@
 	int q_io_prio;							\
 	bool q_ordering;						\
 	/* private */							\
-	wait_queue_head_t *q_event;					\
 	spinlock_t q_lock;						\
 	struct list_head q_anchor;					\
 	struct pairing_heap_##HEAPTYPE *heap_high;			\
@@ -45,14 +44,6 @@
 	KEYTYPE last_pos;						\
 
 #define QUEUE_FUNCTIONS(PREFIX,ELEM_TYPE,HEAD,KEYFN,KEYCMP,HEAPTYPE)	\
-									\
-static inline							        \
-void q_##PREFIX##_trigger(struct PREFIX##_queue *q)			\
-{									\
-	if (q->q_event) {						\
-		wake_up_interruptible(q->q_event);			\
-	}								\
-}									\
 									\
 static inline							        \
 void q_##PREFIX##_init(struct PREFIX##_queue *q)			\
@@ -93,8 +84,6 @@ void q_##PREFIX##_insert(struct PREFIX##_queue *q, ELEM_TYPE *elem)	\
 	q->q_last_insert = jiffies;					\
 									\
 	traced_unlock(&q->q_lock, flags);				\
-									\
-	q_##PREFIX##_trigger(q);					\
 }									\
 									\
 static inline							        \
@@ -112,8 +101,6 @@ void q_##PREFIX##_pushback(struct PREFIX##_queue *q, ELEM_TYPE *elem)	\
 	q->q_queued++;							\
 									\
 	traced_unlock(&q->q_lock, flags);				\
-									\
-	q_##PREFIX##_trigger(q);					\
 }									\
 									\
 static inline							        \
@@ -154,8 +141,6 @@ ELEM_TYPE *q_##PREFIX##_fetch(struct PREFIX##_queue *q)			\
 									\
 	traced_unlock(&q->q_lock, flags);				\
 									\
-	q_##PREFIX##_trigger(q);					\
-									\
 	return elem;							\
 }									\
 									\
@@ -167,7 +152,6 @@ void q_##PREFIX##_activate(struct PREFIX##_queue *q, int count)		\
 	traced_lock(&q->q_lock, flags);					\
 	q->q_active += count;						\
 	traced_unlock(&q->q_lock, flags);				\
-	q_##PREFIX##_trigger(q);					\
 }									\
 
 
