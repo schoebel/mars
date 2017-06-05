@@ -623,14 +623,10 @@ static inline
 int _congested(struct trans_logger_brick *brick)
 {
 	return
-		brick->q_phase[0].q_queued ||
-		atomic_read(&brick->q_phase[0].q_flying) ||
-		brick->q_phase[1].q_queued ||
-		atomic_read(&brick->q_phase[1].q_flying) ||
-		brick->q_phase[2].q_queued ||
-		atomic_read(&brick->q_phase[2].q_flying) ||
-		brick->q_phase[3].q_queued ||
-		atomic_read(&brick->q_phase[3].q_flying);
+		brick->q_phase[0].q_active ||
+		brick->q_phase[1].q_active ||
+		brick->q_phase[2].q_active ||
+		brick->q_phase[3].q_active;
 }
 
 ////////////////// own brick / input / output operations //////////////////
