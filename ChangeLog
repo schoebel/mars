@@ -188,6 +188,13 @@ mars0.1balpha0
 -----------------------------------
 Changelog for series 0.1:
 
+mars0.1stable40
+--------
+	* Potentially critical fix: on very fast machines, and with
+	  extremely low probability, a race in AIO could lead to a kernel
+	  page fault.
+	  For maximum safety, update to this version is recommended.
+
 mars0.1stable39
 --------
 	* Minor fix: hangs of logfile updates. Found by stress-testing
