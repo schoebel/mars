@@ -30,7 +30,6 @@
 	/* readonly from outside */					\
 	int q_active;							\
 	int q_queued;							\
-	atomic_t q_flying;						\
 	/* tunables */							\
 	int q_batchlen;							\
 	int q_io_prio;							\
@@ -64,7 +63,6 @@ void q_##PREFIX##_init(struct PREFIX##_queue *q)			\
 	spin_lock_init(&q->q_lock);					\
 	q->q_active = 0;						\
 	q->q_queued = 0;						\
-	atomic_set(&q->q_flying, 0);					\
 }									\
 									\
 static inline							        \
@@ -159,20 +157,6 @@ ELEM_TYPE *q_##PREFIX##_fetch(struct PREFIX##_queue *q)			\
 	q_##PREFIX##_trigger(q);					\
 									\
 	return elem;							\
-}									\
-									\
-static inline							        \
-void q_##PREFIX##_inc_flying(struct PREFIX##_queue *q)			\
-{									\
-	atomic_inc(&q->q_flying);					\
-	q_##PREFIX##_trigger(q);					\
-}									\
-									\
-static inline							        \
-void q_##PREFIX##_dec_flying(struct PREFIX##_queue *q)			\
-{									\
-	atomic_dec(&q->q_flying);					\
-	q_##PREFIX##_trigger(q);					\
 }									\
 									\
 static inline							        \
