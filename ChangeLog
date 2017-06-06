@@ -130,6 +130,10 @@ Changelog for series 0.2:
 -----------------------------------
 Changelog for series 0.1b:
 
+mars0.1balpha3.4
+--------
+	* Merge	fix from mars0.1stable40 (see there)
+
 mars0.1balpha3.3
 --------
 	* Merge	fixes from mars0.1stable39
