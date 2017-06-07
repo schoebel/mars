@@ -135,6 +135,11 @@ Changelog for series 0.1b:
 -----------------------------------
 Changelog for series 0.1:
 
+mars0.1stable41
+--------
+	* Minor fix: a scarce race could lead to an unnecessary split brain
+	  when umounting _after_ role transition from primary to secondary.
+
 mars0.1stable40
 --------
 	* Potentially critical fix: on very fast machines, and with
