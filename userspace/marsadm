@@ -171,6 +171,7 @@ sub rsync_cmd {
     lprint "DRY_RUN: would execute the following command:\n$rsync_cmd\n";
     $rsync_cmd .= " --dry-run";
   }
+  finish_links();
   # Repeat the action because some symlinks might be updated (or even vanish)
   # when the peer is actively running. There seems to exist no rsync option
   # for ignoring all of these errors.
@@ -1794,27 +1795,34 @@ sub create_res {
     ldie "could not create resource '$res'\n" unless -d $resdir;
     set_link($size, "$resdir/size");
   } else { # join
-    if (-d $resdir) {
-      $primary = _get_designated_primary($res, 1);
-      # For safety, try to get the very newest infos
+    # For safety, try to get the very newest infos.
+    # Reason: newer kernel modules will fetch non-member resource infos less frequently.
+    # Therefore we shift some responsibility for non-member -> member transitions to userspace.
+    my @peers = map { m:^$mars/ips/ip-(.+):; $1 } glob("$mars/ips/ip-*");
+    $primary = _get_designated_primary($res, 1);
+    my $max_retry = 5;
+    for (;;) {
       if ($primary && $primary ne "(none)") {
-	rsync_cmd("--max-size=1 --update $primary:$mars/resource-$res/ $mars/resource-$res/", 1);
+	# for safety, fetch newest infos from last known primary
+	rsync_cmd($primary, "--max-size=1 --update $primary:$mars/resource-$res/ $mars/resource-$res/", $res, 1);
+	last;
       }
-    }
-    if (!-d $resdir || !_get_designated_primary($res, 1)) {
+      if (!@peers || $max_retry < 0) {
+	lwarn "cannot get a relevant primary";
+	last;
+      }
       # We are desperate. Try to fetch the directory from anywhere.
-      my @peers = glob("$mars/ips/ip-*");
-      my $max_rsync = 3;
-      foreach my $peer (map { m:^$mars/ips/ip-(.+):; $1 } @peers) {
-	next if $peer eq $host;
-	next if $peer eq $real_host;
-	rsync_cmd($peer, "--max-size=1 --update $peer:$mars/resource-$res/ $mars/resource-$res/", 1);
-	if (_get_designated_primary($res, 1)) {
-	  last if $max_rsync-- <= 0;
-	}
-      }
-      ldie "resource '$res' does not exist\n" unless -d $resdir;
-    }
+      my $peer = shift @peers;
+      next if $peer eq $host;
+      next if $peer eq $real_host;
+      rsync_cmd($peer, "--max-size=1 --update $peer:$mars/resource-$res $mars/", 1);
+      $primary = _get_designated_primary($res, 1);
+      $max_retry--;
+    } # retry loop
+    ldie "resource '$res' does not exist\n" unless -d $resdir;
+    ldie "resource '$res' has no designated primary\n" unless $primary && $primary ne "(none)";
+    finish_links();
+    wait_cluster($cmd, $res);
     my $res_size = get_link("$mars/resource-$res/size", 1);
     if ($size < $res_size) {
       lwarn "size of new device is only $size, but should be $res_size\n";
