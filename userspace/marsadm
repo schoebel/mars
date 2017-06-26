@@ -1596,6 +1596,10 @@ sub create_cluster {
 
 sub _run_rsync {
   my ($cmd) = @_;
+  if ($dry_run) {
+    lprint "DRY_RUN: would execute the following command:\n$cmd\n";
+    $cmd .= " --dry-run";
+  }
   my $cycle = 0;
   my $status = 0;
   # Repeat the action because some symlinks might be updated (or even vanish)
@@ -1620,9 +1624,7 @@ sub join_cluster {
   lprint "joining cluster via rsync (peer='$peer')\n";
   # check connection
   system("ssh $peer uname -a") == 0 or ldie "oops, no connection to $peer ...\n";
-  unless ($dry_run) {
-    _run_rsync("rsync --recursive --links --max-size=1 -v $peer:$mars/ $mars/");
-  }
+  _run_rsync("rsync --recursive --links --max-size=1 -v $peer:$mars/ $mars/");
   # check uniqness of IPs
   foreach my $other_ip_path (glob("$mars/ips/*")) {
     my $other_ip = get_link($other_ip_path, 1);
@@ -1630,9 +1632,7 @@ sub join_cluster {
   }
   _create_cluster(@_);
   finish_links();
-  unless ($dry_run) {
-    _run_rsync("rsync --recursive --links -v $mars/ips/ $peer:$mars/ips/");
-  }
+  _run_rsync("rsync --recursive --links -v $mars/ips/ $peer:$mars/ips/");
 }
 
 sub leave_cluster {
