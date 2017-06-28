@@ -103,7 +103,82 @@ my $real_host = $host;
 my $force = 0;
 my $timeout = -1;
 my $ip = "";
+my $ssh_port = 22;
+my $ssh_opts = "-A -o StrictHostKeyChecking=no -o ConnectTimeout=5";
+my $ssh_probe = "uname -a";
+my $rsync_opts = "-av";
 my $kernel_version = 0;
+
+##################################################################
+
+# ssh helpers
+
+my %ssh_ips;
+my %ssh_ports;
+
+sub make_ssh_cmd {
+  my ($peer, $no_login) = @_;
+  my $ssh = "ssh $ssh_opts";
+  if (!defined($ssh_ports{$peer})) {
+    my $port;
+    my $real_peer;
+    my $peer_ip = get_link("$mars/ips/ip-$peer", 2);
+    for my $this_peer ($peer, $peer_ip) {
+      next unless defined($this_peer);
+      if (system("ping -c1 $this_peer")) {
+	lwarn "cannot ping '$this_peer'\n";
+	next;
+      }
+      # first try given parameters, then port 22, then ssh_config defaults
+      if (!system("$ssh -p $ssh_port root\@$this_peer \"$ssh_probe\"")) {
+	($real_peer, $port) = ($this_peer, $ssh_port);
+	last;
+      } elsif (!system("$ssh -p 22 root\@$this_peer \"$ssh_probe\"")) {
+	($real_peer, $port) = ($this_peer, 22);
+	last;
+      } elsif (!system("$ssh root\@$this_peer \"$ssh_probe\"")) {
+	($real_peer, $port) = ($this_peer, 0);
+	last;
+      }
+      lwarn "SSH to '$this_peer' does not work on any port\n";
+    }
+    ldie "SSH to '$peer' does not work\n" unless defined($port);
+    $ssh_ips{$peer} = $real_peer;
+    $ssh_ports{$peer} = $port;
+  }
+  my $real_peer = $ssh_ips{$peer};
+  $real_peer = $peer if !defined($real_peer);
+  my $port = $ssh_ports{$peer};
+  $ssh .= " -p $port" if $port > 0;
+  return ($real_peer, $port, $ssh) if defined($no_login);
+  return "$ssh root\@$real_peer"
+}
+
+sub ssh_cmd {
+  my ($peer, $cmd) = @_;
+  my $ssh = make_ssh_cmd($peer) . " \"$cmd\"";
+  system $ssh or ldie "SSH to '$peer' command '$cmd' failed\n";
+}
+
+sub rsync_cmd {
+  my ($peer, $cmd) = @_;
+  my ($real_peer, $port, $ssh) = make_ssh_cmd($peer, 1);
+  $cmd =~ s/(?<![-a-zA-Z0-9_])$peer(?![-a-zA-Z0-9_])/$real_peer/g if (defined($real_peer) && $real_peer && $real_peer ne $peer);
+  my $rsync_cmd = "rsync -e '$ssh' $rsync_opts $cmd";
+  if ($dry_run) {
+    lprint "DRY_RUN: would execute the following command:\n$rsync_cmd\n";
+    $rsync_cmd .= " --dry-run";
+  }
+  # Repeat the action because some symlinks might be updated (or even vanish)
+  # when the peer is actively running. There seems to exist no rsync option
+  # for ignoring all of these errors.
+  my $cycle = 0;
+  my $status = 0;
+  do {
+    $status = system($rsync_cmd);
+  } while ($status != 0 && $status != 24 && $cycle++ < 3);
+  ldie "Cannot get remote symlink tree via rsync, status=$status\n" if ($status && $status != 24);
+}
 
 ##################################################################
 
@@ -1594,23 +1669,6 @@ sub create_cluster {
   _create_cluster(@_);
 }
 
-sub _run_rsync {
-  my ($cmd) = @_;
-  if ($dry_run) {
-    lprint "DRY_RUN: would execute the following command:\n$cmd\n";
-    $cmd .= " --dry-run";
-  }
-  my $cycle = 0;
-  my $status = 0;
-  # Repeat the action because some symlinks might be updated (or even vanish)
-  # when the peer is actively running. There seems to exist no rsync option
-  # for ignoring all of these errors.
-  do {
-    $status = system($cmd);
-  } while ($status != 0 && $status != 24 && $cycle++ < 3);
-  ldie "Cannot get remote symlink tree via rsync, status=$status\n" if ($status && $status != 24);
-}
-
 sub join_cluster {
   my ($cmd, $peer) = @_;
   ldie "Cannot join myself (peer='$peer', host='$host')\n" if $peer eq $host;
@@ -1622,9 +1680,7 @@ sub join_cluster {
   }
   ldie "mars module is loaded, please unload first\n" if is_module_loaded();
   lprint "joining cluster via rsync (peer='$peer')\n";
-  # check connection
-  system("ssh $peer uname -a") == 0 or ldie "oops, no connection to $peer ...\n";
-  _run_rsync("rsync --recursive --links --max-size=1 -v $peer:$mars/ $mars/");
+  rsync_cmd($peer, "--max-size=1 $peer:$mars/ $mars/");
   # check uniqness of IPs
   foreach my $other_ip_path (glob("$mars/ips/*")) {
     my $other_ip = get_link($other_ip_path, 1);
@@ -1632,7 +1688,7 @@ sub join_cluster {
   }
   _create_cluster(@_);
   finish_links();
-  _run_rsync("rsync --recursive --links -v $mars/ips/ $peer:$mars/ips/");
+  rsync_cmd($peer, "$mars/ips/ $peer:$mars/ips/");
 }
 
 sub leave_cluster {
@@ -5052,6 +5108,11 @@ marsadm [<global_options>] view[-<macroname>] [<resource_name> | all ]
     the default IP determined from the list of network interfaces.
     Usually you will need this only at 'create-cluster' or
     'join-cluster' for resolving ambiguities.
+  --ssh-port=<port_nr>
+    Override the default ssh port (22) for ssh and rsync.
+    Useful for running {join,merge}-cluster on non-standard ssh ports.
+  --ssh-opts=\"<ssh_commandline_options>\"
+    Override the default ssh commandline options. Also used for rsync.
   --macro=<text>
     Handy for testing short macro evaluations at the command line.
 
@@ -5153,6 +5214,14 @@ foreach my $arg (@ARGV) {
   } elsif ($arg =~ s/--ip\s*=\s*([0-9.:\[\]]+)/$1/) {
     $ip = $arg;
     lprint_stderr "Using IP '$ip' from command line.\n";
+    next;
+  } elsif ($arg =~ s/--ssh[-_]port\s*=\s*([0-9]+)/$1/) {
+    $ssh_port = $arg;
+    lprint_stderr "Using SSH port '$ssh_port' from command line.\n";
+    next;
+  } elsif ($arg =~ s/--ssh[-_]opts\s*=\s*(.*)/$1/) {
+    $ssh_opts = $arg;
+    lprint_stderr "Using SSH options '$ssh_opts' from command line.\n";
     next;
   } elsif ($arg =~ s/--macro\s*=\s*(.*)/$1/) {
     $macro = $arg;
