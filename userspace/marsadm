@@ -47,6 +47,7 @@ my $logger = "/usr/bin/logger";
 sub llog {
   my ($text) = @_;
   if ($notify) {
+    $text =~ s/"/\\"/g;
     system("$logger -t marsadm \"$notify $text\"");
   }
 }
