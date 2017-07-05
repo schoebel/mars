@@ -5739,12 +5739,18 @@ sub do_all_res {
     ldie "Cannot combine command '$cmd' with 'all' existing resources - you must explicitly name a single new resource\n" if $cmd =~ m/create|join/;
     my $any_success = 0;
     my $any_member = 0;
+    my @total_list = glob("$mars/ips/ip-*");
+    my $total_count = scalar(@total_list);
     foreach $res (glob("$mars/resource-*")) {
       next unless -e "$res/data-$host";
       $any_member++;
       $res =~ s/^.*\/resource-(.*)$/$1/;
       next if defined($skip_res{$res});
-      lprint "--------- resource $res\n" if ($verbose || $cmd !~ m/^log-/);
+      if ($verbose || $cmd !~ m/^log-/) {
+	my @this_list = glob("$mars/resource-$res/data-*");
+	my $this_count = scalar(@this_list);
+	lprint "--------- resource $res [$this_count/$total_count]\n" 
+      }
       eval {
 	do_one_res($func, $cmd, $res, @_);
 	1;
