@@ -135,6 +135,16 @@ Changelog for series 0.1b:
 -----------------------------------
 Changelog for series 0.1:
 
+mars0.1stable42
+--------
+	* Minor fix: ssh IPs and port numbers are automatically probed
+	  on join-cluster.
+	* Minor compatibility to branch mars.1b.y: join-resource
+	  does additional rsync for safety.
+	* Minor fix: rate display was not going down to 0
+	  on switchoff or long pauses.
+	* Minor improvement: show peers in internal debugging info.
+
 mars0.1stable41
 --------
 	* Minor fix: a scarce race could lead to an unnecessary split brain
