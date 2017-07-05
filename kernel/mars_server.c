@@ -793,6 +793,7 @@ static int _server_thread(void *data)
 		struct mars_socket handler_socket = {};
 
 		server_global.global_version++;
+		mars_limit(&server_limiter, 0);
 
 		if (server_show_statist)
 			show_statistics(&server_global, "server");

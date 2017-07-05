@@ -50,6 +50,8 @@ EXPORT_SYMBOL_GPL(max_client_bulk);
 
 ///////////////////////// own helper functions ////////////////////////
 
+static atomic_t sender_count = ATOMIC_INIT(0);
+
 static int thread_count = 0;
 
 static
@@ -778,6 +780,9 @@ static int sender_thread(void *data)
 	int status = -ESHUTDOWN;
 	unsigned long flags;
 
+	if (atomic_inc_return(&sender_count) == 1)
+		mars_limit_reset(&client_limiter);
+
         while (brick->power.button && !brick_thread_should_stop()) {
 		struct list_head *tmp = NULL;
 		struct client_mref_aspect *mref_a;
@@ -918,6 +923,10 @@ static int sender_thread(void *data)
 	 * we want).
 	 */
 	_do_timeout_all(output, true);
+
+	if (!atomic_dec_return(&sender_count))
+		mars_limit_reset(&client_limiter);
+
 	wake_up_interruptible_all(&output->bundle.sender_event);
 	MARS_DBG("sender terminated\n");
 	return status;

@@ -202,20 +202,19 @@ static inline
 void qq_init(struct logger_queue *q, struct trans_logger_brick *brick)
 {
 	q_logger_init(q);
-	q->q_event = &brick->worker_event;
 	q->q_brick = brick;
 }
 
 static inline
-void qq_inc_flying(struct logger_queue *q)
+void qq_activate(struct logger_queue *q)
 {
-	q_logger_inc_flying(q);
+	q_logger_activate(q, 1);
 }
 
 static inline
-void qq_dec_flying(struct logger_queue *q)
+void qq_deactivate(struct logger_queue *q)
 {
-	q_logger_dec_flying(q);
+	q_logger_activate(q, -1);
 }
 
 static inline
@@ -610,14 +609,11 @@ void _inf_callback(struct trans_logger_input *input, bool force)
 static inline 
 int _congested(struct trans_logger_brick *brick)
 {
-	return atomic_read(&brick->q_phase[0].q_queued)
-		|| atomic_read(&brick->q_phase[0].q_flying)
-		|| atomic_read(&brick->q_phase[1].q_queued)
-		|| atomic_read(&brick->q_phase[1].q_flying)
-		|| atomic_read(&brick->q_phase[2].q_queued)
-		|| atomic_read(&brick->q_phase[2].q_flying)
-		|| atomic_read(&brick->q_phase[3].q_queued)
-		|| atomic_read(&brick->q_phase[3].q_flying);
+	return
+		brick->q_phase[0].q_active ||
+		brick->q_phase[1].q_active ||
+		brick->q_phase[2].q_active ||
+		brick->q_phase[3].q_active;
 }
 
 ////////////////// own brick / input / output operations //////////////////
@@ -1565,7 +1561,6 @@ void phase0_endio(void *private, int error)
 	CHECK_PTR(orig_mref, err);
 
 	orig_mref_a->is_persistent = true;
-	qq_dec_flying(&brick->q_phase[0]);
 
 	_CHECK(orig_mref_a->shadow_ref, err);
 
@@ -1581,6 +1576,8 @@ void phase0_endio(void *private, int error)
 	__trans_logger_ref_put(brick, orig_mref_a);
 
 	banning_reset(&brick->q_phase[0].q_banning);
+
+	qq_deactivate(&brick->q_phase[0]);
 
 	wake_up_interruptible_all(&brick->worker_event);
 	return;
@@ -1661,8 +1658,6 @@ bool phase0_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	atomic_inc(&input->pos_count);
 	up(&input->inf_mutex);
 
-	qq_inc_flying(&brick->q_phase[0]);
-
 	phase0_preio(orig_mref_a);
 
 	return true;
@@ -1707,6 +1702,7 @@ bool prep_phase_startio(struct trans_logger_mref_aspect *mref_a)
 
 		__trans_logger_ref_put(brick, mref_a);
 
+		qq_deactivate(&brick->q_phase[0]);
 		return true;
 	} 
 	// else WRITE
@@ -1786,12 +1782,11 @@ void phase1_endio(struct generic_callback *cb)
 		goto err;
 	}
 
-	qq_dec_flying(&brick->q_phase[1]);
-
 	banning_reset(&brick->q_phase[1].q_banning);
 
 	// queue up for the next phase
 	qq_wb_insert(&brick->q_phase[2], wb);
+	qq_deactivate(&brick->q_phase[1]);
 	wake_up_interruptible_all(&brick->worker_event);
 	return;
 
@@ -1819,10 +1814,12 @@ bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 
 	if (orig_mref_a->is_collected) {
 		MARS_IO("already collected, pos = %lld len = %d\n", orig_mref->ref_pos, orig_mref->ref_len);
+		qq_deactivate(&brick->q_phase[1]);
 		goto done;
 	}
 	if (!orig_mref_a->is_hashed) {
 		MARS_IO("AHA not hashed, pos = %lld len = %d\n", orig_mref->ref_pos, orig_mref->ref_len);
+		qq_deactivate(&brick->q_phase[1]);
 		goto done;
 	}
 
@@ -1841,15 +1838,24 @@ bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	atomic_set(&wb->w_sub_log_count, atomic_read(&wb->w_sub_read_count));
 
 	if (brick->log_reads) {
-		qq_inc_flying(&brick->q_phase[1]);
 		fire_writeback(&wb->w_sub_read_list, false);
 	} else { // shortcut
-#ifndef SHORTCUT_1_to_3
-		qq_wb_insert(&brick->q_phase[3], wb);
-		wake_up_interruptible_all(&brick->worker_event);
-#else
-		return phase3_startio(wb);
+#ifdef SHORTCUT_1_to_3
+		bool res;
+
+		/* speculate that next phase can be immediately started */
+		qq_activate(&brick->q_phase[3]);
+		res = phase3_startio(wb);
+		if (likely(res)) {
+			qq_deactivate(&brick->q_phase[1]);
+			goto done;
+		}
+		/* speculation was wrong: no shortcutting */
+		qq_deactivate(&brick->q_phase[3]);
 #endif
+		qq_wb_insert(&brick->q_phase[3], wb);
+		qq_deactivate(&brick->q_phase[1]);
+		wake_up_interruptible_all(&brick->worker_event);
 	}
 
  done:
@@ -1893,8 +1899,6 @@ void phase2_endio(void *private, int error)
 	brick = wb->w_brick;
 	CHECK_PTR(brick, err);
 
-	qq_dec_flying(&brick->q_phase[2]);
-
 	if (unlikely(error < 0)) {
 		MARS_FAT("IO error %d\n", error);
 		goto err; // FIXME: this leads to hanging requests. do better.
@@ -1905,6 +1909,7 @@ void phase2_endio(void *private, int error)
 		banning_reset(&brick->q_phase[2].q_banning);
 		_phase2_endio(wb);
 	}
+	qq_deactivate(&brick->q_phase[2]);
 	return;
 
 err:
@@ -1954,8 +1959,6 @@ bool _phase2_startio(struct trans_logger_mref_aspect *sub_mref_a)
 	if (unlikely(!ok)) {
 		goto err;
 	}
-
-	qq_inc_flying(&brick->q_phase[2]);
 
 	return true;
 
@@ -2027,12 +2030,13 @@ void phase3_endio(struct generic_callback *cb)
 
 	hash_put_all(brick, &wb->w_collect_list);
 
-	qq_dec_flying(&brick->q_phase[3]);
 	atomic_inc(&brick->total_writeback_cluster_count);
 
 	free_writeback(wb);
 
 	banning_reset(&brick->q_phase[3].q_banning);
+
+	qq_deactivate(&brick->q_phase[3]);
 
 	wake_up_interruptible_all(&brick->worker_event);
 
@@ -2069,7 +2073,6 @@ bool phase3_startio(struct writeback_info *wb)
 
 	/* Start writeback IO
 	 */
-	qq_inc_flying(&wb->w_brick->q_phase[3]);
 	fire_writeback(&wb->w_sub_write_list, true);
 	return true;
 }
@@ -2316,7 +2319,7 @@ int _do_ranking(struct trans_logger_brick *brick)
 
 	// obey the basic rules...
 	for (i = 0; i < LOGGER_QUEUES; i++) {
-		int queued = atomic_read(&brick->q_phase[i].q_queued);
+		int queued = brick->q_phase[i].q_queued;
 		int flying;
 
 		MARS_IO("i = %d queued = %d\n", i, queued);
@@ -2350,8 +2353,10 @@ int _do_ranking(struct trans_logger_brick *brick)
 			struct trans_logger_brick *leader;
 			int lim;
 
-			if (!mref_flying && atomic_read(&brick->q_phase[0].q_queued) > 0) {
-				MARS_IO("BAILOUT phase_[0]queued = %d phase_[0]flying = %d\n", atomic_read(&brick->q_phase[0].q_queued), atomic_read(&brick->q_phase[0].q_flying));
+			if (!mref_flying && brick->q_phase[0].q_queued > 0) {
+				MARS_IO("BAILOUT phase_[0]queued = %d phase_[0]active = %d\n",
+					brick->q_phase[0].q_queued,
+					brick->q_phase[0].q_active);
 				break;
 			}
 
@@ -2382,7 +2387,7 @@ int _do_ranking(struct trans_logger_brick *brick)
 
 		ranking_compute(&rkd[i], queue_ranks[floating_mode][i], queued);
 
-		flying = atomic_read(&brick->q_phase[i].q_flying);
+		flying = brick->q_phase[i].q_active - brick->q_phase[i].q_active;
 
 		MARS_IO("i = %d queued = %d flying = %d\n", i, queued, flying);
 
@@ -2568,23 +2573,19 @@ void flush_inputs(struct trans_logger_brick *brick, int flush_mode)
 {
 	if (flush_mode < 1 ||
 	    // there is nothing to append any more
-	    (atomic_read(&brick->q_phase[0].q_queued) <= 0 &&
+	    (brick->q_phase[0].q_queued <= 0 &&
 	     // and the user is waiting for an answer
 	     (flush_mode < 2 ||
 	      atomic_read(&brick->log_fly_count) > 0 ||
 	     // else flush any leftovers in background, when there is no writeback activity
 	      (flush_mode == 3 &&
-	       atomic_read(&brick->q_phase[1].q_flying) + atomic_read(&brick->q_phase[3].q_flying) <= 0)))) {
-		MARS_IO("log_fly_count 0 %d q0 = %d q0 = %d q0 = %d q0 = %d\n",
-			atomic_read(&brick->log_fly_count),
-			atomic_read(&brick->q_phase[0].q_flying),
-			atomic_read(&brick->q_phase[1].q_flying),
-			atomic_read(&brick->q_phase[2].q_flying),
-			atomic_read(&brick->q_phase[3].q_flying)
-			);
+	       brick->q_phase[1].q_active - brick->q_phase[1].q_queued +
+	       brick->q_phase[3].q_active - brick->q_phase[3].q_queued <= 0)))) {
 		_flush_inputs(brick);
 	}
 }
+
+static atomic_t logger_count = ATOMIC_INIT(0);
 
 static noinline
 void trans_logger_log(struct trans_logger_brick *brick)
@@ -2599,6 +2600,8 @@ void trans_logger_log(struct trans_logger_brick *brick)
 	brick->disk_io_error = 0;
 
 	_init_inputs(brick, true);
+	if (atomic_inc_return(&logger_count) == 1)
+		mars_limit_reset(&global_writeback.limiter);
 
 	mars_power_led_on((void*)brick, true);
 
@@ -2697,6 +2700,8 @@ void trans_logger_log(struct trans_logger_brick *brick)
 		MARS_INF("%d inputs are operating\n", nr_flying);
 		brick_msleep(1000);
 	}
+	if (!atomic_dec_return(&logger_count))
+		mars_limit_reset(&global_writeback.limiter);
 }
 
 ////////////////////////////// log replay //////////////////////////////
@@ -2914,6 +2919,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 	input->inf.inf_log_pos = end_pos;
 	input->inf.inf_is_replaying = true;
 	input->inf.inf_is_logging = false;
+	mars_limit_reset(brick->replay_limiter);
 
 	MARS_INF("starting replay from %lld to %lld\n", start_pos, end_pos);
 	
@@ -3072,6 +3078,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 	while (!brick_thread_should_stop()) {
 		brick_msleep(500);
 	}
+	mars_limit_reset(brick->replay_limiter);
 }
 
 ///////////////////////// logger thread / switching /////////////////////////
@@ -3167,11 +3174,7 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 "mshadow_buffered=%d sshadow_buffered=%d "
 		 "rounds=%d "
 		 "restarts=%d "
-		 "delays=%d "
-		 "phase0=%d "
-		 "phase1=%d "
-		 "phase2=%d "
-		 "phase3=%d | "
+		 "delays=%d | "
 		 "current #mrefs = %d "
 		 "shadow_mem_used=%ld/%lld "
 		 "replay_count=%d "
@@ -3187,10 +3190,10 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 "log_fly=%d "
 		 "mref_flying1=%d "
 		 "mref_flying2=%d "
-		 "phase0=%d+%d <%d/%d> "
-		 "phase1=%d+%d <%d/%d> "
-		 "phase2=%d+%d <%d/%d> "
-		 "phase3=%d+%d <%d/%d>\n",
+		 "phase0=%d-%d <%d/%d> "
+		 "phase1=%d-%d <%d/%d> "
+		 "phase2=%d-%d <%d/%d> "
+		 "phase3=%d-%d <%d/%d>\n",
 		 brick->replay_mode,
 		 brick->continuous_replay_mode,
 		 brick->replay_code,
@@ -3231,10 +3234,6 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 atomic_read(&brick->total_round_count),
 		 atomic_read(&brick->total_restart_count),
 		 atomic_read(&brick->total_delay_count),
-		 atomic_read(&brick->q_phase[0].q_total),
-		 atomic_read(&brick->q_phase[1].q_total),
-		 atomic_read(&brick->q_phase[2].q_total),
-		 atomic_read(&brick->q_phase[3].q_total),
 		 atomic_read(&brick->mref_object_layout.alloc_count),
 		 atomic64_read(&brick->shadow_mem_used) / 1024,
 		 brick_global_memlimit,
@@ -3255,20 +3254,20 @@ char *trans_logger_statistics(struct trans_logger_brick *brick, int verbose)
 		 atomic_read(&brick->log_fly_count),
 		 atomic_read(&brick->inputs[TL_INPUT_LOG1]->logst.mref_flying),
 		 atomic_read(&brick->inputs[TL_INPUT_LOG2]->logst.mref_flying),
-		 atomic_read(&brick->q_phase[0].q_queued),
-		 atomic_read(&brick->q_phase[0].q_flying),
+		 brick->q_phase[0].q_active,
+		 brick->q_phase[0].q_queued,
 		 brick->q_phase[0].pushback_count,
 		 brick->q_phase[0].no_progress_count,
-		 atomic_read(&brick->q_phase[1].q_queued),
-		 atomic_read(&brick->q_phase[1].q_flying),
+		 brick->q_phase[1].q_active,
+		 brick->q_phase[1].q_queued,
 		 brick->q_phase[1].pushback_count,
 		 brick->q_phase[1].no_progress_count,
-		 atomic_read(&brick->q_phase[2].q_queued),
-		 atomic_read(&brick->q_phase[2].q_flying),
+		 brick->q_phase[2].q_active,
+		 brick->q_phase[2].q_queued,
 		 brick->q_phase[2].pushback_count,
 		 brick->q_phase[2].no_progress_count,
-		 atomic_read(&brick->q_phase[3].q_queued),
-		 atomic_read(&brick->q_phase[3].q_flying),
+		 brick->q_phase[3].q_active,
+		 brick->q_phase[3].q_queued,
 		 brick->q_phase[3].pushback_count,
 		 brick->q_phase[3].no_progress_count);
 	return res;

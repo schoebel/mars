@@ -40,6 +40,8 @@ struct mars_limiter {
 	int lim_rate;
 	int lim_cumul;
 	int lim_count;
+	int lim_total_ops;
+	int lim_total_sum;
 	long long lim_stamp;
 	/* internal */
 	long long lim_accu;
@@ -48,5 +50,7 @@ struct mars_limiter {
 extern int mars_limit(struct mars_limiter *lim, int amount);
 
 extern void mars_limit_sleep(struct mars_limiter *lim, int amount);
+
+void mars_limit_reset(struct mars_limiter *lim);
 
 #endif

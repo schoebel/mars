@@ -796,6 +796,8 @@ static int _copy_thread(void *data)
 	for (i = 0; i < COPY_INPUT_NR; i++)
 		brick->inputs[i]->check_hint = 0;
 
+	if (brick->copy_limiter)
+			mars_limit_reset(brick->copy_limiter);
 	_update_percent(brick, true);
 
 	brick->trigger = true;
@@ -846,6 +848,9 @@ static int _copy_thread(void *data)
 						 1 * HZ);
 		brick->trigger = false;
 	}
+
+	if (brick->copy_limiter)
+			mars_limit_reset(brick->copy_limiter);
 
 	/* check for fatal consistency errors */
 	if (brick->copy_error == -EMEDIUMTYPE) {
