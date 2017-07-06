@@ -603,6 +603,7 @@ struct mars_rotate {
 	struct key_value_pair msgs[sizeof(rot_keys) / sizeof(char*)];
 };
 
+static struct rw_semaphore rot_sem = __RWSEM_INITIALIZER(rot_sem);
 static LIST_HEAD(rot_anchor);
 
 ///////////////////////////////////////////////////////////////////////
@@ -2750,7 +2751,9 @@ void rot_destruct(void *_rot)
 {
 	struct mars_rotate *rot = _rot;
 	if (likely(rot)) {
+		down_write(&rot_sem);
 		list_del_init(&rot->rot_head);
+		up_write(&rot_sem);
 		write_info_links(rot);
 		del_channel(rot->log_say);
 		rot->log_say = NULL;
@@ -2819,8 +2822,11 @@ int make_log_init(void *buf, struct mars_dent *dent)
 		rot->global = global;
 		parent->d_private = rot;
 		parent->d_private_destruct = rot_destruct;
-		list_add_tail(&rot->rot_head, &rot_anchor);
 		assign_keys(rot->msgs, rot_keys);
+
+		down_write(&rot_sem);
+		list_add_tail(&rot->rot_head, &rot_anchor);
+		up_write(&rot_sem);
 	}
 
 	rot->replay_link = NULL;
