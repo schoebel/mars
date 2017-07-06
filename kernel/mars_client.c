@@ -539,7 +539,7 @@ static void client_ref_io(struct client_output *output, struct mref_object *mref
 	atomic_inc(&brick->fly_count);
 	_mref_get(mref);
 
-	mref_a->submit_jiffies = jiffies;
+	 get_real_lamport(&mref_a->submit_stamp);
 	_hash_insert(output, mref_a);
 
 	MARS_IO("added request id = %d pos = %lld len = %d flags = %ux (flying = %d)\n",
@@ -738,6 +738,7 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 	struct list_head *prev;
 	LIST_HEAD(tmp_list);
 	long io_timeout = _compute_timeout(brick, false);
+	struct lamport_time timeout_stamp;
 	int i;
 
 	if (list_empty(anchor))
@@ -763,8 +764,9 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 		ch->socket.s_recv_abort = 1;
 	}
 
-	io_timeout *= HZ;
-	
+	get_real_lamport(&timeout_stamp);
+	timeout_stamp.tv_sec -= io_timeout;
+
 	mutex_lock(&output->mutex);
 	for (tmp = anchor->prev, prev = tmp->prev; tmp != anchor; tmp = prev, prev = tmp->prev) {
 		struct client_mref_aspect *mref_a;
@@ -772,10 +774,9 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 		mref_a = container_of(tmp, struct client_mref_aspect, io_head);
 		
 		if (!force &&
-		    !time_is_before_jiffies(mref_a->submit_jiffies + io_timeout)) {
-			break;
-		}
-		
+		    lamport_time_compare(&mref_a->submit_stamp, &timeout_stamp) >= 0)
+			continue;
+
 		list_del_init(&mref_a->hash_head);
 		list_del_init(&mref_a->io_head);
 		list_add_tail(&mref_a->tmp_head, &tmp_list);
@@ -1016,6 +1017,17 @@ static int client_switch(struct client_brick *brick)
 			if (output->bundle.channel[i].is_connected)
 				socket_count++;
 		brick->socket_count = socket_count;
+		mutex_lock(&output->mutex);
+		if (list_empty(&output->mref_list)) {
+			if (socket_count)
+				memset(&brick->hang_stamp, 0, sizeof(brick->hang_stamp));
+		} else {
+			struct client_mref_aspect *mref_a;
+
+			mref_a = container_of(output->mref_list.next, struct client_mref_aspect, io_head);
+			memcpy(&brick->hang_stamp, &mref_a->submit_stamp, sizeof(brick->hang_stamp));
+		}
+		mutex_unlock(&output->mutex);
 		if (brick->power.led_on)
 			goto done;
 		mars_power_led_off((void*)brick, false);

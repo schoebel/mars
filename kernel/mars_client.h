@@ -41,7 +41,7 @@ struct client_mref_aspect {
 	struct list_head io_head;
 	struct list_head hash_head;
 	struct list_head tmp_head;
-	unsigned long submit_jiffies;
+	struct lamport_time submit_stamp;
 	int alloc_len;
 	bool do_dealloc;
 };
@@ -61,6 +61,7 @@ struct client_brick {
 	int socket_count;
 	atomic_t fly_count;
 	atomic_t timeout_count;
+	struct lamport_time hang_stamp; /* submit stamp of eldest request */
 };
 
 struct client_input {
