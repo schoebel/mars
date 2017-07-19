@@ -3674,6 +3674,10 @@ sub eval_fn {
     if (/^time$/) {
       return mars_time();
     }
+    if (/^real[-_]?time$/) {
+      my $time = time();
+      return $time;
+    }
     if (/^replay[-_]?timestamp$/) {
       $arg1 = parse_macro($arg1, $env);
       $arg1 = $$env{"host"} unless $arg1;
@@ -4485,6 +4489,8 @@ my %trivial_globs =
    "{fetch,replay,work}-{lognr,logcount}"
    => "",
    "summary-vector",
+   => "",
+   "{time,real-time}"
    => "",
    "{alive,fetch,replay,work}-{timestamp,age,lag}"
    => "",
