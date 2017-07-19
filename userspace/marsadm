@@ -4437,6 +4437,10 @@ my %complex_macros =
    .  "%if{%{txt}}{"
    .    "++++++++++++ Global / Communication Status ++++++++++++\n"
    .    "%{txt}"
+   .  "}"
+   .  "%let{timeslip}{%-{%time{}}{%real-time{}}}"
+   .  "%if{%>{%{timeslip}}{%{window}}}{"
+   .    "++++++++++++ Lamport time slip: %human-seconds{%{timeslip}} ++++++++++++\n"
    .  "}",
 
    # drbd similar ones
