@@ -4314,7 +4314,7 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 	if (rot->sync_finish_stamp.tv_sec) {
 		struct kstat peer_time_stat = {};
 
-		peer_time_path = path_make("/mars/tree-%s", peer);
+		peer_time_path = path_make("/mars/alive-%s", peer);
 		status = mars_stat(peer_time_path, &peer_time_stat, true);
 		if (unlikely(status < 0)) {
 			MARS_ERR("cannot stat '%s'\n", peer_time_path);
