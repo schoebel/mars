@@ -4433,7 +4433,9 @@ my %complex_macros =
 
    "comminfo"
    => "%let{txt}{%the-pretty-global-msg{}}"
+   .  "%unless{%{verbose}}{"
    .  "%let{txt}{%subst{%{txt}}{^.*CONNECTED.*\$\n*}{}{mg}}"
+   .  "}"
    .  "%if{%{txt}}{"
    .    "++++++++++++ Global / Communication Status ++++++++++++\n"
    .    "%{txt}"
