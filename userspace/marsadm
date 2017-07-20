@@ -3411,6 +3411,10 @@ sub eval_fn {
       return $count if $type eq "count";
       return $result;
     }
+    if (/^(tree|features|)[-_]?version$/) {
+      my $op = $1;
+      return get_link("$mars/$op-" . $$env{"host"}, 2);
+    }
     if (/^is[-_]?alive$/) {
       my $peer = parse_macro($arg1, $env);
       $peer = _get_designated_primary($$env{"res"}) unless $peer;
@@ -4505,6 +4509,8 @@ my %trivial_globs =
    "{time,real-time}"
    => "",
    "{alive,fetch,replay,work}-{timestamp,age,lag}"
+   => "",
+   "{tree,features}-version"
    => "",
 
 
