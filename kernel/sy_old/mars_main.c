@@ -2180,6 +2180,15 @@ void _peer_cleanup(struct mars_peerinfo *peer)
 static DECLARE_WAIT_QUEUE_HEAD(remote_event);
 
 static
+void report_peer_connection(struct key_value_pair *peer_pairs, bool do_additional)
+{
+	const char *peer_role =
+		do_additional ? "additional-connection-with-" : "needed-connection-with-";
+
+	show_vals(peer_pairs, "/mars", peer_role);
+}
+
+static
 int peer_thread(void *data)
 {
 	struct mars_peerinfo *peer = data;
@@ -2223,7 +2232,8 @@ int peer_thread(void *data)
 		init_rwsem(&tmp_global.dent_mutex);
 		init_rwsem(&tmp_global.brick_mutex);
 
-		show_vals(peer_pairs, "/mars", "connection-from-");
+		report_peer_connection(peer_pairs, peer->do_additional);
+		report_peer_connection(peer_pairs, !peer->do_additional);
 
 		if (!mars_socket_is_alive(&peer->socket)) {
 			make_msg(peer_pairs, "connection to '%s' (%s) is dead", peer->peer, real_peer);
@@ -2404,7 +2414,8 @@ int peer_thread(void *data)
 	MARS_INF("-------- peer thread terminating\n");
 
 	make_msg(peer_pairs, "NOT connected %s(%s)", peer->peer, real_peer);
-	show_vals(peer_pairs, "/mars", "connection-from-");
+	report_peer_connection(peer_pairs, peer->do_additional);
+	report_peer_connection(peer_pairs, !peer->do_additional);
 
 	peer->do_additional = false;
 	if (peer->doing_additional) {
