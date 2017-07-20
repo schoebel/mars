@@ -3192,6 +3192,18 @@ sub eval_fn {
       eval("\$txt =~ s{$regex}{$subst}$opts");
       return $txt;
     }
+    if (/^grep$/) { # grep operator
+      my $txt = parse_macro($arg1, $env);
+      my $arg2 = shift;
+      my $regex = parse_macro($arg2, $env);
+      my $res = "";
+      while ($txt && $txt =~ m/^([^\n]*)\n?/msp) {
+	my $line = $1;
+	$txt = $POSTMATCH;
+	$res .= $line . "\n" if $line =~ m{$regex};
+      }
+      return $res;
+    }
     if (/s?printf$/) { # sprintf()
       my $fmt = $arg1; # exception: don't evaluate the format string!
       my @list = ();
