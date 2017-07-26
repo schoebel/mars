@@ -592,6 +592,7 @@ struct mars_rotate {
 	struct if_brick *if_brick;
 	const char *fetch_path;
 	const char *fetch_peer;
+	const char *avoid_peer;
 	const char *preferred_peer;
 	const char *parent_path;
 	const char *parent_rest;
@@ -616,6 +617,7 @@ struct mars_rotate {
 	int fetch_next_is_available;
 	int relevant_serial;
 	int replay_code;
+	int avoid_count;
 	bool has_symlinks;
 	bool peer_activated;
 	bool res_shutdown;
@@ -638,6 +640,7 @@ struct mars_rotate {
 	struct key_value_pair msgs[sizeof(rot_keys) / sizeof(char*)];
 };
 
+static struct rw_semaphore rot_sem = __RWSEM_INITIALIZER(rot_sem);
 static LIST_HEAD(rot_anchor);
 
 ///////////////////////////////////////////////////////////////////////
@@ -1959,14 +1962,16 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 	} else if (!rot->fetch_serial && rot->allow_update &&
 		   !rot->is_primary && !rot->old_is_primary &&
 		   (!rot->preferred_peer || !strcmp(rot->preferred_peer, peer)) &&
+		   (!rot->avoid_peer || strcmp(peer, rot->avoid_peer) || rot->avoid_count-- <= 0) &&
 		   (!rot->split_brain_serial || remote_dent->d_serial < rot->split_brain_serial) &&
-		   (dst_size < src_size || !local_dent)) {		
+		   (dst_size < src_size || !local_dent)) {
 		// start copy brick instance
 		status = _update_file(parent, switch_path, rot->fetch_path, remote_dent->d_path, peer, src_size);
 		MARS_DBG("update '%s' from peer '%s' status = %d\n", remote_dent->d_path, peer, status);
 		if (likely(status >= 0)) {
 			rot->fetch_serial = remote_dent->d_serial;
 			rot->fetch_next_is_available = 0;
+			brick_string_free(rot->avoid_peer);
 			brick_string_free(rot->fetch_peer);
 			rot->fetch_peer = brick_strdup(peer);
 		}
@@ -2934,12 +2939,15 @@ void rot_destruct(void *_rot)
 {
 	struct mars_rotate *rot = _rot;
 	if (likely(rot)) {
+		down_write(&rot_sem);
 		list_del_init(&rot->rot_head);
+		up_write(&rot_sem);
 		write_info_links(rot);
 		del_channel(rot->log_say);
 		rot->log_say = NULL;
 		brick_string_free(rot->fetch_path);
 		brick_string_free(rot->fetch_peer);
+		brick_string_free(rot->avoid_peer);
 		brick_string_free(rot->preferred_peer);
 		brick_string_free(rot->parent_path);
 		brick_string_free(rot->parent_rest);
@@ -3002,8 +3010,11 @@ int make_log_init(void *buf, struct mars_dent *dent)
 		rot->global = global;
 		parent->d_private = rot;
 		parent->d_private_destruct = rot_destruct;
-		list_add_tail(&rot->rot_head, &rot_anchor);
 		assign_keys(rot->msgs, rot_keys);
+
+		down_write(&rot_sem);
+		list_add_tail(&rot->rot_head, &rot_anchor);
+		up_write(&rot_sem);
 	}
 
 	rot->replay_link = NULL;
@@ -4070,13 +4081,26 @@ done:
 	if (fetch_brick &&
 	    (fetch_brick->power.led_off ||
 	     fetch_brick->power.force_off ||
+	     fetch_brick->copy_error ||
 	     !global->global_power.button ||
 	     !_check_allow(global, parent, "connect") ||
 	     !_check_allow(global, parent, "attach") ||
 	     (fetch_brick->copy_last == fetch_brick->copy_end &&
 	      (rot->fetch_next_is_available > 0 ||
 	       rot->fetch_round++ > 3)))) {
+		int i;
+
+		for (i = 0; i < 4; i++) {
+			if (fetch_brick->inputs[i] && fetch_brick->inputs[i]->brick)
+				fetch_brick->inputs[i]->brick->power.io_timeout = 1;
+		}
+		if (fetch_brick->copy_error && !rot->avoid_peer && rot->fetch_peer) {
+			rot->avoid_peer = brick_strdup(rot->fetch_peer);
+			rot->avoid_count = 3;
+		}
 		fetch_brick = (void *)_kill_brick((void *)fetch_brick);
+		if (!fetch_brick)
+			mars_trigger();
 	}
 	rot->fetch_next_is_available = 0;
 	rot->fetch_brick = fetch_brick;
@@ -4500,7 +4524,7 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 	if (rot->sync_finish_stamp.tv_sec) {
 		struct kstat peer_time_stat = {};
 
-		peer_time_path = path_make("/mars/tree-%s", peer);
+		peer_time_path = path_make("/mars/alive-%s", peer);
 		status = mars_stat(peer_time_path, &peer_time_stat, true);
 		if (unlikely(status < 0)) {
 			MARS_ERR("cannot stat '%s'\n", peer_time_path);
