@@ -3881,6 +3881,7 @@ done:
 	if (fetch_brick &&
 	    (fetch_brick->power.led_off ||
 	     fetch_brick->power.force_off ||
+	     fetch_brick->copy_error ||
 	     !global->global_power.button ||
 	     !_check_allow(global, parent, "connect") ||
 	     !_check_allow(global, parent, "attach") ||
