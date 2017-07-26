@@ -135,6 +135,15 @@ Changelog for series 0.1b:
 -----------------------------------
 Changelog for series 0.1:
 
+mars0.1stable43
+--------
+	* Major fix, only relevant for k >= 3 replicas:
+	  Logfile fetch did not switch over to another alive peer
+	  upon _speicfic_ network problems with the _current_
+	  peer. As a consequence, an unaffected replica could
+	  hang. Workarould was possible by pause-fetch /
+	  resume-fetch or by fixing the network :)
+
 mars0.1stable42
 --------
 	* Minor fix: ssh IPs and port numbers are automatically probed
