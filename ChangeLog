@@ -130,6 +130,12 @@ Changelog for series 0.2:
 -----------------------------------
 Changelog for series 0.1b:
 
+mars0.1balpha5
+--------
+	* Merge fixes from 0.1stable43
+	* Better display of peer connections: distinguish needed
+	  connections from optional ones.
+
 mars0.1balpha4
 --------
 	* First improvements for scalability to thousands of nodes.
