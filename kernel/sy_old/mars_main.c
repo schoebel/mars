@@ -554,6 +554,7 @@ struct mars_rotate {
 	struct if_brick *if_brick;
 	const char *fetch_path;
 	const char *fetch_peer;
+	const char *avoid_peer;
 	const char *preferred_peer;
 	const char *parent_path;
 	const char *parent_rest;
@@ -578,6 +579,7 @@ struct mars_rotate {
 	int fetch_next_is_available;
 	int relevant_serial;
 	int replay_code;
+	int avoid_count;
 	bool has_symlinks;
 	bool res_shutdown;
 	bool has_error;
@@ -1855,14 +1857,16 @@ int check_logfile(const char *peer, struct mars_dent *remote_dent, struct mars_d
 	} else if (!rot->fetch_serial && rot->allow_update &&
 		   !rot->is_primary && !rot->old_is_primary &&
 		   (!rot->preferred_peer || !strcmp(rot->preferred_peer, peer)) &&
+		   (!rot->avoid_peer || strcmp(peer, rot->avoid_peer) || rot->avoid_count-- <= 0) &&
 		   (!rot->split_brain_serial || remote_dent->d_serial < rot->split_brain_serial) &&
-		   (dst_size < src_size || !local_dent)) {		
+		   (dst_size < src_size || !local_dent)) {
 		// start copy brick instance
 		status = _update_file(parent, switch_path, rot->fetch_path, remote_dent->d_path, peer, src_size);
 		MARS_DBG("update '%s' from peer '%s' status = %d\n", remote_dent->d_path, peer, status);
 		if (likely(status >= 0)) {
 			rot->fetch_serial = remote_dent->d_serial;
 			rot->fetch_next_is_available = 0;
+			brick_string_free(rot->avoid_peer);
 			brick_string_free(rot->fetch_peer);
 			rot->fetch_peer = brick_strdup(peer);
 		}
@@ -2752,6 +2756,7 @@ void rot_destruct(void *_rot)
 		rot->log_say = NULL;
 		brick_string_free(rot->fetch_path);
 		brick_string_free(rot->fetch_peer);
+		brick_string_free(rot->avoid_peer);
 		brick_string_free(rot->preferred_peer);
 		brick_string_free(rot->parent_path);
 		brick_string_free(rot->parent_rest);
@@ -3893,6 +3898,10 @@ done:
 		for (i = 0; i < 4; i++) {
 			if (fetch_brick->inputs[i] && fetch_brick->inputs[i]->brick)
 				fetch_brick->inputs[i]->brick->power.io_timeout = 1;
+		}
+		if (fetch_brick->copy_error && !rot->avoid_peer && rot->fetch_peer) {
+			rot->avoid_peer = brick_strdup(rot->fetch_peer);
+			rot->avoid_count = 3;
 		}
 		status = mars_kill_brick((void*)fetch_brick);
 		if (status < 0) {
