@@ -1350,7 +1350,7 @@ int mars_dent_work(struct mars_global *global,
 	global->global_version = version;
 	total_status = _mars_readdir(&cookie);
 
-	if (total_status || !worker) {
+	if (total_status) {
 		goto done;
 	}
 
@@ -1413,6 +1413,9 @@ restart:
 	}
 
 	up_write(&global->dent_mutex);
+
+	if (!worker)
+		goto done;
 
 	/* Preparation pass.
 	 * Here is a chance to mark some dents for removal

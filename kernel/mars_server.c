@@ -323,12 +323,6 @@ int _set_server_bio_params(struct mars_brick *_brick, void *private)
 }
 
 static
-int dummy_worker(struct mars_global *global, struct mars_dent *dent, bool prepare, bool direction)
-{
-	return 0;
-}
-
-static
 int handler_thread(void *data)
 {
 	struct mars_global handler_global = {
@@ -451,7 +445,7 @@ int handler_thread(void *data)
 				path,
 				sizeof(struct mars_dent),
 				main_checker,
-				dummy_worker,
+				NULL,
 				&handler_global,
 				3);
 
