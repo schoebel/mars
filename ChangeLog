@@ -130,6 +130,38 @@ Changelog for series 0.2:
 -----------------------------------
 Changelog for series 0.1b:
 
+mars0.1balpha6
+--------
+	* Minor / major fix depending on scalability of workload:
+	  Unnecessary high CPU consumption + IO load could occur when multiple
+	  factors were coming together:
+	   - higher number of nodes (observed at a 6-node cluster).
+	   - some of them operating old 0.1stable versions with known O(n^2)
+	     behaviour.
+	   - the network was _partially_ / _asymmetrically_ interrupted
+	     for a longer time due to inappropriate firewall rules.
+	   - asymmetry of TCP appears to be crucial: it was possible to
+	     send internal MARS commands into one direction over TCP, but
+	     the _answers_ back were killed by inappropriate firewall rules.
+	   - a lot of delete operations (for logfiles etc) accumulated
+	     in the meantime.
+	   - the delete operations were repeated over and over again
+	     over the working connections, whilst the non-working ones
+	     prevented global removal of the operations throughout
+	     the whole cluster.
+	   - masses of handler threads were forked, each one consuming
+	     a lot of CPU just before _terminating_ due to the interrupted
+	     answer TCP connection, which in turn stimulated re-connects.
+	   - when the few working connections were repeated with a higher
+	     rate of handler threads than the old / unused ones were
+	     terminating, the LoadAvg was climbing up to astronomical values
+	     over time.
+	* HINT: the original MARS branch 0.1.y was not constructed
+	  for scalability, but as a substitute for DRBD pairs.
+	  Therefore similar scalability issues like O(n^2) behaviour
+	  may occur at more places. They will be fixed ASAP.
+	  Please help by reporting any trigger scenarios / reproducers.
+
 mars0.1balpha5
 --------
 	* Merge fixes from 0.1stable43
