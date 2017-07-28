@@ -2408,7 +2408,7 @@ int peer_thread(void *data)
 		/* additional threads should give up immediately */
 		if (peer->do_additional && !peer->do_communicate)
 			break;
-		brick_msleep(2000);
+		brick_msleep(5000);
 	}
 
 	MARS_INF("-------- peer thread terminating\n");
