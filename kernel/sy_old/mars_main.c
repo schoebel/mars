@@ -5708,6 +5708,9 @@ int main_checker(struct mars_dent *parent, const char *_name, int namlen, unsign
 		// all ok
 		status = class;
 		*use_channel = test->cl_use_channel;
+		/* stop searching when everything is unique */
+		if (len && parent && test->cl_father != CL_ROOT)
+			break;
 	}
 
 #ifdef MARS_DEBUGGING
