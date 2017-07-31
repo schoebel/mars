@@ -39,7 +39,7 @@
 /* In contrast, this _should_ be updated when _compatible_ features
  * are added.
  */
-#define OPTIONAL_FEATURES_VERSION "2"
+#define OPTIONAL_FEATURES_VERSION "3"
 
 // disable this only for debugging!
 #define RUN_PEERS
@@ -547,6 +547,7 @@ enum {
 	CL_RES_DEFAULTS_ITEMS0,
 	CL_RES_DEFAULTS_ITEMS,
 	CL_TODO,
+	CL_TODO_DELETE,
 	CL_TODO_DELETED,
 	CL_TODO_ITEMS,
 	CL_ACTUAL,
@@ -5510,6 +5511,15 @@ static const struct main_class main_classes[] = {
 	},
 	/* ... and its contents
 	 */
+	[CL_TODO_DELETE] = {
+		.cl_name = "delete-",
+		.cl_len = 7,
+		.cl_type = 'l',
+		.cl_serial = true,
+		.cl_hostcontext = false, // ignore context, although present
+		.cl_father = CL_TODO,
+		.cl_prepare = prepare_delete,
+	},
 	[CL_TODO_DELETED] = {
 		.cl_name = "deleted-",
 		.cl_len = 8,
