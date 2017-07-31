@@ -97,7 +97,7 @@ sub lwarn {
 
 my $Id = '$Id$ ';
 my $user_version = 0.1;
-my $marsadm_version = 3; # some rough hint at newer features
+my $marsadm_version = 4; # some rough hint at newer features
 my $mars = "/mars";
 my $host = `uname -n` or ldie "cannot determine my network node name\n";
 chomp $host;
@@ -407,6 +407,7 @@ sub get_all_peers {
 }
 
 my %res_peers;
+my %res_remain_peers;
 
 sub get_res_peers {
   my ($res) = @_;
@@ -419,6 +420,43 @@ sub get_res_peers {
   }
   $res_peers{$res} = \@peers;
   return @peers;
+}
+
+sub get_res_remain_peers {
+  my ($res) = @_;
+  return @{$res_remain_peers{$res}} if $res_remain_peers{$res};
+  my $resdir = "$mars/resource-$res";
+  my @peers;
+  foreach my $peer (get_all_peers()) {
+    my $rem = 0;
+    my @remains = glob("$resdir/*-$peer");
+    foreach my $remain (@remains) {
+      next if $remain =~ m:/todo-:;
+      $rem++;
+      last;
+    }
+    next unless $rem;
+    push @peers, $peer;
+  }
+  $res_remain_peers{$res} = \@peers;
+  return @peers;
+}
+
+# determine the _minimum_ of all features in the whole cluster
+my $global_feature_version = -1;
+
+sub get_global_feature_version {
+  return $global_feature_version if $global_feature_version >= 0;
+  my $min_version = get_link("$mars/features-$host", 2);
+  $min_version = 0 unless defined($min_version);
+  foreach my $peer (get_all_peers()) {
+    next if $peer eq $host;
+    my $peer_version = get_link("$mars/features-$peer", 2);
+    $peer_version = 0 unless defined($peer_version);
+    $min_version = $peer_version if $peer_version < $min_version;
+  }
+  $global_feature_version = $min_version;
+  return $global_feature_version;
 }
 
 ##################################################################
@@ -2328,6 +2366,23 @@ sub _set_delete_nr {
 sub _create_delete {
   my ($target) = @_;
   ldie "cannot delete: '$target' is no absolute path\n" unless $target =~ m:^/:;
+  my $use_local = (get_global_feature_version() >= 3) &&
+    $target =~ m:^($mars/resource-[^/]+):;
+  if ($use_local) {
+    my $resdir = $1;
+    $resdir =~ m:$mars/resource-(.*):;
+    my $res = $1;
+    foreach my $peer (get_res_remain_peers($res)) {
+      my $peer_dir = "$resdir/todo-$peer";
+      system("mkdir -p $peer_dir") unless -d $peer_dir;
+      my $delete_nr = _get_delete_nr($peer_dir);
+      my $new = sprintf("$peer_dir/delete-%09d-$real_host", ++$delete_nr);
+      _set_delete_nr($peer_dir, $delete_nr);
+      lprint "create symlink $new -> $target\n" if $verbose;
+      set_link($target, $new);
+    }
+    return;
+  }
   my $global_path = "$mars/todo-global";
   my $delete_nr = _get_delete_nr($global_path);
   my $new = sprintf("$global_path/delete-%09d-$real_host", ++$delete_nr);
