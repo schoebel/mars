@@ -398,6 +398,14 @@ sub get_alive_links {
   return %links;
 }
 
+my @all_peers;
+
+sub get_all_peers {
+  return @all_peers if @all_peers;
+  @all_peers = map { m:^$mars/ips/ip-(.+):; $1 } glob("$mars/ips/ip-*");
+  return @all_peers;
+}
+
 ##################################################################
 
 # timeout handling
@@ -1599,10 +1607,8 @@ sub _set_replaylink {
 
 sub lowlevel_ls_host_ips {
   my ($cmd) = @_;
-  for my $path (glob("$mars/ips/ip-*")) {
-    $path =~ m:/ip-(.*):;
-    my $peer = $1;
-    my $ip = get_link($path, 1);
+  for my $peer (get_all_peers()) {
+    my $ip = get_link("$mars/ips/ip-$peer", 1);
     lprint "$peer $ip\n";
   }
 }
@@ -1963,7 +1969,7 @@ sub create_res {
     # For safety, try to get the very newest infos.
     # Reason: newer kernel modules will fetch non-member resource infos less frequently.
     # Therefore we shift some responsibility for non-member -> member transitions to userspace.
-    my @peers = map { m:^$mars/ips/ip-(.+):; $1 } glob("$mars/ips/ip-*");
+    my @peers = get_all_peers();
     my $max_retry = 5;
     for (;;) {
       $primary = _get_designated_primary($res, 1);
@@ -3350,10 +3356,8 @@ sub eval_fn {
     }
     # list objects
     if (/^cluster[-_]?members$/) {
-      my @peers = glob("$mars/ips/ip-*");
       my $list = "";
-      foreach my $peer (sort(@peers)) {
-	$peer =~ s:^$mars/ips/ip-::;
+      foreach my $peer (sort(get_all_peers())) {
 	$list .= "$peer\n";
       }
       return $list;
@@ -5716,8 +5720,7 @@ sub do_all_res {
     ldie "Cannot combine command '$cmd' with 'all' existing resources - you must explicitly name a single new resource\n" if $cmd =~ m/create|join/;
     my $any_success = 0;
     my $any_member = 0;
-    my @total_list = glob("$mars/ips/ip-*");
-    my $total_count = scalar(@total_list);
+    my $total_count = scalar(get_all_peers());
     call_hook(!$force, "all-pre", $cmd, "all", @_);
     foreach $res (glob("$mars/resource-*")) {
       next unless -e "$res/data-$host";
