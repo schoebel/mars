@@ -535,6 +535,7 @@ enum {
 	CL_ALIVE,
 	CL_TIME,
 	CL_TREE,
+	CL_FEATURES,
 	CL_EMERGENCY,
 	CL_REST_SPACE,
 	// resource definitions
@@ -5309,6 +5310,12 @@ static const struct main_class main_classes[] = {
 	[CL_TREE] = {
 		.cl_name = "tree-",
 		.cl_len = 5,
+		.cl_type = 'l',
+		.cl_father = CL_ROOT,
+	},
+	[CL_FEATURES] = {
+		.cl_name = "features-",
+		.cl_len = 9,
 		.cl_type = 'l',
 		.cl_father = CL_ROOT,
 	},
