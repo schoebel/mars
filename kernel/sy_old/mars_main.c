@@ -4925,7 +4925,8 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	int max_serial = 0;
 	int status;
 
-	if (!global || !dent || !dent->new_link || !dent->d_path) {
+	if (!global || !dent || !dent->new_link || !dent->d_path ||
+	    !dent->d_parent || !dent->d_parent->d_path) {
 		goto err;
 	}
 
@@ -4999,7 +5000,9 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 
  done:
 	// tell the world that we have seen this deletion... (even when not yet accomplished)
-	response_path = path_make("/mars/todo-global/deleted-%s", my_id());
+	response_path = path_make("%s/deleted-%s",
+				  dent->d_parent->d_path,
+				  my_id());
 	response = mars_find_dent(global, response_path);
 	if (response && response->new_link) {
 		sscanf(response->new_link, "%d", &max_serial);
