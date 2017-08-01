@@ -2130,6 +2130,7 @@ sub leave_res_phase0 {
   check_not_primary(@_) unless $force;
   my $errors = 0;
   foreach my $tmp (glob("$mars/resource-$res/todo-$host/*")) {
+    next if $tmp =~ m:/delete:;
     my $status = get_link($tmp, 2);
     if ($status) {
       lwarn "switch '$tmp' is not off\n";
