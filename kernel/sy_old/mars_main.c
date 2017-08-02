@@ -4992,6 +4992,8 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 			status = mars_unlink(dent->new_link);
 			MARS_DBG("unlink '%s', status = %d\n", dent->new_link, status);
 		}
+		if (status >= 0)
+			goto notdone;
 	}
 
  ok:	
@@ -5022,6 +5024,7 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 		mars_symlink(response_val, response_path, NULL, 0);
 	}
 
+notdone:
  err:
 	brick_string_free(marker_path);
 	brick_string_free(response_path);
