@@ -406,6 +406,21 @@ sub get_all_peers {
   return @all_peers;
 }
 
+my %res_peers;
+
+sub get_res_peers {
+  my ($res) = @_;
+  return @{$res_peers{$res}} if $res_peers{$res};
+  my $resdir = "$mars/resource-$res";
+  my @peers;
+  foreach my $peer (get_all_peers()) {
+    next unless -e "$resdir/data-$peer";
+    push @peers, $peer;
+  }
+  $res_peers{$res} = \@peers;
+  return @peers;
+}
+
 ##################################################################
 
 # timeout handling
