@@ -578,6 +578,7 @@ enum {
 struct mars_rotate {
 	struct list_head rot_head;
 	struct mars_global *global;
+	struct mars_delete_info delete_info;
 	struct copy_brick *sync_brick;
 	struct mars_dent *replay_link;
 	struct mars_brick *bio_brick;
@@ -1990,6 +1991,14 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 
 	// create / check markers (prevent concurrent updates)
 	if (remote_dent->new_link && !strncmp(remote_dent->d_name, "delete-", 7)) {
+		struct mars_rotate *rot = NULL;
+		struct mars_delete_info *delete_info = &peer->global->delete_info;
+
+		if (remote_dent->d_parent && remote_dent->d_parent->d_parent && remote_dent->d_parent->d_parent->d_private) {
+			rot = remote_dent->d_parent->d_parent->d_private;
+			delete_info = &rot->delete_info;
+		}
+
 		marker_path = backskip_replace(remote_dent->new_link, '/', true, "/.deleted-");
 		if (mars_stat(marker_path, &local_stat, true) < 0) {
 			struct timespec marker_stamp = remote_dent->new_stat.mtime;
@@ -2008,8 +2017,13 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 				 marker_stamp.tv_sec, marker_stamp.tv_nsec);
 			mars_symlink("1", marker_path, &marker_stamp, 0);
 		}
-		if (remote_dent->d_serial < peer->global->delete_info.deleted_my_border) {
-			MARS_DBG("ignoring deletion '%s' at border %d\n", remote_dent->d_path, peer->global->delete_info.deleted_my_border);
+		/* Only global deletions need to be ignored when already carried out.
+		 * Local ones are per-directory and can originate from everywhere.
+		 */
+		if (!rot && remote_dent->d_serial < delete_info->deleted_my_border) {
+			MARS_DBG("ignoring global deletion '%s' at border %d\n",
+				 remote_dent->d_path,
+				 delete_info->deleted_my_border);
 			goto done;
 		}
 	} else {
@@ -4917,6 +4931,8 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	struct kstat stat;
 	struct kstat *to_delete = NULL;
 	struct mars_global *global = buf;
+	struct mars_rotate *rot = NULL;
+	struct mars_delete_info *delete_info;
 	struct mars_dent *target;
 	struct mars_dent *response;
 	const char *marker_path = NULL;
@@ -4930,6 +4946,40 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 		goto err;
 	}
 
+	if (dent->d_parent && dent->d_parent->d_parent && dent->d_parent->d_parent->d_private) {
+		/* Keep deletion links until they expire. */
+		char *border_path = path_make("%s/deleted-%s",
+					      dent->d_parent->d_path,
+					      dent->d_rest);
+		char *border_val = mars_readlink(border_path);
+		int border = 0;
+
+		if (border_val && border_val[0])
+			sscanf(border_val, "%d", &border);
+
+		if (dent->d_serial <= border) {
+			MARS_DBG("removing foreign deletion link '%s'\n",
+				 dent->d_path);
+			dent->d_killme = true;
+			mars_unlink(dent->d_path);
+		}
+		brick_string_free(border_path);
+		brick_string_free(border_val);
+
+		rot = dent->d_parent->d_parent->d_private;
+		delete_info = &rot->delete_info;
+		/* Check whether we are addressed.
+		 * Hint: the context of the dent names the originator, not the recipient.
+		 * Instead, the recipient host context had been encoded into the parent directory.
+		 */
+		if (strcmp(dent->d_parent->d_rest, my_id())) {
+			status = -EAGAIN;
+			goto notdone;
+		}
+	} else {
+		delete_info = &global->delete_info;
+	}
+
 	// create a marker which prevents concurrent updates from remote hosts
 	marker_path = backskip_replace(dent->new_link, '/', true, "/.deleted-");
 	if (mars_stat(marker_path, &stat, true) < 0 ||
@@ -4938,7 +4988,7 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 			 marker_path, dent->new_stat.mtime.tv_sec, dent->new_stat.mtime.tv_nsec);
 		mars_symlink("1", marker_path, &dent->new_stat.mtime, 0);
 	}
-	
+
 	brick = mars_find_brick(global, NULL, dent->new_link);
 	if (brick &&
 	    unlikely((brick->nr_outputs > 0 && brick->outputs[0] && brick->outputs[0]->nr_connected) ||
@@ -4989,12 +5039,14 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	if (status < 0) {
 		MARS_DBG("deletion '%s' to target '%s' is accomplished\n",
 			 dent->d_path, dent->new_link);
-		if (dent->d_serial <= global->delete_info.deleted_border) {
+		if (dent->d_serial <= delete_info->deleted_border) {
 			MARS_DBG("removing deletion symlink '%s'\n", dent->d_path);
 			dent->d_killme = true;
 			mars_unlink(dent->d_path);
-			MARS_DBG("removing marker '%s'\n", marker_path);
-			mars_unlink(marker_path);
+			if (marker_path) {
+				MARS_DBG("removing marker '%s'\n", marker_path);
+				mars_unlink(marker_path);
+			}
 		}
 	}
 
@@ -5010,7 +5062,7 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	if (dent->d_serial > max_serial) {
 		char response_val[16];
 		max_serial = dent->d_serial;
-		global->delete_info.deleted_my_border = max_serial;
+		delete_info->deleted_my_border = max_serial;
 		snprintf(response_val, sizeof(response_val), "%09d", max_serial);
 		mars_symlink(response_val, response_path, NULL, 0);
 	}
@@ -5025,6 +5077,7 @@ notdone:
 static int check_deleted(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
+	struct mars_delete_info *delete_info;
 	int serial = 0;
 	int status;
 
@@ -5038,14 +5091,21 @@ static int check_deleted(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 
+	if (dent->d_parent && dent->d_parent->d_parent && dent->d_parent->d_parent->d_private) {
+		struct mars_rotate *rot = dent->d_parent->d_parent->d_private;
+
+		delete_info = &rot->delete_info;
+	} else {
+		delete_info = &global->delete_info;
+	}
 	if (!strcmp(dent->d_rest, my_id()))
-		global->delete_info.deleted_my_border = serial;
+		delete_info->deleted_my_border = serial;
 
 	/* Compute the minimum of the deletion progress among
 	 * the resource members.
 	 */
-	if (serial < global->delete_info.deleted_min || !global->delete_info.deleted_min)
-		global->delete_info.deleted_min = serial;
+	if (serial < delete_info->deleted_min || !delete_info->deleted_min)
+		delete_info->deleted_min = serial;
 
 	
  done:
@@ -5819,6 +5879,7 @@ static int _main_thread(void *data)
 	MARS_INF("-------- starting as host '%s' ----------\n", id);
 
         while (_global.global_power.button || !list_empty(&_global.brick_anchor)) {
+		struct list_head *tmp;
 		int status;
 
 		MARS_DBG("-------- NEW ROUND %d ---------\n", atomic_read(&server_handler_count));
@@ -5849,10 +5910,19 @@ static int _main_thread(void *data)
 		up_write(&mars_resource_sem);
 		tmp_resource_list = brick_strdup("/mars|/mars/ips/|/mars/todo-global/|/mars/userspace/");
 
-		_global.delete_info.deleted_min = 0;
 		status = mars_dent_work(&_global, "/mars", sizeof(struct mars_dent), main_checker, main_worker, &_global, 3);
-		_global.delete_info.deleted_border = _global.delete_info.deleted_min;
 		MARS_DBG("-------- worker deleted_min = %d status = %d\n", _global.delete_info.deleted_min, status);
+
+		_global.delete_info.deleted_border = _global.delete_info.deleted_min;
+		_global.delete_info.deleted_min = 0;
+		down_read(&rot_sem);
+		for (tmp = rot_anchor.next; tmp != &rot_anchor; tmp = tmp->next) {
+			struct mars_rotate *rot = container_of(tmp, struct mars_rotate, rot_head);
+			MARS_DBG("-------- res '%s' deleted_min = %d\n", rot->parent_path, rot->delete_info.deleted_min);
+			rot->delete_info.deleted_border = rot->delete_info.deleted_min;
+			rot->delete_info.deleted_min = 0;
+		}
+		up_read(&rot_sem);
 
 		if (!_global.global_power.button) {
 			status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&copy_brick_type, true);
