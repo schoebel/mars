@@ -2008,8 +2008,8 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 				 marker_stamp.tv_sec, marker_stamp.tv_nsec);
 			mars_symlink("1", marker_path, &marker_stamp, 0);
 		}
-		if (remote_dent->d_serial < peer->global->deleted_my_border) {
-			MARS_DBG("ignoring deletion '%s' at border %d\n", remote_dent->d_path, peer->global->deleted_my_border);
+		if (remote_dent->d_serial < peer->global->delete_info.deleted_my_border) {
+			MARS_DBG("ignoring deletion '%s' at border %d\n", remote_dent->d_path, peer->global->delete_info.deleted_my_border);
 			goto done;
 		}
 	} else {
@@ -4989,7 +4989,7 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	if (status < 0) {
 		MARS_DBG("deletion '%s' to target '%s' is accomplished\n",
 			 dent->d_path, dent->new_link);
-		if (dent->d_serial <= global->deleted_border) {
+		if (dent->d_serial <= global->delete_info.deleted_border) {
 			MARS_DBG("removing deletion symlink '%s'\n", dent->d_path);
 			dent->d_killme = true;
 			mars_unlink(dent->d_path);
@@ -5010,7 +5010,7 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	if (dent->d_serial > max_serial) {
 		char response_val[16];
 		max_serial = dent->d_serial;
-		global->deleted_my_border = max_serial;
+		global->delete_info.deleted_my_border = max_serial;
 		snprintf(response_val, sizeof(response_val), "%09d", max_serial);
 		mars_symlink(response_val, response_path, NULL, 0);
 	}
@@ -5039,13 +5039,13 @@ static int check_deleted(void *buf, struct mars_dent *dent)
 	}
 
 	if (!strcmp(dent->d_rest, my_id()))
-		global->deleted_my_border = serial;
+		global->delete_info.deleted_my_border = serial;
 
 	/* Compute the minimum of the deletion progress among
 	 * the resource members.
 	 */
-	if (serial < global->deleted_min || !global->deleted_min)
-		global->deleted_min = serial;
+	if (serial < global->delete_info.deleted_min || !global->delete_info.deleted_min)
+		global->delete_info.deleted_min = serial;
 
 	
  done:
@@ -5849,10 +5849,10 @@ static int _main_thread(void *data)
 		up_write(&mars_resource_sem);
 		tmp_resource_list = brick_strdup("/mars|/mars/ips/|/mars/todo-global/|/mars/userspace/");
 
-		_global.deleted_min = 0;
+		_global.delete_info.deleted_min = 0;
 		status = mars_dent_work(&_global, "/mars", sizeof(struct mars_dent), main_checker, main_worker, &_global, 3);
-		_global.deleted_border = _global.deleted_min;
-		MARS_DBG("-------- worker deleted_min = %d status = %d\n", _global.deleted_min, status);
+		_global.delete_info.deleted_border = _global.delete_info.deleted_min;
+		MARS_DBG("-------- worker deleted_min = %d status = %d\n", _global.delete_info.deleted_min, status);
 
 		if (!_global.global_power.button) {
 			status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&copy_brick_type, true);

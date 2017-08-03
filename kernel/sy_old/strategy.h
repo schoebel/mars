@@ -102,6 +102,12 @@ struct mars_dent {
 extern const struct meta mars_kstat_meta[];
 extern const struct meta mars_dent_meta[];
 
+struct mars_delete_info {
+	int deleted_my_border;
+	int deleted_border;
+	int deleted_min;
+};
+
 struct mars_global {
 	struct rw_semaphore dent_mutex;
 	struct rw_semaphore brick_mutex;
@@ -109,10 +115,8 @@ struct mars_global {
 	struct list_head dent_anchor;
 	struct list_head brick_anchor;
 	wait_queue_head_t main_event;
+	struct mars_delete_info delete_info;
 	int global_version;
-	int deleted_my_border;
-	int deleted_border;
-	int deleted_min;
 	bool main_trigger;
 };
 
