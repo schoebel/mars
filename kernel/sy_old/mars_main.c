@@ -547,6 +547,7 @@ enum {
 	CL_RES_DEFAULTS_ITEMS0,
 	CL_RES_DEFAULTS_ITEMS,
 	CL_TODO,
+	CL_TODO_DELETED,
 	CL_TODO_ITEMS,
 	CL_ACTUAL,
 	CL_ACTUAL_ITEMS,
@@ -5502,6 +5503,13 @@ static const struct main_class main_classes[] = {
 	},
 	/* ... and its contents
 	 */
+	[CL_TODO_DELETED] = {
+		.cl_name = "deleted-",
+		.cl_len = 8,
+		.cl_type = 'l',
+		.cl_father = CL_TODO,
+		.cl_prepare = check_deleted,
+	},
 	[CL_TODO_ITEMS] = {
 		.cl_name = "",
 		.cl_len = 0, // catch any
