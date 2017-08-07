@@ -1852,13 +1852,17 @@ sub leave_cluster {
   foreach my $path (glob("$mars/actual-*/*-$host")) {
     _create_delete($path);
   }
-  _create_delete("$mars/ips/ip-$host");
   finish_links();
   wait_cluster($cmd) unless $force;
   foreach my $path (glob("$mars/actual-*/*-$host")) {
     _create_delete($path);
   }
+  foreach my $path (glob("$mars/resource-*/todo-$host/deleted?-*")) {
+    _create_delete($path);
+  }
   _create_delete("$mars/todo-global/deleted-$host");
+  finish_links();
+  _create_delete("$mars/ips/ip-$host");
   finish_links();
   wait_cluster($cmd) unless $force;
   while (-f "$mars/ips/ip-$host" && $timeout >= 0) {
