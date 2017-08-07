@@ -2136,7 +2136,6 @@ sub leave_res_phase0 {
 sub leave_res_phase1 {
   my ($cmd, $res) = @_;
   _create_delete("$mars/resource-$res/replay-$host");
-  _create_delete("$mars/resource-$res/data-$host");
   _create_delete("$mars/resource-$res/syncstatus-$host");
   my $syncpos = "$mars/resource-$res/syncpos-$host";
   _create_delete($syncpos) if -l $syncpos;
@@ -2152,6 +2151,8 @@ sub leave_res_phase1 {
     }
     _create_delete($dir);
   }
+  finish_links();
+  _create_delete("$mars/resource-$res/data-$host");
   finish_links();
 }
 
