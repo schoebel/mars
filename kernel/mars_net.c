@@ -190,6 +190,8 @@ int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *addr,
 	struct sockaddr *sockaddr = (void*)addr;
 	int status = -EEXIST;
 
+	if (!mars_net_is_alive)
+		goto final;
 	if (unlikely(atomic_read(&msock->s_count))) {
 		MARS_ERR("#%d socket already in use\n", msock->s_debug_nr);
 		goto final;
@@ -258,6 +260,8 @@ int mars_accept_socket(struct mars_socket *new_msock, struct mars_socket *old_ms
 	struct socket *new_socket = NULL;
 	bool ok;
 
+	if (!mars_net_is_alive)
+		goto final;
 	ok = mars_get_socket(old_msock);
 	if (likely(ok)) {
 		struct socket *sock = old_msock->s_socket;
@@ -288,6 +292,7 @@ int mars_accept_socket(struct mars_socket *new_msock, struct mars_socket *old_ms
 err:
 		mars_put_socket(old_msock);
 	}
+ final:
 	return status;
 }
 EXPORT_SYMBOL_GPL(mars_accept_socket);
@@ -361,6 +366,9 @@ EXPORT_SYMBOL_GPL(mars_shutdown_socket);
 bool mars_socket_is_alive(struct mars_socket *msock)
 {
 	bool res = false;
+
+	if (!mars_net_is_alive)
+		goto done;
 	if (!msock->s_socket || !msock->s_alive)
 		goto done;
 	if (unlikely(atomic_read(&msock->s_count) <= 0)) {
