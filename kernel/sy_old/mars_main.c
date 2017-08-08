@@ -2386,7 +2386,10 @@ int peer_thread(void *data)
 		brick_string_free(cmd.cmd_str1);
 		brick_msleep(100);
 		if (!peer->to_terminate && !brick_thread_should_stop()) {
-			if (peer->do_additional && !peer->do_communicate) {
+			bool old_additional = peer->do_additional;
+			bool old_communicate = peer->do_communicate;
+
+			if (old_additional && !old_communicate) {
 				if (mars_running_additional_peers > mars_run_additional_peers)
 					break;
 				pause_time += 30;
@@ -2398,6 +2401,8 @@ int peer_thread(void *data)
 			wait_event_interruptible_timeout(remote_event,
 							 (peer->to_remote_trigger | peer->from_remote_trigger) ||
 							 !peer_thead_should_run(peer) ||
+							 (old_additional != peer->do_additional) ||
+							 (old_communicate != peer->do_communicate) ||
 							 (mars_global && mars_global->main_trigger),
 							 pause_time * HZ);
 		}
