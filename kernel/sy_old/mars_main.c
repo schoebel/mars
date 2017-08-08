@@ -2187,6 +2187,12 @@ void report_peer_connection(struct key_value_pair *peer_pairs, bool do_additiona
 	show_vals(peer_pairs, "/mars", peer_role);
 }
 
+static inline
+bool peer_thead_should_run(struct mars_peerinfo *peer)
+{
+	return mars_net_is_alive && !peer->to_terminate && !brick_thread_should_stop();
+}
+
 static
 int peer_thread(void *data)
 {
@@ -2201,7 +2207,7 @@ int peer_thread(void *data)
 	bool do_kill = false;
 	int status;
 
-	if (!peer)
+	if (!peer || !mars_net_is_alive)
 		return -1;
 
 	real_peer = mars_translate_hostname(peer->peer);
@@ -2213,7 +2219,7 @@ int peer_thread(void *data)
 		goto done;
 	}
 
-        while (!peer->to_terminate && !brick_thread_should_stop()) {
+        while (peer_thead_should_run(peer)) {
 		struct mars_global tmp_global = {
 			.dent_anchor = LIST_HEAD_INIT(tmp_global.dent_anchor),
 			.brick_anchor = LIST_HEAD_INIT(tmp_global.brick_anchor),
@@ -2251,10 +2257,8 @@ int peer_thread(void *data)
 				brick_msleep(1000);
 				continue;
 			}
-			if (!mars_net_is_alive) {
-				brick_msleep(1000);
-				continue;
-			}
+			if (!peer_thead_should_run(peer))
+				break;
 
 			status = mars_create_socket(&peer->socket, &sockaddr, false);
 			if (unlikely(status < 0)) {
@@ -2396,6 +2400,7 @@ int peer_thread(void *data)
 				pause_time++;
 			wait_event_interruptible_timeout(remote_event,
 							 (peer->to_remote_trigger | peer->from_remote_trigger) ||
+							 !peer_thead_should_run(peer) ||
 							 (mars_global && mars_global->main_trigger),
 							 pause_time * HZ);
 		}
@@ -2632,7 +2637,7 @@ int _make_peer(struct mars_global *global, struct mars_dent *dent)
 			brick_thread_stop(peer->peer_thread);
 			peer->peer_thread = NULL;
 		}
-		if (!peer->peer_thread) {
+		if (!peer->peer_thread && mars_net_is_alive) {
 			peer->to_terminate = false;
 			peer->has_terminated = false;
 			peer->peer_thread = brick_thread_create(peer_thread, peer, "mars_peer%d", serial++);
