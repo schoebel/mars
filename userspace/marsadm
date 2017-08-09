@@ -2014,7 +2014,7 @@ sub create_res {
       if (!$create) {
 	$remain =~ m/-([0-9]+)-$host/;
 	my $nr = $1;
-	next if $nr < $replay_nr;
+	next if $nr <= $replay_nr;
       }
       lwarn "OLD REMAIN '$remain'\n";
       push @remains, $remain;
