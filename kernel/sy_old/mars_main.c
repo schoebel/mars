@@ -624,7 +624,6 @@ struct mars_rotate {
 	int replay_code;
 	int avoid_count;
 	bool has_symlinks;
-	bool peer_activated;
 	bool res_shutdown;
 	bool has_error;
 	bool has_double_logfile;
@@ -2524,13 +2523,12 @@ void activate_peer(struct mars_rotate *rot, const char *peer_name)
 {
 	struct mars_peerinfo *peer;
 
-	if (rot->peer_activated || !peer_name)
+	if (unlikely(!peer_name))
 		return;
 
 	peer = find_peer(peer_name);
 	if (peer) {
 		peer->do_communicate = true;
-		rot->peer_activated = true;
 		peer->do_additional = false;
 		if (peer->doing_additional) {
 			peer->doing_additional = false;
