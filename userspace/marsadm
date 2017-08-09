@@ -364,8 +364,8 @@ sub get_alive_links {
     $glob = "$mars/$alive-{";
     my $count = 0;
     foreach my $peer (glob("$mars/resource-$res/data-*")) {
-      $peer =~ m:/data-(.+):;
       $glob .= "," if $count++;
+      $peer =~ m:/data-(.+):;
       $glob .= $1;
     }
     $glob .= "}";
@@ -471,6 +471,7 @@ sub wait_cluster {
   $abort = $force unless defined($abort);
   my $old_timeout = $timeout;
   my $start_time = mars_time();
+  my %old_status = get_alive_links($res, "time", $hosts);
   _trigger($hosts =~ m/\*/ ? 3 : 2);
   my $delta = $timeout > 0 ? $timeout : 30;
   while (1) {
@@ -481,7 +482,7 @@ sub wait_cluster {
     my $now = mars_time();
     foreach my $peer (keys(%status)) {
       next if $peer eq $host;
-      if ($status{$peer} >= $start_time) {
+      if ($status{$peer} ne $old_status{$peer} || $status{$peer} >= $start_time) {
 	$alive_count++;
       } elsif ($status{$peer} + $delta < $now) {
 	$dead_count++;
