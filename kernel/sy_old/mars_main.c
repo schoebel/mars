@@ -3687,7 +3687,6 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	struct mars_rotate *rot;
 	struct trans_logger_brick *trans_brick;
 	struct copy_brick *fetch_brick;
-	bool is_attached;
 	bool is_stopped;
 	int status = -EINVAL;
 
@@ -3926,9 +3925,6 @@ done:
 	}
 
 	// remove trans_logger (when possible) upon detach
-	is_attached = !!rot->trans_brick;
-	_show_actual(rot->parent_path, "is-attached", is_attached);
-
 	if (rot->trans_brick && rot->trans_brick->power.led_off && !rot->trans_brick->outputs[0]->nr_connected) {
 		bool do_attach = _check_allow(global, parent, "attach");
 		MARS_DBG("do_attach = %d\n", do_attach);
@@ -3985,6 +3981,7 @@ int make_bio(void *buf, struct mars_dent *dent)
 	struct mars_rotate *rot;
 	struct mars_brick *brick;
 	bool switch_on;
+	bool is_attached;
 	int status = 0;
 
 	if (!global || !dent->d_parent) {
@@ -3993,6 +3990,9 @@ int make_bio(void *buf, struct mars_dent *dent)
 	rot = dent->d_parent->d_private;
 	if (!rot)
 		goto done;
+
+	is_attached = !!rot->trans_brick;
+	_show_actual(rot->parent_path, "is-attached", is_attached);
 
 	rot->has_symlinks = true;
 
