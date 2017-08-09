@@ -327,22 +327,41 @@ sub get_alive_links {
   my $res = shift || "all";
   my $alive = shift || "alive";
   my $hosts = shift || "*";
-  my $glob = "$mars/$alive-$hosts";
-  if ($res ne "all" && $hosts ne "*") {
-    $glob = "$mars/$alive-{";
-    my $count = 0;
-    foreach my $peer (glob("$mars/resource-$res/data-*")) {
-      $glob .= "," if $count++;
-      $peer =~ m:/data-(.+):;
-      $glob .= $1;
-    }
-    $glob .= "}";
+  $res = "*" if $res eq "all";
+  my %cand;
+  foreach my $path (glob("$mars/ips/ip-$hosts")) {
+    $path =~ m:/ip-(.*):;
+    my $peer = $1;
+    $cand{$peer} = 1;
+  }
+  my %peers;
+  foreach my $path (glob("$mars/resource-$res/data-*")) {
+    $path =~ m:/data-(.*):;
+    my $peer = $1;
+    next unless $peer;
+    next if $peer eq $host;
+    # avoid O(n^2) globbing
+    next if $peers{$peer};
+    # peer must be a candiate matching the hosts spec
+    next unless $cand{$peer};
+    # peer must be participating in the same resources
+    my @other = glob("$mars/resource-$res/data-$peer");
+    next unless @other;
+    # OK: remember peer
+    $peers{$peer} = 1;
+  }
+  return %peers unless %peers;
+  my $glob;
+  if (scalar(keys(%peers)) == 1) {
+    $glob = "$mars/$alive-" . join(',', keys(%peers));
+  } else {
+    $glob = "$mars/$alive-{" . join(',', keys(%peers)) . "}";
   }
   my %links;
   foreach my $path (glob($glob)) {
     $path =~ m:/$alive-(.+):;
     my $peer = $1;
-    $links{$peer} = get_link($path);
+    $links{$peer} = get_link($path, 1);
   }
   return %links;
 }
@@ -441,6 +460,7 @@ sub wait_cluster {
   my $start_time = mars_time();
   my %old_status = get_alive_links($res, "time", $hosts);
   _trigger($hosts =~ m/\*/ ? 3 : 2);
+  lprint "Ping and wait for answers from " . join(",", sort(keys(%old_status))) . "\n" if %old_status;
   my $delta = $timeout > 0 ? $timeout : 30;
   while (1) {
     my $dead_count = 0;
@@ -467,6 +487,7 @@ sub wait_cluster {
 	ldie "aborting because --force was given\n" if $abort;
       }
     }
+    _trigger($hosts =~ m/\*/ ? 3 : 2);
     sleep_timeout();
     last if $timeout <= 0 && !$unknown_count;
   }
