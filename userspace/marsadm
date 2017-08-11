@@ -97,7 +97,7 @@ sub lwarn {
 
 my $Id = '$Id$ ';
 my $user_version = 0.1;
-my $marsadm_version = 2; # some rough hint at newer features
+my $marsadm_version = 3; # some rough hint at newer features
 my $mars = "/mars";
 my $host = `uname -n` or ldie "cannot determine my network node name\n";
 chomp $host;
@@ -2189,6 +2189,7 @@ sub leave_res_phase2 {
     log_purge_res($cmd, $res);
     finish_links();
     _wait_delete();
+    wait_cluster($cmd, $res, "*", 0);
     # some kernel modules cannot delete directories
     foreach my $dir (glob("$mars/resource-$res/*-$host/")) {
       system("rm -rf $dir");
@@ -4920,6 +4921,9 @@ my %cmd_table =
        "This is potentially dangerous.",
        "Use this only if you are really desperate in trying to resolve a",
        "split brain. Use this only after reading the PDF manual!",
+       [
+	\&wait_cluster_noforce,
+       ],
        \&log_purge_res,
       ],
    "fake-sync"
