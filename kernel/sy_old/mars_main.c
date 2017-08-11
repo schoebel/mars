@@ -3991,7 +3991,11 @@ int make_bio(void *buf, struct mars_dent *dent)
 	if (!rot)
 		goto done;
 
-	is_attached = !!rot->trans_brick;
+	/* for detach, both the logger and the bio must be gone */
+	if (rot->trans_brick)
+		is_attached = true;
+	else if (!rot->bio_brick)
+		is_attached = false;
 	_show_actual(rot->parent_path, "is-attached", is_attached);
 
 	rot->has_symlinks = true;
