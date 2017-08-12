@@ -2015,7 +2015,7 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 	}
 
 	// create / check markers (prevent concurrent updates)
-	if (remote_dent->new_link && !strncmp(remote_dent->d_path, "/mars/todo-global/delete-", 25)) {
+	if (remote_dent->new_link && !strncmp(remote_dent->d_name, "delete-", 7)) {
 		marker_path = backskip_replace(remote_dent->new_link, '/', true, "/.deleted-");
 		if (mars_stat(marker_path, &local_stat, true) < 0 ||
 		    timespec_compare(&remote_dent->new_stat.mtime, &local_stat.mtime) > 0) {
