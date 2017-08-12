@@ -2055,7 +2055,7 @@ sub create_res {
     }
     last if !@remains;
     lwarn "Resource directory has some old remains.\n";
-    if ($force && !$create) {
+    if (!$create) {
       foreach my $remain (@remains) {
 	lwarn "REMOVING remain '$remain'";
 	_create_delete($remain);
