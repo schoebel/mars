@@ -2019,9 +2019,21 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 		marker_path = backskip_replace(remote_dent->new_link, '/', true, "/.deleted-");
 		if (mars_stat(marker_path, &local_stat, true) < 0 ||
 		    timespec_compare(&remote_dent->new_stat.mtime, &local_stat.mtime) > 0) {
+			struct timespec marker_stamp = remote_dent->new_stat.mtime;
+			int status;
+
+
+			/* Markers are in place of the original object.
+			 * Preserve the original timestamp when possible.
+			 */
+			status = mars_stat(remote_dent->new_link, &local_stat, true);
+			if (status >= 0)
+				marker_stamp = local_stat.mtime;
+
 			MARS_DBG("creating / updating marker '%s' mtime=%lu.%09lu\n",
-				 marker_path, remote_dent->new_stat.mtime.tv_sec, remote_dent->new_stat.mtime.tv_nsec);
-			mars_symlink("1", marker_path, &remote_dent->new_stat.mtime, 0);
+				 marker_path,
+				 marker_stamp.tv_sec, marker_stamp.tv_nsec);
+			mars_symlink("1", marker_path, &marker_stamp, 0);
 		}
 		if (remote_dent->d_serial < peer->global->deleted_my_border) {
 			MARS_DBG("ignoring deletion '%s' at border %d\n", remote_dent->d_path, peer->global->deleted_my_border);
