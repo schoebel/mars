@@ -2008,6 +2008,11 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 	if (!strncmp(remote_dent->d_name, "ignore", 6)) {
 		goto done;
 	}
+	/* never fetch my own deletions physically created by myself */
+	if (!strncmp(remote_dent->d_name, "delete-", 7) &&
+	    !strcmp(remote_dent->d_rest, my_id())) {
+		goto done;
+	}
 
 	// create / check markers (prevent concurrent updates)
 	if (remote_dent->new_link && !strncmp(remote_dent->d_path, "/mars/todo-global/delete-", 25)) {
