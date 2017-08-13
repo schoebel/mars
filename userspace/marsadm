@@ -1181,25 +1181,62 @@ sub log_purge_res {
   lwarn "DANGEROUS OPERATION: $cmd --force on resource '$res'\n" if $force;
   %visited_pos = ();
   my %start_logs;
-  my $start_count = 0;
   my $basedir = "$mars/resource-$res";
-  foreach my $data (glob("$basedir/{data,replay}-*")) {
-    $data =~ m:/(data|replay)-(.+):;
-    my $peer = $2;
+  my $peer_glob = "*";
+  my $primary = _get_designated_primary($res, 1);
+  if ($primary && $primary ne "(none)") {
+    $peer_glob = $primary;
+  }
+  my @replay_list = glob("$basedir/replay-$peer_glob");
+  my @log_list = glob("$basedir/log-*");
+  my @version_list = glob("$basedir/version-*-$host");
+
+  # determine all reachable objects from primary
+  %visited_pos = ();
+  foreach my $repl (@replay_list) {
+    $repl =~ m:/replay-(.+):;
+    my $peer = $1;
     my $replay = "$basedir/replay-$peer";
     my $target = get_link($replay, 1);
-    lprint "found replay link '$replay' -> '$target'\n";
+    lprint "found peer replay link '$replay' -> '$target'\n";
     $target =~ s/,.*//;
     $start_logs{$target}++;
-    $start_count++;
     _mark_path_transitive($basedir, $target, $peer);
   }
-  if (!$start_count) {
-    lprint "Resource contains no valid information - there is nothing to purge\n";
-    return;
+
+  # remove unreachable logfiles
+  foreach my $file (@log_list) {
+    $file =~ m:/(log-([0-9]+)-(.*)): or ldie "bad path '$file'\n";
+    my $log = $1;
+    my $nr = $2;
+    my $from = $3;
+    lprint "checking '$log'\n";
+    if ($from eq $primary) {
+      lprint "  ok from primary '$log'\n";
+      next;
+    }
+    if ($start_logs{$log}) {
+      lprint "  ok start '$log'\n";
+      next;
+    }
+    if (_is_visited($nr, $from)) {
+      lprint "  ok reachable '$log'\n";
+      next;
+    }
+    _create_delete($file);
   }
-  my %logs;
-  foreach my $file (glob("$basedir/version-*")) {
+
+  # additionally mark all my own reachables
+  my $replay = "$basedir/replay-$host";
+  my $target = get_link($replay, 2);
+  if ($target) {
+    lprint "found own replay link '$replay' -> '$target'\n";
+    $target =~ s/,.*//;
+    _mark_path_transitive($basedir, $target, $host);
+  }
+
+  # remove all my unreachable versionlinks
+  foreach my $file (@version_list) {
     $file =~ m:/(version-([0-9]+)-([^,]+)): or ldie "bad path '$file'\n";
     my $cand = $1;
     my $nr = $2;
@@ -1211,52 +1248,12 @@ sub log_purge_res {
     lprint "  corresponding logfile is '$log'\n";
     if (_is_visited($nr, $from)) {
       lprint "  ok '$cand'\n";
-      $logs{$log}++;
       next;
     }
-    if (!$force && $from ne $host) {
-      lprint "  skipping foreign object '$cand'\n";
-      $logs{$log}++;
-      next;
-    }
-    lwarn "deleting foreign object from peer '$from' because you said --force\n" if $from ne $host;
     _create_delete($file);
   }
-  foreach my $file (glob("$basedir/log-*")) {
-    $file =~ m:/(log-[0-9]+-(.*)): or ldie "bad path '$file'\n";
-    my $log = $1;
-    my $from = $2;
-    lprint "checking '$log'\n";
-    if ($logs{$log}) {
-      lprint "  ok '$log'\n";
-      $logs{$log} = -1;
-      next;
-    }
-    if ($start_logs{$log}) {
-      lprint "  ok start '$log'\n";
-      $logs{$log} = -1;
-      next;
-    }
-    if (!$force && $from ne $host) {
-      lprint "  skipping foreign object '$log'\n";
-      next;
-    }
-    lwarn "deleting foreign object from peer '$from' because you said --force\n" if $from ne $host;
-    _create_delete($file);
-  }
-  my $count = 0;
-  foreach my $log (sort(keys(%logs))) {
-    my $nr = $logs{$log};
-    next if $nr < 0 || -e "$basedir/$log";
-    lprint_stderr "info: logfile '$log' is referenced ($nr), but not present.\n";
-    $count++;
-  }
-  if ($count) {
-    lprint_stderr "  Unreferenced logfiles are not necessarily bad.\n";
-    lprint_stderr "  They can regularly appear after 'leave-resource',\n";
-    lprint_stderr "  or 'invalidate', or after emergency mode,\n";
-    lprint_stderr "  or after similar operations.\n";
-  }
+
+  # finalize
   finish_links();
   _wait_delete();
 }
