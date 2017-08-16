@@ -607,7 +607,6 @@ struct mars_rotate {
 	struct mars_limiter replay_limiter;
 	struct mars_limiter sync_limiter;
 	struct mars_limiter fetch_limiter;
-	int inf_prev_sequence;
 	int inf_old_sequence;
 	long long flip_start;
 	loff_t dev_size;
@@ -1225,39 +1224,12 @@ int _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 		goto out;
 	}
 
-	if (likely(inf->inf_sequence > 1)) {
-		if (unlikely((inf->inf_sequence < rot->inf_prev_sequence ||
-			      inf->inf_sequence > rot->inf_prev_sequence + 1) &&
-			     rot->inf_prev_sequence != 0)) {
-			char *skip_path = path_make("%s/skip-check-%s", rot->parent_path, my_id());
-			char *skip_link = mars_readlink(skip_path);
-			char *msg = "";
-			int skip_nr = -1;
-			int nr_char = 0;
-			if (likely(skip_link && skip_link[0])) {
-				(void)sscanf(skip_link, "%d%n", &skip_nr, &nr_char);
-				msg = skip_link + nr_char;
-			}
-			brick_string_free(skip_path);
-			if (likely(skip_nr != inf->inf_sequence)) {
-				MARS_ERR_TO(rot->log_say, "SKIP in sequence numbers detected: %d != %d + 1\n", inf->inf_sequence, rot->inf_prev_sequence);
-				make_rot_msg(rot, "err-versionlink-skip", "SKIP in sequence numbers detected: %d != %d + 1", inf->inf_sequence, rot->inf_prev_sequence);
-				brick_string_free(skip_link);
-				goto out;
-			}
-			MARS_WRN_TO(rot->log_say,
-				    "you explicitly requested to SKIP sequence numbers from %d to %d%s\n",
-				    rot->inf_prev_sequence, inf->inf_sequence, msg);
-			brick_string_free(skip_link);
-		}
-		prev = path_make("%s/version-%09d-%s", rot->parent_path, inf->inf_sequence - 1, my_id());
-		if (unlikely(!prev)) {
-			MARS_ERR("no MEM\n");
-			goto out;
-		}
-		prev_link = mars_readlink(prev);
-		rot->inf_prev_sequence = inf->inf_sequence;
+	prev = path_make("%s/version-%09d-%s", rot->parent_path, inf->inf_sequence - 1, my_id());
+	if (unlikely(!prev)) {
+		MARS_ERR("no MEM\n");
+		goto out;
 	}
+	prev_link = mars_readlink(prev);
 
 	len = sprintf(data, "%d,%s,%lld:%s", inf->inf_sequence, inf->inf_host, inf->inf_log_pos, prev_link ? prev_link : "");
 	
@@ -3962,7 +3934,6 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	if (rot->has_emergency) {
 		if (rot->todo_primary || rot->is_primary) {
 			trans_brick->cease_logging = true;
-			rot->inf_prev_sequence = 0; // disable checking
 		}
 	} else {
 		if (!trans_logger_resume) {
