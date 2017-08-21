@@ -2182,7 +2182,6 @@ sub leave_res_phase2 {
   # They might be needed by some other secondaries, e.g. when they
   # did not catch up (or the network is interrupted etc).
   for (my $loop = 0; $loop < 3; $loop++) {
-    $force = 0; # this would be too dangerous
     log_purge_res($cmd, $res);
     finish_links();
     _wait_delete();
