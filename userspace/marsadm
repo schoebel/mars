@@ -2662,6 +2662,8 @@ sub invalidate_res_phase0 {
   my $primary = _get_designated_primary($res);
   ldie "for operation '$cmd', some other designated primary must exist (currently there is none)\n" if $primary eq "(none)";
   ldie "Cannot invalidate the designated primary host '$primary'\n" if $primary eq $host;
+  # _must_ abort when primary is unreachable and --force not given.
+  wait_cluster($cmd, $res, $primary, !$force);
 }
 
 sub invalidate_res_phase1 {
@@ -2710,7 +2712,6 @@ sub invalidate_res_phase4 {
 
 sub invalidate_res_phase5 {
   my ($cmd, $res) = @_;
-  $force = 0; # this would be too dangerous
   log_purge_res(@_);
   finish_links();
 }
