@@ -135,6 +135,14 @@ Changelog for series 0.1b:
 -----------------------------------
 Changelog for series 0.1:
 
+mars0.1stable44
+--------
+	* Major fix: state "Detached" was reported too early,
+	  before the underlying disk was really closed.
+	* Doc: new updated slides from FrOSCon 2017.
+	  New architectural comparison with Big Storage Clusters
+	  in terms of scalability, reliability and costs.
+
 mars0.1stable43
 --------
 	* Major fix, only relevant for k >= 3 replicas:
