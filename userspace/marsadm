@@ -1964,13 +1964,16 @@ sub create_res {
     # Reason: newer kernel modules will fetch non-member resource infos less frequently.
     # Therefore we shift some responsibility for non-member -> member transitions to userspace.
     my @peers = map { m:^$mars/ips/ip-(.+):; $1 } glob("$mars/ips/ip-*");
-    $primary = _get_designated_primary($res, 1);
     my $max_retry = 5;
     for (;;) {
+      $primary = _get_designated_primary($res, 1);
       if ($primary && $primary ne "(none)") {
 	# for safety, fetch newest infos from last known primary
 	rsync_cmd($primary, "--max-size=1 --update $primary:$mars/resource-$res/ $mars/resource-$res/", $res, 1);
-	last;
+	last if (glob("$mars/resource-$res/version-*-$primary") &&
+		 _get_designated_primary($res, 1) eq $primary);
+	sleep(10);
+	next if $max_retry-- > 2;
       }
       if (!@peers || $max_retry < 0) {
 	lwarn "cannot get a relevant primary";
@@ -1981,7 +1984,6 @@ sub create_res {
       next if $peer eq $host;
       next if $peer eq $real_host;
       rsync_cmd($peer, "--max-size=1 --update $peer:$mars/resource-$res $mars/", 1);
-      $primary = _get_designated_primary($res, 1);
       $max_retry--;
     } # retry loop
     ldie "resource '$res' does not exist\n" unless -d $resdir;
