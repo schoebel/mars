@@ -504,6 +504,14 @@ sub wait_cluster {
   $timeout = $old_timeout;
 }
 
+sub wait_cluster_noforce {
+  my ($cmd, $res) = @_;
+  if (!$force) {
+    lprint "WAITING for communication\n" if $verbose;
+    wait_cluster($cmd, $res, "*", 0);
+  }
+}
+
 ##################################################################
 
 # syntactic checks
@@ -5187,6 +5195,9 @@ my %cmd_table =
        "Thus, use --force only after an ordinary handover attempt has",
        "failed, and when you don't care about the split brain.",
        "For more details, please refer to the PDF manual.",
+       [
+	\&wait_cluster_noforce,
+       ],
        \&primary_phase0,
        "check preconditions",
        \&primary_phase1,
@@ -5432,6 +5443,7 @@ marsadm [<global_options>] view[-<macroname>] [<resource_name> | all ]
     my $verb_level = 0;
     while (my $txt = shift @copy) {
       last if ref($txt) eq "CODE";
+      next if ref($txt) eq "ARRAY";
       my $skip_this = 0;
       if ($txt =~ m/^verbose *([0-9]+)/) {
 	$verb_level = $1;
@@ -5715,6 +5727,14 @@ if (ref($func) eq "ARRAY") {
   my @list = @$func;
   while (@list) {
     my $memb_func = shift @list;
+    # nested arrays may be used for _global_ workers
+    if (ref($memb_func) eq "ARRAY") {
+      my @sub_list = @$memb_func;
+      foreach my $sub_func (@sub_list) {
+	next unless ref($sub_func) eq "CODE";
+	&{$sub_func}($cmd, $res, @args);
+      }
+    }
     next unless ref($memb_func) eq "CODE";
     my $headline = shift @list;
     lprint "---------------------------- $headline:\n" if defined($headline);
