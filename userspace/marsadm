@@ -492,14 +492,14 @@ sub wait_cluster {
     if (!$unknown_count) {
       if (!$dead_count) {
 	lprint "all $alive_count peer(s) seem to be alive\n";
-	last;
       } else {
 	lwarn "$alive_count peer(s) seem to be alive, and $dead_count peer(s) seem to be dead / not reachable\n";
-	ldie "aborting because --force was given\n" if $abort;
+	ldie "aborting (--force was not given)\n" if $abort;
       }
+      last;
     }
-    sleep_timeout();
-    last if $timeout <= 0 && !$unknown_count;
+    sleep_timeout(5, !$abort);
+    last if $timeout <= 0;
   }
   $timeout = $old_timeout;
 }
