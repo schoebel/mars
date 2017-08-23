@@ -2213,7 +2213,13 @@ sub leave_res_phase2 {
       next if $dir =~ m:/todo-:;
       system("rm -rf $dir");
     }
-    return unless glob("$mars/resource-$res/*-$host");
+    my $has_remains = 0;
+    foreach my $check (glob("$mars/resource-$res/*-$host")) {
+      next if $check =~ m:/(todo|defaults|actual|local)-:;
+      lprint "REMAIN '$check'\n";
+      $has_remains++;
+    }
+    return unless $has_remains;
     lwarn "resource directory $mars/resource-$res/ has some remains from host $host\n";
     leave_res_phase1(@_);
     _wait_delete();
