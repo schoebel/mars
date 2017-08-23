@@ -2184,9 +2184,11 @@ sub leave_res_phase1 {
   _create_delete("$mars/resource-$res/device-$host");
   _create_delete("$mars/resource-$res/actsize-$host");
   foreach my $dir (glob("$mars/resource-$res/*-$host/")) {
-    foreach my $tmp (glob("${dir}*")) {
+    foreach my $tmp (glob("${dir}/*")) {
+      next if $tmp =~ m:/todo-.*/delete:;
       _create_delete($tmp);
     }
+    next if $dir =~ m:/todo-:;
     _create_delete($dir);
   }
   finish_links();
@@ -2208,6 +2210,7 @@ sub leave_res_phase2 {
     wait_cluster($cmd, $res, "*", 0);
     # some kernel modules cannot delete directories
     foreach my $dir (glob("$mars/resource-$res/*-$host/")) {
+      next if $dir =~ m:/todo-:;
       system("rm -rf $dir");
     }
     return unless glob("$mars/resource-$res/*-$host");
