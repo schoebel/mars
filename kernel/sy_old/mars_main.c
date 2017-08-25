@@ -5054,9 +5054,11 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 
  ok:	
 	if (status < 0) {
+		int border = rot ? delete_info->deleted_my_border : delete_info->deleted_border;
+
 		MARS_DBG("deletion '%s' to target '%s' is accomplished\n",
 			 dent->d_path, dent->new_link);
-		if (dent->d_serial <= delete_info->deleted_border) {
+		if (dent->d_serial <= border) {
 			MARS_DBG("removing deletion symlink '%s'\n", dent->d_path);
 			dent->d_killme = true;
 			mars_unlink(dent->d_path);
