@@ -238,6 +238,26 @@ mars0.1balpha0
 -----------------------------------
 Changelog for series 0.1:
 
+mars0.1stable45
+	* Major fix: on	secondaries, orphane files and symlinks were
+	  sometimes created in /mars and could accumulate over a long time.
+	  After several months or years of operation, the /mars directory
+	  could appear being full via "df /mars", but "du -s /mars" was
+	  not reporting the hidden space allocation.
+	  Also, upon remount or reboot the cleanup of orphane files
+	  could take a rather long time. Workaround was possible by
+	  "rmmod mars; umount /mars; mount /mars; modprobe mars".
+	  Fixed by regularly pruning the dentry cache of the /mars
+	  filesystem.
+
+mars0.1stable44
+--------
+	* Major fix: state "Detached" was reported too early,
+	  before the underlying disk was really closed.
+	* Doc: new updated slides from FrOSCon 2017.
+	  New architectural comparison with Big Storage Clusters
+	  in terms of scalability, reliability and costs.
+
 mars0.1stable43
 --------
 	* Major fix, only relevant for k >= 3 replicas:
