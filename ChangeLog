@@ -130,6 +130,25 @@ Changelog for series 0.2:
 -----------------------------------
 Changelog for series 0.1b:
 
+mars0.1balpha7 (bugfix release, please update any 0.1b deployment ASAP)
+--------
+	* Major and minor fixes, only relevant for k >= 3 cluster nodes
+	  (and only relevant for branch mars0.1b.y):
+	   - not all relevant peers were always communicating with
+	     each other. When the network was partially interrupted
+	     (e.g. by inappropriate firewall rules), the replication
+	     could hang for a longer time.
+	   - rmmod could delay for up to 10 minutes because an internal
+	     sleep was not interrupted.
+	   - wait-cluster could sometimes take very long and timeout
+	     unnecessarily.
+	   - leave-resource did not always clean up all remains.
+	   - join-resource was sometimes stumbling over some
+	     harmless remains.
+	   - fixed some annoying internal error reports.
+	   - further minor fixes.
+	* Merge mars0.1stable45.
+
 mars0.1balpha6
 --------
 	* Minor / major fix depending on scalability of workload:
