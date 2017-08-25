@@ -5068,10 +5068,24 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	}
 
  done:
-	// tell the world that we have seen this deletion... (even when not yet accomplished)
+	/* Tell the world that we have seen this deletion... (even when not yet accomplished)
+	 *
+	 * Different naming conventions:
+	 *
+	 *  - In the global /mars/todo-global/ directory, the host context is naming the recipient.
+	 *    Notice: there is no other chance, otherwise we would need O(n^2) name encodings.
+	 *
+	 *  - In the local per-resource todo-$recipient/ directories, the recipient context
+	 *    is already encoded into the parent dir. So it is potentially already O(k^2).
+	 *    [however notice that k is only the number of replicas here,
+	 *    while n = #all_cluster_members as would be the case in the global directory]
+	 *    We take this chance for encoding the _originators_ into the name context.
+	 *    Advantage: now different originators can have their own independent deletion streams
+	 *    without side effects onto the serial numbers from other streams.
+	 */
 	response_path = path_make("%s/deleted-%s",
 				  dent->d_parent->d_path,
-				  my_id());
+				  rot ? dent->d_rest : my_id());
 	response = mars_find_dent(global, response_path);
 	if (response && response->new_link) {
 		sscanf(response->new_link, "%d", &max_serial);
