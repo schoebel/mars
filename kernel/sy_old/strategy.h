@@ -106,6 +106,7 @@ struct mars_delete_info {
 	int deleted_my_border;
 	int deleted_border;
 	int deleted_min;
+	bool deleted_stall;
 };
 
 struct mars_global {

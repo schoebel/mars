@@ -5012,7 +5012,8 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	    unlikely((brick->nr_outputs > 0 && brick->outputs[0] && brick->outputs[0]->nr_connected) ||
 		     (brick->type == (void*)&if_brick_type && !brick->power.led_off))) {
 		MARS_WRN("target '%s' cannot be deleted, its brick '%s' in use\n", dent->new_link, SAFE_STR(brick->brick_name));
-		goto done;
+		delete_info->deleted_stall = true;
+		goto notdone;
 	}
 
 	status = 0;
@@ -5025,7 +5026,8 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 		}
 		if (target->d_child_count) {
 			MARS_WRN("target '%s' has %d children, cannot kill\n", dent->new_link, target->d_child_count);
-			goto done;
+			delete_info->deleted_stall = true;
+			goto notdone;
 		}
 		target->d_killme = true;
 		MARS_DBG("target '%s' marked for removal\n", dent->new_link);
@@ -5054,7 +5056,7 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	}
 
  ok:	
-	if (status < 0) {
+	if (status < 0 && !delete_info->deleted_stall) {
 		int border = rot ? delete_info->deleted_my_border : delete_info->deleted_border;
 
 		MARS_DBG("deletion '%s' to target '%s' is accomplished\n",
@@ -5070,7 +5072,6 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 		}
 	}
 
- done:
 	/* Tell the world that we have seen this deletion... (even when not yet accomplished)
 	 *
 	 * Different naming conventions:
@@ -5956,12 +5957,14 @@ static int _main_thread(void *data)
 
 		_global.delete_info.deleted_border = _global.delete_info.deleted_min;
 		_global.delete_info.deleted_min = 0;
+		_global.delete_info.deleted_stall = false;
 		down_read(&rot_sem);
 		for (tmp = rot_anchor.next; tmp != &rot_anchor; tmp = tmp->next) {
 			struct mars_rotate *rot = container_of(tmp, struct mars_rotate, rot_head);
 			MARS_DBG("-------- res '%s' deleted_min = %d\n", rot->parent_path, rot->delete_info.deleted_min);
 			rot->delete_info.deleted_border = rot->delete_info.deleted_min;
 			rot->delete_info.deleted_min = 0;
+			rot->delete_info.deleted_stall = false;
 		}
 		up_read(&rot_sem);
 
