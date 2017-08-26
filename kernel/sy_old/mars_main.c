@@ -5053,6 +5053,12 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 		}
 		if (status >= 0)
 			goto notdone;
+		if (mars_stat(dent->new_link, &stat, true) >= 0) {
+			MARS_DBG("unsuccessful deletion '%s', status = %d\n", dent->new_link, status);
+			if (!S_ISDIR(to_delete->mode))
+				delete_info->deleted_stall = true;
+			goto notdone;
+		}
 	}
 
  ok:	
