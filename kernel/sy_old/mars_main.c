@@ -1995,6 +1995,23 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 		struct mars_delete_info *delete_info = &peer->global->delete_info;
 
 		if (remote_dent->d_parent && remote_dent->d_parent->d_parent && remote_dent->d_parent->d_parent->d_private) {
+			/* don't fetch any outdated deletions */
+			char *border_path = path_make("%s/deleted-%s",
+						      remote_dent->d_parent->d_path,
+						      remote_dent->d_rest);
+			char *border_val = mars_readlink(border_path);
+			int border = 0;
+
+			if (border_val && border_val[0])
+				sscanf(border_val, "%d", &border);
+			brick_string_free(border_path);
+			brick_string_free(border_val);
+			if (remote_dent->d_serial <= border) {
+				MARS_DBG("ignoring outdated deletion link '%s'\n",
+					 remote_dent->d_path);
+				status = -EAGAIN;
+				goto done;
+			}
 			rot = remote_dent->d_parent->d_parent->d_private;
 			delete_info = &rot->delete_info;
 		}
