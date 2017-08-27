@@ -1948,7 +1948,7 @@ sub create_res {
     set_link($size, "$resdir/syncstatus-$host");
     my $startnr = get_link("$resdir/maxnr", 2);
     if (defined($startnr) && $startnr ne "" && $startnr > 0) {
-      $startnr += 1000;
+      $startnr += 100000;
     } else {
       $startnr = 1;
     }
