@@ -34,6 +34,7 @@ umask 0077;
 my $threshold = 10 * 1024 * 1024;
 my $window = 30;
 my $verbose = 0;
+my $delete_global = 0;
 my $dry_run = 0;
 my @MARS_PATH = $ENV{MARS_PATH} ?
   split(/:/, $ENV{MARS_PATH}) :
@@ -2366,8 +2367,10 @@ sub _set_delete_nr {
 sub _create_delete {
   my ($target) = @_;
   ldie "cannot delete: '$target' is no absolute path\n" unless $target =~ m:^/:;
-  my $use_local = (get_global_feature_version() >= 3) &&
-    $target =~ m:^($mars/resource-[^/]+):;
+  my $use_local =
+    (!$delete_global &&
+     get_global_feature_version() >= 3 &&
+     $target =~ m:^($mars/resource-[^/]+):);
   if ($use_local) {
     my $resdir = $1;
     $resdir =~ m:$mars/resource-(.*):;
@@ -5559,6 +5562,9 @@ marsadm [<global_options>] view[-<macroname>] [<resource_name> | all ]
   --logger=/path/to/usr/bin/logger
     Use an alternative syslog messenger.
     When empty, disable syslogging.
+  --delete-global
+    Only for experts. Always use global deletes even when
+    local ones would be possible.
   --timeout=<seconds>
     Abort safety checks after timeout with an error.
     When giving 'all' as resource agument, this works for each
@@ -5653,6 +5659,9 @@ foreach my $arg (@ARGV) {
     next;
   } elsif ($arg eq "--dry-run" || $arg eq "-d") {
     $dry_run++;
+    next;
+  } elsif ($arg eq "--delete-global") {
+    $delete_global++;
     next;
   } elsif ($arg =~ s/--verbose\s*=\s*(-?[0-9]+)/$1/) {
     $verbose = $arg;
