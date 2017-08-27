@@ -2208,11 +2208,6 @@ sub leave_res_phase2 {
     finish_links();
     _wait_delete();
     wait_cluster($cmd, $res, "*", 0);
-    # some kernel modules cannot delete directories
-    foreach my $dir (glob("$mars/resource-$res/*-$host/")) {
-      next if $dir =~ m:/todo-:;
-      system("rm -rf $dir");
-    }
     my $has_remains = 0;
     foreach my $check (glob("$mars/resource-$res/*-$host")) {
       next if $check =~ m:/(todo|defaults|actual|local)-:;
@@ -2225,6 +2220,11 @@ sub leave_res_phase2 {
     _wait_delete();
   }
   lwarn "could not completely empty resource $res\n";
+  # some kernel modules cannot delete directories
+  foreach my $dir (glob("$mars/resource-$res/*-$host/")) {
+    next if $dir =~ m:/todo-:;
+    system("rm -rf $dir");
+  }
 }
 
 sub delete_res {
