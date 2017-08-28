@@ -1754,7 +1754,7 @@ sub create_res {
       lwarn "resource directory '$res' already exists\n";
       my @host_list = glob("$resdir/replay-*");
       if (@host_list) {
-	my $h_list = join(',', map({ $_ =~ s:.*/replay-::;} (@host_list)));
+	my $h_list = join(',', map({ $_ =~ s:.*/replay-::; $_; } (@host_list)));
 	lwarn "DANGER: hosts '$h_list' are already member of resource '$res'.\n";
 	ldie "REFUSING to trash your resource!\n" unless $force;
       }
