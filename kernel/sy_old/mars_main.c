@@ -2802,6 +2802,18 @@ const char *get_versionlink(const char *parent_path, int seq, const char *host, 
 	return __get_link_path(_linkpath, linkpath);
 }
 
+static
+bool exists_versionlink(const char *parent_path, int seq, const char *host)
+{
+	const char *linkpath = NULL;
+	const char *link = get_versionlink(parent_path, seq, host, &linkpath);
+	bool res = (link != NULL && link[0]);
+
+	brick_string_free(linkpath);
+	brick_string_free(link);
+	return res;
+}
+
 static inline
 int _get_tolerance(struct mars_rotate *rot)
 {
@@ -3503,7 +3515,12 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 	}
 
 	status = 0;
-	if (rot->aio_info.current_size > *oldpos_start) {
+	if (rot->aio_info.current_size > *oldpos_start ||
+	    (!rot->aio_info.current_size &&
+	     !*oldpos_start &&
+	     rot->relevant_log &&
+	     !exists_versionlink(rot->parent_path, rot->relevant_log->d_serial, my_id()) &&
+	     exists_versionlink(rot->parent_path, rot->relevant_log->d_serial, rot->relevant_log->d_rest))) {
 		if ((rot->aio_info.current_size - *oldpos_start < REPLAY_TOLERANCE ||
 		     (rot->log_is_really_damaged &&
 		      rot->todo_primary &&
@@ -4098,7 +4115,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		rot->is_log_damaged = false;
 
 		do_start = (!rot->replay_mode ||
-			    (rot->start_pos != rot->end_pos &&
+			    ((rot->start_pos != rot->end_pos || !rot->start_pos) &&
 			     _check_allow(global, parent, "allow-replay")));
 
 		if (do_start && rot->forbid_replay) {
