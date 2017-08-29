@@ -581,6 +581,7 @@ struct mars_rotate {
 	int replay_code;
 	int avoid_count;
 	bool has_symlinks;
+	bool is_attached;
 	bool res_shutdown;
 	bool has_error;
 	bool has_double_logfile;
@@ -3981,7 +3982,6 @@ int make_bio(void *buf, struct mars_dent *dent)
 	struct mars_rotate *rot;
 	struct mars_brick *brick;
 	bool switch_on;
-	bool is_attached;
 	int status = 0;
 
 	if (!global || !dent->d_parent) {
@@ -3993,10 +3993,10 @@ int make_bio(void *buf, struct mars_dent *dent)
 
 	/* for detach, both the logger and the bio must be gone */
 	if (rot->trans_brick)
-		is_attached = true;
+		rot->is_attached = true;
 	else if (!rot->bio_brick)
-		is_attached = false;
-	_show_actual(rot->parent_path, "is-attached", is_attached);
+		rot->is_attached = false;
+	_show_actual(rot->parent_path, "is-attached", rot->is_attached);
 
 	rot->has_symlinks = true;
 
