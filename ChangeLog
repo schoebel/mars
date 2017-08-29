@@ -130,6 +130,21 @@ Changelog for series 0.2:
 -----------------------------------
 Changelog for series 0.1b:
 
+mars0.1balpha8
+--------
+	* Major scalability improvement:
+	  Delete operations (e.g. log-delete-all) were executed _globally_
+	  in the whole cluster. This does not scale to hundreds or thousands
+	  of cluster members.
+	  Now introduced additional _local_ delete operations which only apply
+	  to a particular resource and to a particular cluster member.
+	  The new ability is only used when
+	   (a) the new marsadm version is rolled out, and
+	   (b) _all_ cluster members have the new kernel module loaded.
+	  Once any of these preconditions is violated, an automatic
+	  fallback to the old global method will occur.
+	* Include fixes from mars0.1stable46.
+
 mars0.1balpha7 (bugfix release, please update any 0.1b deployment ASAP)
 --------
 	* Major and minor fixes, only relevant for k >= 3 cluster nodes
