@@ -1014,7 +1014,7 @@ EXPORT_SYMBOL_GPL(mars_power_button);
 
 
 struct mars_cookie {
-	struct mars_global *global;
+	struct list_head *dent_anchor;
 	mars_dent_checker_fn checker;
 	char *path;
 	struct mars_dent *parent;
@@ -1155,8 +1155,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 //      remove_this
 #endif
 //      end_remove_this
-	struct mars_global *global = cookie->global;
-	struct list_head *anchor = &global->dent_anchor;
+	struct list_head *anchor = cookie->dent_anchor;
 	struct list_head *start = anchor;
 	struct mars_dent *dent;
 	struct list_head *tmp;
@@ -1320,7 +1319,7 @@ int mars_dent_work(struct mars_global *global,
 	char *startname = brick_strdup(path_list);
 	char *ptr;
 	struct mars_cookie cookie = {
-		.global = global,
+		.dent_anchor = &global->dent_anchor,
 		.checker = checker,
 		.path = startname,
 		.parent = NULL,
@@ -1388,7 +1387,7 @@ restart:
 		     dent->d_depth > 0 ||
 		     dir_path_is_in(dent->d_path, path_list))) {
 			struct mars_cookie sub_cookie = {
-				.global = global,
+				.dent_anchor = &global->dent_anchor,
 				.checker = checker,
 				.path = dent->d_path,
 				.allocsize = allocsize,
