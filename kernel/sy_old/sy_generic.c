@@ -1235,7 +1235,6 @@ found:
 	if (dent->d_parent)
 		dent->d_parent->d_child_count++;
 	dent->d_depth = cookie->depth;
-	dent->d_global = global;
 	dent->d_killme = false;
 	dent->d_use_channel = use_channel;
 	brick_string_free(newpath);
