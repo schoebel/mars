@@ -1453,7 +1453,6 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	dent->d_killme = false;
 	dent->d_use_channel = use_channel;
 	dent->d_depth = cookie->depth;
-	dent->d_global = cookie->global;
 
 	return 0;
 }
