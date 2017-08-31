@@ -90,6 +90,7 @@
 #endif
 
 #define REPLAY_TOLERANCE (PAGE_SIZE + OVERHEAD)
+#define MAX_DELETIONS 128
 
 #if 0
 #define inline __attribute__((__noinline__))
@@ -5040,6 +5041,11 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 		mars_symlink("1", marker_path, &dent->new_stat.mtime, 0);
 	}
 
+	if (delete_info->max_deletions <= 0 || delete_info->deleted_stall) {
+		status = -EAGAIN;
+		goto notdone;
+	}
+
 	brick = mars_find_brick(global, NULL, dent->new_link);
 	if (brick &&
 	    unlikely((brick->nr_outputs > 0 && brick->outputs[0] && brick->outputs[0]->nr_connected) ||
@@ -5107,6 +5113,7 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 			MARS_DBG("removing deletion symlink '%s'\n", dent->d_path);
 			dent->d_killme = true;
 			mars_unlink(dent->d_path);
+			delete_info->max_deletions--;
 			if (marker_path) {
 				MARS_DBG("removing marker '%s'\n", marker_path);
 				mars_unlink(marker_path);
@@ -6057,6 +6064,7 @@ static int _main_thread(void *data)
 
 		_global.delete_info.deleted_border = _global.delete_info.deleted_min;
 		_global.delete_info.deleted_min = 0;
+		_global.delete_info.max_deletions = MAX_DELETIONS;
 		_global.delete_info.deleted_stall = false;
 		down_read(&rot_sem);
 		for (tmp = rot_anchor.next; tmp != &rot_anchor; tmp = tmp->next) {
@@ -6064,6 +6072,7 @@ static int _main_thread(void *data)
 			MARS_DBG("-------- res '%s' deleted_min = %d\n", rot->parent_path, rot->delete_info.deleted_min);
 			rot->delete_info.deleted_border = rot->delete_info.deleted_min;
 			rot->delete_info.deleted_min = 0;
+			rot->delete_info.max_deletions = MAX_DELETIONS;
 			rot->delete_info.deleted_stall = false;
 		}
 		up_read(&rot_sem);
