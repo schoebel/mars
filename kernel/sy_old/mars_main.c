@@ -5319,12 +5319,14 @@ static const struct main_class main_classes[] = {
 		.cl_type = 'd',
 		.cl_hostcontext = false,
 		.cl_father = CL_ROOT,
+		.cl_flags = CHK_FILT_WORK,
 	},
 	[CL_GLOBAL_USERSPACE_ITEMS] = {
 		.cl_name = "",
 		.cl_len = 0, // catch any
 		.cl_type = 'l',
 		.cl_father = CL_GLOBAL_USERSPACE,
+		.cl_flags = CHK_FILT_WORK,
 	},
 
 	/* Subdirectory for defaults...
@@ -5335,6 +5337,7 @@ static const struct main_class main_classes[] = {
 		.cl_type = 'd',
 		.cl_hostcontext = false,
 		.cl_father = CL_ROOT,
+		.cl_flags = CHK_FILT_WORK,
 	},
 	[CL_DEFAULTS] = {
 		.cl_name = "defaults-",
@@ -5342,6 +5345,7 @@ static const struct main_class main_classes[] = {
 		.cl_type = 'd',
 		.cl_hostcontext = true,
 		.cl_father = CL_ROOT,
+		.cl_flags = CHK_FILT_WORK,
 	},
 	/* ... and its contents
 	 */
@@ -5350,6 +5354,7 @@ static const struct main_class main_classes[] = {
 		.cl_len = 0, // catch any
 		.cl_type = 'l',
 		.cl_father = CL_DEFAULTS0,
+		.cl_flags = CHK_FILT_WORK,
 	},
 	[CL_DEFAULTS_ITEMS] = {
 		.cl_name = "",
@@ -5357,6 +5362,7 @@ static const struct main_class main_classes[] = {
 		.cl_type = 'l',
 		.cl_father = CL_DEFAULTS,
 		.cl_forward = make_defaults,
+		.cl_flags = CHK_FILT_WORK,
 	},
 
 	/* Subdirectory for global controlling items...
@@ -5417,6 +5423,7 @@ static const struct main_class main_classes[] = {
 		.cl_type = 'd',
 		.cl_hostcontext = false,
 		.cl_father = CL_ROOT,
+		.cl_flags = CHK_FILT_WORK,
 	},
 	/* ... and its contents
 	 */
@@ -5425,6 +5432,7 @@ static const struct main_class main_classes[] = {
 		.cl_len = 0, // catch any
 		.cl_type = 'l',
 		.cl_father = CL_GBL_ACTUAL,
+		.cl_flags = CHK_FILT_WORK,
 	},
 	/* Indicate aliveness of all cluster paritcipants
 	 * by the timestamp of this link.
@@ -5434,12 +5442,14 @@ static const struct main_class main_classes[] = {
 		.cl_len = 6,
 		.cl_type = 'l',
 		.cl_father = CL_ROOT,
+		.cl_flags = CHK_FILT_WORK,
 	},
 	[CL_TIME] = {
 		.cl_name = "time-",
 		.cl_len = 5,
 		.cl_type = 'l',
 		.cl_father = CL_ROOT,
+		.cl_flags = CHK_FILT_WORK,
 	},
 	/* Show version indication for symlink tree.
 	 */
@@ -5448,12 +5458,14 @@ static const struct main_class main_classes[] = {
 		.cl_len = 5,
 		.cl_type = 'l',
 		.cl_father = CL_ROOT,
+		.cl_flags = CHK_FILT_WORK,
 	},
 	[CL_FEATURES] = {
 		.cl_name = "features-",
 		.cl_len = 9,
 		.cl_type = 'l',
 		.cl_father = CL_ROOT,
+		.cl_flags = CHK_FILT_WORK,
 	},
 	/* Indicate whether filesystem is full
 	 */
@@ -5462,6 +5474,7 @@ static const struct main_class main_classes[] = {
 		.cl_len = 10,
 		.cl_type = 'l',
 		.cl_father = CL_ROOT,
+		.cl_flags = CHK_FILT_WORK,
 	},
 	/* dto as percentage
 	 */
@@ -5470,6 +5483,7 @@ static const struct main_class main_classes[] = {
 		.cl_len = 11,
 		.cl_type = 'l',
 		.cl_father = CL_ROOT,
+		.cl_flags = CHK_FILT_WORK,
 	},
 
 	/* Directory containing all items of a resource
@@ -5492,12 +5506,14 @@ static const struct main_class main_classes[] = {
 		.cl_type = 'd',
 		.cl_hostcontext = false,
 		.cl_father = CL_RESOURCE,
+		.cl_flags = CHK_FILT_WORK,
 	},
 	[CL_RESOURCE_USERSPACE_ITEMS] = {
 		.cl_name = "",
 		.cl_len = 0, // catch any
 		.cl_type = 'l',
 		.cl_father = CL_RESOURCE_USERSPACE,
+		.cl_flags = CHK_FILT_WORK,
 	},
 
 	/* Subdirectory for defaults...
@@ -5508,6 +5524,7 @@ static const struct main_class main_classes[] = {
 		.cl_type = 'd',
 		.cl_hostcontext = false,
 		.cl_father = CL_RESOURCE,
+		.cl_flags = CHK_FILT_WORK,
 	},
 	[CL_RES_DEFAULTS] = {
 		.cl_name = "defaults-",
@@ -5515,6 +5532,7 @@ static const struct main_class main_classes[] = {
 		.cl_type = 'd',
 		.cl_hostcontext = false,
 		.cl_father = CL_RESOURCE,
+		.cl_flags = CHK_FILT_WORK,
 	},
 	/* ... and its contents
 	 */
@@ -5523,12 +5541,14 @@ static const struct main_class main_classes[] = {
 		.cl_len = 0, // catch any
 		.cl_type = 'l',
 		.cl_father = CL_RES_DEFAULTS0,
+		.cl_flags = CHK_FILT_WORK,
 	},
 	[CL_RES_DEFAULTS_ITEMS] = {
 		.cl_name = "",
 		.cl_len = 0, // catch any
 		.cl_type = 'l',
 		.cl_father = CL_RES_DEFAULTS,
+		.cl_flags = CHK_FILT_WORK,
 	},
 
 	/* Subdirectory for controlling items...
@@ -5573,6 +5593,7 @@ static const struct main_class main_classes[] = {
 		.cl_type = 'd',
 		.cl_hostcontext = false,
 		.cl_father = CL_RESOURCE,
+		.cl_flags = CHK_FILT_WORK,
 	},
 	/* ... and its contents
 	 */
@@ -5581,6 +5602,7 @@ static const struct main_class main_classes[] = {
 		.cl_len = 0, // catch any
 		.cl_type = 'l',
 		.cl_father = CL_ACTUAL,
+		.cl_flags = CHK_FILT_WORK,
 	},
 
 
@@ -5620,6 +5642,7 @@ static const struct main_class main_classes[] = {
 		.cl_type = 'l',
 		.cl_hostcontext = true,
 		.cl_father = CL_RESOURCE,
+		.cl_flags = CHK_FILT_WORK,
 	},
 	/* Symlink pointing to the name of the primary node
 	 */
@@ -5665,6 +5688,7 @@ static const struct main_class main_classes[] = {
 		.cl_type = 'l',
 		.cl_hostcontext = true,
 		.cl_father = CL_RESOURCE,
+		.cl_flags = CHK_FILT_WORK,
 	},
 	/* symlink indicating the current status / end
 	 * of initial data sync.
@@ -5689,6 +5713,7 @@ static const struct main_class main_classes[] = {
 		.cl_type = 'l',
 		.cl_hostcontext = true,
 		.cl_father = CL_RESOURCE,
+		.cl_flags = CHK_FILT_WORK,
 	},
 	/* informational symlink: after sync has finished,
 	 * keep a copy of the replay symlink from the primary.
@@ -5701,6 +5726,7 @@ static const struct main_class main_classes[] = {
 		.cl_type = 'l',
 		.cl_hostcontext = true,
 		.cl_father = CL_RESOURCE,
+		.cl_flags = CHK_FILT_WORK,
 	},
 	/* Only for testing: make a copy instance
 	 */
@@ -5789,6 +5815,7 @@ static const struct main_class main_classes[] = {
 		.cl_len = 5,
 		.cl_type = 'l',
 		.cl_father = CL_RESOURCE,
+		.cl_flags = CHK_FILT_WORK,
 	},
 	{}
 };
