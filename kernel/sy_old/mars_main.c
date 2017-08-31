@@ -4985,7 +4985,7 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	struct mars_rotate *rot = NULL;
 	struct mars_delete_info *delete_info;
 	struct mars_dent *target;
-	struct mars_dent *response;
+	const char *response;
 	const char *marker_path = NULL;
 	const char *response_path = NULL;
 	struct mars_brick *brick;
@@ -5129,10 +5129,11 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	response_path = path_make("%s/deleted-%s",
 				  dent->d_parent->d_path,
 				  rot ? dent->d_rest : my_id());
-	response = mars_find_dent(global, response_path);
-	if (response && response->new_link) {
-		sscanf(response->new_link, "%d", &max_serial);
+	response = mars_readlink(response_path);
+	if (response && response[0]) {
+		sscanf(response, "%d", &max_serial);
 	}
+	brick_string_free(response);
 	if (dent->d_serial > max_serial) {
 		char response_val[16];
 		max_serial = dent->d_serial;
