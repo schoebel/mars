@@ -4984,7 +4984,7 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	struct mars_global *global = buf;
 	struct mars_rotate *rot = NULL;
 	struct mars_delete_info *delete_info;
-	struct mars_dent *target;
+	struct mars_dent *target = NULL;
 	const char *response;
 	const char *marker_path = NULL;
 	const char *response_path = NULL;
@@ -5049,8 +5049,9 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 		goto notdone;
 	}
 
-	status = 0;
-	target = mars_find_dent(global, dent->new_link);
+	status = mars_stat(dent->new_link, &stat, true);
+	if (status >= 0)
+		target = mars_find_dent(global, dent->new_link);
 	if (target) {
 		if (timespec_compare(&target->new_stat.mtime, &dent->new_stat.mtime) > 0) {
 			MARS_WRN("target '%s' has newer timestamp than deletion link, ignoring\n", dent->new_link);
@@ -5060,12 +5061,14 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 		if (target->d_child_count) {
 			MARS_WRN("target '%s' has %d children, cannot kill\n", dent->new_link, target->d_child_count);
 			delete_info->deleted_stall = true;
+			status = 0;
 			goto notdone;
 		}
 		target->d_killme = true;
 		MARS_DBG("target '%s' marked for removal\n", dent->new_link);
 		to_delete = &target->new_stat;
-	} else if (mars_stat(dent->new_link, &stat, true) >= 0) {
+		status = 0;
+	} else if (status >= 0) {
 		if (timespec_compare(&stat.mtime, &dent->new_stat.mtime) > 0) {
 			MARS_WRN("target '%s' has newer timestamp than deletion link, ignoring\n", dent->new_link);
 			status = -EAGAIN;
