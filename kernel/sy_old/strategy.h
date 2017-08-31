@@ -68,6 +68,7 @@ extern char *my_id(void);
 
 #define CHK_FILT_WORK             1
 #define CHK_FILT_CONTEXT          2
+#define CHK_FILT_SUB_CONTEXT      4
 
 #define MARS_DENT(TYPE)							\
 	struct list_head dent_link;					\

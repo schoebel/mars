@@ -509,6 +509,7 @@ struct main_class {
 	main_worker_fn cl_prepare;
 	main_worker_fn cl_forward;
 	main_worker_fn cl_backward;
+	const char     **cl_filter;
 };
 
 // the order is important!
@@ -5294,6 +5295,12 @@ int make_defaults(void *buf, struct mars_dent *dent)
 
 ///////////////////////////////////////////////////////////////////////
 
+static const char *resource_filter[] = {
+	"data-",
+	"replay-",
+	NULL,
+};
+
 /* Please keep the order the same as in the enum.
  */
 static const struct main_class main_classes[] = {
@@ -5496,6 +5503,8 @@ static const struct main_class main_classes[] = {
 		.cl_father = CL_ROOT,
 		.cl_forward = make_res,
 		.cl_backward = kill_res,
+		.cl_flags = CHK_FILT_SUB_CONTEXT,
+		.cl_filter = resource_filter,
 	},
 
 	/* Subdirectory for resource-specific userspace items...
@@ -6038,7 +6047,7 @@ static int _main_thread(void *data)
 					main_checker,
 					main_worker,
 					&_global,
-					CHK_FILT_WORK | CHK_FILT_CONTEXT,
+					CHK_FILT_WORK | CHK_FILT_CONTEXT | CHK_FILT_SUB_CONTEXT,
 					3);
 		MARS_DBG("-------- worker deleted_min = %d status = %d\n", _global.delete_info.deleted_min, status);
 

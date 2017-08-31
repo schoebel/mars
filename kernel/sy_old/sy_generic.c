@@ -1018,6 +1018,7 @@ struct mars_cookie {
 	mars_dent_checker_fn checker;
 	char *path;
 	struct mars_dent *parent;
+	const char **filter;
 	int allocsize;
 	int depth;
 	unsigned int flags;
@@ -1255,7 +1256,7 @@ static int _mars_readdir(struct mars_cookie *cookie)
 	struct file *f;
 	struct address_space *mapping;
         mm_segment_t oldfs;
-	int status = 0;
+	int status;
 
         oldfs = get_fs();
         set_fs(get_ds());
@@ -1266,6 +1267,32 @@ static int _mars_readdir(struct mars_cookie *cookie)
 	}
 	if ((mapping = f->f_mapping)) {
 		mapping_set_gfp_mask(mapping, mapping_gfp_mask(mapping) & ~(__GFP_IO | __GFP_FS));
+	}
+
+	if (cookie->filter) {
+		int success = 0;
+		int i;
+
+		for (i = 0; ; i++) {
+			const char *filter = cookie->filter[i];
+			struct kstat check_stat;
+			const char *check_path;
+
+			if (!filter)
+				break;
+			if (cookie->flags & CHK_FILT_SUB_CONTEXT)
+				check_path = path_make("%s/%s%s", cookie->path, filter, my_id());
+			else
+				check_path = path_make("%s/%s", cookie->path, filter);
+			status = mars_stat(check_path, &check_stat, true);
+			brick_string_free(check_path);
+			if (status >= 0) {
+				success++;
+				break;
+			}
+		}
+		if (!success)
+			goto done;
 	}
 
 	for (;;) {
@@ -1293,6 +1320,7 @@ static int _mars_readdir(struct mars_cookie *cookie)
 		}
 	}
 
+done:
 	filp_close(f, NULL);
 	return status;
 }
