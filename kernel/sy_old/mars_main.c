@@ -505,6 +505,7 @@ struct main_class {
 	bool   cl_serial;
 	bool   cl_use_channel;
 	int    cl_father;
+	unsigned int   cl_flags;
 	main_worker_fn cl_prepare;
 	main_worker_fn cl_forward;
 	main_worker_fn cl_backward;
@@ -5796,7 +5797,7 @@ static const struct main_class main_classes[] = {
  * Caution: this is called as a callback from iterate_dir() and friends.
  * Don't deadlock by producing any filesystem output within this!
  */
-int main_checker(struct mars_dent *parent, const char *_name, int namlen, unsigned int d_type, int *prefix, int *serial, bool *use_channel)
+int main_checker(struct mars_dent *parent, const char *_name, int namlen, unsigned int d_type, unsigned int d_flags, int *prefix, int *serial, bool *use_channel)
 {
 	int class;
 	int status = -2;
@@ -5811,6 +5812,9 @@ int main_checker(struct mars_dent *parent, const char *_name, int namlen, unsign
 	for (class = CL_ROOT + 1; ; class++) {
 		const struct main_class *test = &main_classes[class];
 		int len = test->cl_len;
+		unsigned int masked_flags;
+
+
 		if (!test->cl_name) { // end of table
 			break;
 		}
@@ -5837,6 +5841,9 @@ int main_checker(struct mars_dent *parent, const char *_name, int namlen, unsign
 		}
 
 		// check special contexts
+		masked_flags = test->cl_flags & d_flags;
+		if (masked_flags & CHK_FILT_WORK)
+			continue;
 		if (test->cl_serial) {
 			int plus = 0;
 			int count;
@@ -5850,7 +5857,7 @@ int main_checker(struct mars_dent *parent, const char *_name, int namlen, unsign
 		}
 		if (prefix)
 			*prefix = len;
-		if (test->cl_hostcontext) {
+		if (test->cl_hostcontext || (masked_flags & CHK_FILT_CONTEXT)) {
 			if (memcmp(name+len, my_id(), namlen-len)) {
 				continue;
 			}
@@ -5998,7 +6005,14 @@ static int _main_thread(void *data)
 		up_write(&mars_resource_sem);
 		tmp_resource_list = brick_strdup("/mars|/mars/ips/|/mars/todo-global/|/mars/userspace/");
 
-		status = mars_dent_work(&_global, "/mars", sizeof(struct mars_dent), main_checker, main_worker, &_global, 3);
+		status = mars_dent_work(&_global,
+					"/mars",
+					sizeof(struct mars_dent),
+					main_checker,
+					main_worker,
+					&_global,
+					CHK_FILT_WORK | CHK_FILT_CONTEXT,
+					3);
 		MARS_DBG("-------- worker deleted_min = %d status = %d\n", _global.delete_info.deleted_min, status);
 
 		_global.delete_info.deleted_border = _global.delete_info.deleted_min;

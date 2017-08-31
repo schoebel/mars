@@ -1020,6 +1020,7 @@ struct mars_cookie {
 	struct mars_dent *parent;
 	int allocsize;
 	int depth;
+	unsigned int flags;
 	bool hit;
 };
 
@@ -1172,7 +1173,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 		return 0;
 	}
 
-	class = cookie->checker(cookie->parent, name, namlen, d_type, &prefix, &serial, &use_channel);
+	class = cookie->checker(cookie->parent, name, namlen, d_type, cookie->flags, &prefix, &serial, &use_channel);
 	if (class < 0)
 		return 0;
 
@@ -1313,6 +1314,7 @@ int mars_dent_work(struct mars_global *global,
 		   mars_dent_checker_fn checker,
 		   mars_dent_worker_fn worker,
 		   void *buf,
+		   unsigned int d_flags,
 		   int maxdepth)
 {
 	static int version = 0;
@@ -1324,6 +1326,7 @@ int mars_dent_work(struct mars_global *global,
 		.path = startname,
 		.parent = NULL,
 		.allocsize = allocsize,
+		.flags = d_flags,
 		.depth = 0,
 	};
 	struct say_channel *say_channel = NULL;
@@ -1392,6 +1395,7 @@ restart:
 				.path = dent->d_path,
 				.allocsize = allocsize,
 				.parent = dent,
+				.flags = d_flags,
 				.depth = dent->d_depth + 1,
 			};
 			found_dir = true;

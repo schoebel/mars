@@ -447,6 +447,7 @@ int handler_thread(void *data)
 				main_checker,
 				NULL,
 				&handler_global,
+				0,
 				3);
 
 			down(&brick->socket_sem);
