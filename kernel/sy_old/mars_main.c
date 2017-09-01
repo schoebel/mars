@@ -2279,6 +2279,20 @@ int peer_thread(void *data)
 		report_peer_connection(peer_pairs, peer->do_additional);
 		report_peer_connection(peer_pairs, !peer->do_additional);
 
+		/* Inactive peers are just doing nothing.
+		 * TODO: get rid of them.
+		 */
+		if (!peer->do_communicate && !peer->do_additional) {
+			if (unlikely(mars_socket_is_alive(&peer->socket)))
+				mars_shutdown_socket(&peer->socket);
+			wait_event_interruptible_timeout(remote_event,
+							 (peer->to_remote_trigger | peer->from_remote_trigger) ||
+							 !peer_thead_should_run(peer) ||
+							 (mars_global && mars_global->main_trigger),
+							 5 * HZ);
+			continue;
+		}
+		
 		if (!mars_socket_is_alive(&peer->socket)) {
 			make_msg(peer_pairs, "connection to '%s' (%s) is dead", peer->peer, real_peer);
 			brick_string_free(real_peer);
