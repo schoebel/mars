@@ -2366,7 +2366,8 @@ int peer_thread(void *data)
 
 		if (likely(!list_empty(&tmp_global.dent_anchor))) {
 			struct mars_dent *peer_uuid;
-			struct mars_dent *my_uuid;
+			const char *my_uuid;
+			int cmp;
 
 			MARS_DBG("got remote denties from %s\n", peer->peer);
 
@@ -2377,19 +2378,22 @@ int peer_thread(void *data)
 					peer->peer);
 				goto free_and_restart;
 			}
-			my_uuid = mars_find_dent(mars_global, "/mars/uuid");
-			if (unlikely(!my_uuid || !my_uuid->new_link)) {
+			my_uuid = mars_readlink("/mars/uuid");
+			if (unlikely(!my_uuid)) {
 				MARS_ERR("cannot determine my own uuid for peer %s\n", peer->peer);
 				make_msg(peer_pairs, "cannot determine my own uuid");
 				goto free_and_restart;
 			}
-			if (unlikely(strcmp(peer_uuid->new_link, my_uuid->new_link))) {
+			cmp = strcmp(peer_uuid->new_link, my_uuid);
+			if (unlikely(cmp)) {
 				MARS_ERR("UUID mismatch for peer %s, you are trying to communicate with a foreign cluster!\n", peer->peer);
 				make_msg(peer_pairs, "UUID mismatch with '%s', own cluster '%s' is trying to communicate with a foreign cluster '%s'",
 					 peer->peer,
-					 my_uuid->new_link, peer_uuid->new_link);
+					 my_uuid, peer_uuid->new_link);
+				brick_string_free(my_uuid);
 				goto free_and_restart;
 			}
+			brick_string_free(my_uuid);
 
 			make_msg(peer_pairs, "CONNECTED %s(%s) fetching '%s'",
 				 peer->peer, real_peer,

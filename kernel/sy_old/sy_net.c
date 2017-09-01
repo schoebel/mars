@@ -36,7 +36,6 @@
 static
 char *_mars_translate_hostname(const char *name)
 {
-	struct mars_global *global = mars_global;
 	char *res = brick_strdup(name);
 	char *tmp;
 	char *trans;
@@ -53,17 +52,6 @@ char *_mars_translate_hostname(const char *name)
 		goto done;
 	}
 
-	if (global) {
-		struct mars_dent *test = mars_find_dent(global, tmp);
-
-		if (test && test->new_link) {
-			MARS_DBG("'%s' => '%s'\n", tmp, test->new_link);
-			brick_string_free(res);
-			res = brick_strdup(test->new_link);
-			goto found;
-		}
-		MARS_DBG("no translation for '%s'\n", tmp);
-	}
 	trans = mars_readlink(tmp);
 	if (trans && trans[0]) {
 		MARS_DBG("'%s' => '%s'\n", tmp, trans);
@@ -73,10 +61,7 @@ char *_mars_translate_hostname(const char *name)
 		MARS_DBG("no translation for '%s'\n", tmp);
 		brick_string_free(trans);
 	}
-
-found:
 	brick_string_free(tmp);
-
 done:
 	return res;
 }
