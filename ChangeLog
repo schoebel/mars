@@ -135,6 +135,11 @@ Changelog for series 0.1b:
 -----------------------------------
 Changelog for series 0.1:
 
+mars0.1stable47
+	* Critical fix: leave-cluster could lead to deadlocks, also
+	  on remote nodes.
+	* Contrib: mass automation script (unmaintained).
+
 mars0.1stable46
 	* Major fix: bugfix from 0.1stable44 (state "Detached" was
 	  reported too early) was incorrect, now fixed.
