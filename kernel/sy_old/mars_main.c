@@ -630,6 +630,8 @@ struct mars_rotate {
 	int replay_code;
 	int avoid_count;
 	bool has_symlinks;
+	bool has_data;
+	bool may_attach;
 	bool is_attached;
 	bool res_shutdown;
 	bool has_error;
@@ -2574,7 +2576,9 @@ void activate_peer(struct mars_rotate *rot, const char *peer_name)
 
 	if (unlikely(!peer_name))
 		return;
-
+	if (!strcmp(peer_name, my_id()))
+		return;
+	
 	peer = find_peer(peer_name);
 	if (peer) {
 		peer->do_communicate = true;
@@ -3115,8 +3119,6 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	rot->has_symlinks = true;
 	brick_string_free(rot->preferred_peer);
 	rot->preferred_peer = NULL;
-
-	activate_peer(rot, dent->d_rest);
 
 	if (dent->new_link)
 		sscanf(dent->new_link, "%lld", &rot->dev_size);
@@ -4264,9 +4266,12 @@ int make_bio(void *buf, struct mars_dent *dent)
 	_show_actual(rot->parent_path, "is-attached", rot->is_attached);
 
 	rot->has_symlinks = true;
-	activate_peer(rot, dent->d_rest);
+	if (rot->may_attach)
+		activate_peer(rot, dent->d_rest);
 	if (strcmp(dent->d_rest, my_id()))
 		goto done;
+
+	rot->has_data = true;
 
 	tmp = path_make("%s|%s/", tmp_resource_list, rot->parent_path);
 	brick_string_free(tmp_resource_list);
@@ -6074,6 +6079,11 @@ static int _main_thread(void *data)
 			rot->delete_info.deleted_min = 0;
 			rot->delete_info.max_deletions = MAX_DELETIONS;
 			rot->delete_info.deleted_stall = false;
+			if (rot->has_data)
+				rot->may_attach = true;
+			else if (!rot->has_deletions && !rot->is_attached)
+				rot->may_attach = false;
+			rot->has_data = false;
 		}
 		up_read(&rot_sem);
 
