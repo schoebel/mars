@@ -1993,10 +1993,19 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 
 	// create / check markers (prevent concurrent updates)
 	if (remote_dent->new_link && !strncmp(remote_dent->d_name, "delete-", 7)) {
+		struct mars_dent *res_dent = NULL;
 		struct mars_rotate *rot = NULL;
 		struct mars_delete_info *delete_info = &peer->global->delete_info;
 
-		if (remote_dent->d_parent && remote_dent->d_parent->d_parent && remote_dent->d_parent->d_parent->d_private) {
+		/* get rot context */
+		if (remote_dent->d_parent &&
+		    remote_dent->d_parent->d_parent &&
+		    remote_dent->d_parent->d_parent->d_name &&
+		    !strncmp(remote_dent->d_parent->d_parent->d_name, "resource-", 9))
+			res_dent = remote_dent->d_parent->d_parent;
+		if (res_dent && !res_dent->d_private)
+			res_dent->d_private = mars_find_dent(peer->global, remote_dent->d_parent->d_parent->d_name);
+		if (res_dent && res_dent->d_private) {
 			/* don't fetch any outdated deletions */
 			char *border_path = path_make("%s/deleted-%s",
 						      remote_dent->d_parent->d_path,
@@ -2014,7 +2023,7 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 				status = -EAGAIN;
 				goto done;
 			}
-			rot = remote_dent->d_parent->d_parent->d_private;
+			rot = res_dent->d_private;
 			delete_info = &rot->delete_info;
 		}
 
@@ -5083,7 +5092,7 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 		}
 	}
 
- ok:	
+ ok:
 	if (status < 0 && !delete_info->deleted_stall) {
 		int border = rot ? delete_info->deleted_my_border : delete_info->deleted_border;
 
