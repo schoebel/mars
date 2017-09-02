@@ -631,6 +631,8 @@ struct mars_rotate {
 	int avoid_count;
 	bool has_symlinks;
 	bool has_data;
+	bool has_deletions;
+	bool resource_added;
 	bool may_attach;
 	bool is_attached;
 	bool res_shutdown;
@@ -4242,12 +4244,27 @@ done:
 }
 
 static
+void activate_rot(struct mars_rotate *rot, const char *peer_name)
+{
+	activate_peer(rot, peer_name);
+	if (!rot->resource_added &&
+	    (rot->may_attach | rot->has_deletions)) {
+		const char *tmp;
+
+		MARS_DBG("ADD '%s'\n", rot->parent_path);
+		tmp = path_make("%s|%s/", tmp_resource_list, rot->parent_path);
+		brick_string_free(tmp_resource_list);
+		tmp_resource_list = tmp;
+		rot->resource_added = true;
+	}
+}
+
+static
 int make_bio(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
 	struct mars_rotate *rot;
 	struct mars_brick *brick;
-	const char *tmp;
 	bool switch_on;
 	int status = 0;
 
@@ -4266,16 +4283,12 @@ int make_bio(void *buf, struct mars_dent *dent)
 	_show_actual(rot->parent_path, "is-attached", rot->is_attached);
 
 	rot->has_symlinks = true;
-	if (rot->may_attach)
-		activate_peer(rot, dent->d_rest);
+	activate_rot(rot, dent->d_rest);
+
 	if (strcmp(dent->d_rest, my_id()))
 		goto done;
 
 	rot->has_data = true;
-
-	tmp = path_make("%s|%s/", tmp_resource_list, rot->parent_path);
-	brick_string_free(tmp_resource_list);
-	tmp_resource_list = tmp;
 
 	switch_on = _check_allow(global, dent->d_parent, "attach");
 	if (switch_on && rot->res_shutdown) {
@@ -5024,6 +5037,9 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 		brick_string_free(border_val);
 
 		rot = dent->d_parent->d_parent->d_private;
+		rot->has_deletions = true;
+		activate_rot(rot, dent->d_rest);
+		activate_rot(rot, dent->d_parent->d_rest);
 		delete_info = &rot->delete_info;
 		/* Check whether we are addressed.
 		 * Hint: the context of the dent names the originator, not the recipient.
@@ -5184,6 +5200,10 @@ static int check_deleted(void *buf, struct mars_dent *dent)
 	if (dent->d_parent && dent->d_parent->d_parent && dent->d_parent->d_parent->d_private) {
 		struct mars_rotate *rot = dent->d_parent->d_parent->d_private;
 
+		if (!strcmp(dent->d_parent->d_rest, my_id())) {
+			rot->has_deletions = true;
+			activate_rot(rot, dent->d_rest);
+		}
 		delete_info = &rot->delete_info;
 	} else {
 		delete_info = &global->delete_info;
@@ -6084,6 +6104,8 @@ static int _main_thread(void *data)
 			else if (!rot->has_deletions && !rot->is_attached)
 				rot->may_attach = false;
 			rot->has_data = false;
+			rot->has_deletions = false;
+			rot->resource_added = false;
 		}
 		up_read(&rot_sem);
 
