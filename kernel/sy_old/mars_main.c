@@ -2582,7 +2582,7 @@ void activate_peer(struct mars_rotate *rot, const char *peer_name)
 		return;
 	
 	peer = find_peer(peer_name);
-	if (peer) {
+	if (peer && !peer->do_communicate) {
 		peer->do_communicate = true;
 		peer->do_additional = false;
 		if (peer->doing_additional) {
