@@ -2438,7 +2438,8 @@ int peer_thread(void *data)
 
 			peer->last_remote_jiffies = jiffies;
 
-			mars_trigger();
+			if (peer->do_communicate)
+				mars_trigger();
 
 			mars_free_dent_all(NULL, &old_list);
 		}
@@ -2462,8 +2463,7 @@ int peer_thread(void *data)
 							 (peer->to_remote_trigger | peer->from_remote_trigger) ||
 							 !peer_thead_should_run(peer) ||
 							 (old_additional != peer->do_additional) ||
-							 (old_communicate != peer->do_communicate) ||
-							 (mars_global && mars_global->main_trigger),
+							 (old_communicate != peer->do_communicate),
 							 pause_time * HZ);
 		}
 		continue;
