@@ -130,6 +130,15 @@ Changelog for series 0.2:
 -----------------------------------
 Changelog for series 0.1b:
 
+mars0.1balpha9
+--------
+	* Major scalability improvement:
+	  Main thread visits only member resources.
+	* Fix deletions in presence of leave-cluster & friends.
+	* New expert command split-cluster.
+	* Several minor fixes and scalability improvements.
+	* Include fixes from mars0.1stable47.
+
 mars0.1balpha8
 --------
 	* Major scalability improvement:
