@@ -2037,9 +2037,9 @@ sub create_res {
 	last if (glob("$mars/resource-$res/version-*-$primary") &&
 		 _get_designated_primary($res, 1) eq $primary);
 	sleep(10);
-	next if $max_retry-- > 2;
+	next if $max_retry-- > 0;
       }
-      if (!@peers || $max_retry < 0) {
+      if (!@peers) {
 	lwarn "cannot get a relevant primary";
 	last;
       }
@@ -2048,7 +2048,6 @@ sub create_res {
       next if $peer eq $host;
       next if $peer eq $real_host;
       rsync_cmd($peer, "--max-size=1 --update $peer:$mars/resource-$res $mars/", 1);
-      $max_retry--;
     } # retry loop
     ldie "resource '$res' does not exist\n" unless -d $resdir;
     ldie "resource '$res' has no designated primary\n" unless $primary && $primary ne "(none)";
