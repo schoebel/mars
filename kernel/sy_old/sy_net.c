@@ -59,6 +59,7 @@ char *_mars_translate_hostname(const char *name)
 		res = trans;
 	} else {
 		MARS_DBG("no translation for '%s'\n", tmp);
+		brick_string_free(trans);
 	}
 	brick_string_free(tmp);
 done:
