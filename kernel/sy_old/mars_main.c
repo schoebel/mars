@@ -1667,6 +1667,7 @@ struct mars_peerinfo {
 	struct list_head peer_head;
 	struct list_head remote_dent_list;
 	unsigned long last_remote_jiffies;
+	unsigned long last_activation;
 	int maxdepth;
 	bool to_terminate;
 	bool has_terminated;
@@ -1727,6 +1728,9 @@ void work_peers(void)
 			peer->do_oneshot = true;
 			next_oneshot = false;
 		}
+		if (peer->do_communicate &&
+		    time_is_before_jiffies(peer->last_activation + 3600 * HZ))
+			peer->do_communicate = false;
 	}
 	if (!nr_oneshot && !list_empty(&peer_anchor)) {
 		peer = container_of(peer_anchor.next, struct mars_peerinfo, peer_head);
@@ -2540,8 +2544,9 @@ void activate_peer(struct mars_rotate *rot, const char *peer_name)
 		return;
 	
 	peer = find_peer(peer_name);
-	if (peer && !peer->do_communicate) {
+	if (peer) {
 		peer->do_communicate = true;
+		peer->last_activation = jiffies;
 	}
 }
 
