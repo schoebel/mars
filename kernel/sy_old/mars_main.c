@@ -5051,9 +5051,10 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 		brick_string_free(border_val);
 
 		rot = dent->d_parent->d_parent->d_private;
-		rot->has_deletions = true;
-		activate_rot(rot, dent->d_rest);
-		activate_rot(rot, dent->d_parent->d_rest);
+		if (!strcmp(dent->d_parent->d_rest, my_id())) {
+			rot->has_deletions = true;
+			activate_rot(rot, dent->d_rest);
+		}
 		delete_info = &rot->delete_info;
 		/* Check whether we are addressed.
 		 * Hint: the context of the dent names the originator, not the recipient.
