@@ -2211,6 +2211,7 @@ int peer_thread(void *data)
 	};
 	int pause_time = 0;
 	bool do_kill = false;
+	bool repeated = false;
 	int status;
 
 	if (!peer || !mars_net_is_alive)
@@ -2243,7 +2244,11 @@ int peer_thread(void *data)
 		init_rwsem(&tmp_global.dent_mutex);
 		init_rwsem(&tmp_global.brick_mutex);
 
-		report_peer_connection(peer_pairs, !peer->do_communicate);
+		if (likely(repeated)) {
+			report_peer_connection(peer_pairs, !peer->do_communicate);
+			report_peer_connection(peer_pairs, peer->do_communicate);
+		}
+		repeated = true;
 
 		if (!mars_socket_is_alive(&peer->socket)) {
 			make_msg(peer_pairs, "connection to '%s' (%s) is dead", peer->peer, real_peer);
@@ -2277,6 +2282,7 @@ int peer_thread(void *data)
 			peer->socket.s_send_abort = mars_peer_abort;
 			peer->socket.s_recv_abort = mars_peer_abort;
 			MARS_DBG("successfully opened socket to '%s'\n", real_peer);
+			clear_vals(peer_pairs);
 			brick_msleep(100);
 			continue;
 		} else {
@@ -2418,8 +2424,11 @@ int peer_thread(void *data)
 
 	MARS_INF("-------- peer thread terminating\n");
 
-	make_msg(peer_pairs, "NOT connected %s(%s)", peer->peer, real_peer);
+	clear_vals(peer_pairs);
+	if (peer->do_communicate)
+		make_msg(peer_pairs, "NOT connected %s(%s)", peer->peer, real_peer);
 	report_peer_connection(peer_pairs, !peer->do_communicate);
+	report_peer_connection(peer_pairs, peer->do_communicate);
 
 	if (do_kill) {
 		_peer_cleanup(peer);
