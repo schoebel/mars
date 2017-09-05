@@ -1673,6 +1673,8 @@ struct mars_peerinfo {
 	bool to_remote_trigger;
 	bool from_remote_trigger;
 	bool do_communicate;
+	bool do_oneshot;
+	bool did_oneshot;
 };
 
 static
@@ -1696,22 +1698,39 @@ struct mars_peerinfo *find_peer(const char *peer_name)
 }
 
 static
-void show_peers(void)
+void work_peers(void)
 {
 	struct list_head *tmp;
+	struct mars_peerinfo *peer;
+	int nr_oneshot = 0;
+	bool next_oneshot = false;
 
 	down_read(&peer_lock);
 	MARS_DBG("PEER_count = %d\n", peer_count); 
 	for (tmp = peer_anchor.next; tmp != &peer_anchor; tmp = tmp->next) {
-		struct mars_peerinfo *peer;
-
 		peer = container_of(tmp, struct mars_peerinfo, peer_head);
-		MARS_DBG("PEER '%s' alive=%d trigg=%d/%d comm=%d\n",
+		MARS_DBG("PEER '%s' alive=%d trigg=%d/%d comm=%d oneshot=%d\n",
 			 peer->peer,
 			 mars_socket_is_alive(&peer->socket),
 			 peer->to_remote_trigger,
 			 peer->from_remote_trigger,
-			 peer->do_communicate);
+			 peer->do_communicate,
+			 peer->do_oneshot);
+		if (peer->do_oneshot) {
+			nr_oneshot++;
+			if (peer->did_oneshot) {
+				peer->do_oneshot = false;
+				peer->did_oneshot = false;
+				next_oneshot = true;
+			}
+		} else if (next_oneshot && !peer->do_oneshot && nr_oneshot == 1) {
+			peer->do_oneshot = true;
+			next_oneshot = false;
+		}
+	}
+	if (!nr_oneshot && !list_empty(&peer_anchor)) {
+		peer = container_of(peer_anchor.next, struct mars_peerinfo, peer_head);
+		peer->do_oneshot = true;
 	}
 	up_read(&peer_lock);
 }
@@ -2235,7 +2254,7 @@ int peer_thread(void *data)
 				MARS_ERR("unusable remote address '%s' (%s)\n", real_peer, peer->peer);
 				make_msg(peer_pairs, "unusable remote address '%s' (%s)\n", real_peer, peer->peer);
 				brick_msleep(1000);
-				continue;
+				goto oneshot_done;
 			}
 			if (do_kill) {
 				do_kill = false;
@@ -2251,7 +2270,7 @@ int peer_thread(void *data)
 				MARS_INF("no connection to mars module on '%s' (%s) status = %d\n", peer->peer, real_peer, status);
 				make_msg(peer_pairs, "connection to '%s' (%s) could not be established: status = %d", peer->peer, real_peer, status);
 				brick_msleep(2000);
-				continue;
+				goto oneshot_done;
 			}
 			do_kill = true;
 			peer->socket.s_shutdown_on_err = true;
@@ -2378,17 +2397,23 @@ int peer_thread(void *data)
 		if (!peer->to_terminate && !brick_thread_should_stop()) {
 			if (pause_time < mars_propagate_interval)
 				pause_time++;
-			wait_event_interruptible_timeout(remote_event,
+		wait_event_interruptible_timeout(remote_event,
 							 (peer->to_remote_trigger | peer->from_remote_trigger) ||
 							 !peer_thead_should_run(peer),
 							 pause_time * HZ);
 		}
-		continue;
+		goto oneshot_done;
 
 	free_and_restart:
 		brick_string_free(cmd.cmd_str1);
 		mars_free_dent_all(NULL, &tmp_global.dent_anchor);
 		brick_msleep(5000);
+
+	oneshot_done:
+		if (peer->do_oneshot)
+			peer->did_oneshot = true;
+		if (!peer->do_communicate)
+			break;
 	}
 
 	MARS_INF("-------- peer thread terminating\n");
@@ -2403,6 +2428,8 @@ int peer_thread(void *data)
 done:
 	clear_vals(peer_pairs);
 	brick_string_free(real_peer);
+	if (peer->do_oneshot)
+		peer->did_oneshot = true;
 	peer->has_terminated = true;
 	return 0;
 }
@@ -2529,6 +2556,7 @@ static int _kill_peer(struct mars_global *global, struct mars_peerinfo *peer)
 		brick_thread_stop(peer->peer_thread);
 		peer->peer_thread = NULL;
 		peer->do_communicate = false;
+		peer->do_oneshot = false;
 	}
 	traced_lock(&peer->lock, flags);
 	list_replace_init(&peer->remote_dent_list, &tmp_list);
@@ -2549,6 +2577,8 @@ void peer_destruct(void *_peer)
 static
 int _make_peer(struct mars_global *global, struct mars_dent *dent)
 {
+	struct kstat dummy;
+	char *check_path;
 	static int serial = 0;
 	struct mars_peerinfo *peer;
 	char *mypeer;
@@ -2569,7 +2599,6 @@ int _make_peer(struct mars_global *global, struct mars_dent *dent)
 
 	MARS_DBG("peer '%s'\n", mypeer);
 	if (!dent->d_private) {
-
 		dent->d_private = brick_zmem_alloc(sizeof(struct mars_peerinfo));
 		if (!dent->d_private) {
 			MARS_ERR("no memory for peer structure\n");
@@ -2592,8 +2621,15 @@ int _make_peer(struct mars_global *global, struct mars_dent *dent)
 	}
 
 	peer = dent->d_private;
+
+	/* Missing timestamp is a reason for oneshot */
+	check_path = path_make("/mars/time-%s", peer->peer);
+	if (mars_stat(check_path, &dummy, true) < 0)
+		peer->do_oneshot = true;
+	brick_string_free(check_path);
+
 	// create or stop communication thread when necessary
-	if (peer->do_communicate) {
+	if (peer->do_communicate | peer->do_oneshot) {
 		/* Peers may terminate unexpectedly on their own */
 		if (unlikely(peer->has_terminated && peer->peer_thread)) {
 			brick_thread_stop(peer->peer_thread);
@@ -6048,7 +6084,7 @@ static int _main_thread(void *data)
 		_show_status_all(&_global);
 		show_vals(gbl_pairs, "/mars", "");
 		show_statistics(&_global, "main");
-		show_peers();
+		work_peers();
 
 		MARS_DBG("ban_count = %d ban_renew_count = %d\n", mars_global_ban.ban_count, mars_global_ban.ban_renew_count);
 
