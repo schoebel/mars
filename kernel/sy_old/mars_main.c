@@ -83,12 +83,6 @@
 #include "../mars_usebuf.h"
 #endif
 
-/* Portability: can we use get_random_int() in a module? */
-#include <linux/string_helpers.h>
-#ifdef UNESCAPE_SPACE /* Commit 16c7fa05829e8b91db48e3539c5d6ff3c2b18a23 */
-#define HAS_GET_RANDOM_INT
-#endif
-
 #define REPLAY_TOLERANCE (PAGE_SIZE + OVERHEAD)
 #define MAX_DELETIONS 128
 
@@ -163,9 +157,6 @@ EXPORT_SYMBOL_GPL(mars_sync_flip_interval);
 
 int mars_peer_abort = 7;
 EXPORT_SYMBOL_GPL(mars_peer_abort);
-
-int mars_running_additional_peers = 0;
-int mars_run_additional_peers = 3;
 
 int mars_fast_fullsync =
 #ifdef CONFIG_MARS_FAST_FULLSYNC
@@ -1682,8 +1673,6 @@ struct mars_peerinfo {
 	bool to_remote_trigger;
 	bool from_remote_trigger;
 	bool do_communicate;
-	bool do_additional;
-	bool doing_additional;
 };
 
 static
@@ -1707,40 +1696,6 @@ struct mars_peerinfo *find_peer(const char *peer_name)
 }
 
 static
-void additional_peers(int add)
-{
-	if (add <= 0)
-		return;
-
-	down_read(&peer_lock);
-	while (add > 0) {
-		/* Approximate equal distribution */
-#ifdef HAS_GET_RANDOM_INT
-		int nr = peer_count > 1 ? get_random_int() % peer_count : 0;
-#else
-		struct timespec now = CURRENT_TIME;
-		int nr = peer_count > 1 ? (now.tv_sec + now.tv_nsec) % peer_count : 0;
-#endif
-		struct list_head *tmp;
-
-		for (tmp = peer_anchor.next; tmp != &peer_anchor; tmp = tmp->next) {
-			struct mars_peerinfo *peer;
-
-			peer = container_of(tmp, struct mars_peerinfo, peer_head);
-			if (peer->do_communicate | peer->do_additional)
-				continue;
-			if (!nr) {
-				peer->do_additional = true;
-				break;
-			}
-			nr--;
-		}
-		add--;
-	}
-	up_read(&peer_lock);
-}
-
-static
 void show_peers(void)
 {
 	struct list_head *tmp;
@@ -1751,14 +1706,12 @@ void show_peers(void)
 		struct mars_peerinfo *peer;
 
 		peer = container_of(tmp, struct mars_peerinfo, peer_head);
-		MARS_DBG("PEER '%s' alive=%d trigg=%d/%d comm=%d add=%d/%d\n",
+		MARS_DBG("PEER '%s' alive=%d trigg=%d/%d comm=%d\n",
 			 peer->peer,
 			 mars_socket_is_alive(&peer->socket),
 			 peer->to_remote_trigger,
 			 peer->from_remote_trigger,
-			 peer->do_communicate,
-			 peer->do_additional,
-			 peer->doing_additional);
+			 peer->do_communicate);
 	}
 	up_read(&peer_lock);
 }
@@ -2174,11 +2127,6 @@ int run_bones(struct mars_peerinfo *peer)
 
 	MARS_DBG("remote_dent_list list_empty = %d\n", list_empty(&tmp_list));
 
-	if (peer->do_additional && !peer->doing_additional &&
-	    !peer->do_communicate && !list_empty(&tmp_list)) {
-		peer->doing_additional = true;
-		mars_running_additional_peers++;
-	}
 	for (tmp = tmp_list.next; tmp != &tmp_list; tmp = tmp->next) {
 		struct mars_dent *remote_dent = container_of(tmp, struct mars_dent, dent_link);
 		if (!remote_dent->d_path || !remote_dent->d_name) {
@@ -2276,23 +2224,8 @@ int peer_thread(void *data)
 		init_rwsem(&tmp_global.dent_mutex);
 		init_rwsem(&tmp_global.brick_mutex);
 
-		report_peer_connection(peer_pairs, peer->do_additional);
-		report_peer_connection(peer_pairs, !peer->do_additional);
+		report_peer_connection(peer_pairs, !peer->do_communicate);
 
-		/* Inactive peers are just doing nothing.
-		 * TODO: get rid of them.
-		 */
-		if (!peer->do_communicate && !peer->do_additional) {
-			if (unlikely(mars_socket_is_alive(&peer->socket)))
-				mars_shutdown_socket(&peer->socket);
-			wait_event_interruptible_timeout(remote_event,
-							 (peer->to_remote_trigger | peer->from_remote_trigger) ||
-							 !peer_thead_should_run(peer) ||
-							 (mars_global && mars_global->main_trigger),
-							 5 * HZ);
-			continue;
-		}
-		
 		if (!mars_socket_is_alive(&peer->socket)) {
 			make_msg(peer_pairs, "connection to '%s' (%s) is dead", peer->peer, real_peer);
 			brick_string_free(real_peer);
@@ -2317,9 +2250,6 @@ int peer_thread(void *data)
 			if (unlikely(status < 0)) {
 				MARS_INF("no connection to mars module on '%s' (%s) status = %d\n", peer->peer, real_peer, status);
 				make_msg(peer_pairs, "connection to '%s' (%s) could not be established: status = %d", peer->peer, real_peer, status);
-				/* additional threads should give up immediately */
-				if (peer->do_additional)
-					break;
 				brick_msleep(2000);
 				continue;
 			}
@@ -2361,8 +2291,7 @@ int peer_thread(void *data)
 
 		if (likely(status >= 0)) {
 			cmd.cmd_code = CMD_GETENTS;
-			if ((!peer->do_additional || peer->do_communicate) &&
-			    mars_resource_list) {
+			if (mars_resource_list) {
 				down_read(&mars_resource_sem);
 				cmd.cmd_str1 = brick_strdup(mars_resource_list);
 				up_read(&mars_resource_sem);
@@ -2447,23 +2376,11 @@ int peer_thread(void *data)
 		brick_string_free(cmd.cmd_str1);
 		brick_msleep(100);
 		if (!peer->to_terminate && !brick_thread_should_stop()) {
-			bool old_additional = peer->do_additional;
-			bool old_communicate = peer->do_communicate;
-
-			if (old_additional && !old_communicate) {
-				if (mars_running_additional_peers > mars_run_additional_peers)
-					break;
-				pause_time += 30;
-				if (pause_time > 600)
-					pause_time = 600;
-			}
 			if (pause_time < mars_propagate_interval)
 				pause_time++;
 			wait_event_interruptible_timeout(remote_event,
 							 (peer->to_remote_trigger | peer->from_remote_trigger) ||
-							 !peer_thead_should_run(peer) ||
-							 (old_additional != peer->do_additional) ||
-							 (old_communicate != peer->do_communicate),
+							 !peer_thead_should_run(peer),
 							 pause_time * HZ);
 		}
 		continue;
@@ -2471,23 +2388,14 @@ int peer_thread(void *data)
 	free_and_restart:
 		brick_string_free(cmd.cmd_str1);
 		mars_free_dent_all(NULL, &tmp_global.dent_anchor);
-		/* additional threads should give up immediately */
-		if (peer->do_additional && !peer->do_communicate)
-			break;
 		brick_msleep(5000);
 	}
 
 	MARS_INF("-------- peer thread terminating\n");
 
 	make_msg(peer_pairs, "NOT connected %s(%s)", peer->peer, real_peer);
-	report_peer_connection(peer_pairs, peer->do_additional);
-	report_peer_connection(peer_pairs, !peer->do_additional);
+	report_peer_connection(peer_pairs, !peer->do_communicate);
 
-	peer->do_additional = false;
-	if (peer->doing_additional) {
-		peer->doing_additional = false;
-		mars_running_additional_peers--;
-	}
 	if (do_kill) {
 		_peer_cleanup(peer);
 	}
@@ -2598,11 +2506,6 @@ void activate_peer(struct mars_rotate *rot, const char *peer_name)
 	peer = find_peer(peer_name);
 	if (peer && !peer->do_communicate) {
 		peer->do_communicate = true;
-		peer->do_additional = false;
-		if (peer->doing_additional) {
-			peer->doing_additional = false;
-			mars_running_additional_peers--;
-		}
 	}
 }
 
@@ -2626,16 +2529,11 @@ static int _kill_peer(struct mars_global *global, struct mars_peerinfo *peer)
 		brick_thread_stop(peer->peer_thread);
 		peer->peer_thread = NULL;
 		peer->do_communicate = false;
-		peer->do_additional = false;
 	}
 	traced_lock(&peer->lock, flags);
 	list_replace_init(&peer->remote_dent_list, &tmp_list);
 	traced_unlock(&peer->lock, flags);
 	mars_free_dent_all(NULL, &tmp_list);
-	if (peer->doing_additional) {
-		peer->doing_additional = false;
-		mars_running_additional_peers--;
-	}
 	brick_string_free(peer->peer);
 	return 0;
 }
@@ -2695,7 +2593,7 @@ int _make_peer(struct mars_global *global, struct mars_dent *dent)
 
 	peer = dent->d_private;
 	// create or stop communication thread when necessary
-	if (peer->do_communicate | peer->do_additional) {
+	if (peer->do_communicate) {
 		/* Peers may terminate unexpectedly on their own */
 		if (unlikely(peer->has_terminated && peer->peer_thread)) {
 			brick_thread_stop(peer->peer_thread);
@@ -6159,7 +6057,6 @@ static int _main_thread(void *data)
 		wait_event_interruptible_timeout(_global.main_event, _global.main_trigger, mars_scan_interval * HZ);
 
 		_global.main_trigger = false;
-		additional_peers(mars_run_additional_peers - mars_running_additional_peers);
 	}
 
 done:
