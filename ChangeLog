@@ -130,6 +130,10 @@ Changelog for series 0.2:
 -----------------------------------
 Changelog for series 0.1b:
 
+mars0.1balpha10
+--------
+	* Even better scalability.
+
 mars0.1balpha9
 --------
 	* Major scalability improvement:
