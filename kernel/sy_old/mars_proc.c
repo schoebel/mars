@@ -345,6 +345,7 @@ struct ctl_table mars_table[] = {
 	INT_ENTRY("sync_nr",              global_sync_nr,         0400),
 	INT_ENTRY("sync_limit",           global_sync_limit,      0600),
 	INT_ENTRY("handler_dent_limit",    dent_limit,             0600),
+	INT_ENTRY("handler_limit",         handler_limit,          0600),
 	INT_ENTRY("mars_emergency_mode",  mars_emergency_mode,    0600),
 	INT_ENTRY("mars_reset_emergency", mars_reset_emergency,   0600),
 	INT_ENTRY("mars_keep_msg_s",      mars_keep_msg,          0600),

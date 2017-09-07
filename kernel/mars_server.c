@@ -52,6 +52,12 @@ EXPORT_SYMBOL_GPL(server_handler_count);
 
 ///////////////////////// own helper functions ////////////////////////
 
+#define HANDLER_LIMIT 64
+
+int handler_limit = HANDLER_LIMIT;
+int handler_nr = HANDLER_LIMIT;
+static struct semaphore handler_limit_sem = __SEMAPHORE_INITIALIZER(handler_limit_sem, HANDLER_LIMIT);
+
 #define DENT_LIMIT 8
 
 int dent_limit = DENT_LIMIT;
@@ -417,11 +423,16 @@ int handler_thread(void *data)
 			MARS_DBG("#%d is dead\n", sock->s_debug_nr);
 			goto clean;
 		}
+		if (down_trylock(&handler_limit_sem)) {
+			MARS_DBG("#%d handler limit reached\n", sock->s_debug_nr);
+			status = -EUSERS;
+			goto clean;
+		}
 
 		status = mars_recv_struct(sock, &cmd, mars_cmd_meta);
 		if (unlikely(status < 0)) {
 			MARS_WRN("#%d recv cmd status = %d\n", sock->s_debug_nr, status);
-			goto clean;
+			goto clean_unlock;
 		}
 
 		MARS_IO("#%d cmd = %d\n", sock->s_debug_nr, cmd.cmd_code);
@@ -429,7 +440,7 @@ int handler_thread(void *data)
 		if (unlikely(!brick->global || !mars_global || !mars_global->global_power.button)) {
 			MARS_WRN("#%d system is not alive\n", sock->s_debug_nr);
 			status = -EINTR;
-			goto clean;
+			goto clean_unlock;
 		}
 
 		status = -EPROTO;
@@ -542,6 +553,8 @@ int handler_thread(void *data)
 		default:
 			MARS_ERR("#%d unknown command %d\n", sock->s_debug_nr, cmd.cmd_code);
 		}
+	clean_unlock:
+		up(&handler_limit_sem);
 	clean:
 		brick_string_free(cmd.cmd_str1);
 		if (unlikely(status < 0)) {
@@ -815,6 +828,7 @@ static int _server_thread(void *data)
 		struct server_brick *brick = NULL;
 		struct mars_socket handler_socket = {};
 
+		change_sem(&handler_limit_sem, &handler_limit, &handler_nr);
 		change_sem(&dent_limit_sem, &dent_limit, &dent_nr);
 
 		server_global.global_version++;
