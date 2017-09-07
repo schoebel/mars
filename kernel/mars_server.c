@@ -52,6 +52,23 @@ EXPORT_SYMBOL_GPL(server_handler_count);
 
 ///////////////////////// own helper functions ////////////////////////
 
+#define DENT_LIMIT 8
+
+int dent_limit = DENT_LIMIT;
+int dent_nr = DENT_LIMIT;
+static struct semaphore dent_limit_sem = __SEMAPHORE_INITIALIZER(dent_limit_sem, DENT_LIMIT);
+
+static
+void change_sem(struct semaphore *sem, int *limit, int *nr)
+{
+	if (unlikely(*nr < *limit)) {
+		up(sem);
+		(*nr)++;
+	} else if (unlikely(*nr > *limit)) {
+		if (!down_trylock(sem))
+			(*nr)--;
+	}
+}
 
 static
 int cb_thread(void *data)
@@ -446,7 +463,15 @@ int handler_thread(void *data)
 			if (unlikely(!cmd.cmd_str1))
 				break;
 
+			if (down_trylock(&dent_limit_sem)) {
+				MARS_DBG("#%d dent limit reached\n", sock->s_debug_nr);
+				status = -EUSERS;
+				break;
+			}
+
 			status = mars_dent_work(&handler_global, "/mars", sizeof(struct mars_dent), main_checker, dummy_worker, &handler_global, 3);
+
+			up(&dent_limit_sem);
 
 			down(&brick->socket_sem);
 			status = mars_send_dent_list(sock, &handler_global.dent_anchor);
@@ -789,6 +814,8 @@ static int _server_thread(void *data)
         while (!brick_thread_should_stop() || !list_empty(&server_global.brick_anchor)) {
 		struct server_brick *brick = NULL;
 		struct mars_socket handler_socket = {};
+
+		change_sem(&dent_limit_sem, &dent_limit, &dent_nr);
 
 		server_global.global_version++;
 		mars_limit(&server_limiter, 0);
