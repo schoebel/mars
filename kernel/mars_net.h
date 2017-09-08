@@ -71,6 +71,7 @@ struct mars_socket {
 	int s_recv_cnt;
 	bool s_shutdown_on_err;
 	bool s_alive;
+	bool s_connected;
 	struct mars_desc_cache *s_desc_send[MAX_DESC_CACHE];
 	struct mars_desc_cache *s_desc_recv[MAX_DESC_CACHE];
 };
