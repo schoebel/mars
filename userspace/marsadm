@@ -34,6 +34,7 @@ umask 0077;
 my $threshold = 10 * 1024 * 1024;
 my $window = 30;
 my $verbose = 0;
+my $max_deletions = 2000;
 my $dry_run = 0;
 my @MARS_PATH = $ENV{MARS_PATH} ?
   split(/:/, $ENV{MARS_PATH}) :
@@ -2118,6 +2119,18 @@ sub _get_delete_nr {
   foreach my $path (glob("$basedir/delete-*")) {
     $path =~ m:/delete-0*([0-9]+):;
     $max_nr = $1 if (defined($1) && $1 > $max_nr);
+  }
+  my $nr_links = $max_nr - $min_nr;
+  if ($nr_links > $max_deletions / 2) {
+    $verbose = 1 if $verbose <= 0;
+    lwarn "Too many deletion links have accumulated into directory $basedir/.\n";
+    lwarn "Probably your networking / your firewall rules / another setup problem is causing this, and your monitoring does not notice it.\n";
+    lwarn "Please fix it.\n";
+    lwarn "When necessary, remove $basedir/delete-* link by hand.\n";
+    if ($nr_links > $max_deletions) {
+      lwarn "URGENT: please fix it.\n";
+      ldie "Aborting for safety reasons\n" unless $force;
+    }
   }
   $delete_nrs{$basedir} = [$min_nr, $max_nr];
   return @{$delete_nrs{$basedir}};
@@ -5186,6 +5199,12 @@ marsadm [<global_options>] view[-<macroname>] [<resource_name> | all ]
   --logger=/path/to/usr/bin/logger
     Use an alternative syslog messenger.
     When empty, disable syslogging.
+  --max-deletions=<number>
+    When your network or your firewall rules are defective over a
+    longer time, too many deletion links may accumulate at
+    /mars/todo-global/delete-* and sibling locations.
+    This limit is preventing overflow of the filesystem as well
+    as overloading the worker threads.
   --timeout=<seconds>
     Abort safety checks after timeout with an error.
     When giving 'all' as resource agument, this works for each
@@ -5279,6 +5298,9 @@ foreach my $arg (@ARGV) {
     next;
   } elsif ($arg eq "--dry-run" || $arg eq "-d") {
     $dry_run++;
+    next;
+  } elsif ($arg =~ m/--max-deletions\s*=\s*(-?[0-9]+)/) {
+    $max_deletions = $1;
     next;
   } elsif ($arg =~ s/--verbose\s*=\s*(-?[0-9]+)/$1/) {
     $verbose = $arg;
