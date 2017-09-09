@@ -34,7 +34,7 @@ umask 0077;
 my $threshold = 10 * 1024 * 1024;
 my $window = 30;
 my $verbose = 0;
-my $max_deletions = 2000;
+my $max_deletions = 512;
 my $dry_run = 0;
 my @MARS_PATH = $ENV{MARS_PATH} ?
   split(/:/, $ENV{MARS_PATH}) :

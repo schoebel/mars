@@ -58,7 +58,7 @@ int handler_limit = HANDLER_LIMIT;
 int handler_nr = HANDLER_LIMIT;
 static struct semaphore handler_limit_sem = __SEMAPHORE_INITIALIZER(handler_limit_sem, HANDLER_LIMIT);
 
-#define DENT_LIMIT 8
+#define DENT_LIMIT 2
 
 int dent_limit = DENT_LIMIT;
 int dent_nr = DENT_LIMIT;
