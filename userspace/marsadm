@@ -2153,6 +2153,7 @@ sub leave_res_phase0 {
 
 sub leave_res_phase1 {
   my ($cmd, $res) = @_;
+  set_link("1", "$mars/resource-$res/work-$host");
   _create_delete("$mars/resource-$res/replay-$host");
   _create_delete("$mars/resource-$res/data-$host");
   _create_delete("$mars/resource-$res/syncstatus-$host");
@@ -2204,6 +2205,7 @@ sub delete_res {
     next if $path =~ m:/(maxnr$|\.deleted-):;
     _create_delete($path);
   }
+  set_link("1", "$mars/resource-$res/work-$host");
   finish_links();
   _wait_delete();
 }
@@ -2352,7 +2354,7 @@ sub logdelete_res {
   my ($cmd, $res) = @_;
   lprint "removing left-over .deleted symlinks...\n" if $verbose;
   my $start_time = mars_time();
-  foreach my $leftlink (glob("$mars/{,resource-$res/}{,*/}{.deleted,delete-}-*")) {
+  foreach my $leftlink (glob("$mars/{,resource-$res/}{,*/}{.deleted,delete,work}-*")) {
     my $stamp = get_link_stamp($leftlink);
     next unless $stamp + 3600 * 24 < $start_time;
     lprint "  unlink '$leftlink'\n" if $verbose;
