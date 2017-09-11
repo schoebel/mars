@@ -620,6 +620,7 @@ struct mars_rotate {
 	int avoid_count;
 	bool has_symlinks;
 	bool peer_activated;
+	bool is_attached;
 	bool res_shutdown;
 	bool has_error;
 	bool has_double_logfile;
@@ -4167,7 +4168,6 @@ int make_bio(void *buf, struct mars_dent *dent)
 	struct mars_brick *brick;
 	const char *tmp;
 	bool switch_on;
-	bool is_attached;
 	int status = 0;
 
 	if (!global || !dent->d_parent) {
@@ -4179,10 +4179,10 @@ int make_bio(void *buf, struct mars_dent *dent)
 
 	/* for detach, both the logger and the bio must be gone */
 	if (rot->trans_brick)
-		is_attached = true;
+		rot->is_attached = true;
 	else if (!rot->bio_brick)
-		is_attached = false;
-	_show_actual(rot->parent_path, "is-attached", is_attached);
+		rot->is_attached = false;
+	_show_actual(rot->parent_path, "is-attached", rot->is_attached);
 
 	rot->has_symlinks = true;
 	activate_peer(rot, dent->d_rest);
@@ -5620,6 +5620,8 @@ static const struct main_class main_classes[] = {
 };
 
 /* Helper routine to pre-determine the relevance of a name from the filesystem.
+ * Caution: this is called as a callback from iterate_dir() and friends.
+ * Don't deadlock by producing any filesystem output within this!
  */
 int main_checker(struct mars_dent *parent, const char *_name, int namlen, unsigned int d_type, int *prefix, int *serial, bool *use_channel)
 {
@@ -5633,7 +5635,6 @@ int main_checker(struct mars_dent *parent, const char *_name, int namlen, unsign
 	const char *name = _name;
 #endif
 
-	//MARS_DBG("trying '%s' '%s'\n", path, name);
 	for (class = CL_ROOT + 1; ; class++) {
 		const struct main_class *test = &main_classes[class];
 		int len = test->cl_len;
@@ -5641,9 +5642,11 @@ int main_checker(struct mars_dent *parent, const char *_name, int namlen, unsign
 			break;
 		}
 
-		//MARS_DBG("   testing class '%s'\n", test->cl_name);
-
 #ifdef MARS_DEBUGGING
+		/* This can only happen when the table stucture is misformed.
+		 * Exceptionally produce an error output.
+		 * The whole system will not work anyway in such a stupid case.
+		 */
 		if (len != strlen(test->cl_name)) {
 			MARS_ERR("internal table '%s' mismatch: %d != %d\n", test->cl_name, len, (int)strlen(test->cl_name));
 			len = strlen(test->cl_name);
@@ -5660,18 +5663,14 @@ int main_checker(struct mars_dent *parent, const char *_name, int namlen, unsign
 			continue;
 		}
 
-		//MARS_DBG("path '%s/%s' matches class %d '%s'\n", path, name, class, test->cl_name);
-
 		// check special contexts
 		if (test->cl_serial) {
 			int plus = 0;
 			int count;
 			count = sscanf(name+len, "%d%n", serial, &plus);
 			if (count < 1) {
-				//MARS_DBG("'%s' serial number mismatch at '%s'\n", name, name+len);
 				continue;
 			}
-			//MARS_DBG("'%s' serial number = %d\n", name, *serial);
 			len += plus;
 			if (name[len] == '-')
 				len++;
@@ -5680,7 +5679,6 @@ int main_checker(struct mars_dent *parent, const char *_name, int namlen, unsign
 			*prefix = len;
 		if (test->cl_hostcontext) {
 			if (memcmp(name+len, my_id(), namlen-len)) {
-				//MARS_DBG("context mismatch '%s' at '%s'\n", name, name+len);
 				continue;
 			}
 		}

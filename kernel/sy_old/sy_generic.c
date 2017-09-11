@@ -1133,6 +1133,9 @@ struct mars_dir_context {
 #endif
 //      end_remove_this
 
+/* Caution: this is called as a callback from iterate_dir() and friends.
+ * Don't deadlock by producing any filesystem output within this!
+ */
 #ifdef __HAS_NEW_FILLDIR_T
 int mars_filler(struct dir_context *__buf, const char *name, int namlen, loff_t offset,
 		u64 ino, unsigned int d_type)
@@ -1164,9 +1167,6 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	int serial = 0;
 	bool use_channel = false;
 
-	MARS_IO("ino = %llu len = %d offset = %lld type = %u\n", ino, namlen, offset, d_type);
-
-
 	cookie->hit = true;
 
 	if (name[0] == '.') {
@@ -1186,8 +1186,6 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	memcpy(newpath + pathlen, name, namlen);
 	pathlen += namlen;
 	newpath[pathlen] = '\0';
-
-	MARS_IO("path = '%s'\n", newpath);
 
 	dent = brick_zmem_alloc(cookie->allocsize);
 	if (unlikely(!dent))

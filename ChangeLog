@@ -200,6 +200,12 @@ mars0.1balpha0
 -----------------------------------
 Changelog for series 0.1:
 
+mars0.1stable46
+	* Major fix: bugfix from 0.1stable44 (state "Detached" was
+	  reported too early) was incorrect, now fixed.
+	* Minor fix: display of host lists in special case of
+	  create-resource was misleading.
+
 mars0.1stable45
 	* Major fix: on	secondaries, orphane files and symlinks were
 	  sometimes created in /mars and could accumulate over a long time.
