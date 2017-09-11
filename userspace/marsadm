@@ -34,6 +34,7 @@ umask 0077;
 my $threshold = 10 * 1024 * 1024;
 my $window = 30;
 my $verbose = 0;
+my $max_deletions = 512;
 my $dry_run = 0;
 my @MARS_PATH = $ENV{MARS_PATH} ?
   split(/:/, $ENV{MARS_PATH}) :
@@ -2226,29 +2227,73 @@ sub _get_deletable_logfiles {
   return ($min, $max);
 }
 
-my $delete_nr = -1;
+my %delete_nrs;
+
+sub _get_delete_nr {
+  my ($basedir) = @_;
+  return @{$delete_nrs{$basedir}} if defined($delete_nrs{$basedir});
+  my $min_nr = 0;
+  my $max_nr = 0;
+  foreach my $path (glob("$basedir/deleted-*")) {
+    my $link = get_link($path, 1);
+    $link =~ m/0*([0-9]+)/;
+    $min_nr = $1 if (defined($1) && ($1 < $min_nr || !$min_nr));
+    $max_nr = $1 if (defined($1) && $1 > $max_nr);
+  }
+  foreach my $path (glob("$basedir/delete-*")) {
+    $path =~ m:/delete-0*([0-9]+):;
+    $max_nr = $1 if (defined($1) && $1 > $max_nr);
+  }
+  my $nr_links = $max_nr - $min_nr;
+  if ($nr_links > $max_deletions / 2) {
+    $verbose = 1 if $verbose <= 0;
+    lwarn "Too many deletion links have accumulated into directory $basedir/.\n";
+    lwarn "Probably your networking / your firewall rules / another setup problem is causing this, and your monitoring does not notice it.\n";
+    lwarn "Please fix it.\n";
+    lwarn "When necessary, remove $basedir/delete-* link by hand.\n";
+    if ($nr_links > $max_deletions) {
+      lwarn "URGENT: please fix it.\n";
+      ldie "Aborting for safety reasons\n" unless $force;
+    }
+  }
+  $delete_nrs{$basedir} = [$min_nr, $max_nr];
+  return @{$delete_nrs{$basedir}};
+}
+
+sub _set_delete_nr {
+  my ($basedir, $min_nr, $max_nr) = @_;
+  $delete_nrs{$basedir} = [$min_nr, $max_nr];
+}
+
+my %del_dirs;
+my %del_targets;
+
+sub _replace_delete {
+  my ($basedir, $target) = @_;
+  if (!$del_dirs{$basedir}) {
+    foreach my $link (glob("$basedir/delete-*")) {
+      my $targ = readlink($link);
+      $del_targets{$targ} = $link;
+    }
+    $del_dirs{$basedir} = 1;
+  }
+  my ($min_nr, $delete_nr) = _get_delete_nr($basedir);
+  if (defined($del_targets{$target})) {
+    my $old = $del_targets{$target};
+    $old =~ m:/delete-([0-9]+)-:;
+    my $old_nr = $1;
+    return $old if $old_nr >= $min_nr;
+  }
+  my $new = sprintf("$basedir/delete-%09d-$real_host", ++$delete_nr);
+  _set_delete_nr($basedir, $min_nr, $delete_nr);
+  return $new;
+}
 
 sub _create_delete {
   my ($target) = @_;
   ldie "cannot delete: '$target' is no absolute path\n" unless $target =~ m:^/:;
-  if ($delete_nr < 0) { # compute only upon first call
-    my @paths = glob("$mars/todo-global/delete-*");
-    foreach my $path (@paths) {
-      $path =~ m/-([0-9]+)/;
-      if (defined($1) && $1 > $delete_nr) {
-	$delete_nr = $1;
-      }
-    }
-    my @paths2 = glob("$mars/todo-global/deleted-*");
-    foreach my $path (@paths2) {
-      my $link = get_link($path, 1);
-      $link =~ m/([0-9]+)/;
-      if (defined($1) && $1 > $delete_nr) {
-	$delete_nr = $1;
-      }
-    }
-  }
-  my $new = sprintf("$mars/todo-global/delete-%09d-$real_host", ++$delete_nr);
+  my $global_path = "$mars/todo-global";
+  my $new = _replace_delete($global_path, $target);
   lprint "create symlink $new -> $target\n" if $verbose;
   set_link($target, $new);
 }
@@ -2257,7 +2302,7 @@ sub _wait_delete {
   return if $dry_run;
   for (;;) {
     my $deleted = get_link("$mars/todo-global/deleted-$real_host");
-print "deleted: $deleted / $delete_nr\n";
+    my ($min_nr, $delete_nr) = _get_delete_nr("$mars/todo-global");
     last if $deleted >= $delete_nr;
     lprint "waiting for deletions to apply locally....\n";
     sleep_timeout();
@@ -5357,6 +5402,12 @@ marsadm [<global_options>] view[-<macroname>] [<resource_name> | all ]
   --logger=/path/to/usr/bin/logger
     Use an alternative syslog messenger.
     When empty, disable syslogging.
+  --max-deletions=<number>
+    When your network or your firewall rules are defective over a
+    longer time, too many deletion links may accumulate at
+    /mars/todo-global/delete-* and sibling locations.
+    This limit is preventing overflow of the filesystem as well
+    as overloading the worker threads.
   --timeout=<seconds>
     Abort safety checks after timeout with an error.
     When giving 'all' as resource agument, this works for each
@@ -5450,6 +5501,9 @@ foreach my $arg (@ARGV) {
     next;
   } elsif ($arg eq "--dry-run" || $arg eq "-d") {
     $dry_run++;
+    next;
+  } elsif ($arg =~ m/--max-deletions\s*=\s*(-?[0-9]+)/) {
+    $max_deletions = $1;
     next;
   } elsif ($arg =~ s/--verbose\s*=\s*(-?[0-9]+)/$1/) {
     $verbose = $arg;

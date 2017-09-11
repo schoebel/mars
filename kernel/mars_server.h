@@ -32,6 +32,8 @@
 extern int server_show_statist;
 
 extern struct mars_limiter server_limiter;
+extern int dent_limit;
+extern int handler_limit;
 
 extern atomic_t server_handler_count;
 
