@@ -632,6 +632,7 @@ struct mars_rotate {
 	bool has_double_logfile;
 	bool has_hole_logfile;
 	bool allow_update;
+	bool rot_activated;
 	bool forbid_replay;
 	bool replay_mode;
 	bool todo_primary;
@@ -4182,12 +4183,24 @@ done:
 }
 
 static
+void activate_rot(struct mars_rotate *rot)
+{
+	const char *tmp;
+
+	if (rot->rot_activated)
+		return;
+	rot->rot_activated = true;
+	tmp = path_make("%s|%s/", tmp_resource_list, rot->parent_path);
+	brick_string_free(tmp_resource_list);
+	tmp_resource_list = tmp;
+}
+
+static
 int make_bio(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
 	struct mars_rotate *rot;
 	struct mars_brick *brick;
-	const char *tmp;
 	bool switch_on;
 	int status = 0;
 
@@ -4210,9 +4223,7 @@ int make_bio(void *buf, struct mars_dent *dent)
 	if (strcmp(dent->d_rest, my_id()))
 		goto done;
 
-	tmp = path_make("%s|%s/", tmp_resource_list, rot->parent_path);
-	brick_string_free(tmp_resource_list);
-	tmp_resource_list = tmp;
+	activate_rot(rot);
 
 	switch_on = _check_allow(global, dent->d_parent, "attach");
 	if (switch_on && rot->res_shutdown) {
@@ -5818,6 +5829,7 @@ static int _main_thread(void *data)
 	MARS_INF("-------- starting as host '%s' ----------\n", id);
 
         while (_global.global_power.button || !list_empty(&_global.brick_anchor)) {
+		struct list_head *tmp;
 		int status;
 
 		MARS_DBG("-------- NEW ROUND %d ---------\n", atomic_read(&server_handler_count));
@@ -5852,6 +5864,14 @@ static int _main_thread(void *data)
 		status = mars_dent_work(&_global, "/mars", sizeof(struct mars_dent), main_checker, main_worker, &_global, 3);
 		_global.deleted_border = _global.deleted_min;
 		MARS_DBG("-------- worker deleted_min = %d status = %d\n", _global.deleted_min, status);
+
+		down_read(&rot_sem);
+		for (tmp = rot_anchor.next; tmp != &rot_anchor; tmp = tmp->next) {
+			struct mars_rotate *rot = container_of(tmp, struct mars_rotate, rot_head);
+
+			rot->rot_activated = false;
+		}
+		up_read(&rot_sem);
 
 		if (!_global.global_power.button) {
 			status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&copy_brick_type, true);
