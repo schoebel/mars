@@ -30,7 +30,7 @@ Example: mars0.3alpha*:
 
 Release Conventions / Branches / Tagnames
 -----------------------------------------
-	FLOW OF BUGFIXES: 0.1 -> 0.1b -> 0.2 -> ...
+	FLOW OF BUGFIXES: 0.1 -> 0.1a -> 0.1b -> 0.2 -> ...
 
 	mars0.1 series (stable):
 		 - Asynchronous replication.
@@ -39,6 +39,9 @@ Release Conventions / Branches / Tagnames
 		 - Unstable tagnames: light0.1beta%d.%d (obsolete)
 		 - Stable branch: mars0.1.y
 		 - Stable tagnames: mars0.1stable%02d
+
+	mars0.1a series:
+		 Internally for 1&1.
 
 	mars0.1b series (currently alpha):
 		 This is an _imtermediate_ series between 0.1 and 0.2.
@@ -131,6 +134,13 @@ Changelog for series 0.2:
 Changelog for series 0.1b:
 
 (you need to checkout branch mars0.1b.y to see any details)
+
+-----------------------------------
+Changelog for series 0.1a:
+	Internal branch for 1&1.
+	Based on 0.1balpha4. Merge 0.1stable.
+	Add only absolutely necessary features.
+	Receive mainly fixes.
 
 -----------------------------------
 Changelog for series 0.1:
