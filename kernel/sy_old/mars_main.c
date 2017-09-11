@@ -551,6 +551,7 @@ enum {
 	CL_ACTUAL,
 	CL_ACTUAL_ITEMS,
 	CL_DATA,
+	CL_WORK,
 	CL_SIZE,
 	CL_ACTSIZE,
 	CL_PRIMARY,
@@ -4278,6 +4279,26 @@ int make_bio(void *buf, struct mars_dent *dent)
 	return status;
 }
 
+static
+int make_work(void *buf, struct mars_dent *dent)
+{
+	struct mars_global *global = buf;
+	struct mars_rotate *rot;
+
+	if (!global || !dent->d_parent) {
+		goto done;
+	}
+	rot = dent->d_parent->d_private;
+	if (!rot)
+		goto done;
+	rot->has_symlinks = true;
+
+	activate_rot(rot);
+
+ done:
+	return 0;
+}
+
 static int make_replay(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
@@ -5460,6 +5481,18 @@ static const struct main_class main_classes[] = {
 		.cl_father = CL_RESOURCE,
 #ifdef RUN_DATA
 		.cl_forward = make_bio,
+#endif
+		.cl_backward = kill_any,
+	},
+	/* Internal: allows extra rot activation */
+	[CL_WORK] = {
+		.cl_name = "work-",
+		.cl_len = 5,
+		.cl_type = 'l',
+		.cl_hostcontext = true,
+		.cl_father = CL_RESOURCE,
+#ifdef RUN_DATA
+		.cl_forward = make_work,
 #endif
 		.cl_backward = kill_any,
 	},
