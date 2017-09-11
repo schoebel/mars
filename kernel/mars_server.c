@@ -59,10 +59,12 @@ int handler_nr = HANDLER_LIMIT;
 static struct semaphore handler_limit_sem = __SEMAPHORE_INITIALIZER(handler_limit_sem, HANDLER_LIMIT);
 
 #define DENT_LIMIT 2
+#define DENT_RETRY 5
 
 int dent_limit = DENT_LIMIT;
 int dent_nr = DENT_LIMIT;
 static struct semaphore dent_limit_sem = __SEMAPHORE_INITIALIZER(dent_limit_sem, DENT_LIMIT);
+int dent_retry = DENT_RETRY;
 
 static
 void change_sem(struct semaphore *sem, int *limit, int *nr)
@@ -473,11 +475,15 @@ int handler_thread(void *data)
 		case CMD_GETENTS:
 		{
 			char *path = cmd.cmd_str1 ? cmd.cmd_str1 : "/mars";
+			int max_retry = dent_retry;
 
-			if (down_trylock(&dent_limit_sem)) {
-				MARS_DBG("#%d dent limit reached\n", sock->s_debug_nr);
-				status = -EUSERS;
-				break;
+			while (down_trylock(&dent_limit_sem)) {
+				if (max_retry-- <= 0) {
+					MARS_DBG("#%d dent limit reached\n", sock->s_debug_nr);
+					status = -EUSERS;
+					break;
+				}
+				brick_msleep(1000);
 			}
 
 			status = mars_dent_work(
