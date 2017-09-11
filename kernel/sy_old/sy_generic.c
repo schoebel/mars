@@ -550,6 +550,7 @@ void mars_sync(void)
 			struct super_block *sb = inode->i_sb;
 			down_read(&sb->s_umount);
 			sync_filesystem(sb);
+			shrink_dcache_sb(sb);
 			up_read(&sb->s_umount);
 		}
 	}

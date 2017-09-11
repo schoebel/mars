@@ -2277,7 +2277,7 @@ sub logdelete_res {
   my ($cmd, $res) = @_;
   lprint "removing left-over .deleted symlinks...\n" if $verbose;
   my $start_time = mars_time();
-  foreach my $leftlink (glob("$mars/{,resource-$res/}{,*/}.deleted-*")) {
+  foreach my $leftlink (glob("$mars/{,resource-$res/}{,*/}{.deleted,delete-}-*")) {
     my $stamp = get_link_stamp($leftlink);
     next unless $stamp + 3600 * 24 < $start_time;
     lprint "  unlink '$leftlink'\n" if $verbose;
