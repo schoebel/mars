@@ -104,6 +104,7 @@ my $host = `uname -n` or ldie "cannot determine my network node name\n";
 chomp $host;
 check_id($host);
 my $real_host = $host;
+my $backup_dir = "$mars/backups";
 my $force = 0;
 my $timeout = -1;
 my $ip = "";
@@ -5472,6 +5473,10 @@ marsadm [<global_options>] view[-<macroname>] [<resource_name> | all ]
   --host=<hostname>
     Act as if the command was running on cluster node <hostname>.
     Warning! This is dangerous! First try --dry-run
+  --backup-dir=</absolute_path>
+    Only for experts.
+    Used by several special commands like merge-cluster, split-cluster
+    etc for creating backups of important data.
   --ip=<ip>
     Override the IP address stored in the symlink tree, as well as
     the default IP determined from the list of network interfaces.
@@ -5583,6 +5588,10 @@ foreach my $arg (@ARGV) {
       lwarn "thus something may fail or go wrong - use this at your risk!\n";
       $host = $arg;
     }
+    next;
+  } elsif ($arg =~ m/--backup-dir\s*=\s*(\/[^\s\\:;|<>]+)/) {
+    $backup_dir = $1;
+    system("mkdir -p $backup_dir") and ldie "Cannot create backup directory '$backup_dir'\n";
     next;
   } elsif ($arg =~ s/--ip\s*=\s*([0-9.:\[\]]+)/$1/) {
     $ip = $arg;
