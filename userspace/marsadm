@@ -1853,7 +1853,8 @@ sub merge_cluster {
       lprint "\t$res\n";
     }
     # INTERNAL, for debugging and error analysis: backup the old uuid symlink
-    system("mkdir -p $mars/uuid-backups; cp -a $mars/uuid $mars/uuid-backups/") unless -l "$mars/uuid-backups/uuid";
+    my $backup = "$backup_dir/uuid-backups";
+    system("mkdir -p $backup; cp -a $mars/uuid $backup/") unless -l "$backup/uuid";
   }
   # Start the "hot phase"
   my $rsync_cmd = "--max-size=1";
