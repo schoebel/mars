@@ -161,10 +161,19 @@ sub make_ssh_cmd {
 
 sub ssh_cmd {
   my ($peer, $cmd, $no_fail) = @_;
-  my $ssh = make_ssh_cmd($peer) . " \"$cmd\"";
-  if (system ($ssh) && defined($no_fail)) {
-    ldie "SSH to '$peer' command '$cmd' failed\nFull command: '$ssh'\n";
+  if ($peer ne $real_host) {
+    $cmd =~ s/'/\'/g;
+    $cmd = make_ssh_cmd($peer) . " '$cmd'";
+  } else {
+    $cmd =~ s/'/\'/g;
+    $cmd = "bash -c '$cmd'";
   }
+  ldie "empty command\n" unless $cmd;
+  my $status = system($cmd);
+  if ($status and !defined($no_fail)) {
+    ldie "SSH to '$peer' command '$cmd' failed\n";
+  }
+  return $status;
 }
 
 sub rsync_cmd {
