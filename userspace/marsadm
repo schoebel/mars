@@ -2085,7 +2085,7 @@ sub split_cluster {
   my $ips_backup = "$backup_dir/ips-backup";
   system("mkdir -p $ips_backup") and ldie "OOps";
   system("cp -a $mars/ips/* $ips_backup/");
-  my $safeguard_cmd = "(( \$(find $mars/ -name 'delete-*' | wc -l) == 0 ))";
+  my $safeguard_cmd = "(( \$(find $mars/ -name 'delete-*' | wc -l) <= \$(find $mars/ -name 'deleted-*' | wc -l) ))";
   foreach my $peer (glob("$ips_backup/ip-*")) {
     $peer =~ s:^$ips_backup/ip-::;
     ssh_cmd($peer, $ssh_probe);
