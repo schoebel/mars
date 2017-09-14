@@ -104,7 +104,7 @@ my $host = `uname -n` or ldie "cannot determine my network node name\n";
 chomp $host;
 check_id($host);
 my $real_host = $host;
-my $backup_dir = "$mars/backups";
+my $backup_dir = "$mars/backups-" . time();
 my $force = 0;
 my $timeout = -1;
 my $ip = "";
