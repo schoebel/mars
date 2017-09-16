@@ -2105,6 +2105,19 @@ sub split_cluster {
     next if $peer eq $host;
     rsync_cmd($peer, "--max-size=1 --update $ips_backup $peer:$backup_dir/");
   }
+
+  # Check symmetry
+  lprint "Checking symmetry of resource memberships...\n";
+  my $data_cmd = "ls -l $mars/resource-*/data-*";
+  my $standard = qx:$data_cmd:;
+  ldie "Cannot get local resource participants.\n" unless $standard;
+  foreach my $peer (@peers) {
+    next if $peer eq $host;
+    my $ssh_cmd = make_ssh_cmd($peer) . " '$data_cmd'";
+    my $compare = qx:$ssh_cmd:;
+    ldie "Asymmetric $mars/resource-*/data-* with peer $peer\n" unless $compare eq $standard;
+  }
+
   # delete all hosts everywhere
   lprint "Deleting all peers IPs everywhere...\n";
   foreach my $peer (@peers) {
