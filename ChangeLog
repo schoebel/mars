@@ -150,10 +150,12 @@ mars0.1stable48
 	  by bugs / misbehaviour) are prevented by configurable limits
 	  /proc/sys/mars/handler_dent_limit and
 	  /proc/sys/mars/handler_limit .
-	* Critical safeguard: when the network is interruted, masses of
+	* Critical safeguard: when the network is interruted for a long time
+	  while the log-rotate frequency is very high and a lot of resources
+	  (exceeding the official limits as documented) had been used, masses of
 	  deletion links may accumulate in /mars/todo/. First, already
 	  existing deletions to the same targets are reused now.
-	  Second, a maximum limit (of currently 2000 entries)
+	  Second, a maximum limit (of currently 512 entries)
 	  is enforced, and a warning is spit when too many deletions
 	  are accumulated over time.
 	* Minor fix: earlier detection of socket hangups.
