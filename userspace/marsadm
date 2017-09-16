@@ -2391,6 +2391,12 @@ sub logdelete_res {
     lprint "  unlink '$leftlink'\n" if $verbose;
     unlink($leftlink);
   }
+  foreach my $leftlink (glob("$mars/{,resource-$res/}actual-*/msg-*")) {
+    my $stamp = get_link_stamp($leftlink);
+    next unless $stamp + 3600 * 4 < $start_time;
+    lprint "  unlink '$leftlink'\n" if $verbose;
+    unlink($leftlink);
+  }
   my @paths = glob("$mars/resource-$res/log-*") or ldie "cannot find any logfiles\n";
   @paths = sort(@paths);
   my ($min_deletable, $max_deletable) = _get_deletable_logfiles(@_);
