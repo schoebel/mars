@@ -481,7 +481,7 @@ int handler_thread(void *data)
 				if (max_retry-- <= 0) {
 					MARS_DBG("#%d dent limit reached\n", sock->s_debug_nr);
 					status = -EUSERS;
-					break;
+					goto clean_unlock;
 				}
 				brick_msleep(1000);
 			}
