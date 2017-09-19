@@ -137,6 +137,8 @@ Changelog for series 0.1b:
 
 -----------------------------------
 Changelog for series 0.1a:
+(you need to checkout branch mars0.1a.y to see any details)
+
 	Internal branch for 1&1.
 	Based on 0.1balpha4. Merge 0.1stable.
 	Add only absolutely necessary features.
@@ -144,6 +146,22 @@ Changelog for series 0.1a:
 
 -----------------------------------
 Changelog for series 0.1:
+
+mars0.1stable49
+	* Backports of new marsadm commands merge-cluster and split-cluster.
+	  The new functionality is needed for background migration of resources.
+	  Please be aware that this branch has not been constructed for
+	  scalability in the dimension of #nodes, so don't merge too many
+	  nodes and use split-cluster after each background migration.
+	  Better scalability is / will be addressed at the 0.1a and 0.1b
+	  branches. However, currently they are not yet stable.
+	  No changes at the kernel module (besides some bug fixes);
+	  this is solely done at userspace level.
+	  The new userspace-level commands should have almost no intersection
+	  with (and therefore no impact onto) other parts of this well-proven
+	  stable branch.
+	* Backports of new wait-cluster implementation.
+	  This avoids irritating messages after split-cluster.
 
 mars0.1stable48
 	* Critical fix: DDOS-like attacks at the MARS ports (or similar caused
