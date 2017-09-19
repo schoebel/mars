@@ -547,6 +547,7 @@ enum {
 	CL_ACTUAL,
 	CL_ACTUAL_ITEMS,
 	CL_DATA,
+	CL_WORK,
 	CL_SIZE,
 	CL_ACTSIZE,
 	CL_PRIMARY,
@@ -631,6 +632,7 @@ struct mars_rotate {
 	bool has_double_logfile;
 	bool has_hole_logfile;
 	bool allow_update;
+	bool rot_activated;
 	bool forbid_replay;
 	bool replay_mode;
 	bool todo_primary;
@@ -4305,6 +4307,26 @@ int make_bio(void *buf, struct mars_dent *dent)
 	return status;
 }
 
+static
+int make_work(void *buf, struct mars_dent *dent)
+{
+	struct mars_global *global = buf;
+	struct mars_rotate *rot;
+
+	if (!global || !dent->d_parent) {
+		goto done;
+	}
+	rot = dent->d_parent->d_private;
+	if (!rot)
+		goto done;
+	rot->has_symlinks = true;
+
+	activate_rot(rot, dent->d_rest);
+
+ done:
+	return 0;
+}
+
 static int make_replay(void *buf, struct mars_dent *dent)
 {
 	struct mars_global *global = buf;
@@ -5473,6 +5495,12 @@ static const struct main_class main_classes[] = {
 		.cl_father = CL_ROOT,
 		.cl_flags = CHK_FILT_WORK,
 	},
+	[CL_FEATURES] = {
+		.cl_name = "features-",
+		.cl_len = 9,
+		.cl_type = 'l',
+		.cl_father = CL_ROOT,
+	},
 	/* Indicate whether filesystem is full
 	 */
 	[CL_EMERGENCY] = {
@@ -5626,6 +5654,18 @@ static const struct main_class main_classes[] = {
 		.cl_father = CL_RESOURCE,
 #ifdef RUN_DATA
 		.cl_forward = make_bio,
+#endif
+		.cl_backward = kill_any,
+	},
+	/* Internal: allows extra rot activation */
+	[CL_WORK] = {
+		.cl_name = "work-",
+		.cl_len = 5,
+		.cl_type = 'l',
+		.cl_hostcontext = true,
+		.cl_father = CL_RESOURCE,
+#ifdef RUN_DATA
+		.cl_forward = make_work,
 #endif
 		.cl_backward = kill_any,
 	},
@@ -6069,6 +6109,14 @@ static int _main_thread(void *data)
 			rot->has_data = false;
 			rot->has_deletions = false;
 			rot->resource_added = false;
+		}
+		up_read(&rot_sem);
+
+		down_read(&rot_sem);
+		for (tmp = rot_anchor.next; tmp != &rot_anchor; tmp = tmp->next) {
+			struct mars_rotate *rot = container_of(tmp, struct mars_rotate, rot_head);
+
+			rot->rot_activated = false;
 		}
 		up_read(&rot_sem);
 

@@ -35,6 +35,7 @@ my $threshold = 10 * 1024 * 1024;
 my $window = 30;
 my $verbose = 0;
 my $delete_global = 0;
+my $max_deletions = 512;
 my $dry_run = 0;
 my @MARS_PATH = $ENV{MARS_PATH} ?
   split(/:/, $ENV{MARS_PATH}) :
@@ -104,6 +105,7 @@ my $host = `uname -n` or ldie "cannot determine my network node name\n";
 chomp $host;
 check_id($host);
 my $real_host = $host;
+my $backup_dir = "$mars/backups-" . time();
 my $force = 0;
 my $timeout = -1;
 my $ip = "";
@@ -163,11 +165,16 @@ sub ssh_cmd {
   if ($peer ne $real_host) {
     $cmd =~ s/'/\'/g;
     $cmd = make_ssh_cmd($peer) . " '$cmd'";
+  } else {
+    $cmd =~ s/'/\'/g;
+    $cmd = "bash -c '$cmd'";
   }
   ldie "empty command\n" unless $cmd;
-  if (system($cmd) and !defined($no_fail)) {
+  my $status = system($cmd);
+  if ($status and !defined($no_fail)) {
     ldie "SSH to '$peer' command '$cmd' failed\n";
   }
+  return $status;
 }
 
 sub rsync_cmd {
@@ -1912,7 +1919,8 @@ sub merge_cluster {
       lprint "\t$res\n";
     }
     # INTERNAL, for debugging and error analysis: backup the old uuid symlink
-    system("mkdir -p $mars/uuid-backups; cp -a $mars/uuid $mars/uuid-backups/") unless -l "$mars/uuid-backups/uuid";
+    my $backup = "$backup_dir/uuid-backups";
+    system("mkdir -p $backup; cp -a $mars/uuid $backup/") unless -l "$backup/uuid";
   }
   # Start the "hot phase"
   my $rsync_cmd = "--max-size=1";
@@ -2192,26 +2200,42 @@ sub split_cluster {
   my ($cmd) = @_;
   # checks
   lprint "Checking...\n";
-  system("mkdir -p /mars/ips-backup") and ldie "OOps";
-  system("cp -a $mars/ips/* $mars/ips-backup/");
-  foreach my $peer (glob("$mars/ips-backup/ip-*")) {
-    $peer =~ s:^$mars/ips-backup/ip-::;
+  my $ips_backup = "$backup_dir/ips-backup";
+  system("mkdir -p $ips_backup") and ldie "OOps";
+  system("cp -a $mars/ips/* $ips_backup/");
+  my $safeguard_cmd = "(( \$(find $mars/ -name 'delete-*' | wc -l) <= \$(find $mars/ -name 'deleted-*' | wc -l) ))";
+  foreach my $peer (glob("$ips_backup/ip-*")) {
+    $peer =~ s:^$ips_backup/ip-::;
     ssh_cmd($peer, $ssh_probe);
+    ssh_cmd($peer, $safeguard_cmd);
   }
   lprint "Creating IP backups...\n";
   # create ips backup
-  foreach my $peer (glob("$mars/ips-backup/ip-*")) {
-    $peer =~ s:^$mars/ips-backup/ip-::;
+  foreach my $peer (glob("$ips_backup/ip-*")) {
+    $peer =~ s:^$ips_backup/ip-::;
     next if $peer eq $host;
-    rsync_cmd($peer, "--max-size=1 --update $peer:$mars/ips/ $mars/ips-backup/", 1);
+    rsync_cmd($peer, "--max-size=1 --update $peer:$mars/ips/ $ips_backup/", 1);
   }
-  system("cp -a $mars/ips/* $mars/ips-backup/");
-  my @peers = map { $_ =~ s:^$mars/ips-backup/ip-::; $_ } (glob("$mars/ips-backup/ip-*"));
+  system("cp -a $mars/ips/* $ips_backup/");
+  my @peers = map { $_ =~ s:^$ips_backup/ip-::; $_ } (glob("$ips_backup/ip-*"));
   ldie "Empty peer list\n" unless @peers;
   foreach my $peer (@peers) {
     next if $peer eq $host;
-    rsync_cmd($peer, "--max-size=1 --update $mars/ips-backup $peer:$mars/");
+    rsync_cmd($peer, "--max-size=1 --update $ips_backup $peer:$backup_dir/");
   }
+
+  # Check symmetry
+  lprint "Checking symmetry of resource memberships...\n";
+  my $data_cmd = "ls -l $mars/resource-*/data-*";
+  my $standard = qx:$data_cmd:;
+  ldie "Cannot get local resource participants.\n" unless $standard;
+  foreach my $peer (@peers) {
+    next if $peer eq $host;
+    my $ssh_cmd = make_ssh_cmd($peer) . " '$data_cmd'";
+    my $compare = qx:$ssh_cmd:;
+    ldie "Asymmetric $mars/resource-*/data-* with peer $peer\n" unless $compare eq $standard;
+  }
+
   # delete all hosts everywhere
   lprint "Deleting all peers IPs everywhere...\n";
   foreach my $peer (@peers) {
@@ -2219,15 +2243,33 @@ sub split_cluster {
     my $cmd = "rm -rf $mars/ips";
     ssh_cmd($peer, $cmd, 1);
   }
-  # wait
-  lprint "Sleeping...\n";
-  sleep(30);
+
+  # wait until all peer threads are gone
+  lprint "Waiting...\n";
+  sleep(10);
+  my $cond_cmd = "(( \$(ps ax | grep mars_peer | grep -v grep | wc -l) == 0 ))";
+  for (my $loop = 0; $loop < $timeout; $loop++) {
+    my $running = 0;
+    foreach my $peer (@peers) {
+      my $status = ssh_cmd($peer, $cond_cmd, 1);
+      $running++ if $status;
+    }
+    last if !$running;
+    print "--- $running peers have running peer threads.\n";
+    sleep(1);
+  }
+
   for (my $loop = 0; $loop < 3; $loop++) {
     # re-create all groups everywhere
     lprint "RE-CREATE peer IPs...\n";
     foreach my $peer (@peers) {
       print "--- peer $peer\n";
-      my $cmd = "rm -f $mars/todo-global/delete* $mars/actual-*/msg-*-connection-*; mkdir -p $mars/ips; for j in \$({ for i in \$(ls $mars/resource-*/data-$peer | cut -d/ -f1-3 | sort -u); do (cd \$i; ls data-*); done; echo x-$peer; } | cut -d- -f2- | sort -u); do echo RESTORE IP \$j; cp -a $mars/ips-backup/ip-\$j $mars/ips/; done";
+      my $cmd = "rm -f $mars/todo-global/delete* $mars/actual-*/msg-*connection-*; ";
+      $cmd .= "for i in $mars/resource-*; do if ! [[ -e \$i/data-$peer ]] && ! [[ -e \$i/replay-$peer ]]; then rm -rf $backup_dir/\${i##*/}; mv \$i $backup_dir/; fi; done; ";
+      $cmd .= "mkdir -p $mars/ips; ";
+      my $sub_list = "{ for i in \$(ls $mars/resource-*/data-$peer | cut -d/ -f1-3 | sort -u); do (cd \$i; ls data-*); done; echo x-$peer; }";
+      my $sub_cmd = "echo RESTORE IP \$j; cp -a $ips_backup/ip-\$j $mars/ips/";
+      $cmd .= "for j in \$($sub_list | cut -d- -f2- | sort -u); do $sub_cmd; done";
       lprint "$cmd\n";
       ssh_cmd($peer, $cmd, 1);
     }
@@ -2261,6 +2303,7 @@ sub leave_res_phase0 {
 
 sub leave_res_phase1 {
   my ($cmd, $res) = @_;
+  set_link("1", "$mars/resource-$res/work-$host");
   _create_delete("$mars/resource-$res/replay-$host");
   _create_delete("$mars/resource-$res/syncstatus-$host");
   my $syncpos = "$mars/resource-$res/syncpos-$host";
@@ -2336,6 +2379,7 @@ sub delete_res {
     next if $path =~ m:/todo-[^/]+(/delete.*)?$:;
     _create_delete($path);
   }
+  set_link("1", "$mars/resource-$res/work-$host");
   finish_links();
   _wait_delete();
 }
@@ -2393,24 +2437,62 @@ my %delete_nrs;
 
 sub _get_delete_nr {
   my ($basedir) = @_;
-  return $delete_nrs{$basedir} if defined($delete_nrs{$basedir});
+  return @{$delete_nrs{$basedir}} if defined($delete_nrs{$basedir});
+  my $min_nr = 0;
   my $max_nr = 0;
   foreach my $path (glob("$basedir/deleted-*")) {
     my $link = get_link($path, 1);
     $link =~ m/0*([0-9]+)/;
+    $min_nr = $1 if (defined($1) && ($1 < $min_nr || !$min_nr));
     $max_nr = $1 if (defined($1) && $1 > $max_nr);
   }
   foreach my $path (glob("$basedir/delete-*")) {
     $path =~ m:/delete-0*([0-9]+):;
     $max_nr = $1 if (defined($1) && $1 > $max_nr);
   }
-  $delete_nrs{$basedir} = $max_nr;
-  return $max_nr;
+  my $nr_links = $max_nr - $min_nr;
+  if ($nr_links > $max_deletions / 2) {
+    $verbose = 1 if $verbose <= 0;
+    lwarn "Too many deletion links have accumulated into directory $basedir/.\n";
+    lwarn "Probably your networking / your firewall rules / another setup problem is causing this, and your monitoring does not notice it.\n";
+    lwarn "Please fix it.\n";
+    lwarn "When necessary, remove $basedir/delete-* link by hand.\n";
+    if ($nr_links > $max_deletions) {
+      lwarn "URGENT: please fix it.\n";
+      ldie "Aborting for safety reasons\n" unless $force;
+    }
+  }
+  $delete_nrs{$basedir} = [$min_nr, $max_nr];
+  return @{$delete_nrs{$basedir}};
 }
 
 sub _set_delete_nr {
-  my ($basedir, $max_nr) = @_;
-  $delete_nrs{$basedir} = $max_nr;
+  my ($basedir, $min_nr, $max_nr) = @_;
+  $delete_nrs{$basedir} = [$min_nr, $max_nr];
+}
+
+my %del_dirs;
+my %del_targets;
+
+sub _replace_delete {
+  my ($basedir, $target) = @_;
+  if (!$del_dirs{$basedir}) {
+    foreach my $link (glob("$basedir/delete-*")) {
+      my $targ = readlink($link);
+      $del_targets{$targ} = $link;
+    }
+    $del_dirs{$basedir} = 1;
+  }
+  my ($min_nr, $delete_nr) = _get_delete_nr($basedir);
+  if (defined($del_targets{$target})) {
+    my $old = $del_targets{$target};
+    $old =~ m:/delete-([0-9]+)-:;
+    my $old_nr = $1;
+    return $old if $old_nr >= $min_nr;
+  }
+  my $new = sprintf("$basedir/delete-%09d-$real_host", ++$delete_nr);
+  _set_delete_nr($basedir, $min_nr, $delete_nr);
+  return $new;
 }
 
 sub _create_delete {
@@ -2427,18 +2509,14 @@ sub _create_delete {
     foreach my $peer (get_res_remain_peers($res)) {
       my $peer_dir = "$resdir/todo-$peer";
       system("mkdir -p $peer_dir") unless -d $peer_dir;
-      my $delete_nr = _get_delete_nr($peer_dir);
-      my $new = sprintf("$peer_dir/delete-%09d-$real_host", ++$delete_nr);
-      _set_delete_nr($peer_dir, $delete_nr);
+      my $new = _replace_delete($peer_dir, $target);
       lprint "create symlink $new -> $target\n" if $verbose;
       set_link($target, $new);
     }
     return;
   }
   my $global_path = "$mars/todo-global";
-  my $delete_nr = _get_delete_nr($global_path);
-  my $new = sprintf("$global_path/delete-%09d-$real_host", ++$delete_nr);
-  _set_delete_nr($global_path, $delete_nr);
+  my $new = _replace_delete($global_path, $target);
   lprint "create symlink $new -> $target\n" if $verbose;
   set_link($target, $new);
 }
@@ -2446,27 +2524,9 @@ sub _create_delete {
 sub _wait_delete {
   return if $dry_run;
   for (;;) {
-    my $need_wait = 0;
-  path:
-    foreach my $path (keys(%delete_nrs)) {
-      next unless ($path =~ m:/todo-global$: || $path =~ m:/todo-$real_host$:);
-      # Only my own deletion progress is relevant here, because the network might be interrupted.
-      my $deleted = get_link("$path/deleted-$real_host", 1);
-      if (!defined($deleted) || !$deleted) {
-	$need_wait++;
-	last;
-      }
-      my @remains = glob("$path/delete-*-$host");
-      foreach my $remain (@remains) {
-	$remain =~ m:/delete-([0-9]+):;
-	my $nr = $1;
-	if ($nr > $deleted) {
-	  $need_wait++;
-	  last path;
-	}
-      }
-    }
-    last if !$need_wait;
+    my $deleted = get_link("$mars/todo-global/deleted-$real_host");
+    my ($min_nr, $delete_nr) = _get_delete_nr("$mars/todo-global");
+    last if $deleted >= $delete_nr;
     lprint "waiting for deletions to apply locally....\n";
     sleep_timeout();
   }
@@ -2485,9 +2545,15 @@ sub logdelete_res {
   my ($cmd, $res) = @_;
   lprint "removing left-over .deleted symlinks...\n" if $verbose;
   my $start_time = mars_time();
-  foreach my $leftlink (glob("$mars/{,resource-$res/}{,*/}{.deleted,delete-}-*")) {
+  foreach my $leftlink (glob("$mars/{,resource-$res/}{,*/}{.deleted,delete,work}-*")) {
     my $stamp = get_link_stamp($leftlink);
     next unless $stamp + 3600 * 24 < $start_time;
+    lprint "  unlink '$leftlink'\n" if $verbose;
+    unlink($leftlink);
+  }
+  foreach my $leftlink (glob("$mars/{,resource-$res/}actual-*/msg-*")) {
+    my $stamp = get_link_stamp($leftlink);
+    next unless $stamp + 3600 * 4 < $start_time;
     lprint "  unlink '$leftlink'\n" if $verbose;
     unlink($leftlink);
   }
@@ -5622,6 +5688,12 @@ marsadm [<global_options>] view[-<macroname>] [<resource_name> | all ]
   --delete-global
     Only for experts. Always use global deletes even when
     local ones would be possible.
+  --max-deletions=<number>
+    When your network or your firewall rules are defective over a
+    longer time, too many deletion links may accumulate at
+    /mars/todo-global/delete-* and sibling locations.
+    This limit is preventing overflow of the filesystem as well
+    as overloading the worker threads.
   --timeout=<seconds>
     Abort safety checks after timeout with an error.
     When giving 'all' as resource agument, this works for each
@@ -5635,6 +5707,10 @@ marsadm [<global_options>] view[-<macroname>] [<resource_name> | all ]
   --host=<hostname>
     Act as if the command was running on cluster node <hostname>.
     Warning! This is dangerous! First try --dry-run
+  --backup-dir=</absolute_path>
+    Only for experts.
+    Used by several special commands like merge-cluster, split-cluster
+    etc for creating backups of important data.
   --ip=<ip>
     Override the IP address stored in the symlink tree, as well as
     the default IP determined from the list of network interfaces.
@@ -5720,6 +5796,9 @@ foreach my $arg (@ARGV) {
   } elsif ($arg eq "--delete-global") {
     $delete_global++;
     next;
+  } elsif ($arg =~ m/--max-deletions\s*=\s*(-?[0-9]+)/) {
+    $max_deletions = $1;
+    next;
   } elsif ($arg =~ s/--verbose\s*=\s*(-?[0-9]+)/$1/) {
     $verbose = $arg;
     next;
@@ -5746,6 +5825,10 @@ foreach my $arg (@ARGV) {
       lwarn "thus something may fail or go wrong - use this at your risk!\n";
       $host = $arg;
     }
+    next;
+  } elsif ($arg =~ m/--backup-dir\s*=\s*(\/[^\s\\:;|<>]+)/) {
+    $backup_dir = $1;
+    system("mkdir -p $backup_dir") and ldie "Cannot create backup directory '$backup_dir'\n";
     next;
   } elsif ($arg =~ s/--ip\s*=\s*([0-9.:\[\]]+)/$1/) {
     $ip = $arg;

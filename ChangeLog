@@ -30,7 +30,7 @@ Example: mars0.3alpha*:
 
 Release Conventions / Branches / Tagnames
 -----------------------------------------
-	FLOW OF BUGFIXES: 0.1 -> 0.1b -> 0.2 -> ...
+	FLOW OF BUGFIXES: 0.1 -> 0.1a -> 0.1b -> 0.2 -> ...
 
 	mars0.1 series (stable):
 		 - Asynchronous replication.
@@ -39,6 +39,9 @@ Release Conventions / Branches / Tagnames
 		 - Unstable tagnames: light0.1beta%d.%d (obsolete)
 		 - Stable branch: mars0.1.y
 		 - Stable tagnames: mars0.1stable%02d
+
+	mars0.1a series:
+		 Internally for 1&1.
 
 	mars0.1b series (currently alpha):
 		 This is an _imtermediate_ series between 0.1 and 0.2.
@@ -283,7 +286,72 @@ mars0.1balpha0
 	  in particular at cron jobs.
 
 -----------------------------------
+Changelog for series 0.1a:
+	Internal branch for 1&1.
+	Based on 0.1balpha4. Merge 0.1.y stable branch.
+	Add only absolutely necessary features.
+	Receive mainly fixes.
+
+mars0.1abeta0
+	Forked off from 0.1balpha4.
+	Merge 0.1stable48 (in several intermediate steps).
+	Some infrastructure for version detection.
+	Backport of selected fixes from branch 0.1b.y.
+	Add marsadm split-cluster.
+
+-----------------------------------
+Changelog for series 0.1a:
+(you need to checkout branch mars0.1a.y to see any details)
+
+	Internal branch for 1&1.
+	Based on 0.1balpha4. Merge 0.1stable.
+	Add only absolutely necessary features.
+	Receive mainly fixes.
+
+mars0.1abeta1
+	* Merge mars0.1stable49.
+	* Several smaller fixes.
+
+mars0.1abeta0
+	Forked off from 0.1balpha4.
+	Merge 0.1stable48 (in several intermediate steps).
+	Some infrastructure for version detection.
+	Backport of selected fixes from branch 0.1b.y.
+	Add marsadm split-cluster.
+
+-----------------------------------
 Changelog for series 0.1:
+
+mars0.1stable49
+	* Backports of new marsadm commands merge-cluster and split-cluster.
+	  The new functionality is needed for background migration of resources.
+	  Please be aware that this branch has not been constructed for
+	  scalability in the dimension of #nodes, so don't merge too many
+	  nodes and use split-cluster after each background migration.
+	  Better scalability is / will be addressed at the 0.1a and 0.1b
+	  branches. However, currently they are not yet stable.
+	  No changes at the kernel module (besides some bug fixes);
+	  this is solely done at userspace level.
+	  The new userspace-level commands should have almost no intersection
+	  with (and therefore no impact onto) other parts of this well-proven
+	  stable branch.
+	* Backports of new wait-cluster implementation.
+	  This avoids irritating messages after split-cluster.
+
+mars0.1stable48
+	* Critical fix: DDOS-like attacks at the MARS ports (or similar caused
+	  by bugs / misbehaviour) are prevented by configurable limits
+	  /proc/sys/mars/handler_dent_limit and
+	  /proc/sys/mars/handler_limit .
+	* Critical safeguard: when the network is interruted for a long time
+	  while the log-rotate frequency is very high and a lot of resources
+	  (exceeding the official limits as documented) had been used, masses of
+	  deletion links may accumulate in /mars/todo/. First, already
+	  existing deletions to the same targets are reused now.
+	  Second, a maximum limit (of currently 512 entries)
+	  is enforced, and a warning is spit when too many deletions
+	  are accumulated over time.
+	* Minor fix: earlier detection of socket hangups.
 
 mars0.1stable47
 	* Critical fix: leave-cluster could lead to deadlocks, also

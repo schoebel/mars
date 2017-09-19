@@ -216,6 +216,7 @@ int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *addr,
 	sock = msock->s_socket;
 	CHECK_PTR(sock, done);
 	msock->s_alive = true;
+	msock->s_connected = false;
 
 	_set_socketopts(sock);
 
@@ -355,6 +356,7 @@ void mars_shutdown_socket(struct mars_socket *msock)
 			struct socket *sock = msock->s_socket;
 			if (likely(sock && cmpxchg(&msock->s_alive, true, false))) {
 				MARS_DBG("#%d shutdown socket %p\n", msock->s_debug_nr, sock);
+				msock->s_connected = false;
 				kernel_sock_shutdown(sock, SHUT_RDWR);
 			}
 			mars_put_socket(msock);
@@ -365,6 +367,7 @@ EXPORT_SYMBOL_GPL(mars_shutdown_socket);
 
 bool mars_socket_is_alive(struct mars_socket *msock)
 {
+	bool ok;
 	bool res = false;
 
 	if (!mars_net_is_alive)
@@ -374,6 +377,17 @@ bool mars_socket_is_alive(struct mars_socket *msock)
 	if (unlikely(atomic_read(&msock->s_count) <= 0)) {
 		MARS_ERR("#%d bad nesting on msock = %p sock = %p\n", msock->s_debug_nr, msock, msock->s_socket);
 		goto done;
+	}
+	ok = mars_get_socket(msock);
+	if (likely(ok)) {
+		struct socket *sock = msock->s_socket;
+		if (sock->state == SS_CONNECTED) {
+			msock->s_connected = true;
+		} else if (msock->s_connected) {
+			MARS_DBG("#%d remote side hangup %p sock = %p\n", msock->s_debug_nr, msock, msock->s_socket);
+			goto done;
+		}
+		mars_put_socket(msock);
 	}
 	res = true;
 done:
