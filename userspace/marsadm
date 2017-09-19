@@ -104,7 +104,7 @@ my $host = `uname -n` or ldie "cannot determine my network node name\n";
 chomp $host;
 check_id($host);
 my $real_host = $host;
-my $backup_dir = "$mars/backups";
+my $backup_dir = "$mars/backups-" . time();
 my $force = 0;
 my $timeout = -1;
 my $ip = "";
@@ -2145,7 +2145,7 @@ sub split_cluster {
   my $ips_backup = "$backup_dir/ips-backup";
   system("mkdir -p $ips_backup") and ldie "OOps";
   system("cp -a $mars/ips/* $ips_backup/");
-  my $safeguard_cmd = "(( \$(find $mars/ -name 'delete-*' | wc -l) == 0 ))";
+  my $safeguard_cmd = "(( \$(find $mars/ -name 'delete-*' | wc -l) <= \$(find $mars/ -name 'deleted-*' | wc -l) ))";
   foreach my $peer (glob("$ips_backup/ip-*")) {
     $peer =~ s:^$ips_backup/ip-::;
     ssh_cmd($peer, $ssh_probe);
@@ -2165,6 +2165,19 @@ sub split_cluster {
     next if $peer eq $host;
     rsync_cmd($peer, "--max-size=1 --update $ips_backup $peer:$backup_dir/");
   }
+
+  # Check symmetry
+  lprint "Checking symmetry of resource memberships...\n";
+  my $data_cmd = "ls -l $mars/resource-*/data-*";
+  my $standard = qx:$data_cmd:;
+  ldie "Cannot get local resource participants.\n" unless $standard;
+  foreach my $peer (@peers) {
+    next if $peer eq $host;
+    my $ssh_cmd = make_ssh_cmd($peer) . " '$data_cmd'";
+    my $compare = qx:$ssh_cmd:;
+    ldie "Asymmetric $mars/resource-*/data-* with peer $peer\n" unless $compare eq $standard;
+  }
+
   # delete all hosts everywhere
   lprint "Deleting all peers IPs everywhere...\n";
   foreach my $peer (@peers) {
@@ -2210,6 +2223,7 @@ sub leave_res_phase0 {
   check_not_primary(@_) unless $force;
   my $errors = 0;
   foreach my $tmp (glob("$mars/resource-$res/todo-$host/*")) {
+    next if $tmp =~ m:/delete:;
     my $status = get_link($tmp, 2);
     if ($status) {
       lwarn "switch '$tmp' is not off\n";
@@ -2435,6 +2449,12 @@ sub logdelete_res {
   foreach my $leftlink (glob("$mars/{,resource-$res/}{,*/}{.deleted,delete,work}-*")) {
     my $stamp = get_link_stamp($leftlink);
     next unless $stamp + 3600 * 24 < $start_time;
+    lprint "  unlink '$leftlink'\n" if $verbose;
+    unlink($leftlink);
+  }
+  foreach my $leftlink (glob("$mars/{,resource-$res/}actual-*/msg-*")) {
+    my $stamp = get_link_stamp($leftlink);
+    next unless $stamp + 3600 * 4 < $start_time;
     lprint "  unlink '$leftlink'\n" if $verbose;
     unlink($leftlink);
   }
