@@ -223,6 +223,10 @@ Changelog for series 0.1a:
 	Add only absolutely necessary features.
 	Receive mainly fixes.
 
+mars0.1abeta1
+	* Merge mars0.1stable49.
+	* Several smaller fixes.
+
 mars0.1abeta0
 	Forked off from 0.1balpha4.
 	Merge 0.1stable48 (in several intermediate steps).
