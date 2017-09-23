@@ -2169,6 +2169,7 @@ sub split_cluster {
     foreach my $peer (@peers) {
       print "--- peer $peer\n";
       my $cmd = "rm -f $mars/todo-global/delete* $mars/actual-*/msg-*connection-*; ";
+      $cmd .= "shopt -s nullglob; ";
       $cmd .= "for i in $mars/resource-*; do if ! [[ -e \$i/data-$peer ]] && ! [[ -e \$i/replay-$peer ]]; then rm -rf $backup_dir/\${i##*/}; mv \$i $backup_dir/; fi; done; ";
       $cmd .= "mkdir -p $mars/ips; ";
       my $sub_list = "{ for i in \$(ls $mars/resource-*/data-$peer | cut -d/ -f1-3 | sort -u); do (cd \$i; ls data-*); done; echo x-$peer; }";
