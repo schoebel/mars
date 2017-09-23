@@ -147,6 +147,18 @@ Changelog for series 0.1a:
 -----------------------------------
 Changelog for series 0.1:
 
+mars0.1stable50
+	* Major usability improvement (backport from 0.1a):
+	  marsadm shows number of replicas of each resource, out of total number
+	  of cluster members. Example: [2/4]
+	* Minor fix: automatically cleanup internal backups produced by the new
+	  merge-cluster / split-cluster after 1 week.
+	* Minor fix: also cleanup some new symlink types replicated through
+	  the network when running asymmetric clusters with mixed branches
+	  0.1 and 0.1a.
+	* Minor annoyance: silence split-cluster error message when no
+	  resources are present.
+
 mars0.1stable49
 	* Backports of new marsadm commands merge-cluster and split-cluster.
 	  The new functionality is needed for background migration of resources.

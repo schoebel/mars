@@ -98,7 +98,7 @@ sub lwarn {
 
 my $Id = '$Id$ ';
 my $user_version = 0.1;
-my $marsadm_version = 1.1; # some rough hint at newer features
+my $marsadm_version = 1.2; # some rough hint at newer features
 my $mars = "/mars";
 my $host = `uname -n` or ldie "cannot determine my network node name\n";
 chomp $host;
