@@ -99,7 +99,7 @@ sub lwarn {
 
 my $Id = '$Id$ ';
 my $user_version = 0.1;
-my $marsadm_version = 5; # some rough hint at newer features
+my $marsadm_version = 5.1; # some rough hint at newer features
 my $mars = "/mars";
 my $host = `uname -n` or ldie "cannot determine my network node name\n";
 chomp $host;
@@ -2265,6 +2265,7 @@ sub split_cluster {
     foreach my $peer (@peers) {
       print "--- peer $peer\n";
       my $cmd = "rm -f $mars/todo-global/delete* $mars/actual-*/msg-*connection-*; ";
+      $cmd .= "shopt -s nullglob; ";
       $cmd .= "for i in $mars/resource-*; do if ! [[ -e \$i/data-$peer ]] && ! [[ -e \$i/replay-$peer ]]; then rm -rf $backup_dir/\${i##*/}; mv \$i $backup_dir/; fi; done; ";
       $cmd .= "mkdir -p $mars/ips; ";
       my $sub_list = "{ for i in \$(ls $mars/resource-*/data-$peer | cut -d/ -f1-3 | sort -u); do (cd \$i; ls data-*); done; echo x-$peer; }";
@@ -2543,8 +2544,16 @@ sub delete_file_cmd {
 
 sub logdelete_res {
   my ($cmd, $res) = @_;
-  lprint "removing left-over .deleted symlinks...\n" if $verbose;
+  lprint "removing left-over data and symlinks...\n" if $verbose;
   my $start_time = mars_time();
+  # keep internal backups for 1 week
+  my $keep_backups = 24 * 7;
+  foreach my $leftlink (glob("$mars/backup*")) {
+    my $stamp = get_link_stamp($leftlink);
+    next unless $stamp + 3600 * $keep_backups < $start_time;
+    lprint "  unlink '$leftlink'\n" if $verbose;
+    system("rm -rf $leftlink");
+  }
   foreach my $leftlink (glob("$mars/{,resource-$res/}{,*/}{.deleted,delete,work}-*")) {
     my $stamp = get_link_stamp($leftlink);
     next unless $stamp + 3600 * 24 < $start_time;
