@@ -223,6 +223,9 @@ Changelog for series 0.1a:
 	Add only absolutely necessary features.
 	Receive mainly fixes.
 
+mars0.1abeta3
+	* Merge mars0.1stable51.
+
 mars0.1abeta2
 	* Merge mars0.1stable50.
 	* Silence annoying false-positive network interruption messages.
