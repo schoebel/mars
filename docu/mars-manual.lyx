@@ -1,7 +1,9 @@
-#LyX 2.1 created this file. For more info see http://www.lyx.org/
-\lyxformat 474
+#LyX 2.2 created this file. For more info see http://www.lyx.org/
+\lyxformat 508
 \begin_document
 \begin_header
+\save_transient_properties true
+\origin unavailable
 \textclass scrreprt
 \begin_preamble
 \usepackage[dvipsnames]{xcolor}
@@ -19,16 +21,16 @@ fixltx2e
 \language_package default
 \inputencoding auto
 \fontencoding global
-\font_roman default
-\font_sans default
-\font_typewriter default
-\font_math auto
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
 \font_default_family rmdefault
 \use_non_tex_fonts false
 \font_sc false
 \font_osf false
-\font_sf_scale 100
-\font_tt_scale 100
+\font_sf_scale 100 100
+\font_tt_scale 100 100
 \graphics default
 \default_output_format default
 \output_sync 0
@@ -140,7 +142,7 @@ tst@1und1.de
 \end_layout
 
 \begin_layout Date
-Version 0.1b-0.4
+Version 0.1b-0.12
 \end_layout
 
 \begin_layout Lowertitleback
@@ -291,6 +293,11 @@ width "100col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -353,6 +360,10 @@ big cluster
 scalability
 \series default
  could not be achieved:
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -506,6 +517,10 @@ should have
 \end_inset
 
 :
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -598,6 +613,10 @@ big cluster
  and sharding model at block lyer in a very flexible way.
  The following example shows only two servers from a pool consisting of
  hundreds or thousands of servers:
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -966,6 +985,10 @@ commodity
 \begin_layout Standard
 Here are some rough market prices for basic storage as determined around
  end of 2016 / start of 2017:
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -973,7 +996,7 @@ Here are some rough market prices for basic storage as determined around
 \align center
 \begin_inset Tabular
 <lyxtabular version="3" rows="6" columns="3">
-<features rotate="0" tabularvalignment="middle">
+<features tabularvalignment="middle">
 <column alignment="center" valignment="top">
 <column alignment="center" valignment="top">
 <column alignment="center" valignment="top">
@@ -1265,6 +1288,10 @@ In addition to basic storage prices, many further factors come into play
 \noun default
 \color inherit
  means with geo-redundancy):
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -1272,7 +1299,7 @@ In addition to basic storage prices, many further factors come into play
 \align center
 \begin_inset Tabular
 <lyxtabular version="3" rows="5" columns="5">
-<features rotate="0" tabularvalignment="middle">
+<features tabularvalignment="middle">
 <column alignment="center" valignment="top">
 <column alignment="center" valignment="top">
 <column alignment="center" valignment="top">
@@ -1858,6 +1885,10 @@ DRBD has a long history of successfully providing HA features to many users
 \begin_layout Standard
 The following table is a short guide to the most important cases where the
  decision is rather clear:
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -1865,7 +1896,7 @@ The following table is a short guide to the most important cases where the
 \align center
 \begin_inset Tabular
 <lyxtabular version="3" rows="6" columns="2">
-<features rotate="0" tabularvalignment="middle">
+<features tabularvalignment="middle">
 <column alignment="center" valignment="top">
 <column alignment="center" valignment="top">
 <row>
@@ -2067,7 +2098,7 @@ NFS
 \family typewriter
 glusterfs
 \family default
- (using 2 clients in both cases -- notice that 
+ (using 2 clients in both cases – notice that 
 \family typewriter
 glusterfs
 \family default
@@ -2206,7 +2237,7 @@ name "sec:Network-Bottlenecks"
 Behaviour of DRBD
 \begin_inset CommandInset label
 LatexCommand label
-name "sub:Behaviour-of-DRBD"
+name "subsec:Behaviour-of-DRBD"
 
 \end_inset
 
@@ -2253,6 +2284,10 @@ The effect has been demonstrated some years ago with DRBD version 8.3.13.
 \end_inset
 
 :
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -2738,7 +2773,7 @@ awkward
 Behaviour of MARS
 \begin_inset CommandInset label
 LatexCommand label
-name "sub:Behaviour-of-MARS"
+name "subsec:Behaviour-of-MARS"
 
 \end_inset
 
@@ -2747,6 +2782,10 @@ name "sub:Behaviour-of-MARS"
 
 \begin_layout Standard
 The behaviour of MARS in the above scenario:
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -2814,6 +2853,10 @@ heart
 \emph default
  of the difference between synchronous and asynchronous replication, we
  look at the following modified scenario:
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -3107,6 +3150,10 @@ reference "sec:Defending-Overflow"
 
 \begin_layout Standard
 Finally, here is yet another scenario where MARS can cope with the situation:
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -3414,7 +3461,7 @@ ion could remain hard.
  A possible way to overcome that may be re-reading section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Behaviour-of-MARS"
+reference "subsec:Behaviour-of-MARS"
 
 \end_inset
 
@@ -3683,7 +3730,7 @@ Dedicated disks for
 t from your data head movements.
  For best performance, attach that dedicated disk to your hardware RAID
  controller with BBU, building a separate RAID set (even if it consists
- only of a single disk -- notice that the 
+ only of a single disk – notice that the 
 \series bold
 hardware BBU
 \series default
@@ -4094,7 +4141,7 @@ should
 Setup your Cluster Nodes
 \begin_inset CommandInset label
 LatexCommand label
-name "sub:Setup-your-Cluster"
+name "subsec:Setup-your-Cluster"
 
 \end_inset
 
@@ -4638,7 +4685,7 @@ Keeping Resources Operational
 Logfile Rotation / Deletion
 \begin_inset CommandInset label
 LatexCommand label
-name "sub:Logfile-Rotation"
+name "subsec:Logfile-Rotation"
 
 \end_inset
 
@@ -4886,7 +4933,7 @@ intended
 Intended Switching / Planned Handover
 \begin_inset CommandInset label
 LatexCommand label
-name "sub:Intended-Switching"
+name "subsec:Intended-Switching"
 
 \end_inset
 
@@ -4911,7 +4958,7 @@ marsadm view mydata
  For scripting, use the macros from section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Predefined-Trivial-Macros"
+reference "subsec:Predefined-Trivial-Macros"
 
 \end_inset
 
@@ -5148,14 +5195,14 @@ primary --force
  (see sections 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Forced-Switching"
+reference "subsec:Forced-Switching"
 
 \end_inset
 
  and 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Split-Brain-Resolution"
+reference "subsec:Split-Brain-Resolution"
 
 \end_inset
 
@@ -5338,7 +5385,7 @@ A
  If one of the preconditions described in section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Operation-of-the"
+reference "subsec:Operation-of-the"
 
 \end_inset
 
@@ -5501,7 +5548,7 @@ view-replinfo
 Forced Switching
 \begin_inset CommandInset label
 LatexCommand label
-name "sub:Forced-Switching"
+name "subsec:Forced-Switching"
 
 \end_inset
 
@@ -5527,6 +5574,12 @@ last known
 
 \family typewriter
 marsadm pause-fetch mydata
+\family default
+
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_deeper
@@ -5600,7 +5653,7 @@ marsadm pause-fetch-global mydata
  instead (cf section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Operation-of-the"
+reference "subsec:Operation-of-the"
 
 \end_inset
 
@@ -5612,6 +5665,12 @@ reference "sub:Operation-of-the"
 
 \family typewriter
 marsadm primary mydata --force
+\family default
+
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_deeper
@@ -5636,6 +5695,12 @@ marsadm primary mydata --force
 
 \family typewriter
 marsadm resume-fetch mydata
+\family default
+
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_deeper
@@ -5703,7 +5768,7 @@ must
  resolve it ASAP (see section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Split-Brain-Resolution"
+reference "subsec:Split-Brain-Resolution"
 
 \end_inset
 
@@ -5805,7 +5870,7 @@ manual
  split-brain resolution as described in section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Split-Brain-Resolution"
+reference "subsec:Split-Brain-Resolution"
 
 \end_inset
 
@@ -5813,7 +5878,7 @@ reference "sub:Split-Brain-Resolution"
  section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Final-Destroy-of"
+reference "subsec:Final-Destroy-of"
 
 \end_inset
 
@@ -6028,7 +6093,7 @@ marsadm down
 Split Brain Resolution
 \begin_inset CommandInset label
 LatexCommand label
-name "sub:Split-Brain-Resolution"
+name "subsec:Split-Brain-Resolution"
 
 \end_inset
 
@@ -6094,7 +6159,7 @@ If you did not already switch your primary to the final destination determined
  in the previous step, do it now (see description in section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Forced-Switching"
+reference "subsec:Forced-Switching"
 
 \end_inset
 
@@ -6168,7 +6233,7 @@ reference "sec:The-Symlink-Tree"
  the method described in section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Final-Destroy-of"
+reference "subsec:Final-Destroy-of"
 
 \end_inset
 
@@ -6544,7 +6609,7 @@ one
  Even during emergency mode, see section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Emergency-Mode"
+reference "subsec:Emergency-Mode"
 
 \end_inset
 
@@ -6585,7 +6650,7 @@ marsadm view all
 Final Destruction of a Damaged Node
 \begin_inset CommandInset label
 LatexCommand label
-name "sub:Final-Destroy-of"
+name "subsec:Final-Destroy-of"
 
 \end_inset
 
@@ -6640,7 +6705,7 @@ If you did not already switch your primary to the final destination determined
  in the previous step, do it now (see description in section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Forced-Switching"
+reference "subsec:Forced-Switching"
 
 \end_inset
 
@@ -6653,6 +6718,10 @@ On a surviving node, but preferably
 not
 \emph default
  the new designated primary, give the following commands:
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_deeper
@@ -6766,7 +6835,7 @@ reference "chap:Alternative-De--and"
  and 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Cleanup-in-case"
+reference "subsec:Cleanup-in-case"
 
 \end_inset
 
@@ -6981,6 +7050,10 @@ internal
 \begin_layout Standard
 The general principle is an asynchronous 2-edge handshake protocol, which
  is used almost everywhere in MARS:
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -7589,7 +7662,7 @@ marsadm {pause,resume}-replay
  in section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Operation-of-the"
+reference "subsec:Operation-of-the"
 
 \end_inset
 
@@ -7811,6 +7884,10 @@ remembers
  the old state of remote nodes over long periods of time, while DRBD knows
  absolutely nothing about its peers in disconnected state.
  Sysadmins familiar with DRBD might find the following behaviour unusual:
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -7820,7 +7897,7 @@ remembers
 \size tiny
 \begin_inset Tabular
 <lyxtabular version="3" rows="6" columns="3">
-<features rotate="0" tabularvalignment="middle">
+<features tabularvalignment="middle">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="left" valignment="top" width="0pt">
@@ -8059,6 +8136,10 @@ communication automatically resumes
 \noindent
 If you intentionally want to switch over (and to produce a split brain as
  a side effect), the following variant must be used with MARS:
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -8068,7 +8149,7 @@ If you intentionally want to switch over (and to produce a split brain as
 \size tiny
 \begin_inset Tabular
 <lyxtabular version="3" rows="9" columns="3">
-<features rotate="0" tabularvalignment="middle">
+<features tabularvalignment="middle">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="left" valignment="top" width="0pt">
@@ -8656,7 +8737,7 @@ name "sec:The-Symlink-Tree"
  primitive macros described in section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Predefined-Trivial-Macros"
+reference "subsec:Predefined-Trivial-Macros"
 
 \end_inset
 
@@ -9238,7 +9319,7 @@ Dimensioning of
 /mars/
 \begin_inset CommandInset label
 LatexCommand label
-name "sub:Dimensioning-of-/mars/"
+name "subsec:Dimensioning-of-/mars/"
 
 \end_inset
 
@@ -9700,7 +9781,7 @@ emergency mode
  (see description below in section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Emergency-Mode"
+reference "subsec:Emergency-Mode"
 
 \end_inset
 
@@ -9862,7 +9943,7 @@ Only when
  runs short (cf subsection 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Dimensioning-of-/mars/"
+reference "subsec:Dimensioning-of-/mars/"
 
 \end_inset
 
@@ -10075,7 +10156,7 @@ incorrect
 Emergency Mode and its Resolution
 \begin_inset CommandInset label
 LatexCommand label
-name "sub:Emergency-Mode"
+name "subsec:Emergency-Mode"
 
 \end_inset
 
@@ -10508,7 +10589,7 @@ customizing
 Predefined Complex and High-Level Macros
 \begin_inset CommandInset label
 LatexCommand label
-name "sub:Predefined-Complex-and"
+name "subsec:Predefined-Complex-and"
 
 \end_inset
 
@@ -10531,7 +10612,7 @@ Notice: the definitions of predefined complex macros may be updated in the
  check it out from git, follow the instructions in section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Creating-your-own"
+reference "subsec:Creating-your-own"
 
 \end_inset
 
@@ -10577,6 +10658,10 @@ marsadm view mydata
  by informational lines such as progress bars whenever a sync or a fetch
  of logfiles is currently running.
  The status line has the following fields:
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_deeper
@@ -10813,7 +10898,7 @@ marsadm view-1and1
 Customization via your own macros (see section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Creating-your-own"
+reference "subsec:Creating-your-own"
 
 \end_inset
 
@@ -10904,6 +10989,10 @@ flags
 \end_inset
 
 :
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_deeper
@@ -11039,6 +11128,10 @@ integrity
 \emph default
  (by itself).
  What to do in such a case?
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_deeper
@@ -11144,6 +11237,10 @@ this one
  due to this error (which typically occurs extremely rarely, observed two
  times during 7 millions of operating hours on defective hardware), you
  need to take an operational decision between the following alternatives:
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_deeper
@@ -11332,6 +11429,10 @@ natural races
 , for example when new logfile data has been produced in parallel, or network
  propagation is very slow.
  Additional information is in brackets:
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_deeper
@@ -11428,7 +11529,7 @@ EmergencyMode
  See section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Emergency-Mode"
+reference "subsec:Emergency-Mode"
 
 \end_inset
 
@@ -11462,6 +11563,10 @@ diskstate-1and1
 replstate
 \family default
  Shows the status of the replication in the following order of precedence:
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_deeper
@@ -11548,6 +11653,10 @@ NotStarted
 \begin_layout Itemize
 When the current host is designated as a primary, the rest of the precedence
  list looks as follows:
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_deeper
@@ -11565,7 +11674,7 @@ EmergencyMode
 ) See section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Emergency-Mode"
+reference "subsec:Emergency-Mode"
 
 \end_inset
 
@@ -11616,6 +11725,10 @@ When the current host is
 not
 \emph default
  designated as a primary:
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_deeper
@@ -11771,6 +11884,10 @@ flags
  Each character is either a capital one, or the corresponding lowercase
  one, or a dash.
  The meaning is as follows:
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_deeper
@@ -12004,7 +12121,7 @@ should
 
 \begin_inset Tabular
 <lyxtabular version="3" rows="3" columns="3">
-<features rotate="0" tabularvalignment="middle">
+<features tabularvalignment="middle">
 <column alignment="center" valignment="top">
 <column alignment="center" valignment="top">
 <column alignment="center" valignment="top">
@@ -12300,7 +12417,7 @@ comminfo
 Predefined Primitive Macros
 \begin_inset CommandInset label
 LatexCommand label
-name "sub:Predefined-Trivial-Macros"
+name "subsec:Predefined-Trivial-Macros"
 
 \end_inset
 
@@ -12509,6 +12626,10 @@ get-resource-{fat,err,wrn}-count
 replay-code
 \family default
  Indicate the current state of logfile replay / recovery:
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_deeper
@@ -12589,7 +12710,7 @@ is-split-brain
  Shows whether split brain (see section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Split-Brain-Resolution"
+reference "subsec:Split-Brain-Resolution"
 
 \end_inset
 
@@ -12682,7 +12803,7 @@ always
  high-level explanation in section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Behaviour-of-MARS"
+reference "subsec:Behaviour-of-MARS"
 
 \end_inset
 
@@ -12698,7 +12819,7 @@ is-emergency
  Shows whether emergency mode (see section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Emergency-Mode"
+reference "subsec:Emergency-Mode"
 
 \end_inset
 
@@ -12974,7 +13095,7 @@ invalidate
 , or when the resource is in emergency mode (see section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Emergency-Mode"
+reference "subsec:Emergency-Mode"
 
 \end_inset
 
@@ -13842,7 +13963,7 @@ wait-{is,todo}-{attach,sync,fetch,replay,primary}-{on,off}
 Creating your own Macros
 \begin_inset CommandInset label
 LatexCommand label
-name "sub:Creating-your-own"
+name "subsec:Creating-your-own"
 
 \end_inset
 
@@ -14286,7 +14407,7 @@ Standard MARS State Inspection Macros
 These are already described in section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Predefined-Trivial-Macros"
+reference "subsec:Predefined-Trivial-Macros"
 
 \end_inset
 
@@ -16681,7 +16802,7 @@ The following table documents common options which work with (almost) any
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="10" columns="3">
-<features rotate="0" islongtable="true" longtabularalignment="left">
+<features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
@@ -16739,6 +16860,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -16783,6 +16909,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -16866,6 +16997,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -16910,6 +17046,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -16990,6 +17131,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -17034,6 +17180,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -17069,6 +17220,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -17113,6 +17269,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -17170,6 +17331,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -17214,6 +17380,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -17252,6 +17423,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -17296,6 +17472,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -17351,6 +17532,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -17395,6 +17581,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -17430,7 +17621,7 @@ local
 Use it only for final destruction of dead cluster nodes, see section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Final-Destroy-of"
+reference "subsec:Final-Destroy-of"
 
 \end_inset
 
@@ -17464,6 +17655,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -17508,6 +17704,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -17591,6 +17792,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -17635,6 +17841,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -17674,7 +17885,7 @@ name "sec:Cluster-Operations"
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="6" columns="3">
-<features rotate="0" islongtable="true" longtabularalignment="left">
+<features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
@@ -17732,6 +17943,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -17776,6 +17992,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -17792,7 +18013,7 @@ mkfs.ext4
 , see instructions in section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Setup-your-Cluster"
+reference "subsec:Setup-your-Cluster"
 
 \end_inset
 
@@ -17862,6 +18083,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -17925,6 +18151,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -17941,7 +18172,7 @@ mkfs.ext4
 , see instructions in section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Setup-your-Cluster"
+reference "subsec:Setup-your-Cluster"
 
 \end_inset
 
@@ -18019,6 +18250,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -18070,6 +18306,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -18330,7 +18571,7 @@ must
  obey the instructions in section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Setup-your-Cluster"
+reference "subsec:Setup-your-Cluster"
 
 \end_inset
 
@@ -18368,6 +18609,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -18412,6 +18658,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -18420,7 +18671,7 @@ status open
 See section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Waiting"
+reference "subsec:Waiting"
 
 \end_inset
 
@@ -18454,6 +18705,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -18498,6 +18754,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -18643,7 +18904,7 @@ really
 Resource Creation / Deletion / Modification
 \begin_inset CommandInset label
 LatexCommand label
-name "sub:Resource-Creation"
+name "subsec:Resource-Creation"
 
 \end_inset
 
@@ -18655,7 +18916,7 @@ name "sub:Resource-Creation"
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="6" columns="3">
-<features rotate="0" islongtable="true" longtabularalignment="left">
+<features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
@@ -18713,6 +18974,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -18833,6 +19099,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -18986,6 +19257,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -19087,6 +19363,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -19169,6 +19450,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -19232,6 +19518,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -19386,6 +19677,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -19449,6 +19745,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -19552,7 +19853,7 @@ murder
 \emph on
 really
 \emph default
- dead -- it is (theoretically) possible that they remain only 
+ dead – it is (theoretically) possible that they remain only 
 \emph on
 half
 \emph default
@@ -19704,6 +20005,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -19824,6 +20130,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -19832,7 +20143,7 @@ status open
 See section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Waiting"
+reference "subsec:Waiting"
 
 \end_inset
 
@@ -19858,7 +20169,7 @@ reference "sub:Waiting"
 Operation of the Resource
 \begin_inset CommandInset label
 LatexCommand label
-name "sub:Operation-of-the"
+name "subsec:Operation-of-the"
 
 \end_inset
 
@@ -19907,7 +20218,7 @@ all
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="42" columns="3">
-<features rotate="0" islongtable="true" longtabularalignment="left">
+<features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
@@ -19965,6 +20276,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -20028,6 +20344,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -20148,6 +20469,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -20211,6 +20537,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -20452,6 +20783,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -20515,6 +20851,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -20554,6 +20895,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -20617,6 +20963,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -20677,6 +21028,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -20740,6 +21096,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -20779,6 +21140,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -20842,6 +21208,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -20881,6 +21252,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -20944,6 +21320,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -20998,6 +21379,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -21061,6 +21447,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -21129,6 +21520,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -21192,6 +21588,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -21231,6 +21632,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -21294,6 +21700,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -21372,6 +21783,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -21435,6 +21851,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -21474,6 +21895,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -21537,6 +21963,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -21576,6 +22007,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -21639,6 +22075,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -21717,6 +22158,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -21780,6 +22226,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -21848,6 +22299,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -21911,6 +22367,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -21950,6 +22411,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -22013,6 +22479,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -22092,6 +22563,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -22155,6 +22631,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -22194,6 +22675,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -22257,6 +22743,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -22296,6 +22787,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -22359,6 +22855,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status collapsed
 
 \begin_layout Plain Layout
@@ -22402,6 +22903,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -22465,6 +22971,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -22533,6 +23044,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -22596,6 +23112,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -22701,6 +23222,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -22764,6 +23290,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -22803,6 +23334,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -22866,6 +23402,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -22905,6 +23446,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -22968,6 +23514,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -23028,6 +23579,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -23091,6 +23647,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -23130,6 +23691,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -23193,6 +23759,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -23261,6 +23832,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -23324,6 +23900,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -23375,6 +23956,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -23438,6 +24024,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -23547,6 +24138,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -23610,6 +24206,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -23816,7 +24417,7 @@ join-resource
 \series bold
 Forced switching
 \series default
-: by giving --force while 
+: by giving –force while 
 \family typewriter
 pause-fetch
 \family default
@@ -23850,7 +24451,7 @@ data loss
  to resolve the split brain (see section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Split-Brain-Resolution"
+reference "subsec:Split-Brain-Resolution"
 
 \end_inset
 
@@ -24036,7 +24637,7 @@ must
  
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Split-Brain-Resolution"
+reference "subsec:Split-Brain-Resolution"
 
 \end_inset
 
@@ -24070,7 +24671,7 @@ leave-resource
  method described in section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Split-Brain-Resolution"
+reference "subsec:Split-Brain-Resolution"
 
 \end_inset
 
@@ -24162,7 +24763,7 @@ pause-fetch
  See section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Forced-Switching"
+reference "subsec:Forced-Switching"
 
 \end_inset
 
@@ -24196,6 +24797,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -24259,6 +24865,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -24430,7 +25041,7 @@ primary
  See also section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Forced-Switching"
+reference "subsec:Forced-Switching"
 
 \end_inset
 
@@ -24522,6 +25133,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -24585,6 +25201,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -24593,7 +25214,7 @@ status open
 See section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Waiting"
+reference "subsec:Waiting"
 
 \end_inset
 
@@ -24656,6 +25277,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -24726,6 +25352,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -24825,6 +25456,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -24907,6 +25543,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -24973,7 +25614,7 @@ Logfile Operations
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="5" columns="3">
-<features rotate="0" islongtable="true" longtabularalignment="left">
+<features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
@@ -25031,6 +25672,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -25075,6 +25721,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -25125,6 +25776,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -25188,6 +25844,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -25277,6 +25938,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -25340,6 +26006,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -25399,6 +26070,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -25462,6 +26138,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -25502,7 +26183,7 @@ Consistency Operations
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="4" columns="3">
-<features rotate="0" islongtable="true" longtabularalignment="left">
+<features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
@@ -25560,6 +26241,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -25623,6 +26309,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -25661,7 +26352,7 @@ join-resource
  method described in section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Split-Brain-Resolution"
+reference "subsec:Split-Brain-Resolution"
 
 \end_inset
 
@@ -25709,6 +26400,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -25772,6 +26468,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -25858,6 +26559,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -25902,6 +26608,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -25958,7 +26669,7 @@ Inspection Commands
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="14" columns="3">
-<features rotate="0" islongtable="true" longtabularalignment="left">
+<features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
@@ -26016,6 +26727,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -26083,6 +26799,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -26126,6 +26847,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -26189,6 +26915,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -26228,6 +26959,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -26291,6 +27027,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -26331,6 +27072,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -26394,6 +27140,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -26434,6 +27185,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -26497,6 +27253,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -26537,6 +27298,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -26600,6 +27366,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -26640,6 +27411,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -26703,6 +27479,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -26772,6 +27553,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -26837,6 +27623,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -26878,6 +27669,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -26941,6 +27737,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -26982,6 +27783,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -27045,6 +27851,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -27082,6 +27893,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -27145,6 +27961,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -27189,6 +28010,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -27252,6 +28078,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -27284,7 +28115,7 @@ marsadm cat /mars/5.total.log
 Setting Parameters
 \begin_inset CommandInset label
 LatexCommand label
-name "sub:Setting-Parameters"
+name "subsec:Setting-Parameters"
 
 \end_inset
 
@@ -27300,7 +28131,7 @@ Per-Resource Parameters
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="4" columns="3">
-<features rotate="0" islongtable="true" longtabularalignment="left">
+<features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
@@ -27358,6 +28189,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -27404,6 +28240,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -27461,6 +28302,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -27505,6 +28351,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -27566,7 +28417,7 @@ Global Parameters
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="6" columns="3">
-<features rotate="0" islongtable="true" longtabularalignment="left">
+<features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
@@ -27624,6 +28475,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -27670,6 +28526,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -27706,6 +28567,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -27750,6 +28616,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -27785,6 +28656,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -27829,6 +28705,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -27866,6 +28747,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -27910,6 +28796,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -27966,7 +28857,7 @@ Inquiry of the preceding value.
 Waiting
 \begin_inset CommandInset label
 LatexCommand label
-name "sub:Waiting"
+name "subsec:Waiting"
 
 \end_inset
 
@@ -27978,7 +28869,7 @@ name "sub:Waiting"
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="5" columns="3">
-<features rotate="0" islongtable="true" longtabularalignment="left">
+<features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
@@ -28036,6 +28927,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -28080,6 +28976,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -28156,6 +29057,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -28276,6 +29182,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -28367,6 +29278,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -28430,6 +29346,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -28477,6 +29398,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -28540,6 +29466,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -28590,7 +29521,7 @@ These commands are for experts and advanced sysadmins only.
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="4" columns="3">
-<features rotate="0" islongtable="true" longtabularalignment="left">
+<features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
@@ -28648,6 +29579,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -28692,6 +29628,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -28727,6 +29668,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -28771,6 +29717,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -28806,6 +29757,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -28850,6 +29806,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -28887,7 +29848,7 @@ de operations on IP addresses may need to be repeated at all hosts in the
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="4" columns="3">
-<features rotate="0" islongtable="true" longtabularalignment="left">
+<features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
@@ -28945,6 +29906,11 @@ width "30col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -28989,6 +29955,11 @@ width "50col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -29029,6 +30000,11 @@ width "30col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -29111,6 +30087,11 @@ width "50col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -29161,6 +30142,11 @@ width "30col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -29224,6 +30210,11 @@ width "50col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -29262,7 +30253,7 @@ Senseless Commands (from DRBD)
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="11" columns="3">
-<features rotate="0" islongtable="true" longtabularalignment="left">
+<features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
@@ -29320,6 +30311,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -29376,6 +30372,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -29432,6 +30433,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -29488,6 +30494,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -29544,6 +30555,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -29600,6 +30616,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -29656,6 +30677,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -29712,6 +30738,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -29768,6 +30799,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -29812,6 +30848,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -29847,6 +30888,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -29905,7 +30951,7 @@ These commands are not implemented because they would be dangerous in MARS
 \size scriptsize
 \begin_inset Tabular
 <lyxtabular version="3" rows="3" columns="3">
-<features rotate="0" islongtable="true" longtabularalignment="left">
+<features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
 <column alignment="left" valignment="top" width="0pt">
@@ -29963,6 +31009,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -30007,6 +31058,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -30047,6 +31103,11 @@ width "20col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -30091,6 +31152,11 @@ width "60col%"
 special "none"
 height "1in"
 height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
@@ -30240,6 +31306,10 @@ single
  In order to compensate highly varying load at the line, all the experiments
  were repeated more than 10 times and averaged.
  Each bar shows the throughput for a particular socket parallelism.
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -30297,6 +31367,10 @@ punish
  those traffic sources disproportionally increasing overall packet loss.
  This can explain the even higher counter-productive effect of using too
  much sockets and thus injecting additional packet loss:
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -30834,6 +31908,10 @@ shared-disk
 PaceMaker
 \family default
 :
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -30888,6 +31966,10 @@ Both DRBD and MARS belong to a different architectural model called
 shared-nothing
 \series default
 :
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -31025,7 +32107,7 @@ appropriate
  As explained in section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Special-Requirements-for"
+reference "subsec:Special-Requirements-for"
 
 \end_inset
 
@@ -31245,6 +32327,10 @@ need
 subsets of clusters
 \emph default
 :
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -31438,7 +32524,7 @@ Methods and their Appropriateness
 Failover Methods
 \begin_inset CommandInset label
 LatexCommand label
-name "sub:Failover-Methods"
+name "subsec:Failover-Methods"
 
 \end_inset
 
@@ -32356,6 +33442,10 @@ This means
 fencing from application traffic
 \series default
 , and can be used as an alternative to STONITH when done properly.
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -32393,6 +33483,10 @@ only
 should not care about
 \emph default
  any split brain occurring at the low-level generic block device:
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -32439,6 +33533,10 @@ wrong
 \end_inset
 
  side as defined by yourself:
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -32666,6 +33764,10 @@ before
 \end_inset
 
 :
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_deeper
@@ -32872,7 +33974,7 @@ Instead, forcefully switch to the new side A, similar to the methods described
  in section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Failover-Methods"
+reference "subsec:Failover-Methods"
 
 \end_inset
 
@@ -32911,7 +34013,7 @@ implement
 Special Requirements for Long Distances
 \begin_inset CommandInset label
 LatexCommand label
-name "sub:Special-Requirements-for"
+name "subsec:Special-Requirements-for"
 
 \end_inset
 
@@ -34343,6 +35445,10 @@ netstat --tcp | grep 7777
 \family default
  does not show anything.
  Please check the following:
+\begin_inset Separator latexpar
+\end_inset
+
+
 \end_layout
 
 \begin_deeper
@@ -35515,7 +36621,7 @@ surviving
 Cleanup in case of Complicated Cascading Failures
 \begin_inset CommandInset label
 LatexCommand label
-name "sub:Cleanup-in-case"
+name "subsec:Cleanup-in-case"
 
 \end_inset
 
@@ -35532,14 +36638,14 @@ rolling disasters
  Chances are high that the instructions from sections 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Split-Brain-Resolution"
+reference "subsec:Split-Brain-Resolution"
 
 \end_inset
 
  
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Final-Destroy-of"
+reference "subsec:Final-Destroy-of"
 
 \end_inset
 
@@ -35777,7 +36883,7 @@ If your old
  to the final destination, do it now (see description in section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "sub:Forced-Switching"
+reference "subsec:Forced-Switching"
 
 \end_inset
 
