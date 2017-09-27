@@ -4787,6 +4787,34 @@ marsadm disconnect $res
 \family default
 ) will freeze the space reclamation in the whole cluster when the pause
  is lasting very long.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ During such space accumulation, also the number of so-called deletions
+ will accumulate in /mars/todo-global/ and sibling directories.
+ In very big installations consisting of thousands of nodes, it is a good
+ idea to regularly monitor the number of deletions similarly to the following:
+ 
+\family typewriter
+$(find /mars/ -name 
+\begin_inset Quotes eld
+\end_inset
+
+delete-*
+\begin_inset Quotes erd
+\end_inset
+
+ | wc -l)
+\family default
+ should not exceed a limit of ~150 entries.
 \end_layout
 
 \begin_layout Standard
