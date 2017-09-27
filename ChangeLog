@@ -308,6 +308,9 @@ Changelog for series 0.1a:
 	Add only absolutely necessary features.
 	Receive mainly fixes.
 
+mars0.1abeta3
+	* Merge mars0.1stable51.
+
 mars0.1abeta2
 	* Merge mars0.1stable50.
 	* Silence annoying false-positive network interruption messages.
@@ -325,6 +328,21 @@ mars0.1abeta0
 
 -----------------------------------
 Changelog for series 0.1:
+
+mars0.1stable51
+	* Minor fix: don't abort log-delete-all too early when there
+	  are holes in the deletion sequence numbers.
+	* Backport of marsadm cron from branch 0.1a, in order to systematically
+	  support mixed operation of different MARS versions in bigger installations
+	  (avoid confusion at junior sysadmins and at monitoring staff).
+	* Rectified the semantics of log-delete, which now does the same as
+	  log-delete-all. Single deletion is only needed for testing, and
+	  has been renamed to log-delete-one.
+	  Leaving the old semantics would have been an operational risk
+	  when junior sysadmins or 24/7 surveillance people are not carefully
+	  looking at the details of semantics. Now everything is hopefully
+	  as everybody not familiar with MARS would naively assume.
+	* Doc update.
 
 mars0.1stable50
 	* Major usability improvement (backport from 0.1a):

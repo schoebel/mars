@@ -99,7 +99,7 @@ sub lwarn {
 
 my $Id = '$Id$ ';
 my $user_version = 0.1;
-my $marsadm_version = 5.1; # some rough hint at newer features
+my $marsadm_version = 5.3; # some rough hint at newer features
 my $mars = "/mars";
 my $host = `uname -n` or ldie "cannot determine my network node name\n";
 chomp $host;
@@ -2447,7 +2447,8 @@ sub _get_delete_nr {
     $min_nr = $1 if (defined($1) && ($1 < $min_nr || !$min_nr));
     $max_nr = $1 if (defined($1) && $1 > $max_nr);
   }
-  foreach my $path (glob("$basedir/delete-*")) {
+  my @deletes = glob("$basedir/delete-*");
+  foreach my $path (@deletes) {
     $path =~ m:/delete-0*([0-9]+):;
     $max_nr = $1 if (defined($1) && $1 > $max_nr);
   }
@@ -2458,7 +2459,9 @@ sub _get_delete_nr {
     lwarn "Probably your networking / your firewall rules / another setup problem is causing this, and your monitoring does not notice it.\n";
     lwarn "Please fix it.\n";
     lwarn "When necessary, remove $basedir/delete-* link by hand.\n";
-    if ($nr_links > $max_deletions) {
+    # There might be holes in the sequence numbers of delete-* links.
+    # Don't account for them when it comes to aborts.
+    if (scalar(@deletes) > $max_deletions) {
       lwarn "URGENT: please fix it.\n";
       ldie "Aborting for safety reasons\n" unless $force;
     }
@@ -2575,7 +2578,7 @@ sub logdelete_res {
     lprint "no logfiles are deletable.\n" if $verbose;
     return;
   }
-  if ($cmd ne "log-delete-all") {
+  if ($cmd eq "log-delete-one") {
     $max_deletable = $min_deletable + 1; # delete only the first one
   }
 
@@ -5129,7 +5132,7 @@ my %cmd_table =
        "For details and best practices, please refer to the PDF manual.",
        \&logrotate_res,
       ],
-   "log-delete"
+   "log-delete-one"
    => [
        "When possible, globally delete at most one old transaction logfile",
        "which is known to be superfluous, i.e. all secondaries no longer",
@@ -5139,7 +5142,7 @@ my %cmd_table =
        "or log-delete-all.",
        \&logdelete_res,
       ],
-   "log-delete-all"
+   "log-delete"
    => [
        "When possible, globally delete all old transaction logfiles which",
        "are known to be superflous, i.e. all secondaries no longer need",
@@ -5148,6 +5151,11 @@ my %cmd_table =
        "to prevent overflow of the /mars/ directory.",
        "For regular maintainance cron jobs, please prefer 'marsadm cron'.",
        "For details and best practices, please refer to the PDF manual.",
+       \&logdelete_res,
+      ],
+   "log-delete-all"
+   => [
+       "Alias for log-delete",
        \&logdelete_res,
       ],
    "cron"
