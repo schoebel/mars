@@ -2327,7 +2327,8 @@ sub _get_delete_nr {
     $min_nr = $1 if (defined($1) && ($1 < $min_nr || !$min_nr));
     $max_nr = $1 if (defined($1) && $1 > $max_nr);
   }
-  foreach my $path (glob("$basedir/delete-*")) {
+  my @deletes = glob("$basedir/delete-*");
+  foreach my $path (@deletes) {
     $path =~ m:/delete-0*([0-9]+):;
     $max_nr = $1 if (defined($1) && $1 > $max_nr);
   }
@@ -2338,7 +2339,9 @@ sub _get_delete_nr {
     lwarn "Probably your networking / your firewall rules / another setup problem is causing this, and your monitoring does not notice it.\n";
     lwarn "Please fix it.\n";
     lwarn "When necessary, remove $basedir/delete-* link by hand.\n";
-    if ($nr_links > $max_deletions) {
+    # There might be holes in the sequence numbers of delete-* links.
+    # Don't account for them when it comes to aborts.
+    if (scalar(@deletes) > $max_deletions) {
       lwarn "URGENT: please fix it.\n";
       ldie "Aborting for safety reasons\n" unless $force;
     }
