@@ -25641,7 +25641,7 @@ Logfile Operations
 
 \size scriptsize
 \begin_inset Tabular
-<lyxtabular version="3" rows="5" columns="3">
+<lyxtabular version="3" rows="6" columns="3">
 <features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
@@ -26054,6 +26054,133 @@ $res
 \begin_layout Plain Layout
 
 \size scriptsize
+Postcondition: when there exists some old transaction logfiles 
+\family typewriter
+/mars/resource-$res/log-*-$some_host
+\family default
+ which are no longer referenced by any of the symlinks 
+\family typewriter
+/mars/resource-$res/replay-*
+\family default
+ , those logfiles are marked for deletion in the whole cluster.
+ When no such logfiles exist, nothing will happen.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+log-delete-one
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$res
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Precondition: the local node must be a member of 
+\family typewriter
+$res
+\family default
+.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
 Postcondition: when there exists an old transaction logfile 
 \family typewriter
 /mars/resource-$res/log-$old_nr-$some_host
@@ -26176,15 +26303,11 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Like 
+Alias for 
 \family typewriter
 log-delete
 \family default
-, but mark 
-\emph on
-all
-\emph default
- currently unreferenced logfiles for deletion.
+.
 \end_layout
 
 \end_inset
