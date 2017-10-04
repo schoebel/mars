@@ -2437,11 +2437,12 @@ sub _get_deletable_logfiles {
 my %delete_nrs;
 
 sub _get_delete_nr {
-  my ($basedir) = @_;
+  my ($basedir, $peer) = @_;
+  $peer = "*" unless defined($peer);
   return @{$delete_nrs{$basedir}} if defined($delete_nrs{$basedir});
   my $min_nr = 0;
   my $max_nr = 0;
-  foreach my $path (glob("$basedir/deleted-*")) {
+  foreach my $path (glob("$basedir/deleted-$peer")) {
     my $link = get_link($path, 1);
     $link =~ m/0*([0-9]+)/;
     $min_nr = $1 if (defined($1) && ($1 < $min_nr || !$min_nr));
@@ -2528,11 +2529,19 @@ sub _create_delete {
 sub _wait_delete {
   return if $dry_run;
   for (;;) {
-    my $deleted = get_link("$mars/todo-global/deleted-$real_host");
-    my ($min_nr, $delete_nr) = _get_delete_nr("$mars/todo-global");
-    last if $deleted >= $delete_nr;
+    my $wait = 0;
+    my $deleted = get_link("$mars/todo-global/deleted-$real_host", 1);
+    my ($min_nr, $delete_nr) = _get_delete_nr("$mars/todo-global", $real_host);
+    $wait++ if $deleted < $delete_nr;
+    foreach my $local_dir (glob("$mars/resource-*/todo-$real_host")) {
+      my $deleted = get_link("$local_dir/deleted-$real_host", 1);
+      my ($min_nr, $delete_nr) = _get_delete_nr($local_dir, $real_host);
+      $wait++ if $deleted < $delete_nr;
+    }
+    last if !$wait;
     lprint "waiting for deletions to apply locally....\n";
     sleep_timeout();
+    %delete_nrs = ();
   }
 }
 
