@@ -133,6 +133,12 @@ Changelog for series 0.2:
 -----------------------------------
 Changelog for series 0.1b:
 
+mars0.1balpha11
+--------
+	* Minor fix: deletions special case.
+	* Merge fixes from branches mars0.1.y and mars0.1a.y
+	  (0.1stable51 and 0.1abeta3)
+
 mars0.1balpha10
 --------
 	* Even better scalability.
