@@ -5616,14 +5616,22 @@ static int _main_thread(void *data)
 
         while (_global.global_power.button || !list_empty(&_global.brick_anchor)) {
 		int status;
+		loff_t memlimit;
 
 		MARS_DBG("-------- NEW ROUND %d ---------\n", atomic_read(&server_handler_count));
 
+		/* Static memlimit */
 		if (mars_mem_percent < 0)
 			mars_mem_percent = 0;
 		if (mars_mem_percent > 70)
 			mars_mem_percent = 70;
-		brick_global_memlimit = (long long)brick_global_memavail * mars_mem_percent / 100;
+		memlimit = (long long)brick_global_memavail * mars_mem_percent / 100;
+		/* Dynamic memlimit when /mars is becoming full */
+		if (memlimit > global_remaining_space / 4)
+			memlimit = global_remaining_space / 4;
+		if (memlimit < 4)
+			memlimit = 4;
+		brick_global_memlimit = memlimit;
 
 		brick_msleep(100);
 
