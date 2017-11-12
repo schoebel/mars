@@ -35,6 +35,8 @@ my $threshold = 10 * 1024 * 1024;
 my $window = 30;
 my $verbose = 0;
 my $max_deletions = 512;
+my $thresh_logfiles = 10;
+my $thresh_logsize = 5; # GB
 my $dry_run = 0;
 my @MARS_PATH = $ENV{MARS_PATH} ?
   split(/:/, $ENV{MARS_PATH}) :
@@ -2289,6 +2291,18 @@ sub logrotate_res {
   if (-z $last) {
     lprint "an empty logfile '$last' already exists, nothing to do.\n" if $verbose;
     return;
+  }
+  # prevent too many small logfiles when secondaries are not catching up
+  if (scalar(@paths) >= $thresh_logfiles) {
+    my @stat = stat($last);
+    my $size = 0;
+    if (@stat) {
+      $size = $stat[7] / (1000 * 1000 * 1000);
+    }
+    if ($size < $thresh_logsize) {
+      lprint "current logfile '$last' is smaller than $thresh_logsize GB, skipping logrotate.\n" if $verbose;
+      return;
+    }
   }
   my $nr = $last;
   $nr =~ s/^.*log-([0-9]+)-.+$/$1/;
@@ -5498,6 +5512,12 @@ marsadm [<global_options>] view[-<macroname>] [<resource_name> | all ]
     /mars/todo-global/delete-* and sibling locations.
     This limit is preventing overflow of the filesystem as well
     as overloading the worker threads.
+  --thresh-logfiles=<number>
+  --thresh-logsize=<number>
+    Prevention of too many small logfiles when secondaries are not
+    catching up. When more than thresh-logfiles are already present,
+    the next one is only created when the last one has at least
+    size thresh-logsize (in units of GB).
   --timeout=<seconds>
     Abort safety checks after timeout with an error.
     When giving 'all' as resource agument, this works for each
@@ -5598,6 +5618,12 @@ foreach my $arg (@ARGV) {
     next;
   } elsif ($arg =~ m/--max-deletions\s*=\s*(-?[0-9]+)/) {
     $max_deletions = $1;
+    next;
+  } elsif ($arg =~ m/--thresh-logfiles\s*=\s*([0-9]+)/) {
+    $thresh_logfiles = $1;
+    next;
+  } elsif ($arg =~ m/--thresh-logsize\s*=\s*([0-9]+)/) {
+    $thresh_logsize = $1;
     next;
   } elsif ($arg =~ s/--verbose\s*=\s*(-?[0-9]+)/$1/) {
     $verbose = $arg;
