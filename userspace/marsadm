@@ -255,12 +255,6 @@ sub to_tmp {
   return $path;
 }
 
-sub from_tmp {
-  my $path = shift;
-  $path =~ s:^(.*)/\.tmp\.:$1/:;
-  return $path;
-}
-
 sub set_link {
   my ($src, $dst) = @_;
   my $dst_tmp = to_tmp($dst);
