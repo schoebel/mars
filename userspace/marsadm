@@ -2428,7 +2428,7 @@ sub logdelete_res {
     lprint "  unlink '$leftlink'\n" if $verbose;
     system("rm -rf $leftlink");
   }
-  foreach my $leftlink (glob("$mars/{,resource-$res/}{,*/}{.deleted,delete,work}-*")) {
+  foreach my $leftlink (glob("$mars/{,resource-$res/}{,*/}{.tmp,.deleted,delete,work}-*")) {
     my $stamp = get_link_stamp($leftlink);
     next unless $stamp + 3600 * 24 < $start_time;
     lprint "  unlink '$leftlink'\n" if $verbose;
