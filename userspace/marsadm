@@ -2450,6 +2450,11 @@ sub logdelete_res {
     unlink($leftlink);
   }
   foreach my $leftlink (glob("$mars/{,resource-$res/}actual-*/msg-*")) {
+    if ($leftlink =~ m:/msg-conncetion-from-:) {
+      lprint "  unlink deprecated '$leftlink'\n" if $verbose;
+      unlink($leftlink);
+      next;
+    }
     my $stamp = get_link_stamp($leftlink);
     next unless $stamp + 3600 * 4 < $start_time;
     lprint "  unlink '$leftlink'\n" if $verbose;
