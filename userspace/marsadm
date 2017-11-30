@@ -108,6 +108,7 @@ check_id($host);
 my $real_host = $host;
 my $backup_dir = "$mars/backups-" . time();
 my $force = 0;
+my $cron_mode = 0;
 my $timeout = -1;
 my $ip = "";
 my $ssh_port = 22;
@@ -2364,7 +2365,7 @@ sub _get_delete_nr {
     # Don't account for them when it comes to aborts.
     if (scalar(@deletes) > $max_deletions) {
       lwarn "URGENT: please fix it.\n";
-      ldie "Aborting for safety reasons\n" unless $force;
+      ldie "Aborting for safety reasons\n" if $cron_mode && !$force;
     }
   }
   $delete_nrs{$basedir} = [$min_nr, $max_nr];
@@ -2491,6 +2492,7 @@ sub logdelete_res {
 
 sub cron_res {
   my ($cmd, $res) = @_;
+  $cron_mode = 1;
   logrotate_res(@_);
   finish_links();
   sleep(5);
