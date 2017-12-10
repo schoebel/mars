@@ -3025,6 +3025,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	const char *parent_path;
 	const char *replay_path = NULL;
 	const char *aio_path = NULL;
+	loff_t logrot_limit;
 	bool switch_on;
 	int status = 0;
 
@@ -3203,9 +3204,14 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	}
 	MARS_DBG("logfile '%s' size = %lld\n", aio_path, rot->aio_info.current_size);
 
+	logrot_limit = raw_total_space / (1024ll * 1024 / 32);
+	if (logrot_limit <= 0)
+		logrot_limit = 1;
+	if (logrot_limit > global_logrot_auto)
+		logrot_limit = global_logrot_auto;
 	if (rot->is_primary &&
-	    global_logrot_auto > 0 &&
-	    unlikely(rot->aio_info.current_size >= (loff_t)global_logrot_auto * 1024 * 1024 * 1024)) {
+	    logrot_limit > 0 &&
+	    unlikely(rot->aio_info.current_size >= logrot_limit * 1024 * 1024 * 1024)) {
 		char *new_path = path_make("%s/log-%09d-%s", parent_path, aio_dent->d_serial + 1, my_id());
 		if (likely(new_path && !mars_find_dent(global, new_path))) {
 			MARS_INF("old logfile size = %lld, creating new logfile '%s'\n", rot->aio_info.current_size, new_path);
@@ -6051,14 +6057,23 @@ static int _main_thread(void *data)
         while (_global.global_power.button || !list_empty(&_global.brick_anchor)) {
 		struct list_head *tmp;
 		int status;
+		loff_t memlimit;
 
 		MARS_DBG("-------- NEW ROUND %d ---------\n", atomic_read(&server_handler_count));
 
+		/* Static memlimit */
 		if (mars_mem_percent < 0)
 			mars_mem_percent = 0;
 		if (mars_mem_percent > 70)
 			mars_mem_percent = 70;
-		brick_global_memlimit = (long long)brick_global_memavail * mars_mem_percent / 100;
+		memlimit = (long long)brick_global_memavail * mars_mem_percent / 100;
+		/* Dynamic memlimit when /mars is becoming full */
+		if (memlimit > global_remaining_space / 4)
+			memlimit = global_remaining_space / 4;
+		if (memlimit < 4)
+			memlimit = 4;
+		brick_global_memlimit = memlimit;
+
 		_global_sync_nr = 0;
 
 		brick_msleep(100);
