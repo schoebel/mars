@@ -300,6 +300,7 @@ void _complete(struct aio_output *output, struct aio_mref_aspect *mref_a, int er
 
 done:
 	if (mref->ref_rw) {
+		mf_dirty_append(output->mf, DIRTY_FINISHED, mref->ref_pos + mref->ref_len);
 		atomic_dec(&output->write_count);
 	} else {
 		atomic_dec(&output->read_count);
@@ -693,6 +694,8 @@ static int aio_event_thread(void *data)
 			MARS_IO("AIO done %p pos = %lld len = %d rw = %d\n", mref, mref->ref_pos, mref->ref_len, mref->ref_rw);
 
 			mapfree_set(output->mf, mref->ref_pos, mref->ref_pos + mref->ref_len);
+			if (mref->ref_rw)
+				mf_dirty_append(output->mf, DIRTY_COMPLETED, mref->ref_pos + mref->ref_len);
 
 			if (output->brick->o_fdsync
 			   && err >= 0 
@@ -917,6 +920,7 @@ static int aio_submit_thread(void *data)
 
 		mref_a->di.dirty_stage = 0;
 		if (mref->ref_rw) {
+			mf_dirty_append(output->mf, DIRTY_SUBMITTED, mref->ref_pos + mref->ref_len);
 			mf_insert_dirty(output->mf, &mref_a->di);
 		}
 

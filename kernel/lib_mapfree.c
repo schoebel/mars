@@ -154,6 +154,8 @@ struct mapfree_info *mapfree_get(const char *name, int flags)
 	for (;;) {
 		struct address_space *mapping;
 		struct inode *inode;
+		loff_t length;
+		int i;
 		int ra = 1;
 		int prot = 0600;
 		mm_segment_t oldfs;
@@ -205,7 +207,12 @@ struct mapfree_info *mapfree_get(const char *name, int flags)
 
 		mapping_set_gfp_mask(mapping, mapping_gfp_mask(mapping) & ~(__GFP_IO | __GFP_FS));
 
-		mf->mf_max = i_size_read(inode);
+		length = i_size_read(inode);
+		mf->mf_max = length;
+		for (i = 0; i < DIRTY_MAX; i++) {
+			rwlock_init(&mf->mf_length[i].dl_lock);
+			mf->mf_length[i].dl_length = length;
+		}
 
 		if (S_ISBLK(inode->i_mode)) {
 			MARS_INF("changing blkdev readahead from %lu to %d\n", inode->i_bdev->bd_disk->queue->backing_dev_info.ra_pages, ra);
@@ -293,6 +300,54 @@ int mapfree_thread(void *data)
 		mapfree_put(mf);
 	}
 	return 0;
+}
+
+////////////////// dirty IOs in append mode  //////////////////
+
+static
+struct dirty_length *_get_dl(struct mapfree_info *mf, enum dirty_stage stage)
+{
+#ifdef MARS_DEBUGGING
+	if (unlikely(stage < 0)) {
+		MARS_ERR("bad stage=%d\n", stage);
+		stage = 0;
+	}
+	if (unlikely(stage >= DIRTY_MAX)) {
+		MARS_ERR("bad stage=%d\n", stage);
+		stage = DIRTY_MAX - 1;
+	}
+#endif
+	return &mf->mf_length[stage];
+}
+
+void mf_dirty_append(struct mapfree_info *mf, enum dirty_stage stage, loff_t newlen)
+{
+	struct dirty_length *dl = _get_dl(mf, stage);
+	unsigned long flags;
+
+	traced_writelock(&dl->dl_lock, flags);
+	if (dl->dl_length < newlen)
+		dl->dl_length = newlen;
+	traced_writeunlock(&dl->dl_lock, flags);
+}
+
+loff_t mf_dirty_length(struct mapfree_info *mf, enum dirty_stage stage)
+{
+	struct dirty_length *dl = _get_dl(mf, stage);
+
+#ifdef CONFIG_64BIT
+	/* Avoid locking by assuming that 64bit reads are atomic in itself */
+	smp_read_barrier_depends();
+	return ACCESS_ONCE(dl->dl_length);
+#else /* cannot rely on atomic read of two 32bit values */
+	loff_t res;
+	unsigned long flags;
+
+	traced_readlock(&dl->dl_lock, flags);
+	res = dl->dl_length;
+	traced_readunlock(&dl->dl_lock, flags);
+	return res;
+#endif
 }
 
 ////////////////// dirty IOs on the fly  //////////////////
