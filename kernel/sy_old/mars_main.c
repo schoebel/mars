@@ -598,7 +598,7 @@ struct mars_rotate {
 	bool wants_sync;
 	bool gets_sync;
 	bool log_is_really_damaged;
-	spinlock_t inf_lock;
+	struct mutex inf_mutex;
 	bool infs_is_dirty[MAX_INFOS];
 	struct trans_logger_info infs[MAX_INFOS];
 	struct key_value_pair msgs[sizeof(rot_keys) / sizeof(char*)];
@@ -1272,7 +1272,6 @@ void _update_info(struct trans_logger_info *inf)
 {
 	struct mars_rotate *rot = inf->inf_private;
 	int hash;
-	unsigned long flags;
 
 	if (unlikely(!rot)) {
 		MARS_ERR("rot is NULL\n");
@@ -1299,10 +1298,10 @@ void _update_info(struct trans_logger_info *inf)
 		}
 	}
 
-	traced_lock(&rot->inf_lock, flags);
+	mutex_lock(&rot->inf_mutex);
 	memcpy(&rot->infs[hash], inf, sizeof(struct trans_logger_info));
 	rot->infs_is_dirty[hash] = true;
-	traced_unlock(&rot->inf_lock, flags);
+	mutex_unlock(&rot->inf_mutex);
 
 	mars_trigger();
 done:;
@@ -1314,12 +1313,11 @@ void write_info_links(struct mars_rotate *rot)
 	struct trans_logger_info inf;
 	int count = 0;
 	for (;;) {
-		unsigned long flags;
 		int hash = -1;
 		int min = 0;
 		int i;
 
-		traced_lock(&rot->inf_lock, flags);
+		mutex_lock(&rot->inf_mutex);
 		for (i = 0; i < MAX_INFOS; i++) {
 			if (!rot->infs_is_dirty[i])
 				continue;
@@ -1330,13 +1328,13 @@ void write_info_links(struct mars_rotate *rot)
 		}
 
 		if (hash < 0) {
-			traced_unlock(&rot->inf_lock, flags);
+			mutex_unlock(&rot->inf_mutex);
 			break;
 		}
 
 		rot->infs_is_dirty[hash] = false;
 		memcpy(&inf, &rot->infs[hash], sizeof(struct trans_logger_info));
-		traced_unlock(&rot->inf_lock, flags);
+		mutex_unlock(&rot->inf_mutex);
 		
 		MARS_DBG("seq = %d min_pos = %lld max_pos = %lld log_pos = %lld is_replaying = %d is_logging = %d\n",
 			 inf.inf_sequence,
@@ -2817,7 +2815,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 			status = -ENOMEM;
 			goto done;
 		}
-		spin_lock_init(&rot->inf_lock);		
+		mutex_init(&rot->inf_mutex);
 		fetch_path = path_make("%s/logfile-update", parent_path);
 		if (unlikely(!fetch_path)) {
 			MARS_ERR("cannot create fetch_path\n");
