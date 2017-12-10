@@ -202,26 +202,14 @@ mars0.1balpha0
 
 -----------------------------------
 Changelog for series 0.1a:
-	Internal branch for 1&1.
-	Based on 0.1balpha4. Merge 0.1.y stable branch.
-	Add only absolutely necessary features.
-	Receive mainly fixes.
-
-mars0.1abeta0
-	Forked off from 0.1balpha4.
-	Merge 0.1stable48 (in several intermediate steps).
-	Some infrastructure for version detection.
-	Backport of selected fixes from branch 0.1b.y.
-	Add marsadm split-cluster.
-
------------------------------------
-Changelog for series 0.1a:
-(you need to checkout branch mars0.1a.y to see any details)
 
 	Internal branch for 1&1.
 	Based on 0.1balpha4. Merge 0.1stable.
 	Add only absolutely necessary features.
 	Receive mainly fixes.
+
+mars0.1abeta4
+	* Merge mars0.1stable52.
 
 mars0.1abeta3
 	* Merge mars0.1stable51.
