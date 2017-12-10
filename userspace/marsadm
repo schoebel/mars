@@ -35,6 +35,8 @@ my $threshold = 10 * 1024 * 1024;
 my $window = 30;
 my $verbose = 0;
 my $max_deletions = 512;
+my $thresh_logfiles = 10;
+my $thresh_logsize = 5; # GB
 my $dry_run = 0;
 my @MARS_PATH = $ENV{MARS_PATH} ?
   split(/:/, $ENV{MARS_PATH}) :
@@ -106,6 +108,7 @@ check_id($host);
 my $real_host = $host;
 my $backup_dir = "$mars/backups-" . time();
 my $force = 0;
+my $cron_mode = 0;
 my $timeout = -1;
 my $ip = "";
 my $ssh_port = 22;
@@ -295,12 +298,6 @@ sub is_link_recent {
 sub to_tmp {
   my $path = shift;
   $path =~ s:^(.*)/:$1/.tmp.:;
-  return $path;
-}
-
-sub from_tmp {
-  my $path = shift;
-  $path =~ s:^(.*)/\.tmp\.:$1/:;
   return $path;
 }
 
@@ -647,23 +644,36 @@ sub check_res_member {
   check_sizes($res, $host);
 }
 
-sub check_sync_finished {
+sub _sync_finished {
   my ($res, $peer) = @_;
-  check_sizes(@_);
   my $lnk = "$mars/resource-$res/syncstatus-$peer";
-  if (lstat($lnk)) {
-    my $syncstatus = get_link($lnk, 1);
-    my $size = get_link("$mars/resource-$res/size");
-    unless ($syncstatus >= $size) {
-      lwarn "Sync has not yet finished on host '$peer', only $syncstatus / $size bytes are transferred\n";
-      if ($peer eq $host) {
-	lwarn "Don't try to make inconsistent host '$host' the new primary!\n";
-	lwarn "Please wait until sync has finished and all logfile have been replayed.\n";
-      } else {
-	lwarn "Changing the primary role during sync is dangerous for data consistency on host '$peer'!\n";
-      }
-      ldie "First stop the sync before trying to switch primary!\n" unless $force;
+  return 0 unless lstat($lnk);
+  my $syncstatus = get_link($lnk, 1);
+  my $size = get_link("$mars/resource-$res/size");
+  return 0 if ($size <= 0);
+  return 0 if ($syncstatus < $size);
+  my $syncpos = get_link("$mars/resource-$res/syncpos-$peer", 2);
+  if (defined($syncpos) && $syncpos) {
+    my $replay  = get_link("$mars/resource-$res/replay-$peer", 1);
+    return 0 unless $replay;
+    my $cmp = compare_replaylinks($syncpos, $replay);
+    return 0 if $cmp > 0;
+  }
+  return 1;
+}
+
+sub check_sync_finished {
+  my ($res, $peer, $do_force) = @_;
+  check_sizes(@_);
+  if (!_sync_finished($res, $peer)) {
+    lwarn "Sync has not yet finished on host '$peer'\n";
+    if ($peer eq $host) {
+      lwarn "Don't try to make inconsistent host '$host' the new primary!\n";
+      lwarn "Please wait until sync has finished and all logfile have been replayed.\n";
+    } else {
+      lwarn "Changing the primary role during sync is dangerous for data consistency on host '$peer'!\n";
     }
+    ldie "First wait for sync finished before trying to switch primary!\n" unless (defined($do_force) && $do_force);
   }
   lprint "OK, it seems that sync has finished on host '$peer'.\n";
 }
@@ -2321,6 +2331,18 @@ sub logrotate_res {
     lprint "an empty logfile '$last' already exists, nothing to do.\n" if $verbose;
     return;
   }
+  # prevent too many small logfiles when secondaries are not catching up
+  if (scalar(@paths) >= $thresh_logfiles) {
+    my @stat = stat($last);
+    my $size = 0;
+    if (@stat) {
+      $size = $stat[7] / (1000 * 1000 * 1000);
+    }
+    if ($size < $thresh_logsize) {
+      lprint "current logfile '$last' is smaller than $thresh_logsize GB, skipping logrotate.\n" if $verbose;
+      return;
+    }
+  }
   my $nr = $last;
   $nr =~ s/^.*log-([0-9]+)-.+$/$1/;
   my $next = sprintf("$mars/resource-$res/log-%09d-$host", $nr + 1);
@@ -2381,7 +2403,7 @@ sub _get_delete_nr {
     # Don't account for them when it comes to aborts.
     if (scalar(@deletes) > $max_deletions) {
       lwarn "URGENT: please fix it.\n";
-      ldie "Aborting for safety reasons\n" unless $force;
+      ldie "Aborting for safety reasons\n" if $cron_mode && !$force;
     }
   }
   $delete_nrs{$basedir} = [$min_nr, $max_nr];
@@ -2458,13 +2480,18 @@ sub logdelete_res {
     lprint "  unlink '$leftlink'\n" if $verbose;
     system("rm -rf $leftlink");
   }
-  foreach my $leftlink (glob("$mars/{,resource-$res/}{,*/}{.deleted,delete,work}-*")) {
+  foreach my $leftlink (glob("$mars/{,resource-$res/}{,*/}{.tmp,.deleted,delete,work}-*")) {
     my $stamp = get_link_stamp($leftlink);
     next unless $stamp + 3600 * 24 < $start_time;
     lprint "  unlink '$leftlink'\n" if $verbose;
     unlink($leftlink);
   }
   foreach my $leftlink (glob("$mars/{,resource-$res/}actual-*/msg-*")) {
+    if ($leftlink =~ m:/msg-conncetion-from-:) {
+      lprint "  unlink deprecated '$leftlink'\n" if $verbose;
+      unlink($leftlink);
+      next;
+    }
     my $stamp = get_link_stamp($leftlink);
     next unless $stamp + 3600 * 4 < $start_time;
     lprint "  unlink '$leftlink'\n" if $verbose;
@@ -2507,6 +2534,7 @@ sub logdelete_res {
 
 sub cron_res {
   my ($cmd, $res) = @_;
+  $cron_mode = 1;
   logrotate_res(@_);
   finish_links();
   sleep(5);
@@ -2698,7 +2726,7 @@ sub primary_phase0 {
 	$name =~ m:/data-(.+):;
 	my $peer = $1;
 	next if ($peer eq $old || $peer eq $host);
-	check_sync_finished($res, $peer);
+	check_sync_finished($res, $peer, $force);
       }
     }
     check_todo($cmd, $res, "attach", 1, 0);
@@ -5582,6 +5610,12 @@ marsadm [<global_options>] view[-<macroname>] [<resource_name> | all ]
     /mars/todo-global/delete-* and sibling locations.
     This limit is preventing overflow of the filesystem as well
     as overloading the worker threads.
+  --thresh-logfiles=<number>
+  --thresh-logsize=<number>
+    Prevention of too many small logfiles when secondaries are not
+    catching up. When more than thresh-logfiles are already present,
+    the next one is only created when the last one has at least
+    size thresh-logsize (in units of GB).
   --timeout=<seconds>
     Abort safety checks after timeout with an error.
     When giving 'all' as resource agument, this works for each
@@ -5683,6 +5717,12 @@ foreach my $arg (@ARGV) {
     next;
   } elsif ($arg =~ m/--max-deletions\s*=\s*(-?[0-9]+)/) {
     $max_deletions = $1;
+    next;
+  } elsif ($arg =~ m/--thresh-logfiles\s*=\s*([0-9]+)/) {
+    $thresh_logfiles = $1;
+    next;
+  } elsif ($arg =~ m/--thresh-logsize\s*=\s*([0-9]+)/) {
+    $thresh_logsize = $1;
     next;
   } elsif ($arg =~ s/--verbose\s*=\s*(-?[0-9]+)/$1/) {
     $verbose = $arg;

@@ -244,6 +244,28 @@ mars0.1abeta0
 -----------------------------------
 Changelog for series 0.1:
 
+mars0.1stable52
+	* Major contrib: new example scripts for MARS background data
+	  migration during production. 1&1-specific code in a separate
+	  plugin. You can write your own plugins for adaptation to
+	  your needs.
+	* Minor fix: limit the size of the writeback buffer by the
+	  rest space in /mars. This is only relevant when
+	  /mars is dimensioned smaller than RAM (which should
+	  never be the case in production systems, but might happen
+	  accidentally or for testing).
+	  Analogously, limit the maximum logfile size.
+	* Minor fix: prevent creation of many tiny logfiles over time
+	  when secondaries are not catching up.
+	  The default threshold is a minimum of 5 GB size when more
+	  than 10 logfiles are already present.
+	* Minor fix: cleanup old internal .tmp-* symlinks which might
+	  remain as leftovers when marsadm is dying at the wrong
+	  moment.
+	* Minor improvement: don't run O(n) mapfree under spinlock.
+	  More speed improvements under preparation; will result in O(k).
+	* Some more minor improvements.
+
 mars0.1stable51
 	* Minor fix: don't abort log-delete-all too early when there
 	  are holes in the deletion sequence numbers.

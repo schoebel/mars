@@ -1,0 +1,33 @@
+This CONTRIB directory contains some unsupported _example_ bash scripts
+for MARS background data migration.
+
+Method:
+
+0) start point: all resources have two replicas, each on a pair of
+nodes. "marsadm view all" shows this as [2/2], meaning two replicas
+out of two potential replication hosts.
+
+1) use "marsadm join-cluster" for merging two ordinary replication pairs
+into a 4-fold (quadruple) MARS cluster. Now we have [2/4].
+
+2) create two additional resource replicas via "marsadm join-resource".
+The new replicas are created in background while the data is being updated
+during ordinary production.
+Finally we have [4/4] replicas.
+
+3) handover the primary to one node of the _new_ pair.
+
+4) use "marsadm leave-resource" to get rid of the _old_ two replicas.
+New replica status is again [2/4], but the the replicas have been
+migrated to the new pair in the meantime.
+
+5) Finally, use "marsadm split-cluster" to go back to [2/2].
+
+HINT:
+
+The shell script code is split into two parts: a generic part which
+should be usable at more MARS sites in the world, and a 1&1 specific
+part which will only work in the 1&1 Shared Hosting Linux environment.
+
+However, by looking at the code, you should be able to create your own
+adaptations.

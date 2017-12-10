@@ -40,6 +40,8 @@
  * 4) Also to prevent deadlocks: always set mapping_set_gfp_mask() accordingly.
  */
 
+#include <linux/rwsem.h>
+
 #include "mars.h"
 
 extern int mapfree_period_sec;
@@ -53,7 +55,7 @@ struct mapfree_info {
 	int              mf_flags;
 	int              mf_mode;
 	atomic_t         mf_count;
-	spinlock_t       mf_lock;
+	struct rw_semaphore mf_mutex;
 	loff_t           mf_min[2];
 	loff_t           mf_last;
 	loff_t           mf_max;
