@@ -187,7 +187,7 @@ struct trans_logger_brick {
 	struct trans_logger_hash_anchor **hash_table;
 	struct list_head group_head;
 	loff_t old_margin;
-	spinlock_t replay_lock;
+	struct rw_semaphore replay_mutex;
 	struct list_head replay_list;
 	struct task_struct *thread;
 	wait_queue_head_t worker_event;
