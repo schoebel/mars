@@ -75,7 +75,7 @@ struct aio_threadinfo {
 	struct task_struct *thread;
 	wait_queue_head_t event;
 	wait_queue_head_t terminate_event;
-	spinlock_t lock;
+	struct mutex mutex;
 	int queued[MARS_PRIO_NR];
 	atomic_t queued_sum;
 	atomic_t total_enqueue_count;

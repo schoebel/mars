@@ -95,7 +95,6 @@ EXPORT_SYMBOL_GPL(aio_sync_mode);
 static inline
 void _enqueue(struct aio_threadinfo *tinfo, struct aio_mref_aspect *mref_a, int prio, bool at_end)
 {
-	unsigned long flags;
 #if 1
 	prio++;
 	if (unlikely(prio < 0)) {
@@ -109,7 +108,7 @@ void _enqueue(struct aio_threadinfo *tinfo, struct aio_mref_aspect *mref_a, int 
 
 	mref_a->enqueue_stamp = cpu_clock(raw_smp_processor_id());
 
-	traced_lock(&tinfo->lock, flags);
+	mutex_lock(&tinfo->mutex);
 
 	if (at_end) {
 		list_add_tail(&mref_a->io_head, &tinfo->mref_list[prio]);
@@ -119,7 +118,7 @@ void _enqueue(struct aio_threadinfo *tinfo, struct aio_mref_aspect *mref_a, int 
 	tinfo->queued[prio]++;
 	atomic_inc(&tinfo->queued_sum);
 
-	traced_unlock(&tinfo->lock, flags);
+	mutex_unlock(&tinfo->mutex);
 
 	atomic_inc(&tinfo->total_enqueue_count);
 
@@ -131,9 +130,8 @@ struct aio_mref_aspect *_dequeue(struct aio_threadinfo *tinfo)
 {
 	struct aio_mref_aspect *mref_a = NULL;
 	int prio;
-	unsigned long flags = 0;
 
-	traced_lock(&tinfo->lock, flags);
+	mutex_lock(&tinfo->mutex);
 
 	for (prio = 0; prio < MARS_PRIO_NR; prio++) {
 		struct list_head *start = &tinfo->mref_list[prio];
@@ -148,7 +146,7 @@ struct aio_mref_aspect *_dequeue(struct aio_threadinfo *tinfo)
 	}
 
 done:
-	traced_unlock(&tinfo->lock, flags);
+	mutex_unlock(&tinfo->mutex);
 
 	if (likely(mref_a && mref_a->object)) {
 		unsigned long long latency;
@@ -448,7 +446,7 @@ int aio_start_thread(
 		INIT_LIST_HEAD(&tinfo->mref_list[j]);
 	}
 	tinfo->output = output;
-	spin_lock_init(&tinfo->lock);
+	mutex_init(&tinfo->mutex);
 	init_waitqueue_head(&tinfo->event);
 	init_waitqueue_head(&tinfo->terminate_event);
 	tinfo->should_terminate = false;
@@ -563,7 +561,6 @@ int aio_sync_thread(void *data)
 
 	while (!tinfo->should_terminate || atomic_read(&tinfo->queued_sum) > 0) {
 		LIST_HEAD(tmp_list);
-		unsigned long flags;
 		int i;
 
 		output->fdsync_active = false;
@@ -574,7 +571,7 @@ int aio_sync_thread(void *data)
 			atomic_read(&tinfo->queued_sum) > 0,
 			HZ / 4);
 
-		traced_lock(&tinfo->lock, flags);
+		mutex_lock(&tinfo->mutex);
 		for (i = 0; i < MARS_PRIO_NR; i++) {
 			struct list_head *start = &tinfo->mref_list[i];
 			if (!list_empty(start)) {
@@ -585,7 +582,7 @@ int aio_sync_thread(void *data)
 				break;
 			}
 		}
-		traced_unlock(&tinfo->lock, flags);
+		mutex_unlock(&tinfo->mutex);
 
 		if (!list_empty(&tmp_list)) {
 			aio_sync_all(output, &tmp_list);
