@@ -108,7 +108,7 @@ int trans_logger_replay_timeout = 1; // in s
 EXPORT_SYMBOL_GPL(trans_logger_replay_timeout);
 
 struct writeback_group global_writeback = {
-	.lock = __RW_LOCK_UNLOCKED(global_writeback.lock),
+	.mutex = __RWSEM_INITIALIZER(global_writeback.mutex),
 	.group_anchor = LIST_HEAD_INIT(global_writeback.group_anchor),
 	.until_percent = 30,
 };
@@ -117,22 +117,18 @@ EXPORT_SYMBOL_GPL(global_writeback);
 static
 void add_to_group(struct writeback_group *gr, struct trans_logger_brick *brick)
 {
-	unsigned long flags;
-
-	write_lock_irqsave(&gr->lock, flags);
+	down_write(&gr->mutex);
 	list_add_tail(&brick->group_head, &gr->group_anchor);
-	write_unlock_irqrestore(&gr->lock, flags);
+	up_write(&gr->mutex);
 }
 
 static
 void remove_from_group(struct writeback_group *gr, struct trans_logger_brick *brick)
 {
-	unsigned long flags;
-
-	write_lock_irqsave(&gr->lock, flags);
+	down_write(&gr->mutex);
 	list_del_init(&brick->group_head);
 	gr->leader = NULL;
-	write_unlock_irqrestore(&gr->lock, flags);
+	up_write(&gr->mutex);
 }
 
 static
@@ -140,7 +136,6 @@ struct trans_logger_brick *elect_leader(struct writeback_group *gr)
 {
 	struct trans_logger_brick *res = gr->leader;
 	struct list_head *tmp;
-	unsigned long flags;
 
 	if (res && gr->until_percent >= 0) {
 		loff_t used = atomic64_read(&res->shadow_mem_used);
@@ -148,7 +143,8 @@ struct trans_logger_brick *elect_leader(struct writeback_group *gr)
 			goto done;
 	}
 
-	read_lock_irqsave(&gr->lock, flags);
+	/* FIXME: use O(log n) data structure instead */
+	down_read(&gr->mutex);
 	for (tmp = gr->group_anchor.next; tmp != &gr->group_anchor; tmp = tmp->next) {
 		struct trans_logger_brick *test = container_of(tmp, struct trans_logger_brick, group_head);
 		loff_t new_used = atomic64_read(&test->shadow_mem_used);
@@ -158,7 +154,7 @@ struct trans_logger_brick *elect_leader(struct writeback_group *gr)
 			gr->biggest = new_used;
 		}
 	}
-	read_unlock_irqrestore(&gr->lock, flags);
+	up_read(&gr->mutex);
 
 	gr->leader = res;
 
