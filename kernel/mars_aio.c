@@ -163,27 +163,6 @@ done:
 static
 loff_t get_total_size(struct aio_output *output)
 {
-	struct file *file;
-	struct inode *inode;
-	loff_t min;
-
-	file = output->mf->mf_filp;
-	if (unlikely(!file)) {
-		MARS_ERR("file is not open\n");
-		return -EILSEQ;
-	}
-	if (unlikely(!file->f_mapping)) {
-		MARS_ERR("file %p has no mapping\n", file);
-		return -EILSEQ;
-	}
-	inode = file->f_mapping->host;
-	if (unlikely(!inode)) {
-		MARS_ERR("file %p has no inode\n", file);
-		return -EILSEQ;
-	}
-
-	min = i_size_read(inode);
-
 	/* Workaround for races in the page cache.
 	 * It appears that concurrent reads and writes seem to
 	 * result in inconsistent reads in some very rare cases, due to
@@ -191,12 +170,7 @@ loff_t get_total_size(struct aio_output *output)
 	 * appended by a write operation, but the data has not actually hit
 	 * the page cache, such that a concurrent read gets NULL blocks.
 	 */
-	if (!output->brick->is_static_device) {
-		loff_t max = 0;
-		mf_get_dirty(output->mf, &min, &max, 0, 99);
-	}
-
-	return min;
+	return mf_dirty_length(output->mf, DIRTY_COMPLETED);
 }
 
 static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
