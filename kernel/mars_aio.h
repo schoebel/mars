@@ -49,7 +49,6 @@ extern int aio_sync_mode;
 struct aio_mref_aspect {
 	GENERIC_ASPECT(mref);
 	struct list_head io_head;
-	struct dirty_info di;
 	unsigned long long enqueue_stamp;
 	long long start_jiffies;
 	int resubmit;

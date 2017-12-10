@@ -76,12 +76,6 @@ struct mapfree_info {
 	struct dirty_length mf_length[DIRTY_MAX];
 };
 
-struct dirty_info {
-	struct list_head dirty_head;
-	struct mref_object *dirty_mref;
-	int dirty_stage;
-};
-
 struct mapfree_info *mapfree_get(const char *filename, int flags);
 
 void mapfree_put(struct mapfree_info *mf);
@@ -97,8 +91,6 @@ loff_t mf_dirty_length(struct mapfree_info *mf, enum dirty_stage stage);
 
 ////////////////// dirty IOs on the fly  //////////////////
 
-void mf_insert_dirty(struct mapfree_info *mf, struct dirty_info *di);
-void mf_remove_dirty(struct mapfree_info *mf, struct dirty_info *di);
 loff_t mf_get_any_dirty(const char *filename, int stage);
 
 ////////////////// module init stuff /////////////////////////

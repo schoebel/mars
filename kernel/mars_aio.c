@@ -280,8 +280,6 @@ done:
 		atomic_dec(&output->read_count);
 	}
 
-	mf_remove_dirty(output->mf, &mref_a->di);
-
 	aio_ref_put(output, mref);
 	atomic_dec(&output->work_count);
 	atomic_dec(&mars_global_io_flying);
@@ -316,7 +314,6 @@ void _complete_all(struct list_head *tmp_list, struct aio_output *output, int er
 		struct list_head *tmp = tmp_list->next;
 		struct aio_mref_aspect *mref_a = container_of(tmp, struct aio_mref_aspect, io_head);
 		list_del_init(tmp);
-		mref_a->di.dirty_stage = 3;
 		_complete(output, mref_a, err);
 	}
 }
@@ -662,7 +659,6 @@ static int aio_event_thread(void *data)
 			if (!mref_a) {
 				continue; // this was a dummy request
 			}
-			mref_a->di.dirty_stage = 2;
 			mref = mref_a->object;
 
 			MARS_IO("AIO done %p pos = %lld len = %d rw = %d\n", mref, mref->ref_pos, mref->ref_len, mref->ref_rw);
@@ -690,7 +686,6 @@ static int aio_event_thread(void *data)
 					continue;
 			}
 
-			mref_a->di.dirty_stage = 3;
 			_complete(output, mref_a, err);
 
 		}
@@ -892,10 +887,8 @@ static int aio_submit_thread(void *data)
 
 		mapfree_set(output->mf, mref->ref_pos, -1);
 
-		mref_a->di.dirty_stage = 0;
 		if (mref->ref_rw) {
 			mf_dirty_append(output->mf, DIRTY_SUBMITTED, mref->ref_pos + mref->ref_len);
-			mf_insert_dirty(output->mf, &mref_a->di);
 		}
 
 		mref->ref_total_size = get_total_size(output);
@@ -928,13 +921,11 @@ static int aio_submit_thread(void *data)
 
 		sleeptime = 1;
 		for (;;) {
-			mref_a->di.dirty_stage = 1;
 			status = aio_submit(output, mref_a, false);
 
 			if (likely(status != -EAGAIN)) {
 				break;
 			}
-			mref_a->di.dirty_stage = 0;
 			atomic_inc(&output->total_delay_count);
 			brick_msleep(sleeptime);
 			if (sleeptime < 100) {
@@ -1076,15 +1067,12 @@ static int aio_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
 	struct aio_mref_aspect *ini = (void*)_ini;
 	INIT_LIST_HEAD(&ini->io_head);
-	INIT_LIST_HEAD(&ini->di.dirty_head);
-	ini->di.dirty_mref = ini->object;
 	return 0;
 }
 
 static void aio_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
 	struct aio_mref_aspect *ini = (void*)_ini;
-	CHECK_HEAD_EMPTY(&ini->di.dirty_head);
 	CHECK_HEAD_EMPTY(&ini->io_head);
 }
 

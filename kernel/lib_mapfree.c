@@ -352,27 +352,6 @@ loff_t mf_dirty_length(struct mapfree_info *mf, enum dirty_stage stage)
 
 ////////////////// dirty IOs on the fly  //////////////////
 
-void mf_insert_dirty(struct mapfree_info *mf, struct dirty_info *di)
-{
-	if (likely(di->dirty_mref && mf)) {
-		down_write(&mf->mf_mutex);
-		list_del(&di->dirty_head);
-		list_add(&di->dirty_head, &mf->mf_dirty_anchor);
-		up_write(&mf->mf_mutex);
-	}
-}
-EXPORT_SYMBOL_GPL(mf_insert_dirty);
-
-void mf_remove_dirty(struct mapfree_info *mf, struct dirty_info *di)
-{
-	if (!list_empty(&di->dirty_head) && mf) {
-		down_write(&mf->mf_mutex);
-		list_del_init(&di->dirty_head);
-		up_write(&mf->mf_mutex);
-	}
-}
-EXPORT_SYMBOL_GPL(mf_remove_dirty);
-
 loff_t mf_get_any_dirty(const char *filename, int stage)
 {
 	loff_t res = -1;
