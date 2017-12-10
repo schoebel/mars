@@ -64,7 +64,7 @@ struct client_output {
 	MARS_OUTPUT(client);
 	atomic_t fly_count;
 	atomic_t timeout_count;
-	spinlock_t lock;
+	struct mutex mutex;
 	struct list_head mref_list;
 	struct list_head wait_list;
 	wait_queue_head_t event;
