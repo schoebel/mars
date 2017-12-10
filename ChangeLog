@@ -133,6 +133,10 @@ Changelog for series 0.2:
 -----------------------------------
 Changelog for series 0.1b:
 
+mars0.1balpha12
+--------
+	* Merge fixes from mars0.1stable52, via mars0.1abeta4.
+
 mars0.1balpha11
 --------
 	* Minor fix: deletions special case.
