@@ -373,47 +373,21 @@ void mf_remove_dirty(struct mapfree_info *mf, struct dirty_info *di)
 }
 EXPORT_SYMBOL_GPL(mf_remove_dirty);
 
-void mf_get_dirty(struct mapfree_info *mf, loff_t *min, loff_t *max, int min_stage, int max_stage)
+loff_t mf_get_any_dirty(const char *filename, int stage)
 {
-	struct list_head *tmp;
-
-	if (unlikely(!mf))
-	    goto done;
-
-	down_read(&mf->mf_mutex);
-	for (tmp = mf->mf_dirty_anchor.next; tmp != &mf->mf_dirty_anchor; tmp = tmp->next) {
-		struct dirty_info *di = container_of(tmp, struct dirty_info, dirty_head);
-		struct mref_object *mref = di->dirty_mref;
-		if (unlikely(!mref)) {
-			continue;
-		}
-		if (di->dirty_stage < min_stage || di->dirty_stage > max_stage) {
-			continue;
-		}
-		if (mref->ref_pos < *min) {
-			*min = mref->ref_pos;
-		}
-		if (mref->ref_pos + mref->ref_len > *max) {
-			*max = mref->ref_pos + mref->ref_len;
-		}
-	}
-	up_read(&mf->mf_mutex);
-done:;
-}
-EXPORT_SYMBOL_GPL(mf_get_dirty);
-
-void mf_get_any_dirty(const char *filename, loff_t *min, loff_t *max, int min_stage, int max_stage)
-{
+	loff_t res = -1;
 	struct list_head *tmp;
 
 	down_read(&mapfree_mutex);
 	for (tmp = mapfree_list.next; tmp != &mapfree_list; tmp = tmp->next) {
 		struct mapfree_info *mf = container_of(tmp, struct mapfree_info, mf_head);
 		if (!strcmp(mf->mf_name, filename)) {
-			mf_get_dirty(mf, min, max, min_stage, max_stage);
+			res = mf_dirty_length(mf, stage);
+			break;
 		}
 	}
 	up_read(&mapfree_mutex);
+	return res;
 }
 EXPORT_SYMBOL_GPL(mf_get_any_dirty);
 
