@@ -2198,9 +2198,6 @@ int peer_thread(void *data)
 				_peer_cleanup(peer);
 			}
 			goto free_and_restart;
-			mars_free_dent_all(NULL, &tmp_global.dent_anchor);
-			brick_msleep(2000);
-			continue;
 		}
 
 		if (likely(!list_empty(&tmp_global.dent_anchor))) {
