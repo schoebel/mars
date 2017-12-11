@@ -63,6 +63,29 @@ const char mars_version_string[] = BUILDTAG " (" BUILDHOST " " BUILDDATE ") "
 mars_info_fn mars_info = NULL;
 
 static
+void interpret_user_message(char *msg)
+{
+	char cmd = msg[0];
+	char *rest = msg + 1;
+
+	while (*rest == ' ')
+		rest++;
+
+	switch (cmd) {
+	case 'l': /* write to syslog via say logging */
+		MARS_INF("%s\n", rest);
+		break;
+
+	case 'L': /* write to syslog via printk */
+		printk("%s\n", rest);
+		break;
+
+	default:
+		MARS_DBG("unknown user message '%s'\n", msg);
+	}
+}
+
+static
 int trigger_sysctl_handler(
 	struct ctl_table *table,
 	int write, 
@@ -75,19 +98,25 @@ int trigger_sysctl_handler(
 
 	MARS_DBG("write = %d len = %ld pos = %lld\n", write, len, *ppos);
 
-	if (!len || *ppos > 0) {
+	if (len <= 0 || *ppos > 0) {
 		goto done;
 	}
 
 	if (write) {
-		char tmp[8] = {};
-		int code = 0;
+		char *tmp = brick_string_alloc(len + 1);
 
 		res = len; // fake consumption of all data
 
-		if (len > 7)
-			len = 7;
-		if (!copy_from_user(tmp, buffer, len)) {
+		if (copy_from_user(tmp, buffer, len)) {
+			MARS_ERR("cannot read %ld bytes from trigger\n", len);
+			goto dealloc;
+		}
+
+		tmp[len] = '\0';
+		if (tmp[0] == ' ' ||
+		    (tmp[0] >= '0' && tmp[0] <= '9')) {
+			int code = 0;
+
 			sscanf(tmp, "%d", &code);
 			if (code > 0) {
 				mars_trigger();
@@ -95,7 +124,11 @@ int trigger_sysctl_handler(
 			if (code > 1) {
 				mars_remote_trigger();
 			}
+		} else {
+			interpret_user_message(tmp);
 		}
+	dealloc:
+		brick_string_free(tmp);	
 	} else {
 		char *answer = "MARS module not operational\n";
 		char *tmp = NULL;
