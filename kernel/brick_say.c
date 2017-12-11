@@ -528,7 +528,7 @@ void say_to(struct say_channel *ch, int class, const char *fmt, ...)
 		ch = find_channel(current);
 	}
 
-	if (likely(ch)) {
+	if (ch && ch != default_channel) {
 		if (!ch->ch_is_dir)
 			class = SAY_TOTAL;
 		if (likely(class >= 0 && class < MAX_SAY_CLASS)) {
