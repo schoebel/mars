@@ -2169,13 +2169,13 @@ int peer_thread(void *data)
 		status = 0;
 		if (peer->to_remote_trigger) {
 			pause_time = 0;
-			peer->to_remote_trigger = false;
 			MARS_DBG("sending notify to peer...\n");
 			cmd.cmd_code = CMD_NOTIFY;
 			status = mars_send_struct(&peer->socket, &cmd, mars_cmd_meta);
 		}
 
 		if (likely(status >= 0)) {
+			peer->to_remote_trigger = false;
 			cmd.cmd_code = CMD_GETENTS;
 			status = mars_send_struct(&peer->socket, &cmd, mars_cmd_meta);
 		}
