@@ -370,8 +370,6 @@ struct say_channel *_make_channel(const char *name, bool must_exist)
 	struct say_channel *res = NULL;
 	struct kstat kstat = {};
 	int i, j;
-	bool use_atomic = cannot_schedule();
-	unsigned long mode = use_atomic ? GFP_ATOMIC : GFP_BRICK;
 	mm_segment_t oldfs;
 	bool is_dir = false;
 	int status;
@@ -391,7 +389,7 @@ struct say_channel *_make_channel(const char *name, bool must_exist)
 	}
 
 restart:
-	res = kzalloc(sizeof(struct say_channel), mode);
+	res = kzalloc(sizeof(struct say_channel), GFP_BRICK);
 	if (unlikely(!res)) {
 		cond_resched();
 		goto restart;
@@ -401,7 +399,7 @@ restart:
 	res->ch_is_dir = is_dir;
 	init_waitqueue_head(&res->ch_progress);
 restart2:
-	res->ch_name = kstrdup(name, mode);
+	res->ch_name = kstrdup(name, GFP_BRICK);
 	if (unlikely(!res->ch_name)) {
 		cond_resched();
 		goto restart2;
@@ -412,7 +410,7 @@ restart2:
 		for (j = 0; j < 2; j++) {
 			char *buf;
 		restart3:
-			buf = (void*)__get_free_pages(mode, SAY_ORDER);
+			buf = (void*)__get_free_pages(GFP_BRICK, SAY_ORDER);
 			if (unlikely(!buf)) {
 				cond_resched();
 				goto restart3;
