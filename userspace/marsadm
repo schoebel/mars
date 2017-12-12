@@ -488,7 +488,6 @@ sub wait_cluster {
 	ldie "aborting because --force was given\n" if $abort;
       }
     }
-    _trigger($hosts =~ m/\*/ ? 3 : 2);
     sleep_timeout();
     last if $timeout <= 0 && !$unknown_count;
   }
