@@ -4196,7 +4196,7 @@ sub parse_macro {
   return $result . $text;
 }
 
-sub eval_macro {
+sub make_env {
   my ($cmd, $res, $text) = (shift, shift, shift);
   $text =~ s{$match_comment}{}sg;
   my %start_env =
@@ -4206,6 +4206,7 @@ sub eval_macro {
      "resdir"    => "$mars/resource-$res",
      "mars"      => $mars,
      "host"      => $host,
+     "real_host" => $real_host,
      "ip"        => $ip,
      "timeout"   => $timeout,
      "threshold" => $threshold,
@@ -4222,7 +4223,12 @@ sub eval_macro {
      "__last__"      => 0,
     );
   set_args(\%start_env, \%start_env, $cmd, @_);
-  return parse_macro($text, \%start_env);
+  return ($text, \%start_env);
+}
+
+sub eval_macro {
+  my ($text, $start_env) = make_env(@_);
+  return parse_macro($text, $start_env);
 }
 
 ##################################################################
