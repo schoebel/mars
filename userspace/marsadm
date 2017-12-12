@@ -280,6 +280,8 @@ sub finish_links {
   return unless @link_list;
   my $timestamp = mars_time();
   lprint "using lamport timestamp $timestamp\n" if $verbose;
+  my $trigger_code = 1;
+  my $count = 0;
   while (my $link = shift @link_list) {
     my $link_tmp = to_tmp($link);
     my $target = readlink($link_tmp);
@@ -299,8 +301,10 @@ sub finish_links {
     if ($verbose) {
       lprint "created symlink '$link' -> '$target'\n";
     }
+    $count++;
+    $trigger_code = 2 if $link =~ m:/(primary|todo-global|ip):;
   }
-  _trigger();
+  _trigger($trigger_code) if $count > 0;
 }
 
 ##################################################################
@@ -1473,7 +1477,7 @@ sub get_error_text {
 # helpers
 
 sub _trigger{
-  my ($code) = shift || 2;
+  my $code = shift || 1;
   system("(echo $code > /proc/sys/mars/trigger) >/dev/null 2>&1");
 }
 
