@@ -4804,8 +4804,13 @@ static int check_deleted(void *buf, struct mars_dent *dent)
 		goto done;
 	}
 
-	if (!strcmp(dent->d_rest, my_id()))
+	if (!strcmp(dent->d_rest, my_id())) {
 		global->deleted_my_border = serial;
+		if (global->deleted_my_border != global->old_deleted_my_border) {
+			global->old_deleted_my_border = global->deleted_my_border;
+			mars_remote_trigger();
+		}
+	}
 
 	/* Compute the minimum of the deletion progress among
 	 * the resource members.
