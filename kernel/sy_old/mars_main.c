@@ -1356,7 +1356,8 @@ void write_info_links(struct mars_rotate *rot)
 	if (count) {
 		if (inf.inf_min_pos == inf.inf_max_pos)
 			mars_trigger();
-		mars_remote_trigger();
+		if (rot->todo_primary | rot->is_primary | rot->old_is_primary)
+			mars_remote_trigger();
 	}
 }
 
@@ -1379,7 +1380,8 @@ void _make_new_replaylink(struct mars_rotate *rot, char *new_host, int new_seque
 	_update_version_link(rot, &inf);
 
 	mars_trigger();
-	mars_remote_trigger();
+	if (rot->todo_primary | rot->is_primary | rot->old_is_primary)
+		mars_remote_trigger();
 }
 
 static
