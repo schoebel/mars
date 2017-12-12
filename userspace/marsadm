@@ -992,6 +992,7 @@ sub _get_prev_pos {
 }
 
 sub _get_common_ancestor {
+  my ($total1, $total2) = (0, 0);
   for (;;) {
     my ($basedir, $pos1, $host1, $dep1, $pos2, $host2, $dep2) = @_;
     my ($p1, $nr1, $from1, $len1) = _parse_pos($basedir, $pos1);
@@ -1003,37 +1004,43 @@ sub _get_common_ancestor {
 	my $path1 = sprintf("$basedir/version-%09d-$from1", $nr1);
 	my $path2 = sprintf("$basedir/version-%09d-$from2", $nr2);
 	if (my $vers1 = get_link($path1, 1) and my $vers2 = get_link($path2, 1)) {
-	  $split = 1 if $vers1 ne $vers2;
+	  if ($vers1 ne $vers2) {
+	    $split = 1;
+	    $total1 += $len1;
+	    $total2 += $len2;
+	  }
 	}
       }
-      return ($p1, $split);
+      return ($p1, $split, $total1, $total2);
     } elsif ($nr1 > $nr2) {
       # just flip arguments
       @_ = ($basedir, $pos2, $host2, $dep2, $pos1, $host1, $dep1);
+      ($total1, $total2) = ($total2, $total1);
       next;
     } elsif ($nr1 < $nr2) {
       # recursively advance path depth
+      $total2 += $len2;
       my $vers2 = _get_prev_pos($basedir, $nr2, $host2);
-      return ("", -1) if !$vers2;
+      return ("", -1, $total1, $total2) if !$vers2;
       @_ = ($basedir, $pos1, $host1, $dep1, $vers2, $host2, $dep2 + 1);
       next;
     } elsif ($from1 ne $from2) {
       # split brain is sure now, but continue computing the common split point
       my $vers1 = _get_prev_pos($basedir, $nr1, $host1);
-      return ("", 1) if !$vers1;
+      return ("", 1, $total1 + $len1, $total2 + $len2) if !$vers1;
       my $vers2 = _get_prev_pos($basedir, $nr2, $host2);
-      return ("", 1) if !$vers2;
-      my ($res, $split) = _get_common_ancestor($basedir, $vers1, $host1, $dep1 + 1, $vers2, $host2, $dep2 + 1);
-      return ($res, 1);
+      return ("", 1, $total1 + $len1, $total2 + $len2) if !$vers2;
+      my ($res, $split, $t1, $t2) = _get_common_ancestor($basedir, $vers1, $host1, $dep1 + 1, $vers2, $host2, $dep2 + 1);
+      return ($res, 1, $t1 + $total1 + $len1, $t2 + $total2 + $len2);
     } elsif ($len1 < $len2) {
       # there may be no split brain (just incomplete replay) depending on path depth
-      return ($p1, $dep1);
+      return ($p1, $dep1, $total1 + $len1, $total2 + $len2);
     } elsif ($len2 < $len1) {
       # dto symmetric
-      return ($p2, $dep2);
+      return ($p2, $dep2, $total1 + $len1, $total2 + $len2);
     }
     lwarn "error in algorithm: $p1, $nr1, $from1, $len1 : $p2, $nr2, $from2, $len2\n";
-    return ("", -1);
+    return ("", -1, 0, 0);
   }
 }
 
@@ -1057,11 +1064,13 @@ sub detect_splitbrain {
   foreach my $host1 (@hosts) {
     foreach my $host2 (@hosts) {
       next if $host1 ge $host2;
-      my ($res, $split) = get_common_ancestor($basedir, $host1, $host2);
+      my ($point, $split, $size1, $size2) = get_common_ancestor($basedir, $host1, $host2);
       if ($split) {
 	$ok = 0;
 	if ($do_report) {
-	  lwarn "SPLIT BRAIN at '$res' detected: hostA = '$host1', hostB = '$host2'\n";
+	  lwarn "SPLIT BRAIN of '$res' at '$point' detected:\n";
+	  lwarn "   hostA = '$host1' data_size='$size1'\n";
+	  lwarn "   hostB = '$host2' data_size='$size2'\n";
 	} else {
 	  return $ok;
 	}
