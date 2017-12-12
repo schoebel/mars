@@ -580,6 +580,7 @@ struct mars_rotate {
 	int relevant_serial;
 	int replay_code;
 	int avoid_count;
+	int old_open_count;
 	bool has_symlinks;
 	bool is_attached;
 	bool res_shutdown;
@@ -4176,6 +4177,11 @@ done:
 	rot->is_primary =
 		rot->if_brick && !rot->if_brick->power.led_off;	
 	_show_primary(rot, parent);
+
+	if (open_count != rot->old_open_count) {
+		rot->old_open_count = open_count;
+		mars_remote_trigger();
+	}
 
 err:
 	return status;
