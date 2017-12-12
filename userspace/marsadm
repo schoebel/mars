@@ -208,6 +208,21 @@ sub rsync_cmd {
 
 ##################################################################
 
+# syntactic scanning / parsing
+
+my $match_comment = "#[^\n]*\n|//[^\n]*\n|/\\*(?:[^*]|\\*[^/])*\\*/|\\\\\n\\s*";
+my $match_nobrace = qr'(?:[^{}\\]|\\.)*'s;
+my $match_inner = $match_nobrace;
+my $match_brace = qr"\{$match_inner\}"s;
+for (my $i = 0; $i < 20; $i++) {
+  $match_inner = qr"$match_nobrace(?:$match_brace$match_nobrace)*"s;
+  $match_brace = qr"\{$match_inner\}"s;
+}
+my $match_fn_head = qr"\%([^\\\s{}()\[\]]*)(?=\{)"s;
+my $match_fn = qr"$match_fn_head(?:\{($match_inner)\})"s;
+
+##################################################################
+
 # path correction
 
 sub correct_path {
@@ -4127,17 +4142,6 @@ sub eval_fn {
 ##################################################################
 
 # macro parsing
-
-my $match_comment = "#[^\n]*\n|//[^\n]*\n|/\\*(?:[^*]|\\*[^/])*\\*/|\\\\\n\\s*";
-my $match_nobrace = qr'(?:[^{}\\]|\\.)*'s;
-my $match_inner = $match_nobrace;
-my $match_brace = qr"\{$match_inner\}"s;
-for (my $i = 0; $i < 20; $i++) {
-  $match_inner = qr"$match_nobrace(?:$match_brace$match_nobrace)*"s;
-  $match_brace = qr"\{$match_inner\}"s;
-}
-my $match_fn_head = qr"\%([^\\\s{}()\[\]]*)(?=\{)"s;
-my $match_fn = qr"$match_fn_head(?:\{($match_inner)\})"s;
 
 sub _control_macro {
   my $env = shift;
