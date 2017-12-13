@@ -631,7 +631,7 @@ sub check_sync_finished {
 }
 
 sub check_primary {
-  my ($cmd, $res) = @_;
+  my ($cmd, $res, $no_designated) = @_;
   my $lnk = "$mars/resource-$res/actual-$host/is-primary";
   my $is_primary = get_link($lnk, 1);
   if (!$is_primary) { # give it a second chance
@@ -640,6 +640,7 @@ sub check_primary {
     $is_primary = 1 if -b $dev;
   }
   ldie "for operation '$cmd' I need to be primary\n" unless $is_primary;
+  return if $no_designated;
   my $primary = _get_designated_primary($res);
   ldie "for operation '$cmd', I also must be the designated primary\n" unless $primary eq $host;
 }
@@ -2301,7 +2302,7 @@ sub delete_res {
 
 sub logrotate_res {
   my ($cmd, $res) = @_;
-  check_primary(@_) unless $force;
+  check_primary($cmd, $res, 1) unless $force;
   my @paths = glob("$mars/resource-$res/log-*-$host");
   my $last;
   if (@paths) {
