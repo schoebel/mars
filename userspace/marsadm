@@ -3060,38 +3060,57 @@ sub seconds2human {
 }
 
 sub number2human {
-  my ($unit, $number) = @_;
-  my $k = 1024;
-  my $use_float = ($number =~ m/\./);
-  $k = 1024.0 if $use_float;
+  my ($number, $unit, $max) = @_;
+  $max = $number if !defined($max);
+  my $k = 1024.0;
+  if (!defined($unit) || !$unit) {
+    if ($max >= $k * $k * $k * $k) {
+      $unit = "T";
+    } elsif ($max >= $k * $k * $k) {
+      $unit = "G";
+    } elsif ($max >= $k * $k) {
+      $unit = "M";
+    } elsif ($max >= $k) {
+      $unit = "K";
+    } else {
+      $unit = "";
+    }
+  }
+  my $i = "i";
+  if ($unit =~ m/^[a-z]/) {
+    $i = "";
+    $k = 1000.0;
+  }
   $_ = $unit;
  SWITCH: {
     if (/t/i) {
       $number /= $k * $k * $k * $k;
-      $unit = "TiB";
+      $unit = "T${i}B";
       last SWITCH;
     }
     if (/g/i) {
       $number /= $k * $k * $k;
-      $unit = "GiB";
+      $unit = "G${i}B";
       last SWITCH;
     }
     if (/m/i) {
       $number /= $k * $k;
-      $unit = "MiB";
+      $unit = "M${i}B";
       last SWITCH;
     }
     if (/k/i) {
       $number /= $k;
-      $unit = "KiB";
+      $unit = "K${i}B";
       last SWITCH;
     }
     $unit = "B";
   }
-  if ($use_float || ($number =~ m/\./)) {
+  if ($unit eq "B") {
+    $number = int($number + 0.1);
+  } else {
     $number = sprintf("%.3f", $number);
   }
-  return ($unit, $number);
+  return "$number $unit";
 }
 
 sub progress_bar {
@@ -3370,23 +3389,12 @@ sub eval_fn {
 	$max = $number if $number > $max;
       }
       lwarn "macro $name: no number arguments given\n" unless @list;
-      if (!$unit) {
-	if ($max >= 999 * 1024*1024*1024*1024) {
-	  $unit = "T";
-	} elsif ($max >= 999 * 1024*1024*1024) {
-	  $unit = "G";
-	} elsif ($max >= 99 * 1024*1024) {
-	  $unit = "M";
-	} elsif ($max >= 9 * 1024) {
-	  $unit = "K";
-	} else {
-	  $unit = "";
-	}
-      }
-      my @results = ();
       my $conv_unit = "";
+      my @results = ();
       foreach my $number (@list) {
-	($conv_unit, my $conv_number) = number2human($unit, $number);
+	my $conv_number = number2human($number, $unit, $max);
+	$conv_number =~ s/ *([a-z].*)//i;
+	$conv_unit = $1;
 	push @results, $conv_number;
       }
       return join($delim_numbers, @results) . "$delim_unit$conv_unit";
