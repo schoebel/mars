@@ -987,8 +987,19 @@ sub _get_prev_pos {
   my ($basedir, $nr, $peer) = @_;
   my $path = sprintf("version-%09d-$peer", $nr);
   my $vers = get_link("$basedir/$path", 2);
+  if (!defined($vers) || !$vers) {
+    # Scarce race.
+    # This can happen when new logfiles are present but not yet worked on.
+    # Also improves robustness on damaged filesystems.
+    # Decrement nr by hand, try, take the first part.
+    $path = sprintf("version-%09d-$peer", $nr - 1);
+    $vers = get_link("$basedir/$path", 2);
+    $vers =~ s/:.*// if defined($vers) && $vers;
+  } else {
+    # take the last part, pointing to the predecessor versionlink.
+    $vers =~ s/^.*://;
+  }
   _parse_pos($basedir, $path) if defined($vers) && $vers;
-  $vers =~ s/^.*://;
   return $vers;
 }
 
