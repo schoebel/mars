@@ -1069,8 +1069,8 @@ sub detect_splitbrain {
 	$ok = 0;
 	if ($do_report) {
 	  lwarn "SPLIT BRAIN of '$res' at '$point' detected:\n";
-	  lwarn "   hostA = '$host1' data_size='$size1'\n";
-	  lwarn "   hostB = '$host2' data_size='$size2'\n";
+	  lwarn "   hostA = '$host1' data_size='$size1' (" . number2human($size1) . ")\n";
+	  lwarn "   hostB = '$host2' data_size='$size2' (" . number2human($size2) . ")\n";
 	} else {
 	  return $ok;
 	}
