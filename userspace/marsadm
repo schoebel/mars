@@ -2509,8 +2509,15 @@ sub logdelete_res {
 
     _create_delete($first);
   }
+  my @versionlinks = glob("$mars/resource-$res/version-*");
+  # dont remove versionlinks during split-brain as long as possible
+  if (scalar(@versionlinks) < $max_deletions / 8 &&
+      !detect_splitbrain($res, 1)) {
+    lwarn "SPLIT BRAIN: keep some versionlinks for better reporting\n";
+    return unless $force;
+  }
   lprint "removing left-over version symlinks...\n" if $verbose;
-  foreach my $versionlink (glob("$mars/resource-$res/version-*")) {
+  foreach my $versionlink (@versionlinks) {
     my $nrv = $versionlink;
     $nrv =~ s/^.*\/version-([0-9]+)-.+$/$1/;
     # we need at least one more version link than logfiles for consistency checks
