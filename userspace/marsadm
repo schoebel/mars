@@ -1068,7 +1068,19 @@ sub detect_splitbrain {
       if ($split) {
 	$ok = 0;
 	if ($do_report) {
-	  lwarn "SPLIT BRAIN of '$res' at '$point' detected:\n";
+	  my $age = "";
+	  if ($point) {
+	    my $log = "$basedir/$point";
+	    $log =~ s:,.+::;
+	    my $stamp = get_link_stamp($log);
+	    my $vers = $log;
+	    $vers =~ s:/log-:/version-:;
+	    my $stamp2 = get_link_stamp($vers);
+	    # take the minimum
+	    $stamp = $stamp2 if !$stamp || ($stamp2 && $stamp2 < $stamp);
+	    $age = " age ~" . seconds2human(mars_time() - $stamp) if $stamp;
+	  }
+	  lwarn "SPLIT BRAIN of '$res' at '$point'$age\n";
 	  lwarn "   hostA = '$host1' data_size='$size1' (" . number2human($size1) . ")\n";
 	  lwarn "   hostB = '$host2' data_size='$size2' (" . number2human($size2) . ")\n";
 	} else {
