@@ -29,4 +29,10 @@
 extern void get_lamport(struct timespec *now);
 extern void set_lamport(struct timespec *old);
 
+/* Protect against illegal values, e.g. from currupt filesystems etc.
+ */
+extern int max_lamport_future;
+
+extern bool protect_timespec(struct timespec *check);
+
 #endif

@@ -58,6 +58,8 @@ void set_lamport(struct timespec *old)
 {
 	int diff;
 
+	protect_timespec(old);
+
 	down(&lamport_sem);
 
 	diff = timespec_compare(old, &lamport_now);
@@ -69,3 +71,27 @@ void set_lamport(struct timespec *old)
 	up(&lamport_sem);
 }
 EXPORT_SYMBOL_GPL(set_lamport);
+
+
+/* Protect against illegal values, e.g. from currupt filesystems etc.
+ */
+
+int max_lamport_future = 30 * 24 * 3600;
+
+bool protect_timespec(struct timespec *check)
+{
+	struct timespec limit = CURRENT_TIME;
+	bool res = false;
+
+	limit.tv_sec += max_lamport_future;
+	if (unlikely(check->tv_sec >= limit.tv_sec)) {
+		down(&lamport_sem);
+		timespec_add_ns(&lamport_now, 1);
+		memcpy(check, &lamport_now, sizeof(*check));
+		if (unlikely(check->tv_sec > limit.tv_sec))
+			max_lamport_future += check->tv_sec - limit.tv_sec;
+		up(&lamport_sem);
+		res = true;
+	}
+	return res;
+}
