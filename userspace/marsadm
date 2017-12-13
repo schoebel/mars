@@ -32,7 +32,7 @@ umask 0077;
 # global defaults
 
 my $threshold = 10 * 1024 * 1024;
-my $window = 30;
+my $window = 60;
 my $verbose = 0;
 my $max_deletions = 512;
 my $thresh_logfiles = 10;
@@ -245,7 +245,7 @@ sub get_link_stamp {
 
 sub is_link_recent {
   my ($path, $wind) = @_;
-  $wind = $window unless defined($wind);
+  $wind = $window * 2 unless defined($wind);
   my @stat = lstat($path);
   return 0 if (!@stat);
   return 1 if $stat[9] + $wind >= mars_time();
@@ -1259,7 +1259,7 @@ sub log_purge_res {
 sub try_to_avoid_splitbrain {
   my ($cmd, $res, $old_primary) = @_;
   my $old_timeout = $timeout;
-  $timeout = $window * 2 if $timeout < 0;
+  $timeout = $window if $timeout < 0;
   $old_primary = "" if $old_primary eq "(none)";
   wait_cluster($cmd, $res, $old_primary);
   if (!detect_splitbrain($res, 0)) {
@@ -1274,7 +1274,7 @@ sub try_to_avoid_splitbrain {
   my @host_list = glob("$mars/resource-$res/replay-*");
   $timeout = $old_timeout;
   return if scalar(@host_list) < 2;
-  $timeout = $window * 2 if $timeout < 0;
+  $timeout = $window if $timeout < 0;
   my $old_situation = "";
   for (;;) {
     my ($min, $max) = get_minmax_versions($res);
@@ -1337,7 +1337,7 @@ sub try_to_avoid_splitbrain {
     my $tpl = get_macro("replinfo");
     my $new_situation = eval_macro($cmd, $res, $tpl, @_);
     print $new_situation;
-    $timeout = $window * 2 if $new_situation ne $old_situation;
+    $timeout = $window if $new_situation ne $old_situation;
     sleep_timeout();
     $old_situation = $new_situation;
   }
