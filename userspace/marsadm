@@ -40,7 +40,13 @@ my $thresh_logsize = 5; # GB
 my $dry_run = 0;
 my @MARS_PATH = $ENV{MARS_PATH} ?
   split(/:/, $ENV{MARS_PATH}) :
-  (".", "~/.marsadm", "/etc/marsadm", "/usr/lib/marsadm", "/usr/local/lib/marsadm");
+  (
+   ".",
+   "$ENV{HOME}/.marsadm",
+   "/etc/marsadm",
+   "/usr/lib/marsadm",
+   "/usr/local/lib/marsadm",
+  );
 
 ##################################################################
 
