@@ -5009,7 +5009,7 @@ static const struct main_class main_classes[] = {
 	[CL_GLOBAL_USERSPACE_ITEMS] = {
 		.cl_name = "",
 		.cl_len = 0, // catch any
-		.cl_type = 'l',
+		.cl_type = 'L',
 		.cl_father = CL_GLOBAL_USERSPACE,
 	},
 
@@ -5176,7 +5176,7 @@ static const struct main_class main_classes[] = {
 	[CL_RESOURCE_USERSPACE_ITEMS] = {
 		.cl_name = "",
 		.cl_len = 0, // catch any
-		.cl_type = 'l',
+		.cl_type = 'L',
 		.cl_father = CL_RESOURCE_USERSPACE,
 	},
 
@@ -5566,6 +5566,12 @@ static int main_worker(struct mars_global *global, struct mars_dent *dent, bool 
 	case 'l':
 		if (!S_ISLNK(dent->new_stat.mode)) {
 			MARS_ERR_ONCE(dent, "'%s' should be a symlink, but is something else\n", dent->d_path);
+			return -EINVAL;
+		}
+		break;
+	case 'L':
+		if (!S_ISLNK(dent->new_stat.mode)) {
+			/* ignore silently */
 			return -EINVAL;
 		}
 		break;
