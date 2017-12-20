@@ -223,6 +223,278 @@ my $match_fn = qr"$match_fn_head(?:\{($match_inner)\})"s;
 
 ##################################################################
 
+# dynamic systemd control
+
+my $systemd_subdir = defined($ENV{SYSTEMD_SUBDIR}) ? $ENV{SYSTEMD_SUBDIR} : "systemd-templates";
+my $systemd_target_dir = defined($ENV{SYSTEMD_TARGET_DIR}) ? $ENV{SYSTEMD_TARGET_DIR} : "/run/systemd/system";
+my $systemctl = defined($ENV{SYSTEMCTL}) ? $ENV{SYSTEMCTL} : "systemctl";
+my $systemd_escape = defined($ENV{SYSTEMD_ESCAPE}) ? $ENV{SYSTEMD_ESCAPE} : "@";
+
+my @systemctl_start =
+  (
+   "mars-trigger.path", # This MUST come first
+  );
+
+my @systemctl_enable =
+  (
+   @systemctl_start,
+   "mars-trigger.service",
+  );
+
+my %failed;
+
+sub _systemd_escape {
+  my ($txt) = @_;
+  my $replac = `systemd-escape --path "$txt"`;
+  chomp $replac;
+  return $replac;
+}
+
+sub subst_systemd_vars {
+  my $escape = shift;
+  my ($text, $env) = make_env(@_);
+  my $parsed = "";
+  while ($text =~ m/[$systemd_escape]([A-Za-z_][-A-Za-z0-9_]*)?[{]($match_inner)[}]/ps) {
+    my $name = $1 || "";
+    my $body = $2;
+    $parsed .= $PREMATCH;
+    my $rest = $POSTMATCH;
+    my $this_escape = 0;
+    my $replac;
+    $_ = $name;
+  PRE_SWITCH: {
+      if (/^escvar$/) {
+	$name = "";
+	$this_escape = 1;
+	last PRE_SWITCH;
+      }
+      if (/^esc$/) {
+	$name = "verbatim";
+	$this_escape = 1;
+	last PRE_SWITCH;
+      }
+    }
+    $_ = $name;
+  SWITCH: {
+      if (/^eval$/) {
+	$replac = parse_macro($body, $env);
+	last SWITCH;
+      }
+      if (/^$/) {
+	my $varname = parse_macro($body, $env);
+	$replac = $$env{$varname};
+	if (!defined($replac)) {
+	  lwarn "variable '$varname' is undefined\n" unless defined($failed{$varname});
+	  $failed{$varname} = 1;
+	  $replac = "UNDEFINED($varname)";
+	}
+	lprint "    subst '$systemd_escape\{$varname\}' => '$replac'\n" if $verbose;
+	last SWITCH;
+      }
+      if (/^verbatim$/) {
+	$replac = $body;
+	last SWITCH;
+      }
+      lwarn "systemd function '$name' is undefined\n";
+      $replac = $body;
+    }
+    if ($escape || $this_escape) {
+      my $orig = $replac;
+      $replac = _systemd_escape($replac);
+      lprint "    escape '$orig' => '$replac'\n" if $verbose;
+    }
+    $parsed .= $replac;
+    $text = $rest;
+  }
+  return $parsed . $text;
+}
+
+sub instantiate_systemd_unit {
+  my ($cmd, $res, $template_file) = @_;
+  my $replac = subst_systemd_vars(1, $cmd, $res, `basename "$template_file"`);
+  my $outfile = "$systemd_target_dir/$replac";
+  chomp $outfile;
+  lprint "==== Translate systemd template '$template_file' => '$outfile'\n" if $verbose;
+  my $text;
+  {
+    local $/;  # slurp
+    open(IN, "< $template_file") or ldie "cannot open system template file '$template_file'\n";
+    $text = <IN>;
+    close(IN);
+  }
+  $text = subst_systemd_vars(0, $cmd, $res, $text);
+  if (open(IN, "< $outfile")) {
+    # Check whether something has changed
+    my $old = <IN>;
+    close(IN);
+    if ($old eq $text) {
+      lprint "== systemd unit '$outfile' has not changed\n" if $verbose;
+      return (0, $outfile);
+    }
+  }
+  open(OUT, "> $outfile.tmp") or ldie "cannt create '$outfile'\n";
+  print OUT $text;
+  close(OUT);
+  rename("$outfile.tmp", $outfile);
+  return (1, $outfile);
+}
+
+sub systemd_activate {
+  my ($cmd, $res, $override) = @_;
+  my $want_path = "$mars/resource-$res/systemd-want";
+  my $want = get_link($want_path, 2);
+  if (!$want) {
+    lprint "Nothing to (de)activate: $want_path does not exist\n" if $verbose;
+    return;
+  }
+  my $do_activate = $want eq $host;
+  if (defined($override) && $override != $do_activate) {
+    lprint "Overriding unit activate=$do_activate with $override\n" if $verbose;
+    $do_activate = $override;
+  }
+  my $oper = $do_activate ? "start" : "stop";
+  my $unit_path = "$mars/resource-$res/systemd-$oper-unit";
+  my $unit = get_link($unit_path, 2);
+  if (!$unit) {
+    lprint "Nothing to (de)activate: $unit_path does not exist\n" if $verbose;
+    return;
+  }
+  my $ctl_cmd = "$systemctl show \"$unit\"";
+  system($ctl_cmd) if $verbose;
+  if ($do_activate) {
+    $unit =~ s/ .*//;
+    lprint "==== Activate resource '$res' unit '$unit'\n"if $verbose;
+    $ctl_cmd = "$systemctl start \"$unit\"";
+  } else {
+    $unit =~ s/.* //;
+    lprint "==== Deactivate resource '$res' unit '$unit'\n"if $verbose;
+    $ctl_cmd = "$systemctl stop \"$unit\"";
+  }
+  lprint "$ctl_cmd\n" if $verbose;
+  system($ctl_cmd) and lwarn "command '$ctl_cmd' failed\n";
+}
+
+sub systemd_trigger {
+  my ($cmd) = @_;
+  # Remember old instances
+  my %old_instances;
+  foreach my $file (glob("$systemd_target_dir/*")) {
+    $old_instances{$file} = 1;
+  }
+  # Determine all template files.
+  my %templates;
+  my %unit;
+  foreach my $dir (@MARS_PATH) {
+    my $subdir = "$dir/$systemd_subdir";
+    $subdir = $dir unless -d $subdir;
+    next unless -d $subdir;
+    foreach my $template (glob("$subdir/*.{service,socket,device,mount,automount,swap,target,path,timer,slice,scope}")) {
+      my $name = `basename '$template'`;
+      chomp $name;
+      $templates{$name} = 1;
+      # Only the first hit will win when the same template is in multiple dirs.
+      next if defined($unit{$name});
+      lprint "== found template '$template'\n" if $verbose;
+      $unit{$name} = $template;
+    }
+  }
+  # Determine all participating resource names.
+  my @res_list = glob("$mars/resource-*/{data,systemd}-$host");
+  map { s:^$mars/resource-(.*?)/.*:$1:; } @res_list;
+  lprint "====== found " . scalar(@res_list) . " participating resources\n" if $verbose;
+  # Create all systemd units from templates.
+  my %new_instances;
+  my $count = 0;
+  foreach my $name (sort(keys(%unit))) {
+    my $template = $unit{$name};
+    if ($name =~ m/[$systemd_escape][{]res[}]/i) {
+      foreach my $res (@res_list) {
+	my ($nr, $file) = instantiate_systemd_unit($cmd, $res, $template);
+	$new_instances{$file} = 1;
+	$count += $nr;
+      }
+    } else {
+      my ($nr, $file) = instantiate_systemd_unit($cmd, "UNDEFINED_RESOURCE", $template);
+      $new_instances{$file} = 1;
+      $count += $nr;
+    }
+  }
+  lprint "== $count units have changed.\n" if $verbose;
+  my $deleted = 0;
+  foreach my $file (keys(%old_instances)) {
+    next if $new_instances{$file};
+    # Don't remove foreign systemd files.
+    # Check whether it could have been created by our templates.
+    my $found = 0;
+    my $name = $file;
+    $name =~ s:^.*/::;
+    foreach my $template (keys(%templates)) {
+      $template =~ s:^.*/::;
+      if ($template eq $name) {
+	lprint "  '$name' equals '$template'\n" if $verbose > 1;
+	$found = 1;
+	last;
+      }
+      $template =~ s:\.:\\.:g;
+      $template =~ s:@\{.*?\}:.*?:g;
+      lprint "  matching '$name' against '$template'\n" if $verbose > 1;
+      if ($name =~ m/^$template$/) {
+	lprint "  '$name' matches '$template'\n" if $verbose > 1;
+	$found = 1;
+	last;
+      }
+    }
+    next unless $found;
+    lprint "Removing old template instance '$file'\n" if $verbose;
+    unlink($file);
+    $deleted++;
+  }
+  lprint "== $deleted units have been removed.\n" if $verbose;
+
+  if ($count + $deleted) {
+    lprint "==== Restart systemd\n"if $verbose;
+    foreach my $unit (@systemctl_enable) {
+      if (!system("$systemctl cat '$unit' > /dev/null 2>&1")) {
+	system("$systemctl enable '$unit'");
+      }
+    }
+    system("$systemctl daemon-reload");
+  }
+  # Activate all *.path triggers
+  for my $unit_path (glob("$systemd_target_dir/*mars*.path")) {
+    my $unit = `basename "$unit_path"`;
+    chomp $unit;
+    lprint "==== Activate path watcher '$unit'\n"if $verbose;
+    system("$systemctl start \"$unit\"");
+  }
+  # Activate the listed units.
+  foreach my $res (@res_list) {
+    systemd_activate($cmd, $res);
+  }
+  # Start standard units
+  foreach my $unit (@systemctl_start) {
+    if (!system("$systemctl cat '$unit' > /dev/null 2>&1")) {
+      system("$systemctl start '$unit'");
+    }
+  }
+}
+
+sub _systemd_trigger {
+  my ($cmd) = @_;
+  my $needed_unit = $systemctl_start[0];
+  if (!system("$systemctl cat '$needed_unit' > /dev/null 2>&1")) {
+    if (system("$systemctl status '$needed_unit' > /dev/null 2>&1")) {
+      system("$systemctl enable '$needed_unit'");
+      system("$systemctl start '$needed_unit'");
+    }
+  }
+  my $trigger = "$mars/userspace/systemd-trigger";
+  lprint "Triggering '$trigger' for '$cmd'\n"if $verbose;
+  system("touch $trigger") and systemd_trigger(@_);
+}
+
+##################################################################
+
 # path correction
 
 sub correct_path {
@@ -779,6 +1051,7 @@ sub check_mars_device {
 	$round = 0;
 	$backoff++;
       }
+      systemd_activate($cmd, $res, 0);
     }
     lprint "device '$dev' is no longer present\n" unless -b $dev;
     return;
@@ -2159,6 +2432,8 @@ sub create_res {
     set_link("00000000000000000000000000000000,log-$fmt-$host,0:$old_fake", "$resdir/version-$fmt-$host");
     set_link("$startnr", "$resdir/skip-check-$host") if $startnr > 1;
     set_link("$startnr", "$resdir/maxnr");
+    my $want_path = "$resdir/systemd-want";
+    set_link($host, $want_path);
     finish_links();
     lprint "successfully created resource '$res'\n";
   } else { # join
@@ -2168,6 +2443,7 @@ sub create_res {
     rsync_cmd($primary, "--max-size=1 --update $file $primary:$mars/resource-$res/", 1);
     lprint "successfully joined resource '$res'\n";
   }
+  _systemd_trigger($cmd);
 }
 
 sub split_cluster {
@@ -2308,6 +2584,7 @@ sub leave_res_phase2 {
   finish_links();
   _wait_delete();
   system("rm -f $mars/resource-$res/log-*") if $host eq $real_host;
+  _systemd_trigger($cmd);
 }
 
 sub delete_res {
@@ -2333,6 +2610,7 @@ sub delete_res {
   set_link("1", "$mars/resource-$res/work-$host");
   finish_links();
   _wait_delete();
+  _systemd_trigger($cmd);
 }
 
 sub logrotate_res {
@@ -2793,6 +3071,28 @@ sub primary_phase0 {
       ldie "Won't switch to avoid unnoticed data loss. You may however do a 'primary --force'.\n" unless $force;
     }
   }
+  my $want_path = "$mars/resource-$res/systemd-want";
+  my $want = get_link($want_path, 2);
+  if ($want) {
+    my $new;
+    my $oper;
+    if ($cmd eq "primary") {
+      $new = $host;
+      $oper = "start";
+    } else {
+      $new = "(none)";
+      $oper = "stop";
+    }
+    set_link($new, $want_path);
+    my $unit_path = "$mars/resource-$res/systemd-$oper-unit";
+    my $unit = get_link($unit_path, 2);
+    lprint "IMPORTANT: Relying on systemd for $oper of unit '$unit'\n";
+    lprint "IMPORTANT: unit '$unit' wanted at '$new'\n";
+    finish_links();
+    _systemd_trigger($cmd);
+    _trigger(3);
+    return;
+  }
   return if ($old eq $host and $cmd eq "primary");
   return if $old eq "(none)";
   my $open_count_path = "$mars/resource-$res/actual-$old/open-count";
@@ -2864,6 +3164,7 @@ sub primary_phase4 {
     return;
   }
   check_mars_device($cmd, $res, 1, 0);
+  _systemd_trigger($cmd);
 }
 
 sub wait_umount_res {
@@ -5588,6 +5889,12 @@ my %cmd_table =
        "Delete cluster member.",
        \&lowlevel_delete_host,
       ],
+
+   # systemd interface
+   "systemd-trigger"
+   => [
+       \&systemd_trigger,
+      ],
   );
 
 
@@ -5876,7 +6183,7 @@ if ($cmd =~ "show|cron") {
   ldie "argument '$res' isn't numeric\n" unless $res =~ m/^[0-9.]+$/;
 } elsif ($cmd =~ m/^(join|merge)-cluster$/) {
   $res = shift @args || helplist "peer argument is missing\n";
-} elsif (!($cmd =~ m/^(create|split|leave|wait)-cluster|merge-cluster-list|create-uuid|cat|[a-z]+-file/)) {
+} elsif (!($cmd =~ m/^(create|split|leave|wait)-cluster|merge-cluster-list|create-uuid|cat|[a-z]+-file|trigger/)) {
   $res = shift @args || helplist "resource argument is missing\n";
   check_id($res);
 }
