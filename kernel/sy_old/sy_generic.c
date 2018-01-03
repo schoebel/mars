@@ -908,7 +908,7 @@ int ordered_symlink(const char *oldpath, const char *newpath, const struct times
 	struct kstat stat;
 	struct timespec now;
 	const char *marker_path;
-	int status = 0;
+	int status = 1;
 
 	if (!stamp) {
 		get_lamport(&now);
