@@ -336,7 +336,7 @@ name "chap:Why-You-should"
 \end_layout
 
 \begin_layout Section
-Cost Arguments from Architecture
+Cost and Scalability Arguments from Architecture
 \end_layout
 
 \begin_layout Standard
@@ -414,11 +414,17 @@ any
 \end_inset
 
  network connections running in parallel.
- Even if the total network throughput would be scaling only with 
+ Even if the total network throughput is scaling only with 
 \begin_inset Formula $O(n)$
 \end_inset
 
-, the network has to 
+, nevertheless 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ network connections have to be maintained at connection oriented protocols
+ and at various layers of the operating software, and the network has to
+ 
 \emph on
 switch
 \emph default
@@ -452,7 +458,7 @@ In order to limit error propagation from other networks, the storage network
 \emph on
 physically separate
 \emph default
- / 
+ = 
 \emph on
 dedicated
 \emph default
@@ -466,8 +472,8 @@ Because storage networks are heavily reacting to high latencies and packet
 \series bold
 worst case
 \series default
- (load peaks, packet storms, etc), needing one of the best = most expensive
- components for reducing latency and increasing throughput.
+ (load peaks, packet storms, etc), needing one of the best = typically most
+ expensive components for reducing latency and increasing throughput.
  Dimensioning to the worst case instead of an average case plus some safety
  margins is nothing but an expensive 
 \series bold
@@ -504,15 +510,15 @@ sharding architecture
 \begin_inset Quotes erd
 \end_inset
 
- which does not need a storage network at all, at least when built and dimension
-ed properly.
+ which does not need a dedicated storage network at all, at least when built
+ and dimensioned properly.
  Instead, it 
 \emph on
 should have
 \emph default
  (but not always needs) a so-called replication network which can, when
  present, be dimensioned much smaller because it does neither need realtime
- operations, nor scalabiliy to 
+ operations nor scalabiliy to 
 \begin_inset Formula $O(n^{2})$
 \end_inset
 
@@ -562,12 +568,7 @@ Even in cases when any customer may potentially access any of the data items
 Only when partitioning of input traffic plus data is not possible in a reasonabl
 e way, big cluster architectures as implemented for example in Ceph or Swift
  (and partly even possible with MARS when resticted to the block layer)
- have their 
-\series bold
-usecase
-\series default
-.
- Only under such a precondition they are really needed.
+ have a very clear use case.
 \end_layout
 
 \begin_layout Standard
@@ -585,7 +586,7 @@ When sharding is possible, it is the preferred model due to cost and performance
 \end_inset
 
 Notice that MARS' new remote device feature from the 0.2 branch series (which
- is a replacement for iSCSI) 
+ is kind of replacement for iSCSI) 
 \emph on
 could
 \emph default
@@ -601,7 +602,15 @@ big cluster
 \end_layout
 
 \begin_layout Standard
-Nevertheless, this sub-variant is not the preferred model.
+Nevertheless, such models re-introducing some kind of 
+\begin_inset Quotes eld
+\end_inset
+
+dedicated storage network
+\begin_inset Quotes erd
+\end_inset
+
+ into MARS operations are not the preferred model.
  Following is the a super-model which combines both the 
 \begin_inset Quotes eld
 \end_inset
@@ -610,7 +619,7 @@ big cluster
 \begin_inset Quotes erd
 \end_inset
 
- and sharding model at block lyer in a very flexible way.
+ and sharding model at block layer in a very flexible way.
  The following example shows only two servers from a pool consisting of
  hundreds or thousands of servers:
 \begin_inset Separator latexpar
@@ -673,8 +682,8 @@ exceptionally(!)
 \end_layout
 
 \begin_layout Standard
-Notice that locally running VMs doesn't produce any storage network traffic
- at all.
+Notice that local operations of VMs doesn't produce any storage network
+ traffic at all.
  Therefore, this is the preferred runtime configuration.
 \end_layout
 
@@ -685,7 +694,7 @@ Only in cases of resource imbalance, such as (transient) CPU or RAM peaks
 \emph on
 some
 \emph default
- containers may be run somewhere else over the network.
+ VMs or containers may be run somewhere else over the network.
  In a well-balanced and well-dimensioned system, this will be the 
 \series bold
 vast minority
@@ -739,23 +748,12 @@ reference "sec:Cost-Arguments-from"
 \begin_layout Standard
 The sharding model needs a different approach to load balancing of storage
  space than the big cluster model.
- There are serveral possibilities at different layers:
-\end_layout
-
-\begin_layout Itemize
-Dynamically growing the sizes of LVs via 
-\family typewriter
-lvresize
-\family default
- followed by 
-\family typewriter
-marsadm resize
-\family default
- followed by 
-\family typewriter
-xfs_growfs
-\family default
- or similar operations.
+ There are serveral possibilities at different layers, each addressing different
+ 
+\series bold
+granularities
+\series default
+:
 \end_layout
 
 \begin_layout Itemize
@@ -768,6 +766,51 @@ rsync
 mysqldump
 \family default
  or similar.
+ 
+\begin_inset Newline newline
+\end_inset
+
+Example: at 1&1 Shared Hosting Linux, we have about 9 millions of customer
+ home directories.
+ We also have a script 
+\family typewriter
+movespace.pl
+\family default
+ using incremental 
+\family typewriter
+tar
+\family default
+ for their moves.
+ Now, if we would try to move around 
+\emph on
+all
+\emph default
+ of them this way, it could easily take years or even decades for millions
+ of extremely small home directories, due to overhead like DNS updates etc.
+ However, there exist a small handful of large customer home directories
+ in the terabyte range.
+ For these, and only for these, it is a clever idea to use 
+\family typewriter
+movespace.pl
+\family default
+ because thereby the size of a LV can be regulated more fine grained than
+ at LV level.
+\end_layout
+
+\begin_layout Itemize
+Dynamically growing the sizes of LVs during operations: 
+\family typewriter
+lvresize
+\family default
+ followed by 
+\family typewriter
+marsadm resize
+\family default
+ followed by 
+\family typewriter
+xfs_growfs
+\family default
+ or similar operations.
 \end_layout
 
 \begin_layout Itemize
@@ -792,7 +835,11 @@ The idea is to dynamically create
 \emph on
 additional
 \emph default
- LV replicas for the sake of background migration.
+ LV replicas for the sake of 
+\series bold
+background migration
+\series default
+.
  Examples:
 \end_layout
 
@@ -888,6 +935,18 @@ In case you already have a redundant LV copy somewhere, you should run a
 \end_inset
 
  when moving pairs at once.
+\begin_inset Newline newline
+\end_inset
+
+Example: see 
+\family typewriter
+tetris.sh
+\family default
+ in the 
+\family typewriter
+contrib/
+\family default
+ directory of MARS.
 \end_layout
 
 \begin_layout Itemize
@@ -1242,7 +1301,7 @@ Cloud storage is way too much hyped.
 \emph on
 extremely
 \emph default
- varying over time, and when you need some 
+ varying over time, and/or when you need some 
 \emph on
 extra
 \emph default
@@ -1591,9 +1650,10 @@ practice
 
 \begin_layout Standard
 Therefore a big cluster typically needs >200% disks to reach the same net
- capacity as a sharded cluster, where typically hardware RAID-60 with a
- significantly smaller overhead is sufficient for providing sufficient failure
- tolerance at disk level.
+ capacity as a simple sharded cluster.
+ The latter can take advantage of hardware RAID-60 with a significantly
+ smaller disk overhead, while providing sufficient failure tolerance at
+ disk level.
 \end_layout
 
 \begin_layout Standard
