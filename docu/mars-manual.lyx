@@ -16353,6 +16353,15 @@ reference "sec:The-Lamport-Clock"
 \begin_layout Itemize
 
 \family typewriter
+%real-time{}
+\family default
+ Return the current system clock timestamp, in units of seconds since the
+ Unix epoch.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
 %sleep{
 \emph on
 seconds
