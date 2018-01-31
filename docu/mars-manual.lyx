@@ -11781,7 +11781,7 @@ mars_light
 \family typewriter
 %{window}
 \family default
- (default 30) seconds.
+ (default 60) seconds.
  Notice that this may happen when deleting 
 \emph on
 extremely
@@ -12021,7 +12021,7 @@ PrimaryUnreachable
 %is-alive{}
 \family default
 ) A current designated primary has been set, but this host has not been
- remotely updated for more than 30 seconds (see also 
+ remotely updated for more than 60 seconds (see also 
 \family typewriter
 --window=$seconds
 \family default
@@ -16652,7 +16652,7 @@ The value given by the
 \family typewriter
 --window=
 \family default
- option, or the corresonding default value.
+ option, or the corresonding default value (60s).
 \end_layout
 
 \begin_layout Itemize
@@ -17578,7 +17578,7 @@ status open
 The time window for checking the aliveness of other nodes in the network.
  When no symlink updates have occurred during the last window, the node
  is considered dead.
- Default is 30s
+ Default is 60s.
 \end_layout
 
 \end_inset
