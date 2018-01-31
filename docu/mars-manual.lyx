@@ -18087,7 +18087,7 @@ name "sec:Cluster-Operations"
 
 \size scriptsize
 \begin_inset Tabular
-<lyxtabular version="3" rows="6" columns="3">
+<lyxtabular version="3" rows="9" columns="3">
 <features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
@@ -18783,6 +18783,419 @@ reference "subsec:Setup-your-Cluster"
 mkfs.ext4
 \family default
  accordingly.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+merge-cluster
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$host
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Precondition: the set of resources at the local cluster (transitively) and
+ at the cluster of 
+\family typewriter
+$host
+\family default
+ (transitively) must be disjoint.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Create the union of both clusters, consisting of the union of all participating
+ machines (transitively).
+ Resource memberships are unaffected.
+ This is useful for creating a 
+\begin_inset Quotes eld
+\end_inset
+
+virtual LVM cluster
+\begin_inset Quotes erd
+\end_inset
+
+ where resources can be migrated later via 
+\family typewriter
+join-resource
+\family default
+ / 
+\family typewriter
+leave-resource
+\family default
+ operations.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+
+\size scriptsize
+Attention! The mars branch 
+\family typewriter
+0.1.y
+\family default
+ does not scale well in number of cluter members, because it evolved from
+ a lab prototype with 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ behaviour at metadata exchange.
+ Never exceed the maximum cluster members as described in appendix 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "chap:Technical-Data-MARS"
+
+\end_inset
+
+.
+ For safety, you should better stay at 1/2 of the numbers mentioned there.
+ Use 
+\family typewriter
+split-cluster
+\family default
+ for going back to smaller clusters again after your background data migration
+ has completed.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+
+\size scriptsize
+Future versions of MARS, starting with branch 
+\family typewriter
+0.1b.y
+\family default
+ will be constructed for very big clusters in the range of thousands of
+ nodes.
+ Development has not yet stabilized there, and operational experiences are
+ missing at the moment.
+ Be careful until official announcements are appearing in the ChangeLog,
+ reporting of operational experiences from the 1&1 big cluster at metadata
+ level.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+merge-cluster-check
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$host
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Check in advance whether the set of resources at the local cluster and at
+ the other cluster 
+\family typewriter
+$host
+\family default
+ are disjoint.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+split-cluster
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+This is almost the inverse operation of 
+\family typewriter
+merge-cluster
+\family default
+: it determines the minimum sub-cluster groups participating in some common
+ resources.
+ Then it splits the cluster memberships such that unnecessary connections
+ between non-related nodes are interrupted.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Use this for avoidance of too big clusters.
 \end_layout
 
 \end_inset
@@ -35496,7 +35909,14 @@ The Generic Object and Aspect Infrastructure
 
 \begin_layout Chapter
 \start_of_appendix
-Technical Data MARS 
+Technical Data MARS
+\begin_inset CommandInset label
+LatexCommand label
+name "chap:Technical-Data-MARS"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
