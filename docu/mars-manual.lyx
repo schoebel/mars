@@ -5455,7 +5455,8 @@ marsadm primary
 \family typewriter
 marsadm up
 \family default
-), and that any old primary (in this case 
+), that you are no sync target anymore, and that any old primary (in this
+ case 
 \family typewriter
 A
 \family default
@@ -5485,8 +5486,8 @@ marsadm primary
 \end_layout
 
 \begin_layout Standard
-The preconditions try to protect you from doing silly things, such as accidental
-ly provoking a split brain error state.
+These preconditions try to protect you from doing silly things, such as
+ accidentally provoking a split brain error state.
  We try to avoid split brain as best as we can.
  Therefore, we distinguish between 
 \emph on
@@ -5654,8 +5655,9 @@ current
 last known
 \emph default
  state).
- The following command sequence will skip many checks and tell your node
- to become primary forcefully:
+ The following command sequence will skip many checks (essentially you just
+ need to be attached and you must not be a current sync target) and tell
+ your node to become primary forcefully:
 \end_layout
 
 \begin_layout Itemize
@@ -6175,6 +6177,92 @@ marsadm down
 \family default
  can do it also, without destroying knowledge about the former designated
  primary.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ 
+\family typewriter
+marsadm primary –force
+\family default
+ is rejected in newer
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Beware: older versions before 
+\family typewriter
+mars0.1stable52
+\family default
+ did deliberately skip this check because a few years ago somebody at 1&1
+ did place a 
+\emph on
+requirement
+\emph default
+ on this.
+ Fortunately, the requirement now has gone, so a more safe behaviour could
+ be implemented.
+ The new behaviour is for your safety, to prevent you from doing 
+\begin_inset Quotes eld
+\end_inset
+
+silly
+\begin_inset Quotes erd
+\end_inset
+
+ things in case you are under pressure during an incident (try to safeguard
+ human error as best as possible).
+\end_layout
+
+\end_inset
+
+ marsadm versions if your replica is a current sync target.
+ This is not a bug: it should prevent you from forcing an inconsistent replica
+ into primary mode, which will 
+\emph on
+certainly
+\emph default
+ lead to inconsistent data.
+ However, in extreme rare cases of severe damage of 
+\emph on
+all
+\emph default
+ of your replicas, you may be desperate.
+ Only in such a rare case, and only then, you might decide to force any
+ of your replicas (e.g.
+ based on their last sync progress bar) into primary role although none
+ of the re-syncs had finished before.
+ In such a case, and only if you really know what you are doing, you may
+ use 
+\family typewriter
+marsadm fake-sync
+\family default
+ to first mark your inconsisten replica as UpToDate (which is a 
+\series bold
+lie
+\series default
+) and then force it to primary as explained above.
+ Afterwards, you will certainly need an 
+\family typewriter
+fsck
+\family default
+ or similar repair before you can restart your application.
+ Good luck! And don't forget to check the size of 
+\family typewriter
+lost+found
+\family default
+ afterwards.
+ This is really your 
+\emph on
+very last
+\emph default
+ chance if nothing else had succeeded before.
 \end_layout
 
 \begin_layout Subsection
@@ -20302,6 +20390,7 @@ all
 \end_layout
 
 \begin_layout Standard
+\noindent
 
 \size scriptsize
 \begin_inset Tabular
@@ -24531,7 +24620,7 @@ pause-replay
 primary --force
 \family default
  is a potentially harmful variant, because it will provoke a split brain
- in many cases, and therefore in turn will lead to 
+ in most cases, and therefore in turn will lead to 
 \series bold
 data loss
 \series default
@@ -24851,6 +24940,20 @@ pause-fetch
  See section 
 \begin_inset CommandInset ref
 LatexCommand ref
+reference "subsec:Forced-Switching"
+
+\end_inset
+
+.
+ For your safety, 
+\family typewriter
+–force
+\family default
+ does not work in newer marsadm (after mars0.1stable52) when your replica
+ is a current sync target.
+ More explanations see section 
+\begin_inset CommandInset ref
+LatexCommand vref
 reference "subsec:Forced-Switching"
 
 \end_inset
