@@ -47,6 +47,19 @@
 extern int mapfree_period_sec;
 extern int mapfree_grace_keep_mb;
 
+enum dirty_stage {
+	DIRTY_SUBMITTED,
+	DIRTY_COMPLETED,
+	DIRTY_FINISHED,
+	/* Keep this the last element */
+	DIRTY_MAX
+};
+
+struct dirty_length {
+	rwlock_t dl_lock;
+	loff_t   dl_length;
+};
+
 struct mapfree_info {
 	struct list_head mf_head;
 	struct list_head mf_dirty_anchor;
@@ -60,12 +73,7 @@ struct mapfree_info {
 	loff_t           mf_last;
 	loff_t           mf_max;
 	long long        mf_jiffies;
-};
-
-struct dirty_info {
-	struct list_head dirty_head;
-	struct mref_object *dirty_mref;
-	int dirty_stage;
+	struct dirty_length mf_length[DIRTY_MAX];
 };
 
 struct mapfree_info *mapfree_get(const char *filename, int flags);
@@ -76,12 +84,14 @@ void mapfree_set(struct mapfree_info *mf, loff_t min, loff_t max);
 
 void mapfree_pages(struct mapfree_info *mf, int grace_keep);
 
+////////////////// dirty IOs in append mode  //////////////////
+
+void mf_dirty_append(struct mapfree_info *mf, enum dirty_stage stage, loff_t newlen);
+loff_t mf_dirty_length(struct mapfree_info *mf, enum dirty_stage stage);
+
 ////////////////// dirty IOs on the fly  //////////////////
 
-void mf_insert_dirty(struct mapfree_info *mf, struct dirty_info *di);
-void mf_remove_dirty(struct mapfree_info *mf, struct dirty_info *di);
-void mf_get_dirty(struct mapfree_info *mf, loff_t *min, loff_t *max, int min_stage, int max_stage);
-void mf_get_any_dirty(const char *filename, loff_t *min, loff_t *max, int min_stage, int max_stage);
+loff_t mf_get_any_dirty(const char *filename, int stage);
 
 ////////////////// module init stuff /////////////////////////
 

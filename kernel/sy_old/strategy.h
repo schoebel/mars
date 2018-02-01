@@ -105,6 +105,7 @@ extern const struct meta mars_dent_meta[];
 
 struct mars_delete_info {
 	int deleted_my_border;
+	int old_deleted_my_border;
 	int deleted_border;
 	int deleted_min;
 	int max_deletions;

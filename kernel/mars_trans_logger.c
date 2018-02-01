@@ -108,7 +108,7 @@ int trans_logger_replay_timeout = 1; // in s
 EXPORT_SYMBOL_GPL(trans_logger_replay_timeout);
 
 struct writeback_group global_writeback = {
-	.lock = __RW_LOCK_UNLOCKED(global_writeback.lock),
+	.mutex = __RWSEM_INITIALIZER(global_writeback.mutex),
 	.group_anchor = LIST_HEAD_INIT(global_writeback.group_anchor),
 	.until_percent = 30,
 };
@@ -117,22 +117,18 @@ EXPORT_SYMBOL_GPL(global_writeback);
 static
 void add_to_group(struct writeback_group *gr, struct trans_logger_brick *brick)
 {
-	unsigned long flags;
-
-	write_lock_irqsave(&gr->lock, flags);
+	down_write(&gr->mutex);
 	list_add_tail(&brick->group_head, &gr->group_anchor);
-	write_unlock_irqrestore(&gr->lock, flags);
+	up_write(&gr->mutex);
 }
 
 static
 void remove_from_group(struct writeback_group *gr, struct trans_logger_brick *brick)
 {
-	unsigned long flags;
-
-	write_lock_irqsave(&gr->lock, flags);
+	down_write(&gr->mutex);
 	list_del_init(&brick->group_head);
 	gr->leader = NULL;
-	write_unlock_irqrestore(&gr->lock, flags);
+	up_write(&gr->mutex);
 }
 
 static
@@ -140,7 +136,6 @@ struct trans_logger_brick *elect_leader(struct writeback_group *gr)
 {
 	struct trans_logger_brick *res = gr->leader;
 	struct list_head *tmp;
-	unsigned long flags;
 
 	if (res && gr->until_percent >= 0) {
 		loff_t used = atomic64_read(&res->shadow_mem_used);
@@ -148,7 +143,8 @@ struct trans_logger_brick *elect_leader(struct writeback_group *gr)
 			goto done;
 	}
 
-	read_lock_irqsave(&gr->lock, flags);
+	/* FIXME: use O(log n) data structure instead */
+	down_read(&gr->mutex);
 	for (tmp = gr->group_anchor.next; tmp != &gr->group_anchor; tmp = tmp->next) {
 		struct trans_logger_brick *test = container_of(tmp, struct trans_logger_brick, group_head);
 		loff_t new_used = atomic64_read(&test->shadow_mem_used);
@@ -158,7 +154,7 @@ struct trans_logger_brick *elect_leader(struct writeback_group *gr)
 			gr->biggest = new_used;
 		}
 	}
-	read_unlock_irqrestore(&gr->lock, flags);
+	up_read(&gr->mutex);
 
 	gr->leader = res;
 
@@ -2712,7 +2708,6 @@ void replay_endio(struct generic_callback *cb)
 	struct trans_logger_mref_aspect *mref_a = cb->cb_private;
 	struct trans_logger_brick *brick;
 	bool ok;
-	unsigned long flags;
 
 	_crashme(22, false);
 
@@ -2726,10 +2721,10 @@ void replay_endio(struct generic_callback *cb)
 		MARS_ERR("IO error = %d\n", cb->cb_error);
 	}
 
-	traced_lock(&brick->replay_lock, flags);
+	down_write(&brick->replay_mutex);
 	ok = !list_empty(&mref_a->replay_head);
 	list_del_init(&mref_a->replay_head);
-	traced_unlock(&brick->replay_lock, flags);
+	up_write(&brick->replay_mutex);
 
 	if (likely(ok)) {
 		atomic_dec(&brick->replay_count);
@@ -2749,11 +2744,8 @@ bool _has_conflict(struct trans_logger_brick *brick, struct trans_logger_mref_as
 	struct mref_object *mref = mref_a->object;
 	struct list_head *tmp;
 	bool res = false;
-	unsigned long flags;
 
-	// NOTE: replacing this by rwlock_t will not gain anything, because there exists at most 1 reader at any time
-
-	traced_lock(&brick->replay_lock, flags);
+	down_read(&brick->replay_mutex);
 
 	for (tmp = brick->replay_list.next; tmp != &brick->replay_list; tmp = tmp->next) {
 		struct trans_logger_mref_aspect *tmp_a;
@@ -2767,7 +2759,7 @@ bool _has_conflict(struct trans_logger_brick *brick, struct trans_logger_mref_as
 		}
 	}
 
-	traced_unlock(&brick->replay_lock, flags);
+	up_read(&brick->replay_mutex);
 	return res;
 }
 
@@ -2778,7 +2770,6 @@ void wait_replay(struct trans_logger_brick *brick, struct trans_logger_mref_aspe
 	int conflicts = 0;
 	bool ok = false;
 	bool was_empty;
-	unsigned long flags;
 
 	wait_event_interruptible_timeout(brick->worker_event,
 					 atomic_read(&brick->replay_count) < max
@@ -2789,7 +2780,7 @@ void wait_replay(struct trans_logger_brick *brick, struct trans_logger_mref_aspe
 	if (conflicts)
 		atomic_inc(&brick->total_replay_conflict_count);
 
-	traced_lock(&brick->replay_lock, flags);
+	down_write(&brick->replay_mutex);
 	was_empty = !!list_empty(&mref_a->replay_head);
 	if (likely(was_empty)) {
 		atomic_inc(&brick->replay_count);
@@ -2797,7 +2788,7 @@ void wait_replay(struct trans_logger_brick *brick, struct trans_logger_mref_aspe
 		list_del(&mref_a->replay_head);
 	}
 	list_add(&mref_a->replay_head, &brick->replay_list);
-	traced_unlock(&brick->replay_lock, flags);
+	up_write(&brick->replay_mutex);
 
 	if (unlikely(!was_empty)) {
 		MARS_ERR("replay_head was already used (ok=%d, conflicts=%d, replay_count=%d)\n", ok, conflicts, atomic_read(&brick->replay_count));
@@ -3395,7 +3386,7 @@ int trans_logger_brick_construct(struct trans_logger_brick *brick)
 	}
 
 	atomic_set(&brick->hash_count, 0);
-	spin_lock_init(&brick->replay_lock);
+	init_rwsem(&brick->replay_mutex);
 	INIT_LIST_HEAD(&brick->replay_list);
 	INIT_LIST_HEAD(&brick->group_head);
 	init_waitqueue_head(&brick->worker_event);

@@ -126,6 +126,8 @@ EXPORT_SYMBOL_GPL(get_lamport);
 
 void set_lamport(struct timespec *lamport_old)
 {
+	protect_timespec(lamport_old);
+
 	/* Always advance the internal Lamport timestamp a little bit
 	 * in order to ensure strict monotonicity between set_lamport() calls.
 	 */
@@ -140,6 +142,8 @@ EXPORT_SYMBOL_GPL(set_lamport);
 
 void set_lamport_nonstrict(struct timespec *lamport_old)
 {
+	protect_timespec(lamport_old);
+
 	/*  Speculate that advaning is not necessary, to avoid the lock
 	 */
 	if (timespec_compare(lamport_old, &lamport_stamp) > 0) {
@@ -159,6 +163,8 @@ void set_get_lamport(struct timespec *lamport_old, struct timespec *real_now, st
 {
 	struct timespec _real_now;
 
+	protect_timespec(lamport_old);
+
 	down_write(&lamport_sem);
 	if (timespec_compare(lamport_old, &lamport_stamp) > 0)
 		*lamport_now = *lamport_old;
@@ -175,3 +181,26 @@ void set_get_lamport(struct timespec *lamport_old, struct timespec *real_now, st
 		*lamport_now = _real_now;
 }
 EXPORT_SYMBOL_GPL(set_get_lamport);
+
+/* Protect against illegal values, e.g. from currupt filesystems etc.
+ */
+
+int max_lamport_future = 30 * 24 * 3600;
+
+bool protect_timespec(struct timespec *check)
+{
+	struct timespec limit = CURRENT_TIME;
+	bool res = false;
+
+	limit.tv_sec += max_lamport_future;
+	if (unlikely(check->tv_sec >= limit.tv_sec)) {
+		down_write(&lamport_sem);
+		timespec_add_ns(&lamport_stamp, 1);
+		memcpy(check, &lamport_stamp, sizeof(*check));
+		if (unlikely(check->tv_sec > limit.tv_sec))
+			max_lamport_future += check->tv_sec - limit.tv_sec;
+		up_write(&lamport_sem);
+		res = true;
+	}
+	return res;
+}

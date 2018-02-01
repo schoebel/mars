@@ -303,6 +303,9 @@ Changelog for series 0.1a:
 	Add only absolutely necessary features.
 	Receive mainly fixes.
 
+mars0.1abeta5
+	* Merge mars0.1stable53.
+
 mars0.1abeta4
 	* Merge mars0.1stable52.
 
@@ -326,6 +329,21 @@ mars0.1abeta0
 
 -----------------------------------
 Changelog for series 0.1:
+
+mars0.1stable53
+	* Major fix: rare corner case of split brain was not displayed
+	  correctly.
+	* Major usablilty: show amount of data during split brain.
+	  This hints the sysadmins about the size of future data loss
+	  at later split brain resolution.
+	* Minor workaround: crashed /mars filesystems may contain
+	  completely damaged symlinks with timestamps in the far
+	  distant future, e.g. year >3000 etc. Safeguard unusual
+	  Lamport time slips by ignoring implausible values.
+	* Major improvement: internal locking overhead reduced.
+	* Minor improvment: reduce message trigger overhead.
+	* Several minor improvements.
+	* Doc updates.
 
 mars0.1stable52
 	* Major contrib: new example scripts for MARS background data

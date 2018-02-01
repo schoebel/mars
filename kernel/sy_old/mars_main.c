@@ -621,6 +621,7 @@ struct mars_rotate {
 	int relevant_serial;
 	int replay_code;
 	int avoid_count;
+	int old_open_count;
 	bool has_symlinks;
 	bool has_data;
 	bool has_deletions;
@@ -642,7 +643,7 @@ struct mars_rotate {
 	bool is_log_damaged;
 	bool has_emergency;
 	bool log_is_really_damaged;
-	spinlock_t inf_lock;
+	struct mutex inf_mutex;
 	bool infs_is_dirty[MAX_INFOS];
 	struct trans_logger_info infs[MAX_INFOS];
 	struct key_value_pair msgs[sizeof(rot_keys) / sizeof(char*)];
@@ -1289,7 +1290,6 @@ void _update_info(struct trans_logger_info *inf)
 {
 	struct mars_rotate *rot = inf->inf_private;
 	int hash;
-	unsigned long flags;
 
 	if (unlikely(!rot)) {
 		MARS_ERR("rot is NULL\n");
@@ -1316,10 +1316,10 @@ void _update_info(struct trans_logger_info *inf)
 		}
 	}
 
-	traced_lock(&rot->inf_lock, flags);
+	mutex_lock(&rot->inf_mutex);
 	memcpy(&rot->infs[hash], inf, sizeof(struct trans_logger_info));
 	rot->infs_is_dirty[hash] = true;
-	traced_unlock(&rot->inf_lock, flags);
+	mutex_unlock(&rot->inf_mutex);
 
 	mars_trigger();
 done:;
@@ -1331,12 +1331,11 @@ void write_info_links(struct mars_rotate *rot)
 	struct trans_logger_info inf;
 	int count = 0;
 	for (;;) {
-		unsigned long flags;
 		int hash = -1;
 		int min = 0;
 		int i;
 
-		traced_lock(&rot->inf_lock, flags);
+		mutex_lock(&rot->inf_mutex);
 		for (i = 0; i < MAX_INFOS; i++) {
 			if (!rot->infs_is_dirty[i])
 				continue;
@@ -1347,13 +1346,13 @@ void write_info_links(struct mars_rotate *rot)
 		}
 
 		if (hash < 0) {
-			traced_unlock(&rot->inf_lock, flags);
+			mutex_unlock(&rot->inf_mutex);
 			break;
 		}
 
 		rot->infs_is_dirty[hash] = false;
 		memcpy(&inf, &rot->infs[hash], sizeof(struct trans_logger_info));
-		traced_unlock(&rot->inf_lock, flags);
+		mutex_unlock(&rot->inf_mutex);
 		
 		MARS_DBG("seq = %d min_pos = %lld max_pos = %lld log_pos = %lld is_replaying = %d is_logging = %d\n",
 			 inf.inf_sequence,
@@ -1375,7 +1374,8 @@ void write_info_links(struct mars_rotate *rot)
 	if (count) {
 		if (inf.inf_min_pos == inf.inf_max_pos)
 			mars_trigger();
-		mars_remote_trigger();
+		if (rot->todo_primary | rot->is_primary | rot->old_is_primary)
+			mars_remote_trigger();
 	}
 }
 
@@ -1398,7 +1398,8 @@ void _make_new_replaylink(struct mars_rotate *rot, char *new_host, int new_seque
 	_update_version_link(rot, &inf);
 
 	mars_trigger();
-	mars_remote_trigger();
+	if (rot->todo_primary | rot->is_primary | rot->old_is_primary)
+		mars_remote_trigger();
 }
 
 static
@@ -2314,13 +2315,13 @@ int peer_thread(void *data)
 		status = 0;
 		if (peer->to_remote_trigger) {
 			pause_time = 0;
-			peer->to_remote_trigger = false;
 			MARS_DBG("sending notify to peer...\n");
 			cmd.cmd_code = CMD_NOTIFY;
 			status = mars_send_struct(&peer->socket, &cmd, mars_cmd_meta, true);
 		}
 
 		if (likely(status >= 0)) {
+			peer->to_remote_trigger = false;
 			cmd.cmd_code = CMD_GETENTS;
 			if (mars_resource_list) {
 				down_read(&mars_resource_sem);
@@ -3045,7 +3046,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 			status = -ENOMEM;
 			goto done;
 		}
-		spin_lock_init(&rot->inf_lock);		
+		mutex_init(&rot->inf_mutex);
 		fetch_path = path_make("%s/logfile-update", parent_path);
 		if (unlikely(!fetch_path)) {
 			MARS_ERR("cannot create fetch_path\n");
@@ -4449,6 +4450,11 @@ done:
 		rot->if_brick && !rot->if_brick->power.led_off;	
 	_show_primary(rot, parent);
 
+	if (open_count != rot->old_open_count) {
+		rot->old_open_count = open_count;
+		mars_remote_trigger();
+	}
+
 err:
 	return status;
 }
@@ -5199,8 +5205,13 @@ static int check_deleted(void *buf, struct mars_dent *dent)
 	} else {
 		delete_info = &global->delete_info;
 	}
-	if (!strcmp(dent->d_rest, my_id()))
+	if (!strcmp(dent->d_rest, my_id())) {
 		delete_info->deleted_my_border = serial;
+		if (delete_info->deleted_my_border != delete_info->old_deleted_my_border) {
+			delete_info->old_deleted_my_border = delete_info->deleted_my_border;
+			mars_remote_trigger();
+		}
+	}
 
 	/* Compute the minimum of the deletion progress among
 	 * the resource members.
@@ -5358,7 +5369,7 @@ static const struct main_class main_classes[] = {
 	[CL_GLOBAL_USERSPACE_ITEMS] = {
 		.cl_name = "",
 		.cl_len = 0, // catch any
-		.cl_type = 'l',
+		.cl_type = 'L',
 		.cl_father = CL_GLOBAL_USERSPACE,
 		.cl_flags = CHK_FILT_WORK,
 	},
@@ -5553,7 +5564,7 @@ static const struct main_class main_classes[] = {
 	[CL_RESOURCE_USERSPACE_ITEMS] = {
 		.cl_name = "",
 		.cl_len = 0, // catch any
-		.cl_type = 'l',
+		.cl_type = 'L',
 		.cl_father = CL_RESOURCE_USERSPACE,
 		.cl_flags = CHK_FILT_WORK,
 	},
@@ -5992,6 +6003,12 @@ static int main_worker(struct mars_global *global, struct mars_dent *dent, bool 
 	case 'l':
 		if (!S_ISLNK(dent->new_stat.mode)) {
 			MARS_ERR_ONCE(dent, "'%s' should be a symlink, but is something else\n", dent->d_path);
+			return -EINVAL;
+		}
+		break;
+	case 'L':
+		if (!S_ISLNK(dent->new_stat.mode)) {
+			/* ignore silently */
 			return -EINVAL;
 		}
 		break;

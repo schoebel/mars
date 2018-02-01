@@ -32,7 +32,7 @@ umask 0077;
 # global defaults
 
 my $threshold = 10 * 1024 * 1024;
-my $window = 30;
+my $window = 60;
 my $verbose = 0;
 my $delete_global = 0;
 my $max_deletions = 512;
@@ -41,7 +41,13 @@ my $thresh_logsize = 5; # GB
 my $dry_run = 0;
 my @MARS_PATH = $ENV{MARS_PATH} ?
   split(/:/, $ENV{MARS_PATH}) :
-  (".", "~/.marsadm", "/etc/marsadm", "/usr/lib/marsadm", "/usr/local/lib/marsadm");
+  (
+   ".",
+   "$ENV{HOME}/.marsadm",
+   "/etc/marsadm",
+   "/usr/lib/marsadm",
+   "/usr/local/lib/marsadm",
+  );
 
 ##################################################################
 
@@ -289,7 +295,7 @@ sub get_link_stamp {
 
 sub is_link_recent {
   my ($path, $wind) = @_;
-  $wind = $window unless defined($wind);
+  $wind = $window * 2 unless defined($wind);
   my @stat = lstat($path);
   return 0 if (!@stat);
   return 1 if $stat[9] + $wind >= mars_time();
@@ -324,6 +330,8 @@ sub finish_links {
   return unless @link_list;
   my $timestamp = mars_time();
   lprint "using lamport timestamp $timestamp\n" if $verbose;
+  my $trigger_code = 1;
+  my $count = 0;
   while (my $link = shift @link_list) {
     my $link_tmp = to_tmp($link);
     my $target = readlink($link_tmp);
@@ -343,8 +351,10 @@ sub finish_links {
     if ($verbose) {
       lprint "created symlink '$link' -> '$target'\n";
     }
+    $count++;
+    $trigger_code = 2 if $link =~ m:/(primary|todo-global|ip):;
   }
-  _trigger();
+  _trigger($trigger_code) if $count > 0;
 }
 
 ##################################################################
@@ -589,9 +599,8 @@ sub wait_cluster {
       }
       last;
     }
-    _trigger($hosts =~ m/\*/ ? 3 : 2);
-    sleep_timeout(5, !$abort);
-    last if $timeout <= 0;
+    sleep_timeout();
+    last if $timeout <= 0 && !$unknown_count;
   }
   $timeout = $old_timeout;
 }
@@ -741,7 +750,7 @@ sub check_sync_finished {
 }
 
 sub check_primary {
-  my ($cmd, $res) = @_;
+  my ($cmd, $res, $no_designated) = @_;
   my $lnk = "$mars/resource-$res/actual-$host/is-primary";
   my $is_primary = get_link($lnk, 1);
   if (!$is_primary) { # give it a second chance
@@ -750,6 +759,7 @@ sub check_primary {
     $is_primary = 1 if -b $dev;
   }
   ldie "for operation '$cmd' I need to be primary\n" unless $is_primary;
+  return if $no_designated;
   my $primary = _get_designated_primary($res);
   ldie "for operation '$cmd', I also must be the designated primary\n" unless $primary eq $host;
 }
@@ -1096,12 +1106,24 @@ sub _get_prev_pos {
   my ($basedir, $nr, $peer) = @_;
   my $path = sprintf("version-%09d-$peer", $nr);
   my $vers = get_link("$basedir/$path", 2);
+  if (!defined($vers) || !$vers) {
+    # Scarce race.
+    # This can happen when new logfiles are present but not yet worked on.
+    # Also improves robustness on damaged filesystems.
+    # Decrement nr by hand, try, take the first part.
+    $path = sprintf("version-%09d-$peer", $nr - 1);
+    $vers = get_link("$basedir/$path", 2);
+    $vers =~ s/:.*// if defined($vers) && $vers;
+  } else {
+    # take the last part, pointing to the predecessor versionlink.
+    $vers =~ s/^.*://;
+  }
   _parse_pos($basedir, $path) if defined($vers) && $vers;
-  $vers =~ s/^.*://;
   return $vers;
 }
 
 sub _get_common_ancestor {
+  my ($total1, $total2) = (0, 0);
   for (;;) {
     my ($basedir, $pos1, $host1, $dep1, $pos2, $host2, $dep2) = @_;
     my ($p1, $nr1, $from1, $len1) = _parse_pos($basedir, $pos1);
@@ -1113,37 +1135,43 @@ sub _get_common_ancestor {
 	my $path1 = sprintf("$basedir/version-%09d-$from1", $nr1);
 	my $path2 = sprintf("$basedir/version-%09d-$from2", $nr2);
 	if (my $vers1 = get_link($path1, 1) and my $vers2 = get_link($path2, 1)) {
-	  $split = 1 if $vers1 ne $vers2;
+	  if ($vers1 ne $vers2) {
+	    $split = 1;
+	    $total1 += $len1;
+	    $total2 += $len2;
+	  }
 	}
       }
-      return ($p1, $split);
+      return ($p1, $split, $total1, $total2);
     } elsif ($nr1 > $nr2) {
       # just flip arguments
       @_ = ($basedir, $pos2, $host2, $dep2, $pos1, $host1, $dep1);
+      ($total1, $total2) = ($total2, $total1);
       next;
     } elsif ($nr1 < $nr2) {
       # recursively advance path depth
+      $total2 += $len2;
       my $vers2 = _get_prev_pos($basedir, $nr2, $host2);
-      return ("", -1) if !$vers2;
+      return ("", -1, $total1, $total2) if !$vers2;
       @_ = ($basedir, $pos1, $host1, $dep1, $vers2, $host2, $dep2 + 1);
       next;
     } elsif ($from1 ne $from2) {
       # split brain is sure now, but continue computing the common split point
       my $vers1 = _get_prev_pos($basedir, $nr1, $host1);
-      return ("", 1) if !$vers1;
+      return ("", 1, $total1 + $len1, $total2 + $len2) if !$vers1;
       my $vers2 = _get_prev_pos($basedir, $nr2, $host2);
-      return ("", 1) if !$vers2;
-      my ($res, $split) = _get_common_ancestor($basedir, $vers1, $host1, $dep1 + 1, $vers2, $host2, $dep2 + 1);
-      return ($res, 1);
+      return ("", 1, $total1 + $len1, $total2 + $len2) if !$vers2;
+      my ($res, $split, $t1, $t2) = _get_common_ancestor($basedir, $vers1, $host1, $dep1 + 1, $vers2, $host2, $dep2 + 1);
+      return ($res, 1, $t1 + $total1 + $len1, $t2 + $total2 + $len2);
     } elsif ($len1 < $len2) {
       # there may be no split brain (just incomplete replay) depending on path depth
-      return ($p1, $dep1);
+      return ($p1, $dep1, $total1 + $len1, $total2 + $len2);
     } elsif ($len2 < $len1) {
       # dto symmetric
-      return ($p2, $dep2);
+      return ($p2, $dep2, $total1 + $len1, $total2 + $len2);
     }
     lwarn "error in algorithm: $p1, $nr1, $from1, $len1 : $p2, $nr2, $from2, $len2\n";
-    return ("", -1);
+    return ("", -1, 0, 0);
   }
 }
 
@@ -1167,11 +1195,25 @@ sub detect_splitbrain {
   foreach my $host1 (@hosts) {
     foreach my $host2 (@hosts) {
       next if $host1 ge $host2;
-      my ($res, $split) = get_common_ancestor($basedir, $host1, $host2);
+      my ($point, $split, $size1, $size2) = get_common_ancestor($basedir, $host1, $host2);
       if ($split) {
 	$ok = 0;
 	if ($do_report) {
-	  lwarn "SPLIT BRAIN at '$res' detected: hostA = '$host1', hostB = '$host2'\n";
+	  my $age = "";
+	  if ($point) {
+	    my $log = "$basedir/$point";
+	    $log =~ s:,.+::;
+	    my $stamp = get_link_stamp($log);
+	    my $vers = $log;
+	    $vers =~ s:/log-:/version-:;
+	    my $stamp2 = get_link_stamp($vers);
+	    # take the minimum
+	    $stamp = $stamp2 if !$stamp || ($stamp2 && $stamp2 < $stamp);
+	    $age = " age ~" . seconds2human(mars_time() - $stamp) if $stamp;
+	  }
+	  lwarn "SPLIT BRAIN of '$res' at '$point'$age\n";
+	  lwarn "   hostA = '$host1' data_size='$size1' (" . number2human($size1) . ")\n";
+	  lwarn "   hostB = '$host2' data_size='$size2' (" . number2human($size2) . ")\n";
 	} else {
 	  return $ok;
 	}
@@ -1344,7 +1386,7 @@ sub log_purge_res {
 sub try_to_avoid_splitbrain {
   my ($cmd, $res, $old_primary) = @_;
   my $old_timeout = $timeout;
-  $timeout = $window * 2 if $timeout < 0;
+  $timeout = $window if $timeout < 0;
   $old_primary = "" if $old_primary eq "(none)";
   wait_cluster($cmd, $res, $old_primary);
   if (!detect_splitbrain($res, 0)) {
@@ -1359,7 +1401,7 @@ sub try_to_avoid_splitbrain {
   my @host_list = glob("$mars/resource-$res/replay-*");
   $timeout = $old_timeout;
   return if scalar(@host_list) < 2;
-  $timeout = $window * 2 if $timeout < 0;
+  $timeout = $window if $timeout < 0;
   my $old_situation = "";
   for (;;) {
     my ($min, $max) = get_minmax_versions($res);
@@ -1422,7 +1464,7 @@ sub try_to_avoid_splitbrain {
     my $tpl = get_macro("replinfo");
     my $new_situation = eval_macro($cmd, $res, $tpl, @_);
     print $new_situation;
-    $timeout = $window * 2 if $new_situation ne $old_situation;
+    $timeout = $window if $new_situation ne $old_situation;
     sleep_timeout();
     $old_situation = $new_situation;
   }
@@ -1583,7 +1625,7 @@ sub get_error_text {
 # helpers
 
 sub _trigger{
-  my ($code) = shift || 2;
+  my $code = shift || 1;
   system("(echo $code > /proc/sys/mars/trigger) >/dev/null 2>&1");
 }
 
@@ -2397,7 +2439,7 @@ sub delete_res {
 
 sub logrotate_res {
   my ($cmd, $res) = @_;
-  check_primary(@_) unless $force;
+  check_primary($cmd, $res, 1) unless $force;
   my @paths = glob("$mars/resource-$res/log-*-$host");
   my $last;
   if (@paths) {
@@ -2630,8 +2672,15 @@ sub logdelete_res {
 
     _create_delete($first);
   }
+  my @versionlinks = glob("$mars/resource-$res/version-*");
+  # dont remove versionlinks during split-brain as long as possible
+  if (scalar(@versionlinks) < $max_deletions / 8 &&
+      !detect_splitbrain($res, 1)) {
+    lwarn "SPLIT BRAIN: keep some versionlinks for better reporting\n";
+    return unless $force;
+  }
   lprint "removing left-over version symlinks...\n" if $verbose;
-  foreach my $versionlink (glob("$mars/resource-$res/version-*")) {
+  foreach my $versionlink (@versionlinks) {
     my $nrv = $versionlink;
     $nrv =~ s/^.*\/version-([0-9]+)-.+$/$1/;
     # we need at least one more version link than logfiles for consistency checks
@@ -3232,38 +3281,57 @@ sub seconds2human {
 }
 
 sub number2human {
-  my ($unit, $number) = @_;
-  my $k = 1024;
-  my $use_float = ($number =~ m/\./);
-  $k = 1024.0 if $use_float;
+  my ($number, $unit, $max) = @_;
+  $max = $number if !defined($max);
+  my $k = 1024.0;
+  if (!defined($unit) || !$unit) {
+    if ($max >= $k * $k * $k * $k) {
+      $unit = "T";
+    } elsif ($max >= $k * $k * $k) {
+      $unit = "G";
+    } elsif ($max >= $k * $k) {
+      $unit = "M";
+    } elsif ($max >= $k) {
+      $unit = "K";
+    } else {
+      $unit = "";
+    }
+  }
+  my $i = "i";
+  if ($unit =~ m/^[a-z]/) {
+    $i = "";
+    $k = 1000.0;
+  }
   $_ = $unit;
  SWITCH: {
     if (/t/i) {
       $number /= $k * $k * $k * $k;
-      $unit = "TiB";
+      $unit = "T${i}B";
       last SWITCH;
     }
     if (/g/i) {
       $number /= $k * $k * $k;
-      $unit = "GiB";
+      $unit = "G${i}B";
       last SWITCH;
     }
     if (/m/i) {
       $number /= $k * $k;
-      $unit = "MiB";
+      $unit = "M${i}B";
       last SWITCH;
     }
     if (/k/i) {
       $number /= $k;
-      $unit = "KiB";
+      $unit = "K${i}B";
       last SWITCH;
     }
     $unit = "B";
   }
-  if ($use_float || ($number =~ m/\./)) {
+  if ($unit eq "B") {
+    $number = int($number + 0.1);
+  } else {
     $number = sprintf("%.3f", $number);
   }
-  return ($unit, $number);
+  return "$number $unit";
 }
 
 sub progress_bar {
@@ -3554,23 +3622,12 @@ sub eval_fn {
 	$max = $number if $number > $max;
       }
       lwarn "macro $name: no number arguments given\n" unless @list;
-      if (!$unit) {
-	if ($max >= 999 * 1024*1024*1024*1024) {
-	  $unit = "T";
-	} elsif ($max >= 999 * 1024*1024*1024) {
-	  $unit = "G";
-	} elsif ($max >= 99 * 1024*1024) {
-	  $unit = "M";
-	} elsif ($max >= 9 * 1024) {
-	  $unit = "K";
-	} else {
-	  $unit = "";
-	}
-      }
-      my @results = ();
       my $conv_unit = "";
+      my @results = ();
       foreach my $number (@list) {
-	($conv_unit, my $conv_number) = number2human($unit, $number);
+	my $conv_number = number2human($number, $unit, $max);
+	$conv_number =~ s/ *([a-z].*)//i;
+	$conv_unit = $1;
 	push @results, $conv_number;
       }
       return join($delim_numbers, @results) . "$delim_unit$conv_unit";

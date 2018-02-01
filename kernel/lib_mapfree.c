@@ -154,6 +154,8 @@ struct mapfree_info *mapfree_get(const char *name, int flags)
 	for (;;) {
 		struct address_space *mapping;
 		struct inode *inode;
+		loff_t length;
+		int i;
 		int ra = 1;
 		int prot = 0600;
 		mm_segment_t oldfs;
@@ -205,7 +207,12 @@ struct mapfree_info *mapfree_get(const char *name, int flags)
 
 		mapping_set_gfp_mask(mapping, mapping_gfp_mask(mapping) & ~(__GFP_IO | __GFP_FS));
 
-		mf->mf_max = i_size_read(inode);
+		length = i_size_read(inode);
+		mf->mf_max = length;
+		for (i = 0; i < DIRTY_MAX; i++) {
+			rwlock_init(&mf->mf_length[i].dl_lock);
+			mf->mf_length[i].dl_length = length;
+		}
 
 		if (S_ISBLK(inode->i_mode)) {
 			MARS_INF("changing blkdev readahead from %lu to %d\n", inode->i_bdev->bd_disk->queue->backing_dev_info.ra_pages, ra);
@@ -295,70 +302,71 @@ int mapfree_thread(void *data)
 	return 0;
 }
 
+////////////////// dirty IOs in append mode  //////////////////
+
+static
+struct dirty_length *_get_dl(struct mapfree_info *mf, enum dirty_stage stage)
+{
+#ifdef MARS_DEBUGGING
+	if (unlikely(stage < 0)) {
+		MARS_ERR("bad stage=%d\n", stage);
+		stage = 0;
+	}
+	if (unlikely(stage >= DIRTY_MAX)) {
+		MARS_ERR("bad stage=%d\n", stage);
+		stage = DIRTY_MAX - 1;
+	}
+#endif
+	return &mf->mf_length[stage];
+}
+
+void mf_dirty_append(struct mapfree_info *mf, enum dirty_stage stage, loff_t newlen)
+{
+	struct dirty_length *dl = _get_dl(mf, stage);
+	unsigned long flags;
+
+	traced_writelock(&dl->dl_lock, flags);
+	if (dl->dl_length < newlen)
+		dl->dl_length = newlen;
+	traced_writeunlock(&dl->dl_lock, flags);
+}
+
+loff_t mf_dirty_length(struct mapfree_info *mf, enum dirty_stage stage)
+{
+	struct dirty_length *dl = _get_dl(mf, stage);
+
+#ifdef CONFIG_64BIT
+	/* Avoid locking by assuming that 64bit reads are atomic in itself */
+	smp_read_barrier_depends();
+	return ACCESS_ONCE(dl->dl_length);
+#else /* cannot rely on atomic read of two 32bit values */
+	loff_t res;
+	unsigned long flags;
+
+	traced_readlock(&dl->dl_lock, flags);
+	res = dl->dl_length;
+	traced_readunlock(&dl->dl_lock, flags);
+	return res;
+#endif
+}
+
 ////////////////// dirty IOs on the fly  //////////////////
 
-void mf_insert_dirty(struct mapfree_info *mf, struct dirty_info *di)
+loff_t mf_get_any_dirty(const char *filename, int stage)
 {
-	if (likely(di->dirty_mref && mf)) {
-		down_write(&mf->mf_mutex);
-		list_del(&di->dirty_head);
-		list_add(&di->dirty_head, &mf->mf_dirty_anchor);
-		up_write(&mf->mf_mutex);
-	}
-}
-EXPORT_SYMBOL_GPL(mf_insert_dirty);
-
-void mf_remove_dirty(struct mapfree_info *mf, struct dirty_info *di)
-{
-	if (!list_empty(&di->dirty_head) && mf) {
-		down_write(&mf->mf_mutex);
-		list_del_init(&di->dirty_head);
-		up_write(&mf->mf_mutex);
-	}
-}
-EXPORT_SYMBOL_GPL(mf_remove_dirty);
-
-void mf_get_dirty(struct mapfree_info *mf, loff_t *min, loff_t *max, int min_stage, int max_stage)
-{
-	struct list_head *tmp;
-
-	if (unlikely(!mf))
-	    goto done;
-
-	down_read(&mf->mf_mutex);
-	for (tmp = mf->mf_dirty_anchor.next; tmp != &mf->mf_dirty_anchor; tmp = tmp->next) {
-		struct dirty_info *di = container_of(tmp, struct dirty_info, dirty_head);
-		struct mref_object *mref = di->dirty_mref;
-		if (unlikely(!mref)) {
-			continue;
-		}
-		if (di->dirty_stage < min_stage || di->dirty_stage > max_stage) {
-			continue;
-		}
-		if (mref->ref_pos < *min) {
-			*min = mref->ref_pos;
-		}
-		if (mref->ref_pos + mref->ref_len > *max) {
-			*max = mref->ref_pos + mref->ref_len;
-		}
-	}
-	up_read(&mf->mf_mutex);
-done:;
-}
-EXPORT_SYMBOL_GPL(mf_get_dirty);
-
-void mf_get_any_dirty(const char *filename, loff_t *min, loff_t *max, int min_stage, int max_stage)
-{
+	loff_t res = -1;
 	struct list_head *tmp;
 
 	down_read(&mapfree_mutex);
 	for (tmp = mapfree_list.next; tmp != &mapfree_list; tmp = tmp->next) {
 		struct mapfree_info *mf = container_of(tmp, struct mapfree_info, mf_head);
 		if (!strcmp(mf->mf_name, filename)) {
-			mf_get_dirty(mf, min, max, min_stage, max_stage);
+			res = mf_dirty_length(mf, stage);
+			break;
 		}
 	}
 	up_read(&mapfree_mutex);
+	return res;
 }
 EXPORT_SYMBOL_GPL(mf_get_any_dirty);
 

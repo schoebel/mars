@@ -52,4 +52,10 @@ extern void set_lamport_nonstrict(struct timespec *lamport_old);
  */
 extern void set_get_lamport(struct timespec *lamport_old, struct timespec *real_now, struct timespec *lamport_now);
 
+/* Protect against illegal values, e.g. from currupt filesystems etc.
+ */
+extern int max_lamport_future;
+
+extern bool protect_timespec(struct timespec *check);
+
 #endif

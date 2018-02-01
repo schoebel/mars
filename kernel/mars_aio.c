@@ -95,7 +95,6 @@ EXPORT_SYMBOL_GPL(aio_sync_mode);
 static inline
 void _enqueue(struct aio_threadinfo *tinfo, struct aio_mref_aspect *mref_a, int prio, bool at_end)
 {
-	unsigned long flags;
 #if 1
 	prio++;
 	if (unlikely(prio < 0)) {
@@ -109,7 +108,7 @@ void _enqueue(struct aio_threadinfo *tinfo, struct aio_mref_aspect *mref_a, int 
 
 	mref_a->enqueue_stamp = cpu_clock(raw_smp_processor_id());
 
-	traced_lock(&tinfo->lock, flags);
+	mutex_lock(&tinfo->mutex);
 
 	if (at_end) {
 		list_add_tail(&mref_a->io_head, &tinfo->mref_list[prio]);
@@ -119,7 +118,7 @@ void _enqueue(struct aio_threadinfo *tinfo, struct aio_mref_aspect *mref_a, int 
 	tinfo->queued[prio]++;
 	atomic_inc(&tinfo->queued_sum);
 
-	traced_unlock(&tinfo->lock, flags);
+	mutex_unlock(&tinfo->mutex);
 
 	atomic_inc(&tinfo->total_enqueue_count);
 
@@ -131,9 +130,8 @@ struct aio_mref_aspect *_dequeue(struct aio_threadinfo *tinfo)
 {
 	struct aio_mref_aspect *mref_a = NULL;
 	int prio;
-	unsigned long flags = 0;
 
-	traced_lock(&tinfo->lock, flags);
+	mutex_lock(&tinfo->mutex);
 
 	for (prio = 0; prio < MARS_PRIO_NR; prio++) {
 		struct list_head *start = &tinfo->mref_list[prio];
@@ -148,7 +146,7 @@ struct aio_mref_aspect *_dequeue(struct aio_threadinfo *tinfo)
 	}
 
 done:
-	traced_unlock(&tinfo->lock, flags);
+	mutex_unlock(&tinfo->mutex);
 
 	if (likely(mref_a && mref_a->object)) {
 		unsigned long long latency;
@@ -163,27 +161,6 @@ done:
 static
 loff_t get_total_size(struct aio_output *output)
 {
-	struct file *file;
-	struct inode *inode;
-	loff_t min;
-
-	file = output->mf->mf_filp;
-	if (unlikely(!file)) {
-		MARS_ERR("file is not open\n");
-		return -EILSEQ;
-	}
-	if (unlikely(!file->f_mapping)) {
-		MARS_ERR("file %p has no mapping\n", file);
-		return -EILSEQ;
-	}
-	inode = file->f_mapping->host;
-	if (unlikely(!inode)) {
-		MARS_ERR("file %p has no inode\n", file);
-		return -EILSEQ;
-	}
-
-	min = i_size_read(inode);
-
 	/* Workaround for races in the page cache.
 	 * It appears that concurrent reads and writes seem to
 	 * result in inconsistent reads in some very rare cases, due to
@@ -191,12 +168,7 @@ loff_t get_total_size(struct aio_output *output)
 	 * appended by a write operation, but the data has not actually hit
 	 * the page cache, such that a concurrent read gets NULL blocks.
 	 */
-	if (!output->brick->is_static_device) {
-		loff_t max = 0;
-		mf_get_dirty(output->mf, &min, &max, 0, 99);
-	}
-
-	return min;
+	return mf_dirty_length(output->mf, DIRTY_COMPLETED);
 }
 
 static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
@@ -300,12 +272,11 @@ void _complete(struct aio_output *output, struct aio_mref_aspect *mref_a, int er
 
 done:
 	if (mref->ref_rw) {
+		mf_dirty_append(output->mf, DIRTY_FINISHED, mref->ref_pos + mref->ref_len);
 		atomic_dec(&output->write_count);
 	} else {
 		atomic_dec(&output->read_count);
 	}
-
-	mf_remove_dirty(output->mf, &mref_a->di);
 
 	aio_ref_put(output, mref);
 	atomic_dec(&output->work_count);
@@ -341,7 +312,6 @@ void _complete_all(struct list_head *tmp_list, struct aio_output *output, int er
 		struct list_head *tmp = tmp_list->next;
 		struct aio_mref_aspect *mref_a = container_of(tmp, struct aio_mref_aspect, io_head);
 		list_del_init(tmp);
-		mref_a->di.dirty_stage = 3;
 		_complete(output, mref_a, err);
 	}
 }
@@ -476,7 +446,7 @@ int aio_start_thread(
 		INIT_LIST_HEAD(&tinfo->mref_list[j]);
 	}
 	tinfo->output = output;
-	spin_lock_init(&tinfo->lock);
+	mutex_init(&tinfo->mutex);
 	init_waitqueue_head(&tinfo->event);
 	init_waitqueue_head(&tinfo->terminate_event);
 	tinfo->should_terminate = false;
@@ -591,7 +561,6 @@ int aio_sync_thread(void *data)
 
 	while (!tinfo->should_terminate || atomic_read(&tinfo->queued_sum) > 0) {
 		LIST_HEAD(tmp_list);
-		unsigned long flags;
 		int i;
 
 		output->fdsync_active = false;
@@ -602,7 +571,7 @@ int aio_sync_thread(void *data)
 			atomic_read(&tinfo->queued_sum) > 0,
 			HZ / 4);
 
-		traced_lock(&tinfo->lock, flags);
+		mutex_lock(&tinfo->mutex);
 		for (i = 0; i < MARS_PRIO_NR; i++) {
 			struct list_head *start = &tinfo->mref_list[i];
 			if (!list_empty(start)) {
@@ -613,7 +582,7 @@ int aio_sync_thread(void *data)
 				break;
 			}
 		}
-		traced_unlock(&tinfo->lock, flags);
+		mutex_unlock(&tinfo->mutex);
 
 		if (!list_empty(&tmp_list)) {
 			aio_sync_all(output, &tmp_list);
@@ -687,12 +656,13 @@ static int aio_event_thread(void *data)
 			if (!mref_a) {
 				continue; // this was a dummy request
 			}
-			mref_a->di.dirty_stage = 2;
 			mref = mref_a->object;
 
 			MARS_IO("AIO done %p pos = %lld len = %d rw = %d\n", mref, mref->ref_pos, mref->ref_len, mref->ref_rw);
 
 			mapfree_set(output->mf, mref->ref_pos, mref->ref_pos + mref->ref_len);
+			if (mref->ref_rw)
+				mf_dirty_append(output->mf, DIRTY_COMPLETED, mref->ref_pos + mref->ref_len);
 
 			if (output->brick->o_fdsync
 			   && err >= 0 
@@ -713,7 +683,6 @@ static int aio_event_thread(void *data)
 					continue;
 			}
 
-			mref_a->di.dirty_stage = 3;
 			_complete(output, mref_a, err);
 
 		}
@@ -915,9 +884,8 @@ static int aio_submit_thread(void *data)
 
 		mapfree_set(output->mf, mref->ref_pos, -1);
 
-		mref_a->di.dirty_stage = 0;
 		if (mref->ref_rw) {
-			mf_insert_dirty(output->mf, &mref_a->di);
+			mf_dirty_append(output->mf, DIRTY_SUBMITTED, mref->ref_pos + mref->ref_len);
 		}
 
 		mref->ref_total_size = get_total_size(output);
@@ -950,13 +918,11 @@ static int aio_submit_thread(void *data)
 
 		sleeptime = 1;
 		for (;;) {
-			mref_a->di.dirty_stage = 1;
 			status = aio_submit(output, mref_a, false);
 
 			if (likely(status != -EAGAIN)) {
 				break;
 			}
-			mref_a->di.dirty_stage = 0;
 			atomic_inc(&output->total_delay_count);
 			brick_msleep(sleeptime);
 			if (sleeptime < 100) {
@@ -1098,15 +1064,12 @@ static int aio_mref_aspect_init_fn(struct generic_aspect *_ini)
 {
 	struct aio_mref_aspect *ini = (void*)_ini;
 	INIT_LIST_HEAD(&ini->io_head);
-	INIT_LIST_HEAD(&ini->di.dirty_head);
-	ini->di.dirty_mref = ini->object;
 	return 0;
 }
 
 static void aio_mref_aspect_exit_fn(struct generic_aspect *_ini)
 {
 	struct aio_mref_aspect *ini = (void*)_ini;
-	CHECK_HEAD_EMPTY(&ini->di.dirty_head);
 	CHECK_HEAD_EMPTY(&ini->io_head);
 }
 
