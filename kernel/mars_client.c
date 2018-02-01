@@ -59,7 +59,7 @@ void _do_resubmit(struct client_channel *ch)
 {
 	struct client_output *output = ch->output;
 
-	spin_lock(&output->lock);
+	mutex_lock(&output->mutex);
 	if (!list_empty(&ch->wait_list)) {
 		struct list_head *first = ch->wait_list.next;
 		struct list_head *last = ch->wait_list.prev;
@@ -69,7 +69,7 @@ void _do_resubmit(struct client_channel *ch)
 		list_connect(last, old_start);
 		INIT_LIST_HEAD(&ch->wait_list);
 	}
-	spin_unlock(&output->lock);
+	mutex_unlock(&output->mutex);
 }
 
 static
@@ -455,17 +455,16 @@ static
 void _hash_insert(struct client_output *output, struct client_mref_aspect *mref_a)
 {
 	struct mref_object *mref = mref_a->object;
-	unsigned long flags;
 	int hash_index;
 
-	traced_lock(&output->lock, flags);
+	mutex_lock(&output->mutex);
 	list_del(&mref_a->io_head);
 	list_add_tail(&mref_a->io_head, &output->mref_list);
 	list_del(&mref_a->hash_head);
 	mref->ref_id = ++output->last_id;
 	hash_index = mref->ref_id % CLIENT_HASH_MAX;
 	list_add_tail(&mref_a->hash_head, &output->hash_table[hash_index]);
-	traced_unlock(&output->lock, flags);
+	mutex_unlock(&output->mutex);
 }
 
 static void client_ref_io(struct client_output *output, struct mref_object *mref)
@@ -522,7 +521,6 @@ int receiver_thread(void *data)
 		struct list_head *tmp;
 		struct client_mref_aspect *mref_a = NULL;
 		struct mref_object *mref = NULL;
-		unsigned long flags;
 
 		if (ch->recv_error) {
 			/* The protocol may be out of sync.
@@ -563,7 +561,7 @@ int receiver_thread(void *data)
 		{
 			int hash_index = cmd.cmd_int1 % CLIENT_HASH_MAX;
 
-			traced_lock(&output->lock, flags);
+			mutex_lock(&output->mutex);
 			for (tmp = output->hash_table[hash_index].next; tmp != &output->hash_table[hash_index]; tmp = tmp->next) {
 				struct mref_object *tmp_mref;
 				mref_a = container_of(tmp, struct client_mref_aspect, hash_head);
@@ -577,11 +575,11 @@ int receiver_thread(void *data)
 				break;
 
 			err:
-				traced_unlock(&output->lock, flags);
+				mutex_unlock(&output->mutex);
 				status = -EBADR;
 				goto done;
 			}
-			traced_unlock(&output->lock, flags);
+			mutex_unlock(&output->mutex);
 
 			if (unlikely(!mref)) {
 				MARS_WRN("got unknown callback id %d on '%s' @%s\n",
@@ -671,7 +669,6 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 	struct list_head *next;
 	LIST_HEAD(tmp_list);
 	long io_timeout = _compute_timeout(brick);
-	unsigned long flags;
 	int i;
 
 	if (list_empty(anchor))
@@ -699,7 +696,7 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 
 	io_timeout *= HZ;
 	
-	traced_lock(&output->lock, flags);
+	mutex_lock(&output->mutex);
 	for (tmp = anchor->next, next = tmp->next; tmp != anchor; tmp = next, next = tmp->next) {
 		struct client_mref_aspect *mref_a;
 
@@ -714,7 +711,7 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 		list_del_init(&mref_a->io_head);
 		list_add_tail(&mref_a->tmp_head, &tmp_list);
 	}
-	traced_unlock(&output->lock, flags);
+	mutex_unlock(&output->mutex);
 
 	while (!list_empty(&tmp_list)) {
 		struct client_mref_aspect *mref_a;
@@ -778,7 +775,6 @@ static int sender_thread(void *data)
 	bool old_cork;
 	int ch_skip = max_client_bulk;
 	int status = -ESHUTDOWN;
-	unsigned long flags;
 
 	if (atomic_inc_return(&sender_count) == 1)
 		mars_limit_reset(&client_limiter);
@@ -830,10 +826,10 @@ static int sender_thread(void *data)
 
 		/* Grab the next mref from the queue
 		 */
-		traced_lock(&output->lock, flags);
+		mutex_lock(&output->mutex);
 		tmp = output->mref_list.next;
 		if (tmp == &output->mref_list) {
-			traced_unlock(&output->lock, flags);
+			mutex_unlock(&output->mutex);
 			MARS_DBG("empty %d %d\n", output->get_info, brick_thread_should_stop());
 			do_timeout = true;
 			continue;
@@ -841,7 +837,7 @@ static int sender_thread(void *data)
 		list_del_init(tmp);
 		// notice: hash_head remains in its list!
 		cork = !list_empty(&output->mref_list);
-		traced_unlock(&output->lock, flags);
+		mutex_unlock(&output->mutex);
 
 		mref_a = container_of(tmp, struct client_mref_aspect, io_head);
 		mref = mref_a->object;
@@ -886,10 +882,10 @@ static int sender_thread(void *data)
 				ch_skip = max_client_bulk;
 		}
 
-		spin_lock(&output->lock);
+		mutex_lock(&output->mutex);
 		list_add(tmp, &ch->wait_list);
 		// notice: hash_head is already there!
-		spin_unlock(&output->lock);
+		mutex_unlock(&output->mutex);
 
 		status = mars_send_mref(&ch->socket, mref, cork);
 		old_cork = cork;
@@ -1050,8 +1046,7 @@ static int client_output_construct(struct client_output *output)
 	}
 
 	init_waitqueue_head(&output->bundle.sender_event);
-
-	spin_lock_init(&output->lock);
+	mutex_init(&output->mutex);
 	INIT_LIST_HEAD(&output->mref_list);
 	init_waitqueue_head(&output->info_event);
 	return 0;

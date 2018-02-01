@@ -49,7 +49,6 @@ extern int aio_sync_mode;
 struct aio_mref_aspect {
 	GENERIC_ASPECT(mref);
 	struct list_head io_head;
-	struct dirty_info di;
 	unsigned long long enqueue_stamp;
 	long long start_jiffies;
 	int resubmit;
@@ -76,7 +75,7 @@ struct aio_threadinfo {
 	struct task_struct *thread;
 	wait_queue_head_t event;
 	wait_queue_head_t terminate_event;
-	spinlock_t lock;
+	struct mutex mutex;
 	int queued[MARS_PRIO_NR];
 	atomic_t queued_sum;
 	atomic_t total_enqueue_count;

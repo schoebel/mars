@@ -142,7 +142,7 @@ tst@1und1.de
 \end_layout
 
 \begin_layout Date
-Version 0.1a-2
+Version 0.1a-5
 \end_layout
 
 \begin_layout Lowertitleback
@@ -336,7 +336,7 @@ name "chap:Why-You-should"
 \end_layout
 
 \begin_layout Section
-Cost Arguments from Architecture
+Cost and Scalability Arguments from Architecture
 \end_layout
 
 \begin_layout Standard
@@ -414,11 +414,17 @@ any
 \end_inset
 
  network connections running in parallel.
- Even if the total network throughput would be scaling only with 
+ Even if the total network throughput is scaling only with 
 \begin_inset Formula $O(n)$
 \end_inset
 
-, the network has to 
+, nevertheless 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ network connections have to be maintained at connection oriented protocols
+ and at various layers of the operating software, and the network has to
+ 
 \emph on
 switch
 \emph default
@@ -452,7 +458,7 @@ In order to limit error propagation from other networks, the storage network
 \emph on
 physically separate
 \emph default
- / 
+ = 
 \emph on
 dedicated
 \emph default
@@ -466,8 +472,8 @@ Because storage networks are heavily reacting to high latencies and packet
 \series bold
 worst case
 \series default
- (load peaks, packet storms, etc), needing one of the best = most expensive
- components for reducing latency and increasing throughput.
+ (load peaks, packet storms, etc), needing one of the best = typically most
+ expensive components for reducing latency and increasing throughput.
  Dimensioning to the worst case instead of an average case plus some safety
  margins is nothing but an expensive 
 \series bold
@@ -504,15 +510,15 @@ sharding architecture
 \begin_inset Quotes erd
 \end_inset
 
- which does not need a storage network at all, at least when built and dimension
-ed properly.
+ which does not need a dedicated storage network at all, at least when built
+ and dimensioned properly.
  Instead, it 
 \emph on
 should have
 \emph default
  (but not always needs) a so-called replication network which can, when
  present, be dimensioned much smaller because it does neither need realtime
- operations, nor scalabiliy to 
+ operations nor scalabiliy to 
 \begin_inset Formula $O(n^{2})$
 \end_inset
 
@@ -562,12 +568,7 @@ Even in cases when any customer may potentially access any of the data items
 Only when partitioning of input traffic plus data is not possible in a reasonabl
 e way, big cluster architectures as implemented for example in Ceph or Swift
  (and partly even possible with MARS when resticted to the block layer)
- have their 
-\series bold
-usecase
-\series default
-.
- Only under such a precondition they are really needed.
+ have a very clear use case.
 \end_layout
 
 \begin_layout Standard
@@ -585,7 +586,7 @@ When sharding is possible, it is the preferred model due to cost and performance
 \end_inset
 
 Notice that MARS' new remote device feature from the 0.2 branch series (which
- is a replacement for iSCSI) 
+ is kind of replacement for iSCSI) 
 \emph on
 could
 \emph default
@@ -601,7 +602,15 @@ big cluster
 \end_layout
 
 \begin_layout Standard
-Nevertheless, this sub-variant is not the preferred model.
+Nevertheless, such models re-introducing some kind of 
+\begin_inset Quotes eld
+\end_inset
+
+dedicated storage network
+\begin_inset Quotes erd
+\end_inset
+
+ into MARS operations are not the preferred model.
  Following is the a super-model which combines both the 
 \begin_inset Quotes eld
 \end_inset
@@ -610,7 +619,7 @@ big cluster
 \begin_inset Quotes erd
 \end_inset
 
- and sharding model at block lyer in a very flexible way.
+ and sharding model at block layer in a very flexible way.
  The following example shows only two servers from a pool consisting of
  hundreds or thousands of servers:
 \begin_inset Separator latexpar
@@ -673,8 +682,8 @@ exceptionally(!)
 \end_layout
 
 \begin_layout Standard
-Notice that locally running VMs doesn't produce any storage network traffic
- at all.
+Notice that local operations of VMs doesn't produce any storage network
+ traffic at all.
  Therefore, this is the preferred runtime configuration.
 \end_layout
 
@@ -685,7 +694,7 @@ Only in cases of resource imbalance, such as (transient) CPU or RAM peaks
 \emph on
 some
 \emph default
- containers may be run somewhere else over the network.
+ VMs or containers may be run somewhere else over the network.
  In a well-balanced and well-dimensioned system, this will be the 
 \series bold
 vast minority
@@ -739,23 +748,12 @@ reference "sec:Cost-Arguments-from"
 \begin_layout Standard
 The sharding model needs a different approach to load balancing of storage
  space than the big cluster model.
- There are serveral possibilities at different layers:
-\end_layout
-
-\begin_layout Itemize
-Dynamically growing the sizes of LVs via 
-\family typewriter
-lvresize
-\family default
- followed by 
-\family typewriter
-marsadm resize
-\family default
- followed by 
-\family typewriter
-xfs_growfs
-\family default
- or similar operations.
+ There are serveral possibilities at different layers, each addressing different
+ 
+\series bold
+granularities
+\series default
+:
 \end_layout
 
 \begin_layout Itemize
@@ -768,6 +766,51 @@ rsync
 mysqldump
 \family default
  or similar.
+ 
+\begin_inset Newline newline
+\end_inset
+
+Example: at 1&1 Shared Hosting Linux, we have about 9 millions of customer
+ home directories.
+ We also have a script 
+\family typewriter
+movespace.pl
+\family default
+ using incremental 
+\family typewriter
+tar
+\family default
+ for their moves.
+ Now, if we would try to move around 
+\emph on
+all
+\emph default
+ of them this way, it could easily take years or even decades for millions
+ of extremely small home directories, due to overhead like DNS updates etc.
+ However, there exist a small handful of large customer home directories
+ in the terabyte range.
+ For these, and only for these, it is a clever idea to use 
+\family typewriter
+movespace.pl
+\family default
+ because thereby the size of a LV can be regulated more fine grained than
+ at LV level.
+\end_layout
+
+\begin_layout Itemize
+Dynamically growing the sizes of LVs during operations: 
+\family typewriter
+lvresize
+\family default
+ followed by 
+\family typewriter
+marsadm resize
+\family default
+ followed by 
+\family typewriter
+xfs_growfs
+\family default
+ or similar operations.
 \end_layout
 
 \begin_layout Itemize
@@ -792,7 +835,11 @@ The idea is to dynamically create
 \emph on
 additional
 \emph default
- LV replicas for the sake of background migration.
+ LV replicas for the sake of 
+\series bold
+background migration
+\series default
+.
  Examples:
 \end_layout
 
@@ -888,6 +935,18 @@ In case you already have a redundant LV copy somewhere, you should run a
 \end_inset
 
  when moving pairs at once.
+\begin_inset Newline newline
+\end_inset
+
+Example: see 
+\family typewriter
+tetris.sh
+\family default
+ in the 
+\family typewriter
+contrib/
+\family default
+ directory of MARS.
 \end_layout
 
 \begin_layout Itemize
@@ -1242,7 +1301,7 @@ Cloud storage is way too much hyped.
 \emph on
 extremely
 \emph default
- varying over time, and when you need some 
+ varying over time, and/or when you need some 
 \emph on
 extra
 \emph default
@@ -1591,9 +1650,10 @@ practice
 
 \begin_layout Standard
 Therefore a big cluster typically needs >200% disks to reach the same net
- capacity as a sharded cluster, where typically hardware RAID-60 with a
- significantly smaller overhead is sufficient for providing sufficient failure
- tolerance at disk level.
+ capacity as a simple sharded cluster.
+ The latter can take advantage of hardware RAID-60 with a significantly
+ smaller disk overhead, while providing sufficient failure tolerance at
+ disk level.
 \end_layout
 
 \begin_layout Standard
@@ -5395,7 +5455,8 @@ marsadm primary
 \family typewriter
 marsadm up
 \family default
-), and that any old primary (in this case 
+), that you are no sync target anymore, and that any old primary (in this
+ case 
 \family typewriter
 A
 \family default
@@ -5425,8 +5486,8 @@ marsadm primary
 \end_layout
 
 \begin_layout Standard
-The preconditions try to protect you from doing silly things, such as accidental
-ly provoking a split brain error state.
+These preconditions try to protect you from doing silly things, such as
+ accidentally provoking a split brain error state.
  We try to avoid split brain as best as we can.
  Therefore, we distinguish between 
 \emph on
@@ -5594,8 +5655,9 @@ current
 last known
 \emph default
  state).
- The following command sequence will skip many checks and tell your node
- to become primary forcefully:
+ The following command sequence will skip many checks (essentially you just
+ need to be attached and you must not be a current sync target) and tell
+ your node to become primary forcefully:
 \end_layout
 
 \begin_layout Itemize
@@ -6115,6 +6177,92 @@ marsadm down
 \family default
  can do it also, without destroying knowledge about the former designated
  primary.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ 
+\family typewriter
+marsadm primary –force
+\family default
+ is rejected in newer
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Beware: older versions before 
+\family typewriter
+mars0.1stable52
+\family default
+ did deliberately skip this check because a few years ago somebody at 1&1
+ did place a 
+\emph on
+requirement
+\emph default
+ on this.
+ Fortunately, the requirement now has gone, so a more safe behaviour could
+ be implemented.
+ The new behaviour is for your safety, to prevent you from doing 
+\begin_inset Quotes eld
+\end_inset
+
+silly
+\begin_inset Quotes erd
+\end_inset
+
+ things in case you are under pressure during an incident (try to safeguard
+ human error as best as possible).
+\end_layout
+
+\end_inset
+
+ marsadm versions if your replica is a current sync target.
+ This is not a bug: it should prevent you from forcing an inconsistent replica
+ into primary mode, which will 
+\emph on
+certainly
+\emph default
+ lead to inconsistent data.
+ However, in extreme rare cases of severe damage of 
+\emph on
+all
+\emph default
+ of your replicas, you may be desperate.
+ Only in such a rare case, and only then, you might decide to force any
+ of your replicas (e.g.
+ based on their last sync progress bar) into primary role although none
+ of the re-syncs had finished before.
+ In such a case, and only if you really know what you are doing, you may
+ use 
+\family typewriter
+marsadm fake-sync
+\family default
+ to first mark your inconsisten replica as UpToDate (which is a 
+\series bold
+lie
+\series default
+) and then force it to primary as explained above.
+ Afterwards, you will certainly need an 
+\family typewriter
+fsck
+\family default
+ or similar repair before you can restart your application.
+ Good luck! And don't forget to check the size of 
+\family typewriter
+lost+found
+\family default
+ afterwards.
+ This is really your 
+\emph on
+very last
+\emph default
+ chance if nothing else had succeeded before.
 \end_layout
 
 \begin_layout Subsection
@@ -10706,6 +10854,24 @@ marsadm view mydata
 \labelwidthstring 00.00.0000
 
 \family typewriter
+[
+\emph on
+this_count
+\emph default
+/
+\emph on
+total_count
+\emph default
+]
+\family default
+ total number of replicas of this resource, out of total number of cluster
+ members.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
 %include{diskstate}
 \family default
  see 
@@ -11633,7 +11799,7 @@ mars_light
 \family typewriter
 %{window}
 \family default
- (default 30) seconds.
+ (default 60) seconds.
  Notice that this may happen when deleting 
 \emph on
 extremely
@@ -11873,7 +12039,7 @@ PrimaryUnreachable
 %is-alive{}
 \family default
 ) A current designated primary has been set, but this host has not been
- remotely updated for more than 30 seconds (see also 
+ remotely updated for more than 60 seconds (see also 
 \family typewriter
 --window=$seconds
 \family default
@@ -16205,6 +16371,15 @@ reference "sec:The-Lamport-Clock"
 \begin_layout Itemize
 
 \family typewriter
+%real-time{}
+\family default
+ Return the current system clock timestamp, in units of seconds since the
+ Unix epoch.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
 %sleep{
 \emph on
 seconds
@@ -16495,7 +16670,7 @@ The value given by the
 \family typewriter
 --window=
 \family default
- option, or the corresonding default value.
+ option, or the corresonding default value (60s).
 \end_layout
 
 \begin_layout Itemize
@@ -17421,7 +17596,7 @@ status open
 The time window for checking the aliveness of other nodes in the network.
  When no symlink updates have occurred during the last window, the node
  is considered dead.
- Default is 30s
+ Default is 60s.
 \end_layout
 
 \end_inset
@@ -17912,7 +18087,7 @@ name "sec:Cluster-Operations"
 
 \size scriptsize
 \begin_inset Tabular
-<lyxtabular version="3" rows="6" columns="3">
+<lyxtabular version="3" rows="9" columns="3">
 <features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
@@ -18608,6 +18783,419 @@ reference "subsec:Setup-your-Cluster"
 mkfs.ext4
 \family default
  accordingly.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+merge-cluster
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$host
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Precondition: the set of resources at the local cluster (transitively) and
+ at the cluster of 
+\family typewriter
+$host
+\family default
+ (transitively) must be disjoint.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Create the union of both clusters, consisting of the union of all participating
+ machines (transitively).
+ Resource memberships are unaffected.
+ This is useful for creating a 
+\begin_inset Quotes eld
+\end_inset
+
+virtual LVM cluster
+\begin_inset Quotes erd
+\end_inset
+
+ where resources can be migrated later via 
+\family typewriter
+join-resource
+\family default
+ / 
+\family typewriter
+leave-resource
+\family default
+ operations.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+
+\size scriptsize
+Attention! The mars branch 
+\family typewriter
+0.1.y
+\family default
+ does not scale well in number of cluter members, because it evolved from
+ a lab prototype with 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ behaviour at metadata exchange.
+ Never exceed the maximum cluster members as described in appendix 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "chap:Technical-Data-MARS"
+
+\end_inset
+
+.
+ For safety, you should better stay at 1/2 of the numbers mentioned there.
+ Use 
+\family typewriter
+split-cluster
+\family default
+ for going back to smaller clusters again after your background data migration
+ has completed.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+
+\size scriptsize
+Future versions of MARS, starting with branch 
+\family typewriter
+0.1b.y
+\family default
+ will be constructed for very big clusters in the range of thousands of
+ nodes.
+ Development has not yet stabilized there, and operational experiences are
+ missing at the moment.
+ Be careful until official announcements are appearing in the ChangeLog,
+ reporting of operational experiences from the 1&1 big cluster at metadata
+ level.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+merge-cluster-check
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+strut
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+$host
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Check in advance whether the set of resources at the local cluster and at
+ the other cluster 
+\family typewriter
+$host
+\family default
+ are disjoint.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+split-cluster
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+This is almost the inverse operation of 
+\family typewriter
+merge-cluster
+\family default
+: it determines the minimum sub-cluster groups participating in some common
+ resources.
+ Then it splits the cluster memberships such that unnecessary connections
+ between non-related nodes are interrupted.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Use this for avoidance of too big clusters.
 \end_layout
 
 \end_inset
@@ -20242,6 +20830,7 @@ all
 \end_layout
 
 \begin_layout Standard
+\noindent
 
 \size scriptsize
 \begin_inset Tabular
@@ -24471,7 +25060,7 @@ pause-replay
 primary --force
 \family default
  is a potentially harmful variant, because it will provoke a split brain
- in many cases, and therefore in turn will lead to 
+ in most cases, and therefore in turn will lead to 
 \series bold
 data loss
 \series default
@@ -24791,6 +25380,20 @@ pause-fetch
  See section 
 \begin_inset CommandInset ref
 LatexCommand ref
+reference "subsec:Forced-Switching"
+
+\end_inset
+
+.
+ For your safety, 
+\family typewriter
+–force
+\family default
+ does not work in newer marsadm (after mars0.1stable52) when your replica
+ is a current sync target.
+ More explanations see section 
+\begin_inset CommandInset ref
+LatexCommand vref
 reference "subsec:Forced-Switching"
 
 \end_inset
@@ -35377,7 +35980,14 @@ The Generic Object and Aspect Infrastructure
 
 \begin_layout Chapter
 \start_of_appendix
-Technical Data MARS 
+Technical Data MARS
+\begin_inset CommandInset label
+LatexCommand label
+name "chap:Technical-Data-MARS"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard

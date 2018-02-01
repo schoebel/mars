@@ -402,9 +402,13 @@ void _sio_ref_io(struct sio_threadinfo *tinfo, struct mref_object *mref)
 	if (mref->ref_rw == READ) {
 		status = read_aops(output, mref);
 	} else {
+		mf_dirty_append(output->mf, DIRTY_SUBMITTED, mref->ref_pos + mref->ref_len);
 		status = write_aops(output, mref);
-		if (barrier || output->brick->o_fdsync)
-			sync_file(output);
+		if (status >= 0) {
+			if (barrier || output->brick->o_fdsync)
+				sync_file(output);
+			mf_dirty_append(output->mf, DIRTY_COMPLETED, mref->ref_pos + mref->ref_len);
+		}
 	}
 
 	mapfree_set(output->mf, mref->ref_pos, mref->ref_pos + mref->ref_len);
@@ -413,6 +417,8 @@ done:
 	_complete(output, mref, status);
 
 	atomic_dec(&tinfo->fly_count);
+	if (mref->ref_rw && status >= 0)
+		mf_dirty_append(output->mf, DIRTY_FINISHED, mref->ref_pos + mref->ref_len);
 }
 
 /* This is called from outside
