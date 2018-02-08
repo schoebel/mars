@@ -325,7 +325,7 @@ LatexCommand tableofcontents
 \end_layout
 
 \begin_layout Chapter
-Why You should Replicate Big Data at Block Layer
+Why You should Replicate Cloud Storage / Big Data at Block Layer
 \begin_inset CommandInset label
 LatexCommand label
 name "chap:Why-You-should"
@@ -496,7 +496,7 @@ double
 \end_layout
 
 \begin_layout Itemize
-When geo-redundancy is required, the whole mess may easily more than double
+When geo-redundancy is required, the total effort may easily more than double
  another time because in cases of disasters like terrorist attacks the backup
  datacenter must be prepared for taking over for multiple days or weeks.
 \end_layout
@@ -567,13 +567,319 @@ Even in cases when any customer may potentially access any of the data items
 \begin_layout Standard
 Only when partitioning of input traffic plus data is not possible in a reasonabl
 e way, big cluster architectures as implemented for example in Ceph or Swift
- (and partly even possible with MARS when resticted to the block layer)
+ (and partly even possible with MARS when restricted to the block layer)
  have a very clear use case.
 \end_layout
 
 \begin_layout Standard
 When sharding is possible, it is the preferred model due to cost and performance
  reasons.
+\end_layout
+
+\begin_layout Subsection
+Variants of Sharding
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Variants-of-Sharding"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Description
+LocalSharding The simplest possible sharding architecture is simply putting
+ both the storage and the compute CPU power onto the same iron.
+\begin_inset Newline newline
+\end_inset
+
+Example: at 1&1 Shared Hosting Linux (ShaHoLin), we have dimensioned several
+ variants of this.
+ (a) we are using 1U pizza boxes with local hardware RAID controllers with
+ fast hardware BBU cache and up 10 local disks for the majority of LXC container
+ instances where the 
+\begin_inset Quotes eld
+\end_inset
+
+small-sized
+\begin_inset Quotes erd
+\end_inset
+
+ customers (up to ~100 GB webspace per customer) are residing.
+ Since most customers have very small home directories with extremely many
+ but small files, this is a very cost-efficient model.
+ (b) less that 1 permille of all customers have > 250 GB (up to 2TB) per
+ home directory.
+ For these few customers we are using another dimensioning variant of the
+ same architecture: 4U servers with 48 high-capacity spindles on 3 RAID
+ sets, delivering a total PV capacity of ~300 TB, which are then cut down
+ to ~10 LXC containers of ~30 TB each.
+\begin_inset Newline newline
+\end_inset
+
+In order to operate this model at a bigger scale, you should consider the
+ 
+\begin_inset Quotes eld
+\end_inset
+
+container football
+\begin_inset Quotes erd
+\end_inset
+
+ method as described in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "subsec:Principle-of-Background"
+
+\end_inset
+
+ and in chapter 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "chap:LV-Football"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Description
+RemoteSharding This variant needs a (possibly dedicated) storage network,
+ which is however only 
+\begin_inset Formula $O(n)$
+\end_inset
+
+.
+ Each storage server exports a block device over iSCSI (or over another
+ transport) to at most 
+\begin_inset Formula $O(k)$
+\end_inset
+
+ dedicated compute nodes where 
+\begin_inset Formula $k$
+\end_inset
+
+ is some 
+\series bold
+constant
+\series default
+.
+\begin_inset Newline newline
+\end_inset
+
+Hint 1: it is advisable to build this type of storage network with 
+\series bold
+local switches
+\series default
+ and no routers inbetween, in order to avoid 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+-style network architectures and traffic.
+ This reduces error propagation upon network failures.
+ Keep the storage and the compute nodes locally close to each other, e.g.
+ in the same datacenter room, or even in the same rack.
+\begin_inset Newline newline
+\end_inset
+
+Hint 2: additionally, you can provide some (low-dimensioned) backbone for
+ 
+\series bold
+exceptional(!)
+\series default
+ cross-traffic between the local storage switches.
+ Don't plan to use any realtime cross-traffic 
+\emph on
+regularly
+\emph default
+, but only in clear cases of emergency!
+\end_layout
+
+\begin_layout Description
+FlexibleSharding This is a dynamic combination of LocalSharding and RemoteShardi
+ng, dynamically re-configurable, as explained below.
+\end_layout
+
+\begin_layout Description
+BigClusterSharding The sharding model can also be placed 
+\series bold
+on top of
+\series default
+ a BigCluster model, or possibly 
+\begin_inset Quotes eld
+\end_inset
+
+internally
+\begin_inset Quotes erd
+\end_inset
+
+ in such a model, leading to a similar effect.
+ Whether this makes sense needs some discussion.
+ It can be used to reduce the 
+\emph on
+logical
+\emph default
+ BigCluster size from 
+\begin_inset Formula $O(n)$
+\end_inset
+
+ to some 
+\begin_inset Formula $O(k)$
+\end_inset
+
+, such that it is no longer a 
+\begin_inset Quotes eld
+\end_inset
+
+big cluster
+\begin_inset Quotes erd
+\end_inset
+
+ but a 
+\begin_inset Quotes eld
+\end_inset
+
+small cluster
+\begin_inset Quotes erd
+\end_inset
+
+, and thus reducing the serious problems described in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Reliability-Arguments-from"
+
+\end_inset
+
+ to some degree.
+ This could make sense in the following use cases:
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+When you 
+\series bold
+already have
+\series default
+ invested into a big cluster, e.g.
+ Ceph or Swift, which does not really scale and/or does not really deliver
+ the expected reliability.
+ Some possible reasons for this are explained in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Reliability-Arguments-from"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Itemize
+When you 
+\series bold
+really
+\series default
+ need a 
+\series bold
+single
+\series default
+ LV which is necessarily bigger than can be reasonably built on top of local
+ LVM.
+ This means, you are likely claiming that you really need 
+\series bold
+strict consistency
+\series default
+ as provided by a block device or e.g.
+ by a POSIX-compliant single filesystem instance on more than 1 PB with
+ current technology (2018).
+ Be conscious when you think this is the only solution to your problem.
+ Double-check or triple-check whether there is 
+\emph on
+really
+\emph default
+ no other solution than creating such a huge block device and/or such a
+ huge filesystem instance.
+ Such huge SPOFs are tending to create similar problems as described in
+ section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Reliability-Arguments-from"
+
+\end_inset
+
+ for similar reasons.
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+When building a 
+\series bold
+new
+\series default
+ storage system, be sure to check the following use cases.
+ You should seriously consider a LocalSharding / RemoteSharding / FlexibleShardi
+ng model in favor of BigClusterSharding when ...
+\end_layout
+
+\begin_layout Itemize
+...
+ when more than 1 LV instance is placed onto your 
+\begin_inset Quotes eld
+\end_inset
+
+small cluster
+\begin_inset Quotes erd
+\end_inset
+
+ shards.
+ Then a 
+\series bold
+{Local,Remote,Flexible}Sharding
+\series default
+ model could be likely used instead.
+ Then the total overhead (
+\series bold
+total cost of ownership
+\series default
+) introduced by a BigCluster 
+\emph on
+model
+\emph default
+ but actually stripped down to a 
+\begin_inset Quotes eld
+\end_inset
+
+SmallCluster
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\emph on
+implementation / configuration
+\emph default
+ should be examined separately.
+ Does it really pay off?
+\end_layout
+
+\begin_layout Itemize
+...
+ when there are 
+\series bold
+legal requirements
+\series default
+ that you can tell at any time where your data is.
+ Typically, this is all else but easy on a BigCluster model, even when stripped
+ down to SmallCluster size.
+\end_layout
+
+\begin_layout Subsection
+FlexibleSharding
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:FlexibleSharding"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -590,7 +896,7 @@ Notice that MARS' new remote device feature from the 0.2 branch series (which
 \emph on
 could
 \emph default
- be used for implementing the 
+ be used for implementing some sort of 
 \begin_inset Quotes eld
 \end_inset
 
@@ -606,7 +912,7 @@ Nevertheless, such models re-introducing some kind of
 \begin_inset Quotes eld
 \end_inset
 
-dedicated storage network
+big dedicated storage network
 \begin_inset Quotes erd
 \end_inset
 
@@ -743,6 +1049,17 @@ reference "sec:Cost-Arguments-from"
 \end_inset
 
 .
+\end_layout
+
+\begin_layout Subsection
+Principle of Background Migration
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Principle-of-Background"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -35001,6 +35318,17 @@ reference "sec:Defending-Overflow"
 \end_inset
 
 ), don't unnecessarily prolong the backup duration.
+\end_layout
+
+\begin_layout Chapter
+LV Football / Container Football
+\begin_inset CommandInset label
+LatexCommand label
+name "chap:LV-Football"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Chapter
