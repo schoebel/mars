@@ -3095,7 +3095,7 @@ as up-to-date as possible
 There is simply no better way to do it.
 
 \series default
- In presence of temporary network bottlenecks such as network congenstion,
+ In presence of temporary network bottlenecks such as network congestion,
  there exists no better method than prescribed by the information theoretic
  limit (red line, neglecting data compression).
 \end_layout
@@ -3240,9 +3240,9 @@ This time, the network throughput limit (solid red line) is assumed to be
 \end_layout
 
 \begin_layout Standard
-When the peaks are exceeding the network capabilities for some time, the
- replication network throughput (solid green line) will be limited for a
- short time, stay a little bit longer at the limit, and finally drop down
+When the peaks are exceeding the network capacities for some short time,
+ the replication network throughput (solid green line) will be limited for
+ a short time, stay a little bit longer at the limit, and finally drop down
  again to the normal workload.
  In other words, you get a flexible buffering behaviour, coping with the
  peaks.
