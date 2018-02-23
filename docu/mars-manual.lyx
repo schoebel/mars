@@ -2026,14 +2026,50 @@ name "sec:Reliability-Arguments-from"
 \end_layout
 
 \begin_layout Standard
-A contemporary common belief is that big clusters would provide better reliabili
-ty than anything else.
+A contemporary common belief is that big clusters and their random replication
+ methods would provide better reliability than anything else.
  There are some practical observations at 1&1 and its daughter companies
  which cannot confirm this.
 \end_layout
 
 \begin_layout Standard
-Stimulated by such practical experience, theoretical explanations were sought.
+Similar experiences are part of a USENIX paper about copysets, see 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://www.usenix.org/system/files/conference/atc13/atc13-cidon.pdf
+\end_layout
+
+\end_inset
+
+.
+ Their proposed solution is different from the solution proposed here, but
+ interestingly their 
+\emph on
+problem analysis
+\emph default
+ part contains not only similar observations, but also comes to similar
+ conclusions about random replication.
+ Citation from the abstract:
+\end_layout
+
+\begin_layout Quote
+However, random replication is 
+\series bold
+almost guaranteed
+\series default
+ to lose data in the common scenario of simultaneous node failures due to
+ cluster-wide power outages.
+
+\size footnotesize
+ [emphasis added by me]
+\end_layout
+
+\begin_layout Standard
+Stimulated by our practical experiences even in truly less disastrous scenarios
+ than mass power outage, theoretical explanations were sought.
  Surprisingly, they show that LocalSharding is superior to true big clusters
  under practically important preconditions.
  Here is an intutitive explanation.
@@ -2247,7 +2283,7 @@ uniform
  hash function.
  When other hash functions were used (e.g.
  distributing only to a constant number of nodes), it would no longer be
- a big cluster.
+ a big cluster architecture in our sense.
 \begin_inset Newline newline
 \end_inset
 
@@ -2936,8 +2972,9 @@ interdependent objects
 \begin_inset Newline newline
 \end_inset
 
-Example: experienced sysadmins will confirm that even a data loss rate of
- only 1/1,000,000 of blocks in a classical Linux filesystem like 
+Practical example: experienced sysadmins will confirm that even a data loss
+ rate of only 1/1,000,000 of blocks in a classical Linux filesystem like
+ 
 \family typewriter
 xfs
 \family default
@@ -2955,16 +2992,17 @@ fsck
 
 Theoretical explanation: servers are running for a very long time, and filesyste
 ms are typically also mounted for a long time.
- Notice that the probability of hitting any vital filesystem data equals
- the probability of hitting any other data.
+ Notice that the probability of hitting any vital filesystem data roughly
+ equals the probability of hitting any other data.
  Sooner or later, any defective sector in the metadata structures or in
  freespace management etc will stop your whole filesystem, and in turn will
  stop your application instance(s) running on top of it.
 \begin_inset Newline newline
 \end_inset
 
-Similar arguments hold for transient failures: most filesystems are not
- constructed for compensation of hanging IO, typically leading to 
+Similar arguments hold for transient failures: most classical filesystems
+ are not constructed for compensation of hanging IO, typically leading to
+ 
 \series bold
 system hangs
 \series default
@@ -3062,13 +3100,10 @@ always
 \end_inset
 
  is also the redundancy degree.
+ In general:
 \end_layout
 
-\begin_layout Standard
-In general:
-\end_layout
-
-\begin_layout Verse
+\begin_layout Quote
 
 \series bold
 \size large
@@ -3087,15 +3122,19 @@ There exists no better model because shards consisting of exactly
 \begin_inset Formula $k$
 \end_inset
 
- is the redundancy degree are already the smallest possible shards under
- the assumptions of section 
+ is the redundancy degree are already the 
+\emph on
+smallest possible shards
+\emph default
+ under the assumptions of section 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "sub:Detailed-explanation"
 
 \end_inset
 
-, and any other model truly involving 
+.
+ Any other model truly involving 
 \begin_inset Formula $k'>k$
 \end_inset
 
@@ -3199,6 +3238,413 @@ glusterfs
 \begin_layout Standard
 Clear advice: don't do that.
  It's a bad idea.
+\end_layout
+
+\begin_layout Subsection
+Similarities and Differences to Copysets
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Similarities-and-differences"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This section is mostly of academic interest.
+ You can skip it when looking for practical advice.
+\end_layout
+
+\begin_layout Standard
+The USENIX paper about copysets (see 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://www.usenix.org/system/files/conference/atc13/atc13-cidon.pdf
+\end_layout
+
+\end_inset
+
+) relates to the Sharding model in the following way:
+\end_layout
+
+\begin_layout Paragraph
+Similarities
+\end_layout
+
+\begin_layout Standard
+The concept of Random Replication of the storage data to large number of
+ machines will reduce reliability.
+ When chosing too big sets of storage machines, then the storage system
+ as a whole will become practically unusable.
+ This is common sense between the USENIX paper and the Sharding Approach
+ as propagated here.
+\end_layout
+
+\begin_layout Paragraph
+Differences
+\end_layout
+
+\begin_layout Standard
+The USENIX paper and many other Cloud Storage approaches are 
+\emph on
+presuming
+\emph default
+ that there exists a storage network, allowing real-time distribution of
+ replicas over this kind of network.
+\end_layout
+
+\begin_layout Standard
+In contrast, the Sharding Approach to Cloud Storage tries to 
+\emph on
+avoid
+\emph default
+ real-time storage networks 
+\emph on
+as much as possible
+\emph default
+.
+ Notice that RemoteSharding and further variants (including future improvements)
+ do 
+\emph on
+not
+\emph default
+ preclude it, but are trying to 
+\emph on
+avoid
+\emph default
+ real-time storage network traffic.
+ Instead, the load-balancing problem is addressed via 
+\series bold
+background data migration
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+This changes the 
+\emph on
+timely granularity
+\emph default
+ of data access: many real-time accesses are 
+\emph on
+shifted over
+\emph default
+ to migration processes, which in turn are weakening the requirements to
+ the network.
+\end_layout
+
+\begin_layout Standard
+In detail, there are some more differences to the USENIX paper.
+ Some examples:
+\end_layout
+
+\begin_layout Itemize
+Terminology: the scatter width 
+\begin_inset Formula $S$
+\end_inset
+
+ is defined (see page 39 of the paper) as: each node's data is split 
+\emph on
+uniformly
+\emph default
+ across a group of 
+\begin_inset Formula $S$
+\end_inset
+
+ 
+\emph on
+other
+\emph default
+ nodes.
+ In difference, we neither assume uniformity, nor do we require the data
+ to be distributed to 
+\emph on
+other
+\emph default
+ nodes.
+ By using the term 
+\begin_inset Quotes eld
+\end_inset
+
+other
+\begin_inset Quotes erd
+\end_inset
+
+, the USENIX paper (as well as many other BigCluster approaches) are probably
+ presuming something like a distinction between 
+\begin_inset Quotes eld
+\end_inset
+
+client
+\begin_inset Quotes erd
+\end_inset
+
+ and 
+\begin_inset Quotes eld
+\end_inset
+
+server
+\begin_inset Quotes erd
+\end_inset
+
+ machines: while data processing is done on a 
+\begin_inset Quotes eld
+\end_inset
+
+client
+\begin_inset Quotes erd
+\end_inset
+
+, data storage is on a 
+\begin_inset Quotes eld
+\end_inset
+
+server
+\begin_inset Quotes erd
+\end_inset
+
+.
+ 
+\end_layout
+
+\begin_layout Itemize
+We don't disallow this in variants like RemoteSharding or FlexibleSharding
+ and so on, but we gave some arguments why we are trying to 
+\emph on
+avoid
+\emph default
+ this.
+\end_layout
+
+\begin_layout Itemize
+It seems that some definitions in the USENIX paper may implicitly relate
+ to 
+\begin_inset Quotes eld
+\end_inset
+
+each chunk
+\begin_inset Quotes erd
+\end_inset
+
+.
+ In contrast, the Sharding Approach typically relates to LVs (logical volumes),
+ which could however be viewed as a special case of 
+\begin_inset Quotes eld
+\end_inset
+
+chunk
+\begin_inset Quotes erd
+\end_inset
+
+, e.g.
+ by minimizing the number of chunks in a system.
+ However notice: there exists definitions of 
+\begin_inset Quotes eld
+\end_inset
+
+chunk
+\begin_inset Quotes erd
+\end_inset
+
+ where it is the basic transfer unit.
+ An LV has the fundamental property that small-granularity 
+\series bold
+update in place
+\series default
+ (at any offset inside the LV) can be executed.
+\end_layout
+
+\begin_layout Itemize
+Notice: we do not preclude further fine-grained distribution of LV data,
+ but this is something which should be 
+\emph on
+avoided
+\emph default
+ if not absolutely necessary.
+ Preferred method in typical practical use cases: some storage servers may
+ have some spare RAID slots to be populated later, by resizing the PVs =
+ Physical Volumes before resizing LVs.
+\end_layout
+
+\begin_layout Itemize
+Notice that a typical local RAID system 
+\emph on
+is also
+\emph default
+ a Distributed System, according to some reasonable definition.
+ Typical RAID implementations just involve SAS cables instead of Ethernet
+ cables or Infiniband cables.
+ Notice that this also applies to many 
+\begin_inset Quotes eld
+\end_inset
+
+Commodity Hardware
+\begin_inset Quotes erd
+\end_inset
+
+ approaches, like Ceph storage nodes driving dozens of local HDDs connected
+ over SAS or SATA.
+ The main difference is just that instead of a hardware RAID controller,
+ a hardware HBA is used instead.
+ Instead of Ethernet switches, SAS multiplexers in backplanes are used.
+ Anyway, this forms a locally distributed sub-system.
+\end_layout
+
+\begin_layout Itemize
+Future variants of the Sharding Approach might extend this already present
+ locally Distributed System to a somewhat wider one.
+ For example, creation of a local LV (called 
+\begin_inset Quotes eld
+\end_inset
+
+disk
+\begin_inset Quotes erd
+\end_inset
+
+ in MARS terminology) could be implemented by a subordinate DRBD instance
+ implementing a future RAID-10 mode over local Infiniband or crossover Ethernet
+ cables, avoiding local switches.
+ While DRBD would essentially create the 
+\begin_inset Quotes eld
+\end_inset
+
+local
+\begin_inset Quotes erd
+\end_inset
+
+ LV, the higher-level MARS instance would then be responsible for its wide-dista
+nce replication.
+ See chapter 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "chap:Use-Cases-for"
+
+\end_inset
+
+ about use cases of MARS vs DRBD.
+ Potential future use cases could be 
+\emph on
+extremely huge
+\emph default
+ LVs where external SAS disk shelves are no longer sufficient to get the
+ desired capacity.
+\end_layout
+
+\begin_layout Itemize
+The USENIX paper needs to treat the following parameters as more or less
+ fixed (or only slowly changable) 
+\series bold
+constants
+\series default
+, given by the system designer: the replication degree 
+\begin_inset Formula $R$
+\end_inset
+
+, and the scatter width 
+\begin_inset Formula $S$
+\end_inset
+
+.
+ In contrast, the replication degree 
+\begin_inset Formula $k$
+\end_inset
+
+ of our Sharding Approach is not necessarily firmly given by the system,
+ but can be 
+\series bold
+dynamically changed
+\series default
+ at runtime on a per-LV basis.
+ For example, during background migration via MARS the command 
+\family typewriter
+marsadm join-resource
+\family default
+ is used for creating additional per-LV replicas.
+ However notice: this freedom is limited by the total number of deployed
+ hardware nodes.
+ If you want 
+\begin_inset Formula $k=3$
+\end_inset
+
+ replicas at the 
+\emph on
+whole
+\emph default
+ pool, then you will need to (dynamically) deploy at least about 
+\begin_inset Formula $k*x$
+\end_inset
+
+ nodes in general.
+\end_layout
+
+\begin_layout Itemize
+The USENIX paper defines its copysets on a per-chunk basis.
+ Similarly to before, we can transfer this definition to a Sharding Approach
+ by relating it to a per-LV basis.
+ As a side effect, a copyset can then trivially become identical to 
+\begin_inset Formula $S$
+\end_inset
+
+ when the definition is 
+\begin_inset Formula $S$
+\end_inset
+
+ is also changed to a per-LV basis, analogously.
+ In the Sharding Approach, a distiction is not absolutely necessary, while
+ the USENIX paper has to invest some effort into clarifying the relationship
+ between 
+\begin_inset Formula $S$
+\end_inset
+
+ and copysets as defined on a BigCluster model.
+\end_layout
+
+\begin_layout Itemize
+Neglecting the mentioned differences, we see our typical use case (LocalSharding
+) roughly equivalent to 
+\begin_inset Formula $S=R$
+\end_inset
+
+ in the terminology of the USENIX paper, or to 
+\begin_inset Formula $S=k$
+\end_inset
+
+ (our number of replicas) in our terminology.
+\end_layout
+
+\begin_layout Itemize
+This means: we try to minimize the 
+\emph on
+size
+\emph default
+ of 
+\begin_inset Formula $S$
+\end_inset
+
+ for any given per-LV 
+\begin_inset Formula $k$
+\end_inset
+
+, which will lead to the best possible reliability (under the conditions
+ described in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Detailed-explanation"
+
+\end_inset
+
+) as has been shown in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "subsec:Optimum-Reliability-from"
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Section
