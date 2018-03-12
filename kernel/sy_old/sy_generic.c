@@ -2454,7 +2454,7 @@ void update_client_links(struct client_brick *brick)
 		return; // silently
 
 	sprintf(val, "%d", brick->connection_state - 1);
-	mars_symlink(val, name, NULL, 0);
+	ordered_symlink(val, name, NULL, 0);
 
 	brick_string_free(name);
 }

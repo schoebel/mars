@@ -237,13 +237,13 @@ void show_vals(struct key_value_pair *start, const char *path, const char *add)
 					      start->system_stamp.tv_sec, start->system_stamp.tv_nsec, 
 					      start->lamport_stamp.tv_sec, start->lamport_stamp.tv_nsec, 
 					      start->val);
-			mars_symlink(src, dst, NULL, 0);
+			ordered_symlink(src, dst, NULL, 0);
 			brick_string_free(src);
 			brick_string_free(start->old_val);
 			start->old_val = start->val;
 			start->val = NULL;
 		} else {
-			mars_symlink("OK", dst, NULL, 0);
+			ordered_symlink("OK", dst, NULL, 0);
 			memset(&start->system_stamp, 0, sizeof(start->system_stamp));
 			memset(&start->lamport_stamp, 0, sizeof(start->lamport_stamp));
 			brick_string_free(start->old_val);
@@ -372,7 +372,7 @@ void _make_alivelink_str(const char *name, const char *src)
 		goto err;
 	}
 	MARS_DBG("'%s' -> '%s'\n", src, dst);
-	mars_symlink(src, dst, NULL, 0);
+	ordered_symlink(src, dst, NULL, 0);
 err:
 	brick_string_free(dst);
 }
@@ -1128,7 +1128,7 @@ int _update_link_when_necessary(struct mars_rotate *rot, const char *type, const
 		goto out;
 	}
 
-	status = mars_symlink(old, new, NULL, 0);
+	status = ordered_symlink(old, new, NULL, 0);
 	if (unlikely(status < 0)) {
 		MARS_ERR_TO(rot->log_say, "cannot create %s symlink '%s' -> '%s' status = %d\n", type, old, new, status);
 	} else {
@@ -1399,7 +1399,7 @@ int __show_actual(const char *path, const char *name, int val)
 		goto done;
 
 	MARS_DBG("symlink '%s' -> '%s'\n", dst, src);
-	status = mars_symlink(src, dst, NULL, 0);
+	status = ordered_symlink(src, dst, NULL, 0);
 
 done:
 	brick_string_free(src);
@@ -1450,7 +1450,7 @@ void _show_brick_status(struct mars_brick *test, bool shutdown)
 		return;
 	}
 
-	status = mars_symlink(src, dst, NULL, 0);
+	status = ordered_symlink(src, dst, NULL, 0);
 	MARS_DBG("status symlink '%s' -> '%s' status = %d\n", dst, src, status);
 	brick_string_free(dst);
 }
@@ -1887,7 +1887,6 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 {
 	int status = 0;
 	struct kstat local_stat = {};
-	const char *marker_path = NULL;
 	bool stat_ok;
 	bool update_mtime = true;
 	bool update_ctime = true;
@@ -1903,35 +1902,10 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 		goto done;
 	}
 
-	// create / check markers (prevent concurrent updates)
 	if (remote_dent->new_link && !strncmp(remote_dent->d_path, "/mars/todo-global/delete-", 25)) {
-		marker_path = backskip_replace(remote_dent->new_link, '/', true, "/.deleted-");
-		if (mars_stat(marker_path, &local_stat, true) < 0 ||
-		    timespec_compare(&remote_dent->new_stat.mtime, &local_stat.mtime) > 0) {
-			MARS_DBG("creating / updating marker '%s' mtime=%lu.%09lu\n",
-				 marker_path, remote_dent->new_stat.mtime.tv_sec, remote_dent->new_stat.mtime.tv_nsec);
-			mars_symlink("1", marker_path, &remote_dent->new_stat.mtime, 0);
-		}
 		if (remote_dent->d_serial < peer->global->deleted_my_border) {
 			MARS_DBG("ignoring deletion '%s' at border %d\n", remote_dent->d_path, peer->global->deleted_my_border);
 			goto done;
-		}
-	} else {
-		// check marker preventing concurrent updates from remote hosts when deletes are in progress
-		marker_path = backskip_replace(remote_dent->d_path, '/', true, "/.deleted-");
-		if (mars_stat(marker_path, &local_stat, true) >= 0) {
-			if (timespec_compare(&remote_dent->new_stat.mtime, &local_stat.mtime) <= 0) {
-				MARS_DBG("marker '%s' exists, ignoring '%s' (new mtime=%lu.%09lu, marker mtime=%lu.%09lu)\n",
-					 marker_path, remote_dent->d_path,
-					 remote_dent->new_stat.mtime.tv_sec, remote_dent->new_stat.mtime.tv_nsec,
-					 local_stat.mtime.tv_sec, local_stat.mtime.tv_nsec);
-				goto done;
-			} else {
-				MARS_DBG("marker '%s' exists, overwriting '%s' (new mtime=%lu.%09lu, marker mtime=%lu.%09lu)\n",
-					 marker_path, remote_dent->d_path,
-					 remote_dent->new_stat.mtime.tv_sec, remote_dent->new_stat.mtime.tv_nsec,
-					 local_stat.mtime.tv_sec, local_stat.mtime.tv_nsec);
-			}
 		}
 	}
 
@@ -1981,7 +1955,10 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 		}
 	} else if (S_ISLNK(remote_dent->new_stat.mode) && remote_dent->new_link) {
 		if (!stat_ok || update_mtime) {
-			status = mars_symlink(remote_dent->new_link, remote_dent->d_path, &remote_dent->new_stat.mtime, __kuid_val(remote_dent->new_stat.uid));
+			status = ordered_symlink(remote_dent->new_link,
+						 remote_dent->d_path,
+						 &remote_dent->new_stat.mtime,
+						 __kuid_val(remote_dent->new_stat.uid));
 			MARS_DBG("create symlink '%s' -> '%s' status = %d\n", remote_dent->d_path, remote_dent->new_link, status);
 			run_trigger = true;
 		}
@@ -2007,7 +1984,6 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 	}
 
  done:
-	brick_string_free(marker_path);
 	if (status >= 0) {
 		status = run_trigger ? 1 : 0;
 	}
@@ -3768,7 +3744,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 			if (likely(new_vers && new_vval && new_path &&
 				   !mars_find_dent(global, new_path))) {
 				MARS_INF_TO(rot->log_say, "EMERGENCY: creating new logfile '%s'\n", new_path);
-				mars_symlink(new_vval, new_vers, NULL, 0);
+				ordered_symlink(new_vval, new_vers, NULL, 0);
 				_create_new_logfile(new_path);
 				rot->created_hole = true;
 			}
@@ -4052,7 +4028,7 @@ int make_bio(void *buf, struct mars_dent *dent)
 		src = path_make("%lld", info.current_size);
 		dst = path_make("%s/actsize-%s", dent->d_parent->d_path, my_id());
 		if (src && dst) {
-			(void)mars_symlink(src, dst, NULL, 0);
+			(void)ordered_symlink(src, dst, NULL, 0);
 		}
 		brick_string_free(src);
 		brick_string_free(dst);
@@ -4691,7 +4667,6 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	struct mars_global *global = buf;
 	struct mars_dent *target;
 	struct mars_dent *response;
-	const char *marker_path = NULL;
 	const char *response_path = NULL;
 	struct mars_brick *brick;
 	int max_serial = 0;
@@ -4701,15 +4676,6 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 		goto err;
 	}
 
-	// create a marker which prevents concurrent updates from remote hosts
-	marker_path = backskip_replace(dent->new_link, '/', true, "/.deleted-");
-	if (mars_stat(marker_path, &stat, true) < 0 ||
-	    timespec_compare(&dent->new_stat.mtime, &stat.mtime) > 0) {
-		MARS_DBG("creating / updating marker '%s' mtime=%lu.%09lu\n",
-			 marker_path, dent->new_stat.mtime.tv_sec, dent->new_stat.mtime.tv_nsec);
-		mars_symlink("1", marker_path, &dent->new_stat.mtime, 0);
-	}
-	
 	brick = mars_find_brick(global, NULL, dent->new_link);
 	if (brick &&
 	    unlikely((brick->nr_outputs > 0 && brick->outputs[0] && brick->outputs[0]->nr_connected) ||
@@ -4749,7 +4715,10 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 			status = mars_rmdir(dent->new_link);
 			MARS_DBG("rmdir '%s', status = %d\n", dent->new_link, status);
 		} else {
-			status = mars_unlink(dent->new_link);
+			status = ordered_unlink(dent->new_link,
+						&dent->new_stat.mtime,
+						dent->d_serial,
+						0);
 			MARS_DBG("unlink '%s', status = %d\n", dent->new_link, status);
 		}
 	}
@@ -4762,8 +4731,6 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 			MARS_DBG("removing deletion symlink '%s'\n", dent->d_path);
 			dent->d_killme = true;
 			mars_unlink(dent->d_path);
-			MARS_DBG("removing marker '%s'\n", marker_path);
-			mars_unlink(marker_path);
 		}
 	}
 
@@ -4779,11 +4746,10 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 		max_serial = dent->d_serial;
 		global->deleted_my_border = max_serial;
 		snprintf(response_val, sizeof(response_val), "%09d", max_serial);
-		mars_symlink(response_val, response_path, NULL, 0);
+		ordered_symlink(response_val, response_path, NULL, 0);
 	}
 
  err:
-	brick_string_free(marker_path);
 	brick_string_free(response_path);
 	return 0;
 }
