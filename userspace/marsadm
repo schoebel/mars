@@ -2486,6 +2486,28 @@ sub logdelete_res {
     system("rm -rf $leftlink");
   }
   foreach my $leftlink (glob("$mars/{,resource-$res/}{,*/}{.tmp,.deleted,delete,work}-*")) {
+    # remove outdated .deleted-* markers
+    if ($leftlink =~ m:/.deleted-:) {
+      my $info = get_link($leftlink, 2);
+      if ($info =~ m/^[0-9]+,[0-9]+$/) {
+	my ($serial, $mode) = split(/,/, $info);
+	my $todo_glob = "$mars/todo-global/deleted-*";
+	if ($mode) {
+	  $todo_glob = "$mars/resource-$res/todo-$real_host/deleted-*"
+	}
+	# compute the minimum border
+	my $border = 0;
+	foreach my $deleted_link (glob($todo_glob)) {
+	  my $limit = get_link($deleted_link, 2);
+	  next if !$limit || $limit <= 1;
+	  $border = $limit if (!$border || $limit < $border);
+	}
+	if ($serial < $border && $serial > 1) {
+	  unlink($leftlink);
+	  next;
+	}
+      }
+    }
     my $stamp = get_link_stamp($leftlink);
     next unless $stamp + 3600 * 24 < $start_time;
     lprint "  unlink '$leftlink'\n" if $verbose;
