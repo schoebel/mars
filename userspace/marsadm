@@ -120,7 +120,7 @@ my $ip = "";
 my $ssh_port = 22;
 my $ssh_opts = "-A -o StrictHostKeyChecking=no -o ConnectTimeout=5";
 my $ssh_probe = "uname -a";
-my $rsync_opts = "-av";
+my $rsync_opts = "-av --exclude='.deleted-*'";
 my $kernel_version = 0;
 
 ##################################################################
