@@ -851,6 +851,92 @@ err: ;
 }
 EXPORT_SYMBOL_GPL(mars_remaining_space);
 
+/*************************************************************/
+
+/* Timestamp Ordering */
+
+/* Timestamp ordering (e.g. via Lamport Clock) is easy when
+ * the object exists.
+ * When unlink() comes into play, it becomes more complex:
+ * where to store the timestamp of the object when it is
+ * currently deleted?
+ * This is necessary to allow permutations between _all_ operations
+ * on the object, including unlink().
+ * Idea: use a substitute object ".deleted-$object".
+ */
+
+static DEFINE_MUTEX(ordered_lock);
+
+int ordered_unlink(const char *path, const struct timespec *stamp, int serial, int mode)
+{
+	struct kstat stat;
+	char serial_str[32];
+	struct timespec now;
+	const char *marker_path;
+	int marker_status;
+	int status = 0;
+
+	snprintf(serial_str, sizeof(serial_str), "%d,%d", serial, mode);
+	if (!stamp) {
+		get_lamport(NULL, &now);
+		stamp = &now;
+	}
+
+	mutex_lock(&ordered_lock);
+
+	marker_path = backskip_replace(path, '/', true, "/.deleted-");
+	marker_status = mars_stat(marker_path, &stat, true);
+	if (marker_status < 0 ||
+	    timespec_compare(stamp, &stat.mtime) >= 0) {
+		MARS_DBG("creating / updating marker '%s' mtime=%lu.%09lu\n",
+			 marker_path,
+			 stamp->tv_sec, stamp->tv_nsec);
+		status = mars_symlink(serial_str, marker_path, stamp, 0);
+	}
+	if (marker_status < 0 ||
+	    timespec_compare(stamp, &stat.mtime) >= 0) {
+		status = mars_unlink(path);
+	}
+
+	mutex_unlock(&ordered_lock);
+	brick_string_free(marker_path);
+	return status;
+}
+
+int ordered_symlink(const char *oldpath, const char *newpath, const struct timespec *stamp, uid_t uid)
+{
+	struct kstat stat;
+	struct timespec now;
+	const char *marker_path;
+	int status = 0;
+
+	if (!stamp) {
+		get_lamport(NULL, &now);
+		stamp = &now;
+	}
+
+	mutex_lock(&ordered_lock);
+
+	marker_path = backskip_replace(newpath, '/', true, "/.deleted-");
+
+	if (mars_stat(marker_path, &stat, true) >= 0 &&
+	    timespec_compare(&stat.mtime, stamp) > 0) {
+		goto done;
+	}
+	if (mars_stat(newpath, &stat, true) >= 0 &&
+	    timespec_compare(&stat.mtime, stamp) > 0) {
+		goto done;
+	}
+
+	(void)mars_unlink(marker_path);
+	status = mars_symlink(oldpath, newpath, stamp, uid);
+
+ done:
+	mutex_unlock(&ordered_lock);
+	brick_string_free(marker_path);
+	return status;
+}
+
 //////////////////////////////////////////////////////////////
 
 // thread binding
@@ -2408,7 +2494,7 @@ void update_client_links(struct client_brick *brick)
 		return; // silently
 
 	sprintf(val, "%d", brick->connection_state - 1);
-	mars_symlink(val, name, NULL, 0);
+	ordered_symlink(val, name, NULL, 0);
 
 	brick_string_free(name);
 }

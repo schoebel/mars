@@ -193,6 +193,11 @@ extern int mars_chmod(const char *path, mode_t mode);
 extern int mars_lchown(const char *path, uid_t uid);
 extern void mars_remaining_space(const char *fspath, loff_t *total, loff_t *remaining);
 
+/* Timestamp Ordering */
+
+extern int ordered_unlink(const char *path, const struct timespec *stamp, int serial, int mode);
+extern int ordered_symlink(const char *oldpath, const char *newpath, const struct timespec *stamp, uid_t uid);
+
 /////////////////////////////////////////////////////////////////////////
 
 extern struct mars_global *mars_global;

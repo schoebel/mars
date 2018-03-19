@@ -142,7 +142,7 @@ tst@1und1.de
 \end_layout
 
 \begin_layout Date
-Version 0.1a-5
+Version 0.1a-6
 \end_layout
 
 \begin_layout Lowertitleback
@@ -325,7 +325,7 @@ LatexCommand tableofcontents
 \end_layout
 
 \begin_layout Chapter
-Why You should Replicate Big Data at Block Layer
+Why You should Replicate Cloud Storage / Big Data at Block Layer
 \begin_inset CommandInset label
 LatexCommand label
 name "chap:Why-You-should"
@@ -496,7 +496,7 @@ double
 \end_layout
 
 \begin_layout Itemize
-When geo-redundancy is required, the whole mess may easily more than double
+When geo-redundancy is required, the total effort may easily more than double
  another time because in cases of disasters like terrorist attacks the backup
  datacenter must be prepared for taking over for multiple days or weeks.
 \end_layout
@@ -567,13 +567,319 @@ Even in cases when any customer may potentially access any of the data items
 \begin_layout Standard
 Only when partitioning of input traffic plus data is not possible in a reasonabl
 e way, big cluster architectures as implemented for example in Ceph or Swift
- (and partly even possible with MARS when resticted to the block layer)
+ (and partly even possible with MARS when restricted to the block layer)
  have a very clear use case.
 \end_layout
 
 \begin_layout Standard
 When sharding is possible, it is the preferred model due to cost and performance
  reasons.
+\end_layout
+
+\begin_layout Subsection
+Variants of Sharding
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Variants-of-Sharding"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Description
+LocalSharding The simplest possible sharding architecture is simply putting
+ both the storage and the compute CPU power onto the same iron.
+\begin_inset Newline newline
+\end_inset
+
+Example: at 1&1 Shared Hosting Linux (ShaHoLin), we have dimensioned several
+ variants of this.
+ (a) we are using 1U pizza boxes with local hardware RAID controllers with
+ fast hardware BBU cache and up 10 local disks for the majority of LXC container
+ instances where the 
+\begin_inset Quotes eld
+\end_inset
+
+small-sized
+\begin_inset Quotes erd
+\end_inset
+
+ customers (up to ~100 GB webspace per customer) are residing.
+ Since most customers have very small home directories with extremely many
+ but small files, this is a very cost-efficient model.
+ (b) less that 1 permille of all customers have > 250 GB (up to 2TB) per
+ home directory.
+ For these few customers we are using another dimensioning variant of the
+ same architecture: 4U servers with 48 high-capacity spindles on 3 RAID
+ sets, delivering a total PV capacity of ~300 TB, which are then cut down
+ to ~10 LXC containers of ~30 TB each.
+\begin_inset Newline newline
+\end_inset
+
+In order to operate this model at a bigger scale, you should consider the
+ 
+\begin_inset Quotes eld
+\end_inset
+
+container football
+\begin_inset Quotes erd
+\end_inset
+
+ method as described in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "subsec:Principle-of-Background"
+
+\end_inset
+
+ and in chapter 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "chap:LV-Football"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Description
+RemoteSharding This variant needs a (possibly dedicated) storage network,
+ which is however only 
+\begin_inset Formula $O(n)$
+\end_inset
+
+.
+ Each storage server exports a block device over iSCSI (or over another
+ transport) to at most 
+\begin_inset Formula $O(k)$
+\end_inset
+
+ dedicated compute nodes where 
+\begin_inset Formula $k$
+\end_inset
+
+ is some 
+\series bold
+constant
+\series default
+.
+\begin_inset Newline newline
+\end_inset
+
+Hint 1: it is advisable to build this type of storage network with 
+\series bold
+local switches
+\series default
+ and no routers inbetween, in order to avoid 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+-style network architectures and traffic.
+ This reduces error propagation upon network failures.
+ Keep the storage and the compute nodes locally close to each other, e.g.
+ in the same datacenter room, or even in the same rack.
+\begin_inset Newline newline
+\end_inset
+
+Hint 2: additionally, you can provide some (low-dimensioned) backbone for
+ 
+\series bold
+exceptional(!)
+\series default
+ cross-traffic between the local storage switches.
+ Don't plan to use any realtime cross-traffic 
+\emph on
+regularly
+\emph default
+, but only in clear cases of emergency!
+\end_layout
+
+\begin_layout Description
+FlexibleSharding This is a dynamic combination of LocalSharding and RemoteShardi
+ng, dynamically re-configurable, as explained below.
+\end_layout
+
+\begin_layout Description
+BigClusterSharding The sharding model can also be placed 
+\series bold
+on top of
+\series default
+ a BigCluster model, or possibly 
+\begin_inset Quotes eld
+\end_inset
+
+internally
+\begin_inset Quotes erd
+\end_inset
+
+ in such a model, leading to a similar effect.
+ Whether this makes sense needs some discussion.
+ It can be used to reduce the 
+\emph on
+logical
+\emph default
+ BigCluster size from 
+\begin_inset Formula $O(n)$
+\end_inset
+
+ to some 
+\begin_inset Formula $O(k)$
+\end_inset
+
+, such that it is no longer a 
+\begin_inset Quotes eld
+\end_inset
+
+big cluster
+\begin_inset Quotes erd
+\end_inset
+
+ but a 
+\begin_inset Quotes eld
+\end_inset
+
+small cluster
+\begin_inset Quotes erd
+\end_inset
+
+, and thus reducing the serious problems described in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Reliability-Arguments-from"
+
+\end_inset
+
+ to some degree.
+ This could make sense in the following use cases:
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+When you 
+\series bold
+already have
+\series default
+ invested into a big cluster, e.g.
+ Ceph or Swift, which does not really scale and/or does not really deliver
+ the expected reliability.
+ Some possible reasons for this are explained in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Reliability-Arguments-from"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Itemize
+When you 
+\series bold
+really
+\series default
+ need a 
+\series bold
+single
+\series default
+ LV which is necessarily bigger than can be reasonably built on top of local
+ LVM.
+ This means, you are likely claiming that you really need 
+\series bold
+strict consistency
+\series default
+ as provided by a block device or e.g.
+ by a POSIX-compliant single filesystem instance on more than 1 PB with
+ current technology (2018).
+ Be conscious when you think this is the only solution to your problem.
+ Double-check or triple-check whether there is 
+\emph on
+really
+\emph default
+ no other solution than creating such a huge block device and/or such a
+ huge filesystem instance.
+ Such huge SPOFs are tending to create similar problems as described in
+ section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Reliability-Arguments-from"
+
+\end_inset
+
+ for similar reasons.
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+When building a 
+\series bold
+new
+\series default
+ storage system, be sure to check the following use cases.
+ You should seriously consider a LocalSharding / RemoteSharding / FlexibleShardi
+ng model in favor of BigClusterSharding when ...
+\end_layout
+
+\begin_layout Itemize
+...
+ when more than 1 LV instance is placed onto your 
+\begin_inset Quotes eld
+\end_inset
+
+small cluster
+\begin_inset Quotes erd
+\end_inset
+
+ shards.
+ Then a 
+\series bold
+{Local,Remote,Flexible}Sharding
+\series default
+ model could be likely used instead.
+ Then the total overhead (
+\series bold
+total cost of ownership
+\series default
+) introduced by a BigCluster 
+\emph on
+model
+\emph default
+ but actually stripped down to a 
+\begin_inset Quotes eld
+\end_inset
+
+SmallCluster
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\emph on
+implementation / configuration
+\emph default
+ should be examined separately.
+ Does it really pay off?
+\end_layout
+
+\begin_layout Itemize
+...
+ when there are 
+\series bold
+legal requirements
+\series default
+ that you can tell at any time where your data is.
+ Typically, this is all else but easy on a BigCluster model, even when stripped
+ down to SmallCluster size.
+\end_layout
+
+\begin_layout Subsection
+FlexibleSharding
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:FlexibleSharding"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -590,7 +896,7 @@ Notice that MARS' new remote device feature from the 0.2 branch series (which
 \emph on
 could
 \emph default
- be used for implementing the 
+ be used for implementing some sort of 
 \begin_inset Quotes eld
 \end_inset
 
@@ -606,7 +912,7 @@ Nevertheless, such models re-introducing some kind of
 \begin_inset Quotes eld
 \end_inset
 
-dedicated storage network
+big dedicated storage network
 \begin_inset Quotes erd
 \end_inset
 
@@ -743,6 +1049,17 @@ reference "sec:Cost-Arguments-from"
 \end_inset
 
 .
+\end_layout
+
+\begin_layout Subsection
+Principle of Background Migration
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Principle-of-Background"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -1695,6 +2012,1639 @@ not
 \begin_layout Standard
 In any case, a MARS-based geo-redundant sharding pool is cheaper than using
  commercial storage appliances which are much more expensive by their nature.
+\end_layout
+
+\begin_layout Section
+Reliability Arguments from Architecture
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Reliability-Arguments-from"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+A contemporary common belief is that big clusters and their random replication
+ methods would provide better reliability than anything else.
+ There are some practical observations at 1&1 and its daughter companies
+ which cannot confirm this.
+\end_layout
+
+\begin_layout Standard
+Similar experiences are part of a USENIX paper about copysets, see 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://www.usenix.org/system/files/conference/atc13/atc13-cidon.pdf
+\end_layout
+
+\end_inset
+
+.
+ Their proposed solution is different from the solution proposed here, but
+ interestingly their 
+\emph on
+problem analysis
+\emph default
+ part contains not only similar observations, but also comes to similar
+ conclusions about random replication.
+ Citation from the abstract:
+\end_layout
+
+\begin_layout Quote
+However, random replication is 
+\series bold
+almost guaranteed
+\series default
+ to lose data in the common scenario of simultaneous node failures due to
+ cluster-wide power outages.
+
+\size footnotesize
+ [emphasis added by me]
+\end_layout
+
+\begin_layout Standard
+Stimulated by our practical experiences even in truly less disastrous scenarios
+ than mass power outage, theoretical explanations were sought.
+ Surprisingly, they show that LocalSharding is superior to true big clusters
+ under practically important preconditions.
+ Here is an intutitive explanation.
+ A detailed mathematical description of the model can be found in appendix
+ 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "chap:Mathematical-Model-of"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Subsection
+Storage Server Node Failures
+\end_layout
+
+\begin_layout Subsubsection
+Simple intuitive explanation
+\end_layout
+
+\begin_layout Standard
+Block-level replication systems like DRBD are constructed for failover in
+ local redundancy scenarios.
+ Or, when using MARS, even for geo-redundant failover scenarios.
+ They are traditionally dealing with 
+\series bold
+pairs
+\series default
+ of servers, or with triples, etc.
+ In order to get a storage incident with them, 
+\emph on
+both
+\emph default
+ sides of a DRBD or MARS small-cluster (also called 
+\series bold
+shard
+\series default
+) must have an incident at the same time.
+\end_layout
+
+\begin_layout Standard
+In contrast, big clusters are spreading their objects over a huge number
+ of nodes 
+\begin_inset Formula $O(n)$
+\end_inset
+
+, with some redundancy degree 
+\begin_inset Formula $k$
+\end_inset
+
+ denoting the number of replicas.
+ As a consequence, 
+\emph on
+any
+\emph default
+ 
+\begin_inset Formula $k$
+\end_inset
+
+ node failures out of 
+\begin_inset Formula $O(n)$
+\end_inset
+
+ will produce an incident.
+ For example, when 
+\begin_inset Formula $k=2$
+\end_inset
+
+ and 
+\begin_inset Formula $n$
+\end_inset
+
+ is equal for both models, then 
+\emph on
+any
+\emph default
+ combination to two node failures occurring at the same time will lead to
+ an incident:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/Incident_Probabilities.pdf
+	width 100col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Intuitively, it is easy to see that hitting both members of the same pair
+ at the same time is less likely than hitting 
+\emph on
+any
+\emph default
+ two nodes of a big cluster.
+\end_layout
+
+\begin_layout Standard
+If you are curious about some concrete numbers, read on.
+\end_layout
+
+\begin_layout Subsubsection
+Detailed explanation
+\begin_inset CommandInset label
+LatexCommand label
+name "sub:Detailed-explanation"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+For the sake of simplicity, the following more detailed explanation is based
+ on the following assumptions:
+\end_layout
+
+\begin_layout Itemize
+We are looking at 
+\series bold
+storage node
+\series default
+ failures only.
+\end_layout
+
+\begin_layout Itemize
+Disk failures are regarded as already solved (e.g.
+ by local RAID-6 or by the well-known compensation mechanisms of big clusters).
+ Only in case they don't work, they are mapped to node failures, and are
+ already included in the probability of storage node failures.
+\end_layout
+
+\begin_layout Itemize
+We restrict ourselves to temporary / 
+\series bold
+transient
+\series default
+ failures, without regarding permanent data loss.
+ Otherwise, the differences between local-storage sharding architectures
+ and big clusters would become even worse.
+ When loosing some physical storage nodes forever in a big cluster, it is
+ typically all else but easy to determine which data of which application
+ instances / customers have been affected, and which will need a restore
+ from backup.
+\end_layout
+
+\begin_layout Itemize
+Storage network failures (as a whole) are ignored.
+ Otherwise a fair comparison between the architectures would become difficult.
+ If they were taken into account, the advantages of LocalSharding would
+ become even bigger.
+\end_layout
+
+\begin_layout Itemize
+We assume that the storage network (when present) forms no bottleneck.
+ Network implementations like TCP/IP versus Infiniband or similar are thus
+ ignored.
+\end_layout
+
+\begin_layout Itemize
+Software failures / bugs are also ignored.
+ We only compare 
+\emph on
+architectures
+\emph default
+ here, not their various implementations.
+\end_layout
+
+\begin_layout Itemize
+The x axis shows the number of basic storage units 
+\begin_inset Formula $n$
+\end_inset
+
+, where one basic storage unit equals to the total disk space provided by
+ one storage node.
+\end_layout
+
+\begin_layout Itemize
+We assume that the number of application instances is linearly scaling with
+ 
+\begin_inset Formula $n$
+\end_inset
+
+.
+ For simplicity, we assume that the number of applications running on the
+ whole pool is exactly 
+\begin_inset Formula $n$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Itemize
+For the BigCluster architecture, we assume that all objects are always distribut
+ed to 
+\begin_inset Formula $O(n)$
+\end_inset
+
+ nodes.
+ For simiplicy of the model, we assume a distribution via a 
+\emph on
+uniform
+\emph default
+ hash function.
+ When other hash functions were used (e.g.
+ distributing only to a constant number of nodes), it would no longer be
+ a big cluster architecture in our sense.
+\begin_inset Newline newline
+\end_inset
+
+In the following example, we assume a uniform object distribution to exactly
+ 
+\begin_inset Formula $n$
+\end_inset
+
+ nodes.
+ Notice that any other 
+\begin_inset Formula $n'=O(n)$
+\end_inset
+
+ with 
+\begin_inset Formula $n'<n$
+\end_inset
+
+ will produce similar results for 
+\begin_inset Formula $n'\rightarrow\infty$
+\end_inset
+
+, but may be better in detail for smaller 
+\begin_inset Formula $n$
+\end_inset
+
+'.
+\end_layout
+
+\begin_layout Itemize
+For the LocalSharding (DRBDorMARS) architecture, we assume that only local
+ storage is used.
+ For higher replication degrees 
+\begin_inset Formula $k=2,\ldots$
+\end_inset
+
+, the only occurring communication is 
+\emph on
+among
+\emph default
+ the pairs / triples / and so on (shards), but no communication to other
+ shards is necessary.
+\end_layout
+
+\begin_layout Itemize
+For simplicity of the example, we assume that any single storage server
+ node used in either architecture, including all of its local disks, has
+ a reliability of 99.99% (four nines).
+ This means, the probability of a storage node failure is uniformaly assumed
+ as 
+\begin_inset Formula $p=0.0001$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Itemize
+This means, during an observation period of 
+\begin_inset Formula $T=10,000$
+\end_inset
+
+ operation hours, we will have a total downtime of 1 hour per server in
+ statistical average.
+ For simplicity, we assume that the failure probability of a single server
+ does neither depend on previous failures nor on the operating conditions
+ of any other server.
+ It is known that this is not true in general, but otherwise our model would
+ become extremely complex.
+\end_layout
+
+\begin_layout Itemize
+More intuitively, our observation period of 
+\begin_inset Formula $T=10,000$
+\end_inset
+
+ operation hours corresponds to about 13 months, or slightly more than a
+ year.
+\end_layout
+
+\begin_layout Itemize
+Consequence: when operating a pool of 10,000 storage servers, then in statistica
+l 
+\emph on
+average
+\emph default
+ there will be 
+\emph on
+almost always
+\emph default
+ one node which is failed.
+ This is like a 
+\begin_inset Quotes eld
+\end_inset
+
+permanent incident
+\begin_inset Quotes erd
+\end_inset
+
+ which has to be solved by the competing storage architectures.
+\end_layout
+
+\begin_layout Itemize
+Hint: the term 
+\begin_inset Quotes eld
+\end_inset
+
+statistical average
+\begin_inset Quotes erd
+\end_inset
+
+ is somewhat vague here, in order to not confuse readers
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+The problem is that sometimes more servers than average can be down, and
+ sometimes less.
+ Average values should not be used in the mathematical model, but exact
+ ones.
+ However, humans can often better imagine when provided with 
+\begin_inset Quotes eld
+\end_inset
+
+average behaviour
+\begin_inset Quotes erd
+\end_inset
+
+, so we use it here just for the sake of ease of understanding.
+\end_layout
+
+\end_inset
+
+.
+ A more elaborate statistical model can be found in appendix 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "chap:Mathematical-Model-of"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Let us start the comparison with a simple corner case: plain old servers
+ with no further redundancy, other than their local RAIDs.
+ This naturally corresponds to 
+\begin_inset Formula $k=1$
+\end_inset
+
+ replicas when using the DRBDorMARS architecture.
+\end_layout
+
+\begin_layout Standard
+Now we apply the corner case of 
+\begin_inset Formula $k=1$
+\end_inset
+
+ replicas to both architectures, i.e.
+ also to BigCluster, in order to shed some spotlight at the fundamental
+ properties of the architectures.
+\end_layout
+
+\begin_layout Standard
+Under the precondition of 
+\begin_inset Formula $k=1$
+\end_inset
+
+ replicas, an incident of each one of the 
+\begin_inset Formula $n$
+\end_inset
+
+ servers has two possible ways to influence the downtime from an application's
+ perspective:
+\end_layout
+
+\begin_layout Enumerate
+Downtime of 1 storage node only influences 1 application unit depending
+ on 1 basic storage unit.
+ This is the case with the DRBDorMARS model, because there is no communication
+ between shards, and we assumed that 1 storage server unit also carries
+ exactly 1 application unit.
+\end_layout
+
+\begin_layout Enumerate
+Downtime of 1 storage node will 
+\series bold
+tear down more
+\series default
+ than 1 application unit, because any of the application units have spread
+ their storage to more than 1 storage node via uniform hashing, as is the
+ case at BigCluster.
+\end_layout
+
+\begin_layout Standard
+For ease of understanding, let us zoom into the special case 
+\begin_inset Formula $n=2$
+\end_inset
+
+ and 
+\begin_inset Formula $k=1$
+\end_inset
+
+ for a moment.
+ These are the smallest numbers where you already can see the effect.
+ In the following table, we denote 4 possible status combinations out of
+ 2 servers A and B, where the cells are showing the number of application
+ units influenced:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+ 
+\begin_inset Tabular
+<lyxtabular version="3" rows="3" columns="3">
+<features tabularvalignment="middle">
+<column alignment="right" valignment="top" width="0pt">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<row>
+<cell alignment="right" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+LocalSharding 
+\size tiny
+(DRBDorMARS)
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+A up
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+A down
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="right" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+B up
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="right" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+B down
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+2
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+  
+\begin_inset Tabular
+<lyxtabular version="3" rows="3" columns="3">
+<features tabularvalignment="middle">
+<column alignment="right" valignment="top" width="0pt">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<row>
+<cell alignment="right" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+BigCluster
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+A up
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+A down
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="right" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+B up
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+0
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+2
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="right" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+B down
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+2
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+2
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+hfill
+\end_layout
+
+\end_inset
+
+
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+What is the heart of the difference? While a node failure at LocalSharding
+ (DRBDorMARS) will tear down only the local application, the teardown produced
+ by BigCluster will spread to 
+\emph on
+all
+\emph default
+ of the 
+\begin_inset Formula $n=2$
+\end_inset
+
+ application units, because of the uniform hashing and because we have only
+ 
+\begin_inset Formula $k=1$
+\end_inset
+
+ replica.
+\end_layout
+
+\begin_layout Standard
+Would it help to increase both 
+\begin_inset Formula $n$
+\end_inset
+
+ and 
+\begin_inset Formula $k$
+\end_inset
+
+ to larger values?
+\end_layout
+
+\begin_layout Standard
+In the following graphics, the thick red line shows the behaviour for 
+\begin_inset Formula $k=1$
+\end_inset
+
+ PlainServers (which is the same as 
+\begin_inset Formula $k=1$
+\end_inset
+
+ DRBDorMARS) with increasing number of storage units 
+\begin_inset Formula $n,$
+\end_inset
+
+ ranging from 1 to 10,000 storage units = number of servers for 
+\begin_inset Formula $k=1$
+\end_inset
+
+.
+ Higher values of 
+\begin_inset Formula $k\in[1,4]$
+\end_inset
+
+ are also displayed.
+ All lines corresponding to the same 
+\begin_inset Formula $k$
+\end_inset
+
+ are drawn in the same color.
+ Notice that both the x and y axis are logscale:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/SERVICE_Comparison_of_Reversible_StorageNode_Failures.pdf
+	lyxscale 200
+	width 100col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+When you look at the thin solid BigCluster lines for 
+\begin_inset Formula $k=2,\ldots$
+\end_inset
+
+ drawn in different colors, you may wonder why they are alltogether converging
+ to the thin red BigCluster line, which corresponds to 
+\begin_inset Formula $k=1$
+\end_inset
+
+ BigCluster.
+ And they also converge against the grey dotted topmost line indicating
+ the total possible uptime of all applications (depending on x).
+ It can be explained as follows: 
+\end_layout
+
+\begin_layout Standard
+The x axis shows the number of basic storage units.
+ When you have to create 10,000 storage units with a replication degree
+ of 
+\begin_inset Formula $k=2$
+\end_inset
+
+ replicas, then you will have to deploy 
+\begin_inset Formula $k*10,000=20,000$
+\end_inset
+
+ servers in total.
+ When operating a pool of 20,000 servers, in statistical average 2 servers
+ of them will be down at any given point in time.
+ However, 2 is the same number as the replication degree 
+\begin_inset Formula $k.$
+\end_inset
+
+ Because our BigCluster model as defined above will distribute 
+\emph on
+all
+\emph default
+ objects to 
+\emph on
+all
+\emph default
+ servers uniformly, there will almost always 
+\emph on
+exist
+\emph default
+ some objects for which no replica is available at any given point in time.
+ This means, you will almost always have a 
+\series bold
+permanent incident
+\series default
+ involving the same number of nodes as your replication degree 
+\begin_inset Formula $k$
+\end_inset
+
+, and in turn 
+\emph on
+some
+\emph default
+ of your objects will not be accessible at all.
+ This means, at 
+\begin_inset Formula $x=10,000$
+\end_inset
+
+ storage units you will loose almost any advantage from increasing the number
+ of replicas.
+ Adding more replicas will no longer help at 
+\begin_inset Formula $x\geq10,000$
+\end_inset
+
+ storage units.
+\end_layout
+
+\begin_layout Standard
+Notice that the 
+\emph on
+solid
+\emph default
+ lines are showing the probability of 
+\emph on
+some
+\emph default
+ incident, disregarding the 
+\series bold
+size of the incident
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+What's about the 
+\emph on
+dashed
+\emph default
+ lines showing much better behaviour for BigCluster?
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Under some further preconditions, it would be possible to argue with the
+ 
+\emph on
+size
+\emph default
+ of incidents.
+ However, now a big fat warning.
+ When you are 
+\series bold
+responsible
+\series default
+ for operations of thousands of servers, you should be very conscious about
+ these preconditions.
+ Otherwise you could risk your career.
+ In short:
+\end_layout
+
+\begin_layout Itemize
+When your application, e.g.
+ a smartphone app, consists of accessing only 1 object at all during a reasonabl
+y long timeframe, you can safely 
+\series bold
+assume that there is no interdependency
+\series default
+ between all of your objects.
+ In addition, you have to assume (and you should check) that your cluster
+ operating software as a whole does not introduce any further 
+\series bold
+hidden / internal interdependencies
+\series default
+.
+ Only in this case, and only then, you can take the dashed lines arguing
+ with the number of inaccessible objects instead of with the number of basic
+ storage units.
+\end_layout
+
+\begin_layout Itemize
+Whenever your application uses 
+\series bold
+bigger structured objects
+\series default
+, such as filesystems or block devices or whole VMs / containers, then you
+ likely will get 
+\series bold
+interdependent objects
+\series default
+ at your big cluster storage layer.
+\begin_inset Newline newline
+\end_inset
+
+Practical example: experienced sysadmins will confirm that even a data loss
+ rate of only 1/1,000,000 of blocks in a classical Linux filesystem like
+ 
+\family typewriter
+xfs
+\family default
+ or 
+\family typewriter
+ext4
+\family default
+ will likely imply the need of an offline filesystem check (
+\family typewriter
+fsck
+\family default
+), which is a major incident for the affected filesystem instances.
+\begin_inset Newline newline
+\end_inset
+
+Theoretical explanation: servers are running for a very long time, and filesyste
+ms are typically also mounted for a long time.
+ Notice that the probability of hitting any vital filesystem data roughly
+ equals the probability of hitting any other data.
+ Sooner or later, any defective sector in the metadata structures or in
+ freespace management etc will stop your whole filesystem, and in turn will
+ stop your application instance(s) running on top of it.
+\begin_inset Newline newline
+\end_inset
+
+Similar arguments hold for transient failures: most classical filesystems
+ are not constructed for compensation of hanging IO, typically leading to
+ 
+\series bold
+system hangs
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Blindly taking the dashed lines will expose you to a high risk of error.
+ Practical experience shows that there are often 
+\series bold
+hidden dependencies
+\series default
+ in many applications, often also at application level.
+ You cannot necessarily see them when inspecting their data structures!
+ You will only notice some of them by analyzing their 
+\series bold
+runtime behaviour
+\series default
+, e.g.
+ with tools like 
+\family typewriter
+strace
+\family default
+.
+ Notice that in general the runtime behaviour of an arbitrary program is
+ 
+\series bold
+undecidable
+\series default
+.
+ Be cautious when drawing assumptions out of thin air!
+\end_layout
+
+\begin_layout Subsection
+Optimum Reliability from Architecture
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Optimum-Reliability-from"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Another argument could be: don't distribute the BigCluster objects to exactly
+ 
+\begin_inset Formula $n$
+\end_inset
+
+ nodes, but to less nodes.
+ Would the result be better than DRBDorMARS LocalSharding?
+\end_layout
+
+\begin_layout Standard
+When distributing to 
+\begin_inset Formula $O(k')$
+\end_inset
+
+ nodes with some constant 
+\begin_inset Formula $k'$
+\end_inset
+
+, we have no longer a BigCluster architecture, but a mixed BigClusterSharding
+ form.
+\end_layout
+
+\begin_layout Standard
+As can be generalized from the above tables, the reliability of 
+\series bold
+any
+\series default
+ BigCluster on 
+\begin_inset Formula $k'>k$
+\end_inset
+
+ nodes is 
+\series bold
+always
+\series default
+ worse than of LocalSharding on exactly 
+\begin_inset Formula $k$
+\end_inset
+
+ nodes, where 
+\begin_inset Formula $k$
+\end_inset
+
+ is also the redundancy degree.
+ In general:
+\end_layout
+
+\begin_layout Quote
+
+\series bold
+\size large
+The LocalSharding model is the optimum model for reliability of operation,
+ compared to any other model truly distributing its data and operations
+ over truly more nodes, like RemoteSharding or BigClusterSharding or BigCluster
+ does.
+\end_layout
+
+\begin_layout Standard
+There exists no better model because shards consisting of exactly 
+\begin_inset Formula $k$
+\end_inset
+
+ nodes where 
+\begin_inset Formula $k$
+\end_inset
+
+ is the redundancy degree are already the 
+\emph on
+smallest possible shards
+\emph default
+ under the assumptions of section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Detailed-explanation"
+
+\end_inset
+
+.
+ Any other model truly involving 
+\begin_inset Formula $k'>k$
+\end_inset
+
+ nodes for distribution of objects at any shard is 
+\series bold
+always
+\series default
+ worse in the dimension of reliability.
+ Thus the above sentence follows by induction.
+\end_layout
+
+\begin_layout Standard
+The above sentence is formulating a 
+\series bold
+fundamental law of storage systems
+\series default
+.
+\end_layout
+
+\begin_layout Subsection
+Error Propagation to Client Mountpoints
+\end_layout
+
+\begin_layout Standard
+The following is only applicable when filesystems (or their objectstore
+ counterparts) are exported over a storage network, in order to be mounted
+ in parallel at 
+\begin_inset Formula $O(n)$
+\end_inset
+
+ mountpoints each.
+\end_layout
+
+\begin_layout Standard
+In such a scenario, any problem / incident inside of your storage pool for
+ the filesystem instances will be spread to 
+\begin_inset Formula $O(n)$
+\end_inset
+
+ clients, leading to an increase of the incident size by a factor of 
+\begin_inset Formula $O(n)$
+\end_inset
+
+ when measured in number of affected mountpoints:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/MOUNTPOINTS_Comparison_of_Reversible_StorageNode_Failures.pdf
+	lyxscale 200
+	width 100col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+As a results, we now have a total of 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ mountpoints = our new basic application units.
+ Such 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ architectures are quickly becoming even worse than before.
+ Thus a clear warning: don't try to build systems in such a way.
+\end_layout
+
+\begin_layout Standard
+Notice: DRBD or MARS are traditionally used for running the application
+ on the same box as the storage.
+ Thus they are not vulnerable to these kinds of failure propagation over
+ network.
+ Even with traditional iSCSI exports over DRBD or MARS, you won't have suchalike
+ problems.
+ Your only chance to increase the error propagation are 
+\begin_inset Formula $O(n)$
+\end_inset
+
+ NFS or 
+\family typewriter
+glusterfs
+\family default
+ exports to 
+\begin_inset Formula $O(n)$
+\end_inset
+
+ clients leading to a total number of 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ mountpoints, or similar setups.
+\end_layout
+
+\begin_layout Standard
+Clear advice: don't do that.
+ It's a bad idea.
+\end_layout
+
+\begin_layout Subsection
+Similarities and Differences to Copysets
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Similarities-and-differences"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This section is mostly of academic interest.
+ You can skip it when looking for practical advice.
+\end_layout
+
+\begin_layout Standard
+The USENIX paper about copysets (see 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://www.usenix.org/system/files/conference/atc13/atc13-cidon.pdf
+\end_layout
+
+\end_inset
+
+) relates to the Sharding model in the following way:
+\end_layout
+
+\begin_layout Paragraph
+Similarities
+\end_layout
+
+\begin_layout Standard
+The concept of Random Replication of the storage data to large number of
+ machines will reduce reliability.
+ When chosing too big sets of storage machines, then the storage system
+ as a whole will become practically unusable.
+ This is common sense between the USENIX paper and the Sharding Approach
+ as propagated here.
+\end_layout
+
+\begin_layout Paragraph
+Differences
+\end_layout
+
+\begin_layout Standard
+The USENIX paper and many other Cloud Storage approaches are 
+\emph on
+presuming
+\emph default
+ that there exists a storage network, allowing real-time distribution of
+ replicas over this kind of network.
+\end_layout
+
+\begin_layout Standard
+In contrast, the Sharding Approach to Cloud Storage tries to 
+\emph on
+avoid
+\emph default
+ real-time storage networks 
+\emph on
+as much as possible
+\emph default
+.
+ Notice that RemoteSharding and further variants (including future improvements)
+ do 
+\emph on
+not
+\emph default
+ preclude it, but are trying to 
+\emph on
+avoid
+\emph default
+ real-time storage network traffic.
+ Instead, the load-balancing problem is addressed via 
+\series bold
+background data migration
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+This changes the 
+\emph on
+timely granularity
+\emph default
+ of data access: many real-time accesses are 
+\emph on
+shifted over
+\emph default
+ to migration processes, which in turn are weakening the requirements to
+ the network.
+\end_layout
+
+\begin_layout Standard
+In detail, there are some more differences to the USENIX paper.
+ Some examples:
+\end_layout
+
+\begin_layout Itemize
+Terminology: the scatter width 
+\begin_inset Formula $S$
+\end_inset
+
+ is defined (see page 39 of the paper) as: each node's data is split 
+\emph on
+uniformly
+\emph default
+ across a group of 
+\begin_inset Formula $S$
+\end_inset
+
+ 
+\emph on
+other
+\emph default
+ nodes.
+ In difference, we neither assume uniformity, nor do we require the data
+ to be distributed to 
+\emph on
+other
+\emph default
+ nodes.
+ By using the term 
+\begin_inset Quotes eld
+\end_inset
+
+other
+\begin_inset Quotes erd
+\end_inset
+
+, the USENIX paper (as well as many other BigCluster approaches) are probably
+ presuming something like a distinction between 
+\begin_inset Quotes eld
+\end_inset
+
+client
+\begin_inset Quotes erd
+\end_inset
+
+ and 
+\begin_inset Quotes eld
+\end_inset
+
+server
+\begin_inset Quotes erd
+\end_inset
+
+ machines: while data processing is done on a 
+\begin_inset Quotes eld
+\end_inset
+
+client
+\begin_inset Quotes erd
+\end_inset
+
+, data storage is on a 
+\begin_inset Quotes eld
+\end_inset
+
+server
+\begin_inset Quotes erd
+\end_inset
+
+.
+ 
+\end_layout
+
+\begin_layout Itemize
+We don't disallow this in variants like RemoteSharding or FlexibleSharding
+ and so on, but we gave some arguments why we are trying to 
+\emph on
+avoid
+\emph default
+ this.
+\end_layout
+
+\begin_layout Itemize
+It seems that some definitions in the USENIX paper may implicitly relate
+ to 
+\begin_inset Quotes eld
+\end_inset
+
+each chunk
+\begin_inset Quotes erd
+\end_inset
+
+.
+ In contrast, the Sharding Approach typically relates to LVs (logical volumes),
+ which could however be viewed as a special case of 
+\begin_inset Quotes eld
+\end_inset
+
+chunk
+\begin_inset Quotes erd
+\end_inset
+
+, e.g.
+ by minimizing the number of chunks in a system.
+ However notice: there exists definitions of 
+\begin_inset Quotes eld
+\end_inset
+
+chunk
+\begin_inset Quotes erd
+\end_inset
+
+ where it is the basic transfer unit.
+ An LV has the fundamental property that small-granularity 
+\series bold
+update in place
+\series default
+ (at any offset inside the LV) can be executed.
+\end_layout
+
+\begin_layout Itemize
+Notice: we do not preclude further fine-grained distribution of LV data,
+ but this is something which should be 
+\emph on
+avoided
+\emph default
+ if not absolutely necessary.
+ Preferred method in typical practical use cases: some storage servers may
+ have some spare RAID slots to be populated later, by resizing the PVs =
+ Physical Volumes before resizing LVs.
+\end_layout
+
+\begin_layout Itemize
+Notice that a typical local RAID system 
+\emph on
+is also
+\emph default
+ a Distributed System, according to some reasonable definition.
+ Typical RAID implementations just involve SAS cables instead of Ethernet
+ cables or Infiniband cables.
+ Notice that this also applies to many 
+\begin_inset Quotes eld
+\end_inset
+
+Commodity Hardware
+\begin_inset Quotes erd
+\end_inset
+
+ approaches, like Ceph storage nodes driving dozens of local HDDs connected
+ over SAS or SATA.
+ The main difference is just that instead of a hardware RAID controller,
+ a hardware HBA is used instead.
+ Instead of Ethernet switches, SAS multiplexers in backplanes are used.
+ Anyway, this forms a locally distributed sub-system.
+\end_layout
+
+\begin_layout Itemize
+Future variants of the Sharding Approach might extend this already present
+ locally Distributed System to a somewhat wider one.
+ For example, creation of a local LV (called 
+\begin_inset Quotes eld
+\end_inset
+
+disk
+\begin_inset Quotes erd
+\end_inset
+
+ in MARS terminology) could be implemented by a subordinate DRBD instance
+ implementing a future RAID-10 mode over local Infiniband or crossover Ethernet
+ cables, avoiding local switches.
+ While DRBD would essentially create the 
+\begin_inset Quotes eld
+\end_inset
+
+local
+\begin_inset Quotes erd
+\end_inset
+
+ LV, the higher-level MARS instance would then be responsible for its wide-dista
+nce replication.
+ See chapter 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "chap:Use-Cases-for"
+
+\end_inset
+
+ about use cases of MARS vs DRBD.
+ Potential future use cases could be 
+\emph on
+extremely huge
+\emph default
+ LVs where external SAS disk shelves are no longer sufficient to get the
+ desired capacity.
+\end_layout
+
+\begin_layout Itemize
+The USENIX paper needs to treat the following parameters as more or less
+ fixed (or only slowly changable) 
+\series bold
+constants
+\series default
+, given by the system designer: the replication degree 
+\begin_inset Formula $R$
+\end_inset
+
+, and the scatter width 
+\begin_inset Formula $S$
+\end_inset
+
+.
+ In contrast, the replication degree 
+\begin_inset Formula $k$
+\end_inset
+
+ of our Sharding Approach is not necessarily firmly given by the system,
+ but can be 
+\series bold
+dynamically changed
+\series default
+ at runtime on a per-LV basis.
+ For example, during background migration via MARS the command 
+\family typewriter
+marsadm join-resource
+\family default
+ is used for creating additional per-LV replicas.
+ However notice: this freedom is limited by the total number of deployed
+ hardware nodes.
+ If you want 
+\begin_inset Formula $k=3$
+\end_inset
+
+ replicas at the 
+\emph on
+whole
+\emph default
+ pool, then you will need to (dynamically) deploy at least about 
+\begin_inset Formula $k*x$
+\end_inset
+
+ nodes in general.
+\end_layout
+
+\begin_layout Itemize
+The USENIX paper defines its copysets on a per-chunk basis.
+ Similarly to before, we can transfer this definition to a Sharding Approach
+ by relating it to a per-LV basis.
+ As a side effect, a copyset can then trivially become identical to 
+\begin_inset Formula $S$
+\end_inset
+
+ when the definition is 
+\begin_inset Formula $S$
+\end_inset
+
+ is also changed to a per-LV basis, analogously.
+ In the Sharding Approach, a distiction is not absolutely necessary, while
+ the USENIX paper has to invest some effort into clarifying the relationship
+ between 
+\begin_inset Formula $S$
+\end_inset
+
+ and copysets as defined on a BigCluster model.
+\end_layout
+
+\begin_layout Itemize
+Neglecting the mentioned differences, we see our typical use case (LocalSharding
+) roughly equivalent to 
+\begin_inset Formula $S=R$
+\end_inset
+
+ in the terminology of the USENIX paper, or to 
+\begin_inset Formula $S=k$
+\end_inset
+
+ (our number of replicas) in our terminology.
+\end_layout
+
+\begin_layout Itemize
+This means: we try to minimize the 
+\emph on
+size
+\emph default
+ of 
+\begin_inset Formula $S$
+\end_inset
+
+ for any given per-LV 
+\begin_inset Formula $k$
+\end_inset
+
+, which will lead to the best possible reliability (under the conditions
+ described in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Detailed-explanation"
+
+\end_inset
+
+) as has been shown in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "subsec:Optimum-Reliability-from"
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Section
@@ -3095,7 +5045,7 @@ as up-to-date as possible
 There is simply no better way to do it.
 
 \series default
- In presence of temporary network bottlenecks such as network congenstion,
+ In presence of temporary network bottlenecks such as network congestion,
  there exists no better method than prescribed by the information theoretic
  limit (red line, neglecting data compression).
 \end_layout
@@ -3240,9 +5190,9 @@ This time, the network throughput limit (solid red line) is assumed to be
 \end_layout
 
 \begin_layout Standard
-When the peaks are exceeding the network capabilities for some time, the
- replication network throughput (solid green line) will be limited for a
- short time, stay a little bit longer at the limit, and finally drop down
+When the peaks are exceeding the network capacities for some short time,
+ the replication network throughput (solid green line) will be limited for
+ a short time, stay a little bit longer at the limit, and finally drop down
  again to the normal workload.
  In other words, you get a flexible buffering behaviour, coping with the
  peaks.
@@ -35075,6 +37025,17 @@ reference "sec:Defending-Overflow"
 \end_layout
 
 \begin_layout Chapter
+LV Football / Container Football
+\begin_inset CommandInset label
+LatexCommand label
+name "chap:LV-Football"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Chapter
 MARS for Developers
 \end_layout
 
@@ -38163,6 +40124,464 @@ reference "sec:Scripting-HOWTO"
 \end_inset
 
 .
+\end_layout
+
+\begin_layout Chapter
+Mathematical Model of Architectural Reliability
+\begin_inset CommandInset label
+LatexCommand label
+name "chap:Mathematical-Model-of"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The assumptions used in the model are explained in detail in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sub:Detailed-explanation"
+
+\end_inset
+
+.
+ Here is a quick recap of the main parameters:
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $n$
+\end_inset
+
+ is the number of basic storage units.
+ It is also used for the number of application units, assumed to be the
+ same.
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $k$
+\end_inset
+
+ is the replication degree, or number of replicas.
+ In general, you will have to deploy 
+\begin_inset Formula $N=k*n$
+\end_inset
+
+ storage servers for getting 
+\begin_inset Formula $n$
+\end_inset
+
+ basic storage units.
+ This applies to any of the competing architectures.
+ 
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $s$
+\end_inset
+
+ is the architecture-dependent spread exponent: it tells whether a storage
+ incident will spread to the application units.
+ Examples: 
+\begin_inset Formula $s=0$
+\end_inset
+
+ means that there is no spread between storage unit failures and application
+ unit failures, other than a local 1:1 one.
+ 
+\begin_inset Formula $s=1$
+\end_inset
+
+ means that an uncompensated storage node incident will cause 
+\begin_inset Formula $n$
+\end_inset
+
+ application incidents.
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $p$
+\end_inset
+
+ is the probability of a storage server incident.
+ In the examples at section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:Reliability-Arguments-from"
+
+\end_inset
+
+, a fixed 
+\begin_inset Formula $p=0.0001$
+\end_inset
+
+ was used for easy understanding, but the following formulae should also
+ hold for any other 
+\begin_inset Formula $p\in(0,1)$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Formula $T$
+\end_inset
+
+ is the observational period, introduced for convenience of understanding.
+ The following can also be computed independently from any 
+\begin_inset Formula $T$
+\end_inset
+
+, as long as the probability 
+\begin_inset Formula $p$
+\end_inset
+
+ does not change over time, which is assumed.
+ Because 
+\begin_inset Formula $T$
+\end_inset
+
+ is only here for convenience of understanding, we set it to 
+\begin_inset Formula $T=1/p$
+\end_inset
+
+.
+ In the examples from section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sub:Detailed-explanation"
+
+\end_inset
+
+, a fixed 
+\begin_inset Formula $T=10,000$
+\end_inset
+
+ hours was used.
+\end_layout
+
+\begin_layout Section
+Formula for DRBD / MARS
+\end_layout
+
+\begin_layout Standard
+We need not discrimiate between a storage failure probability S and an applicati
+on failure probability A because applications are run locally at the storage
+ servers 1:1.
+ The probability for failure of a single shard consisting of 
+\begin_inset Formula $k$
+\end_inset
+
+ nodes is
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+A_{p}(k)=p^{k}
+\]
+
+\end_inset
+
+because all 
+\begin_inset Formula $k$
+\end_inset
+
+ shard members have to be down all at the same time.
+ In section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sub:Detailed-explanation"
+
+\end_inset
+
+ we assumed that there is no cross-communication between shards.
+ Therefore they are completely independent from each other, and the total
+ downtime of 
+\begin_inset Formula $n$
+\end_inset
+
+ shards during the observational period 
+\begin_inset Formula $T$
+\end_inset
+
+ is
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+A_{p,T}(k,n)=T*n*p^{k}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+When introducing the spread exponent 
+\begin_inset Formula $s$
+\end_inset
+
+, the formula turns into
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+A_{s,p,T}(k,n)=T*n^{s+1}*p^{k}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Formula for Unweighted BigCluster
+\end_layout
+
+\begin_layout Standard
+This is based on the Bernoulli formula.
+ The probability that exactly 
+\begin_inset Formula $\bar{k}$
+\end_inset
+
+ storage nodes out of 
+\begin_inset Formula $N=k*n$
+\end_inset
+
+ total storage nodes are down is
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\bar{S}_{p}(\bar{k},N)=\binom{N}{\bar{k}}*p^{\bar{k}}*(1-p)^{N-\bar{k}}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Similarly, the probability for getting 
+\begin_inset Formula $k$
+\end_inset
+
+ or more storage node failures (up to 
+\begin_inset Formula $N$
+\end_inset
+
+) at the same time is
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+S_{p}(k,N)=\sum_{\bar{k}=k}^{N}\bar{S}_{p}(\bar{k},N)=\sum_{\bar{k}=k}^{N}\binom{N}{\bar{k}}*p^{\bar{k}}*(1-p)^{N-\bar{k}}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+By replacing 
+\begin_inset Formula $N$
+\end_inset
+
+ with 
+\begin_inset Formula $k*n$
+\end_inset
+
+ (for conversion of the x axis into basic storage units) and by introducing
+ 
+\begin_inset Formula $T$
+\end_inset
+
+ we get
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+S_{p,T}(k,n)=T*\sum_{\bar{k}=k}^{k*n}\binom{k*n}{\bar{k}}*p^{\bar{k}}*(1-p)^{k*n-\bar{k}}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+For comparability with DRBDorMARS, we have to compute the application downtime
+ A instead of the storage downtime S, which depends on the spread exponent
+ 
+\begin_inset Formula $s$
+\end_inset
+
+ as follows:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+A_{s,p,T}(k,n)=n^{s+1}*S_{p,T}(k,n)=n^{s+1}*T*\sum_{\bar{k}=k}^{k*n}\binom{k*n}{\bar{k}}*p^{\bar{k}}*(1-p)^{k*n-\bar{k}}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Notice that at 
+\begin_inset Formula $s=0$
+\end_inset
+
+ we have introduced a factor of 
+\begin_inset Formula $n$
+\end_inset
+
+, which corresponds to the hashing effect (teardown of 
+\begin_inset Formula $n$
+\end_inset
+
+ application instances by a single uncompensated storage incident) as described
+ in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sub:Detailed-explanation"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Section
+Formula for SizeWeighted BigCluster
+\end_layout
+
+\begin_layout Standard
+In difference to above, we need to introduce a correction factor by the
+ fraction of affected objects, relative to basic storage units.
+ Otherwise the y axis would not stay comparable due to different units.
+\end_layout
+
+\begin_layout Standard
+For the special case of 
+\begin_inset Formula $k=1$
+\end_inset
+
+, there is no difference to above.
+\end_layout
+
+\begin_layout Standard
+For the special case of 
+\begin_inset Formula $k=2$
+\end_inset
+
+ replica, the correction factor is 
+\begin_inset Formula $1/(N-1)$
+\end_inset
+
+, because we assume that all the replica of the affected first node are
+ uniformly spread to all other nodes, which is 
+\begin_inset Formula $N-1$
+\end_inset
+
+.
+ The probability for hitting the intersection of the first node with the
+ second node is thus 
+\begin_inset Formula $1/(N-1)$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+For higher values of 
+\begin_inset Formula $k$
+\end_inset
+
+, and with a similar argument (never put another replica of the same object
+ onto the same storage node) we get the correction factor as
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+C(k,N)=\prod_{l=1}^{k-1}\frac{1}{N-l}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Hint: there are maximum 
+\begin_inset Formula $k$
+\end_inset
+
+ physical replicas on the disks.
+ For higher values of 
+\begin_inset Formula $\bar{k}\geq k$
+\end_inset
+
+, there are 
+\begin_inset Formula $\binom{\bar{k}}{k}$
+\end_inset
+
+ combinations of object intersections (when assuming that the number of
+ objects on a node is very large such and no further object repetition can
+ occur execpt for the 
+\begin_inset Formula $k$
+\end_inset
+
+-fold replica placement).
+ Thus the generalization to 
+\begin_inset Formula $\bar{k}\geq k$
+\end_inset
+
+ is
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+C(k,\bar{k},N)=\binom{\bar{k}}{k}\prod_{l=1}^{k-1}\frac{1}{N-l}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+By inserting this into the above fomula, we get
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+A_{s,p,T}(k,n)=n^{s+1}*T*\sum_{\bar{k}=k}^{k*n}C(k,\bar{k},k*n)*\binom{k*n}{\bar{k}}*p^{\bar{k}}*(1-p)^{k*n-\bar{k}}
+\]
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Chapter

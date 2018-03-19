@@ -120,7 +120,7 @@ my $ip = "";
 my $ssh_port = 22;
 my $ssh_opts = "-A -o StrictHostKeyChecking=no -o ConnectTimeout=5";
 my $ssh_probe = "uname -a";
-my $rsync_opts = "-av";
+my $rsync_opts = "-av --exclude='.deleted-*'";
 my $kernel_version = 0;
 
 ##################################################################
@@ -2523,6 +2523,28 @@ sub logdelete_res {
     system("rm -rf $leftlink");
   }
   foreach my $leftlink (glob("$mars/{,resource-$res/}{,*/}{.tmp,.deleted,delete,work}-*")) {
+    # remove outdated .deleted-* markers
+    if ($leftlink =~ m:/.deleted-:) {
+      my $info = get_link($leftlink, 2);
+      if ($info =~ m/^[0-9]+,[0-9]+$/) {
+	my ($serial, $mode) = split(/,/, $info);
+	my $todo_glob = "$mars/todo-global/deleted-*";
+	if ($mode) {
+	  $todo_glob = "$mars/resource-$res/todo-$real_host/deleted-*"
+	}
+	# compute the minimum border
+	my $border = 0;
+	foreach my $deleted_link (glob($todo_glob)) {
+	  my $limit = get_link($deleted_link, 2);
+	  next if !$limit || $limit <= 1;
+	  $border = $limit if (!$border || $limit < $border);
+	}
+	if ($serial < $border && $serial > 1) {
+	  unlink($leftlink);
+	  next;
+	}
+      }
+    }
     my $stamp = get_link_stamp($leftlink);
     next unless $stamp + 3600 * 24 < $start_time;
     lprint "  unlink '$leftlink'\n" if $verbose;
@@ -2766,16 +2788,18 @@ sub primary_phase0 {
   my $old = _get_designated_primary($res);
   lprint "Current designated primary: $old\n";
   if ($cmd eq "primary") {
-    check_sync_finished($res, $host) if $host ne $old;
-    # also check that other secondaries won't loose their sync primary
-    my @names = glob("$mars/resource-$res/data-*");
-    # for k <= 2 replicas, the previous check must have been sufficient
-    if (scalar(@names) > 2) {
-      foreach my $name (@names) {
-	$name =~ m:/data-(.+):;
-	my $peer = $1;
-	next if ($peer eq $old || $peer eq $host);
-	check_sync_finished($res, $peer, $force);
+    if ($host ne $old) {
+      check_sync_finished($res, $host);
+      # also check that other secondaries won't loose their sync primary
+      my @names = glob("$mars/resource-$res/data-*");
+      # for k <= 2 replicas, the previous check must have been sufficient
+      if (scalar(@names) > 2) {
+	foreach my $name (@names) {
+	  $name =~ m:/data-(.+):;
+	  my $peer = $1;
+	  next if ($peer eq $old || $peer eq $host);
+	  check_sync_finished($res, $peer, $force);
+	}
       }
     }
     check_todo($cmd, $res, "attach", 1, 0);

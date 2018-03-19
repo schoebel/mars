@@ -235,6 +235,22 @@ mars0.1abeta0
 -----------------------------------
 Changelog for series 0.1:
 
+mars0.1stable54
+	* Major fix, only relevant for massive execution of
+	  leave-resource, e.g. when playing Tetris games
+	  (aka "container football"):
+	  When non-versioned symlinks were eventually deleted,
+	  later re-creation did not always succeed.
+	  Fixed by an new generic timestamp ordering approach.
+	* Stability client-side fixes (could lead to stacktraces),
+	  backported from branch 0.1a (were forgotten long ago).
+	* Major doc update: new section on reliability of
+	  storage architectures.
+	  This explains why many BigCluster systems don't work as
+	  expected.
+	  Backed up by graphs and by mathematical formulas.
+	  A must-read for anyone working in the storage area!
+
 mars0.1stable53
 	* Major fix: rare corner case of split brain was not displayed
 	  correctly.
