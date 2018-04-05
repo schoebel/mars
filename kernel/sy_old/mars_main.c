@@ -3778,6 +3778,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 
 	rot->log_is_really_damaged = false;
 	if (trans_brick->replay_mode) {
+		write_info_links(rot);
 		if (trans_brick->replay_code > 0) {
 			MARS_INF_TO(rot->log_say, "logfile replay ended successfully at position %lld\n", trans_brick->replay_current_pos);
 			if (rot->replay_code >= 0)
