@@ -3505,7 +3505,7 @@ void _rotate_trans(struct mars_rotate *rot)
 		}
 		trans_brick->new_input_nr = next_nr;
 		MARS_INF_TO(rot->log_say, "started logrotate switchover from '%s' to '%s'\n", rot->relevant_log->d_path, rot->next_relevant_log->d_path);
-		rot->replay_code = 0;
+		rot->replay_code = TL_REPLAY_RUNNING;
 	}
 done: ;
 }
@@ -3609,7 +3609,7 @@ int _start_trans(struct mars_rotate *rot)
 	trans_brick->replay_mode = rot->replay_mode;
 	trans_brick->replay_tolerance = REPLAY_TOLERANCE;
 	_init_trans_input(trans_input, rot->relevant_log, rot);
-	rot->replay_code = 0;
+	rot->replay_code = TL_REPLAY_RUNNING;
 
 	/* Connect to new transaction log
 	 */
@@ -3779,23 +3779,24 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	rot->log_is_really_damaged = false;
 	if (trans_brick->replay_mode) {
 		write_info_links(rot);
-		if (trans_brick->replay_code > 0) {
+		if (trans_brick->replay_code > TL_REPLAY_RUNNING) {
 			MARS_INF_TO(rot->log_say, "logfile replay ended successfully at position %lld\n", trans_brick->replay_current_pos);
-			if (rot->replay_code >= 0)
+			if (rot->replay_code >= TL_REPLAY_RUNNING)
 				rot->replay_code = trans_brick->replay_code;
 		} else if (trans_brick->replay_code == -EAGAIN ||
+			   trans_brick->replay_code == TL_REPLAY_INCOMPLETE ||
 			   trans_brick->replay_end_pos - trans_brick->replay_current_pos < trans_brick->replay_tolerance) {
 			MARS_INF_TO(rot->log_say, "logfile replay stopped intermediately at position %lld\n", trans_brick->replay_current_pos);
-		} else if (trans_brick->replay_code < 0) {
+		} else if (trans_brick->replay_code < TL_REPLAY_RUNNING) {
 			MARS_ERR_TO(rot->log_say, "logfile replay stopped with error = %d at position %lld\n", trans_brick->replay_code, trans_brick->replay_current_pos);
 			make_rot_msg(rot, "err-replay-stop", "logfile replay stopped with error = %d at position %lld", trans_brick->replay_code, trans_brick->replay_current_pos);
 			rot->replay_code = trans_brick->replay_code;
 			rot->log_is_really_damaged = true;
-		} else if (rot->replay_code >= 0) {
+		} else if (rot->replay_code >= TL_REPLAY_RUNNING) {
 			rot->replay_code = trans_brick->replay_code;
 		}
 	} else {
-		rot->replay_code = 0;
+		rot->replay_code = TL_REPLAY_RUNNING;
 	}
 	__show_actual(parent->d_path, "replay-code", rot->replay_code);
 
@@ -3807,7 +3808,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 			rot->is_log_damaged =
 				trans_brick->replay_code == -EAGAIN &&
 				trans_brick->replay_end_pos - trans_brick->replay_current_pos < trans_brick->replay_tolerance;
-			do_stop = trans_brick->replay_code != 0 ||
+			do_stop = trans_brick->replay_code != TL_REPLAY_RUNNING ||
 				!global->global_power.button ||
 				!_check_allow(global, parent, "allow-replay") ||
 				!_check_allow(global, parent, "attach") ;

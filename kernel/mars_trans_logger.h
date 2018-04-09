@@ -105,6 +105,10 @@ struct logger_head {
 
 #endif
 
+#define TL_REPLAY_RUNNING     0
+#define TL_REPLAY_FINISHED    1
+#define TL_REPLAY_INCOMPLETE  2
+
 struct writeback_info {
 	struct trans_logger_brick *w_brick;
 	struct logger_head w_lh;
