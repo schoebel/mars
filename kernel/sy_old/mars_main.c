@@ -3253,7 +3253,7 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 
 	status = 0;
 	if (rot->aio_info.current_size > *oldpos_start) {
-		if ((rot->aio_info.current_size - *oldpos_start < REPLAY_TOLERANCE ||
+		if ((rot->aio_info.current_size - *oldpos_start < _get_tolerance(rot) ||
 		     (rot->log_is_really_damaged &&
 		      rot->todo_primary &&
 		      rot->relevant_log &&
@@ -3779,7 +3779,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 	rot->log_is_really_damaged = false;
 	if (trans_brick->replay_mode) {
 		write_info_links(rot);
-		if (trans_brick->replay_code > TL_REPLAY_RUNNING) {
+		if (trans_brick->replay_code == TL_REPLAY_FINISHED) {
 			MARS_INF_TO(rot->log_say, "logfile replay ended successfully at position %lld\n", trans_brick->replay_current_pos);
 			if (rot->replay_code >= TL_REPLAY_RUNNING)
 				rot->replay_code = trans_brick->replay_code;
@@ -3806,7 +3806,8 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		bool do_stop = true;
 		if (trans_brick->replay_mode) {
 			rot->is_log_damaged =
-				trans_brick->replay_code == -EAGAIN &&
+				(trans_brick->replay_code == -EAGAIN ||
+				 trans_brick->replay_code == TL_REPLAY_INCOMPLETE) &&
 				trans_brick->replay_end_pos - trans_brick->replay_current_pos < trans_brick->replay_tolerance;
 			do_stop = trans_brick->replay_code != TL_REPLAY_RUNNING ||
 				!global->global_power.button ||
