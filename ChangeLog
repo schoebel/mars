@@ -208,6 +208,9 @@ Changelog for series 0.1a:
 	Add only absolutely necessary features.
 	Receive mainly fixes.
 
+mars0.1abeta7
+	* Merge mars0.1stable55.
+
 mars0.1abeta6
 	* Merge mars0.1stable54.
 
