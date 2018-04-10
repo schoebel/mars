@@ -238,6 +238,15 @@ mars0.1abeta0
 -----------------------------------
 Changelog for series 0.1:
 
+mars0.1stable55
+	* Major fix: unnecessary / false positive split brain could
+	  occur after the primary logfile was truncated, e.g. at crashes
+	  or disk damages. Systematic triggering in masses was possible
+	  by keeping /dev/mars/mydata mounted while _forcing_
+	  a reboot _during_ (!) its umount (e.g. by patching the
+	  "reboot" command and/or patching systemd dependencies
+	  or similar to provoke this regularly).
+
 mars0.1stable54
 	* Major fix, only relevant for massive execution of
 	  leave-resource, e.g. when playing Tetris games
