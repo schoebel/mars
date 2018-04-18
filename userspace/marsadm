@@ -2182,7 +2182,7 @@ sub split_cluster {
 
   # Check symmetry
   lprint "Checking symmetry of resource memberships...\n";
-  my $data_cmd = "ls -l $mars/resource-*/data-*";
+  my $data_cmd = "ls $mars/resource-*/data-*";
   my $standard = qx:$data_cmd:;
   ldie "Cannot get local resource participants.\n" unless $standard;
   foreach my $peer (@peers) {
