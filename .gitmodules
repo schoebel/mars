@@ -1,0 +1,5 @@
+[submodule "football"]
+	path = football
+	url = https://github.com/schoebel/football.git
+	branch = master
+	fetchRecurseSubmodules = true
