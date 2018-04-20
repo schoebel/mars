@@ -241,6 +241,12 @@ mars0.1abeta0
 -----------------------------------
 Changelog for series 0.1:
 
+mars0.1stable56
+	* Minor fix: split-cluster could unnecessarily abort
+	  in some cases.
+	* Added initial version of submodule "football".
+	  More updates will follow.
+
 mars0.1stable55
 	* Major fix: unnecessary / false positive split brain could
 	  occur after the primary logfile was truncated, e.g. at crashes
@@ -252,8 +258,8 @@ mars0.1stable55
 
 mars0.1stable54
 	* Major fix, only relevant for massive execution of
-	  leave-resource, e.g. when playing Tetris games
-	  (aka "container football"):
+	  leave-resource, e.g. when playing Football (Tetris)
+	  games:
 	  When non-versioned symlinks were eventually deleted,
 	  later re-creation did not always succeed.
 	  Fixed by an new generic timestamp ordering approach.

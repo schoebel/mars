@@ -1149,7 +1149,7 @@ sub detect_splitbrain {
 	    $stamp = $stamp2 if !$stamp || ($stamp2 && $stamp2 < $stamp);
 	    $age = " age ~" . seconds2human(mars_time() - $stamp) if $stamp;
 	  }
-	  lwarn "SPLIT BRAIN of '$res' at '$point'$age\n";
+	  lwarn "SPLIT BRAIN of resource '$res' after logfile '$point'$age\n";
 	  lwarn "   hostA = '$host1' logfile_amount='$size1' (" . number2human($size1) . ")\n";
 	  lwarn "   hostB = '$host2' logfile_amount='$size2' (" . number2human($size2) . ")\n";
 	} else {
@@ -1166,7 +1166,7 @@ sub detect_splitbrain {
       my $nr = $1;
       if ($nr == $oldnr) {
 	$ok = 0;
-	lwarn "SPLIT BRAIN at '$res' detected: duplicate logfile number $nr\n";
+	lwarn "SPLIT BRAIN at resource '$res' detected: duplicate logfile number $nr\n";
 	lwarn "hint: first resolve split brain by 'leave-resource' or 'invalidate'\n";
 	lwarn "hint: if this does not help, try cleanup via 'log-purge-all'\n";
 	lwarn "hint: if this does not help, try 'log-purge-all --force'\n";
@@ -2220,7 +2220,7 @@ sub split_cluster {
 
   # Check symmetry
   lprint "Checking symmetry of resource memberships...\n";
-  my $data_cmd = "ls -l $mars/resource-*/data-*";
+  my $data_cmd = "ls $mars/resource-*/data-*";
   my $standard = qx:$data_cmd:;
   ldie "Cannot get local resource participants.\n" unless $standard;
   foreach my $peer (@peers) {
