@@ -6015,7 +6015,7 @@ Build for senior sysadmins or developers, inplace in the kernel source tree:
 \family default
  or similar, then 
 \family typewriter
-cd block/ && git clone https://github.com/schoebel/mars
+cd block/ && git clone --recurse-submodules https://github.com/schoebel/mars
 \family default
 .
  Then 
@@ -6145,6 +6145,41 @@ should
  when possible).
  When using this patch, please apply the aforementioned pre-patch also,
  because your kernel is patched anyway.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Starting from version 
+\family typewriter
+mars0.1stable56
+\family default
+ or 
+\family typewriter
+mars0.1abeta8
+\family default
+, 
+\series bold
+submodules
+\series default
+ have been added to the github repo of MARS.
+ If you have an old checkout, please say 
+\family typewriter
+git pull --recurse-submodules=yes
+\family default
+ or similar.
+ Otherwise you may be missing an important future part of the MARS release,
+ without notice (depending on your local 
+\family typewriter
+git
+\family default
+ version and its local configuration).
 \end_layout
 
 \begin_layout Subsection
@@ -38078,7 +38113,7 @@ reference "sec:Defending-Overflow"
 \end_layout
 
 \begin_layout Chapter
-LV Football / Container Football
+LV Football / VM Football / Container Football
 \begin_inset CommandInset label
 LatexCommand label
 name "chap:LV-Football"
@@ -38086,6 +38121,194 @@ name "chap:LV-Football"
 \end_inset
 
 
+\end_layout
+
+\begin_layout Standard
+The Football scripts can be obtained in two different ways:
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+git clone --recurse-submodules https://github.com/schoebel/mars
+\begin_inset Newline newline
+\end_inset
+
+
+\family default
+then 
+\family typewriter
+cd mars/football/
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+git clone https://github.com/schoebel/football
+\end_layout
+
+\begin_layout Standard
+The 
+\family typewriter
+--recurse-submodule
+\family default
+ method is the preferred way for non-developers because the main repo contains
+ a link to the right version of Football.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Recommended MARS branch for playing Football is 
+\family typewriter
+mars0.1a.y
+\family default
+.
+ Although the old stable branch 
+\family typewriter
+mars0.1.y
+\family default
+ has been updated for the most important 
+\family typewriter
+marsadm
+\family default
+ features 
+\family typewriter
+merge-cluster
+\family default
+ and 
+\family typewriter
+split-cluster
+\family default
+, it does not scale well for Football and can cause operational problems
+ when merging too many hosts together, showing some 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ metadata update behaviour where 
+\begin_inset Formula $n$
+\end_inset
+
+ is the number of machines in a MARS cluster.
+ The future branch 
+\family typewriter
+mars0.1b.y
+\family default
+ will contain more scalability improvements; in particular the 
+\family typewriter
+split-cluster
+\family default
+ operation should no longer be needed at all because it is planned to scale
+ with 
+\begin_inset Formula $O(k)$
+\end_inset
+
+ where 
+\begin_inset Formula $k$
+\end_inset
+
+ is the number of resources at a 
+\emph on
+single
+\emph default
+ host.
+ This should allow creation of a 
+\emph on
+virtual(!)
+\emph default
+ 
+\family typewriter
+BigCluster
+\family default
+ pool at 
+\emph on
+metadata
+\emph default
+ level (where metadata transfer rates are typically measured in KiB/s),
+ consisting of thousands of machines, while at the same time creating a
+ 
+\family typewriter
+LocalSharding
+\family default
+ or 
+\family typewriter
+FlexibleSharding
+\family default
+ model at the realtime IO paths (where some petabytes are pumped through
+ thick pipelines).
+ Please check the other branches regularly at the github repo whether some
+ newer branches will be marked 
+\begin_inset Quotes eld
+\end_inset
+
+stable
+\begin_inset Quotes erd
+\end_inset
+
+, or at least 
+\begin_inset Quotes eld
+\end_inset
+
+beta
+\begin_inset Quotes erd
+\end_inset
+
+.
+ At the moment (spring 2018), 
+\family typewriter
+mars0.1a.y
+\family default
+ is marked 
+\begin_inset Quotes eld
+\end_inset
+
+beta
+\begin_inset Quotes erd
+\end_inset
+
+ although it is in production at several thousands of machines for several
+ months.
+\end_layout
+
+\begin_layout Standard
+Low-level documentation is available by calling any of the scripts with
+ 
+\family typewriter
+--help
+\family default
+ parameter (see also appendix 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:football-–help"
+
+\end_inset
+
+ ff):
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+./football.sh --help
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+./screener.sh --help
+\end_layout
+
+\begin_layout Standard
+By adding 
+\family typewriter
+--verbose
+\family default
+, you can get a list of parameters for configuring and tweaking.
 \end_layout
 
 \begin_layout Chapter
