@@ -39413,6 +39413,13 @@ maximum 100 logfiles per resource
 
 \begin_layout Chapter
 Handout for Midnight Problem Solving
+\begin_inset CommandInset label
+LatexCommand label
+name "chap:Handout-for-Midnight"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -42008,6 +42015,162 @@ By inserting this into the above fomula, we get
 \[
 A_{s,p,T}(k,n)=n^{s+1}*T*\sum_{\bar{k}=k}^{k*n}C(k,\bar{k},k*n)*\binom{k*n}{\bar{k}}*p^{\bar{k}}*(1-p)^{k*n-\bar{k}}
 \]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Chapter
+Command Documentation for Userspace Tools
+\begin_inset CommandInset label
+LatexCommand label
+name "chap:Command-Documentation-for"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+
+\family typewriter
+marsadm --help
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:marsadm-–help"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+input{marsadm.help}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+
+\family typewriter
+football.sh --help
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:football-–help"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+input{football.help}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+
+\family typewriter
+football.sh --help --verbose
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:football-help-verbose"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+input{football-verbose.help}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+
+\family typewriter
+screener.sh --help
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:screener–help"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+input{screener.help}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+
+\family typewriter
+screener.sh --help --verbose
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:screener-help-verbose"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+input{screener-verbose.help}
+\end_layout
 
 \end_inset
 

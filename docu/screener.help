@@ -1,0 +1,193 @@
+\begin{verbatim}
+./screener.sh: Run _unattended_ processes in screen sessions.
+    Useful for MASS automation, running hundreds of unattended
+    commands in parallel.
+    HINT: for running more than ~500 sessions in parallel, you might need
+    some system tuning (e.g. rlimits, kernel patches etc) for creating
+    a huge number of file descritor / sockets / etc.
+    ADVANTAGE: You may attach to individual screens, kill them, or continue
+    some waiting commands.
+
+Synopsis:
+  ./screener.sh --help [--verbose]
+  ./screener.sh list-running
+  ./screener.sh list-waiting
+  ./screener.sh list-failed
+  ./screener.sh list-critical
+  ./screener.sh list-serious
+  ./screener.sh list-done
+  ./screener.sh list
+  ./screener.sh list-screens
+  ./screener.sh run <file.csv> [<condition_list>]
+  ./screener.sh start <screen_id> <cmd> <args...>
+  ./screener.sh [<options>] <operation> <screen_id>
+
+Inquiry operations:
+
+  ./screener.sh list-screens
+    Equivalent to screen -ls
+
+  ./screener.sh list-<type>
+    Show a list of currently running, waiting (for continuation), failed,
+    and done/completed screen sessions.
+
+  ./screener.sh list
+    First show a list of currently running screens, then
+    for each <type> a list of (old) failed / completed / sessions
+    (and so on).
+
+  ./screener.sh status <screen_id>
+    Like list-*, but filter <sceen_id> and dont report timestamps.
+
+  ./screener.sh show <screen_id>
+    Show the last logfile of <screen_id> at standard output.
+
+  ./screener.sh less <screen_id>
+    Show the last logfile of <screen_id> using "less -r".
+
+MASS starting of screen sessions:
+
+  ./screener.sh run <file.csv> <condition_list>
+    Commands are launched in screen sessions via "./screener.sh start" commands,
+    unless the same <screen_id> is already running,
+    or is in some error state, or is already done (see below).
+    The commands are given by a column with CSV header name
+    containing "command", or by the first column.
+    The <screen_id> needs to be given by a column with CSV header
+    name matching "screen_id|resource".
+    The number and type of commands to launch can be reduced via
+    any combination of the following filter conditions:
+
+      --max=<number>
+        Limit the number of _new_ sessions additionally started this time.
+
+      --<column_name>==<value>
+        Only select lines where an arbitrary CSV column (given by its
+        CSV header name in C identifier syntax) has the given value.
+
+      --<column_name>!=<value>
+        Only select lines where the colum has _not_ the given value.
+
+      --<column_name>=~<bash_regex>
+        Only select lines where the bash regular expression matches
+        at the given column.
+
+      --max-per=<number>
+        Limit the number per _distinct_ value of the column denoted by
+        the _next_ filter condition.
+        Example: ./screener.sh run test.csv --dry-run --max-per=2 --dst_network=~.
+        would launch only 2 Football processes per destination network.
+
+    Hint: filter conditions can be easily checked by giving --dry-run.
+
+Start / restart / kill / continue screen sessions:
+
+  ./screener.sh start <screen_id> <cmd> <args...>
+    Start a new screen session, running arbitrary <cmd> and <args...>
+    inside.
+
+  ./screener.sh restart <screen_id>
+    Works only when the last command for <screen_id> failed.
+    This will restart the old <cmd> and its <args...> as before.
+    Use only when you want to repeat the same command once again.
+
+  ./screener.sh kill <screen_id>
+    Terminate the running screen session forcibly.
+
+  ./screener.sh continue
+  ./screener.sh continue <screen_id> [<screen_id_list>]
+  ./screener.sh continue <number>
+    Useful for MASS automation of processes involving critical sections
+    such as customer downtime.
+    When giving a numerical <number> argument, up to that number
+    of sessions are resumed (ordered by age).
+    When no further arugment is given, _all_ currently waiting sessions
+    are continued.
+    When --auto-attach is given, it will sequentially resume the
+    sessions to be continued. By default, unless --force_attach is set,
+    it uses "screen -r" skipping those sessions which are already
+    attached to somebody else.
+    This feature works only with prepared scripts which are creating
+    an empty flagfile
+    /home/schoebel/mars/mars-migration.git/screener-logdir-testing/running/$screen_id.waiting
+    whenever they want to wait for manual intervention (for whatever reason).
+    Afterwards, the script must be polling this flagfile for removal.
+    This screener operation simply removes the flagfile, such that
+    the script will then continue afterwards.
+    Example: look into ./football.sh
+    and search for occurrences of substring "call_hook start_wait".
+
+  ./screener.sh wakeup
+  ./screener.sh wakeup <screen_id> [<screen_id_list>]
+  ./screener.sh wakeup <number>
+    Similar to continue, but refers to delayed commands waiting for
+    a timeout. This can be used to individually shorten the timeout
+    period.
+    Example: Football cleanup operations may be artificially delayed
+    before doing "lvremove", to keep some sort of 'backup' for a
+    limited time. When your project is under time pressure, these
+    delays may be hindering.
+    Use this for premature ending of such artificial delays.
+
+  ./screener.sh up <...>
+    Do both continue and wakeup.
+
+  ./screener.sh auto <...>
+    Equivalent to ./screener.sh --auto-attach up <...>
+    Remember that only session without current attachment will be
+    attached to.
+
+Attach to a running session:
+
+  ./screener.sh attach <screen_id>
+    This is equivalent to screen -x $screen_id
+
+  ./screener.sh resume <screen_id>
+    This is equivalent to screen -r $screen_id
+
+Communication:
+
+  ./screener.sh notify <screen_id> <txt>
+    May be called from external scripts to send emails etc.
+
+Locking (only when supported by <cmd>):
+
+  ./screener.sh lock
+  ./screener.sh unlock
+  ./screener.sh lock <screen_id>
+  ./screener.sh unlock <screen_id>
+
+Cleanup / bookkeeping:
+
+  ./screener.sh clear-critical <screen_id>
+  ./screener.sh clear-serious <screen_id>
+  ./screener.sh clear-failed  <screen_id>
+    Mark the status as "done" and move the logfile away.
+
+  ./screener.sh purge [<days>]
+    This will remove all old logfiles which are older than
+    <days>. By default, the variable $screener_log_purge_period
+    will be used, which is currently set to '30'.
+
+  ./screener.sh cron
+    You should call this regulary from a user cron job, in order
+    to purge old logfiles, or to detect hanging sessions, or to
+    automatically send pending emails, etc.
+
+Options:
+
+  --variable
+  --variable=$value
+    These must come first, in order to prevent mixup with
+    options of <cmd> <args...>.
+    Allows overriding of any internal shell variable.
+  --help --verbose
+    Show all overridable shell variables, also for plugins.
+
+
+PLUGIN screener-email
+
+  Generic plugin for sending emails (or SMS via gateways)
+  upon status changes, such as script failures.
+
+\end{verbatim}
