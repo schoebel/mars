@@ -510,6 +510,7 @@ enum {
 	CL_SIZE,
 	CL_ACTSIZE,
 	CL_PRIMARY,
+	CL_SYSTEMD_CATCHALL,
 	CL__FILE,
 	CL_CONNECT,
 	CL_TRANSFER,
@@ -5277,6 +5278,14 @@ static const struct main_class main_classes[] = {
 		.cl_len = 8,
 		.cl_type = 'l',
 		.cl_hostcontext = true,
+		.cl_father = CL_RESOURCE,
+	},
+	/* Symlinks for systemd hinting
+	 */
+	[CL_SYSTEMD_CATCHALL] = {
+		.cl_name = "systemd-",
+		.cl_len = 8,
+		.cl_type = 'l',
 		.cl_father = CL_RESOURCE,
 	},
 	/* Symlink pointing to the name of the primary node
