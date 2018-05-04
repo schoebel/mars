@@ -493,6 +493,68 @@ sub _systemd_trigger {
   system("touch $trigger") and systemd_trigger(@_);
 }
 
+sub _get_systemd_unit {
+  my ($cmd, $res) = @_;
+  my $unit_start_path = "$mars/resource-$res/systemd-start-unit";
+  my $unit_stop_path  = "$mars/resource-$res/systemd-stop-unit";
+  my $start_unit = get_link($unit_start_path, 2);
+  my $stop_unit  = get_link($unit_stop_path,  2);
+  if (!$start_unit) {
+    lprint_stderr "Nothing to show: start unit $unit_start_path does not exist\n" if $verbose;
+    return "";
+  }
+  if (!$stop_unit) {
+    lwarn "Strange: stop unit $unit_stop_path does not exist\n";
+    return $start_unit;
+  }
+  return "$start_unit $stop_unit";
+}
+
+sub get_systemd_unit {
+  my $unit = _get_systemd_unit(@_);
+  lprint "$unit\n";
+}
+
+sub set_systemd_unit {
+  my ($cmd, $res, $start_name, $stop_name) = @_;
+  ldie "Start unit name is undefined\n" unless defined($start_name);
+  $stop_name = $start_name unless defined($stop_name);
+  my $unit_start_path = "$mars/resource-$res/systemd-start-unit";
+  my $unit_stop_path  = "$mars/resource-$res/systemd-stop-unit";
+  # Convenience: try to fix any non-escaped resource names
+  $start_name =~ m/($res)/p;
+  if ($1) {
+    my $pre = $PREMATCH;
+    my $post = $POSTMATCH;
+    my $replac = _systemd_escape($res);
+    $start_name = $pre . $replac . $post;
+  }
+  $stop_name =~ m/($res)/p;
+  if ($1) {
+    my $pre = $PREMATCH;
+    my $post = $POSTMATCH;
+    my $replac = _systemd_escape($res);
+    $stop_name = $pre . $replac . $post;
+  }
+  if ($start_name) {
+    set_link($start_name, $unit_start_path);
+  } else {
+    _create_delete($unit_start_path);
+  }
+  if ($stop_name) {
+    set_link($stop_name, $unit_stop_path);
+  } else {
+    _create_delete($unit_stop_path);
+  }
+  my $primary = _get_designated_primary($res, 1);
+  if ($primary) {
+    my $want_path = "$mars/resource-$res/systemd-want";
+    set_link($primary, $want_path);
+  }
+  finish_links();
+  _systemd_trigger($cmd);
+}
+
 ##################################################################
 
 # path correction
@@ -4042,6 +4104,9 @@ sub eval_fn {
       $lnk = correct_path($lnk);
       return get_link($lnk, 1);
     }
+    if (/^systemd[-_]?unit$/) {
+      return _get_systemd_unit($$env{"cmd"}, $$env{"res"});
+    }
     if (/^(uuid)$/) {
       my $what = $1;
       my $lnk = "$mars/$what";
@@ -5039,6 +5104,8 @@ my %trivial_globs =
    => "",
    "is-{alive}"
    => "",
+   "systemd-unit"
+   => "",
    "uuid"
    => "",
    "tree"
@@ -5325,6 +5392,21 @@ my %cmd_table =
        "resource with a new <resource_name> out of your local disks.",
        "Please read the PDF manual on potential consequences.",
        \&delete_res,
+      ],
+   "set-systemd-unit"
+   => [
+       "usage: set-systemd-unit <resource_name> <start_unit_name> [<stop_unit_name>]",
+       "This activates the systemd template engine of marsadm.",
+       "Please read mars-manual.pdf on this.",
+       "When <stop_unit_name> is omitted, it will be treated equal to",
+       "<start_unit_name>.",
+       \&set_systemd_unit,
+      ],
+   "get-systemd-unit"
+   => [
+       "usage: get-systemd-unit <resource_name>",
+       "Show the system units (for start and stop), or empty when unset.",
+       \&get_systemd_unit,
       ],
    "set-connect-pref-list"
    => [
