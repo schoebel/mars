@@ -42,7 +42,7 @@ my @MARS_PATH = $ENV{MARS_PATH} ?
   split(/:/, $ENV{MARS_PATH}) :
   (
    ".",
-   "$ENV{HOME}/.marsadm",
+   defined($ENV{HOME}) ? "$ENV{HOME}/.marsadm" : "",
    "/etc/marsadm",
    "/usr/lib/marsadm",
    "/usr/local/lib/marsadm",
