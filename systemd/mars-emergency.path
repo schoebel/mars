@@ -1,0 +1,14 @@
+[Unit]
+Description=MARS systemd trigger from /mars/userspace/emergency-trigger
+Documentation=https://github.com/schoebel/mars/docu/mars-manual.pdf
+Requires=mars.service
+After=mars.service
+
+[Path]
+#PathExists=/mars/userspace/emergency-trigger
+PathChanged=/mars/userspace/emergency-trigger
+PathModified=/mars/userspace/emergency-trigger
+Unit=mars-emergency.service
+
+[Install]
+WantedBy=mars.service

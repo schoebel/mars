@@ -1,0 +1,11 @@
+[Unit]
+Description=MARS emergency trigger service from /mars/userspace/emergency-trigger
+Documentation=https://github.com/schoebel/mars/docu/mars-manual.pdf
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+ExecStart=/usr/bin/marsadm cron
+
+[Install]
+WantedBy=mars.service
