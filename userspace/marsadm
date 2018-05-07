@@ -4042,6 +4042,17 @@ sub eval_fn {
       my $lnk = "$mars/alive-$peer";
       return get_link_stamp($lnk);
     }
+    if (/^is[-_]?orphan$/) {
+      my $peer = parse_macro($arg1, $env);
+      $peer = $$env{"host"} unless $peer;
+      my $replay  = get_link($$env{"resdir"} . "/replay-$peer", 1);
+      $replay =~ m/^(log-[^,]+),/;
+      my $logfile = $$env{"resdir"} . "/" . $1;
+      if (-r $logfile) {
+	return 0;
+      }
+      return 1;
+    }
     if (/^is[-_]?(almost[-_]?)?consistent$/) {
       my $almost = $1;
       # has sync finished?
@@ -4679,6 +4690,8 @@ my %complex_macros =
    .    "}"
    .  "}{%and{%replay-code{}}{%<{%replay-code{}}{0}}}{"
    .    "DefectiveLog[%errno-text{%replay-code{}}]"
+   .  "}{%is-orphan{}}{"
+   .    "Orphan"
    .  "}{%not{%is-attach{}}}{"
    .    "NoAttach"
    .  "}{%not{%is-consistent{}}}{"
@@ -4752,6 +4765,8 @@ my %complex_macros =
    .        "NoPrimaryDesignated"
    .      "}{%not{%is-alive{}}}{"
    .        "PrimaryUnreachable"
+   .      "}{%is-orphan{}}{"
+   .        "Orphan"
    .      "}{"
    .        "Replaying"
    .      "}"
@@ -5077,7 +5092,7 @@ my %trivial_globs =
    => "",
    "{is,todo}-{attach,sync,fetch,replay,primary}"
    => "",
-   "is-{split-brain,consistent,emergency}"
+   "is-{split-brain,consistent,emergency,orphan}"
    => "",
    "rest-space"
    => "",
