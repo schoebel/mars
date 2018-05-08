@@ -18774,6 +18774,22 @@ restore your backup.
 \labelwidthstring 00.00.0000
 
 \family typewriter
+Orphan
+\family default
+ The secondary cannot replay data anymore, because it has been kicked out
+ for avoidance of emergency mode.
+ The data is not recent anymore.
+ Typically, 
+\family typewriter
+marsadm invalidate
+\family default
+ needs to be done.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
 NoAttach
 \family default
  (cf 
@@ -19343,6 +19359,22 @@ PrimaryUnreachable
 --window=$seconds
 \family default
 ).
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+Orphan
+\family default
+ The secondary cannot replay data anymore, because it has been kicked out
+ for avoidance of emergency mode.
+ The data is not recent anymore.
+ Typically, 
+\family typewriter
+marsadm invalidate
+\family default
+ needs to be done.
 \end_layout
 
 \begin_layout Labeling
