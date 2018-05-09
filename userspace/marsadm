@@ -233,12 +233,14 @@ my $systemd_escape = defined($ENV{SYSTEMD_ESCAPE}) ? $ENV{SYSTEMD_ESCAPE} : "@";
 my @systemctl_start =
   (
    "mars-trigger.path", # This MUST come first
+   "mars-emergency.path",
   );
 
 my @systemctl_enable =
   (
    @systemctl_start,
    "mars-trigger.service",
+   "mars-emergency.service",
   );
 
 my %failed;
