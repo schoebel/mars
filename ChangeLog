@@ -41,7 +41,7 @@ Release Conventions / Branches / Tagnames
 		 - Stable tagnames: mars0.1stable%02d
 
 	mars0.1a series:
-		 Internally for 1&1.
+		 New designated master branch. Will become stable ASAP.
 
 	mars0.1b series (currently alpha):
 		 This is an _imtermediate_ series between 0.1 and 0.2.
@@ -139,13 +139,45 @@ Changelog for series 0.1b:
 Changelog for series 0.1a:
 (you need to checkout branch mars0.1a.y to see any details)
 
-	Internal branch for 1&1.
+	Designated master branch in future.
+	Recommended for Football. Will get updates on
+	the Football sub-project.
 	Based on 0.1balpha4. Merge 0.1stable.
-	Add only absolutely necessary features.
 	Receive mainly fixes.
 
 -----------------------------------
 Changelog for series 0.1:
+
+Attention! This branch will go EOL in the next few months.
+	Reason: branch 0.1a is productive for several months at 1&1.
+	Experiences: seems to run better than 0.1.y with
+	better performance, smoother, etc.
+	Upgrade is easy: just rollout the new marsadm version,
+	install the new kernel modules, and load them where possible.
+	Mixed operation of different versions is no problem,
+	but is of course not the desired state, so keep it short.
+	Rollback is also easy.
+	If nobody complains, I'd like to get rid of this ancient
+	branch ASAP.
+	Before being closed, I am adding the new systemd templates
+	for better upgrade / downgrade in case you need it. If you don't
+	activate it, it should have zero impact.
+
+Hint: branch 0.1a will get a merge from here, and then get the
+	Remote Device (which was beta until now).
+	The new code is not used when not activated, thus inclusion
+	of new features into 0.1a should be low risk.
+	Afterwards, 0.1a will be marked "stable", and newer features
+	(except Football related ones) will then go to 0.1b.
+	Finally, when 0.1a is stable, I will close this branch.
+
+mars0.1stable57
+	* Minor fix: silly deadlock upon scarce race at logging.
+	  Without debug logging, probability should be extremely low
+	  (only observed at rmmod).
+	* Added initial version of systemd templates (for future backward
+	  compatibility with branch 0.1a).
+	* Doc: systemd templates.
 
 mars0.1stable56
 	* Minor fix: split-cluster could unnecessarily abort
