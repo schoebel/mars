@@ -53,6 +53,9 @@ struct server_cookie {
 };
 
 static struct server_cookie server_cookie[MARS_TRAFFIC_MAX] = {
+	[MARS_TRAFFIC_PROSUMER] = {
+		.server_params = &mars_tcp_params[MARS_TRAFFIC_PROSUMER],
+	},
 	[MARS_TRAFFIC_META] = {
 		.server_params = &mars_tcp_params[MARS_TRAFFIC_META],
 	},
@@ -1061,7 +1064,7 @@ int __init init_mars_server(void)
 	for (i = 0; i < MARS_TRAFFIC_MAX; i++) {
 		struct sockaddr_storage sockaddr = {};
 		char tmp[16];
-		int port_nr = mars_net_default_port + i;
+		int port_nr = mars_net_port + i;
 		int status;
 
 		server_cookie[i].port_nr = port_nr;

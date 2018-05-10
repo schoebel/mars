@@ -92,14 +92,16 @@ config MARS_DEBUG_ORDER0
 	Use only if you know what you are doing!
 	Normally OFF.
 
-config MARS_DEFAULT_PORT
+config MARS_NET_PORT
 	int "port number where MARS is listening"
 	depends on MARS
-	default 7777
+	default 7776
 	---help---
 	Best practice is to uniformly use the same port number
 	in a cluster. Therefore, this is a compiletime constant.
 	You may override this at insmod time via the mars_port= parameter.
+	Attention! To allow mixed update with old MARS versions,
+	this number should be 7776 now, instead of the old 7777.
 
 config MARS_SEPARATE_PORTS
 	bool "use separate port numbers for traffic shaping"
@@ -108,9 +110,10 @@ config MARS_SEPARATE_PORTS
 	---help---
 	When enabled, the following port assignments will be used:
 
-	  CONFIG_MARS_DEFAULT_PORT     : updates of symlinks
-	  CONFIG_MARS_DEFAULT_PORT + 1 : replication of logfiles
-	  CONFIG_MARS_DEFAULT_PORT + 2 : (initial) sync traffic
+	  CONFIG_MARS_NET_PORT     : prosumer device traffic
+	  CONFIG_MARS_NET_PORT + 1 : updates of symlinks
+	  CONFIG_MARS_NET_PORT + 2 : replication of logfiles
+	  CONFIG_MARS_NET_PORT + 3 : (initial) sync traffic
 
 	As a consequence, external traffic shaping may be used to
 	individually control the network speed for different types

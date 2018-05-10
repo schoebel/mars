@@ -401,6 +401,7 @@ struct ctl_table tcp_tuning_table_##TRAFFIC_TYPE[] = {		\
 	{}							\
 }
 
+make_tcp_tuning_table(MARS_TRAFFIC_PROSUMER);
 make_tcp_tuning_table(MARS_TRAFFIC_META);
 make_tcp_tuning_table(MARS_TRAFFIC_REPLICATION);
 make_tcp_tuning_table(MARS_TRAFFIC_SYNC);
@@ -516,7 +517,7 @@ struct ctl_table mars_table[] = {
 	INT_ENTRY("write_throttle_size_threshold_kb", if_throttle_start_size, 0400),
 	LIMITER_ENTRIES(&if_throttle,     "write_throttle",       "kb"),
 	// changing makes no sense because the server will immediately start upon modprobe
-	INT_ENTRY("mars_port",            mars_net_default_port,  0400),
+	INT_ENTRY("mars_port",            mars_net_port,          0400),
 	INT_ENTRY("network_io_timeout",   global_net_io_timeout,  0600),
 	INT_ENTRY("client_info_timeout",  mars_client_info_timeout, 0600),
 	INT_ENTRY("parallel_connections", max_client_channels,    0600),
@@ -535,19 +536,25 @@ struct ctl_table mars_table[] = {
 	},
 	{
 		_CTL_NAME
-		.procname	= "tcp_tuning_0_meta_traffic",
+		.procname	= "tcp_tuning_0_prosumer_traffic",
+		.mode		= 0500,
+		.child = tcp_tuning_table_MARS_TRAFFIC_PROSUMER,
+	},
+	{
+		_CTL_NAME
+		.procname	= "tcp_tuning_1_meta_traffic",
 		.mode		= 0500,
 		.child = tcp_tuning_table_MARS_TRAFFIC_META,
 	},
 	{
 		_CTL_NAME
-		.procname	= "tcp_tuning_1_replication_traffic",
+		.procname	= "tcp_tuning_2_replication_traffic",
 		.mode		= 0500,
 		.child = tcp_tuning_table_MARS_TRAFFIC_REPLICATION,
 	},
 	{
 		_CTL_NAME
-		.procname	= "tcp_tuning_2_sync_traffic",
+		.procname	= "tcp_tuning_3_sync_traffic",
 		.mode		= 0500,
 		.child = tcp_tuning_table_MARS_TRAFFIC_SYNC,
 	},

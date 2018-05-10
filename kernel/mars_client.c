@@ -164,11 +164,15 @@ int _setup_channel(struct client_bundle *bundle, int ch_nr, bool keep_idle_socke
 
 	if (!bundle->params) {
 		struct sockaddr_in *_sockaddr = (void*)&sockaddr;
+		int port = ntohs(_sockaddr->sin_port);
+		int offset = port - mars_net_port;
 
-		int offset = (int)ntohs(_sockaddr->sin_port) - mars_net_default_port;
-
-		if (offset < 0 || offset >= MARS_TRAFFIC_MAX)
-			offset = 0;
+		if (offset < 0 || offset >= MARS_TRAFFIC_MAX) {
+			MARS_ERR("Bad port number %d\n", port);
+			offset = MARS_TRAFFIC_META;
+			_sockaddr->sin_port =
+				htons(mars_net_port + MARS_TRAFFIC_META);
+		}
 		bundle->params = &mars_tcp_params[offset];
 	}
 

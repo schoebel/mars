@@ -30,7 +30,7 @@
 
 #include "brick.h"
 
-extern int mars_net_default_port;
+extern int mars_net_port;
 extern bool mars_net_is_alive;
 
 extern __u32 enabled_net_compressions;
@@ -101,6 +101,10 @@ struct mars_tcp_params {
 };
 
 enum mars_traffic_types {
+	/* Do not change the order.
+	 * It is important for mixed version updates.
+	 */
+	MARS_TRAFFIC_PROSUMER,
 	MARS_TRAFFIC_META,
 	MARS_TRAFFIC_REPLICATION,
 	MARS_TRAFFIC_SYNC,

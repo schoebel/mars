@@ -2436,7 +2436,10 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 {
 	struct mars_rotate *rot = parent->d_private;
 #ifdef CONFIG_MARS_SEPARATE_PORTS
-	const char *tmp = path_make("%s@%s:%d", file, peer, mars_net_default_port + MARS_TRAFFIC_REPLICATION);
+	const char *tmp =
+		path_make("%s@%s:%d",
+			  file, peer,
+			  mars_net_port + MARS_TRAFFIC_REPLICATION);
 #else
 	const char *tmp = path_make("%s@%s", file, peer);
 #endif
@@ -3154,7 +3157,7 @@ int peer_thread(void *data)
 	}
 	real_peer = path_make("%s:%d",
 			      peer->peer_ip ? peer->peer_ip : peer->peer,
-			      mars_net_default_port + MARS_TRAFFIC_META);
+			      mars_net_port + MARS_TRAFFIC_META);
 	MARS_INF("-------- %s peer thread starting on peer '%s' (%s)\n",
 		 peer->peer_ip,
 		 peer->peer, real_peer);
@@ -6550,7 +6553,7 @@ static int make_sync(struct mars_dent *dent)
 	/* Start copy
 	 */
 #ifdef CONFIG_MARS_SEPARATE_PORTS
-	src = path_make("data-%s@%s:%d", peer, peer, mars_net_default_port + MARS_TRAFFIC_SYNC);
+	src = path_make("data-%s@%s:%d", peer, peer, mars_net_port + MARS_TRAFFIC_SYNC);
 #else
 	src = path_make("data-%s@%s", peer, peer);
 #endif

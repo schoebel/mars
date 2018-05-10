@@ -50,9 +50,9 @@
 /* Low-level network traffic
  */
 
-int mars_net_default_port = CONFIG_MARS_DEFAULT_PORT;
-EXPORT_SYMBOL_GPL(mars_net_default_port);
-module_param_named(mars_port, mars_net_default_port, int, 0);
+int mars_net_port = CONFIG_MARS_NET_PORT;
+
+module_param_named(mars_port, mars_net_port, int, 0);
 
 __u32 enabled_net_compressions = 0;
 __u32 used_net_compression = 0;
@@ -62,9 +62,19 @@ __u32 used_net_compression = 0;
  * TODO: implement signal handling.
  * TODO: add authentication.
  * TODO: add compression / encryption.
+ * TODO: better tuning!
  */
 
 struct mars_tcp_params mars_tcp_params[MARS_TRAFFIC_MAX] = {
+	[MARS_TRAFFIC_PROSUMER] = {
+		.ip_tos = IPTOS_THROUGHPUT,
+		.tcp_window_size = 8 * 1024 * 1024,
+		.tcp_nodelay = 1,
+		.tcp_timeout = 2,
+		.tcp_keepcnt = 3,
+		.tcp_keepintvl = 3,
+		.tcp_keepidle = 4,
+	},
 	[MARS_TRAFFIC_META] = {
 		.ip_tos = IPTOS_LOWDELAY,
 		.tcp_window_size = 8 * 1024 * 1024,
@@ -110,7 +120,8 @@ int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec)
 {
 	struct sockaddr_in *sockaddr = (void*)addr;
 	char *new_spec = brick_strdup(spec);
-	int port_nr = mars_net_default_port + MARS_TRAFFIC_META;
+	/* Fallback when no explicit port number is given */
+	int port_nr = mars_net_port + MARS_TRAFFIC_META;
 	int i;
 	int max_retry = 3;
 	int status;
@@ -121,10 +132,10 @@ int mars_create_sockaddr(struct sockaddr_storage *addr, const char *spec)
 			continue;
 		new_spec[i++] = '\0';
 		sscanf(new_spec + i, "%d", &port_nr);
-		if (port_nr < mars_net_default_port)
-			port_nr = mars_net_default_port;
-		if (port_nr >= mars_net_default_port + MARS_TRAFFIC_MAX)
-			port_nr = mars_net_default_port + MARS_TRAFFIC_MAX - 1;
+		if (port_nr < mars_net_port)
+			port_nr = mars_net_port;
+		if (port_nr >= mars_net_port + MARS_TRAFFIC_MAX)
+			port_nr = mars_net_port + MARS_TRAFFIC_MAX - 1;
 		break;
 	}
 
