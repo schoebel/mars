@@ -209,6 +209,13 @@ Changelog for series 0.1a:
 	Based on 0.1balpha4. Merge 0.1stable.
 	Receive mainly fixes.
 
+mars0.1abeta9
+	* Major feature: lowlevel TCP tuning, separately for traffic
+	  types MARS_TRAFFIC_META (default port 7777),
+	  and MARS_TRAFFIC_REPLICATION (default port 7778),
+	  and MARS_TRAFFIC_SYNC (default port 7779).
+	* Merge mars0.1stable57.
+
 mars0.1abeta8
 	* Merge mars0.1stable56.
 
