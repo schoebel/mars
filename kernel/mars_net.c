@@ -158,24 +158,24 @@ EXPORT_SYMBOL_GPL(mars_create_sockaddr);
 static int current_debug_nr = 0; // no locking, just for debugging
 
 static
-void _set_socketopts(struct socket *sock)
+void _set_socketopts(struct socket *sock, struct mars_tcp_params *params)
 {
 	struct timeval t = {
-		.tv_sec = default_tcp_params.tcp_timeout,
+		.tv_sec = params->tcp_timeout,
 	};
 	int x_true = 1;
 	/* TODO: improve this by a table-driven approach
 	 */
-	sock->sk->sk_rcvtimeo = sock->sk->sk_sndtimeo = default_tcp_params.tcp_timeout * HZ;
+	sock->sk->sk_rcvtimeo = sock->sk->sk_sndtimeo = params->tcp_timeout * HZ;
 	sock->sk->sk_reuse = 1;
-	_setsockopt(sock, SOL_SOCKET, SO_SNDBUFFORCE, default_tcp_params.tcp_window_size);
-	_setsockopt(sock, SOL_SOCKET, SO_RCVBUFFORCE, default_tcp_params.tcp_window_size);
-	_setsockopt(sock, SOL_IP, SO_PRIORITY, default_tcp_params.ip_tos);
-	_setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, default_tcp_params.tcp_nodelay);
+	_setsockopt(sock, SOL_SOCKET, SO_SNDBUFFORCE, params->tcp_window_size);
+	_setsockopt(sock, SOL_SOCKET, SO_RCVBUFFORCE, params->tcp_window_size);
+	_setsockopt(sock, SOL_IP, IP_TOS, params->ip_tos);
+	_setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, params->tcp_nodelay);
 	_setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, x_true);
-	_setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, default_tcp_params.tcp_keepcnt);
-	_setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, default_tcp_params.tcp_keepintvl);
-	_setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, default_tcp_params.tcp_keepidle);
+	_setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, params->tcp_keepcnt);
+	_setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, params->tcp_keepintvl);
+	_setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, params->tcp_keepidle);
 	_setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, t);
 	_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, t);
 
@@ -218,7 +218,7 @@ int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *addr,
 	msock->s_alive = true;
 	msock->s_connected = false;
 
-	_set_socketopts(sock);
+	_set_socketopts(sock, &default_tcp_params);
 
 	if (is_server) {
 		status = kernel_bind(sock, sockaddr, sizeof(*sockaddr));
@@ -281,7 +281,7 @@ int mars_accept_socket(struct mars_socket *new_msock, struct mars_socket *old_ms
 
 		MARS_IO("old#%d status = %d file = %p flags = 0x%x\n", old_msock->s_debug_nr, status, new_socket->file, new_socket->file ? new_socket->file->f_flags : 0);
 
-		_set_socketopts(new_socket);
+		_set_socketopts(new_socket, &default_tcp_params);
 
 		memset(new_msock, 0, sizeof(struct mars_socket));
 		new_msock->s_socket = new_socket;
