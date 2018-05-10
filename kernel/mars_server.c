@@ -47,21 +47,19 @@ struct server_cookie {
 	struct mars_tcp_params *server_params;
 };
 
-#define NR_SOCKETS 3
-
-static struct server_cookie server_cookie[NR_SOCKETS] = {
-	[0] = {
+static struct server_cookie server_cookie[MARS_TRAFFIC_MAX] = {
+	[MARS_TRAFFIC_META] = {
 		.server_params = &default_tcp_params,
 	},
-	[1] = {
+	[MARS_TRAFFIC_REPLICATION] = {
 		.server_params = &default_tcp_params,
 	},
-	[2] = {
+	[MARS_TRAFFIC_SYNC] = {
 		.server_params = &default_tcp_params,
 	},
 };
 
-static struct task_struct *server_thread[NR_SOCKETS] = {};
+static struct task_struct *server_thread[MARS_TRAFFIC_MAX] = {};
 
 atomic_t server_handler_count = ATOMIC_INIT(0);
 EXPORT_SYMBOL_GPL(server_handler_count);
@@ -961,7 +959,7 @@ void exit_mars_server(void)
 	MARS_INF("exit_server()\n");
 	server_unregister_brick_type();
 
-	for (i = 0; i < NR_SOCKETS; i++) {
+	for (i = 0; i < MARS_TRAFFIC_MAX; i++) {
 		if (server_thread[i]) {
 			MARS_INF("stopping server thread %d...\n", i);
 			brick_thread_stop(server_thread[i]);
@@ -977,7 +975,7 @@ int __init init_mars_server(void)
 
 	MARS_INF("init_server()\n");
 
-	for (i = 0; i < NR_SOCKETS; i++) {
+	for (i = 0; i < MARS_TRAFFIC_MAX; i++) {
 		struct sockaddr_storage sockaddr = {};
 		char tmp[16];
 		int status;

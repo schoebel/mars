@@ -1825,7 +1825,7 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 	struct mars_rotate *rot = parent->d_private;
 	struct mars_global *global = rot->global;
 #ifdef CONFIG_MARS_SEPARATE_PORTS
-	const char *tmp = path_make("%s@%s:%d", file, peer, mars_net_default_port + 1);
+	const char *tmp = path_make("%s@%s:%d", file, peer, mars_net_default_port + MARS_TRAFFIC_REPLICATION);
 #else
 	const char *tmp = path_make("%s@%s", file, peer);
 #endif
@@ -2203,6 +2203,7 @@ static
 int peer_thread(void *data)
 {
 	struct mars_peerinfo *peer = data;
+	const char *real_host;
 	const char *real_peer;
 	struct sockaddr_storage sockaddr = {};
 	struct key_value_pair peer_pairs[] = {
@@ -2217,7 +2218,11 @@ int peer_thread(void *data)
 	if (!peer || !mars_net_is_alive)
 		return -1;
 
-	real_peer = mars_translate_hostname(peer->peer);
+	real_host = mars_translate_hostname(peer->peer);
+	real_peer = path_make("%s:%d",
+			      real_host,
+			      mars_net_default_port + MARS_TRAFFIC_META);
+	brick_string_free(real_host);
 	MARS_INF("-------- peer thread starting on peer '%s' (%s)\n", peer->peer, real_peer);
 
 	status = mars_create_sockaddr(&sockaddr, real_peer);
@@ -4878,7 +4883,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	/* Start copy
 	 */
 #ifdef CONFIG_MARS_SEPARATE_PORTS
-	src = path_make("data-%s@%s:%d", peer, peer, mars_net_default_port + 2);
+	src = path_make("data-%s@%s:%d", peer, peer, mars_net_default_port + MARS_TRAFFIC_SYNC);
 #else
 	src = path_make("data-%s@%s", peer, peer);
 #endif
