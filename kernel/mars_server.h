@@ -55,6 +55,7 @@ struct server_brick {
 	MARS_BRICK(server);
 	struct semaphore socket_sem;
 	struct mars_socket handler_socket;
+	struct mars_tcp_params *handler_params;
 	struct mars_brick *conn_brick;
 	struct task_struct *handler_thread;
 	struct task_struct *cb_thread;

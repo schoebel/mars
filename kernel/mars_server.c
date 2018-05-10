@@ -42,9 +42,25 @@
 
 #include "mars_server.h"
 
+struct server_cookie {
+	struct mars_socket server_socket;
+	struct mars_tcp_params *server_params;
+};
+
 #define NR_SOCKETS 3
 
-static struct mars_socket server_socket[NR_SOCKETS] = {};
+static struct server_cookie server_cookie[NR_SOCKETS] = {
+	[0] = {
+		.server_params = &default_tcp_params,
+	},
+	[1] = {
+		.server_params = &default_tcp_params,
+	},
+	[2] = {
+		.server_params = &default_tcp_params,
+	},
+};
+
 static struct task_struct *server_thread[NR_SOCKETS] = {};
 
 atomic_t server_handler_count = ATOMIC_INIT(0);
@@ -820,7 +836,9 @@ static int _server_thread(void *data)
 		},
 		.main_event = __WAIT_QUEUE_HEAD_INITIALIZER(server_global.main_event),
 	};
-	struct mars_socket *my_socket = data;
+	struct server_cookie *cookie = data;
+	struct mars_socket *my_socket = &cookie->server_socket;
+	struct mars_tcp_params *my_params = cookie->server_params;
 	char *id = my_id();
 	int status = 0;
 
@@ -860,7 +878,7 @@ static int _server_thread(void *data)
 
 		status = mars_accept_socket(&handler_socket,
 					    my_socket,
-					    &default_tcp_params);
+					    my_params);
 		if (unlikely(status < 0 || !mars_socket_is_alive(&handler_socket))) {
 			brick_msleep(500);
 			if (status == -EAGAIN)
@@ -949,7 +967,7 @@ void exit_mars_server(void)
 			brick_thread_stop(server_thread[i]);
 		}
 		MARS_INF("closing server socket %d...\n", i);
-		mars_put_socket(&server_socket[i]);
+		mars_put_socket(&server_cookie[i].server_socket);
 	}
 }
 
@@ -971,9 +989,9 @@ int __init init_mars_server(void)
 			return status;
 		}
 
-		status = mars_create_socket(&server_socket[i],
+		status = mars_create_socket(&server_cookie[i].server_socket,
 					    &sockaddr,
-					    &default_tcp_params,
+					    server_cookie[i].server_params,
 					    true);
 		if (unlikely(status < 0)) {
 			MARS_ERR("could not create server socket %d, status = %d\n", i, status);
@@ -981,7 +999,9 @@ int __init init_mars_server(void)
 			return status;
 		}
 
-		server_thread[i] = brick_thread_create(_server_thread, &server_socket[i], "mars_server_%d", i);
+		server_thread[i] = brick_thread_create(_server_thread,
+						       &server_cookie[i],
+						       "mars_server_%d", i);
 		if (unlikely(!server_thread[i] || IS_ERR(server_thread[i]))) {
 			MARS_ERR("could not create server thread %d\n", i);
 			exit_mars_server();
