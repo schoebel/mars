@@ -49,13 +49,13 @@ struct server_cookie {
 
 static struct server_cookie server_cookie[MARS_TRAFFIC_MAX] = {
 	[MARS_TRAFFIC_META] = {
-		.server_params = &default_tcp_params,
+		.server_params = &mars_tcp_params[MARS_TRAFFIC_META],
 	},
 	[MARS_TRAFFIC_REPLICATION] = {
-		.server_params = &default_tcp_params,
+		.server_params = &mars_tcp_params[MARS_TRAFFIC_REPLICATION],
 	},
 	[MARS_TRAFFIC_SYNC] = {
-		.server_params = &default_tcp_params,
+		.server_params = &mars_tcp_params[MARS_TRAFFIC_SYNC],
 	},
 };
 

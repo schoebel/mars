@@ -145,9 +145,19 @@ int _setup_channel(struct client_bundle *bundle, int ch_nr)
 		goto done;
 	}
 
+	if (!bundle->params) {
+		struct sockaddr_in *_sockaddr = (void*)&sockaddr;
+
+		int offset = (int)ntohs(_sockaddr->sin_port) - mars_net_default_port;
+
+		if (offset < 0 || offset >= MARS_TRAFFIC_MAX)
+			offset = 0;
+		bundle->params = &mars_tcp_params[offset];
+	}
+
 	status = mars_create_socket(&ch->socket,
 				    &sockaddr,
-				    &default_tcp_params,
+				    bundle->params,
 				    false);
 	if (unlikely(status < 0)) {
 		MARS_DBG("no socket, status = %d\n", status);

@@ -81,6 +81,7 @@ struct client_channel {
 struct client_bundle {
 	char *host;
 	char *path;
+	struct mars_tcp_params *params;
 	int thread_count;
 	int old_channel;
 	wait_queue_head_t sender_event;

@@ -74,16 +74,35 @@ module_param_named(mars_port, mars_net_default_port, int, 0);
  * TODO: add compression / encryption.
  */
 
-struct mars_tcp_params default_tcp_params = {
-	.ip_tos = IPTOS_LOWDELAY,
-	.tcp_window_size = 8 * 1024 * 1024, // for long distance replications
-	.tcp_nodelay = 0,
-	.tcp_timeout = 2,
-	.tcp_keepcnt = 3,
-	.tcp_keepintvl = 3, // keepalive ping time
-	.tcp_keepidle = 4,
+struct mars_tcp_params mars_tcp_params[MARS_TRAFFIC_MAX] = {
+	[MARS_TRAFFIC_META] = {
+		.ip_tos = IPTOS_LOWDELAY,
+		.tcp_window_size = 8 * 1024 * 1024,
+		.tcp_nodelay = 0,
+		.tcp_timeout = 2,
+		.tcp_keepcnt = 3,
+		.tcp_keepintvl = 3,
+		.tcp_keepidle = 4,
+	},
+	[MARS_TRAFFIC_REPLICATION] = {
+		.ip_tos = IPTOS_RELIABILITY,
+		.tcp_window_size = 8 * 1024 * 1024,
+		.tcp_nodelay = 0,
+		.tcp_timeout = 2,
+		.tcp_keepcnt = 3,
+		.tcp_keepintvl = 3,
+		.tcp_keepidle = 4,
+	},
+	[MARS_TRAFFIC_SYNC] = {
+		.ip_tos = IPTOS_MINCOST,
+		.tcp_window_size = 8 * 1024 * 1024,
+		.tcp_nodelay = 0,
+		.tcp_timeout = 2,
+		.tcp_keepcnt = 3,
+		.tcp_keepintvl = 3,
+		.tcp_keepidle = 4,
+	},
 };
-EXPORT_SYMBOL(default_tcp_params);
 
 static
 void __setsockopt(struct socket *sock, int level, int optname, char *optval, int optsize)

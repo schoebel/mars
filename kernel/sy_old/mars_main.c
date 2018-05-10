@@ -2276,7 +2276,7 @@ int peer_thread(void *data)
 
 			status = mars_create_socket(&peer->socket,
 						    &sockaddr,
-						    &default_tcp_params,
+						    &mars_tcp_params[MARS_TRAFFIC_META],
 						    false);
 			if (unlikely(status < 0)) {
 				MARS_INF("no connection to mars module on '%s' (%s) status = %d\n", peer->peer, real_peer, status);

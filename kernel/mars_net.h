@@ -86,14 +86,14 @@ struct mars_tcp_params {
 	int tcp_keepidle;
 };
 
-extern struct mars_tcp_params default_tcp_params;
-
 enum mars_traffic_types {
 	MARS_TRAFFIC_META,
 	MARS_TRAFFIC_REPLICATION,
 	MARS_TRAFFIC_SYNC,
 	MARS_TRAFFIC_MAX /* this must come last */
 };
+
+extern struct mars_tcp_params mars_tcp_params[MARS_TRAFFIC_MAX];
 
 enum {
 	CMD_NOP,

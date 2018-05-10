@@ -285,17 +285,25 @@ struct ctl_table io_tuning_table[] = {
 	{}
 };
 
-static
-struct ctl_table tcp_tuning_table[] = {
-	INT_ENTRY("ip_tos",          default_tcp_params.ip_tos,          0600),
-	INT_ENTRY("tcp_window_size", default_tcp_params.tcp_window_size, 0600),
-	INT_ENTRY("tcp_nodelay",     default_tcp_params.tcp_nodelay,     0600),
-	INT_ENTRY("tcp_timeout",     default_tcp_params.tcp_timeout,     0600),
-	INT_ENTRY("tcp_keepcnt",     default_tcp_params.tcp_keepcnt,     0600),
-	INT_ENTRY("tcp_keepintvl",   default_tcp_params.tcp_keepintvl,   0600),
-	INT_ENTRY("tcp_keepidle",    default_tcp_params.tcp_keepidle,    0600),
-	{}
-};
+#define TCP_ENTRY(NAME,TRAFFIC_TYPE)				\
+	INT_ENTRY(#NAME, mars_tcp_params[TRAFFIC_TYPE].NAME, 0600)
+
+#define make_tcp_tuning_table(TRAFFIC_TYPE)			\
+static								\
+struct ctl_table tcp_tuning_table_##TRAFFIC_TYPE[] = {		\
+	TCP_ENTRY(ip_tos, TRAFFIC_TYPE),			\
+	TCP_ENTRY(tcp_window_size, TRAFFIC_TYPE),		\
+	TCP_ENTRY(tcp_nodelay, TRAFFIC_TYPE),			\
+	TCP_ENTRY(tcp_timeout, TRAFFIC_TYPE),			\
+	TCP_ENTRY(tcp_keepcnt, TRAFFIC_TYPE),	       		\
+	TCP_ENTRY(tcp_keepintvl, TRAFFIC_TYPE),	       		\
+	TCP_ENTRY(tcp_keepidle, TRAFFIC_TYPE),	       		\
+	{}							\
+}
+
+make_tcp_tuning_table(MARS_TRAFFIC_META);
+make_tcp_tuning_table(MARS_TRAFFIC_REPLICATION);
+make_tcp_tuning_table(MARS_TRAFFIC_SYNC);
 
 static
 struct ctl_table mars_table[] = {
@@ -416,9 +424,21 @@ struct ctl_table mars_table[] = {
 	},
 	{
 		_CTL_NAME
-		.procname	= "tcp_tuning",
+		.procname	= "tcp_tuning_0_meta_traffic",
 		.mode		= 0500,
-		.child = tcp_tuning_table,
+		.child = tcp_tuning_table_MARS_TRAFFIC_META,
+	},
+	{
+		_CTL_NAME
+		.procname	= "tcp_tuning_1_replication_traffic",
+		.mode		= 0500,
+		.child = tcp_tuning_table_MARS_TRAFFIC_REPLICATION,
+	},
+	{
+		_CTL_NAME
+		.procname	= "tcp_tuning_2_sync_traffic",
+		.mode		= 0500,
+		.child = tcp_tuning_table_MARS_TRAFFIC_SYNC,
 	},
 	{}
 };
