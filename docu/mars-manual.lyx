@@ -34598,6 +34598,217 @@ demand
  running.
 \end_layout
 
+\begin_layout Subsection
+Lowlevel TCP Tuning (Networking Experts Only)
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:TCP-Tuning"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+MARS uses the following types of traffic:
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+MARS_TRAFFIC_META
+\family default
+ (by default on port 7777 with 
+\family typewriter
+IPTOS_LOWDELAY
+\family default
+) This can be tuned in directory 
+\family typewriter
+/proc/sys/mars/tcp_tuning_0_meta_traffic/
+\family default
+.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+MARS_TRAFFIC_REPLICATION
+\family default
+ (by default on port 7778 with 
+\family typewriter
+IPTOS_RELIABILITY
+\family default
+) This can be tuned in directory 
+\family typewriter
+/proc/sys/mars/tcp_tuning_1_replication_traffic/
+\family default
+.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+MARS_TRAFFIC_SYNC
+\family default
+ (by default on port 7779 with 
+\family typewriter
+IPTOS_MINCOST
+\family default
+) This can be tuned in directory 
+\family typewriter
+/proc/sys/mars/tcp_tuning_2_sync_traffic/
+\family default
+.
+ Attention: since the advent of 
+\family typewriter
+DSCP
+\family default
+, this bit (hex 
+\family typewriter
+0x2
+\family default
+ in host byte order) is suppressed by the kernel, and yields 
+\family typewriter
+DS0
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+In each of these directories, the following tunables are available (only
+ for networking experts who know what they are doing):
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+ip_tos
+\family default
+ As explained above.
+ Notice: hex constants from 
+\family typewriter
+/usr/include/linux/ip.h
+\family default
+ must be converted to decimal before forwarding to the 
+\family typewriter
+/proc
+\family default
+ interface.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+tcp_window_size
+\family default
+ Current default is 8 * 1024 * 1024.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+tcp_nodelay
+\family default
+ Current default is 0.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+tcp_timeout
+\family default
+ Current default is 2.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+tcp_keepcnt
+\family default
+ Current default is 3.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+tcp_keepintvl
+\family default
+ Current default is 3.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+tcp_keepidle
+\family default
+ Current default is 4.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Further tuning parameters are in the standard Linux kernel.
+ Notice that 
+\family typewriter
+IP_TOS
+\family default
+ is internally converted to 
+\family typewriter
+DSCP
+\family default
+, which in turn can be further manipulated by 
+\family typewriter
+netfilter
+\family default
+ / 
+\family typewriter
+iptables
+\family default
+ and/or by 
+\family typewriter
+qdisc
+\family default
+ (
+\family typewriter
+tc
+\family default
+) and/or by further (external) networking components.
+ The ancient TOS settings are meant as a default 
+\emph on
+starting point
+\emph default
+ for further customization to your needs.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Playing with these settings can easily tear down your whole (replication)
+ network if you don't know exactly what you are doing.
+ Please test any changes in the lab first.
+ Mass rollout should be done in incremental phases, each in power of 10
+ units.
+ There might be unexpected effects like packet storms, or packet loss, etc.
+ Some of these effects may only show up when a certain number of hosts is
+ exceeded, or when certain load conditions are hammering the overall Distributed
+ System.
+ Some very old routers / switches are known to break down unexpectedly when
+ overloaded in certain ways.
+ Be careful in a production environment!
+\end_layout
+
 \begin_layout Chapter
 Tips and Tricks
 \end_layout
