@@ -858,7 +858,9 @@ static int _server_thread(void *data)
 			continue;
 		}
 
-		status = mars_accept_socket(&handler_socket, my_socket);
+		status = mars_accept_socket(&handler_socket,
+					    my_socket,
+					    &default_tcp_params);
 		if (unlikely(status < 0 || !mars_socket_is_alive(&handler_socket))) {
 			brick_msleep(500);
 			if (status == -EAGAIN)

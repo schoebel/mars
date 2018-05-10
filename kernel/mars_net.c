@@ -258,7 +258,9 @@ final:
 }
 EXPORT_SYMBOL_GPL(mars_create_socket);
 
-int mars_accept_socket(struct mars_socket *new_msock, struct mars_socket *old_msock)
+int mars_accept_socket(struct mars_socket *new_msock,
+		       struct mars_socket *old_msock,
+		       struct mars_tcp_params *params)
 {
 	int status = -ENOENT;
 	struct socket *new_socket = NULL;
@@ -284,7 +286,7 @@ int mars_accept_socket(struct mars_socket *new_msock, struct mars_socket *old_ms
 
 		MARS_IO("old#%d status = %d file = %p flags = 0x%x\n", old_msock->s_debug_nr, status, new_socket->file, new_socket->file ? new_socket->file->f_flags : 0);
 
-		_set_socketopts(new_socket, &default_tcp_params);
+		_set_socketopts(new_socket, params);
 
 		memset(new_msock, 0, sizeof(struct mars_socket));
 		new_msock->s_socket = new_socket;
