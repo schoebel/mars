@@ -969,7 +969,10 @@ int __init init_mars_server(void)
 			return status;
 		}
 
-		status = mars_create_socket(&server_socket[i], &sockaddr, true);
+		status = mars_create_socket(&server_socket[i],
+					    &sockaddr,
+					    &default_tcp_params,
+					    true);
 		if (unlikely(status < 0)) {
 			MARS_ERR("could not create server socket %d, status = %d\n", i, status);
 			exit_mars_server();

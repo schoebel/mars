@@ -184,7 +184,10 @@ void _set_socketopts(struct socket *sock, struct mars_tcp_params *params)
 	}
 }
 
-int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *addr, bool is_server)
+int mars_create_socket(struct mars_socket *msock,
+		       struct sockaddr_storage *addr,
+		       struct mars_tcp_params *params,
+		       bool is_server)
 {
 	struct socket *sock;
 	struct sockaddr *sockaddr = (void*)addr;
@@ -218,7 +221,7 @@ int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *addr,
 	msock->s_alive = true;
 	msock->s_connected = false;
 
-	_set_socketopts(sock, &default_tcp_params);
+	_set_socketopts(sock, params);
 
 	if (is_server) {
 		status = kernel_bind(sock, sockaddr, sizeof(*sockaddr));

@@ -145,7 +145,10 @@ int _setup_channel(struct client_bundle *bundle, int ch_nr)
 		goto done;
 	}
 
-	status = mars_create_socket(&ch->socket, &sockaddr, false);
+	status = mars_create_socket(&ch->socket,
+				    &sockaddr,
+				    &default_tcp_params,
+				    false);
 	if (unlikely(status < 0)) {
 		MARS_DBG("no socket, status = %d\n", status);
 		goto really_done;
