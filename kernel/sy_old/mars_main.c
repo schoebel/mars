@@ -1694,7 +1694,7 @@ struct mars_peerinfo {
 	char *peer;
 	struct mars_socket socket;
 	struct task_struct *peer_thread;
-	spinlock_t lock;
+	struct mutex peer_lock;
 	struct list_head peer_head;
 	struct list_head remote_dent_list;
 	unsigned long last_remote_jiffies;
@@ -2115,14 +2115,13 @@ int run_bones(struct mars_peerinfo *peer)
 {
 	LIST_HEAD(tmp_list);
 	struct list_head *tmp;
-	unsigned long flags;
 	bool run_trigger = false;
 	bool run_systemd_trigger = false;
 	int status = 0;
 
-	traced_lock(&peer->lock, flags);
+	mutex_lock(&peer->peer_lock);
 	list_replace_init(&peer->remote_dent_list, &tmp_list);
-	traced_unlock(&peer->lock, flags);
+	mutex_unlock(&peer->peer_lock);
 
 	MARS_DBG("remote_dent_list list_empty = %d\n", list_empty(&tmp_list));
 
@@ -2237,7 +2236,6 @@ int peer_thread(void *data)
 			.main_event = __WAIT_QUEUE_HEAD_INITIALIZER(tmp_global.main_event),
 		};
 		LIST_HEAD(old_list);
-		unsigned long flags;
 		struct mars_cmd cmd = {
 			.cmd_int1 = peer->maxdepth,
 		};
@@ -2388,12 +2386,12 @@ int peer_thread(void *data)
 				 peer->peer, real_peer,
 				 cmd.cmd_str1);
 
-			traced_lock(&peer->lock, flags);
+			mutex_lock(&peer->peer_lock);
 
 			list_replace_init(&peer->remote_dent_list, &old_list);
 			list_replace_init(&tmp_global.dent_anchor, &peer->remote_dent_list);
 
-			traced_unlock(&peer->lock, flags);
+			mutex_unlock(&peer->peer_lock);
 
 			peer->last_remote_jiffies = jiffies;
 
@@ -2568,7 +2566,6 @@ void activate_peer(struct mars_rotate *rot, const char *peer_name)
 static int _kill_peer(struct mars_global *global, struct mars_peerinfo *peer)
 {
 	LIST_HEAD(tmp_list);
-	unsigned long flags;
 
 	if (!peer) {
 		return 0;
@@ -2587,9 +2584,11 @@ static int _kill_peer(struct mars_global *global, struct mars_peerinfo *peer)
 		peer->do_communicate = false;
 		peer->do_additional = false;
 	}
-	traced_lock(&peer->lock, flags);
+
+	mutex_lock(&peer->peer_lock);
 	list_replace_init(&peer->remote_dent_list, &tmp_list);
-	traced_unlock(&peer->lock, flags);
+	mutex_unlock(&peer->peer_lock);
+
 	mars_free_dent_all(NULL, &tmp_list);
 	if (peer->doing_additional) {
 		peer->doing_additional = false;
@@ -2642,7 +2641,7 @@ int _make_peer(struct mars_global *global, struct mars_dent *dent)
 		peer->global = global;
 		peer->peer = brick_strdup(mypeer);
 		peer->maxdepth = 2;
-		spin_lock_init(&peer->lock);
+		mutex_init(&peer->peer_lock);
 		INIT_LIST_HEAD(&peer->peer_head);
 		INIT_LIST_HEAD(&peer->remote_dent_list);
 
