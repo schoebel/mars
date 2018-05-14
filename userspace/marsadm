@@ -1967,13 +1967,16 @@ sub create_res {
       lprint "reducing size from $size to $new_size\n";
       $size = $new_size;
     }
-  } else {
+  } elsif (-f $dev) {
+    lprint "Using regular (sparse) file '$dev' as an image file\n";
     $size = get_size($dev);
     if ($size > 0) {
       $dev = "";
     } else {
       ldie "bad parameter '$dev': must be either a block device name, or size followed by k or m or g or t\n";
     }
+  } else {
+    ldie "Device argument '$dev' does not exist or is no usable block device.\n"
   }
 
   ldie "implausible size $size" unless $size > 4096 * 16; # smaller floppies should not exist ;)
