@@ -1,0 +1,16 @@
+[Unit]
+Description=MARS local mount on /vol/@{res}
+#Documentation=https://github.com/schoebel/mars/docu/mars-manual.pdf
+Requires=mars.service
+After=mars.service
+
+ConditionPathIsSymbolicLink=/mars/resource-@{res}/systemd-want
+ConditionPathExists=/dev/mars/@{res}
+ConditionPathIsDirectory=/vol/@{res}
+
+[Mount]
+What=/dev/mars/@{res}
+Where=/vol/@{res}
+
+[Install]
+WantedBy=mars.service

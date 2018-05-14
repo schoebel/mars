@@ -555,6 +555,7 @@ enum {
 	CL_SIZE,
 	CL_ACTSIZE,
 	CL_PRIMARY,
+	CL_SYSTEMD_CATCHALL,
 	CL__FILE,
 	CL_CONNECT,
 	CL_TRANSFER,
@@ -2002,6 +2003,7 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 	bool update_mtime = true;
 	bool update_ctime = true;
 	bool run_trigger = false;
+	bool run_systemd_trigger = false;
 
 	if (!strncmp(remote_dent->d_name, ".tmp", 4)) {
 		goto done;
@@ -2072,6 +2074,11 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 						 __kuid_val(remote_dent->new_stat.uid));
 			MARS_DBG("create symlink '%s' -> '%s' status = %d\n", remote_dent->d_path, remote_dent->new_link, status);
 			run_trigger = true;
+			if (!status &&
+			    (!strncmp(remote_dent->d_name, "primary", 7) ||
+			     !strncmp(remote_dent->d_name, "systemd", 7)))
+				run_systemd_trigger = true;
+
 		}
 	} else if (S_ISREG(remote_dent->new_stat.mode) && _is_peer_logfile(remote_dent->d_name, my_id())) {
 		const char *parent_path = backskip_replace(remote_dent->d_path, '/', false, "");
@@ -2097,6 +2104,8 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
  done:
 	if (status >= 0) {
 		status = run_trigger ? 1 : 0;
+		if (run_systemd_trigger)
+			status |= 2;
 	}
 	return status;
 }
@@ -2108,6 +2117,7 @@ int run_bones(struct mars_peerinfo *peer)
 	struct list_head *tmp;
 	unsigned long flags;
 	bool run_trigger = false;
+	bool run_systemd_trigger = false;
 	int status = 0;
 
 	traced_lock(&peer->lock, flags);
@@ -2129,8 +2139,11 @@ int run_bones(struct mars_peerinfo *peer)
 		}
 		MARS_IO("path = '%s'\n", remote_dent->d_path);
 		status = run_bone(peer, remote_dent);
-		if (status > 0)
+		if (status > 0) {
 			run_trigger = true;
+			if (status & 2)
+				run_systemd_trigger = true;
+		}
 		//MARS_DBG("path = '%s' worker status = %d\n", remote_dent->d_path, status);
 	}
 
@@ -2138,6 +2151,19 @@ int run_bones(struct mars_peerinfo *peer)
 
 	if (run_trigger) {
 		mars_trigger();
+	}
+	if (run_systemd_trigger) {
+		struct file *f;
+		const int flags = O_RDWR | O_CREAT;
+		const int prot = 0600;
+		mm_segment_t oldfs;
+
+		oldfs = get_fs();
+		set_fs(get_ds());
+		f = filp_open("/mars/userspace/systemd-trigger", flags, prot);
+		set_fs(oldfs);
+		if (f && !IS_ERR(f))
+			filp_close(f, NULL);
 	}
 	return status;
 }
@@ -5518,6 +5544,14 @@ static const struct main_class main_classes[] = {
 		.cl_len = 8,
 		.cl_type = 'l',
 		.cl_hostcontext = true,
+		.cl_father = CL_RESOURCE,
+	},
+	/* Symlinks for systemd hinting
+	 */
+	[CL_SYSTEMD_CATCHALL] = {
+		.cl_name = "systemd-",
+		.cl_len = 8,
+		.cl_type = 'l',
 		.cl_father = CL_RESOURCE,
 	},
 	/* Symlink pointing to the name of the primary node

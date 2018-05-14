@@ -451,16 +451,15 @@ struct say_channel *make_channel(const char *name, bool must_exist)
 
 		for (ch = channel_list; ch; ch = ch->ch_next) {
 			if (ch != res && unlikely(!strcmp(ch->ch_name, name))) {
+				up_write(&say_mutex);
 				_del_channel(res);
 				res = ch;
-				goto race_found;
+				goto done;
 			}
 		}
-
 		res->ch_next = channel_list;
 		channel_list = res;
 
-	race_found:
 		up_write(&say_mutex);
 	}
 

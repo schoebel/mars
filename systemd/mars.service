@@ -1,0 +1,16 @@
+[Unit]
+Description=MARS block layer HA (kernel module)
+Documentation=https://github.com/schoebel/mars/docu/mars-manual.pdf
+RequiresMountsFor=/mars/uuid
+StopWhenUnneeded=false
+IgnoreOnIsolate=true
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+#ExecStartPre=if ! mountpoint /mars; then mount /dev/*/mars /mars; fi
+ExecStart=/sbin/modprobe mars
+ExecStop=/sbin/rmmod mars
+
+[Install]
+WantedBy=mars.mount
