@@ -189,7 +189,9 @@ void _set_socketopts(struct socket *sock, struct mars_tcp_params *params)
 	sock->sk->sk_reuse = 1;
 	_setsockopt(sock, SOL_SOCKET, SO_SNDBUFFORCE, params->tcp_window_size);
 	_setsockopt(sock, SOL_SOCKET, SO_RCVBUFFORCE, params->tcp_window_size);
+#ifdef CONFIG_MARS_IPv4_TOS
 	_setsockopt(sock, SOL_IP, IP_TOS, params->ip_tos);
+#endif
 	_setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, params->tcp_nodelay);
 	_setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, x_true);
 	_setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, params->tcp_keepcnt);
