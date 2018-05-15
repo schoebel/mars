@@ -34610,7 +34610,15 @@ name "subsec:TCP-Tuning"
 \end_layout
 
 \begin_layout Standard
-MARS uses the following types of traffic:
+When 
+\family typewriter
+CONFIG_MARS_SEPARATE_PORTS
+\family default
+ and 
+\family typewriter
+CONFIG_MARS_IPv4_TOS
+\family default
+ are enabled, MARS uses the following types of traffic:
 \end_layout
 
 \begin_layout Description
@@ -34795,7 +34803,69 @@ starting point
 
 \end_inset
 
- Playing with these settings can easily tear down your whole (replication)
+ Typically, 
+\emph on
+public
+\emph default
+ internet transports are flattening / ignoring or otherwise manipulating
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+DSCP markings can be only made reliable on private networks (possibly requiring
+ some effort).
+ Public Internet service and transit providers do not necessarily treat
+ the TOS values or DSCP markings with any form of priority and may also
+ remove or change them without any notice.
+ Some internet service or transit providers also do use specific DSCP markings
+ to mark packets for being dropped, which may result in hard to find transmissio
+n errors.
+\end_layout
+
+\begin_layout Plain Layout
+If want to use MARS on a public internet connection, you should use 
+\series bold
+encrypted
+\series default
+ 
+\series bold
+VPN
+\series default
+ with different DSCP markings, and coordinate them with your network services
+ provider.
+\end_layout
+
+\end_inset
+
+ the TOS / DSCP fields.
+ There it will not work.
+ Anyway, you should never route unencrypted MARS traffic over public transports,
+ for obvious security reasons.
+ Notice: MARS replication is meant for company-
+\emph on
+internal
+\emph default
+ networks like 
+\emph on
+internal
+\emph default
+ 
+\series bold
+replication networks
+\series default
+ (or storage networks) where some networking department has control of.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Playing with the above settings can easily tear down your whole (replication)
  network if you don't know exactly what you are doing.
  Please test any changes in the lab first.
  Mass rollout should be done in incremental phases, each in power of 10
