@@ -538,20 +538,22 @@ sub set_systemd_unit {
     my $replac = _systemd_escape($res);
     $stop_name = $pre . $replac . $post;
   }
+  my $want_path = "$mars/resource-$res/systemd-want";
   if ($start_name) {
     set_link($start_name, $unit_start_path);
+    my $primary = _get_designated_primary($res, 1);
+    if ($primary) {
+      set_link($primary, $want_path);
+    }
   } else {
     _create_delete($unit_start_path);
+    _create_delete($want_path);
   }
   if ($stop_name) {
     set_link($stop_name, $unit_stop_path);
   } else {
     _create_delete($unit_stop_path);
-  }
-  my $primary = _get_designated_primary($res, 1);
-  if ($primary) {
-    my $want_path = "$mars/resource-$res/systemd-want";
-    set_link($primary, $want_path);
+    _create_delete($want_path);
   }
   finish_links();
   _systemd_trigger($cmd);
