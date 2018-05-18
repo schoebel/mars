@@ -5599,6 +5599,13 @@ anytime consistency
 
 \begin_layout Chapter
 Quick Start Guide
+\begin_inset CommandInset label
+LatexCommand label
+name "chap:Quick-Start-Guide"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -39082,6 +39089,772 @@ When running Screener for several months or years, old logfiles will accumulate
 \family default
  regularly via a cron job, or archieve your old logfiles from time to time
  via another method.
+\end_layout
+
+\begin_layout Section
+HOWTO instantiate / customize Football
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:HOWTO-instantiate-Football"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In order to install and operate Football, the recommended 
+\emph on
+deployment
+\emph default
+ strategy is bottom-up, layer by layer.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Top-down strategies should be used 
+\emph on
+only
+\emph default
+, and 
+\emph on
+only
+\emph default
+, for planning.
+ An Egyptian pyramid can never be built, even if you had some billions of
+ workers, by starting at the tip and by creating the foundations as the
+ very last step.
+ Suchalike attempt would end up in a disaster.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+
+\series bold
+Testing
+\series default
+ of each layer 
+\series bold
+separately
+\series default
+ is very important.
+ Before proceeding to the next higher layer, first ensure that any lower
+ layer is working 
+\emph on
+correctly
+\emph default
+.
+ Otherwise debugging can become tricky.
+\end_layout
+
+\begin_layout Subsection
+Block Device Layer
+\end_layout
+
+\begin_layout Standard
+Step-by-step instructions can be found in chapter 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "chap:Quick-Start-Guide"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Please ensure that your hardware (including RAID controllers and LVM and
+ so on), and your operating system, and your network / setup, and MARS is
+ working correctly before proceeding to the next layer.
+\end_layout
+
+\begin_layout Subsection
+Mechanics Layer of Cluster Operations
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Mechanics-Layer of Cluster"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In the following example, it is assumed that 
+\family typewriter
+systemd
+\family default
+ is used, as explained in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:systemd-Templates"
+
+\end_inset
+
+, and now applied to 
+\family typewriter
+vm4711
+\family default
+ supposed to run on hypervisors 
+\family typewriter
+hyper1234a
+\family default
+ (primary role) and 
+\family typewriter
+hyper1234b
+\family default
+ (secondary role), which is assumed to be controllable via the following
+ 
+\family typewriter
+systemd
+\family default
+ start and stop units:
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+marsadm set-systemd-unit vm4711 lxc-vm4711.target vol-vm4711.mount
+\end_layout
+
+\begin_layout Standard
+Test the cluster mechanics layer like in the following example:
+\end_layout
+
+\begin_layout Itemize
+On host 
+\family typewriter
+hyper1234b
+\family default
+, the following must work: 
+\family typewriter
+marsadm primary vm4711
+\end_layout
+
+\begin_layout Standard
+This must result in an automatic handover of 
+\family typewriter
+vm4711
+\family default
+ from the current primary site 
+\family typewriter
+hyper1234a
+\family default
+ to the new primary 
+\family typewriter
+hyper1234b
+\family default
+, as explained in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:systemd-Templates"
+
+\end_inset
+
+.
+ Please check that 
+\family typewriter
+vm4711
+\family default
+ is running correctly at the new location.
+ It must be reachable via network.
+ In case you are using BGP because 
+\family typewriter
+hyper1234a
+\family default
+ and 
+\family typewriter
+hyper1234b
+\family default
+ are located in different datacenters, ensure that BGP is also controlled
+ by your 
+\family typewriter
+systemd
+\family default
+ unit dependencies, and test it.
+\end_layout
+
+\begin_layout Subsection
+Mechanics Layer of Football Operations
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Mechanics-Layer-of-Football"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+At the moment, there are two alternative plugins already implemented in
+ the Football sub-project (see subdirectory 
+\family typewriter
+football/plugins/
+\family default
+).
+ Of course, you can implement some further plugins.
+ Please put them under GPL, and share them.
+ Please contact the author of MARS for inclusion into the official MARS
+ release.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+football-cm3.sh
+\family default
+ This plugin can be only used at Shared Hosting Linux (ShaHoLin) at 1&1,
+ since it is bound to a specific 
+\emph on
+proprietary
+\emph default
+ instance.
+ However, the 
+\emph on
+sourcecode
+\emph default
+ of the 
+\emph on
+plugin
+\emph default
+ itself (not the code called by the plugin, e.g.
+ over REST interfaces) is under GPL.
+ You can (and 
+\emph on
+should
+\emph default
+) 
+\emph on
+inspect
+\emph default
+ the plugin code, and 
+\series bold
+learn
+\series default
+ how a real-world system (which has grown over some decades and bears a
+ lot of history) is actually working at certain points.
+\begin_inset Newline newline
+\end_inset
+
+This plugin is automatically activated when called via the symlink 
+\family typewriter
+tetris.sh
+\family default
+ instead of directly calling 
+\family typewriter
+football.sh
+\family default
+.
+ This has historic reasons.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+football-basic.sh
+\family default
+ This plugin uses the new 
+\family typewriter
+systemd
+\family default
+ interface of 
+\family typewriter
+marsadm
+\family default
+ for controlling the mechanics.
+ See section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:systemd-Templates"
+
+\end_inset
+
+.
+ You should be familiar with commands like 
+\family typewriter
+marsadm set-systemd-unit
+\family default
+.
+ Manual handover via 
+\family typewriter
+marsadm primary $resource
+\family default
+ must be already working (with high reliability 
+\begin_inset Formula $\leadsto$
+\end_inset
+
+ check that any 
+\family typewriter
+umount
+\family default
+ works everywhere without hangups) before you can start using this plugin
+ for 
+\family typewriter
+football.sh
+\family default
+.
+\begin_inset Newline newline
+\end_inset
+
+This plugin is automatically activated when calling football.sh.
+ It can be deactivated by overriding variable 
+\family typewriter
+enable_basic
+\family default
+=0.
+\end_layout
+
+\begin_layout Subsubsection
+Configuring and Overriding Variables
+\end_layout
+
+\begin_layout Standard
+A detailed list of all available customization options can be obtained via
+ 
+\family typewriter
+./football.sh --help --verbose
+\family default
+.
+ Each option is documented by some help text, and you can always see the
+ default settings.
+ See also section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:football-help-verbose"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+If you create any new plugin for Football, or if you modify an existing
+ one, please follow these standards.
+ Try to describe any option as concisely as possible.
+\end_layout
+
+\begin_layout Standard
+Configuring is possible in the following ways, in order of precedence:
+\end_layout
+
+\begin_layout Itemize
+at the command line via 
+\family typewriter
+./football.sh --$variable_name=$value $arguments
+\family default
+.
+\end_layout
+
+\begin_layout Itemize
+via environment variables, e.g.
+ globally via 
+\family typewriter
+export $variable_name=$value && ./football.sh $arguments
+\family default
+, or locally via 
+\family typewriter
+$variable_name=$value ./football.sh $arguments
+\family default
+.
+\end_layout
+
+\begin_layout Itemize
+by adding some small 
+\family typewriter
+football-*.conf
+\family default
+ files into one of the directories 
+\family typewriter
+/usr/lib/mars/plugins
+\family default
+ 
+\family typewriter
+/etc/mars/plugins
+\family default
+ 
+\family typewriter
+$script_dir/plugins
+\family default
+ 
+\family typewriter
+$HOME/.mars/plugins
+\family default
+ 
+\family typewriter
+./plugins
+\family default
+, in this order of precedence.
+ This list of directories can be modifed externally over the environment
+ variable 
+\family typewriter
+football_includes
+\family default
+ (but not during already running inclusions of 
+\family typewriter
+football-*.conf
+\family default
+ files).
+\end_layout
+
+\begin_layout Subsubsection
+
+\family typewriter
+football-basic.sh
+\family default
+ Customization
+\end_layout
+
+\begin_layout Standard
+Here is a brief summary of the most important configuration tasks and options:
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+initial_hostname_file
+\family default
+ Somehow, the 
+\family typewriter
+football-basic.sh
+\family default
+ plugin must know the hostnames of your pool.
+ Once Football is working, the hostname will be 
+\emph on
+automatically
+\emph default
+ maintained whenever 
+\family typewriter
+marsadm join-cluster
+\family default
+ or 
+\family typewriter
+marsadm merge-cluster
+\family default
+ is executed somewhere.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+For your hardware deployment strategy, this means the following: just deploy
+ any new hardware, or remove your old one (after Football has emptied all
+ of your former LV resources).
+ It does not matter how you are doing this, e.g.
+ via OpenStack, or via the proprietary 
+\family typewriter
+Schlunix
+\family default
+ methods used at ShaHoLin, or whatever.
+ Then you have the following options for adding the new machines to the
+ Football hostname cache (see variable 
+\family typewriter
+hostname_cache
+\family default
+):
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+Write the pure hostname(s) into the file as configured with 
+\family typewriter
+initial_hostname_file
+\family default
+ (by default: 
+\family typewriter
+./hostnames.input
+\family default
+).
+ Each hostname must be on its own ASCII line.
+ Not only these new hosts will be picked up automatically, but also...
+\end_layout
+
+\begin_layout Enumerate
+...any further hosts reported anywhere (at the already known hosts) by 
+\family typewriter
+marsadm view-cluster-members
+\family default
+, 
+\series bold
+transitively
+\series default
+.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Consequence: if you are running the new 
+\family typewriter
+mars0.1b.y
+\family default
+ (or newer) branch of MARS, you don't need 
+\family typewriter
+marsadm split-cluster
+\family default
+ anymore.
+ Then you can operate several thousands of machines as a big 
+\series bold
+virtual
+\series default
+ cluster, even if their storage is local (see 
+\family typewriter
+LocalSharding
+\family default
+ model described in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "subsec:Variants-of-Sharding"
+
+\end_inset
+
+).
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Previous versions of MARS, like 
+\family typewriter
+mars0.1.y
+\family default
+ and 
+\family typewriter
+mars0.1a.y
+\family default
+, are not yet scalable at their 
+\series bold
+metadata
+\series default
+ exchange level.
+ Trying to 
+\family typewriter
+join-cluster
+\family default
+ or 
+\family typewriter
+merge-cluster
+\family default
+ several tens or even hundreds of machines with those versions will surely
+ lead to a disaster.
+ Always use 
+\family typewriter
+marsadm split-cluster
+\family default
+ at those versions, regularly.
+ First upgrade to the future 
+\family typewriter
+mars0.1b.y
+\family default
+ (or later versions) before creating big clusters at 
+\emph on
+metadata
+\emph default
+ level!
+\end_layout
+
+\begin_layout Enumerate
+Use 
+\family typewriter
+./football.sh basic_add_host $hostname
+\family default
+ for adding a single new host manually.
+ Afterwards, the transitive closure of all reachable hosts is computed as
+ usual.
+ This may also be used for the very first initialization of a fresh Football
+ installation, provided you already have a big cluster at metadata level.
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+Test the Football mechanics like one of the following example command sequences,
+ where it is assumed that 
+\family typewriter
+hyper4321a
+\family default
+ and 
+\family typewriter
+hyper4321b
+\family default
+ are already 
+\emph on
+newly
+\emph default
+ deployed hypervisors having enough local LVM storage, and have been already
+ added to the MARS cluster via 
+\family typewriter
+marsadm join-cluster
+\family default
+, or have been at least added to 
+\family typewriter
+hostname_cache
+\family default
+ as explained above:
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+ssh-add; ./football.sh migrate vm4711 hyper4321a hyper4321b
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+ssh-add; ./football.sh migrate vm4711 hyper4321a hyper4321b --screener; ./screener.s
+h attach vm4711
+\end_layout
+
+\begin_layout Standard
+Check the automatically produced logfile (via 
+\family typewriter
+./screener.sh show vm4711
+\family default
+) that Football has automatically determined the old hypervisor where 
+\family typewriter
+vm4711
+\family default
+ was running before, that it has automatically executed 
+\family typewriter
+marsadm merge-cluster
+\family default
+ when necessary, and has created the LV replicas at the new hypervisors,
+ and has executed some 
+\family typewriter
+marsadm join-resource
+\family default
+ commands, has automatically waited for MARS fast fullsync to finish, then
+ successfully executed an automatic handover to the new primary hypervisor,
+ and finally has destructed the old MARS replicas including their old LVs.
+ Check that 
+\family typewriter
+vm4711
+\family default
+ is running correctly at the new hypervisor pair, and that handover between
+ the new hypervisor sites 
+\family typewriter
+*a
+\family default
+ and 
+\family typewriter
+*b
+\family default
+ is working correctly.
+ 
+\end_layout
+
+\begin_layout Standard
+A larger group of sysadmins can co-work over a central common control machine
+ via ssh agent forwarding (which must be enabled in 
+\family typewriter
+/etc/ssh/sshd_config
+\family default
+) in the following way:
+\end_layout
+
+\begin_layout Itemize
+At the workstation: 
+\family typewriter
+ssh-add; ssh -A football@common-control.mycompany.org
+\family default
+
+\begin_inset Newline newline
+\end_inset
+
+Then 
+\family typewriter
+cd $script_dir
+\family default
+ and run your 
+\family typewriter
+./football.sh
+\family default
+ or 
+\family typewriter
+./screener.sh
+\family default
+ commands as usual.
+ The automatically generated logfiles will be tagged with the 
+\emph on
+real
+\emph default
+ usernames from your original workstation login, as reported by 
+\family typewriter
+ssh-add -l
+\family default
+, even transitively when using ssh agent forwarding.
+ Thus you may use a common username like 
+\family typewriter
+football
+\family default
+ on the common
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Of course, it is also possible to maintain individual accounts for the same
+ Unix group, and set 
+\family typewriter
+umask
+\family default
+ and common directory permissions accordingly, such that the classical group-wis
+e working concept from the 1970s will do the rest.
+ This is much more work, but can establish more fine-grained access control.
+ Even more sophisticated methods could involve ACLs, but suchalike is probably
+ only necessary at extremely high-sensitive installations.
+\end_layout
+
+\end_inset
+
+ control machine.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Hint: use 
+\family typewriter
+./screener.sh list
+\family default
+ (or one of its more specific variants like 
+\family typewriter
+./screener.sh list-running
+\family default
+) for determining what's currently going on in a larger group of sysadmins.
 \end_layout
 
 \begin_layout Chapter
