@@ -1225,6 +1225,656 @@ reference "sec:Distributed-vs-Local:"
 \end_layout
 
 \begin_layout Subsection
+Reliability Differences CentralStorage vs Sharding
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Reliability-Differences-CentralStorage"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In this section, we look at 
+\emph on
+fatal
+\emph default
+ failures only, ignoring temporary failures.
+ A fatal failure of a storage is an incident which needs to be corrected
+ by 
+\series bold
+restore from backup
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+By definition, even a 
+\emph on
+highly redundant
+\emph default
+ CentralStorage is 
+\emph on
+nevertheless
+\emph default
+ a SPOF = Single Point of Failure.
+ This also applies to fatal failures.
+\end_layout
+
+\begin_layout Standard
+Some people are incorrectly arguing with redundancy.
+ However, the problem is that 
+\emph on
+any
+\emph default
+ system, even a highly redundant one, can fail fatally.
+ There exists no perfect system on earth.
+ One of the biggest known sources of fatal failure is 
+\series bold
+human error
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+In contrast, sharded storage (for example the LocalSharding model, see also
+ section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "subsec:Variants-of-Sharding"
+
+\end_inset
+
+) has MPOF = Multiple Points Of Failure.
+ It is unlikely that many shards are failing fatally at the same time, because
+ shards are 
+\emph on
+independent
+\emph default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+When all shards are residing in the same datacenter, there exists a SPOF
+ by power loss or other impacts onto the whole datacenter.
+ However, this applies to both the CentralStorage and to the LocalSharding
+ model.
+ In contrast to CentralStorage, LocalSharding can be more easily distributed
+ over multiple datacenters.
+\end_layout
+
+\end_inset
+
+ from each other by definition.
+\end_layout
+
+\begin_layout Standard
+What is the difference from the viewpoint of customers of the services?
+\end_layout
+
+\begin_layout Standard
+When a CentralStorage fails fatally, a 
+\emph on
+huge
+\emph default
+ number of customers will be affected for a 
+\emph on
+long
+\emph default
+ time (see the example German webhoster mentioned in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "subsec:Latencies-and-Throughput"
+
+\end_inset
+
+).
+ Reason: restore from backup will take extremely long because huge masses
+ of data have to be restored.
+ MTBF = Mean Time Between Failures is (hopefully) longer thanks to redundancy,
+ but MTTR = Mean Time To Repair is also very long.
+\end_layout
+
+\begin_layout Standard
+With (Local)Sharding, the risk of 
+\emph on
+some
+\emph default
+ fatal incident 
+\emph on
+somewhere
+\emph default
+ in the sharding pool is higher, but the 
+\series bold
+\emph on
+size
+\series default
+\emph default
+ of such an incident is smaller in three dimensions at the same time:
+\end_layout
+
+\begin_layout Enumerate
+There are much 
+\series bold
+less customers affected
+\series default
+ (typically only 
+\begin_inset Formula $1$
+\end_inset
+
+ shard out of 
+\begin_inset Formula $n$
+\end_inset
+
+ shards).
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+MTTR
+\series default
+ = Mean Time To Repair is typically much better because there is much less
+ data to be restored.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Residual risk
+\series default
+ plus resulting fatal damage by 
+\series bold
+un-repairable problems
+\series default
+ is thus lower.
+\end_layout
+
+\begin_layout Standard
+What does this mean from the viewpoint of an investor of a big 
+\begin_inset Quotes eld
+\end_inset
+
+global player
+\begin_inset Quotes erd
+\end_inset
+
+ company?
+\end_layout
+
+\begin_layout Standard
+As is promised by the vendors, let us assume that failure of CentralStorage
+ might be occurring less frequently.
+ But 
+\emph on
+when
+\emph default
+ it happens on 
+\series bold
+enterprise-critical mass data
+\series default
+, the stock exchange value of the affected company will be exposed to a
+ 
+\series bold
+hazard
+\series default
+.
+ This is not bearable from the viewpoint of an investor.
+\end_layout
+
+\begin_layout Standard
+In contrast, the (Local)Sharding model is 
+\emph on
+distributing
+\emph default
+ the 
+\series bold
+indispensible incidents
+\series default
+ (because 
+\series bold
+perfect systems do not exist
+\series default
+, and 
+\series bold
+perfect humans do not exist
+\series default
+) to a lower number of customers with higher frequency, such that the 
+\series bold
+total impact onto the business
+\series default
+ becomes bearable.
+\end_layout
+
+\begin_layout Standard
+Risk analysis of enterprise-critical use cases is summarized in the following
+ table:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Tabular
+<lyxtabular version="3" rows="8" columns="3">
+<features tabularvalignment="middle">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top" width="0pt">
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+CentralStorage
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+(Local)Sharding
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Probability of 
+\emph on
+some
+\emph default
+ fatal incident
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+lower
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+higher
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+# Customers affected
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+very high
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+very low
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+MTBF per storage
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+higher
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+lower
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+MTTR per storage
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+higher
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+lower
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Unrepairable residual risk
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+higher
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+lower
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Total impact
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+higher
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+lower
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Investor's risk
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\series bold
+unbearable
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+stock exchange compatible
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Summary: CentralStorage is something for 
+\end_layout
+
+\begin_layout Itemize
+\noindent
+small to medium-sized companies which don't have the 
+\series bold
+manpower
+\series default
+ and the 
+\series bold
+skills
+\series default
+ for professionally building and operating a (Local)Sharding (or similar)
+ system for their enterprise-critical mass data their business is relying
+ upon.
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+\emph on
+monolithic
+\emph default
+ enterprise applications
+\series default
+ like classical SAP which are anyway bound to a specific vendor, where you
+ cannot select a different solution (so-called 
+\series bold
+Vendor Lock-In
+\series default
+).
+\end_layout
+
+\begin_layout Itemize
+when your application 
+\series bold
+is neither shardable
+\series default
+ by construction (c.f.
+ section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Distributed-vs-Local:"
+
+\end_inset
+
+), or when doing so would be a too high effort, 
+\series bold
+nor going to BigCluster
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Theoretically, BigCluster can be used to create 1 single huge remote LV
+ (or 1 single huge remote FS instance) out of a pool of storage machines.
+ Double-check, better triple-check that such a 
+\series bold
+big 
+\emph on
+logical
+\emph default
+ SPOF
+\series default
+ is 
+\emph on
+really
+\emph default
+ needed, and cannot be circumvented by any means.
+ Only in such a case, the current version of MARS cannot help (yet), because
+ its 
+\emph on
+current
+\emph default
+ 
+\emph on
+focus
+\emph default
+ is on a big number of machines each having relatively small LVs.
+ At 1&1 ShaHoLin, the biggest LVs are 40TiB at the moment, running for years
+ now, and bigger ones are certainly possible.
+ Only when current local RAID technology with external enclosures cannot
+ easily create a single LV in the petabyte scale, BigCluster is probably
+ the better solution (c.f.
+ section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:Reliability-Arguments-from"
+
+\end_inset
+
+).
+\end_layout
+
+\end_inset
+
+
+\series default
+ (e.g.
+ Ceph / Swift / etc, see secion 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:Reliability-Arguments-from"
+
+\end_inset
+
+) is an option.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+If you have an
+\emph on
+ already sharded
+\emph default
+ system, e.g.
+ in webhosting, don't convert it to a non-shardable one, and don't introduce
+ SPOFs needlessly.
+ You will introduce 
+\series bold
+technical debts
+\series default
+ which are likely to hurt back somewhen in future!
+\end_layout
+
+\begin_layout Standard
+As a real big 
+\begin_inset Quotes eld
+\end_inset
+
+global player
+\begin_inset Quotes erd
+\end_inset
+
+, or as a company being part of such a structure, you should be careful
+ when listening to 
+\begin_inset Quotes eld
+\end_inset
+
+marketing drones
+\begin_inset Quotes erd
+\end_inset
+
+ of proprietary CentralStorage vendors.
+ Always check your 
+\emph on
+concrete
+\emph default
+ use case.
+ Never believe in wrongly generalized claims, which are only valid in some
+ specific context, but do not really apply to your use case.
+ It could be about your 
+\emph on
+life
+\emph default
+.
+\end_layout
+
+\begin_layout Subsection
 Proprietary vs OpenSource
 \begin_inset CommandInset label
 LatexCommand label
