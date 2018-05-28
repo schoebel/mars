@@ -2926,6 +2926,23 @@ sub logdelete_res {
     next unless $nrv < $max_deletable - 1;
     _create_delete($versionlink);
   }
+
+  # remove outdated split-cluster remains
+  my %peers;
+  foreach my $path (glob("$mars/ips/ip-*")) {
+    $path =~ m:/ip-(.*):;
+    my $peer = $1;
+    $peers{$peer} = 1;
+  }
+  foreach my $leftlink (glob("$mars/{,resource-$res/}todo-*/deleted-*")) {
+    $leftlink =~ m:/deleted-(.*):;
+    my $peer = $1;
+    next if $peers{$peer};
+    my $stamp = get_link_stamp($leftlink);
+    next unless $stamp + 3600 < $start_time;
+    lprint "  unlink '$leftlink'\n" if $verbose;
+    unlink($leftlink);
+  }
 }
 
 sub cron_res {
