@@ -2156,7 +2156,11 @@ scalability
 
 \begin_layout Standard
 \noindent
-The crucial point is the storage network here: 
+The crucial point is the 
+\series bold
+storage network
+\series default
+ here: 
 \begin_inset Formula $n$
 \end_inset
 
@@ -2263,11 +2267,15 @@ over-engineering
 \end_layout
 
 \begin_layout Itemize
-When multipathing is required for improving fault tolerance of the storage
- network itself, these efforts will even 
+When 
 \series bold
-double
+multipathing
 \series default
+ is required for improving fault tolerance of the storage network itself,
+ these efforts will even 
+\emph on
+double
+\emph default
 .
 \end_layout
 
@@ -2292,9 +2300,12 @@ Sharding Architecture
 \emph on
 should have
 \emph default
- (but not always needs) a so-called replication network which can, when
- present, be dimensioned much smaller because it does neither need realtime
- operations nor scalabiliy to 
+ (but not always needs) a so-called 
+\series bold
+replication network
+\series default
+ which can, when present, be dimensioned much smaller because it does neither
+ need realtime operations nor scalabiliy to 
 \begin_inset Formula $O(n^{2})$
 \end_inset
 
@@ -2550,23 +2561,38 @@ reference "sec:Reliability-Arguments-from"
 \end_layout
 
 \begin_layout Itemize
-When you 
-\series bold
-really
-\series default
- need a 
-\series bold
+When you really need a 
+\emph on
 single
+\emph default
+ LV which is necessarily 
+\series bold
+bigger
 \series default
- LV which is necessarily bigger than can be reasonably built on top of local
- LVM.
+ than can be reasonably built on top of local LVM.
  This means, you are likely claiming that you really need 
 \series bold
 strict consistency
 \series default
- as provided by a block device or e.g.
- by a POSIX-compliant single filesystem instance on more than 1 PB with
- current technology (2018).
+ as provided by a block device on more than 1 PB with current technology
+ (2018).
+ Examples are very 
+\series bold
+big enterprise databases
+\series default
+ like classical SAP (c.f.
+ section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Local-vs-Centralized"
+
+\end_inset
+
+), or if you really need 
+\series bold
+POSIX-compliance
+\series default
+ on a single big filesystem instance.
  Be conscious when you think this is the only solution to your problem.
  Double-check or triple-check whether there is 
 \emph on
