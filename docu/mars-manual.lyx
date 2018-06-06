@@ -5497,30 +5497,79 @@ mass data replication
 \noindent
 The picture shows the main components of a standalone Unix / Linux system.
  In the late 1970s / early 1980s, a so-called 
-\series bold
+\emph on
 Buffer Cache
-\series default
+\emph default
  had been introduced into the architecture of Unix.
  Today's Linux has refined the concept to various internal caches such as
- the Page Cache and the Dentry Cache.
+ the 
+\series bold
+Page Cache
+\series default
+ (for data) and the 
+\series bold
+Dentry Cache
+\series default
+ (for metadata).
 \end_layout
 
 \begin_layout Standard
-All these caches serve only one purpose: they are reducing the load onto
- the storage by exploitation of fast RAM.
+All these caches serve one main purpose
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Another important purpose is 
+\series bold
+providing shared memory
+\series default
+.
+\end_layout
+
+\end_inset
+
+: they are reducing the load onto the storage by exploitation of fast RAM.
  A well-tuned cache can yield high cache hit ratios, typically 99%.
  In some cases (as observed in practice) even more than 99.9%.
 \end_layout
 
 \begin_layout Standard
 Now start distributing the system over long distances.
- There are two potential cut points A and B.
- Cutting at A means replication at filesystem level.
- B means replication at block level.
+ There are potential cut points A and B and C
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In theory, there is another cut point D by implementing a generically distribute
+d cache.
+ There exists some academic research on this, but practically usable enterprise-
+grade systems are rare and not wide-spread.
+\end_layout
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Standard
-When replicating at A, you will notice that the caches are 
+Cut point A is application specific, and can have advantages because it
+ has knowledge of the application.
+ For example, replication of mail queues can be controlled much more fine-graine
+d than at filesystem or block layer.
+\end_layout
+
+\begin_layout Standard
+Cut points B and C are 
+\emph on
+generic
+\emph default
+, supporting a wide variety of applicactions, without altering them.
+ Cutting at B means replication at filesystem level.
+ C means replication at block level.
+\end_layout
+
+\begin_layout Standard
+When replicating at B, you will notice that the caches are 
 \emph on
 below
 \emph default
@@ -5537,7 +5586,7 @@ maintain cache coherence
 \end_layout
 
 \begin_layout Standard
-When replicating at B, the Linux caches are 
+When replicating at C, the Linux caches are 
 \emph on
 above
 \emph default
