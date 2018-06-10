@@ -6,10 +6,9 @@
 \origin unavailable
 \textclass scrreprt
 \begin_preamble
-\usepackage[dvipsnames]{xcolor}
 \usepackage{listings}
 \end_preamble
-\options abstracton
+\options abstracton,dvipsnames
 \use_default_options true
 \begin_modules
 customHeadersFooters
@@ -4958,6 +4957,13 @@ fundamental law of storage systems
 
 \begin_layout Subsection
 Error Propagation to Client Mountpoints
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Error-Propagation-to"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -5727,6 +5733,1902 @@ Replication at filesystem level is often at single-file granularity.
 Conclusion: active-passive operation over long distances (such as between
  continents) is even an advantage.
  It keeps you from trying bad / almost impossible things.
+\end_layout
+
+\begin_layout Section
+Scalability Arguments from Architecture
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Scalability-Arguments-from"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Some people are talking about scalability by (1) looking at a relatively
+ small example cluster 
+\emph on
+implementation
+\emph default
+ of their respective (pre-)chosen 
+\emph on
+architecture
+\emph default
+ having 
+\begin_inset Formula $n$
+\end_inset
+
+ machines or 
+\begin_inset Formula $n$
+\end_inset
+
+ network components or running 
+\begin_inset Formula $n$
+\end_inset
+
+ application instances, and then (2) extrapolating its behaviour to bigger
+ 
+\begin_inset Formula $n$
+\end_inset
+
+.
+ They think if it runs with small 
+\begin_inset Formula $n$
+\end_inset
+
+, it will also run for bigger 
+\begin_inset Formula $n$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+This way of thinking and acting is completely broken, and can endanger both
+ companies and careers.
+\end_layout
+
+\begin_layout Subsection
+Example Failures of Scalability
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Example-Failures-of"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The following description is a 
+\series bold
+must read
+\series default
+ for sysadmins and system architects, and also for managers who are 
+\series bold
+responsible
+\series default
+.
+ The numbers and some details are from my memory, thus it need not be 100%
+ accurate in all places.
+\end_layout
+
+\begin_layout Standard
+It is about an operation environment for a 
+\emph on
+new
+\emph default
+ product, which was a proprietary web page editor running under a complicated
+ variant of a LAMP stack.
+\end_layout
+
+\begin_layout Standard
+The setup started with a 
+\family typewriter
+BigCluster
+\family default
+ 
+\emph on
+architecture
+\emph default
+, but actually sized as a 
+\family typewriter
+
+\begin_inset Quotes eld
+\end_inset
+
+SmallCluster
+\begin_inset Quotes erd
+\end_inset
+
+
+\family default
+ implementation.
+\end_layout
+
+\begin_layout Paragraph
+Setup 1 (NFS)
+\end_layout
+
+\begin_layout Standard
+The first setup consisted of 
+\begin_inset Formula $n=6$
+\end_inset
+
+ storage servers, each replicated to another datacenter via DRBD.
+ Each were exporting their filesystems via NFS to about the same number
+ of client servers, where Apache/PHP was supposed to serve the HTTP requests
+ from the customers, which were entering the client cluster via a HTTP load
+ balancer.
+ The load balancer was supposed to spread the HTTP load to the client servers
+ in a 
+\series bold
+round-robin
+\series default
+ fashion.
+\end_layout
+
+\begin_layout Standard
+
+\color lightgray
+At this point, eager readers may notice some similarity with the error propagati
+on problem treated in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "subsec:Error-Propagation-to"
+
+\end_inset
+
+.
+ Notice that this is about 
+\emph on
+scalability
+\emph default
+ instead, but you should compare with that, to find some similarities.
+\end_layout
+
+\begin_layout Standard
+After the complicated system was built up and was working well enough, the
+ new product was launched via a marketing campaign with free trial accounts,
+ limited to some time.
+\end_layout
+
+\begin_layout Standard
+So the number of customers was ramping up from 0 to about 20,000 within
+ a few weeks.
+ When about 20,000 customers were running on the client machines, system
+ hangs were noticed, and also from a customer's perspective.
+ When too many customers were pressing the 
+\begin_inset Quotes eld
+\end_inset
+
+save
+\begin_inset Quotes erd
+\end_inset
+
+ button in parallel on reasonably large web page projects, a big number
+ of small files, including a huge bunch of small image files, was generated
+ over a short period of time.
+ A few customers were pressing the 
+\begin_inset Quotes eld
+\end_inset
+
+save
+\begin_inset Quotes erd
+\end_inset
+
+ button several times a minute, each time re-creating all of these files
+ again and again from the proprietary web page generator.
+ Result: the system appeared to hang.
+\end_layout
+
+\begin_layout Standard
+However, all of the servers, including the storage servers, were almost
+ 
+\emph on
+idle
+\emph default
+ with respect to CPU consumption.
+ RAM sizes were also no problem.
+\end_layout
+
+\begin_layout Standard
+After investigating the problem for a while, it was noticed that the 
+\series bold
+\emph on
+network
+\series default
+\emph default
+ was the bottleneck, but not in terms of throughput.
+ The internal sockets were forming some 
+\series bold
+queues
+\series default
+ which were 
+\emph on
+delaying
+\emph default
+ the NFS requests in some 
+\series bold
+ping-pong
+\series default
+ like fashion, almost resulting in a 
+\begin_inset Quotes eld
+\end_inset
+
+deadlock
+\begin_inset Quotes erd
+\end_inset
+
+ from a customer's perspective (a better term would be 
+\series bold
+distributed livelock
+\series default
+ or 
+\series bold
+distributed thrashing
+\series default
+).
+\end_layout
+
+\begin_layout Paragraph
+Setup 2 (
+\family typewriter
+ocfs2
+\family default
+)
+\end_layout
+
+\begin_layout Standard
+Due to some external investigations and recommendations, the system was
+ converted from NFS to 
+\family typewriter
+ocfs2
+\family default
+.
+ Now DRBD was operated in active-active mode.
+ Only one system software component was replaced with another one, without
+ altering the 
+\family typewriter
+BigCluster
+\family default
+ architecture, and without changing the number of servers, which remained
+ a stripped-down 
+\family typewriter
+SmallCluster
+\family default
+ implementation.
+\end_layout
+
+\begin_layout Standard
+Result: the problem with the 
+\begin_inset Quotes eld
+\end_inset
+
+hangs
+\begin_inset Quotes erd
+\end_inset
+
+ disappeared.
+\end_layout
+
+\begin_layout Standard
+However, after the number of customers had exceeded the 
+\series bold
+next scalability limit
+\series default
+ of about 30,000 customers, the 
+\begin_inset Quotes eld
+\end_inset
+
+hang
+\begin_inset Quotes erd
+\end_inset
+
+ problem appeared once again, in a similar way.
+ The system showed systematical incidents again.
+\end_layout
+
+\begin_layout Paragraph
+Setup 3 (
+\family typewriter
+glusterfs
+\family default
+ as a substitute for NFS)
+\end_layout
+
+\begin_layout Standard
+After investigating the network queueing behaviour and the lock contention
+ problems of 
+\family typewriter
+ocfs2
+\family default
+, the next solution was 
+\family typewriter
+glusterfs
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+However, when the number of customers exceeded the 
+\series bold
+\emph on
+next
+\emph default
+ scalability limit
+\series default
+, which was about 50,000 customers hammering the cluster with their 
+\begin_inset Quotes eld
+\end_inset
+
+save
+\begin_inset Quotes erd
+\end_inset
+
+ button, the 
+\begin_inset Quotes eld
+\end_inset
+
+hangs
+\begin_inset Quotes erd
+\end_inset
+
+ appeared again.
+\end_layout
+
+\begin_layout Paragraph
+Setup 4 (
+\family typewriter
+glusterfs
+\family default
+ replication as a substitute for DRBD)
+\end_layout
+
+\begin_layout Standard
+After analyzing the problem once again, it was discovered by accident that
+ 
+\family typewriter
+drbdadm disconnect
+\family default
+ 
+\emph on
+appeared
+\emph default
+ to 
+\begin_inset Quotes eld
+\end_inset
+
+solve
+\begin_inset Quotes erd
+\end_inset
+
+ the problem.
+\end_layout
+
+\begin_layout Standard
+Therefore DRBD was replaced with 
+\family typewriter
+glusterfs
+\family default
+ replication.
+ There exists a 
+\family typewriter
+glusterfs
+\family default
+ feature allowing replication of files at filesystem level.
+\end_layout
+
+\begin_layout Standard
+This attempt was 
+\emph on
+immediately
+\emph default
+ resulting in an almost fatal disaster, and thus was stopped immediately:
+ the cluster completely broke down.
+ Almost nothing was working anymore.
+\end_layout
+
+\begin_layout Standard
+The problem was even worse: switching off the 
+\family typewriter
+glusterfs
+\family default
+ replication and rollback to DRBD did not work.
+ The system remained unusable.
+\end_layout
+
+\begin_layout Standard
+As a temporary workaround, 
+\family typewriter
+drbdadm disconnect
+\family default
+ was improving the situation enough for some humbling operation.
+\end_layout
+
+\begin_layout Standard
+Retrospective explanation: some of the reasons can be found in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "subsec:Behaviour-of-DRBD"
+
+\end_inset
+
+.
+ 
+\family typewriter
+glusterfs
+\family default
+ replication does not scale at all because it stores its replication information
+ at 
+\series bold
+per-inode granularity
+\series default
+ in EAs (extended attributes), which must 
+\emph on
+necessarily
+\emph default
+ be worse than DRBD, because there were some hundreds of millions of them
+ in total as reported by 
+\family typewriter
+df -i
+\family default
+ (see the cut point discussion in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:Performance-Arguments-from"
+
+\end_inset
+
+).
+ Overnight in some cron jobs, these EAs had to be deleted in reasonably
+ sized batches in order to become more or less 
+\begin_inset Quotes eld
+\end_inset
+
+operable
+\begin_inset Quotes erd
+\end_inset
+
+ again.
+\end_layout
+
+\begin_layout Paragraph
+Setup5 (Sharding)
+\end_layout
+
+\begin_layout Standard
+After the almost fatal incident had been resolved to a less critical one,
+ the responsibility for setup was taken over by another person.
+ After the 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ behaviour from section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:Distributed-vs-Local:"
+
+\end_inset
+
+ had been understood, and after it was clear that sharding is only 
+\begin_inset Formula $O(k)$
+\end_inset
+
+ from a customer's perspective, it was the final solution.
+ Now the problem was resolved at 
+\series bold
+\emph on
+architectural level
+\series default
+\emph default
+, no longer by just replacing some components with some others.
+\end_layout
+
+\begin_layout Standard
+The system was converted to a variant of a 
+\family typewriter
+RemoteSharding
+\family default
+ model (see section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "subsec:Variants-of-Sharding"
+
+\end_inset
+
+), and some 
+\family typewriter
+migrate
+\family default
+ scripts were introduced for load balancing of customer homedirectories
+ and databases between shards.
+\end_layout
+
+\begin_layout Standard
+As a side effect, the load balancer became a new role: instead of spreading
+ 
+\emph on
+all
+\emph default
+ of the HTTP requests to 
+\emph on
+all
+\emph default
+ of the client servers in a round-robin fashion, it now acted as a redirection
+ mechanism at 
+\emph on
+shard granularity
+\emph default
+, e.g.
+ when one of the client servers was handed over to another one for maintenance.
+\end_layout
+
+\begin_layout Standard
+This setup is working until today, scaling up to the current number of customers
+, which is more than an order of magnitude, in the range of about a million
+ of customers.
+ Of course, the number of shards had to be increased, but this is just what
+ sharding is about.
+\end_layout
+
+\begin_layout Subsection
+Properties of Storage Scalability
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Properties-Scalability"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+Influence Factors at Scalability
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Influence-Factors-Scalability"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In general, scalability of storage systems depends on the following factors
+ (list may be incomplete):
+\end_layout
+
+\begin_layout Enumerate
+The 
+\series bold
+application class
+\series default
+, in particular its principal 
+\series bold
+workingset behaviour
+\series default
+ (in both dimensions: timely and locality).
+ More explanations about workingsets can be found at 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+http://blkreplay.org
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Enumerate
+The 
+\series bold
+size
+\series default
+ 
+\begin_inset Formula $x$
+\end_inset
+
+ of the application data and/or the 
+\series bold
+number of application instances
+\series default
+ (possibly also denoted by 
+\begin_inset Formula $x$
+\end_inset
+
+), and the amount of storage needed for it (could be also termed 
+\begin_inset Formula $x$
+\end_inset
+
+).
+ Besides the data itself, the corresponding 
+\series bold
+metadata
+\series default
+ (inodes, indexes, etc) can form an important factor, or can even 
+\emph on
+dominate
+\emph default
+ the whole story.
+ Typically, critical datacenter application data is tremendously differently
+ sized from workstation data.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Caution! Many people think erronously that scalability would be 
+\emph on
+linearly
+\emph default
+ depending on 
+\begin_inset Formula $x$
+\end_inset
+
+.
+ However, as is known at least since the 1960s (read some ancient papers
+ from Saltzer and/or from Denning), scalability is 
+\series bold
+never linear
+\series default
+, but sometimes even 
+\series bold
+\emph on
+disruptive
+\series default
+\emph default
+, in particular when RAM size is the bottleneck.
+ IO queues and/or networking queues are often also reacting to overload
+ in a disruptive fashion.
+ This means: after exceeding the 
+\series bold
+scalability limit
+\series default
+ of a particular system for its particular class of applications, the system
+ will always 
+\series bold
+break down
+\series default
+ from a customer's perspective, sometimes almost completely, and sometimes
+ even 
+\series bold
+\emph on
+fatally
+\series default
+\emph default
+.
+\begin_inset Newline newline
+\end_inset
+
+ 
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ On the other hand, some other systems are reacting with 
+\series bold
+graceful degradation
+\series default
+.
+ Whether a particular systems reacts to a particular type of (over)load,
+ either with graceful degradation, or with fatal disruption, or with some
+ intermediate behaviour, is some sort of 
+\begin_inset Quotes eld
+\end_inset
+
+quality property
+\begin_inset Quotes erd
+\end_inset
+
+ of the system and/or of the application.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ EVERY SYSTEM, even sharded systems, and even the internet as a whole, has
+ 
+\emph on
+always
+\emph default
+ some scalability limit 
+\emph on
+somewhere
+\emph default
+.
+ There exists 
+\series bold
+no 
+\begin_inset Quotes eld
+\end_inset
+
+inifinitely scaling
+\begin_inset Quotes erd
+\end_inset
+
+ system
+\series default
+ on earth!
+\end_layout
+
+\begin_layout Enumerate
+The 
+\series bold
+\emph on
+distribution
+\series default
+\emph default
+ of the application behaviour in both 
+\series bold
+timely
+\series default
+ and 
+\series bold
+locality
+\series default
+ dimensions.
+ Depending on the application class, this is often an 
+\emph on
+exponential
+\emph default
+ distribution according to Zipf's law.
+ By falsely 
+\emph on
+assuming
+\emph default
+ an equal distribution (or a Gaussian distribution) instead of actually
+ measuring the distribution in both dimensions, you can easily induce zillions
+ of costly problems for big 
+\begin_inset Formula $x$
+\end_inset
+
+, or even fatal failure of the whole system / project.
+\end_layout
+
+\begin_layout Enumerate
+The 
+\series bold
+transformation
+\series default
+ of the application workingset behaviour at architectural level, sometimes
+ caused by certain components resp their specific implementation or parameteriza
+tion.
+ Examples are intermediate virtualization layers, e.g.
+ vmware 
+\family typewriter
+*.vmdk
+\family default
+ or KVM 
+\family typewriter
+*.qcow2
+\family default
+ container formats which can completely change the game, not only in extreme
+ cases.
+ Another example is 
+\series bold
+random distribution
+\series default
+ to object stores, which can turn some uncomplicated sequential workloads
+ into highly problematic 
+\emph on
+random IO
+\emph default
+ workloads.
+ Don't overlook such potential pitfalls!
+\end_layout
+
+\begin_layout Enumerate
+The storage 
+\series bold
+architecture
+\series default
+ to be chosen, such as 
+\family typewriter
+CentralStorage
+\family default
+ vs 
+\family typewriter
+BigCluster
+\family default
+ vs 
+\family typewriter
+*Sharding
+\family default
+.
+ Choice of the wrong architecture can be fatal for big 
+\begin_inset Formula $n$
+\end_inset
+
+ and/or for certain timely / spatial application behaviour.
+ Changing an architecture during operations on some petabytes of data and/or
+ some billions of inodes can be almost impossible, and/or can consume a
+ lot of time and money.
+\end_layout
+
+\begin_layout Enumerate
+The 
+\series bold
+number
+\series default
+ of storage 
+\series bold
+nodes
+\series default
+ 
+\begin_inset Formula $n$
+\end_inset
+
+.
+ In some architectures, addition of more nodes can make the system 
+\emph on
+worse
+\emph default
+ instead of better, c.f.
+ section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:Reliability-Arguments-from"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Enumerate
+In case of architectures relying on a storage network: choice of 
+\series bold
+layer
+\series default
+ for cut point, e.g.
+ filesystem layer vs block layer, see section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:Performance-Arguments-from"
+
+\end_inset
+
+, and/or introduction of an additional intermediate object storage layer
+ (which can result in major degradation from an architectural view).
+ Due to fundamental differences in distributed vs local 
+\series bold
+cache coherence
+\series default
+, suchalike can have a 
+\emph on
+tremendous
+\emph default
+ effect on scalability.
+\end_layout
+
+\begin_layout Enumerate
+The 
+\series bold
+implementation
+\series default
+ of the architecture.
+ Be sure to understand the difference between an 
+\emph on
+architecture
+\emph default
+ and an 
+\emph on
+implementation
+\emph default
+ of that architecture.
+\end_layout
+
+\begin_layout Enumerate
+The size and types / properties of various 
+\series bold
+caches
+\series default
+ at various layers.
+ You need to know the general properties of 
+\series bold
+inclusive
+\series default
+ vs 
+\series bold
+exclusive
+\series default
+ cache architecture.
+ You absolutely need to know what 
+\series bold
+thrashing
+\series default
+ is, and under which conditions it can occur.
+\begin_inset Newline newline
+\end_inset
+
+It is advantagous for system architects to know
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Reading a few Wikipedia articles does not count as 
+\begin_inset Quotes eld
+\end_inset
+
+knowledge
+\begin_inset Quotes erd
+\end_inset
+
+.
+ You need to be able to 
+\emph on
+apply
+\emph default
+ your knowdedge to enterprise level systems (as opposed to workstation-sized
+ systems), 
+\emph on
+sustainable
+\emph default
+ and 
+\emph on
+reproducible
+\emph default
+.
+ Therefore you need to have 
+\emph on
+actually worked
+\emph default
+ in the matter and gained some extraordinary experiences, on top of deep
+ understanding of the matter.
+\end_layout
+
+\end_inset
+
+ pre-loading strategies, as well as replacement strategies.
+ It is advantageous to know what 
+\family typewriter
+LRU
+\family default
+ or 
+\family typewriter
+MFU
+\family default
+ means, what their induced 
+\emph on
+overhead
+\emph default
+ is, and how they 
+\emph on
+really
+\emph default
+ work on 
+\emph on
+actual
+\emph default
+ data, not just on some artificial lab data.
+ You also should know what an 
+\series bold
+anomaly
+\series default
+ is, and how it can be produced not only by 
+\family typewriter
+FIFO
+\family default
+ strategies, but also by certain types of ill-designed multi-layer caching.
+ Beware: there are places where 
+\family typewriter
+FIFO
+\family default
+-like behaviour is almost impossible to avoid, such as networks.
+ All of these is outside the scope of this MARS manual.
+ You should 
+\emph on
+measure
+\emph default
+, when possible, the 
+\series bold
+overhead
+\series default
+ of cache implementations.
+ I know of 
+\emph on
+examples
+\emph default
+ where caching is c
+\emph on
+ounter-productive
+\emph default
+.
+ For example, certain types and implementations of SSD caches are over-hyped.
+ Removing a certain cache will then 
+\emph on
+improve
+\emph default
+ the situation.
+ Notice: caches are conceptually based on some type of 
+\series bold
+associative memory
+\series default
+, which is either very costly when directly implemented in hardware, or
+ can suffer from tremendous performance penalties when implemented inappropriate
+ly in software.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Hardware dimensioning
+\series default
+ of the implementation: choice of storage hardware, for each storage node.
+ This includes SSDs vs HDDs, their attachment (e.g.
+ SAS multiplexing bottlenecks), RAID level, and controller limitations,
+ etc.
+\end_layout
+
+\begin_layout Enumerate
+Only for architectures relying on a storage network: network 
+\series bold
+throughput
+\series default
+ and network 
+\series bold
+latencies
+\series default
+, and network 
+\series bold
+bottlenecks
+\series default
+, including the 
+\series bold
+queueing
+\series default
+ behaviour / congestion control / 
+\series bold
+packet loss
+\series default
+ behaviour upon overload.
+ The latter is often neglected, leading to unexpected behaviour at load
+ peaks, and/or leading to costly over-engineering (examples see section
+ 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "subsec:Example-Failures-of"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+\emph on
+Hidden
+\emph default
+ bottlenecks
+\series default
+ of various types.
+ A complete enumeration is almost impossible, because there are too many
+ 
+\begin_inset Quotes eld
+\end_inset
+
+opportunities
+\begin_inset Quotes erd
+\end_inset
+
+.
+ To reduce the latter, my general advice is to try to build bigger systems
+ as 
+\emph on
+simple
+\emph default
+ as possible.
+ This is why you should involve some 
+\emph on
+real
+\emph default
+ experts in storage systems, at least on critical enterprise data.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ 
+\emph on
+Any
+\emph default
+ of these factors can be dangerous when not carefully thought about and
+ treated, depending on your use case.
+\end_layout
+
+\begin_layout Subsubsection
+Example Scalability Scenario
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Example-Scalability-Scenario"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+To get an impression what 
+\begin_inset Quotes eld
+\end_inset
+
+enterprise critical data
+\begin_inset Quotes erd
+\end_inset
+
+ can mean in a concrete example, here are some characteristic numbers on
+ 1&1 ShaHoLin (Shared Hosting Linux) around spring 2018, which would be
+ the 
+\emph on
+input parameters
+\emph default
+ for 
+\emph on
+any
+\emph default
+ potential solution architecture 
+\family typewriter
+CentralStorage
+\family default
+ vs 
+\family typewriter
+BigCluster
+\family default
+ vs 
+\family typewriter
+Sharding
+\family default
+:
+\end_layout
+
+\begin_layout Itemize
+About 9 millions of customer homedirectories.
+\end_layout
+
+\begin_layout Itemize
+About 10 billions of inodes, with daily incremental backup.
+\end_layout
+
+\begin_layout Itemize
+More than 4 petabytes of 
+\emph on
+net
+\emph default
+ data (total 
+\family typewriter
+df
+\family default
+ filling level) in spring 2018, with a growth rate of 21% per year.
+\end_layout
+
+\begin_layout Itemize
+All of this permanently replicated into a second datacenter.
+\end_layout
+
+\begin_layout Itemize
+Webhosting very close to 24/7/365.
+ For maintenance, any resource must be switchable to the other datacenter
+ at any time, indepently from other resources; while in catastrophic failure
+ scenarios 
+\emph on
+all
+\emph default
+ resources must be switchable within a short time.
+\end_layout
+
+\begin_layout Standard
+For simplicity of our sandbox game, we assume that all of this is in one
+ campus.
+ In reality, about 30% is residing in another continent.
+ Introducing this as an additional input parameter would not fundamentally
+ change the game.
+ Many other factors, like dependencies from existing infrastructure, are
+ also neglected.
+\end_layout
+
+\begin_layout Paragraph
+Theoretical Solution: 
+\family typewriter
+CentralStorage
+\end_layout
+
+\begin_layout Standard
+Let us assume somebody would try to operate this on classical 
+\family typewriter
+CentralStorage
+\family default
+, and let us assume that migration of this amount of data including billions
+ of inodes would be no technical problem.
+ What would be the outcome?
+\end_layout
+
+\begin_layout Standard
+With current technology, finding a single 
+\family typewriter
+CentralStorage
+\family default
+ appliance would be all else but easy.
+ Dimensioning would be needed for the 
+\emph on
+lifetime
+\emph default
+ of such a solution, which is at least 5 years.
+ In five years, the data would grow by a factor of about 
+\begin_inset Formula $1.21^{5}=2.6$
+\end_inset
+
+, which is then about 
+\begin_inset Formula $10.5$
+\end_inset
+
+ petabytes.
+ This is only the 
+\emph on
+net
+\emph default
+ capacity; at hardware layer much more is needed for spare space and for
+ local redundancy.
+ The single 
+\family typewriter
+CentralStorage
+\family default
+ instance will need to scale up to at least this number, in one datacenter
+ (under the simplified game assumptions).
+\end_layout
+
+\begin_layout Standard
+The current number of client LXC containers is about 
+\begin_inset Formula $2600$
+\end_inset
+
+, independent from location.
+ You will have to support growth in number of them.
+ For maintenance, any of these need to be switchable to a different location
+ at any time.
+ The number of bare metal servers running them can vary with hardware architectu
+re / hardware lifecycle, and with growth.
+ You will need to dimension a dedicated storage network for all of this.
+\end_layout
+
+\begin_layout Standard
+If you find a solution which can do this with current 
+\family typewriter
+CentralStorage
+\family default
+ technology for the next 5 years, then you will have to ensure that restore
+ from backup
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Local snapshots, whether LVM or via some COW filesystem, do not count as
+ backups! You need a 
+\emph on
+logical
+\emph default
+ copy, not a 
+\emph on
+physical
+\emph default
+ one, in case your production filesystem instance gets damaged.
+\end_layout
+
+\end_inset
+
+ can be done in less than 1 day in case of a fatal disaster, see also treatment
+ of 
+\family typewriter
+CentralStorage
+\family default
+ reliability in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "subsec:Reliability-Differences-CentralStorage"
+
+\end_inset
+
+.
+ Notice that the current self-built backup solution for a total of 15 billions
+ of inodes is based on a sharding model; converting this to some more or
+ less centralized solution turns out as another challenge.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Attention! Buying 10 or 50 or 100 CentralStorage instances does not count
+ as a 
+\family typewriter
+CentralStorage
+\family default
+ architecture.
+ By definition, suchalike would be 
+\family typewriter
+RemoteSharding
+\family default
+ instead.
+ Notice that the current 1&1 solution is already a mixture of 
+\family typewriter
+LocalSharding
+\family default
+ and 
+\family typewriter
+RemoteSharding
+\family default
+, so you would win 
+\emph on
+nothing
+\emph default
+ at architectural level.
+ 
+\end_layout
+
+\begin_layout Standard
+In your business case, you would need to justify the price difference between
+ the current component-based hardware solution (horizontally extensible
+ by 
+\emph on
+scale-out
+\emph default
+) and 
+\family typewriter
+CentralStorage
+\family default
+, which is about a factor of 10 per terabyte according to the table in section
+ 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Cost-Arguments-from"
+
+\end_inset
+
+.
+ Even if you manage to find a vendor who is willing to subsidize to a factor
+ of only 3, this is not all you need.
+ You need to add the costs for the dedicated storage network.
+ On top of this, you need to account for the 
+\emph on
+migration costs
+\emph default
+ after the lifetime of 5 years has passed, where the full data set needs
+ to be migrated to a successor storage system.
+\end_layout
+
+\begin_layout Standard
+Notice that classical argumentations with 
+\series bold
+\emph on
+manpower
+\series default
+\emph default
+ will not work.
+ The current operating team is about 10 persons, with no dedicated storage
+ admin.
+ This relatively small team is not only operating a total of more than 6,000
+ shared boxes in all datacenters, but also some tenthousands of managed
+ dedicated servers, running essentially the same software stack, with practicall
+y fully automated mass deployment.
+ Most of their tasks are related to central software installation, which
+ is then automatically distributed, and to operation / monitoring / troubleshoot
+ing of masses of client servers.
+ Storage administration tasks in isolation are costing only a 
+\emph on
+fraction
+\emph default
+ of this.
+ Typical claims that 
+\family typewriter
+CentralStorage
+\family default
+ would require less manpower will not work here.
+ Almost everything which is needed for 
+\emph on
+mass automation
+\emph default
+ is already automated.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Neglecting the tenthousands of managed dedicated servers would be a catastrophi
+c ill-design.
+ Their hardware is already given, by existing customer contracts, some of
+ them decades old.
+ You simply cannot fundamentally change the hardware of these customers
+ including their 
+\emph on
+dedicated
+\emph default
+ local disks, which is their 
+\emph on
+main selling point
+\emph default
+.
+ You cannot simply convert them to a shared 
+\family typewriter
+CentralStorage
+\family default
+, even if it would be technically possible, and if it would deliver similar
+ IOPS rates than tenthousands of local spindles (and if you could reach
+ the bundled performance of local SSDs from newer contracts), and even if
+ you would introduce some interesting 
+\series bold
+storage classes
+\series default
+ for all of this.
+ A dedicated server on top of a shared storage is no longer a dedicated
+ one.
+ You would have to migrate these customers to another product, with all
+ of its consequences.
+ Alone for these machines, 
+\emph on
+most
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Only a few out of >1000 self-built or customized Debian packages are dealing
+ with MARS and/or with the clustermanager 
+\family typewriter
+cm3
+\family default
+.
+\end_layout
+
+\end_inset
+
+
+\emph default
+ of the current automation of 
+\family typewriter
+LocalStorage
+\family default
+ is needed 
+\emph on
+anyway
+\emph default
+, although they are not geo-redundant at current stage.
+\end_layout
+
+\begin_layout Standard
+Conclusion: 
+\family typewriter
+CentralStorage
+\family default
+ is simply 
+\emph on
+unrealistic
+\emph default
+.
+\end_layout
+
+\begin_layout Paragraph
+Theoretical Solution: 
+\family typewriter
+BigCluster
+\end_layout
+
+\begin_layout Standard
+The main problem of 
+\family typewriter
+BigCluster
+\family default
+ is 
+\series bold
+reliability
+\series default
+, as explained intuitively in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:Reliability-Arguments-from"
+
+\end_inset
+
+ and mathematically in appendix 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "chap:Mathematical-Model-of"
+
+\end_inset
+
+, and as observed in numerous installations not working as expected.
+\end_layout
+
+\begin_layout Standard
+Let us assume that all of these massive technical problems were solved,
+ somehow.
+ Then the business case would have to deal with the following:
+\end_layout
+
+\begin_layout Standard
+The total number of servers would need to be roughly 
+\emph on
+doubled
+\emph default
+.
+ Not only their CAPEX, but also the corresponding OPEX (electrical power,
+ rackspace, manpower) would increase.
+ Alone their current electrical power cost, including cooling, is more than
+ the current sysadmin manpower cost.
+ Datacenter operations would also increase.
+ On top, a dedicated storage network and its administration would also be
+ needed.
+\end_layout
+
+\begin_layout Standard
+With respect to the tenthousands of managed dedicated servers and their
+ customer contracts, a similar argument as above holds.
+ You simply cannot convert them to 
+\family typewriter
+BigCluster
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+Conclusion: 
+\family typewriter
+BigCluster
+\family default
+ is also 
+\emph on
+unrealistic
+\emph default
+.
+ There is nothing to win, but a lot to loose.
+\end_layout
+
+\begin_layout Paragraph
+Current Solution: 
+\family typewriter
+LocalSharding
+\family default
+, sometimes 
+\family typewriter
+RemoteSharding
+\end_layout
+
+\begin_layout Standard
+Short story: it works since decades, and is both cheap and robust since
+ geo-redundancy had been added around 2010.
+\end_layout
+
+\begin_layout Standard
+With the advent of Football (see chapter 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "chap:LV-Football"
+
+\end_inset
+
+), the 
+\family typewriter
+LocalSharding
+\family default
+ architecture is raising up on par with the most important management abilities
+ of 
+\family typewriter
+CentralStorage
+\family default
+ and 
+\family typewriter
+BigCluster
+\family default
+ / Software Defined Storage.
+\end_layout
+
+\begin_layout Standard
+The story with the tenthousands of managed dedicated servers is arguing
+ vice versa: without the traditional ShaHoLin sharding architecture and
+ all of its automation, including the newest addition called Football, the
+ product 
+\begin_inset Quotes eld
+\end_inset
+
+managed dedicated servers
+\begin_inset Quotes erd
+\end_inset
+
+ would not be possible in this scale.
+ 
+\end_layout
+
+\begin_layout Standard
+Summay: the sharded 
+\begin_inset Quotes eld
+\end_inset
+
+shared
+\begin_inset Quotes erd
+\end_inset
+
+ product enables another 
+\begin_inset Quotes eld
+\end_inset
+
+dedicated
+\begin_inset Quotes erd
+\end_inset
+
+ product, which is sharded by definition, and it actually is known to scale
+ up by at least another order of magnitude (in terms of number of servers).
+\end_layout
+
+\begin_layout Subsection
+Scalability of Filesystem Layer vs Block Layer
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Filesystem-Layer-vs"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Following factors are responsible for better architectural scalability of
+ the block layer vs the filesystem layer, at least in many cases, with a
+ few exceptions (list may be incomplete):
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Granularity
+\series default
+ of access: 
+\series bold
+metadata
+\series default
+ is often smaller than the content data it refers to, but access to data
+ is typically not possible without accessing corresponding metadata 
+\emph on
+first
+\emph default
+.
+ When masses of metadata are present (e.g.
+ some billions of inodes as in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "subsec:Example-Scalability-Scenario"
+
+\end_inset
+
+), and when it is accessed 
+\series bold
+more frequently
+\series default
+ than the corresponding data (e.g.
+ in stateless designs like Apache), it is likely to become the bottleneck.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Neglecting metadata and its access patterns is a major source of ill-designs.
+ I know of projects which have failed (in their original setup) because
+ of this.
+ Repair will typically involve some non-trivial architectural changes.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+By default, the block layer itself has almost no metadata at all (or only
+ tiny ones, such as describing a whole block device).
+ Therefore it has an 
+\emph on
+inherent advantage
+\emph default
+ over the filesystem layer in such use cases.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Caching
+\series default
+: shared memory caches in kernelspace (page cache + dentry cache) vs distributed
+ caches over network.
+ See the picture in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:Performance-Arguments-from"
+
+\end_inset
+
+.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ There exist 
+\emph on
+examples
+\emph default
+ where shared distributed caches do not work at all.
+ I know of 
+\emph on
+several
+\emph default
+ projects which have failed.
+ Another project than mentioned in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "subsec:Example-Failures-of"
+
+\end_inset
+
+ has failed because of violations of POSIX filesystem semantics.
+\end_layout
+
+\begin_layout Enumerate
+Only in distributed systems: the 
+\series bold
+cache coherence problem
+\series default
+, both on metadata and on data.
+ Depending on load patterns, this can lead to tremendous performance degradation
+, see example in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "subsec:Example-Failures-of"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Enumerate
+Dimensioning of the 
+\series bold
+network
+\series default
+: throughput, latencies, queueing behaviour.
+\end_layout
+
+\begin_layout Standard
+There exist a few known exceptions (list may be incomplete, please report
+ further examples if you know some):
+\end_layout
+
+\begin_layout Itemize
+Databases: these are typically operating on specific container formats,
+ where no frequent 
+\emph on
+external
+\emph default
+ metadata access is necessary, and where no sharing of the 
+\emph on
+container as such
+\emph default
+ is necessary.
+ Typically, there is no big difference between storing them in block devices
+ vs local filesystems.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Exception from the exception: MyISAM is an old design from the 1980s, originall
+y based on DBASE data structures.
+ Don't try to access them over NFS or similar.
+ Or, better, try to avoid them at all if possible.
+\end_layout
+
+\begin_layout Itemize
+VM images: these are logical BLOBS, so there is typically no big difference
+ whether you have an intermediate 
+\emph on
+true
+\emph default
+ filesystem layer, or not.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Filesystems on top of object stores are no true filesystems.
+ They are violating Dijkstra's important layering rules, as stated in his
+ famous articles on THE.
+ A similar argument holds for block devices on top of object stores.
+ Intermediate container formats like 
+\family typewriter
+*.vmdk
+\family default
+ or 
+\family typewriter
+*.qcow2
+\family default
+ can also act as game changers.
+ This does not mean that you have to avoid them at all.
+ However, be sure to 
+\series bold
+check their influence
+\series default
+, and don't forget their 
+\emph on
+workingset
+\emph default
+ and their 
+\emph on
+caching behaviour
+\emph default
+ (which can go both into positive and into negative direction), in order
+ to really 
+\emph on
+know what you are doing!
 \end_layout
 
 \begin_layout Chapter
