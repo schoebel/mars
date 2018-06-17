@@ -419,6 +419,191 @@ reference "chap:LV-Football"
 \end_layout
 
 \begin_layout Section
+What is 
+\emph on
+Cloud Storage
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Requirements-for-Cloud"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+According to a popular definition from 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/Cloud_storage
+\end_layout
+
+\end_inset
+
+ (retrieved June 2018), cloud storage is
+\end_layout
+
+\begin_layout Description
+(1) Made up of many 
+\series bold
+distributed resources
+\series default
+, but still 
+\series bold
+act as one
+\series default
+.
+\end_layout
+
+\begin_layout Description
+(2) Highly 
+\series bold
+fault tolerant
+\series default
+ through redundancy and distribution of data.
+\end_layout
+
+\begin_layout Description
+(3) Highly 
+\series bold
+durable
+\series default
+ through the creation of versioned copies.
+\end_layout
+
+\begin_layout Description
+(4) Typically 
+\series bold
+eventually consistent
+\series default
+ with regard to data replicas.
+\end_layout
+
+\begin_layout Standard
+There are some consequences from this definition:
+\end_layout
+
+\begin_layout Enumerate
+Distributed Storage, in particular BigCluster architectures (see section
+ 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Distributed-vs-Local:"
+
+\end_inset
+
+): many of them (with few exceptions) are conforming to all of these requirement
+s.
+ Typical granularity are objects, or chunks, or other relatively small units
+ of data.
+\end_layout
+
+\begin_layout Enumerate
+Centralized Storage: does not conform to (1) and to (4) by definition
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Notice that sharding on top of CentralStorage is no longer a CentralStorage
+ model by definition, but a RemoteSharding model according to section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "subsec:Variants-of-Sharding"
+
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+.
+ By introduction of synchronous or asynchronous replication, it can be made
+ to 
+\emph on
+almost
+\emph default
+ conform, except for (1) where some concept mismatches remain (probably
+ resolvable by going to a RemoteSharding model on top of CentralStorage,
+ where CentralStorage is only a 
+\emph on
+sub-component
+\emph default
+).
+ Typical granularity is replication of whole storage pools, or of LVs, or
+ of filesystem data.
+\end_layout
+
+\begin_layout Enumerate
+LocalStorage, and some further models like RemoteSharding (see section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "subsec:Variants-of-Sharding"
+
+\end_inset
+
+): 
+\end_layout
+
+\begin_deeper
+\begin_layout Description
+(1) can be achieved at LV granularity with Football (see chapter 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "chap:LV-Football"
+
+\end_inset
+
+), which creates a 
+\series bold
+Big Virtual LVM Pool
+\series default
+.
+\end_layout
+
+\begin_layout Description
+(2) can be achieved at disk granularity with local RAID, and at LV granularity
+ with DRBD or MARS.
+\end_layout
+
+\begin_layout Description
+(3) can be achieved at LV granularity with LVM snapshots, and/or ZFS (or
+ other filesystem) snapshots, and/or above filesystem layer by addition
+ of classical backup.
+\end_layout
+
+\begin_layout Description
+(4) can be achieved by MARS, which provides two different consistency guarantees
+ at different levels, 
+\emph on
+both at the same time
+\emph default
+:
+\end_layout
+
+\begin_deeper
+\begin_layout Description
+locally: Strict local consistency at LV granularity, also 
+\emph on
+within
+\emph default
+ any LV replica.
+\end_layout
+
+\begin_layout Description
+globally: Eventually consistent 
+\emph on
+between
+\emph default
+ different LV replicas.
+\end_layout
+
+\end_deeper
+\end_deeper
+\begin_layout Section
 Local vs Centralized Storage
 \begin_inset CommandInset label
 LatexCommand label
