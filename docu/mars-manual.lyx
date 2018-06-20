@@ -8225,6 +8225,374 @@ caching behaviour
 know what you are doing!
 \end_layout
 
+\begin_layout Section
+Recommendations for Designing and Operating Storage Systems
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Recommendations-for-Designing"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In order of precedence, do the following:
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Fix and/or limit and/or tune the 
+\emph on
+application
+\series default
+\emph default
+.
+\begin_inset Newline newline
+\end_inset
+
+Some extreme examples:
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+When you encounter a classical Unix 
+\series bold
+fork bomb
+\series default
+, you have no chance against it.
+ Even the 
+\begin_inset Quotes eld
+\end_inset
+
+best and the most expensive hardware
+\begin_inset Quotes erd
+\end_inset
+
+ is unable to successfully run a fork bomb.
+ The only countermeasure is 
+\emph on
+limitation of resources
+\emph default
+.
+ Reason: unlimited resources do not exist on earth.
+\end_layout
+
+\begin_layout Itemize
+If you think that this were only of academic interest: several types of
+ internet 
+\series bold
+DDOS attacks
+\series default
+ are acting like a fork bomb, and 
+\series bold
+Apache
+\series default
+ is also acting similar to a fork bomb when not configured properly.
+ This is not about academics, it is about 
+\emph on
+your survival
+\emph default
+ (in the sense of Darwin).
+\end_layout
+
+\begin_layout Itemize
+If you think it cannot hurt you because you are running 
+\family typewriter
+fast-cgi
+\family default
+ or another application scheme where forks are not part of the game (e.g.
+ databases and many others): please notice that 
+\series bold
+network queues
+\series default
+ are often acting as a replacement for processes.
+ Overflow of queues can have a similar effect than fork bombs from the viewpoint
+ of customers: they simply don't get the service they are expecting.
+\end_layout
+
+\begin_layout Itemize
+Real-life example: some percentage of 
+\family typewriter
+WordPress
+\family default
+ customers are typically and 
+\emph on
+systematically
+\emph default
+ 
+\series bold
+misconfiguring
+\series default
+ their 
+\family typewriter
+wp-cron
+\family default
+ cron jobs.
+ They create backups of their website, which 
+\emph on
+include
+\emph default
+ their old backups.
+ Result: in each generation of the backups, the needed disk space will roughly
+ 
+\emph on
+double
+\emph default
+.
+ Even if you had 
+\begin_inset Quotes eld
+\end_inset
+
+unlimited storage
+\begin_inset Quotes erd
+\end_inset
+
+ on top of the 
+\begin_inset Quotes eld
+\end_inset
+
+best and the most expensive storage system
+\begin_inset Quotes erd
+\end_inset
+
+, and even if you would like to give 
+\begin_inset Quotes eld
+\end_inset
+
+unlimited storage
+\begin_inset Quotes erd
+\end_inset
+
+ to your customers, it simply cannot work at all.
+ Exponential growth is exponential growth.
+ After a few months of this kind of daily backup, you would need more storage
+ than atoms exist in the whole universe.
+ You 
+\emph on
+must
+\emph default
+ introduce some quota limits somewhere.
+ And you 
+\emph on
+must
+\emph default
+ ensure that the 
+\family typewriter
+wp-cron
+\family default
+ misconfiguration is fixed, whoever is responsible for fixing it.
+\end_layout
+
+\begin_layout Itemize
+Another 
+\family typewriter
+WordPress
+\family default
+ example: the 
+\family typewriter
+wp-cron
+\family default
+ configuration syntax is not easily understandable by laymen.
+ It is easy to 
+\series bold
+misconfigure
+\series default
+ such that a backup is created 
+\emph on
+once per minute
+\emph default
+.
+ As long as the website is very small, this will not even be noticed by
+ sysadmins.
+ However, for bigger websites (and they are typically growing over time),
+ the IO load may increase to a point until even asynchronous replication
+ over 10Gig interfaces cannot catch up.
+ Even worse: the next run of 
+\family typewriter
+wp-cron
+\family default
+ may start before the old one has finished within a minute.
+ Again, there is no chance except fixing the 
+\emph on
+root cause
+\emph default
+ at application level.
+\end_layout
+
+\end_deeper
+\begin_layout Enumerate
+
+\series bold
+Choose the right 
+\emph on
+overall
+\emph default
+ architecture
+\series default
+ (not limited to storage).
+\begin_inset Newline newline
+\end_inset
+
+An impressive example for ill-design can be found in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "subsec:Example-Failures-of"
+
+\end_inset
+
+.
+ Important explanations are in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "subsec:Properties-Scalability"
+
+\end_inset
+
+, in particular subsection 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "subsec:Influence-Factors-Scalability"
+
+\end_inset
+
+, and section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "subsec:Filesystem-Layer-vs"
+
+\end_inset
+
+.
+ A strategic example is in subsection 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "subsec:Example-Scalability-Scenario"
+
+\end_inset
+
+.
+ It is absolutely necessary to know the standard cache hierarchy of Unix
+ (similarly also found in Windows) from section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:Performance-Arguments-from"
+
+\end_inset
+
+.
+ More explanations are in this manual at many places.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In general, major ill-designs of overall architectures (end-to-end) cannot
+ be fixed at component level.
+ Even the 
+\begin_inset Quotes eld
+\end_inset
+
+best tuning of the world
+\begin_inset Quotes erd
+\end_inset
+
+ executed by the 
+\begin_inset Quotes eld
+\end_inset
+
+best tuning expert
+\begin_inset Quotes erd
+\end_inset
+
+ on top of the 
+\begin_inset Quotes eld
+\end_inset
+
+best and most expensive storage 
+\emph on
+components
+\emph default
+ and the best storage 
+\emph on
+network
+\emph default
+ of the world
+\begin_inset Quotes erd
+\end_inset
+
+ cannot compensate major ill-designs, such as 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ behaviour.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Similarly for reliability: if you have problems with too many and/or too
+ large incidents affecting too many customers, read sections 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:Reliability-Arguments-from"
+
+\end_inset
+
+ and 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "subsec:Reliability-Differences-CentralStorage"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Choice and tuning of components
+\series default
+.
+\begin_inset Newline newline
+\end_inset
+
+No further explanations necessary, because most people already know this.
+ In case you think this is the only way: no, it is typically the 
+\emph on
+worst
+\emph default
+ and typically only the 
+\emph on
+last resort
+\emph default
+ when compared to the previous enumeration items.
+\begin_inset Newline newline
+\end_inset
+
+Exception: choice of wrong components with insufficient properties for your
+ particular application / use case.
+ But this is an 
+\emph on
+architectural
+\emph default
+ problem in reality.
+\end_layout
+
 \begin_layout Chapter
 Use Cases for MARS vs DRBD
 \begin_inset CommandInset label
