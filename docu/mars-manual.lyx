@@ -5147,7 +5147,7 @@ among
 For simplicity of the example, we assume that any single storage server
  node used in either architecture, including all of its local disks, has
  a reliability of 99.99% (four nines).
- This means, the probability of a storage node failure is uniformaly assumed
+ This means, the probability of a storage node failure is uniformly assumed
  as 
 \begin_inset Formula $p=0.0001$
 \end_inset
