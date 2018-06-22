@@ -3652,13 +3652,21 @@ In case you already have a redundant LV copy somewhere, you should run a
 
 Example: see 
 \family typewriter
-tetris.sh
+football.sh
 \family default
  in the 
 \family typewriter
-contrib/
+football/
 \family default
- directory of MARS.
+ directory of MARS, which is a checkout of the Football sub-project (see
+ chapter 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "chap:LV-Football"
+
+\end_inset
+
+).
 \end_layout
 
 \begin_layout Itemize
