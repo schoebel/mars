@@ -3705,7 +3705,7 @@ swapping
 \end_layout
 
 \begin_layout Section
-Cost Arguments from Technology
+Cost Arguments
 \begin_inset CommandInset label
 LatexCommand label
 name "sec:Cost-Arguments-from"
@@ -3759,6 +3759,10 @@ commodity
 \end_inset
 
  part.
+\end_layout
+
+\begin_layout Subsection
+Cost Arguments from Technology
 \end_layout
 
 \begin_layout Standard
@@ -4004,20 +4008,56 @@ yes
 \begin_layout Standard
 \noindent
 You can see that any self-built and self-administered storage (whose price
- varies with slower high-capacity versus faster low-capacity disks) is much
- cheaper than any commercial offering by about a factor of 10 or even more.
- If you need to operate serveral petabytes of data, self-built storage is
- always cheaper than commercial one, even if additional manpower would be
- needed for commissioning and operating.
+ varies with slower high-capacity disks versus faster low-capacity disks)
+ is much cheaper than any commercial offering by about a factor of 10 or
+ even more.
+ If you need to operate several petabytes of data, self-built storage is
+ always cheaper than commercial one, even if additional manpower is needed
+ for commissioning and operating.
+ You don't have to pay the shareholders of the storage provider.
  Here we just assume that the storage is needed permanently for at least
  5 years, as is the case in web hosting, databases, backup / archival systems,
  and many other application areas.
 \end_layout
 
 \begin_layout Standard
-Cloud storage is way too much hyped.
- From a commercial perspective it usually pays off only when your storage
- demands are 
+Commercial offerings of cloud storage are way too much hyped.
+ Some people apparently don't know that the generic term 
+\begin_inset Quotes eld
+\end_inset
+
+Cloud Storage
+\begin_inset Quotes erd
+\end_inset
+
+ refers to a 
+\emph on
+storage class
+\emph default
+, not to a particular 
+\emph on
+instance
+\emph default
+ like original Amazon S3, and that it is possible to build and operate almost
+ any instance of any storage class yourself.
+ From a commercial perspective, 
+\series bold
+outsourcing
+\series default
+ of 
+\emph on
+huge masses 
+\emph default
+of enterprise-critical storage (to whatever class of storage) usually pays
+ off 
+\series bold
+only when
+\series default
+ your storage demands are either 
+\emph on
+relatively low
+\emph default
+, or are 
 \emph on
 extremely
 \emph default
@@ -4036,9 +4076,18 @@ very
  short time.
 \end_layout
 
+\begin_layout Subsection
+Cost Arguments from Architecture
+\end_layout
+
 \begin_layout Standard
 In addition to basic storage prices, many further factors come into play
- when roughly comparing big clusters versus sharding (
+ when roughly comparing big cluster architectures versus sharding.
+ The following table bears the 
+\emph on
+unrealistic assumption
+\emph default
+ that BigCluster can be reliably operated with 2 replicas (
 \family roman
 \series medium
 \shape up
@@ -4050,7 +4099,7 @@ In addition to basic storage prices, many further factors come into play
 \uwave off
 \noun off
 \color none
-
+the suffix 
 \begin_inset Formula $\times2$
 \end_inset
 
@@ -4066,7 +4115,7 @@ In addition to basic storage prices, many further factors come into play
 \uwave default
 \noun default
 \color inherit
- means with geo-redundancy):
+ means with additional geo-redundancy):
 \begin_inset Separator latexpar
 \end_inset
 
@@ -4085,7 +4134,7 @@ In addition to basic storage prices, many further factors come into play
 <column alignment="center" valignment="top">
 <column alignment="center" valignment="top">
 <row>
-<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
 \begin_inset Text
 
 \begin_layout Plain Layout
@@ -4103,7 +4152,7 @@ BC
 
 \end_inset
 </cell>
-<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
 \begin_inset Text
 
 \begin_layout Plain Layout
@@ -4140,7 +4189,7 @@ SHA
 </cell>
 </row>
 <row>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
 \begin_inset Text
 
 \begin_layout Plain Layout
@@ -4158,7 +4207,7 @@ SHA
 
 \end_inset
 </cell>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
 \begin_inset Text
 
 \begin_layout Plain Layout
@@ -4187,7 +4236,7 @@ SHA
 </cell>
 </row>
 <row>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
 \begin_inset Text
 
 \begin_layout Plain Layout
@@ -4208,7 +4257,7 @@ SHA
 
 \end_inset
 </cell>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
 \begin_inset Text
 
 \begin_layout Plain Layout
@@ -4246,7 +4295,7 @@ SHA
 </cell>
 </row>
 <row>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
 \begin_inset Text
 
 \begin_layout Plain Layout
@@ -4267,11 +4316,14 @@ Power Consumption
 
 \end_inset
 </cell>
-<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
 \begin_inset Text
 
 \begin_layout Plain Layout
-dito
+\begin_inset Formula $\approx\times1.1$
+\end_inset
+
+
 \end_layout
 
 \end_inset
@@ -4280,7 +4332,10 @@ dito
 \begin_inset Text
 
 \begin_layout Plain Layout
-dito
+\begin_inset Formula $\approx\times4$
+\end_inset
+
+
 \end_layout
 
 \end_inset
@@ -4289,14 +4344,17 @@ dito
 \begin_inset Text
 
 \begin_layout Plain Layout
-dito
+\begin_inset Formula $\approx\times2.2$
+\end_inset
+
+
 \end_layout
 
 \end_inset
 </cell>
 </row>
 <row>
-<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
 \begin_inset Text
 
 \begin_layout Plain Layout
@@ -4317,11 +4375,14 @@ HU Consumption
 
 \end_inset
 </cell>
-<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
 \begin_inset Text
 
 \begin_layout Plain Layout
-dito
+\begin_inset Formula $\approx\times1.1$
+\end_inset
+
+
 \end_layout
 
 \end_inset
@@ -4330,7 +4391,10 @@ dito
 \begin_inset Text
 
 \begin_layout Plain Layout
-dito
+\begin_inset Formula $\approx\times4$
+\end_inset
+
+
 \end_layout
 
 \end_inset
@@ -4339,7 +4403,329 @@ dito
 \begin_inset Text
 
 \begin_layout Plain Layout
-dito
+\begin_inset Formula $\approx\times2.2$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+As shown in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Reliability-Arguments-from"
+
+\end_inset
+
+, two replicas are typically not sufficient for BigCluster.
+ Even addicts of BigCluster are typically recommending 3 replicas in some
+ so-called 
+\begin_inset Quotes eld
+\end_inset
+
+best practices
+\begin_inset Quotes erd
+\end_inset
+
+, leading to the following more realistic table:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Tabular
+<lyxtabular version="3" rows="5" columns="5">
+<features tabularvalignment="middle">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+BC
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+SHA
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+BC
+\begin_inset Formula $\times2$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+SHA
+\begin_inset Formula $\times2$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+# of Disks
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+>300%
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+<120%
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+>600%
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+<240%
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+# of Servers
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $\approx\times3$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $\approx\times1.1$
+\end_inset
+
+ possible
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $\approx\times6$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $\approx\times2.2$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Power Consumption
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $\approx\times3$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $\approx\times1.1$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $\approx\times6$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $\approx\times2.2$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+HU Consumption
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $\approx\times3$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $\approx\times1.1$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $\approx\times6$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $\approx\times2.2$
+\end_inset
+
+
 \end_layout
 
 \end_inset
@@ -4364,15 +4750,15 @@ theoretically
 \emph on
 practice
 \emph default
- as seen in our internal 1&1 Ceph clusters is similar to RAID-10, but just
- on objects instead of block-based sectors.
+ as seen in internal 1&1 Ceph clusters is similar to RAID-10, but just on
+ objects instead of block-based sectors.
 \end_layout
 
 \begin_layout Standard
-Therefore a big cluster typically needs >200% disks to reach the same net
+Therefore a big cluster typically needs >300% disks to reach the same net
  capacity as a simple sharded cluster.
- The latter can take advantage of hardware RAID-60 with a significantly
- smaller disk overhead, while providing sufficient failure tolerance at
+ The latter can typically take advantage of hardware RAID-60 with a significantl
+y smaller disk overhead, while providing sufficient failure tolerance at
  disk level.
 \end_layout
 
@@ -4380,14 +4766,41 @@ Therefore a big cluster typically needs >200% disks to reach the same net
 There is a surprising consequence from this: geo-redundancy is not as expensive
  as many people are believing.
  It just needs to be built with the proper architecture.
- A sharded geo-redundant pool based on hardware RAID-60 costs roughly about
- the same as (or when taking 
-\begin_inset Formula $O(n^{2})$
+ A sharded geo-redundant pool based on hardware RAID-60 (last column 
+\begin_inset Quotes eld
 \end_inset
 
- storage networks into account it is possibly even cheaper than) a big cluster
- with full replicas without geo-redundancy.
- A geo-redundant sharded pool provides even better failure compensation.
+SHA
+\begin_inset Formula $\times2$
+\end_inset
+
+
+\begin_inset Quotes erd
+\end_inset
+
+) costs typically 
+\emph on
+less
+\emph default
+ than a non-georedundant big cluster with typically needed / recommended
+ number of replicas (column 
+\begin_inset Quotes eld
+\end_inset
+
+BC
+\begin_inset Quotes erd
+\end_inset
+
+).
+ A geo-redundant sharded pool provides even better failure compensation
+ (see section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Reliability-Arguments-from"
+
+\end_inset
+
+).
 \end_layout
 
 \begin_layout Standard
