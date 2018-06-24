@@ -5777,7 +5777,7 @@ hidden / internal interdependencies
 \begin_layout Itemize
 Whenever your application uses 
 \series bold
-bigger structured objects
+bigger structured logical objects
 \series default
 , such as filesystems or block devices or whole VMs / containers, then you
  likely will get 
