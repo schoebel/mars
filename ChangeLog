@@ -279,6 +279,16 @@ Hint: branch 0.1a will get a merge from here, and then get the
 	(except Football related ones) will then go to 0.1b.
 	Finally, when 0.1a is stable, I will close this branch.
 
+mars0.1stable58
+	* Major fix for Football / split-cluster: for safety,
+	  cron deletes some blocking left-overs.
+	* Major fix at _asymmetric_ split-cluster: ignore hindering
+	  abort condition.
+	* Minor fix: not all internal systemd links were removed upon
+	  marsadm set-systemd-unit mydata "".
+	* Doc: Football.
+	* Doc: architectural treatment of centralized storage.
+
 mars0.1stable57
 	* Minor fix: silly deadlock upon scarce race at logging.
 	  Without debug logging, probability should be extremely low

@@ -581,20 +581,22 @@ sub set_systemd_unit {
     my $replac = _systemd_escape($res);
     $stop_name = $pre . $replac . $post;
   }
+  my $want_path = "$mars/resource-$res/systemd-want";
   if ($start_name) {
     set_link($start_name, $unit_start_path);
+    my $primary = _get_designated_primary($res, 1);
+    if ($primary) {
+      set_link($primary, $want_path);
+    }
   } else {
     _create_delete($unit_start_path);
+    _create_delete($want_path);
   }
   if ($stop_name) {
     set_link($stop_name, $unit_stop_path);
   } else {
     _create_delete($unit_stop_path);
-  }
-  my $primary = _get_designated_primary($res, 1);
-  if ($primary) {
-    my $want_path = "$mars/resource-$res/systemd-want";
-    set_link($primary, $want_path);
+    _create_delete($want_path);
   }
   finish_links();
   _systemd_trigger($cmd);
@@ -2555,11 +2557,9 @@ sub split_cluster {
   my $ips_backup = "$backup_dir/ips-backup";
   system("mkdir -p $ips_backup") and ldie "OOps";
   system("cp -a $mars/ips/* $ips_backup/");
-  my $safeguard_cmd = "(( \$(find $mars/ -name 'delete-*' | wc -l) <= \$(find $mars/ -name 'deleted-*' | wc -l) ))";
   foreach my $peer (glob("$ips_backup/ip-*")) {
     $peer =~ s:^$ips_backup/ip-::;
     ssh_cmd($peer, $ssh_probe);
-    ssh_cmd($peer, $safeguard_cmd);
   }
   lprint "Creating IP backups...\n";
   # create ips backup
@@ -2960,6 +2960,23 @@ sub logdelete_res {
     # we need at least one more version link than logfiles for consistency checks
     next unless $nrv < $max_deletable - 1;
     _create_delete($versionlink);
+  }
+
+  # remove outdated split-cluster remains
+  my %peers;
+  foreach my $path (glob("$mars/ips/ip-*")) {
+    $path =~ m:/ip-(.*):;
+    my $peer = $1;
+    $peers{$peer} = 1;
+  }
+  foreach my $leftlink (glob("$mars/{,resource-$res/}todo-*/deleted-*")) {
+    $leftlink =~ m:/deleted-(.*):;
+    my $peer = $1;
+    next if $peers{$peer};
+    my $stamp = get_link_stamp($leftlink);
+    next unless $stamp + 3600 < $start_time;
+    lprint "  unlink '$leftlink'\n" if $verbose;
+    unlink($leftlink);
   }
 }
 

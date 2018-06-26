@@ -1,0 +1,173 @@
+\begin{verbatim}
+Usage:
+  ./football.sh --help [--verbose]
+     Show help
+  ./football.sh --variable=<value>
+     Override any shell variable
+
+Actions for resource migration:
+
+  ./football.sh migrate         <resource> <target_primary> [<target_secondary>]
+     Run the sequence
+     migrate_prepare ; migrate_wait ; migrate_finish; migrate_cleanup.
+
+  ./football.sh migrate_prepare <resource> <target_primary> [<target_secondary>]
+     Allocate LVM space at the targets and start MARS replication.
+
+  ./football.sh migrate_wait    <resource> <target_primary> [<target_secondary>]
+     Wait until MARS replication reports UpToDate.
+
+  ./football.sh migrate_finish  <resource> <target_primary> [<target_secondary>]
+     Call hooks for handover to the targets.
+
+  ./football.sh migrate_cleanup <resource>
+     Remove old / currently unused LV replicas from MARS and deallocate
+     from LVM.
+
+Actions for (manual) repair in emergency situations:
+
+  ./football.sh manual_migrate_config  <resource> <target_primary> [<target_secondary>]
+     Transfer only the cluster config, without changing the MARS replicas.
+     This does no resource stopping / restarting.
+     Useful for reverting a failed migration.
+
+  ./football.sh manual_config_update <hostname>
+     Only update the cluster config, without changing anything else.
+     Useful for manual repair of failed migration.
+
+  ./football.sh manual_merge_cluster <hostname1> <hostname2>
+     Run "marsadm merge-cluster" for the given hosts.
+     Hostnames must be from different (former) clusters.
+
+  ./football.sh manual_split_cluster <hostname_list>
+     Run "marsadm split-cluster" at the given hosts.
+     Useful for fixing failed / asymmetric splits.
+     Hint: provide _all_ hostnames which have formerly participated
+     in the cluster.
+
+  ./football.sh repair_vm <resource> <primary_candidate_list>
+     Try to restart the VM <resource> on one of the given machines.
+     Useful during unexpected customer downtime.
+
+  ./football.sh repair_mars <resource> <primary_candidate_list>
+     Before restarting the VM like in repair_vm, try to find a local
+     LV where a stand-alone MARS resource can be found and built up.
+     Use this only when the MARS resources are gone, and when you are
+     desperate. Problem: this will likely create a MARS setup which is
+     not usable for production, and therefore must be corrected later
+     by hand. Use this only during an emergency situation in order to
+     get the customers online again, while buying the downsides of this
+     command.
+
+Actions for inplace FS shrinking:
+
+  ./football.sh shrink          <resource> <percent>
+     Run the sequence shrink_prepare ; shrink_finish ; shrink_cleanup.
+
+  ./football.sh shrink_prepare  <resource> [<percent>]
+     Allocate temporary LVM space (when possible) and create initial
+     raw FS copy.
+     Default percent value(when left out) is 85.
+
+  ./football.sh shrink_finish   <resource>
+     Incrementally update the FS copy, swap old <=> new copy with
+     small downtime.
+
+  ./football.sh shrink_cleanup  <resource>
+     Remove old FS copy from LVM.
+
+Actions for inplace FS extension:
+
+  ./football.sh extend          <resource> <percent>
+
+Combined actions:
+
+  ./football.sh migrate+shrink <resource> <target_primary> [<target_secondary>] [<percent>]
+     Similar to migrate ; shrink but produces less network traffic.
+     Default percent value (when left out) is 85.
+
+  ./football.sh migrate+shrink+back <resource> <tmp_primary> [<percent>]
+     Migrate temporarily to <tmp_primary>, then shrink there,
+     finally migrate back to old primary and secondaries.
+     Default percent value (when left out) is 85.
+
+Global maintenance:
+
+  ./football.sh lv_cleanup      <resource>
+
+General features:
+
+  - Instead of <percent>, an absolute amount of storage with suffix
+    'k' or 'm' or 'g' can be given.
+
+  - When <resource> is currently stopped, login to the container is
+    not possible, and in turn the hypervisor node and primary storage node
+    cannot be automatically determined. In such a case, the missing
+    nodes can be specified via the syntax
+        <resource>:<hypervisor>:<primary_storage>
+
+  - The following LV suffixes are used (naming convention):
+    -tmp = currently emerging version for shrinking
+    -preshrink = old version before shrinking took place
+
+  - By adding the option --screener, you can handover football execution
+    to ./screener.sh .
+    When some --enable_*_waiting is also added, then the critical
+    sections involving customer downtime are temporarily halted until
+    some sysadmins says "screener.sh continue $resource" or
+    attaches to the sessions and presses the RETURN key.
+
+
+PLUGIN football-cm3
+
+   1&1 specfic plugin for dealing with the cm3 cluster manager
+   and its concrete operating enviroment (singleton instance).
+
+   Current maximum cluster size limit: 
+
+   Maximum #syncs running before migration can start: 
+
+   Following marsadm --version must be installed: 
+
+   Following mars kernel modules must be loaded: 
+
+
+PLUGIN football-basic
+
+   Generic driver for systemd-controlled MARS pools.
+   The current version supports only a flat model:
+   (1) There is a single "big cluster" at metadata level.
+       All cluster members are joined via merge-cluster.
+       All occurring names need to be globally unique.
+   (2) The network uses BGP or other means, thus any hypervisor
+       can (potentially) start any VM at any time.
+   (3) iSCSI or remote devices are not supported for now
+       (LocalSharding model). This may be extended in a future
+       release.
+   This plugin is exclusive-or with cm3.
+
+Plugin specific actions:
+
+   ./football.sh basic_add_host <hostname>
+      Manually add another host to the hostname cache.
+
+
+PLUGIN football-motd
+
+  Generic plugin for motd. Communicate that Football is running
+  at login via motd.
+
+
+PLUGIN football-report
+
+  Generic plugin for communication of reports.
+
+
+PLUGIN football-waiting
+
+  Generic plugig, interfacing with screener: when this is used
+  by your script and enabled, then you will be able to wait for
+  "screener.sh continue" operations at certain points in your
+  script.
+
+\end{verbatim}

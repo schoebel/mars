@@ -1,0 +1,365 @@
+\begin{verbatim}
+OVERRIDE verbose=1
+./screener.sh: Run _unattended_ processes in screen sessions.
+    Useful for MASS automation, running hundreds of unattended
+    commands in parallel.
+    HINT: for running more than ~500 sessions in parallel, you might need
+    some system tuning (e.g. rlimits, kernel patches etc) for creating
+    a huge number of file descritor / sockets / etc.
+    ADVANTAGE: You may attach to individual screens, kill them, or continue
+    some waiting commands.
+
+Synopsis:
+  ./screener.sh --help [--verbose]
+  ./screener.sh list-running
+  ./screener.sh list-waiting
+  ./screener.sh list-failed
+  ./screener.sh list-critical
+  ./screener.sh list-serious
+  ./screener.sh list-done
+  ./screener.sh list
+  ./screener.sh list-screens
+  ./screener.sh run <file.csv> [<condition_list>]
+  ./screener.sh start <screen_id> <cmd> <args...>
+  ./screener.sh [<options>] <operation> <screen_id>
+
+Inquiry operations:
+
+  ./screener.sh list-screens
+    Equivalent to screen -ls
+
+  ./screener.sh list-<type>
+    Show a list of currently running, waiting (for continuation), failed,
+    and done/completed screen sessions.
+
+  ./screener.sh list
+    First show a list of currently running screens, then
+    for each <type> a list of (old) failed / completed / sessions
+    (and so on).
+
+  ./screener.sh status <screen_id>
+    Like list-*, but filter <sceen_id> and dont report timestamps.
+
+  ./screener.sh show <screen_id>
+    Show the last logfile of <screen_id> at standard output.
+
+  ./screener.sh less <screen_id>
+    Show the last logfile of <screen_id> using "less -r".
+
+MASS starting of screen sessions:
+
+  ./screener.sh run <file.csv> <condition_list>
+    Commands are launched in screen sessions via "./screener.sh start" commands,
+    unless the same <screen_id> is already running,
+    or is in some error state, or is already done (see below).
+    The commands are given by a column with CSV header name
+    containing "command", or by the first column.
+    The <screen_id> needs to be given by a column with CSV header
+    name matching "screen_id|resource".
+    The number and type of commands to launch can be reduced via
+    any combination of the following filter conditions:
+
+      --max=<number>
+        Limit the number of _new_ sessions additionally started this time.
+
+      --<column_name>==<value>
+        Only select lines where an arbitrary CSV column (given by its
+        CSV header name in C identifier syntax) has the given value.
+
+      --<column_name>!=<value>
+        Only select lines where the colum has _not_ the given value.
+
+      --<column_name>=~<bash_regex>
+        Only select lines where the bash regular expression matches
+        at the given column.
+
+      --max-per=<number>
+        Limit the number per _distinct_ value of the column denoted by
+        the _next_ filter condition.
+        Example: ./screener.sh run test.csv --dry-run --max-per=2 --dst_network=~.
+        would launch only 2 Football processes per destination network.
+
+    Hint: filter conditions can be easily checked by giving --dry-run.
+
+Start / restart / kill / continue screen sessions:
+
+  ./screener.sh start <screen_id> <cmd> <args...>
+    Start a new screen session, running arbitrary <cmd> and <args...>
+    inside.
+
+  ./screener.sh restart <screen_id>
+    Works only when the last command for <screen_id> failed.
+    This will restart the old <cmd> and its <args...> as before.
+    Use only when you want to repeat the same command once again.
+
+  ./screener.sh kill <screen_id>
+    Terminate the running screen session forcibly.
+
+  ./screener.sh continue
+  ./screener.sh continue <screen_id> [<screen_id_list>]
+  ./screener.sh continue <number>
+    Useful for MASS automation of processes involving critical sections
+    such as customer downtime.
+    When giving a numerical <number> argument, up to that number
+    of sessions are resumed (ordered by age).
+    When no further arugment is given, _all_ currently waiting sessions
+    are continued.
+    When --auto-attach is given, it will sequentially resume the
+    sessions to be continued. By default, unless --force_attach is set,
+    it uses "screen -r" skipping those sessions which are already
+    attached to somebody else.
+    This feature works only with prepared scripts which are creating
+    an empty flagfile
+    /home/schoebel/mars/mars-migration.git/screener-logdir-testing/running/$screen_id.waiting
+    whenever they want to wait for manual intervention (for whatever reason).
+    Afterwards, the script must be polling this flagfile for removal.
+    This screener operation simply removes the flagfile, such that
+    the script will then continue afterwards.
+    Example: look into ./football.sh
+    and search for occurrences of substring "call_hook start_wait".
+
+  ./screener.sh wakeup
+  ./screener.sh wakeup <screen_id> [<screen_id_list>]
+  ./screener.sh wakeup <number>
+    Similar to continue, but refers to delayed commands waiting for
+    a timeout. This can be used to individually shorten the timeout
+    period.
+    Example: Football cleanup operations may be artificially delayed
+    before doing "lvremove", to keep some sort of 'backup' for a
+    limited time. When your project is under time pressure, these
+    delays may be hindering.
+    Use this for premature ending of such artificial delays.
+
+  ./screener.sh up <...>
+    Do both continue and wakeup.
+
+  ./screener.sh auto <...>
+    Equivalent to ./screener.sh --auto-attach up <...>
+    Remember that only session without current attachment will be
+    attached to.
+
+Attach to a running session:
+
+  ./screener.sh attach <screen_id>
+    This is equivalent to screen -x $screen_id
+
+  ./screener.sh resume <screen_id>
+    This is equivalent to screen -r $screen_id
+
+Communication:
+
+  ./screener.sh notify <screen_id> <txt>
+    May be called from external scripts to send emails etc.
+
+Locking (only when supported by <cmd>):
+
+  ./screener.sh lock
+  ./screener.sh unlock
+  ./screener.sh lock <screen_id>
+  ./screener.sh unlock <screen_id>
+
+Cleanup / bookkeeping:
+
+  ./screener.sh clear-critical <screen_id>
+  ./screener.sh clear-serious <screen_id>
+  ./screener.sh clear-failed  <screen_id>
+    Mark the status as "done" and move the logfile away.
+
+  ./screener.sh purge [<days>]
+    This will remove all old logfiles which are older than
+    <days>. By default, the variable $screener_log_purge_period
+    will be used, which is currently set to '30'.
+
+  ./screener.sh cron
+    You should call this regulary from a user cron job, in order
+    to purge old logfiles, or to detect hanging sessions, or to
+    automatically send pending emails, etc.
+
+Options:
+
+  --variable
+  --variable=$value
+    These must come first, in order to prevent mixup with
+    options of <cmd> <args...>.
+    Allows overriding of any internal shell variable.
+  --help --verbose
+    Show all overridable shell variables, also for plugins.
+
+  ## football_includes
+  # List of directories where screener-*.conf files can be found.
+  football_includes="${football_includes:-/usr/lib/mars/plugins /etc/mars/plugins $script_dir/plugins $HOME/.mars/plugins ./plugins}"
+
+  ## title
+  # Used as a title for startup of screen sessions, and later for
+  # display at list-*
+  title="${title:-}"
+
+  ## auto_attach
+  # Upon start or upon continue/wakuep/up, attach to the
+  # (newly created or existing) session.
+  auto_attach="${auto_attach:-0}"
+
+  ## auto_attach_grace
+  # Before attaching, wait this time in seconds.
+  # The user may abort within this sleep time by
+  # pressing Ctrl-C.
+  auto_attach_grace="${auto_attach_grace:-10}"
+
+  ## force_attach
+  # Use "screen -x" instead of "screen -r" allowing
+  # shared sessions between different users / end terminals.
+  force_attach="${force_attach:-0}"
+
+  ## drop_shell
+  # When a <cmd> fails, the screen session will not terminated immediately.
+  # Instead, an interactive bash is started, so can later attach and
+  # rectify any probllems.
+  # WARNING! only activate this if you regulary check for failed sessions
+  # and then manually attach to them. Don't use this when running hundreds
+  # or thousand in parallel.
+  drop_shell="${drop_shell:-0}"
+
+  ## session_timeout
+  # Detect hanging sessions when they don't produce any output anymore
+  # for a longer time. Hanging sessions are then marked as failed or critical.
+  session_timeout="${session_timeout:-$(( 3600 * 3 ))}" # seconds
+
+  ## screener_logdir or logdir
+  # Where the logfiles and all status information is kept.
+  export screener_logdir="${screener_logdir:-${logdir:-$HOME/screener-logs}}"
+
+  ## screener_command_log
+  # This logfile will accumulate all relevant $0 command invocations,
+  # including timestamps and ssh agent identities.
+  # To switch off, use /dev/null here.
+  screener_command_log="${screener_command_log:-$screener_logdir/commands.log}"
+
+  ## screener_cron_log
+  # Since "$0 cron" works silently, you won't notice any errors.
+  # This logfiles gives you a chance for checking any problems.
+  screener_cron_log="${screener_cron_log:-$screener_logdir/cron.log}"
+
+  ## screener_log_purge_period
+  # $0 cron or $0 purge will automatically remove all old logfiles
+  # from $screener_logdir/*/ when this period is exceeded.
+  screener_log_purge_period="${screener_log_purge_period:-30}" # Days
+
+  ## dry_run
+  # Dont actually start screen sessions when set.
+  dry_run="${dry_run:-0}"
+
+  ## verbose
+  # increase speakiness.
+  verbose=${verbose:-0}
+
+  ## debug
+  # Some additional debug messages.
+  debug="${debug:-0}"
+
+  ## sleep
+  # Workaround races by keeping sessions open for a few seconds.
+  # This is useful for debugging of immediate script failures.
+  # You have some short time window for attaching.
+  # HINT: instead, just inspect the logfiles in $screener_logdir/*/*.log
+  sleep="${sleep:-3}"
+
+  ## screen_cmd
+  # Customize the screen command (e.g. add some further options, etc).
+  screen_cmd="${screen_cmd:-screen}"
+
+  ## use_screenlog
+  # Add the -L option. Not really useful when running thousands of
+  # parallel screen sessions, because the automatically generated filenames
+  # are crap, and cannot be set in advance.
+  # Useful for basic debugging of setup problems etc.
+  use_screenlog="${use_screenlog:-0}"
+
+  ## waiting_txt and delay_txt
+  # RTFS Don't use this, unless you know what you are doing.
+  waiting_txt="${waiting_txt:-SCREENER_waiting_WAIT}"
+  delayed_txt="${delayed_txt:-SCREENER_delayed_WAIT}"
+
+  ## critical_status
+  # This is the "magic" exit code indicating _criticality_
+  # of a failed command.
+  critical_status="${critical_status:-199}"
+
+  ## serious_status
+  # This is the "magic" exit code indicating _seriosity_
+  # of a failed command.
+  serious_status="${serious_status:-198}"
+
+  ## less_cmd
+  # Used at $0 less $id
+  less_cmd="${less_cmd:-less -r}"
+
+  ## date_format
+  # Here you can customize the appearance of list-* commands
+  date_format="${date_format:-%Y-%m-%d %H:%M}"
+
+  ## csv_delimit
+  # The delimiter used for CSV file parsing
+  csv_delim="${csv_delim:-;}"
+
+  ## csv_cmd_fields
+  # Regex telling the field name for 'cmd'
+  csv_cmd_fields="${csv_cmd_fields:-command}"
+
+  ## csv_id_fields
+  # Regex telling the field name for 'screen_id'
+  csv_id_fields="${csv_id_fields:-screen_id|resource}"
+
+  ## csv_remove
+  # Regex for global removal of command options
+  csv_remove="${csv_remove:---screener}"
+
+  ## user_name
+  # Normally automatically derived from ssh agent or from $LOGNAME.
+  # Please override this only when really necessary.
+  export user_name="${user_name:-$(ssh-add -l | grep -o '[^ ]+@[^ ]+' | sort -u | tail -1)}"
+  export user_name="${user_name:-$LOGNAME}"
+
+  ## tmp_dir and tmp_stub
+  # Where temporary files are residing
+  tmp_dir="${tmp_dir:-/tmp}"
+  tmp_stub="${tmp_stub:-$tmp_dir/screener.$$}"
+
+Running hook: email_describe_plugin 
+
+PLUGIN screener-email
+
+  Generic plugin for sending emails (or SMS via gateways)
+  upon status changes, such as script failures.
+
+  ## email_*
+  # List of email addresses.
+  # Empty = don't send emails.
+  email_critical="${email_critical:-}"
+  email_serious="${email_serious:-}"
+  email_failed="${email_failed:-}"
+  email_warning="${email_warning:-}"
+  email_waiting="${email_waiting:-}"
+  email_done="${email_done:-}"
+
+  ## sms_*
+  # List of email addresses of SMS gateways.
+  # These may be distinct from email_*.
+  # Empty = don't send sms.
+  sms_critical="${sms_critical:-}"
+  sms_serious="${sms_serious:-}"
+  sms_failed="${sms_failed:-}"
+  sms_warning="${sms_warning:-}"
+  sms_waiting="${sms_waiting:-}"
+  sms_done="${sms_done:-}"
+
+  ## email_cmd
+  # Command for email sending.
+  # Please include your gateways etc here.
+  email_cmd="${email_cmd:-mailx -S smtp=mx.nowhere.org:587 -S smpt-auth-user=test}"
+
+  ## email_logfiles
+  # Whether to include logfiles in the body.
+  # Not used for sms_*.
+  email_logfiles="${email_logfiles:-1}"
+
+\end{verbatim}
