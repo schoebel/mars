@@ -6315,7 +6315,7 @@ Commodity Hardware
  approaches, like Ceph storage nodes driving dozens of local HDDs connected
  over SAS or SATA.
  The main difference is just that instead of a hardware RAID controller,
- a hardware HBA is used instead.
+ a hardware HBA = Host Bus Adapter is used instead.
  Instead of Ethernet switches, SAS multiplexers in backplanes are used.
  Anyway, this forms a locally distributed sub-system.
 \end_layout
