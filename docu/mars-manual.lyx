@@ -2757,11 +2757,11 @@ storage network
 \begin_inset Formula $n$
 \end_inset
 
- frontend servers are interconnected with 
+ storageservers are interconnected with 
 \begin_inset Formula $m=O(n)$
 \end_inset
 
- storage servers, in order to achieve properties like scalability, failure
+ frontend servers, in order to achieve properties like scalability, failure
  tolerance, etc.
 \end_layout
 
@@ -2771,7 +2771,7 @@ Since
 any
 \emph default
  of the 
-\begin_inset Formula $n$
+\begin_inset Formula $m$
 \end_inset
 
  frontends must be able to access 
@@ -2779,7 +2779,7 @@ any
 any
 \emph default
  of the 
-\begin_inset Formula $m$
+\begin_inset Formula $n$
 \end_inset
 
  storages in realtime, the storage network must be dimensioned for 
@@ -2796,8 +2796,8 @@ any
 \end_inset
 
  network connections have to be maintained at connection oriented protocols
- and at various layers of the operating software, and the network has to
- 
+ and at various layers of the operating software.
+ The network has to 
 \emph on
 switch
 \emph default
@@ -2933,6 +2933,9 @@ already partitioned
  on disjoint data sets, like in web hosting where each webspace is residing
  in its own home directory, or when each of millions of mySQL database instances
  has to be isolated from its neighbour.
+ Masses of customers are also appearing at cloud storage applications like
+ Cloud Filesystems (e.g.
+ Dropbox or similar).
 \end_layout
 
 \begin_layout Standard
