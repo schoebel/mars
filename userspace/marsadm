@@ -376,6 +376,13 @@ sub systemd_activate {
   system($ctl_cmd) and lwarn "command '$ctl_cmd' failed\n";
 }
 
+sub _systemd_op {
+  my ($op, $unit) = @_;
+  if (!system("$systemctl cat '$unit' > /dev/null 2>&1")) {
+    system("$systemctl $op '$unit'");
+  }
+}
+
 sub systemd_trigger {
   my ($cmd) = @_;
   # Remember old instances
@@ -456,9 +463,7 @@ sub systemd_trigger {
   if ($count + $deleted) {
     lprint "==== Restart systemd\n"if $verbose;
     foreach my $unit (@systemctl_enable) {
-      if (!system("$systemctl cat '$unit' > /dev/null 2>&1")) {
-	system("$systemctl enable '$unit'");
-      }
+      _systemd_op("enable", $unit);
     }
     system("$systemctl daemon-reload");
   }
@@ -467,7 +472,7 @@ sub systemd_trigger {
     my $unit = `basename "$unit_path"`;
     chomp $unit;
     lprint "==== Activate path watcher '$unit'\n"if $verbose;
-    system("$systemctl start \"$unit\"");
+    _systemd_op("start", $unit);
   }
   # Activate the listed units.
   foreach my $res (@res_list) {
@@ -475,9 +480,7 @@ sub systemd_trigger {
   }
   # Start standard units
   foreach my $unit (@systemctl_start) {
-    if (!system("$systemctl cat '$unit' > /dev/null 2>&1")) {
-      system("$systemctl start '$unit'");
-    }
+    _systemd_op("start", $unit);
   }
 }
 
