@@ -3170,12 +3170,14 @@ sub primary_phase0 {
     set_link($new, $want_path);
     my $unit_path = "$mars/resource-$res/systemd-$oper-unit";
     my $unit = get_link($unit_path, 2);
-    lprint "IMPORTANT: Relying on systemd for $oper of unit '$unit'\n";
-    lprint "IMPORTANT: unit '$unit' wanted at '$new'\n";
-    finish_links();
-    _systemd_trigger($cmd);
-    _trigger(3);
-    return;
+    if ($unit) {
+      lprint "IMPORTANT: Relying on systemd for $oper of unit '$unit'\n";
+      lprint "IMPORTANT: unit '$unit' wanted at '$new'\n";
+      finish_links();
+      _systemd_trigger($cmd);
+      _trigger(3);
+      return;
+    }
   }
   return if ($old eq $host and $cmd eq "primary");
   return if $old eq "(none)";
