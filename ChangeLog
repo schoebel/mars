@@ -171,6 +171,15 @@ Hint: branch 0.1a will get a merge from here, and then get the
 	(except Football related ones) will then go to 0.1b.
 	Finally, when 0.1a is stable, I will close this branch.
 
+mars0.1stable59
+	* Major fix: "marsadm up" did not work when sync could not
+	  be started. Now does "best effort".
+	* Minor fix: marsadm system interface was active when
+	  not activated.
+	* Minor usability improvement: new repliaction state "Orphaned"
+	  indicates that logfiles are missing, and thus replication
+	  is stuck.
+
 mars0.1stable58
 	* Major fix for Football / split-cluster: for safety,
 	  cron deletes some blocking left-overs.
