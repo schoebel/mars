@@ -185,9 +185,15 @@ Options:
   --help --verbose
     Show all overridable shell variables, also for plugins.
 
-  ## football_includes
+  ## screener_includes
   # List of directories where screener-*.conf files can be found.
-  football_includes="${football_includes:-/usr/lib/mars/plugins /etc/mars/plugins $script_dir/plugins $HOME/.mars/plugins ./plugins}"
+  screener_includes="${screener_includes:-/usr/lib/mars/plugins /etc/mars/plugins $script_dir/plugins $HOME/.mars/plugins ./plugins}"
+
+  ## screener_confs
+  # Another list of directories where screener-*.conf files can be found.
+  # These are sourced in a second pass after $screener_includes.
+  # Thus you can change this during the first pass.
+  screener_confs="${screener_confs:-/usr/lib/mars/confs /etc/mars/confs $script_dir/confs $HOME/.mars/confs ./confs}"
 
   ## title
   # Used as a title for startup of screen sessions, and later for

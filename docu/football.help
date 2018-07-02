@@ -24,6 +24,38 @@ Actions for resource migration:
      Remove old / currently unused LV replicas from MARS and deallocate
      from LVM.
 
+Actions for inplace FS shrinking:
+
+  ./football.sh shrink          <resource> <percent>
+     Run the sequence shrink_prepare ; shrink_finish ; shrink_cleanup.
+
+  ./football.sh shrink_prepare  <resource> [<percent>]
+     Allocate temporary LVM space (when possible) and create initial
+     raw FS copy.
+     Default percent value(when left out) is 85.
+
+  ./football.sh shrink_finish   <resource>
+     Incrementally update the FS copy, swap old <=> new copy with
+     small downtime.
+
+  ./football.sh shrink_cleanup  <resource>
+     Remove old FS copy from LVM.
+
+Actions for inplace FS extension:
+
+  ./football.sh extend          <resource> <percent>
+
+Combined actions:
+
+  ./football.sh migrate+shrink <resource> <target_primary> [<target_secondary>] [<percent>]
+     Similar to migrate ; shrink but produces less network traffic.
+     Default percent value (when left out) is 85.
+
+  ./football.sh migrate+shrink+back <resource> <tmp_primary> [<percent>]
+     Migrate temporarily to <tmp_primary>, then shrink there,
+     finally migrate back to old primary and secondaries.
+     Default percent value (when left out) is 85.
+
 Actions for (manual) repair in emergency situations:
 
   ./football.sh manual_migrate_config  <resource> <target_primary> [<target_secondary>]
@@ -59,37 +91,10 @@ Actions for (manual) repair in emergency situations:
      get the customers online again, while buying the downsides of this
      command.
 
-Actions for inplace FS shrinking:
-
-  ./football.sh shrink          <resource> <percent>
-     Run the sequence shrink_prepare ; shrink_finish ; shrink_cleanup.
-
-  ./football.sh shrink_prepare  <resource> [<percent>]
-     Allocate temporary LVM space (when possible) and create initial
-     raw FS copy.
-     Default percent value(when left out) is 85.
-
-  ./football.sh shrink_finish   <resource>
-     Incrementally update the FS copy, swap old <=> new copy with
-     small downtime.
-
-  ./football.sh shrink_cleanup  <resource>
-     Remove old FS copy from LVM.
-
-Actions for inplace FS extension:
-
-  ./football.sh extend          <resource> <percent>
-
-Combined actions:
-
-  ./football.sh migrate+shrink <resource> <target_primary> [<target_secondary>] [<percent>]
-     Similar to migrate ; shrink but produces less network traffic.
-     Default percent value (when left out) is 85.
-
-  ./football.sh migrate+shrink+back <resource> <tmp_primary> [<percent>]
-     Migrate temporarily to <tmp_primary>, then shrink there,
-     finally migrate back to old primary and secondaries.
-     Default percent value (when left out) is 85.
+  ./football.sh manual_lock   <item> <host_list>
+  ./football.sh manual_unlock <item> <host_list>
+     Manually lock or unlock an item at all of the given hosts, in
+     an atomic fashion. In most cases, use "ALL" for the item.
 
 Global maintenance:
 
@@ -117,6 +122,11 @@ General features:
     some sysadmins says "screener.sh continue $resource" or
     attaches to the sessions and presses the RETURN key.
 
+
+PLUGIN football-1and1config
+
+   1&1 specfic plugin for dealing with the cm3 clusters
+   and its concrete configuration .   
 
 PLUGIN football-cm3
 

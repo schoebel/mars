@@ -541,7 +541,7 @@ marsadm [<global_options>] view[-<macroname>] [<resource_name> | all ]
   get-resource-{fat,err,wrn}{,-count}
   get-{disk,device}
   is-{alive}
-  is-{split-brain,consistent,emergency}
+  is-{split-brain,consistent,emergency,orphan}
   occupied-size
   present-{disk,device}
     (deprecated, use *-present instead)
@@ -567,4 +567,5 @@ marsadm [<global_options>] view[-<macroname>] [<resource_name> | all ]
   {sync,fetch,replay,work}-{rest,{almost-,threshold-,}reached,percent,permille,vector}
   {sync,fetch,replay}-{rate,remain}
   {time,real-time}
+  {tree,features}-version
 \end{verbatim}
