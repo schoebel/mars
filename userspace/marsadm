@@ -419,6 +419,13 @@ sub systemd_activate {
   system($ctl_cmd) and lwarn "command '$ctl_cmd' failed\n";
 }
 
+sub _systemd_op {
+  my ($op, $unit) = @_;
+  if (!system("$systemctl cat '$unit' > /dev/null 2>&1")) {
+    system("$systemctl $op '$unit'");
+  }
+}
+
 sub systemd_trigger {
   my ($cmd) = @_;
   # Remember old instances
@@ -499,9 +506,7 @@ sub systemd_trigger {
   if ($count + $deleted) {
     lprint "==== Restart systemd\n"if $verbose;
     foreach my $unit (@systemctl_enable) {
-      if (!system("$systemctl cat '$unit' > /dev/null 2>&1")) {
-	system("$systemctl enable '$unit'");
-      }
+      _systemd_op("enable", $unit);
     }
     system("$systemctl daemon-reload");
   }
@@ -510,7 +515,7 @@ sub systemd_trigger {
     my $unit = `basename "$unit_path"`;
     chomp $unit;
     lprint "==== Activate path watcher '$unit'\n"if $verbose;
-    system("$systemctl start \"$unit\"");
+    _systemd_op("start", $unit);
   }
   # Activate the listed units.
   foreach my $res (@res_list) {
@@ -518,9 +523,7 @@ sub systemd_trigger {
   }
   # Start standard units
   foreach my $unit (@systemctl_start) {
-    if (!system("$systemctl cat '$unit' > /dev/null 2>&1")) {
-      system("$systemctl start '$unit'");
-    }
+    _systemd_op("start", $unit);
   }
 }
 
@@ -3095,7 +3098,10 @@ sub up_res_phase1 {
   } else {
     attach_res_phase1("attach", $res);
     fetch_local_res("resume-fetch-local", $res);
-    pause_sync_local_res("resume-sync-local", $res);
+    # ignore ldie on sync, just do all the rest
+    eval {
+      pause_sync_local_res("resume-sync-local", $res);
+    };
     pause_replay_local_res("resume-replay-local", $res);
   }
 }
@@ -3204,12 +3210,14 @@ sub primary_phase0 {
     set_link($new, $want_path);
     my $unit_path = "$mars/resource-$res/systemd-$oper-unit";
     my $unit = get_link($unit_path, 2);
-    lprint "IMPORTANT: Relying on systemd for $oper of unit '$unit'\n";
-    lprint "IMPORTANT: unit '$unit' wanted at '$new'\n";
-    finish_links();
-    _systemd_trigger($cmd);
-    _trigger(3);
-    return;
+    if ($unit) {
+      lprint "IMPORTANT: Relying on systemd for $oper of unit '$unit'\n";
+      lprint "IMPORTANT: unit '$unit' wanted at '$new'\n";
+      finish_links();
+      _systemd_trigger($cmd);
+      _trigger(3);
+      return;
+    }
   }
   return if ($old eq $host and $cmd eq "primary");
   return if $old eq "(none)";
@@ -4113,6 +4121,17 @@ sub eval_fn {
       my $lnk = "$mars/alive-$peer";
       return get_link_stamp($lnk);
     }
+    if (/^is[-_]?orphan$/) {
+      my $peer = parse_macro($arg1, $env);
+      $peer = $$env{"host"} unless $peer;
+      my $replay  = get_link($$env{"resdir"} . "/replay-$peer", 1);
+      $replay =~ m/^(log-[^,]+),/;
+      my $logfile = $$env{"resdir"} . "/" . $1;
+      if (-r $logfile) {
+	return 0;
+      }
+      return 1;
+    }
     if (/^is[-_]?(almost[-_]?)?consistent$/) {
       my $almost = $1;
       # has sync finished?
@@ -4750,6 +4769,8 @@ my %complex_macros =
    .    "}"
    .  "}{%and{%replay-code{}}{%<{%replay-code{}}{0}}}{"
    .    "DefectiveLog[%errno-text{%replay-code{}}]"
+   .  "}{%is-orphan{}}{"
+   .    "Orphan"
    .  "}{%not{%is-attach{}}}{"
    .    "NoAttach"
    .  "}{%not{%is-consistent{}}}{"
@@ -4823,6 +4844,8 @@ my %complex_macros =
    .        "NoPrimaryDesignated"
    .      "}{%not{%is-alive{}}}{"
    .        "PrimaryUnreachable"
+   .      "}{%is-orphan{}}{"
+   .        "Orphan"
    .      "}{"
    .        "Replaying"
    .      "}"
@@ -5148,7 +5171,7 @@ my %trivial_globs =
    => "",
    "{is,todo}-{attach,sync,fetch,replay,primary}"
    => "",
-   "is-{split-brain,consistent,emergency}"
+   "is-{split-brain,consistent,emergency,orphan}"
    => "",
    "rest-space"
    => "",

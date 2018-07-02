@@ -25,6 +25,38 @@ Actions for resource migration:
      Remove old / currently unused LV replicas from MARS and deallocate
      from LVM.
 
+Actions for inplace FS shrinking:
+
+  ./football.sh shrink          <resource> <percent>
+     Run the sequence shrink_prepare ; shrink_finish ; shrink_cleanup.
+
+  ./football.sh shrink_prepare  <resource> [<percent>]
+     Allocate temporary LVM space (when possible) and create initial
+     raw FS copy.
+     Default percent value(when left out) is 85.
+
+  ./football.sh shrink_finish   <resource>
+     Incrementally update the FS copy, swap old <=> new copy with
+     small downtime.
+
+  ./football.sh shrink_cleanup  <resource>
+     Remove old FS copy from LVM.
+
+Actions for inplace FS extension:
+
+  ./football.sh extend          <resource> <percent>
+
+Combined actions:
+
+  ./football.sh migrate+shrink <resource> <target_primary> [<target_secondary>] [<percent>]
+     Similar to migrate ; shrink but produces less network traffic.
+     Default percent value (when left out) is 85.
+
+  ./football.sh migrate+shrink+back <resource> <tmp_primary> [<percent>]
+     Migrate temporarily to <tmp_primary>, then shrink there,
+     finally migrate back to old primary and secondaries.
+     Default percent value (when left out) is 85.
+
 Actions for (manual) repair in emergency situations:
 
   ./football.sh manual_migrate_config  <resource> <target_primary> [<target_secondary>]
@@ -60,37 +92,10 @@ Actions for (manual) repair in emergency situations:
      get the customers online again, while buying the downsides of this
      command.
 
-Actions for inplace FS shrinking:
-
-  ./football.sh shrink          <resource> <percent>
-     Run the sequence shrink_prepare ; shrink_finish ; shrink_cleanup.
-
-  ./football.sh shrink_prepare  <resource> [<percent>]
-     Allocate temporary LVM space (when possible) and create initial
-     raw FS copy.
-     Default percent value(when left out) is 85.
-
-  ./football.sh shrink_finish   <resource>
-     Incrementally update the FS copy, swap old <=> new copy with
-     small downtime.
-
-  ./football.sh shrink_cleanup  <resource>
-     Remove old FS copy from LVM.
-
-Actions for inplace FS extension:
-
-  ./football.sh extend          <resource> <percent>
-
-Combined actions:
-
-  ./football.sh migrate+shrink <resource> <target_primary> [<target_secondary>] [<percent>]
-     Similar to migrate ; shrink but produces less network traffic.
-     Default percent value (when left out) is 85.
-
-  ./football.sh migrate+shrink+back <resource> <tmp_primary> [<percent>]
-     Migrate temporarily to <tmp_primary>, then shrink there,
-     finally migrate back to old primary and secondaries.
-     Default percent value (when left out) is 85.
+  ./football.sh manual_lock   <item> <host_list>
+  ./football.sh manual_unlock <item> <host_list>
+     Manually lock or unlock an item at all of the given hosts, in
+     an atomic fashion. In most cases, use "ALL" for the item.
 
 Global maintenance:
 
@@ -119,8 +124,19 @@ General features:
     attaches to the sessions and presses the RETURN key.
 
   ## football_includes
-  # List of directories where football-*.conf files can be found.
+  # List of directories where football-*.sh and football-*.conf
+  # files can be found.
   football_includes="${football_includes:-/usr/lib/mars/plugins /etc/mars/plugins $script_dir/plugins $HOME/.mars/plugins ./plugins}"
+
+  ## football_confs
+  # Another list of directories where football-*.conf files can be found.
+  # These are sourced in a second pass after $football_includes.
+  # Thus you can change this during the first pass.
+  football_confs="${football_confs:-/usr/lib/mars/confs /etc/mars/confs $script_dir/confs $HOME/.mars/confs ./confs}"
+
+  ## football_creds
+  # List of directories where various credential files can be found.
+  football_creds="${football_creds:-/usr/lib/mars/creds /etc/mars/creds $script_dir/creds $script_dir $HOME/.mars/creds ./creds}"
 
   ## dry_run
   # When set, actions are only simulated.
@@ -195,6 +211,10 @@ General features:
   rsync_repeat_prepare="${rsync_repeat_prepare:-5}"
   rsync_repeat_hot="${rsync_repeat_hot:-3}"
 
+  ## rsync_skip_lines
+  # Number of rsync lines to skip in output (avoid overflow of logfiles).
+  rsync_skip_lines="${rsync_skip_lines:-1000}"
+
   ## wait_timeout
   # Avoid infinite loops upon waiting.
   wait_timeout="${wait_timeout:-$(( 24 * 60 ))}" # Minutes
@@ -214,10 +234,23 @@ General features:
   serious_status="${serious_status:-198}"
 
   ## pre_hand or --pre-hand=
-  # Set this to do an ordinary to a new start position before doing
-  # anything else. This may be used for handover to a different datacenter
-  # and running Football there.
+  # Set this to do an ordinary handover to a new start position
+  # (in the source cluster) before doing anything else.
+  # This may be used for handover to a different datacenter,
+  # in order to minimize cross traffic between datacenters.
   pre_hand="${pre_hand:-}"
+
+  ## post_hand or --post-hand=
+  # Set this to do an ordinary handover to a final position
+  # (in the target cluster) after everything has successfully finished.
+  # This may be used to establish a uniform default running location.
+  post_hand="${post_hand:-}"
+
+  ## lock_break_timeout
+  # When remote ssh commands are failing, remote locks may sustain forever.
+  # Avoid deadlocks by breaking remote locks after this timeout has elapsed.
+  # NOTICE: these type of locks are only intended for short-term locking.
+  lock_break_timeout="${lock_break_timeout:-3600}" # seconds
 
   ## startup_when_locked
   # When == 0:
@@ -237,338 +270,16 @@ General features:
   export user_name="${user_name:-$(get_real_ssh_user)}"
   export user_name="${user_name:-$LOGNAME}"
 
-
-PLUGIN football-cm3
-
-   1&1 specfic plugin for dealing with the cm3 cluster manager
-   and its concrete operating enviroment (singleton instance).
-
-   Current maximum cluster size limit: 
-
-   Maximum #syncs running before migration can start: 
-
-   Following marsadm --version must be installed: 
-
-   Following mars kernel modules must be loaded: 
-
-  ## enable_cm3
-  # ShaHoLin-specifc plugin for working with the infong platform
-  # (istore, icpu, infong) via 1&1-specific clustermanager cm3
-  # and related toolsets. Much of it is bound to a singleton database
-  # instance (clustermw & siblings).
-  enable_cm3="${enable_cm3:-$(if [[ "$0" =~ tetris ]]; then echo 1; else echo 0; fi)}"
-
-  ## skip_resource_ping
-  # Enable this only for testing. Normally, a resource name denotes a
-  # container name == machine name which must be runnuing as a precondition,
-  # und thus must be pingable over network.
-  skip_resource_ping="${skip_resource_ping:-0}"
-
-  ## date_lock
-  # Don't enter critical sections at certain days of the week,
-  # and/or during certain hours.
-  # This is a regex matching against "date +%u_%H"
-  date_lock="${date_lock:-}"
-
-  ## workaround_firewall
-  # Documentation of technical debt for later generations:
-  # This is needed since July 2017. In the many years before, no firewalling
-  # was effective at the replication network, because it is a physically
-  # separate network from the rest of the networking infrastructure.
-  # An attacker would first need to gain root access to the _hypervisor_
-  # (not only to the LXC container and/or to KVM) before gaining access to
-  # those physical replication network interfaces.
-  # Since about that time, which is about the same time when the requirements
-  # for Container Football had been communicated, somebody introduced some
-  # unnecessary firewall rules, based on "security arguments".
-  # These arguments were however explicitly _not_ required by the _real_
-  # security responsible person, and explicitly _not_ recommended by him.
-  # Now the problem is that it is almost politically impossible to get
-  # rid of suchalike "security feature".
-  # Until the problem is resolved, Container Football requires
-  # the _entire_ local firewall to be _temporarily_ shut down in order to
-  # allow marsadm commands over ssh to work.
-  # Notice: this is _not_ increasing the general security in any way.
-  # LONGTERM solution / TODO: future versions of mars should no longer
-  # depend on ssh.
-  # Then this "feature" can be turned off.
-  workaround_firewall="${workaround_firewall:-1}"
-
-  ## ip_magic
-  # Similarly to workaround_firewall, this is needed since somebody
-  # introduced additional firewall rules also disabling sysadmin ssh
-  # connections at the _ordinary_ sysadmin network.
-  ip_magic="${ip_magic:-1}"
-
-  ## do_split_cluster
-  # The current MARS branch 0.1a.y is not yet constructed for forming
-  # a BigCluster constisting of several thousands of machines.
-  # When a future version of mars0.1b.y (or 0.2.y) will allow this,
-  # this can be disabled.
-  do_split_cluster="${do_split_cluster:-1}"
-
-  ## clustertool_host
-  # URL prefix of the internal configuation database REST interface.
-  clustertool_host="${clustertool_host:-http://clustermw:3042}"
-
-  ## clustertool_user
-  # Username for clustertool access.
-  # By default, scans for a *.password file (see next option).
-  clustertool_user="${clustertool_user:-$(shopt -u nullglob; ls *.password | head -1 | cut -d. -f1)}" ||    echo "cannot find a password file *.password for clustermw: you MUST supply the credentials via default curl config files (see man page)"
-
-  ## clustertool_passwd
-  # Here you can supply the encrpted password.
-  # By default, a file $clustertool_user.password is used
-  # containing the encrypted password.
-  clustertool_passwd="${clustertool_passwd:-$([[ -r $clustertool_user.password ]] && cat $clustertool_user.password)}"
-
-  ## do_migrate
-  # Keep this enabled. Only disable for testing.
-  do_migrate="${do_migrate:-1}" # must be enabled; disable for dry-run testing
-
-  ## always_migrate
-  # Only use for testing, or for special situation.
-  # This skip the test whether the resource has already migration.
-  always_migrate="${always_migrate:-0}" # only enable for testing
-
-  ## check_segments
-  # 0 = disabled
-  # 1 = only display the segment names
-  # 2 = check for equality
-  # WORKAROUND, potentially harmful when used inadequately.
-  # The historical physical segment borders need to be removed for
-  # Container Football.
-  # Unfortunately, the subproject aiming to accomplish this did not
-  # proceed for one year now. In the meantime, Container Football can
-  # be only played within the ancient segment borders.
-  # After this big impediment is eventually resolved, this option
-  # should be switched off.
-  check_segments="${check_segments:-1}"
-
-  ## backup_dir
-  # Directory for keeping JSON backups of clustermw.
-  backup_dir="${backup_dir:-.}"
-
-  ## enable_mod_deflate
-  # Internal, for support.
-  enable_mod_deflate="${enable_mod_deflate:-1}"
-
-  ## enable_segment_move
-  # Seems to be needed by some other tooling.
-  enable_segment_move="${enable_segment_move:-1}"
-
-  ## override_hwclass_id
-  # When necessary, override this from $include_dir/plugins/*.conf
-  override_hwclass_id="${override_hwclass_id:-25007}"
-
-  ## override_hvt_id
-  # When necessary, override this from $include_dir/plugins/*.conf
-  override_hvt_id="${override_hvt_id:-8059}"
-
-  ## iqn_base and iet_type and iscsi_eth and iscsi_tid
-  # Workaround: this is needed for _dynamic_ generation of iSCSI sessions
-  # bypassing the ordinary ones as automatically generated by the
-  # cm3 cluster manager (only at the old istore architecture).
-  # Notice: not needed for regular operations, only for testing.
-  # Normally, you dont want to shrink over a _shared_ 1MBit iSCSI line.
-  iqn_base="${iqn_base:-iqn.2000-01.info.test:test}"
-  iet_type="${iet_type:-blockio}"
-  iscsi_eth="${iscsi_eth:-eth1}"
-  iscsi_tid="${iscsi_tid:-4711}"
-
-  ## monitis_downtime_script
-  # ShaHoLin-internal
-  monitis_downtime_script="${monitis_downtime_script:-}"
-
-  ## monitis_downtime_duration
-  # ShaHoLin-internal
-  monitis_downtime_duration="${monitis_downtime_duration:-20}" # Minutes
-
-  ## shaholin_finished_log
-  # ShaHoLin-specific logfile, reporting _only_ successful completion
-  # of an action.
-  shaholin_finished_log="${shaholin_finished_log:-$football_logdir/shaholin-finished.log}"
-
-  ## ticket
-  # OPTIONAL: the meaning is ShaHoLin specific.
-  # This can be used for updating JIRA tickets.
-  # Can be set on the command line like "./tetris.sh $args --ticket=TECCM-4711
-  ticket="${ticket:-}"
-
-  ## ticket_get_cmd
-  # Optional: when set, this script can be used for retrieving ticket IDs
-  # in place of commandline option --ticket=
-  ticket_get_cmd="${ticket_get_cmd:-}"
-
-  ## ticket_update_cmd
-  # This can be used for calling an external command which updates
-  # the ticket(s) given by the $ticket parameter.
-  ticket_update_cmd="${ticket_update_cmd:-}"
-
-  ## shaholin_action
-  # OPTIONAL: specific action script with parameters.
-  shaholin_action="${shaholin_action:-}"
+  ## replace_ssh_id_file
+  # When set, replace current ssh user with this one.
+  # The new user should hot have a passphrase.
+  # Useful for logging out the original user (interrupting the original
+  # ssh agent chain).
+  replace_ssh_id_file="${replace_ssh_id_file:-}"
 
 
-PLUGIN football-basic
+PLUGIN football-1and1config
 
-   Generic driver for systemd-controlled MARS pools.
-   The current version supports only a flat model:
-   (1) There is a single "big cluster" at metadata level.
-       All cluster members are joined via merge-cluster.
-       All occurring names need to be globally unique.
-   (2) The network uses BGP or other means, thus any hypervisor
-       can (potentially) start any VM at any time.
-   (3) iSCSI or remote devices are not supported for now
-       (LocalSharding model). This may be extended in a future
-       release.
-   This plugin is exclusive-or with cm3.
-
-Plugin specific actions:
-
-   ./football.sh basic_add_host <hostname>
-      Manually add another host to the hostname cache.
-
-  ## pool_cache_dir
-  # Directory for caching the pool status.
-  pool_cache_dir="${pool_cache_dir:-$script_dir/pool-cache}"
-
-  ## initial_hostname_file
-  # This file must contain a list of storage and/or hypervisor hostnames
-  # where a /mars directory must exist.
-  # These hosts are then scanned for further cluster members,
-  # and the transitive closure of all host names is computed.
-  initial_hostname_file="${initial_hostname_file:-./hostnames.input}"
-
-  ## hostname_cache
-  # This file contains the transitive closure of all host names.
-  hostname_cache="${hostname_cache:-$pool_cache_dir/hostnames.cache}"
-
-  ## resources_cache
-  # This file contains the transitive closure of all resource names.
-  resources_cache="${resources_cache:-$pool_cache_dir/resources.cache}"
-
-  ## res2hyper_cache
-  # This file contains the association between resources and hypervisors.
-  res2hyper_cache="${res2hyper_cache:-$pool_cache_dir/res2hyper.assoc}"
-
-  ## enable_basic
-  # This plugin is exclusive-or with cm3.
-  enable_basic="${enable_basic:-$(if [[ "$0" =~ football ]]; then echo 1; else echo 0; fi)}"
-
-  ## ssh_port
-  # Set this for separating sysadmin access from customer access
-  ssh_port="${ssh_port:-}"
-
-  ## basic_mnt_dir
-  # Names the mountpoint directory at hypervisors.
-  # This must co-incide with the systemd mountpoints.
-  basic_mnt_dir="${basic_mnt_dir:-/mnt}"
-
-
-PLUGIN football-motd
-
-  Generic plugin for motd. Communicate that Football is running
-  at login via motd.
-
-  ## enable_motd
-  # whether to use the motd plugin.
-  enable_motd="${enable_motd:-0}"
-
-  ## update_motd_cmd
-  # Distro-specific command for generating motd from several sources.
-  # Only tested for Debian Jessie at the moment.
-  update_motd_cmd="${update_motd_cmd:-update-motd}"
-
-  ## download_motd_script and motd_script_dir
-  # When no script has been installed into /etc/update-motd.d/
-  # you can do it dynamically here, bypassing any "official" deployment
-  # methods. Use this only for testing!
-  # An example script (which should be deployed via your ordinary methods)
-  # can be found under $script_dir/update-motd.d/67-football-running
-  download_motd_script="${download_motd_script:-}"
-  motd_script_dir="${motd_script_dir:-/etc/update-motd.d}"
-
-  ## motd_file
-  # This will contain the reported motd message.
-  # It is created by this plugin.
-  motd_file="${motd_file:-/var/motd/football.txt}"
-
-  ## motd_color_on and motd_color_off
-  # ANSI escape sequences for coloring the generated motd message.
-  motd_color_on="${motd_color_on:-\\033[31m}"
-  motd_color_off="${motd_color_off:-\\033[0m}"
-
-
-PLUGIN football-report
-
-  Generic plugin for communication of reports.
-
-  ## report_cmd_{start,warning,failed,finished}
-  # External command which is called at start / failure / finish
-  # of Football.
-  # The following variables can be used (e.g. as parameters) when
-  # escaped with a backslash:
-  #  $res              = name of the resource (LV, container, etc)
-  #  $primary          = the current (old)
-  #  $secondary_list   = list of current (old) secondaries
-  #  $target_primary   = the target primary name
-  #  $target_secondary = list of target secondaries
-  #  $operation        = the operation name
-  #  $target_percent   = the value used for shrinking
-  #  $txt              = some informative text from Football
-  #  Further variables are possible by looking at the sourcecode, or by
-  #  defining your own variables or functions externally or via plugins.
-  # Empty = don't do anything
-  report_cmd_start="${report_cmd_start:-}"
-  report_cmd_warning="${report_cmd_warning:-$script_dir/screener.sh notify "$res" warning "$txt"}"
-  report_cmd_failed="${report_cmd_failed:-}"
-  report_cmd_finished="${report_cmd_finished:-}"
-
-
-PLUGIN football-waiting
-
-  Generic plugig, interfacing with screener: when this is used
-  by your script and enabled, then you will be able to wait for
-  "screener.sh continue" operations at certain points in your
-  script.
-
-  ## enable_*_waiting
-  #
-  # When this is enabled, and when Football had been started by screener,
-  # then football will delay the start of several operations until a sysadmin
-  # does one of the following manually:
-  #
-  #  a) ./screener.sh continue $session
-  #  b) ./screener.sh resume $session
-  #  c) ./screener.sh attach $session and press the RETURN key
-  #  d) doing nothing, and $wait_timeout has exceeded
-  #
-  # CONVENTION: football resource names are used as screener session ids.
-  # This ensures that only 1 operation can be started for the same resource,
-  # and it simplifies the handling for junior sysadmins.
-  #
-  enable_startup_waiting="${enable_startup_waiting:-0}"
-  enable_handover_waiting="${enable_handover_waiting:-0}"
-  enable_migrate_waiting="${enable_migrate_waiting:-0}"
-  enable_shrink_waiting="${enable_shrink_waiting:-0}"
-
-  ## enable_cleanup_delayed and wait_before_cleanup
-  # By setting this, you can delay the cleanup operations for some time.
-  # This way, you are keeping the old LV contents as a kind of "backup"
-  # for some limited time.
-  # HINT: dont set to wait_before_cleanuplarge values, because it can
-  # seriously slow down Football.
-  enable_cleanup_delayed="${enable_cleanup_delayed:-0}"
-  wait_before_cleanup="${wait_before_cleanup:-180}" # Minutes
-
-  ## reduce_wait_msg
-  # Instead of reporting the waiting status once per minute,
-  # decrease the frequency of resporting.
-  # Warning: dont increase this too much. Do not exceed
-  # session_timeout/2 from screener. Because of the Nyquist criterion,
-  # stay on the safe side by setting session_timeout at least to _twice_
-  # the time than here.
-  reduce_wait_msg="${reduce_wait_msg:-60}" # Minutes
-
+   1&1 specfic plugin for dealing with the cm3 clusters
+   and its concrete configuration .   
 \end{verbatim}
