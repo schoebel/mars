@@ -2307,7 +2307,7 @@ Summary: CentralStorage is something for
 
 \begin_layout Itemize
 \noindent
-small to medium-sized companies which don't have the 
+Small to medium-sized companies which don't have the 
 \series bold
 manpower
 \series default
@@ -2324,7 +2324,7 @@ skills
 
 \series bold
 \emph on
-monolithic
+Monolithic
 \emph default
  enterprise applications
 \series default
@@ -2337,7 +2337,7 @@ Vendor Lock-In
 \end_layout
 
 \begin_layout Itemize
-when your application 
+When your application 
 \series bold
 is neither shardable
 \series default
@@ -2955,8 +2955,8 @@ e way, big cluster architectures as implemented for example in Ceph or Swift
 \end_layout
 
 \begin_layout Standard
-When sharding is possible, it is the preferred model due to reliability
- and cost and performance reasons.
+In the following sections, we will see: when sharding is possible, it is
+ the preferred model due to reliability and cost and performance reasons.
 \end_layout
 
 \begin_layout Subsection
@@ -3032,7 +3032,7 @@ RemoteSharding This variant needs a (possibly dedicated) storage network,
 \begin_inset Formula $O(n)$
 \end_inset
 
-.
+ in total.
  Each storage server exports a block device over iSCSI (or over another
  transport) to at most 
 \begin_inset Formula $O(k)$
@@ -3220,7 +3220,7 @@ ng model in favor of BigClusterSharding when ...
 
 \begin_layout Itemize
 ...
- when more than 1 LV instance is placed onto your 
+ when more than 1 LV instance would be placed onto your 
 \begin_inset Quotes eld
 \end_inset
 
@@ -8075,7 +8075,7 @@ reference "subsec:Reliability-Differences-CentralStorage"
 .
  Notice that the current self-built backup solution for a total of 15 billions
  of inodes is based on a sharding model; converting this to some more or
- less centralized solution turns out as another challenge.
+ less centralized solution would turn out as another challenge.
 \end_layout
 
 \begin_layout Standard
@@ -8617,7 +8617,7 @@ true
 
 \end_inset
 
- Filesystems on top of object stores are no true filesystems.
+ Filesystems on top of object stores are no true intermediate filesystems.
  They are violating Dijkstra's important layering rules, as stated in his
  famous articles on THE.
  A similar argument holds for block devices on top of object stores.
