@@ -10459,6 +10459,460 @@ There may be some exceptions, e.g.
 \end_layout
 
 \begin_layout Section
+Explanation via CAP Theorem
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Explanation-via-CAP"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/cap-theorem.fig
+	width 60col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+The famous CAP theorem, also called Brewer's theorem, is important for a
+ deeper understanding of the differences between DRBD and MARS.
+ A good explanation can be found at 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/CAP_theorem
+\end_layout
+
+\end_inset
+
+ (retrieved July 2018).
+\end_layout
+
+\begin_layout Standard
+The CAP theorem states that only 2 out of 3 properties can be achieved at
+ the same time, when a Distributed System is under pressure: C = Consistency
+ means 
+\series bold
+\emph on
+Strict
+\series default
+\emph default
+ Consistency at the level of the 
+\emph on
+distributed
+\emph default
+ system (which is 
+\emph on
+not
+\emph default
+ the same as strict consistency 
+\emph on
+inside
+\emph default
+ of one of the 
+\emph on
+local
+\emph default
+ systems), A = Availability = intuitively clear from a user's perspective,
+ and P = Partitioning Tolerance = the network may have its own outages at
+ any time (which is a negative criterion).
+\end_layout
+
+\begin_layout Standard
+As explained in the Wikipedia article, the P = Partitioning Tolerance is
+ a property which is imporant at least in 
+\emph on
+wide-distance
+\emph default
+ data replication scenarios, and possibly in some other scenarios.
+\end_layout
+
+\begin_layout Standard
+If you are considering only short distances like passive crossover cables
+ between racks, 
+\emph on
+then
+\emph default
+ (and 
+\emph on
+only then
+\emph default
+) you may 
+\emph on
+assume(!)
+\emph default
+ that P is not required.
+ Then, and only then, you can get both A and C at the same time, without
+ sacrificing P, because P is already for free by assumption.
+ In such a crossover cable scenario, getting all three C and A and P is
+ possible, similarly to an explanation in the Wikipedia article.
+\end_layout
+
+\begin_layout Standard
+This is the classical use case for DRBD: when both DRBD replicas are always
+ staying physically connected via a passive crossover cable (which is 
+\emph on
+assumed
+\emph default
+ to never break down), you can get both strict global consistency and availabili
+ty, even in cases where one of the DRBD nodes is failing
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In addition, you will need some further components like Pacemaker, iSCSI
+ failover, etc.
+\end_layout
+
+\end_inset
+
+.
+ Both C and A are provided by DRBD during 
+\family typewriter
+connected
+\family default
+ state, while P is assumed to be provided by a passive component.
+ By addition of iSCSI failover, A can be achieved even in case of single
+ storage node failures, while retaining C from the viewpoint
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Notice: the CAP theorem does not deal with node failures, only with 
+\emph on
+network
+\emph default
+ failures.
+ Node failures would always violate C by some 
+\begin_inset Quotes eld
+\end_inset
+
+strong
+\begin_inset Quotes erd
+\end_inset
+
+ definition.
+ By some 
+\begin_inset Quotes eld
+\end_inset
+
+weaker
+\begin_inset Quotes erd
+\end_inset
+
+ definition, the downtime plus recovery time (e.g.
+ DRBD re-sync) can be taken out of the game.
+ Notice: while a node can always 
+\begin_inset Quotes eld
+\end_inset
+
+know
+\begin_inset Quotes erd
+\end_inset
+
+ whether it has failed (at least after reboot), network failures cannot
+ be distinguished from failures of remote nodes in general.
+ Therefore node failures and network failures are fundamentally different
+ by their nature.
+\end_layout
+
+\end_inset
+
+ of the application.
+\end_layout
+
+\begin_layout Standard
+This is explained by the thick line in the following variant of the graphics,
+ which is only valid for crossover cables where P need not be guaranteed
+ by the replication because it is already assumed for free:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/cap-drbd-operational.fig
+	width 60col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Now look at the case of a truly Distributed System, where P cannot be assumed
+ as for free.
+ For example, try to use DRBD in a long-distance replication scenario.
+ There we cannot assume P as already given.
+ We 
+\series bold
+must 
+\emph on
+tolerate
+\series default
+\emph default
+ replication network outages.
+ DRBD is reacting to this differently in two different modes.
+\end_layout
+
+\begin_layout Standard
+First we look at the (short) time interval 
+\emph on
+before
+\emph default
+ DRBD recognizes the replication network incident, and before it leaves
+ the 
+\family typewriter
+connected
+\family default
+ state.
+ During this phase, the application IO will 
+\series bold
+hang
+\series default
+ for some time, indicating the (temporary) sacrifice (from a user's perspective)
+ by a red X:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/cap-drbd-connected.fig
+	width 60col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Because Availability is one of the highest goods of enterprise-critical
+ IT operations, you will typically configure DRBD such that it automatically
+ switches to some variant of a 
+\family typewriter
+disconnected
+\family default
+ state after some timeout, thereby giving up consistency between both replicas.
+ The red X indicates not only loss of global strict consistency in the sense
+ of the CAP theorem, but also that your replica will become 
+\family typewriter
+Inconsistent
+\family default
+ during the following re-sync:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/cap-drbd-disconnected.fig
+	width 60col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+You may wonder what the difference to MARS is.
+ As explained in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Requirements-for-Cloud"
+
+\end_inset
+
+, MARS is not only intended for wide distances, but also for 
+\series bold
+Cloud Storage
+\series default
+ where no strict consistency is required at global level by definition,
+ but instead 
+\series bold
+Eventually Consistent
+\series default
+ is the preferred model for the Distributed System.
+ Therefore, 
+\emph on
+strict
+\emph default
+ consistency (in the sense of the CAP theorem) is 
+\emph on
+not required by definition
+\emph default
+.
+ Therefore, the red X is not present in the following graphics, showing
+ the state where MARS is remaining 
+\emph on
+locally consistent
+\emph default
+ all the time
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Notice that the 
+\emph on
+initial
+\emph default
+ full sync is not considered here, neither for DRBD, nor for MARS.
+ 
+\emph on
+Setup
+\emph default
+ of the Distributed System is its own scenario, not considered here.
+ 
+\emph on
+Repair
+\emph default
+ of a 
+\emph on
+damaged
+\emph default
+ system is also a different scenario, also not considered here.
+ Notice the MARS' emergency mode also belongs to the class of 
+\begin_inset Quotes eld
+\end_inset
+
+damages
+\begin_inset Quotes erd
+\end_inset
+
+, as well as DRBD' disk failure modes, where is has some additional functionalit
+y compared to the current version of MARS.
+\end_layout
+
+\end_inset
+
+, even when a network outage occurs:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/cap-mars.fig
+	width 60col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Notice: MARS does not guarantee strict consistency 
+\emph on
+between
+\emph default
+ LV replicas at the level of the Distributed System, but only Eventually
+ Consistent.
+ However, 
+\emph on
+at the same time
+\emph default
+ it 
+\emph on
+also
+\emph default
+ guarantees strict consistency 
+\emph on
+locally
+\emph default
+, and even at 
+\emph on
+each
+\emph default
+ of the passive replicas, each by each.
+ Don't confuse these different levels.
+ There are different consistency guarantees at different levels, at the
+ same time.
+ This might be confusing if you are not looking at the system at different
+ levels: (1) overall Distributed System versus (2) each of the local system
+ instances.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Why does MARS this? Because a better way is not possible at all.
+ The CAP theorem tells us that there exists no better way when both A have
+ to be guaranteed (as almost everywhere in enterprise-critical IT operations),
+ and P has to be ensured in datacenter disaster scenarios or some other
+ scenarios.
+ Similarly to natural laws like Einstein's laws of the speed of light, there
+ 
+\emph on
+does not exist
+\emph default
+ a better way!
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Conclusion from the CAP theorem: don't use DRBD (or other 
+\emph on
+synchronous
+\emph default
+ replication implementations) for long-distance and/or Cloud Storage scenarios
+ where P is a hard requirement.
+ The red X is in particular problematic during re-sync, after the network
+ has become healthy again (cf section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "subsec:Behaviour-of-DRBD"
+
+\end_inset
+
+).
+ MARS has no red X at C because of its 
+\series bold
+Anytime Consistency
+\series default
+, which refers to 
+\emph on
+local
+\emph default
+ consistency, and which is violated by DRBD during certain important phases
+ of its regular operation.
+\end_layout
+
+\begin_layout Section
 Higher Consistency Guarantees vs Actuality
 \end_layout
 
