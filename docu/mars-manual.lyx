@@ -10816,6 +10816,67 @@ https://github.com/schoebel/blkreplay/raw/master/doc/blkreplay.pdf
 \end_layout
 
 \begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Don't set your hardware BBU cache to 
+\begin_inset Quotes eld
+\end_inset
+
+writethrough
+\begin_inset Quotes erd
+\end_inset
+
+ mode.
+ This may lead to tremendous performance degradation.
+ Use the 
+\begin_inset Quotes eld
+\end_inset
+
+writeback
+\begin_inset Quotes erd
+\end_inset
+
+ strategy instead.
+ It should be operationally safe, because in case of power loss the BBU
+ cache content will be preserved thanks to the battery, and/or thanks to
+ goldcaps for saving the cache content into some flash chips.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+For better performance, use newer MARS versions from branch 
+\family typewriter
+mars0.1a.y
+\family default
+ or later.
+ You may also play around with 
+\family typewriter
+/proc/sys/mars/aio_sync_mode
+\family default
+ when actuality is less important.
+ Further tuning of 
+\family typewriter
+/proc/sys/mars/io_tuning/
+\family default
+ and many more tunables is currently only recommended for experts.
+ Future versions of MARS are planned to provide better performance with
+ software RAID.
+\end_layout
+
+\begin_layout Standard
 Typically, you will need more than one RAID set
 \begin_inset Foot
 status open
