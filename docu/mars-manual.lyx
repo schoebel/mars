@@ -483,12 +483,195 @@ eventually consistent
 \end_layout
 
 \begin_layout Standard
-There are some consequences from this definition:
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Notice that the term 
+\begin_inset Quotes eld
+\end_inset
+
+network
+\begin_inset Quotes erd
+\end_inset
+
+ does not occur in this definition.
+ However, the term 
+\begin_inset Quotes eld
+\end_inset
+
+distributed resources
+\begin_inset Quotes erd
+\end_inset
+
+ is implying 
+\emph on
+some(!)
+\emph default
+ kind of network.
 \end_layout
 
-\begin_layout Enumerate
-Distributed Storage, in particular BigCluster architectures (see section
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Important! The definition does 
+\emph on
+not
+\emph default
+ imply some 
+\emph on
+specific
+\emph default
+ type of network, such as a 
+\series bold
+storage network
+\series default
+ which must be capable of transporting masses of IO operations in 
+\series bold
+realtime
+\series default
+.
+ We are free to use other types of networks, such as 
+\series bold
+replication networks
+\series default
+, which need not be dimensioned for realtime IO traffic, but are usable
+ for 
+\series bold
+background data migration
+\series default
+, and even over long distances, where the network typically has some bottlenecks.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Notice that the definition says nothing about the 
+\series bold
+time scale
+\series default
+ of operations
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Notice: go down to a time scale of microseconds.
+ You will then notice that typical IO operations will require several hundreds
+ of machine instructions between IO request 
+\emph on
+submission
+\emph default
+ and the corresponding IO request 
+\emph on
+completion
+\emph default
+.
+ This is not only true for local IO.
+ In network clusters like Ceph, it will even involve creation of network
+ packets, and lead to additional IO latencies implied by the network packet
+ transfer latencies.
+\end_layout
+
+\end_inset
+
+.
+ We are free to implement certain operations, such as background data migrations
+, in a rather long timescale (from a human point of view).
+ Example: increasing the number of replicas in an operational Ceph cluster,
+ already containing a few hundreds of terabytes of data, will not only require
+ additional storage hardware, but also take a rather long time, implied
+ by the very nature of such reorganisational tasks.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+The famous CAP theorem is one of the motivations behind requirement (4)
  
+\begin_inset Quotes eld
+\end_inset
+
+eventually consistent
+\begin_inset Quotes erd
+\end_inset
+
+.
+ This is not an accident.
+ There is a 
+\emph on
+reason
+\emph default
+ for it, although it is not a 
+\emph on
+hard
+\emph default
+ requirement.
+ Strict consistency is not needed for many applications running on top of
+ cloud storage.
+ In addition, the CAP theorem and some other theorems cited at 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/CAP_theorem
+\end_layout
+
+\end_inset
+
+ are telling us that Strict Consistency would be
+\series bold
+ difficult and expensive
+\series default
+ to achieve at global level in a bigger Distributed System, and at the cost
+ of other properties.
+ More detailed explanations are in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:Explanation-via-CAP"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+There are some consequences from this definition of Cloud Storage, for each
+ of our high-level storage architectures:
+\end_layout
+
+\begin_layout Description
+Distributed
+\begin_inset space ~
+\end_inset
+
+Storage, in particular 
+\family typewriter
+BigCluster
+\family default
+ architectures (see section 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "sec:Distributed-vs-Local:"
@@ -501,8 +684,12 @@ s.
  of data.
 \end_layout
 
-\begin_layout Enumerate
-Centralized Storage: does not conform to (1) and to (4) by definition
+\begin_layout Description
+Centralized
+\begin_inset space ~
+\end_inset
+
+Storage: does not conform to (1) and to (4) by definition
 \begin_inset Foot
 status open
 
@@ -533,11 +720,11 @@ almost
 sub-component
 \emph default
 ).
- Typical granularity is replication of whole storage pools, or of LVs, or
- of filesystem data.
+ Typical granularity is replication of whole internal storage pools, or
+ of LVs, or of filesystem data.
 \end_layout
 
-\begin_layout Enumerate
+\begin_layout Description
 LocalStorage, and some further models like RemoteSharding (see section 
 \begin_inset CommandInset ref
 LatexCommand ref
@@ -590,7 +777,7 @@ locally: Strict local consistency at LV granularity, also
 \emph on
 within
 \emph default
- any LV replica.
+ each of the LV replicas.
 \end_layout
 
 \begin_layout Description
@@ -603,6 +790,52 @@ between
 
 \end_deeper
 \end_deeper
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Notice: 
+\family typewriter
+BigCluster
+\family default
+ architectures are creating 
+\emph on
+virtual
+\emph default
+ storage pools out of physically distributed storage servers.
+ For fairness reasons, creation of a big virtual LVM pool, must be considered
+ as 
+\emph on
+another
+\emph default
+ valid Cloud Storage 
+\emph on
+model
+\emph default
+, matching the above definition of Cloud Storage.
+ The main architectural difference is granularity, as explained in section
+ 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Granularity-at-Architecture"
+
+\end_inset
+
+, and the stacking order of sub-components.
+ Notice that Football is creating 
+\series bold
+location transparency
+\series default
+ inside of the distributed virtual LVM pool.
+ This is an important (though not always required) basic property of any
+ type of clusters and/or grids.
+\end_layout
+
 \begin_layout Section
 Granularity at Architecture
 \begin_inset CommandInset label
@@ -10885,12 +11118,19 @@ does not exist
 
 \end_inset
 
- Conclusion from the CAP theorem: don't use DRBD (or other 
+ Conclusion from the CAP theorem: when P is a 
+\emph on
+hard
+\emph default
+ 
+\emph on
+requirement
+\emph default
+, don't use DRBD (or other 
 \emph on
 synchronous
 \emph default
- replication implementations) for long-distance and/or Cloud Storage scenarios
- where P is a hard requirement.
+ replication implementations) for long-distance and/or Cloud Storage scenarios.
  The red X is in particular problematic during re-sync, after the network
  has become healthy again (cf section 
 \begin_inset CommandInset ref
@@ -10910,6 +11150,49 @@ local
 \emph default
  consistency, and which is violated by DRBD during certain important phases
  of its regular operation.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Another conclusion from the CAP theorem: when A+C is a 
+\emph on
+hard requirement
+\emph default
+, and when P can be faithfully assumed as already given by passive crossover
+ cables, then don't use the current version of MARS.
+ Use DRBD instead.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ If you think that you require alle three properties C+A+P, but you don't
+ have passive crossover cables over short distances, you are requiring something
+ which is 
+\series bold
+impossible
+\series default
+.
+ There exists no solution, with whatever component, or from whatever commercial
+ storage vendor.
+ The CAP theorem is as hard as Einstein's natural laws are.
+ Rethink your complete concept, from end to end.
+ Something is wrong, somewhere.
+ Ignoring this on enterprise-critical use cases can endanger a company and/or
+ your career.
 \end_layout
 
 \begin_layout Section
