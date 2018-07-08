@@ -10771,6 +10771,17 @@ wide-distance
  data replication scenarios, and possibly in some other scenarios.
 \end_layout
 
+\begin_layout Subsection
+CAP Differences between DRBD and MARS
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:CAP-Differences"
+
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
 If you are considering only short distances like passive crossover cables
  between racks, 
@@ -11193,6 +11204,347 @@ impossible
  Something is wrong, somewhere.
  Ignoring this on enterprise-critical use cases can endanger a company and/or
  your career.
+\end_layout
+
+\begin_layout Subsection
+CAP Commonalities between DRBD and MARS
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:CAP-Commonalities"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In this subsection, we look at the case that P is not for free, but has
+ to be ensured by the Distributed Storage system.
+\end_layout
+
+\begin_layout Standard
+You may have noticed that MARS' ordinary CAP behaviour is similar to DRBD's
+ CAP picture in 
+\family typewriter
+disconnected
+\family default
+ state, or during similar states when the replication network is interrupted.
+\end_layout
+
+\begin_layout Standard
+Replication network interruption is also known as 
+\begin_inset Quotes eld
+\end_inset
+
+Network Partitioning
+\begin_inset Quotes erd
+\end_inset
+
+.
+ This is where property P = Partitioning Tolerance comes into play.
+\end_layout
+
+\begin_layout Standard
+When a network partition has 
+\emph on
+actually occurred
+\emph default
+, both DRDB and MARS allow you to do the same: you may 
+\series bold
+forcefully switch
+\series default
+ the 
+\family typewriter
+primary
+\family default
+ role, which means activation of a former 
+\family typewriter
+secondary
+\family default
+ node.
+ In such a situation, you can issue commands like
+\family typewriter
+ drbdadm primary --force
+\family default
+ or 
+\family typewriter
+marsadm primary --force
+\family default
+.
+ It is no accident that both commands are looking similar to each other.
+\end_layout
+
+\begin_layout Standard
+The outcome will be the same: you will most likely get a 
+\family typewriter
+\series bold
+SplitBrain
+\family default
+\series default
+ situation.
+\end_layout
+
+\begin_layout Standard
+The possibility of getting a split brain is no specific property of neither
+ DRBD nor MARS.
+ It will also happen with any other replication system, whether synchronous
+ or asynchronous.
+\end_layout
+
+\begin_layout Standard
+It is one of the consequences from the CAP theorem when (1a) P has to be
+ assured, and (1b) a network partition has 
+\emph on
+actually occurred
+\emph default
+, and (2) when A = Availability is enforced at both sides of the network
+ partition.
+ The result is that C = global Consistency is violated, by creation of two
+ or more versions of the data.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Careful: at least for some application classes, it is a bad idea to systematica
+lly create split brain via automatic cluster managers, e.g.
+ Pacemaker or similar.
+ As explained in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:Inappropriate-Clustermanger"
+
+\end_inset
+
+, some cluster managers were originally constructed for truly shared disk
+ scenarios, where no split brain can occur by construction.
+ Using them in masses on versioned data in truly distributed systems can
+ result in existential surprises, once a bigger network partition and/or
+ a flaky replication networks triggers them in masses, and at some moments
+ where you didn't really want to do what they now are doing automatically,
+ and in masses.
+ Split brain should not be provoked when not 
+\emph on
+absolutely
+\emph default
+ necessary.
+\end_layout
+
+\begin_layout Standard
+Split brain resolution is all else but easy in general.
+ When the data is in a generic block device, you typically will have no
+ general means for merging both versions.
+ This means, split brain resolution is typically only possible by 
+\series bold
+throwing away
+\series default
+ some of the versions.
+\end_layout
+
+\begin_layout Standard
+This kind of split brain resolution problem is no specific property of DRBD
+ or of MARS.
+ It is a fundamental property of generic block devices.
+\end_layout
+
+\begin_layout Standard
+DRBD and MARS have some commands like 
+\family typewriter
+drbdadm invalidate
+\family default
+ or 
+\family typewriter
+marsadm invalidate
+\family default
+ for this.
+ Again, the similarity is no accident.
+\end_layout
+
+\begin_layout Standard
+Notice that classical filesystems aren't typically better than raw block
+ devices.
+ There are even more possibilities for tricky types of 
+\series bold
+conflicts
+\series default
+ (e.g.
+ on path names in addition to file content).
+\end_layout
+
+\begin_layout Standard
+Similary, BigCluster object stores are often suffering from similar (or
+ even worse) problems, because higher application layers may have some hidden
+ internal dependencies between object versions, while the object store itself
+ is agnostic of version dependencies in general
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+There exists lots of types of potential dependencies between objects.
+ Timely ones are easy to capture, but this is not sufficient in general
+ for everything.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ When stacking block devices or filesystems (or something else) on top of
+ some BigCluster object store, the latter will not magically resolve any
+ split brain for you.
+ Check whether your favorite object store implementation has some kind of
+ equivalent of a 
+\family typewriter
+primary --force
+\family default
+ command, and some equivalent
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Notice: BigCluster architectures are typically discriminating between between
+ client servers and storage servers.
+ This will typically introduce some more possibilities into the game, such
+ as forced client failover, independently from forced storage failover.
+\end_layout
+
+\end_inset
+
+ of an 
+\family typewriter
+invalidate
+\family default
+ command.
+ If it doesn't have one, or only a restricted one, you should be 
+\emph on
+alerted
+\emph default
+.
+ In case of a long-lasting storage network partition, you might need suchalike
+ 
+\emph on
+desperately
+\emph default
+ for ensuring A, even at the cost of C.
+ Check: whether you need this is heavily depending on the 
+\series bold
+\emph on
+application class
+\series default
+\emph default
+ (see also the Cloud Storage definition in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:Requirements-for-Cloud"
+
+\end_inset
+
+, or look at webhosting, etc).
+ When you 
+\emph on
+would
+\emph default
+ need it, but you are 
+\series bold
+not prepared for suchalike scenarios at your enterprise-critical data
+\series default
+, it could cost you a lot of money and/or reputation and/or even your existence.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Notice: the 
+\emph on
+concept
+\emph default
+ of 
+\family typewriter
+SplitBrain
+\family default
+ is occurring almost everywhere in truly Distributed Systems when C can
+ be violated in favour of A+P.
+ It is a very general consequence
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+There exist only few opportunities for generic conflict resolution, even
+ in classical databases where 
+\emph on
+some
+\emph default
+ knowledge about the structure of the data is available.
+ Typically, there are some more hidden dependencies.
+ Lossless 
+\family typewriter
+SplitBrain
+\family default
+ resolution will thus need to be implemented at application layer, if it
+ is possible at all.
+\end_layout
+
+\end_inset
+
+ of the CAP theorem.
+\end_layout
+
+\begin_layout Standard
+The only reliable way for avoiding split brain in truly distributed systems
+ would be: don't insist on A = Availability.
+ Notice that there exist some application classes, like certain types of
+ banking, where C is typically a higher good than A.
+\end_layout
+
+\begin_layout Standard
+Notice that both DRBD and MARS are supporting this also: just don't add
+ the option 
+\family typewriter
+--force
+\family default
+ to the 
+\family typewriter
+primary
+\family default
+ switch command.
+\end_layout
+
+\begin_layout Standard
+However: even in banking, some 
+\emph on
+extremely extraordinary
+\emph default
+ scenarios might occur, where sacrifice of C in favour of A could be necessary
+ (e.g.
+ when 
+\emph on
+manual cleanup
+\emph default
+ of C is cheaper than long-lasting violations of A).
+ Good to know that both DRBD and MARS have some emergency measure for killing
+ C in favour of A!
 \end_layout
 
 \begin_layout Section
@@ -40975,6 +41327,13 @@ Tips and Tricks
 \begin_layout Section
 Avoiding Inappropriate Clustermanager Types for Medium and Long-Distance
  Replication
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Inappropriate-Clustermanger"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
