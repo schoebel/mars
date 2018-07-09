@@ -2585,7 +2585,7 @@ sub split_cluster {
       $cmd .= "shopt -s nullglob; ";
       $cmd .= "for i in $mars/resource-*; do if ! [[ -e \$i/data-$peer ]] && ! [[ -e \$i/replay-$peer ]]; then rm -rf $backup_dir/\${i##*/}; mv \$i $backup_dir/; fi; done; ";
       $cmd .= "mkdir -p $mars/ips; ";
-      my $sub_list = "{ for i in \$(ls $mars/resource-*/data-$peer | cut -d/ -f1-3 | sort -u); do (cd \$i; ls data-*); done; echo x-$peer; }";
+      my $sub_list = "{ for dir in $mars/resource-*/data-$peer; do (cd \${dir%/*} && for i in data-*; do echo \$i; done); done; echo x-$peer; }";
       my $sub_cmd = "echo RESTORE IP \$j; cp -a $ips_backup/ip-\$j $mars/ips/";
       $cmd .= "for j in \$($sub_list | cut -d- -f2- | sort -u); do $sub_cmd; done";
       lprint "$cmd\n";
