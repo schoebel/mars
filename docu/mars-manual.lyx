@@ -11718,6 +11718,31 @@ contents
 
 
 \begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Check that state 
+\family typewriter
+Orphan
+\family default
+ is left after a while on B.
+ Notice that 
+\family typewriter
+join-resource
+\family default
+ is only 
+\emph on
+starting
+\emph default
+ a new replica, but does not wait for its completion.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
 	scale 7
@@ -13866,6 +13891,31 @@ reference "chap:Alternative-Methods-for"
 \end_inset
 
 .
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Check that state 
+\family typewriter
+Orphan
+\family default
+ is left after a while.
+ Notice that 
+\family typewriter
+invalidate
+\family default
+ is only 
+\emph on
+restarting
+\emph default
+ an existing replica, but does not wait for its completion.
 \end_layout
 
 \begin_layout Paragraph
@@ -17840,6 +17890,14 @@ EMEGENCY MODE HYSTERESIS
  Until that it had been halted.
 \end_layout
 
+\begin_layout Enumerate
+Recommendation: check at secondaries that state 
+\family typewriter
+Orphan
+\family default
+ has been left after a while.
+\end_layout
+
 \begin_layout Standard
 Alternatively, there is another method by roughly following the instructions
  from appendix 
@@ -18810,6 +18868,44 @@ Orphan
 marsadm invalidate
 \family default
  needs to be done.
+\begin_inset Newline newline
+\end_inset
+
+There is an execption: shortly after 
+\family typewriter
+join-resource
+\family default
+ or 
+\family typewriter
+invalidate
+\family default
+, it may take some time until state 
+\family typewriter
+Orphan
+\family default
+ may be left, and until the newest logfile has appeared at your secondary
+ site (depending on the size of logfiles, and on your network).
+ In case of network problems, this may take very long.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ This state tells you that your replica is not current, and currently not
+ being updated at all.
+ Don't forget to 
+\series bold
+monitor
+\series default
+ for longer occurrences of this state! Otherwise you may get a big surprise
+ when you need a forceful emergency failover, but your replica is very old
+ or even does not really exist at all.
 \end_layout
 
 \begin_layout Labeling
@@ -27507,7 +27603,29 @@ $res
 
 \size scriptsize
 Notice: when the size of $disk_dev is strictly greater than the size of
- the resource, you will unnecessarily waste some space..
+ the resource, you will unnecessarily waste some space.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ 
+\size scriptsize
+After a while, state 
+\family typewriter
+Orphan
+\family default
+ should be left.
+ Don't forget to regularly monitor for longer occurrences of 
+\family typewriter
+Orphan
+\family default
+!
 \end_layout
 
 \end_inset
@@ -34613,6 +34731,28 @@ marsadm {pause,resume}-sync
  will influence whether the sync really starts.
  When the fullsync has finished successfully, the local node will be consistent
  again.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ 
+\size scriptsize
+After a while, state 
+\family typewriter
+Orphan
+\family default
+ should be left.
+ Don't forget to regularly monitor for longer occurrences of 
+\family typewriter
+Orphan
+\family default
+!
 \end_layout
 
 \end_inset
