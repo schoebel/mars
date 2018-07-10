@@ -114,6 +114,7 @@ check_id($host);
 my $real_host = $host;
 my $backup_dir = "$mars/backups-" . time();
 my $force = 0;
+my $ignore_sync = 0;
 my $cron_mode = 0;
 my $timeout = -1;
 my $ip = "";
@@ -3135,16 +3136,19 @@ sub primary_phase0 {
   lprint "Current designated primary: $old\n";
   if ($cmd eq "primary") {
     if ($host ne $old) {
-      check_sync_finished($res, $host);
+      lprint "Allowing handover in cases of sync: ignore_sync=$ignore_sync\n" if $ignore_sync;
+      check_sync_finished($res, $host, $ignore_sync);
       # also check that other secondaries won't loose their sync primary
       my @names = glob("$mars/resource-$res/data-*");
       # for k <= 2 replicas, the previous check must have been sufficient
       if (scalar(@names) > 2) {
+	my $allow_anyway = ($force || $ignore_sync);
+	lprint "Allowing handover in cases of sync: force=$force ignore_sync=$ignore_sync\n" if $allow_anyway;
 	foreach my $name (@names) {
 	  $name =~ m:/data-(.+):;
 	  my $peer = $1;
 	  next if ($peer eq $old || $peer eq $host);
-	  check_sync_finished($res, $peer, $force);
+	  check_sync_finished($res, $peer, $allow_anyway);
 	}
       }
     }
@@ -6039,6 +6043,10 @@ marsadm [<global_options>] view[-<macroname>] [<resource_name> | all ]
     Use this only when you really know what you are doing!
     Warning! This is dangerous! First try --dry-run.
     Not combinable with 'all'.
+  --ignore-sync
+    Allow primary handover even when some sync is running somewhere.
+    This is less rude than --force because it checks for all else
+    preconditions.
   --dry-run
     Don't modify the symlink tree, but tell what would be done.
     Use this before starting potentially harmful actions such as
@@ -6154,6 +6162,9 @@ my @args;
 foreach my $arg (@ARGV) {
   if ($arg eq "--force" || $arg eq "-f") {
     $force++;
+    next;
+  } elsif ($arg eq "--ignore-sync") {
+    $ignore_sync++;
     next;
   } elsif ($arg eq "--dry-run" || $arg eq "-d") {
     $dry_run++;
