@@ -763,8 +763,38 @@ Big Virtual LVM Pool
 \end_layout
 
 \begin_layout Description
-(4) can be achieved by MARS, which provides two different consistency guarantees
- at different levels, 
+(4) at least Eventually Consistent or better can be alternatively achieved
+ by
+\end_layout
+
+\begin_deeper
+\begin_layout Description
+(4a) 
+\series bold
+DRBD
+\series default
+, which provides Strict consistency during 
+\family typewriter
+connected
+\family default
+ state, but works only reliably with passive crossover cables over short
+ distances (see CAP theorem in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:Explanation-via-CAP"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Description
+(4b) 
+\series bold
+MARS
+\series default
+, which works over long distances and provides two different consistency
+ guarantees at different levels, 
 \emph on
 both at the same time
 \emph default
@@ -788,6 +818,7 @@ between
  different LV replicas.
 \end_layout
 
+\end_deeper
 \end_deeper
 \end_deeper
 \begin_layout Standard
