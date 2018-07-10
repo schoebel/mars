@@ -12890,6 +12890,32 @@ view-replinfo
  but also be inaccurate.
 \end_layout
 
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Planned handover is refused 
+\emph on
+by default
+\emph default
+ when some sync is running somewhere.
+ By adding the option 
+\family typewriter
+--ignore-sync
+\family default
+, you are no longer protected by this 
+\emph on
+safety measure
+\emph default
+, and you are willing to accept that any already running syncs will restart
+ from point 0, in order to ensure consistency.
+\end_layout
+
 \begin_layout Subsubsection
 Forced Switching
 \begin_inset CommandInset label
@@ -24335,7 +24361,7 @@ The following table documents common options which work with (almost) any
 
 \size scriptsize
 \begin_inset Tabular
-<lyxtabular version="3" rows="10" columns="3">
+<lyxtabular version="3" rows="11" columns="3">
 <features islongtable="true" longtabularalignment="left">
 <column alignment="left" valignment="top" width="0pt">
 <column alignment="center" valignment="top">
@@ -24636,6 +24662,120 @@ Use it only as a last resort if the same command without
 for no good reason
 \emph default
 !
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "20col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\family typewriter
+\size scriptsize
+--ignore-sync
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+almost
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Box Frameless
+position "t"
+hor_pos "c"
+has_inner_box 1
+inner_pos "t"
+use_parbox 0
+use_makebox 0
+width "60col%"
+special "none"
+height "1in"
+height_special "totalheight"
+thickness "0.4pt"
+separation "3pt"
+shadowsize "4pt"
+framecolor "black"
+backgroundcolor "none"
+status open
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Use this for a 
+\emph on
+planned
+\emph default
+ handover instead of 
+\family typewriter
+--force
+\family default
+.
+ Only one precondition is relaxed: some sync may be running somewhere.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+Careful when using this on extremely huge LVs where the sync may take serveral
+ days, or weeks.
+ It is your sysadmin decision what you want to prefer: restarting the sync,
+ or planned handover.
 \end_layout
 
 \end_inset
@@ -32235,7 +32375,7 @@ Switches the
 designated primary
 \series default
 .
- There are two variants:
+ There are three variants:
 \end_layout
 
 \begin_layout Plain Layout
@@ -32362,6 +32502,23 @@ join-resource
 
 \size scriptsize
 2) 
+\series bold
+Handover ignoring running syncs,
+\series default
+ by adding the option 
+\family typewriter
+--ignore-sync
+\family default
+.
+ Any running syncs will restart from scratch, in order to ensure consistency.
+ Use this only when the planned handover is more important than the sync
+ time.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+3) 
 \series bold
 Forced switching
 \series default
