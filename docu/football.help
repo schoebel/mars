@@ -43,7 +43,9 @@ Actions for inplace FS shrinking:
 
 Actions for inplace FS extension:
 
+  ./football.sh expand          <resource> <percent>
   ./football.sh extend          <resource> <percent>
+    Increase mounted filesystem size during operations.
 
 Combined actions:
 
@@ -126,7 +128,8 @@ General features:
 PLUGIN football-1and1config
 
    1&1 specfic plugin for dealing with the cm3 clusters
-   and its concrete configuration .   
+   and its concrete configuration.
+
 
 PLUGIN football-cm3
 
@@ -140,6 +143,12 @@ PLUGIN football-cm3
    Following marsadm --version must be installed: 
 
    Following mars kernel modules must be loaded: 
+
+Specific actions for plugin football-cm3:
+
+  ./football.sh clustertool {GET|PUT} <url>
+    Call through to the clustertool via REST.
+    Useful for manual inspection and repair.
 
 
 PLUGIN football-basic
@@ -162,6 +171,11 @@ Plugin specific actions:
       Manually add another host to the hostname cache.
 
 
+PLUGIN football-downtime
+
+  Generic plugin for communication of customer downtime.
+
+
 PLUGIN football-motd
 
   Generic plugin for motd. Communicate that Football is running
@@ -179,5 +193,6 @@ PLUGIN football-waiting
   by your script and enabled, then you will be able to wait for
   "screener.sh continue" operations at certain points in your
   script.
+
 
 \end{verbatim}
