@@ -285,6 +285,17 @@ Hint: branch 0.1a will get a merge from here, and then get the
 	(except Football related ones) will then go to 0.1b.
 	Finally, when 0.1a is stable, I will close this branch.
 
+mars0.1stable60
+	* Major improvement: new option --ignore-sync allows primary
+	  Handover without --force even when some sync is running
+	  somewhere. Any running syncs will restart from scratch
+	  (which might take some time, depending on LV size and
+	  many more factors like the network).
+	* Minor fix: split-cluster did not work correctly when no
+	  resources were existing anymore, at all.
+	* Doc: major update. More explanation on CAP theorem, and
+	  on differences / commonalities with DRBD.
+
 mars0.1stable59
 	* Major fix: "marsadm up" did not work when sync could not
 	  be started. Now does "best effort".

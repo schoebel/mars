@@ -13,6 +13,10 @@ marsadm [<global_options>] view[-<macroname>] [<resource_name> | all ]
     Use this only when you really know what you are doing!
     Warning! This is dangerous! First try --dry-run.
     Not combinable with 'all'.
+  --ignore-sync
+    Allow primary handover even when some sync is running somewhere.
+    This is less rude than --force because it checks for all else
+    preconditions.
   --dry-run
     Don't modify the symlink tree, but tell what would be done.
     Use this before starting potentially harmful actions such as
@@ -567,5 +571,4 @@ marsadm [<global_options>] view[-<macroname>] [<resource_name> | all ]
   {sync,fetch,replay,work}-{rest,{almost-,threshold-,}reached,percent,permille,vector}
   {sync,fetch,replay}-{rate,remain}
   {time,real-time}
-  {tree,features}-version
 \end{verbatim}
