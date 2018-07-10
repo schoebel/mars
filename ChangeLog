@@ -209,6 +209,11 @@ Changelog for series 0.1a:
 	Based on 0.1balpha4. Merge 0.1stable.
 	Receive mainly fixes.
 
+mars0.1abeta13
+	* Minor feature: marsadm takes comma-separated list of
+	  resource names in place of "all".
+	* Merge mars0.1stable60.
+
 mars0.1abeta12
 	* Merge mars0.1stable59.
 
