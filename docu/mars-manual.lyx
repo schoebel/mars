@@ -26821,6 +26821,20 @@ marsadm delete-resource --force all
 \end_layout
 
 \begin_layout Standard
+In newer versions of 
+\family typewriter
+marsadm
+\family default
+, you may give a comma-separated list of resource names in place of 
+\family typewriter
+all
+\family default
+.
+ This way, you have more fine-grained control over the set of resource names
+ you want to use.
+\end_layout
+
+\begin_layout Standard
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
 	lyxscale 50
@@ -28158,6 +28172,19 @@ all
 \family default
 , the following operations will work on all resources where the current
  node is a member (analogously to DRBD).
+\end_layout
+
+\begin_layout Standard
+With newer versions of 
+\family typewriter
+marsadm
+\family default
+, you can also give a list of comma-separated resource names in place of
+ 
+\family typewriter
+all
+\family default
+.
 \end_layout
 
 \begin_layout Standard
