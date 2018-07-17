@@ -7342,7 +7342,8 @@ next
 \emph default
  scalability limit
 \series default
-, which was about 50,000 customers hammering the cluster with their 
+, which was about 50,000 customers, some of them hammering the cluster with
+ their 
 \begin_inset Quotes eld
 \end_inset
 
@@ -7478,7 +7479,7 @@ operable
 \end_layout
 
 \begin_layout Paragraph
-Setup5 (Sharding)
+Setup5 (Sharding on top of DRBD)
 \end_layout
 
 \begin_layout Standard
@@ -7549,9 +7550,214 @@ shard granularity
 \end_layout
 
 \begin_layout Standard
-This setup is working until today, scaling up to the current number of customers
-, which is more than an order of magnitude, in the range of about a million
- of customers.
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Retrospective explanation: DRBD was definitely 
+\emph on
+not
+\emph default
+ the real reason for the critical incident.
+ The replication traffic per shard is so low in average that until today,
+ no replacement by MARS was absolutely necessary
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Many sysadmins are running a conservative strategy: never touch a running
+ system...
+\end_layout
+
+\end_inset
+
+, although the distance is over 50 km.
+ If you wonder why such low write traffic demands can cause such a big incident:
+ look at the 
+\series bold
+cache reduction
+\series default
+ graphics in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:Performance-Arguments-from"
+
+\end_inset
+
+.
+ Today, the 
+\begin_inset Quotes eld
+\end_inset
+
+save
+\begin_inset Quotes erd
+\end_inset
+
+ buttons of the customers are just triggering some 
+\emph on
+extra
+\emph default
+ 
+\series bold
+writebacks
+\series default
+ from the Page Cache of the kernel into the block layer, after some 
+\emph on
+delay
+\emph default
+.
+ These writebacks are not performance critical in reality, because the Page
+ Cache is running them 
+\series bold
+\emph on
+asynchronously in background
+\series default
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In contrast, distributed filesystems like 
+\family typewriter
+NFS
+\family default
+ or 
+\family typewriter
+ocfs2
+\family default
+ or 
+\family typewriter
+glusterfs
+\family default
+ are not working asynchronously in many places, but will often schedule
+ their requests 
+\emph on
+synchronously
+\emph default
+ into ordinary network queues, which form a 
+\series bold
+sequential bottleneck
+\series default
+, competing with other high-frequent filesystem operations.
+ In addition, the 
+\begin_inset Quotes eld
+\end_inset
+
+save
+\begin_inset Quotes erd
+\end_inset
+
+ button triggers masses of metadata / inode updates in a short time, often
+ residing in the same directory.
+ Such a directory may thus form a 
+\begin_inset Quotes eld
+\end_inset
+
+global
+\begin_inset Quotes erd
+\end_inset
+
+ bottleneck.
+ When suchalike competing 
+\series bold
+metadata updates
+\series default
+ are distributed via a round-robin load balancer, the problem can easily
+ become critical by the 
+\series bold
+cache coherence problem
+\series default
+.
+ While local filesystems can smoothen such application behaviour via the
+ Dentry Cache plus Inode Cache, which also show some asynchronous writeback
+ behaviour, network filesystems are often unable to deal with this performantly.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Although DRBD has a similar sequential bottleneck at the low-frequency
+ block layer by its write-through strategy into its replica, this does not
+ really matter: all other writebacks from the Page Cache are 
+\emph on
+also
+\emph default
+ started asynchronously, and triggered low-frequently, and are occurring
+ after some 
+\emph on
+delay
+\emph default
+ (which in turn will smoothen the 
+\series bold
+spikes
+\series default
+ caused by 
+\series bold
+mass dirtification
+\series default
+ of many small files and inodes in a short time as caused by the 
+\begin_inset Quotes eld
+\end_inset
+
+save
+\begin_inset Quotes erd
+\end_inset
+
+ button), and thus are not really performance critical for this particular
+ use case.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ This is a striking example why careful 
+\series bold
+selection of granularity level
+\series default
+ (filesystem vs block layer) is essential.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ This is also a striking example why asynchronous operations can form a
+ huge advantage in certain use cases.
+\end_layout
+
+\begin_layout Standard
+The sharding setup is working until today, scaling up to the current number
+ of customers, which is more than an order of magnitude, in the range of
+ about a million of customers.
  Of course, the number of shards had to be increased, but this is just what
  sharding is about.
 \end_layout
