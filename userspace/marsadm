@@ -3536,10 +3536,11 @@ sub number2human {
   my ($number, $unit, $max) = @_;
   $max = $number if !defined($max);
   my $k = 1024.0;
+  my $flip_over = 9.99;
   if (!defined($unit) || !$unit) {
-    if ($max >= $k * $k * $k * $k) {
+    if ($max >= $k * $k * $k * $k * $flip_over) {
       $unit = "T";
-    } elsif ($max >= $k * $k * $k) {
+    } elsif ($max >= $k * $k * $k * $flip_over) {
       $unit = "G";
     } elsif ($max >= $k * $k) {
       $unit = "M";
