@@ -290,6 +290,12 @@ Hint: branch 0.1a will get a merge from here, and then get the
 	(except Football related ones) will then go to 0.1b.
 	Finally, when 0.1a is stable, I will close this branch.
 
+mars0.1stable61
+	* Minor fix: in very rare cases where some symlinks are missing,
+	  don't abort in try_to_avoid_splitbrain().
+	* Minor improvement: better human-readable numbers.
+	* Minor doc: more on asynchronous background operations.
+
 mars0.1stable60
 	* Major improvement: new option --ignore-sync allows primary
 	  Handover without --force even when some sync is running

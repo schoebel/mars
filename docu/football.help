@@ -11,6 +11,8 @@ Actions for resource migration:
      Run the sequence
      migrate_prepare ; migrate_wait ; migrate_finish; migrate_cleanup.
 
+Dto for testing of phases:
+
   ./football.sh migrate_prepare <resource> <target_primary> [<target_secondary>]
      Allocate LVM space at the targets and start MARS replication.
 
@@ -28,6 +30,8 @@ Actions for inplace FS shrinking:
 
   ./football.sh shrink          <resource> <percent>
      Run the sequence shrink_prepare ; shrink_finish ; shrink_cleanup.
+
+Dto for testing of phases:
 
   ./football.sh shrink_prepare  <resource> [<percent>]
      Allocate temporary LVM space (when possible) and create initial
@@ -59,6 +63,17 @@ Combined actions:
      Default percent value (when left out) is 85.
 
 Actions for (manual) repair in emergency situations:
+
+  ./football.sh manual_handover  <resource> <target_primary>
+     This is useful in place of going to the machines and starting
+     handover on their command line. You dont need to log in.
+     All hooks (e.g. for downtime / reporting / etc) are automatically
+     called.
+     Notice: it will only work when there is already a replica
+     at <target_primary>, and when further constraints such as
+     clustermanager constraints will allow it.
+     For a full Football game between different clusters, use
+     "migrate" instead.
 
   ./football.sh manual_migrate_config  <resource> <target_primary> [<target_secondary>]
      Transfer only the cluster config, without changing the MARS replicas.
@@ -149,6 +164,35 @@ Specific actions for plugin football-cm3:
   ./football.sh clustertool {GET|PUT} <url>
     Call through to the clustertool via REST.
     Useful for manual inspection and repair.
+
+Specific features with plugin football-cm3:
+
+  - Parameter syntax "cluster123" instead of "icpu456 icpu457"
+    This is an alternate specification syntax, which is
+    automatically replaced with the real machine names.
+    It tries to minimize datacenter cross-traffic by
+    taking the new $target_primary at the same datacenter
+    location where the container is currenty running.
+
+
+PLUGIN football-ticket
+
+   Generic plugin for creating and updating tickets,
+   e.g. Jira tickets.
+
+   You will need to hook in some external scripts which are
+   then creating / updating the tickets.
+
+   Comment texts may be provided with following conventions:
+
+     comment.$ticket_state.txt
+     comment.$ticket_phase.$ticket_state.txt
+
+   Directories where comments may reside:
+
+     football_creds=/usr/lib/mars/creds /etc/mars/creds /home/schoebel/mars/football-master.git/creds /home/schoebel/mars/football-master.git /home/schoebel/.mars/creds ./creds
+     football_confs=/usr/lib/mars/confs /etc/mars/confs /home/schoebel/mars/football-master.git/confs /home/schoebel/.mars/confs ./confs
+     football_includes=/usr/lib/mars/plugins /etc/mars/plugins /home/schoebel/mars/football-master.git/plugins /home/schoebel/.mars/plugins ./plugins
 
 
 PLUGIN football-basic

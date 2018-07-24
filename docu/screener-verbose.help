@@ -280,10 +280,11 @@ Options:
   # Useful for basic debugging of setup problems etc.
   use_screenlog="${use_screenlog:-0}"
 
-  ## waiting_txt and delay_txt
+  ## waiting_txt and delay_txt and condition_txt
   # RTFS Don't use this, unless you know what you are doing.
   waiting_txt="${waiting_txt:-SCREENER_waiting_WAIT}"
   delayed_txt="${delayed_txt:-SCREENER_delayed_WAIT}"
+  condition_txt="${condition_txt:-SCREENER_condition_WAIT}"
 
   ## critical_status
   # This is the "magic" exit code indicating _criticality_
