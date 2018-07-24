@@ -1713,7 +1713,7 @@ sub try_to_avoid_splitbrain {
     my $new_situation = eval_macro($cmd, $res, $tpl, @_);
     print $new_situation;
     $timeout = $window if $new_situation ne $old_situation;
-    sleep_timeout();
+    sleep_timeout(undef, 1);
     $old_situation = $new_situation;
   }
   $timeout = $old_timeout;
