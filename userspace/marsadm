@@ -1457,8 +1457,10 @@ sub detect_splitbrain {
 	    $age = " age ~" . seconds2human(mars_time() - $stamp) if $stamp;
 	  }
 	  lwarn "SPLIT BRAIN of resource '$res' after logfile '$point'$age\n";
-	  lwarn "   hostA = '$host1' logfile_amount='$size1' (" . number2human($size1) . ")\n";
-	  lwarn "   hostB = '$host2' logfile_amount='$size2' (" . number2human($size2) . ")\n";
+	  if ($point) {
+	    lwarn "   hostA = '$host1' logfile_amount='$size1' (" . number2human($size1) . ")\n";
+	    lwarn "   hostB = '$host2' logfile_amount='$size2' (" . number2human($size2) . ")\n";
+	  }
 	} else {
 	  return $ok;
 	}
