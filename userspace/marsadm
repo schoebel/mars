@@ -2488,7 +2488,7 @@ sub create_res {
   mkdir("$resdir/actual-$host");
   my $todo = "$resdir/todo-$host";
   mkdir($todo);
-  set_link("1", "$todo/attach");
+  set_link("0", "$todo/attach");
   set_link("1", "$todo/connect");
   set_link("1", "$todo/sync");
   set_link("1", "$todo/allow-replay");
@@ -2521,8 +2521,17 @@ sub create_res {
     set_link("0", "$resdir/syncstatus-$host");
     finish_links();
     rsync_cmd($primary, "--max-size=1 --update $file $primary:$mars/resource-$res/", 1);
+    # Re-read the primary replaylink because it might have log-rotated in the meantime
+    wait_cluster($cmd, $res, $primary);
+    my $replay = get_link("$resdir/replay-$primary");
+    if ($replay =~ m/^log-([0-9]+)-/) {
+      $replay_nr = $1;
+      _set_replaylink($resdir, $replay_nr, $primary, "");
+    }
     lprint "successfully joined resource '$res'\n";
   }
+  set_link("1", "$todo/attach");
+  finish_links();
   _systemd_trigger($cmd);
 }
 
