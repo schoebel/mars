@@ -350,7 +350,6 @@ const char *rot_keys[] = {
 	"err-replay-stop",
 	// from _check_logging_status()
 	"inf-replay-tolerance",
-	"err-replay-size",
 	NULL,
 };
 
@@ -3271,8 +3270,6 @@ int _check_logging_status(struct mars_rotate *rot, int *log_nr, long long *oldpo
 	*newpos = rot->aio_info.current_size;
 
 	if (unlikely(rot->aio_info.current_size < *oldpos_start)) {
-		MARS_ERR_TO(rot->log_say, "oops, bad replay position attempted at logfile '%s' (file length %lld should never be smaller than requested position %lld, is your filesystem corrupted?) => please repair this by hand\n", rot->aio_dent->d_path, rot->aio_info.current_size, *oldpos_start);
-		make_rot_msg(rot, "err-replay-size", "oops, bad replay position attempted at logfile '%s' (file length %lld should never be smaller than requested position %lld, is your filesystem corrupted?) => please repair this by hand", rot->aio_dent->d_path, rot->aio_info.current_size, *oldpos_start);
 		status = -EBADF;
 		goto done;
 	}
