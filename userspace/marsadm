@@ -4070,12 +4070,21 @@ sub eval_fn {
       my $peer = parse_macro($arg1, $env);
       $peer = $$env{"host"} unless $peer;
       my $replay  = get_link($$env{"resdir"} . "/replay-$peer", 1);
-      $replay =~ m/^(log-[^,]+),/;
+      $replay =~ m/^(log-[^,]+),([0-9]*)/;
       my $logfile = $$env{"resdir"} . "/" . $1;
-      if (-r $logfile) {
-	return 0;
+      my $logpos = $2;
+      if (! -r $logfile) {
+	return 1;
       }
-      return 1;
+      my @stat = stat($logfile);
+      if (!@stat) {
+	return 1;
+      }
+      my $size= $stat[7];
+      if ($size < $logpos) {
+	return 1;
+      }
+      return 0;
     }
     if (/^is[-_]?(almost[-_]?)?consistent$/) {
       my $almost = $1;
