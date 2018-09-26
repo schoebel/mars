@@ -7072,6 +7072,64 @@ This way of thinking and acting is completely broken, and can endanger both
  companies and careers.
 \end_layout
 
+\begin_layout Standard
+Another 
+\emph on
+incorrect
+\emph default
+ way of ill-defining the term 
+\begin_inset Quotes eld
+\end_inset
+
+scalablity
+\begin_inset Quotes erd
+\end_inset
+
+ is looking at some relatively big 
+\emph on
+example
+\emph default
+ cluster, which is working in practice.
+ Arguing with an example of a working system is wrong by construction.
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+Every
+\emph default
+ storage system on this globe has 
+\emph on
+always
+\emph default
+ some scalability limit, somewhere.
+ Scalability is 
+\emph on
+always
+\emph default
+ a 
+\series bold
+non-linear
+\series default
+ behaviour.
+ In order to find the practical limit, you must 
+\emph on
+reach
+\emph default
+ it.
+\end_layout
+
+\begin_layout Standard
+Therefore, examples are principally insufficient for proving scalability,
+ as well as for comparing the scalability of architectures and/or of certain
+ implementations.
+ Examples can be only used for 
+\emph on
+disproving
+\emph default
+ scalability.
+\end_layout
+
 \begin_layout Subsection
 Example Failures of Scalability
 \begin_inset CommandInset label
