@@ -1430,7 +1430,7 @@ fraction
 
 \begin_layout Standard
 However, this is not the recommended way for general use cases (but could
- be an option for low demands like archieving).
+ be an option for low demands like archiving).
  The big advantage of RAID-based local storage is 
 \series bold
 massive scale-out by sharding,
@@ -1661,8 +1661,8 @@ Anyway, local storage can be augmented with various types of local caches
 \begin_layout Standard
 However, there is no point in accessing the fastest possible type of RAM
  cache remotely over a network.
- Even expensive hardware-based RDMA cannot deliver the same performance
- as 
+ Even expensive hardware-based RDMA (e.g.
+ over Infiniband) cannot deliver the same performance as 
 \series bold
 directly caching
 \series default
