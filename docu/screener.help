@@ -12,11 +12,15 @@ Synopsis:
   ./screener.sh --help [--verbose]
   ./screener.sh list-running
   ./screener.sh list-waiting
+  ./screener.sh list-interrupted
+  ./screener.sh list-illegal
+  ./screener.sh list-timeouted
   ./screener.sh list-failed
   ./screener.sh list-critical
   ./screener.sh list-serious
   ./screener.sh list-done
   ./screener.sh list
+  ./screener.sh list-archive
   ./screener.sh list-screens
   ./screener.sh run <file.csv> [<condition_list>]
   ./screener.sh start <screen_id> <cmd> <args...>
@@ -161,6 +165,9 @@ Cleanup / bookkeeping:
 
   ./screener.sh clear-critical <screen_id>
   ./screener.sh clear-serious <screen_id>
+  ./screener.sh clear-interrupted <screen_id>
+  ./screener.sh clear-illegal <screen_id>
+  ./screener.sh clear-timeouted <screen_id>
   ./screener.sh clear-failed  <screen_id>
     Mark the status as "done" and move the logfile away.
 

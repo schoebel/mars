@@ -12,7 +12,7 @@ Actions for resource migration:
      Run the sequence
      migrate_prepare ; migrate_wait ; migrate_finish; migrate_cleanup.
 
-Dto for testing of phases:
+Dto for testing (do not rely on it):
 
   ./football.sh migrate_prepare <resource> <target_primary> [<target_secondary>]
      Allocate LVM space at the targets and start MARS replication.
@@ -32,7 +32,7 @@ Actions for inplace FS shrinking:
   ./football.sh shrink          <resource> <percent>
      Run the sequence shrink_prepare ; shrink_finish ; shrink_cleanup.
 
-Dto for testing of phases:
+Dto for testing (do not rely on it):
 
   ./football.sh shrink_prepare  <resource> [<percent>]
      Allocate temporary LVM space (when possible) and create initial
@@ -113,6 +113,10 @@ Actions for (manual) repair in emergency situations:
   ./football.sh manual_unlock <item> <host_list>
      Manually lock or unlock an item at all of the given hosts, in
      an atomic fashion. In most cases, use "ALL" for the item.
+
+Only for testing / development (no stable interfaces):
+
+  ./football.sh manual_call_hook <name> <args>
 
 Global maintenance:
 
@@ -253,7 +257,7 @@ Configuration:
   # IMPORTANT: some intermediate progress report is absolutely needed,
   # because otherwise a false-positive TIMEOUT may be assumed when
   # no output is generated for several hours.
-  rsync_opt="${rsync_opt:- -aSH --info=progress2,STATS}"
+  rsync_opt="${rsync_opt:- -aH --inplace --info=progress2,STATS}"
 
   ## rsync_opt_prepare
   # Additional rsync options for preparation and updating
@@ -338,6 +342,16 @@ Configuration:
   # of a failed command.
   serious_status="${serious_status:-198}"
 
+  ## interrupted_status
+  # This is the "magic" exit code indicating a manual interruption
+  # (e.g. keypress Ctl-c)
+  interrupted_status="${interrupted_status:-190}"
+
+  ## illegal_status
+  # This is the "magic" exit code indicating an illegal command
+  # (e.g. syntax error, illegal arguments, etc)
+  illegal_status="${illegal_status:-191}"
+
   ## pre_hand or --pre-hand=
   # Set this to do an ordinary handover to a new start position
   # (in the source cluster) before doing anything else.
@@ -370,6 +384,10 @@ Configuration:
   # shoule be called
   finished_regex="${finished_regex:-^(migrate_finish|migrate|migrate+|shrink_finish|shrink)}"
 
+  ## call_finished
+  # Whether to call the hook football_failed at failures.
+  call_finished="${call_finished:-1}"
+
   ## lock_break_timeout
   # When remote ssh commands are failing, remote locks may sustain forever.
   # Avoid deadlocks by breaking remote locks after this timeout has elapsed.
@@ -393,9 +411,23 @@ Configuration:
   # Normally not needed.
   resource_pre_check="${resource_pre_check:-0}"
 
+  ## enable_background_reporting
+  # Progress reporting to screener.
+  # Runs in the background, in parallel to forground processes
+  # like rsync or tar.
+  enable_background_reporting="${enable_background_reporting:-1}"
+
   ## condition_check_interval
   # How often conditions should be re-evaluated.
   condition_check_interval="${condition_check_interval:-180}" # Seconds
+
+  ## lease_time
+  # Any intents (e.g. for creation of new resources) are recorded.
+  # This is needed for race avoidance, when multiple resources
+  # are migrated in _parallel_ to the _same_ target.
+  # This might lead to livelocks when there would be no lease time
+  # after which the intents are regarded as "invalid".
+  lease_time="${lease_time:-3600}" # seconds
 
   ## limit_syncs
   # Limit the number of actually running syncs by waiting
@@ -419,6 +451,16 @@ Configuration:
   # Dont handover when too much logfile data is missing at the
   # new primary site.
   limit_mars_logfile="${limit_mars_logfile:-1024}" # MiB
+
+  ## shrink_min_ram_gb
+  # When set, check that the target machines for shrinking
+  # have enough RAM.
+  # Rationale: even incremental rsync needs the Dentry cache of the
+  # kernel. When there is not enough RAM, and when there are some millions
+  # of inodes, the customer downtime may rise to some hours or even some days
+  # instead of some minutes (only when the detnry+inode cache does not
+  # fit into kernel memory <<<=== this is the cruscial point)
+  shrink_min_ram_gb="${shrink_min_ram_gb:-0}" # GiB
 
   ## optimize_dentry_cache
   # Don't umount the temporary shrink space unnecessarily.
@@ -468,6 +510,23 @@ Configuration:
   # Commands for transfer of xfs quota information.
   xfs_dump="${xfs_dump:-xfs_quota -x -c dump}"
   xfs_restore="${xfs_restore:-xfs_quota -x -c restore}"
+
+  ## shortcut_tar_percent
+  # Percentage when a shrink space should no longer be considered
+  # as "inital" (or empty).
+  shortcut_tar_percent="${shortcut_tar_percent:-5}"
+
+  ## max_rsync_downtime
+  # When set, check the _expected_ duration of customer downtime.
+  # if it takes longer than this limit, abort without causing
+  # customer downtime.
+  # Afterward, sysadmins need to decide what to do:
+  # For example, move the resource to faster hardware with more RAM, or similar.
+  max_rsync_downtime="${max_rsync_downtime:-0}" # seconds
+
+  ## merge_shrink_secondaries
+  # This is only needed when targets are not yet pre-merged.
+  merge_shrink_secondaries="${merge_shrink_secondaries:-0}"
 
   ## fs_resize_cmd
   # Command for online filesystem expansion.
@@ -601,11 +660,18 @@ Specific features with plugin football-cm3:
   # und thus must be pingable over network.
   skip_resource_ping="${skip_resource_ping:-0}"
 
-  ## date_lock
-  # Don't enter critical sections at certain days of the week,
-  # and/or during certain hours.
-  # This is a regex matching against "date +%u_%H"
-  date_lock="${date_lock:-}"
+  ## business_hours
+  # When set, critical sections are only entered during certain
+  # days of the week, and/or during certain hours.
+  # This is a regex matching against "date +%u_%H".
+  # Example regex: [1-5]_(0[8-9]|1[0-8])
+  # This means Monday to Friday from 8 to 18 o'clock.
+  business_hours="${business_hours:-}"
+
+  ## cm3_stop_safeguard_cmd
+  # Workaround for a bug.
+  # Sometimes a systemd unit does not go away.
+  cm3_stop_safeguard_cmd="${cm3_stop_safeguard_cmd:-{ sleep 2; try=0; while (( try++ < 10 )) && systemctl show $res.scope | grep ActiveState | grep =active; do systemctl stop $res.scope; sleep 6; done; if mountpoint /vol/$res; then umount /vol/$res; fi; }}"
 
   ## check_ping_rounds
   # Number of pings to try before a container is assumed to
@@ -653,7 +719,9 @@ Specific features with plugin football-cm3:
   # a BigCluster constisting of several thousands of machines.
   # When a future version of mars0.1b.y (or 0.2.y) will allow this,
   # this can be disabled.
-  do_split_cluster="${do_split_cluster:-1}"
+  # do_split_cluster >= 2 means that the resulting MARS clusters should
+  # not exceed these number of members, when possible.
+  do_split_cluster="${do_split_cluster:-2}"
 
   ## forbidden_hosts
   # Regex for excluding hostnames from any Football actions.
@@ -760,7 +828,26 @@ Specific features with plugin football-cm3:
 
   ## monitis_downtime_duration
   # ShaHoLin-internal
-  monitis_downtime_duration="${monitis_downtime_duration:-20}" # Minutes
+  monitis_downtime_duration="${monitis_downtime_duration:-60}" # Minutes
+
+  ## orwell_downtime_script
+  # ShaHoLin-internal
+  orwell_downtime_script="${orwell_downtime_script:-}"
+
+  ## orwell_tz
+  # Deal with differences in clock timezones.
+  orwell_tz="${orwell_tz:-Europe/Berlin}"
+
+  ## orwell_downtime_duration
+  # ShaHoLin-internal
+  orwell_downtime_duration="${orwell_downtime_duration:-20}" # Minutes
+
+  ## orwell_workaround_sleep
+  # Workaround for a race condition in Orwell.
+  # Try to ensure that another check has been executed before
+  # the downtime is removed.
+  # 0 = dont remove the downtime at all.
+  orwell_workaround_sleep="${orwell_workaround_sleep:-300}" # Seconds
 
   ## shaholin_customer_report_cmd
   # Action script when the hardware has improved.
@@ -770,14 +857,46 @@ Specific features with plugin football-cm3:
   shaholin_src_cpus="${shaholin_src_cpus:-4}"
   shaholin_dst_cpus="${shaholin_dst_cpus:-32}"
 
+  ## ip_renumber_cmd
+  # Cross-call with another independent project.
+  ip_renumber_cmd="${ip_renumber_cmd:-}"
+
   ## shaholin_finished_log
   # ShaHoLin-specific logfile, reporting _only_ successful completion
   # of an action.
   shaholin_finished_log="${shaholin_finished_log:-$football_logdir/shaholin-finished.log}"
 
-  ## shaholin_action
+  ## update_cmd
   # OPTIONAL: specific action script with parameters.
-  shaholin_action="${shaholin_action:-}"
+  update_cmd="${update_cmd:-}"
+
+  ## update_host
+  # To be provided in a *.conf or *.preconf file.
+  update_host="${update_host:-}"
+
+  ## parse_ticket
+  # Regex for identifying tickets from script outputs or arguments
+  parse_ticket="${parse_ticket:-TECCM-[0-9]+}"
+
+  ## prefer_parsed_ticket
+  # Workaround bugs from getting inconsistent ticket IDs from different sources.
+  prefer_parsed_ticket="${prefer_parsed_ticket:-0}"
+
+  ## translate_db_state
+  # Whether to use the following mapping definitions.
+  translate_db_state="${translate_db_state:-0}"
+
+  ## db_state_*
+  # Map logical names to the ones in the database.
+  db_state_init="${db_state_init:-}"
+  db_state_prepare="${db_state_prepare:-}"
+  db_state_finish="${db_state_finish:-}"
+  db_state_cleanup="${db_state_cleanup:-}"
+  db_state_done="${db_state_done:-}"
+
+  ## use_type_for_ticket
+  # Internal ticketing convention.
+  use_type_for_ticket="${use_type_for_ticket:-1}"
 
   ## auto_handover
   # Load-balancing accross locations.
@@ -790,6 +909,11 @@ Specific features with plugin football-cm3:
   # running a high parallelism degree.
   # Thus it tries to reduce unnecessary handovers to other locations.
   auto_handover="${auto_handover:-1}"
+
+  ## preferred_location
+  # When set, override any other pre-handover to this location.
+  # Useful for maintenance of a whole datacenter.
+  preferred_location="${preferred_location:-}"
 
 
 PLUGIN football-ticket
@@ -846,6 +970,32 @@ PLUGIN football-ticket
   # Only update a ticket when a comment file exists in one of the
   # directories $football_creds $football_confs $football_includes
   ticket_require_comment="${ticket_require_comment:-1}"
+
+  ## ticket_for_migrate
+  # Optional 1&1-specific: separate ticket for migrate.
+  # Useful when migrate+shink need to post into separate tickets.
+  ticket_for_migrate="${ticket_for_migrate:-}"
+
+  ## ticket_for_shrink
+  # Optional 1&1-specific: separate ticket for migrate.
+  # Useful when migrate+shink need to post into separate tickets.
+  ticket_for_shrink="${ticket_for_shrink:-}"
+
+  ## ticket_prefer_cached
+  # Workaround a bug in ticket ID retrieval:
+  # Trust my own cached values more than trust the "inconsistent read".
+  ticket_prefer_cached="${ticket_prefer_cached:-1}"
+
+  ## ticket_code
+  # List of operation:res:shard
+  ticket_code="${ticket_code:-}"
+
+  ## get_ticket_code
+  get_ticket_code="${get_ticket_code:-}"
+
+  ## max_start_ticket
+  # Maximum number of instances to start per call
+  max_start_ticket="${max_start_ticket:-1}"
 
 
 PLUGIN football-basic
@@ -1006,8 +1156,13 @@ PLUGIN football-waiting
   # By setting this, you can delay the cleanup operations for some time.
   # This way, you are keeping the old LV contents as a kind of "backup"
   # for some limited time.
-  # HINT: dont set to wait_before_cleanuplarge values, because it can
-  # seriously slow down Football.
+  #
+  # HINT1: dont set wait_before_cleanup to very large values, because it can
+  #   seriously slow down Football.
+  #
+  # HINT2: the waiting time starts when the last MARS replica was created.
+  #   Only when the syncing times are _smaller_ than this value,
+  #   an _additional_ delay will be produced.
   enable_cleanup_delayed="${enable_cleanup_delayed:-0}"
   wait_before_cleanup="${wait_before_cleanup:-180}" # Minutes
 

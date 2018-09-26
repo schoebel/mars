@@ -11,7 +11,7 @@ Actions for resource migration:
      Run the sequence
      migrate_prepare ; migrate_wait ; migrate_finish; migrate_cleanup.
 
-Dto for testing of phases:
+Dto for testing (do not rely on it):
 
   ./football.sh migrate_prepare <resource> <target_primary> [<target_secondary>]
      Allocate LVM space at the targets and start MARS replication.
@@ -31,7 +31,7 @@ Actions for inplace FS shrinking:
   ./football.sh shrink          <resource> <percent>
      Run the sequence shrink_prepare ; shrink_finish ; shrink_cleanup.
 
-Dto for testing of phases:
+Dto for testing (do not rely on it):
 
   ./football.sh shrink_prepare  <resource> [<percent>]
      Allocate temporary LVM space (when possible) and create initial
@@ -112,6 +112,10 @@ Actions for (manual) repair in emergency situations:
   ./football.sh manual_unlock <item> <host_list>
      Manually lock or unlock an item at all of the given hosts, in
      an atomic fashion. In most cases, use "ALL" for the item.
+
+Only for testing / development (no stable interfaces):
+
+  ./football.sh manual_call_hook <name> <args>
 
 Global maintenance:
 
