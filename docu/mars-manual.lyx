@@ -141,7 +141,7 @@ tst@1und1.de
 \end_layout
 
 \begin_layout Date
-Version 0.1a-14
+Version 0.1a-15
 \end_layout
 
 \begin_layout Lowertitleback
@@ -1277,6 +1277,820 @@ yes
 \end_layout
 
 \begin_layout Section
+Replication vs Backup
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Replication-vs-Backup"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Intuitively, data backup and data replication are two different solution
+ classes, addressing different problems.
+\end_layout
+
+\begin_layout Standard
+However, there exist descriptions where both solution classes are overlapping,
+ as well as their corresponding problem classes.
+ For example, backup as explained in 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/Backup
+\end_layout
+
+\end_inset
+
+ could be seen as also encompassing some types of storage replications explained
+ in 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/Replication_(computing)
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+For a rough comparison of 
+\emph on
+typical
+\emph default
+ implementations, see the following 
+\emph on
+typical
+\emph default
+ differences:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Tabular
+<lyxtabular version="3" rows="6" columns="3">
+<features tabularvalignment="middle">
+<column alignment="left" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<row>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Backup
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Replication
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Fast handover (planned)
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+no, or cumbersome
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+yes
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Fast failover (unplanned)
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+no, or cumbersome
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+yes
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Protect for physical failures
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+yes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+yes
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Protect for logical data corruption
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+yes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+typically no
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Disaster Recovery Time (MTTR)
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+typically (very) slow
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+fast
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Because of these typical differences, enterprise-critical data typically
+ deserves 
+\emph on
+both
+\emph default
+ solution classes.
+\end_layout
+
+\begin_layout Standard
+Confusion of solution classes and/or their corresponding problem classes
+ / properties can be harmful to enterprises and to carreers of responsible
+ persons.
+\end_layout
+
+\begin_layout Subsection
+Example: Point-in-time Replication via ZFS Snapshots
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Example:-ZFS-Replication"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Some ZFS advocates believe that ZFS snapshots, which were originally designed
+ for backup-like use cases, are also appropriate solutions for achieving
+ geo-redundancy.
+ The basic idea is to run incremental ZFS snapshots in an endless loop,
+ e.g.
+ via some simple scripts, and expediting to another host where the snapshots
+ are then applied to another ZFS instance.
+ When there is less data to be expedited, loop cycle times can go down to
+ a few seconds.
+ When much data is written at the primary site, loop cycle times will rise
+ up.
+\end_layout
+
+\begin_layout Standard
+The following table tries to explain why geo-redundancy is not as simple
+ to achieve as believed, at least without addition of sophisticated additional
+ means:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Tabular
+<lyxtabular version="3" rows="13" columns="4">
+<features tabularvalignment="middle">
+<column alignment="left" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<row>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+DRBD
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+MARS
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+ZFS
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Synchronity (in average)
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+yes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+delay
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+delay * 1.5
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Generic solution
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+yes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+yes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+FS-specific
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Built-in snapshots
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+yes
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Long distances
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+yes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+yes
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Built-in primary/secondary roles
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+yes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+yes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+no
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Built-in handover (planned)
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+mostly
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+yes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+no
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Built-in failover (unplanned)
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+yes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+yes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+no
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Built-in data overflow handling
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+unnecessary
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+yes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+no, missing
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Unnoticed data loss due to overflow
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+no
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+possible
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Split-brain awareness
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+yes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+yes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+no
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Execute split-brain resolution
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+yes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+yes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+no
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Protect against illegal data modification
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+yes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+yes
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+no
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+The last item means that ZFS by itself does not protect against amok-running
+ applications modifiying the secondary (backup) side in parallel to the
+ replication process (at least not by default).
+ Workarounds may be possible, but are not easy to create and to test for
+ enterprise-critical applications.
+\end_layout
+
+\begin_layout Section
 Local vs Centralized Storage
 \begin_inset CommandInset label
 LatexCommand label
@@ -1430,7 +2244,7 @@ fraction
 
 \begin_layout Standard
 However, this is not the recommended way for general use cases (but could
- be an option for low demands like archieving).
+ be an option for low demands like archiving).
  The big advantage of RAID-based local storage is 
 \series bold
 massive scale-out by sharding,
@@ -1661,8 +2475,8 @@ Anyway, local storage can be augmented with various types of local caches
 \begin_layout Standard
 However, there is no point in accessing the fastest possible type of RAM
  cache remotely over a network.
- Even expensive hardware-based RDMA cannot deliver the same performance
- as 
+ Even expensive hardware-based RDMA (e.g.
+ over Infiniband) cannot deliver the same performance as 
 \series bold
 directly caching
 \series default
@@ -7070,6 +7884,64 @@ architecture
 \begin_layout Standard
 This way of thinking and acting is completely broken, and can endanger both
  companies and careers.
+\end_layout
+
+\begin_layout Standard
+Another 
+\emph on
+incorrect
+\emph default
+ way of ill-defining the term 
+\begin_inset Quotes eld
+\end_inset
+
+scalablity
+\begin_inset Quotes erd
+\end_inset
+
+ is looking at some relatively big 
+\emph on
+example
+\emph default
+ cluster, which is working in practice.
+ Arguing with an example of a working system is wrong by construction.
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+Every
+\emph default
+ storage system on this globe has 
+\emph on
+always
+\emph default
+ some scalability limit, somewhere.
+ Scalability is 
+\emph on
+always
+\emph default
+ a 
+\series bold
+non-linear
+\series default
+ behaviour.
+ In order to find the practical limit, you must 
+\emph on
+reach
+\emph default
+ it.
+\end_layout
+
+\begin_layout Standard
+Therefore, examples are principally insufficient for proving scalability,
+ as well as for comparing the scalability of architectures and/or of certain
+ implementations.
+ Examples can be only used for 
+\emph on
+disproving
+\emph default
+ scalability.
 \end_layout
 
 \begin_layout Subsection
@@ -45573,6 +46445,14 @@ The
 \end_layout
 
 \begin_layout Standard
+When switching branches, you should use 
+\family typewriter
+git submodule update
+\family default
+ for synchronizing the Football submodule with the MARS main checkout.
+\end_layout
+
+\begin_layout Standard
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -45739,7 +46619,7 @@ name "sec:Football-Overview"
 \end_layout
 
 \begin_layout Standard
-Topmost architectural level:
+Topmost architectural level (not yet implemented):
 \end_layout
 
 \begin_layout Standard
@@ -45756,9 +46636,9 @@ Topmost architectural level:
 
 \begin_layout Standard
 \noindent
-The heart of the Football system is the generic pool optimizer, which aims
- to provide a similar functionality than Kubernetes, but working on a sharding
- architecture.
+The planned heart of the Football system is the generic pool optimizer,
+ which aims to provide a similar functionality than Kubernetes, but working
+ on a sharding architecture.
  Instead of controlling 
 \emph on
 stateless
@@ -45778,14 +46658,14 @@ Virtually Distributed LVM pool
 
 \begin_layout Standard
 In addition to load balancing of storage space (and its special cases like
- hardware lifecycle), there are designated plugins for dealing with CPU
- and RAM dimensions.
+ hardware lifecycle), there will be designated plugins for dealing with
+ CPU and RAM dimensions.
  Further dimensions and a variety of goal functions could be added via future
  plugins.
  The optimizer itself aims to be as generic as possible, while functionality
  and interfaces can be added via plugins and/or drivers.
  Future versions might even support DRBD in addition to MARS.
- The current version uses a simple greedy algorithm for solving the underlying
+ The first version may use a simple greedy algorithm for solving the underlying
  
 \begin_inset Formula ${\cal NP}$
 \end_inset
@@ -45795,13 +46675,13 @@ In addition to load balancing of storage space (and its special cases like
 \end_layout
 
 \begin_layout Standard
-The automatic operations generated by pool-optimizer are not only customizable
- by dozens of parameters, but also extendable by action plugins.
+The automatic operations generated by pool-optimizer will be customizable
+ by dozens of parameters, and also extendable by action plugins.
  At the moment, the following 
 \family typewriter
 football.sh
 \family default
- actions are implemented:
+ actions are planned:
 \end_layout
 
 \begin_layout Description
@@ -45918,6 +46798,21 @@ screener.sh
 \end_layout
 
 \begin_layout Standard
+The excecution engine 
+\family typewriter
+football.sh
+\family default
+ rep.
+ its 1&1-internal variant 
+\family typewriter
+tetris.sh
+\family default
+ is already in production at 1&1, and already reached more than 300 migrations
+ per week.
+ Architecture of the execution engine:
+\end_layout
+
+\begin_layout Standard
 \noindent
 \align center
 \begin_inset Graphics
@@ -46012,6 +46907,11 @@ List of delayed:
 
 \begin_layout Plain Layout
 
+List of condition:
+\end_layout
+
+\begin_layout Plain Layout
+
 List of running:
 \end_layout
 
@@ -46027,7 +46927,22 @@ List of serious:
 
 \begin_layout Plain Layout
 
+List of interrupted:
+\end_layout
+
+\begin_layout Plain Layout
+
+List of illegal:
+\end_layout
+
+\begin_layout Plain Layout
+
 List of failed:
+\end_layout
+
+\begin_layout Plain Layout
+
+List of timeouted:
 \end_layout
 
 \begin_layout Plain Layout
@@ -46120,6 +47035,49 @@ uncompensated
  networking fixes, etc.
 \end_layout
 
+\begin_layout Description
+
+\family typewriter
+timeouted
+\family default
+ This means that the script is assumed to hang because it did not produce
+ any output for more than 
+\family typewriter
+$session_timeout
+\family default
+ seconds (default 3600 * 3 = 3 hours).
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+illegal
+\family default
+ This means that a precondition is not met.
+ For example, there is not enough space at the target LVM.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+interrupted
+\family default
+ Somebody has pressed 
+\family typewriter
+Ctl-c
+\family default
+ in a 
+\family typewriter
+screen
+\family default
+ session, or has otherwise sent a signal to the running script.
+ As a result, a signal 
+\family typewriter
+trap
+\family default
+ has been executed.
+\end_layout
+
 \begin_layout Standard
 \noindent
 Ordinary Screener states during execution:
@@ -46173,6 +47131,12 @@ Ctrl-c
  unless you know what you are doing.
  In most cases, this will terminate the running process, and in consequence
  lead to 
+\family typewriter
+\series bold
+interrupted
+\family default
+\series default
+ or 
 \family typewriter
 \series bold
 failed
@@ -46261,6 +47225,20 @@ $wait_before_cleanup
 $wait_before_cleanup
 \family default
  values.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+condition
+\family default
+ Special case of delay: some condition is currently not met, such as the
+ 
+\family typewriter
+$business_hours
+\family default
+ feature, where you can configure when customer downtimes are allowed, and
+ when not.
 \end_layout
 
 \begin_layout Description

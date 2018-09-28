@@ -13,11 +13,15 @@ Synopsis:
   ./screener.sh --help [--verbose]
   ./screener.sh list-running
   ./screener.sh list-waiting
+  ./screener.sh list-interrupted
+  ./screener.sh list-illegal
+  ./screener.sh list-timeouted
   ./screener.sh list-failed
   ./screener.sh list-critical
   ./screener.sh list-serious
   ./screener.sh list-done
   ./screener.sh list
+  ./screener.sh list-archive
   ./screener.sh list-screens
   ./screener.sh run <file.csv> [<condition_list>]
   ./screener.sh start <screen_id> <cmd> <args...>
@@ -162,6 +166,9 @@ Cleanup / bookkeeping:
 
   ./screener.sh clear-critical <screen_id>
   ./screener.sh clear-serious <screen_id>
+  ./screener.sh clear-interrupted <screen_id>
+  ./screener.sh clear-illegal <screen_id>
+  ./screener.sh clear-timeouted <screen_id>
   ./screener.sh clear-failed  <screen_id>
     Mark the status as "done" and move the logfile away.
 
@@ -227,7 +234,8 @@ Options:
 
   ## session_timeout
   # Detect hanging sessions when they don't produce any output anymore
-  # for a longer time. Hanging sessions are then marked as failed or critical.
+  # for a longer time. Hanging sessions are then marked as either
+  # 'timeout' or 'critical'.
   session_timeout="${session_timeout:-$(( 3600 * 3 ))}" # seconds
 
   ## screener_logdir or logdir
@@ -249,6 +257,11 @@ Options:
   # $0 cron or $0 purge will automatically remove all old logfiles
   # from $screener_logdir/*/ when this period is exceeded.
   screener_log_purge_period="${screener_log_purge_period:-30}" # Days
+
+  ## screener_log_purge_archive
+  # When set, the logfiles will be moved to $screener_logdir/archive/
+  # Otherwise they will be deleted.
+  screener_log_purge_archive="${screener_log_purge_archive:-1}"
 
   ## dry_run
   # Dont actually start screen sessions when set.
@@ -296,6 +309,21 @@ Options:
   # of a failed command.
   serious_status="${serious_status:-198}"
 
+  ## interrupted_status
+  # This is the "magic" exit code indicating a manual interruption
+  # (e.g. keypress Ctl-c)
+  interrupted_status="${interrupted_status:-190}"
+
+  ## illegal_status
+  # This is the "magic" exit code indicating an illegal command
+  # (e.g. syntax error, illegal arguments, etc)
+  illegal_status="${illegal_status:-191}"
+
+  ## timeouted_status
+  # This is the "magic" internal code indicating a
+  # hanging session (see $session_timeout).
+  timeouted_status="${timeouted_status:-195}"
+
   ## less_cmd
   # Used at $0 less $id
   less_cmd="${less_cmd:-less -r}"
@@ -325,6 +353,11 @@ Options:
   # Please override this only when really necessary.
   export user_name="${user_name:-$(ssh-add -l | grep -o '[^ ]+@[^ ]+' | sort -u | tail -1)}"
   export user_name="${user_name:-$LOGNAME}"
+
+  ## screener_break_timeout
+  # Avoid deadlocks by breaking a screener lock after this timeout has elapsed.
+  # NOTICE: these type of locks are only intended for short-term locking.
+  screener_break_timeout="${screener_break_timeout:-30}" # seconds
 
   ## tmp_dir and tmp_stub
   # Where temporary files are residing

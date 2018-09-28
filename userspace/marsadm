@@ -1485,14 +1485,22 @@ sub detect_splitbrain {
   # dynamic programming
   return $detected_splits{$res} if defined($detected_splits{$res});
   my $basedir = "$mars/resource-$res";
+  my $retry = 2;
   my $ok = 1;
   my @list = glob("$mars/resource-$res/replay-*");
   my @hosts = map { $_ =~ s:.*/replay-::; $_ } @list;
+ AGAIN:
   foreach my $host1 (@hosts) {
     foreach my $host2 (@hosts) {
       next if $host1 ge $host2;
       my ($point, $split, $size1, $size2) = get_common_ancestor($basedir, $host1, $host2);
       if ($split) {
+	# Workaround races.
+	if ($retry > 0) {
+	  $retry--;
+	  sleep(2);
+	  next AGAIN;
+	}
 	$ok = 0;
 	if ($do_report) {
 	  my $age = "";
@@ -1508,8 +1516,10 @@ sub detect_splitbrain {
 	    $age = " age ~" . seconds2human(mars_time() - $stamp) if $stamp;
 	  }
 	  lwarn "SPLIT BRAIN of resource '$res' after logfile '$point'$age\n";
-	  lwarn "   hostA = '$host1' logfile_amount='$size1' (" . number2human($size1) . ")\n";
-	  lwarn "   hostB = '$host2' logfile_amount='$size2' (" . number2human($size2) . ")\n";
+	  if ($point) {
+	    lwarn "   hostA = '$host1' logfile_amount='$size1' (" . number2human($size1) . ")\n";
+	    lwarn "   hostB = '$host2' logfile_amount='$size2' (" . number2human($size2) . ")\n";
+	  }
 	} else {
 	  return $ok;
 	}
@@ -2516,7 +2526,7 @@ sub create_res {
   mkdir("$resdir/actual-$host");
   my $todo = "$resdir/todo-$host";
   mkdir($todo);
-  set_link("1", "$todo/attach");
+  set_link("0", "$todo/attach");
   set_link("1", "$todo/connect");
   set_link("1", "$todo/sync");
   set_link("1", "$todo/allow-replay");
@@ -2549,8 +2559,17 @@ sub create_res {
     set_link("0", "$resdir/syncstatus-$host");
     finish_links();
     rsync_cmd($primary, "--max-size=1 --update $file $primary:$mars/resource-$res/", 1);
+    # Re-read the primary replaylink because it might have log-rotated in the meantime
+    wait_cluster($cmd, $res, $primary);
+    my $replay = get_link("$resdir/replay-$primary");
+    if ($replay =~ m/^log-([0-9]+)-/) {
+      $replay_nr = $1;
+      _set_replaylink($resdir, $replay_nr, $primary, "");
+    }
     lprint "successfully joined resource '$res'\n";
   }
+  set_link("1", "$todo/attach");
+  finish_links();
   _systemd_trigger($cmd);
 }
 
@@ -4130,12 +4149,21 @@ sub eval_fn {
       my $peer = parse_macro($arg1, $env);
       $peer = $$env{"host"} unless $peer;
       my $replay  = get_link($$env{"resdir"} . "/replay-$peer", 1);
-      $replay =~ m/^(log-[^,]+),/;
+      $replay =~ m/^(log-[^,]+),([0-9]*)/;
       my $logfile = $$env{"resdir"} . "/" . $1;
-      if (-r $logfile) {
-	return 0;
+      my $logpos = $2;
+      if (! -r $logfile) {
+	return 1;
       }
-      return 1;
+      my @stat = stat($logfile);
+      if (!@stat) {
+	return 1;
+      }
+      my $size= $stat[7];
+      if ($size < $logpos) {
+	return 1;
+      }
+      return 0;
     }
     if (/^is[-_]?(almost[-_]?)?consistent$/) {
       my $almost = $1;
