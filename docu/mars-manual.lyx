@@ -6107,6 +6107,26 @@ Disk failures are regarded as already solved (e.g.
 \end_layout
 
 \begin_layout Itemize
+We only look at 
+\series bold
+data replication
+\series default
+ with a redundancy degree of a relatively small 
+\begin_inset Formula $k$
+\end_inset
+
+.
+ CRC methods are not used across storage nodes, but may be present 
+\emph on
+internally
+\emph default
+ at some storage nodes, e.g.
+ RAID-5 or RAID-6 or similar methods.
+ Notice that CRC methods generally involve very high overhead, and even
+ won't work in realtime across long distances (geo-redundancy).
+\end_layout
+
+\begin_layout Itemize
 We restrict ourselves to temporary / 
 \series bold
 transient
