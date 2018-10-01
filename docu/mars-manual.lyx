@@ -6167,8 +6167,101 @@ The x axis shows the number of basic storage units
 \begin_inset Formula $n$
 \end_inset
 
-, where one basic storage unit equals to the total disk space provided by
- one storage node.
+ from an 
+\emph on
+application
+\emph default
+ perspective, meaning 
+\begin_inset Quotes eld
+\end_inset
+
+usable storage
+\begin_inset Quotes erd
+\end_inset
+
+ or 
+\begin_inset Quotes eld
+\end_inset
+
+net amount of storage
+\begin_inset Quotes erd
+\end_inset
+
+.
+ For simplicitiy of the model, one basic application storage unit equals
+ to the total disk space provided by one physical storage node in the special
+ case of 
+\begin_inset Formula $k=1$
+\end_inset
+
+ replicas.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Attention! when increasing the number of replicas 
+\begin_inset Formula $k$
+\end_inset
+
+, the total number of storage nodes needs to be 
+\series bold
+increased accordingly
+\series default
+.
+ Typically, you will need to deploy 
+\begin_inset Formula $k\cdot n$
+\end_inset
+
+ physical storage nodes in order to get 
+\begin_inset Formula $n$
+\end_inset
+
+ net storage units from a user's perspective.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Attention! 
+\begin_inset space ~
+\end_inset
+
+
+\begin_inset Formula $k$
+\end_inset
+
+ has a strong influence at the 
+\series bold
+price tag
+\series default
+ of any of the competing architectures.
+ You cannot assume an 
+\begin_inset Quotes eld
+\end_inset
+
+infinite amount of money
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Therefore, only relatively small 
+\begin_inset Formula $k$
+\end_inset
+
+ are bearable for business cases.
 \end_layout
 
 \begin_layout Itemize
@@ -6184,6 +6277,27 @@ We assume that the number of application instances is linearly scaling with
 \end_inset
 
 .
+\end_layout
+
+\begin_layout Itemize
+We assume that the storage nodes are (almost completely) filled with data
+ (sectors with RAID, and/or objects with BigCluster).
+\end_layout
+
+\begin_layout Itemize
+We assume that the number of sectors / objects per storage node is 
+\begin_inset Quotes eld
+\end_inset
+
+very large
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Some examples: a logical volume of 4 TB has 1,000,000,000 sectors or object,
+ each 4 KB in size.
+ A physical storage node providing 40 TB of storage will then provide 10
+ billions of sectors / objects.
 \end_layout
 
 \begin_layout Itemize
@@ -6227,6 +6341,123 @@ In the following example, we assume a uniform object distribution to exactly
 \end_inset
 
 '.
+\end_layout
+
+\begin_layout Itemize
+When random distribution / random replication methods are used at BigCluster
+ object stores, we assume that for any pair (or 
+\begin_inset Formula $k$
+\end_inset
+
+-tuple) of storage nodes, the total number of objects is so high that there
+ always 
+\emph on
+exists
+\emph default
+ some objects which are present at 
+\emph on
+all
+\emph default
+ of the nodes of any pair / 
+\begin_inset Formula $k$
+\end_inset
+
+-tuple for any reasonable (small) 
+\begin_inset Formula $k$
+\end_inset
+
+.
+ This means, we assume not only uniformity in random replication, but also
+ that the total number of objects is practically 
+\begin_inset Quotes eld
+\end_inset
+
+infinite
+\begin_inset Quotes erd
+\end_inset
+
+ compared to relatively small practical values of 
+\begin_inset Formula $k$
+\end_inset
+
+.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ For mathematically interested readers: be careful when trying to argue
+ with the probability to hit some object intersection for some given 
+\begin_inset Formula $k$
+\end_inset
+
+-tuple of storage nodes while 
+\begin_inset Formula $n$
+\end_inset
+
+ is a growing parameter.
+ Even when such a 
+\emph on
+single
+\emph default
+ probability is declining with growing both 
+\begin_inset Formula $k$
+\end_inset
+
+ and 
+\begin_inset Formula $n$
+\end_inset
+
+, and even when the 
+\emph on
+single
+\emph default
+ probability for the existence of an intersection somewhen gets lower than
+ 
+\begin_inset Formula $1$
+\end_inset
+
+, this has an impact onto the 
+\emph on
+total
+\emph default
+ incident probability of the 
+\emph on
+whole
+\emph default
+ BigCluster.
+ In 
+\emph on
+general
+\emph default
+, the 
+\emph on
+number
+\emph default
+ of such tuples is growing with 
+\begin_inset Formula $O(\binom{k\cdot n}{k})=O((k\cdot n)!)$
+\end_inset
+
+.
+ So, don't forget to sum up 
+\emph on
+all
+\emph default
+ probabilities even if a single one appears to be 
+\begin_inset Quotes eld
+\end_inset
+
+neglectible
+\begin_inset Quotes erd
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Itemize
@@ -6959,6 +7190,87 @@ undecidable
 \series default
 .
  Be cautious when drawing assumptions out of thin air!
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Conversely, the assumption that 
+\emph on
+any
+\emph default
+ unaccessible object may halt your application, might be too strong for
+ 
+\emph on
+some
+\emph default
+ use cases.
+ Therefore, some practical behaviour may be inbetween the solid thin lines
+ and the dashed lines of some given color.
+ Be extremely careful when constructing such an intermediate case.
+ The above example of a loss rate of 1/1,000,000 of sectors in a classical
+ filesystem should not be extended to lower values like 1/1,000,000,000
+ without knowing exactly how the filesystem works, and how it will react
+ 
+\emph on
+in detail
+\emph default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In general, it is insufficient to analyze the logical dependencies inside
+ of a filesystem instance, such as which inode contains some pointers to
+ which other filesystem objects, etc.
+ There exist further 
+\series bold
+runtime dependencies
+\series default
+, such as 
+\family typewriter
+nr_requests
+\family default
+ block-layer restrictions on IO queue depths, and/or capabilities / limitiations
+ of the hardware, and so on.
+ Trying to model all of these influences in a reasonable way could be a
+ 
+\emph on
+major
+\emph default
+ research undertakement outside the scope of this MARS manual.
+\end_layout
+
+\end_inset
+
+.
+ The grey zone between the extreme cases thin solid vs dashed is a 
+\series bold
+dangerous zone
+\series default
+!
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+If you want to stay at the 
+\series bold
+safe side
+\series default
+, simply obey the fundamental law as explained in the next section:
 \end_layout
 
 \begin_layout Subsection
