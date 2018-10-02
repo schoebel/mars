@@ -1646,7 +1646,6 @@ sub try_to_avoid_splitbrain {
   my $old_timeout = $timeout;
   $timeout = $window if $timeout < 0;
   $old_primary = "" if $old_primary eq "(none)";
-  wait_cluster($cmd, $res, $old_primary);
   if (!detect_splitbrain($res, 0)) {
     lwarn "ATTENTION: you are starting a non-forced primary switchover in a split brain situation.\n";
     lwarn "ATTENTION: that's no good idea.\n";
