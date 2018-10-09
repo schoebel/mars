@@ -736,7 +736,7 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 
 #ifdef DELAY_CALLERS
 	// delay in case of too many master shadows / memory shortage
-	wait_event_interruptible_timeout(brick->caller_event,
+	brick_wait(brick->caller_event,
 					 !brick->delay_callers &&
 					 (brick_global_memlimit < 1024 || atomic64_read(&global_mshadow_used) / 1024 < brick_global_memlimit),
 					 HZ / 2);
