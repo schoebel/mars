@@ -2301,7 +2301,7 @@ int _do_ranking(struct trans_logger_brick *brick)
 		}
 	} else if (brick->delay_callers) {
 		brick->delay_callers = false;
-		wake_up_interruptible(&brick->caller_event);
+		wake_up_interruptible_all(&brick->caller_event);
 	}
 
 	// global limit for flying mrefs
