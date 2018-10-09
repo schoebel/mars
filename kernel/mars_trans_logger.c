@@ -36,6 +36,7 @@
 #include <linux/string.h>
 #include <linux/bio.h>
 
+#include "brick_wait.h"
 #include "mars.h"
 #include "lib_limiter.h"
 
@@ -2605,7 +2606,7 @@ void trans_logger_log(struct trans_logger_brick *brick)
 		int winner;
 		int nr;
 
-		wait_event_interruptible_timeout(
+		brick_wait(
 			brick->worker_event,
 			({
 				winner = _do_ranking(brick);
@@ -2771,7 +2772,7 @@ void wait_replay(struct trans_logger_brick *brick, struct trans_logger_mref_aspe
 	bool ok = false;
 	bool was_empty;
 
-	wait_event_interruptible_timeout(brick->worker_event,
+	brick_wait(brick->worker_event,
 					 atomic_read(&brick->replay_count) < max
 					 && (_has_conflict(brick, mref_a) ? conflicts++ : (ok = true), ok),
 					 60 * HZ);
