@@ -171,6 +171,16 @@ Hint: branch 0.1a will get a merge from here, and then get the
 	(except Football related ones) will then go to 0.1b.
 	Finally, when 0.1a is stable, I will close this branch.
 
+mars0.1stable63
+	* Minor fix: when compiling for some newer kernels (only there),
+	  schedule() could be called during wait for some condition,
+	  worsening performance unnecessarily.
+	* Minor improvement: starting join-resource in batches
+	  was slow because each was waiting for cluster communication.
+	  Use a manual "marsadm wait-cluster" before starting batches
+	  of join-resource operations.
+	* Doc: some clarifications on BigCluster scalability behaviour.
+
 mars0.1stable62
 	* Minor fix: race between join-resource and log-rotate.
 	* Minor fix: report split brain logfile amount only when
