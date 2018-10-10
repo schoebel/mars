@@ -209,6 +209,9 @@ Changelog for series 0.1a:
 	Based on 0.1balpha4. Merge 0.1stable.
 	Receive mainly fixes.
 
+mars0.1abeta16
+	* Merge mars0.1stable63.
+
 mars0.1abeta15
 	* Merge mars0.1stable62.
 
