@@ -1567,14 +1567,32 @@ Some ZFS advocates believe that ZFS snapshots, which were originally designed
 \begin_layout Standard
 The following table tries to explain why geo-redundancy is not as simple
  to achieve as believed, at least without addition of sophisticated additional
- means:
+ means
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+ZFS advocates often argue with many features which aren't present at other
+ filesystem types.
+ The above table shows some dimensions not dealing with properties of local
+ filesystems, but with 
+\emph on
+problems / tasks
+\emph default
+ arising in long-distance distributed systems involving masses of enterprise-cri
+tical storage.
+\end_layout
+
+\end_inset
+
+:
 \end_layout
 
 \begin_layout Standard
 \noindent
 \align center
 \begin_inset Tabular
-<lyxtabular version="3" rows="13" columns="4">
+<lyxtabular version="3" rows="14" columns="4">
 <features tabularvalignment="middle">
 <column alignment="left" valignment="top">
 <column alignment="center" valignment="top">
@@ -1689,6 +1707,44 @@ yes
 
 \begin_layout Plain Layout
 FS-specific
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Granularity
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+LVs
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+LVs
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+subvolumes
 \end_layout
 
 \end_inset
