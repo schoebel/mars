@@ -36,6 +36,7 @@
 #include <linux/string.h>
 #include <linux/bio.h>
 
+#include "brick_wait.h"
 #include "mars.h"
 #include "lib_limiter.h"
 
@@ -735,7 +736,7 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 
 #ifdef DELAY_CALLERS
 	// delay in case of too many master shadows / memory shortage
-	wait_event_interruptible_timeout(brick->caller_event,
+	brick_wait(brick->caller_event,
 					 !brick->delay_callers &&
 					 (brick_global_memlimit < 1024 || atomic64_read(&global_mshadow_used) / 1024 < brick_global_memlimit),
 					 HZ / 2);
@@ -2300,7 +2301,7 @@ int _do_ranking(struct trans_logger_brick *brick)
 		}
 	} else if (brick->delay_callers) {
 		brick->delay_callers = false;
-		wake_up_interruptible(&brick->caller_event);
+		wake_up_interruptible_all(&brick->caller_event);
 	}
 
 	// global limit for flying mrefs
@@ -2605,7 +2606,7 @@ void trans_logger_log(struct trans_logger_brick *brick)
 		int winner;
 		int nr;
 
-		wait_event_interruptible_timeout(
+		brick_wait(
 			brick->worker_event,
 			({
 				winner = _do_ranking(brick);
@@ -2771,7 +2772,7 @@ void wait_replay(struct trans_logger_brick *brick, struct trans_logger_mref_aspe
 	bool ok = false;
 	bool was_empty;
 
-	wait_event_interruptible_timeout(brick->worker_event,
+	brick_wait(brick->worker_event,
 					 atomic_read(&brick->replay_count) < max
 					 && (_has_conflict(brick, mref_a) ? conflicts++ : (ok = true), ok),
 					 60 * HZ);
