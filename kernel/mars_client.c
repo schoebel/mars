@@ -785,7 +785,7 @@ static int sender_thread(void *data)
 	struct client_channel *ch = NULL;
 	bool do_timeout = false;
 	bool cork = false;
-	bool old_cork;
+	bool old_cork = false;
 	int ch_skip = max_client_bulk;
 	int status = -ESHUTDOWN;
 
