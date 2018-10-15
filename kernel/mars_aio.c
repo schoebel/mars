@@ -664,23 +664,18 @@ static int aio_event_thread(void *data)
 			if (mref->ref_rw)
 				mf_dirty_append(output->mf, DIRTY_COMPLETED, mref->ref_pos + mref->ref_len);
 
+			/* Workaround for never implemented aio_fsync operation,
+			 * see also upstream commit 723c038475b78edc9327eb952f95f9881cc9d7.
+			 * FIXME: don't use aio anymore at all in the long-term future.
+			 */
 			if (output->brick->o_fdsync
 			   && err >= 0 
 			   && mref->ref_rw != READ
 			   && !mref->ref_skip_sync
 			   && !mref_a->resubmit++) {
-				// workaround for non-implemented AIO FSYNC operation
-				if (output->mf &&
-				    output->mf->mf_filp &&
-				    output->mf->mf_filp->f_op &&
-				    !output->mf->mf_filp->f_op->aio_fsync) {
-					mars_trace(mref, "aio_fsync");
-					_enqueue(other, mref_a, mref->ref_prio, true);
-					continue;
-				}
-				err = aio_submit(output, mref_a, true);
-				if (likely(err >= 0))
-					continue;
+				mars_trace(mref, "aio_fsync");
+				_enqueue(other, mref_a, mref->ref_prio, true);
+				continue;
 			}
 
 			_complete(output, mref_a, err);
