@@ -419,6 +419,228 @@ reference "chap:LV-Football"
 \end_layout
 
 \begin_layout Section
+What is Architecture
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:What-is-Architecture"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+From 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/Software_architecture
+\end_layout
+
+\end_inset
+
+:
+\end_layout
+
+\begin_layout Quote
+Software architecture refers to the 
+\series bold
+high level structures
+\series default
+ of a software system and the 
+\series bold
+discipline
+\series default
+ of creating such structures and systems.
+\end_layout
+
+\begin_layout Standard
+Throughout this paper, the term 
+\begin_inset Quotes eld
+\end_inset
+
+architecture
+\begin_inset Quotes erd
+\end_inset
+
+ is strictly separated from 
+\begin_inset Quotes eld
+\end_inset
+
+implementations
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Any of 
+\begin_inset Quotes eld
+\end_inset
+
+architecture
+\begin_inset Quotes erd
+\end_inset
+
+ or 
+\begin_inset Quotes eld
+\end_inset
+
+implementation
+\begin_inset Quotes erd
+\end_inset
+
+ can relate to both hard- and software in general.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+Confusion of 
+\begin_inset Quotes eld
+\end_inset
+
+architecture
+\begin_inset Quotes erd
+\end_inset
+
+ with 
+\begin_inset Quotes eld
+\end_inset
+
+implementation
+\begin_inset Quotes erd
+\end_inset
+
+ is a major source of ill-designs, which then often cause major product
+ flaws and/or operational problems.
+ Be sure to understand the difference.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+Another source of costly ill-designs is starting with a particular implementatio
+n in mind, and not sufficiently reasoning abouts its fundamental architecture.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Recommended best practice is to (1) look at the 
+\series bold
+problem space
+\series default
+, then (2) consider a 
+\emph on
+set
+\emph default
+ of 
+\series bold
+architectural solution classes
+\series default
+, and (3) look at the 
+\series bold
+mappings
+\series default
+ between them.
+ This means: start with 
+\series bold
+architectural requirements
+\series default
+ for a particular 
+\series bold
+application area
+\series default
+ (typically covering 
+\emph on
+multiple
+\emph default
+ use cases), then look at 
+\series bold
+multiple solution architectures
+\series default
+, and finally go down to a 
+\series bold
+\emph on
+set
+\series default
+\emph default
+ of potential implementations, but only 
+\emph on
+after
+\emph default
+ the former has been understood.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+Starting with a particular single solution in mind is almost a 
+\emph on
+guarantee
+\emph default
+ for a non-optimum solution, or even a failed project, or even a disaster
+ at company level when 
+\series bold
+enterprise-critical mass data
+\series default
+ is involved.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Nevertheless, don't think in waterfall models.
+ Always work 
+\series bold
+iteratively
+\series default
+ and 
+\series bold
+evolutionary
+\series default
+, but nevertheless obey the principle that any bug in an architectural ill-desig
+n cannot be fixed by the best implementation of the world.
+ Be sure to understand the fundamental difference between architecture and
+ its (multiple / alternative) implemenations by their respective 
+\series bold
+reach
+\series default
+.
+\end_layout
+
+\begin_layout Section
 What is 
 \emph on
 Cloud Storage
@@ -3842,7 +4064,14 @@ Datacenters aren't usually operated for fun or for hobby.
 \emph on
 architecture
 \emph default
- is very important, because it can seriously limit your business.
+ (cf section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:What-is-Architecture"
+
+\end_inset
+
+) is very important, because it can seriously limit your business.
  Overcoming architectural ill-designs can grow extremely cumbersome and
  costly.
 \end_layout
@@ -7968,8 +8197,15 @@ Choosing the wrong layer for
 mass data replication
 \series default
  may get you into trouble.
- Here is an explanation why replication at the block layer is more easy
- and less error prone:
+ Here is an architectural-level (cf section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:What-is-Architecture"
+
+\end_inset
+
+) explanation why replication at the block layer is more easy and less error
+ prone:
 \end_layout
 
 \begin_layout Standard
@@ -8275,6 +8511,65 @@ This way of thinking and acting is completely broken, and can endanger both
 \end_layout
 
 \begin_layout Standard
+This is not only because of confusion of 
+\begin_inset Quotes eld
+\end_inset
+
+architecture
+\begin_inset Quotes erd
+\end_inset
+
+ with 
+\begin_inset Quotes eld
+\end_inset
+
+implementation
+\begin_inset Quotes erd
+\end_inset
+
+, cf section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:What-is-Architecture"
+
+\end_inset
+
+.
+ It is also fundamentally broken because it assumes some 
+\begin_inset Quotes eld
+\end_inset
+
+linearity
+\begin_inset Quotes erd
+\end_inset
+
+ in a field which is non-linear 
+\emph on
+by definition
+\emph default
+.
+ If scalability would be linear, the term would not be useful at all, because
+ there would be 
+\emph on
+no limit
+\emph default
+.
+ However, limits exist in practice, and the term 
+\begin_inset Quotes eld
+\end_inset
+
+scalability
+\begin_inset Quotes erd
+\end_inset
+
+ is the 
+\emph on
+means
+\emph default
+ for describing the behaviour at or around the limit.
+\end_layout
+
+\begin_layout Standard
 Another 
 \emph on
 incorrect
@@ -8283,7 +8578,7 @@ incorrect
 \begin_inset Quotes eld
 \end_inset
 
-scalablity
+scalability
 \begin_inset Quotes erd
 \end_inset
 
@@ -10154,9 +10449,15 @@ name "subsec:Filesystem-Layer-vs"
 \end_layout
 
 \begin_layout Standard
-Following factors are responsible for better architectural scalability of
- the block layer vs the filesystem layer, at least in many cases, with a
- few exceptions (list may be incomplete):
+Following factors are responsible for better architectural (cf section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:What-is-Architecture"
+
+\end_inset
+
+) scalability of the block layer vs the filesystem layer, at least in many
+ cases, with a few exceptions (list may be incomplete):
 \end_layout
 
 \begin_layout Enumerate
@@ -10589,7 +10890,14 @@ overall
 \begin_inset Newline newline
 \end_inset
 
-An impressive example for ill-design can be found in section 
+An impressive example for architectural (cf section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:What-is-Architecture"
+
+\end_inset
+
+) ill-design can be found in section 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "subsec:Example-Failures-of"
