@@ -1038,6 +1038,15 @@ globally: Eventually consistent
 between
 \emph default
  different LV replicas.
+\begin_inset Newline newline
+\end_inset
+
+However, in case of a 
+\emph on
+planned handover
+\emph default
+, it is also strictly consistent at a global level, but may need some extra
+ time for catching up.
 \end_layout
 
 \end_deeper
