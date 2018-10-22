@@ -4255,12 +4255,315 @@ Fortunately, there is an alternative called
 \begin_inset Quotes eld
 \end_inset
 
+
+\series bold
 Sharding Architecture
+\series default
+
 \begin_inset Quotes erd
 \end_inset
 
- which does not need a dedicated storage network at all, at least when built
- and dimensioned properly.
+ or 
+\begin_inset Quotes eld
+\end_inset
+
+
+\series bold
+Shared-nothing Architecture
+\series default
+
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Paragraph
+Definition of Sharding
+\begin_inset CommandInset label
+LatexCommand label
+name "par:Definition-of-Sharding"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Notice that the term 
+\begin_inset Quotes eld
+\end_inset
+
+Sharding
+\begin_inset Quotes erd
+\end_inset
+
+ originates from database architecture 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/Shard_(database_architecture)
+\end_layout
+
+\end_inset
+
+ where it has a slightly different meaning than used here.
+ Our usage of the term 
+\begin_inset Quotes eld
+\end_inset
+
+sharding
+\begin_inset Quotes erd
+\end_inset
+
+ reflects slightly different situations in some webhosting companies
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+According to 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/Shared-nothing_architecture
+\end_layout
+
+\end_inset
+
+, Google also uses the term 
+\begin_inset Quotes eld
+\end_inset
+
+sharding
+\begin_inset Quotes erd
+\end_inset
+
+ for a particular 
+\begin_inset Quotes eld
+\end_inset
+
+shared-nothing architecture
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Although our above definition of 
+\begin_inset Quotes eld
+\end_inset
+
+sharding
+\begin_inset Quotes erd
+\end_inset
+
+ does not fully comply with its original meaning, a similar usage by Google
+ probably means that our usage of the term is not completely uncommon.
+\end_layout
+
+\end_inset
+
+, and can be certainly transferred to some more application areas.
+ Our more specific use of the term 
+\begin_inset Quotes eld
+\end_inset
+
+sharding
+\begin_inset Quotes erd
+\end_inset
+
+ has the following properties, 
+\emph on
+all at the same time:
+\end_layout
+
+\begin_layout Enumerate
+User / customer data is 
+\series bold
+partitioned
+\series default
+.
+ This is very similar to database sharding.
+ However, the original database term also allows 
+\emph on
+some
+\emph default
+ data to remain unpartitioned.
+ In webhosting, suchalike may exists also, but typically only for 
+\emph on
+system data,
+\emph default
+ like OS images, including large parts of their configuration data.
+ Suchalike system data is typically 
+\emph on
+replicated
+\emph default
+ from a central 
+\begin_inset Quotes eld
+\end_inset
+
+golden image
+\begin_inset Quotes erd
+\end_inset
+
+ in an 
+\emph on
+offline
+\emph default
+ fashion, e.g.
+ via regular 
+\family typewriter
+rsync
+\family default
+ cron jobs, etc.
+ Typically, it comprises only of few gigabytes per instance and is mostly
+ read-only with a slow change rate, while total customer data is typically
+ in the range of some petabytes with a higher total change rate.
+\end_layout
+
+\begin_layout Enumerate
+Servers have 
+\series bold
+no single point of contention
+\series default
+, and thus are 
+\series bold
+completely independent
+\series default
+ from each other, like in 
+\series bold
+shared-nothing
+\series default
+ architectures 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/Shared-nothing_architecture
+\end_layout
+
+\end_inset
+
+.
+ However, the original term 
+\begin_inset Quotes eld
+\end_inset
+
+shared-nothing
+\begin_inset Quotes erd
+\end_inset
+
+ has also been used for describing 
+\emph on
+replicas
+\emph default
+, e.g.
+ DRBD mirrors.
+ In our context of 
+\begin_inset Quotes eld
+\end_inset
+
+sharding
+\begin_inset Quotes erd
+\end_inset
+
+, the shared-nothing principle 
+\emph on
+only
+\emph default
+ refers to the 
+\begin_inset Quotes eld
+\end_inset
+
+
+\series bold
+no single point of contention
+\series default
+
+\begin_inset Quotes erd
+\end_inset
+
+ principle at 
+\emph on
+partitioning
+\emph default
+ level, which means it 
+\emph on
+only
+\emph default
+ refers to to the 
+\emph on
+partitioning
+\emph default
+ of the user data, but 
+\emph on
+not
+\emph default
+ to their replicas.
+ Shared-nothing replicas in the sense of DRBD may be also present (and in
+ fact they are at 1&1 Shared Hosting Linux), but these replicas are 
+\emph on
+not
+\emph default
+ meant by our usage of the term 
+\begin_inset Quotes eld
+\end_inset
+
+sharding
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Customer data replicas form an 
+\emph on
+independent
+\emph default
+ dimension called 
+\begin_inset Quotes eld
+\end_inset
+
+replication layer
+\begin_inset Quotes erd
+\end_inset
+
+.
+ The replication layer also obeys the shared-nothing principle in original
+ sense, but it is 
+\emph on
+not
+\emph default
+ meant by our term 
+\begin_inset Quotes eld
+\end_inset
+
+sharding
+\begin_inset Quotes erd
+\end_inset
+
+ in order to avoid confusion
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Notice that typically 
+\family typewriter
+BigCluster
+\family default
+ architectures are also abstracting away their replicas when talking about
+ their architecture.
+\end_layout
+
+\end_inset
+
+ between these two independent dimensions.
+\end_layout
+
+\begin_layout Standard
+Our sharding model does not need a dedicated storage network at all, at
+ least when built and dimensioned properly.
  Instead, it 
 \emph on
 should have
@@ -4329,6 +4632,19 @@ e way, big cluster architectures as implemented for example in Ceph or Swift
 \begin_layout Standard
 In the following sections, we will see: when sharding is possible, it is
  the preferred model due to reliability and cost and performance reasons.
+ Another good explanation can be found at 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+http://www.benstopford.com/2009/11/24/understanding-the-shared-nothing-architectur
+e/
+\end_layout
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Subsection
