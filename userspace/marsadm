@@ -1434,22 +1434,20 @@ sub detect_splitbrain {
   # dynamic programming
   return $detected_splits{$res} if defined($detected_splits{$res});
   my $basedir = "$mars/resource-$res";
-  my $retry = 2;
   my $ok = 1;
   my @list = glob("$mars/resource-$res/replay-*");
   my @hosts = map { $_ =~ s:.*/replay-::; $_ } @list;
- AGAIN:
   foreach my $host1 (@hosts) {
     foreach my $host2 (@hosts) {
       next if $host1 ge $host2;
-      my ($point, $split, $size1, $size2) = get_common_ancestor($basedir, $host1, $host2);
-      if ($split) {
+      my ($point, $split, $size1, $size2);
+      for (my $retry = 2; $retry > 0; $retry--) {
+	($point, $split, $size1, $size2) = get_common_ancestor($basedir, $host1, $host2);
+	last if !$split;
 	# Workaround races.
-	if ($retry > 0) {
-	  $retry--;
-	  sleep(2);
-	  next AGAIN;
-	}
+	sleep(0);
+      }
+      if ($split) {
 	$ok = 0;
 	if ($do_report) {
 	  my $age = "";
