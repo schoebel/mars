@@ -299,6 +299,17 @@ Hint: branch 0.1a will get a merge from here, and then get the
 	(except Football related ones) will then go to 0.1b.
 	Finally, when 0.1a is stable, I will close this branch.
 
+mars0.1stable64
+	* Major regression: split-brain detection did not display
+	  correctly.
+	* Minor fix: rare race conditon on O_NONBLOCK networking.
+	  Only observed during testing with kernel 4.9 (sorry, _all_ the
+	  adaptations are not yet ready for release, but it is making
+	  progress now).
+	  I am not sure whether this bug could also trigger with kernel
+	  4.4 or earlier, therefore I am releasing the fix beforehand.
+	* Minor doc architectural explanations.
+
 mars0.1stable63
 	* Minor fix: when compiling for some newer kernels (only there),
 	  schedule() could be called during wait for some condition,
