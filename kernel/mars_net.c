@@ -178,10 +178,6 @@ void _set_socketopts(struct socket *sock)
 	_setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, default_tcp_params.tcp_keepidle);
 	_setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, t);
 	_setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, t);
-
-	if (sock->file) { // switch back to blocking mode
-		sock->file->f_flags &= ~O_NONBLOCK;
-	}
 }
 
 int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *addr, bool is_server)
@@ -229,7 +225,7 @@ int mars_create_socket(struct mars_socket *msock, struct sockaddr_storage *addr,
 			MARS_WRN("#%d listen failed, status = %d\n", msock->s_debug_nr, status);
 		}
 	} else {
-		status = kernel_connect(sock, sockaddr, sizeof(*sockaddr), 0);
+		status = kernel_connect(sock, sockaddr, sizeof(*sockaddr), O_NONBLOCK);
 		/* Treat non-blocking connects as successful.
 		 * Any potential errors will show up later during traffic.
 		 */
@@ -585,16 +581,6 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 	if (!mars_get_socket(msock))
 		goto final;
 
-	if (minlen < maxlen) {
-		struct socket *sock = msock->s_socket;
-		if (sock && sock->file) {
-			/* Use nonblocking reads to consume as much data
-			 * as possible
-			 */
-			sock->file->f_flags |= O_NONBLOCK;
-		}
-	}
-
 	MARS_IO("#%d receiving len=%d/%d bytes\n", msock->s_debug_nr, minlen, maxlen);
 
 	msock->s_recv_cnt = 0;
@@ -622,6 +608,13 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 			MARS_WRN("#%d interrupting, done = %d\n", msock->s_debug_nr, done);
 			status = -EIDRM;
 			goto err;
+		}
+
+		if (minlen < maxlen) {
+			/* Use nonblocking reads to consume as much data
+			 * as possible
+			 */
+			msg.msg_flags |= O_NONBLOCK;
 		}
 
 		MARS_LOW("#%d done %d, fetching %d bytes\n", msock->s_debug_nr, done, maxlen-done);
