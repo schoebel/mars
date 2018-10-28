@@ -6675,12 +6675,23 @@ both
 \series bold
 shard
 \series default
-) must have an incident at the same time.
+ in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "par:Definition-of-Sharding"
+
+\end_inset
+
+) must have an incident 
+\emph on
+at the same time
+\emph default
+.
 \end_layout
 
 \begin_layout Standard
-In contrast, big clusters are spreading their objects over a huge number
- of nodes 
+In contrast, big clusters are conceptually spreading their objects over
+ a huge number of nodes 
 \begin_inset Formula $O(n)$
 \end_inset
 
