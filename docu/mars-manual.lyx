@@ -3265,7 +3265,30 @@ When all shards are residing in the same datacenter, there exists a SPOF
 
 \end_inset
 
- from each other by definition.
+ from each other by definition (cf paragraph 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "par:Definition-of-Sharding"
+
+\end_inset
+
+ for disambiguation of terms 
+\begin_inset Quotes eld
+\end_inset
+
+sharding
+\begin_inset Quotes erd
+\end_inset
+
+ and 
+\begin_inset Quotes eld
+\end_inset
+
+shared-nothing
+\begin_inset Quotes erd
+\end_inset
+
+).
 \end_layout
 
 \begin_layout Standard
