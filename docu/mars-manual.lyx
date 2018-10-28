@@ -4787,6 +4787,42 @@ exceptional(!)
 regularly
 \emph default
 , but only in clear cases of emergency!
+\begin_inset Newline newline
+\end_inset
+
+Notice: in this model, a shard typically consists of one storage node plus
+ 
+\begin_inset Formula $k+1$
+\end_inset
+
+ or 
+\begin_inset Formula $k+2$
+\end_inset
+
+ compute servers, introducing some additional failure redundancy 
+\emph on
+within
+\emph default
+ such a shard, while retaining the 
+\begin_inset Quotes eld
+\end_inset
+
+no single point of contention
+\begin_inset Quotes erd
+\end_inset
+
+ property 
+\emph on
+between
+\emph default
+ the shards (according to the definition 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "par:Definition-of-Sharding"
+
+\end_inset
+
+).
 \end_layout
 
 \begin_layout Description
