@@ -209,6 +209,9 @@ Changelog for series 0.1a:
 	Based on 0.1balpha4. Merge 0.1stable.
 	Receive mainly fixes.
 
+mars0.1abeta18
+	* Merge mars0.1stable65.
+
 mars0.1abeta17
 	* Merge mars0.1stable64.
 	* Fix compiler warning at certain kernel versions.
