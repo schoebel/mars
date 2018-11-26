@@ -1407,6 +1407,7 @@ int mars_dent_work(struct mars_global *global, char *dirname, int allocsize, mar
 	struct say_channel *say_channel = NULL;
 	struct list_head *tmp;
 	struct list_head *next;
+	struct list_head *prev;
 	int rounds = 0;
 	int status;
 	int total_status = 0;
@@ -1506,10 +1507,12 @@ restart:
 	bind_to_dent(NULL, &say_channel);
 
 	/* Remove all dents marked for removal.
+	 * Needs to be done in reverse order because later d_parent pointers may
+	 * reference earlier list members.
 	 */
 	down_write(&global->dent_mutex);
 	MARS_IO("removal pass\n");
-	for (tmp = global->dent_anchor.next, next = tmp->next; tmp != &global->dent_anchor; tmp = next, next = next->next) {
+	for (tmp = global->dent_anchor.prev, prev = tmp->prev; tmp != &global->dent_anchor; tmp = prev, prev = prev->prev) {
 		struct mars_dent *dent = container_of(tmp, struct mars_dent, dent_link);
 		if (!dent->d_killme)
 			continue;
@@ -1686,6 +1689,10 @@ EXPORT_SYMBOL_GPL(mars_free_dent);
 void mars_free_dent_all(struct mars_global *global, struct list_head *anchor)
 {
 	LIST_HEAD(tmp_list);
+
+	/* Needs to be done in reverse order because later d_parent pointers may
+	 * reference earlier list members.
+	 */
 	if (global)
 		down_write(&global->dent_mutex);
 	list_replace_init(anchor, &tmp_list);
