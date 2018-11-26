@@ -3265,7 +3265,30 @@ When all shards are residing in the same datacenter, there exists a SPOF
 
 \end_inset
 
- from each other by definition.
+ from each other by definition (cf paragraph 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "par:Definition-of-Sharding"
+
+\end_inset
+
+ for disambiguation of terms 
+\begin_inset Quotes eld
+\end_inset
+
+sharding
+\begin_inset Quotes erd
+\end_inset
+
+ and 
+\begin_inset Quotes eld
+\end_inset
+
+shared-nothing
+\begin_inset Quotes erd
+\end_inset
+
+).
 \end_layout
 
 \begin_layout Standard
@@ -4764,6 +4787,42 @@ exceptional(!)
 regularly
 \emph default
 , but only in clear cases of emergency!
+\begin_inset Newline newline
+\end_inset
+
+Notice: in this model, a shard typically consists of one storage node plus
+ 
+\begin_inset Formula $k+1$
+\end_inset
+
+ or 
+\begin_inset Formula $k+2$
+\end_inset
+
+ compute servers, introducing some additional failure redundancy 
+\emph on
+within
+\emph default
+ such a shard, while retaining the 
+\begin_inset Quotes eld
+\end_inset
+
+no single point of contention
+\begin_inset Quotes erd
+\end_inset
+
+ property 
+\emph on
+between
+\emph default
+ the shards (according to the definition 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "par:Definition-of-Sharding"
+
+\end_inset
+
+).
 \end_layout
 
 \begin_layout Description
@@ -6616,12 +6675,23 @@ both
 \series bold
 shard
 \series default
-) must have an incident at the same time.
+ in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "par:Definition-of-Sharding"
+
+\end_inset
+
+) must have an incident 
+\emph on
+at the same time
+\emph default
+.
 \end_layout
 
 \begin_layout Standard
-In contrast, big clusters are spreading their objects over a huge number
- of nodes 
+In contrast, big clusters are conceptually spreading their objects over
+ a huge number of nodes 
 \begin_inset Formula $O(n)$
 \end_inset
 

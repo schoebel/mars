@@ -303,6 +303,14 @@ Hint: branch 0.1a will get a merge from here, and then get the
 	(except Football related ones) will then go to 0.1b.
 	Finally, when 0.1a is stable, I will close this branch.
 
+mars0.1stable65
+	* Major fix, only observed during KASAN debugging:
+	  Use-after-free which appears to splat only at Football
+	  during final deletion of resources. Never observed at production.
+	  Update if you are very cautious.
+	* A few minor fixes, not relevant for production.
+	* Minor doc improvements.
+
 mars0.1stable64
 	* Major regression: split-brain detection did not display
 	  correctly.
