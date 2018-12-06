@@ -398,15 +398,15 @@ too simple
 \end_layout
 
 \begin_layout Standard
-However, with the advent of a new method called 
-\begin_inset Quotes eld
-\end_inset
-
+However, this picture has changed with the advent of a new 
+\series bold
+load balancing
+\series default
+ method called 
+\series bold
 LV Football
-\begin_inset Quotes erd
-\end_inset
-
- this picture has changed, see chapter 
+\series default
+, see chapter 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "chap:LV-Football"
