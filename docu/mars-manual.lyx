@@ -943,11 +943,15 @@ sub-component
 \emph default
 ).
  Typical granularity is replication of whole internal storage pools, or
- of LVs, or of filesystem data.
+ of LVs, or of filesystem instances.
 \end_layout
 
 \begin_layout Description
-LocalStorage, and some further models like RemoteSharding (see section 
+LocalStorage, and some further models like 
+\family typewriter
+RemoteSharding
+\family default
+ (see section 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "subsec:Variants-of-Sharding"
@@ -985,8 +989,11 @@ Big Virtual LVM Pool
 \end_layout
 
 \begin_layout Description
-(4) at least Eventually Consistent or better can be alternatively achieved
- by
+(4) at least 
+\family typewriter
+Eventually Consistent
+\family default
+ or better can be alternatively achieved by
 \end_layout
 
 \begin_deeper
@@ -995,12 +1002,19 @@ Big Virtual LVM Pool
 \series bold
 DRBD
 \series default
-, which provides Strict consistency during 
+, which provides 
+\family typewriter
+Strict Consistency
+\family default
+ during 
 \family typewriter
 connected
 \family default
- state, but works only reliably with passive crossover cables over short
- distances (see CAP theorem in section 
+ state, but works only reliably with passive crossover cables over 
+\series bold
+short distances
+\series default
+ (see CAP theorem in section 
 \begin_inset CommandInset ref
 LatexCommand vref
 reference "sec:Explanation-via-CAP"
@@ -1008,6 +1022,23 @@ reference "sec:Explanation-via-CAP"
 \end_inset
 
 ).
+\begin_inset Newline newline
+\end_inset
+
+Notice: DRBD violates any type of consistency within your 
+\emph on
+replicas
+\emph default
+ during (automatic) re-sync, and thus does not 
+\emph on
+fully
+\emph default
+ comply with the above definition of cloud storage in a 
+\emph on
+strong
+\emph default
+ sense.
+ But you can argue at a course time granularity level in order to fix this.
 \end_layout
 
 \begin_layout Description
@@ -1015,8 +1046,12 @@ reference "sec:Explanation-via-CAP"
 \series bold
 MARS
 \series default
-, which works over long distances and provides two different consistency
- guarantees at different levels, 
+, which works over 
+\series bold
+long distances
+\series default
+ and provides two different consistency guarantees at different levels,
+ 
 \emph on
 both at the same time
 \emph default
@@ -1025,7 +1060,11 @@ both at the same time
 
 \begin_deeper
 \begin_layout Description
-locally: Strict local consistency at LV granularity, also 
+locally:
+\family typewriter
+ Strict Consistency
+\family default
+ at local LV granularity, also 
 \emph on
 within
 \emph default
@@ -1033,11 +1072,39 @@ within
 \end_layout
 
 \begin_layout Description
-globally: Eventually consistent 
+globally: 
+\family typewriter
+Eventually Consistent
+\family default
+ 
 \emph on
 between
 \emph default
- different LV replicas.
+ different LV replicas (global level).
+\begin_inset Newline newline
+\end_inset
+
+The CAP theorem (see section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Explanation-via-CAP"
+
+\end_inset
+
+) says that 
+\family typewriter
+Strict Consistency
+\family default
+ is 
+\series bold
+not possible
+\series default
+ in general at 
+\emph on
+unplanned failover
+\emph default
+ during long-distance network outages (P = Partitioning Tolerance), when
+ A = Availability is also a requirement.
 \begin_inset Newline newline
 \end_inset
 
@@ -1045,8 +1112,89 @@ However, in case of a
 \emph on
 planned handover
 \emph default
-, it is also strictly consistent at a global level, but may need some extra
- time for catching up.
+, MARS is also 
+\family typewriter
+Strictly Consistent
+\family default
+ at a global level, but may need some extra time for catching up.
+\begin_inset Newline newline
+\end_inset
+
+Notice: global 
+\family typewriter
+Strict Consistency
+\family default
+ is also possible at a 
+\emph on
+coarse timescale
+\emph default
+, in accordance with the CAP theorem, if you decide to sacrifice A = Availabilit
+y during such a network incident by simply 
+\emph on
+not
+\emph default
+ doing a failover action.
+ Just wait until the network outage is gone, and MARS will automatically
+ resume
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+This automatic MARS behaviour is similar to the behaviour of DRBD in such
+ situations, when DBRD can automatically go to 
+\family typewriter
+disconnected
+\family default
+-like state, and you are later manually or automatically resuming the DRBD
+ connection for an incremental re-sync.
+ MARS does everything automatically because it has no firmly built-in assumption
+s about the actual duration of any network communication.
+\end_layout
+
+\end_inset
+
+ everything ASAP, and thus you are using MARS 
+\emph on
+only
+\emph default
+ as a protection against 
+\series bold
+fatal
+\series default
+ storage failures / unplanned 
+\series bold
+disasters
+\series default
+.
+\begin_inset Newline newline
+\end_inset
+
+Notice: A = Availability is 
+\emph on
+not generally
+\emph default
+ required by the above definition of cloud storage, because from a user's
+ perspective it would not generally make sense in the global internet where
+ connection loss may anyway occur at any time.
+ Thus it is a valid operational strategy to 
+\emph on
+not
+\emph default
+ fail-over your LVs during certain major network outages.
+\begin_inset Newline newline
+\end_inset
+
+Notice: long-term 
+\series bold
+disaster tolerance
+\series default
+ (e.g.
+ perpetual loss of some storage nodes during an earthquake) is 
+\emph on
+not
+\emph default
+ modeled by the CAP theorem, but is more or less required by (2) and (3)
+ from the above definition of cloud storage.
 \end_layout
 
 \end_deeper
