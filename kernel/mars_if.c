@@ -74,6 +74,13 @@
 #define HAS_MERGE_BVEC
 #endif
 
+/* 54efd50bfd873e2dbf784e0b21a8027ba4299a3e and 8ae126660fddbeebb9251a174e6fa45b6ad8f932,
+ * detected via 4246a0b63bd8f56a1469b12eafeb875b1041a451
+ */
+#ifndef BIO_UPTODATE
+#define NEED_BIO_SPLIT
+#endif
+
 //      end_remove_this
 ///////////////////////// global tuning ////////////////////////
 
@@ -339,16 +346,23 @@ void if_timer(unsigned long data)
 /* accept a linux bio, convert to mref and call buf_io() on it.
  */
 static
-//      remove_this
 /* see dece16353ef47d8d33f5302bc158072a9d65e26f */
 #ifdef BLK_QC_T_NONE
+#ifdef NEED_BIO_SPLIT
 //      end_remove_this
-blk_qc_t if_make_request(struct request_queue *q, struct bio *bio)
+blk_qc_t _if_make_request(struct request_queue *q, struct bio *bio)
 //      remove_this
+#else
+blk_qc_t if_make_request(struct request_queue *q, struct bio *bio)
+#endif
 #elif defined(BIO_CPU_AFFINE)
 int if_make_request(struct request_queue *q, struct bio *bio)
 #else
+#ifdef NEED_BIO_SPLIT
+void _if_make_request(struct request_queue *q, struct bio *bio)
+#else
 void if_make_request(struct request_queue *q, struct bio *bio)
+#endif
 #endif
 {
 	struct if_input *input = q->queuedata;
@@ -801,6 +815,24 @@ done:
 	return;
 #endif
 }
+
+#ifdef NEED_BIO_SPLIT
+static
+#ifdef BLK_QC_T_NONE
+blk_qc_t if_make_request(struct request_queue *q, struct bio *bio)
+#else
+void if_make_request(struct request_queue *q, struct bio *bio)
+#endif
+{
+	blk_queue_split(q, &bio, q->bio_split);
+#ifdef BLK_QC_T_NONE
+	return _if_make_request(q, bio);
+#else
+	_if_make_request(q, bio);
+#endif
+}
+
+#endif
 
 #ifndef BLK_MAX_REQUEST_COUNT
 //static
