@@ -80,6 +80,8 @@
  */
 #ifndef BIO_UPTODATE
 #define NEED_BIO_SPLIT
+#undef  USE_MAX_PHYS_SEGMENTS
+#define USE_MAX_PHYS_SEGMENTS   1
 #endif
 
 //      end_remove_this
