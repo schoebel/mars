@@ -43,6 +43,7 @@
 #define USE_MAX_PHYS_SEGMENTS   (MARS_MAX_SEGMENT_SIZE >> 9)
 #define USE_MAX_SEGMENT_SIZE    MARS_MAX_SEGMENT_SIZE
 #define USE_LOGICAL_BLOCK_SIZE  512
+#define USE_MAX_HW_SECTORS      1
 #define USE_SEGMENT_BOUNDARY    (PAGE_SIZE-1)
 
 #define USE_CONGESTED_FN
@@ -1017,6 +1018,10 @@ static int if_switch(struct if_brick *brick)
 #ifdef USE_MAX_HW_SEGMENTS
 		MARS_DBG("blk_queue_max_hw_segments()\n");
 		blk_queue_max_hw_segments(q, USE_MAX_HW_SEGMENTS);
+#endif
+#ifdef USE_MAX_HW_SECTORS
+		MARS_DBG("blk_queue_max_hw_sectors()\n");
+		blk_queue_max_hw_sectors(q, USE_MAX_HW_SECTORS);
 #endif
 #ifdef USE_MAX_SEGMENT_SIZE
 		MARS_DBG("blk_queue_max_segment_size()\n");
