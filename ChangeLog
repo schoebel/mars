@@ -32,16 +32,21 @@ Release Conventions / Branches / Tagnames
 -----------------------------------------
 	FLOW OF BUGFIXES: 0.1 -> 0.1a -> 0.1b -> 0.2 -> ...
 
-	mars0.1 series (stable):
-		 - Asynchronous replication.
-		   Currently operational at more than 3000 servers at
-		   1&1, more than 25,000,000 operating hours (Feb 2017)
+	mars0.1 series (stable, will go EOL soon):
+		 - Will run in parallel to branch 0.1a for a few
+		   months, and then go EOL.
 		 - Unstable tagnames: light0.1beta%d.%d (obsolete)
 		 - Stable branch: mars0.1.y
 		 - Stable tagnames: mars0.1stable%02d
 
-	mars0.1a series:
-		 New designated master branch. Will become stable ASAP.
+	mars0.1a series (stable):
+		 New master branch. Now stable.
+		 This branch is operational for several years on
+		 several thousands of servers, and several petabytes
+		 of data.
+		 - Unstable tagnames: light0.1abeta%d (obsolete)
+		 - Stable branch: mars0.1a.y
+		 - Stable tagnames: mars0.1astable%02d
 
 	mars0.1b series (currently alpha):
 		 This is an _imtermediate_ series between 0.1 and 0.2.
@@ -148,28 +153,40 @@ Changelog for series 0.1a:
 -----------------------------------
 Changelog for series 0.1:
 
-Attention! This branch will go EOL in the next few months.
-	Reason: branch 0.1a is productive for several months at 1&1.
-	Experiences: seems to run better than 0.1.y with
-	better performance, smoother, etc.
+Attention! This branch will go EOL around February 2019.
+	Branch mars0.1a.y is now the new master branch, and all
+	commits from the 0.1 series will be fully merged.
 	Upgrade is easy: just rollout the new marsadm version,
 	install the new kernel modules, and load them where possible.
 	Mixed operation of different versions is no problem,
-	but is of course not the desired state, so keep it short.
+	but is of course not the desired state, so keep this period
+	as short as possible.
 	Rollback is also easy.
-	If nobody complains, I'd like to get rid of this ancient
-	branch ASAP.
-	Before being closed, I am adding the new systemd templates
-	for better upgrade / downgrade in case you need it. If you don't
-	activate it, it should have zero impact.
 
-Hint: branch 0.1a will get a merge from here, and then get the
-	Remote Device (which was beta until now).
-	The new code is not used when not activated, thus inclusion
-	of new features into 0.1a should be low risk.
-	Afterwards, 0.1a will be marked "stable", and newer features
-	(except Football related ones) will then go to 0.1b.
-	Finally, when 0.1a is stable, I will close this branch.
+	Motivation: branch 0.1a is productive for several years at 1&1.
+	Experiences: now runs provably better than 0.1.y with
+	better performance, smoother, etc.
+	And even more stable, although the 0.1a releases were
+	called "beta" up to now.
+
+mars0.1stable66
+	* Critical fix, only relevant for kernels 4.3 to 4.4:
+	  Due to a forgotten adaptation to newer kernels,
+	  some userspace tools like xfs_repair could read/write
+	  wrong data upon _large_ IO requests, and/or kernel memory
+	  corruption could occur. Kernel-level filesystems
+	  are typically _not_ affected because they typically use 4k
+	  pages at maximum.
+	  If you are operating such a kernel, please upgrade to
+	  minimize any risks. You probably want userspace tools like
+	  xfs_repair to not crash your kernel ;)
+	  The problem was reproducibly detected at lab regression testing,
+	  _before_ updating a big installation from kernel 3.16 to 4.4.
+	  It did not show up with the old kernel.
+	  Notice: kernels >4.6 are not yet supported at the moment,
+	  but work on them is likely being continued during the next
+	  months. Stay tuned.
+	* Minor doc updates.
 
 mars0.1stable65
 	* Major fix, only observed during KASAN debugging:
