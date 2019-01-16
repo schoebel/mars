@@ -143,11 +143,35 @@ Changelog for series 0.1b:
 -----------------------------------
 Changelog for series 0.1a:
 
-	Designated master branch in future.
+	This is the new master branch, starting January 2019.
+	The old stable branch mars 0.1.y will get only a few
+	updates, and then will be fully superseeded by this branch.
+
 	Recommended for Football. Will get updates on
 	the Football sub-project.
 	Based on 0.1balpha4. Merge 0.1stable.
+	Now stable.
 	Receive mainly fixes.
+
+mars0.1astable66.
+	* Merge mars0.1stable66. In detail:
+	* Critical fix, only relevant for kernels 4.3 to 4.4:
+	  Due to a forgotten adaptation to newer kernels,
+	  some userspace tools like xfs_repair could read/write
+	  wrong data upon _large_ IO requests, and/or kernel memory
+	  corruption could occur. Kernel-level filesystems
+	  are typically _not_ affected because they typically use 4k
+	  pages at maximum.
+	  If you are operating such a kernel, please upgrade to
+	  minimize any risks. You probably want userspace tools like
+	  xfs_repair to not crash your kernel ;)
+	  The problem was reproducibly detected at lab regression testing,
+	  _before_ updating a big installation from kernel 3.16 to 4.4.
+	  It did not show up with the old kernel.
+	  Notice: kernels >4.6 are not yet supported at the moment,
+	  but work on them is likely being continued during the next
+	  months. Stay tuned.
+	* Minor doc updates.
 
 mars0.1abeta18
 	* Merge mars0.1stable65.
