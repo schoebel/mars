@@ -42172,6 +42172,23 @@ netstat
 \family default
  & friends.
  Updates may need some time to proceed (socket timeouts etc).
+\begin_inset Newline newline
+\end_inset
+
+Hint: for safety, call this on 
+\emph on
+all
+\emph default
+ members of a cluster to ensure consistency.
+ Otherwise it may happen that some cluster members do not know the 
+\emph on
+new
+\emph default
+ IP address where to fetch the 
+\emph on
+new
+\emph default
+ information from.
 \end_layout
 
 \end_inset
