@@ -138,72 +138,7 @@ Changelog for series 0.2:
 -----------------------------------
 Changelog for series 0.1b:
 
-mars0.1balpha4
---------
-	* First improvements for scalability to thousands of nodes.
-	  Not yet tested with really huge masses of nodes, only
-	  with relatively small clusters.
-	* Merge	fixes from mars0.1stable41 (see there)
-	* Doc update on socket bundling.
-
-mars0.1balpha3.4
---------
-	* Merge	fix from mars0.1stable40 (see there)
-
-mars0.1balpha3.3
---------
-	* Merge	fixes from mars0.1stable39
-	* Major fix: copy was sometimes hanging.
-	* Minor fix: unnecessary delay of metadata propagation.
-	* Performance improvements / bottleneck enhancenemts:
-	  - Lamport clock
-	  - Network
-	  - md5 checksumming
-	* Userspace: faster logfile deletion via cron job.
-
-mars0.1balpha3.2
---------
-	* Merge	mars0.1stable38: now compiles without pre-patch
-	  on certain kernel versions. Please read ChangeLog there.
-
-mars0.1balpha3.1
---------
-	* Minor fix: deadlock on termination of copy thread.
-
-mars0.1balpha3
---------
-	* Some tuning (more to come later):
-	  * Speedup network by better corking.
-	  * New scalable Lamport clock implementation.
-
-mars0.1balpha2
---------
-	* Socket bundling (cherry-picked from mars0.2.y).
-	* Speedup copy processes (sync, logfile transfer).
-	* Speedup bio and md5 checksumming.
-
-mars0.1balpha1
---------
-	* First improvements for scalability to more than 10 resources
-	  per node. Already tested with 128 resources on a pair of nodes.
-	  More improvements to come later.
-	  No functional changes otherwise (from a sysadmin perspective).
-	  Rollback to stable series 0.1 should be possible at
-	  any time.
-	* Include fix from 0.1stable37.
-
-mars0.1balpha0
---------
-	* Minor fix: the 1&1 specific feature set-sync-pref-list was
-	  not used at all. Without it, the limitation feature for the sync
-	  parallelism degree did not work correctly (without leading to harm,
-	  other than optimum sync throughput / performance).
-	  Removed the old _obsolete_ feature (for formal reasons,
-	  this cannot be done in the 0.1stable branch).
-	  Re-implemnented the feature in a very simple form,
-	  which is hopefully "obviously correct" now.
-	* Minor feature: please use "marsadm cron" as a fool-proof short form,
-	  in particular at cron jobs.
+(you need to checkout branch mars0.1b.y to see any details)
 
 -----------------------------------
 Changelog for series 0.1a:
@@ -284,6 +219,77 @@ mars0.1abeta0
 	Some infrastructure for version detection.
 	Backport of selected fixes from branch 0.1b.y.
 	Add marsadm split-cluster.
+
+-----------------------------------
+Changelog for series 0.1b, only the lower part which has been merged
+	with branch mars0.1a:
+
+mars0.1balpha4
+--------
+	* First improvements for scalability to thousands of nodes.
+	  Not yet tested with really huge masses of nodes, only
+	  with relatively small clusters.
+	* Merge	fixes from mars0.1stable41 (see there)
+	* Doc update on socket bundling.
+
+mars0.1balpha3.4
+--------
+	* Merge	fix from mars0.1stable40 (see there)
+
+mars0.1balpha3.3
+--------
+	* Merge	fixes from mars0.1stable39
+	* Major fix: copy was sometimes hanging.
+	* Minor fix: unnecessary delay of metadata propagation.
+	* Performance improvements / bottleneck enhancenemts:
+	  - Lamport clock
+	  - Network
+	  - md5 checksumming
+	* Userspace: faster logfile deletion via cron job.
+
+mars0.1balpha3.2
+--------
+	* Merge	mars0.1stable38: now compiles without pre-patch
+	  on certain kernel versions. Please read ChangeLog there.
+
+mars0.1balpha3.1
+--------
+	* Minor fix: deadlock on termination of copy thread.
+
+mars0.1balpha3
+--------
+	* Some tuning (more to come later):
+	  * Speedup network by better corking.
+	  * New scalable Lamport clock implementation.
+
+mars0.1balpha2
+--------
+	* Socket bundling (cherry-picked from mars0.2.y).
+	* Speedup copy processes (sync, logfile transfer).
+	* Speedup bio and md5 checksumming.
+
+mars0.1balpha1
+--------
+	* First improvements for scalability to more than 10 resources
+	  per node. Already tested with 128 resources on a pair of nodes.
+	  More improvements to come later.
+	  No functional changes otherwise (from a sysadmin perspective).
+	  Rollback to stable series 0.1 should be possible at
+	  any time.
+	* Include fix from 0.1stable37.
+
+mars0.1balpha0
+--------
+	* Minor fix: the 1&1 specific feature set-sync-pref-list was
+	  not used at all. Without it, the limitation feature for the sync
+	  parallelism degree did not work correctly (without leading to harm,
+	  other than optimum sync throughput / performance).
+	  Removed the old _obsolete_ feature (for formal reasons,
+	  this cannot be done in the 0.1stable branch).
+	  Re-implemnented the feature in a very simple form,
+	  which is hopefully "obviously correct" now.
+	* Minor feature: please use "marsadm cron" as a fool-proof short form,
+	  in particular at cron jobs.
 
 -----------------------------------
 Changelog for series 0.1:
