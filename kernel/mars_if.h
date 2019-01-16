@@ -26,8 +26,7 @@
 
 #include <linux/semaphore.h>
 
-#define HT_SHIFT 6 //????
-#define MARS_MAX_SEGMENT_SIZE (1U << (9+HT_SHIFT))
+#define MARS_MAX_SEGMENT_SIZE (PAGE_SIZE)
 
 #define MAX_BIO 32
 

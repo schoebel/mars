@@ -141,7 +141,7 @@ tst@1und1.de
 \end_layout
 
 \begin_layout Date
-Version 0.1a-18
+Version 0.1a-66
 \end_layout
 
 \begin_layout Lowertitleback
@@ -398,15 +398,15 @@ too simple
 \end_layout
 
 \begin_layout Standard
-However, with the advent of a new method called 
-\begin_inset Quotes eld
-\end_inset
-
+However, this picture has changed with the advent of a new 
+\series bold
+load balancing
+\series default
+ method called 
+\series bold
 LV Football
-\begin_inset Quotes erd
-\end_inset
-
- this picture has changed, see chapter 
+\series default
+, see chapter 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "chap:LV-Football"
@@ -943,11 +943,15 @@ sub-component
 \emph default
 ).
  Typical granularity is replication of whole internal storage pools, or
- of LVs, or of filesystem data.
+ of LVs, or of filesystem instances.
 \end_layout
 
 \begin_layout Description
-LocalStorage, and some further models like RemoteSharding (see section 
+LocalStorage, and some further models like 
+\family typewriter
+RemoteSharding
+\family default
+ (see section 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "subsec:Variants-of-Sharding"
@@ -985,8 +989,11 @@ Big Virtual LVM Pool
 \end_layout
 
 \begin_layout Description
-(4) at least Eventually Consistent or better can be alternatively achieved
- by
+(4) at least 
+\family typewriter
+Eventually Consistent
+\family default
+ or better can be alternatively achieved by
 \end_layout
 
 \begin_deeper
@@ -995,12 +1002,19 @@ Big Virtual LVM Pool
 \series bold
 DRBD
 \series default
-, which provides Strict consistency during 
+, which provides 
+\family typewriter
+Strict Consistency
+\family default
+ during 
 \family typewriter
 connected
 \family default
- state, but works only reliably with passive crossover cables over short
- distances (see CAP theorem in section 
+ state, but works only reliably with passive crossover cables over 
+\series bold
+short distances
+\series default
+ (see CAP theorem in section 
 \begin_inset CommandInset ref
 LatexCommand vref
 reference "sec:Explanation-via-CAP"
@@ -1008,6 +1022,23 @@ reference "sec:Explanation-via-CAP"
 \end_inset
 
 ).
+\begin_inset Newline newline
+\end_inset
+
+Notice: DRBD violates any type of consistency within your 
+\emph on
+replicas
+\emph default
+ during (automatic) re-sync, and thus does not 
+\emph on
+fully
+\emph default
+ comply with the above definition of cloud storage in a 
+\emph on
+strong
+\emph default
+ sense.
+ But you can argue at a course time granularity level in order to fix this.
 \end_layout
 
 \begin_layout Description
@@ -1015,8 +1046,12 @@ reference "sec:Explanation-via-CAP"
 \series bold
 MARS
 \series default
-, which works over long distances and provides two different consistency
- guarantees at different levels, 
+, which works over 
+\series bold
+long distances
+\series default
+ and provides two different consistency guarantees at different levels,
+ 
 \emph on
 both at the same time
 \emph default
@@ -1025,7 +1060,11 @@ both at the same time
 
 \begin_deeper
 \begin_layout Description
-locally: Strict local consistency at LV granularity, also 
+locally:
+\family typewriter
+ Strict Consistency
+\family default
+ at local LV granularity, also 
 \emph on
 within
 \emph default
@@ -1033,11 +1072,39 @@ within
 \end_layout
 
 \begin_layout Description
-globally: Eventually consistent 
+globally: 
+\family typewriter
+Eventually Consistent
+\family default
+ 
 \emph on
 between
 \emph default
- different LV replicas.
+ different LV replicas (global level).
+\begin_inset Newline newline
+\end_inset
+
+The CAP theorem (see section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Explanation-via-CAP"
+
+\end_inset
+
+) says that 
+\family typewriter
+Strict Consistency
+\family default
+ is 
+\series bold
+not possible
+\series default
+ in general at 
+\emph on
+unplanned failover
+\emph default
+ during long-distance network outages (P = Partitioning Tolerance), when
+ A = Availability is also a requirement.
 \begin_inset Newline newline
 \end_inset
 
@@ -1045,8 +1112,89 @@ However, in case of a
 \emph on
 planned handover
 \emph default
-, it is also strictly consistent at a global level, but may need some extra
- time for catching up.
+, MARS is also 
+\family typewriter
+Strictly Consistent
+\family default
+ at a global level, but may need some extra time for catching up.
+\begin_inset Newline newline
+\end_inset
+
+Notice: global 
+\family typewriter
+Strict Consistency
+\family default
+ is also possible at a 
+\emph on
+coarse timescale
+\emph default
+, in accordance with the CAP theorem, if you decide to sacrifice A = Availabilit
+y during such a network incident by simply 
+\emph on
+not
+\emph default
+ doing a failover action.
+ Just wait until the network outage is gone, and MARS will automatically
+ resume
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+This automatic MARS behaviour is similar to the behaviour of DRBD in such
+ situations, when DBRD can automatically go to 
+\family typewriter
+disconnected
+\family default
+-like state, and you are later manually or automatically resuming the DRBD
+ connection for an incremental re-sync.
+ MARS does everything automatically because it has no firmly built-in assumption
+s about the actual duration of any network communication.
+\end_layout
+
+\end_inset
+
+ everything ASAP, and thus you are using MARS 
+\emph on
+only
+\emph default
+ as a protection against 
+\series bold
+fatal
+\series default
+ storage failures / unplanned 
+\series bold
+disasters
+\series default
+.
+\begin_inset Newline newline
+\end_inset
+
+Notice: A = Availability is 
+\emph on
+not generally
+\emph default
+ required by the above definition of cloud storage, because from a user's
+ perspective it would not generally make sense in the global internet where
+ connection loss may anyway occur at any time.
+ Thus it is a valid operational strategy to 
+\emph on
+not
+\emph default
+ fail-over your LVs during certain major network outages.
+\begin_inset Newline newline
+\end_inset
+
+Notice: long-term 
+\series bold
+disaster tolerance
+\series default
+ (e.g.
+ perpetual loss of some storage nodes during an earthquake) is 
+\emph on
+not
+\emph default
+ modeled by the CAP theorem, but is more or less required by (2) and (3)
+ from the above definition of cloud storage.
 \end_layout
 
 \end_deeper
@@ -1703,7 +1851,7 @@ Protect for logical data corruption
 \begin_inset Text
 
 \begin_layout Plain Layout
-yes
+yes (partly)
 \end_layout
 
 \end_inset
@@ -1834,7 +1982,7 @@ tical storage.
 \begin_inset Text
 
 \begin_layout Plain Layout
-
+OpenSource Component
 \end_layout
 
 \end_inset
@@ -2375,6 +2523,189 @@ The last item means that ZFS by itself does not protect against amok-running
  replication process (at least not by default).
  Workarounds may be possible, but are not easy to create and to test for
  enterprise-critical applications.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Notice that zfs snapshots can be combined with DRBD or MARS, because zfs
+ snapshots are residing at 
+\emph on
+filesystem
+\emph default
+ layer, while DRBD / MARS replicas are located at 
+\emph on
+block
+\emph default
+ layer.
+ Just create your zpools at the 
+\emph on
+top
+\emph default
+ of DRBD or MARS virtual devices, and import / export them 
+\emph on
+individually
+\emph default
+ upon handover / failover of each LV.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ There is a 
+\series bold
+\emph on
+fundamental
+\series default
+\emph default
+ difference between zpools and classical RAID / LVM stacked architectures.
+ Some zfs advocates are propagating zpools as a replacement for both RAID
+ and LVM.
+ However, there is a 
+\series bold
+massive difference
+\series default
+ in architecture, as explained in the following example (10 logical resources
+ over 48 physical spindles), achieving practically the 
+\series bold
+\emph on
+same
+\series default
+ zfs snapshot functionality
+\emph default
+ from a user's perspective, but in a different way:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/raid-lvm-architecture.fig
+	height 6cm
+
+\end_inset
+
+ 
+\begin_inset Graphics
+	filename images/zpool-architecture.fig
+	height 6cm
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+When RAID functionality is executed by zfs, it will be located at the 
+\emph on
+top
+\emph default
+ of the hierarchy.
+ On one hand, this easily allows for different RAID levels for each of the
+ 10 different logical resources.
+ On the other hand, this 
+\emph on
+exposes
+\emph default
+ the 
+\series bold
+physical spindle configuration
+\series default
+ to the topmost filesystem layer (48 spindles in this example).
+ There is no easy way for replication of these 
+\emph on
+physical properties
+\emph default
+ in a larger / heterogenous distributed system, e.g.
+ when some hardware components are replaced over a longer period of time
+ (hardware lifecycle, or LV Football as explained in chapter 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "chap:LV-Football"
+
+\end_inset
+
+).
+ Essentially, only replication of 
+\emph on
+logical
+\emph default
+ structures like snapshots remains as the only reasonable option, with its
+ drawbacks as explained above.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ There is another argument: zfs tries to 
+\emph on
+hide
+\emph default
+ its internal structures and interfaces from the sysadmins, forming a more
+ or less 
+\series bold
+monolithic
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Some sysadmins acting as zfs advocates are reclaiming this as an advantage,
+ because they need to understand only a single tool for managing 
+\begin_inset Quotes eld
+\end_inset
+
+everything
+\begin_inset Quotes erd
+\end_inset
+
+.
+ However, this is a short-sighted argument when it comes to 
+\emph on
+true
+\emph default
+ flexibility as offered by a component-based system, where multiple types
+ of hardware / software RAID, multiple types of LVM functionality, and much
+ more can be almost orthogonally combined in a very flexible way.
+\end_layout
+
+\end_inset
+
+ architecture
+\series default
+ as seen from outside.
+ This violates the classical 
+\emph on
+layering rules
+\emph default
+ from Dijkstra.
+ In contrast, classical LVM-based configurations are 
+\series bold
+component oriented
+\series default
+, according to the 
+\series bold
+Unix philosophy
+\series default
+.
 \end_layout
 
 \begin_layout Section
@@ -41872,6 +42203,23 @@ netstat
 \family default
  & friends.
  Updates may need some time to proceed (socket timeouts etc).
+\begin_inset Newline newline
+\end_inset
+
+Hint: for safety, call this on 
+\emph on
+all
+\emph default
+ members of a cluster to ensure consistency.
+ Otherwise it may happen that some cluster members do not know the 
+\emph on
+new
+\emph default
+ IP address where to fetch the 
+\emph on
+new
+\emph default
+ information from.
 \end_layout
 
 \end_inset
