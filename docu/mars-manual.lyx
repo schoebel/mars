@@ -11412,6 +11412,197 @@ caching behaviour
 know what you are doing!
 \end_layout
 
+\begin_layout Standard
+There exist a few cases where a distributed filesystem, sometimes even actually
+ with 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ behaviour, 
+\emph on
+must
+\emph default
+ be used, because there exists a 
+\emph on
+requirement
+\emph default
+ for it.
+ Some examples (list is certainly incomplete):
+\end_layout
+
+\begin_layout Itemize
+HPC = 
+\series bold
+High Performance Computing
+\series default
+ on modern supercomputers, consisting of a high number of 
+\begin_inset Formula $n$
+\end_inset
+
+ compute nodes, are often requiring access to a shared persistent data pool,
+ where each of the 
+\begin_inset Formula $n$
+\end_inset
+
+ nodes must be sometimes able to access the same persistent data, sometimes
+ both for reading and writing.
+ Therefore, several supercomputers are using cluster filesystems like Lustre.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Care must be taken that high-frequency / fine granularity communication
+ over the distributed filesystem and its dedicated storage network does
+ not take place, but instead occurs over the ordinary low-latency communication
+ fabrics each modern supercomputer is relying on.
+ True 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ storage access behaviour should be avoided as far as possible (given by
+ the problem to be solved).
+ When absolutely necessary, location transparency (as possible with cluster
+ filesystems like Lustre) as well as its DSM = Distributed Shared Memory
+ model must be given up, and an 
+\series bold
+explicit communication model
+\series default
+ must be used instead, which allows explicit control over replicas and their
+ communication paths (e.g.
+ propagation in a binary tree fashion), although it results in much more
+ work for the programmers.
+ Only low frequency / coarse granularity transfers of 
+\emph on
+bulk data
+\emph default
+ with 
+\emph on
+high locality
+\emph default
+ should run over distributed filesystems, preferably in streaming mode.
+ The total frequency of metadata access should be low, because metadata
+ consistency may form a bottleneck when updated too frequently.
+ The programmers of the distributed application software need to take care
+ for this.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Notice that certain supercomputer workloads may be crying for a RemoteSharding
+ or FlexibleSharding storage architecture in place of a BigCluster architecture.
+ However, this is very application specific.
+\end_layout
+
+\begin_layout Itemize
+Student pools at universities, or location-independent workplaces at companies.
+ This is just the usecase where NFS was originally constructed for.
+ Typically, 
+\series bold
+workstation workloads
+\series default
+ are neither performance critical, nor prone to actual 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ behaviour (although the network infrastructure would 
+\emph on
+allow
+\emph default
+ for it), because each user has her own home directory which is typically
+ 
+\emph on
+not shared
+\emph default
+ with others, and she cannot split herself and sit in front of multiple
+ workstations at the same time.
+ Thus the 
+\emph on
+local per-workstation
+\emph default
+ NFS caching strategies have a good chance to hide much of the network latencies
+, and thus the actual total network workload is typically only 
+\begin_inset Formula $O(n).$
+\end_inset
+
+ 
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ This can lead to a dangerous misinterpretation: because it apparently works
+ even for a few thousands of workstations, people conclude 
+\emph on
+wrongly
+\emph default
+ that the network filesystem 
+\begin_inset Quotes eld
+\end_inset
+
+must be scalable
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Some people are then applying their experience to completely different
+ usecases, where much higher metadata traffic by several orders of magnitudes
+ is occurring (such as in webhosting), or even where true 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ runtime behaviour is occuring (see example of a failed scalability scenario
+ in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "subsec:Example-Failures-of"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In general: when something works for usecase A, this 
+\series bold
+does 
+\emph on
+not
+\emph default
+ prove
+\series default
+ that it will also work for another usecase B.
+\end_layout
+
 \begin_layout Section
 Recommendations for Designing and Operating Storage Systems
 \begin_inset CommandInset label
