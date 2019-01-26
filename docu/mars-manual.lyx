@@ -11604,10 +11604,478 @@ not
 \end_layout
 
 \begin_layout Section
-Recommendations for Designing and Operating Storage Systems
+Recommendations for Design and Operation of  Storage Systems
 \begin_inset CommandInset label
 LatexCommand label
 name "sec:Recommendations-for-Designing"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Recommendations for Managers
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Recommendations-for-Managers"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+When you are responsible for 
+\series bold
+masses of enterprise-critical data
+\series default
+, the most important point is to get people with 
+\series bold
+the right skills
+\series default
+, in 
+\emph on
+addition(!) to
+\emph default
+ the 
+\emph on
+right mindset
+\emph default
+, and to assign the right roles to them.
+\end_layout
+
+\begin_layout Standard
+Practical observation from many groups in many companies: which storage
+ systems / architectures are in use, and how much they are 
+\emph on
+really
+\emph default
+ failure resistent and reliable, and how much they are 
+\emph on
+really
+\emph default
+ scalable for their workload, and what is their TCO (Total Cost of Ownership),
+ does often 
+\emph on
+not
+\emph default
+ depend on real knowledge and facts.
+ It often depends on 
+\series bold
+personal habits
+\series default
+ and 
+\series bold
+pre-judgement
+\series default
+ of staff
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+\noindent
+This can be seen in a bigger company (e.g.
+ after mergers etc) when very different architectures have been built by
+ different teams for very similar usecases, although they are sometimes
+ even roughly comparable in size and workload.
+\end_layout
+
+\end_inset
+
+.
+ In essence, this results in a gambling game how safe / cost-effective etc
+ your critical data 
+\emph on
+really
+\emph default
+ is.
+\end_layout
+
+\begin_layout Standard
+As just explained in the previous section, there are so many pitfalls, and
+ there are only a few people who know them, because more people are working
+ in small-scale systems than in large-scale enterprise ones.
+ There are so many lots of people at the market who 
+\emph on
+claim
+\emph default
+ to have some experience, but in reality they don't know what they don't
+ know (
+\series bold
+second-order ignorance
+\series default
+).
+\end_layout
+
+\begin_layout Standard
+Second-order ignorance is very dangerous, even for affected people themselves,
+ because they are in good faith about their own skills, and that they would
+ be able to control everything (sometimes they really want to control literally
+ 
+\emph on
+everything
+\emph default
+, even other people who have more real experience and knowledge).
+ See for example wrong assumptions and 
+\begin_inset Quotes eld
+\end_inset
+
+false proofs
+\begin_inset Quotes erd
+\end_inset
+
+ about scalability, derived from different usecases (or in extreme cases
+ even from workstations workloads), or the failed scalability scenario in
+ section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "subsec:Example-Failures-of"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ where some freelancers were consulted as 
+\begin_inset Quotes eld
+\end_inset
+
+external experts
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Quotation
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Check your information sources! There is a 
+\emph on
+systematic reason
+\emph default
+ for ill-informed 
+\begin_inset Quotes eld
+\end_inset
+
+experts
+\begin_inset Quotes erd
+\end_inset
+
+.
+ On the internet, you can find a lot of so-called 
+\begin_inset Quotes eld
+\end_inset
+
+best practices
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Many of them propagating badly scaling storage architectures for enterprise
+ workloads, sometimes even 
+\emph on
+generally
+\emph default
+ claiming they would 
+\begin_inset Quotes eld
+\end_inset
+
+scale very well
+\begin_inset Quotes erd
+\end_inset
+
+, which is however often based on 
+\emph on
+assumptions
+\emph default
+ instead of knowledge (and almost never based on 
+\emph on
+measurements
+\emph default
+ at the right measurement points for deriving substantial knowledge about
+ your real application behaviour).
+ Literally 
+\emph on
+anyone
+\emph default
+ can post falsely generalized 
+\begin_inset Quotes eld
+\end_inset
+
+best practices
+\begin_inset Quotes erd
+\end_inset
+
+ to the internet.
+ Together with second-order ignorance about the non-transferability of 
+\begin_inset Quotes eld
+\end_inset
+
+success stories
+\begin_inset Quotes erd
+\end_inset
+
+ from usecase A to usecase B (resulting in 
+\emph on
+false 
+\begin_inset Quotes eld
+\end_inset
+
+proofs
+\emph default
+
+\begin_inset Quotes erd
+\end_inset
+
+), the internet is creating 
+\series bold
+information bubbles
+\series default
+.
+ 
+\end_layout
+
+\begin_layout Quotation
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Real knowledge originates from evaluated sources, such as 
+\series bold
+scientific publications
+\series default
+ which have undergone at least some minimum 
+\emph on
+quality check
+\emph default
+, and which are trying to describe their preconditions and operating environment
+s as precisely
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+\noindent
+Therefore, chances are better to get a real expert when he has some (higher)
+ academic degrees, and was working in the area for a longer time.
+\end_layout
+
+\end_inset
+
+ as possible.
+\end_layout
+
+\begin_layout Quotation
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Real experts will tell you when they don't know something.
+ In addition, they will tell you 
+\emph on
+multiple
+\emph default
+ ways for abtaining such information, such as measurements, simulation,
+ etc.
+\end_layout
+
+\begin_layout Standard
+If you don't have anyone in your teams who knows how 
+\series bold
+caching
+\series default
+ 
+\emph on
+really
+\emph default
+ works, or if it is a single guy who cannot withstand the pressure from
+ a whole group of 
+\begin_inset Quotes eld
+\end_inset
+
+alpha animals
+\begin_inset Quotes erd
+\end_inset
+
+, you are running an 
+\series bold
+increased risk
+\series default
+ of unnecessary expenses
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+I know of cases which have produced unnecessary 
+\emph on
+direct
+\emph default
+ cost of at least € 20 millions.
+\end_layout
+
+\end_inset
+
+, worse services (indirect costs), failed projects, and sometimes even resulting
+ in loss of market share and/or of stock exchange value.
+\end_layout
+
+\begin_layout Standard
+The problem is that it 
+\emph on
+looks so easy
+\emph default
+, as if everyone could build a larger storage system, with ease.
+ For example, just 
+\begin_inset Quotes eld
+\end_inset
+
+spend some more money
+\begin_inset Quotes erd
+\end_inset
+
+, that's all you would need.
+ Unfortunately, both 
+\begin_inset Quotes eld
+\end_inset
+
+marketing drones
+\begin_inset Quotes erd
+\end_inset
+
+ from commercial storage vendors, and even a few OpenSource advocates, are
+ propagating this 
+\series bold
+dangerous mindset
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+As a responsible manager, how can you detect dangerous partly knowledge?
+ Good indicators are wrong usage of the term 
+\begin_inset Quotes eld
+\end_inset
+
+architecture
+\begin_inset Quotes erd
+\end_inset
+
+ (see definition in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:What-is-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), and/or
+\series bold
+ confusion of architecture with implementation
+\series default
+.
+ When somebody confuses
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Notice that there exist people who use the term 
+\begin_inset Quotes eld
+\end_inset
+
+architecture
+\begin_inset Quotes erd
+\end_inset
+
+ inadvertly.
+ They even don't even know that they are confusing architecture with implementat
+ion.
+ Pure usage of a certain term is no clear indicator that somebody is really
+ an expert.
+\end_layout
+
+\end_inset
+
+ this, he does not really have an overview of different architectural solution
+ classes.
+ Instead, such people are tending to propagate their random 
+\begin_inset Quotes eld
+\end_inset
+
+favourite product
+\begin_inset Quotes erd
+\end_inset
+
+.
+ For a responsible, this increases the risk of getting a non-optimum or
+ even bad / dangerous solutions.
+\end_layout
+
+\begin_layout Standard
+Not everything which works in a garage, or in a student pool, or in the
+ testlab (whether it's yours or from a commercial storage vendor), or in
+ a PoC with some 
+\begin_inset Quotes eld
+\end_inset
+
+friendly customers
+\begin_inset Quotes erd
+\end_inset
+
+, is well-suited for large enterprises and their critical data (measured
+ in petabytes / billions of files / etc), or is the optimum solution for
+ TCO.
+ Some rules of thumb, out of experience and observation:
+\end_layout
+
+\begin_layout Itemize
+For each 1 or 2 orders of magnitude of the 
+\series bold
+size
+\series default
+ of your data, you need better methods for safe construction and operation.
+ At least for each 3 to 4 orders of magnitude (sometimes even for less),
+ you need 
+\series bold
+better architectures
+\series default
+, and people who can deal with them.
+\end_layout
+
+\begin_layout Itemize
+For each 1 or 2 orders of magntitude of 
+\series bold
+criticality
+\series default
+ of your data (measured by 
+\emph on
+losses
+\emph default
+ in case of certain incidents), you will also need better architecture,
+ not just better components.
+\end_layout
+
+\begin_layout Subsection
+Recommendations for Architects and Sysadmins
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Recommendations-for-Architects"
 
 \end_inset
 
