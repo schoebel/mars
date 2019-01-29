@@ -153,6 +153,14 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable67 (merged from mars0.1stable67)
+	* Minor fix: don't unnecessarily alert sysadmins when no systemd
+	  unit files are installed.
+	* Minor doc update: new slides from LCA2019, updated old
+	  slides from FrOSCon2018.
+	* Minor doc update: describe some more use cases, add some
+	  advice for managers.
+
 mars0.1astable66.
 	* Merge mars0.1stable66. In detail:
 	* Critical fix, only relevant for kernels 4.3 to 4.4:
