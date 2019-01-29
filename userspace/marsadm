@@ -342,6 +342,17 @@ sub instantiate_systemd_unit {
   return (1, $outfile);
 }
 
+sub _systemd_op {
+  my ($op, $unit) = @_;
+  my $ctl_cmd = "$systemctl $op \"$unit\"";
+  if (system("$systemctl cat '$unit' > /dev/null 2>&1")) {
+    lwarn "systemd unit $unit does not exist.\n";
+    return;
+  }
+  lprint "$ctl_cmd\n" if $verbose;
+  system($ctl_cmd) and lwarn "command '$ctl_cmd' failed\n";
+}
+
 sub systemd_activate {
   my ($cmd, $res, $override) = @_;
   my $want_path = "$mars/resource-$res/systemd-want";
@@ -364,24 +375,17 @@ sub systemd_activate {
   }
   my $ctl_cmd = "$systemctl show \"$unit\"";
   system($ctl_cmd) if $verbose;
+  my $op = "show";
   if ($do_activate) {
     $unit =~ s/ .*//;
     lprint "==== Activate resource '$res' unit '$unit'\n"if $verbose;
-    $ctl_cmd = "$systemctl start \"$unit\"";
+    $op = "start";
   } else {
     $unit =~ s/.* //;
     lprint "==== Deactivate resource '$res' unit '$unit'\n"if $verbose;
-    $ctl_cmd = "$systemctl stop \"$unit\"";
+    $op = "stop";
   }
-  lprint "$ctl_cmd\n" if $verbose;
-  system($ctl_cmd) and lwarn "command '$ctl_cmd' failed\n";
-}
-
-sub _systemd_op {
-  my ($op, $unit) = @_;
-  if (!system("$systemctl cat '$unit' > /dev/null 2>&1")) {
-    system("$systemctl $op '$unit'");
-  }
+  _systemd_op($op, $unit);
 }
 
 sub systemd_trigger {
