@@ -1,5 +1,5 @@
-#LyX 2.2 created this file. For more info see http://www.lyx.org/
-\lyxformat 508
+#LyX 2.3 created this file. For more info see http://www.lyx.org/
+\lyxformat 544
 \begin_document
 \begin_header
 \save_transient_properties true
@@ -30,6 +30,8 @@ fixltx2e
 \font_osf false
 \font_sf_scale 100 100
 \font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures false
 \graphics default
 \default_output_format default
 \output_sync 0
@@ -70,6 +72,7 @@ fixltx2e
 \suppress_date false
 \justification true
 \use_refstyle 1
+\use_minted 0
 \index Index
 \shortcut idx
 \color #008000
@@ -82,7 +85,10 @@ fixltx2e
 \tocdepth 3
 \paragraph_separation indent
 \paragraph_indentation default
-\quotes_language english
+\is_math_indent 0
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
 \papercolumns 1
 \papersides 2
 \paperpagestyle headings
@@ -141,7 +147,7 @@ tst@1und1.de
 \end_layout
 
 \begin_layout Date
-Version 0.1a-66
+Version 0.1a-67
 \end_layout
 
 \begin_layout Lowertitleback
@@ -11406,11 +11412,670 @@ caching behaviour
 know what you are doing!
 \end_layout
 
+\begin_layout Standard
+There exist a few cases where a distributed filesystem, sometimes even actually
+ with 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ behaviour, 
+\emph on
+must
+\emph default
+ be used, because there exists a 
+\emph on
+requirement
+\emph default
+ for it.
+ Some examples (list is certainly incomplete):
+\end_layout
+
+\begin_layout Itemize
+HPC = 
+\series bold
+High Performance Computing
+\series default
+ on modern supercomputers, consisting of a high number of 
+\begin_inset Formula $n$
+\end_inset
+
+ compute nodes, are often requiring access to a shared persistent data pool,
+ where each of the 
+\begin_inset Formula $n$
+\end_inset
+
+ nodes must be sometimes able to access the same persistent data, sometimes
+ both for reading and writing.
+ Therefore, several supercomputers are using cluster filesystems like Lustre.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Care must be taken that high-frequency / fine granularity communication
+ over the distributed filesystem and its dedicated storage network does
+ not take place, but instead occurs over the ordinary low-latency communication
+ fabrics each modern supercomputer is relying on.
+ True 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ storage access behaviour should be avoided as far as possible (given by
+ the problem to be solved).
+ When absolutely necessary, location transparency (as possible with cluster
+ filesystems like Lustre) as well as its DSM = Distributed Shared Memory
+ model must be given up, and an 
+\series bold
+explicit communication model
+\series default
+ must be used instead, which allows explicit control over replicas and their
+ communication paths (e.g.
+ propagation in a binary tree fashion), although it results in much more
+ work for the programmers.
+ Only low frequency / coarse granularity transfers of 
+\emph on
+bulk data
+\emph default
+ with 
+\emph on
+high locality
+\emph default
+ should run over distributed filesystems, preferably in streaming mode.
+ The total frequency of metadata access should be low, because metadata
+ consistency may form a bottleneck when updated too frequently.
+ The programmers of the distributed application software need to take care
+ for this.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Notice that certain supercomputer workloads may be crying for a RemoteSharding
+ or FlexibleSharding storage architecture in place of a BigCluster architecture.
+ However, this is very application specific.
+\end_layout
+
+\begin_layout Itemize
+Student pools at universities, or location-independent workplaces at companies.
+ This is just the usecase where NFS was originally constructed for.
+ Typically, 
+\series bold
+workstation workloads
+\series default
+ are neither performance critical, nor prone to actual 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ behaviour (although the network infrastructure would 
+\emph on
+allow
+\emph default
+ for it), because each user has her own home directory which is typically
+ 
+\emph on
+not shared
+\emph default
+ with others, and she cannot split herself and sit in front of multiple
+ workstations at the same time.
+ Thus the 
+\emph on
+local per-workstation
+\emph default
+ NFS caching strategies have a good chance to hide much of the network latencies
+, and thus the actual total network workload is typically only 
+\begin_inset Formula $O(n).$
+\end_inset
+
+ 
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ This can lead to a dangerous misinterpretation: because it apparently works
+ even for a few thousands of workstations, people conclude 
+\emph on
+wrongly
+\emph default
+ that the network filesystem 
+\begin_inset Quotes eld
+\end_inset
+
+must be scalable
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Some people are then applying their experience to completely different
+ usecases, where much higher metadata traffic by several orders of magnitudes
+ is occurring (such as in webhosting), or even where true 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ runtime behaviour is occuring (see example of a failed scalability scenario
+ in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "subsec:Example-Failures-of"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In general: when something works for usecase A, this 
+\series bold
+does 
+\emph on
+not
+\emph default
+ prove
+\series default
+ that it will also work for another usecase B.
+\end_layout
+
 \begin_layout Section
-Recommendations for Designing and Operating Storage Systems
+Recommendations for Design and Operation of  Storage Systems
 \begin_inset CommandInset label
 LatexCommand label
 name "sec:Recommendations-for-Designing"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Recommendations for Managers
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Recommendations-for-Managers"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+When you are responsible for 
+\series bold
+masses of enterprise-critical data
+\series default
+, the most important point is to get people with 
+\series bold
+the right skills
+\series default
+, in 
+\emph on
+addition(!) to
+\emph default
+ the 
+\emph on
+right mindset
+\emph default
+, and to assign the right roles to them.
+\end_layout
+
+\begin_layout Standard
+Practical observation from many groups in many companies: which storage
+ systems / architectures are in use, and how much they are 
+\emph on
+really
+\emph default
+ failure resistent and reliable, and how much they are 
+\emph on
+really
+\emph default
+ scalable for their workload, and what is their TCO (Total Cost of Ownership),
+ does often 
+\emph on
+not
+\emph default
+ depend on real knowledge and facts.
+ It often depends on 
+\series bold
+personal habits
+\series default
+ and 
+\series bold
+pre-judgement
+\series default
+ of staff
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+\noindent
+This can be seen in a bigger company (e.g.
+ after mergers etc) when very different architectures have been built by
+ different teams for very similar usecases, although they are sometimes
+ even roughly comparable in size and workload.
+\end_layout
+
+\end_inset
+
+.
+ In essence, this results in a gambling game how safe / cost-effective etc
+ your critical data 
+\emph on
+really
+\emph default
+ is.
+\end_layout
+
+\begin_layout Standard
+As just explained in the previous section, there are so many pitfalls, and
+ there are only a few people who know them, because more people are working
+ in small-scale systems than in large-scale enterprise ones.
+ There are so many lots of people at the market who 
+\emph on
+claim
+\emph default
+ to have some experience, but in reality they don't know what they don't
+ know (
+\series bold
+second-order ignorance
+\series default
+).
+\end_layout
+
+\begin_layout Standard
+Second-order ignorance is very dangerous, even for affected people themselves,
+ because they are in good faith about their own skills, and that they would
+ be able to control everything (sometimes they really want to control literally
+ 
+\emph on
+everything
+\emph default
+, even other people who have more real experience and knowledge).
+ See for example wrong assumptions and 
+\begin_inset Quotes eld
+\end_inset
+
+false proofs
+\begin_inset Quotes erd
+\end_inset
+
+ about scalability, derived from different usecases (or in extreme cases
+ even from workstations workloads), or the failed scalability scenario in
+ section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "subsec:Example-Failures-of"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ where some freelancers were consulted as 
+\begin_inset Quotes eld
+\end_inset
+
+external experts
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Quotation
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Check your information sources! There is a 
+\emph on
+systematic reason
+\emph default
+ for ill-informed 
+\begin_inset Quotes eld
+\end_inset
+
+experts
+\begin_inset Quotes erd
+\end_inset
+
+.
+ On the internet, you can find a lot of so-called 
+\begin_inset Quotes eld
+\end_inset
+
+best practices
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Many of them propagating badly scaling storage architectures for enterprise
+ workloads, sometimes even 
+\emph on
+generally
+\emph default
+ claiming they would 
+\begin_inset Quotes eld
+\end_inset
+
+scale very well
+\begin_inset Quotes erd
+\end_inset
+
+, which is however often based on 
+\emph on
+assumptions
+\emph default
+ instead of knowledge (and almost never based on 
+\emph on
+measurements
+\emph default
+ at the right measurement points for deriving substantial knowledge about
+ your real application behaviour).
+ Literally 
+\emph on
+anyone
+\emph default
+ can post falsely generalized 
+\begin_inset Quotes eld
+\end_inset
+
+best practices
+\begin_inset Quotes erd
+\end_inset
+
+ to the internet.
+ Together with second-order ignorance about the non-transferability of 
+\begin_inset Quotes eld
+\end_inset
+
+success stories
+\begin_inset Quotes erd
+\end_inset
+
+ from usecase A to usecase B (resulting in 
+\emph on
+false 
+\begin_inset Quotes eld
+\end_inset
+
+proofs
+\emph default
+
+\begin_inset Quotes erd
+\end_inset
+
+), the internet is creating 
+\series bold
+information bubbles
+\series default
+.
+ 
+\end_layout
+
+\begin_layout Quotation
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Real knowledge originates from evaluated sources, such as 
+\series bold
+scientific publications
+\series default
+ which have undergone at least some minimum 
+\emph on
+quality check
+\emph default
+, and which are trying to describe their preconditions and operating environment
+s as precisely
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+\noindent
+Therefore, chances are better to get a real expert when he has some (higher)
+ academic degrees, and was working in the area for a longer time.
+\end_layout
+
+\end_inset
+
+ as possible.
+\end_layout
+
+\begin_layout Quotation
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Real experts will tell you when they don't know something.
+ In addition, they will tell you 
+\emph on
+multiple
+\emph default
+ ways for abtaining such information, such as measurements, simulation,
+ etc.
+\end_layout
+
+\begin_layout Standard
+If you don't have anyone in your teams who knows how 
+\series bold
+caching
+\series default
+ 
+\emph on
+really
+\emph default
+ works, or if it is a single guy who cannot withstand the pressure from
+ a whole group of 
+\begin_inset Quotes eld
+\end_inset
+
+alpha animals
+\begin_inset Quotes erd
+\end_inset
+
+, you are running an 
+\series bold
+increased risk
+\series default
+ of unnecessary expenses
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+I know of cases which have produced unnecessary 
+\emph on
+direct
+\emph default
+ cost of at least € 20 millions.
+\end_layout
+
+\end_inset
+
+, worse services (indirect costs), failed projects, and sometimes even resulting
+ in loss of market share and/or of stock exchange value.
+\end_layout
+
+\begin_layout Standard
+The problem is that it 
+\emph on
+looks so easy
+\emph default
+, as if everyone could build a larger storage system, with ease.
+ For example, just 
+\begin_inset Quotes eld
+\end_inset
+
+spend some more money
+\begin_inset Quotes erd
+\end_inset
+
+, that's all you would need.
+ Unfortunately, both 
+\begin_inset Quotes eld
+\end_inset
+
+marketing drones
+\begin_inset Quotes erd
+\end_inset
+
+ from commercial storage vendors, and even a few OpenSource advocates, are
+ propagating this 
+\series bold
+dangerous mindset
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+As a responsible manager, how can you detect dangerous partly knowledge?
+ Good indicators are wrong usage of the term 
+\begin_inset Quotes eld
+\end_inset
+
+architecture
+\begin_inset Quotes erd
+\end_inset
+
+ (see definition in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:What-is-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), and/or
+\series bold
+ confusion of architecture with implementation
+\series default
+.
+ When somebody confuses
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Notice that there exist people who use the term 
+\begin_inset Quotes eld
+\end_inset
+
+architecture
+\begin_inset Quotes erd
+\end_inset
+
+ inadvertly.
+ They even don't even know that they are confusing architecture with implementat
+ion.
+ Pure usage of a certain term is no clear indicator that somebody is really
+ an expert.
+\end_layout
+
+\end_inset
+
+ this, he does not really have an overview of different architectural solution
+ classes.
+ Instead, such people are tending to propagate their random 
+\begin_inset Quotes eld
+\end_inset
+
+favourite product
+\begin_inset Quotes erd
+\end_inset
+
+.
+ For a responsible, this increases the risk of getting a non-optimum or
+ even bad / dangerous solutions.
+\end_layout
+
+\begin_layout Standard
+Not everything which works in a garage, or in a student pool, or in the
+ testlab (whether it's yours or from a commercial storage vendor), or in
+ a PoC with some 
+\begin_inset Quotes eld
+\end_inset
+
+friendly customers
+\begin_inset Quotes erd
+\end_inset
+
+, is well-suited for large enterprises and their critical data (measured
+ in petabytes / billions of files / etc), or is the optimum solution for
+ TCO.
+ Some rules of thumb, out of experience and observation:
+\end_layout
+
+\begin_layout Itemize
+For each 1 or 2 orders of magnitude of the 
+\series bold
+size
+\series default
+ of your data, you need better methods for safe construction and operation.
+ At least for each 3 to 4 orders of magnitude (sometimes even for less),
+ you need 
+\series bold
+better architectures
+\series default
+, and people who can deal with them.
+\end_layout
+
+\begin_layout Itemize
+For each 1 or 2 orders of magntitude of 
+\series bold
+criticality
+\series default
+ of your data (measured by 
+\emph on
+losses
+\emph default
+ in case of certain incidents), you will also need better architecture,
+ not just better components.
+\end_layout
+
+\begin_layout Subsection
+Recommendations for Architects and Sysadmins
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Recommendations-for-Architects"
 
 \end_inset
 
@@ -47037,17 +47702,17 @@ systemd
 inline false
 status open
 
-\begin_layout Description
+\begin_layout Plain Layout
 
 [Path]
 \end_layout
 
-\begin_layout Description
+\begin_layout Plain Layout
 
 PathExists=/dev/mars/@{res}
 \end_layout
 
-\begin_layout Description
+\begin_layout Plain Layout
 
 Unit=vol-@escvar{res}.mount 
 \end_layout
