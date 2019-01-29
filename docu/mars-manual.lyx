@@ -147,7 +147,7 @@ tst@1und1.de
 \end_layout
 
 \begin_layout Date
-Version 0.1-66
+Version 0.1-67
 \end_layout
 
 \begin_layout Lowertitleback
@@ -47323,17 +47323,17 @@ systemd
 inline false
 status open
 
-\begin_layout Description
+\begin_layout Plain Layout
 
 [Path]
 \end_layout
 
-\begin_layout Description
+\begin_layout Plain Layout
 
 PathExists=/dev/mars/@{res}
 \end_layout
 
-\begin_layout Description
+\begin_layout Plain Layout
 
 Unit=vol-@escvar{res}.mount 
 \end_layout
