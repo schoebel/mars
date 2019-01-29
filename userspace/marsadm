@@ -342,6 +342,19 @@ sub instantiate_systemd_unit {
   return (1, $outfile);
 }
 
+sub systemd_exists {
+  my ($unit_list) = @_;
+  foreach my $unit (split(/ +/, $unit_list)) {
+    my $check_cmd = "$systemctl list-unit-files \"$unit\" | wc -l";
+    my $count = `$check_cmd`;
+    if ($count <= 0) {
+      lprint "nothing to do for systemd, unit file '$unit' does not exist.\n";
+      return 0;
+    }
+  }
+  return 1;
+}
+
 sub systemd_enabled {
   my ($unit_list) = @_;
   foreach my $unit (split(/ +/, $unit_list)) {
@@ -516,6 +529,9 @@ sub systemd_trigger {
 sub _systemd_trigger {
   my ($cmd) = @_;
   my $needed_unit = $systemctl_start[0];
+  if (!systemd_exists($needed_unit)) {
+    return;
+  }
   if (!system("$systemctl cat '$needed_unit' > /dev/null 2>&1")) {
     if (system("$systemctl status '$needed_unit' > /dev/null 2>&1")) {
       system("$systemctl enable '$needed_unit'");
