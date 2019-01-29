@@ -342,8 +342,24 @@ sub instantiate_systemd_unit {
   return (1, $outfile);
 }
 
+sub systemd_enabled {
+  my ($unit_list) = @_;
+  foreach my $unit (split(/ +/, $unit_list)) {
+    my $check_cmd = "$systemctl is-enabled \"$unit\" > /dev/null 2>&1";
+    my $status = system($check_cmd);
+    if ($status) {
+      lprint "systemd unit '$unit' is not existing or not enabled.\n";
+      return $status;
+    }
+  }
+  return 0;
+}
+
 sub _systemd_op {
   my ($op, $unit) = @_;
+  if (systemd_enabled($unit)) {
+    return;
+  }
   my $ctl_cmd = "$systemctl $op \"$unit\"";
   if (system("$systemctl cat '$unit' > /dev/null 2>&1")) {
     lwarn "systemd unit $unit does not exist.\n";
@@ -376,6 +392,9 @@ sub systemd_activate {
   my $unit = get_link($unit_path, 2);
   if (!$unit) {
     lprint "Nothing to (de)activate: $unit_path does not exist\n" if $verbose;
+    return;
+  }
+  if (systemd_enabled($unit)) {
     return;
   }
   my $ctl_cmd = "$systemctl show \"$unit\"";
@@ -502,6 +521,9 @@ sub _systemd_trigger {
       system("$systemctl enable '$needed_unit'");
       system("$systemctl start '$needed_unit'");
     }
+  }
+  if (systemd_enabled($needed_unit)) {
+    return;
   }
   my $trigger = "$mars/userspace/systemd-trigger";
   lprint "Triggering '$trigger' for '$cmd'\n"if $verbose;
