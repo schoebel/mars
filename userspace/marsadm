@@ -349,8 +349,13 @@ sub _systemd_op {
     lwarn "systemd unit $unit does not exist.\n";
     return;
   }
-  lprint "$ctl_cmd\n" if $verbose;
-  system($ctl_cmd) and lwarn "command '$ctl_cmd' failed\n";
+  lprint "--- running systemd command: $ctl_cmd\n";
+  my $status = system($ctl_cmd);
+  if ($status) {
+    lwarn "command '$ctl_cmd' failed, status=$status\n";
+  } else {
+    lprint "--- systemd status=$status\n";
+  }
 }
 
 sub systemd_activate {
