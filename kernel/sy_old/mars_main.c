@@ -612,6 +612,7 @@ struct mars_rotate {
 	int inf_prev_sequence;
 	int inf_old_sequence;
 	long long flip_start;
+	loff_t flip_pos;
 	loff_t dev_size;
 	loff_t start_pos;
 	loff_t end_pos;
@@ -4880,7 +4881,10 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	    mars_sync_flip_interval >= 8) {
 		if (!rot->flip_start) {
 			rot->flip_start = jiffies;
-		} else if ((long long)jiffies - rot->flip_start > CONFIG_MARS_SYNC_FLIP_INTERVAL * HZ) {
+			rot->flip_pos = rot->start_pos;
+		} else if ((long long)jiffies - rot->flip_start > mars_sync_flip_interval * HZ &&
+			   rot->sync_brick &&
+			   rot->sync_brick->copy_last > rot->flip_pos) {
 			do_start = false;
 			rot->flip_start = jiffies + mars_sync_flip_interval * HZ;
 		}
