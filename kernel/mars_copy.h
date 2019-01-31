@@ -98,6 +98,7 @@ struct copy_brick {
 	bool is_aborting;
 	// internal
 	bool trigger;
+	bool terminated;
 	unsigned long clash;
 	atomic_t total_clash_count;
 	atomic_t io_flight;

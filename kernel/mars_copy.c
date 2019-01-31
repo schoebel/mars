@@ -867,7 +867,7 @@ static int _copy_thread(void *data)
 		 brick->copy_end);
 
 	_clear_all_mref(brick);
-	mars_power_led_off((void*)brick, true);
+	brick->terminated = true;
 	MARS_DBG("--------------- copy_thread done.\n");
 	return 0;
 }
@@ -921,20 +921,22 @@ static int copy_switch(struct copy_brick *brick)
 	static int version = 0;
 
 	MARS_DBG("power.button = %d\n", brick->power.button);
-	if (brick->power.button) {
-		if (brick->power.led_on)
+	if (brick->power.button && !brick->terminated) {
+		if (brick->power.led_on || brick->thread)
 			goto done;
 		mars_power_led_off((void*)brick, false);
-		mars_power_led_on((void*)brick, true);
 		brick->is_aborting = false;
 		if (!brick->thread) {
 			brick->copy_last = brick->copy_start;
 			brick->copy_dirty = 0;
+			brick->terminated = false;
+			mars_power_led_on((void*)brick, true);
 			get_lamport(NULL, &brick->copy_last_stamp);
 			brick->thread = brick_thread_create(_copy_thread, brick, "mars_copy%d", version++);
 			if (brick->thread) {
 				brick->trigger = true;
 			} else {
+				mars_power_led_on((void*)brick, false);
 				mars_power_led_off((void*)brick, true);
 				MARS_ERR("could not start copy thread\n");
 			}
@@ -944,13 +946,14 @@ static int copy_switch(struct copy_brick *brick)
 		mars_power_led_on((void*)brick, false);
 		if (brick->thread) {
 			/* Notice: this will be reported by the thread */
-			if (brick->power.led_off)
+			if (!brick->terminated)
 				goto done;
 			MARS_INF("stopping thread...\n");
 			brick_thread_stop(brick->thread);
 		}
 		/* for safety, and when the thread was not started */
 		mars_power_led_off((void*)brick, true);
+		brick->terminated = false;
 	}
 done:
 	return 0;
