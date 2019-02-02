@@ -480,6 +480,8 @@ sub systemd_activate {
 
 sub systemd_trigger {
   my ($cmd) = @_;
+  return unless -d $systemd_target_dir;
+  systemd_lock("template-generation");
   # Remember old instances
   my %old_instances;
   foreach my $file (glob("$systemd_target_dir/*")) {
@@ -577,6 +579,13 @@ sub systemd_trigger {
   foreach my $unit (@systemctl_start) {
     _systemd_op("start", $unit);
   }
+  # ensure that trigger file exists
+  my $trigger = "$mars/userspace/systemd-trigger";
+  unless (-e $trigger) {
+    lprint "Triggering '$trigger' for '$cmd'\n" if $verbose;
+    system("touch $trigger");
+  }
+  systemd_unlock("template-generation");
 }
 
 sub _systemd_trigger {
@@ -595,8 +604,9 @@ sub _systemd_trigger {
     return;
   }
   my $trigger = "$mars/userspace/systemd-trigger";
-  lprint "Triggering '$trigger' for '$cmd'\n"if $verbose;
-  system("touch $trigger") and systemd_trigger(@_);
+  lprint "Triggering '$trigger' for '$cmd'\n" if $verbose;
+  system("touch $trigger");
+  systemd_trigger(@_);
 }
 
 sub _get_systemd_unit {
