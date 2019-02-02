@@ -3376,6 +3376,7 @@ sub primary_phase2 {
   my ($cmd, $res) = @_;
   return if $force;
   return unless $cmd eq "primary";
+  wait_cluster($cmd);
   check_primary_gone($res);
 }
 
