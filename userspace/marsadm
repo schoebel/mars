@@ -211,7 +211,7 @@ sub rsync_cmd {
 
 # syntactic scanning / parsing
 
-my $match_comment = "#[^\n]*\n|//[^\n]*\n|/\\*(?:[^*]|\\*[^/])*\\*/|\\\\\n\\s*";
+my $match_comment = qr'#[^\n]*|//\h[^\n]*|/\*(?:[^*]|\*[^/])*\*/';
 my $match_nobrace = qr'(?:[^{}\\]|\\.)*'s;
 my $match_inner = $match_nobrace;
 my $match_brace = qr"\{$match_inner\}"s;
