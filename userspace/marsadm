@@ -230,6 +230,7 @@ my $systemd_subdir = defined($ENV{SYSTEMD_SUBDIR}) ? $ENV{SYSTEMD_SUBDIR} : "sys
 my $systemd_target_dir = defined($ENV{SYSTEMD_TARGET_DIR}) ? $ENV{SYSTEMD_TARGET_DIR} : "/run/systemd/system";
 my $systemctl = defined($ENV{SYSTEMCTL}) ? $ENV{SYSTEMCTL} : "systemctl";
 my $systemd_escape = defined($ENV{SYSTEMD_ESCAPE}) ? $ENV{SYSTEMD_ESCAPE} : "@";
+my $systemd_lock_file = defined($ENV{SYSTEMD_LOCK_FILE}) ? $ENV{SYSTEMD_LOCK_FILE} : "/tmp/systemd.lock";
 
 my @systemctl_start =
   (
@@ -243,6 +244,52 @@ my @systemctl_enable =
    "mars-trigger.service",
    "mars-emergency.service",
   );
+
+sub systemd_lock {
+  my ($suffix) = @_;
+  my $lock_file = $systemd_lock_file;
+  $lock_file .= "." . $suffix if defined($suffix) && $suffix;
+  use IO::Handle;
+  use Fcntl;
+  my $max_time = $timeout > 0 ? $timeout : 30;
+  my $count = 0;
+  my $fh;
+  for (;;) {
+    my $status = sysopen($fh, $lock_file, O_CREAT|O_EXCL|O_TRUNC|O_WRONLY);
+    last if defined($status) && $status;
+    my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
+	$atime,$mtime,$ctime,$blksize,$blocks) = lstat($lock_file);
+    $count++;
+    if ($count > $max_time ||
+	(defined($mtime) && $mtime && $mtime + $max_time < time())) {
+      lwarn "breaking lock $lock_file after $max_time seconds\n";
+      unlink($lock_file);
+      $count = 0;
+      next;
+    }
+    sleep(1);
+  }
+  print $fh "locked\n";
+  close($fh);
+}
+
+sub systemd_unlock {
+  my ($suffix) = @_;
+  my $lock_file = $systemd_lock_file;
+  $lock_file .= "." . $suffix if defined($suffix) && $suffix;
+  unlink($lock_file);
+}
+
+sub systemctl {
+  my ($args) = @_;
+  my $cmd = "$systemctl $args";
+  lprint "waiting for lock: $cmd\n" if $verbose > 1;
+  systemd_lock();
+  lprint "starting: $cmd\n" if $verbose > 1;
+  my $status = system($cmd);
+  systemd_unlock();
+  return $status;
+}
 
 my %failed;
 
@@ -347,9 +394,9 @@ sub instantiate_systemd_unit {
 sub systemd_exists {
   my ($unit_list) = @_;
   foreach my $unit (split(/ +/, $unit_list)) {
-    my $check_cmd = "$systemctl list-unit-files \"$unit\" | wc -l";
-    my $count = `$check_cmd`;
-    if ($count <= 0) {
+    my $check_cmd = "list-unit-files \"$unit\" | wc -l";
+    my $count = `$systemctl $check_cmd`;
+    if (!defined($count) || !$count || $count <= 0) {
       lprint "nothing to do for systemd, unit file '$unit' does not exist.\n";
       return 0;
     }
@@ -360,8 +407,8 @@ sub systemd_exists {
 sub systemd_enabled {
   my ($unit_list) = @_;
   foreach my $unit (split(/ +/, $unit_list)) {
-    my $check_cmd = "$systemctl is-enabled \"$unit\" > /dev/null 2>&1";
-    my $status = system($check_cmd);
+    my $check_cmd = "is-enabled '$unit' > /dev/null 2>&1";
+    my $status = systemctl($check_cmd);
     if ($status) {
       lprint "systemd unit '$unit' is not existing or not enabled.\n";
       return $status;
@@ -375,17 +422,17 @@ sub _systemd_op {
   if (systemd_enabled($unit)) {
     return;
   }
-  my $ctl_cmd = "$systemctl $op \"$unit\"";
-  if (system("$systemctl cat '$unit' > /dev/null 2>&1")) {
+  my $ctl_cmd = "$op '$unit'";
+  if (systemctl("cat '$unit' > /dev/null 2>&1")) {
     lwarn "systemd unit $unit does not exist.\n";
     return;
   }
   lprint "--- running systemd command: $ctl_cmd\n";
-  my $status = system($ctl_cmd);
+  my $status = systemctl($ctl_cmd);
   if ($status) {
-    lwarn "command '$ctl_cmd' failed, status=$status\n";
+    lwarn "command '$systemctl $ctl_cmd' failed, status=$status\n";
   } else {
-    lprint "--- systemd status=$status\n";
+    lprint "--- systemctl status=$status\n";
   }
 }
 
@@ -412,8 +459,7 @@ sub systemd_activate {
   if (systemd_enabled($unit)) {
     return;
   }
-  my $ctl_cmd = "$systemctl show \"$unit\"";
-  system($ctl_cmd) if $verbose;
+  my $ctl_cmd = "show \"$unit\"";
   my $op = "show";
   if ($do_activate) {
     $unit =~ s/ .*//;
@@ -509,7 +555,7 @@ sub systemd_trigger {
     foreach my $unit (@systemctl_enable) {
       _systemd_op("enable", $unit);
     }
-    system("$systemctl daemon-reload");
+    systemctl("daemon-reload");
   }
   # Activate all *.path triggers
   for my $unit_path (glob("$systemd_target_dir/*mars*.path")) {
@@ -534,10 +580,10 @@ sub _systemd_trigger {
   if (!systemd_exists($needed_unit)) {
     return;
   }
-  if (!system("$systemctl cat '$needed_unit' > /dev/null 2>&1")) {
-    if (system("$systemctl status '$needed_unit' > /dev/null 2>&1")) {
-      system("$systemctl enable '$needed_unit'");
-      system("$systemctl start '$needed_unit'");
+  if (!systemctl("cat '$needed_unit' > /dev/null 2>&1")) {
+    if (systemctl("status '$needed_unit' > /dev/null 2>&1")) {
+      systemctl("enable '$needed_unit'");
+      systemctl("start '$needed_unit'");
     }
   }
   if (systemd_enabled($needed_unit)) {
