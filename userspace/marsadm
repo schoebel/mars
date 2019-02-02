@@ -1224,25 +1224,26 @@ sub check_todo {
 }
 
 sub check_status {
-  my ($cmd, $res, $key, $val, $wait, $unchecked, $inv) = @_;
+  my ($cmd, $res, $key, $val, $wait, $unchecked, $inv, $peer) = @_;
+  $peer = $host unless defined($peer);
   my ($key_msg, $val_msg, $wait_msg, $action_msg) = _make_messages(@_);
-  my $path = correct_path("$mars/resource-$res/actual-$host/$key");
+  my $path = correct_path("$mars/resource-$res/actual-$peer/$key");
   my $link;
   for (;;) {
     $link = get_link($path, $unchecked);
     $link = 0 unless (defined($link) && $link ne "");
     if (defined($inv) && $inv) {
       last if $link != $val;
-      lprint "$wait_msg actual '$key' != '$val'...\n";
+      lprint "at $peer: $wait_msg actual '$key' != '$val'...\n";
       ldie "Cannot execute $cmd on resource $res: actual '$key_msg' must not be $val_msg. $action_msg Also ensure that your command _can_ succeed.\n" if !$wait;
     } else {
       last if $link == $val;
-      lprint "$wait_msg actual '$key' == '$val'...\n";
+      lprint "at $peer: $wait_msg actual '$key' == '$val'...\n";
       ldie "Cannot execute $cmd on resource $res: actual '$key_msg' must be $val_msg. $action_msg Also ensure that your command _can_ succeed.\n" if !$wait;
     }
     sleep_timeout();
   }
-  lprint "OK, '$path' has acceptable value '$link'\n";
+  lprint "OK at $peer: '$path' has acceptable value '$link'\n";
 }
 
 sub check_mars_device {
