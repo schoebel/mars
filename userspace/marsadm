@@ -388,6 +388,7 @@ sub instantiate_systemd_unit {
   print OUT $text;
   close(OUT);
   rename("$outfile.tmp", $outfile);
+  systemctl("enable '$replac'");
   return (1, $outfile);
 }
 
