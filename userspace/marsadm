@@ -6404,7 +6404,7 @@ if ($cmd =~ m/^lowlevel-/) {
   }
 }
 
-if ($cmd !~ m/(create|join)-cluster|create-uuid|cat|view|pretty/) {
+if ($cmd !~ m/(create|join)-cluster|create-uuid|systemd|cat|view|pretty/) {
   my $uuid = get_link("$mars/uuid", 1);
   ldie "No valid cluster UUID $mars/uuid found. You need {create,join}-cluster first (or create-uuid).\n" unless $uuid;
 }
