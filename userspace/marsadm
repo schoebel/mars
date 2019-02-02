@@ -3373,6 +3373,20 @@ sub primary_phase0 {
   lprint "all preconditions OK for resource '$res'\n";
 }
 
+# only for systemd: wait that primary device is no longer open
+sub primary_phase0b {
+  my ($cmd, $res) = @_;
+  return unless systemd_present(@_);
+  # only relevant for true handover
+  my $old = _get_designated_primary($res);
+  return if ($old eq $host || $old eq "(none)");
+  # ignore primary --force
+  my $connect_path = "$mars/resource-$res/todo-$host/connect";
+  my $connect = get_link($connect_path, 1);
+  return if (!defined($connect) || !$connect);
+  check_status($cmd, $res, "open-count", 0, 1, undef, undef, $old);
+}
+
 # when necessary, switch to secondary (intermediately)
 sub primary_phase1 {
   my ($cmd, $res) = @_;
@@ -6032,6 +6046,8 @@ my %cmd_table =
        "For more details, please refer to the PDF manual.",
        \&primary_phase0,
        "check preconditions",
+       \&primary_phase0b,
+       "wait for systemd",
        \&primary_phase1,
        "leave primary state",
        \&primary_phase2,
