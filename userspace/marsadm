@@ -419,7 +419,7 @@ sub systemd_enabled {
 
 sub _systemd_op {
   my ($op, $unit) = @_;
-  if (systemd_enabled($unit)) {
+  if ($op eq "start" && systemd_enabled($unit)) {
     return;
   }
   my $ctl_cmd = "$op '$unit'";
@@ -461,13 +461,13 @@ sub systemd_activate {
     lprint "Nothing to (de)activate: $unit_path does not exist\n" if $verbose;
     return;
   }
-  if (systemd_enabled($unit)) {
-    return;
-  }
   my $ctl_cmd = "show \"$unit\"";
   my $op = "show";
   if ($do_activate) {
     $unit =~ s/ .*//;
+    if (systemd_enabled($unit)) {
+      return;
+    }
     lprint "==== Activate resource '$res' unit '$unit'\n"if $verbose;
     $op = "start";
   } else {
