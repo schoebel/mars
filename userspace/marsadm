@@ -314,7 +314,9 @@ sub subst_systemd_vars {
 
 sub instantiate_systemd_unit {
   my ($cmd, $res, $template_file) = @_;
-  my $replac = subst_systemd_vars(1, $cmd, $res, `basename "$template_file"`);
+  my $basename = `basename "$template_file"`;
+  chomp $basename;
+  my $replac = subst_systemd_vars(1, $cmd, $res, $basename);
   my $outfile = "$systemd_target_dir/$replac";
   chomp $outfile;
   lprint "==== Translate systemd template '$template_file' => '$outfile'\n" if $verbose;
