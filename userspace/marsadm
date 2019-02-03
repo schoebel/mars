@@ -3139,6 +3139,15 @@ sub attach_res_phase0 {
   }
 }
 
+# only for systemd: wait that primary device is no longer open
+sub attach_res_phase0b {
+  my ($cmd, $res) = @_;
+  return unless $cmd eq "detach";
+  return unless systemd_present(@_);
+  check_status($cmd, $res, "open-count", 0, 1);
+  wait_cluster($cmd);
+}
+
 sub attach_res_phase1 {
   my ($cmd, $res) = @_;
   my $detach = ($cmd eq "detach");
@@ -5925,6 +5934,8 @@ my %cmd_table =
        "For a complete local shutdown of the resource, use 'marsadm down'.",
        \&attach_res_phase0,
        "check preconditions",
+       \&attach_res_phase0b,
+       "wait for systemd device release",
        \&attach_res_phase1,
        "switch state",
        \&attach_res_phase2,
@@ -6016,6 +6027,8 @@ my %cmd_table =
        "Shortcut for detach + pause-sync + pause-fetch + pause-replay.",
        \&up_res_phase0,
        "check preconditions",
+       \&attach_res_phase0b,
+       "wait for systemd device release",
        \&up_res_phase1,
        "switch state",
        \&up_res_phase2,
