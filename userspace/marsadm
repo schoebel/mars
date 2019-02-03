@@ -449,6 +449,11 @@ sub systemd_activate {
     lprint "Overriding unit activate=$do_activate with $override\n" if $verbose;
     $do_activate = $override;
   }
+  my $dev = "/dev/mars/$res";
+  if ($do_activate && ! -b $dev) {
+    lprint "Device $dev not present, cannot activate systemd unit\n" if $verbose;
+    $do_activate = 0;
+  }
   my $oper = $do_activate ? "start" : "stop";
   my $unit_path = "$mars/resource-$res/systemd-$oper-unit";
   my $unit = get_link($unit_path, 2);
