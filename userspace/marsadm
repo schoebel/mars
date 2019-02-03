@@ -450,8 +450,10 @@ sub systemd_activate {
   my ($cmd, $res, $override) = @_;
   my $want_path = "$mars/resource-$res/systemd-want";
   my $want = get_link($want_path, 2);
+  my $want_host_path = "$mars/resource-$res/userspace/systemd-want-$host";
   if (!$want) {
     lprint "Nothing to (de)activate: $want_path does not exist\n" if $verbose;
+    unlink($want_host_path);
     return;
   }
   my $do_activate = $want eq $host;
@@ -469,11 +471,13 @@ sub systemd_activate {
   my $unit = get_link($unit_path, 2);
   if (!$unit) {
     lprint "Nothing to (de)activate: $unit_path does not exist\n" if $verbose;
+    unlink($want_host_path);
     return;
   }
   my $ctl_cmd = "show \"$unit\"";
   my $op = "show";
   if ($do_activate) {
+    system("touch $want_host_path");
     $unit =~ s/ .*//;
     if (systemd_enabled($unit)) {
       return;
@@ -481,6 +485,7 @@ sub systemd_activate {
     lprint "==== Activate resource '$res' unit '$unit'\n"if $verbose;
     $op = "start";
   } else {
+    unlink($want_host_path);
     $unit =~ s/.* //;
     lprint "==== Deactivate resource '$res' unit '$unit'\n"if $verbose;
     $op = "stop";
@@ -2679,7 +2684,7 @@ sub create_res {
   }
   set_link("1", "$todo/attach");
   finish_links();
-  _systemd_trigger($cmd);
+  systemd_trigger($cmd);
 }
 
 sub split_cluster {
