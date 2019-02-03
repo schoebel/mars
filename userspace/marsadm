@@ -670,7 +670,7 @@ sub set_systemd_unit {
     _create_delete($want_path);
   }
   finish_links();
-  _systemd_trigger($cmd);
+  systemd_trigger($cmd);
 }
 
 ##################################################################
