@@ -392,6 +392,15 @@ sub instantiate_systemd_unit {
   return (1, $outfile);
 }
 
+sub systemd_present {
+  my ($cmd, $res) = @_;
+  my $unit_glob = "$mars/resource-$res/systemd-*-unit";
+  return 0 unless glob($unit_glob);
+  my $want_path = "$mars/resource-$res/systemd-want";
+  my $want = get_link($want_path, 2);
+  return $want;
+}
+
 sub systemd_exists {
   my ($unit_list) = @_;
   foreach my $unit (split(/ +/, $unit_list)) {
