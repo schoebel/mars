@@ -4135,8 +4135,10 @@ int make_dev(void *buf, struct mars_dent *dent)
 	switch_on =
 		(rot->if_brick && atomic_read(&rot->if_brick->open_count) > 0) ||
 		(rot->todo_primary &&
+		 rot->trans_brick &&
 		 !rot->trans_brick->replay_mode &&
-		 rot->trans_brick->power.led_on &&
+		 (rot->trans_brick->power.led_on ||
+		  (!rot->trans_brick->power.button && !rot->trans_brick->power.led_off)) &&
 		 _check_allow(global, dent->d_parent, "attach"));
 	if (!global->global_power.button) {
 		switch_on = false;
