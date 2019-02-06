@@ -279,6 +279,7 @@ static int bio_get_info(struct bio_output *output, struct mars_info *info)
 {
 	struct bio_brick *brick = output->brick;
 	struct inode *inode;
+	struct request_queue *q;
 	int status = 0;
 
 	if (unlikely(!brick->mf ||
@@ -291,6 +292,11 @@ static int bio_get_info(struct bio_output *output, struct mars_info *info)
 
 	info->tf_align = 512;
 	info->tf_min_size = 512;
+	q = bdev_get_queue(inode->i_bdev);
+	if (q) {
+		info->tf_align = queue_physical_block_size(q);
+		info->tf_min_size = queue_logical_block_size(q);
+	}
 	brick->total_size = i_size_read(inode);
 	info->current_size = brick->total_size;
 	MARS_DBG("determined device size = %lld\n", info->current_size);
