@@ -743,6 +743,7 @@ sub get_alive_links {
   my $res = shift || "all";
   my $alive = shift || "alive";
   my $hosts = shift || "*";
+  my $warn = shift || 0;
   $res = "*" if $res eq "all";
   my %cand;
   foreach my $path (glob("$mars/ips/ip-$hosts")) {
@@ -787,6 +788,18 @@ sub get_alive_links {
     $path =~ m:/$alive-(.+):;
     my $peer = $1;
     $links{$peer} = get_link($path, 1);
+  }
+  if ($warn) {
+    foreach my $peer (keys(%peers)) {
+      my $path = "$mars/$alive-$peer";
+      if (!is_link_recent($path)) {
+	my $stamp = get_link_stamp($path);
+	my $age = seconds2human(mars_time() - $stamp);
+	my $msg = "no metadata is arriving from peer '$peer', age = $age";
+	$msg .=  " => check your network setup" if is_module_loaded();
+	lwarn "$msg\n";
+      }
+    }
   }
   return %links;
 }
@@ -6478,6 +6491,7 @@ if ($cmd =~ m/^(view|pretty)/) {
     view_cmd($global_macro_name, "", @args) if $global_macro;
   }
   finish_links();
+  get_alive_links("all", "alive", "*", 1);
   exit($error_count);
 }
 
