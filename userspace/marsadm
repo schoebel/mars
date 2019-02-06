@@ -377,9 +377,10 @@ sub instantiate_systemd_unit {
   $text = subst_systemd_vars(0, $cmd, $res, $text);
   if (open(IN, "< $outfile")) {
     # Check whether something has changed
+    local $/;  # slurp
     my $old = <IN>;
     close(IN);
-    if ($old eq $text) {
+    if (defined($old) && $old eq $text) {
       lprint "== systemd unit '$outfile' has not changed\n" if $verbose;
       return (0, $outfile);
     }
