@@ -911,17 +911,16 @@ loff_t if_get_capacity(struct if_brick *brick)
 	 * device than physically.
 	 */
 	if (brick->dev_size <= 0) {
-		struct mars_info info = {};
 		struct if_input *input = brick->inputs[0];
 		int status;
 
-		status = GENERIC_INPUT_CALL(input, mars_get_info, &info);
+		status = GENERIC_INPUT_CALL(input, mars_get_info, &brick->info);
 		if (unlikely(status < 0)) {
 			MARS_ERR("cannot get device info, status=%d\n", status);
 			return 0;
 		}
-		MARS_INF("determined default capacity: %lld bytes\n", info.current_size);
-		brick->dev_size = info.current_size;
+		MARS_INF("determined default capacity: %lld bytes\n", brick->info.current_size);
+		brick->dev_size = brick->info.current_size;
 	}
 	return brick->dev_size;
 }
