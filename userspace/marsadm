@@ -763,6 +763,15 @@ sub get_alive_links {
     # peer must be participating in the same resources
     my @other = glob("$mars/resource-$res/data-$peer");
     next unless @other;
+    # I must be participating in some of the _same_ resources
+    my $common = 0;
+    foreach my $check (@other) {
+      my $self = `dirname $check`;
+      chomp $self;
+      $self .= "/data-$host";
+      $common++ if -e $self;
+    }
+    next unless $common;
     # OK: remember peer
     $peers{$peer} = 1;
   }
