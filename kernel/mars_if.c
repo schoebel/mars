@@ -1029,8 +1029,17 @@ static int if_switch(struct if_brick *brick)
 		blk_queue_max_segment_size(q, USE_MAX_SEGMENT_SIZE);
 #endif
 #ifdef USE_LOGICAL_BLOCK_SIZE
-		MARS_DBG("blk_queue_logical_block_size()\n");
-		blk_queue_logical_block_size(q, USE_LOGICAL_BLOCK_SIZE);
+		if (brick->info.tf_align >= 512) {
+			MARS_DBG("blk_queue_physical_block_size(%d)\n", brick->info.tf_align);
+			blk_queue_physical_block_size(q, brick->info.tf_align);
+		}
+		if (brick->info.tf_min_size >= 512) {
+			MARS_DBG("blk_queue_logical_block_size(%d)\n", brick->info.tf_min_size);
+			blk_queue_logical_block_size(q, brick->info.tf_min_size);
+		} else {
+			MARS_DBG("blk_queue_logical_block_size()\n");
+			blk_queue_logical_block_size(q, USE_LOGICAL_BLOCK_SIZE);
+		}
 #endif
 #ifdef USE_SEGMENT_BOUNDARY
 		MARS_DBG("blk_queue_segment_boundary()\n");
