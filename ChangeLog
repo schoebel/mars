@@ -169,6 +169,35 @@ Attention! This branch will go EOL around February 2019.
 	And even more stable, although the 0.1a releases were
 	called "beta" up to now.
 
+mars0.1stable68
+	* Minor fix: detach could hang under very weird circumstances.
+	* Minor fix: in extremly rare cases and under further conditions,
+	  detach could hang due to a race.
+	  Workaround was possible by re-attaching.
+	* Minor improvement: /dev/mars/mydata now disappears only after
+	  writeback has finished. Although the old behaviour was correct,
+	  certain userspace tool could have erronously concluded that
+	  the primary has finished working. The new bevaiour is
+	  hopefully more like to user expectance.
+	* Minor improvement: propagate physical and logical sector
+	  sizes from the underlying disk to /dev/mars/mydata.
+	  This can affects mkfs and other tools for making better
+	  decisions about their internal parameters.
+	* Minor safeguard: disallow manual --ignore-sync override
+	  when the target primary  is inconsistent, only relevant
+	  for (non-existent) sysadmins who absolutely don't know what
+	  they are doing when they are combining this with --force.
+	  Systemadmins who really know what they are doing can use
+	  fake-sync in front of it, and then they are explicitly stating
+	  once again that they really want to force a defective system,
+	  and that they really know the fact that it is defective.
+	* Minor improvement: propagate logical and physical
+	  sector sizes from the underlying disk to the virtual
+	  mars device.
+	* Minor improvement: additional warning when network connections
+	  are interrupted (asymmetrically), such as by mis-configuration
+	  of network interfaces / routing / firewall rules / etc.
+
 mars0.1stable67
 	* Minor fix: don't unnecessarily alert sysadmins when no systemd
 	  unit files are installed.
