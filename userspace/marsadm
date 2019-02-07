@@ -695,19 +695,24 @@ sub finish_links {
   while (my $link = shift @link_list) {
     my $link_tmp = to_tmp($link);
     my $target = readlink($link_tmp);
+    next unless defined($target);
     my $this_timestamp = $timestamp;
     # allow overriding of secondaries in partitioned clusters by use of small timestamps
     if ($target eq "(none)") {
       my @stat = lstat($link);
       $this_timestamp = $stat[9] + 1 if @stat;
     }
-    system("touch -h -d \"\@$this_timestamp\" $link_tmp") == 0 or ldie "cannot set mtime on symlink '$link_tmp'\n";
+    unless (system("touch -h -d \"\@$this_timestamp\" $link_tmp") == 0) {
+      lwarn "cannot set mtime on symlink '$link_tmp'\n";
+    }
     if ($dry_run) {
       lprint "DRY_RUN: would create symlink '$link' -> '$target'\n";
       unlink($link_tmp);
       next;
     }
-    rename($link_tmp, $link) or ldie "cannot finalize symlink '$link'\n";
+    unless (rename($link_tmp, $link)) {
+      lwarn "cannot finalize symlink '$link'\n";
+    }
     if ($verbose) {
       lprint "created symlink '$link' -> '$target'\n";
     }
