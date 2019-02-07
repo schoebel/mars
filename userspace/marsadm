@@ -1032,6 +1032,7 @@ sub check_sync_finished {
     if ($peer eq $host) {
       lwarn "Don't try to make inconsistent host '$host' the new primary!\n";
       lwarn "Please wait until sync has finished and all logfile have been replayed.\n";
+      ldie "Refusing to switch inconsistent host '$host' to primary\n";
     } else {
       lwarn "Changing the primary role during sync is dangerous for data consistency on host '$peer'!\n";
     }
