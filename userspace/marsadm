@@ -1239,11 +1239,12 @@ sub check_todo {
 }
 
 sub check_status {
-  my ($cmd, $res, $key, $val, $wait, $unchecked, $inv, $peer) = @_;
+  my ($cmd, $res, $key, $val, $wait, $unchecked, $inv, $peer, $action) = @_;
   $peer = $host unless defined($peer);
   my ($key_msg, $val_msg, $wait_msg, $action_msg) = _make_messages(@_);
   my $path = correct_path("$mars/resource-$res/actual-$peer/$key");
   my $link;
+  my $rounds = 0;
   for (;;) {
     $link = get_link($path, $unchecked);
     $link = 0 unless (defined($link) && $link ne "");
@@ -1257,6 +1258,12 @@ sub check_status {
       ldie "Cannot execute $cmd on resource $res: actual '$key_msg' must be $val_msg. $action_msg Also ensure that your command _can_ succeed.\n" if !$wait;
     }
     sleep_timeout();
+    $rounds++;
+    if (defined($action) && $action && $rounds > 1) {
+      lprint "action: $action\n" if $verbose;
+      eval "$action";
+      $rounds = 0;
+    }
   }
   lprint "OK at $peer: '$path' has acceptable value '$link'\n";
 }
@@ -3399,7 +3406,18 @@ sub primary_phase0b {
   my $connect_path = "$mars/resource-$res/todo-$host/connect";
   my $connect = get_link($connect_path, 1);
   return if (!defined($connect) || !$connect);
-  check_status($cmd, $res, "open-count", 0, 1, undef, undef, $old);
+  # Notice: this is a workaround for a problem which is
+  # outside of our scope. For example, a remote umount will
+  # fail when any (delayed) process has any filehandle open.
+  # As long as the umount was unsuccessful, we _cannot_ proceed
+  # with planned handover.
+  # As a workaround, we constantly trigger the remote systemd
+  # in the _hope_ that the umount will succeed, and the
+  # open-count will then go down to zero, hopefully somewhen.
+  my $watch = "$mars/resource-$res/systemd-want";
+  my $action = "";
+  $action = "system(\"touch -h $watch\");" if -l $watch;
+  check_status($cmd, $res, "open-count", 0, 1, undef, undef, $old, $action);
 }
 
 # when necessary, switch to secondary (intermediately)
