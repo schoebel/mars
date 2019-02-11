@@ -24,45 +24,34 @@
 #ifndef BRICK_WAIT_H
 #define BRICK_WAIT_H
 
-/* compat to some elder kernels...
+/* Try to abstract from changes of the upstream kernel
+ * by using a hopefully stable interface.
  */
-#ifndef ___wait_cond_timeout
-#define ___wait_cond_timeout(x) (x)
-#define prepare_to_wait_event(a,b,c) (prepare_to_wait(a, b, c), 0)
-#endif
-
-/* Some code stolen from include/linux/wait.h
- */
-#define brick_wait(wq, condition, timeout)				\
+#define brick_wait(wq, flag, condition, timeout)			\
 ({									\
-	__label__ __out;						\
-	wait_queue_t __wait;						\
-	long __ret = timeout;	/* explicit shadow */			\
+	unsigned long __tmout = (timeout);				\
 									\
 	might_sleep();							\
-	/* check in advance to avoid spinlocks in fastpath */		\
-	if (condition)							\
-		goto __out;						\
-									\
-	INIT_LIST_HEAD(&__wait.task_list);				\
-	__wait.flags = 0;						\
-									\
-	for (;;) {							\
-		long __int = prepare_to_wait_event(&wq, &__wait, TASK_INTERRUPTIBLE); \
-									\
-		if (__int) {						\
-			__ret = __int;					\
+	(flag) = false;							\
+	smp_wmb();							\
+	while (!(condition)) {						\
+		__tmout = wait_event_interruptible_timeout(		\
+					wq,				\
+					({ smp_rmb(); (flag); }),	\
+					__tmout);			\
+		if (__tmout <= 1)					\
 			break;						\
-		}							\
-									\
-		__ret = schedule_timeout(__ret);			\
-									\
-		__set_current_state(TASK_RUNNING);			\
-		if (___wait_cond_timeout(condition))			\
-			break;						\
+		(flag) = false;						\
+		smp_wmb();						\
 	}								\
-	finish_wait(&wq, &__wait);					\
-__out:	__ret;								\
+	__tmout;							\
+})
+
+#define brick_wake(wq, flag)						\
+({									\
+	(flag) = true;							\
+	smp_wmb();							\
+	wake_up_interruptible_all(wq);					\
 })
 
 

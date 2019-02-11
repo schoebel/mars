@@ -231,6 +231,8 @@ struct trans_logger_brick {
 	struct logger_queue q_phase[LOGGER_QUEUES];
 	struct rank_data rkd[LOGGER_QUEUES];
 	bool   delay_callers;
+	bool caller_flag;
+	bool worker_flag;
 };
 
 struct trans_logger_output {
