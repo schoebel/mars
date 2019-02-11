@@ -31,6 +31,7 @@
 //#define IO_DEBUGGING
 
 #include "lib_log.h"
+#include "brick_wait.h"
 
 atomic_t global_mref_flying = ATOMIC_INIT(0);
 EXPORT_SYMBOL_GPL(global_mref_flying);
@@ -133,8 +134,8 @@ void log_write_endio(struct generic_callback *cb)
 	put_log_cb_info(cb_info);
 	atomic_dec(&logst->mref_flying);
 	atomic_dec(&global_mref_flying);
-	if (logst->signal_event)
-		wake_up_interruptible(logst->signal_event);
+	if (logst->signal_event && logst->signal_flag)
+		brick_wake(logst->signal_event, *(logst->signal_flag));
 
 	return;
 

@@ -2414,6 +2414,7 @@ void _init_input(struct trans_logger_input *input, loff_t start_pos, loff_t end_
 
 	init_logst(logst, (void*)input, start_pos, end_pos);
 	logst->signal_event = &brick->worker_event;
+	logst->signal_flag  = &brick->worker_flag;
 	logst->align_size = CONF_TRANS_ALIGN;
 	logst->chunk_size = CONF_TRANS_CHUNKSIZE;
 	logst->max_size = CONF_TRANS_MAX_MREF_SIZE;
