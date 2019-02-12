@@ -1576,6 +1576,13 @@ int __make_copy(
 	for (i = 0; i < 2; i++) {
 		struct mars_brick *aio;
 
+		/* do not change names underway */
+		if (copy && copy->inputs[i] && copy->inputs[i]->connect) {
+			aio = copy->inputs[i]->connect->brick;
+			if (aio && aio->power.button)
+				goto found;
+		}
+
 		cc.argv[i] = argv[i];
 		if (parent) {
 			cc.fullpath[i] = path_make("%s/%s", parent, argv[i]);
@@ -1604,7 +1611,10 @@ int __make_copy(
 			make_msg(msg_pair, "cannot instantiate '%s'", cc.fullpath[i]);
 			goto done;
 		}
+
+	found:
 		cc.output[i] = aio->outputs[0];
+
 		/* When switching off, use a short timeout for aborting.
 		 * Important on very slow networks (since a large number
 		 * of requests may be pending).
@@ -4392,8 +4402,10 @@ int make_dev(void *buf, struct mars_dent *dent)
 	switch_on =
 		(rot->if_brick && atomic_read(&rot->if_brick->open_count) > 0) ||
 		(rot->todo_primary &&
+		 rot->trans_brick &&
 		 !rot->trans_brick->replay_mode &&
-		 rot->trans_brick->power.led_on &&
+		 (rot->trans_brick->power.led_on ||
+		  (!rot->trans_brick->power.button && !rot->trans_brick->power.led_off)) &&
 		 _check_allow(global, dent->d_parent, "attach"));
 	if (!global->global_power.button) {
 		switch_on = false;

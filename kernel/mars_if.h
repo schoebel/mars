@@ -110,6 +110,7 @@ struct if_brick {
 	// private
 	struct semaphore switch_sem;
 	struct say_channel *say_channel;
+	struct mars_info info;
 };
 
 MARS_TYPES(if);

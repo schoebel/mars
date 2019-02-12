@@ -738,19 +738,24 @@ sub finish_links {
   while (my $link = shift @link_list) {
     my $link_tmp = to_tmp($link);
     my $target = readlink($link_tmp);
+    next unless defined($target);
     my $this_timestamp = $timestamp;
     # allow overriding of secondaries in partitioned clusters by use of small timestamps
     if ($target eq "(none)") {
       my @stat = lstat($link);
       $this_timestamp = $stat[9] + 1 if @stat;
     }
-    system("touch -h -d \"\@$this_timestamp\" $link_tmp") == 0 or ldie "cannot set mtime on symlink '$link_tmp'\n";
+    unless (system("touch -h -d \"\@$this_timestamp\" $link_tmp") == 0) {
+      lwarn "cannot set mtime on symlink '$link_tmp'\n";
+    }
     if ($dry_run) {
       lprint "DRY_RUN: would create symlink '$link' -> '$target'\n";
       unlink($link_tmp);
       next;
     }
-    rename($link_tmp, $link) or ldie "cannot finalize symlink '$link'\n";
+    unless (rename($link_tmp, $link)) {
+      lwarn "cannot finalize symlink '$link'\n";
+    }
     if ($verbose) {
       lprint "created symlink '$link' -> '$target'\n";
     }
@@ -781,6 +786,7 @@ sub get_alive_links {
   my $res = shift || "all";
   my $alive = shift || "alive";
   my $hosts = shift || "*";
+  my $warn = shift || 0;
   $res = "*" if $res eq "all";
   my %cand;
   foreach my $path (glob("$mars/ips/ip-$hosts")) {
@@ -801,6 +807,15 @@ sub get_alive_links {
     # peer must be participating in the same resources
     my @other = glob("$mars/resource-$res/data-$peer");
     next unless @other;
+    # I must be participating in some of the _same_ resources
+    my $common = 0;
+    foreach my $check (@other) {
+      my $self = `dirname $check`;
+      chomp $self;
+      $self .= "/data-$host";
+      $common++ if -e $self;
+    }
+    next unless $common;
     # OK: remember peer
     $peers{$peer} = 1;
   }
@@ -816,6 +831,18 @@ sub get_alive_links {
     $path =~ m:/$alive-(.+):;
     my $peer = $1;
     $links{$peer} = get_link($path, 1);
+  }
+  if ($warn) {
+    foreach my $peer (keys(%peers)) {
+      my $path = "$mars/$alive-$peer";
+      if (!is_link_recent($path)) {
+	my $stamp = get_link_stamp($path);
+	my $age = seconds2human(mars_time() - $stamp);
+	my $msg = "no metadata is arriving from peer '$peer', age = $age";
+	$msg .=  " => check your network setup" if is_module_loaded();
+	lwarn "$msg\n";
+      }
+    }
   }
   return %links;
 }
@@ -1083,6 +1110,7 @@ sub check_sync_finished {
     if ($peer eq $host) {
       lwarn "Don't try to make inconsistent host '$host' the new primary!\n";
       lwarn "Please wait until sync has finished and all logfile have been replayed.\n";
+      ldie "Refusing to switch inconsistent host '$host' to primary\n";
     } else {
       lwarn "Changing the primary role during sync is dangerous for data consistency on host '$peer'!\n";
     }
@@ -6555,6 +6583,7 @@ if ($cmd =~ m/^(view|pretty)/) {
     view_cmd($global_macro_name, "", @args) if $global_macro;
   }
   finish_links();
+  get_alive_links("all", "alive", "*", 1);
   exit($error_count);
 }
 
