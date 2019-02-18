@@ -169,8 +169,10 @@ Attention! This branch will go EOL around February 2019.
 	And even more stable, although the 0.1a releases were
 	called "beta" up to now.
 
+mars0.1stable69
+	* Major improvement: compatibility to upstream kernel 4.9.x.
+
 mars0.1stable68
-	* Minor fix: detach could hang under very weird circumstances.
 	* Minor fix: in extremly rare cases and under further conditions,
 	  detach could hang due to a race.
 	  Workaround was possible by re-attaching.
@@ -191,9 +193,6 @@ mars0.1stable68
 	  fake-sync in front of it, and then they are explicitly stating
 	  once again that they really want to force a defective system,
 	  and that they really know the fact that it is defective.
-	* Minor improvement: propagate logical and physical
-	  sector sizes from the underlying disk to the virtual
-	  mars device.
 	* Minor improvement: additional warning when network connections
 	  are interrupted (asymmetrically), such as by mis-configuration
 	  of network interfaces / routing / firewall rules / etc.
