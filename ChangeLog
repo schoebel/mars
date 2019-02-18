@@ -153,6 +153,9 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable69 (merged from mars0.1stable69)
+	* Major improvement: compatibility to upstream kernel 4.9.x.
+
 mars0.1astable68 (merged from mars0.1stable68)
 	* Minor fix: sometimes sync was advancing only slowly.
 	* Minor fix: in extremly rare cases and under further conditions,
@@ -175,9 +178,6 @@ mars0.1astable68 (merged from mars0.1stable68)
 	  fake-sync in front of it, and then they are explicitly stating
 	  once again that they really want to force a defective system,
 	  and that they really know the fact that it is defective.
-	* Minor improvement: propagate logical and physical
-	  sector sizes from the underlying disk to the virtual
-	  mars device.
 	* Minor improvement: additional warning when network connections
 	  are interrupted (asymmetrically), such as by mis-configuration
 	  of network interfaces / routing / firewall rules / etc.
