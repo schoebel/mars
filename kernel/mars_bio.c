@@ -465,6 +465,23 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref, bool cork)
 	bio->bi_end_io(bio, 0);
 #else
 #ifdef MARS_HAS_NEW_BIO_OP
+#ifdef REQ_SYNC
+	/* Unsure: REQ_SYNC had been defined since around 2010,
+	 * but has not been used accidentally.
+	 * Thus it is now a _potential_ bug fix.
+	 * Theoretically, I could wipe out the old code.
+	 * However, I know of certain Frankenstein kernels
+	 * which don't conform to anything. And I am not their
+	 * maintainer. Let the old code in place for now.
+	 */
+	if (rw & 1) {
+		bio_set_op_attrs(bio, REQ_OP_WRITE,
+				 mref->ref_skip_sync ? 0 : REQ_SYNC);
+	} else {
+		bio_set_op_attrs(bio, REQ_OP_READ,
+				 mref->ref_skip_sync ? 0 : REQ_META);
+	}
+#else
 	if (rw & 1) {
 		bio_set_op_attrs(bio, REQ_OP_WRITE,
 				 mref->ref_skip_sync ? 0 : WRITE_SYNC);
@@ -472,6 +489,7 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref, bool cork)
 		bio_set_op_attrs(bio, REQ_OP_READ,
 				 mref->ref_skip_sync ? 0 : READ_SYNC);
 	}
+#endif
 	latency = TIME_STATS(
 		&timings[rw & 1],
 		submit_bio(bio)
