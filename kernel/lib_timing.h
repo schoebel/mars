@@ -25,6 +25,7 @@
 #define MARS_LIB_TIMING_H
 
 #include "brick.h"
+#include "lamport.h"
 
 #include <linux/sched.h>
 
@@ -42,19 +43,22 @@ struct timing_stats {
 
 #define _TIME_THIS(_stamp1, _stamp2, _CODE)				\
 	({								\
-		(_stamp1) = cpu_clock(raw_smp_processor_id());		\
+		struct lamport_time __tmp_diff;				\
+									\
+		(_stamp1) = get_real_lamport();				\
 									\
 		_CODE;							\
 									\
-		(_stamp2) = cpu_clock(raw_smp_processor_id());		\
-		(_stamp2) - (_stamp1);					\
+		(_stamp2) = get_real_lamport();				\
+		__tmp_diff = lamport_time_sub((_stamp2), (_stamp1));	\
+		lamport_time_to_ns(&__tmp_diff);			\
 	})
 
 
 #define TIME_THIS(_CODE)						\
 	({								\
-		unsigned long long _stamp1;				\
-		unsigned long long _stamp2;				\
+		struct lamport_time _stamp1;				\
+		struct lamport_time _stamp2;				\
 		_TIME_THIS(_stamp1, _stamp2, _CODE);			\
 	})
 
@@ -63,8 +67,8 @@ struct timing_stats {
 
 #define _TIME_STATS(_timing, _stamp1, _stamp2, _CODE)			\
 	({								\
-		unsigned long long _time;				\
-		unsigned long _tmp;					\
+		s64 _time;						\
+		s64 _tmp;						\
 		int _i;							\
 									\
 		_time = _TIME_THIS(_stamp1, _stamp2, _CODE);		\
@@ -81,8 +85,8 @@ struct timing_stats {
 
 #define TIME_STATS(_timing, _CODE)					\
 	({								\
-		unsigned long long _stamp1;				\
-		unsigned long long _stamp2;				\
+		struct lamport_time _stamp1;				\
+		struct lamport_time _stamp2;				\
 		_TIME_STATS(_timing, _stamp1, _stamp2, _CODE);		\
 	})
 
@@ -91,7 +95,7 @@ extern int report_timing(struct timing_stats *tim, char *str, int maxlen);
 #else  // CONFIG_MARS_DEBUG
 
 #define _TIME_STATS(_timing, _stamp1, _stamp2, _CODE)			\
-	((void)_timing, (_stamp1) = (_stamp2) = cpu_clock(raw_smp_processor_id()), _CODE, 0)
+	((void)_timing, (_stamp1) = (_stamp2) = get_real_lamport(), _CODE, 0)
 
 #define TIME_STATS(_timing, _CODE)		\
 	((void)_timing, _CODE, 0)
@@ -114,7 +118,7 @@ extern int report_timing(struct timing_stats *tim, char *str, int maxlen);
  * with locking by yourself.
  */
 struct banning {
-	long long ban_last_hit;
+	struct lamport_time ban_last_hit;
 	// statistical
 	int ban_renew_count;
 	int ban_count;
@@ -123,11 +127,14 @@ struct banning {
 static inline
 bool banning_hit(struct banning *ban, long long duration)
 {
-	long long now = cpu_clock(raw_smp_processor_id());
-	bool hit = ban->ban_last_hit >= now;
-	long long new_hit = now + duration;
+	struct lamport_time now = get_real_lamport();
+	struct lamport_time new_hit = now;
+	bool hit = lamport_time_compare(&ban->ban_last_hit, &now) >= 0;
+
+	lamport_time_add_ns(&new_hit, duration);
 	ban->ban_renew_count++;
-	if (!ban->ban_last_hit || ban->ban_last_hit < new_hit) {
+	if (!lamport_time_to_ns(&ban->ban_last_hit) ||
+	    lamport_time_compare(&ban->ban_last_hit, &new_hit) < 0) {
 		ban->ban_last_hit = new_hit;
 		ban->ban_count++;
 	}
@@ -137,14 +144,16 @@ bool banning_hit(struct banning *ban, long long duration)
 static inline
 bool banning_is_hit(struct banning *ban)
 {
-	long long now = cpu_clock(raw_smp_processor_id());
-	return (ban->ban_last_hit && ban->ban_last_hit >= now);
+	struct lamport_time now = get_real_lamport();
+
+	return lamport_time_compare(&ban->ban_last_hit, &now) >= 0 &&
+	  lamport_time_to_ns(&ban->ban_last_hit);
 }
 
 extern inline
 void banning_reset(struct banning *ban)
 {
-	ban->ban_last_hit = 0;
+	memset(&ban->ban_last_hit, 0, sizeof(ban->ban_last_hit));
 }
 
 /* Threshold: trigger a banning whenever some latency threshold
