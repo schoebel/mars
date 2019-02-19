@@ -2277,8 +2277,8 @@ struct mars_brick *make_brick_all(
 	const char *new_path;
 	char *_new_path = NULL;
 	struct mars_brick *brick = NULL;
-	char *paths[prev_count];
-	struct mars_brick *prev[prev_count];
+	char *paths[prev_count + 1];
+	struct mars_brick *prev[prev_count + 1];
 	bool switch_state;
 	int i;
 	int status;
