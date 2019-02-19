@@ -81,9 +81,9 @@ const struct meta mars_kstat_meta[] = {
 	META_INI(ino, struct kstat, FIELD_INT),
 	META_INI(mode, struct kstat, FIELD_INT),
 	META_INI(size, struct kstat, FIELD_INT),
-	META_INI_SUB(atime, struct kstat, mars_timespec_meta),
-	META_INI_SUB(mtime, struct kstat, mars_timespec_meta),
-	META_INI_SUB(ctime, struct kstat, mars_timespec_meta),
+	META_INI_SUB(atime, struct kstat, mars_lamport_time_meta),
+	META_INI_SUB(mtime, struct kstat, mars_lamport_time_meta),
+	META_INI_SUB(ctime, struct kstat, mars_lamport_time_meta),
 	META_INI(blksize, struct kstat, FIELD_INT),
 	{}
 };
@@ -172,7 +172,7 @@ static int __path_parent(const char *name, struct path *path, unsigned flags)
  */
 int _compat_symlink(const char __user *oldname,
 		    const char __user *newname,
-		    struct timespec *mtime)
+		    struct lamport_time *mtime)
 {
 	const int newdfd = AT_FDCWD;
 	int error;
@@ -635,12 +635,12 @@ int mars_unlink(const char *path)
 }
 EXPORT_SYMBOL_GPL(mars_unlink);
 
-int mars_symlink(const char *oldpath, const char *newpath, const struct timespec *stamp, uid_t uid)
+int mars_symlink(const char *oldpath, const char *newpath, const struct lamport_time *stamp, uid_t uid)
 {
 	char *tmp = backskip_replace(newpath, '/', true, "/.tmp-"); 
 	mm_segment_t oldfs;
 	struct kstat stat = {};
-	struct timespec times[2];
+	struct lamport_time times[2];
 	int status = -ENOMEM;
 	
 	if (unlikely(!tmp))
@@ -683,7 +683,7 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct timespec
 	status = sys_symlink(oldpath, tmp);
 	if (status >= 0) {
 		sys_lchown(tmp, uid, 0);
-		memcpy(&times[1], &times[0], sizeof(struct timespec));
+		memcpy(&times[1], &times[0], sizeof(struct lamport_time));
 		status = do_utimes(AT_FDCWD, tmp, times, AT_SYMLINK_NOFOLLOW);
 	}
 #else
@@ -895,11 +895,11 @@ EXPORT_SYMBOL_GPL(mars_remaining_space);
 
 static DEFINE_MUTEX(ordered_lock);
 
-int ordered_unlink(const char *path, const struct timespec *stamp, int serial, int mode)
+int ordered_unlink(const char *path, const struct lamport_time *stamp, int serial, int mode)
 {
 	struct kstat stat;
 	char serial_str[32];
-	struct timespec now;
+	struct lamport_time now;
 	const char *marker_path;
 	int marker_status;
 	int status = 0;
@@ -915,14 +915,14 @@ int ordered_unlink(const char *path, const struct timespec *stamp, int serial, i
 	marker_path = backskip_replace(path, '/', true, "/.deleted-");
 	marker_status = mars_stat(marker_path, &stat, true);
 	if (marker_status < 0 ||
-	    timespec_compare(stamp, &stat.mtime) >= 0) {
+	    lamport_time_compare(stamp, &stat.mtime) >= 0) {
 		MARS_DBG("creating / updating marker '%s' mtime=%lu.%09lu\n",
 			 marker_path,
 			 stamp->tv_sec, stamp->tv_nsec);
 		status = mars_symlink(serial_str, marker_path, stamp, 0);
 	}
 	if (marker_status < 0 ||
-	    timespec_compare(stamp, &stat.mtime) >= 0) {
+	    lamport_time_compare(stamp, &stat.mtime) >= 0) {
 		status = mars_unlink(path);
 	}
 
@@ -931,10 +931,10 @@ int ordered_unlink(const char *path, const struct timespec *stamp, int serial, i
 	return status;
 }
 
-int ordered_symlink(const char *oldpath, const char *newpath, const struct timespec *stamp, uid_t uid)
+int ordered_symlink(const char *oldpath, const char *newpath, const struct lamport_time *stamp, uid_t uid)
 {
 	struct kstat stat;
-	struct timespec now;
+	struct lamport_time now;
 	const char *marker_path;
 	int status = 1;
 
@@ -948,11 +948,11 @@ int ordered_symlink(const char *oldpath, const char *newpath, const struct times
 	marker_path = backskip_replace(newpath, '/', true, "/.deleted-");
 
 	if (mars_stat(marker_path, &stat, true) >= 0 &&
-	    timespec_compare(&stat.mtime, stamp) > 0) {
+	    lamport_time_compare(&stat.mtime, stamp) > 0) {
 		goto done;
 	}
 	if (mars_stat(newpath, &stat, true) >= 0 &&
-	    timespec_compare(&stat.mtime, stamp) > 0) {
+	    lamport_time_compare(&stat.mtime, stamp) > 0) {
 		goto done;
 	}
 
@@ -1154,7 +1154,7 @@ int get_inode(char *newpath, struct mars_dent *dent)
 	}
 
 	/* Correct illegal timestamps */
-	if (unlikely(protect_timespec(&tmp.mtime)) &&
+	if (unlikely(protect_lamport_time(&tmp.mtime)) &&
 	    S_ISLNK(dent->new_stat.mode)) {
 		char *val = mars_readlink(newpath);
 		if (val) {

@@ -620,7 +620,7 @@ static int aio_event_thread(void *data)
 		mm_segment_t oldfs;
 		int count;
 		int i;
-		struct timespec timeout = {
+		struct lamport_time timeout = {
 			.tv_sec = 1,
 		};
 

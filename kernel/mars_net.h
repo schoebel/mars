@@ -109,7 +109,7 @@ enum {
 #define CMD_FLAG_HAS_DATA 256
 
 struct mars_cmd {
-	struct timespec cmd_stamp; // for automatic lamport clock
+	struct lamport_time cmd_stamp; // for automatic lamport clock
 	int cmd_code;
 	int cmd_int1;
 	//int cmd_int2;

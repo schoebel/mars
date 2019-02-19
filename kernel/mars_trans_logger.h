@@ -161,7 +161,7 @@ struct trans_logger_mref_aspect {
 	bool   is_endio;
 	bool   is_persistent;
 	bool   is_emergency;
-	struct timespec stamp;
+	struct lamport_time stamp;
 	loff_t log_pos;
 	struct generic_callback cb;
 	struct writeback_info *wb;
@@ -262,9 +262,9 @@ struct trans_logger_info {
 	loff_t inf_min_pos;  // current replay position (both in replay mode and in logging mode)
 	loff_t inf_max_pos;  // dito, indicating the "dirty" area which could be potentially "inconsistent"
 	loff_t inf_log_pos; // position of transaction logging (may be ahead of replay position)
-	struct timespec inf_min_pos_stamp; // when the data has been _successfully_ overwritten
-	struct timespec inf_max_pos_stamp; // when the data has _started_ overwrite (maybe "trashed" in case of errors / aborts)
-	struct timespec inf_log_pos_stamp; // stamp from transaction log
+	struct lamport_time inf_min_pos_stamp; // when the data has been _successfully_ overwritten
+	struct lamport_time inf_max_pos_stamp; // when the data has _started_ overwrite (maybe "trashed" in case of errors / aborts)
+	struct lamport_time inf_log_pos_stamp; // stamp from transaction log
 	bool inf_is_replaying;
 	bool inf_is_logging;
 };

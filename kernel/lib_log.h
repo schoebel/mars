@@ -48,8 +48,8 @@ extern atomic_t global_mref_flying;
 #define log_header log_header_v1
 
 struct log_header_v1 {
-	struct timespec l_stamp;
-	struct timespec l_written;
+	struct lamport_time l_stamp;
+	struct lamport_time l_written;
 	loff_t l_pos;
 	short  l_len;
 	short  l_code;
@@ -72,7 +72,7 @@ struct log_header_v1 {
 		sizeof(char) +					\
 		sizeof(char) +					\
 		sizeof(short) +					\
-		sizeof(struct timespec) +			\
+		sizeof(struct lamport_time) +			\
 		sizeof(loff_t) +				\
 		sizeof(int) +					\
 		sizeof(int) +					\
@@ -87,7 +87,7 @@ struct log_header_v1 {
 		sizeof(int) +					\
 		sizeof(char) +					\
 		3 + 4 /*spare*/ +				\
-		sizeof(struct timespec) +			\
+		sizeof(struct lamport_time) +			\
 		0						\
 	)
 
@@ -266,9 +266,9 @@ struct log_status {
 	atomic_t mref_flying;
 	int count;
 	loff_t log_pos;
-	struct timespec log_pos_stamp;
+	struct lamport_time log_pos_stamp;
 	// internal
-	struct timespec tmp_pos_stamp;
+	struct lamport_time tmp_pos_stamp;
 	struct mars_input *input;
 	struct mars_brick *brick;
 	struct mars_info info;

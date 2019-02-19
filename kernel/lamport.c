@@ -94,12 +94,12 @@
  */
 struct rw_semaphore lamport_sem = __RWSEM_INITIALIZER(lamport_sem);
 
-struct timespec lamport_stamp = {};
+struct lamport_time lamport_stamp = {};
 
-void get_lamport(struct timespec *real_now, struct timespec *lamport_now)
+void get_lamport(struct lamport_time *real_now, struct lamport_time *lamport_now)
 {
-	struct timespec _real_now;
-	struct timespec _lamport_now;
+	struct lamport_time _real_now;
+	struct lamport_time _lamport_now;
 
 	/* Get a consistent copy of _both_ clocks */
 	down_read(&lamport_sem);
@@ -110,13 +110,13 @@ void get_lamport(struct timespec *real_now, struct timespec *lamport_now)
 	 * Lamport timestamps, respectively, in relation to pseudo-parallel
 	 * calls to get_lamport().
 	 */
-	_real_now = CURRENT_TIME;
+	_real_now = get_real_lamport();
 	up_read(&lamport_sem);
 
 	if (real_now)
 		*real_now = _real_now;
 	/* use the maximum of both clocks as Lamport timestamp */
-	if (timespec_compare(&_real_now, &_lamport_now) >= 0)
+	if (lamport_time_compare(&_real_now, &_lamport_now) >= 0)
 		*lamport_now = _real_now;
 	else
 		*lamport_now = _lamport_now;
@@ -124,31 +124,31 @@ void get_lamport(struct timespec *real_now, struct timespec *lamport_now)
 
 EXPORT_SYMBOL_GPL(get_lamport);
 
-void set_lamport(struct timespec *lamport_old)
+void set_lamport(struct lamport_time *lamport_old)
 {
-	protect_timespec(lamport_old);
+	protect_lamport_time(lamport_old);
 
 	/* Always advance the internal Lamport timestamp a little bit
 	 * in order to ensure strict monotonicity between set_lamport() calls.
 	 */
 	down_write(&lamport_sem);
-	if (timespec_compare(lamport_old, &lamport_stamp) > 0)
+	if (lamport_time_compare(lamport_old, &lamport_stamp) > 0)
 		lamport_stamp = *lamport_old;
 	else
-		timespec_add_ns(&lamport_stamp, 1);
+		lamport_time_add_ns(&lamport_stamp, 1);
 	up_write(&lamport_sem);
 }
 EXPORT_SYMBOL_GPL(set_lamport);
 
-void set_lamport_nonstrict(struct timespec *lamport_old)
+void set_lamport_nonstrict(struct lamport_time *lamport_old)
 {
-	protect_timespec(lamport_old);
+	protect_lamport_time(lamport_old);
 
 	/*  Speculate that advaning is not necessary, to avoid the lock
 	 */
-	if (timespec_compare(lamport_old, &lamport_stamp) > 0) {
+	if (lamport_time_compare(lamport_old, &lamport_stamp) > 0) {
 		down_write(&lamport_sem);
-		if (timespec_compare(lamport_old, &lamport_stamp) > 0)
+		if (lamport_time_compare(lamport_old, &lamport_stamp) > 0)
 			lamport_stamp = *lamport_old;
 		up_write(&lamport_sem);
 	}
@@ -159,25 +159,25 @@ EXPORT_SYMBOL_GPL(set_lamport_nonstrict);
  * This is almost equivalent to a sequence of set_lamport() ; get_lamport()
  * but more efficient because the lock is taken only once.
  */
-void set_get_lamport(struct timespec *lamport_old, struct timespec *real_now, struct timespec *lamport_now)
+void set_get_lamport(struct lamport_time *lamport_old, struct lamport_time *real_now, struct lamport_time *lamport_now)
 {
-	struct timespec _real_now;
+	struct lamport_time _real_now;
 
-	protect_timespec(lamport_old);
+	protect_lamport_time(lamport_old);
 
 	down_write(&lamport_sem);
-	if (timespec_compare(lamport_old, &lamport_stamp) > 0)
+	if (lamport_time_compare(lamport_old, &lamport_stamp) > 0)
 		*lamport_now = *lamport_old;
 	else
-		*lamport_now = timespec_add(lamport_stamp, (struct timespec){0, 1});
+		*lamport_now = lamport_time_add(lamport_stamp, (struct lamport_time){0, 1});
 	lamport_stamp = *lamport_now;
-	_real_now = CURRENT_TIME;
+	_real_now = get_real_lamport();
 	up_write(&lamport_sem);
 
 	if (real_now)
 		*real_now = _real_now;
 	/* use the maximum of both clocks as Lamport timestamp */
-	if (timespec_compare(&_real_now, lamport_now) > 0)
+	if (lamport_time_compare(&_real_now, lamport_now) > 0)
 		*lamport_now = _real_now;
 }
 EXPORT_SYMBOL_GPL(set_get_lamport);
@@ -187,15 +187,15 @@ EXPORT_SYMBOL_GPL(set_get_lamport);
 
 int max_lamport_future = 30 * 24 * 3600;
 
-bool protect_timespec(struct timespec *check)
+bool protect_lamport_time(struct lamport_time *check)
 {
-	struct timespec limit = CURRENT_TIME;
+	struct lamport_time limit = get_real_lamport();
 	bool res = false;
 
 	limit.tv_sec += max_lamport_future;
 	if (unlikely(check->tv_sec >= limit.tv_sec)) {
 		down_write(&lamport_sem);
-		timespec_add_ns(&lamport_stamp, 1);
+		lamport_time_add_ns(&lamport_stamp, 1);
 		memcpy(check, &lamport_stamp, sizeof(*check));
 		if (unlikely(check->tv_sec > limit.tv_sec))
 			max_lamport_future += check->tv_sec - limit.tv_sec;

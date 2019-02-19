@@ -315,7 +315,7 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 {
 	struct mref_object *mref = logst->log_mref;
 	struct log_cb_info *cb_info = logst->private;
-	struct timespec now;
+	struct lamport_time now;
 	void *data;
 	int offset;
 	int restlen;

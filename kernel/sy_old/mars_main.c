@@ -114,7 +114,7 @@
 		MARS_ERR(fmt, ##args);					\
 	})
 
-struct timespec modprobe_stamp;
+struct lamport_time modprobe_stamp;
 
 loff_t raw_total_space = 0;
 loff_t global_total_space = 0;
@@ -227,8 +227,8 @@ struct key_value_pair {
         char *val;
         char *old_val;
 	unsigned long last_jiffies;
-	struct timespec system_stamp;
-	struct timespec lamport_stamp;
+	struct lamport_time system_stamp;
+	struct lamport_time lamport_stamp;
 };
 
 static inline
@@ -611,7 +611,7 @@ struct mars_rotate {
 	struct mars_dent *prev_log;
 	struct mars_dent *next_log;
 	struct mars_dent *syncstatus_dent;
-	struct timespec sync_finish_stamp;
+	struct lamport_time sync_finish_stamp;
 	struct if_brick *if_brick;
 	const char *fetch_path;
 	const char *fetch_peer;
@@ -1788,7 +1788,7 @@ void additional_peers(int add)
 #ifdef HAS_GET_RANDOM_INT
 		int nr = peer_count > 1 ? get_random_int() % peer_count : 0;
 #else
-		struct timespec now = CURRENT_TIME;
+		struct lamport_time now = get_real_lamport();
 		int nr = peer_count > 1 ? (now.tv_sec + now.tv_nsec) % peer_count : 0;
 #endif
 		struct list_head *tmp;
@@ -2074,8 +2074,8 @@ int run_bone(struct mars_peerinfo *peer, struct mars_dent *remote_dent)
 	stat_ok = (status >= 0);
 
 	if (stat_ok) {
-		update_mtime = timespec_compare(&remote_dent->new_stat.mtime, &local_stat.mtime) > 0;
-		update_ctime = timespec_compare(&remote_dent->new_stat.ctime, &local_stat.ctime) > 0;
+		update_mtime = lamport_time_compare(&remote_dent->new_stat.mtime, &local_stat.mtime) > 0;
+		update_ctime = lamport_time_compare(&remote_dent->new_stat.ctime, &local_stat.ctime) > 0;
 
 		MARS_IO("timestamps '%s' remote = %ld.%09ld local = %ld.%09ld\n", remote_dent->d_path, remote_dent->new_stat.mtime.tv_sec, remote_dent->new_stat.mtime.tv_nsec, local_stat.mtime.tv_sec, local_stat.mtime.tv_nsec);
 
@@ -2527,7 +2527,7 @@ done:
 static
 void _make_alive(void)
 {
-	struct timespec now;
+	struct lamport_time now;
 	char *tmp;
 
 	get_lamport(NULL, &now);
@@ -4355,11 +4355,11 @@ int make_primary(void *buf, struct mars_dent *dent)
 	 * cluster node.
 	 */
 	if (unlikely(!rot->checked_reboot)) {
-		struct timespec when;
+		struct lamport_time when;
 
 		get_lamport(NULL, &when);
 		when.tv_sec += mars_scan_interval * 2;
-		if (timespec_compare(&when, &modprobe_stamp) <= 0)
+		if (lamport_time_compare(&when, &modprobe_stamp) <= 0)
 			goto done;
 	}
 
@@ -4825,7 +4825,7 @@ int _update_syncstatus(struct mars_rotate *rot, struct copy_brick *copy, char *p
 		 */
 		if (unlikely(status < 0))
 			goto done;
-		if (timespec_compare(&peer_time_stat.mtime, &rot->sync_finish_stamp) < 0) {
+		if (lamport_time_compare(&peer_time_stat.mtime, &rot->sync_finish_stamp) < 0) {
 			MARS_INF("peer replay link '%s' is not recent enough (%lu < %lu)\n",
 				 peer_replay_path,
 				 peer_time_stat.mtime.tv_sec,
@@ -5193,7 +5193,7 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 	status = 0;
 	target = mars_find_dent(global, dent->new_link);
 	if (target) {
-		if (timespec_compare(&target->new_stat.mtime, &dent->new_stat.mtime) > 0) {
+		if (lamport_time_compare(&target->new_stat.mtime, &dent->new_stat.mtime) > 0) {
 			MARS_WRN("target '%s' has newer timestamp than deletion link, ignoring\n", dent->new_link);
 			status = -EAGAIN;
 			goto ok;
@@ -5206,7 +5206,7 @@ static int prepare_delete(void *buf, struct mars_dent *dent)
 		MARS_DBG("target '%s' marked for removal\n", dent->new_link);
 		to_delete = &target->new_stat;
 	} else if (mars_stat(dent->new_link, &stat, true) >= 0) {
-		if (timespec_compare(&stat.mtime, &dent->new_stat.mtime) > 0) {
+		if (lamport_time_compare(&stat.mtime, &dent->new_stat.mtime) > 0) {
 			MARS_WRN("target '%s' has newer timestamp than deletion link, ignoring\n", dent->new_link);
 			status = -EAGAIN;
 			goto ok;

@@ -1176,7 +1176,7 @@ EXPORT_SYMBOL_GPL(_mars_recv_struct);
  */
 
 const struct meta mars_cmd_meta[] = {
-	META_INI_SUB(cmd_stamp, struct mars_cmd, mars_timespec_meta),
+	META_INI_SUB(cmd_stamp, struct mars_cmd, mars_lamport_time_meta),
 	META_INI(cmd_code, struct mars_cmd, FIELD_INT),
 	META_INI(cmd_int1, struct mars_cmd, FIELD_INT),
 	META_INI(cmd_str1, struct mars_cmd, FIELD_STRING),

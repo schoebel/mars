@@ -43,11 +43,12 @@
 
 #include <linux/compiler.h>
 #include <linux/time.h>
+#include "lamport.h"
 
 extern int _compat_symlink(
 	const char __user *oldname,
 	const char __user *newname,
-	struct timespec *mtime);
+	struct lamport_time *mtime);
 
 extern int _compat_mkdir(
 	const char __user *pathname,

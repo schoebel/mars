@@ -227,7 +227,7 @@ struct mars_info {
 	struct list_head dent_brick_link;				\
 	const char *brick_path;						\
 	struct mars_global *global;					\
-	struct timespec create_stamp;					\
+	struct lamport_time create_stamp;				\
 	void **kill_ptr;						\
 	int *mode_ptr;							\
 	int kill_round;							\
@@ -333,7 +333,7 @@ static const struct generic_aspect_type *BRITYPE##_aspect_types[OBJ_TYPE_MAX] = 
 
 extern const struct meta mars_info_meta[];
 extern const struct meta mars_mref_meta[];
-extern const struct meta mars_timespec_meta[];
+extern const struct meta mars_lamport_time_meta[];
 
 /////////////////////////////////////////////////////////////////////////
 

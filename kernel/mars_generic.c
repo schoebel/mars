@@ -114,12 +114,12 @@ const struct meta mars_mref_meta[] = {
 };
 EXPORT_SYMBOL_GPL(mars_mref_meta);
 
-const struct meta mars_timespec_meta[] = {
-	META_INI(tv_sec, struct timespec, FIELD_INT),
-	META_INI(tv_nsec, struct timespec, FIELD_INT),
+const struct meta mars_lamport_time_meta[] = {
+	META_INI(tv_sec,  struct lamport_time, FIELD_INT),
+	META_INI(tv_nsec, struct lamport_time, FIELD_INT),
 	{}
 };
-EXPORT_SYMBOL_GPL(mars_timespec_meta);
+EXPORT_SYMBOL_GPL(mars_lamport_time_meta);
 
 
 //////////////////////////////////////////////////////////////

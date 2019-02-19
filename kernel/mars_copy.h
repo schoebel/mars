@@ -89,7 +89,7 @@ struct copy_brick {
 	// readonly from outside
 	loff_t copy_last; // current working position
 	loff_t copy_dirty; // end of current working area
-	struct timespec copy_last_stamp;
+	struct lamport_time copy_last_stamp;
 	int copy_error;
 	int copy_error_count;
 	int verify_ok_count;

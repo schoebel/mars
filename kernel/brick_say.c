@@ -562,8 +562,8 @@ EXPORT_SYMBOL_GPL(say_to);
 void brick_say_to(struct say_channel *ch, int class, bool dump, const char *prefix, const char *file, int line, const char *func, const char *fmt, ...) 
 {
 	const char *channel_name = "-";
-	struct timespec s_now;
-	struct timespec l_now;
+	struct lamport_time s_now;
+	struct lamport_time l_now;
 	int filelen;
 	int orig_class;
 	va_list args;
@@ -810,8 +810,8 @@ void treat_channel(struct say_channel *ch, int class)
 	}
 
 	if (unlikely(overflow > 0)) {
-		struct timespec s_now;
-		struct timespec l_now;
+		struct lamport_time s_now;
+		struct lamport_time l_now;
 
 		get_lamport(&s_now, &l_now);
 		len = scnprintf(buf,

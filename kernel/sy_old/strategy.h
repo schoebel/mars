@@ -191,7 +191,10 @@ extern void mars_sync(void);
 extern int mars_mkdir(const char *path);
 extern int mars_rmdir(const char *path);
 extern int mars_unlink(const char *path);
-extern int mars_symlink(const char *oldpath, const char *newpath, const struct timespec *stamp, uid_t uid);
+extern int mars_symlink(const char *oldpath,
+			const char *newpath,
+			const struct lamport_time *stamp,
+			uid_t uid);
 extern char *mars_readlink(const char *newpath);
 extern int mars_rename(const char *oldpath, const char *newpath);
 extern int mars_chmod(const char *path, mode_t mode);
@@ -200,8 +203,14 @@ extern void mars_remaining_space(const char *fspath, loff_t *total, loff_t *rema
 
 /* Timestamp Ordering */
 
-extern int ordered_unlink(const char *path, const struct timespec *stamp, int serial, int mode);
-extern int ordered_symlink(const char *oldpath, const char *newpath, const struct timespec *stamp, uid_t uid);
+extern int ordered_unlink(const char *path,
+			  const struct lamport_time *stamp,
+			  int serial,
+			  int mode);
+extern int ordered_symlink(const char *oldpath,
+			   const char *newpath,
+			   const struct lamport_time *stamp,
+			   uid_t uid);
 
 /////////////////////////////////////////////////////////////////////////
 

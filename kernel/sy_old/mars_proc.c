@@ -186,8 +186,8 @@ int lamport_sysctl_handler(
 	} else {
 		int my_len = 128;
 		char *tmp = brick_string_alloc(my_len);
-		struct timespec know;
-		struct timespec lnow;
+		struct lamport_time know;
+		struct lamport_time lnow;
 
 		get_lamport(&know, &lnow);
 		
