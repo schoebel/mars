@@ -126,10 +126,17 @@ EXPORT_SYMBOL_GPL(mars_dent_meta);
 #define __NEW_PATH_CREATE
 #endif
 
+#include <linux/fscache-cache.h>
 #ifndef FSCACHE_OP_DEAD
 /* since kernel 3.8 */
 /* see b9d6ba94b875192ef5e2dab92d72beea33b83c3d */
 #define  __HAS_RETRY_ESTALE
+#endif
+
+/* 5955102c9984fa081b2d570cfac75c97eecf8f3b
+ */
+#ifndef FLOCK_VERIFY_READ /* detect kernel 4.5-rc1 via acc15575e */
+#define HAS_INODE_LOCK_WRAPPERS
 #endif
 
 /* Hack because of 8bcb77fabd7cbabcad49f58750be8683febee92b
@@ -197,13 +204,21 @@ retry:
 			.ia_mtime.tv_nsec = mtime->tv_nsec,
 		};
 
+#ifdef HAS_INODE_LOCK_WRAPPERS
+		inode_lock(dentry->d_inode);
+#else
 		mutex_lock(&dentry->d_inode->i_mutex);
+#endif
 #ifdef FL_DELEG
 		error = notify_change(dentry, &iattr, NULL);
 #else
 		error = notify_change(dentry, &iattr);
 #endif
+#ifdef HAS_INODE_LOCK_WRAPPERS
+		inode_unlock(dentry->d_inode);
+#else
 		mutex_unlock(&dentry->d_inode->i_mutex);
+#endif
 	}
 #ifdef __NEW_PATH_CREATE
 	done_path_create(&path, dentry);
@@ -439,7 +454,11 @@ retry:
 	if (error)
 		goto exit1;
 #endif
+#ifdef HAS_INODE_LOCK_WRAPPERS
+	inode_lock_nested(dentry->d_inode, I_MUTEX_PARENT);
+#else
 	mutex_lock_nested(&parent->d_inode->i_mutex, I_MUTEX_PARENT);
+#endif
 
 	dentry = lookup_one_len(one, parent, strlen(one));
 	error = PTR_ERR(dentry);
@@ -470,7 +489,11 @@ retry:
 exit3:
 	dput(dentry);
 exit2:
+#ifdef HAS_INODE_LOCK_WRAPPERS
+	inode_unlock(dentry->d_inode);
+#else
 	mutex_unlock(&parent->d_inode->i_mutex);
+#endif
 	if (inode)
 		iput(inode);
 #ifdef __NEW_PATH_CREATE
@@ -2317,8 +2340,8 @@ struct mars_brick *make_brick_all(
 	const char *new_path;
 	char *_new_path = NULL;
 	struct mars_brick *brick = NULL;
-	char *paths[prev_count];
-	struct mars_brick *prev[prev_count];
+	char *paths[prev_count + 1];
+	struct mars_brick *prev[prev_count + 1];
 	bool switch_state;
 	int i;
 	int status;

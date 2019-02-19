@@ -84,6 +84,11 @@
 #define USE_MAX_PHYS_SEGMENTS   1
 #endif
 
+/* adapt to 4e1b2d52a80d79296a5d899d73249748dea71a53 and many others */
+#ifdef bio_op
+#define HAS_NEW_BIO_OP
+#endif
+
 //      end_remove_this
 ///////////////////////// global tuning ////////////////////////
 
@@ -377,7 +382,11 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 	 */
 	const int  rw      = bio_data_dir(bio);
 	const int  sectors = bio_sectors(bio);
-// adapt to different kernel versions (TBD: improve)
+//      remove_this
+/* Adapt to different kernel versions.
+ * This is a maintainance nightmare.
+ * Most is provisionary.
+ */
 #if defined(BIO_RW_RQ_MASK) || defined(BIO_FLUSH)
 	const bool ahead   = bio_rw_flagged(bio, BIO_RW_AHEAD) && rw == READ;
 	const bool barrier = bio_rw_flagged(bio, BIO_RW_BARRIER);
@@ -395,9 +404,21 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 	const bool meta    = _flagged(REQ_META);
 	const bool discard = _flagged(REQ_DISCARD);
 	const bool noidle  = _flagged(REQ_THROTTLED);
+#elif defined(HAS_NEW_BIO_OP)
+//      end_remove_this
+#define _flagged(x) (bio->bi_opf & (x))
+	const bool ahead   = _flagged(REQ_RAHEAD) && rw == READ;
+	const bool barrier = false;
+	const bool syncio  = _flagged(REQ_SYNC);
+	const bool unplug  = false;
+	const bool meta    = _flagged(REQ_META);
+	const bool discard = bio_op(bio) == REQ_OP_DISCARD;
+	const bool noidle  = _flagged(REQ_THROTTLED);
+//      remove_this
 #else
 #error Cannot decode the bio flags
 #endif
+//      end_remove_this
 	const int  prio    = bio_prio(bio);
 
 	/* Transform into MARS flags
