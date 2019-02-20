@@ -301,8 +301,7 @@ sub _systemd_escape {
 }
 
 sub subst_systemd_vars {
-  my $escape = shift;
-  my ($text, $env) = make_env(@_);
+  my ($escape, $env, $text) = @_;
   my $parsed = "";
   while ($text =~ m/[$systemd_escape]([A-Za-z_][-A-Za-z0-9_]*)?[{]($match_inner)[}]/ps) {
     my $name = $1 || "";
@@ -356,14 +355,15 @@ sub subst_systemd_vars {
     $parsed .= $replac;
     $text = $rest;
   }
-  return $parsed . $text;
+  return ($env, $parsed . $text);
 }
 
 sub instantiate_systemd_unit {
   my ($cmd, $res, $template_file) = @_;
   my $basename = `basename "$template_file"`;
   chomp $basename;
-  my $replac = subst_systemd_vars(1, $cmd, $res, $basename);
+  ($basename, my $env) = make_env($cmd, $res, $basename);
+  ($env, my $replac) = subst_systemd_vars(1, $env, $basename);
   my $outfile = "$systemd_target_dir/$replac";
   chomp $outfile;
   lprint "==== Translate systemd template '$template_file' => '$outfile'\n" if $verbose;
@@ -374,7 +374,7 @@ sub instantiate_systemd_unit {
     $text = <IN>;
     close(IN);
   }
-  $text = subst_systemd_vars(0, $cmd, $res, $text);
+  ($env, $text) = subst_systemd_vars(0, $env, $text);
   if (open(IN, "< $outfile")) {
     # Check whether something has changed
     local $/;  # slurp
