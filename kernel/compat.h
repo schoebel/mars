@@ -62,4 +62,8 @@ extern int _compat_unlink(
 
 #endif /* MARS_HAS_PREPATCH */
 
+/* Various compatibility checks for upstream kernels.
+ * This is a hell.
+ */
+
 #endif /* _MARS_COMPAT */
