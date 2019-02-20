@@ -102,4 +102,10 @@ extern int _compat_unlink(
 #define HAS_NEW_BIO_OP
 #endif
 
+/* for networking */
+
+#ifndef TCP_MAX_REORDERING
+#define __HAS_IOV_ITER
+#endif
+
 #endif /* _MARS_COMPAT */

@@ -47,10 +47,6 @@
 
 // provisionary version detection
 
-#ifndef TCP_MAX_REORDERING
-#define __HAS_IOV_ITER
-#endif
-
 #ifdef sk_net_refcnt
 /* see eeb1bd5c40edb0e2fd925c8535e2fdebdbc5cef2 */
 #define __HAS_STRUCT_NET
