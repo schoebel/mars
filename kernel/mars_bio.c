@@ -42,9 +42,6 @@
 
 #include "mars_bio.h"
 //      remove_this
-#ifdef __bvec_iter_bvec
-#define HAS_BVEC_ITER
-#endif
 /* adaptation to 4246a0b63bd8f56a1469b12eafeb875b1041a451 */
 #ifndef bio_io_error
 #define HAS_BI_ERROR

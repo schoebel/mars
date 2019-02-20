@@ -66,4 +66,8 @@ extern int _compat_unlink(
  * This is a hell.
  */
 
+#ifdef __bvec_iter_bvec
+#define HAS_BVEC_ITER
+#endif
+
 #endif /* _MARS_COMPAT */
