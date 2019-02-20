@@ -23,6 +23,7 @@
 
 
 #include "lib_limiter.h"
+#include "lamport.h"
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -32,18 +33,20 @@
 int mars_limit(struct mars_limiter *lim, int amount)
 {
 	int delay = 0;
-	long long now;
+	struct lamport_time now;
 
 	if (unlikely(amount < 0))
 		amount = 0;
 
-	now = cpu_clock(raw_smp_processor_id());
+	now = get_real_lamport();
 
 	/* Compute the maximum delay along the path
 	 * down to the root of the hierarchy tree.
 	 */
 	while (lim != NULL) {
-		long long window = now - lim->lim_stamp;
+		struct lamport_time diff = lamport_time_sub(now, lim->lim_stamp);
+		s64 window = lamport_time_to_ns(&diff);
+
 		/* Sometimes, raw CPU clocks may do weired things...
 		 * Smaller windows in the denominator than 1s could fake unrealistic rates.
 		 */
@@ -64,7 +67,7 @@ int mars_limit(struct mars_limiter *lim, int amount)
 		/* Only use incremental accumulation at repeated calls, but
 		 * never after longer pauses.
 		 */
-		if (likely(lim->lim_stamp &&
+		if (likely(lim->lim_stamp.tv_sec &&
 			   window < (long long)lim->lim_max_window * (LIMITER_TIME_RESOLUTION / 1000))) {
 			long long rate_raw;
 			int rate;
@@ -99,15 +102,17 @@ int mars_limit(struct mars_limiter *lim, int amount)
 			if (window > 0) {
 				long long used_up = (long long)lim->lim_rate * window / LIMITER_TIME_RESOLUTION;
 				if (used_up > 0) {
-					lim->lim_stamp += window;
+					lamport_time_add_ns(&lim->lim_stamp, window);
 					lim->lim_accu -= used_up;
 					if (unlikely(lim->lim_accu < 0))
 						lim->lim_accu = 0;
 				}
 			}
 		} else { // reset, start over with new measurement cycle
+			struct lamport_time sub = ns_to_lamport_time(lim->lim_min_window * (LIMITER_TIME_RESOLUTION / 1000));
+
+			lim->lim_stamp = lamport_time_sub(now, sub);
 			lim->lim_accu = amount;
-			lim->lim_stamp = now - lim->lim_min_window * (LIMITER_TIME_RESOLUTION / 1000);
 			lim->lim_rate = 0;
 		}
 		lim = lim->lim_father;
@@ -133,6 +138,6 @@ void mars_limit_reset(struct mars_limiter *lim)
 {
 	if (!lim)
 		return;
-	lim->lim_stamp = 0;
+	memset(&lim->lim_stamp, 0, sizeof(lim->lim_stamp));
 	mars_limit(lim, 0);
 }

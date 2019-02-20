@@ -25,6 +25,7 @@
 #define MARS_LIB_LIMITER_H
 
 #include "brick.h"
+#include "lamport.h"
 
 #include <linux/utsname.h>
 
@@ -42,7 +43,7 @@ struct mars_limiter {
 	int lim_count;
 	int lim_total_ops;
 	int lim_total_sum;
-	long long lim_stamp;
+	struct lamport_time lim_stamp;
 	/* internal */
 	long long lim_accu;
 };
