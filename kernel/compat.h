@@ -75,4 +75,9 @@ extern int _compat_unlink(
 #define HAS_BI_ERROR
 #endif
 
+/* adapt to 4e1b2d52a80d79296a5d899d73249748dea71a53 and many others */
+#ifdef bio_op
+#define HAS_NEW_BIO_OP
+#endif
+
 #endif /* _MARS_COMPAT */

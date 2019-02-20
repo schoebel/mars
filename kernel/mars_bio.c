@@ -41,14 +41,7 @@
 #include "lib_mapfree.h"
 
 #include "mars_bio.h"
-//      remove_this
 
-/* adapt to 4e1b2d52a80d79296a5d899d73249748dea71a53 and many others */
-#ifdef bio_op
-#define HAS_NEW_BIO_OP
-#endif
-
-//      end_remove_this
 int bio_nr_requests = 1024;
 
 static struct timing_stats timings[2] = {};
