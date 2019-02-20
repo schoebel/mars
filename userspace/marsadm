@@ -230,6 +230,7 @@ my $systemd_subdir = defined($ENV{SYSTEMD_SUBDIR}) ? $ENV{SYSTEMD_SUBDIR} : "sys
 my $systemd_target_dir = defined($ENV{SYSTEMD_TARGET_DIR}) ? $ENV{SYSTEMD_TARGET_DIR} : "/run/systemd/system";
 my $systemctl = defined($ENV{SYSTEMCTL}) ? $ENV{SYSTEMCTL} : "systemctl";
 my $systemd_escape = defined($ENV{SYSTEMD_ESCAPE}) ? $ENV{SYSTEMD_ESCAPE} : "@";
+my $systemd_incape = defined($ENV{SYSTEMD_INCAPE}) ? $ENV{SYSTEMD_INCAPE} : "\\^";
 my $systemd_lock_file = defined($ENV{SYSTEMD_LOCK_FILE}) ? $ENV{SYSTEMD_LOCK_FILE} : "/tmp/systemd.lock";
 
 my @systemctl_start =
@@ -358,12 +359,43 @@ sub subst_systemd_vars {
   return ($env, $parsed . $text);
 }
 
+sub match_systemd_vars {
+  my ($env, $pattern, $text) = @_;
+  my $parsed = "";
+  while ($pattern =~ m/[$systemd_incape][{]([A-Za-z_][A-Za-z0-9_]*)[}](?:[{].*?[}])?/ps) {
+    my $name = $1;
+    my $deli = $2;
+    my $pre  = $PREMATCH;
+    my $post = $POSTMATCH;
+    $deli = "-" if (!defined($deli) || !$deli);
+    unless ($text =~ s{\A$pre(.+)(?:$deli)}{$deli}) {
+      return (undef, undef);
+    }
+    my $val = $1;
+    $$env{$name} = $val;
+    $parsed .= $pre . $val;
+    ($env, $pattern) = subst_systemd_vars(1, $env, $post);
+  }
+  unless ($text eq $pattern) {
+    return (undef, undef);
+  }
+  return ($env, $parsed . $pattern);
+}
+
 sub instantiate_systemd_unit {
-  my ($cmd, $res, $template_file) = @_;
+  my ($cmd, $res, $template_file, $target) = @_;
   my $basename = `basename "$template_file"`;
   chomp $basename;
   ($basename, my $env) = make_env($cmd, $res, $basename);
-  ($env, my $replac) = subst_systemd_vars(1, $env, $basename);
+  my $subst = $basename;
+  if ($target) {
+    ($env, $subst) = match_systemd_vars($env, $basename, $target);
+    unless ($env) {
+      lprint "==== Cannot match systemd template '$basename' => '$target'\n" if $verbose;
+      return (0, $basename);
+    }
+  }
+  ($env, my $replac) = subst_systemd_vars(1, $env, $subst);
   my $outfile = "$systemd_target_dir/$replac";
   chomp $outfile;
   lprint "==== Translate systemd template '$template_file' => '$outfile'\n" if $verbose;
@@ -530,7 +562,16 @@ sub systemd_trigger {
   my $count = 0;
   foreach my $name (sort(keys(%unit))) {
     my $template = $unit{$name};
-    if ($name =~ m/[$systemd_escape][{]res[}]/i) {
+    if ($name =~ m/[$systemd_incape].+?[{]($match_inner)[}]/i) {
+      foreach my $res (@res_list) {
+	foreach my $unit_link (glob("$mars/resource-$res/systemd-*-unit")) {
+	  my $target = get_link($unit_link);
+	  my ($nr, $file) = instantiate_systemd_unit($cmd, $res, $template, $target);
+	  $new_instances{$file} = 1;
+	  $count += $nr;
+	}
+      }
+    } elsif ($name =~ m/[$systemd_escape][{]res[}]/i) {
       foreach my $res (@res_list) {
 	my ($nr, $file) = instantiate_systemd_unit($cmd, $res, $template);
 	$new_instances{$file} = 1;
