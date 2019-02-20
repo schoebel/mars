@@ -45,15 +45,6 @@
 
 ////////////////////////////////////////////////////////////////////
 
-// provisionary version detection
-
-#ifdef sk_net_refcnt
-/* see eeb1bd5c40edb0e2fd925c8535e2fdebdbc5cef2 */
-#define __HAS_STRUCT_NET
-#endif
-
-////////////////////////////////////////////////////////////////////
-
 #define USE_BUFFERING
 
 /* Low-level network traffic

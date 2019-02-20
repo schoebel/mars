@@ -103,9 +103,15 @@ extern int _compat_unlink(
 #endif
 
 /* for networking */
+#include <net/sock.h>
 
 #ifndef TCP_MAX_REORDERING
 #define __HAS_IOV_ITER
+#endif
+
+/* see eeb1bd5c40edb0e2fd925c8535e2fdebdbc5cef2 */
+#ifdef sk_net_refcnt
+#define __HAS_STRUCT_NET
 #endif
 
 #endif /* _MARS_COMPAT */
