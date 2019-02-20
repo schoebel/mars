@@ -42,10 +42,6 @@
 
 #include "mars_bio.h"
 //      remove_this
-/* adaptation to 4246a0b63bd8f56a1469b12eafeb875b1041a451 */
-#ifndef bio_io_error
-#define HAS_BI_ERROR
-#endif
 
 /* adapt to 4e1b2d52a80d79296a5d899d73249748dea71a53 and many others */
 #ifdef bio_op
