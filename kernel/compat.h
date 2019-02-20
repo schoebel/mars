@@ -90,4 +90,11 @@ extern int _compat_unlink(
 #define HAS_BVEC_ITER
 #endif
 
+/* 54efd50bfd873e2dbf784e0b21a8027ba4299a3e and 8ae126660fddbeebb9251a174e6fa45b6ad8f932,
+ * detected via 4246a0b63bd8f56a1469b12eafeb875b1041a451
+ */
+#ifndef BIO_UPTODATE
+#define NEED_BIO_SPLIT
+#endif
+
 #endif /* _MARS_COMPAT */
