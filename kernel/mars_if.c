@@ -69,11 +69,6 @@
 #define USE_MAX_PHYS_SEGMENTS   1
 #endif
 
-/* adapt to 4e1b2d52a80d79296a5d899d73249748dea71a53 and many others */
-#ifdef bio_op
-#define HAS_NEW_BIO_OP
-#endif
-
 //      end_remove_this
 ///////////////////////// global tuning ////////////////////////
 
