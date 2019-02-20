@@ -70,9 +70,11 @@ extern int _compat_unlink(
 #define HAS_BVEC_ITER
 #endif
 
-/* adaptation to 4246a0b63bd8f56a1469b12eafeb875b1041a451 */
+/* adaptation to 4246a0b63bd8f56a1469b12eafeb875b1041a451 and 8ae126660fddbeebb9251a174e6fa45b6ad8f932 */
 #ifndef bio_io_error
 #define HAS_BI_ERROR
+#else
+#define HAS_MERGE_BVEC
 #endif
 
 /* adapt to 4e1b2d52a80d79296a5d899d73249748dea71a53 and many others */

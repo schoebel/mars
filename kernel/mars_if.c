@@ -62,12 +62,6 @@
 #include "lib_limiter.h"
 
 //      remove_this
-/* adaptation to 4246a0b63bd8f56a1469b12eafeb875b1041a451 and 8ae126660fddbeebb9251a174e6fa45b6ad8f932 */
-#ifndef bio_io_error
-#define HAS_BI_ERROR
-#else
-#define HAS_MERGE_BVEC
-#endif
 
 /* 54efd50bfd873e2dbf784e0b21a8027ba4299a3e and 8ae126660fddbeebb9251a174e6fa45b6ad8f932,
  * detected via 4246a0b63bd8f56a1469b12eafeb875b1041a451
