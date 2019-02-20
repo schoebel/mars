@@ -84,4 +84,8 @@ extern int _compat_unlink(
 #define HAS_VOID_RELEASE
 #endif
 
+#ifdef __bvec_iter_bvec
+#define HAS_BVEC_ITER
+#endif
+
 #endif /* _MARS_COMPAT */
