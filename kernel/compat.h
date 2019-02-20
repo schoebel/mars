@@ -105,6 +105,12 @@ extern int _compat_unlink(
 #endif
 #endif
 
+/* Adapt to 74d46992e0d9dee7f1f376de0d56d31614c8a17a
+ */
+#ifdef bio_set_dev
+#define MARS_HAS_SET_DEV
+#endif
+
 /* adapt to 4e1b2d52a80d79296a5d899d73249748dea71a53 and many others */
 #ifdef bio_op
 #define MARS_HAS_NEW_BIO_OP

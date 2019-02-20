@@ -251,8 +251,14 @@ int make_bio(struct bio_brick *brick, void *data, int len, loff_t pos, struct bi
 	bio->bi_size = result_len;
 	bio->bi_sector = sector;
 #endif
+#ifdef MARS_HAS_SET_DEV
 //      end_remove_this
+	bio_set_dev(bio, bdev);
+//      remove_this
+#else
 	bio->bi_bdev = bdev;
+#endif
+//      end_remove_this
 	bio->bi_private = private;
 	bio->bi_end_io = bio_callback;
 #ifndef MARS_HAS_NEW_BIO_OP
