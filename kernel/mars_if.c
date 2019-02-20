@@ -62,9 +62,6 @@
 #include "lib_limiter.h"
 
 //      remove_this
-#ifdef bio_end_sector
-#define HAS_VOID_RELEASE
-#endif
 #ifdef __bvec_iter_bvec
 #define HAS_BVEC_ITER
 #endif

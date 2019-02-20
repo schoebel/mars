@@ -80,4 +80,8 @@ extern int _compat_unlink(
 #define HAS_NEW_BIO_OP
 #endif
 
+#ifdef bio_end_sector
+#define HAS_VOID_RELEASE
+#endif
+
 #endif /* _MARS_COMPAT */
