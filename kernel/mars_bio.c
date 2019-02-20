@@ -434,14 +434,19 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref, bool cork)
 	bio_get(bio);
 
 	rw = mref->ref_rw & 1;
-	if (brick->do_noidle && !cork) {
+	if (cork) {
 // adapt to different kernel versions (TBD: improve)
+#ifdef REQ_IDLE
+		rw |= REQ_IDLE;
+#else /* sorry this went clumsy over time, adaptation to _any_ kernel is a hell */
+	} else {
 #if defined(BIO_RW_RQ_MASK) || defined(BIO_FLUSH)
 		rw |= (1 << BIO_RW_NOIDLE);
 #elif defined(REQ_NOIDLE)
 		rw |= REQ_NOIDLE;
 #else
 #warning Cannot control the NOIDLE flag
+#endif
 #endif
 	}
 	if (!mref->ref_skip_sync) {

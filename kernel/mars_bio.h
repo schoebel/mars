@@ -61,7 +61,6 @@ struct bio_brick {
 	int ra_pages;
 	int bg_threshold;
 	int bg_maxfly;
-	bool do_noidle;
 	bool do_sync;
 	bool do_unplug;
 	// readonly

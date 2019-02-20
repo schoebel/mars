@@ -354,7 +354,6 @@ int _set_server_bio_params(struct mars_brick *_brick, void *private)
 	}
 	bio_brick = (void*)_brick;
 	bio_brick->ra_pages = 0;
-	bio_brick->do_noidle = true;
 	bio_brick->do_sync = true;
 	bio_brick->do_unplug = true;
 	MARS_INF("name = '%s' path = '%s'\n", _brick->brick_name, _brick->brick_path);

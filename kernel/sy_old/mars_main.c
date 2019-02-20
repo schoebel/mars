@@ -698,7 +698,6 @@ int mars_mem_gb = 16;
 
 #define BIO_READAHEAD 0
 //#define BIO_READAHEAD 1
-#define BIO_NOIDLE true
 #define BIO_SYNC true
 #define BIO_UNPLUG true
 
@@ -816,7 +815,6 @@ int _set_bio_params(struct mars_brick *_brick, void *private)
 	}
 	bio_brick = (void*)_brick;
 	bio_brick->ra_pages = BIO_READAHEAD;
-	bio_brick->do_noidle = BIO_NOIDLE;
 	bio_brick->do_sync = BIO_SYNC;
 	bio_brick->do_unplug = BIO_UNPLUG;
 	bio_brick->killme = true;
