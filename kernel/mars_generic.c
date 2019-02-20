@@ -126,13 +126,6 @@ EXPORT_SYMBOL_GPL(mars_timespec_meta);
 
 // crypto stuff
 
-#include <linux/crypto.h>
-
-/* 896545098777564212b9e91af4c973f094649aa7 */
-#ifndef crt_hash
-#define HAS_NEW_CRYPTO
-#endif
-
 #ifdef HAS_NEW_CRYPTO
 
 /* Nor now, use shash.

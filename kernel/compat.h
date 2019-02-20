@@ -114,4 +114,12 @@ extern int _compat_unlink(
 #define __HAS_STRUCT_NET
 #endif
 
+/* for crypto stuff */
+#include <linux/crypto.h>
+
+/* 896545098777564212b9e91af4c973f094649aa7 */
+#ifndef crt_hash
+#define HAS_NEW_CRYPTO
+#endif
+
 #endif /* _MARS_COMPAT */
