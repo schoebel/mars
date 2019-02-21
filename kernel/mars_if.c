@@ -443,7 +443,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 	const bool meta    = _flagged(REQ_META);
 	const bool discard = bio_op(bio) == REQ_OP_DISCARD;
 #ifdef MARS_HAS_BIO_THROTTLED
-	const bool noidle  = bio_flagged(bio, BIO_THROTTLED);
+	const bool noidle  = !bio_flagged(bio, BIO_THROTTLED);
 #else
 	const bool noidle  = _flagged(REQ_THROTTLED);
 #endif
