@@ -136,6 +136,15 @@ extern int _compat_unlink(
 #define MARS_HAS_NEW_BIO_OP
 #endif
 
+/* for mm stuff, should disappear */
+
+/* adapt to 68e21be2916b359fd8afb536c1911dc014cfd03e
+ * detected via dea38c74cb9205341f52b8d8ae18f61247a43ea8
+ */
+#ifndef CALC_LOAD
+#include <linux/sched/mm.h>
+#endif
+
 /* for networking */
 #include <net/sock.h>
 
