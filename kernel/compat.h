@@ -130,6 +130,13 @@ extern int _compat_unlink(
 #ifndef BIO_UPTODATE
 #define NEED_BIO_SPLIT
 #endif
+/* Adapt to modification of blk_queue_split() in
+ * af67c31fba3b879b241536a48df703a2eee18ebf
+ * detected via f4560ffe8cec1361b1021d81aca6a4173f8e7c87
+ */
+#ifdef QUEUE_FLAG_QUIESCED
+#define MARS_HAS_BIO_SPLIT2
+#endif
 
 /* adapt to 4e1b2d52a80d79296a5d899d73249748dea71a53 and many others */
 #ifdef bio_op

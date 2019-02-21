@@ -899,7 +899,11 @@ blk_qc_t if_make_request(struct request_queue *q, struct bio *bio)
 void if_make_request(struct request_queue *q, struct bio *bio)
 #endif
 {
+#ifdef MARS_HAS_BIO_SPLIT2
+	blk_queue_split(q, &bio);
+#else
 	blk_queue_split(q, &bio, q->bio_split);
+#endif
 #ifdef BLK_QC_T_NONE
 	return _if_make_request(q, bio);
 #else
