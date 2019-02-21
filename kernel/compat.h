@@ -136,6 +136,12 @@ extern int _compat_unlink(
 #define MARS_HAS_NEW_BIO_OP
 #endif
 
+/* adapt to 8d2bbd4c8236e9e38e6b36ac9e2c54fdcfe5b335
+ */
+#ifdef BIO_THROTTLED
+#define MARS_HAS_BIO_THROTTLED
+#endif
+
 /* IO accounting */
 
 /* adapt to 394ffa503bc40e32d7f54a9b817264e81ce131b4
