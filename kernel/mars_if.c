@@ -1032,6 +1032,9 @@ static int if_switch(struct if_brick *brick)
 	// brick should be switched on
 	if (brick->power.button && brick->power.led_off) {
 		loff_t capacity;
+#ifdef MARS_HAS_BDI_GET
+		struct backing_dev_info *bdi;
+#endif
 
 		mars_power_led_off((void*)brick,  false);
 		brick->say_channel = get_binding(current);
@@ -1130,6 +1133,21 @@ static int if_switch(struct if_brick *brick)
 		/* we have no partitions. we contain only ourselves. */
 		input->bdev->bd_contains = input->bdev;
 
+#ifdef MARS_HAS_BDI_GET
+		bdi = input->bdev->bd_bdi;
+#ifdef MODIFY_READAHEAD
+		MARS_INF("ra_pages OLD = %lu NEW = %d\n",
+			 bdi->ra_pages, brick->readahead);
+		bdi->ra_pages = brick->readahead;
+#endif
+#ifdef USE_CONGESTED_FN
+		MARS_DBG("congested_fn\n");
+		bdi->congested_fn = mars_congested;
+		bdi->congested_data = input;
+#endif
+
+#else
+
 #ifdef MODIFY_READAHEAD
 		MARS_INF("ra_pages OLD = %lu NEW = %d\n", q->backing_dev_info.ra_pages, brick->readahead);
 		q->backing_dev_info.ra_pages = brick->readahead;
@@ -1138,6 +1156,7 @@ static int if_switch(struct if_brick *brick)
 		MARS_DBG("congested_fn\n");
 		q->backing_dev_info.congested_fn = mars_congested;
 		q->backing_dev_info.congested_data = input;
+#endif
 #endif
 //      remove_this
 #ifdef MARS_HAS_MERGE_BVEC
