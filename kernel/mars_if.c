@@ -102,13 +102,57 @@ static int device_minor = 0;
 
 ///////////////////////// linux operations ////////////////////////
 
-#ifdef part_stat_lock
+#ifdef MARS_HAS_GENERIC_BLK_ACCOUNTING
+
+/* Disbaled by default, for saving overhead */
+int mars_io_acct = 0;
+
+static
+void _if_start_io_acct(struct if_input *input, struct bio_wrapper *biow)
+{
+	struct bio *bio;
+
+	if (!mars_io_acct)
+		return;
+
+	bio = biow->bio;
+	biow->start_time = jiffies;
+	generic_start_io_acct(
+#ifdef MARS_HAS_NEW_GENERIC_BLK_ACCOUNTING
+			      input->q,
+#endif
+			      bio_data_dir(bio),
+			      bio->bi_iter.bi_size >> 9,
+			      &input->disk->part0);
+}
+
+static
+void _if_end_io_acct(struct if_input *input, struct bio_wrapper *biow)
+{
+	struct bio *bio;
+
+	if (!biow->start_time)
+		return;
+
+	bio = biow->bio;
+	generic_end_io_acct(
+#ifdef MARS_HAS_NEW_GENERIC_BLK_ACCOUNTING
+			    input->q,
+#endif
+			    bio_data_dir(bio),
+			    &input->disk->part0,
+			    biow->start_time);
+}
+
+#elif defined(MARS_HAS_OLD_BLK_ACCOUNTING)
+
 static
 void _if_start_io_acct(struct if_input *input, struct bio_wrapper *biow)
 {
 	struct bio *bio = biow->bio;
 	const int rw = bio_data_dir(bio);
 	const int cpu = part_stat_lock();
+
 	(void)cpu;
 	part_round_stats(cpu, &input->disk->part0);
 	part_stat_inc(cpu, &input->disk->part0, ios[rw]);
@@ -140,9 +184,11 @@ void _if_end_io_acct(struct if_input *input, struct bio_wrapper *biow)
 	part_stat_unlock();
 }
 
-#else // part_stat_lock
+#else // MARS_HAS_OLD_BLK_ACCOUNTING
+
 #define _if_start_io_acct(...) do {} while (0)
 #define _if_end_io_acct(...)   do {} while (0)
+
 #endif
 
 /* callback

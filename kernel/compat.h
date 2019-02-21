@@ -136,6 +136,23 @@ extern int _compat_unlink(
 #define MARS_HAS_NEW_BIO_OP
 #endif
 
+/* IO accounting */
+
+/* adapt to 394ffa503bc40e32d7f54a9b817264e81ce131b4
+ * detected via b25de9d6da49b1a8760a89672283128aa8c7
+ */
+#ifndef BIO_EOPNOTSUPP
+#define MARS_HAS_GENERIC_BLK_ACCOUNTING
+#elif defined(part_stat_lock)
+#define MARS_HAS_OLD_BLK_ACCOUNTING
+#endif
+/* adapt to d62e26b3ffd28f16ddae85a1babd0303a1a6dfb6
+ * detected via e743eb1ecd5564b5ae0a4a76c1566f748a358839
+ */
+#ifndef QUEUE_FLAG_SYNCFULL
+#define MARS_HAS_NEW_GENERIC_BLK_ACCOUNTING
+#endif
+
 /* for mm stuff, should disappear */
 
 /* adapt to 68e21be2916b359fd8afb536c1911dc014cfd03e
