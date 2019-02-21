@@ -229,17 +229,17 @@ loff_t mars_log_pos = 0;
 
 void _mars_log(char *buf, int len)
 {
-	static DECLARE_MUTEX(trace_lock);
+	static DEFINE_MUTEX(trace_lock);
 	mm_segment_t oldfs;
 	
 
 	oldfs = get_fs();
 	set_fs(get_ds());
-	down(&trace_lock);
+	mutex_lock(&trace_lock);
 
 	vfs_write(mars_log_file, buf, len, &mars_log_pos);
 
-	up(&trace_lock);
+	mutex_unlock(&trace_lock);
 	set_fs(oldfs);
 }
 EXPORT_SYMBOL_GPL(_mars_log);
