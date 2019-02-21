@@ -662,13 +662,19 @@ static
 void out_to_file(struct file *file, char *buf, int len)
 {
 	loff_t log_pos = 0;
-	mm_segment_t oldfs;
 
 	if (file) {
-		oldfs = get_fs();
+#ifdef MARS_HAS_KERNEL_READ
+	  (void)kernel_write(file,
+			     buf,
+			     len,
+			     &log_pos);
+#else
+		mm_segment_t oldfs = get_fs();
 		set_fs(get_ds());
 		(void)vfs_write(file, buf, len, &log_pos);
 		set_fs(oldfs);
+#endif
 	}
 }
 

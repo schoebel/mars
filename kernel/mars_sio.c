@@ -132,6 +132,7 @@ static void sio_ref_put(struct sio_output *output, struct mref_object *mref)
 	sio_free_mref(mref);
 }
 
+#ifndef MARS_HAS_KERNEL_READ
 // some code borrowed from the loopback driver
 
 static int transfer_none(int cmd,
@@ -156,6 +157,7 @@ static int transfer_none(int cmd,
 	cond_resched();
 	return 0;
 }
+#endif
 
 static
 int write_aops(struct sio_output *output, struct mref_object *mref)
@@ -166,7 +168,12 @@ int write_aops(struct sio_output *output, struct mref_object *mref)
 	int  len = mref->ref_len;
 	int ret = 0;
 
-
+#ifdef MARS_HAS_KERNEL_READ
+	ret = kernel_write(file,
+			   data,
+			   len,
+			   &pos);
+#else
 #ifdef USE_VFS_WRITE
 	mm_segment_t oldfs;
 
@@ -240,6 +247,7 @@ fail:
 	blk_run_address_space(mapping);
 #endif
 #endif
+#endif
 	return ret;
 }
 
@@ -248,6 +256,7 @@ struct cookie_data {
 	struct mref_object *mref;
 };
 
+#ifndef MARS_HAS_KERNEL_READ
 static int
 sio_splice_actor(struct pipe_inode_info *pipe,
 			struct pipe_buffer *buf,
@@ -283,6 +292,7 @@ sio_direct_splice_actor(struct pipe_inode_info *pipe, struct splice_desc *sd)
 {
 	return __splice_from_pipe(pipe, sd, sio_splice_actor);
 }
+#endif
 
 static 
 int read_aops(struct sio_output *output, struct mref_object *mref)
@@ -291,6 +301,12 @@ int read_aops(struct sio_output *output, struct mref_object *mref)
 	int len = mref->ref_len;
 	int ret;
 
+#ifdef MARS_HAS_KERNEL_READ
+	ret = kernel_read(output->mf->mf_filp,
+			  mref->ref_data,
+			  len,
+			  &pos);
+#else
 #ifdef USE_VFS_READ
 	mm_segment_t oldfs;
 	(void) sio_direct_splice_actor; // shut up gcc
@@ -313,6 +329,7 @@ int read_aops(struct sio_output *output, struct mref_object *mref)
 	};
 
 	ret = splice_direct_to_actor(output->mf->mf_filp, &sd, sio_direct_splice_actor);
+#endif
 #endif
 
 	if (unlikely(ret < 0)) {

@@ -230,9 +230,17 @@ loff_t mars_log_pos = 0;
 void _mars_log(char *buf, int len)
 {
 	static DEFINE_MUTEX(trace_lock);
+
+#ifdef MARS_HAS_KERNEL_READ
+	mutex_lock(&trace_lock);
+	(void)kernel_write(mars_log_file,
+			   buf,
+			   len,
+			   &mars_log_pos);
+	mutex_unlock(&trace_lock);
+#else
 	mm_segment_t oldfs;
 	
-
 	oldfs = get_fs();
 	set_fs(get_ds());
 	mutex_lock(&trace_lock);
@@ -241,6 +249,7 @@ void _mars_log(char *buf, int len)
 
 	mutex_unlock(&trace_lock);
 	set_fs(oldfs);
+#endif
 }
 EXPORT_SYMBOL_GPL(_mars_log);
 

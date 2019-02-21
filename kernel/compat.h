@@ -166,6 +166,18 @@ extern int _compat_unlink(
 #define MARS_HAS_NEW_GENERIC_BLK_ACCOUNTING
 #endif
 
+/* vfs stuff */
+
+/* Adapt to
+ * eb031849d52e61d24ba54e9d27553189ff328174 and siblings
+ * bdd1d2d3d251c65b74ac4493e08db18971c09240
+ * e13ec939e96b13e664bb6cee361cc976a0ee621a
+ * detected via e462ec50cb5fad19f6003a3d8087f4a0945dd2b1
+ */
+#ifdef SB_RDONLY
+#define MARS_HAS_KERNEL_READ
+#endif
+
 /* for mm stuff, should disappear */
 
 /* adapt to 68e21be2916b359fd8afb536c1911dc014cfd03e
