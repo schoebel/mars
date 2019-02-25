@@ -178,6 +178,13 @@ extern int _compat_unlink(
 #define MARS_HAS_KERNEL_READ
 #endif
 
+/* Adapt to fd4a0edf2a3d781c6ae07d2810776ce22302ee1c
+ * detected via 76fca90e9f3abc82114d9d02d8e14e0324a18ca2
+ */
+#ifdef IOP_DEFAULT_READLINK
+#define MARS_HAS_VFS_READLINK
+#endif
+
 /* for mm stuff, should disappear */
 
 /* adapt to 68e21be2916b359fd8afb536c1911dc014cfd03e

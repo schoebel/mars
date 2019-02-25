@@ -720,8 +720,16 @@ char *mars_readlink(const char *newpath)
 		MARS_DBG("link '%s' does not exist, status = %d\n", newpath, status);
 		goto done_fs;
 	}
+	if (unlikely(!path.dentry)) {
+		MARS_WRN("path '%s' has invalid dentry\n", newpath);
+		goto done_put;
+	}
 
+#ifdef MARS_HAS_VFS_READLINK
+	inode = d_inode(path.dentry);
+#else
 	inode = path.dentry->d_inode;
+#endif
 	if (unlikely(!inode || !S_ISLNK(inode->i_mode))) {
 		MARS_ERR("link '%s' has invalid inode\n", newpath);
 		status = -EINVAL;
@@ -736,7 +744,11 @@ char *mars_readlink(const char *newpath)
 	}
 	res = brick_string_alloc(len + 2);
 
+#ifdef MARS_HAS_VFS_READLINK
+	status = vfs_readlink(path.dentry, res, len + 1);
+#else
 	status = inode->i_op->readlink(path.dentry, res, len + 1);
+#endif
 	if (unlikely(status < 0)) {
 		MARS_ERR("cannot read link '%s', status = %d\n", newpath, status);
 	} else {
@@ -1184,13 +1196,30 @@ int get_inode(char *newpath, struct mars_dent *dent)
 			MARS_WRN("cannot read link '%s'\n", newpath);
 			goto done;
 		}
+		if (unlikely(!path.dentry)) {
+			MARS_WRN("path '%s' has invalid dentry\n", newpath);
+			goto done;
+		}
 
+#ifdef MARS_HAS_VFS_READLINK
+		inode = d_inode(path.dentry);
+#else
                 inode = path.dentry->d_inode;
+#endif
+		if (unlikely(!inode || !S_ISLNK(inode->i_mode))) {
+			MARS_ERR("link '%s' has invalid inode\n", newpath);
+			status = -EINVAL;
+			goto done_put;
+		}
 
 		status = -ENOMEM;
 		link = brick_string_alloc(len + 2);
 		MARS_IO("len = %d\n", len);
+#ifdef MARS_HAS_VFS_READLINK
+		status = vfs_readlink(path.dentry, link, len + 1);
+#else
 		status = inode->i_op->readlink(path.dentry, link, len + 1);
+#endif
 		link[len] = '\0';
 		if (status < 0 ||
 		    (dent->new_link && !strcmp(dent->new_link, link))) {
@@ -1201,6 +1230,7 @@ int get_inode(char *newpath, struct mars_dent *dent)
 			dent->old_link = dent->new_link;
 			dent->new_link = link;
 		}
+	done_put:
 		path_put(&path);
 	} else if (S_ISREG(dent->new_stat.mode) && dent->d_name && !strncmp(dent->d_name, "log-", 4)) {
 		loff_t min;
