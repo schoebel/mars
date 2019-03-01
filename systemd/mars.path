@@ -5,3 +5,6 @@ Documentation=https://github.com/schoebel/mars/docu/mars-manual.pdf
 [Path]
 PathExists=/mars/uuid
 Unit=mars.service
+
+[Install]
+WantedBy=mars.service
