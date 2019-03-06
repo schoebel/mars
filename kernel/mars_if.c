@@ -244,7 +244,6 @@ void if_endio(struct generic_callback *cb)
 		bio_endio(bio, error);
 #endif
 //      end_remove_this
-		bio_put(bio);
 		brick_mem_free(biow);
 	}
 	atomic_dec(&input->flying_count);
@@ -562,11 +561,6 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 	}
 
 	_if_start_io_acct(input, biow);
-
-	/* Get a reference to the bio.
-	 * Will be released after bio_endio().
-	 */
-	bio_get(bio);
 
 	/* FIXME: THIS IS PROVISIONARY (use event instead)
 	 */

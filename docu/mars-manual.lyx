@@ -147,7 +147,7 @@ tst@1und1.de
 \end_layout
 
 \begin_layout Date
-Version 0.1a-67
+Version 0.1a-70
 \end_layout
 
 \begin_layout Lowertitleback
@@ -47563,6 +47563,8 @@ varname
 }
 \family default
  Expands to the value of the variable.
+ This can be used both in template filenames and and in content of template
+ files.
  Predefined are the following variables:
 \end_layout
 
@@ -47634,7 +47636,11 @@ reference "par:Predefined-Variables"
 
 , and as definable by 
 \family typewriter
-%let{varname}{...}
+%let{
+\emph on
+varname
+\emph default
+}{...}
 \family default
  statements, see also sections 
 \begin_inset CommandInset ref
@@ -47671,6 +47677,109 @@ reference "chap:The-Macro-Processor"
 \end_inset
 
 , and substitutes its output.
+ Notice that systemd template variables occurring in the macro processor
+ 
+\family typewriter
+\emph on
+text
+\family default
+\emph default
+ must be accessed via the macro processor syntax 
+\family typewriter
+%{varname}
+\family default
+, because the macro processor uses 
+\family typewriter
+%
+\family default
+ as an escape symbol, while the systemd template engine uses 
+\family typewriter
+@
+\family default
+ instead.
+ This is necessary for distinction of both layers.
+ Notice that variables defined via the macro processor syntax 
+\family typewriter
+%let{varname}{value}
+\family default
+ can be afterwards accessed by the template engine via 
+\family typewriter
+@{varname}
+\family default
+ syntax, once the macro engine has finished working on 
+\family typewriter
+\emph on
+text
+\family default
+\emph default
+.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+^
+\emph on
+{varname
+\emph default
+}
+\family default
+
+\begin_inset space ~
+\end_inset
+
+or
+\begin_inset space ~
+\end_inset
+
+,
+\family typewriter
+^
+\emph on
+{varname
+\emph default
+}{
+\emph on
+regex
+\emph default
+}
+\family default
+ This can be used in template filenames only.
+ The 
+\family typewriter
+\emph on
+regex
+\family default
+\emph default
+ denotes a delimiter for scanning the filename until the delimiter is reached.
+ The matching part of the filename is assigned to 
+\family typewriter
+\emph on
+varname
+\family default
+\emph default
+, and can be used at any following
+\family typewriter
+ @{
+\emph on
+varname
+\emph default
+}
+\family default
+ substitutions, both in the rest of the filename, and in the content of
+ the file.
+ When 
+\family typewriter
+\emph on
+regex
+\family default
+\emph default
+ is omitted or empty, it defaults to 
+\family typewriter
+-
+\family default
+ (a single minus symbol) which is suitable for matching paths of mountpoints
+ as written in systemd syntax.
 \end_layout
 
 \begin_layout Description
@@ -47904,7 +48013,7 @@ systemd/
 \family default
  subdirectory.
  At the moment, the following are available (subject to further extension
- and improvements):
+ and improvements without notice):
 \end_layout
 
 \begin_layout Description
@@ -47999,7 +48108,7 @@ reference "subsec:Handover-using-systemd"
 \begin_layout Description
 
 \family typewriter
-vol-@{res}.mount
+^{unit}-@{res}.mount
 \family default
  This is one of the possible sub-ordinate targets which depend on 
 \family typewriter
@@ -48011,6 +48120,50 @@ dev-mars-@{res}.path
 marsadm set-systemd-unit mydata vol-mydata.mount
 \family default
  or similar.
+ This will automatically mount 
+\family typewriter
+/dev/mars/mydata
+\family default
+ to the mountpoint 
+\family typewriter
+/vol/mydata
+\family default
+.
+ Notice that the template notation 
+\family typewriter
+^{unit}
+\family default
+ can be used for mounting to an arbitrary mountpoint, such as
+\family typewriter
+ /another/mountdir/mydata
+\family default
+, by using the corresponding systemd template syntax in 
+\family typewriter
+marsadm set-systemd-unit mydata another-mountdir-mydata.mount
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ In general, it is good practice to have a 
+\emph on
+consistent
+\emph default
+ name scheme.
+ Always use the same name for the underlying LV (called disk in MARS terminology
+), equal to the MARS resource name, equal to the last part of the mountpoint,
+ equal to the IQN of an iSCSI export, equal to the NFS share name, equal
+ to the LXC container name, equal to the KVM/qemu virtual machine name,
+ and so on.
+ Messing around with non-systematic naming conventions can easily result
+ in a hell.
 \end_layout
 
 \begin_layout Subsection

@@ -5,6 +5,8 @@ RequiresMountsFor=/mars/uuid
 StopWhenUnneeded=false
 IgnoreOnIsolate=true
 
+ConditionPathIsSymbolicLink=/mars/uuid
+
 [Service]
 Type=oneshot
 RemainAfterExit=yes

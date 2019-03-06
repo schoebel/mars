@@ -355,7 +355,7 @@ mars0.1balpha0
 -----------------------------------
 Changelog for series 0.1:
 
-Attention! This branch will go EOL around February 2019.
+Attention! This branch will go EOL around March 2019.
 	Branch mars0.1a.y is now the new master branch, and all
 	commits from the 0.1 series will be fully merged.
 	Upgrade is easy: just rollout the new marsadm version,
@@ -370,6 +370,32 @@ Attention! This branch will go EOL around February 2019.
 	better performance, smoother, etc.
 	And even more stable, although the 0.1a releases were
 	called "beta" up to now.
+
+mars0.1stable70
+	* Critical fix: a few upper-layer kernel components are
+	  allocating struct bio on the stack. This led to stack memory
+	  corruption. If you ever had this problem, you certainly have
+	  noticed it ;) Thus it should not have affected your data.
+	  Unfortunately, I got no bug reports about this for several years.
+	  Discovered when testing compatibility to very new kernels,
+	  and now hopefully fixed.
+	* Major fixes: the systemd interface was not in a mature state.
+	  Now improved a lot. More improvements are likely to follow
+	  in the next months.
+	* Minor clarification: build for ancient kernel 2.6.32 was broken.
+	  Fixing the build was no problem, but then the resulting kernel
+	  deadlocked in certain situations (sb_mount mutex and sisters).
+	  The reason is that stacking of filesystem instances (like
+	  /vol/mydata relying on IO to /mars) is a pain in the very old
+	  kernel architecture.
+	  Any upstream kernel before 3.16 is EOL right now. Nevertheless,
+	  I am officially supporting 3.2 at the moment, and have tested it.
+	  Anyway, productive use of ancient kernels is not
+	  recommended, for various reasons.
+	  Notice that you also need old gcc versions for building such
+	  EOL kernels.
+	  Thus I decided to remove support for 2.6.32 officially.
+	  If somebody needs it _really_, please contact me.
 
 mars0.1stable69
 	* Major improvement: compatibility to upstream kernel 4.9.x.

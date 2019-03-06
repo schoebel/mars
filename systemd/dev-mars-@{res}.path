@@ -1,9 +1,12 @@
 [Unit]
 Description=MARS auto-activation of primary device /dev/mars/@{res}
-#Documentation=https://github.com/schoebel/mars/docu/mars-manual.pdf
+Documentation=https://github.com/schoebel/mars/docu/mars-manual.pdf
 Requires=mars.service
 After=mars.service
 
 [Path]
 PathExists=/dev/mars/@{res}
-Unit=vol-@escvar{res}.mount
+Unit=mnt-test-@escvar{res}.mount
+
+[Install]
+WantedBy=mars.service
