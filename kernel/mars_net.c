@@ -512,6 +512,8 @@ int _mars_send_raw(struct mars_socket *msock, const void *buf, int len)
 			break;
 		}
 
+		flush_signals(current);
+
 		len -= status;
 		buf += status;
 		sent += status;
@@ -677,6 +679,7 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 		}
 
 		if (status == -EAGAIN) {
+			flush_signals(current);
 			if (msock->s_recv_abort > 0 && ++msock->s_recv_cnt >= msock->s_recv_abort) {
 				MARS_WRN("#%d reached recv abort %d\n", msock->s_debug_nr, msock->s_recv_abort);
 				status = -EINTR;
@@ -702,6 +705,7 @@ int mars_recv_raw(struct mars_socket *msock, void *buf, int minlen, int maxlen)
 			MARS_WRN("#%d bad recvmsg, status = %d\n", msock->s_debug_nr, status);
 			goto err;
 		}
+		flush_signals(current);
 		done += status;
 		sleeptime = 1000 / HZ;
 		backoff = 0;
