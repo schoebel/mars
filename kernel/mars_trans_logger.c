@@ -2275,7 +2275,10 @@ int _do_ranking(struct trans_logger_brick *brick)
 	// check the memory situation...
 	delay_callers = false;
 	floating_mode = 1;
-	if (brick_global_memlimit >= 1024) {
+	if (atomic_read(&brick->any_fly_count) +
+	    brick->q_phase[0].q_queued + brick->q_phase[0].q_active <= 0) {
+		/* do not change floating_mode */
+	} else if (brick_global_memlimit >= 1024) {
 		int global_mem_used  = atomic64_read(&global_mshadow_used) / 1024;
 		trans_logger_mem_usage = global_mem_used;
 
