@@ -37,6 +37,10 @@
 #include "lib_timing.h"
 #include "lib_rank.h"
 
+#ifdef CONFIG_MARS_DEBUG
+#define ADDITIONAL_COUNTERS
+#endif
+
 ///////////////////////// global tuning ////////////////////////
 
 /* 0 = early completion of all writes
@@ -201,6 +205,7 @@ struct trans_logger_brick {
 	atomic_t replay_count;
 	atomic_t any_fly_count;
 	atomic_t log_fly_count;
+#ifdef ADDITIONAL_COUNTERS
 	atomic_t hash_count;
 	atomic_t mshadow_count;
 	atomic_t sshadow_count;
@@ -227,6 +232,7 @@ struct trans_logger_brick {
 	atomic_t total_round_count;
 	atomic_t total_restart_count;
 	atomic_t total_delay_count;
+#endif
 	// queues
 	struct logger_queue q_phase[LOGGER_QUEUES];
 	struct rank_data rkd[LOGGER_QUEUES];
