@@ -397,6 +397,10 @@ Attention! This branch will go EOL around March 2019.
 	And even more stable, although the 0.1a releases were
 	called "beta" up to now.
 
+mars0.1stable71
+	* Major fix: writeback at the primary was unnecessarily
+	  slow at certain situations.
+
 mars0.1stable70
 	* Critical fix: a few upper-layer kernel components are
 	  allocating struct bio on the stack. This led to stack memory
