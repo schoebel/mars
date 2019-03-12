@@ -1276,9 +1276,11 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	struct mars_global *global = cookie->global;
 	struct list_head *anchor = &global->dent_anchor;
 	struct list_head *start = anchor;
+	struct list_head *hash_anchor;
 	struct mars_dent *dent;
 	struct list_head *tmp;
 	char *newpath;
+	int hash;
 	int prefix = 0;
 	int pathlen;
 	int class;
@@ -1313,9 +1315,15 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	dent->d_serial = serial;
 	dent->d_path = newpath;
 
-	for (tmp = anchor->next; tmp != anchor; tmp = tmp->next) {
+	hash = (class + serial + d_type + pathlen * 7 + namlen * 13) % MARS_GLOBAL_HASH;
+	dent->d_hash = hash;
+	hash_anchor = &global->dent_hash_anchor[hash];
+
+	tmp = anchor->next;
+	while (tmp != anchor) {
 		struct mars_dent *test = container_of(tmp, struct mars_dent, dent_link);
 		int cmp = dent_compare(test, dent);
+
 		if (!cmp) {
 			brick_mem_free(dent);
 			dent = test;
@@ -1324,9 +1332,45 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 		// keep the list sorted. find the next smallest member.
 		if (cmp > 0)
 			break;
+
+		for (;;) {
+			struct list_head *hash_try;
+			struct list_head *hash_try_anchor;
+			int hash_try_index = test->d_hash;
+
+			if (unlikely(hash_try_index < 0 || hash_try_index >= MARS_GLOBAL_HASH)) {
+				MARS_ERR("bad hash index %d\n", hash_try_index);
+				break;
+			}
+			hash_try_anchor =  &global->dent_hash_anchor[hash_try_index];
+			hash_try = test->dent_hash_link.next;
+			if (hash_try == hash_try_anchor ||
+			    hash_try == tmp->next ||
+			    hash_try == &test->dent_hash_link)
+				break;
+
+			test = container_of(hash_try,
+					    struct mars_dent,
+					    dent_hash_link);
+			if (unlikely(test->d_hash != hash_try_index)) {
+				MARS_ERR("bad target hash index %d\n", test->d_hash);
+				break;
+			}
+			cmp = dent_compare(test, dent);
+			if (!cmp) {
+				brick_mem_free(dent);
+				dent = test;
+				goto found;
+			}
+			if (cmp >= 0)
+				break;
+			tmp = &test->dent_link;
+		}
 		start = tmp;
+		tmp = tmp->next;
 	}
 
+	/* not found: finish dent and insert into data stuctures */
 	dent->d_name = brick_string_alloc(namlen + 1);
 	if (unlikely(!dent->d_name))
 		goto err_mem2;
@@ -1344,6 +1388,17 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	INIT_LIST_HEAD(&dent->brick_list);
 
 	list_add(&dent->dent_link, start);
+
+	start = hash_anchor;
+	for (tmp = hash_anchor->next; tmp != hash_anchor; tmp = tmp->next) {
+		struct mars_dent *test = container_of(tmp, struct mars_dent, dent_hash_link);
+		int cmp = dent_compare(test, dent);
+
+		if (cmp >= 0)
+			break;
+		start = tmp;
+	}
+	list_add(&dent->dent_hash_link, start);
 
 found:
 	dent->d_type = d_type;
