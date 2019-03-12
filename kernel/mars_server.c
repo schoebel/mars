@@ -372,6 +372,7 @@ int handler_thread(void *data)
 {
 	struct mars_global handler_global = {
 		.dent_anchor = LIST_HEAD_INIT(handler_global.dent_anchor),
+		.dent_quick_anchor = LIST_HEAD_INIT(handler_global.dent_quick_anchor),
 		.brick_anchor = LIST_HEAD_INIT(handler_global.brick_anchor),
 		.global_power = {
 			.button = true,

@@ -100,7 +100,7 @@ int mars_recv_dent_list(struct mars_socket *sock, struct list_head *anchor)
 
 		status = mars_recv_struct(sock, dent, mars_dent_meta);
 		if (status <= 0) {
-			mars_free_dent(dent);
+			mars_free_dent(NULL, dent);
 			goto done;
 		}
 		list_add_tail(&dent->dent_link, anchor);

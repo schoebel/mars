@@ -1575,7 +1575,7 @@ restart:
 
 		MARS_DBG("killing dent '%s'\n", dent->d_path);
 		list_del_init(tmp);
-		mars_free_dent(dent);
+		mars_free_dent(NULL, dent);
 	}
 	up_write(&global->dent_mutex);
 
@@ -1636,17 +1636,20 @@ done:
 }
 EXPORT_SYMBOL_GPL(mars_dent_work);
 
-struct mars_dent *_mars_find_dent(struct mars_global *global, const char *path)
+static inline
+struct mars_dent *_mars_find_dent(struct list_head *anchor, const char *path, bool use_dent_link)
 {
 	struct mars_dent *res = NULL;
 	struct list_head *tmp;
 
-	if (!rwsem_is_locked(&global->dent_mutex)) {
-		MARS_ERR("dent_mutex not held!\n");
-	}
+	for (tmp = anchor->next; tmp != anchor; tmp = tmp->next) {
+		struct mars_dent *tmp_dent;
 
-	for (tmp = global->dent_anchor.next; tmp != &global->dent_anchor; tmp = tmp->next) {
-		struct mars_dent *tmp_dent = container_of(tmp, struct mars_dent, dent_link);
+		if (use_dent_link)
+			tmp_dent = container_of(tmp, struct mars_dent, dent_link);
+		else
+			tmp_dent = container_of(tmp, struct mars_dent, dent_quick_link);
+
 		if (!strcmp(tmp_dent->d_path, path)) {
 			res = tmp_dent;
 			break;
@@ -1655,34 +1658,54 @@ struct mars_dent *_mars_find_dent(struct mars_global *global, const char *path)
 
 	return res;
 }
-EXPORT_SYMBOL_GPL(_mars_find_dent);
 
 struct mars_dent *mars_find_dent(struct mars_global *global, const char *path)
 {
 	struct mars_dent *res;
+
 	if (!global)
 		return NULL;
+
 	down_read(&global->dent_mutex);
-	res = _mars_find_dent(global, path);
+	res = _mars_find_dent(&global->dent_quick_anchor, path, false);
 	up_read(&global->dent_mutex);
+	if (res)
+		return res;
+
+	down_write(&global->dent_mutex);
+	res = _mars_find_dent(&global->dent_quick_anchor, path, false);
+	if (!res) {
+		res = _mars_find_dent(&global->dent_anchor, path, true);
+		if (res) {
+			list_del_init(&res->dent_quick_link);
+			list_add(&res->dent_quick_link, &global->dent_quick_anchor);
+		}
+	}
+	up_write(&global->dent_mutex);
 	return res;
 }
 EXPORT_SYMBOL_GPL(mars_find_dent);
 
-void mars_kill_dent(struct mars_dent *dent)
+void mars_kill_dent(struct mars_global *global, struct mars_dent *dent)
 {
+	if (global)
+		down_write(&global->dent_mutex);
+	list_del_init(&dent->dent_link);
+	list_del_init(&dent->dent_quick_link);
+	if (global)
+		up_write(&global->dent_mutex);
 	dent->d_killme = true;
-	mars_kill_brick_all(NULL, &dent->brick_list, true);
+	mars_kill_brick_all(global, &dent->brick_list, true);
 }
 EXPORT_SYMBOL_GPL(mars_kill_dent);
 
-void mars_free_dent(struct mars_dent *dent)
+void mars_free_dent(struct mars_global *global, struct mars_dent *dent)
 {
 	int i;
 	
 	MARS_IO("%p path='%s'\n", dent, dent->d_path);
 
-	mars_kill_dent(dent);
+	mars_kill_dent(global, dent);
 
 	CHECK_HEAD_EMPTY(&dent->dent_link);
 	CHECK_HEAD_EMPTY(&dent->dent_quick_link);
@@ -1717,8 +1740,10 @@ void mars_free_dent_all(struct mars_global *global, struct list_head *anchor)
 	/* Needs to be done in reverse order because later d_parent pointers may
 	 * reference earlier list members.
 	 */
-	if (global)
+	if (global) {
 		down_write(&global->dent_mutex);
+		list_del_init(&global->dent_quick_anchor);
+	}
 	list_replace_init(anchor, &tmp_list);
 	if (global)
 		up_write(&global->dent_mutex);
@@ -1730,7 +1755,7 @@ void mars_free_dent_all(struct mars_global *global, struct list_head *anchor)
 		list_del_init(&dent->dent_link);
 		list_del_init(&dent->dent_quick_link);
 		MARS_IO("freeing dent %p\n", dent);
-		mars_free_dent(dent);
+		mars_free_dent(global, dent);
 	}
 }
 EXPORT_SYMBOL_GPL(mars_free_dent_all);

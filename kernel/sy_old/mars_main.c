@@ -2409,6 +2409,7 @@ int peer_thread(void *data)
 
 			list_replace_init(&peer->remote_dent_list, &old_list);
 			list_replace_init(&tmp_global.dent_anchor, &peer->remote_dent_list);
+			list_del_init(&tmp_global.dent_quick_anchor);
 
 			mutex_unlock(&peer->peer_lock);
 
@@ -2416,7 +2417,7 @@ int peer_thread(void *data)
 
 			mars_trigger();
 
-			mars_free_dent_all(NULL, &old_list);
+			mars_free_dent_all(&tmp_global, &old_list);
 		}
 
 		brick_string_free(cmd.cmd_str1);
@@ -2446,7 +2447,7 @@ int peer_thread(void *data)
 
 	free_and_restart:
 		brick_string_free(cmd.cmd_str1);
-		mars_free_dent_all(NULL, &tmp_global.dent_anchor);
+		mars_free_dent_all(&tmp_global, &tmp_global.dent_anchor);
 		/* additional threads should give up immediately */
 		if (peer->do_additional && !peer->do_communicate)
 			break;
@@ -2751,7 +2752,7 @@ int kill_any(void *buf, struct mars_dent *dent)
 	}
 
 	MARS_DBG("killing dent = '%s'\n", dent->d_path);
-	mars_kill_dent(dent);
+	mars_kill_dent(global, dent);
 	return 1;
 }
 
