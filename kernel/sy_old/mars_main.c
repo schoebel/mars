@@ -2244,6 +2244,7 @@ int peer_thread(void *data)
         while (peer_thead_should_run(peer)) {
 		struct mars_global tmp_global = {
 			.dent_anchor = LIST_HEAD_INIT(tmp_global.dent_anchor),
+			.dent_quick_anchor = LIST_HEAD_INIT(tmp_global.dent_quick_anchor),
 			.brick_anchor = LIST_HEAD_INIT(tmp_global.brick_anchor),
 			.global_power = {
 				.button = true,
@@ -5897,6 +5898,7 @@ static int main_worker(struct mars_global *global, struct mars_dent *dent, bool 
 
 static struct mars_global _global = {
 	.dent_anchor = LIST_HEAD_INIT(_global.dent_anchor),
+	.dent_quick_anchor = LIST_HEAD_INIT(_global.dent_quick_anchor),
 	.brick_anchor = LIST_HEAD_INIT(_global.brick_anchor),
 	.global_power = {
 		.button = true,
