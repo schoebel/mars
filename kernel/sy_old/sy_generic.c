@@ -1637,40 +1637,6 @@ struct mars_dent *mars_find_dent(struct mars_global *global, const char *path)
 }
 EXPORT_SYMBOL_GPL(mars_find_dent);
 
-int mars_find_dent_all(struct mars_global *global, char *prefix, struct mars_dent ***table)
-{
-	int max = 1024; // provisionary
-	int count = 0;
-	struct list_head *tmp;
-	struct mars_dent **res = brick_zmem_alloc(max * sizeof(void*));
-	int prefix_len = strlen(prefix);
-
-	*table = res;
-	if (unlikely(!res || !global))
-		goto done;
-
-	down_read(&global->dent_mutex);
-	for (tmp = global->dent_anchor.next; tmp != &global->dent_anchor; tmp = tmp->next) {
-		struct mars_dent *tmp_dent = container_of(tmp, struct mars_dent, dent_link);
-		int this_len;
-		if (!tmp_dent->d_path) {
-			continue;
-		}
-		this_len = strlen(tmp_dent->d_path);
-		if (this_len < prefix_len || strncmp(tmp_dent->d_path, prefix, prefix_len)) {
-			continue;
-		}
-		res[count++] = tmp_dent;
-		if (count >= max)
-			break;
-	}
-	up_read(&global->dent_mutex);
-
-done:
-	return count;
-}
-EXPORT_SYMBOL_GPL(mars_find_dent_all);
-
 void mars_kill_dent(struct mars_dent *dent)
 {
 	dent->d_killme = true;
