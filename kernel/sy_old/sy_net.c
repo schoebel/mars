@@ -95,6 +95,7 @@ int mars_recv_dent_list(struct mars_socket *sock, struct list_head *anchor)
 		//MARS_IO("\n");
 
 		INIT_LIST_HEAD(&dent->dent_link);
+		INIT_LIST_HEAD(&dent->dent_hash_link);
 		INIT_LIST_HEAD(&dent->dent_quick_link);
 		INIT_LIST_HEAD(&dent->brick_list);
 

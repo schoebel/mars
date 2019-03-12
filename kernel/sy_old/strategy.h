@@ -68,6 +68,7 @@ extern char *my_id(void);
 
 #define MARS_DENT(TYPE)							\
 	struct list_head dent_link;					\
+	struct list_head dent_hash_link;				\
 	struct list_head dent_quick_link;				\
 	struct list_head brick_list;					\
 	struct TYPE *d_parent;						\
@@ -103,6 +104,8 @@ struct mars_dent {
 extern const struct meta mars_kstat_meta[];
 extern const struct meta mars_dent_meta[];
 
+#define MARS_GLOBAL_HASH 32
+
 struct mars_global {
 	struct rw_semaphore dent_mutex;
 	struct rw_semaphore brick_mutex;
@@ -111,6 +114,7 @@ struct mars_global {
 	struct list_head dent_quick_anchor;
 	struct list_head brick_anchor;
 	wait_queue_head_t main_event;
+	struct list_head dent_hash_anchor[MARS_GLOBAL_HASH];
 	int global_version;
 	int deleted_my_border;
 	int old_deleted_my_border;

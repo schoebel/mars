@@ -385,10 +385,13 @@ int handler_thread(void *data)
 	bool ok = mars_get_socket(sock);
 	unsigned long statist_jiffies = jiffies;
 	int debug_nr;
+	int i;
 	int status = -EINVAL;
 
 	init_rwsem(&handler_global.dent_mutex);
 	init_rwsem(&handler_global.brick_mutex);
+	for (i = 0; i < MARS_GLOBAL_HASH; i++)
+		INIT_LIST_HEAD(&handler_global.dent_hash_anchor[i]);
 
 	MARS_DBG("#%d --------------- handler_thread starting on socket %p\n", sock->s_debug_nr, sock);
 	if (!ok)

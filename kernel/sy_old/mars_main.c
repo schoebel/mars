@@ -2255,9 +2255,12 @@ int peer_thread(void *data)
 		struct mars_cmd cmd = {
 			.cmd_int1 = peer->maxdepth,
 		};
+		int i;
 
 		init_rwsem(&tmp_global.dent_mutex);
 		init_rwsem(&tmp_global.brick_mutex);
+		for (i = 0; i < MARS_GLOBAL_HASH; i++)
+			INIT_LIST_HEAD(&tmp_global.dent_hash_anchor[i]);
 
 		if (likely(repeated)) {
 			report_peer_connection(peer_pairs, !peer->do_communicate);
@@ -5911,10 +5914,13 @@ static int _main_thread(void *data)
 {
 	long long last_rollover = jiffies;
 	char *id = my_id();
+	int i;
 	int status = 0;
 
 	init_rwsem(&_global.dent_mutex);
 	init_rwsem(&_global.brick_mutex);
+	for (i = 0; i < MARS_GLOBAL_HASH; i++)
+		INIT_LIST_HEAD(&_global.dent_hash_anchor[i]);
 
 	mars_global = &_global;
 

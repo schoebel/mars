@@ -1339,6 +1339,7 @@ int mars_filler(void *__buf, const char *name, int namlen, loff_t offset,
 	newpath = NULL;
 
 	INIT_LIST_HEAD(&dent->dent_link);
+	INIT_LIST_HEAD(&dent->dent_hash_link);
 	INIT_LIST_HEAD(&dent->dent_quick_link);
 	INIT_LIST_HEAD(&dent->brick_list);
 
@@ -1691,6 +1692,7 @@ void mars_kill_dent(struct mars_global *global, struct mars_dent *dent)
 	if (global)
 		down_write(&global->dent_mutex);
 	list_del_init(&dent->dent_link);
+	list_del_init(&dent->dent_hash_link);
 	list_del_init(&dent->dent_quick_link);
 	if (global)
 		up_write(&global->dent_mutex);
@@ -1708,6 +1710,7 @@ void mars_free_dent(struct mars_global *global, struct mars_dent *dent)
 	mars_kill_dent(global, dent);
 
 	CHECK_HEAD_EMPTY(&dent->dent_link);
+	CHECK_HEAD_EMPTY(&dent->dent_hash_link);
 	CHECK_HEAD_EMPTY(&dent->dent_quick_link);
 	CHECK_HEAD_EMPTY(&dent->brick_list);
 
@@ -1753,6 +1756,7 @@ void mars_free_dent_all(struct mars_global *global, struct list_head *anchor)
 
 		dent = container_of(tmp_list.prev, struct mars_dent, dent_link);
 		list_del_init(&dent->dent_link);
+		list_del_init(&dent->dent_hash_link);
 		list_del_init(&dent->dent_quick_link);
 		MARS_IO("freeing dent %p\n", dent);
 		mars_free_dent(global, dent);
