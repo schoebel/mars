@@ -679,7 +679,7 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 {
 	struct client_brick *brick = output->brick;
 	struct list_head *tmp;
-	struct list_head *next;
+	struct list_head *prev;
 	LIST_HEAD(tmp_list);
 	long io_timeout = _compute_timeout(brick);
 	int i;
@@ -710,14 +710,14 @@ void _do_timeout(struct client_output *output, struct list_head *anchor, int *ro
 	io_timeout *= HZ;
 	
 	mutex_lock(&output->mutex);
-	for (tmp = anchor->next, next = tmp->next; tmp != anchor; tmp = next, next = tmp->next) {
+	for (tmp = anchor->prev, prev = tmp->prev; tmp != anchor; tmp = prev, prev = tmp->prev) {
 		struct client_mref_aspect *mref_a;
 
 		mref_a = container_of(tmp, struct client_mref_aspect, io_head);
 		
 		if (!force &&
 		    !time_is_before_jiffies(mref_a->submit_jiffies + io_timeout)) {
-			continue;
+			break;
 		}
 		
 		list_del_init(&mref_a->hash_head);
@@ -896,7 +896,7 @@ static int sender_thread(void *data)
 		}
 
 		mutex_lock(&output->mutex);
-		list_add(tmp, &ch->wait_list);
+		list_add_tail(tmp, &ch->wait_list);
 		// notice: hash_head is already there!
 		mutex_unlock(&output->mutex);
 
