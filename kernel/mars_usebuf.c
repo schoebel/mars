@@ -89,15 +89,15 @@ static void _usebuf_endio(struct generic_callback *cb)
 	CHECK_PTR(sub_mref, done);
 
 	if (mref->ref_data != sub_mref->ref_data && cb->cb_error >= 0) {
-		if (sub_mref->ref_may_write == 0) {
+		if (!(sub_mref->ref_flags & MREF_MAY_WRITE)) {
 			if (sub_mref->ref_flags & MREF_UPTODATE) {
 				_usebuf_copy(mref, sub_mref, 0);
 				mref->ref_flags |= MREF_UPTODATE;
 			}
 #ifndef FAKE_ALL
-		} else if (sub_mref->ref_rw == 0) {
+		} else if (!(sub_mref->ref_flags & MREF_WRITE)) {
 			MARS_IO("re-kick %p\n", sub_mref);
-			sub_mref->ref_rw = 1;
+			sub_mref->ref_flags |= MREF_WRITE;
 			_usebuf_copy(mref, sub_mref, 1);
 			mref->ref_flags |= MREF_UPTODATE;
 			GENERIC_INPUT_CALL(mref_a->input, mref_io, sub_mref);
@@ -158,7 +158,7 @@ static int usebuf_ref_get(struct usebuf_output *output, struct mref_object *mref
 		mref_a->sub_mref_a = sub_mref_a;
 		sub_mref->ref_pos = mref->ref_pos;
 		sub_mref->ref_len = mref->ref_len;
-		sub_mref->ref_may_write = mref->ref_may_write;
+		sub_mref->ref_flags = mref->ref_flags & MREF_MAY_WRITE;
 #ifdef DIRECT_IO // shortcut solely for testing: do direct IO
 		if (!mref->ref_data)
 			MARS_ERR("NULL.......\n");
@@ -253,26 +253,26 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mref_object *mref
 		goto err;
 	}
 
-	if (mref->ref_rw != 0 && sub_mref->ref_may_write == 0) {
+	if ((mref->ref_flags % MREF_WRITE) && !(sub_mref->ref_flags & MREF_MAY_WRITE)) {
 		MARS_ERR("mref_may_write was not set before\n");
 		goto err;
 	}
 
 	_mref_get(mref);
 
-	sub_mref->ref_rw = mref->ref_rw;
+	sub_mref->ref_flags |= mref->ref_flags & MREF_WRITE;
 	sub_mref->ref_len = mref->ref_len;
 	mref_a->input = input;
 	/* Optimization: when buffered IO is used and buffer is already
 	 * uptodate, skip real IO operation.
 	 */
-	if (mref->ref_rw != 0) {
+	if (mref->ref_flags & MREF_WRITE) {
 #ifdef DIRECT_WRITE
-		sub_mref->ref_rw = 1;
+		sub_mref->ref_flags |= MREF_WRITE;
 #else // normal case
-		sub_mref->ref_rw = 0;
+		sub_mref->ref_flags &= ~MREF_WRITE;
 		if (sub_mref->ref_flags & MREF_UPTODATE) {
-			sub_mref->ref_rw = 1;
+			sub_mref->ref_flags |= MREF_WRITE;
 		}
 #endif
 	} else if (sub_mref->ref_flags & MREF_UPTODATE) {
@@ -281,7 +281,7 @@ static void usebuf_ref_io(struct usebuf_output *output, struct mref_object *mref
 		return;
 	}
 	if (mref->ref_data != sub_mref->ref_data) {
-		if (sub_mref->ref_rw != 0) {
+		if (sub_mref->ref_flags & MREF_WRITE) {
 			_usebuf_copy(mref, sub_mref, 1);
 			mref->ref_flags |= MREF_UPTODATE;
 		}

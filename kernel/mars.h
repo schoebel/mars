@@ -153,11 +153,15 @@ enum _MREF_FLAGS {
 	_MREF_UPTODATE,
 	_MREF_READING,
 	_MREF_WRITING,
+	_MREF_WRITE,
+	_MREF_MAY_WRITE,
 };
 
 #define MREF_UPTODATE        (1UL << _MREF_UPTODATE)
 #define MREF_READING         (1UL << _MREF_READING)
 #define MREF_WRITING         (1UL << _MREF_WRITING)
+#define MREF_WRITE           (1UL << _MREF_WRITE)
+#define MREF_MAY_WRITE       (1UL << _MREF_MAY_WRITE)
 
 #define MREF_OBJECT(OBJTYPE)						\
 	CALLBACK_OBJECT(OBJTYPE);					\
@@ -165,7 +169,6 @@ enum _MREF_FLAGS {
 	void  *ref_data;         /* preset to NULL for buffered IO */	\
 	loff_t ref_pos;							\
 	int    ref_len;							\
-	int    ref_may_write;						\
 	int    ref_prio;						\
 	int    ref_timeout;						\
 	int    ref_cs_mode; /* 0 = off, 1 = checksum + data, 2 = checksum only */	\
@@ -174,13 +177,15 @@ enum _MREF_FLAGS {
 	/* maintained by the ref implementation, readable for callers */ \
 	loff_t ref_total_size; /* just for info, need not be implemented */ \
 	unsigned char ref_checksum[16];					\
-	int    ref_rw;							\
 	int    ref_id; /* not mandatory; may be used for identification */ \
 	bool   ref_skip_sync; /* skip sync for this particular mref */	\
 	/* maintained by the ref implementation, incrementable for	\
 	 * callers (but not decrementable! use ref_put()) */		\
 	bool   ref_initialized; /* internally used for checking */	\
 	tatomic_t ref_count;						\
+	/* deprecated, to be removed in future */			\
+	int    ref_rw;							\
+	int    ref_may_write;						\
 	/* internal */							\
 	atomic_trace_t ref_at;						\
 	TRACING_INFO;

@@ -518,7 +518,7 @@ again:
 		/* Important optimization: treat whole buffer as uptodate
 		 * upon full write.
 		 */
-		if (mref->ref_may_write != READ &&
+		if ((mref->ref_flags & MREF_MAY_WRITE) &&
 		   ((!base_offset && mref->ref_len >= brick->backing_size) ||
 		    (mref->ref_pos >= brick->base_info.current_size && brick->base_info.current_size > 0))) {
 			new->bf_flags |= MREF_UPTODATE;
@@ -603,7 +603,8 @@ static void buf_ref_put(struct buf_output *output, struct mref_object *mref)
 
 static void _buf_endio(struct generic_callback *cb);
 
-static int _buf_make_io(struct buf_brick *brick, struct buf_head *bf, void *start_data, loff_t start_pos, int start_len, int rw)
+static int _buf_make_io(struct buf_brick *brick, struct buf_head *bf, void *start_data,
+			loff_t start_pos, int start_len, __u32 ref_flags)
 {
 	struct buf_input *input;
 	int status = EINVAL;
@@ -629,7 +630,8 @@ static int _buf_make_io(struct buf_brick *brick, struct buf_head *bf, void *star
 	}
 #endif
 
-	MARS_DBG("bf = %p rw = %d start = %lld len = %d flags = %x\n", bf, rw, start_pos, start_len, bf->bf_flags);
+	MARS_DBG("bf = %p %ux start = %lld len = %d flags = %x\n", bf,
+		 ref_flags, start_pos, start_len, bf->bf_flags);
 
 	atomic_set(&bf->bf_io_count, 0);
 	status = -ENOMEM;
@@ -655,8 +657,7 @@ static int _buf_make_io(struct buf_brick *brick, struct buf_head *bf, void *star
 
 		mref->ref_pos = start_pos;
 		mref->ref_len = start_len;
-		mref->ref_may_write = rw;
-		mref->ref_rw = rw;
+		mref->ref_flags = ref_flags;
 		mref->ref_data = start_data;
 
 		status = GENERIC_INPUT_CALL(input, mref_get, mref);
@@ -840,7 +841,7 @@ static void _buf_endio(struct generic_callback *cb)
 
 	if (start_len) {
 		MARS_DBG("ATTENTION restart %d\n", start_len);
-		_buf_make_io(brick, bf, start_data, start_pos, start_len, WRITE);
+		_buf_make_io(brick, bf, start_data, start_pos, start_len, MREF_WRITE);
 	}
 	// drop the extra reference from above
 	_bf_put(bf);
@@ -886,11 +887,12 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 	_mref_get(mref);
 	CHECK_ATOMIC(&bf->bf_hash_count, 1);
 
-	MARS_DBG("IO mref=%p rw=%d bf=%p flags=%x\n", mref, mref->ref_rw, bf, bf->bf_flags);
+	MARS_DBG("IO mref=%p %d bf=%p flags=%x\n", mref, mref->ref_flags,
+		 bf, bf->bf_flags);
 
-	if (mref->ref_rw != READ) {
+	if (mref->ref_flags & MREF_WRITE) {
 		loff_t end;
-		if (unlikely(mref->ref_may_write == READ)) {
+		if (unlikely(!(mref->ref_flags & MREF_MAY_WRITE))) {
 			MARS_ERR("sorry, you have forgotten to set ref_may_write\n");
 			goto callback;
 		}
@@ -920,7 +922,7 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 		goto already_done;
 	}
 
-	if (mref->ref_rw != 0) { // WRITE
+	if (mref->ref_flags & MREF_WRITE) {
 #ifdef FAKE_WRITES
 		bf->bf_flags |= MREF_UPTODATE;
 		goto already_done;
@@ -980,7 +982,7 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 	if (likely(delay)) {
 		atomic_inc(&brick->nr_io_pending);
 		atomic_inc(&brick->io_count);
-		if (mref->ref_rw != 0)
+		if (mref->ref_flags & MREF_WRITE)
 			atomic_inc(&brick->write_count);
 	}
 
@@ -991,7 +993,7 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 		goto no_callback;
 	}
 
-	status = _buf_make_io(brick, bf, start_data, start_pos, start_len, mref->ref_rw);
+	status = _buf_make_io(brick, bf, start_data, start_pos, start_len, mref->ref_flags);
 	if (likely(status >= 0)) {
 		/* No immediate callback, this time.
 		 * Callbacks will be called later from _bf_endio().

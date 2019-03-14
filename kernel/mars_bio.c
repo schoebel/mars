@@ -433,7 +433,7 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref, bool cork)
 
 	bio_get(bio);
 
-	rw = mref->ref_rw & 1;
+	rw = (mref->ref_flags & MREF_WRITE) ? WRITE : READ;
 	if (cork) {
 // adapt to different kernel versions (TBD: improve)
 #ifdef REQ_IDLE
@@ -551,7 +551,8 @@ void bio_ref_io(struct bio_output *output, struct mref_object *mref)
 	atomic_inc(&mars_global_io_flying);
 
 	if (mref->ref_prio == MARS_PRIO_LOW ||
-	    (mref->ref_prio == MARS_PRIO_NORMAL && mref->ref_rw)) {
+	    (mref->ref_prio == MARS_PRIO_NORMAL &&
+	     (mref->ref_flags & MREF_WRITE))) {
 		struct bio_mref_aspect *mref_a = bio_mref_get_aspect(output->brick, mref);
 		struct bio_brick *brick = output->brick;
 		unsigned long flags;
@@ -641,6 +642,7 @@ int bio_response_thread(void *data)
 			struct bio_mref_aspect *mref_a;
 			struct mref_object *mref;
 			unsigned long long latency;
+			int rw;
 			int code;
 
 			if (list_empty(&tmp_list)) {
@@ -658,10 +660,10 @@ int bio_response_thread(void *data)
 
 			mref_a = container_of(tmp, struct bio_mref_aspect, io_head);
 			mref = mref_a->object;
+			rw = mref->ref_flags & MREF_WRITE ? 1 : 0;
 
-			
 			latency = cpu_clock(raw_smp_processor_id()) - mref_a->start_stamp;
-			threshold_check(&bio_io_threshold[mref->ref_rw & 1], latency);
+			threshold_check(&bio_io_threshold[rw], latency);
 
 			code = mref_a->status_code;
 #ifdef IO_DEBUGGING

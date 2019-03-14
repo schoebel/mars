@@ -1209,6 +1209,18 @@ int _mars_recv_cmd(struct mars_socket *msock, struct mars_cmd *cmd, int line)
 	return status;
 }
 
+/* This should be removed some day
+ */
+static void _send_deprecated(struct mref_object *mref)
+{
+	/* compatibility to old protocol */
+	if (mref->ref_flags & MREF_WRITE)
+		mref->ref_rw = 1;
+	if (mref->ref_flags & MREF_MAY_WRITE)
+		mref->ref_may_write = 1;
+
+}
+
 int mars_send_mref(struct mars_socket *msock, struct mref_object *mref, bool cork)
 {
 	struct mars_cmd cmd = {
@@ -1218,7 +1230,10 @@ int mars_send_mref(struct mars_socket *msock, struct mref_object *mref, bool cor
 	int seq = 0;
 	int status;
 
-	if (mref->ref_rw != 0 && mref->ref_data && mref->ref_cs_mode < 2)
+	/* compatibility to old protocol */
+	_send_deprecated(mref);
+
+	if ((mref->ref_flags & MREF_WRITE) && mref->ref_data && mref->ref_cs_mode < 2)
 		cmd.cmd_code |= CMD_FLAG_HAS_DATA;
 
 	if (!cork || !msock->s_pos)
@@ -1241,6 +1256,21 @@ done:
 }
 EXPORT_SYMBOL_GPL(mars_send_mref);
 
+/* This should be removed some day
+ */
+static void _recv_deprecated(struct mref_object *mref)
+{
+	/* compatibility to old protocol */
+	if (mref->ref_rw) {
+		mref->ref_rw = 0;
+		mref->ref_flags |= MREF_WRITE;
+	}
+	if (mref->ref_may_write) {
+		mref->ref_may_write = 0;
+		mref->ref_flags |= MREF_MAY_WRITE;
+	}
+}
+
 int mars_recv_mref(struct mars_socket *msock, struct mref_object *mref, struct mars_cmd *cmd)
 {
 	int status;
@@ -1248,6 +1278,9 @@ int mars_recv_mref(struct mars_socket *msock, struct mref_object *mref, struct m
 	status = desc_recv_struct(msock, mref, mars_mref_meta, __LINE__);
 	if (status < 0)
 		goto done;
+
+	/* compatibility to old protocol */
+	_recv_deprecated(mref);
 
 	if (cmd->cmd_stamp.tv_sec)
 		set_lamport_nonstrict(&cmd->cmd_stamp);
@@ -1277,7 +1310,12 @@ int mars_send_cb(struct mars_socket *msock, struct mref_object *mref, bool cork)
 	int seq = 0;
 	int status;
 
-	if (mref->ref_rw == 0 && mref->ref_data && mref->ref_cs_mode < 2)
+	/* compatibility to old protocol */
+	_send_deprecated(mref);
+
+	if (!(mref->ref_flags & MREF_WRITE) &&
+	    mref->ref_data &&
+	    mref->ref_cs_mode < 2)
 		cmd.cmd_code |= CMD_FLAG_HAS_DATA;
 
 	if (!cork || !msock->s_pos)
@@ -1308,6 +1346,9 @@ int mars_recv_cb(struct mars_socket *msock, struct mref_object *mref, struct mar
 	status = desc_recv_struct(msock, mref, mars_mref_meta, __LINE__);
 	if (status < 0)
 		goto done;
+
+	/* compatibility to old protocol */
+	_recv_deprecated(mref);
 
 	if (cmd->cmd_stamp.tv_sec)
 		set_lamport_nonstrict(&cmd->cmd_stamp);

@@ -451,7 +451,6 @@ static int client_ref_get(struct client_output *output, struct mref_object *mref
 			return -ENOMEM;
 
 		mref_a->do_dealloc = true;
-		mref->ref_flags = 0;
 	}
 
 	_mref_get_first(mref);
@@ -497,7 +496,9 @@ static void client_ref_io(struct client_output *output, struct mref_object *mref
 	}
 
 	while (output->brick->max_flying > 0 && atomic_read(&output->fly_count) > output->brick->max_flying) {
-		MARS_IO("sleeping request pos = %lld len = %d rw = %d (flying = %d)\n", mref->ref_pos, mref->ref_len, mref->ref_rw, atomic_read(&output->fly_count));
+		MARS_IO("sleeping request pos = %lld len = %d flags = %ux (flying = %d)\n",
+			mref->ref_pos, mref->ref_len, mref->ref_flags,
+			atomic_read(&output->fly_count));
 #ifdef IO_DEBUGGING
 		brick_msleep(3000);
 #else
@@ -516,7 +517,9 @@ static void client_ref_io(struct client_output *output, struct mref_object *mref
 	mref_a->submit_jiffies = jiffies;
 	_hash_insert(output, mref_a);
 
-	MARS_IO("added request id = %d pos = %lld len = %d rw = %d (flying = %d)\n", mref->ref_id, mref->ref_pos, mref->ref_len, mref->ref_rw, atomic_read(&output->fly_count));
+	MARS_IO("added request id = %d pos = %lld len = %d flags = %ux (flying = %d)\n",
+		mref->ref_id, mref->ref_pos, mref->ref_len, mref->ref_flags,
+		atomic_read(&output->fly_count));
 
 	wake_up_interruptible_all(&output->bundle.sender_event);
 
@@ -617,10 +620,14 @@ int receiver_thread(void *data)
 				goto done;
 			}
 
-			MARS_IO("got callback id = %d, old pos = %lld len = %d rw = %d\n", mref->ref_id, mref->ref_pos, mref->ref_len, mref->ref_rw);
+			MARS_IO("got callback id = %d, old pos = %lld len = %d flags = %ux\n",
+				mref->ref_id, mref->ref_pos, mref->ref_len,
+				mref->ref_flags);
 
 			status = mars_recv_cb(&ch->socket, mref, &cmd);
-			MARS_IO("new status = %d, pos = %lld len = %d rw = %d\n", status, mref->ref_pos, mref->ref_len, mref->ref_rw);
+			MARS_IO("new status = %d, pos = %lld len = %d flags = %ux\n",
+				status, mref->ref_pos, mref->ref_len,
+				mref->ref_flags);
 			if (unlikely(status < 0)) {
 				MARS_WRN("interrupted data transfer during callback on '%s' @%s, status = %d\n",
 					 output->bundle.path,
@@ -879,7 +886,7 @@ static int sender_thread(void *data)
 		// try to spread reads over multiple channels....
 		min_nr = 0;
 		max_nr = max_client_channels;
-		if (!mref->ref_rw) {
+		if (!(mref->ref_flags & MREF_WRITE)) {
 			/* optionally separate reads from writes */
 			if (brick->separate_reads && max_nr > 1)
 				min_nr = 1;

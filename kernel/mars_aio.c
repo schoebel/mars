@@ -161,8 +161,10 @@ done:
 
 	if (likely(mref_a && mref_a->object)) {
 		unsigned long long latency;
+		int rw = mref_a->object->ref_flags & MREF_WRITE ? 1 : 0;
+
 		latency = cpu_clock(raw_smp_processor_id()) - mref_a->enqueue_stamp;
-		threshold_check(&aio_io_threshold[mref_a->object->ref_rw & 1], latency);
+		threshold_check(&aio_io_threshold[rw], latency);
 	}
 	return mref_a;
 }
@@ -227,9 +229,6 @@ static int aio_ref_get(struct aio_output *output, struct mref_object *mref)
 			MARS_ERR("ENOMEM %d bytes\n", mref->ref_len);
 			return -ENOMEM;
 		}
-#if 0 // ???
-		mref->ref_flags = 0;
-#endif
 		mref_a->do_dealloc = true;
 		atomic_inc(&output->total_alloc_count);
 		atomic_inc(&output->alloc_count);
@@ -282,7 +281,7 @@ void _complete(struct aio_output *output, struct aio_mref_aspect *mref_a, int er
 	CHECKED_CALLBACK(mref, err, err_found);
 
 done:
-	if (mref->ref_rw) {
+	if (mref->ref_flags & MREF_WRITE) {
 		mf_dirty_append(output->mf, DIRTY_FINISHED, mref->ref_pos + mref->ref_len);
 		atomic_dec(&output->write_count);
 	} else {
@@ -345,7 +344,7 @@ static void aio_ref_io(struct aio_output *output, struct mref_object *mref)
 	atomic_inc(&output->work_count);
 
 	// statistics
-	if (mref->ref_rw) {
+	if (mref->ref_flags & MREF_WRITE) {
 		atomic_inc(&output->total_write_count);
 		atomic_inc(&output->write_count);
 	} else {
@@ -359,7 +358,8 @@ static void aio_ref_io(struct aio_output *output, struct mref_object *mref)
 
 	mapfree_set(output->mf, mref->ref_pos, -1);
 
-	MARS_IO("AIO rw=%d pos=%lld len=%d data=%p\n", mref->ref_rw, mref->ref_pos, mref->ref_len, mref->ref_data);
+	MARS_IO("AIO flags=%ux pos=%lld len=%d data=%p\n",
+		mref->ref_flags, mref->ref_pos, mref->ref_len, mref->ref_data);
 
 	mref_a = aio_mref_get_aspect(output->brick, mref);
 	if (unlikely(!mref_a)) {
@@ -378,9 +378,10 @@ static int aio_submit(struct aio_output *output, struct aio_mref_aspect *mref_a,
 	struct mref_object *mref = mref_a->object;
 	mm_segment_t oldfs;
 	int res;
+	__u32 rw = mref->ref_flags & MREF_WRITE ? 1 : 0;
 	struct iocb iocb = {
 		.aio_data = (__u64)mref_a,
-		.aio_lio_opcode = use_fdsync ? IOCB_CMD_FDSYNC : (mref->ref_rw != 0 ? IOCB_CMD_PWRITE : IOCB_CMD_PREAD),
+		.aio_lio_opcode = use_fdsync ? IOCB_CMD_FDSYNC : (rw ? IOCB_CMD_PWRITE : IOCB_CMD_PREAD),
 		.aio_fildes = output->fd,
 		.aio_buf = (unsigned long)mref->ref_data,
 		.aio_nbytes = mref->ref_len,
@@ -388,7 +389,7 @@ static int aio_submit(struct aio_output *output, struct aio_mref_aspect *mref_a,
 		// .aio_reqprio = something(mref->ref_prio) field exists, but not yet implemented in kernelspace :(
 	};
 	struct iocb *iocbp = &iocb;
-	struct timing_stats *this_timing = &timings[mref->ref_rw & 1];
+	struct timing_stats *this_timing = &timings[rw];
 	unsigned long long latency;
 
 	mars_trace(mref, "aio_submit");
@@ -682,21 +683,23 @@ static int aio_event_thread(void *data)
 			}
 			mref = mref_a->object;
 
-			MARS_IO("AIO done %p pos = %lld len = %d rw = %d\n", mref, mref->ref_pos, mref->ref_len, mref->ref_rw);
+			MARS_IO("AIO done %p pos = %lld len = %d flags = %ux\n",
+				mref, mref->ref_pos, mref->ref_len,
+				mref->ref_flags);
 
 			mapfree_set(output->mf, mref->ref_pos, mref->ref_pos + mref->ref_len);
-			if (mref->ref_rw)
+			if (mref->ref_flags & MREF_WRITE)
 				mf_dirty_append(output->mf, DIRTY_COMPLETED, mref->ref_pos + mref->ref_len);
 
 			/* Workaround for never implemented aio_fsync operation,
 			 * see also upstream commit 723c038475b78edc9327eb952f95f9881cc9d7.
 			 * FIXME: don't use aio anymore at all in the long-term future.
 			 */
-			if (output->brick->o_fdsync
-			   && err >= 0 
-			   && mref->ref_rw != READ
-			   && !mref->ref_skip_sync
-			   && !mref_a->resubmit++) {
+			if (output->brick->o_fdsync &&
+			    err >= 0 &&
+			    (mref->ref_flags & MREF_WRITE) &&
+			    !mref->ref_skip_sync &&
+			    !mref_a->resubmit++) {
 				mars_trace(mref, "aio_fsync");
 				_enqueue(other, mref_a, mref->ref_prio, true);
 				continue;
@@ -964,7 +967,7 @@ static int aio_submit_thread(void *data)
 
 		mapfree_set(output->mf, mref->ref_pos, -1);
 
-		if (mref->ref_rw) {
+		if (mref->ref_flags & MREF_WRITE) {
 			mf_dirty_append(output->mf, DIRTY_SUBMITTED, mref->ref_pos + mref->ref_len);
 		}
 
@@ -972,7 +975,7 @@ static int aio_submit_thread(void *data)
 
 		// check for reads crossing the EOF boundary (special case)
 		if (mref->ref_timeout > 0 &&
-		    !mref->ref_rw &&
+		    !(mref->ref_flags & MREF_WRITE) &&
 		    mref->ref_pos + mref->ref_len > mref->ref_total_size) {
 			loff_t len = mref->ref_total_size - mref->ref_pos;
 			if (len > 0) {

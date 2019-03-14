@@ -192,7 +192,6 @@ void server_endio(struct generic_callback *cb)
 	struct server_mref_aspect *mref_a;
 	struct mref_object *mref;
 	struct server_brick *brick;
-	int rw;
 	unsigned long flags;
 
 	mref_a = cb->cb_private;
@@ -210,10 +209,8 @@ void server_endio(struct generic_callback *cb)
 		return;
 	}
 
-	rw = mref->ref_rw;
-
 	traced_lock(&brick->cb_lock, flags);
-	if (rw) {
+	if (mref->ref_flags & MREF_WRITE) {
 		list_add_tail(&mref_a->cb_head, &brick->cb_write_list);
 	} else {
 		list_add_tail(&mref_a->cb_head, &brick->cb_read_list);

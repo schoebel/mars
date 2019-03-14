@@ -199,7 +199,6 @@ void if_endio(struct generic_callback *cb)
 	struct if_mref_aspect *mref_a = cb->cb_private;
 	struct if_input *input;
 	int k;
-	int rw;
 	int error;
 
 	LAST_CALLBACK(cb);
@@ -213,8 +212,7 @@ void if_endio(struct generic_callback *cb)
 	mars_trace(mref_a->object, "if_endio");
 	mars_log_trace(mref_a->object);
 
-	rw = mref_a->object->ref_rw;
-	MARS_IO("rw = %d bio_count = %d\n", rw, mref_a->bio_count);
+	MARS_IO("flags = %ux bio_count = %d\n", mref->ref_flags, mref_a->bio_count);
 
 	for (k = 0; k < mref_a->bio_count; k++) {
 		struct bio_wrapper *biow;
@@ -258,7 +256,8 @@ void if_endio(struct generic_callback *cb)
 #endif
 //      end_remove_this
 		}
-		MARS_IO("calling end_io() rw = %d error = %d\n", rw, error);
+		MARS_IO("calling end_io() flags = %ux error = %d\n",
+			mref->ref_flags, error);
 //      remove_this
 #ifdef MARS_HAS_BI_STATUS
 //      end_remove_this
@@ -277,7 +276,7 @@ void if_endio(struct generic_callback *cb)
 		brick_mem_free(biow);
 	}
 	atomic_dec(&input->brick->flying_count);
-	if (rw) {
+	if (mref_a->object->ref_flags & MREF_WRITE) {
 		atomic_dec(&input->write_flying_count);
 	} else {
 		atomic_dec(&input->read_flying_count);
@@ -350,7 +349,7 @@ void _if_unplug(struct if_input *input)
 
 		atomic_inc(&input->brick->flying_count);
 		atomic_inc(&input->total_fire_count);
-		if (mref->ref_rw) {
+		if (mref->ref_flags & MREF_WRITE) {
 			atomic_inc(&input->write_flying_count);
 		} else {
 			atomic_inc(&input->read_flying_count);
@@ -669,7 +668,10 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 
 				tmp_a = container_of(tmp, struct if_mref_aspect, hash_head);
 				tmp_mref = tmp_a->object;
-				if (tmp_a->orig_page != page || tmp_mref->ref_rw != rw || tmp_a->bio_count >= MAX_BIO || tmp_a->current_len + bv_len > tmp_a->max_len) {
+				if (tmp_a->orig_page != page ||
+				    (tmp_mref->ref_flags & MREF_WRITE) != (rw ? MREF_WRITE : 0) ||
+				    tmp_a->bio_count >= MAX_BIO ||
+				    tmp_a->current_len + bv_len > tmp_a->max_len) {
 					continue;
 				}
 
@@ -746,7 +748,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 				SETUP_CALLBACK(mref, if_endio, mref_a);
 
 				mref_a->input = input;
-				mref->ref_rw = mref->ref_may_write = rw;
+				mref->ref_flags = rw ? MREF_WRITE | MREF_MAY_WRITE : 0;
 				mref->ref_pos = pos;
 				mref->ref_len = prefetch_len;
 				mref->ref_data = data; // direct IO

@@ -680,7 +680,6 @@ int _make_sshadow(struct trans_logger_output *output, struct trans_logger_mref_a
 		atomic_inc(&brick->total_sshadow_buffered_count);
 #endif
 	}
-	mref->ref_flags = mshadow->ref_flags;
 	mref_a->shadow_ref = mshadow_a;
 	mref_a->my_brick = brick;
 
@@ -781,7 +780,6 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 #endif
 	}
 	mref_a->my_brick = brick;
-	mref->ref_flags = 0;
 	mref_a->shadow_ref = mref_a; // cyclic self-reference => indicates master shadow
 
 #ifdef ADDITIONAL_COUNTERS
@@ -839,7 +837,7 @@ int trans_logger_ref_get(struct trans_logger_output *output, struct mref_object 
 		mref->ref_len = REGION_SIZE - base_offset;
 	}
 
-	if (mref->ref_may_write == READ) {
+	if (!(mref->ref_flags & MREF_MAY_WRITE)) {
 		return _read_ref_get(output, mref_a);
 	}
 
@@ -954,8 +952,9 @@ restart:
 	}
 
 	// only READ is allowed on non-shadow buffers
-	if (unlikely(mref->ref_rw != READ && !mref_a->is_emergency)) {
-		MARS_FAT("bad operation %d on non-shadow\n", mref->ref_rw);
+	if (unlikely((mref->ref_flags & MREF_WRITE) && !mref_a->is_emergency)) {
+		MARS_FAT("bad operation %ux on non-shadow\n",
+			 mref->ref_flags);
 	}
 
 	// no shadow => call through
@@ -1043,7 +1042,7 @@ void trans_logger_ref_io(struct trans_logger_output *output, struct mref_object 
 
 #ifdef ADDITIONAL_COUNTERS
 	// statistics
-	if (mref->ref_rw) {
+	if (mref->ref_flags & MREF_WRITE) {
 		atomic_inc(&brick->total_write_count);
 	} else {
 		atomic_inc(&brick->total_read_count);
@@ -1069,8 +1068,9 @@ void trans_logger_ref_io(struct trans_logger_output *output, struct mref_object 
 	}
 
 	// only READ is allowed on non-shadow buffers
-	if (unlikely(mref->ref_rw != READ && !mref_a->is_emergency)) {
-		MARS_FAT("bad operation %d on non-shadow\n", mref->ref_rw);
+	if (unlikely((mref->ref_flags & MREF_WRITE) && !mref_a->is_emergency)) {
+		MARS_FAT("bad operation %ux on non-shadow\n",
+			 mref->ref_flags);
 	}
 
 	atomic_inc(&brick->any_fly_count);
@@ -1186,7 +1186,6 @@ void wb_endio(struct generic_callback *cb)
 	struct mref_object *sub_mref;
 	struct trans_logger_brick *brick;
 	struct writeback_info *wb;
-	int rw;
 	atomic_t *dec;
 	void (**_endio)(struct generic_callback *cb);
 	void (*endio)(struct generic_callback *cb);
@@ -1211,14 +1210,18 @@ void wb_endio(struct generic_callback *cb)
 	atomic_dec(&brick->wb_balance_count);
 #endif
 
-	rw = sub_mref_a->orig_rw;
-	dec = rw ? &wb->w_sub_write_count : &wb->w_sub_read_count;
+	if (sub_mref_a->orig_flags & MREF_WRITE) {
+		dec = &wb->w_sub_write_count;
+		_endio = &wb->write_endio;
+	} else {
+		dec = &wb->w_sub_read_count;
+		_endio = &wb->read_endio;
+	}
 	CHECK_ATOMIC(dec, 1);
 	if (!atomic_dec_and_test(dec)) {
 		goto done;
 	}
 
-	_endio = rw ? &wb->write_endio : &wb->read_endio;
 	endio = *_endio;
 	*_endio = NULL;
 	if (likely(endio)) {
@@ -1312,8 +1315,7 @@ struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t p
 
 			sub_mref->ref_pos = pos;
 			sub_mref->ref_len = len;
-			sub_mref->ref_may_write = READ;
-			sub_mref->ref_rw = READ;
+			sub_mref->ref_flags = 0;
 			sub_mref->ref_data = NULL;
 
 			sub_mref_a = trans_logger_mref_get_aspect(brick, sub_mref);
@@ -1325,7 +1327,7 @@ struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t p
 			sub_mref_a->log_input = log_input;
 			atomic_inc(&log_input->log_ref_count);
 			sub_mref_a->my_brick = brick;
-			sub_mref_a->orig_rw = READ;
+			sub_mref_a->orig_flags = 0;
 			sub_mref_a->wb = wb;
 
 			status = GENERIC_INPUT_CALL(read_input, mref_get, sub_mref);
@@ -1389,8 +1391,7 @@ struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t p
 
 		sub_mref->ref_pos = pos;
 		sub_mref->ref_len = this_len;
-		sub_mref->ref_may_write = WRITE;
-		sub_mref->ref_rw = WRITE;
+		sub_mref->ref_flags = MREF_WRITE | MREF_MAY_WRITE;
 		sub_mref->ref_data = data;
 
 		sub_mref_a = trans_logger_mref_get_aspect(brick, sub_mref);
@@ -1403,7 +1404,7 @@ struct writeback_info *make_writeback(struct trans_logger_brick *brick, loff_t p
 		sub_mref_a->log_input = log_input;
 		atomic_inc(&log_input->log_ref_count);
 		sub_mref_a->my_brick = brick;
-		sub_mref_a->orig_rw = WRITE;
+		sub_mref_a->orig_flags = MREF_WRITE;
 		sub_mref_a->wb = wb;
 
 		status = GENERIC_INPUT_CALL(write_input, mref_get, sub_mref);
@@ -1731,9 +1732,11 @@ bool prep_phase_startio(struct trans_logger_mref_aspect *mref_a)
 	brick = mref_a->my_brick;
 	CHECK_PTR(brick, err);
 
-	MARS_IO("pos = %lld len = %d rw = %d\n", mref->ref_pos, mref->ref_len, mref->ref_rw);
+	MARS_IO("pos = %lld len = %d flags = %ux\n",
+		mref->ref_pos, mref->ref_len,
+		mref->ref_flags);
 
-	if (mref->ref_rw == READ) {
+	if (!(mref->ref_flags & MREF_WRITE)) {
 		// nothing to do: directly signal success.
 		struct mref_object *shadow = shadow_a->object;
 		if (unlikely(shadow == mref)) {
@@ -2961,8 +2964,7 @@ int replay_data(struct trans_logger_brick *brick, loff_t pos, void *buf, int len
 		mref->ref_pos = pos;
 		mref->ref_data = NULL;
 		mref->ref_len = len;
-		mref->ref_may_write = WRITE;
-		mref->ref_rw = WRITE;
+		mref->ref_flags = MREF_WRITE | MREF_MAY_WRITE;
 		
 		status = GENERIC_INPUT_CALL(input, mref_get, mref);
 		if (unlikely(status < 0)) {

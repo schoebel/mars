@@ -131,7 +131,6 @@ int _clear_clash(struct copy_brick *brick)
 static
 int _determine_input(struct copy_brick *brick, struct mref_object *mref)
 {
-	int rw;
 	int below;
 	int behind;
 	loff_t ref_end;
@@ -142,8 +141,7 @@ int _determine_input(struct copy_brick *brick, struct mref_object *mref)
 	ref_end = mref->ref_pos + mref->ref_len;
 	below = ref_end <= brick->copy_start;
 	behind = !brick->copy_end || mref->ref_pos >= brick->copy_end;
-	rw = mref->ref_may_write | mref->ref_rw;
-	if (rw) {
+	if (mref->ref_flags & (MREF_WRITE | MREF_MAY_WRITE)) {
 		if (!behind) {
 			brick->low_dirty = true;
 			if (!below) {
@@ -266,7 +264,7 @@ exit:
 		_clash(brick);
 	}
 	st->active[queue] = false;
-	if (mref->ref_rw) {
+	if (mref->ref_flags & MREF_WRITE) {
 		atomic_dec(&brick->copy_write_flight);
 		atomic_dec(&global_copy_write_flight);
 	} else {
@@ -282,7 +280,7 @@ err:
 }
 
 static
-int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_t pos, loff_t end_pos, int rw, int cs_mode)
+int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_t pos, loff_t end_pos, __u32 flags, int cs_mode)
 {
 	struct mref_object *mref;
 	struct copy_mref_aspect *mref_a;
@@ -308,8 +306,7 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 
 	mref_a->brick = brick;
 	mref_a->queue = queue;
-	mref->ref_may_write = rw;
-	mref->ref_rw = rw;
+	mref->ref_flags = flags;
 	mref->ref_data = data;
 	mref->ref_pos = pos;
 	mref->ref_cs_mode = cs_mode;
@@ -319,7 +316,7 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 		len = end_pos - pos;
 	}
 	mref->ref_len = len;
-	mref->ref_prio = rw ?
+	mref->ref_prio = (flags & MREF_WRITE) ?
 		mars_copy_write_prio :
 		mars_copy_read_prio;
 	if (mref->ref_prio < MARS_PRIO_HIGH || mref->ref_prio > MARS_PRIO_LOW)
@@ -345,13 +342,11 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 		GET_STATE(brick, index).len = mref->ref_len;
 	}
 
-	//MARS_IO("queue = %d index = %d pos = %lld len = %d rw = %d\n", queue, index, mref->ref_pos, mref->ref_len, rw);
-
 	st = &GET_STATE(brick, index);
 	st->table[queue] = mref;
 	st->active[queue] = true;
 
-	if (rw) {
+	if (flags & MREF_WRITE) {
 		atomic_inc(&brick->copy_write_flight);
 		atomic_inc(&global_copy_write_flight);
 	} else {
@@ -446,7 +441,7 @@ restart:
 		    is_read_limited(brick))
 			goto idle;
 
-		status = _make_mref(brick, index, 0, NULL, pos, brick->copy_end, READ, brick->verify_mode ? 2 : 0);
+		status = _make_mref(brick, index, 0, NULL, pos, brick->copy_end, 0, brick->verify_mode ? 2 : 0);
 		if (unlikely(status < 0)) {
 			MARS_DBG("status = %d\n", status);
 			progress = status;
@@ -461,7 +456,7 @@ restart:
 		next_state = COPY_STATE_START2;
 		/* fallthrough */
 	case COPY_STATE_START2:
-		status = _make_mref(brick, index, 1, NULL, pos, brick->copy_end, READ, 2);
+		status = _make_mref(brick, index, 1, NULL, pos, brick->copy_end, 0, 2);
 		if (unlikely(status < 0)) {
 			MARS_DBG("status = %d\n", status);
 			progress = status;
@@ -523,7 +518,7 @@ restart:
 
 		if (mref0->ref_cs_mode > 1) { // re-read, this time with data
 			_clear_mref(brick, index, 0);
-			status = _make_mref(brick, index, 0, NULL, pos, brick->copy_end, READ, 0);
+			status = _make_mref(brick, index, 0, NULL, pos, brick->copy_end, 0, 0);
 			if (unlikely(status < 0)) {
 				MARS_DBG("status = %d\n", status);
 				progress = status;
@@ -569,7 +564,7 @@ restart:
 			break;
 		}
 		/* start writeout */
-		status = _make_mref(brick, index, 1, mref0->ref_data, pos, pos + mref0->ref_len, WRITE, 0);
+		status = _make_mref(brick, index, 1, mref0->ref_data, pos, pos + mref0->ref_len, MREF_WRITE | MREF_MAY_WRITE, 0);
 		if (unlikely(status < 0)) {
 			MARS_DBG("status = %d\n", status);
 			progress = status;

@@ -178,7 +178,7 @@ void log_flush(struct log_status *logst)
 	logst->private = NULL;
 	SETUP_CALLBACK(mref, log_write_endio, cb_info);
 	cb_info->logst = logst;
-	mref->ref_rw = 1;
+	mref->ref_flags |= MREF_WRITE | MREF_MAY_WRITE;
 
 	mars_trace(mref, "log_flush");
 
@@ -243,7 +243,7 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 
 		mref->ref_pos = logst->log_pos;
 		mref->ref_len = logst->chunk_size ? logst->chunk_size : total_len;
-		mref->ref_may_write = WRITE;
+		mref->ref_flags = MREF_MAY_WRITE;
 		mref->ref_prio = logst->io_prio;
 
 		for (;;) {
@@ -465,7 +465,7 @@ restart:
 		}
 
 		SETUP_CALLBACK(mref, log_read_endio, logst);
-		mref->ref_rw = READ;
+
 		logst->offset = 0;
 		logst->got = false;
 		logst->do_free = false;

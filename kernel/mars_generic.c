@@ -302,7 +302,9 @@ void mars_log_trace(struct mref_object *mref)
 
 	diff = mref->ref_trace_stamp[mref->ref_traces-1] - mref->ref_trace_stamp[0];
 
-	len = scnprintf(buf, PAGE_SIZE, "%c ;%12lld ;%6d;%10llu", mref->ref_rw ? 'W' : 'R', mref->ref_pos, mref->ref_len, diff / 1000);
+	len = scnprintf(buf, PAGE_SIZE, "%c ;%12lld ;%6d;%10llu",
+			mref->ref_flags & MREF_WRITE ? 'W' : 'R',
+			mref->ref_pos, mref->ref_len, diff / 1000);
 
 	old = start_trace_clock;
 	for (i = 0; i < mref->ref_traces; i++) {

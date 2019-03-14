@@ -68,7 +68,7 @@ static int sio_ref_get(struct sio_output *output, struct mref_object *mref)
 		/* Only check reads.
 		 * Writes behind EOF are always allowed (sparse files)
 		 */
-		if (!mref->ref_may_write) {
+		if (!(mref->ref_flags & MREF_MAY_WRITE)) {
 			loff_t len = total_size - mref->ref_pos;
 			if (unlikely(len <= 0)) {
 				/* Special case: allow reads starting _exactly_ at EOF when a timeout is specified.
@@ -100,9 +100,6 @@ static int sio_ref_get(struct sio_output *output, struct mref_object *mref)
 			MARS_ERR("ENOMEM %d bytes\n", mref->ref_len);
 			return -ENOMEM;
 		}
-#if 0 // ???
-		mref->ref_flags = 0;
-#endif
 		mref_a->do_dealloc = true;
 		//atomic_inc(&output->total_alloc_count);
 		//atomic_inc(&output->alloc_count);
@@ -376,7 +373,7 @@ void _complete(struct sio_output *output, struct mref_object *mref, int err)
 
 done:
 #if 0
-	if (mref->ref_rw) {
+	if (mref->ref_flags & MREF_WRITE) {
 		atomic_dec(&output->write_count);
 	} else {
 		atomic_dec(&output->read_count);
@@ -416,7 +413,7 @@ void _sio_ref_io(struct sio_threadinfo *tinfo, struct mref_object *mref)
 		sync_file(output);
 	}
 
-	if (mref->ref_rw == READ) {
+	if (!(mref->ref_flags & MREF_WRITE)) {
 		status = read_aops(output, mref);
 	} else {
 		mf_dirty_append(output->mf, DIRTY_SUBMITTED, mref->ref_pos + mref->ref_len);
@@ -434,7 +431,7 @@ done:
 	_complete(output, mref, status);
 
 	atomic_dec(&tinfo->fly_count);
-	if (mref->ref_rw && status >= 0)
+	if ((mref->ref_flags & MREF_WRITE) && status >= 0)
 		mf_dirty_append(output->mf, DIRTY_FINISHED, mref->ref_pos + mref->ref_len);
 }
 
@@ -469,7 +466,7 @@ void sio_ref_io(struct sio_output *output, struct mref_object *mref)
 	mapfree_set(output->mf, mref->ref_pos, -1);
 
 	index = 0;
-	if (mref->ref_rw == READ) {
+	if (!(mref->ref_flags & MREF_WRITE)) {
 		traced_lock(&output->g_lock, flags);
 		index = output->index++;
 		traced_unlock(&output->g_lock, flags);
