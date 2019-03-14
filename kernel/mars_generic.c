@@ -106,7 +106,7 @@ const struct meta mars_mref_meta[] = {
 	META_INI(ref_timeout,      struct mref_object, FIELD_INT),
 	META_INI(ref_total_size,   struct mref_object, FIELD_INT),
 	META_INI(ref_checksum,     struct mref_object, FIELD_INT),
-	META_INI(ref_flags,        struct mref_object, FIELD_INT),
+	META_INI(ref_flags,        struct mref_object, FIELD_UINT),
 	META_INI(ref_rw,           struct mref_object, FIELD_INT),
 	META_INI(ref_id,           struct mref_object, FIELD_INT),
 	META_INI(ref_skip_sync,    struct mref_object, FIELD_INT),

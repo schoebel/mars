@@ -88,8 +88,6 @@ static void _usebuf_endio(struct generic_callback *cb)
 	sub_mref = sub_mref_a->object;
 	CHECK_PTR(sub_mref, done);
 
-	//MARS_INF("HALLO %p %p len = %d may_write = %d rw = %d flags = %d\n", mref, sub_mref, sub_mref->ref_len, sub_mref->ref_may_write, sub_mref->ref_rw, sub_mref->ref_flags);
-
 	if (mref->ref_data != sub_mref->ref_data && cb->cb_error >= 0) {
 		if (sub_mref->ref_may_write == 0) {
 			if (sub_mref->ref_flags & MREF_UPTODATE) {
@@ -183,7 +181,7 @@ static int usebuf_ref_get(struct usebuf_output *output, struct mref_object *mref
 	}
 
 	mref->ref_len = sub_mref->ref_len;
-	//MARS_INF("GOT %p %p flags = %d\n", mref, sub_mref, sub_mref->ref_flags);
+	//MARS_INF("GOT %p %p flags = %x\n", mref, sub_mref, sub_mref->ref_flags);
 	if (!mref->ref_data) {
 		MARS_INF("uiiiiiiiiiii\n");
 		mref->ref_data = sub_mref->ref_data;

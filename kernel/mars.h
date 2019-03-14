@@ -121,10 +121,6 @@
 
 /* mref */
 
-#define MREF_UPTODATE        1
-#define MREF_READING         2
-#define MREF_WRITING         4
-
 extern const struct generic_object_type mref_type;
 
 #ifdef MARS_TRACING
@@ -151,6 +147,18 @@ extern void mars_log_trace(struct mref_object *mref);
 #define mars_log_trace(mref) /*empty*/
 #endif
 
+enum _MREF_FLAGS {
+	/* New flags must always be appended */
+	/* Never change the position of an existing flag */
+	_MREF_UPTODATE,
+	_MREF_READING,
+	_MREF_WRITING,
+};
+
+#define MREF_UPTODATE        (1UL << _MREF_UPTODATE)
+#define MREF_READING         (1UL << _MREF_READING)
+#define MREF_WRITING         (1UL << _MREF_WRITING)
+
 #define MREF_OBJECT(OBJTYPE)						\
 	CALLBACK_OBJECT(OBJTYPE);					\
 	/* supplied by caller */					\
@@ -161,10 +169,11 @@ extern void mars_log_trace(struct mref_object *mref);
 	int    ref_prio;						\
 	int    ref_timeout;						\
 	int    ref_cs_mode; /* 0 = off, 1 = checksum + data, 2 = checksum only */	\
+	/* shared */							\
+	__u32  ref_flags;						\
 	/* maintained by the ref implementation, readable for callers */ \
 	loff_t ref_total_size; /* just for info, need not be implemented */ \
 	unsigned char ref_checksum[16];					\
-	int    ref_flags;						\
 	int    ref_rw;							\
 	int    ref_id; /* not mandatory; may be used for identification */ \
 	bool   ref_skip_sync; /* skip sync for this particular mref */	\

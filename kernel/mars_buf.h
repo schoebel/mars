@@ -98,7 +98,7 @@ struct buf_head {
 	struct buf_brick *bf_brick;
 	loff_t            bf_pos;
 	loff_t            bf_base_index;
-	int               bf_flags;
+	__u32             bf_flags;
 	int               bf_error;
 	atomic_t          bf_hash_count; // # references pinning the hash
 	atomic_t          bf_mref_count; // # mrefs (only used for checking, no real semantics)

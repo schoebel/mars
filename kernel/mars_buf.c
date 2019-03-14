@@ -551,7 +551,7 @@ again:
 
 	_mref_assign(bf, mref_a);
 
-	MARS_DBG("bf=%p index = %lld flags = %d\n", bf, bf->bf_base_index, bf->bf_flags);
+	MARS_DBG("bf=%p index = %lld flags = %x\n", bf, bf->bf_base_index, bf->bf_flags);
 
 	mref->ref_flags = bf->bf_flags;
 	mref->ref_data = bf->bf_data + base_offset;
@@ -583,7 +583,7 @@ static void _buf_ref_put(struct buf_output *output, struct buf_mref_aspect *mref
 	if (!_mref_put(mref))
 		return;
 
-	MARS_DBG("buf_ref_put() mref=%p mref_a=%p bf=%p flags=%d\n", mref, mref_a, bf, bf->bf_flags);
+	MARS_DBG("buf_ref_put() mref=%p mref_a=%p bf=%p flags=%x\n", mref, mref_a, bf, bf->bf_flags);
 	_mref_remove(bf, mref_a);
 	buf_free_mref(mref);
 
@@ -629,7 +629,7 @@ static int _buf_make_io(struct buf_brick *brick, struct buf_head *bf, void *star
 	}
 #endif
 
-	MARS_DBG("bf = %p rw = %d start = %lld len = %d flags = %d\n", bf, rw, start_pos, start_len, bf->bf_flags);
+	MARS_DBG("bf = %p rw = %d start = %lld len = %d flags = %x\n", bf, rw, start_pos, start_len, bf->bf_flags);
 
 	atomic_set(&bf->bf_io_count, 0);
 	status = -ENOMEM;
@@ -700,7 +700,7 @@ static void _buf_endio(struct generic_callback *cb)
 	struct buf_head *bf;
 	struct buf_brick *brick;
 	LIST_HEAD(tmp);
-	int old_flags;
+	__u32 old_flags;
 	unsigned long flags;
 	void  *start_data = NULL;
 	loff_t start_pos = 0;
@@ -719,7 +719,7 @@ static void _buf_endio(struct generic_callback *cb)
 	brick = bf->bf_brick;
 	CHECK_PTR(brick, err);
 
-	MARS_DBG("_buf_endio() bf_mref_a=%p bf_mref=%p bf=%p flags=%d\n", bf_mref_a, bf_mref, bf, bf->bf_flags);
+	MARS_DBG("_buf_endio() bf_mref_a=%p bf_mref=%p bf=%p flags=%x\n", bf_mref_a, bf_mref, bf, bf->bf_flags);
 
 	if (error < 0)
 		bf->bf_error = error;
@@ -886,7 +886,7 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 	_mref_get(mref);
 	CHECK_ATOMIC(&bf->bf_hash_count, 1);
 
-	MARS_DBG("IO mref=%p rw=%d bf=%p flags=%d\n", mref, mref->ref_rw, bf, bf->bf_flags);
+	MARS_DBG("IO mref=%p rw=%d bf=%p flags=%x\n", mref, mref->ref_rw, bf, bf->bf_flags);
 
 	if (mref->ref_rw != READ) {
 		loff_t end;
@@ -926,7 +926,7 @@ static void buf_ref_io(struct buf_output *output, struct mref_object *mref)
 		goto already_done;
 #endif
 		if (bf->bf_flags & MREF_READING) {
-			MARS_ERR("bad bf_flags %d\n", bf->bf_flags);
+			MARS_ERR("bad bf_flags %x\n", bf->bf_flags);
 		}
 		if (!(bf->bf_flags & MREF_WRITING)) {
 #if 0
