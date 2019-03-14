@@ -182,7 +182,6 @@ enum _MREF_FLAGS {
 	int    ref_id; /* not mandatory; may be used for identification */ \
 	/* maintained by the ref implementation, incrementable for	\
 	 * callers (but not decrementable! use ref_put()) */		\
-	bool   ref_initialized; /* internally used for checking */	\
 	tatomic_t ref_count;						\
 	/* deprecated, to be removed in future */			\
 	int    ref_rw;							\
@@ -190,6 +189,7 @@ enum _MREF_FLAGS {
 	bool   ref_skip_sync; /* skip sync for this particular mref */	\
 	/* internal */							\
 	atomic_trace_t ref_at;						\
+	bool   ref_initialized; /* internally used for checking */	\
 	TRACING_INFO;
 
 struct mref_object {
