@@ -244,8 +244,10 @@ mars0.1abeta0
 	Add marsadm split-cluster.
 
 -----------------------------------
-Changelog for series 0.1b, only the lower part which has been merged
-	with branch mars0.1a:
+Changelog for the deprecated series 0.1b:
+	(only the part which has been merged with branch mars0.1a)
+	(notice that there were a few more historic branches which
+	were not really usable, and never went into production)
 
 mars0.1balpha4
 --------
