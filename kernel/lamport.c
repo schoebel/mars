@@ -92,18 +92,21 @@
  *
  * Please improve this code, but please use the right optimisation goal.
  */
-struct rw_semaphore lamport_sem = __RWSEM_INITIALIZER(lamport_sem);
+struct lamport_clock global_lamport = {
+	.lamport_sem = __RWSEM_INITIALIZER(global_lamport.lamport_sem),
+};
+EXPORT_SYMBOL_GPL(global_lamport);
 
-struct lamport_time lamport_stamp = {};
-
-void get_lamport(struct lamport_time *real_now, struct lamport_time *lamport_now)
+void _get_lamport(struct lamport_clock *clock,
+		  struct lamport_time *real_now,
+		  struct lamport_time *lamport_now)
 {
 	struct lamport_time _real_now;
 	struct lamport_time _lamport_now;
 
 	/* Get a consistent copy of _both_ clocks */
-	down_read(&lamport_sem);
-	_lamport_now = lamport_stamp;
+	down_read(&clock->lamport_sem);
+	_lamport_now = clock->lamport_stamp;
 	/* Theoretically, the next statement could be moved behind the unlock.
 	 * However, then we will loose strictness of real timestamps,
 	 * or even may produce contradictory orderings between real and
@@ -111,7 +114,8 @@ void get_lamport(struct lamport_time *real_now, struct lamport_time *lamport_now
 	 * calls to get_lamport().
 	 */
 	_real_now = get_real_lamport();
-	up_read(&lamport_sem);
+
+	up_read(&clock->lamport_sem);
 
 	if (real_now)
 		*real_now = _real_now;
@@ -121,58 +125,63 @@ void get_lamport(struct lamport_time *real_now, struct lamport_time *lamport_now
 	else
 		*lamport_now = _lamport_now;
 }
+EXPORT_SYMBOL_GPL(_get_lamport);
 
-EXPORT_SYMBOL_GPL(get_lamport);
-
-void set_lamport(struct lamport_time *lamport_old)
+void _set_lamport(struct lamport_clock *clock,
+		  struct lamport_time *lamport_advance)
 {
-	protect_lamport_time(lamport_old);
+	protect_lamport_time(lamport_advance);
 
 	/* Always advance the internal Lamport timestamp a little bit
 	 * in order to ensure strict monotonicity between set_lamport() calls.
 	 */
-	down_write(&lamport_sem);
-	if (lamport_time_compare(lamport_old, &lamport_stamp) > 0)
-		lamport_stamp = *lamport_old;
+	down_write(&clock->lamport_sem);
+	if (lamport_time_compare(lamport_advance, &clock->lamport_stamp) > 0)
+		clock->lamport_stamp = *lamport_advance;
 	else
-		lamport_time_add_ns(&lamport_stamp, 1);
-	up_write(&lamport_sem);
+		lamport_time_add_ns(&clock->lamport_stamp, 1);
+	up_write(&clock->lamport_sem);
 }
-EXPORT_SYMBOL_GPL(set_lamport);
+EXPORT_SYMBOL_GPL(_set_lamport);
 
-void set_lamport_nonstrict(struct lamport_time *lamport_old)
+void _set_lamport_nonstrict(struct lamport_clock *clock,
+			    struct lamport_time *lamport_advance)
 {
-	protect_lamport_time(lamport_old);
+	protect_lamport_time(lamport_advance);
 
 	/*  Speculate that advaning is not necessary, to avoid the lock
 	 */
-	if (lamport_time_compare(lamport_old, &lamport_stamp) > 0) {
-		down_write(&lamport_sem);
-		if (lamport_time_compare(lamport_old, &lamport_stamp) > 0)
-			lamport_stamp = *lamport_old;
-		up_write(&lamport_sem);
+	if (lamport_time_compare(lamport_advance, &clock->lamport_stamp) > 0) {
+		down_write(&clock->lamport_sem);
+		if (lamport_time_compare(lamport_advance, &clock->lamport_stamp) > 0)
+			clock->lamport_stamp = *lamport_advance;
+		up_write(&clock->lamport_sem);
 	}
 }
-EXPORT_SYMBOL_GPL(set_lamport_nonstrict);
+EXPORT_SYMBOL_GPL(_set_lamport_nonstrict);
 
 /* After advancing the Lamport time, re-get the new values.
  * This is almost equivalent to a sequence of set_lamport() ; get_lamport()
  * but more efficient because the lock is taken only once.
  */
-void set_get_lamport(struct lamport_time *lamport_old, struct lamport_time *real_now, struct lamport_time *lamport_now)
+void _set_get_lamport(struct lamport_clock *clock,
+		      struct lamport_time *lamport_advance,
+		      struct lamport_time *real_now,
+		      struct lamport_time *lamport_now)
 {
 	struct lamport_time _real_now;
 
-	protect_lamport_time(lamport_old);
+	protect_lamport_time(lamport_advance);
 
-	down_write(&lamport_sem);
-	if (lamport_time_compare(lamport_old, &lamport_stamp) > 0)
-		*lamport_now = *lamport_old;
+	down_write(&clock->lamport_sem);
+	if (lamport_time_compare(lamport_advance, &clock->lamport_stamp) > 0)
+		*lamport_now = *lamport_advance;
 	else
-		*lamport_now = lamport_time_add(lamport_stamp, (struct lamport_time){0, 1});
-	lamport_stamp = *lamport_now;
+		*lamport_now = lamport_time_add(clock->lamport_stamp,
+						(struct lamport_time){0, 1});
+	clock->lamport_stamp = *lamport_now;
 	_real_now = get_real_lamport();
-	up_write(&lamport_sem);
+	up_write(&clock->lamport_sem);
 
 	if (real_now)
 		*real_now = _real_now;
@@ -180,27 +189,30 @@ void set_get_lamport(struct lamport_time *lamport_old, struct lamport_time *real
 	if (lamport_time_compare(&_real_now, lamport_now) > 0)
 		*lamport_now = _real_now;
 }
-EXPORT_SYMBOL_GPL(set_get_lamport);
+EXPORT_SYMBOL_GPL(_set_get_lamport);
 
 /* Protect against illegal values, e.g. from currupt filesystems etc.
  */
 
 int max_lamport_future = 30 * 24 * 3600;
 
-bool protect_lamport_time(struct lamport_time *check)
+bool _protect_lamport_time(struct lamport_clock *clock,
+			   struct lamport_time *check)
 {
 	struct lamport_time limit = get_real_lamport();
 	bool res = false;
 
 	limit.tv_sec += max_lamport_future;
 	if (unlikely(check->tv_sec >= limit.tv_sec)) {
-		down_write(&lamport_sem);
-		lamport_time_add_ns(&lamport_stamp, 1);
-		memcpy(check, &lamport_stamp, sizeof(*check));
+		down_write(&clock->lamport_sem);
+		lamport_time_add_ns(&clock->lamport_stamp, 1);
+		lamport_time_add_ns(&clock->lamport_stamp, 1);
+		memcpy(check, &clock->lamport_stamp, sizeof(*check));
 		if (unlikely(check->tv_sec > limit.tv_sec))
 			max_lamport_future += check->tv_sec - limit.tv_sec;
-		up_write(&lamport_sem);
+		up_write(&clock->lamport_sem);
 		res = true;
 	}
 	return res;
 }
+EXPORT_SYMBOL_GPL(_protect_lamport_time);
