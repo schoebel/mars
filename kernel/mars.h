@@ -155,6 +155,7 @@ enum _MREF_FLAGS {
 	_MREF_WRITING,
 	_MREF_WRITE,
 	_MREF_MAY_WRITE,
+	_MREF_SKIP_SYNC,
 };
 
 #define MREF_UPTODATE        (1UL << _MREF_UPTODATE)
@@ -162,6 +163,7 @@ enum _MREF_FLAGS {
 #define MREF_WRITING         (1UL << _MREF_WRITING)
 #define MREF_WRITE           (1UL << _MREF_WRITE)
 #define MREF_MAY_WRITE       (1UL << _MREF_MAY_WRITE)
+#define MREF_SKIP_SYNC       (1UL << _MREF_SKIP_SYNC)
 
 #define MREF_OBJECT(OBJTYPE)						\
 	CALLBACK_OBJECT(OBJTYPE);					\
@@ -178,7 +180,6 @@ enum _MREF_FLAGS {
 	loff_t ref_total_size; /* just for info, need not be implemented */ \
 	unsigned char ref_checksum[16];					\
 	int    ref_id; /* not mandatory; may be used for identification */ \
-	bool   ref_skip_sync; /* skip sync for this particular mref */	\
 	/* maintained by the ref implementation, incrementable for	\
 	 * callers (but not decrementable! use ref_put()) */		\
 	bool   ref_initialized; /* internally used for checking */	\
@@ -186,6 +187,7 @@ enum _MREF_FLAGS {
 	/* deprecated, to be removed in future */			\
 	int    ref_rw;							\
 	int    ref_may_write;						\
+	bool   ref_skip_sync; /* skip sync for this particular mref */	\
 	/* internal */							\
 	atomic_trace_t ref_at;						\
 	TRACING_INFO;

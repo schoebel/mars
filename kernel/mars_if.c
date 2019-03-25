@@ -354,7 +354,7 @@ void _if_unplug(struct if_input *input)
 		} else {
 			atomic_inc(&input->read_flying_count);
 		}
-		if (mref->ref_skip_sync)
+		if (mref->ref_flags & MREF_SKIP_SYNC)
 			atomic_inc(&input->total_skip_sync_count);
 
 		GENERIC_INPUT_CALL(input, mref_io, mref);
@@ -694,7 +694,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 				mref_a = tmp_a;
 				this_len = bv_len;
 				if (!do_skip_sync) {
-					mref->ref_skip_sync = false;
+					mref->ref_flags &= ~MREF_SKIP_SYNC;
 				}
 
 				for (i = 0; i < mref_a->bio_count; i++) {
@@ -785,17 +785,17 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 				 * multiple mrefs, only the last one should be
 				 * working in synchronous writethrough mode.
 				 */
-				mref->ref_skip_sync = true;
+				mref->ref_flags |= MREF_SKIP_SYNC;
 //      remove_this
 #ifdef MARS_HAS_BVEC_ITER
 //      end_remove_this
 				if (!do_skip_sync && i.bi_idx + 1 >= bio->bi_iter.bi_idx) {
-					mref->ref_skip_sync = false;
+					mref->ref_flags &= ~MREF_SKIP_SYNC;
 				}
 //      remove_this
 #else
 				if (!do_skip_sync && i + 1 >= bio->bi_vcnt) {
-					mref->ref_skip_sync = false;
+					mref->ref_flags &= ~MREF_SKIP_SYNC;
 				}
 #endif
 //      end_remove_this

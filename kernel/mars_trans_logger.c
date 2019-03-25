@@ -1541,7 +1541,8 @@ void _complete(struct trans_logger_brick *brick, struct trans_logger_mref_aspect
 	if (orig_mref_a->is_completed || 
 	    (pre_io &&
 	     (trans_logger_completion_semantics >= 2 ||
-	      (trans_logger_completion_semantics >= 1 && !orig_mref->ref_skip_sync)))) {
+	      (trans_logger_completion_semantics >= 1 &&
+	       !(orig_mref->ref_flags & MREF_SKIP_SYNC))))) {
 		goto done;
 	}
 

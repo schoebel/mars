@@ -698,7 +698,7 @@ static int aio_event_thread(void *data)
 			if (output->brick->o_fdsync &&
 			    err >= 0 &&
 			    (mref->ref_flags & MREF_WRITE) &&
-			    !mref->ref_skip_sync &&
+			    !(mref->ref_flags & MREF_SKIP_SYNC) &&
 			    !mref_a->resubmit++) {
 				mars_trace(mref, "aio_fsync");
 				_enqueue(other, mref_a, mref->ref_prio, true);

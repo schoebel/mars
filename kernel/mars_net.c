@@ -1219,6 +1219,8 @@ static void _send_deprecated(struct mref_object *mref)
 	if (mref->ref_flags & MREF_MAY_WRITE)
 		mref->ref_may_write = 1;
 
+	if (mref->ref_flags & MREF_SKIP_SYNC)
+		mref->ref_skip_sync = true;
 }
 
 int mars_send_mref(struct mars_socket *msock, struct mref_object *mref, bool cork)
@@ -1268,6 +1270,11 @@ static void _recv_deprecated(struct mref_object *mref)
 	if (mref->ref_may_write) {
 		mref->ref_may_write = 0;
 		mref->ref_flags |= MREF_MAY_WRITE;
+	}
+
+	if (mref->ref_skip_sync) {
+		mref->ref_skip_sync = false;
+		mref->ref_flags |= MREF_SKIP_SYNC;
 	}
 }
 
