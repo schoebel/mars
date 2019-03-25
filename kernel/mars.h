@@ -156,6 +156,9 @@ enum _MREF_FLAGS {
 	_MREF_WRITE,
 	_MREF_MAY_WRITE,
 	_MREF_SKIP_SYNC,
+	_MREF_NODATA, /* only useful for chksum reading */
+	/* Checksum bits, starting at the upper half */
+	_MREF_CHKSUM_MD5_OLD = 16,
 };
 
 #define MREF_UPTODATE        (1UL << _MREF_UPTODATE)
@@ -164,6 +167,9 @@ enum _MREF_FLAGS {
 #define MREF_WRITE           (1UL << _MREF_WRITE)
 #define MREF_MAY_WRITE       (1UL << _MREF_MAY_WRITE)
 #define MREF_SKIP_SYNC       (1UL << _MREF_SKIP_SYNC)
+#define MREF_NODATA          (1UL << _MREF_NODATA)
+#define MREF_CHKSUM_MD5_OLD  (1UL << _MREF_CHKSUM_MD5_OLD)
+#define MREF_CHKSUM_ANY      (MREF_CHKSUM_MD5_OLD)
 
 #define MREF_OBJECT(OBJTYPE)						\
 	CALLBACK_OBJECT(OBJTYPE);					\
@@ -173,7 +179,6 @@ enum _MREF_FLAGS {
 	int    ref_len;							\
 	int    ref_prio;						\
 	int    ref_timeout;						\
-	int    ref_cs_mode; /* 0 = off, 1 = checksum + data, 2 = checksum only */	\
 	/* shared */							\
 	__u32  ref_flags;						\
 	/* maintained by the ref implementation, readable for callers */ \
@@ -187,6 +192,7 @@ enum _MREF_FLAGS {
 	int    ref_rw;							\
 	int    ref_may_write;						\
 	bool   ref_skip_sync; /* skip sync for this particular mref */	\
+	int    ref_cs_mode; /* 0 = off, 1 = checksum + data, 2 = checksum only */ \
 	/* internal */							\
 	atomic_trace_t ref_at;						\
 	bool   ref_initialized; /* internally used for checking */	\

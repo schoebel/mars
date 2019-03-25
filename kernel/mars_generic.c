@@ -204,7 +204,7 @@ void mref_checksum(struct mref_object *mref)
 	unsigned char checksum[mars_digest_size];
 	int len;
 
-	if (mref->ref_cs_mode <= 0 || !mref->ref_data)
+	if (!(mref->ref_flags & MREF_CHKSUM_ANY) || !mref->ref_data)
 		return;
 
 	mars_digest(checksum, mref->ref_data, mref->ref_len);

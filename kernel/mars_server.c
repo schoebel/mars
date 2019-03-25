@@ -257,7 +257,7 @@ int server_io(struct server_brick *brick, struct mars_socket *sock, struct mars_
 	SETUP_CALLBACK(mref, server_endio, mref_a);
 
 	amount = 0;
-	if (mref->ref_cs_mode < 2)
+	if (!(mref->ref_flags & MREF_NODATA))
 		amount = (mref->ref_len - 1) / 1024 + 1;
 	mars_limit_sleep(&server_limiter, amount);
 	

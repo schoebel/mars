@@ -1221,6 +1221,12 @@ static void _send_deprecated(struct mref_object *mref)
 
 	if (mref->ref_flags & MREF_SKIP_SYNC)
 		mref->ref_skip_sync = true;
+
+	if (mref->ref_flags & MREF_CHKSUM_ANY) {
+		mref->ref_cs_mode = 1;
+		if (mref->ref_flags & MREF_NODATA)
+			mref->ref_cs_mode = 2;
+	}
 }
 
 int mars_send_mref(struct mars_socket *msock, struct mref_object *mref, bool cork)
@@ -1235,7 +1241,9 @@ int mars_send_mref(struct mars_socket *msock, struct mref_object *mref, bool cor
 	/* compatibility to old protocol */
 	_send_deprecated(mref);
 
-	if ((mref->ref_flags & MREF_WRITE) && mref->ref_data && mref->ref_cs_mode < 2)
+	if ((mref->ref_flags & MREF_WRITE) &&
+	    mref->ref_data &&
+	    !(mref->ref_flags & MREF_NODATA))
 		cmd.cmd_code |= CMD_FLAG_HAS_DATA;
 
 	if (!cork || !msock->s_pos)
@@ -1262,6 +1270,8 @@ EXPORT_SYMBOL_GPL(mars_send_mref);
  */
 static void _recv_deprecated(struct mref_object *mref)
 {
+	int cs_mode;
+
 	/* compatibility to old protocol */
 	if (mref->ref_rw) {
 		mref->ref_rw = 0;
@@ -1275,6 +1285,14 @@ static void _recv_deprecated(struct mref_object *mref)
 	if (mref->ref_skip_sync) {
 		mref->ref_skip_sync = false;
 		mref->ref_flags |= MREF_SKIP_SYNC;
+	}
+
+	cs_mode = mref->ref_cs_mode;
+	if (cs_mode) {
+		mref->ref_cs_mode = 0;
+		mref->ref_flags |= MREF_CHKSUM_MD5_OLD;
+		if (cs_mode > 1)
+			mref->ref_flags |= MREF_NODATA;
 	}
 }
 
@@ -1322,7 +1340,7 @@ int mars_send_cb(struct mars_socket *msock, struct mref_object *mref, bool cork)
 
 	if (!(mref->ref_flags & MREF_WRITE) &&
 	    mref->ref_data &&
-	    mref->ref_cs_mode < 2)
+	    !(mref->ref_flags & MREF_NODATA))
 		cmd.cmd_code |= CMD_FLAG_HAS_DATA;
 
 	if (!cork || !msock->s_pos)

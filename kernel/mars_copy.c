@@ -280,7 +280,9 @@ err:
 }
 
 static
-int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_t pos, loff_t end_pos, __u32 flags, int cs_mode)
+int _make_mref(struct copy_brick *brick, int index, int queue, void *data,
+	       loff_t pos, loff_t end_pos,
+	       __u32 flags)
 {
 	struct mref_object *mref;
 	struct copy_mref_aspect *mref_a;
@@ -309,7 +311,6 @@ int _make_mref(struct copy_brick *brick, int index, int queue, void *data, loff_
 	mref->ref_flags = flags;
 	mref->ref_data = data;
 	mref->ref_pos = pos;
-	mref->ref_cs_mode = cs_mode;
 	offset = GET_OFFSET(pos);
 	len = COPY_CHUNK - offset;
 	if (pos + len > end_pos) {
@@ -372,6 +373,14 @@ void _update_percent(struct copy_brick *brick, bool force)
 		brick->power.percent_done = brick->copy_end > 0 ? brick->copy_start * 100 / brick->copy_end : 0;
 		MARS_INF("'%s' copied %lld / %lld bytes (%d%%)\n", brick->brick_path, brick->copy_last, brick->copy_end, brick->power.percent_done);
 	}
+}
+
+static inline
+__u32 _make_flags(bool verify_mode)
+{
+	if (!verify_mode)
+		return 0;
+	return MREF_NODATA | MREF_CHKSUM_ANY;
 }
 
 
@@ -441,7 +450,9 @@ restart:
 		    is_read_limited(brick))
 			goto idle;
 
-		status = _make_mref(brick, index, 0, NULL, pos, brick->copy_end, 0, brick->verify_mode ? 2 : 0);
+		status = _make_mref(brick, index, 0, NULL,
+				    pos, brick->copy_end,
+				    _make_flags(brick->verify_mode));
 		if (unlikely(status < 0)) {
 			MARS_DBG("status = %d\n", status);
 			progress = status;
@@ -456,7 +467,9 @@ restart:
 		next_state = COPY_STATE_START2;
 		/* fallthrough */
 	case COPY_STATE_START2:
-		status = _make_mref(brick, index, 1, NULL, pos, brick->copy_end, 0, 2);
+		status = _make_mref(brick, index, 1, NULL,
+				    pos, brick->copy_end,
+				    _make_flags(true));
 		if (unlikely(status < 0)) {
 			MARS_DBG("status = %d\n", status);
 			progress = status;
@@ -491,7 +504,7 @@ restart:
 
 			if (len != mref1->ref_len) {
 				ok = false;
-			} else if (mref0->ref_cs_mode) {
+			} else if (mref0->ref_flags & MREF_CHKSUM_ANY) {
 				static unsigned char null[sizeof(mref0->ref_checksum)];
 				ok = !memcmp(mref0->ref_checksum, mref1->ref_checksum, sizeof(mref0->ref_checksum));
 				if (ok)
@@ -516,9 +529,12 @@ restart:
 			}
 		}
 
-		if (mref0->ref_cs_mode > 1) { // re-read, this time with data
+		if ((mref0->ref_flags & MREF_CHKSUM_ANY) && (mref0->ref_flags & MREF_NODATA)) {
+			/* re-read, this time with data */
 			_clear_mref(brick, index, 0);
-			status = _make_mref(brick, index, 0, NULL, pos, brick->copy_end, 0, 0);
+			status = _make_mref(brick, index, 0, NULL,
+					    pos, brick->copy_end,
+					    _make_flags(false));
 			if (unlikely(status < 0)) {
 				MARS_DBG("status = %d\n", status);
 				progress = status;
@@ -564,7 +580,9 @@ restart:
 			break;
 		}
 		/* start writeout */
-		status = _make_mref(brick, index, 1, mref0->ref_data, pos, pos + mref0->ref_len, MREF_WRITE | MREF_MAY_WRITE, 0);
+		status = _make_mref(brick, index, 1, mref0->ref_data,
+				    pos, pos + mref0->ref_len,
+				    MREF_WRITE | MREF_MAY_WRITE);
 		if (unlikely(status < 0)) {
 			MARS_DBG("status = %d\n", status);
 			progress = status;
