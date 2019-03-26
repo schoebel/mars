@@ -279,19 +279,20 @@ __u32 mars_digest(__u32 digest_flags,
 void mref_checksum(struct mref_object *mref)
 {
 	unsigned char checksum[MARS_DIGEST_SIZE];
-	__u32 flags;
+	__u32 digest_flags;
 	int len;
 
-	if (!(mref->ref_flags & MREF_CHKSUM_ANY) || !mref->ref_data)
+	digest_flags = mref->ref_flags & MREF_CHKSUM_ANY;
+	if (!digest_flags || !mref->ref_data)
 		return;
 
-	flags =
-		mars_digest(mref->ref_flags & usable_digest_mask,
-			    &used_net_digest,
-			    checksum,
-			    mref->ref_data, mref->ref_len);
+	digest_flags =
+	  mars_digest(digest_flags,
+		      &used_net_digest,
+		      checksum,
+		      mref->ref_data, mref->ref_len);
 
-	mref->ref_flags = (mref->ref_flags & ~MREF_CHKSUM_ANY) | flags;
+	mref->ref_flags = (mref->ref_flags & ~MREF_CHKSUM_ANY) | digest_flags;
 
 	len = sizeof(mref->ref_checksum);
 	if (len > MARS_DIGEST_SIZE)
