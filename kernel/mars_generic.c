@@ -169,6 +169,11 @@ static struct crypto_shash *crc32c_tfm = NULL;
 static struct crypto_shash *crc32_tfm = NULL;
 #endif
 
+#ifdef HAS_SHA1
+#define SHA1_DIGEST_SIZE 20
+static struct crypto_shash *sha1_tfm = NULL;
+#endif
+
 struct mars_sdesc {
 	struct shash_desc shash;
 	char ctx[];
@@ -333,6 +338,34 @@ void crc32_digest(void *digest, void *data, int len)
 }
 #endif
 
+#ifdef HAS_SHA1
+static
+void sha1_digest(void *digest, void *data, int len)
+{
+	int size = sizeof(struct mars_sdesc) + crypto_shash_descsize(sha1_tfm);
+	struct mars_sdesc *sdesc = brick_mem_alloc(size);
+	unsigned char tmp[SHA1_DIGEST_SIZE] = {};
+	int status;
+
+	sdesc->shash.tfm = sha1_tfm;
+	sdesc->shash.flags = 0;
+
+	status = crypto_shash_digest(&sdesc->shash, data, len, tmp);
+	if (unlikely(status < 0)) {
+		MARS_ERR("cannot calculate sha1 chksum on %p len=%d, status=%d\n",
+			 data, len,
+			 status);
+		memset(digest, 0, MARS_DIGEST_SIZE);
+	} else {
+		memcpy(digest, tmp, SHA1_DIGEST_SIZE);
+		memset(digest + SHA1_DIGEST_SIZE, 0, 
+		       MARS_DIGEST_SIZE - SHA1_DIGEST_SIZE);
+	}
+
+	brick_mem_free(sdesc);
+}
+#endif
+
 __u32 mars_digest(__u32 digest_flags,
 		  __u32 *used_flags,
 		  void *digest,
@@ -364,6 +397,14 @@ __u32 mars_digest(__u32 digest_flags,
 			*used_flags = MREF_CHKSUM_MD5;
 		return MREF_CHKSUM_MD5;
 	}
+#ifdef HAS_SHA1
+	if (digest_flags & MREF_CHKSUM_SHA1 && sha1_tfm) {
+		sha1_digest(digest, data, len);
+		if (used_flags)
+			*used_flags = MREF_CHKSUM_SHA1;
+		return MREF_CHKSUM_SHA1;
+	}
+#endif
 
 	/* always fallback to old md5 regardless of digest_flags */
 	md5_old_digest(digest, data, len);
@@ -470,12 +511,31 @@ int init_mars_digest(void)
 	}
 #endif
 
+#ifdef HAS_SHA1
+	sha1_tfm = crypto_alloc_shash("sha1", 0, 0);
+	if (unlikely(!sha1_tfm) || IS_ERR(sha1_tfm)) {
+		MARS_ERR("cannot alloc crypto hash, status=%ld\n",
+			 PTR_ERR(sha1_tfm));
+		sha1_tfm = NULL;
+	} else {
+		status = crypto_shash_digestsize(sha1_tfm);
+		if (unlikely(status != SHA1_DIGEST_SIZE)) {
+			MARS_ERR("sha1 bad digest size %d\n", status);
+			return -ELIBACC;
+		}
+		available_digest_mask |= MREF_CHKSUM_SHA1;
+	}
+#endif
+
 #ifdef CONFIG_MARS_BENCHMARK
 #ifdef HAS_CRC32C
 	benchmark_digest("crc32c", MREF_CHKSUM_CRC32C);
 #endif
 #ifdef HAS_CRC32
 	benchmark_digest("crc32",  MREF_CHKSUM_CRC32);
+#endif
+#ifdef HAS_SHA1
+	benchmark_digest("sha1",   MREF_CHKSUM_SHA1);
 #endif
 	benchmark_digest("md5old", MREF_CHKSUM_MD5_OLD);
 	benchmark_digest("md5",    MREF_CHKSUM_MD5);
@@ -497,6 +557,11 @@ void exit_mars_digest(void)
 #ifdef HAS_CRC32
 	if (crc32_tfm) {
 		crypto_free_shash(crc32_tfm);
+	}
+#endif
+#ifdef HAS_SHA1
+	if (sha1_tfm) {
+		crypto_free_shash(sha1_tfm);
 	}
 #endif
 }

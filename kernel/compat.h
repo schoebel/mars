@@ -225,4 +225,8 @@ extern int _compat_unlink(
 #define HAS_CRC32
 #endif
 
+#if defined(CONFIG_CRYPTO_SHA1) || defined(CONFIG_CRYPTO_SHA1_MODULE)
+#define HAS_SHA1
+#endif
+
 #endif /* _MARS_COMPAT */
