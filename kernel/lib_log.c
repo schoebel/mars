@@ -343,8 +343,10 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 
 	crc = 0;
 	if (logst->do_crc) {
-		unsigned char checksum[mars_digest_size];
+		unsigned char checksum[MARS_DIGEST_SIZE];
+
 		mars_digest(checksum, data + logst->payload_offset, len);
+		/* FIXME: extend to  MARS_DIGEST_SIZE */
 		crc = *(int*)checksum;
 	}
 
@@ -651,8 +653,10 @@ int log_scan(void *buf,
 		*seq_nr = lh->l_seq_nr;
 
 		if (lh->l_crc) {
-			unsigned char checksum[mars_digest_size];
+			unsigned char checksum[MARS_DIGEST_SIZE];
+
 			mars_digest(checksum, buf + found_offset, lh->l_len);
+			/* FIXME: extend to  MARS_DIGEST_SIZE */
 			if (unlikely(*(int*)checksum != lh->l_crc)) {
 				MARS_ERR(SCAN_TXT "data checksumming mismatch, length = %d\n", SCAN_PAR, lh->l_len);
 				return -EBADMSG;

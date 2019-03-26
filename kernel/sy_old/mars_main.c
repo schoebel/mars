@@ -1315,7 +1315,7 @@ int _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 	mars_digest(digest, data, len);
 
 	len = 0;
-	for (i = 0; i < mars_digest_size; i++) {
+	for (i = 0; i < MARS_DIGEST_SIZE; i++) {
 		len += sprintf(old + len, "%02x", digest[i]);
 	}
 

@@ -112,6 +112,8 @@
 
 // MARS-specific definitions
 
+#define MARS_DIGEST_SIZE 16
+
 #define MARS_PRIO_HIGH   -1
 #define MARS_PRIO_NORMAL  0 // this is automatically used by memset()
 #define MARS_PRIO_LOW     1
@@ -183,7 +185,7 @@ enum _MREF_FLAGS {
 	__u32  ref_flags;						\
 	/* maintained by the ref implementation, readable for callers */ \
 	loff_t ref_total_size; /* just for info, need not be implemented */ \
-	unsigned char ref_checksum[16];					\
+	unsigned char ref_checksum[MARS_DIGEST_SIZE];			\
 	int    ref_id; /* not mandatory; may be used for identification */ \
 	/* maintained by the ref implementation, incrementable for	\
 	 * callers (but not decrementable! use ref_put()) */		\
@@ -481,10 +483,9 @@ static inline void unuse_fake_mm(void) {}
 
 /////////////////////////////////////////////////////////////////////////
 
-/* Crypto stuff
+/* Crypto / digest stuff
  */
 
-extern int mars_digest_size;
 extern void mars_digest(unsigned char *digest, void *data, int len);
 extern void mref_checksum(struct mref_object *mref);
 

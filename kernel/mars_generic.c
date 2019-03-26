@@ -105,7 +105,7 @@ const struct meta mars_mref_meta[] = {
 	META_INI(ref_cs_mode,      struct mref_object, FIELD_INT),
 	META_INI(ref_timeout,      struct mref_object, FIELD_INT),
 	META_INI(ref_total_size,   struct mref_object, FIELD_INT),
-	META_INI(ref_checksum,     struct mref_object, FIELD_INT),
+	META_INI(ref_checksum,     struct mref_object, FIELD_RAW),
 	META_INI(ref_flags,        struct mref_object, FIELD_UINT),
 	META_INI(ref_rw,           struct mref_object, FIELD_INT),
 	META_INI(ref_id,           struct mref_object, FIELD_INT),
@@ -134,8 +134,7 @@ EXPORT_SYMBOL_GPL(mars_lamport_time_meta);
  */
 #include <crypto/hash.h>
 
-static struct crypto_shash *mars_tfm = NULL;
-int mars_digest_size = 0;
+static struct crypto_shash *md5_tfm = NULL;
 
 struct mars_sdesc {
 	struct shash_desc shash;
@@ -144,14 +143,14 @@ struct mars_sdesc {
 
 void mars_digest(unsigned char *digest, void *data, int len)
 {
-	int size = sizeof(struct mars_sdesc) + crypto_shash_descsize(mars_tfm);
+	int size = sizeof(struct mars_sdesc) + crypto_shash_descsize(md5_tfm);
 	struct mars_sdesc *sdesc = brick_mem_alloc(size);
 	int status;
 
-	sdesc->shash.tfm = mars_tfm;
+	sdesc->shash.tfm = md5_tfm;
 	sdesc->shash.flags = 0;
 
-	memset(digest, 0, mars_digest_size);
+	memset(digest, 0, MARS_DIGEST_SIZE);
 	status = crypto_shash_digest(&sdesc->shash, data, len, digest);
 	if (unlikely(status < 0))
 		MARS_ERR("cannot calculate cksum on %p len=%d, status=%d\n",
@@ -159,6 +158,35 @@ void mars_digest(unsigned char *digest, void *data, int len)
 			 status);
 
 	brick_mem_free(sdesc);
+}
+
+static
+int init_mars_digest(void)
+{
+	int status;
+
+	md5_tfm = crypto_alloc_shash("md5", 0, 0);
+	if (unlikely(!md5_tfm) || IS_ERR(md5_tfm)) {
+		MARS_ERR("cannot alloc crypto hash, status=%ld\n",
+			 PTR_ERR(md5_tfm));
+		md5_tfm = NULL;
+		return -ELIBACC;
+	}
+	status = crypto_shash_digestsize(md5_tfm);
+	if (unlikely(status != MARS_DIGEST_SIZE)) {
+		MARS_ERR("md5 bad digest size %d\n", status);
+		return -ELIBACC;
+	}
+
+	return 0;
+}
+
+static
+void exit_mars_digest(void)
+{
+	if (md5_tfm) {
+		crypto_free_shash(md5_tfm);
+	}
 }
 
 #else  /* MARS_HAS_NEW_CRYPTO */
@@ -172,7 +200,6 @@ void mars_digest(unsigned char *digest, void *data, int len)
 
 static struct crypto_hash *mars_tfm[OBSOLETE_TFM_MAX];
 static struct semaphore tfm_sem[OBSOLETE_TFM_MAX];
-int mars_digest_size = 0;
 
 void mars_digest(unsigned char *digest, void *data, int len)
 {
@@ -184,7 +211,7 @@ void mars_digest(unsigned char *digest, void *data, int len)
 	};
 	struct scatterlist sg;
 
-	memset(digest, 0, mars_digest_size);
+	memset(digest, 0, MARS_DIGEST_SIZE);
 
 	// TODO: use per-thread instance, omit locking
 	down(&tfm_sem[i]);
@@ -201,7 +228,7 @@ void mars_digest(unsigned char *digest, void *data, int len)
 
 void mref_checksum(struct mref_object *mref)
 {
-	unsigned char checksum[mars_digest_size];
+	unsigned char checksum[MARS_DIGEST_SIZE];
 	int len;
 
 	if (!(mref->ref_flags & MREF_CHKSUM_ANY) || !mref->ref_data)
@@ -210,8 +237,8 @@ void mref_checksum(struct mref_object *mref)
 	mars_digest(checksum, mref->ref_data, mref->ref_len);
 
 	len = sizeof(mref->ref_checksum);
-	if (len > mars_digest_size)
-		len = mars_digest_size;
+	if (len > MARS_DIGEST_SIZE)
+		len = MARS_DIGEST_SIZE;
 	memcpy(&mref->ref_checksum, checksum, len);
 }
 
@@ -367,6 +394,8 @@ EXPORT_SYMBOL_GPL(mm_fake_count);
 
 int __init init_mars(void)
 {
+	int status;
+
 	MARS_INF("init_mars()\n");
 
 	set_fake();
@@ -388,14 +417,12 @@ int __init init_mars(void)
 #endif
 
 #ifdef MARS_HAS_NEW_CRYPTO
-	mars_tfm = crypto_alloc_shash("md5", 0, 0);
-	if (unlikely(!mars_tfm) || IS_ERR(mars_tfm)) {
-		MARS_ERR("cannot alloc crypto hash, status=%ld\n",
-			 PTR_ERR(mars_tfm));
-		return -ELIBACC;
-	}
-	mars_digest_size = crypto_shash_digestsize(mars_tfm);
+	status = init_mars_digest();
+	if (unlikely(status))
+		return status;
+
 #else  /* MARS_HAS_NEW_CRYPTO */
+
 	{
 		int i;
 
@@ -418,9 +445,13 @@ int __init init_mars(void)
 		return -EINVAL;
 	}
 #endif
-	mars_digest_size = crypto_hash_digestsize(mars_tfm[0]);
+	status = crypto_hash_digestsize(mars_tfm[0]);
+	MARS_INF("digest_size = %d\n", status);
+	if (unlikely(status != MARS_DIGEST_SIZE)) {
+		MARS_ERR("bad md5 crypto hash size %d\n", status);
+		return -EINVAL;
+	}
 #endif /* MARS_HAS_NEW_CRYPTO */
-	MARS_INF("digest_size = %d\n", mars_digest_size);
 
 	return 0;
 }
@@ -432,9 +463,7 @@ void exit_mars(void)
 	put_fake();
 
 #ifdef MARS_HAS_NEW_CRYPTO
-	if (mars_tfm) {
-		crypto_free_shash(mars_tfm);
-	}
+	exit_mars_digest();
 #else  /* MARS_HAS_NEW_CRYPTO */
 	if (mars_tfm[0]) {
 		int i;
