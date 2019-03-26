@@ -321,6 +321,8 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	int restlen;
 	int nr_cb;
 	int crc;
+	__u32 check_flags;
+	__u16 crc_flags;
 	bool ok = false;
 
 	CHECK_PTR(mref, err);
@@ -342,13 +344,26 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	data = mref->ref_data;
 
 	crc = 0;
+	check_flags = 0;
 	if (logst->do_crc) {
 		unsigned char checksum[MARS_DIGEST_SIZE];
 
-		mars_digest(checksum, data + logst->payload_offset, len);
+		check_flags |=
+		  mars_digest(usable_digest_mask,
+			      &used_log_digest,
+			      checksum,
+			      data + logst->payload_offset, len);
 		/* FIXME: extend to  MARS_DIGEST_SIZE */
 		crc = *(int*)checksum;
 	}
+
+	/*
+	 * We have only 16 flag bits in the traditional
+	 * logfile format, which is in production over
+	 * years. To remain compatible, we strip off
+	 * non-checksum related bits.
+	 */
+	crc_flags = check_flags >> _MREF_CHKSUM_MD5_OLD;
 
 	/* Correct the length in the header.
 	 */
@@ -362,7 +377,7 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	DATA_PUT(data, offset, crc);
 	DATA_PUT(data, offset, (char)1);  // valid_flag copy
 	DATA_PUT(data, offset, (char)0);  // spare
-	DATA_PUT(data, offset, (short)0); // spare
+	DATA_PUT(data, offset, crc_flags);
 	DATA_PUT(data, offset, logst->seq_nr + 1);
 	get_lamport(NULL, &now);    // when the log entry was ready.
 	DATA_PUT(data, offset, now.tv_sec);  
@@ -565,6 +580,7 @@ int log_scan(void *buf,
 		short total_len;
 		long long end_magic;
 		char valid_copy;
+		__u32 check_flags;
 
 		int restlen = 0;
 		int found_offset;
@@ -638,8 +654,9 @@ int log_scan(void *buf,
 		}
 
 		// skip spares
-		offset += 3;
+		offset += 1;
 
+		DATA_GET(buf, offset, lh->l_crc_flags);
 		DATA_GET(buf, offset, lh->l_seq_nr);
 		DATA_GET(buf, offset, lh->l_written.tv_sec);
 		DATA_GET(buf, offset, lh->l_written.tv_nsec);
@@ -652,10 +669,27 @@ int log_scan(void *buf,
 		}
 		*seq_nr = lh->l_seq_nr;
 
+		/*
+		 * We have only 16 flag bits in the traditional
+		 * logfile format, which is in production over
+		 * years. To remain compatible, we strip off
+		 * non-checksum related bits.
+		 */
+		check_flags =
+			(((__u32)lh->l_crc_flags) << _MREF_CHKSUM_MD5_OLD) &
+			available_digest_mask;
+
+		/* compatibility with old logfiles during upgrade */
+		if (!check_flags)
+			check_flags = MREF_CHKSUM_MD5_OLD;
+
 		if (lh->l_crc) {
 			unsigned char checksum[MARS_DIGEST_SIZE];
 
-			mars_digest(checksum, buf + found_offset, lh->l_len);
+			mars_digest(check_flags,
+				    &used_log_digest,
+				    checksum,
+				    buf + found_offset, lh->l_len);
 			/* FIXME: extend to  MARS_DIGEST_SIZE */
 			if (unlikely(*(int*)checksum != lh->l_crc)) {
 				MARS_ERR(SCAN_TXT "data checksumming mismatch, length = %d\n", SCAN_PAR, lh->l_len);

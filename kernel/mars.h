@@ -162,6 +162,7 @@ enum _MREF_FLAGS {
 	_MREF_NODATA, /* only useful for chksum reading */
 	/* Checksum bits, starting at the upper half */
 	_MREF_CHKSUM_MD5_OLD = 16,
+	_MREF_CHKSUM_LAST,
 };
 
 #define MREF_UPTODATE        (1UL << _MREF_UPTODATE)
@@ -172,7 +173,9 @@ enum _MREF_FLAGS {
 #define MREF_SKIP_SYNC       (1UL << _MREF_SKIP_SYNC)
 #define MREF_NODATA          (1UL << _MREF_NODATA)
 #define MREF_CHKSUM_MD5_OLD  (1UL << _MREF_CHKSUM_MD5_OLD)
-#define MREF_CHKSUM_ANY      (MREF_CHKSUM_MD5_OLD)
+#define MREF_CHKSUM_LAST     (1UL << _MREF_CHKSUM_LAST)
+#define MREF_CHKSUM_ANY      (MREF_CHKSUM_MD5_OLD |	\
+			      MREF_CHKSUM_LAST)
 
 #define MREF_OBJECT(OBJTYPE)						\
 	CALLBACK_OBJECT(OBJTYPE);					\
@@ -487,7 +490,19 @@ static inline void unuse_fake_mm(void) {}
 /* Crypto / digest stuff
  */
 
-extern void mars_digest(unsigned char *digest, void *data, int len);
+extern __u32 available_digest_mask;
+extern __u32 usable_digest_mask;
+extern __u32 used_log_digest;
+extern __u32 used_net_digest;
+
+extern __u32 disabled_log_digests;
+extern __u32 disabled_net_digests;
+
+extern __u32 mars_digest(__u32 digest_flags,
+			 __u32 *used_flags,
+			 void *digest,
+			 void *data, int len);
+
 extern void mref_checksum(struct mref_object *mref);
 
 /////////////////////////////////////////////////////////////////////////

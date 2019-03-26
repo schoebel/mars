@@ -54,7 +54,9 @@ struct log_header_v1 {
 	short  l_len;
 	short  l_code;
 	unsigned int l_seq_nr;
+	/* TODO: extend to 64 bit */
 	int    l_crc;
+	__u16  l_crc_flags;
 };
 
 #define FORMAT_VERSION   1 // version of disk format, currently there is no other one

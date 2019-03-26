@@ -376,11 +376,15 @@ void _update_percent(struct copy_brick *brick, bool force)
 }
 
 static inline
-__u32 _make_flags(bool verify_mode)
+__u32 _make_flags(bool verify_mode, bool is_local)
 {
 	if (!verify_mode)
 		return 0;
-	return MREF_NODATA | MREF_CHKSUM_ANY;
+
+	if (is_local)
+		return available_digest_mask | MREF_NODATA;
+
+	return usable_digest_mask | MREF_NODATA;
 }
 
 
@@ -452,7 +456,7 @@ restart:
 
 		status = _make_mref(brick, index, 0, NULL,
 				    pos, brick->copy_end,
-				    _make_flags(brick->verify_mode));
+				    _make_flags(brick->verify_mode, false));
 		if (unlikely(status < 0)) {
 			MARS_DBG("status = %d\n", status);
 			progress = status;
@@ -469,7 +473,7 @@ restart:
 	case COPY_STATE_START2:
 		status = _make_mref(brick, index, 1, NULL,
 				    pos, brick->copy_end,
-				    _make_flags(true));
+				    _make_flags(true, true));
 		if (unlikely(status < 0)) {
 			MARS_DBG("status = %d\n", status);
 			progress = status;
@@ -534,7 +538,7 @@ restart:
 			_clear_mref(brick, index, 0);
 			status = _make_mref(brick, index, 0, NULL,
 					    pos, brick->copy_end,
-					    _make_flags(false));
+					    _make_flags(false, false));
 			if (unlikely(status < 0)) {
 				MARS_DBG("status = %d\n", status);
 				progress = status;

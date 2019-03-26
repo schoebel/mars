@@ -1312,7 +1312,10 @@ int _update_version_link(struct mars_rotate *rot, struct trans_logger_info *inf)
 	
 	MARS_DBG("data = '%s' len = %d\n", data, len);
 
-	mars_digest(digest, data, len);
+	mars_digest(MREF_CHKSUM_MD5_OLD,
+		    NULL,
+		    digest,
+		    data, len);
 
 	len = 0;
 	/* Maintain compatibilty with old behaviour */

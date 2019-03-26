@@ -144,9 +144,14 @@ EXPORT_SYMBOL_GPL(mars_lamport_time_meta);
 
 #define MD5_DIGEST_SIZE 16
 
+__u32 available_digest_mask = MREF_CHKSUM_MD5_OLD;
+__u32 usable_digest_mask = MREF_CHKSUM_MD5_OLD;
+__u32 used_log_digest = 0;
+__u32 used_net_digest = 0;
+
 #ifdef MARS_HAS_NEW_CRYPTO
 
-/* Nor now, use shash.
+/* For now, use shash.
  * Later, asynchronous support should be added for full exploitation
  * of crypto hardware.
  */
@@ -164,7 +169,8 @@ struct mars_sdesc {
  * digest bytes up to MARS_DIGEST_SIZE are not exploited
  * in this version.
  */
-void mars_digest(unsigned char *digest, void *data, int len)
+static
+void md5_old_digest(void *digest, void *data, int len)
 {
 	int size = sizeof(struct mars_sdesc) + crypto_shash_descsize(md5_tfm);
 	struct mars_sdesc *sdesc = brick_mem_alloc(size);
@@ -175,12 +181,28 @@ void mars_digest(unsigned char *digest, void *data, int len)
 
 	memset(digest, 0, MARS_DIGEST_SIZE);
 	status = crypto_shash_digest(&sdesc->shash, data, len, digest);
-	if (unlikely(status < 0))
-		MARS_ERR("cannot calculate cksum on %p len=%d, status=%d\n",
+	if (unlikely(status < 0)) {
+		MARS_ERR("cannot calculate md5 chksum on %p len=%d, status=%d\n",
 			 data, len,
 			 status);
+		memset(digest, 0, MARS_DIGEST_SIZE);
+	}
 
 	brick_mem_free(sdesc);
+}
+
+__u32 mars_digest(__u32 digest_flags,
+		  __u32 *used_flags,
+		  void *digest,
+		  void *data, int len)
+{
+	digest_flags &= usable_digest_mask;
+
+	/* always fallback to old md5 regardless of digest_flags */
+	md5_old_digest(digest, data, len);
+	if (used_flags)
+		*used_flags = MREF_CHKSUM_MD5_OLD;
+	return MREF_CHKSUM_MD5_OLD;
 }
 
 static
@@ -224,7 +246,10 @@ void exit_mars_digest(void)
 static struct crypto_hash *mars_tfm[OBSOLETE_TFM_MAX];
 static struct semaphore tfm_sem[OBSOLETE_TFM_MAX];
 
-void mars_digest(unsigned char *digest, void *data, int len)
+__u32 mars_digest(__u32 digest_flags,
+		  __u32 *used_flags,
+		  void *digest,
+		  void *data, int len)
 {
 	static unsigned int round_robin = 0;
 	unsigned int i = round_robin++ % OBSOLETE_TFM_MAX;
@@ -236,7 +261,6 @@ void mars_digest(unsigned char *digest, void *data, int len)
 
 	memset(digest, 0, MARS_DIGEST_SIZE);
 
-	// TODO: use per-thread instance, omit locking
 	down(&tfm_sem[i]);
 
 	crypto_hash_init(&desc);
@@ -245,6 +269,9 @@ void mars_digest(unsigned char *digest, void *data, int len)
 	crypto_hash_update(&desc, &sg, sg.length);
 	crypto_hash_final(&desc, digest);
 	up(&tfm_sem[i]);
+	if (used_flags)
+		*used_flags = MREF_CHKSUM_MD5_OLD;
+	return MREF_CHKSUM_MD5_OLD;
 }
 
 #endif /* MARS_HAS_NEW_CRYPTO */
@@ -252,12 +279,19 @@ void mars_digest(unsigned char *digest, void *data, int len)
 void mref_checksum(struct mref_object *mref)
 {
 	unsigned char checksum[MARS_DIGEST_SIZE];
+	__u32 flags;
 	int len;
 
 	if (!(mref->ref_flags & MREF_CHKSUM_ANY) || !mref->ref_data)
 		return;
 
-	mars_digest(checksum, mref->ref_data, mref->ref_len);
+	flags =
+		mars_digest(mref->ref_flags & usable_digest_mask,
+			    &used_net_digest,
+			    checksum,
+			    mref->ref_data, mref->ref_len);
+
+	mref->ref_flags = (mref->ref_flags & ~MREF_CHKSUM_ANY) | flags;
 
 	len = sizeof(mref->ref_checksum);
 	if (len > MARS_DIGEST_SIZE)
