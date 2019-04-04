@@ -86,7 +86,6 @@ struct trans_logger_hash_anchor {
 ///////////////////////// global tuning ////////////////////////
 
 int trans_logger_completion_semantics = 1;
-EXPORT_SYMBOL_GPL(trans_logger_completion_semantics);
 
 int trans_logger_do_crc =
 #ifdef CONFIG_MARS_DEBUG
@@ -94,26 +93,22 @@ int trans_logger_do_crc =
 #else
 	false;
 #endif
-EXPORT_SYMBOL_GPL(trans_logger_do_crc);
 
 int trans_logger_mem_usage; // in KB
-EXPORT_SYMBOL_GPL(trans_logger_mem_usage);
+
+int trans_logger_pressure_limit = 0;
 
 int trans_logger_max_interleave = -1;
-EXPORT_SYMBOL_GPL(trans_logger_max_interleave);
 
 int trans_logger_resume = 1;
-EXPORT_SYMBOL_GPL(trans_logger_resume);
 
 int trans_logger_replay_timeout = 1; // in s
-EXPORT_SYMBOL_GPL(trans_logger_replay_timeout);
 
 struct writeback_group global_writeback = {
 	.mutex = __RWSEM_INITIALIZER(global_writeback.mutex),
 	.group_anchor = LIST_HEAD_INIT(global_writeback.group_anchor),
 	.until_percent = 30,
 };
-EXPORT_SYMBOL_GPL(global_writeback);
 
 static
 void add_to_group(struct writeback_group *gr, struct trans_logger_brick *brick)
@@ -2311,6 +2306,21 @@ struct rank_info global_rank_mref_flying[] = {
 	{ RKI_DUMMY }
 };
 
+/* Not checking pressure means to always have writeback pressure
+ * by default. No pressure means that writeback may be postponed
+ * when other IO is more important.
+ */
+static inline
+bool _check_pressure(struct trans_logger_brick *brick)
+{
+	int active =
+		atomic_read(&brick->any_fly_count) +
+		brick->q_phase[0].q_queued + brick->q_phase[0].q_active;
+
+	return (active > trans_logger_pressure_limit) &&
+		brick->power.button;
+}
+
 static noinline
 int _do_ranking(struct trans_logger_brick *brick)
 {
@@ -2330,7 +2340,8 @@ int _do_ranking(struct trans_logger_brick *brick)
 		int global_mem_used  = atomic64_read(&global_mshadow_used) / 1024;
 		trans_logger_mem_usage = global_mem_used;
 
-		pressure_mode = (global_mem_used < brick_global_memlimit / 2) ? 0 : 1;
+		if (_check_pressure(brick))
+			pressure_mode = (global_mem_used < brick_global_memlimit / 2) ? 0 : 1;
 
 		if (global_mem_used >= brick_global_memlimit)
 			delay_callers = true;
@@ -2339,7 +2350,8 @@ int _do_ranking(struct trans_logger_brick *brick)
 	} else if (brick->shadow_mem_limit >= 8) {
 		int local_mem_used   = atomic64_read(&brick->shadow_mem_used) / 1024;
 
-		pressure_mode = (local_mem_used < brick->shadow_mem_limit / 2) ? 0 : 1;
+		if (_check_pressure(brick))
+			pressure_mode = (local_mem_used < brick->shadow_mem_limit / 2) ? 0 : 1;
 
 		if (local_mem_used >= brick->shadow_mem_limit)
 			delay_callers = true;
