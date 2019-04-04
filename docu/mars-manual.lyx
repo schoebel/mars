@@ -23445,11 +23445,19 @@ natural races
 \labelwidthstring 00.00.0000
 
 \family typewriter
-WriteBack
+WriteBack[
+\emph on
+amount
+\emph default
+]
 \family default
  (cf 
 \family typewriter
 %is-primary{}
+\family default
+ and amount via 
+\family typewriter
+%writeback-rest{}
 \family default
 ) Appears only at actual primaries (whether designated or not), when the
  writeback from the RAM buffer is active (see section 
@@ -23459,7 +23467,13 @@ reference "sec:The-Transaction-Logger"
 
 \end_inset
 
-)
+).
+ The 
+\emph on
+amount
+\emph default
+ is displayed in human readable form, and may be used for a very rough estimatio
+n of recovery time after a primary crash.
 \end_layout
 
 \begin_layout Labeling
