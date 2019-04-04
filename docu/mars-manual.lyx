@@ -25138,7 +25138,35 @@ resize
 
 \begin_layout Standard
 \noindent
-The following macros are only meaningful for secondary nodes.
+The following macros are only meaningful for resources in primary mode:
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+writeback-rest
+\family default
+ Show the amount of data which is already in the transaction logfile, but
+ has not yet been written back to the underlying disk.
+ This may be used for estimation of recovery time after a potential primary
+ crash.
+ The writeback buffer is explained by the graphics at 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:The-Transaction-Logger"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+The following macros are only meaningful for resources in secondary mode.
  By information theoretic limits, they can only tell what is 
 \emph on
 locally known
