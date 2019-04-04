@@ -4308,6 +4308,7 @@ sub eval_fn {
     if (/^is[-_]?orphan$/) {
       my $peer = parse_macro($arg1, $env);
       $peer = $$env{"host"} unless $peer;
+      return 0 if eval_fn($env, "is-primary", $peer);
       my $replay  = get_link($$env{"resdir"} . "/replay-$peer", 1);
       $replay =~ m/^(log-[^,]+),([0-9]*)/;
       my $logfile = $$env{"resdir"} . "/" . $1;
@@ -4396,7 +4397,9 @@ sub eval_fn {
       my $what = $1;
       my $is = "is";
       $is = "has" if $what eq "emergency";
-      my $lnk = $$env{"resdir"} . "/actual-" . $$env{"host"} . "/$is-$what";
+      my $peer = parse_macro($arg1, $env);
+      $peer = $$env{"host"} unless $peer;
+      my $lnk = $$env{"resdir"} . "/actual-$peer/$is-$what";
       $lnk = correct_path($lnk);
       return get_link($lnk, 1);
     }
