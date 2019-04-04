@@ -2317,7 +2317,7 @@ int _do_ranking(struct trans_logger_brick *brick)
 	struct rank_data *rkd = brick->rkd;
 	int res;
 	int i;
-	int floating_mode;
+	int pressure_mode;
 	int mref_flying;
 	bool delay_callers;
 
@@ -2325,12 +2325,12 @@ int _do_ranking(struct trans_logger_brick *brick)
 
 	// check the memory situation...
 	delay_callers = false;
-	floating_mode = 1;
+	pressure_mode = 1;
 	if (brick_global_memlimit >= 1024) {
 		int global_mem_used  = atomic64_read(&global_mshadow_used) / 1024;
 		trans_logger_mem_usage = global_mem_used;
 
-		floating_mode = (global_mem_used < brick_global_memlimit / 2) ? 0 : 1;
+		pressure_mode = (global_mem_used < brick_global_memlimit / 2) ? 0 : 1;
 
 		if (global_mem_used >= brick_global_memlimit)
 			delay_callers = true;
@@ -2339,7 +2339,7 @@ int _do_ranking(struct trans_logger_brick *brick)
 	} else if (brick->shadow_mem_limit >= 8) {
 		int local_mem_used   = atomic64_read(&brick->shadow_mem_used) / 1024;
 
-		floating_mode = (local_mem_used < brick->shadow_mem_limit / 2) ? 0 : 1;
+		pressure_mode = (local_mem_used < brick->shadow_mem_limit / 2) ? 0 : 1;
 
 		if (local_mem_used >= brick->shadow_mem_limit)
 			delay_callers = true;
@@ -2400,7 +2400,7 @@ int _do_ranking(struct trans_logger_brick *brick)
 		if (i == 0) {
 			// limit mref IO parallelism on transaction log
 			ranking_compute(&rkd[0], extra_rank_mref_flying, mref_flying);
-		} else if (i == 1 && !floating_mode) {
+		} else if (i == 1 && !pressure_mode) {
 			struct trans_logger_brick *leader;
 			int lim;
 
@@ -2436,13 +2436,13 @@ int _do_ranking(struct trans_logger_brick *brick)
 			}
 		}
 
-		ranking_compute(&rkd[i], queue_ranks[floating_mode][i], queued);
+		ranking_compute(&rkd[i], queue_ranks[pressure_mode][i], queued);
 
 		flying = brick->q_phase[i].q_active - brick->q_phase[i].q_active;
 
 		MARS_IO("i = %d queued = %d flying = %d\n", i, queued, flying);
 
-		ranking_compute(&rkd[i], fly_ranks[floating_mode][i], flying);
+		ranking_compute(&rkd[i], fly_ranks[pressure_mode][i], flying);
 	}
 
 	// finalize it
