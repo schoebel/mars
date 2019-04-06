@@ -50,6 +50,7 @@
 extern int trans_logger_completion_semantics;
 extern int trans_logger_do_crc;
 extern int trans_logger_mem_usage; // in KB
+extern int trans_logger_pressure_limit;
 extern int trans_logger_max_interleave;
 extern int trans_logger_resume;
 extern int trans_logger_replay_timeout; // in s

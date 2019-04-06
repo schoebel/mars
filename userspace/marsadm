@@ -4387,6 +4387,7 @@ sub eval_fn {
     if (/^is[-_]?orphan$/) {
       my $peer = parse_macro($arg1, $env);
       $peer = $$env{"host"} unless $peer;
+      return 0 if eval_fn($env, "is-primary", $peer);
       my $replay  = get_link($$env{"resdir"} . "/replay-$peer", 1);
       $replay =~ m/^(log-[^,]+),([0-9]*)/;
       my $logfile = $$env{"resdir"} . "/" . $1;
@@ -4475,7 +4476,9 @@ sub eval_fn {
       my $what = $1;
       my $is = "is";
       $is = "has" if $what eq "emergency";
-      my $lnk = $$env{"resdir"} . "/actual-" . $$env{"host"} . "/$is-$what";
+      my $peer = parse_macro($arg1, $env);
+      $peer = $$env{"host"} unless $peer;
+      my $lnk = $$env{"resdir"} . "/actual-$peer/$is-$what";
       $lnk = correct_path($lnk);
       return get_link($lnk, 1);
     }
@@ -4567,6 +4570,13 @@ sub eval_fn {
     if (/^(fetch|work)[-_]?logcount$/) {
       my $what = $1;
       return eval_fn($env, "$what-lognr", "") - eval_fn($env, "replay-lognr", "");
+    }
+    if (/^writeback[-_]?rest$/) {
+      my $lnk = $$env{"resdir"} . "/replay-" . $$env{"host"};
+      my $link = get_link($lnk, 1);
+      $link =~ m/,([0-9]+)$/;
+      return $1 if defined($1);
+      return 0;
     }
     if (/^(replay|work)[-_]?(pos)$/) {
       my $what = $1;
@@ -5049,7 +5059,7 @@ my %complex_macros =
    .    "%elsif{%not{%todo-primary{}}}{"
    .      "InConsistent"
    .    "}{%is-primary{}}{"
-   .      "WriteBack"
+   .      "WriteBack[%human-numbers{}{ }{ }{%writeback-rest{}}]"
    .    "}{"
    .      "Recovery"
    .    "}"
@@ -5057,7 +5067,7 @@ my %complex_macros =
    .    "%elsif{%not{%todo-primary{}}}{"
    .      "OutDated[%call{outdated-flags}]"
    .    "}{%is-primary{}}{"
-   .      "WriteBack"
+   .      "WriteBack[%human-numbers{}{ }{ }{%writeback-rest{}}]"
    .    "}{"
    .      "Recovery"
    .    "}"
@@ -5478,6 +5488,8 @@ my %trivial_globs =
    "{sync,fetch,replay,work,syncpos}-{size,pos}"
    => "",
    "{sync,fetch,replay,work}-{rest,{almost-,threshold-,}reached,percent,permille,vector}"
+   => "",
+   "writeback-rest"
    => "",
    "{sync,fetch,replay}-{rate,remain}"
    => "",

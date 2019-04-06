@@ -30,7 +30,7 @@ Example: mars0.3alpha*:
 
 Release Conventions / Branches / Tagnames
 -----------------------------------------
-	FLOW OF BUGFIXES: 0.1 -> 0.1a -> 0.1b -> 0.2 -> ...
+	FLOW OF BUGFIXES: 0.1 -> 0.1a -> ...
 
 	mars0.1 series (stable, will go EOL soon):
 		 - Will run in parallel to branch 0.1a for a few
@@ -47,64 +47,6 @@ Release Conventions / Branches / Tagnames
 		 - Unstable tagnames: light0.1abeta%d (obsolete)
 		 - Stable branch: mars0.1a.y
 		 - Stable tagnames: mars0.1astable%02d
-
-	mars0.1b series (currently alpha):
-		 This is an _imtermediate_ series between 0.1 and 0.2.
-		 The goal is to improve _scalability_ to thousands of
-		 hosts in one cluster, as well as thousands of resources.
-		 Likely, this intermdiate branch will be merged into 0.2
-		 and then continue development there. When this point
-		 will arrive is uncertain at the moment.
-		 Likely, the stabilization of the new scalability features
-		 will occur together with the 0.2 series.
-		 Reason for this: the rollout strategy at 1&1 to
-		 thousands of machines wants to do small incremental
-		 steps. The risk of directly going to 0.2 in _masses_
-		 is minimized by first rolling out the really necessary
-		 changes, and to postpone those developments which are
-		 currently not yet really needed in mass deployment.
-
-	mars0.2 series (currently in beta stage):
-		   Mostly for internal needs of 1&1 (but not limited to that).
-		 - Getting rid of the kernel prepatch! MARS may be built
-		   as an external kernel module for any supported
-		   kernel version. First prototype is only tested for
-		   unaltered 3.2.x vanilla kernel, but compatibility to
-		   further vanilla kernel versions (maybe even
-		   Redhat-specific ones) will follow during the course of
-		   the MARS mars0.2 stable series. The problem is not
-		   compatibility as such, but _testing_ that it really
-		   works. These tests need a lot of time.
-		   => further arguments for getting to kernel upstream ASAP.
-		 - Improved network throughput by parallel TCP connections
-		   (in particular under packet loss).
-		   Also called "socket bundling".
-		   First benchmarks show an impressive speedup over
-		   highly congested long-distance lines.
-		 - Future-proof updates in the network protocol:
-		   Mixed operation of 32/64bit and/or {big,low}endian
-		 - Support for multi-homed network interfaces.
-		 - Transparent data compression over low bandwidth lines.
-		   Consumes a lot of CPU, therefore only recommended for
-		   low write loads or for desperate network situations.
-		 - Remote device: bypassing iSCSI. In essence,
-		   /dev/mars/mydata can appear at any other cluster member
-		   which doesn't necessarily need any local disks.
-		 - Various smaller features and improvements.
-		 - Unstable tagnames: mars0.2beta%d.%d (current)
-		 - Stable branch: mars0.2.y (already in use for beta)
-		 - Stable tagnames: mars0.2stable%02d (planned)
-
-	mars0.3 series (planned):
-		   (some might possibly go to 1.0 series instead)
-		 - Improve replication latency.
-		 - New pseudo-synchronous replication modes.
-		   For the internal needs of database folks at 1&1.
-		 - (Maybe) old test suite could be retired, a new
-		   one is at github.com/schoebel/test-suite
-		 - Unstable tagnames: mars0.3beta%d.%d (planned)
-		 - Stable branch: mars0.3.y (planned)
-		 - Stable tagnames: mars0.3stable%02d (planned)
 
 	mars1.0 series (planned):
 		 - Replace symlink tree by transactional status files
@@ -129,16 +71,6 @@ Release Conventions / Branches / Tagnames
 	NO NEW FEATURES, not even minor ones, except when absolutely
 	necessary for a bugfix, or for an important usability improvement
 	(such as clearer display of errors, hints for resolving them, etc).
-
------------------------------------
-Changelog for series 0.2:
-
-(you need to checkout branch mars0.2.y to see any details)
-
------------------------------------
-Changelog for series 0.1b:
-
-(you need to checkout branch mars0.1b.y to see any details)
 
 -----------------------------------
 Changelog for series 0.1a:
@@ -400,6 +332,12 @@ Attention! This branch will go EOL around March 2019.
 	better performance, smoother, etc.
 	And even more stable, although the 0.1a releases were
 	called "beta" up to now.
+
+mars0.1stable72
+	* Minor fix: writeback improved in a corner case.
+	* Minor improvement: display WriteBack data amount in
+	  marsadm view.
+	* Major doc improvement: describe IO performance tuning.
 
 mars0.1stable71
 	* Major fix: writeback at the primary was unnecessarily

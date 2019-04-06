@@ -354,6 +354,7 @@ struct ctl_table mars_table[] = {
 	INT_ENTRY("delay_say_on_overflow",delay_say_on_overflow,  0600),
 	INT_ENTRY("mapfree_period_sec",   mapfree_period_sec,     0600),
 	INT_ENTRY("mapfree_grace_keep_mb", mapfree_grace_keep_mb, 0600),
+	INT_ENTRY("logger_pressure_limit", trans_logger_pressure_limit, 0600),
 	INT_ENTRY("logger_max_interleave", trans_logger_max_interleave, 0600),
 	INT_ENTRY("logger_resume",        trans_logger_resume,    0600),
 	INT_ENTRY("logger_replay_timeout_sec", trans_logger_replay_timeout, 0600),
