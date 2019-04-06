@@ -15204,6 +15204,16 @@ noprefix "false"
 
 \end_inset
 
+ and 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "subsec:Tuning-Network-Performance"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
 .
  You may also play around with 
 \family typewriter
@@ -44124,6 +44134,13 @@ This section describes only those tweaks intended for sysadmins, not those
 
 \begin_layout Subsection
 Tuning Network Performance
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Tuning-Network-Performance"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
