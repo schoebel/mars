@@ -85,6 +85,12 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable72 (merged from mars0.1stable72)
+	* Minor fix: writeback improved in a corner case.
+	* Minor improvement: display WriteBack data amount in
+	  marsadm view.
+	* Major doc improvement: describe IO performance tuning.
+
 mars0.1astable71 (merged from mars0.1stable71)
 	* Major fix: writeback at the primary was unnecessarily
 	  slow at certain situations.
