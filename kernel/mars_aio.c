@@ -772,6 +772,7 @@ void _destroy_ioctx(struct aio_output *output)
 static int _get_fd(void)
 {
 	int err;
+	int count = 0;
 
 	do {
 		/* see f938612dd97d481b8b5bf960c992ae577f081c17
@@ -783,7 +784,7 @@ static int _get_fd(void)
 		err = get_unused_fd_flags(0);
 #endif
 		/* safety workaround: skip standard Unix filehandles */
-	} while (err >= 0 && err <= 2);
+	} while (err >= 0 && err <= 2 && count++ < 3);
 	return err;
 }
 
