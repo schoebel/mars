@@ -727,6 +727,8 @@ static DEFINE_MUTEX(_fd_lock);
 static
 void _destroy_ioctx(struct aio_output *output)
 {
+	int fd;
+
 	if (unlikely(!output))
 		goto done;
 
@@ -748,11 +750,14 @@ void _destroy_ioctx(struct aio_output *output)
 		output->ctxp = 0;
 	}
 
-	if (likely(output->fd >= 0)) {
-		MARS_DBG("destroying fd %d\n", output->fd);
-		fd_uninstall(output->fd);
-		put_unused_fd(output->fd);
+	fd = output->fd;
+	if (likely(fd >= 0)) {
+		MARS_DBG("destroying fd %d\n", fd);
+		mutex_lock(&_fd_lock);
+		fd_uninstall(fd);
+		put_unused_fd(fd);
 		output->fd = -1;
+		mutex_unlock(&_fd_lock);
 	}
 
  done:
