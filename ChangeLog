@@ -101,6 +101,20 @@ Attention! This branch will go EOL around March 2019.
 	And even more stable, although the 0.1a releases were
 	called "beta" up to now.
 
+mars0.1stable73
+	* Critical fix, only relevant for kernels >= 4.2.x:
+	  NULL deref occurs systematically when more than 64
+	  file handles are being allocated.
+	  There is already an upstream bugfix in linux-next
+	  (missing initializer for resize_wait in fs/file.c).
+	  Since this fix is missing in many LTS and distro kernels
+	  (at the moment), I added a workaround in MARS.
+	  Recommendation: anyone operating MARS on newer kernels
+	  should update to mars0.1astable73 for safe operations.
+	  Don't leave this unfixed. It can explode at the worst
+	  moment, and restoring operations may only be possible
+	  by completely giving up a secondary host, or with a fix.
+
 mars0.1stable72
 	* Minor fix: writeback improved in a corner case.
 	* Minor improvement: display WriteBack data amount in
