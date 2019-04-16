@@ -799,7 +799,16 @@ static int _get_fd(void)
 		 * removed again.
 		 */
 #ifndef blk_pm_request
-		if (unlikely(!files->resize_wait.task_list.next)) {
+		/* Upstream commit 2055da97389a605c8a00d163d40903afbe413921
+		 * changed the field name.
+		 * Detected via 8ada92799ec4de00f4bc0f10b1ededa256c1ab22
+		 */
+#ifdef wait_event_killable_timeout
+#define XXX_NAME head
+#else
+#define XXX_NAME task_list
+#endif
+		if (unlikely(!files->resize_wait.XXX_NAME.next)) {
 			files->resize_in_progress = false;
 			init_waitqueue_head(&files->resize_wait);
 		}
