@@ -722,10 +722,13 @@ EXPORT_SYMBOL(fd_uninstall);
 
 static
 atomic_t ioctx_count = ATOMIC_INIT(0);
+static DEFINE_MUTEX(_fd_lock);
 
 static
 void _destroy_ioctx(struct aio_output *output)
 {
+	int fd;
+
 	if (unlikely(!output))
 		goto done;
 
@@ -747,11 +750,14 @@ void _destroy_ioctx(struct aio_output *output)
 		output->ctxp = 0;
 	}
 
-	if (likely(output->fd >= 0)) {
-		MARS_DBG("destroying fd %d\n", output->fd);
-		fd_uninstall(output->fd);
-		put_unused_fd(output->fd);
+	fd = output->fd;
+	if (likely(fd >= 0)) {
+		MARS_DBG("destroying fd %d\n", fd);
+		mutex_lock(&_fd_lock);
+		fd_uninstall(fd);
+		put_unused_fd(fd);
 		output->fd = -1;
+		mutex_unlock(&_fd_lock);
 	}
 
  done:
@@ -771,9 +777,34 @@ void _destroy_ioctx(struct aio_output *output)
  */
 static int _get_fd(void)
 {
-	int err;
+	struct files_struct *files;
+	int err = -EINVAL;
+	int count = 0;
 
 	do {
+		mutex_lock(&_fd_lock);
+
+		files = current->files;
+		CHECK_PTR(files, done);
+
+		/* Workaround upstream bug:
+		 * Commit 8a81252b774b53e628a8a0fe18e2b8fc236d92cc
+		 * forgot to initialize the new field resize_wait in
+		 * fs/file.c in the initializer of init_files.
+		 * We detect whether this commit is present via neighbor
+		 * commit a7928c1578c550bd6f4dec62d65132e6db226c57
+		 * which removed the ancient define for blk_pm_request.
+		 * Once the bug is fixed in all relevant upstream LTS kernels
+		 * and in all relevant distro kernels, this hack should be
+		 * removed again.
+		 */
+#ifndef blk_pm_request
+		if (unlikely(!files->resize_wait.task_list.next)) {
+			files->resize_in_progress = false;
+			init_waitqueue_head(&files->resize_wait);
+		}
+#endif
+
 		/* see f938612dd97d481b8b5bf960c992ae577f081c17
 		 * and 1a7bd2265fc57f29400d57f66275cc5918e30aa6
 		 */
@@ -782,8 +813,10 @@ static int _get_fd(void)
 #else
 		err = get_unused_fd_flags(0);
 #endif
+		mutex_unlock(&_fd_lock);
 		/* safety workaround: skip standard Unix filehandles */
-	} while (err >= 0 && err <= 2);
+	} while (err >= 0 && err <= 2 && count++ < 3);
+ done:
 	return err;
 }
 
