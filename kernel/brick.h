@@ -31,6 +31,13 @@
 
 #include <asm/atomic.h>
 
+/* Adapt to 3f07c0144132e4f59d88055ac8ff3e691a5fa2b8
+ * and following commits.
+ */
+#ifndef SIGNAL_STOP_STOPPED
+#include <linux/sched/signal.h>
+#endif
+
 #ifndef CONFIG_MARS_MODULE
 // when unsure, include faked config file
 #include "mars_config.h"
