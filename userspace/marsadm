@@ -5175,14 +5175,18 @@ my %complex_macros =
 
    "replinfo"
    => "%let{amount}{%human-numbers{}{ }{ }{%replay-pos{}}{%fetch-size{}}}"
-   .  "%sprintf{     replaying: %s  %.2f%%  (%d/%d)%s  logs: [%d..%d]\n}"
+   .  "%let{logs}{%replay-lognr{}}"
+   .  "%let{l2}{%fetch-lognr{}}"
+   .  "%let{l3}{%work-lognr{}}"
+   .  "%if{%>{%{l2}}{%{logs}}}{%append{logs}{::%{l2}}}"
+   .  "%if{%>{%{l3}}{%{l2}}}{%append{logs}{..%{l3}}}"
+   .  "%sprintf{     replaying: %s  %.2f%%  (%d/%d)%s  logs: [%s]\n}"
    .          "{%progress{20}{%replay-pos{}}{%fetch-pos{}}{%fetch-size{}}}"
    .          "{%work-percent{}}"
    .          "{%{amount}{ }{0}}"
    .          "{%{amount}{ }{1}}"
    .          "{%{amount}{ }{2}}"
-   .          "{%replay-lognr{}}"
-   .          "{%fetch-lognr{}}"
+   .          "{%{logs}}"
    .  "%call{fetch-line}"
    .  "%call{replay-line}",
 
