@@ -98,6 +98,8 @@ int trans_logger_mem_usage; // in KB
 
 int trans_logger_pressure_limit = 0;
 
+int trans_logger_writeback_maxage = 900; /* seconds */
+
 int trans_logger_max_interleave = -1;
 
 int trans_logger_resume = 1;
@@ -603,6 +605,10 @@ void _inf_callback(struct trans_logger_input *input, bool force)
 		input->inf.inf_callback(&input->inf);
 
 		input->inf_last_jiffies = jiffies;
+		if (input->inf_min_old != input->inf.inf_min_pos) {
+			input->inf_min_jiffies = input->inf_last_jiffies;
+			input->inf_min_old = input->inf.inf_min_pos;
+		}
 	} else {
 		MARS_DBG("%p skipped callback, callback = %p is_operating = %d\n", input, input->inf.inf_callback, input->is_operating);
 	}
@@ -2313,7 +2319,28 @@ struct rank_info global_rank_mref_flying[] = {
 static inline
 bool _check_pressure(struct trans_logger_brick *brick)
 {
-	int active =
+	int active;
+
+	/*
+	 * Writeback IO starvation can occur when too many concurrents reads
+	 * are filling the IO channnels for a very long time (e.g. when
+	 * full backups are running in parallel to a highly loaded server).
+	 * Ensure a very minimum writeback speed, depending on real time
+	 * (as expected by humans).
+	 */
+	if (trans_logger_writeback_maxage) {
+		struct trans_logger_input *log_input;
+		long long inf_min_jiffies = 0;
+
+		log_input = brick->inputs[brick->log_input_nr];
+		if (log_input)
+			inf_min_jiffies = log_input->inf_min_jiffies;
+		if (!inf_min_jiffies ||
+		    trans_logger_writeback_maxage * HZ + inf_min_jiffies <= (long long)jiffies)
+			return false;
+	}
+
+	active =
 		atomic_read(&brick->any_fly_count) +
 		brick->q_phase[0].q_queued + brick->q_phase[0].q_active;
 
