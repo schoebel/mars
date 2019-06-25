@@ -98,6 +98,8 @@ int trans_logger_mem_usage; // in KB
 
 int trans_logger_pressure_limit = 0;
 
+int trans_logger_report_interval = 2; /* seconds */
+
 int trans_logger_writeback_maxage = 900; /* seconds */
 
 int trans_logger_max_interleave = -1;
@@ -596,7 +598,7 @@ void _inf_callback(struct trans_logger_input *input, bool force)
 {
 	if (!force &&
 	    input->inf_last_jiffies &&
-	    input->inf_last_jiffies + 4 * HZ > (long long)jiffies)
+	    input->inf_last_jiffies + trans_logger_report_interval * HZ > (long long)jiffies)
 		return;
 	
 	if (input->inf.inf_callback && input->is_operating) {
