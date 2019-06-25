@@ -51,6 +51,7 @@ extern int trans_logger_completion_semantics;
 extern int trans_logger_do_crc;
 extern int trans_logger_mem_usage; // in KB
 extern int trans_logger_pressure_limit;
+extern int trans_logger_disable_pressure; /* only for testing */
 extern int trans_logger_report_interval;
 extern int trans_logger_writeback_maxage;
 extern int trans_logger_max_interleave;

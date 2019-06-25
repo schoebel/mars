@@ -97,6 +97,7 @@ int trans_logger_do_crc =
 int trans_logger_mem_usage; // in KB
 
 int trans_logger_pressure_limit = 0;
+int trans_logger_disable_pressure = 0; /* only for testing */
 
 int trans_logger_report_interval = 2; /* seconds */
 
@@ -2387,6 +2388,11 @@ int _do_ranking(struct trans_logger_brick *brick)
 
 		MARS_IO("local_mem_used = %d\n", local_mem_used);
 	}
+	/* disable pressure ONLY for testing */
+	if (trans_logger_disable_pressure > 0)
+		pressure_mode = 0;
+	else if (trans_logger_disable_pressure < 0)
+		pressure_mode = 1;
 	if (delay_callers) {
 		if (!brick->delay_callers) {
 			brick->delay_callers = true;
