@@ -223,6 +223,7 @@ extern int mars_max_loadavg;
 #endif
 
 extern int mars_mem_percent;
+extern int mars_mem_gb;
 
 extern int main_checker(struct mars_dent *parent, const char *_name, int namlen, unsigned int d_type, int *prefix, int *serial, bool *use_channel);
 

@@ -613,7 +613,7 @@ static LIST_HEAD(rot_anchor);
 // TUNING
 
 int mars_mem_percent = 20;
-EXPORT_SYMBOL_GPL(mars_mem_percent);
+int mars_mem_gb = 16;
 
 #define CONF_TRANS_SHADOW_LIMIT (1024 * 128) // don't fill the hashtable too much
 
@@ -5657,12 +5657,18 @@ static int _main_thread(void *data)
 			mars_mem_percent = 0;
 		if (mars_mem_percent > 70)
 			mars_mem_percent = 70;
+		if (mars_mem_gb < 1)
+			mars_mem_gb = 1;
 		memlimit = (long long)brick_global_memavail * mars_mem_percent / 100;
+		if (memlimit > (long long)mars_mem_gb * 1024 * 1024)
+			memlimit = (long long)mars_mem_gb * 1024 * 1024;
+
 		/* Dynamic memlimit when /mars is becoming full */
 		if (memlimit > global_remaining_space / 4)
 			memlimit = global_remaining_space / 4;
 		if (memlimit < 4)
 			memlimit = 4;
+
 		brick_global_memlimit = memlimit;
 
 		brick_msleep(100);

@@ -349,6 +349,7 @@ struct ctl_table mars_table[] = {
 	INT_ENTRY("logger_resume",        trans_logger_resume,    0600),
 	INT_ENTRY("logger_replay_timeout_sec", trans_logger_replay_timeout, 0600),
 	INT_ENTRY("mem_limit_percent",    mars_mem_percent,       0600),
+	INT_ENTRY("mem_limit_gb",         mars_mem_gb,            0600),
 	INT_ENTRY("logger_mem_used_kb",   trans_logger_mem_usage, 0400),
 	INT_ENTRY("mem_used_raw_kb",      brick_global_block_used,0400),
 #ifdef CONFIG_MARS_MEM_PREALLOC
