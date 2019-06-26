@@ -30,14 +30,11 @@ Example: mars0.3alpha*:
 
 Release Conventions / Branches / Tagnames
 -----------------------------------------
-	FLOW OF BUGFIXES: 0.1 -> 0.1a -> ...
 
-	mars0.1 series (stable, will go EOL soon):
-		 - Will run in parallel to branch 0.1a for a few
-		   months, and then go EOL.
+	mars0.1 series (now EOL):
 		 - Unstable tagnames: light0.1beta%d.%d (obsolete)
-		 - Stable branch: mars0.1.y
-		 - Stable tagnames: mars0.1stable%02d
+		 - Stable branch: mars0.1.y (obsolete)
+		 - Stable tagnames: mars0.1stable%02d (obsolete)
 
 	mars0.1a series (stable):
 		 New master branch. Now stable.
@@ -85,9 +82,10 @@ Changelog for series 0.1a:
 -----------------------------------
 Changelog for series 0.1:
 
-Attention! This branch will go EOL around March 2019.
-	Branch mars0.1a.y is now the new master branch, and all
-	commits from the 0.1 series will be fully merged.
+Attention! This branch is now EOL.
+	Everything has been merged into branch mars0.1a.y which
+	is also the master branch.
+	PLEASE UPGRADE to the new branch.
 	Upgrade is easy: just rollout the new marsadm version,
 	install the new kernel modules, and load them where possible.
 	Mixed operation of different versions is no problem,
@@ -98,8 +96,13 @@ Attention! This branch will go EOL around March 2019.
 	Motivation: branch 0.1a is productive for several years at 1&1.
 	Experiences: now runs provably better than 0.1.y with
 	better performance, smoother, etc.
-	And even more stable, although the 0.1a releases were
-	called "beta" up to now.
+
+mars0.1stable74 (last stable release in branch mars0.1.y)
+	* Major fix, only relevant for a corner case:
+	  Writeback made no human-visible progress under
+	  multiple weird preconditions.
+	* Minor usability improvement: marsadm view shows
+	  more fancy details on logfile numbers.
 
 mars0.1stable73
 	* Critical fix, only relevant for kernels >= 4.2.x:
