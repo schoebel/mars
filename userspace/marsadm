@@ -138,24 +138,27 @@ sub make_ssh_cmd {
     my $port;
     my $real_peer;
     my $peer_ip = get_link("$mars/ips/ip-$peer", 2);
+    # workaround firewall hell at some installations...
+  RETRY:
     for my $this_peer ($peer, $peer_ip) {
       next unless defined($this_peer);
+      # check whether machine is reachable
       if (system("ping -c1 $this_peer")) {
 	lwarn "cannot ping '$this_peer'\n";
 	next;
       }
       # first try given parameters, then port 22, then ssh_config defaults
-      if (!system("$ssh -p $ssh_port root\@$this_peer \"$ssh_probe\"")) {
-	($real_peer, $port) = ($this_peer, $ssh_port);
-	last;
-      } elsif (!system("$ssh -p 22 root\@$this_peer \"$ssh_probe\"")) {
-	($real_peer, $port) = ($this_peer, 22);
-	last;
-      } elsif (!system("$ssh root\@$this_peer \"$ssh_probe\"")) {
-	($real_peer, $port) = ($this_peer, 0);
-	last;
+      my %seen = ();
+      foreach my $try_port ($ssh_port, 22, 0) {
+	next if defined($seen{$try_port});
+	$seen{$try_port} = 1;
+	my $opt_port = $try_port ? "-p $try_port" : "";
+	if (!system("$ssh $opt_port root\@$this_peer \"$ssh_probe\"")) {
+	  ($real_peer, $port) = ($this_peer, $try_port);
+	  last RETRY;
+	}
+	lwarn "SSH to '$this_peer' does not work on port '$try_port'\n";
       }
-      lwarn "SSH to '$this_peer' does not work on any port\n";
     }
     ldie "SSH to '$peer' does not work\n" unless defined($port);
     $ssh_ips{$peer} = $real_peer;
