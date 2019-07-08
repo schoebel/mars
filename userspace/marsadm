@@ -2401,9 +2401,14 @@ sub join_cluster {
   lprint "joining cluster via rsync (peer='$peer')\n";
   rsync_cmd($peer, "--max-size=1 --update $peer:$mars/ $mars/");
   # check uniqness of IPs
+  my %ips = ();
   foreach my $other_ip_path (glob("$mars/ips/*")) {
     my $other_ip = get_link($other_ip_path, 1);
-    ldie "New IP '$ip' already exists at '$other_ip_path'\n" if $ip eq $other_ip;
+    my $other_host = $other_ip_path;
+    $other_host =~ s:.*/ip-::;
+    lwarn "Host '$other_host' IP '$other_ip' is AMBIGUOUS\n" if defined($ips{$other_host});
+    $ips{$other_host} = $other_ip;
+    lwarn "New IP '$ip' already exists for host '$host' at '$other_ip_path'\n" if ($ip eq $other_ip && $other_host eq $host);
   }
   _create_cluster(@_);
   finish_links();
