@@ -153,6 +153,10 @@ sub make_ssh_cmd {
       foreach my $try_port ($ssh_port, 22, 0) {
 	next if defined($seen{$try_port});
 	$seen{$try_port} = 1;
+	if ($try_port && system("if which nc; then nc -v -4 -w 5 \"$this_peer\" $try_port < /dev/null > /dev/null; fi")) {
+	  lwarn "SSH port '$try_port' for '$this_peer' is not reachable\n";
+	  next;
+	}
 	my $opt_port = $try_port ? "-p $try_port" : "";
 	if (!system("$ssh $opt_port root\@$this_peer \"$ssh_probe\"")) {
 	  ($real_peer, $port) = ($this_peer, $try_port);
