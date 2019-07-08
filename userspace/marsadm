@@ -142,6 +142,7 @@ sub make_ssh_cmd {
   RETRY:
     for my $this_peer ($peer, $peer_ip) {
       next unless defined($this_peer);
+      next unless $this_peer;
       # check whether machine is reachable
       if (system("ping -c1 $this_peer")) {
 	lwarn "cannot ping '$this_peer'\n";
