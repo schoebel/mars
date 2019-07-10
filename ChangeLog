@@ -73,14 +73,26 @@ Release Conventions / Branches / Tagnames
 Changelog for series 0.1a:
 
 	This is the new master branch, starting January 2019.
-	The old stable branch mars 0.1.y will get only a few
-	updates, and then will be fully superseeded by this branch.
+	The old stable branch mars 0.1.y is EOL,
+	now fully superseeded by this branch.
 
-	Recommended for Football. Will get updates on
-	the Football sub-project.
-	Based on 0.1balpha4. Merge 0.1stable.
+	Based on 0.1balpha4. Merged 0.1stable.
 	Now stable.
 	Receive mainly fixes.
+
+mars0.1astable74
+	* Full merge of EOL branch mars0.1.stable74,
+	  which was the last stable release in EOL branch
+	  mars0.1.y.
+	* Major fix, only relevant for a corner case:
+	  Writeback made no human-visible progress under
+	  multiple weird preconditions.
+	* Minor fix: ssh connections should be more robust
+	  when clumsy firewalls are leading to ssh hangs.
+	* Minor usability improvement: marsadm view shows
+	  more fancy details on logfile numbers.
+	* Minor speedups in internal infrastructure.
+	* Football subproject: update to Football-2.0
 
 mars0.1astable73 (merged from mars0.1stable73)
 	* Critical fix, only relevant for kernels >= 4.2.x:
