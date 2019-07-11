@@ -1181,6 +1181,7 @@ EXPORT_SYMBOL_GPL(_mars_recv_struct);
 
 const struct meta mars_cmd_meta[] = {
 	META_INI_SUB(cmd_stamp, struct mars_cmd, mars_lamport_time_meta),
+	META_INI(cmd_proto, struct mars_cmd, FIELD_INT),
 	META_INI(cmd_code, struct mars_cmd, FIELD_INT),
 	META_INI(cmd_int1, struct mars_cmd, FIELD_INT),
 	META_INI(cmd_str1, struct mars_cmd, FIELD_STRING),
@@ -1191,6 +1192,7 @@ int mars_send_cmd(struct mars_socket *msock, struct mars_cmd *cmd, bool cork)
 {
 	int status;
 
+	cmd->cmd_proto = MARS_PROTO_LEVEL;
 	status = desc_send_struct(msock, cmd, mars_cmd_meta, cork);
 	return status;
 }
@@ -1200,6 +1202,8 @@ int _mars_recv_cmd(struct mars_socket *msock, struct mars_cmd *cmd, int line)
 	int status;
 
 	status = desc_recv_struct(msock, cmd, mars_cmd_meta, line);
+	if (status >= 0)
+		msock->s_remote_proto_level = cmd->cmd_proto;
 	return status;
 }
 

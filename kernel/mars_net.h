@@ -33,6 +33,8 @@
 extern int mars_net_default_port;
 extern bool mars_net_is_alive;
 
+#define MARS_PROTO_LEVEL 1
+
 #define MAX_FIELD_LEN   32
 #define MAX_DESC_CACHE  16
 
@@ -63,6 +65,7 @@ struct mars_socket {
 	struct socket *s_socket;
 	void *s_buffer;
 	atomic_t s_count;
+	int s_remote_proto_level; /* corresponds to MARS_PROTO_LEVEL of remote site */
 	int s_pos;
 	int s_debug_nr;
 	int s_send_abort;
@@ -110,6 +113,7 @@ enum {
 
 struct mars_cmd {
 	struct lamport_time cmd_stamp; // for automatic lamport clock
+	int cmd_proto;
 	int cmd_code;
 	int cmd_int1;
 	//int cmd_int2;

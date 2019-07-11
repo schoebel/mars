@@ -566,6 +566,8 @@ int receiver_thread(void *data)
 		}
 
 		switch (cmd.cmd_code & CMD_FLAG_MASK) {
+		case CMD_NOP:
+			break;
 		case CMD_NOTIFY:
 			mars_trigger();
 			break;
