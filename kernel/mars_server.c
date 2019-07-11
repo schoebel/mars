@@ -444,7 +444,7 @@ int handler_thread(void *data)
 			goto clean;
 		}
 
-		status = mars_recv_struct(sock, &cmd, mars_cmd_meta);
+		status = mars_recv_cmd(sock, &cmd);
 		if (unlikely(status < 0)) {
 			MARS_WRN("#%d recv cmd status = %d\n", sock->s_debug_nr, status);
 			goto clean_unlock;
@@ -476,7 +476,7 @@ int handler_thread(void *data)
 				break;
 			}
 			down(&brick->socket_sem);
-			status = mars_send_struct(sock, &cmd, mars_cmd_meta, true);
+			status = mars_send_cmd(sock, &cmd, true);
 			if (status >= 0) {
 				status = mars_send_struct(sock, &info, mars_info_meta, false);
 			}
@@ -552,7 +552,7 @@ int handler_thread(void *data)
 		err:
 			cmd.cmd_int1 = status;
 			down(&brick->socket_sem);
-			status = mars_send_struct(sock, &cmd, mars_cmd_meta, false);
+			status = mars_send_cmd(sock, &cmd, false);
 			up(&brick->socket_sem);
 			break;
 		}

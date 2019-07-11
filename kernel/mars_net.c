@@ -1186,8 +1186,22 @@ const struct meta mars_cmd_meta[] = {
 	META_INI(cmd_str1, struct mars_cmd, FIELD_STRING),
 	{}
 };
-EXPORT_SYMBOL_GPL(mars_cmd_meta);
 
+int mars_send_cmd(struct mars_socket *msock, struct mars_cmd *cmd, bool cork)
+{
+	int status;
+
+	status = desc_send_struct(msock, cmd, mars_cmd_meta, cork);
+	return status;
+}
+
+int _mars_recv_cmd(struct mars_socket *msock, struct mars_cmd *cmd, int line)
+{
+	int status;
+
+	status = desc_recv_struct(msock, cmd, mars_cmd_meta, line);
+	return status;
+}
 
 int mars_send_mref(struct mars_socket *msock, struct mref_object *mref, bool cork)
 {
@@ -1204,7 +1218,7 @@ int mars_send_mref(struct mars_socket *msock, struct mref_object *mref, bool cor
 	if (!cork || !msock->s_pos)
 		get_lamport(NULL, &cmd.cmd_stamp);
 
-	status = desc_send_struct(msock, &cmd, mars_cmd_meta, true);
+	status = mars_send_cmd(msock, &cmd, true);
 	if (status < 0)
 		goto done;
 
@@ -1263,7 +1277,7 @@ int mars_send_cb(struct mars_socket *msock, struct mref_object *mref, bool cork)
 	if (!cork || !msock->s_pos)
 		get_lamport(NULL, &cmd.cmd_stamp);
 
-	status = desc_send_struct(msock, &cmd, mars_cmd_meta, true);
+	status = mars_send_cmd(msock, &cmd, true);
 	if (status < 0)
 		goto done;
 

@@ -2499,7 +2499,7 @@ int peer_thread(void *data)
 			pause_time = 0;
 			MARS_DBG("sending notify to peer...\n");
 			cmd.cmd_code = CMD_NOTIFY;
-			status = mars_send_struct(&peer->socket, &cmd, mars_cmd_meta, true);
+			status = mars_send_cmd(&peer->socket, &cmd, true);
 		}
 
 		if (likely(status >= 0)) {
@@ -2522,7 +2522,7 @@ int peer_thread(void *data)
 			}
 			MARS_DBG("fetching dents from '%s' paths '%s'\n",
 				 peer->peer, cmd.cmd_str1);
-			status = mars_send_struct(&peer->socket, &cmd, mars_cmd_meta, false);
+			status = mars_send_cmd(&peer->socket, &cmd, false);
 		}
 		if (unlikely(status < 0)) {
 			MARS_WRN("communication error on send, status = %d\n", status);

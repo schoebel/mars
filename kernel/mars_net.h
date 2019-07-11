@@ -119,8 +119,6 @@ struct mars_cmd {
 	//char *cmd_str3;
 };
 
-extern const struct meta mars_cmd_meta[];
-
 extern char *(*mars_translate_hostname)(const char *name);
 
 /* Low-level network traffic
@@ -154,6 +152,14 @@ extern int _mars_recv_struct(struct mars_socket *msock, void *data, const struct
 
 /* High-level transport of mars structures
  */
+
+extern int mars_send_cmd(struct mars_socket *msock, struct mars_cmd *cmd, bool cork);
+extern int _mars_recv_cmd(struct mars_socket *msock, struct mars_cmd *cmd, int line);
+#define mars_recv_cmd(_sock_,_cmd_)					\
+	({								\
+		_mars_recv_cmd(_sock_, _cmd_, __LINE__);		\
+	})
+
 extern int mars_send_dent_list(struct mars_socket *msock, struct list_head *anchor);
 extern int mars_recv_dent_list(struct mars_socket *msock, struct list_head *anchor);
 
