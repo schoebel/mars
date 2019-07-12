@@ -1202,8 +1202,10 @@ int _mars_recv_cmd(struct mars_socket *msock, struct mars_cmd *cmd, int line)
 	int status;
 
 	status = desc_recv_struct(msock, cmd, mars_cmd_meta, line);
-	if (status >= 0)
+	if (status >= 0) {
 		msock->s_remote_proto_level = cmd->cmd_proto;
+		msock->s_common_proto_level = min(cmd->cmd_proto, MARS_PROTO_LEVEL);
+	}
 	return status;
 }
 

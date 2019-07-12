@@ -66,6 +66,7 @@ struct mars_socket {
 	void *s_buffer;
 	atomic_t s_count;
 	int s_remote_proto_level; /* corresponds to MARS_PROTO_LEVEL of remote site */
+	int s_common_proto_level; /* common denominator of protocol levels */
 	int s_pos;
 	int s_debug_nr;
 	int s_send_abort;
