@@ -2388,6 +2388,44 @@ int peer_action_dent_list(struct mars_peerinfo *peer,
 	return status;
 }
 
+/* React on different types of peer responses
+ */
+static
+int peer_actions(struct mars_peerinfo *peer,
+		 const char *real_peer,
+		 const char *paths,
+		 struct key_value_pair *peer_pairs)
+{
+	struct mars_cmd inter_cmd = {
+	};
+	int status;
+
+	/* Compatibility to old protocol: we cannot send/recv cmds */
+	if (!peer->socket.s_common_proto_level)
+		return peer_action_dent_list(peer, real_peer, paths, peer_pairs);
+
+	/* New protocoal with extensible cases */
+	status = mars_recv_cmd(&peer->socket, &inter_cmd);
+	if (unlikely(status < 0)) {
+		MARS_WRN("communication error on inter_cmd receive, status = %d\n", status);
+		goto done;
+	}
+
+	switch (inter_cmd.cmd_code) {
+	case CMD_GETENTS:
+	{
+		status = peer_action_dent_list(peer, real_peer, paths, peer_pairs);
+		break;
+	}
+	default:
+		/* do nothing, ignore any unknown inter_cmd */
+		break;
+	}
+
+ done:
+	brick_string_free(inter_cmd.cmd_str1);
+	return status;
+}
 
 static
 int peer_thread(void *data)
@@ -2533,7 +2571,7 @@ int peer_thread(void *data)
 			goto free_and_restart;
 		}
 
-		status = peer_action_dent_list(peer, real_peer, cmd.cmd_str1, peer_pairs);
+		status = peer_actions(peer, real_peer, cmd.cmd_str1, peer_pairs);
 		if (unlikely(status < 0)) {
 			MARS_WRN("communication error on receive, status = %d\n", status);
 			if (do_kill) {

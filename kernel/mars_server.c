@@ -378,6 +378,7 @@ int handler_thread(void *data)
 	bool ok = mars_get_socket(sock);
 	unsigned long statist_jiffies = jiffies;
 	int debug_nr;
+	int old_proto_level = 0;
 	int i;
 	int status = -EINVAL;
 
@@ -477,6 +478,7 @@ int handler_thread(void *data)
 			}
 			down(&brick->socket_sem);
 			status = mars_send_cmd(sock, &cmd, true);
+			old_proto_level = sock->s_common_proto_level;
 			if (status >= 0) {
 				status = mars_send_struct(sock, &info, mars_info_meta, false);
 			}
@@ -495,6 +497,24 @@ int handler_thread(void *data)
 					goto clean_unlock;
 				}
 				brick_msleep(1000);
+			}
+
+			/* New protocol.
+			 * We cannot send/recv intermediate cmds at the
+			 * old protocol.
+			 * For compatibility, the old protocol must be
+			 * used until the fist cmd response has been sent.
+			 */
+			if (sock->s_common_proto_level > 0 &&
+			    old_proto_level > 0) {
+				down(&brick->socket_sem);
+				status = mars_send_cmd(sock, &cmd, true);
+				old_proto_level = sock->s_common_proto_level;
+				if (unlikely(status < 0)) {
+					MARS_WRN("#%d could not send inter_cmd, status = %d\n",
+						 sock->s_debug_nr, status);
+				}
+				up(&brick->socket_sem);
 			}
 
 			status = mars_get_dent_list(
@@ -553,6 +573,7 @@ int handler_thread(void *data)
 			cmd.cmd_int1 = status;
 			down(&brick->socket_sem);
 			status = mars_send_cmd(sock, &cmd, false);
+			old_proto_level = sock->s_common_proto_level;
 			up(&brick->socket_sem);
 			break;
 		}
