@@ -878,14 +878,14 @@ int _make_recver_cache(struct mars_desc_cache *mc, const struct meta *meta, int 
 				goto found;
 			}
 		}
-		if (unlikely(!count)) {
-			MARS_ERR("field '%s' is missing\n", meta->field_name);
-			goto done;
-		}
 		MARS_WRN("field %2d '%s' is missing\n", count, meta->field_name);
 	found:;
 	}
+
  done:
+	if (unlikely(!count)) {
+		MARS_ERR("bad protocol: ALL fields are missing\n");
+	}
 	brick_string_free(tmp);
 	return count;
 }
