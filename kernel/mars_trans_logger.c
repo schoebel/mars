@@ -77,9 +77,10 @@ struct trans_logger_hash_anchor {
 	struct list_head hash_anchor;
 };
 
-#define NR_HASH_PAGES       64
-
 #define MAX_HASH_PAGES      (PAGE_SIZE / sizeof(struct trans_logger_hash_anchor*))
+
+#define NR_HASH_PAGES       MAX_HASH_PAGES
+
 #define HASH_PER_PAGE       (PAGE_SIZE / sizeof(struct trans_logger_hash_anchor))
 #define HASH_TOTAL          (NR_HASH_PAGES * HASH_PER_PAGE)
 
