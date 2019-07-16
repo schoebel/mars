@@ -1894,6 +1894,10 @@ bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 #ifdef SHORTCUT_1_to_3
 		bool res;
 
+		if (trans_logger_disable_pressure < -1 ||
+		    trans_logger_disable_pressure > 1)
+			goto no_speculation;
+
 		/* speculate that next phase can be immediately started */
 		qq_activate(&brick->q_phase[3]);
 		res = phase3_startio(wb);
@@ -1903,6 +1907,7 @@ bool phase1_startio(struct trans_logger_mref_aspect *orig_mref_a)
 		}
 		/* speculation was wrong: no shortcutting */
 		qq_deactivate(&brick->q_phase[3]);
+	no_speculation:
 #endif
 		qq_wb_insert(&brick->q_phase[3], wb);
 		qq_deactivate(&brick->q_phase[1]);
@@ -2393,6 +2398,7 @@ int _do_ranking(struct trans_logger_brick *brick)
 		pressure_mode = 0;
 	else if (trans_logger_disable_pressure < 0)
 		pressure_mode = 1;
+
 	if (delay_callers) {
 		if (!brick->delay_callers) {
 			brick->delay_callers = true;
@@ -2419,6 +2425,12 @@ int _do_ranking(struct trans_logger_brick *brick)
 	for (i = 0; i < LOGGER_QUEUES; i++) {
 		int queued = brick->q_phase[i].q_queued;
 		int flying;
+
+		/* only for testing */
+		if ((i == 3) &&
+		    (trans_logger_disable_pressure < -1 ||
+		     trans_logger_disable_pressure > 1))
+			queued = 0;
 
 		MARS_IO("i = %d queued = %d\n", i, queued);
 
