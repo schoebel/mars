@@ -80,6 +80,21 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable75
+	* Major fix, only relevant for a scarce corner case:
+	  When overflowing the kernel fscache with gigabytes of
+	  data, and when a few more weird preconditions were met,
+	  it was possible to potentially eat up the whole kernel
+	  memory and to trigger OOM.
+	  Notice: depending on kernel version, and depending on various
+	  overload scenarios, you may trigger OOM anyway, independently
+	  from MARS.
+	* Minor fix: marsadm now is reporting the amount of
+	  Writeback data (as necessary for the Recovery phase after
+	  a crash) more precisely.
+	* Minor improvement: speedup IOPS by better internal
+	  hash dimensioning.
+
 mars0.1astable74
 	* Full merge of EOL branch mars0.1.stable74,
 	  which was the last stable release in EOL branch
