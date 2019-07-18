@@ -756,9 +756,9 @@ int _write_ref_get(struct trans_logger_output *output, struct trans_logger_mref_
 	// delay in case of too many master shadows / memory shortage
 	brick_wait(brick->caller_event,
 		   brick->caller_flag,
-					 !brick->delay_callers &&
-					 (brick_global_memlimit < 1024 || atomic64_read(&global_mshadow_used) / 1024 < brick_global_memlimit),
-					 HZ / 2);
+		   brick_global_memlimit < 1024 ||
+		   atomic64_read(&global_mshadow_used) / 1024 < brick_global_memlimit,
+		   HZ / 4);
 #endif
 
 	// create a new master shadow
