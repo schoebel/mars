@@ -112,6 +112,16 @@
 
 // MARS-specific definitions
 
+/* This _should_ be updated when _compatible_ features
+ * are added. When somebody may _rely_ on the new feature,
+ * then this _must_ be updated.
+ */
+#define OPTIONAL_FEATURES_VERSION 3
+
+/* for stringification */
+#define _stringify(s) #s
+#define stringify(s) _stringify(s)
+
 #define OLD_MARS_DIGEST_SIZE 16
 #define MARS_DIGEST_SIZE     32
 

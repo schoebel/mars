@@ -36,11 +36,6 @@
  */
 #define SYMLINK_TREE_VERSION "0.1"
 
-/* In contrast, this _should_ be updated when _compatible_ features
- * are added.
- */
-#define OPTIONAL_FEATURES_VERSION "3"
-
 // disable this only for debugging!
 #define RUN_PEERS
 #define RUN_DATA
@@ -2653,7 +2648,7 @@ void _make_alive(void)
 	}
 	_make_alivelink("alive", mars_global && mars_global->global_power.button ? 1 : 0);
 	_make_alivelink_str("tree", SYMLINK_TREE_VERSION);
-	_make_alivelink_str("features", OPTIONAL_FEATURES_VERSION);
+	_make_alivelink_str("features", stringify(OPTIONAL_FEATURES_VERSION));
 	_make_alivelink_str("buildtag", BUILDTAG "(" BUILDDATE ")");
 	_make_alivelink("used-log-digest", used_log_digest);
 	_make_alivelink("used-net-digest", used_net_digest);
