@@ -31,6 +31,12 @@
 
 #define MARS_ARGV_MAX 4
 
+/* This _should_ be updated when _compatible_ features
+ * are added. When somebody may _rely_ on the new feature,
+ * then this _must_ be updated.
+ */
+#define OPTIONAL_STRATEGY_VERSION 1
+
 /* transient, to re-disappear */
 extern int compat_deletions;
 
