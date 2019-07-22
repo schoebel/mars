@@ -117,8 +117,11 @@ extern int _compat_unlink(
 /* for crypto stuff */
 #include <linux/crypto.h>
 
-/* 896545098777564212b9e91af4c973f094649aa7 */
-#ifndef crt_hash
+/*
+ * Forced by 896545098777564212b9e91af4c973f094649aa7
+ * Detected by 7b5a080b3c46f0cac71c0d0262634c6517d4ee4f
+ */
+#ifdef CRYPTO_ALG_TYPE_SHASH
 #define MARS_HAS_NEW_CRYPTO
 #endif
 
