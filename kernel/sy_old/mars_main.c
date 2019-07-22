@@ -2653,6 +2653,7 @@ void _make_alive(void)
 {
 	struct lamport_time now;
 	char *tmp;
+	char *features;
 
 	/* These need to be updated always */
 	get_lamport(NULL, &now);
@@ -2664,7 +2665,12 @@ void _make_alive(void)
 	_make_alivelink("alive", mars_global && mars_global->global_power.button ? 1 : 0);
 	/* These may be updated lazily */
 	__make_alivelink_str("tree", SYMLINK_TREE_VERSION, true);
-	__make_alivelink_str("features", stringify(OPTIONAL_FEATURES_VERSION), true);
+	features = path_make(stringify(OPTIONAL_FEATURES_VERSION)
+			     ","
+			     stringify(OPTIONAL_STRATEGY_VERSION)
+			     ",0x%08x", available_digest_mask);
+	__make_alivelink_str("features", features, true);
+	brick_string_free(features);
 	__make_alivelink_str("buildtag", BUILDTAG "(" BUILDDATE ")", true);
 	__make_alivelink("used-log-digest", used_log_digest, true);
 	__make_alivelink("used-net-digest", used_net_digest, true);
