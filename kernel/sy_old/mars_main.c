@@ -5320,6 +5320,7 @@ static const struct main_class main_classes[] = {
 		.cl_len = 0, // catch any
 		.cl_type = 'l',
 		.cl_father = CL_DEFAULTS0,
+		.cl_forward = make_defaults,
 	},
 	[CL_DEFAULTS_ITEMS] = {
 		.cl_name = "",
