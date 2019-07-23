@@ -367,7 +367,7 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 		unsigned char checksum[MARS_DIGEST_SIZE];
 
 		check_flags |=
-		  mars_digest(usable_digest_mask,
+		  mars_digest(usable_digest_mask & ~disabled_log_digests,
 			      &used_log_digest,
 			      checksum,
 			      data + logst->payload_offset, len);

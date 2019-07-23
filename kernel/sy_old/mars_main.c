@@ -81,6 +81,9 @@
 int usable_features_version = 0;
 int usable_strategy_version = 0;
 
+__u32 disabled_log_digests = 0;
+__u32 disabled_net_digests = 0;
+
 static int _tmp_features_version = OPTIONAL_FEATURES_VERSION;
 static int _tmp_strategy_version = OPTIONAL_STRATEGY_VERSION;
 
@@ -5642,6 +5645,15 @@ int make_defaults(void *buf, struct mars_dent *dent)
 
 	if (!strcmp(dent->d_name, "sync-limit")) {
 		sscanf(dent->new_link, "%d", &global_sync_limit);
+	} else if (!strcmp(dent->d_name, "disabled-log-digests")) {
+		sscanf(dent->new_link, "0x%x", &disabled_log_digests);
+	} else if (!strcmp(dent->d_name, "disabled-net-digests")) {
+		__u32 tmp = 0;
+
+		sscanf(dent->new_link, "0x%x", &tmp);
+		/* at least one digest must remain usable */
+		tmp &= ~MREF_CHKSUM_MD5_OLD;
+		disabled_net_digests = tmp;
 	} else {
 		MARS_DBG("unimplemented default '%s'\n", dent->d_name);
 	}

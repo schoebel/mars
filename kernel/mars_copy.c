@@ -384,7 +384,7 @@ __u32 _make_flags(bool verify_mode, bool is_local)
 	if (is_local)
 		return available_digest_mask | MREF_NODATA;
 
-	return usable_digest_mask | MREF_NODATA;
+	return (usable_digest_mask & ~disabled_net_digests) | MREF_NODATA;
 }
 
 
