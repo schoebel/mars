@@ -380,26 +380,40 @@ const char *rot_keys[] = {
 #define IS_JAMMED()                (mars_emergency_mode > 3)
 
 static
-void _make_alivelink_str(const char *name, const char *src)
+void __make_alivelink_str(const char *name, const char *src, bool lazy)
 {
 	char *dst = path_make("/mars/%s-%s", name, my_id());
 	if (!src || !dst) {
 		MARS_ERR("cannot make alivelink paths\n");
 		goto err;
 	}
+	if (lazy) {
+		char *check = mars_readlink(dst);
+		bool ok = (check && !strcmp(check, src));
+
+		brick_string_free(check);
+		if (ok) {
+			MARS_DBG("symlink '%s' -> '%s' has not changed\n", src, dst);
+			goto err;
+		}
+	}
 	MARS_DBG("'%s' -> '%s'\n", src, dst);
 	ordered_symlink(src, dst, NULL);
 err:
 	brick_string_free(dst);
 }
+#define _make_alivelink_str(name,src)		\
+	__make_alivelink_str(name,src,false)
 
 static
-void _make_alivelink(const char *name, loff_t val)
+void __make_alivelink(const char *name, loff_t val, bool lazy)
 {
 	char *src = path_make("%lld", val);
-	_make_alivelink_str(name, src);
+	__make_alivelink_str(name, src, lazy);
 	brick_string_free(src);
 }
+#define _make_alivelink(name,val)		\
+	__make_alivelink(name,val,false)
 
 static
 int compute_emergency_mode(void)
