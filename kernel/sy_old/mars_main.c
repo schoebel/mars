@@ -456,13 +456,13 @@ int compute_emergency_mode(void)
 		mars_emergency_mode = this_mode;
 	}
 
-	_make_alivelink("emergency", mars_emergency_mode);
+	__make_alivelink("emergency", mars_emergency_mode, true);
 
 	rest -= limit;
 	if (rest < 0)
 		rest = 0;
 	global_remaining_space = rest;
-	_make_alivelink("rest-space", rest / (1024 * 1024));
+	__make_alivelink("rest-space", rest / (1024 * 1024), true);
 
 	present = raw_total_space - limit;
 	global_total_space = present;
@@ -2654,6 +2654,7 @@ void _make_alive(void)
 	struct lamport_time now;
 	char *tmp;
 
+	/* These need to be updated always */
 	get_lamport(NULL, &now);
 	tmp = path_make("%ld.%09ld", now.tv_sec, now.tv_nsec);
 	if (likely(tmp)) {
@@ -2661,11 +2662,12 @@ void _make_alive(void)
 		brick_string_free(tmp);
 	}
 	_make_alivelink("alive", mars_global && mars_global->global_power.button ? 1 : 0);
-	_make_alivelink_str("tree", SYMLINK_TREE_VERSION);
-	_make_alivelink_str("features", stringify(OPTIONAL_FEATURES_VERSION));
-	_make_alivelink_str("buildtag", BUILDTAG "(" BUILDDATE ")");
-	_make_alivelink("used-log-digest", used_log_digest);
-	_make_alivelink("used-net-digest", used_net_digest);
+	/* These may be updated lazily */
+	__make_alivelink_str("tree", SYMLINK_TREE_VERSION, true);
+	__make_alivelink_str("features", stringify(OPTIONAL_FEATURES_VERSION), true);
+	__make_alivelink_str("buildtag", BUILDTAG "(" BUILDDATE ")", true);
+	__make_alivelink("used-log-digest", used_log_digest, true);
+	__make_alivelink("used-net-digest", used_net_digest, true);
 }
 
 void from_remote_trigger(void)
