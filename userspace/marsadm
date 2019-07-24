@@ -6385,16 +6385,19 @@ my %cmd_table =
    # lowlevel tools
    "lowlevel-ls-host-ips"
    => [
+       "usage: lowlevel-ls-host-ips",
        "List cluster member names and IP addresses.",
        \&lowlevel_ls_host_ips,
       ],
    "lowlevel-set-host-ip"
    => [
+       "usage: lowlevel-ls-host-ips <hostname> <new_ip>",
        "Set IP for host.",
        \&lowlevel_set_host_ip,
       ],
    "lowlevel-delete-host"
    => [
+       "usage: lowlevel-ls-host-ips <hostname>",
        "Delete cluster member.",
        \&lowlevel_delete_host,
       ],
