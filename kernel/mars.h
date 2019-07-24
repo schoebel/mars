@@ -112,7 +112,8 @@
 
 // MARS-specific definitions
 
-#define MARS_DIGEST_SIZE 16
+#define OLD_MARS_DIGEST_SIZE 16
+#define MARS_DIGEST_SIZE     32
 
 #define MARS_PRIO_HIGH   -1
 #define MARS_PRIO_NORMAL  0 // this is automatically used by memset()

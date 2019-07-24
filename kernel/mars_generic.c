@@ -105,7 +105,23 @@ const struct meta mars_mref_meta[] = {
 	META_INI(ref_cs_mode,      struct mref_object, FIELD_INT),
 	META_INI(ref_timeout,      struct mref_object, FIELD_INT),
 	META_INI(ref_total_size,   struct mref_object, FIELD_INT),
-	META_INI(ref_checksum,     struct mref_object, FIELD_RAW),
+	/* QUIRK: for compatibility with the old layout, we have to
+	 * pseudo-split the field.
+	 * TODO: port "make data transfer independent from register size and bytesex"
+	 * and then revert this to its old simple form.
+	 * However, all old instances must have been updated before.
+	 */
+	{
+		__META_INI(ref_checksum,   FIELD_RAW,
+			   OLD_MARS_DIGEST_SIZE,
+			   offsetof(struct mref_object, ref_checksum)),
+	},
+	{
+		__META_INI(ref_checksum_pseudo,   FIELD_RAW,
+			   MARS_DIGEST_SIZE - OLD_MARS_DIGEST_SIZE,
+			   offsetof(struct mref_object, ref_checksum)
+			   + OLD_MARS_DIGEST_SIZE),
+	},
 	META_INI(ref_flags,        struct mref_object, FIELD_UINT),
 	META_INI(ref_rw,           struct mref_object, FIELD_INT),
 	META_INI(ref_id,           struct mref_object, FIELD_INT),
@@ -126,6 +142,8 @@ EXPORT_SYMBOL_GPL(mars_lamport_time_meta);
 
 // crypto stuff
 
+#define MD5_DIGEST_SIZE 16
+
 #ifdef MARS_HAS_NEW_CRYPTO
 
 /* Nor now, use shash.
@@ -141,6 +159,11 @@ struct mars_sdesc {
 	char ctx[];
 };
 
+/* Note:
+ * For compatibility to OLD_MARS_DIGEST_SIZE, the higher
+ * digest bytes up to MARS_DIGEST_SIZE are not exploited
+ * in this version.
+ */
 void mars_digest(unsigned char *digest, void *data, int len)
 {
 	int size = sizeof(struct mars_sdesc) + crypto_shash_descsize(md5_tfm);
@@ -173,7 +196,7 @@ int init_mars_digest(void)
 		return -ELIBACC;
 	}
 	status = crypto_shash_digestsize(md5_tfm);
-	if (unlikely(status != MARS_DIGEST_SIZE)) {
+	if (unlikely(status != MD5_DIGEST_SIZE)) {
 		MARS_ERR("md5 bad digest size %d\n", status);
 		return -ELIBACC;
 	}

@@ -75,6 +75,12 @@ struct meta {
 	const struct meta *field_ref;
 };
 
+#define __META_INI(NAME,TYPE,SIZE,OFFSET)				\
+	.field_name = #NAME,						\
+	.field_type = (TYPE),					        \
+	.field_size = (SIZE),						\
+	.field_offset = (OFFSET)					\
+
 #define _META_INI(NAME,STRUCT,TYPE)					\
 	.field_name = #NAME,						\
 	.field_type = TYPE,					        \
