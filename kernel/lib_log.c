@@ -33,6 +33,10 @@
 #include "lib_log.h"
 #include "brick_wait.h"
 
+__u32 enabled_log_compressions = 0;
+
+__u32 used_log_compression = 0;
+
 atomic_t global_mref_flying = ATOMIC_INIT(0);
 EXPORT_SYMBOL_GPL(global_mref_flying);
 
@@ -141,6 +145,23 @@ void log_write_endio(struct generic_callback *cb)
 
 err:
 	MARS_FAT("internal pointer corruption\n");
+}
+
+static
+int log_compress(struct log_status *logst, int len, __u32 *result_flags)
+{
+	struct mref_object *mref = logst->log_mref;
+	int res;
+
+	if (unlikely(!mref || !mref->ref_data || len <= 0))
+		return 0;
+
+	res = mars_compress(mref->ref_data + logst->payload_offset, len,
+			    NULL, 0,
+			    enabled_log_compressions,
+			    result_flags);
+	used_log_compression = *result_flags;
+	return res;
 }
 
 void log_flush(struct log_status *logst)
@@ -275,13 +296,15 @@ void *log_reserve(struct log_status *logst, struct log_header *lh)
 	DATA_PUT(data, offset, (char)FORMAT_VERSION);
 	logst->validflag_offset = offset;
 	DATA_PUT(data, offset, (char)0); // valid_flag
+	logst->totallen_offset = offset;
 	DATA_PUT(data, offset, total_len); // start of next header
 	DATA_PUT(data, offset, lh->l_stamp.tv_sec);
 	DATA_PUT(data, offset, lh->l_stamp.tv_nsec);
 	DATA_PUT(data, offset, lh->l_pos);
 	logst->reallen_offset = offset;
 	DATA_PUT(data, offset, lh->l_len);
-	DATA_PUT(data, offset, (short)0); // spare
+	logst->decompresslen_offset = offset;
+	DATA_PUT(data, offset, (short)0); /* placeholder */
 	DATA_PUT(data, offset, (int)0); // spare
 	DATA_PUT(data, offset, lh->l_code);
 	DATA_PUT(data, offset, (short)0); // spare
@@ -337,6 +360,8 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	void *data;
 	int offset;
 	int restlen;
+	int decompr_len;
+	int padded_len;
 	int nr_cb;
 	unsigned char crc[LOG_CHKSUM_SIZE] = {};
 	__u32 old_crc = 0;
@@ -363,7 +388,9 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	data = mref->ref_data;
 
 	check_flags = 0;
-	if (logst->do_crc) {
+
+	/* Run the CRC on the _original_ data, before compression */
+	if (logst->do_crc | logst->do_compress) {
 		unsigned char checksum[MARS_DIGEST_SIZE];
 
 		check_flags |=
@@ -379,6 +406,24 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	}
 
 	/*
+	 * Important: when somebody else would be later unable to decompress,
+	 * it will then automatically result in a CRC mismatch.
+	 */
+	decompr_len = 0;
+	padded_len = len;
+	if (logst->do_compress) {
+		int new_len = log_compress(logst, len, &check_flags);
+		int padded_new_len = ((new_len + 7) / 8) * 8;
+
+		if (new_len > 0 && padded_new_len < len) {
+			/* exchange the lengths */
+			decompr_len = len;
+			padded_len = padded_new_len;
+			len = new_len;
+		}
+	}
+
+	/*
 	 * We have only 16 flag bits in the traditional
 	 * logfile format, which is in production over
 	 * years. To remain compatible, we strip off
@@ -388,12 +433,16 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 
 	/* Correct the length in the header.
 	 */
+	offset = logst->decompresslen_offset;
+	DATA_PUT(data, offset, (short)decompr_len);
 	offset = logst->reallen_offset;
 	DATA_PUT(data, offset, (short)len);
+	offset = logst->totallen_offset;
+	DATA_PUT(data, offset, (short)(padded_len + OVERHEAD));
 
 	/* Write the trailer.
 	 */
-	offset = logst->payload_offset + len;
+	offset = logst->payload_offset + padded_len;
 	DATA_PUT(data, offset, END_MAGIC);
 	DATA_PUT(data, offset, old_crc);
 	DATA_PUT(data, offset, (char)1);  // valid_flag copy
@@ -603,7 +652,12 @@ int log_scan(void *buf,
 		char valid_copy;
 		__u32 check_flags;
 		int restlen = 0;
+		int crc_len;
+		int decompr_len;
 		int found_offset;
+		void *new_buf = NULL;
+		void *crc_buf;
+
 
 		offset = i;
 		if (unlikely(i > 0 && !sloppy)) {
@@ -646,13 +700,13 @@ int log_scan(void *buf,
 		DATA_GET(buf, offset, lh->l_stamp.tv_nsec);
 		DATA_GET(buf, offset, lh->l_pos);
 		DATA_GET(buf, offset, lh->l_len);
-		offset += 2; // skip spare
+		DATA_GET(buf, offset, lh->l_decompress_len);
 		offset += 4; // skip spare
 		DATA_GET(buf, offset, lh->l_code);
 		offset += 2; // skip spare
 
 		found_offset = offset;
-		offset += lh->l_len;
+		offset += total_len - OVERHEAD;
 
 		restlen = len - offset;
 		if (unlikely(restlen < END_OVERHEAD)) {
@@ -697,11 +751,40 @@ int log_scan(void *buf,
 		 */
 		check_flags =
 			(((__u32)lh->l_crc_flags) << _MREF_CHKSUM_MD5_OLD) &
-			available_digest_mask;
+			(available_digest_mask | available_compression_mask);
 
 		/* compatibility with old logfiles during upgrade */
 		if (!check_flags)
 			check_flags = MREF_CHKSUM_MD5_OLD;
+
+		decompr_len = lh->l_decompress_len;
+		crc_len = lh->l_len;
+		if (decompr_len > 0 &&
+		    unlikely(decompr_len > MARS_MAX_COMPR_SIZE ||
+			     decompr_len <= crc_len ||
+			     (decompr_len % 512) != 0)) {
+			MARS_ERR(SCAN_TXT "implausible decompr_len: %d ~~ %d\n",
+				 SCAN_PAR, decompr_len, crc_len);
+			return -EBADMSG;
+		}
+		if (unlikely(crc_len > MARS_MAX_COMPR_SIZE)) {
+			MARS_ERR(SCAN_TXT "implausible crc_len: %d > %ld\n",
+				 SCAN_PAR, crc_len, MARS_MAX_COMPR_SIZE);
+			return -EBADMSG;
+		}
+		crc_buf = buf + found_offset;
+		if ((check_flags & MREF_COMPRESS_ANY) &&
+		    decompr_len > 0) {
+			new_buf =
+			  mars_decompress(crc_buf, crc_len,
+					  NULL, decompr_len,
+					  check_flags);
+			if (likely(new_buf)) {
+				*dealloc = new_buf;
+				crc_buf = new_buf;
+				crc_len = decompr_len;
+			}
+		}
 
 		if (check_flags & (MREF_CHKSUM_ANY - MREF_CHKSUM_MD5_OLD)) {
 			unsigned char checksum[MARS_DIGEST_SIZE];
@@ -710,11 +793,12 @@ int log_scan(void *buf,
 			mars_digest(check_flags,
 				    &used_log_digest,
 				    checksum,
-				    buf + found_offset, lh->l_len);
+				    crc_buf, crc_len);
 
 			fold_crc(checksum, check_crc);
 			if (unlikely(memcmp(crc, check_crc, LOG_CHKSUM_SIZE))) {
-				MARS_ERR(SCAN_TXT "data checksumming mismatch, length = %d\n", SCAN_PAR, lh->l_len);
+				MARS_ERR(SCAN_TXT "data checksumming mismatch, len=%d/%d\n",
+					 SCAN_PAR, lh->l_len, crc_len);
 				return -EBADMSG;
 			}
 		} else if (lh->l_crc_old) {
@@ -724,11 +808,12 @@ int log_scan(void *buf,
 			mars_digest(check_flags,
 				    &used_log_digest,
 				    checksum,
-				    buf + found_offset, lh->l_len);
+				    crc_buf, crc_len);
 
 			old_crc = *(int*)checksum;
 			if (unlikely(old_crc != lh->l_crc_old)) {
-				MARS_ERR(SCAN_TXT "data checksumming mismatch, length = %d\n", SCAN_PAR, lh->l_len);
+				MARS_ERR(SCAN_TXT "data checksumming mismatch, len=%d/%d\n",
+					 SCAN_PAR, lh->l_len, crc_len);
 				return -EBADMSG;
 			}
 		}
@@ -740,8 +825,8 @@ int log_scan(void *buf,
 		}
 
 		// Success...
-		*payload = buf + found_offset;
-		*payload_len = lh->l_len;
+		*payload = crc_buf;
+		*payload_len = crc_len;
 
 		// don't cry when nullbytes have been skipped
 		if (i > 0 && dirty) {

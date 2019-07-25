@@ -2697,6 +2697,7 @@ void _make_alive(void)
 	__make_alivelink_str("buildtag", BUILDTAG "(" BUILDDATE ")", true);
 	__make_alivelink("used-log-digest", used_log_digest, true);
 	__make_alivelink("used-net-digest", used_net_digest, true);
+	__make_alivelink("used-log-compression", used_log_compression, true);
 }
 
 void from_remote_trigger(void)
@@ -5657,6 +5658,8 @@ int make_defaults(void *buf, struct mars_dent *dent)
 		/* at least one digest must remain usable */
 		tmp &= ~MREF_CHKSUM_MD5_OLD;
 		disabled_net_digests = tmp;
+	} else if (!strcmp(dent->d_name, "enabled-log-compressions")) {
+		sscanf(dent->new_link, "0x%x", &enabled_log_compressions);
 	} else {
 		MARS_DBG("unimplemented default '%s'\n", dent->d_name);
 	}

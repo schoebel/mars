@@ -35,6 +35,10 @@
 #ifdef __KERNEL__
 #include "mars.h"
 
+extern __u32 enabled_log_compressions;
+
+extern __u32 used_log_compression;
+
 extern atomic_t global_mref_flying;
 #endif
 
@@ -51,6 +55,7 @@ struct log_header_v1 {
 	struct lamport_time l_stamp;
 	loff_t l_pos;
 	short  l_len;
+	short  l_decompress_len;
 	short  l_code;
 	unsigned int l_seq_nr;
 	__u32  l_crc_old;
@@ -139,6 +144,7 @@ struct log_status {
 	int max_size;     // max payload length
 	int io_prio;
 	bool do_crc;
+	bool do_compress;
 	// informational
 	atomic_t mref_flying;
 	int count;
@@ -151,7 +157,9 @@ struct log_status {
 	struct mars_info info;
 	int offset;
 	int validflag_offset;
+	int totallen_offset;
 	int reallen_offset;
+	int decompresslen_offset;
 	int payload_offset;
 	int payload_len;
 	unsigned int seq_nr;

@@ -88,12 +88,16 @@ struct trans_logger_hash_anchor {
 
 int trans_logger_completion_semantics = 1;
 
+/* Global enabling / disabling of features */
+
 int trans_logger_do_crc =
 #ifdef CONFIG_MARS_DEBUG
 	true;
 #else
 	false;
 #endif
+
+int trans_logger_allow_compress = true;
 
 int trans_logger_mem_usage; // in KB
 
@@ -1657,6 +1661,9 @@ bool phase0_startio(struct trans_logger_mref_aspect *orig_mref_a)
 	CHECK_PTR(input, err);
 	logst = &input->logst;
 	logst->do_crc = trans_logger_do_crc;
+	logst->do_compress =
+		trans_logger_allow_compress &&
+		(usable_compression_mask & MREF_COMPRESS_ANY);
 
 	{
 		struct log_header l = {

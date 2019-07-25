@@ -518,6 +518,8 @@ static inline void unuse_fake_mm(void) {}
 /* Crypto / digest stuff
  */
 
+#define MARS_MAX_COMPR_SIZE (PAGE_SIZE * 8)
+
 extern __u32 available_digest_mask;
 extern __u32 usable_digest_mask;
 extern __u32 used_log_digest;
