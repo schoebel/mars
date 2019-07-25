@@ -230,6 +230,11 @@ extern int _compat_unlink(
 #endif
 
 /* compression stuff */
+
+#if (defined(CONFIG_LZO_COMPRESS) || defined(CONFIG_LZO_COMPRESS_MODULE)) && \
+  (defined(CONFIG_LZO_DECOMPRESS) || defined(CONFIG_LZO_DECOMPRESS_MODULE))
 #include <linux/lzo.h>
+#define HAS_LZO
+#endif
 
 #endif /* _MARS_COMPAT */

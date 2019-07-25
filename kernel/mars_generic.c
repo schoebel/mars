@@ -639,6 +639,9 @@ void mref_checksum(struct mref_object *mref)
 int compress_overhead = 0;
 
 __u32 available_compression_mask =
+#ifdef HAS_LZO
+	MREF_COMPRESS_LZO |
+#endif
 	0;
 
 __u32 usable_compression_mask = 0;
@@ -667,6 +670,45 @@ int mars_compress(void *src_data,
 		goto done;
 	}
 
+#ifdef HAS_LZO
+	if (check_flags & MREF_COMPRESS_LZO) {
+		int max_len = lzo1x_worst_compress(src_len);
+		void *wrkmem;
+		size_t res_len = 0;
+		int status;
+
+		if (!dst_data) {
+			tmp_buf = brick_mem_alloc(max_len);
+		} else if (dst_len < max_len) {
+			MARS_ERR("LZO compression buffer too small: %d < %d\n",
+				 dst_len, max_len);
+			return 0;
+		}
+		wrkmem = brick_mem_alloc(LZO1X_1_MEM_COMPRESS);
+
+		status = lzo1x_1_compress(src_data, src_len,
+					  tmp_buf, &res_len, wrkmem);
+
+		/* ensure that the result is really smaller */
+		if (status == LZO_E_OK &&
+		    res_len > 0 &&
+		    res_len < src_len) {
+			used_compression = MREF_COMPRESS_LZO;
+			*result_flags |= MREF_COMPRESS_LZO;
+			res = res_len;
+			/*
+			 * TODO: avoid memcpy() by swizzling the src_data pointer
+			 */
+			if (!dst_data)
+				memcpy(src_data, tmp_buf, res_len);
+		}
+		brick_mem_free(wrkmem);
+		/* do not try other compression methods */
+		goto done;
+	}
+#endif
+	used_compression = 0;
+
  done:
 	if (!dst_data)
 		brick_mem_free(tmp_buf);
@@ -683,6 +725,22 @@ void *mars_decompress(void *src_data,
 
 	if (!res_buf)
 		res_buf = brick_mem_alloc(dst_len);
+
+#ifdef HAS_LZO
+	if (check_flags & MREF_COMPRESS_LZO) {
+		size_t res_len = dst_len;
+		int status;
+
+		status = lzo1x_decompress_safe(src_data, src_len,
+					       res_buf, &res_len);
+		if (status == LZO_E_OK && dst_len == res_len)
+			goto done;
+
+		MARS_ERR("bad LZO decompression from %d to %ld bytes (requested %d)\n",
+			 src_len, res_len, dst_len);
+		goto err;
+	}
+#endif
 
 	MARS_ERR("decompression not compiled into kernel module\n");
 
@@ -749,7 +807,16 @@ int init_mars_compress(void)
 {
 	int max_len = 0;
 
+#ifdef HAS_LZO
+	max_len = lzo1x_worst_compress(MARS_MAX_COMPR_SIZE) - MARS_MAX_COMPR_SIZE;
+	if (max_len > compress_overhead)
+		compress_overhead = max_len;
+#endif
+
 #ifdef CONFIG_MARS_BENCHMARK
+#ifdef HAS_LZO
+	benchmark_compress("lzo", MREF_COMPRESS_LZO);
+#endif
 	(void)benchmark_compress;
 #endif
 	return 0;
