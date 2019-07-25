@@ -109,140 +109,14 @@ struct log_header_v1 {
 #define SCAN_TXT "at file_pos = %lld file_offset = %d scan_offset = %d (%lld) test_offset = %d (%lld) restlen = %d: "
 #define SCAN_PAR file_pos, file_offset, offset, file_pos + file_offset + offset, i, file_pos + file_offset + i, restlen
 
-static inline
-int log_scan(void *buf, int len, loff_t file_pos, int file_offset, bool sloppy, struct log_header *lh, void **payload, int *payload_len, unsigned int *seq_nr)
-{
-	bool dirty = false;
-	int offset;
-	int i;
-
-	*payload = NULL;
-	*payload_len = 0;
-
-	for (i = 0; i < len && i <= len - OVERHEAD; i += sizeof(long)) {
-		long long start_magic;
-		char format_version;
-		char valid_flag;
-		short total_len;
-		long long end_magic;
-		char valid_copy;
-
-		int restlen = 0;
-		int found_offset;
-
-		offset = i;
-		if (unlikely(i > 0 && !sloppy)) {
-			MARS_ERR(SCAN_TXT "detected a hole / bad data\n", SCAN_PAR);
-			return -EBADMSG;
-		}
-
-		DATA_GET(buf, offset, start_magic);
-		if (unlikely(start_magic != START_MAGIC)) {
-			if (start_magic != 0)
-				dirty = true;
-			continue;
-		}
-
-		restlen = len - i;
-		if (unlikely(restlen < START_OVERHEAD)) {
-			MARS_WRN(SCAN_TXT "magic found, but restlen is too small\n", SCAN_PAR);
-			return -EAGAIN;
-		}
-
-		DATA_GET(buf, offset, format_version);
-		if (unlikely(format_version != FORMAT_VERSION)) {
-			MARS_ERR(SCAN_TXT "found unknown data format %d\n", SCAN_PAR, (int)format_version);
-			return -EBADMSG;
-		}
-		DATA_GET(buf, offset, valid_flag);
-		if (unlikely(!valid_flag)) {
-			MARS_WRN(SCAN_TXT "data is explicitly marked invalid (was there a short write?)\n", SCAN_PAR);
-			continue;
-		}
-		DATA_GET(buf, offset, total_len);
-		if (unlikely(total_len > restlen)) {
-			MARS_WRN(SCAN_TXT "total_len = %d but available data restlen = %d. Was the logfile truncated?\n", SCAN_PAR, total_len, restlen);
-			return -EAGAIN;
-		}
-
-		memset(lh, 0, sizeof(struct log_header));
-
-		DATA_GET(buf, offset, lh->l_stamp.tv_sec);
-		DATA_GET(buf, offset, lh->l_stamp.tv_nsec);
-		DATA_GET(buf, offset, lh->l_pos);
-		DATA_GET(buf, offset, lh->l_len);
-		offset += 2; // skip spare
-		offset += 4; // skip spare
-		DATA_GET(buf, offset, lh->l_code);
-		offset += 2; // skip spare
-
-		found_offset = offset;
-		offset += lh->l_len;
-
-		restlen = len - offset;
-		if (unlikely(restlen < END_OVERHEAD)) {
-			MARS_WRN(SCAN_TXT "restlen %d is too small\n", SCAN_PAR, restlen);
-			return -EAGAIN;
-		}
-
-		DATA_GET(buf, offset, end_magic);
-		if (unlikely(end_magic != END_MAGIC)) {
-			MARS_WRN(SCAN_TXT "bad end_magic 0x%llx, is the logfile truncated?\n", SCAN_PAR, end_magic);
-			return -EBADMSG;
-		}
-		DATA_GET(buf, offset, lh->l_crc);
-		DATA_GET(buf, offset, valid_copy);
-
-		if (unlikely(valid_copy != 1)) {
-			MARS_WRN(SCAN_TXT "found data marked as uncompleted / invalid, len = %d, valid_flag = %d\n", SCAN_PAR, lh->l_len, (int)valid_copy);
-			return -EBADMSG;
-		}
-
-		// skip spares
-		offset += 3;
-
-		DATA_GET(buf, offset, lh->l_seq_nr);
-		DATA_GET(buf, offset, lh->l_written.tv_sec);
-		DATA_GET(buf, offset, lh->l_written.tv_nsec);
-
-		if (unlikely(lh->l_seq_nr > *seq_nr + 1 && lh->l_seq_nr && *seq_nr)) {
-			MARS_ERR(SCAN_TXT "record sequence number %u mismatch, expected was %u\n", SCAN_PAR, lh->l_seq_nr, *seq_nr + 1);
-			return -EBADMSG;
-		} else if (unlikely(lh->l_seq_nr != *seq_nr + 1 && lh->l_seq_nr && *seq_nr)) {
-			MARS_WRN(SCAN_TXT "record sequence number %u mismatch, expected was %u\n", SCAN_PAR, lh->l_seq_nr, *seq_nr + 1);
-		}
-		*seq_nr = lh->l_seq_nr;
-
-		if (lh->l_crc) {
-			unsigned char checksum[mars_digest_size];
-			mars_digest(checksum, buf + found_offset, lh->l_len);
-			if (unlikely(*(int*)checksum != lh->l_crc)) {
-				MARS_ERR(SCAN_TXT "data checksumming mismatch, length = %d\n", SCAN_PAR, lh->l_len);
-				return -EBADMSG;
-			}
-		}
-
-		// last check
-		if (unlikely(total_len != offset - i)) {
-			MARS_ERR(SCAN_TXT "internal size mismatch: %d != %d\n", SCAN_PAR, total_len, offset - i);
-			return -EBADMSG;
-		}
-
-		// Success...
-		*payload = buf + found_offset;
-		*payload_len = lh->l_len;
-
-		// don't cry when nullbytes have been skipped
-		if (i > 0 && dirty) {
-			MARS_WRN(SCAN_TXT "skipped %d dirty bytes to find valid data\n", SCAN_PAR, i);
-		}
-
-		return offset;
-	}
-
-	MARS_ERR("could not find any useful data within len=%d bytes\n", len);
-	return -EAGAIN;
-}
+extern int log_scan(void *buf,
+		    int len,
+		    loff_t file_pos,
+		    int file_offset,
+		    bool sloppy,
+		    struct log_header *lh,
+		    void **payload, int *payload_len,
+		    unsigned int *seq_nr);
 
 ////////////////////////////////////////////////////////////////////////////
 
