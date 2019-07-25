@@ -3016,6 +3016,7 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 {
 	struct trans_logger_input *input = brick->inputs[brick->log_input_nr];
 	struct log_header lh = {};
+	void *dealloc = NULL;
 	loff_t start_pos;
 	loff_t end_pos;
 	loff_t finished_pos = -1;
@@ -3055,8 +3056,10 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 			status = 0; // treat as EOF
 			break;
 		}
+		brick_mem_free(dealloc);
 
-		status = log_read(&input->logst, false, &lh, &buf, &len);
+		status = log_read(&input->logst, false, &lh,
+				  &buf, &len, &dealloc);
 
 		new_finished_pos = input->logst.log_pos + input->logst.offset;
 		MARS_RPL("read  %lld %lld\n", finished_pos, new_finished_pos);
@@ -3152,6 +3155,8 @@ void trans_logger_replay(struct trans_logger_brick *brick)
 		}
 		_exit_inputs(brick, false);
 	}
+
+	brick_mem_free(dealloc);
 
 	MARS_INF("waiting for finish...\n");
 

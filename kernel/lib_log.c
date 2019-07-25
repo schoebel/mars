@@ -410,12 +410,17 @@ err:
 	MARS_FAT("internal pointer corruption\n");
 }
 
-
-int log_read(struct log_status *logst, bool sloppy, struct log_header *lh, void **payload, int *payload_len)
+int log_read(struct log_status *logst,
+	     bool sloppy,
+	     struct log_header *lh,
+	     void **payload, int *payload_len,
+	     void **dealloc)
 {
 	struct mref_object *mref;
 	int old_offset;
 	int status;
+
+	*dealloc = NULL;
 
 restart:
 	status = 0;
@@ -485,6 +490,7 @@ restart:
 			  lh,
 			  payload,
 			  payload_len,
+			  dealloc,
 			  &logst->seq_nr);
 
 	if (unlikely(status == 0)) {
@@ -516,6 +522,10 @@ done_put:
 		logst->offset = 0;
 	}
 	if (status == -EAGAIN && old_offset > 0) {
+		if (*dealloc) {
+			brick_mem_free(*dealloc);
+			*dealloc = NULL;
+		}
 		goto restart;
 	}
 	goto done;
@@ -528,8 +538,6 @@ done_free:
 	goto done;
 
 }
-EXPORT_SYMBOL_GPL(log_read);
-
 
 int log_scan(void *buf,
 	     int len,
@@ -538,6 +546,7 @@ int log_scan(void *buf,
 	     bool sloppy,
 	     struct log_header *lh,
 	     void **payload, int *payload_len,
+	     void **dealloc,
 	     unsigned int *seq_nr)
 {
 	bool dirty = false;
