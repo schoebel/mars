@@ -632,6 +632,134 @@ void mref_checksum(struct mref_object *mref)
 	memcpy(&mref->ref_checksum, checksum, len);
 }
 
+/*******************************************************************/
+
+/* compression */
+
+int compress_overhead = 0;
+
+__u32 available_compression_mask =
+	0;
+
+__u32 usable_compression_mask = 0;
+
+__u32 used_compression = 0;
+
+int mars_compress(void *src_data,
+		  int src_len,
+		  void *dst_data,
+		  int dst_len,
+		  __u32 check_flags,
+		  __u32 *result_flags)
+{
+	void *tmp_buf = dst_data;
+	int res = 0;
+
+	check_flags &= usable_compression_mask;
+	if (!(check_flags & MREF_COMPRESS_ANY)) {
+		used_compression = 0;
+		return 0;
+	}
+
+	if (unlikely(src_len > MARS_MAX_COMPR_SIZE)) {
+		MARS_ERR("tryping to compress %d, more than %ld bytes\n",
+			 src_len, MARS_MAX_COMPR_SIZE);
+		goto done;
+	}
+
+ done:
+	if (!dst_data)
+		brick_mem_free(tmp_buf);
+	return res;
+}
+
+void *mars_decompress(void *src_data,
+		      int src_len,
+		      void *dst_data,
+		      int dst_len,
+		      __u32 check_flags)
+{
+	void *res_buf = dst_data;
+
+	if (!res_buf)
+		res_buf = brick_mem_alloc(dst_len);
+
+	MARS_ERR("decompression not compiled into kernel module\n");
+
+ err:
+	if (!dst_data)
+		brick_mem_free(res_buf);
+	res_buf = NULL;
+
+ done:
+	return res_buf;
+}
+
+#ifdef CONFIG_MARS_BENCHMARK
+#define MARS_CLEAN_SIZE 256
+
+static
+void make_fake_page(__u32 *testpage)
+{
+	int i;
+
+	/* some fake compression data */
+	for (i = 0; i < PAGE_SIZE / sizeof(__u32); i++)
+		testpage[i] = (__u32)i;
+}
+
+static
+void benchmark_compress(char *name, __u32 flags)
+{
+	void *testpage = kmalloc(PAGE_SIZE, GFP_KERNEL);
+	__u32 result_flags;
+	long long delta;
+	int status;
+	int i;
+
+	usable_compression_mask = MREF_COMPRESS_ANY;
+
+	make_fake_page(testpage);
+	delta = TIME_THIS(
+			  for (i = 0; i < 10000; i++) {
+				  memset(testpage, 0, MARS_CLEAN_SIZE);
+				  result_flags = 0;
+				  status =
+				  mars_compress(testpage, PAGE_SIZE,
+						NULL, PAGE_SIZE + compress_overhead,
+						flags, &result_flags);
+				  if (unlikely(status <= 0) || !(flags & result_flags)) {
+					  MARS_ERR("%s compress failure, status=%d, flags=%x\n",
+						   name, status, result_flags);
+					  goto err;
+				  }
+			  }
+			  );
+	printk("%-8s compress duration = %12lld ns\n", name, delta);
+
+ err:
+	kfree(testpage);
+	usable_compression_mask = 0;
+}
+
+#endif
+
+static
+int init_mars_compress(void)
+{
+	int max_len = 0;
+
+#ifdef CONFIG_MARS_BENCHMARK
+	(void)benchmark_compress;
+#endif
+	return 0;
+}
+
+static
+void exit_mars_compress(void)
+{
+}
+
 /////////////////////////////////////////////////////////////////////
 
 // tracing
@@ -843,6 +971,8 @@ int __init init_mars(void)
 	}
 #endif /* MARS_HAS_NEW_CRYPTO */
 
+	init_mars_compress();
+
 	return 0;
 }
 
@@ -851,6 +981,8 @@ void exit_mars(void)
 	MARS_INF("exit_mars()\n");
 
 	put_fake();
+
+	exit_mars_compress();
 
 #ifdef MARS_HAS_NEW_CRYPTO
 	exit_mars_digest();

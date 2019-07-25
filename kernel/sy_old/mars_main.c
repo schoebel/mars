@@ -88,6 +88,7 @@ static int _tmp_features_version = OPTIONAL_FEATURES_VERSION;
 static int _tmp_strategy_version = OPTIONAL_STRATEGY_VERSION;
 
 static __u32 _tmp_digest_mask    = MREF_CHKSUM_MD5_OLD;
+static __u32 _tmp_compression_mask = MREF_COMPRESS_ANY;
 
 /* Portability: can we use get_random_int() in a module? */
 #include <linux/string_helpers.h>
@@ -2683,13 +2684,14 @@ void _make_alive(void)
 	features = path_make(stringify(OPTIONAL_FEATURES_VERSION)
 			     ","
 			     stringify(OPTIONAL_STRATEGY_VERSION)
-			     ",0x%08x", available_digest_mask);
+			     ",0x%08x",
+			     available_digest_mask | available_compression_mask);
 	__make_alivelink_str("features", features, true);
 	brick_string_free(features);
 	features = path_make("%d,%d,0x%08x",
 			     usable_features_version,
 			     usable_strategy_version,
-			     usable_digest_mask);
+			     usable_digest_mask | usable_compression_mask);
 	__make_alivelink_str("usable", features, true);
 	brick_string_free(features);
 	__make_alivelink_str("buildtag", BUILDTAG "(" BUILDDATE ")", true);
@@ -2936,6 +2938,7 @@ int _make_peer(struct mars_global *global, struct mars_dent *dent)
 	/* at least one digest must remain usable */
 	peer->available_mask |= MREF_CHKSUM_MD5_OLD;
 	_tmp_digest_mask &= peer->available_mask;
+	_tmp_compression_mask &= peer->available_mask;
 	if (peer->features_version < _tmp_features_version)
 		_tmp_features_version = peer->features_version;
 	if (peer->strategy_version < _tmp_strategy_version)
@@ -6436,9 +6439,11 @@ static int _main_thread(void *data)
 		usable_features_version = _tmp_features_version;
 		usable_strategy_version = _tmp_strategy_version;
 		usable_digest_mask = _tmp_digest_mask;
+		usable_compression_mask = (_tmp_compression_mask & available_compression_mask);
 		_tmp_features_version = OPTIONAL_FEATURES_VERSION;
 		_tmp_strategy_version = OPTIONAL_STRATEGY_VERSION;
 		_tmp_digest_mask = available_digest_mask;
+		_tmp_compression_mask = available_compression_mask;
 
 		down_read(&rot_sem);
 		for (tmp = rot_anchor.next; tmp != &rot_anchor; tmp = tmp->next) {

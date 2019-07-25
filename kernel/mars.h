@@ -179,6 +179,8 @@ enum _MREF_FLAGS {
 	_MREF_CHKSUM_CRC32,
 	_MREF_CHKSUM_SHA1,
 	_MREF_CHKSUM_LAST,
+	_MREF_COMPRESS_LZO = 24,
+	_MREF_COMPRESS_LAST,
 };
 
 #define MREF_UPTODATE        (1UL << _MREF_UPTODATE)
@@ -194,12 +196,14 @@ enum _MREF_FLAGS {
 #define MREF_CHKSUM_CRC32    (1UL << _MREF_CHKSUM_CRC32)
 #define MREF_CHKSUM_SHA1     (1UL << _MREF_CHKSUM_SHA1)
 #define MREF_CHKSUM_LAST     (1UL << _MREF_CHKSUM_LAST)
+#define MREF_COMPRESS_LZO    (1UL << _MREF_COMPRESS_LZO)
 #define MREF_CHKSUM_ANY      (MREF_CHKSUM_MD5_OLD |	\
 			      MREF_CHKSUM_MD5 |		\
 			      MREF_CHKSUM_CRC32C |	\
 			      MREF_CHKSUM_CRC32 |	\
 			      MREF_CHKSUM_SHA1 |	\
 			      MREF_CHKSUM_LAST)
+#define MREF_COMPRESS_ANY     (MREF_COMPRESS_LZO)
 
 #define MREF_OBJECT(OBJTYPE)						\
 	CALLBACK_OBJECT(OBJTYPE);					\
@@ -528,6 +532,30 @@ extern __u32 mars_digest(__u32 digest_flags,
 			 void *data, int len);
 
 extern void mref_checksum(struct mref_object *mref);
+
+/*******************************************************************/
+
+/* compression stuff */
+
+#define MARS_MAX_COMPR_SIZE (PAGE_SIZE * 8)
+
+extern int compress_overhead;
+
+extern __u32 available_compression_mask;
+extern __u32 usable_compression_mask;
+
+extern int mars_compress(void *src_data,
+			 int src_len,
+			 void *dst_data,
+			 int dst_len,
+			 __u32 check_flags,
+			 __u32 *result_flags);
+
+void *mars_decompress(void *src_data,
+		      int src_len,
+		      void *dst_data,
+		      int dst_len,
+		      __u32 check_flags);
 
 /////////////////////////////////////////////////////////////////////////
 

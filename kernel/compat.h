@@ -229,4 +229,7 @@ extern int _compat_unlink(
 #define HAS_SHA1
 #endif
 
+/* compression stuff */
+#include <linux/lzo.h>
+
 #endif /* _MARS_COMPAT */

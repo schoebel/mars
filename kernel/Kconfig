@@ -7,6 +7,8 @@ config MARS
 	depends on m
 	depends on BLOCK && PROC_SYSCTL && HIGH_RES_TIMERS
 	default n
+	select LZO_COMPRESS
+	select LZO_DECOMPRESS
 	select CRYPTO_MD5
 	select CRYPTO_CRC32
 	select CRYPTO_CRC32C
