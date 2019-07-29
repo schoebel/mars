@@ -209,6 +209,12 @@ void _crashme(int mode, bool do_sync)
 
 #endif
 
+#define GLOBAL_PATH_LIST			\
+  "/mars"					\
+  "|/mars/ips/"					\
+  "|/mars/todo-global/"				\
+  "|/mars/userspace/"
+
 static DECLARE_RWSEM(mars_resource_sem);
 static const char *mars_resource_list;
 static const char *tmp_resource_list;
@@ -5986,7 +5992,7 @@ static int _main_thread(void *data)
 		brick_string_free(mars_resource_list);
 		mars_resource_list = tmp_resource_list;
 		up_write(&mars_resource_sem);
-		tmp_resource_list = brick_strdup("/mars|/mars/ips/|/mars/todo-global/|/mars/userspace/");
+		tmp_resource_list = brick_strdup(GLOBAL_PATH_LIST);
 
 		_global.deleted_min = 0;
 		status = mars_dent_work(&_global, "/mars", sizeof(struct mars_dent), main_checker, main_worker, &_global, 3);
