@@ -1709,6 +1709,7 @@ struct list_head peer_anchor = LIST_HEAD_INIT(peer_anchor);
 struct mars_peerinfo {
 	struct mars_global *global;
 	char *peer;
+	char *peer_dir_list;
 	struct mars_socket socket;
 	struct task_struct *peer_thread;
 	struct mutex peer_lock;
@@ -2349,9 +2350,14 @@ int peer_thread(void *data)
 			cmd.cmd_code = CMD_GETENTS;
 			if ((!peer->do_additional || peer->do_communicate) &&
 			    mars_resource_list) {
+				char *dir_list;
+
 				down_read(&mars_resource_sem);
-				cmd.cmd_str1 = brick_strdup(mars_resource_list);
+				dir_list =  path_make("%s%s",
+						      mars_resource_list,
+						      peer->peer_dir_list);
 				up_read(&mars_resource_sem);
+				cmd.cmd_str1 = dir_list;
 			} else {
 				cmd.cmd_str1 = brick_strdup("/mars");
 			}
@@ -2625,6 +2631,7 @@ static int _kill_peer(struct mars_global *global, struct mars_peerinfo *peer)
 		mars_running_additional_peers--;
 	}
 	brick_string_free(peer->peer);
+	brick_string_free(peer->peer_dir_list);
 	return 0;
 }
 
@@ -2634,6 +2641,20 @@ void peer_destruct(void *_peer)
 	struct mars_peerinfo *peer = _peer;
 	if (likely(peer))
 		_kill_peer(peer->global, peer);
+}
+
+static
+char * make_peer_dir_list(char *mypeer)
+{
+	char *res;
+
+	res = path_make(
+			"|/mars/defaults-%s"
+			"|/mars/actual-%s",
+			mypeer,
+			mypeer
+			);
+	return res;
 }
 
 static
@@ -2671,6 +2692,9 @@ int _make_peer(struct mars_global *global, struct mars_dent *dent)
 		peer->global = global;
 		peer->peer = brick_strdup(mypeer);
 		peer->maxdepth = 2;
+
+		peer->peer_dir_list = make_peer_dir_list(mypeer);
+
 		mutex_init(&peer->peer_lock);
 		INIT_LIST_HEAD(&peer->peer_head);
 		INIT_LIST_HEAD(&peer->remote_dent_list);
