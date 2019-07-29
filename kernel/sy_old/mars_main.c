@@ -213,6 +213,7 @@ void _crashme(int mode, bool do_sync)
   "/mars"					\
   "|/mars/ips/"					\
   "|/mars/todo-global/"				\
+  "|/mars/defaults/"				\
   "|/mars/userspace/"
 
 static DECLARE_RWSEM(mars_resource_sem);
