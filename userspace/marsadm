@@ -4271,8 +4271,10 @@ sub eval_fn {
       return defined($result) && $result;
     }
     # list objects
-    if (/^cluster[-_]?members$/) {
+    if (/^(count[-_]?)?cluster[-_]?members$/) {
+      my $do_count = $1;
       my @peers = glob("$mars/ips/ip-*");
+      return scalar(@peers) if defined($do_count);
       my $list = "";
       foreach my $peer (sort(@peers)) {
 	$peer =~ s:^$mars/ips/ip-::;
@@ -4280,8 +4282,10 @@ sub eval_fn {
       }
       return $list;
     }
-    if (/^resource[-_]?members$/) {
+    if (/^(count[-_]?)?resource[-_]?members$/) {
+      my $do_count = $1;
       my @peers = glob($$env{"resdir"} . "/data-*");
+      return scalar(@peers) if defined($do_count);
       my $list = "";
       foreach my $peer (sort(@peers)) {
 	$peer =~ s:^.*/data-::;
@@ -5016,7 +5020,8 @@ my %complex_macros =
   (
    "default"
    => "%if{%{res}}{"
-   .    "  %{res} %include{diskstate} %include{replstate} %include{flags} %include{role} %include{primarynode} %include{commstate}\n"
+   .    "  %{res} [%count-resource-members{%{res}}/%count-cluster-members{}]"
+   .      " %include{diskstate} %include{replstate} %include{flags} %include{role} %include{primarynode} %include{commstate}\n"
    .    "%if{%>{%-{%disk-size{}}{%resource-size{}}}{%{threshold}}}{"
    .    "     Hint: you are wasting %human-numbers{}{ }{ }{%-{%disk-size{}}{%resource-size{}}} on disk %get-disk{}\n"
    .    "}"
@@ -5488,6 +5493,8 @@ my %trivial_globs =
    "{my,all}-resources"
    => "",
    "{cluster,resource}-members"
+   => "",
+   "count-{cluster,resource}-members"
    => "",
    "{disk,resource,device}-size"
    => "",
