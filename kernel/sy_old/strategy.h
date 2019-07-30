@@ -40,6 +40,8 @@
 /* transient, to re-disappear */
 extern int compat_deletions;
 
+extern int usable_strategy_version;
+
 extern loff_t global_total_space;
 extern loff_t global_remaining_space;
 

@@ -78,6 +78,14 @@
 #include "../mars_usebuf.h"
 #endif
 
+int usable_features_version = 0;
+int usable_strategy_version = 0;
+
+static int _tmp_features_version = OPTIONAL_FEATURES_VERSION;
+static int _tmp_strategy_version = OPTIONAL_STRATEGY_VERSION;
+
+static __u32 _tmp_digest_mask    = MREF_CHKSUM_MD5_OLD;
+
 /* Portability: can we use get_random_int() in a module? */
 #include <linux/string_helpers.h>
 #ifdef UNESCAPE_SPACE /* Commit 16c7fa05829e8b91db48e3539c5d6ff3c2b18a23 */
@@ -558,6 +566,7 @@ enum {
 	CL_GBL_ACTUAL_ITEMS,
 	CL_TREE,
 	CL_FEATURES,
+	CL_USABLE,
 	CL_COMPAT_DELETIONS, /* transient, to re-disappear */
 	CL_EMERGENCY,
 	CL_REST_SPACE,
@@ -1793,6 +1802,9 @@ struct mars_peerinfo {
 	struct list_head remote_dent_list;
 	unsigned long last_remote_jiffies;
 	int maxdepth;
+	int features_version;
+	int strategy_version;
+	__u32 available_mask;
 	bool to_terminate;
 	bool has_terminated;
 	bool to_remote_trigger;
@@ -2671,6 +2683,12 @@ void _make_alive(void)
 			     ",0x%08x", available_digest_mask);
 	__make_alivelink_str("features", features, true);
 	brick_string_free(features);
+	features = path_make("%d,%d,0x%08x",
+			     usable_features_version,
+			     usable_strategy_version,
+			     usable_digest_mask);
+	__make_alivelink_str("usable", features, true);
+	brick_string_free(features);
 	__make_alivelink_str("buildtag", BUILDTAG "(" BUILDDATE ")", true);
 	__make_alivelink("used-log-digest", used_log_digest, true);
 	__make_alivelink("used-net-digest", used_net_digest, true);
@@ -2842,6 +2860,8 @@ int _make_peer(struct mars_global *global, struct mars_dent *dent)
 	struct mars_peerinfo *peer;
 	char *mypeer;
 	char *parent_path;
+	char *feature_path;
+	char *feature_str;
 	int status = 0;
 
 	if (!global || !dent || !dent->new_link || !dent->d_parent || !(parent_path = dent->d_parent->d_path)) {
@@ -2858,7 +2878,6 @@ int _make_peer(struct mars_global *global, struct mars_dent *dent)
 
 	MARS_DBG("peer '%s'\n", mypeer);
 	if (!dent->d_private) {
-
 		dent->d_private = brick_zmem_alloc(sizeof(struct mars_peerinfo));
 		if (!dent->d_private) {
 			MARS_ERR("no memory for peer structure\n");
@@ -2872,6 +2891,10 @@ int _make_peer(struct mars_global *global, struct mars_dent *dent)
 		peer->maxdepth = 2;
 
 		peer->peer_dir_list = make_peer_dir_list(mypeer);
+
+		peer->features_version = 0;
+		peer->strategy_version = 0;
+		peer->available_mask = 0;
 
 		mutex_init(&peer->peer_lock);
 		INIT_LIST_HEAD(&peer->peer_head);
@@ -2888,6 +2911,33 @@ int _make_peer(struct mars_global *global, struct mars_dent *dent)
 	}
 
 	peer = dent->d_private;
+
+	/* Determine remote features and digest mask */
+	feature_path = path_make("/mars/features-%s", mypeer);
+	feature_str = mars_readlink(feature_path);
+	if (feature_str) {
+		sscanf(feature_str, "%d,%d,0x%x",
+		       &peer->features_version,
+		       &peer->strategy_version,
+		       &peer->available_mask);
+	}
+	/* else/anyway: treat missing features as 0 = worst case */
+	if (peer->features_version < 3) {
+		peer->strategy_version = 0;
+		peer->available_mask = 0;
+	}
+
+	brick_string_free(feature_path);
+	brick_string_free(feature_str);
+
+	/* at least one digest must remain usable */
+	peer->available_mask |= MREF_CHKSUM_MD5_OLD;
+	_tmp_digest_mask &= peer->available_mask;
+	if (peer->features_version < _tmp_features_version)
+		_tmp_features_version = peer->features_version;
+	if (peer->strategy_version < _tmp_strategy_version)
+		_tmp_strategy_version = peer->strategy_version;
+
 	// create or stop communication thread when necessary
 	if (peer->do_communicate | peer->do_additional) {
 		/* Peers may terminate unexpectedly on their own */
@@ -5748,6 +5798,12 @@ static const struct main_class main_classes[] = {
 		.cl_type = 'l',
 		.cl_father = CL_ROOT,
 	},
+	[CL_USABLE] = {
+		.cl_name = "usable-",
+		.cl_len = 7,
+		.cl_type = 'l',
+		.cl_father = CL_ROOT,
+	},
 	/* transient, to re-disappear */
 	[CL_COMPAT_DELETIONS] = {
 		.cl_name = "compat-deletions",
@@ -6364,6 +6420,13 @@ static int _main_thread(void *data)
 		mars_global->deleted_border = mars_global->deleted_min;
 		MARS_DBG("-------- worker deleted_min = %d status = %d\n",
 			 mars_global->deleted_min, status);
+
+		usable_features_version = _tmp_features_version;
+		usable_strategy_version = _tmp_strategy_version;
+		usable_digest_mask = _tmp_digest_mask;
+		_tmp_features_version = OPTIONAL_FEATURES_VERSION;
+		_tmp_strategy_version = OPTIONAL_STRATEGY_VERSION;
+		_tmp_digest_mask = available_digest_mask;
 
 		down_read(&rot_sem);
 		for (tmp = rot_anchor.next; tmp != &rot_anchor; tmp = tmp->next) {

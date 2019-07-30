@@ -122,6 +122,8 @@
 #define _stringify(s) #s
 #define stringify(s) _stringify(s)
 
+extern int usable_features_version;
+
 #define OLD_MARS_DIGEST_SIZE 16
 #define MARS_DIGEST_SIZE     32
 
