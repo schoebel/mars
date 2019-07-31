@@ -237,4 +237,10 @@ extern int _compat_unlink(
 #define HAS_LZO
 #endif
 
+#if (defined(CONFIG_LZ4_COMPRESS) || defined(CONFIG_LZ4_COMPRESS_MODULE)) && \
+  (defined(CONFIG_LZ4_DECOMPRESS) || defined(CONFIG_LZ4_DECOMPRESS_MODULE))
+#include <linux/lz4.h>
+#define HAS_LZ4
+#endif
+
 #endif /* _MARS_COMPAT */

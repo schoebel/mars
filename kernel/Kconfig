@@ -9,6 +9,8 @@ config MARS
 	default n
 	select LZO_COMPRESS
 	select LZO_DECOMPRESS
+	select LZ4_COMPRESS
+	select LZ4_DECOMPRESS
 	select CRYPTO_MD5
 	select CRYPTO_CRC32
 	select CRYPTO_CRC32C

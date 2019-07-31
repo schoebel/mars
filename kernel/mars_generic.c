@@ -642,6 +642,9 @@ __u32 available_compression_mask =
 #ifdef HAS_LZO
 	MREF_COMPRESS_LZO |
 #endif
+#ifdef HAS_LZ4
+	MREF_COMPRESS_LZ4 |
+#endif
 	0;
 
 __u32 usable_compression_mask = 0;
@@ -670,6 +673,7 @@ int mars_compress(void *src_data,
 		goto done;
 	}
 
+	/* The order determines the preferences */
 #ifdef HAS_LZO
 	if (check_flags & MREF_COMPRESS_LZO) {
 		int max_len = lzo1x_worst_compress(src_len);
@@ -707,6 +711,41 @@ int mars_compress(void *src_data,
 		goto done;
 	}
 #endif
+#ifdef HAS_LZ4
+	if (check_flags & MREF_COMPRESS_LZ4) {
+		size_t max_len = lz4_compressbound(src_len);
+		size_t res_len = 0;
+		void *wrkmem;
+		int status;
+
+		if (!dst_data) {
+			tmp_buf = brick_mem_alloc(max_len);
+		} else if (dst_len < max_len) {
+			MARS_ERR("LZ4 compression buffer too small: %d < %lu\n",
+				 dst_len, max_len);
+			return 0;
+		}
+
+		wrkmem = brick_block_alloc(0, LZ4_MEM_COMPRESS);
+
+		status = lz4_compress(src_data, src_len,
+				      tmp_buf, &res_len,
+				      wrkmem);
+		if (likely(!status && res_len > 0 && res_len < src_len)) {
+			used_compression = MREF_COMPRESS_LZ4;
+			*result_flags |= MREF_COMPRESS_LZ4;
+			res = res_len;
+			/*
+			 * TODO: avoid memcpy() by swizzling the src_data pointer
+			 */
+			if (!dst_data)
+				memcpy(src_data, tmp_buf, res_len);
+		}
+		brick_block_free(wrkmem, LZ4_MEM_COMPRESS);
+		/* do not try other compression methods */
+		goto done;
+	}
+#endif
 	used_compression = 0;
 
  done:
@@ -738,6 +777,21 @@ void *mars_decompress(void *src_data,
 
 		MARS_ERR("bad LZO decompression from %d to %ld bytes (requested %d)\n",
 			 src_len, res_len, dst_len);
+		goto err;
+	}
+#endif
+#ifdef HAS_LZ4
+	if (check_flags & MREF_COMPRESS_LZ4) {
+		size_t new_len = src_len;
+		int status;
+
+		status = lz4_decompress(src_data, &new_len,
+					res_buf, dst_len);
+		if (!status && new_len == src_len)
+			goto done;
+
+		MARS_ERR("bad LZ4 decompression %d != %lu to %d bytes\n",
+			 src_len, new_len, dst_len);
 		goto err;
 	}
 #endif
@@ -812,10 +866,18 @@ int init_mars_compress(void)
 	if (max_len > compress_overhead)
 		compress_overhead = max_len;
 #endif
+#ifdef HAS_LZ4
+	max_len = lz4_compressbound(MARS_MAX_COMPR_SIZE) - MARS_MAX_COMPR_SIZE;
+	if (max_len > compress_overhead)
+		compress_overhead = max_len;
+#endif
 
 #ifdef CONFIG_MARS_BENCHMARK
 #ifdef HAS_LZO
 	benchmark_compress("lzo", MREF_COMPRESS_LZO);
+#endif
+#ifdef HAS_LZ4
+	benchmark_compress("lz4", MREF_COMPRESS_LZ4);
 #endif
 	(void)benchmark_compress;
 #endif
