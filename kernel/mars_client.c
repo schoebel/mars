@@ -921,6 +921,8 @@ static int sender_thread(void *data)
 		// notice: hash_head is already there!
 		mutex_unlock(&output->mutex);
 
+		mref->ref_flags |= enabled_net_compressions;
+
 		status = mars_send_mref(&ch->socket, mref, cork);
 		old_cork = cork;
 		if (unlikely(status < 0)) {
