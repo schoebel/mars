@@ -33,6 +33,9 @@
 extern int mars_net_default_port;
 extern bool mars_net_is_alive;
 
+extern __u32 enabled_net_compressions;
+extern __u32 used_net_compression;
+
 #define MARS_PROTO_LEVEL 1
 
 #define MAX_FIELD_LEN   32
@@ -116,6 +119,8 @@ struct mars_cmd {
 	struct lamport_time cmd_stamp; // for automatic lamport clock
 	int cmd_proto;
 	int cmd_code;
+	__u32 cmd_compr_flags;
+	int cmd_compr_len;
 	int cmd_int1;
 	//int cmd_int2;
 	//int cmd_int3;
