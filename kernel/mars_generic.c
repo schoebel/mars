@@ -713,7 +713,11 @@ int mars_compress(void *src_data,
 #endif
 #ifdef HAS_LZ4
 	if (check_flags & MREF_COMPRESS_LZ4) {
+#ifdef HAS_FAST_LZ4
+		size_t max_len = LZ4_COMPRESSBOUND(src_len);
+#else
 		size_t max_len = lz4_compressbound(src_len);
+#endif
 		size_t res_len = 0;
 		void *wrkmem;
 		int status;
@@ -728,9 +732,19 @@ int mars_compress(void *src_data,
 
 		wrkmem = brick_block_alloc(0, LZ4_MEM_COMPRESS);
 
+#ifdef HAS_FAST_LZ4
+		res_len = LZ4_compress_fast(src_data,
+					    tmp_buf,
+					    src_len,
+					    max_len,
+					    LZ4_ACCELERATION_DEFAULT,
+					    wrkmem);
+		status = 0;
+#else
 		status = lz4_compress(src_data, src_len,
 				      tmp_buf, &res_len,
 				      wrkmem);
+#endif
 		if (likely(!status && res_len > 0 && res_len < src_len)) {
 			used_compression = MREF_COMPRESS_LZ4;
 			*result_flags |= MREF_COMPRESS_LZ4;
@@ -783,8 +797,19 @@ void *mars_decompress(void *src_data,
 #ifdef HAS_LZ4
 	if (check_flags & MREF_COMPRESS_LZ4) {
 		size_t new_len = src_len;
-		int status;
+		int status = 0;
 
+#ifdef HAS_FAST_LZ4
+		new_len = LZ4_decompress_safe(src_data,
+					      res_buf,
+					      src_len,
+					      dst_len);
+		if (!status && new_len == dst_len)
+			goto done;
+
+		MARS_ERR("bad LZ4 decompression %d to %lu != %d bytes\n",
+			 src_len, new_len, dst_len);
+#else
 		status = lz4_decompress(src_data, &new_len,
 					res_buf, dst_len);
 		if (!status && new_len == src_len)
@@ -792,6 +817,7 @@ void *mars_decompress(void *src_data,
 
 		MARS_ERR("bad LZ4 decompression %d != %lu to %d bytes\n",
 			 src_len, new_len, dst_len);
+#endif
 		goto err;
 	}
 #endif
@@ -867,7 +893,11 @@ int init_mars_compress(void)
 		compress_overhead = max_len;
 #endif
 #ifdef HAS_LZ4
+#ifdef HAS_FAST_LZ4
+	max_len = LZ4_COMPRESSBOUND(MARS_MAX_COMPR_SIZE) - MARS_MAX_COMPR_SIZE;
+#else
 	max_len = lz4_compressbound(MARS_MAX_COMPR_SIZE) - MARS_MAX_COMPR_SIZE;
+#endif
 	if (max_len > compress_overhead)
 		compress_overhead = max_len;
 #endif
