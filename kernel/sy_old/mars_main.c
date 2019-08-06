@@ -998,10 +998,10 @@ done:
 }
 
 static
-int _check_allow(struct mars_global *global, struct mars_dent *parent, const char *name)
+int _check_allow(struct mars_global *global, const char *parent_path, const char *name)
 {
 	int res = 0;
-	char *path = path_make("%s/todo-%s/%s", parent->d_path, my_id(), name);
+	char *path = path_make("%s/todo-%s/%s", parent_path, my_id(), name);
 
 	if (!path)
 		goto done;
@@ -1876,13 +1876,13 @@ int _update_file(struct mars_dent *parent, const char *switch_path, const char *
 	 * "marsadm pause-replay $res; marsadm detach $res; mount -o ro /dev/lv/$res"
 	 * as a workaround.
 	 */
-	if (do_start && !_check_allow(global, parent, "attach")) {
+	if (do_start && !_check_allow(global, parent->d_path, "attach")) {
 		MARS_DBG("disabling fetch due to detach\n");
 		make_msg(msg_pair, "disabling fetch due to detach");
 		do_start = false;
 	}
 #endif
-	if (do_start && !_check_allow(global, parent, "connect")) {
+	if (do_start && !_check_allow(global, parent->d_path, "connect")) {
 		MARS_DBG("disabling fetch due to disconnect\n");
 		make_msg(msg_pair, "disabling fetch due to disconnect");
 		do_start = false;
@@ -3184,7 +3184,7 @@ int make_log_init(void *buf, struct mars_dent *dent)
 	rot->aio_dent = aio_dent;
 
 	// check whether attach is allowed
-	switch_on = _check_allow(global, parent, "attach");
+	switch_on = _check_allow(global, parent->d_path, "attach");
 	if (switch_on && rot->res_shutdown) {
 		MARS_ERR("cannot start transaction logger: resource shutdown mode is currently active\n");
 		switch_on = false;
@@ -3616,7 +3616,7 @@ int _make_logging_status(struct mars_rotate *rot)
 				bool skip_new = !!rot->todo_primary;
 				MARS_DBG("check switchover from '%s' to '%s' (size = %lld, skip_new = %d, replay_tolerance = %d)\n", dent->d_path, rot->next_relevant_log->d_path, rot->next_relevant_log->new_stat.size, skip_new, replay_tolerance);
 				if (is_switchover_possible(rot, dent->d_path, rot->next_relevant_log->d_path, replay_tolerance, skip_new) ||
-				    (skip_new && !_check_allow(global, parent, "connect"))) {
+				    (skip_new && !_check_allow(global, parent->d_path, "connect"))) {
 					MARS_INF_TO(rot->log_say, "start switchover from transaction log '%s' to '%s'\n", dent->d_path, rot->next_relevant_log->d_path);
 					_make_new_replaylink(rot, rot->next_relevant_log->d_rest, rot->next_relevant_log->d_serial, rot->next_relevant_log->new_stat.size);
 				}
@@ -3979,7 +3979,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 		MARS_ERR_TO(rot->log_say, "EMEGENCY MODE HYSTERESIS on %s: you need to free more space for recovery.\n", rot->parent_path);
 		make_rot_msg(rot, "err-space-low", "EMEGENCY MODE HYSTERESIS: you need to free more space for recovery.");
 	} else {
-		int limit = _check_allow(global, parent, "emergency-limit");
+		int limit = _check_allow(global, parent->d_path, "emergency-limit");
 		rot->has_emergency = (limit > 0 && global_remaining_space * 100 / global_total_space < limit);
 		MARS_DBG("has_emergency=%d limit=%d remaining_space=%lld total_space=%lld\n",
 			 rot->has_emergency, limit, global_remaining_space, global_total_space);
@@ -4083,14 +4083,14 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 				trans_brick->replay_end_pos - trans_brick->replay_current_pos < trans_brick->replay_tolerance;
 			do_stop = trans_brick->replay_code != TL_REPLAY_RUNNING ||
 				!global->global_power.button ||
-				!_check_allow(global, parent, "allow-replay") ||
-				!_check_allow(global, parent, "attach") ;
+				!_check_allow(global, parent->d_path, "allow-replay") ||
+				!_check_allow(global, parent->d_path, "attach") ;
 		} else {
 			do_stop =
 				!rot->if_brick &&
 				!rot->is_primary &&
 				(!rot->todo_primary ||
-				 !_check_allow(global, parent, "attach"));
+				 !_check_allow(global, parent->d_path, "attach"));
 		}
 
 		MARS_DBG("replay_mode = %d replay_code = %d is_primary = %d do_stop = %d\n", trans_brick->replay_mode, trans_brick->replay_code, rot->is_primary, (int)do_stop);
@@ -4124,7 +4124,7 @@ int make_log_finalize(struct mars_global *global, struct mars_dent *dent)
 
 		do_start = (!rot->replay_mode ||
 			    (rot->start_pos != rot->end_pos &&
-			     _check_allow(global, parent, "allow-replay")));
+			     _check_allow(global, parent->d_path, "allow-replay")));
 
 		if (do_start && rot->forbid_replay) {
 			MARS_INF("cannot start replay because sync wants to start\n");
@@ -4154,8 +4154,8 @@ done:
 	     fetch_brick->power.force_off ||
 	     fetch_brick->copy_error ||
 	     !global->global_power.button ||
-	     !_check_allow(global, parent, "connect") ||
-	     !_check_allow(global, parent, "attach") ||
+	     !_check_allow(global, parent->d_path, "connect") ||
+	     !_check_allow(global, parent->d_path, "attach") ||
 	     (fetch_brick->copy_last == fetch_brick->copy_end &&
 	      (rot->fetch_next_is_available > 0 ||
 	       rot->fetch_round++ > 3)))) {
@@ -4183,7 +4183,7 @@ done:
 
 	// remove trans_logger (when possible) upon detach
 	if (rot->trans_brick && rot->trans_brick->power.led_off && !rot->trans_brick->outputs[0]->nr_connected) {
-		bool do_attach = _check_allow(global, parent, "attach");
+		bool do_attach = _check_allow(global, parent->d_path, "attach");
 		MARS_DBG("do_attach = %d\n", do_attach);
 		if (!do_attach) {
 			rot->trans_brick->killme = true;
@@ -4274,7 +4274,7 @@ int make_bio(void *buf, struct mars_dent *dent)
 
 	activate_rot(rot);
 
-	switch_on = _check_allow(global, dent->d_parent, "attach");
+	switch_on = _check_allow(global, rot->parent_path, "attach");
 	if (switch_on && rot->res_shutdown) {
 		MARS_ERR("cannot access disk: resource shutdown mode is currently active\n");
 		switch_on = false;
@@ -4412,7 +4412,7 @@ int make_dev(void *buf, struct mars_dent *dent)
 		 !rot->trans_brick->replay_mode &&
 		 (rot->trans_brick->power.led_on ||
 		  (!rot->trans_brick->power.button && !rot->trans_brick->power.led_off)) &&
-		 _check_allow(global, dent->d_parent, "attach"));
+		 _check_allow(global, rot->parent_path, "attach"));
 	if (!global->global_power.button) {
 		switch_on = false;
 	}
@@ -4516,7 +4516,7 @@ static int _make_direct(void *buf, struct mars_dent *dent)
 		do_dealloc = true;
 	}
 
-	switch_on = _check_allow(global, dent->d_parent, "attach");
+	switch_on = _check_allow(global, dent->d_parent->d_path, "attach");
 
 	brick = 
 		make_brick_all(global,
@@ -4767,7 +4767,7 @@ static int make_sync(void *buf, struct mars_dent *dent)
 	}
 	peer = primary_dent->new_link;
 
-	do_start = _check_allow(global, dent->d_parent, "attach");
+	do_start = _check_allow(global, dent->d_parent->d_path, "attach");
 
 	/* Analyze replay position
 	 */
