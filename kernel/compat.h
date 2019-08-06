@@ -67,27 +67,27 @@ extern int _compat_unlink(
  */
 
 #ifdef __bvec_iter_bvec
-#define HAS_BVEC_ITER
+#define MARS_HAS_BVEC_ITER
 #endif
 
 /* adaptation to 4246a0b63bd8f56a1469b12eafeb875b1041a451 and 8ae126660fddbeebb9251a174e6fa45b6ad8f932 */
 #ifndef bio_io_error
-#define HAS_BI_ERROR
+#define MARS_HAS_BI_ERROR
 #else
-#define HAS_MERGE_BVEC
+#define MARS_HAS_MERGE_BVEC
 #endif
 
 /* adapt to 4e1b2d52a80d79296a5d899d73249748dea71a53 and many others */
 #ifdef bio_op
-#define HAS_NEW_BIO_OP
+#define MARS_HAS_NEW_BIO_OP
 #endif
 
 #ifdef bio_end_sector
-#define HAS_VOID_RELEASE
+#define MARS_HAS_VOID_RELEASE
 #endif
 
 #ifdef __bvec_iter_bvec
-#define HAS_BVEC_ITER
+#define MARS_HAS_BVEC_ITER
 #endif
 
 /* 54efd50bfd873e2dbf784e0b21a8027ba4299a3e and 8ae126660fddbeebb9251a174e6fa45b6ad8f932,
@@ -99,7 +99,7 @@ extern int _compat_unlink(
 
 /* adapt to 4e1b2d52a80d79296a5d899d73249748dea71a53 and many others */
 #ifdef bio_op
-#define HAS_NEW_BIO_OP
+#define MARS_HAS_NEW_BIO_OP
 #endif
 
 /* for networking */
@@ -119,7 +119,7 @@ extern int _compat_unlink(
 
 /* 896545098777564212b9e91af4c973f094649aa7 */
 #ifndef crt_hash
-#define HAS_NEW_CRYPTO
+#define MARS_HAS_NEW_CRYPTO
 #endif
 
 #endif /* _MARS_COMPAT */

@@ -80,7 +80,7 @@ EXPORT_SYMBOL_GPL(bio_io_threshold);
 /* This is called from the kernel bio layer.
  */
 //      remove_this
-#ifdef HAS_BI_ERROR
+#ifdef MARS_HAS_BI_ERROR
 //      end_remove_this
 static
 void bio_callback(struct bio *bio)
@@ -102,7 +102,7 @@ void bio_callback(struct bio *bio, int code)
 	CHECK_PTR(brick, err);
 
 //      remove_this
-#ifdef HAS_BI_ERROR
+#ifdef MARS_HAS_BI_ERROR
 //      end_remove_this
 	mref_a->status_code = bio->bi_error;
 //      remove_this
@@ -236,7 +236,7 @@ int make_bio(struct bio_brick *brick, void *data, int len, loff_t pos, struct bi
 
 	bio->bi_vcnt = i;
 //      remove_this
-#ifdef HAS_BVEC_ITER
+#ifdef MARS_HAS_BVEC_ITER
 //      end_remove_this
 	bio->bi_iter.bi_idx = 0;
 	bio->bi_iter.bi_size = result_len;
@@ -251,7 +251,7 @@ int make_bio(struct bio_brick *brick, void *data, int len, loff_t pos, struct bi
 	bio->bi_bdev = bdev;
 	bio->bi_private = private;
 	bio->bi_end_io = bio_callback;
-#ifndef HAS_NEW_BIO_OP
+#ifndef MARS_HAS_NEW_BIO_OP
 	bio->bi_rw = 0; // must be filled in later
 #endif
 	status = result_len;
@@ -464,7 +464,7 @@ void _bio_ref_io(struct bio_output *output, struct mref_object *mref, bool cork)
 #ifdef FAKE_IO
 	bio->bi_end_io(bio, 0);
 #else
-#ifdef HAS_NEW_BIO_OP
+#ifdef MARS_HAS_NEW_BIO_OP
 	if (rw & 1) {
 		bio_set_op_attrs(bio, REQ_OP_WRITE,
 				 mref->ref_skip_sync ? 0 : WRITE_SYNC);

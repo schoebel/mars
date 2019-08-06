@@ -113,7 +113,7 @@ void _if_start_io_acct(struct if_input *input, struct bio_wrapper *biow)
 	part_round_stats(cpu, &input->disk->part0);
 	part_stat_inc(cpu, &input->disk->part0, ios[rw]);
 //      remove_this
-#ifdef HAS_BVEC_ITER
+#ifdef MARS_HAS_BVEC_ITER
 //      end_remove_this
 	part_stat_add(cpu, &input->disk->part0, sectors[rw], bio->bi_iter.bi_size >> 9);
 //      remove_this
@@ -191,7 +191,7 @@ void if_endio(struct generic_callback *cb)
 		error = CALLBACK_ERROR(mref_a->object);
 		if (unlikely(error < 0)) {
 //      remove_this
-#ifdef HAS_BVEC_ITER
+#ifdef MARS_HAS_BVEC_ITER
 //      end_remove_this
 			int bi_size = bio->bi_iter.bi_size;
 //      remove_this
@@ -203,7 +203,7 @@ void if_endio(struct generic_callback *cb)
 		} else { // bio conventions are slightly different...
 			error = 0;
 //      remove_this
-#ifdef HAS_BVEC_ITER
+#ifdef MARS_HAS_BVEC_ITER
 //      end_remove_this
 			bio->bi_iter.bi_size = 0;
 //      remove_this
@@ -214,7 +214,7 @@ void if_endio(struct generic_callback *cb)
 		}
 		MARS_IO("calling end_io() rw = %d error = %d\n", rw, error);
 //      remove_this
-#ifdef HAS_BI_ERROR
+#ifdef MARS_HAS_BI_ERROR
 //      end_remove_this
 		bio->bi_error = error;
 		bio_endio(bio);
@@ -382,7 +382,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 	const bool meta    = _flagged(REQ_META);
 	const bool discard = _flagged(REQ_DISCARD);
 	const bool noidle  = _flagged(REQ_THROTTLED);
-#elif defined(HAS_NEW_BIO_OP)
+#elif defined(MARS_HAS_NEW_BIO_OP)
 //      end_remove_this
 #define _flagged(x) (bio->bi_opf & (x))
 	const bool ahead   = _flagged(REQ_RAHEAD) && rw == READ;
@@ -414,7 +414,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 	struct mref_object *mref = NULL;
 	struct if_mref_aspect *mref_a;
 //      remove_this
-#ifdef HAS_BVEC_ITER
+#ifdef MARS_HAS_BVEC_ITER
 //      end_remove_this
 	struct bio_vec bvec;
 	struct bvec_iter i;
@@ -474,7 +474,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 		 * something here. For now, we do just nothing.
 		 */
 //      remove_this
-#ifdef HAS_BI_ERROR
+#ifdef MARS_HAS_BI_ERROR
 //      end_remove_this
 		error = 0;
 		bio->bi_error = error;
@@ -498,7 +498,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 	if (ahead) {
 		atomic_inc(&input->total_reada_count);
 //      remove_this
-#ifdef HAS_BI_ERROR
+#ifdef MARS_HAS_BI_ERROR
 //      end_remove_this
 		bio->bi_error = -EWOULDBLOCK;
 		bio_endio(bio);
@@ -516,7 +516,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 	if (unlikely(discard)) { // NYI
 		error = 0;
 //      remove_this
-#ifdef HAS_BI_ERROR
+#ifdef MARS_HAS_BI_ERROR
 //      end_remove_this
 		bio->bi_error = error;
 		bio_endio(bio);
@@ -551,7 +551,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 
 	bio_for_each_segment(bvec, bio, i) {
 //      remove_this
-#ifdef HAS_BVEC_ITER
+#ifdef MARS_HAS_BVEC_ITER
 //      end_remove_this
 		struct page *page = bvec.bv_page;
 		int bv_len = bvec.bv_len;
@@ -714,7 +714,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 				 */
 				mref->ref_skip_sync = true;
 //      remove_this
-#ifdef HAS_BVEC_ITER
+#ifdef MARS_HAS_BVEC_ITER
 //      end_remove_this
 				if (!do_skip_sync && i.bi_idx + 1 >= bio->bi_iter.bi_idx) {
 					mref->ref_skip_sync = false;
@@ -768,7 +768,7 @@ err:
 		MARS_ERR("cannot submit request from bio, status=%d\n", error);
 		if (!assigned) {
 //      remove_this
-#ifdef HAS_BI_ERROR
+#ifdef MARS_HAS_BI_ERROR
 //      end_remove_this
 			bio->bi_error = error;
 			bio_endio(bio);
@@ -885,7 +885,7 @@ int mars_congested(void *data, int bdi_bits)
 }
 
 //      remove_this
-#ifdef HAS_MERGE_BVEC
+#ifdef MARS_HAS_MERGE_BVEC
 static
 int mars_merge_bvec(struct request_queue *q, struct bvec_merge_data *bvm, struct bio_vec *bvec)
 {
@@ -1068,7 +1068,7 @@ static int if_switch(struct if_brick *brick)
 		q->backing_dev_info.congested_data = input;
 #endif
 //      remove_this
-#ifdef HAS_MERGE_BVEC
+#ifdef MARS_HAS_MERGE_BVEC
 		MARS_DBG("blk_queue_merge_bvec()\n");
 		blk_queue_merge_bvec(q, mars_merge_bvec);
 #endif
@@ -1198,7 +1198,7 @@ void wait_io_done(struct if_brick *brick)
 
 static
 //      remove_this
-#ifdef HAS_VOID_RELEASE
+#ifdef MARS_HAS_VOID_RELEASE
 //      end_remove_this
 void
 //      remove_this
@@ -1226,7 +1226,7 @@ if_release(struct gendisk *gd, fmode_t mode)
 		mars_remote_trigger();
 	}
 //      remove_this
-#ifndef HAS_VOID_RELEASE
+#ifndef MARS_HAS_VOID_RELEASE
 	return 0;
 #endif
 //      end_remove_this
