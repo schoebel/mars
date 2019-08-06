@@ -30,16 +30,16 @@
  * and the new wrappers around vfs_*().
  */
 #ifdef MARS_MAJOR
-#define HAS_MARS_PREPATCH
+#define MARS_HAS_PREPATCH
 #else
 #define MARS_MAJOR (DRBD_MAJOR + 1)
 #endif
 
-#ifdef HAS_MARS_PREPATCH
+#ifdef MARS_HAS_PREPATCH
 
 #include <linux/syscalls.h>
 
-#else /* HAS_MARS_PREPATCH */
+#else /* MARS_HAS_PREPATCH */
 
 #include <linux/compiler.h>
 #include <linux/time.h>
@@ -60,6 +60,6 @@ extern int _compat_rename(
 extern int _compat_unlink(
 	const char __user *pathname);
 
-#endif /* HAS_MARS_PREPATCH */
+#endif /* MARS_HAS_PREPATCH */
 
 #endif /* _MARS_COMPAT */

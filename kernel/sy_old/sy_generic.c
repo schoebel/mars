@@ -112,7 +112,7 @@ const struct meta mars_dent_meta[] = {
 EXPORT_SYMBOL_GPL(mars_dent_meta);
 
 //      remove_this
-#ifndef HAS_MARS_PREPATCH
+#ifndef MARS_HAS_PREPATCH
 /////////////////////////////////////////////////////////////////////
 
 /* The _compat_*() functions are needed for the out-of-tree version
@@ -588,7 +588,7 @@ int mars_mkdir(const char *path)
 	
 	oldfs = get_fs();
 	set_fs(get_ds());
-#ifdef HAS_MARS_PREPATCH
+#ifdef MARS_HAS_PREPATCH
 	status = sys_mkdir(path, 0700);
 #else
 	status = _compat_mkdir(path, 0700);
@@ -601,7 +601,7 @@ EXPORT_SYMBOL_GPL(mars_mkdir);
 
 int mars_rmdir(const char *path)
 {
-#ifdef HAS_MARS_PREPATCH
+#ifdef MARS_HAS_PREPATCH
 	mm_segment_t oldfs;
 	int status;
 	
@@ -624,7 +624,7 @@ int mars_unlink(const char *path)
 	
 	oldfs = get_fs();
 	set_fs(get_ds());
-#ifdef HAS_MARS_PREPATCH
+#ifdef MARS_HAS_PREPATCH
 	status = sys_unlink(path);
 #else
 	status = _compat_unlink(path);
@@ -678,7 +678,7 @@ int mars_symlink(const char *oldpath, const char *newpath, const struct timespec
 		times[0].tv_nsec = 1;
 	}
 
-#ifdef HAS_MARS_PREPATCH
+#ifdef MARS_HAS_PREPATCH
 	(void)sys_unlink(tmp);
 	status = sys_symlink(oldpath, tmp);
 	if (status >= 0) {
@@ -765,7 +765,7 @@ int mars_rename(const char *oldpath, const char *newpath)
 	
 	oldfs = get_fs();
 	set_fs(get_ds());
-#ifdef HAS_MARS_PREPATCH
+#ifdef MARS_HAS_PREPATCH
 	status = sys_rename(oldpath, newpath);
 #else
 	status = _compat_rename(oldpath, newpath);
@@ -778,7 +778,7 @@ EXPORT_SYMBOL_GPL(mars_rename);
 
 int mars_chmod(const char *path, mode_t mode)
 {
-#ifdef HAS_MARS_PREPATCH
+#ifdef MARS_HAS_PREPATCH
 	mm_segment_t oldfs;
 	int status;
 	
@@ -796,7 +796,7 @@ EXPORT_SYMBOL_GPL(mars_chmod);
 
 int mars_lchown(const char *path, uid_t uid)
 {
-#ifdef HAS_MARS_PREPATCH
+#ifdef MARS_HAS_PREPATCH
 	mm_segment_t oldfs;
 	int status;
 	
