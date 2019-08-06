@@ -2824,6 +2824,15 @@ int _get_tolerance(struct mars_rotate *rot)
 {
 	if (rot->is_log_damaged)
 		return REPLAY_TOLERANCE;
+
+	/* Do not insist on completeness of logfiles when pause-fetch
+	 * is given, important for primary --force when the old primary
+	 * is unreachable (or even dead forever).
+	 */
+	if (rot->todo_primary &&
+	    !_check_allow(rot->global, rot->parent_path, "connect"))
+		return REPLAY_TOLERANCE;
+
 	return 0;
 }
 
