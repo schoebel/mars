@@ -80,7 +80,7 @@ EXPORT_SYMBOL_GPL(bio_io_threshold);
 /* This is called from the kernel bio layer.
  */
 //      remove_this
-#ifdef MARS_HAS_BI_ERROR
+#if defined(MARS_HAS_BI_STATUS) || defined(MARS_HAS_BI_ERROR)
 //      end_remove_this
 static
 void bio_callback(struct bio *bio)
@@ -102,12 +102,16 @@ void bio_callback(struct bio *bio, int code)
 	CHECK_PTR(brick, err);
 
 //      remove_this
-#ifdef MARS_HAS_BI_ERROR
+#ifdef MARS_HAS_BI_STATUS
 //      end_remove_this
-	mref_a->status_code = bio->bi_error;
+	mref_a->status_code = blk_status_to_errno(bio->bi_status);
 //      remove_this
 #else
+#ifdef MARS_HAS_BI_ERROR
+	mref_a->status_code = bio->bi_error;
+#else
 	mref_a->status_code = code;
+#endif
 #endif
 //      end_remove_this
 

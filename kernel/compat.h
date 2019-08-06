@@ -67,6 +67,10 @@ extern int _compat_unlink(
  * This is a hell.
  */
 
+/* For bio block layer compatibility */
+#include <linux/blk_types.h>
+#include <linux/bio.h>
+
 #ifdef __bvec_iter_bvec
 #define MARS_HAS_BVEC_ITER
 #endif
@@ -85,11 +89,20 @@ extern int _compat_unlink(
 #include <linux/backing-dev.h>
 #endif
 
+/* Detect upstream commits
+ * 2a842acab109f40f0d7d10b38e9ca88390628996
+ * 4e4cbee93d56137ebff722be022cae5f70ef84fb
+ * & neighbour commits.
+ */
+#ifdef BLK_STS_OK
+#define MARS_HAS_BI_STATUS
+#else
 /* adaptation to 4246a0b63bd8f56a1469b12eafeb875b1041a451 and 8ae126660fddbeebb9251a174e6fa45b6ad8f932 */
 #ifndef bio_io_error
 #define MARS_HAS_BI_ERROR
 #else
 #define MARS_HAS_MERGE_BVEC
+#endif
 #endif
 
 /* adapt to 4e1b2d52a80d79296a5d899d73249748dea71a53 and many others */
