@@ -80,6 +80,19 @@ Changelog for series 0.1a:
 	Now stable.
 	Receive mainly fixes.
 
+mars0.1astable76
+	* Major fix: when the primary was dead and the
+	  secondary had an incomplete logfile which was
+	  not recognized as being damaged, "primary --force"
+	  did not always work under all circumstances.
+	* Minor fix: some config information was not
+	  replicated throughout the cluster.
+	  Ordinary users were typically not affected.
+	* Minor improvement: marsadm view now shows
+	  the replication degree [$x/$y] at each individual
+	  resource.
+	* Added slides from FrOSCon2019.
+
 mars0.1astable75
 	* Major fix, only relevant for a scarce corner case:
 	  When overflowing the kernel fscache with gigabytes of
