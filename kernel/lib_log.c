@@ -315,7 +315,6 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 {
 	struct mref_object *mref = logst->log_mref;
 	struct log_cb_info *cb_info = logst->private;
-	struct lamport_time now;
 	void *data;
 	int offset;
 	int restlen;
@@ -379,9 +378,7 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	DATA_PUT(data, offset, (char)0);  // spare
 	DATA_PUT(data, offset, crc_flags);
 	DATA_PUT(data, offset, logst->seq_nr + 1);
-	get_lamport(NULL, &now);    // when the log entry was ready.
-	DATA_PUT(data, offset, now.tv_sec);  
-	DATA_PUT(data, offset, now.tv_nsec);
+	offset += LOG_CHKSUM_SIZE;
 
 	if (unlikely(offset > mref->ref_len)) {
 		MARS_FAT("length calculation was wrong: %d > %d\n", offset, mref->ref_len);
@@ -658,8 +655,7 @@ int log_scan(void *buf,
 
 		DATA_GET(buf, offset, lh->l_crc_flags);
 		DATA_GET(buf, offset, lh->l_seq_nr);
-		DATA_GET(buf, offset, lh->l_written.tv_sec);
-		DATA_GET(buf, offset, lh->l_written.tv_nsec);
+		offset += LOG_CHKSUM_SIZE;
 
 		if (unlikely(lh->l_seq_nr > *seq_nr + 1 && lh->l_seq_nr && *seq_nr)) {
 			MARS_ERR(SCAN_TXT "record sequence number %u mismatch, expected was %u\n", SCAN_PAR, lh->l_seq_nr, *seq_nr + 1);

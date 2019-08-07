@@ -49,7 +49,6 @@ extern atomic_t global_mref_flying;
 
 struct log_header_v1 {
 	struct lamport_time l_stamp;
-	struct lamport_time l_written;
 	loff_t l_pos;
 	short  l_len;
 	short  l_code;
@@ -83,13 +82,15 @@ struct log_header_v1 {
 		0						\
 	)
 
+#define LOG_CHKSUM_SIZE (sizeof(__u64) * 2)
+
 #define END_OVERHEAD						\
 	(							\
 		sizeof(END_MAGIC) +				\
 		sizeof(int) +					\
 		sizeof(char) +					\
 		3 + 4 /*spare*/ +				\
-		sizeof(struct lamport_time) +			\
+		LOG_CHKSUM_SIZE +				\
 		0						\
 	)
 
