@@ -311,6 +311,25 @@ err:
 }
 EXPORT_SYMBOL_GPL(log_reserve);
 
+/* Unfortunately, the old logfile format had only 32 bit
+ * (4 byte) checksums.
+ * By converting the unused l_written to a checksum, we now
+ * can use 16 bytes.
+ * TODO: new backwards-compatible logfile format with even bigger
+ * checksums (32 bytes).
+ */
+static
+void fold_crc(void *src, void *dst)
+{
+	int i;
+
+	memset(dst, 0, LOG_CHKSUM_SIZE);
+	for (i = 0; i < MARS_DIGEST_SIZE; i += LOG_CHKSUM_SIZE) {
+		*(__u64*)dst ^= *(__u64*)(src + i);
+		*(__u64*)(dst + sizeof(__u64)) ^= *(__u64*)(src + i + sizeof(__u64));
+	}
+}
+
 bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private, int error), void *private)
 {
 	struct mref_object *mref = logst->log_mref;
@@ -319,7 +338,8 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	int offset;
 	int restlen;
 	int nr_cb;
-	int crc;
+	unsigned char crc[LOG_CHKSUM_SIZE] = {};
+	__u32 old_crc = 0;
 	__u32 check_flags;
 	__u16 crc_flags;
 	bool ok = false;
@@ -342,7 +362,6 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 
 	data = mref->ref_data;
 
-	crc = 0;
 	check_flags = 0;
 	if (logst->do_crc) {
 		unsigned char checksum[MARS_DIGEST_SIZE];
@@ -352,8 +371,11 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 			      &used_log_digest,
 			      checksum,
 			      data + logst->payload_offset, len);
-		/* FIXME: extend to  MARS_DIGEST_SIZE */
-		crc = *(int*)checksum;
+
+		if (check_flags & MREF_CHKSUM_MD5_OLD)
+			old_crc = *(__u32*)checksum;
+		else
+			fold_crc(checksum, crc);
 	}
 
 	/*
@@ -373,11 +395,12 @@ bool log_finalize(struct log_status *logst, int len, void (*endio)(void *private
 	 */
 	offset = logst->payload_offset + len;
 	DATA_PUT(data, offset, END_MAGIC);
-	DATA_PUT(data, offset, crc);
+	DATA_PUT(data, offset, old_crc);
 	DATA_PUT(data, offset, (char)1);  // valid_flag copy
 	DATA_PUT(data, offset, (char)0);  // spare
 	DATA_PUT(data, offset, crc_flags);
 	DATA_PUT(data, offset, logst->seq_nr + 1);
+	memcpy(data + offset, crc, LOG_CHKSUM_SIZE);
 	offset += LOG_CHKSUM_SIZE;
 
 	if (unlikely(offset > mref->ref_len)) {
@@ -571,6 +594,7 @@ int log_scan(void *buf,
 	*payload_len = 0;
 
 	for (i = 0; i < len && i <= len - OVERHEAD; i += sizeof(long)) {
+		unsigned char crc[LOG_CHKSUM_SIZE];
 		long long start_magic;
 		char format_version;
 		char valid_flag;
@@ -578,7 +602,6 @@ int log_scan(void *buf,
 		long long end_magic;
 		char valid_copy;
 		__u32 check_flags;
-
 		int restlen = 0;
 		int found_offset;
 
@@ -642,7 +665,7 @@ int log_scan(void *buf,
 			MARS_WRN(SCAN_TXT "bad end_magic 0x%llx, is the logfile truncated?\n", SCAN_PAR, end_magic);
 			return -EBADMSG;
 		}
-		DATA_GET(buf, offset, lh->l_crc);
+		DATA_GET(buf, offset, lh->l_crc_old);
 		DATA_GET(buf, offset, valid_copy);
 
 		if (unlikely(valid_copy != 1)) {
@@ -655,6 +678,7 @@ int log_scan(void *buf,
 
 		DATA_GET(buf, offset, lh->l_crc_flags);
 		DATA_GET(buf, offset, lh->l_seq_nr);
+		memcpy(crc, buf + offset, LOG_CHKSUM_SIZE);
 		offset += LOG_CHKSUM_SIZE;
 
 		if (unlikely(lh->l_seq_nr > *seq_nr + 1 && lh->l_seq_nr && *seq_nr)) {
@@ -679,15 +703,31 @@ int log_scan(void *buf,
 		if (!check_flags)
 			check_flags = MREF_CHKSUM_MD5_OLD;
 
-		if (lh->l_crc) {
+		if (check_flags & (MREF_CHKSUM_ANY - MREF_CHKSUM_MD5_OLD)) {
 			unsigned char checksum[MARS_DIGEST_SIZE];
+			unsigned char check_crc[LOG_CHKSUM_SIZE];
 
 			mars_digest(check_flags,
 				    &used_log_digest,
 				    checksum,
 				    buf + found_offset, lh->l_len);
-			/* FIXME: extend to  MARS_DIGEST_SIZE */
-			if (unlikely(*(int*)checksum != lh->l_crc)) {
+
+			fold_crc(checksum, check_crc);
+			if (unlikely(memcmp(crc, check_crc, LOG_CHKSUM_SIZE))) {
+				MARS_ERR(SCAN_TXT "data checksumming mismatch, length = %d\n", SCAN_PAR, lh->l_len);
+				return -EBADMSG;
+			}
+		} else if (lh->l_crc_old) {
+			unsigned char checksum[MARS_DIGEST_SIZE];
+			__u32 old_crc;
+
+			mars_digest(check_flags,
+				    &used_log_digest,
+				    checksum,
+				    buf + found_offset, lh->l_len);
+
+			old_crc = *(int*)checksum;
+			if (unlikely(old_crc != lh->l_crc_old)) {
 				MARS_ERR(SCAN_TXT "data checksumming mismatch, length = %d\n", SCAN_PAR, lh->l_len);
 				return -EBADMSG;
 			}

@@ -53,8 +53,7 @@ struct log_header_v1 {
 	short  l_len;
 	short  l_code;
 	unsigned int l_seq_nr;
-	/* TODO: extend to 64 bit */
-	int    l_crc;
+	__u32  l_crc_old;
 	__u16  l_crc_flags;
 };
 
