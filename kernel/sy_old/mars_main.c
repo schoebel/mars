@@ -2655,6 +2655,8 @@ void _make_alive(void)
 	_make_alivelink_str("tree", SYMLINK_TREE_VERSION);
 	_make_alivelink_str("features", OPTIONAL_FEATURES_VERSION);
 	_make_alivelink_str("buildtag", BUILDTAG "(" BUILDDATE ")");
+	_make_alivelink("used-log-digest", used_log_digest);
+	_make_alivelink("used-net-digest", used_net_digest);
 }
 
 void from_remote_trigger(void)

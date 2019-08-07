@@ -191,12 +191,65 @@ void md5_old_digest(void *digest, void *data, int len)
 	brick_mem_free(sdesc);
 }
 
+static
+void md5_digest(void *digest, void *data, int len)
+{
+	int size = sizeof(struct mars_sdesc) + crypto_shash_descsize(md5_tfm);
+	struct mars_sdesc *sdesc = brick_mem_alloc(size);
+	const int iterations = MARS_DIGEST_SIZE / MD5_DIGEST_SIZE;
+	int chunksize = len / iterations;
+	int offset = 0;
+	int done_len = len;
+	int i;
+	int status;
+
+	sdesc->shash.tfm = md5_tfm;
+	sdesc->shash.flags = 0;
+
+	memset(digest, 0, MARS_DIGEST_SIZE);
+
+	/* exploit the bigger MARS_DIGEST_SIZE by computing MD5 in chunks */
+	for (i = 0; i < iterations; i++) {
+		char this_digest[MD5_DIGEST_SIZE] = {};
+
+		status = crypto_shash_digest(&sdesc->shash,
+					     data + offset,
+					     chunksize,
+					     this_digest);
+		if (unlikely(status < 0)) {
+			MARS_ERR("cannot calculate md5 chksum on %p len=%d, status=%d\n",
+				 data,
+				 chunksize,
+				 status);
+			memset(digest, 0, MARS_DIGEST_SIZE);
+			break;
+		}
+		memcpy(digest + i * MD5_DIGEST_SIZE,
+		       this_digest, MD5_DIGEST_SIZE);
+		offset += chunksize;
+		done_len -= chunksize;
+	}
+	if (unlikely(done_len))
+		MARS_ERR("md5 chksum remain %d\n", done_len);
+
+	brick_mem_free(sdesc);
+}
+
 __u32 mars_digest(__u32 digest_flags,
 		  __u32 *used_flags,
 		  void *digest,
 		  void *data, int len)
 {
 	digest_flags &= usable_digest_mask;
+	/* The order defines the preference:
+	 * place the most performant algorithms first.
+	 */
+	if (digest_flags & MREF_CHKSUM_MD5 && md5_tfm) {
+		md5_digest(digest, data, len);
+		if (used_flags)
+			*used_flags = MREF_CHKSUM_MD5;
+		return MREF_CHKSUM_MD5;
+	}
 
 	/* always fallback to old md5 regardless of digest_flags */
 	md5_old_digest(digest, data, len);
@@ -204,6 +257,54 @@ __u32 mars_digest(__u32 digest_flags,
 		*used_flags = MREF_CHKSUM_MD5_OLD;
 	return MREF_CHKSUM_MD5_OLD;
 }
+
+#ifdef CONFIG_MARS_BENCHMARK
+
+static
+void benchmark_digest(char *name, __u32 flags)
+{
+	unsigned char*testpage = kzalloc(PAGE_SIZE, GFP_KERNEL);
+	unsigned char old_test[MARS_DIGEST_SIZE] = {};
+	unsigned char new_test[MARS_DIGEST_SIZE];
+	long long delta;
+	__u32 res_flags;
+	unsigned char bit;
+	int i;
+
+	usable_digest_mask = MREF_CHKSUM_ANY;
+
+	delta =
+		TIME_THIS(
+			  for (bit = 1; bit; bit <<= 1) {
+				  for (i = 0; i < PAGE_SIZE; i++) {
+					  testpage[i] ^= bit;
+					  res_flags = mars_digest(flags,
+								  NULL,
+								  new_test,
+								  testpage,
+								  PAGE_SIZE);
+					  if (unlikely(!(res_flags & flags))) {
+						  MARS_ERR("digest %s failed\n",
+							   name);
+						  goto err;
+					  }
+					  if (unlikely(!memcmp(old_test, new_test, MARS_DIGEST_SIZE))) {
+						  MARS_ERR("digest %s is not good enough\n",
+							   name);
+						  goto err;
+					  }
+					  memcpy(old_test, new_test, MARS_DIGEST_SIZE);
+				  }
+			  }
+			  );
+	printk("%-10s digest duration = %12lld ns\n",
+	       name, delta);
+ err:
+	kfree(testpage);
+	usable_digest_mask = MREF_CHKSUM_MD5_OLD;
+}
+
+#endif
 
 static
 int init_mars_digest(void)
@@ -222,7 +323,12 @@ int init_mars_digest(void)
 		MARS_ERR("md5 bad digest size %d\n", status);
 		return -ELIBACC;
 	}
+	available_digest_mask |= MREF_CHKSUM_MD5;
 
+#ifdef CONFIG_MARS_BENCHMARK
+	benchmark_digest("md5old", MREF_CHKSUM_MD5_OLD);
+	benchmark_digest("md5",    MREF_CHKSUM_MD5);
+#endif
 	return 0;
 }
 

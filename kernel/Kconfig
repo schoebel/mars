@@ -7,9 +7,21 @@ config MARS
 	depends on m
 	depends on BLOCK && PROC_SYSCTL && HIGH_RES_TIMERS
 	default n
+	select CRYPTO_MD5
 	---help---
 	See https://github.com/schoebel/mars/docu/
 	Only compile as a module!
+
+config MARS_BENCHMARK
+	bool "rough measurement of digest and compression algorithms"
+	depends on MARS
+	default y
+	---help---
+	Upon modprobe mars, display some rough measurements in
+	nanoseconds. Note that results may depend on the compressibility
+	of test data. Thus take the results with a grain of salt
+	(similarly to BogoMIPS).
+	If unsure, say Y here.
 
 config MARS_CHECKS
 	bool "enable simple runtime checks in MARS"

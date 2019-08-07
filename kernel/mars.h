@@ -162,6 +162,7 @@ enum _MREF_FLAGS {
 	_MREF_NODATA, /* only useful for chksum reading */
 	/* Checksum bits, starting at the upper half */
 	_MREF_CHKSUM_MD5_OLD = 16,
+	_MREF_CHKSUM_MD5,
 	_MREF_CHKSUM_LAST,
 };
 
@@ -173,8 +174,10 @@ enum _MREF_FLAGS {
 #define MREF_SKIP_SYNC       (1UL << _MREF_SKIP_SYNC)
 #define MREF_NODATA          (1UL << _MREF_NODATA)
 #define MREF_CHKSUM_MD5_OLD  (1UL << _MREF_CHKSUM_MD5_OLD)
+#define MREF_CHKSUM_MD5      (1UL << _MREF_CHKSUM_MD5)
 #define MREF_CHKSUM_LAST     (1UL << _MREF_CHKSUM_LAST)
 #define MREF_CHKSUM_ANY      (MREF_CHKSUM_MD5_OLD |	\
+			      MREF_CHKSUM_MD5 |		\
 			      MREF_CHKSUM_LAST)
 
 #define MREF_OBJECT(OBJTYPE)						\
