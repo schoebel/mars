@@ -834,22 +834,12 @@ EXPORT_SYMBOL_GPL(server_show_statist);
 
 static int _server_thread(void *data)
 {
-	struct mars_global server_global = {
-		.dent_anchor = LIST_HEAD_INIT(server_global.dent_anchor),
-		.brick_anchor = LIST_HEAD_INIT(server_global.brick_anchor),
-		.global_power = {
-			.button = true,
-		},
-		.main_event = __WAIT_QUEUE_HEAD_INITIALIZER(server_global.main_event),
-	};
+	struct mars_global *server_global = alloc_mars_global();
 	struct server_cookie *cookie = data;
 	struct mars_socket *my_socket = &cookie->server_socket;
 	struct mars_tcp_params *my_params = cookie->server_params;
 	char *id = my_id();
 	int status = 0;
-
-	init_rwsem(&server_global.dent_mutex);
-	init_rwsem(&server_global.brick_mutex);
 
 	MARS_INF("-------- server starting on host '%s' ----------\n", id);
 
@@ -861,20 +851,22 @@ static int _server_thread(void *data)
 
 	MARS_INF("-------- server now working on host '%s' ----------\n", id);
 
-        while (!brick_thread_should_stop() || !list_empty(&server_global.brick_anchor)) {
+        while (!brick_thread_should_stop() || !list_empty(&server_global->brick_anchor)) {
 		struct server_brick *brick = NULL;
 		struct mars_socket handler_socket = {};
 
 		change_sem(&handler_limit_sem, &handler_limit, &handler_nr);
 		change_sem(&dent_limit_sem, &dent_limit, &dent_nr);
 
-		server_global.global_version++;
+		server_global->global_version++;
 		mars_limit(&server_limiter, 0);
 
 		if (server_show_statist)
-			show_statistics(&server_global, "server");
+			show_statistics(server_global, "server");
 
-		status = mars_kill_brick_when_possible(&server_global, &server_global.brick_anchor, false, NULL, true);
+		status = mars_kill_brick_when_possible(server_global,
+						       &server_global->brick_anchor,
+						       false, NULL, true);
 		MARS_DBG("kill server bricks (when possible) = %d\n", status);
 
 		if (!mars_global || !mars_global->global_power.button) {
@@ -897,7 +889,9 @@ static int _server_thread(void *data)
 
 		MARS_DBG("got new connection #%d\n", handler_socket.s_debug_nr);
 
-		brick = (void*)mars_make_brick(&server_global, NULL, &server_brick_type, "handler", "handler");
+		brick = (void*)mars_make_brick(server_global, NULL,
+					       &server_brick_type,
+					       "handler", "handler");
 		if (!brick) {
 			MARS_ERR("cannot create server instance\n");
 			mars_shutdown_socket(&handler_socket);
@@ -945,11 +939,12 @@ static int _server_thread(void *data)
 
 	MARS_INF("-------- cleaning up ----------\n");
 
-	mars_kill_brick_all(&server_global, &server_global.brick_anchor, false);
+	mars_kill_brick_all(server_global, &server_global->brick_anchor, false);
 
 	//cleanup_mm();
 
 	MARS_INF("-------- done status = %d ----------\n", status);
+	brick_mem_free(server_global);
 	return status;
 }
 
