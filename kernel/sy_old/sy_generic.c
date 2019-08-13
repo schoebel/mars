@@ -1081,6 +1081,20 @@ EXPORT_SYMBOL_GPL(bind_to_dent);
 struct mars_global *mars_global = NULL;
 EXPORT_SYMBOL_GPL(mars_global);
 
+void _init_mars_global(struct mars_global *global)
+{
+	int i;
+
+	memset(global, 0, sizeof(struct mars_global));
+	INIT_LIST_HEAD(&global->dent_anchor);
+	INIT_LIST_HEAD(&global->dent_quick_anchor);
+	INIT_LIST_HEAD(&global->brick_anchor);
+	global->global_power.button = true;
+	init_waitqueue_head(&global->main_event);
+	for (i = 0; i < MARS_GLOBAL_HASH; i++)
+		INIT_LIST_HEAD(&global->dent_hash_anchor[i]);
+}
+
 static
 void __mars_trigger(int mode)
 {

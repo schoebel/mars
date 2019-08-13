@@ -119,6 +119,23 @@ struct mars_global {
 	bool main_trigger;
 };
 
+extern void _init_mars_global(struct mars_global *global);
+#define init_mars_global(__global)				\
+do {								\
+	_init_mars_global(__global);				\
+	init_rwsem(&(__global)->dent_mutex);			\
+	init_rwsem(&(__global)->brick_mutex);			\
+} while(0)
+
+#define alloc_mars_global()					\
+({								\
+	struct mars_global *__global;				\
+								\
+	__global = brick_mem_alloc(sizeof(struct mars_global));	\
+	init_mars_global(__global);				\
+	__global;						\
+ })
+
 extern void bind_to_dent(struct mars_dent *dent, struct say_channel **ch);
 
 typedef int (*mars_dent_checker_fn)(struct mars_dent *parent, const char *name, int namlen, unsigned int d_type, int *prefix, int *serial, bool *use_channel);
