@@ -6248,29 +6248,13 @@ static int main_worker(struct mars_global *global, struct mars_dent *dent, bool 
 	return 0;
 }
 
-static struct mars_global _global = {
-	.dent_anchor = LIST_HEAD_INIT(_global.dent_anchor),
-	.dent_quick_anchor = LIST_HEAD_INIT(_global.dent_quick_anchor),
-	.brick_anchor = LIST_HEAD_INIT(_global.brick_anchor),
-	.global_power = {
-		.button = true,
-	},
-	.main_event = __WAIT_QUEUE_HEAD_INITIALIZER(_global.main_event),
-};
-
 static int _main_thread(void *data)
 {
 	long long last_rollover = jiffies;
 	char *id = my_id();
-	int i;
 	int status = 0;
 
-	init_rwsem(&_global.dent_mutex);
-	init_rwsem(&_global.brick_mutex);
-	for (i = 0; i < MARS_GLOBAL_HASH; i++)
-		INIT_LIST_HEAD(&_global.dent_hash_anchor[i]);
-
-	mars_global = &_global;
+	mars_global = alloc_mars_global();
 
 	if (!id || strlen(id) < 2) {
 		MARS_ERR("invalid hostname\n");
@@ -6280,7 +6264,8 @@ static int _main_thread(void *data)
 
 	MARS_INF("-------- starting as host '%s' ----------\n", id);
 
-        while (_global.global_power.button || !list_empty(&_global.brick_anchor)) {
+        while (mars_global->global_power.button ||
+	       !list_empty(&mars_global->brick_anchor)) {
 		struct list_head *tmp;
 		int trigger_mode;
 		int status;
@@ -6312,7 +6297,7 @@ static int _main_thread(void *data)
 		brick_msleep(100);
 
 		if (brick_thread_should_stop()) {
-			_global.global_power.button = false;
+			mars_global->global_power.button = false;
 			mars_net_is_alive = false;
 		}
 
@@ -6328,10 +6313,15 @@ static int _main_thread(void *data)
 		up_write(&mars_resource_sem);
 		tmp_resource_list = brick_strdup(GLOBAL_PATH_LIST);
 
-		_global.deleted_min = 0;
-		status = mars_dent_work(&_global, "/mars", sizeof(struct mars_dent), main_checker, main_worker, &_global, 3);
-		_global.deleted_border = _global.deleted_min;
-		MARS_DBG("-------- worker deleted_min = %d status = %d\n", _global.deleted_min, status);
+		mars_global->deleted_min = 0;
+		status = mars_dent_work(mars_global,
+					"/mars",
+					sizeof(struct mars_dent),
+					main_checker, main_worker,
+					mars_global, 3);
+		mars_global->deleted_border = mars_global->deleted_min;
+		MARS_DBG("-------- worker deleted_min = %d status = %d\n",
+			 mars_global->deleted_min, status);
 
 		down_read(&rot_sem);
 		for (tmp = rot_anchor.next; tmp != &rot_anchor; tmp = tmp->next) {
@@ -6341,21 +6331,33 @@ static int _main_thread(void *data)
 		}
 		up_read(&rot_sem);
 
-		if (!_global.global_power.button) {
-			status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&copy_brick_type, true);
+		if (!mars_global->global_power.button) {
+			status = mars_kill_brick_when_possible(mars_global,
+							       &mars_global->brick_anchor,
+							       false, (void*)&copy_brick_type, true);
 			MARS_DBG("kill copy bricks (when possible) = %d\n", status);
 		}
 
-		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, NULL, false);
+		status = mars_kill_brick_when_possible(mars_global,
+						       &mars_global->brick_anchor,
+						       false, NULL, false);
 		MARS_DBG("kill main bricks (when possible) = %d\n", status);
 
-		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&client_brick_type, true);
+		status = mars_kill_brick_when_possible(mars_global,
+						       &mars_global->brick_anchor,
+						       false, (void*)&client_brick_type, true);
 		MARS_DBG("kill client bricks (when possible) = %d\n", status);
-		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&aio_brick_type, true);
+		status = mars_kill_brick_when_possible(mars_global,
+						       &mars_global->brick_anchor,
+						       false, (void*)&aio_brick_type, true);
 		MARS_DBG("kill aio    bricks (when possible) = %d\n", status);
-		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&sio_brick_type, true);
+		status = mars_kill_brick_when_possible(mars_global,
+						       &mars_global->brick_anchor,
+						       false, (void*)&sio_brick_type, true);
 		MARS_DBG("kill sio    bricks (when possible) = %d\n", status);
-		status = mars_kill_brick_when_possible(&_global, &_global.brick_anchor, false, (void*)&bio_brick_type, true);
+		status = mars_kill_brick_when_possible(mars_global,
+						       &mars_global->brick_anchor,
+						       false, (void*)&bio_brick_type, true);
 		MARS_DBG("kill bio    bricks (when possible) = %d\n", status);
 
 		if ((long long)jiffies + mars_rollover_interval * HZ >= last_rollover) {
@@ -6364,21 +6366,23 @@ static int _main_thread(void *data)
 		}
 
 		global_sync_nr = _global_sync_nr;
-		_show_status_all(&_global);
+		_show_status_all(mars_global);
 		show_vals(gbl_pairs, "/mars", "");
-		show_statistics(&_global, "main");
+		show_statistics(mars_global, "main");
 		show_peers();
 
 		MARS_DBG("ban_count = %d ban_renew_count = %d\n", mars_global_ban.ban_count, mars_global_ban.ban_renew_count);
 
 		brick_msleep(500);
 
-		wait_event_interruptible_timeout(_global.main_event, _global.main_trigger, mars_scan_interval * HZ);
+		wait_event_interruptible_timeout(mars_global->main_event,
+						 mars_global->main_trigger,
+						 mars_scan_interval * HZ);
 
-		_global.main_trigger = false;
+		mars_global->main_trigger = false;
 		additional_peers(mars_run_additional_peers - mars_running_additional_peers);
-		trigger_mode = _global.trigger_mode;
-		_global.trigger_mode = 0;
+		trigger_mode = mars_global->trigger_mode;
+		mars_global->trigger_mode = 0;
 		if (trigger_mode) {
 			__mars_full_trigger(trigger_mode);
 		}
@@ -6389,15 +6393,16 @@ done:
 	mars_remote_trigger();
 	brick_msleep(1000);
 
-	mars_free_dent_all(&_global, &_global.dent_anchor);
-	mars_kill_brick_all(&_global, &_global.brick_anchor, false);
+	mars_free_dent_all(mars_global, &mars_global->dent_anchor);
+	mars_kill_brick_all(mars_global, &mars_global->brick_anchor, false);
 
-	_show_status_all(&_global);
+	_show_status_all(mars_global);
 	show_vals(gbl_pairs, "/mars", "");
-	show_statistics(&_global, "main");
+	show_statistics(mars_global, "main");
 
 	brick_string_free(mars_resource_list);
 	brick_string_free(tmp_resource_list);
+	brick_mem_free(mars_global);
 	mars_global = NULL;
 
 	MARS_INF("-------- done status = %d ----------\n", status);
@@ -6485,10 +6490,10 @@ EXPORT_SYMBOL_GPL(_mars_remote_trigger);
 static void exit_main(void)
 {
 	MARS_DBG("====================== stopping everything...\n");
-	// TODO: make this thread-safe.
+	if (mars_global)
+		mars_global->global_power.button = false;
 	if (main_thread) {
 		MARS_DBG("=== stopping main thread...\n");
-		_global.global_power.button = false;
 		mars_net_is_alive = false;
 		mars_trigger();
 		MARS_INF("stopping main thread...\n");
