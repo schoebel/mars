@@ -2300,36 +2300,22 @@ void report_peer_connection(struct key_value_pair *peer_pairs, bool do_additiona
 }
 
 static
-int peer_action_dent_list(struct mars_peerinfo *peer,
+int peer_action_dent_list(struct mars_global *tmp_global,
+			  struct mars_peerinfo *peer,
 			  const char *real_peer,
 			  const char *paths,
 			  struct key_value_pair *peer_pairs)
 {
-	struct mars_global tmp_global = {
-		.dent_anchor = LIST_HEAD_INIT(tmp_global.dent_anchor),
-		.dent_quick_anchor = LIST_HEAD_INIT(tmp_global.dent_quick_anchor),
-		.brick_anchor = LIST_HEAD_INIT(tmp_global.brick_anchor),
-		.global_power = {
-			.button = true,
-	  },
-		.main_event = __WAIT_QUEUE_HEAD_INITIALIZER(tmp_global.main_event),
-	};
-	int i;
 	int status;
-
-	init_rwsem(&tmp_global.dent_mutex);
-	init_rwsem(&tmp_global.brick_mutex);
-	for (i = 0; i < MARS_GLOBAL_HASH; i++)
-		INIT_LIST_HEAD(&tmp_global.dent_hash_anchor[i]);
 
 	MARS_DBG("fetching remote dentries from '%s' '%s'\n",
 		 peer->peer, paths);
 
-	status = mars_recv_dent_list(&peer->socket, &tmp_global.dent_anchor);
+	status = mars_recv_dent_list(&peer->socket, &tmp_global->dent_anchor);
 	if (unlikely(status < 0))
 		goto free;
 
-	if (likely(!list_empty(&tmp_global.dent_anchor))) {
+	if (likely(!list_empty(&tmp_global->dent_anchor))) {
 		LIST_HEAD(old_list);
 		struct mars_dent *peer_uuid;
 		const char *my_uuid;
@@ -2337,7 +2323,7 @@ int peer_action_dent_list(struct mars_peerinfo *peer,
 
 		MARS_DBG("got remote denties from %s\n", peer->peer);
 
-		peer_uuid = mars_find_dent(&tmp_global, "/mars/uuid");
+		peer_uuid = mars_find_dent(tmp_global, "/mars/uuid");
 		if (unlikely(!peer_uuid || !peer_uuid->new_link)) {
 			MARS_ERR("peer %s has no uuid\n", peer->peer);
 			make_msg(peer_pairs, "peer '%s' has no UUID",
@@ -2371,8 +2357,8 @@ int peer_action_dent_list(struct mars_peerinfo *peer,
 		mutex_lock(&peer->peer_lock);
 
 		list_replace_init(&peer->remote_dent_list, &old_list);
-		list_replace_init(&tmp_global.dent_anchor, &peer->remote_dent_list);
-		list_del_init(&tmp_global.dent_quick_anchor);
+		list_replace_init(&tmp_global->dent_anchor, &peer->remote_dent_list);
+		list_del_init(&tmp_global->dent_quick_anchor);
 
 		mutex_unlock(&peer->peer_lock);
 
@@ -2380,18 +2366,19 @@ int peer_action_dent_list(struct mars_peerinfo *peer,
 
 		mars_trigger();
 
-		mars_free_dent_all(&tmp_global, &old_list);
+		mars_free_dent_all(tmp_global, &old_list);
 	}
 
  free:
-	mars_free_dent_all(&tmp_global, &tmp_global.dent_anchor);
+	mars_free_dent_all(tmp_global, &tmp_global->dent_anchor);
 	return status;
 }
 
 /* React on different types of peer responses
  */
 static
-int peer_actions(struct mars_peerinfo *peer,
+int peer_actions(struct mars_global *tmp_global,
+		 struct mars_peerinfo *peer,
 		 const char *real_peer,
 		 const char *paths,
 		 struct key_value_pair *peer_pairs)
@@ -2402,7 +2389,9 @@ int peer_actions(struct mars_peerinfo *peer,
 
 	/* Compatibility to old protocol: we cannot send/recv cmds */
 	if (!peer->socket.s_common_proto_level)
-		return peer_action_dent_list(peer, real_peer, paths, peer_pairs);
+		return peer_action_dent_list(tmp_global,
+					     peer, real_peer, paths,
+					     peer_pairs);
 
 	/* New protocoal with extensible cases */
 	status = mars_recv_cmd(&peer->socket, &inter_cmd);
@@ -2414,7 +2403,9 @@ int peer_actions(struct mars_peerinfo *peer,
 	switch (inter_cmd.cmd_code) {
 	case CMD_GETENTS:
 	{
-		status = peer_action_dent_list(peer, real_peer, paths, peer_pairs);
+	  status = peer_action_dent_list(tmp_global,
+					 peer, real_peer,
+					 paths, peer_pairs);
 		break;
 	}
 	default:
@@ -2438,6 +2429,7 @@ int peer_thread(void *data)
 		{ peer->peer },
 		{ NULL }
 	};
+	struct mars_global *tmp_global;
 	int pause_time = 0;
 	bool do_kill = false;
 	bool repeated = false;
@@ -2445,6 +2437,8 @@ int peer_thread(void *data)
 
 	if (!peer || !mars_net_is_alive)
 		return -1;
+
+	tmp_global = alloc_mars_global();
 
 	real_host = mars_translate_hostname(peer->peer);
 	real_peer = path_make("%s:%d",
@@ -2571,7 +2565,9 @@ int peer_thread(void *data)
 			goto free_and_restart;
 		}
 
-		status = peer_actions(peer, real_peer, cmd.cmd_str1, peer_pairs);
+		status = peer_actions(tmp_global,
+				      peer, real_peer,
+				      cmd.cmd_str1, peer_pairs);
 		if (unlikely(status < 0)) {
 			MARS_WRN("communication error on receive, status = %d\n", status);
 			if (do_kill) {
@@ -2634,6 +2630,7 @@ int peer_thread(void *data)
 done:
 	clear_vals(peer_pairs);
 	brick_string_free(real_peer);
+	brick_mem_free(tmp_global);
 	peer->has_terminated = true;
 	return 0;
 }
