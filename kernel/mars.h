@@ -58,12 +58,6 @@
 #ifndef CONFIG_HIGH_RES_TIMERS
 #error CONFIG_HIGH_RES_TIMERS must be set
 #endif
-#ifdef CONFIG_DEBUG_SLAB
-#error Fixme: CONFIG_DEBUG_SLAB does not work (fix the bio offset calculation)
-#endif
-#ifdef CONFIG_DEBUG_SG
-#error Fixme: CONFIG_DEBUG_SG does not work (fix the bio offset calculation)
-#endif
 
 /////////////////////////////////////////////////////////////////////////
 

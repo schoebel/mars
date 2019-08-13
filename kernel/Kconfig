@@ -5,7 +5,6 @@
 config MARS
 	tristate "block storage replication MARS"
 	depends on BLOCK && PROC_SYSCTL && HIGH_RES_TIMERS
-	depends on !DEBUG_SLAB && !DEBUG_SG
 	default n
 	---help---
 	See https://github.com/schoebel/mars/docu/
