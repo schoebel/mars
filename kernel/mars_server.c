@@ -363,15 +363,7 @@ int _set_server_bio_params(struct mars_brick *_brick, void *private)
 static
 int handler_thread(void *data)
 {
-	struct mars_global handler_global = {
-		.dent_anchor = LIST_HEAD_INIT(handler_global.dent_anchor),
-		.dent_quick_anchor = LIST_HEAD_INIT(handler_global.dent_quick_anchor),
-		.brick_anchor = LIST_HEAD_INIT(handler_global.brick_anchor),
-		.global_power = {
-			.button = true,
-		},
-		.main_event = __WAIT_QUEUE_HEAD_INITIALIZER(handler_global.main_event),
-	};
+	struct mars_global *handler_global = alloc_mars_global();
 	struct task_struct *thread = NULL;
 	struct server_brick *brick = data;
 	struct mars_socket *sock = &brick->handler_socket;
@@ -379,13 +371,7 @@ int handler_thread(void *data)
 	unsigned long statist_jiffies = jiffies;
 	int debug_nr;
 	int old_proto_level = 0;
-	int i;
 	int status = -EINVAL;
-
-	init_rwsem(&handler_global.dent_mutex);
-	init_rwsem(&handler_global.brick_mutex);
-	for (i = 0; i < MARS_GLOBAL_HASH; i++)
-		INIT_LIST_HEAD(&handler_global.dent_hash_anchor[i]);
 
 	MARS_DBG("#%d --------------- handler_thread starting on socket %p\n", sock->s_debug_nr, sock);
 	if (!ok)
@@ -402,15 +388,15 @@ int handler_thread(void *data)
 	brick->handler_running = true;
 	wake_up_interruptible(&brick->startup_event);
 
-        while (!list_empty(&handler_global.brick_anchor) ||
+        while (!list_empty(&handler_global->brick_anchor) ||
 	       mars_socket_is_alive(sock)) {
 		struct mars_cmd cmd = {};
 
-		handler_global.global_version++;
+		handler_global->global_version++;
 
-		if (!list_empty(&handler_global.brick_anchor)) {
+		if (!list_empty(&handler_global->brick_anchor)) {
 			if (server_show_statist && !time_is_before_jiffies(statist_jiffies + 10 * HZ)) {
-				show_statistics(&handler_global, "handler");
+				show_statistics(handler_global, "handler");
 				statist_jiffies = jiffies;
 			}
 			if (!mars_socket_is_alive(sock) &&
@@ -420,7 +406,9 @@ int handler_thread(void *data)
 					brick->conn_brick = NULL;
 			}
 
-			status = mars_kill_brick_when_possible(&handler_global, &handler_global.brick_anchor, false, NULL, true);
+			status = mars_kill_brick_when_possible(handler_global,
+							       &handler_global->brick_anchor,
+							       false, NULL, true);
 			MARS_DBG("kill handler bricks (when possible) = %d\n", status);
 		}
 
@@ -518,7 +506,7 @@ int handler_thread(void *data)
 			}
 
 			status = mars_get_dent_list(
-				&handler_global,
+				handler_global,
 				path,
 				sizeof(struct mars_dent),
 				main_checker,
@@ -527,14 +515,14 @@ int handler_thread(void *data)
 			up(&dent_limit_sem);
 
 			down(&brick->socket_sem);
-			status = mars_send_dent_list(sock, &handler_global.dent_anchor);
+			status = mars_send_dent_list(sock, &handler_global->dent_anchor);
 			up(&brick->socket_sem);
 
 			if (status < 0) {
 				MARS_WRN("#%d could not send dentry information, status = %d\n", sock->s_debug_nr, status);
 			}
 
-			mars_free_dent_all(&handler_global, &handler_global.dent_anchor);
+			mars_free_dent_all(handler_global, &handler_global->dent_anchor);
 			break;
 		}
 		case CMD_CONNECT:
@@ -547,7 +535,7 @@ int handler_thread(void *data)
 			CHECK_PTR_NULL(_bio_brick_type, err);
 
 			prev = make_brick_all(
-				&handler_global,
+				handler_global,
 				NULL,
 				_set_server_bio_params,
 				NULL,
@@ -604,7 +592,7 @@ int handler_thread(void *data)
  done:
 	MARS_DBG("#%d handler_thread terminating, status = %d\n", sock->s_debug_nr, status);
 
-	mars_kill_brick_all(&handler_global, &handler_global.brick_anchor, false);
+	mars_kill_brick_all(handler_global, &handler_global->brick_anchor, false);
 
 	if (thread) {
 		brick->cb_thread = NULL;
@@ -618,6 +606,7 @@ int handler_thread(void *data)
 	MARS_DBG("#%d done.\n", debug_nr);
 	atomic_dec(&server_handler_count);
 	brick->killme = true;
+	brick_mem_free(handler_global);
 	return status;
 }
 
