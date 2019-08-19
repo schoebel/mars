@@ -191,6 +191,24 @@ void _if_end_io_acct(struct if_input *input, struct bio_wrapper *biow)
 
 #endif
 
+/* Abstract from interface changes
+ */
+static
+void _call_bio_endio(struct bio *bio, int error)
+{
+#ifdef MARS_HAS_BI_STATUS
+	bio->bi_status = errno_to_blk_status(error);
+	bio_endio(bio);
+#else
+#ifdef MARS_HAS_BI_ERROR
+	bio->bi_error = error;
+	bio_endio(bio);
+#else
+	bio_endio(bio, error);
+#endif
+#endif
+}
+
 /* callback
  */
 static
@@ -258,21 +276,7 @@ void if_endio(struct generic_callback *cb)
 		}
 		MARS_IO("calling end_io() flags = %ux error = %d\n",
 			mref->ref_flags, error);
-//      remove_this
-#ifdef MARS_HAS_BI_STATUS
-//      end_remove_this
-		bio->bi_status = errno_to_blk_status(error);
-		bio_endio(bio);
-//      remove_this
-#else
-#ifdef MARS_HAS_BI_ERROR
-		bio->bi_error = error;
-		bio_endio(bio);
-#else
-		bio_endio(bio, error);
-#endif
-#endif
-//      end_remove_this
+		_call_bio_endio(bio, error);
 		brick_mem_free(biow);
 	}
 	atomic_dec(&input->brick->flying_count);
@@ -527,23 +531,8 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 		 * In case of exceptional semantics, we need to do
 		 * something here. For now, we do just nothing.
 		 */
-//      remove_this
-#ifdef MARS_HAS_BI_STATUS
-//      end_remove_this
 		error = 0;
-		bio->bi_status = errno_to_blk_status(error);
-		bio_endio(bio);
-//      remove_this
-#else
-#ifdef MARS_HAS_BI_ERROR
-		error = 0;
-		bio->bi_error = error;
-		bio_endio(bio);
-#else
-		bio_endio(bio, error);
-#endif
-#endif
-//      end_remove_this
+		_call_bio_endio(bio, 0);
 		goto done;
 	}
 
@@ -557,21 +546,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 #ifdef DENY_READA // provisinary -- we should introduce an equivalent of READA also to the MARS infrastructure
 	if (ahead) {
 		atomic_inc(&input->total_reada_count);
-//      remove_this
-#ifdef MARS_HAS_BI_STATUS
-//      end_remove_this
-		bio->bi_status = errno_to_blk_status(-EWOULDBLOCK);
-		bio_endio(bio);
-//      remove_this
-#else
-#ifdef MARS_HAS_BI_ERROR
-		bio->bi_error = -EWOULDBLOCK;
-		bio_endio(bio);
-#else
-		bio_endio(bio, -EWOULDBLOCK);
-#endif
-#endif
-//      end_remove_this
+		_call_bio_endio(bio, -EWOULDBLOCK);
 		error = 0;
 		goto done;
 	}
@@ -580,21 +555,7 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 #endif
 	if (unlikely(discard)) { // NYI
 		error = 0;
-//      remove_this
-#ifdef MARS_HAS_BI_STATUS
-//      end_remove_this
-		bio->bi_status = errno_to_blk_status(error);
-		bio_endio(bio);
-//      remove_this
-#else
-#ifdef MARS_HAS_BI_ERROR
-		bio->bi_error = error;
-		bio_endio(bio);
-#else
-		bio_endio(bio, error);
-#endif
-#endif
-//      end_remove_this
+		_call_bio_endio(bio, 0);
 		goto done;
 	}
 
@@ -840,21 +801,7 @@ err:
 	if (error < 0) {
 		MARS_ERR("cannot submit request from bio, status=%d\n", error);
 		if (!assigned) {
-//      remove_this
-#ifdef MARS_HAS_BI_STATUS
-//      end_remove_this
-			bio->bi_status = errno_to_blk_status(error);
-			bio_endio(bio);
-//      remove_this
-#else
-#ifdef MARS_HAS_BI_ERROR
-			bio->bi_error = error;
-			bio_endio(bio);
-#else
-			bio_endio(bio, error);
-#endif
-#endif
-//      end_remove_this
+			_call_bio_endio(bio, error);
 		}
 	}
 
