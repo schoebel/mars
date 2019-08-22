@@ -607,14 +607,18 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 //      end_remove_this
 		void *data;
 
+		error = -EINVAL;
+		CHECK_PTR_NULL(page, err_kick);
+
+		/* gather statistics on IOPS etc */
+		mars_limit(&brick->io_limiter, bv_len);
+
 #ifdef ARCH_HAS_KMAP
 #error FIXME: the current infrastructure cannot deal with HIGHMEM / kmap()
 #endif
 		data = page_address(page);
 		MARS_IO("page = %p data = %p\n", page, data);
-		error = -EINVAL;
-		if (unlikely(!data))
-			break;
+		CHECK_PTR_NULL(data, err_kick);
 
 		data += offset;
 
@@ -689,15 +693,11 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 				int prefetch_len;
 				error = -ENOMEM;
 				mref = if_alloc_mref(brick);
-				if (unlikely(!mref)) {
-					up(&input->kick_sem);
-					goto err;
-				}
+				if (unlikely(!mref))
+					goto err_kick;
 				mref_a = if_mref_get_aspect(brick, mref);
-				if (unlikely(!mref_a)) {
-					up(&input->kick_sem);
-					goto err;
-				}
+				if (unlikely(!mref_a))
+					goto err_kick;
 
 #ifdef PREFETCH_LEN
 				prefetch_len = PREFETCH_LEN - offset;
@@ -728,10 +728,8 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 				mref_a->orig_page = page;
 
 				error = GENERIC_INPUT_CALL(input, mref_get, mref);
-				if (unlikely(error < 0)) {
-					up(&input->kick_sem);
-					goto err;
-				}
+				if (unlikely(error < 0))
+					goto err_kick;
 				
 				mars_trace(mref, "if_start");
 
@@ -801,13 +799,14 @@ void if_make_request(struct request_queue *q, struct bio *bio)
 		} // while bv_len > 0
 	} // foreach bvec
 
-	up(&input->kick_sem);
-
 	if (likely(!total_len)) {
 		error = 0;
 	} else {
 		MARS_ERR("bad rest len = %d\n", total_len);
 	}
+
+ err_kick:
+	up(&input->kick_sem);
 
 err:
 
