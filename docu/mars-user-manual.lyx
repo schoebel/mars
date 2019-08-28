@@ -137,6 +137,216 @@ LatexCommand tableofcontents
 
 \end_layout
 
+\begin_layout Part
+New Structure (WIP)
+\end_layout
+
+\begin_layout Chapter*
+Preface
+\end_layout
+
+\begin_layout Section*
+Introduction
+\end_layout
+
+\begin_layout Standard
+MARS is a block-level storage replication system for long distances / flaky
+ networks under GPL.
+\end_layout
+
+\begin_layout Standard
+It runs as a Linux kernel module.
+ The sysadmin interface is similar to DRBD8, but its internal engine is
+ completely different from DRBD: it works with transaction logging, similar
+ to some database systems.
+\end_layout
+
+\begin_layout Standard
+Therefore, MARS can provide stronger consistency guarantees.
+ Even in case of network bottlenecks / problems / failures, the secondaries
+ may become outdated (reflect an elder state), but never become inconsistent.
+ In contrast to DRBD, MARS preserves the order of write operations even
+ when the network is flaky (Anytime Consistency).
+\end_layout
+
+\begin_layout Standard
+The current version of MARS supports k > 2 replicas and works asynchronously.
+ Therefore, application performance is completely decoupled from any network
+ problems.
+ Future versions are planned to also support synchronous or near-synchronous
+ modes.
+\end_layout
+
+\begin_layout Standard
+MARS supports a new method for building Cloud Storage / Software Defined
+ Storage, called LV Football.
+ It comes with some automation scripts, leading to a similar functionality
+ than Kubernetes, but devoted to stateful LVs over virtual LVM pools in
+ the petabytes range.
+\end_layout
+
+\begin_layout Section*
+Purpose
+\end_layout
+
+\begin_layout Standard
+This document explains how to install, setup and run a storage replication
+ system on a Linux based platform using MARS.
+\end_layout
+
+\begin_layout Section*
+Scope
+\end_layout
+
+\begin_layout Standard
+The following topics are covered withing this document:
+\end_layout
+
+\begin_layout Itemize
+preconditions: what you need.
+\end_layout
+
+\begin_layout Itemize
+creating a Linux kernel module for MARS.
+\end_layout
+
+\begin_layout Itemize
+creation of a MARS cluster.
+\end_layout
+
+\begin_layout Itemize
+creation and operation of MARS resources.
+\end_layout
+
+\begin_layout Itemize
+dynamic creation / deletion of additional replicas, and how migrate data
+ this way.
+\end_layout
+
+\begin_layout Itemize
+hints for monitoring.
+\end_layout
+
+\begin_layout Itemize
+troubleshooting (see appendices).
+\end_layout
+
+\begin_layout Section*
+Audience
+\end_layout
+
+\begin_layout Standard
+This document is written for experienced sysadmins with working knowledge
+ on the following methods and technologies:
+\end_layout
+
+\begin_layout Itemize
+Setup and operation of LVM (Logical Volume Manager) under Linux.
+\end_layout
+
+\begin_layout Itemize
+Operation of storage systems.
+\end_layout
+
+\begin_layout Itemize
+Ability to patch and to compile and install a customized Linux kernel.
+ Patches are already provided ready-to-use, so no full developer knowledge
+ is needed.
+\end_layout
+
+\begin_layout Section*
+How to use this document
+\end_layout
+
+\begin_layout Section*
+Related documents
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+mars-architecture-guide.pdf
+\family default
+: explains usage scenarios.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+football-user-manual.pdf
+\family default
+: for sysadmins and userspace developers who want to use Football.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+mars-for-kernel-developers.pdf
+\family default
+: some infos for kernel developers.
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset toc
+LatexCommand tableofcontents
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Chapter
+Briefing: how MARS works
+\end_layout
+
+\begin_layout Chapter
+HOWTO setup MARS
+\end_layout
+
+\begin_layout Chapter
+HOWTO operation of MARS resources
+\end_layout
+
+\begin_layout Chapter
+Working with 
+\family typewriter
+marsadm
+\family default
+ commands
+\end_layout
+
+\begin_layout Chapter
+Tuning, tips and tricks
+\end_layout
+
+\begin_layout Chapter
+Advanced users: automation and the macro processor
+\end_layout
+
+\begin_layout Section
+The 
+\family typewriter
+systemd
+\family default
+ interface
+\end_layout
+
+\begin_layout Section
+The macro processor
+\end_layout
+
+\begin_layout Chapter
+Troubleshooting
+\end_layout
+
+\begin_layout Standard
+TBD: appendices....
+\end_layout
+
+\begin_layout Part
+Old Structure (TO DISAPPEAR)
+\end_layout
+
 \begin_layout Chapter
 Quick Start Guide
 \begin_inset CommandInset label
