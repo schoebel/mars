@@ -17563,31 +17563,11 @@ A_{s,p,T}(k,n)=n^{s+1}*T*\sum_{\bar{k}=k}^{k*n}C(k,\bar{k},k*n)*\binom{k*n}{\bar
 
 \end_layout
 
-\begin_layout Chapter
-GNU Free Documentation License
-\begin_inset CommandInset label
-LatexCommand label
-name "chap:GNU-FDL"
-
-\end_inset
-
-
-\end_layout
-
 \begin_layout Standard
-\noindent
-
-\family typewriter
-\size footnotesize
-\begin_inset ERT
-status open
-
-\begin_layout Plain Layout
-
-
-\backslash
-lstinputlisting{fdl.txt}
-\end_layout
+\begin_inset CommandInset include
+LatexCommand input
+preview true
+filename "common-back-matter.lyx"
 
 \end_inset
 

@@ -2498,32 +2498,12 @@ The Generic Brick Infrastructure Layer
 The Generic Object and Aspect Infrastructure
 \end_layout
 
-\begin_layout Chapter
-\start_of_appendix
-GNU Free Documentation License
-\begin_inset CommandInset label
-LatexCommand label
-name "chap:GNU-FDL"
-
-\end_inset
-
-
-\end_layout
-
 \begin_layout Standard
-\noindent
-
-\family typewriter
-\size footnotesize
-\begin_inset ERT
-status open
-
-\begin_layout Plain Layout
-
-
-\backslash
-lstinputlisting{fdl.txt}
-\end_layout
+\start_of_appendix
+\begin_inset CommandInset include
+LatexCommand input
+preview true
+filename "common-back-matter.lyx"
 
 \end_inset
 
