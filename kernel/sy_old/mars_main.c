@@ -175,11 +175,9 @@ int mars_fast_fullsync =
 	;
 EXPORT_SYMBOL_GPL(mars_fast_fullsync);
 
-int mars_throttle_start = 60;
-EXPORT_SYMBOL_GPL(mars_throttle_start);
+int mars_throttle_start = 0;
 
 int mars_throttle_end = 90;
-EXPORT_SYMBOL_GPL(mars_throttle_end);
 
 int mars_emergency_mode = 0;
 EXPORT_SYMBOL_GPL(mars_emergency_mode);
