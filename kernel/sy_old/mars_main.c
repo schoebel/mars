@@ -412,8 +412,16 @@ int compute_emergency_mode(void)
 	int mode = 4;
 	int this_mode = 0;
 
-	mars_remaining_space("/mars", &raw_total_space, &raw_remaining_space);
-	rest = raw_remaining_space;
+	mars_remaining_space("/mars", &raw_total_space, &rest);
+
+	/* Take current writeback memory usage into account.
+	 * Somewhen, it will land on the disk...
+	 */
+	rest -= atomic64_read(&global_mshadow_used) / 1024;
+	if (rest < 0)
+		rest = 0;
+
+	raw_remaining_space = rest;
 
 #define CHECK_LIMIT(LIMIT_VAR)					\
 	if (LIMIT_VAR > 0)					\
