@@ -299,6 +299,446 @@ LatexCommand tableofcontents
 Briefing: how MARS works
 \end_layout
 
+\begin_layout Section
+The Transaction Logger
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:The-Transaction-Logger"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/MARS_Data_Flow.pdf
+	lyxscale 60
+	width 100text%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+The basic idea of MARS is to record all changes made to your block device
+ in a so-called 
+\series bold
+transaction logfile
+\series default
+.
+ 
+\emph on
+Any
+\emph default
+ write reqeuest is treated like a transaction which changes the contents
+ of your block device.
+\end_layout
+
+\begin_layout Standard
+This is similar in concept to some database systems, but there exists no
+ separate 
+\begin_inset Quotes eld
+\end_inset
+
+commit
+\begin_inset Quotes erd
+\end_inset
+
+ operation: 
+\emph on
+any
+\emph default
+ write request is acting like a commit.
+\end_layout
+
+\begin_layout Standard
+The picture shows the flow of write requests.
+ Let's start with the primary node.
+\end_layout
+
+\begin_layout Standard
+Upon submission of a write request on 
+\family typewriter
+/dev/mars/mydata
+\family default
+, it is first buffered in a 
+\emph on
+temporary
+\emph default
+ memory buffer.
+\end_layout
+
+\begin_layout Standard
+The temporary memory buffer serves multiple purposes:
+\end_layout
+
+\begin_layout Itemize
+It keeps track of the order of write operations.
+\end_layout
+
+\begin_layout Itemize
+Additionally, it keeps track of the positions in the underlying disk 
+\family typewriter
+/dev/lv-x/mydata
+\family default
+.
+ In particular, it detects when the same block is overwritten multiple times.
+\end_layout
+
+\begin_layout Itemize
+During pending write operation, any concurrent reads are served from the
+ memory buffer.
+\end_layout
+
+\begin_layout Standard
+After the write has been buffered in the temporary memory buffer, the main
+ logger thread of the transaction logger creates a so-called 
+\emph on
+log entry
+\emph default
+ and starts an 
+\begin_inset Quotes eld
+\end_inset
+
+append
+\begin_inset Quotes erd
+\end_inset
+
+ operation on the transaction logfile.
+ The log entry contains vital information such as the logical block number
+ in the underlying disk, the length of the data, a timestamp, some header
+ magic in order to detect corruption, the log entry sequence number, of
+ course the data itself, and optional information like a checksum or compression
+ information.
+\end_layout
+
+\begin_layout Standard
+Once the log entry has been written through to the 
+\family typewriter
+/mars/
+\family default
+ filesystem via fsync(), the application waiting for the write operation
+ at 
+\family typewriter
+/dev/mars/mydata
+\family default
+ is signalled that the write was successful.
+\end_layout
+
+\begin_layout Standard
+This may happen even 
+\emph on
+before
+\emph default
+ the writeback to the underlying disk 
+\family typewriter
+/dev/lv-x/mydata
+\family default
+ has started.
+ Even when you power off the system right now, the information is not lost:
+ it is present in the logfile, and can be reconstructed from there.
+\end_layout
+
+\begin_layout Standard
+Notice that the order of log records present in the transaction log defines
+ a total order among the write requests which is 
+\emph on
+compatible
+\emph default
+ to the partial order of write requests issued on 
+\family typewriter
+/dev/mars/mydata
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+Also notice that despite its sequential nature, the transaction logfile
+ is typically 
+\emph on
+not
+\emph default
+ the performance bottleneck of the system: since appending to a logfile
+ is almost purely sequential IO, it runs much faster than random IO on typical
+ datacenter workloads.
+\end_layout
+
+\begin_layout Standard
+In order to reclaim the temporary memory buffer, its content must be written
+ back to the underlying disk 
+\family typewriter
+/dev/lv-x/mydat
+\family default
+a somewhen.
+ After writeback, the temporary space is freed.
+ The writeback can do the following optimizations:
+\end_layout
+
+\begin_layout Enumerate
+writeback may be in 
+\emph on
+any
+\emph default
+ order; in particular, it may be 
+\emph on
+sorted
+\emph default
+ according to ascending sector ´numbers.
+ This will reduce the average seek distances of magnetic disks in general.
+\end_layout
+
+\begin_layout Enumerate
+when the same sector is overwritten multiple times, only the 
+\begin_inset Quotes eld
+\end_inset
+
+last
+\begin_inset Quotes erd
+\end_inset
+
+ version need to be written back, skipping some intermediate versions.
+\end_layout
+
+\begin_layout Standard
+In case the primary node crashes during writeback, it suffices to replay
+ the log entries from some point in the past until the end of the transaction
+ logfile.
+ It does no harm if you accidentally replay some log entries twice or even
+ more often: since the replay is in the original total order, any temporary
+ inconsistency is 
+\emph on
+healed
+\emph default
+ by the logfile application.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+In mathematics, the property that you can apply your logfile twice to your
+ data (or even as often as you want), is called 
+\series bold
+idempotence
+\series default
+.
+ This is a very desirable property: it ensures that nothing goes wrong when
+ replaying 
+\begin_inset Quotes eld
+\end_inset
+
+too much
+\begin_inset Quotes erd
+\end_inset
+
+ / starting your replay 
+\begin_inset Quotes eld
+\end_inset
+
+too early
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Idempotence is even more beneficial: in case anything should go wrong with
+ your data on your disk (e.g.
+ IO errors), replaying your logfile once more often may
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Miracles cannot be guaranteed, but 
+\emph on
+higher chances
+\emph default
+ and 
+\emph on
+improvements
+\emph default
+ can be expected (e.g.
+ better chances for 
+\family typewriter
+fsck
+\family default
+).
+\end_layout
+
+\end_inset
+
+ even 
+\series bold
+heal
+\series default
+ some defects.
+ Good news for desperate sysadmins forced to work with flaky hardware!
+\end_layout
+
+\begin_layout Standard
+The basic idea of the asynchronous replication of MARS is rather simple:
+ just transfer the logfiles to your secondary nodes, and replay them onto
+ their copy of the disk data (also called 
+\emph on
+mirror
+\emph default
+) in the same order as the total order defined by the primary.
+\end_layout
+
+\begin_layout Standard
+Therefore, a mirror of your data on any secondary may be outdated, but it
+ always corresponds to some version which was valid in the past.
+ This property is called 
+\series bold
+anytime consistency
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Your secondary nodes are always consistent in themselves.
+ Notice that this kind of consistency is a 
+\emph on
+local
+\emph default
+ consistency model.
+ There exists no global consistency in MARS.
+ Global consistency would be practically impossible in long-distance replication
+ where Einstein's law of the speed of light is limiting global consistency.
+ The front-cover pictures showing the planets Earth and Mars tries to lead
+ your imagination away from global consistency models as used in 
+\begin_inset Quotes eld
+\end_inset
+
+DRBD Think(tm)
+\begin_inset Quotes erd
+\end_inset
+
+, and try to prepare you mentally for local consistency as in 
+\begin_inset Quotes eld
+\end_inset
+
+MARS Think(tm)
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+As you can see in the picture, the process of transfering the logfiles is
+ 
+\emph on
+independent
+\emph default
+ from the process which replays the logfiles onto the data at some secondary
+ site.
+ Both processes can be switched on / off separately (see commands 
+\family typewriter
+marsadm {dis,}connect
+\family default
+ and 
+\family typewriter
+marsadm {pause,resume}-replay
+\family default
+ in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "subsec:Operation-of-the"
+
+\end_inset
+
+).
+ This may be 
+\emph on
+exploited
+\emph default
+: for example, you may replicate your logfiles as soon as possible (to protect
+ against catastrophic failures), but deliberately wait one hour until it
+ is replayed (under regular circumstances).
+ If your data inside your filesystem 
+\family typewriter
+/mydata/
+\family default
+ at the primary site is accidentally destroyed by 
+\family typewriter
+rm -rf /mydata/
+\family default
+, you have an old copy at the secondary site.
+ This way, you can substitute 
+\emph on
+some parts
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Please note that MARS cannot 
+\emph on
+fully
+\emph default
+ substitute a backup system, because it can keep only 
+\emph on
+physical
+\emph default
+ copies, and does not create logical copies.
+\end_layout
+
+\end_inset
+
+
+\emph default
+ of conventional backup functionality by MARS.
+ In case you need the actual version, just replay in 
+\begin_inset Quotes eld
+\end_inset
+
+fast-forward
+\begin_inset Quotes erd
+\end_inset
+
+ mode (similar to old-fashioned video tapes).
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Future versions of MARS Full are planned to also allow 
+\begin_inset Quotes eld
+\end_inset
+
+fast-backward
+\begin_inset Quotes erd
+\end_inset
+
+ rewinding, of course at some cost.
+\end_layout
+
 \begin_layout Chapter
 HOWTO setup MARS
 \end_layout
@@ -4550,446 +4990,6 @@ When taking this naïvely, you could easily step into some trivial pitfalls,
  Please forget (almost) anything you already know about the internal working
  principles of DRBD, and look at the very different working principles of
  MARS.
-\end_layout
-
-\begin_layout Section
-The Transaction Logger
-\begin_inset CommandInset label
-LatexCommand label
-name "sec:The-Transaction-Logger"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-\align center
-\begin_inset Graphics
-	filename images/MARS_Data_Flow.pdf
-	lyxscale 60
-	width 100text%
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-The basic idea of MARS is to record all changes made to your block device
- in a so-called 
-\series bold
-transaction logfile
-\series default
-.
- 
-\emph on
-Any
-\emph default
- write reqeuest is treated like a transaction which changes the contents
- of your block device.
-\end_layout
-
-\begin_layout Standard
-This is similar in concept to some database systems, but there exists no
- separate 
-\begin_inset Quotes eld
-\end_inset
-
-commit
-\begin_inset Quotes erd
-\end_inset
-
- operation: 
-\emph on
-any
-\emph default
- write request is acting like a commit.
-\end_layout
-
-\begin_layout Standard
-The picture shows the flow of write requests.
- Let's start with the primary node.
-\end_layout
-
-\begin_layout Standard
-Upon submission of a write request on 
-\family typewriter
-/dev/mars/mydata
-\family default
-, it is first buffered in a 
-\emph on
-temporary
-\emph default
- memory buffer.
-\end_layout
-
-\begin_layout Standard
-The temporary memory buffer serves multiple purposes:
-\end_layout
-
-\begin_layout Itemize
-It keeps track of the order of write operations.
-\end_layout
-
-\begin_layout Itemize
-Additionally, it keeps track of the positions in the underlying disk 
-\family typewriter
-/dev/lv-x/mydata
-\family default
-.
- In particular, it detects when the same block is overwritten multiple times.
-\end_layout
-
-\begin_layout Itemize
-During pending write operation, any concurrent reads are served from the
- memory buffer.
-\end_layout
-
-\begin_layout Standard
-After the write has been buffered in the temporary memory buffer, the main
- logger thread of the transaction logger creates a so-called 
-\emph on
-log entry
-\emph default
- and starts an 
-\begin_inset Quotes eld
-\end_inset
-
-append
-\begin_inset Quotes erd
-\end_inset
-
- operation on the transaction logfile.
- The log entry contains vital information such as the logical block number
- in the underlying disk, the length of the data, a timestamp, some header
- magic in order to detect corruption, the log entry sequence number, of
- course the data itself, and optional information like a checksum or compression
- information.
-\end_layout
-
-\begin_layout Standard
-Once the log entry has been written through to the 
-\family typewriter
-/mars/
-\family default
- filesystem via fsync(), the application waiting for the write operation
- at 
-\family typewriter
-/dev/mars/mydata
-\family default
- is signalled that the write was successful.
-\end_layout
-
-\begin_layout Standard
-This may happen even 
-\emph on
-before
-\emph default
- the writeback to the underlying disk 
-\family typewriter
-/dev/lv-x/mydata
-\family default
- has started.
- Even when you power off the system right now, the information is not lost:
- it is present in the logfile, and can be reconstructed from there.
-\end_layout
-
-\begin_layout Standard
-Notice that the order of log records present in the transaction log defines
- a total order among the write requests which is 
-\emph on
-compatible
-\emph default
- to the partial order of write requests issued on 
-\family typewriter
-/dev/mars/mydata
-\family default
-.
-\end_layout
-
-\begin_layout Standard
-Also notice that despite its sequential nature, the transaction logfile
- is typically 
-\emph on
-not
-\emph default
- the performance bottleneck of the system: since appending to a logfile
- is almost purely sequential IO, it runs much faster than random IO on typical
- datacenter workloads.
-\end_layout
-
-\begin_layout Standard
-In order to reclaim the temporary memory buffer, its content must be written
- back to the underlying disk 
-\family typewriter
-/dev/lv-x/mydat
-\family default
-a somewhen.
- After writeback, the temporary space is freed.
- The writeback can do the following optimizations:
-\end_layout
-
-\begin_layout Enumerate
-writeback may be in 
-\emph on
-any
-\emph default
- order; in particular, it may be 
-\emph on
-sorted
-\emph default
- according to ascending sector ´numbers.
- This will reduce the average seek distances of magnetic disks in general.
-\end_layout
-
-\begin_layout Enumerate
-when the same sector is overwritten multiple times, only the 
-\begin_inset Quotes eld
-\end_inset
-
-last
-\begin_inset Quotes erd
-\end_inset
-
- version need to be written back, skipping some intermediate versions.
-\end_layout
-
-\begin_layout Standard
-In case the primary node crashes during writeback, it suffices to replay
- the log entries from some point in the past until the end of the transaction
- logfile.
- It does no harm if you accidentally replay some log entries twice or even
- more often: since the replay is in the original total order, any temporary
- inconsistency is 
-\emph on
-healed
-\emph default
- by the logfile application.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-In mathematics, the property that you can apply your logfile twice to your
- data (or even as often as you want), is called 
-\series bold
-idempotence
-\series default
-.
- This is a very desirable property: it ensures that nothing goes wrong when
- replaying 
-\begin_inset Quotes eld
-\end_inset
-
-too much
-\begin_inset Quotes erd
-\end_inset
-
- / starting your replay 
-\begin_inset Quotes eld
-\end_inset
-
-too early
-\begin_inset Quotes erd
-\end_inset
-
-.
- Idempotence is even more beneficial: in case anything should go wrong with
- your data on your disk (e.g.
- IO errors), replaying your logfile once more often may
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-Miracles cannot be guaranteed, but 
-\emph on
-higher chances
-\emph default
- and 
-\emph on
-improvements
-\emph default
- can be expected (e.g.
- better chances for 
-\family typewriter
-fsck
-\family default
-).
-\end_layout
-
-\end_inset
-
- even 
-\series bold
-heal
-\series default
- some defects.
- Good news for desperate sysadmins forced to work with flaky hardware!
-\end_layout
-
-\begin_layout Standard
-The basic idea of the asynchronous replication of MARS is rather simple:
- just transfer the logfiles to your secondary nodes, and replay them onto
- their copy of the disk data (also called 
-\emph on
-mirror
-\emph default
-) in the same order as the total order defined by the primary.
-\end_layout
-
-\begin_layout Standard
-Therefore, a mirror of your data on any secondary may be outdated, but it
- always corresponds to some version which was valid in the past.
- This property is called 
-\series bold
-anytime consistency
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-Your secondary nodes are always consistent in themselves.
- Notice that this kind of consistency is a 
-\emph on
-local
-\emph default
- consistency model.
- There exists no global consistency in MARS.
- Global consistency would be practically impossible in long-distance replication
- where Einstein's law of the speed of light is limiting global consistency.
- The front-cover pictures showing the planets Earth and Mars tries to lead
- your imagination away from global consistency models as used in 
-\begin_inset Quotes eld
-\end_inset
-
-DRBD Think(tm)
-\begin_inset Quotes erd
-\end_inset
-
-, and try to prepare you mentally for local consistency as in 
-\begin_inset Quotes eld
-\end_inset
-
-MARS Think(tm)
-\begin_inset Quotes erd
-\end_inset
-
-.
-\end_layout
-
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-As you can see in the picture, the process of transfering the logfiles is
- 
-\emph on
-independent
-\emph default
- from the process which replays the logfiles onto the data at some secondary
- site.
- Both processes can be switched on / off separately (see commands 
-\family typewriter
-marsadm {dis,}connect
-\family default
- and 
-\family typewriter
-marsadm {pause,resume}-replay
-\family default
- in section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "subsec:Operation-of-the"
-
-\end_inset
-
-).
- This may be 
-\emph on
-exploited
-\emph default
-: for example, you may replicate your logfiles as soon as possible (to protect
- against catastrophic failures), but deliberately wait one hour until it
- is replayed (under regular circumstances).
- If your data inside your filesystem 
-\family typewriter
-/mydata/
-\family default
- at the primary site is accidentally destroyed by 
-\family typewriter
-rm -rf /mydata/
-\family default
-, you have an old copy at the secondary site.
- This way, you can substitute 
-\emph on
-some parts
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-Please note that MARS cannot 
-\emph on
-fully
-\emph default
- substitute a backup system, because it can keep only 
-\emph on
-physical
-\emph default
- copies, and does not create logical copies.
-\end_layout
-
-\end_inset
-
-
-\emph default
- of conventional backup functionality by MARS.
- In case you need the actual version, just replay in 
-\begin_inset Quotes eld
-\end_inset
-
-fast-forward
-\begin_inset Quotes erd
-\end_inset
-
- mode (similar to old-fashioned video tapes).
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-Future versions of MARS Full are planned to also allow 
-\begin_inset Quotes eld
-\end_inset
-
-fast-backward
-\begin_inset Quotes erd
-\end_inset
-
- rewinding, of course at some cost.
 \end_layout
 
 \begin_layout Section
