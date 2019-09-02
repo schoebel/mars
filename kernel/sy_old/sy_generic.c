@@ -814,14 +814,19 @@ EXPORT_SYMBOL_GPL(mars_lchown);
 
 loff_t _compute_space(struct kstatfs *kstatfs, loff_t raw_val)
 {
-	int fsize = kstatfs->f_frsize;
+	u64 fsize = kstatfs->f_frsize;
+
+
 	if (fsize <= 0)
 		fsize = kstatfs->f_bsize;
 
-	MARS_INF("fsize = %d raw_val = %lld\n", fsize, raw_val);
-	// illegal values? cannot do anything....
+	MARS_DBG("fsize = %llu raw_val = %lld\n", fsize, raw_val);
+
+	/* Implausible value:
+	 * Guess, use safe side from old Unix...
+	 */
 	if (fsize <= 0)
-		return 0;
+		fsize = 512;
 
 	// prevent intermediate integer overflows
 	if (fsize <= 1024)
