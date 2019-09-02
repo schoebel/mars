@@ -300,6 +300,97 @@ Briefing: how MARS works
 \end_layout
 
 \begin_layout Section
+Typical MARS replication setup
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Typical-MARS-replication"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Typical recommended usage is replication of multiple Logical Volumes (LVs),
+ similar to DRBD:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/typical-mars-setup.fig
+	width 100col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+At the primary (active) side A, the applications are running.
+ At each of the secondary (passive) sides B and C, only the underlying LV
+ replicas are updated via the replication network traffic.
+ The filesystem is not mounted at any secondary side, and the applications
+ are not running there.
+ However, the roles may be switched at any time, and then the application
+ will for example run at Datacenter B in primary role, while the corresponding
+ LV replicas will then be in secondary (passive) role at datacenters A and
+ C.
+\end_layout
+
+\begin_layout Standard
+An advantage of multiple LV replication is that primary and secondary roles
+ can be 
+\series bold
+\emph on
+individually
+\emph default
+ switched at runtime
+\series default
+.
+ For example, if you have 10 LVs in each of your servers, 6 LVs may currently
+ run in datacenter A in primary role, while the other 4 LVs are running
+ in datacenter B, while datacenter C is dimensioned for less CPU power,
+ and is mainly intended for additional 
+\begin_inset Quotes eld
+\end_inset
+
+emergency backup
+\begin_inset Quotes erd
+\end_inset
+
+ replicas.
+ For instance, such a 3-datacenter configuration may be used for load balancing
+ during overload peaks, or for switchover due to kernel security updates,
+ and much more.
+\end_layout
+
+\begin_layout Standard
+Further setups are also possible.
+ For example, you might replicate physical disks.
+ However, this would be less flexible because your volumes must then uniformly
+ run in the 
+\emph on
+same
+\emph default
+ datacenter at the same time.
+\end_layout
+
+\begin_layout Standard
+In addition, MARS' replicated block devices may be exported via iSCSI or
+ other protocols.
+ Filesystems residing on top of MARS may be exported via NFS or glusterfs,
+ etc.
+ For more details, please consult 
+\family typewriter
+mars-architecture-guide.pdf
+\family default
+.
+\end_layout
+
+\begin_layout Section
 The Transaction Logger
 \begin_inset CommandInset label
 LatexCommand label
