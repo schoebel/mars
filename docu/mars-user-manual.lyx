@@ -855,54 +855,6 @@ fast-backward
 
 \begin_layout Chapter
 HOWTO setup MARS
-\end_layout
-
-\begin_layout Chapter
-HOWTO operation of MARS resources
-\end_layout
-
-\begin_layout Chapter
-Working with 
-\family typewriter
-marsadm
-\family default
- commands
-\end_layout
-
-\begin_layout Chapter
-Tuning, tips and tricks
-\end_layout
-
-\begin_layout Chapter
-Advanced users: automation and the macro processor
-\end_layout
-
-\begin_layout Section
-The 
-\family typewriter
-systemd
-\family default
- interface
-\end_layout
-
-\begin_layout Section
-The macro processor
-\end_layout
-
-\begin_layout Chapter
-Troubleshooting
-\end_layout
-
-\begin_layout Standard
-TBD: appendices....
-\end_layout
-
-\begin_layout Part
-Old Structure (TO DISAPPEAR)
-\end_layout
-
-\begin_layout Chapter
-Quick Start Guide
 \begin_inset CommandInset label
 LatexCommand label
 name "chap:Quick-Start-Guide"
@@ -2163,6 +2115,54 @@ fake-sync
 marsadm invalidate mydata
 \family default
  (analogously to the corresponding DRBD command).
+\end_layout
+
+\begin_layout Chapter
+HOWTO operation of MARS resources
+\end_layout
+
+\begin_layout Chapter
+Working with 
+\family typewriter
+marsadm
+\family default
+ commands
+\end_layout
+
+\begin_layout Chapter
+Tuning, tips and tricks
+\end_layout
+
+\begin_layout Chapter
+Advanced users: automation and the macro processor
+\end_layout
+
+\begin_layout Section
+The 
+\family typewriter
+systemd
+\family default
+ interface
+\end_layout
+
+\begin_layout Section
+The macro processor
+\end_layout
+
+\begin_layout Chapter
+Troubleshooting
+\end_layout
+
+\begin_layout Standard
+TBD: appendices....
+\end_layout
+
+\begin_layout Part
+Old Structure (TO DISAPPEAR)
+\end_layout
+
+\begin_layout Chapter
+Quick Start Guide
 \end_layout
 
 \begin_layout Section
