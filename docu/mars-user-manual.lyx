@@ -1288,49 +1288,14 @@ audit
 \end_layout
 
 \begin_layout Section
-Setup Primary and Secondary Cluster Nodes
+MARS Kernel Module
 \begin_inset CommandInset label
 LatexCommand label
-name "sec:Setup-Primary-and"
+name "sec:MARS-Kernel-Module"
 
 \end_inset
 
 
-\end_layout
-
-\begin_layout Standard
-If you already use DRBD, you may migrate to MARS (or even back from MARS
- to DRBD) if you use 
-\emph on
-external
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-
-\emph on
-Internal
-\emph default
- DRBD metadata should also work as long as the filesystem inside your block
- device / disk already exists and is not re-created.
- The latter would destroy the DRBD metadata, but even that will not hurt
- you really: you can always switch back to DRBD using 
-\emph on
-external
-\emph default
- metadata, as long as you have some small spare space somewhere.
-\end_layout
-
-\end_inset
-
-
-\emph default
- DRBD metadata (which is not touched by MARS).
- 
-\end_layout
-
-\begin_layout Subsection
-Kernel and MARS Module
 \end_layout
 
 \begin_layout Standard
@@ -1550,6 +1515,48 @@ git pull --recurse-submodules=yes
 git
 \family default
  version and its local configuration).
+\end_layout
+
+\begin_layout Section
+Setup Primary and Secondary Cluster Nodes
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Setup-Primary-and"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+If you already use DRBD, you may migrate to MARS (or even back from MARS
+ to DRBD) if you use 
+\emph on
+external
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+
+\emph on
+Internal
+\emph default
+ DRBD metadata should also work as long as the filesystem inside your block
+ device / disk already exists and is not re-created.
+ The latter would destroy the DRBD metadata, but even that will not hurt
+ you really: you can always switch back to DRBD using 
+\emph on
+external
+\emph default
+ metadata, as long as you have some small spare space somewhere.
+\end_layout
+
+\end_inset
+
+
+\emph default
+ DRBD metadata (which is not touched by MARS).
+ 
 \end_layout
 
 \begin_layout Subsection
