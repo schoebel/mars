@@ -865,9 +865,8 @@ name "chap:Quick-Start-Guide"
 \end_layout
 
 \begin_layout Standard
-This chapter is for impatient but experienced sysadmins who already know
- DRBD.
- For more complete information, refer to chapter 
+This chapter is for impatient but experienced sysadmins.
+ For more detailed information, refer to chapter 
 \begin_inset CommandInset ref
 LatexCommand nameref
 reference "chap:The-Sysadmin-Interface"
@@ -878,7 +877,7 @@ reference "chap:The-Sysadmin-Interface"
 \end_layout
 
 \begin_layout Section
-Preparation: What you Need
+Description: what you Need
 \begin_inset CommandInset label
 LatexCommand label
 name "sec:Preparation:-What-you"
@@ -889,41 +888,149 @@ name "sec:Preparation:-What-you"
 \end_layout
 
 \begin_layout Standard
-Typically, you will use MARS at servers in a datacenter for replication
- of big masses of data.
+This section describes the hardware you will need to buy and deploy, and
+ which software components to install.
+ Step-by-step setup instructions are following in the next section (starting
+ with section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:MARS-Kernel-Module"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
 \end_layout
 
 \begin_layout Standard
-Typically, you will use MARS for replication 
+Typically, you will install MARS at many servers for replication of many
+ LVs 
 \emph on
 between
-\emph default
- multiple datacenters, when the distances are greater than 
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Many other solutions, even from commercial storage vendors, will not work
+ reliably over distances greater than 
 \begin_inset Formula $\approx50$
 \end_inset
 
- km.
- Many other solutions, even from commercial storage vendors, will not work
- reliably over large distances when your network is not 
+ km, and/or when your network is not 
 \emph on
 extremely
 \emph default
- reliable, or when you try to push huge masses of data from high-performance
+ reliable, and/or when you try to push huge masses of data from high-performance
  applications through a network bottleneck.
  If you ever encountered suchalike problems (or try to avoid them in advance),
  MARS is for you.
+ More information can be found in 
+\family typewriter
+mars-architecture-guide.pdf
+\family default
+.
+\end_layout
+
+\end_inset
+
+
+\emph default
+ multiple datacenters.
 \end_layout
 
 \begin_layout Standard
 You can use MARS both at dedicated storage servers (e.g.
- for serving Windows clients), or at standalone Linux servers where CPU
- and storage are not separated.
+ for serving Windows clients over iSCSI), or at standalone Linux servers
+ where CPU and storage are not separated.
 \end_layout
 
 \begin_layout Standard
-In order to protect your data from low-level disk failures, you should use
- a hardware RAID controller with BBU.
- Software RAID is explicitly 
+Here is a list of software to be installed at your servers (with distro-specific
+ tools like 
+\family typewriter
+dpkg
+\family default
+ / 
+\family typewriter
+aptitude
+\family default
+ / 
+\family typewriter
+rpm
+\family default
+ / 
+\family typewriter
+yum
+\family default
+ / 
+\family typewriter
+zypper
+\family default
+ / etc):
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+ssh
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+ssh-agent
+\family default
+ (such that 
+\family typewriter
+ssh root@hostA
+\family default
+ will work without password)
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+rsync
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+perl
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+lvm
+\end_layout
+
+\begin_layout Itemize
+Further standard Linux tools like 
+\family typewriter
+modprobe
+\family default
+, typically already present at servers.
+\end_layout
+
+\begin_layout Itemize
+Only if you don't have an already pre-built MARS kernel module, and only
+ at your workstation, not necessarily at your server: everything you need
+ for compiling a customized kernel.
+ Optionally, the tools for building a Debian or rpm package.
+ Details are distro-specific.
+\end_layout
+
+\begin_layout Standard
+In order to protect your server data from low-level disk failures, you should
+ use a 
+\series bold
+hardware RAID controller with BBU
+\series default
+.
+ Software RAID is currently 
 \emph on
 not
 \emph default
@@ -944,55 +1051,13 @@ https://github.com/schoebel/blkreplay/raw/master/doc/blkreplay.pdf
 \end_layout
 
 \begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- Don't set your hardware BBU cache to 
-\begin_inset Quotes eld
-\end_inset
-
-writethrough
-\begin_inset Quotes erd
-\end_inset
-
- mode.
- This may lead to tremendous performance degradation.
- Use the 
-\begin_inset Quotes eld
-\end_inset
-
-writeback
-\begin_inset Quotes erd
-\end_inset
-
- strategy instead.
- It should be operationally safe, because in case of power loss the BBU
- cache content will be preserved thanks to the battery, and/or thanks to
- goldcaps for saving the cache content into some flash chips.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-For better performance, use newer MARS versions from branch 
-\family typewriter
-mars0.1a.y
-\family default
- or later.
- Check the trips and tricks from sections 
+For many application workloads, RAID-6 provides a good compromize between
+ cost and performance.
+ Reads are very fast due to RAID-6 striping, while the slow RAID-6 writes
+ are partially compensated by the MARS kernel memory buffer (see section
+ 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand ref
 reference "sec:IO-Performance-Tuning"
 plural "false"
 caps "false"
@@ -1000,33 +1065,44 @@ noprefix "false"
 
 \end_inset
 
- and 
-\begin_inset CommandInset ref
-LatexCommand vref
-reference "subsec:Tuning-Network-Performance"
-plural "false"
-caps "false"
-noprefix "false"
+).
+\end_layout
+
+\begin_layout Standard
+For almost double the cost per TiB, you can speed up write operations by
+ RAID-10.
+ However, checkout RAID-6 first.
+ A good tool to measure your 
+\emph on
+real
+\emph default
+ application performance is 
+\family typewriter
+blktrace
+\family default
+ plus blkreplay, see 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://github.com/schoebel/blkreplay/raw/master/doc/blkreplay.pdf
+\end_layout
 
 \end_inset
 
 .
- You may also play around with 
-\family typewriter
-/proc/sys/mars/aio_sync_mode
-\family default
- when actuality is less important.
- Further tuning of 
-\family typewriter
-/proc/sys/mars/io_tuning/
-\family default
- and many more tunables is currently only recommended for experts.
- Future versions of MARS are planned to provide better performance with
- software RAID.
 \end_layout
 
 \begin_layout Standard
-Typically, you will need more than one RAID set
+For much higher cost per TiB, typically by about a factor of 10, you can
+ of course also use SSDs in place of HDDs.
+ While relatively small-sized database workloads are nowadays typically
+ on SSDs, big mass data is typically remaining on HDDs for cost reasons.
+\end_layout
+
+\begin_layout Standard
+Typically, you should build more than one RAID set
 \begin_inset Foot
 status open
 
@@ -1041,20 +1117,37 @@ For low-cost storage, RAID-5 is no longer regarded safe for today's typical
 
 \end_inset
 
- for big masses of data.
- Therefore, use of LVM is also recommended
+ if you have more than 12 to 15 spindles in total.
+ Therefore, the step-by-instructions of this manual will show you some examples
+ with LVM striping over 2 physical volumes (PVs).
+\end_layout
+
+\begin_layout Standard
+LVM is highly recommended
 \begin_inset Foot
 status open
 
 \begin_layout Plain Layout
-You may also combine MARS with commercial storage boxes connected via Fibrechann
-el or iSCSI, but we have not yet operational experiences at 1&1 with such
- setups.
+In principle, you may combine MARS with commercial storage boxes connected
+ over Fibrechannel or iSCSI.
+ At 1&1, there is not yet operational experience with such setups.
 \end_layout
 
 \end_inset
 
- for your data.
+ for maximum flexibility.
+ When used in static space allocation mode (as opposed to thin provisioning
+ mode), LVM involves no measurable overhead (within the measurement tolerances
+ of 
+\family typewriter
+blkreplay
+\family default
+).
+ Although LVM thin provisioning could potentially save some cost, it may
+ lead to massive performance degradation as observed with certain types
+ of application behaviour.
+ In order to stay at the safe side of operations, you should dimension your
+ RAID storage size accordingly.
 \end_layout
 
 \begin_layout Standard
@@ -1077,31 +1170,168 @@ The exact space requirements for
 average write rate
 \emph default
  of your application, not on the size of your data.
- We found that only few applications are writing more than 1 TB per day.
- Most are writing even less than 100 GB per day.
+ An example: in 1&1 Shared Hosting Linux (ShaHoLin), we found that only
+ few applications are writing more than 1 TB per day during ordinary
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Exception: restores from backup.
+\end_layout
+
+\end_inset
+
+ operations.
+ Most are writing even less than 100 GB per day, because the observed average
+ filesystem data change rate is only about 1% per day
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Within some limits, the distribution is an exponential one, according to
+ Zipf's law.
+\end_layout
+
+\end_inset
+
+.
+ Of course, there exist other applications like backup where the write rate
+ is much higher.
+ Please try to determine your actual write rates from system tools like
+ 
+\family typewriter
+sar
+\family default
+.
  Usually, you want to dimension 
 \family typewriter
 /mars/
 \family default
  such that you can survive a network loss lasting 3 days / about one weekend.
- This can be achieved with current technology rather easily: as a simple
- rule of thumb, just use one 
-\series bold
-dedicated disk
-\series default
- having a capacity of 4 TB or more.
- Typically, that will provide you with plenty of headroom even for bigger
- networking incidents.
 \end_layout
 
 \begin_layout Standard
-Dedicated disks for 
+This can be achieved rather easily, in one of the following ways:
+\end_layout
+
+\begin_layout Enumerate
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+sloppy
+\end_layout
+
+\end_inset
+
+ Create an LV for 
+\family typewriter
+/mars
+\family default
+ on top of your application VG, typically named 
+\family typewriter
+/dev/vg/mars
+\family default
+ or similar (see step-by-step instructions in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "subsec:Setup-LVM"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+ This is the easiest solution if you are anyway using LVM on top of a hardware
+ BBU.
+ This is also most flexible: it can be 
+\series bold
+resized during operation
+\series default
+.
+ Therefore, you may start with a size of around 500 GiB, and later be extended
+ with increasing demands.
+\begin_inset Newline newline
+\end_inset
+
+This variant is also recommended if you have very expensive SSD storage.
+ Depending on write rates, you could for example start with 100 GiB, and
+ extend dynamically as far as needed, for example by some alerting scripts,
+ or even using some cron job.
+\end_layout
+
+\begin_layout Enumerate
+Alternatively, you may use one 
+\series bold
+dedicated HDD
+\series default
+ with a capacity of 4 TB or more.
+ Typically, this will provide you with plenty of headroom even for bigger
+ networking incidents.
+ Performace of a single HDD over a BBU is typically good enough for 
+\family typewriter
+/mars
+\family default
+ because the transaction logs are involving mostly 
+\emph on
+sequential
+\emph default
+ reads and writes in larger chunks.
+ However, there exist some workloads where striping could be necessary for
+ maximizing sequential throughput.
+\end_layout
+
+\begin_layout Enumerate
+Alternatively, if you are concerned about both performance and reliability,
+ use two dedicated spindles over hardware RAID-1 with BBU.
+ For maximum flexibility, put another VG on top of the dediactedRAID-1 set.
+ For example, if 
+\family typewriter
+/dev/sdc
+\family default
+ is your RAID-1 set, create a PV and a VG called 
+\family typewriter
+mars
+\family default
+ on top of it.
+ This is most flexible, since you might later migrate your 
+\family typewriter
+/mars
+\family default
+ even during runtime, for example when replacing small disks with bigger
+ ones, or when replacing HDDs with SSDs during runtime.
+\end_layout
+
+\begin_layout Enumerate
+For extemely high performance, separate SSD sets for the user data VG and
+ for 
+\family typewriter
+/mars
+\family default
+ might be beneficial.
+ However, check whether it really pays off.
+ Notice that a hardware BBU is nothing but a RAM cache, which is faster
+ than any SSD, and there 
+\emph on
+exist
+\emph default
+ some workloads where sequntial IO to HDDs is faster than to SSDs.
+ Sometimes, there are hidden performance bottlenecks, such as SAS busses,
+ or some old-generation RAID controllers.
+\end_layout
+
+\begin_layout Standard
+Dedicated HDDs for 
 \family typewriter
 /mars/
 \family default
  have another advantage: their mechanical head movement is completely independen
 t from your data head movements.
- For best performance, attach that dedicated disk to your hardware RAID
+ For best performance, attach the corresponding disks to your hardware RAID
  controller with BBU, building a separate RAID set (even if it consists
  only of a single disk – notice that the 
 \series bold
@@ -1111,69 +1341,78 @@ hardware BBU
 \end_layout
 
 \begin_layout Standard
-If you are concerned about reliability, use two disks switched together
- as a relatively small RAID-1 set.
- For extremely high performance demands, you may consider (and check) RAID-10.
-\end_layout
-
-\begin_layout Standard
-Since the transaction logfiles are highly sequential in their access pattern,
- a cheap but high-capacity SATA disk (or nearline-SAS disk) is usually sufficien
-t.
- At the time of this writing, standard SATA SSDs have shown to be 
-\emph on
-not
-\emph default
- (yet) preferable.
- Although they offer high random IOPS rate, their sequential throughput
- is worse, and their long-term stability is questioned by many people at
- the time of this writing.
- However, as technology evolves and becomes more mature, this could change
- in future.
-\end_layout
-
-\begin_layout Standard
-Use 
-\family typewriter
-ext4
-\family default
- for 
-\family typewriter
-/mars/
-\family default
-.
- Avoid 
-\family typewriter
-ext3
-\family default
-, and don't use 
-\family typewriter
-xfs
-\family default
-
+If you are concerned about reliability, use two disks configured as a relatively
+ small RAID-1 set.
+ For extremely high performance demands, you may consider (and check) RAID-10
+ and/or SSD storage.
+ However, SSDs are reported as less reliable.
+ While failures of HDDs are typically detectable in advance by upcoming
+ SMART media error counts, SSDs are typically failing suddenly and unexpectedly
 \begin_inset Foot
 status open
 
 \begin_layout Plain Layout
-It seems that the late internal resource allocation strategy of 
-\family typewriter
-xfs
-\family default
- (or another currently unknown reason) could be the reason for some resource
- deadlocks which appear only with 
-\family typewriter
-xfs
-\family default
- and only under 
-\emph on
-extremely
-\emph default
- high IO load in combination with high memory pressure.
+Notice: the component failure rate is not the crucial point.
+ Even if some types of SSDs have a better MTBF than typical HDDs: when you
+ can detect failure in advance, you can prevent
 \end_layout
 
 \end_inset
 
- at all.
+.
+ And their failure is not statistically independent in general.
+ Building a RAID-1 on top of SSDs bears an increased risk that 
+\emph on
+both
+\emph default
+ SSDs are unexpectedly failing both at the same time
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Preliminary replacement of SSDs after a certain amount of write may help.
+ But it will increase cost.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+If you want to build extremely cheap low-cost storage, for example for low-perfo
+rmance backup systems or similar use cases: cheap but high-capacity nearline-SAS
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Even cheaper SATA disks are not recommended for professional datacenter
+ usage.
+ Typically, they are not rated for 24/7/365 usage.
+ Even for some use cases like backup, experiences are worse.
+\end_layout
+
+\end_inset
+
+ disks may be sufficient, because the transaction logfiles are highly sequential
+ in their access pattern.
+ However, check with 
+\family typewriter
+blkreplay
+\family default
+ that performance is 
+\emph on
+really
+\emph default
+ sufficient, when compared with 
+\begin_inset Quotes eld
+\end_inset
+
+better
+\begin_inset Quotes erd
+\end_inset
+
+ disks.
 \end_layout
 
 \begin_layout Standard
@@ -1265,7 +1504,8 @@ trusted network
 \series default
 .
  Anyone who can connect to the MARS ports (default 7777 to 7779) can potentially
- breach in and become root! Therefore, you 
+ breach in and become root.
+ Therefore, you 
 \series bold
 must
 \series default
@@ -1277,14 +1517,27 @@ must
 Currently, MARS provides no shared secret like DRBD, because a simple shared
  secret is way too weak to provide any real security (potentially misleading
  people about the real level of security).
- Future versions of MARS should provide at least 2-factor authorization,
- and encryption via dynamic session keys.
- Until that is implemented, use a secured VPN instead! And don't forget
- to 
+ Future versions of MARS might provide some 2-factor authorization, and
+ encryption via dynamic session keys.
+ Until that is implemented
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+There is fundamental argument: network traffic between datacenters belongs
+ to a higher level than a single component like MARS.
+ Thus its security requirements must be solved at that level, but not at
+ the level of MARS.
+\end_layout
+
+\end_inset
+
+, use a secured VPN instead.
+ And don't forget to 
 \emph on
 audit
 \emph default
- it for security holes!
+ it for security holes.
 \end_layout
 
 \begin_layout Section
@@ -1529,8 +1782,13 @@ name "sec:Setup-Primary-and"
 \end_layout
 
 \begin_layout Standard
-If you already use DRBD, you may migrate to MARS (or even back from MARS
- to DRBD) if you use 
+If you already have some production data on your severs on LVM, you may
+ skip some of the following subsections.
+\end_layout
+
+\begin_layout Standard
+In case your data is already replicated with DRBD, you may migrate to MARS
+ (or even back from MARS to DRBD) if you use 
 \emph on
 external
 \begin_inset Foot
@@ -1556,11 +1814,66 @@ external
 
 \emph default
  DRBD metadata (which is not touched by MARS).
- 
+ Internal DRBD metadata is reported to also work, because it resides at
 \end_layout
 
 \begin_layout Subsection
-Setup your Cluster Nodes
+Setup Hardware
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Setup-Hardware"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Don't set your hardware BBU cache to 
+\begin_inset Quotes eld
+\end_inset
+
+writethrough
+\begin_inset Quotes erd
+\end_inset
+
+ mode.
+ This may lead to tremendous performance degradation.
+ Use the default 
+\begin_inset Quotes eld
+\end_inset
+
+writeback
+\begin_inset Quotes erd
+\end_inset
+
+ strategy instead.
+ It should be operationally safe, because in case of power loss the BBU
+ cache content will be preserved thanks to the battery, and/or thanks to
+ goldcaps for saving the cache content into some flash chips.
+\end_layout
+
+\begin_layout Subsection
+Setup LVM
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Setup-LVM"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Setup Cluster Nodes
 \begin_inset CommandInset label
 LatexCommand label
 name "subsec:Setup-your-Cluster"
@@ -1609,15 +1922,28 @@ ext4
  filesystem on your separate disk / RAID set via 
 \family typewriter
 mkfs.ext4
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Don't use 
+\family typewriter
+xfs
 \family default
- (for requirements on size etc see section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "sec:Preparation:-What-you"
+ for 
+\family typewriter
+/mars
+\family default
+.
+ Its late allocation strategy may lead to deadlocks and other problems,
+ at least with some elder kernel versions.
+\end_layout
 
 \end_inset
 
-).
+
+\family default
+ .
 \end_layout
 
 \begin_layout Enumerate
