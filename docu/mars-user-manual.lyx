@@ -1552,17 +1552,144 @@ name "sec:MARS-Kernel-Module"
 \end_layout
 
 \begin_layout Standard
+Always use the newest stable version (master branch) from 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://github.com/schoebel/mars
+\end_layout
+
+\end_inset
+
+.
+ Please consult the file 
+\family typewriter
+ChangeLog
+\family default
+ there.
+\end_layout
+
+\begin_layout Standard
 The MARS kernel module should be available or can be built via one of the
  following methods:
 \end_layout
 
-\begin_layout Enumerate
+\begin_layout Itemize
 As an external Debian or rpm kernel module, as provided by a package contributor
  (or hopefully by standard distros in the future).
 \end_layout
 
-\begin_layout Enumerate
-As a separate kernel module, only for experienced
+\begin_layout Itemize
+Via 
+\family typewriter
+dkms
+\family default
+.
+ Although there is an example file 
+\family typewriter
+contrib/mars-dkms.dkms
+\family default
+ in the official MARS repo at 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://github.com/schoebel/mars
+\end_layout
+
+\end_inset
+
+ which could serve as a base for Linux distro vendors, it would suffer from
+ 
+\emph on
+serious performance degradation
+\emph default
+ if it would be compiled 
+\emph on
+without
+\emph default
+ the MARS pre-patch.
+ Don't use such a version for any serious application.
+ With pre-patch, 
+\family typewriter
+dkms
+\family default
+ would be no problem.
+ You can check whether some already built 
+\family typewriter
+mars.ko
+\family default
+ kernel module has been compiled with pre-patch or not:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+modinfo mars
+\family default
+
+\begin_inset Newline newline
+\end_inset
+
+which displays the version for the currently active kernel, or any other
+ version via
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+modinfo /path/to/mars.ko
+\family default
+
+\begin_inset Newline newline
+\end_inset
+
+This should display something like
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+io_driver:      aio
+\end_layout
+
+\begin_layout Plain Layout
+
+prepatch:       has_prepatch 
+\end_layout
+
+\end_inset
+
+Do not use a kernel module for production if the io_driver either reports
+ 
+\family typewriter
+sio
+\family default
+ in place of 
+\family typewriter
+aio
+\family default
+, or if no pre-patch is detected.
+\end_layout
+
+\begin_layout Itemize
+As a 
+\emph on
+separate
+\emph default
+ kernel module, only recommended for 
+\emph on
+experienced
+\emph default
+
 \begin_inset Foot
 status open
 
@@ -1591,28 +1718,201 @@ Makefile.dist
  other distros).
 \end_layout
 
-\begin_layout Enumerate
-Build for senior sysadmins or developers, inplace in the kernel source tree:
- first apply 
+\begin_layout Itemize
+Following are recommended build instructions for senior sysadmins or developers,
+ inplace in the kernel source tree.
+ Look into the subdirectory 
 \family typewriter
-0001-mars-minimum-pre-patch-for-mars.patch
+pre-patches/
 \family default
- and 
+ of the MARS repo for the right version of the pre-patches.
+\end_layout
+
+\begin_layout Standard
+Here are example instructions for LTS kernel 4.4, building everything from
+ scratch at your Linux workstation, using 
 \family typewriter
-0001-mars-SPECIAL-for-in-tree-build.patch
-\family default
- or similar, then 
-\family typewriter
-cd block/ && git clone --recurse-submodules https://github.com/schoebel/mars
+git
 \family default
 .
- Then 
+ Actions marked 
+\begin_inset Quotes eld
+\end_inset
+
+for safety
+\begin_inset Quotes erd
+\end_inset
+
+ are not generally necessary, but may be appropriate for recovery from previous
+ build failures.
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+git clone git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
+ linux-stable.git
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+cd linux-stable.git
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+git checkout linux-4.4.y
+\end_layout
+
+\begin_layout Enumerate
+For safety:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+git pull
+\end_layout
+
+\begin_layout Enumerate
+Get an appropriate old 
+\family typewriter
+.config
+\family default
+ file.
+ For example at some OpenSuSE distro:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+cp /boot/config-4.12.14-lp151.28.13-default .config
+\family default
+
+\begin_inset Newline newline
+\end_inset
+
+Notice: there are several other methods which are outside the scope of this
+ manual.
+ When in doubt, consult somebody with kernel build experience.
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+make oldconfig || make olddefconfig
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+cd block/
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+git clone --recurse-submodules https://github.com/schoebel/mars
+\end_layout
+
+\begin_layout Enumerate
+For safety, ensure you always have the newest MARS version:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+cd mars
+\family default
+/
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+git checkout master
+\begin_inset Newline newline
+\end_inset
+
+git pull
+\begin_inset Newline newline
+\end_inset
+
+cd ..
+\end_layout
+
+\begin_layout Enumerate
+Go back to the root of Linux git:
+\begin_inset Newline newline
+\end_inset
+
+
 \family typewriter
 cd ..
+\end_layout
 
+\begin_layout Enumerate
+To avoid mixup of later actions with upstream patches:
+\family typewriter
+
+\begin_inset Newline newline
+\end_inset
+
+git branch -D mars-patches-for-4.4 || echo IGNORE THIS ERROR
+\begin_inset Newline newline
+\end_inset
+
+git checkout -b mars-patches-for-4.4
+\end_layout
+
+\begin_layout Enumerate
+Apply 
+\emph on
+all(!)
+\emph default
+ the patches from 
+\family typewriter
+block/mars/pre-patches/vanilla-$version
 \family default
- and build your kernel as usual.
- Config options for MARS should appear under 
+.
+ For example with kernel 4.4:
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+For safety:
+\family typewriter
+
+\begin_inset Newline newline
+\end_inset
+
+git reset --hard; git clean -f
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+git am block/mars/pre-patches/vanilla-4.4/*.patch
+\end_layout
+
+\end_deeper
+\begin_layout Enumerate
+
+\family typewriter
+make menuconfig
+\family default
+ (or another variant like 
+\family typewriter
+make xconfig
+\family default
+)
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+Go to 
 \begin_inset Quotes eld
 \end_inset
 
@@ -1620,25 +1920,99 @@ Enable the block layer
 \begin_inset Quotes erd
 \end_inset
 
-.
- Just activate MARS as a 
-\series bold
-kernel module
-\series default
- via 
-\begin_inset Quotes eld
-\end_inset
 
+\end_layout
+
+\begin_layout Enumerate
+Select MARS as a module (by moving the cursor and then typing 
+\family typewriter
 m
-\begin_inset Quotes erd
+\family default
+)
+\end_layout
+
+\begin_layout Enumerate
+A lot of sub-options for MARS will pop up.
+ Leave them at their default.
+\end_layout
+
+\begin_layout Enumerate
+Save the Kconfig options to 
+\family typewriter
+.config
+\family default
+ and exit.
+\end_layout
+
+\end_deeper
+\begin_layout Enumerate
+Build the kernel, typically something like one of:
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+For Debian / Ubuntu / etc:
+\begin_inset Newline newline
 \end_inset
 
- (don't try a fixed compile-in), and leave all else MARS config options
- at the default (except you know what you are doing).
+
+\family typewriter
+make deb-pkg
+\end_layout
+
+\begin_layout Enumerate
+For Redhat / CentOS / SuSE / etc:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+make rpm-pkg
+\end_layout
+
+\begin_layout Enumerate
+Classical with local install:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+make -j 12 && make install modules_install
+\end_layout
+
+\begin_layout Enumerate
+...
+ see some more variants and make targets:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+make help
+\end_layout
+
+\end_deeper
+\begin_layout Enumerate
+Copy and install the new Debian or rpm package to the destination servers,
+ activate them (system-dependent, like 
+\family typewriter
+update-grub
+\family default
+ or similar), and reboot your servers with the modified kernel.
+\end_layout
+
+\begin_layout Enumerate
+Check that the MARS kernel module is installed (but do not yet load it):
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+modinfo mars
 \end_layout
 
 \begin_layout Standard
-Further / more accurate / latest instructions can be found in 
+Further / more accurate / latest instructions may be found in 
 \family typewriter
 README
 \family default
@@ -1659,30 +2033,74 @@ marsadm
 \end_layout
 
 \begin_layout Standard
-Starting with 
+Installing marsadm by hand is rather simple: just copy it to 
 \family typewriter
-mars0.1stable38
+/usr/bin/
 \family default
- and other branches having merged this feature, a prepatch for vanilla kernels
- 3.2 through 4.4 is no longer needed.
+ or 
+\family typewriter
+/usr/local/bin
+\family default
+.
+ For example:
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+cp -a block/mars/userspace/marsadm /usr/local/bin/
+\end_layout
+
+\begin_layout Itemize
+Alternatively, create a Debian or rpm package (named 
+\family typewriter
+mars-utils
+\family default
+ or 
+\family typewriter
+mars-tools
+\family default
+ or similar).
+ Since 
+\family typewriter
+marsadm
+\family default
+ is a basic Perl script which requires no other Perl modules, the only package
+ dependency is from the Perl interpreter.
+ Since Perl is typically already installed on virtually every Linux server,
+ leaving out this dependency won't be a show stopper.
+\end_layout
+
+\begin_layout Standard
+With newer versions of MARS, a prepatch for vanilla kernels 3.2 through 4.9
+ (or even later) is no longer needed, at least in theory.
  However, 
 \series bold
 IO performance
 \series default
- is currently somewhat worse when the pre-patch is not applied.
- This will be addressed in a later release.
-\end_layout
-
-\begin_layout Standard
-Therefore, application of the pre-patch to the kernel is 
+ is currently 
 \emph on
-recommended
+much
 \emph default
- for large-scale production systems for now.
+ worse when the pre-patch is not applied.
+ This will be hopefully addressed in a future release.
+ At the moment, don't use pre-patch-less MARS on any production system.
+ It has extremely limited IO parallelism because some performance-critical
+ kernel interfaces are not accessible without the pre-patch.
+ The command 
+\family typewriter
+modinfo mars
+\family default
+ will report whether the pre-patch is present at your kernel, or not (see
+ description of 
+\family typewriter
+dkms
+\family default
+ above).
 \end_layout
 
 \begin_layout Standard
-Kernel pre-patches can be found in the 
+Pre-patches for various kernel version can be found in the 
 \family typewriter
 pre-patches/
 \family default
@@ -1693,13 +2111,47 @@ pre-patches/
 \begin_layout Itemize
 
 \family typewriter
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+sloppy
+\end_layout
+
+\end_inset
+
+ 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
 0001-mars-minimum-pre-patch-for-mars.patch
+\end_layout
+
+\end_inset
+
+
 \family default
  or similar.
  Please prefer this one (when present for your kernel version) in front
- of 
+ of any old / deprecated 
 \family typewriter
+
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
 0001-mars-generic-pre-patch-for-mars.patch
+\end_layout
+
+\end_inset
+
+
 \family default
  or similar.
  The latter should not be used anymore, except for testing or as an emergency
@@ -1709,7 +2161,17 @@ pre-patches/
 \begin_layout Itemize
 
 \family typewriter
-0001-mars-SPECIAL-for-in-tree-build.patch
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+0002-mars-SPECIAL-for-in-tree-build.patch
+\end_layout
+
+\end_inset
+
+
 \family default
  or similar.
  This is 
@@ -1722,17 +2184,46 @@ only
 make
 \family default
  pass.
- For separate external module builds, this patch 
+ For separate external module builds (e.g.
+ with 
+\family typewriter
+dkms
+\family default
+, or with 
+\family typewriter
+rpmbuild
+\family default
+ etc), this patch 
 \emph on
 must not
 \emph default
  be applied (but the pre-patch 
 \emph on
-should
+strongly should
 \emph default
- when possible).
+ if somehow possible).
  When using this patch, please apply the aforementioned pre-patch also,
- because your kernel is patched anyway.
+ because your kernel will be patched anyway.
+\end_layout
+
+\begin_layout Itemize
+For certain kernels like 4.14, some additional fixes may be necessary.
+ These are in the respective 
+\family typewriter
+vanilla-*/
+\family default
+ subdirectory, indicated by filename 
+\family typewriter
+*fix*
+\family default
+.
+ Sometimes, these are 
+\emph on
+absolutely
+\emph default
+ needed.
+ For example, an endless loop in unfixed upstream vanilla kernels >= 4.10
+ may occur upon network timeouts.
 \end_layout
 
 \begin_layout Standard
@@ -1757,7 +2248,7 @@ mars0.1abeta8
 submodules
 \series default
  have been added to the github repo of MARS.
- If you have an old checkout, please say 
+ If you have an old git checkout, please say 
 \family typewriter
 git pull --recurse-submodules=yes
 \family default
