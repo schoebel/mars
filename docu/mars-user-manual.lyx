@@ -2273,7 +2273,7 @@ name "sec:Setup-Primary-and"
 \end_layout
 
 \begin_layout Standard
-If you already have some production data on your severs on LVM, you may
+If you already have some production data on your servers via LVM, you may
  skip some of the following subsections.
 \end_layout
 
@@ -2306,6 +2306,21 @@ external
 \emph default
  DRBD metadata (which is not touched by MARS).
  Internal DRBD metadata is reported to also work, because it resides at
+ the end of the block device.
+ However, you will waste some small amount of storage.
+\end_layout
+
+\begin_layout Standard
+Migrating back to DRBD is also possible, provided you re-initialize the
+ DRBD meta-data again.
+\end_layout
+
+\begin_layout Standard
+For the following instructions to work, you must be 
+\family typewriter
+root
+\family default
+ on your servers.
 \end_layout
 
 \begin_layout Subsection
@@ -2317,6 +2332,11 @@ name "subsec:Setup-Hardware"
 \end_inset
 
 
+\end_layout
+
+\begin_layout Standard
+When using hardware RAID controllers, you will need to build your RAID sets
+ with the corresponding tools.
 \end_layout
 
 \begin_layout Standard
@@ -2352,6 +2372,19 @@ writeback
  goldcaps for saving the cache content into some flash chips.
 \end_layout
 
+\begin_layout Standard
+In the following sections, we assume that two RAID sets are already built,
+ and are accessible as 
+\family typewriter
+/dev/sdb
+\family default
+ and 
+\family typewriter
+/dev/sdc
+\family default
+.
+\end_layout
+
 \begin_layout Subsection
 Setup LVM
 \begin_inset CommandInset label
@@ -2361,6 +2394,96 @@ name "subsec:Setup-LVM"
 \end_inset
 
 
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Execute the following instructions only once after hardware deployment,
+ or if you want to re-install your server.
+ Otherwise, you may delete existing data.
+\end_layout
+
+\begin_layout Enumerate
+First step is create the LVM meta-information on the RAID sets 
+\family typewriter
+/dev/sdc
+\family default
+ and 
+\family typewriter
+/dev/sdc
+\family default
+:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+pvcreate /dev/sdb
+\family default
+
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+pvcreate /dev/sdc
+\end_layout
+
+\begin_layout Enumerate
+Check your physical volumes:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+pvs
+\end_layout
+
+\begin_layout Enumerate
+Create a volume group:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+vgcreate vg /dev/sdb /dev/sdc
+\end_layout
+
+\begin_layout Enumerate
+Check your volume group:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+vgs
+\end_layout
+
+\begin_layout Enumerate
+Create a LV for /mars:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+lvcreate -i 2 -L 100G -n mars lv
+\end_layout
+
+\begin_layout Enumerate
+Check your list of LVs:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+lvs
 \end_layout
 
 \begin_layout Subsection
@@ -2376,12 +2499,12 @@ name "subsec:Setup-your-Cluster"
 
 \begin_layout Standard
 For your cluster, you need at least two nodes.
- In the following, they will be called A and B.
- In the beginning, A will have the 
+ In the following, they will be called hostA and hostB.
+ In the beginning, hostA will have the 
 \family typewriter
 primary
 \family default
- role, while B will be your initial 
+ role, while hostB will be your initial 
 \family typewriter
 secondary
 \family default
@@ -2390,23 +2513,21 @@ secondary
 \end_layout
 
 \begin_layout Enumerate
-You must be 
-\family typewriter
-root
-\family default
-.
-\end_layout
-
-\begin_layout Enumerate
-On each of A and B, create the 
+On each of hostA and hostB, create the 
 \family typewriter
 /mars/
 \family default
- mountpoint.
+ mountpoint:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+mkdir /mars
 \end_layout
 
 \begin_layout Enumerate
-On each node, create an 
+On each host, create an 
 \family typewriter
 ext4
 \family default
@@ -2435,10 +2556,16 @@ xfs
 
 \family default
  .
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+mkfs.ext4 /dev/vg/mars
 \end_layout
 
 \begin_layout Enumerate
-On each node, mount that filesystem to 
+On each host, mount that filesystem to 
 \family typewriter
 /mars/
 \family default
@@ -2447,7 +2574,18 @@ On each node, mount that filesystem to
 \family typewriter
 /etc/fstab
 \family default
+., or to create a systemd unit 
+\family typewriter
+mars.mount
+\family default
 .
+ Here we just mount it by hand:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+mount /dev/vg/mars /mars
 \end_layout
 
 \begin_layout Enumerate
@@ -2468,11 +2606,15 @@ marsadm
 \end_layout
 
 \begin_layout Enumerate
-On node A, say 
+On hostA:
+\begin_inset Newline newline
+\end_inset
+
+
 \family typewriter
 marsadm create-cluster
 \family default
-.
+
 \begin_inset Newline newline
 \end_inset
 
@@ -2481,7 +2623,7 @@ This must be done
 exactly once
 \emph default
 , on exactly one node of your cluster.
- Never do this twice or on different nodes, because that would create two
+ Never do this twice or on different hosts, because that would create two
  different clusters which would have nothing to do with each other.
  The 
 \family typewriter
@@ -2493,30 +2635,45 @@ marsadm
 \family typewriter
 /mars/
 \family default
- partition and start over with step 3 at that node.
+ partition and start over with step 2.
 \end_layout
 
 \begin_layout Enumerate
-On node B, you must have a working 
+Current versions of MARS need a working 
 \family typewriter
 ssh
 \family default
- connection to node A (as 
+ connection from hostB to hostA (as 
 \family typewriter
 root
 \family default
 ).
- Test it by saying 
+ Test it on hostB:
+\begin_inset Newline newline
+\end_inset
+
+
 \family typewriter
-ssh A w
+ssh hostA w
+\begin_inset Newline newline
+\end_inset
+
+
 \family default
- on node B.
- It should work without entering a password (otherwise, use 
+This should work without entering a password.
+ Hint: you may use 
 \family typewriter
 ssh-agent
 \family default
- to achieve that).
- In addition, 
+ and 
+\family typewriter
+ssh -A
+\family default
+ for achieving that.
+\begin_inset Newline newline
+\end_inset
+
+In addition, 
 \family typewriter
 rsync
 \family default
@@ -2524,8 +2681,12 @@ rsync
 \end_layout
 
 \begin_layout Enumerate
-On node B, say 
+On hostB
 \family typewriter
+:
+\begin_inset Newline newline
+\end_inset
+
 marsadm join-cluster A
 \end_layout
 
@@ -2551,18 +2712,88 @@ marsadm create-cluster
 *-cluster
 \family default
  operations when the kernel module is loaded.
- All other operations should have no such restriction.
+ All other operations don't have such a restriction.
 \end_layout
 
 \end_inset
 
 
 \emph default
- that, do 
+ that, do on each of your hosts:
+\begin_inset Newline newline
+\end_inset
+
+
 \family typewriter
 modprobe mars
+\end_layout
+
+\begin_layout Enumerate
+Check that mars is running everywhere:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+marsadm view all
+\end_layout
+
+\begin_layout Enumerate
+Ignore any error message that no resources are yet defined.
+ But you should check that no warnings about network connections are appearing.
+ Both cluster nodes should be able to communicate with each other over the
+ MARS ports (default 7777 to 7779).
+\end_layout
+
+\begin_layout Enumerate
+Additional checks, to be executed on 
+\emph on
+all
+\emph default
+ of your hosts:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+netstat -lp --tcp | grep 777
+\begin_inset Newline newline
+\end_inset
+
+netstat --tcp | grep 777
+\begin_inset Newline newline
+\end_inset
+
+
 \family default
- on each node.
+Both variants should show up some healty connections.
+ If not, fix your network configuration and/or firewalling etc.
+ Details are outside of the scope of this manual.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Beware of asymmetric connections, caused by inappropriate firewall rules.
+ 
+\emph on
+Any
+\emph default
+ host must be able to communicate with 
+\emph on
+any
+\emph default
+ other host of the 
+\emph on
+same
+\emph default
+ cluster.
 \end_layout
 
 \begin_layout Section
