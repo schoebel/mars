@@ -3551,8 +3551,15 @@ marsadm log-delete-all all
  case some new MARS features should be added.
 \end_layout
 
-\begin_layout Subsection
+\begin_layout Section
 Switch Primary / Secondary Roles
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Switch-Primary-/"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -3569,7 +3576,7 @@ Switch Primary / Secondary Roles
 
 \begin_layout Standard
 \noindent
-In contrast to DRBD, MARS distinguishes between 
+MARS distinguishes between 
 \emph on
 intended
 \emph default
@@ -3578,22 +3585,12 @@ intended
 forced
 \emph default
  switching.
- This distinction is necessary due to differences in the communication architect
-ure (asynchronous communication vs synchronous communication, see sections
- 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:The-Lamport-Clock"
-
-\end_inset
-
- and 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:The-Symlink-Tree"
-
-\end_inset
-
+ This distinction is necessary due to the communication architecture (asynchrono
+us communication vs synchronous communication, see explanation of Lamport
+ Clock in 
+\family typewriter
+mars-for-kernel-developers.pdf
+\family default
 ).
 \end_layout
 
@@ -3602,7 +3599,7 @@ Asynchronous communication means that (in worst case) a message may take
  (almost) arbitrary time in a distorted network to propagate to another
  node.
  As a consequence, the risk for accidentally creating an (unintended) split
- brain is increased (compared to a synchronous system like DRBD).
+ brain is increased (as compared to a synchronous system like DRBD).
 \end_layout
 
 \begin_layout Standard
@@ -3614,7 +3611,7 @@ intended
  primary switch.
 \end_layout
 
-\begin_layout Subsubsection
+\begin_layout Subsection
 Intended Switching / Planned Handover
 \begin_inset CommandInset label
 LatexCommand label
@@ -3628,11 +3625,11 @@ name "subsec:Intended-Switching"
 \begin_layout Standard
 Before starting a planned handover from your old primary 
 \family typewriter
-A
+hostA
 \family default
  to a new primary 
 \family typewriter
-B
+hostB
 \family default
 , you should check the replication of the resource.
  As a human, use 
@@ -3682,471 +3679,11 @@ contrib/example-scripts/check-mars-switchable.sh
 
 Best practice is to 
 \series bold
-prepare a planned handover
-\series default
- by the following steps:
-\end_layout
-
-\begin_layout Enumerate
-Check the network and the replication lag.
- It should be low (a few hundred megabytes, or a low number of gigabytes
- - see also the rough time forecast shown by 
-\family typewriter
-marsadm view mydata
-\family default
- when there is a larger replication delay, or directly access the forecast
- by 
-\family typewriter
-marsadm view-replinfo
-\family default
-).
-\end_layout
-
-\begin_layout Enumerate
-Only when the 
-\family typewriter
-systemd
-\family default
- method from section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:systemd-Templates"
-
-\end_inset
-
- is 
-\emph on
-not
-\emph default
- used: stop your application, then umount 
-\family typewriter
-/dev/mars/mydata
-\family default
- on host 
-\family typewriter
-A
-\family default
-.
-\end_layout
-
-\begin_layout Enumerate
-Optionally: when the 
-\family typewriter
-systemd
-\family default
- method from section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:systemd-Templates"
-
-\end_inset
-
- is 
-\emph on
-not
-\emph default
- used, and when scripting something else, or when typing extremely fast
- by hand, or for better safety: say 
-\family typewriter
-marsadm wait-umount mydata
-\family default
- on host 
-\family typewriter
-B
-\family default
-.
- When your network is OK, the propagation of the device usage state
+prepare
 \begin_inset Foot
 status open
 
 \begin_layout Plain Layout
-Notice that the usage check for 
-\family typewriter
-/dev/mars/mydata
-\family default
- on host 
-\family typewriter
-B
-\family default
- is based on the 
-\emph on
-open count
-\emph default
- transferred from 
-\emph on
-another
-\emph default
- node 
-\family typewriter
-A
-\family default
-.
- Since MARS is operating asynchronously (in contrast to DRBD), it may take
- some time until our node 
-\family typewriter
-B
-\family default
- knows that the device is no longer used at 
-\family typewriter
-A
-\family default
-.
- This can lead to a race condition if you automate an intended takeover
- with a script like 
-\family typewriter
-ssh root@A 
-\begin_inset Quotes eld
-\end_inset
-
-umount /dev/mars/mydata
-\begin_inset Quotes erd
-\end_inset
-
-; ssh root@B 
-\begin_inset Quotes eld
-\end_inset
-
-marsadm primary mydata
-\begin_inset Quotes erd
-\end_inset
-
-
-\family default
- because your second ssh command may be faster than the internal MARS symlink
- tree propagation (cf section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:The-Symlink-Tree"
-
-\end_inset
-
-).
- In order to prevent such races, you are strongly advised to use the command
-\end_layout
-
-\begin_layout Itemize
-
-\family typewriter
-marsadm wait-umount mydata
-\end_layout
-
-\begin_layout Plain Layout
-on node 
-\family typewriter
-B
-\family default
- before trying to become primary.
- See also section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:Scripting-HOWTO"
-
-\end_inset
-
-.
-\end_layout
-
-\end_inset
-
- should take only a few seconds.
- Otherwise, check for any network problems or any other problems.
-\begin_inset Newline newline
-\end_inset
-
-
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-This step is not really necessary, because 
-\family typewriter
-marsadm primary
-\family default
- will also wait for the 
-\family typewriter
-umount
-\family default
- before it will proceed.
- However, scripting this intermediate step gives you some more options:
- if the 
-\family typewriter
-umount
-\family default
- takes too long, you may program a different action, like re-starting at
- the old primary, or its contrary, some forced umount, or even continuing
- with a forceful failover instead (see section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "subsec:Forced-Switching"
-
-\end_inset
-
-).
-\end_layout
-
-\begin_layout Enumerate
-Optionally, and when the 
-\family typewriter
-systemd
-\family default
- method from section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:systemd-Templates"
-
-\end_inset
-
- is 
-\emph on
-not
-\emph default
- used: on host 
-\family typewriter
-B
-\family default
-, wait until 
-\family typewriter
-marsadm view mydata
-\family default
- (or 
-\family typewriter
-view-diskstate
-\family default
-) shows 
-\family typewriter
-UpToDate
-\family default
-.
- It is possible to omit this step, but then you have no control on the duration
- of the handover, and in case of any transfer problems, disk space problems,
- etc you are potentially risking to produce a split brain (although 
-\family typewriter
-marsadm
-\family default
- will do its best to avoid it).
- Doing the wait by yourself, 
-\emph on
-before
-\emph default
- starting 
-\family typewriter
-marsadm primary
-\family default
-, has a big advantage: you can abort the handover cycle at any time, just
- by re-mounting the device 
-\family typewriter
-/dev/mars/mydata
-\family default
- at the old primary 
-\family typewriter
-A
-\family default
- again, and by re-starting your application.
- Once you have started 
-\family typewriter
-marsadm primary
-\family default
- on host 
-\family typewriter
-B
-\family default
-, you might have to switch back, or possibly even via 
-\family typewriter
-primary --force
-\family default
- (see sections 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "subsec:Forced-Switching"
-
-\end_inset
-
- and 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "subsec:Split-Brain-Resolution"
-
-\end_inset
-
-).
-\end_layout
-
-\begin_layout Standard
-Switching the roles is very similar to DRBD: just issue the command
-\end_layout
-
-\begin_layout Itemize
-
-\family typewriter
-marsadm primary mydata
-\end_layout
-
-\begin_layout Standard
-on your formerly secondary node 
-\family typewriter
-B
-\family default
-.
- In combination with a properly set-up 
-\family typewriter
-systemd
-\family default
- method (see section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:systemd-Templates"
-
-\end_inset
-
-), this will even automatically start your application at the new site.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-The most important difference to DRBD: don't use an intermediate 
-\family typewriter
-marsadm secondary mydata
-\family default
- anywhere.
- Although it would be possible, it has some 
-\emph on
-disadvantages
-\emph default
-.
- Always switch 
-\emph on
-directly
-\emph default
-!
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-In contrast to DRBD, MARS remembers the designated primary, even when your
- system crashes and reboots.
- While in case of a crash you have to re-setup DRBD with commands like 
-\family typewriter
-drbdadm up 
-\begin_inset Formula $\ldots$
-\end_inset
-
-; drbdadm primary 
-\begin_inset Formula $\ldots$
-\end_inset
-
-
-\family default
-, MARS will automatically resume its former roles just by saying 
-\family typewriter
-modprobe mars
-\family default
-.
- In combination with a properly set-up 
-\family typewriter
-systemd
-\family default
- method (see section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:systemd-Templates"
-
-\end_inset
-
-), this will even automatically re-start your application.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-Another fundamental difference to DRBD: when the network is healthy, there
- can only exist 
-\emph on
-one
-\emph default
- designated primary at a time (modulo some communication delays caused by
- the 
-\begin_inset Quotes eld
-\end_inset
-
-eventually consistent
-\begin_inset Quotes erd
-\end_inset
-
- communication model, see section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:The-Lamport-Clock"
-
-\end_inset
-
-).
- By saying 
-\family typewriter
-marsadm primary mydata
-\family default
- on host 
-\family typewriter
-B
-\family default
-, 
-\series bold
-all other
-\series default
- hosts (including 
-\family typewriter
-A
-\family default
-) will 
-\series bold
-automatically go into secondary role
-\series default
- after a while!
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-You simply 
-\emph on
-don't need
-\emph default
- an intermediate 
-\family typewriter
-marsadm secondary mydata
-\family default
- for planned handover!
-\end_layout
-
-\begin_layout Standard
 Precondition for a plain 
 \family typewriter
 marsadm primary
@@ -4194,7 +3731,7 @@ marsadm primary
  may refuse to start.
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 These preconditions try to protect you from doing silly things, such as
  accidentally provoking a split brain error state.
  We try to avoid split brain as best as we can.
@@ -4214,7 +3751,211 @@ as best as it can
 .
 \end_layout
 
+\end_inset
+
+ a planned handover
+\series default
+ by the following steps:
+\end_layout
+
+\begin_layout Enumerate
+Check the network and the replication lag.
+ It should be low (a few hundred megabytes, or a low number of gigabytes
+ – see also the rough time forecast shown by 
+\family typewriter
+marsadm view mydata
+\family default
+ when there is a larger replication delay, or directly access the forecast
+ by 
+\family typewriter
+marsadm view-replinfo
+\family default
+).
+\end_layout
+
+\begin_layout Enumerate
+Only when the 
+\family typewriter
+systemd
+\family default
+ method from section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:systemd-Templates"
+
+\end_inset
+
+ is 
+\emph on
+not
+\emph default
+ used: stop your application on hostA, then say on hostA:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+umount /dev/mars/mydata
+\begin_inset Newline newline
+\end_inset
+
+
+\family default
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+If you use the automatic handover method provided by systemd templates (see
+ section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:systemd-Templates"
+
+\end_inset
+
+), this step is 
+\emph on
+not needed
+\emph default
+.
+\end_layout
+
+\begin_layout Enumerate
+Only when systemd templates are 
+\emph on
+not
+\emph default
+ used, and only for increased safety on hostA:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+marsadm wait-umount mydata
+\begin_inset Newline newline
+\end_inset
+
+
+\family default
+This will reduce the risk of 
+\series bold
+hanging umounts
+\series default
+ leading to long-lasting waits at the future primary hostB.
+ Such problems will be detected earlier, so you have more possibilties for
+ fixing them.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Also good practice: use 
+\family typewriter
+lsof /dev/mars/mydata
+\family default
+ before umount for even earlier detection of hanging processes.
+\end_layout
+
+\begin_layout Enumerate
+Optionally, and only when the 
+\family typewriter
+systemd
+\family default
+ method from section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:systemd-Templates"
+
+\end_inset
+
+ is 
+\emph on
+not
+\emph default
+ used: on host 
+\family typewriter
+B
+\family default
+, wait until 
+\family typewriter
+marsadm view-diskstate mydata
+\family default
+ shows 
+\family typewriter
+UpToDate
+\family default
+.
+ This way, you are gaining more control over the 
+\emph on
+duration
+\emph default
+ of the handover.
+ In case of unexpected network problems, disk space problems, etc, you can
+ script a compensation action like giving up much earlier, and restarting
+ your application at the old primary hostA much earlier.
+\end_layout
+
+\begin_layout Enumerate
+On hostB:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+marsadm primary mydata
+\family default
+
+\begin_inset Newline newline
+\end_inset
+
+When combined with the 
+\family typewriter
+systemd
+\family default
+ method (see section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:systemd-Templates"
+
+\end_inset
+
+), this will even automatically stop the application at hostA, wait for
+ handover, and start the application at hostB.
+\end_layout
+
 \begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+The most important difference to DRBD: don't use an intermediate 
+\family typewriter
+marsadm secondary mydata
+\family default
+ at hostA.
+ Although it is possible, there are severeral 
+\emph on
+disadvantages
+\emph default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
 \noindent
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
@@ -4223,92 +3964,211 @@ as best as it can
 
 \end_inset
 
- Don't 
+ 
+\family typewriter
+marsadm secondary
+\family default
+ is 
 \emph on
-rely
+discouraged
 \emph default
- on split brain avoidance, in particular when scripting any higher-level
- applications such as cluster managers (cf.
- section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:Scripting-HOWTO"
-
+ for several reasons.
+ It tells the 
+\emph on
+whole cluster
+\emph default
+ that 
+\emph on
+nobody
+\emph default
+ is designated as primary anymore.
+ 
+\emph on
+All
+\emph default
+ nodes should go into secondary mode, globally.
+ In the current version of MARS, the secondaries will no long fetch any
+ logfiles, since in split brain situations they don't know which version
+ is the 
+\begin_inset Quotes eld
 \end_inset
 
-).
- 
-\family typewriter
-marsadm
-\family default
- does its best, but at least in case of (unnoticed) network outages / partitions
- (or 
-\emph on
-extremely, really extremely
-\emph default
- slow / overloaded networks), an attempt to become 
-\family typewriter
-UpToDate
-\family default
- may fail.
- If you want to 
-\emph on
-ensure
-\emph default
- that no split brain can result from intended primary switching, please
- obey the the best practices from above, and please give the 
-\family typewriter
-primary
-\family default
- command only after your secondary is 
-\emph on
-known
-\begin_inset Foot
-status open
+right
+\begin_inset Quotes erd
+\end_inset
 
-\begin_layout Plain Layout
-As noted in many places in this manual, checking this cannot be done by
- looking at the local state of a single cluster node.
- You have to check several nodes.
- 
+ one.
+ When a primary host is designated, this is the 
+\begin_inset Quotes eld
+\end_inset
+
+right
+\begin_inset Quotes erd
+\end_inset
+
+ one by definition.
+ Syncing is also not possible when there is no designated primary.
+ When the device 
 \family typewriter
-marsadm
+/dev/mars/mydata
 \family default
- can only check the 
+ is in use somewhere, it will remain in 
 \emph on
-local
+actual
 \emph default
- node reliably!
+ primary mode during that time, and the secondaries will sync therefrom.
+ As soon as the local 
+\family typewriter
+/dev/mars/mydata
+\family default
+ is released, the node will 
+\emph on
+actually
+\emph default
+ go into secondary mode if it is no longer designated as primary.
 \end_layout
 
 \end_inset
 
-
-\emph default
- to be 
+ from losing the primary state.
+ In case of an unexpected crash at the wrong moment, nobody might know anymore
+ where the primary was running before.
+ Best practice is to always switch 
 \emph on
-really
+directly
 \emph default
- 
-\family typewriter
-UpToDate
-\family default
- (see 
-\family typewriter
-marsadm wait-cluster
-\family default
- and 
-\family typewriter
-marsadm view
-\family default
- and other macros described in section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:Inspecting-the-State"
+ from the old primary hostA to the new primary hostB.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
 
 \end_inset
 
-).
+ If you need the local device 
+\family typewriter
+/dev/mars/mydata
+\family default
+ to disappear 
+\emph on
+everywhere
+\emph default
+ in the whole cluster, you don't need the discouraged 
+\family typewriter
+marsadm secondary
+\family default
+ command.
+ 
+\family typewriter
+marsadm detach
+\family default
+ or 
+\family typewriter
+marsadm down
+\family default
+ can do it also, without destroying knowledge about the former designated
+ primary.
+ There is only one use case where 
+\family typewriter
+marsadm secondary
+\family default
+ is really needed: final destruction of a resource before 
+\family typewriter
+marsadm delete-resource
+\family default
+ is executed.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+In contrast to DRBD, MARS remembers the designated primary, even when your
+ system crashes and reboots.
+ With DRBD, you typically will have to re-setup the DRBD roles with (scripted)
+ commands like 
+\family typewriter
+drbdadm up 
+\begin_inset Formula $\ldots$
+\end_inset
+
+; drbdadm primary 
+\begin_inset Formula $\ldots$
+\end_inset
+
+
+\family default
+.
+ Instead, MARS will 
+\series bold
+automatically resume
+\series default
+ its former roles just by saying 
+\family typewriter
+modprobe mars
+\family default
+.
+ When combined with a proper 
+\family typewriter
+systemd
+\family default
+ setup (see section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:systemd-Templates"
+
+\end_inset
+
+), this will even automatically re-start your application after the crash.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Another fundamental difference to DRBD: when the network is healthy, there
+ can only exist 
+\emph on
+one
+\emph default
+ designated primary at a time.
+ By saying 
+\family typewriter
+marsadm primary mydata
+\family default
+ on host
+\family typewriter
+B
+\family default
+, 
+\series bold
+all other
+\series default
+ hosts (including 
+\family typewriter
+hostA
+\family default
+) will 
+\series bold
+automatically go into secondary role
+\series default
+ after a while.
+ You don't need to tell them explicitly, because MARS is automatically propagati
+ng the information for you.
 \end_layout
 
 \begin_layout Standard
@@ -4338,8 +4198,7 @@ marsadm view mydata
 view-replinfo
 \family default
 ).
- However, on very flaky networks, the estimation may not only flicker much,
- but also be inaccurate.
+ However, on very flaky networks, the estimation may be flickering.
 \end_layout
 
 \begin_layout Standard
@@ -4355,7 +4214,7 @@ view-replinfo
 \emph on
 by default
 \emph default
- when some sync is running somewhere.
+ when some sync is running somewhere, even at a third hostC.
  By adding the option 
 \family typewriter
 --ignore-sync
@@ -4364,11 +4223,11 @@ by default
 \emph on
 safety measure
 \emph default
-, and you are willing to accept that any already running syncs will restart
- from point 0, in order to ensure consistency.
+, and you are willing to accept that any already running sync at any hostC
+ or hostD will restart from point 0, in order to ensure consistency.
 \end_layout
 
-\begin_layout Subsubsection
+\begin_layout Subsection
 Forced Switching
 \begin_inset CommandInset label
 LatexCommand label
@@ -4380,8 +4239,9 @@ name "subsec:Forced-Switching"
 \end_layout
 
 \begin_layout Standard
-In case the connection to the old primary is lost for whatever reason, we
- just don't know anything about its 
+In case of an incident, the connection to the old primary hostA may be lost
+ for several reasons.
+ Then, at hostB, we just don't know anything about its 
 \emph on
 current
 \emph default
@@ -4392,10 +4252,14 @@ last known
  state).
  The following command sequence will skip many checks (essentially you just
  need to be attached and you must not be a current sync target) and tell
- your node to become primary forcefully:
+ hostB to become primary forcefully:
 \end_layout
 
-\begin_layout Itemize
+\begin_layout Enumerate
+On hostB:
+\begin_inset Newline newline
+\end_inset
+
 
 \family typewriter
 marsadm pause-fetch mydata
@@ -4420,7 +4284,7 @@ marsadm pause-fetch mydata
 \family typewriter
 drbdadm disconnect mydata
 \family default
- as you are probably used from DRBD.
+ as you might be used from DRBD.
  For better compatibility with DRBD, you may use the alternate syntax 
 \family typewriter
 marsadm disconnect mydata
@@ -4431,9 +4295,10 @@ marsadm disconnect mydata
 both
 \emph default
  sides of its single bi-directional connection and no longer try to re-connect
- from any of both sides, while 
+ from any of both sides.
+ In contrast, 
 \family typewriter
-pause-fetch
+marsadm pause-fetch
 \family default
  is equivalent to 
 \family typewriter
@@ -4450,8 +4315,8 @@ not
 \emph default
  instructed to do so.
  They may continue fetching logfiles over their own private TCP connections,
- potentially using many connections in parallel, and potentially even from
- any 
+ potentially using many connections in parallel, potentially distributed
+ over multiple routes, and potentially even from any 
 \emph on
 other
 \emph default
@@ -4486,10 +4351,14 @@ reference "subsec:Operation-of-the"
 \end_layout
 
 \end_deeper
-\begin_layout Itemize
-
+\begin_layout Enumerate
+On hostB:
 \family typewriter
-marsadm primary mydata --force
+
+\begin_inset Newline newline
+\end_inset
+
+marsadm primary --force mydata
 \family default
 
 \begin_inset Separator latexpar
@@ -4508,7 +4377,7 @@ marsadm primary mydata --force
 \end_inset
 
  this is the forceful failover.
- Depending on the current replication lag, you may loose some data.
+ Depending on the current replication lag, you may lose some data.
  Use 
 \family typewriter
 --force
@@ -4546,10 +4415,27 @@ reference "sec:systemd-Templates"
 
 \end_inset
 
- when the network is interrupted, the old primary site cannot know this,
- and will continue running.
- Once the metadata exchange is working again (by default on port 7777),
- the old site will be automatically shut down by its local 
+ when the replication network is interrupted while the old primary hostA
+ continues
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Notice: in certain network outage scenarios, you may not be able to remotely
+ login to the console and to check whether a server is running.
+ Therefore it may happen that you erronously think hostA is dead, while
+ in reality it continues running.
+ Even if you would know it, you might not be able to remotely kill it in
+ a STONITH-like manner.
+\end_layout
+
+\end_inset
+
+ running, it cannot know that hostB is the new designated primary.
+ Therefore hostA will continue running by default.
+ This means that your application will run twice! Only when the metadata
+ exchange is working again (by default on port 7777), the old hostA will
+ be automatically shut down by its local 
 \family typewriter
 systemd
 \family default
@@ -4573,7 +4459,7 @@ reference "subsec:Intended-Switching"
 \end_inset
 
 , this may happen much later.
- In case of long-last network outages, even days or weeks!
+ In case of very long-last network outages, it may take even days or weeks.
 \end_layout
 
 \begin_layout Standard
@@ -4605,7 +4491,11 @@ only
 \end_layout
 
 \end_deeper
-\begin_layout Itemize
+\begin_layout Enumerate
+For safety on hostB:
+\begin_inset Newline newline
+\end_inset
+
 
 \family typewriter
 marsadm resume-fetch mydata
@@ -4619,8 +4509,8 @@ marsadm resume-fetch mydata
 
 \begin_deeper
 \begin_layout Standard
-As such, the new primary does not really need this, because primaries are
- producing their own logfiles without need for fetching.
+The new primary would not really need this, because primaries are producing
+ their own logfiles without need for fetching.
  This is only to undo the previous 
 \family typewriter
 pause-fetch
@@ -4637,12 +4527,12 @@ When using
 \family typewriter
 --force
 \family default
-, many precondition checks and other internal checks are skipped, and in
- particular the internal handover protocol for split brain avoidance.
+, many precondition checks and other internal checks are skipped, in particular
+ the internal handover protocol for split brain avoidance.
 \end_layout
 
 \begin_layout Standard
-Therefore, use of 
+In general, use of 
 \family typewriter
 --force
 \family default
@@ -4674,8 +4564,8 @@ Split brain
 \series bold
 erroneous state
 \series default
- which should be never entered deliberately! Once you have entered it accidental
-ly, you 
+ which should be never entered without reason! Once you have entered it
+ accidentally, you 
 \series bold
 must
 \series default
@@ -4690,116 +4580,7 @@ reference "subsec:Split-Brain-Resolution"
 \end_layout
 
 \begin_layout Standard
-In order to impede you from giving an accidental 
-\family typewriter
---force
-\family default
-, the precondition is different: 
-\family typewriter
---force
-\family default
- works only in 
-\emph on
-locally disconnected
-\emph default
- state.
- This is similar to DRBD.
-\end_layout
-
-\begin_layout Standard
-Remember: 
-\family typewriter
-marsadm primary
-\family default
- without 
-\family typewriter
---force
-\family default
- tries to prevent split brain as best as it can.
- Use of the 
-\family typewriter
---force
-\family default
- option will almost 
-\emph on
-certainly
-\emph default
- provoke a split brain, at least if the old primary continues to operate
- on its local 
-\family typewriter
-/dev/mars/mydata
-\family default
- device.
- Therefore, you are 
-\series bold
-strongly advised
-\series default
- to do this 
-\series bold
-only
-\series default
- after
-\end_layout
-
-\begin_layout Enumerate
-
-\family typewriter
-marsadm primary
-\family default
- without 
-\family typewriter
---force
-\family default
- has failed 
-\emph on
-for no good reason
-\emph default
-
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-Most reasons will be displayed by 
-\family typewriter
-marsadm
-\family default
- when it is rejecting the planned handhover.
-\end_layout
-
-\end_inset
-
-, and
-\end_layout
-
-\begin_layout Enumerate
-You are sure you 
-\emph on
-really
-\emph default
- want to switch, even when that eventually leads to a split brain.
- You also declare that you are willing to do 
-\emph on
-manual
-\emph default
- split-brain resolution as described in section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "subsec:Split-Brain-Resolution"
-
-\end_inset
-
-, or even destruction / reconstruction of a damaged node as described in
- section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "subsec:Final-Destroy-of"
-
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Standard
+\noindent
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
 	lyxscale 50
@@ -4807,17 +4588,17 @@ reference "subsec:Final-Destroy-of"
 
 \end_inset
 
- Notice: in case of 
+ In case of 
 \emph on
 connection loss
 \emph default
  (e.g.
  networking problems / network partitions), you may not be able to reliably
- detect whether a split brain actually resulted, or not.
+ detect whether a split brain has actually occured, or not.
 \end_layout
 
 \begin_layout Paragraph
-Some Background
+Some Background (may be skipped)
 \end_layout
 
 \begin_layout Standard
@@ -4826,11 +4607,11 @@ In contrast to DRBD, split brain situations are handled differently by MARS
  When two primaries are accidentally active at the same time, each of them
  writes into different logfiles 
 \family typewriter
-/mars/resource-mydata/log-000000001-A
+/mars/resource-mydata/log-000000001-hostA
 \family default
  and 
 \family typewriter
-/mars/resource-mydata/log-000000001-B
+/mars/resource-mydata/log-000000001-hostB
 \family default
  where the 
 \emph on
@@ -4867,75 +4648,6 @@ log-rotate
 \end_layout
 
 \begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- 
-\family typewriter
-marsadm secondary
-\family default
- is 
-\emph on
-strongly discouraged
-\emph default
-.
- It tells the whole cluster that 
-\emph on
-nobody
-\emph default
- is designated as primary any more.
- 
-\emph on
-All
-\emph default
- nodes should go into secondary mode, globally.
- In the current version of MARS, the secondaries will no long fetch any
- logfiles, since they don't know which version is the 
-\begin_inset Quotes eld
-\end_inset
-
-right
-\begin_inset Quotes erd
-\end_inset
-
- one.
- Syncing is also not possible.
- When the device 
-\family typewriter
-/dev/mars/mydata
-\family default
- is in use somewhere, it will remain in 
-\emph on
-actual
-\emph default
- primary mode during that time.
- As soon as the local 
-\family typewriter
-/dev/mars/mydata
-\family default
- is released, the node will 
-\emph on
-actually
-\emph default
- go into secondary mode if it is no longer designated as primary.
- You should avoid it in advance by always 
-\emph on
-directly
-\emph default
- switching over from one primary to another one, without intermediate 
-\family typewriter
-secondary
-\family default
- command.
- This is different from DRBD.
-\end_layout
-
-\begin_layout Standard
 \begin_inset Graphics
 	filename images/lightbulb_brightlit_benj_.png
 	lyxscale 12
@@ -4951,56 +4663,15 @@ passively
  Whenever a secondary detects that somewhere a split brain has happend,
  it refuses to replay any logfiles behind the split point (and also to fetch
  them when possible), or anywhere where something appears suspect or ambiguous.
- This tries to keep its local disk state always being consistent, but outdated
- with respect to any of the split brain versions.
- As a consequence, becoming primary may be impossible, because it cannot
- always know which logfiles are the correct ones to replay before 
-\family typewriter
-/dev/mars/mydata
-\family default
- can appear.
- The ambiguity must be resolved first.
-\end_layout
-
-\begin_layout Standard
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
+ This tries to keep its local disk state always being 
+\begin_inset Quotes eld
 \end_inset
 
- If you 
-\emph on
-really
-\emph default
- need the local device 
-\family typewriter
-/dev/mars/mydata
-\family default
- to disappear 
-\emph on
-everywhere
-\emph default
- in a split brain situation, you don't need a 
-\emph on
-strongly discouraged
-\emph default
- 
-\family typewriter
-marsadm secondary
-\family default
- command for this.
- 
-\family typewriter
-marsadm detach
-\family default
- or 
-\family typewriter
-marsadm down
-\family default
- can do it also, without destroying knowledge about the former designated
- primary.
+as consistent as possible
+\begin_inset Quotes erd
+\end_inset
+
+, but outdated with respect to any of the split brain versions.
 \end_layout
 
 \begin_layout Standard
@@ -5015,7 +4686,7 @@ marsadm down
 \family typewriter
 marsadm primary –force
 \family default
- is rejected in newer
+ is rejected in newer marsadm versions
 \begin_inset Foot
 status open
 
@@ -5025,13 +4696,13 @@ Beware: older versions before
 mars0.1stable52
 \family default
  did deliberately skip this check because a few years ago somebody at 1&1
- did place a 
+ placed a 
 \emph on
 requirement
 \emph default
  on this.
- Fortunately, the requirement now has gone, so a more safe behaviour could
- be implemented.
+ Fortunately, the requirement now has gone, so a safee behaviour could be
+ implemented.
  The new behaviour is for your safety, to prevent you from doing 
 \begin_inset Quotes eld
 \end_inset
@@ -5046,14 +4717,14 @@ silly
 
 \end_inset
 
- marsadm versions if your replica is a current sync target.
+ if your replica is a current sync target.
  This is not a bug: it should prevent you from forcing an inconsistent replica
  into primary mode, which will 
 \emph on
 certainly
 \emph default
  lead to inconsistent data.
- However, in extreme rare cases of severe damage of 
+ However, in extremely rare cases of severe damage of 
 \emph on
 all
 \emph default
@@ -5067,16 +4738,16 @@ all
 \family typewriter
 marsadm fake-sync
 \family default
- to first mark your inconsisten replica as UpToDate (which is a 
+ to first mark your inconsistent replica as UpToDate (which is a 
 \series bold
 lie
 \series default
 ) and then force it to primary as explained above.
- Afterwards, you will certainly need an 
+ Afterwards, you will certainly need 
 \family typewriter
 fsck
 \family default
- or similar repair before you can restart your application.
+ or another type of repair before you can restart your application.
  Good luck! And don't forget to check the size of 
 \family typewriter
 lost+found
