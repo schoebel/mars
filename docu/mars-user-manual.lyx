@@ -4760,7 +4760,7 @@ very last
  chance if nothing else had succeeded before.
 \end_layout
 
-\begin_layout Subsection
+\begin_layout Section
 Split Brain Resolution
 \begin_inset CommandInset label
 LatexCommand label
@@ -4776,6 +4776,25 @@ Split brain can naturally occur during a long-lasting network outage (aka
  network partition) when you (forcefully) switch primaries inbetween, or
  due to final loss of your old primary node (fatal node crash) when not
  all logfile data had been transferred immediately before the final crash.
+\end_layout
+
+\begin_layout Standard
+In general, 
+\series bold
+split brain is unavoidable
+\series default
+ in 
+\emph on
+any
+\emph default
+ distributed system, even if you use a passive crossover cable with DRBD,
+ and when the crossover cable fails at the wrong moment.
+ Please search Wikipedia for the CAP theorem, or read the corresponding
+ section in 
+\family typewriter
+mars-architecture-guide.pdf
+\family default
+.
 \end_layout
 
 \begin_layout Standard
@@ -4822,7 +4841,21 @@ right
 \emph on
 your
 \emph default
- fault, not the fault of MARS.
+ fault.
+\begin_inset Newline newline
+\end_inset
+
+Newer versions of 
+\family typewriter
+marsadm view
+\family default
+ are supporting your decision by telling you the amount of logfile data
+ you would destroy when destroying a certain version of a certain host.
+ Typically, the smaller version is a candidate for destruction.
+ However, there are situations where this may be wrong, such as amok-running
+ applications running like endless loops, or Spammer attacks against databases,
+ or similar.
+ MARS cannot know about this.
 \end_layout
 
 \begin_layout Enumerate
@@ -4890,36 +4923,24 @@ eventually consistent
 \begin_inset Quotes erd
 \end_inset
 
- behaviour including the not-yet-consistent intermediate states, see sections
- 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:The-Lamport-Clock"
-
-\end_inset
-
- and 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:The-Symlink-Tree"
-
-\end_inset
-
-), you may deviate from this requirement.
+ behaviour including any not-yet-consistent intermediate states), you may
+ deviate from this requirement, at your own risk.
 \end_layout
 
 \end_inset
 
  be able to communicate with each other.
- If that is not possible, or if it takes too long, you may fall back to
- the method described in section 
+ If this is not possible, or if it would take too long, fall back to one
+ of the method described in appendix ......
+ ......
+ section 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "subsec:Final-Destroy-of"
 
 \end_inset
 
-, but do this only as far as necessary.
+, but do this only when necessary.
 \end_layout
 
 \begin_layout Standard
@@ -4945,6 +4966,14 @@ wrong
 \end_layout
 
 \begin_layout Enumerate-Resume
+On 
+\series bold
+all
+\series default
+ affected secondary nodes hostX where SPLIT BRAIN is reported:
+\begin_inset Newline newline
+\end_inset
+
 
 \family typewriter
 marsadm invalidate mydata
@@ -4967,16 +4996,34 @@ setcounter{enumi}{4}
 
 \begin_layout Standard
 \noindent
-When no split brain is reported anymore after that (via 
+Typically, no split brain is reported anymore after that (via 
 \family typewriter
 marsadm view all
 \family default
-), you are done.
- You need to repeat this on other secondaries only when necessary.
+), and you are done.
 \end_layout
 
 \begin_layout Standard
-In very rare cases when things are screwed up very heavily (e.g.
+In rare cases (when 
+\family typewriter
+/mars
+\family default
+ is almost full somewhere, or when emergency mode has occured somewhere),
+ you may need to run 
+\family typewriter
+marsadm cron
+\family default
+ at the primary host, and to repeat 
+\family typewriter
+marsadm invalidate
+\family default
+ on any SPLIT BRAIN host.
+ In extremely rare of overloaded nodes, you may need to repeat this several
+ times.
+\end_layout
+
+\begin_layout Standard
+In very rare cases, when things are screwed up very heavily (e.g.
  a partly destroyed 
 \family typewriter
 /mars/
@@ -5017,12 +5064,28 @@ restarting
 \end_layout
 
 \begin_layout Paragraph
-Keeping a Split Brain Version
+Retaining a Split Brain Version (optionally, typically not needed, may be
+ skipped)
 \end_layout
 
 \begin_layout Standard
-On those cluster node(s) where you want to retain the version (e.g.
- for inspection purposes):
+On those cluster nodes where you want to retain some SPLIT BRAIN version
+ (e.g.
+ for inspection or debugging purposes, or as a kind of 
+\begin_inset Quotes eld
+\end_inset
+
+emergengy backup
+\begin_inset Quotes erd
+\end_inset
+
+):
+\end_layout
+
+\begin_layout Enumerate-Resume
+
+\family typewriter
+marsadm down mydata
 \end_layout
 
 \begin_layout Enumerate-Resume
@@ -5041,12 +5104,12 @@ all
 \family typewriter
 marsadm view mydata
 \family default
-), as documented above.
+ at the primary).
  In very rare cases, you might also need a 
 \family typewriter
 log-purge-all
 \family default
- (see page 
+ at the primary (see page 
 \begin_inset CommandInset ref
 LatexCommand pageref
 reference "log-purge-all$res"
@@ -5057,57 +5120,88 @@ reference "log-purge-all$res"
 \end_layout
 
 \begin_layout Enumerate-Resume
-Rename the underlying local disk 
+Rename the underlying local 
 \family typewriter
-/dev/lv-x/mydata
+/dev/lv/mydata
 \family default
  is into something like 
 \family typewriter
-/dev/lv-x/mynewdata
+/dev/lv/mydata
 \family default
- (see 
+-backup.
+ For example:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+lvrename lv mydata mydata-backup
+\family default
+
+\begin_inset Newline newline
+\end_inset
+
+For details, see 
 \family typewriter
 man lvrename
 \family default
-) This is 
+.
+ This is 
 \emph on
 extremely
 \emph default
- recommended to avoid confusion with the old resource name!
+ recommended to avoid confusion with the old resource name.
 \end_layout
 
 \begin_layout Enumerate-Resume
-Check that each underlying local disk 
+For safety: check that each underlying local disk 
 \family typewriter
-/dev/lv-x/mynewdata
+/dev/lv/mydata-backup
 \family default
  is really usable afterwards, e.g.
- by test-mounting it (or 
+ by test-mounting it (and 
 \family typewriter
 fsck
 \family default
- if you can afford it).
+ when needed).
  If all is OK, don't forget to umount it before proceeding with the next
  step.
 \end_layout
 
 \begin_layout Enumerate-Resume
-Create a completely new MARS resource out of the underlying disk 
+Finally, you may either delete your backup somewhen via 
 \family typewriter
-/dev/lv-x/mynewdata
+lvremove
 \family default
- having a different name, best is 
-\family typewriter
-mynewdata
-\family default
- (see description in section 
+, or you may create a completely new MARS resource out of it, but 
+\emph on
+under a different name
+\emph default
+.
+ See description in section 
 \begin_inset CommandInset ref
 LatexCommand vref
 reference "sec:Creating-and-Maintaining"
 
 \end_inset
 
-).
+.
+\end_layout
+
+\begin_layout Enumerate-Resume
+Optionally, if you have enough disk space (check with 
+\family typewriter
+vgs
+\family default
+): re-create your replica by freshly creating a new 
+\family typewriter
+/dev/vg/mydata
+\family default
+ with the right size, and 
+\family typewriter
+marsadm join-resource mydata /dev/vg/mydata
+\family default
+.
 \end_layout
 
 \begin_layout Standard
@@ -5131,13 +5225,13 @@ lot
 \end_layout
 
 \begin_layout Paragraph
-Keeping a Good Version
+Keeping a Good Version (typically no actions needed)
 \end_layout
 
 \begin_layout Standard
 When you had a secondary which did not participate in the split brain, but
  just got confused and therefore stopped replaying logfiles immediately
- before the split-brain point, it may very well happen
+ before the split-brain point, it will typically
 \begin_inset Foot
 status open
 
@@ -5185,8 +5279,12 @@ future.
 
 \end_inset
 
- that you don't need to do any action for it.
- When all wrong versions have disappeared from the cluster (by 
+ resume replay after the SPLIT BRAIN has been resolved at the other nodes.
+ Then you don't need to do any action for it.
+\end_layout
+
+\begin_layout Standard
+When all SPLIT BRAIN versions have disappeared from the cluster (by 
 \family typewriter
 invalidate
 \family default
