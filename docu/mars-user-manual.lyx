@@ -5378,7 +5378,7 @@ marsadm view all
  This way, you can often skip unnecessary invalidations of replicas.
 \end_layout
 
-\begin_layout Subsection
+\begin_layout Section
 Final Destruction of a Damaged Node
 \begin_inset CommandInset label
 LatexCommand label
@@ -5390,7 +5390,27 @@ name "subsec:Final-Destroy-of"
 \end_layout
 
 \begin_layout Standard
-When a node has eventually died, do the following steps ASAP:
+When a node has eventually died (e.g.
+ defective hardware), 
+\series bold
+do not forget
+\series default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+If you forget this, 
+\family typewriter
+/mars
+\family default
+ will fill up forever.
+ Finally, emergency mode will be triggered.
+\end_layout
+
+\end_inset
+
+ the following steps ASAP:
 \end_layout
 
 \begin_layout Enumerate
@@ -5407,7 +5427,12 @@ Physically
 \family default
  filesystem, a half-defective kernel, RAM / kernel memory corruption, disk
  corruption, or whatever.
- Don't risk any such unpredictable behaviour!
+ Although MARS has some provisions like md5 checksums in its transaction
+ logfiles: don't risk any 
+\series bold
+unpredictable behaviour
+\series default
+!
 \end_layout
 
 \begin_layout Enumerate
@@ -5424,12 +5449,12 @@ right
 \end_inset
 
  one.
- Any error is up to you: resurrecting an unnecessarily old / outdated version
- and/or destroying the newest / best version is 
+ Any human error is up to you: resurrecting an unnecessarily old / outdated
+ version and/or decommissioning the productive primary server will be 
 \emph on
 your
 \emph default
- fault, not the fault of MARS.
+ fault.
 \end_layout
 
 \begin_layout Enumerate
@@ -5445,11 +5470,7 @@ reference "subsec:Forced-Switching"
 \end_layout
 
 \begin_layout Enumerate
-On a surviving node, but preferably 
-\emph on
-not
-\emph default
- the new designated primary, give the following commands:
+On a surviving node, give the following commands:
 \begin_inset Separator latexpar
 \end_inset
 
@@ -5460,13 +5481,13 @@ not
 \begin_layout Enumerate
 
 \family typewriter
-marsadm --host=your-damaged-host down mydata
+marsadm --host=your-damaged-host down mydata --force
 \end_layout
 
 \begin_layout Enumerate
 
 \family typewriter
-marsadm --host=your-damaged-host leave-resource mydata
+marsadm --host=your-damaged-host leave-resource mydata --force
 \end_layout
 
 \begin_layout Standard
@@ -5485,12 +5506,31 @@ marsadm --host=your-damaged-host leave-resource mydata
 status open
 
 \begin_layout Plain Layout
-That said, MARS is rather tolerant of human error.
- Once a sysadmin accidentally destroyed a cluster while it was continuously
- running as primary.
- Fortunately, the problem was detected early enough for a correction without
- causing any extraordinary customer downtime outside of accepted tolerances,
- and no data loss at all.
+That said, MARS appears to be rather tolerant of human errors.
+ As long as your 
+\family typewriter
+/dev/vg/mydata
+\family default
+ is not removed at LVM level, you have a chance for recovery.
+ Once a sysadmin destroyed a whole cluster by accident, including all of
+ its resources, and while it was continuously running in primary role.
+ Even transaction logging did continue on some orphan logfiles, but 
+\family typewriter
+/mars
+\family default
+ was filling up 
+\begin_inset Quotes eld
+\end_inset
+
+unexpectedly
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Fortunately, this behaviour led to a monitoring alert and to detection
+ of the problem.
+ It was early enough for a correction without causing any extraordinary
+ customer downtime outside of accepted SLAs, and no data loss at all.
 \end_layout
 
 \end_inset
@@ -5499,20 +5539,6 @@ That said, MARS is rather tolerant of human error.
 \end_layout
 
 \end_deeper
-\begin_layout Enumerate
-In case any of the previous commands should fail (which is rather likely),
- repeat it with an additional 
-\family typewriter
---force
-\family default
- option.
- Don't use 
-\family typewriter
---force
-\family default
- in the first place, alway try first without it!
-\end_layout
-
 \begin_layout Enumerate
 Repeat the same with 
 \emph on
@@ -5526,19 +5552,17 @@ your-damaged-host
 \end_layout
 
 \begin_layout Enumerate
-Finally, say 
+Finally, say
 \family typewriter
-marsadm --host=your-damaged-host leave-cluster
-\family default
- (optionally augmented with 
-\family typewriter
---force
-\family default
-).
+
+\begin_inset Newline newline
+\end_inset
+
+marsadm --host=your-damaged-host leave-cluster --force
 \end_layout
 
 \begin_layout Standard
-Now your surviving nodes should 
+Now all your surviving nodes should 
 \emph on
 believe
 \emph default
@@ -5547,6 +5571,11 @@ believe
 your-damaged-host
 \family default
  does no longer exist, and that it does no longer participate in any resource.
+ For safety, check this via 
+\family typewriter
+marsadm view
+\family default
+ everywhere.
 \end_layout
 
 \begin_layout Standard
@@ -5559,7 +5588,7 @@ your-damaged-host
 \end_inset
 
  Even if your dead node comes to life again in some way: always ensure that
- the mars kernel module cannot run any more.
+ the mars kernel module cannot run any more on such a zombie server.
  
 \emph on
 Never
@@ -5572,7 +5601,8 @@ modprobe mars
 \end_layout
 
 \begin_layout Standard
-Further instructions for complicated cases are in appendix 
+Further instructions for complicated cases of destruction are in appendix
+ 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "chap:Alternative-De--and"
