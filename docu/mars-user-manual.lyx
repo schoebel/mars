@@ -2808,44 +2808,23 @@ name "sec:Creating-and-Maintaining"
 \end_layout
 
 \begin_layout Standard
-In the following example session, a block device 
-\family typewriter
-/dev/lv-x/mydata
-\family default
- (shortly called 
-\emph on
-disk
-\emph default
-) must already exist on both nodes A and B, respectively, having the same
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-Actually, the disk at the initially secondary side may be larger than that
- at the initially primary side.
- This will waste space and is therefore not recommended.
-\end_layout
-
-\end_inset
-
- size.
- For the sake of simplicity, the disk (underlying block device) as well
- as its later logical resource name as well as its later virtual device
- name will all be named uniformly by the same suffix 
+For the sake of simplicity, the underlying LV as well as its later logical
+ resource name as well as its later virtual device name will all be named
+ uniformly by the same suffix 
 \family typewriter
 mydata
 \family default
 .
- In general, you might name each of them differently, but that is not recommende
-d since it may easily lead to confusion in larger installations.
+ In general, you might name each of them differently, but suchalike is not
+ recommended, since it may easily lead to confusion in larger installations.
 \end_layout
 
 \begin_layout Standard
-You may have already some data inside your disk 
+You may have some alreadypre-existing 
 \family typewriter
-/dev/lv-x/mydata
+/dev/lv/mydata
 \family default
- at the initially primary side A.
+ at the initially primary hostA.
  Before using it for MARS, it must be unused for any other purpose (such
  as being mounted, or used by DRBD, etc).
  MARS will require 
@@ -2855,12 +2834,78 @@ exclusive access
  to it.
 \end_layout
 
-\begin_layout Enumerate
-On node A, say 
+\begin_layout Standard
+If 
 \family typewriter
-marsadm create-resource mydata /dev/lv-x/mydata
+/dev/lv/mydata
 \family default
-.
+ already exists and contains some data (e.g.
+ previously used by DRBD), you should skip the first three steps, otherwise
+ you may destroy your data.
+\end_layout
+
+\begin_layout Enumerate
+On both hostA and hostB, create a LV.
+ In this example, its size is 50G:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+lvcreate -i 2 -L 50G -n mydata lv
+\end_layout
+
+\begin_layout Enumerate
+On each node, check that the new LV is occurring in each of the following
+ lists:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+lvs
+\end_layout
+
+\begin_layout Enumerate
+Only on hostA, you may create a new filesystem:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+mkfs.xfs /dev/vg/mydata
+\family default
+
+\begin_inset Newline newline
+\end_inset
+
+Alternatively, here is a variant for creation of a zfs filesystem:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+zpool create /dev/vg/mydata
+\family default
+
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+zpool export /dev/vg/mydata
+\end_layout
+
+\begin_layout Enumerate
+Only on hostA, say
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+marsadm create-resource mydata /dev/lv/mydata
+\family default
+
 \begin_inset Newline newline
 \end_inset
 
@@ -2868,35 +2913,39 @@ As a result, a directory
 \family typewriter
 /mars/resource-mydata/
 \family default
- will be created on node A, containing some symlinks.
- Node A will automatically start in the primary role for this resource.
+ will be created on hostA, containing some symlinks.
+ hostA will automatically start in the primary role for this resource.
  Therefore, a new pseudo-device 
 \family typewriter
 /dev/mars/mydata
 \family default
- will also appear after a few seconds.
+ will appear after a few seconds.
 \begin_inset Newline newline
 \end_inset
 
-Note that the initial contents of 
+Note that the initial content of 
 \family typewriter
 /dev/mars/mydata
 \family default
- will be exactly the same as in your pre-existing disk 
+ will be 
+\emph on
+exactly
+\emph default
+ the same as in your pre-existing LV 
 \family typewriter
-/dev/lv-x/mydata
+/dev/lv/mydata
 \family default
 .
 \begin_inset Newline newline
 \end_inset
 
-If you like, you may already use 
+If you like, you may now use 
 \family typewriter
 /dev/mars/mydata
 \family default
  for mounting your already pre-existing data, or for creating a fresh filesystem
 , or for exporting via iSCSI, and so on.
- You may even do so before any other cluster node has joined the resource
+ You may do so even before any other cluster node has joined the resource
  (so-called 
 \begin_inset Quotes eld
 \end_inset
@@ -2910,33 +2959,54 @@ standalone mode
 \end_layout
 
 \begin_layout Enumerate
-Wait a few seconds until the directory 
-\family typewriter
-/mars/resource-mydata/
-\family default
- and its symlink contents also appears on cluster node B.
- The command 
+On hostB:
+\begin_inset Newline newline
+\end_inset
+
+
 \family typewriter
 marsadm wait-cluster
 \family default
- may be helpful.
+
+\begin_inset Newline newline
+\end_inset
+
+Check that the directory 
+\family typewriter
+/mars/resource-mydata/
+\family default
+ and its symlink content is also appearing on hostB.
+ If not, check your network and/or firewall setup.
 \end_layout
 
 \begin_layout Enumerate
-On node B, say 
+On hostB:
+\begin_inset Newline newline
+\end_inset
+
+
 \family typewriter
-marsadm join-resource mydata /dev/lv-x/mydata
+marsadm join-resource mydata /dev/lv/mydata
 \family default
-.
+
 \begin_inset Newline newline
 \end_inset
 
 As a result, the initial full-sync from node A to node B should start automatica
 lly.
+\end_layout
+
+\begin_layout Enumerate
+On hostB, check that the sync is running after a few seconds:
 \begin_inset Newline newline
 \end_inset
 
 
+\family typewriter
+watch marsadm view all
+\end_layout
+
+\begin_layout Standard
 \begin_inset Graphics
 	filename images/MatieresCorrosives.png
 	lyxscale 50
@@ -2944,29 +3014,79 @@ lly.
 
 \end_inset
 
- Of course, your old contents of your disk 
+ Of course, now any old content 
 \family typewriter
-/dev/lv-x/mydata
+/dev/lv/mydata
 \family default
- at side B (and 
+ at hostB (and 
 \emph on
 only
 \emph default
- there!) is overwritten by the version from side A.
- Since you are an experienced sysadmin, you knew that, and it was just the
- effect you deliberately wanted to achieve.
- If you didn't check that your old contents didn't contain any valuable
- data (or if you accidentally provided a wrong disk device argument), it
- is too late now.
- The 
+ there!) is overwritten by the version from hostA.
+ This is just what you wanted to do by setting up MARS replication.
+ If you didn't check that your old contents at hostB didn't contain any
+ valuable data (or if you accidentally provided a wrong LV device argument),
+ it is too late now.
+ Therefore, double-check that you are running 
+\family typewriter
+create-resource
+\family default
+ and 
+\family typewriter
+join-resource
+\family default
+ at the right sides of your cluster, and with the right block device names.
+ Accidental confusion of the right sides, or accidental confusion of LV
+ names may overwrite valuable data with wrong data, or even with uninitialized
+ trash
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Trying to mount unintitialized LV data is bad practice.
+ It may even crash your kernel.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ In order to reduce suchalike risks, 
 \family typewriter
 marsadm
 \family default
- command checks that the disk device argument is really a block device,
- and that exclusive access to it is possible (as well as some further safety
- checks, e.g.
- matching sizes).
- However, MARS cannot know the 
+ does some basic checks.
+ It checks that the disk device argument is really a block device, and that
+ exclusive access to it is possible, as well as some further safety checks,
+ e.g.
+ whether the size is big enough.
+ Notice that bigger replica device sizes are allowed at secondaries, although
+ then you will waste some space.
+ In such a case, 
+\family typewriter
+marsadm view all
+\family default
+ will display a warning.
+ This behaviour is necessary as an intermediate step for online resizing
+ via 
+\family typewriter
+marsadm resize
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+MARS cannot know the 
 \emph on
 purpose
 \emph default
@@ -2993,7 +3113,7 @@ contents
 \family typewriter
 Orphan
 \family default
- is left after a while on B.
+ is left after a while on hostB.
  Notice that 
 \family typewriter
 join-resource
@@ -3014,7 +3134,7 @@ starting
 
 \end_inset
 
-Hint: by default, MARS uses the so-called 
+By default, MARS uses the so-called 
 \begin_inset Quotes eld
 \end_inset
 
