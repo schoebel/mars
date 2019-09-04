@@ -3296,50 +3296,6 @@ marsadm invalidate mydata
 HOWTO operation of MARS resources
 \end_layout
 
-\begin_layout Chapter
-Working with 
-\family typewriter
-marsadm
-\family default
- commands
-\end_layout
-
-\begin_layout Chapter
-Tuning, tips and tricks
-\end_layout
-
-\begin_layout Chapter
-Advanced users: automation and the macro processor
-\end_layout
-
-\begin_layout Section
-The 
-\family typewriter
-systemd
-\family default
- interface
-\end_layout
-
-\begin_layout Section
-The macro processor
-\end_layout
-
-\begin_layout Chapter
-Troubleshooting
-\end_layout
-
-\begin_layout Standard
-TBD: appendices....
-\end_layout
-
-\begin_layout Part
-Old Structure (TO DISAPPEAR)
-\end_layout
-
-\begin_layout Chapter
-Quick Start Guide
-\end_layout
-
 \begin_layout Section
 Keeping Resources Operational
 \end_layout
@@ -5906,6 +5862,50 @@ g primary disk.
 marsadm fake-sync mydata
 \family default
  to abort such unnecessary traffic.
+\end_layout
+
+\begin_layout Chapter
+Working with 
+\family typewriter
+marsadm
+\family default
+ commands
+\end_layout
+
+\begin_layout Chapter
+Tuning, tips and tricks
+\end_layout
+
+\begin_layout Chapter
+Advanced users: automation and the macro processor
+\end_layout
+
+\begin_layout Section
+The 
+\family typewriter
+systemd
+\family default
+ interface
+\end_layout
+
+\begin_layout Section
+The macro processor
+\end_layout
+
+\begin_layout Chapter
+Troubleshooting
+\end_layout
+
+\begin_layout Standard
+TBD: appendices....
+\end_layout
+
+\begin_layout Part
+Old Structure (TO DISAPPEAR)
+\end_layout
+
+\begin_layout Chapter
+Quick Start Guide
 \end_layout
 
 \begin_layout Section
