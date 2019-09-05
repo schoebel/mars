@@ -6912,6 +6912,13 @@ restarting
 \begin_layout Paragraph
 Retaining a Split Brain Version (optionally, typically not needed, may be
  skipped)
+\begin_inset CommandInset label
+LatexCommand label
+name "par:Retaining-a-Split"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -7687,23 +7694,63 @@ This leads to a potential risk from the perspective of a sysadmin: what
 \end_layout
 
 \begin_layout Standard
-No risk, no fun.
- If you want a system which survives long-lasting network outages while
- keeping your replicas always consistent (anytime consistency), you 
+In practice, no harm will occur to your data.
+ MARS will automatically go into the so-called emergency mode.
+ Resolution of emergency mode is very similar to resolution of split brain
+ (section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Resolution-of-Split"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+): at all of your secondaries, type (repeatedly)
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+marsadm invalidate all
+\end_layout
+
+\begin_layout Standard
+This is all you need to know.
+ If you are impatient, you may now skip the rest of this section.
+\end_layout
+
+\begin_layout Standard
+For some background explanations, keep reading on.
+\end_layout
+
+\begin_layout Standard
+Overflow and its treatment is 
+\emph on
+unavoidable
+\emph default
+ for long-distance replication.
+ If you want a system which can survive long-lasting network outages, while
+ keeping your replicas consistent as long as possible (called 
+\series bold
+anytime consistency
+\series default
+), then you 
 \emph on
 need
 \emph default
- dynamic memory for that.
+ dynamic storage.
  It is 
 \emph on
 impossible
 \emph default
- to solve that problem using static memory
+ to solve with static pre-allocated memory
 \begin_inset Foot
 status open
 
 \begin_layout Plain Layout
-The bitmaps used by DRBD don't preserve the 
+The bitmaps used by DRBD cannot preserve the 
 \emph on
 order
 \emph default
@@ -7737,20 +7784,82 @@ facts
 \end_inset
 
 .
+ A true solution would need 
+\emph on
+infinite memory
+\emph default
+.
+ But suchalike does not exist on earth.
 \end_layout
 
 \begin_layout Standard
-Therefore, DRBD and MARS have different application areas.
+It would be an even worse idea to statically pre-allocate a lot of space
+ for 
+\emph on
+each
+\emph default
+ of your resources.
+ The latter would waste a lot of space, because some resources will likely
+ fill much more quickly than others.
+ MARS deals with this by using a 
+\emph on
+common
+\emph default
+ filesystem /mars which is 
+\emph on
+shared
+\emph default
+ by the transaction logs of 
+\emph on
+all
+\emph default
+ of your resources.
+\end_layout
+
+\begin_layout Standard
+Although the size of /mars is statically allocated at cluster generation
+ time, there is a workaround for the problem.
+ When 
+\family typewriter
+/mars
+\family default
+ fills up during a network outage, and you have some spare space on your
+ VG, and when the network outage will be repaired shortly, you may decide
+ to dynamically extend /mars during operation.
+\end_layout
+
+\begin_layout Standard
+Because of these fundamental differences, DRBD and MARS have different applicati
+on areas.
  If you just want a simple system for mirroring your data over short distances
- like a crossover cable, DRBD will be a suitable choice.
+ via passive
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Notice: newer generation 10GBit technologies like SFP+ are no longer passive.
+ They involve some active chips, which may fail independently from your
+ servers.
+ In case of a failure, the CAP theorem property P is violated, and you only
+ have the choice between C and A.
+ For details, see 
+\family typewriter
+mars-architecture-guide.pdf
+\family default
+.
+\end_layout
+
+\end_inset
+
+ crossover cable, and when failures of the crossover cables are very unlikely,
+ DRBD will be a suitable choice.
  However, if you need to replicate over longer distances, or if you need
  higher levels of reliability even when multiple failures may accumulate
  (such as network loss during a 
 \emph on
 re
 \emph default
-sync of DRBD), the transaction logs of MARS can solve that, but at some
- 
+sync of DRBD), the transaction logs of MARS can solve it, but at some 
 \emph on
 cost
 \emph default
@@ -7758,7 +7867,7 @@ cost
 \end_layout
 
 \begin_layout Subsection
-Countermeasures
+Countermeasures against overflow
 \end_layout
 
 \begin_layout Subsubsection
@@ -7780,7 +7889,7 @@ The first (and most important) measure against overflow of
 /mars/
 \family default
  is simply to dimension it large enough to survive longer-lasting problems,
- at least one weekend.
+ preferably one weekend.
 \end_layout
 
 \begin_layout Standard
@@ -7954,11 +8063,7 @@ disconnect
 .
  Therefore, a simple 
 \family typewriter
-marsadm connect-global all
-\family default
- followed by 
-\family typewriter
-marsadm resume-replay-global all
+marsadm up all
 \family default
  may also work miracles (if you didn't want to freeze some mirror deliberately).
 \begin_inset Newline newline
@@ -7991,12 +8096,6 @@ marsadm leave-resource $res
 exactly that(!)
 \emph default
  secondary site where the mirror is frozen, can also work miracles.
- If you want to automate this in unserspace, be careful.
- It is easy to get unintended effects when choosing the wrong site for 
-\family typewriter
-leave-resource
-\family default
-.
 \begin_inset Newline newline
 \end_inset
 
@@ -8298,10 +8397,23 @@ status open
 
 \begin_layout Subsubsection
 Throttling
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Throttling"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
-The last measure for defense of overflow is 
+This not generally recommended.
+ It may harm the IO performance from the viewpoint of your customers.
+ Thus use it only as a 
+\emph on
+desperate
+\emph default
+ defense against overflow, by 
 \series bold
 throttling your performance pigs
 \series default
@@ -8318,30 +8430,38 @@ ssh
 very
 \emph default
  silly things.
- For example, some of them are creating their own backups via user-cron
- jobs, and they do it every 5 minutes.
+ For example,
+\end_layout
+
+\begin_layout Itemize
+some users are creating their own backups via user-cron jobs, and they do
+ it every 5 minutes.
  Some example guy created a zip archive (almost 1GB) by regularly copying
  his old zip archive into a new one, then appending deltas to the new one,
  and finally deleting the old archive.
  Every 5 minutes.
- Yes, every 5 minutes, although almost never any new files were added to
- the archive.
+ Although almost never any new files were added to the archive.
  Essentially, he copied over his archive, for nothing.
  This led to massive bulk write requests, for ridiculous reasons.
 \end_layout
 
+\begin_layout Itemize
+another user wrote his own shell script for his own private backup of his
+ website, although there already is a daily system backup.
+ He regularly made a complete copy of his entire webspace (more than 60GiB)
+ via
+\family typewriter
+ cp -a
+\family default
+, then created a tarball out of the copy, uploaded it into the cloud, finally
+ removed both the tarball and the complete filesystem copy.
+ Each time, about 100GB was temporarily allocated (and replicated via MARS).
+\end_layout
+
 \begin_layout Standard
-In general, your hard disks (or even RAID systems) allow much higher write
- IO rates than you can ever transport over a standard TCP network from your
- primary site to your secondary, at least over longer distances (see use
- cases for MARS in chapter 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "chap:Use-Cases-for"
-
-\end_inset
-
-).
+Typically, your hard disks / RAID systems allow much higher write IO rates
+ than you can ever transport over a standard TCP network from your primary
+ site to your secondary, at least over longer distances.
  Therefore, it is easy to create a such a high write load that it will be
  
 \emph on
@@ -8355,12 +8475,9 @@ by construction
 \end_layout
 
 \begin_layout Standard
-Therefore, we 
-\emph on
-need
-\emph default
- some mechanism for throttling bulk writers whenever the network is weaker
- than your IO subsystem.
+MARS has some mechanism for throttling bulk writers whenever the network
+ is weaker than your IO subsystem.
+ It is off by default.
 \end_layout
 
 \begin_layout Standard
@@ -8395,7 +8512,7 @@ reference "subsec:Dimensioning-of-/mars/"
 
 \end_inset
 
-), MARS will start to throttle your application writes.
+), MARS may be used for throttling your application writes.
 \end_layout
 
 \begin_layout Standard
@@ -8421,7 +8538,16 @@ write_throttle_start_percent
 slowly
 \emph default
 .
- Typical values for this are 60%.
+ Defaul value is 0, which means 
+\begin_inset Quotes eld
+\end_inset
+
+off
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Practical values for this coule be around 80%.
 \end_layout
 
 \begin_layout Description
@@ -8431,7 +8557,7 @@ write_throttle_end_percent
 \family default
  Maximum throttling will occur once this space threshold is reached, i.e.
  the throttling is now at its maximum effect.
- Typical values for this are 90%.
+ A practical value is 90%, which is the default.
  When the actual space in 
 \family typewriter
 /mars/
@@ -8500,7 +8626,7 @@ In case of lighter throttling, the input flow into
 /mars/
 \family default
 .
- The default value is 5.000 KB/s.
+ The default value is 10.000 KB/s.
  Please adjust this value to your application needs and to your environment.
 \end_layout
 
@@ -8600,7 +8726,7 @@ incorrect
 .
 \end_layout
 
-\begin_layout Subsection
+\begin_layout Section
 Emergency Mode and its Resolution
 \begin_inset CommandInset label
 LatexCommand label
@@ -8609,6 +8735,11 @@ name "subsec:Emergency-Mode"
 \end_inset
 
 
+\end_layout
+
+\begin_layout Standard
+This section explains some implementation details.
+ You may skip it.
 \end_layout
 
 \begin_layout Standard
@@ -8653,7 +8784,7 @@ new
 \end_inset
 
  logfile is left empty, i.e.
- no data ist written to it (for now).
+ no data is written to it (for now).
  The hole in the numbering will prevent any secondaries from replaying any
  logfiles behind the hole (should they ever contain some data, e.g.
  because the emergency mode has been left again).
@@ -8714,7 +8845,8 @@ Free enough space.
 \end_layout
 
 \begin_layout Enumerate
-If 
+The following control is intended for testing.
+ If 
 \family typewriter
 
 \begin_inset Flex URL
@@ -8729,8 +8861,8 @@ status open
 
 
 \family default
- is not set, now it is time to set it.
- Normally, it should be already set.
+ is off, now is the time to set it.
+ By default, it should be already set.
 \end_layout
 
 \begin_layout Enumerate
@@ -8775,7 +8907,7 @@ marsadm invalidate $res
 \begin_layout Enumerate
 On the primary: 
 \family typewriter
-marsadm log-delete-all all
+marsadm cron
 \end_layout
 
 \begin_layout Enumerate
@@ -8796,136 +8928,89 @@ Orphan
 \end_layout
 
 \begin_layout Standard
-Alternatively, there is another method by roughly following the instructions
- from appendix 
+Alternatively, there is a more complicated method, which keeps more intermediate
+ emergency backup replicas:
+\end_layout
+
+\begin_layout Enumerate
+On 
+\emph on
+all
+\emph default
+ of your secondaries hostX:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+marsadm leave-resource mydata
+\end_layout
+
+\begin_layout Enumerate
+At the primary hostA:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+marsadm cron
+\end_layout
+
+\begin_layout Enumerate
+Wait until 
+\family typewriter
+df /mars
+\family default
+ shows no longer an overflow.
+\end_layout
+
+\begin_layout Enumerate
+On the first secondary hostB:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+marsadm join-resource mydata /dev/lv/mydata
+\end_layout
+
+\begin_layout Enumerate
+Wait until sync has finished at hostB.
+\end_layout
+
+\begin_layout Enumerate
+If you have more than 2 replicas in total: proceed with step 4 at hostC,
+ and so on.
+ This time, you could join multipe resources in parallel, because you already
+ have a life replica at hostB.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Expert advice, if you have only 2 replicas, and provided you have enough
+ VG space: analogously to paragraph 
 \begin_inset CommandInset ref
-LatexCommand ref
-reference "chap:Alternative-Methods-for"
+LatexCommand vref
+reference "par:Retaining-a-Split"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
-, but in a slightly different order.
- In this case, do 
+ you may use 
 \family typewriter
-leave-resource
+lvrename
 \family default
- everywhere on 
-\emph on
-all
-\emph default
- secondaries, but 
-\emph on
-don't
-\emph default
- start the 
-\family typewriter
-join-resource
-\family default
- phase 
-\emph on
-for now
-\emph default
-.
- Then cleanup all your secondaries via 
-\family typewriter
-log-purge-all
-\family default
-, and finally 
-\family typewriter
-log-delete-all all
-\family default
- at the primary, and wait until the emergency has vanished everywhere.
- Only after that, re-
-\family typewriter
-join-resource
-\family default
- your secondaries.
-\begin_inset Newline newline
-\end_inset
-
-
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-Expert advice for 
-\begin_inset Formula $k=2$
-\end_inset
-
- replicas: this means you had only 1 mirror per resource before the overflow
- happened.
- Provided that you have enough space on your LVMs and on 
-\family typewriter
-/mars/
-\family default
-, and provided that transaction logging has automatically restarted after
- 
-\family typewriter
-leave-resource
-\family default
- and 
-\family typewriter
-log-purge-all
-\family default
-, you can recover redundancy by creating a 
-\emph on
-new
-\emph default
- replica via 
-\family typewriter
-marsadm join-resource $res
-\family default
- on a 
-\emph on
-third
-\emph default
- node.
- Only after the initial full sync has finished there, run 
-\family typewriter
-join-resource 
-\family default
-at your original mirror.
- This way, you will always retain at least one 
-\series bold
-consistent mirror
-\series default
- somewhere.
- After all is up-to-date, you can delete the superfluous mirror by 
-\family typewriter
-marsadm leave-resource $res
-\family default
- and reclaim the disk space from its underlying LVM disk.
-\begin_inset Newline newline
-\end_inset
-
-
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-If you already have 
-\begin_inset Formula $k>2$
-\end_inset
-
- replicas in total, it may be a wise idea to prefer the 
-\family typewriter
-leave-resource ; log-purge-all ; join-resource
-\family default
- method in front of 
-\family typewriter
-invalidate
-\family default
- because it does not invalidate 
-\emph on
-all
-\emph default
- your replicas at the same time (when handled properly in the right order).
+ for keeping an outdated emergency backup before creating a new LV with
+ the old name, and before re-joining the latter.
+ Don't forget to remove your backup LV after sync has finished!
 \end_layout
 
 \begin_layout Chapter
