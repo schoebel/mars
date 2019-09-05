@@ -5619,13 +5619,20 @@ reference "subsec:Cleanup-in-case"
 .
 \end_layout
 
-\begin_layout Subsection
+\begin_layout Section
 Online Resizing during Operation
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Online-Resizing-during"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
-You should have LVM or some other means of increasing the physical size
- of your disk (e.g.
+You need LVM or some other means of increasing the physical size of your
+ disk (e.g.
  via firmware of some RAID controllers).
  The network must be healthy.
  Do the following steps:
@@ -5646,26 +5653,57 @@ everywhere
 uniformly
 \emph default
  to the same size (when possible).
- The 
+ For example, on both hostA and hostB:
+\begin_inset Newline newline
+\end_inset
+
+
 \family typewriter
-lvresize
-\family default
- tool is documented elsewhere.
+lvresize -L +100G /dev/vg/mydata
 \end_layout
 
 \begin_layout Enumerate
-Check that all MARS switches are on.
- If not, say 
+For safety, say on both hostA and hostB
 \family typewriter
+
+\begin_inset Newline newline
+\end_inset
+
 marsadm up mydata
-\family default
- everywhere.
 \end_layout
 
 \begin_layout Enumerate
-At the primary: 
+For safety, say on both hostA and hostB
+\family typewriter
+
+\begin_inset Newline newline
+\end_inset
+
+marsadm wait-cluster
+\end_layout
+
+\begin_layout Enumerate
+Only at the primary hostA:
+\begin_inset Newline newline
+\end_inset
+
+
 \family typewriter
 marsadm resize mydata
+\end_layout
+
+\begin_layout Enumerate
+A 
+\emph on
+partial
+\emph default
+ fast full-sync will start at hostB.
+ Only the 
+\emph on
+new
+\emph default
+ portion of the block device will be synced.
+ Check that sync is running, or has already finished.
 \end_layout
 
 \begin_layout Enumerate
@@ -5673,12 +5711,66 @@ If you have intermediate layers such as iSCSI, you may need some
 \family typewriter
 iscsiadm
 \family default
- update or other command.
+ update or other commands.
+\end_layout
+
+\begin_layout Enumerate
+Generally not needed, only for 
+\emph on
+extreme
+\emph default
+ safety / paranoia: you may wait until the partial sync has finished.
+ This is not really needed, but it may 
+\emph on
+slightly(!)
+\emph default
+ reduce the risk in case of an unplanned incident at the primary side.
+ If you execute the last step before the sync has finished, some data might
+ have been already written to the new portions of the underlying LV.
+ These writes will be written to the transaction log, and will be replicated.
+ Thus there is no real danger, and your secondary will be 
+\series bold
+logically consistent
+\series default
+ in reality, although it will be 
+\emph on
+reported
+\emph default
+ as 
+\family typewriter
+InConsistent
+\family default
+ by marsadm in the meantime.
+ If you want to avoid confusion about state 
+\family typewriter
+Consistent
+\family default
+, and/or if you want extremely high protection against damaged logfiles
+ by hardware defects at the wrong moment (although the transaction logfiles
+ are already protected by md5 checksums), and/or if you are paranoid, it
+ may be helpful to wait until the sync has finished.
+ Normally, this is not needed, and you may immediately proceed to the last
+ step:
 \end_layout
 
 \begin_layout Enumerate
 Now you may increase your filesystem.
  This is specific for the filesystem type and documented elsewhere.
+ Some filesystems are able to increase their size while they are mounted
+ and while the applications are running on top of them, but others cannot
+ do this.
+ For example, an xfs online resize during operation can be triggered at
+ primary hostA where 
+\family typewriter
+/dev/mars/mydata
+\family default
+ is currently mounted:
+\begin_inset Newline newline
+\end_inset
+
+
+\family typewriter
+xfs_growfs /mountpoint/of/mydata
 \end_layout
 
 \begin_layout Standard
@@ -5690,15 +5782,14 @@ Now you may increase your filesystem.
 
 \end_inset
 
-Hint: the secondaries will start syncing the increased new part of the underlyin
-g primary disk.
- In many cases, this is not really needed, because the new junk data just
- does not care.
- If you are sure and if you know what you are doing, you may use 
+Hint: in general, the sync of the new portions is not really needed, because
+ the new junk data just does not care at filesystem level.
+ If you are not paranoid and if you know what you are doing, you may use
+ 
 \family typewriter
 marsadm fake-sync mydata
 \family default
- to abort such unnecessary traffic.
+ to abort unnecessary network traffic.
 \end_layout
 
 \begin_layout Chapter
