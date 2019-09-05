@@ -3593,10 +3593,13 @@ where
 $macroname
 \family default
 \emph default
- is one of the macros described in chapter 
+ is one of the macros described in section 
 \begin_inset CommandInset ref
 LatexCommand ref
-reference "chap:The-Macro-Processor"
+reference "sec:The-macro-processor"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -3604,7 +3607,7 @@ reference "chap:The-Macro-Processor"
 \end_layout
 
 \begin_layout Standard
-As always, you may replace the resource name 
+You may replace the resource name 
 \family typewriter
 mydata
 \family default
