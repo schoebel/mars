@@ -2797,6 +2797,254 @@ same
 \end_layout
 
 \begin_layout Section
+Setup Housekeeping Cron Job
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Logfile-Rotation"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+As explained in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:The-Transaction-Logger"
+
+\end_inset
+
+, all changes to your resource data are recorded in transaction logfiles
+ residing on the 
+\family typewriter
+/mars/
+\family default
+ filesystem.
+ These files are always growing over time.
+ In order to avoid filesystem overflow, the following must be executed in
+ regular time intervals:
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+marsadm cron
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Best practice is to run 
+\family typewriter
+marsadm cron
+\family default
+ in a 
+\family typewriter
+cron
+\family default
+ job, such as 
+\family typewriter
+/etc/cron.d/mars
+\family default
+.
+ An example cronjob can be found in the 
+\family typewriter
+userspace/cron.d/
+\family default
+ subdirectory of the git repo.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+In addition, you should establish some regular monitoring of the free space
+ present in the 
+\family typewriter
+/mars/
+\family default
+ filesystem.
+\end_layout
+
+\begin_layout Standard
+More detailed information about about avoidance of 
+\family typewriter
+/mars/
+\family default
+ overflow is in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Defending-Overflow"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Here is some more background information if you want to configure your system
+ cronjob manually.
+ In most installations, a 10 minute cron interval should be sufficient.
+ Here is an example line, to be placed in a file like 
+\family typewriter
+/etc/cron.d/mars
+\family default
+:
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+*/10 * * * * root if [ -L /mars/uuid ] ; then marsadm cron ; fi > /dev/null
+ 2>&1
+\end_layout
+
+\begin_layout Standard
+Here is some background explanation about some internal intermediate steps,
+ as executed by 
+\family typewriter
+marsadm cron
+\family default
+.
+ The following is not needed for operations, but might be helpful for testing
+ and debugging.
+ You can skip it if you don't have much time:
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+marsadm log-rotate all
+\family default
+
+\begin_inset Newline newline
+\end_inset
+
+This starts appending to a new logfile on all of your resources.
+ The logfiles are automatically numbered by an increasing 9-digit logfile
+ number.
+ This will suffice for many centuries even if you would logrotate once a
+ minute.
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+marsadm log-delete-all all
+\family default
+
+\begin_inset Newline newline
+\end_inset
+
+This determines all logfiles from all resources which are no longer needed
+ (i.e.
+ which are 
+\emph on
+fully
+\emph default
+ replayed, on 
+\emph on
+all
+\emph default
+ relevant secondaries).
+ All superfluous logfiles are then deleted, including all copies on all
+ secondaries.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ The current version of MARS deletes either 
+\emph on
+all
+\emph default
+ replicas of a logfile everywhere, or 
+\emph on
+none
+\emph default
+ of the replicas.
+ This is a simple rule, but has the drawback that one node may hinder other
+ nodes from freeing space in 
+\family typewriter
+/mars/
+\family default
+.
+ In particular, the command 
+\family typewriter
+marsadm pause-replay $res
+\family default
+ (as well as 
+\family typewriter
+marsadm disconnect $res
+\family default
+) will freeze the space reclamation in the whole cluster when the pause
+ is lasting very long.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ During such space accumulation, also the number of so-called deletions
+ will accumulate in /mars/todo-global/ and sibling directories.
+ In very big installations consisting of thousands of nodes, it is a good
+ idea to regularly monitor the number of deletions similarly to the following:
+ 
+\family typewriter
+$(find /mars/ -name 
+\begin_inset Quotes eld
+\end_inset
+
+delete-*
+\begin_inset Quotes erd
+\end_inset
+
+ | wc -l)
+\family default
+ should not exceed a limit of ~150 entries.
+\end_layout
+
+\begin_layout Standard
+Please prefer the short form 
+\family typewriter
+marsadm cron
+\family default
+ as an equivalent to scripting two separate commands 
+\family typewriter
+marsadm log-rotate all
+\family default
+ and 
+\family typewriter
+marsadm log-delete-all all
+\family default
+.
+ The short form is not only easier to remember, but also future-proof in
+ case some new MARS features should be added.
+\end_layout
+
+\begin_layout Section
 Creating and Maintaining Resources
 \begin_inset CommandInset label
 LatexCommand label
@@ -3301,254 +3549,6 @@ name "chap:HOWTO-operation-of"
 \end_inset
 
 
-\end_layout
-
-\begin_layout Section
-Logfile Rotation / Deletion
-\begin_inset CommandInset label
-LatexCommand label
-name "subsec:Logfile-Rotation"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-As explained in section 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "sec:The-Transaction-Logger"
-
-\end_inset
-
-, all changes to your resource data are recorded in transaction logfiles
- residing on the 
-\family typewriter
-/mars/
-\family default
- filesystem.
- These files are always growing over time.
- In order to avoid filesystem overflow, the following must be executed in
- regular time intervals:
-\end_layout
-
-\begin_layout Enumerate
-
-\family typewriter
-marsadm cron
-\end_layout
-
-\begin_layout Standard
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-Best practice is to run 
-\family typewriter
-marsadm cron
-\family default
- in a 
-\family typewriter
-cron
-\family default
- job, such as 
-\family typewriter
-/etc/cron.d/mars
-\family default
-.
- An example cronjob can be found in the 
-\family typewriter
-userspace/cron.d/
-\family default
- subdirectory of the git repo.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-In addition, you should establish some regular monitoring of the free space
- present in the 
-\family typewriter
-/mars/
-\family default
- filesystem.
-\end_layout
-
-\begin_layout Standard
-More detailed information about about avoidance of 
-\family typewriter
-/mars/
-\family default
- overflow is in section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:Defending-Overflow"
-
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Standard
-Here is some more background information if you want to configure your system
- cronjob manually.
- In most installations, a 10 minute cron interval should be sufficient.
- Here is an example line, to be placed in a file like 
-\family typewriter
-/etc/cron.d/mars
-\family default
-:
-\end_layout
-
-\begin_layout Enumerate
-
-\family typewriter
-*/10 * * * * root if [ -L /mars/uuid ] ; then marsadm cron ; fi > /dev/null
- 2>&1
-\end_layout
-
-\begin_layout Standard
-Here is some background explanation about some internal intermediate steps,
- as executed by 
-\family typewriter
-marsadm cron
-\family default
-.
- The following is not needed for operations, but might be helpful for testing
- and debugging.
- You can skip it if you don't have much time:
-\end_layout
-
-\begin_layout Enumerate
-
-\family typewriter
-marsadm log-rotate all
-\family default
-
-\begin_inset Newline newline
-\end_inset
-
-This starts appending to a new logfile on all of your resources.
- The logfiles are automatically numbered by an increasing 9-digit logfile
- number.
- This will suffice for many centuries even if you would logrotate once a
- minute.
-\end_layout
-
-\begin_layout Enumerate
-
-\family typewriter
-marsadm log-delete-all all
-\family default
-
-\begin_inset Newline newline
-\end_inset
-
-This determines all logfiles from all resources which are no longer needed
- (i.e.
- which are 
-\emph on
-fully
-\emph default
- replayed, on 
-\emph on
-all
-\emph default
- relevant secondaries).
- All superfluous logfiles are then deleted, including all copies on all
- secondaries.
-\begin_inset Newline newline
-\end_inset
-
-
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- The current version of MARS deletes either 
-\emph on
-all
-\emph default
- replicas of a logfile everywhere, or 
-\emph on
-none
-\emph default
- of the replicas.
- This is a simple rule, but has the drawback that one node may hinder other
- nodes from freeing space in 
-\family typewriter
-/mars/
-\family default
-.
- In particular, the command 
-\family typewriter
-marsadm pause-replay $res
-\family default
- (as well as 
-\family typewriter
-marsadm disconnect $res
-\family default
-) will freeze the space reclamation in the whole cluster when the pause
- is lasting very long.
-\begin_inset Newline newline
-\end_inset
-
-
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- During such space accumulation, also the number of so-called deletions
- will accumulate in /mars/todo-global/ and sibling directories.
- In very big installations consisting of thousands of nodes, it is a good
- idea to regularly monitor the number of deletions similarly to the following:
- 
-\family typewriter
-$(find /mars/ -name 
-\begin_inset Quotes eld
-\end_inset
-
-delete-*
-\begin_inset Quotes erd
-\end_inset
-
- | wc -l)
-\family default
- should not exceed a limit of ~150 entries.
-\end_layout
-
-\begin_layout Standard
-Please prefer the short form 
-\family typewriter
-marsadm cron
-\family default
- as an equivalent to scripting two separate commands 
-\family typewriter
-marsadm log-rotate all
-\family default
- and 
-\family typewriter
-marsadm log-delete-all all
-\family default
-.
- The short form is not only easier to remember, but also future-proof in
- case some new MARS features should be added.
 \end_layout
 
 \begin_layout Section
