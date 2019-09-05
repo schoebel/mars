@@ -3552,6 +3552,110 @@ name "chap:HOWTO-operation-of"
 \end_layout
 
 \begin_layout Section
+Inspecting the State of MARS
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Inspecting-the-State"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The main command for viewing the current state of MARS is
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+marsadm view mydata
+\end_layout
+
+\begin_layout Standard
+or its more specialized variant
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+marsadm view-
+\emph on
+$macroname
+\emph default
+ mydata
+\end_layout
+
+\begin_layout Standard
+where 
+\family typewriter
+\emph on
+$macroname
+\family default
+\emph default
+ is one of the macros described in chapter 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "chap:The-Macro-Processor"
+
+\end_inset
+
+, or a macro which has been written by yourself.
+\end_layout
+
+\begin_layout Standard
+As always, you may replace the resource name 
+\family typewriter
+mydata
+\family default
+ with the special keyword 
+\family typewriter
+all
+\family default
+ in order to get the state of all locally joined resources, as well as a
+ list of all those resources.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+When using the variant 
+\family typewriter
+marsadm view all
+\family default
+, additionally the global communication status will be displayed.
+ This helps humans in diagnosing problems.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Hint: use the compound command 
+\family typewriter
+watch marsadm view all
+\family default
+ for continuous display of the current state of MARS.
+ When starting this side-by-side in 
+\family typewriter
+ssh
+\family default
+ terminal windows for all your cluster nodes, you can easily watch what's
+ going on in the whole cluster.
+\end_layout
+
+\begin_layout Section
 Switch Primary / Secondary Roles
 \begin_inset CommandInset label
 LatexCommand label
@@ -6080,110 +6184,6 @@ As you can see, all four possible cartesian product combinations between
 The same handshake protocol is used in MARS for communication between userspace
  and kernelspace, as well as for communication in the widely distributed
  system.
-\end_layout
-
-\begin_layout Section
-Inspecting the State of MARS
-\begin_inset CommandInset label
-LatexCommand label
-name "sec:Inspecting-the-State"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-The main command for viewing the current state of MARS is
-\end_layout
-
-\begin_layout Itemize
-
-\family typewriter
-marsadm view mydata
-\end_layout
-
-\begin_layout Standard
-or its more specialized variant
-\end_layout
-
-\begin_layout Itemize
-
-\family typewriter
-marsadm view-
-\emph on
-$macroname
-\emph default
- mydata
-\end_layout
-
-\begin_layout Standard
-where 
-\family typewriter
-\emph on
-$macroname
-\family default
-\emph default
- is one of the macros described in chapter 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "chap:The-Macro-Processor"
-
-\end_inset
-
-, or a macro which has been written by yourself.
-\end_layout
-
-\begin_layout Standard
-As always, you may replace the resource name 
-\family typewriter
-mydata
-\family default
- with the special keyword 
-\family typewriter
-all
-\family default
- in order to get the state of all locally joined resources, as well as a
- list of all those resources.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-When using the variant 
-\family typewriter
-marsadm view all
-\family default
-, additionally the global communication status will be displayed.
- This helps humans in diagnosing problems.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-Hint: use the compound command 
-\family typewriter
-watch marsadm view all
-\family default
- for continuous display of the current state of MARS.
- When starting this side-by-side in 
-\family typewriter
-ssh
-\family default
- terminal windows for all your cluster nodes, you can easily watch what's
- going on in the whole cluster.
 \end_layout
 
 \begin_layout Chapter
