@@ -3689,6 +3689,20 @@ my %resize_device_size;
 my %resize_old_size;
 my %resize_new_size;
 
+sub get_possible_size {
+  my ($cmd, $res) = @_;
+  my @actsizes = glob("$mars/resource-$res/actsize-*");
+  lwarn "resource $res has no actsize-* symlinks\n" unless @actsizes;
+  my $possible_size = 0;
+  foreach my $actsize (@actsizes) {
+    my $this_size = get_link($actsize);
+    if (!$possible_size || $this_size < $possible_size) {
+      $possible_size = $this_size;
+    }
+  }
+  return $possible_size;
+}
+
 sub resize_phase0 {
   my ($cmd, $res, $size_arg) = @_;
   ldie "mars kernel module is not loaded. This is needed for communication with some other hosts!\n" if !is_module_loaded();
@@ -3700,18 +3714,10 @@ sub resize_phase0 {
   }
   check_primary(@_);
   my $my_size = get_link("$mars/resource-$res/actsize-$host");
-  my @actsizes = glob("$mars/resource-$res/actsize-*");
-  ldie "resource $res has no actsize-* symlinks\n" unless @actsizes;
   my $lnk = "$mars/resource-$res/size";
   my $old_size = get_link($lnk);
-  my $possible_size = 0;
-  foreach my $actsize (@actsizes) {
-    my $this_size = get_link($actsize);
-    if (!$possible_size || $this_size < $possible_size) {
-      $possible_size = $this_size;
-    }
-  }
   lprint "old_size=$old_size\n";
+  my $possible_size = get_possible_size($cmd, $res);
   lprint "possible_size=$possible_size\n";
   $new_size = $possible_size if !$new_size;
   lprint "new_size=$new_size\n";
