@@ -4694,6 +4694,9 @@ sub eval_fn {
       }
       return get_link($path, 1);
     }
+    if (/^resource[-_]?possible[-_]?size$/) {
+      return get_possible_size($$env{"cmd"}, $$env{"res"});
+    }
     # time handling and pausing
     if (/^time$/) {
       return mars_time();
@@ -5503,6 +5506,8 @@ my %trivial_globs =
    "count-{cluster,resource}-members"
    => "",
    "{disk,resource,device}-size"
+   => "",
+   "resource-possible-size"
    => "",
    "deletable-size"
    => "",
