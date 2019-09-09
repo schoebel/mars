@@ -9031,35 +9031,42 @@ name "chap:The-Sysadmin-Interface"
 \end_layout
 
 \begin_layout Standard
-In general, the term 
+This chapter is a kind of reference about the 
+\family typewriter
+marsadm
+\family default
+ tool.
+ The sub-commands of 
+\family typewriter
+marsadm
+\family default
+ are grouped according to the topic they deal with.
+\end_layout
+
+\begin_layout Standard
+Since MARS work 
+\emph on
+asynchronously
+\emph default
+ at metadata propagation level (which is 
+\emph on
+necessary
+\emph default
+ for long-distance replication over flaky networks), several commands are
+ only 
+\emph on
+triggering
+\emph default
+ an action, but do not wait for its completion.
+\end_layout
+
+\begin_layout Standard
+Such cases are indicated by the term 
 \begin_inset Quotes eld
 \end_inset
 
 after a while
 \begin_inset Quotes erd
-\end_inset
-
- means that other cluster nodes will take notice of your actions according
- to the 
-\begin_inset Quotes eld
-\end_inset
-
-eventually consistent
-\begin_inset Quotes erd
-\end_inset
-
- propagation protocol described in sections 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:The-Lamport-Clock"
-
-\end_inset
-
- and 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:The-Symlink-Tree"
-
 \end_inset
 
 .
@@ -9090,6 +9097,10 @@ Cmp
 
 \begin_layout Standard
 The following table documents common options which work with (almost) any
+ 
+\family typewriter
+marsadm
+\family default
  command:
 \end_layout
 
@@ -9238,8 +9249,10 @@ Don't use in scripts! Only use by hand!
 \begin_layout Plain Layout
 
 \size scriptsize
-This option does not change the waiting logic.
- Many commands are waiting until the desired effect has taken place.
+This option does not change the internal waiting logic for thois commands
+ which emulate synchronous behaviour on top of the asynchronous communication
+ paradigm.
+ Many commands are waiting until the desired effect has succeeded.
  However, with 
 \family typewriter
 --dry-run
@@ -9263,7 +9276,7 @@ Thus this option can give only a
 \series bold
 rough estimate
 \series default
- of what would happen later!
+ of what would happen later.
 \end_layout
 
 \end_inset
@@ -9801,8 +9814,8 @@ status open
 
 \size scriptsize
 The time window for checking the aliveness of other nodes in the network.
- When no symlink updates have occurred during the last window, the node
- is considered dead.
+ When no symlink updates have been transferred from the other host since
+ more than the window time, the host is considered dead.
  Default is 60s.
 \end_layout
 
@@ -9900,9 +9913,22 @@ The macros containing the substring
 \family typewriter
 -almost-
 \family default
- are using this as a default value for approximation whether something has
- been approximately reached.
+ are using this as a default value for approximation whether some data transfer
+ (e.g.
+ logfile and/or sync) has approximately completed.
  Default is 10MiB.
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Notice: when data is continuously appended to the logfile, completeness
+ may 
+\emph on
+never
+\emph default
+ be reached.
+ Some data may always fly around somewhere in the network transfer channels.
 \end_layout
 
 \begin_layout Plain Layout
@@ -10428,7 +10454,11 @@ reference "subsec:Setup-your-Cluster"
 \end_inset
 
 ).
- The kernel module must 
+ The 
+\family typewriter
+mars.ko
+\family default
+ kernel module must 
 \emph on
 not
 \emph default
@@ -10462,7 +10492,7 @@ Hint: use the
 \family typewriter
 --ip=
 \family default
- option if you have multiple interfaces.
+ option if you have multiple network interfaces.
 \end_layout
 
 \end_inset
@@ -10586,7 +10616,11 @@ reference "subsec:Setup-your-Cluster"
 \end_inset
 
 ).
- The kernel module must 
+ The 
+\family typewriter
+mars.ko
+\family default
+ kernel module must 
 \emph on
 not
 \emph default
@@ -10741,7 +10775,7 @@ marsadm leave-resource
 \family default
 ).
  The kernel module should be loaded and the network should be operating
- in order to also propogate the effect to the other nodes.
+ in order to also propogate the effect to the other cluster nodes.
 \end_layout
 
 \begin_layout Plain Layout
@@ -10814,25 +10848,69 @@ rmmod
 
  passivley fetching the symlink tree.
  In order to really stop all communication, the kernel module should be
- unloaded afterwards.
+ unloaded afterwards (rmmod mars).
  The local 
 \family typewriter
 /mars/
 \family default
- filesystem may be manually destroyed after that (at least if you need to
- reuse it).
+ filesystem may be manually destroyed thereafte,r, e.g.
+ for decommissioning of hardware.
+ This is receommended for preventing 
+\begin_inset Quotes eld
+\end_inset
+
+zombies
+\begin_inset Quotes erd
+\end_inset
+
+ to resurrect by accidenct (human error).
 \end_layout
 
 \begin_layout Plain Layout
 
 \size scriptsize
-In case of an eventual node loss (e.g.
- fire, water, ...) this command should be used on another node $helper in order
- to finally remove $damaged from the cluster via the command 
+In case of an unintended hardware destruction (e.g.
+ fire, water, ...) this command should be used on another healty cluster node
+ $helper in order to finally remove $damaged from the cluster via the command
+ 
 \family typewriter
 marsadm leave-cluster --host=$damaged --force
 \family default
 .
+ An example is explained in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "subsec:Final-Destroy-of"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+Before leave-cluster, ensure that all other cluster nodes know that it is
+ no longer participating in 
+\emph on
+any
+\emph default
+ resource!
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
+Hint: this can be usually achieved by marsadm leave-resource $resource –host=$da
+maged –force
 \end_layout
 
 \begin_layout Plain Layout
@@ -10847,9 +10925,11 @@ marsadm leave-cluster --host=$damaged --force
 \size scriptsize
 In case you cannot use 
 \family typewriter
-leave-resource
+leave-cluster
 \family default
- for any reason, you may do the following: just destroy the 
+ for any reason (e.g.
+ complete network shutdown, no communication anymore possible at all), here
+ is a last resort: destroy the 
 \family typewriter
 /mars/
 \family default
@@ -10927,8 +11007,13 @@ This is a feature, not a bug.
 \family typewriter
 uuid
 \family default
- is created once, but never alterered anywhere.
- The only way to get rid of it is 
+ is created once, but alterered anywhere.
+ An exception is 
+\family typewriter
+marsadm merge-cluster
+\family default
+ (see there).
+ The only way to get rid of the uuid is 
 \emph on
 external
 \emph default
@@ -10977,18 +11062,21 @@ any
 \emph on
 must
 \emph default
- obey the instructions in section 
+ create a fresh filesystem (see instructions in section 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "subsec:Setup-your-Cluster"
 
 \end_inset
 
- and use 
+) via 
 \family typewriter
 mkfs.ext4
 \family default
- accordingly.
+.
+ Exception: 
+\family typewriter
+marsadm merge-cluster
 \end_layout
 
 \end_inset
@@ -11102,6 +11190,17 @@ Precondition: the set of resources at the local cluster (transitively) and
 $host
 \family default
  (transitively) must be disjoint.
+ 
+\family typewriter
+ssh
+\family default
+ and 
+\family typewriter
+rsync
+\family default
+ must be working between all members of both clusters, without password
+ (e.g.
+ via ssh-agent).
 \end_layout
 
 \begin_layout Plain Layout
@@ -11127,6 +11226,7 @@ join-resource
 leave-resource
 \family default
  operations.
+ Usage examples can be found in the Football sub-project of MARS.
 \end_layout
 
 \begin_layout Plain Layout
@@ -11139,7 +11239,8 @@ leave-resource
 
 
 \size scriptsize
-Attention! The mars branch 
+Attention! use a newer version of MARS.
+ The old branch 
 \family typewriter
 0.1.y
 \family default
@@ -11176,12 +11277,8 @@ split-cluster
 
 
 \size scriptsize
-Future versions of MARS, starting with branch 
-\family typewriter
-0.1b.y
-\family default
- will be constructed for very big clusters in the range of thousands of
- nodes.
+Future versions of MARS should be constructed for very big clusters in the
+ range of thousands of nodes.
  Development has not yet stabilized there, and operational experiences are
  missing at the moment.
  Be careful until official announcements are appearing in the ChangeLog,
@@ -11585,7 +11682,8 @@ status open
 
 \begin_layout Plain Layout
 Deprecated.
- Only for compatibility with old version light0.1beta05 or earlier.
+ Only for compatibility with very old version light0.1beta05 or earlier.
+ Will disappear somewhen in future.
 \end_layout
 
 \begin_layout Plain Layout
@@ -11666,7 +11764,11 @@ marsadm
 uuid
 \family default
 ), that your current node is a valid member of the cluster, and that the
- kernel module is loaded.
+ kernel module 
+\family typewriter
+mars.ko
+\family default
+ is loaded.
  When communication is impossible due to network outages or bad firewall
  rules, most commands will succeed, but other cluster nodes may take a long
  time to notice your changes.
@@ -11948,7 +12050,11 @@ Precondition: the resource argument
 \family typewriter
 $res
 \family default
- must not denote an already existing resource name in the cluster.
+ must denote a 
+\emph on
+new
+\emph default
+ (not yet existing) resource name in the cluster.
  The argument 
 \family typewriter
 $disk_dev
@@ -12211,8 +12317,12 @@ Precondition: the resource argument
 \family typewriter
 $res
 \family default
- must denote an already existing resource in the cluster (i.e.
- its symlink tree information must have been received).
+ must denote an already existing resource in the whole cluster (i.e.
+ its symlink tree information must have been received; use 
+\family typewriter
+marsadm wait-cluster
+\family default
+ for achieving this).
  The resource must have a designated primary, and it must no be in emergency
  mode.
  There must not exist a split brain in the cluster.
@@ -12389,26 +12499,13 @@ Precondition: the local node must be a member of the resource
 $res
 \family default
 ; its current role must be secondary.
- Sync, fetch and replay must be paused (see commands 
+ It must be detached (see 
 \family typewriter
-pause-{sync,fetch,replay}
-\family default
- or their abbreviation 
-\family typewriter
-down
-\family default
-).
- The disk must be detatched (see commands 
-\family typewriter
-detach
-\family default
- or 
-\family typewriter
-down
+marsadm down
 \family default
 ).
  The kernel module should be loaded and the network should be operating
- in order to also propogate the effect to the other nodes.
+ in order to also propogate the effect to the other cluster nodes.
 \end_layout
 
 \begin_layout Plain Layout
@@ -12430,7 +12527,8 @@ log-delete
 \family default
  may now become possible, since the current node does no longer count as
  a candidate for logfile application.
- In addition, a split brain situation may be (partly) resolved by this.
+ As another side effect, split brain situation may be (partly) resolved
+ by this.
 \end_layout
 
 \begin_layout Plain Layout
@@ -12445,9 +12543,9 @@ log-delete
 \size scriptsize
  Please notice that this command 
 \emph on
-may
+may likely 
 \emph default
- lead to (but does not guarantee) split-brain resolution.
+resolve split brain (but cannot guarantee in general).
 \end_layout
 
 \begin_layout Plain Layout
@@ -12497,12 +12595,23 @@ create-resource
 
 \size scriptsize
 In case of an eventual node loss (e.g.
- fire, water, ...) this command may be used on another node $helper in order
- to finally remove all the resources $damaged from the cluster via the command
- 
+ fire, water, ...) this command needs to be used on another node $helper in
+ order to finally remove all the resources $damaged from the cluster via
+ the command 
 \family typewriter
 marsadm leave-resource $res --host=$damaged --force
 \family default
+.
+ Details are in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "subsec:Final-Destroy-of"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
 .
 \end_layout
 
@@ -12612,7 +12721,7 @@ status open
 
 \size scriptsize
 Precondition: the resource must be empty (i.e.
- all members must have left via 
+ all cluster members must have left via 
 \family typewriter
 leave-resource
 \family default
@@ -12674,8 +12783,9 @@ Use this only in desperate situations, and only manually.
 \emph on
 true
 \emph default
- state of other cluster nodes need not be known in case of network problems
- .Even when it were known, it could be compromised by 
+ state of other cluster nodes cannot be known in general, e.g.
+ network problems etc.
+ Even when it were known, it could be compromised by 
 \series bold
 byzantine failures
 \series default
@@ -12734,13 +12844,16 @@ dead
 \end_inset
 
 This command implies a forceful detach, possibly destroying consistency.
- 
+\end_layout
+
+\begin_layout Plain Layout
+
 \size scriptsize
-It is similar in spirit to a 
+It is similar in spirit to 
 \series bold
 STONITH
 \series default
-.
+, but on cluster level, affection all known resource members.
  In particular, when a cluster node was operating in primary mode (
 \family typewriter
 /dev/mars/mydata
@@ -12808,7 +12921,7 @@ half-dead
 \begin_inset Quotes erd
 \end_inset
 
- nodes (beware of shapshot / restores on virtual machines!!).
+ zombie nodes (beware of shapshot / restores on virtual machines!!).
  MARS does its best to avoid problems even in case the new resource name
  should equal the old one, but there can be 
 \emph on
@@ -12827,11 +12940,11 @@ no guarantee
 
 
 \size scriptsize
-When possible, prefer 
+Whenever possible, prefer 
 \family typewriter
 leave-resource
 \family default
- over this!
+ over this kind of sledgehammer!
 \end_layout
 
 \end_inset
