@@ -19249,6 +19249,10 @@ backgroundcolor "none"
 status open
 
 \begin_layout Plain Layout
+Only useful for debugging.
+\end_layout
+
+\begin_layout Plain Layout
 
 \size scriptsize
 Precondition: the local node must be a member of 
