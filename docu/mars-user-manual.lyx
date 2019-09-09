@@ -13564,7 +13564,8 @@ from
 \emph default
 ) the local disk.
  These processes are automatically paused.
- As another contrast to DRBD, the respective processes will usually 
+ Another difference to DRBD: the fetch / replay processes etc will usually
+ 
 \emph on
 automatically
 \emph default
@@ -16151,7 +16152,7 @@ pairs
 \emph on
 potentially
 \emph default
- occur from any other other source host which happens to be reachable (although
+ occur from any other source host which happens to be reachable (although
  the current implementation prefers the current designated primary, but
  this may change in future).
  In addition, 
@@ -16164,13 +16165,13 @@ all
 \emph default
  communication.
  It only stops fetching logfiles.
- The symlink update running in background is 
+ The symlink updates running in background (default port 7777) are 
 \emph on
 not
 \emph default
- stopped, in order to always propagate as much metadata as possible in the
- cluster.
- In case of a later incident, chances are higher for a better knowledge
+ stopped, in order to always propagate as much metadata as possible throughout
+ the cluster.
+ In case of a later incident, chances will be higher for a better knowledge
  of the 
 \emph on
 real
@@ -17199,9 +17200,27 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
+There are three variants:
+\end_layout
+
+\begin_layout Plain Layout
+Variant 1: planned handover (no 
+\family typewriter
+--force
+\family default
+)
+\end_layout
+
+\begin_layout Plain Layout
+
+\size scriptsize
 Precondition: sync must have finished at any resource member.
  All relevant transaction logfiles must be either already locally present,
  or be fetchable (see 
+\family typewriter
+marsadm up
+\family default
+, or low-level commands 
 \family typewriter
 resume-fetch
 \family default
@@ -17232,23 +17251,16 @@ marsadm secondary
 \emph on
 not recommended
 \emph default
-), 
-\emph on
-all
-\emph default
- other members of the resource must be reachable (since we have no memory
- who was the old primary before), and then they must also match the same
- preconditions.
- When another host is currently primary (whether designated or not), it
- must match the preconditions of 
-\family typewriter
-marsadm secondary
-\family default
- (that means, its local 
+), at least the old primary must be reachable.
+ The (old) primarie's virutal device 
 \family typewriter
 /dev/mars/mydata
 \family default
- device must not be in use any more).
+ must not be in use any more (see 
+\family typewriter
+marsadm wait-umount
+\family default
+).
  A split brain must not already exist.
 \end_layout
 
@@ -17270,27 +17282,36 @@ Switches the
 designated primary
 \series default
 .
- There are three variants:
 \end_layout
 
 \begin_layout Plain Layout
 
 \size scriptsize
-1) 
+Description of the 
 \series bold
 Handover
 \series default
- when 
-\emph on
-not
-\emph default
- giving 
+ protocol (when 
 \family typewriter
 --force
 \family default
-: when another host is currently primary, it is first asked to leave its
- primary role, and it is waited until it actually has become secondary.
- After that, the local host is asked to become primary.
+ is not given): when another host is currently primary, it is first asked
+ to leave its primary role.
+ When systemd templates are active, this will be automatically triggered
+ via 
+\family typewriter
+systemctl stop $stop_unit
+\family default
+.
+ Otherwise, you are resposible for stopping the load yourself, and you dhoulf
+ use 
+\family typewriter
+marsadm wait-umount
+\family default
+ in advance for checking.
+ Anyway, the handover procol s waiting until the former primary has actually
+ become secondary.
+ After that, the local host is requested to become primary.
  Before actually becoming primary, all relevant logfiles are transferred
  over the network and replayed, in order to avoid accidental creation of
  split brain as best as possible
@@ -17393,6 +17414,28 @@ join-resource
  after the handover completed successfully.
 \end_layout
 
+\begin_layout Enumerate
+
+\size scriptsize
+use the option 
+\family typewriter
+--ignore-sync
+\family default
+, which leads to a restart of the running sync from position 0.
+\end_layout
+
+\begin_layout Plain Layout
+Variant 2: planned handover (no 
+\family typewriter
+--force
+\family default
+) with sync abort (
+\family typewriter
+--ignore-sync
+\family default
+)
+\end_layout
+
 \begin_layout Plain Layout
 
 \size scriptsize
@@ -17408,6 +17451,14 @@ Handover ignoring running syncs,
  Any running syncs will restart from scratch, in order to ensure consistency.
  Use this only when the planned handover is more important than the sync
  time.
+\end_layout
+
+\begin_layout Plain Layout
+Variant 3: unplanned failover (
+\family typewriter
+--force
+\family default
+)
 \end_layout
 
 \begin_layout Plain Layout
@@ -17475,7 +17526,7 @@ Never
 \family typewriter
 primary --force
 \family default
- when 
+ when planned handover via 
 \family typewriter
 primary
 \family default
@@ -17574,16 +17625,16 @@ B
 \family typewriter
 UpToDate
 \family default
-, you can prevent a split brain by yourself even when giving 
+, you have some 
+\emph on
+chance
+\emph default
+ for avoiding a split brain even with 
 \family typewriter
 primary --force
 \family default
- afterwards.
- However, checking / assuring this is 
-\emph on
-your
-\emph default
- responsibility!
+.
+ However, there is no guarantee.
 \end_layout
 
 \begin_layout Plain Layout
@@ -17662,8 +17713,11 @@ reference "subsec:Split-Brain-Resolution"
 \family typewriter
 marsadm invalidate
 \family default
- cannot always resolve a split brain at other secondaries (which are neither
- the old nor the new designated primary).
+ cannot resolve a split brain at 
+\emph on
+other
+\emph default
+ secondaries (which are neither the old nor the new designated primary).
  Therefore, prefer the 
 \family typewriter
 leave-resource
@@ -17716,7 +17770,7 @@ wrong
 \family typewriter
 primary --force
 \family default
-, you will have a chance to recover by either forcing the 
+, you will have a chance for recovery by either forcing the 
 \begin_inset Quotes eld
 \end_inset
 
@@ -17770,7 +17824,7 @@ reference "subsec:Forced-Switching"
 .
  For your safety, 
 \family typewriter
-–force
+--force
 \family default
  does not work in newer marsadm (after mars0.1stable52) when your replica
  is a current sync target.
@@ -17935,6 +17989,10 @@ uniquely
 \series bold
 don't need
 \series default
+ and you 
+\series bold
+should not use
+\series default
  this command during normal operation, including handover.
  Any resource member which is 
 \emph on
@@ -18084,11 +18142,15 @@ last
 \family typewriter
 leave-resource
 \family default
- (or the dangerous 
+ (or before 
+\emph on
+forcefully killing
+\emph default
+ your resource via the dangerous 
 \family typewriter
 delete-resource
 \family default
-), you will need this before you can do that.
+).
 \end_layout
 
 \end_inset
@@ -18392,12 +18454,36 @@ Rationale: remove hindering split-brain /
 leave-resource
 \family default
  leftovers.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+
+\size scriptsize
+ Usually, you don't need this.
+ 
+\family typewriter
+leave-resource
+\family default
+ and 
+\family typewriter
+invalidate
+\family default
+ are already doing a similar logfile cleanup for you.
 \end_layout
 
 \begin_layout Plain Layout
 
 \size scriptsize
-Use this only when split brain does not go away by means of 
+Use this only as a desperate last resort when split brain does not go away
+ by means of 
 \family typewriter
 leave-resource
 \family default
@@ -18411,14 +18497,11 @@ could
 \end_layout
 
 \begin_layout Plain Layout
-\begin_inset Graphics
-	filename images/MatieresToxiques.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- THIS IS POTENTIALLY DANGEROUS!
+THIS IS 
+\emph on
+POTENTIALLY
+\emph default
+ DANGEROUS
 \end_layout
 
 \begin_layout Plain Layout
@@ -18429,8 +18512,19 @@ This command
 might
 \emph default
  destroy some valuable logfiles / other information in case the local informatio
-n is outdated or otherwise incorrect.
- MARS does its best for checking anything, but there is no guarantee.
+n is outdated or otherwise incorrect, as could be the case during very awkward
+ disaster scenarios, such as corrupted 
+\family typewriter
+/mars
+\family default
+ filesystems.
+ MARS does its best for checking anything, but there cannot be an absolute
+ guarantee.
+\end_layout
+
+\begin_layout Plain Layout
+That said, no single incident has been observed during millions of operation
+ hours.
 \end_layout
 
 \begin_layout Plain Layout
