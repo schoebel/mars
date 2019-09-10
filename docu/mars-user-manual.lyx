@@ -215,7 +215,17 @@ hints for monitoring.
 \end_layout
 
 \begin_layout Itemize
-troubleshooting (see appendices).
+troubleshooting (see appendix 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "chap:Handout-for-Midnight"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
 \end_layout
 
 \begin_layout Section*
@@ -243,6 +253,134 @@ Ability to patch and to compile and install a customized Linux kernel.
 
 \begin_layout Section*
 How to use this document
+\end_layout
+
+\begin_layout Standard
+Please start with the very short introduction 
+\begin_inset CommandInset ref
+LatexCommand formatted
+reference "chap:Briefing:-how-MARS"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "chap:Briefing:-how-MARS"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+If you want to install MARS, read 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "chap:Quick-Start-Guide"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+If you just want to operate a MARS installation which is already set up,
+ go on to 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "chap:HOWTO-operation-of"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+If you already have some experiences with MARS and just need some details
+ about marsadm commands, chapter 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "chap:The-Sysadmin-Interface"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ is a kind of 
+\begin_inset Quotes eld
+\end_inset
+
+reference
+\begin_inset Quotes erd
+\end_inset
+
+ for you.
+\end_layout
+
+\begin_layout Standard
+Users who want to go deeper into tuning should read 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "chap:Tuning,-tips-and"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Automation via interfacing to 
+\family typewriter
+systemd
+\family default
+ is described in 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "chap:Advanced-users:-automation"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, as well as tips for writing your own automation scripts.
+\end_layout
+
+\begin_layout Standard
+Finally, troubleshooting is explained in appendix 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "chap:Handout-for-Midnight"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Some non-standard expert tricks (e.g.
+ for mass operation of thousands of instances) can be found in the following
+ appendices.
 \end_layout
 
 \begin_layout Section*
@@ -284,6 +422,13 @@ LatexCommand tableofcontents
 
 \begin_layout Chapter
 Briefing: how MARS works
+\begin_inset CommandInset label
+LatexCommand label
+name "chap:Briefing:-how-MARS"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Section
@@ -26283,6 +26428,13 @@ replication networks
 
 \begin_layout Chapter
 Advanced users: automation and the macro processor
+\begin_inset CommandInset label
+LatexCommand label
+name "chap:Advanced-users:-automation"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Section
