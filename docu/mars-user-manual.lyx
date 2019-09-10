@@ -24517,12 +24517,26 @@ name "sec:The-/proc/sys/mars/-Expert"
 \end_layout
 
 \begin_layout Standard
-In many case, you will not need to deal with tweaks in 
+In many cases, you will not need to deal with tweaks in 
 \family typewriter
 /proc/sys/mars/
 \family default
  because everything should already default to reasonable predefined values.
- This interface allows access to some internal kernel variables of the 
+ This is not a 
+\begin_inset Quotes eld
+\end_inset
+
+stable
+\begin_inset Quotes erd
+\end_inset
+
+ interface.
+ It may change during development of MARS.
+ It allows access to some 
+\emph on
+internal
+\emph default
+ kernel variables of the 
 \family typewriter
 mars.ko
 \family default
@@ -24531,7 +24545,11 @@ mars.ko
 runtime
 \emph default
 .
- This means, the values will be reset to default at 
+\end_layout
+
+\begin_layout Standard
+This means, all values modified via /proc/ are not persistent.
+ They will be reset to default at 
 \family typewriter
 rmmod mars
 \family default
@@ -24541,22 +24559,8 @@ rmmod mars
 \end_layout
 
 \begin_layout Standard
-
-\family typewriter
-/proc/sys/mars/
-\family default
- is 
-\emph on
-not
-\emph default
- a stable interface.
- It is not only specific for MARS, but may also change between releases
- without notice.
-\end_layout
-
-\begin_layout Standard
-This section describes only those tweaks intended for sysadmins, not those
- for developers / very deep internals.
+This section describes only those tweaks which could be helpful for sysadmins,
+ but not those for developers / very deep internals.
 \end_layout
 
 \begin_layout Subsection
@@ -24571,7 +24575,7 @@ name "subsec:Tuning-Network-Performance"
 \end_layout
 
 \begin_layout Standard
-Starting with MARS Light series 0.2, a new feature called 
+Since a few years, a feature called 
 \begin_inset Quotes eld
 \end_inset
 
@@ -24789,6 +24793,21 @@ only
 temporary
 \emph default
  boost.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Experts in networking may try to load-balance the parallel TCP connections
+ over multiple physical paths, for example by hashing over the dynamic source
+ port numbers.
+ However, we currently have no experience with suchalike setups.
 \end_layout
 
 \begin_layout Subsection
@@ -25075,7 +25094,7 @@ Tuning Verbosity of Logging
 show_debug_messages
 \family default
  Boolean switch, 0 or 1.
- Mostly useful only for developers.
+ Mostly useful only for kernel developers.
  This can easily flood your logs if our are not careful.
 \end_layout
 
@@ -25139,6 +25158,15 @@ sync_flip_interval_sec
  Therefore, MARS regulary flips between actually syncing and actually replaying,
  if both is enabled.
  You can set the time interval for flipping here.
+\begin_inset Newline newline
+\end_inset
+
+Increasing this value may improve overall sync throughput, at the cost of
+ some more space required by 
+\family typewriter
+/mars
+\family default
+.
 \end_layout
 
 \begin_layout Labeling
@@ -25150,7 +25178,12 @@ sync_limit
  (rw) When > 0, this limits the maximum number of sync processes actually
  running parallel.
  This is useful if you have a large number of resources, and you don't want
- to overload the network with sync processes.
+ to overload the network and/or your local IO system with too many sync
+ processes running 
+\emph on
+in parallel
+\emph default
+.
 \end_layout
 
 \begin_layout Labeling
