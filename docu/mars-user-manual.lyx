@@ -128,19 +128,6 @@ filename "common-front-matter.lyx"
 
 \end_layout
 
-\begin_layout Standard
-\begin_inset CommandInset toc
-LatexCommand tableofcontents
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Part
-New Structure (WIP)
-\end_layout
-
 \begin_layout Chapter*
 Preface
 \end_layout
@@ -32003,72 +31990,6 @@ In case of network problems, some command may hang (forever), if you don't
 
 \begin_layout Itemize
 Test your scripts in failure scenarios!
-\end_layout
-
-\begin_layout Chapter
-Troubleshooting
-\end_layout
-
-\begin_layout Standard
-TBD: appendices....
-\end_layout
-
-\begin_layout Part
-Old Structure (TO DISAPPEAR)
-\end_layout
-
-\begin_layout Chapter
-Quick Start Guide
-\end_layout
-
-\begin_layout Chapter
-Basic Working Principle
-\end_layout
-
-\begin_layout Standard
-Even if you are impatient, please read this chapter.
- At the 
-\emph on
-surface
-\emph default
-, MARS appears to be very similar to DRBD.
- It looks like almost being a drop-in replacement for DRBD.
-\end_layout
-
-\begin_layout Standard
-When taking this naïvely, you could easily step into some trivial pitfalls,
- because the internal working principle of MARS is totally different from
- DRBD.
- Please forget (almost) anything you already know about the internal working
- principles of DRBD, and look at the very different working principles of
- MARS.
-\end_layout
-
-\begin_layout Chapter
-The Macro Processor
-\begin_inset CommandInset label
-LatexCommand label
-name "chap:The-Macro-Processor"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Chapter
-The Sysadmin Interface (
-\family typewriter
-marsadm
-\family default
- and 
-\family typewriter
-/proc/sys/mars/
-\family default
-)
-\end_layout
-
-\begin_layout Chapter
-Tips and Tricks
 \end_layout
 
 \begin_layout Chapter
