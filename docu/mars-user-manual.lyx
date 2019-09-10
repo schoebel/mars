@@ -26227,26 +26227,19 @@ mars0.1abeta9
 \family typewriter
 systemd
 \family default
- as a cluster manager at the Mechanics Layer as explained in section 
-\begin_inset CommandInset ref
-LatexCommand vref
-reference "subsec:Granularity-and-Layering"
-
-\end_inset
-
-.
- MARS will replicate some 
+ as a cluster manager at the Mechanics Layer.
+ MARS will replicate any 
 \family typewriter
 systemd
 \family default
--relevant state information across the (big) cluster, so there is some limited
- remote operation support.
+-relevant state information across the (big) cluster, achiving some remote
+ control.
  In particular, automated handover via 
 \family typewriter
 marsadm primary $resource
 \family default
  is supported.
- More features will be added to future releases.
+ More features will likely be added to future releases.
 \end_layout
 
 \begin_layout Subsection
@@ -26431,7 +26424,17 @@ This lacking functionality is completed with the following macro processing
 \family typewriter
 marsadm
 \family default
-:
+ (see section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:The-macro-processor"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+):
 \end_layout
 
 \begin_layout Standard
@@ -26615,14 +26618,7 @@ varname
 \emph default
 }{...}
 \family default
- statements, see also sections 
-\begin_inset CommandInset ref
-LatexCommand vref
-reference "subsec:Predefined-Complex-and"
-
-\end_inset
-
- and 
+ statements, see also section 
 \begin_inset CommandInset ref
 LatexCommand vref
 reference "subsec:Predefined-Trivial-Macros"
@@ -26642,10 +26638,13 @@ text
 \emph default
 }
 \family default
- Calls the MARS macro processor as explained in chapter 
+ Calls the MARS macro processor as explained in section 
 \begin_inset CommandInset ref
 LatexCommand vref
-reference "chap:The-Macro-Processor"
+reference "sec:The-macro-processor"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -27400,7 +27399,8 @@ lsof
 \emph on
 all
 \emph default
- possible sources like (recursive or bind-) mounts.
+ possible sources like (recursive or bind-) mounts occupied by foreign kernel
+ namespaces.
 \end_layout
 
 \begin_layout Enumerate
@@ -27470,6 +27470,13 @@ bird
 
 \begin_layout Section
 The macro processor
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:The-macro-processor"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Chapter
