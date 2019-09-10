@@ -19563,47 +19563,31 @@ $res
 \emph on
 designated
 \emph default
- primary must exist.
- When having 
-\begin_inset Formula $k>2$
-\end_inset
-
- replicas, no split brain must exist (otherwise, or when 
-\family typewriter
-invalidate
-\family default
- does not work in case of 
-\begin_inset Formula $k=2$
-\end_inset
-
-, use the 
-\family typewriter
-leave-resource
-\family default
- ; 
-\family typewriter
-join-resource
-\family default
- method described in section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "subsec:Split-Brain-Resolution"
-
-\end_inset
-
-).
+ primary must exist, and it must be reachable over network.
 \end_layout
 
 \begin_layout Plain Layout
 
 \size scriptsize
-Postcondition: the local disk is marked as inconsistent, and a fast fullsync
- from the designated primary will start after a while.
- Notice that 
+Postcondition: the local disk is marked as 
 \family typewriter
-marsadm {pause,resume}-sync
+InConsistent
 \family default
- will influence whether the sync really starts.
+, and a fast fullsync from the designated primary will start after a while.
+ Any 
+\emph on
+local
+\emph default
+ split brain (deviation from the designated primary) will be resolved, but
+ any 
+\emph on
+other
+\emph default
+ split brain at other secondaries will 
+\emph on
+not
+\emph default
+ be affected.
  When the fullsync has finished successfully, the local node will be consistent
  again.
 \end_layout
@@ -19751,6 +19735,19 @@ Postcondition: when a fullsync is running, it will stop after a while, and
 marked
 \emph default
  as consistent as if it were consistent again.
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+
+\size scriptsize
+THIS IS HIGLY DANGEROUS FOR DATA CONSISTENCY!
 \end_layout
 
 \begin_layout Plain Layout
