@@ -128,6 +128,269 @@ filename "common-front-matter.lyx"
 
 \end_layout
 
+\begin_layout Chapter*
+Preface
+\end_layout
+
+\begin_layout Section*
+Introduction
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset include
+LatexCommand input
+preview true
+filename "common-introduction.lyx"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section*
+Purpose
+\end_layout
+
+\begin_layout Standard
+This document explains and discusses how to select the right storage architectur
+e for typical use cases in big enterprises.
+ Besides general storage architectures, pitfalls of geo-redundancy and long-dist
+ance replication are highlighted.
+\end_layout
+
+\begin_layout Standard
+In addition to technical discussion, 
+\series bold
+cost and risks
+\series default
+ are treated as well, addressing some management needs up to CTO level.
+\end_layout
+
+\begin_layout Standard
+In contrast to several other publications, it is 
+\emph on
+not
+\emph default
+ an enumeration of sheer endless possibilites and components on the market.
+ It provides 
+\series bold
+guidance
+\series default
+ about the 
+\series bold
+structures and ideas
+\series default
+ 
+\emph on
+behind
+\emph default
+ storage architectures and their connection to application processing.
+ Particular attention is on 
+\series bold
+avoidance of pitfalls
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+It provides both 
+\emph on
+technical
+\emph default
+ and 
+\emph on
+management
+\emph default
+ guidance about selection of architectures as well as their implementation
+ 
+\emph on
+classes
+\emph default
+, and also about selection of suitable component 
+\emph on
+classes
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+Finally, it helps checking for use cases where MARS will be a good solution,
+ and where other solutions will be better suited.
+ It also addresses some unexpected problems when inappropriate types of
+ cluster managers are selected for long-distance replication.
+\end_layout
+
+\begin_layout Section*
+Scope
+\end_layout
+
+\begin_layout Standard
+The following topics are covered within this document:
+\end_layout
+
+\begin_layout Itemize
+Management Summary
+\end_layout
+
+\begin_layout Itemize
+Architectures of Cloud Storage, and
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+their application area
+\end_layout
+
+\begin_layout Itemize
+their reliability / risks / pitfalls
+\end_layout
+
+\begin_layout Itemize
+their cost
+\end_layout
+
+\begin_layout Itemize
+scalability and performance of architectures
+\end_layout
+
+\begin_layout Itemize
+recommendations for managers and architects
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+Selection of components
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+MARS vs DRBD
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+Architecture and pitfalls of Cluster Managers
+\end_layout
+
+\begin_layout Section*
+Audience
+\end_layout
+
+\begin_layout Standard
+This document is mainly written for system architects.
+ Technical decision makers / managers with technical background, up to CTO
+ level, should also benefit from 
+\series bold
+risk reduction
+\series default
+ and 
+\series bold
+cost saving
+\series default
+, when making clever investment and consolidation decisions.
+\end_layout
+
+\begin_layout Standard
+Researchers in the field of storage systems are also addressed in the section
+ about 
+\series bold
+reliability
+\series default
+ and the appendix, by providing mathematical models of reliability.
+\end_layout
+
+\begin_layout Section*
+How to use this document
+\end_layout
+
+\begin_layout Standard
+Managers should start with the 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "chap:Management-Summary"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ (
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "chap:Management-Summary"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+ When more details are needed, just follow the internal links within this
+ document.
+\end_layout
+
+\begin_layout Standard
+All others should read chapter 1 and 2 sequentially, and proceed to the
+ other chapters only when interested.
+\end_layout
+
+\begin_layout Standard
+When MARS is already in use (or planned to be used), reading all of the
+ chapters may pay off for avoidance of some pitfalls.
+\end_layout
+
+\begin_layout Section*
+Related documents
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+mars-user-manual.pdf
+\family default
+: for sysadmins who want to install and run MARS.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+football-user-manual.pdf
+\family default
+: for sysadmins and userspace developers who want to use Football.
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+mars-for-kernel-developers.pdf
+\family default
+: some infos for kernel developers.
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset toc
+LatexCommand tableofcontents
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Chapter
+Management Summary
+\begin_inset CommandInset label
+LatexCommand label
+name "chap:Management-Summary"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+TBD
+\end_layout
+
 \begin_layout Chapter
 Architectures of Cloud Storage / Software Defined Storage / Big Data
 \begin_inset CommandInset label
