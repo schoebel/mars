@@ -456,13 +456,10 @@ load balancing
 \series bold
 LV Football
 \series default
-, see chapter 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "chap:LV-Football"
-
-\end_inset
-
+, see 
+\family typewriter
+football-user-manual.pdf
+\family default
 .
  We will later review what level of reliability and scalability can be achieved
  with each of the fundamental models mentioned here.
@@ -1013,13 +1010,10 @@ reference "subsec:Variants-of-Sharding"
 
 \begin_deeper
 \begin_layout Description
-(1) can be achieved at LV granularity with Football (see chapter 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "chap:LV-Football"
-
-\end_inset
-
+(1) can be achieved at LV granularity with Football (see 
+\family typewriter
+football-user-manual.pdf
+\family default
 ), which creates a 
 \series bold
 Big Virtual LVM Pool
@@ -4360,13 +4354,10 @@ must
 \emph default
  in the opensource business.
  For example, you can relatively easily migrate between DRBD and MARS, forth
- and backwards, see section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:Setup-Primary-and"
-
-\end_inset
-
+ and backwards, see 
+\family typewriter
+mars-user-manual.pdf
+\family default
 .
  The 
 \emph on
@@ -5155,13 +5146,10 @@ reference "subsec:Principle-of-Background"
 
 \end_inset
 
- and in chapter 
-\begin_inset CommandInset ref
-LatexCommand vref
-reference "chap:LV-Football"
-
-\end_inset
-
+ and in 
+\family typewriter
+football-user-manual.pdf
+\family default
 .
 \end_layout
 
@@ -5837,13 +5825,10 @@ football.sh
 football/
 \family default
  directory of MARS, which is a checkout of the Football sub-project (see
- chapter 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "chap:LV-Football"
-
-\end_inset
-
+ 
+\family typewriter
+football-user-manual.pdf
+\family default
 ).
 \end_layout
 
@@ -10984,10 +10969,10 @@ reference "sec:Cost-Arguments-from"
 .
  Even if you manage to find a vendor who is willing to subsidize to a factor
  of only 3, this is not all you need.
- You need to add the costs for the dedicated storage network.
+ You need to add the cost for the dedicated storage network.
  On top of this, you need to account for the 
 \emph on
-migration costs
+migration cost
 \emph default
  after the lifetime of 5 years has passed, where the full data set needs
  to be migrated to a successor storage system.
@@ -11200,13 +11185,10 @@ Short story: it works since decades, and is both cheap and robust since
 \end_layout
 
 \begin_layout Standard
-With the advent of Football (see chapter 
-\begin_inset CommandInset ref
-LatexCommand vref
-reference "chap:LV-Football"
-
-\end_inset
-
+With the advent of Football (see 
+\family typewriter
+football-user-manual.pdf
+\family default
 ), the 
 \family typewriter
 LocalSharding
@@ -13503,13 +13485,10 @@ n logfiles.
 .
  When the network bottleneck is lasting very long (some days or even some
  weeks), the filesystem will eventually run out of space some day.
- Section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:Defending-Overflow"
-
-\end_inset
-
+ 
+\family typewriter
+mars-user-manual.pdf
+\family default
  discusses countermeasures against that in detail.
  In contrast to MARS, DRBD allocates its bitmap 
 \emph on
@@ -13731,13 +13710,10 @@ There is simply no better way to do it.
 \family typewriter
 /mars/
 \family default
- filesystem is exhausted, leading to an emergency mode (see section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:Resolution-of-Emergency"
-
-\end_inset
-
+ filesystem is exhausted, leading to an emergency mode (see 
+\family typewriter
+mars-user-manual.pdf
+\family default
 ).
 \end_layout
 
@@ -13783,14 +13759,6 @@ cleaned up
 \emph default
  for a replica, it will become temporarily inconsistent during the fast
  full sync.
- Details are in section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:Resolution-of-Emergency"
-
-\end_inset
-
-.
 \end_layout
 
 \begin_layout Standard
@@ -13813,15 +13781,7 @@ traffic shaping
  MARS simply tolerates any network problems, provided that there is enough
  disk space for transaction logfiles.
  Even in case of completely filling up your disk with transaction logfiles
- after some days or weeks, you will not lose local consistency anywhere
- (see section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:Defending-Overflow"
-
-\end_inset
-
-).
+ after some days or weeks, you will not lose local consistency anywhere.
 \end_layout
 
 \begin_layout Standard
@@ -16447,8 +16407,8 @@ improvement
 \series bold
 Don't miss any valuable step
 \series default
- having reasonable costs with respect to your budget.
- Missing valuable measures which have low costs are certainly a violation
+ having reasonable cost with respect to your budget.
+ Missing valuable measures which have low cost are certainly a violation
  of the best effort principle, because you are not doing 
 \emph on
 your
@@ -16607,7 +16567,7 @@ Create statistics on the duration of your actions.
 \emph on
 balanced
 \emph default
- optimum between time and costs.
+ optimum between time and cost.
 \end_layout
 
 \begin_layout Itemize
