@@ -25071,6 +25071,12 @@ re-ordering of writeback
 \end_layout
 
 \begin_layout Standard
+Since RAID-6 is has more expensive write operations due to its CRC computations
+ and updates, RAID-6 will much more profit from this effect.
+ Other RAID modes like RAID-10 may show a lower throughput improvement.
+\end_layout
+
+\begin_layout Standard
 Notice: this effect is not only dependent from total RAM size and from the
  maximum size of the MARS temporary memory buffer (tuning parameter 
 \family typewriter
@@ -25098,6 +25104,17 @@ dd
  is no appropriate benchmarking tool, and has almost nothing to do with
  real workloads occuring in datacenters, which typically are neither sequential,
  nor do they have a parallelism degree of only 1.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
  Please don't try to lead any discussions about this: simply use 
 \family typewriter
 blktrace
@@ -25123,11 +25140,20 @@ dd
 
 \end_inset
 
- Any assumptions about workloads are very dangerous: they can deviate from
- practice not only by factors, but sometimes even by 
+ Any 
+\series bold
+assumptions about workloads
+\series default
+ are very dangerous: they can deviate from practice not only by factors,
+ but sometimes even by 
 \emph on
 orders of magnitude
 \emph default
+.
+ There no substitute for real measuments of 
+\series bold
+actual workload behaviour
+\series default
 .
 \end_layout
 
