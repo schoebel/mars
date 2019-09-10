@@ -24502,6 +24502,685 @@ name "chap:Tuning,-tips-and"
 \end_layout
 
 \begin_layout Section
+IO Performance Tuning
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:IO-Performance-Tuning"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+There 
+\emph on
+exist
+\emph default
+ some use cases where MARS 
+\emph on
+can
+\emph default
+ deliver better IO performance than a raw block device.
+ However, this cannot be expected 
+\emph on
+in general
+\emph default
+.
+ In some 
+\emph on
+other
+\emph default
+ cases the performance may be 
+\emph on
+lower
+\emph default
+ than with a 
+\emph on
+single
+\emph default
+ local raw device.
+\end_layout
+
+\begin_layout Standard
+For demonstration, we use the 
+\family typewriter
+blkreplay
+\family default
+ tool from 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+http://blkreplay.org
+\end_layout
+
+\end_inset
+
+ and a load which has been captured from a 
+\series bold
+real datacenter
+\series default
+ (1&1 Ionos ShaHoLin = Shared Hosting Linux).
+ The load already contains a parallelism degree of 20 LXC containers running
+ in parallel at the same iron.
+ This corresponds to about 60,000 web spaces running on 20 Apache instances,
+ already in parallel.
+ In difference to artificial benchmarks (like pure random IO or pure sequential
+ IO), this benchmark is much more close to real server operations, while
+ artificial benchmarks are not meaningful for practice in general, because
+ they can deviate from real server operations by 
+\emph on
+factors
+\emph default
+ or even by 
+\series bold
+orders of magnitude
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+In order to determine the limits of the test candidates, the timing of the
+ original workload was converted to a linear ramp-up, simulating an 
+\series bold
+overloaded
+\series default
+ system.
+ Otherwise benchmarking would not be possible.
+\end_layout
+
+\begin_layout Standard
+The following 
+\family typewriter
+blkreplay
+\family default
+ benchmarks were executed on an otherwise unloaded Dell R630 with 40 CPU
+ threads on 2 sockets, 192 GB RAM, a Dell R730 hardware RAID controller
+ with 2 GB BBU cache, and 10 spindles Dell 1.8 TB 2.5 inch SAS disks configured
+ as RAID-6.
+ All data, including the 
+\family typewriter
+/mars
+\family default
+ directory, was located on the hardware RAID via LVM2.
+ 
+\family typewriter
+/dev/vginfong/lv-0
+\family default
+ was assigned a size of 8 TiB.
+ For testing, vanilla kernel 4.9.x with the MARS pre-patch and 
+\family typewriter
+mars0.1astable72
+\family default
+ was used.
+\end_layout
+
+\begin_layout Standard
+The 
+\family typewriter
+blkreplay
+\family default
+ parameters were as follows:
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+output_label="MARS"
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+# input description 
+\end_layout
+
+\begin_layout Plain Layout
+
+input_file_list="http://blkreplay.org/loads/natural/1and1/shared-hosting/2016/Sha
+HoLin_from_bare_metal/x20/shaholin-x20-ramped/shaholin-x20.adjacent.ramped-100.load.
+gz"
+\end_layout
+
+\begin_layout Plain Layout
+
+replay_duration=110
+\end_layout
+
+\begin_layout Plain Layout
+
+speedup=10
+\end_layout
+
+\begin_layout Plain Layout
+
+threads=512 
+\end_layout
+
+\begin_layout Plain Layout
+
+cmode=with-conflicts
+\end_layout
+
+\begin_layout Plain Layout
+
+scheduler="noop"
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+# hardware setup
+\end_layout
+
+\begin_layout Plain Layout
+
+replay_host_list="icpu5133"
+\end_layout
+
+\begin_layout Plain Layout
+
+replay_device_list="/dev/vginfong/lv-0"
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+# output description
+\end_layout
+
+\begin_layout Plain Layout
+
+enable_graph=1
+\end_layout
+
+\begin_layout Plain Layout
+
+graph_options="--no-static --dynamic" 
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+We start with the 
+\series bold
+raw
+\series default
+ device 
+\family typewriter
+/dev/vginfong/lv-0
+\family default
+ which had a size of 8 TiB.
+ The throughput is about 1418 IOPS, and the latency diagram shows that the
+ system is overloaded, but can cope with that overload: 
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/blkreplay/MARS.MARS.raw.iosched-noop.nr_request-128.icpu5133.vginfong.lv-0.g01.latency.realtime.png
+	width 100col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+As you can see in the filename, the NOOP kernel IO scheduler was used, and
+ the kernel parameter 
+\family typewriter
+nr_requests
+\family default
+ was left at its default value of 128.
+ When you read the specs of the Dell R730 hardware RAID controller, you
+ will notice that it can handle a much higher IO request parallelism of
+ almost 1024 requests in parallel.
+\end_layout
+
+\begin_layout Standard
+So the first natural tuning attempt is 
+\family typewriter
+nr_requests=1020
+\family default
+, in order to release the 
+\begin_inset Quotes eld
+\end_inset
+
+kernel IO handbrake
+\begin_inset Quotes erd
+\end_inset
+
+.
+ This results in an improved throughput of 1562 IOPS, and even the 
+\emph on
+maximum
+\emph default
+ latencies are improved, but the 
+\emph on
+average
+\emph default
+ latencies are becoming a little bit worse:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/blkreplay/MARS.MARS.raw.iosched-noop.nr_request-1020.icpu5133.vginfong.lv-0.g01.latency.realtime.png
+	width 100col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+It is well known since decades that there is a principal tradeoff between
+ throughput and latencies in IO systems.
+ Thus it is not a surprising result.
+\end_layout
+
+\begin_layout Standard
+On servers, overload situations should be rare, and during overload throughput
+ is typically much more important than latencies, as long as latencies are
+ not exceedingly high.
+ Thus we can recommend 
+\family typewriter
+nr_requests=1000
+\family default
+ for production.
+\end_layout
+
+\begin_layout Standard
+However, some sysadmins might be tempted to question why the NOOP scheduler
+ has been used.
+ On the internet, there are a ton of claims that CFQ is much better.
+\end_layout
+
+\begin_layout Standard
+Well, testing with CFQ instead of NOOP is no problem for 
+\family typewriter
+blkreplay
+\family default
+.
+ However, the result is very surprising.
+ While the IOPS are 1539, which is only a slight decrease which could result
+ from measurement tolerances, the latencies are now turning almost into
+ a disaster:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/blkreplay/MARS.MARS.raw.iosched-cfq.nr_request-1020.icpu5133.vginfong.lv-0.g01.latency.realtime.png
+	width 100col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+In production, you should never encounter IO latencies of almost 15 seconds.
+ So what is going wrong here?
+\end_layout
+
+\begin_layout Standard
+Here is an explanation.
+ A hardware RAID controller 
+\emph on
+already
+\emph default
+ has an 
+\emph on
+internal
+\emph default
+ IO scheduler.
+ This IO scheduler is hidden in a black box, such that many sysadmins don't
+ know of its existence.
+ If you add another IO scheduler at kernel level, you will have 
+\series bold
+two different
+\series default
+ IO schedulers running in parallel, and sometimes taking 
+\series bold
+contradictory decisions
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+These contradictory scheduling decisions may lead to problems in certain
+ cases and scenarios.
+\end_layout
+
+\begin_layout Standard
+While kernel-level IO schedulers like CFQ certainly have their merits at
+ improving your workstation's IO behaviour, they are counter-productive
+ at servers with hardware RAID controllers.
+\end_layout
+
+\begin_layout Standard
+So the advice is clear: 
+\series bold
+switch them off
+\series default
+ 
+\emph on
+in such a case
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+Even if you have a software RAID, check with 
+\family typewriter
+blkreplay
+\family default
+ that any IO schedulers are 
+\emph on
+really
+\emph default
+ improving things.
+ When possible, use your real workload, captured with 
+\family typewriter
+blktrace
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Never use a benchmark which only delivers IOPS! As demonstrated, inappropriate
+ IOPS tuning (or choice of inappropriate components) can worsen latencies
+ so much that production can be endangered!
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Always look at 
+\emph on
+both
+\emph default
+ IOPS 
+\emph on
+and
+\emph default
+ latencies!
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ 
+\emph on
+Average
+\emph default
+ latencies, even when enriched with 
+\emph on
+standard deviation
+\emph default
+, are not enough.
+ Classical statistics does not clearly describe operational problems like
+ 
+\series bold
+hangs
+\series default
+ and 
+\series bold
+exceptionally high latency requests
+\series default
+, which may occur only rarely, but can then lead to 
+\series bold
+serious incidents
+\series default
+.
+ Use a tool which can clearly display 
+\emph on
+any
+\emph default
+ faulty behaviour, such as 
+\family typewriter
+blkreplay
+\family default
+'s 
+\series bold
+latency diagrams
+\series default
+!
+\end_layout
+
+\begin_layout Standard
+Now we come to benchmarking 
+\family typewriter
+/dev/mars/lv-0
+\family default
+ placed on top of 
+\family typewriter
+/dev/vginfong/lv-0
+\family default
+.
+ Notice that MARS needs to write all write requests twice: once into the
+ transaction logfile, and a second time by writeback into 
+\family typewriter
+/dev/vginfong/lv-0
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+So you might expect that performace of 
+\family typewriter
+/dev/mars/lv-0
+\family default
+ could be worse than at the underlying raw device.
+\end_layout
+
+\begin_layout Standard
+Nevertheless, the 
+\series bold
+throughput
+\series default
+ is now measured 4338 IOPS, which means that performance has 
+\series bold
+more than doubled
+\series default
+.
+ You can also see it by the duration of the benchmark at the x axis.
+ Even the latencies have improved in many cases:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/blkreplay/MARS.MARS.mars.iosched-noop.nr_request-1020.icpu5133.mars.lv-0.g01.latency.realtime.png
+	width 100col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+How is it possible to be faster than a RAW device? How can this be explained?
+\end_layout
+
+\begin_layout Standard
+Look at the graphics and at the explanations from section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:The-Transaction-Logger"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+ The key to local IO performance is the 
+\series bold
+re-ordering of writeback
+\series default
+ according to ascending sector numbers.
+ This can reduce mechanical seek times of hard disks considerably, and even
+ by factors, such that it can over-compensate the doubled writes to the
+ transaction logfile, and even when both are residing at the same RAID set.
+\end_layout
+
+\begin_layout Standard
+Notice: this effect is not only dependent from total RAM size and from the
+ maximum size of the MARS temporary memory buffer (tuning parameter 
+\family typewriter
+/proc/sys/mars/mars_mem_percent
+\family default
+ which defaults to a limit of 20%).
+ It is also highly dependent from the actual seek behaviour of the 
+\series bold
+workload
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+For example, if you use 
+\family typewriter
+dd
+\family default
+ for sequentially overwriting /dev/mars/lv-0 with a parallelism degree of
+ 1, the writeback optimization of MARS cannot be exploited.
+ However, 
+\family typewriter
+dd
+\family default
+ is no appropriate benchmarking tool, and has almost nothing to do with
+ real workloads occuring in datacenters, which typically are neither sequential,
+ nor do they have a parallelism degree of only 1.
+ Please don't try to lead any discussions about this: simply use 
+\family typewriter
+blktrace
+\family default
+ to capture your real server workload, and compare it to a run of dd.
+ Only if you encounter the same behaviour as 
+\family typewriter
+dd
+\family default
+, only then you can really claim that your workload is like 
+\family typewriter
+dd
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Any assumptions about workloads are very dangerous: they can deviate from
+ practice not only by factors, but sometimes even by 
+\emph on
+orders of magnitude
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+Notice: the writeback optimization of MARS can typically only improve performanc
+e of HDDs, but not of SSDs.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ By placing 
+\family typewriter
+/mars
+\family default
+ onto its own physical device with appropriate speed, you can compensate
+ the doubled writes to some degree.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Depending on the workload and on RAID parameters, 
+\family typewriter
+/mars
+\family default
+ may be better placed onto SSDs, or better be placed on HDDs.
+ There is no general rule.
+ Just use 
+\family typewriter
+blktrace
+\family default
+ on your real workload, and check several configuration alternatives (also
+ different RAID levels etc) with 
+\family typewriter
+blkreplay
+\family default
+.
+\end_layout
+
+\begin_layout Section
 The 
 \family typewriter
 /proc/sys/mars/
@@ -30265,685 +30944,6 @@ marsadm
 
 \begin_layout Chapter
 Tips and Tricks
-\end_layout
-
-\begin_layout Section
-IO Performance Tuning
-\begin_inset CommandInset label
-LatexCommand label
-name "sec:IO-Performance-Tuning"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-There 
-\emph on
-exist
-\emph default
- some use cases where MARS 
-\emph on
-can
-\emph default
- deliver better IO performance than a raw block device.
- However, this cannot be expected 
-\emph on
-in general
-\emph default
-.
- In some 
-\emph on
-other
-\emph default
- cases the performance may be 
-\emph on
-lower
-\emph default
- than with a 
-\emph on
-single
-\emph default
- local raw device.
-\end_layout
-
-\begin_layout Standard
-For demonstration, we use the 
-\family typewriter
-blkreplay
-\family default
- tool from 
-\begin_inset Flex URL
-status open
-
-\begin_layout Plain Layout
-
-http://blkreplay.org
-\end_layout
-
-\end_inset
-
- and a load which has been captured from a 
-\series bold
-real datacenter
-\series default
- (1&1 Ionos ShaHoLin = Shared Hosting Linux).
- The load already contains a parallelism degree of 20 LXC containers running
- in parallel at the same iron.
- This corresponds to about 60,000 web spaces running on 20 Apache instances,
- already in parallel.
- In difference to artificial benchmarks (like pure random IO or pure sequential
- IO), this benchmark is much more close to real server operations, while
- artificial benchmarks are not meaningful for practice in general, because
- they can deviate from real server operations by 
-\emph on
-factors
-\emph default
- or even by 
-\series bold
-orders of magnitude
-\series default
-.
-\end_layout
-
-\begin_layout Standard
-In order to determine the limits of the test candidates, the timing of the
- original workload was converted to a linear ramp-up, simulating an 
-\series bold
-overloaded
-\series default
- system.
- Otherwise benchmarking would not be possible.
-\end_layout
-
-\begin_layout Standard
-The following 
-\family typewriter
-blkreplay
-\family default
- benchmarks were executed on an otherwise unloaded Dell R630 with 40 CPU
- threads on 2 sockets, 192 GB RAM, a Dell R730 hardware RAID controller
- with 2 GB BBU cache, and 10 spindles Dell 1.8 TB 2.5 inch SAS disks configured
- as RAID-6.
- All data, including the 
-\family typewriter
-/mars
-\family default
- directory, was located on the hardware RAID via LVM2.
- 
-\family typewriter
-/dev/vginfong/lv-0
-\family default
- was assigned a size of 8 TiB.
- For testing, vanilla kernel 4.9.x with the MARS pre-patch and 
-\family typewriter
-mars0.1astable72
-\family default
- was used.
-\end_layout
-
-\begin_layout Standard
-The 
-\family typewriter
-blkreplay
-\family default
- parameters were as follows:
-\begin_inset listings
-inline false
-status open
-
-\begin_layout Plain Layout
-
-output_label="MARS"
-\end_layout
-
-\begin_layout Plain Layout
-
-\end_layout
-
-\begin_layout Plain Layout
-
-# input description 
-\end_layout
-
-\begin_layout Plain Layout
-
-input_file_list="http://blkreplay.org/loads/natural/1and1/shared-hosting/2016/Sha
-HoLin_from_bare_metal/x20/shaholin-x20-ramped/shaholin-x20.adjacent.ramped-100.load.
-gz"
-\end_layout
-
-\begin_layout Plain Layout
-
-replay_duration=110
-\end_layout
-
-\begin_layout Plain Layout
-
-speedup=10
-\end_layout
-
-\begin_layout Plain Layout
-
-threads=512 
-\end_layout
-
-\begin_layout Plain Layout
-
-cmode=with-conflicts
-\end_layout
-
-\begin_layout Plain Layout
-
-scheduler="noop"
-\end_layout
-
-\begin_layout Plain Layout
-
-\end_layout
-
-\begin_layout Plain Layout
-
-# hardware setup
-\end_layout
-
-\begin_layout Plain Layout
-
-replay_host_list="icpu5133"
-\end_layout
-
-\begin_layout Plain Layout
-
-replay_device_list="/dev/vginfong/lv-0"
-\end_layout
-
-\begin_layout Plain Layout
-
-\end_layout
-
-\begin_layout Plain Layout
-
-# output description
-\end_layout
-
-\begin_layout Plain Layout
-
-enable_graph=1
-\end_layout
-
-\begin_layout Plain Layout
-
-graph_options="--no-static --dynamic" 
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-We start with the 
-\series bold
-raw
-\series default
- device 
-\family typewriter
-/dev/vginfong/lv-0
-\family default
- which had a size of 8 TiB.
- The throughput is about 1418 IOPS, and the latency diagram shows that the
- system is overloaded, but can cope with that overload: 
-\end_layout
-
-\begin_layout Standard
-\noindent
-\align center
-\begin_inset Graphics
-	filename images/blkreplay/MARS.MARS.raw.iosched-noop.nr_request-128.icpu5133.vginfong.lv-0.g01.latency.realtime.png
-	width 100col%
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-As you can see in the filename, the NOOP kernel IO scheduler was used, and
- the kernel parameter 
-\family typewriter
-nr_requests
-\family default
- was left at its default value of 128.
- When you read the specs of the Dell R730 hardware RAID controller, you
- will notice that it can handle a much higher IO request parallelism of
- almost 1024 requests in parallel.
-\end_layout
-
-\begin_layout Standard
-So the first natural tuning attempt is 
-\family typewriter
-nr_requests=1020
-\family default
-, in order to release the 
-\begin_inset Quotes eld
-\end_inset
-
-kernel IO handbrake
-\begin_inset Quotes erd
-\end_inset
-
-.
- This results in an improved throughput of 1562 IOPS, and even the 
-\emph on
-maximum
-\emph default
- latencies are improved, but the 
-\emph on
-average
-\emph default
- latencies are becoming a little bit worse:
-\end_layout
-
-\begin_layout Standard
-\noindent
-\align center
-\begin_inset Graphics
-	filename images/blkreplay/MARS.MARS.raw.iosched-noop.nr_request-1020.icpu5133.vginfong.lv-0.g01.latency.realtime.png
-	width 100col%
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-It is well known since decades that there is a principal tradeoff between
- throughput and latencies in IO systems.
- Thus it is not a surprising result.
-\end_layout
-
-\begin_layout Standard
-On servers, overload situations should be rare, and during overload throughput
- is typically much more important than latencies, as long as latencies are
- not exceedingly high.
- Thus we can recommend 
-\family typewriter
-nr_requests=1000
-\family default
- for production.
-\end_layout
-
-\begin_layout Standard
-However, some sysadmins might be tempted to question why the NOOP scheduler
- has been used.
- On the internet, there are a ton of claims that CFQ is much better.
-\end_layout
-
-\begin_layout Standard
-Well, testing with CFQ instead of NOOP is no problem for 
-\family typewriter
-blkreplay
-\family default
-.
- However, the result is very surprising.
- While the IOPS are 1539, which is only a slight decrease which could result
- from measurement tolerances, the latencies are now turning almost into
- a disaster:
-\end_layout
-
-\begin_layout Standard
-\noindent
-\align center
-\begin_inset Graphics
-	filename images/blkreplay/MARS.MARS.raw.iosched-cfq.nr_request-1020.icpu5133.vginfong.lv-0.g01.latency.realtime.png
-	width 100col%
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-In production, you should never encounter IO latencies of almost 15 seconds.
- So what is going wrong here?
-\end_layout
-
-\begin_layout Standard
-Here is an explanation.
- A hardware RAID controller 
-\emph on
-already
-\emph default
- has an 
-\emph on
-internal
-\emph default
- IO scheduler.
- This IO scheduler is hidden in a black box, such that many sysadmins don't
- know of its existence.
- If you add another IO scheduler at kernel level, you will have 
-\series bold
-two different
-\series default
- IO schedulers running in parallel, and sometimes taking 
-\series bold
-contradictory decisions
-\series default
-.
-\end_layout
-
-\begin_layout Standard
-These contradictory scheduling decisions may lead to problems in certain
- cases and scenarios.
-\end_layout
-
-\begin_layout Standard
-While kernel-level IO schedulers like CFQ certainly have their merits at
- improving your workstation's IO behaviour, they are counter-productive
- at servers with hardware RAID controllers.
-\end_layout
-
-\begin_layout Standard
-So the advice is clear: 
-\series bold
-switch them off
-\series default
- 
-\emph on
-in such a case
-\emph default
-.
-\end_layout
-
-\begin_layout Standard
-Even if you have a software RAID, check with 
-\family typewriter
-blkreplay
-\family default
- that any IO schedulers are 
-\emph on
-really
-\emph default
- improving things.
- When possible, use your real workload, captured with 
-\family typewriter
-blktrace
-\family default
-.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- Never use a benchmark which only delivers IOPS! As demonstrated, inappropriate
- IOPS tuning (or choice of inappropriate components) can worsen latencies
- so much that production can be endangered!
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
- Always look at 
-\emph on
-both
-\emph default
- IOPS 
-\emph on
-and
-\emph default
- latencies!
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- 
-\emph on
-Average
-\emph default
- latencies, even when enriched with 
-\emph on
-standard deviation
-\emph default
-, are not enough.
- Classical statistics does not clearly describe operational problems like
- 
-\series bold
-hangs
-\series default
- and 
-\series bold
-exceptionally high latency requests
-\series default
-, which may occur only rarely, but can then lead to 
-\series bold
-serious incidents
-\series default
-.
- Use a tool which can clearly display 
-\emph on
-any
-\emph default
- faulty behaviour, such as 
-\family typewriter
-blkreplay
-\family default
-'s 
-\series bold
-latency diagrams
-\series default
-!
-\end_layout
-
-\begin_layout Standard
-Now we come to benchmarking 
-\family typewriter
-/dev/mars/lv-0
-\family default
- placed on top of 
-\family typewriter
-/dev/vginfong/lv-0
-\family default
-.
- Notice that MARS needs to write all write requests twice: once into the
- transaction logfile, and a second time by writeback into 
-\family typewriter
-/dev/vginfong/lv-0
-\family default
-.
-\end_layout
-
-\begin_layout Standard
-So you might expect that performace of 
-\family typewriter
-/dev/mars/lv-0
-\family default
- could be worse than at the underlying raw device.
-\end_layout
-
-\begin_layout Standard
-Nevertheless, the 
-\series bold
-throughput
-\series default
- is now measured 4338 IOPS, which means that performance has 
-\series bold
-more than doubled
-\series default
-.
- You can also see it by the duration of the benchmark at the x axis.
- Even the latencies have improved in many cases:
-\end_layout
-
-\begin_layout Standard
-\noindent
-\align center
-\begin_inset Graphics
-	filename images/blkreplay/MARS.MARS.mars.iosched-noop.nr_request-1020.icpu5133.mars.lv-0.g01.latency.realtime.png
-	width 100col%
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-How is it possible to be faster than a RAW device? How can this be explained?
-\end_layout
-
-\begin_layout Standard
-Look at the graphics and at the explanations from section 
-\begin_inset CommandInset ref
-LatexCommand vref
-reference "sec:The-Transaction-Logger"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-
-.
- The key to local IO performance is the 
-\series bold
-re-ordering of writeback
-\series default
- according to ascending sector numbers.
- This can reduce mechanical seek times of hard disks considerably, and even
- by factors, such that it can over-compensate the doubled writes to the
- transaction logfile, and even when both are residing at the same RAID set.
-\end_layout
-
-\begin_layout Standard
-Notice: this effect is not only dependent from total RAM size and from the
- maximum size of the MARS temporary memory buffer (tuning parameter 
-\family typewriter
-/proc/sys/mars/mars_mem_percent
-\family default
- which defaults to a limit of 20%).
- It is also highly dependent from the actual seek behaviour of the 
-\series bold
-workload
-\series default
-.
-\end_layout
-
-\begin_layout Standard
-For example, if you use 
-\family typewriter
-dd
-\family default
- for sequentially overwriting /dev/mars/lv-0 with a parallelism degree of
- 1, the writeback optimization of MARS cannot be exploited.
- However, 
-\family typewriter
-dd
-\family default
- is no appropriate benchmarking tool, and has almost nothing to do with
- real workloads occuring in datacenters, which typically are neither sequential,
- nor do they have a parallelism degree of only 1.
- Please don't try to lead any discussions about this: simply use 
-\family typewriter
-blktrace
-\family default
- to capture your real server workload, and compare it to a run of dd.
- Only if you encounter the same behaviour as 
-\family typewriter
-dd
-\family default
-, only then you can really claim that your workload is like 
-\family typewriter
-dd
-\family default
-.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- Any assumptions about workloads are very dangerous: they can deviate from
- practice not only by factors, but sometimes even by 
-\emph on
-orders of magnitude
-\emph default
-.
-\end_layout
-
-\begin_layout Standard
-Notice: the writeback optimization of MARS can typically only improve performanc
-e of HDDs, but not of SSDs.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
- By placing 
-\family typewriter
-/mars
-\family default
- onto its own physical device with appropriate speed, you can compensate
- the doubled writes to some degree.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
- Depending on the workload and on RAID parameters, 
-\family typewriter
-/mars
-\family default
- may be better placed onto SSDs, or better be placed on HDDs.
- There is no general rule.
- Just use 
-\family typewriter
-blktrace
-\family default
- on your real workload, and check several configuration alternatives (also
- different RAID levels etc) with 
-\family typewriter
-blkreplay
-\family default
-.
 \end_layout
 
 \begin_layout Section
