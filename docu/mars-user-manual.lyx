@@ -19911,7 +19911,18 @@ read the fucking sources
 \end_layout
 
 \begin_layout Section
-Further Operations
+Further 
+\family typewriter
+marsadm
+\family default
+ Operations
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Further-marsadm-Operations"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Subsection
@@ -20291,7 +20302,7 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Deprectated.
+Deprectated, will vanish.
  Use 
 \family typewriter
 view-role
@@ -20404,7 +20415,7 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Deprectated.
+Deprectated, will vanish.
  Use 
 \family typewriter
 view-state
@@ -20517,7 +20528,7 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Deprectated.
+Deprectated, will vanish.
  Use 
 \family typewriter
 view-cstate
@@ -20630,7 +20641,7 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Deprectated.
+Deprectated, will vanish.
  Use 
 \family typewriter
 view-dstate
@@ -20887,7 +20898,7 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Deprectated.
+Deprectated, will vanish.
  Don't use it.
  Use 
 \family typewriter
@@ -21001,7 +21012,7 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Deprectated.
+Deprectated, will vanish.
  Don't use it.
  Use 
 \family typewriter
@@ -21115,9 +21126,9 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Deprectated.
+Deprectated, will vanish.
  Don't use it.
- Use or implement some macros instead.
+ Implement your own macros instead.
 \end_layout
 
 \end_inset
@@ -21225,7 +21236,7 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-Deprectated.
+Deprectated, will vanish.
  Use 
 \family typewriter
 view-the-err-msg
