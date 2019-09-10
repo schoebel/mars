@@ -853,6 +853,106 @@ fast-backward
  rewinding, of course at some cost.
 \end_layout
 
+\begin_layout Section
+The State of MARS
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:The-State-of"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In general, MARS tries to 
+\emph on
+hide
+\emph default
+ any network failures from you as best as it can.
+ After a network problem, any internal low-level socket connections are
+ 
+\emph on
+transparently
+\emph default
+ tried to re-open ASAP, without need for sysadmin intervention.
+ In difference to DRBD, network failures will 
+\emph on
+not
+\emph default
+ automatically alter the state of MARS, such as switching to 
+\family typewriter
+disconnected
+\family default
+ after a 
+\family typewriter
+ko_timeout
+\family default
+ or similar.
+ From a high-level sysadmin viewpoint, communication may just take a very
+ long time to succeed.
+\end_layout
+
+\begin_layout Standard
+When the behaviour of MARS is different from DRBD, it is usually intended
+ as a feature.
+\end_layout
+
+\begin_layout Standard
+MARS is not only an 
+\series bold
+asynchronous
+\series default
+ system at block IO level, but also 
+\series bold
+at control level
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+This is 
+\emph on
+necessary
+\emph default
+ because in a widely distributed long-distance system running on slow or
+ even temporarily failing networks, actions may take a long time, and there
+ may be many actions 
+\series bold
+started in parallel
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Synchronous concepts are generally not sufficient for expressing that.
+ Because of inherent asynchronicity and of dynamic creation / joining of
+ resources, it is neither possible to comprehensively depict a complex distribut
+ed MARS system, nor a comprehensive standalone snippet of MARS, as a finite
+ state transition diagram
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Probably it could be possible to formally model MARS as a Petri net.
+ However, complete Petri nets are tending to become very conplex, and to
+ describe lots of low-level details.
+ Expressing hierarchy, in a top-down fashion, is cumbersome.
+ We find no clue in trying to do so.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
 \begin_layout Chapter
 HOWTO setup MARS
 \begin_inset CommandInset label
@@ -31919,106 +32019,6 @@ Old Structure (TO DISAPPEAR)
 
 \begin_layout Chapter
 Quick Start Guide
-\end_layout
-
-\begin_layout Section
-The State of MARS
-\begin_inset CommandInset label
-LatexCommand label
-name "sec:The-State-of"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-In general, MARS tries to 
-\emph on
-hide
-\emph default
- any network failures from you as best as it can.
- After a network problem, any internal low-level socket connections are
- 
-\emph on
-transparently
-\emph default
- tried to re-open ASAP, without need for sysadmin intervention.
- In difference to DRBD, network failures will 
-\emph on
-not
-\emph default
- automatically alter the state of MARS, such as switching to 
-\family typewriter
-disconnected
-\family default
- after a 
-\family typewriter
-ko_timeout
-\family default
- or similar.
- From a high-level sysadmin viewpoint, communication may just take a very
- long time to succeed.
-\end_layout
-
-\begin_layout Standard
-When the behaviour of MARS is different from DRBD, it is usually intended
- as a feature.
-\end_layout
-
-\begin_layout Standard
-MARS is not only an 
-\series bold
-asynchronous
-\series default
- system at block IO level, but also 
-\series bold
-at control level
-\series default
-.
-\end_layout
-
-\begin_layout Standard
-This is 
-\emph on
-necessary
-\emph default
- because in a widely distributed long-distance system running on slow or
- even temporarily failing networks, actions may take a long time, and there
- may be many actions 
-\series bold
-started in parallel
-\series default
-.
-\end_layout
-
-\begin_layout Standard
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-Synchronous concepts are generally not sufficient for expressing that.
- Because of inherent asynchronicity and of dynamic creation / joining of
- resources, it is neither possible to comprehensively depict a complex distribut
-ed MARS system, nor a comprehensive standalone snippet of MARS, as a finite
- state transition diagram
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-Probably it could be possible to formally model MARS as a Petri net.
- However, complete Petri nets are tending to become very conplex, and to
- describe lots of low-level details.
- Expressing hierarchy, in a top-down fashion, is cumbersome.
- We find no clue in trying to do so.
-\end_layout
-
-\end_inset
-
-.
 \end_layout
 
 \begin_layout Standard
