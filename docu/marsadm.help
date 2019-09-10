@@ -262,15 +262,15 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
     For details and best practices, please refer to the PDF manual.
 
   lowlevel-delete-host
-    usage: lowlevel-delete-host <resource_name>
+    usage: lowlevel-ls-host-ips <hostname>
     Delete cluster member.
 
   lowlevel-ls-host-ips
-    usage: lowlevel-ls-host-ips <resource_name>
+    usage: lowlevel-ls-host-ips
     List cluster member names and IP addresses.
 
   lowlevel-set-host-ip
-    usage: lowlevel-set-host-ip <resource_name>
+    usage: lowlevel-ls-host-ips <hostname> <new_ip>
     Set IP for host.
 
   merge-cluster
@@ -537,6 +537,7 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
 
 
 <primitive_macroname> =
+  count-{cluster,resource}-members
   deletable-size
   device-opened
   errno-text
@@ -552,12 +553,14 @@ marsadm [<global_options>] view[-<macroname>] [<resource_names> | all ]
   replay-basenr
   replay-code
     When negative, this indidates that a replay/recovery error has occurred.
+  resource-possible-size
   rest-space
   summary-vector
   systemd-unit
   tree
   uuid
   wait-{is,todo}-{attach,sync,fetch,replay,primary}-{on,off}
+  writeback-rest
   {alive,fetch,replay,work}-{timestamp,age,lag}
   {all,the}-{pretty-,}{global-,}{{err,wrn,inf}-,}msg
   {cluster,resource}-members
