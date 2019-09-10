@@ -22275,24 +22275,29 @@ Postcondition: none.
 \size scriptsize
 Wait until 
 \emph on
-all
+all relevant 
 \emph default
- nodes in the cluster have sent a message, or until timeout.
- The default timeout is 30 s (exceptionally) and
-\size default
+nodes in the cluster have sent a status update of their version of the symlink
+ tree, or until timeout.
+ The default timeout is 30 s (exceptionally) and may be changed by
+\family typewriter
+ --timeout=$seconds
+\end_layout
 
+\begin_layout Plain Layout
 \begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
 
 \end_inset
 
-Be
+
 \size scriptsize
- may be changed by
-\family typewriter
- --timeout=$seconds
+ Use this for avoidance of rance conditions in the cluster, for nodes pariticipa
+ting in some of the local resources.
+ This command does its best to get the current status from the other cluster
+ members.
 \end_layout
 
 \end_inset
@@ -22624,15 +22629,20 @@ This is an alias for
 \family typewriter
 wait-cluster
 \family default
- waiting until only those nodes are reachable which belong to 
+ waiting until only those nodes are reachable which are particiapting at
+ 
 \family typewriter
 $res
 \family default
- (instead of waiting for the 
+ (instead of waiting for 
 \emph on
-full
+all
 \emph default
- cluster).
+ hosts participating in 
+\emph on
+any
+\emph default
+ of the locally joined resources).
 \end_layout
 
 \end_inset
@@ -22746,7 +22756,7 @@ Precondition: none additionally.
 \begin_layout Plain Layout
 
 \size scriptsize
-Postcondition: the local 
+Postcondition: 
 \family typewriter
 /dev/mars/$dev_name
 \family default
@@ -23101,9 +23111,9 @@ RTFS.
 \begin_layout Standard
 The following commands are for manual setup / repair of cluster membership.
  Only to be used by experts who know what they are doing! In general, cluster-wi
-de operations on IP addresses may need to be repeated at all hosts in the
- cluster iff the communication is not (yet) possible and/or not (yet) actually
- working (e.g.
+de operations on IP addresses needs to be repeated at all hosts in the cluster
+ iff the communication is not (yet) possible and/or not (yet) actually working
+ (e.g.
  firewalling problems etc).
 \end_layout
 
@@ -23527,6 +23537,13 @@ locally
 
 \begin_layout Subsection
 Senseless Commands (from DRBD)
+\end_layout
+
+\begin_layout Standard
+For completeness, here is a list of commands which do not make sense with
+ MARS.
+ Some of them are syntactically parsed for scrpting compatibility, but are
+ not doing anything.
 \end_layout
 
 \begin_layout Standard
@@ -24349,7 +24366,7 @@ status open
 \begin_layout Plain Layout
 
 \size scriptsize
-This would be too dangerous in case you have multiple secondaries.
+This would be dangerous in case you have multiple secondaries.
  A similar effect can be achieved with the 
 \family typewriter
 --host=
