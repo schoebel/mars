@@ -3593,7 +3593,17 @@ where
 $macroname
 \family default
 \emph default
- is one of the macros described in section 
+ is one of the macros described in the following section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Standard-marsadm-view"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, or in section 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "sec:The-macro-processor"
@@ -3603,7 +3613,7 @@ noprefix "false"
 
 \end_inset
 
-, or a macro which has been written by yourself.
+, or another macro which has been written by yourself.
 \end_layout
 
 \begin_layout Standard
@@ -3673,43 +3683,13 @@ name "subsec:Standard-marsadm-view"
 
 \begin_layout Standard
 The following predefined complex macros try to address the information needs
- of humans.
+ of 
+\series bold
+humans
+\series default
+.
  Use them only in scripts when you are prepared about the fact that the
  output format may change during development of MARS.
-\end_layout
-
-\begin_layout Standard
-Notice: the definitions of predefined complex macros may be updated in the
- course of the MARS project.
- However, the primitive macros recursively called by the complex ones will
- be hopefully rather stable in future (with the exception of bugfixes).
- If you want to retain an old / outdated version of a complex macro, just
- check it out from git, follow the instructions in section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "subsec:Creating-your-own"
-
-\end_inset
-
-, and preferably give it a different name in order to avoid confusion with
- the newer version.
- In general, it should be possible to use old macros with newer versions
- of 
-\family typewriter
-marsadm
-\family default
-
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-You might need to check out also old versions of further macros and adapt
- their names, whenever complex macros call each other.
-\end_layout
-
-\end_inset
-
-.
 \end_layout
 
 \begin_layout Labeling
@@ -3865,120 +3845,6 @@ resize
  is exceeded.
 \end_layout
 
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-
-\family typewriter
-1and1
-\family default
-
-\begin_inset space ~
-\end_inset
-
-or
-\begin_inset space ~
-\end_inset
-
-
-\family typewriter
-default-1and1
-\family default
- A variant of 
-\family typewriter
-default
-\family default
- for internal use by 1&1 Internet AG.
- You may call this complex macro by saying 
-\family typewriter
-marsadm view-1and1 all
-\family default
-.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-Note: the 
-\family typewriter
-marsadm view-1and1
-\family default
- command has been intensely tested in Spring 2014 to produce exactly the
- same output than the 1&1 internal
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-In addition to allow for customization, the macro processor is also meant
- as an exit strategy for removing dependencies from non-free software.
- 
-\series bold
-Please put your future macros also under GPL!
-\end_layout
-
-\end_inset
-
- tool 
-\family typewriter
-marsview
-\family default
-
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-There are some subtle differences: numbers are displayed in a different
- precision, some bug fixes in the macro version (which might have occurred
- 
-\emph on
-in the meantime
-\emph default
- ) may lead to different output as a side effect from bug fixes in 
-\emph on
-predefined
-\emph default
- macros, because the original 
-\family typewriter
-marsview
-\family default
- command is currently not actively maintained.
- Documentation of 
-\family typewriter
-marsview
-\family default
- can be found in the corresponding manpage, see 
-\family typewriter
-man marsview
-\family default
-.
- By construction, this is also the (unmaintained) documentation of 
-\family typewriter
-marsadm view-1and1
-\family default
- and other 
-\family typewriter
--1and1
-\family default
- macros.
- Notice that all 
-\family typewriter
-*-1and1
-\family default
- macros are not officially supported by the developer of MARS, and they
- may disappear in a future major release.
- However, they could be useful for your own customization macros.
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
 \begin_layout Standard
 \noindent
 \begin_inset Graphics
@@ -3995,10 +3861,9 @@ reference "subsec:Creating-your-own"
 
 \end_inset
 
-) is explicitly encouraged by the developer.
+) is explicitly encouraged for experienced sysadmins and userspace developers.
  It would be nice if a vibrant user community would emerge, helping each
  other by exchange of macros.
- 
 \end_layout
 
 \begin_layout Standard
@@ -4535,7 +4400,12 @@ modprobe mars; marsadm up all
 \emph on
 automatically
 \emph default
- try to replay any necessary transaction logfile(s) in order to fix the
+ go into phase 
+\family typewriter
+Recovery
+\family default
+, i.e.
+ try to replay any necessary transaction logfile(s) in order to fix any
  inconsistency.
  Only if the automatic fix fails and this message persists for a long time
  without progress, you 
@@ -4544,8 +4414,7 @@ might
 \emph default
  have a problem.
  Typically, as observed at a large installation at 1&1, this happens extremely
- rarely, and then typically indicates that your hardware is likely to be
- defective.
+ rarely, and even then it just indicated that hardware was defective.
 \end_layout
 
 \begin_layout Labeling
@@ -4711,16 +4580,6 @@ UpToDate
 \labelwidthstring 00.00.0000
 
 \family typewriter
-diskstate-1and1
-\family default
- A variant for internal use by 1&1 Internet AG.
- See above note.
-\end_layout
-
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-
-\family typewriter
 replstate
 \family default
  Shows the status of the replication in the following order of precedence:
@@ -4760,7 +4619,7 @@ UnResponsive
 \family default
 ) The main thread 
 \family typewriter
-mars_light
+mars_main
 \family default
  did not do any noticable work for more than 
 \family typewriter
@@ -4776,8 +4635,11 @@ extremely
 \emph on
 very
 \emph default
- long time, you should check whether you might need a reboot in order to
- fix the hang.
+ long time, you should check 
+\family typewriter
+dmesg
+\family default
+ whether you might need a reboot in order to fix the hang.
  The time window may be changed by 
 \family typewriter
 --window=$seconds
@@ -5044,16 +4906,6 @@ Replaying
 \labelwidthstring 00.00.0000
 
 \family typewriter
-replstate-1and1
-\family default
- A variant for internal use by 1&1 Internet AG.
- See above note.
-\end_layout
-
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-
-\family typewriter
 flags
 \family default
  For each of disk, consistency, attach, sync, fetch, and replay, show exactly
@@ -5199,15 +5051,6 @@ r
 \end_layout
 
 \end_deeper
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-
-\family typewriter
-flags-1and1
-\family default
- A variant for internal use by 1&1 Internet AG.
-\end_layout
-
 \begin_layout Labeling
 \labelwidthstring 00.00.0000
 
@@ -5420,15 +5263,6 @@ Primary
 \labelwidthstring 00.00.0000
 
 \family typewriter
-role-1and1
-\family default
- A variant for internal use by 1&1 Internet AG.
-\end_layout
-
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-
-\family typewriter
 primarynode
 \family default
  Display 
@@ -5436,15 +5270,6 @@ primarynode
 (none)
 \family default
  or the hostname of the designated primary.
-\end_layout
-
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-
-\family typewriter
-primarynode-1and1
-\family default
- A variant for internal use by 1&1 Internet AG.
 \end_layout
 
 \begin_layout Labeling
@@ -5502,29 +5327,11 @@ any
 \labelwidthstring 00.00.0000
 
 \family typewriter
-syncinfo-1and1
-\family default
- A variant for internal use by 1&1 Internet AG.
-\end_layout
-
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-
-\family typewriter
 replinfo
 \family default
  Shows an informational progress bar when fetch is running.
  This should not be used for scripting at all, because it contains realtime
  information in human-readable form.
-\end_layout
-
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-
-\family typewriter
-replinfo-1and1
-\family default
- A variant for internal use by 1&1 Internet AG.
 \end_layout
 
 \begin_layout Labeling
