@@ -24492,6 +24492,968 @@ invalidate
 
 \begin_layout Chapter
 Tuning, tips and tricks
+\begin_inset CommandInset label
+LatexCommand label
+name "chap:Tuning,-tips-and"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+The 
+\family typewriter
+/proc/sys/mars/
+\family default
+ and other Expert Tweaks
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:The-/proc/sys/mars/-Expert"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In many case, you will not need to deal with tweaks in 
+\family typewriter
+/proc/sys/mars/
+\family default
+ because everything should already default to reasonable predefined values.
+ This interface allows access to some internal kernel variables of the 
+\family typewriter
+mars.ko
+\family default
+ kernel module at 
+\emph on
+runtime
+\emph default
+.
+ This means, the values will be reset to default at 
+\family typewriter
+rmmod mars
+\family default
+ or at reboot.
+ If you need some persistence, implement it by yourself, e.g.
+ at startup scripts.
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+/proc/sys/mars/
+\family default
+ is 
+\emph on
+not
+\emph default
+ a stable interface.
+ It is not only specific for MARS, but may also change between releases
+ without notice.
+\end_layout
+
+\begin_layout Standard
+This section describes only those tweaks intended for sysadmins, not those
+ for developers / very deep internals.
+\end_layout
+
+\begin_layout Subsection
+Tuning Network Performance
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Tuning-Network-Performance"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Starting with MARS Light series 0.2, a new feature called 
+\begin_inset Quotes eld
+\end_inset
+
+socket bundling
+\begin_inset Quotes erd
+\end_inset
+
+ is available.
+\end_layout
+
+\begin_layout Standard
+It is mostly intendend for lines showing high packet loss.
+ By using multiple TCP sockets in parallel for emulating a single logical
+ connection, throughput can be significantly increased.
+\end_layout
+
+\begin_layout Standard
+Example for setting the socket parallelism to 4:
+\end_layout
+
+\begin_layout Itemize
+
+\family typewriter
+echo 4 > /proc/sys/mars/parallel_connections
+\end_layout
+
+\begin_layout Standard
+The following graphics shows the throughput of a non-fast
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+The fast fullsync algorithm would not saturate the 
+\family typewriter
+eth0
+\family default
+ link with traffic from a single resource.
+\end_layout
+
+\end_inset
+
+ fullsync of a 
+\emph on
+single
+\emph default
+ 100GiB resource over a loaded long-distance line between Europe/Germany
+ and USA/Midwest.
+ In order to compensate highly varying load at the line, all the experiments
+ were repeated more than 10 times and averaged.
+ Each bar shows the throughput for a particular socket parallelism.
+\begin_inset Separator latexpar
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/socket-bundling-long-summary.png
+	width 70col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Notice that the uplinks of the two servers are only 1 GBit/s respectively.
+ When the uplink is saturated, about 100 MByte/s is the maximum possible
+ peak throughput in theory.
+ You can easily recognize that the peak throughput is almost reached with
+ a parallelism degree of 2, but using even more sockets appears to be slightly
+ counter-productive.
+ One of the reasons is that more sockets will increase contention on the
+ line, and thus increasing packet loss.
+ Another potential reason is that higher parallelism at sockets will lead
+ to higher parallelism in disk reads, in turn leading to more permutations
+ of disk read positions (more 
+\emph on
+random
+\emph default
+ reads instead of purely sequential reads), which is counter-productive
+ for disk readahead strategies.
+\end_layout
+
+\begin_layout Standard
+The next graphics shows the same, but over a medium distance of about 50km.
+ This line is even more heavily loaded with respect to the number of TCP
+ connections running in parallel (probly some 10,000 or even 100,000 if
+ not more), and there is some kind of 
+\begin_inset Quotes eld
+\end_inset
+
+traffic shaping
+\begin_inset Quotes erd
+\end_inset
+
+ at some intermediate network gear which will 
+\begin_inset Quotes eld
+\end_inset
+
+punish
+\begin_inset Quotes erd
+\end_inset
+
+ those traffic sources disproportionally increasing overall packet loss.
+ This can explain the even higher counter-productive effect of using too
+ much sockets and thus injecting additional packet loss:
+\begin_inset Separator latexpar
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/socket-bundling-short-summary.png
+	width 70col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+In general, the optimum value for 
+\family typewriter
+/proc/sys/mars/parallel_connections
+\family default
+ may depend on many runtime factors such as other load running over some
+ (parts of) physical equipment.
+ You will need to determine optimum values yourself.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Notice that socket bundling is conceptually the 
+\begin_inset Quotes eld
+\end_inset
+
+opposite
+\begin_inset Quotes erd
+\end_inset
+
+ of traffic shaping.
+ You are trying to get 
+\emph on
+more
+\emph default
+ bandwidth, at the cost of 
+\emph on
+other
+\emph default
+ traffic competing for the same network resources.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ If you are operating masses of servers, don't set the MARS socket parallelism
+ 
+\series bold
+too high 
+\series default
+everywhere.
+ You might 
+\begin_inset Quotes eld
+\end_inset
+
+steal
+\begin_inset Quotes erd
+\end_inset
+
+ too much bandwidth from other applications when starting masses of syncs
+ in parallel, e.g.
+ after an incident.
+ Best practice is to start with a default value of 1, and to increase it
+ only 
+\emph on
+on demand
+\emph default
+, and/or preferably 
+\emph on
+only
+\emph default
+ at those servers where high load really occurs or where some urgent actions
+ need a 
+\emph on
+temporary
+\emph default
+ boost.
+\end_layout
+
+\begin_layout Subsection
+Syslogging
+\end_layout
+
+\begin_layout Standard
+All internal messages produced by the kernel module belong to one of the
+ following classes:
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+0 debug messages
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+1 info messages
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+2 warnings
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+3 error messages
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+4 fatal error messages
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+5 any message (summary of 0 to 4)
+\end_layout
+
+\begin_layout Subsubsection
+Logging to Files
+\end_layout
+
+\begin_layout Standard
+This feature will likely disappear when MARS goes to kernel upstream.
+ It was mostly intended for debugging during early beta phases and is no
+ longer needed for stable operation.
+ Developers may use it for spotting potential problems.
+\end_layout
+
+\begin_layout Standard
+The classes may be used to produce status files 
+\family typewriter
+$class.*.status
+\family default
+ in the 
+\family typewriter
+/mars/
+\family default
+ and/or in the 
+\family typewriter
+/mars/resource-
+\emph on
+mydata
+\emph default
+/
+\family default
+ directory / directories.
+\end_layout
+
+\begin_layout Standard
+When you create a file 
+\family typewriter
+$class.*.log
+\family default
+ in parallel to any 
+\family typewriter
+$class.*.status
+\family default
+, the 
+\family typewriter
+*.log
+\family default
+ file will be appended forever with the same messages as in 
+\family typewriter
+*.status
+\family default
+.
+ The difference is that *.status is regenerated anew from an empty starting
+ point, while *.log can (potentially) increase indefinitely unless you remove
+ it, or rename it to something else.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+Beware, any permamently present 
+\family typewriter
+*.log
+\family default
+ file can easily fill up your 
+\family typewriter
+/mars/
+\family default
+ partition until the problems described in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Defending-Overflow"
+
+\end_inset
+
+ will appear.
+ Use 
+\family typewriter
+*.log
+\family default
+ only for a 
+\series bold
+limited time
+\series default
+, and 
+\series bold
+only for debugging!
+\end_layout
+
+\begin_layout Subsubsection
+Logging to Syslog
+\end_layout
+
+\begin_layout Standard
+The classes also play a role in the following 
+\family typewriter
+/proc/sys/mars/
+\family default
+ tweaks:
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+syslog_min_class
+\family default
+ (rw) The 
+\emph on
+mimimum
+\emph default
+ class number for 
+\emph on
+permanent
+\emph default
+ syslogging.
+ By default, this is set to -1 in order to switch off perment logging completely.
+ Permament logging can easily flood your syslog with such huge amounts of
+ messages (in particular when class=0), that your system as a whole may
+ become unusable (because vital kernel threads may be blocked too long or
+ too often by the userspace syslog daemon).
+ Instead, please use the flood-protected syslogging described below!
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+syslog_max_class
+\family default
+ (rw) The 
+\emph on
+maximum
+\emph default
+ class number for 
+\emph on
+permanent
+\emph default
+ syslogging.
+ Please use the flood-protected version instead.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+syslog_flood_class
+\family default
+ (rw) The mimimum class of flood-protected syslogging.
+ The maximum class is always 4.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+syslog_flood_limit
+\family default
+ (rw) The maxmimum number of messages after which the flood protection will
+ start.
+ This is a hard limit for the the number of messages written to the syslog.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+syslog_flood_recovery_s
+\family default
+ (rw) The number of seconds after which the internal flood counter is reset
+ (after flood protection state has been reached).
+ When no new messages appear after this time, the flood protection will
+ start over at count 0.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+The rationale behind flood protected syslogging: sysadmins are usually only
+ interested in the point in time where some problems / incidents / etc have
+ 
+\emph on
+started
+\emph default
+.
+ They are usually not interested in capturing 
+\emph on
+each
+\emph default
+ and 
+\emph on
+every
+\emph default
+ single error message (in particular when they are flooding the system logs).
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+If you 
+\emph on
+really
+\emph default
+ need complete error information, use the 
+\family typewriter
+*.log
+\family default
+ files described above, compress them and save them to somewhere else 
+\emph on
+regularly
+\emph default
+ by a cron job.
+ This bears much less overhead than filtering via the syslog daemon, or
+ even remote syslogging in real time which will almost surely screw up your
+ system in case of network problems co-inciding with flood messages, such
+ as caused in turn by those problems.
+ Don't rely on real-time concepts, just do it the old-fashioned batch job
+ way.
+\end_layout
+
+\begin_layout Subsubsection
+Tuning Verbosity of Logging
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+show_debug_messages
+\family default
+ Boolean switch, 0 or 1.
+ Mostly useful only for developers.
+ This can easily flood your logs if our are not careful.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+show_log_messages
+\family default
+ Boolean switch, 0 or 1.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+show_connections
+\family default
+ Boolean switch, 0 or 1.
+ Show detailed internal statistics on sockets.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+show_statistics_local
+\begin_inset space ~
+\end_inset
+
+/
+\begin_inset space ~
+\end_inset
+
+show_statistics_global
+\family default
+ Only useful for kernel developers.
+ Shows some internal information on internal brick instances, memory usage,
+ etc.
+\end_layout
+
+\begin_layout Subsection
+Tuning the Sync
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+sync_flip_interval_sec
+\family default
+ (rw) The sync process must not run in parallel to logfile replay, in order
+ to easily guarantee consistency of your disk.
+ If logfile replay would be paused for the full duration of very large or
+ long-lasting syncs (which could take some days over very slow networks),
+ your 
+\family typewriter
+/mars/
+\family default
+ filesystem could overflow because no replay would be possible in the meantime.
+ Therefore, MARS regulary flips between actually syncing and actually replaying,
+ if both is enabled.
+ You can set the time interval for flipping here.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+sync_limit
+\family default
+ (rw) When > 0, this limits the maximum number of sync processes actually
+ running parallel.
+ This is useful if you have a large number of resources, and you don't want
+ to overload the network with sync processes.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+sync_nr
+\family default
+ (ro) Passive indicator for the number of sync processes currently running.
+\end_layout
+
+\begin_layout Labeling
+\labelwidthstring 00.00.0000
+
+\family typewriter
+sync_want
+\family default
+ (ro) Passive indicator for the number of sync processes which 
+\emph on
+demand
+\emph default
+ running.
+\end_layout
+
+\begin_layout Subsection
+Lowlevel TCP Tuning (Networking Experts Only)
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:TCP-Tuning"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+When 
+\family typewriter
+CONFIG_MARS_SEPARATE_PORTS
+\family default
+ and 
+\family typewriter
+CONFIG_MARS_IPv4_TOS
+\family default
+ are enabled, MARS uses the following types of traffic:
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+MARS_TRAFFIC_META
+\family default
+ (by default on port 7777 with 
+\family typewriter
+IPTOS_LOWDELAY
+\family default
+) This can be tuned in directory 
+\family typewriter
+/proc/sys/mars/tcp_tuning_0_meta_traffic/
+\family default
+.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+MARS_TRAFFIC_REPLICATION
+\family default
+ (by default on port 7778 with 
+\family typewriter
+IPTOS_RELIABILITY
+\family default
+) This can be tuned in directory 
+\family typewriter
+/proc/sys/mars/tcp_tuning_1_replication_traffic/
+\family default
+.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+MARS_TRAFFIC_SYNC
+\family default
+ (by default on port 7779 with 
+\family typewriter
+IPTOS_MINCOST
+\family default
+) This can be tuned in directory 
+\family typewriter
+/proc/sys/mars/tcp_tuning_2_sync_traffic/
+\family default
+.
+ Attention: since the advent of 
+\family typewriter
+DSCP
+\family default
+, this bit (hex 
+\family typewriter
+0x2
+\family default
+ in host byte order) is suppressed by the kernel, and yields 
+\family typewriter
+DS0
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+In each of these directories, the following tunables are available (only
+ for networking experts who know what they are doing):
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+ip_tos
+\family default
+ As explained above.
+ Notice: hex constants from 
+\family typewriter
+/usr/include/linux/ip.h
+\family default
+ must be converted to decimal before forwarding to the 
+\family typewriter
+/proc
+\family default
+ interface.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+tcp_window_size
+\family default
+ Current default is 8 * 1024 * 1024.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+tcp_nodelay
+\family default
+ Current default is 0.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+tcp_timeout
+\family default
+ Current default is 2.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+tcp_keepcnt
+\family default
+ Current default is 3.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+tcp_keepintvl
+\family default
+ Current default is 3.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+tcp_keepidle
+\family default
+ Current default is 4.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Further tuning parameters are in the standard Linux kernel.
+ Notice that 
+\family typewriter
+IP_TOS
+\family default
+ is internally converted to 
+\family typewriter
+DSCP
+\family default
+, which in turn can be further manipulated by 
+\family typewriter
+netfilter
+\family default
+ / 
+\family typewriter
+iptables
+\family default
+ and/or by 
+\family typewriter
+qdisc
+\family default
+ (
+\family typewriter
+tc
+\family default
+) and/or by further (external) networking components.
+ The ancient TOS settings are meant as a default 
+\emph on
+starting point
+\emph default
+ for further customization to your needs.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Typically, 
+\emph on
+public
+\emph default
+ internet transports are flattening / ignoring or otherwise manipulating
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+DSCP markings can be only made reliable on private networks (possibly requiring
+ some effort).
+ Public Internet service and transit providers do not necessarily treat
+ the TOS values or DSCP markings with any form of priority and may also
+ remove or change them without any notice.
+ Some internet service or transit providers also do use specific DSCP markings
+ to mark packets for being dropped, which may result in hard to find transmissio
+n errors.
+\end_layout
+
+\begin_layout Plain Layout
+If want to use MARS on a public internet connection, you should use 
+\series bold
+encrypted
+\series default
+ 
+\series bold
+VPN
+\series default
+ with different DSCP markings, and coordinate them with your network services
+ provider.
+\end_layout
+
+\end_inset
+
+ the TOS / DSCP fields.
+ There it will not work.
+ Anyway, you should never route unencrypted MARS traffic over public transports,
+ for obvious security reasons.
+ Notice: MARS replication is meant for company-
+\emph on
+internal
+\emph default
+ networks like 
+\emph on
+internal
+\emph default
+ 
+\series bold
+replication networks
+\series default
+ (or storage networks) where some networking department has control of.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Playing with the above settings can easily tear down your whole (replication)
+ network if you don't know exactly what you are doing.
+ Please test any changes in the lab first.
+ Mass rollout should be done in incremental phases, each in power of 10
+ units.
+ There might be unexpected effects like packet storms, or packet loss, etc.
+ Some of these effects may only show up when a certain number of hosts is
+ exceeded, or when certain load conditions are hammering the overall Distributed
+ System.
+ Some very old routers / switches are known to break down unexpectedly when
+ overloaded in certain ways.
+ Be careful in a production environment!
 \end_layout
 
 \begin_layout Chapter
@@ -29266,961 +30228,6 @@ marsadm
 /proc/sys/mars/
 \family default
 )
-\end_layout
-
-\begin_layout Section
-The 
-\family typewriter
-/proc/sys/mars/
-\family default
- and other Expert Tweaks
-\begin_inset CommandInset label
-LatexCommand label
-name "sec:The-/proc/sys/mars/-Expert"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-In many case, you will not need to deal with tweaks in 
-\family typewriter
-/proc/sys/mars/
-\family default
- because everything should already default to reasonable predefined values.
- This interface allows access to some internal kernel variables of the 
-\family typewriter
-mars.ko
-\family default
- kernel module at 
-\emph on
-runtime
-\emph default
-.
- This means, the values will be reset to default at 
-\family typewriter
-rmmod mars
-\family default
- or at reboot.
- If you need some persistence, implement it by yourself, e.g.
- at startup scripts.
-\end_layout
-
-\begin_layout Standard
-
-\family typewriter
-/proc/sys/mars/
-\family default
- is 
-\emph on
-not
-\emph default
- a stable interface.
- It is not only specific for MARS, but may also change between releases
- without notice.
-\end_layout
-
-\begin_layout Standard
-This section describes only those tweaks intended for sysadmins, not those
- for developers / very deep internals.
-\end_layout
-
-\begin_layout Subsection
-Tuning Network Performance
-\begin_inset CommandInset label
-LatexCommand label
-name "subsec:Tuning-Network-Performance"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-Starting with MARS Light series 0.2, a new feature called 
-\begin_inset Quotes eld
-\end_inset
-
-socket bundling
-\begin_inset Quotes erd
-\end_inset
-
- is available.
-\end_layout
-
-\begin_layout Standard
-It is mostly intendend for lines showing high packet loss.
- By using multiple TCP sockets in parallel for emulating a single logical
- connection, throughput can be significantly increased.
-\end_layout
-
-\begin_layout Standard
-Example for setting the socket parallelism to 4:
-\end_layout
-
-\begin_layout Itemize
-
-\family typewriter
-echo 4 > /proc/sys/mars/parallel_connections
-\end_layout
-
-\begin_layout Standard
-The following graphics shows the throughput of a non-fast
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-The fast fullsync algorithm would not saturate the 
-\family typewriter
-eth0
-\family default
- link with traffic from a single resource.
-\end_layout
-
-\end_inset
-
- fullsync of a 
-\emph on
-single
-\emph default
- 100GiB resource over a loaded long-distance line between Europe/Germany
- and USA/Midwest.
- In order to compensate highly varying load at the line, all the experiments
- were repeated more than 10 times and averaged.
- Each bar shows the throughput for a particular socket parallelism.
-\begin_inset Separator latexpar
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-\align center
-\begin_inset Graphics
-	filename images/socket-bundling-long-summary.png
-	width 70col%
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-Notice that the uplinks of the two servers are only 1 GBit/s respectively.
- When the uplink is saturated, about 100 MByte/s is the maximum possible
- peak throughput in theory.
- You can easily recognize that the peak throughput is almost reached with
- a parallelism degree of 2, but using even more sockets appears to be slightly
- counter-productive.
- One of the reasons is that more sockets will increase contention on the
- line, and thus increasing packet loss.
- Another potential reason is that higher parallelism at sockets will lead
- to higher parallelism in disk reads, in turn leading to more permutations
- of disk read positions (more 
-\emph on
-random
-\emph default
- reads instead of purely sequential reads), which is counter-productive
- for disk readahead strategies.
-\end_layout
-
-\begin_layout Standard
-The next graphics shows the same, but over a medium distance of about 50km.
- This line is even more heavily loaded with respect to the number of TCP
- connections running in parallel (probly some 10,000 or even 100,000 if
- not more), and there is some kind of 
-\begin_inset Quotes eld
-\end_inset
-
-traffic shaping
-\begin_inset Quotes erd
-\end_inset
-
- at some intermediate network gear which will 
-\begin_inset Quotes eld
-\end_inset
-
-punish
-\begin_inset Quotes erd
-\end_inset
-
- those traffic sources disproportionally increasing overall packet loss.
- This can explain the even higher counter-productive effect of using too
- much sockets and thus injecting additional packet loss:
-\begin_inset Separator latexpar
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-\align center
-\begin_inset Graphics
-	filename images/socket-bundling-short-summary.png
-	width 70col%
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-In general, the optimum value for 
-\family typewriter
-/proc/sys/mars/parallel_connections
-\family default
- may depend on many runtime factors such as other load running over some
- (parts of) physical equipment.
- You will need to determine optimum values yourself.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- Notice that socket bundling is conceptually the 
-\begin_inset Quotes eld
-\end_inset
-
-opposite
-\begin_inset Quotes erd
-\end_inset
-
- of traffic shaping.
- You are trying to get 
-\emph on
-more
-\emph default
- bandwidth, at the cost of 
-\emph on
-other
-\emph default
- traffic competing for the same network resources.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- If you are operating masses of servers, don't set the MARS socket parallelism
- 
-\series bold
-too high 
-\series default
-everywhere.
- You might 
-\begin_inset Quotes eld
-\end_inset
-
-steal
-\begin_inset Quotes erd
-\end_inset
-
- too much bandwidth from other applications when starting masses of syncs
- in parallel, e.g.
- after an incident.
- Best practice is to start with a default value of 1, and to increase it
- only 
-\emph on
-on demand
-\emph default
-, and/or preferably 
-\emph on
-only
-\emph default
- at those servers where high load really occurs or where some urgent actions
- need a 
-\emph on
-temporary
-\emph default
- boost.
-\end_layout
-
-\begin_layout Subsection
-Syslogging
-\end_layout
-
-\begin_layout Standard
-All internal messages produced by the kernel module belong to one of the
- following classes:
-\end_layout
-
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-0 debug messages
-\end_layout
-
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-1 info messages
-\end_layout
-
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-2 warnings
-\end_layout
-
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-3 error messages
-\end_layout
-
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-4 fatal error messages
-\end_layout
-
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-5 any message (summary of 0 to 4)
-\end_layout
-
-\begin_layout Subsubsection
-Logging to Files
-\end_layout
-
-\begin_layout Standard
-This feature will likely disappear when MARS goes to kernel upstream.
- It was mostly intended for debugging during early beta phases and is no
- longer needed for stable operation.
- Developers may use it for spotting potential problems.
-\end_layout
-
-\begin_layout Standard
-The classes may be used to produce status files 
-\family typewriter
-$class.*.status
-\family default
- in the 
-\family typewriter
-/mars/
-\family default
- and/or in the 
-\family typewriter
-/mars/resource-
-\emph on
-mydata
-\emph default
-/
-\family default
- directory / directories.
-\end_layout
-
-\begin_layout Standard
-When you create a file 
-\family typewriter
-$class.*.log
-\family default
- in parallel to any 
-\family typewriter
-$class.*.status
-\family default
-, the 
-\family typewriter
-*.log
-\family default
- file will be appended forever with the same messages as in 
-\family typewriter
-*.status
-\family default
-.
- The difference is that *.status is regenerated anew from an empty starting
- point, while *.log can (potentially) increase indefinitely unless you remove
- it, or rename it to something else.
-\end_layout
-
-\begin_layout Standard
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
-Beware, any permamently present 
-\family typewriter
-*.log
-\family default
- file can easily fill up your 
-\family typewriter
-/mars/
-\family default
- partition until the problems described in section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:Defending-Overflow"
-
-\end_inset
-
- will appear.
- Use 
-\family typewriter
-*.log
-\family default
- only for a 
-\series bold
-limited time
-\series default
-, and 
-\series bold
-only for debugging!
-\end_layout
-
-\begin_layout Subsubsection
-Logging to Syslog
-\end_layout
-
-\begin_layout Standard
-The classes also play a role in the following 
-\family typewriter
-/proc/sys/mars/
-\family default
- tweaks:
-\end_layout
-
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-
-\family typewriter
-syslog_min_class
-\family default
- (rw) The 
-\emph on
-mimimum
-\emph default
- class number for 
-\emph on
-permanent
-\emph default
- syslogging.
- By default, this is set to -1 in order to switch off perment logging completely.
- Permament logging can easily flood your syslog with such huge amounts of
- messages (in particular when class=0), that your system as a whole may
- become unusable (because vital kernel threads may be blocked too long or
- too often by the userspace syslog daemon).
- Instead, please use the flood-protected syslogging described below!
-\end_layout
-
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-
-\family typewriter
-syslog_max_class
-\family default
- (rw) The 
-\emph on
-maximum
-\emph default
- class number for 
-\emph on
-permanent
-\emph default
- syslogging.
- Please use the flood-protected version instead.
-\end_layout
-
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-
-\family typewriter
-syslog_flood_class
-\family default
- (rw) The mimimum class of flood-protected syslogging.
- The maximum class is always 4.
-\end_layout
-
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-
-\family typewriter
-syslog_flood_limit
-\family default
- (rw) The maxmimum number of messages after which the flood protection will
- start.
- This is a hard limit for the the number of messages written to the syslog.
-\end_layout
-
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-
-\family typewriter
-syslog_flood_recovery_s
-\family default
- (rw) The number of seconds after which the internal flood counter is reset
- (after flood protection state has been reached).
- When no new messages appear after this time, the flood protection will
- start over at count 0.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-The rationale behind flood protected syslogging: sysadmins are usually only
- interested in the point in time where some problems / incidents / etc have
- 
-\emph on
-started
-\emph default
-.
- They are usually not interested in capturing 
-\emph on
-each
-\emph default
- and 
-\emph on
-every
-\emph default
- single error message (in particular when they are flooding the system logs).
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-If you 
-\emph on
-really
-\emph default
- need complete error information, use the 
-\family typewriter
-*.log
-\family default
- files described above, compress them and save them to somewhere else 
-\emph on
-regularly
-\emph default
- by a cron job.
- This bears much less overhead than filtering via the syslog daemon, or
- even remote syslogging in real time which will almost surely screw up your
- system in case of network problems co-inciding with flood messages, such
- as caused in turn by those problems.
- Don't rely on real-time concepts, just do it the old-fashioned batch job
- way.
-\end_layout
-
-\begin_layout Subsubsection
-Tuning Verbosity of Logging
-\end_layout
-
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-
-\family typewriter
-show_debug_messages
-\family default
- Boolean switch, 0 or 1.
- Mostly useful only for developers.
- This can easily flood your logs if our are not careful.
-\end_layout
-
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-
-\family typewriter
-show_log_messages
-\family default
- Boolean switch, 0 or 1.
-\end_layout
-
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-
-\family typewriter
-show_connections
-\family default
- Boolean switch, 0 or 1.
- Show detailed internal statistics on sockets.
-\end_layout
-
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-
-\family typewriter
-show_statistics_local
-\begin_inset space ~
-\end_inset
-
-/
-\begin_inset space ~
-\end_inset
-
-show_statistics_global
-\family default
- Only useful for kernel developers.
- Shows some internal information on internal brick instances, memory usage,
- etc.
-\end_layout
-
-\begin_layout Subsection
-Tuning the Sync
-\end_layout
-
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-
-\family typewriter
-sync_flip_interval_sec
-\family default
- (rw) The sync process must not run in parallel to logfile replay, in order
- to easily guarantee consistency of your disk.
- If logfile replay would be paused for the full duration of very large or
- long-lasting syncs (which could take some days over very slow networks),
- your 
-\family typewriter
-/mars/
-\family default
- filesystem could overflow because no replay would be possible in the meantime.
- Therefore, MARS regulary flips between actually syncing and actually replaying,
- if both is enabled.
- You can set the time interval for flipping here.
-\end_layout
-
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-
-\family typewriter
-sync_limit
-\family default
- (rw) When > 0, this limits the maximum number of sync processes actually
- running parallel.
- This is useful if you have a large number of resources, and you don't want
- to overload the network with sync processes.
-\end_layout
-
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-
-\family typewriter
-sync_nr
-\family default
- (ro) Passive indicator for the number of sync processes currently running.
-\end_layout
-
-\begin_layout Labeling
-\labelwidthstring 00.00.0000
-
-\family typewriter
-sync_want
-\family default
- (ro) Passive indicator for the number of sync processes which 
-\emph on
-demand
-\emph default
- running.
-\end_layout
-
-\begin_layout Subsection
-Lowlevel TCP Tuning (Networking Experts Only)
-\begin_inset CommandInset label
-LatexCommand label
-name "subsec:TCP-Tuning"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-When 
-\family typewriter
-CONFIG_MARS_SEPARATE_PORTS
-\family default
- and 
-\family typewriter
-CONFIG_MARS_IPv4_TOS
-\family default
- are enabled, MARS uses the following types of traffic:
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-MARS_TRAFFIC_META
-\family default
- (by default on port 7777 with 
-\family typewriter
-IPTOS_LOWDELAY
-\family default
-) This can be tuned in directory 
-\family typewriter
-/proc/sys/mars/tcp_tuning_0_meta_traffic/
-\family default
-.
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-MARS_TRAFFIC_REPLICATION
-\family default
- (by default on port 7778 with 
-\family typewriter
-IPTOS_RELIABILITY
-\family default
-) This can be tuned in directory 
-\family typewriter
-/proc/sys/mars/tcp_tuning_1_replication_traffic/
-\family default
-.
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-MARS_TRAFFIC_SYNC
-\family default
- (by default on port 7779 with 
-\family typewriter
-IPTOS_MINCOST
-\family default
-) This can be tuned in directory 
-\family typewriter
-/proc/sys/mars/tcp_tuning_2_sync_traffic/
-\family default
-.
- Attention: since the advent of 
-\family typewriter
-DSCP
-\family default
-, this bit (hex 
-\family typewriter
-0x2
-\family default
- in host byte order) is suppressed by the kernel, and yields 
-\family typewriter
-DS0
-\family default
-.
-\end_layout
-
-\begin_layout Standard
-In each of these directories, the following tunables are available (only
- for networking experts who know what they are doing):
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-ip_tos
-\family default
- As explained above.
- Notice: hex constants from 
-\family typewriter
-/usr/include/linux/ip.h
-\family default
- must be converted to decimal before forwarding to the 
-\family typewriter
-/proc
-\family default
- interface.
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-tcp_window_size
-\family default
- Current default is 8 * 1024 * 1024.
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-tcp_nodelay
-\family default
- Current default is 0.
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-tcp_timeout
-\family default
- Current default is 2.
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-tcp_keepcnt
-\family default
- Current default is 3.
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-tcp_keepintvl
-\family default
- Current default is 3.
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-tcp_keepidle
-\family default
- Current default is 4.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-Further tuning parameters are in the standard Linux kernel.
- Notice that 
-\family typewriter
-IP_TOS
-\family default
- is internally converted to 
-\family typewriter
-DSCP
-\family default
-, which in turn can be further manipulated by 
-\family typewriter
-netfilter
-\family default
- / 
-\family typewriter
-iptables
-\family default
- and/or by 
-\family typewriter
-qdisc
-\family default
- (
-\family typewriter
-tc
-\family default
-) and/or by further (external) networking components.
- The ancient TOS settings are meant as a default 
-\emph on
-starting point
-\emph default
- for further customization to your needs.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- Typically, 
-\emph on
-public
-\emph default
- internet transports are flattening / ignoring or otherwise manipulating
-\begin_inset Foot
-status open
-
-\begin_layout Plain Layout
-DSCP markings can be only made reliable on private networks (possibly requiring
- some effort).
- Public Internet service and transit providers do not necessarily treat
- the TOS values or DSCP markings with any form of priority and may also
- remove or change them without any notice.
- Some internet service or transit providers also do use specific DSCP markings
- to mark packets for being dropped, which may result in hard to find transmissio
-n errors.
-\end_layout
-
-\begin_layout Plain Layout
-If want to use MARS on a public internet connection, you should use 
-\series bold
-encrypted
-\series default
- 
-\series bold
-VPN
-\series default
- with different DSCP markings, and coordinate them with your network services
- provider.
-\end_layout
-
-\end_inset
-
- the TOS / DSCP fields.
- There it will not work.
- Anyway, you should never route unencrypted MARS traffic over public transports,
- for obvious security reasons.
- Notice: MARS replication is meant for company-
-\emph on
-internal
-\emph default
- networks like 
-\emph on
-internal
-\emph default
- 
-\series bold
-replication networks
-\series default
- (or storage networks) where some networking department has control of.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- Playing with the above settings can easily tear down your whole (replication)
- network if you don't know exactly what you are doing.
- Please test any changes in the lab first.
- Mass rollout should be done in incremental phases, each in power of 10
- units.
- There might be unexpected effects like packet storms, or packet loss, etc.
- Some of these effects may only show up when a certain number of hosts is
- exceeded, or when certain load conditions are hammering the overall Distributed
- System.
- Some very old routers / switches are known to break down unexpectedly when
- overloaded in certain ways.
- Be careful in a production environment!
 \end_layout
 
 \begin_layout Chapter
