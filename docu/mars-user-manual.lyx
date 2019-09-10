@@ -27480,21 +27480,49 @@ name "sec:The-macro-processor"
 \end_layout
 
 \begin_layout Standard
+The macro processor is a very flexible and versatile tool for 
+\series bold
+customizing
+\series default
+.
+ Conceptually, two levels of macros are discriminated:
+\end_layout
 
+\begin_layout Enumerate
+primitive macros: these are firmly built into 
 \family typewriter
 marsadm
 \family default
- comes with a customizable macro processor.
- It can be used for high-level complex display of the state of MARS (so-called
- 
-\emph on
-complex macros
-\emph default
-), as well as for low-level display of lots of individual state values (so-calle
-d 
-\emph on
-primitive macros
-\emph default
+.
+\end_layout
+
+\begin_layout Enumerate
+complex macros: these can be defined via the 
+\series bold
+macro language
+\series default
+ of 
+\family typewriter
+marsadm
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+Some complex macros are already pre-defined, for example the standard 
+\family typewriter
+marsadm view all
+\family default
+ (see section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "subsec:Standard-marsadm-view"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
 ).
 \end_layout
 
@@ -27565,31 +27593,6 @@ $macroname
  argument, provided that such a macro is defined.
  This way, you can produce per-resource output followed by global output
  which does not depend on a particular resource.
-\end_layout
-
-\begin_layout Section
-Predefined Macros
-\end_layout
-
-\begin_layout Standard
-The macro processor is a very flexible and versatile tool for 
-\series bold
-customizing
-\series default
-.
- You can create your own macros, but probably the rich set of predefined
- macros is already sufficient for your needs.
-\end_layout
-
-\begin_layout Subsection
-Predefined Complex and High-Level Macros
-\begin_inset CommandInset label
-LatexCommand label
-name "subsec:Predefined-Complex-and"
-
-\end_inset
-
-
 \end_layout
 
 \begin_layout Subsection
@@ -27978,15 +27981,7 @@ always
 \emph default
  remain in a locally consistent state once the initial sync has finished
  as well as the initial logfile replay.
- Notice that local consistency does not necessarily imply actuality (see
- high-level explanation in section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "subsec:Behaviour-of-MARS"
-
-\end_inset
-
-).
+ Notice that local consistency does not necessarily imply actuality.
 \end_layout
 
 \begin_layout Labeling
@@ -28082,7 +28077,7 @@ Intended for Scripting
 \begin_layout Standard
 While complex macros may output a whole bunch of information, the following
  primitive macros are outputting exactly one value.
- They are intended for script use (cf.
+ They are intended for script usage (cf.
  section 
 \begin_inset CommandInset ref
 LatexCommand ref
@@ -28091,7 +28086,7 @@ reference "sec:Scripting-HOWTO"
 \end_inset
 
 ).
- Of course, curious humans may also try them :)
+ Of course, curious humans may also use them :)
 \end_layout
 
 \begin_layout Standard
@@ -28549,15 +28544,8 @@ total
 status open
 
 \begin_layout Plain Layout
-Recall from chapter 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "chap:Use-Cases-for"
-
-\end_inset
-
- that MARS (in its current stage of development) does only guarantee local
- consistency, but cannot guarantee actuality in all imaginable situations.
+MARS can only guarantee local consistency, but cannot guarantee actuality
+ in all imaginable situations.
  Notice that a general notion of 
 \begin_inset Quotes eld
 \end_inset
@@ -29136,13 +29124,10 @@ reference "leave-cluster"
 \family typewriter
 tree
 \family default
- (global) Indicate symlink tree version (see section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:The-Symlink-Tree"
-
-\end_inset
-
+ (global) Indicate symlink tree version (see 
+\family typewriter
+mars-for-kernel-developers.pdf
+\family default
 ).
 \end_layout
 
@@ -31371,13 +31356,10 @@ Time Handling Macros
 \family typewriter
 %time{}
 \family default
- Return the current Lamport timestamp (see section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:The-Lamport-Clock"
-
-\end_inset
-
+ Return the current Lamport timestamp (see 
+\family typewriter
+mars-for-kernel-developers.pdf
+\family default
 ), in units of seconds since the Unix epoch.
 \end_layout
 
