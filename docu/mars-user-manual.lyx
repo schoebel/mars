@@ -32217,215 +32217,6 @@ marsadm
 Tips and Tricks
 \end_layout
 
-\begin_layout Section
-Creating Backups via Pseudo Snapshots
-\end_layout
-
-\begin_layout Standard
-When all your secondaries are all homogenously located in a standby datacenter,
- they will be almost idle all the time.
- This is a waste of computing resources.
-\end_layout
-
-\begin_layout Standard
-Since MARS is no substitute for a full-fledged backup system, and since
- backups may put high system load onto your active side, you may want to
- utilize your passive hardware resources in a better way.
-\end_layout
-
-\begin_layout Standard
-MARS supports this thanks to its ability to switch the 
-\family typewriter
-pause-replay
-\family default
- 
-\emph on
-independently
-\emph default
- from 
-\family typewriter
-pause-fetch
-\family default
-.
-\end_layout
-
-\begin_layout Standard
-The basic idea is simple: just use 
-\family typewriter
-pause-replay
-\family default
- at your secondary site, but leave the replication of transaction logfiles
- intact by deliberately 
-\emph on
-not
-\emph default
- saying 
-\family typewriter
-pause-fetch
-\family default
-.
- This way, your secondary replica (block device) will stay frozen for a
- limited time, without loosing your redundancy: since the transaction logs
- will continue to replicate in the meantime, you can start 
-\family typewriter
-resume-replay
-\family default
- at any time, in particular when a primary-side incident should happen unexpecte
-dly.
- The former secondary will just catch up by replaying the outstanding parts
- of the transaction logs in order to become recent.
-\end_layout
-
-\begin_layout Standard
-However, some 
-\emph on
-details
-\emph default
- have to be obeyed.
- In particular, the current version of MARS needs an additional 
-\family typewriter
-detach
-\family default
- operation, in order to release exclusive access to the underlying disk
- 
-\family typewriter
-/dev/lv/$res
-\family default
-.
- Future versions of MARS are planned to support this more directly, without
- need for an intermediate 
-\family typewriter
-detach
-\family default
- operation.
-\end_layout
-
-\begin_layout Standard
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
-Beware: 
-\family typewriter
-mount -o ro /dev/vg/$res
-\family default
- can lead to 
-\series bold
-unnoticed write operations
-\series default
- if you are not careful! Some journalling filesystems like 
-\family typewriter
-xfs
-\family default
- or 
-\family typewriter
-ext4
-\family default
- may replay their journals onto the disk, leading to 
-\emph on
-binary
-\emph default
- differences and thus 
-\series bold
-destroying your consistency
-\series default
- later when you re-enable 
-\family typewriter
-resume-replay
-\family default
-!
-\end_layout
-
-\begin_layout Standard
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-Therefore, you may use small LVM snapshots (only in such cases).
- Typically, 
-\family typewriter
-xfs
-\family default
- journal replay will require only a few megabytes.
- Therefore you typically don't need much temporary space for this.
- Here is a more detailed description of steps:
-\end_layout
-
-\begin_layout Enumerate
-
-\family typewriter
-marsadm pause-replay $res
-\end_layout
-
-\begin_layout Enumerate
-
-\family typewriter
-marsadm detach $res
-\end_layout
-
-\begin_layout Enumerate
-
-\family typewriter
-lvcreate --size 100m --snapshot --name ro-$res /dev/vg/$res
-\end_layout
-
-\begin_layout Enumerate
-
-\family typewriter
-mount -o ro /dev/vg/ro-$res /mnt/tmp
-\end_layout
-
-\begin_layout Enumerate
-Now draw your backup from 
-\family typewriter
-/mnt/tmp/
-\end_layout
-
-\begin_layout Enumerate
-
-\family typewriter
-umount /mnt/tmp
-\end_layout
-
-\begin_layout Enumerate
-
-\family typewriter
-lvremove -f /dev/vg/ro-$res
-\end_layout
-
-\begin_layout Enumerate
-
-\family typewriter
-marsadm up $res
-\end_layout
-
-\begin_layout Standard
-Hint: during the backup, the transaction logs will accumulate on 
-\family typewriter
-/mars/
-\family default
-.
- In order to avoid overflow of 
-\family typewriter
-/mars/
-\family default
- (c.f.
- section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "sec:Defending-Overflow"
-
-\end_inset
-
-), don't unnecessarily prolong the backup duration.
-\end_layout
-
 \begin_layout Chapter
 \start_of_appendix
 Technical Data MARS
@@ -34618,6 +34409,222 @@ reference "sec:Scripting-HOWTO"
 \end_inset
 
 .
+\end_layout
+
+\begin_layout Chapter
+Creating Backups via Pseudo Snapshots
+\begin_inset CommandInset label
+LatexCommand label
+name "chap:Creating-Backups-via"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+When all your secondaries are all homogenously located in a standby datacenter,
+ they will be almost idle all the time.
+ This is a waste of computing resources.
+\end_layout
+
+\begin_layout Standard
+Since MARS is no substitute for a full-fledged backup system, and since
+ backups may put high system load onto your active side, you may want to
+ utilize your passive hardware resources in a better way.
+\end_layout
+
+\begin_layout Standard
+MARS supports this thanks to its ability to switch the 
+\family typewriter
+pause-replay
+\family default
+ 
+\emph on
+independently
+\emph default
+ from 
+\family typewriter
+pause-fetch
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+The basic idea is simple: just use 
+\family typewriter
+pause-replay
+\family default
+ at your secondary site, but leave the replication of transaction logfiles
+ intact by deliberately 
+\emph on
+not
+\emph default
+ saying 
+\family typewriter
+pause-fetch
+\family default
+.
+ This way, your secondary replica (block device) will stay frozen for a
+ limited time, without loosing your redundancy: since the transaction logs
+ will continue to replicate in the meantime, you can start 
+\family typewriter
+resume-replay
+\family default
+ at any time, in particular when a primary-side incident should happen unexpecte
+dly.
+ The former secondary will just catch up by replaying the outstanding parts
+ of the transaction logs in order to become recent.
+\end_layout
+
+\begin_layout Standard
+However, some 
+\emph on
+details
+\emph default
+ have to be obeyed.
+ In particular, the current version of MARS needs an additional 
+\family typewriter
+detach
+\family default
+ operation, in order to release exclusive access to the underlying disk
+ 
+\family typewriter
+/dev/lv/$res
+\family default
+.
+ Future versions of MARS are planned to support this more directly, without
+ need for an intermediate 
+\family typewriter
+detach
+\family default
+ operation.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+Beware: 
+\family typewriter
+mount -o ro /dev/vg/$res
+\family default
+ can lead to 
+\series bold
+unnoticed write operations
+\series default
+ if you are not careful! Some journalling filesystems like 
+\family typewriter
+xfs
+\family default
+ or 
+\family typewriter
+ext4
+\family default
+ may replay their journals onto the disk, leading to 
+\emph on
+binary
+\emph default
+ differences and thus 
+\series bold
+destroying your consistency
+\series default
+ later when you re-enable 
+\family typewriter
+resume-replay
+\family default
+!
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Therefore, you may use small LVM snapshots (only in such cases).
+ Typically, 
+\family typewriter
+xfs
+\family default
+ journal replay will require only a few megabytes.
+ Therefore you typically don't need much temporary space for this.
+ Here is a more detailed description of steps:
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+marsadm pause-replay $res
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+marsadm detach $res
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+lvcreate --size 100m --snapshot --name ro-$res /dev/vg/$res
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+mount -o ro /dev/vg/ro-$res /mnt/tmp
+\end_layout
+
+\begin_layout Enumerate
+Now draw your backup from 
+\family typewriter
+/mnt/tmp/
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+umount /mnt/tmp
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+lvremove -f /dev/vg/ro-$res
+\end_layout
+
+\begin_layout Enumerate
+
+\family typewriter
+marsadm up $res
+\end_layout
+
+\begin_layout Standard
+Hint: during the backup, the transaction logs will accumulate on 
+\family typewriter
+/mars/
+\family default
+.
+ In order to avoid overflow of 
+\family typewriter
+/mars/
+\family default
+ (c.f.
+ section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Defending-Overflow"
+
+\end_inset
+
+), don't unnecessarily prolong the backup duration.
 \end_layout
 
 \begin_layout Chapter
