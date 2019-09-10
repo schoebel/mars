@@ -137,39 +137,14 @@ Introduction
 \end_layout
 
 \begin_layout Standard
-MARS is a block-level storage replication system for long distances / flaky
- networks under GPL.
-\end_layout
+\begin_inset CommandInset include
+LatexCommand input
+preview true
+filename "common-introduction.lyx"
 
-\begin_layout Standard
-It runs as a Linux kernel module.
- The sysadmin interface is similar to DRBD8, but its internal engine is
- completely different from DRBD: it works with transaction logging, similar
- to some database systems.
-\end_layout
+\end_inset
 
-\begin_layout Standard
-Therefore, MARS can provide stronger consistency guarantees.
- Even in case of network bottlenecks / problems / failures, the secondaries
- may become outdated (reflect an elder state), but never become inconsistent.
- In contrast to DRBD, MARS preserves the order of write operations even
- when the network is flaky (Anytime Consistency).
-\end_layout
 
-\begin_layout Standard
-The current version of MARS supports k > 2 replicas and works asynchronously.
- Therefore, application performance is completely decoupled from any network
- problems.
- Future versions are planned to also support synchronous or near-synchronous
- modes.
-\end_layout
-
-\begin_layout Standard
-MARS supports a new method for building Cloud Storage / Software Defined
- Storage, called LV Football.
- It comes with some automation scripts, leading to a similar functionality
- than Kubernetes, but devoted to stateful LVs over virtual LVM pools in
- the petabytes range.
 \end_layout
 
 \begin_layout Section*
