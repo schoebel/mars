@@ -26203,7 +26203,1269 @@ The
 \family typewriter
 systemd
 \family default
- interface
+ Template Interface
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:systemd-Templates"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Starting with 
+\family typewriter
+mars0.1stable57
+\family default
+ (resp.
+ 
+\family typewriter
+mars0.1abeta9
+\family default
+), you may use 
+\family typewriter
+systemd
+\family default
+ as a cluster manager at the Mechanics Layer as explained in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "subsec:Granularity-and-Layering"
+
+\end_inset
+
+.
+ MARS will replicate some 
+\family typewriter
+systemd
+\family default
+-relevant state information across the (big) cluster, so there is some limited
+ remote operation support.
+ In particular, automated handover via 
+\family typewriter
+marsadm primary $resource
+\family default
+ is supported.
+ More features will be added to future releases.
+\end_layout
+
+\begin_layout Subsection
+Why 
+\family typewriter
+systemd
+\family default
+?
+\end_layout
+
+\begin_layout Standard
+All major Linux distributions are now 
+\family typewriter
+systemd
+\family default
+ based.
+ It is the new quasi standard.
+ Although there have been some discussions in the community about its merits
+ and shortcomings, it appears to be accepted now in large parts of the Linux
+ world.
+\end_layout
+
+\begin_layout Standard
+Systemd has a few advantages:
+\end_layout
+
+\begin_layout Enumerate
+It is running as 
+\family typewriter
+init
+\family default
+ process under the reserved 
+\family typewriter
+pid=1
+\family default
+.
+ If it would ever die, then your system would die.
+ There is no need for adding a new MARS clustermanager daemon or similar,
+ which could fail independently from other parts of the system.
+\end_layout
+
+\begin_layout Enumerate
+Although 
+\family typewriter
+systemd
+\family default
+ has been criticised as being 
+\begin_inset Quotes eld
+\end_inset
+
+monolithic
+\begin_inset Quotes erd
+\end_inset
+
+ (referring to its internal software architecture), its 
+\emph on
+usage
+\emph default
+ by sysadmins is easily decomposable into many plugins called 
+\series bold
+units
+\series default
+.
+\end_layout
+
+\begin_layout Enumerate
+Local LXC containers, local VMs, 
+\family typewriter
+iSCSI
+\family default
+ exports, 
+\family typewriter
+nfs
+\family default
+ exports and many other parts of the system are often already controlled
+ by 
+\family typewriter
+systemd
+\family default
+.
+ Together with 
+\family typewriter
+udev
+\family default
+ and other parts, it already controls devices, LVM, mountpoints, etc.
+ Since MARS is only a particular 
+\emph on
+component
+\emph default
+ in a bigger complicated stack, it is an advantage to use the same (more
+ or less standardized and well-integrated) tools for managing the whole
+ stack.
+\end_layout
+
+\begin_layout Standard
+Systemd has also a few disadvantages:
+\end_layout
+
+\begin_layout Enumerate
+It is not accepted everywhere.
+ Therefore the 
+\family typewriter
+systemd
+\family default
+ template extensions of 
+\family typewriter
+marsadm
+\family default
+ are not mandatory for MARS operations.
+ You can implement your own alternatives when necessary.
+\end_layout
+
+\begin_layout Enumerate
+It can be messy to deal with.
+ In particular, it can sometimes 
+\emph on
+believe
+\emph default
+ that the system 
+\emph on
+were
+\emph default
+ in a particular state, although in reality it isn't.
+ Compensation is hairy.
+\end_layout
+
+\begin_layout Enumerate
+Usablility / reporting: it is less usable for getting an overview over a
+ bigger local system, and is practically unusable (out-of-the-box) for managing
+ a bigger cluster at cluster level.
+ Monitoring needs to be done separately.
+\end_layout
+
+\begin_layout Subsection
+Working Principle of the 
+\family typewriter
+systemd
+\family default
+ Template Engine
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Working-Principle-of"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Systemd already has some very basic templating capabilities.
+ It is possible to create unit names containing the 
+\family typewriter
+@
+\family default
+ symbol, which can then be expanded under certain circumstances, e.g.
+ to tty names etc.
+ However, automatic expansion is only done when somebody knows the instance
+ name already 
+\emph on
+in advance
+\emph default
+.
+ The author has not found any way for creating instance names out of 
+\begin_inset Quotes eld
+\end_inset
+
+thin air
+\begin_inset Quotes erd
+\end_inset
+
+, such as from dynamically created MARS resource names.
+ Essentially, an 
+\emph on
+inference machine
+\emph default
+ for systemd templates does not yet exist.
+\end_layout
+
+\begin_layout Standard
+This lacking functionality is completed with the following macro processing
+ capabilities of 
+\family typewriter
+marsadm
+\family default
+:
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+sloppy
+\end_layout
+
+\end_inset
+
+ Some ordinary or templated 
+\family typewriter
+systemd
+\family default
+ unit files (see 
+\family typewriter
+man systemd.unit
+\family default
+) can be installed into one of the following directories: 
+\family typewriter
+./systemd-templates
+\family default
+, 
+\family typewriter
+$HOME/.marsadm/systemd-templates/
+\family default
+, 
+\family typewriter
+/etc/marsadm/systemd-templates/
+\family default
+, 
+\family typewriter
+/usr/lib/marsadm/systemd-templates/
+\family default
+, 
+\family typewriter
+/usr/local/lib/marsadm/systemd-templates/
+\family default
+.
+ Futher places can be defined by overriding the $
+\family typewriter
+MARS_PATH
+\family default
+ environment variable.
+\end_layout
+
+\begin_layout Standard
+From these directories, ordinary systemd unit files will be just copied
+ into 
+\family typewriter
+/run/systemd/system/
+\family default
+ (configurable via 
+\family typewriter
+$SYSTEMD_TARGET_DIR
+\family default
+) and then picked up by 
+\family typewriter
+systemd
+\family default
+ as ordinary unit files.
+\end_layout
+
+\begin_layout Standard
+Template unit files are nothing but unit files containing 
+\family typewriter
+@{
+\emph on
+varname
+\emph default
+}
+\family default
+ parts or other macro definitions in their filename, and possibly also in
+ their bodies, at arbitrary places.
+ These 
+\family typewriter
+@{...}
+\family default
+ parts are substituted by a 
+\family typewriter
+marsadm
+\family default
+ macro processing engine.
+\end_layout
+
+\begin_layout Standard
+The following macro capabilities are currently defined:
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+@{
+\emph on
+varname
+\emph default
+}
+\family default
+ Expands to the value of the variable.
+ This can be used both in template filenames and and in content of template
+ files.
+ Predefined are the following variables:
+\end_layout
+
+\begin_deeper
+\begin_layout Description
+
+\family typewriter
+@{res}
+\family default
+ The MARS resource name.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+@{resdir}
+\family default
+ The MARS resource directory 
+\family typewriter
+/mars/resource-$res/
+\family default
+.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+@{host}
+\family default
+ The local host name as determined by 
+\family typewriter
+marsadm
+\family default
+, or as overridden by the 
+\family typewriter
+--host=
+\family default
+ parameter.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+@{cmd}
+\family default
+ The 
+\family typewriter
+marsadm
+\family default
+ command as given on the command line (only reasonable for debugging or
+ for error messages).
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+@{
+\emph on
+varname
+\emph default
+}
+\family default
+ Further variables as defined by the macro processor, see section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "par:Predefined-Variables"
+
+\end_inset
+
+, and as definable by 
+\family typewriter
+%let{
+\emph on
+varname
+\emph default
+}{...}
+\family default
+ statements, see also sections 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "subsec:Predefined-Complex-and"
+
+\end_inset
+
+ and 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "subsec:Predefined-Trivial-Macros"
+
+\end_inset
+
+.
+\end_layout
+
+\end_deeper
+\begin_layout Description
+
+\family typewriter
+@eval{
+\emph on
+text
+\emph default
+}
+\family default
+ Calls the MARS macro processor as explained in chapter 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "chap:The-Macro-Processor"
+
+\end_inset
+
+, and substitutes its output.
+ Notice that systemd template variables occurring in the macro processor
+ 
+\family typewriter
+\emph on
+text
+\family default
+\emph default
+ must be accessed via the macro processor syntax 
+\family typewriter
+%{varname}
+\family default
+, because the macro processor uses 
+\family typewriter
+%
+\family default
+ as an escape symbol, while the systemd template engine uses 
+\family typewriter
+@
+\family default
+ instead.
+ This is necessary for distinction of both layers.
+ Notice that variables defined via the macro processor syntax 
+\family typewriter
+%let{varname}{value}
+\family default
+ can be afterwards accessed by the template engine via 
+\family typewriter
+@{varname}
+\family default
+ syntax, once the macro engine has finished working on 
+\family typewriter
+\emph on
+text
+\family default
+\emph default
+.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+^
+\emph on
+{varname
+\emph default
+}
+\family default
+
+\begin_inset space ~
+\end_inset
+
+or
+\begin_inset space ~
+\end_inset
+
+,
+\family typewriter
+^
+\emph on
+{varname
+\emph default
+}{
+\emph on
+regex
+\emph default
+}
+\family default
+ This can be used in template filenames only.
+ The 
+\family typewriter
+\emph on
+regex
+\family default
+\emph default
+ denotes a delimiter for scanning the filename until the delimiter is reached.
+ The matching part of the filename is assigned to 
+\family typewriter
+\emph on
+varname
+\family default
+\emph default
+, and can be used at any following
+\family typewriter
+ @{
+\emph on
+varname
+\emph default
+}
+\family default
+ substitutions, both in the rest of the filename, and in the content of
+ the file.
+ When 
+\family typewriter
+\emph on
+regex
+\family default
+\emph default
+ is omitted or empty, it defaults to 
+\family typewriter
+-
+\family default
+ (a single minus symbol) which is suitable for matching paths of mountpoints
+ as written in systemd syntax.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+@esc{
+\emph on
+text
+\emph default
+}
+\family default
+ Calls the 
+\family typewriter
+systemd-escape
+\family default
+ tool for conversion of pathnames following the 
+\family typewriter
+systemd
+\family default
+ naming conventions (see 
+\family typewriter
+man systemd-escape
+\family default
+).
+ For example, a dash is converted to 
+\family typewriter
+
+\backslash
+x2d
+\family default
+.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Omitting this can lead to problems when your resource names are containing
+ special characters like dashes or other special symbols (in the sense of
+ 
+\family typewriter
+systemd
+\family default
+).
+ Bugs of this kind are hard to find and to debug.
+ Either forbid special characters in your installation, or don't forget
+ to test everything with some crude resource names!
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Example snippet from a 
+\family typewriter
+.path
+\family default
+ unit.
+ Please notice where escaping is needed and where it must not be used (also
+ notice that a dash is sometimes a legal part of the 
+\family typewriter
+.mount
+\family default
+ unit name, but except from the resource name part):
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+[Path]
+\end_layout
+
+\begin_layout Plain Layout
+
+PathExists=/dev/mars/@{res}
+\end_layout
+
+\begin_layout Plain Layout
+
+Unit=vol-@escvar{res}.mount 
+\end_layout
+
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Another source of crude bugs is the backslash character in the 
+\family typewriter
+systemd-escape
+\family default
+ substitution, such as from 
+\family typewriter
+
+\backslash
+x2d
+\family default
+.
+ When passed to a shell, such as in certain 
+\family typewriter
+ExecStart=
+\family default
+ statements, the backslash will be removed.
+ Therefore, don't forget to either replace any single backslash with two
+ backslashes, or to put the whole pathname in single quotes, or similar.
+ Always check the result of your substitutions! It depends on the 
+\emph on
+target
+\emph default
+ (such as 
+\family typewriter
+bash
+\family default
+, as opposed to 
+\family typewriter
+systemd
+\family default
+) whether further escaping of the escapes is needed, or whether it 
+\emph on
+must not
+\emph default
+ be applied.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Become a master of the escaping hell by inserting debug code into your scripts
+ (reporting to 
+\family typewriter
+/dev/stderr
+\family default
+ or to log files) and do thorough testing like a devil.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+@escvar{
+\emph on
+varname
+\emph default
+}
+\family default
+ Equivalent to 
+\family typewriter
+@esc{@{
+\emph on
+varname
+\emph default
+}}
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+When creating a new resource via 
+\family typewriter
+marsadm create-resource
+\family default
+, or when adding a new replica via 
+\family typewriter
+marsadm join-resource
+\family default
+ or similar, the template system will automatically create new instances
+ for the new resource or its replicas.
+ Conversely, 
+\family typewriter
+marsadm leave-resource
+\family default
+ and its friends like 
+\family typewriter
+delete-resource
+\family default
+ etc will automatically remove the corresponding template instances from
+ 
+\family typewriter
+/run/systemd/system/
+\family default
+.
+\end_layout
+
+\begin_layout Subsection
+Example 
+\family typewriter
+systemd
+\family default
+ Templates
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Example-systemd-Templates"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+These can be found in the MARS repo in the 
+\family typewriter
+systemd/
+\family default
+ subdirectory.
+ At the moment, the following are available (subject to further extension
+ and improvements without notice):
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+mars.path
+\family default
+ This ensures that the mountpoint 
+\family typewriter
+/mars/
+\family default
+ is already mounted before 
+\family typewriter
+mars.service
+\family default
+ is started.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+mars.service
+\family default
+ This starts and stops the MARS kernel module, provided that 
+\family typewriter
+/mars
+\family default
+ is (somehow) mounted.
+ The latter can be ensured by classical 
+\family typewriter
+/etc/fstab
+\family default
+ methods, or by 
+\family typewriter
+.mount
+\family default
+ units like your own hand-crafted 
+\family typewriter
+mars.mount
+\family default
+ unit.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+mars-trigger.path
+\family default
+ This is used for remote triggering of the marsadm template engine from
+ another MARS cluster member, e.g.
+ when initiating a handover.
+ Local triggering is also possible via 
+\family typewriter
+touch /mars/userspace/systemd-trigger
+\family default
+.
+ When triggered, the command 
+\family typewriter
+marsadm systemd-trigger
+\family default
+ is executed.
+ In turn, this will re-compute all 
+\family typewriter
+systemd
+\family default
+ templates and start those units where the local host is in primary role.
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+dev-mars-@{res}.path
+\family default
+ This is used for generic triggering of any 
+\family typewriter
+systemd
+\family default
+ unit as set by 
+\family typewriter
+marsadm set-systemd-unit $res $unit
+\family default
+ (see below in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "subsec:Handover-using-systemd"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Description
+
+\family typewriter
+^{unit}-@{res}.mount
+\family default
+ This is one of the possible sub-ordinate targets which depend on 
+\family typewriter
+dev-mars-@{res}.path
+\family default
+.
+ For fully automatic activation of this target, use something like 
+\family typewriter
+marsadm set-systemd-unit mydata vol-mydata.mount
+\family default
+ or similar.
+ This will automatically mount 
+\family typewriter
+/dev/mars/mydata
+\family default
+ to the mountpoint 
+\family typewriter
+/vol/mydata
+\family default
+.
+ Notice that the template notation 
+\family typewriter
+^{unit}
+\family default
+ can be used for mounting to an arbitrary mountpoint, such as
+\family typewriter
+ /another/mountdir/mydata
+\family default
+, by using the corresponding systemd template syntax in 
+\family typewriter
+marsadm set-systemd-unit mydata another-mountdir-mydata.mount
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ In general, it is good practice to have a 
+\emph on
+consistent
+\emph default
+ name scheme.
+ Always use the same name for the underlying LV (called disk in MARS terminology
+), equal to the MARS resource name, equal to the last part of the mountpoint,
+ equal to the IQN of an iSCSI export, equal to the NFS share name, equal
+ to the LXC container name, equal to the KVM/qemu virtual machine name,
+ and so on.
+ Messing around with non-systematic naming conventions can easily result
+ in a hell.
+\end_layout
+
+\begin_layout Subsection
+Handover involving 
+\family typewriter
+systemd
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Handover-using-systemd"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+First, you need to install your systemd templates into one of the template
+ directories mentioned in section 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "subsec:Working-Principle-of"
+
+\end_inset
+
+.
+ In case you have never used the template engine before, you can create
+ the first instantiation via 
+\family typewriter
+marsadm systemd-trigger
+\family default
+.
+ Afterwards, inspect 
+\family typewriter
+/run/systemd/system/
+\family default
+ for newly created template instances and check them.
+\end_layout
+
+\begin_layout Standard
+For each resource 
+\family typewriter
+$res
+\family default
+, you should set (potentially different) systemd targets via 
+\family typewriter
+marsadm set-systemd-unit $res 
+\begin_inset Quotes eld
+\end_inset
+
+$start_unit
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\begin_inset Quotes eld
+\end_inset
+
+$stop_unit
+\family default
+
+\begin_inset Quotes erd
+\end_inset
+
+.
+ Notice that 
+\family typewriter
+$start_unit
+\family default
+ and 
+\family typewriter
+$stop_unit
+\family default
+ are typically denoting different targets (with few exceptions) for the
+ following reason:
+\end_layout
+
+\begin_layout Description
+Example: assume your stack consists of 
+\family typewriter
+vol-@{res}.mount
+\family default
+ and 
+\family typewriter
+nfs-export-@{res}.service
+\family default
+.
+ Before the filesystem can be exported via 
+\family typewriter
+nfs
+\family default
+, it 
+\emph on
+first
+\emph default
+ needs to be mounted.
+ At startup, 
+\family typewriter
+systemd
+\family default
+ can do this easily for you: just add a 
+\family typewriter
+Requires=
+\family default
+ dependency between both targets, or similar.
+ However, the situation can become tricky upon shutdown.
+ Theoretically, 
+\family typewriter
+systemctl stop nfs-export-@{res}.service
+\family default
+ 
+\emph on
+could
+\emph default
+ work in some cases, but in general it is not reliable.
+ Reason: there might be other 
+\emph on
+sister
+\emph default
+ units which 
+\emph on
+also
+\emph default
+ depend on the mount.
+ In some cases, you need not necessarily notice that sisters, because systemd
+ can add further (internal) targets 
+\emph on
+automatically
+\emph default
+.
+ The problem is easily solvable by 
+\family typewriter
+systemctl stop vol-@{res}.mount
+\family default
+, which will automatically tear down all dependencies in reverse order.
+\end_layout
+
+\begin_layout Standard
+For maximum safety, 
+\family typewriter
+$start_unit
+\family default
+ should always point at the 
+\emph on
+tip
+\emph default
+ of your stack, while 
+\family typewriter
+$stop_unit
+\family default
+ should point at the 
+\emph on
+bottom
+\emph default
+ (but one level higher than 
+\family typewriter
+/dev/mars/$res
+\family default
+).
+\end_layout
+
+\begin_layout Standard
+Removing any systemd targets is also possible via 
+\family typewriter
+marsadm set-systemd-unit $res 
+\begin_inset Quotes eld
+\end_inset
+
+
+\begin_inset Quotes erd
+\end_inset
+
+
+\family default
+ .
+ 
+\end_layout
+
+\begin_layout Standard
+When everything is set up properly, the following should work:
+\end_layout
+
+\begin_layout Enumerate
+Issue 
+\family typewriter
+marsadm primary $res
+\family default
+ on another node which is currently in secondary role.
+\end_layout
+
+\begin_layout Enumerate
+As a consequence, 
+\family typewriter
+systemctl stop 
+\begin_inset Quotes eld
+\end_inset
+
+$stop_unit
+\begin_inset Quotes erd
+\end_inset
+
+
+\family default
+ should be automatically executed at the old primary side.
+ 
+\end_layout
+
+\begin_layout Enumerate
+After a while, the MARS kernel module will notice that 
+\family typewriter
+/dev/mars/$res
+\family default
+ is no longer opened.
+ You can check this manually via
+\family typewriter
+ marsadm view-device-opened $res
+\family default
+ which will tell you a boolean result.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In case the device is not closed, ordinary handover cannot proceed, because
+ somebody could (at least potentially) write some data into it, even after
+ the handover, which would lead to a split brain.
+ Therefore MARS 
+\emph on
+must
+\emph default
+ insist that the device is closed before ordinary handover will proceed.
+ In case it is not closed, you can (a) use 
+\family typewriter
+primary --force
+\family default
+ which will likely provoke a split brain, or (b) check your 
+\family typewriter
+systemd
+\family default
+ configuration or other sources of error why the device is not closed.
+ Possible reasons could be hanging processes or hanging sessions which might
+ need a 
+\family typewriter
+kill
+\family default
+ or a 
+\family typewriter
+kill -9
+\family default
+ or similar.
+ Notice that 
+\family typewriter
+lsof
+\family default
+ does not catch 
+\emph on
+all
+\emph default
+ possible sources like (recursive or bind-) mounts.
+\end_layout
+
+\begin_layout Enumerate
+Once 
+\family typewriter
+/dev/mars/$res
+\family default
+ has disappeared, the ordinary MARS handover from the old primary to the
+ new site should proceed as usual.
+\end_layout
+
+\begin_layout Enumerate
+After 
+\family typewriter
+/dev/mars/$res
+\family default
+ has appeared at the new site, 
+\family typewriter
+systemctl start 
+\begin_inset Quotes eld
+\end_inset
+
+$start_unit
+\begin_inset Quotes erd
+\end_inset
+
+
+\family default
+ should be automatically executed.
+ 
+\end_layout
+
+\begin_layout Standard
+The rest depends on your 
+\family typewriter
+systemd
+\family default
+ and its configuration.
+ For example, you can configure systemd targets for activation of VMs, or
+ for 
+\family typewriter
+LXC
+\family default
+ containers, or for 
+\family typewriter
+iSCSI
+\family default
+ exports, or for 
+\family typewriter
+nfs
+\family default
+ exports, or for 
+\family typewriter
+glusterfs
+\family default
+ exports, or for whatever you need.
+ For true geo-redundancy, you will likely have to include some 
+\family typewriter
+quagga
+\family default
+ or 
+\family typewriter
+bird
+\family default
+ or other BGP configurations into your stack.
 \end_layout
 
 \begin_layout Section
@@ -30970,1276 +32232,6 @@ marsadm
 
 \begin_layout Chapter
 Tips and Tricks
-\end_layout
-
-\begin_layout Section
-
-\family typewriter
-systemd
-\family default
- Templates
-\begin_inset CommandInset label
-LatexCommand label
-name "sec:systemd-Templates"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-Starting with 
-\family typewriter
-mars0.1stable57
-\family default
- (resp.
- 
-\family typewriter
-mars0.1abeta9
-\family default
-), you may use 
-\family typewriter
-systemd
-\family default
- as a cluster manager at the Mechanics Layer as explained in section 
-\begin_inset CommandInset ref
-LatexCommand vref
-reference "subsec:Granularity-and-Layering"
-
-\end_inset
-
-.
- MARS will replicate some 
-\family typewriter
-systemd
-\family default
--relevant state information across the (big) cluster, so there is some limited
- remote operation support.
- In particular, automated handover via 
-\family typewriter
-marsadm primary $resource
-\family default
- is supported.
- More features will be added to future releases.
-\end_layout
-
-\begin_layout Subsection
-Why 
-\family typewriter
-systemd
-\family default
-?
-\end_layout
-
-\begin_layout Standard
-All major Linux distributions are now 
-\family typewriter
-systemd
-\family default
- based.
- It is the new quasi standard.
- Although there have been some discussions in the community about its merits
- and shortcomings, it appears to be accepted now in large parts of the Linux
- world.
-\end_layout
-
-\begin_layout Standard
-Systemd has a few advantages:
-\end_layout
-
-\begin_layout Enumerate
-It is running as 
-\family typewriter
-init
-\family default
- process under the reserved 
-\family typewriter
-pid=1
-\family default
-.
- If it would ever die, then your system would die.
- There is no need for adding a new MARS clustermanager daemon or similar,
- which could fail independently from other parts of the system.
-\end_layout
-
-\begin_layout Enumerate
-Although 
-\family typewriter
-systemd
-\family default
- has been criticised as being 
-\begin_inset Quotes eld
-\end_inset
-
-monolithic
-\begin_inset Quotes erd
-\end_inset
-
- (referring to its internal software architecture), its 
-\emph on
-usage
-\emph default
- by sysadmins is easily decomposable into many plugins called 
-\series bold
-units
-\series default
-.
-\end_layout
-
-\begin_layout Enumerate
-Local LXC containers, local VMs, 
-\family typewriter
-iSCSI
-\family default
- exports, 
-\family typewriter
-nfs
-\family default
- exports and many other parts of the system are often already controlled
- by 
-\family typewriter
-systemd
-\family default
-.
- Together with 
-\family typewriter
-udev
-\family default
- and other parts, it already controls devices, LVM, mountpoints, etc.
- Since MARS is only a particular 
-\emph on
-component
-\emph default
- in a bigger complicated stack, it is an advantage to use the same (more
- or less standardized and well-integrated) tools for managing the whole
- stack.
-\end_layout
-
-\begin_layout Standard
-Systemd has also a few disadvantages:
-\end_layout
-
-\begin_layout Enumerate
-It is not accepted everywhere.
- Therefore the 
-\family typewriter
-systemd
-\family default
- template extensions of 
-\family typewriter
-marsadm
-\family default
- are not mandatory for MARS operations.
- You can implement your own alternatives when necessary.
-\end_layout
-
-\begin_layout Enumerate
-It can be messy to deal with.
- In particular, it can sometimes 
-\emph on
-believe
-\emph default
- that the system 
-\emph on
-were
-\emph default
- in a particular state, although in reality it isn't.
- Compensation is hairy.
-\end_layout
-
-\begin_layout Enumerate
-Usablility / reporting: it is less usable for getting an overview over a
- bigger local system, and is practically unusable (out-of-the-box) for managing
- a bigger cluster at cluster level.
- Monitoring needs to be done separately.
-\end_layout
-
-\begin_layout Subsection
-Working Principle of the 
-\family typewriter
-systemd
-\family default
- Template Engine
-\begin_inset CommandInset label
-LatexCommand label
-name "subsec:Working-Principle-of"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-Systemd already has some very basic templating capabilities.
- It is possible to create unit names containing the 
-\family typewriter
-@
-\family default
- symbol, which can then be expanded under certain circumstances, e.g.
- to tty names etc.
- However, automatic expansion is only done when somebody knows the instance
- name already 
-\emph on
-in advance
-\emph default
-.
- The author has not found any way for creating instance names out of 
-\begin_inset Quotes eld
-\end_inset
-
-thin air
-\begin_inset Quotes erd
-\end_inset
-
-, such as from dynamically created MARS resource names.
- Essentially, an 
-\emph on
-inference machine
-\emph default
- for systemd templates does not yet exist.
-\end_layout
-
-\begin_layout Standard
-This lacking functionality is completed with the following macro processing
- capabilities of 
-\family typewriter
-marsadm
-\family default
-:
-\end_layout
-
-\begin_layout Standard
-\begin_inset ERT
-status open
-
-\begin_layout Plain Layout
-
-
-\backslash
-sloppy
-\end_layout
-
-\end_inset
-
- Some ordinary or templated 
-\family typewriter
-systemd
-\family default
- unit files (see 
-\family typewriter
-man systemd.unit
-\family default
-) can be installed into one of the following directories: 
-\family typewriter
-./systemd-templates
-\family default
-, 
-\family typewriter
-$HOME/.marsadm/systemd-templates/
-\family default
-, 
-\family typewriter
-/etc/marsadm/systemd-templates/
-\family default
-, 
-\family typewriter
-/usr/lib/marsadm/systemd-templates/
-\family default
-, 
-\family typewriter
-/usr/local/lib/marsadm/systemd-templates/
-\family default
-.
- Futher places can be defined by overriding the $
-\family typewriter
-MARS_PATH
-\family default
- environment variable.
-\end_layout
-
-\begin_layout Standard
-From these directories, ordinary systemd unit files will be just copied
- into 
-\family typewriter
-/run/systemd/system/
-\family default
- (configurable via 
-\family typewriter
-$SYSTEMD_TARGET_DIR
-\family default
-) and then picked up by 
-\family typewriter
-systemd
-\family default
- as ordinary unit files.
-\end_layout
-
-\begin_layout Standard
-Template unit files are nothing but unit files containing 
-\family typewriter
-@{
-\emph on
-varname
-\emph default
-}
-\family default
- parts or other macro definitions in their filename, and possibly also in
- their bodies, at arbitrary places.
- These 
-\family typewriter
-@{...}
-\family default
- parts are substituted by a 
-\family typewriter
-marsadm
-\family default
- macro processing engine.
-\end_layout
-
-\begin_layout Standard
-The following macro capabilities are currently defined:
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-@{
-\emph on
-varname
-\emph default
-}
-\family default
- Expands to the value of the variable.
- This can be used both in template filenames and and in content of template
- files.
- Predefined are the following variables:
-\end_layout
-
-\begin_deeper
-\begin_layout Description
-
-\family typewriter
-@{res}
-\family default
- The MARS resource name.
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-@{resdir}
-\family default
- The MARS resource directory 
-\family typewriter
-/mars/resource-$res/
-\family default
-.
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-@{host}
-\family default
- The local host name as determined by 
-\family typewriter
-marsadm
-\family default
-, or as overridden by the 
-\family typewriter
---host=
-\family default
- parameter.
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-@{cmd}
-\family default
- The 
-\family typewriter
-marsadm
-\family default
- command as given on the command line (only reasonable for debugging or
- for error messages).
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-@{
-\emph on
-varname
-\emph default
-}
-\family default
- Further variables as defined by the macro processor, see section 
-\begin_inset CommandInset ref
-LatexCommand vref
-reference "par:Predefined-Variables"
-
-\end_inset
-
-, and as definable by 
-\family typewriter
-%let{
-\emph on
-varname
-\emph default
-}{...}
-\family default
- statements, see also sections 
-\begin_inset CommandInset ref
-LatexCommand vref
-reference "subsec:Predefined-Complex-and"
-
-\end_inset
-
- and 
-\begin_inset CommandInset ref
-LatexCommand vref
-reference "subsec:Predefined-Trivial-Macros"
-
-\end_inset
-
-.
-\end_layout
-
-\end_deeper
-\begin_layout Description
-
-\family typewriter
-@eval{
-\emph on
-text
-\emph default
-}
-\family default
- Calls the MARS macro processor as explained in chapter 
-\begin_inset CommandInset ref
-LatexCommand vref
-reference "chap:The-Macro-Processor"
-
-\end_inset
-
-, and substitutes its output.
- Notice that systemd template variables occurring in the macro processor
- 
-\family typewriter
-\emph on
-text
-\family default
-\emph default
- must be accessed via the macro processor syntax 
-\family typewriter
-%{varname}
-\family default
-, because the macro processor uses 
-\family typewriter
-%
-\family default
- as an escape symbol, while the systemd template engine uses 
-\family typewriter
-@
-\family default
- instead.
- This is necessary for distinction of both layers.
- Notice that variables defined via the macro processor syntax 
-\family typewriter
-%let{varname}{value}
-\family default
- can be afterwards accessed by the template engine via 
-\family typewriter
-@{varname}
-\family default
- syntax, once the macro engine has finished working on 
-\family typewriter
-\emph on
-text
-\family default
-\emph default
-.
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-^
-\emph on
-{varname
-\emph default
-}
-\family default
-
-\begin_inset space ~
-\end_inset
-
-or
-\begin_inset space ~
-\end_inset
-
-,
-\family typewriter
-^
-\emph on
-{varname
-\emph default
-}{
-\emph on
-regex
-\emph default
-}
-\family default
- This can be used in template filenames only.
- The 
-\family typewriter
-\emph on
-regex
-\family default
-\emph default
- denotes a delimiter for scanning the filename until the delimiter is reached.
- The matching part of the filename is assigned to 
-\family typewriter
-\emph on
-varname
-\family default
-\emph default
-, and can be used at any following
-\family typewriter
- @{
-\emph on
-varname
-\emph default
-}
-\family default
- substitutions, both in the rest of the filename, and in the content of
- the file.
- When 
-\family typewriter
-\emph on
-regex
-\family default
-\emph default
- is omitted or empty, it defaults to 
-\family typewriter
--
-\family default
- (a single minus symbol) which is suitable for matching paths of mountpoints
- as written in systemd syntax.
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-@esc{
-\emph on
-text
-\emph default
-}
-\family default
- Calls the 
-\family typewriter
-systemd-escape
-\family default
- tool for conversion of pathnames following the 
-\family typewriter
-systemd
-\family default
- naming conventions (see 
-\family typewriter
-man systemd-escape
-\family default
-).
- For example, a dash is converted to 
-\family typewriter
-
-\backslash
-x2d
-\family default
-.
-\begin_inset Newline newline
-\end_inset
-
-
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- Omitting this can lead to problems when your resource names are containing
- special characters like dashes or other special symbols (in the sense of
- 
-\family typewriter
-systemd
-\family default
-).
- Bugs of this kind are hard to find and to debug.
- Either forbid special characters in your installation, or don't forget
- to test everything with some crude resource names!
-\begin_inset Newline newline
-\end_inset
-
-
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
- Example snippet from a 
-\family typewriter
-.path
-\family default
- unit.
- Please notice where escaping is needed and where it must not be used (also
- notice that a dash is sometimes a legal part of the 
-\family typewriter
-.mount
-\family default
- unit name, but except from the resource name part):
-\begin_inset listings
-inline false
-status open
-
-\begin_layout Plain Layout
-
-[Path]
-\end_layout
-
-\begin_layout Plain Layout
-
-PathExists=/dev/mars/@{res}
-\end_layout
-
-\begin_layout Plain Layout
-
-Unit=vol-@escvar{res}.mount 
-\end_layout
-
-\end_inset
-
-
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- Another source of crude bugs is the backslash character in the 
-\family typewriter
-systemd-escape
-\family default
- substitution, such as from 
-\family typewriter
-
-\backslash
-x2d
-\family default
-.
- When passed to a shell, such as in certain 
-\family typewriter
-ExecStart=
-\family default
- statements, the backslash will be removed.
- Therefore, don't forget to either replace any single backslash with two
- backslashes, or to put the whole pathname in single quotes, or similar.
- Always check the result of your substitutions! It depends on the 
-\emph on
-target
-\emph default
- (such as 
-\family typewriter
-bash
-\family default
-, as opposed to 
-\family typewriter
-systemd
-\family default
-) whether further escaping of the escapes is needed, or whether it 
-\emph on
-must not
-\emph default
- be applied.
-\begin_inset Newline newline
-\end_inset
-
-
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-Become a master of the escaping hell by inserting debug code into your scripts
- (reporting to 
-\family typewriter
-/dev/stderr
-\family default
- or to log files) and do thorough testing like a devil.
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-@escvar{
-\emph on
-varname
-\emph default
-}
-\family default
- Equivalent to 
-\family typewriter
-@esc{@{
-\emph on
-varname
-\emph default
-}}
-\family default
-.
-\end_layout
-
-\begin_layout Standard
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
-When creating a new resource via 
-\family typewriter
-marsadm create-resource
-\family default
-, or when adding a new replica via 
-\family typewriter
-marsadm join-resource
-\family default
- or similar, the template system will automatically create new instances
- for the new resource or its replicas.
- Conversely, 
-\family typewriter
-marsadm leave-resource
-\family default
- and its friends like 
-\family typewriter
-delete-resource
-\family default
- etc will automatically remove the corresponding template instances from
- 
-\family typewriter
-/run/systemd/system/
-\family default
-.
-\end_layout
-
-\begin_layout Subsection
-Example 
-\family typewriter
-systemd
-\family default
- Templates
-\begin_inset CommandInset label
-LatexCommand label
-name "subsec:Example-systemd-Templates"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-These can be found in the MARS repo in the 
-\family typewriter
-systemd/
-\family default
- subdirectory.
- At the moment, the following are available (subject to further extension
- and improvements without notice):
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-mars.path
-\family default
- This ensures that the mountpoint 
-\family typewriter
-/mars/
-\family default
- is already mounted before 
-\family typewriter
-mars.service
-\family default
- is started.
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-mars.service
-\family default
- This starts and stops the MARS kernel module, provided that 
-\family typewriter
-/mars
-\family default
- is (somehow) mounted.
- The latter can be ensured by classical 
-\family typewriter
-/etc/fstab
-\family default
- methods, or by 
-\family typewriter
-.mount
-\family default
- units like your own hand-crafted 
-\family typewriter
-mars.mount
-\family default
- unit.
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-mars-trigger.path
-\family default
- This is used for remote triggering of the marsadm template engine from
- another MARS cluster member, e.g.
- when initiating a handover.
- Local triggering is also possible via 
-\family typewriter
-touch /mars/userspace/systemd-trigger
-\family default
-.
- When triggered, the command 
-\family typewriter
-marsadm systemd-trigger
-\family default
- is executed.
- In turn, this will re-compute all 
-\family typewriter
-systemd
-\family default
- templates and start those units where the local host is in primary role.
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-dev-mars-@{res}.path
-\family default
- This is used for generic triggering of any 
-\family typewriter
-systemd
-\family default
- unit as set by 
-\family typewriter
-marsadm set-systemd-unit $res $unit
-\family default
- (see below in section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "subsec:Handover-using-systemd"
-
-\end_inset
-
-).
-\end_layout
-
-\begin_layout Description
-
-\family typewriter
-^{unit}-@{res}.mount
-\family default
- This is one of the possible sub-ordinate targets which depend on 
-\family typewriter
-dev-mars-@{res}.path
-\family default
-.
- For fully automatic activation of this target, use something like 
-\family typewriter
-marsadm set-systemd-unit mydata vol-mydata.mount
-\family default
- or similar.
- This will automatically mount 
-\family typewriter
-/dev/mars/mydata
-\family default
- to the mountpoint 
-\family typewriter
-/vol/mydata
-\family default
-.
- Notice that the template notation 
-\family typewriter
-^{unit}
-\family default
- can be used for mounting to an arbitrary mountpoint, such as
-\family typewriter
- /another/mountdir/mydata
-\family default
-, by using the corresponding systemd template syntax in 
-\family typewriter
-marsadm set-systemd-unit mydata another-mountdir-mydata.mount
-\family default
-.
-\end_layout
-
-\begin_layout Standard
-\begin_inset Graphics
-	filename images/lightbulb_brightlit_benj_.png
-	lyxscale 12
-	scale 7
-
-\end_inset
-
- In general, it is good practice to have a 
-\emph on
-consistent
-\emph default
- name scheme.
- Always use the same name for the underlying LV (called disk in MARS terminology
-), equal to the MARS resource name, equal to the last part of the mountpoint,
- equal to the IQN of an iSCSI export, equal to the NFS share name, equal
- to the LXC container name, equal to the KVM/qemu virtual machine name,
- and so on.
- Messing around with non-systematic naming conventions can easily result
- in a hell.
-\end_layout
-
-\begin_layout Subsection
-Handover involving 
-\family typewriter
-systemd
-\begin_inset CommandInset label
-LatexCommand label
-name "subsec:Handover-using-systemd"
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-First, you need to install your systemd templates into one of the template
- directories mentioned in section 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "subsec:Working-Principle-of"
-
-\end_inset
-
-.
- In case you have never used the template engine before, you can create
- the first instantiation via 
-\family typewriter
-marsadm systemd-trigger
-\family default
-.
- Afterwards, inspect 
-\family typewriter
-/run/systemd/system/
-\family default
- for newly created template instances and check them.
-\end_layout
-
-\begin_layout Standard
-For each resource 
-\family typewriter
-$res
-\family default
-, you should set (potentially different) systemd targets via 
-\family typewriter
-marsadm set-systemd-unit $res 
-\begin_inset Quotes eld
-\end_inset
-
-$start_unit
-\begin_inset Quotes erd
-\end_inset
-
- 
-\begin_inset Quotes eld
-\end_inset
-
-$stop_unit
-\family default
-
-\begin_inset Quotes erd
-\end_inset
-
-.
- Notice that 
-\family typewriter
-$start_unit
-\family default
- and 
-\family typewriter
-$stop_unit
-\family default
- are typically denoting different targets (with few exceptions) for the
- following reason:
-\end_layout
-
-\begin_layout Description
-Example: assume your stack consists of 
-\family typewriter
-vol-@{res}.mount
-\family default
- and 
-\family typewriter
-nfs-export-@{res}.service
-\family default
-.
- Before the filesystem can be exported via 
-\family typewriter
-nfs
-\family default
-, it 
-\emph on
-first
-\emph default
- needs to be mounted.
- At startup, 
-\family typewriter
-systemd
-\family default
- can do this easily for you: just add a 
-\family typewriter
-Requires=
-\family default
- dependency between both targets, or similar.
- However, the situation can become tricky upon shutdown.
- Theoretically, 
-\family typewriter
-systemctl stop nfs-export-@{res}.service
-\family default
- 
-\emph on
-could
-\emph default
- work in some cases, but in general it is not reliable.
- Reason: there might be other 
-\emph on
-sister
-\emph default
- units which 
-\emph on
-also
-\emph default
- depend on the mount.
- In some cases, you need not necessarily notice that sisters, because systemd
- can add further (internal) targets 
-\emph on
-automatically
-\emph default
-.
- The problem is easily solvable by 
-\family typewriter
-systemctl stop vol-@{res}.mount
-\family default
-, which will automatically tear down all dependencies in reverse order.
-\end_layout
-
-\begin_layout Standard
-For maximum safety, 
-\family typewriter
-$start_unit
-\family default
- should always point at the 
-\emph on
-tip
-\emph default
- of your stack, while 
-\family typewriter
-$stop_unit
-\family default
- should point at the 
-\emph on
-bottom
-\emph default
- (but one level higher than 
-\family typewriter
-/dev/mars/$res
-\family default
-).
-\end_layout
-
-\begin_layout Standard
-Removing any systemd targets is also possible via 
-\family typewriter
-marsadm set-systemd-unit $res 
-\begin_inset Quotes eld
-\end_inset
-
-
-\begin_inset Quotes erd
-\end_inset
-
-
-\family default
- .
- 
-\end_layout
-
-\begin_layout Standard
-When everything is set up properly, the following should work:
-\end_layout
-
-\begin_layout Enumerate
-Issue 
-\family typewriter
-marsadm primary $res
-\family default
- on another node which is currently in secondary role.
-\end_layout
-
-\begin_layout Enumerate
-As a consequence, 
-\family typewriter
-systemctl stop 
-\begin_inset Quotes eld
-\end_inset
-
-$stop_unit
-\begin_inset Quotes erd
-\end_inset
-
-
-\family default
- should be automatically executed at the old primary side.
- 
-\end_layout
-
-\begin_layout Enumerate
-After a while, the MARS kernel module will notice that 
-\family typewriter
-/dev/mars/$res
-\family default
- is no longer opened.
- You can check this manually via
-\family typewriter
- marsadm view-device-opened $res
-\family default
- which will tell you a boolean result.
-\begin_inset Newline newline
-\end_inset
-
-
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
- In case the device is not closed, ordinary handover cannot proceed, because
- somebody could (at least potentially) write some data into it, even after
- the handover, which would lead to a split brain.
- Therefore MARS 
-\emph on
-must
-\emph default
- insist that the device is closed before ordinary handover will proceed.
- In case it is not closed, you can (a) use 
-\family typewriter
-primary --force
-\family default
- which will likely provoke a split brain, or (b) check your 
-\family typewriter
-systemd
-\family default
- configuration or other sources of error why the device is not closed.
- Possible reasons could be hanging processes or hanging sessions which might
- need a 
-\family typewriter
-kill
-\family default
- or a 
-\family typewriter
-kill -9
-\family default
- or similar.
- Notice that 
-\family typewriter
-lsof
-\family default
- does not catch 
-\emph on
-all
-\emph default
- possible sources like (recursive or bind-) mounts.
-\end_layout
-
-\begin_layout Enumerate
-Once 
-\family typewriter
-/dev/mars/$res
-\family default
- has disappeared, the ordinary MARS handover from the old primary to the
- new site should proceed as usual.
-\end_layout
-
-\begin_layout Enumerate
-After 
-\family typewriter
-/dev/mars/$res
-\family default
- has appeared at the new site, 
-\family typewriter
-systemctl start 
-\begin_inset Quotes eld
-\end_inset
-
-$start_unit
-\begin_inset Quotes erd
-\end_inset
-
-
-\family default
- should be automatically executed.
- 
-\end_layout
-
-\begin_layout Standard
-The rest depends on your 
-\family typewriter
-systemd
-\family default
- and its configuration.
- For example, you can configure systemd targets for activation of VMs, or
- for 
-\family typewriter
-LXC
-\family default
- containers, or for 
-\family typewriter
-iSCSI
-\family default
- exports, or for 
-\family typewriter
-nfs
-\family default
- exports, or for 
-\family typewriter
-glusterfs
-\family default
- exports, or for whatever you need.
- For true geo-redundancy, you will likely have to include some 
-\family typewriter
-quagga
-\family default
- or 
-\family typewriter
-bird
-\family default
- or other BGP configurations into your stack.
 \end_layout
 
 \begin_layout Section
