@@ -3469,10 +3469,20 @@ yes
 
 \begin_layout Standard
 \noindent
-As indicated in section 
+As indicated in sections 
 \begin_inset CommandInset ref
 LatexCommand nameref
 reference "sec:Reliability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ and 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Explanations-from-DSM"
 plural "false"
 caps "false"
 noprefix "false"
@@ -12006,6 +12016,433 @@ reference "subsec:Optimum-Reliability-from"
 \end_inset
 
 .
+\end_layout
+
+\begin_layout Section
+Explanations from DSM and WorkingSet Theory
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Explanations-from-DSM"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This section tries to explain the BigCluster incidents observed at some
+ 1&1 Ionos doughter from a different perspective.
+ In the OS literature and community, DSM = Distributed Shared Memory and
+ Denning's workingset theory from the 1960s are typically attributed to
+ a different research area.
+\end_layout
+
+\begin_layout Standard
+However, personal discussions with some prominent promoters of Ceph found
+ some informal agreements about some use cases where BigCluster appears
+ to be well suited:
+\end_layout
+
+\begin_layout Itemize
+Large collections of audio / video files.
+ These are never modified in place, but written once, and then 
+\series bold
+\emph on
+streamed
+\series default
+\emph default
+.
+ Thus it is possible to use relatively large object sizes, or even 1 video
+ file = 1 object.
+ Then streaming involves only a low number of objects at the same time,
+ down to a per-application parallelism degree of typically only 1.
+\end_layout
+
+\begin_layout Itemize
+Measurement data like in CERN physics experiments, where often some 
+\emph on
+streaming model
+\emph default
+ is predominant.
+\end_layout
+
+\begin_layout Itemize
+Backups and long-term archives, when also accomplished via 
+\emph on
+streaming
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+In contrast to this, here are some other use cases where BigCluster did
+ not meet expectations of some people at 1&1 Ionos:
+\end_layout
+
+\begin_layout Itemize
+Virtual block devices involving 
+\series bold
+strict consistency
+\series default
+ on top of a very high number of small 
+\begin_inset Quotes eld
+\end_inset
+
+unreliable
+\begin_inset Quotes erd
+\end_inset
+
+ / eventually consistent objects.
+\end_layout
+
+\begin_layout Itemize
+CephFS with 
+\series bold
+highly parallel random updates
+\series default
+ to a huge number of files / inodes, also involving strict consistency in
+ some places (e.g.
+ concurrent metadata updates belonging to the same directory).
+\end_layout
+
+\begin_layout Standard
+Here is a 
+\emph on
+first attempt
+\emph default
+ to explain these behavioural observations from a more generalized viewpoint.
+ The author is open for discussion, and will modify this part upon better
+ understanding.
+\end_layout
+
+\begin_layout Standard
+Ceph & co are apparently shining at use cases where the 
+\emph on
+object paradigm
+\emph default
+ is naturally well-suited for the 
+\emph on
+application behaviour
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+Application behaviour has been studied in the 1970s.
+ Theorists know that in general it is 
+\emph on
+unpredictable
+\emph default
+ due to Turing Completeness, but practical obervations are revealing some
+ frequent 
+\emph on
+behavioural pattern
+\emph default
+s.
+ Otherwise, caching would not be beneficial.
+\end_layout
+
+\begin_layout Standard
+While Denning had studied and modelled application behaviour for typical
+ drum storage devices of his era, later DSM people stumbled over similar
+ problems: the 
+\emph on
+frequency of access to needed data
+\emph default
+ can grow much higher than the channel / transport capacities can
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In general, this is unavoidable.
+ In a storage pyramid, the CPU is always able to access RAM pages with a
+ much higher frequency than any (R)DMA transport can supply.
+\end_layout
+
+\end_inset
+
+ provide.
+ Denning and Saltzer coined a term for this: 
+\series bold
+thrashing
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+Thrashing means that more time is spent by 
+\emph on
+fetching
+\emph default
+ data than by 
+\emph on
+working
+\emph default
+ with it, because the transports are 
+\emph on
+overloaded
+\emph default
+.
+ As Denning observed, thrashing essentially means that the system becomes
+ 
+\emph on
+unusable by customers
+\emph default
+.
+ Thrashing is a highly non-linear 
+\series bold
+self-amplifying effect
+\series default
+, similar to traffic jams at highways: one it has started, it will worsen
+ itself.
+\end_layout
+
+\begin_layout Standard
+Saltzer found a workaround for his contemporary batch operating systems:
+ limit the parallelism degree of concurrently running batch jobs.
+ In his Multics project, this was also transferred to interactive systems,
+ by limiting the swap-in parallelism degree of his contemporary swapping
+ methods.
+ Although this may sound counter-intuitive for modern readers: by introduction
+ of a certain type of 
+\series bold
+artificial limitation
+\series default
+ at or around the non-linear regression point, the 
+\series bold
+user experience was 
+\emph on
+improved
+\series default
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+Now comes a conclusion: when thrashing occurs in a modern BigCluster model
+ for whatever reason, the self-amplification will be likely worse than in
+ a LocalSharding model, due to the following reasons:
+\end_layout
+
+\begin_layout Itemize
+
+\series bold
+Overload propagation
+\series default
+: when some parts of the 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ storage network are overloaded, other parts may also become affected in
+ turn, due to sharing of network resources.
+ Once queueing has started somewhere, it is likely to worsen, and likely
+ to induce further queueing at other parts of the shared network.
+ The more other parts are affected transitively, the more parts will get
+ overloaded.
+ So the overload, once it has started somewhere, has a higher probabilty
+ for 
+\emph on
+spreading out
+\emph default
+ even to parts which were not overloaded before (self-amplification at BigCluste
+r level).
+\end_layout
+
+\begin_layout Itemize
+Random replication of objects adds 
+\emph on
+artificial randomness
+\emph default
+ to the 
+\series bold
+\emph on
+locality of reference
+\series default
+\emph default
+, as described by Denning.
+\end_layout
+
+\begin_layout Itemize
+Original DSM was trying to provide a strict or near-strict consistency model
+ for application programmers.
+ Later research then tried some weaker consistency models, without getting
+ a final breakthrough for general use cases.
+ BigCluster is similarly organized to DSM, but on slow 
+\emph on
+remote storage
+\emph default
+ instead of logically shared remote RAM over fast RDMA.
+ Thus we can expect similar problems as observed by the DSM community, like
+ 
+\series bold
+single points of contention
+\series default
+, etc.
+ These might become even worse once they have appeared.
+\end_layout
+
+\begin_layout Standard
+In a nutshell: 
+\series bold
+system stability
+\series default
+ under overload conditions, once they have started somewhere, is highly
+ non-linear, and tends to spread
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In the past, advocates of BigCluster have placed the argument that BigCluster
+ can 
+\emph on
+equallay distribute
+\emph default
+ the total application load onto 
+\begin_inset Formula $O(n)$
+\end_inset
+
+ storage servers, so a single overloaded client will get better performance
+ than in a sharding model.
+ This argument contains the 
+\emph on
+implicit assumption
+\emph default
+ that load distribution is behaving 
+\series bold
+linearly
+\series default
+, or close to that.
+ However, Denning and Saltzer found that system reaction due to overload
+ by workingset behaviour is 
+\emph on
+extremely
+\emph default
+ non-linear, and may 
+\emph on
+completely
+\emph default
+ tear down systems even when only 
+\emph on
+slightly
+\emph default
+ overloaded.
+ Although there may exist some areas where the assumption of linearity is
+ correct and may lead to improvements by better load distribution, unpredictable
+ behaviour due to self-amplification of overload at BigCluster level may
+ result in the 
+\series bold
+opposite
+\series default
+.
+ Denning has provided a mathematical model for this, which could probably
+ be transferred to modern application behaviour.
+\end_layout
+
+\end_inset
+
+, and to self-amplify.
+\end_layout
+
+\begin_layout Standard
+In contrast, sharding models are not spreading any overload to other shards
+ by definition.
+ So the total availability from the viewpoint of the 
+\emph on
+total
+\emph default
+ set of customers is less vulnerable to impacts.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+In the above use cases where BigCluster is shining, overload is unlikely,
+ since the 
+\emph on
+parallelism of object access
+\emph default
+ is limited.
+ This is somewhat similar to Saltzer's historic workaround for trashing.
+ 
+\emph on
+Streaming
+\emph default
+ at application behaviour level will translate into streaming at the network
+ layer.
+ Classical TCP networks dealing with a relatively low number of high-throuhput
+ streaming connections are just 
+\emph on
+constructed
+\emph default
+ for dealing with packet loss, such as caused by overload, e.g.
+ by their 
+\series bold
+congestion control
+\series default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Recommended reading: the papers from Sally Floyd.
+\end_layout
+
+\end_inset
+
+ algorithms.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In contrast, an extremely high number of parallel short connections would
+ be similar to a 
+\begin_inset Quotes eld
+\end_inset
+
+SYN flood attack
+\begin_inset Quotes erd
+\end_inset
+
+, or similar to a classical UDP packet storm.
+ It would allow for a much higher parallelism degree, but will be more vulnerabl
+e to packet loss / packet storm effects / etc, and more vulnerable to self-ampli
+fication.
+ These application behaviour types are avoided in the above use case examples
+ for BigCluster.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+In addition, storing video files as immutable BLOBs will limit the 
+\series bold
+randomness
+\series default
+ of 
+\emph on
+locality of references
+\emph default
+, while splitting into millions of very small objects may easily lead to
+ an explosion of randomness by some orders of magnitude.
 \end_layout
 
 \begin_layout Section
