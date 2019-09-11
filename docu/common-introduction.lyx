@@ -101,35 +101,85 @@ fixltx2e
 
 \begin_body
 
-\begin_layout Chapter
-GNU Free Documentation License
-\begin_inset CommandInset label
-LatexCommand label
-name "chap:GNU-FDL"
-
-\end_inset
-
-
+\begin_layout Standard
+MARS is a block-level storage replication system for long distances / flaky
+ networks under GPL.
 \end_layout
 
 \begin_layout Standard
-\noindent
-
-\family typewriter
-\size footnotesize
-\begin_inset ERT
-status open
-
-\begin_layout Plain Layout
-
-
-\backslash
-lstinputlisting{fdl.txt}
+It is a key component for achieving 
+\series bold
+geo-redundancy
+\series default
+ under Linux, for example Disaster Recovery (DR) at datacenter granularity,
+ and/or Location Transparency (LT) at VM / LV granularity.
 \end_layout
 
-\end_inset
+\begin_layout Standard
+It can help to increase 
+\series bold
+reliability
+\series default
+ via Sharding, and to 
+\series bold
+save cost
+\series default
+ by optional support for local storage in addition to network storage.
+\end_layout
 
+\begin_layout Standard
+It eases 
+\series bold
+load balancing
+\series default
+ and 
+\series bold
+background migration of data
+\series default
+, even over long distances.
+\end_layout
 
+\begin_layout Standard
+MARS runs as a Linux kernel module.
+ The sysadmin interface is similar to DRBD, but its internal engine is completel
+y different from DRBD: it works with transaction logging, similar to some
+ database systems.
+\end_layout
+
+\begin_layout Standard
+Therefore, MARS can provide stronger consistency guarantees.
+ In case of network bottlenecks / problems / failures, the secondaries may
+ become outdated (reflect an elder state), but will not become inconsistent.
+ In contrast to DRBD, MARS preserves the order of write operations even
+ when the network is flaky (Anytime Consistency).
+\end_layout
+
+\begin_layout Standard
+The current version of MARS supports k > 2 replicas and works asynchronously.
+ Therefore, application performance is completely decoupled from any network
+ problems.
+ Future versions are planned to also support synchronous or near-synchronous
+ modes.
+\end_layout
+
+\begin_layout Standard
+MARS supports a new method for building Cloud Storage / Software Defined
+ Storage, called 
+\series bold
+LV Football
+\series default
+.
+ It comes with some automation scripts, enabling a similar functionality
+ than Kubernetes, but devoted to stateful LVs over 
+\series bold
+virtual LVM pools
+\series default
+ in the petabytes range.
+\end_layout
+
+\begin_layout Standard
+MARS is in production since 2014, and on thousands of Linux servers replicating
+ petabytes of data.
 \end_layout
 
 \end_body
