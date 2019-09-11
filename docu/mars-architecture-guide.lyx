@@ -3577,13 +3577,10 @@ physical properties
 \emph default
  in a larger / heterogenous distributed system, e.g.
  when some hardware components are replaced over a longer period of time
- (hardware lifecycle, or LV Football as explained in chapter 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "chap:LV-Football"
-
-\end_inset
-
+ (hardware lifecycle, or LV Football as explained in 
+\family typewriter
+football-user-guide.pdf
+\family default
 ).
  Essentially, only replication of 
 \emph on
@@ -14900,19 +14897,51 @@ assume(!)
 \emph default
  that P is not required.
  Then, and only then, you can get both A and C at the same time, without
- sacrificing P, because P is already for free by assumption.
- In such a crossover cable scenario, getting all three C and A and P is
- possible, similarly to an explanation in the Wikipedia article.
+ sacrificing P, because P is already for free by 
+\emph on
+assumption
+\emph default
+.
+ In such a passive crossover cable scenario, getting all three C and A and
+ P is possible, similarly to an explanation in the Wikipedia article.
 \end_layout
 
 \begin_layout Standard
-This is the classical use case for DRBD: when both DRBD replicas are always
- staying physically connected via a passive crossover cable (which is 
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Newer types of network cables for 10 GBit and more (e.g.
+ SFP+) may have some active chips internally in their plugs.
+ Suchalike technologies are no longer passive.
+ Consequently, the assumption 
+\begin_inset Quotes eld
+\end_inset
+
+passive component which cannot fail
+\begin_inset Quotes erd
+\end_inset
+
+ is no longer true by construction.
+\end_layout
+
+\begin_layout Standard
+Relying on the assumption leads us to classical use cases for DRBD: when
+ both DRBD replicas are always staying physically connected via a passive
+ crossover cable (which is 
 \emph on
 assumed
 \emph default
- to never break down), you can get both strict global consistency and availabili
-ty, even in cases where one of the DRBD nodes is failing
+ to never break down), you 
+\emph on
+can
+\emph default
+ get both strict global consistency and availability, even in cases where
+ one of the DRBD nodes is failing
 \begin_inset Foot
 status open
 
@@ -14929,8 +14958,13 @@ In addition, you will need some further components like Pacemaker, iSCSI
 connected
 \family default
  state, while P is assumed to be provided by a passive component.
- By addition of iSCSI failover, A can be achieved even in case of single
- storage node failures, while retaining C from the viewpoint
+ By addition of iSCSI failover (e.g.
+ ALUA and similar technologies), it 
+\emph on
+should
+\emph default
+ be possible to achieve A, even in case of single storage node failures,
+ while retaining C from the viewpoint
 \begin_inset Foot
 status open
 
@@ -14980,7 +15014,7 @@ know
 
 \begin_layout Standard
 This is explained by the thick line in the following variant of the graphics,
- which is only valid for crossover cables where P need not be guaranteed
+ which is only valid for passive crossover cables where P need not be guaranteed
  by the replication because it is already assumed for free:
 \end_layout
 
@@ -15210,7 +15244,7 @@ each
 \end_inset
 
 Why does MARS this? Because a better way is not possible at all.
- The CAP theorem tells us that there exists no better way when both A have
+ The CAP theorem tells us that there exists no better way when both A has
  to be guaranteed (as almost everywhere in enterprise-critical IT operations),
  and P has to be ensured in datacenter disaster scenarios or some other
  scenarios.
@@ -15298,10 +15332,43 @@ hard requirement
 \series bold
 impossible
 \series default
-.
+ in general.
  There exists no solution, with whatever component, or from whatever commercial
  storage vendor.
+ Although some 
+\begin_inset Quotes eld
+\end_inset
+
+marketing drones
+\begin_inset Quotes erd
+\end_inset
+
+ are claiming the impossible, e.g.
+ by citing 
+\emph on
+examples
+\emph default
+, which are then incorrectly generalized.
+ You might have luck, and there might be 
+\emph on
+exceptional examples
+\emph default
+ where all three C+A+P were ok, 
+\series bold
+by accident
+\series default
+.
+ But there remains a 
+\series bold
+risk
+\series default
+.
  The CAP theorem is as hard as Einstein's natural laws are.
+ You need a conscious decision about 
+\series bold
+priorities
+\series default
+, which property to drop first.
  Rethink your complete concept, from end to end.
  Something is wrong, somewhere.
  Ignoring this on enterprise-critical use cases can endanger a company and/or
@@ -15401,8 +15468,11 @@ actually occurred
 \emph default
 , and (2) when A = Availability is enforced at both sides of the network
  partition.
- The result is that C = global Consistency is violated, by creation of two
- or more versions of the data.
+ The result is that C = 
+\emph on
+global
+\emph default
+ Consistency is violated, by creation of two or more versions of the data.
 \end_layout
 
 \begin_layout Standard
@@ -15428,9 +15498,8 @@ reference "sec:Inappropriate-Clustermanger"
  scenarios, where no split brain can occur by construction.
  Using them in masses on versioned data in truly distributed systems can
  result in existential surprises, once a bigger network partition and/or
- a flaky replication networks triggers them in masses, and at some moments
- where you didn't really want to do what they now are doing automatically,
- and in masses.
+ a flaky replication networks triggers them in masses, and possibly at unexpecte
+d moments.
  Split brain should not be provoked when not 
 \emph on
 absolutely
@@ -15450,9 +15519,10 @@ throwing away
 \end_layout
 
 \begin_layout Standard
-This kind of split brain resolution problem is no specific property of DRBD
- or of MARS.
- It is a fundamental property of generic block devices.
+This kind of split brain resolution problem is not specific for DRBD or
+ MARS.
+ It is a fundamental property of Distributed Systems, and the difficulty
+ of resolution is an inherent property of generic block devices.
 \end_layout
 
 \begin_layout Standard
@@ -15507,9 +15577,12 @@ There exists lots of types of potential dependencies between objects.
 
 \end_inset
 
- When stacking block devices or filesystems (or something else) on top of
- some BigCluster object store, the latter will not magically resolve any
- split brain for you.
+ When stacking block devices or filesystems (or some other complex 
+\emph on
+structured aggregate
+\emph default
+) on top of some BigCluster object store, the latter will not magically
+ resolve any split brain for you.
  Check whether your favorite object store implementation has some kind of
  equivalent of a 
 \family typewriter
@@ -15534,8 +15607,10 @@ invalidate
 \family default
  command.
  If it doesn't have one, or only a restricted one, you should be 
+\series bold
 \emph on
 alerted
+\series default
 \emph default
 .
  In case of a long-lasting storage network partition, you might need suchalike
@@ -15544,6 +15619,17 @@ alerted
 desperately
 \emph default
  for ensuring A, even at the cost of C.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
  Check: whether you need this is heavily depending on the 
 \series bold
 \emph on
@@ -15557,8 +15643,8 @@ reference "sec:Requirements-for-Cloud"
 
 \end_inset
 
-, or look at webhosting, etc).
- When you 
+).
+ If you 
 \emph on
 would
 \emph default
@@ -15599,7 +15685,11 @@ There exist only few opportunities for generic conflict resolution, even
 some
 \emph default
  knowledge about the structure of the data is available.
- Typically, there are some more hidden dependencies.
+ Typically, there exist some more 
+\emph on
+hidden
+\emph default
+ dependencies than people are expecting.
  Lossless 
 \family typewriter
 SplitBrain
@@ -15645,8 +15735,8 @@ extremely extraordinary
 manual cleanup
 \emph default
  of C is cheaper than long-lasting violations of A).
- Good to know that both DRBD and MARS have some emergency measure for killing
- C in favour of A!
+ Both DRBD and MARS have some emergency measure for killing C in favour
+ of A.
 \end_layout
 
 \begin_layout Section
