@@ -8086,7 +8086,7 @@ Even in cases when any customer may potentially access any of the data items
 Only when partitioning of input traffic plus data is not possible in a reasonabl
 e way, big cluster architectures as implemented for example in Ceph or Swift
  (and partly even possible with MARS when restricted to the block layer)
- have a very clear use case.
+ may have a use case.
 \end_layout
 
 \begin_layout Standard
@@ -8127,7 +8127,7 @@ LocalSharding The simplest possible sharding architecture is simply putting
 Example: at 1&1 Shared Hosting Linux (ShaHoLin), we have dimensioned several
  variants of this.
  (a) we are using 1U pizza boxes with local hardware RAID controllers with
- fast hardware BBU cache and up 10 local disks for the majority of LXC container
+ fast hardware BBU cache and ~ 10 local disks for the majority of LXC container
  instances where the 
 \begin_inset Quotes eld
 \end_inset
@@ -8220,7 +8220,7 @@ exceptional(!)
 \emph on
 regularly
 \emph default
-, but only in clear cases of emergency!
+, but only for clear cases of emergency!
 \begin_inset Newline newline
 \end_inset
 
@@ -8470,8 +8470,8 @@ name "subsec:FlexibleSharding"
 
 \end_inset
 
-Notice that MARS' new remote device feature from the 0.2 branch series (which
- is kind of replacement for iSCSI) 
+Notice that MARS new prosumer device feature (which is kind of replacement
+ for iSCSI) 
 \emph on
 could
 \emph default
