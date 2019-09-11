@@ -3209,6 +3209,874 @@ Confusion of solution classes and/or their corresponding problem classes
 \end_layout
 
 \begin_layout Subsection
+Flexibility of Handover / Failover Granularities
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Flexibility-of-Failover"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Typical management buzzwords like DR = Disaster Recovery or CDP = Continuous
+ Data Protection are neglecting the 
+\emph on
+granularity
+\emph default
+ of the data units to be protected by replication, and the ability for quick
+ service
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In the table, 
+\begin_inset Quotes eld
+\end_inset
+
+Backup
+\begin_inset Quotes erd
+\end_inset
+
+ means that only the data is replicated into a different datacenter.
+ In difference, 
+\begin_inset Quotes eld
+\end_inset
+
+Replication
+\begin_inset Quotes erd
+\end_inset
+
+ means that both the data and the necessary compute resources are available
+ in two datacenters.
+\end_layout
+
+\end_inset
+
+ handover due to 
+\series bold
+maintenance
+\series default
+ reasons such as power supply maintenance.
+ The following table explains some differences when granularity aspects
+ like replication at physical volume (PV) aka physical disk level versus
+ logical volume (LV) resp filesystem level are taken into account:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Tabular
+<lyxtabular version="3" rows="17" columns="3">
+<features tabularvalignment="middle">
+<column alignment="left" valignment="top" width="0pt">
+<column alignment="left" valignment="top" width="0pt">
+<column alignment="left" valignment="top" width="0pt">
+<row>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Method
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Disadvantages
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Advantages
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell multirow="3" alignment="left" valignment="middle" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Backup at FS level
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+no real data consistency
+\end_layout
+
+\end_inset
+</cell>
+<cell multirow="3" alignment="left" valignment="middle" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+logical copy
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell multirow="4" alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+no handover / failover
+\end_layout
+
+\end_inset
+</cell>
+<cell multirow="4" alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell multirow="4" alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+no load balancing
+\end_layout
+
+\end_inset
+</cell>
+<cell multirow="4" alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell multirow="4" alignment="left" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+no CDP / high MTTR
+\end_layout
+
+\end_inset
+</cell>
+<cell multirow="4" alignment="left" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell multirow="3" alignment="left" valignment="middle" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Backup via FS snapshots
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+handover cumbersome
+\end_layout
+
+\end_inset
+</cell>
+<cell multirow="3" alignment="left" valignment="middle" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+some point-in-time consistency
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell multirow="4" alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+no real load balancing
+\end_layout
+
+\end_inset
+</cell>
+<cell multirow="4" alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell multirow="4" alignment="left" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+medium to high MTTR
+\end_layout
+
+\end_inset
+</cell>
+<cell multirow="3" alignment="left" valignment="middle" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+logical copy
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell multirow="4" alignment="left" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+delayed consistency
+\end_layout
+
+\end_inset
+</cell>
+<cell multirow="4" alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell multirow="3" alignment="left" valignment="middle" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Replication at PV granularity
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+whole clusters switch
+\end_layout
+
+\end_inset
+</cell>
+<cell multirow="3" alignment="left" valignment="middle" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+easier to setup
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell multirow="4" alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+no load balancing
+\end_layout
+
+\end_inset
+</cell>
+<cell multirow="4" alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell multirow="4" alignment="left" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+physical copy
+\end_layout
+
+\end_inset
+</cell>
+<cell multirow="4" alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell multirow="4" alignment="left" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+medium MTTR
+\end_layout
+
+\end_inset
+</cell>
+<cell multirow="4" alignment="left" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell multirow="3" alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Replication at LV granularity
+\end_layout
+
+\end_inset
+</cell>
+<cell multirow="3" alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+physical copy
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+load balancing between LVs
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell multirow="4" alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell multirow="4" alignment="left" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+easy migration / Football
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell multirow="4" alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell multirow="4" alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+full handover consistency
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell multirow="4" alignment="left" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell multirow="4" alignment="left" valignment="top" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="left" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+low MTTR
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+In order to implement flexibility of handover / failover, the network infrastruc
+ture (as well as other infrastructures) must support it.
+ Here are 
+\series bold
+levels of flexibility
+\series default
+, in ascending order:
+\end_layout
+
+\begin_layout Enumerate
+\begin_inset Argument 1
+status open
+
+\begin_layout Plain Layout
+start=0
+\end_layout
+
+\end_inset
+
+ (completely inflexible) Statically assigned IP addresses at 
+\emph on
+each
+\emph default
+ server and at 
+\emph on
+both
+\emph default
+ of 2 datacenters, and in particular for 
+\series bold
+customer traffic
+\series default
+.
+ This is typical for contemporary backup solutions.
+ As a consequence, any handover / failover attempt would need massive sysadmin
+ work, even if there were enough CPU and RAM power at the target datacenter.
+ Switching whole datacenters or bigger server farms would take days, if
+ not weeks, to manually reconfigure.
+ Consequence: sysadmins will heavily dislike such type of work (acceptance
+ problem of geo-redundancy).
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Some people think this can be easily done at DNS level.
+ Just update all of your publicly visible DNS records to point to the new
+ IP addresses.
+ However, DNS updates have serious drawbacks for public internet traffic.
+ Although there exists a field TTL = Time To Live for limiting the caching
+ period of DNS clients, this field is 
+\emph on
+ignored
+\emph default
+ by many clients / DNS caches throughout the world.
+ In practice it will take days, if not weeks, until the last client has
+ got the new IP address, even if you try to speed this up by setting a TTL
+ of 1 minute.
+ It simply does not work as expected.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Dynamic routing protocols at AS = Autonomous Systems level are your friend,
+ such as BGP = Border Gateway Protocol.
+ For any 
+\emph on
+serious
+\emph default
+ geo-redundancy, it is a 
+\series bold
+must
+\series default
+.
+ If you don't have the ability for 
+\series bold
+dynamic routing at the appropriate granularity
+\series default
+, you should better not claim that you are geo-redundant.
+ If handover / failover takes far longer than acceptable by customer expectation
+s / SLAs (typically minutes), you are 
+\emph on
+not really
+\emph default
+ geo-redundant from the viewpoint of your customers.
+\end_layout
+
+\begin_layout Enumerate
+(inflexible) Manual or semi-automated routing at datacenter uplink level.
+ Here the customer traffic is always routed to the 
+\emph on
+same
+\emph default
+ IP visible from outside, while there is a 
+\emph on
+separate
+\emph default
+ static IP per server for sysadmin 
+\family typewriter
+ssh
+\family default
+ access.
+ The customer traffic routing needs to be changed 
+\emph on
+globally
+\emph default
+ for the 
+\emph on
+complete
+\emph default
+ traffic to 
+\emph on
+any
+\emph default
+ of two datacenters, and thus is very inflexible.
+ This model protects 
+\emph on
+only
+\emph default
+ against a full datacenter loss, but almost nothing else.
+ Unfortunately, this model appears very simple to implement, so both staff
+ and chief executive managers are sometimes preferring this 
+\begin_inset Quotes eld
+\end_inset
+
+simple
+\begin_inset Quotes erd
+\end_inset
+
+ model, although it causes headaches at operational level when really needed.
+\end_layout
+
+\begin_layout Enumerate
+(medium flexibility) Dynamic routing of customer traffic at the granularity
+ of building blocks, or even per hypervisor / physical server.
+ When automated appropriately, switchover is a matter of minutes, or even
+ seconds.
+\end_layout
+
+\begin_layout Enumerate
+(flexible) Dynamic routing of each VM / LV / resource, individually.
+ This has massive advantages: in case of overload, DDOS attacks, etc, you
+ can quickly load-balance into a so-called 
+\series bold
+butterfly runtime configuration
+\series default
+: half of your VMs belonging to the same hypervisor is running in datacenter
+ A, while the other half is running in datacenter B.
+ In the following illustration showing one hypervisor per datacenter, green
+ color denotes the active (primary) side, while white means passive (secondary):
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/replication-butterfly.fig
+	width 100line%
+
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+During butterfly, each of your hypervisor iron has to carry only 
+\emph on
+half
+\emph default
+ of the ordinary workload.
+ For comparison, here is the normal situation where only datacenter A would
+ be active:
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/replication-normal.fig
+	width 100line%
+
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+In the above butterfly configuration, you have essentially 
+\series bold
+doubled the available CPU and RAM power
+\series default
+, when compared to the ordinary situation where side B does not carry any
+ application workload.
+ This is a 
+\emph on
+tremendous
+\emph default
+ aid for 
+\series bold
+survival
+\series default
+ of certain types of incidents, such as (unhandled
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+There is no 100% DDOS protection.
+ Attackers are continuosly improving their methods.
+ Catching all types of novel patterns is not possible in general.
+\end_layout
+
+\end_inset
+
+) DDOS attacks.
+\end_layout
+
+\begin_layout Enumerate
+(most flexible) In addition to dynamic routing at VM level, the VMs are
+ 
+\series bold
+location transparent
+\series default
+ (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Location-transparency"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+ They may transparently migrate to another hypervisor, possibly residing
+ in another building block, or even residing in a different datacenter.
+ In its most general form, the number of replicas may be different for each
+ VM, and may change dynamically, adapting to any needs.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+The 
+\series bold
+ability for butterfly
+\series default
+ is relevant at CTO level.
+ It is a massive 
+\series bold
+risk reducer
+\series default
+, even at company and at stock exchange value level.
+\end_layout
+
+\begin_layout Standard
+In order to really get it implemented in its best form, CTOs should clearly
+ require 
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+
+\series bold
+Location Transparency
+\end_layout
+
+\begin_layout Standard
+\noindent
+It means that not only your servers, but also your 
+\series bold
+services
+\series default
+ can run in any of more than 1 datacenter, without notice by your customers.
+ The location of your services is no longer a primary key, but a dependent
+ runtime attribute which may change at runtime.
+ Of course, your databases, your dashboards, your monitoring, and other
+ surrounding tools, must also be able to properly deal with location transparenc
+y.
+\end_layout
+
+\begin_layout Standard
+Example: 1&1 Ionos ShaHoLin = Shared Hosting Linux has implemented it on
+ thousands of servers, and on several petabytes of data.
+\end_layout
+
+\begin_layout Subsection
 Example: Point-in-time Replication via ZFS Snapshots
 \begin_inset CommandInset label
 LatexCommand label
