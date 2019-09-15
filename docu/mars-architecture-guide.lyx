@@ -1755,6 +1755,397 @@ location transparency
 \end_layout
 
 \begin_layout Section
+Location Transparency
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Location-transparency"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Location Transparency is an extremely important and well-known 
+\series bold
+fundamental principle
+\series default
+ in Distributed Systems, and has attracted research for decades.
+\end_layout
+
+\begin_layout Standard
+Simply stated, it means that the location of an object or of a service is
+ never (part of) a primary key, but any access is via a 
+\emph on
+logical name
+\emph default
+ which does not depend on the location.
+ Thus the location may (relatively easily) change at runtime.
+\end_layout
+
+\begin_layout Standard
+There are numerous examples where this fundamental principle is obeyed.
+ Unfortunately, there are also many examples where it is violated.
+\end_layout
+
+\begin_layout Standard
+Example: phone numbers are 
+\emph on
+not
+\emph default
+ location transparent in general.
+ For stationary phones, they contain a location-dependent prefix.
+ In general, it is not possible to move to a different city while keeping
+ the old stationary phone number.
+ In case of mobile phones / cellphones, numbers are 
+\begin_inset Quotes eld
+\end_inset
+
+more location transparent
+\begin_inset Quotes erd
+\end_inset
+
+, but even there they are 
+\emph on
+not fully
+\emph default
+ location transparent: for international calls, they contain prefixes referring
+ to the country, e.g +1 for US or +49 for Germany.
+ In practice, it is not easily possible to permanently move from Germany
+ to US, without giving up the old number after a while.
+ In addition, often the 
+\emph on
+service provider
+\emph default
+ and/or the network technology (D-net vs E-net etc) may be also be encoded
+ in cellphone numbers, e.g.
+ somewhere as an infix, so changing the provider may have some restrictions.
+ However, for 
+\emph on
+most practical purposes
+\emph default
+, such as Europeans spending their holidays in US, mobile phone numbers
+ are 
+\emph on
+sufficienctly
+\emph default
+ location transparent.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+In practice, location transparency is not just a boolean property.
+ As explained by the cellphone example, it may have various 
+\series bold
+degrees
+\series default
+.
+ In addition, it can refer to different sub-systems at different architectural
+ layers.
+ Some layers / some components may be (more or less) location transparent,
+ but others not at all.
+ Thus it is important to mention the 
+\series bold
+layer or the component
+\series default
+ when talking about location transparency.
+\end_layout
+
+\begin_layout Standard
+Interestingly, the Wikipedia article 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/Location_transparency
+\end_layout
+
+\end_inset
+
+ is an incomplete stub when this section was written (Autumn 2019).
+ It seems that people are actually paying less attention to it.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Major violations of location transparency are almost always carrying some
+ 
+\series bold
+technical debt
+\series default
+, likely causing future problems and impediments.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+Therefore, establishment of location transparency can be seen as 
+\series bold
+best practice
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ It may happen that somebody thinks there would be not enough time and/or
+ resources for implementing certain kinds of location transparency.
+ Although in many cases this is not really true, there might be some corner
+ cases where it sometimes is true, or close to true.
+ Notice that 
+\series bold
+investments into location transparency
+\series default
+ are often 
+\emph on
+longterm
+\emph default
+ investments.
+ Not doing it will likely 
+\series bold
+decrease your business opportunities
+\series default
+ and 
+\series bold
+increase your risks
+\series default
+ in the long term.
+ If anyone is arguing that location transparancy were 
+\emph on
+not needed
+\emph default
+ as a major feature, you should check whether such a person is really an
+ expert.
+ There needs to be a clear and valid justification for such an opinion.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+In general, it is not necessary to implement location transparency 
+\emph on
+everywhere
+\emph default
+, for each and every single component / subsystem.
+ The art of system architecture consists of knowing
+\end_layout
+
+\begin_layout Description
+\noindent
+(a) where it is 
+\emph on
+needed
+\emph default
+,
+\end_layout
+
+\begin_layout Description
+\noindent
+(b) where it is 
+\emph on
+beneficial
+\emph default
+ for future growth / future reqirements in multiple dimensions,
+\end_layout
+
+\begin_layout Description
+\noindent
+(c) where it is (or will be) too expensive to pay off in the mid-term future,
+ using current technology, but nevertheless 
+\emph on
+cheap provisions for its later introduction
+\emph default
+ can be prepared, and
+\end_layout
+
+\begin_layout Description
+\noindent
+(d) where its lack can be easily (or even 
+\emph on
+trivially
+\emph default
+) compensated by location transparency at another layer, such that a particular
+ component does not need to be constructed with location transparency, but
+ nevertheless the 
+\emph on
+overall system
+\emph default
+ is sufficiently location transparent, and
+\end_layout
+
+\begin_layout Description
+(e) when there are multiple choices 
+\emph on
+where
+\emph default
+ to implement it, knowing which will be the best one for a familiy of use
+ cases, and finally
+\end_layout
+
+\begin_layout Description
+(f) 
+\emph on
+how
+\emph default
+ to implement it.
+ For example, a common misconception is to believe that storage must always
+ reside at a storage network.
+ Football (see 
+\family typewriter
+football-user-manual.pdf
+\family default
+) demonstrates that sufficient
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+There could be arguments that Football's background migrations might be
+ too slow or might take too long for certain use cases.
+ Notice that 
+\family typewriter
+BigCluster
+\family default
+ also needs data migration during operations, e.g.
+ upon replacement of physical disks.
+ When the 
+\family typewriter
+FlexibleSharding
+\family default
+ model (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:FlexibleSharding"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) is combined with Football, it provides practically the same timescale
+ and flexibility than 
+\family typewriter
+BigCluster
+\family default
+.
+\end_layout
+
+\end_inset
+
+ location transparency can be achieved on top of local storage, while expensive
+ and performance-eating dedicated storage networks
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Anyway, realtime storage networks cannot span long distances.
+ Thus they are not suitable for achieving location transparency in a geo-redunda
+nt setup.
+\end_layout
+
+\end_inset
+
+ are not generally necessary for achieving location transparency.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+In the definition of Cloud Storage in section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:Requirements-for-Cloud"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, the requirement 
+\begin_inset Quotes eld
+\end_inset
+
+act as one
+\begin_inset Quotes erd
+\end_inset
+
+ is 
+\emph on
+implying
+\emph default
+ some appropriate type of location transparency of the resources.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Consequence: any system not sufficiently implementing location transparency
+ of the customer's resources (visible layer from outside) should not be
+ called 
+\begin_inset Quotes eld
+\end_inset
+
+Cloud Storage
+\begin_inset Quotes erd
+\end_inset
+
+ or a 
+\begin_inset Quotes eld
+\end_inset
+
+Cloud Product
+\begin_inset Quotes erd
+\end_inset
+
+ when location transparency is not sufficient at the layer of the customer.
+\end_layout
+
+\begin_layout Section
 Granularity at Architecture
 \begin_inset CommandInset label
 LatexCommand label
