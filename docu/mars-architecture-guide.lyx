@@ -1224,6 +1224,68 @@ eventually consistent
 
 \end_inset
 
+The requirement (1) 
+\begin_inset Quotes eld
+\end_inset
+
+act as one
+\begin_inset Quotes erd
+\end_inset
+
+ implies some appropriate type of 
+\series bold
+location transparency
+\series default
+ (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Location-transparency"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+The definition says nothing about the 
+\series bold
+granularity
+\series default
+ / sizes of the distributed resources.
+ See section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Granularity-at-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ for a more detailed discussion of opportunities arising from better informed
+ decisions about this.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
 Notice that the term 
 \begin_inset Quotes eld
 \end_inset
@@ -1265,7 +1327,7 @@ not
 \emph on
 specific
 \emph default
- type of network, such as a 
+ type of network, such as a costly 
 \series bold
 storage network
 \series default
@@ -1274,16 +1336,84 @@ storage network
 realtime
 \series default
 .
- We are free to use other types of networks, such as 
+ In general, we are free to use other types of networks, such as cheaper
+ 
 \series bold
 replication networks
 \series default
-, which need not be dimensioned for realtime IO traffic, but are usable
+, which need not be dimensioned for realtime IO traffic, but are sufficient
  for 
 \series bold
 background data migration
 \series default
-, and even over long distances, where the network typically has some bottlenecks.
+, and even over long distances, where 
+\emph on
+any
+\emph default
+ network has some bottlenecks.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Often, there are 
+\series bold
+restrictions from technology
+\series default
+.
+ Not every architecture as discussed in this guide can be easily implemented
+ via a certain technology.
+ Example: when a so-called 
+\series bold
+Vendor Lock-In
+\series default
+ is binding you to to a certain brand of commercial storage boxes, certain
+ opportunities will be missed.
+ By going to self-built and self-administered RAID storage, typically an
+ invest factor between 3 and 10 can be saved (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Cost-Arguments-from-Technology"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+ On top of this, about another factor of 2 is possible, about 
+\emph on
+halving your total hardware invest
+\emph default
+, by use of Linux-based local storage + Football in place of network-based
+ commercial storage, provided it is possible for your use case.
+ See sections 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Proprietary-vs-OpenSource"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ and 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Local-vs-Centralized"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Standard
@@ -1304,7 +1434,7 @@ time scale
 status open
 
 \begin_layout Plain Layout
-Notice: go down to a time scale of microseconds.
+Go down to a time scale of microseconds.
  You will then notice that typical IO operations will require several hundreds
  of machine instructions between IO request 
 \emph on
@@ -1316,20 +1446,264 @@ completion
 \emph default
 .
  This is not only true for local IO.
- In network clusters like Ceph, it will even involve creation of network
- packets, and lead to additional IO latencies implied by the network packet
- transfer latencies.
+ In network clusters like Ceph, it will involve much more work, like creation
+ of network packets, and lead to additional IO latencies implied by the
+ network packet transfer latencies.
 \end_layout
 
 \end_inset
 
 .
- We are free to implement certain operations, such as background data migrations
+ In general, we are free to implement certain operations, such as 
+\series bold
+background data migration
+\series default
 , in a rather long timescale (from a human point of view).
- Example: increasing the number of replicas in an operational Ceph cluster,
+ This bears an opportunity for 
+\series bold
+major cost reduction
+\series default
+, as well as 
+\series bold
+improving reliability
+\series default
+ by decreasing dependencies from (hidden) SPOFs
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Several people appear to work with the 
+\emph on
+assumption
+\emph default
+ that networks are available all the time.
+ Although minor network outages can be compensated very well, there remains
+ a 
+\series bold
+residual risk
+\series default
+ for a major outage, similar to what happened in Fukushima.
+ Thus such an attitude can endanger both companies and carreers.
+\end_layout
+
+\end_inset
+
+ = Single Points Of Failure.
+\end_layout
+
+\begin_layout Description
+\noindent
+Example
+\begin_inset space ~
+\end_inset
+
+1
+\begin_inset space ~
+\end_inset
+
+(replication
+\begin_inset space ~
+\end_inset
+
+network
+\begin_inset space ~
+\end_inset
+
+failures): Football on top of MARS for background LV migration over both
+ short and geo-distances.
+ When the replication network is down, it will just pause for a while, and
+ MARS will automatically resume once the network is up again.
+ Football can be configured to also resume the higher-level migration process,
+ when necessary.
+\end_layout
+
+\begin_layout Description
+\noindent
+Example
+\begin_inset space ~
+\end_inset
+
+2
+\begin_inset space ~
+\end_inset
+
+(storage
+\begin_inset space ~
+\end_inset
+
+network
+\begin_inset space ~
+\end_inset
+
+failures): It is clear that a failure of a classical storage network will
+ halt all services depending on it.
+ Some people believe that realtime storage networks cannot be avoided, in
+ order to react at varying load situations, and are running much faster
+ due to load distribution.
+ This is not the full picture:
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+Football plus FlexibleSharding can achieve a similar level of elasticity.
+\end_layout
+
+\begin_layout Enumerate
+Load distribution is essentially nothing else but a variant of 
+\series bold
+data striping
+\series default
+.
+ If you really need it for performance reasons, you can often do similarly
+ with certain types of local RAID, such as RAID-10 or RAID-60, and with
+ a variety of RAID parameters.
+ Notice that 
+\emph on
+any
+\emph default
+ kind of data striping, whether at block level or at object level, is coming
+ with some cost
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+For a given redundancy degree 
+\begin_inset Formula $k$
+\end_inset
+
+, 
+\series bold
+reliability is reduced
+\series default
+ by striping.
+ In case of RAID, this is well-known since decades.
+ Unfortunately, in case of BigCluster some misleading 
+\begin_inset Quotes eld
+\end_inset
+
+propaganda
+\begin_inset Quotes erd
+\end_inset
+
+ was blurring the public opinion for many years.
+ Notice that the BigCluster analysis in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sub:Detailed-explanation"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ is showing up some parallels to the well-known reliability loss caused
+ by RAID striping, when some granularity differences (block vs object level
+ etc) are ignored.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Enumerate
+LocalStorage is even faster (when using a comparable technology yielding
+ the same size), because IO does not involve 
+\emph on
+any dedicated storage network
+\emph default
+ at all.
+ Therefore, it is also more reliable (when using comparable technology).
+\end_layout
+
+\begin_layout Enumerate
+\noindent
+Reorg tasks: these can occur in all top-level architectures.
+ In general, not all operations can run in realtime, by construction.
+ For example, increasing the number of replicas in an operational Ceph cluster,
  already containing a few hundreds of terabytes of data, will not only require
- additional storage hardware, but also take a rather long time, implied
- by the very nature of such reorganisational tasks.
+ additional storage hardware, but will also take a rather long time, implied
+ by the very nature of bigger reorganisational tasks.
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+When 
+\series bold
+geo-redundancy
+\series default
+ = some minimum distance between datacenters for 
+\series bold
+survial of geo-disasters
+\series default
+ like earthquakes or floods is added to (2) as an additional requirement,
+ some 
+\emph on
+further consequences
+\emph default
+ will arise.
+ For example, the German government authority BSI recommends a minimum distance
+ of 200 km between datacenters for 
+\series bold
+critical infrastructures
+\series default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+See 
+\begin_inset Flex URL
+status collapsed
+
+\begin_layout Plain Layout
+
+https://www.bsi.bund.de/SharedDocs/Downloads/DE/BSI/Sicherheitsberatung/Standort-Kr
+iterien_HV-RZ/Standort-Kriterien_HV-RZ.pdf?__blob=publicationFile&v=5
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+Some press comments on this: 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://www.it-finanzmagazin.de/bsi-rechenzentren-entfernung-bafin-84078/
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+.
+ Over suchalike distances, realtime storage networks cannot be used anymore
+ in general.
+ Thus some kind of 
+\begin_inset Quotes eld
+\end_inset
+
+migration
+\begin_inset Quotes erd
+\end_inset
+
+ of data over long distances will be needed anyway.
 \end_layout
 
 \begin_layout Standard
@@ -1341,8 +1715,350 @@ completion
 
 \end_inset
 
-The famous CAP theorem is one of the motivations behind requirement (4)
+ Since data migration is needed 
+\emph on
+anyway
+\emph default
+ over long distances, there is an opportunity for 
+\series bold
+saving cost 
+\emph on
+and
+\emph default
+ increasing reliabilty + flexibility
+\series default
+ all at the same time.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Basic idea behind Football on top of a Sharding model: minimize the 
+\emph on
+distances
+\emph default
+ between your storage spindles and the corresponding data processing.
+ When automated properly, real-time storage networks can become superfluous,
+ or at least the corresponding realtime IO traffic can be drastically reduced.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Unfortunately, this opportunity is easily 
+\emph on
+missed
+\emph default
+ if both system architects and responsible managers are just requiring only
+ DR = Disaster Recovery over long distances.
+ Essentially, suchalike minimum requirements can be easily interpreted as
  
+\begin_inset Quotes eld
+\end_inset
+
+everything has to be doubled
+\begin_inset Quotes erd
+\end_inset
+
+ in order to survive any geo-disaster
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+A geo-disaster like an earthquake will typically last for weeks, if not
+ months, until it is fully repaired.
+ During such a period, a single surviving datacenter must be capable of
+ providing 
+\begin_inset Quotes eld
+\end_inset
+
+good enough
+\begin_inset Quotes erd
+\end_inset
+
+ SLAs.
+ These disaster-SLAs can be lower than usual.
+ For example, in place of an ordinary 99.98% availability, 98% may be a sufficien
+t target 
+\emph on
+during
+\emph default
+ such a geo-disaster.
+ By unnecessarily requiring much more during a very rare corner case, you
+ can easily explode the cost, even beyond doubling, without reasonable benefit
+ during ordinary operations.
+\end_layout
+
+\end_inset
+
+.
+ This would double cost in comparison to certain kinds of fully locally
+ redundant architectures, missing the opportunity for 
+\series bold
+\emph on
+splitting
+\series default
+\emph default
+ much of the overall redundancy into two geo-locations, 
+\series bold
+instead of doubling
+\series default
+ virtually everything.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Some people are arguing that doubling were unavoidable, which is 
+\emph on
+incorrect in general
+\emph default
+, as Football can demonstrate as a positive counter-example.
+ See section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Cost-Arguments-from-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Counter-productive cost arguments are sometimes heard when geo-redundancy
+ is discussed about, without considering newer possibilities such as Football.
+ As explained in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Flexibility-of-Failover"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, the 
+\series bold
+granularity of failover
+\series default
+ should not be required as a 
+\series bold
+coarse failover of a full datacenter
+\series default
+, but explicitly be required as 
+\series bold
+fine-grained cross-geo failover + handover at VM level
+\series default
+, or at a similar granularity (c.f.
+ section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Granularity-at-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+ This will force people to think about 
+\series bold
+wide-area distribution
+\series default
+ of resources instead of plainly doubling them (once again
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Example: commercial storage boxes from NetApp, IBM, etc already have some
+ 
+\emph on
+local redundancy
+\emph default
+, typically doubling the amount of physical disks you are actually buying
+ when you buy a single storage box.
+ Typically, the amount of 
+\emph on
+physical
+\emph default
+ disks is not directly reported as a KPI, although it is major cost producer.
+ When introducing geo-replication, you will likely need to buy double the
+ number of boxes, resulting in a total of about 4x the capacity at the physical
+ layer.
+ In contrast, MARS + Football can often be built on top of local RAID-6.
+ As pointed out in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Cost-Arguments-from-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, this leads to only about 2.2x the physical capacity you will need to buy.
+ In addition, the rackspace is much lower when using local storage, reducing
+ the number of servers to deploy and administer, and reducing networking
+ cost by omission of dedicated storage networks.
+\end_layout
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Another buzzword for flexible cross-geo distribution is the 
+\series bold
+ability for butterfly
+\series default
+, see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Flexibility-of-Failover"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ There is a 
+\series bold
+tradeoff
+\series default
+ between the effort for implementation of per-VM flexibility, and hardware
+ cost savings.
+ Sometimes arguments are heard that a high level of flexibility would be
+ too costly.
+ Although this might be true in some relatively small corner cases, the
+ picture can rapidly change when thousands of servers and/or petabytes or
+ storage are involved.
+ Doubling the overall cost for big datacenters instead of intelligently
+ geo-distributing resources, is likely much more cost intensive in the long
+ term than investing once into 
+\series bold
+intelligent abilities
+\series default
+ of the company which can then 
+\series bold
+scale up
+\series default
+ (more details see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Scalability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ As a consequence of sufficiently fine-grained handover + failover, the
+ above definition of cloud storage can be 
+\series bold
+met at geo-datacenter level
+\series default
+, i.e.
+ the distributed resources according to (1) will be distributed over 
+\emph on
+multiple geo-redundant 
+\emph default
+locations / datacenters.
+ As pointed out in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Cost-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, sometimes this may be even cheaper than building certain types of local
+ redundancy inside the same datacenter.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ The famous CAP theorem (see section 
+\begin_inset CommandInset ref
+LatexCommand vref
+reference "sec:Explanation-via-CAP"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) is one of the motivations behind requirement (4) 
 \begin_inset Quotes eld
 \end_inset
 
@@ -1779,7 +2495,7 @@ Simply stated, it means that the location of an object or of a service is
 \emph on
 logical name
 \emph default
- which does not depend on the location.
+ not depending on the location.
  Thus the location may (relatively easily) change at runtime.
 \end_layout
 
@@ -1789,7 +2505,11 @@ There are numerous examples where this fundamental principle is obeyed.
 \end_layout
 
 \begin_layout Standard
-Example: phone numbers are 
+Example: 
+\series bold
+phone numbers
+\series default
+ are 
 \emph on
 not
 \emph default
@@ -8037,6 +8757,13 @@ commodity
 
 \begin_layout Subsection
 Cost Arguments from Technology
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Cost-Arguments-from-Technology"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -8352,6 +9079,13 @@ very
 
 \begin_layout Subsection
 Cost Arguments from Architecture
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Cost-Arguments-from-Architecture"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
