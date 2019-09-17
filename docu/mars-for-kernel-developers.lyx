@@ -40,16 +40,16 @@ fixltx2e
 \paperfontsize 10
 \spacing single
 \use_hyperref true
-\pdf_title "MARS Manual"
+\pdf_title "MARS For Kernel Developers"
 \pdf_author "Thomas Schöbel-Theuer"
 \pdf_bookmarks true
 \pdf_bookmarksnumbered false
-\pdf_bookmarksopen false
-\pdf_bookmarksopenlevel 1
+\pdf_bookmarksopen true
+\pdf_bookmarksopenlevel 2
 \pdf_breaklinks true
 \pdf_pdfborder true
 \pdf_colorlinks true
-\pdf_backref false
+\pdf_backref section
 \pdf_pdfusetitle true
 \papersize a4paper
 \use_geometry true
