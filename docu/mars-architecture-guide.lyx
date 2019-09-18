@@ -410,6 +410,32 @@ Datacenter architects have no easy job.
 \end_layout
 
 \begin_layout Standard
+As a responsible manager, you will make architectural decisions, even if
+ you are 
+\emph on
+not aware
+\emph default
+ of them.
+ Bad decisions, even if you are not aware of its consequences, can endanger
+ major products, and increase cost by 
+\emph on
+factors
+\emph default
+.
+ Once you have commited to a certain architecture, it will be 
+\emph on
+extremely cumbersome
+\emph default
+ to modify it later.
+ Thus you need to get it right from start.
+ Typically, you will have 
+\series bold
+only one shot
+\series default
+.
+\end_layout
+
+\begin_layout Standard
 First, we need to take a look at the most general possibilities how storage
  can be architecturally designed:
 \end_layout
@@ -443,7 +469,7 @@ too simple
 \begin_inset Quotes erd
 \end_inset
 
- to provide both enterprise grade reliability, and scalability.
+ to provide enterprise grade reliability, and scalability, and maintainability.
  In the past, this was sometimes true.
 \end_layout
 
@@ -461,8 +487,25 @@ LV Football
 football-user-manual.pdf
 \family default
 .
- We will later review what level of reliability and scalability can be achieved
- with each of the fundamental models mentioned here.
+ When Football is combined with a 
+\family typewriter
+FlexibleSharding
+\family default
+ architecture (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:FlexibleSharding"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+), practically the same flexibility as promised by 
+\family typewriter
+BigCluster
+\family default
+ is possible.
 \end_layout
 
 \begin_layout Section
@@ -504,23 +547,47 @@ discipline
 \end_layout
 
 \begin_layout Standard
-Throughout this paper, the term 
+Throughout this document, the term 
 \begin_inset Quotes eld
 \end_inset
 
+
+\series bold
 architecture
+\series default
+
 \begin_inset Quotes erd
 \end_inset
 
- is strictly separated from 
+ (without preceding 
 \begin_inset Quotes eld
 \end_inset
 
-implementations
+software
 \begin_inset Quotes erd
 \end_inset
 
-.
+) is strictly separated from 
+\begin_inset Quotes eld
+\end_inset
+
+
+\series bold
+implementation
+\series default
+
+\begin_inset Quotes erd
+\end_inset
+
+ (without preceding 
+\begin_inset Quotes eld
+\end_inset
+
+software
+\begin_inset Quotes erd
+\end_inset
+
+).
  Any of 
 \begin_inset Quotes eld
 \end_inset
@@ -537,7 +604,66 @@ implementation
 \begin_inset Quotes erd
 \end_inset
 
- can relate to both hard- and software in general.
+ can relate to both hard- and software.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ A certain architecture may have multiple implementations.
+ An implementation is based on a 
+\emph on
+set
+\emph default
+ of 
+\series bold
+technologies
+\series default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Architectures are serving as aids for 
+\series bold
+classification of solutions
+\series default
+.
+ An implementation is a solution which has 
+\emph on
+materialized
+\emph default
+ (in contrast to solutions which exist only on paper).
+ Complex solutions / implementations are typically matching only one architectur
+e.
+ Thus the relationship between architectures and solutions / implementations
+ is typically 
+\begin_inset Formula $1:n$
+\end_inset
+
+, while the relationship between solutions / implementations and technologies
+ is 
+\begin_inset Formula $n:m$
+\end_inset
+
+ in general.
+ In case of a very simple solution, it may 
+\emph on
+exceptionally
+\emph default
+ match multiple architectures, but this is not typical for classification
+ schemes.
+\end_layout
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Standard
@@ -549,7 +675,99 @@ implementation
 
 \end_inset
 
-Confusion of 
+ Unfortunately, certain technologies are not suitable for certain architectures.
+ There may be 
+\series bold
+restrictions
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Because of 
+\series bold
+hidden restrictions
+\series default
+ which may show up later, you should not start with implementations or technolog
+ies.
+ Always start top-down with architectural considerations, while trying to
+ identify potential restrictions 
+\emph on
+as early as possible
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Motivation: the biggest 
+\series bold
+potential for good solutions
+\series default
+ is at architectural level.
+ Exchanging a single component or a technology is typically much easier
+ than changing a whole architecture, once it has been implemented.
+ Often, changing an architecture is close to impossible.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Starting with a particular implementation and/or with a particular technology
+ in mind, and not sufficiently reasoning abouts its fundamental architecture,
+ and/or 
+\series bold
+not seriously considering alternative architectures
+\series default
+, is a major source of 
+\series bold
+costly ill-designs
+\series default
+.
+ An example may be found in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Example-Failures-of"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Confusion of 
 \begin_inset Quotes eld
 \end_inset
 
@@ -565,22 +783,17 @@ implementation
 \begin_inset Quotes erd
 \end_inset
 
- is a major source of ill-designs, which then often cause major product
- flaws and/or operational problems.
- Be sure to understand the difference.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
+ and/or 
+\begin_inset Quotes eld
 \end_inset
 
-Another source of costly ill-designs is starting with a particular implementatio
-n in mind, and not sufficiently reasoning abouts its fundamental architecture.
+technology
+\begin_inset Quotes erd
+\end_inset
+
+ is another major source of ill-designs, which then often cause major product
+ flaws and/or operational problems.
+ Be sure to understand the differences.
 \end_layout
 
 \begin_layout Standard
@@ -592,7 +805,7 @@ n in mind, and not sufficiently reasoning abouts its fundamental architecture.
 
 \end_inset
 
-Recommended best practice is to (1) look at the 
+ Recommended best practice is to (1) look at the 
 \series bold
 problem space
 \series default
@@ -604,12 +817,28 @@ set
 \series bold
 architectural solution classes
 \series default
-, and (3) look at the 
+, and (3) look at each of the 
 \series bold
 mappings
 \series default
- between them.
- This means: start with 
+ between problem space and solution space.
+ The 
+\emph on
+complexity
+\emph default
+ of such a mapping is a first hint.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ In somewhat more detail: start with 
 \series bold
 architectural requirements
 \series default
@@ -636,27 +865,22 @@ set
 after
 \emph default
  the former has been understood.
-\end_layout
-
-\begin_layout Standard
-\noindent
-\begin_inset Graphics
-	filename images/MatieresCorrosives.png
-	lyxscale 50
-	scale 17
-
-\end_inset
-
-Starting with a particular single solution in mind is almost a 
+ Selection of components and technologies should be the 
 \emph on
-guarantee
+last
 \emph default
- for a non-optimum solution, or even a failed project, or even a disaster
- at company level when 
+ step during the first iteration of this method.
+ Then do a 
 \series bold
-enterprise-critical mass data
+quality check
 \series default
- is involved.
+ at 
+\emph on
+concept
+\emph default
+ level.
+ Often, this review will disguise some problems / limitations etc, which
+ should be treated by further iterations, restarting top-down again.
 \end_layout
 
 \begin_layout Standard
@@ -668,7 +892,59 @@ enterprise-critical mass data
 
 \end_inset
 
-Nevertheless, don't think in waterfall models.
+ During this iterative concept work, you should 
+\series bold
+validate
+\series default
+ your solution(s) several times, e.g.
+ for 
+\series bold
+compatibility
+\series default
+ (no conflicts caused by restrictions, etc).
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Starting at the bottom with a particular single solution in mind, and/or
+ presuming a certain technology, is almost a 
+\emph on
+guarantee
+\emph default
+ for a non-optimum solution, or even a failed project, or even a disaster
+ at company level when 
+\series bold
+enterprise-critical mass data
+\series default
+ is involved.
+ Always consider a 
+\emph on
+set of
+\emph default
+ candidate architectures, and for each of them, a 
+\emph on
+set of
+\emph default
+ solutions / technologies.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Nevertheless, don't think in waterfall models.
  Always work 
 \series bold
 iteratively
@@ -677,10 +953,198 @@ iteratively
 \series bold
 evolutionary
 \series default
-, but nevertheless obey the principle that any bug in an architectural ill-desig
-n cannot be fixed by the best implementation of the world.
+ by 
+\emph on
+re-considering architecture
+\emph default
+ whenever you find problems / contradictions induced by restrictions, similar
+ to the 
+\series bold
+spiral model
+\series default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+See 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://en.wikipedia.org/wiki/Spiral_model
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Be cautious when transferring 
+\emph on
+software
+\emph default
+ development methods to storage architectures, where operations involves
+ masses of hardware.
+ You need to find a balance between extreme waterfall-like and agile
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Purely agile methods are less suited for quality ensurance of storage architectu
+res, because they are tempting people to start with simple approaches before
+ the problem domain has been fully understood, increasing the 
+\series bold
+risk of architectural ill-designs
+\series default
+.
+ Starting an implementation 
+\emph on
+too early
+\emph default
+ on basis of an ill-design can easily 
+\series bold
+lead into a dead end
+\series default
+.
+ Agile methods are typically encouraging 
+\series bold
+early deliverables
+\series default
+., which can be counter-productive.
+ Example: it is clearly a bad idea to plan for an early deliverable for
+ some petabytes of storage.
+ Thus architects and managers are tempted to 
+\emph on
+start small
+\emph default
+, e.g.
+ a BigCluster architecture with only 3 storage servers.
+ This type of 
+\begin_inset Quotes eld
+\end_inset
+
+early deliverable
+\begin_inset Quotes erd
+\end_inset
+
+ cannot detect any 
+\series bold
+scalability problems
+\series default
+ early enough, see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Example-Failures-of"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+ So you are in a 
+\series bold
+dilemma
+\series default
+, whether you like it or not.
+ Although you probably dislike it, the planning phase of big storage systems
+ is unfortunately more like a waterfall process, by its very nature.
+ Thus 
+\emph on
+workarounds
+\emph default
+ for the shortcomings of a pure waterfall model are needed.
+ German readers may also check the V-model XT, as described in 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+https://de.wikipedia.org/wiki/V-Modell_(Entwicklungsstandard)
+\end_layout
+
+\end_inset
+
+.
+ Unfortunately, the newer XT variant of the V-model is missing in the correspond
+ing English Wikipedia article (retrieved autumn 2019), misleading readers
+ with unfortunate opinions like the V-model being too similar to a waterfall
+ model.
+ Notice that the newer XT variant of the V-model, as well as some other
+ variants (e.g.
+ lecture notes from Professor Jochen Ludewig / University of Stuttgart),
+ have adopted many ideas from the agile community, such as rework in loops
+ and cycles, and thus should not be classifed as 
+\begin_inset Quotes eld
+\end_inset
+
+linear waterfall
+\begin_inset Quotes erd
+\end_inset
+
+ models.
+ In particular, 
+\series bold
+early quality ensurance of concepts and architectures
+\series default
+ and 
+\series bold
+rework of architecture as early as possible
+\series default
+ is something you definitely should borrow from the V-model and its modern
+ variants, even if you dislike V-models otherwise.
+\end_layout
+
+\end_inset
+
+ methods.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Serious bugs in an 
+\emph on
+architectural
+\emph default
+ ill-design (examples see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Example-Failures-of"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) are typically very hard by causing serious limitation and/or impact, and
+ cannot be fixed by the best implementation, or by the best technology of
+ the world.
  Be sure to understand the fundamental difference between architecture and
- its (multiple / alternative) implemenations by their respective 
+ its (multiple / alternative) implementations, as well as multiple technologies,
+ and their respective restrictions, as well as their 
 \series bold
 reach
 \series default
