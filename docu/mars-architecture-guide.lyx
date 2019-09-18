@@ -1744,8 +1744,9 @@ and
 distances
 \emph default
  between your storage spindles and the corresponding data processing.
- When automated properly, real-time storage networks can become superfluous,
- or at least the corresponding realtime IO traffic can be drastically reduced.
+ When background data migration is automated properly, real-time storage
+ networks can become superfluous, or at least the corresponding realtime
+ IO traffic can be drastically reduced.
 \end_layout
 
 \begin_layout Standard
@@ -2106,9 +2107,20 @@ reference "sec:Explanation-via-CAP"
 .
 \end_layout
 
+\begin_layout Subsection
+Suitability of Architectures for Cloud Storage
+\begin_inset CommandInset label
+LatexCommand label
+name "subsec:Suitability-of-Architectures"
+
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
-There are some consequences from this definition of Cloud Storage, for each
- of our high-level storage architectures:
+There are some consequences from the above definition of Cloud Storage,
+ for each of our high-level storage architectures:
 \end_layout
 
 \begin_layout Description
@@ -2122,8 +2134,11 @@ BigCluster
 \family default
  architectures (see section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "sec:Distributed-vs-Local:"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -2131,6 +2146,52 @@ reference "sec:Distributed-vs-Local:"
 s.
  Typical granularity are objects, or chunks, or other relatively small units
  of data.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Distributed Storage is the growground where Cloud Storage was invented.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Many contemporary 
+\family typewriter
+BigCluster
+\family default
+ implementations are 
+\emph on
+not really
+\emph default
+ supporting 
+\series bold
+geo-distribution
+\series default
+ of masses of objects over long distances, in the sense of well-proven use
+ cases (maturity).
+ Small object granularity and/or strict consistency on top of unreliable
+ objects are worsening the effects of the CAP theorem and its sister theorems.
+ Thus object-based architectures are typically only suited for local (non-geo)
+ operations.
+\begin_inset Newline newline
+\end_inset
+
+Example: at the moment (mid 2019), Amazon AWS is offering object replication
+ only over campus distances, which cannot meet the requirements from BSI.
 \end_layout
 
 \begin_layout Description
@@ -2146,8 +2207,11 @@ status open
 Notice that sharding on top of CentralStorage is no longer a CentralStorage
  model by definition, but a RemoteSharding model according to section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "subsec:Variants-of-Sharding"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -2170,7 +2234,71 @@ sub-component
 \emph default
 ).
  Typical granularity is replication of whole internal storage pools, or
- of LVs, or of filesystem instances.
+ of filesystem instances.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In general, 
+\family typewriter
+CentralStorage
+\family default
+ architectures are a 
+\series bold
+mismatch
+\series default
+ to Cloud Storage, by their very nature.
+ Healing suchalike 
+\series bold
+concept
+\series default
+ mismatches may be close to impossible, or at least very tricky and costly.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Adding asynchronous replication to commercial storage boxes will not only
+ double the cost, which are anyway at a very high starting level (see section
+ 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Cost-Arguments-from-Technology"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+ In addition, the 
+\series bold
+handover granularity
+\series default
+ (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Flexibility-of-Failover"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) may not meet the optimum.
 \end_layout
 
 \begin_layout Description
@@ -2180,12 +2308,23 @@ RemoteSharding
 \family default
  (see section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "subsec:Variants-of-Sharding"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
-): 
+)
+\begin_inset Newline newline
+\end_inset
+
+There is some historical belief that cloud storage cannot be reasonably
+ built on top of them.
+ When newer developments and opportunities are taken into account, this
+ has changed.
+ Here are some examples, mentioning some example components:
 \end_layout
 
 \begin_deeper
@@ -2199,11 +2338,13 @@ football-user-manual.pdf
 Big Virtual LVM Pool
 \series default
 .
+ Football is in mass production at 1&1 Ionos since August 2018.
 \end_layout
 
 \begin_layout Description
 (2) can be achieved at disk granularity with local RAID, and at LV granularity
  with DRBD or MARS.
+ Both are in mass production since several years.
 \end_layout
 
 \begin_layout Description
@@ -2217,7 +2358,7 @@ Big Virtual LVM Pool
 \family typewriter
 Eventually Consistent
 \family default
- or better can be alternatively achieved by
+ or better can be alternatively achieved by one of the components
 \end_layout
 
 \begin_deeper
@@ -2240,8 +2381,11 @@ short distances
 \series default
  (see CAP theorem in section 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "sec:Explanation-via-CAP"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -2249,7 +2393,15 @@ reference "sec:Explanation-via-CAP"
 \begin_inset Newline newline
 \end_inset
 
-Notice: DRBD violates any type of consistency within your 
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ DRBD violates any type of consistency within your 
 \emph on
 replicas
 \emph default
@@ -2262,7 +2414,15 @@ fully
 strong
 \emph default
  sense.
- But you can argue at a course time granularity level in order to fix this.
+ You may argue at a coarse time granularity scale in order to 
+\begin_inset Quotes eld
+\end_inset
+
+fix
+\begin_inset Quotes erd
+\end_inset
+
+ this.
 \end_layout
 
 \begin_layout Description
@@ -2332,7 +2492,15 @@ unplanned failover
 \begin_inset Newline newline
 \end_inset
 
-However, in case of a 
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ However, in case of a 
 \emph on
 planned handover
 \emph default
@@ -2404,7 +2572,9 @@ not generally
 \emph on
 not
 \emph default
- fail-over your LVs during certain major network outages.
+ fail-over your LVs during certain minor, or even during certain types of
+ major network outages (e.g.
+ when failover would not improve much).
 \begin_inset Newline newline
 \end_inset
 
@@ -2433,7 +2603,7 @@ not
 
 \end_inset
 
-Notice: 
+ 
 \family typewriter
 BigCluster
 \family default
@@ -2455,18 +2625,35 @@ model
  The main architectural difference is granularity, as explained in section
  
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "sec:Granularity-at-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
 , and the stacking order of sub-components.
- Notice that Football is creating 
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Football is creating 
 \series bold
 location transparency
 \series default
  inside of the distributed virtual LVM pool.
- This is an important (though not always required) basic property of any
+ This is an important (though not always required) basic property of 
+\emph on
+any
+\emph default
  type of clusters and/or grids.
 \end_layout
 
