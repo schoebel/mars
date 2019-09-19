@@ -7454,7 +7454,6 @@ vanish
 discontinued
 \series default
 .
- 
 \end_layout
 
 \begin_layout Standard
@@ -11965,7 +11964,7 @@ The USENIX paper defines its copysets on a per-chunk basis.
 \end_inset
 
  is also changed to a per-LV basis, analogously.
- In the Sharding Approach, a distiction is not absolutely necessary, while
+ In the Sharding Approach, a distinction is not absolutely necessary, while
  the USENIX paper has to invest some effort into clarifying the relationship
  between 
 \begin_inset Formula $S$
@@ -12744,8 +12743,34 @@ name "sec:Scalability-Arguments-from"
 \end_layout
 
 \begin_layout Standard
+Scalability is important for 
+\series bold
+mass data
+\series default
+ / mass production.
+ From the viewpoint of managers, it determines the technical limits of 
+\series bold
+scaling effects
+\series default
+.
+ Bad scalability can seriously limit the business, and its resolvement can
+ produce very high cost.
+\end_layout
+
+\begin_layout Standard
+Unfortunately, in some non-academic circles, some seriously wrong habits
+ have established.
+ I know of examples causing unnecessary problems and cost in the range of
+ millions.
+\end_layout
+
+\begin_layout Standard
 Some people are talking about scalability by (1) looking at a relatively
- small example cluster 
+ small 
+\emph on
+example
+\emph default
+ cluster 
 \emph on
 implementation
 \emph default
@@ -12806,13 +12831,20 @@ implementation
 
 , cf section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "sec:What-is-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
 .
- It is also fundamentally broken because it assumes some 
+ It is also 
+\series bold
+fundamentally broken
+\series default
+ because it assumes some 
 \begin_inset Quotes eld
 \end_inset
 
@@ -12820,12 +12852,18 @@ linearity
 \begin_inset Quotes erd
 \end_inset
 
- in a field which is non-linear 
+ in a field which is 
+\series bold
+non-linear 
 \emph on
 by definition
+\series default
 \emph default
 .
- If scalability would be linear, the term would not be useful at all, because
+\end_layout
+
+\begin_layout Standard
+If scalability would be linear, the term would not be useful at all, because
  there would be 
 \emph on
 no limit
@@ -12839,11 +12877,14 @@ scalability
 \begin_inset Quotes erd
 \end_inset
 
- is the 
+ is a 
+\series bold
 \emph on
 means
 \emph default
- for describing the behaviour at or around the limit.
+ for describing the behaviour at or around the limit
+\series default
+.
 \end_layout
 
 \begin_layout Standard
@@ -12851,7 +12892,7 @@ Another
 \emph on
 incorrect
 \emph default
- way of ill-defining the term 
+ way of ill-defining / ill-using the term 
 \begin_inset Quotes eld
 \end_inset
 
@@ -12860,23 +12901,169 @@ scalability
 \end_inset
 
  is looking at some relatively big 
+\series bold
+\emph on
+example
+\series default
+\emph default
+ cluster, which is working in practice for some 
+\series bold
+particular use case
+\series default
+, and then concluding that it will also work in 
+\series bold
+another use case
+\series default
+.
+ Arguing with an 
 \emph on
 example
 \emph default
- cluster, which is working in practice.
- Arguing with an example of a working system is wrong by construction.
+ of a working system is wrong by construction.
+ In general, examples can only be used for 
+\series bold
+\emph on
+disproving
+\series default
+\emph default
+ something, but never as a positive proof of concept
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Unfortunately, the term PoC = Proof Of Concept is used wrongly in large
+ parts of the industry.
+ It should be termed PoI = Proof of Implementation, or VoI = Validation
+ of Implementation or CoI = Check of Implementation instead.
+ A concept can have multiple implementations, but only 
+\emph on
+one
+\emph default
+ of them has been actually checked in most cases.
+\end_layout
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Standard
+Examples for suchalike examples: section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Explanations-from-DSM"
+plural "false"
+caps "false"
+noprefix "false"
 
+\end_inset
+
+ mentions some use cases where 
+\family typewriter
+BigCluster
+\family default
+ architecture implementations via Ceph are shining.
+ These example use cases are showing some commonalities, like relatively
+ low performance demands at the storage, and relatively low IO parallelism
+ degree
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Example: many people are not aware that Apache is acting like a 
+\series bold
+fork bomb
+\series default
+.
+ When thousands of Apache processes are running in parallel, a parallelism
+ of several thousands of IO requests 
+\emph on
+may
+\emph default
+ occasionally occur during 
+\emph on
+peaks
+\emph default
+, although caches will serve them 
+\emph on
+most
+\emph default
+ of the time.
+ Certain storage systems are reacting with 
+\series bold
+instability
+\series default
+, sometimes even when 
+\begin_inset Quotes eld
+\end_inset
+
+hammered
+\begin_inset Quotes erd
+\end_inset
+
+ only once with a very short but massive overload peak.
+\end_layout
+
+\end_inset
+
+, and streaming-like 
+\series bold
+access patterns
+\series default
+.
+ However, it also mentions some 
+\emph on
+other
+\emph default
+ use cases, where it did 
+\emph on
+not
+\emph default
+ work as expected.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Humans are 
+\series bold
+selective
+\series default
+ in their perception.
+ Evolution has created this, for our protection against overload in the
+ information flood.
+ Unfortunately, looking only at some positive use case examples, while either
+ not knowing or ignoring other counter-examples, can be dangerous.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ 
 \emph on
 Every
 \emph default
  storage system on this globe has 
+\series bold
 \emph on
 always
 \emph default
- some scalability limit, somewhere.
+ some scalability limit
+\series default
+, somewhere.
+ Even the internet has some limit.
  Scalability is 
 \emph on
 always
@@ -12894,14 +13081,198 @@ reach
 \end_layout
 
 \begin_layout Standard
-Therefore, examples are principally insufficient for proving scalability,
- as well as for comparing the scalability of architectures and/or of certain
- implementations.
- Examples can be only used for 
+\noindent
+\align center
+\begin_inset Graphics
+	filename images/principle-scalability.fig
+	width 80col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Typically, the overall scalability behaviour can be divided into several
+ 
+\emph on
+zones
+\emph default
+.
+ Only in the scaling zone, some near-linear behaviour can be expected.
+ Next comes the saturation zone, where the effects of inherent system limits
+ are already retarding progress.
+ After exeeding the scalability limit, no further progress is happening.
+ Upon overload, many systems are even reacting with a 
+\emph on
+regression
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+Any serious study should consciously deal with 
+\emph on
+all
+\emph default
+ of these zones, possibly except the regression
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Entering the regression zone might possibly lead to destruction of certain
+ systems, or to other damages.
+ Then it is acceptable to not enter it.
+ It would 
+\emph on
+honorable
+\emph default
+ to mention any 
+\series bold
+risks
+\series default
+ associated with suchlike overload behaviour.
+\end_layout
+
+\end_inset
+
+ zone.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresToxiques.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ There exists no excuse for omission
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Several years ago, I attended a presentation at an OpenSource conference.
+ It was about scalability of a Java programming environment for some SMP
+ machines.
+ The presenter showed some nice graphics, however showing only the scaling
+ zone.
+ He publicly claimed 
+\begin_inset Quotes eld
+\end_inset
+
+arbitrary scalability
+\begin_inset Quotes erd
+\end_inset
+
+.
+ After the talk, I tried to catch him, in order to ask him under 4 eyes
+ whether he encountered some limit.
+ His very short answer was that there is no limit, completely unwilling
+ to talk with me at all, and quickly leaving the room.
+\end_layout
+
+\begin_layout Plain Layout
+Unfortunately, this 
+\begin_inset Quotes eld
+\end_inset
+
+methodology
+\begin_inset Quotes erd
+\end_inset
+
+ seemed to have been copied by more and more presenters.
+ The problem is not only wrong claims.
+ The problem is that managers and other decision makers can lose a lot of
+ money when believing suchalike 
+\series bold
+fake results
+\series default
+.
+\end_layout
+
+\end_inset
+
+ of the limit.
+ When the limit is 
+\series bold
+unknown
+\series default
+, then you simply 
+\series bold
+must not claim a certain scalability
+\series default
+!
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Example use cases are principally insufficient for proving general scalability
+ behaviour, as well as for comparing the scalability of architectures and/or
+ of certain implementations.
+ Examples can only be used for 
 \emph on
 disproving
 \emph default
  scalability.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ Caution: when a particular 
+\emph on
+implementation
+\emph default
+ does not work as expected, this does not generally prove that the corresponding
+ concept / architecture does not work at all.
+ There may be 
+\series bold
+bugs
+\series default
+ and other 
+\series bold
+sources of error
+\series default
+ in the particular implementation, which just need to be 
+\series bold
+\emph on
+fixed
+\series default
+\emph default
+.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Therefore, the 
+\series bold
+suitability of architectures for certain use cases
+\series default
+ needs to be checked separately.
+ This is an expert task, requiring high levels of skills and experience.
 \end_layout
 
 \begin_layout Subsection
@@ -12916,7 +13287,7 @@ name "subsec:Example-Failures-of"
 \end_layout
 
 \begin_layout Standard
-The following description is a 
+The following example is a 
 \series bold
 must read
 \series default
@@ -12934,8 +13305,18 @@ It is about an operation environment for a
 \emph on
 new
 \emph default
- product, which was a proprietary web page editor running under a complicated
- variant of a LAMP stack.
+ product, which was a proprietary web page editor running under a very complicat
+ed variant of a LAMP
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+LAMP = Linux Apache Mysql PHP
+\end_layout
+
+\end_inset
+
+ stack.
 \end_layout
 
 \begin_layout Standard
@@ -12972,7 +13353,7 @@ The first setup consisted of
 \end_inset
 
  storage servers, each replicated to another datacenter via DRBD.
- Each were exporting their filesystems via NFS to about the same number
+ Each server was exporting its filesystems via NFS to about the same number
  of client servers, where Apache/PHP was supposed to serve the HTTP requests
  from the customers, which were entering the client cluster via a HTTP load
  balancer.
@@ -13013,7 +13394,7 @@ After the complicated system was built up and was working well enough, the
 So the number of customers was ramping up from 0 to about 20,000 within
  a few weeks.
  When about 20,000 customers were running on the client machines, system
- hangs were noticed, and also from a customer's perspective.
+ hangs were noticed, from a customer's perspective.
  When too many customers were pressing the 
 \begin_inset Quotes eld
 \end_inset
@@ -13035,7 +13416,7 @@ save
 
  button several times a minute, each time re-creating all of these files
  again and again from the proprietary web page generator.
- Result: the system appeared to hang.
+ Result: the whole system appeared to hang.
 \end_layout
 
 \begin_layout Standard
@@ -13084,6 +13465,17 @@ distributed livelock
 \series bold
 distributed thrashing
 \series default
+, c.f.
+ section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Explanations-from-DSM"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
 ).
 \end_layout
 
@@ -13150,7 +13542,11 @@ Setup 3 (
 \family typewriter
 glusterfs
 \family default
- as a substitute for NFS)
+ as a substitute for NFS / 
+\family typewriter
+ocfs2
+\family default
+)
 \end_layout
 
 \begin_layout Standard
@@ -13241,8 +13637,11 @@ This attempt was
 \emph on
 immediately
 \emph default
- resulting in an almost fatal disaster, and thus was stopped immediately:
- the cluster completely broke down.
+ resulting in an 
+\series bold
+almost fatal disaster
+\series default
+, and thus was stopped immediately: the cluster completely broke down.
  Almost nothing was working anymore.
 \end_layout
 
@@ -13252,7 +13651,11 @@ The problem was even worse: switching off the
 glusterfs
 \family default
  replication and rollback to DRBD did not work.
- The system remained unusable.
+ The system remained 
+\series bold
+unusable
+\series default
+.
 \end_layout
 
 \begin_layout Standard
@@ -13264,7 +13667,16 @@ drbdadm disconnect
 \end_layout
 
 \begin_layout Standard
-Retrospective explanation: some of the reasons can be found in section 
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Retrospective explanation: some of the reasons can be found in section
+ 
 \begin_inset CommandInset ref
 LatexCommand vref
 reference "subsec:Behaviour-of-DRBD"
@@ -13281,7 +13693,8 @@ glusterfs
 \series bold
 per-inode granularity
 \series default
- in EAs (extended attributes), which must 
+ in EAs (extended attributes).
+ This must 
 \emph on
 necessarily
 \emph default
@@ -13292,8 +13705,21 @@ df -i
 \family default
  (see the cut point discussion in section 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "sec:Performance-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, and section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Granularity-at-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -13323,8 +13749,11 @@ After the almost fatal incident had been resolved to a less critical one,
 
  behaviour from section 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "sec:Distributed-vs-Local:"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -13339,7 +13768,18 @@ reference "sec:Distributed-vs-Local:"
 architectural level
 \series default
 \emph default
-, no longer by just replacing some components with some others.
+, no longer by just replacing some components with some others (c.f.
+ section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
 \end_layout
 
 \begin_layout Standard
@@ -13349,8 +13789,11 @@ RemoteSharding
 \family default
  model (see section 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "subsec:Variants-of-Sharding"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -13415,8 +13858,11 @@ cache reduction
 \series default
  graphics in section 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "sec:Performance-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -13570,7 +14016,17 @@ save
 \series bold
 selection of granularity level
 \series default
- (filesystem vs block layer) is essential.
+ (filesystem vs block layer, see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Performance-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) is essential.
 \end_layout
 
 \begin_layout Standard
@@ -13617,7 +14073,7 @@ name "subsec:Influence-Factors-Scalability"
 \end_layout
 
 \begin_layout Standard
-In general, scalability of storage systems depends on the following factors
+In general, scalability of storage systems may depend on the following factors
  (list may be incomplete):
 \end_layout
 
@@ -13631,7 +14087,17 @@ application class
 workingset behaviour
 \series default
  (in both dimensions: timely and locality).
- More explanations about workingsets can be found at 
+ More explanations about workingsets can be found in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Explanations-from-DSM"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ and at 
 \begin_inset Flex URL
 status open
 
@@ -13689,7 +14155,7 @@ dominate
 
 \end_inset
 
- Caution! Many people think erronously that scalability would be 
+ Caution! Some people think erronously that scalability would be 
 \emph on
 linearly
 \emph default
@@ -13717,7 +14183,7 @@ disruptive
 scalability limit
 \series default
  of a particular system for its particular class of applications, the system
- will always 
+ will very likely 
 \series bold
 break down
 \series default
@@ -13813,7 +14279,7 @@ locality
 exponential
 \emph default
  distribution according to Zipf's law.
- By falsely 
+ By erronously 
 \emph on
 assuming
 \emph default
@@ -13849,12 +14315,27 @@ tion.
 \series bold
 random distribution
 \series default
- to object stores, which can turn some uncomplicated sequential workloads
- into highly problematic 
+ to (or 
+\series bold
+random replication
+\series default
+ inside of) object stores, which can turn some uncomplicated sequential
+ workloads into highly problematic 
 \emph on
 random IO
 \emph default
  workloads.
+ See also section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Similarities-and-differences"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
  Don't overlook such potential pitfalls!
 \end_layout
 
@@ -13907,8 +14388,11 @@ worse
  instead of better, c.f.
  section 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "sec:Reliability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -13923,8 +14407,11 @@ layer
  for cut point, e.g.
  filesystem layer vs block layer, see section 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "sec:Performance-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -13942,7 +14429,7 @@ tremendous
 \end_layout
 
 \begin_layout Enumerate
-The 
+The chosen 
 \series bold
 implementation
 \series default
@@ -13955,7 +14442,17 @@ architecture
 \emph on
 implementation
 \emph default
- of that architecture.
+ of that architecture (section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
 \end_layout
 
 \begin_layout Enumerate
@@ -14084,9 +14581,9 @@ improve
 \series bold
 associative memory
 \series default
-, which is either very costly when directly implemented in hardware, or
- can suffer from tremendous performance penalties when implemented inappropriate
-ly in software.
+, which is either very fast but costly when directly implemented in hardware,
+ or it can suffer from tremendous performance penalties when implemented
+ inappropriately in software.
 \end_layout
 
 \begin_layout Enumerate
@@ -14126,8 +14623,11 @@ packet loss
  peaks, and/or leading to costly over-engineering (examples see section
  
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "subsec:Example-Failures-of"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -14183,7 +14683,7 @@ Any
  treated, depending on your use case.
 \end_layout
 
-\begin_layout Subsubsection
+\begin_layout Subsection
 Example Scalability Scenario
 \begin_inset CommandInset label
 LatexCommand label
@@ -14203,9 +14703,11 @@ enterprise critical data
 \begin_inset Quotes erd
 \end_inset
 
- can mean in a concrete example, here are some characteristic numbers on
- 1&1 ShaHoLin (Shared Hosting Linux) around spring 2018, which would be
- the 
+ can mean in a concrete example, here are some characteristic numbers from
+ 1&1 Ionos ShaHoLin (Shared Hosting Linux) around spring 2018.
+ When the whole system would have to be re-constructed from scratch at a
+ green field, the following number from the current implemenation would
+ be 
 \emph on
 input parameters
 \emph default
@@ -14213,7 +14715,7 @@ input parameters
 \emph on
 any
 \emph default
- potential solution architecture 
+ potential solution architecture, such as 
 \family typewriter
 CentralStorage
 \family default
@@ -14264,16 +14766,16 @@ all
 \end_layout
 
 \begin_layout Standard
-For simplicity of our sandbox game, we assume that all of this is in one
- campus.
- In reality, about 30% is residing in another continent.
+For simplicity of our architectural sandbox game, we assume that all of
+ this is in one campus.
+ In reality, about 30% is residing at another continent.
  Introducing this as an additional input parameter would not fundamentally
  change the game.
  Many other factors, like dependencies from existing infrastructure, are
  also neglected.
 \end_layout
 
-\begin_layout Paragraph
+\begin_layout Subsubsection
 Theoretical Solution: 
 \family typewriter
 CentralStorage
@@ -14328,12 +14830,47 @@ The current number of client LXC containers is about
 \begin_inset Formula $2600$
 \end_inset
 
-, independent from location.
+, independently from location.
  You will have to support growth in number of them.
- For maintenance, any of these need to be switchable to a different location
- at any time.
- The number of bare metal servers running them can vary with hardware architectu
-re / hardware lifecycle, and with growth.
+ For maintenance, any of these need to be switchable to a different geo-datacent
+er at any time (e.g.
+ risk mitigation of power supply maintenance in a datacenter).
+ As explained in sections 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Flexibility-of-Failover"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ and 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Location-transparency"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, handover 
+\emph on
+should be
+\emph default
+ at per-VM granularity, otherwise you would cause a regression in operability.
+ The number of bare metal servers running the total workload can vary with
+ hardware architecture / hardware lifecycle, and with growth, such as already
+ demonstrated during the course of internal 
+\begin_inset Quotes eld
+\end_inset
+
+Efficiency projects
+\begin_inset Quotes erd
+\end_inset
+
+.
  You will need to dimension a dedicated storage network for all of this.
 \end_layout
 
@@ -14349,7 +14886,18 @@ status open
 
 \begin_layout Plain Layout
 Local snapshots, whether LVM or via some COW filesystem, do not count as
- backups! You need a 
+ backups (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Replication-vs-Backup"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
+ You need a 
 \emph on
 logical
 \emph default
@@ -14357,7 +14905,12 @@ logical
 \emph on
 physical
 \emph default
- one, in case your production filesystem instance gets damaged.
+ one, in case your production filesystem instance gets fatally damaged,
+ such that 
+\family typewriter
+fsck
+\family default
+ won't help anymore.
 \end_layout
 
 \end_inset
@@ -14369,8 +14922,11 @@ CentralStorage
 \family default
  reliability in section 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "subsec:Reliability-Differences-CentralStorage"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -14413,7 +14969,43 @@ RemoteSharding
 nothing
 \emph default
  at architectural level.
- 
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In case you actually would want to build a RemoteSharding model on top
+ of commercial storage, you need to consider 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Cost-Arguments-from-Technology"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, while 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Cost-Arguments-from-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ are no longer 
+\emph on
+fully
+\emph default
+ applicable anymore.
 \end_layout
 
 \begin_layout Standard
@@ -14427,11 +15019,18 @@ scale-out
 \family typewriter
 CentralStorage
 \family default
+ / 
+\family typewriter
+RemoteSharding
+\family default
 , which is about a factor of 10 per terabyte according to the table in section
  
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "sec:Cost-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -14494,12 +15093,19 @@ mass automation
 c ill-design.
  Their hardware is already given, by existing customer contracts, some of
  them decades old.
- You simply cannot fundamentally change the hardware of these customers
- including their 
+ Although it may be possible to modify 
+\emph on
+some
+\emph default
+ of these contracts, you simply cannot fundamentally change 
+\emph on
+all
+\emph default
+ the hardware of these customers including their 
 \emph on
 dedicated
 \emph default
- local disks, which is their 
+ local disks, which was / is their 
 \emph on
 main selling point
 \emph default
@@ -14562,7 +15168,7 @@ unrealistic
 .
 \end_layout
 
-\begin_layout Paragraph
+\begin_layout Subsubsection
 Theoretical Solution: 
 \family typewriter
 BigCluster
@@ -14579,8 +15185,11 @@ reliability
 \series default
 , as explained intuitively in section 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "sec:Reliability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -14591,7 +15200,18 @@ reference "chap:Mathematical-Model-of"
 
 \end_inset
 
-, and as observed in numerous installations not working as expected.
+, and as observed in several installations not working as expected.
+ It would be a bad idea to ignore the explanations from section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Explanations-from-DSM"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Standard
@@ -14605,14 +15225,33 @@ The total number of servers would need to be roughly
 \emph on
 doubled
 \emph default
+
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+One of the problems of the current Ceph 
+\emph on
+implementation
+\emph default
+ is its massive consumption of CPU power and RAM.
+ Even if this would be improved in future, the 
+\emph on
+architectural
+\emph default
+ drawbacks will remain.
+\end_layout
+
+\end_inset
+
 .
  Not only their CAPEX, but also the corresponding OPEX (electrical power,
  rackspace, manpower) would increase.
  Alone their current electrical power cost, including cooling, is more than
  the current sysadmin manpower cost.
  Datacenter operations would also increase.
- On top, a dedicated storage network and its administration would also be
- needed.
+ On top, a dedicated storage network and its administration cost would also
+ be needed.
 \end_layout
 
 \begin_layout Standard
@@ -14638,7 +15277,7 @@ unrealistic
  There is nothing to win, but a lot to loose.
 \end_layout
 
-\begin_layout Paragraph
+\begin_layout Subsubsection
 Current Solution: 
 \family typewriter
 LocalSharding
@@ -14649,8 +15288,9 @@ RemoteSharding
 \end_layout
 
 \begin_layout Standard
-Short story: it works since decades, and is both cheap and robust since
- geo-redundancy had been added around 2010.
+Short story: the architecture as well its current implementation works since
+ decades, and is both cheap and robust since geo-redundancy had been added
+ around 2010.
 \end_layout
 
 \begin_layout Standard
@@ -14675,10 +15315,24 @@ BigCluster
 \end_layout
 
 \begin_layout Standard
-The story with the tenthousands of managed dedicated servers is arguing
- vice versa: without the traditional ShaHoLin sharding architecture and
- all of its automation, including the newest addition called Football, the
- product 
+Pre-configured 
+\family typewriter
+RemoteSharding
+\family default
+ on top of dedicated Linux-based storage boxes is currently being reduced
+ in favour of the cheaper and more reliable 
+\family typewriter
+LocalSharding
+\family default
+ combined with Football.
+ The dedicated storage boxes are almost EOL due to their age, and should
+ vanish some day.
+\end_layout
+
+\begin_layout Standard
+There is another story about tenthousands of managed dedicated servers:
+ without the traditional ShaHoLin sharding architecture and all of its automatio
+n, including the newest addition called Football, the product 
 \begin_inset Quotes eld
 \end_inset
 
@@ -14687,7 +15341,17 @@ managed dedicated servers
 \end_inset
 
  would not be possible in this scale.
- 
+ By definition, the dedicated server product 
+\emph on
+is
+\emph default
+ a sharding implementation.
+ Thanks to football, further business opportunities like migration onto
+ virtualized shared hardware (with optional 
+\series bold
+resource partitioning
+\series default
+) are possible.
 \end_layout
 
 \begin_layout Standard
@@ -14730,8 +15394,8 @@ reference "sec:What-is-Architecture"
 
 \end_inset
 
-) scalability of the block layer vs the filesystem layer, at least in many
- cases, with a few exceptions (list may be incomplete):
+) scalability of the block layer vs the filesystem layer, with a few exceptions
+ (list may be incomplete):
 \end_layout
 
 \begin_layout Enumerate
@@ -14749,15 +15413,22 @@ metadata
 first
 \emph default
 .
- When masses of metadata are present (e.g.
- some billions of inodes as in section 
+ When 
+\emph on
+masses
+\emph default
+ of metadata are present (e.g.
+ some billions of inodes like in section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "subsec:Example-Scalability-Scenario"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
-), and when it is accessed 
+), and/or when metadata is accessed 
 \series bold
 more frequently
 \series default
@@ -14789,8 +15460,18 @@ more frequently
 
 \end_inset
 
-By default, the block layer itself has almost no metadata at all (or only
- tiny ones, such as describing a whole block device).
+By default, the block layer itself has almost
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+There may be tiny metadata, such as describing the size of the whole block
+ device.
+\end_layout
+
+\end_inset
+
+ no metadata at all.
  Therefore it has an 
 \emph on
 inherent advantage
@@ -14807,8 +15488,11 @@ Caching
  caches over network.
  See the picture in section 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "sec:Performance-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -14829,6 +15513,8 @@ reference "sec:Performance-Arguments-from"
 examples
 \emph default
  where shared distributed caches do not work at all.
+ Frequently, this has to with strict consistency requirements, and with
+ runtime access patterns.
  I know of 
 \emph on
 several
@@ -14836,8 +15522,11 @@ several
  projects which have failed.
  Another project than mentioned in section 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "subsec:Example-Failures-of"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -14853,8 +15542,11 @@ cache coherence problem
  Depending on load patterns, this can lead to tremendous performance degradation
 , see example in section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "subsec:Example-Failures-of"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -14899,14 +15591,14 @@ container as such
 \end_inset
 
  Exception from the exception: MyISAM is an old design from the 1980s, originall
-y based on DBASE data structures.
+y based on DBASE data structures under MSDOS.
  Don't try to access them over NFS or similar.
  Or, better, try to avoid them at all if possible.
 \end_layout
 
 \begin_layout Itemize
 VM images: these are logical BLOBS, so there is typically no big difference
- whether you have an intermediate 
+ whether they are in an intermediate 
 \emph on
 true
 \emph default
@@ -14922,11 +15614,30 @@ true
 
 \end_inset
 
- Filesystems on top of object stores are no true intermediate filesystems.
- They are violating Dijkstra's important layering rules, as stated in his
- famous articles on THE.
+ Filesystems on top of object stores (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Granularity-at-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) are no true intermediate filesystems.
+ They are violating Dijkstra's important layering rules (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Layering-Rules"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
  A similar argument holds for block devices on top of object stores.
- Intermediate container formats like 
+ Another layering violation may result from VM container formats like 
 \family typewriter
 *.vmdk
 \family default
@@ -14934,7 +15645,13 @@ true
 \family typewriter
 *.qcow2
 \family default
- can also act as game changers.
+, which cannot always be avoided.
+ Be warned that such container formats 
+\emph on
+themselves
+\emph default
+ can act as game changers with respect to performance, parallelism degree,
+ reliability, etc.
  This does not mean that you have to avoid them at all.
  However, be sure to 
 \series bold
@@ -14951,7 +15668,7 @@ caching behaviour
  (which can go both into positive and into negative direction), in order
  to really 
 \emph on
-know what you are doing!
+know what you are doing.
 \end_layout
 
 \begin_layout Standard
@@ -14960,13 +15677,23 @@ There exist a few cases where a distributed filesystem, sometimes even actually
 \begin_inset Formula $O(n^{2})$
 \end_inset
 
- behaviour, 
+ behaviour according to section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Error-Propagation-to"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, 
 \emph on
 must
 \emph default
  be used, because there exists a 
 \emph on
-requirement
+hard requirement
 \emph default
  for it.
  Some examples (list is certainly incomplete):
@@ -15028,7 +15755,22 @@ bulk data
 \emph on
 high locality
 \emph default
- should run over distributed filesystems, preferably in streaming mode.
+ should run over distributed filesystems, preferably in 
+\emph on
+streaming
+\emph default
+ mode (c.f.
+ section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Explanations-from-DSM"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+).
  The total frequency of metadata access should be low, because metadata
  consistency may form a bottleneck when updated too frequently.
  The programmers of the distributed application software need to take care
@@ -15143,6 +15885,17 @@ not
  prove
 \series default
  that it will also work for another usecase B.
+ See explanations from start of section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Scalability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Section
