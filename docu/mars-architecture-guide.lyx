@@ -15946,17 +15946,36 @@ Practical observation from many groups in many companies: which storage
 \emph on
 really
 \emph default
- failure resistent and reliable, and how much they are 
+ 
+\series bold
+failure resistent
+\series default
+ and 
+\series bold
+reliable
+\series default
+, and how much they are 
 \emph on
 really
 \emph default
- scalable for their workload, and what is their TCO (Total Cost of Ownership),
- does often 
+ 
+\series bold
+scalable
+\series default
+ for their workload, and what is their 
+\series bold
+TCO = Total Cost of Ownership
+\series default
+, does often 
 \emph on
 not
 \emph default
- depend on real knowledge and facts.
- It often depends on 
+ depend on real knowledge and on facts.
+ It often depends 
+\series bold
+randomly
+\series default
+ on 
 \series bold
 personal habits
 \series default
@@ -15979,8 +15998,22 @@ This can be seen in a bigger company (e.g.
 \end_inset
 
 .
- In essence, this results in a gambling game how safe / cost-effective etc
- your critical data 
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In essence, this results in a 
+\series bold
+gambling game
+\series default
+ how safe / cost-effective etc your critical data 
 \emph on
 really
 \emph default
@@ -15988,9 +16021,94 @@ really
 \end_layout
 
 \begin_layout Standard
-As just explained in the previous section, there are so many pitfalls, and
- there are only a few people who know them, because more people are working
- in small-scale systems than in large-scale enterprise ones.
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ In particular after company mergers, suchalike varieties need not remain
+ a permanent disadvantage.
+ You may turn it into an advantage.
+ Once you have enough reliable and validated KPIs about each of the systems,
+ and after you have checked that they are 
+\emph on
+really
+\emph default
+ comparable, you can derive a detailed comparison of competing architectures
+ and/or of their actual implementations.
+ Then you may start 
+\series bold
+merging
+\series default
+ some of the technical platforms, provided there is a business case for
+ it.
+ Or, you may 
+\series bold
+bleed out
+\series default
+ some old / obsolete technology.
+\end_layout
+
+\begin_layout Standard
+When the game is about building up 
+\series bold
+new functionality
+\series default
+ from scratch, it is much different.
+ There are two main possibilities:
+\end_layout
+
+\begin_layout Enumerate
+check whether your 
+\emph on
+best
+\emph default
+ platform can be extended with the new functionality.
+ Good architectures are also 
+\series bold
+easily extensible
+\series default
+.
+\end_layout
+
+\begin_layout Enumerate
+build a new platform.
+\end_layout
+
+\begin_layout Standard
+The rest of this section focusses on architecture of new platforms.
+ Always check whether existing 
+\emph on
+experience
+\emph default
+ can be re-used.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ As explained throughout section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Scalability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+, there are many pitfalls, and there are only few people who know them,
+ because more people are working in small-scale systems than in large-scale
+ enterprise ones.
  There are so many lots of people at the market who 
 \emph on
 claim
@@ -16020,9 +16138,9 @@ false proofs
 \begin_inset Quotes erd
 \end_inset
 
- about scalability, derived from different usecases (or in extreme cases
- even from workstations workloads), or the failed scalability scenario in
- section 
+ about scalability, derived from different use cases (or even from workstation
+ workloads).
+ See the failed scalability scenario in section 
 \begin_inset CommandInset ref
 LatexCommand vref
 reference "subsec:Example-Failures-of"
@@ -16091,12 +16209,16 @@ scale very well
 \emph on
 assumptions
 \emph default
- instead of knowledge (and almost never based on 
+ instead of knowledge (and rarely based on 
 \emph on
 measurements
 \emph default
  at the right measurement points for deriving substantial knowledge about
- your real application behaviour).
+ your 
+\emph on
+real
+\emph default
+ application behaviour).
  Literally 
 \emph on
 anyone
@@ -16180,12 +16302,12 @@ Therefore, chances are better to get a real expert when he has some (higher)
 
 \end_inset
 
-Real experts will tell you when they don't know something.
+ Real experts will tell you when they don't know something.
  In addition, they will tell you 
 \emph on
 multiple
 \emph default
- ways for abtaining such information, such as measurements, simulation,
+ ways for obtaining such information, such as measurements, simulation,
  etc.
 \end_layout
 
@@ -16220,7 +16342,8 @@ I know of cases which have produced unnecessary
 \emph on
 direct
 \emph default
- cost of at least € 20 millions.
+ cost of at least € 20 millions, not counting further indirect costs such
+ as power and rackspace consumption.
 \end_layout
 
 \end_inset
@@ -16234,16 +16357,21 @@ The problem is that it
 \emph on
 looks so easy
 \emph default
-, as if everyone could build a larger storage system, with ease.
- For example, just 
+, as if everyone could build a 
+\emph on
+large(!)
+\emph default
+ storage and/or application system, with ease.
+ It looks easy once a small prototype is running at a workstation.
+ Some people believe that 
 \begin_inset Quotes eld
 \end_inset
 
-spend some more money
+just spend some more money
 \begin_inset Quotes erd
 \end_inset
 
-, that's all you would need.
+ would all which is needed.
  Unfortunately, both 
 \begin_inset Quotes eld
 \end_inset
@@ -16272,7 +16400,7 @@ architecture
 
  (see definition in section 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "sec:What-is-Architecture"
 plural "false"
 caps "false"
@@ -16313,13 +16441,24 @@ ion.
 \begin_inset Quotes eld
 \end_inset
 
+favourite solution
+\begin_inset Quotes erd
+\end_inset
+
+ or their random 
+\begin_inset Quotes eld
+\end_inset
+
 favourite product
 \begin_inset Quotes erd
 \end_inset
 
 .
- For a responsible, this increases the risk of getting a non-optimum or
- even bad / dangerous solutions.
+ For you as a responsible, this increases the 
+\series bold
+risk
+\series default
+ of getting a non-optimum, or possibly even a bad / dangerous solution.
 \end_layout
 
 \begin_layout Standard
@@ -16344,9 +16483,16 @@ For each 1 or 2 orders of magnitude of the
 \series bold
 size
 \series default
- of your data, you need better methods for safe construction and operation.
- At least for each 3 to 4 orders of magnitude (sometimes even for less),
- you need 
+ of your data, you will need 
+\series bold
+better methods
+\series default
+ for safe construction and operation, as would be sufficient for lower demands.
+\end_layout
+
+\begin_layout Itemize
+For each 3 to 4 orders of magnitude (sometimes even for less), you will
+ need 
 \series bold
 better architectures
 \series default
@@ -16366,8 +16512,37 @@ losses
  not just better components.
 \end_layout
 
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ General advice: if you start a new platform from scratch, always 
+\series bold
+start with a 
+\emph on
+good
+\emph default
+ architecture
+\series default
+.
+ Once a platform is in production, even with a small number of customers,
+ it becomes increasingly difficult to change its fundamental architecture.
+ While bugs can be relatively easily fixed, and while single components
+ can be exchanged with some effort, changing an architecture may turn out
+ 
+\emph on
+close to impossible
+\emph default
+, or at least very expensive.
+\end_layout
+
 \begin_layout Subsection
-Recommendations for Architects and Sysadmins
+Recommendations for Architects
 \begin_inset CommandInset label
 LatexCommand label
 name "subsec:Recommendations-for-Architects"
@@ -16408,6 +16583,17 @@ fork bomb
 \end_inset
 
 best and the most expensive hardware
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+There is an old joke from the 1980s: a Cray is a computer capable of running
+ an endless loop in 10 seconds.
+\end_layout
+
+\end_inset
+
+
 \begin_inset Quotes erd
 \end_inset
 
@@ -16454,7 +16640,25 @@ network queues
 \end_layout
 
 \begin_layout Itemize
-Real-life example: some percentage of 
+If you think this cannot hurt you, because you are working in a completely
+ different area from Apache: 
+\emph on
+any
+\emph default
+ type of IP-based network traffic can show queueing behaviour.
+ Complex queuing systems can show 
+\begin_inset Quotes eld
+\end_inset
+
+unexpected
+\begin_inset Quotes erd
+\end_inset
+
+ behaviour, and sometimes even a dangerous one.
+\end_layout
+
+\begin_layout Itemize
+Real-life example for application-level problems: some percentage of 
 \family typewriter
 WordPress
 \family default
@@ -16578,15 +16782,21 @@ overall
 
 An impressive example for architectural (cf section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "sec:What-is-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
 ) ill-design can be found in section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "subsec:Example-Failures-of"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -16600,8 +16810,11 @@ reference "subsec:Properties-Scalability"
 
 , in particular subsection 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "subsec:Influence-Factors-Scalability"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -16615,8 +16828,11 @@ reference "subsec:Filesystem-Layer-vs"
 .
  A strategic example is in subsection 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "subsec:Example-Scalability-Scenario"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -16624,8 +16840,11 @@ reference "subsec:Example-Scalability-Scenario"
  It is absolutely necessary to know the standard cache hierarchy of Unix
  (similarly also found in Windows) from section 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "sec:Performance-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -16668,7 +16887,7 @@ best and most expensive storage
 \emph on
 components
 \emph default
- and the best storage 
+ over the best storage 
 \emph on
 network
 \emph default
@@ -16695,15 +16914,21 @@ network
  Similarly for reliability: if you have problems with too many and/or too
  large incidents affecting too many customers, read sections 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "sec:Reliability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
  and 
 \begin_inset CommandInset ref
-LatexCommand vref
+LatexCommand nameref
 reference "subsec:Reliability-Differences-CentralStorage"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -16720,7 +16945,11 @@ Choice and tuning of components
 \end_inset
 
 No further explanations necessary, because most people already know this.
- In case you think this is the only way: no, it is typically the 
+ In case you think this is the 
+\emph on
+only
+\emph default
+ way: no, it is typically the 
 \emph on
 worst
 \emph default
@@ -16729,16 +16958,38 @@ worst
 last resort
 \emph default
  when compared to the previous enumeration items.
+ See example in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Example-Failures-of"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
 \begin_inset Newline newline
 \end_inset
 
 Exception: choice of wrong components with insufficient properties for your
- particular application / use case.
+ particular application / use case, or even hard restrictions as mentioned
+ in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:What-is-Architecture"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
  But this is an 
 \emph on
 architectural
 \emph default
- problem in reality.
+ problem in reality, and belongs to the previous item, not to this one.
 \end_layout
 
 \begin_layout Chapter
