@@ -7598,7 +7598,7 @@ storage network
 \begin_inset Formula $n$
 \end_inset
 
- storageservers are interconnected with 
+ storage servers are interconnected with 
 \begin_inset Formula $m=O(n)$
 \end_inset
 
@@ -7677,7 +7677,6 @@ physically separate
 dedicated
 \emph default
  network.
- 
 \end_layout
 
 \begin_layout Itemize
@@ -7706,7 +7705,7 @@ When
 multipathing
 \series default
  is required for improving fault tolerance of the storage network itself,
- these efforts will even 
+ (parts of) these efforts may easily 
 \emph on
 double
 \emph default
@@ -7714,9 +7713,54 @@ double
 \end_layout
 
 \begin_layout Itemize
-When geo-redundancy is required, the total effort may easily more than double
- another time because in cases of disasters like terrorist attacks the backup
- datacenter must be prepared for taking over for multiple days or weeks.
+When 
+\series bold
+geo-redundancy
+\series default
+ is required, the total effort may easily double another time because in
+ cases of disasters like terrorist attacks the backup datacenter must be
+ prepared for taking over for multiple days or weeks.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/MatieresCorrosives.png
+	lyxscale 50
+	scale 17
+
+\end_inset
+
+ In general, storage networks won't work over long distances.
+ Even it would be possible, 
+\series bold
+asymmetry problems
+\series default
+ would be introduced into an architecture which is 
+\emph on
+conceptually symmetric
+\emph default
+ by its very nature.
+ Thus, and generally in 
+\begin_inset Formula $n:m$
+\end_inset
+
+ relationships, failover granularities are tending to 
+\series bold
+stick to coarse
+\series default
+.
+ Finer granularites as discussed in section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Flexibility-of-Failover"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ are much more difficult to achieve.
 \end_layout
 
 \begin_layout Standard
@@ -7893,11 +7937,23 @@ rsync
 \end_layout
 
 \begin_layout Enumerate
-Servers have 
+The system has (almost
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+In general, there are some more natural single points of contention, such
+ as the physical space of a datacenter, which might be destroyed by an explosion
+, for example.
+\end_layout
+
+\end_inset
+
+)
 \series bold
-no single point of contention
+ no single point of contention
 \series default
-, and thus are 
+, and thus the partitions are 
 \series bold
 completely independent
 \series default
@@ -7972,19 +8028,19 @@ partitioning
 not
 \emph default
  to their replicas.
- Shared-nothing replicas in the sense of DRBD may be also present (and in
- fact they are at 1&1 Shared Hosting Linux), but these replicas are 
-\emph on
-not
-\emph default
- meant by our usage of the term 
-\begin_inset Quotes eld
-\end_inset
+\end_layout
 
-sharding
-\begin_inset Quotes erd
-\end_inset
-
+\begin_layout Enumerate
+Shared-nothing replicas (e.g.
+ in the sense of some DRBD descriptions) may be also present (and in fact
+ they are at 1&1 Shared Hosting Linux), but these 
+\series bold
+replicas
+\series default
+ are considered 
+\series bold
+orthogonal to sharding
+\series default
 .
  Customer data replicas form an 
 \emph on
@@ -8028,11 +8084,30 @@ BigCluster
 \end_inset
 
  between these two independent dimensions.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+ Conceptual separation of replication from sharding has some advantages.
+ For example, control over the replication degree 
+\begin_inset Formula $k$
+\end_inset
+
+ can be more fine-grained than at physical shard level.
+ For example, both DRBD and MARS are supporting this, by allowing a different
+ number of replicas for each logical resource.
 \end_layout
 
 \begin_layout Standard
-Our sharding model does not need a dedicated storage network at all, at
- least when built and dimensioned properly.
+Our sharding model does not need a dedicated storage network in general,
+ at least when built and dimensioned properly.
  Instead, it 
 \emph on
 should have
@@ -8188,7 +8263,7 @@ RemoteSharding This variant needs a (possibly dedicated) storage network,
 
  in total.
  Each storage server exports a block device over iSCSI (or over another
- transport) to at most 
+ transport like MARS' prosumer device) to at most 
 \begin_inset Formula $O(k)$
 \end_inset
 
@@ -8338,8 +8413,21 @@ already have
  the expected reliability.
  Some possible reasons for this are explained in section 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "sec:Reliability-Arguments-from"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+ and subsection 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Explanations-from-DSM"
+plural "false"
+caps "false"
+noprefix "false"
 
 \end_inset
 
@@ -8386,8 +8474,21 @@ really
 \emph default
  no other solution than creating such a huge block device and/or such a
  huge filesystem instance.
- Such huge SPOFs are tending to create similar problems as described in
- section 
+ Such huge SPOFs are tending to create similar problems
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Running 
+\family typewriter
+fsck
+\family default
+ or its Windows equivalents on huge filesystems is certainly no fun.
+\end_layout
+
+\end_inset
+
+ as described in section 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "sec:Reliability-Arguments-from"
@@ -8479,12 +8580,19 @@ name "subsec:FlexibleSharding"
 
 \end_inset
 
-Notice that MARS new prosumer device feature (which is kind of replacement
- for iSCSI) 
+Notice that MARS' new prosumer device feature (formerly called 
+\emph on
+remote device
+\emph default
+, like a kind of replacement for iSCSI) can not only be used for a 
+\family typewriter
+RemoteSharding
+\family default
+ model, but 
 \emph on
 could
 \emph default
- be used for implementing some sort of 
+ also be used for implementing some sort of 
 \begin_inset Quotes eld
 \end_inset
 
@@ -8493,10 +8601,30 @@ big cluster
 \end_inset
 
  model at block layer.
+ However, consider the warnings for certain use cases from section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Explanations-from-DSM"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+.
+ If you deserve a very similar level of flexibility as promised by 
+\family typewriter
+BigCluster
+\family default
+, read on.
 \end_layout
 
 \begin_layout Standard
-Nevertheless, such models re-introducing some kind of 
+Models re-introducing some kind of 
+\begin_inset Formula $O(n^{2})$
+\end_inset
+
+ 
 \begin_inset Quotes eld
 \end_inset
 
@@ -8504,8 +8632,56 @@ big dedicated storage network
 \begin_inset Quotes erd
 \end_inset
 
- into MARS operations are not the preferred model.
- Following is the a super-model which combines both the 
+, considering the 
+\emph on
+potential
+\emph default
+ connections, and 
+\begin_inset Formula $O(n)$
+\end_inset
+
+ considering the 
+\emph on
+actual
+\emph default
+ realtime connections during runtime, are 
+\series bold
+not
+\series default
+ the preferred model for MARS operations in large scale.
+ Following is a compromize.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Graphics
+	filename images/lightbulb_brightlit_benj_.png
+	lyxscale 12
+	scale 7
+
+\end_inset
+
+The basic idea is that each server 
+\emph on
+can
+\emph default
+ (as far as necessary) operate 
+\emph on
+both
+\emph default
+ in server 
+\emph on
+and
+\emph default
+ in client role, both at the same time, and individually for each resource.
+\end_layout
+
+\begin_layout Standard
+Following is a 
+\series bold
+super-model
+\series default
+ which combines both the 
 \begin_inset Quotes eld
 \end_inset
 
@@ -8513,7 +8689,12 @@ big cluster
 \begin_inset Quotes erd
 \end_inset
 
- and sharding model at block layer in a very flexible way.
+ and sharding models at block layer in a very flexible way, without fully
+ depending on 
+\begin_inset Formula $O(n)$
+\end_inset
+
+ realtime network connections.
  The following example shows only two servers from a pool consisting of
  hundreds or thousands of servers:
 \begin_inset Separator latexpar
@@ -8536,13 +8717,17 @@ big cluster
 
 \begin_layout Standard
 \noindent
-The idea is to use iSCSI or the MARS remote device 
+The main difference to 
+\family typewriter
+BigCluster
+\family default
+ is to use iSCSI or the MARS prosumer device 
 \emph on
 only where necessary
 \emph default
 .
  Preferably, local storage is divided into multiple Logical Volumes (LVs)
- via LVM, which are 
+ via LVM, which should be 
 \emph on
 directly
 \emph default
@@ -8550,8 +8735,24 @@ directly
 \emph on
 locally
 \emph default
- by Virtual Machines (VMs), such as KVM or filesystem-based variants like
- LXC containers.
+ by Virtual Machines (VMs), whenever possible.
+ At architectual level, detail technologies KVM/qemu or filesystem-based
+ local LXC containers make no real difference
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+A way for abstracting the details bettween KVM and LXC is for example provided
+ by 
+\family typewriter
+libvirt
+\family default
+.
+\end_layout
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Standard
@@ -8584,20 +8785,50 @@ Notice that local operations of VMs doesn't produce any storage network
 \begin_layout Standard
 Only in cases of resource imbalance, such as (transient) CPU or RAM peaks
  (e.g.
- caused by DDOS attacks), 
+ caused by DDOS attacks), and only when the 
+\series bold
+ability for butterfly
+\series default
+ (see section 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "subsec:Flexibility-of-Failover"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+
+) is not available
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+This may happen when a disaster has already destroyed one of your datacenters,
+ and thus you are forced to run in the surviving datacenter.
+\end_layout
+
+\end_inset
+
+ or is not sufficienct, only then the following 
+\series bold
+fallback strategy
+\series default
+ is used: 
 \emph on
-some
+Some
 \emph default
- VMs or containers may be run somewhere else over the network.
+ VMs or containers may then be run somewhere else over the network.
  In a well-balanced and well-dimensioned system, this will be the 
 \series bold
 vast minority
 \series default
-, and should be only used for dealing with timely load peaks etc.
+, and should be only used for dealing with timely load peaks, unforeseeable
+ customer behaviour, etc.
 \end_layout
 
 \begin_layout Standard
-Running VMs directly on the same servers as their storage is a 
+Running VMs directly on the same servers as their storage devices is a 
 \series bold
 major cost reducer.
 \end_layout
@@ -8616,6 +8847,14 @@ You simply don't need to buy and operate
 \end_inset
 
  corresponds to some relative small extra resources needed by MARS.
+\end_layout
+
+\begin_layout Standard
+In addition, 
+\series bold
+shared memory
+\series default
+ can be exploited more efficiently.
 \end_layout
 
 \begin_layout Standard
@@ -8658,7 +8897,7 @@ The sharding model needs a different approach to load balancing of storage
 \series bold
 granularities
 \series default
-:
+, starting from finest to coarsest:
 \end_layout
 
 \begin_layout Itemize
@@ -8684,6 +8923,10 @@ movespace.pl
  using incremental 
 \family typewriter
 tar
+\family default
+ or 
+\family typewriter
+rsync
 \family default
  for their moves.
  Now, if we would try to move around 
@@ -8719,7 +8962,7 @@ xfs_growfs
 \end_layout
 
 \begin_layout Itemize
-Moving whole LVs via MARS, as shown in the following example:
+Moving whole LVs via MARS + Football, as shown in the following example:
 \end_layout
 
 \begin_layout Standard
@@ -8736,7 +8979,7 @@ Moving whole LVs via MARS, as shown in the following example:
 
 \begin_layout Standard
 \noindent
-The idea is to dynamically create 
+The idea of Football is to dynamically create 
 \emph on
 additional
 \emph default
@@ -8745,17 +8988,31 @@ additional
 background migration
 \series default
 .
- Examples:
+ Examples, using MARS as replication engine:
 \end_layout
 
 \begin_layout Itemize
-In case you had no redundancy at LV level before, you have 
+If not yet done, you should transparently introduce MARS
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+When necessary, create the first MARS replica with 
+\family typewriter
+marsadm create-resource
+\family default
+ on your already-existing LV data, which will be retained unmodified, and
+ restart your application again.
+\end_layout
+
+\end_inset
+
+ into your LVM-based stack.
+ If you don't want more than 
 \begin_inset Formula $k=1$
 \end_inset
 
- replicas during ordinary operation.
- If not yet done, you should transparently introduce MARS into your LVM-based
- stack by using the so-called 
+ replicas in general, you can use the so-called 
 \begin_inset Quotes eld
 \end_inset
 
@@ -8764,35 +9021,83 @@ standalone mode
 \end_inset
 
  of MARS.
- When necessary, create the first MARS replica with 
+\end_layout
+
+\begin_layout Itemize
+Optionally: once you have MARS in place, you may use iSCSI or the MARS prosumer
+ device or another means for exporting 
 \family typewriter
-marsadm create-resource
+/dev/mars/lv3
 \family default
- on your already-existing LV data, which is retained unmodified, and restart
- your application again.
- Now, for the sake of migration, you just create an additional replica at
- another server via 
+ to another hypervisor.
+ This might be the same hypervisor you want to migrate the data to, or it
+ could be another machine.
+ This is not generally needed, but it help for achieving a similar elasticity
+ than promised by 
+\family typewriter
+BigCluster
+\family default
+.
+\end_layout
+
+\begin_layout Itemize
+Now, for the sake of migration, you just create an additional replica at
+ your target server via 
 \family typewriter
 marsadm join-resource
 \family default
- there and wait until the second mirror has been fully 
+.
+ Optionally, this may be the same server where the remote VM is already
+ running at the moment.
+ Wait until the additional mirror has been fully 
 \series bold
 synced
 \series default
- in background, while your application is running and while the contents
- of the LV is modified 
+ in background, while your application is continuously running and while
+ the content of the LV is modified 
 \emph on
 in parallel
 \emph default
- by your ordinary applications.
- Then you do a primary 
+ by your ordinary applications running inside the VM.
+\end_layout
+
+\begin_layout Itemize
+Then you do a 
 \series bold
-handover
+primary handover
 \series default
- to your mirror.
- This is usually a matter of minutes, or even seconds.
- Once the application runs again at the new location, you can delete the
- old replica via 
+ to your mirror (or to 
+\emph on
+any
+\emph default
+ of multiple mirrors).
+ This is usually a matter of seconds.
+ Newer versions of the prosumer device will allow this without shutdown
+ of your VM.
+ With standard
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+There are some iSCSI features like ALUA which 
+\emph on
+should
+\emph default
+ be able to handover an active session to another storage box without interrupti
+on.
+ However, the corresponding Linux documentation looks very sparse, and the
+ maturity status for Linux initiators / targets is unclear at the moment.
+\end_layout
+
+\end_inset
+
+ iSCSI, you will typically have to shortly shutdown the VM and to restart
+ it a few seconds later.
+\end_layout
+
+\begin_layout Itemize
+Once the application is running again at the old location or at another
+ location, you may delete the old replica via 
 \family typewriter
 marsadm leave-resource
 \family default
@@ -8801,7 +9106,10 @@ marsadm leave-resource
 lvremove
 \family default
 .
- Finally, you may re-use the freed-up space for something else (e.g.
+\end_layout
+
+\begin_layout Itemize
+Finally, you may re-use the freed-up space for something else (e.g.
  
 \family typewriter
 lvresize
@@ -8819,14 +9127,25 @@ marsadm resize
 xfs_growfs
 \family default
  or similar).
- For the sake of some hardware lifecycle, you may run a different strategy:
- evacuate the original source server completely via the above MARS migration
- method, and eventually decommission it.
+ Or, you may later migrate 
+\emph on
+another
+\emph default
+ (smaller) LV to this server, in order to re-use of the free space, or similar.
 \end_layout
 
 \begin_layout Itemize
-In case you already have a redundant LV copy somewhere, you should run a
- similar procedure, but starting with 
+For the sake of 
+\series bold
+hardware lifecycle
+\series default
+, you may run a slightly different strategy: evacuate the original source
+ server completely via Football, and eventually decommission it.
+\end_layout
+
+\begin_layout Itemize
+In case you already have a redundant LV copy somewhere else, you may run
+ a similar procedure, but starting with 
 \begin_inset Formula $k=2$
 \end_inset
 
@@ -8839,11 +9158,17 @@ In case you already have a redundant LV copy somewhere, you should run a
 \begin_inset Formula $k'=4$
 \end_inset
 
- when moving pairs at once.
+ in one step, thereby moving 
+\emph on
+pairs
+\emph default
+ at once.
+ Example: the latter variant is the default in the ShaHoLin configuration
+ variant of Football, internally called Tetris.
 \begin_inset Newline newline
 \end_inset
 
-Example: see 
+Technical details: see 
 \family typewriter
 football.sh
 \family default
@@ -8851,23 +9176,23 @@ football.sh
 \family typewriter
 football/
 \family default
- directory of MARS, which is a checkout of the Football sub-project (see
+ directory of MARS, which is a checkout of the Football sub-project, and
  
 \family typewriter
 football-user-manual.pdf
 \family default
-).
+.
 \end_layout
 
 \begin_layout Itemize
 When already starting with 
-\begin_inset Formula $k>2$
+\begin_inset Formula $k\geq3$
 \end_inset
 
- LV replicas in the starting position, you can do the same analogously,
- or you may then use a lesser variant.
- For example, we have some mission-critical servers at 1&1 which are running
- 
+ LV replicas in the starting position, you may have the luxury of using
+ a lesser variant.
+ For example, we have some mission-critical servers at 1&1 Ionos which are
+ running 
 \begin_inset Formula $k=4$
 \end_inset
 
@@ -8886,12 +9211,12 @@ When already starting with
 \begin_inset Formula $k''=4$
 \end_inset
 
- again.
+ again, before starting primary handover.
  This has the advantage of requiring less temporary storage space for 
 \emph on
 swapping
 \emph default
- some LVs.
+ some LV replicas.
 \end_layout
 
 \begin_layout Section
